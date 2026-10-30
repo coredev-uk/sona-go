@@ -1,11 +1,16 @@
 import { AuthService, type AuthStatus, type SecondFactor } from "@bindings/services";
 import { Browser } from "@wailsio/runtime";
 import { Clipboard } from "@wailsio/runtime";
+import { plural, t as coreT } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   CircleAlert,
   ExternalLink,
   KeyRound,
   LoaderCircle,
+  MessageSquareText,
+  MonitorSmartphone,
+  Phone,
   ShieldAlert,
   WifiOff,
 } from "lucide-react";
@@ -29,9 +34,11 @@ import { cn } from "@/shared/lib/utils";
 import { useAuth } from "./queries";
 import {
   classifySignInError,
+  currentMethod,
   errorCopy,
   initialSignIn,
   signInReducer,
+  type CodeMethod,
   type DeliveryMode,
   type SignInError,
   type SignInStep,
@@ -92,7 +99,7 @@ function Field({
   );
 }
 
-const inputCls = "h-10 bg-raised text-ui";
+const INPUT_CLS = "h-10 bg-raised text-ui";
 
 /** An error from the sign-in flow: what happened, and the button for the next step. */
 function SignInErrorNotice({ error, onBrowser }: { error: SignInError; onBrowser: () => void }) {
@@ -101,7 +108,7 @@ function SignInErrorNotice({ error, onBrowser }: { error: SignInError; onBrowser
   if (copy.next === "browser") {
     action = (
       <Button variant="outline" size="sm" onClick={onBrowser}>
-        Sign in with your browser
+        <Trans>Sign in with your browser</Trans>
       </Button>
     );
   } else if (copy.next === "account-site") {
@@ -126,7 +133,7 @@ function SignInErrorNotice({ error, onBrowser }: { error: SignInError; onBrowser
           onClick={() => openURL("https://iforgot.apple.com")}
           className="mt-1 text-ink underline underline-offset-2"
         >
-          Unlock at iforgot.apple.com
+          <Trans>Unlock at iforgot.apple.com</Trans>
         </button>
       )}
     </Notice>
@@ -142,6 +149,7 @@ function CredentialsForm({
   dispatch: (a: Parameters<typeof signInReducer>[1]) => void;
   onBrowser: () => void;
 }) {
+  const { t } = useLingui();
   const [account, setAccount] = useState("");
   const [password, setPassword] = useState("");
 
@@ -167,8 +175,8 @@ function CredentialsForm({
       {step.error && <SignInErrorNotice error={step.error} onBrowser={onBrowser} />}
       <Field
         id="apple-account"
-        label="Apple Account"
-        hint="The email address or phone number you use with Apple."
+        label={t`Apple Account`}
+        hint={t`The email address or phone number you use with Apple.`}
       >
         <Input
           id="apple-account"
@@ -182,10 +190,10 @@ function CredentialsForm({
           value={account}
           onChange={(e) => setAccount(e.target.value)}
           aria-invalid={step.error?.code === "invalid_credentials" || undefined}
-          className={inputCls}
+          className={INPUT_CLS}
         />
       </Field>
-      <Field id="apple-password" label="Password">
+      <Field id="apple-password" label={t`Password`}>
         <Input
           id="apple-password"
           type="password"
@@ -194,16 +202,16 @@ function CredentialsForm({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           aria-invalid={step.error?.code === "invalid_credentials" || undefined}
-          className={inputCls}
+          className={INPUT_CLS}
         />
       </Field>
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={step.busy || !account.trim() || !password}>
           {step.busy && <LoaderCircle className="animate-spin" />}
-          {step.busy ? "Signing in…" : "Sign in"}
+          {step.busy ? <Trans>Signing in…</Trans> : <Trans>Sign in</Trans>}
         </Button>
         <p className="text-meta text-ink-muted">
-          Sona talks to Apple directly. Your password is used once and never saved.
+          <Trans>Sona talks to Apple directly. Your password is used once and never saved.</Trans>
         </p>
       </div>
     </form>
@@ -211,7 +219,81 @@ function CredentialsForm({
 }
 
 function phoneLabel(factor: SecondFactor, phoneId: number): string {
-  return factor.phones.find((p) => p.id === phoneId)?.number ?? "your phone";
+  return factor.phones.find((p) => p.id === phoneId)?.number ?? coreT`your phone`;
+}
+
+type Dispatch = (a: Parameters<typeof signInReducer>[1]) => void;
+
+/** Asks Apple to text or call phoneId and moves the form to its code. */
+async function sendCode(dispatch: Dispatch, phoneId: number, mode: DeliveryMode) {
+  dispatch({ type: "send-to-phone", phoneId, mode });
+  try {
+    await AuthService.SendCodeToPhone(phoneId, mode);
+    dispatch({ type: "sent", target: { phoneId, mode } });
+  } catch (err) {
+    dispatch({ type: "failed", error: classifySignInError(err) });
+  }
+}
+
+const methods = [
+  { method: "device", label: () => coreT`Apple device`, Icon: MonitorSmartphone },
+  { method: "sms", label: () => coreT`Text message`, Icon: MessageSquareText },
+  { method: "voice", label: () => coreT`Phone call`, Icon: Phone },
+] as const;
+
+/**
+ * Every way to get the code, always shown. The Apple device option is
+ * disabled for accounts without a trusted device; text and call for
+ * accounts without a trusted number.
+ */
+function MethodSwitcher({
+  factor,
+  current,
+  busy,
+  onPick,
+}: {
+  factor: SecondFactor;
+  current: CodeMethod | undefined;
+  busy: boolean;
+  onPick: (m: CodeMethod) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <fieldset
+        className="flex items-center gap-1 self-start rounded-md bg-hover p-1"
+        disabled={busy}
+      >
+        <legend className="sr-only">
+          <Trans>How to get the code</Trans>
+        </legend>
+        {methods.map(({ method, label, Icon }) => (
+          <label
+            key={method}
+            className="flex h-7 cursor-pointer items-center gap-1.5 rounded-sm px-3 text-sub text-ink-muted has-checked:bg-raised has-checked:text-ink has-focus-visible:outline-2 has-focus-visible:outline-ring has-disabled:cursor-not-allowed has-disabled:opacity-45"
+          >
+            <input
+              type="radio"
+              name="code-method"
+              value={method}
+              checked={current === method}
+              disabled={method === "device" ? !factor.trustedDevices : factor.phones.length === 0}
+              onChange={() => onPick(method)}
+              className="sr-only"
+            />
+            <Icon aria-hidden className="size-3.5" />
+            {label()}
+          </label>
+        ))}
+      </fieldset>
+      {!factor.trustedDevices && (
+        <p className="text-meta text-ink-muted">
+          <Trans>
+            No Apple device is signed in to this account, so Apple sends codes by text or call.
+          </Trans>
+        </p>
+      )}
+    </div>
+  );
 }
 
 function CodeForm({
@@ -219,11 +301,13 @@ function CodeForm({
   dispatch,
 }: {
   step: Extract<SignInStep, { kind: "code" }>;
-  dispatch: (a: Parameters<typeof signInReducer>[1]) => void;
+  dispatch: Dispatch;
 }) {
+  const { t } = useLingui();
   const [code, setCode] = useState("");
   const len = step.factor.codeLength || 6;
   const { phoneId, mode } = step.target;
+  const phones = step.factor.phones;
 
   const submit = async (value: string) => {
     if (value.length !== len || step.busy) return;
@@ -246,17 +330,24 @@ function CodeForm({
       dispatch({ type: "failed", error: classifySignInError(err) });
     }
   };
+  const pick = (m: CodeMethod) => {
+    if (m === "device") dispatch({ type: "use-device" });
+    // One number: text or call it now. Several: choose which.
+    else if (phones.length === 1) void sendCode(dispatch, phones[0].id, m);
+    else dispatch({ type: "choose-phone", mode: m });
+  };
   const cancel = () => {
     void AuthService.CancelSignIn();
     dispatch({ type: "cancel" });
   };
 
+  const phone = phoneLabel(step.factor, phoneId);
   const where =
     phoneId === 0
-      ? `Apple sent a ${len}-digit code to the devices signed in to this Apple Account. Enter it here to finish signing in.`
+      ? t`Apple sent a ${len}-digit code to the devices signed in to this Apple Account. Enter it here to finish signing in.`
       : mode === "voice"
-        ? `Apple is calling ${phoneLabel(step.factor, phoneId)} with a ${len}-digit code.`
-        : `Apple sent a ${len}-digit code to ${phoneLabel(step.factor, phoneId)} by text message.`;
+        ? t`Apple is calling ${phone} with a ${len}-digit code.`
+        : t`Apple sent a ${len}-digit code to ${phone} by text message.`;
 
   return (
     <form
@@ -268,16 +359,28 @@ function CodeForm({
       aria-busy={step.busy}
     >
       <div>
-        <h3 className="text-heading text-ink">Enter the verification code</h3>
+        <h3 className="text-heading text-ink">
+          <Trans>Enter the verification code</Trans>
+        </h3>
         <p className="mt-1 text-ui text-ink-muted">{where}</p>
       </div>
+      <MethodSwitcher
+        factor={step.factor}
+        current={currentMethod(step)}
+        busy={step.busy}
+        onPick={pick}
+      />
       {step.error && <SignInErrorNotice error={step.error} onBrowser={() => {}} />}
       {step.notice && !step.error && (
         <p role="status" className="text-sub text-ink">
           {step.notice}
         </p>
       )}
-      <Field id="security-code" label="Code" hint={`${len} digits`}>
+      <Field
+        id="security-code"
+        label={t`Code`}
+        hint={t`${plural(len, { one: "# digit", other: "# digits" })}`}
+      >
         <Input
           id="security-code"
           aria-describedby="security-code-hint"
@@ -294,30 +397,36 @@ function CodeForm({
             setCode(v);
             if (v.length === len) void submit(v);
           }}
-          className={cn(inputCls, "w-48 text-center text-heading tracking-[0.4em] num")}
+          className={cn(INPUT_CLS, "w-48 text-center text-heading tracking-[0.4em] num")}
           style={{ width: `${len * 1.6 + 2}em` }}
         />
       </Field>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={step.busy || code.length !== len}>
           {step.busy && <LoaderCircle className="animate-spin" />}
-          {step.busy ? "Checking…" : "Verify"}
+          {step.busy ? <Trans>Checking…</Trans> : <Trans>Verify</Trans>}
         </Button>
         <Button type="button" variant="ghost" disabled={step.busy} onClick={() => void resend()}>
-          {phoneId === 0 ? "Send a new code" : mode === "voice" ? "Call again" : "Text again"}
+          {phoneId === 0 ? (
+            <Trans>Send a new code</Trans>
+          ) : mode === "voice" ? (
+            <Trans>Call again</Trans>
+          ) : (
+            <Trans>Text again</Trans>
+          )}
         </Button>
-        {step.factor.phones.length > 0 && (
+        {phoneId !== 0 && phones.length > 1 && (
           <Button
             type="button"
             variant="ghost"
             disabled={step.busy}
             onClick={() => dispatch({ type: "choose-phone" })}
           >
-            {phoneId === 0 ? "Get a code by text or call" : "Use another number"}
+            <Trans>Use another number</Trans>
           </Button>
         )}
         <Button type="button" variant="ghost" className="ml-auto" onClick={cancel}>
-          Cancel
+          <Trans>Cancel</Trans>
         </Button>
       </div>
     </form>
@@ -329,33 +438,39 @@ function PhoneChoice({
   dispatch,
 }: {
   step: Extract<SignInStep, { kind: "choose-phone" }>;
-  dispatch: (a: Parameters<typeof signInReducer>[1]) => void;
+  dispatch: Dispatch;
 }) {
   const phones = step.factor.phones;
   const [phoneId, setPhoneId] = useState(phones[0]?.id ?? 0);
-  const [mode, setMode] = useState<DeliveryMode>(phones[0]?.mode === "voice" ? "voice" : "sms");
-
-  const send = async () => {
-    dispatch({ type: "send-to-phone", phoneId, mode });
-    try {
-      await AuthService.SendCodeToPhone(phoneId, mode);
-      dispatch({ type: "sent", target: { phoneId, mode } });
-    } catch (err) {
-      dispatch({ type: "failed", error: classifySignInError(err) });
-    }
-  };
+  const { mode } = step;
 
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h3 className="text-heading text-ink">Where should Apple send the code?</h3>
+        <h3 className="text-heading text-ink">
+          {mode === "voice" ? (
+            <Trans>Which number should Apple call?</Trans>
+          ) : (
+            <Trans>Which number should Apple text?</Trans>
+          )}
+        </h3>
         <p className="mt-1 text-ui text-ink-muted">
-          Choose one of the trusted phone numbers on this Apple Account.
+          <Trans>Choose one of the trusted phone numbers on this Apple Account.</Trans>
         </p>
       </div>
+      <MethodSwitcher
+        factor={step.factor}
+        current={mode}
+        busy={step.busy}
+        onPick={(m) =>
+          dispatch(m === "device" ? { type: "use-device" } : { type: "choose-phone", mode: m })
+        }
+      />
       {step.error && <SignInErrorNotice error={step.error} onBrowser={() => {}} />}
       <fieldset className="flex flex-col gap-1">
-        <legend className="sr-only">Trusted phone number</legend>
+        <legend className="sr-only">
+          <Trans>Trusted phone number</Trans>
+        </legend>
         {phones.map((p) => (
           <label
             key={p.id}
@@ -373,34 +488,19 @@ function PhoneChoice({
           </label>
         ))}
       </fieldset>
-      <fieldset className="flex items-center gap-1 self-start rounded-md bg-hover p-1">
-        <legend className="sr-only">How to receive the code</legend>
-        {(
-          [
-            ["sms", "Text message"],
-            ["voice", "Phone call"],
-          ] as const
-        ).map(([m, label]) => (
-          <label
-            key={m}
-            className="flex h-7 cursor-pointer items-center rounded-sm px-3 text-sub text-ink-muted has-checked:bg-raised has-checked:text-ink has-focus-visible:outline-2 has-focus-visible:outline-ring"
-          >
-            <input
-              type="radio"
-              name="mode"
-              value={m}
-              checked={mode === m}
-              onChange={() => setMode(m)}
-              className="sr-only"
-            />
-            {label}
-          </label>
-        ))}
-      </fieldset>
       <div className="flex items-center gap-2">
-        <Button onClick={() => void send()} disabled={step.busy || !phoneId}>
+        <Button
+          onClick={() => void sendCode(dispatch, phoneId, mode)}
+          disabled={step.busy || !phoneId}
+        >
           {step.busy && <LoaderCircle className="animate-spin" />}
-          {step.busy ? "Sending…" : "Send code"}
+          {step.busy ? (
+            <Trans>Sending…</Trans>
+          ) : mode === "voice" ? (
+            <Trans>Call me</Trans>
+          ) : (
+            <Trans>Text me</Trans>
+          )}
         </Button>
         <Button
           variant="ghost"
@@ -409,7 +509,7 @@ function PhoneChoice({
             dispatch({ type: "cancel" });
           }}
         >
-          Cancel
+          <Trans>Cancel</Trans>
         </Button>
       </div>
     </div>
@@ -418,6 +518,7 @@ function PhoneChoice({
 
 /** The browser fallback while Apple's page is open in the system browser. */
 function BrowserWaiting({ status }: { status: AuthStatus }) {
+  const { t } = useLingui();
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -427,9 +528,14 @@ function BrowserWaiting({ status }: { status: AuthStatus }) {
           strokeWidth={1.75}
         />
         <div>
-          <h3 className="text-heading text-ink">Finish signing in in your browser</h3>
+          <h3 className="text-heading text-ink">
+            <Trans>Finish signing in in your browser</Trans>
+          </h3>
           <p className="mt-0.5 text-ui text-ink-muted">
-            Apple's sign-in page is open in your browser. Sona continues by itself when you're done.
+            <Trans>
+              Apple's sign-in page is open in your browser. Sona continues by itself when you're
+              done.
+            </Trans>
           </p>
         </div>
       </div>
@@ -437,22 +543,22 @@ function BrowserWaiting({ status }: { status: AuthStatus }) {
         {status.signInUrl && (
           <>
             <Button variant="outline" size="sm" onClick={() => openURL(status.signInUrl)}>
-              Open the page again
+              <Trans>Open the page again</Trans>
               <ExternalLink strokeWidth={1.75} />
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={() =>
-                void Clipboard.SetText(status.signInUrl).then(() => toast("Sign-in link copied"))
+                void Clipboard.SetText(status.signInUrl).then(() => toast(t`Sign-in link copied`))
               }
             >
-              Copy link
+              <Trans>Copy link</Trans>
             </Button>
           </>
         )}
         <Button variant="ghost" size="sm" onClick={() => void AuthService.CancelSignIn()}>
-          Cancel
+          <Trans>Cancel</Trans>
         </Button>
       </div>
     </div>
@@ -461,6 +567,7 @@ function BrowserWaiting({ status }: { status: AuthStatus }) {
 
 /** Manual token paste: the last-resort fallback for developers and odd accounts. */
 function TokenPaste() {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
@@ -477,9 +584,9 @@ function TokenPaste() {
       const { code, message } = callFailure(err);
       setError(
         code === "mut_rejected" || code === "unauthorized"
-          ? "Apple didn't accept that token. Copy a fresh one from a signed-in Apple Music web session."
+          ? t`Apple didn't accept that token. Copy a fresh one from a signed-in Apple Music web session.`
           : code === "network"
-            ? "Couldn't reach Apple to check the token. Check your connection and try again."
+            ? t`Couldn't reach Apple to check the token. Check your connection and try again.`
             : message,
       );
     } finally {
@@ -495,7 +602,7 @@ function TokenPaste() {
         className="flex items-center gap-2 text-ui text-ink-muted underline-offset-2 hover:text-ink hover:underline"
       >
         <KeyRound aria-hidden className="size-4" strokeWidth={1.75} />
-        Paste a Music User Token
+        <Trans>Paste a Music User Token</Trans>
       </button>
     );
   }
@@ -503,8 +610,8 @@ function TokenPaste() {
     <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-3">
       <Field
         id="mut"
-        label="Music User Token"
-        hint="The token from a signed-in Apple Music web session. Sona checks it with Apple and keeps it in your keyring."
+        label={t`Music User Token`}
+        hint={t`The token from a signed-in Apple Music web session. Sona checks it with Apple and keeps it in your keyring.`}
       >
         <textarea
           id="mut"
@@ -534,10 +641,10 @@ function TokenPaste() {
           size="sm"
           disabled={busy || token.trim().length < 20}
         >
-          {busy ? "Checking…" : "Use this token"}
+          {busy ? <Trans>Checking…</Trans> : <Trans>Use this token</Trans>}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
-          Cancel
+          <Trans>Cancel</Trans>
         </Button>
       </div>
     </form>
@@ -582,14 +689,16 @@ function SignInFlow({ status }: { status: AuthStatus }) {
       ) : step.kind === "done" ? (
         <p className="flex items-center gap-2 text-ui text-ink-muted">
           <LoaderCircle aria-hidden className="size-4 animate-spin" />
-          Checking your account with Apple…
+          <Trans>Checking your account with Apple…</Trans>
         </p>
       ) : (
         <>
           <div className="mb-5">
-            <h3 className="text-heading text-ink">Sign in to Apple Music</h3>
+            <h3 className="text-heading text-ink">
+              <Trans>Sign in to Apple Music</Trans>
+            </h3>
             <p className="mt-1 text-ui text-ink-muted">
-              Use the Apple Account with your Apple Music subscription.
+              <Trans>Use the Apple Account with your Apple Music subscription.</Trans>
             </p>
           </div>
           <CredentialsForm step={step} dispatch={dispatch} onBrowser={() => void browser()} />
@@ -598,10 +707,10 @@ function SignInFlow({ status }: { status: AuthStatus }) {
       {step.kind === "credentials" && !browserPending && (
         <div className="mt-6 flex flex-col items-start gap-3 border-t border-line pt-5">
           <p className="text-sub text-ink-muted">
-            Use a passkey, a security key or a browser you're already signed in to:
+            <Trans>Use a passkey, a security key or a browser you're already signed in to:</Trans>
           </p>
           <Button variant="outline" size="sm" onClick={() => void browser()} disabled={step.busy}>
-            Sign in with your browser
+            <Trans>Sign in with your browser</Trans>
             <ExternalLink strokeWidth={1.75} />
           </Button>
           <TokenPaste />
@@ -612,6 +721,7 @@ function SignInFlow({ status }: { status: AuthStatus }) {
 }
 
 function SignedIn({ status }: { status: AuthStatus }) {
+  const { t } = useLingui();
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -622,7 +732,7 @@ function SignedIn({ status }: { status: AuthStatus }) {
       await AuthService.SignOut();
       setConfirm(false);
     } catch (err) {
-      toast.error("Couldn't sign out", { description: callFailure(err).message });
+      toast.error(t`Couldn't sign out`, { description: callFailure(err).message });
     } finally {
       setBusy(false);
     }
@@ -632,7 +742,7 @@ function SignedIn({ status }: { status: AuthStatus }) {
     try {
       await AuthService.Revalidate();
     } catch (err) {
-      toast.error("Couldn't reach Apple", { description: callFailure(err).message });
+      toast.error(t`Couldn't reach Apple`, { description: callFailure(err).message });
     } finally {
       setChecking(false);
     }
@@ -646,40 +756,50 @@ function SignedIn({ status }: { status: AuthStatus }) {
           icon={<WifiOff aria-hidden className="size-4 text-ink-muted" strokeWidth={1.75} />}
           action={
             <Button variant="ghost" size="sm" onClick={() => void revalidate()} disabled={checking}>
-              {checking ? "Checking…" : "Check now"}
+              {checking ? <Trans>Checking…</Trans> : <Trans>Check now</Trans>}
             </Button>
           }
         >
-          Sona couldn't reach Apple to confirm your sign-in. It keeps using your saved token, and
-          retries by itself.
+          <Trans>
+            Sona couldn't reach Apple to confirm your sign-in. It keeps using your saved token, and
+            retries by itself.
+          </Trans>
         </Notice>
       )}
       <div className="rounded-lg bg-surface px-5">
         <div className="flex items-center justify-between gap-6 border-b border-line py-4">
           <div>
             <p className="text-ui font-medium text-ink">
-              {status.state === "validating"
-                ? "Checking your sign-in…"
-                : "Signed in to Apple Music"}
+              {status.state === "validating" ? (
+                <Trans>Checking your sign-in…</Trans>
+              ) : (
+                <Trans>Signed in to Apple Music</Trans>
+              )}
             </p>
             <p className="mt-0.5 text-sub text-ink-muted">
-              {store ? `Storefront: ${store}` : "Storefront unknown until Apple confirms the token"}
+              {store ? (
+                <Trans>Storefront: {store}</Trans>
+              ) : (
+                <Trans>Storefront unknown until Apple confirms the token</Trans>
+              )}
               {status.language && ` · ${status.language}`}
             </p>
           </div>
           <Button variant="destructive" size="sm" onClick={() => setConfirm(true)}>
-            Sign out
+            <Trans>Sign out</Trans>
           </Button>
         </div>
         {status.restricted && (
           <div className="border-b border-line py-4 text-sub text-ink-muted">
-            Explicit content is restricted on this account; Sona hides it.
+            <Trans>Explicit content is restricted on this account; Sona hides it.</Trans>
           </div>
         )}
         <div className="flex items-start justify-between gap-6 py-4">
           <div>
-            <p className="text-ui font-medium text-ink">Where your token is kept</p>
-            <p className="mt-0.5 text-sub text-ink-muted">{status.backend || "Unknown"}</p>
+            <p className="text-ui font-medium text-ink">
+              <Trans>Where your token is kept</Trans>
+            </p>
+            <p className="mt-0.5 text-sub text-ink-muted">{status.backend || t`Unknown`}</p>
           </div>
         </div>
       </div>
@@ -688,29 +808,37 @@ function SignedIn({ status }: { status: AuthStatus }) {
           tone="problem"
           icon={<ShieldAlert aria-hidden className="size-4 text-danger" strokeWidth={1.75} />}
         >
-          <p className="font-medium">Your token is stored unencrypted</p>
+          <p className="font-medium">
+            <Trans>Your token is stored unencrypted</Trans>
+          </p>
           <p className="mt-0.5 text-ink-muted">
-            No Secret Service keyring is running, so Sona keeps your Apple Music token in a file
-            only your user can read. Start GNOME Keyring or KWallet and Sona moves it into the
-            keyring.
+            <Trans>
+              No Secret Service keyring is running, so Sona keeps your Apple Music token in a file
+              only your user can read. Start GNOME Keyring or KWallet and Sona moves it into the
+              keyring.
+            </Trans>
           </p>
         </Notice>
       )}
       <Dialog open={confirm} onOpenChange={setConfirm}>
         <DialogContent showCloseButton={false} className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Sign out of Apple Music?</DialogTitle>
+            <DialogTitle>
+              <Trans>Sign out of Apple Music?</Trans>
+            </DialogTitle>
             <DialogDescription>
-              Sona removes your token from the keyring, stops playback and deletes the copy of your
-              library on this computer. Your Apple Music library itself isn't changed.
+              <Trans>
+                Sona removes your token from the keyring, stops playback and deletes the copy of
+                your library on this computer. Your Apple Music library itself isn't changed.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setConfirm(false)}>
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
             <Button variant="destructive" onClick={() => void signOut()} disabled={busy}>
-              {busy ? "Signing out…" : "Sign out"}
+              {busy ? <Trans>Signing out…</Trans> : <Trans>Sign out</Trans>}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -721,10 +849,11 @@ function SignedIn({ status }: { status: AuthStatus }) {
 
 export function AccountSection() {
   const auth = useAuth();
+  const { t } = useLingui();
   if (auth.error) {
     return (
       <ErrorBlock
-        title="Couldn't read the sign-in state"
+        title={t`Couldn't read the sign-in state`}
         error={auth.error}
         onRetry={() => void auth.refetch()}
         retrying={auth.isRefetching}
@@ -744,10 +873,14 @@ export function AccountSection() {
         <Notice
           icon={<CircleAlert aria-hidden className="size-4 text-danger" strokeWidth={1.75} />}
         >
-          <p className="font-medium">Apple stopped accepting Sona's sign-in</p>
+          <p className="font-medium">
+            <Trans>Apple stopped accepting Sona's sign-in</Trans>
+          </p>
           <p className="mt-0.5 text-ink-muted">
-            This happens after a password change or when the token expires. Your library on this
-            computer is still here; sign in again to keep syncing and playing.
+            <Trans>
+              This happens after a password change or when the token expires. Your library on this
+              computer is still here; sign in again to keep syncing and playing.
+            </Trans>
           </p>
         </Notice>
       )}
@@ -755,17 +888,21 @@ export function AccountSection() {
         <Notice
           icon={<CircleAlert aria-hidden className="size-4 text-danger" strokeWidth={1.75} />}
         >
-          <p className="font-medium">Apple Music isn't accepting Sona's requests</p>
+          <p className="font-medium">
+            <Trans>Apple Music isn't accepting Sona's requests</Trans>
+          </p>
           <p className="mt-0.5 text-ink-muted">
             {status.lastError ? `${status.lastError.replace(/^[a-z]+: /, "")}. ` : ""}
-            Sona refetches its developer token by itself; if this persists, Apple changed its web
-            player.
+            <Trans>
+              Sona refetches its developer token by itself; if this persists, Apple changed its web
+              player.
+            </Trans>
           </p>
         </Notice>
       )}
       {status.offline && (
         <Notice icon={<WifiOff aria-hidden className="size-4 text-ink-muted" strokeWidth={1.75} />}>
-          You're offline. Signing in needs a connection to Apple.
+          <Trans>You're offline. Signing in needs a connection to Apple.</Trans>
         </Notice>
       )}
       <SignInFlow status={status} />

@@ -1,4 +1,5 @@
 import type { Item } from "@bindings/services";
+import { useLingui } from "@lingui/react/macro";
 import { Link } from "@tanstack/react-router";
 import { Play } from "lucide-react";
 import type { ReactNode } from "react";
@@ -11,6 +12,9 @@ import { cn } from "@/shared/lib/utils";
 import { ExplicitMark } from "@/shared/components/Badges";
 
 import { itemMeta } from "./groups";
+
+const ROW_CLASS =
+  "group/row flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-1.5 text-left focus-visible:outline-none";
 
 interface ItemRowProps {
   item: Item;
@@ -42,9 +46,9 @@ function Body({ item, size }: { item: Item; size: number }) {
  * Songs play in place; every other kind opens its page.
  */
 export function ItemRow({ item, onOpen, size = 40, actions = true, className }: ItemRowProps) {
+  const { t } = useLingui();
   const link = item.kind === "song" ? undefined : itemLink(item);
-  const cls =
-    "group/row flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-1.5 text-left focus-visible:outline-none";
+  const cls = ROW_CLASS;
   let main: ReactNode;
   if (link) {
     main = (
@@ -54,10 +58,10 @@ export function ItemRow({ item, onOpen, size = 40, actions = true, className }: 
     );
   } else if (canPlay(item)) {
     main = (
+      // Named by its visible text (WCAG 2.5.3), with the action after it.
       <button
         type="button"
         data-result
-        aria-label={`Play ${item.name}`}
         className={cls}
         onClick={() => {
           onOpen?.(item);
@@ -65,6 +69,7 @@ export function ItemRow({ item, onOpen, size = 40, actions = true, className }: 
         }}
       >
         <Body item={item} size={size} />
+        <span className="sr-only">{t`Play`}</span>
         <Play
           aria-hidden
           className="size-3.5 shrink-0 text-ink-muted opacity-0 group-hover/row:opacity-100 group-focus-visible/row:opacity-100"
@@ -83,7 +88,7 @@ export function ItemRow({ item, onOpen, size = 40, actions = true, className }: 
   return (
     <div
       className={cn(
-        "group/item flex items-center rounded-md pr-1 outline-offset-[-2px] transition-colors duration-100 focus-within:bg-hover hover:bg-hover has-[[data-result]:focus-visible]:outline-2 has-[[data-result]:focus-visible]:outline-ink/40 has-[[data-result]:focus-visible]:outline-solid",
+        "group/item flex items-center rounded-md pr-1 outline-offset-[-2px] transition-colors duration-100 focus-within:bg-hover hover:bg-hover has-[[data-result]:focus-visible]:outline-2 has-[[data-result]:focus-visible]:outline-ring has-[[data-result]:focus-visible]:outline-solid",
         className,
       )}
     >

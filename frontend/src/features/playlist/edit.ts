@@ -55,8 +55,3 @@ export function serial<T>(playlistId: string, edit: () => Promise<T>): Promise<T
 export function editing(playlistId: string): boolean {
   return pending.has(playlistId);
 }
-
-/** Where a dragged track lands when dropped into gap `slot` (0…n) of the list. */
-export function dropIndex(from: number, slot: number): number {
-  return slot > from ? slot - 1 : slot;
-}

@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { createRoute } from "@tanstack/react-router";
 import { Play, Radio } from "lucide-react";
 
@@ -25,7 +26,7 @@ const actions: readonly AnyActionDef[] = [
   {
     id: "radio.play-station",
     target: "station",
-    label: "Play",
+    label: () => t`Play`,
     icon: Play,
     group: "queue",
     order: 10,
@@ -35,7 +36,7 @@ const actions: readonly AnyActionDef[] = [
   {
     id: "radio.create-station",
     target: "song",
-    label: "Create station",
+    label: () => t`Create station`,
     icon: Radio,
     group: "queue",
     order: 30,
@@ -45,7 +46,7 @@ const actions: readonly AnyActionDef[] = [
   {
     id: "radio.create-station-album",
     target: "album",
-    label: "Create station",
+    label: () => t`Create station`,
     icon: Radio,
     group: "queue",
     order: 30,
@@ -55,7 +56,7 @@ const actions: readonly AnyActionDef[] = [
   {
     id: "radio.create-station-artist",
     target: "artist",
-    label: "Create station",
+    label: () => t`Create station`,
     icon: Radio,
     group: "queue",
     order: 30,
@@ -75,7 +76,7 @@ let lastStation = "";
 export const radioModule: FeatureModule<(typeof routes)[number]> = {
   id: "radio",
   routes,
-  nav: [{ section: "primary", label: "Radio", icon: Radio, to: "/radio", order: 18 }],
+  nav: [{ section: "primary", label: () => t`Radio`, icon: Radio, to: "/radio", order: 18 }],
   actions,
   eventHandlers: {
     // Apple's station history changes once a new station starts playing.

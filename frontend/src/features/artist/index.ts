@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { createRoute } from "@tanstack/react-router";
 import { MicVocal } from "lucide-react";
 
@@ -28,7 +29,7 @@ export const artistModule: FeatureModule<(typeof routes)[number]> = {
     {
       id: "artist.go-to",
       target: "song",
-      label: "Go to artist",
+      label: () => t`Go to artist`,
       icon: MicVocal,
       group: "item",
       order: 20,

@@ -10,7 +10,14 @@ import { playerShortcuts } from "./shortcuts";
 import { NowPlayingOverlay, NowPlayingProvider, QueueAside } from "./slots";
 import { useUI } from "./ui";
 
-export { addToQueue, playNext, playSongs, shuffleSongs } from "./commands";
+export { playSongs, queueItems, shuffleSongs, type PlaySource } from "./commands";
+/** Starting a new queue (a station, the library): asks or offers Undo over a long user queue. */
+export { replaceQueue } from "./replace";
+/** The playback mirror, lyrics and track announcements, for a second window (the mini player). */
+export { livePosition, useLivePosition, usePlayback } from "./playback";
+export { activeLine } from "./lyrics";
+export { useLyrics } from "./queries";
+export { TrackAnnouncer } from "./TrackAnnouncer";
 
 /**
  * The player: Go's playback mirror, the now-playing bar, queue and view,

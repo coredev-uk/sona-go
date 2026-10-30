@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Star, ThumbsDown } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
@@ -25,6 +26,7 @@ export function RatingButtons({
   /** Offer Suggest Less too (default); the now-playing bar shows Favourite only. */
   suggestLess?: boolean;
 }) {
+  const { t } = useLingui();
   const state = useItemState(kind, item);
   const rating = state.data?.rating ?? 0;
   const favourite = rating === 1;
@@ -37,7 +39,7 @@ export function RatingButtons({
           <Button
             variant="ghost"
             size={size}
-            aria-label={favourite ? `Undo favourite for ${name}` : `Favourite ${name}`}
+            aria-label={favourite ? t`Undo favourite for ${name}` : t`Favourite ${name}`}
             aria-pressed={favourite}
             disabled={state.isPending}
             onClick={() => rateItem(kind, item, name, favourite ? "unfavorite" : "favorite")}
@@ -46,7 +48,9 @@ export function RatingButtons({
             <Star fill={favourite ? "currentColor" : "none"} strokeWidth={1.75} />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{favourite ? "Undo favourite" : "Favourite"}</TooltipContent>
+        <TooltipContent>
+          {favourite ? <Trans>Undo favourite</Trans> : <Trans>Favourite</Trans>}
+        </TooltipContent>
       </Tooltip>
       {suggestLess && (
         <Tooltip>
@@ -54,7 +58,7 @@ export function RatingButtons({
             <Button
               variant="ghost"
               size={size}
-              aria-label={less ? `Undo suggest less for ${name}` : `Suggest less like ${name}`}
+              aria-label={less ? t`Undo suggest less for ${name}` : t`Suggest less like ${name}`}
               aria-pressed={less}
               disabled={state.isPending}
               onClick={() =>
@@ -65,7 +69,9 @@ export function RatingButtons({
               <ThumbsDown fill={less ? "currentColor" : "none"} strokeWidth={1.75} />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{less ? "Undo suggest less" : "Suggest less"}</TooltipContent>
+          <TooltipContent>
+            {less ? <Trans>Undo suggest less</Trans> : <Trans>Suggest less</Trans>}
+          </TooltipContent>
         </Tooltip>
       )}
     </>

@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { Link, type LinkProps } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
@@ -15,7 +16,7 @@ interface ShelfProps {
 }
 
 /** The heading-row control style: "See all", "Show all", "Show all lyrics". */
-const control =
+const controlClassName =
   "-mr-1 inline-flex h-7 items-center gap-0.5 rounded-md px-1.5 text-sub text-ink-muted transition-colors duration-100 hover:bg-hover hover:text-ink";
 
 /** A heading-row toggle that opens the shelf's content in place. */
@@ -29,7 +30,7 @@ export function ShelfToggle({
   children: ReactNode;
 }) {
   return (
-    <button type="button" aria-expanded={open} onClick={onToggle} className={control}>
+    <button type="button" aria-expanded={open} onClick={onToggle} className={controlClassName}>
       {children}
     </button>
   );
@@ -47,8 +48,8 @@ export function Shelf({ title, more, actions, className, children }: ShelfProps)
         <div className="flex shrink-0 items-center gap-1">
           {actions}
           {more && (
-            <Link {...more} className={control}>
-              See all
+            <Link {...more} className={controlClassName}>
+              <Trans>See all</Trans>
               <ChevronRight aria-hidden className="size-3.5" strokeWidth={1.75} />
             </Link>
           )}

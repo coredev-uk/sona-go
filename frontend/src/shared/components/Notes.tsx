@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { useLayoutEffect, useRef, useState } from "react";
 
 import { cn } from "@/shared/lib/utils";
@@ -59,7 +60,7 @@ export function Notes({ text, lines = 4, className }: NotesProps) {
           onClick={() => setOpen(!open)}
           className="mt-1.5 rounded-sm text-sub font-medium text-ink-muted underline-offset-2 hover:text-ink hover:underline"
         >
-          {open ? "Show less" : "Read more"}
+          {open ? <Trans>Show less</Trans> : <Trans>Read more</Trans>}
         </button>
       )}
     </div>

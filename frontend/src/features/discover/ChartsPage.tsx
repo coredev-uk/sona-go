@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { Chart, ChartsPage as Charts, Genre, Song } from "@bindings/services";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
@@ -28,12 +29,14 @@ export function GenreChoice({
   value: string;
   onChange: (genre: string) => void;
 }) {
+  const { t } = useLingui();
   if (genres.length < 2) return null;
   return (
     <Choice
-      label="Genre"
+      label={t`Genre`}
       value={value}
-      options={genres.map((g) => ({ value: g.id, label: g.name }))}
+      // Go names the catch-all (ID "") in English; Apple's genre names come localised.
+      options={genres.map((g) => ({ value: g.id, label: g.id ? g.name : t`All genres` }))}
       onChange={onChange}
       width="w-48"
     />
@@ -42,6 +45,7 @@ export function GenreChoice({
 
 /** Charts: Apple Music's most played, overall or by genre, plus city and country charts. */
 export function ChartsPage() {
+  const { t } = useLingui();
   const { genre = "" } = route.useSearch();
   const navigate = route.useNavigate();
   const q = useCharts(genre);
@@ -50,7 +54,7 @@ export function ChartsPage() {
   return (
     <>
       <PageHeader
-        title="Charts"
+        title={t`Charts`}
         subline={q.data ? freshness(q.data.fetchedAt, q.data.stale) : undefined}
         actions={q.data && <GenreChoice genres={q.data.genres} value={genre} onChange={setGenre} />}
       />
@@ -58,7 +62,7 @@ export function ChartsPage() {
         <ShelvesSkeleton />
       ) : q.isError ? (
         <PageError
-          what="the charts"
+          title={t`Couldn't load the charts`}
           error={q.error}
           onRetry={() => void q.refetch()}
           retrying={q.isRefetching}
@@ -120,7 +124,7 @@ function TopSongs({
           {...more}
           className="-mr-1 ml-auto inline-flex h-7 items-center gap-0.5 rounded-md px-1.5 text-sub text-ink-muted transition-colors duration-100 hover:bg-hover hover:text-ink"
         >
-          See all
+          <Trans>See all</Trans>
           <ChevronRight aria-hidden className="size-3.5" strokeWidth={1.75} />
         </Link>
       </div>

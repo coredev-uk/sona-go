@@ -1,5 +1,7 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { SystemService, type Diagnostics } from "@bindings/services";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Clipboard } from "@wailsio/runtime";
 import { CircleAlert, CircleCheck, Copy, FolderOpen, RotateCw, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -9,11 +11,12 @@ import { Button } from "@/shared/ui/button";
 import { Switch } from "@/shared/ui/switch";
 import { run } from "@/shared/lib/run";
 import { callFailure } from "@/shared/lib/errors";
-import { formatBytes, plural, relativeTime } from "@/shared/lib/format";
+import { formatBytes, relativeTime } from "@/shared/lib/format";
 import { keys } from "@/shared/lib/keys";
 import { cn } from "@/shared/lib/utils";
 
 import { useSettings, useUpdateSettings } from "./queries";
+import { UpdatesGroup } from "./Updates";
 
 type Status = "ok" | "warning" | "error" | "info";
 
@@ -21,7 +24,7 @@ interface Row {
   label: string;
   value: string;
   status?: Status;
-  /** What to do about a warning or error. */
+  /** What to do about a warning or error, or what the value means. */
   detail?: string;
 }
 
@@ -32,162 +35,205 @@ interface Group {
 
 const dash = "—";
 
+const NETNS_NOTE = "network namespace";
+
+/** WebKitGTK rendering switches, shown by their environment variable names. */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- environment variable names, not prose
+const WEBKIT_ENV = ["WEBKIT_DISABLE_DMABUF_RENDERER", "WEBKIT_DISABLE_COMPOSITING_MODE"] as const;
+
+/** The playback host's confinement: namespaces, Landlock and seccomp (cdmhost.Sandbox). */
+function sandboxRow(p: Diagnostics["playback"]): Row {
+  const label = t`Host sandbox`;
+  if (p.sandboxed)
+    return { label, value: t`Sandboxed · no network or session access`, status: "ok" };
+  if (!p.sandboxNote) return { label, value: t`Unknown (the host did not start)` };
+  const note = p.sandboxNote;
+  if (p.cdmBlocked) return { label, value: t`Not sandboxed`, status: "error", detail: note };
+  return {
+    label,
+    value: t`Not fully sandboxed`,
+    status: "warning",
+    // Go's note names the missing network namespace when user namespaces are blocked.
+    detail: note.includes(NETNS_NOTE)
+      ? t`${note}. Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction).`
+      : t`${note}. Playback still works.`,
+  };
+}
+
 /** The Diagnostics struct as labelled rows with a verdict where one applies. */
 function diagnosticsGroups(d: Diagnostics): Group[] {
   const p = d.playback;
   const env = (name: string) => d.env.find((e) => e.name === name);
+  const { cdmVersion, cdmError, cdmInterface, hostInterface, hostPid, audioQuality } = p;
+  const { songs, albums, artists, playlists } = d.database.counts;
+  const { startupMs } = d.app;
   return [
     {
-      title: "Playback",
+      title: t`Playback`,
       rows: [
         p.cdmOk
           ? {
-              label: "Widevine CDM",
-              value: `Working · ${p.cdmVersion || "version unknown"}`,
+              label: t`Widevine CDM`,
+              value: cdmVersion ? t`Working · ${cdmVersion}` : t`Working · version unknown`,
               status: "ok",
             }
-          : {
-              label: "Widevine CDM",
-              value: p.cdmPath ? "Doesn't start" : "Not found",
-              status: "error",
-              detail: p.cdmError
-                ? `${p.cdmError}. Install Google Chrome, or set the CDM location under Playback.`
-                : "Install Google Chrome, or set the CDM location under Playback. Without it only 30-second previews play.",
-            },
-        { label: "CDM location", value: p.cdmPath || dash },
+          : p.cdmBlocked
+            ? {
+                label: t`Widevine CDM`,
+                value: t`Blocked`,
+                status: "error",
+                detail: t`Sona loads the CDM only inside its sandbox, which keeps it off the network, and the sandbox could not be set up. Only 30-second previews play.`,
+              }
+            : {
+                label: t`Widevine CDM`,
+                value: p.cdmPath ? t`Doesn't start` : t`Not found`,
+                status: "error",
+                detail: p.cdmError
+                  ? t`${cdmError}. Install Google Chrome, or set the CDM location under Playback.`
+                  : t`Install Google Chrome, or set the CDM location under Playback. Without it only 30-second previews play.`,
+              },
+        { label: t`CDM location`, value: p.cdmPath || dash },
         {
-          label: "CDM interface",
-          value: p.cdmInterface ? `${p.cdmInterface} (host ${p.hostInterface})` : dash,
+          label: t`CDM interface`,
+          value: cdmInterface ? t`${cdmInterface} (host ${hostInterface})` : dash,
         },
         {
-          label: "GStreamer",
-          value: p.gstreamer || "Not found",
+          label: t`GStreamer`,
+          value: p.gstreamer || t`Not found`,
           status: p.gstreamer ? "ok" : "error",
-          detail: p.gstreamer ? undefined : "Install GStreamer 1.x with the base and good plugins.",
+          detail: p.gstreamer
+            ? undefined
+            : t`Install GStreamer 1.x with the base and good plugins.`,
         },
         {
-          label: "AAC decoder",
-          value: p.decoder || "None",
+          label: t`AAC decoder`,
+          value: p.decoder || t`None`,
           status: p.decoder ? "ok" : "error",
           detail: p.decoder
             ? undefined
-            : "Install gst-libav or the fdkaac plugin to decode Apple Music's AAC.",
+            : t`Install gst-libav or the fdkaac plugin to decode Apple Music's AAC.`,
         },
         {
-          label: "Audio output",
-          value: p.sink || "None",
+          label: t`Audio output`,
+          value: p.sink || t`None`,
           status: p.sink ? "ok" : "warning",
           detail: p.sink
             ? undefined
-            : "No PipeWire or PulseAudio sink was found; GStreamer falls back to autoaudiosink.",
+            : t`No PipeWire or PulseAudio sink was found; GStreamer falls back to autoaudiosink.`,
         },
         {
-          label: "Playback host",
+          label: t`Playback host`,
           value: p.hostRunning
-            ? `Running · pid ${p.hostPid}`
-            : "Stopped (starts with the next song)",
+            ? t`Running · pid ${hostPid}`
+            : t`Stopped (starts with the next song)`,
+        },
+        sandboxRow(p),
+        {
+          label: t`Stream format`,
+          value: t`AAC ${audioQuality} kbps`,
+          detail: t`Sona plays AAC only. Albums marked Lossless or Dolby Atmos play as AAC: Apple doesn't license lossless to desktop Widevine players.`,
         },
       ],
     },
     {
-      title: "Credentials",
+      title: t`Credentials`,
       rows: [
         d.keyring.unencrypted
           ? {
-              label: "Token storage",
-              value: d.keyring.backend,
+              label: t`Token storage`,
+              value: t`File (unencrypted)`,
               status: "warning",
-              detail:
-                "Your Apple Music token is in a file only your user can read, not in a keyring. Start GNOME Keyring or KWallet and Sona moves it there.",
+              detail: t`Your Apple Music token is in a file only your user can read, not in a keyring. Start GNOME Keyring or KWallet and Sona moves it there.`,
             }
-          : { label: "Token storage", value: d.keyring.backend || dash, status: "ok" },
+          : {
+              label: t`Token storage`,
+              // Go reports "secret-service"; any other backend keeps Go's name.
+              value:
+                d.keyring.backend === "secret-service"
+                  ? t`Secret Service keyring`
+                  : d.keyring.backend || dash,
+              status: "ok",
+            },
       ],
     },
     {
-      title: "Library database",
+      title: t`Library database`,
       rows: [
-        { label: "File", value: d.database.path },
-        { label: "Size", value: formatBytes(d.database.sizeBytes) },
-        { label: "Schema version", value: String(d.database.schemaVersion) },
+        { label: t`File`, value: d.database.path },
+        { label: t`Size`, value: formatBytes(d.database.sizeBytes) },
+        { label: t`Schema version`, value: String(d.database.schemaVersion) },
         {
-          label: "Contents",
+          label: t`Contents`,
           value: [
-            plural(d.database.counts.songs, "song"),
-            plural(d.database.counts.albums, "album"),
-            plural(d.database.counts.artists, "artist"),
-            plural(d.database.counts.playlists, "playlist"),
+            plural(songs, { one: "# song", other: "# songs" }),
+            plural(albums, { one: "# album", other: "# albums" }),
+            plural(artists, { one: "# artist", other: "# artists" }),
+            plural(playlists, { one: "# playlist", other: "# playlists" }),
           ].join(", "),
         },
         {
-          label: "Last full sync",
-          value: d.database.lastSync ? relativeTime(d.database.lastSync) : "Never",
+          label: t`Last full sync`,
+          value: d.database.lastSync ? relativeTime(d.database.lastSync) : t`Never`,
         },
-        { label: "Artwork cache", value: formatBytes(d.artworkCacheBytes) },
+        { label: t`Artwork cache`, value: formatBytes(d.artworkCacheBytes) },
       ],
     },
     {
-      title: "Rendering",
+      title: t`Rendering`,
       rows: [
         {
-          label: "WebKitGTK",
-          value: d.webkit.version || "Unknown",
+          label: t`WebKitGTK`,
+          value: d.webkit.version || t`Unknown`,
           status: d.webkit.version ? "ok" : "warning",
         },
-        { label: "Session", value: d.app.session || dash },
-        ...["WEBKIT_DISABLE_DMABUF_RENDERER", "WEBKIT_DISABLE_COMPOSITING_MODE"].map((name) => {
+        { label: t`Session`, value: d.app.session || dash },
+        ...WEBKIT_ENV.map((name) => {
           const e = env(name);
-          return { label: name, value: e?.set ? `${e.value}` : "not set" };
+          return { label: name, value: e?.set ? `${e.value}` : t`not set` };
         }),
       ],
     },
     {
-      title: "Sona",
+      title: t`Sona`,
       rows: [
-        { label: "Version", value: d.app.version || dash },
-        { label: "Go", value: d.app.goVersion },
-        { label: "Platform", value: d.app.platform },
+        { label: t`Version`, value: d.app.version || dash },
+        { label: t`Go`, value: d.app.goVersion },
+        { label: t`Platform`, value: d.app.platform },
         {
-          label: "Start-up to first paint",
-          value: d.app.startupMs ? `${d.app.startupMs} ms` : dash,
+          label: t`Start-up to first paint`,
+          value: startupMs ? t`${startupMs} ms` : dash,
         },
-        { label: "Log file", value: d.paths.logFile },
-        { label: "Settings", value: d.paths.settings },
-        { label: "Data", value: d.paths.data },
-        { label: "Cache", value: d.paths.cache },
+        { label: t`Log file`, value: d.paths.logFile },
+        { label: t`Settings`, value: d.paths.settings },
+        { label: t`Data`, value: d.paths.data },
+        { label: t`Cache`, value: d.paths.cache },
       ],
     },
   ];
 }
 
-/** Plain text for bug reports: one "label: value" line per row. */
-function diagnosticsReport(groups: Group[]): string {
-  return groups
-    .map(
-      (g) =>
-        `## ${g.title}\n` +
-        g.rows
-          .map(
-            (r) =>
-              `${r.label}: ${r.value}${r.status && r.status !== "info" ? ` [${r.status}]` : ""}`,
-          )
-          .join("\n"),
-    )
-    .join("\n\n");
-}
-
 function StatusIcon({ status }: { status?: Status }) {
+  const { t } = useLingui();
   if (status === "ok")
     return (
-      <CircleCheck aria-label="OK" className="size-4 shrink-0 text-positive" strokeWidth={1.75} />
+      <CircleCheck
+        aria-label={t`OK`}
+        className="size-4 shrink-0 text-positive"
+        strokeWidth={1.75}
+      />
     );
   if (status === "warning")
     return (
-      <TriangleAlert aria-label="Warning" className="size-4 shrink-0 text-ink" strokeWidth={1.75} />
+      <TriangleAlert
+        aria-label={t`Warning`}
+        className="size-4 shrink-0 text-ink"
+        strokeWidth={1.75}
+      />
     );
   if (status === "error")
     return (
       <CircleAlert
-        aria-label="Problem"
+        aria-label={t`Problem`}
         className="size-4 shrink-0 text-danger"
         strokeWidth={1.75}
       />
@@ -196,6 +242,7 @@ function StatusIcon({ status }: { status?: Status }) {
 }
 
 function RenderingToggles() {
+  const { t } = useLingui();
   const settings = useSettings();
   const update = useUpdateSettings();
   const s = settings.data;
@@ -208,13 +255,13 @@ function RenderingToggles() {
         [
           [
             "disableDmabufRenderer",
-            "Disable the DMA-BUF renderer",
-            "Sets WEBKIT_DISABLE_DMABUF_RENDERER=1. Try it if the window is blank or flickers on your GPU driver.",
+            t`Disable the DMA-BUF renderer`,
+            t`Sets WEBKIT_DISABLE_DMABUF_RENDERER=1. Try it if the window is blank or flickers on your GPU driver. Takes effect after you restart Sona.`,
           ],
           [
             "disableCompositingMode",
-            "Disable compositing",
-            "Sets WEBKIT_DISABLE_COMPOSITING_MODE=1: software rendering. Turn on Reduce effects with it.",
+            t`Disable compositing`,
+            t`Sets WEBKIT_DISABLE_COMPOSITING_MODE=1: software rendering. Turn on Reduce effects with it. Takes effect after you restart Sona.`,
           ],
         ] as const
       ).map(([key, title, desc]) => (
@@ -227,7 +274,7 @@ function RenderingToggles() {
               {title}
             </label>
             <p id={`${key}-desc`} className="mt-0.5 max-w-[56ch] text-sub text-ink-muted">
-              {desc} Takes effect after you restart Sona.
+              {desc}
             </p>
           </div>
           <Switch
@@ -243,6 +290,7 @@ function RenderingToggles() {
 }
 
 export function DiagnosticsSection() {
+  const { t } = useLingui();
   const q = useQuery({
     queryKey: keys.diagnostics,
     queryFn: () => SystemService.Diagnostics(),
@@ -251,32 +299,43 @@ export function DiagnosticsSection() {
   const groups = q.data ? diagnosticsGroups(q.data) : [];
   const problems = groups.flatMap((g) => g.rows).filter((r) => r.status === "error").length;
 
-  const copy = () =>
-    Clipboard.SetText(diagnosticsReport(groups)).then(
-      () => toast("Diagnostics copied"),
-      (err) => toast.error("Couldn't copy", { description: callFailure(err).message }),
-    );
-  const clearCache = () =>
-    SystemService.ClearCache().then(
-      (r) => {
-        toast(
-          `Cleared ${formatBytes(r.artworkBytes)} of artwork and ${plural(r.catalogEntries, "cached page")}`,
-        );
-        void q.refetch();
-      },
-      (err) => toast.error("Couldn't clear the cache", { description: callFailure(err).message }),
-    );
+  // The redacted bug-report bundle: Go gathers the report, settings, crash
+  // output and recent log lines, scrubs secrets and saves a copy.
+  const bundle = useMutation({
+    mutationFn: async () => {
+      const b = await SystemService.DiagnosticsBundle();
+      await Clipboard.SetText(b.text);
+      return b;
+    },
+    onSuccess: (b) => {
+      const file = b.path.split("/").pop();
+      toast(t`Diagnostics copied`, {
+        description: b.path
+          ? t`Tokens and your e-mail address are removed. A copy is saved as ${file} in the log folder.`
+          : t`Tokens and your e-mail address are removed.`,
+        action: b.path
+          ? {
+              label: t`Show`,
+              onClick: () =>
+                void run(t`Couldn't open the log folder`, SystemService.OpenLogFolder()),
+            }
+          : undefined,
+      });
+    },
+    onError: (err) =>
+      toast.error(t`Couldn't collect diagnostics`, { description: callFailure(err).message }),
+  });
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <p className="mr-auto text-sub text-ink-muted" aria-live="polite">
           {q.isFetching
-            ? "Checking the playback host, database and keyring…"
+            ? t`Checking the playback host, database and keyring…`
             : q.data
               ? problems
-                ? `${plural(problems, "problem")} found`
-                : "Everything Sona needs is working"
+                ? t`${plural(problems, { one: "# problem found", other: "# problems found" })}`
+                : t`Everything Sona needs is working`
               : ""}
         </p>
         <Button
@@ -286,25 +345,30 @@ export function DiagnosticsSection() {
           disabled={q.isFetching}
         >
           <RotateCw strokeWidth={1.75} />
-          Check again
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => void copy()} disabled={!q.data}>
-          <Copy strokeWidth={1.75} />
-          Copy report
+          <Trans>Check again</Trans>
         </Button>
         <Button
           variant="outline"
           size="sm"
-          onClick={() => void run("Couldn't open the log folder", SystemService.OpenLogFolder())}
+          onClick={() => bundle.mutate()}
+          disabled={bundle.isPending}
+        >
+          <Copy strokeWidth={1.75} />
+          {bundle.isPending ? <Trans>Collecting…</Trans> : <Trans>Copy diagnostics</Trans>}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void run(t`Couldn't open the log folder`, SystemService.OpenLogFolder())}
         >
           <FolderOpen strokeWidth={1.75} />
-          Open log folder
+          <Trans>Open log folder</Trans>
         </Button>
       </div>
 
       {q.error && (
         <ErrorBlock
-          title="Couldn't run the checks"
+          title={t`Couldn't run the checks`}
           error={q.error}
           onRetry={() => void q.refetch()}
           retrying={q.isRefetching}
@@ -349,13 +413,9 @@ export function DiagnosticsSection() {
             ))}
           </dl>
           {g.title === "Rendering" && <RenderingToggles />}
-          {g.title === "Library database" && (
-            <Button variant="ghost" size="sm" className="mt-2" onClick={() => void clearCache()}>
-              Clear artwork and catalogue cache
-            </Button>
-          )}
         </section>
       ))}
+      {q.data && <UpdatesGroup />}
     </div>
   );
 }

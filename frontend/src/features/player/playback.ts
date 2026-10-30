@@ -26,6 +26,9 @@ export const emptyState: PlaybackState = {
   authRequired: false,
   autoPlay: false,
   station: null,
+  container: null,
+  sleep: null,
+  canUndoReplace: false,
 };
 
 interface PlaybackStore extends PlaybackState {
@@ -38,15 +41,29 @@ interface PlaybackStore extends PlaybackState {
   patch: (p: Partial<PlaybackState>) => void;
 }
 
+/** `prev` when `next` holds the same value: Go's snapshots arrive as new objects. */
+function keep<T>(prev: T, next: T): T {
+  return prev === next || JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+}
+
 /**
  * Frontend mirror of the Go playback coordinator. Go owns the queue and the
  * engine and sends a snapshot only when something changes, so the UI
  * derives the live position locally with `livePosition` instead of polling.
+ * A snapshot keeps the previous `current` and `station` objects when they
+ * are unchanged, so a play/pause or seek does not re-render every component
+ * (and track list) that selects them.
  */
 export const usePlayback = create<PlaybackStore>((set) => ({
   ...emptyState,
   queue: { version: 0, index: -1, items: [], history: [], station: null },
-  apply: (state) => set(state),
+  apply: (state) =>
+    set((s) => ({
+      ...state,
+      current: keep(s.current, state.current),
+      station: keep(s.station, state.station),
+      sleep: keep(s.sleep, state.sleep),
+    })),
   applyQueue: (queue) => set({ queue }),
   patch: (p) => set(p),
 }));

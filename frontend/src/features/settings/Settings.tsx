@@ -1,21 +1,19 @@
+import { useLingui } from "@lingui/react/macro";
 import { getRouteApi, Link } from "@tanstack/react-router";
 
 import { AccountSection } from "@/features/auth";
 import { PageHeader } from "@/shared/components/PageHeader";
 
 import { AppearanceSection } from "./Appearance";
+import { ConnectionsSection } from "./Connections";
+import { DesktopSection } from "./Desktop";
 import { DiagnosticsSection } from "./Diagnostics";
 import { PlaybackSection } from "./Playback";
 import { settingsSections, type SettingsSection } from "./search-params";
+import { ShortcutsSection } from "./Shortcuts";
+import { StorageSection } from "./Storage";
 
 const route = getRouteApi("/settings");
-
-const titles: Record<SettingsSection, string> = {
-  account: "Account",
-  playback: "Playback",
-  appearance: "Appearance",
-  diagnostics: "Diagnostics",
-};
 
 function SectionBody({ section }: { section: SettingsSection }) {
   switch (section) {
@@ -25,18 +23,37 @@ function SectionBody({ section }: { section: SettingsSection }) {
       return <PlaybackSection />;
     case "appearance":
       return <AppearanceSection />;
+    case "desktop":
+      return <DesktopSection />;
+    case "connections":
+      return <ConnectionsSection />;
+    case "shortcuts":
+      return <ShortcutsSection />;
+    case "storage":
+      return <StorageSection />;
     case "diagnostics":
       return <DiagnosticsSection />;
   }
 }
 
 export function SettingsPage() {
+  const { t } = useLingui();
   const { section } = route.useSearch();
+  const titles: Record<SettingsSection, string> = {
+    account: t`Account`,
+    playback: t`Playback`,
+    appearance: t`Appearance`,
+    desktop: t`Desktop`,
+    connections: t`Connections`,
+    shortcuts: t`Shortcuts`,
+    storage: t`Storage`,
+    diagnostics: t`Diagnostics`,
+  };
   return (
     <>
-      <PageHeader title="Settings" />
+      <PageHeader title={t`Settings`} />
       <div className="grid grid-cols-[180px_minmax(0,720px)] gap-10 max-[960px]:grid-cols-1 max-[960px]:gap-6">
-        <nav aria-label="Settings sections">
+        <nav aria-label={t`Settings sections`}>
           <ul className="flex flex-col gap-0.5 max-[960px]:flex-row">
             {settingsSections.map((s) => (
               <li key={s}>

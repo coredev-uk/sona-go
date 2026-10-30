@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { createRoute } from "@tanstack/react-router";
 import { Info } from "lucide-react";
 
@@ -17,7 +18,7 @@ export const songModule: FeatureModule<typeof songRoute> = {
     {
       id: "song.view-credits",
       target: "song",
-      label: "View credits",
+      label: () => t`View credits`,
       icon: Info,
       group: "item",
       order: 15,

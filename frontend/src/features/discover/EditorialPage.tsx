@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { EditorialPage as Page } from "@bindings/services";
 import { getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
@@ -12,12 +13,6 @@ import { useEditorialPage, type EditorialKind } from "./queries";
 import { freshness } from "./freshness";
 import { PageError, ShelvesSkeleton } from "./states";
 
-const nouns: Record<Exclude<EditorialKind, "new">, string> = {
-  curator: "this curator",
-  multiroom: "this collection",
-  grouping: "this page",
-};
-
 const routes = {
   curator: getRouteApi("/curator/$id"),
   multiroom: getRouteApi("/multiroom/$id"),
@@ -28,6 +23,7 @@ const routes = {
 export function EditorialRoutePage({ kind }: { kind: Exclude<EditorialKind, "new"> }) {
   const { id } = routes[kind].useParams();
   const q = useEditorialPage(kind, id);
+  const { t } = useLingui();
   if (q.isPending) {
     return (
       <>
@@ -39,7 +35,13 @@ export function EditorialRoutePage({ kind }: { kind: Exclude<EditorialKind, "new
   if (q.isError) {
     return (
       <PageError
-        what={nouns[kind]}
+        title={
+          {
+            curator: t`Couldn't load this curator`,
+            multiroom: t`Couldn't load this collection`,
+            grouping: t`Couldn't load this page`,
+          }[kind]
+        }
         error={q.error}
         onRetry={() => void q.refetch()}
         retrying={q.isRefetching}
@@ -53,8 +55,8 @@ export function EditorialRoutePage({ kind }: { kind: Exclude<EditorialKind, "new
       {p.sections.length ? (
         <EditorialSections sections={p.sections} />
       ) : (
-        <EmptyState frame="covers" title="Nothing here right now">
-          Apple Music has no music on this page at the moment.
+        <EmptyState frame="covers" title={t`Nothing here right now`}>
+          <Trans>Apple Music has no music on this page at the moment.</Trans>
         </EmptyState>
       )}
     </>
@@ -77,7 +79,7 @@ function Header({ page: p }: { page: Page }) {
         byline={p.subtitle || undefined}
         meta={p.stale ? meta : undefined}
         description={p.notes || undefined}
-        header={{ backdrop: "", colors: p.color ? [p.color] : [] }}
+        header={{ backdrop: "", colors: p.color ? [p.color] : [], motion: "" }}
       />
     );
   }

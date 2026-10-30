@@ -1,4 +1,6 @@
-import type { StationDetail, StationEvent } from "@bindings/services";
+import type { Song, StationDetail, StationEvent, StationSeed } from "@bindings/services";
+import { Trans, useLingui } from "@lingui/react/macro";
+import { useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { CircleSlash } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -8,11 +10,12 @@ import { Artwork } from "@/shared/components/Artwork";
 import { CollectionHeader } from "@/shared/components/CollectionHeader";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { PlayButtons } from "@/shared/components/PlayButtons";
+import { formatTime } from "@/shared/lib/format";
 import { useNowPlaying } from "@/shared/lib/now-playing";
 import { cn } from "@/shared/lib/utils";
 
 import { playStation } from "./commands";
-import { useStation } from "./queries";
+import { radioKeys, useStation } from "./queries";
 import { onAir, progressOf, slotLabel, stationLine } from "./schedule";
 
 const route = getRouteApi("/station/$id");
@@ -23,11 +26,12 @@ const route = getRouteApi("/station/$id");
  * where the play control would be.
  */
 export function StationPage() {
+  const { t } = useLingui();
   const { id } = route.useParams();
   const q = useStation(id);
   if (q.isPending) {
     return (
-      <div aria-busy aria-label="Loading" className="flex items-end gap-7 pt-1 pb-7">
+      <div aria-busy aria-label={t`Loading`} className="flex items-end gap-7 pt-1 pb-7">
         <div className="size-[200px] rounded-sm bg-hover" />
         <div className="flex-1 pb-1">
           <div className="h-8 w-80 rounded-sm bg-hover" />
@@ -40,7 +44,7 @@ export function StationPage() {
   if (q.isError) {
     return (
       <ErrorBlock
-        title="Couldn't load this station"
+        title={t`Couldn't load this station`}
         error={q.error}
         onRetry={() => void q.refetch()}
         retrying={q.isRefetching}
@@ -50,14 +54,68 @@ export function StationPage() {
   return <Station detail={q.data} />;
 }
 
+const LINK_CLS = "hover:underline hover:underline-offset-2";
+
+/** What a track station was made from, as the header's byline: "Music like Song by Artist". */
+function SeedLine({ seed }: { seed: StationSeed }) {
+  const name =
+    seed.kind === "song" ? (
+      <Link to="/song/$id" params={{ id: seed.id }} className={LINK_CLS}>
+        {seed.name}
+      </Link>
+    ) : seed.kind === "album" ? (
+      <Link to="/album/$id" params={{ id: seed.id }} className={LINK_CLS}>
+        {seed.name}
+      </Link>
+    ) : (
+      <Link to="/artist/$id" params={{ id: seed.id }} className={LINK_CLS}>
+        {seed.name}
+      </Link>
+    );
+  const by = seed.artistId ? (
+    <Link to="/artist/$id" params={{ id: seed.artistId }} className={LINK_CLS}>
+      {seed.subtitle}
+    </Link>
+  ) : (
+    seed.subtitle
+  );
+  if (seed.subtitle) {
+    return seed.only ? (
+      <Trans>
+        <span className="text-ink-muted">Only songs by </span>
+        {name}
+        <span className="text-ink-muted"> by </span>
+        {by}
+      </Trans>
+    ) : (
+      <Trans>
+        <span className="text-ink-muted">Music like </span>
+        {name}
+        <span className="text-ink-muted"> by </span>
+        {by}
+      </Trans>
+    );
+  }
+  return seed.only ? (
+    <Trans>
+      <span className="text-ink-muted">Only songs by </span>
+      {name}
+    </Trans>
+  ) : (
+    <Trans>
+      <span className="text-ink-muted">Music like </span>
+      {name}
+    </Trans>
+  );
+}
+
 function Station({ detail }: { detail: StationDetail }) {
   const s = detail.station;
-  const byline = s.showId ? (
-    <Link
-      to="/curator/$id"
-      params={{ id: s.showId }}
-      className="hover:underline hover:underline-offset-2"
-    >
+  const qc = useQueryClient();
+  const byline = detail.seed ? (
+    <SeedLine seed={detail.seed} />
+  ) : s.showId ? (
+    <Link to="/curator/$id" params={{ id: s.showId }} className={LINK_CLS}>
       {s.showName}
     </Link>
   ) : s.hostName ? (
@@ -65,6 +123,11 @@ function Station({ detail }: { detail: StationDetail }) {
   ) : (
     s.tagline || undefined
   );
+  // Playing takes the listed songs; the page then lists the ones after them.
+  const play = () =>
+    void playStation(s.id).then(
+      (ok) => ok && void qc.invalidateQueries({ queryKey: radioKeys.station(s.id) }),
+    );
   return (
     <>
       <CollectionHeader
@@ -76,11 +139,7 @@ function Station({ detail }: { detail: StationDetail }) {
         header={detail.header}
         actions={
           <>
-            <PlayButtons
-              label={s.name}
-              disabled={!s.playable}
-              onPlay={() => void playStation(s.id)}
-            />
+            <PlayButtons label={s.name} disabled={!s.playable} onPlay={play} />
             <ActionMenu kind="station" target={s} name={s.name} variant="header" />
           </>
         }
@@ -96,13 +155,67 @@ function Station({ detail }: { detail: StationDetail }) {
             strokeWidth={1.75}
           />
           <div>
-            <p className="text-ui font-medium text-ink">Sona can't play this station</p>
+            <p className="text-ui font-medium text-ink">
+              <Trans>Sona can't play this station</Trans>
+            </p>
             <p className="mt-0.5 text-sub text-ink-muted">{s.unavailable}</p>
           </div>
         </div>
       )}
       {detail.schedule.length > 0 && <Schedule stationId={s.id} events={detail.schedule} />}
+      {detail.upcoming.length > 0 && <Upcoming songs={detail.upcoming} />}
     </>
+  );
+}
+
+/**
+ * The songs a track station plays first, in order: the batch Go holds for
+ * it, so pressing Play starts with exactly these.
+ */
+function Upcoming({ songs }: { songs: Song[] }) {
+  return (
+    <section aria-labelledby="station-upcoming" className="max-w-[880px]">
+      <h2 id="station-upcoming" className="mb-2 text-heading text-ink">
+        <Trans>Plays first</Trans>
+      </h2>
+      <ol>
+        {songs.map((song) => (
+          <li
+            key={song.id}
+            className="grid h-11 grid-cols-[32px_minmax(0,1fr)_minmax(0,0.8fr)_auto] items-center gap-4 rounded-md px-2"
+          >
+            <Artwork src={song.art.small} size={32} alt="" />
+            <div className="min-w-0">
+              <p className="truncate text-ui text-ink">
+                {song.albumId ? (
+                  <Link
+                    to="/album/$id"
+                    params={{ id: song.albumId }}
+                    search={{ song: song.id }}
+                    className={LINK_CLS}
+                  >
+                    {song.name}
+                  </Link>
+                ) : (
+                  song.name
+                )}
+              </p>
+              <p className="truncate text-sub text-ink-muted">
+                {song.artistId ? (
+                  <Link to="/artist/$id" params={{ id: song.artistId }} className={LINK_CLS}>
+                    {song.artistName}
+                  </Link>
+                ) : (
+                  song.artistName
+                )}
+              </p>
+            </div>
+            <p className="truncate text-sub text-ink-muted">{song.albumName}</p>
+            <p className="text-meta text-ink-muted num">{formatTime(song.durationMs)}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -122,6 +235,7 @@ function useNow(ms: number): number {
  * only while Sona is playing this station).
  */
 function Schedule({ stationId, events }: { stationId: string; events: StationEvent[] }) {
+  const { t } = useLingui();
   const now = useNow(30_000);
   const { current, playing } = useNowPlaying();
   const live = onAir(events, now);
@@ -130,7 +244,7 @@ function Schedule({ stationId, events }: { stationId: string; events: StationEve
   return (
     <section aria-labelledby="station-schedule" className="max-w-[880px]">
       <h2 id="station-schedule" className="mb-2 text-heading text-ink">
-        Schedule
+        <Trans>Schedule</Trans>
       </h2>
       <ol>
         {upcoming.map((e) => {
@@ -147,7 +261,11 @@ function Schedule({ stationId, events }: { stationId: string; events: StationEve
                 >
                   {slotLabel(e, now)}
                 </p>
-                {isOn && <p className="mt-0.5 text-meta text-ink-muted">On air</p>}
+                {isOn && (
+                  <p className="mt-0.5 text-meta text-ink-muted">
+                    <Trans>On air</Trans>
+                  </p>
+                )}
               </div>
               <Artwork src={e.art.small} size={48} alt="" />
               <div className="min-w-0">
@@ -167,7 +285,7 @@ function Schedule({ stationId, events }: { stationId: string; events: StationEve
                 {isOn && (
                   <div
                     role="progressbar"
-                    aria-label="Time through this programme"
+                    aria-label={t`Time through this programme`}
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={Math.round(progressOf(e, now) * 100)}

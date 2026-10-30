@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
 
-import { CoverTile, GAP_X, useCoverColumns, type CoverItem } from "@/shared/components/CoverGrid";
+import { CoverCell, type CoverItem } from "@/shared/components/CoverGrid";
+import { GAP_X, useCoverColumns } from "@/shared/lib/useCoverColumns";
+import { SelectionContext } from "@/shared/selection/store";
+import { useItemList } from "@/shared/selection/useItemList";
 
 interface CoverRowProps {
   items: readonly CoverItem[];
@@ -17,6 +20,7 @@ interface CoverRowProps {
 /**
  * A shelf's tiles: as many cover tiles as fit in `rows` rows at the grid's
  * tile size, never scrolling sideways. Pair it with a Shelf's "See all".
+ * Tiles select, open their menu on right-click and drag like CoverGrid's.
  */
 export function CoverRow({
   items,
@@ -30,19 +34,36 @@ export function CoverRow({
   const { cols, size } = useCoverColumns(ref, min);
   useEffect(() => onColumns?.(cols), [onColumns, cols]);
   const shown = items.slice(0, cols * rows);
+  const list = useItemList({
+    root: ref,
+    keys: shown.map((it) => (it.target ? it.key : undefined)),
+    itemAt: (i) => shown[i]?.target,
+    plainClick: "open",
+  });
   return (
-    <div
-      ref={ref}
-      role="list"
-      aria-label={label}
-      className="grid"
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: `28px ${GAP_X}px` }}
-    >
-      {shown.map((item) => (
-        <div role="listitem" key={item.key}>
-          <CoverTile item={item} size={size} aspect={aspect} />
+    <SelectionContext value={list.scope}>
+      <div
+        ref={ref}
+        role="grid"
+        aria-label={label}
+        aria-multiselectable
+        className="grid"
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: `28px ${GAP_X}px` }}
+        onKeyDown={(e) => {
+          const cell =
+            e.target instanceof Element ? e.target.closest<HTMLElement>("[data-row]") : null;
+          if (cell) list.selectionKey(e, Number(cell.dataset.row));
+        }}
+        {...list.rootProps}
+      >
+        {/* One row for assistive tech; the CSS grid lays the cells out. */}
+        <div role="row" className="contents">
+          {shown.map((item, i) => (
+            <CoverCell key={item.key} item={item} index={i} size={size} aspect={aspect} />
+          ))}
         </div>
-      ))}
-    </div>
+        {list.menu}
+      </div>
+    </SelectionContext>
   );
 }

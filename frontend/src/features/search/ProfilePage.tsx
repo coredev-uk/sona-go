@@ -1,4 +1,5 @@
 import type { Item } from "@bindings/services";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getRouteApi } from "@tanstack/react-router";
 import { BadgeCheck, Lock } from "lucide-react";
 
@@ -16,13 +17,14 @@ const noArt = { small: "", medium: "", large: "" };
 
 /** An Apple Music listener's profile: who they are and their public playlists. */
 export function ProfilePage() {
+  const { t } = useLingui();
   const { id } = route.useParams();
   const res = useProfile(id);
 
   if (res.error) {
     return (
       <ErrorBlock
-        title="Couldn't load this profile"
+        title={t`Couldn't load this profile`}
         error={res.error}
         onRetry={() => void res.refetch()}
         retrying={res.isRefetching}
@@ -41,6 +43,7 @@ export function ProfilePage() {
     );
   }
   const { profile, playlists } = res.data;
+  const name = profile.name;
   const items: Item[] = playlists.map(
     (p) =>
       ({
@@ -66,7 +69,7 @@ export function ProfilePage() {
             <span className="truncate">{profile.name}</span>
             {profile.verified && (
               <BadgeCheck
-                aria-label="Verified"
+                aria-label={t`Verified`}
                 className="size-6 shrink-0 text-ink-muted"
                 strokeWidth={1.75}
               />
@@ -78,21 +81,23 @@ export function ProfilePage() {
               <>
                 <span aria-hidden>·</span>
                 <Lock aria-hidden className="size-3.5" strokeWidth={1.75} />
-                <span>Private profile</span>
+                <span>
+                  <Trans>Private profile</Trans>
+                </span>
               </>
             )}
           </p>
         </div>
       </header>
       {items.length ? (
-        <Shelf title="Public playlists">
-          <ItemGrid items={items} label={`Playlists shared by ${profile.name}`} />
+        <Shelf title={t`Public playlists`}>
+          <ItemGrid items={items} label={t`Playlists shared by ${name}`} />
         </Shelf>
       ) : (
-        <EmptyState title="No public playlists">
+        <EmptyState title={t`No public playlists`}>
           {profile.private
-            ? `${profile.name} keeps their profile private, so only followers see what they share.`
-            : `${profile.name} hasn't shared any playlists on their profile.`}
+            ? t`${name} keeps their profile private, so only followers see what they share.`
+            : t`${name} hasn't shared any playlists on their profile.`}
         </EmptyState>
       )}
     </>

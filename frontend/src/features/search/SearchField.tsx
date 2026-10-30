@@ -1,4 +1,5 @@
 import type { Item, RecentSearch } from "@bindings/services";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Clock, Search, X } from "lucide-react";
@@ -18,9 +19,12 @@ import { itemLink, itemShape } from "@/shared/items/links";
 import { playItem } from "@/shared/items/play";
 import { keys } from "@/shared/lib/keys";
 import { cn } from "@/shared/lib/utils";
+import { useBinding } from "@/shared/shortcuts/bindings";
+import { ChordKeys } from "@/shared/shortcuts/Keys";
 import { Input } from "@/shared/ui/input";
 
 import { moveActive, splitMatch } from "./combobox";
+import { bindSearchField } from "./field";
 import { itemMeta } from "./groups";
 import { libraryCards, useRecentActions, useRecentSearches } from "./queries";
 import { recentItem, recentLink } from "./recent";
@@ -119,10 +123,12 @@ function GroupLabel({ children }: { children: ReactNode }) {
 /**
  * The top bar's search field: suggestions as you type (completions and top
  * results that open directly), recent searches when empty, Enter to search.
- * "/" or Ctrl+F focuses it from anywhere; ↑/↓ move through the list, Esc
- * closes it, and ↓ with the list closed moves into the results.
+ * The search.focus shortcut ("/" or Ctrl+F) focuses it from anywhere; ↑/↓
+ * move through the list, Esc closes it, and ↓ with the list closed moves
+ * into the results.
  */
 export function SearchField() {
+  const { t } = useLingui();
   const navigate = useNavigate();
   const pathname = useLocation({ select: (l) => l.pathname });
   const route = useSearchRoute();
@@ -161,19 +167,10 @@ export function SearchField() {
   const shown = open && options.length > 0;
   const activeIndex = active < options.length ? active : -1;
 
-  // "/" and Ctrl+F focus the field from anywhere outside a text input.
+  const focusKeys = useBinding("search.focus");
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const typing =
-        e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable]");
-      if ((e.key === "/" && !typing) || (e.key === "f" && (e.ctrlKey || e.metaKey))) {
-        e.preventDefault();
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    bindSearchField(inputRef.current);
+    return () => bindSearchField(null);
   }, []);
 
   const close = () => {
@@ -275,7 +272,7 @@ export function SearchField() {
         type="text"
         role="combobox"
         enterKeyHint="search"
-        aria-label="Search"
+        aria-label={t`Search`}
         aria-autocomplete="list"
         aria-expanded={shown}
         aria-controls={listId}
@@ -291,13 +288,13 @@ export function SearchField() {
         onFocus={() => setOpen(true)}
         onClick={() => setOpen(true)}
         onKeyDown={onKeyDown}
-        placeholder={scope === "library" ? "Search your library" : "Search Apple Music"}
+        placeholder={scope === "library" ? t`Search your library` : t`Search Apple Music`}
         className="h-8 border-transparent bg-hover pr-10 pl-9 text-ui shadow-none placeholder:text-ink-faint focus-visible:border-control-line focus-visible:bg-raised focus-visible:ring-0"
       />
       {value ? (
         <button
           type="button"
-          aria-label="Clear search"
+          aria-label={t`Clear search`}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
             setValue("");
@@ -309,18 +306,27 @@ export function SearchField() {
           <X aria-hidden className="size-3.5" strokeWidth={1.75} />
         </button>
       ) : (
-        <kbd className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 rounded-sm border border-control-line px-1.5 text-meta text-ink-faint">
-          /
-        </kbd>
+        focusKeys[0] && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2"
+          >
+            <ChordKeys chord={focusKeys[0]} />
+          </span>
+        )
       )}
       <ul
         id={listId}
         role="listbox"
-        aria-label={typed ? "Suggestions" : "Recent searches"}
+        aria-label={typed ? t`Suggestions` : t`Recent searches`}
         hidden={!shown}
         className="absolute inset-x-0 top-full z-50 mt-1.5 max-h-[min(70vh,520px)] overflow-y-auto rounded-lg border border-line bg-raised p-1.5 shadow-float"
       >
-        {!typed && <GroupLabel>Recent searches</GroupLabel>}
+        {!typed && (
+          <GroupLabel>
+            <Trans>Recent searches</Trans>
+          </GroupLabel>
+        )}
         {options.map((o, i) => {
           const common = {
             id: optionId(i),
@@ -348,7 +354,7 @@ export function SearchField() {
           const label =
             i === firstItem ? (
               <GroupLabel key="label-items">
-                {scope === "library" ? "In your library" : hasTerms ? "Top results" : "Results"}
+                {scope === "library" ? t`In your library` : hasTerms ? t`Top results` : t`Results`}
               </GroupLabel>
             ) : null;
           if (entry?.kind === "term") {

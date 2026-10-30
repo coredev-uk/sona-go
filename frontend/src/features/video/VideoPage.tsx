@@ -1,4 +1,5 @@
 import { CatalogService } from "@bindings/services";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { ExternalLink, Play } from "lucide-react";
@@ -19,6 +20,10 @@ import { Button } from "@/shared/ui/button";
 
 const route = getRouteApi("/music-video/$id");
 
+/** Format badges: technical names, the same in every language. */
+const FORMAT_4K = "4K";
+const FORMAT_HDR = "HDR";
+
 /**
  * A music video's page. Sona plays audio only, so the video itself opens
  * in Apple Music on the web; the song it belongs to plays here.
@@ -29,6 +34,7 @@ export function VideoPage() {
     queryKey: keys.catalogVideo(id),
     queryFn: () => CatalogService.MusicVideo(id),
   });
+  const { t } = useLingui();
 
   if (q.isPending) return <DetailSkeleton />;
   if (q.error) {
@@ -38,15 +44,43 @@ export function VideoPage() {
         error={q.error}
         retry={() => void q.refetch()}
         retrying={q.isRefetching}
-        back={{ label: "Go to Search", to: "/search" }}
+        back={{ label: t`Go to Search`, to: "/search" }}
       />
     );
   }
   const { video, song } = q.data;
-  const meta = ["Music video", yearOf(video.releaseDate), formatTime(video.durationMs), video.genre]
+  const songLine = (s: NonNullable<typeof song>) => {
+    const link = (
+      <Link
+        to="/song/$id"
+        params={{ id: s.catalogId || s.id }}
+        className="text-ink underline decoration-ink/40 underline-offset-2 hover:decoration-ink"
+      >
+        {s.name}
+      </Link>
+    );
+    const albumName = s.albumName;
+    return albumName ? (
+      <Trans>
+        The song is {link} from {albumName}.
+      </Trans>
+    ) : (
+      <Trans>The song is {link}.</Trans>
+    );
+  };
+  const artistName = video.artistName;
+  const releaseDate = longDate(video.releaseDate);
+  const meta = [
+    t`Music video`,
+    yearOf(video.releaseDate),
+    formatTime(video.durationMs),
+    video.genre,
+  ]
     .filter(Boolean)
     .join(" · ");
-  const formats = [video.has4K && "4K", video.hasHDR && "HDR"].filter((f): f is string => !!f);
+  const formats = [video.has4K && FORMAT_4K, video.hasHDR && FORMAT_HDR].filter(
+    (f): f is string => !!f,
+  );
 
   return (
     <>
@@ -64,46 +98,33 @@ export function VideoPage() {
               <Button
                 size="sm"
                 onClick={() =>
-                  void run("Couldn't open Apple Music", CatalogService.OpenInAppleMusic(video.url))
+                  void run(t`Couldn't open Apple Music`, CatalogService.OpenInAppleMusic(video.url))
                 }
               >
                 <ExternalLink strokeWidth={1.75} />
-                Watch in Apple Music
+                <Trans>Watch in Apple Music</Trans>
               </Button>
             )}
             {song?.playable && (
               <Button variant="outline" size="sm" onClick={() => playSongs([song], 0, song.id)}>
                 <Play strokeWidth={1.75} />
-                Play the song
+                <Trans>Play the song</Trans>
               </Button>
             )}
           </>
         }
       />
       <p className="-mt-2 mb-2 max-w-[68ch] text-sub text-ink-muted">
-        Sona plays music, not video: the video opens in Apple Music in your browser.
-        {song && (
-          <>
-            {" "}
-            The song is{" "}
-            <Link
-              to="/song/$id"
-              params={{ id: song.catalogId || song.id }}
-              className="text-ink underline-offset-2 hover:underline"
-            >
-              {song.name}
-            </Link>
-            {song.albumName && <> from {song.albumName}</>}.
-          </>
-        )}
+        <Trans>Sona plays music, not video: the video opens in Apple Music in your browser.</Trans>
+        {song && <> {songLine(song)}</>}
       </p>
       {q.data.notes && (
-        <Shelf title="Notes" className="mt-8">
+        <Shelf title={t`Notes`} className="mt-8">
           <Notes text={q.data.notes} />
         </Shelf>
       )}
       <CoverShelf
-        title={`More by ${video.artistName}`}
+        title={t`More by ${artistName}`}
         aspect="video"
         items={q.data.moreByArtist.map((v) => videoTile(v, "year"))}
         more={
@@ -113,13 +134,13 @@ export function VideoPage() {
         }
       />
       <CoverShelf
-        title="More like this"
+        title={t`More like this`}
         aspect="video"
         items={q.data.moreInGenre.map((v) => videoTile(v))}
       />
       {video.releaseDate && (
         <footer className="mt-8 text-meta text-ink-muted num">
-          Released {longDate(video.releaseDate)}
+          <Trans>Released {releaseDate}</Trans>
         </footer>
       )}
     </>

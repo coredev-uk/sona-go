@@ -1,6 +1,8 @@
 import type { Item, Section } from "@bindings/services";
 import type { LinkProps } from "@tanstack/react-router";
 
+import type { ActionItem } from "@/shared/actions/registry";
+
 export type ItemLinkProps = Pick<LinkProps, "to" | "params" | "search">;
 
 /**
@@ -66,4 +68,14 @@ export function itemSubtitle(item: Item): string {
 /** A section's "See all": its editorial room, when it has one. */
 export function roomLink(section: Section): ItemLinkProps | undefined {
   return section.room ? { to: "/room/$id", params: { id: section.room } } : undefined;
+}
+
+/** What an Item is for actions, selection and drag; undefined for kinds without actions. */
+export function actionItemOf(item: Item): ActionItem | undefined {
+  if (item.song) return { kind: "song", target: item.song };
+  if (item.album) return { kind: "album", target: item.album };
+  if (item.playlist) return { kind: "playlist", target: item.playlist };
+  if (item.station) return { kind: "station", target: item.station };
+  if (item.artist) return { kind: "artist", target: item.artist };
+  return undefined;
 }

@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { createRoute } from "@tanstack/react-router";
 import { ChartNoAxesColumn, Compass } from "lucide-react";
 
@@ -60,8 +61,14 @@ export const discoverModule: FeatureModule<(typeof routes)[number]> = {
   id: "discover",
   routes,
   nav: [
-    { section: "primary", label: "Discover", icon: Compass, to: "/new", order: 15 },
-    { section: "primary", label: "Charts", icon: ChartNoAxesColumn, to: "/charts", order: 17 },
+    { section: "primary", label: () => t`Discover`, icon: Compass, to: "/new", order: 15 },
+    {
+      section: "primary",
+      label: () => t`Charts`,
+      icon: ChartNoAxesColumn,
+      to: "/charts",
+      order: 17,
+    },
   ],
   init: registerPlayers,
 };

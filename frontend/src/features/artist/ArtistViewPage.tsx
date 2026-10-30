@@ -1,4 +1,5 @@
 import { ShelfKind, type ArtistViewPage as ViewPage } from "@bindings/services";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 
@@ -55,10 +56,14 @@ export function ArtistViewPage() {
     },
     [total, hasNextPage, isFetchingNextPage, fetchNextPage],
   );
-  const onPlay = useCallback((i: number) => playSongs(songs, i, id), [songs, id]);
+  const onPlay = useCallback(
+    (i: number) => playSongs(songs, i, { kind: "artist", id }),
+    [songs, id],
+  );
 
+  const { t } = useLingui();
   const name = artist.data?.artist.name ?? "";
-  const title = known ? viewTitle(view, name || "this artist") : "Not found";
+  const title = known ? viewTitle(view, name || t`this artist`) : t`Not found`;
   const header = (
     <PageHeader
       title={title}
@@ -68,7 +73,7 @@ export function ArtistViewPage() {
           params={{ id }}
           className="hover:text-ink hover:underline hover:underline-offset-2"
         >
-          {name || "Artist"}
+          {name || t`Artist`}
         </Link>
       }
     />
@@ -79,10 +84,10 @@ export function ArtistViewPage() {
       <>
         {header}
         <EmptyState
-          title="There's no such list"
-          action={{ label: "Go to Artists", to: "/library/artists" }}
+          title={t`There's no such list`}
+          action={{ label: t`Go to Artists`, to: "/library/artists" }}
         >
-          This artist page doesn't have a list called “{view}”.
+          <Trans>This artist page doesn't have a list called “{view}”.</Trans>
         </EmptyState>
       </>
     );
@@ -92,7 +97,7 @@ export function ArtistViewPage() {
       <>
         {header}
         <ErrorBlock
-          title={`Couldn't load ${title.toLowerCase()}`}
+          title={t`Couldn't load this list`}
           error={q.error}
           onRetry={() => void q.refetch()}
           retrying={q.isRefetching}
@@ -124,8 +129,12 @@ export function ArtistViewPage() {
         />
       )}
       {!q.isPending && total === 0 && (
-        <EmptyState title="Nothing here yet" className="mt-2">
-          Apple Music has nothing in this list for {name || "this artist"} in your storefront.
+        <EmptyState title={t`Nothing here yet`} className="mt-2">
+          {name ? (
+            <Trans>Apple Music has nothing in this list for {name} in your storefront.</Trans>
+          ) : (
+            <Trans>Apple Music has nothing in this list for this artist in your storefront.</Trans>
+          )}
         </EmptyState>
       )}
     </>

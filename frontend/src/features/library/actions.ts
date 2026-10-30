@@ -1,18 +1,27 @@
 import { LibraryService, Source, type ItemState } from "@bindings/services";
+import { t } from "@lingui/core/macro";
 import { Link2, Plus, Star, ThumbsDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import type {
-  ActionDef,
-  ActionTargetKind,
-  ActionTargets,
-  AnyActionDef,
-  MenuData,
+import {
+  describeItems,
+  type ActionDef,
+  type ActionItem,
+  type ActionTargetKind,
+  type ActionTargets,
+  type BulkActionDef,
+  type BulkMenuData,
+  type ItemActionDef,
+  type MenuData,
 } from "@/shared/actions/registry";
 import {
+  addManyToLibrary,
   addToLibrary,
   rateItem,
+  rateItems,
   removeFromLibrary,
+  removeManyFromLibrary,
+  type KindedItem,
   type RemovableKind,
 } from "@/shared/lib/library-actions";
 import { fetchItemState, itemRef, type StateKind } from "@/shared/lib/item-state";
@@ -20,8 +29,8 @@ import { run } from "@/shared/lib/run";
 
 /** Copies an item's music.apple.com link (Go writes the clipboard). */
 export async function copyLink(kind: StateKind | "stations", item: Parameters<typeof itemRef>[1]) {
-  if (await run("Couldn't copy the link", LibraryService.CopyLink(itemRef(kind, item)))) {
-    toast("Link copied");
+  if (await run(t`Couldn't copy the link`, LibraryService.CopyLink(itemRef(kind, item)))) {
+    toast(t`Link copied`);
   }
 }
 
@@ -53,7 +62,7 @@ function itemActions<K extends Exclude<ActionTargetKind, "station">>(
     {
       id: `library.favorite.${target}`,
       target,
-      label: (_, ctx) => (ctx.data(state)?.rating === 1 ? "Undo favourite" : "Favourite"),
+      label: (_, ctx) => (ctx.data(state)?.rating === 1 ? t`Undo favourite` : t`Favourite`),
       icon: Star,
       filled: (_, ctx) => ctx.data(state)?.rating === 1,
       group: "rating",
@@ -66,7 +75,7 @@ function itemActions<K extends Exclude<ActionTargetKind, "station">>(
     {
       id: `library.suggest-less.${target}`,
       target,
-      label: (_, ctx) => (ctx.data(state)?.rating === -1 ? "Undo suggest less" : "Suggest less"),
+      label: (_, ctx) => (ctx.data(state)?.rating === -1 ? t`Undo suggest less` : t`Suggest less`),
       icon: ThumbsDown,
       filled: (_, ctx) => ctx.data(state)?.rating === -1,
       group: "rating",
@@ -84,7 +93,7 @@ function itemActions<K extends Exclude<ActionTargetKind, "station">>(
     {
       id: `library.copy-link.${target}`,
       target,
-      label: "Copy link",
+      label: () => t`Copy link`,
       icon: Link2,
       group: "item",
       order: 90,
@@ -97,7 +106,7 @@ function itemActions<K extends Exclude<ActionTargetKind, "station">>(
     defs.push({
       id: `library.add.${target}`,
       target,
-      label: "Add to library",
+      label: () => t`Add to library`,
       icon: Plus,
       group: "item",
       order: 30,
@@ -111,7 +120,7 @@ function itemActions<K extends Exclude<ActionTargetKind, "station">>(
     defs.push({
       id: `library.remove.${target}`,
       target,
-      label: "Remove from library",
+      label: () => t`Remove from library`,
       icon: Trash2,
       group: "item",
       order: 35,
@@ -124,7 +133,7 @@ function itemActions<K extends Exclude<ActionTargetKind, "station">>(
 }
 
 /** Item actions for songs, albums, artists and playlists (library playlists are edited by the playlist module). */
-export const libraryActions: AnyActionDef[] = [
+export const libraryActions: ItemActionDef[] = [
   ...itemActions("song", "songs", { add: "songs", remove: "songs" }),
   ...itemActions("album", "albums", { add: "albums", remove: "albums" }),
   ...itemActions("artist", "artists", { remove: "artists" }),
@@ -132,10 +141,97 @@ export const libraryActions: AnyActionDef[] = [
   {
     id: "library.copy-link.station",
     target: "station",
-    label: "Copy link",
+    label: () => t`Copy link`,
     icon: Link2,
     group: "item",
     order: 90,
     run: (st) => void copyLink("stations", { id: st.id, source: Source.SourceCatalog }),
   },
+  ...bulkActions(),
 ];
+
+const stateKinds: Record<Exclude<ActionTargetKind, "station">, StateKind> = {
+  song: "songs",
+  album: "albums",
+  artist: "artists",
+  playlist: "playlists",
+};
+
+/** The selection with each item's state kind (stations have none). */
+function kinded(items: readonly ActionItem[]): KindedItem[] {
+  return items.flatMap((i) =>
+    i.kind === "station" ? [] : [{ kind: stateKinds[i.kind], item: i.target }],
+  );
+}
+
+/**
+ * The `targets[]` forms of the library actions: Favourite, add to and
+ * remove from the library for a selection. Their labels and availability
+ * read every selected item's state (batched into one Go call when the menu
+ * opens).
+ */
+function bulkActions(): BulkActionDef[] {
+  const states: BulkMenuData<(ItemState | undefined)[]> = {
+    id: "library.state.many",
+    load: (items) => Promise.all(kinded(items).map((k) => fetchItemState(k.kind, k.item))),
+  };
+  type States = (ItemState | undefined)[] | undefined;
+  const inLibrary = (items: readonly ActionItem[], s: States) =>
+    kinded(items).map((k, i) => s?.[i]?.inLibrary ?? k.item.source === Source.SourceLibrary);
+  /** Catalogue items not (yet) in the library. */
+  const notInLibrary = (items: readonly ActionItem[], s: States) =>
+    kinded(items).filter((k, i) => k.item.source === Source.SourceCatalog && !s?.[i]?.inLibrary);
+  const allFavourite = (s: States) => !!s?.length && s.every((x) => x?.rating === 1);
+  const music: ActionTargetKind[] = ["song", "album", "artist", "playlist"];
+  return [
+    {
+      id: "library.favorite.many",
+      target: "selection",
+      kinds: music,
+      label: (_, ctx) => (allFavourite(ctx.data(states)) ? t`Undo favourite` : t`Favourite`),
+      icon: Star,
+      filled: (_, ctx) => allFavourite(ctx.data(states)),
+      group: "rating",
+      order: 10,
+      data: [states],
+      isEnabled: (_, ctx) => ctx.data(states) !== undefined,
+      run: (items, ctx) => {
+        const undo = allFavourite(ctx.data(states));
+        // Favouriting skips items that already are; undoing applies to all.
+        const s = ctx.data(states);
+        const targets = kinded(items).filter((_, i) => undo || s?.[i]?.rating !== 1);
+        void rateItems(targets, undo ? "unfavorite" : "favorite", describeItems(items));
+      },
+    },
+    {
+      id: "library.add.many",
+      target: "selection",
+      kinds: ["song", "album", "playlist"],
+      label: () => t`Add to library`,
+      icon: Plus,
+      group: "item",
+      order: 30,
+      data: [states],
+      isAvailable: (items, ctx) => notInLibrary(items, ctx.data(states)).length > 0,
+      isEnabled: (_, ctx) => ctx.data(states) !== undefined,
+      run: (items, ctx) =>
+        void addManyToLibrary(notInLibrary(items, ctx.data(states)), describeItems(items)),
+    },
+    {
+      id: "library.remove.many",
+      target: "selection",
+      kinds: ["song", "album", "artist"],
+      label: () => t`Remove from library`,
+      icon: Trash2,
+      group: "item",
+      order: 35,
+      data: [states],
+      isAvailable: (items, ctx) => inLibrary(items, ctx.data(states)).every(Boolean),
+      run: (items) =>
+        void removeManyFromLibrary(
+          kinded(items) as (KindedItem & { kind: RemovableKind })[],
+          describeItems(items),
+        ),
+    },
+  ];
+}

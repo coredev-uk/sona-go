@@ -1,10 +1,11 @@
 import type { Station } from "@bindings/services";
+import { t } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Play } from "lucide-react";
 
 import { hasAccount, useAuth } from "@/features/auth";
-import { ActionMenu } from "@/shared/actions/ActionMenu";
 import { Artwork } from "@/shared/components/Artwork";
 import type { CoverItem } from "@/shared/components/CoverGrid";
 import { CoverShelf } from "@/shared/components/CoverShelf";
@@ -27,9 +28,13 @@ function stationCover(s: Station): CoverItem {
     subtitle: s.tagline || s.showName || s.provider || undefined,
     art: s.art.medium,
     link: { to: "/station/$id", params: { id: s.id } },
-    play: s.playable ? { label: `Play ${s.name}`, run: () => void playStation(s.id) } : undefined,
-    menu: <ActionMenu kind="station" target={s} name={s.name} />,
+    play: s.playable ? { label: playLabel(s.name), run: () => void playStation(s.id) } : undefined,
+    target: { kind: "station", target: s },
   };
+}
+
+function playLabel(name: string): string {
+  return t`Play ${name}`;
 }
 
 /**
@@ -38,6 +43,7 @@ function stationCover(s: Station): CoverItem {
  * episodes, genre stations).
  */
 export function RadioPage() {
+  const { t } = useLingui();
   const auth = useAuth();
   const signedIn = hasAccount(auth.data?.state);
   const live = useLiveStations();
@@ -57,16 +63,16 @@ export function RadioPage() {
 
   return (
     <>
-      <PageHeader title="Radio" />
+      <PageHeader title={t`Radio`} />
       <OnAir query={live} />
       {signedIn && recent.data && recent.data.length > 0 && (
         <div className="mt-10">
-          <CoverShelf title="Your stations" items={recent.data.map(stationCover)} />
+          <CoverShelf title={t`Your stations`} items={recent.data.map(stationCover)} />
         </div>
       )}
       <div className="mt-10 flex flex-col gap-10">
         {grouping.isPending ? (
-          <div aria-busy aria-label="Loading" className="flex flex-col gap-3">
+          <div aria-busy aria-label={t`Loading`} className="flex flex-col gap-3">
             <div className="h-4 w-40 rounded-sm bg-hover" />
             <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-x-6">
               {Array.from({ length: 6 }, (_, i) => (
@@ -76,7 +82,7 @@ export function RadioPage() {
           </div>
         ) : grouping.isError ? (
           <ErrorBlock
-            title="Couldn't load Apple Music's radio page"
+            title={t`Couldn't load Apple Music's radio page`}
             error={grouping.error}
             onRetry={() => void grouping.refetch()}
             retrying={grouping.isRefetching}
@@ -94,14 +100,15 @@ export function RadioPage() {
  * play control; the one playing carries the equaliser.
  */
 function OnAir({ query }: { query: UseQueryResult<Station[]> }) {
+  const { t } = useLingui();
   const { current, playing } = useNowPlaying();
   return (
     <section aria-labelledby="radio-live">
       <h2 id="radio-live" className="mb-3 text-heading text-ink">
-        Live now
+        <Trans>Live now</Trans>
       </h2>
       {query.isPending ? (
-        <ul aria-busy aria-label="Loading" className={liveGrid}>
+        <ul aria-busy aria-label={t`Loading`} className={LIVE_GRID}>
           {Array.from({ length: 6 }, (_, i) => (
             <li key={i} className="flex h-16 items-center gap-3 px-2">
               <div className="size-12 rounded-sm bg-hover" />
@@ -114,17 +121,17 @@ function OnAir({ query }: { query: UseQueryResult<Station[]> }) {
         </ul>
       ) : query.isError ? (
         <ErrorBlock
-          title="Couldn't load the live stations"
+          title={t`Couldn't load the live stations`}
           error={query.error}
           onRetry={() => void query.refetch()}
           retrying={query.isRefetching}
         />
       ) : query.data.length === 0 ? (
-        <EmptyState title="No live stations">
-          Apple Music lists no live radio for your storefront right now.
+        <EmptyState title={t`No live stations`}>
+          <Trans>Apple Music lists no live radio for your storefront right now.</Trans>
         </EmptyState>
       ) : (
-        <ul className={liveGrid}>
+        <ul className={LIVE_GRID}>
           {query.data.map((s) => {
             const on = current?.id === s.id;
             return (
@@ -154,7 +161,7 @@ function OnAir({ query }: { query: UseQueryResult<Station[]> }) {
                     size="icon-sm"
                     disabled={!s.playable}
                     title={s.playable ? undefined : s.unavailable}
-                    aria-label={`Play ${s.name}`}
+                    aria-label={playLabel(s.name)}
                     onClick={() => void playStation(s.id)}
                     className="relative z-10 rounded-full text-ink-muted opacity-0 group-focus-within/live:opacity-100 group-hover/live:opacity-100 hover:text-ink focus-visible:opacity-100"
                   >
@@ -170,4 +177,4 @@ function OnAir({ query }: { query: UseQueryResult<Station[]> }) {
   );
 }
 
-const liveGrid = "grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-x-4 gap-y-1 -mx-2";
+const LIVE_GRID = "grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-x-4 gap-y-1 -mx-2";

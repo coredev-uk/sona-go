@@ -1,15 +1,12 @@
-import {
-  CatalogService,
-  LibraryService,
-  PlaylistsService,
-  type Item,
-  type Song,
-} from "@bindings/services";
+import type { Item, Song } from "@bindings/services";
+import { t } from "@lingui/core/macro";
+import { toast } from "sonner";
 
 import { playSongs } from "@/features/player";
+import { tracksOf as collectionTracks } from "@/shared/actions/songs";
+import { actionItemOf } from "@/shared/items/links";
 import { registerItemPlayer, registerSongsPlayer } from "@/shared/items/play";
 import { callFailure } from "@/shared/lib/errors";
-import { toast } from "sonner";
 
 /** Awaits `p`; a failure is a toast naming what failed, and `undefined`. */
 async function load<T>(what: string, p: Promise<T>): Promise<T | undefined> {
@@ -22,18 +19,12 @@ async function load<T>(what: string, p: Promise<T>): Promise<T | undefined> {
 }
 
 async function tracksOf(item: Item): Promise<Song[] | undefined> {
-  if (item.album) {
-    const d =
-      item.album.source === "library"
-        ? await load("Couldn't load the album", LibraryService.Album(item.album.id))
-        : await load("Couldn't load the album", CatalogService.Album(item.album.id));
-    return d?.tracks;
-  }
-  if (item.playlist) {
-    const d = await load("Couldn't load the playlist", PlaylistsService.Playlist(item.playlist.id));
-    return d?.tracks;
-  }
-  return undefined;
+  const target = actionItemOf(item);
+  if (target?.kind !== "album" && target?.kind !== "playlist") return undefined;
+  return load(
+    target.kind === "album" ? t`Couldn't load the album` : t`Couldn't load the playlist`,
+    collectionTracks(target),
+  );
 }
 
 /**
@@ -48,7 +39,7 @@ export function registerPlayers() {
   });
   const collection = async (item: Item) => {
     const tracks = await tracksOf(item);
-    if (tracks) playSongs(tracks, 0, item.name);
+    if (tracks) playSongs(tracks, 0, { kind: item.kind, id: item.id });
   };
   registerItemPlayer("album", collection);
   registerItemPlayer("playlist", collection);

@@ -1,11 +1,8 @@
+import { useLingui } from "@lingui/react/macro";
+
 import { cn } from "@/shared/lib/utils";
 
 import type { SearchScope } from "./search-params";
-
-const scopes: { value: SearchScope; label: string }[] = [
-  { value: "catalog", label: "Apple Music" },
-  { value: "library", label: "Library" },
-];
 
 /** Where the search looks: the Apple Music catalogue or the library on this computer. */
 export function ScopeSwitch({
@@ -15,10 +12,15 @@ export function ScopeSwitch({
   scope: SearchScope;
   onChange: (scope: SearchScope) => void;
 }) {
+  const { t } = useLingui();
+  const scopes: { value: SearchScope; label: string }[] = [
+    { value: "catalog", label: t`Apple Music` },
+    { value: "library", label: t`Library` },
+  ];
   return (
     <div
       role="group"
-      aria-label="Search in"
+      aria-label={t`Search in`}
       className="flex h-8 items-center rounded-md bg-hover p-0.5"
     >
       {scopes.map((s) => {

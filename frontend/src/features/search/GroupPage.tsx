@@ -1,4 +1,5 @@
 import type { Item } from "@bindings/services";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
@@ -9,10 +10,12 @@ import { PageHeader } from "@/shared/components/PageHeader";
 import { ItemGrid } from "@/shared/items/ItemGrid";
 import { TrackList } from "@/shared/tracks/TrackList";
 
-import { groupTitle } from "./groups";
+import { groupEmpty, groupLoadError, groupTitle } from "./groups";
 import { useGroupPages, useRecentActions } from "./queries";
 
 const route = getRouteApi("/search/$group");
+const CONTENT_ID = "content";
+const ROOT_MARGIN = "100% 0px";
 
 /** Loads the next page when the end of the list comes within a screen. */
 function useLoadMore(hasMore: boolean, loading: boolean, load: () => void) {
@@ -24,7 +27,7 @@ function useLoadMore(hasMore: boolean, loading: boolean, load: () => void) {
       (entries) => {
         if (entries.some((e) => e.isIntersecting) && !loading) load();
       },
-      { root: document.getElementById("content"), rootMargin: "100% 0px" },
+      { root: document.getElementById(CONTENT_ID), rootMargin: ROOT_MARGIN },
     );
     io.observe(el);
     return () => io.disconnect();
@@ -34,6 +37,7 @@ function useLoadMore(hasMore: boolean, loading: boolean, load: () => void) {
 
 /** "See all" for one result group: every page Apple has, loaded as it scrolls. */
 export function GroupPage() {
+  const { t } = useLingui();
   const { group } = route.useParams();
   const { q = "" } = route.useSearch();
   const pages = useGroupPages(q, group);
@@ -67,10 +71,16 @@ export function GroupPage() {
       title={title}
       subline={
         <>
-          Apple Music results for{" "}
-          <Link to="/search" search={{ q }} className="text-ink underline-offset-2 hover:underline">
-            “{q}”
-          </Link>
+          <Trans>
+            Apple Music results for{" "}
+            <Link
+              to="/search"
+              search={{ q }}
+              className="text-ink underline decoration-ink/40 underline-offset-2 hover:decoration-ink"
+            >
+              “{q}”
+            </Link>
+          </Trans>
         </>
       }
     />
@@ -81,7 +91,7 @@ export function GroupPage() {
       <>
         {header}
         <ErrorBlock
-          title={`Couldn't load ${title.toLowerCase()}`}
+          title={groupLoadError(group)}
           error={pages.error}
           onRetry={() => void pages.refetch()}
           retrying={pages.isRefetching}
@@ -93,8 +103,8 @@ export function GroupPage() {
     return (
       <>
         {header}
-        <EmptyState title={`No ${title.toLowerCase()} for “${q}”`}>
-          Apple Music has nothing more of this kind for the search.
+        <EmptyState title={groupEmpty(group, q)}>
+          <Trans>Apple Music has nothing more of this kind for the search.</Trans>
         </EmptyState>
       </>
     );
@@ -108,20 +118,20 @@ export function GroupPage() {
         <TrackList
           songs={[...songs, ...Array<undefined>(pending)]}
           columns={{ number: "row", artwork: true, artist: true, album: true }}
-          label={`${title} matching ${q}`}
+          label={t`${title} matching ${q}`}
           onPlay={onPlay}
         />
       ) : (
         <ItemGrid
           items={[...items, ...Array<undefined>(pending)]}
-          label={`${title} matching ${q}`}
+          label={t`${title} matching ${q}`}
           onOpen={onOpen}
         />
       )}
       {pages.error && items.length > 0 && (
         <ErrorBlock
           className="mt-6"
-          title="Couldn't load more"
+          title={t`Couldn't load more`}
           error={pages.error}
           onRetry={() => void fetchNextPage()}
         />

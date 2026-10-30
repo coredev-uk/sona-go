@@ -4,12 +4,22 @@ import {
   type PlaylistFolder,
   type TreePlaylist,
 } from "@bindings/services";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronRight, Ellipsis, FolderClosed, FolderOpen, Plus } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import {
+  ChevronRight,
+  Ellipsis,
+  FolderClosed,
+  FolderOpen,
+  ListPlus,
+  Pin as PinIcon,
+  Plus,
+} from "lucide-react";
+import { memo, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { ActionMenu } from "@/shared/actions/ActionMenu";
 import { Artwork } from "@/shared/components/Artwork";
+import { useDrag, useDragActive } from "@/shared/dnd/drag";
 import { run } from "@/shared/lib/run";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
@@ -26,13 +36,20 @@ import {
 
 import { deleteFolder, playPin, unpin } from "./commands";
 import { showDialog } from "./dialogs";
+import { addable, pinnable, useNewPlaylistDrop, usePinDrop, usePlaylistDrop } from "./drops";
 import { usePins, usePlaylistTree } from "./queries";
 import { buildTree, type TreeNode } from "./tree";
 
-const row =
+const ROW =
   "flex h-8 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2.5 text-ui text-ink-muted transition-colors duration-100 hover:bg-hover hover:text-ink";
-const active =
+const ACTIVE =
   "data-[status=active]:bg-active data-[status=active]:font-medium data-[status=active]:text-ink";
+/** A row a drag is over: inverted, so where the drop lands is unmistakable. */
+const DROP_OVER =
+  "bg-ink text-ground hover:bg-ink hover:text-ground data-[status=active]:bg-ink data-[status=active]:text-ground";
+/** A drop zone shown only while a drag it takes is in progress. */
+const DROP_ZONE =
+  "flex h-8 items-center gap-2.5 rounded-md border border-dashed border-control-line px-2.5 text-ui text-ink-muted transition-colors duration-100";
 
 function Heading({ children, action }: { children: string; action?: ReactNode }) {
   return (
@@ -73,14 +90,29 @@ function pinLink(p: Pin) {
   }
 }
 
-const pinActions = [
-  { value: "play", label: "Play" },
-  { value: "shuffle", label: "Shuffle" },
-  { value: "drillIn", label: "Open" },
-] as const;
+const PIN_ACTIONS = ["play", "shuffle", "drillIn"] as const;
 
-/** `upAfter`: the pin to place this one after to move it up ("" the top; null when first). */
-function PinRow({ pin, upAfter }: { pin: Pin; upAfter: string | null }) {
+/**
+ * `upAfter`: the pin to place this one after to move it up ("" the top; null when first).
+ * A pinned playlist the user can edit takes songs dropped on it.
+ */
+function PinRow({
+  pin,
+  upAfter,
+  editable,
+}: {
+  pin: Pin;
+  upAfter: string | null;
+  editable: boolean;
+}) {
+  const { t } = useLingui();
+  const actionLabels = { play: t`Play`, shuffle: t`Shuffle`, drillIn: t`Open` };
+  const pinName = pin.name;
+  const over = usePlaylistDrop(`pin:${pin.id}`, {
+    id: pin.id,
+    name: pin.name,
+    canEdit: editable && pin.kind === "playlist",
+  });
   const navigate = useNavigate();
   const link = pinLink(pin);
   const opens = pin.action === "drillIn" || (pin.kind === "artist" && !!link);
@@ -97,53 +129,59 @@ function PinRow({ pin, upAfter }: { pin: Pin; upAfter: string | null }) {
     />
   );
   return (
-    <li className="group/row relative flex">
+    <li className="group/row relative flex" data-drop={`pin:${pin.id}`}>
       {opens && link ? (
-        <Link {...link} className={cn(row, active, "pr-8")}>
+        <Link {...link} className={cn(ROW, ACTIVE, "pr-8", over && DROP_OVER)}>
           {art}
           <span className="truncate">{pin.name}</span>
         </Link>
       ) : (
-        <button type="button" onClick={activate} className={cn(row, "pr-8 text-left")}>
+        <button
+          type="button"
+          onClick={activate}
+          className={cn(ROW, "pr-8 text-left", over && DROP_OVER)}
+        >
           {art}
           <span className="truncate">{pin.name}</span>
-          <span className="sr-only">{pin.action === "shuffle" ? ", shuffles" : ", plays"}</span>
+          <span className="sr-only">{pin.action === "shuffle" ? t`, shuffles` : t`, plays`}</span>
         </button>
       )}
       <DropdownMenu>
-        <MoreTrigger label={`More for ${pin.name}`} />
+        <MoreTrigger label={t`More for ${pinName}`} />
         <DropdownMenuContent align="start" className="w-48">
           <DropdownMenuLabel className="text-meta font-normal text-ink-faint">
-            When chosen
+            <Trans>When chosen</Trans>
           </DropdownMenuLabel>
           <DropdownMenuRadioGroup
             value={pin.action}
             onValueChange={(v) =>
-              void run("Couldn't change the pin", PlaylistsService.SetPinAction(pin.id, v))
+              void run(t`Couldn't change the pin`, PlaylistsService.SetPinAction(pin.id, v))
             }
           >
-            {pinActions.map((a) => (
-              <DropdownMenuRadioItem key={a.value} value={a.value}>
-                {a.label}
+            {PIN_ACTIONS.map((a) => (
+              <DropdownMenuRadioItem key={a} value={a}>
+                {actionLabels[a]}
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
           {link && !opens && (
             <DropdownMenuItem onSelect={() => void navigate(link)}>
-              {pin.kind === "song" ? "Go to album" : "Open"}
+              {pin.kind === "song" ? t`Go to album` : t`Open`}
             </DropdownMenuItem>
           )}
           {upAfter !== null && (
             <DropdownMenuItem
               onSelect={() =>
-                void run("Couldn't move the pin", PlaylistsService.MovePin(pin.id, upAfter))
+                void run(t`Couldn't move the pin`, PlaylistsService.MovePin(pin.id, upAfter))
               }
             >
-              Move up
+              <Trans>Move up</Trans>
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onSelect={() => void unpin(pin.id, pin.name)}>Unpin</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void unpin(pin.id, pin.name)}>
+            <Trans>Unpin</Trans>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </li>
@@ -151,17 +189,41 @@ function PinRow({ pin, upAfter }: { pin: Pin; upAfter: string | null }) {
 }
 
 function Pins() {
+  const { t } = useLingui();
   const pins = usePins();
+  const tree = usePlaylistTree();
   const list = pins.data ?? [];
-  if (!list.length) return null;
+  const editable = useMemo(
+    () => new Set(tree.data?.playlists.filter((p) => p.playlist.canEdit).map((p) => p.playlist.id)),
+    [tree.data],
+  );
+  const over = usePinDrop(list);
+  // The section appears while library items that can be pinned are dragged, even without pins.
+  const offered = useDragActive((p) => pinnable(p, list).length > 0);
+  if (!list.length && !offered) return null;
   return (
-    <section aria-label="Pinned">
-      <Heading>Pinned</Heading>
+    // Unnamed: a heading inside the Main nav, not a landmark of its own.
+    <section data-drop="pins">
+      <Heading>{t`Pinned`}</Heading>
       <ul className="flex flex-col gap-0.5">
         {list.map((p, i) => (
           // Moving up one place puts the pin after the one two above it.
-          <PinRow key={p.id} pin={p} upAfter={i === 0 ? null : i === 1 ? "" : list[i - 2].id} />
+          <PinRow
+            key={p.id}
+            pin={p}
+            upAfter={i === 0 ? null : i === 1 ? "" : list[i - 2].id}
+            editable={editable.has(p.id)}
+          />
         ))}
+        {offered && (
+          <li
+            aria-hidden
+            className={cn(DROP_ZONE, over && "border-transparent bg-ink text-ground")}
+          >
+            <PinIcon className="size-4 shrink-0" strokeWidth={1.75} />
+            <Trans>Pin here</Trans>
+          </li>
+        )}
       </ul>
     </section>
   );
@@ -169,14 +231,16 @@ function Pins() {
 
 const OPEN_KEY = "sona.playlist-folders.open";
 
+function readOpenFolders(): ReadonlySet<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(OPEN_KEY) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
 function useOpenFolders(): FolderState {
-  const [open, setOpen] = useState<ReadonlySet<string>>(() => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem(OPEN_KEY) ?? "[]") as string[]);
-    } catch {
-      return new Set();
-    }
-  });
+  const [open, setOpen] = useState(readOpenFolders);
   const toggle = (id: string) =>
     setOpen((prev) => {
       const next = new Set(prev);
@@ -187,14 +251,22 @@ function useOpenFolders(): FolderState {
   return { open, toggle };
 }
 
-function PlaylistRow({ item, depth }: { item: TreePlaylist; depth: number }) {
+/** Memoised: opening a folder re-renders the tree, not every playlist row in it. */
+const PlaylistRow = memo(function PlaylistRow({
+  item,
+  depth,
+}: {
+  item: TreePlaylist;
+  depth: number;
+}) {
   const p = item.playlist;
+  const over = usePlaylistDrop(`playlist:${p.id}`, p);
   return (
-    <li className="group/row relative flex">
+    <li className="group/row relative flex" data-drop={`playlist:${p.id}`}>
       <Link
         to="/playlist/$id"
         params={{ id: p.id }}
-        className={cn(row, active, "pr-8")}
+        className={cn(ROW, ACTIVE, "pr-8", over && DROP_OVER)}
         style={{ paddingLeft: 10 + depth * 14 }}
       >
         <Artwork src={p.art.small} size={20} alt="" />
@@ -205,7 +277,7 @@ function PlaylistRow({ item, depth }: { item: TreePlaylist; depth: number }) {
       </span>
     </li>
   );
-}
+});
 
 interface FolderState {
   open: ReadonlySet<string>;
@@ -223,8 +295,18 @@ function FolderRow({
   depth: number;
   folders: FolderState;
 }) {
+  const { t } = useLingui();
   const open = folders.open.has(folder.id);
   const Icon = open ? FolderOpen : FolderClosed;
+  // A drag that rests on a closed folder opens it, so its playlists can take the drop.
+  const hold = useRef(0);
+  const springOpen = () => {
+    if (open || !useDrag.getState().active) return;
+    hold.current = window.setTimeout(() => {
+      if (useDrag.getState().active) folders.toggle(folder.id);
+    }, 600);
+  };
+  const folderName = folder.name;
   return (
     <li>
       <div className="group/row relative flex">
@@ -232,7 +314,9 @@ function FolderRow({
           type="button"
           aria-expanded={open}
           onClick={() => folders.toggle(folder.id)}
-          className={cn(row, "pr-8 text-left")}
+          onPointerEnter={springOpen}
+          onPointerLeave={() => clearTimeout(hold.current)}
+          className={cn(ROW, "pr-8 text-left")}
           style={{ paddingLeft: 10 + depth * 14 }}
         >
           <span className="grid size-5 shrink-0 place-items-center">
@@ -249,23 +333,23 @@ function FolderRow({
           />
         </button>
         <DropdownMenu>
-          <MoreTrigger label={`More for the folder ${folder.name}`} />
+          <MoreTrigger label={t`More for the folder ${folderName}`} />
           <DropdownMenuContent align="start" className="w-48">
             <DropdownMenuItem
               onSelect={() =>
                 showDialog({ kind: "create", items: [], label: "", folderId: folder.id })
               }
             >
-              New playlist here
+              <Trans>New playlist here</Trans>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => showDialog({ kind: "folder", folder })}>
-              Rename…
+              <Trans>Rename…</Trans>
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={children.length > 0}
               onSelect={() => void deleteFolder(folder.id, folder.name)}
             >
-              {children.length > 0 ? "Delete (move its playlists out first)" : "Delete…"}
+              {children.length > 0 ? t`Delete (move its playlists out first)` : t`Delete…`}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -275,7 +359,7 @@ function FolderRow({
           <Tree nodes={children} depth={depth + 1} folders={folders} />
         ) : (
           <p className="py-1.5 text-meta text-ink-faint" style={{ paddingLeft: 36 + depth * 14 }}>
-            Empty folder
+            <Trans>Empty folder</Trans>
           </p>
         ))}
     </li>
@@ -306,12 +390,30 @@ function Tree({
   );
 }
 
+/** While songs, albums or playlists are dragged: a row that makes a new playlist of them. */
+function NewPlaylistDrop() {
+  const offered = useDragActive(addable);
+  const over = useNewPlaylistDrop();
+  if (!offered) return null;
+  return (
+    <div
+      aria-hidden
+      data-drop="playlist:new"
+      className={cn(DROP_ZONE, "mb-0.5", over && "border-transparent bg-ink text-ground")}
+    >
+      <ListPlus className="size-4 shrink-0" strokeWidth={1.75} />
+      <Trans>New playlist</Trans>
+    </div>
+  );
+}
+
 function Playlists() {
+  const { t } = useLingui();
   const tree = usePlaylistTree();
   const nodes = useMemo(() => (tree.data ? buildTree(tree.data) : []), [tree.data]);
   const folders = useOpenFolders();
   return (
-    <section aria-label="Playlists">
+    <section>
       <Heading
         action={
           <DropdownMenu>
@@ -319,7 +421,7 @@ function Playlists() {
               <Button
                 variant="ghost"
                 size="icon-xs"
-                aria-label="New playlist or folder"
+                aria-label={t`New playlist or folder`}
                 className="-mr-1.5 text-ink-muted hover:text-ink"
               >
                 <Plus />
@@ -329,22 +431,25 @@ function Playlists() {
               <DropdownMenuItem
                 onSelect={() => showDialog({ kind: "create", items: [], label: "", folderId: "" })}
               >
-                New playlist…
+                <Trans>New playlist…</Trans>
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => showDialog({ kind: "folder" })}>
-                New folder…
+                <Trans>New folder…</Trans>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         }
       >
-        Playlists
+        {t`Playlists`}
       </Heading>
+      <NewPlaylistDrop />
       {nodes.length ? (
         <Tree nodes={nodes} depth={0} folders={folders} />
       ) : (
         !tree.isPending && (
-          <p className="px-2.5 text-meta text-ink-faint">Your playlists appear here.</p>
+          <p className="px-2.5 text-meta text-ink-faint">
+            <Trans>Your playlists appear here.</Trans>
+          </p>
         )
       )}
     </section>

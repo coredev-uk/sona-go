@@ -1,3 +1,5 @@
+import { useLingui } from "@lingui/react/macro";
+
 import { cn } from "@/shared/lib/utils";
 
 /**
@@ -6,10 +8,11 @@ import { cn } from "@/shared/lib/utils";
  * appears.
  */
 export function Equaliser({ playing, className }: { playing: boolean; className?: string }) {
+  const { t } = useLingui();
   return (
     <span
       role="img"
-      aria-label={playing ? "Now playing" : "Paused"}
+      aria-label={playing ? t`Now playing` : t`Paused`}
       className={cn("inline-flex h-3 items-end gap-[2px]", playing && "eq-live", className)}
     >
       <span className="eq-bar h-[60%]" />

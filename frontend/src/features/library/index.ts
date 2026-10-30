@@ -1,9 +1,11 @@
+import { t } from "@lingui/core/macro";
 import { LibraryService } from "@bindings/services";
 import { createRoute } from "@tanstack/react-router";
 import {
   Clapperboard,
   Clock3,
   Disc3,
+  History,
   ListMusic,
   MicVocal,
   Music,
@@ -16,6 +18,7 @@ import type { FeatureModule } from "@/shared/module";
 import { childRoute } from "@/shared/router";
 
 import { libraryActions } from "./actions";
+import { HistoryPage } from "./HistoryPage";
 import { syncDoneInvalidations, syncInvalidations } from "./invalidations";
 import {
   LibraryAlbumsPage,
@@ -62,6 +65,10 @@ const favoritesRoute = createRoute({
   ...childRoute("/library/favourites"),
   component: FavoriteSongsPage,
 });
+const historyRoute = createRoute({
+  ...childRoute("/library/history"),
+  component: HistoryPage,
+});
 const playlistsRoute = createRoute({
   ...childRoute("/library/playlists"),
   validateSearch: listSearch(playlistSorts),
@@ -76,12 +83,13 @@ const routes = [
   videosRoute,
   madeForYouRoute,
   favoritesRoute,
+  historyRoute,
   playlistsRoute,
 ] as const;
 
 /**
  * The library: Recently Added, Artists, Albums, Songs, Music Videos, Made
- * for You, Favourite Songs and Playlists; the sync mirror and indicator;
+ * for You, Favourite Songs, History and Playlists; the sync mirror and indicator;
  * and the item actions every list and header uses (add to and remove
  * from the library, Favourite, Suggest Less, Copy link).
  */
@@ -91,38 +99,51 @@ export const libraryModule: FeatureModule<(typeof routes)[number]> = {
   nav: [
     {
       section: "library",
-      label: "Recently added",
+      label: () => t`Recently added`,
       icon: Clock3,
       to: "/library/recently-added",
       order: 5,
     },
-    { section: "library", label: "Artists", icon: MicVocal, to: "/library/artists", order: 10 },
-    { section: "library", label: "Albums", icon: Disc3, to: "/library/albums", order: 20 },
-    { section: "library", label: "Songs", icon: Music, to: "/library/songs", order: 30 },
     {
       section: "library",
-      label: "Music videos",
+      label: () => t`Artists`,
+      icon: MicVocal,
+      to: "/library/artists",
+      order: 10,
+    },
+    { section: "library", label: () => t`Albums`, icon: Disc3, to: "/library/albums", order: 20 },
+    { section: "library", label: () => t`Songs`, icon: Music, to: "/library/songs", order: 30 },
+    {
+      section: "library",
+      label: () => t`Music videos`,
       icon: Clapperboard,
       to: "/library/music-videos",
       order: 40,
     },
     {
       section: "library",
-      label: "Made for you",
+      label: () => t`Made for you`,
       icon: UserRound,
       to: "/library/made-for-you",
       order: 50,
     },
     {
       section: "library",
-      label: "Favourite songs",
+      label: () => t`Favourite songs`,
       icon: Star,
       to: "/library/favourites",
       order: 60,
     },
     {
       section: "library",
-      label: "Playlists",
+      label: () => t`History`,
+      icon: History,
+      to: "/library/history",
+      order: 65,
+    },
+    {
+      section: "library",
+      label: () => t`Playlists`,
       icon: ListMusic,
       to: "/library/playlists",
       order: 70,

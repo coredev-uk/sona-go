@@ -1,4 +1,6 @@
 import { PlaylistsService, Source, type PlaylistDetail, type Song } from "@bindings/services";
+import { t } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { Check, Pencil, Plus } from "lucide-react";
@@ -23,18 +25,19 @@ import { Button } from "@/shared/ui/button";
 
 import { showDialog } from "./dialogs";
 import { serial } from "./edit";
-import { moveTrack, removeTrack } from "./track-edits";
+import { moveTrack, removeTracks } from "./track-edits";
 import { PlaylistEditor } from "./PlaylistEditor";
 import { playlistKeys, useSuggestions, usePlaylist } from "./queries";
 
 const route = getRouteApi("/playlist/$id");
+const LINK = "hover:underline underline-offset-2";
 
 /** Who made the playlist: a link to the curator's or profile's page when Sona has one. */
 function Byline({ d }: { d: PlaylistDetail }) {
   const { curator } = d;
   const name = curator.name || d.playlist.curatorName;
   if (!name) return null;
-  const link = "hover:underline underline-offset-2";
+  const link = LINK;
   if (curator.id && (curator.kind === "apple-curator" || curator.kind === "curator")) {
     return (
       <Link to="/curator/$id" params={{ id: curator.id }} className={link}>
@@ -55,27 +58,39 @@ function Byline({ d }: { d: PlaylistDetail }) {
 function metaLine(d: PlaylistDetail): string {
   const kind =
     d.kind === "personal-mix"
-      ? "Made for you"
+      ? t`Made for you`
       : d.isChart
-        ? "Chart"
+        ? t`Chart`
         : d.favorited
-          ? "Your favourites"
-          : "Playlist";
-  const updated = d.playlist.lastModified ? `Updated ${relativeTime(d.playlist.lastModified)}` : "";
+          ? t`Your favourites`
+          : t`Playlist`;
+  const when = d.playlist.lastModified ? relativeTime(d.playlist.lastModified) : "";
+  const updated = when ? t`Updated ${when}` : "";
   return [catalogueLine(kind, "", d.tracks.length, d.durationMs), updated]
     .filter(Boolean)
     .join(" · ");
 }
 
 export function PlaylistPage() {
+  const { t } = useLingui();
   const { id } = route.useParams();
   const q = usePlaylist(id);
   const [editingTracks, setEditing] = useState(false);
+  // Edit and Done replace each other: after a toggle focus moves to the
+  // button that replaced the pressed one instead of falling to the page.
+  const [toggled, setToggled] = useState(false);
+  const toggleEditing = (on: boolean) => {
+    setToggled(true);
+    setEditing(on);
+  };
   const qc = useQueryClient();
   // Row menus on an editable playlist offer "Remove from this playlist".
   const container = useMemo(() => ({ kind: "playlist", id, editable: true }), [id]);
   const tracks = q.data?.tracks;
-  const onPlay = useCallback((i: number) => tracks && playSongs(tracks, i, id), [tracks, id]);
+  const onPlay = useCallback(
+    (i: number) => tracks && playSongs(tracks, i, { kind: "playlist", id }),
+    [tracks, id],
+  );
   const editable = !!q.data && q.data.kind === "library" && q.data.playlist.canEdit;
   const suggestions = useSuggestions(id, editable && !editingTracks);
 
@@ -87,7 +102,7 @@ export function PlaylistPage() {
         error={q.error}
         retry={() => void q.refetch()}
         retrying={q.isRefetching}
-        back={{ label: "Go to Playlists", to: "/library/playlists" }}
+        back={{ label: t`Go to Playlists`, to: "/library/playlists" }}
       />
     );
   }
@@ -96,9 +111,11 @@ export function PlaylistPage() {
   const { playlist } = d;
   const list = d.tracks;
   const inEdit = editable && editingTracks;
+  const curatorName = d.curator.name;
+  const playlistName = playlist.name;
 
   const move = (from: number, to: number) => moveTrack(qc, id, from, to, list[from]);
-  const remove = (i: number) => removeTrack(qc, id, i, list[i]);
+  const remove = (i: number) => removeTracks(qc, id, [i], [list[i]]);
 
   return (
     <>
@@ -112,9 +129,9 @@ export function PlaylistPage() {
         actions={
           inEdit ? (
             <>
-              <Button size="sm" onClick={() => setEditing(false)}>
+              <Button size="sm" autoFocus={toggled} onClick={() => toggleEditing(false)}>
                 <Check strokeWidth={1.75} />
-                Done
+                <Trans>Done</Trans>
               </Button>
               <Button
                 variant="outline"
@@ -129,7 +146,7 @@ export function PlaylistPage() {
                   })
                 }
               >
-                Name and description
+                <Trans>Name and description</Trans>
               </Button>
             </>
           ) : (
@@ -137,17 +154,22 @@ export function PlaylistPage() {
               <PlayButtons
                 label={playlist.name}
                 disabled={!list.some((t) => t.playable)}
-                onPlay={() => playSongs(list, 0, id)}
-                onShuffle={() => void shuffleSongs(list, id)}
+                onPlay={() => playSongs(list, 0, { kind: "playlist", id })}
+                onShuffle={() => void shuffleSongs(list, { kind: "playlist", id })}
               />
               {playlist.source === Source.SourceCatalog && (
                 <LibraryButton kind="playlists" item={playlist} name={playlist.name} />
               )}
               <RatingButtons kind="playlists" item={playlist} name={playlist.name} />
               {editable && (
-                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  autoFocus={toggled}
+                  onClick={() => toggleEditing(true)}
+                >
                   <Pencil strokeWidth={1.75} />
-                  Edit
+                  <Trans>Edit</Trans>
                 </Button>
               )}
               <ActionMenu kind="playlist" target={playlist} name={playlist.name} variant="header" />
@@ -159,23 +181,23 @@ export function PlaylistPage() {
         list.length ? (
           <PlaylistEditor tracks={list} name={playlist.name} onMove={move} onRemove={remove} />
         ) : (
-          <EmptyState title="Nothing left to arrange">
-            Add songs with “Add to playlist” in any song, album or playlist menu.
+          <EmptyState title={t`Nothing left to arrange`}>
+            <Trans>Add songs with “Add to playlist” in any song, album or playlist menu.</Trans>
           </EmptyState>
         )
       ) : list.length ? (
         <TrackList
           songs={list}
           columns={{ number: "row", artwork: true, artist: true, album: true }}
-          label={`Songs in ${playlist.name}`}
+          label={t`Songs in ${playlistName}`}
           onPlay={onPlay}
           container={editable ? container : undefined}
         />
       ) : (
-        <EmptyState title="This playlist is empty">
+        <EmptyState title={t`This playlist is empty`}>
           {editable
-            ? "Add songs with “Add to playlist” in any song, album or playlist menu, or pick from the suggestions below."
-            : "Songs added to it in Apple Music on any device appear here after the next sync."}
+            ? t`Add songs with “Add to playlist” in any song, album or playlist menu, or pick from the suggestions below.`
+            : t`Songs added to it in Apple Music on any device appear here after the next sync.`}
         </EmptyState>
       )}
       {editable && !inEdit && (
@@ -188,9 +210,9 @@ export function PlaylistPage() {
         />
       )}
       {d.featuredArtists.length > 0 && (
-        <Shelf title="Featured artists" className="mt-12">
+        <Shelf title={t`Featured artists`} className="mt-12">
           <CoverRow
-            label="Featured artists"
+            label={t`Featured artists`}
             items={d.featuredArtists.map((a) => ({
               key: a.id,
               title: a.name,
@@ -203,11 +225,11 @@ export function PlaylistPage() {
       )}
       {d.moreByCurator.length > 0 && (
         <Shelf
-          title={d.curator.name ? `More from ${d.curator.name}` : "More like this"}
+          title={curatorName ? t`More from ${curatorName}` : t`More like this`}
           className="mt-12"
         >
           <CoverRow
-            label="More playlists from this curator"
+            label={t`More playlists from this curator`}
             items={d.moreByCurator.map((p) => ({
               key: p.id,
               title: p.name,
@@ -239,6 +261,7 @@ function Suggestions({
   playlistId: string;
   playlistName: string;
 }) {
+  const { t } = useLingui();
   const qc = useQueryClient();
   const [added, setAdded] = useState<ReadonlySet<string>>(new Set());
   if (failed || (!loading && !songs?.length)) return null;
@@ -254,14 +277,15 @@ function Suggestions({
           next.delete(s.id);
           return next;
         });
-        toast.error(`Couldn't add “${s.name}” to “${playlistName}”`, {
+        const songName = s.name;
+        toast.error(t`Couldn't add “${songName}” to “${playlistName}”`, {
           description: callFailure(err).message,
         });
       },
     );
   };
   return (
-    <Shelf title="Suggested songs" className="mt-12">
+    <Shelf title={t`Suggested songs`} className="mt-12">
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-x-6">
         {(songs ?? Array.from({ length: 6 }, () => undefined)).map((s, i) =>
           s ? (
@@ -271,7 +295,7 @@ function Suggestions({
             >
               <button
                 type="button"
-                aria-label={`Play ${s.name}`}
+                aria-label={t`Play ${{ songName: s.name }}`}
                 onClick={() => playSongs([s], 0, playlistId)}
                 className="shrink-0 rounded-sm"
               >
@@ -287,18 +311,18 @@ function Suggestions({
               {added.has(s.id) ? (
                 <span className="flex h-8 items-center gap-1 px-2 text-sub text-ink-muted">
                   <Check aria-hidden className="size-4" strokeWidth={1.75} />
-                  Added
+                  <Trans>Added</Trans>
                 </span>
               ) : (
                 <Button
                   variant="ghost"
                   size="sm"
-                  aria-label={`Add ${s.name} to ${playlistName}`}
+                  aria-label={t`Add ${{ songName: s.name }} to ${playlistName}`}
                   onClick={() => add(s)}
                   className="text-ink-muted hover:text-ink"
                 >
                   <Plus strokeWidth={1.75} />
-                  Add
+                  <Trans>Add</Trans>
                 </Button>
               )}
             </li>

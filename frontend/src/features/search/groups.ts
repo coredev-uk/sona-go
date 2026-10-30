@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+
 import type { Item } from "@bindings/services";
 
 /**
@@ -5,29 +7,102 @@ import type { Item } from "@bindings/services";
  * Sona titles and lays them out. Apple's own group names are not shown.
  */
 
-const titles: Record<string, string> = {
-  top: "Top results",
-  artist: "Artists",
-  album: "Albums",
-  song: "Songs",
-  playlist: "Playlists",
-  radio_show: "Radio shows",
-  radio_episode: "Radio episodes",
-  station: "Stations",
-  music_video: "Music videos",
-  category: "Categories",
-  curator: "Curators",
-  record_label: "Labels",
-  profile: "Profiles",
-  shared_playlist: "Playlists by listeners",
+const titles: Record<string, () => string> = {
+  top: () => t`Top results`,
+  artist: () => t`Artists`,
+  album: () => t`Albums`,
+  song: () => t`Songs`,
+  playlist: () => t`Playlists`,
+  radio_show: () => t`Radio shows`,
+  radio_episode: () => t`Radio episodes`,
+  station: () => t`Stations`,
+  music_video: () => t`Music videos`,
+  category: () => t`Categories`,
+  curator: () => t`Curators`,
+  record_label: () => t`Labels`,
+  profile: () => t`Profiles`,
+  shared_playlist: () => t`Playlists by listeners`,
 };
 
 /** The section title for a group; unknown groups get their key in sentence case. */
 export function groupTitle(group: string): string {
-  const t = titles[group];
-  if (t) return t;
+  const title = titles[group];
+  if (title) return title();
   const words = group.replace(/[_-]+/g, " ").trim();
-  return words ? words[0].toUpperCase() + words.slice(1) + "s" : "Results";
+  if (!words) return t`Results`;
+  return words[0].toUpperCase() + words.slice(1) + "s";
+}
+
+/** The error title of a group's "see all" page. */
+export function groupLoadError(group: string): string {
+  switch (group) {
+    case "top":
+      return t`Couldn't load top results`;
+    case "artist":
+      return t`Couldn't load artists`;
+    case "album":
+      return t`Couldn't load albums`;
+    case "song":
+      return t`Couldn't load songs`;
+    case "playlist":
+      return t`Couldn't load playlists`;
+    case "radio_show":
+      return t`Couldn't load radio shows`;
+    case "radio_episode":
+      return t`Couldn't load radio episodes`;
+    case "station":
+      return t`Couldn't load stations`;
+    case "music_video":
+      return t`Couldn't load music videos`;
+    case "category":
+      return t`Couldn't load categories`;
+    case "curator":
+      return t`Couldn't load curators`;
+    case "record_label":
+      return t`Couldn't load labels`;
+    case "profile":
+      return t`Couldn't load profiles`;
+    case "shared_playlist":
+      return t`Couldn't load playlists by listeners`;
+    default:
+      return t`Couldn't load these results`;
+  }
+}
+
+/** The empty-state title of a group's "see all" page. */
+export function groupEmpty(group: string, q: string): string {
+  switch (group) {
+    case "top":
+      return t`No top results for “${q}”`;
+    case "artist":
+      return t`No artists for “${q}”`;
+    case "album":
+      return t`No albums for “${q}”`;
+    case "song":
+      return t`No songs for “${q}”`;
+    case "playlist":
+      return t`No playlists for “${q}”`;
+    case "radio_show":
+      return t`No radio shows for “${q}”`;
+    case "radio_episode":
+      return t`No radio episodes for “${q}”`;
+    case "station":
+      return t`No stations for “${q}”`;
+    case "music_video":
+      return t`No music videos for “${q}”`;
+    case "category":
+      return t`No categories for “${q}”`;
+    case "curator":
+      return t`No curators for “${q}”`;
+    case "record_label":
+      return t`No labels for “${q}”`;
+    case "profile":
+      return t`No profiles for “${q}”`;
+    case "shared_playlist":
+      return t`No playlists by listeners for “${q}”`;
+    default:
+      return t`Nothing for “${q}”`;
+  }
 }
 
 /** Groups with a "see all" page (Top results is a fixed set). */
@@ -39,28 +114,28 @@ export function hasSeeAll(group: string, next: number, shown: number, total: num
 export function kindLabel(kind: string, station?: { kind: string }): string {
   switch (kind) {
     case "song":
-      return "Song";
+      return t`Song`;
     case "album":
-      return "Album";
+      return t`Album`;
     case "artist":
-      return "Artist";
+      return t`Artist`;
     case "playlist":
-      return "Playlist";
+      return t`Playlist`;
     case "station":
-      if (station?.kind === "episode") return "Radio episode";
-      return station?.kind === "live" || station?.kind === "broadcast" ? "Live radio" : "Station";
+      if (station?.kind === "episode") return t`Radio episode`;
+      return station?.kind === "live" || station?.kind === "broadcast" ? t`Live radio` : t`Station`;
     case "music-video":
-      return "Music video";
+      return t`Music video`;
     case "curator":
-      return "Curator";
+      return t`Curator`;
     case "profile":
-      return "Profile";
+      return t`Profile`;
     case "room":
     case "multiroom":
     case "grouping":
-      return "Collection";
+      return t`Collection`;
     case "charts":
-      return "Charts";
+      return t`Charts`;
     default:
       return "";
   }

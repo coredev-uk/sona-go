@@ -1,14 +1,19 @@
+import { t } from "@lingui/core/macro";
 import { createRoute } from "@tanstack/react-router";
-import { Search } from "lucide-react";
+import { Search, TextCursorInput } from "lucide-react";
 
 import type { FeatureModule } from "@/shared/module";
 import { childRoute } from "@/shared/router";
 
+import { focusSearchField } from "./field";
 import { GroupPage } from "./GroupPage";
 import { ProfilePage } from "./ProfilePage";
 import { SearchField } from "./SearchField";
 import { SearchPage } from "./SearchPage";
 import { groupSearch, searchSearch } from "./search-params";
+
+export { itemMeta } from "./groups";
+export { libraryCards, useLibrarySearch } from "./queries";
 
 const searchRoute = createRoute({
   ...childRoute("/search"),
@@ -36,6 +41,18 @@ const routes = [searchRoute, groupRoute, profileRoute] as const;
 export const searchModule: FeatureModule<(typeof routes)[number]> = {
   id: "search",
   routes,
-  nav: [{ section: "primary", label: "Search", icon: Search, to: "/search", order: 20 }],
+  nav: [{ section: "primary", label: () => t`Search`, icon: Search, to: "/search", order: 20 }],
   shellSlots: { TopBarSearch: SearchField },
+  shortcuts: [
+    {
+      id: "search.focus",
+      label: () => t`Focus the search field`,
+      group: "navigation",
+      keys: ["/", "Ctrl+F"],
+      scope: "global",
+      keywords: () => t`find focus`,
+      icon: TextCursorInput,
+      run: focusSearchField,
+    },
+  ],
 };

@@ -1,10 +1,10 @@
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
-import type { AnyRoute, UseNavigateResult } from "@tanstack/react-router";
+import type { AnyRoute, RouterHistory, UseNavigateResult } from "@tanstack/react-router";
 import type { Events } from "@wailsio/runtime";
 import type { LucideIcon } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 
-import type { AnyActionDef } from "./actions/registry";
+import type { ItemActionDef } from "./actions/registry";
 
 /**
  * A page route: a constant made with `createRoute({ ...childRoute(path), … })`
@@ -17,7 +17,8 @@ export type NavSection = "primary" | "library" | "footer";
 
 export interface NavItem<TPath extends string = string> {
   section: NavSection;
-  label: string;
+  /** Translated where shown (docs/frontend-architecture.md, "Strings and locales"): () => t`Albums`. */
+  label: () => string;
   icon: LucideIcon;
   /** One of the module's own route paths. */
   to: TPath;
@@ -25,6 +26,11 @@ export interface NavItem<TPath extends string = string> {
   order: number;
   /** Active only on this exact path (Listen Now at "/"). */
   exact?: boolean;
+  /**
+   * Default chords of its "go to" shortcut. Without them, primary links get
+   * Ctrl+1…9 and library links Alt+1…9 by position.
+   */
+  keys?: readonly string[];
 }
 
 /** Go events with typed payloads (bindings/…/eventdata.d.ts). */
@@ -45,24 +51,58 @@ export type GoEventHandler<E extends GoEventName> = (
 ) => void;
 export type GoEventHandlers = { [E in GoEventName]?: GoEventHandler<E> };
 
+/** How shortcuts are listed in help, the palette and Settings, in this order. */
+export const shortcutGroups = ["playback", "view", "pages", "navigation", "general"] as const;
+export type ShortcutGroup = (typeof shortcutGroups)[number];
+
+/**
+ * Where a shortcut's keys work. "page" (the default): anywhere except in a
+ * text field. "global": in text fields too, for chords with Ctrl, Alt or
+ * Meta. Any other name is a context (a panel, "now-playing") that should
+ * also say `when` it is active; keys in different contexts may repeat.
+ */
+export type ShortcutScope = "page" | "global" | (string & {});
+
+/** What a shortcut gets when it runs (from a key or the command palette). */
 export interface ShortcutContext {
-  /** The focused element the key went to, if any. */
-  target: HTMLElement | null;
-  /** Focus is in a text field (input, textarea, select, contenteditable). */
-  typing: boolean;
+  navigate: UseNavigateResult<string>;
+  history: RouterHistory;
 }
 
 /**
- * A window-wide key. The shell skips keys already handled, with Alt or
- * Meta, or inside an open menu, dialog or listbox; the first shortcut that
- * matches gets the key, and its default is prevented.
+ * A command with a stable id and default keys, declared in a module's
+ * `shortcuts`. The user can rebind it (Settings → Shortcuts, stored by id),
+ * the `?` sheet lists it and the Ctrl+K palette runs it. Adding one is one
+ * entry:
+ *
+ *   { id: "miniplayer.toggle", label: () => t`Show or hide the mini player`,
+ *     group: "view", keys: ["Ctrl+Shift+M"], run: () => toggleMini() }
+ *
+ * The shell's one keydown listener skips keys already handled and keys
+ * inside an open menu, dialog or listbox; plain keys (no Ctrl, Alt or
+ * Meta) never fire in text fields, and Space, Enter and arrows not on a
+ * control that uses them. The first shortcut bound to the chord whose
+ * scope allows it and whose `when` holds gets the key (default prevented).
  */
 export interface Shortcut {
+  /** Stable id, "<module>.<action>": settings store bindings under it. */
   id: string;
-  /** What it does, for docs and help: "Play or pause". */
-  label: string;
-  matches: (e: KeyboardEvent, ctx: ShortcutContext) => boolean;
-  run: (e: KeyboardEvent) => void;
+  /** What it does, in sentence case, translated where shown: () => t`Play or pause`. */
+  label: () => string;
+  group: ShortcutGroup;
+  /** Default chords ("Space", "Ctrl+K", "Shift+ArrowRight"); [] for none. */
+  keys: readonly string[];
+  scope?: ShortcutScope;
+  /** Extra words the palette matches, translated: () => t`resume stop`. */
+  keywords?: () => string;
+  icon?: LucideIcon;
+  /** Available now; when false the key goes on to the next match and the palette hides it. */
+  when?: () => boolean;
+  /** Runs again while the key is held (volume, seeking). */
+  repeat?: boolean;
+  /** Left out of the command palette (Escape-style keys). */
+  palette?: false;
+  run: (ctx: ShortcutContext) => void;
 }
 
 /** Places in the shell a module can render into. */
@@ -100,6 +140,6 @@ export interface FeatureModule<TRoute extends RouteDef = RouteDef> {
   eventHandlers?: GoEventHandlers;
   /** Runs once when the shell connects to Go, after handlers are bound: initial snapshots. */
   init?: (ctx: EventContext) => void;
-  actions?: readonly AnyActionDef[];
+  actions?: readonly ItemActionDef[];
   shellSlots?: ShellSlots;
 }

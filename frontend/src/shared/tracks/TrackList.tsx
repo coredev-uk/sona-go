@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Link } from "@tanstack/react-router";
 import { ArrowDown, ArrowUp, Clock3, Play } from "lucide-react";
 import {
@@ -17,9 +18,11 @@ import { formatTime } from "@/shared/lib/format";
 import { useContentVirtualizer } from "@/shared/lib/useContentVirtualizer";
 import { cn } from "@/shared/lib/utils";
 import { ActionMenu } from "@/shared/actions/ActionMenu";
-import type { ActionContainer } from "@/shared/actions/registry";
+import type { ActionContainer, ActionItem } from "@/shared/actions/registry";
 import { isCurrent, useNowPlaying } from "@/shared/lib/now-playing";
 import { useContentPolicy, useWithheld } from "@/shared/lib/content-policy";
+import { SelectionContext, useRowRun } from "@/shared/selection/store";
+import { useItemList } from "@/shared/selection/useItemList";
 
 import { Equaliser } from "./Equaliser";
 
@@ -115,6 +118,10 @@ function HeaderCell({
 interface RowProps {
   song: Song | undefined;
   index: number;
+  /** The row's selection key, and its neighbours' (a run of selected rows draws as one block). */
+  rowKey: string | undefined;
+  prevKey: string | undefined;
+  nextKey: string | undefined;
   columns: TrackColumns;
   template: string;
   current: boolean;
@@ -127,9 +134,27 @@ interface RowProps {
   container?: Omit<ActionContainer, "index">;
 }
 
+/**
+ * A selected row: an ink tint a clear step above the hover fill, kept under
+ * hover and focus. Amber stays for "playing" only (docs/design.md).
+ */
+const selectedClassName = "bg-ink/12 hover:bg-ink/12 focus-visible:bg-ink/12";
+
+/** A selected run is one block: only its outer corners are rounded. */
+const runShape = {
+  none: "",
+  single: selectedClassName,
+  first: `rounded-b-none ${selectedClassName}`,
+  middle: `rounded-none ${selectedClassName}`,
+  last: `rounded-t-none ${selectedClassName}`,
+} as const;
+
 const TrackRow = memo(function TrackRow({
   song,
   index,
+  rowKey,
+  prevKey,
+  nextKey,
   columns,
   template,
   current,
@@ -141,8 +166,10 @@ const TrackRow = memo(function TrackRow({
   onFocusRow,
   container,
 }: RowProps) {
+  const { t } = useLingui();
   // Restricted accounts see explicit songs greyed out and cannot play them.
   const withheld = useWithheld(song?.explicit);
+  const run = useRowRun(prevKey, rowKey, nextKey);
   if (!song) {
     return (
       <div
@@ -166,20 +193,23 @@ const TrackRow = memo(function TrackRow({
   }
   const number = columns.number === "track" ? song.trackNumber || index + 1 : index + 1;
   const disabled = !song.playable || withheld;
+  const name = song.name;
   return (
     <div
       role="row"
       aria-rowindex={index + 2}
-      aria-selected={current || undefined}
+      aria-selected={run !== "none"}
+      aria-current={current || undefined}
       aria-disabled={disabled || undefined}
       data-row={index}
       tabIndex={focused ? 0 : -1}
-      title={withheld ? "Explicit content is restricted on this account" : undefined}
+      title={withheld ? t`Explicit content is restricted on this account` : undefined}
       onFocus={(e) => e.target === e.currentTarget && onFocusRow(index)}
       onDoubleClick={() => !disabled && onPlay(index)}
       className={cn(
         "group/row grid h-11 cursor-default items-center gap-4 rounded-md px-2 transition-colors duration-100 select-none hover:bg-hover focus-visible:bg-hover focus-visible:outline-offset-[-2px]",
         highlighted && "bg-active",
+        runShape[run],
         disabled && "text-ink-faint",
       )}
       style={{ gridTemplateColumns: template }}
@@ -196,7 +226,7 @@ const TrackRow = memo(function TrackRow({
           <button
             type="button"
             tabIndex={-1}
-            aria-label={`Play ${song.name}`}
+            aria-label={t`Play ${name}`}
             onClick={() => onPlay(index)}
             className="invisible absolute inset-y-0 right-0 grid w-6 place-items-center text-ink group-focus-within/row:visible group-hover/row:visible"
           >
@@ -217,7 +247,11 @@ const TrackRow = memo(function TrackRow({
               {song.name}
             </span>
             {song.explicit && <ExplicitMark />}
-            {popular && <span className="shrink-0 text-meta text-ink-faint">Popular</span>}
+            {popular && (
+              <span className="shrink-0 text-meta text-ink-faint">
+                <Trans>Popular</Trans>
+              </span>
+            )}
           </span>
           {/* Without an artist column the artist sits under the title. */}
           {!columns.artist && columns.number === "row" && (
@@ -248,6 +282,7 @@ const TrackRow = memo(function TrackRow({
           target={song}
           name={song.name}
           container={container && { ...container, index }}
+          selectionKey={rowKey}
         />
       </span>
     </div>
@@ -279,6 +314,9 @@ function EntityLink({
 /**
  * A track table: fixed 44px rows, no dividers, the playing track marked in
  * place. Double-click or Enter plays from that row with the list as the
+ * queue. Click, Ctrl+click and Shift+click (or Shift+arrows, Ctrl+A) select
+ * rows; right-click or Shift+F10 opens the row's menu, which acts on the
+ * whole selection when the row is in it; rows drag onto playlists and the
  * queue. Lists over 200 rows are virtualised against `main#content`.
  */
 export function TrackList({
@@ -293,6 +331,7 @@ export function TrackList({
   popular,
   container,
 }: TrackListProps) {
+  const { t } = useLingui();
   const { current, playing } = useNowPlaying();
   const restricted = useContentPolicy((s) => s.restricted);
   const template = gridTemplate(columns);
@@ -302,14 +341,34 @@ export function TrackList({
     : -1;
   const [focusState, setFocus] = useState<number | null>(null);
   const focus = focusState ?? Math.max(0, highlightIndex);
+  const gridRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  // Rows are selected by song ID, so a selection survives re-sorting; a
+  // playlist's second copy of a song is told apart by its occurrence.
+  const seen = new Map<string, number>();
+  const keys = songs.map((s) => {
+    if (!s) return undefined;
+    const n = (seen.get(s.id) ?? 0) + 1;
+    seen.set(s.id, n);
+    return n === 1 ? s.id : `${s.id}#${n}`;
+  });
+  const list = useItemList({
+    root: gridRef,
+    keys,
+    itemAt: (i): ActionItem | undefined => {
+      const s = songs[i];
+      return s && { kind: "song", target: s };
+    },
+    plainClick: "select",
+    container,
+  });
   const virtual = songs.length > VIRTUAL_FROM;
-  const { virtualizer: v, margin } = useContentVirtualizer(
-    bodyRef,
-    virtual ? songs.length : 0,
-    ROW,
-    12,
-  );
+  const {
+    virtualizer: v,
+    items,
+    totalSize,
+    margin,
+  } = useContentVirtualizer(bodyRef, virtual ? songs.length : 0, ROW, 12);
   const virtualizer = virtual ? v : undefined;
 
   const multiDisc =
@@ -322,51 +381,55 @@ export function TrackList({
     setFocus(i);
     virtualizer?.scrollToIndex(i, { align: "auto" });
     // A virtual row may need a few frames to render after the scroll.
-    let tries = 0;
-    const focusRow = () => {
+    const focusRow = (tries: number) => {
       const el = bodyRef.current?.querySelector<HTMLElement>(`[data-row="${i}"]`);
       if (el) el.focus({ preventScroll: !!virtualizer });
-      else if (tries++ < 10) requestAnimationFrame(focusRow);
+      else if (tries < 10) requestAnimationFrame(() => focusRow(tries + 1));
     };
-    requestAnimationFrame(focusRow);
+    requestAnimationFrame(() => focusRow(0));
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.target instanceof HTMLElement && e.target.closest("button, a, input")) {
       if (e.target.getAttribute("role") !== "row") return;
     }
+    if (list.selectionKey(e, focus)) return;
     const page = Math.max(1, Math.floor(window.innerHeight / ROW) - 2);
+    let to: number;
     switch (e.key) {
       case "ArrowDown":
-        moveFocus(focus + 1);
+        to = focus + 1;
         break;
       case "ArrowUp":
-        moveFocus(focus - 1);
+        to = focus - 1;
         break;
       case "PageDown":
-        moveFocus(focus + page);
+        to = focus + page;
         break;
       case "PageUp":
-        moveFocus(focus - page);
+        to = focus - page;
         break;
       case "Home":
-        moveFocus(0);
+        to = 0;
         break;
       case "End":
-        moveFocus(songs.length - 1);
+        to = songs.length - 1;
         break;
       case "Enter": {
         const s = songs[focus];
         if (s?.playable && !(restricted && s.explicit)) onPlay(focus);
-        break;
+        e.preventDefault();
+        return;
       }
       default:
         return;
     }
     e.preventDefault();
+    to = Math.max(0, Math.min(songs.length - 1, to));
+    moveFocus(to);
+    list.arrowTo(e, to);
   };
 
-  const items = virtualizer?.getVirtualItems() ?? [];
   const first = items[0]?.index ?? 0;
   const last = items[items.length - 1]?.index ?? -1;
 
@@ -391,6 +454,9 @@ export function TrackList({
     <TrackRow
       song={song}
       index={i}
+      rowKey={keys[i]}
+      prevKey={keys[i - 1]}
+      nextKey={keys[i + 1]}
       columns={columns}
       template={template}
       current={!!song && isCurrent(song, current)}
@@ -405,50 +471,82 @@ export function TrackList({
   );
 
   return (
-    <div role="grid" aria-label={label} aria-rowcount={songs.length + 1} onKeyDown={onKeyDown}>
+    <SelectionContext value={list.scope}>
       <div
-        role="row"
-        aria-rowindex={1}
-        className="grid h-8 items-center gap-4 border-b border-line px-2 text-meta text-ink-faint"
-        style={{ gridTemplateColumns: template }}
+        ref={gridRef}
+        role="grid"
+        aria-label={label}
+        aria-rowcount={songs.length + 1}
+        aria-multiselectable
+        onKeyDown={onKeyDown}
+        {...list.rootProps}
       >
-        <span role="columnheader" className="text-right">
-          #
-        </span>
-        <HeaderCell label="Title" sortKey={sort && "title"} sort={sort} />
-        {columns.artist && <HeaderCell label="Artist" sortKey={sort && "artist"} sort={sort} />}
-        {columns.album && <HeaderCell label="Album" sortKey={sort && "album"} sort={sort} />}
-        <span role="columnheader" className="flex justify-end">
-          <Clock3 aria-label="Duration" className="size-3.5" strokeWidth={1.75} />
-        </span>
-        <span role="columnheader" aria-label="Actions" />
-      </div>
-      <div ref={bodyRef} className="pt-1">
-        {virtualizer ? (
-          <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
-            {items.map((it) => (
-              <div
-                key={it.key}
-                className="absolute inset-x-0 top-0"
-                style={{ transform: `translateY(${it.start - margin}px)` }}
-              >
-                {row(songs[it.index], it.index)}
-              </div>
-            ))}
-          </div>
-        ) : (
-          songs.map((song, i) => (
-            <div key={song?.id ?? `loading-${i}`}>
-              {multiDisc && song && (i === 0 || songs[i - 1]?.discNumber !== song.discNumber) && (
-                <h3 className="px-2 pt-5 pb-2 text-sub font-semibold text-ink-muted first:pt-2">
-                  Disc {song.discNumber}
-                </h3>
-              )}
-              {row(song, i)}
+        <div
+          role="row"
+          aria-rowindex={1}
+          className="grid h-8 items-center gap-4 border-b border-line px-2 text-meta text-ink-faint"
+          style={{ gridTemplateColumns: template }}
+        >
+          <span role="columnheader" className="text-right">
+            #
+          </span>
+          <HeaderCell label={t`Title`} sortKey={sort && "title"} sort={sort} />
+          {columns.artist && (
+            <HeaderCell label={t`Artist`} sortKey={sort && "artist"} sort={sort} />
+          )}
+          {columns.album && <HeaderCell label={t`Album`} sortKey={sort && "album"} sort={sort} />}
+          <span role="columnheader" className="flex justify-end">
+            <Clock3 aria-label={t`Duration`} className="size-3.5" strokeWidth={1.75} />
+          </span>
+          <span role="columnheader">
+            <span className="sr-only">{t`Actions`}</span>
+          </span>
+        </div>
+        <div ref={bodyRef} className="pt-1">
+          {virtualizer ? (
+            <div className="relative" style={{ height: totalSize }}>
+              {items.map((it) => (
+                <div
+                  key={it.key}
+                  className="absolute inset-x-0 top-0"
+                  style={{ transform: `translateY(${it.start - margin}px)` }}
+                >
+                  {row(songs[it.index], it.index)}
+                </div>
+              ))}
             </div>
-          ))
-        )}
+          ) : (
+            songs.map((song, i) => {
+              const disc = song?.discNumber;
+              return (
+                <div key={song?.id ?? `loading-${i}`}>
+                  {multiDisc &&
+                    song &&
+                    (i === 0 || songs[i - 1]?.discNumber !== song.discNumber) && (
+                      <div role="row">
+                        <div
+                          role="gridcell"
+                          aria-colspan={4 + Number(!!columns.artist) + Number(!!columns.album)}
+                        >
+                          <h3
+                            className={cn(
+                              "px-2 pb-2 text-sub font-semibold text-ink-muted",
+                              i === 0 ? "pt-2" : "pt-5",
+                            )}
+                          >
+                            <Trans>Disc {disc}</Trans>
+                          </h3>
+                        </div>
+                      </div>
+                    )}
+                  {row(song, i)}
+                </div>
+              );
+            })
+          )}
+        </div>
+        {list.menu}
       </div>
-    </div>
+    </SelectionContext>
   );
 }

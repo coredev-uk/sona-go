@@ -1,13 +1,14 @@
 import type { Traits } from "@bindings/services";
+import { t } from "@lingui/core/macro";
 
 /** Apple's audio labels, most specific first. Labels only: Sona streams AAC. */
-export function traitLabels(t: Traits | undefined): string[] {
-  if (!t) return [];
+export function traitLabels(traits: Traits | undefined): string[] {
+  if (!traits) return [];
   const out: string[] = [];
-  if (t.atmos) out.push("Dolby Atmos");
-  else if (t.spatial) out.push("Spatial Audio");
-  if (t.hiResLossless) out.push("Hi-Res Lossless");
-  else if (t.lossless) out.push("Lossless");
-  if (t.appleDigitalMaster) out.push("Apple Digital Master");
+  if (traits.atmos) out.push(t`Dolby Atmos`);
+  else if (traits.spatial) out.push(t`Spatial Audio`);
+  if (traits.hiResLossless) out.push(t`Hi-Res Lossless`);
+  else if (traits.lossless) out.push(t`Lossless`);
+  if (traits.appleDigitalMaster) out.push(t`Apple Digital Master`);
   return out;
 }

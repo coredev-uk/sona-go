@@ -1,4 +1,5 @@
 import type { Item, LibrarySearch, SearchSection } from "@bindings/services";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 
@@ -44,6 +45,7 @@ function CatalogSection({
   section: SearchSection;
   onOpen: (item: Item) => void;
 }) {
+  const { t } = useLingui();
   const { group, items, next } = section;
   const title = groupTitle(group);
   const songs = useMemo(
@@ -63,7 +65,7 @@ function CatalogSection({
     return (
       <Shelf title={title}>
         <ul
-          aria-label={`${title} for ${q}`}
+          aria-label={t`${title} for ${q}`}
           className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-6 gap-y-1"
         >
           {items.slice(0, TOP_ROWS).map((item) => (
@@ -85,7 +87,7 @@ function CatalogSection({
         <TrackList
           songs={songs}
           columns={{ number: "row", artwork: true, artist: true, album: true }}
-          label={`Songs matching ${q}`}
+          label={t`Songs matching ${q}`}
           onPlay={onPlay}
         />
       </Shelf>
@@ -102,8 +104,9 @@ function CatalogSection({
 }
 
 function LoadingRows() {
+  const { t } = useLingui();
   return (
-    <div aria-busy aria-label="Searching" className="flex flex-col gap-3">
+    <div aria-busy aria-label={t`Searching`} className="flex flex-col gap-3">
       {Array.from({ length: 6 }, (_, i) => (
         <div key={i} className="flex h-11 items-center gap-3 px-2">
           <div className="size-8 rounded-sm bg-hover" />
@@ -115,6 +118,7 @@ function LoadingRows() {
 }
 
 function CatalogResults({ q }: { q: string }) {
+  const { t } = useLingui();
   const auth = useAuth();
   const res = useCatalogSearch(q);
   const { rememberTerm, rememberItem } = useRecentActions();
@@ -133,17 +137,19 @@ function CatalogResults({ q }: { q: string }) {
     if (!hasAccount(auth.data?.state) && (code === "not_found" || code === "unauthorized")) {
       return (
         <EmptyState
-          title="Sign in to search Apple Music"
-          action={{ label: "Sign in", to: "/settings", search: { section: "account" } }}
+          title={t`Sign in to search Apple Music`}
+          action={{ label: t`Sign in`, to: "/settings", search: { section: "account" } }}
         >
-          Searching the catalogue needs your account's storefront. Your library on this computer can
-          be searched either way.
+          <Trans>
+            Searching the catalogue needs your account's storefront. Your library on this computer
+            can be searched either way.
+          </Trans>
         </EmptyState>
       );
     }
     return (
       <ErrorBlock
-        title="Couldn't search Apple Music"
+        title={t`Couldn't search Apple Music`}
         error={res.error}
         onRetry={() => void res.refetch()}
         retrying={res.isRefetching}
@@ -152,8 +158,8 @@ function CatalogResults({ q }: { q: string }) {
   }
   if (!res.data.sections.length) {
     return (
-      <EmptyState title={`Nothing on Apple Music for “${q}”`}>
-        Check the spelling, try fewer words, or search your library instead.
+      <EmptyState title={t`Nothing on Apple Music for “${q}”`}>
+        <Trans>Check the spelling, try fewer words, or search your library instead.</Trans>
       </EmptyState>
     );
   }
@@ -167,6 +173,7 @@ function CatalogResults({ q }: { q: string }) {
 }
 
 function LibraryResults({ q }: { q: string }) {
+  const { t } = useLingui();
   const res = useLibrarySearch(q, LIBRARY_PER_KIND);
   const [allSongs, setAllSongs] = useState(false);
   const { rememberTerm, rememberItem } = useRecentActions();
@@ -190,7 +197,7 @@ function LibraryResults({ q }: { q: string }) {
   if (res.error) {
     return (
       <ErrorBlock
-        title="Couldn't search your library"
+        title={t`Couldn't search your library`}
         error={res.error}
         onRetry={() => void res.refetch()}
       />
@@ -200,17 +207,20 @@ function LibraryResults({ q }: { q: string }) {
   const r: LibrarySearch = res.data;
   if (!r.songs.length && !r.albums.length && !r.artists.length && !r.playlists.length) {
     return (
-      <EmptyState title={`Nothing in your library for “${q}”`}>
-        Only what is synced to this computer is searched. Try Apple Music for everything else.
+      <EmptyState title={t`Nothing in your library for “${q}”`}>
+        <Trans>
+          Only what is synced to this computer is searched. Try Apple Music for everything else.
+        </Trans>
       </EmptyState>
     );
   }
   const cards = libraryCards(r);
+  const songCount = r.songs.length;
   return (
     <>
       {r.songs.length > 0 && (
         <Shelf
-          title="Songs"
+          title={t`Songs`}
           actions={
             r.songs.length > SONG_ROWS && (
               <button
@@ -219,7 +229,7 @@ function LibraryResults({ q }: { q: string }) {
                 onClick={() => setAllSongs((o) => !o)}
                 className="-mr-1 inline-flex h-7 items-center rounded-md px-1.5 text-sub text-ink-muted transition-colors duration-100 hover:bg-hover hover:text-ink"
               >
-                {allSongs ? "Show fewer" : `Show all ${r.songs.length}`}
+                {allSongs ? t`Show fewer` : t`Show all ${songCount}`}
               </button>
             )
           }
@@ -227,28 +237,31 @@ function LibraryResults({ q }: { q: string }) {
           <TrackList
             songs={allSongs ? r.songs : r.songs.slice(0, SONG_ROWS)}
             columns={{ number: "row", artwork: true, artist: true, album: true }}
-            label={`Library songs matching ${q}`}
+            label={t`Library songs matching ${q}`}
             onPlay={onPlay}
           />
         </Shelf>
       )}
-      {r.artists.length > 0 && <ItemShelf title="Artists" items={cards.artists} onOpen={onOpen} />}
-      {r.albums.length > 0 && <ItemShelf title="Albums" items={cards.albums} onOpen={onOpen} />}
+      {r.artists.length > 0 && (
+        <ItemShelf title={t`Artists`} items={cards.artists} onOpen={onOpen} />
+      )}
+      {r.albums.length > 0 && <ItemShelf title={t`Albums`} items={cards.albums} onOpen={onOpen} />}
       {r.playlists.length > 0 && (
-        <ItemShelf title="Playlists" items={cards.playlists} onOpen={onOpen} />
+        <ItemShelf title={t`Playlists`} items={cards.playlists} onOpen={onOpen} />
       )}
     </>
   );
 }
 
 function Browse() {
+  const { t } = useLingui();
   const res = useBrowse(true);
   const { rememberItem } = useRecentActions();
   if (res.error) {
     return (
-      <Shelf title="Browse categories">
+      <Shelf title={t`Browse categories`}>
         <ErrorBlock
-          title="Couldn't load the categories"
+          title={t`Couldn't load the categories`}
           error={res.error}
           onRetry={() => void res.refetch()}
           retrying={res.isRefetching}
@@ -258,7 +271,7 @@ function Browse() {
   }
   const items = res.data ?? [];
   return (
-    <Shelf title="Browse categories">
+    <Shelf title={t`Browse categories`}>
       {res.isPending ? (
         <div aria-busy className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-6">
           {Array.from({ length: 12 }, (_, i) => (
@@ -266,13 +279,14 @@ function Browse() {
           ))}
         </div>
       ) : (
-        <ItemGrid items={items} label="Browse categories" onOpen={rememberItem} />
+        <ItemGrid items={items} label={t`Browse categories`} onOpen={rememberItem} />
       )}
     </Shelf>
   );
 }
 
 export function SearchPage() {
+  const { t } = useLingui();
   const { q, scope = "catalog" } = route.useSearch();
   const navigate = route.useNavigate();
   const setScope = (s: SearchScope) =>
@@ -283,16 +297,18 @@ export function SearchPage() {
   return (
     <>
       <PageHeader
-        title={q ? `“${q}”` : "Search"}
+        title={q ? `“${q}”` : t`Search`}
         actions={<ScopeSwitch scope={scope} onChange={setScope} />}
       />
       {!q ? (
         <>
           <RecentSearches scope={scope} />
           {scope === "library" ? (
-            <EmptyState title="Search your library">
-              Songs, albums, artists and playlists synced to this computer, matched as you type each
-              word.
+            <EmptyState title={t`Search your library`}>
+              <Trans>
+                Songs, albums, artists and playlists synced to this computer, matched as you type
+                each word.
+              </Trans>
             </EmptyState>
           ) : signedIn || auth.data ? (
             <Browse />

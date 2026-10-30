@@ -6,7 +6,7 @@ import {
   type Playlist,
   type Song,
 } from "@bindings/services";
-import { useQueries, useQuery, type QueryKey } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery, type QueryKey } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
 import { keys, type LibraryKind } from "@/shared/lib/keys";
@@ -35,22 +35,21 @@ function usePagedList<T>(
   const first = useQuery({ queryKey: pageKey(0), queryFn: () => fetchPage(0) });
   const total = first.data?.total ?? 0;
   const lastPage = Math.max(0, Math.ceil(total / PAGE) - 1);
+  const from = Math.max(1, range[0] - 1);
   const pages: number[] = [];
-  for (let p = Math.max(1, range[0] - 1); p <= Math.min(lastPage, range[1] + 1); p++) pages.push(p);
+  for (let p = from; p <= Math.min(lastPage, range[1] + 1); p++) pages.push(p);
+  // The combined data keeps its identity until a page's data changes.
   const rest = useQueries({
     queries: pages.map((p) => ({ queryKey: pageKey(p), queryFn: () => fetchPage(p) })),
+    combine: (results) => results.map((r) => r.data),
   });
 
-  // Pages change identity only when their data does; the stamp tracks that.
-  const stamp = rest.map((r) => `${r.dataUpdatedAt}`).join() + pages.join();
   const rows = useMemo(() => {
     const out: (T | undefined)[] = new Array(total);
     first.data?.items.forEach((it, i) => (out[i] = it));
-    rest.forEach((r, j) => r.data?.items.forEach((it, i) => (out[pages[j] * PAGE + i] = it)));
+    rest.forEach((page, j) => page?.items.forEach((it, i) => (out[(from + j) * PAGE + i] = it)));
     return out;
-    // `rest` and `pages` are new arrays every render; `stamp` covers them.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [total, first.data, stamp]);
+  }, [total, first.data, rest, from]);
 
   const onRange = useCallback((start: number, end: number) => {
     const next: [number, number] = [Math.floor(start / PAGE), Math.floor(end / PAGE)];
@@ -109,6 +108,20 @@ export function useFavoriteSongs() {
   return usePagedList<Song>(keys.libraryFavorites, (offset, limit) =>
     LibraryService.FavoriteSongs(offset, limit),
   );
+}
+
+/**
+ * The listening history of the last `days` days (this computer, plus
+ * Apple's recently played when reachable). Refetched when the playing song
+ * changes (under keys.libraryRecent); earlier days keep showing while more
+ * load.
+ */
+export function useHistory(days: number) {
+  return useQuery({
+    queryKey: keys.libraryHistory(days),
+    queryFn: () => LibraryService.History(days),
+    placeholderData: keepPreviousData,
+  });
 }
 
 /** The account's personal mixes (Apple; needs the network). */

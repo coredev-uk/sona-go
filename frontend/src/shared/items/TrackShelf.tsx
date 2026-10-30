@@ -1,12 +1,14 @@
 import type { Item, Song } from "@bindings/services";
+import { useLingui } from "@lingui/react/macro";
 import { Link } from "@tanstack/react-router";
 import { Play } from "lucide-react";
 import { useRef } from "react";
 
 import { Artwork } from "@/shared/components/Artwork";
 import { Shelf } from "@/shared/components/Shelf";
-import { useCoverColumns } from "@/shared/components/CoverGrid";
+import { useWithheld } from "@/shared/lib/content-policy";
 import { isCurrent, useNowPlaying } from "@/shared/lib/now-playing";
+import { useCoverColumns } from "@/shared/lib/useCoverColumns";
 import { cn } from "@/shared/lib/utils";
 import { ActionMenu } from "@/shared/actions/ActionMenu";
 import { Equaliser } from "@/shared/tracks/Equaliser";
@@ -72,12 +74,16 @@ function TrackRow({
   playing: boolean;
   onPlay: () => void;
 }) {
-  const disabled = !song.playable;
+  const { t } = useLingui();
+  const withheld = useWithheld(song.explicit);
+  const disabled = !song.playable || withheld;
+  const name = song.name;
   return (
     <div
       role="listitem"
       tabIndex={0}
       aria-disabled={disabled || undefined}
+      title={withheld ? t`Explicit content is restricted on this account` : undefined}
       onDoubleClick={() => !disabled && onPlay()}
       onKeyDown={(e) => {
         if (e.key === "Enter" && e.target === e.currentTarget && !disabled) onPlay();
@@ -98,7 +104,7 @@ function TrackRow({
             <button
               type="button"
               tabIndex={-1}
-              aria-label={`Play ${song.name}`}
+              aria-label={t`Play ${name}`}
               onClick={onPlay}
               className="absolute inset-0 grid place-items-center rounded-sm bg-ground/70 text-ink opacity-0 transition-opacity duration-100 group-hover/row:opacity-100"
             >

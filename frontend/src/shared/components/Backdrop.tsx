@@ -7,8 +7,6 @@ interface BackdropProps {
   src?: string;
   /** The cover's dominant colour, shown at once while the image decodes. */
   color?: string;
-  /** Scrim strength over the image, as a percentage of the surface colour. */
-  scrim?: number;
   /** The token the scrim is mixed from: the bar sits on --surface, headers on --ground. */
   tone?: "surface" | "ground";
   className?: string;
@@ -16,12 +14,13 @@ interface BackdropProps {
 
 /**
  * A wash of the cover's colour behind a surface. The browser's bilinear
- * upscaling of the tiny image provides the softness; a solid scrim keeps
- * text contrast. Hidden entirely in reduce-effects mode (`[data-backdrop]`).
+ * upscaling of the tiny image provides the softness; a solid scrim at the
+ * theme's `--backdrop-scrim` keeps every text token at 4.5:1 whatever the
+ * cover. Hidden entirely in reduce-effects mode (`[data-backdrop]`).
  * A new source is decoded before it fades in, so a track change never
  * flashes an empty frame.
  */
-export function Backdrop({ src, color, scrim = 78, tone = "surface", className }: BackdropProps) {
+export function Backdrop({ src, color, tone = "surface", className }: BackdropProps) {
   const [shown, setShown] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -57,7 +56,9 @@ export function Backdrop({ src, color, scrim = 78, tone = "surface", className }
       )}
       <div
         className="absolute inset-0"
-        style={{ background: `color-mix(in oklab, var(--${tone}) ${scrim}%, transparent)` }}
+        style={{
+          background: `color-mix(in oklab, var(--${tone}) var(--backdrop-scrim), transparent)`,
+        }}
       />
     </div>
   );

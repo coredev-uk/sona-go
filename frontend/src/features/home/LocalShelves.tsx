@@ -1,5 +1,7 @@
 import { LibraryService } from "@bindings/services";
 import { useQuery } from "@tanstack/react-query";
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback } from "react";
 
 import { playSongs } from "@/features/player";
@@ -7,12 +9,12 @@ import { CoverRow } from "@/shared/components/CoverRow";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { Shelf } from "@/shared/components/Shelf";
-import { plural } from "@/shared/lib/format";
 import { keys } from "@/shared/lib/keys";
 import { TrackList } from "@/shared/tracks/TrackList";
 
 /** Apple's recently played songs, or this computer's play history when Apple can't be reached. */
 function RecentlyPlayed() {
+  const { t } = useLingui();
   const recent = useQuery({
     queryKey: keys.libraryRecent,
     queryFn: () => LibraryService.RecentlyPlayed(10, 0),
@@ -20,10 +22,15 @@ function RecentlyPlayed() {
   });
   const history = useQuery({
     queryKey: [...keys.libraryRecent, "local"],
-    queryFn: () => LibraryService.History(10),
+    queryFn: () => LibraryService.History(30),
     enabled: recent.isError,
   });
-  const songs = recent.data ?? history.data?.map((h) => h.song);
+  const songs =
+    recent.data ??
+    history.data?.days
+      .flatMap((d) => d.entries)
+      .slice(0, 10)
+      .map((h) => h.song);
   const onPlay = useCallback(
     (i: number) => songs && playSongs(songs, i, "recently-played"),
     [songs],
@@ -31,7 +38,7 @@ function RecentlyPlayed() {
 
   if (recent.isPending || (recent.isError && history.isPending)) {
     return (
-      <Shelf title="Recently played">
+      <Shelf title={t`Recently played`}>
         <div aria-busy className="flex flex-col">
           {Array.from({ length: 5 }, (_, i) => (
             <div key={i} className="flex h-11 items-center gap-3 px-2">
@@ -45,9 +52,9 @@ function RecentlyPlayed() {
   }
   if (!songs) {
     return (
-      <Shelf title="Recently played">
+      <Shelf title={t`Recently played`}>
         <ErrorBlock
-          title="Couldn't load what you played recently"
+          title={t`Couldn't load what you played recently`}
           error={recent.error}
           onRetry={() => void recent.refetch()}
           retrying={recent.isRefetching}
@@ -57,19 +64,19 @@ function RecentlyPlayed() {
   }
   if (!songs.length) {
     return (
-      <Shelf title="Recently played">
-        <EmptyState title="Nothing played yet">
-          Songs you play in Sona or Apple Music on any device appear here.
+      <Shelf title={t`Recently played`}>
+        <EmptyState title={t`Nothing played yet`}>
+          <Trans>Songs you play in Sona or Apple Music on any device appear here.</Trans>
         </EmptyState>
       </Shelf>
     );
   }
   return (
-    <Shelf title={recent.isError ? "Played on this computer" : "Recently played"}>
+    <Shelf title={recent.isError ? t`Played on this computer` : t`Recently played`}>
       <TrackList
         songs={songs}
         columns={{ number: "row", artwork: true, artist: true, album: true }}
-        label="Recently played songs"
+        label={t`Recently played songs`}
         onPlay={onPlay}
       />
     </Shelf>
@@ -77,15 +84,16 @@ function RecentlyPlayed() {
 }
 
 function RecentlyAdded() {
+  const { t } = useLingui();
   const q = useQuery({
     queryKey: keys.libraryPage("albums", "dateAdded", true, -1),
     queryFn: () => LibraryService.Albums("dateAdded", true, 0, 12),
   });
   if (q.error) {
     return (
-      <Shelf title="Recently added">
+      <Shelf title={t`Recently added`}>
         <ErrorBlock
-          title="Couldn't read your albums"
+          title={t`Couldn't read your albums`}
           error={q.error}
           onRetry={() => void q.refetch()}
         />
@@ -95,9 +103,9 @@ function RecentlyAdded() {
   const items = q.data?.items;
   if (items && !items.length) return null;
   return (
-    <Shelf title="Recently added" more={{ to: "/library/albums" }}>
+    <Shelf title={t`Recently added`} more={{ to: "/library/albums" }}>
       <CoverRow
-        label="Albums recently added to your library"
+        label={t`Albums recently added to your library`}
         items={
           items?.map((a) => ({
             key: a.id,
@@ -113,6 +121,7 @@ function RecentlyAdded() {
 }
 
 function RecentPlaylists() {
+  const { t } = useLingui();
   const q = useQuery({
     queryKey: keys.libraryPage("playlists", "lastModified", true, -1),
     queryFn: () => LibraryService.Playlists("lastModified", true, 0, 12),
@@ -120,14 +129,16 @@ function RecentPlaylists() {
   const items = q.data?.items;
   if (q.error || (items && !items.length)) return null;
   return (
-    <Shelf title="Your playlists" more={{ to: "/library/playlists" }}>
+    <Shelf title={t`Your playlists`} more={{ to: "/library/playlists" }}>
       <CoverRow
-        label="Recently updated playlists"
+        label={t`Recently updated playlists`}
         items={
           items?.map((p) => ({
             key: p.id,
             title: p.name,
-            subtitle: p.trackCount ? plural(p.trackCount, "song") : p.curatorName,
+            subtitle: p.trackCount
+              ? plural(p.trackCount, { one: "# song", other: "# songs" })
+              : p.curatorName,
             art: p.art.medium,
             link: { to: "/playlist/$id", params: { id: p.id } },
           })) ?? []

@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import type { Settings } from "@bindings/config";
 import { SystemService } from "@bindings/services";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -37,7 +38,7 @@ export function useUpdateSettings() {
         qc.setQueryData(keys.settings, ctx.prev);
         loadAppearance(ctx.prev);
       }
-      toast.error("Couldn't save the setting", { description: callFailure(err).message });
+      toast.error(t`Couldn't save the setting`, { description: callFailure(err).message });
     },
     onSuccess: (saved) => qc.setQueryData(keys.settings, saved),
   });

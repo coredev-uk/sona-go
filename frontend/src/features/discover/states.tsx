@@ -1,9 +1,11 @@
+import { useLingui } from "@lingui/react/macro";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 
 /** Flat placeholder bars at the real sizes of a page of shelves. */
 export function ShelvesSkeleton({ hero = false }: { hero?: boolean }) {
+  const { t } = useLingui();
   return (
-    <div aria-busy aria-label="Loading" className="flex flex-col gap-10">
+    <div aria-busy aria-label={t`Loading`} className="flex flex-col gap-10">
       {hero && <div className="aspect-[4.8/1] w-full rounded-sm bg-hover" />}
       {Array.from({ length: 3 }, (_, s) => (
         <div key={s}>
@@ -23,24 +25,17 @@ export function ShelvesSkeleton({ hero = false }: { hero?: boolean }) {
   );
 }
 
-/** The page-level failure: what failed, Go's reason, Retry. */
+/** The page-level failure: what failed (a full sentence), Go's reason, Retry. */
 export function PageError({
-  what,
+  title,
   error,
   onRetry,
   retrying,
 }: {
-  what: string;
+  title: string;
   error: unknown;
   onRetry: () => void;
   retrying: boolean;
 }) {
-  return (
-    <ErrorBlock
-      title={`Couldn't load ${what}`}
-      error={error}
-      onRetry={onRetry}
-      retrying={retrying}
-    />
-  );
+  return <ErrorBlock title={title} error={error} onRetry={onRetry} retrying={retrying} />;
 }

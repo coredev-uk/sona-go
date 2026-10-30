@@ -1,20 +1,22 @@
 import { PlaylistsService, Source, type TreePlaylist } from "@bindings/services";
+import { t } from "@lingui/core/macro";
 import { FolderInput, ListMinus, ListPlus, Pencil, Pin, Trash2 } from "lucide-react";
 
-import type {
-  ActionDef,
-  ActionTargetKind,
-  ActionTargets,
-  AnyActionDef,
-  MenuData,
+import {
+  describeItems,
+  type ActionDef,
+  type ActionTargetKind,
+  type ActionTargets,
+  type ItemActionDef,
+  type MenuData,
 } from "@/shared/actions/registry";
 
-import { addToPlaylist, deletePlaylist, pin, unpin } from "./commands";
+import { addToPlaylist, deletePlaylist, pin, playlistItems, unpin } from "./commands";
 import { showDialog } from "./dialogs";
-import { boundQueryClient, removeTrack } from "./track-edits";
+import { boundQueryClient, removeTracks } from "./track-edits";
 
 /** The library ID an item can be pinned by ("" when it is not in the library). */
-function libraryIdOf(t: { id: string; source: Source; libraryId: string }): string {
+export function libraryIdOf(t: { id: string; source: Source; libraryId: string }): string {
   return t.libraryId || (t.source === Source.SourceLibrary ? t.id : "");
 }
 
@@ -44,7 +46,7 @@ function addTo<K extends "song" | "album" | "playlist">(target: K): ActionDef<K>
   return {
     id: `playlists.add-to.${target}`,
     target,
-    label: "Add to playlist…",
+    label: () => t`Add to playlist…`,
     icon: ListPlus,
     group: "item",
     order: 40,
@@ -63,7 +65,7 @@ function pinAction<K extends Pinnable>(target: K): ActionDef<K> {
   return {
     id: `playlists.pin.${target}`,
     target,
-    label: (item, ctx) => (isPinned(item, ctx.data(pinned)) ? "Unpin" : "Pin to sidebar"),
+    label: (item, ctx) => (isPinned(item, ctx.data(pinned)) ? t`Unpin` : t`Pin to sidebar`),
     icon: Pin,
     group: "item",
     order: 60,
@@ -81,25 +83,52 @@ const isLibraryPlaylist = (p: ActionTargets["playlist"]) => p.source === Source.
 
 /**
  * Item actions: add songs, albums and playlists to a playlist; pin library
- * items to the sidebar; edit, move and delete library playlists.
+ * items to the sidebar; edit, move and delete library playlists. A
+ * selection can be added to a playlist, or removed from the playlist it is
+ * listed in, at once.
  */
-export const playlistActions: readonly AnyActionDef[] = [
+export const playlistActions: readonly ItemActionDef[] = [
   addTo("song"),
   {
     id: "playlists.remove-from",
     target: "song",
-    label: "Remove from playlist",
+    label: () => t`Remove from playlist`,
     icon: ListMinus,
     group: "item",
     order: 45,
     isAvailable: (_, ctx) => ctx.container?.kind === "playlist" && ctx.container.editable,
     run: (song, ctx) => {
       const qc = boundQueryClient();
-      if (qc && ctx.container) removeTrack(qc, ctx.container.id, ctx.container.index, song);
+      if (qc && ctx.container) removeTracks(qc, ctx.container.id, [ctx.container.index], [song]);
     },
   },
   addTo("album"),
   addTo("playlist"),
+  {
+    id: "playlists.add-to.many",
+    target: "selection",
+    kinds: ["song", "album", "playlist"],
+    label: () => t`Add to playlist…`,
+    icon: ListPlus,
+    group: "item",
+    order: 40,
+    run: (items) => addToPlaylist(playlistItems(items), describeItems(items)),
+  },
+  {
+    id: "playlists.remove-from.many",
+    target: "selection",
+    kinds: ["song"],
+    label: () => t`Remove from playlist`,
+    icon: ListMinus,
+    group: "item",
+    order: 45,
+    isAvailable: (_, ctx) => ctx.container?.kind === "playlist" && ctx.container.editable,
+    run: (items, ctx) => {
+      const qc = boundQueryClient();
+      const songs = items.flatMap((i) => (i.kind === "song" ? [i.target] : []));
+      if (qc && ctx.container) removeTracks(qc, ctx.container.id, ctx.container.indices, songs);
+    },
+  },
   pinAction("song"),
   pinAction("album"),
   pinAction("artist"),
@@ -107,7 +136,7 @@ export const playlistActions: readonly AnyActionDef[] = [
   {
     id: "playlists.edit",
     target: "playlist",
-    label: "Edit details…",
+    label: () => t`Edit details…`,
     icon: Pencil,
     group: "item",
     order: 70,
@@ -135,7 +164,7 @@ export const playlistActions: readonly AnyActionDef[] = [
   {
     id: "playlists.move",
     target: "playlist",
-    label: "Move to folder…",
+    label: () => t`Move to folder…`,
     icon: FolderInput,
     group: "item",
     order: 75,
@@ -152,7 +181,7 @@ export const playlistActions: readonly AnyActionDef[] = [
   {
     id: "playlists.delete",
     target: "playlist",
-    label: "Delete from library…",
+    label: () => t`Delete from library…`,
     icon: Trash2,
     group: "item",
     order: 90,

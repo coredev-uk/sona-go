@@ -1,9 +1,10 @@
 import type { Item } from "@bindings/services";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Play } from "lucide-react";
 import { useRef, useState } from "react";
 
-import { GAP_X, useCoverColumns } from "@/shared/components/CoverGrid";
+import { GAP_X, useCoverColumns } from "@/shared/lib/useCoverColumns";
 import { artAt } from "@/shared/lib/art";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
@@ -29,6 +30,7 @@ interface WideRowProps {
  * As many as fit; arrows page through the rest.
  */
 export function WideRow({ title, items, min, ratio, onOpen }: WideRowProps) {
+  const { t } = useLingui();
   const ref = useRef<HTMLDivElement>(null);
   const { cols, size } = useCoverColumns(ref, min);
   const [page, setPage] = useState(0);
@@ -36,7 +38,8 @@ export function WideRow({ title, items, min, ratio, onOpen }: WideRowProps) {
   const at = Math.min(page, pages - 1);
   const shown = items.slice(at * cols, at * cols + cols);
   // Apple leaves heroes untitled; a paged one still gets a heading.
-  const label = title || "Featured";
+  const label = title || t`Featured`;
+  const current = at + 1;
 
   return (
     <section aria-label={label} className="mt-10 first:mt-0">
@@ -46,12 +49,14 @@ export function WideRow({ title, items, min, ratio, onOpen }: WideRowProps) {
           {pages > 1 && (
             <div className="flex shrink-0 items-center gap-1">
               <span className="mr-1 text-meta text-ink-faint num" aria-live="polite">
-                {at + 1} of {pages}
+                <Trans>
+                  {current} of {pages}
+                </Trans>
               </span>
               <Button
                 variant="ghost"
                 size="icon-xs"
-                aria-label={`Previous in ${label}`}
+                aria-label={t`Previous in ${label}`}
                 disabled={at === 0}
                 onClick={() => setPage(at - 1)}
               >
@@ -60,7 +65,7 @@ export function WideRow({ title, items, min, ratio, onOpen }: WideRowProps) {
               <Button
                 variant="ghost"
                 size="icon-xs"
-                aria-label={`Next in ${label}`}
+                aria-label={t`Next in ${label}`}
                 disabled={at >= pages - 1}
                 onClick={() => setPage(at + 1)}
               >
@@ -98,13 +103,15 @@ function WideCard({
   ratio: number;
   onOpen?: (item: Item) => void;
 }) {
+  const { t } = useLingui();
   const link = itemLink(item);
   const wide = item.wide.large || item.wide.medium;
   const square = item.art.large || item.art.medium;
   const height = Math.round(width / ratio);
   const [failed, setFailed] = useState(false);
-  const opener =
+  const openerClassName =
     "min-w-0 flex-1 truncate rounded-sm text-left text-ui font-medium text-ink outline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover/tile:underline group-hover/tile:underline-offset-2";
+  const name = item.name;
   const subtitle = itemSubtitle(item);
   return (
     <div className="group/tile group/row relative flex min-w-0 flex-col">
@@ -129,7 +136,7 @@ function WideCard({
         {canPlay(item) && (
           <button
             type="button"
-            aria-label={`Play ${item.name}`}
+            aria-label={t`Play ${name}`}
             onClick={() => playItem(item)}
             className="absolute bottom-3 left-3 z-10 grid size-10 place-items-center rounded-full bg-play text-on-play opacity-0 transition-opacity duration-100 group-focus-within/tile:opacity-100 group-hover/tile:opacity-100 focus-visible:opacity-100"
           >
@@ -143,14 +150,14 @@ function WideCard({
             {...link}
             onClick={onOpen && (() => onOpen(item))}
             draggable={false}
-            className={opener}
+            className={openerClassName}
           >
             {item.name}
           </Link>
         ) : (
           <button
             type="button"
-            className={opener}
+            className={openerClassName}
             onClick={() => {
               onOpen?.(item);
               openExternal(item);

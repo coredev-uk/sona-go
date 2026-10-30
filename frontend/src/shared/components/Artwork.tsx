@@ -17,10 +17,10 @@ interface ArtworkProps {
   eager?: boolean;
 }
 
-const frame =
+const frameClassName =
   "relative shrink-0 overflow-hidden bg-hover after:pointer-events-none after:absolute after:inset-0 after:ring-1 after:ring-ink/6 after:ring-inset";
 const rounding = (shape: "square" | "round") =>
-  shape === "round" ? "rounded-full after:rounded-full" : "rounded-sm after:rounded-sm";
+  cn(shape === "round" ? "rounded-full after:rounded-full" : "rounded-sm after:rounded-sm");
 
 /** The missing-art square: a 40%-ink outline glyph on --hover. */
 function Placeholder({ shape, glyph }: { shape: "square" | "round"; glyph: string }) {
@@ -71,7 +71,10 @@ export function Artwork({ src, size, alt, shape = "square", className, eager }: 
   const url = artAt(src, size);
   const img = useImage(url);
   return (
-    <div className={cn(frame, rounding(shape), className)} style={{ width: size, height: size }}>
+    <div
+      className={cn(frameClassName, rounding(shape), className)}
+      style={{ width: size, height: size }}
+    >
       {img.ok ? (
         <img
           src={img.src}
@@ -111,7 +114,7 @@ export function FluidArtwork({
   return (
     <div
       className={cn(
-        frame,
+        frameClassName,
         rounding(shape),
         aspect === "video" ? "aspect-video" : "aspect-square",
         "w-full",

@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { Link } from "@tanstack/react-router";
 import { CircleAlert, WifiOff } from "lucide-react";
 
@@ -9,6 +10,7 @@ import { useAuth } from "@/features/auth";
  * below keeps rendering from SQLite.
  */
 export function StatusBanner() {
+  const { t } = useLingui();
   const { data } = useAuth();
   if (!data) return null;
 
@@ -17,16 +19,17 @@ export function StatusBanner() {
   let action: { label: string; section: "account" | "diagnostics" } | undefined;
 
   if (data.state === "needs_reauth") {
-    text = "Apple Music asked Sona to sign in again. Your library is still here.";
-    action = { label: "Sign in", section: "account" };
+    text = t`Apple Music asked Sona to sign in again. Your library is still here.`;
+    action = { label: t`Sign in`, section: "account" };
   } else if (data.state === "error") {
-    text = data.lastError
-      ? `Apple Music isn't accepting Sona's requests: ${data.lastError.replace(/^[a-z]+: /, "")}`
-      : "Apple Music isn't accepting Sona's requests.";
-    action = { label: "Diagnostics", section: "diagnostics" };
+    const reason = data.lastError?.replace(/^[a-z]+: /, "");
+    text = reason
+      ? t`Apple Music isn't accepting Sona's requests: ${reason}`
+      : t`Apple Music isn't accepting Sona's requests.`;
+    action = { label: t`Diagnostics`, section: "diagnostics" };
   } else if (data.offline) {
     icon = <WifiOff aria-hidden className="size-4 shrink-0 text-ink-muted" strokeWidth={1.75} />;
-    text = "Offline. Showing your library from this computer; Sona reconnects by itself.";
+    text = t`Offline. Showing your library from this computer; Sona reconnects by itself.`;
   } else {
     return null;
   }

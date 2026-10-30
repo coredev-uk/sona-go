@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { DiscoverService, type Item, type RoomPage as Room, type Song } from "@bindings/services";
 import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useMemo, type ReactNode } from "react";
@@ -14,18 +15,13 @@ import { PageError, ShelvesSkeleton } from "./states";
 
 const route = getRouteApi("/room/$id");
 
-const sortLabels: Record<string, string> = {
-  featured: "Editors' order",
-  alphabet: "A to Z",
-  releaseDate: "Newest first",
-};
-
 /** An editorial section in full ("See all"), in pages of 100. */
 export function RoomRoutePage() {
   const { id } = route.useParams();
   const { sort = "" } = route.useSearch();
   const navigate = route.useNavigate();
   const q = useRoom(id, sort);
+  const { t } = useLingui();
   if (q.isPending) {
     return (
       <>
@@ -37,7 +33,7 @@ export function RoomRoutePage() {
   if (q.isError) {
     return (
       <PageError
-        what="this list"
+        title={t`Couldn't load this list`}
         error={q.error}
         onRetry={() => void q.refetch()}
         retrying={q.isRefetching}
@@ -45,10 +41,15 @@ export function RoomRoutePage() {
     );
   }
   const room = q.data;
+  const sortLabels: Record<string, string> = {
+    featured: t`Editors' order`,
+    alphabet: t`A to Z`,
+    releaseDate: t`Newest first`,
+  };
   const sorts =
     room.sorts.length > 1 ? (
       <Choice
-        label="Order"
+        label={t`Order`}
         value={room.sort}
         options={room.sorts.map((s) => ({ value: s, label: sortLabels[s] ?? s }))}
         onChange={(v) => void navigate({ search: { sort: v || undefined }, replace: true })}

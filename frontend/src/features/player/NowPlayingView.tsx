@@ -1,35 +1,52 @@
 import { PlaybackService, type LyricLine } from "@bindings/services";
 import { Link } from "@tanstack/react-router";
-import { Disc3, Languages, MicVocal, SpellCheck, X } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
+import { Disc3, Languages, Maximize2, MicVocal, SpellCheck, X } from "lucide-react";
 import { memo, useEffect, useMemo, useRef } from "react";
 
-import { useAppearance } from "@/features/settings";
-import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
+import { MotionCover } from "@/shared/components/MotionCover";
 import { callFailure } from "@/shared/lib/errors";
+import { useMotionAllowed } from "@/shared/lib/motion";
 import { run } from "@/shared/lib/run";
 import { useMediaQuery } from "@/shared/lib/useMediaQuery";
 import { cn } from "@/shared/lib/utils";
+import { useBinding } from "@/shared/shortcuts/bindings";
+import { ChordKeys } from "@/shared/shortcuts/Keys";
 import { Button } from "@/shared/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
-import { activeLine, lyricsExtras, shownLine, useLyricsPrefs, type LyricsPrefs } from "./lyrics";
-import { useLivePosition, usePlayback } from "./playback";
-import { useLyrics } from "./queries";
+import {
+  isSynced,
+  lyricsExtras,
+  seekTarget,
+  shownLine,
+  useLyricsOffset,
+  useLyricsPrefs,
+  type LyricsPrefs,
+} from "./lyrics";
+import { LyricsTiming } from "./LyricsTiming";
+import { usePlayback } from "./playback";
+import { useAlbumMotion, useLyrics } from "./queries";
 import { useUI } from "./ui";
+import { useFollowLine, useSungLine } from "./useLyricsView";
 
 const Line = memo(function Line({
+  songId,
   line,
   state,
   synced,
   prefs,
 }: {
+  songId: string;
   line: LyricLine;
   state: "past" | "active" | "future";
   synced: boolean;
   prefs: LyricsPrefs;
 }) {
   const shown = shownLine(line, prefs);
+  const { t } = useLingui();
   const body = (
     <>
       <span className="block">{shown.text}</span>
@@ -54,7 +71,10 @@ const Line = memo(function Line({
       type="button"
       data-active={state === "active" || undefined}
       aria-current={state === "active" ? "true" : undefined}
-      onClick={() => void run("Couldn't seek", PlaybackService.Seek(line.beginMs))}
+      onClick={() => {
+        const offset = useLyricsOffset.getState().offsets[songId] ?? 0;
+        void run(t`Couldn't seek`, PlaybackService.Seek(seekTarget(line.beginMs, offset)));
+      }}
       className={cn(cls, "hover:bg-ink/5")}
     >
       {body}
@@ -64,24 +84,16 @@ const Line = memo(function Line({
 
 function LyricsPane({ catalogId }: { catalogId: string }) {
   const lyrics = useLyrics(catalogId);
-  const position = useLivePosition(200);
-  const reduce = useAppearance((s) => s.reduceEffects);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const userScrolled = useRef(0);
   const translation = useLyricsPrefs((s) => s.translation);
   const pronunciation = useLyricsPrefs((s) => s.pronunciation);
   const prefs = useMemo(() => ({ translation, pronunciation }), [translation, pronunciation]);
 
   const lines = lyrics.data?.lines ?? [];
-  const synced = lyrics.data?.timing === "Line" || lyrics.data?.timing === "Word";
-  // Lines are shown slightly early so the eye arrives as the voice does.
-  const active = synced ? activeLine(lines, position + 250) : -1;
-
-  useEffect(() => {
-    const el = scrollRef.current?.querySelector<HTMLElement>("[data-active]");
-    if (!el || Date.now() - userScrolled.current < 4000) return;
-    el.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
-  }, [active, reduce]);
+  const synced = isSynced(lyrics.data);
+  const active = useSungLine(catalogId, lines, synced);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const userScrolled = useFollowLine(scrollRef, active);
+  const { t } = useLingui();
 
   if (lyrics.isPending) {
     return (
@@ -98,7 +110,7 @@ function LyricsPane({ catalogId }: { catalogId: string }) {
     return (
       <ErrorBlock
         className="mt-24"
-        title="Couldn't load the lyrics"
+        title={t`Couldn't load the lyrics`}
         error={lyrics.error}
         onRetry={() => void lyrics.refetch()}
         retrying={lyrics.isRefetching}
@@ -106,27 +118,29 @@ function LyricsPane({ catalogId }: { catalogId: string }) {
     );
   }
   if (!lines.length) return <NoLyrics />;
+  const writers = lyrics.data?.songwriters?.join(", ");
 
   return (
     <div
       ref={scrollRef}
-      onWheel={() => (userScrolled.current = Date.now())}
-      onTouchMove={() => (userScrolled.current = Date.now())}
+      onWheel={userScrolled}
+      onTouchMove={userScrolled}
       className="no-scrollbar h-full overflow-y-auto py-[35vh] pr-2"
-      aria-label="Lyrics"
+      aria-label={t`Lyrics`}
     >
       {lines.map((line, i) => (
         <Line
           key={i}
+          songId={catalogId}
           line={line}
           synced={synced}
           state={!synced || i > active ? "future" : i === active ? "active" : "past"}
           prefs={prefs}
         />
       ))}
-      {!!lyrics.data?.songwriters?.length && (
+      {!!writers && (
         <p className="mt-10 px-3 text-sub text-ink-muted">
-          Written by {lyrics.data.songwriters.join(", ")}
+          <Trans>Written by {writers}</Trans>
         </p>
       )}
     </div>
@@ -136,18 +150,20 @@ function LyricsPane({ catalogId }: { catalogId: string }) {
 function NoLyrics() {
   return (
     <div className="mt-24 rounded-lg border border-dashed border-control-line px-6 py-6">
-      <p className="text-heading text-ink">No lyrics for this song</p>
+      <p className="text-heading text-ink">
+        <Trans>No lyrics for this song</Trans>
+      </p>
       <p className="mt-1 text-ui text-ink-muted">
-        Apple Music doesn't have lyrics for it in your storefront.
+        <Trans>Apple Music doesn't have lyrics for it in your storefront.</Trans>
       </p>
     </div>
   );
 }
 
 /** A language tag's name in the UI's language ("en-US" → "English"). */
-function languageName(tag: string): string {
+function languageName(tag: string, locale: string): string {
   try {
-    return new Intl.DisplayNames(undefined, { type: "language" }).of(tag.split("-")[0]) ?? tag;
+    return new Intl.DisplayNames(locale, { type: "language" }).of(tag.split("-")[0]) ?? tag;
   } catch {
     return tag;
   }
@@ -161,7 +177,9 @@ function LyricsOptions({ catalogId }: { catalogId: string }) {
   const lyrics = useLyrics(catalogId);
   const prefs = useLyricsPrefs();
   const has = lyricsExtras(lyrics.data);
-  const toggle = "aria-pressed:bg-active aria-pressed:text-ink";
+  const { t, i18n } = useLingui();
+  const language = languageName(lyrics.data?.translationLanguage ?? "", i18n.locale);
+  const TOGGLE = "aria-pressed:bg-active aria-pressed:text-ink";
   return (
     <>
       {has.translation && (
@@ -169,12 +187,12 @@ function LyricsOptions({ catalogId }: { catalogId: string }) {
           variant="ghost"
           size="sm"
           aria-pressed={prefs.translation}
-          title={`Translation into ${languageName(lyrics.data?.translationLanguage ?? "")}`}
+          title={t`Translation into ${language}`}
           onClick={() => prefs.set({ translation: !prefs.translation })}
-          className={toggle}
+          className={TOGGLE}
         >
           <Languages strokeWidth={1.75} />
-          Translation
+          <Trans>Translation</Trans>
         </Button>
       )}
       {has.pronunciation && (
@@ -182,12 +200,12 @@ function LyricsOptions({ catalogId }: { catalogId: string }) {
           variant="ghost"
           size="sm"
           aria-pressed={prefs.pronunciation}
-          title="The words in Latin letters"
+          title={t`The words in Latin letters`}
           onClick={() => prefs.set({ pronunciation: !prefs.pronunciation })}
-          className={toggle}
+          className={TOGGLE}
         >
           <SpellCheck strokeWidth={1.75} />
-          Pronunciation
+          <Trans>Pronunciation</Trans>
         </Button>
       )}
       {(has.translation || has.pronunciation) && (
@@ -195,6 +213,50 @@ function LyricsOptions({ catalogId }: { catalogId: string }) {
       )}
     </>
   );
+}
+
+/** Timing and the full-screen view, for synced lyrics. */
+function SyncedControls({ catalogId }: { catalogId: string }) {
+  const lyrics = useLyrics(catalogId);
+  const openRoom = useUI((s) => s.openRoom);
+  const roomKeys = useBinding("player.lyrics-room");
+  if (!isSynced(lyrics.data) || !lyrics.data?.lines.length) return null;
+  return (
+    <>
+      <LyricsTiming songId={catalogId} />
+      <span aria-hidden className="mx-1 h-4 w-px bg-line" />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="sm" onClick={openRoom}>
+            <Maximize2 strokeWidth={1.75} />
+            <Trans>Full screen</Trans>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <Trans>Lyrics across the whole screen, large enough to read across a room</Trans>
+          {roomKeys[0] && <ChordKeys chord={roomKeys[0]} className="ml-1.5" />}
+        </TooltipContent>
+      </Tooltip>
+      <span aria-hidden className="mx-1 h-4 w-px bg-line" />
+    </>
+  );
+}
+
+/** The playing song's cover, moving when its album has motion artwork. */
+function NowPlayingCover({
+  albumId,
+  art,
+  size,
+  alt,
+}: {
+  albumId: string;
+  art: string;
+  size: number;
+  alt: string;
+}) {
+  const allowed = useMotionAllowed();
+  const motion = useAlbumMotion(albumId, allowed);
+  return <MotionCover motion={motion.data} art={art} size={size} videoSize={420} alt={alt} eager />;
 }
 
 /**
@@ -207,6 +269,7 @@ export function NowPlayingView() {
   const { showLyrics, setShowLyrics, closeOverlay } = useUI();
   const narrow = useMediaQuery("(max-width: 1100px)");
   const closeRef = useRef<HTMLButtonElement>(null);
+  const { t } = useLingui();
 
   useEffect(() => closeRef.current?.focus(), []);
   // Nothing to show once the queue is cleared.
@@ -216,16 +279,18 @@ export function NowPlayingView() {
   if (!current) return null;
 
   const lyricsOn = showLyrics && !!current.catalogId;
+  const albumName = current.albumName;
   const cover = lyricsOn ? (narrow ? 200 : 320) : narrow ? 280 : 420;
 
   return (
     <section
-      aria-label="Now playing"
+      aria-label={t`Now playing`}
       className="absolute inset-0 z-20 flex animate-in flex-col overflow-hidden bg-ground duration-150 fade-in"
     >
-      <Backdrop src={current.backdrop} scrim={70} tone="ground" />
+      <Backdrop src={current.backdrop} tone="ground" />
       <div className="relative flex h-12 shrink-0 items-center justify-end gap-1 px-4">
         {lyricsOn && <LyricsOptions catalogId={current.catalogId} />}
+        {lyricsOn && <SyncedControls catalogId={current.catalogId} />}
         <Button
           variant="ghost"
           size="sm"
@@ -234,13 +299,13 @@ export function NowPlayingView() {
           onClick={() => setShowLyrics(!showLyrics)}
         >
           {lyricsOn ? <Disc3 strokeWidth={1.75} /> : <MicVocal strokeWidth={1.75} />}
-          {lyricsOn ? "Cover only" : "Lyrics"}
+          {lyricsOn ? t`Cover only` : t`Lyrics`}
         </Button>
         <Button
           ref={closeRef}
           variant="ghost"
           size="icon-sm"
-          aria-label="Close now playing (Escape)"
+          aria-label={t`Close now playing (Escape)`}
           onClick={closeOverlay}
         >
           <X strokeWidth={1.75} />
@@ -253,7 +318,12 @@ export function NowPlayingView() {
         )}
       >
         <div className={cn("flex flex-col self-center", !lyricsOn && "items-center text-center")}>
-          <Artwork src={current.art.large} size={cover} alt={`${current.albumName} cover`} eager />
+          <NowPlayingCover
+            albumId={current.albumId}
+            art={current.art.large}
+            size={cover}
+            alt={t`${albumName} cover`}
+          />
           <div className="mt-6 min-w-0" style={{ maxWidth: cover }}>
             <h2 className="line-clamp-2 text-page text-ink">{current.name}</h2>
             <p className="mt-1 truncate text-heading font-medium text-ink-muted">

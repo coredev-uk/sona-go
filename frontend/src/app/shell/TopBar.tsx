@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Link, useRouter } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, User } from "lucide-react";
 
@@ -11,35 +12,40 @@ import { slots } from "../compose";
 const SearchSlot = slots.find((s) => s.TopBarSearch)?.TopBarSearch;
 
 export function TopBar() {
+  const { t } = useLingui();
   const router = useRouter();
   return (
-    <div className="flex h-12 items-center gap-3 bg-surface pr-4 pl-3">
+    <header className="flex h-12 items-center gap-3 bg-surface pr-4 pl-3">
       <div className="flex items-center gap-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Back"
+              aria-label={t`Back`}
               onClick={() => router.history.back()}
             >
               <ChevronLeft strokeWidth={1.75} />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Back</TooltipContent>
+          <TooltipContent>
+            <Trans>Back</Trans>
+          </TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Forward"
+              aria-label={t`Forward`}
               onClick={() => router.history.forward()}
             >
               <ChevronRight strokeWidth={1.75} />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Forward</TooltipContent>
+          <TooltipContent>
+            <Trans>Forward</Trans>
+          </TooltipContent>
         </Tooltip>
       </div>
       {SearchSlot && <SearchSlot />}
@@ -48,7 +54,7 @@ export function TopBar() {
           <Link
             to="/settings"
             search={{ section: "account" }}
-            aria-label="Account"
+            aria-label={t`Account`}
             className="ml-auto rounded-full"
           >
             <Avatar className="size-7">
@@ -58,8 +64,10 @@ export function TopBar() {
             </Avatar>
           </Link>
         </TooltipTrigger>
-        <TooltipContent>Account</TooltipContent>
+        <TooltipContent>
+          <Trans>Account</Trans>
+        </TooltipContent>
       </Tooltip>
-    </div>
+    </header>
   );
 }

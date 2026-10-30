@@ -3,8 +3,7 @@ import { Browser } from "@wailsio/runtime";
 
 import type { CoverItem } from "@/shared/components/CoverGrid";
 
-import { ItemMenu } from "./ItemMenu";
-import { itemAspect, itemLink, itemShape, itemSubtitle } from "./links";
+import { actionItemOf, itemAspect, itemLink, itemShape, itemSubtitle } from "./links";
 import { canPlay, playItem } from "./play";
 
 /** Opens a web-only item (an interview, a concert listing) in the browser. */
@@ -34,7 +33,7 @@ export function toCoverItem(item: Item, index: number, onOpen?: (item: Item) => 
           openExternal(item);
         },
     play: canPlay(item) ? { label: item.name, run: () => playItem(item) } : undefined,
-    menu: <ItemMenu item={item} />,
+    target: actionItemOf(item),
   };
 }
 

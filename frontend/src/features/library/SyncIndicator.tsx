@@ -1,28 +1,21 @@
 import { LibraryService } from "@bindings/services";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CircleAlert, RefreshCw } from "lucide-react";
 
 import { hasAccount, useAuth } from "@/features/auth";
-import { relativeTime } from "@/shared/lib/format";
+import { formatNumber, relativeTime } from "@/shared/lib/format";
 import { run } from "@/shared/lib/run";
 import { cn } from "@/shared/lib/utils";
 
 import { useSyncStatus } from "./queries";
 import { useSync } from "./sync";
 
-const domainNames: Record<string, string> = {
-  artists: "artists",
-  albums: "albums",
-  songs: "songs",
-  playlists: "playlists",
-  "playlist-tracks": "playlist songs",
-  ratings: "loves",
-};
-
 /**
  * The library sync line at the foot of the sidebar: what is syncing and how
  * far, or when the library was last synced, with a Sync now action.
  */
 export function SyncIndicator() {
+  const { t } = useLingui();
   const auth = useAuth();
   const status = useSyncStatus();
   const { running, current, last } = useSync();
@@ -35,24 +28,36 @@ export function SyncIndicator() {
       : 0;
   const lastSuccess = last?.ok ? last.finishedAt : status.data?.lastSuccess;
 
+  let syncing = t`Syncing your library`;
+  if (current) {
+    // One message per domain, so the noun is never spliced into the sentence.
+    const domain = current.domain;
+    const what =
+      {
+        artists: t`Syncing artists`,
+        albums: t`Syncing albums`,
+        songs: t`Syncing songs`,
+        playlists: t`Syncing playlists`,
+        "playlist-tracks": t`Syncing playlist songs`,
+        ratings: t`Syncing loves`,
+      }[domain] ?? t`Syncing ${domain}`;
+    const done = formatNumber(current.done);
+    const total = formatNumber(current.total);
+    syncing = current.total ? `${what} · ${t`${done} of ${total}`}` : what;
+  }
+  const synced = lastSuccess ? relativeTime(lastSuccess) : "";
+
   return (
     <div className="mb-2 px-2.5" aria-live="polite">
       {running ? (
         <div>
           <p className="flex items-center gap-1.5 text-meta text-ink-muted">
             <RefreshCw aria-hidden className="size-3 animate-spin" strokeWidth={2} />
-            <span className="truncate num">
-              {current
-                ? `Syncing ${domainNames[current.domain] ?? current.domain}` +
-                  (current.total
-                    ? ` · ${current.done.toLocaleString()} of ${current.total.toLocaleString()}`
-                    : "")
-                : "Syncing your library"}
-            </span>
+            <span className="truncate num">{syncing}</span>
           </p>
           <div
             role="progressbar"
-            aria-label="Library sync"
+            aria-label={t`Library sync`}
             aria-valuenow={pct}
             aria-valuemin={0}
             aria-valuemax={100}
@@ -76,19 +81,21 @@ export function SyncIndicator() {
               <CircleAlert aria-hidden className="size-3 shrink-0 text-danger" strokeWidth={2} />
             )}
             <span className="truncate" title={failed ? last.error : undefined}>
-              {failed
-                ? "Library sync failed"
-                : lastSuccess
-                  ? `Synced ${relativeTime(lastSuccess)}`
-                  : "Library not synced yet"}
+              {failed ? (
+                <Trans>Library sync failed</Trans>
+              ) : lastSuccess ? (
+                <Trans>Synced {synced}</Trans>
+              ) : (
+                <Trans>Library not synced yet</Trans>
+              )}
             </span>
           </span>
           <button
             type="button"
-            onClick={() => void run("Couldn't start a library sync", LibraryService.Sync())}
+            onClick={() => void run(t`Couldn't start a library sync`, LibraryService.Sync())}
             className="shrink-0 rounded-sm text-ink-muted underline-offset-2 hover:text-ink hover:underline"
           >
-            {failed ? "Retry" : "Sync now"}
+            {failed ? <Trans>Retry</Trans> : <Trans>Sync now</Trans>}
           </button>
         </div>
       )}

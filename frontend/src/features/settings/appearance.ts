@@ -9,7 +9,7 @@ export interface Appearance {
   reduceEffects: boolean;
 }
 
-const darkQuery = "(prefers-color-scheme: dark)";
+const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 /** Resolves a theme setting against the system preference. */
 export function resolveTheme(theme: Theme, systemPrefersDark: boolean): "light" | "dark" {
@@ -51,7 +51,7 @@ export const useAppearance = create<AppearanceStore>((set) => ({
  * colour scheme. Returns an unsubscribe function.
  */
 export function bindAppearance(root: HTMLElement = document.documentElement): () => void {
-  const media = window.matchMedia(darkQuery);
+  const media = window.matchMedia(DARK_QUERY);
   const apply = () => applyAppearance(root, useAppearance.getState(), media.matches);
   apply();
   const unsubscribe = useAppearance.subscribe(apply);

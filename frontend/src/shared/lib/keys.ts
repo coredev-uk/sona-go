@@ -9,11 +9,17 @@ export const keys = {
   auth: ["auth"] as const,
   settings: ["settings"] as const,
   diagnostics: ["diagnostics"] as const,
+  /** Settings → Storage: cache and database sizes. */
+  storage: ["storage"] as const,
+  /** The update check's latest result (UpdatesService.Status, "updates:available"). */
+  updates: ["updates"] as const,
 
   library: ["library"] as const,
   libraryCounts: ["library", "counts"] as const,
   librarySync: ["library", "sync-status"] as const,
   libraryRecent: ["library", "recent"] as const,
+  /** The History page; under libraryRecent so a new song refreshes it. */
+  libraryHistory: (days: number) => ["library", "recent", "history", days] as const,
   libraryList: (kind: LibraryKind, sort: string, desc: boolean) =>
     ["library", kind, sort, desc] as const,
   libraryPage: (kind: LibraryKind, sort: string, desc: boolean, page: number) =>

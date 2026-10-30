@@ -1,4 +1,5 @@
 import type { AlbumDetail, CatalogAlbum } from "@bindings/services";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 
@@ -23,24 +24,26 @@ import { useCatalogAlbum, useLibraryAlbum } from "./queries";
 
 const route = getRouteApi("/album/$id");
 
-const linkCls = "hover:underline hover:underline-offset-2";
+const LINK_CLS = "hover:underline hover:underline-offset-2";
 
 /** Apple's sections for the album, in its order. */
 function CatalogSections({ page }: { page: CatalogAlbum }) {
   const { album } = page;
+  const { t } = useLingui();
+  const artistName = album.artistName;
   return (
     <>
       <CoverShelf
-        title="Other versions"
+        title={t`Other versions`}
         items={page.otherVersions.map((a) => albumTile(a, "year"))}
       />
       <CoverShelf
-        title="Music videos"
+        title={t`Music videos`}
         aspect="video"
         items={page.videos.map((v) => videoTile(v, "year"))}
       />
       <CoverShelf
-        title={`More by ${album.artistName}`}
+        title={t`More by ${artistName}`}
         items={page.moreByArtist.map((a) => albumTile(a, "year"))}
         more={
           album.artistId
@@ -48,8 +51,8 @@ function CatalogSections({ page }: { page: CatalogAlbum }) {
             : undefined
         }
       />
-      <CoverShelf title="Featured in playlists" items={page.appearsOn.map(playlistTile)} />
-      <CoverShelf title="You might also like" items={page.similar.map((a) => albumTile(a))} />
+      <CoverShelf title={t`Featured in playlists`} items={page.appearsOn.map(playlistTile)} />
+      <CoverShelf title={t`You might also like`} items={page.similar.map((a) => albumTile(a))} />
     </>
   );
 }
@@ -73,10 +76,11 @@ export function AlbumPage() {
   const tracks = data?.tracks;
   const albumId = data?.album.id ?? id;
   const onPlay = useCallback(
-    (i: number) => tracks && playSongs(tracks, i, albumId),
+    (i: number) => tracks && playSongs(tracks, i, { kind: "album", id: albumId }),
     [tracks, albumId],
   );
   const popular = useMemo(() => new Set(page?.popularIds), [page]);
+  const { t } = useLingui();
 
   if (q.isPending) return <DetailSkeleton />;
   if (q.error) {
@@ -86,7 +90,7 @@ export function AlbumPage() {
         error={q.error}
         retry={() => void q.refetch()}
         retrying={q.isRefetching}
-        back={{ label: "Go to Albums", to: "/library/albums" }}
+        back={{ label: t`Go to Albums`, to: "/library/albums" }}
       />
     );
   }
@@ -97,13 +101,15 @@ export function AlbumPage() {
   const notes = q.data.notes || page?.notes || "";
   const list = q.data.tracks;
   const variousArtists = list.some((t) => t.artistName !== album.artistName);
-  const kind = album.single ? "Single" : "Album";
+  const kind = album.single ? t`Single` : t`Album`;
+  const releaseDate = longDate(album.releaseDate);
+  const albumName = album.name;
   // The header carries Apple's one-line note; the full notes follow the tracks.
   const lede = page?.notesShort || undefined;
   const meta = [
     catalogueLine(kind, yearOf(album.releaseDate), list.length, durationMs),
     album.genre,
-    page?.prerelease ? `Out ${longDate(album.releaseDate)}` : "",
+    page?.prerelease ? t`Out ${releaseDate}` : "",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -113,12 +119,13 @@ export function AlbumPage() {
       <CollectionHeader
         title={album.name}
         art={album.art.large}
-        header={header}
+        // A library album plays the motion cover of its catalogue album.
+        header={page && !header.motion ? { ...header, motion: page.header.motion } : header}
         byline={
           page ? (
             <ArtistLinks artists={page.artists} fallback={album.artistName} />
           ) : album.artistId ? (
-            <Link to="/artist/$id" params={{ id: album.artistId }} className={linkCls}>
+            <Link to="/artist/$id" params={{ id: album.artistId }} className={LINK_CLS}>
               {album.artistName}
             </Link>
           ) : (
@@ -133,8 +140,8 @@ export function AlbumPage() {
             <PlayButtons
               label={album.name}
               disabled={!list.some((t) => t.playable)}
-              onPlay={() => playSongs(list, 0, album.id)}
-              onShuffle={() => void shuffleSongs(list, album.id)}
+              onPlay={() => playSongs(list, 0, { kind: "album", id: album.id })}
+              onShuffle={() => void shuffleSongs(list, { kind: "album", id: album.id })}
             />
             <LibraryButton kind="albums" item={album} name={album.name} />
             <RatingButtons kind="albums" item={album} name={album.name} />
@@ -145,7 +152,7 @@ export function AlbumPage() {
       <TrackList
         songs={list}
         columns={{ number: "track", artist: variousArtists }}
-        label={`Songs on ${album.name}`}
+        label={t`Songs on ${albumName}`}
         onPlay={onPlay}
         discs
         highlight={song}
@@ -154,7 +161,11 @@ export function AlbumPage() {
       <footer className="mt-6 px-2 text-meta text-ink-muted">
         {album.releaseDate && (
           <p>
-            {page?.prerelease ? "Out" : "Released"} {longDate(album.releaseDate)}
+            {page?.prerelease ? (
+              <Trans>Out {releaseDate}</Trans>
+            ) : (
+              <Trans>Released {releaseDate}</Trans>
+            )}
           </p>
         )}
         {copyright && <p className="mt-0.5">{copyright}</p>}
@@ -162,7 +173,7 @@ export function AlbumPage() {
         {recordLabel && !copyright.includes(recordLabel) && <p className="mt-0.5">{recordLabel}</p>}
       </footer>
       {notes && notes !== lede && (
-        <Shelf title="Notes" className="mt-10">
+        <Shelf title={t`Notes`} className="mt-10">
           <Notes text={notes} />
         </Shelf>
       )}

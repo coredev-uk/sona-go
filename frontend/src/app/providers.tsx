@@ -1,7 +1,10 @@
+import { useLingui } from "@lingui/react/macro";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
+import { useAuth } from "@/features/auth";
 import { useAppearance } from "@/features/settings";
+import { followAccountLanguage, I18nRoot } from "@/shared/i18n";
 import { Toaster } from "@/shared/ui/sonner";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
@@ -19,18 +22,33 @@ const queryClient = new QueryClient({
   },
 });
 
-/** Providers above the router. */
+/** Providers above the router: the active locale and the query client. */
 export function AppProviders({ children }: { children: ReactNode }) {
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <I18nRoot>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </I18nRoot>
+  );
 }
 
-/** Providers inside the shell: tooltips, and the toaster above the now-playing bar. */
+/**
+ * Providers inside the shell: tooltips, and the toaster above the
+ * now-playing bar. The UI language follows the account's storefront.
+ */
 export function ShellProviders({ children }: { children: ReactNode }) {
+  const { t } = useLingui();
   const theme = useAppearance((s) => s.theme);
+  const language = useAuth().data?.language ?? "";
+  useEffect(() => followAccountLanguage(language), [language]);
   return (
     <TooltipProvider delayDuration={400}>
       {children}
-      <Toaster theme={theme} position="bottom-right" offset={{ bottom: 88, right: 16 }} />
+      <Toaster
+        theme={theme}
+        position="bottom-right"
+        offset={{ bottom: 88, right: 16 }}
+        containerAriaLabel={t`Notifications`}
+      />
     </TooltipProvider>
   );
 }

@@ -1,6 +1,8 @@
 import type { Station, StationEvent } from "@bindings/services";
 import { describe, expect, it } from "vitest";
 
+import { dateFormat } from "@/shared/lib/format";
+
 import { onAir, progressOf, slotLabel, stationLine } from "./schedule";
 
 const ev = (id: string, startMs: number, endMs: number) =>
@@ -34,7 +36,9 @@ describe("schedule", () => {
 
   it("adds the weekday only for another day", () => {
     expect(slotLabel(sched[0], t0)).not.toMatch(/^\D{2,}\s/);
-    expect(slotLabel(ev("c", t0 + 24 * h, t0 + 25 * h), t0).split(" ").length).toBe(2);
+    const tomorrow = ev("c", t0 + 24 * h, t0 + 25 * h);
+    const weekday = dateFormat({ weekday: "short" }).format(tomorrow.startMs);
+    expect(slotLabel(tomorrow, t0)).toBe(`${weekday} ${slotLabel(tomorrow, tomorrow.startMs)}`);
   });
 });
 

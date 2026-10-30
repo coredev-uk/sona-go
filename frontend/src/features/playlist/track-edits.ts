@@ -1,4 +1,5 @@
 import { PlaylistsService, type PlaylistDetail, type Song } from "@bindings/services";
+import { t } from "@lingui/core/macro";
 import type { QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -30,8 +31,8 @@ function editTracks(
     (err) => {
       const f = callFailure(err);
       if (f.code === "conflict") {
-        toast("This playlist changed on another device", {
-          description: "Here is its latest version. Make the change again.",
+        toast(t`This playlist changed on another device`, {
+          description: t`Here is its latest version. Make the change again.`,
         });
       } else {
         toast.error(what, { description: f.message });
@@ -49,19 +50,35 @@ export function moveTrack(qc: QueryClient, id: string, from: number, to: number,
     id,
     (d) => withMove(d, from, to),
     () => PlaylistsService.MoveTrack(id, from, to, song.id),
-    "Couldn't move the song",
+    t`Couldn't move the song`,
   );
 }
 
-/** Removes the track at `index` (that copy only). */
-export function removeTrack(qc: QueryClient, id: string, index: number, song: Song) {
+/** Removes the tracks at `indices` (those copies only). */
+export function removeTracks(
+  qc: QueryClient,
+  id: string,
+  indices: readonly number[],
+  songs: readonly Song[],
+) {
   editTracks(
     qc,
     id,
-    (d) => withRemoved(d, [index]),
-    () => PlaylistsService.RemoveTracks(id, [index], [song.id]),
-    `Couldn't remove “${song.name}”`,
+    (d) => withRemoved(d, indices),
+    () =>
+      PlaylistsService.RemoveTracks(
+        id,
+        [...indices],
+        songs.map((s) => s.id),
+      ),
+    removeFailure(songs),
   );
+}
+
+function removeFailure(songs: readonly Song[]): string {
+  if (songs.length !== 1) return t`Couldn't remove the songs`;
+  const name = songs[0].name;
+  return t`Couldn't remove “${name}”`;
 }
 
 let client: QueryClient | null = null;

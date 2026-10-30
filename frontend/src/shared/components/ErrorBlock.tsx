@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { CircleAlert } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
@@ -40,7 +41,7 @@ export function ErrorBlock({ title, error, onRetry, retrying, className }: Error
           disabled={retrying}
           className="-my-1 shrink-0"
         >
-          {retrying ? "Retrying…" : "Retry"}
+          {retrying ? <Trans>Retrying…</Trans> : <Trans>Retry</Trans>}
         </Button>
       )}
     </div>

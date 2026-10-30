@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { DiscoverService, type Item, type Song } from "@bindings/services";
 import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useMemo, type ReactNode } from "react";
@@ -18,6 +19,7 @@ const route = getRouteApi("/charts/$chart");
 
 /** One chart in full, in pages of 50 as it scrolls. */
 export function ChartRoutePage() {
+  const { t } = useLingui();
   const { chart: key } = route.useParams();
   const { genre = "", chartId = "" } = route.useSearch();
   const navigate = route.useNavigate();
@@ -26,7 +28,7 @@ export function ChartRoutePage() {
   if (q.isError) {
     return (
       <PageError
-        what="this chart"
+        title={t`Couldn't load this chart`}
         error={q.error}
         onRetry={() => void q.refetch()}
         retrying={q.isRefetching}
@@ -49,9 +51,9 @@ export function ChartRoutePage() {
   if (!chart) {
     return (
       <>
-        <PageHeader title="Charts" actions={genreChoice} />
-        <EmptyState title="No chart here" action={{ label: "All charts", to: "/charts" }}>
-          Apple Music has no such chart for this genre.
+        <PageHeader title={t`Charts`} actions={genreChoice} />
+        <EmptyState title={t`No chart here`} action={{ label: t`All charts`, to: "/charts" }}>
+          <Trans>Apple Music has no such chart for this genre.</Trans>
         </EmptyState>
       </>
     );

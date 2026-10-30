@@ -6,7 +6,7 @@ import { actionsFor, menuSections, registerActions, type ActionDef } from "./reg
 const song = (id: string, group: ActionDef<"song">["group"], order: number): ActionDef<"song"> => ({
   id,
   target: "song",
-  label: id,
+  label: () => id,
   icon: Music,
   group,
   order,

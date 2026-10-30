@@ -1,4 +1,5 @@
 import type { CatalogSong, CreditGroup } from "@bindings/services";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -24,16 +25,18 @@ const route = getRouteApi("/song/$id");
 
 /** The excerpt Apple sends, and the whole lyrics on request. */
 function LyricsBlock({ page }: { page: CatalogSong }) {
+  const { t } = useLingui();
   const [full, setFull] = useState(false);
   const lyrics = useFullLyrics(page.song.catalogId || page.song.id, full);
   const lines =
     full && lyrics.data ? lyrics.data.lines.map((l) => l.text) : page.lyricsExcerpt.split("\n");
+  const songwriters = lyrics.data?.songwriters.join(", ");
   return (
     <Shelf
-      title="Lyrics"
+      title={t`Lyrics`}
       actions={
         <ShelfToggle open={full} onToggle={() => setFull(!full)}>
-          {full ? "Show less" : "Show all lyrics"}
+          {full ? <Trans>Show less</Trans> : <Trans>Show all lyrics</Trans>}
         </ShelfToggle>
       }
     >
@@ -47,20 +50,22 @@ function LyricsBlock({ page }: { page: CatalogSong }) {
         {!full && <p className="text-ink-faint">…</p>}
       </div>
       {full && lyrics.isPending && (
-        <p className="mt-2 text-sub text-ink-muted">Loading the lyrics…</p>
+        <p className="mt-2 text-sub text-ink-muted">
+          <Trans>Loading the lyrics…</Trans>
+        </p>
       )}
       {full && lyrics.error && (
         <ErrorBlock
           className="mt-3"
-          title="Couldn't load the lyrics"
+          title={t`Couldn't load the lyrics`}
           error={lyrics.error}
           onRetry={() => void lyrics.refetch()}
           retrying={lyrics.isRefetching}
         />
       )}
-      {full && !!lyrics.data?.songwriters.length && (
+      {full && songwriters && (
         <p className="mt-4 text-sub text-ink-muted">
-          Written by {lyrics.data.songwriters.join(", ")}
+          <Trans>Written by {songwriters}</Trans>
         </p>
       )}
     </Shelf>
@@ -68,8 +73,9 @@ function LyricsBlock({ page }: { page: CatalogSong }) {
 }
 
 function Credits({ groups }: { groups: CreditGroup[] }) {
+  const { t } = useLingui();
   return (
-    <Shelf title="Credits">
+    <Shelf title={t`Credits`}>
       <div className="grid gap-8">
         {groups.map((g) => (
           <section key={g.kind} aria-label={creditTitle(g)}>
@@ -96,6 +102,7 @@ function Credits({ groups }: { groups: CreditGroup[] }) {
 export function SongPage() {
   const { id } = route.useParams();
   const q = useSongPage(id);
+  const { t } = useLingui();
 
   if (q.isPending) return <DetailSkeleton />;
   if (q.error) {
@@ -105,15 +112,19 @@ export function SongPage() {
         error={q.error}
         retry={() => void q.refetch()}
         retrying={q.isRefetching}
-        back={{ label: "Go to Songs", to: "/library/songs" }}
+        back={{ label: t`Go to Songs`, to: "/library/songs" }}
       />
     );
   }
   const page = q.data;
   const { song, album } = page;
-  const meta = ["Song", yearOf(song.releaseDate), formatTime(song.durationMs), song.genre]
+  const meta = [t`Song`, yearOf(song.releaseDate), formatTime(song.durationMs), song.genre]
     .filter(Boolean)
     .join(" · ");
+  const artistName = song.artistName;
+  const releaseDate = longDate(song.releaseDate);
+  const composer = page.composer;
+  const isrc = page.isrc;
   const hasLyrics = !!page.lyricsExcerpt;
   const hasCredits = page.credits.length > 0;
 
@@ -164,16 +175,16 @@ export function SongPage() {
       )}
       {!hasLyrics && !hasCredits && (
         <p className="text-sub text-ink-muted">
-          Apple Music has no credits or lyrics for this song.
+          <Trans>Apple Music has no credits or lyrics for this song.</Trans>
         </p>
       )}
       <CoverShelf
-        title="Music videos"
+        title={t`Music videos`}
         aspect="video"
         items={page.videos.map((v) => videoTile(v, "year"))}
       />
       <CoverShelf
-        title={`More by ${song.artistName}`}
+        title={t`More by ${artistName}`}
         items={page.moreByArtist.map((a) => albumTile(a, "year"))}
         more={
           song.artistId
@@ -182,9 +193,21 @@ export function SongPage() {
         }
       />
       <footer className="mt-8 px-0.5 text-meta text-ink-muted">
-        {song.releaseDate && <p>Released {longDate(song.releaseDate)}</p>}
-        {page.composer && <p className="mt-0.5">Composed by {page.composer}</p>}
-        {page.isrc && <p className="mt-0.5">ISRC {page.isrc}</p>}
+        {song.releaseDate && (
+          <p>
+            <Trans>Released {releaseDate}</Trans>
+          </p>
+        )}
+        {composer && (
+          <p className="mt-0.5">
+            <Trans>Composed by {composer}</Trans>
+          </p>
+        )}
+        {isrc && (
+          <p className="mt-0.5">
+            <Trans>ISRC {isrc}</Trans>
+          </p>
+        )}
       </footer>
     </>
   );

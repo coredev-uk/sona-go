@@ -1,8 +1,11 @@
 import type { SecondFactor } from "@bindings/services";
 import { describe, expect, it } from "vitest";
 
+import { callFailure } from "@/shared/lib/errors";
+
 import {
   classifySignInError,
+  currentMethod,
   errorCopy,
   initialSignIn,
   signInReducer,
@@ -13,7 +16,10 @@ import {
 const device: SecondFactor = {
   codeLength: 6,
   trustedDevices: true,
-  phones: [{ id: 1, number: "+44 ••••• ••••12", mode: "sms" }],
+  phones: [
+    { id: 1, number: "+44 ••••• ••••12", mode: "sms" },
+    { id: 2, number: "+1 (•••) •••-••34", mode: "voice" },
+  ],
   sentToPhone: 0,
 };
 const smsOnly: SecondFactor = {
@@ -35,10 +41,12 @@ describe("classifySignInError", () => {
     const err = Object.assign(new Error("boom"), {
       cause: { code: "locked", message: "This Apple Account has been locked." },
     });
+    // The message is the translated wording for the code, not Go's text.
     expect(classifySignInError(err)).toEqual({
       code: "locked",
-      message: "This Apple Account has been locked.",
+      message: callFailure(err).message,
     });
+    expect(callFailure(err).message).not.toBe("This Apple Account has been locked.");
   });
 
   it("falls back to Go's error text", () => {
@@ -105,6 +113,26 @@ describe("signInReducer", () => {
     expect(sent.kind === "code" && sent.notice).toMatch(/text message/);
   });
 
+  it("switches a single number from text to a call", () => {
+    const oneNumber: SecondFactor = {
+      codeLength: 6,
+      trustedDevices: false,
+      phones: [{ id: 1, number: "+44 ••••• ••••12", mode: "sms" }],
+      sentToPhone: 1,
+    };
+    const step = run([
+      { type: "second-factor", factor: oneNumber },
+      { type: "send-to-phone", phoneId: 1, mode: "voice" },
+      { type: "sent", target: { phoneId: 1, mode: "voice" } },
+    ]);
+    expect(step).toMatchObject({
+      kind: "code",
+      target: { phoneId: 1, mode: "voice" },
+      busy: false,
+    });
+    expect(step.kind === "code" && step.notice).toMatch(/calling/);
+  });
+
   it("treats a challenge with no route as unsupported", () => {
     const step = run([
       {
@@ -148,9 +176,27 @@ describe("signInReducer", () => {
     });
   });
 
-  it("switches from the device code to a phone", () => {
-    const step = run([{ type: "second-factor", factor: device }, { type: "choose-phone" }]);
-    expect(step.kind).toBe("choose-phone");
+  it("lets a device account pick a text or call number instead", () => {
+    const step = run([
+      { type: "second-factor", factor: device },
+      { type: "choose-phone", mode: "voice" },
+    ]);
+    expect(step).toMatchObject({ kind: "choose-phone", mode: "voice" });
+    expect(currentMethod(step)).toBe("voice");
+    // And back to the code already on the devices.
+    const back = signInReducer(step, { type: "use-device" });
+    expect(back).toMatchObject({ kind: "code", target: { phoneId: 0 } });
+    expect(currentMethod(back)).toBe("device");
+  });
+
+  it("has no device route without an Apple device", () => {
+    const step = run([{ type: "second-factor", factor: phonesOnly }]);
+    expect(signInReducer(step, { type: "use-device" })).toBe(step);
+  });
+
+  it("switches a texted code to another number, keeping the method", () => {
+    const step = run([{ type: "second-factor", factor: smsOnly }, { type: "choose-phone" }]);
+    expect(step).toMatchObject({ kind: "choose-phone", mode: "voice" });
   });
 
   it("follows the auth status", () => {

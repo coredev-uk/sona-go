@@ -2,18 +2,29 @@ import * as React from "react";
 import { cn } from "@/shared/lib/utils";
 import { Slider as SliderPrimitive } from "radix-ui";
 
+/**
+ * Radix renders the role="slider" element as the Thumb, not the Root, so the
+ * accessible name, description, value text and id (for `aria-labelledby`
+ * from a row label) go on the thumb; on the Root they would label nothing.
+ */
 function Slider({
   className,
   defaultValue,
   value,
   min = 0,
   max = 100,
+  id,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledBy,
+  "aria-describedby": ariaDescribedBy,
+  "aria-valuetext": ariaValueText,
   ...props
 }: React.ComponentProps<typeof SliderPrimitive.Root>) {
   const _values = React.useMemo(
     () => (Array.isArray(value) ? value : Array.isArray(defaultValue) ? defaultValue : [min, max]),
     [value, defaultValue, min, max],
   );
+  const single = _values.length === 1;
 
   return (
     <SliderPrimitive.Root
@@ -45,7 +56,13 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
-          className="block size-3 shrink-0 rounded-full bg-ink opacity-0 transition-opacity duration-150 group-hover/slider:opacity-100 focus-visible:opacity-100 focus-visible:ring-4 focus-visible:ring-ring/50 focus-visible:outline-hidden disabled:pointer-events-none"
+          id={single ? id : undefined}
+          aria-label={single ? ariaLabel : undefined}
+          aria-labelledby={single ? ariaLabelledBy : undefined}
+          aria-describedby={single ? ariaDescribedBy : undefined}
+          aria-valuetext={single ? ariaValueText : undefined}
+          // Always shown: the thumb, not the fill colour, is what marks the value.
+          className="block size-3 shrink-0 rounded-full bg-ink focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-hidden disabled:pointer-events-none"
         />
       ))}
     </SliderPrimitive.Root>

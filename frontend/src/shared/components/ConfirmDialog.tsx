@@ -1,3 +1,5 @@
+import { Trans } from "@lingui/react/macro";
+
 import { useConfirm } from "@/shared/lib/confirm";
 import { Button } from "@/shared/ui/button";
 import {
@@ -15,7 +17,7 @@ export function ConfirmHost() {
   const settle = useConfirm((s) => s.settle);
   return (
     <Dialog open={!!open} onOpenChange={(o) => !o && settle(false)}>
-      <DialogContent showCloseButton={false} className="max-w-[420px] gap-5 p-5">
+      <DialogContent role="alertdialog" showCloseButton={false} className="max-w-[420px] gap-5 p-5">
         {open && (
           <>
             <DialogHeader className="gap-1.5">
@@ -24,7 +26,7 @@ export function ConfirmHost() {
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={() => settle(false)}>
-                Cancel
+                <Trans>Cancel</Trans>
               </Button>
               <Button
                 variant={open.destructive ? "destructive" : "default"}

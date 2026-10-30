@@ -1,13 +1,18 @@
+import { useLingui } from "@lingui/react/macro";
 import { Outlet } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
+import { cn } from "@/shared/lib/utils";
+
 import { useGoBridge } from "../bridge";
-import { shortcuts, slots } from "../compose";
+import { slots } from "../compose";
 import { ShellProviders } from "../providers";
 import { useShortcuts } from "../shortcuts";
+import { useLayout } from "./layout";
 import { Sidebar } from "./Sidebar";
 import { StatusBanner } from "./StatusBanner";
 import { TopBar } from "./TopBar";
+import { useRouteMemory } from "./useRouteMemory";
 
 const providers = slots.flatMap((s) => (s.Provider ? [s.Provider] : []));
 const asides = slots.flatMap((s) => (s.Aside ? [s.Aside] : []));
@@ -30,29 +35,65 @@ function ModuleProviders({ children }: { children: ReactNode }) {
 }
 
 /**
+ * The first Tab stop: jumps past the sidebar to the page. The router owns
+ * the URL hash, so it focuses <main> instead of following `#content`.
+ */
+function SkipLink() {
+  const { t } = useLingui();
+  return (
+    <a
+      href="#content"
+      onClick={(e) => {
+        e.preventDefault();
+        document.getElementById("content")?.focus();
+      }}
+      className="fixed top-2 left-2 z-[60] -translate-y-16 rounded-md bg-raised px-3 py-2 text-ui font-medium text-ink shadow-float focus:translate-y-0"
+    >
+      {t`Skip to content`}
+    </a>
+  );
+}
+
+/**
  * The window layout: sidebar and top bar on the surface tone, the routed page
  * on the ground, module asides (the queue) beside it, module bars (now
  * playing) across the bottom. Only the page area scrolls, so it is the
  * scroll element for virtualised lists. Module overlays cover the page column.
+ * The sidebar can be hidden (shell.sidebar, Ctrl+B); its column collapses.
  */
 export function AppShell() {
   useGoBridge();
-  useShortcuts(shortcuts);
+  useShortcuts();
+  useRouteMemory();
   const overlayOpen = useOverlayOpen();
+  const sidebar = useLayout((s) => s.sidebar);
 
   return (
     <ShellProviders>
       <ModuleProviders>
-        <div className="grid h-full grid-cols-[232px_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto]">
-          <Sidebar />
-          <div className="flex min-h-0 min-w-0 flex-col border-l border-line">
+        <div
+          className={cn(
+            "grid h-full grid-rows-[minmax(0,1fr)_auto]",
+            sidebar ? "grid-cols-[232px_minmax(0,1fr)]" : "grid-cols-[0px_minmax(0,1fr)]",
+          )}
+        >
+          <SkipLink />
+          {sidebar && <Sidebar />}
+          <div
+            className={cn(
+              "col-start-2 row-start-1 flex min-h-0 min-w-0 flex-col",
+              sidebar && "border-l border-line",
+            )}
+          >
             <TopBar />
             <StatusBanner />
             <div className="relative flex min-h-0 flex-1 border-t border-line">
               <main
                 id="content"
+                // Focus target for the skip link (not a Tab stop itself).
+                tabIndex={-1}
                 inert={overlayOpen}
-                className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-ground"
+                className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-ground focus-visible:outline-offset-[-2px]"
               >
                 <div className="px-8 pt-7 pb-12 max-[960px]:px-6">
                   <Outlet />

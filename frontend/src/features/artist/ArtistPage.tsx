@@ -5,6 +5,8 @@ import {
   type ArtistShelf,
   type CatalogArtist,
 } from "@bindings/services";
+import { useLingui } from "@lingui/react/macro";
+import { plural } from "@lingui/core/macro";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { useCallback } from "react";
 
@@ -19,7 +21,7 @@ import { Notes } from "@/shared/components/Notes";
 import { PlayButtons } from "@/shared/components/PlayButtons";
 import { RatingButtons } from "@/shared/components/RatingButtons";
 import { Shelf } from "@/shared/components/Shelf";
-import { longDate, plural } from "@/shared/lib/format";
+import { longDate } from "@/shared/lib/format";
 import { isLibraryId } from "@/shared/lib/queries";
 import { albumTile, artistTile, playlistTile, videoTile } from "@/shared/lib/tiles";
 import { TrackList } from "@/shared/tracks/TrackList";
@@ -51,7 +53,9 @@ function shelfTiles(sh: ArtistShelf): CoverItem[] {
 }
 
 function ReleaseCard({ album }: { album: Album }) {
-  const kind = album.single ? "Single" : "Album";
+  const { t } = useLingui();
+  const kind = album.single ? t`Single` : t`Album`;
+  const trackCount = album.trackCount;
   return (
     <Link
       to="/album/$id"
@@ -66,7 +70,7 @@ function ReleaseCard({ album }: { album: Album }) {
         {album.name}
       </span>
       <span className="text-sub text-ink-muted num">
-        {[kind, album.trackCount ? plural(album.trackCount, "song") : ""]
+        {[kind, trackCount ? plural(trackCount, { one: "# song", other: "# songs" }) : ""]
           .filter(Boolean)
           .join(" · ")}
       </span>
@@ -75,15 +79,18 @@ function ReleaseCard({ album }: { album: Album }) {
 }
 
 function About({ page }: { page: CatalogArtist }) {
+  const { t } = useLingui();
   const facts: [string, string][] = [];
-  if (page.origin) facts.push(["From", page.origin]);
-  if (page.bornOrFormed) facts.push(["Born or formed", page.bornOrFormed]);
-  if (page.genres.length) {
-    facts.push([page.genres.length > 1 ? "Genres" : "Genre", page.genres.join(", ")]);
+  if (page.origin) facts.push([t`From`, page.origin]);
+  if (page.bornOrFormed) facts.push([t`Born or formed`, page.bornOrFormed]);
+  const genreCount = page.genres.length;
+  if (genreCount) {
+    facts.push([plural(genreCount, { one: "Genre", other: "Genres" }), page.genres.join(", ")]);
   }
+  const artistName = page.artist.name;
   if (!page.bio && !facts.length) return null;
   return (
-    <Shelf title={`About ${page.artist.name}`}>
+    <Shelf title={t`About ${artistName}`}>
       <div className="grid gap-x-12 gap-y-6 min-[960px]:grid-cols-[minmax(0,68ch)_minmax(180px,1fr)]">
         {page.bio ? <Notes text={page.bio} lines={6} /> : <div />}
         {facts.length > 0 && (
@@ -109,12 +116,14 @@ function About({ page }: { page: CatalogArtist }) {
 function CatalogBody({ page }: { page: CatalogArtist }) {
   const { artist, topSongs, latestRelease } = page;
   const onPlay = useCallback(
-    (i: number) => playSongs(topSongs, i, artist.id),
+    (i: number) => playSongs(topSongs, i, { kind: "artist", id: artist.id }),
     [topSongs, artist.id],
   );
+  const { t } = useLingui();
+  const artistName = artist.name;
   const top = topSongs.length > 0 && (
     <Shelf
-      title="Top songs"
+      title={t`Top songs`}
       more={
         page.topSongsMore || topSongs.length > TOP_ROWS
           ? { to: "/artist/$id/view/$view", params: { id: artist.id, view: "top-songs" } }
@@ -124,7 +133,7 @@ function CatalogBody({ page }: { page: CatalogArtist }) {
       <TrackList
         songs={topSongs.slice(0, TOP_ROWS)}
         columns={{ number: "row", artwork: true, album: true }}
-        label={`Top songs by ${artist.name}`}
+        label={t`Top songs by ${artistName}`}
         onPlay={onPlay}
       />
     </Shelf>
@@ -133,7 +142,7 @@ function CatalogBody({ page }: { page: CatalogArtist }) {
     <>
       {latestRelease ? (
         <div className="mt-10 grid gap-10 first:mt-0 min-[960px]:grid-cols-[200px_minmax(0,1fr)]">
-          <Shelf title="Latest release">
+          <Shelf title={t`Latest release`}>
             <ReleaseCard album={latestRelease} />
           </Shelf>
           <div className="min-w-0 [&>section]:mt-0">{top}</div>
@@ -165,6 +174,8 @@ function CatalogBody({ page }: { page: CatalogArtist }) {
 
 function CatalogArtistPage({ page }: { page: CatalogArtist }) {
   const { artist, topSongs } = page;
+  const { t } = useLingui();
+  const artistName = artist.name;
   const meta = [page.genres[0] ?? artist.genre, page.origin].filter(Boolean).join(" · ");
   return (
     <>
@@ -178,10 +189,10 @@ function CatalogArtistPage({ page }: { page: CatalogArtist }) {
           <>
             {topSongs.length > 0 && (
               <PlayButtons
-                label={`${artist.name}'s top songs`}
+                playLabel={t`Play ${artistName}'s top songs`}
                 disabled={!topSongs.some((s) => s.playable)}
-                onPlay={() => playSongs(topSongs, 0, artist.id)}
-                onShuffle={() => void shuffleSongs(topSongs, artist.id)}
+                onPlay={() => playSongs(topSongs, 0, { kind: "artist", id: artist.id })}
+                onShuffle={() => void shuffleSongs(topSongs, { kind: "artist", id: artist.id })}
               />
             )}
             <RatingButtons kind="artists" item={artist} name={artist.name} />
@@ -201,10 +212,15 @@ function CatalogArtistPage({ page }: { page: CatalogArtist }) {
 function LibraryArtistPage({ detail }: { detail: ArtistDetail }) {
   const { artist, header, albums, songs } = detail;
   const catalog = useCatalogArtist(artist.catalogId, !!artist.catalogId);
-  const onPlay = useCallback((i: number) => playSongs(songs, i, artist.id), [songs, artist.id]);
+  const onPlay = useCallback(
+    (i: number) => playSongs(songs, i, { kind: "artist", id: artist.id }),
+    [songs, artist.id],
+  );
   const full = albums.filter((a) => !a.single);
   const singles = albums.filter((a) => a.single);
-  const libraryLine = `${[plural(albums.length, "album"), plural(songs.length, "song")].join(", ")} in your library`;
+  const { t } = useLingui();
+  const artistName = artist.name;
+  const libraryLine = t`${plural(albums.length, { one: "# album", other: "# albums" })}, ${plural(songs.length, { one: "# song", other: "# songs" })} in your library`;
   return (
     <>
       <CollectionHeader
@@ -219,8 +235,8 @@ function LibraryArtistPage({ detail }: { detail: ArtistDetail }) {
               <PlayButtons
                 label={artist.name}
                 disabled={!songs.some((s) => s.playable)}
-                onPlay={() => playSongs(songs, 0, artist.id)}
-                onShuffle={() => void shuffleSongs(songs, artist.id)}
+                onPlay={() => playSongs(songs, 0, { kind: "artist", id: artist.id })}
+                onShuffle={() => void shuffleSongs(songs, { kind: "artist", id: artist.id })}
               />
             )}
             {catalog.data && (
@@ -237,17 +253,17 @@ function LibraryArtistPage({ detail }: { detail: ArtistDetail }) {
           </>
         }
       />
-      <CoverShelf title="Albums in your library" items={full.map((a) => albumTile(a, "year"))} />
+      <CoverShelf title={t`Albums in your library`} items={full.map((a) => albumTile(a, "year"))} />
       <CoverShelf
-        title="Singles and EPs in your library"
+        title={t`Singles and EPs in your library`}
         items={singles.map((a) => albumTile(a, "year"))}
       />
       {songs.length > 0 && (
-        <Shelf title="Songs in your library">
+        <Shelf title={t`Songs in your library`}>
           <TrackList
             songs={songs}
             columns={{ number: "row", artwork: true, album: true }}
-            label={`Songs by ${artist.name} in your library`}
+            label={t`Songs by ${artistName} in your library`}
             onPlay={onPlay}
           />
         </Shelf>
@@ -263,6 +279,7 @@ export function ArtistPage() {
   const libQ = useLibraryArtist(id, lib);
   const catQ = useCatalogArtist(id, !lib);
   const q = lib ? libQ : catQ;
+  const { t } = useLingui();
 
   if (q.isPending) return <DetailSkeleton round />;
   if (q.error) {
@@ -272,7 +289,7 @@ export function ArtistPage() {
         error={q.error}
         retry={() => void q.refetch()}
         retrying={q.isRefetching}
-        back={{ label: "Go to Artists", to: "/library/artists" }}
+        back={{ label: t`Go to Artists`, to: "/library/artists" }}
       />
     );
   }

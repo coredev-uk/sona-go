@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { Artwork, FluidArtwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
+import { MotionCover } from "@/shared/components/MotionCover";
 import type { Header } from "@bindings/services";
 import { useMediaQuery } from "@/shared/lib/useMediaQuery";
 
@@ -25,8 +26,9 @@ interface CollectionHeaderProps {
 /**
  * The album, playlist and artist header: the cover, the title at 32/36,
  * the catalogue line, and the actions, on a wash of the cover's colour
- * (a Go pre-blurred backdrop under a 70% ground scrim). It bleeds to the
- * content edges.
+ * (a Go pre-blurred backdrop under the theme's ground scrim). It bleeds to the
+ * content edges. A square cover with motion artwork (`header.motion`)
+ * plays it, muted and looping, where motion is allowed.
  */
 export function CollectionHeader({
   title,
@@ -43,12 +45,21 @@ export function CollectionHeader({
   const narrow = useMediaQuery("(max-width: 960px)");
   return (
     <header className="relative -mx-8 -mt-7 mb-6 px-8 pt-8 pb-7 max-[960px]:-mx-6 max-[960px]:px-6">
-      <Backdrop src={header?.backdrop} color={header?.colors[0]} scrim={70} tone="ground" />
+      <Backdrop src={header?.backdrop} color={header?.colors[0]} tone="ground" />
       <div className="relative flex items-end gap-7">
         {aspect === "video" ? (
           <div className="shrink-0" style={{ width: narrow ? 240 : 356 }}>
             <FluidArtwork src={art} size={narrow ? 240 : 356} alt="" aspect="video" />
           </div>
+        ) : header?.motion && shape !== "round" ? (
+          <MotionCover
+            motion={header.motion}
+            art={art}
+            size={narrow ? 136 : 200}
+            videoSize={200}
+            alt=""
+            eager
+          />
         ) : (
           <Artwork src={art} size={narrow ? 136 : 200} alt="" shape={shape} eager />
         )}

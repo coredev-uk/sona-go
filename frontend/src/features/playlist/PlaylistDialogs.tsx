@@ -1,4 +1,6 @@
 import { PlaylistsService, type TreePlaylist } from "@bindings/services";
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, FolderClosed, ListMusic, Plus, Search } from "lucide-react";
@@ -20,8 +22,9 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Switch } from "@/shared/ui/switch";
 
+import { addToPlaylistNow } from "./commands";
 import { showDialog, useDialogs, type PlaylistDialog } from "./dialogs";
-import { playlistKeys, setDetail, usePlaylistTree, useRecentTargets } from "./queries";
+import { playlistKeys, usePlaylistTree, useRecentTargets } from "./queries";
 import { addTargets, buildTree, folderPaths } from "./tree";
 
 type Of<K extends PlaylistDialog["kind"]> = Extract<PlaylistDialog, { kind: K }>;
@@ -84,6 +87,7 @@ function Option({
   current?: boolean;
   onSelect: () => void;
 }) {
+  const { t } = useLingui();
   return (
     <button
       type="button"
@@ -103,15 +107,16 @@ function Option({
         {meta && <span className="block truncate text-meta text-ink-faint num">{meta}</span>}
       </span>
       {current && (
-        <Check aria-label="Current" className="size-4 text-ink-muted" strokeWidth={1.75} />
+        <Check aria-label={t`Current`} className="size-4 text-ink-muted" strokeWidth={1.75} />
       )}
     </button>
   );
 }
 
-const songCount = (n: number) => (n === 1 ? "1 song" : `${n} songs`);
+const songCount = (n: number) => plural(n, { one: "# song", other: "# songs" });
 
 function AddToPlaylist({ d }: { d: Of<"add"> }) {
+  const { t } = useLingui();
   const close = useDialogs((s) => s.close);
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -126,19 +131,12 @@ function AddToPlaylist({ d }: { d: Of<"add"> }) {
 
   const add = (p: TreePlaylist) => {
     close();
-    const name = p.playlist.name;
-    void PlaylistsService.Add(p.playlist.id, d.items).then(
-      (detail) => {
-        setDetail(qc, detail);
-        void qc.invalidateQueries({ queryKey: playlistKeys.recentTargets });
-        toast(`Added ${d.label} to “${name}”`, {
-          action: {
-            label: "Open",
-            onClick: () => void navigate({ to: "/playlist/$id", params: { id: p.playlist.id } }),
-          },
-        });
-      },
-      (err) => toast.error(`Couldn't add to “${name}”`, { description: callFailure(err).message }),
+    addToPlaylistNow(
+      qc,
+      p.playlist,
+      d.items,
+      d.label,
+      () => void navigate({ to: "/playlist/$id", params: { id: p.playlist.id } }),
     );
   };
 
@@ -152,11 +150,14 @@ function AddToPlaylist({ d }: { d: Of<"add"> }) {
     />
   );
   const empty = !targets.recent.length && !targets.groups.length;
+  const trimmed = query.trim();
 
   return (
     <DialogContent className="flex max-h-[min(640px,85vh)] max-w-md flex-col gap-0 p-0">
       <DialogHeader className="gap-1 px-5 pt-5 pb-3">
-        <DialogTitle className="text-heading">Add to playlist</DialogTitle>
+        <DialogTitle className="text-heading">
+          <Trans>Add to playlist</Trans>
+        </DialogTitle>
         <DialogDescription className="truncate text-sub text-ink-muted">
           {d.label}
         </DialogDescription>
@@ -180,30 +181,32 @@ function AddToPlaylist({ d }: { d: Of<"add"> }) {
                 ?.focus();
             }
           }}
-          placeholder="Find a playlist"
-          aria-label="Find a playlist"
+          placeholder={t`Find a playlist`}
+          aria-label={t`Find a playlist`}
           className="h-8 pl-8"
         />
       </div>
-      <div role="list" onKeyDown={listKeys} className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+      <div role="group" onKeyDown={listKeys} className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         <Option
           icon={<Plus className="size-4" strokeWidth={1.75} />}
-          title="New playlist…"
+          title={t`New playlist…`}
           onSelect={() =>
             showDialog({ kind: "create", items: d.items, label: d.label, folderId: "" })
           }
         />
         {targets.recent.length > 0 && (
-          <section aria-label="Recent">
-            <h3 className="px-2 pt-4 pb-1 text-meta text-ink-faint">Recent</h3>
+          <section aria-label={t`Recent`}>
+            <h3 className="px-2 pt-4 pb-1 text-meta text-ink-faint">
+              <Trans>Recent</Trans>
+            </h3>
             {targets.recent.map(row)}
           </section>
         )}
         {targets.groups.map((g) => (
-          <section key={g.path || "top"} aria-label={g.path || "Playlists"}>
+          <section key={g.path || "top"} aria-label={g.path || t`Playlists`}>
             <h3 className="flex items-center gap-1.5 px-2 pt-4 pb-1 text-meta text-ink-faint">
               {g.path && <FolderClosed aria-hidden className="size-3" strokeWidth={1.75} />}
-              {g.path || "Playlists"}
+              {g.path || t`Playlists`}
             </h3>
             {g.items.map(row)}
           </section>
@@ -211,10 +214,10 @@ function AddToPlaylist({ d }: { d: Of<"add"> }) {
         {empty && (
           <p className="px-2 pt-4 text-sub text-ink-muted">
             {query.trim()
-              ? `No playlist you can edit is called “${query.trim()}”.`
+              ? t`No playlist you can edit is called “${trimmed}”.`
               : tree.isPending
-                ? "Loading your playlists…"
-                : "You have no playlists you can edit yet."}
+                ? t`Loading your playlists…`
+                : t`You have no playlists you can edit yet.`}
           </p>
         )}
       </div>
@@ -232,6 +235,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function PlaylistForm({ d }: { d: Of<"create"> | Of<"details"> }) {
+  const { t } = useLingui();
   const close = useDialogs((s) => s.close);
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -247,7 +251,7 @@ function PlaylistForm({ d }: { d: Of<"create"> | Of<"details"> }) {
     setBusy(true);
     const input = { name, description, isPublic };
     if (d.kind === "details") {
-      const ok = await run("Couldn't save the playlist", PlaylistsService.Update(d.id, input));
+      const ok = await run(t`Couldn't save the playlist`, PlaylistsService.Update(d.id, input));
       setBusy(false);
       if (ok) {
         await qc.invalidateQueries({ queryKey: playlistKeys.detail(d.id) });
@@ -259,9 +263,11 @@ function PlaylistForm({ d }: { d: Of<"create"> | Of<"details"> }) {
       const p = await PlaylistsService.Create(input, d.items, d.folderId);
       close();
       if (d.items.length) {
-        toast(`Added ${d.label} to “${p.name}”`, {
+        const label = d.label;
+        const pname = p.name;
+        toast(t`Added ${label} to “${pname}”`, {
           action: {
-            label: "Open",
+            label: t`Open`,
             onClick: () => void navigate({ to: "/playlist/$id", params: { id: p.id } }),
           },
         });
@@ -269,27 +275,28 @@ function PlaylistForm({ d }: { d: Of<"create"> | Of<"details"> }) {
         void navigate({ to: "/playlist/$id", params: { id: p.id } });
       }
     } catch (err) {
-      toast.error("Couldn't create the playlist", { description: callFailure(err).message });
+      toast.error(t`Couldn't create the playlist`, { description: callFailure(err).message });
       setBusy(false);
     }
   };
 
+  const withLabel = d.kind === "create" ? d.label : "";
   return (
     <DialogContent className="max-w-md">
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-5">
         <DialogHeader className="gap-1">
           <DialogTitle className="text-heading">
-            {editing ? "Edit playlist" : "New playlist"}
+            {editing ? t`Edit playlist` : t`New playlist`}
           </DialogTitle>
           <DialogDescription className="text-sub text-ink-muted">
             {editing
-              ? "Changes appear in Apple Music on all your devices."
+              ? t`Changes appear in Apple Music on all your devices.`
               : d.items.length
-                ? `With ${d.label}.`
-                : "Add songs from any album, playlist or search result."}
+                ? t`With ${withLabel}.`
+                : t`Add songs from any album, playlist or search result.`}
           </DialogDescription>
         </DialogHeader>
-        <Field label="Name">
+        <Field label={t`Name`}>
           <Input
             autoFocus
             value={name}
@@ -298,31 +305,33 @@ function PlaylistForm({ d }: { d: Of<"create"> | Of<"details"> }) {
             required
           />
         </Field>
-        <Field label="Description">
+        <Field label={t`Description`}>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             maxLength={1000}
-            className="min-h-16 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-ui outline-none placeholder:text-ink-faint focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
-            placeholder="Optional"
+            className="min-h-16 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-ui outline-none placeholder:text-ink-faint focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring dark:bg-input/30"
+            placeholder={t`Optional`}
           />
         </Field>
         <label className="flex items-center justify-between gap-4">
           <span>
-            <span className="block text-sub font-medium text-ink">Show on my profile</span>
+            <span className="block text-sub font-medium text-ink">
+              <Trans>Show on my profile</Trans>
+            </span>
             <span className="block text-meta text-ink-faint">
-              People who follow you can find and play it.
+              <Trans>People who follow you can find and play it.</Trans>
             </span>
           </span>
           <Switch checked={isPublic} onCheckedChange={setPublic} />
         </label>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={close}>
-            Cancel
+            <Trans>Cancel</Trans>
           </Button>
           <Button type="submit" disabled={!name.trim() || busy}>
-            {editing ? (busy ? "Saving…" : "Save") : busy ? "Creating…" : "Create playlist"}
+            {editing ? (busy ? t`Saving…` : t`Save`) : busy ? t`Creating…` : t`Create playlist`}
           </Button>
         </DialogFooter>
       </form>
@@ -331,6 +340,7 @@ function PlaylistForm({ d }: { d: Of<"create"> | Of<"details"> }) {
 }
 
 function FolderForm({ d }: { d: Of<"folder"> }) {
+  const { t } = useLingui();
   const close = useDialogs((s) => s.close);
   const [name, setName] = useState(d.folder?.name ?? "");
   const [busy, setBusy] = useState(false);
@@ -339,7 +349,7 @@ function FolderForm({ d }: { d: Of<"folder"> }) {
     if (!name.trim() || busy) return;
     setBusy(true);
     const ok = await run(
-      d.folder ? "Couldn't rename the folder" : "Couldn't create the folder",
+      d.folder ? t`Couldn't rename the folder` : t`Couldn't create the folder`,
       d.folder
         ? PlaylistsService.RenameFolder(d.folder.id, name)
         : PlaylistsService.CreateFolder(name),
@@ -352,13 +362,13 @@ function FolderForm({ d }: { d: Of<"folder"> }) {
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-5">
         <DialogHeader className="gap-1">
           <DialogTitle className="text-heading">
-            {d.folder ? "Rename folder" : "New folder"}
+            {d.folder ? t`Rename folder` : t`New folder`}
           </DialogTitle>
           <DialogDescription className="text-sub text-ink-muted">
-            Folders group playlists in the sidebar on all your devices.
+            <Trans>Folders group playlists in the sidebar on all your devices.</Trans>
           </DialogDescription>
         </DialogHeader>
-        <Field label="Name">
+        <Field label={t`Name`}>
           <Input
             autoFocus
             value={name}
@@ -369,10 +379,10 @@ function FolderForm({ d }: { d: Of<"folder"> }) {
         </Field>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={close}>
-            Cancel
+            <Trans>Cancel</Trans>
           </Button>
           <Button type="submit" disabled={!name.trim() || busy}>
-            {d.folder ? "Rename" : "Create folder"}
+            {d.folder ? t`Rename` : t`Create folder`}
           </Button>
         </DialogFooter>
       </form>
@@ -381,28 +391,36 @@ function FolderForm({ d }: { d: Of<"folder"> }) {
 }
 
 function MoveToFolder({ d }: { d: Of<"move"> }) {
+  const { t } = useLingui();
   const close = useDialogs((s) => s.close);
   const tree = usePlaylistTree();
   const folders = useMemo(() => (tree.data ? folderPaths(buildTree(tree.data)) : []), [tree.data]);
-  const move = (folderId: string, where: string) => {
+  const move = (folderId: string, folder: string | null) => {
     close();
     if (folderId === d.folderId) return;
-    void run(`Couldn't move “${d.name}”`, PlaylistsService.MoveToFolder(d.id, folderId)).then(
-      (ok) => ok && toast(`Moved “${d.name}” to ${where}`),
+    const name = d.name;
+    void run(t`Couldn't move “${name}”`, PlaylistsService.MoveToFolder(d.id, folderId)).then(
+      (ok) =>
+        ok &&
+        toast(
+          folder === null ? t`Moved “${name}” to the top level` : t`Moved “${name}” to “${folder}”`,
+        ),
     );
   };
   return (
     <DialogContent className="flex max-h-[min(560px,85vh)] max-w-sm flex-col gap-0 p-0">
       <DialogHeader className="gap-1 px-5 pt-5 pb-3">
-        <DialogTitle className="text-heading">Move to folder</DialogTitle>
+        <DialogTitle className="text-heading">
+          <Trans>Move to folder</Trans>
+        </DialogTitle>
         <DialogDescription className="truncate text-sub text-ink-muted">{d.name}</DialogDescription>
       </DialogHeader>
-      <div role="list" onKeyDown={listKeys} className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+      <div role="group" onKeyDown={listKeys} className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         <Option
           icon={<ListMusic className="size-4" strokeWidth={1.75} />}
-          title="Top level"
+          title={t`Top level`}
           current={d.folderId === ""}
-          onSelect={() => move("", "the top level")}
+          onSelect={() => move("", null)}
         />
         {folders.map(({ folder, path }) => (
           <Option
@@ -410,12 +428,12 @@ function MoveToFolder({ d }: { d: Of<"move"> }) {
             icon={<FolderClosed className="size-4" strokeWidth={1.75} />}
             title={path}
             current={folder.id === d.folderId}
-            onSelect={() => move(folder.id, `“${folder.name}”`)}
+            onSelect={() => move(folder.id, folder.name)}
           />
         ))}
         {!folders.length && !tree.isPending && (
           <p className="px-2 pt-3 text-sub text-ink-muted">
-            You have no folders yet. Create one from the sidebar’s Playlists menu.
+            <Trans>You have no folders yet. Create one from the sidebar’s Playlists menu.</Trans>
           </p>
         )}
       </div>

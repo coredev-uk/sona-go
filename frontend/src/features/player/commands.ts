@@ -1,7 +1,16 @@
-import { PlaybackService, type Song, type TrackRef } from "@bindings/services";
+import { PlaybackService, type PlayFrom, type Song, type TrackRef } from "@bindings/services";
+import { plural, t } from "@lingui/core/macro";
 import { toast } from "sonner";
 
+import { describeItems, type ActionItem } from "@/shared/actions/registry";
+import { songsOf } from "@/shared/actions/songs";
+import { callFailure } from "@/shared/lib/errors";
+import { fetchItemState } from "@/shared/lib/item-state";
+import { rateItem } from "@/shared/lib/library-actions";
 import { run } from "@/shared/lib/run";
+
+import { livePosition, usePlayback, type Repeat } from "./playback";
+import { replaceQueue } from "./replace";
 
 /** Songs that can be queued, and where `start` lands among them. */
 export function playable(songs: readonly (Song | undefined)[], start: number) {
@@ -15,37 +24,125 @@ export function playable(songs: readonly (Song | undefined)[], start: number) {
   return { refs, index };
 }
 
-/** Plays `songs` from `start` as the queue, labelled with the collection it came from. */
-export function playSongs(songs: readonly (Song | undefined)[], start: number, label: string) {
+/**
+ * Where songs come from: an Apple album, playlist or artist (reported with
+ * the plays), or a label for anything else ("search", a chart's title).
+ */
+export type PlaySource = PlayFrom | string;
+
+/** Plays `songs` from `start` as the queue, from the collection `from`. */
+export function playSongs(songs: readonly (Song | undefined)[], start: number, from: PlaySource) {
   const { refs, index } = playable(songs, start);
   if (!refs.length) {
-    toast.error("Nothing here can be played", {
-      description: "None of these songs is available to stream.",
+    toast.error(t`Nothing here can be played`, {
+      description: t`None of these songs is available to stream.`,
     });
     return;
   }
-  void run("Couldn't start playback", PlaybackService.PlayItems(refs, index, label));
+  const playFrom = typeof from === "string" ? { kind: "", id: from } : from;
+  void replaceQueue(() =>
+    run(t`Couldn't start playback`, PlaybackService.PlayItems(refs, index, playFrom)),
+  );
 }
 
 /** Shuffle-plays `songs`: shuffle on, starting from a random playable song. */
-export async function shuffleSongs(songs: readonly (Song | undefined)[], label: string) {
+export async function shuffleSongs(songs: readonly (Song | undefined)[], from: PlaySource) {
   const { refs } = playable(songs, 0);
   if (!refs.length) return;
-  if (!(await run("Couldn't turn on shuffle", PlaybackService.SetShuffle(true)))) return;
+  if (!(await run(t`Couldn't turn on shuffle`, PlaybackService.SetShuffle(true)))) return;
   const start = Math.floor(Math.random() * refs.length);
-  void run("Couldn't start playback", PlaybackService.PlayItems(refs, start, label));
-}
-
-export function playNext(songs: Song[]) {
-  void run("Couldn't add to the queue", PlaybackService.PlayNext(playable(songs, 0).refs)).then(
-    (ok) => ok && toast(songs.length === 1 ? `“${songs[0].name}” plays next` : "Plays next"),
+  const playFrom = typeof from === "string" ? { kind: "", id: from } : from;
+  void replaceQueue(() =>
+    run(t`Couldn't start playback`, PlaybackService.PlayItems(refs, start, playFrom)),
   );
 }
 
-export function addToQueue(songs: Song[]) {
-  void run("Couldn't add to the queue", PlaybackService.Append(playable(songs, 0).refs)).then(
-    (ok) =>
-      ok &&
-      toast(songs.length === 1 ? `Added “${songs[0].name}” to the queue` : "Added to the queue"),
+/**
+ * Sets the sleep timer: mode "after" (in `minutes`), "track" or "queue";
+ * "" turns it off.
+ */
+export function setSleep(mode: "" | "after" | "track" | "queue", minutes = 0) {
+  void run(t`Couldn't set the sleep timer`, PlaybackService.SetSleep(mode, minutes));
+}
+
+/**
+ * Queues songs, albums and playlists (their tracks, in order): `"next"`
+ * after the current song, `"last"` after the user's queue, or at queue
+ * position `at` (a drop on the queue panel).
+ */
+export async function queueItems(items: readonly ActionItem[], where: "next" | "last" | number) {
+  let songs: Song[];
+  try {
+    songs = await songsOf(items);
+  } catch (err) {
+    toast.error(t`Couldn't add to the queue`, { description: callFailure(err).message });
+    return;
+  }
+  const { refs } = playable(songs, 0);
+  if (!refs.length) {
+    toast.error(t`Nothing here can be played`, {
+      description: t`None of these songs is available to stream.`,
+    });
+    return;
+  }
+  const call =
+    where === "next"
+      ? PlaybackService.PlayNext(refs)
+      : where === "last"
+        ? PlaybackService.Append(refs)
+        : PlaybackService.Insert(where, refs);
+  if (!(await run(t`Couldn't add to the queue`, call))) return;
+  const what = describeItems(items);
+  const count = items.length;
+  toast(
+    where === "next"
+      ? plural(count, { one: `${what} plays next`, other: `${what} play next` })
+      : t`Added ${what} to the queue`,
   );
+}
+
+/** Seeks `deltaMs` from the live position, within the track (not on live radio). */
+export function seekBy(deltaMs: number) {
+  const s = usePlayback.getState();
+  if (!s.current || s.current.live || s.durationMs <= 0) return;
+  const to = Math.min(Math.max(livePosition(s, Date.now()) + deltaMs, 0), s.durationMs);
+  s.patch({ positionMs: to, at: Date.now() });
+  void run(t`Couldn't seek`, PlaybackService.Seek(to));
+}
+
+export function setVolume(v: number) {
+  const volume = Math.min(Math.max(v, 0), 1);
+  usePlayback.getState().patch({ volume });
+  void run(t`Couldn't change the volume`, PlaybackService.SetVolume(volume));
+}
+
+/** The volume to return to on unmute (the bar's button and the M key share it). */
+let unmuted = 0.8;
+
+export function toggleMute() {
+  const volume = usePlayback.getState().volume;
+  if (volume > 0) unmuted = volume;
+  setVolume(volume > 0 ? 0 : unmuted || 0.8);
+}
+
+export function toggleShuffle() {
+  const s = usePlayback.getState();
+  if (!s.current) return;
+  void run(t`Couldn't change shuffle`, PlaybackService.SetShuffle(!s.shuffle));
+}
+
+export const nextRepeat: Record<Repeat, Repeat> = { off: "all", all: "one", one: "off" };
+
+export function cycleRepeat() {
+  const s = usePlayback.getState();
+  if (!s.current) return;
+  void run(t`Couldn't change repeat`, PlaybackService.SetRepeat(nextRepeat[s.repeat as Repeat]));
+}
+
+/** Favourites the playing song, or undoes it (not live radio or songs outside Apple Music). */
+export async function toggleFavourite() {
+  const current = usePlayback.getState().current;
+  if (!current || current.live || !(current.catalogId || current.libraryId)) return;
+  const state = await fetchItemState("songs", current);
+  rateItem("songs", current, current.name, state?.rating === 1 ? "unfavorite" : "favorite");
 }

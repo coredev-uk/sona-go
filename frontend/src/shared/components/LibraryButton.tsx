@@ -1,4 +1,5 @@
 import { Source } from "@bindings/services";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Check, Plus } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
@@ -21,6 +22,7 @@ export function LibraryButton({
   item: StateItem;
   name: string;
 }) {
+  const { t } = useLingui();
   const state = useItemState(kind, item);
   const inLibrary = state.data?.inLibrary ?? item.source === Source.SourceLibrary;
   if (!inLibrary) {
@@ -32,7 +34,7 @@ export function LibraryButton({
         onClick={() => void addToLibrary(kind, [item], name)}
       >
         <Plus strokeWidth={1.75} />
-        Add
+        <Trans>Add</Trans>
       </Button>
     );
   }
@@ -41,7 +43,7 @@ export function LibraryButton({
     return (
       <span className="inline-flex h-8 items-center gap-1.5 px-2 text-ui text-ink-muted">
         <Check className="size-4" strokeWidth={1.75} aria-hidden />
-        In library
+        <Trans>In library</Trans>
       </span>
     );
   }
@@ -51,14 +53,16 @@ export function LibraryButton({
         <Button
           variant="outline"
           size="sm"
-          aria-label={`In library. Remove “${name}” from your library`}
+          aria-label={t`In library. Remove “${name}” from your library`}
           onClick={() => void removeFromLibrary(kind, item, name)}
         >
           <Check strokeWidth={1.75} />
-          In library
+          <Trans>In library</Trans>
         </Button>
       </TooltipTrigger>
-      <TooltipContent>Remove from library</TooltipContent>
+      <TooltipContent>
+        <Trans>Remove from library</Trans>
+      </TooltipContent>
     </Tooltip>
   );
 }

@@ -1,15 +1,22 @@
+import { t } from "@lingui/core/macro";
 import type { Chart } from "@bindings/services";
 
-/** Chart names in Sona's words, by chart key. */
-export const chartTitles: Record<string, string> = {
-  songs: "Top songs",
-  albums: "Top albums",
-  playlists: "Top playlists",
-  "music-videos": "Top music videos",
-  cityCharts: "Top 25 by city",
-  dailyGlobalTopCharts: "Daily top 100 by country",
-};
-
-export function chartTitle(c: Pick<Chart, "key" | "title">) {
-  return chartTitles[c.key] ?? c.title;
+/** Chart names in Sona's words, by chart key; Apple's title for any other chart. */
+export function chartTitle(c: Pick<Chart, "key" | "title">): string {
+  switch (c.key) {
+    case "songs":
+      return t`Top songs`;
+    case "albums":
+      return t`Top albums`;
+    case "playlists":
+      return t`Top playlists`;
+    case "music-videos":
+      return t`Top music videos`;
+    case "cityCharts":
+      return t`Top 25 by city`;
+    case "dailyGlobalTopCharts":
+      return t`Daily top 100 by country`;
+    default:
+      return c.title;
+  }
 }

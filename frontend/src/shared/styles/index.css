@@ -14,17 +14,23 @@
   --hover: #e4e7e3;
   --active: #dbdfda;
   --line: #dadcd7;
-  --control-line: #c5cac4;
+  /* Contrast floors (WCAG AA, docs/accessibility.md): control-line and the
+     focus ring ≥ 3:1 and ink-faint/amber-ink/positive text ≥ 4.5:1 on every
+     background tone up to --active and on selected rows (ink at 12%). */
+  --control-line: #838984;
   --ink: #161917;
   --ink-muted: #545a55;
-  --ink-faint: #646a65;
+  --ink-faint: #5a605b;
   --amber: #e5a31b;
-  --amber-ink: #8c5a00;
+  --amber-ink: #845500;
   --on-amber: #1a1405;
   --danger: #b42318;
-  --positive: #247b50;
+  --positive: #1c6943;
   --float-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
-  --backdrop-scrim: 78%;
+  /* Backdrop scrim (shared/components/Backdrop): the surface or ground
+     colour over the cover wash. The floor keeps ink-muted and ink-faint
+     ≥ 4.5:1 over any backdrop (black, or a white one) on both tones. */
+  --backdrop-scrim: 92%;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* ShadCN roles mapped onto the tokens. */
@@ -46,7 +52,7 @@
   --destructive: var(--danger);
   --border: var(--line);
   --input: var(--control-line);
-  --ring: color-mix(in oklab, var(--ink) 40%, transparent);
+  --ring: color-mix(in oklab, var(--ink) 60%, transparent);
 
   color-scheme: light;
 }
@@ -58,16 +64,17 @@
   --hover: #222724;
   --active: #2a302c;
   --line: #262b28;
-  --control-line: #3a413c;
+  --control-line: #6b736d;
   --ink: #eef1ee;
   --ink-muted: #a9b0aa;
-  --ink-faint: #8d948e;
+  --ink-faint: #a0a7a1;
   --amber: #f0b43c;
   --amber-ink: #f0b43c;
   --on-amber: #1a1405;
   --danger: #f0705f;
   --positive: #5cc48c;
   --float-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+  --backdrop-scrim: 86%;
 
   color-scheme: dark;
 }

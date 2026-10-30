@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 
 import type { CoverItem } from "@/shared/components/CoverGrid";
@@ -29,7 +30,7 @@ export function CoverShelf({ title, items, aspect = "square", more }: CoverShelf
         !more &&
         items.length > cols && (
           <ShelfToggle open={open} onToggle={() => setOpen(!open)}>
-            {open ? "Show fewer" : "Show all"}
+            {open ? <Trans>Show fewer</Trans> : <Trans>Show all</Trans>}
           </ShelfToggle>
         )
       }

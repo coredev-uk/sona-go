@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { createRoute } from "@tanstack/react-router";
 import { Disc3 } from "lucide-react";
 
@@ -21,7 +22,7 @@ export const albumModule: FeatureModule<typeof albumRoute> = {
     {
       id: "album.go-to",
       target: "song",
-      label: "Go to album",
+      label: () => t`Go to album`,
       icon: Disc3,
       group: "item",
       order: 10,

@@ -1,5 +1,6 @@
-import { PlaybackService } from "@bindings/services";
+import { DesktopService, PlaybackService } from "@bindings/services";
 import { Link } from "@tanstack/react-router";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   CircleAlert,
   ListMusic,
@@ -7,6 +8,7 @@ import {
   MicVocal,
   Pause,
   Play,
+  PictureInPicture2,
   Repeat,
   Repeat1,
   Shuffle,
@@ -16,8 +18,9 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
+import { EqualizerButton } from "@/features/equalizer";
 import { useOnAirProgramme } from "@/features/radio";
 import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
@@ -25,20 +28,27 @@ import { RatingButtons } from "@/shared/components/RatingButtons";
 import { Button } from "@/shared/ui/button";
 import { Slider } from "@/shared/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
-import { formatTime } from "@/shared/lib/format";
+import { clockTime, formatTime } from "@/shared/lib/format";
 import { run } from "@/shared/lib/run";
 import { cn } from "@/shared/lib/utils";
+import { useBinding } from "@/shared/shortcuts/bindings";
+import { ChordKeys } from "@/shared/shortcuts/Keys";
 
+import { setVolume, toggleMute } from "./commands";
 import { useLivePosition, usePlayback } from "./playback";
-import { useUI } from "./ui";
+import { SleepTimer } from "./SleepTimer";
+import { TrackAnnouncer } from "./TrackAnnouncer";
+import { QUEUE_TOGGLE_ID, useUI } from "./ui";
 
 function IconButton({
+  id,
   label,
   disabled,
   pressed,
   onClick,
   children,
 }: {
+  id?: string;
   label: string;
   disabled?: boolean;
   /** Toggle buttons (shuffle, repeat, queue, lyrics) report their state. */
@@ -50,6 +60,7 @@ function IconButton({
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
+          id={id}
           variant="ghost"
           size="icon-sm"
           aria-label={label}
@@ -77,11 +88,14 @@ function Seek({ disabled }: { disabled: boolean }) {
   const durationMs = usePlayback((s) => s.durationMs);
   const [drag, setDrag] = useState<number | null>(null);
   const shown = drag ?? position;
+  const { t } = useLingui();
+  const at = formatTime(shown);
+  const total = formatTime(durationMs);
 
   const commit = ([v]: number[]) => {
     setDrag(null);
     usePlayback.getState().patch({ positionMs: v, at: Date.now() });
-    void run("Couldn't seek", PlaybackService.Seek(v));
+    void run(t`Couldn't seek`, PlaybackService.Seek(v));
   };
 
   return (
@@ -93,8 +107,8 @@ function Seek({ disabled }: { disabled: boolean }) {
         {disabled ? "–:––" : formatTime(shown)}
       </span>
       <Slider
-        aria-label="Seek"
-        aria-valuetext={disabled ? undefined : `${formatTime(shown)} of ${formatTime(durationMs)}`}
+        aria-label={t`Seek`}
+        aria-valuetext={disabled ? undefined : t`${at} of ${total}`}
         disabled={disabled || durationMs <= 0}
         value={[durationMs > 0 ? Math.min(shown, durationMs) : 0]}
         max={Math.max(durationMs, 1)}
@@ -115,12 +129,7 @@ function Seek({ disabled }: { disabled: boolean }) {
  */
 function LiveLine({ id, playing }: { id: string; playing: boolean }) {
   const programme = useOnAirProgramme(id);
-  const until = programme
-    ? new Date(programme.endMs).toLocaleTimeString(undefined, {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "";
+  const until = programme ? clockTime(programme.endMs) : "";
   return (
     <div className="flex h-4 w-full min-w-0 items-center justify-center gap-2 text-meta">
       <span className="flex shrink-0 items-center gap-1.5 font-medium text-ink">
@@ -128,12 +137,15 @@ function LiveLine({ id, playing }: { id: string; playing: boolean }) {
           aria-hidden
           className={cn("size-1.5 rounded-full", playing ? "bg-play" : "bg-ink-faint")}
         />
-        Live
+        <Trans>Live</Trans>
       </span>
       {programme && (
         <span className="min-w-0 truncate text-ink-muted">
           {programme.title}
-          <span className="num"> · until {until}</span>
+          <span className="num">
+            {" · "}
+            <Trans>until {until}</Trans>
+          </span>
         </span>
       )}
     </div>
@@ -142,33 +154,23 @@ function LiveLine({ id, playing }: { id: string; playing: boolean }) {
 
 function Volume() {
   const volume = usePlayback((s) => s.volume);
-  const restore = useRef(0.8);
-  const set = (v: number) => {
-    usePlayback.getState().patch({ volume: v });
-    void run("Couldn't change the volume", PlaybackService.SetVolume(v));
-  };
   const VolumeIcon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+  const { t } = useLingui();
   return (
     <div
       className="flex items-center gap-1"
       style={{ "--slider-range": "var(--ink-muted)" } as React.CSSProperties}
     >
-      <IconButton
-        label={volume === 0 ? "Unmute" : "Mute"}
-        onClick={() => {
-          if (volume > 0) restore.current = volume;
-          set(volume > 0 ? 0 : restore.current || 0.8);
-        }}
-      >
+      <IconButton label={volume === 0 ? t`Unmute` : t`Mute`} onClick={toggleMute}>
         <VolumeIcon strokeWidth={1.75} />
       </IconButton>
       <Slider
-        aria-label="Volume"
+        aria-label={t`Volume`}
         className="w-24 shrink-0"
         value={[Math.round(volume * 100)]}
         max={100}
         step={1}
-        onValueChange={([v]) => set(v / 100)}
+        onValueChange={([v]) => setVolume(v / 100)}
       />
     </div>
   );
@@ -189,6 +191,8 @@ export function NowPlayingBar() {
   const error = usePlayback((s) => s.error);
   const authRequired = usePlayback((s) => s.authRequired);
   const { queueOpen, toggleQueue, overlay, openNowPlaying, closeOverlay, showLyrics } = useUI();
+  const toggleKeys = useBinding("player.toggle");
+  const { t } = useLingui();
 
   const idle = !current;
   const playing = state === "playing";
@@ -205,7 +209,7 @@ export function NowPlayingBar() {
         search={{ section: "account" }}
         className="truncate text-sub text-ink underline underline-offset-2"
       >
-        Sign in again to keep playing
+        <Trans>Sign in again to keep playing</Trans>
       </Link>
     );
   } else if (state === "error" && error) {
@@ -213,7 +217,9 @@ export function NowPlayingBar() {
       // Go's error is engine detail; the line says what happened, the tooltip why.
       <span className="flex min-w-0 items-center gap-1.5 text-sub text-ink" title={error}>
         <CircleAlert aria-hidden className="size-3.5 shrink-0 text-danger" strokeWidth={2} />
-        <span className="truncate">Couldn't play this song. Press play to try again.</span>
+        <span className="truncate">
+          <Trans>Couldn't play this song. Press play to try again.</Trans>
+        </span>
       </span>
     );
   } else if (current) {
@@ -237,9 +243,11 @@ export function NowPlayingBar() {
 
   return (
     <section
-      aria-label="Now playing"
+      // "Player", so the landmark differs from the Now Playing view's.
+      aria-label={t`Player`}
       className="relative col-span-2 h-[72px] border-t border-line bg-surface"
     >
+      <TrackAnnouncer />
       <Backdrop src={current?.backdrop} />
       {/* The right column never shrinks below its controls (the volume
           slider collapsed to a dot in narrow windows); the transport gives
@@ -250,7 +258,7 @@ export function NowPlayingBar() {
             type="button"
             disabled={idle}
             onClick={() => (overlay === "now-playing" ? closeOverlay() : openNowPlaying(false))}
-            aria-label={idle ? "Nothing playing" : "Open now playing"}
+            aria-label={idle ? t`Nothing playing` : t`Open now playing`}
             className="shrink-0 rounded-sm"
           >
             <Artwork src={current?.art.small} size={48} alt="" eager />
@@ -278,11 +286,13 @@ export function NowPlayingBar() {
                 <span className="truncate text-ui font-medium text-ink">{current.name}</span>
               )
             ) : (
-              <span className="truncate text-ui font-medium text-ink-muted">Not playing</span>
+              <span className="truncate text-ui font-medium text-ink-muted">
+                <Trans>Not playing</Trans>
+              </span>
             )}
             {subline ?? (
               <span className="truncate text-sub text-ink-faint">
-                Choose a song, album or playlist to start
+                <Trans>Choose a song, album or playlist to start</Trans>
               </span>
             )}
           </div>
@@ -302,19 +312,19 @@ export function NowPlayingBar() {
         <div className="flex w-full min-w-0 flex-col items-center gap-1">
           <div className="flex items-center gap-2">
             <IconButton
-              label={shuffle ? "Shuffle on" : "Shuffle off"}
+              label={shuffle ? t`Shuffle on` : t`Shuffle off`}
               pressed={shuffle}
               disabled={idle}
               onClick={() =>
-                void run("Couldn't change shuffle", PlaybackService.SetShuffle(!shuffle))
+                void run(t`Couldn't change shuffle`, PlaybackService.SetShuffle(!shuffle))
               }
             >
               <Shuffle strokeWidth={1.75} />
             </IconButton>
             <IconButton
-              label="Previous"
+              label={t`Previous`}
               disabled={idle || !canPrevious}
-              onClick={() => void run("Couldn't go back", PlaybackService.Prev())}
+              onClick={() => void run(t`Couldn't go back`, PlaybackService.Prev())}
             >
               <SkipBack strokeWidth={1.75} fill="currentColor" />
             </IconButton>
@@ -322,9 +332,9 @@ export function NowPlayingBar() {
               <TooltipTrigger asChild>
                 <Button
                   size="icon"
-                  aria-label={playing ? "Pause" : "Play"}
+                  aria-label={playing ? t`Pause` : t`Play`}
                   disabled={idle}
-                  onClick={() => void run("Couldn't play or pause", PlaybackService.Toggle())}
+                  onClick={() => void run(t`Couldn't play or pause`, PlaybackService.Toggle())}
                   className={cn(
                     "size-9 rounded-full bg-play text-on-play hover:bg-play/90",
                     "disabled:bg-hover disabled:text-ink-faint disabled:opacity-100",
@@ -340,24 +350,25 @@ export function NowPlayingBar() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                {playing ? "Pause" : "Play"} <kbd className="ml-1 text-ink-faint">Space</kbd>
+                {playing ? t`Pause` : t`Play`}
+                {toggleKeys[0] && <ChordKeys chord={toggleKeys[0]} className="ml-1.5" />}
               </TooltipContent>
             </Tooltip>
             <IconButton
-              label="Next"
+              label={t`Next`}
               disabled={idle || !canNext}
-              onClick={() => void run("Couldn't skip", PlaybackService.Next())}
+              onClick={() => void run(t`Couldn't skip`, PlaybackService.Next())}
             >
               <SkipForward strokeWidth={1.75} fill="currentColor" />
             </IconButton>
             <IconButton
               label={
-                repeat === "off" ? "Repeat off" : repeat === "all" ? "Repeat all" : "Repeat one"
+                repeat === "off" ? t`Repeat off` : repeat === "all" ? t`Repeat all` : t`Repeat one`
               }
               pressed={repeat !== "off"}
               disabled={idle}
               onClick={() =>
-                void run("Couldn't change repeat", PlaybackService.SetRepeat(nextRepeat))
+                void run(t`Couldn't change repeat`, PlaybackService.SetRepeat(nextRepeat))
               }
             >
               <RepeatIcon strokeWidth={1.75} />
@@ -371,17 +382,32 @@ export function NowPlayingBar() {
         </div>
 
         <div className="flex items-center justify-end gap-1">
+          <SleepTimer disabled={idle} />
           <IconButton
-            label="Lyrics"
+            label={t`Lyrics`}
             pressed={lyricsOpen}
             disabled={idle}
             onClick={() => (lyricsOpen ? closeOverlay() : openNowPlaying(true))}
           >
             <MicVocal strokeWidth={1.75} />
           </IconButton>
-          <IconButton label="Queue" pressed={queueOpen} onClick={toggleQueue}>
+          <IconButton
+            id={QUEUE_TOGGLE_ID}
+            label={t`Queue`}
+            pressed={queueOpen}
+            onClick={toggleQueue}
+          >
             <ListMusic strokeWidth={1.75} />
           </IconButton>
+          <IconButton
+            label={t`Mini player`}
+            onClick={() =>
+              void run(t`Couldn't open the mini player`, DesktopService.ToggleMiniPlayer())
+            }
+          >
+            <PictureInPicture2 strokeWidth={1.75} />
+          </IconButton>
+          <EqualizerButton />
           <Volume />
         </div>
       </div>

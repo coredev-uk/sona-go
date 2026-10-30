@@ -17,7 +17,11 @@ export function SettingsPanel({
   );
 }
 
-/** One setting: its label and what it does on the left, the control on the right. */
+/**
+ * One setting: its label and what it does on the left, the control on the
+ * right. The label is `${id}-label`, for controls `<label for>` cannot name
+ * (sliders take `aria-labelledby`).
+ */
 export function SettingRow({
   id,
   title,
@@ -40,7 +44,7 @@ export function SettingRow({
       )}
     >
       <div className="min-w-0">
-        <label htmlFor={id} className="text-ui font-medium text-ink">
+        <label htmlFor={id} id={`${id}-label`} className="text-ui font-medium text-ink">
           {title}
         </label>
         <p id={`${id}-desc`} className="mt-0.5 max-w-[56ch] text-sub text-ink-muted">
