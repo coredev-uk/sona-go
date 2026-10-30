@@ -63,7 +63,7 @@ func newIntegrationsService(e *Env) *IntegrationsService {
 		quit:    make(chan struct{}),
 		done:    make(chan struct{}),
 	}
-	s.status.Discord.Configured = discord.ClientID != ""
+	s.status.Discord.Configured = discord.ClientID() != ""
 	e.Settings.OnChange(func(prev, next config.Settings) {
 		if prev.Integrations != next.Integrations {
 			select {
@@ -129,8 +129,8 @@ func (s *IntegrationsService) run() {
 		Why:     "Playing music",
 	})
 	var presence *presenceWorker
-	if discord.ClientID != "" {
-		presence = newPresenceWorker(s, discord.New(discord.ClientID))
+	if id := discord.ClientID(); id != "" {
+		presence = newPresenceWorker(s, discord.New(id))
 		s.e.Go("discord presence", presence.run)
 	}
 	defer func() {

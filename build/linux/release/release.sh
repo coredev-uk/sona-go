@@ -8,8 +8,9 @@
 #   build/linux/release/release.sh [output-dir]     # default: bin/release
 #   SONA_SKIP_SMOKE=1 build/linux/release/release.sh
 #
-# The version is VERSION's. SONA_LASTFM_KEY / SONA_LASTFM_SECRET, when set,
-# are passed to the build (build/linux/Taskfile.yml) and never printed.
+# The version is VERSION's. SONA_LASTFM_KEY / SONA_LASTFM_SECRET and
+# SONA_DISCORD_CLIENT_ID, when set, are passed to the build
+# (build/linux/Taskfile.yml) and never printed.
 #
 # The build runs on a snapshot of the working tree, so the host's
 # node_modules, frontend/dist and bin/ are never touched. Secrets (.env,
@@ -62,7 +63,7 @@ tar -C "$root" \
     -v "$out:/out" \
     -v sona-release-cache:/cache \
     -e GOMODCACHE=/cache/gomod -e GOCACHE=/cache/gobuild -e npm_config_store_dir=/cache/pnpm \
-    -e SONA_LASTFM_KEY -e SONA_LASTFM_SECRET \
+    -e SONA_LASTFM_KEY -e SONA_LASTFM_SECRET -e SONA_DISCORD_CLIENT_ID \
     -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
     "$image" bash -euo pipefail -c '
       mkdir -p /src && tar -xf - -C /src && cd /src

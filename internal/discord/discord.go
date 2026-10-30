@@ -28,15 +28,25 @@ import (
 	"unicode/utf8"
 )
 
-// ClientID is Sona's Discord application ID (public; it names the app in
+// clientID is Sona's Discord application ID (public; it names the app in
 // the presence and is not a secret). Create the application at
 // https://discord.com/developers/applications (named "Sona", so the
 // presence reads "Listening to Sona") and set its ID at build time:
 //
-//	go build -ldflags "-X github.com/coredev-uk/sona-go/internal/discord.ClientID=<id>"
+//	go build -ldflags "-X github.com/coredev-uk/sona-go/internal/discord.clientID=<id>"
 //
-// Empty means presence is not configured in this build.
-var ClientID = ""
+// (build/linux/Taskfile.yml passes SONA_DISCORD_CLIENT_ID). A build without
+// it reads the same variable from the environment.
+var clientID string
+
+// ClientID returns the application ID built in (or from the environment);
+// empty means presence is not configured.
+func ClientID() string {
+	if clientID != "" {
+		return clientID
+	}
+	return os.Getenv("SONA_DISCORD_CLIENT_ID")
+}
 
 // Opcodes.
 const (

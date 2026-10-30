@@ -34,12 +34,13 @@ jobs:
           fi
 
       # Podman is preinstalled on the runner image. The Last.fm key and
-      # secret are optional repository secrets; without them Last.fm reads
-      # the same variables at runtime.
+      # secret and the Discord application ID are optional repository
+      # secrets; without them Sona reads the same variables at runtime.
       - name: Build and smoke-test packages
         env:
           SONA_LASTFM_KEY: ${{ secrets.SONA_LASTFM_KEY }}
           SONA_LASTFM_SECRET: ${{ secrets.SONA_LASTFM_SECRET }}
+          SONA_DISCORD_CLIENT_ID: ${{ secrets.SONA_DISCORD_CLIENT_ID }}
         run: bash build/linux/release/release.sh "$RUNNER_TEMP/release"
 
       - name: Publish the GitHub release
