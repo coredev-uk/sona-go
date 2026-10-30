@@ -1,0 +1,133 @@
+// Package logging builds Sona's slog logger: text to stderr in development,
+// JSON to a size-rotated file in the state directory, and a redacting
+// handler in front of both so tokens never reach a log line.
+package logging
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"regexp"
+	"strings"
+)
+
+// Redacted replaces every secret the handler removes.
+const Redacted = "[REDACTED]"
+
+var (
+	// JWTs: three base64url segments, the first starting with a JSON header.
+	jwtRe = regexp.MustCompile(`eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*`)
+	// key=value / key: value / "key":"value" pairs whose key names a secret,
+	// including HTTP headers and query parameters. An optional "Bearer " is
+	// swallowed with the value.
+	kvRe = regexp.MustCompile(`(?i)\b(media-user-token|music-user-token|musicusertoken|mediausertoken|x-apple-music-user-token|mut|token|access_token|refresh_token|dev_token|authorization)\b(\s*["']?\s*[:=]\s*["']?)(?:bearer\s+)?[^\s"',;&}\])]+`)
+	// A bare "Bearer <credential>".
+	bearerRe = regexp.MustCompile(`(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{8,}`)
+	// Music User Tokens are long base64 strings with no fixed prefix; any
+	// unbroken base64 run of 100+ characters is treated as one.
+	longB64Re = regexp.MustCompile(`[A-Za-z0-9+/_-]{100,}={0,2}`)
+)
+
+// Redact scrubs secrets from free text: JWTs, values of token-named keys
+// and headers (Media-User-Token, Authorization, token=…), bearer
+// credentials, and long base64 runs that look like Music User Tokens.
+func Redact(s string) string {
+	if s == "" {
+		return s
+	}
+	s = kvRe.ReplaceAllString(s, "${1}${2}"+Redacted)
+	s = jwtRe.ReplaceAllString(s, Redacted)
+	s = bearerRe.ReplaceAllString(s, "Bearer "+Redacted)
+	s = longB64Re.ReplaceAllStringFunc(s, func(m string) string {
+		if strings.Contains(m, Redacted) {
+			return m
+		}
+		return Redacted
+	})
+	return s
+}
+
+// sensitiveKey reports whether an attribute key names a secret. Matching
+// ignores case, '-' and '_' and accepts any key ending in "token".
+func sensitiveKey(key string) bool {
+	k := strings.ToLower(strings.NewReplacer("-", "", "_", "").Replace(key))
+	switch k {
+	case "mut", "authorization", "auth", "cookie", "setcookie", "password", "secret":
+		return true
+	}
+	return strings.HasSuffix(k, "token")
+}
+
+// RedactHandler wraps a slog.Handler and scrubs every record before it
+// reaches it: attributes with secret-naming keys are replaced wholesale, and
+// the message and all string-like values pass through [Redact].
+type RedactHandler struct {
+	inner slog.Handler
+}
+
+// NewRedactHandler returns h behind redaction.
+func NewRedactHandler(h slog.Handler) *RedactHandler { return &RedactHandler{inner: h} }
+
+// Enabled implements slog.Handler.
+func (h *RedactHandler) Enabled(ctx context.Context, l slog.Level) bool {
+	return h.inner.Enabled(ctx, l)
+}
+
+// Handle implements slog.Handler.
+func (h *RedactHandler) Handle(ctx context.Context, r slog.Record) error {
+	out := slog.NewRecord(r.Time, r.Level, Redact(r.Message), r.PC)
+	r.Attrs(func(a slog.Attr) bool {
+		out.AddAttrs(redactAttr(a))
+		return true
+	})
+	return h.inner.Handle(ctx, out)
+}
+
+// WithAttrs implements slog.Handler; the attributes are redacted once here.
+func (h *RedactHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	clean := make([]slog.Attr, len(attrs))
+	for i, a := range attrs {
+		clean[i] = redactAttr(a)
+	}
+	return &RedactHandler{inner: h.inner.WithAttrs(clean)}
+}
+
+// WithGroup implements slog.Handler.
+func (h *RedactHandler) WithGroup(name string) slog.Handler {
+	return &RedactHandler{inner: h.inner.WithGroup(name)}
+}
+
+func redactAttr(a slog.Attr) slog.Attr {
+	if sensitiveKey(a.Key) {
+		return slog.String(a.Key, Redacted)
+	}
+	v := a.Value.Resolve()
+	switch v.Kind() {
+	case slog.KindString:
+		return slog.String(a.Key, Redact(v.String()))
+	case slog.KindGroup:
+		group := v.Group()
+		clean := make([]any, len(group))
+		for i, ga := range group {
+			clean[i] = redactAttr(ga)
+		}
+		return slog.Group(a.Key, clean...)
+	case slog.KindAny:
+		// Errors, Stringers, structs, maps: render to text and scrub, so a
+		// token inside a struct field or error message cannot slip through.
+		var s string
+		switch x := v.Any().(type) {
+		case error:
+			s = x.Error()
+		case fmt.Stringer:
+			s = x.String()
+		case []byte:
+			s = string(x)
+		default:
+			s = fmt.Sprintf("%+v", x)
+		}
+		return slog.String(a.Key, Redact(s))
+	default:
+		return slog.Attr{Key: a.Key, Value: v}
+	}
+}
