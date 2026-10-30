@@ -140,7 +140,8 @@ Sources, all fetched 2026-10-29 and read with REA (`analyze-javascript-applicati
 | `POST /appleauth/auth/signin/complete?isRememberMeEnabled=false {accountName, rememberMe, m1, c, m2}` + `X-APPLE-HC`; 200 signed in, 409 two-factor | `app-message.js` (`bn.prototype.signIn`) |
 | SRP-6a: RFC 5054 2048-bit group, SHA-256, `k=H(N‖PAD(g))`, `x=H(s‖H(":"‖P))` (empty identity), `P=PBKDF2-SHA256(SHA256(pw) or hex(SHA256(pw)) for s2k_fo, s, i, 32)`, `u=H(PAD(A)‖PAD(B))`, `K=H(PAD(S))`, `M1=H(H(N)⊕H(PAD(g)) ‖ H(lower(account)) ‖ s ‖ A ‖ B ‖ K)`, `M2=H(A‖M1‖K)` | `webSRPClientWorker.js` |
 | Hashcash `1:<bits>:<UTC yyyymmddhhmmss>:<challenge>::<n>`, SHA-1 with ≥ bits leading zero bits | `generateHashcash.js`, `app-message.js` (`separator:"::"`) |
-| 2FA: `GET /appleauth/auth` (options; pushes to trusted devices), `POST …/verify/trusteddevice/securitycode {securityCode:{code}}`, `PUT …/verify/phone {phoneNumber:{id},mode}`, `POST …/verify/phone/securitycode`, `PUT …/verify/trusteddevice/securitycode` (resend), `GET …/2sv/trust` | `home-c702d19e62c250fcaaa7.js` |
+| 2FA options: `GET /appleauth` + (409 `Location` or `/auth`) with `Accept: text/html`; the first `<script class="boot_args">` gives `direct.hasTrustedDevices` and `direct.twoSV.phoneNumberVerification` (`trustedPhoneNumbers`, `phoneNumber`, `securityCode.length`; `bridgeInitiateData` overrides `twoSV`, `trustedDeviceVerification.phoneNumberVerification` is the fallback). The widget routes `hasTrustedDevices` to `verifyDevice`, else to the phone sections | `app-message.js` (`Io`, `te.prototype.next`), `home-c702d19e62c250fcaaa7.js` (hsa2 reducer, `F`) |
+| 2FA codes: `POST …/verify/trusteddevice/securitycode {securityCode:{code}}`, `PUT …/verify/trusteddevice/securitycode` (resend), `PUT …/verify/phone {phoneNumber:{id},mode}`, `POST …/verify/phone/securitycode`, `GET …/2sv/trust` | `home-c702d19e62c250fcaaa7.js` |
 | Widget success → `POST https://idmsa.apple.com/auth` (`callBackForm`) → `validateMusicKitToken` → 302 to `authorize.music.apple.com/?liteSessionId&pod&appleId&…` | `oauth2WidgetLoginBoot.js` (`onAuthSuccess`) |
 | `GET https://p<pod>-buy.itunes.apple.com/commerce/account/getMusicUserToken?liteSessionId&jwtToken=<dev>` → `{musicUserToken, itre}` (the consent page's Approve button, no cookies) | `index.db65ee7b.js` (`Xr`, `tn`) |
 
@@ -150,10 +151,25 @@ Verification:
 
 - **[verified]** `internal/auth/appleid/testdata/srp_vectors.json` was produced by running Apple's `webSRPClientWorker.js` under Node with a fixed private value; the Go client reproduces A, M1 and M2 byte for byte for both `s2k` and `s2k_fo` (including a zero-led salt, mixed-case account and non-ASCII password).
 - **[verified]** Live: mkauth → IDMSWebAuth → widget frame → `signin/init` 200 → `signin/complete` (with hashcash) 401 `-20101` for a nonexistent account, i.e. Apple accepted the request framing and rejected only the credentials.
-- **[unverified]** A real account through 2FA, `/auth` → `validateMusicKitToken` → `getMusicUserToken`. Run `go run ./cmd/authspike -native -save .env`.
+- **[verified]** 2026-10-30 (app log): a real account completed native sign-in through an SMS code to `getMusicUserToken` and a stored MUT, and the browser fallback completed too.
+- **[verified]** 2026-10-30 13:10 (app log): a real account with Apple devices got `hasTrustedDevices` from the HTML boot data (`trustedDevices=true phones=0`), the form asked only for the device code, and `verify/trusteddevice/securitycode` → `getMusicUserToken` signed in.
+- **[unverified]** The no-device paths (texted `phoneNumber`, phone list without auto-send, text/call switch, `nonFTEU`) against a real account; covered only by `appleidtest`. Needs an Apple Account with no trusted device.
 - `appleidtest` is a fake that checks SRP with a real server-side computation, the hashcash stamp and header rotation; `auth` and `appleid` tests run the whole flow against it.
 
-Manager API (`internal/auth/native.go`): `SignInWithPassword(account, password)` returns `nil` (signed in) or the `*appleid.SecondFactor` (code length, trusted devices, trusted phones, phone Apple already texted). `SubmitSecurityCode(code, phoneID, mode)` (phoneID 0 = trusted device), `SendCodeToPhone(phoneID, mode)` and `ResendSecurityCode()` act on the pending attempt. While waiting, the state is `signing_in` with `Status.SecondFactor` set.
+Manager API (`internal/auth/native.go`): `SignInWithPassword(account, password)` returns `nil` (signed in) or the `*appleid.SecondFactor`. `SubmitSecurityCode(code, phoneID, mode)` (phoneID 0 = trusted device), `SendCodeToPhone(phoneID, mode)` and `ResendSecurityCode()` act on the pending attempt. While waiting, the state is `signing_in` with `Status.SecondFactor` set.
+
+Two-factor routing: Apple prompts the trusted devices server-side when the password is accepted; Apple's own widget sends no request that triggers or withholds that prompt, it only reads the options and shows the device-code screen [INFERENCE from the widget code and the observed prompt; not isolated per request]. An earlier version read `GET /appleauth/auth` as JSON and guessed `trustedDeviceCount`/`noTrustedDevices`; on a real account (2026-10-30, log `trustedDevices=false phones=1`) that missed the devices.
+
+Sona offers every route the account has. The code step always shows a three-way switcher: **Apple device**, **Text message**, **Phone call**. Apple device is disabled (with "No Apple device is signed in to this account…") when `hasTrustedDevices` is false; text and call are disabled when the account lists no phone. Picking text or call with one number asks Apple at once; with several, the number picker opens with that method preselected. Picking Apple device again returns to the device code with no request (Apple already prompted the devices).
+
+| Boot data | `SecondFactor` | Opens on |
+| --- | --- | --- |
+| `hasTrustedDevices` | `TrustedDevices`, `Phones` from `trustedPhoneNumbers`, `SentToPhone` 0 | device code; text/call one click away |
+| no devices, `phoneNumberVerification.phoneNumber` set | `SentToPhone` = that phone (Apple already texted it) | code entry for that number |
+| no devices, `trustedPhoneNumbers` only | `Phones`, `SentToPhone` 0 | number picker. [INFERENCE] Apple may already have texted a single number; choosing it sends one more code, which is harmless |
+| No phones and no devices, or security keys only | `ErrUnsupported2FA` | browser sign-in |
+
+`appleid.Session` checks the route before any request: device codes and `ResendDeviceCode` need trusted devices; `SendCodeToPhone` and phone codes need a listed phone and mode `sms` or `voice`. Anything else returns `ErrOutOfOrder` and the attempt stays open. When `phoneNumberVerification.enableNonFTEU` is set, a texted code is submitted with `phoneNumber.nonFTEU: true`, as the widget does (`home.js` "phone/verify"). Apple's SMS-consent interstitial and SMS speed bump (`smsSpeedbumpEnabled`) are not reproduced.
 
 | Situation | Signal | Sona behaviour |
 | --- | --- | --- |
@@ -162,7 +178,7 @@ Manager API (`internal/auth/native.go`): `SignInWithPassword(account, password)`
 | Too many codes / send failure | Apple service error | attempt stays open, Apple's message in `LastError` |
 | Locked account | 403 or `-20209`/`-20283`/`-24761` | attempt ends; offer browser sign-in |
 | Account repair or terms (`412`) | `ErrActionRequired` | attempt ends; point to account.apple.com or browser sign-in |
-| Security keys only (`fsaChallenge`) or no 2FA route | `ErrUnsupported2FA` | attempt ends; offer browser sign-in |
+| Security keys only (`twoSV.fsaVerification`) or no 2FA route | `ErrUnsupported2FA` | attempt ends; offer browser sign-in |
 | No subscription / unsupported country | authorize redirect `isAppleMusicSubscriber=false`, `ERROR_NO_DSID`, `/error/no-subscription`, `supported=0` | attempt ends with the matching message |
 | No code before `SignInTimeout` | deadline | `signed_out` (or prior state), "sign-in timed out" |
 | `CancelSignIn`, `SignOut`, or a new attempt | — | pending session dropped; later code submissions return `ErrOutOfOrder` |
@@ -215,6 +231,8 @@ The UI renders from SQLite in `loading`/`validating` and while `Status.Offline` 
 
 - `internal/auth/store`: `github.com/zalando/go-keyring`, service `sona`, key `mut`, value JSON `{token, obtained_at, restricted}`. The dev token is not stored, because it is refetched from the web player. `store.Open` probes the Secret Service by reading the real entry; **[verified]** on the dev host (Hyprland) the Secret Service is available.
 - Secret Service unavailable (no gnome-keyring/kwallet): fall back to `$XDG_CONFIG_HOME/sona/credentials.json`, mode 0600 (written atomically), owned by the user. `Store.Backend()` reports `file (unencrypted)`, Settings and Diagnostics show an explicit "credentials stored unencrypted" warning, and `Open` logs a warning. Never fall back silently. Once the Secret Service is reachable again, the file is moved into it and deleted.
+- Other secrets use the same store through `store.OpenSecret(configDir, key)`: one keyring entry per key under service `sona` (`lastfm`: the Last.fm session key; `listenbrainz`: the ListenBrainz user token), the same Secret Service probe, and a 0600 fallback file `credentials-<key>` that moves into the keyring once it is reachable. Settings → Connections shows the "stored unencrypted" warning for them.
+- Apple sign-out does not disconnect the scrobblers: they are separate accounts the user connected on this desktop, and nothing in them is Apple user data. Disconnecting a scrobbler in Settings → Connections deletes its keyring entry (and fallback file) and its unsent listens.
 - SQLite stores metadata only (`auth.AccountStore`): storefront id/name, language, `itre`, obtained/validated timestamps.
 - `SignOut()` clears the in-memory token, deletes the keyring entry and the fallback file, deletes the account metadata, then runs the `OnSignOut` hooks in registration order (engine sign-out, engine storage, optional user data). Every step runs even if one fails; failures are returned and shown in `Status.LastError`. The library cache stays unless the user also chooses "clear library".
 
@@ -225,8 +243,8 @@ The UI renders from SQLite in `loading`/`validating` and while `Status.Offline` 
 | 1 | Web player token extraction, catalog search with/without `Origin` | done **[verified]** |
 | 2 | Loopback start page → Apple sign-in; Apple stores the callback as the redirect target | done **[verified]** |
 | 3 | Callback page → `/complete` → MUT decoded → `/v1/me/storefront` | done **[verified]** with a simulated final hop |
-| 4 | Interactive login in the system browser: `go run ./cmd/authspike -save .env` | **pending (needs the user)** |
-| 4a | Interactive native login with 2FA: `go run ./cmd/authspike -native -save .env` | **pending (needs the user)**; protocol verified up to the credential check |
+| 4 | Interactive login in the system browser | done **[verified]** 2026-10-30 (app) |
+| 4a | Interactive native login with 2FA | device-code path done **[verified]** 2026-10-30 (app); no-device SMS/call path pending (needs an account without an Apple device) |
 | 5 | Same flow in a Wails window (UA requirements) | superseded by the native form (§4.7) |
 | 6 | Paste flow: user-supplied MUT validated and used for playback | done **[verified]** |
 | 7 | Revocation: sign out in Apple ID settings, record the 401/403 shape | not done |

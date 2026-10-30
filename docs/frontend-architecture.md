@@ -16,22 +16,32 @@ Sona's own direction. Before designing or restyling a page, read
 ```
 src/
   app/                    the shell; may import anything
-    main.tsx              entry: appearance binding, action registration, render
+    main.tsx              entry: appearance binding, action + shortcut registration, render
     modules.ts            the ordered list of registered feature modules
-    compose.ts            routes, nav, shortcuts, slots, actions derived from modules
+    compose.ts            routes, nav, "go to" shortcuts, slots, actions derived from modules
     router.tsx            root route + module routes → router, typed Register
     providers.tsx         QueryClient, Tooltip and Toaster providers
     bridge.ts             Go events → module handlers, module init, app:open, FirstPaint
     open.ts (+ test)      app:open link → route plan (pure)
-    shortcuts.ts          the single window keydown dispatcher
-    shell/                AppShell (slots), Sidebar (nav + footer slots), TopBar, StatusBanner
+    shortcuts.ts (+ test) the single window keydown dispatcher; the shell's own shortcuts
+    shell/                AppShell (slots), Sidebar (nav + footer slots), TopBar, StatusBanner,
+                          layout store (sidebar shown/hidden), useRouteMemory (saves the
+                          route for "resume where you left off", debounced)
+    mini.tsx              entry of the mini player window (miniplayer.html): its own playback
+                          mirror and appearance from Go events, no router or modules
   shared/                 generic building blocks; never imports features or app
     module.ts             the module contract (types below)
     router.ts             rootRoute and childRoute(path)
-    actions/              item action registry, ActionMenu (+ test)
-    components/           Artwork, Backdrop, Badges (ExplicitMark, audio labels), CollectionHeader,
-                          ConfirmDialog (ConfirmHost), CoverGrid, DetailStates, EmptyState,
-                          ErrorBlock, LibraryButton, PageHeader, PlayButtons, RatingButtons
+    actions/              item action registry (single and targets[] forms, + test), ActionMenu,
+                          ItemActionMenu, ContextActionMenu, songsOf (albums/playlists → songs)
+    selection/            multi-select model (+ test), per-list store, useItemList (selection,
+                          context menu and drag delegated from a list's root)
+    dnd/                  the pointer drag-and-drop engine: beginDrag, useDropTarget (+ test)
+    components/           Artwork, Backdrop, Badges (ExplicitMark, audio labels), CollectionHeader
+                          (plays header.motion through MotionCover), ConfirmDialog (ConfirmHost),
+                          CoverGrid, DetailStates, EmptyState, ErrorBlock, LibraryButton,
+                          MotionCover (muted looping motion artwork over the still, on screen
+                          only), PageHeader, PlayButtons, RatingButtons
     tracks/               TrackList, Equaliser
     items/                Item (any-kind card DTO) rendering: itemLink, play registry
                           (registerItemPlayer, playItem), ItemMenu, ItemShelf, ItemGrid,
@@ -40,9 +50,13 @@ src/
     lib/                  art, errors (callFailure), format, keys, queries (isLibraryId), run,
                           item-state (useItemState: batched library state + rating;
                           changeItemState, addItemsToLibrary), library-actions (rateItem,
-                          addToLibrary, removeFromLibrary), confirm, content-policy
-                          (restricted accounts), traits, now-playing, useMediaQuery,
+                          addToLibrary, removeFromLibrary and their bulk forms), confirm, content-policy
+                          (restricted accounts), traits, now-playing, motion (MotionContext /
+                          useMotionAllowed seam, motionAt), useMediaQuery,
                           useContentVirtualizer, utils (cn)
+    shortcuts/            chord parsing/display (+ test), the shortcut registry with
+                          bindings, conflicts and rebinding (+ test), useShortcutBindings /
+                          useBinding (live from settings), ChordKeys/BindingKeys keycaps
     brand/                SonaMark
     styles/index.css      Tailwind entry and design tokens
     testing/              helpers for tests (query-cache invalidation probe)
@@ -52,25 +66,59 @@ src/
     discover              Discover (New), rooms, multirooms, groupings, curators, Charts;
                           registers the song/album/playlist item players
     radio                 Radio (live stations, your stations, Apple's radio page), station
-                          pages (/station/$id: schedule, unavailable state); playStation,
+                          pages (/station/$id: schedule, unavailable state; a track station's
+                          seed as its byline and the songs it plays first); playStation,
                           useOnAirProgramme; Create station on songs/albums/artists; the
                           station item player
     search                the top bar's search field (suggestions, recent searches), Search page
                           (Apple Music results by group, library scope, browse categories),
                           "see all" pages per group (/search/$group), profiles (/profile/$id)
     library               Recently Added, Artists, Albums, Songs, Music Videos, Made for You,
-                          Favourite Songs, Playlists; useLibraryList, sync store, SyncIndicator,
+                          Favourite Songs, History (plays by day: this computer + Apple's
+                          recently played, repeats folded per day), Playlists;
+                          useLibraryList, sync store, SyncIndicator,
                           sync invalidations; item actions (library, Favourite, Suggest Less,
                           Copy link); shell Provider (ConfirmHost, content policy)
     album, artist, playlist  detail pages + their queries; "Go to album/artist" actions
-    player                now-playing bar, queue, now-playing view, playback mirror,
-                          lyrics, shortcuts, playSongs/shuffleSongs/playNext/addToQueue;
+    player                now-playing bar, queue, now-playing view (motion cover of the
+                          playing album), playback mirror, lyrics (per-song session timing
+                          offset, ±0.5 s; full-screen "room" lyrics over the whole window),
+                          shortcuts, playSongs/shuffleSongs (from a PlayFrom {kind, id}:
+                          album/playlist/artist go to Apple's play activity)/queueItems;
+                          replaceQueue (Undo toast, or a confirm with setting
+                          queue.replaceConfirm, over more than 3 user-added songs; also
+                          used by radio and library Songs); sleep timer menu in the bar
+                          (Go's PlaybackService.SetSleep) and palette commands;
+                          explicit queue rows dimmed on restricted accounts;
                           AutoPlay toggle and station/AutoPlay section in the queue,
-                          live radio line in place of the seek bar
-    settings              Settings page and Playback/Appearance/Diagnostics sections,
-                          appearance store, useSettings/useUpdateSettings
+                          live radio line in place of the seek bar; mini player button;
+                          exports the playback mirror and lyrics for the mini player
+    motion                whether motion artwork may play (setting, reduce effects, system
+                          reduced motion, Go's battery state from power:changed), given to
+                          shared covers through its Provider slot
+    miniplayer            the mini player window's UI (MiniPlayer) and its toggle shortcut
+    equalizer             the Equaliser page (/equalizer, Ctrl+Shift+E): presets, ten band
+                          faders and a preamp over the response curve (response.ts computes
+                          GStreamer's equalizer-10bands response); dragging previews through
+                          AudioService.PreviewEqualizer, letting go saves settings.audio.equalizer
+                          through settings' useUpdateSettings; EqualizerButton for the player bar.
+                          Settings → Playback links here (a route Link, no import, so settings
+                          never depends on it)
+    settings              Settings page and Playback/Appearance/Desktop/Shortcuts/Storage/
+                          Diagnostics sections (Playback: CDM file through Go's portal chooser;
+                          Storage: artwork cache limit, cache and database sizes, clear caches,
+                          compact the database, export/import the settings file through Go's
+                          portal chooser; Desktop:
+                          close action, autostart, start page, resume, window size;
+                          Diagnostics: checks, Copy diagnostics → redacted bundle from Go,
+                          the Updates group; Shortcuts: rebinding with conflict checks),
+                          appearance store (Appearance: theme, reduce effects, motion
+                          artwork), useSettings/useUpdateSettings
+    commands              Ctrl+K command palette (pages, actions, library items; rank + test),
+                          "?" shortcut help sheet
     auth                  Account section, sign-in reducer (+ test), useAuth/hasAccount,
                           auth invalidations (+ test)
+    updates               update notice in the sidebar footer (a newer GitHub release)
 ```
 
 Tests sit next to their code (`*.test.ts`).
@@ -86,7 +134,7 @@ export type NavSection = "primary" | "library" | "footer";
 
 export interface NavItem<TPath extends string = string> {
   section: NavSection;
-  label: string;
+  label: () => string;         // translated where shown: () => t`Albums`
   icon: LucideIcon;
   /** One of the module's own route paths. */
   to: TPath;
@@ -94,6 +142,8 @@ export interface NavItem<TPath extends string = string> {
   order: number;
   /** Active only on this exact path (For you at "/"). */
   exact?: boolean;
+  /** Default keys of its "go to" shortcut (else Ctrl+1…9 / Alt+1…9 by position). */
+  keys?: readonly string[];
 }
 
 export type GoEventName = keyof Events.CustomEvents;
@@ -109,17 +159,30 @@ export interface EventContext {
 export type GoEventHandler<E extends GoEventName> = (data: GoEventData<E>, ctx: EventContext) => void;
 export type GoEventHandlers = { [E in GoEventName]?: GoEventHandler<E> };
 
+export const shortcutGroups = ["playback", "view", "pages", "navigation", "general"] as const;
+export type ShortcutGroup = (typeof shortcutGroups)[number];
+
+/** "page" (default): not in text fields. "global": Ctrl/Alt/Meta chords work in
+ *  text fields too. Any other name is a context; keys may repeat across contexts. */
+export type ShortcutScope = "page" | "global" | (string & {});
+
 export interface ShortcutContext {
-  target: HTMLElement | null;
-  /** Focus is in a text field (input, textarea, select, contenteditable). */
-  typing: boolean;
+  navigate: UseNavigateResult<string>;
+  history: RouterHistory;
 }
 
 export interface Shortcut {
-  id: string;
-  label: string;
-  matches: (e: KeyboardEvent, ctx: ShortcutContext) => boolean;
-  run: (e: KeyboardEvent) => void;
+  id: string;                  // stable, "<module>.<action>"; settings store bindings by it
+  label: () => string;         // () => t`Play or pause`
+  group: ShortcutGroup;
+  keys: readonly string[];     // default chords: "Space", "Ctrl+K", "Shift+ArrowRight"; [] = none
+  scope?: ShortcutScope;
+  keywords?: () => string;     // extra palette words, translated
+  icon?: LucideIcon;
+  when?: () => boolean;        // available now (key and palette)
+  repeat?: boolean;            // fires again while held
+  palette?: false;             // hidden from the palette
+  run: (ctx: ShortcutContext) => void;
 }
 
 export interface ShellSlots {
@@ -171,9 +234,11 @@ as `TRoute["fullPath"]`).
 
 - `app/compose.ts`: `routes` is every module's routes in list order (typed as
   the union `ModuleRoute`); `nav` groups nav items by section and sorts by
-  `order`; `shortcuts` and `slots` follow list order;
-  `registerModuleActions()` puts every module's `actions` in the registry
-  (called once in `main.tsx`, before the first render).
+  `order`; `slots` follow list order; `registerModuleActions()` puts every
+  module's `actions` in the registry and `registerModuleShortcuts()` puts a
+  "go to" shortcut per nav item (`nav.<path>`, e.g. `nav.library.albums`),
+  the shell's shortcuts and every module's `shortcuts` in the shortcut
+  registry (both called once in `main.tsx`, before the first render).
 - `app/router.tsx`: `rootRoute.update({ component: AppShell })`, then
   `rootRoute.addChildren(routes)`; `Register` is declared from that router,
   so `Link`, `getRouteApi` and `navigate` check paths, params and search
@@ -205,7 +270,7 @@ const radioRoute = createRoute({ ...childRoute("/radio"), component: RadioPage }
 export const radioModule: FeatureModule<typeof radioRoute> = {
   id: "radio",
   routes: [radioRoute],
-  nav: [{ section: "primary", label: "Radio", icon: Radio, to: "/radio", order: 30 }],
+  nav: [{ section: "primary", label: () => t`Radio`, icon: Radio, to: "/radio", order: 30 }],
   // Hypothetical event: any key of the generated Events.CustomEvents works.
   // eventHandlers: { "radio:changed": (data, { invalidate }) => invalidate([["catalog", "radio"]]) },
 };
@@ -256,7 +321,7 @@ type Read<K, R> = (target: ActionTargets[K], ctx: ActionContext<K>) => R;
 export interface ActionDef<K extends ActionTargetKind> {
   id: string;                     // unique, e.g. "player.play-next"
   target: K;
-  label: string | Read<K, string>;
+  label: Read<K, string>;         // (target, ctx) => t`Play next`
   icon: LucideIcon;
   filled?: Read<K, boolean>;      // filled icon (a favourite's star)
   group: ActionGroup;
@@ -269,8 +334,25 @@ export interface ActionDef<K extends ActionTargetKind> {
 
 export type AnyActionDef = { [K in ActionTargetKind]: ActionDef<K> }[ActionTargetKind];
 
-export function registerActions(defs: readonly AnyActionDef[]): void; // throws on a duplicate id
+/** One item of any kind: what a selection holds and a drag carries. */
+export type ActionItem = { [K in ActionTargetKind]: { kind: K; target: ActionTargets[K] } }[ActionTargetKind];
+
+// The targets[] form: one run receives every selected item, in list order.
+// Listed when every selected item's kind is in `kinds`; same fields as
+// ActionDef, read from (items, ctx). ctx.container carries `indices`.
+export interface BulkActionDef {
+  id: string;
+  target: "selection";
+  kinds: readonly ActionTargetKind[];
+  label: ReadMany<string>;
+  /* icon, filled, group, order, isAvailable, isEnabled, data (BulkMenuData), run */
+}
+export type ItemActionDef = AnyActionDef | BulkActionDef; // a module's `actions`
+
+export function registerActions(defs: readonly ItemActionDef[]): void; // throws on a duplicate id
 export function actionsFor<K extends ActionTargetKind>(kind: K): readonly ActionDef<K>[];
+export function bulkActionsFor(items: readonly ActionItem[]): readonly BulkActionDef[];
+export function describeItems(items: readonly ActionItem[]): string; // “Airbag”, "12 songs", "5 items"
 export function menuSections<A extends { group: ActionGroup }>(actions: readonly A[]):
   { group: ActionGroup; actions: A[] }[];
 ```
@@ -301,7 +383,150 @@ one batched `LibraryService.States` call per frame, cached briefly in Go.
 
 New actions (add to playlist, start station, copy link…) are a new
 `ActionDef` in the owning feature; album/playlist/artist targets get a menu by
-rendering `ActionMenu` with that kind.
+rendering `ActionMenu` with that kind (or `ItemActionMenu` with an
+`ActionItem`). A row's `ActionMenu` renders a plain button until the pointer
+reaches it, then mounts the Radix menu (a press before that opens it as it
+mounts), so long lists do not mount a menu per row. `ContextActionMenu` is
+the same menu opened at a point (right-click, Shift+F10, the Menu key).
+
+Bulk (`targets[]`) actions registered today: Play next, Add to queue
+(player; songs, albums and playlists, their tracks in order), Add to
+playlist… and Remove from playlist (playlist; the latter in an editable
+playlist's list), Add to library, Remove from library (one confirmation),
+Favourite / Undo favourite (library; states loaded for the whole selection
+on open). `shared/actions/songs.ts` (`songsOf`) expands albums and
+playlists to their songs.
+
+## Selection, context menus and drag and drop
+
+`TrackList` and `CoverGrid` share `shared/selection`:
+
+- `model.ts` (+ test): the pure selection model, rows by key so a selection
+  survives re-sorts and paging. Click selects one row (track lists; a tile's
+  click opens it), Ctrl+click toggles, Shift+click selects anchor…row
+  (Ctrl+Shift adds the range), Shift+arrows extend from the anchor, Ctrl+A
+  selects all, Escape clears, a press outside the list clears.
+- `store.ts`: one zustand store per list in `SelectionContext`; rows read
+  their own state with selectors (`useRowSelected`, `useRowRun`), so a
+  selection change re-renders only rows whose state changed and never the
+  list. Selected rows carry `aria-selected`; adjacent selected track rows
+  draw as one block of 12% ink (a clear step above the hover fill), a
+  selected tile sits on a plate of the same tint.
+- `useItemList.tsx`: click, right-click and drag handlers delegated from the
+  list's root (rows carry `data-row`, no listeners of their own), the list's
+  keyboard selection keys, and the open context menu. A menu or drag on a
+  row inside a multi-selection acts on the whole selection.
+
+Cover tiles take a `target: ActionItem` (instead of a menu node) for their
+menu, selection and drag.
+
+`shared/dnd/drag.ts` is the one drag mechanism: pointer events, not HTML5
+DnD (WebKitGTK runs a GTK drag session for native drags that the page cannot
+read during dragover). `beginDrag(e, payload, threshold)` starts it from a
+pointerdown (a few pixels of travel first, 0 for a handle); elements with
+`data-drop={id}` registered with `useDropTarget(id, {accepts, describe,
+hover, drop})` take drops, the innermost accepting one wins; the scroll pane
+under the pointer scrolls near its edges; Escape cancels. The drag image
+shows the items and what a drop would do. Targets: sidebar playlists and
+pinned playlists (add), the Pinned section (pin), a "New playlist" row,
+the queue panel (insert at the gap via `PlaybackService.Insert`, or reorder
+its own rows), and the playlist editor (reorder).
+
+## Rendering performance
+
+React Compiler (`babel-plugin-react-compiler` through `@rolldown/plugin-babel`
+in `vite.config.ts`) memoises every component and hook at build time, so
+inline callbacks and objects passed down stay stable. What it does not do:
+
+- **Skip children.** List items whose parent re-renders as the visible range
+  moves are `memo` components: `TrackRow`, `CoverTile`, `EditorRow`,
+  `QueueRow`, `ArtistRow`, `PlaylistRow`.
+- **Compile everything.** It silently skips a function that breaks the Rules
+  of React (`pnpm exec eslint src` reports those as `react-hooks/*`), that
+  sits under an `eslint-disable` for a `react-hooks` rule, or that uses syntax
+  it does not support yet (`try…finally`, `x++` on a variable a closure
+  captures). Skipped today: the `Account.tsx` sign-in handlers
+  (`try…finally`) and the two virtualizer hooks below.
+- **Memoise around TanStack Virtual.** The virtualizer keeps its identity
+  while it scrolls, so a compiled component that renders from its getters
+  would show stale rows. `useVirtualizer` stays inside a hook the compiler
+  skips (`useContentVirtualizer`, `QueuePanel`'s `useQueueLines`) that returns
+  `items` and `totalSize`; components render from those and call the
+  virtualizer only in handlers and effects (`scrollToIndex`).
+
+The playback mirror keeps `current` and `station` objects when a snapshot
+leaves them unchanged, so play/pause and seeks do not re-render the track
+lists that mark the playing song.
+
+## Strings and locales
+
+Every string the user reads (text, `aria-label`, `title`, placeholders,
+toasts, menu and command labels) goes through [Lingui](https://lingui.dev)
+and lands in the English catalogue `src/shared/i18n/locales/en.po`.
+
+**Why Lingui.** Its macros compile at build time (`@lingui/vite-plugin` with
+`macroTransform: true`, a native transform, so no extra Babel pass next to
+React Compiler) into calls carrying a short hashed ID; production builds drop
+the English source text from the code, and `.po` catalogues compile into
+plain JS objects on import, so no ICU parser ships. The runtime
+(`@lingui/core` + `@lingui/react`) is 11.5 kB minified, 4.3 kB gzipped
+(measured 2026-10-30); the English catalogue adds 54 kB minified, 20 kB
+gzipped, most of it the text the code no longer carries. FormatJS/react-intl
+was the alternative: a larger runtime (`IntlProvider` and its formatters),
+and it needs its own `@formatjs/cli` precompile step to keep the ICU parser
+out of the bundle.
+
+**Writing strings.**
+
+- JSX text: `<Trans>Signed in as {name}</Trans>`; plurals
+  `<Plural value={n} one="# song" other="# songs" />` (from
+  `@lingui/react/macro`). Put values in plain variables first, so the
+  catalogue reads `{name}`, not `{0}`.
+- Attributes and strings computed while rendering: `const { t } = useLingui()`
+  (`@lingui/react/macro`), then `` t`Play ${title}` ``. The hook's `t` is a
+  reactive value, so React Compiler recomputes it when the locale changes.
+- Plain functions that run later (toasts in handlers, commands, helpers):
+  `` t`…` ``, `plural(n, { one: "# song", other: "# songs" })` from
+  `@lingui/core/macro`. Never at module scope: an import-time `t` would freeze
+  the English text (`lingui/t-call-in-function`).
+- Static labels in module objects and tables are thunks evaluated where they
+  are shown: `NavItem.label`, `Shortcut.label` and `Shortcut.keywords` are
+  `() => string` (`` label: () => t`Play or pause` ``), as are item action
+  labels (`(target, ctx) => string`).
+- Numbers, dates and durations use `Intl` with the active locale through
+  `shared/lib/format.ts` (`formatNumber`, `longDate`, `clockTime`,
+  `relativeTime`, `formatRunningTime`, `formatBytes`, `numberFormat`,
+  `dateFormat`), never `toLocaleString()` without a locale.
+- Go errors: `callFailure(err).message` is the translated wording for the
+  services error code (`err.cause.code`, `internal/services/errors.go`),
+  mapped once in `shared/lib/errors.ts`; codes without wording (`unknown`)
+  keep Go's text, also available as `.detail`.
+- Brand and product names stay as written but still sit inside messages, so
+  a translator can place them.
+
+`lingui/no-unlocalized-strings` (with the plugin's recommended rules) in
+`eslint.config.js` fails on any string literal or JSX text that is not in a
+message, except where the user never reads it: class names, keys and IDs,
+union-typed props (type-aware), `cn`/`cva` arguments, and strings without
+whitespace that do not start with a capital (routes, event names, CSS
+tokens). `pnpm i18n:extract` rewrites the catalogues after string changes;
+`pnpm i18n:check` fails when they are out of date.
+
+**Choosing the locale** (`shared/i18n`). `initI18n()` runs before the first
+render in both windows. The choice is the account's storefront language
+(`AuthStatus.language`, followed live by `ShellProviders` and the mini
+player) when a catalogue matches it, else the system languages
+(`navigator.languages`), else English (`chooseLocale` in `locale.ts`:
+exact tag, then same language). English is bundled and activates
+synchronously; any other catalogue is its own chunk, loaded before the first
+render. `I18nRoot` remounts the tree when the locale changes, so labels
+computed outside hooks follow. There is no language setting until a second
+catalogue ships.
+
+**Pseudo-locale.** `en-XA` accents and stretches every English message
+(`⟦Ƥŀåý ñêxţ⟧`), so text that bypassed Lingui stands out. `pnpm dev:pseudo`
+and `pnpm build:pseudo` force it through `VITE_SONA_LOCALE=en-XA`; it is
+never chosen automatically.
 
 ## Go events
 
@@ -317,20 +542,62 @@ after two animation frames or 300 ms, whichever comes first.
 | `sync:progress`, `sync:done` | library | updates the sync store; invalidates `syncInvalidations` / `syncDoneInvalidations` |
 | `playback:state`, `playback:queue` | player | updates the playback mirror; a new track invalidates recently played |
 | `settings:changed` | settings | replaces the settings query; applies appearance |
+| `integrations:status` | settings | replaces the integrations status query (notifications/inhibitor availability, Discord configured/connected) shown in the Desktop and Connections rows (`IntegrationsRows.tsx`) |
+| `scrobble:changed` | settings | replaces the scrobbler status query (connected, connecting, needs reconnect, listens waiting) shown in Settings → Connections (`Connections.tsx`) |
 | `discover:home` | home | replaces the Home query with Go's refreshed shelves |
+| `power:changed` | motion | mirrors Go's on-battery state; motion artwork stops on battery |
+| `updates:available` | updates | replaces the `updates` query; the sidebar shows the notice |
 | `app:open` | app | `routeForOpen` → navigate (album, song, artist, playlist, music video, station, curator) |
 
 Invalidation plans stay pure functions next to their module
 (`features/auth/invalidations.ts`, `features/library/invalidations.ts`,
 `app/open.ts`), each with a test.
 
-Shortcuts work the same way: the shell runs one keydown listener that skips
-handled keys, Alt/Meta, and keys inside open menus, dialogs and listboxes,
-then gives the key to the first matching `Shortcut` (and prevents its
-default). The search field's "/" and Ctrl+F belong to the field itself (the
-search module's `TopBarSearch` slot): ↑/↓ move through its suggestions
-(an ARIA combobox), Enter opens the active one or searches, Esc closes the
-list, and ↓ with the list closed moves into the results.
+### Shortcuts and commands
+
+A shortcut is a declared command (`Shortcut` above) with a stable id and
+default keys; adding one is one entry in a module's `shortcuts`. From the
+registry (`shared/shortcuts/registry.ts`) the app derives:
+
+- **Bindings.** `config.Settings.shortcuts` maps an id to a binding string
+  (space-separated chords, or `none`); an id without an entry, or with an
+  invalid one, keeps its defaults. `useShortcutBindings()` reads the
+  settings query, so an optimistic save or `settings:changed` applies a
+  rebinding at once. Chords are canonical strings (`shared/shortcuts/chord.ts`):
+  modifiers in the order Ctrl, Alt, Shift, Meta; letters upper case; Shift
+  is dropped for non-letter characters ("?" is one chord on every layout);
+  AltGr characters are the character; Ctrl+letter on a non-Latin layout
+  uses the physical Latin key.
+- **Dispatch.** `app/shortcuts.ts` runs one window keydown listener, indexed
+  by chord. It skips handled and composing keys and keys inside open menus,
+  dialogs and listboxes. Plain chords (no Ctrl/Alt/Meta) never fire in a
+  text field, and Space, Enter, arrows and paging keys never fire on a
+  control that uses them; `global` modifier chords work in text fields. The
+  first shortcut on the chord whose scope allows it and whose `when` holds
+  runs (default prevented; held keys repeat only with `repeat`).
+- **Conflicts.** Two shortcuts conflict when they share a chord in
+  overlapping scopes (`page`/`global` overlap everything; two different
+  contexts do not). Settings → Shortcuts records a new chord by keypress,
+  asks before taking a chord another shortcut uses (that one keeps its
+  other keys), resets one binding or all, and marks remaining conflicts.
+- **Commands.** Ctrl+K (`features/commands`) is an ARIA combobox over a
+  grouped listbox: with nothing typed, every available command by group;
+  typed, the best-ranked commands (`rank.ts`: whole label, label start,
+  word start, all words, substring, keywords, letters in order), then up
+  to eight library items from the local index (debounced, two characters
+  minimum), then "Search Apple Music for …". `?` opens the help sheet,
+  generated from the registry with the current keys. Both return focus to
+  where it was when they close; a chosen command runs after that.
+
+Default keys: Space play/pause; Ctrl+→/← next/previous; Shift+→/← seek
+10 s; Ctrl+↑/↓ volume; M mute; S shuffle; R repeat; F favourite; Q queue;
+L lyrics; N now playing; Esc closes now playing; / or Ctrl+F search; Ctrl+K
+palette; ? help; Ctrl+B sidebar; Alt+←/→ back/forward; Ctrl+1…9 the primary
+pages, Alt+1…9 the library pages, Ctrl+, Settings. The search field's own
+keys stay in the field (the search module's `TopBarSearch` slot): ↑/↓ move
+through its suggestions (an ARIA combobox), Enter opens the active one or
+searches, Esc closes the list, and ↓ with the list closed moves into the
+results.
 
 ## Boundaries
 
@@ -343,11 +610,13 @@ Enforced by `no-restricted-imports` in `frontend/eslint.config.js`:
   the feature (`../library`, `../../shared/…`) are errors.
 - `src/shared/**` must not import `@/features/**` or `@/app/**` (by alias or
   relative path). Where shared UI needs feature state it defines a seam the
-  feature fills: `NowPlayingContext` (player's `Provider` slot), the action
-  registry (modules' `actions`), the item player registry (`shared/items/play`,
-  filled in module `init`), and props (the Toaster's `theme`).
+  feature fills: `NowPlayingContext` (player's `Provider` slot), `MotionContext`
+  (motion's `Provider` slot), the action registry (modules' `actions`), the item
+  player registry (`shared/items/play`, filled in module `init`), and props (the
+  Toaster's `theme`).
 - `src/app/**` may import anything.
 
 Feature-to-feature imports must stay acyclic. Today: player → settings →
-auth; home → auth, discover, library, player; discover → player; search → auth, player; album and
-playlist → library, player; artist → player; library → auth.
+auth; player → equalizer → settings; home → auth, discover, library, player; discover → player; search → auth, player; album and
+playlist → library, player; artist → player; library → auth; commands → search;
+motion → settings.

@@ -45,19 +45,20 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 | `--hover` | `#e4e7e3` | `#222724` | Row and nav hover |
 | `--active` | `#dbdfda` | `#2a302c` | Selected nav item, pressed |
 | `--line` | `#dadcd7` | `#262b28` | Structural 1px lines |
-| `--control-line` | `#c5cac4` | `#3a413c` | Input and outline-button borders |
+| `--control-line` | `#838984` | `#6b736d` | Input and outline-button borders (≥ 3:1) |
 | `--ink` | `#161917` | `#eef1ee` | Primary text |
 | `--ink-muted` | `#545a55` | `#a9b0aa` | Secondary text |
-| `--ink-faint` | `#646a65` | `#8d948e` | Meta, placeholders |
+| `--ink-faint` | `#5d635e` | `#959c96` | Meta, placeholders |
 | `--amber` | `#e5a31b` | `#f0b43c` | Spot fill: play button, progress, now-playing marker |
-| `--amber-ink` | `#8c5a00` | `#f0b43c` | Amber as text or icon on the ground |
+| `--amber-ink` | `#845500` | `#f0b43c` | Amber as text or icon on the ground |
 | `--on-amber` | `#1a1405` | `#1a1405` | Glyphs on an amber fill |
 | `--danger` | `#b42318` | `#f0705f` | Errors and destructive actions only |
-| `--positive` | `#247b50` | `#5cc48c` | Success states only |
+| `--positive` | `#1f6e47` | `#5cc48c` | Success states only |
 
 - The faint green-grey tint (hue ~150) keeps the board from reading as dead grey and sits well next to any cover. No cream, no navy, no violet.
 - The primary button is ink-filled (near-black on light, near-white on dark), not amber.
-- Focus ring: 2px `--ink` at 40% outside the control, everywhere. Selection is amber at 30%; the caret is `--amber-ink`.
+- Focus ring: 2px `--ink` at 60% outside the control, everywhere (≥ 3:1 on every background tone); ShadCN `ring-*` focus styles use it at full strength, never `/50`. Selection is amber at 30%; the caret is `--amber-ink`.
+- Contrast floors (WCAG AA, `docs/accessibility.md`): text tokens ≥ 4.5:1 on every background up to `--active` (selected rows), `--control-line` and the focus ring ≥ 3:1. Slider thumbs are always shown: the thumb, not the fill colour, marks the value.
 - ShadCN's variables (`--background`, `--primary`, `--muted`, …) are mapped onto these tokens in `index.css`, so stock components inherit the palette without per-component overrides.
 
 ## Space and density
@@ -86,8 +87,8 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 
 The artwork service renders, per cover, a tiny pre-blurred JPEG (target ~32×32, heavy Gaussian blur, saturation kept). The frontend never blurs anything itself.
 
-- **Where**: behind the now-playing bar, and behind collection headers (album, playlist, artist).
-- **How**: an `<img>` (component `Backdrop`) absolutely positioned, `object-fit: cover`, scaled up by the browser (bilinear upscaling of the tiny image is the softness), under a solid scrim of the surface colour at 78% (bar) or 70% (headers). The result is a wash of the cover's colour, never a recognisable picture. Text sits on the scrim, so contrast is the scrim's, not the image's.
+- **Where**: behind the now-playing bar, the mini player, the now-playing view, full-screen lyrics, and collection headers (album, playlist, artist).
+- **How**: an `<img>` (component `Backdrop`) absolutely positioned, `object-fit: cover`, scaled up by the browser (bilinear upscaling of the tiny image is the softness), under a solid scrim of the surface colour (bar, mini player) or the ground colour (views, headers) at `--backdrop-scrim`: 92% in light, 86% in dark. The result is a wash of the cover's colour, never a recognisable picture. Text sits on the scrim, so contrast is the scrim's, not the image's: the scrim is the floor at which `--ink-muted` and `--ink-faint` stay ≥ 4.5:1 over any backdrop, a black one in light (the binding case: 91% on surface) and a white one in dark (85%). It is one value per theme, never lowered per surface; a stronger cover colour would need a darker text token, not a thinner scrim.
 - **Change**: when the track changes the new backdrop fades in over 320ms (the one authored motion moment). Images are decoded before the swap so the fade never shows an empty frame.
 - **Banned**: `backdrop-filter`, `filter: blur()` on anything larger than an icon, and any blur on scrolling content.
 - **Reduce effects**: backdrops are not rendered at all; the surfaces are solid tokens.
