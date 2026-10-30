@@ -1,0 +1,173 @@
+import type { Item } from "@bindings/services";
+import { Link } from "@tanstack/react-router";
+import { ChevronLeft, ChevronRight, Play } from "lucide-react";
+import { useRef, useState } from "react";
+
+import { GAP_X, useCoverColumns } from "@/shared/components/CoverGrid";
+import { artAt } from "@/shared/lib/art";
+import { cn } from "@/shared/lib/utils";
+import { Button } from "@/shared/ui/button";
+
+import { openExternal } from "./cover";
+import { ItemMenu } from "./ItemMenu";
+import { itemLink, itemSubtitle } from "./links";
+import { canPlay, playItem } from "./play";
+
+interface WideRowProps {
+  title?: string;
+  items: readonly Item[];
+  /** Smallest card width: 400 for heroes, 240 for category bricks. */
+  min: number;
+  /** Artwork box, width / height (2.4 for heroes, 2 for bricks). */
+  ratio: number;
+  onOpen?: (item: Item) => void;
+}
+
+/**
+ * Wide editorial cards: the banner letterboxed on its own background
+ * colour (never cropped, never under text), the title and line below.
+ * As many as fit; arrows page through the rest.
+ */
+export function WideRow({ title, items, min, ratio, onOpen }: WideRowProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { cols, size } = useCoverColumns(ref, min);
+  const [page, setPage] = useState(0);
+  const pages = Math.max(1, Math.ceil(items.length / cols));
+  const at = Math.min(page, pages - 1);
+  const shown = items.slice(at * cols, at * cols + cols);
+  // Apple leaves heroes untitled; a paged one still gets a heading.
+  const label = title || "Featured";
+
+  return (
+    <section aria-label={label} className="mt-10 first:mt-0">
+      {(title || pages > 1) && (
+        <div className="mb-3 flex min-h-7 items-center justify-between gap-4">
+          <h2 className="truncate text-heading text-ink">{label}</h2>
+          {pages > 1 && (
+            <div className="flex shrink-0 items-center gap-1">
+              <span className="mr-1 text-meta text-ink-faint num" aria-live="polite">
+                {at + 1} of {pages}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Previous in ${label}`}
+                disabled={at === 0}
+                onClick={() => setPage(at - 1)}
+              >
+                <ChevronLeft />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Next in ${label}`}
+                disabled={at >= pages - 1}
+                onClick={() => setPage(at + 1)}
+              >
+                <ChevronRight />
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      <div
+        ref={ref}
+        role="list"
+        aria-label={label}
+        className="grid"
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, columnGap: GAP_X }}
+      >
+        {shown.map((item, i) => (
+          <div role="listitem" key={`${at}:${i}:${item.kind}:${item.id}`}>
+            <WideCard item={item} width={size} ratio={ratio} onOpen={onOpen} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function WideCard({
+  item,
+  width,
+  ratio,
+  onOpen,
+}: {
+  item: Item;
+  width: number;
+  ratio: number;
+  onOpen?: (item: Item) => void;
+}) {
+  const link = itemLink(item);
+  const wide = item.wide.large || item.wide.medium;
+  const square = item.art.large || item.art.medium;
+  const height = Math.round(width / ratio);
+  const [failed, setFailed] = useState(false);
+  const opener =
+    "min-w-0 flex-1 truncate rounded-sm text-left text-ui font-medium text-ink outline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover/tile:underline group-hover/tile:underline-offset-2";
+  const subtitle = itemSubtitle(item);
+  return (
+    <div className="group/tile group/row relative flex min-w-0 flex-col">
+      <div
+        className="relative w-full overflow-hidden rounded-sm bg-hover after:pointer-events-none after:absolute after:inset-0 after:rounded-sm after:ring-1 after:ring-ink/6 after:ring-inset"
+        style={{ aspectRatio: ratio, backgroundColor: item.color || undefined }}
+      >
+        {!failed && (wide || square) && (
+          <img
+            src={wide ? artAt(wide, width) : artAt(square, height)}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            onError={() => setFailed(true)}
+            className={cn(
+              "absolute inset-0 m-auto",
+              wide ? "size-full object-contain" : "aspect-square h-full",
+            )}
+          />
+        )}
+        {canPlay(item) && (
+          <button
+            type="button"
+            aria-label={`Play ${item.name}`}
+            onClick={() => playItem(item)}
+            className="absolute bottom-3 left-3 z-10 grid size-10 place-items-center rounded-full bg-play text-on-play opacity-0 transition-opacity duration-100 group-focus-within/tile:opacity-100 group-hover/tile:opacity-100 focus-visible:opacity-100"
+          >
+            <Play fill="currentColor" strokeWidth={0} className="size-[18px] translate-x-px" />
+          </button>
+        )}
+      </div>
+      <div className="mt-2 flex h-5 min-w-0 items-center gap-1">
+        {link ? (
+          <Link
+            {...link}
+            onClick={onOpen && (() => onOpen(item))}
+            draggable={false}
+            className={opener}
+          >
+            {item.name}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className={opener}
+            onClick={() => {
+              onOpen?.(item);
+              openExternal(item);
+            }}
+          >
+            {item.name}
+          </button>
+        )}
+        <div className="relative z-10 -my-1 shrink-0">
+          <ItemMenu item={item} />
+        </div>
+      </div>
+      {subtitle ? (
+        <span className="line-clamp-2 text-sub text-ink-muted">{subtitle}</span>
+      ) : (
+        <span className="h-[18px]" />
+      )}
+    </div>
+  );
+}

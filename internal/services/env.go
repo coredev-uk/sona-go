@@ -1,0 +1,65 @@
+package services
+
+import (
+	"context"
+	"sync"
+)
+
+// Env is what every feature constructor receives: the core components
+// (Deps, embedded), the shared DTO mappers, library membership and the
+// lifecycle hooks. Features keep a *Env and must not reach into other
+// features' services.
+type Env struct {
+	Deps
+
+	m       mapper      // shared DTO mappers (mappers.go)
+	members *membership // catalog item → in the user's library?
+
+	// firstPaint is set by Core; SystemService.FirstPaint calls it.
+	firstPaint func()
+
+	mu      sync.Mutex
+	closers []func()
+}
+
+// Report passes a failed Apple request to auth triage: a 401/403 that
+// survived the client's token refresh may move the account to
+// needs_reauth; every other error is ignored there.
+func (e *Env) Report(err error) {
+	if err != nil {
+		e.Auth.ReportUnauthorized(err)
+	}
+}
+
+// Fail reports err (see Report) and returns it, for one-line returns.
+func (e *Env) Fail(err error) error {
+	e.Report(err)
+	return err
+}
+
+// OnNetwork runs fn once the network opens after the first paint (at
+// once if it is already open), on the goroutine that opened it: start a
+// goroutine for anything slow. Cold start must not do network work before.
+func (e *Env) OnNetwork(fn func()) { e.Gate.OnOpen(fn) }
+
+// OnSignOut registers a sign-out step. Steps run in feature registry
+// order, before the user-data wipe; name labels its error.
+func (e *Env) OnSignOut(name string, fn func(context.Context) error) { e.Auth.OnSignOut(name, fn) }
+
+// OnClose registers a shutdown step. Core.Close runs them in reverse
+// registration order, before main closes the coordinator, engine and DB.
+func (e *Env) OnClose(fn func()) {
+	e.mu.Lock()
+	e.closers = append(e.closers, fn)
+	e.mu.Unlock()
+}
+
+func (e *Env) close() {
+	e.mu.Lock()
+	fns := e.closers
+	e.closers = nil
+	e.mu.Unlock()
+	for i := len(fns) - 1; i >= 0; i-- {
+		fns[i]()
+	}
+}

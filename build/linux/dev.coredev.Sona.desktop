@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Sona
+GenericName=Music Player
+Comment=Apple Music for the Linux desktop
+Exec=sona %u
+Icon=sona
+Terminal=false
+SingleMainWindow=true
+StartupWMClass=dev.coredev.Sona
+Categories=AudioVideo;Audio;Player;
+Keywords=apple;music;player;
+MimeType=x-scheme-handler/music;x-scheme-handler/musics;x-scheme-handler/itms;x-scheme-handler/itmss;

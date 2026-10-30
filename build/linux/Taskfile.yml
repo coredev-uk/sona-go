@@ -1,0 +1,66 @@
+version: '3'
+
+includes:
+  common: ../Taskfile.yml
+
+tasks:
+  build:
+    summary: Builds the application for Linux (GTK4 + WebKitGTK 6)
+    deps:
+      - task: common:build:frontend
+        vars:
+          BUILD_FLAGS:
+            ref: .BUILD_FLAGS
+          DEV:
+            ref: .DEV
+    cmds:
+      - go build {{.BUILD_FLAGS}} -o {{.OUTPUT}}
+    vars:
+      # A command-line -tags replaces the one in GOFLAGS (devenv's
+      # -tags=sqlite_fts5), so production builds name sqlite_fts5 again.
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production,sqlite_fts5{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
+      DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
+      OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
+    env:
+      GOOS: linux
+      CGO_ENABLED: 1
+
+  package:
+    summary: Packages a production build as .deb, .rpm, Arch package and AppImage (in bin/)
+    description: |
+      Packages bundle the build machine's libraries and link paths: run this on
+      the release baseline (`go tool wails3 task release`), not in devenv on NixOS.
+    deps:
+      - task: build
+    cmds:
+      # `wails3 tool package` names the file <-name>.<format>, so -name
+      # carries each format's conventional file name.
+      - task: package:format
+        vars: { FORMAT: deb, FILE: 'sona_{{.VERSION}}_amd64' }
+      - task: package:format
+        vars: { FORMAT: rpm, FILE: 'sona-{{.VERSION}}-1.x86_64' }
+      - task: package:format
+        vars: { FORMAT: archlinux, FILE: 'sona-{{.VERSION}}-1-x86_64' }
+      - task: create:appimage
+
+  package:format:
+    internal: true
+    cmds:
+      - go tool wails3 tool package -name "{{.FILE}}" -format {{.FORMAT}} -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/{{.BIN_DIR}}
+    env:
+      GOARCH: amd64 # nfpm.yaml's arch
+
+  create:appimage:
+    summary: Creates the AppImage from the built binary (downloads linuxdeploy on first use)
+    cmds:
+      - bash build/linux/appimage.sh {{.BIN_DIR}}/{{.APP_NAME}} {{.BIN_DIR}} {{.VERSION}}
+
+  release:
+    summary: Builds and smoke-tests all packages on Ubuntu 24.04 in podman/docker (into bin/release)
+    cmds:
+      - bash build/linux/release/release.sh
+
+  run:
+    summary: Runs the built binary
+    cmds:
+      - '{{.BIN_DIR}}/{{.APP_NAME}}'

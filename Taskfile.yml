@@ -1,0 +1,45 @@
+version: '3'
+
+# Sona build tasks. `go tool wails3 build|package|dev` run these through
+# Wails' embedded Task runner. Linux is the only v1 target.
+#
+# Never add `go mod tidy` here: other packages are developed in parallel and
+# tidy would drop their dependencies.
+
+vars:
+  APP_NAME: "sona"
+  BIN_DIR: "bin"
+  PACKAGE_MANAGER: "pnpm"
+  # Keep in step with build/config.yml, nfpm.yaml and main.go's version.
+  VERSION: "0.1.0"
+  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+
+includes:
+  common: ./build/Taskfile.yml
+  linux: ./build/linux/Taskfile.yml
+
+tasks:
+  build:
+    summary: Builds the application (production unless DEV=true)
+    cmds:
+      - task: linux:build
+
+  package:
+    summary: Packages a production build as .deb, .rpm, Arch package and AppImage
+    cmds:
+      - task: linux:package
+
+  release:
+    summary: Builds and smoke-tests release packages on Ubuntu 24.04 in a container (bin/release)
+    cmds:
+      - task: linux:release
+
+  run:
+    summary: Runs the built application
+    cmds:
+      - task: linux:run
+
+  dev:
+    summary: Runs the application in development mode with Vite hot reload
+    cmds:
+      - go tool wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}

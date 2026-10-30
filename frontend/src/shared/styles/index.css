@@ -1,0 +1,240 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/schibsted-grotesk";
+
+/* Tokens: see docs/design.md. Light is the default; `.dark` on <html> is set
+   by the appearance store from the theme setting or prefers-color-scheme. */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --ground: #f4f5f3;
+  --surface: #eceeeb;
+  --raised: #ffffff;
+  --hover: #e4e7e3;
+  --active: #dbdfda;
+  --line: #dadcd7;
+  --control-line: #c5cac4;
+  --ink: #161917;
+  --ink-muted: #545a55;
+  --ink-faint: #646a65;
+  --amber: #e5a31b;
+  --amber-ink: #8c5a00;
+  --on-amber: #1a1405;
+  --danger: #b42318;
+  --positive: #247b50;
+  --float-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+  --backdrop-scrim: 78%;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ShadCN roles mapped onto the tokens. */
+  --radius: 6px;
+  --background: var(--ground);
+  --foreground: var(--ink);
+  --card: var(--raised);
+  --card-foreground: var(--ink);
+  --popover: var(--raised);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--ground);
+  --secondary: var(--hover);
+  --secondary-foreground: var(--ink);
+  --muted: var(--hover);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--hover);
+  --accent-foreground: var(--ink);
+  --destructive: var(--danger);
+  --border: var(--line);
+  --input: var(--control-line);
+  --ring: color-mix(in oklab, var(--ink) 40%, transparent);
+
+  color-scheme: light;
+}
+
+.dark {
+  --ground: #121513;
+  --surface: #171a18;
+  --raised: #1e2220;
+  --hover: #222724;
+  --active: #2a302c;
+  --line: #262b28;
+  --control-line: #3a413c;
+  --ink: #eef1ee;
+  --ink-muted: #a9b0aa;
+  --ink-faint: #8d948e;
+  --amber: #f0b43c;
+  --amber-ink: #f0b43c;
+  --on-amber: #1a1405;
+  --danger: #f0705f;
+  --positive: #5cc48c;
+  --float-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: "Schibsted Grotesk Variable", system-ui, sans-serif;
+
+  /* Type scale (docs/design.md): text-display/page/heading/ui/sub/meta. */
+  --text-display: 2rem;
+  --text-display--line-height: 2.25rem;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 700;
+  --text-page: 1.5rem;
+  --text-page--line-height: 1.875rem;
+  --text-page--letter-spacing: -0.015em;
+  --text-page--font-weight: 650;
+  --text-heading: 1rem;
+  --text-heading--line-height: 1.375rem;
+  --text-heading--font-weight: 600;
+  --text-ui: 0.875rem;
+  --text-ui--line-height: 1.25rem;
+  --text-sub: 0.8125rem;
+  --text-sub--line-height: 1.125rem;
+  --text-meta: 0.75rem;
+  --text-meta--line-height: 1rem;
+
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-hover: var(--hover);
+  --color-active: var(--active);
+  --color-line: var(--line);
+  --color-control-line: var(--control-line);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  /* Amber has one job, "where the music is", hence the role name. */
+  --color-play: var(--amber);
+  --color-play-ink: var(--amber-ink);
+  --color-on-play: var(--on-amber);
+  --color-danger: var(--danger);
+  --color-positive: var(--positive);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+
+  --shadow-float: var(--float-shadow);
+  --ease-out: var(--ease-out);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-ground text-ui text-ink antialiased;
+    font-synthesis: none;
+    overflow: hidden;
+    caret-color: var(--amber-ink);
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--amber) 32%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* WebKitGTK honours the -webkit scrollbar pseudo-elements. */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--ink) 20%, transparent);
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--ink) 34%, transparent);
+  }
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Scrollers that follow the music on their own (lyrics) hide their bar. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* The now-playing equaliser glyph (components/tracks/Equaliser). */
+.eq-bar {
+  width: 3px;
+  border-radius: 1px;
+  background: var(--amber);
+  transform-origin: bottom;
+}
+.eq-live .eq-bar {
+  animation: eq 900ms var(--ease-out) infinite alternate;
+}
+.eq-live .eq-bar:nth-child(2) {
+  animation-delay: -300ms;
+}
+.eq-live .eq-bar:nth-child(3) {
+  animation-delay: -600ms;
+}
+@keyframes eq {
+  from {
+    transform: scaleY(0.35);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Reduce effects: solid surfaces, no backdrops, no motion. Reduced motion
+   from the OS drops motion too. */
+.reduce-effects [data-backdrop] {
+  display: none;
+}
+.reduce-effects *,
+.reduce-effects *::before,
+.reduce-effects *::after {
+  transition-duration: 0s !important;
+  animation-duration: 0s !important;
+  animation-iteration-count: 1 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
+}

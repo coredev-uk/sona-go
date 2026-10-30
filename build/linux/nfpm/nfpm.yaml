@@ -1,0 +1,99 @@
+# nfpm config for `go tool wails3 task linux:package` (.deb, .rpm, Arch).
+# https://nfpm.goreleaser.com
+#
+# Build release packages on the Ubuntu 24.04 baseline
+# (build/linux/release/release.sh): a binary built in devenv links against
+# /nix/store and runs only on NixOS.
+
+name: "sona"
+arch: ${GOARCH}
+platform: "linux"
+version: "0.1.0"
+section: "sound"
+priority: "optional"
+maintainer: "Core <core@coredev.uk>"
+description: |
+  Apple Music for the Linux desktop.
+  A native GTK4/WebKitGTK client with full-track playback through the
+  Widevine CDM of the user's installed Google Chrome (detected at runtime,
+  never bundled), GStreamer decoding and PipeWire/PulseAudio output, MPRIS
+  media controls and music:// link handling.
+vendor: "Sona"
+homepage: "https://github.com/coredev-uk/sona-go"
+license: "AGPL-3.0-only"
+release: "1"
+
+contents:
+  - src: "./bin/sona"
+    dst: "/usr/bin/sona"
+    file_info:
+      mode: 0755
+  - src: "./build/linux/dev.coredev.Sona.desktop"
+    dst: "/usr/share/applications/dev.coredev.Sona.desktop"
+  - src: "./build/linux/icons/hicolor/16x16/apps/sona.png"
+    dst: "/usr/share/icons/hicolor/16x16/apps/sona.png"
+  - src: "./build/linux/icons/hicolor/22x22/apps/sona.png"
+    dst: "/usr/share/icons/hicolor/22x22/apps/sona.png"
+  - src: "./build/linux/icons/hicolor/24x24/apps/sona.png"
+    dst: "/usr/share/icons/hicolor/24x24/apps/sona.png"
+  - src: "./build/linux/icons/hicolor/32x32/apps/sona.png"
+    dst: "/usr/share/icons/hicolor/32x32/apps/sona.png"
+  - src: "./build/linux/icons/hicolor/48x48/apps/sona.png"
+    dst: "/usr/share/icons/hicolor/48x48/apps/sona.png"
+  - src: "./build/linux/icons/hicolor/64x64/apps/sona.png"
+    dst: "/usr/share/icons/hicolor/64x64/apps/sona.png"
+  - src: "./build/linux/icons/hicolor/128x128/apps/sona.png"
+    dst: "/usr/share/icons/hicolor/128x128/apps/sona.png"
+  - src: "./build/linux/icons/hicolor/256x256/apps/sona.png"
+    dst: "/usr/share/icons/hicolor/256x256/apps/sona.png"
+  - src: "./build/linux/icons/hicolor/512x512/apps/sona.png"
+    dst: "/usr/share/icons/hicolor/512x512/apps/sona.png"
+  - src: "./build/linux/icons/hicolor/scalable/apps/sona.svg"
+    dst: "/usr/share/icons/hicolor/scalable/apps/sona.svg"
+
+# Runtime: GTK4 + WebKitGTK 6.0 for the window; GStreamer core + base
+# (appsrc, audioconvert, audioresample, volume) + good (autoaudiosink) + an
+# AAC decoder (avdec_aac from libav) + a PipeWire or PulseAudio sink for the
+# playback host. The Widevine CDM is a recommendation only: Sona detects the
+# one in the user's Google Chrome at runtime and never ships or downloads it.
+depends:
+  - libgtk-4-1
+  - libwebkitgtk-6.0-4
+  - libgstreamer1.0-0
+  - libgstreamer-plugins-base1.0-0
+  - gstreamer1.0-plugins-base
+  - gstreamer1.0-plugins-good
+  - gstreamer1.0-libav
+  - gstreamer1.0-pipewire | gstreamer1.0-pulseaudio
+recommends:
+  - google-chrome-stable
+  - gstreamer1.0-pipewire
+
+overrides:
+  rpm:
+    # Fedora; pulsesink ships in gstreamer1-plugins-good there.
+    # gstreamer1-plugin-libav is in Fedora proper since 41 (RPM Fusion before).
+    depends:
+      - gtk4
+      - webkitgtk6.0
+      - gstreamer1
+      - gstreamer1-plugins-base
+      - gstreamer1-plugins-good
+      - gstreamer1-plugin-libav
+    recommends:
+      - google-chrome-stable
+      - pipewire-gstreamer
+  archlinux:
+    # nfpm's Arch packager writes depends only (no optdepends), so the
+    # Chrome CDM and gst-plugin-pipewire recommendations do not carry over.
+    depends:
+      - gtk4
+      - webkitgtk-6.0
+      - gstreamer
+      - gst-plugins-base
+      - gst-plugins-good
+      - gst-libav
+
+scripts:
+  postinstall: "./build/linux/nfpm/scripts/postinstall.sh"
+  postremove: "./build/linux/nfpm/scripts/postinstall.sh"
