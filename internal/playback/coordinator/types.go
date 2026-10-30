@@ -15,6 +15,34 @@ type Item struct {
 	Album    string        `json:"album"`
 	Duration time.Duration `json:"duration"`
 	Artwork  string        `json:"artwork"` // Apple artwork template ({w}x{h})
+	// Explicit: Apple rates the song explicit; it is skipped while the
+	// account restricts explicit content (SetRestricted).
+	Explicit bool `json:"explicit,omitempty"`
+	// Container is the album, playlist, artist or station the item was
+	// queued from (zero when none), reported with its plays.
+	Container Container `json:"container,omitzero"`
+}
+
+// ContainerKind is the kind of collection an item was queued from.
+type ContainerKind string
+
+const (
+	ContainerAlbum    ContainerKind = "album"
+	ContainerPlaylist ContainerKind = "playlist"
+	ContainerArtist   ContainerKind = "artist"
+	ContainerStation  ContainerKind = "station"
+)
+
+// Valid reports whether k is a known kind.
+func (k ContainerKind) Valid() bool {
+	return k == ContainerAlbum || k == ContainerPlaylist || k == ContainerArtist || k == ContainerStation
+}
+
+// Container identifies a collection by kind and Apple ID: catalog
+// ("1440…", "pl.…", "ra.…") or library ("l.…", "p.…").
+type Container struct {
+	Kind ContainerKind `json:"kind"`
+	ID   string        `json:"id"`
 }
 
 // Repeat is the queue repeat mode.
@@ -38,6 +66,9 @@ type Entry struct {
 	// Auto: the slot came from the station (Snapshot.Station), not from
 	// the user; upcoming auto slots always follow the user's.
 	Auto bool `json:"auto"`
+	// Added: the user added the slot by hand (PlayNext, Append, Insert)
+	// rather than it coming with the collection SetQueue played.
+	Added bool `json:"added"`
 }
 
 // Station is the radio station feeding the queue: one the user started
@@ -56,9 +87,9 @@ type StationSource interface {
 	// the station).
 	NextTracks(ctx context.Context, stationID string) ([]Item, error)
 	// Continue returns the AutoPlay station continuing after seeds (the
-	// last items of the user's queue, oldest first); queueContext is the
-	// SetQueue label they came from.
-	Continue(ctx context.Context, seeds []Item, queueContext string) (Station, error)
+	// last items of the user's queue, oldest first, with the containers
+	// they were queued from).
+	Continue(ctx context.Context, seeds []Item) (Station, error)
 }
 
 // Snapshot is the now-playing state for the UI ("playback:state") and MPRIS.
@@ -91,6 +122,35 @@ type Snapshot struct {
 	Station *Station `json:"station"`
 	// AutoPlay: when the user's queue ends, similar music keeps playing.
 	AutoPlay bool `json:"autoPlay"`
+	// Restricted: the account restricts explicit content; explicit items
+	// are skipped.
+	Restricted bool `json:"restricted"`
+	// Sleep is the sleep timer (nil when off).
+	Sleep *Sleep `json:"sleep"`
+	// CanUndoReplace: UndoReplace can bring back the queue the last
+	// SetQueue or PlayStation replaced.
+	CanUndoReplace bool `json:"canUndoReplace"`
+}
+
+// SleepMode is when the sleep timer stops playback.
+type SleepMode string
+
+const (
+	SleepOff   SleepMode = ""      // no timer
+	SleepAfter SleepMode = "after" // after a duration (Sleep.At)
+	SleepTrack SleepMode = "track" // when the current item ends
+	SleepQueue SleepMode = "queue" // when the last of the user's items ends
+)
+
+// SleepFade is how long the sleep timer fades the volume out before it
+// stops playback.
+const SleepFade = 10 * time.Second
+
+// Sleep is the sleep timer: playback fades out over the last SleepFade
+// and pauses; the volume is restored afterwards.
+type Sleep struct {
+	Mode SleepMode `json:"mode"`
+	At   time.Time `json:"at,omitzero"` // SleepAfter: when playback pauses
 }
 
 // Saved is the persisted queue. A restore puts it back paused.
@@ -105,7 +165,8 @@ type Saved struct {
 	Context   string        `json:"context"`
 	Volume    float64       `json:"volume"`
 	Station   *Station      `json:"station,omitempty"`
-	Auto      []int         `json:"auto,omitempty"` // indices into Items of station slots
+	Auto      []int         `json:"auto,omitempty"`  // indices into Items of station slots
+	Added     []int         `json:"added,omitempty"` // indices into Items of slots the user added
 }
 
 // Store persists the queue across restarts.
@@ -152,4 +213,21 @@ type Activity struct {
 	Duration time.Duration // the item's duration as playing
 	Reason   EndReason     // ActivityEnd
 	At       time.Time
+	Mode     PlayMode // the queue's modes at the time
+}
+
+// AutoPlayMode says whether AutoPlay continues the queue.
+type AutoPlayMode int
+
+const (
+	AutoPlayOff         AutoPlayMode = iota + 1 // AutoPlay is off
+	AutoPlayOn                                  // similar music follows the user's queue
+	AutoPlayUnsupported                         // AutoPlay is on, but a station plays (it cannot continue one)
+)
+
+// PlayMode is the queue's shuffle, repeat and AutoPlay state.
+type PlayMode struct {
+	Shuffle  bool
+	Repeat   Repeat
+	AutoPlay AutoPlayMode
 }

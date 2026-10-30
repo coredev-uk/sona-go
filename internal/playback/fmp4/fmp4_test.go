@@ -33,7 +33,8 @@ func mkesds(asc []byte) []byte {
 	return mkfull("esds", 0, 0, es)
 }
 
-func mkinit(encrypted bool, asc []byte) []byte {
+// mkinit builds an init segment; trakExtra boxes follow the tkhd.
+func mkinit(encrypted bool, asc []byte, trakExtra ...[]byte) []byte {
 	entryHdr := cat(make([]byte, 6), be16(1), make([]byte, 8), be16(2), be16(16), be16(0), be16(0), be32(44100<<16))
 	var entry []byte
 	if encrypted {
@@ -46,7 +47,7 @@ func mkinit(encrypted bool, asc []byte) []byte {
 	stsd := mkfull("stsd", 0, 0, be32(1), entry)
 	mdhd := mkfull("mdhd", 0, 0, be32(0), be32(0), be32(44100), be32(0), be16(0x55c4), be16(0))
 	tkhd := mkfull("tkhd", 0, 7, be32(0), be32(0), be32(1), make([]byte, 68))
-	trak := mkbox("trak", tkhd, mkbox("mdia", mdhd, mkfull("hdlr", 0, 0, be32(0), []byte("soun"), make([]byte, 13)),
+	trak := mkbox("trak", tkhd, cat(trakExtra...), mkbox("mdia", mdhd, mkfull("hdlr", 0, 0, be32(0), []byte("soun"), make([]byte, 13)),
 		mkbox("minf", mkbox("stbl", stsd, mkfull("stts", 0, 0, be32(0))))))
 	trex := mkfull("trex", 0, 0, be32(1), be32(1), be32(1024), be32(6), be32(0))
 	return cat(mkbox("ftyp", []byte("iso8"), be32(0)), mkbox("moov", mkfull("mvhd", 0, 0, make([]byte, 96)), trak, mkbox("mvex", trex)))
@@ -85,6 +86,35 @@ func TestParseInitClearAndExplicitRate(t *testing.T) {
 	}
 	if in.AudioObject != 5 || in.SampleRate != 48000 || in.Channels != 1 {
 		t.Fatalf("asc: aot %d rate %d ch %d", in.AudioObject, in.SampleRate, in.Channels)
+	}
+}
+
+func TestPriming(t *testing.T) {
+	// Apple's init segments have no edit list: the encoder delay applies,
+	// in the media timescale (a 22.05 kHz HE-AAC core doubles it in time).
+	in, err := ParseInit(mkinit(true, lcStereo44))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := in.Priming(), Time(2112, 44100); got != want {
+		t.Errorf("no edit list: priming %v, want %v", got, want)
+	}
+	// An edit list starting at media time 1024 after an empty edit (-1).
+	elst := mkbox("edts", mkfull("elst", 0, 0, be32(2),
+		be32(500), be32(0xffffffff), be32(1<<16),
+		be32(44100*10), be32(1024), be32(1<<16)))
+	if in, err = ParseInit(mkinit(true, lcStereo44, elst)); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := in.Priming(), Time(1024, 44100); got != want {
+		t.Errorf("edit list: priming %v, want %v", got, want)
+	}
+	elst64 := mkbox("edts", mkfull("elst", 1, 0, be32(1), be64(44100*10), be64(2112), be32(1<<16)))
+	if in, err = ParseInit(mkinit(true, lcStereo44, elst64)); err != nil {
+		t.Fatal(err)
+	}
+	if !in.HasEdit || in.EditStart != 2112 {
+		t.Errorf("elst v1: %+v", in)
 	}
 }
 

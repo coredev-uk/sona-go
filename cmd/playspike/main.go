@@ -4,7 +4,10 @@
 // checkpoints past the 30 s preview window, the PipeWire stream of the
 // child, the gap between two consecutive tracks, and parent+child memory.
 //
-// Usage: playspike [-env .env] [-song ID | -term "query"] [-seek 90] [-next-term "query"] [-crash]
+// Usage: playspike [-env .env] [-song ID | -term "query"] [-seek 90] [-next-term "query"] [-crash] [-quality 256|64]
+//
+//	playspike -soak 3h [-soak-items ID,ID,…]   long session: licence renewals and stalls
+//	playspike -probe-lossless SONG_ID          Widevine licences for every enhancedHls variant
 package main
 
 import (
@@ -32,7 +35,7 @@ func main() {
 	cdmhost.ChildMain()
 
 	envFile := flag.String("env", ".env", "file providing MUSIC_USER_TOKEN when it is not in the environment")
-	songID := flag.String("song", "", "catalog song ID (default: first search hit for -term)")
+	songID := flag.String("song", "", "song ID: catalog, or a library upload (i.…) (default: first search hit for -term)")
 	term := flag.String("term", "Radiohead Weird Fishes", "search term used when -song is empty")
 	seekTo := flag.Float64("seek", 90, "seconds to seek to; past the 30 s preview window proves a full track")
 	listen := flag.Duration("listen", 12*time.Second, "how long to observe playback after seeking")
@@ -41,8 +44,14 @@ func main() {
 	gap := flag.Bool("gap", true, "play into the next track to measure the gap")
 	crash := flag.Bool("crash", false, "kill the host mid-track and measure recovery")
 	cdm := flag.String("cdm", "", "Widevine CDM path (default: discover)")
-	activity := flag.Bool("activity", false, "play -term then -next-term through the coordinator with Apple play-activity reporting, and check Recently Played")
+	activity := flag.Bool("activity", false, "play -song (or -term's hit) then -next (or -next-term's) through the coordinator with Apple play-activity reporting, and check Recently Played")
+	container := flag.String("container", "", "with -activity: kind:id (album, playlist or station) the songs are queued from, reported with the plays and looked for in Recently Played")
+	quality := flag.Int("quality", 256, "AAC bitrate to play: 256 or 64 (kbps)")
+	soak := flag.Duration("soak", 0, "play -soak-items (or the first 25 hits for -term) back to back for this long, logging licence renewals and stalls")
+	soakItems := flag.String("soak-items", "", "comma-separated song or station (ra.…) IDs for -soak")
+	probeLossless := flag.String("probe-lossless", "", "catalog song ID: request a Widevine licence for every key of its enhancedHls (lossless/Atmos) master and print the results")
 	verbose := flag.Bool("v", false, "debug logging")
+	flag.StringVar(&outputDevice, "device", "", "PipeWire sink (node.name) to play to (default: the system default)")
 	flag.Parse()
 
 	level := slog.LevelInfo
@@ -51,10 +60,24 @@ func main() {
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 	var err error
-	if *activity {
-		err = runActivity(log, *envFile, *term, *nextTerm, *listen, *cdm)
-	} else {
-		err = run(log, *envFile, *songID, *term, *seekTo, *listen, *nextID, *nextTerm, *gap, *crash, *cdm)
+	q := applemusic.Quality(*quality)
+	if q != applemusic.Quality256 && q != applemusic.Quality64 {
+		log.Error("playspike: -quality must be 256 or 64", "quality", *quality)
+		os.Exit(2)
+	}
+	switch {
+	case *probeLossless != "":
+		err = runProbeLossless(log, *envFile, *probeLossless, *cdm)
+	case *soak > 0:
+		var items []string
+		if *soakItems != "" {
+			items = strings.Split(*soakItems, ",")
+		}
+		err = runSoak(log, *envFile, items, *term, *soak, *cdm, q)
+	case *activity:
+		err = runActivity(log, *envFile, *songID, *term, *nextID, *nextTerm, *listen, *cdm, *container)
+	default:
+		err = run(log, *envFile, *songID, *term, *seekTo, *listen, *nextID, *nextTerm, *gap, *crash, *cdm, q)
 	}
 	if err != nil {
 		log.Error("playspike failed", "err", err)
@@ -106,7 +129,7 @@ func (r *recorder) drain() {
 	}
 }
 
-func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen time.Duration, nextID, nextTerm string, gap, crash bool, cdm string) error {
+func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen time.Duration, nextID, nextTerm string, gap, crash bool, cdm string, quality applemusic.Quality) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -121,8 +144,11 @@ func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen 
 	}
 	step("song", "id", song.ID, "name", fmt.Sprintf("%q", song.Attributes.Name), "catalog_ms", song.Attributes.DurationInMillis)
 
-	eng := native.New(native.Options{Client: api, CDMPath: cdm, Logger: log, IdleTimeout: -1})
+	eng := native.New(native.Options{Client: api, CDMPath: cdm, Logger: log, IdleTimeout: -1, Quality: quality})
 	defer eng.Close()
+	if err := eng.SetOutputDevice(ctx, outputDevice); err != nil {
+		return err
+	}
 	rec := &recorder{events: make(chan stamped, 256)}
 	go func() {
 		for ev := range eng.Events() {
@@ -143,6 +169,8 @@ func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen 
 	step("host", "pid", info.PID, "cdm", info.CDMVersion, "cdm_interface", info.CDMInterface, "host_interface", info.HostInterface)
 	step("audio", "gstreamer", info.GStreamer, "decoder", info.Decoder, "sink", info.Sink)
 	step("cdm path", "path", info.CDMPath)
+	step("sandbox", "netns", info.Sandbox.NetNS, "mountns", info.Sandbox.MountNS, "landlock", info.Sandbox.Landlock,
+		"seccomp", info.Sandbox.Seccomp, "inet_denied", info.Sandbox.InetDenied, "reason", fmt.Sprintf("%q", info.Sandbox.Reason))
 
 	time.Sleep(2 * time.Second)
 	pipewire(info.PID)
@@ -171,10 +199,18 @@ func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen 
 	}
 	s := eng.Status()
 	final := s.Position + time.Since(s.UpdatedAt)
-	if s.State != playback.StatePlaying || final < target+10*time.Second {
-		return fmt.Errorf("full-track proof failed: state %s at %v (need > %v)", s.State, final, target+10*time.Second)
+	need := target + 10*time.Second
+	if s.Duration > 0 && s.Duration < need { // a short track (an upload clip) plays to its end
+		if s.State != playback.StateEnded {
+			return fmt.Errorf("short track: state %s at %v, want ended (duration %v)", s.State, final, s.Duration)
+		}
+		step("played to the end", "duration", s.Duration.Round(10*time.Millisecond))
+	} else {
+		if s.State != playback.StatePlaying || final < need {
+			return fmt.Errorf("full-track proof failed: state %s at %v (need > %v)", s.State, final, need)
+		}
+		step("full track (preview=false)", "advanced_past_target", (final - target).Round(100*time.Millisecond))
 	}
-	step("full track (preview=false)", "advanced_past_target", (final - target).Round(100*time.Millisecond))
 	memory("memory while playing", info.PID)
 
 	// 3. Crash recovery: kill the host, expect a transparent resume.
@@ -242,6 +278,9 @@ func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen 
 	}
 	return nil
 }
+
+// outputDevice is the -device flag: the PipeWire sink every mode plays to.
+var outputDevice string
 
 func resolve(ctx context.Context, api *applemusic.Client, sf, id, term string) (applemusic.Resource[applemusic.SongAttributes], error) {
 	if id != "" {

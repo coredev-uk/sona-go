@@ -72,9 +72,10 @@ type Options struct {
 }
 
 type entry struct {
-	uid  uint64
-	item Item
-	auto bool // from the station, not the user
+	uid   uint64
+	item  Item
+	auto  bool // from the station, not the user
+	added bool // added by hand (PlayNext, Append, Insert)
 }
 
 // fillCall is one station refill; done closes when it finished.
@@ -91,8 +92,8 @@ type Coordinator struct {
 	log       *slog.Logger
 	store     Store
 	onPlayed  func(Item, time.Duration, bool)
-	onAct     func(Activity)
-	actMu     sync.Mutex // serialises OnActivity delivery
+	onAct     []func(Activity) // OnActivity, then ObserveActivity observers; guarded by mu
+	actMu     sync.Mutex       // serialises activity delivery
 	rng       *rand.Rand
 	maxFail   int
 	lead      time.Duration
@@ -143,6 +144,13 @@ type Coordinator struct {
 	fill         *fillCall // refill in flight
 	fillGen      uint64    // bumped when the queue's station changes; stale refills are dropped
 	fillFailed   time.Time // last failed refill (background retries wait RefillRetry)
+	restricted   bool      // skip explicit items
+	undo         *replaced // the queue the last SetQueue/PlayStation replaced
+	sleep        Sleep
+	sleepTimer   *time.Timer
+	faded        bool          // the sleep fade set the engine below c.volume
+	armed        playback.Next // armed in the engine to follow the current item
+	armedUID     uint64        // entry of armed
 }
 
 // New returns a coordinator over opts.Engine and starts consuming its
@@ -156,7 +164,6 @@ func New(opts Options) (*Coordinator, error) {
 		log:       opts.Logger,
 		store:     opts.Store,
 		onPlayed:  opts.OnPlayed,
-		onAct:     opts.OnActivity,
 		rng:       opts.Rand,
 		maxFail:   cmp.Or(opts.MaxFailures, 3),
 		lead:      cmp.Or(opts.PreloadLead, 15*time.Second),
@@ -171,6 +178,9 @@ func New(opts Options) (*Coordinator, error) {
 	}
 	if c.log == nil {
 		c.log = slog.New(slog.DiscardHandler)
+	}
+	if opts.OnActivity != nil {
+		c.onAct = append(c.onAct, opts.OnActivity)
 	}
 	if c.rng == nil {
 		c.rng = rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
@@ -203,6 +213,9 @@ func (c *Coordinator) Close() error {
 	}
 	if c.saveTimer != nil {
 		c.saveTimer.Stop()
+	}
+	if c.sleepTimer != nil {
+		c.sleepTimer.Stop()
 	}
 	c.mu.Unlock()
 	c.cancel()
@@ -247,28 +260,34 @@ func (c *Coordinator) Snapshot() Snapshot {
 	defer c.mu.Unlock()
 	now := time.Now()
 	s := Snapshot{
-		State:        c.st.State,
-		Index:        c.index,
-		Position:     c.positionLocked(now),
-		Duration:     c.st.Duration,
-		At:           now,
-		Volume:       c.volume,
-		Shuffle:      c.shuffle,
-		Repeat:       c.repeat,
-		Context:      c.label,
-		Queue:        make([]Entry, len(c.queue)),
-		QueueVersion: c.queueVersion,
-		History:      slices.Clone(c.history),
-		Error:        c.lastErr,
-		AuthRequired: c.auth,
-		AutoPlay:     c.autoplay,
+		State:          c.st.State,
+		Index:          c.index,
+		Position:       c.positionLocked(now),
+		Duration:       c.st.Duration,
+		At:             now,
+		Volume:         c.volume,
+		Shuffle:        c.shuffle,
+		Repeat:         c.repeat,
+		Context:        c.label,
+		Queue:          make([]Entry, len(c.queue)),
+		QueueVersion:   c.queueVersion,
+		History:        slices.Clone(c.history),
+		Error:          c.lastErr,
+		AuthRequired:   c.auth,
+		AutoPlay:       c.autoplay,
+		Restricted:     c.restricted,
+		CanUndoReplace: c.undo != nil,
+	}
+	if c.sleep.Mode != SleepOff {
+		sl := c.sleep
+		s.Sleep = &sl
 	}
 	if c.station != nil {
 		st := *c.station
 		s.Station = &st
 	}
 	for i, e := range c.queue {
-		s.Queue[i] = Entry{Index: i, UID: e.uid, Item: e.item, Auto: e.auto}
+		s.Queue[i] = Entry{Index: i, UID: e.uid, Item: e.item, Auto: e.auto, Added: e.added}
 	}
 	if c.index >= 0 {
 		cur := s.Queue[c.index]
@@ -294,6 +313,7 @@ func (c *Coordinator) SetQueue(ctx context.Context, items []Item, start int, lab
 	defer c.cmd.Unlock()
 	c.mu.Lock()
 	fx := c.finalizeLocked(false, EndSelected)
+	c.undo = c.replacedLocked()
 	q := c.entriesLocked(items, false)
 	if c.shuffle {
 		c.original = uids(q)
@@ -318,19 +338,38 @@ func (c *Coordinator) PlayNext(items []Item) {
 		return
 	}
 	c.mu.Lock()
+	c.insertLocked(c.index+1, items)
+	c.mu.Unlock()
+	c.notify()
+}
+
+// Insert inserts items at queue position at, clamped to the user's
+// upcoming slots (after the current item, before any station slots).
+// With shuffle on they follow queue[at-1] in the unshuffled order too.
+func (c *Coordinator) Insert(at int, items []Item) {
+	if len(items) == 0 {
+		return
+	}
+	c.mu.Lock()
+	c.insertLocked(min(max(at, c.index+1), c.userEndLocked()), items)
+	c.mu.Unlock()
+	c.notify()
+}
+
+func (c *Coordinator) insertLocked(at int, items []Item) {
 	es := c.entriesLocked(items, false)
-	at := c.index + 1
-	c.queue = slices.Insert(c.queue, at, es...)
+	for i := range es {
+		es[i].added = true
+	}
 	if c.shuffle {
 		pos := 0
-		if c.index >= 0 {
-			pos = slices.Index(c.original, c.queue[c.index].uid) + 1
+		if at > 0 {
+			pos = slices.Index(c.original, c.queue[at-1].uid) + 1
 		}
 		c.original = slices.Insert(c.original, pos, uids(es)...)
 	}
+	c.queue = slices.Insert(c.queue, at, es...)
 	c.queueChangedLocked()
-	c.mu.Unlock()
-	c.notify()
 }
 
 // Append adds items after the user's queue (before any upcoming station
@@ -341,6 +380,9 @@ func (c *Coordinator) Append(items []Item) {
 	}
 	c.mu.Lock()
 	es := c.entriesLocked(items, false)
+	for i := range es {
+		es[i].added = true
+	}
 	at := c.userEndLocked()
 	if c.shuffle {
 		pos := len(c.original)
@@ -473,6 +515,7 @@ func (c *Coordinator) Stop(ctx context.Context) error {
 	fx := c.finalizeLocked(false, EndStopped)
 	loaded := c.loaded
 	c.queue, c.original, c.label = nil, nil, ""
+	c.undo = nil
 	c.dropStationLocked()
 	c.resetLocked()
 	c.queueChangedLocked()
@@ -688,9 +731,9 @@ func (c *Coordinator) Seek(ctx context.Context, pos time.Duration) error {
 	return nil
 }
 
-// SetVolume sets the volume (clamped to 0..1).
+// SetVolume sets the volume (clamped to 0..1; NaN is 0).
 func (c *Coordinator) SetVolume(ctx context.Context, v float64) error {
-	v = min(max(v, 0), 1)
+	v = playback.ClampVolume(v)
 	c.cmd.Lock()
 	defer c.cmd.Unlock()
 	if err := c.eng.SetVolume(ctx, v); err != nil {
@@ -804,6 +847,11 @@ func (c *Coordinator) Restore(ctx context.Context) error {
 			q[i].auto = true
 		}
 	}
+	for _, i := range s.Added {
+		if i >= 0 && i < len(q) {
+			q[i].added = true
+		}
+	}
 	c.queue, c.label = q, s.Context
 	c.station = nil
 	if s.Station != nil && s.Station.ID != "" {
@@ -858,6 +906,10 @@ func (c *Coordinator) handle(ev playback.Event) {
 	c.cmd.Lock()
 	defer c.cmd.Unlock()
 	c.mu.Lock()
+	if ev.Kind == playback.EventAdvance && c.index >= 0 && c.loaded {
+		c.advanceLocked(ev.Status)
+		return
+	}
 	if c.index < 0 || !c.loaded || ev.Status.ItemID != c.queue[c.index].item.ID {
 		c.mu.Unlock()
 		return
@@ -886,6 +938,10 @@ func (c *Coordinator) handle(ev playback.Event) {
 	case ev.Status.State == playback.StateEnded:
 		c.applyLocked(ev.Status)
 		fx := c.finalizeLocked(true, EndNatural)
+		if c.sleepEndsHereLocked() {
+			c.sleepStopLocked(fx)
+			return
+		}
 		next, ok := c.nextIndexLocked(true)
 		if !ok {
 			next, ok = c.awaitFillLocked(c.ctx, true)
@@ -904,6 +960,56 @@ func (c *Coordinator) handle(ev playback.Event) {
 	}
 }
 
+// advanceLocked adopts the engine's own move to the armed next item: the
+// current item ended naturally and st is the new one's status. Called with
+// cmd and mu held; returns with mu released.
+func (c *Coordinator) advanceLocked(st playback.Status) {
+	now := time.Now()
+	c.endActLocked(EndNatural, cmp.Or(c.st.Duration, c.positionLocked(now)), now)
+	fx := c.finalizeLocked(true, EndNatural)
+	ai := c.indexOfLocked(c.armedUID)
+	if ai < 0 || st.ItemID != c.queue[ai].item.ID {
+		// The arm changed while the engine moved on: play the expected next.
+		next, ok := c.nextIndexLocked(true)
+		c.mu.Unlock()
+		run(fx)
+		if ok {
+			_ = c.start(c.ctx, next, 0, true)
+		} else {
+			c.notify()
+		}
+		return
+	}
+	c.selectLocked(ai, st.Position, true, playback.StateLoading)
+	c.loaded = true
+	c.applyLocked(st)
+	c.mu.Unlock()
+	run(fx)
+	c.notify()
+}
+
+// armLocked tells the engine which item follows the current one when it
+// plays out (none when nothing follows automatically, or the sleep timer
+// ends playback with it).
+func (c *Coordinator) armLocked() {
+	var (
+		want playback.Next
+		uid  uint64
+	)
+	if !c.closed && c.index >= 0 && c.loaded && c.st.State != playback.StateEnded && c.st.State != playback.StateError {
+		if ni, ok := c.nextIndexLocked(true); ok && !c.sleepEndsHereLocked() {
+			next, cur := c.queue[ni], c.queue[c.index]
+			want = playback.Next{ID: next.item.ID, Gapless: cur.item.Album != "" && cur.item.Album == next.item.Album}
+			uid = next.uid
+		}
+	}
+	if want == c.armed && uid == c.armedUID {
+		return
+	}
+	c.armed, c.armedUID = want, uid
+	c.eng.SetNext(want)
+}
+
 // start plays queue[i] from pos, skipping forward over items whose Play
 // fails. fresh resets the item's listening time (false continues a
 // restored listen). Caller holds cmd, not mu.
@@ -913,6 +1019,19 @@ func (c *Coordinator) start(ctx context.Context, i int, pos time.Duration, fresh
 		if i < 0 || i >= len(c.queue) {
 			c.mu.Unlock()
 			return nil
+		}
+		if c.withheldLocked(c.queue[i].item) {
+			// Explicit content is restricted: play the next allowed item.
+			next, ok := c.followingLocked(i, false)
+			if !ok {
+				c.lastErr = ErrRestricted.Error()
+				c.mu.Unlock()
+				c.notify()
+				return ErrRestricted
+			}
+			i, pos, fresh = next, 0, true
+			c.mu.Unlock()
+			continue
 		}
 		e := c.queue[i]
 		c.selectLocked(i, pos, fresh, playback.StateLoading)
@@ -1017,7 +1136,12 @@ func (c *Coordinator) applyLocked(s playback.Status) {
 		s.UpdatedAt = now
 	}
 	c.st = s
-	c.volume = s.Volume
+	if c.faded {
+		// The sleep fade lowered the engine volume; the user's stays.
+		c.st.Volume = c.volume
+	} else {
+		c.volume = s.Volume
+	}
 	switch playing := s.State == playback.StatePlaying; {
 	case was && !playing:
 		c.playedFor += now.Sub(c.playingSince)
@@ -1045,11 +1169,25 @@ func (c *Coordinator) applyLocked(s playback.Status) {
 	c.schedulePreloadLocked()
 }
 
-// addActLocked queues a for OnActivity.
+// addActLocked queues a, with the queue's modes, for the activity
+// observers.
 func (c *Coordinator) addActLocked(a Activity) {
-	if c.onAct != nil {
+	if len(c.onAct) > 0 {
+		a.Mode = c.playModeLocked()
 		c.acts = append(c.acts, a)
 	}
+}
+
+func (c *Coordinator) playModeLocked() PlayMode {
+	m := PlayMode{Shuffle: c.shuffle, Repeat: c.repeat, AutoPlay: AutoPlayOff}
+	switch {
+	case !c.autoplay:
+	case c.station != nil && !c.station.AutoPlay:
+		m.AutoPlay = AutoPlayUnsupported
+	default:
+		m.AutoPlay = AutoPlayOn
+	}
+	return m
 }
 
 // endActLocked closes the open listen, if any, at pos.
@@ -1070,23 +1208,32 @@ func (c *Coordinator) seekActLocked(pos time.Duration) {
 	c.addActLocked(Activity{Kind: ActivitySeek, Item: c.actItem, From: c.positionLocked(now), Position: pos, Duration: c.st.Duration, At: now})
 }
 
-// deliverActivity hands queued activities to OnActivity in order.
+// ObserveActivity adds an observer that receives the same listening
+// transitions as Options.OnActivity, after it, with the same rules: in
+// order, never under the state lock, and it must not call back into the
+// Coordinator. Transitions before the call are not replayed.
+func (c *Coordinator) ObserveActivity(fn func(Activity)) {
+	c.mu.Lock()
+	c.onAct = append(c.onAct, fn)
+	c.mu.Unlock()
+}
+
+// deliverActivity hands queued activities to the observers in order.
 func (c *Coordinator) deliverActivity() {
-	if c.onAct == nil {
-		return
-	}
 	c.actMu.Lock()
 	defer c.actMu.Unlock()
 	for {
 		c.mu.Lock()
-		acts := c.acts
+		acts, obs := c.acts, c.onAct
 		c.acts = nil
 		c.mu.Unlock()
 		if len(acts) == 0 {
 			return
 		}
 		for _, a := range acts {
-			c.onAct(a)
+			for _, fn := range obs {
+				fn(a)
+			}
 		}
 	}
 }
@@ -1150,21 +1297,36 @@ func (c *Coordinator) finalizeLocked(completed bool, reason EndReason) func() {
 
 // nextIndexLocked returns the item after the current one. auto (an item
 // ended) honours repeat one; repeat all wraps at the end unless a station
-// feeds the queue (it continues instead).
+// feeds the queue (it continues instead). Withheld items are skipped.
 func (c *Coordinator) nextIndexLocked(auto bool) (int, bool) {
+	return c.followingLocked(c.index, auto)
+}
+
+// followingLocked is nextIndexLocked as if queue[from] were current.
+func (c *Coordinator) followingLocked(from int, auto bool) (int, bool) {
 	n := len(c.queue)
-	switch {
-	case n == 0:
+	if n == 0 {
 		return -1, false
-	case auto && c.repeat == RepeatOne && c.index >= 0:
-		return c.index, true
-	case c.index+1 < n:
-		return c.index + 1, true
-	case c.repeat != RepeatOff && c.station == nil:
-		return 0, true
+	}
+	if auto && c.repeat == RepeatOne && from >= 0 && !c.withheldLocked(c.queue[from].item) {
+		return from, true
+	}
+	for i, steps := from+1, 0; steps < n; i, steps = i+1, steps+1 {
+		if i >= n {
+			if c.repeat == RepeatOff || c.station != nil {
+				return -1, false
+			}
+			i = 0
+		}
+		if !c.withheldLocked(c.queue[i].item) {
+			return i, true
+		}
 	}
 	return -1, false
 }
+
+// withheldLocked reports whether it cannot play on this account.
+func (c *Coordinator) withheldLocked(it Item) bool { return c.restricted && it.Explicit }
 
 // PlayStation replaces the queue with station st and plays its first
 // track; more tracks are fetched as the queue drains. It fetches the first
@@ -1187,7 +1349,8 @@ func (c *Coordinator) PlayStation(ctx context.Context, st Station) error {
 	defer c.cmd.Unlock()
 	c.mu.Lock()
 	fx := c.finalizeLocked(false, EndSelected)
-	q := c.entriesLocked(items, true)
+	c.undo = c.replacedLocked()
+	q := c.entriesLocked(fromStation(items, st.ID), true)
 	c.original = nil
 	if c.shuffle {
 		c.original = uids(q)
@@ -1201,6 +1364,16 @@ func (c *Coordinator) PlayStation(ctx context.Context, st Station) error {
 	c.mu.Unlock()
 	run(fx)
 	return c.start(ctx, 0, 0, true)
+}
+
+// fromStation sets station id as the container of items that have none.
+func fromStation(items []Item, id string) []Item {
+	for i := range items {
+		if items[i].Container == (Container{}) {
+			items[i].Container = Container{Kind: ContainerStation, ID: id}
+		}
+	}
+	return items
 }
 
 // SetStationSource sets (or, with nil, removes) the source of station and
@@ -1282,9 +1455,8 @@ func (c *Coordinator) startFillLocked() *fillCall {
 		s := *c.station
 		st = &s
 	}
-	label := c.label
 	c.wg.Add(1)
-	go c.runFill(c.stations, f, st, seeds, label)
+	go c.runFill(c.stations, f, st, seeds)
 	return f
 }
 
@@ -1302,7 +1474,7 @@ func (c *Coordinator) seedsLocked() []Item {
 // runFill fetches one batch for f (creating the AutoPlay station first
 // when st is nil) and appends it as station slots, unless the queue moved
 // to another station meanwhile.
-func (c *Coordinator) runFill(src StationSource, f *fillCall, st *Station, seeds []Item, label string) {
+func (c *Coordinator) runFill(src StationSource, f *fillCall, st *Station, seeds []Item) {
 	defer c.wg.Done()
 	defer close(f.done)
 	var (
@@ -1313,7 +1485,7 @@ func (c *Coordinator) runFill(src StationSource, f *fillCall, st *Station, seeds
 	if st != nil {
 		station = *st
 	} else {
-		station, err = src.Continue(c.ctx, seeds, label)
+		station, err = src.Continue(c.ctx, seeds)
 		station.AutoPlay = true
 	}
 	if err == nil {
@@ -1342,7 +1514,7 @@ func (c *Coordinator) runFill(src StationSource, f *fillCall, st *Station, seeds
 	if c.station == nil {
 		c.station = &station
 	}
-	es := c.entriesLocked(items, true)
+	es := c.entriesLocked(fromStation(items, station.ID), true)
 	c.queue = append(c.queue, es...)
 	if c.shuffle {
 		c.original = append(c.original, uids(es)...)
@@ -1399,12 +1571,16 @@ func (c *Coordinator) awaitFillLocked(ctx context.Context, auto bool) (int, bool
 
 // schedulePreloadLocked arranges for the next item to be preloaded
 // PreloadLead before the current one ends, extrapolating the position
-// from the last status rather than relying on periodic events.
+// from the last status rather than relying on periodic events. It runs
+// whenever the current item, its status or the queue changes, so it also
+// reschedules the sleep timer.
 func (c *Coordinator) schedulePreloadLocked() {
 	if c.preloadTimer != nil {
 		c.preloadTimer.Stop()
 		c.preloadTimer = nil
 	}
+	c.scheduleSleepLocked()
+	c.armLocked()
 	if !c.closed {
 		c.refillLocked()
 	}
@@ -1412,7 +1588,7 @@ func (c *Coordinator) schedulePreloadLocked() {
 		return
 	}
 	ni, ok := c.nextIndexLocked(true)
-	if !ok {
+	if !ok || c.sleepEndsHereLocked() {
 		return
 	}
 	next, cur := c.queue[ni], c.queue[c.index]
@@ -1567,6 +1743,9 @@ func (c *Coordinator) savedLocked() Saved {
 		pos[e.uid] = i
 		if e.auto {
 			s.Auto = append(s.Auto, i)
+		}
+		if e.added {
+			s.Added = append(s.Added, i)
 		}
 	}
 	if c.station != nil {

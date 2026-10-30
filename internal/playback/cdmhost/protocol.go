@@ -9,6 +9,8 @@ package cdmhost
 import (
 	"errors"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
 )
 
 // EnvChild marks a process as the CDM host child.
@@ -26,7 +28,24 @@ var (
 	ErrExited = errors.New("cdmhost: host process exited")
 	// ErrNoUsableKey reports a licence that left the session without a usable key.
 	ErrNoUsableKey = errors.New("cdmhost: licence has no usable key")
+	// ErrEnded reports a Next that came too late: the current track has
+	// already played out (an EventEnded follows) or started fading.
+	ErrEnded = errors.New("cdmhost: the current track has ended")
+	// ErrSandbox reports that the child did not load the CDM because its
+	// seccomp filter is missing or does not keep it off the network (see
+	// Sandbox).
+	ErrSandbox = errors.New("cdmhost: the playback sandbox could not be set up, so the Widevine CDM was not loaded")
 )
+
+// Media is a track for Load and Next.
+type Media struct {
+	Init []byte // fMP4 init segment; nil on Load keeps the current one (a seek)
+	// Duration is the track's length. When known, the encoder's priming
+	// and padding around it are trimmed, so consecutive tracks join
+	// sample-exact; 0 plays every sample (live streams).
+	Duration time.Duration
+	Gain     float64 // Sound Check gain (linear, 0 = unity), applied while SetTrackGain is on
+}
 
 // Info describes a running host.
 type Info struct {
@@ -38,6 +57,15 @@ type Info struct {
 	GStreamer     string
 	Decoder       string
 	Sink          string
+	Sandbox       Sandbox // how the child is confined
+}
+
+// Equalizer is the host's equaliser: Pregain (dB) is applied ahead of the
+// ten peaking filters, Gains (dB) are per band at equalizer.Frequencies.
+// The zero value leaves the audio untouched.
+type Equalizer struct {
+	Pregain float64
+	Gains   [equalizer.Bands]float64
 }
 
 // EventKind classifies a child event.
@@ -56,6 +84,10 @@ const (
 	EventError
 	// EventMessage: the CDM has a message (usually a licence renewal) for Session.
 	EventMessage
+	// EventAdvance: the track queued with Next is now heard: the previous
+	// one played out (or started crossfading into it) with no gap. Track
+	// is the new current track, Position exact at At.
+	EventAdvance
 )
 
 // Event is sent by the child.
@@ -69,6 +101,10 @@ type Event struct {
 	Session   string
 	Type      int // widevine.MessageType of an EventMessage
 	Data      []byte
+	// Duration is the length of a library upload's file, reported with
+	// its EventStarted or, once known, an EventPosition (0 for HLS
+	// tracks, whose length the parent knows).
+	Duration time.Duration
 }
 
 type op string
@@ -87,6 +123,13 @@ const (
 	opStop         op = "stop"
 	opVolume       op = "volume"
 	opPosition     op = "position"
+	opEqualizer    op = "equalizer"
+	opDevice       op = "device"
+	opLoadFile     op = "load-file"
+	opFileData     op = "file-data"
+	opFileEnd      op = "file-end"
+	opTrackGain    op = "track-gain"
+	opNext         op = "next"
 )
 
 // request is a parent→child frame.
@@ -94,22 +137,32 @@ type request struct {
 	ID      uint64
 	Op      op
 	CDMPath string
-	Sink    string // audio sink override for opInit
-	Data    []byte // certificate, licence, init segment or fragment
-	KID     []byte // opSession: 16-byte key ID or a whole Widevine pssh box; opFeed: key ID override
+	Sink    string        // audio sink override for opInit
+	Data    []byte        // certificate, licence, init segment or fragment
+	KID     []byte        // opSession: 16-byte key ID or a whole Widevine pssh box; opFeed: key ID override
 	Init    []byte        // opFeed: a stream's new init segment, applied before Data
 	Shift   time.Duration // opFeed: subtracted from the fragment's timestamps
 	Session string
 	Track   uint64
 	Start   time.Duration
 	Volume  float64
+	EQ      *Equalizer // opInit, opEqualizer
+	Device  string     // opInit, opDevice: PipeWire sink node.name; "" follows the default
+	Size    int64      // opLoadFile: the file's length in bytes
+	Offset  int64      // opFileData: where Data goes in the file
+	Gain    float64    // opLoad, opLoadFile, opNext: the track's Sound Check gain (linear; 0 = unity)
+	Enabled bool       // opTrackGain: apply tracks' Sound Check gain
+	// opLoad, opNext: the track's duration (see Media); opNext: the
+	// crossfade into it, 0 for a gapless join.
+	Duration time.Duration
+	Fade     time.Duration
 }
 
 // reply answers request ID.
 type reply struct {
 	ID        uint64
 	Err       string
-	Code      string // "stale", "no-usable-key"
+	Code      string // "stale", "no-usable-key", "ended", "sandbox"
 	Info      *Info
 	Session   string
 	Challenge []byte
@@ -126,4 +179,6 @@ type frame struct {
 const (
 	codeStale       = "stale"
 	codeNoUsableKey = "no-usable-key"
+	codeEnded       = "ended"
+	codeSandbox     = "sandbox"
 )

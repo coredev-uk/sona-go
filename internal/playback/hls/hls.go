@@ -370,6 +370,7 @@ type Variant struct {
 	URI       string
 	Bandwidth int
 	Codecs    string
+	Audio     string // AUDIO rendition group, e.g. "audio-alac-stereo-44100-16"
 }
 
 // IsMaster reports whether data is a master playlist.
@@ -396,7 +397,7 @@ func ParseMaster(data []byte) ([]Variant, error) {
 				return nil, fmt.Errorf("hls: EXT-X-STREAM-INF: %w", err)
 			}
 			bw, _ := strconv.Atoi(attrs["BANDWIDTH"])
-			pending = &Variant{Bandwidth: bw, Codecs: attrs["CODECS"]}
+			pending = &Variant{Bandwidth: bw, Codecs: attrs["CODECS"], Audio: attrs["AUDIO"]}
 		case strings.HasPrefix(line, "#"):
 		case pending != nil:
 			pending.URI = line

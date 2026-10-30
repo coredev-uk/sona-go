@@ -65,9 +65,10 @@ type Reporter struct {
 	open   bool   // a PLAY_START awaits its PLAY_END
 	closed bool
 
-	wake chan struct{}
-	stop chan struct{}
-	done chan struct{}
+	wake  chan struct{}
+	stop  chan struct{} // Close: no new delivery rounds
+	abort chan struct{} // Close's ctx ended: cancel the in-flight send
+	done  chan struct{}
 }
 
 // last is what MusicKit's next event needs from the previous one.
@@ -75,6 +76,8 @@ type last struct {
 	item     coordinator.Item
 	position time.Duration
 	duration time.Duration
+	mode     coordinator.PlayMode
+	hint     int // event-reason-hint-type of its PLAY_START
 }
 
 // New returns a running Reporter, re-queueing events saved by a previous
@@ -104,6 +107,7 @@ func newReporter(o Options, backoff func(attempt int) time.Duration) (*Reporter,
 		backoff:    backoff,
 		wake:       make(chan struct{}, 1),
 		stop:       make(chan struct{}),
+		abort:      make(chan struct{}),
 		done:       make(chan struct{}),
 	}
 	if err := r.load(); err != nil {
@@ -152,7 +156,13 @@ func (r *Reporter) Observe(a coordinator.Activity) {
 	switch a.Kind {
 	case coordinator.ActivityStart:
 		r.open = true
-		r.prev = &last{item: a.Item, position: a.Position, duration: duration(a)}
+		hint := applemusic.PlayHintNotSpecified
+		// MusicKit flags a start whose container differs from the previous
+		// play's (or is the first) as CONTAINER_CHANGED.
+		if c := a.Item.Container; c.ID != "" && (r.prev == nil || r.prev.item.Container.ID != c.ID) {
+			hint = applemusic.PlayHintContainerChanged
+		}
+		r.prev = &last{item: a.Item, position: a.Position, duration: duration(a), mode: a.Mode, hint: hint}
 		r.enqueueLocked(r.eventLocked(a.At, applemusic.PlayEventStart, a.Position, a.Position, nil))
 	case coordinator.ActivitySeek:
 		if !r.open || r.prev == nil || r.prev.item.ID != a.Item.ID {
@@ -235,8 +245,13 @@ func (r *Reporter) eventLocked(at time.Time, kind int, start, pos time.Duration,
 	} else {
 		e.IDs = map[string]string{"subscription-adam-id": id}
 	}
+	if c := r.prev.item.Container; c.ID != "" && c.Kind.Valid() {
+		e.ContainerType, e.ContainerIDs = containerFields(c)
+		e.FeatureName = string(c.Kind)
+	}
+	e.PlayMode = playMode(r.prev.mode)
 	if kind == applemusic.PlayEventStart {
-		hint := 0 // NOT_SPECIFIED: no container
+		hint := r.prev.hint
 		e.EventReasonHintType = &hint
 		return e
 	}
@@ -244,6 +259,57 @@ func (r *Reporter) eventLocked(at time.Time, kind int, start, pos time.Duration,
 	e.EndPositionMS, e.EndReasonType = &end, reason
 	e.MediaDurationMS = max(dur, end)
 	return e
+}
+
+// stationPersonalized matches MusicKit's personalized station IDs.
+var stationPersonalized = regexp.MustCompile(`st\.([0-9]+)`)
+
+// containerFields maps a container to MusicKit's "container-type" and
+// "container-ids": album-adam-id or cloud-album-id for albums,
+// global-playlist-id or universal-library-id for playlists, station-id
+// (and station-personalized-id) for stations; artists carry no IDs.
+func containerFields(c coordinator.Container) (int, map[string]string) {
+	lib := libraryID.MatchString(c.ID)
+	switch c.Kind {
+	case coordinator.ContainerAlbum:
+		if lib {
+			return applemusic.PlayContainerAlbum, map[string]string{"cloud-album-id": c.ID}
+		}
+		return applemusic.PlayContainerAlbum, map[string]string{"album-adam-id": c.ID}
+	case coordinator.ContainerPlaylist:
+		if lib {
+			return applemusic.PlayContainerPlaylist, map[string]string{"universal-library-id": c.ID}
+		}
+		return applemusic.PlayContainerPlaylist, map[string]string{"global-playlist-id": c.ID}
+	case coordinator.ContainerStation:
+		ids := map[string]string{"station-id": c.ID}
+		if m := stationPersonalized.FindStringSubmatch(c.ID); m != nil {
+			ids["station-personalized-id"] = m[1]
+		}
+		return applemusic.PlayContainerRadio, ids
+	case coordinator.ContainerArtist:
+		return applemusic.PlayContainerArtist, nil
+	}
+	return applemusic.PlayContainerUnknown, nil
+}
+
+// playMode maps the coordinator's modes to MusicKit's "play-mode" (nil
+// when the activity carried none).
+func playMode(m coordinator.PlayMode) *applemusic.PlayMode {
+	if m.AutoPlay == 0 {
+		return nil
+	}
+	out := applemusic.PlayMode{AutoPlay: int(m.AutoPlay), Repeat: 1, Shuffle: 1}
+	switch m.Repeat {
+	case coordinator.RepeatOne:
+		out.Repeat = 2
+	case coordinator.RepeatAll:
+		out.Repeat = 3
+	}
+	if m.Shuffle {
+		out.Shuffle = 2
+	}
+	return &out
 }
 
 // persistentID is MusicKit's generateUUID: 16 random hex digits.
@@ -281,10 +347,12 @@ func (r *Reporter) run() {
 		case <-r.wake:
 		case <-retry:
 		}
+		// Close lets an in-flight send finish (cancelling it could resend
+		// events Apple already accepted); only Close's deadline aborts it.
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		go func() {
 			select {
-			case <-r.stop:
+			case <-r.abort:
 				cancel()
 			case <-ctx.Done():
 			}
@@ -316,6 +384,11 @@ func (r *Reporter) flush(ctx context.Context) error {
 		}
 		if err := r.fillStorefront(ctx, batch); err != nil {
 			return err
+		}
+		if r.log.Enabled(ctx, slog.LevelDebug) {
+			// The events carry no credentials (SendPlayActivity adds them).
+			body, _ := json.Marshal(batch)
+			r.log.Debug("play activity: sending", "events", string(body))
 		}
 		err := r.api.SendPlayActivity(ctx, batch)
 		var se *applemusic.StatusError
@@ -374,7 +447,12 @@ func (r *Reporter) Close(ctx context.Context) error {
 	r.closed = true
 	r.mu.Unlock()
 	close(r.stop)
-	<-r.done
+	select {
+	case <-r.done:
+	case <-ctx.Done():
+		close(r.abort)
+		<-r.done
+	}
 	err := r.flush(ctx)
 	if err != nil {
 		r.log.Warn("play activity: undelivered at exit", "err", err)

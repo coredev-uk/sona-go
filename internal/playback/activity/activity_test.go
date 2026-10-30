@@ -210,3 +210,122 @@ func TestRetriesTransientFailuresAndDropsRejected(t *testing.T) {
 		return len(r.queue) == 0
 	})
 }
+
+// A send in flight when Close starts must finish, not be cancelled and sent
+// again: Apple may already have accepted it, and would count the listen twice.
+func TestCloseDoesNotResendInFlightBatch(t *testing.T) {
+	var (
+		mu       sync.Mutex
+		received int
+	)
+	arrived, release := make(chan struct{}, 4), make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/play" {
+			_, _ = io.WriteString(w, `{"data":[{"id":"gb","type":"storefronts"}]}`)
+			return
+		}
+		var body struct {
+			Data []map[string]any `json:"data"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		mu.Lock()
+		received += len(body.Data)
+		mu.Unlock()
+		arrived <- struct{}{}
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	defer srv.Close()
+	client := applemusic.New(&http.Client{Transport: rewrite{srv}}, dev{}, func() string { return "mut" })
+	r, _ := New(Options{Client: client, Storefront: func() string { return "gb" }})
+	r.Observe(act(coordinator.ActivityStart, 0))
+	<-arrived
+
+	closed := make(chan error, 1)
+	go func() { closed <- r.Close(context.Background()) }()
+	time.Sleep(50 * time.Millisecond) // Close is waiting on the send
+	close(release)
+	if err := <-closed; err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if received != 1 {
+		t.Fatalf("Apple received %d events, want the one start once", received)
+	}
+}
+
+func TestEventsCarryContainers(t *testing.T) {
+	a, client := newApple(t)
+	r, err := New(Options{Client: client, AppVersion: "0.1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mode := coordinator.PlayMode{Shuffle: true, Repeat: coordinator.RepeatAll, AutoPlay: coordinator.AutoPlayOn}
+	play := func(id string, c coordinator.Container) {
+		it := song
+		it.ID, it.Container = id, c
+		r.Observe(coordinator.Activity{Kind: coordinator.ActivityStart, Item: it, Duration: it.Duration, At: time.Now(), Mode: mode})
+		r.Observe(coordinator.Activity{Kind: coordinator.ActivityEnd, Item: it, Position: time.Minute, Duration: it.Duration, Reason: coordinator.EndSkipForward, At: time.Now(), Mode: mode})
+	}
+	album := coordinator.Container{Kind: coordinator.ContainerAlbum, ID: "1109714933"}
+	play("1", album)
+	play("2", album) // same album: no container change
+	play("3", coordinator.Container{Kind: coordinator.ContainerAlbum, ID: "l.AbC123"})
+	play("4", coordinator.Container{Kind: coordinator.ContainerPlaylist, ID: "pl.u-xyz"})
+	play("5", coordinator.Container{Kind: coordinator.ContainerPlaylist, ID: "p.Lib1"})
+	play("6", coordinator.Container{Kind: coordinator.ContainerStation, ID: "ra.1234"})
+	play("7", coordinator.Container{Kind: coordinator.ContainerStation, ID: "ra.st.5678"})
+	play("8", coordinator.Container{})
+	eventually(t, "16 events", func() bool { return len(a.got()) == 16 })
+	if err := r.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	type want struct {
+		typ     float64
+		ids     map[string]any
+		feature string
+		hint    any
+	}
+	wants := []want{
+		{3, map[string]any{"album-adam-id": "1109714933"}, "album", 1.0},
+		{3, map[string]any{"album-adam-id": "1109714933"}, "album", 0.0},
+		{3, map[string]any{"cloud-album-id": "l.AbC123"}, "album", 1.0},
+		{2, map[string]any{"global-playlist-id": "pl.u-xyz"}, "playlist", 1.0},
+		{2, map[string]any{"universal-library-id": "p.Lib1"}, "playlist", 1.0},
+		{1, map[string]any{"station-id": "ra.1234"}, "station", 1.0},
+		{1, map[string]any{"station-id": "ra.st.5678", "station-personalized-id": "5678"}, "station", 1.0},
+		{0, nil, "music_kit-integration", 0.0},
+	}
+	got := a.got()
+	for i, w := range wants {
+		for j, e := range got[2*i : 2*i+2] { // the start and its end
+			ids, _ := e["container-ids"].(map[string]any)
+			if e["container-type"] != w.typ || !mapsEqual(ids, w.ids) || e["feature-name"] != w.feature {
+				t.Errorf("play %d event %d: type %v ids %v feature %v", i+1, j, e["container-type"], e["container-ids"], e["feature-name"])
+			}
+			pm, _ := e["play-mode"].(map[string]any)
+			if pm["auto-play-mode"] != 2.0 || pm["repeat-play-mode"] != 3.0 || pm["shuffle-play-mode"] != 2.0 {
+				t.Errorf("play %d event %d: play-mode %v", i+1, j, e["play-mode"])
+			}
+		}
+		if h := got[2*i]["event-reason-hint-type"]; h != w.hint {
+			t.Errorf("play %d: hint %v, want %v", i+1, h, w.hint)
+		}
+	}
+}
+
+func mapsEqual(a, b map[string]any) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if b[k] != v {
+			return false
+		}
+	}
+	return true
+}

@@ -12,14 +12,22 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/widevine"
 )
 
-// The test binary doubles as the child process.
+// The test binary doubles as the child process, and as the probe and
+// misbehaving children of sandbox_test.go and frames_test.go.
 func TestMain(m *testing.M) {
+	testChildModes()
 	ChildMain()
 	os.Exit(m.Run())
 }
 
+// needCDM skips unless SONA_WIDEVINE_CDM names a real CDM (devenv sets it).
+// Discovery alone is not enough: CI runners ship Google Chrome, and the
+// real-CDM tests run only where a developer opted in.
 func needCDM(t *testing.T) {
 	t.Helper()
+	if os.Getenv("SONA_WIDEVINE_CDM") == "" {
+		t.Skip("SONA_WIDEVINE_CDM not set")
+	}
 	if _, _, err := widevine.FindCDM(""); err != nil {
 		t.Skip("no Widevine CDM installed:", err)
 	}
@@ -169,7 +177,7 @@ func TestPlayClearTrack(t *testing.T) {
 		frags = append(frags, fragment(uint64(i)*1024, frames[i:min(i+per, len(frames))]))
 	}
 
-	if err := h.Load(ctx, 1, clearInit(), 0); err != nil {
+	if err := h.Load(ctx, 1, Media{Init: clearInit()}, 0); err != nil {
 		t.Fatal(err)
 	}
 	if err := h.Play(ctx); err != nil {
@@ -189,7 +197,7 @@ func TestPlayClearTrack(t *testing.T) {
 	waitEvent(t, h, EventEnded, 1, 6*time.Second)
 
 	// Seek within the same init: start mid-fragment; earlier audio is clipped.
-	if err := h.Load(ctx, 2, nil, 1500*time.Millisecond); err != nil {
+	if err := h.Load(ctx, 2, Media{}, 1500*time.Millisecond); err != nil {
 		t.Fatal(err)
 	}
 	if err := h.Feed(ctx, 1, frags[1]); !errors.Is(err, ErrStale) {
@@ -207,6 +215,52 @@ func TestPlayClearTrack(t *testing.T) {
 	pos, ok, err := h.Pause(ctx)
 	if err != nil || !ok || pos < 1500*time.Millisecond {
 		t.Fatalf("pause at %v %v %v", pos, ok, err)
+	}
+}
+
+// TestNextTrackAdvances queues a second track behind the first: the child
+// reports the switch with EventAdvance (no EventEnded for the first) when
+// the first one's trimmed audio has played.
+func TestNextTrackAdvances(t *testing.T) {
+	h := startHost(t)
+	ctx := context.Background()
+	frames := sineFrames(t)[:60] // ~1.4 s of access units each
+	frag := fragment(0, frames)
+	const dur = time.Second
+	if err := h.Load(ctx, 1, Media{Init: clearInit(), Duration: dur}, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Play(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Feed(ctx, 1, frag); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.EndOfTrack(ctx, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Next(ctx, 2, Media{Init: clearInit(), Duration: dur}, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Feed(ctx, 2, frag); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.EndOfTrack(ctx, 2); err != nil {
+		t.Fatal(err)
+	}
+	started := waitEvent(t, h, EventStarted, 1, 5*time.Second)
+	adv := waitEvent(t, h, EventAdvance, 2, 5*time.Second)
+	if adv.Position > 100*time.Millisecond {
+		t.Errorf("advanced at position %v of the next track, want ~0", adv.Position)
+	}
+	// The first track's second of audio played before the switch.
+	if el := adv.At.Sub(started.At) + started.Position; el < dur-100*time.Millisecond || el > dur+200*time.Millisecond {
+		t.Errorf("switch after %v of the first track, want ~%v", el, dur)
+	}
+	waitEvent(t, h, EventEnded, 2, 5*time.Second)
+	// Too late to queue behind a track that has ended.
+	if err := h.Next(ctx, 3, Media{Init: clearInit(), Duration: dur}, 0); !errors.Is(err, ErrEnded) {
+		t.Fatalf("next after the end: %v, want ErrEnded", err)
 	}
 }
 

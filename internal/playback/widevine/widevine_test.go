@@ -129,10 +129,14 @@ func TestPSSH(t *testing.T) {
 	}
 }
 
-// TestCDM exercises the real CDM when one is installed (devenv sets
-// SONA_WIDEVINE_CDM): initialisation, licence request generation, timer
-// delivery, a decrypt without a key, and session close. No network.
+// TestCDM exercises the real CDM named by SONA_WIDEVINE_CDM (devenv sets
+// it; CI runners have Chrome installed but do not opt in): initialisation,
+// licence request generation, timer delivery, a decrypt without a key, and
+// session close. No network.
 func TestCDM(t *testing.T) {
+	if os.Getenv("SONA_WIDEVINE_CDM") == "" {
+		t.Skip("SONA_WIDEVINE_CDM not set")
+	}
 	path, version, err := FindCDM("")
 	if err != nil {
 		t.Skip("no Widevine CDM installed:", err)

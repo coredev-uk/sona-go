@@ -14,14 +14,18 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
+	"github.com/coredev-uk/sona-go/internal/playback/fmp4"
 	"github.com/coredev-uk/sona-go/internal/playback/hls"
+	"github.com/coredev-uk/sona-go/internal/playback/soundcheck"
+	"github.com/coredev-uk/sona-go/internal/playback/widevine"
 )
 
 // media is a prepared item: metadata, playlist, init segment and licence.
 type media struct {
-	id    string
-	ready chan struct{}
-	err   error
+	id      string
+	quality applemusic.Quality // flavor it was (or is being) prepared with
+	ready   chan struct{}
+	err     error
 
 	info       applemusic.PlaybackInfo
 	pl         *hls.Playlist
@@ -41,6 +45,11 @@ type media struct {
 	keySessions map[string]string
 	keyGen      int
 	sessionKeys map[string]*hls.Key // session → key, for renewals
+	file        *upload             // a library upload (no playlist, key or licence)
+	gain        float64             // Sound Check gain (linear; 0 = none known)
+	// trim: duration is the audio between the encoder's priming and
+	// padding, which the host trims (songs; streams play every sample).
+	trim bool
 }
 
 func (m *media) done() bool {
@@ -52,19 +61,25 @@ func (m *media) done() bool {
 	}
 }
 
+// outdated reports a prepared song of another bitrate than the current
+// setting that the current item is not playing from; with mu held.
+func (e *Engine) outdated(m *media) bool {
+	return m.stream == nil && m.quality != e.quality && (e.cur == nil || e.cur.m != m)
+}
+
 // media returns the prepared item id, preparing it (or waiting for a
 // concurrent preparation) as needed. withSeg0 also fetches segment 0.
 func (e *Engine) media(ctx context.Context, id string, withSeg0 bool) (*media, error) {
 	for attempt := 0; ; attempt++ {
 		e.mu.Lock()
 		m := e.cache[id]
-		if m != nil && m.done() && m.stale() {
+		if m != nil && m.done() && (m.stale() || e.outdated(m)) {
 			e.dropLocked(m)
 			m = nil
 		}
 		owner := m == nil
 		if owner {
-			m = &media{id: id, ready: make(chan struct{})}
+			m = &media{id: id, quality: e.quality, ready: make(chan struct{})}
 			e.cache[id] = m
 			e.evict()
 		}
@@ -94,7 +109,7 @@ func (e *Engine) media(ctx context.Context, id string, withSeg0 bool) (*media, e
 			}
 			return nil, m.err
 		}
-		if withSeg0 {
+		if withSeg0 && m.file == nil {
 			if _, err := e.segment(ctx, m, 0); err != nil {
 				return nil, err
 			}
@@ -129,6 +144,9 @@ func (e *Engine) dropLocked(m *media) {
 	if e.cache[m.id] == m {
 		delete(e.cache, m.id)
 	}
+	if m.file != nil {
+		m.file.cancel()
+	}
 	sids := map[string]int{}
 	if m.session != "" {
 		sids[m.session] = m.sessionGen
@@ -157,12 +175,12 @@ func (e *Engine) prepare(ctx context.Context, m *media) error {
 		return e.prepareStream(ctx, m)
 	}
 	t0 := time.Now()
-	info, err := e.api.WebPlayback(ctx, m.id)
+	info, err := e.api.WebPlayback(ctx, m.id, m.quality)
 	if err != nil {
 		return err
 	}
 	if !info.Protected() {
-		return fmt.Errorf("native: %s is an unencrypted library upload, which this engine does not play: %w", m.id, applemusic.ErrNotPlayable)
+		return e.prepareUpload(ctx, m, info)
 	}
 	tInfo := time.Now()
 	body, err := e.fetch(ctx, info.PlaylistURL, hls.ByteRange{})
@@ -194,8 +212,18 @@ func (e *Engine) prepare(ctx context.Context, m *media) error {
 	if err != nil {
 		return fmt.Errorf("native: init segment: %w", err)
 	}
-	m.info, m.pl, m.key, m.init, m.duration = info, pl, first.Key, init, pl.Duration()
-	e.log.Debug("prepared", "id", m.id, "flavor", info.Flavor, "webPlayback", tInfo.Sub(t0), "playlist", tList.Sub(tInfo), "init", time.Since(tList))
+	in, err := fmp4.ParseInit(init)
+	if err != nil {
+		return fmt.Errorf("native: init segment: %w", err)
+	}
+	// The playlist counts the encoder's priming, not its end padding: the
+	// track's audio is what follows the priming.
+	m.info, m.pl, m.key, m.init, m.duration = info, pl, first.Key, init, pl.Duration()-in.Priming()
+	m.trim = true
+	if l, ok := fmp4.LoudnessOf(init); ok {
+		m.gain = soundcheck.FromLoudness(l)
+	}
+	e.log.Info("prepared", "id", m.id, "flavor", info.Flavor, "webPlayback", tInfo.Sub(t0), "playlist", tList.Sub(tInfo), "init", time.Since(tList))
 	return nil
 }
 
@@ -391,6 +419,9 @@ func (e *Engine) certificate(ctx context.Context, h host, gen int, url string) e
 
 // license makes sure host generation gen holds m's key.
 func (e *Engine) license(ctx context.Context, m *media, h host, gen int) error {
+	if m.file != nil {
+		return nil // plain file: no licence
+	}
 	if m.stream != nil {
 		return e.streamLicense(ctx, m, m.key, h, gen)
 	}
@@ -430,13 +461,18 @@ func (e *Engine) license(ctx context.Context, m *media, h host, gen int) error {
 }
 
 // renew answers a CDM message (licence renewal) for one of our sessions.
+// Apple's licences last 15 minutes and Chrome's CDM asks for a renewal at
+// 13, so a session older than that renews; every round trip is logged.
 func (e *Engine) renew(h host, gen int, ev cdmhost.Event) {
 	e.mu.Lock()
 	m := e.sessions[ev.Session]
 	e.mu.Unlock()
 	if m == nil {
+		e.log.Debug("CDM message for an unknown session", "session", ev.Session, "type", widevine.MessageType(ev.Type))
 		return
 	}
+	t0 := time.Now()
+	e.log.Info("licence renewal requested", "id", m.id, "session", ev.Session, "type", widevine.MessageType(ev.Type), "bytes", len(ev.Data))
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	m.licMu.Lock()
@@ -474,7 +510,7 @@ func (e *Engine) renew(h host, gen int, ev cdmhost.Event) {
 		}
 		return
 	}
-	e.log.Debug("licence renewed", "id", m.id)
+	e.log.Info("licence renewed", "id", m.id, "session", ev.Session, "took", time.Since(t0))
 }
 
 // feed streams m's segments from index from to the host for track tok,
@@ -512,8 +548,21 @@ func (e *Engine) feed(ctx context.Context, it *item, tok uint64, h host, m *medi
 		}
 	}
 	if ctx.Err() == nil {
-		if err := h.EndOfTrack(ctx, tok); err != nil && !errors.Is(err, cdmhost.ErrStale) && !errors.Is(err, cdmhost.ErrExited) && ctx.Err() == nil {
-			e.fail(it, err)
+		if err := h.EndOfTrack(ctx, tok); err != nil {
+			if !errors.Is(err, cdmhost.ErrStale) && !errors.Is(err, cdmhost.ErrExited) && ctx.Err() == nil {
+				_ = e.fail(it, err)
+			}
+			return
 		}
+		e.fed(it, tok)
 	}
+}
+
+// hostMedia describes m for Host.Load and Host.Next.
+func (m *media) hostMedia(init []byte) cdmhost.Media {
+	hm := cdmhost.Media{Init: init, Gain: m.gain}
+	if m.trim {
+		hm.Duration = m.duration
+	}
+	return hm
 }

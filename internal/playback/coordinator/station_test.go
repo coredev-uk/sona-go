@@ -14,14 +14,14 @@ import (
 
 // fakeStations hands out batches of `batch` items named "<station>-<n>".
 type fakeStations struct {
-	mu        sync.Mutex
-	batch     int
-	n         map[string]int
-	next      []string // NextTracks calls (station IDs)
-	cont      [][]string
-	fail      int           // fail this many NextTracks calls
-	gate      chan struct{} // when set, NextTracks waits for it
-	contLabel string
+	mu       sync.Mutex
+	batch    int
+	n        map[string]int
+	next     []string // NextTracks calls (station IDs)
+	cont     [][]string
+	fail     int           // fail this many NextTracks calls
+	gate     chan struct{} // when set, NextTracks waits for it
+	contFrom Container     // container of the last seed
 }
 
 func newStations(batch int) *fakeStations {
@@ -54,7 +54,7 @@ func (f *fakeStations) NextTracks(ctx context.Context, id string) ([]Item, error
 	return items(out...), nil
 }
 
-func (f *fakeStations) Continue(_ context.Context, seeds []Item, label string) (Station, error) {
+func (f *fakeStations) Continue(_ context.Context, seeds []Item) (Station, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	ids := make([]string, len(seeds))
@@ -62,7 +62,7 @@ func (f *fakeStations) Continue(_ context.Context, seeds []Item, label string) (
 		ids[i] = s.ID
 	}
 	f.cont = append(f.cont, ids)
-	f.contLabel = label
+	f.contFrom = seeds[len(seeds)-1].Container
 	return Station{ID: "ra.cp-" + ids[0], Name: "Continue"}, nil
 }
 
@@ -221,7 +221,8 @@ func TestAutoPlay(t *testing.T) {
 		h, st := stationHarness(t, 2)
 		ctx := t.Context()
 		h.c.SetAutoPlay(true)
-		must(t, h.c.SetQueue(ctx, items("a", "b", "c", "d"), 0, "album:1"))
+		album := Container{Kind: ContainerAlbum, ID: "1"}
+		must(t, h.c.SetQueue(ctx, from(album, items("a", "b", "c", "d")), 0, "album:1"))
 		synctest.Wait()
 		if _, cont := st.calls(); len(cont) != 0 {
 			t.Fatalf("AutoPlay started with 3 user items left: %v", cont)
@@ -229,8 +230,8 @@ func TestAutoPlay(t *testing.T) {
 		h.eng.end() // b: 2 left
 		synctest.Wait()
 		_, cont := st.calls()
-		if len(cont) != 1 || !slices.Equal(cont[0], []string{"d"}) || st.contLabel != "album:1" {
-			t.Fatalf("continue calls %v label %q", cont, st.contLabel)
+		if len(cont) != 1 || !slices.Equal(cont[0], []string{"d"}) || st.contFrom != album {
+			t.Fatalf("continue calls %v from %+v", cont, st.contFrom)
 		}
 		s := h.c.Snapshot()
 		if s.Station == nil || s.Station.ID != "ra.cp-d" || !s.Station.AutoPlay || !s.AutoPlay {

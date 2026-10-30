@@ -34,6 +34,11 @@ type Init struct {
 	// trex defaults for fragments.
 	DefaultSampleDuration uint32
 	DefaultSampleSize     uint32
+
+	// HasEdit: the track has an edit list starting the presentation at
+	// EditStart (media timescale units); see Priming.
+	HasEdit   bool
+	EditStart int64
 }
 
 // Subsample is a clear/encrypted byte run within a sample (senc order).

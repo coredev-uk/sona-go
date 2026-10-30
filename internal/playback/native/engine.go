@@ -36,6 +36,9 @@ type Options struct {
 	// ReadAhead is how many segments are fetched ahead of the one being
 	// fed. Zero means 2.
 	ReadAhead int
+	// Quality is the AAC bitrate of the Widevine flavor to play; zero
+	// means 256 kbps. SetQuality changes it for later items.
+	Quality applemusic.Quality
 }
 
 // Defaults for Options.
@@ -58,7 +61,8 @@ type host interface {
 	CreateSession(ctx context.Context, kid []byte) (string, []byte, error)
 	UpdateSession(ctx context.Context, session string, license []byte) error
 	CloseSession(ctx context.Context, session string) error
-	Load(ctx context.Context, track uint64, init []byte, start time.Duration) error
+	Load(ctx context.Context, track uint64, m cdmhost.Media, start time.Duration) error
+	Next(ctx context.Context, track uint64, m cdmhost.Media, fade time.Duration) error
 	Feed(ctx context.Context, track uint64, fragment []byte) error
 	FeedStream(ctx context.Context, track uint64, f cdmhost.StreamFragment) error
 	EndOfTrack(ctx context.Context, track uint64) error
@@ -66,6 +70,12 @@ type host interface {
 	Pause(ctx context.Context) (time.Duration, bool, error)
 	Stop(ctx context.Context, track uint64) error
 	SetVolume(ctx context.Context, v float64) error
+	SetEqualizer(ctx context.Context, eq cdmhost.Equalizer) error
+	SetOutputDevice(ctx context.Context, device string) error
+	LoadFile(ctx context.Context, track uint64, size int64, start time.Duration, gain float64) error
+	SetTrackGain(ctx context.Context, on bool) error
+	FeedFile(ctx context.Context, track uint64, offset int64, data []byte) error
+	EndOfFile(ctx context.Context, track uint64) error
 	Close() error
 }
 
@@ -86,18 +96,24 @@ type Engine struct {
 	certURL string
 	certGen int // host generation the certificate was installed on
 
-	mu       sync.Mutex
-	closed   bool
-	st       playback.Status
-	h        host
-	hostGen  int
-	track    uint64 // last track generation handed to the host
-	cur      *item
-	cache    map[string]*media
-	sessions map[string]*media // CDM session → media, for renewals
-	idleT    *time.Timer
-	restarts []time.Time
-	events   chan playback.Event
+	mu         sync.Mutex
+	closed     bool
+	st         playback.Status
+	quality    applemusic.Quality // flavor for items prepared from now on
+	eq         cdmhost.Equalizer  // applied to every host
+	device     string             // PipeWire sink for every host; "" = default
+	soundCheck bool               // apply items' Sound Check gain
+	h          host
+	hostGen    int
+	track      uint64        // last track generation handed to the host
+	next       playback.Next // armed to follow cur seamlessly
+	crossfade  time.Duration // into an armed next that is not Gapless
+	cur        *item
+	cache      map[string]*media
+	sessions   map[string]*media // CDM session → media, for renewals
+	idleT      *time.Timer
+	restarts   []time.Time
+	events     chan playback.Event
 
 	retry  []time.Duration // waits between fetch attempts
 	bg     context.Context // background work (prefetches); cancelled by Close
@@ -124,12 +140,17 @@ func New(o Options) *Engine {
 	if ra <= 0 {
 		ra = defaultReadAhead
 	}
+	q := o.Quality
+	if q == 0 {
+		q = applemusic.Quality256
+	}
 	e := &Engine{
 		api:       o.Client,
 		http:      hc,
 		log:       log.With("component", "playback"),
 		idle:      idle,
 		readAhead: ra,
+		quality:   q,
 		st:        playback.Status{State: playback.StateIdle, Volume: 1, UpdatedAt: time.Now()},
 		cache:     map[string]*media{},
 		sessions:  map[string]*media{},
@@ -138,7 +159,10 @@ func New(o Options) *Engine {
 	}
 	e.bg, e.stopBG = context.WithCancel(context.Background())
 	e.spawn = func(ctx context.Context) (host, error) {
-		return cdmhost.Start(ctx, cdmhost.Options{CDMPath: o.CDMPath, Logger: log})
+		e.mu.Lock()
+		eq, dev := e.eq, e.device
+		e.mu.Unlock()
+		return cdmhost.Start(ctx, cdmhost.Options{CDMPath: o.CDMPath, Logger: log, Device: dev, Equalizer: eq})
 	}
 	return e
 }
@@ -150,8 +174,12 @@ type item struct {
 	m        *media
 	wantPlay bool
 	loaded   bool // the host has this item loaded
-	cancel   context.CancelFunc
-	waiters  []chan error // Play/Resume calls waiting for tok to start, fail or pause
+	fed      bool // every segment of tok was handed to the host
+	// pending is the armed next item, being prepared for or queued in the
+	// host to follow this one (next.go).
+	pending *item
+	cancel  context.CancelFunc
+	waiters []chan error // Play/Resume calls waiting for tok to start, fail or pause
 }
 
 // waiter registers a wait for the item's next start; with mu held.
@@ -177,6 +205,15 @@ func (e *Engine) Host() (cdmhost.Info, bool) {
 		return cdmhost.Info{}, false
 	}
 	return e.h.Info(), true
+}
+
+// SetQuality sets the AAC bitrate for the items played from now on. The
+// playing item keeps its stream; prepared items of the other bitrate are
+// prepared again when they are played.
+func (e *Engine) SetQuality(q applemusic.Quality) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.quality = q
 }
 
 // Status returns the cached snapshot; it never blocks on the host.
@@ -258,7 +295,9 @@ func (e *Engine) Play(ctx context.Context, id string, start time.Duration) error
 
 // replaceCurrent stops feeding the current item; with mu held.
 func (e *Engine) replaceCurrent() {
+	e.next = playback.Next{}
 	if e.cur != nil {
+		e.dropPendingLocked(e.cur, false)
 		if e.cur.cancel != nil {
 			e.cur.cancel()
 		}
@@ -283,7 +322,7 @@ func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
 	}()
 	e.prefetchCert()
 	m, err := e.media(ctx, it.id, false)
-	if err == nil {
+	if err == nil && m.file == nil {
 		// The first segment downloads while the licence is negotiated.
 		e.prefetch(m, m.startSegment(pos))
 	}
@@ -309,8 +348,10 @@ func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
 	}
 	it.m = m
 	tok := it.tok
+	e.dropPendingLocked(it, false) // a (re)load drops what the host had queued
+	it.fed = false
 	e.st.Duration = m.duration
-	if pos > m.duration {
+	if m.duration > 0 && pos > m.duration {
 		pos = m.duration
 	}
 	feedCtx, cancel := context.WithCancel(context.Background())
@@ -325,7 +366,7 @@ func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
 	e.mu.Unlock()
 
 	e.ctl.Lock()
-	err = hr.h.Load(ctx, tok, m.init, pos)
+	err = e.load(ctx, hr.h, tok, m, pos)
 	e.mu.Lock()
 	current := e.cur == it && it.tok == tok
 	if err == nil && current {
@@ -387,6 +428,12 @@ func (e *Engine) fail(it *item, err error) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.cur != it {
+		if e.cur != nil && e.cur.pending == it {
+			// The next item could not be prepared or fed: the current one
+			// ends as usual and the coordinator starts it the slow way.
+			e.log.Warn("next item not queued", "id", it.id, "err", err)
+			e.dropPendingLocked(e.cur, true)
+		}
 		return err
 	}
 	if it.cancel != nil {
@@ -549,7 +596,10 @@ func (e *Engine) Seek(ctx context.Context, pos time.Duration) error {
 		e.mu.Unlock()
 		return nil // live radio cannot seek
 	}
-	pos = min(max(pos, 0), m.duration)
+	pos = max(pos, 0)
+	if m.duration > 0 {
+		pos = min(pos, m.duration)
+	}
 	gen := e.hostGen
 	now := time.Now()
 	if e.st.State == playback.StateEnded || e.st.State == playback.StateError {
@@ -558,11 +608,18 @@ func (e *Engine) Seek(ctx context.Context, pos time.Duration) error {
 	e.track++
 	tok := e.track
 	it.tok = tok
-	if it.cancel != nil {
-		it.cancel()
+	// The host's Load drops the queued next item; it is queued again once
+	// this item is fed to the end.
+	e.dropPendingLocked(it, false)
+	it.fed = false
+	feedCtx, cancel := context.Background(), context.CancelFunc(func() {})
+	if m.file == nil { // an upload's bytes keep flowing: the child seeks within them
+		if it.cancel != nil {
+			it.cancel()
+		}
+		feedCtx, cancel = context.WithCancel(context.Background())
+		it.cancel = cancel
 	}
-	feedCtx, cancel := context.WithCancel(context.Background())
-	it.cancel = cancel
 	// Playing resumes with EventStarted once audio at pos is out.
 	state := playback.StatePaused
 	if it.wantPlay {
@@ -585,11 +642,13 @@ func (e *Engine) Seek(ctx context.Context, pos time.Duration) error {
 	}
 	e.mu.Unlock()
 
-	if err := h.Load(ctx, tok, nil, pos); err != nil {
+	if err := h.Load(ctx, tok, m.hostMedia(nil), pos); err != nil {
 		cancel()
 		return e.fail(it, err)
 	}
-	e.startFeed(feedCtx, it, tok, h, gen, m, pos)
+	if m.file == nil {
+		e.startFeed(feedCtx, it, tok, h, gen, m, pos)
+	}
 	if it.wantPlay {
 		return h.Play(ctx)
 	}
@@ -598,6 +657,10 @@ func (e *Engine) Seek(ctx context.Context, pos time.Duration) error {
 
 // startFeed streams m from pos to the host for track tok.
 func (e *Engine) startFeed(ctx context.Context, it *item, tok uint64, h host, gen int, m *media, pos time.Duration) {
+	if m.file != nil {
+		go e.feedFile(ctx, it, tok, h, m)
+		return
+	}
 	if m.stream != nil {
 		go e.feedStream(ctx, it, tok, h, gen, m, pos)
 		return
@@ -605,7 +668,8 @@ func (e *Engine) startFeed(ctx context.Context, it *item, tok uint64, h host, ge
 	go e.feed(ctx, it, tok, h, m, m.pl.SegmentAt(pos))
 }
 
-// SetVolume sets the output volume (0..1).
+// SetVolume sets the output volume (0..1, the slider position); the host
+// applies playback.VolumeGain of it.
 func (e *Engine) SetVolume(ctx context.Context, v float64) error {
 	v = min(max(v, 0), 1)
 	e.mu.Lock()
@@ -614,7 +678,7 @@ func (e *Engine) SetVolume(ctx context.Context, v float64) error {
 	h := e.h
 	e.mu.Unlock()
 	if h != nil {
-		return h.SetVolume(ctx, v)
+		return h.SetVolume(ctx, playback.VolumeGain(v))
 	}
 	return nil
 }
@@ -730,14 +794,25 @@ func (e *Engine) ensureHost(ctx context.Context) (host, int, error) {
 	}
 	e.hostGen++
 	e.h = h
-	gen, vol := e.hostGen, e.st.Volume
+	gen, vol, eq, dev, sc := e.hostGen, e.st.Volume, e.eq, e.device, e.soundCheck
 	e.mu.Unlock()
 	info := h.Info()
 	e.log.Info("playback host started", "pid", info.PID, "cdm", info.CDMVersion, "cdm_path", info.CDMPath,
 		"sink", info.Sink, "decoder", info.Decoder, "took", time.Since(t0))
 	go e.watch(h, gen)
 	if vol != 1 {
-		_ = h.SetVolume(ctx, vol)
+		_ = h.SetVolume(ctx, playback.VolumeGain(vol))
+	}
+	// The host started with the equaliser and device of when it was
+	// spawned; re-send them in case they changed meanwhile (no-ops if not).
+	if eq != (cdmhost.Equalizer{}) {
+		_ = h.SetEqualizer(ctx, eq)
+	}
+	if dev != "" {
+		_ = h.SetOutputDevice(ctx, dev)
+	}
+	if sc {
+		_ = h.SetTrackGain(ctx, true)
 	}
 	return h, gen, nil
 }
@@ -759,8 +834,28 @@ func (e *Engine) handle(h host, gen int, ev cdmhost.Event) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	it := e.cur
-	if e.h != h || it == nil || it.tok != ev.Track {
+	if e.h != h || it == nil {
 		return
+	}
+	if p := it.pending; p != nil && p.loaded && p.tok == ev.Track {
+		switch ev.Kind {
+		case cdmhost.EventAdvance:
+			e.advanceLocked(it, ev)
+		case cdmhost.EventError:
+			e.log.Warn("next item failed in the host", "id", p.id, "err", ev.Err)
+			e.dropPendingLocked(it, false) // the host dropped it already
+		}
+		return
+	}
+	if it.tok != ev.Track {
+		return
+	}
+	if ev.Duration > 0 && it.m != nil && it.m.file != nil && ev.Duration != e.st.Duration {
+		// An upload's length comes from the host's demuxer.
+		it.m.duration, e.st.Duration = ev.Duration, ev.Duration
+		if ev.Kind == cdmhost.EventPosition {
+			e.emit(playback.EventState)
+		}
 	}
 	switch ev.Kind {
 	case cdmhost.EventStarted:
@@ -785,6 +880,9 @@ func (e *Engine) handle(h host, gen int, ev cdmhost.Event) {
 		}
 	case cdmhost.EventEnded:
 		e.setState(playback.StateEnded, e.st.Duration, ev.At)
+		// A start past the end ends at once: Play and Resume return then
+		// rather than waiting for audio that never comes.
+		it.signal(nil)
 		e.armIdle()
 	case cdmhost.EventError:
 		// The child drops a failed pipeline and builds a new one on the next

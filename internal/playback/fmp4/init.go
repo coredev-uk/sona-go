@@ -3,6 +3,7 @@ package fmp4
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 // ParseInit parses an init segment (ftyp + moov) with one audio track.
@@ -79,6 +80,11 @@ func (in *Init) parseTrak(trak box) error {
 			return fmt.Errorf("fmp4: tkhd: %w", r.err)
 		}
 	}
+	if edts, ok := find(tc, "edts"); ok {
+		if err := in.parseEdts(edts); err != nil {
+			return err
+		}
+	}
 	mdia, ok := find(tc, "mdia")
 	if !ok {
 		return errors.New("fmp4: trak has no mdia")
@@ -115,6 +121,58 @@ func (in *Init) parseTrak(trak box) error {
 		return err
 	}
 	return in.parseSampleEntry(entries[0])
+}
+
+// AACEncoderDelay is the priming of Apple's AAC encoder in media timescale
+// units (2112 samples of the core codec, for AAC-LC and HE-AAC alike).
+// Apple's fMP4 init segments carry no edit list or iTunSMPB; their HLS
+// playlists count the priming but not the end padding, so a song's
+// catalog duration is the playlist's minus these samples (checked on AAC
+// 256 and HE-AAC 64 flavors).
+const AACEncoderDelay = 2112
+
+// parseEdts reads the priming from an edit list whose first entry starts
+// the presentation at media_time.
+func (in *Init) parseEdts(edts box) error {
+	ec, err := children(edts)
+	if err != nil {
+		return err
+	}
+	elst, ok := find(ec, "elst")
+	if !ok {
+		return nil
+	}
+	r := reader{b: elst.body}
+	v, _ := r.full()
+	n := r.u32()
+	for range n {
+		var mediaTime int64
+		if v == 1 {
+			r.u64() // segment_duration
+			mediaTime = int64(r.u64())
+		} else {
+			r.u32()
+			mediaTime = int64(int32(r.u32()))
+		}
+		r.take(4) // media_rate
+		if r.err != nil {
+			return fmt.Errorf("fmp4: elst: %w", r.err)
+		}
+		if mediaTime >= 0 { // -1 is an empty edit (a delay)
+			in.EditStart, in.HasEdit = mediaTime, true
+			return nil
+		}
+	}
+	return nil
+}
+
+// Priming is the media time of the track's first audible sample: the edit
+// list's start, else the AAC encoder delay.
+func (in *Init) Priming() time.Duration {
+	if in.HasEdit {
+		return Time(in.EditStart, in.Timescale)
+	}
+	return Time(AACEncoderDelay, in.Timescale)
 }
 
 // path descends through nested container boxes.

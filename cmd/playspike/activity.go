@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -15,21 +16,32 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/native"
 )
 
-// runActivity proves play-activity reporting: it plays term's song for
-// listen (≥30 s), skips to nextTerm's song, stops, and polls Apple's
-// Recently Played until the first song shows up at the top.
-func runActivity(log *slog.Logger, envFile, term, nextTerm string, listen time.Duration, cdm string) error {
+// runActivity proves play-activity reporting: it plays songID (or term's
+// first hit) for listen (≥30 s), skips to nextID (or nextTerm's), stops,
+// and polls Apple's Recently Played until the first song shows up at the
+// top. With container ("album:1440…", "playlist:pl.…", "station:ra.…")
+// the songs are queued from it, and it must also appear in Recently
+// Played's containers.
+func runActivity(log *slog.Logger, envFile, songID, term, nextID, nextTerm string, listen time.Duration, cdm, container string) error {
+	var from coordinator.Container
+	if container != "" {
+		kind, id, ok := strings.Cut(container, ":")
+		from = coordinator.Container{Kind: coordinator.ContainerKind(kind), ID: id}
+		if !ok || id == "" || !from.Kind.Valid() {
+			return fmt.Errorf("-container %q: want album:<id>, playlist:<id>, artist:<id> or station:<id>", container)
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	api, sf, err := signIn(ctx, envFile)
 	if err != nil {
 		return err
 	}
-	first, err := resolve(ctx, api, sf.ID, "", term)
+	first, err := resolve(ctx, api, sf.ID, songID, term)
 	if err != nil {
 		return err
 	}
-	second, err := resolve(ctx, api, sf.ID, "", nextTerm)
+	second, err := resolve(ctx, api, sf.ID, nextID, nextTerm)
 	if err != nil {
 		return err
 	}
@@ -38,6 +50,13 @@ func runActivity(log *slog.Logger, envFile, term, nextTerm string, listen time.D
 		return err
 	}
 	step("recently played before", "top", strings.Join(before[:min(5, len(before))], ", "))
+	if from.ID != "" {
+		got, err := recentContainers(ctx, api)
+		if err != nil {
+			return err
+		}
+		step("recently played containers before", "top", strings.Join(got[:min(5, len(got))], ", "), "container_rank", slices.Index(got, from.ID))
+	}
 
 	rep, err := activity.New(activity.Options{Client: api, Storefront: func() string { return sf.ID }, AppVersion: "0.1", Logger: log})
 	if err != nil {
@@ -45,6 +64,9 @@ func runActivity(log *slog.Logger, envFile, term, nextTerm string, listen time.D
 	}
 	eng := native.New(native.Options{Client: api, CDMPath: cdm, Logger: log, IdleTimeout: -1})
 	defer eng.Close()
+	if err := eng.SetOutputDevice(ctx, outputDevice); err != nil {
+		return err
+	}
 	coord, err := coordinator.New(coordinator.Options{Engine: eng, Logger: log, OnActivity: func(a coordinator.Activity) {
 		step("activity", "kind", a.Kind, "item", a.Item.ID, "position", a.Position.Round(100*time.Millisecond), "reason", a.Reason)
 		rep.Observe(a)
@@ -53,7 +75,7 @@ func runActivity(log *slog.Logger, envFile, term, nextTerm string, listen time.D
 		return err
 	}
 	item := func(s applemusic.Resource[applemusic.SongAttributes]) coordinator.Item {
-		return coordinator.Item{ID: s.ID, Title: s.Attributes.Name, Artist: s.Attributes.ArtistName, Duration: time.Duration(s.Attributes.DurationInMillis) * time.Millisecond}
+		return coordinator.Item{ID: s.ID, Title: s.Attributes.Name, Artist: s.Attributes.ArtistName, Duration: time.Duration(s.Attributes.DurationInMillis) * time.Millisecond, Container: from}
 	}
 	step("playing", "first", fmt.Sprintf("%s %q", first.ID, first.Attributes.Name), "second", fmt.Sprintf("%s %q", second.ID, second.Attributes.Name))
 	if err := coord.SetQueue(ctx, []coordinator.Item{item(first), item(second)}, 0, "playspike"); err != nil {
@@ -82,22 +104,58 @@ func runActivity(log *slog.Logger, envFile, term, nextTerm string, listen time.D
 	step("play activity", "delivered", "yes (no errors logged above means Apple answered 2xx)")
 
 	deadline := time.Now().Add(5 * time.Minute)
+	songDone, containerDone := false, from.ID == ""
 	for {
-		after, err := recent(ctx, api)
-		if err != nil {
-			return err
+		if !songDone {
+			after, err := recent(ctx, api)
+			if err != nil {
+				return err
+			}
+			i := slices.Index(after, first.ID)
+			step("recently played", "top", strings.Join(after[:min(5, len(after))], ", "), "first_song_rank", i)
+			if i >= 0 && i < slices.Index(append(before, first.ID), first.ID) || i == 0 {
+				step("recently played: confirmed", "song", first.ID, "rank", i)
+				songDone = true
+			}
 		}
-		i := slices.Index(after, first.ID)
-		step("recently played", "top", strings.Join(after[:min(5, len(after))], ", "), "first_song_rank", i)
-		if i >= 0 && i < slices.Index(append(before, first.ID), first.ID) || i == 0 {
-			step("recently played: confirmed", "song", first.ID, "rank", i)
+		if !containerDone {
+			got, err := recentContainers(ctx, api)
+			if err != nil {
+				return err
+			}
+			i := slices.Index(got, from.ID)
+			step("recently played containers", "top", strings.Join(got[:min(5, len(got))], ", "), "container_rank", i)
+			if i == 0 {
+				step("recently played: container confirmed", "container", container)
+				containerDone = true
+			}
+		}
+		if songDone && containerDone {
 			return nil
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("song %s did not move up Recently Played within 5 minutes", first.ID)
+			return fmt.Errorf("activity: Recently Played not updated within 5 minutes (song %v, container %v)", songDone, containerDone)
 		}
 		time.Sleep(20 * time.Second)
 	}
+}
+
+// recentContainers lists the IDs of the user's recently played albums,
+// playlists and stations ("Recently Played" in Apple Music), newest first.
+func recentContainers(ctx context.Context, api *applemusic.Client) ([]string, error) {
+	var page struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := api.Get(ctx, "/v1/me/recent/played", url.Values{"limit": {"10"}}, &page); err != nil {
+		return nil, fmt.Errorf("recently played containers: %w", err)
+	}
+	ids := make([]string, len(page.Data))
+	for i, d := range page.Data {
+		ids[i] = d.ID
+	}
+	return ids, nil
 }
 
 // recent lists the IDs of the user's recently played tracks, newest first.

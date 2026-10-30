@@ -19,16 +19,19 @@ import (
 )
 
 // ChildMain turns the process into the CDM host when EnvChild is set: it
-// serves the parent on stdin/stdout and exits when stdin closes. Otherwise it
-// returns immediately. Call it first thing in main.
+// enters the sandbox (which re-executes the process once, see
+// enterSandbox), serves the parent on stdin/stdout and exits when stdin
+// closes. Otherwise it returns immediately. Call it first thing in main.
 func ChildMain() {
 	if os.Getenv(EnvChild) != "1" {
 		return
 	}
-	os.Exit(runChild())
+	// Before the CDM or GStreamer load.
+	sb := enterSandbox()
+	os.Exit(runChild(sb))
 }
 
-func runChild() int {
+func runChild(sb Sandbox) int {
 	// The protocol owns the original stdout; anything else writing to fd 1
 	// (GStreamer, the CDM) is redirected to stderr so it cannot corrupt it.
 	fd, err := syscall.Dup(1)
@@ -44,11 +47,15 @@ func runChild() int {
 	var level slog.Level
 	_ = level.UnmarshalText([]byte(os.Getenv(envLogLevel)))
 	s := &server{
-		log:    slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
-		enc:    gob.NewEncoder(out),
-		feeds:  make(chan request, 8),
-		volume: 1,
-		quit:   make(chan struct{}),
+		log:     slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
+		enc:     gob.NewEncoder(out),
+		feeds:   make(chan request, 8),
+		volume:  1,
+		quit:    make(chan struct{}),
+		sandbox: sb,
+	}
+	if s.sandbox.Reason != "" {
+		s.log.Warn("cdmhost: sandbox incomplete", "reason", s.sandbox.Reason)
 	}
 	go s.feeder()
 	go s.monitor()
@@ -81,24 +88,43 @@ type server struct {
 	feeds chan request
 	quit  chan struct{}
 
-	cdm  *widevine.CDM
-	info Info
+	cdm     *widevine.CDM
+	info    Info
+	sandbox Sandbox // the child's part: seccomp filter and its self-test
 
 	mu        sync.Mutex
 	sink      string
 	pipe      *gst.Pipeline
+	file      *gst.FilePipeline // the current library upload, if one plays (child_file.go)
+	fs        fileState
 	track     uint64
 	init      *fmp4.Init
-	start     time.Duration
+	start     time.Duration // media time feeding starts from (priming + position)
+	duration  time.Duration // the current track's duration (Media.Duration)
+	next      nextTrack     // the track queued to follow (opNext)
 	volume    float64
-	playing   bool // wanted state
-	started   bool // audio advancing since the last Load/Play
+	eq        Equalizer // applied to every pipeline
+	device    string    // PipeWire sink for every pipeline; "" = default
+	trackGain bool      // apply the track's Sound Check gain
+	gain      float64   // the current track's Sound Check gain (0 = unity)
+	playing   bool      // wanted state
+	started   bool      // audio advancing since the last Load/Play
 	prev      time.Duration
 	havePrev  bool
 	ended     bool // EndOfTrack received for track
 	buffering bool
 	underrun  time.Time
 	lastPos   time.Time
+}
+
+// nextTrack is the track queued to follow the current one; gen 0 for none.
+type nextTrack struct {
+	gen   uint64
+	init  *fmp4.Init
+	start time.Duration // media time feeding starts from (its priming)
+	dur   time.Duration
+	gain  float64
+	ended bool // EndOfTrack received
 }
 
 func (s *server) send(f frame) {
@@ -119,6 +145,10 @@ func fail(id uint64, err error) reply {
 		r.Code = codeStale
 	case errors.Is(err, widevine.ErrNoUsable):
 		r.Code = codeNoUsableKey
+	case errors.Is(err, ErrEnded), errors.Is(err, gst.ErrEnded):
+		r.Code = codeEnded
+	case errors.Is(err, ErrSandbox):
+		r.Code = codeSandbox
 	}
 	return r
 }
@@ -129,7 +159,10 @@ func (s *server) handle(r request) reply {
 	ok := reply{ID: r.ID}
 	switch r.Op {
 	case opInit:
-		s.sink = r.Sink
+		s.sink, s.device = r.Sink, r.Device
+		if r.EQ != nil {
+			s.eq = *r.EQ
+		}
 		info, err := s.open(r.CDMPath)
 		if err != nil {
 			rep := fail(r.ID, err)
@@ -164,6 +197,13 @@ func (s *server) handle(r request) reply {
 		if err := s.cdm.UpdateSession(ctx, r.Session, r.Data); err != nil {
 			return fail(r.ID, err)
 		}
+		// The expiry is the licence's duration as the CDM enforces it, for
+		// checking Apple's renewal policy.
+		exp := "none"
+		if t := s.cdm.Expiry(r.Session); !t.IsZero() {
+			exp = t.Format(time.RFC3339)
+		}
+		s.log.Debug("cdmhost: licence installed", "session", r.Session, "expiry", exp)
 	case opCloseSession:
 		if err := s.needCDM(); err != nil {
 			return fail(r.ID, err)
@@ -175,42 +215,70 @@ func (s *server) handle(r request) reply {
 		if err := s.load(r); err != nil {
 			return fail(r.ID, err)
 		}
+	case opLoadFile:
+		if err := s.loadFile(r); err != nil {
+			return fail(r.ID, err)
+		}
+	case opFileData:
+		if err := s.feedFile(r); err != nil {
+			return fail(r.ID, err)
+		}
+	case opFileEnd:
+		if err := s.endFile(r); err != nil {
+			return fail(r.ID, err)
+		}
+	case opNext:
+		if err := s.queueNext(r); err != nil {
+			return fail(r.ID, err)
+		}
 	case opEnd:
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		if r.Track != s.track || s.pipe == nil {
+		switch {
+		case s.pipe == nil:
+			return fail(r.ID, ErrStale)
+		case r.Track == s.track:
+			s.ended = true
+		case r.Track == s.next.gen && r.Track != 0:
+			s.next.ended = true
+		default:
 			return fail(r.ID, ErrStale)
 		}
-		s.ended = true
 		if err := s.pipe.EndOfStream(r.Track); err != nil {
 			return fail(r.ID, err)
 		}
 	case opPlay:
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		if s.pipe == nil {
+		o := s.outLocked()
+		if o == nil {
 			return fail(r.ID, errors.New("cdmhost: nothing loaded"))
 		}
 		s.playing, s.started, s.havePrev, s.buffering = true, false, false, false
-		if err := s.pipe.Play(); err != nil {
+		if s.file != nil && !s.fs.prerolled {
+			break // watchFile plays once prerolled
+		}
+		if err := o.Play(); err != nil {
 			return fail(r.ID, err)
 		}
 	case opPause:
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.playing, s.buffering = false, false
-		if s.pipe != nil {
-			if err := s.pipe.Pause(); err != nil {
+		if o := s.outLocked(); o != nil {
+			if err := o.Pause(); err != nil {
 				return fail(r.ID, err)
 			}
-			ok.Position, ok.HasPos = s.pipe.Position()
+			ok.Position, ok.HasPos = s.positionLocked()
 		}
 	case opStop:
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.track, s.playing, s.started, s.ended, s.buffering = r.Track, false, false, false, false
+		s.next = nextTrack{}
+		s.closeFileLocked()
 		if s.pipe != nil {
-			s.pipe.Flush(r.Track, 0, nil)
+			s.pipe.Stop(r.Track)
 			if err := s.pipe.Pause(); err != nil {
 				return fail(r.ID, err)
 			}
@@ -219,14 +287,46 @@ func (s *server) handle(r request) reply {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.volume = r.Volume
-		if s.pipe != nil {
-			s.pipe.SetVolume(r.Volume)
-		}
+		s.applyVolumeLocked()
 	case opPosition:
 		s.mu.Lock()
 		defer s.mu.Unlock()
+		ok.Position, ok.HasPos = s.positionLocked()
+	case opEqualizer:
+		if r.EQ == nil {
+			return fail(r.ID, errors.New("cdmhost: equalizer request without settings"))
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.eq = *r.EQ
 		if s.pipe != nil {
-			ok.Position, ok.HasPos = s.pipe.Position()
+			s.pipe.SetEqualizer(s.eq.Pregain, s.eq.Gains)
+		}
+		if s.file != nil {
+			s.file.SetEqualizer(s.eq.Pregain, s.eq.Gains)
+		}
+	case opTrackGain:
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.trackGain = r.Enabled
+		if s.pipe != nil {
+			s.pipe.SetTrackGain(r.Enabled)
+		}
+		s.applyVolumeLocked()
+	case opDevice:
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.device = r.Device // later pipelines play there too
+		if s.pipe != nil {
+			// The output moves at once; decoding and the position carry on.
+			if err := s.pipe.SetDevice(r.Device); err != nil {
+				return fail(r.ID, err)
+			}
+		}
+		if s.file != nil {
+			if err := s.file.SetDevice(r.Device, ""); err != nil {
+				return fail(r.ID, err)
+			}
 		}
 	default:
 		return fail(r.ID, fmt.Errorf("cdmhost: unknown op %q", r.Op))
@@ -241,9 +341,10 @@ func (s *server) needCDM() error {
 	return nil
 }
 
-// open loads the CDM and builds the output pipeline.
+// open loads the CDM and builds the output pipeline. The CDM is loaded only
+// under the seccomp filter that keeps it off the network (ErrSandbox).
 func (s *server) open(override string) (Info, error) {
-	info := Info{PID: os.Getpid(), GStreamer: gst.Version()}
+	info := Info{PID: os.Getpid(), GStreamer: gst.Version(), Sandbox: s.sandbox}
 	if s.cdm != nil {
 		return s.info, nil
 	}
@@ -252,6 +353,9 @@ func (s *server) open(override string) (Info, error) {
 		return info, err
 	}
 	info.CDMPath, info.CDMVersion = path, version
+	if !s.sandbox.Seccomp || !s.sandbox.InetDenied {
+		return info, fmt.Errorf("%w: %s", ErrSandbox, s.sandbox.Reason)
+	}
 	cdm, err := widevine.Open(path, s.log)
 	if err != nil {
 		return info, err
@@ -278,14 +382,47 @@ func (s *server) ensurePipeline() error {
 	if s.pipe != nil {
 		return nil
 	}
-	p, err := gst.New(gst.Options{Sink: s.sink})
+	p, err := gst.New(gst.Options{Sink: s.sink, Device: s.device})
 	if err != nil {
 		return err
 	}
-	p.SetVolume(s.volume)
+	p.SetEqualizer(s.eq.Pregain, s.eq.Gains)
+	p.SetTrackGain(s.trackGain)
 	s.pipe = p
+	s.applyVolumeLocked()
 	go s.watch(p)
 	return nil
+}
+
+// applyVolumeLocked sets the output level: the user's volume, times the
+// upload's Sound Check gain while that is on (the CDM pipeline's mixer
+// applies each track's gain itself). Call with mu held.
+func (s *server) applyVolumeLocked() {
+	if s.pipe != nil {
+		s.pipe.SetVolume(s.volume)
+	}
+	if s.file != nil {
+		v := s.volume
+		if s.trackGain && s.gain > 0 {
+			v *= s.gain
+		}
+		s.file.SetVolume(v)
+	}
+}
+
+// positionLocked is the current track's position. Call with mu held.
+func (s *server) positionLocked() (time.Duration, bool) {
+	if s.file != nil {
+		return s.file.Position()
+	}
+	if s.pipe == nil {
+		return 0, false
+	}
+	gen, pos, ok := s.pipe.Position()
+	if !ok || (gen != s.track && gen != s.next.gen) {
+		return 0, false
+	}
+	return pos, true
 }
 
 // watch forwards pipeline events for p's lifetime.
@@ -295,17 +432,25 @@ func (s *server) watch(p *gst.Pipeline) {
 		case gst.EventEOS:
 			s.mu.Lock()
 			track, ended := s.track, s.ended && s.pipe == p
-			pos, _ := p.Position()
+			pos, _ := s.positionLocked()
 			s.mu.Unlock()
 			if ended {
 				s.emit(Event{Kind: EventEnded, Track: track, Position: pos, At: time.Now()})
 			}
 		case gst.EventError:
-			s.log.Error("cdmhost: pipeline error", "err", ev.Err)
+			s.log.Error("cdmhost: pipeline error", "err", ev.Err, "track", ev.Gen)
 			s.mu.Lock()
 			track := s.track
-			if s.pipe == p {
-				// Rebuilt on the next Load.
+			switch {
+			case s.pipe != p:
+			case ev.Gen != 0 && ev.Gen == s.next.gen:
+				// The queued track failed to decode: the current one ends
+				// as if nothing followed, and the parent plays on.
+				track = ev.Gen
+				s.next = nextTrack{}
+				p.Unqueue()
+			case ev.Gen == 0:
+				// The output failed for good: rebuilt on the next Load.
 				s.pipe, s.init = nil, nil
 				go p.Close()
 			}
@@ -317,16 +462,24 @@ func (s *server) watch(p *gst.Pipeline) {
 	}
 }
 
-// load starts a new track generation at r.Start, flushing whatever played.
+// load starts a new track generation at r.Start, flushing whatever played
+// or was queued.
 func (s *server) load(r request) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	in := s.init
-	if len(r.Data) > 0 {
+	if s.file != nil {
+		if len(r.Data) == 0 {
+			return s.seekFileLocked(r)
+		}
+		s.closeFileLocked()
+	}
+	in, dur, gain := s.init, s.duration, s.gain
+	if len(r.Data) > 0 { // a new track; a seek keeps the track's
 		var err error
 		if in, err = fmp4.ParseInit(r.Data); err != nil {
 			return err
 		}
+		dur, gain = r.Duration, r.Gain
 	}
 	if in == nil {
 		return errors.New("cdmhost: load without init segment")
@@ -334,21 +487,66 @@ func (s *server) load(r request) error {
 	if err := checkScheme(in); err != nil {
 		return err
 	}
-	fresh := s.pipe == nil
 	if err := s.ensurePipeline(); err != nil {
 		return err
 	}
-	var caps *gst.Caps
-	if fresh || s.init == nil || !bytes.Equal(in.AudioConfig, s.init.AudioConfig) {
-		caps = &gst.Caps{AudioConfig: in.AudioConfig, Rate: in.SampleRate, Channels: in.Channels}
-	}
-	s.track, s.init, s.start = r.Track, in, r.Start
+	t := gstTrack(r.Track, in, dur, gain)
+	t.Start = r.Start
+	s.track, s.init, s.start, s.duration, s.gain = r.Track, in, t.Priming+r.Start, dur, gain
+	s.next = nextTrack{}
 	s.started, s.havePrev, s.ended, s.buffering = false, false, false, false
-	s.pipe.Flush(r.Track, r.Start, caps)
+	s.pipe.Load(t)
 	if s.playing {
 		return s.pipe.Play()
 	}
 	return s.pipe.Pause()
+}
+
+// gstTrack describes a track to the pipeline. Its priming is trimmed only
+// with a known duration (a VOD track; live streams play every sample).
+func gstTrack(gen uint64, in *fmp4.Init, dur time.Duration, gain float64) gst.Track {
+	t := gst.Track{
+		Gen:      gen,
+		Caps:     gst.Caps{AudioConfig: in.AudioConfig, Rate: in.SampleRate, Channels: in.Channels},
+		Duration: dur,
+		Gain:     gain,
+	}
+	if dur > 0 {
+		t.Priming = in.Priming()
+	}
+	return t
+}
+
+// queueNext queues r.Track to follow the current track (track 0: drop
+// the queued one).
+func (s *server) queueNext(r request) error {
+	var in *fmp4.Init
+	if r.Track != 0 {
+		var err error
+		if in, err = fmp4.ParseInit(r.Data); err != nil {
+			return err
+		}
+		if err := checkScheme(in); err != nil {
+			return err
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.pipe == nil || s.file != nil {
+		return ErrEnded
+	}
+	if r.Track == 0 {
+		s.next = nextTrack{}
+		s.pipe.Unqueue()
+		return nil
+	}
+	t := gstTrack(r.Track, in, r.Duration, r.Gain)
+	if err := s.pipe.Queue(t, r.Fade); err != nil {
+		s.next = nextTrack{}
+		return err
+	}
+	s.next = nextTrack{gen: r.Track, init: in, start: t.Priming, dur: r.Duration, gain: r.Gain}
+	return nil
 }
 
 // feeder decrypts and queues fragments in arrival order.
@@ -430,9 +628,16 @@ func (s *server) feed(r request, sc *feedScratch) error {
 		}
 	}
 	s.mu.Lock()
-	track, in, start, pipe := s.track, s.init, s.start, s.pipe
+	in, start, pipe := s.init, s.start, s.pipe
+	switch {
+	case r.Track == s.track:
+	case r.Track == s.next.gen && r.Track != 0:
+		in, start = s.next.init, s.next.start
+	default:
+		in = nil
+	}
 	s.mu.Unlock()
-	if r.Track != track || pipe == nil || in == nil {
+	if pipe == nil || in == nil {
 		return ErrStale
 	}
 	samples, err := fmp4.ParseFragment(r.Data, in)
@@ -541,10 +746,21 @@ const (
 func (s *server) tick(now time.Time) (Event, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.playing || s.pipe == nil {
+	o := s.outLocked()
+	if !s.playing || o == nil {
 		return Event{}, false
 	}
-	pos, ok := s.pipe.Position()
+	if s.file == nil && s.next.gen != 0 {
+		if gen, pos, ok := s.pipe.Position(); ok && gen == s.next.gen {
+			// The queued track is heard: it is current from here on.
+			n := s.next
+			s.track, s.init, s.start, s.duration, s.gain, s.ended = n.gen, n.init, n.start, n.dur, n.gain, n.ended
+			s.next = nextTrack{}
+			s.started, s.lastPos, s.underrun = true, now, time.Time{}
+			return Event{Kind: EventAdvance, Track: n.gen, Position: pos, At: now}, true
+		}
+	}
+	pos, ok := s.positionLocked()
 	if !s.started {
 		if !ok {
 			return Event{}, false
@@ -557,13 +773,31 @@ func (s *server) tick(now time.Time) (Event, bool) {
 			return Event{}, false
 		}
 		s.started, s.lastPos = true, now
-		return Event{Kind: EventStarted, Track: s.track, Position: pos, At: now}, true
+		ev := Event{Kind: EventStarted, Track: s.track, Position: pos, At: now}
+		if s.file != nil {
+			ev.Duration, _ = s.file.Duration()
+			s.fs.durSent = ev.Duration > 0
+		}
+		return ev, true
 	}
-	queued := s.pipe.Queued()
+	if s.file != nil && !s.fs.durSent && ok {
+		// Some formats (MP3 without a header) know their length only
+		// after a while: report it as soon as it is.
+		if d, known := s.file.Duration(); known {
+			s.fs.durSent, s.lastPos = true, now
+			return Event{Kind: EventPosition, Track: s.track, Position: pos, At: now, Duration: d}, true
+		}
+	}
+	var queued time.Duration
+	if s.file != nil {
+		queued = s.fileQueuedLocked()
+	} else {
+		queued = s.pipe.Queued(s.track)
+	}
 	switch {
 	case s.buffering && (queued >= resumeBuffered || s.ended):
 		s.buffering = false
-		_ = s.pipe.Play()
+		_ = o.Play()
 		s.started, s.havePrev = false, false // re-anchor with EventStarted
 		return Event{Kind: EventBuffering, Track: s.track, Position: pos, At: now}, true
 	case !s.buffering && !s.ended && queued == 0:
@@ -572,7 +806,7 @@ func (s *server) tick(now time.Time) (Event, bool) {
 		}
 		if now.Sub(s.underrun) >= underrunAfter {
 			s.buffering, s.underrun = true, time.Time{}
-			_ = s.pipe.Pause()
+			_ = o.Pause()
 			return Event{Kind: EventBuffering, Track: s.track, Position: pos, At: now, Buffering: true}, true
 		}
 	default:
@@ -589,6 +823,10 @@ func (s *server) shutdown() {
 	s.mu.Lock()
 	p := s.pipe
 	s.pipe = nil
+	if s.file != nil {
+		s.file.Close()
+		s.file = nil
+	}
 	s.mu.Unlock()
 	if p != nil {
 		p.Close()

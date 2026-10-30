@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"path/filepath"
 	"slices"
@@ -27,6 +28,8 @@ type fakeEngine struct {
 	plays    []string
 	preloads []string
 	failPlay map[string]error
+	next     playback.Next // armed by SetNext
+	volumes  []float64     // SetVolume calls
 }
 
 func newFake() *fakeEngine {
@@ -61,6 +64,7 @@ func (f *fakeEngine) posLocked() time.Duration {
 func (f *fakeEngine) Play(_ context.Context, id string, start time.Duration) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.next = playback.Next{}
 	f.calls = append(f.calls, fmt.Sprintf("play %s %s", id, start))
 	f.plays = append(f.plays, id)
 	if err := f.failPlay[id]; err != nil {
@@ -88,14 +92,17 @@ func (f *fakeEngine) set(s playback.State, call string) {
 }
 
 func (f *fakeEngine) Pause(context.Context) error { f.set(playback.StatePaused, "pause"); return nil }
+
 func (f *fakeEngine) Resume(context.Context) error {
 	f.set(playback.StatePlaying, "resume")
 	return nil
 }
+
 func (f *fakeEngine) Stop(context.Context) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, "stop")
+	f.next = playback.Next{}
 	f.st = playback.Status{State: playback.StateIdle, Volume: f.st.Volume, UpdatedAt: time.Now()}
 	f.emitLocked(playback.EventState)
 	return nil
@@ -114,6 +121,7 @@ func (f *fakeEngine) SetVolume(_ context.Context, v float64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, fmt.Sprintf("volume %g", v))
+	f.volumes = append(f.volumes, v)
 	f.st.Volume = v
 	f.emitLocked(playback.EventState)
 	return nil
@@ -127,6 +135,40 @@ func (f *fakeEngine) Status() playback.Status {
 
 func (f *fakeEngine) Events() <-chan playback.Event { return f.events }
 func (f *fakeEngine) Close() error                  { return nil }
+
+func (f *fakeEngine) SetNext(n playback.Next) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.next = n
+}
+
+func (f *fakeEngine) armed() playback.Next {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.next
+}
+
+// advance plays the current item out into the armed next, like a
+// gapless engine; it reports whether one was armed.
+func (f *fakeEngine) advance() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.next.ID == "" {
+		return false
+	}
+	id := f.next.ID
+	f.next = playback.Next{}
+	f.plays = append(f.plays, id)
+	f.st = playback.Status{State: playback.StatePlaying, ItemID: id, Duration: durationOf(id), Volume: f.st.Volume, UpdatedAt: time.Now()}
+	f.emitLocked(playback.EventAdvance)
+	return true
+}
+
+func (f *fakeEngine) volumeList() []float64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.volumes)
+}
 
 // end finishes the current item.
 func (f *fakeEngine) end() {
@@ -184,6 +226,14 @@ func items(ids ...string) []Item {
 		out[i] = Item{ID: id, Title: "T " + id, Duration: durationOf(id)}
 	}
 	return out
+}
+
+// from sets c as the container of its.
+func from(c Container, its []Item) []Item {
+	for i := range its {
+		its[i].Container = c
+	}
+	return its
 }
 
 type played struct {
@@ -672,4 +722,20 @@ func TestStaleEventsIgnored(t *testing.T) {
 			t.Fatalf("stale event advanced: %s %v", h.current(), h.eng.playList())
 		}
 	})
+}
+
+// NaN passes min/max clamps; it must not reach the engine, the snapshot
+// (JSON cannot encode it) or the saved settings.
+func TestSetVolumeNaN(t *testing.T) {
+	h := newHarness(t, nil)
+	must(t, h.c.SetVolume(t.Context(), 0.5))
+	must(t, h.c.SetVolume(t.Context(), math.NaN()))
+	if v := h.c.Snapshot().Volume; v != 0 {
+		t.Fatalf("snapshot volume %v", v)
+	}
+	h.eng.mu.Lock()
+	defer h.eng.mu.Unlock()
+	if !slices.Equal(h.eng.volumes, []float64{0.5, 0}) {
+		t.Fatalf("engine volumes %v", h.eng.volumes)
+	}
 }

@@ -301,6 +301,18 @@ func (c *CDM) Keys(id string) map[string]KeyStatus {
 	return out
 }
 
+// Expiry returns when session id's licence expires as the CDM reported it
+// (OnExpirationChange); zero means it does not expire.
+func (c *CDM) Expiry(id string) time.Time {
+	var t time.Time
+	_ = c.do(context.Background(), func() {
+		if s := c.sessions[id]; s != nil {
+			t = s.expiry
+		}
+	})
+	return t
+}
+
 // CloseSession closes session id and drops its keys.
 func (c *CDM) CloseSession(ctx context.Context, id string) error {
 	cid := C.CString(id)

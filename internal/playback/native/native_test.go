@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth/devtoken"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
+	"github.com/coredev-uk/sona-go/internal/playback/fmp4"
 	"github.com/coredev-uk/sona-go/internal/playback/hls"
 )
 
@@ -35,19 +37,37 @@ type fakeHost struct {
 	certs    int
 	sessions map[string][]byte // session → licence
 	loads    []loadCall
+	nexts    []nextCall
+	next     uint64 // queued with Next
 	feeds    []feedCall
 	track    uint64
 	start    time.Duration
 	playing  bool
 	fed      bool
 	started  bool
-	autoEnd  bool // emit EventEnded on EndOfTrack
+	autoEnd  bool      // emit EventEnded on EndOfTrack
+	audio    fakeAudio // volume, equaliser, device and file calls (audio_test.go)
 }
 
 type loadCall struct {
 	track uint64
 	init  []byte
 	start time.Duration
+	dur   time.Duration
+}
+
+type nextCall struct {
+	track uint64
+	dur   time.Duration
+	fade  time.Duration
+}
+
+func (f *fakeHost) Next(_ context.Context, track uint64, m cdmhost.Media, fade time.Duration) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.nexts = append(f.nexts, nextCall{track, m.Duration, fade})
+	f.next = track
+	return f.alive()
 }
 
 type feedCall struct {
@@ -121,10 +141,12 @@ func (f *fakeHost) CloseSession(_ context.Context, sid string) error {
 	return nil
 }
 
-func (f *fakeHost) Load(_ context.Context, track uint64, init []byte, start time.Duration) error {
+func (f *fakeHost) Load(_ context.Context, track uint64, m cdmhost.Media, start time.Duration) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.loads = append(f.loads, loadCall{track, init, start})
+	f.audio.gains = append(f.audio.gains, m.Gain)
+	f.loads = append(f.loads, loadCall{track, m.Init, start, m.Duration})
+	f.next = 0
 	f.track, f.start, f.fed, f.started = track, start, false, false
 	return f.alive()
 }
@@ -135,7 +157,7 @@ func (f *fakeHost) Feed(_ context.Context, track uint64, data []byte) error {
 	if err := f.alive(); err != nil {
 		return err
 	}
-	if track != f.track {
+	if track != f.track && (track != f.next || track == 0) {
 		return cdmhost.ErrStale
 	}
 	f.feeds = append(f.feeds, feedCall{track, data})
@@ -152,13 +174,21 @@ func (f *fakeHost) FeedStream(ctx context.Context, track uint64, s cdmhost.Strea
 func (f *fakeHost) maybeStart() {
 	if f.playing && f.fed && !f.started {
 		f.started = true
-		f.emit(cdmhost.Event{Kind: cdmhost.EventStarted, Track: f.track, Position: f.start, At: time.Now()})
+		if d := f.audio.fileDur; d > 0 && f.start >= d {
+			// An upload started past its end ends at once, as in the child.
+			f.emit(cdmhost.Event{Kind: cdmhost.EventEnded, Track: f.track, Position: d, At: time.Now()})
+			return
+		}
+		f.emit(cdmhost.Event{Kind: cdmhost.EventStarted, Track: f.track, Position: f.start, At: time.Now(), Duration: f.audio.fileDur})
 	}
 }
 
 func (f *fakeHost) EndOfTrack(_ context.Context, track uint64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if track == f.next && track != 0 {
+		return f.alive()
+	}
 	if track != f.track {
 		return cdmhost.ErrStale
 	}
@@ -184,7 +214,10 @@ func (f *fakeHost) Pause(context.Context) (time.Duration, bool, error) {
 }
 
 func (f *fakeHost) Stop(context.Context, uint64) error { return f.alive() }
-func (f *fakeHost) SetVolume(context.Context, float64) error {
+func (f *fakeHost) SetVolume(_ context.Context, v float64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.audio.volumes = append(f.audio.volumes, v)
 	return f.alive()
 }
 func (f *fakeHost) Close() error { f.exit(cdmhost.ErrExited); return nil }
@@ -203,13 +236,36 @@ type fixture struct {
 	count map[string]int // "path range" → requests
 }
 
+// initSeg is a minimal AAC-LC 44.1 kHz stereo init segment.
+var initSeg = func() []byte {
+	box := func(typ string, parts ...[]byte) []byte {
+		body := bytes.Join(parts, nil)
+		return append(binary.BigEndian.AppendUint32(nil, uint32(8+len(body))), append([]byte(typ), body...)...)
+	}
+	u32 := func(v uint32) []byte { return binary.BigEndian.AppendUint32(nil, v) }
+	u16 := func(v uint16) []byte { return binary.BigEndian.AppendUint16(nil, v) }
+	d := func(tag byte, body []byte) []byte { return append([]byte{tag, byte(len(body))}, body...) }
+	dcd := d(0x04, append([]byte{0x40, 0x15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, d(0x05, []byte{0x12, 0x10})...))
+	esds := box("esds", u32(0), d(0x03, append([]byte{0, 0, 0}, dcd...)))
+	entry := box("mp4a", make([]byte, 6), u16(1), make([]byte, 8), u16(2), u16(16), u32(0), u32(44100<<16), esds)
+	stsd := box("stsd", u32(0), u32(1), entry)
+	mdhd := box("mdhd", u32(0), u32(0), u32(0), u32(44100), u32(0), u32(0))
+	tkhd := box("tkhd", u32(7), u32(0), u32(0), u32(1), make([]byte, 68))
+	trak := box("trak", tkhd, box("mdia", mdhd, box("minf", box("stbl", stsd))))
+	return append(box("ftyp", []byte("iso8"), u32(0)), box("moov", trak)...)
+}()
+
+// mediaBytes is the fixture's media file: the init segment, then three
+// 100-byte segments.
 var mediaBytes = func() []byte {
-	b := make([]byte, 310)
+	b := make([]byte, 300)
 	for i := range b {
 		b[i] = byte(i % 251)
 	}
-	return b
+	return append(append([]byte(nil), initSeg...), b...)
 }()
+
+var initLen = len(initSeg)
 
 const kidB64 = "AAAAAEIk6OAAHbBdgj4o5Q=="
 
@@ -230,15 +286,16 @@ func newFixture(t *testing.T) *fixture {
 				return
 			}
 			fmt.Fprintf(w, `{"songList":[{"songId":"%s","hls-key-server-url":"https://play.test/lic","widevine-cert-url":"https://play.test/cert",
-				"assets":[{"flavor":"28:ctrp256","URL":"https://aod.test/%s/list.m3u8"}]}]}`, body.SalableAdamID, body.SalableAdamID)
+				"assets":[{"flavor":"28:ctrp256","URL":"https://aod.test/%s/list.m3u8"},{"flavor":"32:ctrp64","URL":"https://aod.test/%s/64/list.m3u8"}]}]}`,
+				body.SalableAdamID, body.SalableAdamID, body.SalableAdamID)
 		case r.URL.Path == "/cert":
 			w.Write([]byte("cert"))
 		case r.URL.Path == "/lic":
 			fmt.Fprintf(w, `{"status":0,"license":"%s"}`, base64.StdEncoding.EncodeToString([]byte("licence")))
 		case strings.HasSuffix(r.URL.Path, "/list.m3u8"):
 			fmt.Fprintf(w, "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-KEY:METHOD=ISO-23001-7,URI=\"data:;base64,%s\"\n"+
-				"#EXT-X-MAP:URI=\"media.mp4\",BYTERANGE=\"10@0\"\n"+
-				"#EXTINF:10,\n#EXT-X-BYTERANGE:100@10\nmedia.mp4\n#EXTINF:10,\n#EXT-X-BYTERANGE:100\nmedia.mp4\n#EXTINF:10,\n#EXT-X-BYTERANGE:100\nmedia.mp4\n#EXT-X-ENDLIST\n", kidB64)
+				"#EXT-X-MAP:URI=\"media.mp4\",BYTERANGE=\"%d@0\"\n"+
+				"#EXTINF:10,\n#EXT-X-BYTERANGE:100@%d\nmedia.mp4\n#EXTINF:10,\n#EXT-X-BYTERANGE:100\nmedia.mp4\n#EXTINF:10,\n#EXT-X-BYTERANGE:100\nmedia.mp4\n#EXT-X-ENDLIST\n", kidB64, initLen, initLen)
 		case strings.HasSuffix(r.URL.Path, "/media.mp4"):
 			http.ServeContent(w, r, "media.mp4", time.Time{}, bytes.NewReader(mediaBytes))
 		default:
@@ -342,7 +399,7 @@ func eventually(t *testing.T, what string, cond func() bool) {
 	}
 }
 
-func segment(i int) []byte { return mediaBytes[10+100*i : 110+100*i] }
+func segment(i int) []byte { return mediaBytes[initLen+100*i : initLen+100+100*i] }
 
 func TestPlayFeedsTrackAndEnds(t *testing.T) {
 	h := newHarness(t, -1, true)
@@ -350,13 +407,14 @@ func TestPlayFeedsTrackAndEnds(t *testing.T) {
 		t.Fatal(err)
 	}
 	st := h.e.Status()
-	if st.State != playback.StatePlaying || st.ItemID != "A" || st.Duration != 30*time.Second {
+	// The playlist's 30 s include the encoder's priming, which is trimmed.
+	if st.State != playback.StatePlaying || st.ItemID != "A" || st.Duration != 30*time.Second-fmp4.Time(fmp4.AACEncoderDelay, 44100) {
 		t.Fatalf("status %+v", st)
 	}
 	f := h.host(0)
 	eventually(t, "ended", func() bool { return h.e.Status().State == playback.StateEnded })
 	loads, feeds, sessions := f.snapshot()
-	if len(loads) != 1 || !bytes.Equal(loads[0].init, mediaBytes[:10]) || loads[0].start != 0 || sessions != 1 || f.certs != 1 {
+	if len(loads) != 1 || !bytes.Equal(loads[0].init, initSeg) || loads[0].start != 0 || sessions != 1 || f.certs != 1 {
 		t.Fatalf("loads %+v sessions %d certs %d", loads, sessions, f.certs)
 	}
 	if len(feeds) != 3 {
@@ -398,7 +456,8 @@ func TestPreloadedPlayNeedsNoNetworkAndPreloadNeverInterrupts(t *testing.T) {
 	// Play returned after first audio; only segments 1 and 2 may be fetched since.
 	for path, want := range map[string]int{
 		"/WebObjects/MZPlay.woa/wa/webPlayback ": 2, "/lic ": 2, "/cert ": 1,
-		"/B/list.m3u8 ": 1, "/B/media.mp4 bytes=0-9": 1, "/B/media.mp4 bytes=10-109": 1,
+		"/B/list.m3u8 ": 1, fmt.Sprintf("/B/media.mp4 bytes=0-%d", initLen-1): 1,
+		fmt.Sprintf("/B/media.mp4 bytes=%d-%d", initLen, initLen+99): 1,
 	} {
 		p, rng, _ := strings.Cut(path, " ")
 		if n := h.fx.requests(p, rng); n != want {
@@ -573,7 +632,7 @@ func TestFetchRetriesTransientFailures(t *testing.T) {
 	e.retry = retry
 	t.Cleanup(func() { e.Close() })
 	for _, p := range []string{"/flaky", "/limited"} {
-		b, err := e.fetch(ctx(t), srv.URL+p, hlsRange(10, 100))
+		b, err := e.fetch(ctx(t), srv.URL+p, hlsRange(int64(initLen), 100))
 		if err != nil || !bytes.Equal(b, segment(0)) {
 			t.Fatalf("%s: %v", p, err)
 		}
