@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"math"
 	"reflect"
 	"sync"
 	"time"
@@ -295,6 +296,9 @@ func (s *Server) setProp(iface, name string, value dbus.Variant) *dbus.Error {
 		if !ok {
 			return invalidArgs("Volume must be a double")
 		}
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return invalidArgs("Volume must be a finite number")
+		}
 		v = clamp01(v)
 		return s.control("Set Volume", nil, func(ctx context.Context) error { return s.player.SetVolume(ctx, v) })
 	case "Rate":
@@ -442,6 +446,10 @@ func seeked(prev, next Snapshot) bool {
 	return drift > seekThreshold || drift < -seekThreshold
 }
 
+// clamp01 clamps v to [0, 1]; NaN, which min and max pass through, is 0.
 func clamp01(v float64) float64 {
+	if math.IsNaN(v) {
+		return 0
+	}
 	return min(max(v, 0), 1)
 }

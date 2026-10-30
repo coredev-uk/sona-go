@@ -3,6 +3,7 @@ package mpris
 import (
 	"context"
 	"errors"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -42,6 +43,7 @@ func (f *fakePlayer) Previous(context.Context) error  { return errors.New("no pr
 func (f *fakePlayer) Seek(_ context.Context, d time.Duration) error {
 	return f.rec("Seek", d)
 }
+
 func (f *fakePlayer) SetPosition(_ context.Context, id string, d time.Duration) error {
 	return f.rec("SetPosition", id, d)
 }
@@ -350,6 +352,13 @@ func TestMethodsReachPlayer(t *testing.T) {
 	}
 	if err := h.obj.SetProperty(playerIface+".LoopStatus", dbus.MakeVariant("Forever")); err == nil {
 		t.Error("invalid LoopStatus accepted")
+	}
+	// NaN would pass every min/max clamp and reach the audio element.
+	for _, v := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
+		var dErr dbus.Error
+		if err := h.obj.SetProperty(playerIface+".Volume", dbus.MakeVariant(v)); !errors.As(err, &dErr) || dErr.Name != errInvalidArgs {
+			t.Errorf("Volume %v: err = %v, want InvalidArgs", v, err)
+		}
 	}
 
 	for _, m := range []string{"Raise", "Quit"} {

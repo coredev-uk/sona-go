@@ -1,6 +1,6 @@
 // Package app holds process-level integration: the single-instance guard on
-// the D-Bus session bus and parsing of the Apple Music links Sona is launched
-// with.
+// the D-Bus session bus, parsing of the Apple Music links Sona is launched
+// with, the XDG autostart entry and the xdg-desktop-portal file chooser.
 package app
 
 import (
