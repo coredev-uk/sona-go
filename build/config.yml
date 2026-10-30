@@ -10,7 +10,8 @@ info:
   description: "Apple Music for the Linux desktop"
   copyright: "(c) 2026, Sona contributors"
   comments: "Apple Music desktop client"
-  version: "0.1.0"
+  # No version here: VERSION is the single source. Only `wails3 update
+  # build-assets` would read one; pass -productversion "$(cat VERSION)".
 
 dev_mode:
   root_path: .

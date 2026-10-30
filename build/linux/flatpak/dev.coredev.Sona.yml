@@ -1,0 +1,72 @@
+# Flatpak manifest for Sona. Feasibility notes and the reason for every
+# permission: docs/flatpak.md.
+#
+# This manifest repackages the release .deb built on the Ubuntu 24.04
+# baseline (build/linux/release/release.sh); the binary only needs sonames
+# that org.gnome.Platform provides. It is for local builds: Flathub requires
+# an offline build from source (docs/flatpak.md, "Build approach").
+#
+#   bash build/linux/release/release.sh   # bin/release/sona_$(cat VERSION)_amd64.deb
+#   bash build/linux/flatpak/build.sh     # copies it to bin/flatpak/sona.deb, builds, installs --user
+#
+# The Widevine CDM is never part of the Flatpak: Sona reads the copy that the
+# user's Chrome installed, through the read-only paths below.
+id: dev.coredev.Sona
+runtime: org.gnome.Platform
+runtime-version: '51'
+sdk: org.gnome.Sdk
+command: sona
+rename-icon: sona
+
+finish-args:
+  # Window and rendering (GTK4 + WebKitGTK).
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  # Apple Music API, licences, HLS segments, the sign-in loopback redirect.
+  - --share=network
+  # Audio from the CDM host child: pipewiresink first, pulsesink fallback.
+  - --filesystem=xdg-run/pipewire-0
+  - --socket=pulseaudio
+  # MPRIS: Sona owns org.mpris.MediaPlayer2.sona, not the default
+  # org.mpris.MediaPlayer2.dev.coredev.Sona.
+  - --own-name=org.mpris.MediaPlayer2.sona
+  # go-keyring speaks the Secret Service API directly; the Secret portal
+  # does not implement it. Without this Sona uses its 0600 file fallback.
+  - --talk-name=org.freedesktop.secrets
+  # Track-change notifications (internal/desktop/notify) use the
+  # notification server directly, not the portal.
+  - --talk-name=org.freedesktop.Notifications
+  # Tray icon (Wails SystemTray, StatusNotifierItem).
+  - --talk-name=org.kde.StatusNotifierWatcher
+  # Widevine CDM discovery (internal/playback/widevine/find.go), read-only.
+  - --filesystem=/opt/google/chrome/WidevineCdm:ro
+  - --filesystem=/opt/google/chrome-beta/WidevineCdm:ro
+  - --filesystem=/opt/google/chrome-unstable/WidevineCdm:ro
+  - --filesystem=~/.config/google-chrome/WidevineCdm:ro
+  - --filesystem=~/.config/google-chrome-beta/WidevineCdm:ro
+  - --filesystem=~/.config/google-chrome-unstable/WidevineCdm:ro
+  - --filesystem=~/.config/chromium/WidevineCdm:ro
+  - --filesystem=~/.config/BraveSoftware/Brave-Browser/WidevineCdm:ro
+  - --filesystem=~/.config/vivaldi/WidevineCdm:ro
+  - --filesystem=~/.config/vivaldi-snapshot/WidevineCdm:ro
+  - --filesystem=~/.config/microsoft-edge/WidevineCdm:ro
+  - --filesystem=~/.config/microsoft-edge-beta/WidevineCdm:ro
+  - --filesystem=~/.config/microsoft-edge-dev/WidevineCdm:ro
+  - --filesystem=~/.var/app/com.google.Chrome/config/google-chrome/WidevineCdm:ro
+  - --filesystem=~/.var/app/org.chromium.Chromium/config/chromium/WidevineCdm:ro
+
+modules:
+  - name: sona
+    buildsystem: simple
+    sources:
+      - type: file
+        # Staged by build.sh from bin/release/sona_$(cat VERSION)_amd64.deb.
+        path: ../../../bin/flatpak/sona.deb
+    build-commands:
+      - ar x sona.deb data.tar.gz
+      - tar -xzf data.tar.gz ./usr
+      - install -Dm755 usr/bin/sona -t /app/bin
+      - install -Dm644 usr/share/applications/dev.coredev.Sona.desktop -t /app/share/applications
+      - cp -a usr/share/icons /app/share/

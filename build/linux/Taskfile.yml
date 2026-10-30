@@ -14,11 +14,19 @@ tasks:
           DEV:
             ref: .DEV
     cmds:
-      - go build {{.BUILD_FLAGS}} -o {{.OUTPUT}}
+      # Silent: LDFLAGS may carry the Last.fm API secret.
+      - cmd: go build {{.BUILD_FLAGS}} -ldflags="{{.LDFLAGS}}" -o {{.OUTPUT}}
+        silent: true
+      - echo "built {{.OUTPUT}} ({{.VERSION}})"
     vars:
       # A command-line -tags replaces the one in GOFLAGS (devenv's
       # -tags=sqlite_fts5), so production builds name sqlite_fts5 again.
-      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production,sqlite_fts5{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production,sqlite_fts5{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false{{end}}'
+      # -X main.version carries VERSION into the binary (`sona --version`,
+      # Diagnostics, the log). The Last.fm API key and secret come from the
+      # SONA_LASTFM_KEY / SONA_LASTFM_SECRET environment when set (CI: repo
+      # secrets); without them Last.fm reads the same variables at runtime.
+      LDFLAGS: '{{if ne .DEV "true"}}-w -s {{end}}-X main.version={{.VERSION}}{{if .SONA_LASTFM_KEY}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey={{.SONA_LASTFM_KEY}}{{end}}{{if .SONA_LASTFM_SECRET}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret={{.SONA_LASTFM_SECRET}}{{end}}'
       DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
     env:
@@ -49,6 +57,7 @@ tasks:
       - go tool wails3 tool package -name "{{.FILE}}" -format {{.FORMAT}} -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/{{.BIN_DIR}}
     env:
       GOARCH: amd64 # nfpm.yaml's arch
+      SONA_VERSION: '{{.VERSION}}' # nfpm.yaml's version
 
   create:appimage:
     summary: Creates the AppImage from the built binary (downloads linuxdeploy on first use)

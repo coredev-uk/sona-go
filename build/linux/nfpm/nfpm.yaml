@@ -8,7 +8,8 @@
 name: "sona"
 arch: ${GOARCH}
 platform: "linux"
-version: "0.1.0"
+# VERSION, passed in by build/linux/Taskfile.yml (package:format).
+version: "${SONA_VERSION}"
 section: "sound"
 priority: "optional"
 maintainer: "Core <core@coredev.uk>"
@@ -50,6 +51,12 @@ contents:
     dst: "/usr/share/icons/hicolor/512x512/apps/sona.png"
   - src: "./build/linux/icons/hicolor/scalable/apps/sona.svg"
     dst: "/usr/share/icons/hicolor/scalable/apps/sona.svg"
+  # Licence notices: Sona is AGPL-3.0-only; the CDM interface header compiled
+  # into the binary is Chromium's (BSD-3-Clause), whose notice must ship.
+  - src: "./LICENSE"
+    dst: "/usr/share/doc/sona/LICENSE"
+  - src: "./internal/playback/widevine/LICENSE.chromium"
+    dst: "/usr/share/doc/sona/LICENSE.chromium"
 
 # Runtime: GTK4 + WebKitGTK 6.0 for the window; GStreamer core + base
 # (appsrc, audioconvert, audioresample, volume) + good (autoaudiosink) + an

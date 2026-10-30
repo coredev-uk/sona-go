@@ -5,10 +5,12 @@
 #   smoke.sh deb        # Ubuntu/Debian: install the .deb with its declared deps
 #   smoke.sh rpm        # Fedora: install the .rpm with its declared deps
 #   smoke.sh appimage   # Fedora: run the AppImage with no GTK/WebKit installed
+#   smoke.sh arch       # Arch Linux: install the .pkg.tar.zst with its declared deps
 #
-# Passes when the binary resolves every shared library, the GStreamer
-# elements the playback host needs exist, and the app, run headless under
-# Xvfb, creates its window and the frontend reports its first paint.
+# Passes when `sona --version` prints SONA_VERSION (when set), the binary
+# resolves every shared library, the GStreamer elements the playback host
+# needs exist, and the app, run headless under Xvfb, creates its window and
+# the frontend reports its first paint.
 set -euo pipefail
 kind=$1
 
@@ -45,8 +47,36 @@ appimage)
   find "$root" -iname '*widevine*' | grep -q . && fail "AppImage contains a Widevine CDM"
   exe=$root/AppRun
   ;;
+arch)
+  pacman -Syu --noconfirm --noprogressbar >/dev/null
+  pacman -S --noconfirm --noprogressbar --needed base-devel xorg-server-xvfb xorg-xauth dbus which >/dev/null
+  if [[ -f /pkg/aur/PKGBUILD ]]; then
+    # The AUR sona-bin route: makepkg (as a user) repackages the release's
+    # Arch package, with the release file standing in for the download.
+    useradd -m builder
+    install -d -o builder /tmp/aur
+    install -o builder /pkg/aur/PKGBUILD /pkg/aur/.SRCINFO /pkg/sona-*.pkg.tar.zst /tmp/aur/
+    cd /tmp/aur
+    runuser -u builder -- makepkg --printsrcinfo | diff -u .SRCINFO - || fail ".SRCINFO is not makepkg's"
+    # --nodeps: the builder cannot install packages; repackaging needs none
+    # of the runtime depends, and pacman -U below resolves them from the repos.
+    runuser -u builder -- makepkg --nodeps --noconfirm >/dev/null || fail "makepkg"
+    pacman -U --noconfirm --noprogressbar /tmp/aur/sona-bin-*.pkg.tar.zst >/dev/null
+    [[ -f /usr/share/licenses/sona-bin/LICENSE.chromium ]] || fail "licence notice missing"
+    cd /
+  else
+    pacman -U --noconfirm --noprogressbar /pkg/sona-*.pkg.tar.zst >/dev/null
+  fi
+  exe=/usr/bin/sona
+  ;;
 *) fail "unknown kind" ;;
 esac
+
+if [[ -n ${SONA_VERSION:-} ]]; then
+  got=$("$exe" --version) || fail "sona --version failed"
+  [[ $got == "sona $SONA_VERSION" ]] || fail "sona --version printed '$got', want 'sona $SONA_VERSION'"
+  echo "smoke($kind): $got"
+fi
 
 # Every shared library resolves.
 if [[ $kind == appimage ]]; then

@@ -10,8 +10,10 @@ vars:
   APP_NAME: "sona"
   BIN_DIR: "bin"
   PACKAGE_MANAGER: "pnpm"
-  # Keep in step with build/config.yml, nfpm.yaml and main.go's version.
-  VERSION: "0.1.0"
+  # The single version source: VERSION. build/linux/Taskfile.yml injects it
+  # into the binary (-X main.version) and the packages (nfpm SONA_VERSION).
+  VERSION:
+    sh: cat "{{.ROOT_DIR}}/VERSION"
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
 
 includes:

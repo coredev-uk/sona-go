@@ -73,7 +73,14 @@ if find "$appdir" -iname '*widevine*' | grep -q .; then
   exit 1
 fi
 
-# Repack, deploying the plugins' and the scanner's shared-library deps.
+# Licence notices (as in the deb/rpm/Arch packages).
+mkdir -p "$appdir/usr/share/doc/sona"
+cp "$root/LICENSE" "$root/internal/playback/widevine/LICENSE.chromium" "$appdir/usr/share/doc/sona/"
+
+# Repack, deploying the plugins' and the scanner's shared-library deps. The
+# update information lets AppImageUpdate fetch the newest GitHub release;
+# linuxdeploy's AppImage plugin embeds it and writes <name>.zsync next to
+# the AppImage (a release asset alongside it).
 deps=()
 for f in "$appdir"/usr/lib/gstreamer-1.0/*.so "$appdir/usr/libexec/gstreamer-1.0/gst-plugin-scanner"; do
   deps+=(--deploy-deps-only "$f")
@@ -81,8 +88,11 @@ done
 name="sona-$version-$arch.AppImage"
 (
   cd "$work/build"
-  rm -f ./*.AppImage.tmp
-  NO_STRIP=1 OUTPUT="$name" "$linuxdeploy" --appimage-extract-and-run --appdir "$appdir" "${deps[@]}" --output appimage
+  rm -f ./*.AppImage.tmp ./*.zsync
+  NO_STRIP=1 OUTPUT="$name" \
+    LDAI_UPDATE_INFORMATION="gh-releases-zsync|coredev-uk|sona-go|latest|sona-*-$arch.AppImage.zsync" \
+    "$linuxdeploy" --appimage-extract-and-run --appdir "$appdir" "${deps[@]}" --output appimage
 )
 mv "$work/build/$name" "$out/$name"
+mv "$work/build/$name.zsync" "$out/$name.zsync"
 echo "appimage.sh: $out/$name"
