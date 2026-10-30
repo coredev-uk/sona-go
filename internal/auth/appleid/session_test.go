@@ -63,6 +63,7 @@ func TestTrustedDeviceCode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The device route plus the account's phone; nothing texted yet.
 	if sf == nil || !sf.TrustedDevices || sf.CodeLength != 6 || len(sf.Phones) != 1 || sf.Phones[0].ID != 1 || sf.SentToPhone != 0 {
 		t.Fatalf("second factor = %+v", sf)
 	}
@@ -84,19 +85,23 @@ func TestTrustedDeviceCode(t *testing.T) {
 	}
 }
 
-func TestPhoneCode(t *testing.T) {
+// A device account may still choose a text or call instead.
+func TestDeviceAccountCanUseText(t *testing.T) {
 	srv := appleidtest.New(t, appleidtest.Config{Account: "a@example.com", Password: "pw", MUT: "m", TwoFactor: true})
 	s := begin(t, srv)
 	ctx := context.Background()
 	if _, err := s.SignIn(ctx, "a@example.com", "pw"); err != nil {
 		t.Fatal(err)
 	}
+	before := len(srv.Requests())
+	if err := s.SendCodeToPhone(ctx, 9, "sms"); !errors.Is(err, appleid.ErrOutOfOrder) {
+		t.Fatalf("unlisted phone: %v", err)
+	}
+	if n := len(srv.Requests()); n != before {
+		t.Fatalf("refused route still sent %d requests", n-before)
+	}
 	if err := s.SendCodeToPhone(ctx, 1, "sms"); err != nil {
 		t.Fatal(err)
-	}
-	// The code now goes to the phone; submitting it as a device code fails.
-	if err := s.VerifyCode(ctx, appleidtest.Code, 0, ""); !errors.Is(err, appleid.ErrIncorrectCode) {
-		t.Fatalf("device code after SMS: %v", err)
 	}
 	if err := s.VerifyCode(ctx, appleidtest.Code, 1, "sms"); err != nil {
 		t.Fatal(err)
@@ -106,11 +111,49 @@ func TestPhoneCode(t *testing.T) {
 	}
 }
 
-func TestNoTrustedDevicesReportsTextedPhone(t *testing.T) {
-	srv := appleidtest.New(t, appleidtest.Config{Account: "a@example.com", Password: "pw", MUT: "m", TwoFactor: true, NoDevices: true})
-	sf, err := begin(t, srv).SignIn(context.Background(), "a@example.com", "pw")
-	if err != nil || sf.TrustedDevices || sf.SentToPhone != 1 {
+func TestNoTrustedDevicesUsesTextedPhone(t *testing.T) {
+	srv := appleidtest.New(t, appleidtest.Config{Account: "a@example.com", Password: "pw", MUT: "m", TwoFactor: true, NoDevices: true, NonFTEU: true})
+	s := begin(t, srv)
+	ctx := context.Background()
+	sf, err := s.SignIn(ctx, "a@example.com", "pw")
+	if err != nil || sf.TrustedDevices || sf.SentToPhone != 1 || len(sf.Phones) != 1 {
 		t.Fatalf("second factor = %+v, %v", sf, err)
+	}
+	for _, bad := range []func() error{
+		func() error { return s.VerifyCode(ctx, appleidtest.Code, 0, "") }, // no devices
+		func() error { return s.ResendDeviceCode(ctx) },
+		func() error { return s.SendCodeToPhone(ctx, 9, "sms") }, // unlisted phone
+		func() error { return s.SendCodeToPhone(ctx, 1, "fax") },
+	} {
+		if err := bad(); !errors.Is(err, appleid.ErrOutOfOrder) {
+			t.Fatalf("refused route: %v", err)
+		}
+	}
+	// The code Apple already texted; the request carries nonFTEU.
+	if err := s.VerifyCode(ctx, appleidtest.Code, 1, "sms"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.MusicUserToken(ctx); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNoTrustedDevicesPhoneCall(t *testing.T) {
+	srv := appleidtest.New(t, appleidtest.Config{Account: "a@example.com", Password: "pw", MUT: "m", TwoFactor: true, NoDevices: true, NoAutoSend: true})
+	s := begin(t, srv)
+	ctx := context.Background()
+	sf, err := s.SignIn(ctx, "a@example.com", "pw")
+	if err != nil || sf.TrustedDevices || sf.SentToPhone != 0 || len(sf.Phones) != 2 || sf.Phones[1].Mode != "voice" {
+		t.Fatalf("second factor = %+v, %v", sf, err)
+	}
+	if err := s.SendCodeToPhone(ctx, 2, "voice"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.VerifyCode(ctx, appleidtest.Code, 2, "voice"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.MusicUserToken(ctx); err != nil {
+		t.Fatal(err)
 	}
 }
 

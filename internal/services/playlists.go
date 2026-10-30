@@ -98,6 +98,7 @@ func (s *PlaylistsService) Playlist(ctx context.Context, id string) (PlaylistDet
 		MoreByCurator:   s.m.amPlaylists(cp.MoreByCurator),
 		URL:             a.URL,
 	}
+	d.Header.Motion = s.m.motionOf(a.EditorialVideo)
 	d.Playlist.TrackCount = len(tracks)
 	d.Playlist.Description = plainText(cmp.Or(a.Description.Text(), a.EditorialNotes.Text()))
 	if d.Curator.Name == "" {
@@ -641,8 +642,10 @@ func (s *PlaylistsService) Pins(ctx context.Context) ([]Pin, error) {
 			if so, err := s.e.Library.Song(ctx, r.AppleID); err == nil {
 				p.Song = s.m.libSong(so)
 			} else {
-				p.Song = Song{ID: r.AppleID, Source: SourceLibrary, LibraryID: r.AppleID, CatalogID: r.SongCatalogID,
-					Name: r.Name, Artist: r.Subtitle, Playable: r.SongCatalogID != "", Art: p.Art}
+				p.Song = Song{
+					ID: r.AppleID, Source: SourceLibrary, LibraryID: r.AppleID, CatalogID: r.SongCatalogID,
+					Name: r.Name, Artist: r.Subtitle, Playable: true, Art: p.Art,
+				}
 			}
 		}
 		out[i] = p

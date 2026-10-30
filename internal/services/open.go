@@ -50,9 +50,10 @@ func targets(args []string, log *slog.Logger) []OpenTarget {
 }
 
 // activate handles a launch: it raises the window (forwarded launches
-// only; the first launch shows it anyway) and emits its links.
+// only, unless they ask to stay hidden, like a login autostart while Sona
+// already runs; the first launch shows it anyway) and emits its links.
 func (o *opener) activate(act app.Activation, forwarded bool) {
-	if forwarded && o.focus != nil {
+	if forwarded && !act.Hidden() && o.focus != nil {
 		o.focus()
 	}
 	ts := targets(act.Args, o.log)

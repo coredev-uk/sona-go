@@ -6,11 +6,13 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
+	"github.com/coredev-uk/sona-go/internal/library"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 )
 
@@ -59,13 +61,25 @@ func (s AccountStore) Delete(ctx context.Context) error {
 }
 
 // History records finished listens into playback_history; pass Record as
-// coordinator.Options.OnPlayed.
+// coordinator.Options.OnPlayed. It also follows the listen in progress
+// (observe, a coordinator activity observer), which playback_history only
+// gets when it ends, so the History page can show it as played here.
 type History struct {
 	DB     *db.DB
 	Logger *slog.Logger
 	// Context returns the current queue label (coordinator Snapshot
 	// Context); nil records none.
 	Context func() string
+
+	mu      sync.Mutex
+	current listen // the latest listen started here
+}
+
+// listen is a listen started here.
+type listen struct {
+	item     coordinator.Item
+	at       time.Time // when it began
+	recorded bool      // Record stored it
 }
 
 // Record implements coordinator.Options.OnPlayed. Live radio and episodes
@@ -75,8 +89,9 @@ func (h *History) Record(item coordinator.Item, playedFor time.Duration, _ bool)
 	if isStationID(item.ID) {
 		return
 	}
+	now := time.Now()
 	p := dbq.InsertHistoryParams{
-		PlayedAt:        db.Millis(time.Now().Add(-playedFor)),
+		PlayedAt:        db.Millis(now.Add(-playedFor)),
 		ItemID:          item.ID,
 		Name:            item.Title,
 		ArtistName:      item.Artist,
@@ -98,7 +113,57 @@ func (h *History) Record(item coordinator.Item, playedFor time.Duration, _ bool)
 	}
 	if _, err := h.DB.Q.InsertHistory(context.Background(), p); err != nil {
 		h.Logger.Warn("history: record play", "id", item.ID, "err", err)
+		return
 	}
+	h.mu.Lock()
+	// This is the listen in progress, unless a new listen of the same song
+	// (repeat one) began as this one ended.
+	if c := &h.current; c.item.ID == item.ID && !c.at.After(now.Add(-playedFor/2)) {
+		c.recorded = true
+	}
+	h.mu.Unlock()
+}
+
+// observe notes each listen that starts here; a resume continues its
+// listen.
+func (h *History) observe(a coordinator.Activity) {
+	if a.Kind != coordinator.ActivityStart || isStationID(a.Item.ID) {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if a.Position > 0 && a.Item.ID == h.current.item.ID && !h.current.recorded {
+		return
+	}
+	h.current = listen{item: a.Item, at: a.At.Add(-a.Position)}
+}
+
+// started returns the latest listen started here while playback_history
+// does not hold it yet (see library.MergeHistory).
+func (h *History) started(ctx context.Context) []library.Play {
+	h.mu.Lock()
+	c := h.current
+	h.mu.Unlock()
+	if c.item.ID == "" || c.recorded {
+		return nil
+	}
+	p := library.Play{
+		PlayedAt: c.at, Name: c.item.Title, Artist: c.item.Artist, Album: c.item.Album,
+		ArtworkTemplate: c.item.Artwork, Duration: c.item.Duration,
+	}
+	// Apple's list names the song by its catalog or library ID.
+	if strings.HasPrefix(c.item.ID, "i.") {
+		p.LibraryID = c.item.ID
+		if t, err := h.DB.RQ.GetTrackByLibraryID(ctx, db.NullString(c.item.ID)); err == nil {
+			p.CatalogID = t.CatalogID.String
+		}
+	} else {
+		p.CatalogID = c.item.ID
+		if t, err := h.DB.RQ.GetTrackByCatalogID(ctx, db.NullString(c.item.ID)); err == nil {
+			p.LibraryID = t.LibraryID.String
+		}
+	}
+	return []library.Play{p}
 }
 
 // trim deletes history older than historyRetention.

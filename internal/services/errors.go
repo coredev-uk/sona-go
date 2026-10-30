@@ -13,6 +13,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth/mut"
 	"github.com/coredev-uk/sona-go/internal/catalog"
 	"github.com/coredev-uk/sona-go/internal/library"
+	"github.com/coredev-uk/sona-go/internal/scrobble"
 )
 
 // Error codes carried to the frontend in a rejected call's err.cause.code
@@ -37,8 +38,9 @@ const (
 	CodeNotPlayable        = "not_playable"
 	CodeSyncRunning        = "sync_running"
 	CodeInvalidArgument    = "invalid_argument"
-	CodeConflict           = "conflict"  // the item changed elsewhere since it was read
-	CodePinsFull           = "pins_full" // Apple keeps at most six pins
+	CodeConflict           = "conflict"       // the item changed elsewhere since it was read
+	CodePinsFull           = "pins_full"      // Apple keeps at most six pins
+	CodeNotConfigured      = "not_configured" // this build lacks the service's API account (Last.fm)
 	CodeUnknown            = "unknown"
 )
 
@@ -92,6 +94,12 @@ func ErrorCode(err error) string {
 		return CodeConflict
 	case errors.Is(err, applemusic.ErrPinsFull):
 		return CodePinsFull
+	case errors.Is(err, scrobble.ErrNotConfigured):
+		return CodeNotConfigured
+	case errors.Is(err, scrobble.ErrAuth):
+		return CodeInvalidCredentials
+	case errors.Is(err, scrobble.ErrExpired):
+		return CodeTimeout
 	case errors.Is(err, ErrInvalidArgument):
 		return CodeInvalidArgument
 	case errors.As(err, &ue), errors.As(err, &ne):

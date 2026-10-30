@@ -29,6 +29,14 @@ export function Clear(): $CancellablePromise<void> {
 }
 
 /**
+ * Insert adds refs at queue position at, kept within the upcoming songs
+ * the user queued (after the current one, before station songs).
+ */
+export function Insert(at: number, refs: $models.TrackRef[]): $CancellablePromise<void> {
+    return $Call.ByID(811671150, at, refs);
+}
+
+/**
  * Jump plays queue[index].
  */
 export function Jump(index: number): $CancellablePromise<void> {
@@ -57,12 +65,13 @@ export function Pause(): $CancellablePromise<void> {
 }
 
 /**
- * PlayItems replaces the queue with refs and plays refs[start]. label
- * names the source (album or playlist ID) and comes back as
- * PlaybackState.Context.
+ * PlayItems replaces the queue with refs and plays refs[start]. from
+ * names where they came from: its ID comes back as PlaybackState.Context
+ * and, for an album, playlist or artist, is reported to Apple with the
+ * plays. A replaced queue can be brought back with UndoReplace.
  */
-export function PlayItems(refs: $models.TrackRef[], start: number, label: string): $CancellablePromise<void> {
-    return $Call.ByID(69575695, refs, start, label);
+export function PlayItems(refs: $models.TrackRef[], start: number, $from: $models.PlayFrom): $CancellablePromise<void> {
+    return $Call.ByID(69575695, refs, start, $from);
 }
 
 /**
@@ -140,6 +149,16 @@ export function SetShuffle(on: boolean): $CancellablePromise<void> {
 }
 
 /**
+ * SetSleep sets the sleep timer: mode "after" pauses playback after
+ * minutes, "track" when the current song ends, "queue" when the last song
+ * the user queued ends; "" turns it off. The volume fades out over the
+ * last 10 seconds and is restored once playback stops.
+ */
+export function SetSleep(mode: string, minutes: number): $CancellablePromise<void> {
+    return $Call.ByID(2056974992, mode, minutes);
+}
+
+/**
  * SetVolume sets the volume (0..1); it is remembered in the settings.
  */
 export function SetVolume(volume: number): $CancellablePromise<void> {
@@ -167,6 +186,15 @@ export function Stop(): $CancellablePromise<void> {
  */
 export function Toggle(): $CancellablePromise<void> {
     return $Call.ByID(4012222859);
+}
+
+/**
+ * UndoReplace brings back the queue the last PlayItems, PlayLibrary or
+ * station replaced, at the same item and position, playing if it was. It
+ * reports whether there was one.
+ */
+export function UndoReplace(): $CancellablePromise<boolean> {
+    return $Call.ByID(1225201567);
 }
 
 // Private type creation functions

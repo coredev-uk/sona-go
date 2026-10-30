@@ -1,0 +1,544 @@
+package services
+
+import (
+	"context"
+	"net/url"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/godbus/dbus/v5"
+
+	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/desktop/inhibit"
+	"github.com/coredev-uk/sona-go/internal/desktop/notify"
+	"github.com/coredev-uk/sona-go/internal/discord"
+	"github.com/coredev-uk/sona-go/internal/mpris"
+	"github.com/coredev-uk/sona-go/internal/playback"
+	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
+)
+
+const (
+	// integrationsCallTimeout bounds each D-Bus or Discord call.
+	integrationsCallTimeout = 5 * time.Second
+	// presenceArtSize is the artwork edge Discord is pointed at.
+	presenceArtSize = 512
+	// presenceInterval spaces SET_ACTIVITY calls (Discord allows 5 per 20 s).
+	presenceInterval = 4 * time.Second
+	// presenceRetry is how often an unreachable Discord is retried while
+	// a track plays.
+	presenceRetry = 30 * time.Second
+
+	actionNext = "next"
+)
+
+// IntegrationsService drives the desktop integrations from playback:
+// track-change notifications, the suspend inhibitor while playing and the
+// Discord presence. It starts after the first paint.
+type IntegrationsService struct {
+	e *Env
+
+	changed chan struct{} // integration settings changed
+
+	mu      sync.Mutex
+	status  IntegrationsStatus
+	started bool
+	stopped bool
+	quit    chan struct{}
+	done    chan struct{}
+
+	// Notifications: notifyMu orders Show/Dismiss across the per-track
+	// goroutines; seq drops a track's notification once a newer one is due.
+	notifyMu  sync.Mutex
+	notifier  *notify.Notifier
+	notifySeq uint64
+	closing   bool
+}
+
+func newIntegrationsService(e *Env) *IntegrationsService {
+	s := &IntegrationsService{
+		e:       e,
+		changed: make(chan struct{}, 1),
+		quit:    make(chan struct{}),
+		done:    make(chan struct{}),
+	}
+	s.status.Discord.Configured = discord.ClientID != ""
+	e.Settings.OnChange(func(prev, next config.Settings) {
+		if prev.Integrations != next.Integrations {
+			select {
+			case s.changed <- struct{}{}:
+			default:
+			}
+		}
+	})
+	// D-Bus and the Discord socket are local, but nothing extra touches
+	// them before the first paint.
+	e.OnNetwork(func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if s.stopped || s.started {
+			return
+		}
+		s.started = true
+		e.Go("integrations", s.run)
+	})
+	e.OnClose(s.stop)
+	return s
+}
+
+// Status reports the integrations' state.
+func (s *IntegrationsService) Status() IntegrationsStatus {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.status
+}
+
+func (s *IntegrationsService) setStatus(fn func(*IntegrationsStatus)) {
+	s.mu.Lock()
+	prev := s.status
+	fn(&s.status)
+	next := s.status
+	s.mu.Unlock()
+	if next != prev && s.e.Emit != nil {
+		s.e.Emit.Emit(EventIntegrationsStatus, next)
+	}
+}
+
+func (s *IntegrationsService) stop() {
+	s.mu.Lock()
+	s.stopped = true
+	started := s.started
+	s.mu.Unlock()
+	if started {
+		close(s.quit)
+		<-s.done
+	}
+}
+
+// run follows playback until stop.
+func (s *IntegrationsService) run() {
+	defer close(s.done)
+	snaps, cancel := s.e.Coord.Subscribe()
+	defer cancel()
+
+	inh := inhibit.New(inhibit.Options{
+		System:  func() (*dbus.Conn, error) { return dbus.ConnectSystemBus() },
+		Session: s.e.Bus,
+		Who:     "Sona",
+		Why:     "Playing music",
+	})
+	var presence *presenceWorker
+	if discord.ClientID != "" {
+		presence = newPresenceWorker(s, discord.New(discord.ClientID))
+		s.e.Go("discord presence", presence.run)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
+		defer cancel()
+		s.closeNotifier(ctx)
+		if err := inh.Close(); err != nil {
+			s.e.Logger.Warn("inhibit: release", "err", err)
+		}
+		if presence != nil {
+			presence.stop()
+		}
+	}()
+
+	var (
+		last coordinator.Snapshot
+		have bool
+		st   integrationsState
+	)
+	apply := func() {
+		p := st.plan(last, s.e.Settings.Get().Integrations)
+		if p.announce != nil && s.e.Bus != nil {
+			s.announce(*p.announce)
+		}
+		if p.inhibit != nil {
+			want := *p.inhibit
+			ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
+			if want {
+				if err := inh.Acquire(ctx); err != nil {
+					s.e.Logger.Warn("inhibit: acquire", "err", err)
+				}
+			} else if err := inh.Release(); err != nil {
+				s.e.Logger.Warn("inhibit: release", "err", err)
+			}
+			cancel()
+			backend := inh.Backend()
+			if want && backend == "" {
+				backend = IntegrationUnavailable
+			}
+			s.setStatus(func(st *IntegrationsStatus) { st.Inhibit = backend })
+		}
+		if presence != nil && p.presence != nil {
+			presence.set(*p.presence)
+		}
+	}
+
+	for {
+		select {
+		case <-s.quit:
+			return
+		case snap, ok := <-snaps:
+			if !ok {
+				return
+			}
+			last, have = snap, true
+			apply()
+		case <-s.changed:
+			if have {
+				apply()
+			}
+		}
+	}
+}
+
+// integrationsState is what the integrations last did, so each snapshot
+// only acts on changes.
+type integrationsState struct {
+	notified  uint64 // queue slot last announced (UIDs start at 1)
+	inhibited bool
+}
+
+// integrationsPlan is what to do for one snapshot.
+type integrationsPlan struct {
+	announce *coordinator.Item // notify this track
+	inhibit  *bool             // take (true) or drop (false) the inhibitor
+	presence *presenceWant     // the Discord presence; nil leaves it as is
+}
+
+// plan decides the integrations' actions for snap under set.
+func (st *integrationsState) plan(snap coordinator.Snapshot, set config.Integrations) integrationsPlan {
+	var p integrationsPlan
+	// Notifications: once per queue slot, when it starts playing (a slot
+	// restored paused is announced when it is played). The slot counts as
+	// announced even with notifications off, so turning them on does not
+	// announce a track already playing.
+	if cur := snap.Current; cur != nil && snap.State == playback.StatePlaying && cur.UID != st.notified {
+		st.notified = cur.UID
+		if set.Notifications {
+			p.announce = &cur.Item
+		}
+	}
+	// Suspend inhibitor: held while playing, also across the loading gap
+	// between tracks.
+	awake := snap.Current != nil && (snap.State == playback.StatePlaying || snap.State == playback.StateLoading)
+	if want := set.InhibitSleep && awake; want != st.inhibited {
+		st.inhibited = want
+		p.inhibit = &want
+	}
+	// Discord: the track while it plays, cleared otherwise; left as is
+	// while the next track loads so it does not flicker.
+	if snap.State != playback.StateLoading {
+		w := presenceWant{enabled: set.DiscordPresence}
+		if set.DiscordPresence {
+			w.act = presenceFor(snap)
+		}
+		p.presence = &w
+	}
+	return p
+}
+
+// announce shows item's notification off the playback loop: it resolves
+// the artwork to a local file first, then skips the notification if a
+// newer track came meanwhile or the main window has focus.
+func (s *IntegrationsService) announce(item coordinator.Item) {
+	s.notifyMu.Lock()
+	s.notifySeq++
+	seq := s.notifySeq
+	s.notifyMu.Unlock()
+	s.e.Go("track notification", func() {
+		var image string
+		if item.Artwork != "" && s.e.Art != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
+			p, err := s.e.Art.LocalPath(ctx, item.Artwork, mprisArtSize)
+			cancel()
+			if err != nil {
+				s.e.Logger.Debug("notification artwork", "err", err)
+			} else {
+				image = p
+			}
+		}
+		if s.e.Focused != nil && s.e.Focused() {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
+		defer cancel()
+		s.notifyMu.Lock()
+		defer s.notifyMu.Unlock()
+		if s.closing || seq != s.notifySeq {
+			return
+		}
+		n, err := s.notifierLocked(ctx)
+		if err != nil {
+			if s.Status().Notifications != IntegrationUnavailable {
+				s.e.Logger.Info("notifications unavailable", "err", err)
+			}
+			s.setStatus(func(st *IntegrationsStatus) { st.Notifications = IntegrationUnavailable })
+			return
+		}
+		if err := n.Show(ctx, trackNotification(item, image)); err != nil {
+			s.e.Logger.Warn("notification", "err", err)
+		}
+	})
+}
+
+// notifierLocked connects to the notification server on first use, and
+// again after a failure (the server may have started since).
+func (s *IntegrationsService) notifierLocked(ctx context.Context) (*notify.Notifier, error) {
+	if s.notifier != nil {
+		return s.notifier, nil
+	}
+	n, err := notify.New(ctx, s.e.Bus, notify.Options{
+		AppName:      "Sona",
+		AppIcon:      "sona",
+		DesktopEntry: mpris.DesktopEntry,
+		OnAction:     s.onAction,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.notifier = n
+	s.setStatus(func(st *IntegrationsStatus) { st.Notifications = IntegrationReady })
+	return n, nil
+}
+
+// closeNotifier removes the notification (its Next button would outlive
+// the app) and unsubscribes; later announce goroutines do nothing.
+func (s *IntegrationsService) closeNotifier(ctx context.Context) {
+	s.notifyMu.Lock()
+	defer s.notifyMu.Unlock()
+	s.closing = true
+	if s.notifier == nil {
+		return
+	}
+	if err := s.notifier.Dismiss(ctx); err != nil {
+		s.e.Logger.Debug("notification dismiss", "err", err)
+	}
+	s.notifier.Close()
+	s.notifier = nil
+}
+
+// onAction handles the notification's buttons (on the notifier's signal
+// goroutine).
+func (s *IntegrationsService) onAction(key string) {
+	switch key {
+	case actionNext:
+		s.e.Go("notification next", func() {
+			ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
+			defer cancel()
+			if err := s.e.Coord.Next(ctx); err != nil {
+				s.e.Logger.Warn("notification next", "err", err)
+			}
+		})
+	case notify.DefaultAction:
+		if s.e.Focus != nil {
+			s.e.Focus()
+		}
+	}
+}
+
+// trackNotification is the notification for item; image is a local
+// artwork file or "".
+func trackNotification(item coordinator.Item, image string) notify.Notification {
+	body := item.Artist
+	if item.Album != "" {
+		if body != "" {
+			body += " — "
+		}
+		body += item.Album
+	}
+	return notify.Notification{
+		Summary: item.Title,
+		Body:    body,
+		Image:   image,
+		Actions: []notify.Action{
+			{Key: notify.DefaultAction, Label: "Show Sona"},
+			{Key: actionNext, Label: "Next"},
+		},
+	}
+}
+
+// presenceFor is the Discord activity for snap: the current track while it
+// plays, nil otherwise.
+func presenceFor(snap coordinator.Snapshot) *discord.Activity {
+	cur := snap.Current
+	if cur == nil || snap.State != playback.StatePlaying {
+		return nil
+	}
+	a := &discord.Activity{
+		Title:      cur.Item.Title,
+		Artist:     cur.Item.Artist,
+		Album:      cur.Item.Album,
+		ArtworkURL: publicArtURL(cur.Item.Artwork, presenceArtSize),
+	}
+	if !snap.At.IsZero() {
+		a.Start = snap.At.Add(-snap.Position)
+		dur := snap.Duration
+		if dur == 0 {
+			dur = cur.Item.Duration
+		}
+		if dur > 0 {
+			a.End = a.Start.Add(dur)
+		}
+	}
+	return a
+}
+
+// publicArtURL fills an Apple artwork template to size×size for a client
+// outside Sona (Discord fetches it itself). Only https URLs on Apple's
+// public artwork CDN qualify: never Sona's local /art/ URLs or anything
+// that could carry credentials.
+func publicArtURL(tmpl string, size int) string {
+	tmpl = strings.TrimSpace(tmpl)
+	u, err := url.Parse(tmpl)
+	if err != nil || u.Scheme != "https" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return ""
+	}
+	host := strings.ToLower(u.Hostname())
+	if !strings.HasSuffix(host, ".mzstatic.com") || host == ".mzstatic.com" || (u.Port() != "" && u.Port() != "443") {
+		return ""
+	}
+	n := strconv.Itoa(size)
+	return strings.NewReplacer("{w}", n, "{h}", n, "{c}", "bb", "{f}", "jpg").Replace(tmpl)
+}
+
+// presenceWorker sends the wanted Discord activity, coalescing changes to
+// Discord's rate limit and retrying while Discord is unreachable.
+type presenceWorker struct {
+	s      *IntegrationsService
+	client *discord.Client
+	want   chan presenceWant // latest only
+	quit   chan struct{}
+	done   chan struct{}
+}
+
+type presenceWant struct {
+	enabled bool
+	act     *discord.Activity
+}
+
+func newPresenceWorker(s *IntegrationsService, c *discord.Client) *presenceWorker {
+	return &presenceWorker{
+		s: s, client: c,
+		want: make(chan presenceWant, 1),
+		quit: make(chan struct{}),
+		done: make(chan struct{}),
+	}
+}
+
+// set replaces the wanted presence.
+func (w *presenceWorker) set(want presenceWant) {
+	for {
+		select {
+		case w.want <- want:
+			return
+		default:
+			select {
+			case <-w.want:
+			default:
+			}
+		}
+	}
+}
+
+// stop clears the presence and disconnects.
+func (w *presenceWorker) stop() {
+	close(w.quit)
+	<-w.done
+}
+
+func (w *presenceWorker) run() {
+	defer close(w.done)
+	var (
+		want    presenceWant
+		sent    *discord.Activity
+		synced  = true // Discord shows want (nothing wanted at start)
+		next    time.Time
+		timer   = time.NewTimer(0)
+		pending bool // timer armed
+	)
+	<-timer.C
+	defer func() {
+		timer.Stop()
+		if w.client.Connected() {
+			ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
+			_ = w.client.SetActivity(ctx, nil)
+			cancel()
+		}
+		_ = w.client.Close()
+	}()
+	arm := func(at time.Time) {
+		if pending {
+			timer.Stop()
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+		timer.Reset(time.Until(at))
+		pending = true
+	}
+	for {
+		select {
+		case <-w.quit:
+			return
+		case nw := <-w.want:
+			if nw.enabled == want.enabled && sameActivity(nw.act, sent) && synced {
+				want = nw
+				continue
+			}
+			want, synced = nw, false
+			if time.Now().Before(next) {
+				arm(next)
+				continue
+			}
+		case <-timer.C:
+			pending = false
+		}
+		if synced {
+			continue
+		}
+		if !want.enabled && !w.client.Connected() {
+			sent, synced = nil, true
+			w.s.setStatus(func(st *IntegrationsStatus) { st.Discord.Connected = false })
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
+		err := w.client.SetActivity(ctx, want.act)
+		cancel()
+		next = time.Now().Add(presenceInterval)
+		if err == nil {
+			sent, synced = want.act, true
+			if !want.enabled {
+				_ = w.client.Close()
+			}
+		} else if want.act != nil {
+			arm(time.Now().Add(presenceRetry))
+		} else {
+			// Nothing to show and Discord gone: nothing left to clear.
+			sent, synced = nil, true
+		}
+		if err != nil {
+			w.s.e.Logger.Debug("discord presence", "err", err)
+		}
+		connected := w.client.Connected()
+		w.s.setStatus(func(st *IntegrationsStatus) { st.Discord.Connected = connected })
+	}
+}
+
+// sameActivity reports whether a and b show the same thing; the start and
+// end may drift by the snapshot extrapolation.
+func sameActivity(a, b *discord.Activity) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	near := func(x, y time.Time) bool {
+		d := x.Sub(y)
+		return d < 2*time.Second && d > -2*time.Second
+	}
+	return a.Title == b.Title && a.Artist == b.Artist && a.Album == b.Album &&
+		a.ArtworkURL == b.ArtworkURL && near(a.Start, b.Start) && near(a.End, b.End)
+}

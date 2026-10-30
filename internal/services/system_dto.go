@@ -53,6 +53,19 @@ type DiagPlayback struct {
 	Sink          string `json:"sink"`
 	HostRunning   bool   `json:"hostRunning"` // the playback child is up
 	HostPID       int    `json:"hostPid"`
+	// AudioQuality is the AAC bitrate Sona plays (kbps, the setting).
+	// Sona never plays lossless or Dolby Atmos: Apple refuses those keys
+	// to the desktop Widevine CDM.
+	AudioQuality int `json:"audioQuality"`
+	// Sandboxed: the playback child runs with every sandbox layer (its
+	// own network and mount namespace, Landlock, the seccomp filter that
+	// refuses network sockets). SandboxNote says what is missing
+	// otherwise ("" when the probe child never started).
+	Sandboxed   bool   `json:"sandboxed"`
+	SandboxNote string `json:"sandboxNote"`
+	// CDMBlocked: the child refused to load the CDM because its seccomp
+	// filter is missing (cdmhost.ErrSandbox); SandboxNote says why.
+	CDMBlocked bool `json:"cdmBlocked"`
 }
 
 type DiagDatabase struct {
@@ -88,8 +101,19 @@ type EnvVar struct {
 	Set   bool   `json:"set"`
 }
 
-// ClearResult reports what ClearCache removed.
-type ClearResult struct {
-	ArtworkBytes   int64 `json:"artworkBytes"`
-	CatalogEntries int64 `json:"catalogEntries"`
+// DiagBundle is the redacted diagnostics bundle for a bug report.
+type DiagBundle struct {
+	Text string `json:"text"`
+	// Path is where the bundle was saved ("" if saving failed).
+	Path string `json:"path"`
+}
+
+// SettingsImport reports an ImportSettings call.
+type SettingsImport struct {
+	// Path is the imported file ("" when the user cancelled).
+	Path string `json:"path"`
+	// Changed lists the settings the file changed, as dotted settings
+	// names ("theme", "desktop.closeAction"); empty when they all
+	// matched already.
+	Changed []string `json:"changed"`
 }

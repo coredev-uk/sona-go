@@ -65,7 +65,9 @@ export function Recent(): $CancellablePromise<$models.Station[]> {
 }
 
 /**
- * Station returns a station page; a live station carries its schedule.
+ * Station returns a station page: a live station carries its schedule; a
+ * track station what it was made from and the songs it plays first
+ * (parked for the station feed, so they are the ones that play).
  */
 export function Station(id: string): $CancellablePromise<$models.StationDetail> {
     return $Call.ByID(1807895501, id).then(($result: any) => {

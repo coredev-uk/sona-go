@@ -72,6 +72,7 @@ func (s *CatalogService) albumPage(ctx context.Context, a applemusic.Album) Cata
 		AppearsOn:     s.m.amPlaylists(v.AppearsOn.Data),
 		Videos:        s.m.amMusicVideos(v.RelatedVideos.Data),
 	}
+	p.Header.Motion = s.m.motionOf(at.EditorialVideo)
 	p.Album.LibraryID, p.InLibrary = s.e.members.lookup(ctx, kindAlbum, album.CatalogID)
 	return p
 }

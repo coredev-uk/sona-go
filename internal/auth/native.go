@@ -100,9 +100,11 @@ func (m *Manager) SignInWithPassword(ctx context.Context, account, password stri
 
 // SubmitSecurityCode answers the pending two-factor challenge: phoneID 0
 // for a code shown on a trusted device, otherwise the phone the code was
-// sent to (mode "sms" or "voice"). A wrong code returns an error wrapping
-// appleid.ErrIncorrectCode and keeps the challenge open; other failures
-// end the attempt. On success the token is validated and stored.
+// sent to (mode "sms" or "voice"). Device codes need an account with
+// trusted devices; phone codes work for any account. A wrong code, or
+// a route the account does not have (appleid.ErrOutOfOrder, no request
+// made), keeps the challenge open; other failures end the attempt. On
+// success the token is validated and stored.
 func (m *Manager) SubmitSecurityCode(ctx context.Context, code string, phoneID int, mode string) error {
 	na, err := m.pendingNative()
 	if err != nil {
@@ -112,7 +114,7 @@ func (m *Manager) SubmitSecurityCode(ctx context.Context, code string, phoneID i
 	defer stop()
 	if err := na.sess.VerifyCode(step, code, phoneID, mode); err != nil {
 		err = nativeError(attemptErr(na.ctx, err))
-		if errors.Is(err, appleid.ErrIncorrectCode) {
+		if errors.Is(err, appleid.ErrIncorrectCode) || errors.Is(err, appleid.ErrOutOfOrder) {
 			m.noteNative(na, err)
 			return err
 		}
@@ -123,15 +125,16 @@ func (m *Manager) SubmitSecurityCode(ctx context.Context, code string, phoneID i
 	return m.completeNative(step, na.id, na.sess)
 }
 
-// SendCodeToPhone asks Apple to send the code to a trusted phone instead.
-// Failures (e.g. too many codes) keep the challenge open.
+// SendCodeToPhone asks Apple to text (mode "sms") or call ("voice") one
+// of the challenge's phones, with or without trusted devices. Failures
+// (e.g. too many codes) keep the challenge open.
 func (m *Manager) SendCodeToPhone(ctx context.Context, phoneID int, mode string) error {
 	return m.nativeStep(ctx, func(ctx context.Context, s *appleid.Session) error {
 		return s.SendCodeToPhone(ctx, phoneID, mode)
 	})
 }
 
-// ResendSecurityCode pushes a new code to the trusted devices.
+// ResendSecurityCode prompts the trusted devices again (device accounts).
 func (m *Manager) ResendSecurityCode(ctx context.Context) error {
 	return m.nativeStep(ctx, func(ctx context.Context, s *appleid.Session) error {
 		return s.ResendDeviceCode(ctx)

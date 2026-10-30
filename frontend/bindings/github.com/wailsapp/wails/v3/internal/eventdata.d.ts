@@ -18,12 +18,16 @@ declare module "@wailsio/runtime" {
             "app:open": services$0.OpenTarget;
             "auth:changed": services$0.AuthStatus;
             "discover:home": services$0.HomePage;
+            "integrations:status": services$0.IntegrationsStatus;
             "playback:queue": services$0.QueueState;
             "playback:state": services$0.PlaybackState;
             "playlists:changed": services$0.PlaylistsChanged;
+            "power:changed": services$0.PowerState;
+            "scrobble:changed": services$0.ScrobbleStatus;
             "settings:changed": config$0.Settings;
             "sync:done": services$0.SyncDone;
             "sync:progress": services$0.SyncProgress;
+            "updates:available": services$0.UpdateStatus;
         }
     }
 }

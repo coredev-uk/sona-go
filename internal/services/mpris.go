@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/artwork"
+	"github.com/coredev-uk/sona-go/internal/diag"
 	"github.com/coredev-uk/sona-go/internal/mpris"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
@@ -170,7 +171,8 @@ func runMPRIS(srv *mpris.Server, snaps <-chan coordinator.Snapshot, quit <-chan 
 			if cur != tmpl {
 				tmpl, artURL = cur, ""
 				if cur != "" && art != nil {
-					go func(t string) {
+					t := cur
+					diag.Go(log, "mpris artwork", func() {
 						ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 						defer cancel()
 						p, err := art.LocalPath(ctx, t, mprisArtSize)
@@ -182,7 +184,7 @@ func runMPRIS(srv *mpris.Server, snaps <-chan coordinator.Snapshot, quit <-chan 
 						case arts <- artDone{t, "file://" + p}:
 						default:
 						}
-					}(cur)
+					})
 				}
 			}
 			srv.Update(mprisSnapshot(snap, artURL))

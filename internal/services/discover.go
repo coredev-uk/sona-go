@@ -48,7 +48,7 @@ type DiscoverService struct {
 func newDiscoverService(e *Env) *DiscoverService {
 	s := &DiscoverService{e: e, m: e.m}
 	e.OnNetwork(func() {
-		go func() {
+		e.Go("discover refresh", func() {
 			ctx := context.Background()
 			if n, err := e.DB.Q.DeleteOldDiscoverCache(ctx, db.Millis(e.Now().Add(-discoverKeep))); err != nil {
 				e.Logger.Warn("discover cache prune", "err", err)
@@ -56,7 +56,7 @@ func newDiscoverService(e *Env) *DiscoverService {
 				e.Logger.Info("discover cache pruned", "entries", n)
 			}
 			s.refreshHomeIfDue(ctx)
-		}()
+		})
 	})
 	return s
 }

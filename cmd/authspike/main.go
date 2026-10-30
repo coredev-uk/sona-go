@@ -133,14 +133,20 @@ func nativeSignIn(ctx context.Context, devToken string) (appleid.Result, error) 
 	}
 	if sf != nil {
 		phone, mode := sf.SentToPhone, ""
+		prompt := fmt.Sprintf("Code (%d digits): ", sf.CodeLength)
 		if sf.TrustedDevices {
-			fmt.Println("A verification code was sent to your trusted devices.")
+			fmt.Println("Apple prompted your trusted devices; enter the code shown there, or get one by text.")
+		} else {
+			fmt.Println("No Apple device on this account; codes come by text or call.")
 		}
 		for _, p := range sf.Phones {
 			fmt.Printf("  phone %d: %s (%s)\n", p.ID, p.Number, p.Mode)
 		}
+		if len(sf.Phones) > 0 {
+			prompt = fmt.Sprintf("Code (%d digits), or sms:<phone id>: ", sf.CodeLength)
+		}
 		for {
-			c, err := line(fmt.Sprintf("Code (%d digits), or sms:<phone id>: ", sf.CodeLength))
+			c, err := line(prompt)
 			if err != nil {
 				return appleid.Result{}, err
 			}

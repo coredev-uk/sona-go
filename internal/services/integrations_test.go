@@ -1,0 +1,132 @@
+package services
+
+import (
+	"testing"
+	"time"
+
+	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/playback"
+	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
+)
+
+func snapAt(state playback.State, uid uint64, title string) coordinator.Snapshot {
+	s := coordinator.Snapshot{State: state, Index: -1}
+	if uid != 0 {
+		s.Current = &coordinator.Entry{UID: uid, Item: coordinator.Item{ID: title, Title: title, Duration: 3 * time.Minute}}
+		s.Index = 0
+	}
+	return s
+}
+
+func TestIntegrationsPlan(t *testing.T) {
+	on := config.Integrations{Notifications: true, InhibitSleep: true}
+	type want struct {
+		announce string // title, "" for none
+		inhibit  string // "take", "drop" or ""
+	}
+	steps := []struct {
+		name string
+		snap coordinator.Snapshot
+		set  config.Integrations
+		want want
+	}{
+		{"restored paused", snapAt(playback.StatePaused, 1, "A"), on, want{}},
+		{"play restored", snapAt(playback.StatePlaying, 1, "A"), on, want{"A", "take"}},
+		{"pause", snapAt(playback.StatePaused, 1, "A"), on, want{"", "drop"}},
+		{"resume same slot", snapAt(playback.StatePlaying, 1, "A"), on, want{"", "take"}},
+		{"next loads", snapAt(playback.StateLoading, 2, "B"), on, want{}},
+		{"next plays", snapAt(playback.StatePlaying, 2, "B"), on, want{"B", ""}},
+		{"settings off", snapAt(playback.StatePlaying, 2, "B"), config.Integrations{}, want{"", "drop"}},
+		{"track while off", snapAt(playback.StatePlaying, 3, "C"), config.Integrations{}, want{}},
+		{"on again mid-track", snapAt(playback.StatePlaying, 3, "C"), on, want{"", "take"}},
+		{"queue ends", snapAt(playback.StateEnded, 3, "C"), on, want{"", "drop"}},
+		{"stopped", snapAt(playback.StateIdle, 0, ""), on, want{}},
+		{"same song again in a new slot", snapAt(playback.StatePlaying, 4, "C"), on, want{"C", "take"}},
+		{"failed", snapAt(playback.StateError, 4, "C"), on, want{"", "drop"}},
+	}
+	var st integrationsState
+	for _, s := range steps {
+		p := st.plan(s.snap, s.set)
+		got := want{}
+		if p.announce != nil {
+			got.announce = p.announce.Title
+		}
+		if p.inhibit != nil {
+			got.inhibit = map[bool]string{true: "take", false: "drop"}[*p.inhibit]
+		}
+		if got != s.want {
+			t.Errorf("%s: got %+v, want %+v", s.name, got, s.want)
+		}
+	}
+}
+
+func TestIntegrationsPlanPresence(t *testing.T) {
+	var st integrationsState
+	set := config.Integrations{DiscordPresence: true}
+	if p := st.plan(snapAt(playback.StatePlaying, 1, "A"), set); p.presence == nil || p.presence.act == nil || p.presence.act.Title != "A" {
+		t.Fatalf("playing: presence = %+v", p.presence)
+	}
+	if p := st.plan(snapAt(playback.StateLoading, 2, "B"), set); p.presence != nil {
+		t.Fatalf("loading changed the presence: %+v", p.presence)
+	}
+	if p := st.plan(snapAt(playback.StatePaused, 2, "B"), set); p.presence == nil || p.presence.act != nil || !p.presence.enabled {
+		t.Fatalf("paused: presence = %+v, want cleared", p.presence)
+	}
+	if p := st.plan(snapAt(playback.StatePlaying, 2, "B"), config.Integrations{}); p.presence == nil || p.presence.act != nil || p.presence.enabled {
+		t.Fatalf("disabled: presence = %+v, want cleared and disabled", p.presence)
+	}
+}
+
+func TestPresenceFor(t *testing.T) {
+	at := time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)
+	snap := snapAt(playback.StatePlaying, 1, "Come Together")
+	snap.Current.Item.Artist, snap.Current.Item.Album = "The Beatles", "Abbey Road"
+	snap.Current.Item.Artwork = "https://is1-ssl.mzstatic.com/image/thumb/Music/x/{w}x{h}{c}.{f}"
+	snap.At, snap.Position, snap.Duration = at, 90*time.Second, 259*time.Second
+
+	a := presenceFor(snap)
+	if a == nil {
+		t.Fatal("no presence while playing")
+	}
+	if !a.Start.Equal(at.Add(-90*time.Second)) || !a.End.Equal(at.Add(169*time.Second)) {
+		t.Errorf("start %v end %v", a.Start, a.End)
+	}
+	if a.ArtworkURL != "https://is1-ssl.mzstatic.com/image/thumb/Music/x/512x512bb.jpg" {
+		t.Errorf("artwork = %q", a.ArtworkURL)
+	}
+
+	snap.Duration = 0 // engine has no duration yet: the catalog's
+	if a := presenceFor(snap); !a.End.Equal(a.Start.Add(3 * time.Minute)) {
+		t.Errorf("end without engine duration = %v", a.End)
+	}
+	snap.State = playback.StatePaused
+	if presenceFor(snap) != nil {
+		t.Error("presence while paused")
+	}
+}
+
+func TestPublicArtURL(t *testing.T) {
+	good := map[string]string{
+		"https://is1-ssl.mzstatic.com/image/thumb/x/{w}x{h}bb.jpg":    "https://is1-ssl.mzstatic.com/image/thumb/x/512x512bb.jpg",
+		" https://IS5-SSL.mzstatic.com/image/thumb/x/{w}x{h}{c}.{f} ": "https://IS5-SSL.mzstatic.com/image/thumb/x/512x512bb.jpg",
+	}
+	for in, want := range good {
+		if got := publicArtURL(in, 512); got != want {
+			t.Errorf("publicArtURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+	for _, bad := range []string{
+		"",
+		"/art/abc/512.jpg",
+		"http://is1-ssl.mzstatic.com/a/{w}x{h}bb.jpg",
+		"https://evil.example/a/{w}x{h}bb.jpg",
+		"https://mzstatic.com.evil.example/a/{w}x{h}bb.jpg",
+		"https://u:p@is1-ssl.mzstatic.com/a/{w}x{h}bb.jpg",
+		"https://is1-ssl.mzstatic.com:8443/a/{w}x{h}bb.jpg",
+		"https://is1-ssl.mzstatic.com/a/{w}x{h}bb.jpg?token=x",
+	} {
+		if got := publicArtURL(bad, 512); got != "" {
+			t.Errorf("publicArtURL(%q) = %q, want rejected", bad, got)
+		}
+	}
+}

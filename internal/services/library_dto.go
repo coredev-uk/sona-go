@@ -91,7 +91,29 @@ type Counts struct {
 	Playlists int `json:"playlists"`
 }
 
-// HistoryEntry is one locally recorded play, newest first.
+// ListeningHistory is the History page: plays grouped by local day,
+// newest first.
+type ListeningHistory struct {
+	Days []HistoryDay `json:"days"`
+	// Since is the start of the oldest day covered (Unix ms); More reports
+	// older plays on this computer (ask for more days).
+	Since int64 `json:"since"`
+	More  bool  `json:"more"`
+	// Apple reports whether Apple's recently played list (the account's
+	// other devices) was merged in; false when signed out or offline.
+	Apple bool `json:"apple"`
+}
+
+// HistoryDay is one local day of plays, newest first.
+type HistoryDay struct {
+	// Day is local midnight (Unix ms); 0 for the plays from other devices
+	// newer than every play on this computer.
+	Day     int64          `json:"day"`
+	Entries []HistoryEntry `json:"entries"`
+}
+
+// HistoryEntry is one play. Plays from the account's other devices come
+// from Apple without a time: PlayedAt and PlayedMs are 0.
 type HistoryEntry struct {
 	PlayedAt   int64  `json:"playedAt"`
 	Song       Song   `json:"song"`

@@ -198,6 +198,57 @@ func TestFileMigratesIntoSecretService(t *testing.T) {
 	}
 }
 
+func TestSecretKeptBesideTheRecord(t *testing.T) {
+	dir := t.TempDir()
+	down := &fakeKeyring{down: true}
+	old, err := OpenSecretWith(dir, "lastfm", down, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if old.Backend() != BackendFile {
+		t.Fatalf("backend = %q", old.Backend())
+	}
+	if err := old.Set("session-key"); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "credentials-lastfm")
+	if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0o600 {
+		t.Fatalf("fallback file: %v %v", fi, err)
+	}
+	// The MUT record and the secret do not share a file or a keyring entry.
+	mut, _ := OpenWith(dir, down, nil)
+	if err := mut.Set(rec); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := old.Get(); err != nil || got != "session-key" {
+		t.Fatalf("secret after MUT write: %q %v", got, err)
+	}
+
+	kr := &fakeKeyring{}
+	s, err := OpenSecretWith(dir, "lastfm", kr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := kr.items[Service+"/lastfm"]; got != "session-key" {
+		t.Fatalf("keyring entry = %q", got)
+	}
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("plaintext secret kept after migration")
+	}
+	if _, ok := kr.items[Service+"/"+Key]; ok {
+		t.Fatal("secret migration touched the MUT entry")
+	}
+	if err := s.Delete(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Get(); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("after delete: %v", err)
+	}
+	if _, err := OpenSecretWith(dir, Key, kr, nil); err == nil {
+		t.Fatal("a named secret may not reuse the MUT key")
+	}
+}
+
 func TestRecordStringRedacts(t *testing.T) {
 	if s := rec.String(); s == "" || strings.Contains(s, rec.Token) {
 		t.Fatalf("String = %q", s)

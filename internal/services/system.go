@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
@@ -23,6 +24,11 @@ type engineHost interface {
 	Host() (cdmhost.Info, bool)
 }
 
+// qualitySetter is implemented by the native engine.
+type qualitySetter interface {
+	SetQuality(applemusic.Quality)
+}
+
 // SystemService is settings, diagnostics and app-level actions.
 type SystemService struct {
 	o *Env
@@ -32,7 +38,17 @@ type SystemService struct {
 	painted   time.Time
 }
 
-func newSystemService(e *Env) *SystemService { return &SystemService{o: e} }
+func newSystemService(e *Env) *SystemService {
+	// The audio quality applies from the next item.
+	if q, ok := e.Engine.(qualitySetter); ok {
+		e.Settings.OnChange(func(prev, next config.Settings) {
+			if prev.AudioQuality != next.AudioQuality {
+				q.SetQuality(applemusic.Quality(next.AudioQuality))
+			}
+		})
+	}
+	return &SystemService{o: e}
+}
 
 // FirstPaint is called by the frontend once the shell has painted. Network
 // work (token validation, stale library sync, cache pruning) starts then.
@@ -51,8 +67,9 @@ func (s *SystemService) FirstPaint() {
 func (s *SystemService) Settings() config.Settings { return s.o.Settings.Get() }
 
 // UpdateSettings saves next and applies it: volume at once, theme and
-// reduce-effects through "settings:changed"; the CDM path, idle timeout
-// and WebKit toggles on the next start.
+// reduce-effects through "settings:changed", the audio quality from the
+// next item; the CDM path, idle timeout and WebKit toggles on the next
+// start.
 func (s *SystemService) UpdateSettings(ctx context.Context, next config.Settings) (config.Settings, error) {
 	prev := s.o.Settings.Get()
 	saved, err := s.o.Settings.Update(func(st *config.Settings) { *st = next })
@@ -66,21 +83,6 @@ func (s *SystemService) UpdateSettings(ctx context.Context, next config.Settings
 	}
 	s.o.Emit.Emit(EventSettingsChanged, saved)
 	return saved, nil
-}
-
-// ClearCache deletes cached artwork and cached catalog responses. Library
-// data and settings are kept.
-func (s *SystemService) ClearCache(ctx context.Context) (ClearResult, error) {
-	var out ClearResult
-	before := s.o.Art.Size()
-	errArt := s.o.Art.Clear()
-	out.ArtworkBytes = before - s.o.Art.Size()
-	res, errDB := s.o.DB.W.ExecContext(ctx, `DELETE FROM catalog_cache`)
-	if errDB == nil {
-		out.CatalogEntries, _ = res.RowsAffected()
-	}
-	s.o.Logger.Info("cache cleared", "artwork_bytes", out.ArtworkBytes, "catalog_entries", out.CatalogEntries)
-	return out, errors.Join(errArt, errDB)
 }
 
 // OpenLogFolder opens the log directory in the file manager.
@@ -155,7 +157,9 @@ func (s *SystemService) database(ctx context.Context, out *DiagDatabase) error {
 }
 
 func (s *SystemService) playback(ctx context.Context, out *DiagPlayback) {
-	override := s.o.Settings.Get().CDMPath
+	cur := s.o.Settings.Get()
+	override := cur.CDMPath
+	out.AudioQuality = cur.AudioQuality
 	if h, ok := s.o.Engine.(engineHost); ok {
 		if info, running := h.Host(); running {
 			out.HostRunning, out.HostPID = true, info.PID
@@ -167,7 +171,9 @@ func (s *SystemService) playback(ctx context.Context, out *DiagPlayback) {
 	out.CDMPath, out.CDMVersion = info.CDMPath, info.CDMVersion
 	out.CDMInterface, out.HostInterface = info.CDMInterface, info.HostInterface
 	out.GStreamer, out.Decoder, out.Sink = info.GStreamer, info.Decoder, info.Sink
+	out.Sandboxed, out.SandboxNote = info.Sandbox.Active(), info.Sandbox.Reason
 	out.CDMOK = err == nil
+	out.CDMBlocked = errors.Is(err, cdmhost.ErrSandbox)
 	if err != nil {
 		out.CDMError = err.Error()
 		if out.CDMPath == "" {

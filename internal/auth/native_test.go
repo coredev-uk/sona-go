@@ -65,6 +65,34 @@ func TestNativeSignInWithTwoFactor(t *testing.T) {
 	}
 }
 
+// Accounts without an Apple device get the code by text or call.
+func TestNativeSignInWithoutDevicesByPhoneCall(t *testing.T) {
+	e := newEnv(t)
+	m, r := e.nativeManager(t, appleidtest.Config{Account: "a@example.com", Password: "pw", MUT: goodMUT, TwoFactor: true, NoDevices: true, NoAutoSend: true}, time.Minute)
+	ctx := context.Background()
+	sf, err := m.SignInWithPassword(ctx, "a@example.com", "pw")
+	if err != nil || sf == nil || sf.TrustedDevices || len(sf.Phones) != 2 {
+		t.Fatalf("SignInWithPassword = %+v, %v", sf, err)
+	}
+	// A device code is not a route for this account; the attempt stays open.
+	if err := m.SubmitSecurityCode(ctx, appleidtest.Code, 0, ""); !errors.Is(err, appleid.ErrOutOfOrder) {
+		t.Fatalf("device code: %v", err)
+	}
+	if err := m.SendCodeToPhone(ctx, 2, "voice"); err != nil {
+		t.Fatal(err)
+	}
+	if s := m.Status(); s.State != StateSigningIn || s.LastError != "" {
+		t.Fatalf("after call = %+v", s)
+	}
+	if err := m.SubmitSecurityCode(ctx, appleidtest.Code, 2, "voice"); err != nil {
+		t.Fatal(err)
+	}
+	r.wait(t, is(StateSignedIn))
+	if e.store.token() != goodMUT {
+		t.Fatal("token not stored")
+	}
+}
+
 func TestNativeSignInWithoutTwoFactor(t *testing.T) {
 	e := newEnv(t)
 	m, _ := e.nativeManager(t, appleidtest.Config{Account: "a@example.com", Password: "pw", MUT: goodMUT}, time.Minute)

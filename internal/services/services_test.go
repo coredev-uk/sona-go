@@ -134,7 +134,7 @@ func newMapper(t *testing.T) mapper {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return mapper{c}
+	return mapper{art: c}
 }
 
 const tmpl = "https://is1-ssl.mzstatic.com/image/thumb/Music/x/{w}x{h}bb.jpg"
@@ -149,8 +149,8 @@ func TestMapLibrarySong(t *testing.T) {
 		t.Errorf("art = %+v", s.Art)
 	}
 	upload := m.libSong(library.Song{LibraryID: "i.up", Name: "Upload"})
-	if upload.Playable {
-		t.Error("an upload (no catalog ID) is playable")
+	if !upload.Playable {
+		t.Error("an upload (no catalog ID) is not playable: it plays from its library ID")
 	}
 	if upload.Art != (Art{}) {
 		t.Errorf("no artwork gave %+v", upload.Art)
@@ -184,8 +184,8 @@ func TestMapAppleSong(t *testing.T) {
 		t.Errorf("library song = %+v", s)
 	}
 	lib.Attributes.PlayParams.CatalogID = ""
-	if m.amSong(lib).Playable {
-		t.Error("library song without catalog ID is playable")
+	if !m.amSong(lib).Playable {
+		t.Error("an uploaded library song (no catalog ID) is not playable")
 	}
 	var noPlay applemusic.Song
 	noPlay.ID, noPlay.Type = "1", "songs"

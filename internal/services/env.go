@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 	"sync"
+
+	"github.com/coredev-uk/sona-go/internal/diag"
 )
 
 // Env is what every feature constructor receives: the core components
@@ -14,6 +16,9 @@ type Env struct {
 
 	m       mapper      // shared DTO mappers (mappers.go)
 	members *membership // catalog item → in the user's library?
+	// previews parks the first batch of a track station shown on its page
+	// (station_preview.go).
+	previews stationPreviews
 
 	// firstPaint is set by Core; SystemService.FirstPaint calls it.
 	firstPaint func()
@@ -41,6 +46,11 @@ func (e *Env) Fail(err error) error {
 // once if it is already open), on the goroutine that opened it: start a
 // goroutine for anything slow. Cold start must not do network work before.
 func (e *Env) OnNetwork(fn func()) { e.Gate.OnOpen(fn) }
+
+// Go runs fn on a new goroutine; a panic in it is recovered and logged
+// with its stack (name labels it) instead of crashing the app. Start every
+// background goroutine in a feature with it.
+func (e *Env) Go(name string, fn func()) { diag.Go(e.Logger, name, fn) }
 
 // OnSignOut registers a sign-out step. Steps run in feature registry
 // order, before the user-data wipe; name labels its error.

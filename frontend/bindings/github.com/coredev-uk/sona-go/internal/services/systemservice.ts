@@ -19,23 +19,37 @@ import * as config$0 from "../config/models.js";
 import * as $models from "./models.js";
 
 /**
- * ClearCache deletes cached artwork and cached catalog responses. Library
- * data and settings are kept.
- */
-export function ClearCache(): $CancellablePromise<$models.ClearResult> {
-    return $Call.ByID(70894402).then(($result: any) => {
-        return $$createType0($result);
-    });
-}
-
-/**
  * Diagnostics reports versions, the playback stack, storage and paths. It
  * spawns a short-lived CDM host child to check the CDM and GStreamer.
  */
 export function Diagnostics(): $CancellablePromise<$models.Diagnostics> {
     return $Call.ByID(3726581981).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+/**
+ * DiagnosticsBundle builds the bug-report bundle (Settings → Diagnostics →
+ * Copy diagnostics): the Diagnostics report (versions, CDM probe, playback
+ * host, paths), the OS and desktop session, the settings, crash output and
+ * the last log lines, with tokens, e-mail addresses and the home directory
+ * scrubbed. It is also saved to a 0600 file in the state directory.
+ */
+export function DiagnosticsBundle(): $CancellablePromise<$models.DiagBundle> {
+    return $Call.ByID(3416477629).then(($result: any) => {
         return $$createType1($result);
     });
+}
+
+/**
+ * ExportSettings asks where to save (the desktop's file chooser, through
+ * xdg-desktop-portal) and writes the settings there as an export document
+ * (config.Export): without the values that belong to this computer, and
+ * never with a secret, since settings hold none. It returns the path, or
+ * "" when the user cancels.
+ */
+export function ExportSettings(): $CancellablePromise<string> {
+    return $Call.ByID(2738269064);
 }
 
 /**
@@ -44,6 +58,21 @@ export function Diagnostics(): $CancellablePromise<$models.Diagnostics> {
  */
 export function FirstPaint(): $CancellablePromise<void> {
     return $Call.ByID(2809484073);
+}
+
+/**
+ * ImportSettings asks for an export document (the desktop's file chooser)
+ * and applies it through the settings store, so every feature's OnChange
+ * observer sees the change. Keys the file lacks keep their values, unknown
+ * keys and this computer's settings are ignored, and out-of-range values
+ * are normalised; a file that is not an export, or has a value of the wrong
+ * type, changes nothing. It returns what changed; Path is "" when the user
+ * cancels.
+ */
+export function ImportSettings(): $CancellablePromise<$models.SettingsImport> {
+    return $Call.ByID(759599459).then(($result: any) => {
+        return $$createType2($result);
+    });
 }
 
 /**
@@ -58,22 +87,24 @@ export function OpenLogFolder(): $CancellablePromise<void> {
  */
 export function Settings(): $CancellablePromise<config$0.Settings> {
     return $Call.ByID(4125430634).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType3($result);
     });
 }
 
 /**
  * UpdateSettings saves next and applies it: volume at once, theme and
- * reduce-effects through "settings:changed"; the CDM path, idle timeout
- * and WebKit toggles on the next start.
+ * reduce-effects through "settings:changed", the audio quality from the
+ * next item; the CDM path, idle timeout and WebKit toggles on the next
+ * start.
  */
 export function UpdateSettings(next: config$0.Settings): $CancellablePromise<config$0.Settings> {
     return $Call.ByID(630933011, next).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType3($result);
     });
 }
 
 // Private type creation functions
-const $$createType0 = $models.ClearResult.createFrom;
-const $$createType1 = $models.Diagnostics.createFrom;
-const $$createType2 = config$0.Settings.createFrom;
+const $$createType0 = $models.Diagnostics.createFrom;
+const $$createType1 = $models.DiagBundle.createFrom;
+const $$createType2 = $models.SettingsImport.createFrom;
+const $$createType3 = config$0.Settings.createFrom;

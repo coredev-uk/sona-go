@@ -39,10 +39,17 @@ const (
 
 // Config describes the fake account.
 type Config struct {
-	Account    string // matched case-insensitively
-	Password   string
-	TwoFactor  bool // 409 after the password; trusted device + one phone
-	NoDevices  bool // two-factor by SMS only; Apple texts phone 1 itself
+	Account   string // matched case-insensitively
+	Password  string
+	TwoFactor bool // 409 after the password; trusted devices prompted, phone 1 listed
+	// NoDevices: two-factor by phone only. Apple texts phone 1 itself
+	// unless NoAutoSend, which lists phones 1 (sms) and 2 (voice) and
+	// sends nothing until asked.
+	NoDevices  bool
+	NoAutoSend bool
+	// NonFTEU sets phoneNumberVerification.enableNonFTEU; texted codes
+	// must then carry phoneNumber.nonFTEU.
+	NonFTEU    bool
 	MUT        string
 	Restricted bool
 	// NoSubscription redirects to the no-subscription route.
@@ -56,16 +63,17 @@ type Server struct {
 	t   testing.TB
 	cfg Config
 
-	mu      sync.Mutex
-	scnt    int
-	session string
-	b       *big.Int
-	A, B    []byte
-	salt    []byte
-	authed  bool // password (and second factor) accepted
-	pending bool // waiting for a second factor
-	codeTo  int  // phone the last code went to; 0 = devices
-	Calls   []string
+	mu       sync.Mutex
+	scnt     int
+	session  string
+	b        *big.Int
+	A, B     []byte
+	salt     []byte
+	authed   bool   // password (and second factor) accepted
+	pending  bool   // waiting for a second factor
+	codeTo   int    // phone the last code went to; 0 = devices, -1 = none
+	codeMode string // "sms" or "voice" for phone codes
+	calls    []string
 }
 
 // New starts a fake; it stops with the test.
@@ -89,6 +97,13 @@ func (s *Server) Options() appleid.Options {
 	}
 }
 
+// Requests returns "METHOD /path" for every request served so far.
+func (s *Server) Requests() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.calls...)
+}
+
 func (s *Server) nextSCNT(w http.ResponseWriter) {
 	s.scnt++
 	w.Header().Set("scnt", "scnt-"+strconv.Itoa(s.scnt))
@@ -105,7 +120,7 @@ func serviceErr(w http.ResponseWriter, status int, code, msg string) {
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.Calls = append(s.Calls, r.Method+" "+r.URL.Path)
+	s.calls = append(s.calls, r.Method+" "+r.URL.Path)
 
 	if strings.HasPrefix(r.URL.Path, "/appleauth/auth") && r.URL.Path != "/appleauth/auth/authorize/signin" {
 		if bad := s.checkWidgetHeaders(r); bad != "" {
@@ -192,7 +207,9 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if s.cfg.TwoFactor {
-			s.pending = true
+			// Apple prompts the trusted devices when it answers 409.
+			s.pending, s.codeTo = true, 0
+			w.Header().Set("Location", "/auth")
 			w.WriteHeader(http.StatusConflict)
 			fmt.Fprint(w, `{"authType":"hsa2"}`)
 			return
@@ -200,24 +217,38 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.signedIn(w)
 
 	case "GET /appleauth/auth":
-		if !s.pending {
-			serviceErr(w, http.StatusUnauthorized, "-1", "no pending 2fa")
+		// The widget loads this page as HTML and reads its boot_args.
+		if !s.pending || r.Header.Get("Accept") != "text/html" {
+			serviceErr(w, http.StatusUnauthorized, "-1", "no pending 2fa page")
 			return
 		}
 		s.nextSCNT(w)
-		out := map[string]any{
-			"authenticationType":  "hsa2",
-			"trustedDeviceCount":  1,
-			"securityCode":        map[string]any{"length": 6},
-			"trustedPhoneNumbers": []map[string]any{{"id": 1, "numberWithDialCode": "+44 ••••• ••••12", "pushMode": "sms"}},
+		phone := map[string]any{"id": 1, "numberWithDialCode": "+44 ••••• ••••12", "obfuscatedNumber": "••••• ••••12", "pushMode": "sms"}
+		phones := []any{phone}
+		if s.cfg.NoAutoSend {
+			phones = append(phones, map[string]any{"id": 2, "numberWithDialCode": "+1 (•••) •••-••34", "pushMode": "voice"})
 		}
-		if s.cfg.NoDevices {
-			out["trustedDeviceCount"] = 0
-			out["noTrustedDevices"] = true
-			out["phoneNumber"] = map[string]any{"id": 1}
-			s.codeTo = 1
+		pnv := map[string]any{
+			"securityCode":        map[string]any{"length": 6, "tooManyCodesSent": false},
+			"trustedPhoneNumbers": phones,
+			"enableNonFTEU":       s.cfg.NonFTEU,
 		}
-		json.NewEncoder(w).Encode(out)
+		direct := map[string]any{
+			"hasTrustedDevices": !s.cfg.NoDevices,
+			"authType":          "hsa2",
+			"authUserType":      "hsa2",
+			"twoSV":             map[string]any{"phoneNumberVerification": pnv, "authFactors": []string{"type_hsa2"}},
+		}
+		switch {
+		case s.cfg.NoDevices && s.cfg.NoAutoSend:
+			s.codeTo = -1
+		case s.cfg.NoDevices:
+			pnv["phoneNumber"] = phone
+			s.codeTo, s.codeMode = 1, "sms"
+		}
+		args, _ := json.Marshal(map[string]any{"direct": direct, "additional": map[string]any{"canRoute2sv": true}})
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = fmt.Fprintf(w, `<div id="stocking"><script type="application/json" class="boot_args">%s</script></div>`, args)
 
 	case "PUT /appleauth/auth/verify/phone":
 		var in struct {
@@ -225,15 +256,23 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			Mode        string           `json:"mode"`
 		}
 		json.NewDecoder(r.Body).Decode(&in)
-		if !s.pending || in.PhoneNumber.ID != 1 || in.Mode == "" {
+		if !s.pending || (in.PhoneNumber.ID != 1 && (!s.cfg.NoAutoSend || in.PhoneNumber.ID != 2)) ||
+			(in.Mode != "sms" && in.Mode != "voice") {
 			serviceErr(w, http.StatusBadRequest, "-1", "bad phone")
 			return
 		}
-		s.codeTo = 1
+		s.codeTo, s.codeMode = in.PhoneNumber.ID, in.Mode
 		s.nextSCNT(w)
-		fmt.Fprint(w, `{}`)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"phoneNumber":  map[string]any{"id": in.PhoneNumber.ID, "pushMode": in.Mode},
+			"securityCode": map[string]any{"length": 6},
+		})
 
 	case "PUT /appleauth/auth/verify/trusteddevice/securitycode":
+		if s.cfg.NoDevices {
+			serviceErr(w, http.StatusBadRequest, "-1", "no trusted devices")
+			return
+		}
 		s.codeTo = 0
 		s.nextSCNT(w)
 		w.WriteHeader(http.StatusAccepted)
@@ -242,15 +281,21 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		"POST /appleauth/auth/verify/phone/securitycode":
 		var in struct {
 			SecurityCode struct{ Code string } `json:"securityCode"`
-			PhoneNumber  *struct{ ID int }     `json:"phoneNumber"`
+			PhoneNumber  *struct {
+				ID      int  `json:"id"`
+				NonFTEU bool `json:"nonFTEU"`
+			} `json:"phoneNumber"`
+			Mode string `json:"mode"`
 		}
 		json.NewDecoder(r.Body).Decode(&in)
 		s.nextSCNT(w)
-		phone := 0
-		if in.PhoneNumber != nil {
-			phone = in.PhoneNumber.ID
+		ok := s.pending && in.SecurityCode.Code == Code
+		if in.PhoneNumber == nil {
+			ok = ok && s.codeTo == 0
+		} else {
+			ok = ok && in.PhoneNumber.ID == s.codeTo && in.Mode == s.codeMode && in.PhoneNumber.NonFTEU == s.cfg.NonFTEU
 		}
-		if !s.pending || in.SecurityCode.Code != Code || phone != s.codeTo {
+		if !ok {
 			serviceErr(w, http.StatusBadRequest, "-21669", "Incorrect verification code.")
 			return
 		}

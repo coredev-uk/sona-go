@@ -33,6 +33,36 @@ type QueueItem struct {
 	Auto bool `json:"auto"`
 	// Live: a live radio stream (no duration, cannot seek).
 	Live bool `json:"live"`
+	// Added: the user queued the song by hand (Play Next, Add to Queue)
+	// rather than it coming with the album or playlist that was played.
+	Added bool `json:"added"`
+	// Explicit: Apple rates the song explicit (skipped while the account
+	// restricts explicit content).
+	Explicit bool `json:"explicit"`
+}
+
+// PlayFrom names where PlayItems' songs come from. Kind is "album",
+// "playlist" or "artist" for an Apple collection (ID its catalog or
+// library ID; plays are reported with it), "" for anything else (ID is
+// then a label such as "search").
+type PlayFrom struct {
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
+}
+
+// QueueContainer is the collection the current song was queued from:
+// Kind album, playlist, artist or station, and its ID.
+type QueueContainer struct {
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
+}
+
+// SleepTimer is the sleep timer. Mode is "after" (playback pauses at
+// EndsAt, Unix ms), "track" (when the current song ends) or "queue"
+// (when the last song the user queued ends).
+type SleepTimer struct {
+	Mode   string `json:"mode"`
+	EndsAt int64  `json:"endsAt"` // 0 unless Mode is "after"
 }
 
 // QueueStation is the station feeding the queue: one the user started, or
@@ -73,6 +103,14 @@ type PlaybackState struct {
 	AutoPlay bool `json:"autoPlay"`
 	// Station feeding the queue, nil when none.
 	Station *QueueStation `json:"station"`
+	// Container is the collection the current song came from, nil when
+	// none.
+	Container *QueueContainer `json:"container"`
+	// Sleep is the sleep timer, nil when off.
+	Sleep *SleepTimer `json:"sleep"`
+	// CanUndoReplace: UndoReplace can bring back the queue the last play
+	// of a collection or station replaced.
+	CanUndoReplace bool `json:"canUndoReplace"`
 }
 
 // QueueState is the queue ("playback:queue", sent when Version changes).

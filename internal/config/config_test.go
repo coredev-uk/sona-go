@@ -90,7 +90,7 @@ func TestLoadMissingReturnsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s != Defaults() {
+	if !reflect.DeepEqual(s, Defaults()) {
 		t.Fatalf("got %+v, want defaults", s)
 	}
 	d := Defaults()
@@ -102,15 +102,18 @@ func TestLoadMissingReturnsDefaults(t *testing.T) {
 
 func TestSaveLoadRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	in := Settings{
-		Theme:             ThemeDark,
-		ReduceEffects:     true,
-		Volume:            0.35,
-		AudioQuality:      Quality64,
-		CDMPath:           "/opt/google/chrome/WidevineCdm/_platform_specific/linux_x64/libwidevinecdm.so",
-		EngineIdleMinutes: 3,
-		Diagnostics:       Diagnostics{DisableDMABufRenderer: true, DisableCompositingMode: true},
-	}
+	// From the defaults: zero nested settings normalize to their defaults.
+	in := Defaults()
+	in.Theme = ThemeDark
+	in.ReduceEffects = true
+	in.Volume = 0.35
+	in.AudioQuality = Quality64
+	in.CDMPath = "/opt/google/chrome/WidevineCdm/_platform_specific/linux_x64/libwidevinecdm.so"
+	in.EngineIdleMinutes = 3
+	in.Diagnostics = Diagnostics{DisableDMABufRenderer: true, DisableCompositingMode: true}
+	in.Shortcuts = Shortcuts{"player.toggle": "K"}
+	in.Desktop = Desktop{CloseAction: CloseQuits, Autostart: true, StartPage: "/radio", ResumeLastRoute: true, LastRoute: "/album/1?song=2"}
+	in.Window = Window{Width: 1600, Height: 1000, Maximised: true}
 	if err := SaveSettings(path, in); err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +144,7 @@ func TestLoadPartialKeepsDefaultsAndNormalizes(t *testing.T) {
 	}
 	want := Defaults()
 	want.Volume = 1
-	if s != want {
+	if !reflect.DeepEqual(s, want) {
 		t.Fatalf("got %+v, want %+v", s, want)
 	}
 }
@@ -155,7 +158,7 @@ func TestLoadMalformedReturnsDefaultsAndError(t *testing.T) {
 	if err == nil {
 		t.Fatal("want parse error")
 	}
-	if s != Defaults() {
+	if !reflect.DeepEqual(s, Defaults()) {
 		t.Fatalf("got %+v, want defaults", s)
 	}
 }
@@ -215,11 +218,11 @@ func TestStoreUpdatePersists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.ReduceEffects || got.Volume != 0 || st.Get() != got {
+	if !got.ReduceEffects || got.Volume != 0 || !reflect.DeepEqual(st.Get(), got) {
 		t.Fatalf("update: got %+v, store %+v", got, st.Get())
 	}
 	reread, err := LoadSettings(path)
-	if err != nil || reread != got {
+	if err != nil || !reflect.DeepEqual(reread, got) {
 		t.Fatalf("persisted %+v, %v; want %+v", reread, err, got)
 	}
 }
@@ -233,8 +236,42 @@ func TestStoreUpdateKeepsStateOnSaveError(t *testing.T) {
 	if _, err := st.Update(func(s *Settings) { s.Theme = ThemeDark }); err == nil {
 		t.Fatal("want save error")
 	}
-	if st.Get() != Defaults() {
+	if !reflect.DeepEqual(st.Get(), Defaults()) {
 		t.Fatalf("in-memory settings changed after failed save: %+v", st.Get())
+	}
+}
+
+// An Update that writes into the equaliser curve in place must not change
+// the previous settings observers compare against.
+func TestStoreUpdateObserversSeeTheOldCurve(t *testing.T) {
+	st, err := OpenStore(filepath.Join(t.TempDir(), "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var prevGain, nextGain float64
+	st.OnChange(func(prev, next Settings) {
+		prevGain, nextGain = prev.Audio.Equalizer.Custom[0], next.Audio.Equalizer.Custom[0]
+	})
+	if _, err := st.Update(func(s *Settings) { s.Audio.Equalizer.Custom[0] = 6 }); err != nil {
+		t.Fatal(err)
+	}
+	if prevGain != 0 || nextGain != 6 {
+		t.Fatalf("observer saw prev %v, next %v; want 0, 6", prevGain, nextGain)
+	}
+	got := st.Get()
+	got.Audio.Equalizer.Custom[0] = -3
+	if st.Get().Audio.Equalizer.Custom[0] != 6 {
+		t.Fatal("editing a Get copy changed the store")
+	}
+}
+
+func TestEngineIdleMinutesBounds(t *testing.T) {
+	for in, want := range map[int]int{-5: 10, 0: 10, 30: 30, 1 << 40: 24 * 60} {
+		s := Defaults()
+		s.EngineIdleMinutes = in
+		if got := s.Normalized().EngineIdleMinutes; got != want {
+			t.Errorf("Normalized(%d) = %d, want %d", in, got, want)
+		}
 	}
 }
 
@@ -260,5 +297,47 @@ func TestDiagnosticsApplyEnv(t *testing.T) {
 	}
 	if _, ok := os.LookupEnv(dmabuf); ok {
 		t.Errorf("%s set although the toggle is off", dmabuf)
+	}
+}
+
+// A null or partly blank shortcuts object loads as an object holding only
+// real overrides: the frontend reads it without a nil check, and a blank
+// binding means "use the default", not "no key".
+func TestLoadShortcutsNullAndBlank(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	for _, body := range []string{`{"shortcuts":null}`, `{"shortcuts":{"player.toggle":" ","":"Ctrl+K"," commands.palette ":" Ctrl+P "}}`} {
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		s, err := LoadSettings(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := Shortcuts{}
+		if strings.Contains(body, "palette") {
+			want = Shortcuts{"commands.palette": "Ctrl+P"}
+		}
+		if s.Shortcuts == nil || !reflect.DeepEqual(s.Shortcuts, want) {
+			t.Errorf("%s: shortcuts = %#v, want %#v", body, s.Shortcuts, want)
+		}
+	}
+}
+
+func TestStorageArtCacheLimit(t *testing.T) {
+	for in, want := range map[int]int{0: DefaultArtCacheMiB, 1: MinArtCacheMiB, -5: MinArtCacheMiB, 2048: 2048, 1 << 20: MaxArtCacheMiB} {
+		if got := (Storage{ArtCacheMiB: in}).normalized().ArtCacheMiB; got != want {
+			t.Errorf("artCacheMiB %d → %d, want %d", in, got, want)
+		}
+	}
+}
+
+func TestCrossfadeSecondsBounds(t *testing.T) {
+	for in, want := range map[int]int{0: 6, -3: 1, 1: 1, 12: 12, 30: 12} {
+		if got := (Settings{Crossfade: Crossfade{Seconds: in}}).Normalized().Crossfade.Seconds; got != want {
+			t.Errorf("crossfade %d s → %d, want %d", in, got, want)
+		}
+	}
+	if d := Defaults().Crossfade; d.Enabled || d.Seconds != 6 {
+		t.Errorf("default crossfade %+v, want off at 6 s", d)
 	}
 }

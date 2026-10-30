@@ -9,6 +9,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/artwork"
 	"github.com/coredev-uk/sona-go/internal/library"
+	"github.com/coredev-uk/sona-go/internal/motion"
 )
 
 // Shared DTO mappers. Every feature turns Apple resources (applemusic.*)
@@ -23,10 +24,14 @@ const colorsTimeout = 1500 * time.Millisecond
 
 // mapper turns applemusic resources and library rows into DTOs. Methods:
 // artOf (template → Art), header (template → backdrop + colours),
+// motionOf (editorialVideo → motion cover URL),
 // libSong/libSongs/libAlbum/libAlbums/libArtist/libPlaylist (library rows),
 // amSong/amSongs/amAlbum/amAlbums/amArtist/amArtists/amPlaylist/amPlaylists
 // (Apple resources, catalog or library-typed).
-type mapper struct{ art *artwork.Cache }
+type mapper struct {
+	art    *artwork.Cache
+	motion *motion.Cache
+}
 
 func (m mapper) artOf(template string) Art {
 	if template == "" || m.art == nil {
@@ -53,6 +58,12 @@ func (m mapper) header(ctx context.Context, template string) Header {
 		}
 	}
 	return h
+}
+
+// motionOf returns the Go-served URL of an item's square motion cover, ""
+// when it has none.
+func (m mapper) motionOf(v applemusic.EditorialVideo) string {
+	return m.motion.URL(v.Square())
 }
 
 func unixMs(t time.Time) int64 {
@@ -100,7 +111,7 @@ func (m mapper) libSong(s library.Song) Song {
 		Genre:       s.Genre,
 		Explicit:    s.Explicit,
 		HasLyrics:   s.HasLyrics,
-		Playable:    s.CatalogID != "", // uploads are plain files the engine cannot play
+		Playable:    s.CatalogID != "" || s.LibraryID != "", // uploads play from their library ID
 		Art:         m.artOf(s.ArtworkTemplate),
 	}
 }
@@ -213,7 +224,6 @@ func (m mapper) amSong(s applemusic.Song) Song {
 	}
 	if isLibraryType(s.Type) {
 		out.Source, out.LibraryID = SourceLibrary, s.ID
-		out.Playable = out.Playable && out.CatalogID != ""
 	}
 	if d := s.Relationships.Albums.Data; len(d) > 0 {
 		out.AlbumID = d[0].ID

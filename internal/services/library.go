@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/library"
@@ -43,6 +45,9 @@ func newLibraryService(e *Env) *LibraryService {
 			go e.History.trim(context.Background())
 		}
 	})
+	if e.History != nil && e.Coord != nil {
+		e.Coord.ObserveActivity(e.History.observe)
+	}
 	prev := e.Auth.Status().State
 	e.Auth.OnChange(func(st auth.Status) {
 		was := prev
@@ -226,26 +231,90 @@ func (s *LibraryService) RecentlyPlayed(ctx context.Context, limit, offset int) 
 	return s.m.amSongs(r.Data), nil
 }
 
-// History returns the plays recorded on this machine, newest first.
-func (s *LibraryService) History(ctx context.Context, limit int) ([]HistoryEntry, error) {
-	if limit <= 0 {
-		limit = 50
+// recentPages is how many pages of Apple's recently played tracks History
+// reads (Apple keeps about 180 songs, 30 per page).
+const recentPages = 7
+
+// History returns the listening history of the last days days (1–365;
+// 0 means 30): the plays recorded on this computer (and the one in
+// progress, once Apple reports it) merged with Apple's recently played
+// songs from the account's other devices, grouped by local day, newest
+// first (see library.MergeHistory). Apple's list is left out when signed
+// out or unreachable (Apple is false then).
+func (s *LibraryService) History(ctx context.Context, days int) (ListeningHistory, error) {
+	if days <= 0 {
+		days = 30
 	}
-	rows, err := s.o.DB.RQ.RecentHistory(ctx, int64(min(limit, 500)))
+	days = min(days, 365)
+	now := s.o.Now()
+	since := time.Date(now.Year(), now.Month(), now.Day()-days+1, 0, 0, 0, 0, now.Location())
+	plays, last, more, err := s.o.Library.History(ctx, since)
 	if err != nil {
+		return ListeningHistory{}, err
+	}
+	var apple []applemusic.Song
+	out := ListeningHistory{Since: since.UnixMilli(), More: more}
+	if s.o.Auth.Status().State == auth.StateSignedIn {
+		if apple, err = s.recentlyPlayedAll(ctx); err != nil {
+			s.o.Report(err)
+			s.o.Logger.Warn("library: history without Apple's recently played", "err", err)
+		} else {
+			out.Apple = true
+		}
+	}
+	var started []library.Play
+	if s.o.History != nil {
+		started = s.o.History.started(ctx)
+	}
+	merged := library.MergeHistory(plays, started, last, apple, since, now.Location())
+	out.Days = make([]HistoryDay, len(merged))
+	for i, d := range merged {
+		day := HistoryDay{Entries: make([]HistoryEntry, len(d.Entries))}
+		if !d.Day.IsZero() {
+			day.Day = d.Day.UnixMilli()
+		}
+		for j, e := range d.Entries {
+			if e.Apple != nil {
+				day.Entries[j] = HistoryEntry{Song: s.m.amSong(*e.Apple)}
+				continue
+			}
+			p := e.Play
+			song := Song{
+				ID: p.CatalogID, Source: SourceCatalog, CatalogID: p.CatalogID, LibraryID: p.LibraryID,
+				Name: p.Name, Artist: p.Artist, Album: p.Album, DurationMs: p.Duration.Milliseconds(),
+				Playable: p.CatalogID != "" || p.LibraryID != "", Art: s.m.artOf(p.ArtworkTemplate),
+			}
+			if p.LibraryID != "" {
+				song.ID, song.Source = p.LibraryID, SourceLibrary
+			}
+			day.Entries[j] = HistoryEntry{PlayedAt: p.PlayedAt.UnixMilli(), Song: song, PlayedMs: p.Played.Milliseconds(), SourceName: p.Context}
+		}
+		out.Days[i] = day
+	}
+	return out, nil
+}
+
+// recentlyPlayedAll reads Apple's whole recently played list, its pages
+// in parallel.
+func (s *LibraryService) recentlyPlayedAll(ctx context.Context) ([]applemusic.Song, error) {
+	pages := make([][]applemusic.Song, recentPages)
+	g, gctx := errgroup.WithContext(ctx)
+	for i := range pages {
+		g.Go(func() error {
+			r, err := s.o.API.RecentlyPlayed(gctx, 30, i*30)
+			pages[i] = r.Data
+			return err
+		})
+	}
+	if err := g.Wait(); err != nil {
 		return nil, err
 	}
-	out := make([]HistoryEntry, len(rows))
-	for i, r := range rows {
-		song := Song{
-			ID: r.CatalogID, Source: SourceCatalog, CatalogID: r.CatalogID, LibraryID: r.LibraryID,
-			Name: r.Name, Artist: r.ArtistName, Album: r.AlbumName, DurationMs: r.DurationMs,
-			Playable: r.CatalogID != "", Art: s.m.artOf(r.ArtworkTemplate),
+	var out []applemusic.Song
+	for _, p := range pages {
+		if len(p) == 0 {
+			break
 		}
-		if r.LibraryID != "" {
-			song.ID, song.Source = r.LibraryID, SourceLibrary
-		}
-		out[i] = HistoryEntry{PlayedAt: r.PlayedAt, Song: song, PlayedMs: r.PlayedMs, SourceName: r.Source}
+		out = append(out, p...)
 	}
 	return out, nil
 }
@@ -288,7 +357,7 @@ func (s *LibraryService) Add(ctx context.Context, typ string, ids []string) erro
 
 // syncSoon syncs domains now, or after the running sync.
 func (s *LibraryService) syncSoon(domains ...library.Domain) {
-	switch err := s.startSync(domains...); {
+	switch err := s.startSync(library.Incremental, domains...); {
 	case errors.Is(err, library.ErrSyncRunning):
 		s.mu.Lock()
 		s.resync = append(s.resync, domains...)
@@ -298,10 +367,12 @@ func (s *LibraryService) syncSoon(domains ...library.Domain) {
 	}
 }
 
-// Sync starts a library sync in the background; progress arrives as
-// "sync:progress" events and the outcome as "sync:done". It fails with
-// sync_running while a sync runs and not_signed_in when signed out.
-func (s *LibraryService) Sync() error { return s.startSync() }
+// Sync starts a full library sync in the background (the on-demand one;
+// startup and changes made here sync incrementally, with a full run every
+// library.FullSyncEvery); progress arrives as "sync:progress" events and
+// the outcome as "sync:done". It fails with sync_running while a sync runs
+// and not_signed_in when signed out.
+func (s *LibraryService) Sync() error { return s.startSync(library.Full) }
 
 // SyncStatus returns the stored sync state.
 func (s *LibraryService) SyncStatus(ctx context.Context) (SyncStatus, error) {
@@ -368,12 +439,12 @@ func (s *LibraryService) syncIfStale(ctx context.Context) {
 		s.o.Logger.Info("library: sync not due", "last_success", time.UnixMilli(st.LastSuccess))
 		return
 	}
-	if err := s.startSync(); err != nil && !errors.Is(err, library.ErrSyncRunning) {
+	if err := s.startSync(library.Incremental); err != nil && !errors.Is(err, library.ErrSyncRunning) {
 		s.o.Logger.Warn("library: start sync", "err", err)
 	}
 }
 
-func (s *LibraryService) startSync(domains ...library.Domain) error {
+func (s *LibraryService) startSync(mode library.Mode, domains ...library.Domain) error {
 	if s.o.Auth.Status().State != auth.StateSignedIn {
 		return auth.ErrNotSignedIn
 	}
@@ -391,12 +462,12 @@ func (s *LibraryService) startSync(domains ...library.Domain) error {
 	s.syncCancel, s.syncDone = cancel, done
 	s.mu.Unlock()
 
-	go func() {
+	s.o.Go("library sync", func() {
 		defer close(done)
 		defer cancel()
 		start := s.o.Now()
-		s.o.Logger.Info("library: sync started", "domains", domains)
-		err := s.o.Syncer.Sync(ctx, func(p library.Progress) {
+		s.o.Logger.Info("library: sync started", "full", mode == library.Full, "domains", domains)
+		err := s.o.Syncer.Sync(ctx, mode, func(p library.Progress) {
 			ev := SyncProgress{Domain: string(p.Domain), Done: p.Done, Total: p.Total, Finished: p.Finished}
 			if p.Err != nil {
 				ev.Error = p.Err.Error()
@@ -424,11 +495,11 @@ func (s *LibraryService) startSync(domains ...library.Domain) error {
 		s.o.Logger.Info("library: sync finished", "ok", err == nil, "took", s.o.Now().Sub(start).Round(time.Millisecond), "counts", c)
 		s.o.Emit.Emit(EventSyncDone, ev)
 		if len(again) > 0 && ctx.Err() == nil {
-			if err := s.startSync(again...); err != nil {
+			if err := s.startSync(library.Incremental, again...); err != nil {
 				s.o.Logger.Warn("library: sync after add", "err", err)
 			}
 		}
-	}()
+	})
 	return nil
 }
 

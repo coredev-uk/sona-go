@@ -1,10 +1,13 @@
-// Package store persists the Music User Token record.
+// Package store persists Sona's secrets: the Music User Token record and
+// other named secrets (the scrobblers' session key and user token).
 //
-// The record lives in the Secret Service (via go-keyring, service "sona", key
-// "mut"). When no Secret Service is reachable, Open falls back to
-// <configDir>/credentials.json with mode 0600 and says so: it logs a warning
-// and Backend reports BackendFile so Settings and Diagnostics can show an
-// "unencrypted" warning. See docs/auth.md §7.
+// Every secret lives in the Secret Service (via go-keyring, service "sona",
+// one key per secret: "mut" for the MUT record). When no Secret Service is
+// reachable, Open and OpenSecret fall back to a file in the config directory
+// (credentials.json for the MUT, credentials-<key> for named secrets) with
+// mode 0600 and say so: they log a warning and Backend reports BackendFile so
+// Settings and Diagnostics can show an "unencrypted" warning. See
+// docs/auth.md §7.
 package store
 
 import (
@@ -14,6 +17,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/zalando/go-keyring"
@@ -36,7 +40,7 @@ const (
 	BackendFile          Backend = "file (unencrypted)"
 )
 
-// Errors returned by Store.Get.
+// Errors returned by Store.Get and Secret.Get.
 var (
 	ErrNotFound = errors.New("store: no stored credentials")
 	ErrCorrupt  = errors.New("store: stored credentials are unreadable")
@@ -70,6 +74,19 @@ type Store interface {
 	Backend() Backend
 }
 
+// Secret persists one opaque string (a session key, an API token).
+type Secret interface {
+	// Get returns the stored secret, ErrNotFound when there is none, or an
+	// error wrapping ErrCorrupt when the stored value is empty.
+	Get() (string, error)
+	// Set replaces the stored secret.
+	Set(string) error
+	// Delete removes the secret; deleting a missing secret is not an error.
+	Delete() error
+	// Backend reports where the secret is kept.
+	Backend() Backend
+}
+
 // Keyring is the subset of go-keyring Sona uses; tests inject fakes.
 type Keyring interface {
 	Get(service, user string) (string, error)
@@ -99,28 +116,77 @@ func Open(configDir string, logger *slog.Logger) (Store, error) {
 // keyring.ErrNotFound means the Secret Service answered. A credentials file
 // left by an earlier fallback is moved into the keyring once it is available.
 func OpenWith(configDir string, kr Keyring, logger *slog.Logger) (Store, error) {
+	s, err := openSlot(filepath.Join(configDir, FileName), Key, kr, func(b []byte) error {
+		_, err := decode(b)
+		return err
+	}, logger)
+	if err != nil {
+		return nil, err
+	}
+	return recordStore{s}, nil
+}
+
+// OpenSecret returns the named secret (keyring key "<key>" under Service)
+// with the same Secret Service probe, 0600 file fallback
+// (<configDir>/credentials-<key>) and migration as Open. key must not be
+// Key.
+func OpenSecret(configDir, key string, logger *slog.Logger) (Secret, error) {
+	return OpenSecretWith(configDir, key, SystemKeyring{}, logger)
+}
+
+// OpenSecretWith is OpenSecret with an explicit keyring.
+func OpenSecretWith(configDir, key string, kr Keyring, logger *slog.Logger) (Secret, error) {
+	if key == "" || key == Key || strings.ContainsAny(key, `/\`) {
+		return nil, fmt.Errorf("store: invalid secret key %q", key)
+	}
+	s, err := openSlot(filepath.Join(configDir, "credentials-"+key), key, kr, func(b []byte) error {
+		_, err := decodeSecret(b)
+		return err
+	}, logger)
+	if err != nil {
+		return nil, err
+	}
+	return secretStore{s}, nil
+}
+
+// slot is one stored value: a Secret Service entry or its 0600 file.
+type slot interface {
+	get() ([]byte, error) // ErrNotFound when absent
+	set([]byte) error
+	del() error
+	backend() Backend
+}
+
+// openSlot probes the keyring with key, falls back to the file at path, and
+// moves a valid leftover file into the keyring (removing an invalid one).
+func openSlot(path, key string, kr Keyring, valid func([]byte) error, logger *slog.Logger) (slot, error) {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
-	file := &fileStore{path: filepath.Join(configDir, FileName)}
-	_, err := kr.Get(Service, Key)
+	file := &fileSlot{path: path}
+	_, err := kr.Get(Service, key)
 	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
 		logger.Warn("secret service unavailable; storing credentials unencrypted",
 			"path", file.path, "err", err)
 		return file, nil
 	}
-	ks := &keyringStore{kr: kr, file: file}
-	if rec, ferr := file.Get(); ferr == nil {
-		if err := ks.Set(rec); err != nil {
+	ks := &keyringSlot{kr: kr, key: key, file: file}
+	b, ferr := file.get()
+	if ferr == nil {
+		ferr = valid(b)
+	}
+	switch {
+	case ferr == nil:
+		if err := ks.set(b); err != nil {
 			return nil, fmt.Errorf("store: migrate %s to secret service: %w", file.path, err)
 		}
 		logger.Info("moved credentials from file to secret service", "path", file.path)
-	} else if errors.Is(ferr, ErrCorrupt) {
+	case errors.Is(ferr, ErrCorrupt):
 		logger.Warn("removing unreadable credentials file", "path", file.path, "err", ferr)
-		if err := file.Delete(); err != nil {
+		if err := file.del(); err != nil {
 			return nil, err
 		}
-	} else if !errors.Is(ferr, ErrNotFound) {
+	case !errors.Is(ferr, ErrNotFound):
 		return nil, ferr
 	}
 	return ks, nil
@@ -137,82 +203,129 @@ func decode(b []byte) (Record, error) {
 	return r, nil
 }
 
-// keyringStore keeps the record as JSON in the Secret Service. Set and
-// Delete also remove a leftover fallback file.
-type keyringStore struct {
-	kr   Keyring
-	file *fileStore
+func decodeSecret(b []byte) (string, error) {
+	if len(b) == 0 {
+		return "", fmt.Errorf("%w: empty secret", ErrCorrupt)
+	}
+	return string(b), nil
 }
 
-func (s *keyringStore) Backend() Backend { return BackendSecretService }
+// recordStore keeps the Record as JSON.
+type recordStore struct{ s slot }
 
-func (s *keyringStore) Get() (Record, error) {
-	v, err := s.kr.Get(Service, Key)
-	if errors.Is(err, keyring.ErrNotFound) {
-		return Record{}, ErrNotFound
-	}
+func (r recordStore) Backend() Backend { return r.s.backend() }
+
+func (r recordStore) Get() (Record, error) {
+	b, err := r.s.get()
 	if err != nil {
-		return Record{}, fmt.Errorf("store: secret service get: %w", err)
+		return Record{}, err
 	}
-	return decode([]byte(v))
+	return decode(b)
 }
 
-func (s *keyringStore) Set(r Record) error {
-	b, err := json.Marshal(r)
+func (r recordStore) Set(rec Record) error {
+	b, err := json.Marshal(rec)
 	if err != nil {
 		return err
 	}
-	if err := s.kr.Set(Service, Key, string(b)); err != nil {
-		return fmt.Errorf("store: secret service set: %w", err)
-	}
-	return s.file.Delete()
+	return r.s.set(b)
 }
 
-func (s *keyringStore) Delete() error {
-	err := s.kr.Delete(Service, Key)
+func (r recordStore) Delete() error { return r.s.del() }
+
+// secretStore keeps the string as is.
+type secretStore struct{ s slot }
+
+func (r secretStore) Backend() Backend { return r.s.backend() }
+
+func (r secretStore) Get() (string, error) {
+	b, err := r.s.get()
+	if err != nil {
+		return "", err
+	}
+	return decodeSecret(b)
+}
+
+func (r secretStore) Set(v string) error {
+	if v == "" {
+		return errors.New("store: empty secret")
+	}
+	return r.s.set([]byte(v))
+}
+
+func (r secretStore) Delete() error { return r.s.del() }
+
+// keyringSlot keeps the value in the Secret Service. set and del also
+// remove a leftover fallback file.
+type keyringSlot struct {
+	kr   Keyring
+	key  string
+	file *fileSlot
+}
+
+func (s *keyringSlot) backend() Backend { return BackendSecretService }
+
+func (s *keyringSlot) get() ([]byte, error) {
+	v, err := s.kr.Get(Service, s.key)
+	if errors.Is(err, keyring.ErrNotFound) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("store: secret service get: %w", err)
+	}
+	return []byte(v), nil
+}
+
+func (s *keyringSlot) set(b []byte) error {
+	if err := s.kr.Set(Service, s.key, string(b)); err != nil {
+		return fmt.Errorf("store: secret service set: %w", err)
+	}
+	return s.file.del()
+}
+
+func (s *keyringSlot) del() error {
+	err := s.kr.Delete(Service, s.key)
 	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
 		err = fmt.Errorf("store: secret service delete: %w", err)
 	} else {
 		err = nil
 	}
-	return errors.Join(err, s.file.Delete())
+	return errors.Join(err, s.file.del())
 }
 
-// fileStore keeps the record as JSON in a 0600 file.
-type fileStore struct {
+// fileSlot keeps the value in a 0600 file.
+type fileSlot struct {
 	path string
 }
 
-func (s *fileStore) Backend() Backend { return BackendFile }
+func (s *fileSlot) backend() Backend { return BackendFile }
 
-func (s *fileStore) Get() (Record, error) {
+func (s *fileSlot) get() ([]byte, error) {
 	b, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) {
-		return Record{}, ErrNotFound
+		return nil, ErrNotFound
 	}
 	if err != nil {
-		return Record{}, fmt.Errorf("store: %w", err)
+		return nil, fmt.Errorf("store: %w", err)
 	}
 	if fi, err := os.Stat(s.path); err == nil && fi.Mode().Perm() != 0o600 {
 		if err := os.Chmod(s.path, 0o600); err != nil {
-			return Record{}, fmt.Errorf("store: restrict %s: %w", s.path, err)
+			return nil, fmt.Errorf("store: restrict %s: %w", s.path, err)
 		}
 	}
-	return decode(b)
+	return b, nil
 }
 
-// Set writes atomically: a 0600 temp file in the same directory, fsynced,
+// set writes atomically: a 0600 temp file in the same directory, fsynced,
 // then renamed over the old file.
-func (s *fileStore) Set(r Record) error {
-	b, err := json.Marshal(r)
-	if err != nil {
-		return err
-	}
+func (s *fileSlot) set(b []byte) error {
 	dir := filepath.Dir(s.path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("store: %w", err)
 	}
-	f, err := os.CreateTemp(dir, ".credentials-*.json")
+	base := filepath.Base(s.path)
+	ext := filepath.Ext(base)
+	f, err := os.CreateTemp(dir, "."+strings.TrimSuffix(base, ext)+"-*"+ext)
 	if err != nil {
 		return fmt.Errorf("store: %w", err)
 	}
@@ -240,7 +353,7 @@ func (s *fileStore) Set(r Record) error {
 	return nil
 }
 
-func (s *fileStore) Delete() error {
+func (s *fileSlot) del() error {
 	if err := os.Remove(s.path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("store: %w", err)
 	}

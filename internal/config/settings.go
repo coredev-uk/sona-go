@@ -5,8 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
+	"math"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 )
 
@@ -46,6 +50,29 @@ type Settings struct {
 	AutoPlay bool `json:"autoPlay"`
 	// Diagnostics holds rendering workarounds; all off by default.
 	Diagnostics Diagnostics `json:"diagnostics"`
+	// Scrobbling is the Last.fm and ListenBrainz connection state shown in
+	// Settings; their session key and token live in the keyring.
+	Scrobbling Scrobbling `json:"scrobbling"`
+	// Desktop is the window, tray and startup behaviour (desktop.go).
+	Desktop Desktop `json:"desktop"`
+	// Window is the main window's remembered size (desktop.go).
+	Window Window `json:"window"`
+	// Shortcuts rebinds keyboard shortcuts (shortcuts.go).
+	Shortcuts Shortcuts `json:"shortcuts"`
+	// Updates is the release check (updates.go).
+	Updates Updates `json:"updates"`
+	// Integrations are the desktop and Discord integrations (integrations.go).
+	Integrations Integrations `json:"integrations"`
+	// Audio is the equaliser and output device (audio.go).
+	Audio Audio `json:"audio"`
+	// MotionArtwork plays Apple's motion covers (motion.go).
+	MotionArtwork MotionArtwork `json:"motionArtwork"`
+	// Queue is the play queue's behaviour (queue.go).
+	Queue Queue `json:"queue"`
+	// Storage is the local cache configuration (storage.go).
+	Storage Storage `json:"storage"`
+	// Crossfade overlaps tracks of different albums (crossfade.go).
+	Crossfade Crossfade `json:"crossfade"`
 }
 
 // Diagnostics are WebKitGTK rendering workarounds exposed as toggles. They
@@ -58,8 +85,34 @@ type Diagnostics struct {
 	DisableCompositingMode bool `json:"disableCompositingMode"`
 }
 
-// Default idle timeout for the playback host, in minutes.
-const defaultEngineIdleMinutes = 10
+// Scrobbling holds the non-secret part of the scrobbler connections.
+type Scrobbling struct {
+	LastFM       ScrobbleAccount `json:"lastfm"`
+	ListenBrainz ScrobbleAccount `json:"listenbrainz"`
+}
+
+// ScrobbleAccount is one scrobbler connection. Username is set when the
+// account is connected and only displayed; Enabled pauses submitting
+// without disconnecting.
+type ScrobbleAccount struct {
+	Enabled  bool   `json:"enabled"`
+	Username string `json:"username"`
+}
+
+// normalized trims usernames. Enabled stays independent of Username: the
+// connection itself is the stored secret, not this display name.
+func (s Scrobbling) normalized() Scrobbling {
+	s.LastFM.Username = strings.TrimSpace(s.LastFM.Username)
+	s.ListenBrainz.Username = strings.TrimSpace(s.ListenBrainz.Username)
+	return s
+}
+
+// Idle timeout for the playback host, in minutes: the default and the
+// longest accepted (a day), which keeps the duration far from overflowing.
+const (
+	defaultEngineIdleMinutes = 10
+	maxEngineIdleMinutes     = 24 * 60
+)
 
 // Defaults returns the settings used when no file exists.
 func Defaults() Settings {
@@ -69,26 +122,75 @@ func Defaults() Settings {
 		AudioQuality:      Quality256,
 		EngineIdleMinutes: defaultEngineIdleMinutes,
 		AutoPlay:          true,
+		Desktop:           defaultDesktop(),
+		Window:            defaultWindow(),
+		Shortcuts:         Shortcuts{},
+		Updates:           Updates{Check: true},
+		Integrations:      defaultIntegrations(),
+		Audio:             defaultAudio(),
+		MotionArtwork:     MotionArtwork{Enabled: true},
+		Queue:             Queue{ReplaceConfirm: ReplaceUndo},
+		Storage:           Storage{ArtCacheMiB: DefaultArtCacheMiB},
+		Crossfade:         Crossfade{Seconds: defaultCrossfadeSeconds},
 	}
 }
 
 // Normalized returns s with out-of-range values replaced: unknown themes
-// become "system", volume is clamped to [0, 1], unknown qualities become 256
-// and a non-positive idle timeout becomes the default.
+// become "system", volume is clamped to [0, 1], unknown qualities become 256,
+// a non-positive idle timeout becomes the default and a longer one than a
+// day is cut to a day, and a CDM path that is not a clean absolute path
+// outside /proc and /dev is dropped (see cdmPath).
 func (s Settings) Normalized() Settings {
 	switch s.Theme {
 	case ThemeSystem, ThemeLight, ThemeDark:
 	default:
 		s.Theme = ThemeSystem
 	}
-	s.Volume = min(max(s.Volume, 0), 1)
+	s.Volume = clampVolume(s.Volume)
 	if s.AudioQuality != Quality256 && s.AudioQuality != Quality64 {
 		s.AudioQuality = Quality256
 	}
+	s.CDMPath = cdmPath(s.CDMPath)
 	if s.EngineIdleMinutes <= 0 {
 		s.EngineIdleMinutes = defaultEngineIdleMinutes
 	}
+	s.EngineIdleMinutes = min(s.EngineIdleMinutes, maxEngineIdleMinutes)
+	s.Scrobbling = s.Scrobbling.normalized()
+	s.Desktop = s.Desktop.normalized()
+	s.Window = s.Window.normalized()
+	s.Shortcuts = s.Shortcuts.normalized()
+	s.Audio = s.Audio.normalized()
+	s.Queue = s.Queue.normalized()
+	s.Storage = s.Storage.normalized()
+	s.Crossfade = s.Crossfade.normalized()
 	return s
+}
+
+// clampVolume clamps v to [0, 1]; NaN (which min and max pass through)
+// becomes 0.
+func clampVolume(v float64) float64 {
+	if math.IsNaN(v) {
+		return 0
+	}
+	return min(max(v, 0), 1)
+}
+
+// cdmPath returns p if it may name the Widevine CDM to load, else "" (probe
+// the usual install paths). The CDM host dlopens what this names, so it
+// must be a clean absolute path: a relative one resolves against the
+// child's working directory, and /proc (/proc/self/cwd, /proc/<pid>/root)
+// and /dev (/dev/fd -> /proc/self/fd) name another process's view of the
+// filesystem rather than an installed library.
+func cdmPath(p string) string {
+	if p == "" || !filepath.IsAbs(p) || filepath.Clean(p) != p {
+		return ""
+	}
+	for _, pseudo := range []string{"/proc", "/dev"} {
+		if p == pseudo || strings.HasPrefix(p, pseudo+"/") {
+			return ""
+		}
+	}
+	return p
 }
 
 // LoadSettings reads the settings file at path. A missing file yields
@@ -181,6 +283,9 @@ type Store struct {
 	path string
 	mu   sync.Mutex
 	cur  Settings
+
+	obsMu sync.Mutex // serialises observer delivery, in Update order
+	obs   []func(prev, next Settings)
 }
 
 // OpenStore loads the settings at path. Like [LoadSettings], an unparsable
@@ -195,21 +300,47 @@ func OpenStore(path string) (*Store, error) {
 func (st *Store) Get() Settings {
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	return st.cur
+	return st.cur.clone()
+}
+
+// clone returns s with its own copy of every map and slice (the shortcut
+// map, the equaliser curve), so a caller's edits, or an Update function
+// writing into them, never reach the Store's or a previous copy's values.
+func (s Settings) clone() Settings {
+	s.Shortcuts = maps.Clone(s.Shortcuts)
+	s.Audio.Equalizer.Custom = slices.Clone(s.Audio.Equalizer.Custom)
+	return s
+}
+
+// OnChange registers fn to run after every successful Update with the
+// settings before and after it. Observers run in registration order, one
+// Update at a time, outside the store lock (they may call Get, not Update).
+// A feature applies its own settings here instead of in UpdateSettings.
+func (st *Store) OnChange(fn func(prev, next Settings)) {
+	st.obsMu.Lock()
+	st.obs = append(st.obs, fn)
+	st.obsMu.Unlock()
 }
 
 // Update applies fn to a copy of the current settings, normalizes and saves
-// the result, and returns it. On a save error the in-memory settings are
-// unchanged.
+// the result, notifies the OnChange observers and returns it. On a save
+// error the in-memory settings are unchanged and no observer runs.
 func (st *Store) Update(fn func(*Settings)) (Settings, error) {
+	st.obsMu.Lock()
+	defer st.obsMu.Unlock()
 	st.mu.Lock()
-	defer st.mu.Unlock()
-	next := st.cur
+	prev := st.cur
+	next := prev.clone()
 	fn(&next)
 	next = next.Normalized()
 	if err := SaveSettings(st.path, next); err != nil {
-		return st.cur, err
+		st.mu.Unlock()
+		return prev, err
 	}
 	st.cur = next
+	st.mu.Unlock()
+	for _, o := range st.obs {
+		o(prev, next)
+	}
 	return next, nil
 }

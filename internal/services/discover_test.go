@@ -112,7 +112,7 @@ func newDiscoverEnv(t *testing.T) discoverEnv {
 			Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 			Now:        func() time.Time { return now },
 		},
-		m: mapper{art},
+		m: mapper{art: art},
 	}
 	return discoverEnv{s: &DiscoverService{e: e, m: e.m}, amp: amp, now: &now, gate: gate, ev: ev}
 }

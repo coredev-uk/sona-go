@@ -24,6 +24,7 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -97,10 +98,15 @@ type Phone struct {
 }
 
 // SecondFactor describes the pending two-factor challenge.
+//
+// Every route the account has is offered: the trusted-device code
+// (VerifyCode phoneID 0) when TrustedDevices, and a text or call to any of
+// Phones. Apple prompts the trusted devices by itself when the password is
+// accepted; accounts without one cannot use the device route.
 type SecondFactor struct {
 	CodeLength int `json:"codeLength"`
-	// TrustedDevices is true when Apple pushed a code to the account's
-	// trusted devices; VerifyCode with phoneID 0 submits it.
+	// TrustedDevices is true when the account has trusted devices and
+	// Apple prompted them; VerifyCode with phoneID 0 submits their code.
 	TrustedDevices bool    `json:"trustedDevices"`
 	Phones         []Phone `json:"phones"`
 	// SentToPhone is the phone Apple already texted (accounts without
@@ -159,6 +165,7 @@ type Session struct {
 	account string
 	stage   stage
 	second  *SecondFactor
+	nonFTEU bool // phoneNumberVerification.enableNonFTEU
 }
 
 // Begin opens Apple's Apple Music sign-in for devToken (the web player
@@ -373,7 +380,7 @@ func (s *Session) SignIn(ctx context.Context, account, password string) (*Second
 		s.stage = stageAuthenticated
 		return nil, nil
 	}
-	sf, err := s.loadSecondFactor(ctx)
+	sf, err := s.loadSecondFactor(ctx, resp.Header.Get("Location"))
 	if err != nil {
 		return nil, err
 	}
@@ -382,69 +389,193 @@ func (s *Session) SignIn(ctx context.Context, account, password string) (*Second
 }
 
 // loadSecondFactor reads the two-factor options after a 409 from
-// signin/complete. Apple pushes a code to trusted devices on this request.
-func (s *Session) loadSecondFactor(ctx context.Context) (*SecondFactor, error) {
-	var opts struct {
-		AuthenticationType  string `json:"authenticationType"`
-		TrustedDeviceCount  int    `json:"trustedDeviceCount"`
-		NoTrustedDevices    bool   `json:"noTrustedDevices"`
-		FSAChallenge        any    `json:"fsaChallenge"`
-		Mode                string `json:"mode"`
-		TrustedPhoneNumbers []struct {
-			ID                 int    `json:"id"`
-			NumberWithDialCode string `json:"numberWithDialCode"`
-			ObfuscatedNumber   string `json:"obfuscatedNumber"`
-			PushMode           string `json:"pushMode"`
-		} `json:"trustedPhoneNumbers"`
-		PhoneNumber *struct {
-			ID int `json:"id"`
-		} `json:"phoneNumber"`
-		SecurityCode struct {
-			Length int `json:"length"`
-		} `json:"securityCode"`
+// signin/complete the way Apple's widget does (app-message.js Io, home.js
+// hsa2 reducer): GET the Location path (default /auth) as text/html and
+// parse the first `.boot_args` script. hasTrustedDevices enables the
+// device route; twoSV.phoneNumberVerification lists the phones.
+// Apple prompts the trusted devices server-side; this request only reads.
+func (s *Session) loadSecondFactor(ctx context.Context, location string) (*SecondFactor, error) {
+	path := "/auth"
+	if strings.HasPrefix(location, "/") && !strings.HasPrefix(location, "//") {
+		path = location
 	}
-	if _, err := s.api(ctx, http.MethodGet, "/appleauth/auth", nil, nil, &opts); err != nil {
+	_, raw, err := s.send(ctx, http.MethodGet, "/appleauth"+path, nil, http.Header{"Accept": {"text/html"}})
+	if err != nil {
 		return nil, err
 	}
-	if opts.FSAChallenge != nil {
-		return nil, ErrUnsupported2FA // security keys only
+	boot, err := parseTwoFactorBoot(raw)
+	if err != nil {
+		return nil, err
 	}
-	sf := &SecondFactor{
-		CodeLength:     opts.SecurityCode.Length,
-		TrustedDevices: !opts.NoTrustedDevices && opts.TrustedDeviceCount > 0,
+	sf, err := boot.secondFactor()
+	if err != nil {
+		return nil, err
+	}
+	if pnv := boot.phoneVerification(); pnv != nil {
+		s.nonFTEU = pnv.EnableNonFTEU
+	}
+	return sf, nil
+}
+
+var bootArgsClassRe = regexp.MustCompile(`(?s)<script[^>]*\bclass="boot_args"[^>]*>(.*?)</script>`)
+
+type phoneVerification struct {
+	TrustedPhoneNumbers []bootPhone `json:"trustedPhoneNumbers"`
+	PhoneNumber         *bootPhone  `json:"phoneNumber"`
+	// EnableNonFTEU makes the widget flag the phone with nonFTEU when it
+	// submits a texted code (home.js "phone/verify").
+	EnableNonFTEU bool `json:"enableNonFTEU"`
+	SecurityCode  struct {
+		Length int `json:"length"`
+	} `json:"securityCode"`
+}
+
+type bootPhone struct {
+	ID                 int    `json:"id"`
+	NumberWithDialCode string `json:"numberWithDialCode"`
+	ObfuscatedNumber   string `json:"obfuscatedNumber"`
+	PushMode           string `json:"pushMode"`
+}
+
+// twoFactorBoot is the part of the 2FA page's boot data the widget reads.
+type twoFactorBoot struct {
+	HasTrustedDevices bool `json:"hasTrustedDevices"`
+	TwoSV             struct {
+		PhoneNumberVerification   *phoneVerification `json:"phoneNumberVerification"`
+		TrustedDeviceVerification *struct {
+			PhoneNumberVerification *phoneVerification `json:"phoneNumberVerification"`
+		} `json:"trustedDeviceVerification"`
+		DeviceVerification *struct {
+			SecurityCode struct {
+				Length int `json:"length"`
+			} `json:"securityCode"`
+		} `json:"deviceVerification"`
+		// bridgeInitiateData is merged over twoSV by the widget.
+		BridgeInitiateData *struct {
+			PhoneNumberVerification *phoneVerification `json:"phoneNumberVerification"`
+		} `json:"bridgeInitiateData"`
+	} `json:"twoSV"`
+}
+
+func parseTwoFactorBoot(page []byte) (*twoFactorBoot, error) {
+	m := bootArgsClassRe.FindSubmatch(page)
+	if m == nil {
+		return nil, errors.New("appleid: two-factor page has no boot data")
+	}
+	var args struct {
+		Direct twoFactorBoot `json:"direct"`
+	}
+	// The widget unescapes \' before JSON.parse.
+	if err := json.Unmarshal(bytes.ReplaceAll(m[1], []byte(`\'`), []byte(`'`)), &args); err != nil {
+		return nil, fmt.Errorf("appleid: two-factor boot data: %w", err)
+	}
+	return &args.Direct, nil
+}
+
+// phoneVerification picks the phone data the widget would use:
+// bridgeInitiateData over twoSV, then trustedDeviceVerification's copy.
+func (b *twoFactorBoot) phoneVerification() *phoneVerification {
+	tsv := &b.TwoSV
+	if tsv.BridgeInitiateData != nil && tsv.BridgeInitiateData.PhoneNumberVerification != nil {
+		return tsv.BridgeInitiateData.PhoneNumberVerification
+	}
+	if tsv.PhoneNumberVerification != nil {
+		return tsv.PhoneNumberVerification
+	}
+	if tsv.TrustedDeviceVerification != nil {
+		return tsv.TrustedDeviceVerification.PhoneNumberVerification
+	}
+	return nil
+}
+
+func (b *twoFactorBoot) secondFactor() (*SecondFactor, error) {
+	tsv := &b.TwoSV
+	pnv := b.phoneVerification()
+	sf := &SecondFactor{}
+	if pnv != nil {
+		sf.CodeLength = pnv.SecurityCode.Length
+	}
+	if tsv.DeviceVerification != nil && tsv.DeviceVerification.SecurityCode.Length > 0 {
+		sf.CodeLength = tsv.DeviceVerification.SecurityCode.Length
 	}
 	if sf.CodeLength <= 0 {
 		sf.CodeLength = 6
 	}
-	for _, p := range opts.TrustedPhoneNumbers {
-		num := p.NumberWithDialCode
-		if num == "" {
-			num = p.ObfuscatedNumber
+
+	sf.TrustedDevices = b.HasTrustedDevices
+	if pnv != nil {
+		for _, p := range pnv.TrustedPhoneNumbers {
+			sf.Phones = append(sf.Phones, p.phone())
 		}
-		mode := p.PushMode
-		if mode == "" {
-			mode = "sms"
+		// phoneNumber is the number Apple texted itself; it only does so
+		// when there is no device to prompt.
+		if pnv.PhoneNumber != nil {
+			if !sf.TrustedDevices {
+				sf.SentToPhone = pnv.PhoneNumber.ID
+			}
+			if !slices.ContainsFunc(sf.Phones, func(p Phone) bool { return p.ID == pnv.PhoneNumber.ID }) {
+				sf.Phones = append(sf.Phones, pnv.PhoneNumber.phone())
+			}
 		}
-		sf.Phones = append(sf.Phones, Phone{ID: p.ID, Number: num, Mode: mode})
-	}
-	if opts.NoTrustedDevices && opts.PhoneNumber != nil {
-		sf.SentToPhone = opts.PhoneNumber.ID
 	}
 	if !sf.TrustedDevices && len(sf.Phones) == 0 {
+		// Security keys only (twoSV.fsaVerification) or no route Sona can
+		// serve.
 		return nil, ErrUnsupported2FA
 	}
 	return sf, nil
 }
 
-// SendCodeToPhone asks Apple to text (or call, mode "voice") phoneID.
+func (p bootPhone) phone() Phone {
+	num := p.NumberWithDialCode
+	if num == "" {
+		num = p.ObfuscatedNumber
+	}
+	mode := p.PushMode
+	if mode == "" {
+		mode = "sms"
+	}
+	return Phone{ID: p.ID, Number: num, Mode: mode}
+}
+
+// route reports whether a code may go through phoneID (0 = trusted
+// devices) for the pending challenge: device codes only for accounts with
+// trusted devices; texts and calls ("sms", "voice") for any account, to
+// one of its listed phones. It makes no request.
+func (s *Session) route(phoneID int, mode string) error {
+	if s.stage != stageSecondFactor || s.second == nil {
+		return ErrOutOfOrder
+	}
+	if phoneID == 0 {
+		if !s.second.TrustedDevices {
+			return ErrOutOfOrder
+		}
+		return nil
+	}
+	if mode != "sms" && mode != "voice" {
+		return ErrOutOfOrder
+	}
+	for _, p := range s.second.Phones {
+		if p.ID == phoneID {
+			return nil
+		}
+	}
+	return ErrOutOfOrder
+}
+
+// SendCodeToPhone asks Apple to text (mode "sms") or call ("voice") one of
+// the challenge's phones; see route.
 func (s *Session) SendCodeToPhone(ctx context.Context, phoneID int, mode string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.stage != stageSecondFactor {
-		return ErrOutOfOrder
-	}
 	if mode == "" {
 		mode = "sms"
+	}
+	if phoneID == 0 {
+		return ErrOutOfOrder
+	}
+	if err := s.route(phoneID, mode); err != nil {
+		return err
 	}
 	_, err := s.api(ctx, http.MethodPut, "/appleauth/auth/verify/phone", map[string]any{
 		"phoneNumber": map[string]int{"id": phoneID},
@@ -453,25 +584,29 @@ func (s *Session) SendCodeToPhone(ctx context.Context, phoneID int, mode string)
 	return err
 }
 
-// ResendDeviceCode pushes a new code to the trusted devices.
+// ResendDeviceCode prompts the trusted devices again.
 func (s *Session) ResendDeviceCode(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.stage != stageSecondFactor {
-		return ErrOutOfOrder
+	if err := s.route(0, ""); err != nil {
+		return err
 	}
 	_, err := s.api(ctx, http.MethodPut, "/appleauth/auth/verify/trusteddevice/securitycode", nil, nil, nil)
 	return err
 }
 
 // VerifyCode submits a two-factor code: from a trusted device when phoneID
-// is 0, otherwise the code texted to phoneID. A wrong code returns an error
-// wrapping ErrIncorrectCode and leaves the challenge open.
+// is 0, otherwise the code texted to (or spoken on) phoneID. A wrong code
+// returns an error wrapping ErrIncorrectCode and leaves the challenge
+// open; so does ErrOutOfOrder for a route the account does not have.
 func (s *Session) VerifyCode(ctx context.Context, code string, phoneID int, mode string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.stage != stageSecondFactor {
-		return ErrOutOfOrder
+	if phoneID != 0 && mode == "" {
+		mode = "sms"
+	}
+	if err := s.route(phoneID, mode); err != nil {
+		return err
 	}
 	code = strings.TrimSpace(code)
 	if code == "" {
@@ -483,11 +618,12 @@ func (s *Session) VerifyCode(ctx context.Context, code string, phoneID int, mode
 			"securityCode": map[string]string{"code": code},
 		}, nil, nil)
 	} else {
-		if mode == "" {
-			mode = "sms"
+		phone := map[string]any{"id": phoneID}
+		if s.nonFTEU {
+			phone["nonFTEU"] = true
 		}
 		_, err = s.api(ctx, http.MethodPost, "/appleauth/auth/verify/phone/securitycode", map[string]any{
-			"phoneNumber":  map[string]int{"id": phoneID},
+			"phoneNumber":  phone,
 			"securityCode": map[string]string{"code": code},
 			"mode":         mode,
 		}, nil, nil)
@@ -590,11 +726,26 @@ var podRe = regexp.MustCompile(`^\d{1,3}$`)
 // api calls an idmsa.apple.com/appleauth JSON endpoint with the widget's
 // headers. Statuses in ok (besides 2xx) are not errors. out may be nil.
 func (s *Session) api(ctx context.Context, method, path string, in any, extra http.Header, out any, ok ...int) (*http.Response, error) {
+	resp, raw, err := s.send(ctx, method, path, in, extra, ok...)
+	if err != nil {
+		return resp, err
+	}
+	if out != nil && len(bytes.TrimSpace(raw)) > 0 {
+		if err := json.Unmarshal(raw, out); err != nil {
+			return resp, fmt.Errorf("appleid: %s: %w", path, err)
+		}
+	}
+	return resp, nil
+}
+
+// send makes an /appleauth request with the widget's headers (extra
+// overrides them) and returns the raw body.
+func (s *Session) send(ctx context.Context, method, path string, in any, extra http.Header, ok ...int) (*http.Response, []byte, error) {
 	var body io.Reader
 	if in != nil {
 		b, err := json.Marshal(in)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		body = bytes.NewReader(b)
 	}
@@ -635,18 +786,13 @@ func (s *Session) api(ctx context.Context, method, path string, in any, extra ht
 	}
 	resp, raw, err := s.do(ctx, method, s.idms+path, body, h)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	s.track(resp)
 	if resp.StatusCode/100 != 2 && !containsInt(ok, resp.StatusCode) {
-		return resp, serviceError(resp.StatusCode, raw)
+		return resp, raw, serviceError(resp.StatusCode, raw)
 	}
-	if out != nil && len(bytes.TrimSpace(raw)) > 0 {
-		if err := json.Unmarshal(raw, out); err != nil {
-			return resp, fmt.Errorf("appleid: %s: %w", path, err)
-		}
-	}
-	return resp, nil
+	return resp, raw, nil
 }
 
 func (s *Session) do(ctx context.Context, method, u string, body io.Reader, h http.Header) (*http.Response, []byte, error) {

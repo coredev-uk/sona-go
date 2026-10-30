@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/godbus/dbus/v5"
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/coredev-uk/sona-go/internal/app"
@@ -15,6 +16,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/library"
+	"github.com/coredev-uk/sona-go/internal/motion"
 	"github.com/coredev-uk/sona-go/internal/mpris"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
@@ -32,6 +34,7 @@ type Deps struct {
 	Library   *library.Library
 	Syncer    *library.Syncer
 	Art       *artwork.Cache
+	Motion    *motion.Cache // motion artwork (nil: none offered)
 	Engine    playback.Engine
 	Coord     *coordinator.Coordinator
 	History   *History
@@ -46,6 +49,13 @@ type Deps struct {
 
 	OpenURL func(string) error // system browser / file manager
 	Focus   func()             // raise the main window
+	// Focused reports whether the main window is shown and focused.
+	Focused func() bool
+	// Windows is the desktop shell's window control (internal/shell).
+	Windows Windows
+	// Bus is the session bus (nil without one), for portals and other
+	// desktop services.
+	Bus *dbus.Conn
 
 	Version string    // app version
 	WebKit  string    // runtime WebKitGTK version
@@ -72,7 +82,7 @@ func New(d Deps) *Core {
 	if d.Logger == nil {
 		d.Logger = slog.New(slog.DiscardHandler)
 	}
-	env := &Env{Deps: d, m: mapper{d.Art}, members: newMembership(d.DB)}
+	env := &Env{Deps: d, m: mapper{art: d.Art, motion: d.Motion}, members: newMembership(d.DB)}
 	c := &Core{env: env, open: &opener{emit: d.Emit, focus: d.Focus, log: d.Logger}}
 	env.firstPaint = c.firstPaint
 	env.OnNetwork(func() { d.Logger.Info("startup: network open") })
@@ -103,11 +113,11 @@ func (c *Core) StartMPRIS(srv *mpris.Server) {
 	c.mpris = srv
 	c.mprisQuit, c.mprisDone = make(chan struct{}), make(chan struct{})
 	snaps, cancel := c.env.Coord.Subscribe()
-	go func() {
+	c.env.Go("mpris", func() {
 		defer close(c.mprisDone)
 		defer cancel()
 		runMPRIS(srv, snaps, c.mprisQuit, c.env.Art, c.env.Logger)
-	}()
+	})
 }
 
 // Activate handles a launch: the process's own argv (forwarded false) or

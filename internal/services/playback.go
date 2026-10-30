@@ -1,6 +1,7 @@
 package services
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
+	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
@@ -43,14 +45,20 @@ type PlaybackService struct {
 
 // newPlaybackService starts forwarding coordinator snapshots as events;
 // sign-out stops playback and empties the queue (it names the user's
-// songs).
+// songs). The account's explicit-content restriction (Apple's itre flag,
+// auth Status.Restricted) makes the coordinator skip explicit items.
 func newPlaybackService(e *Env) *PlaybackService {
 	s := &PlaybackService{o: e, m: e.m, meta: map[string]trackMeta{}, quit: make(chan struct{}), done: make(chan struct{})}
 	e.Coord.SetStationSource(stationFeed{s})
 	e.Coord.SetAutoPlay(e.Settings.Get().AutoPlay)
+	unwatch := e.Auth.OnChange(func(st auth.Status) { e.Coord.SetRestricted(st.Restricted) })
+	e.Coord.SetRestricted(e.Auth.Status().Restricted)
 	s.run()
 	e.OnSignOut("playback", e.Coord.Stop)
-	e.OnClose(s.close)
+	e.OnClose(func() {
+		unwatch()
+		s.close()
+	})
 	return s
 }
 
@@ -58,7 +66,7 @@ func newPlaybackService(e *Env) *PlaybackService {
 func (s *PlaybackService) run() {
 	snaps, cancel := s.o.Coord.Subscribe()
 	s.started = true
-	go func() {
+	s.o.Go("playback events", func() {
 		defer close(s.done)
 		defer cancel()
 		var (
@@ -87,7 +95,7 @@ func (s *PlaybackService) run() {
 			}
 			auth = snap.AuthRequired
 		}
-	}()
+	})
 }
 
 func (s *PlaybackService) close() {
@@ -106,23 +114,25 @@ func (s *PlaybackService) Queue() QueueState { return s.queue(s.o.Coord.Snapshot
 
 func (s *PlaybackService) state(snap coordinator.Snapshot) PlaybackState {
 	out := PlaybackState{
-		State:        string(snap.State),
-		Index:        snap.Index,
-		PositionMs:   snap.Position.Milliseconds(),
-		DurationMs:   snap.Duration.Milliseconds(),
-		At:           unixMs(snap.At),
-		Volume:       snap.Volume,
-		Shuffle:      snap.Shuffle,
-		Repeat:       string(snap.Repeat),
-		Context:      snap.Context,
-		QueueLength:  len(snap.Queue),
-		QueueVersion: snap.QueueVersion,
-		CanNext:      canNext(snap),
-		CanPrevious:  snap.Current != nil,
-		Error:        snap.Error,
-		AuthRequired: snap.AuthRequired,
-		AutoPlay:     snap.AutoPlay,
-		Station:      queueStation(snap.Station),
+		State:          string(snap.State),
+		Index:          snap.Index,
+		PositionMs:     snap.Position.Milliseconds(),
+		DurationMs:     snap.Duration.Milliseconds(),
+		At:             unixMs(snap.At),
+		Volume:         snap.Volume,
+		Shuffle:        snap.Shuffle,
+		Repeat:         string(snap.Repeat),
+		Context:        snap.Context,
+		QueueLength:    len(snap.Queue),
+		QueueVersion:   snap.QueueVersion,
+		CanNext:        canNext(snap),
+		CanPrevious:    snap.Current != nil,
+		Error:          snap.Error,
+		AuthRequired:   snap.AuthRequired,
+		AutoPlay:       snap.AutoPlay,
+		Station:        queueStation(snap.Station),
+		Sleep:          sleepTimer(snap.Sleep),
+		CanUndoReplace: snap.CanUndoReplace,
 	}
 	if out.State == "" {
 		out.State = string(playback.StateIdle)
@@ -131,6 +141,9 @@ func (s *PlaybackService) state(snap coordinator.Snapshot) PlaybackState {
 		qi := s.item(snap.Current.UID, snap.Current.Item)
 		qi.Backdrop = s.backdrop(snap.Current.Item.Artwork)
 		out.Current = &qi
+		if c := snap.Current.Item.Container; c.ID != "" {
+			out.Container = &QueueContainer{Kind: string(c.Kind), ID: c.ID}
+		}
 	}
 	return out
 }
@@ -145,6 +158,18 @@ func canNext(snap coordinator.Snapshot) bool {
 		snap.Station != nil || (snap.AutoPlay && snap.Repeat == coordinator.RepeatOff)
 }
 
+// sleepTimer maps the coordinator's sleep timer for the UI.
+func sleepTimer(sl *coordinator.Sleep) *SleepTimer {
+	if sl == nil {
+		return nil
+	}
+	out := &SleepTimer{Mode: string(sl.Mode)}
+	if !sl.At.IsZero() {
+		out.EndsAt = unixMs(sl.At)
+	}
+	return out
+}
+
 func (s *PlaybackService) backdrop(tmpl string) string {
 	if tmpl == "" || s.o.Art == nil {
 		return ""
@@ -157,7 +182,7 @@ func (s *PlaybackService) queue(snap coordinator.Snapshot) QueueState {
 	keep := make(map[string]bool, len(snap.Queue)+len(snap.History))
 	for i, e := range snap.Queue {
 		out.Items[i] = s.item(e.UID, e.Item)
-		out.Items[i].Auto = e.Auto
+		out.Items[i].Auto, out.Items[i].Added = e.Auto, e.Added
 		keep[e.Item.ID] = true
 	}
 	for i, it := range snap.History {
@@ -191,7 +216,8 @@ func (s *PlaybackService) item(uid uint64, it coordinator.Item) QueueItem {
 		UID: uid, ID: m.id, Source: m.source, CatalogID: m.catalogID, LibraryID: m.libraryID,
 		Name: it.Title, Artist: it.Artist, Album: it.Album, AlbumID: m.albumID, ArtistID: m.artistID,
 		DurationMs: it.Duration.Milliseconds(), Art: s.m.artOf(it.Artwork),
-		Live: isStationID(it.ID) && it.Duration <= 0,
+		Live:     isStationID(it.ID) && it.Duration <= 0,
+		Explicit: it.Explicit,
 	}
 }
 
@@ -230,8 +256,8 @@ func metaOf(t dbq.Track, src Source) trackMeta {
 
 // resolve turns refs into coordinator items from SQLite (falling back to
 // the catalog for catalog songs not stored yet). Unplayable songs
-// (uploads) are dropped; start is remapped to the same song, and fails
-// with not_playable when that song itself is unplayable.
+// are dropped; start is remapped to the same song, and fails with
+// not_playable when that song itself is unplayable.
 func (s *PlaybackService) resolve(ctx context.Context, refs []TrackRef, start int) ([]coordinator.Item, int, error) {
 	if start < 0 || (len(refs) > 0 && start >= len(refs)) {
 		return nil, 0, fmt.Errorf("%w: start %d of %d", ErrInvalidArgument, start, len(refs))
@@ -295,22 +321,28 @@ func (s *PlaybackService) resolveOne(ctx context.Context, r TrackRef) (coordinat
 }
 
 // trackItem maps a stored track to a coordinator item. The playback ID is
-// the catalog ID; library tracks without one (uploads) cannot play.
+// the catalog ID, or for library tracks without one (uploads, which the
+// engine plays as plain files) the library ID.
 func trackItem(t dbq.Track) (coordinator.Item, trackMeta, error) {
-	if !t.CatalogID.Valid || t.CatalogID.String == "" {
-		return coordinator.Item{}, trackMeta{}, fmt.Errorf("track %s: %w", t.LibraryID.String, applemusic.ErrNotPlayable)
+	id := t.CatalogID.String
+	if id == "" {
+		id = t.LibraryID.String
+	}
+	if id == "" {
+		return coordinator.Item{}, trackMeta{}, fmt.Errorf("track without an ID: %w", applemusic.ErrNotPlayable)
 	}
 	src := SourceCatalog
 	if t.LibraryID.Valid {
 		src = SourceLibrary
 	}
 	return coordinator.Item{
-		ID:       t.CatalogID.String,
+		ID:       id,
 		Title:    t.Name,
 		Artist:   t.ArtistName,
 		Album:    t.AlbumName,
 		Duration: time.Duration(t.DurationMs) * time.Millisecond,
 		Artwork:  t.ArtworkTemplate,
+		Explicit: t.ContentRating == "explicit",
 	}, metaOf(t, src), nil
 }
 
@@ -323,6 +355,7 @@ func songItem(so applemusic.Song) coordinator.Item {
 		Album:    a.AlbumName,
 		Duration: time.Duration(a.DurationInMillis) * time.Millisecond,
 		Artwork:  a.Artwork.Template(),
+		Explicit: a.ContentRating == "explicit",
 	}
 }
 
@@ -333,16 +366,52 @@ func (s *PlaybackService) fail(err error) error {
 	return err
 }
 
-// PlayItems replaces the queue with refs and plays refs[start]. label
-// names the source (album or playlist ID) and comes back as
-// PlaybackState.Context.
-func (s *PlaybackService) PlayItems(ctx context.Context, refs []TrackRef, start int, label string) error {
+// PlayItems replaces the queue with refs and plays refs[start]. from
+// names where they came from: its ID comes back as PlaybackState.Context
+// and, for an album, playlist or artist, is reported to Apple with the
+// plays. A replaced queue can be brought back with UndoReplace.
+func (s *PlaybackService) PlayItems(ctx context.Context, refs []TrackRef, start int, from PlayFrom) error {
 	s.logCmd("play-items")
 	items, i, err := s.resolve(ctx, refs, start)
 	if err != nil {
 		return err
 	}
-	return s.fail(s.o.Coord.SetQueue(ctx, items, i, label))
+	if c := from.container(); c != (coordinator.Container{}) {
+		for j := range items {
+			items[j].Container = c
+		}
+	}
+	return s.fail(s.o.Coord.SetQueue(ctx, items, i, from.ID))
+}
+
+// container is from as a play-activity container (zero for sources that
+// are not Apple collections, such as search or charts).
+func (f PlayFrom) container() coordinator.Container {
+	k := coordinator.ContainerKind(f.Kind)
+	if !k.Valid() || k == coordinator.ContainerStation || f.ID == "" {
+		return coordinator.Container{}
+	}
+	return coordinator.Container{Kind: k, ID: f.ID}
+}
+
+// UndoReplace brings back the queue the last PlayItems, PlayLibrary or
+// station replaced, at the same item and position, playing if it was. It
+// reports whether there was one.
+func (s *PlaybackService) UndoReplace(ctx context.Context) (bool, error) {
+	s.logCmd("undo-replace")
+	ok, err := s.o.Coord.UndoReplace(ctx)
+	return ok, s.fail(err)
+}
+
+// SetSleep sets the sleep timer: mode "after" pauses playback after
+// minutes, "track" when the current song ends, "queue" when the last song
+// the user queued ends; "" turns it off. The volume fades out over the
+// last 10 seconds and is restored once playback stops.
+func (s *PlaybackService) SetSleep(mode string, minutes int) error {
+	if err := s.o.Coord.SetSleep(coordinator.SleepMode(mode), time.Duration(minutes)*time.Minute); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidArgument, err)
+	}
+	return nil
 }
 
 // PlayLibrary queues the whole library songs list in the given order
@@ -363,24 +432,20 @@ func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc boo
 	if start < 0 || start >= len(songs) {
 		return fmt.Errorf("%w: start %d of %d", ErrInvalidArgument, start, len(songs))
 	}
-	if songs[start].CatalogID == "" {
-		return fmt.Errorf("song %s: %w", songs[start].LibraryID, applemusic.ErrNotPlayable)
-	}
 	items := make([]coordinator.Item, 0, len(songs))
 	idx := 0
 	s.mu.Lock()
 	for i, so := range songs {
-		if so.CatalogID == "" {
-			continue
-		}
+		// Uploads have no catalog ID and play by their library ID.
+		id := cmp.Or(so.CatalogID, so.LibraryID)
 		if i == start {
 			idx = len(items)
 		}
 		items = append(items, coordinator.Item{
-			ID: so.CatalogID, Title: so.Name, Artist: so.ArtistName, Album: so.AlbumName,
-			Duration: time.Duration(so.DurationMS) * time.Millisecond, Artwork: so.ArtworkTemplate,
+			ID: id, Title: so.Name, Artist: so.ArtistName, Album: so.AlbumName,
+			Duration: time.Duration(so.DurationMS) * time.Millisecond, Artwork: so.ArtworkTemplate, Explicit: so.Explicit,
 		})
-		s.meta[so.CatalogID] = trackMeta{
+		s.meta[id] = trackMeta{
 			source: SourceLibrary, id: so.LibraryID, catalogID: so.CatalogID, libraryID: so.LibraryID,
 			albumID: so.AlbumLibraryID, artistID: so.ArtistLibraryID,
 		}
@@ -412,6 +477,20 @@ func (s *PlaybackService) Append(ctx context.Context, refs []TrackRef) error {
 		return err
 	}
 	s.o.Coord.Append(items)
+	return nil
+}
+
+// Insert adds refs at queue position at, kept within the upcoming songs
+// the user queued (after the current one, before station songs).
+func (s *PlaybackService) Insert(ctx context.Context, at int, refs []TrackRef) error {
+	if len(refs) == 0 {
+		return nil
+	}
+	items, _, err := s.resolve(ctx, refs, 0)
+	if err != nil {
+		return err
+	}
+	s.o.Coord.Insert(at, items)
 	return nil
 }
 

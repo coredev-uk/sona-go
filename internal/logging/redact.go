@@ -19,8 +19,9 @@ var (
 	jwtRe = regexp.MustCompile(`eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*`)
 	// key=value / key: value / "key":"value" pairs whose key names a secret,
 	// including HTTP headers and query parameters. An optional "Bearer " is
-	// swallowed with the value.
-	kvRe = regexp.MustCompile(`(?i)\b(media-user-token|music-user-token|musicusertoken|mediausertoken|x-apple-music-user-token|mut|token|access_token|refresh_token|dev_token|authorization)\b(\s*["']?\s*[:=]\s*["']?)(?:bearer\s+)?[^\s"',;&}\])]+`)
+	// swallowed with the value; an already redacted value is matched whole,
+	// so redacting twice changes nothing.
+	kvRe = regexp.MustCompile(`(?i)\b(media-user-token|music-user-token|musicusertoken|mediausertoken|x-apple-music-user-token|mut|token|access_token|refresh_token|dev_token|authorization)\b(\s*["']?\s*[:=]\s*["']?)(?:\[REDACTED\]|(?:bearer\s+)?[^\s"',;&}\])]+)`)
 	// A bare "Bearer <credential>".
 	bearerRe = regexp.MustCompile(`(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{8,}`)
 	// Music User Tokens are long base64 strings with no fixed prefix; any

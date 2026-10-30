@@ -18,12 +18,16 @@ function configure() {
         "app:open": $$createType0,
         "auth:changed": $$createType1,
         "discover:home": $$createType2,
-        "playback:queue": $$createType3,
-        "playback:state": $$createType4,
-        "playlists:changed": $$createType5,
-        "settings:changed": $$createType6,
-        "sync:done": $$createType7,
-        "sync:progress": $$createType8,
+        "integrations:status": $$createType3,
+        "playback:queue": $$createType4,
+        "playback:state": $$createType5,
+        "playlists:changed": $$createType6,
+        "power:changed": $$createType7,
+        "scrobble:changed": $$createType8,
+        "settings:changed": $$createType9,
+        "sync:done": $$createType10,
+        "sync:progress": $$createType11,
+        "updates:available": $$createType12,
     }));
 }
 
@@ -31,11 +35,15 @@ function configure() {
 const $$createType0 = services$0.OpenTarget.createFrom;
 const $$createType1 = services$0.AuthStatus.createFrom;
 const $$createType2 = services$0.HomePage.createFrom;
-const $$createType3 = services$0.QueueState.createFrom;
-const $$createType4 = services$0.PlaybackState.createFrom;
-const $$createType5 = services$0.PlaylistsChanged.createFrom;
-const $$createType6 = config$0.Settings.createFrom;
-const $$createType7 = services$0.SyncDone.createFrom;
-const $$createType8 = services$0.SyncProgress.createFrom;
+const $$createType3 = services$0.IntegrationsStatus.createFrom;
+const $$createType4 = services$0.QueueState.createFrom;
+const $$createType5 = services$0.PlaybackState.createFrom;
+const $$createType6 = services$0.PlaylistsChanged.createFrom;
+const $$createType7 = services$0.PowerState.createFrom;
+const $$createType8 = services$0.ScrobbleStatus.createFrom;
+const $$createType9 = config$0.Settings.createFrom;
+const $$createType10 = services$0.SyncDone.createFrom;
+const $$createType11 = services$0.SyncProgress.createFrom;
+const $$createType12 = services$0.UpdateStatus.createFrom;
 
 configure();

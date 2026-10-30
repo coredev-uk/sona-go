@@ -14,18 +14,7 @@ type CatalogService struct {
 	m mapper
 }
 
-// newCatalogService also prunes expired cache entries once the network
-// opens.
 func newCatalogService(e *Env) *CatalogService {
-	e.OnNetwork(func() {
-		go func() {
-			if n, err := e.Catalog.Prune(context.Background()); err != nil {
-				e.Logger.Warn("catalog prune", "err", err)
-			} else if n > 0 {
-				e.Logger.Info("catalog cache pruned", "entries", n)
-			}
-		}()
-	})
 	return &CatalogService{e: e, c: e.Catalog, m: e.m}
 }
 

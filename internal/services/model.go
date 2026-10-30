@@ -137,10 +137,13 @@ type MusicVideo struct {
 
 // Header is the hero artwork of a detail page: a pre-blurred backdrop and
 // 2–3 dominant colours ("#rrggbb", most prominent first; empty when they
-// could not be computed in time).
+// could not be computed in time), and Apple's looping motion cover as a
+// Go-served /motion/<key>/<size>.mp4 URL ("" when the item has none;
+// catalog album and playlist pages only).
 type Header struct {
 	Backdrop string   `json:"backdrop"`
 	Colors   []string `json:"colors"`
+	Motion   string   `json:"motion"`
 }
 
 // AlbumDetail is an album with its tracks in disc/track order.

@@ -215,6 +215,68 @@ func (c *Cache) Size() int64 {
 	return c.total
 }
 
+// MaxBytes reports the disk cap.
+func (c *Cache) MaxBytes() int64 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.max
+}
+
+// SetMaxBytes changes the disk cap (n <= 0 means 512 MiB) and evicts least
+// recently used artwork at once if the cache is over it.
+func (c *Cache) SetMaxBytes(n int64) {
+	if n <= 0 {
+		n = defaultMaxBytes
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.max = n
+	c.evictLocked()
+}
+
+// Remove deletes the cached artwork of refs, each an artwork template or a
+// URL from URL or BackdropURL, and forgets their templates, so their URLs
+// stop resolving until the templates are registered again. Invalid refs are
+// skipped. It returns the bytes freed.
+func (c *Cache) Remove(refs []string) (int64, error) {
+	keys := make(map[string]bool, len(refs))
+	for _, ref := range refs {
+		if rest, ok := strings.CutPrefix(ref, c.prefix); ok {
+			if key, _, _ := strings.Cut(rest, "/"); validKey(key) {
+				keys[key] = true
+			}
+		} else if _, key, err := parseTemplate(ref); err == nil {
+			keys[key] = true
+		}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var freed int64
+	var errs []error
+	for key := range keys {
+		delete(c.templates, key)
+		delete(c.colors, key)
+		if err := os.RemoveAll(filepath.Join(c.dir, key)); err != nil {
+			errs = append(errs, fmt.Errorf("artwork: remove %s: %w", key, err))
+			continue
+		}
+		e := c.keys[key]
+		if e == nil {
+			continue
+		}
+		for _, n := range e.files {
+			freed += n
+		}
+		if e.busy > 0 {
+			e.files = map[string]int64{}
+		} else {
+			delete(c.keys, key)
+		}
+	}
+	c.total -= freed
+	return freed, errors.Join(errs...)
+}
+
 // URL returns the Go-served path of template's size px variant
 // ("/art/<key>/<size>.jpg"), or "" when template is empty or not an Apple
 // artwork URL. size is clamped to [MinSize, MaxSize]. Nothing is fetched

@@ -6,6 +6,163 @@
 import { Create as $Create } from "@wailsio/runtime";
 
 /**
+ * Audio is output processing and routing in the playback host.
+ */
+export class Audio {
+    /**
+     * Equalizer is the 10-band equaliser.
+     */
+    "equalizer": Equalizer;
+
+    /**
+     * OutputDevice is the PipeWire sink (node.name) to play to; empty
+     * follows the system default.
+     */
+    "outputDevice": string;
+
+    /**
+     * SoundCheck plays every track at about the same loudness, from the
+     * loudness Apple measured for it (or an upload's own Sound Check tag).
+     */
+    "soundCheck": boolean;
+
+    /** Creates a new Audio instance. */
+    constructor($$source: Partial<Audio> = {}) {
+        if (!("equalizer" in $$source)) {
+            this["equalizer"] = (new Equalizer());
+        }
+        if (!("outputDevice" in $$source)) {
+            this["outputDevice"] = "";
+        }
+        if (!("soundCheck" in $$source)) {
+            this["soundCheck"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Audio instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Audio {
+        const $$createField0_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("equalizer" in $$parsedSource) {
+            $$parsedSource["equalizer"] = $$createField0_0($$parsedSource["equalizer"]);
+        }
+        return new Audio($$parsedSource as Partial<Audio>);
+    }
+}
+
+/**
+ * Crossfade overlaps consecutive tracks. It never applies between
+ * consecutive tracks of the same album: those play gapless, as mastered.
+ */
+export class Crossfade {
+    "enabled": boolean;
+
+    /**
+     * 1..12
+     */
+    "seconds": number;
+
+    /** Creates a new Crossfade instance. */
+    constructor($$source: Partial<Crossfade> = {}) {
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+        if (!("seconds" in $$source)) {
+            this["seconds"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Crossfade instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Crossfade {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Crossfade($$parsedSource as Partial<Crossfade>);
+    }
+}
+
+/**
+ * Desktop is how Sona behaves as a desktop app: what closing the window
+ * does, starting at login, and where the main window opens.
+ */
+export class Desktop {
+    /**
+     * CloseAction is "background" (default: keep playing, hidden, with
+     * the tray) or "quit".
+     */
+    "closeAction": string;
+
+    /**
+     * Autostart mirrors the XDG autostart entry
+     * ($XDG_CONFIG_HOME/autostart/dev.coredev.Sona.desktop): set, the
+     * entry exists. The file is the truth at start-up, so removing it
+     * from the desktop's own settings turns this off.
+     */
+    "autostart": boolean;
+
+    /**
+     * StartHidden makes the autostart entry start Sona in the tray, with
+     * no window (--hidden).
+     */
+    "startHidden": boolean;
+
+    /**
+     * StartPage is the route the main window opens on (one of
+     * [StartPages]).
+     */
+    "startPage": string;
+
+    /**
+     * ResumeLastRoute opens the main window on LastRoute instead.
+     */
+    "resumeLastRoute": boolean;
+
+    /**
+     * LastRoute is the main window's route ("/album/123?song=4"), saved
+     * by the frontend as it navigates.
+     */
+    "lastRoute": string;
+
+    /** Creates a new Desktop instance. */
+    constructor($$source: Partial<Desktop> = {}) {
+        if (!("closeAction" in $$source)) {
+            this["closeAction"] = "";
+        }
+        if (!("autostart" in $$source)) {
+            this["autostart"] = false;
+        }
+        if (!("startHidden" in $$source)) {
+            this["startHidden"] = false;
+        }
+        if (!("startPage" in $$source)) {
+            this["startPage"] = "";
+        }
+        if (!("resumeLastRoute" in $$source)) {
+            this["resumeLastRoute"] = false;
+        }
+        if (!("lastRoute" in $$source)) {
+            this["lastRoute"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Desktop instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Desktop {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Desktop($$parsedSource as Partial<Desktop>);
+    }
+}
+
+/**
  * Diagnostics are WebKitGTK rendering workarounds exposed as toggles. They
  * take effect on the next start because they must be in the environment
  * before the web view is created.
@@ -39,6 +196,231 @@ export class Diagnostics {
     static createFrom($$source: any = {}): Diagnostics {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new Diagnostics($$parsedSource as Partial<Diagnostics>);
+    }
+}
+
+/**
+ * Equalizer is the equaliser state: the selected preset, the user's own
+ * curve (kept while a preset is selected) and a preamp trim.
+ */
+export class Equalizer {
+    "enabled": boolean;
+
+    /**
+     * Preset is a built-in preset ID (equalizer.Presets) or "custom" for
+     * Custom.
+     */
+    "preset": string;
+
+    /**
+     * Custom is the user's curve: one gain in dB per band.
+     */
+    "custom": number[];
+
+    /**
+     * Preamp is a trim in dB (−12..0) on top of the automatic headroom
+     * that keeps boosts from clipping.
+     */
+    "preamp": number;
+
+    /** Creates a new Equalizer instance. */
+    constructor($$source: Partial<Equalizer> = {}) {
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+        if (!("preset" in $$source)) {
+            this["preset"] = "";
+        }
+        if (!("custom" in $$source)) {
+            this["custom"] = [];
+        }
+        if (!("preamp" in $$source)) {
+            this["preamp"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Equalizer instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Equalizer {
+        const $$createField2_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("custom" in $$parsedSource) {
+            $$parsedSource["custom"] = $$createField2_0($$parsedSource["custom"]);
+        }
+        return new Equalizer($$parsedSource as Partial<Equalizer>);
+    }
+}
+
+/**
+ * Integrations switches Sona's desktop and Discord integrations. Every
+ * value is valid, so there is nothing to normalise.
+ */
+export class Integrations {
+    /**
+     * Notifications shows a notification when the track changes (not while
+     * the main window is focused).
+     */
+    "notifications": boolean;
+
+    /**
+     * InhibitSleep keeps the system from suspending while music plays.
+     */
+    "inhibitSleep": boolean;
+
+    /**
+     * DiscordPresence shows the playing track as the Discord status
+     * (opt-in).
+     */
+    "discordPresence": boolean;
+
+    /** Creates a new Integrations instance. */
+    constructor($$source: Partial<Integrations> = {}) {
+        if (!("notifications" in $$source)) {
+            this["notifications"] = false;
+        }
+        if (!("inhibitSleep" in $$source)) {
+            this["inhibitSleep"] = false;
+        }
+        if (!("discordPresence" in $$source)) {
+            this["discordPresence"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Integrations instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Integrations {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Integrations($$parsedSource as Partial<Integrations>);
+    }
+}
+
+/**
+ * MotionArtwork is the motion cover setting (Settings → Appearance). The
+ * frontend plays motion covers only while Enabled, reduce effects is off,
+ * the system does not ask for reduced motion and the machine is on mains
+ * power; there is nothing to normalise.
+ */
+export class MotionArtwork {
+    /**
+     * Enabled plays Apple's looping motion covers in album and playlist
+     * headers and on the now-playing view. On by default.
+     */
+    "enabled": boolean;
+
+    /** Creates a new MotionArtwork instance. */
+    constructor($$source: Partial<MotionArtwork> = {}) {
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MotionArtwork instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MotionArtwork {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new MotionArtwork($$parsedSource as Partial<MotionArtwork>);
+    }
+}
+
+/**
+ * Queue is the play queue's behaviour (Settings → Playback).
+ */
+export class Queue {
+    /**
+     * ReplaceConfirm is ReplaceUndo (the default) or ReplaceConfirm.
+     */
+    "replaceConfirm": string;
+
+    /** Creates a new Queue instance. */
+    constructor($$source: Partial<Queue> = {}) {
+        if (!("replaceConfirm" in $$source)) {
+            this["replaceConfirm"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Queue instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Queue {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Queue($$parsedSource as Partial<Queue>);
+    }
+}
+
+/**
+ * ScrobbleAccount is one scrobbler connection. Username is set when the
+ * account is connected and only displayed; Enabled pauses submitting
+ * without disconnecting.
+ */
+export class ScrobbleAccount {
+    "enabled": boolean;
+    "username": string;
+
+    /** Creates a new ScrobbleAccount instance. */
+    constructor($$source: Partial<ScrobbleAccount> = {}) {
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+        if (!("username" in $$source)) {
+            this["username"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ScrobbleAccount instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ScrobbleAccount {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ScrobbleAccount($$parsedSource as Partial<ScrobbleAccount>);
+    }
+}
+
+/**
+ * Scrobbling holds the non-secret part of the scrobbler connections.
+ */
+export class Scrobbling {
+    "lastfm": ScrobbleAccount;
+    "listenbrainz": ScrobbleAccount;
+
+    /** Creates a new Scrobbling instance. */
+    constructor($$source: Partial<Scrobbling> = {}) {
+        if (!("lastfm" in $$source)) {
+            this["lastfm"] = (new ScrobbleAccount());
+        }
+        if (!("listenbrainz" in $$source)) {
+            this["listenbrainz"] = (new ScrobbleAccount());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Scrobbling instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Scrobbling {
+        const $$createField0_0 = $$createType2;
+        const $$createField1_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("lastfm" in $$parsedSource) {
+            $$parsedSource["lastfm"] = $$createField0_0($$parsedSource["lastfm"]);
+        }
+        if ("listenbrainz" in $$parsedSource) {
+            $$parsedSource["listenbrainz"] = $$createField1_0($$parsedSource["listenbrainz"]);
+        }
+        return new Scrobbling($$parsedSource as Partial<Scrobbling>);
     }
 }
 
@@ -90,6 +472,62 @@ export class Settings {
      */
     "diagnostics": Diagnostics;
 
+    /**
+     * Scrobbling is the Last.fm and ListenBrainz connection state shown in
+     * Settings; their session key and token live in the keyring.
+     */
+    "scrobbling": Scrobbling;
+
+    /**
+     * Desktop is the window, tray and startup behaviour (desktop.go).
+     */
+    "desktop": Desktop;
+
+    /**
+     * Window is the main window's remembered size (desktop.go).
+     */
+    "window": Window;
+
+    /**
+     * Shortcuts rebinds keyboard shortcuts (shortcuts.go).
+     */
+    "shortcuts": Shortcuts;
+
+    /**
+     * Updates is the release check (updates.go).
+     */
+    "updates": Updates;
+
+    /**
+     * Integrations are the desktop and Discord integrations (integrations.go).
+     */
+    "integrations": Integrations;
+
+    /**
+     * Audio is the equaliser and output device (audio.go).
+     */
+    "audio": Audio;
+
+    /**
+     * MotionArtwork plays Apple's motion covers (motion.go).
+     */
+    "motionArtwork": MotionArtwork;
+
+    /**
+     * Queue is the play queue's behaviour (queue.go).
+     */
+    "queue": Queue;
+
+    /**
+     * Storage is the local cache configuration (storage.go).
+     */
+    "storage": Storage;
+
+    /**
+     * Crossfade overlaps tracks of different albums (crossfade.go).
+     */
+    "crossfade": Crossfade;
+
     /** Creates a new Settings instance. */
     constructor($$source: Partial<Settings> = {}) {
         if (!("theme" in $$source)) {
@@ -116,6 +554,39 @@ export class Settings {
         if (!("diagnostics" in $$source)) {
             this["diagnostics"] = (new Diagnostics());
         }
+        if (!("scrobbling" in $$source)) {
+            this["scrobbling"] = (new Scrobbling());
+        }
+        if (!("desktop" in $$source)) {
+            this["desktop"] = (new Desktop());
+        }
+        if (!("window" in $$source)) {
+            this["window"] = (new Window());
+        }
+        if (!("shortcuts" in $$source)) {
+            this["shortcuts"] = {};
+        }
+        if (!("updates" in $$source)) {
+            this["updates"] = (new Updates());
+        }
+        if (!("integrations" in $$source)) {
+            this["integrations"] = (new Integrations());
+        }
+        if (!("audio" in $$source)) {
+            this["audio"] = (new Audio());
+        }
+        if (!("motionArtwork" in $$source)) {
+            this["motionArtwork"] = (new MotionArtwork());
+        }
+        if (!("queue" in $$source)) {
+            this["queue"] = (new Queue());
+        }
+        if (!("storage" in $$source)) {
+            this["storage"] = (new Storage());
+        }
+        if (!("crossfade" in $$source)) {
+            this["crossfade"] = (new Crossfade());
+        }
 
         Object.assign(this, $$source);
     }
@@ -124,14 +595,177 @@ export class Settings {
      * Creates a new Settings instance from a string or object.
      */
     static createFrom($$source: any = {}): Settings {
-        const $$createField7_0 = $$createType0;
+        const $$createField7_0 = $$createType3;
+        const $$createField8_0 = $$createType4;
+        const $$createField9_0 = $$createType5;
+        const $$createField10_0 = $$createType6;
+        const $$createField11_0 = $$createType7;
+        const $$createField12_0 = $$createType9;
+        const $$createField13_0 = $$createType10;
+        const $$createField14_0 = $$createType11;
+        const $$createField15_0 = $$createType12;
+        const $$createField16_0 = $$createType13;
+        const $$createField17_0 = $$createType14;
+        const $$createField18_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("diagnostics" in $$parsedSource) {
             $$parsedSource["diagnostics"] = $$createField7_0($$parsedSource["diagnostics"]);
+        }
+        if ("scrobbling" in $$parsedSource) {
+            $$parsedSource["scrobbling"] = $$createField8_0($$parsedSource["scrobbling"]);
+        }
+        if ("desktop" in $$parsedSource) {
+            $$parsedSource["desktop"] = $$createField9_0($$parsedSource["desktop"]);
+        }
+        if ("window" in $$parsedSource) {
+            $$parsedSource["window"] = $$createField10_0($$parsedSource["window"]);
+        }
+        if ("shortcuts" in $$parsedSource) {
+            $$parsedSource["shortcuts"] = $$createField11_0($$parsedSource["shortcuts"]);
+        }
+        if ("updates" in $$parsedSource) {
+            $$parsedSource["updates"] = $$createField12_0($$parsedSource["updates"]);
+        }
+        if ("integrations" in $$parsedSource) {
+            $$parsedSource["integrations"] = $$createField13_0($$parsedSource["integrations"]);
+        }
+        if ("audio" in $$parsedSource) {
+            $$parsedSource["audio"] = $$createField14_0($$parsedSource["audio"]);
+        }
+        if ("motionArtwork" in $$parsedSource) {
+            $$parsedSource["motionArtwork"] = $$createField15_0($$parsedSource["motionArtwork"]);
+        }
+        if ("queue" in $$parsedSource) {
+            $$parsedSource["queue"] = $$createField16_0($$parsedSource["queue"]);
+        }
+        if ("storage" in $$parsedSource) {
+            $$parsedSource["storage"] = $$createField17_0($$parsedSource["storage"]);
+        }
+        if ("crossfade" in $$parsedSource) {
+            $$parsedSource["crossfade"] = $$createField18_0($$parsedSource["crossfade"]);
         }
         return new Settings($$parsedSource as Partial<Settings>);
     }
 }
 
+/**
+ * Shortcuts maps a frontend shortcut id ("player.toggle") to its binding:
+ * space-separated chords ("Ctrl+K", "Shift+ArrowRight"), or "none" for no
+ * key. An id without an entry keeps its default keys. Go stores the strings
+ * only; the frontend parses and validates them.
+ */
+export type Shortcuts = { [_ in string]?: string };
+
+/**
+ * Storage is the local cache configuration (Settings → Storage).
+ */
+export class Storage {
+    /**
+     * ArtCacheMiB caps the artwork disk cache; least recently used artwork
+     * is evicted above it.
+     */
+    "artCacheMiB": number;
+
+    /** Creates a new Storage instance. */
+    constructor($$source: Partial<Storage> = {}) {
+        if (!("artCacheMiB" in $$source)) {
+            this["artCacheMiB"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Storage instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Storage {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Storage($$parsedSource as Partial<Storage>);
+    }
+}
+
+/**
+ * Updates controls the update check.
+ */
+export class Updates {
+    /**
+     * Check asks GitHub for the latest Sona release once per start, after
+     * the first paint. On by default.
+     */
+    "check": boolean;
+
+    /** Creates a new Updates instance. */
+    constructor($$source: Partial<Updates> = {}) {
+        if (!("check" in $$source)) {
+            this["check"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Updates instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Updates {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Updates($$parsedSource as Partial<Updates>);
+    }
+}
+
+/**
+ * Window is the main window's remembered state. Wayland gives clients no
+ * position, so only the size and the maximised state are kept. Width and
+ * Height are the size when not maximised, so un-maximising after a start
+ * restores it.
+ */
+export class Window {
+    "width": number;
+    "height": number;
+    "maximised": boolean;
+
+    /** Creates a new Window instance. */
+    constructor($$source: Partial<Window> = {}) {
+        if (!("width" in $$source)) {
+            this["width"] = 0;
+        }
+        if (!("height" in $$source)) {
+            this["height"] = 0;
+        }
+        if (!("maximised" in $$source)) {
+            this["maximised"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Window instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Window {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Window($$parsedSource as Partial<Window>);
+    }
+}
+
 // Private type creation functions
-const $$createType0 = Diagnostics.createFrom;
+const $$createType0 = Equalizer.createFrom;
+const $$createType1 = $Create.Array($Create.Any);
+const $$createType2 = ScrobbleAccount.createFrom;
+const $$createType3 = Diagnostics.createFrom;
+const $$createType4 = Scrobbling.createFrom;
+const $$createType5 = Desktop.createFrom;
+const $$createType6 = Window.createFrom;
+var $$createType7 = (function $$initCreateType7(...args: any[]): any {
+    if ($$createType7 === $$initCreateType7) {
+        $$createType7 = $$createType8;
+    }
+    return $$createType7(...args);
+});
+const $$createType8 = $Create.Map($Create.Any, $Create.Any);
+const $$createType9 = Updates.createFrom;
+const $$createType10 = Integrations.createFrom;
+const $$createType11 = Audio.createFrom;
+const $$createType12 = MotionArtwork.createFrom;
+const $$createType13 = Queue.createFrom;
+const $$createType14 = Storage.createFrom;
+const $$createType15 = Crossfade.createFrom;

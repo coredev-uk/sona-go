@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
@@ -18,7 +19,14 @@ type RadioService struct {
 	e *Env
 }
 
-func newRadioService(e *Env) *RadioService { return &RadioService{e: e} }
+func newRadioService(e *Env) *RadioService {
+	// Parked station batches come from the user's stations.
+	e.OnSignOut("station previews", func(context.Context) error {
+		e.previews.clear()
+		return nil
+	})
+	return &RadioService{e: e}
+}
 
 func (s *RadioService) fail(err error) error { return s.e.Fail(err) }
 
@@ -51,7 +59,9 @@ func (s *RadioService) Recent(ctx context.Context) ([]Station, error) {
 	return s.e.m.amStations(st), nil
 }
 
-// Station returns a station page; a live station carries its schedule.
+// Station returns a station page: a live station carries its schedule; a
+// track station what it was made from and the songs it plays first
+// (parked for the station feed, so they are the ones that play).
 func (s *RadioService) Station(ctx context.Context, id string) (StationDetail, error) {
 	if !isStationID(id) {
 		return StationDetail{}, fmt.Errorf("%w: station %q", ErrInvalidArgument, id)
@@ -63,9 +73,101 @@ func (s *RadioService) Station(ctx context.Context, id string) (StationDetail, e
 	out := StationDetail{
 		Station:  s.e.m.amStation(st),
 		Schedule: s.schedule(st, s.e.Now()),
-		Header:   s.e.m.header(ctx, st.Attributes.Artwork.Template()),
+		Upcoming: []Song{},
 	}
+	var wg sync.WaitGroup
+	wg.Go(func() { out.Header = s.e.m.header(ctx, st.Attributes.Artwork.Template()) })
+	if out.Station.Kind == StationTracks {
+		wg.Go(func() { out.Seed = s.seed(ctx, st) })
+		// next-tracks needs the user's token.
+		if out.Station.Playable && s.e.Auth.UserToken() != "" {
+			wg.Go(func() { out.Upcoming = s.upcoming(ctx, st.ID) })
+		}
+	}
+	wg.Wait()
 	return out, nil
+}
+
+// upcoming returns the songs track station id plays first, as the station
+// feed will queue them (songs without play parameters dropped); none when
+// Apple does not answer, which does not fail the page.
+func (s *RadioService) upcoming(ctx context.Context, id string) []Song {
+	songs, err := s.e.stationPreview(ctx, id, stationBatch)
+	if err != nil {
+		s.e.Report(err)
+		s.e.Logger.Warn("radio: station preview", "station", id, "err", err)
+		return []Song{}
+	}
+	out := make([]Song, 0, len(songs))
+	for _, so := range songs {
+		if so.Attributes.PlayParams != nil && so.CatalogID() != "" {
+			out = append(out, s.e.m.amSong(so))
+		}
+	}
+	return out
+}
+
+// stationSeed returns the kind (SeedSong, SeedAlbum, SeedArtist) and
+// catalog ID of the item a track station was made from, from its kind and
+// ID ("ra.<id>", "ra.cp-<songId>" for AutoPlay, "ra.a-<artistId>"); ""
+// for stations without one (personal, mood, genre, editorial).
+func stationSeed(st applemusic.Station) (kind, id string) {
+	id = strings.TrimPrefix(st.ID, "ra.")
+	switch st.Attributes.Kind {
+	case applemusic.StationKindSongSeeded:
+		kind, id = SeedSong, strings.TrimPrefix(id, "cp-")
+	case applemusic.StationKindAlbumSeeded:
+		kind = SeedAlbum
+	case applemusic.StationKindArtistSeeded:
+		kind = SeedArtist
+	case applemusic.StationKindArtistOnly:
+		kind, id = SeedArtist, strings.TrimPrefix(id, "a-")
+	default:
+		return "", ""
+	}
+	if id == "" || strings.ContainsFunc(id, func(r rune) bool { return r < '0' || r > '9' }) {
+		return "", ""
+	}
+	return kind, id
+}
+
+// seed resolves a track station's seed through the catalog cache (the
+// seed's own page reuses it); nil when it has none or Apple did not
+// answer.
+func (s *RadioService) seed(ctx context.Context, st applemusic.Station) *StationSeed {
+	kind, id := stationSeed(st)
+	var (
+		out *StationSeed
+		err error
+	)
+	switch kind {
+	case SeedSong:
+		var so applemusic.Song
+		if so, err = s.e.Catalog.Song(ctx, id); err == nil {
+			d := s.e.m.amSong(so)
+			out = &StationSeed{Kind: kind, ID: id, Name: d.Name, Subtitle: d.Artist, ArtistID: d.ArtistID, Art: d.Art}
+		}
+	case SeedAlbum:
+		var a applemusic.Album
+		if a, err = s.e.Catalog.Album(ctx, id); err == nil {
+			d := s.e.m.amAlbum(a)
+			out = &StationSeed{Kind: kind, ID: id, Name: d.Name, Subtitle: d.Artist, ArtistID: d.ArtistID, Art: d.Art}
+		}
+	case SeedArtist:
+		var a applemusic.Artist
+		if a, err = s.e.Catalog.Artist(ctx, id); err == nil {
+			d := s.e.m.amArtist(a)
+			out = &StationSeed{
+				Kind: kind, ID: id, Name: d.Name, Art: d.Art,
+				Only: st.Attributes.Kind == applemusic.StationKindArtistOnly,
+			}
+		}
+	}
+	if err != nil {
+		s.e.Report(err)
+		s.e.Logger.Warn("radio: station seed", "station", st.ID, "err", err)
+	}
+	return out
 }
 
 // schedule maps a live station's events that have not ended, in start

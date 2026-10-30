@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/config"
@@ -26,7 +25,7 @@ type stationFeed struct{ s *PlaybackService }
 // NextTracks fetches the next batch of a station; songs without play
 // parameters are dropped.
 func (f stationFeed) NextTracks(ctx context.Context, stationID string) ([]coordinator.Item, error) {
-	songs, err := f.s.o.API.NextTracks(ctx, stationID, stationBatch)
+	songs, err := f.s.o.nextStationTracks(ctx, stationID, stationBatch)
 	if err != nil {
 		f.s.o.Report(err)
 		return nil, err
@@ -48,17 +47,15 @@ func (f stationFeed) NextTracks(ctx context.Context, stationID string) ([]coordi
 	return items, nil
 }
 
-// Continue creates the AutoPlay station after seeds. queueContext is the
-// PlayItems label; it is passed as the seed's container when it is an
-// Apple ID (album, playlist), not a Sona label such as "library:songs".
-func (f stationFeed) Continue(ctx context.Context, seeds []coordinator.Item, queueContext string) (coordinator.Station, error) {
-	container := ""
-	if queueContext != "" && !strings.Contains(queueContext, ":") {
-		container = queueContext
-	}
+// Continue creates the AutoPlay station after seeds, each with the album
+// or playlist it was queued from as its container.
+func (f stationFeed) Continue(ctx context.Context, seeds []coordinator.Item) (coordinator.Station, error) {
 	in := make([]applemusic.StationSeed, len(seeds))
 	for i, it := range seeds {
-		in[i] = applemusic.StationSeed{ID: it.ID, Library: isLibraryID(it.ID), Container: container}
+		in[i] = applemusic.StationSeed{ID: it.ID, Library: isLibraryID(it.ID)}
+		if k := it.Container.Kind; k == coordinator.ContainerAlbum || k == coordinator.ContainerPlaylist {
+			in[i].Container = it.Container.ID
+		}
 	}
 	st, err := f.s.o.API.ContinuousStation(ctx, in)
 	if err != nil {

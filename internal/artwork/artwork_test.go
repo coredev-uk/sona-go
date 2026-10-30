@@ -475,6 +475,66 @@ func TestClear(t *testing.T) {
 	}
 }
 
+func TestSetMaxBytesEvictsAtOnce(t *testing.T) {
+	s := newImageServer(t)
+	dir := t.TempDir()
+	c := newCache(t, s, dir, 0)
+	for _, n := range []string{"m1", "m2", "m3", "m4"} {
+		if _, err := c.Get(t.Context(), tmplFor(n), 256); err != nil {
+			t.Fatal(err)
+		}
+	}
+	limit := c.Size() / 2
+	c.SetMaxBytes(limit)
+	if c.MaxBytes() != limit || c.Size() > limit {
+		t.Fatalf("size %d, cap %d after lowering it to %d", c.Size(), c.MaxBytes(), limit)
+	}
+	if _, err := os.Stat(filepath.Join(dir, keyOf(tmplFor("m4")))); err != nil {
+		t.Fatalf("most recently used key evicted: %v", err)
+	}
+	c.SetMaxBytes(0)
+	if c.MaxBytes() != defaultMaxBytes {
+		t.Fatalf("cap %d after reset", c.MaxBytes())
+	}
+}
+
+func TestRemove(t *testing.T) {
+	s := newImageServer(t)
+	dir := t.TempDir()
+	c := newCache(t, s, dir, 0)
+	for _, n := range []string{"user", "url", "keep"} {
+		if _, err := c.Get(t.Context(), tmplFor(n), 128); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := c.Backdrop(t.Context(), tmplFor("url")); err != nil {
+		t.Fatal(err)
+	}
+	before := c.Size()
+	freed, err := c.Remove([]string{tmplFor("user"), c.BackdropURL(tmplFor("url")), "https://evil.example/{w}x{h}.jpg", ""})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if freed <= 0 || c.Size() != before-freed {
+		t.Fatalf("freed %d, size %d → %d", freed, before, c.Size())
+	}
+	des, _ := os.ReadDir(dir)
+	if len(des) != 1 || des[0].Name() != keyOf(tmplFor("keep")) {
+		t.Fatalf("left on disk: %v", des)
+	}
+	// A removed template's URL no longer resolves (nothing on disk names it).
+	u := "/art/" + keyOf(tmplFor("user")) + "/128.jpg"
+	rec := httptest.NewRecorder()
+	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, u, nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("removed artwork served: %d", rec.Code)
+	}
+	// A restart indexes only what is left.
+	if c2 := newCache(t, s, dir, 0); c2.Size() != c.Size() {
+		t.Fatalf("reopened size %d, want %d", c2.Size(), c.Size())
+	}
+}
+
 // Editorial playlist artwork uses a named crop instead of bb/cc
 // ("…png/{w}x{h}SC.DN02.jpg"); only {w} and {h} are filled, the crop code
 // is kept, and downloads carry a browser agent (Apple's CDN 403s a share

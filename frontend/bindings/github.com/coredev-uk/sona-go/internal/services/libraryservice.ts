@@ -103,11 +103,16 @@ export function FavoriteSongs(offset: number, limit: number): $CancellablePromis
 }
 
 /**
- * History returns the plays recorded on this machine, newest first.
+ * History returns the listening history of the last days days (1–365;
+ * 0 means 30): the plays recorded on this computer (and the one in
+ * progress, once Apple reports it) merged with Apple's recently played
+ * songs from the account's other devices, grouped by local day, newest
+ * first (see library.MergeHistory). Apple's list is left out when signed
+ * out or unreachable (Apple is false then).
  */
-export function History(limit: number): $CancellablePromise<$models.HistoryEntry[]> {
-    return $Call.ByID(3152954669, limit).then(($result: any) => {
-        return $$createType8($result);
+export function History(days: number): $CancellablePromise<$models.ListeningHistory> {
+    return $Call.ByID(3152954669, days).then(($result: any) => {
+        return $$createType7($result);
     });
 }
 
@@ -117,7 +122,7 @@ export function History(limit: number): $CancellablePromise<$models.HistoryEntry
  */
 export function MadeForYou(): $CancellablePromise<$models.Playlist[]> {
     return $Call.ByID(919592156).then(($result: any) => {
-        return $$createType10($result);
+        return $$createType9($result);
     });
 }
 
@@ -127,7 +132,7 @@ export function MadeForYou(): $CancellablePromise<$models.Playlist[]> {
  */
 export function MusicVideos(offset: number, limit: number): $CancellablePromise<$models.MusicVideoPage> {
     return $Call.ByID(1965074906, offset, limit).then(($result: any) => {
-        return $$createType11($result);
+        return $$createType10($result);
     });
 }
 
@@ -137,7 +142,7 @@ export function MusicVideos(offset: number, limit: number): $CancellablePromise<
  */
 export function Playlists(sort: string, desc: boolean, offset: number, limit: number): $CancellablePromise<$models.PlaylistPage> {
     return $Call.ByID(3514231570, sort, desc, offset, limit).then(($result: any) => {
-        return $$createType12($result);
+        return $$createType11($result);
     });
 }
 
@@ -147,7 +152,7 @@ export function Playlists(sort: string, desc: boolean, offset: number, limit: nu
  */
 export function RecentlyAdded(offset: number, limit: number): $CancellablePromise<$models.LibraryEntryPage> {
     return $Call.ByID(1094065299, offset, limit).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType12($result);
     });
 }
 
@@ -157,7 +162,7 @@ export function RecentlyAdded(offset: number, limit: number): $CancellablePromis
  */
 export function RecentlyPlayed(limit: number, offset: number): $CancellablePromise<$models.Song[]> {
     return $Call.ByID(3182673932, limit, offset).then(($result: any) => {
-        return $$createType15($result);
+        return $$createType14($result);
     });
 }
 
@@ -195,7 +200,7 @@ export function Songs(sort: string, desc: boolean, offset: number, limit: number
  */
 export function States(refs: $models.ItemRef[]): $CancellablePromise<$models.ItemState[]> {
     return $Call.ByID(763294581, refs).then(($result: any) => {
-        return $$createType16($result);
+        return $$createType15($result);
     });
 }
 
@@ -210,9 +215,11 @@ export function SuggestLess(r: $models.ItemRef, on: boolean): $CancellablePromis
 }
 
 /**
- * Sync starts a library sync in the background; progress arrives as
- * "sync:progress" events and the outcome as "sync:done". It fails with
- * sync_running while a sync runs and not_signed_in when signed out.
+ * Sync starts a full library sync in the background (the on-demand one;
+ * startup and changes made here sync incrementally, with a full run every
+ * library.FullSyncEvery); progress arrives as "sync:progress" events and
+ * the outcome as "sync:done". It fails with sync_running while a sync runs
+ * and not_signed_in when signed out.
  */
 export function Sync(): $CancellablePromise<void> {
     return $Call.ByID(662457572);
@@ -223,7 +230,7 @@ export function Sync(): $CancellablePromise<void> {
  */
 export function SyncStatus(): $CancellablePromise<$models.SyncStatus> {
     return $Call.ByID(1828793550).then(($result: any) => {
-        return $$createType17($result);
+        return $$createType16($result);
     });
 }
 
@@ -235,14 +242,13 @@ const $$createType3 = $models.ArtistPage.createFrom;
 const $$createType4 = $models.Counts.createFrom;
 const $$createType5 = $models.ItemState.createFrom;
 const $$createType6 = $models.SongPage.createFrom;
-const $$createType7 = $models.HistoryEntry.createFrom;
-const $$createType8 = $Create.Array($$createType7);
-const $$createType9 = $models.Playlist.createFrom;
-const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = $models.MusicVideoPage.createFrom;
-const $$createType12 = $models.PlaylistPage.createFrom;
-const $$createType13 = $models.LibraryEntryPage.createFrom;
-const $$createType14 = $models.Song.createFrom;
-const $$createType15 = $Create.Array($$createType14);
-const $$createType16 = $Create.Array($$createType5);
-const $$createType17 = $models.SyncStatus.createFrom;
+const $$createType7 = $models.ListeningHistory.createFrom;
+const $$createType8 = $models.Playlist.createFrom;
+const $$createType9 = $Create.Array($$createType8);
+const $$createType10 = $models.MusicVideoPage.createFrom;
+const $$createType11 = $models.PlaylistPage.createFrom;
+const $$createType12 = $models.LibraryEntryPage.createFrom;
+const $$createType13 = $models.Song.createFrom;
+const $$createType14 = $Create.Array($$createType13);
+const $$createType15 = $Create.Array($$createType5);
+const $$createType16 = $models.SyncStatus.createFrom;

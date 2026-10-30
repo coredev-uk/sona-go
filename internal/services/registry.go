@@ -10,9 +10,14 @@ type feature struct {
 	build func(*Env) application.Service
 }
 
-// svc adapts a typed constructor for the registry.
+// svc adapts a typed constructor for the registry. Wails v3 marshals a
+// bound method's error with its service's MarshalError only (the
+// application-level option does not reach bound methods), so every service
+// carries MarshalError for err.cause = {code, message}.
 func svc[T any](build func(*Env) *T) func(*Env) application.Service {
-	return func(e *Env) application.Service { return application.NewService(build(e)) }
+	return func(e *Env) application.Service {
+		return application.NewServiceWithOptions(build(e), application.ServiceOptions{MarshalError: MarshalError})
+	}
 }
 
 // features are the bound services, built in this order (which is also the
@@ -28,4 +33,11 @@ var features = []feature{
 	{"playlists", svc(newPlaylistsService)},
 	{"radio", svc(newRadioService)},
 	{"system", svc(newSystemService)},
+	{"updates", svc(newUpdatesService)},
+	{"integrations", svc(newIntegrationsService)},
+	{"motion", svc(newMotionService)},
+	{"desktop", svc(newDesktopService)},
+	{"scrobble", svc(newScrobbleService)},
+	{"audio", svc(newAudioService)},
+	{"storage", svc(newStorageService)},
 }

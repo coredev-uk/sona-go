@@ -24,6 +24,11 @@ export const AuthChanged = "auth:changed";
 export const DiscoverHome = "discover:home";
 
 /**
+ * Name of the custom event "integrations:status".
+ */
+export const IntegrationsStatus = "integrations:status";
+
+/**
  * Name of the custom event "playback:queue".
  */
 export const PlaybackQueue = "playback:queue";
@@ -39,6 +44,16 @@ export const PlaybackState = "playback:state";
 export const PlaylistsChanged = "playlists:changed";
 
 /**
+ * Name of the custom event "power:changed".
+ */
+export const PowerChanged = "power:changed";
+
+/**
+ * Name of the custom event "scrobble:changed".
+ */
+export const ScrobbleChanged = "scrobble:changed";
+
+/**
  * Name of the custom event "settings:changed".
  */
 export const SettingsChanged = "settings:changed";
@@ -52,4 +67,9 @@ export const SyncDone = "sync:done";
  * Name of the custom event "sync:progress".
  */
 export const SyncProgress = "sync:progress";
+
+/**
+ * Name of the custom event "updates:available".
+ */
+export const UpdatesAvailable = "updates:available";
 
