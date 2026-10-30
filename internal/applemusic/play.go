@@ -21,9 +21,30 @@ const (
 	headerAppleRenewal = "X-Apple-Renewal"
 )
 
-// Widevine HLS flavors, best first: CENC AES-CTR fMP4 AAC at 256 and 64 kbps.
-// The cbcp/ibhp flavors are FairPlay and unusable with Widevine.
-var widevineFlavors = []string{"28:ctrp256", "32:ctrp64"}
+// Quality is the AAC bitrate Sona asks for, in kbps.
+type Quality int
+
+// Qualities Apple serves to Widevine clients.
+const (
+	Quality256 Quality = 256
+	Quality64  Quality = 64
+)
+
+// Widevine HLS flavors (CENC AES-CTR fMP4 AAC). The cbcp/ibhp flavors are
+// FairPlay and unusable with Widevine.
+const (
+	flavor256 = "28:ctrp256"
+	flavor64  = "32:ctrp64"
+)
+
+// widevineFlavors is the flavor preference for q: the requested bitrate
+// first, the other as a fallback. Any value but Quality64 prefers 256 kbps.
+func widevineFlavors(q Quality) []string {
+	if q == Quality64 {
+		return []string{flavor64, flavor256}
+	}
+	return []string{flavor256, flavor64}
+}
 
 // ErrNotPlayable reports a webPlayback answer without a usable Widevine
 // asset (region restriction, no subscription, or a FairPlay-only item).
@@ -77,10 +98,11 @@ type webPlaybackResponse struct {
 
 // WebPlayback fetches playback metadata for id: a catalog song ID
 // ("1440…") or a library ID ("i.…", sent as universalLibraryId). It selects
-// the 256 kbps Widevine flavor, falling back to 64 kbps. A library upload
-// without a catalog song has a single flavorless, unencrypted asset, which is
-// returned with Flavor "". Missing assets wrap ErrNotPlayable.
-func (c *Client) WebPlayback(ctx context.Context, id string) (PlaybackInfo, error) {
+// the Widevine flavor of quality q, falling back to the other bitrate. A
+// library upload without a catalog song has a single flavorless,
+// unencrypted asset, which is returned with Flavor "". Missing assets wrap
+// ErrNotPlayable.
+func (c *Client) WebPlayback(ctx context.Context, id string, q Quality) (PlaybackInfo, error) {
 	library := strings.HasPrefix(id, "i.")
 	var body any = map[string]string{"salableAdamId": id}
 	if library {
@@ -110,7 +132,7 @@ func (c *Client) WebPlayback(ctx context.Context, id string) (PlaybackInfo, erro
 	if info.CertURL == "" {
 		info.CertURL = WidevineCertURL
 	}
-	for _, want := range widevineFlavors {
+	for _, want := range widevineFlavors(q) {
 		for _, a := range s.Assets {
 			if a.Flavor == want && a.URL != "" {
 				info.Flavor, info.PlaylistURL = a.Flavor, a.URL

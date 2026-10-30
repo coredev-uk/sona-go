@@ -58,7 +58,7 @@ const songList = `{"songList":[{"songId":1109715168,
 
 func TestWebPlaybackSelectsWidevineFlavor(t *testing.T) {
 	c, seen := playClient(t, 200, fmt.Sprintf(songList, `{"flavor":"32:ctrp64","URL":"https://aod/r64.m3u8"},{"flavor":"28:ctrp256","URL":"https://aod/r256.m3u8"}`))
-	info, err := c.WebPlayback(context.Background(), "1109715168")
+	info, err := c.WebPlayback(context.Background(), "1109715168", Quality256)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,21 +78,33 @@ func TestWebPlaybackSelectsWidevineFlavor(t *testing.T) {
 	}
 }
 
-func TestWebPlaybackFallsBackTo64k(t *testing.T) {
-	c, _ := playClient(t, 200, fmt.Sprintf(songList, `{"flavor":"32:ctrp64","URL":"https://aod/r64.m3u8"}`))
-	info, err := c.WebPlayback(context.Background(), "1")
+func TestWebPlaybackHonoursQuality(t *testing.T) {
+	both := fmt.Sprintf(songList, `{"flavor":"28:ctrp256","URL":"https://aod/r256.m3u8"},{"flavor":"32:ctrp64","URL":"https://aod/r64.m3u8"}`)
+	c, _ := playClient(t, 200, both)
+	info, err := c.WebPlayback(context.Background(), "1", Quality64)
 	if err != nil || info.Flavor != "32:ctrp64" || info.PlaylistURL != "https://aod/r64.m3u8" {
-		t.Fatalf("%+v %v", info, err)
+		t.Fatalf("64 kbps: %+v %v", info, err)
+	}
+	// The other bitrate stands in when the requested one is missing.
+	c, _ = playClient(t, 200, fmt.Sprintf(songList, `{"flavor":"32:ctrp64","URL":"https://aod/r64.m3u8"}`))
+	info, err = c.WebPlayback(context.Background(), "1", Quality256)
+	if err != nil || info.Flavor != "32:ctrp64" || info.PlaylistURL != "https://aod/r64.m3u8" {
+		t.Fatalf("256 falls back to 64: %+v %v", info, err)
+	}
+	c, _ = playClient(t, 200, fmt.Sprintf(songList, `{"flavor":"28:ctrp256","URL":"https://aod/r256.m3u8"}`))
+	info, err = c.WebPlayback(context.Background(), "1", Quality64)
+	if err != nil || info.Flavor != "28:ctrp256" {
+		t.Fatalf("64 falls back to 256: %+v %v", info, err)
 	}
 }
 
 func TestWebPlaybackNotPlayable(t *testing.T) {
 	c, _ := playClient(t, 200, fmt.Sprintf(songList, `{"flavor":"37:ibhp256","URL":"https://aod/i.m3u8"}`))
-	if _, err := c.WebPlayback(context.Background(), "1"); !errors.Is(err, ErrNotPlayable) {
+	if _, err := c.WebPlayback(context.Background(), "1", Quality256); !errors.Is(err, ErrNotPlayable) {
 		t.Fatalf("FairPlay-only song: %v", err)
 	}
 	c, _ = playClient(t, 200, `{"failureType":"3076","customerMessage":"This item is not available."}`)
-	_, err := c.WebPlayback(context.Background(), "1")
+	_, err := c.WebPlayback(context.Background(), "1", Quality256)
 	var wpe *WebPlaybackError
 	if !errors.As(err, &wpe) || wpe.FailureType != "3076" || !errors.Is(err, ErrNotPlayable) {
 		t.Fatalf("failure answer: %v", err)
@@ -101,7 +113,7 @@ func TestWebPlaybackNotPlayable(t *testing.T) {
 
 func TestWebPlaybackLibraryUpload(t *testing.T) {
 	c, seen := playClient(t, 200, `{"songList":[{"songId":-1,"assets":[{"flavor":"","URL":"https://upload/file.m4a"}]}]}`)
-	info, err := c.WebPlayback(context.Background(), "i.abc")
+	info, err := c.WebPlayback(context.Background(), "i.abc", Quality256)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +127,7 @@ func TestWebPlaybackLibraryUpload(t *testing.T) {
 
 func TestWebPlaybackForbidden(t *testing.T) {
 	c, _ := playClient(t, http.StatusForbidden, `{"errors":[]}`)
-	_, err := c.WebPlayback(context.Background(), "1")
+	_, err := c.WebPlayback(context.Background(), "1", Quality256)
 	var se *StatusError
 	if !errors.Is(err, ErrUnauthorized) || !errors.As(err, &se) || se.Code != 403 {
 		t.Fatalf("403: %v", err)

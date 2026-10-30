@@ -39,6 +39,7 @@ type fakeApple struct {
 	failPath   string // path answering 400 ...
 	failOffset int    // ... for this page offset
 	pageReqs   map[string][]int
+	requests   []string      // every request's path and query, in order
 	block      chan struct{} // when set, requests wait on it
 	forbid     bool          // answer 403 to everything
 }
@@ -86,8 +87,10 @@ func artist(id, name string) map[string]any {
 func playlist(id, name, modified string) map[string]any {
 	return map[string]any{
 		"id": id, "type": "library-playlists",
-		"attributes": map[string]any{"name": name, "lastModifiedDate": modified, "dateAdded": "2024-01-01T00:00:00Z", "canEdit": true,
-			"playParams": map[string]any{"id": id, "kind": "playlist", "isLibrary": true, "globalId": "pl.u-" + id}},
+		"attributes": map[string]any{
+			"name": name, "lastModifiedDate": modified, "dateAdded": "2024-01-01T00:00:00Z", "canEdit": true,
+			"playParams": map[string]any{"id": id, "kind": "playlist", "isLibrary": true, "globalId": "pl.u-" + id},
+		},
 	}
 }
 
@@ -105,6 +108,7 @@ func (f *fakeApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	off, _ := strconv.Atoi(q.Get("offset"))
 	path := r.URL.Path
+	f.requests = append(f.requests, path+"?"+r.URL.RawQuery)
 	if limit > 1 {
 		f.pageReqs[path] = append(f.pageReqs[path], off)
 	}
@@ -161,6 +165,20 @@ func (f *fakeApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(body)
 }
 
+// reset forgets the requests seen so far.
+func (f *fakeApple) reset() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.pageReqs = map[string][]int{}
+	f.requests = nil
+}
+
+func (f *fakeApple) seen() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.requests...)
+}
+
 func (f *fakeApple) reqs(path string) []int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -192,8 +210,19 @@ func newEnv(t testing.TB) *env {
 	return &env{db: d, api: api, fake: fake, sync: NewSyncer(d, api, nil, 4), lib: New(d, api)}
 }
 
+// run syncs domains as the app does on startup (Incremental, which runs
+// fully the first time); runFull forces a full run.
 func (e *env) run(t testing.TB, domains ...Domain) error {
 	t.Helper()
+	return e.runMode(Incremental, domains...)
+}
+
+func (e *env) runFull(t testing.TB, domains ...Domain) error {
+	t.Helper()
+	return e.runMode(Full, domains...)
+}
+
+func (e *env) runMode(mode Mode, domains ...Domain) error {
 	e.steps = nil
-	return e.sync.Sync(context.Background(), func(p Progress) { e.steps = append(e.steps, p) }, domains...)
+	return e.sync.Sync(context.Background(), mode, func(p Progress) { e.steps = append(e.steps, p) }, domains...)
 }

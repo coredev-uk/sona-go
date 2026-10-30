@@ -54,6 +54,29 @@ const (
 	playEventType            = "JSPLAY"
 )
 
+// MusicKit's PlayActivityContainerType ("container-type") values.
+const (
+	PlayContainerRadio    = 1 // stations
+	PlayContainerPlaylist = 2
+	PlayContainerAlbum    = 3
+	PlayContainerArtist   = 4
+)
+
+// MusicKit's "event-reason-hint-type" values for PLAY_START.
+const (
+	PlayHintNotSpecified     = 0 // no container, or the same as the previous play's
+	PlayHintContainerChanged = 1
+)
+
+// PlayMode is MusicKit's "play-mode": the player's AutoPlay, repeat and
+// shuffle state (MusicKit's AutoplayMode, RepeatPlayMode and
+// ShufflePlayMode enums; 0 is unknown in each).
+type PlayMode struct {
+	AutoPlay int `json:"auto-play-mode"`    // 1 off, 2 on, 3 on but unsupported for the content
+	Repeat   int `json:"repeat-play-mode"`  // 1 off, 2 one, 3 all
+	Shuffle  int `json:"shuffle-play-mode"` // 1 off, 2 on
+}
+
 // PlayActivityEvent is one play-activity record in MusicKit's field names.
 // It carries no credentials: SendPlayActivity adds the developer token and
 // Music User Token, so events can be queued or persisted safely.
@@ -71,6 +94,7 @@ type PlayActivityEvent struct {
 	EndReasonType       *PlayEndReason    `json:"end-reason-type,omitempty"`
 	EventReasonHintType *int              `json:"event-reason-hint-type,omitempty"`
 	RecoData            string            `json:"reco-data,omitempty"`
+	PlayMode            *PlayMode         `json:"play-mode,omitempty"`
 	StoreFront          string            `json:"store-front"`
 	Timestamp           int64             `json:"timestamp"` // ms since the epoch
 	PersistentID        string            `json:"persistent-id"`

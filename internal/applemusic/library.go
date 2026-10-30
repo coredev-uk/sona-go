@@ -26,8 +26,10 @@ const (
 var (
 	// Songs newest-added first (library songs have no dateAdded attribute,
 	// so the position is the only "date added" order Apple exposes).
-	librarySongsQuery     = url.Values{"relate": {"albums,artists"}, "sort": {"-dateAdded"}}
-	libraryAlbumsQuery    = url.Values{"relate": {"catalog,artists"}}
+	librarySongsQuery = url.Values{"relate": {"albums,artists"}, "sort": {"-dateAdded"}}
+	// Albums newest-added first, like songs, so an incremental sync can
+	// stop at the first album it already has.
+	libraryAlbumsQuery    = url.Values{"relate": {"catalog,artists"}, "sort": {"-dateAdded"}}
 	libraryArtistsQuery   = url.Values{"include": {"catalog"}, "fields[artists]": {"name,artwork,url"}}
 	libraryPlaylistsQuery = url.Values{"relate": {"catalog"}}
 )
@@ -38,10 +40,22 @@ func (c *Client) LibrarySongs(ctx context.Context, opt PageOptions, fn func(offs
 	return FetchPages(ctx, c, LibrarySongsPath, librarySongsQuery, opt, fn)
 }
 
-// LibraryAlbums walks the user's library albums with their catalog and
-// library artist IDs.
+// LibrarySongsPage fetches one page (limit capped at 100) of the
+// LibrarySongs walk; Meta.Total is the number of library songs.
+func (c *Client) LibrarySongsPage(ctx context.Context, limit, offset int) (Page[Song], error) {
+	return libraryPage[Song](ctx, c, LibrarySongsPath, librarySongsQuery, limit, offset)
+}
+
+// LibraryAlbums walks the user's library albums, newest added first, with
+// their catalog and library artist IDs.
 func (c *Client) LibraryAlbums(ctx context.Context, opt PageOptions, fn func(offset int, albums []Album) error) (int, error) {
 	return FetchPages(ctx, c, LibraryAlbumsPath, libraryAlbumsQuery, opt, fn)
+}
+
+// LibraryAlbumsPage fetches one page (limit capped at 100) of the
+// LibraryAlbums walk; Meta.Total is the number of library albums.
+func (c *Client) LibraryAlbumsPage(ctx context.Context, limit, offset int) (Page[Album], error) {
+	return libraryPage[Album](ctx, c, LibraryAlbumsPath, libraryAlbumsQuery, limit, offset)
 }
 
 // LibraryArtists walks the user's library artists with their catalog artist
@@ -50,9 +64,27 @@ func (c *Client) LibraryArtists(ctx context.Context, opt PageOptions, fn func(of
 	return FetchPages(ctx, c, LibraryArtistsPath, libraryArtistsQuery, opt, fn)
 }
 
+// LibraryArtistsPage fetches one page (limit capped at 100) of the
+// LibraryArtists walk; Meta.Total is the number of library artists.
+func (c *Client) LibraryArtistsPage(ctx context.Context, limit, offset int) (Page[Artist], error) {
+	return libraryPage[Artist](ctx, c, LibraryArtistsPath, libraryArtistsQuery, limit, offset)
+}
+
+func libraryPage[T any](ctx context.Context, c *Client, path string, q url.Values, limit, offset int) (Page[T], error) {
+	var p Page[T]
+	err := c.Get(ctx, path, withPage(q, max(1, min(limit, defaultPageSize)), offset), &p)
+	return p, err
+}
+
 // LibraryPlaylists walks the user's library playlists.
 func (c *Client) LibraryPlaylists(ctx context.Context, opt PageOptions, fn func(offset int, playlists []Playlist) error) (int, error) {
 	return FetchPages(ctx, c, LibraryPlaylistsPath, libraryPlaylistsQuery, opt, fn)
+}
+
+// LibraryPlaylistsPage fetches one page (limit capped at 100) of the
+// LibraryPlaylists walk; Meta.Total is the number of library playlists.
+func (c *Client) LibraryPlaylistsPage(ctx context.Context, limit, offset int) (Page[Playlist], error) {
+	return libraryPage[Playlist](ctx, c, LibraryPlaylistsPath, libraryPlaylistsQuery, limit, offset)
 }
 
 // LibraryPlaylistTracks returns every track of library playlist id in

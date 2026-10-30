@@ -42,8 +42,10 @@ UPDATE sync_state SET last_started = ?, last_error = '' WHERE domain = ?;
 UPDATE sync_state SET next_offset = ?, cursor = ?, total = ? WHERE domain = ?;
 
 -- name: FinishSync :exec
+-- last_full is set by full runs and kept (NULL) by incremental ones.
 UPDATE sync_state
-SET in_progress = 0, next_offset = 0, cursor = '', total = ?, last_success = ?, last_error = ''
+SET in_progress = 0, next_offset = 0, cursor = '', total = ?, last_success = ?,
+    last_full = coalesce(?, last_full), last_error = ''
 WHERE domain = ?;
 
 -- name: FailSync :exec
@@ -90,8 +92,25 @@ RETURNING id;
 -- name: SetHistoryPlayed :exec
 UPDATE playback_history SET played_ms = ? WHERE id = ?;
 
--- name: RecentHistory :many
-SELECT * FROM playback_history ORDER BY played_at DESC, id DESC LIMIT ?;
+-- name: HistorySince :many
+-- song_catalog_id is the catalog ID, through the library song for plays of
+-- library items.
+SELECT h.id, h.played_at, h.catalog_id, h.library_id,
+       CAST(coalesce(nullif(h.catalog_id, ''), t.catalog_id, '') AS TEXT) AS song_catalog_id,
+       h.name, h.artist_name, h.album_name, h.artwork_template, h.duration_ms, h.played_ms, h.source
+FROM playback_history h
+LEFT JOIN tracks t ON h.library_id <> '' AND t.library_id = h.library_id
+WHERE h.played_at >= ?
+ORDER BY h.played_at DESC, h.id DESC
+LIMIT ?;
+
+-- name: HistoryLastPlayed :many
+SELECT catalog_id, library_id, CAST(max(played_at) AS INTEGER) AS played_at
+FROM playback_history
+GROUP BY catalog_id, library_id;
+
+-- name: HistoryBefore :one
+SELECT EXISTS (SELECT 1 FROM playback_history WHERE played_at < ?);
 
 -- name: TrimHistory :execrows
 DELETE FROM playback_history WHERE played_at < ?;

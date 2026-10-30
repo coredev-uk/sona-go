@@ -157,7 +157,7 @@ func TestSyncRemovesDeletedItems(t *testing.T) {
 	e.fake.playlists = e.fake.playlists[1:] // drop p.big
 	delete(e.fake.ratings["library-songs"], "i.5")
 	e.fake.mu.Unlock()
-	if err := e.run(t); err != nil {
+	if err := e.runFull(t); err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
@@ -227,11 +227,9 @@ func TestSyncResumesFromCheckpoint(t *testing.T) {
 	if st.InProgress != 0 || !st.LastSuccess.Valid || st.LastError != "" {
 		t.Fatalf("state after resume = %+v", st)
 	}
-	// The next run starts fresh from offset 0.
-	e.fake.mu.Lock()
-	e.fake.pageReqs = map[string][]int{}
-	e.fake.mu.Unlock()
-	if err := e.run(t, DomainSongs); err != nil {
+	// The next full run starts fresh from offset 0.
+	e.fake.reset()
+	if err := e.runFull(t, DomainSongs); err != nil {
 		t.Fatal(err)
 	}
 	if reqs := e.fake.reqs("/v1/me/library/songs"); len(reqs) != 10 || slices.Min(reqs) != 0 {
@@ -267,11 +265,11 @@ func TestSyncRejectsConcurrentRun(t *testing.T) {
 	seed(e.fake, 10)
 	e.fake.block = make(chan struct{})
 	done := make(chan error, 1)
-	go func() { done <- e.sync.Sync(context.Background(), nil, DomainSongs) }()
+	go func() { done <- e.sync.Sync(context.Background(), Full, nil, DomainSongs) }()
 	for !e.sync.Running() {
 		time.Sleep(time.Millisecond)
 	}
-	if err := e.sync.Sync(context.Background(), nil); !errors.Is(err, ErrSyncRunning) {
+	if err := e.sync.Sync(context.Background(), Incremental, nil); !errors.Is(err, ErrSyncRunning) {
 		t.Fatalf("second Sync = %v", err)
 	}
 	close(e.fake.block)

@@ -176,6 +176,7 @@ type SyncState struct {
 	LastStarted sql.NullInt64
 	LastSuccess sql.NullInt64
 	LastError   string
+	LastFull    sql.NullInt64
 }
 
 type Track struct {

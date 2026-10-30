@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
@@ -137,5 +138,71 @@ func TestWipeUserData(t *testing.T) {
 	}
 	if _, err := d.RQ.GetTrackByLibraryID(ctx, NullString("i.1")); err != sql.ErrNoRows {
 		t.Fatalf("library track survived: %v", err)
+	}
+}
+
+func TestMaintainVacuumsOnlyWhenWorthIt(t *testing.T) {
+	ctx := context.Background()
+	d, _ := openTemp(t)
+	body := make([]byte, 64<<10)
+	for i := range 128 { // 8 MiB of cached responses
+		if err := d.Q.PutCache(ctx, dbq.PutCacheParams{Key: string(rune('a'+i%26)) + string(rune(i)), Storefront: "gb", Body: body, FetchedAt: 1, ExpiresAt: 2}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if freed, err := d.Maintain(ctx, false); err != nil || freed != 0 {
+		t.Fatalf("vacuumed a full database: %d, %v", freed, err)
+	}
+	if _, err := d.W.ExecContext(ctx, `DELETE FROM catalog_cache`); err != nil {
+		t.Fatal(err)
+	}
+	if _, free, _ := d.Space(ctx); free < 4<<20 {
+		t.Fatalf("free after delete = %d", free)
+	}
+	freed, err := d.Maintain(ctx, false)
+	if err != nil || freed < 4<<20 {
+		t.Fatalf("freed %d, %v", freed, err)
+	}
+	if _, free, _ := d.Space(ctx); free != 0 {
+		t.Fatalf("free after vacuum = %d", free)
+	}
+}
+
+func TestUserArtwork(t *testing.T) {
+	ctx := context.Background()
+	d, _ := openTemp(t)
+	q := d.Q
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	const (
+		cover   = "https://is1-ssl.mzstatic.com/image/thumb/user/cover/{w}x{h}cc.jpg"
+		shared  = "https://is1-ssl.mzstatic.com/image/thumb/catalog/album/{w}x{h}bb.jpg"
+		played  = "https://is1-ssl.mzstatic.com/image/thumb/played/{w}x{h}bb.jpg"
+		mix     = "https://is1-ssl.mzstatic.com/image/thumb/mix/{w}x{h}bb.jpg"
+		catOnly = "https://is1-ssl.mzstatic.com/image/thumb/catalog/only/{w}x{h}bb.jpg"
+	)
+	_, err := q.UpsertLibraryPlaylist(ctx, dbq.UpsertLibraryPlaylistParams{LibraryID: NullString("p.1"), Name: "Mine", ArtworkTemplate: cover, UpdatedAt: 1})
+	must(err)
+	_, err = q.UpsertLibraryAlbum(ctx, dbq.UpsertLibraryAlbumParams{LibraryID: NullString("l.1"), Name: "A", ArtworkTemplate: shared, UpdatedAt: 1})
+	must(err)
+	_, err = q.UpsertCatalogAlbum(ctx, dbq.UpsertCatalogAlbumParams{CatalogID: NullString("1"), Name: "A", ArtworkTemplate: shared, UpdatedAt: 1})
+	must(err)
+	_, err = q.UpsertCatalogAlbum(ctx, dbq.UpsertCatalogAlbumParams{CatalogID: NullString("2"), Name: "B", ArtworkTemplate: catOnly, UpdatedAt: 1})
+	must(err)
+	_, err = q.InsertHistory(ctx, dbq.InsertHistoryParams{PlayedAt: 1, ItemID: "9", ArtworkTemplate: played})
+	must(err)
+	_, err = d.W.ExecContext(ctx, `INSERT INTO discover_cache (key, storefront, personal, body, fetched_at, expires_at) VALUES ('home', 'gb', 1, ?, 1, 2), ('new', 'gb', 0, ?, 1, 2)`,
+		`{"data":[{"attributes":{"artwork":{"url":"`+mix+`"}}}]}`, `{"data":[{"attributes":{"artwork":{"url":"`+catOnly+`x"}}}]}`)
+	must(err)
+
+	got, err := d.UserArtwork(ctx)
+	must(err)
+	want := []string{mix, played, cover}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("user artwork = %q, want %q", got, want)
 	}
 }

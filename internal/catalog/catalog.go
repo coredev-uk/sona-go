@@ -214,6 +214,18 @@ func (c *Catalog) Prune(ctx context.Context) (int64, error) {
 	return c.db.Q.DeleteExpiredCache(ctx, db.Millis(c.now()))
 }
 
+// CacheSize reports the cached responses and their bytes.
+func (c *Catalog) CacheSize(ctx context.Context) (entries, bytes int64, err error) {
+	r, err := c.db.RQ.CatalogCacheSize(ctx)
+	return r.Entries, r.Bytes, err
+}
+
+// ClearCache deletes every cached response and returns how many it
+// removed. The normalised catalog rows stay (library views join them).
+func (c *Catalog) ClearCache(ctx context.Context) (int64, error) {
+	return c.db.Q.ClearCatalogCache(ctx)
+}
+
 func storeAlbum(ctx context.Context, q *dbq.Queries, a applemusic.Album, now int64) error {
 	if _, err := storeAlbumRow(ctx, q, a, now); err != nil {
 		return err

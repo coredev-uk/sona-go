@@ -82,6 +82,8 @@ type AlbumAttributes struct {
 	AudioTraits          []string `json:"audioTraits"`
 	IsAppleDigitalMaster bool     `json:"isAppleDigitalMaster"`
 	IsMasteredForItunes  bool     `json:"isMasteredForItunes"`
+	// Motion artwork (album page, extend=editorialVideo).
+	EditorialVideo EditorialVideo `json:"editorialVideo,omitempty"`
 }
 
 // ArtistAttributes are the artist attributes Sona uses. Library artists
@@ -118,6 +120,8 @@ type PlaylistAttributes struct {
 	IsChart        bool     `json:"isChart"`
 	EditorialNotes *Notes   `json:"editorialNotes"`
 	AudioTraits    []string `json:"audioTraits"` // display badges (see SongAttributes)
+	// Motion artwork (playlist page, extend=editorialVideo).
+	EditorialVideo EditorialVideo `json:"editorialVideo,omitempty"`
 }
 
 // Relationship is a to-many relationship or a paged collection: Next is the

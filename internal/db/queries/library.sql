@@ -123,26 +123,44 @@ INSERT INTO playlist_tracks (playlist_id, position, track_id) VALUES (?, ?, ?);
 -- name: SetPlaylistTracksSynced :exec
 UPDATE playlists SET tracks_modified = ?, track_count = ? WHERE id = ?;
 
--- name: LibrarySongIDs :many
+-- name: LibrarySongIDsSince :many
 SELECT t.library_id
 FROM tracks t
 JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
-WHERE t.library_id IS NOT NULL
+WHERE t.library_id IS NOT NULL AND t.updated_at > ?
 ORDER BY t.id;
 
--- name: LibraryAlbumIDs :many
+-- name: LibraryAlbumIDsSince :many
 SELECT a.library_id
 FROM albums a
 JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
-WHERE a.library_id IS NOT NULL
+WHERE a.library_id IS NOT NULL AND a.updated_at > ?
 ORDER BY a.id;
 
--- name: LibraryPlaylistIDs :many
+-- name: LibraryPlaylistIDsSince :many
 SELECT p.library_id
 FROM playlists p
 JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
-WHERE p.library_id IS NOT NULL
+WHERE p.library_id IS NOT NULL AND p.updated_at > ?
 ORDER BY p.id;
+
+-- name: LibrarySongKnown :one
+SELECT EXISTS (
+    SELECT 1 FROM tracks t JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
+    WHERE t.library_id = ?
+);
+
+-- name: LibraryAlbumKnown :one
+SELECT EXISTS (
+    SELECT 1 FROM albums a JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
+    WHERE a.library_id = ?
+);
+
+-- name: MinSongAddedRank :one
+SELECT CAST(coalesce(min(added_rank), 0) AS INTEGER) FROM library_items WHERE kind = 'song';
+
+-- name: CountLibraryKind :one
+SELECT count(*) FROM library_items WHERE kind = ?;
 
 -- name: CountLibraryItems :many
 SELECT kind, count(*) AS n FROM library_items GROUP BY kind;

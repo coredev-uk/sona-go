@@ -109,7 +109,7 @@ func (c *Client) CatalogPlaylist(ctx context.Context, sf, id string) (CatalogPla
 	q := AMPQuery{
 		Include: []string{"tracks", "curator"},
 		Views:   []string{"featured-artists", "more-by-curator"},
-		Extend:  []string{"editorialArtwork", "trackCount"},
+		Extend:  []string{"editorialArtwork", "editorialVideo", "trackCount"},
 		Fields: map[string][]string{
 			"curators":        {"name", "url"},
 			"apple-curators":  {"name", "url"},

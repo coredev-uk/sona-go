@@ -28,11 +28,13 @@ var albumViews = []string{"more-by-artist", "you-might-also-like", "appears-on",
 
 // AlbumPage returns catalog album id from the web player's API: every
 // track (with its artists, popularity and audio traits), the album's
-// artists, its editorial notes, and the page sections in Views.
+// artists, its editorial notes, its motion artwork, and the page sections
+// in Views.
 func AlbumPage(ctx context.Context, c *Client, sf, id string) (Album, error) {
 	q := AMPQuery{
 		Views:   albumViews,
 		Include: []string{"artists"},
+		Extend:  []string{"editorialVideo"},
 		Fields:  map[string][]string{"artists": {"name", "url", "artwork"}},
 		Extra: url.Values{
 			"include[songs]":        {"artists"},

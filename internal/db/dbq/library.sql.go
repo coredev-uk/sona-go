@@ -51,6 +51,17 @@ func (q *Queries) CountLibraryItems(ctx context.Context) ([]CountLibraryItemsRow
 	return items, nil
 }
 
+const countLibraryKind = `-- name: CountLibraryKind :one
+SELECT count(*) FROM library_items WHERE kind = ?
+`
+
+func (q *Queries) CountLibraryKind(ctx context.Context, kind string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countLibraryKind, kind)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteOrphanLibraryAlbums = `-- name: DeleteOrphanLibraryAlbums :execrows
 DELETE FROM albums
 WHERE library_id IS NOT NULL
@@ -262,16 +273,16 @@ func (q *Queries) InsertPlaylistTrack(ctx context.Context, arg InsertPlaylistTra
 	return err
 }
 
-const libraryAlbumIDs = `-- name: LibraryAlbumIDs :many
+const libraryAlbumIDsSince = `-- name: LibraryAlbumIDsSince :many
 SELECT a.library_id
 FROM albums a
 JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
-WHERE a.library_id IS NOT NULL
+WHERE a.library_id IS NOT NULL AND a.updated_at > ?
 ORDER BY a.id
 `
 
-func (q *Queries) LibraryAlbumIDs(ctx context.Context) ([]sql.NullString, error) {
-	rows, err := q.db.QueryContext(ctx, libraryAlbumIDs)
+func (q *Queries) LibraryAlbumIDsSince(ctx context.Context, updatedAt int64) ([]sql.NullString, error) {
+	rows, err := q.db.QueryContext(ctx, libraryAlbumIDsSince, updatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -291,6 +302,20 @@ func (q *Queries) LibraryAlbumIDs(ctx context.Context) ([]sql.NullString, error)
 		return nil, err
 	}
 	return items, nil
+}
+
+const libraryAlbumKnown = `-- name: LibraryAlbumKnown :one
+SELECT EXISTS (
+    SELECT 1 FROM albums a JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
+    WHERE a.library_id = ?
+)
+`
+
+func (q *Queries) LibraryAlbumKnown(ctx context.Context, libraryID sql.NullString) (bool, error) {
+	row := q.db.QueryRowContext(ctx, libraryAlbumKnown, libraryID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const libraryAlbumTracks = `-- name: LibraryAlbumTracks :many
@@ -396,16 +421,16 @@ func (q *Queries) LibraryArtistTracks(ctx context.Context, artistLibraryID sql.N
 	return items, nil
 }
 
-const libraryPlaylistIDs = `-- name: LibraryPlaylistIDs :many
+const libraryPlaylistIDsSince = `-- name: LibraryPlaylistIDsSince :many
 SELECT p.library_id
 FROM playlists p
 JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
-WHERE p.library_id IS NOT NULL
+WHERE p.library_id IS NOT NULL AND p.updated_at > ?
 ORDER BY p.id
 `
 
-func (q *Queries) LibraryPlaylistIDs(ctx context.Context) ([]sql.NullString, error) {
-	rows, err := q.db.QueryContext(ctx, libraryPlaylistIDs)
+func (q *Queries) LibraryPlaylistIDsSince(ctx context.Context, updatedAt int64) ([]sql.NullString, error) {
+	rows, err := q.db.QueryContext(ctx, libraryPlaylistIDsSince, updatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -469,16 +494,16 @@ func (q *Queries) LibraryPlaylistsForTrackSync(ctx context.Context) ([]LibraryPl
 	return items, nil
 }
 
-const librarySongIDs = `-- name: LibrarySongIDs :many
+const librarySongIDsSince = `-- name: LibrarySongIDsSince :many
 SELECT t.library_id
 FROM tracks t
 JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
-WHERE t.library_id IS NOT NULL
+WHERE t.library_id IS NOT NULL AND t.updated_at > ?
 ORDER BY t.id
 `
 
-func (q *Queries) LibrarySongIDs(ctx context.Context) ([]sql.NullString, error) {
-	rows, err := q.db.QueryContext(ctx, librarySongIDs)
+func (q *Queries) LibrarySongIDsSince(ctx context.Context, updatedAt int64) ([]sql.NullString, error) {
+	rows, err := q.db.QueryContext(ctx, librarySongIDsSince, updatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -498,6 +523,20 @@ func (q *Queries) LibrarySongIDs(ctx context.Context) ([]sql.NullString, error) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const librarySongKnown = `-- name: LibrarySongKnown :one
+SELECT EXISTS (
+    SELECT 1 FROM tracks t JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
+    WHERE t.library_id = ?
+)
+`
+
+func (q *Queries) LibrarySongKnown(ctx context.Context, libraryID sql.NullString) (bool, error) {
+	row := q.db.QueryRowContext(ctx, librarySongKnown, libraryID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const markLibraryItem = `-- name: MarkLibraryItem :exec
@@ -526,6 +565,17 @@ func (q *Queries) MarkLibraryItem(ctx context.Context, arg MarkLibraryItemParams
 		arg.Generation,
 	)
 	return err
+}
+
+const minSongAddedRank = `-- name: MinSongAddedRank :one
+SELECT CAST(coalesce(min(added_rank), 0) AS INTEGER) FROM library_items WHERE kind = 'song'
+`
+
+func (q *Queries) MinSongAddedRank(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, minSongAddedRank)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const rebuildSearchAlbums = `-- name: RebuildSearchAlbums :exec

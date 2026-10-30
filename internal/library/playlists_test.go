@@ -10,15 +10,19 @@ import (
 )
 
 func folder(id, name string) map[string]any {
-	return map[string]any{"id": id, "type": applemusic.TypeLibraryPlaylistFolders,
-		"attributes": map[string]any{"name": name, "canDelete": true, "dateAdded": "2024-02-05T22:52:36Z"}}
+	return map[string]any{
+		"id": id, "type": applemusic.TypeLibraryPlaylistFolders,
+		"attributes": map[string]any{"name": name, "canDelete": true, "dateAdded": "2024-02-05T22:52:36Z"},
+	}
 }
 
 // tombstone is what Apple keeps listing after a playlist or folder is
 // deleted: no name, not deletable.
 func tombstone(id, typ string) map[string]any {
-	return map[string]any{"id": id, "type": typ,
-		"attributes": map[string]any{"canDelete": false, "canEdit": false, "lastModifiedDate": "1970-01-01T00:00:00Z"}}
+	return map[string]any{
+		"id": id, "type": typ,
+		"attributes": map[string]any{"canDelete": false, "canEdit": false, "lastModifiedDate": "1970-01-01T00:00:00Z"},
+	}
 }
 
 func treePlaylists(t *testing.T, e *env) map[string][2]any {
@@ -101,13 +105,17 @@ func TestStorePlaylistEdits(t *testing.T) {
 	songs := func(ids ...string) []applemusic.Song {
 		out := make([]applemusic.Song, len(ids))
 		for i, id := range ids {
-			out[i] = applemusic.Song{Resource: applemusic.Resource[applemusic.SongAttributes]{ID: id, Type: applemusic.TypeLibrarySongs,
-				Attributes: applemusic.SongAttributes{Name: "S " + id, PlayParams: &applemusic.PlayParams{CatalogID: "c" + id}}}}
+			out[i] = applemusic.Song{Resource: applemusic.Resource[applemusic.SongAttributes]{
+				ID: id, Type: applemusic.TypeLibrarySongs,
+				Attributes: applemusic.SongAttributes{Name: "S " + id, PlayParams: &applemusic.PlayParams{CatalogID: "c" + id}},
+			}}
 		}
 		return out
 	}
-	p := applemusic.Playlist{Resource: applemusic.Resource[applemusic.PlaylistAttributes]{ID: "p.new", Type: applemusic.TypeLibraryPlaylists,
-		Attributes: applemusic.PlaylistAttributes{Name: "New", CanEdit: true, CanDelete: true, LastModifiedDate: "2026-10-30T11:03:20Z"}}}
+	p := applemusic.Playlist{Resource: applemusic.Resource[applemusic.PlaylistAttributes]{
+		ID: "p.new", Type: applemusic.TypeLibraryPlaylists,
+		Attributes: applemusic.PlaylistAttributes{Name: "New", CanEdit: true, CanDelete: true, LastModifiedDate: "2026-10-30T11:03:20Z"},
+	}}
 	// A new song (i.new) arrives with the playlist: it joins the library.
 	if err := e.lib.StorePlaylist(ctx, p, "", songs("i.1", "i.new")); err != nil {
 		t.Fatal(err)
@@ -157,7 +165,7 @@ func TestSyncKeepsRecentFolderMove(t *testing.T) {
 	big, small := e.fake.playlists[0], e.fake.playlists[2]
 	e.fake.folders[applemusic.PlaylistsRoot] = []map[string]any{folder("p.f1", "Mixes"), big, small}
 	e.fake.folders["p.f1"] = []map[string]any{e.fake.playlists[1]}
-	if err := e.run(t, DomainPlaylists); err != nil {
+	if err := e.runFull(t, DomainPlaylists); err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
@@ -169,7 +177,7 @@ func TestSyncKeepsRecentFolderMove(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.sync.NoteMove("p.big", "p.f1")
-	if err := e.run(t, DomainPlaylists); err != nil {
+	if err := e.runFull(t, DomainPlaylists); err != nil {
 		t.Fatal(err)
 	}
 	if got := treePlaylists(t, e)["p.big"]; got[0] != "p.f1" {
@@ -180,12 +188,12 @@ func TestSyncKeepsRecentFolderMove(t *testing.T) {
 	// on another device wins.
 	e.fake.folders[applemusic.PlaylistsRoot] = []map[string]any{folder("p.f1", "Mixes"), small}
 	e.fake.folders["p.f1"] = []map[string]any{e.fake.playlists[1], big}
-	if err := e.run(t, DomainPlaylists); err != nil {
+	if err := e.runFull(t, DomainPlaylists); err != nil {
 		t.Fatal(err)
 	}
 	e.fake.folders[applemusic.PlaylistsRoot] = []map[string]any{folder("p.f1", "Mixes"), small, big}
 	e.fake.folders["p.f1"] = []map[string]any{e.fake.playlists[1]}
-	if err := e.run(t, DomainPlaylists); err != nil {
+	if err := e.runFull(t, DomainPlaylists); err != nil {
 		t.Fatal(err)
 	}
 	if got := treePlaylists(t, e)["p.big"]; got[0] != "" {
@@ -195,7 +203,7 @@ func TestSyncKeepsRecentFolderMove(t *testing.T) {
 	// An unconfirmed move expires after the grace period.
 	e.sync.NoteMove("p.small", "p.f1")
 	now = now.Add(moveGrace + time.Minute)
-	if err := e.run(t, DomainPlaylists); err != nil {
+	if err := e.runFull(t, DomainPlaylists); err != nil {
 		t.Fatal(err)
 	}
 	if got := treePlaylists(t, e)["p.small"]; got[0] != "" {

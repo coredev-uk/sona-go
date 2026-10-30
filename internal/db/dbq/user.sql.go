@@ -92,18 +92,26 @@ func (q *Queries) FailSync(ctx context.Context, arg FailSyncParams) error {
 
 const finishSync = `-- name: FinishSync :exec
 UPDATE sync_state
-SET in_progress = 0, next_offset = 0, cursor = '', total = ?, last_success = ?, last_error = ''
+SET in_progress = 0, next_offset = 0, cursor = '', total = ?, last_success = ?,
+    last_full = coalesce(?, last_full), last_error = ''
 WHERE domain = ?
 `
 
 type FinishSyncParams struct {
 	Total       int64
 	LastSuccess sql.NullInt64
+	LastFull    sql.NullInt64
 	Domain      string
 }
 
+// last_full is set by full runs and kept (NULL) by incremental ones.
 func (q *Queries) FinishSync(ctx context.Context, arg FinishSyncParams) error {
-	_, err := q.db.ExecContext(ctx, finishSync, arg.Total, arg.LastSuccess, arg.Domain)
+	_, err := q.db.ExecContext(ctx, finishSync,
+		arg.Total,
+		arg.LastSuccess,
+		arg.LastFull,
+		arg.Domain,
+	)
 	return err
 }
 
@@ -145,7 +153,7 @@ func (q *Queries) GetFavorite(ctx context.Context, arg GetFavoriteParams) (int64
 }
 
 const getSyncState = `-- name: GetSyncState :one
-SELECT domain, generation, in_progress, next_offset, cursor, total, last_started, last_success, last_error FROM sync_state WHERE domain = ?
+SELECT domain, generation, in_progress, next_offset, cursor, total, last_started, last_success, last_error, last_full FROM sync_state WHERE domain = ?
 `
 
 func (q *Queries) GetSyncState(ctx context.Context, domain string) (SyncState, error) {
@@ -161,8 +169,124 @@ func (q *Queries) GetSyncState(ctx context.Context, domain string) (SyncState, e
 		&i.LastStarted,
 		&i.LastSuccess,
 		&i.LastError,
+		&i.LastFull,
 	)
 	return i, err
+}
+
+const historyBefore = `-- name: HistoryBefore :one
+SELECT EXISTS (SELECT 1 FROM playback_history WHERE played_at < ?)
+`
+
+func (q *Queries) HistoryBefore(ctx context.Context, playedAt int64) (bool, error) {
+	row := q.db.QueryRowContext(ctx, historyBefore, playedAt)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const historyLastPlayed = `-- name: HistoryLastPlayed :many
+SELECT catalog_id, library_id, CAST(max(played_at) AS INTEGER) AS played_at
+FROM playback_history
+GROUP BY catalog_id, library_id
+`
+
+type HistoryLastPlayedRow struct {
+	CatalogID string
+	LibraryID string
+	PlayedAt  int64
+}
+
+func (q *Queries) HistoryLastPlayed(ctx context.Context) ([]HistoryLastPlayedRow, error) {
+	rows, err := q.db.QueryContext(ctx, historyLastPlayed)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HistoryLastPlayedRow{}
+	for rows.Next() {
+		var i HistoryLastPlayedRow
+		if err := rows.Scan(&i.CatalogID, &i.LibraryID, &i.PlayedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const historySince = `-- name: HistorySince :many
+SELECT h.id, h.played_at, h.catalog_id, h.library_id,
+       CAST(coalesce(nullif(h.catalog_id, ''), t.catalog_id, '') AS TEXT) AS song_catalog_id,
+       h.name, h.artist_name, h.album_name, h.artwork_template, h.duration_ms, h.played_ms, h.source
+FROM playback_history h
+LEFT JOIN tracks t ON h.library_id <> '' AND t.library_id = h.library_id
+WHERE h.played_at >= ?
+ORDER BY h.played_at DESC, h.id DESC
+LIMIT ?
+`
+
+type HistorySinceParams struct {
+	PlayedAt int64
+	Limit    int64
+}
+
+type HistorySinceRow struct {
+	ID              int64
+	PlayedAt        int64
+	CatalogID       string
+	LibraryID       string
+	SongCatalogID   string
+	Name            string
+	ArtistName      string
+	AlbumName       string
+	ArtworkTemplate string
+	DurationMs      int64
+	PlayedMs        int64
+	Source          string
+}
+
+// song_catalog_id is the catalog ID, through the library song for plays of
+// library items.
+func (q *Queries) HistorySince(ctx context.Context, arg HistorySinceParams) ([]HistorySinceRow, error) {
+	rows, err := q.db.QueryContext(ctx, historySince, arg.PlayedAt, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HistorySinceRow{}
+	for rows.Next() {
+		var i HistorySinceRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PlayedAt,
+			&i.CatalogID,
+			&i.LibraryID,
+			&i.SongCatalogID,
+			&i.Name,
+			&i.ArtistName,
+			&i.AlbumName,
+			&i.ArtworkTemplate,
+			&i.DurationMs,
+			&i.PlayedMs,
+			&i.Source,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const insertHistory = `-- name: InsertHistory :one
@@ -275,7 +399,7 @@ func (q *Queries) ListPins(ctx context.Context) ([]Pin, error) {
 }
 
 const listSyncState = `-- name: ListSyncState :many
-SELECT domain, generation, in_progress, next_offset, cursor, total, last_started, last_success, last_error FROM sync_state ORDER BY domain
+SELECT domain, generation, in_progress, next_offset, cursor, total, last_started, last_success, last_error, last_full FROM sync_state ORDER BY domain
 `
 
 func (q *Queries) ListSyncState(ctx context.Context) ([]SyncState, error) {
@@ -297,46 +421,7 @@ func (q *Queries) ListSyncState(ctx context.Context) ([]SyncState, error) {
 			&i.LastStarted,
 			&i.LastSuccess,
 			&i.LastError,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const recentHistory = `-- name: RecentHistory :many
-SELECT id, played_at, item_id, catalog_id, library_id, name, artist_name, album_name, artwork_template, duration_ms, played_ms, source FROM playback_history ORDER BY played_at DESC, id DESC LIMIT ?
-`
-
-func (q *Queries) RecentHistory(ctx context.Context, limit int64) ([]PlaybackHistory, error) {
-	rows, err := q.db.QueryContext(ctx, recentHistory, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []PlaybackHistory{}
-	for rows.Next() {
-		var i PlaybackHistory
-		if err := rows.Scan(
-			&i.ID,
-			&i.PlayedAt,
-			&i.ItemID,
-			&i.CatalogID,
-			&i.LibraryID,
-			&i.Name,
-			&i.ArtistName,
-			&i.AlbumName,
-			&i.ArtworkTemplate,
-			&i.DurationMs,
-			&i.PlayedMs,
-			&i.Source,
+			&i.LastFull,
 		); err != nil {
 			return nil, err
 		}

@@ -15,6 +15,7 @@ const (
 	StationKindStreaming    = "streaming"    // live station or radio episode (format "stream")
 	StationKindArtistSeeded = "artistSeeded" // ra.<artistId>
 	StationKindSongSeeded   = "songSeeded"   // ra.<songId>, ra.cp-<songId> (AutoPlay)
+	StationKindAlbumSeeded  = "albumSeeded"  // ra.<albumId>
 	StationKindArtistOnly   = "artistOnly"   // ra.a-<artistId>
 	StationKindUser         = "user"         // ra.u-… (the user's station)
 	StationKindQuery        = "query"        // ra.q-… (moods)

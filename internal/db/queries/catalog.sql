@@ -107,3 +107,9 @@ DELETE FROM catalog_cache WHERE key = ?;
 
 -- name: DeleteExpiredCache :execrows
 DELETE FROM catalog_cache WHERE expires_at < ?;
+
+-- name: CatalogCacheSize :one
+SELECT count(*) AS entries, CAST(coalesce(sum(length(body)), 0) AS INTEGER) AS bytes FROM catalog_cache;
+
+-- name: ClearCatalogCache :execrows
+DELETE FROM catalog_cache;

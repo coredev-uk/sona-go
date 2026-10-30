@@ -61,6 +61,34 @@ func (q *Queries) CatalogAlbumTracks(ctx context.Context, albumCatalogID sql.Nul
 	return items, nil
 }
 
+const catalogCacheSize = `-- name: CatalogCacheSize :one
+SELECT count(*) AS entries, CAST(coalesce(sum(length(body)), 0) AS INTEGER) AS bytes FROM catalog_cache
+`
+
+type CatalogCacheSizeRow struct {
+	Entries int64
+	Bytes   int64
+}
+
+func (q *Queries) CatalogCacheSize(ctx context.Context) (CatalogCacheSizeRow, error) {
+	row := q.db.QueryRowContext(ctx, catalogCacheSize)
+	var i CatalogCacheSizeRow
+	err := row.Scan(&i.Entries, &i.Bytes)
+	return i, err
+}
+
+const clearCatalogCache = `-- name: ClearCatalogCache :execrows
+DELETE FROM catalog_cache
+`
+
+func (q *Queries) ClearCatalogCache(ctx context.Context) (int64, error) {
+	result, err := q.db.ExecContext(ctx, clearCatalogCache)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteCache = `-- name: DeleteCache :exec
 DELETE FROM catalog_cache WHERE key = ?
 `
