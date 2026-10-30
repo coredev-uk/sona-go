@@ -1,0 +1,81 @@
+# Checks for every push to main and every pull request; release.yml runs the
+# same jobs before building a release.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  go:
+    name: Go vet and test (-race)
+    runs-on: ubuntu-24.04
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+    steps:
+      - uses: actions/checkout@v5
+
+      # GTK4/WebKitGTK headers for the main package (cgo), GStreamer for the
+      # playback host and its tests (appsrc, avdec_aac, audioconvert,
+      # audioresample, volume, fakesink), dbus for the session-bus tests.
+      # No Widevine CDM is configured: the runner image ships Google Chrome,
+      # but the real-CDM tests run only when SONA_WIDEVINE_CDM is set.
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
+            dbus
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      # main.go embeds frontend/dist; the frontend job builds the real one.
+      - name: Stub the embedded frontend
+        run: mkdir -p frontend/dist && touch frontend/dist/.ci
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test -race
+        run: dbus-run-session -- go test -race ./...
+
+  frontend:
+    name: Frontend typecheck, lint, format, test, build
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.9.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm exec eslint src
+      - run: pnpm exec prettier --check src
+      - run: pnpm exec vitest run
+      - run: pnpm run build

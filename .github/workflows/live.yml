@@ -1,0 +1,61 @@
+# Live Apple Music contract tests (internal/applemusic/live_test.go): one
+# real request per endpoint family Sona uses (storefront, search, catalog,
+# library, recommendations, lyrics, stations, webPlayback + licence shape),
+# asserting the decoded shapes the app relies on. Weekly, so an Apple-side
+# response change is caught within a week; a failure opens (or comments on)
+# an issue.
+#
+# Needs the repository secret MUSIC_USER_TOKEN: a Music User Token of an
+# account with an active subscription and a non-empty library. Tokens last
+# about six months; an expired one fails the "storefront" step with a 401.
+name: Live API contract
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-contract
+  cancel-in-progress: false
+
+jobs:
+  live:
+    name: Apple Music live contract
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    env:
+      # The client and these tests are pure Go.
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Live contract tests
+        env:
+          SONA_LIVE: "1"
+          MUSIC_USER_TOKEN: ${{ secrets.MUSIC_USER_TOKEN }}
+        run: go test -count=1 -v -run '^TestLive$' ./internal/applemusic/
+
+      - name: Report a failure
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Live Apple Music contract tests failing"
+          n=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number')
+          body="The weekly live contract run failed: $RUN_URL"
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
