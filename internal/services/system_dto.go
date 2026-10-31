@@ -42,6 +42,10 @@ type DiagWebKit struct {
 
 // DiagPlayback is the playback stack as the CDM host child reports it.
 type DiagPlayback struct {
+	// Engine is the playback engine's kind ("cdm"), or "" when this
+	// platform has none: playback is unavailable and the CDM fields stay
+	// empty.
+	Engine        string `json:"engine"`
 	CDMPath       string `json:"cdmPath"`
 	CDMVersion    string `json:"cdmVersion"`
 	CDMOK         bool   `json:"cdmOk"` // the CDM initialised in a probe child

@@ -55,6 +55,9 @@ func (e *playEngine) SetVolume(context.Context, float64) error  { return nil }
 func (e *playEngine) Stop(context.Context) error                { return nil }
 func (e *playEngine) Events() <-chan playback.Event             { return e.events }
 func (e *playEngine) Close() error                              { return nil }
+func (e *playEngine) Capabilities() playback.Capabilities {
+	return playback.Capabilities{Kind: playback.KindCDM, Volume: true}
+}
 
 type testDev struct{}
 

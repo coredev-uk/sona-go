@@ -47,7 +47,8 @@ src/
                           (registerItemPlayer, playItem), ItemMenu, ItemShelf, ItemGrid,
                           WideRow (editorial banners), TrackShelf, LinkList,
                           EditorialSections (renders Section kinds; Home, Discover, Radio)
-    lib/                  art, errors (callFailure), format, keys, queries (isLibraryId), run,
+    lib/                  art, capabilities (useCapabilities: what this platform supports), errors
+                          (callFailure), format, keys, queries (isLibraryId), run,
                           item-state (useItemState: batched library state + rating;
                           changeItemState, addItemsToLibrary), library-actions (rateItem,
                           addToLibrary, removeFromLibrary and their bulk forms), confirm, content-policy
@@ -59,8 +60,9 @@ src/
                           useBinding (live from settings), ChordKeys/BindingKeys keycaps
     brand/                SonaMark
     styles/index.css      Tailwind entry and design tokens
-    testing/              helpers for tests (query-cache invalidation probe); timers, the
-                          setup file that clears a test file's pending timers
+    testing/              helpers for tests (query-cache invalidation probe, Linux and bare
+                          capability fixtures); timers, the setup file that clears a test
+                          file's pending timers
     ui/                   ShadCN components
   features/<name>/        one folder per feature; public API is index.ts
     home                  For you (Apple's personal shelves, local fallback shelves)
@@ -611,6 +613,51 @@ keys stay in the field (the search module's `TopBarSearch` slot): ↑/↓ move
 through its suggestions (an ARIA combobox), Enter opens the active one or
 searches, Esc closes the list, and ↓ with the list closed moves into the
 results.
+
+## Platform capabilities
+
+Sona builds for Linux, macOS and Windows, but not everything works
+everywhere yet (macOS and Windows have no playback engine today). Go
+reports what this platform and build support through
+`PlatformService.Capabilities()` (the `Capabilities` DTO in
+`internal/services/platform_dto.go`), fixed for the process.
+
+`shared/lib/capabilities.ts`:
+
+- `useCapabilities(): Capabilities | undefined`: the query under
+  `keys.capabilities` (staleTime and gcTime Infinity, prefetched in
+  `app/providers.tsx` before the first render); undefined until Go answers.
+- `currentCapabilities()`: the same value for code outside React, such as a
+  shortcut's `when`.
+
+The rule: a control whose capability is false is hidden, or its absence is
+explained where it would be (Settings → Playback says playback isn't
+available; Diagnostics shows one row instead of the CDM checks; the
+Equaliser page says it isn't available). A control is never shown only to
+fail, and undefined (still loading) counts as false. On Linux every
+capability that works today is true, so the Linux UI is unchanged. A call
+that still reaches an unsupported path fails with error code `unsupported`,
+which `callFailure` words as "That isn't available on this platform."
+
+Gated today: the player bar's volume and the volume and mute shortcuts
+(`playback.volume`); the equaliser button, Settings row, page and shortcut
+(`playback.equalizer`); Settings → Playback's volume, output, Sound Check,
+crossfade rows (their `playback.*` fields), the idle host and CDM location
+rows (`playback.engine === "cdm"`) and its Choose button (`fileChooser`);
+Settings → Desktop's close action (`tray`), start at login (`autostart`),
+start in the tray (`autostart` and `tray`), track notifications
+(`notifications`) and stay awake (`sleepInhibit`); the Discord section of
+Connections (`discordPresence`); the settings file export and import
+(`fileChooser`); motion artwork's "paused on battery" note (`powerState`);
+Diagnostics' WebKitGTK rows and rendering switches (`webkitGtk`). Diagnostics
+reads `DiagPlayback.engine` ("" without an engine) from its own report.
+
+Adding a capability: a field on `Capabilities` (or `PlaybackCapabilities`)
+in `internal/services/platform_dto.go`, filled from the Go platform seam for
+each OS (true on Linux wherever the feature works), regenerate the bindings
+(`gen`), then read it with `useCapabilities()` in the control that needs it,
+with a test showing the control hidden when false and shown when true
+(`shared/testing/capabilities.ts` has Linux and bare fixtures).
 
 ## Boundaries
 

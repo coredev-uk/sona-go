@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useSettings, useUpdateSettings } from "@/features/settings";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { PageHeader } from "@/shared/components/PageHeader";
+import { useCapabilities } from "@/shared/lib/capabilities";
 import { cn } from "@/shared/lib/utils";
 import { numberFormat } from "@/shared/lib/format";
 import { Switch } from "@/shared/ui/switch";
@@ -69,16 +70,21 @@ function Presets({
 /**
  * The equaliser: ten bands drawn as one response curve over their faders,
  * a preamp, and the presets. Moving a fader is heard at once (a preview
- * sent to the playback host) and saved when it is let go.
+ * sent to the playback host) and saved when it is let go. Where the
+ * platform's playback has no equaliser, the page says so instead.
  */
 export function EqualizerPage() {
   const { t } = useLingui();
   const settings = useSettings();
   const info = useEqualizerInfo();
   const update = useUpdateSettings();
+  const caps = useCapabilities();
   // The curve while a fader is held: shown and heard, saved on release.
   const [draft, setDraft] = useState<Equalizer | null>(null);
 
+  if (caps && !caps.playback.equalizer) {
+    return <PageHeader title={t`Equaliser`} subline={t`Not available on this platform yet`} />;
+  }
   const error = settings.error ?? info.error;
   if (error) {
     return (
@@ -94,7 +100,7 @@ export function EqualizerPage() {
   }
   const s = settings.data;
   const eqInfo = info.data;
-  if (!s || !eqInfo) {
+  if (!s || !eqInfo || !caps) {
     return (
       <>
         <PageHeader title={t`Equaliser`} />

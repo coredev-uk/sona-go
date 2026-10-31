@@ -13,6 +13,8 @@ export const keys = {
   storage: ["storage"] as const,
   /** The update check's latest result (UpdatesService.Status, "updates:available"). */
   updates: ["updates"] as const,
+  /** What this platform supports (PlatformService.Capabilities); fixed per process. */
+  capabilities: ["capabilities"] as const,
 
   library: ["library"] as const,
   libraryCounts: ["library", "counts"] as const,

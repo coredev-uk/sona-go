@@ -133,8 +133,9 @@ func (f *fakeEngine) Status() playback.Status {
 	return f.st
 }
 
-func (f *fakeEngine) Events() <-chan playback.Event { return f.events }
-func (f *fakeEngine) Close() error                  { return nil }
+func (f *fakeEngine) Events() <-chan playback.Event       { return f.events }
+func (f *fakeEngine) Capabilities() playback.Capabilities { return playback.Capabilities{} }
+func (f *fakeEngine) Close() error                        { return nil }
 
 func (f *fakeEngine) SetNext(n playback.Next) {
 	f.mu.Lock()
@@ -586,6 +587,46 @@ func TestAuthPauses(t *testing.T) {
 		if !s.AuthRequired || s.State != playback.StatePaused || h.current() != "b" || len(h.eng.playList()) != 2 {
 			t.Fatalf("after 403: %+v plays %v", s, h.eng.playList())
 		}
+	})
+}
+
+// An engine that cannot play on this platform pauses on the selected item
+// with the reason, instead of skipping through the queue as failures.
+func TestUnsupportedEnginePausesWithoutFailing(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		log := &activityLog{}
+		h := newHarness(t, func(o *Options) { o.OnActivity = log.add })
+		ctx := t.Context()
+		for _, id := range []string{"a", "b", "c"} {
+			h.eng.failPlay[id] = playback.ErrUnsupported
+		}
+		check := func(step, want string, plays int) {
+			t.Helper()
+			s := h.c.Snapshot()
+			if h.current() != want || s.State != playback.StatePaused || s.Error != playback.ErrUnsupported.Error() {
+				t.Fatalf("%s: current %q state %s error %q", step, h.current(), s.State, s.Error)
+			}
+			if got := h.eng.playList(); len(got) != plays {
+				t.Fatalf("%s: plays %v", step, got)
+			}
+		}
+		if err := h.c.SetQueue(ctx, items("a", "b", "c"), 0, ""); !errors.Is(err, playback.ErrUnsupported) {
+			t.Fatalf("SetQueue: %v, want ErrUnsupported", err)
+		}
+		check("SetQueue", "a", 1)
+		if err := h.c.Next(ctx); !errors.Is(err, playback.ErrUnsupported) {
+			t.Fatalf("Next: %v, want ErrUnsupported", err)
+		}
+		check("Next", "b", 2)
+		if err := h.c.Resume(ctx); !errors.Is(err, playback.ErrUnsupported) {
+			t.Fatalf("Resume: %v, want ErrUnsupported", err)
+		}
+		check("Resume", "b", 3)
+		synctest.Wait()
+		if p := h.playedList(); len(p) != 0 {
+			t.Errorf("listens reported: %v", p)
+		}
+		expect(t, log)
 	})
 }
 

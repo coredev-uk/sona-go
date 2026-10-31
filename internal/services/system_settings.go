@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -14,19 +13,16 @@ import (
 // settingsFilters are the file chooser's types for a settings export.
 var settingsFilters = []app.FileFilter{{Name: "Sona settings (JSON)", Patterns: []string{"*.json"}}}
 
-// errNoChooser: the desktop's file chooser is reached over D-Bus.
-var errNoChooser = errors.New("the file chooser needs a D-Bus session bus")
-
-// ExportSettings asks where to save (the desktop's file chooser, through
-// xdg-desktop-portal) and writes the settings there as an export document
+// ExportSettings asks where to save (the desktop's file chooser,
+// Platform.Files) and writes the settings there as an export document
 // (config.Export): without the values that belong to this computer, and
 // never with a secret, since settings hold none. It returns the path, or
 // "" when the user cancels.
 func (s *SystemService) ExportSettings(ctx context.Context) (string, error) {
-	if s.o.Bus == nil {
-		return "", errNoChooser
+	if s.o.Platform.Files == nil {
+		return "", unsupported("the file chooser")
 	}
-	path, err := app.SaveFile(ctx, s.o.Bus, app.SaveFileOptions{
+	path, err := s.o.Platform.Files.SaveFile(ctx, app.SaveFileOptions{
 		Title:       "Export Sona settings",
 		AcceptLabel: "Export",
 		Name:        "sona-settings.json",
@@ -58,10 +54,10 @@ func (s *SystemService) exportSettings(path string) error {
 // type, changes nothing. It returns what changed; Path is "" when the user
 // cancels.
 func (s *SystemService) ImportSettings(ctx context.Context) (SettingsImport, error) {
-	if s.o.Bus == nil {
-		return SettingsImport{}, errNoChooser
+	if s.o.Platform.Files == nil {
+		return SettingsImport{}, unsupported("the file chooser")
 	}
-	path, err := app.OpenFile(ctx, s.o.Bus, app.OpenFileOptions{
+	path, err := s.o.Platform.Files.OpenFile(ctx, app.OpenFileOptions{
 		Title:       "Import Sona settings",
 		AcceptLabel: "Import",
 		Filters:     settingsFilters,

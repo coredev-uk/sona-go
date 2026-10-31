@@ -16,7 +16,7 @@
 
 - Run everything through devenv 2.4+: `devenv shell -- <cmd>` (without an install: `nix run github:NixOS/nixpkgs/nixpkgs-unstable#devenv -- shell -- <cmd>`; plain `nixpkgs#devenv` may be older and is refused). It sets `CGO_ENABLED=1`, `GOFLAGS=-tags=sqlite_fts5` and the GStreamer plugin path, and loads `.env`. nixpkgs is pinned in `devenv.yaml` (bumping: CONTRIBUTING.md).
 - If locking inputs fails with an ssh hostkey error (a git config that rewrites https to ssh breaks Nix's fetcher), run devenv once with `XDG_CONFIG_HOME` pointing at an empty directory: `XDG_CONFIG_HOME=$(mktemp -d) devenv shell -- true`. Do not keep that prefix when running the app: it moves Sona's settings into that directory.
-- devenv scripts (each described in CONTRIBUTING.md): `dev` (Vite hot reload, `-config ./build/config.yml`), `build` (frontend + bindings + `bin/sona`), `gen` (sqlc + TS bindings), `fmt` (gofumpt + prettier), `check` (frontend build, go vet, golangci-lint on new code, path case, tsc, eslint, prettier, i18n), `tests` (frontend build, `go test -race` under `dbus-run-session`, vitest), `release` (release packages in a container), `play-spike`, `auth-spike`. `package` is Taskfile's only.
+- devenv scripts (each described in CONTRIBUTING.md): `dev` (Vite hot reload, `-config ./build/config.yml`), `build` (frontend + bindings + `bin/sona`), `gen` (sqlc + TS bindings), `fmt` (gofumpt + prettier), `check` (frontend build, go vet, the Windows and macOS type-checks, golangci-lint on new code, path case, tsc, eslint, prettier, i18n), `tests` (frontend build, `go test -race` under `dbus-run-session`, vitest), `release` (release packages in a container), `play-spike`, `auth-spike`. `package` is Taskfile's only.
 - Before handing off: `check` and `tests`.
 - `wails3` is a Go tool dependency (`go tool wails3`). Plain `go build .` needs `frontend/dist` built first; production builds use `-tags production,sqlite_fts5`.
 - Widevine CDM: devenv ships none. The app and `playspike` discover an installed browser's copy (Chrome, Chromium-family `WidevineCdm` dirs such as Brave's, Firefox/Zen `gmp-widevinecdm`); `SONA_WIDEVINE_CDM=/path/to/libwidevinecdm.so` (environment or `.env`) overrides discovery and enables the real-CDM tests.
@@ -45,6 +45,7 @@
 - Never redistribute, download-and-bundle, or patch the CDM. Never extract keys or use reimplemented CDMs (`openwv`, extracted device keys).
 - Do not try to make Widevine work in WebKitGTK.
 - Go's MPRIS (`org.mpris.MediaPlayer2.sona`) is the only Sona player on D-Bus.
+- OS-specific code goes behind the platform seams (`platform_<os>.go`, `services.Platform`, build-tag conventions: CONTRIBUTING.md "Platforms"). Where a platform lacks a feature it reports it (`errors.ErrUnsupported`, `PlatformService.Capabilities`) and the UI hides or explains the control; never a stub that pretends to work.
 
 ## Linux Performance Rules
 
@@ -53,7 +54,7 @@
 
 ## Secrets
 
-- Never store tokens or DRM credentials in database tables, logs, or committed files. Use Secret Service (go-keyring) with an explicit, user-visible 0600 file fallback.
+- Never store tokens or DRM credentials in database tables, logs, or committed files. Use the system keyring (go-keyring: Secret Service, Keychain, Credential Manager) with an explicit, user-visible 0600 file fallback.
 
 ## Worktrees and Branches
 
@@ -67,7 +68,7 @@
 ## Process
 
 - One item per branch and PR. Fill in the PR template (`.github/pull_request_template.md`): What, Why, Evidence (commands with their output; light and dark screenshots for UI, with no personal account data), Tests, Docs, Left.
-- Gate before every PR: `go vet ./...`, `go test -race ./...` (touched packages first, then repo-wide), `golangci-lint run --new-from-rev=origin/main ./...` clean, and in `frontend/`: `pnpm exec tsc --noEmit`, `pnpm exec eslint src`, `pnpm exec prettier --check src`, `pnpm i18n:check`, `pnpm exec vitest run`.
+- Gate before every PR: `go vet ./...`, the cross-platform type-checks (`GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...`, `go run ./cmd/typecheck -os darwin -arch arm64 ./...`), `go test -race ./...` (touched packages first, then repo-wide), `golangci-lint run --new-from-rev=origin/main ./...` clean, and in `frontend/`: `pnpm exec tsc --noEmit`, `pnpm exec eslint src`, `pnpm exec prettier --check src`, `pnpm i18n:check`, `pnpm exec vitest run`.
 - Update the docs describing what you change in the same PR.
 - Private mode for every playback run: tests, smokes and live checks run with `SONA_PRIVATE=1` (development builds start private, `playspike` is private by default) so nothing is reported to Apple or scrobbled. Never play against Apple without it.
 - Live audio goes to your own PipeWire null sink (`pw-cli create-node adapter '{ factory.name=support.null-audio-sink node.name=<name> media.class=Audio/Sink object.linger=true audio.position=[FL FR] }'`), targeted with `pipewiresink target-object` (`-device` in playspike; `PIPEWIRE_NODE` pins a stream and breaks device-move tests) and recorded with `pw-record --target <name>`. Destroy only nodes you created; if WirePlumber stops linking streams, ask before restarting it.

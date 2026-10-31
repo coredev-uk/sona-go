@@ -1,3 +1,5 @@
+//go:build linux
+
 package cdmhost
 
 import (
@@ -18,6 +20,8 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
 )
 
 // Options configures Start.
@@ -30,7 +34,7 @@ type Options struct {
 	// system default.
 	Device string
 	// Equalizer is applied from the first pipeline on.
-	Equalizer Equalizer
+	Equalizer equalizer.Curve
 	// Logger receives the child's log records; nil discards them.
 	Logger *slog.Logger
 	// Exe is the executable to run as the child; default os.Executable().
@@ -660,7 +664,7 @@ func (h *Host) Position(ctx context.Context) (time.Duration, bool, error) {
 }
 
 // SetEqualizer changes the equaliser of the playing audio at once.
-func (h *Host) SetEqualizer(ctx context.Context, eq Equalizer) error {
+func (h *Host) SetEqualizer(ctx context.Context, eq equalizer.Curve) error {
 	_, err := h.call(ctx, request{Op: opEqualizer, EQ: &eq})
 	return err
 }

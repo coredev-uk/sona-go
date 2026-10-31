@@ -2,13 +2,11 @@ package services
 
 import (
 	"context"
-	"errors"
 	"path/filepath"
 	"sync/atomic"
 
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/config"
-	"github.com/coredev-uk/sona-go/internal/playback/widevine"
 )
 
 // Windows is the desktop shell's window control, provided by main
@@ -74,29 +72,37 @@ func (d *DesktopService) SetLastRoute(route string) error {
 	return err
 }
 
-// ChooseCDMPath opens the desktop's file chooser (xdg-desktop-portal) for
-// libwidevinecdm.so and returns the chosen path, or "" when the user
-// cancels. It does not save the choice.
+// cdmFinder is implemented by the CDM host engine: where discovery finds
+// the Widevine CDM.
+type cdmFinder interface {
+	FindCDM(override string) (path, version string, err error)
+}
+
+// ChooseCDMPath opens the desktop's file chooser (xdg-desktop-portal on
+// Linux) for libwidevinecdm.so and returns the chosen path, or "" when the
+// user cancels. It does not save the choice.
 func (d *DesktopService) ChooseCDMPath(ctx context.Context) (string, error) {
-	if d.o.Bus == nil {
-		return "", errors.New("the file chooser needs a D-Bus session bus")
+	if d.o.Platform.Files == nil {
+		return "", unsupported("the file chooser")
 	}
-	return app.OpenFile(ctx, d.o.Bus, app.OpenFileOptions{
+	return d.o.Platform.Files.OpenFile(ctx, app.OpenFileOptions{
 		Title:       "Choose the Widevine CDM",
 		AcceptLabel: "Use this CDM",
 		Filters: []app.FileFilter{
 			{Name: "Widevine CDM (libwidevinecdm.so)", Patterns: []string{"libwidevinecdm.so"}},
 			{Name: "Shared libraries", Patterns: []string{"*.so"}},
 		},
-		Folder: cdmFolder(d.o.Settings.Get().CDMPath),
+		Folder: d.cdmFolder(d.o.Settings.Get().CDMPath),
 	})
 }
 
 // cdmFolder is where the chooser opens: the CDM in use (the override, else
-// the one found), or the portal's default.
-func cdmFolder(override string) string {
-	if p, _, err := widevine.FindCDM(override); err == nil {
-		return filepath.Dir(p)
+// the one the engine finds), or the chooser's default.
+func (d *DesktopService) cdmFolder(override string) string {
+	if f, ok := d.o.Engine.(cdmFinder); ok {
+		if p, _, err := f.FindCDM(override); err == nil {
+			return filepath.Dir(p)
+		}
 	}
 	if override != "" {
 		return filepath.Dir(override)
@@ -112,7 +118,7 @@ func cdmFolder(override string) string {
 func (d *DesktopService) settingsChanged(prev, next config.Settings) {
 	p, n := prev.Desktop, next.Desktop
 	if p.Autostart != n.Autostart || (n.Autostart && p.StartHidden != n.StartHidden) {
-		if err := applyAutostart(n); err != nil {
+		if err := d.applyAutostart(n); err != nil {
 			d.o.Logger.Warn("desktop: autostart", "on", n.Autostart, "err", err)
 			if !d.undoing.Load() {
 				// Observers must not call Update; undo it right after so
@@ -133,35 +139,32 @@ func (d *DesktopService) settingsChanged(prev, next config.Settings) {
 }
 
 // applyAutostart makes the autostart entry match d.
-func applyAutostart(d config.Desktop) error {
-	path, err := app.AutostartPath()
-	if err != nil {
-		return err
+func (d *DesktopService) applyAutostart(set config.Desktop) error {
+	a := d.o.Platform.Autostart
+	switch {
+	case a == nil && set.Autostart:
+		return unsupported("starting at login")
+	case a == nil:
+		return nil
+	case !set.Autostart:
+		return a.Disable()
 	}
-	if !d.Autostart {
-		return app.RemoveAutostart(path)
-	}
-	exe, err := app.LaunchCommand()
-	if err != nil {
-		return err
-	}
-	argv := []string{exe}
-	if d.StartHidden {
-		argv = append(argv, app.HiddenFlag)
-	}
-	return app.WriteAutostart(path, argv)
+	return a.Enable(set.StartHidden)
 }
 
 // reconcileAutostart adopts the entry's presence as the setting, and
 // rewrites an existing entry so it runs this build (an AppImage or binary
-// that moved).
+// that moved). Without an autostart on this platform the setting is
+// turned off.
 func (d *DesktopService) reconcileAutostart() {
-	path, err := app.AutostartPath()
-	if err != nil {
-		d.o.Logger.Warn("desktop: autostart", "err", err)
-		return
+	exists := false
+	if a := d.o.Platform.Autostart; a != nil {
+		var err error
+		if exists, err = a.Enabled(); err != nil {
+			d.o.Logger.Warn("desktop: autostart", "err", err)
+			return
+		}
 	}
-	exists := app.AutostartExists(path)
 	cur := d.o.Settings.Get().Desktop
 	if exists != cur.Autostart {
 		// settingsChanged writes or removes the entry to match.
@@ -171,7 +174,7 @@ func (d *DesktopService) reconcileAutostart() {
 		return
 	}
 	if exists {
-		if err := applyAutostart(cur); err != nil {
+		if err := d.applyAutostart(cur); err != nil {
 			d.o.Logger.Warn("desktop: autostart refresh", "err", err)
 		}
 	}

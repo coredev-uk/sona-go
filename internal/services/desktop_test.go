@@ -5,15 +5,21 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/config"
 )
 
 // desktopEnv builds a DesktopService over a fresh settings store with the
-// autostart directory in a temporary XDG_CONFIG_HOME. It is wired like
-// newDesktopService, with the start-up reconcile run synchronously.
+// XDG autostart entry (Linux's) in a temporary XDG_CONFIG_HOME. It is
+// wired like newDesktopService, with the start-up reconcile run
+// synchronously.
 func desktopEnv(t *testing.T, prepare func(*config.Settings)) (*DesktopService, *config.Store, string) {
+	return desktopEnvWith(t, Platform{Autostart: app.XDGAutostart{}}, prepare)
+}
+
+func desktopEnvWith(t *testing.T, plat Platform, prepare func(*config.Settings)) (*DesktopService, *config.Store, string) {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("APPIMAGE", "")
@@ -30,7 +36,7 @@ func desktopEnv(t *testing.T, prepare func(*config.Settings)) (*DesktopService, 
 			t.Fatal(err)
 		}
 	}
-	e := &Env{Deps: Deps{Settings: st, Emit: &recorder{}, Logger: discard()}}
+	e := &Env{Deps: Deps{Settings: st, Emit: &recorder{}, Logger: discard(), Platform: plat}}
 	t.Cleanup(e.close)
 	d := &DesktopService{o: e}
 	st.OnChange(d.settingsChanged)
@@ -80,6 +86,29 @@ func TestAutostartRemovedOutsideSonaTurnsTheSettingOff(t *testing.T) {
 	_, st, _ := desktopEnv(t, func(s *config.Settings) { s.Desktop.Autostart = true })
 	if st.Get().Desktop.Autostart {
 		t.Fatal("autostart still on without an entry")
+	}
+}
+
+func TestAutostartWithoutPlatformSupport(t *testing.T) {
+	// A setting carried over from Linux (an imported settings file) is
+	// turned off where there is no autostart; turning it on is refused and
+	// reverted, so the toggle never shows an entry that doesn't exist.
+	_, st, entry := desktopEnvWith(t, Platform{}, func(s *config.Settings) { s.Desktop.Autostart = true })
+	if st.Get().Desktop.Autostart {
+		t.Fatal("autostart still on without platform support")
+	}
+	if _, err := st.Update(func(s *config.Settings) { s.Desktop.Autostart = true }); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for st.Get().Desktop.Autostart {
+		if time.Now().After(deadline) {
+			t.Fatal("turning autostart on was not reverted")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if app.AutostartExists(entry) {
+		t.Fatal("wrote an XDG entry without platform support")
 	}
 }
 

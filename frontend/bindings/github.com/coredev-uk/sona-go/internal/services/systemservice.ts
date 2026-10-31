@@ -19,8 +19,9 @@ import * as config$0 from "../config/models.js";
 import * as $models from "./models.js";
 
 /**
- * Diagnostics reports versions, the playback stack, storage and paths. It
- * spawns a short-lived CDM host child to check the CDM and GStreamer.
+ * Diagnostics reports versions, the playback stack, storage and paths.
+ * With the CDM host engine it spawns a short-lived child to check the CDM
+ * and GStreamer.
  */
 export function Diagnostics(): $CancellablePromise<$models.Diagnostics> {
     return $Call.ByID(3726581981).then(($result: any) => {
@@ -42,8 +43,8 @@ export function DiagnosticsBundle(): $CancellablePromise<$models.DiagBundle> {
 }
 
 /**
- * ExportSettings asks where to save (the desktop's file chooser, through
- * xdg-desktop-portal) and writes the settings there as an export document
+ * ExportSettings asks where to save (the desktop's file chooser,
+ * Platform.Files) and writes the settings there as an export document
  * (config.Export): without the values that belong to this computer, and
  * never with a secret, since settings hold none. It returns the path, or
  * "" when the user cancels.

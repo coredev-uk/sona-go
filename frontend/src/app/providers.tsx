@@ -5,6 +5,7 @@ import { useEffect, type ReactNode } from "react";
 import { useAuth } from "@/features/auth";
 import { useAppearance } from "@/features/settings";
 import { followAccountLanguage, I18nRoot } from "@/shared/i18n";
+import { capabilitiesQuery } from "@/shared/lib/capabilities";
 import { Toaster } from "@/shared/ui/sonner";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
@@ -21,6 +22,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+// Asked before the first render, so controls gated on a capability (the
+// player bar's volume) are usually there in the first frame.
+void queryClient.prefetchQuery(capabilitiesQuery);
 
 /** Providers above the router: the active locale and the query client. */
 export function AppProviders({ children }: { children: ReactNode }) {

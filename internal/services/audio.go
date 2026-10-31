@@ -5,17 +5,17 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/config"
-	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
+	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
-	"github.com/coredev-uk/sona-go/internal/playback/gst"
 )
 
 // audioEngine is the output processing an engine offers (native.Engine).
 type audioEngine interface {
-	SetEqualizer(ctx context.Context, eq cdmhost.Equalizer) error
+	SetEqualizer(ctx context.Context, eq equalizer.Curve) error
 	SetOutputDevice(ctx context.Context, device string) error
 	SetSoundCheck(ctx context.Context, on bool) error
 	SetCrossfade(d time.Duration)
+	OutputDevices() ([]playback.OutputDevice, error)
 }
 
 // AudioService is the equaliser, Sound Check and the output device, and
@@ -74,8 +74,8 @@ func crossfade(c config.Crossfade) time.Duration {
 }
 
 // hostEqualizer turns the setting into what the playback host applies.
-func hostEqualizer(e config.Equalizer) cdmhost.Equalizer {
-	return cdmhost.Equalizer{Pregain: e.Pregain(), Gains: e.Gains()}
+func hostEqualizer(e config.Equalizer) equalizer.Curve {
+	return equalizer.Curve{Pregain: e.Pregain(), Gains: e.Gains()}
 }
 
 // Equalizer describes the equaliser's bands, limits and presets.
@@ -104,9 +104,13 @@ func (s *AudioService) PreviewEqualizer(ctx context.Context, eq config.Equalizer
 
 // OutputDevices lists the audio outputs (PipeWire sinks). The list is
 // empty when PipeWire's GStreamer plugin is missing; playback then always
-// follows the default output.
+// follows the default output. Without an engine that chooses its output
+// it fails with CodeUnsupported.
 func (s *AudioService) OutputDevices() ([]OutputDevice, error) {
-	devs, err := gst.AudioSinks()
+	if s.eng == nil {
+		return []OutputDevice{}, unsupported("choosing the output device")
+	}
+	devs, err := s.eng.OutputDevices()
 	if err != nil {
 		return []OutputDevice{}, err
 	}

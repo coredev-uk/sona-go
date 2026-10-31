@@ -32,9 +32,8 @@
 //   - env.go: Env embeds Deps (DB, Auth, API, Catalog, Library, Syncer,
 //     Art, Engine, Coord, History, Private, Settings, Storefront, Gate, Emit,
 //     Logger, Now, OpenURL, Focus, Focused (main window has focus),
-//     Windows (the desktop shell: main/mini player windows), Bus (the
-//     session bus, nil without one; reuse it for portals and other
-//     desktop D-Bus services), Paths, Version, …) and provides
+//     Windows (the desktop shell: main/mini player windows), Platform
+//     (the OS integrations, below), Paths, Version, …) and provides
 //     Report/Fail (route Apple 401/403s to auth triage — call it on every
 //     failed Apple request), OnNetwork (work after first paint; never touch
 //     the network earlier), OnSignOut (wipe steps, before the user-data
@@ -54,9 +53,34 @@
 // crossfade length are sent at start and from a Settings.OnChange
 // observer; it offers the band/preset table, a live
 // equaliser preview while a control is dragged (not saved) and the list
-// of PipeWire outputs. Volume stays the slider value everywhere (settings,
+// of PipeWire outputs (from the engine). Volume stays the slider value everywhere (settings,
 // coordinator, MPRIS); only the engine maps it through
 // playback.VolumeGain.
+//
+// Platform (platform.go) is what the OS offers beyond the windows, one
+// small seam per concern, built by main's platform_<os>.go: media controls
+// (MPRIS), notifications, the sleep inhibitor, the on-battery monitor, the
+// autostart entry, the file chooser, plus whether there is a tray and a
+// command transport (`sona private …`, single instance). A nil seam is
+// unsupported on this platform (or, for the D-Bus ones, in a Linux
+// session without a bus): its feature does nothing or fails with an error
+// wrapping errors.ErrUnsupported (CodeUnsupported). Features never reach
+// D-Bus, files or OS APIs for these directly. Deps.Engine is the platform's
+// playback engine: the CDM host engine on Linux, playback.Unsupported
+// elsewhere (every play fails with playback.ErrUnsupported; the
+// coordinator pauses on it rather than skipping the queue); features ask
+// it for optional abilities by interface (audioEngine, engineDiagnoser,
+// cdmFinder, qualitySetter).
+//
+// PlatformService.Capabilities (platform_dto.go) is the capability list
+// the frontend reads once at start: the engine's kind and what it supports
+// (volume, equaliser, Sound Check, crossfade, output device, private
+// listening), which Platform seams exist, and whether the web view is
+// WebKitGTK (its rendering workarounds apply). It is fixed for the process;
+// whether a supported service is reachable right now stays in
+// "integrations:status". A new seam is a Platform field, its use in the
+// feature, and a Capabilities field the frontend gates its control on
+// (docs/frontend-architecture.md, "Platform capabilities").
 //
 // Private (private.go) is private listening (internal/privatemode) for the
 // frontend: State, Set and "private:changed". Deps.Private is the one Mode
@@ -72,6 +96,6 @@
 // lists as [] not null.
 //
 // main builds Deps and calls New; Core then exposes Services() for
-// registration, Activate (launch links → "app:open"), StartMPRIS and
-// Close.
+// registration, Activate (launch links → "app:open"), StartMediaControls
+// and Close.
 package services

@@ -1,3 +1,5 @@
+//go:build linux
+
 package native
 
 import (
@@ -15,12 +17,13 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
+	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
 )
 
 // fakeAudio records a fakeHost's volume, equaliser, device and file calls.
 type fakeAudio struct {
 	volumes   []float64
-	eqs       []cdmhost.Equalizer
+	eqs       []equalizer.Curve
 	devices   []string
 	fileLoads []fileLoad
 	file      []byte // bytes fed for the loaded file, in order
@@ -37,7 +40,7 @@ type fileLoad struct {
 	start time.Duration
 }
 
-func (f *fakeHost) SetEqualizer(_ context.Context, eq cdmhost.Equalizer) error {
+func (f *fakeHost) SetEqualizer(_ context.Context, eq equalizer.Curve) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.audio.eqs = append(f.audio.eqs, eq)
@@ -102,7 +105,7 @@ func (f *fakeHost) audioSnapshot() fakeAudio {
 	defer f.mu.Unlock()
 	a := f.audio
 	a.volumes = append([]float64(nil), a.volumes...)
-	a.eqs = append([]cdmhost.Equalizer(nil), a.eqs...)
+	a.eqs = append([]equalizer.Curve(nil), a.eqs...)
 	a.devices = append([]string(nil), a.devices...)
 	a.fileLoads = append([]fileLoad(nil), a.fileLoads...)
 	a.gains = append([]float64(nil), a.gains...)
@@ -133,7 +136,7 @@ func TestVolumeReachesHostThroughCurve(t *testing.T) {
 
 func TestEqualizerAndDeviceFollowHosts(t *testing.T) {
 	h := newHarness(t, time.Minute, false)
-	eq := cdmhost.Equalizer{Pregain: -6, Gains: [10]float64{6, 4}}
+	eq := equalizer.Curve{Pregain: -6, Gains: [10]float64{6, 4}}
 	if err := h.e.SetEqualizer(ctx(t), eq); err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +150,7 @@ func TestEqualizerAndDeviceFollowHosts(t *testing.T) {
 	if len(a.eqs) != 1 || a.eqs[0] != eq || len(a.devices) != 1 || a.devices[0] != "alsa_output.test" {
 		t.Fatalf("new host got eqs %v devices %q", a.eqs, a.devices)
 	}
-	flat := cdmhost.Equalizer{}
+	flat := equalizer.Curve{}
 	if err := h.e.SetEqualizer(ctx(t), flat); err != nil {
 		t.Fatal(err)
 	}

@@ -1,3 +1,5 @@
+//go:build linux
+
 package cdmhost
 
 import (
@@ -13,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
 	"github.com/coredev-uk/sona-go/internal/playback/fmp4"
 	"github.com/coredev-uk/sona-go/internal/playback/gst"
 	"github.com/coredev-uk/sona-go/internal/playback/widevine"
@@ -103,12 +106,12 @@ type server struct {
 	duration  time.Duration // the current track's duration (Media.Duration)
 	next      nextTrack     // the track queued to follow (opNext)
 	volume    float64
-	eq        Equalizer // applied to every pipeline
-	device    string    // PipeWire sink for every pipeline; "" = default
-	trackGain bool      // apply the track's Sound Check gain
-	gain      float64   // the current track's Sound Check gain (0 = unity)
-	playing   bool      // wanted state
-	started   bool      // audio advancing since the last Load/Play
+	eq        equalizer.Curve // applied to every pipeline
+	device    string          // PipeWire sink for every pipeline; "" = default
+	trackGain bool            // apply the track's Sound Check gain
+	gain      float64         // the current track's Sound Check gain (0 = unity)
+	playing   bool            // wanted state
+	started   bool            // audio advancing since the last Load/Play
 	prev      time.Duration
 	havePrev  bool
 	ended     bool // EndOfTrack received for track

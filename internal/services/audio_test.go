@@ -9,8 +9,8 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/playback"
-	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
+	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
 )
 
 // audioEng is a playEngine that records output settings and, like the
@@ -19,7 +19,7 @@ type audioEng struct {
 	playEngine
 	mu      sync.Mutex
 	gains   []float64
-	eqs     []cdmhost.Equalizer
+	eqs     []equalizer.Curve
 	devices []string
 	checks  []bool
 }
@@ -31,7 +31,7 @@ func (e *audioEng) SetVolume(_ context.Context, v float64) error {
 	return nil
 }
 
-func (e *audioEng) SetEqualizer(_ context.Context, eq cdmhost.Equalizer) error {
+func (e *audioEng) SetEqualizer(_ context.Context, eq equalizer.Curve) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.eqs = append(e.eqs, eq)
@@ -45,6 +45,10 @@ func (e *audioEng) SetOutputDevice(_ context.Context, d string) error {
 	return nil
 }
 func (e *audioEng) SetCrossfade(time.Duration) {}
+func (e *audioEng) OutputDevices() ([]playback.OutputDevice, error) {
+	return []playback.OutputDevice{{Name: "alsa_output.usb", Description: "USB DAC", Default: true}}, nil
+}
+
 func (e *audioEng) SetSoundCheck(_ context.Context, on bool) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -96,7 +100,7 @@ func TestAudioSettingsApplyAtStartAndOnChange(t *testing.T) {
 	}
 	eng := &audioEng{}
 	newAudioService(&Env{Deps: Deps{Settings: settings, Engine: eng, Logger: discard()}})
-	want := cdmhost.Equalizer{Pregain: -8, Gains: [10]float64{6, 5, 4, 2.5, 1}}
+	want := equalizer.Curve{Pregain: -8, Gains: [10]float64{6, 5, 4, 2.5, 1}}
 	if len(eng.eqs) != 1 || eng.eqs[0] != want || len(eng.devices) != 1 || eng.devices[0] != "alsa_output.usb" ||
 		len(eng.checks) != 1 || !eng.checks[0] {
 		t.Fatalf("at start: eqs %v devices %q sound check %v", eng.eqs, eng.devices, eng.checks)
@@ -108,7 +112,7 @@ func TestAudioSettingsApplyAtStartAndOnChange(t *testing.T) {
 	if _, err := settings.Update(func(s *config.Settings) { s.Theme = config.ThemeDark }); err != nil {
 		t.Fatal(err)
 	}
-	if len(eng.eqs) != 2 || eng.eqs[1] != (cdmhost.Equalizer{}) || len(eng.devices) != 1 || len(eng.checks) != 1 {
+	if len(eng.eqs) != 2 || eng.eqs[1] != (equalizer.Curve{}) || len(eng.devices) != 1 || len(eng.checks) != 1 {
 		t.Errorf("after turning the equaliser off and an unrelated change: eqs %v devices %q checks %v", eng.eqs, eng.devices, eng.checks)
 	}
 }

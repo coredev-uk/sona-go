@@ -1,6 +1,8 @@
 // Command sona is the Sona desktop app: a Wails v3 shell (GTK4 + WebKitGTK 6
 // on Linux) around a React frontend, with all Apple Music networking,
-// credentials, caching and playback in Go.
+// credentials, caching and playback in Go. What differs per OS (the
+// playback engine, desktop integrations, single instance, Wails options)
+// is built in platform_<os>.go.
 package main
 
 import (
@@ -16,7 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/godbus/dbus/v5"
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/coredev-uk/sona-go/internal/app"
@@ -32,11 +33,8 @@ import (
 	"github.com/coredev-uk/sona-go/internal/library"
 	"github.com/coredev-uk/sona-go/internal/logging"
 	"github.com/coredev-uk/sona-go/internal/motion"
-	"github.com/coredev-uk/sona-go/internal/mpris"
 	"github.com/coredev-uk/sona-go/internal/playback/activity"
-	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
-	"github.com/coredev-uk/sona-go/internal/playback/native"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/shell"
@@ -60,8 +58,8 @@ var trayIcon []byte
 // AppID is the GTK application id. GTK4 also uses it as the Wayland app_id,
 // so the desktop file is dev.coredev.Sona.desktop and MPRIS DesktopEntry
 // must match it. Wails' GtkApplication runs non-unique; single-instance is
-// handled by internal/app over D-Bus, so Wails' SingleInstance option must
-// stay off.
+// handled by internal/app over D-Bus (platform_linux.go), so Wails'
+// SingleInstance option must stay off.
 const AppID = "dev.coredev.Sona"
 
 // version is the app version, set from the VERSION file at build time
@@ -76,7 +74,7 @@ const paintFallback = 10 * time.Second
 func main() {
 	// The CDM host re-executes this binary as its child process; in the
 	// child this never returns. It must run before anything else.
-	cdmhost.ChildMain()
+	childMain()
 
 	for _, arg := range os.Args[1:] {
 		if arg == "--version" {
@@ -87,7 +85,7 @@ func main() {
 	// `sona private on` and other subcommands act on the running instance
 	// and exit; they never start Sona.
 	if app.IsCommand(os.Args[1:]) {
-		os.Exit(app.RunCommand(os.Args[1:], os.Stdout, os.Stderr))
+		os.Exit(runCommand(os.Args[1:]))
 	}
 
 	started := time.Now()
@@ -128,40 +126,17 @@ func run(started time.Time) error {
 
 	// Single instance: a second launch forwards its arguments and exits.
 	act := app.CurrentActivation(os.Args[1:])
-	conn, err := dbus.ConnectSessionBus()
+	plat, err := openPlatform(act, log)
+	if errors.Is(err, app.ErrForwarded) {
+		log.Info("forwarded to the running instance")
+		return nil
+	}
 	if err != nil {
-		log.Warn("no D-Bus session bus: single-instance and MPRIS disabled", "err", err)
-		conn = nil
+		return err
 	}
-	var instance *app.Instance
-	if conn != nil {
-		defer conn.Close()
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		instance, err = app.Acquire(ctx, conn, act, log)
-		cancel()
-		switch {
-		case errors.Is(err, app.ErrForwarded):
-			log.Info("forwarded to the running instance")
-			return nil
-		case err != nil:
-			log.Warn("single-instance guard unavailable", "err", err)
-		default:
-			defer instance.Close()
-		}
-	}
+	defer plat.Close()
 
 	ctx := context.Background()
-	// Without an accessibility bus, WebKit's sandboxed web process warns
-	// on every start; tell it there is none (app.HideMissingA11yBus).
-	a11yCtx, cancelA11y := context.WithTimeout(ctx, 5*time.Second)
-	noA11yBus, err := app.HideMissingA11yBus(a11yCtx, conn)
-	cancelA11y()
-	if err != nil {
-		log.Warn("accessibility bus lookup", "err", err)
-	}
-	if noA11yBus {
-		log.Info("startup: no accessibility bus; web content is not exposed to AT-SPI")
-	}
 	d, err := db.Open(ctx, paths.DatabaseFile())
 	if err != nil {
 		return err
@@ -218,13 +193,7 @@ func run(started time.Time) error {
 	}
 
 	cur := settings.Get()
-	engine := native.New(native.Options{
-		Client:      api,
-		CDMPath:     cur.CDMPath,
-		Logger:      log,
-		IdleTimeout: time.Duration(cur.EngineIdleMinutes) * time.Minute,
-		Quality:     applemusic.Quality(cur.AudioQuality),
-	})
+	engine := newEngine(api, cur, log)
 	defer engine.Close()
 
 	// Private listening: the one switch every play reporter asks (Apple
@@ -286,8 +255,12 @@ func run(started time.Time) error {
 	if err := coord.Restore(ctx); err != nil {
 		log.Warn("restore queue", "err", err)
 	}
-	if err := coord.SetVolume(ctx, cur.Volume); err != nil {
-		log.Warn("apply volume", "err", err)
+	// An engine without a volume (none on this platform) has nothing to
+	// apply it to.
+	if engine.Capabilities().Volume {
+		if err := coord.SetVolume(ctx, cur.Volume); err != nil {
+			log.Warn("apply volume", "err", err)
+		}
 	}
 	log.Info("startup: core ready", "since_start_ms", time.Since(started).Milliseconds())
 
@@ -302,10 +275,9 @@ func run(started time.Time) error {
 			Middleware:     artMiddleware(art, mot),
 			DisableLogging: !devMode,
 		},
-		Linux: application.LinuxOptions{
-			// Also becomes the program name (g_set_prgname) and Wayland app_id.
-			ApplicationID: AppID,
-		},
+		Linux:   linuxOptions,
+		Mac:     macOptions,
+		Windows: windowsOptions,
 	})
 
 	// The windows and the tray. --hidden (the autostart entry's choice)
@@ -322,34 +294,19 @@ func run(started time.Time) error {
 		Paths: paths, QueueFile: queueFile, Settings: settings, DB: d, Auth: authm, API: api,
 		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, Coord: coord,
 		History: history, Private: private, Storefront: storefront, Gate: gate, Emit: wapp.Event, Logger: log,
-		OpenURL: wapp.Browser.OpenURL, Focus: sh.ShowMain, Focused: sh.MainFocused, Windows: sh, Bus: conn,
+		OpenURL: wapp.Browser.OpenURL, Focus: sh.ShowMain, Focused: sh.MainFocused, Windows: sh, Platform: plat.Services(),
 		Version: version, WebKit: webkitVersion(), Started: started,
 	})
 	defer core.Close() // runs first: stops sync, events and MPRIS
 	for _, s := range core.Services() {
 		wapp.RegisterService(s)
 	}
-	if conn != nil {
-		// The shell quits asynchronously: shutdown closes the MPRIS server,
-		// which must not wait on the D-Bus call that asked for it.
-		mlog := log.With("component", "mpris")
-		srv, err := mpris.New(conn, services.NewMPRISPlayer(coord, sh.ShowMain, sh.Quit, mlog), mlog)
-		if err != nil {
-			log.Warn("mpris unavailable", "err", err)
-		} else {
-			core.StartMPRIS(srv)
-		}
-	}
+	// The shell quits asynchronously: shutdown closes the media controls,
+	// which must not wait on the call that asked for it.
+	core.StartMediaControls(services.NewMPRISPlayer(coord, sh.ShowMain, sh.Quit, log.With("component", "mpris")))
 
 	core.Activate(act, false)
-	if instance != nil {
-		instance.HandleCommands(app.Commands{"private": private.Command})
-		go func() {
-			for a := range instance.Activations() {
-				core.Activate(a, true)
-			}
-		}()
-	}
+	plat.Serve(core.Activate, app.Commands{"private": private.Command})
 
 	return wapp.Run()
 }

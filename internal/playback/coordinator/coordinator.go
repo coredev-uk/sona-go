@@ -1012,7 +1012,9 @@ func (c *Coordinator) armLocked() {
 
 // start plays queue[i] from pos, skipping forward over items whose Play
 // fails. fresh resets the item's listening time (false continues a
-// restored listen). Caller holds cmd, not mu.
+// restored listen). An engine that cannot play at all
+// (playback.ErrUnsupported) leaves the item selected and paused instead.
+// Caller holds cmd, not mu.
 func (c *Coordinator) start(ctx context.Context, i int, pos time.Duration, fresh bool) error {
 	for {
 		c.mu.Lock()
@@ -1069,6 +1071,14 @@ func (c *Coordinator) start(ctx context.Context, i int, pos time.Duration, fresh
 		case errors.Is(err, applemusic.ErrUnauthorized):
 			c.auth = true
 			c.setStateLocked(playback.StatePaused)
+			c.mu.Unlock()
+			c.notify()
+			return fmt.Errorf("coordinator: play: %w", err)
+		case errors.Is(err, playback.ErrUnsupported):
+			// Nothing can play here: keep the item, say why, count nothing.
+			c.lastErr = err.Error()
+			c.setStateLocked(playback.StatePaused)
+			c.st.Err = c.lastErr
 			c.mu.Unlock()
 			c.notify()
 			return fmt.Errorf("coordinator: play: %w", err)
@@ -1609,7 +1619,11 @@ func (c *Coordinator) schedulePreloadLocked() {
 	go func() {
 		defer c.wg.Done()
 		if err := c.eng.Preload(c.ctx, id); err != nil && c.ctx.Err() == nil {
-			c.log.Warn("coordinator: preload", "id", id, "err", err)
+			if errors.Is(err, playback.ErrUnsupported) {
+				c.log.Debug("coordinator: preload", "id", id, "err", err)
+			} else {
+				c.log.Warn("coordinator: preload", "id", id, "err", err)
+			}
 		}
 	}()
 }

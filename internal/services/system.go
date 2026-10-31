@@ -12,16 +12,14 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/config"
-	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
-	"github.com/coredev-uk/sona-go/internal/playback/widevine"
+	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
-// probeTimeout bounds the CDM host probe behind Diagnostics.
-const probeTimeout = 15 * time.Second
-
-// engineHost is implemented by the native engine: the running child.
-type engineHost interface {
-	Host() (cdmhost.Info, bool)
+// engineDiagnoser is implemented by engines that can check their
+// playback stack (the CDM host engine: a probe child loads the CDM and
+// GStreamer; cdmPath is the CDM path setting).
+type engineDiagnoser interface {
+	Diagnose(ctx context.Context, cdmPath string) (playback.Diagnosis, error)
 }
 
 // qualitySetter is implemented by the native engine.
@@ -90,8 +88,9 @@ func (s *SystemService) OpenLogFolder() error {
 	return s.o.OpenURL("file://" + s.o.Paths.State)
 }
 
-// Diagnostics reports versions, the playback stack, storage and paths. It
-// spawns a short-lived CDM host child to check the CDM and GStreamer.
+// Diagnostics reports versions, the playback stack, storage and paths.
+// With the CDM host engine it spawns a short-lived child to check the CDM
+// and GStreamer.
 func (s *SystemService) Diagnostics(ctx context.Context) (Diagnostics, error) {
 	d := Diagnostics{
 		App: DiagApp{
@@ -118,7 +117,8 @@ func (s *SystemService) Diagnostics(ctx context.Context) (Diagnostics, error) {
 	d.Keyring = DiagKeyring{Backend: string(st.Backend), Unencrypted: st.Backend == store.BackendFile}
 
 	for _, name := range []string{
-		"WEBKIT_DISABLE_DMABUF_RENDERER", "WEBKIT_DISABLE_COMPOSITING_MODE", widevine.EnvCDM,
+		// "SONA_WIDEVINE_CDM" is widevine.EnvCDM (Linux-only package).
+		"WEBKIT_DISABLE_DMABUF_RENDERER", "WEBKIT_DISABLE_COMPOSITING_MODE", "SONA_WIDEVINE_CDM",
 		"GST_PLUGIN_SYSTEM_PATH_1_0", "GST_PLUGIN_PATH_1_0", "WAYLAND_DISPLAY", "GDK_BACKEND",
 	} {
 		v, ok := os.LookupEnv(name)
@@ -158,29 +158,21 @@ func (s *SystemService) database(ctx context.Context, out *DiagDatabase) error {
 
 func (s *SystemService) playback(ctx context.Context, out *DiagPlayback) {
 	cur := s.o.Settings.Get()
-	override := cur.CDMPath
 	out.AudioQuality = cur.AudioQuality
-	if h, ok := s.o.Engine.(engineHost); ok {
-		if info, running := h.Host(); running {
-			out.HostRunning, out.HostPID = true, info.PID
-		}
+	out.Engine = s.o.Engine.Capabilities().Kind
+	d, ok := s.o.Engine.(engineDiagnoser)
+	if !ok {
+		return
 	}
-	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
-	defer cancel()
-	info, err := cdmhost.Probe(ctx, cdmhost.Options{CDMPath: override, Logger: s.o.Logger})
+	info, err := d.Diagnose(ctx, cur.CDMPath)
+	out.HostRunning, out.HostPID = info.HostRunning, info.HostPID
 	out.CDMPath, out.CDMVersion = info.CDMPath, info.CDMVersion
 	out.CDMInterface, out.HostInterface = info.CDMInterface, info.HostInterface
 	out.GStreamer, out.Decoder, out.Sink = info.GStreamer, info.Decoder, info.Sink
-	out.Sandboxed, out.SandboxNote = info.Sandbox.Active(), info.Sandbox.Reason
+	out.Sandboxed, out.SandboxNote = info.Sandboxed, info.SandboxNote
 	out.CDMOK = err == nil
-	out.CDMBlocked = errors.Is(err, cdmhost.ErrSandbox)
+	out.CDMBlocked = info.Blocked
 	if err != nil {
 		out.CDMError = err.Error()
-		if out.CDMPath == "" {
-			// The child never got far enough to say; report what discovery finds.
-			if p, v, ferr := widevine.FindCDM(override); ferr == nil {
-				out.CDMPath, out.CDMVersion = p, v
-			}
-		}
 	}
 }

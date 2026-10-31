@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package widevine hosts Google's Widevine CDM (libwidevinecdm.so from an
 // installed browser) through the Chromium CDM API. A C++ shim implements the
 // host interface; this package runs every CDM call on one locked OS thread,

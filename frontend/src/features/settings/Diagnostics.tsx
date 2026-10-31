@@ -10,6 +10,7 @@ import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { Button } from "@/shared/ui/button";
 import { Switch } from "@/shared/ui/switch";
 import { run } from "@/shared/lib/run";
+import { useCapabilities } from "@/shared/lib/capabilities";
 import { callFailure } from "@/shared/lib/errors";
 import { formatBytes, relativeTime } from "@/shared/lib/format";
 import { keys } from "@/shared/lib/keys";
@@ -60,80 +61,101 @@ function sandboxRow(p: Diagnostics["playback"]): Row {
   };
 }
 
-/** The Diagnostics struct as labelled rows with a verdict where one applies. */
-function diagnosticsGroups(d: Diagnostics): Group[] {
+/** Token storage backends Go reports, by name; any other keeps Go's name. */
+function keyringLabel(backend: string): string {
+  switch (backend) {
+    case "secret-service":
+      return t`Secret Service keyring`;
+    case "keychain":
+      return t`macOS Keychain`;
+    case "credential-manager":
+      return t`Windows Credential Manager`;
+    default:
+      return backend || dash;
+  }
+}
+
+/** The CDM playback engine's checks: the CDM, GStreamer, the host and its sandbox. */
+function cdmRows(p: Diagnostics["playback"]): Row[] {
+  const { cdmVersion, cdmError, cdmInterface, hostInterface, hostPid, audioQuality } = p;
+  return [
+    p.cdmOk
+      ? {
+          label: t`Widevine CDM`,
+          value: cdmVersion ? t`Working · ${cdmVersion}` : t`Working · version unknown`,
+          status: "ok",
+        }
+      : p.cdmBlocked
+        ? {
+            label: t`Widevine CDM`,
+            value: t`Blocked`,
+            status: "error",
+            detail: t`Sona loads the CDM only inside its sandbox, which keeps it off the network, and the sandbox could not be set up. Only 30-second previews play.`,
+          }
+        : {
+            label: t`Widevine CDM`,
+            value: p.cdmPath ? t`Doesn't start` : t`Not found`,
+            status: "error",
+            detail: p.cdmError
+              ? t`${cdmError}. Install Google Chrome, or set the CDM location under Playback.`
+              : t`Install Google Chrome, or set the CDM location under Playback. Without it only 30-second previews play.`,
+          },
+    { label: t`CDM location`, value: p.cdmPath || dash },
+    {
+      label: t`CDM interface`,
+      value: cdmInterface ? t`${cdmInterface} (host ${hostInterface})` : dash,
+    },
+    {
+      label: t`GStreamer`,
+      value: p.gstreamer || t`Not found`,
+      status: p.gstreamer ? "ok" : "error",
+      detail: p.gstreamer ? undefined : t`Install GStreamer 1.x with the base and good plugins.`,
+    },
+    {
+      label: t`AAC decoder`,
+      value: p.decoder || t`None`,
+      status: p.decoder ? "ok" : "error",
+      detail: p.decoder
+        ? undefined
+        : t`Install gst-libav or the fdkaac plugin to decode Apple Music's AAC.`,
+    },
+    {
+      label: t`Audio output`,
+      value: p.sink || t`None`,
+      status: p.sink ? "ok" : "warning",
+      detail: p.sink
+        ? undefined
+        : t`No PipeWire or PulseAudio sink was found; GStreamer falls back to autoaudiosink.`,
+    },
+    {
+      label: t`Playback host`,
+      value: p.hostRunning ? t`Running · pid ${hostPid}` : t`Stopped (starts with the next song)`,
+    },
+    sandboxRow(p),
+    {
+      label: t`Stream format`,
+      value: t`AAC ${audioQuality} kbps`,
+      detail: t`Sona plays AAC only. Albums marked Lossless or Dolby Atmos play as AAC: Apple doesn't license lossless to desktop Widevine players.`,
+    },
+  ];
+}
+
+/**
+ * The Diagnostics struct as labelled rows with a verdict where one applies.
+ * The WebKitGTK rows only where the web view is WebKitGTK.
+ */
+function diagnosticsGroups(d: Diagnostics, webkitGtk: boolean): Group[] {
   const p = d.playback;
   const env = (name: string) => d.env.find((e) => e.name === name);
-  const { cdmVersion, cdmError, cdmInterface, hostInterface, hostPid, audioQuality } = p;
   const { songs, albums, artists, playlists } = d.database.counts;
   const { startupMs } = d.app;
   return [
     {
       title: t`Playback`,
-      rows: [
-        p.cdmOk
-          ? {
-              label: t`Widevine CDM`,
-              value: cdmVersion ? t`Working · ${cdmVersion}` : t`Working · version unknown`,
-              status: "ok",
-            }
-          : p.cdmBlocked
-            ? {
-                label: t`Widevine CDM`,
-                value: t`Blocked`,
-                status: "error",
-                detail: t`Sona loads the CDM only inside its sandbox, which keeps it off the network, and the sandbox could not be set up. Only 30-second previews play.`,
-              }
-            : {
-                label: t`Widevine CDM`,
-                value: p.cdmPath ? t`Doesn't start` : t`Not found`,
-                status: "error",
-                detail: p.cdmError
-                  ? t`${cdmError}. Install Google Chrome, or set the CDM location under Playback.`
-                  : t`Install Google Chrome, or set the CDM location under Playback. Without it only 30-second previews play.`,
-              },
-        { label: t`CDM location`, value: p.cdmPath || dash },
-        {
-          label: t`CDM interface`,
-          value: cdmInterface ? t`${cdmInterface} (host ${hostInterface})` : dash,
-        },
-        {
-          label: t`GStreamer`,
-          value: p.gstreamer || t`Not found`,
-          status: p.gstreamer ? "ok" : "error",
-          detail: p.gstreamer
-            ? undefined
-            : t`Install GStreamer 1.x with the base and good plugins.`,
-        },
-        {
-          label: t`AAC decoder`,
-          value: p.decoder || t`None`,
-          status: p.decoder ? "ok" : "error",
-          detail: p.decoder
-            ? undefined
-            : t`Install gst-libav or the fdkaac plugin to decode Apple Music's AAC.`,
-        },
-        {
-          label: t`Audio output`,
-          value: p.sink || t`None`,
-          status: p.sink ? "ok" : "warning",
-          detail: p.sink
-            ? undefined
-            : t`No PipeWire or PulseAudio sink was found; GStreamer falls back to autoaudiosink.`,
-        },
-        {
-          label: t`Playback host`,
-          value: p.hostRunning
-            ? t`Running · pid ${hostPid}`
-            : t`Stopped (starts with the next song)`,
-        },
-        sandboxRow(p),
-        {
-          label: t`Stream format`,
-          value: t`AAC ${audioQuality} kbps`,
-          detail: t`Sona plays AAC only. Albums marked Lossless or Dolby Atmos play as AAC: Apple doesn't license lossless to desktop Widevine players.`,
-        },
-      ],
+      // Engine "" means this platform has no playback engine, so no probe ran.
+      rows: p.engine
+        ? cdmRows(p)
+        : [{ label: t`Playback`, value: t`Not available on this platform yet` }],
     },
     {
       title: t`Credentials`,
@@ -147,11 +169,7 @@ function diagnosticsGroups(d: Diagnostics): Group[] {
             }
           : {
               label: t`Token storage`,
-              // Go reports "secret-service"; any other backend keeps Go's name.
-              value:
-                d.keyring.backend === "secret-service"
-                  ? t`Secret Service keyring`
-                  : d.keyring.backend || dash,
+              value: keyringLabel(d.keyring.backend),
               status: "ok",
             },
       ],
@@ -178,21 +196,26 @@ function diagnosticsGroups(d: Diagnostics): Group[] {
         { label: t`Artwork cache`, value: formatBytes(d.artworkCacheBytes) },
       ],
     },
-    {
-      title: t`Rendering`,
-      rows: [
-        {
-          label: t`WebKitGTK`,
-          value: d.webkit.version || t`Unknown`,
-          status: d.webkit.version ? "ok" : "warning",
-        },
-        { label: t`Session`, value: d.app.session || dash },
-        ...WEBKIT_ENV.map((name) => {
-          const e = env(name);
-          return { label: name, value: e?.set ? `${e.value}` : t`not set` };
-        }),
-      ],
-    },
+    // The renderer and its session are WebKitGTK's (Linux).
+    ...(webkitGtk
+      ? [
+          {
+            title: t`Rendering`,
+            rows: [
+              {
+                label: t`WebKitGTK`,
+                value: d.webkit.version || t`Unknown`,
+                status: d.webkit.version ? ("ok" as const) : ("warning" as const),
+              },
+              { label: t`Session`, value: d.app.session || dash },
+              ...WEBKIT_ENV.map((name) => {
+                const e = env(name);
+                return { label: name, value: e?.set ? `${e.value}` : t`not set` };
+              }),
+            ],
+          },
+        ]
+      : []),
     {
       title: t`Sona`,
       rows: [
@@ -296,7 +319,8 @@ export function DiagnosticsSection() {
     queryFn: () => SystemService.Diagnostics(),
     staleTime: 0,
   });
-  const groups = q.data ? diagnosticsGroups(q.data) : [];
+  const webkitGtk = useCapabilities()?.webkitGtk ?? false;
+  const groups = q.data ? diagnosticsGroups(q.data, webkitGtk) : [];
   const problems = groups.flatMap((g) => g.rows).filter((r) => r.status === "error").length;
 
   // The redacted bug-report bundle: Go gathers the report, settings, crash
@@ -412,7 +436,7 @@ export function DiagnosticsSection() {
               </div>
             ))}
           </dl>
-          {g.title === "Rendering" && <RenderingToggles />}
+          {webkitGtk && g.title === t`Rendering` && <RenderingToggles />}
         </section>
       ))}
       {q.data && <UpdatesGroup />}

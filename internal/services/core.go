@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/godbus/dbus/v5"
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/coredev-uk/sona-go/internal/app"
@@ -57,9 +56,9 @@ type Deps struct {
 	Focused func() bool
 	// Windows is the desktop shell's window control (internal/shell).
 	Windows Windows
-	// Bus is the session bus (nil without one), for portals and other
-	// desktop services.
-	Bus *dbus.Conn
+	// Platform is the OS integrations (main's platform_<os>.go); nil
+	// fields are unsupported here.
+	Platform Platform
 
 	Version string    // app version
 	WebKit  string    // runtime WebKitGTK version
@@ -72,9 +71,9 @@ type Core struct {
 	services []application.Service
 	open     *opener
 
-	mpris     *mpris.Server
-	mprisQuit chan struct{}
-	mprisDone chan struct{}
+	media     MediaControls
+	mediaQuit chan struct{}
+	mediaDone chan struct{}
 }
 
 // New builds every registered feature (registry.go). Register Services()
@@ -111,16 +110,26 @@ func (c *Core) firstPaint() {
 	c.env.Gate.Open()
 }
 
-// StartMPRIS exports the MPRIS player over the coordinator on srv (built
-// with NewMPRISPlayer) and keeps it updated until Close.
-func (c *Core) StartMPRIS(srv *mpris.Server) {
-	c.mpris = srv
-	c.mprisQuit, c.mprisDone = make(chan struct{}), make(chan struct{})
+// StartMediaControls publishes the coordinator through the platform's
+// media controls (MPRIS on Linux), with player (NewMPRISPlayer) taking
+// their commands, and keeps them updated until Close. It does nothing
+// where the platform has none, and logs when they can't start.
+func (c *Core) StartMediaControls(player mpris.Player) {
+	if c.env.Platform.MediaControls == nil {
+		return
+	}
+	mc, err := c.env.Platform.MediaControls(player)
+	if err != nil {
+		c.env.Logger.Warn("media controls unavailable", "err", err)
+		return
+	}
+	c.media = mc
+	c.mediaQuit, c.mediaDone = make(chan struct{}), make(chan struct{})
 	snaps, cancel := c.env.Coord.Subscribe()
-	c.env.Go("mpris", func() {
-		defer close(c.mprisDone)
+	c.env.Go("media controls", func() {
+		defer close(c.mediaDone)
 		defer cancel()
-		runMPRIS(srv, snaps, c.mprisQuit, c.env.Art, c.env.Logger)
+		runMediaControls(mc, snaps, c.mediaQuit, c.env.Art, c.env.Logger)
 	})
 }
 
@@ -128,15 +137,15 @@ func (c *Core) StartMPRIS(srv *mpris.Server) {
 // one forwarded by a second instance.
 func (c *Core) Activate(act app.Activation, forwarded bool) { c.open.activate(act, forwarded) }
 
-// Close stops background work (features' OnClose steps, then MPRIS). The
-// caller then closes the coordinator, engine and database.
+// Close stops background work (features' OnClose steps, then the media
+// controls). The caller then closes the coordinator, engine and database.
 func (c *Core) Close() {
 	c.env.close()
-	if c.mpris != nil {
-		close(c.mprisQuit)
-		<-c.mprisDone
-		if err := c.mpris.Close(); err != nil {
-			c.env.Logger.Warn("mpris close", "err", err)
+	if c.media != nil {
+		close(c.mediaQuit)
+		<-c.mediaDone
+		if err := c.media.Close(); err != nil {
+			c.env.Logger.Warn("media controls close", "err", err)
 		}
 	}
 }

@@ -3,6 +3,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 
+import { useCapabilities } from "@/shared/lib/capabilities";
 import { Button } from "@/shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Switch } from "@/shared/ui/switch";
@@ -75,52 +76,60 @@ function OutputRow() {
   );
 }
 
-/** Settings → Playback: the output device, Sound Check and the way to the equaliser. */
+/**
+ * Settings → Playback: the output device, Sound Check and the way to the
+ * equaliser, each only where the platform's playback supports it.
+ */
 export function AudioRows() {
   const { t } = useLingui();
   const settings = useSettings();
   const update = useUpdateSettings();
+  const playback = useCapabilities()?.playback;
   const s = settings.data;
-  if (!s) return null;
+  if (!s || !playback) return null;
   const eq = s.audio.equalizer;
   return (
     <>
-      <OutputRow />
-      <SettingRow
-        id="sound-check"
-        title={t`Sound Check`}
-        description={t`Plays every song at about the same loudness, using the loudness Apple measured for it. Uploaded songs use their own Sound Check tag, if iTunes or Music wrote one.`}
-      >
-        <Switch
+      {playback.outputDevice && <OutputRow />}
+      {playback.soundCheck && (
+        <SettingRow
           id="sound-check"
-          aria-describedby="sound-check-desc"
-          checked={s.audio.soundCheck}
-          onCheckedChange={(soundCheck) =>
-            update.mutate({ ...s, audio: { ...s.audio, soundCheck } })
-          }
-        />
-      </SettingRow>
-      <SettingRow
-        id="equalizer"
-        title={t`Equaliser`}
-        description={
-          eq.enabled
-            ? t`Ten bands, presets and a preamp, heard as you move them. On now.`
-            : t`Ten bands, presets and a preamp, heard as you move them. Off now.`
-        }
-      >
-        <Button
-          id="equalizer"
-          aria-describedby="equalizer-desc"
-          variant="outline"
-          size="sm"
-          asChild
+          title={t`Sound Check`}
+          description={t`Plays every song at about the same loudness, using the loudness Apple measured for it. Uploaded songs use their own Sound Check tag, if iTunes or Music wrote one.`}
         >
-          <Link to="/equalizer">
-            <Trans>Open equaliser</Trans>
-          </Link>
-        </Button>
-      </SettingRow>
+          <Switch
+            id="sound-check"
+            aria-describedby="sound-check-desc"
+            checked={s.audio.soundCheck}
+            onCheckedChange={(soundCheck) =>
+              update.mutate({ ...s, audio: { ...s.audio, soundCheck } })
+            }
+          />
+        </SettingRow>
+      )}
+      {playback.equalizer && (
+        <SettingRow
+          id="equalizer"
+          title={t`Equaliser`}
+          description={
+            eq.enabled
+              ? t`Ten bands, presets and a preamp, heard as you move them. On now.`
+              : t`Ten bands, presets and a preamp, heard as you move them. Off now.`
+          }
+        >
+          <Button
+            id="equalizer"
+            aria-describedby="equalizer-desc"
+            variant="outline"
+            size="sm"
+            asChild
+          >
+            <Link to="/equalizer">
+              <Trans>Open equaliser</Trans>
+            </Link>
+          </Button>
+        </SettingRow>
+      )}
     </>
   );
 }

@@ -43,6 +43,7 @@ const (
 	CodePinsFull           = "pins_full"      // Apple keeps at most six pins
 	CodeNotConfigured      = "not_configured" // this build lacks the service's API account (Last.fm)
 	CodePrivateForced      = "private_forced" // SONA_PRIVATE=1 keeps private mode on
+	CodeUnsupported        = "unsupported"    // this platform can't do it (Capabilities says so)
 	CodeUnknown            = "unknown"
 )
 
@@ -106,6 +107,8 @@ func ErrorCode(err error) string {
 		return CodeInvalidArgument
 	case errors.Is(err, privatemode.ErrForced):
 		return CodePrivateForced
+	case errors.Is(err, errors.ErrUnsupported):
+		return CodeUnsupported
 	case errors.As(err, &ue), errors.As(err, &ne):
 		return CodeNetwork
 	}

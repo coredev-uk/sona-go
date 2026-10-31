@@ -813,6 +813,10 @@ msgstr "Born or formed"
 msgid "Browse categories"
 msgstr "Browse categories"
 
+#: src/features/settings/Playback.tsx
+msgid "Browsing Apple Music and your library works as usual."
+msgstr "Browsing Apple Music and your library works as usual."
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Cache"
 msgstr "Cache"
@@ -2514,6 +2518,10 @@ msgstr "lyrics timing offset sync reset"
 msgid "Lyrics, full screen"
 msgstr "Lyrics, full screen"
 
+#: src/features/settings/Diagnostics.tsx
+msgid "macOS Keychain"
+msgstr "macOS Keychain"
+
 #: src/features/library/index.ts
 #: src/features/library/views.tsx
 #: src/features/playlist/PlaylistPage.tsx
@@ -2858,6 +2866,11 @@ msgstr "None of these songs is available to stream."
 #: src/features/settings/IntegrationsRows.tsx
 msgid "Not available in this build: it was made without a Discord application ID."
 msgstr "Not available in this build: it was made without a Discord application ID."
+
+#: src/features/equalizer/EqualizerPage.tsx
+#: src/features/settings/Diagnostics.tsx
+msgid "Not available on this platform yet"
+msgstr "Not available on this platform yet"
 
 #: src/features/artist/ArtistViewPage.tsx
 #: src/features/settings/Diagnostics.tsx
@@ -3245,6 +3258,10 @@ msgstr "Playback"
 msgid "Playback host"
 msgstr "Playback host"
 
+#: src/features/settings/Playback.tsx
+msgid "Playback isn't available on this platform yet"
+msgstr "Playback isn't available on this platform yet"
+
 #: src/features/library/HistoryPage.tsx
 msgid "Played {label}"
 msgstr "Played {label}"
@@ -3320,6 +3337,10 @@ msgstr "Plays on this computer are kept for a year."
 #: src/features/settings/PrivateRows.tsx
 msgid "Plays stay out of your Apple Music listening history and recommendations, and aren't scrobbled to Last.fm or ListenBrainz, shown on Discord or added to History. The same as the button in the player bar."
 msgstr "Plays stay out of your Apple Music listening history and recommendations, and aren't scrobbled to Last.fm or ListenBrainz, shown on Discord or added to History. The same as the button in the player bar."
+
+#: src/features/settings/MotionArtworkRows.tsx
+msgid "Plays the looping covers some albums and playlists have, in their headers and in Now Playing."
+msgstr "Plays the looping covers some albums and playlists have, in their headers and in Now Playing."
 
 #: src/features/settings/MotionArtworkRows.tsx
 msgid "Plays the looping covers some albums and playlists have, in their headers and in Now Playing. Paused on battery power."
@@ -4526,6 +4547,10 @@ msgid "That code isn't right"
 msgstr "That code isn't right"
 
 #: src/shared/lib/errors.ts
+msgid "That isn't available on this platform."
+msgstr "That isn't available on this platform."
+
+#: src/shared/lib/errors.ts
 msgid "That took too long and timed out. Try again."
 msgstr "That took too long and timed out. Try again."
 
@@ -5029,6 +5054,10 @@ msgstr "Widevine CDM location"
 #: src/features/settings/Desktop.tsx
 msgid "Window size"
 msgstr "Window size"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Windows Credential Manager"
+msgstr "Windows Credential Manager"
 
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "With {withLabel}."

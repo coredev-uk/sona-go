@@ -2,6 +2,7 @@ import { t } from "@lingui/core/macro";
 import { createRoute } from "@tanstack/react-router";
 import { SlidersVertical } from "lucide-react";
 
+import { currentCapabilities } from "@/shared/lib/capabilities";
 import type { FeatureModule } from "@/shared/module";
 import { childRoute } from "@/shared/router";
 
@@ -27,6 +28,7 @@ export const equalizerModule: FeatureModule<typeof equalizerRoute> = {
       keys: ["Ctrl+Shift+E"],
       keywords: () => t`eq bass treble sound`,
       icon: SlidersVertical,
+      when: () => currentCapabilities()?.playback.equalizer ?? false,
       run: ({ navigate }) => void navigate({ to: "/equalizer" }),
     },
   ],

@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 
+import { currentCapabilities } from "@/shared/lib/capabilities";
 import { run } from "@/shared/lib/run";
 import type { Shortcut } from "@/shared/module";
 
@@ -52,6 +53,11 @@ function lyricsShown(): boolean {
 function nudgeLyrics(dir: 1 | -1) {
   const id = usePlayback.getState().current?.catalogId;
   if (id) useLyricsOffset.getState().nudge(id, dir);
+}
+
+/** Sona sets the playback volume on this platform (volume keys and mute). */
+function volumeSupported(): boolean {
+  return currentCapabilities()?.playback.volume ?? false;
 }
 
 /**
@@ -115,6 +121,7 @@ export const playerShortcuts: Shortcut[] = [
     keywords: () => t`louder`,
     icon: Volume2,
     repeat: true,
+    when: volumeSupported,
     run: () => setVolume(usePlayback.getState().volume + VOLUME_STEP),
   },
   {
@@ -125,6 +132,7 @@ export const playerShortcuts: Shortcut[] = [
     keywords: () => t`quieter`,
     icon: Volume1,
     repeat: true,
+    when: volumeSupported,
     run: () => setVolume(usePlayback.getState().volume - VOLUME_STEP),
   },
   {
@@ -134,6 +142,7 @@ export const playerShortcuts: Shortcut[] = [
     keys: ["M"],
     keywords: () => t`silence sound`,
     icon: VolumeX,
+    when: volumeSupported,
     run: toggleMute,
   },
   {

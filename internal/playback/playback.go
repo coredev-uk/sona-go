@@ -2,8 +2,10 @@
 // and an engine that renders one Apple Music track at a time.
 //
 // The coordinator owns the queue; an engine only loads, plays, pauses, seeks
-// and reports on the current item. The production engine is
-// internal/playback/native (Widevine CDM host + GStreamer).
+// and reports on the current item. The engine on Linux is
+// internal/playback/native (Widevine CDM host + GStreamer); a platform or
+// build without one runs Unsupported, whose every command fails with
+// ErrUnsupported.
 package playback
 
 import (
@@ -108,5 +110,8 @@ type Engine interface {
 	// Events delivers changes until Close. Slow receivers miss
 	// intermediate state events, never the latest one.
 	Events() <-chan Event
+	// Capabilities reports what the engine supports beyond playing; it
+	// never changes over the engine's life and never blocks.
+	Capabilities() Capabilities
 	Close() error
 }

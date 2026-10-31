@@ -9,6 +9,7 @@ import * as DiscoverService from "./discoverservice.js";
 import * as IntegrationsService from "./integrationsservice.js";
 import * as LibraryService from "./libraryservice.js";
 import * as MotionService from "./motionservice.js";
+import * as PlatformService from "./platformservice.js";
 import * as PlaybackService from "./playbackservice.js";
 import * as PlaylistsService from "./playlistsservice.js";
 import * as PrivateService from "./privateservice.js";
@@ -27,6 +28,7 @@ export {
     IntegrationsService,
     LibraryService,
     MotionService,
+    PlatformService,
     PlaybackService,
     PlaylistsService,
     PrivateService,
@@ -49,6 +51,7 @@ export {
     ArtistShelf,
     ArtistViewPage,
     AuthStatus,
+    Capabilities,
     CatalogAlbum,
     CatalogArtist,
     CatalogSong,
@@ -98,6 +101,7 @@ export {
     Phone,
     Pin,
     PlayFrom,
+    PlaybackCapabilities,
     PlaybackState,
     Playlist,
     PlaylistCurator,

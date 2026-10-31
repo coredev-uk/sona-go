@@ -16,9 +16,9 @@
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 /**
- * ChooseCDMPath opens the desktop's file chooser (xdg-desktop-portal) for
- * libwidevinecdm.so and returns the chosen path, or "" when the user
- * cancels. It does not save the choice.
+ * ChooseCDMPath opens the desktop's file chooser (xdg-desktop-portal on
+ * Linux) for libwidevinecdm.so and returns the chosen path, or "" when the
+ * user cancels. It does not save the choice.
  */
 export function ChooseCDMPath(): $CancellablePromise<string> {
     return $Call.ByID(2328252278);

@@ -33,7 +33,8 @@ export function Equalizer(): $CancellablePromise<$models.EqualizerInfo> {
 /**
  * OutputDevices lists the audio outputs (PipeWire sinks). The list is
  * empty when PipeWire's GStreamer plugin is missing; playback then always
- * follows the default output.
+ * follows the default output. Without an engine that chooses its output
+ * it fails with CodeUnsupported.
  */
 export function OutputDevices(): $CancellablePromise<$models.OutputDevice[]> {
     return $Call.ByID(1072625978).then(($result: any) => {

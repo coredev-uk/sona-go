@@ -2,6 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import type { Settings } from "@bindings/config";
 
 import { usePrivate } from "@/features/private";
+import { useCapabilities } from "@/shared/lib/capabilities";
 import { Switch } from "@/shared/ui/switch";
 
 import { useIntegrationsStatus } from "./integrations";
@@ -19,10 +20,11 @@ function useIntegrations() {
   return { s: s?.integrations, status: status.data, save };
 }
 
-/** Settings → Desktop: track notifications and the suspend inhibitor. */
+/** Settings → Desktop: track notifications and the suspend inhibitor, where the platform has them. */
 export function IntegrationsDesktopRows() {
   const { t } = useLingui();
   const { s, status, save } = useIntegrations();
+  const caps = useCapabilities();
   const notificationsDescription = (on: boolean) => {
     return on && status?.notifications === "unavailable"
       ? t`Shows the song, artist and artwork when a new track starts, with a Next button. Not shown while Sona's window is in front. No notification service is running on this desktop.`
@@ -36,32 +38,36 @@ export function IntegrationsDesktopRows() {
   };
   return (
     <>
-      <SettingRow
-        id="track-notifications"
-        title={t`Track notifications`}
-        description={notificationsDescription(!!s?.notifications)}
-      >
-        <Switch
+      {caps?.notifications && (
+        <SettingRow
           id="track-notifications"
-          aria-describedby="track-notifications-desc"
-          checked={s?.notifications ?? false}
-          disabled={!s}
-          onCheckedChange={(notifications) => save({ notifications })}
-        />
-      </SettingRow>
-      <SettingRow
-        id="inhibit-sleep"
-        title={t`Stay awake while playing`}
-        description={inhibitDescription(!!s?.inhibitSleep)}
-      >
-        <Switch
+          title={t`Track notifications`}
+          description={notificationsDescription(!!s?.notifications)}
+        >
+          <Switch
+            id="track-notifications"
+            aria-describedby="track-notifications-desc"
+            checked={s?.notifications ?? false}
+            disabled={!s}
+            onCheckedChange={(notifications) => save({ notifications })}
+          />
+        </SettingRow>
+      )}
+      {caps?.sleepInhibit && (
+        <SettingRow
           id="inhibit-sleep"
-          aria-describedby="inhibit-sleep-desc"
-          checked={s?.inhibitSleep ?? false}
-          disabled={!s}
-          onCheckedChange={(inhibitSleep) => save({ inhibitSleep })}
-        />
-      </SettingRow>
+          title={t`Stay awake while playing`}
+          description={inhibitDescription(!!s?.inhibitSleep)}
+        >
+          <Switch
+            id="inhibit-sleep"
+            aria-describedby="inhibit-sleep-desc"
+            checked={s?.inhibitSleep ?? false}
+            disabled={!s}
+            onCheckedChange={(inhibitSleep) => save({ inhibitSleep })}
+          />
+        </SettingRow>
+      )}
     </>
   );
 }

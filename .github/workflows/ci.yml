@@ -51,6 +51,21 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+      # The macOS and Windows seams (CONTRIBUTING.md, "Platforms"): every
+      # package must type-check there with cgo off until real macOS and
+      # Windows runners build the app. Wails' macOS backend is Objective-C
+      # behind cgo, so go vet stops there; cmd/typecheck checks Sona's
+      # packages from source and only names Wails as needing cgo.
+      - name: Type-check Windows (go vet, cgo off)
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: "0"
+        run: go vet ./...
+
+      - name: Type-check macOS (cgo off)
+        run: go run ./cmd/typecheck -os darwin -arch arm64 ./...
+
       # Ubuntu 24.04's AppArmor creates unprivileged user namespaces without
       # capabilities, so the CDM host sandbox would get no mount namespace and
       # its tests would skip (they skip, with the reason, wherever namespaces

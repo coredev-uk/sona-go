@@ -33,6 +33,14 @@ type Preset struct {
 	Gains [Bands]float64
 }
 
+// Curve is an equaliser setting as the playback host applies it: the
+// pregain (applied ahead of the filters) and each band's gain, at
+// Frequencies, in dB. The zero Curve is flat.
+type Curve struct {
+	Pregain float64
+	Gains   [Bands]float64
+}
+
 // Presets are the built-in curves, in display order.
 var Presets = []Preset{
 	{Flat, "Flat", [Bands]float64{}},

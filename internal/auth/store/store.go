@@ -1,9 +1,10 @@
 // Package store persists Sona's secrets: the Music User Token record and
 // other named secrets (the scrobblers' session key and user token).
 //
-// Every secret lives in the Secret Service (via go-keyring, service "sona",
-// one key per secret: "mut" for the MUT record). When no Secret Service is
-// reachable, Open and OpenSecret fall back to a file in the config directory
+// Every secret lives in the system keyring (via go-keyring, service "sona",
+// one key per secret: "mut" for the MUT record): the Secret Service on
+// Linux and other Unix systems, the login Keychain on macOS, Credential
+// Manager on Windows (SystemBackend). When the keyring isn't reachable, Open and OpenSecret fall back to a file in the config directory
 // (credentials.json for the MUT, credentials-<key> for named secrets) with
 // mode 0600 and say so: they log a warning and Backend reports BackendFile so
 // Settings and Diagnostics can show an "unencrypted" warning. See
@@ -36,8 +37,10 @@ const FileName = "credentials.json"
 type Backend string
 
 const (
-	BackendSecretService Backend = "secret-service"
-	BackendFile          Backend = "file (unencrypted)"
+	BackendSecretService     Backend = "secret-service"
+	BackendKeychain          Backend = "keychain"
+	BackendCredentialManager Backend = "credential-manager"
+	BackendFile              Backend = "file (unencrypted)"
 )
 
 // Errors returned by Store.Get and Secret.Get.
@@ -166,7 +169,7 @@ func openSlot(path, key string, kr Keyring, valid func([]byte) error, logger *sl
 	file := &fileSlot{path: path}
 	_, err := kr.Get(Service, key)
 	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
-		logger.Warn("secret service unavailable; storing credentials unencrypted",
+		logger.Warn("system keyring unavailable; storing credentials unencrypted",
 			"path", file.path, "err", err)
 		return file, nil
 	}
@@ -178,9 +181,9 @@ func openSlot(path, key string, kr Keyring, valid func([]byte) error, logger *sl
 	switch {
 	case ferr == nil:
 		if err := ks.set(b); err != nil {
-			return nil, fmt.Errorf("store: migrate %s to secret service: %w", file.path, err)
+			return nil, fmt.Errorf("store: migrate %s to the system keyring: %w", file.path, err)
 		}
-		logger.Info("moved credentials from file to secret service", "path", file.path)
+		logger.Info("moved credentials from file to the system keyring", "path", file.path)
 	case errors.Is(ferr, ErrCorrupt):
 		logger.Warn("removing unreadable credentials file", "path", file.path, "err", ferr)
 		if err := file.del(); err != nil {
@@ -263,7 +266,7 @@ type keyringSlot struct {
 	file *fileSlot
 }
 
-func (s *keyringSlot) backend() Backend { return BackendSecretService }
+func (s *keyringSlot) backend() Backend { return SystemBackend }
 
 func (s *keyringSlot) get() ([]byte, error) {
 	v, err := s.kr.Get(Service, s.key)
@@ -271,14 +274,14 @@ func (s *keyringSlot) get() ([]byte, error) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("store: secret service get: %w", err)
+		return nil, fmt.Errorf("store: keyring get: %w", err)
 	}
 	return []byte(v), nil
 }
 
 func (s *keyringSlot) set(b []byte) error {
 	if err := s.kr.Set(Service, s.key, string(b)); err != nil {
-		return fmt.Errorf("store: secret service set: %w", err)
+		return fmt.Errorf("store: keyring set: %w", err)
 	}
 	return s.file.del()
 }
@@ -286,7 +289,7 @@ func (s *keyringSlot) set(b []byte) error {
 func (s *keyringSlot) del() error {
 	err := s.kr.Delete(Service, s.key)
 	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
-		err = fmt.Errorf("store: secret service delete: %w", err)
+		err = fmt.Errorf("store: keyring delete: %w", err)
 	} else {
 		err = nil
 	}

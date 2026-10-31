@@ -1,4 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
+import { useCapabilities } from "@/shared/lib/capabilities";
 import { Switch } from "@/shared/ui/switch";
 
 import { useAppearance } from "./appearance";
@@ -11,6 +12,8 @@ export function MotionArtworkRows() {
   const settings = useSettings();
   const update = useUpdateSettings();
   const reduceEffects = useAppearance((s) => s.reduceEffects);
+  // Without the power state, motion artwork can't pause on battery.
+  const followsBattery = useCapabilities()?.powerState !== false;
   const s = settings.data;
   return (
     <SettingRow
@@ -19,7 +22,9 @@ export function MotionArtworkRows() {
       description={
         reduceEffects
           ? t`Off while Reduce effects is on.`
-          : t`Plays the looping covers some albums and playlists have, in their headers and in Now Playing. Paused on battery power.`
+          : followsBattery
+            ? t`Plays the looping covers some albums and playlists have, in their headers and in Now Playing. Paused on battery power.`
+            : t`Plays the looping covers some albums and playlists have, in their headers and in Now Playing.`
       }
     >
       <Switch

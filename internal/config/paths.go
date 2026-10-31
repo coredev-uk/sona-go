@@ -1,6 +1,8 @@
-// Package config resolves Sona's XDG directories and loads and saves the
-// user settings file. It is the only package that reads XDG environment
-// variables; everything else receives paths from it.
+// Package config resolves Sona's per-user directories (XDG on Linux and
+// other Unix systems, the OS conventions on macOS and Windows) and loads
+// and saves the user settings file. It is the only package that reads the
+// directory environment variables; everything else receives paths from
+// it.
 package config
 
 import (
@@ -10,49 +12,16 @@ import (
 	"path/filepath"
 )
 
-// AppName is the directory name used under every XDG base directory.
-const AppName = "sona"
-
-// Paths holds Sona's per-user directories. All of them are created with mode
-// 0700 by [Paths.Ensure].
+// Paths holds Sona's per-user directories, resolved for the OS by
+// ResolvePaths (paths_xdg.go, paths_darwin.go, paths_windows.go). All of
+// them are created with mode 0700 by [Paths.Ensure]; two may be the same
+// directory (macOS keeps config and data together).
 type Paths struct {
-	Config string // $XDG_CONFIG_HOME/sona: settings.json, credentials fallback
-	Data   string // $XDG_DATA_HOME/sona: the SQLite cache
-	Cache  string // $XDG_CACHE_HOME/sona: disposable caches
-	Art    string // $XDG_CACHE_HOME/sona/art: artwork variants and backdrops
-	State  string // $XDG_STATE_HOME/sona: logs
-}
-
-// ResolvePaths computes Sona's directories from the XDG Base Directory
-// variables read through getenv, falling back to the spec's defaults under
-// $HOME. Per the spec, a relative XDG value is ignored. It creates nothing.
-func ResolvePaths(getenv func(string) string) (Paths, error) {
-	home := getenv("HOME")
-	base := func(env, def string) (string, error) {
-		if v := getenv(env); filepath.IsAbs(v) {
-			return filepath.Join(v, AppName), nil
-		}
-		if !filepath.IsAbs(home) {
-			return "", fmt.Errorf("config: %s unset and HOME %q is not absolute", env, home)
-		}
-		return filepath.Join(home, def, AppName), nil
-	}
-	var p Paths
-	var err error
-	if p.Config, err = base("XDG_CONFIG_HOME", ".config"); err != nil {
-		return Paths{}, err
-	}
-	if p.Data, err = base("XDG_DATA_HOME", filepath.Join(".local", "share")); err != nil {
-		return Paths{}, err
-	}
-	if p.Cache, err = base("XDG_CACHE_HOME", ".cache"); err != nil {
-		return Paths{}, err
-	}
-	if p.State, err = base("XDG_STATE_HOME", filepath.Join(".local", "state")); err != nil {
-		return Paths{}, err
-	}
-	p.Art = filepath.Join(p.Cache, "art")
-	return p, nil
+	Config string // settings.json, credentials fallback
+	Data   string // the SQLite cache
+	Cache  string // disposable caches
+	Art    string // Cache/art: artwork variants and backdrops
+	State  string // logs, the saved queue, crash reports
 }
 
 // DefaultPaths resolves the directories from the process environment and
@@ -85,8 +54,8 @@ func (p Paths) Ensure() error {
 // SettingsFile is the JSON settings file.
 func (p Paths) SettingsFile() string { return filepath.Join(p.Config, "settings.json") }
 
-// CredentialsFile is the 0600 credentials fallback used when Secret Service
-// is unavailable.
+// CredentialsFile is the 0600 credentials fallback used when the system
+// keyring is unavailable.
 func (p Paths) CredentialsFile() string { return filepath.Join(p.Config, "credentials.json") }
 
 // DatabaseFile is the SQLite media cache and app state database.

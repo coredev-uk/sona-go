@@ -1,9 +1,12 @@
-// Package native is Sona's production playback engine. The parent process
-// (this package) does all networking: webPlayback metadata, the Widevine
-// service certificate, licences, HLS playlists and encrypted segments. A
-// cdmhost child process holds the Widevine CDM, decrypts, and plays the
-// audio through GStreamer. The child is started on first use, shut down
-// after an idle period, and restarted transparently after a crash.
+//go:build linux
+
+// Package native is Sona's CDM host playback engine, the Linux
+// implementation of playback.Engine. The parent process (this package)
+// does all networking: webPlayback metadata, the Widevine service
+// certificate, licences, HLS playlists and encrypted segments. A cdmhost
+// child process holds the Widevine CDM, decrypts, and plays the audio
+// through GStreamer. The child is started on first use, shut down after an
+// idle period, and restarted transparently after a crash.
 package native
 
 import (
@@ -18,6 +21,8 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
+	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
+	"github.com/coredev-uk/sona-go/internal/playback/widevine"
 )
 
 // Options configures an Engine.
@@ -70,7 +75,7 @@ type host interface {
 	Pause(ctx context.Context) (time.Duration, bool, error)
 	Stop(ctx context.Context, track uint64) error
 	SetVolume(ctx context.Context, v float64) error
-	SetEqualizer(ctx context.Context, eq cdmhost.Equalizer) error
+	SetEqualizer(ctx context.Context, eq equalizer.Curve) error
 	SetOutputDevice(ctx context.Context, device string) error
 	LoadFile(ctx context.Context, track uint64, size int64, start time.Duration, gain float64) error
 	SetTrackGain(ctx context.Context, on bool) error
@@ -87,6 +92,9 @@ type Engine struct {
 	idle      time.Duration
 	readAhead int
 	spawn     func(ctx context.Context) (host, error)
+	// probe and findCDM are cdmhost.Probe and widevine.FindCDM (Diagnose, FindCDM).
+	probe   func(ctx context.Context, o cdmhost.Options) (cdmhost.Info, error)
+	findCDM func(override string) (path, version string, err error)
 
 	spawnMu sync.Mutex // serialises host starts
 	ctl     sync.Mutex // orders control calls to the host (never held across network I/O)
@@ -100,7 +108,7 @@ type Engine struct {
 	closed     bool
 	st         playback.Status
 	quality    applemusic.Quality // flavor for items prepared from now on
-	eq         cdmhost.Equalizer  // applied to every host
+	eq         equalizer.Curve    // applied to every host
 	device     string             // PipeWire sink for every host; "" = default
 	soundCheck bool               // apply items' Sound Check gain
 	h          host
@@ -156,6 +164,8 @@ func New(o Options) *Engine {
 		sessions:  map[string]*media{},
 		events:    make(chan playback.Event, 32),
 		retry:     retryDelays,
+		probe:     cdmhost.Probe,
+		findCDM:   widevine.FindCDM,
 	}
 	e.bg, e.stopBG = context.WithCancel(context.Background())
 	e.spawn = func(ctx context.Context) (host, error) {
@@ -805,7 +815,7 @@ func (e *Engine) ensureHost(ctx context.Context) (host, int, error) {
 	}
 	// The host started with the equaliser and device of when it was
 	// spawned; re-send them in case they changed meanwhile (no-ops if not).
-	if eq != (cdmhost.Equalizer{}) {
+	if eq != (equalizer.Curve{}) {
 		_ = h.SetEqualizer(ctx, eq)
 	}
 	if dev != "" {

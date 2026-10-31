@@ -29,6 +29,7 @@ import { RatingButtons } from "@/shared/components/RatingButtons";
 import { Button } from "@/shared/ui/button";
 import { Slider } from "@/shared/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
+import { useCapabilities } from "@/shared/lib/capabilities";
 import { clockTime, formatTime } from "@/shared/lib/format";
 import { run } from "@/shared/lib/run";
 import { cn } from "@/shared/lib/utils";
@@ -153,10 +154,13 @@ function LiveLine({ id, playing }: { id: string; playing: boolean }) {
   );
 }
 
+/** Mute and the volume slider, where Sona sets the playback volume. */
 function Volume() {
   const volume = usePlayback((s) => s.volume);
+  const supported = useCapabilities()?.playback.volume ?? false;
   const VolumeIcon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
   const { t } = useLingui();
+  if (!supported) return null;
   return (
     <div
       className="flex items-center gap-1"

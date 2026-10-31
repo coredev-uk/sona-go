@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
+import { useCapabilities } from "@/shared/lib/capabilities";
 import { callFailure } from "@/shared/lib/errors";
 import { numberFormat } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
@@ -23,10 +24,18 @@ const idleChoices = [5, 10, 15, 30, 60];
 
 /**
  * The CDM location: the chosen path (or "found automatically"), a button
- * that opens the desktop's file chooser through Go (xdg-desktop-portal),
- * and a way back to the automatic search.
+ * that opens the desktop's file chooser through Go (xdg-desktop-portal)
+ * where there is one, and a way back to the automatic search.
  */
-function CdmPathField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+function CdmPathField({
+  value,
+  canChoose,
+  onSave,
+}: {
+  value: string;
+  canChoose: boolean;
+  onSave: (v: string) => void;
+}) {
   const { t } = useLingui();
   const [choosing, setChoosing] = useState(false);
   const choose = async () => {
@@ -53,9 +62,11 @@ function CdmPathField({ value, onSave }: { value: string; onSave: (v: string) =>
       >
         <span className="truncate">{value || <Trans>Found automatically</Trans>}</span>
       </output>
-      <Button variant="outline" size="sm" disabled={choosing} onClick={() => void choose()}>
-        {choosing ? <Trans>Choosing…</Trans> : <Trans>Choose…</Trans>}
-      </Button>
+      {canChoose && (
+        <Button variant="outline" size="sm" disabled={choosing} onClick={() => void choose()}>
+          {choosing ? <Trans>Choosing…</Trans> : <Trans>Choose…</Trans>}
+        </Button>
+      )}
       {value && (
         <Button variant="outline" size="sm" onClick={() => onSave("")}>
           <Trans>Use automatic</Trans>
@@ -65,10 +76,15 @@ function CdmPathField({ value, onSave }: { value: string; onSave: (v: string) =>
   );
 }
 
+/**
+ * Settings → Playback. Rows for what this platform's playback can't do are
+ * left out; without any playback, one line says so at the top.
+ */
 export function PlaybackSection() {
   const { t } = useLingui();
   const settings = useSettings();
   const update = useUpdateSettings();
+  const caps = useCapabilities();
   if (settings.error) {
     return (
       <ErrorBlock
@@ -85,9 +101,20 @@ export function PlaybackSection() {
     ? idleChoices
     : [...idleChoices, s.engineIdleMinutes].sort((a, b) => a - b);
   const volume = numberFormat({ style: "percent", maximumFractionDigits: 0 }).format(s.volume);
+  const cdm = caps?.playback.engine === "cdm";
 
   return (
     <SettingsPanel>
+      {caps && !caps.playback.available && (
+        <div className="py-4">
+          <p className="text-ui font-medium text-ink">
+            <Trans>Playback isn't available on this platform yet</Trans>
+          </p>
+          <p className="mt-0.5 max-w-[56ch] text-sub text-ink-muted">
+            <Trans>Browsing Apple Music and your library works as usual.</Trans>
+          </p>
+        </div>
+      )}
       <PrivateRows />
       <SettingRow
         id="quality"
@@ -111,65 +138,75 @@ export function PlaybackSection() {
           </SelectContent>
         </Select>
       </SettingRow>
-      <SettingRow
-        id="volume"
-        title={t`Volume`}
-        description={t`The same volume as the slider in the player bar. Its steps follow loudness, so the lower half stays useful.`}
-      >
-        <div
-          className="flex w-44 items-center gap-3"
-          style={{ "--slider-range": "var(--ink-muted)" } as React.CSSProperties}
+      {caps?.playback.volume && (
+        <SettingRow
+          id="volume"
+          title={t`Volume`}
+          description={t`The same volume as the slider in the player bar. Its steps follow loudness, so the lower half stays useful.`}
         >
-          <Slider
-            id="volume"
-            aria-labelledby="volume-label"
-            aria-describedby="volume-desc"
-            value={[Math.round(s.volume * 100)]}
-            max={100}
-            step={1}
-            onValueCommit={([v]) => save({ volume: v / 100 })}
-          />
-          <span className="w-9 text-right text-meta text-ink-muted num">{volume}</span>
-        </div>
-      </SettingRow>
-      <SettingRow
-        id="idle"
-        title={t`Stop the playback host when idle`}
-        description={t`The playback host holds the Widevine CDM and the audio pipeline. With nothing queued, it shuts down after this long to free memory; the next song takes a few seconds longer to start. Applies the next time it starts.`}
-      >
-        <Select
-          value={String(s.engineIdleMinutes)}
-          onValueChange={(v) => save({ engineIdleMinutes: Number(v) })}
+          <div
+            className="flex w-44 items-center gap-3"
+            style={{ "--slider-range": "var(--ink-muted)" } as React.CSSProperties}
+          >
+            <Slider
+              id="volume"
+              aria-labelledby="volume-label"
+              aria-describedby="volume-desc"
+              value={[Math.round(s.volume * 100)]}
+              max={100}
+              step={1}
+              onValueCommit={([v]) => save({ volume: v / 100 })}
+            />
+            <span className="w-9 text-right text-meta text-ink-muted num">{volume}</span>
+          </div>
+        </SettingRow>
+      )}
+      {cdm && (
+        <SettingRow
+          id="idle"
+          title={t`Stop the playback host when idle`}
+          description={t`The playback host holds the Widevine CDM and the audio pipeline. With nothing queued, it shuts down after this long to free memory; the next song takes a few seconds longer to start. Applies the next time it starts.`}
         >
-          <SelectTrigger id="idle" aria-describedby="idle-desc" className="h-8 w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {idle.map((m) => (
-              <SelectItem key={m} value={String(m)}>
-                {t`After ${plural(m, { one: "# minute", other: "# minutes" })}`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </SettingRow>
+          <Select
+            value={String(s.engineIdleMinutes)}
+            onValueChange={(v) => save({ engineIdleMinutes: Number(v) })}
+          >
+            <SelectTrigger id="idle" aria-describedby="idle-desc" className="h-8 w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {idle.map((m) => (
+                <SelectItem key={m} value={String(m)}>
+                  {t`After ${plural(m, { one: "# minute", other: "# minutes" })}`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingRow>
+      )}
       <AudioRows />
       <CrossfadeRows />
       <QueueRows />
-      <SettingRow
-        id="cdm-path"
-        stacked
-        title={t`Widevine CDM location`}
-        description={
-          <Trans>
-            Sona uses the <span className="text-ink">libwidevinecdm.so</span> from your installed
-            Google Chrome. Choose a file only if Diagnostics can't find it. Applies the next time
-            the playback host starts.
-          </Trans>
-        }
-      >
-        <CdmPathField value={s.cdmPath} onSave={(cdmPath) => save({ cdmPath })} />
-      </SettingRow>
+      {cdm && (
+        <SettingRow
+          id="cdm-path"
+          stacked
+          title={t`Widevine CDM location`}
+          description={
+            <Trans>
+              Sona uses the <span className="text-ink">libwidevinecdm.so</span> from your installed
+              Google Chrome. Choose a file only if Diagnostics can't find it. Applies the next time
+              the playback host starts.
+            </Trans>
+          }
+        >
+          <CdmPathField
+            value={s.cdmPath}
+            canChoose={caps.fileChooser}
+            onSave={(cdmPath) => save({ cdmPath })}
+          />
+        </SettingRow>
+      )}
     </SettingsPanel>
   );
 }

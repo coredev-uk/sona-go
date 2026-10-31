@@ -813,6 +813,10 @@ msgstr ""
 msgid "Browse categories"
 msgstr ""
 
+#: src/features/settings/Playback.tsx
+msgid "Browsing Apple Music and your library works as usual."
+msgstr ""
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Cache"
 msgstr ""
@@ -2514,6 +2518,10 @@ msgstr ""
 msgid "Lyrics, full screen"
 msgstr ""
 
+#: src/features/settings/Diagnostics.tsx
+msgid "macOS Keychain"
+msgstr ""
+
 #: src/features/library/index.ts
 #: src/features/library/views.tsx
 #: src/features/playlist/PlaylistPage.tsx
@@ -2857,6 +2865,11 @@ msgstr ""
 
 #: src/features/settings/IntegrationsRows.tsx
 msgid "Not available in this build: it was made without a Discord application ID."
+msgstr ""
+
+#: src/features/equalizer/EqualizerPage.tsx
+#: src/features/settings/Diagnostics.tsx
+msgid "Not available on this platform yet"
 msgstr ""
 
 #: src/features/artist/ArtistViewPage.tsx
@@ -3245,6 +3258,10 @@ msgstr ""
 msgid "Playback host"
 msgstr ""
 
+#: src/features/settings/Playback.tsx
+msgid "Playback isn't available on this platform yet"
+msgstr ""
+
 #: src/features/library/HistoryPage.tsx
 msgid "Played {label}"
 msgstr ""
@@ -3319,6 +3336,10 @@ msgstr ""
 
 #: src/features/settings/PrivateRows.tsx
 msgid "Plays stay out of your Apple Music listening history and recommendations, and aren't scrobbled to Last.fm or ListenBrainz, shown on Discord or added to History. The same as the button in the player bar."
+msgstr ""
+
+#: src/features/settings/MotionArtworkRows.tsx
+msgid "Plays the looping covers some albums and playlists have, in their headers and in Now Playing."
 msgstr ""
 
 #: src/features/settings/MotionArtworkRows.tsx
@@ -4526,6 +4547,10 @@ msgid "That code isn't right"
 msgstr ""
 
 #: src/shared/lib/errors.ts
+msgid "That isn't available on this platform."
+msgstr ""
+
+#: src/shared/lib/errors.ts
 msgid "That took too long and timed out. Try again."
 msgstr ""
 
@@ -5028,6 +5053,10 @@ msgstr ""
 
 #: src/features/settings/Desktop.tsx
 msgid "Window size"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Windows Credential Manager"
 msgstr ""
 
 #: src/features/playlist/PlaylistDialogs.tsx

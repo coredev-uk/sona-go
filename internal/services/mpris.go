@@ -143,10 +143,10 @@ func mprisSnapshot(snap coordinator.Snapshot, artURL string) mpris.Snapshot {
 	return out
 }
 
-// runMPRIS pushes coordinator snapshots to srv until quit closes. Artwork
+// runMediaControls pushes coordinator snapshots to srv until quit closes. Artwork
 // is resolved to a local file off the update path; the track is
 // republished with it once it is on disk.
-func runMPRIS(srv *mpris.Server, snaps <-chan coordinator.Snapshot, quit <-chan struct{}, art *artwork.Cache, log *slog.Logger) {
+func runMediaControls(srv MediaControls, snaps <-chan coordinator.Snapshot, quit <-chan struct{}, art *artwork.Cache, log *slog.Logger) {
 	type artDone struct {
 		tmpl, url string
 	}

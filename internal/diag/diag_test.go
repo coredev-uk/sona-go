@@ -1,19 +1,14 @@
 package diag
 
 import (
-	"context"
-	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/logging"
-	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
-	"github.com/coredev-uk/sona-go/internal/playback/widevine"
 )
 
 // envCrashDir makes the test binary a crashing app: it captures crashes
@@ -25,8 +20,8 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	// The test binary doubles as the CDM host child.
-	cdmhost.ChildMain()
+	// On Linux the test binary also doubles as the CDM host child
+	// (diag_linux_test.go's init).
 	if dir := os.Getenv(envCrashDir); dir != "" {
 		crashingApp(dir)
 	}
@@ -180,55 +175,5 @@ func TestCaptureCrashes(t *testing.T) {
 	out := Bundle(BundleOptions{LogFile: filepath.Join(dir, "sona.log"), StateDir: dir})
 	if !strings.Contains(out, "## Previous crash") || !strings.Contains(out, "panic: boom from a background goroutine") {
 		t.Fatalf("bundle:\n%s", out)
-	}
-}
-
-// A CDM host child killed by a signal is logged with its exit, signal
-// report and stderr tail, and that record reaches the bundle without the
-// tokens logged around it.
-func TestChildCrashInBundle(t *testing.T) {
-	if os.Getenv("SONA_WIDEVINE_CDM") == "" {
-		t.Skip("SONA_WIDEVINE_CDM not set")
-	}
-	if _, _, err := widevine.FindCDM(""); err != nil {
-		t.Skip("no Widevine CDM installed:", err)
-	}
-	dir := t.TempDir()
-	logFile := filepath.Join(dir, "sona.log")
-	log, closeLog, err := logging.New(logging.Options{File: logFile, Level: slog.LevelInfo})
-	if err != nil {
-		t.Fatal(err)
-	}
-	log.Info("apple request", "media-user-token", fakeMUT, "url", "https://amp-api.music.apple.com/v1/me?x=1 Authorization: Bearer "+fakeJWT)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	h, err := cdmhost.Start(ctx, cdmhost.Options{Sink: "fakesink", Logger: log})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := syscall.Kill(h.Info().PID, syscall.SIGABRT); err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case <-h.Done():
-	case <-time.After(10 * time.Second):
-		t.Fatal("child did not exit")
-	}
-	_ = closeLog()
-
-	out := Bundle(BundleOptions{LogFile: logFile, StateDir: dir, Home: os.Getenv("HOME")})
-	for _, want := range []string{"cdmhost: child exited unexpectedly", `"exit_code":2`, "SIGABRT: abort", "goroutine "} {
-		if !strings.Contains(out, want) {
-			t.Errorf("bundle lacks %q", want)
-		}
-	}
-	for _, s := range append(secrets()[:4], logging.Redacted+"]") {
-		if strings.Contains(out, s) {
-			t.Errorf("bundle contains %q", s)
-		}
-	}
-	if t.Failed() {
-		t.Log(out)
 	}
 }

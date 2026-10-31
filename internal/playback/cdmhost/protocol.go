@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package cdmhost runs protected playback in a child process: the same
 // executable re-executed with EnvChild set. The child loads the Widevine CDM,
 // decrypts the encrypted fMP4 fragments the parent sends, and plays the clear
@@ -58,14 +60,6 @@ type Info struct {
 	Decoder       string
 	Sink          string
 	Sandbox       Sandbox // how the child is confined
-}
-
-// Equalizer is the host's equaliser: Pregain (dB) is applied ahead of the
-// ten peaking filters, Gains (dB) are per band at equalizer.Frequencies.
-// The zero value leaves the audio untouched.
-type Equalizer struct {
-	Pregain float64
-	Gains   [equalizer.Bands]float64
 }
 
 // EventKind classifies a child event.
@@ -146,12 +140,12 @@ type request struct {
 	Track   uint64
 	Start   time.Duration
 	Volume  float64
-	EQ      *Equalizer // opInit, opEqualizer
-	Device  string     // opInit, opDevice: PipeWire sink node.name; "" follows the default
-	Size    int64      // opLoadFile: the file's length in bytes
-	Offset  int64      // opFileData: where Data goes in the file
-	Gain    float64    // opLoad, opLoadFile, opNext: the track's Sound Check gain (linear; 0 = unity)
-	Enabled bool       // opTrackGain: apply tracks' Sound Check gain
+	EQ      *equalizer.Curve // opInit, opEqualizer
+	Device  string           // opInit, opDevice: PipeWire sink node.name; "" follows the default
+	Size    int64            // opLoadFile: the file's length in bytes
+	Offset  int64            // opFileData: where Data goes in the file
+	Gain    float64          // opLoad, opLoadFile, opNext: the track's Sound Check gain (linear; 0 = unity)
+	Enabled bool             // opTrackGain: apply tracks' Sound Check gain
 	// opLoad, opNext: the track's duration (see Media); opNext: the
 	// crossfade into it, 0 for a gapless join.
 	Duration time.Duration

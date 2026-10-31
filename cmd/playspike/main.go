@@ -1,3 +1,5 @@
+//go:build linux
+
 // Command playspike proves Sona's native playback path end to end: the
 // Widevine CDM host child decrypts a full Apple Music track and plays it
 // through GStreamer/PipeWire. It reports play→first-audio latency, position

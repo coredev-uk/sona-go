@@ -173,3 +173,44 @@ func AutostartExists(path string) bool {
 	}
 	return true
 }
+
+// XDGAutostart is the freedesktop autostart entry (AutostartPath) running
+// this build (LaunchCommand): services.Autostart on Linux.
+type XDGAutostart struct{}
+
+// Enabled reports whether the entry exists and is enabled
+// (AutostartExists).
+func (XDGAutostart) Enabled() (bool, error) {
+	path, err := AutostartPath()
+	if err != nil {
+		return false, err
+	}
+	return AutostartExists(path), nil
+}
+
+// Enable writes (or rewrites) the entry to start this build at login,
+// with HiddenFlag when hidden.
+func (XDGAutostart) Enable(hidden bool) error {
+	path, err := AutostartPath()
+	if err != nil {
+		return err
+	}
+	exe, err := LaunchCommand()
+	if err != nil {
+		return err
+	}
+	argv := []string{exe}
+	if hidden {
+		argv = append(argv, HiddenFlag)
+	}
+	return WriteAutostart(path, argv)
+}
+
+// Disable removes the entry; a missing entry is not an error.
+func (XDGAutostart) Disable() error {
+	path, err := AutostartPath()
+	if err != nil {
+		return err
+	}
+	return RemoveAutostart(path)
+}

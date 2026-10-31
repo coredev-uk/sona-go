@@ -43,6 +43,7 @@ const codeMessages: Record<string, MessageDescriptor> = {
   conflict: msg`It changed elsewhere since Sona read it. Reload and try again.`,
   pins_full: msg`You have six pins. Unpin one to make room.`,
   not_configured: msg`This build of Sona has no account for that service.`,
+  unsupported: msg`That isn't available on this platform.`,
 };
 
 /** Whether `code` has its own translated wording (else the message is Go's text). */

@@ -4,6 +4,7 @@ import { SystemService } from "@bindings/services";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { useCapabilities } from "@/shared/lib/capabilities";
 import { callFailure } from "@/shared/lib/errors";
 import { Button } from "@/shared/ui/button";
 
@@ -14,10 +15,11 @@ import { changedRows } from "./settings-file";
  * Settings → Storage: save the settings to a file and load one, through
  * the desktop's file chooser (Go, xdg-desktop-portal). Go leaves out what
  * belongs to this computer and applies an import like any other change,
- * so settings:changed refreshes every row.
+ * so settings:changed refreshes every row. Left out without a file chooser.
  */
 export function SettingsFileRows() {
   const { t } = useLingui();
+  const fileChooser = useCapabilities()?.fileChooser ?? false;
   const exporting = useMutation({
     mutationFn: () => SystemService.ExportSettings(),
     onSuccess: (path) => {
@@ -50,6 +52,7 @@ export function SettingsFileRows() {
       toast.error(t`Couldn't import the settings`, { description: callFailure(err).message }),
   });
   const busy = exporting.isPending || importing.isPending;
+  if (!fileChooser) return null;
 
   return (
     <SettingRow

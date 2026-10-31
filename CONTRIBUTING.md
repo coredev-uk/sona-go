@@ -56,7 +56,7 @@ private mode.
 | `build`      | `go tool wails3 build`: frontend, bindings, `bin/sona` (production; `build DEV=true` for a debug build).                                                                                                                                                                                                 |
 | `gen`        | `sqlc generate` and `wails3 generate bindings -clean=true -ts`. Commit the result.                                                                                                                                                                                                                       |
 | `fmt`        | gofumpt on every tracked Go file except `internal/db/dbq`, then `prettier --write src`. Installs the frontend dependencies first when `package.json` or the lockfile changed.                                                                                                                            |
-| `check`      | The static half of the checks below: installs the frontend dependencies and builds `frontend/dist` (development build) when their sources changed, since Go embeds it; then `go vet`, `golangci-lint --new-from-rev=origin/main`, the path-case check, tsc, eslint, `prettier --check` and `i18n:check`. |
+| `check`      | The static half of the checks below: installs the frontend dependencies and builds `frontend/dist` (development build) when their sources changed, since Go embeds it; then `go vet`, the Windows and macOS type-checks, `golangci-lint --new-from-rev=origin/main`, the path-case check, tsc, eslint, `prettier --check` and `i18n:check`. |
 | `tests`      | The same frontend step, then `go test -race ./...` (inside `dbus-run-session` on Linux, so no test reaches your session bus; extra arguments go to `go test`) and vitest. Not named `test`: the shell's `test` builtin would shadow it.                                                                  |
 | `release`    | `build/linux/release/release.sh`, the same as `go tool wails3 task release`: release packages built on Ubuntu 24.04 in podman or docker (falling back to `nix run nixpkgs#podman`) and smoke-tested, into `bin/release`.                                                                                 |
 | `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`).                                                                                                                                                                                                                            |
@@ -95,9 +95,30 @@ and the app, and commit `devenv.yaml` and `devenv.lock` together.
 `devenv shell` works on Apple Silicon (`aarch64-darwin`): the Linux-only
 packages (GTK4, WebKitGTK, libsoup, glib-networking, PipeWire, playerctl,
 gcc, dbus) and the GIO module path are left out, and GStreamer keeps core,
-base, good (`osxaudiosink`), bad and libav. The app itself does not build
-for macOS yet (the Taskfile targets Linux). Intel Macs (`x86_64-darwin`)
+base, good (`osxaudiosink`), bad and libav. Intel Macs (`x86_64-darwin`)
 are not supported: the pinned nixpkgs (26.11) and devenv 2.4 dropped them.
+
+The app builds and runs on macOS with its UI and everything Go does
+(sign-in, library, sync, catalog), but without playback, media controls,
+notifications, sleep inhibit, autostart, the file chooser or `sona`
+commands yet (see "Platforms"); the Taskfile and `dev` still target Linux,
+so build it directly. From a clean clone:
+
+```sh
+devenv shell -- bash -c '
+  pnpm -C frontend install --frozen-lockfile && pnpm -C frontend build &&
+  go build -o bin/sona . && go vet ./... && go test ./...'
+SONA_PRIVATE=1 ./bin/sona
+```
+
+That is a development build (private listening on). Expect the window with
+every page; Settings without the controls macOS can't support yet (the
+equaliser, Sound Check, crossfade, the output device, the CDM path, start at
+login, notifications, keeping the Mac awake); Settings → Playback and
+Diagnostics saying playback isn't available on this platform; the keyring
+backend "Keychain"; data under `~/Library/Application Support/Sona` and
+`~/Library/Caches/Sona` (log: `State/sona.log`). The D-Bus tests skip (no
+`dbus-daemon`).
 
 ## Checks
 
@@ -107,6 +128,8 @@ it):
 
 ```sh
 go vet ./...
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...   # see "Platforms"
+go run ./cmd/typecheck -os darwin -arch arm64 ./...
 go test -race ./...
 golangci-lint run --new-from-rev=origin/main ./...   # must be clean
 cd frontend
@@ -185,13 +208,73 @@ A feature is a Go service plus a frontend module, each self-contained:
   defaults and `normalized()`; apply changes live through
   `Settings.OnChange`.
 
+## Platforms
+
+Linux is the full platform. macOS and Windows build and run the UI, with
+every OS-specific part behind a seam that reports itself unsupported there:
+
+- `main.go` is portable; `platform_linux.go` and `platform_other.go` build
+  what differs per OS: the playback engine (`newEngine`: the CDM host engine
+  on Linux, `playback.Unsupported` elsewhere), the CDM host child hook, the
+  `sona <command>` transport and single instance (`internal/app` over
+  D-Bus), the Wails options, and `services.Platform`: media controls (MPRIS),
+  notifications, the sleep inhibitor, the on-battery monitor, the autostart
+  entry, the file chooser, the tray. A nil seam is unsupported; the service
+  using it does nothing or returns an error wrapping
+  `errors.ErrUnsupported` (error code `unsupported`), and
+  `PlatformService.Capabilities` tells the frontend, which hides or
+  explains the control (`internal/services/doc.go`,
+  `docs/frontend-architecture.md`).
+- Build tags: a file for one OS is named `_linux.go`, `_darwin.go` or
+  `_windows.go` (Go applies the constraint from the name); the fallback for
+  the rest is `_other.go` with the complementary `//go:build` line
+  (`!linux`). A file for a group of systems carries an explicit line and a
+  descriptive name: `//go:build unix` (`internal/discord/ipc_unix.go`),
+  `//go:build !darwin && !windows` (XDG paths in
+  `internal/config/paths_xdg.go`, the Secret Service backend name in
+  `internal/auth/store/keyring_other.go`). Tests that only make sense on one
+  OS follow their file.
+- Code that only compiles on Linux (Linux syscalls, cgo against Linux
+  libraries) is tagged: the whole CDM host engine (`internal/playback/gst`,
+  `widevine`, `cdmhost`, `native`) and `cmd/playspike` carry
+  `//go:build linux`, as do WebKitGTK (`webkit_linux.go`) and GTK
+  (`internal/shell/*_linux.go`). Portable Go implementations of Linux
+  protocols (the D-Bus clients in `internal/mpris`, `internal/desktop/*`,
+  `internal/power`, `internal/app`; the XDG autostart entry) stay untagged,
+  so they type-check and their tests run everywhere; only
+  `platform_linux.go` uses them.
+- Per-OS conventions: config paths (`internal/config`: XDG; `~/Library/...`
+  on macOS; `%APPDATA%`/`%LOCALAPPDATA%` on Windows), the keyring backend
+  (go-keyring: Secret Service, Keychain, Credential Manager), the Discord
+  IPC socket (Unix sockets; unsupported on Windows, which uses a named
+  pipe).
+- Type-checking: every package, tests included, must type-check for
+  `windows/amd64` and `darwin/arm64` with cgo off (CI and `check`). Windows
+  uses `go vet`. On macOS Wails' `pkg/application` is Objective-C behind
+  cgo, so `go vet` stops there; `go run ./cmd/typecheck -os darwin -arch
+  arm64 ./...` type-checks Sona's packages from source and only names the
+  third-party packages that need cgo. Real builds need cgo on both:
+  `mattn/go-sqlite3` everywhere, and Wails on macOS (Cocoa and WebKit from
+  Apple's SDK, so macOS builds happen on a Mac). Wails on Windows is pure Go
+  (its own WebView2 loader).
+- A real Windows build cross-compiles from Linux with zig as the C
+  compiler (`nix shell nixpkgs#zig`; Wails' own cross image uses it too):
+  `GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC='zig cc -target
+  x86_64-windows-gnu' go build -tags production,sqlite_fts5 -ldflags '-H
+  windowsgui' .` after a production frontend build, with `go tool wails3
+  generate syso` for the icon and manifest. zig ignores the `-mwindows` Go
+  passes for `-H windowsgui`, so wrap it to pass
+  `-Wl,--subsystem,windows` instead, or the exe opens a console. It needs
+  the WebView2 runtime to show its window.
+
 ## Architecture rules
 
 - Go owns all Apple Music traffic, tokens, sync, caching, MPRIS and artwork.
   The frontend never holds tokens and never calls `*.apple.com`.
 - Cold start reads SQLite only; the network and the playback host start
   after the first paint.
-- Secrets go to Secret Service (or the explicit 0600 file fallback), never to
+- Secrets go to the system keyring (Secret Service, Keychain, Credential
+  Manager through go-keyring) or the explicit 0600 file fallback, never to
   the database, logs, settings or committed files.
 - Linux performance: no `backdrop-filter` or large CSS blurs on scrolling
   content; backdrops are pre-blurred in Go.

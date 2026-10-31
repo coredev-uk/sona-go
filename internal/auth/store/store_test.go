@@ -147,7 +147,7 @@ func TestSecretServiceSelectedAndUsed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Backend() != BackendSecretService {
+	if s.Backend() != SystemBackend {
 		t.Fatalf("backend = %q", s.Backend())
 	}
 	if _, err := s.Get(); !errors.Is(err, ErrNotFound) {
@@ -187,7 +187,7 @@ func TestFileMigratesIntoSecretService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Backend() != BackendSecretService {
+	if s.Backend() != SystemBackend {
 		t.Fatalf("backend = %q", s.Backend())
 	}
 	if got, err := s.Get(); err != nil || got.Token != rec.Token {

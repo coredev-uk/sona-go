@@ -3,6 +3,7 @@ import type { Settings } from "@bindings/config";
 import { DesktopService } from "@bindings/services";
 
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
+import { useCapabilities } from "@/shared/lib/capabilities";
 import { run } from "@/shared/lib/run";
 import { Button } from "@/shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
@@ -32,6 +33,7 @@ export function DesktopSection() {
   ];
   const settings = useSettings();
   const update = useUpdateSettings();
+  const caps = useCapabilities();
   if (settings.error) {
     return (
       <ErrorBlock
@@ -50,54 +52,61 @@ export function DesktopSection() {
 
   return (
     <SettingsPanel>
-      <SettingRow
-        id="close-action"
-        title={t`When the window is closed`}
-        description={t`In the background, music keeps playing and Sona stays in the system tray. Open it again from the tray, your media keys' player or the app launcher.`}
-      >
-        <Select value={d.closeAction} onValueChange={(closeAction) => save({ closeAction })}>
-          <SelectTrigger
-            id="close-action"
-            aria-describedby="close-action-desc"
-            className="h-8 w-56"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="background">
-              <Trans>Keep playing in the background</Trans>
-            </SelectItem>
-            <SelectItem value="quit">
-              <Trans>Quit Sona</Trans>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </SettingRow>
-      <SettingRow
-        id="autostart"
-        title={t`Start Sona when you log in`}
-        description={t`Adds Sona to your desktop's startup applications.`}
-      >
-        <Switch
+      {caps?.tray && (
+        <SettingRow
+          id="close-action"
+          title={t`When the window is closed`}
+          description={t`In the background, music keeps playing and Sona stays in the system tray. Open it again from the tray, your media keys' player or the app launcher.`}
+        >
+          <Select value={d.closeAction} onValueChange={(closeAction) => save({ closeAction })}>
+            <SelectTrigger
+              id="close-action"
+              aria-describedby="close-action-desc"
+              className="h-8 w-56"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="background">
+                <Trans>Keep playing in the background</Trans>
+              </SelectItem>
+              <SelectItem value="quit">
+                <Trans>Quit Sona</Trans>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </SettingRow>
+      )}
+      {caps?.autostart && (
+        <SettingRow
           id="autostart"
-          aria-describedby="autostart-desc"
-          checked={d.autostart}
-          onCheckedChange={(autostart) => save({ autostart })}
-        />
-      </SettingRow>
-      <SettingRow
-        id="start-hidden"
-        title={t`Start in the tray`}
-        description={t`At login, Sona starts without a window, ready to play from the tray or your media keys.`}
-      >
-        <Switch
+          title={t`Start Sona when you log in`}
+          description={t`Adds Sona to your desktop's startup applications.`}
+        >
+          <Switch
+            id="autostart"
+            aria-describedby="autostart-desc"
+            checked={d.autostart}
+            onCheckedChange={(autostart) => save({ autostart })}
+          />
+        </SettingRow>
+      )}
+      {/* Starting without a window needs the tray to open it from. */}
+      {caps?.autostart && caps.tray && (
+        <SettingRow
           id="start-hidden"
-          aria-describedby="start-hidden-desc"
-          checked={d.startHidden}
-          disabled={!d.autostart}
-          onCheckedChange={(startHidden) => save({ startHidden })}
-        />
-      </SettingRow>
+          title={t`Start in the tray`}
+          description={t`At login, Sona starts without a window, ready to play from the tray or your media keys.`}
+        >
+          <Switch
+            id="start-hidden"
+            aria-describedby="start-hidden-desc"
+            checked={d.startHidden}
+            disabled={!d.autostart}
+            onCheckedChange={(startHidden) => save({ startHidden })}
+          />
+        </SettingRow>
+      )}
       <SettingRow
         id="start-page"
         title={t`Open on`}

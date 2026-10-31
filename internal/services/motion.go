@@ -4,8 +4,6 @@ import (
 	"context"
 	"strings"
 	"sync"
-
-	"github.com/coredev-uk/sona-go/internal/power"
 )
 
 // MotionService is motion artwork outside detail pages (whose Header
@@ -15,13 +13,14 @@ type MotionService struct {
 	e *Env
 
 	mu     sync.Mutex
-	mon    *power.Monitor
+	mon    PowerMonitor
 	closed bool
 }
 
 func newMotionService(e *Env) *MotionService {
 	s := &MotionService{e: e}
-	// UPower is read off the start-up path; until it answers the machine
+	// The power state (UPower on Linux) is read off the start-up path;
+	// until it answers, or where the platform has no monitor, the machine
 	// counts as on mains power.
 	e.Go("power monitor", s.watch)
 	e.OnClose(s.close)
@@ -29,7 +28,10 @@ func newMotionService(e *Env) *MotionService {
 }
 
 func (s *MotionService) watch() {
-	mon, err := power.Open()
+	if s.e.Platform.Power == nil {
+		return
+	}
+	mon, err := s.e.Platform.Power()
 	if err != nil {
 		s.e.Logger.Info("power: on-battery state unavailable, motion artwork follows the setting only", "err", err)
 		return

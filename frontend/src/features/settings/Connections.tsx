@@ -9,6 +9,7 @@ import { useId, useRef, useState, type FormEvent, type ReactNode, type Ref } fro
 import { toast } from "sonner";
 
 import { usePrivate } from "@/features/private";
+import { useCapabilities } from "@/shared/lib/capabilities";
 import { callFailure } from "@/shared/lib/errors";
 import { Button } from "@/shared/ui/button";
 import {
@@ -473,17 +474,20 @@ function ScrobblingPanel() {
 }
 
 export function ConnectionsSection() {
+  const discord = useCapabilities()?.discordPresence ?? false;
   return (
     <div className="flex flex-col gap-8">
       <ScrobblingPanel />
-      <section aria-labelledby="discord-title" className="flex flex-col gap-3">
-        <h3 id="discord-title" className="text-ui font-semibold text-ink">
-          <Trans>Discord</Trans>
-        </h3>
-        <SettingsPanel>
-          <IntegrationsConnectionsRows />
-        </SettingsPanel>
-      </section>
+      {discord && (
+        <section aria-labelledby="discord-title" className="flex flex-col gap-3">
+          <h3 id="discord-title" className="text-ui font-semibold text-ink">
+            <Trans>Discord</Trans>
+          </h3>
+          <SettingsPanel>
+            <IntegrationsConnectionsRows />
+          </SettingsPanel>
+        </section>
+      )}
     </div>
   );
 }

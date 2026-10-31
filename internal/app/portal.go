@@ -99,6 +99,20 @@ func SaveFile(ctx context.Context, conn *dbus.Conn, opts SaveFileOptions) (strin
 	return choose(ctx, conn, "SaveFile", opts.Parent, opts.Title, options)
 }
 
+// Portal is the desktop's file chooser through xdg-desktop-portal on the
+// session bus Conn (services.FileChooser on Linux).
+type Portal struct{ Conn *dbus.Conn }
+
+// OpenFile is OpenFile on p's bus.
+func (p Portal) OpenFile(ctx context.Context, opts OpenFileOptions) (string, error) {
+	return OpenFile(ctx, p.Conn, opts)
+}
+
+// SaveFile is SaveFile on p's bus.
+func (p Portal) SaveFile(ctx context.Context, opts SaveFileOptions) (string, error) {
+	return SaveFile(ctx, p.Conn, opts)
+}
+
 // chooserOptions adds the options OpenFile and SaveFile share.
 func chooserOptions(options map[string]dbus.Variant, accept string, filters []FileFilter, folder string) {
 	if accept != "" {

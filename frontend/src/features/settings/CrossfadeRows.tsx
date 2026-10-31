@@ -2,21 +2,23 @@ import { plural } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 
+import { useCapabilities } from "@/shared/lib/capabilities";
 import { Slider } from "@/shared/ui/slider";
 import { Switch } from "@/shared/ui/switch";
 
 import { useSettings, useUpdateSettings } from "./queries";
 import { SettingRow } from "./SettingRow";
 
-/** Settings → Playback: crossfade between songs, and its length. */
+/** Settings → Playback: crossfade between songs, and its length (where playback supports it). */
 export function CrossfadeRows() {
   const { t } = useLingui();
   const settings = useSettings();
   const update = useUpdateSettings();
+  const supported = useCapabilities()?.playback.crossfade ?? false;
   const s = settings.data;
   // The length while the thumb moves; saved on release.
   const [dragging, setDragging] = useState<number | null>(null);
-  if (!s) return null;
+  if (!s || !supported) return null;
   const cf = s.crossfade;
   const seconds = dragging ?? cf.seconds;
   return (

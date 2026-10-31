@@ -8,13 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/godbus/dbus/v5"
-
 	"github.com/coredev-uk/sona-go/internal/config"
-	"github.com/coredev-uk/sona-go/internal/desktop/inhibit"
 	"github.com/coredev-uk/sona-go/internal/desktop/notify"
 	"github.com/coredev-uk/sona-go/internal/discord"
-	"github.com/coredev-uk/sona-go/internal/mpris"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
@@ -52,7 +48,7 @@ type IntegrationsService struct {
 	// Notifications: notifyMu orders Show/Dismiss across the per-track
 	// goroutines; seq drops a track's notification once a newer one is due.
 	notifyMu  sync.Mutex
-	notifier  *notify.Notifier
+	notifier  Notifier
 	notifySeq uint64
 	closing   bool
 }
@@ -129,14 +125,12 @@ func (s *IntegrationsService) run() {
 	snaps, cancel := s.e.Coord.Subscribe()
 	defer cancel()
 
-	inh := inhibit.New(inhibit.Options{
-		System:  func() (*dbus.Conn, error) { return dbus.ConnectSystemBus() },
-		Session: s.e.Bus,
-		Who:     "Sona",
-		Why:     "Playing music",
-	})
+	var inh SleepInhibitor
+	if s.e.Platform.Inhibitor != nil {
+		inh = s.e.Platform.Inhibitor()
+	}
 	var presence *presenceWorker
-	if id := discord.ClientID(); id != "" {
+	if id := discord.ClientID(); id != "" && discord.Supported {
 		presence = newPresenceWorker(s, discord.New(id))
 		s.e.Go("discord presence", presence.run)
 	}
@@ -144,8 +138,10 @@ func (s *IntegrationsService) run() {
 		ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
 		defer cancel()
 		s.closeNotifier(ctx)
-		if err := inh.Close(); err != nil {
-			s.e.Logger.Warn("inhibit: release", "err", err)
+		if inh != nil {
+			if err := inh.Close(); err != nil {
+				s.e.Logger.Warn("inhibit: release", "err", err)
+			}
 		}
 		if presence != nil {
 			presence.stop()
@@ -159,25 +155,11 @@ func (s *IntegrationsService) run() {
 	)
 	apply := func() {
 		p := st.plan(last, s.e.Settings.Get().Integrations, s.e.Private.Since, s.e.Now())
-		if p.announce != nil && s.e.Bus != nil {
+		if p.announce != nil && s.e.Platform.Notifications != nil {
 			s.announce(*p.announce)
 		}
 		if p.inhibit != nil {
-			want := *p.inhibit
-			ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
-			if want {
-				if err := inh.Acquire(ctx); err != nil {
-					s.e.Logger.Warn("inhibit: acquire", "err", err)
-				}
-			} else if err := inh.Release(); err != nil {
-				s.e.Logger.Warn("inhibit: release", "err", err)
-			}
-			cancel()
-			backend := inh.Backend()
-			if want && backend == "" {
-				backend = IntegrationUnavailable
-			}
-			s.setStatus(func(st *IntegrationsStatus) { st.Inhibit = backend })
+			s.setStatus(func(st *IntegrationsStatus) { st.Inhibit = s.inhibit(inh, *p.inhibit) })
 		}
 		if presence != nil && p.presence != nil {
 			presence.set(*p.presence)
@@ -200,6 +182,31 @@ func (s *IntegrationsService) run() {
 			}
 		}
 	}
+}
+
+// inhibit takes (want) or drops the sleep inhibitor inh (nil: none on
+// this platform) and returns IntegrationsStatus.Inhibit.
+func (s *IntegrationsService) inhibit(inh SleepInhibitor, want bool) string {
+	if inh == nil {
+		if want {
+			return IntegrationUnavailable
+		}
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
+	defer cancel()
+	if want {
+		if err := inh.Acquire(ctx); err != nil {
+			s.e.Logger.Warn("inhibit: acquire", "err", err)
+		}
+	} else if err := inh.Release(); err != nil {
+		s.e.Logger.Warn("inhibit: release", "err", err)
+	}
+	backend := inh.Backend()
+	if want && backend == "" {
+		backend = IntegrationUnavailable
+	}
+	return backend
 }
 
 // integrationsState is what the integrations last did, so each snapshot
@@ -305,16 +312,11 @@ func (s *IntegrationsService) announce(item coordinator.Item) {
 
 // notifierLocked connects to the notification server on first use, and
 // again after a failure (the server may have started since).
-func (s *IntegrationsService) notifierLocked(ctx context.Context) (*notify.Notifier, error) {
+func (s *IntegrationsService) notifierLocked(ctx context.Context) (Notifier, error) {
 	if s.notifier != nil {
 		return s.notifier, nil
 	}
-	n, err := notify.New(ctx, s.e.Bus, notify.Options{
-		AppName:      "Sona",
-		AppIcon:      "sona",
-		DesktopEntry: mpris.DesktopEntry,
-		OnAction:     s.onAction,
-	})
+	n, err := s.e.Platform.Notifications(ctx, s.onAction)
 	if err != nil {
 		return nil, err
 	}

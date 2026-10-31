@@ -1,3 +1,5 @@
+//go:build linux
+
 package cdmhost
 
 import (
@@ -7,6 +9,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
 	"github.com/coredev-uk/sona-go/internal/playback/gst"
 )
 
@@ -54,7 +57,7 @@ func (s *server) output(t *testing.T) gst.OutputSettings {
 
 func TestEqualizerRequestsApplyAndOutliveThePipeline(t *testing.T) {
 	s := newTestServer(t)
-	eq := Equalizer{Pregain: -6, Gains: [10]float64{6, 3}}
+	eq := equalizer.Curve{Pregain: -6, Gains: [10]float64{6, 3}}
 	// Sent before any pipeline exists: the first one starts with it.
 	s.must(t, request{Op: opEqualizer, EQ: &eq})
 	s.must(t, request{Op: opLoad, Track: 1, Data: clearInit()})
@@ -62,7 +65,7 @@ func TestEqualizerRequestsApplyAndOutliveThePipeline(t *testing.T) {
 		t.Fatalf("first pipeline output %+v", out)
 	}
 	// Changed live.
-	eq = Equalizer{Gains: [10]float64{9: -12}}
+	eq = equalizer.Curve{Gains: [10]float64{9: -12}}
 	s.must(t, request{Op: opEqualizer, EQ: &eq})
 	if out := s.output(t); out.Bands != eq.Gains || math.Abs(out.Pregain) > 1e-4 {
 		t.Fatalf("live change: %+v", out)
