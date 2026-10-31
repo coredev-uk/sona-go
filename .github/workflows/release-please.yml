@@ -1,0 +1,50 @@
+# Release automation. On every push to main, release-please reads the
+# Conventional Commits titles merged since the last release and opens or
+# updates the release PR (VERSION, CHANGELOG.md, .release-please-manifest.json).
+# Merging that PR tags vX.Y.Z, creates a draft GitHub release with the
+# changelog entry, and calls release.yml, which builds and smoke-tests the
+# packages, uploads them to the draft and publishes it. Configuration:
+# release-please-config.json; steps: docs/release-checklist.md ("Releasing").
+#
+# Everything runs on GITHUB_TOKEN: the tag it creates triggers no other
+# workflow, so the release build is a reusable-workflow call, not a tag push.
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    # Off while the repository is private: the update notice reads public
+    # releases only, and release PR text can't be rewritten later.
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: release-please
+      cancel-in-progress: false
+    permissions:
+      contents: write # release branch, tag and draft release
+      pull-requests: write # the release PR
+      issues: write # its autorelease labels
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  release:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: write # upload to and publish the draft release
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}

@@ -1,14 +1,18 @@
-# Tag v<VERSION> (e.g. `git tag v0.1.0 && git push origin v0.1.0`): runs the
-# CI checks, builds the .deb/.rpm/Arch/AppImage packages on the Ubuntu 24.04
-# baseline with build/linux/release/release.sh (which smoke-tests each on a
-# clean Ubuntu, Fedora and Arch container), then publishes a GitHub release
-# with the packages, the AppImage .zsync, the AUR sona-bin files and
-# SHA256SUMS.
+# Called by release-please.yml when merging a release PR has tagged
+# v<VERSION> and created its draft GitHub release: runs the CI checks, builds
+# the .deb/.rpm/Arch/AppImage packages on the Ubuntu 24.04 baseline with
+# build/linux/release/release.sh (which smoke-tests each on a clean Ubuntu,
+# Fedora and Arch container), then uploads the packages, the AppImage .zsync,
+# the AUR sona-bin files and SHA256SUMS to the draft and publishes it.
 name: Release
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag (v<VERSION>) whose draft release receives the packages
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -28,13 +32,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.tag }}
           persist-credentials: false
 
       - name: Tag matches VERSION
+        env:
+          TAG: ${{ inputs.tag }}
         run: |
           want="v$(cat VERSION)"
-          if [ "$GITHUB_REF_NAME" != "$want" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match VERSION ($want)"
+          if [ "$TAG" != "$want" ]; then
+            echo "::error::tag $TAG does not match VERSION ($want)"
             exit 1
           fi
 
@@ -47,15 +54,21 @@ jobs:
           SONA_DISCORD_CLIENT_ID: ${{ secrets.SONA_DISCORD_CLIENT_ID }}
         run: bash build/linux/release/release.sh "$RUNNER_TEMP/release"
 
+      # release-please wrote the notes into the draft; publishing it makes it
+      # the latest release, which the update notice and AppImageUpdate read.
       - name: Publish the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
         run: |
           cd "$RUNNER_TEMP/release"
-          gh release create "$GITHUB_REF_NAME" \
+          gh release upload "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
-            --verify-tag \
-            --title "Sona ${GITHUB_REF_NAME#v}" \
-            --generate-notes \
+            --clobber \
             sona_*.deb sona-*.rpm sona-*.pkg.tar.zst sona-*.AppImage sona-*.AppImage.zsync \
             sona-bin-*-aur.tar.gz SHA256SUMS
+          gh release edit "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Sona ${TAG#v}" \
+            --draft=false \
+            --latest

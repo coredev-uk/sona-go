@@ -1,15 +1,108 @@
 # Release checklist
 
-Run before tagging `v<VERSION>`. Automated gates come first; the desktop
-matrix needs real sessions (GNOME and KDE in VMs, Hyprland on the dev host).
-Record each run in the results table at the end: date, Sona version,
-distro/session, result, and notes for anything not passed.
+Releases come from release-please ("Releasing" below). Work through §1 and
+§2 on the release PR's branch before merging it. Automated gates come first;
+the desktop matrix needs real sessions (GNOME and KDE in VMs, Hyprland on
+the dev host). Record each run in the results table at the end: date, Sona
+version, distro/session, result, and notes for anything not passed.
+
+## Releasing
+
+`.github/workflows/release-please.yml` runs on every push to `main` while
+the repository is public (it skips itself while private). release-please
+reads the Conventional Commits subjects merged since the last release (PRs
+are squash-merged, so these are the PR titles) and keeps one release PR,
+`chore(main): release X.Y.Z` on `release-please--branches--main`, which bumps
+`VERSION`, `CHANGELOG.md` and `.release-please-manifest.json`. Settings live
+in `release-please-config.json`; the action is pinned by SHA and Renovate
+updates it. Its dry run is the CLI version the action bundles (17.6.0 for
+release-please-action v5.0.0):
+`npx release-please@17.6.0 release-pr --dry-run --debug --repo-url=coredev-uk/sona-go --token="$(gh auth token)"`.
+
+| PR title type                                                                 | Changelog section     | Bump before 1.0                |
+| ----------------------------------------------------------------------------- | --------------------- | ------------------------------ |
+| `feat`                                                                        | Features              | minor                          |
+| `fix`, including Renovate's `fix(deps)`                                       | Bug Fixes             | patch                          |
+| `perf`                                                                        | Performance           | patch                          |
+| `revert`                                                                      | Reverts               | patch                          |
+| `refactor`, `docs`, `test`, `ci`, `build`, `chore` (Renovate's `chore(deps)`) | hidden                | none on their own              |
+| `type!:` or a `BREAKING CHANGE:` footer                                       | ⚠ BREAKING CHANGES, first | minor (`bump-minor-pre-major`) |
+
+Hidden types never open a release PR by themselves: Renovate's `chore(deps)`
+updates (Actions, development dependencies) wait for the next release, while
+`fix(deps)` (direct Go modules and frontend runtime dependencies, which ship in the
+binary) open or update a patch release PR. 1.0.0 is a choice, not a bump: set
+`"release-as": "1.0.0"` in the package entry of `release-please-config.json`
+for that release and remove it afterwards. To reword a merged PR's changelog
+line, put `BEGIN_COMMIT_OVERRIDE`, the new Conventional Commits line(s) and
+`END_COMMIT_OVERRIDE` in that PR's body; the next run uses them.
+
+Merging a release:
+
+1. Run §1 and §2 against the release PR's head.
+2. release-please pushes the release PR with `GITHUB_TOKEN`, so CI and the
+   PR title check don't start on it by themselves. Right before merging,
+   close and reopen it (a person) to run them; every merge to `main`
+   force-pushes the branch again and drops them.
+3. Merge it through Clarence (`/clarence merge`, AGENTS.md) with its title
+   unchanged: release-please finds it by the title and the
+   `autorelease: pending` label.
+4. The Release Please run for that merge tags `vX.Y.Z` on the merge commit,
+   creates a draft GitHub release holding the changelog entry (the PR's
+   label becomes `autorelease: tagged`) and calls `release.yml` (job
+   `release / release`, environment `release`): the CI checks,
+   `Tag matches VERSION`, `release.sh` with its smoke tests, then the
+   packages are uploaded to the draft and it is published as `Sona X.Y.Z`,
+   marked latest. `releases/latest` never returns a draft, so the update
+   notice and AppImageUpdate only see a release once its packages are on it.
+5. Copy `aur/PKGBUILD` and `aur/.SRCINFO` from `sona-bin-<v>-aur.tar.gz` into
+   the AUR `sona-bin` repo and push there by hand.
+
+If the build fails on something transient, "Re-run failed jobs" on that
+Release Please run builds the same tag again. If it needs a code change,
+delete only the draft (`gh release delete vX.Y.Z --yes`, keeping the tag)
+and merge the fix: release-please falls back to the `vX.Y.Z` tag as the
+last release and the fix ships as the next patch release. Never revert the
+merged release PR: `VERSION` and the tag would disagree.
+
+### First release (after the history rewrite and publishing)
+
+The changelog starts at a `v0.1.0` tag with no GitHub release: when
+release-please finds no release for the manifest's version (0.1.0), it uses
+the tag `v0.1.0` as the last release. The tag can only be set after the
+history rewrite, which changes every commit hash.
+
+1. Check `release.yml` on `main` is called only by `release-please.yml`
+   (no `push: tags` trigger), so pushing the tag builds nothing.
+2. After the rewritten history is force-pushed, tag its `main`:
+   `git fetch origin && git tag -a v0.1.0 -m "Sona 0.1.0" origin/main && git push origin v0.1.0`.
+   Builds of that commit report 0.1.0.
+3. Run the dry run above: it logs `found: v0.1.0 <sha>` and, with nothing
+   user-facing after the tag, `Would open 0 pull requests`.
+4. Repository settings when publishing (1.7): Settings → Actions → General →
+   Workflow permissions → "Allow GitHub Actions to create and approve pull
+   requests" on (release-please can't open its PR otherwise); squash merging
+   only, with the commit message defaulting to "Pull request title" (title
+   `PR_TITLE`, body blank), since the default "commit or PR title" takes a
+   lone commit's subject instead of the checked PR title. The `release`
+   environment allows branch `main`, the ref of the release-please run that
+   calls `release.yml`.
+5. After publishing, the first `feat:` merge opens
+   `chore(main): release 0.2.0`. Merge it as above.
+6. Check: `gh release view v0.2.0` lists the packages, the AppImage .zsync,
+   the AUR tarball and SHA256SUMS;
+   `curl -s https://api.github.com/repos/coredev-uk/sona-go/releases/latest | jq -r .tag_name`
+   prints `v0.2.0`; a production build of `v0.1.0` (the packages from
+   `release.sh` on a checkout of the tag) shows the update notice in the
+   sidebar footer, opening the v0.2.0 release page. Development builds never
+   check.
 
 ## 1. Automated gates
 
-- [ ] `VERSION` holds the new version; nothing else carries it
-      (`build/linux/Taskfile.yml` injects it into the binary and nfpm).
-- [ ] CI is green on the commit to tag (`.github/workflows/ci.yml`: Go vet +
+- [ ] `VERSION` holds the new version (the release PR writes it); nothing
+      else carries it (`build/linux/Taskfile.yml` injects it into the binary
+      and nfpm).
+- [ ] CI is green on the release PR's head (`.github/workflows/ci.yml`: Go vet +
       `go test -race` on Ubuntu 24.04 with apt GStreamer and user namespaces
       allowed, so the CDM host sandbox tests run; frontend tsc, eslint,
       prettier, vitest, build).
@@ -22,10 +115,9 @@ distro/session, result, and notes for anything not passed.
       `sona --version` prints the version, every library resolves, the
       GStreamer elements exist (WebKit's `webvttenc` from gst-plugins-bad
       included), and the app paints its first frame under Xvfb.
-- [ ] The tag workflow (`.github/workflows/release.yml`) re-runs the same and
-      publishes the GitHub release. Afterwards copy `aur/PKGBUILD` and
-      `aur/.SRCINFO` from `sona-bin-<v>-aur.tar.gz` into the AUR `sona-bin`
-      repo and push there by hand.
+- [ ] After the merge, the release workflow (`release.yml`, called by
+      `release-please.yml`) re-runs the same and publishes the GitHub
+      release; then the AUR push ("Releasing", step 5).
 
 ## 2. Desktop matrix
 
