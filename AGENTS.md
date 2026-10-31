@@ -55,7 +55,11 @@
 
 - Never store tokens or DRM credentials in database tables, logs, or committed files. Use Secret Service (go-keyring) with an explicit, user-visible 0600 file fallback.
 
-## Worktrees
+## Worktrees and Branches
 
-- Do each task in its own git worktree and branch, not in the main checkout: `git worktree add ../sona-go-<branch> -b <branch>`.
-- A new worktree has no `frontend/node_modules`, `frontend/dist`, or `.env`. Run `pnpm install` in `frontend/` inside devenv, and build the frontend before `go build .`. Symlink `.env` from the main checkout only when a live token is needed.
+- Prefer a separate git worktree and branch for each feature or fix, so independent work can run side by side: `git worktree add ../sona-go-<slug> -b <type>/<slug>` (`<type>` is the conventional-commit type, e.g. `feat/queue-autoplay`). A small, self-contained change can be made on a branch in the main checkout instead.
+- Run independent items in parallel worktrees where they touch different files; serialise items that edit the same files (group them into waves).
+- Generated files are never merged by hand: after rebasing onto `main`, regenerate `frontend/bindings`, the Lingui catalogues (`pnpm i18n:extract`) and `internal/db/dbq` (`gen`), then commit them.
+- A new worktree has no `frontend/node_modules`, `frontend/dist` or `.env`. Run `pnpm install` in `frontend/` inside devenv, build the frontend before `go build .`, and symlink `.env` from the main checkout only when a live token is needed.
+- Worktrees running at once must not share runtime state: a different `WAILS_VITE_PORT` per worktree, private XDG dirs and `dbus-run-session` for every run except one on the real desktop session, and a separately named PipeWire null sink.
+- Commits and PR titles follow Conventional Commits (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `test:`, `ci:`, `build:`, `chore:`).
