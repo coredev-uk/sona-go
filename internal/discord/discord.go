@@ -33,8 +33,9 @@ import (
 //
 //	go build -ldflags "-X github.com/coredev-uk/sona-go/internal/discord.clientID=<id>"
 //
-// (build/linux/Taskfile.yml passes SONA_DISCORD_CLIENT_ID). A build without
-// it reads the same variable from the environment.
+// (production builds of build/linux/Taskfile.yml pass SONA_DISCORD_CLIENT_ID).
+// A build without it, development builds included, reads the same variable
+// from the environment.
 var clientID string
 
 // ClientID returns the application ID built in (or from the environment);

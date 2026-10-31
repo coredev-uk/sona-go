@@ -61,6 +61,8 @@ func TestRedactLeavesOrdinaryTextAlone(t *testing.T) {
 		"token expired, refetching",
 		"GET /v1/me/library/songs?limit=100&offset=200 200 OK",
 		"album 1440857781 has 10 tracks",
+		"press Ctrl-X to cut; -X alone means nothing",
+		`{"msg":"Build Info:","-tags":"sqlite_fts5","-gcflags":"all=-l","GOOS":"linux"}`,
 	} {
 		if got := Redact(s); got != s {
 			t.Errorf("Redact(%q) = %q, want unchanged", s, got)
@@ -156,6 +158,93 @@ func TestNewWritesRedactedJSONFileAndDevText(t *testing.T) {
 	fi, _ := os.Stat(path)
 	if fi.Mode().Perm() != 0o600 {
 		t.Errorf("log file mode %v, want 0600", fi.Mode().Perm())
+	}
+}
+
+// Fake build credentials, injected the way build/linux/Taskfile.yml does.
+const (
+	fakeLastFMKey    = "fakeLastfmKey0123456789abcdef"
+	fakeLastFMSecret = "fakeLastfmSecret0123456789abcd"
+	fakeDiscordID    = "112233445566778899"
+	fakeLdflags      = "-X main.version=0.1.0" +
+		" -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey=" + fakeLastFMKey +
+		" -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret=" + fakeLastFMSecret +
+		" -X github.com/coredev-uk/sona-go/internal/discord.clientID=" + fakeDiscordID
+)
+
+func assertNoBuildCredentials(t *testing.T, out string) {
+	t.Helper()
+	for _, secret := range []string{fakeLastFMKey, fakeLastFMSecret, fakeDiscordID} {
+		if strings.Contains(out, secret) {
+			t.Fatalf("build credential %q leaked:\n%s", secret, out)
+		}
+	}
+}
+
+// Wails' development builds log "Build Info:" with every debug.BuildInfo
+// setting as an attribute, -ldflags included (application_debug.go,
+// logStartup). Neither the file nor the dev stderr text may carry the
+// credentials the linker flags inject; the other settings stay.
+func TestNewKeepsBuildCredentialsOutOfWailsBuildInfo(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sona.log")
+	var stderr bytes.Buffer
+	log, closeFn, err := New(Options{File: path, Dev: true, Stderr: &stderr})
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Info("Build Info:", "Wails", "v3.0.0", "Compiler", "go1.26.10", "-buildmode", "exe",
+		"-tags", "sqlite_fts5", "-gcflags", "all=-l", "-ldflags", fakeLdflags, "GOOS", "linux", "CGO_ENABLED", "1")
+	if err := closeFn(); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertNoBuildCredentials(t, string(b))
+	assertNoBuildCredentials(t, stderr.String())
+	var rec map[string]any
+	if err := json.Unmarshal(b, &rec); err != nil {
+		t.Fatalf("output is not one JSON record: %v\n%s", err, b)
+	}
+	if rec["-ldflags"] != Redacted {
+		t.Errorf("-ldflags = %v, want %s", rec["-ldflags"], Redacted)
+	}
+	if rec["msg"] != "Build Info:" || rec["-tags"] != "sqlite_fts5" || rec["GOOS"] != "linux" || rec["Compiler"] != "go1.26.10" {
+		t.Errorf("other build settings altered: %v", rec)
+	}
+	if !strings.Contains(stderr.String(), "-ldflags="+Redacted) {
+		t.Errorf("dev text lacks the redacted -ldflags:\n%s", stderr.String())
+	}
+}
+
+// The same flags in free text: the log shapes of older builds (read back by
+// the diagnostics bundle), command lines and quoted values.
+func TestRedactBuildFlagsInText(t *testing.T) {
+	cases := []struct{ name, in, keep string }{
+		{
+			"json record", `{"msg":"Build Info:","-tags":"sqlite_fts5","-ldflags":"` + fakeLdflags + `","GOOS":"darwin"}`,
+			`"-ldflags":"` + Redacted + `","GOOS":"darwin"`,
+		},
+		{"text record", `msg="Build Info:" -ldflags="` + fakeLdflags + `" GOOS=linux`, `-ldflags="` + Redacted + `" GOOS=linux`},
+		{"bare value", "-ldflags=-X=main.secret=" + fakeLastFMSecret + " next", "-ldflags=" + `"` + Redacted + `" next`},
+		{"command line", "go build -ldflags '" + fakeLdflags + "' -o bin/sona", "-o bin/sona"},
+		{
+			"assignment", "build with -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret=" + fakeLastFMSecret + " done",
+			"scrobble.lastfmSecret=" + Redacted + " done",
+		},
+		{"equals form", "-X=github.com/coredev-uk/sona-go/internal/discord.clientID=" + fakeDiscordID, "discord.clientID=" + Redacted},
+		{"quoted space value", `-X 'github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey=` + fakeLastFMKey + ` x'`, "lastfmKey=" + Redacted},
+	}
+	for _, c := range cases {
+		got := Redact(c.in)
+		assertNoBuildCredentials(t, got)
+		if !strings.Contains(got, c.keep) {
+			t.Errorf("%s: Redact(%q) = %q, want it to keep %q", c.name, c.in, got, c.keep)
+		}
+		if again := Redact(got); again != got {
+			t.Errorf("%s: redacting twice changed %q to %q", c.name, got, again)
+		}
 	}
 }
 

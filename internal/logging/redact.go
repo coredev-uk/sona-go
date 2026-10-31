@@ -27,15 +27,27 @@ var (
 	// Music User Tokens are long base64 strings with no fixed prefix; any
 	// unbroken base64 run of 100+ characters is treated as one.
 	longB64Re = regexp.MustCompile(`[A-Za-z0-9+/_-]{100,}={0,2}`)
+	// The -ldflags build setting, as Wails' development "Build Info:"
+	// record logs it (JSON `"-ldflags":"…"`, text `-ldflags="…"`): the whole
+	// value goes, quoted or bare.
+	ldflagsRe = regexp.MustCompile(`(-ldflags["']?\s*[:=]\s*)(?:"(?:[^"\\]|\\.)*"|'[^']*'|[^\s"',;&}\])]+)`)
+	// A linker -X assignment anywhere else (-X pkg.name=value): the build
+	// injects API credentials this way, so every value goes, whatever the
+	// symbol is called.
+	linkerXRe = regexp.MustCompile(`(^|[\s"'=])(-X(?:\s+|=)["']?[\w./~-]+=)[^\s"'\\]+`)
 )
 
 // Redact scrubs secrets from free text: JWTs, values of token-named keys
 // and headers (Media-User-Token, Authorization, token=…), bearer
-// credentials, and long base64 runs that look like Music User Tokens.
+// credentials, long base64 runs that look like Music User Tokens, and
+// build flags that carry compiled-in credentials (-ldflags values, linker
+// -X assignments).
 func Redact(s string) string {
 	if s == "" {
 		return s
 	}
+	s = ldflagsRe.ReplaceAllString(s, `${1}"`+Redacted+`"`)
+	s = linkerXRe.ReplaceAllString(s, "${1}${2}"+Redacted)
 	s = kvRe.ReplaceAllString(s, "${1}${2}"+Redacted)
 	s = jwtRe.ReplaceAllString(s, Redacted)
 	s = bearerRe.ReplaceAllString(s, "Bearer "+Redacted)
@@ -50,10 +62,13 @@ func Redact(s string) string {
 
 // sensitiveKey reports whether an attribute key names a secret. Matching
 // ignores case, '-' and '_' and accepts any key ending in "token".
+// "ldflags" is Wails' Build Info setting: the linker flags inject Sona's
+// Last.fm and Discord credentials (-X), and nothing else in them is worth
+// a log line (the version is logged at startup).
 func sensitiveKey(key string) bool {
 	k := strings.ToLower(strings.NewReplacer("-", "", "_", "").Replace(key))
 	switch k {
-	case "mut", "authorization", "auth", "cookie", "setcookie", "password", "secret":
+	case "mut", "authorization", "auth", "cookie", "setcookie", "password", "secret", "ldflags":
 		return true
 	}
 	return strings.HasSuffix(k, "token")

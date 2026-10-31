@@ -27,8 +27,10 @@ const (
 //
 //	-ldflags "-X github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey=… -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret=…"
 //
-// (build/linux/Taskfile.yml passes SONA_LASTFM_KEY and SONA_LASTFM_SECRET).
-// A build without them reads the same variables from the environment.
+// (production builds of build/linux/Taskfile.yml pass SONA_LASTFM_KEY and
+// SONA_LASTFM_SECRET, with -trimpath so -ldflags stays out of the build
+// info). A build without them, development builds included, reads the same
+// variables from the environment.
 var lastfmKey, lastfmSecret string
 
 // LastFMAccount returns the API key and secret built in (or from the

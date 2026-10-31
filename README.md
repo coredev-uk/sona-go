@@ -87,8 +87,9 @@ Ubuntu, Fedora and Arch container.
 
 Optional build-time settings: `SONA_LASTFM_KEY` and `SONA_LASTFM_SECRET` (a
 Last.fm API account) and `SONA_DISCORD_CLIENT_ID` (a Discord application ID,
-for the opt-in Discord status) are compiled in when set; without them Sona
-reads the same variables at runtime.
+for the opt-in Discord status) are compiled into production builds when set;
+development builds (`DEV=true`, as `dev` uses) and builds without them read
+the same variables at runtime.
 
 ## Where Sona keeps things
 

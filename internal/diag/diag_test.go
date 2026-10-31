@@ -134,6 +134,50 @@ func TestBundleRedactsSecrets(t *testing.T) {
 	}
 }
 
+// A log written before the log handler redacted build flags still holds
+// Wails' "Build Info:" record with the -ldflags the build used, which
+// inject the Last.fm and Discord credentials; the bundle drops them.
+func TestBundleScrubsBuildCredentialsFromOldLogs(t *testing.T) {
+	const (
+		key    = "fakeLastfmKey0123456789abcdef"
+		secret = "fakeLastfmSecret0123456789abcd"
+		client = "112233445566778899"
+	)
+	ldflags := "-X main.version=0.1.0 -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey=" + key +
+		" -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret=" + secret +
+		" -X github.com/coredev-uk/sona-go/internal/discord.clientID=" + client
+	dir := t.TempDir()
+	logFile := filepath.Join(dir, "sona.log")
+	lines := []string{
+		`{"level":"INFO","msg":"startup: process start","version":"0.1.0"}`,
+		`{"level":"INFO","msg":"Build Info:","Wails":"v3.0.0","-tags":"sqlite_fts5","-ldflags":"` + ldflags + `","CGO_ENABLED":"1"}`,
+		`{"level":"INFO","msg":"Platform Info:","Name":"MacOS","Version":"27.2"}`,
+	}
+	if err := os.WriteFile(logFile+".1", []byte(strings.Join(lines, "\n")+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(logFile, []byte("time=2026-10-31T16:56:22Z level=INFO msg=\"Build Info:\" -ldflags=\""+ldflags+"\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out := Bundle(BundleOptions{LogFile: logFile, StateDir: dir})
+	for _, s := range []string{key, secret, client} {
+		if strings.Contains(out, s) {
+			t.Errorf("bundle contains %q", s)
+		}
+	}
+	for _, want := range []string{
+		`"-ldflags":"` + logging.Redacted + `","CGO_ENABLED":"1"`, `-ldflags="` + logging.Redacted + `"`,
+		`"-tags":"sqlite_fts5"`, `"msg":"Platform Info:","Name":"MacOS","Version":"27.2"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("bundle lacks %q", want)
+		}
+	}
+	if t.Failed() {
+		t.Log(out)
+	}
+}
+
 func TestBundleLogTailSpansRotation(t *testing.T) {
 	dir := t.TempDir()
 	logFile := filepath.Join(dir, "sona.log")

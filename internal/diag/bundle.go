@@ -91,8 +91,11 @@ var emailRe = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}
 
 // Scrub removes secrets and personal data from text: everything
 // logging.Redact removes (JWTs, token headers and keys, bearer
-// credentials, MUT-like base64 runs), e-mail addresses (Apple IDs), and
-// the home directory (replaced by "~").
+// credentials, MUT-like base64 runs, -ldflags values and linker -X
+// assignments, which carry the build's Last.fm and Discord credentials),
+// e-mail addresses (Apple IDs), and the home directory (replaced by "~").
+// It runs over the log tail as read from disk, so lines written by a build
+// whose log handler did not yet redact something are scrubbed here too.
 func Scrub(s, home string) string {
 	s = logging.Redact(s)
 	s = emailRe.ReplaceAllString(s, logging.Redacted)

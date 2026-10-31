@@ -34,7 +34,14 @@ plugins) and, on Linux, glib-networking's GIO module path, and loads `.env`.
   `-ldflags -X main.version` (`bin/sona --version`).
 
 Local secrets: `.env` (ignored) may hold `MUSIC_USER_TOKEN` for
-`cmd/playspike` and live tests. Never print, log or commit it.
+`cmd/playspike` and live tests. Never print, log or commit it. It may also
+hold `SONA_LASTFM_KEY`, `SONA_LASTFM_SECRET` and `SONA_DISCORD_CLIENT_ID`:
+production builds compile them in (`-X`, with `-trimpath` so the flags stay
+out of the binary's build info), development builds read them from the
+environment at runtime. Never pass them in `-ldflags` of a build without
+`-trimpath`: Go records the flags in the build info and Wails' development
+builds log them as `Build Info:` (the log handler and the diagnostics bundle
+redact `-ldflags` values, but don't rely on that).
 
 Private mode for development and testing: a development build (any build
 without the `production` tag: `wails3 dev`, `go run .`, plain `go build`)

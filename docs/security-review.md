@@ -6,7 +6,7 @@ Areas reviewed without findings: native Apple ID input handling, `/art/`, the ma
 
 The Widevine CDM downloader, added later, is covered in "Widevine CDM downloader" below.
 
-Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/...`.
+Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/`.
 
 | ID | Severity | Issue | Status |
 | --- | --- | --- | --- |
@@ -19,6 +19,7 @@ Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playbac
 | F7 | Low | Loopback sign-in could be completed by another local user | Open: owned by the auth flow |
 | F8 | Low | Child could exhaust the parent's memory | Fixed |
 | F9 | Low | Artwork decoding accepted any registered image format, TIFF included (found after the review, Dependabot alert #1) | Fixed |
+| F10 | Low | Development builds logged the build's Last.fm and Discord credentials, and the diagnostics bundle carried them (found after the review, in a macOS run log) | Fixed |
 
 ## F1. Settings import could set the CDM path (Medium, fixed)
 
@@ -158,6 +159,21 @@ Found after the review, by Dependabot alert #1: `github.com/disintegration/imagi
 - The binary no longer links `golang.org/x/image/tiff`, `golang.org/x/image/bmp`, `golang.org/x/image/webp` or `imaging`.
 
 **Tests:** `TestDecodeAcceptsOnlyJPEGAndPNG` (JPEG and PNG decode; TIFF in both byte orders, GIF, BMP, WebP, truncated magic and empty input fail with `ErrFormat`), `TestTIFFSourceRejected` (a TIFF from the CDN fails `Get`, `Backdrop` and `DominantColors`, is not cached, gets a 502, and a TIFF decoder registered with the `image` package is never called), `TestPNGSource`.
+
+## F10. Development builds logged the build credentials (Low, fixed)
+
+Found after the review, in a macOS development run's log. The build compiles Sona's Last.fm API key and secret and its Discord application ID in with `-ldflags "-X …scrobble.lastfmKey=… -X …scrobble.lastfmSecret=… -X …discord.clientID=…"` (from `SONA_LASTFM_KEY`, `SONA_LASTFM_SECRET`, `SONA_DISCORD_CLIENT_ID`). Without `-trimpath`, Go records `-ldflags` in the binary's build info (`debug.ReadBuildInfo`), and in builds without the `production` tag Wails logs every build-info setting at startup as `"Build Info:"` (`pkg/application/application_debug.go`, `logStartup`). The record went through Sona's log handler unchanged into `sona.log` and the dev stderr, and from the log tail into the diagnostics bundle (Settings → Diagnostics → Copy diagnostics, meant for pasting into issues). Production builds were not affected: `-trimpath` keeps `-ldflags` out of the build info, and the `production` tag compiles `logStartup` out.
+
+Severity Low: the values are compiled into every distributed binary, where anyone can read them, so they are not true secrets. The exposure was a log file on the developer's own machine and any bundle copied from it.
+
+Other paths checked: Sona itself never calls `debug.ReadBuildInfo` or reads Wails' `BuildSettings`; crash files hold the Go runtime's panic output and stacks, which carry no build settings; the Diagnostics report lists versions and a fixed set of environment variables, none of them these.
+
+**Fix:**
+- **Log handler** (`internal/logging/redact.go`): an attribute named `-ldflags` (any case, `-`/`_` ignored) is replaced whole with `[REDACTED]`. The whole value goes rather than only credential-named `-X` symbols, because a name list misses the next credential someone injects, and nothing else in the flags is worth a log line (the version is logged by `startup: process start`). In free text, `Redact` replaces a quoted or bare `-ldflags` value, and the value of every linker `-X name=value` assignment whatever the symbol is called.
+- **Diagnostics bundle** (`internal/diag/bundle.go`): `Scrub` runs `logging.Redact` over the log tail as read from disk, so a log written by an older build still loses the values.
+- **Build** (`build/linux/Taskfile.yml`, `build/darwin/Taskfile.yml`): development builds (`DEV=true`, what `dev` builds) no longer compile the credentials in; Sona reads the same variables from the environment at runtime (devenv loads `.env`). Production and release builds keep the injection, with `-trimpath`, so `go version -m bin/sona` shows no `-ldflags`.
+
+**Tests:** `TestNewKeepsBuildCredentialsOutOfWailsBuildInfo` (a record shaped like Wails' Build Info, through `logging.New`'s JSON file and dev text handlers), `TestRedactBuildFlagsInText` (JSON and text records, bare, quoted and `-X=` forms, a command line; redacting twice changes nothing), `TestBundleScrubsBuildCredentialsFromOldLogs` (JSON and text Build Info lines in `sona.log` and `sona.log.1`).
 
 ## Widevine CDM downloader
 
