@@ -27,7 +27,7 @@ func cdmLibrary(log *slog.Logger, override, dir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		lib, err := m.Library()
+		lib, err := m.Library(context.Background())
 		if err != nil {
 			return "", err
 		}

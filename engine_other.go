@@ -27,3 +27,6 @@ func newEngine(*applemusic.Client, config.Settings, *slog.Logger, *cdm.Manager) 
 // cdmLoadCheck is nil: there is no playback host here to load a CDM, so a
 // download is only checked statically (its signatures and binary format).
 func cdmLoadCheck(*slog.Logger) func(ctx context.Context, lib string) error { return nil }
+
+// prepareAudio does nothing: there is no audio stack to prepare here.
+func prepareAudio(context.Context, *slog.Logger) {}

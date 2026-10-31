@@ -28,8 +28,9 @@ import (
 // and hears how loading it went (internal/playback/cdm.Manager).
 type CDMSource interface {
 	// Library returns the library to load now, or an error wrapping
-	// playback.ErrNoCDM when none is ready.
-	Library() (string, error)
+	// playback.ErrNoCDM when none is ready. It may wait, within ctx, for
+	// an install moments from finishing.
+	Library(ctx context.Context) (string, error)
 	// ReportInit reports a host's start with lib: err nil when the CDM
 	// loaded, else the CDM's failure (cdmhost.ErrCDMLoad, or the host
 	// dying while loading it). Other start failures are not reported.
@@ -40,7 +41,7 @@ type CDMSource interface {
 type CDMPath string
 
 // Library returns the path.
-func (p CDMPath) Library() (string, error) { return string(p), nil }
+func (p CDMPath) Library(context.Context) (string, error) { return string(p), nil }
 
 // ReportInit does nothing: there is nothing else to fall back to.
 func (CDMPath) ReportInit(string, error) {}
@@ -813,7 +814,7 @@ func (e *Engine) ensureHost(ctx context.Context) (host, int, error) {
 	e.mu.Unlock()
 	// The CDM is chosen per host: a version installed since the last one
 	// started applies now, never to a running host.
-	lib, err := e.cdm.Library()
+	lib, err := e.cdm.Library(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("native: start playback host: %w", err)
 	}

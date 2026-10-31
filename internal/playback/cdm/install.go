@@ -3,6 +3,7 @@ package cdm
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -24,9 +25,12 @@ type Options struct {
 	Source Source
 	Trust  Trust
 	// LoadCheck, when set, loads a new library the way a playback host
-	// does (Linux: a sandboxed probe child) before it becomes current; an
-	// error rejects the version. Without it only the library's binary
-	// format is checked.
+	// does (a sandboxed probe child that loads only the CDM) before it
+	// becomes current. An error wrapping ErrNotLoadable rejects the
+	// version (CodeLoad); any other error (a timeout, a probe that could
+	// not start) leaves it undecided (CodeLoadCheck): the verified files
+	// are kept and the next check loads them again. Without it only the
+	// library's binary format is checked.
 	LoadCheck func(ctx context.Context, lib string) error
 	// Override is SONA_WIDEVINE_CDM: a library, or the directory holding
 	// one, used instead of any download (Manager only; Ensure ignores it).
@@ -53,7 +57,8 @@ const (
 	DefaultRetryInterval  = 30 * time.Minute
 	// checkTimeout bounds one update check, download included.
 	checkTimeout = 30 * time.Minute
-	// loadCheckTimeout bounds LoadCheck.
+	// loadCheckTimeout bounds LoadCheck: the CDM alone loads in well
+	// under a second; the margin is for a first load the OS scans.
 	loadCheckTimeout = time.Minute
 )
 
@@ -116,7 +121,7 @@ func Ensure(ctx context.Context, o Options) (Installed, error) {
 	if ptr, err := s.read(); err == nil && ptr.Current != "" && s.intact(ptr, ptr.Current) == nil {
 		return Installed{Version: ptr.Current, Path: s.lib(ptr.Current)}, nil
 	}
-	ptr, _, err := check(ctx, o, nil)
+	ptr, _, err := check(ctx, o, nil, nil)
 	if err != nil {
 		return Installed{}, err
 	}
@@ -139,9 +144,13 @@ func FetchRelease(ctx context.Context, o Options) (Release, error) {
 // check runs one update check under the directory's lock: it reads the
 // manifest and, when it lists a version newer than the current one (or
 // nothing is installed), downloads, verifies and installs it and makes it
-// current. It returns the pointer after the check and whether Current
-// changed. A version that is older, current or rejected changes nothing.
-func check(ctx context.Context, o Options, progress func(received, total int64)) (pointer, bool, error) {
+// current. The files of a version whose load check could not finish
+// (Pending) are loaded again rather than downloaded again. verified, when
+// set, is called once the new version's files are verified and in place,
+// before the load check. It returns the pointer after the check and
+// whether Current changed. A version that is older, current or rejected
+// changes nothing.
+func check(ctx context.Context, o Options, progress func(received, total int64), verified func()) (pointer, bool, error) {
 	s := store{root: o.Dir, p: o.Platform}
 	unlock, err := s.lock()
 	if err != nil {
@@ -162,6 +171,13 @@ func check(ctx context.Context, o Options, progress func(received, total int64))
 	if err != nil {
 		return ptr, false, err
 	}
+	hadPending := ptr.Pending != ""
+	sum, reuse := s.takePending(&ptr, rel.Version, o.Logger)
+	if hadPending && !reuse {
+		if err := s.write(ptr); err != nil {
+			return ptr, false, err
+		}
+	}
 	// CheckedAt moves only when the check completes: a failed one is
 	// retried with the manager's backoff, not an update interval later.
 	checked := o.Now()
@@ -180,30 +196,41 @@ func check(ctx context.Context, o Options, progress func(received, total int64))
 	}
 
 	t0 := time.Now()
-	o.Logger.Info("widevine: downloading", "release", rel.String(), "platform", o.Platform.String())
-	crx, err := download(ctx, o.HTTP, o.Source.PackageHosts, rel, o.Dir, progress)
-	if err != nil {
-		return ptr, false, err
+	if reuse {
+		o.Logger.Info("widevine: loading the package verified by an earlier check", "version", rel.Version)
+	} else {
+		if err := fetch(ctx, o, s, rel, progress); err != nil {
+			return ptr, false, err
+		}
+		if sum, err = s.hash(rel.Version); err != nil {
+			_ = os.RemoveAll(filepath.Join(o.Dir, rel.Version))
+			return ptr, false, &Error{Code: CodeDisk, Err: err}
+		}
 	}
-	defer func() { _ = os.Remove(crx) }()
-	staging, err := os.MkdirTemp(o.Dir, stagingPrefix)
-	if err != nil {
-		return ptr, false, &Error{Code: CodeDisk, Err: err}
-	}
-	defer func() { _ = os.RemoveAll(staging) }()
-	if err := unpack(crx, rel.Version, o, staging); err != nil {
-		return ptr, false, err
-	}
-	o.Logger.Info("widevine: package verified", "version", rel.Version, "checks", "size, SHA-512, CRX3 signatures, extraction, library format")
-	if err := s.place(staging, rel.Version); err != nil {
-		return ptr, false, err
+	if verified != nil {
+		verified()
 	}
 	lib := s.lib(rel.Version)
 	if o.LoadCheck != nil {
+		lt := time.Now()
 		lctx, cancel := context.WithTimeout(ctx, loadCheckTimeout)
 		err := o.LoadCheck(lctx, lib)
 		cancel()
-		if err != nil {
+		took := time.Since(lt).Round(time.Millisecond)
+		switch {
+		case err != nil && !errors.Is(err, ErrNotLoadable):
+			// Undecided: nothing is known against this version, so keep
+			// its verified files for the next check.
+			if ptr.SHA256 == nil {
+				ptr.SHA256 = map[string]string{}
+			}
+			ptr.Pending, ptr.SHA256[rel.Version] = rel.Version, sum
+			if werr := s.write(ptr); werr != nil {
+				_ = os.RemoveAll(filepath.Join(o.Dir, rel.Version))
+				return ptr, false, werr
+			}
+			return ptr, false, &Error{Code: CodeLoadCheck, Err: fmt.Errorf("load check after %s: %w", took, err)}
+		case err != nil:
 			_ = os.RemoveAll(filepath.Join(o.Dir, rel.Version))
 			if ptr.Current != "" {
 				// Keep the working one; don't fetch this version again.
@@ -211,16 +238,14 @@ func check(ctx context.Context, o Options, progress func(received, total int64))
 					ptr.Rejected = map[string]string{}
 				}
 				ptr.Rejected[rel.Version] = CodeLoad
+			}
+			if ptr.Current != "" || reuse {
+				delete(ptr.SHA256, rel.Version)
 				_ = s.write(ptr)
 			}
 			return ptr, false, &Error{Code: CodeLoad, Err: err}
 		}
-		o.Logger.Info("widevine: load check passed", "version", rel.Version)
-	}
-	sum, err := s.hash(rel.Version)
-	if err != nil {
-		_ = os.RemoveAll(filepath.Join(o.Dir, rel.Version))
-		return ptr, false, &Error{Code: CodeDisk, Err: err}
+		o.Logger.Info("widevine: load check passed", "version", rel.Version, "took", took)
 	}
 	if ptr.Current != rel.Version {
 		ptr.Previous = ptr.Current
@@ -238,6 +263,27 @@ func check(ctx context.Context, o Options, progress func(received, total int64))
 	s.prune(ptr.Current, ptr.Previous)
 	o.Logger.Info("widevine: installed", "version", rel.Version, "previous", ptr.Previous, "path", lib, "took", time.Since(t0).Round(time.Millisecond))
 	return ptr, true, nil
+}
+
+// fetch downloads rel's package, verifies it and puts its files in place
+// as rel.Version.
+func fetch(ctx context.Context, o Options, s store, rel Release, progress func(received, total int64)) error {
+	o.Logger.Info("widevine: downloading", "release", rel.String(), "platform", o.Platform.String())
+	crx, err := download(ctx, o.HTTP, o.Source.PackageHosts, rel, o.Dir, progress)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.Remove(crx) }()
+	staging, err := os.MkdirTemp(o.Dir, stagingPrefix)
+	if err != nil {
+		return &Error{Code: CodeDisk, Err: err}
+	}
+	defer func() { _ = os.RemoveAll(staging) }()
+	if err := unpack(crx, rel.Version, o, staging); err != nil {
+		return err
+	}
+	o.Logger.Info("widevine: package verified", "version", rel.Version, "checks", "size, SHA-512, CRX3 signatures, extraction, library format")
+	return s.place(staging, rel.Version)
 }
 
 // unpack verifies the CRX3 package at crx and extracts it into dir: the

@@ -1,6 +1,7 @@
 package cdm
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
@@ -12,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -150,7 +152,7 @@ func TestManagerStatusBeforeStartReadsNoNetwork(t *testing.T) {
 		if m.Source() != SourceDownload {
 			t.Errorf("Source = %s", m.Source())
 		}
-		_, err := m.Library()
+		_, err := m.Library(t.Context())
 		wantNoCDM(t, err, ErrUnavailable, "")
 		if mf.f.total() != 0 {
 			t.Error("requests made")
@@ -165,7 +167,7 @@ func TestManagerStatusBeforeStartReadsNoNetwork(t *testing.T) {
 		if st.State != StateReady || st.Version != "1.0.0.0" || st.Path != inst.Path || !st.CheckedAt.Equal(t0.Add(-time.Hour)) || st.Code != "" {
 			t.Errorf("Status = %+v", st)
 		}
-		if lib, err := m.Library(); err != nil || lib != inst.Path {
+		if lib, err := m.Library(t.Context()); err != nil || lib != inst.Path {
 			t.Errorf("Library = %s, %v", lib, err)
 		}
 		if mf.f.total() != requests {
@@ -206,7 +208,7 @@ func TestManagerStartInstalls(t *testing.T) {
 	if st := m.Status(); st != last {
 		t.Errorf("Status = %+v, want %+v", st, last)
 	}
-	if got, err := m.Library(); err != nil || got != lib {
+	if got, err := m.Library(t.Context()); err != nil || got != lib {
 		t.Errorf("Library = %s, %v", got, err)
 	}
 }
@@ -248,11 +250,11 @@ func TestManagerLibraryWhileDownloading(t *testing.T) {
 	if st := m.Status(); st.State != StateDownloading {
 		t.Errorf("Status = %+v", st)
 	}
-	_, err := m.Library()
+	_, err := m.Library(t.Context())
 	wantNoCDM(t, err, ErrDownloading, "")
 	close(release)
 	mf.clk.next(t)
-	if _, err := m.Library(); err != nil {
+	if _, err := m.Library(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -275,7 +277,7 @@ func TestManagerFailureThenRetry(t *testing.T) {
 	if st := m.Status(); st.State != StateFailed || st.Code != CodeHashMismatch {
 		t.Errorf("Status = %+v", st)
 	}
-	_, err := m.Library()
+	_, err := m.Library(t.Context())
 	wantNoCDM(t, err, ErrUnavailable, CodeHashMismatch)
 	wantInstalled(t, mf.dir)
 
@@ -297,6 +299,118 @@ func TestManagerRetryStarts(t *testing.T) {
 	mf.clk.next(t)
 	if st := m.Status(); st.State != StateReady {
 		t.Errorf("Status = %+v", st)
+	}
+}
+
+// blockingLoadCheck reports each load check on started and passes it
+// once release is closed.
+func blockingLoadCheck(started chan<- string, release <-chan struct{}) func(context.Context, string) error {
+	return func(ctx context.Context, lib string) error {
+		started <- lib
+		select {
+		case <-release:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// A play that comes while the first version is past its download and
+// being checked waits for the check and gets the library, instead of
+// failing with no CDM moments before one is installed.
+func TestManagerLibraryWaitsForAnInstallMomentsAway(t *testing.T) {
+	mf := newManagerFixture(t)
+	mf.f.publish(mf.o.Platform, "1.0.0.0", makeCRX(t, mf.o.Platform, "1.0.0.0"))
+	started, release := make(chan string, 1), make(chan struct{})
+	mf.o.LoadCheck = blockingLoadCheck(started, release)
+	m := mf.manager(t)
+	m.Start()
+	lib := <-started
+	type result struct {
+		lib string
+		err error
+	}
+	res := make(chan result, 1)
+	go func() {
+		lib, err := m.Library(t.Context())
+		res <- result{lib, err}
+	}()
+	select {
+	case r := <-res:
+		t.Fatalf("Library = %q, %v before the load check finished", r.lib, r.err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(release)
+	if r := <-res; r.err != nil || r.lib != lib {
+		t.Fatalf("Library = %q, %v, want %s", r.lib, r.err, lib)
+	}
+	mf.clk.next(t)
+}
+
+// The wait ends with the caller's context or after installWait, with the
+// same answer as before: still downloading.
+func TestManagerLibraryWaitIsBounded(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		wait    time.Duration
+		timeout time.Duration
+	}{
+		{"installWait", 20 * time.Millisecond, time.Hour},
+		{"context", time.Hour, 20 * time.Millisecond},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mf := newManagerFixture(t)
+			mf.f.publish(mf.o.Platform, "1.0.0.0", makeCRX(t, mf.o.Platform, "1.0.0.0"))
+			started, release := make(chan string, 1), make(chan struct{})
+			mf.o.LoadCheck = blockingLoadCheck(started, release)
+			m := mf.manager(t)
+			m.installWait = tt.wait
+			m.Start()
+			<-started
+			ctx, cancel := context.WithTimeout(t.Context(), tt.timeout)
+			defer cancel()
+			_, err := m.Library(ctx)
+			wantNoCDM(t, err, ErrDownloading, "")
+			close(release)
+			mf.clk.next(t)
+		})
+	}
+}
+
+// The maintainer's first run on a Mac: the load check runs out of time.
+// The version is not rejected, a play says why it can't start, and Retry
+// installs the files verified before without downloading them again.
+func TestManagerUndecidedLoadCheckThenRetry(t *testing.T) {
+	mf := newManagerFixture(t)
+	mf.f.publish(mf.o.Platform, "1.0.0.0", makeCRX(t, mf.o.Platform, "1.0.0.0"))
+	var finishes atomic.Bool
+	mf.o.LoadCheck = func(ctx context.Context, lib string) error {
+		if finishes.Load() {
+			return nil
+		}
+		return undecided(ctx, lib)
+	}
+	m := mf.manager(t)
+	m.Start()
+	if tm := mf.clk.next(t); tm.d != DefaultRetryInterval {
+		t.Errorf("retry in %v, want the retry interval", tm.d)
+	}
+	if st := m.Status(); st.State != StateFailed || st.Code != CodeLoadCheck {
+		t.Errorf("Status = %+v", st)
+	}
+	_, err := m.Library(t.Context())
+	wantNoCDM(t, err, ErrUnavailable, CodeLoadCheck)
+
+	downloads := mf.f.packageRequests()
+	finishes.Store(true)
+	m.Retry()
+	mf.clk.next(t)
+	if st := m.Status(); st.State != StateReady || st.Code != "" || st.Version != "1.0.0.0" {
+		t.Errorf("Status after Retry = %+v", st)
+	}
+	if mf.f.packageRequests() != downloads {
+		t.Error("Retry downloaded the verified package again")
 	}
 }
 
@@ -404,7 +518,7 @@ func TestManagerUpdateAppliesToTheNextHostOnly(t *testing.T) {
 	mf := newManagerFixture(t)
 	mf.preinstall(t, "1.0.0.0", t0.Add(-48*time.Hour))
 	m := mf.manager(t)
-	lib1, err := m.Library()
+	lib1, err := m.Library(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -413,7 +527,7 @@ func TestManagerUpdateAppliesToTheNextHostOnly(t *testing.T) {
 	mf.f.publish(mf.o.Platform, "2.0.0.0", makeCRX(t, mf.o.Platform, "2.0.0.0"))
 	m.Start()
 	mf.clk.next(t)
-	lib2, err := m.Library()
+	lib2, err := m.Library(t.Context())
 	if err != nil || lib2 == lib1 || !strings.Contains(lib2, "2.0.0.0") {
 		t.Fatalf("Library = %s, %v", lib2, err)
 	}
@@ -466,7 +580,7 @@ func TestManagerRollsBackAfterRepeatedLoadFailures(t *testing.T) {
 		}
 	}
 	report(m, libs[1], errInit)
-	if lib, err := m.Library(); err != nil || lib != libs[0] {
+	if lib, err := m.Library(t.Context()); err != nil || lib != libs[0] {
 		t.Errorf("Library = %s, %v; want %s", lib, err, libs[0])
 	}
 	ptr := readPointer(t, mf.dir)
@@ -496,7 +610,7 @@ func TestManagerSuccessResetsTheFailureCount(t *testing.T) {
 	for _, err := range []error{errInit, errInit, nil, errInit, errInit} {
 		report(m, libs[1], err)
 	}
-	if lib, err := m.Library(); err != nil || lib != libs[1] {
+	if lib, err := m.Library(t.Context()); err != nil || lib != libs[1] {
 		t.Errorf("Library = %s, %v", lib, err)
 	}
 	if ptr := readPointer(t, mf.dir); ptr.Current != "2.0.0.0" || ptr.Failures != 2 {
@@ -519,7 +633,7 @@ func TestManagerRecordsQueuedReportsInOrder(t *testing.T) {
 	if ptr := readPointer(t, mf.dir); ptr.Current != "2.0.0.0" || ptr.Failures != 2 {
 		t.Errorf("pointer = %+v; want 2.0.0.0 with 2 failures", ptr)
 	}
-	if lib, err := m.Library(); err != nil || lib != libs[1] {
+	if lib, err := m.Library(t.Context()); err != nil || lib != libs[1] {
 		t.Errorf("Library = %s, %v", lib, err)
 	}
 	wantInstalled(t, mf.dir, "1.0.0.0", "2.0.0.0")
@@ -564,7 +678,7 @@ func TestManagerReplacesADamagedInstallAtStart(t *testing.T) {
 	if mf.f.packageRequests() != downloads+1 {
 		t.Errorf("downloaded %d packages, want 1", mf.f.packageRequests()-downloads)
 	}
-	if lib, err := m.Library(); err != nil || lib != inst.Path || fileSHA256(t, lib) != want {
+	if lib, err := m.Library(t.Context()); err != nil || lib != inst.Path || fileSHA256(t, lib) != want {
 		t.Errorf("Library = %s, %v", lib, err)
 	}
 	if ptr := readPointer(t, mf.dir); ptr.Current != "1.0.0.0" || ptr.SHA256["1.0.0.0"] != want || len(ptr.Rejected) != 0 {
@@ -581,7 +695,7 @@ func TestManagerHostFailureWithADamagedLibrary(t *testing.T) {
 		if ptr.Current != "1.0.0.0" || ptr.Previous != "" || ptr.Failures != 0 || len(ptr.Rejected) != 0 || ptr.SHA256["2.0.0.0"] != "" {
 			t.Errorf("pointer = %+v; want back on 1.0.0.0, 2.0.0.0 not rejected", ptr)
 		}
-		if lib, err := m.Library(); err != nil || lib != libs[0] {
+		if lib, err := m.Library(t.Context()); err != nil || lib != libs[0] {
 			t.Errorf("Library = %s, %v", lib, err)
 		}
 		wantInstalled(t, mf.dir, "1.0.0.0")
@@ -603,7 +717,7 @@ func TestManagerHostFailureWithADamagedLibrary(t *testing.T) {
 		if mf.f.packageRequests() != downloads+1 {
 			t.Errorf("downloaded %d packages, want 1", mf.f.packageRequests()-downloads)
 		}
-		if lib, err := m.Library(); err != nil || lib != inst.Path || fileSHA256(t, lib) != want {
+		if lib, err := m.Library(t.Context()); err != nil || lib != inst.Path || fileSHA256(t, lib) != want {
 			t.Errorf("Library = %s, %v", lib, err)
 		}
 	})
@@ -636,7 +750,7 @@ func TestManagerKeepsTheOnlyVersionThatFails(t *testing.T) {
 	for range rollbackAfter + 1 {
 		report(m, libs[0], errInit)
 	}
-	if lib, err := m.Library(); err != nil || lib != libs[0] {
+	if lib, err := m.Library(t.Context()); err != nil || lib != libs[0] {
 		t.Errorf("Library = %s, %v", lib, err)
 	}
 	if ptr := readPointer(t, mf.dir); ptr.Current != "1.0.0.0" || len(ptr.Rejected) != 0 {
@@ -657,7 +771,7 @@ func TestManagerIgnoresReportsForOtherLibraries(t *testing.T) {
 	if after.Current != "2.0.0.0" || after.Failures != 0 || !after.CheckedAt.Equal(before.CheckedAt) {
 		t.Errorf("pointer = %+v", after)
 	}
-	if lib, err := m.Library(); err != nil || lib != libs[1] {
+	if lib, err := m.Library(t.Context()); err != nil || lib != libs[1] {
 		t.Errorf("Library = %s, %v", lib, err)
 	}
 }
@@ -685,7 +799,7 @@ func TestManagerOverride(t *testing.T) {
 		if st := m.Status(); st != (Status{State: StateReady, Source: SourceOverride, Path: want, Version: "4.10.2830.0"}) {
 			t.Errorf("Status = %+v", st)
 		}
-		if lib, err := m.Library(); err != nil || lib != want {
+		if lib, err := m.Library(t.Context()); err != nil || lib != want {
 			t.Errorf("Library = %s, %v", lib, err)
 		}
 		m.Start()
@@ -717,7 +831,7 @@ func TestManagerOverride(t *testing.T) {
 		dir := t.TempDir()
 		mf.o.Override = writeLib(t, dir)
 		m := mf.manager(t)
-		if lib, err := m.Library(); err != nil || lib != mf.o.Override {
+		if lib, err := m.Library(t.Context()); err != nil || lib != mf.o.Override {
 			t.Errorf("Library = %s, %v", lib, err)
 		}
 	})
@@ -742,7 +856,7 @@ func TestManagerOverride(t *testing.T) {
 			if st := m.Status(); st.State != StateFailed || st.Code != CodeOverrideMissing || st.Source != SourceOverride {
 				t.Errorf("Status = %+v", st)
 			}
-			_, err := m.Library()
+			_, err := m.Library(t.Context())
 			wantNoCDM(t, err, ErrUnavailable, CodeOverrideMissing)
 			m.Start()
 			m.Close()
@@ -782,7 +896,7 @@ func TestManagerCloseCancelsADownload(t *testing.T) {
 	if d := time.Since(begin); d > 5*time.Second {
 		t.Errorf("Close took %v", d)
 	}
-	if _, err := m.Library(); err == nil {
+	if _, err := m.Library(t.Context()); err == nil {
 		t.Error("Library succeeded")
 	}
 	wantInstalled(t, mf.dir)

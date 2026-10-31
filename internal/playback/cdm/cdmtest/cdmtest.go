@@ -55,7 +55,7 @@ func find() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return m.Library()
+		return m.Library(context.Background())
 	}
 	dir := os.Getenv(EnvCache)
 	if dir == "" {

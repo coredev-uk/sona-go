@@ -5,7 +5,7 @@ import type { FeatureModule } from "@/shared/module";
 
 import { applyCdmStatus, useCdm } from "./state";
 
-export { cdmProblem } from "./messages";
+export { cdmFailedState, cdmProblem } from "./messages";
 export { canRetryCdm, cdmPercent, cdmProgress, retryCdm, useCdm } from "./state";
 
 /**

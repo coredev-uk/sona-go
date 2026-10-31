@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -36,7 +37,29 @@ func newEngine(api *applemusic.Client, cur config.Settings, log *slog.Logger, sr
 }
 
 // cdmLoadCheck loads a newly downloaded CDM in a sandboxed probe child,
-// as a playback host would, before it becomes current (cdm.Options).
+// as a playback host would but without its audio stack, before it
+// becomes current (cdm.Options).
 func cdmLoadCheck(log *slog.Logger) func(ctx context.Context, lib string) error {
 	return cdmhost.LoadCheck(log)
+}
+
+// prepareAudioTimeout bounds prepareAudio's child.
+const prepareAudioTimeout = 5 * time.Minute
+
+// prepareAudio readies GStreamer's plugin registry in a sandboxed child
+// (cdmhost.PrepareAudio), so the first play does not wait for the plugin
+// scan. It runs once, after the first paint.
+func prepareAudio(ctx context.Context, log *slog.Logger) {
+	ctx, cancel := context.WithTimeout(ctx, prepareAudioTimeout)
+	defer cancel()
+	t0 := time.Now()
+	info, err := cdmhost.PrepareAudio(ctx, cdmhost.Options{Logger: log})
+	took := time.Since(t0).Round(time.Millisecond)
+	if err != nil {
+		if ctx.Err() == nil || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			log.Warn("playback: audio stack not prepared; the first play prepares it", "err", err, "took", took)
+		}
+		return
+	}
+	log.Info("playback: audio stack ready", "gstreamer", info.GStreamer, "took", took)
 }

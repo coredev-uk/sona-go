@@ -58,6 +58,7 @@ func runChild(sb Sandbox) int {
 		volume:  1,
 		quit:    make(chan struct{}),
 		sandbox: sb,
+		cdmOnly: os.Getenv(envCDMOnly) == "1",
 	}
 	if s.sandbox.Reason != "" {
 		s.log.Warn("cdmhost: sandbox incomplete", "reason", s.sandbox.Reason)
@@ -96,6 +97,7 @@ type server struct {
 	cdm     *widevine.CDM
 	info    Info
 	sandbox Sandbox // the child's part of the sandbox (sandbox_<os>.go)
+	cdmOnly bool    // loads the CDM and nothing else (envCDMOnly)
 
 	mu        sync.Mutex
 	sink      string
@@ -177,6 +179,11 @@ func (s *server) handle(r request) reply {
 			return rep
 		}
 		ok.Info = &info
+	case opAudio:
+		if err := gst.Init(); err != nil {
+			return fail(r.ID, err)
+		}
+		ok.Info = &Info{PID: os.Getpid(), GStreamer: gst.Version(), Sandbox: s.sandbox}
 	case opCert:
 		if err := s.needCDM(); err != nil {
 			return fail(r.ID, err)
@@ -350,11 +357,15 @@ func (s *server) needCDM() error {
 
 // open loads the CDM library at lib (the parent chose it: the downloaded
 // CDM or the developer override, internal/playback/cdm) and builds the
-// output pipeline. On Linux the CDM is loaded only under the seccomp
-// filter that keeps it off the network (ErrSandbox; Sandbox.loadsCDM). A
-// library that is missing or fails to load or initialise is ErrCDMLoad.
+// output pipeline, unless the child only loads the CDM (cdmOnly). On
+// Linux the CDM is loaded only under the seccomp filter that keeps it off
+// the network (ErrSandbox; Sandbox.loadsCDM). A library that is missing
+// or fails to load or initialise is ErrCDMLoad.
 func (s *server) open(lib string) (Info, error) {
-	info := Info{PID: os.Getpid(), GStreamer: gst.Version(), Sandbox: s.sandbox}
+	info := Info{PID: os.Getpid(), Sandbox: s.sandbox}
+	if !s.cdmOnly {
+		info.GStreamer = gst.Version()
+	}
 	if s.cdm != nil {
 		return s.info, nil
 	}
@@ -379,6 +390,10 @@ func (s *server) open(lib string) (Info, error) {
 			s.emit(Event{Kind: EventMessage, Session: m.SessionID, Type: int(m.Type), Data: m.Data})
 		}
 	}()
+	if s.cdmOnly {
+		s.info = info
+		return info, nil
+	}
 	s.mu.Lock()
 	err = s.ensurePipeline()
 	if s.pipe != nil {
@@ -393,6 +408,9 @@ func (s *server) open(lib string) (Info, error) {
 func (s *server) ensurePipeline() error {
 	if s.pipe != nil {
 		return nil
+	}
+	if s.cdmOnly {
+		return errors.New("cdmhost: this child only loads the CDM; it has no audio pipeline")
 	}
 	p, err := gst.New(gst.Options{Sink: s.sink, Device: s.device})
 	if err != nil {

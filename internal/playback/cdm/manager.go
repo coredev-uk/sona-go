@@ -106,6 +106,11 @@ type Manager struct {
 	// recording is true while a goroutine records them.
 	reports   []initReport
 	recording bool
+	// installing is closed when the running check finishes, once it has
+	// verified a first version (nothing else installed) and is loading
+	// it: Library waits for it, up to installWait. Nil otherwise.
+	installing  chan struct{}
+	installWait time.Duration
 }
 
 // initReport is one ReportInit call.
@@ -131,6 +136,7 @@ func New(o Options) (*Manager, error) {
 		st:   Status{State: StateIdle, Source: SourceDownload},
 
 		unsupported: unsupported,
+		installWait: installWait,
 	}
 	if o.Override != "" {
 		m.st.Source = SourceOverride
@@ -233,14 +239,34 @@ func (m *Manager) setLocked(change func(*Status)) func() {
 	}
 }
 
+// installWait is how long Library waits for a first install that is
+// moments away (its package verified and in place, the load check
+// running) before reporting ErrDownloading.
+const installWait = 20 * time.Second
+
 // Library returns the library a new playback host loads: the override
 // when set, else the current installed version. Without one it fails
 // with ErrDownloading or ErrUnavailable (both playback.ErrNoCDM), the
 // latter wrapped in an Error carrying Status.Code when there is one.
-func (m *Manager) Library() (string, error) {
+// While the first version is past its download and being checked, it
+// waits for that check (until ctx is done, at most installWait) rather
+// than fail a play the install is moments from serving; a download
+// still running fails at once, and the UI shows its progress.
+func (m *Manager) Library(ctx context.Context) (string, error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.loadLocked()
+	if done := m.installing; done != nil {
+		m.mu.Unlock()
+		t := time.NewTimer(m.installWait)
+		select {
+		case <-done:
+		case <-ctx.Done():
+		case <-t.C:
+		}
+		t.Stop()
+		m.mu.Lock()
+	}
+	defer m.mu.Unlock()
 	switch {
 	case m.st.State == StateReady:
 		return m.st.Path, nil
@@ -360,9 +386,17 @@ func (m *Manager) runCheck() {
 		m.mu.Unlock()
 		notify()
 	}
+	verified := func() {
+		if installed {
+			return
+		}
+		m.mu.Lock()
+		m.installing = make(chan struct{})
+		m.mu.Unlock()
+	}
 	ctx, cancel := context.WithTimeout(m.ctx, checkTimeout)
 	t0 := time.Now()
-	ptr, changed, err := check(ctx, m.o, progress)
+	ptr, changed, err := check(ctx, m.o, progress, verified)
 	cancel()
 
 	m.mu.Lock()
@@ -385,6 +419,11 @@ func (m *Manager) runCheck() {
 			}
 		}
 	})
+	// Waiting Library calls read the outcome just published.
+	if m.installing != nil {
+		close(m.installing)
+		m.installing = nil
+	}
 	m.mu.Unlock()
 	notify()
 	switch {

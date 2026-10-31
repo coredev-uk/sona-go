@@ -172,6 +172,17 @@ describe("Widevine row", () => {
     expect(document.activeElement).toBe(output);
   });
 
+  it("says the install failed, not the download, when loading it couldn't finish", async () => {
+    const output = await show(
+      cdm({ state: "failed", version: "", path: "", code: "load_check_incomplete" }),
+    );
+    expect(output.textContent).toBe("Couldn't install");
+    const problem =
+      "Sona couldn't finish checking the downloaded Widevine. Try again. Sona also tries again by itself later.";
+    expect(screen.getByText(problem)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
   it("offers Retry when the last update check failed", async () => {
     await show(cdm({ code: "hash_mismatch" }));
     expect(shown("Couldn't check for updates")).toBe(true);

@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/sha512"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -26,7 +28,7 @@ func runCheck(t *testing.T, o Options) (pointer, bool, error) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return check(t.Context(), o, nil)
+	return check(t.Context(), o, nil, nil)
 }
 
 // installVersion publishes version and installs it with a check.
@@ -310,7 +312,7 @@ func TestCheckLoadFailureKeepsTheWorkingVersion(t *testing.T) {
 			t.Error("LoadCheck without a deadline")
 		}
 		checked = lib
-		return errors.New("SIGSEGV in the probe")
+		return fmt.Errorf("%w: SIGSEGV in the probe", ErrNotLoadable)
 	}
 	_, changed, err := runCheck(t, o)
 	wantCode(t, err, CodeLoad)
@@ -342,10 +344,162 @@ func TestCheckLoadFailureWithNothingInstalled(t *testing.T) {
 	dir := t.TempDir()
 	o := testOptions(t, f, dir)
 	f.publish(o.Platform, "1.0.0.0", makeCRX(t, o.Platform, "1.0.0.0"))
-	o.LoadCheck = func(context.Context, string) error { return errors.New("no") }
+	o.LoadCheck = func(context.Context, string) error { return fmt.Errorf("%w: no", ErrNotLoadable) }
 	_, err := Ensure(t.Context(), o)
 	wantCode(t, err, CodeLoad)
 	wantInstalled(t, dir)
+}
+
+// undecided is a load check that could not finish: what LoadCheck returns
+// when its probe runs out of time.
+func undecided(context.Context, string) error {
+	return fmt.Errorf("cdmhost: load check: %w", context.DeadlineExceeded)
+}
+
+// A load check that runs out of time (the maintainer's first run on a
+// Mac) says nothing about the version: it is neither rejected nor
+// deleted, and the next check loads the same files again instead of
+// downloading them.
+func TestCheckUndecidedLoadCheckKeepsThePackage(t *testing.T) {
+	for _, update := range []bool{false, true} {
+		name := map[bool]string{false: "nothing installed", true: "update"}[update]
+		t.Run(name, func(t *testing.T) {
+			f := newFakeServer(t)
+			dir := t.TempDir()
+			o := testOptions(t, f, dir)
+			var want []string
+			if update {
+				installVersion(t, f, o, "1.0.0.0")
+				want = append(want, "1.0.0.0")
+			}
+			f.publish(o.Platform, "2.0.0.0", makeCRX(t, o.Platform, "2.0.0.0"))
+			o.LoadCheck = undecided
+			_, changed, err := runCheck(t, o)
+			wantCode(t, err, CodeLoadCheck)
+			if changed || !errors.Is(err, context.DeadlineExceeded) {
+				t.Errorf("changed %v, err %v", changed, err)
+			}
+			wantInstalled(t, dir, append(want, "2.0.0.0")...)
+			ptr := readPointer(t, dir)
+			if ptr.Pending != "2.0.0.0" || ptr.SHA256["2.0.0.0"] == "" || len(ptr.Rejected) != 0 || ptr.Current != strings.Join(want, "") {
+				t.Errorf("pointer = %+v", ptr)
+			}
+
+			downloads := f.packageRequests()
+			var loaded string
+			o.LoadCheck = func(_ context.Context, lib string) error { loaded = lib; return nil }
+			ptr, changed, err = runCheck(t, o)
+			if err != nil || !changed || ptr.Current != "2.0.0.0" {
+				t.Fatalf("second check: %+v, changed %v, %v", ptr, changed, err)
+			}
+			if f.packageRequests() != downloads {
+				t.Error("downloaded the verified package again")
+			}
+			if want := filepath.Join(dir, "2.0.0.0", "linux_x64", "libwidevinecdm.so"); loaded != want {
+				t.Errorf("loaded %s, want %s", loaded, want)
+			}
+			wantInstalled(t, dir, append(want, "2.0.0.0")...)
+			if ptr := readPointer(t, dir); ptr.Pending != "" || ptr.SHA256["2.0.0.0"] != fileSHA256(t, loaded) {
+				t.Errorf("pointer after install = %+v", ptr)
+			}
+		})
+	}
+}
+
+// Kept files that no longer match what was verified are downloaded again.
+func TestCheckDownloadsADamagedPendingPackageAgain(t *testing.T) {
+	f := newFakeServer(t)
+	dir := t.TempDir()
+	o := testOptions(t, f, dir)
+	f.publish(o.Platform, "1.0.0.0", makeCRX(t, o.Platform, "1.0.0.0"))
+	o.LoadCheck = undecided
+	_, _, err := runCheck(t, o)
+	wantCode(t, err, CodeLoadCheck)
+	lib := filepath.Join(dir, "1.0.0.0", "linux_x64", "libwidevinecdm.so")
+	damage(t, lib)
+
+	downloads := f.packageRequests()
+	o.LoadCheck = nil
+	if ptr, changed, err := runCheck(t, o); err != nil || !changed || ptr.Current != "1.0.0.0" {
+		t.Fatalf("check: %+v, changed %v, %v", ptr, changed, err)
+	}
+	if f.packageRequests() != downloads+1 {
+		t.Error("installed the damaged files instead of downloading again")
+	}
+	if ptr := readPointer(t, dir); ptr.SHA256["1.0.0.0"] != fileSHA256(t, lib) || ptr.Pending != "" {
+		t.Errorf("pointer = %+v", ptr)
+	}
+}
+
+// Kept files of a version the manifest no longer lists are removed.
+func TestCheckDropsAPendingPackageTheManifestMovedOn(t *testing.T) {
+	f := newFakeServer(t)
+	dir := t.TempDir()
+	o := testOptions(t, f, dir)
+	f.publish(o.Platform, "1.0.0.0", makeCRX(t, o.Platform, "1.0.0.0"))
+	o.LoadCheck = undecided
+	_, _, err := runCheck(t, o)
+	wantCode(t, err, CodeLoadCheck)
+
+	o.LoadCheck = nil
+	installVersion(t, f, o, "1.1.0.0")
+	wantInstalled(t, dir, "1.1.0.0")
+	if ptr := readPointer(t, dir); ptr.Pending != "" || ptr.SHA256["1.0.0.0"] != "" {
+		t.Errorf("pointer = %+v", ptr)
+	}
+}
+
+// Kept files that then fail to load for real are removed like any
+// version that fails its load check.
+func TestCheckPendingPackageThatFailsToLoad(t *testing.T) {
+	f := newFakeServer(t)
+	dir := t.TempDir()
+	o := testOptions(t, f, dir)
+	f.publish(o.Platform, "1.0.0.0", makeCRX(t, o.Platform, "1.0.0.0"))
+	o.LoadCheck = undecided
+	_, _, err := runCheck(t, o)
+	wantCode(t, err, CodeLoadCheck)
+
+	o.LoadCheck = func(context.Context, string) error { return fmt.Errorf("%w: dlopen failed", ErrNotLoadable) }
+	_, _, err = runCheck(t, o)
+	wantCode(t, err, CodeLoad)
+	if got := dirNames(t, dir); !slices.Equal(got, []string{lockFile, pointerFile}) {
+		t.Errorf("install directory holds %q", got)
+	}
+	if ptr := readPointer(t, dir); ptr.Pending != "" || len(ptr.SHA256) != 0 || ptr.Current != "" {
+		t.Errorf("pointer = %+v", ptr)
+	}
+}
+
+// A pending version is a path inside the install directory: one that
+// climbs out of it is ignored, never removed.
+func TestCheckIgnoresAClimbingPendingVersion(t *testing.T) {
+	f := newFakeServer(t)
+	root := t.TempDir()
+	dir := filepath.Join(root, "widevine")
+	sentinel := filepath.Join(root, "sentinel")
+	if err := os.Mkdir(sentinel, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	o := testOptions(t, f, dir)
+	ptr := installVersion(t, f, o, "1.0.0.0")
+	ptr.Pending = "../sentinel"
+	b, err := json.Marshal(ptr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, pointerFile), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runCheck(t, o); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(sentinel); err != nil {
+		t.Errorf("the directory the pointer named was touched: %v", err)
+	}
+	if ptr := readPointer(t, dir); ptr.Pending != "" || ptr.Current != "1.0.0.0" {
+		t.Errorf("pointer = %+v", ptr)
+	}
 }
 
 func TestEnsureUsesTheInstalledCDMWithoutTheNetwork(t *testing.T) {

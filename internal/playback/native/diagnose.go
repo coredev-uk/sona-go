@@ -24,7 +24,7 @@ func (e *Engine) Diagnose(ctx context.Context) (playback.Diagnosis, error) {
 	if info, running := e.Host(); running {
 		d.HostRunning, d.HostPID = true, info.PID
 	}
-	lib, err := e.cdm.Library()
+	lib, err := e.cdm.Library(ctx)
 	if err != nil {
 		return d, err
 	}

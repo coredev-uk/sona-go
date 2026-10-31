@@ -8,9 +8,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 	"github.com/coredev-uk/sona-go/internal/playback/cdm/cdmtest"
 )
 
@@ -93,6 +95,74 @@ func TestProbeBrokenCDM(t *testing.T) {
 	}
 	if !errors.Is(err, ErrCDMLoad) || info.CDMPath != lib || info.CDMInterface != 0 {
 		t.Fatalf("probe with a broken CDM: %v %+v, want ErrCDMLoad", err, info)
+	}
+}
+
+// privateRegistry points GStreamer's plugin registry for the children at
+// a file of the test's own, not there yet.
+func privateRegistry(t *testing.T) string {
+	t.Helper()
+	reg := filepath.Join(t.TempDir(), "registry.bin")
+	t.Setenv("GST_REGISTRY_1_0", reg)
+	return reg
+}
+
+// The load check loads the CDM and nothing else: GStreamer, whose first
+// plugin scan took over a minute on a fresh Mac and timed the check out,
+// is never started, so no registry is written. PrepareAudio then builds
+// the registry that the first playback host reads.
+func TestLoadCheckLeavesGStreamerToPrepareAudio(t *testing.T) {
+	lib := cdmtest.Library(t)
+	reg := privateRegistry(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if err := LoadCheck(nil)(ctx, lib); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(reg); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("the load check started GStreamer (registry: %v)", err)
+	}
+	info, err := PrepareAudio(ctx, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.GStreamer == "" || info.PID == 0 || info.CDMPath != "" {
+		t.Errorf("PrepareAudio = %+v", info)
+	}
+	if _, err := os.Stat(reg); err != nil {
+		t.Errorf("PrepareAudio wrote no registry: %v", err)
+	}
+}
+
+// A library that does not load rejects the version (cdm.ErrNotLoadable).
+func TestLoadCheckRejectsABrokenCDM(t *testing.T) {
+	lib := t.TempDir() + "/libwidevinecdm.so"
+	if err := os.WriteFile(lib, []byte("not a shared library"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if _, err := Probe(ctx, Options{CDMPath: lib, cdmOnly: true}); errors.Is(err, ErrSandbox) {
+		t.Skip("no seccomp filter here, so the CDM is never loaded:", err)
+	}
+	err := LoadCheck(nil)(ctx, lib)
+	if !errors.Is(err, cdm.ErrNotLoadable) || !errors.Is(err, ErrCDMLoad) {
+		t.Fatalf("LoadCheck = %v, want cdm.ErrNotLoadable", err)
+	}
+}
+
+// A check that runs out of time says nothing about the CDM: its error
+// must not reject the version.
+func TestLoadCheckOutOfTimeIsUndecided(t *testing.T) {
+	lib := t.TempDir() + "/libwidevinecdm.so"
+	if err := os.WriteFile(lib, []byte("not a shared library"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	err := LoadCheck(nil)(ctx, lib)
+	if err == nil || errors.Is(err, cdm.ErrNotLoadable) || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("LoadCheck = %v, want an undecided context.DeadlineExceeded", err)
 	}
 }
 

@@ -90,6 +90,19 @@ SHA-256 recorded at install is removed and downloaded again; 3 failed host
 starts roll back to the previous version), and Settings → Playback shows its
 state with a Retry button. Browser and system copies are never used.
 
+A new version becomes current only after a load check: a sandboxed child
+that loads the CDM and nothing else (no GStreamer), bounded at a minute.
+Only a CDM that fails to load or initialise is deleted (and, when another
+version works, never fetched again); a check that runs out of time or
+cannot start its child keeps the verified files, and the next check or
+Retry loads them again without downloading (`load_check_incomplete`). A
+play that comes while the first version is past its download and being
+checked waits up to 20 s for it instead of failing at once. Separately,
+after the first paint a short-lived child readies GStreamer's plugin
+registry (`playback: audio stack ready took=…` in the log), so the first
+play doesn't wait for the plugin scan, which on a fresh Mac can take over
+a minute.
+
 - `SONA_WIDEVINE_CDM=/path/to/libwidevinecdm.so` (`.dylib` on macOS, or the
   directory holding it), in the environment or `.env`, is an explicit
   developer override: the app and tools load that file instead and download
@@ -192,6 +205,21 @@ It prints `cdm source source=download` with the library under
 exchange` (HTTP status, Apple's status and message, the licence's length;
 never the token or the licence), and ends with `licence: granted`,
 `licence: refused (<why>)` or `licence: not requested (<why>)`.
+
+To see a computer's first run again (the CDM download, its load check and
+GStreamer's first plugin scan), quit Sona and remove the downloaded CDM and
+GStreamer's registry, then start it:
+
+```sh
+rm -rf ~/Library/Application\ Support/Sona/widevine
+rm -f "${XDG_CACHE_HOME:-$HOME/.cache}"/gstreamer-1.0/registry.*.bin   # or $GST_REGISTRY_1_0 when set
+SONA_PRIVATE=1 dev
+grep -E 'widevine:|audio stack' ~/Library/Application\ Support/Sona/State/sona.log
+```
+
+The log shows `widevine: downloading`, `package verified`, `load check
+passed` with its `took` (the CDM alone), `installed`, and separately
+`playback: audio stack ready` with the plugin scan's `took`.
 
 ## Checks
 

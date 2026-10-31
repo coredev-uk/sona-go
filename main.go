@@ -212,6 +212,13 @@ func run(started time.Time) error {
 	engine := newEngine(api, cur, log, cdmMgr)
 	defer engine.Close()
 
+	// GStreamer's plugin registry is readied in a child after the first
+	// paint, off the play path: on a computer's first run its scan can
+	// take longer than the CDM download.
+	audioCtx, stopAudio := context.WithCancel(context.Background())
+	defer stopAudio()
+	gate.OnOpen(func() { go prepareAudio(audioCtx, log.With("component", "playback")) })
+
 	// Private listening: the one switch every play reporter asks (Apple
 	// play activity, local history, scrobbles, Discord). Development builds
 	// start private as a session override that never writes the setting;

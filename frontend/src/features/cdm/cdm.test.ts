@@ -143,7 +143,7 @@ describe("cdmProblem", () => {
       "utf8",
     );
     const codes = [...src.matchAll(/^\s*Code\w+\s*=\s*"([a-z0-9_]+)"/gm)].map((m) => m[1]);
-    expect(codes.length).toBe(11);
+    expect(codes.length).toBe(12);
     expect(codes.filter((c) => !hasCdmProblem(c))).toEqual([]);
   });
 

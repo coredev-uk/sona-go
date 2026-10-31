@@ -51,9 +51,14 @@ type pointer struct {
 	// Rejected are versions that failed to load, with the failure code;
 	// they are not installed again.
 	Rejected map[string]string `json:"rejected,omitempty"`
+	// Pending is a version downloaded and verified whose load check could
+	// not finish (CodeLoadCheck). Its directory stays, and the next check
+	// that finds the same version in the manifest loads it again instead
+	// of downloading it.
+	Pending string `json:"pending,omitempty"`
 	// SHA256 is each kept version's library hash (hex), recorded when it
-	// was installed: a library that no longer matches it was damaged on
-	// disk (repair).
+	// was installed (or verified, for Pending): a library that no longer
+	// matches it was damaged on disk (repair).
 	SHA256 map[string]string `json:"sha256,omitempty"`
 }
 
@@ -136,6 +141,31 @@ func (s store) repair(ptr *pointer, log *slog.Logger) bool {
 	return changed
 }
 
+// takePending clears ptr.Pending. When it is version and its library is
+// still the one verified (intact), it returns that library's hash and
+// true: the files are loaded again instead of downloaded again. Other
+// pending files (another version, or damaged) are removed. Callers hold
+// the lock.
+func (s store) takePending(ptr *pointer, version string, log *slog.Logger) (sum string, ok bool) {
+	p := ptr.Pending
+	if p == "" {
+		return "", false
+	}
+	ptr.Pending = ""
+	if p == version {
+		err := s.intact(*ptr, p)
+		if err == nil {
+			return ptr.SHA256[p], true
+		}
+		log.Warn("widevine: the package kept from an unfinished load check is missing or damaged; downloading it again", "version", p, "err", err)
+	}
+	if p != ptr.Current && p != ptr.Previous {
+		_ = os.RemoveAll(filepath.Join(s.root, p))
+		delete(ptr.SHA256, p)
+	}
+	return "", false
+}
+
 // lock takes the install directory's lock (.lock), creating the
 // directory on first use and waiting for another process installing
 // there; unlock releases it.
@@ -161,7 +191,7 @@ func (s store) read() (pointer, error) {
 		// Unreadable or foreign: start over; prune clears the rest.
 		return pointer{Platform: s.p.Dir}, nil
 	}
-	for _, v := range []*string{&ptr.Current, &ptr.Previous} {
+	for _, v := range []*string{&ptr.Current, &ptr.Previous, &ptr.Pending} {
 		if !versionPattern.MatchString(*v) {
 			*v = ""
 		}

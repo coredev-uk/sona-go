@@ -1201,8 +1201,7 @@ msgstr "Couldn't delete the folder “{name}”"
 msgid "Couldn't disconnect {name}"
 msgstr "Couldn't disconnect {name}"
 
-#: src/features/settings/CdmRow.tsx
-#: src/features/settings/Diagnostics.tsx
+#: src/features/cdm/messages.ts
 msgid "Couldn't download"
 msgstr "Couldn't download"
 
@@ -1227,6 +1226,10 @@ msgstr "Couldn't go back"
 #: src/features/settings/SettingsFileRows.tsx
 msgid "Couldn't import the settings"
 msgstr "Couldn't import the settings"
+
+#: src/features/cdm/messages.ts
+msgid "Couldn't install"
+msgstr "Couldn't install"
 
 #: src/features/search/groups.ts
 msgid "Couldn't load albums"
@@ -4316,6 +4319,10 @@ msgstr "Sona can't play this station"
 #: src/features/library/gate.tsx
 msgid "Sona copies your Apple Music library to this computer after you sign in, so it opens instantly and works offline."
 msgstr "Sona copies your Apple Music library to this computer after you sign in, so it opens instantly and works offline."
+
+#: src/features/cdm/messages.ts
+msgid "Sona couldn't finish checking the downloaded Widevine. Try again."
+msgstr "Sona couldn't finish checking the downloaded Widevine. Try again."
 
 #: src/features/auth/Account.tsx
 msgid "Sona couldn't reach Apple to confirm your sign-in. It keeps using your saved token, and retries by itself."

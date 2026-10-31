@@ -3,7 +3,15 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { CircleAlert, CircleCheck, RotateCw } from "lucide-react";
 import { useRef, useState } from "react";
 
-import { canRetryCdm, cdmPercent, cdmProblem, cdmProgress, retryCdm, useCdm } from "@/features/cdm";
+import {
+  canRetryCdm,
+  cdmFailedState,
+  cdmPercent,
+  cdmProblem,
+  cdmProgress,
+  retryCdm,
+  useCdm,
+} from "@/features/cdm";
 import { formatBytes, relativeTime } from "@/shared/lib/format";
 import { Button } from "@/shared/ui/button";
 
@@ -77,9 +85,7 @@ export function CdmRow() {
     state = (
       <>
         <CircleAlert aria-hidden className="size-4 shrink-0 text-danger" strokeWidth={1.75} />
-        <span className="font-medium">
-          <Trans>Couldn't download</Trans>
-        </span>
+        <span className="font-medium">{cdmFailedState(status.code)}</span>
       </>
     );
   } else if (status && ready) {

@@ -362,7 +362,7 @@ type fakeCDM struct {
 	reports []error
 }
 
-func (c *fakeCDM) Library() (string, error) {
+func (c *fakeCDM) Library(context.Context) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.lib, c.err

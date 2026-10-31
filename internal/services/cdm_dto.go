@@ -28,7 +28,8 @@ type CDMStatus struct {
 	// "ready", why the last update check failed ("" when it passed).
 	// One of network, unsupported_platform, manifest_invalid,
 	// untrusted_url, too_large, hash_mismatch, signature_invalid,
-	// archive_invalid, load_failed, disk, override_missing.
+	// archive_invalid, load_failed, load_check_incomplete, disk,
+	// override_missing.
 	Code string `json:"code"`
 	// Received and Total are the running download's progress in bytes.
 	Received int64 `json:"received"`

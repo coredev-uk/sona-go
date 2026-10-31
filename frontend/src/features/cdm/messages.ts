@@ -17,6 +17,7 @@ const problems: Record<string, MessageDescriptor> = {
   signature_invalid: msg`The download isn't signed by Google, so Sona deleted it. Try again later.`,
   archive_invalid: msg`The download was damaged or incomplete, so Sona deleted it. Try again.`,
   load_failed: msg`The downloaded version of Widevine didn't start on this computer, so Sona removed it.`,
+  load_check_incomplete: msg`Sona couldn't finish checking the downloaded Widevine. Try again.`,
   disk: msg`Sona couldn't save Widevine on this computer. Make sure there's free disk space, then try again.`,
   override_missing: msg`SONA_WIDEVINE_CDM doesn't point to a Widevine library. Correct the path, then restart Sona.`,
 };
@@ -31,4 +32,15 @@ export function cdmProblem(code: string): string {
   return hasCdmProblem(code)
     ? i18n._(problems[code])
     : i18n._(msg`Widevine couldn't be downloaded. Try again later.`);
+}
+
+/**
+ * The short state of a CDM that failed (CDMStatus.state "failed"): its
+ * install, when the download arrived and only loading it failed or could
+ * not be finished; otherwise the download.
+ */
+export function cdmFailedState(code: string): string {
+  return code === "load_failed" || code === "load_check_incomplete"
+    ? i18n._(msg`Couldn't install`)
+    : i18n._(msg`Couldn't download`);
 }

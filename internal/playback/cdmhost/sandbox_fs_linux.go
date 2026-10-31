@@ -28,13 +28,16 @@ func sandboxStage1() {
 	runtime.LockOSThread()
 	// The registry lives in the home directory, read-only from here on;
 	// GStreamer in the second stage then reads an up-to-date one. fd 1 is
-	// the protocol: point it at stderr meanwhile.
-	if out, err := unix.Dup(1); err == nil {
-		if unix.Dup3(2, 1, 0) == nil {
-			_ = gst.Init()
-			_ = unix.Dup3(out, 1, 0)
+	// the protocol: point it at stderr meanwhile. A child that only loads
+	// the CDM (the load check) never starts GStreamer.
+	if os.Getenv(envCDMOnly) != "1" {
+		if out, err := unix.Dup(1); err == nil {
+			if unix.Dup3(2, 1, 0) == nil {
+				_ = gst.Init()
+				_ = unix.Dup3(out, 1, 0)
+			}
+			_ = unix.Close(out)
 		}
-		_ = unix.Close(out)
 	}
 	var rep stageReport
 	if os.Getenv(envSandboxNS) == "1" {

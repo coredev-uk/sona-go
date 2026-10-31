@@ -38,13 +38,24 @@ const (
 	// leaving it), or lacks the library or its manifest, or the library
 	// is not built for this platform.
 	CodeArchive = "archive_invalid"
-	// CodeLoad: the new CDM failed to load in the sandboxed host.
+	// CodeLoad: the new CDM failed to load in the sandboxed host (the
+	// load check's error wraps ErrNotLoadable).
 	CodeLoad = "load_failed"
+	// CodeLoadCheck: the load check could not finish (it timed out, or
+	// its probe could not start). That says nothing about the version:
+	// its verified package is kept, and the next check loads it again
+	// without downloading it.
+	CodeLoadCheck = "load_check_incomplete"
 	// CodeDisk: the install directory could not be written.
 	CodeDisk = "disk"
 	// CodeOverrideMissing: SONA_WIDEVINE_CDM names no library.
 	CodeOverrideMissing = "override_missing"
 )
+
+// ErrNotLoadable is what a load check (Options.LoadCheck) wraps when the
+// library itself failed: it did not load or initialise, or took its
+// process down while doing so. Only that rejects a version.
+var ErrNotLoadable = errors.New("cdm: the library failed to load")
 
 // Error is a failure with its code.
 type Error struct {

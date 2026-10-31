@@ -1201,8 +1201,7 @@ msgstr ""
 msgid "Couldn't disconnect {name}"
 msgstr ""
 
-#: src/features/settings/CdmRow.tsx
-#: src/features/settings/Diagnostics.tsx
+#: src/features/cdm/messages.ts
 msgid "Couldn't download"
 msgstr ""
 
@@ -1226,6 +1225,10 @@ msgstr ""
 
 #: src/features/settings/SettingsFileRows.tsx
 msgid "Couldn't import the settings"
+msgstr ""
+
+#: src/features/cdm/messages.ts
+msgid "Couldn't install"
 msgstr ""
 
 #: src/features/search/groups.ts
@@ -4315,6 +4318,10 @@ msgstr ""
 
 #: src/features/library/gate.tsx
 msgid "Sona copies your Apple Music library to this computer after you sign in, so it opens instantly and works offline."
+msgstr ""
+
+#: src/features/cdm/messages.ts
+msgid "Sona couldn't finish checking the downloaded Widevine. Try again."
 msgstr ""
 
 #: src/features/auth/Account.tsx

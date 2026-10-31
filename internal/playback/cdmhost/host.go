@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
 )
 
@@ -43,6 +44,8 @@ type Options struct {
 	// Exe is the executable to run as the child; default os.Executable().
 	// It must call ChildMain first thing in main.
 	Exe string
+	// cdmOnly starts a child that loads only the CDM (envCDMOnly).
+	cdmOnly bool
 }
 
 // Host is the parent's handle on one child process. Its methods are safe for
@@ -106,7 +109,7 @@ func childEnv(log *slog.Logger) []string {
 	var env []string
 	for _, kv := range os.Environ() {
 		k, _, _ := strings.Cut(kv, "=")
-		if k == EnvChild || k == envLogLevel || k == envCDMDir || slices.Contains(sandboxEnv, k) || childEnvDropped.MatchString(k) {
+		if k == EnvChild || k == envLogLevel || k == envCDMDir || k == envCDMOnly || slices.Contains(sandboxEnv, k) || childEnvDropped.MatchString(k) {
 			continue
 		}
 		env = append(env, kv)
@@ -159,6 +162,9 @@ func spawn(o Options) (*Host, error) {
 	env := childEnv(log)
 	if o.CDMPath != "" {
 		env = append(env, envCDMDir+"="+filepath.Dir(o.CDMPath))
+	}
+	if o.cdmOnly {
+		env = append(env, envCDMOnly+"=1")
 	}
 	p, parent, err := startSandboxed(exe, env, log)
 	if err != nil {
@@ -745,25 +751,55 @@ func Probe(ctx context.Context, o Options) (Info, error) {
 
 // LoadCheck returns the check internal/playback/cdm runs on a newly
 // downloaded CDM before it becomes current: a probe child loads and
-// initialises it, as a playback host would. A failure after the CDM
-// initialised (the audio pipeline) is not the CDM's; without its sandbox
-// the child loads no CDM at all, so the check can't tell and passes, and
-// playback reports the sandbox itself.
+// initialises the CDM, as a playback host would, and nothing else (no
+// GStreamer: see envCDMOnly). The CDM failing to load or initialise, or
+// the child dying while it loads, wraps cdm.ErrNotLoadable and rejects
+// the version; a check that runs out of time or whose child cannot start
+// says nothing about the CDM and leaves the version undecided. Without
+// its sandbox the child loads no CDM at all, so the check can't tell and
+// passes, and playback reports the sandbox itself.
 func LoadCheck(log *slog.Logger) func(ctx context.Context, lib string) error {
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
 	return func(ctx context.Context, lib string) error {
-		info, err := Probe(ctx, Options{CDMPath: lib, Sink: "fakesink", Logger: log})
+		info, err := Probe(ctx, Options{CDMPath: lib, Logger: log, cdmOnly: true})
 		switch {
 		case info.CDMInterface != 0:
 			return nil
 		case errors.Is(err, ErrSandbox):
 			log.Warn("cdmhost: load check skipped: the playback sandbox is unavailable", "err", err)
 			return nil
+		case ctx.Err() != nil:
+			return fmt.Errorf("cdmhost: load check: %w", ctx.Err())
 		case err == nil:
-			return errors.New("cdmhost: the probe reported no CDM interface")
+			return fmt.Errorf("%w: the probe reported no CDM interface", cdm.ErrNotLoadable)
+		case errors.Is(err, ErrCDMLoad), errors.Is(err, ErrExited):
+			return fmt.Errorf("%w: %w", cdm.ErrNotLoadable, err)
 		}
 		return err
 	}
+}
+
+// PrepareAudio readies GStreamer for the playback hosts that follow: a
+// child that loads no CDM initialises GStreamer, which rebuilds its plugin
+// registry when that is missing or stale (a computer's first run, or
+// changed plugins), and reports the GStreamer version. A host started
+// afterwards reads the registry instead of scanning every plugin first,
+// which takes seconds on Linux and can take over a minute on a fresh Mac.
+func PrepareAudio(ctx context.Context, o Options) (Info, error) {
+	o.CDMPath, o.cdmOnly = "", false
+	h, err := spawn(o)
+	if err != nil {
+		return Info{}, err
+	}
+	defer func() { _ = h.Close() }()
+	r, err := h.call(ctx, request{Op: opAudio})
+	var info Info
+	if r.Info != nil {
+		info = *r.Info
+	}
+	info.PID = h.cmd.Process.Pid
+	info.Sandbox = h.withSandbox(info.Sandbox)
+	return info, err
 }

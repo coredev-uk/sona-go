@@ -26,6 +26,12 @@ const envLogLevel = "SONA_CDMHOST_LOG"
 // (sandbox_fs.go) wherever it lies.
 const envCDMDir = "SONA_CDMHOST_CDM_DIR"
 
+// envCDMOnly starts a child that loads the CDM and nothing else (the
+// load check, LoadCheck): it never initialises GStreamer, whose plugin
+// scan on a first run takes far longer than loading the CDM and says
+// nothing about it.
+const envCDMOnly = "SONA_CDMHOST_CDM_ONLY"
+
 // Errors returned by Host calls.
 var (
 	// ErrStale reports a request for a track generation that a later Load
@@ -132,6 +138,7 @@ const (
 	opFileEnd      op = "file-end"
 	opTrackGain    op = "track-gain"
 	opNext         op = "next"
+	opAudio        op = "audio"
 )
 
 // request is a parent→child frame.

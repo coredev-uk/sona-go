@@ -6,7 +6,7 @@ import { Clipboard } from "@wailsio/runtime";
 import { CircleAlert, CircleCheck, Copy, FolderOpen, RotateCw, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
-import { cdmPercent, cdmProblem, useCdm } from "@/features/cdm";
+import { cdmFailedState, cdmPercent, cdmProblem, useCdm } from "@/features/cdm";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { Button } from "@/shared/ui/button";
 import { Switch } from "@/shared/ui/switch";
@@ -116,7 +116,12 @@ function cdmStateRow(p: Diagnostics["playback"], cdm: CDMStatus): Row {
       };
     }
     case "failed":
-      return { label, value: t`Couldn't download`, status: "error", detail: cdmProblem(cdm.code) };
+      return {
+        label,
+        value: cdmFailedState(cdm.code),
+        status: "error",
+        detail: cdmProblem(cdm.code),
+      };
   }
   return { label, value: t`Doesn't start`, status: "error", detail: p.cdmError || undefined };
 }
