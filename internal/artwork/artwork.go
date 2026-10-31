@@ -2,7 +2,9 @@
 // templates ({w}x{h} URLs on *.mzstatic.com) into Go-served URLs, fetches each
 // source size once, derives exact-size JPEG variants, pre-blurred backdrops
 // and dominant colours from disk, and evicts least-recently-used artwork when
-// the cache exceeds its size cap.
+// the cache exceeds its size cap. Sources must be JPEG or PNG, recognised by
+// their magic bytes and decoded by image/jpeg or image/png directly; anything
+// else is refused with ErrFormat before any decoder runs.
 package artwork
 
 import (
@@ -13,7 +15,6 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
-	_ "image/png" // Apple serves PNG for some editorial artwork
 	"io"
 	"log/slog"
 	"net/http"
@@ -26,8 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/disintegration/imaging"
-	_ "golang.org/x/image/webp" // .webp templates
 	"golang.org/x/sync/singleflight"
 )
 
@@ -537,8 +536,6 @@ func sourceName(std int, data []byte) string {
 	return "src-" + strconv.Itoa(std) + ".img"
 }
 
-func isJPEG(b []byte) bool { return len(b) > 2 && b[0] == 0xFF && b[1] == 0xD8 }
-
 // cachedSource finds the smallest indexed source of at least std px
 // (or the single source of a fixed-size template).
 func (c *Cache) cachedSource(key string, std int, fixedSize bool) (path string, srcStd int, ok bool) {
@@ -625,7 +622,7 @@ func (c *Cache) fetch(u string) ([]byte, error) {
 	if err := checkURL(req.URL); err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "image/jpeg,image/webp,image/png;q=0.9,image/*;q=0.5")
+	req.Header.Set("Accept", "image/jpeg,image/png;q=0.9")
 	req.Header.Set("User-Agent", c.ua)
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -642,8 +639,8 @@ func (c *Cache) fetch(u string) ([]byte, error) {
 	if len(data) > maxSourceBytes {
 		return nil, errors.New("artwork: source too large")
 	}
-	if _, _, err := image.DecodeConfig(bytes.NewReader(data)); err != nil {
-		return nil, fmt.Errorf("artwork: fetch %s: not an image: %w", req.URL.Redacted(), err)
+	if _, err := decodeConfig(data); err != nil {
+		return nil, fmt.Errorf("artwork: fetch %s: %w", req.URL.Redacted(), err)
 	}
 	c.log.Debug("artwork: fetched", "url", req.URL.Redacted(), "bytes", len(data))
 	return data, nil
@@ -675,9 +672,7 @@ func (c *Cache) variant(ctx context.Context, key, tmpl string, size int) (string
 		if err != nil {
 			return nil, err
 		}
-		if b := img.Bounds(); b.Dx() > size || b.Dy() > size {
-			img = imaging.Fit(img, size, size, imaging.Lanczos)
-		}
+		img = fit(img, size)
 		return encodeJPEG(img, variantQuality)
 	})
 }
@@ -703,10 +698,9 @@ func (c *Cache) backdropPath(ctx context.Context, key, tmpl string) (string, err
 		if err != nil {
 			return nil, err
 		}
-		out := imaging.Fill(img, st.Size, st.Size, imaging.Center, imaging.Lanczos)
-		out = imaging.Blur(out, st.Sigma)
-		out = imaging.AdjustSaturation(out, st.Saturation)
-		out = imaging.AdjustBrightness(out, st.Brightness)
+		out := cover(img, st.Size)
+		blur(out, st.Sigma)
+		adjust(out, st.Saturation, st.Brightness)
 		return encodeJPEG(out, st.Quality)
 	})
 }
@@ -738,13 +732,14 @@ func (c *Cache) derive(ctx context.Context, key, tmpl, name string, render func(
 	}
 }
 
+// decode decodes a cached source, which fetch has already checked is a JPEG
+// or PNG.
 func (c *Cache) decode(path string) (image.Image, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("artwork: %w", err)
 	}
-	defer f.Close()
-	img, _, err := image.Decode(f)
+	img, err := decodeImage(data)
 	if err != nil {
 		return nil, fmt.Errorf("artwork: decode %s: %w", filepath.Base(path), err)
 	}

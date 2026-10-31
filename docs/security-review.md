@@ -16,6 +16,7 @@ Run the tests with `go test -race ./internal/playback/cdmhost/... ./internal/con
 | F6 | Low | Motion artwork followed redirects anywhere | Fixed |
 | F7 | Low | Loopback sign-in could be completed by another local user | Open: owned by the auth flow |
 | F8 | Low | Child could exhaust the parent's memory | Fixed |
+| F9 | Low | Artwork decoding accepted any registered image format, TIFF included (found after the review, Dependabot alert #1) | Fixed |
 
 ## F1. Settings import could set the CDM path (Medium, fixed)
 
@@ -142,3 +143,14 @@ This item is owned by the auth flow work (`internal/auth/**`) and was left to it
 - `TestOversizedFrameKillsChild`: a child announces a 512 MiB frame.
 - `TestEventFloodIsBounded`: 3072 position samples, then 2048 other events.
 - `TestGobFramesPassThrough`: real streams pass through at any read size, and a frame over the limit fails.
+
+## F9. Artwork decoding accepted any registered image format (Low, fixed)
+
+Found after the review, by Dependabot alert #1: `github.com/disintegration/imaging` crashes on crafted TIFF files and has no patched version. Sona used it to resize and blur artwork, and it also registers TIFF and BMP decoders with the `image` package. Artwork was decoded with `image.Decode`, which picks a decoder by sniffing the bytes, so a TIFF served for an artwork URL would have reached the vulnerable decoder (the same went for the WebP decoder Sona imported itself).
+
+**Fix** (`internal/artwork/image.go`, `artwork.go`, `color.go`):
+- Artwork bytes are recognised by their magic numbers and decoded with `image/jpeg` or `image/png` directly, never through the `image` format registry. Anything else fails at fetch with `artwork.ErrFormat`, is not cached, and the `/art/` handler answers 502. Apple's CDN serves JPEG or PNG for every template Sona fills.
+- `imaging` and the WebP decoder are gone. Resampling (Lanczos-3 for variants and backdrops, box for colour extraction), the Gaussian blur and the saturation and brightness adjustments are Sona's own code in `image.go`, matching imaging's output: variants are pixel-identical within 1 level, backdrops differ by a mean of 0.25 levels.
+- The binary no longer links `golang.org/x/image/tiff`, `golang.org/x/image/bmp`, `golang.org/x/image/webp` or `imaging`.
+
+**Tests:** `TestDecodeAcceptsOnlyJPEGAndPNG` (JPEG and PNG decode; TIFF in both byte orders, GIF, BMP, WebP, truncated magic and empty input fail with `ErrFormat`), `TestTIFFSourceRejected` (a TIFF from the CDN fails `Get`, `Backdrop` and `DominantColors`, is not cached, gets a 502, and a TIFF decoder registered with the `image` package is never called), `TestPNGSource`.

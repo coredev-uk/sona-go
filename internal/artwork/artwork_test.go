@@ -9,6 +9,7 @@ import (
 	"image"
 	"image/color"
 	"image/jpeg"
+	"image/png"
 	"math/rand/v2"
 	"net"
 	"net/http"
@@ -23,7 +24,8 @@ import (
 
 // imageServer stands in for is*-ssl.mzstatic.com: every request, whatever
 // its host, is dialled to an httptest TLS server that renders a noisy
-// red/blue JPEG of the size named in the path ("…/512x512bb.jpg").
+// red/blue image of the size named in the path ("…/512x512bb.jpg"): a JPEG,
+// a PNG for ".png" paths, or a TIFF payload for ".tif" paths.
 type imageServer struct {
 	srv    *httptest.Server
 	mu     sync.Mutex
@@ -80,8 +82,17 @@ func (s *imageServer) serve(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	w.Header().Set("Content-Type", "image/jpeg")
-	_ = jpeg.Encode(w, img, &jpeg.Options{Quality: 90})
+	switch {
+	case strings.HasSuffix(base, ".png"):
+		w.Header().Set("Content-Type", "image/png")
+		_ = png.Encode(w, img)
+	case strings.HasSuffix(base, ".tif"):
+		w.Header().Set("Content-Type", "image/tiff")
+		_, _ = w.Write(tiffPayload)
+	default:
+		w.Header().Set("Content-Type", "image/jpeg")
+		_ = jpeg.Encode(w, img, &jpeg.Options{Quality: 90})
+	}
 }
 
 func (s *imageServer) count(host, path string) int {

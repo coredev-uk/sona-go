@@ -6,8 +6,6 @@ import (
 	"image"
 	"math"
 	"slices"
-
-	"github.com/disintegration/imaging"
 )
 
 // Color is an sRGB swatch. It marshals as "#rrggbb".
@@ -55,7 +53,7 @@ func (c *Cache) DominantColors(ctx context.Context, template string) ([]Color, e
 // dominant buckets pixels into a 4-bit-per-channel histogram and picks the
 // highest-scoring bucket averages that are visibly distinct.
 func dominant(img image.Image) []Color {
-	small := imaging.Resize(img, 32, 32, imaging.Box)
+	small := resample(img, img.Bounds(), 32, 32, box)
 	type bucket struct {
 		n       int
 		r, g, b int
