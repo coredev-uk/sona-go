@@ -11,6 +11,7 @@ import (
 	"maps"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -60,13 +61,16 @@ func TestChildCannotOpenInetSockets(t *testing.T) {
 	if !strings.Contains(string(status), "Seccomp:\t2\n") {
 		t.Fatalf("child is not in seccomp filter mode:\n%s", status)
 	}
-	if !sb.NetNS {
-		// Unprivileged user namespaces are disabled here; the fallback is
-		// the seccomp filter alone, and it must say why.
-		if !strings.Contains(sb.Reason, "no network namespace") || sb.Active() {
+	if why := namespacesRefused(t); why != "" {
+		// The child runs with the layers it could set up (Landlock and
+		// seccomp at least), and it must say why the others are missing.
+		if sb.Active() || sb.MountNS || sb.Reason == "" {
 			t.Fatalf("fallback without a reason: %+v", sb)
 		}
-		t.Skip("user namespaces unavailable:", sb.Reason)
+		t.Skip(why)
+	}
+	if !sb.NetNS {
+		t.Fatalf("no network namespace where user namespaces are allowed: %+v", sb)
 	}
 	self, err := os.Readlink("/proc/self/ns/net")
 	if err != nil {
@@ -115,7 +119,7 @@ func TestSandboxFallsBackWithoutNamespaces(t *testing.T) {
 
 // Test child modes, selected by envTestChild in the child's environment.
 const (
-	envTestChild = "SONA_CDMHOST_TEST_CHILD" // "probe", "big-frame", "flood"
+	envTestChild = "SONA_CDMHOST_TEST_CHILD" // "probe", "userns", "big-frame", "flood"
 	// probe: sockets it must not reach (a path list), the audio socket it
 	// must reach, an abstract socket name it must not reach, and a
 	// directory under $HOME it must not write.
@@ -132,6 +136,8 @@ func testChildModes() {
 	switch m := os.Getenv(envTestChild); m {
 	case "probe":
 		probeChild()
+	case "userns":
+		userNSChild()
 	case "big-frame", "flood":
 		misbehave(m)
 	}
@@ -203,9 +209,6 @@ func probe(t *testing.T, ns bool, extra ...string) map[string]string {
 	}
 	cmd, stdin, stdout, stderr, err := startChild(exe, env, attr)
 	if err != nil {
-		if ns {
-			t.Skip("user namespaces unavailable:", err)
-		}
 		t.Fatal(err)
 	}
 	logged := make(chan struct{})
@@ -228,6 +231,74 @@ func probe(t *testing.T, ns bool, extra ...string) map[string]string {
 		t.Logf("%s: %s", k, res[k])
 	}
 	return res
+}
+
+// userNSChild runs in new user, network and mount namespaces
+// (namespacesRefused) and prints the errno of making its mounts private,
+// which takes CAP_SYS_ADMIN in its user namespace: 0 when it may.
+func userNSChild() {
+	err := unix.Mount("", "/", "", unix.MS_REC|unix.MS_PRIVATE, "")
+	errno, _ := err.(syscall.Errno) // 0 when err is nil
+	fmt.Println(int(errno))
+	os.Exit(0)
+}
+
+// envRequireNamespaces=1 (set by CI) turns a refusal into a failure, so a
+// runner that stops allowing namespaces cannot skip the sandbox tests
+// unnoticed.
+const envRequireNamespaces = "SONA_CDMHOST_REQUIRE_NAMESPACES"
+
+// namespacesRefused reports why this system refuses the child's
+// namespaces, or "" when it allows them. Refused means EPERM or EACCES from
+// creating unprivileged user, network and mount namespaces (user namespaces
+// disabled, Flatpak), or from changing mounts inside them (Ubuntu's
+// AppArmor restriction, kernel.apparmor_restrict_unprivileged_userns=1,
+// creates the namespaces but denies their capabilities). Any other failure
+// fails the test. Its probe child is set up independently of namespaceAttr,
+// so a broken sandbox is not taken for a refusing system.
+func namespacesRefused(t *testing.T) string {
+	t.Helper()
+	refused := func(why string) string {
+		if os.Getenv(envRequireNamespaces) == "1" {
+			t.Fatalf("%s (%s=1: the sandbox tests must run here)", why, envRequireNamespaces)
+		}
+		return why
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(exe)
+	cmd.Env = append(os.Environ(), EnvChild+"=1", envTestChild+"=userns")
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags:  syscall.CLONE_NEWUSER | syscall.CLONE_NEWNET | syscall.CLONE_NEWNS,
+		UidMappings: []syscall.SysProcIDMap{{ContainerID: 0, HostID: os.Getuid(), Size: 1}},
+		GidMappings: []syscall.SysProcIDMap{{ContainerID: 0, HostID: os.Getgid(), Size: 1}},
+	}
+	out, err := cmd.Output()
+	if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
+		return refused("user namespaces refused: " + err.Error())
+	}
+	if err != nil {
+		var exit *exec.ExitError
+		if errors.As(err, &exit) {
+			t.Fatalf("namespace probe: %v\n%s", err, exit.Stderr)
+		}
+		t.Fatalf("namespace probe: %v", err)
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		t.Fatalf("namespace probe printed %q", out)
+	}
+	switch errno := syscall.Errno(n); errno {
+	case 0:
+		return ""
+	case syscall.EPERM, syscall.EACCES:
+		return refused("mount namespace refused: make mounts private: " + errno.Error())
+	default:
+		t.Fatalf("namespace probe: make mounts private: %v", errno)
+		return ""
+	}
 }
 
 // listenUnix serves a Unix socket at addr until the test ends.
@@ -308,6 +379,9 @@ func TestSandboxConfinesChild(t *testing.T) {
 	}
 
 	t.Run("namespaces", func(t *testing.T) {
+		if why := namespacesRefused(t); why != "" {
+			t.Skip(why)
+		}
 		res := probe(t, true, extra...)
 		if !strings.Contains(res["sandbox"], "MountNS:true") {
 			t.Fatalf("no mount namespace: %s", res["sandbox"])

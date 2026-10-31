@@ -49,7 +49,9 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
-    // Activates the English catalogue, as the app does before its first render.
-    setupFiles: ["src/shared/i18n/test-setup.ts"],
+    // Clears the timers a test file leaves pending before its jsdom window
+    // is torn down, and activates the English catalogue, as the app does
+    // before its first render.
+    setupFiles: ["src/shared/testing/timers.ts", "src/shared/i18n/test-setup.ts"],
   },
 });

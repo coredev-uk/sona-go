@@ -59,7 +59,8 @@ src/
                           useBinding (live from settings), ChordKeys/BindingKeys keycaps
     brand/                SonaMark
     styles/index.css      Tailwind entry and design tokens
-    testing/              helpers for tests (query-cache invalidation probe)
+    testing/              helpers for tests (query-cache invalidation probe); timers, the
+                          setup file that clears a test file's pending timers
     ui/                   ShadCN components
   features/<name>/        one folder per feature; public API is index.ts
     home                  For you (Apple's personal shelves, local fallback shelves)
@@ -121,7 +122,11 @@ src/
     updates               update notice in the sidebar footer (a newer GitHub release)
 ```
 
-Tests sit next to their code (`*.test.ts`).
+Tests sit next to their code (`*.test.ts`). Vitest runs every file in jsdom
+with two setup files: `shared/testing/timers.ts` clears the timers a file
+leaves pending once its tests are done (they would otherwise fire after the
+window is torn down, failing the run with `window is not defined`), and
+`shared/i18n/test-setup.ts` activates the English catalogue.
 
 ## The module contract
 

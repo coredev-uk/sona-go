@@ -35,10 +35,11 @@ import (
 //     ptrace, process_vm_*, io_uring, bpf, perf events, keyrings,
 //     namespaces or mounts.
 //
-// Without unprivileged user namespaces (Flatpak, Ubuntu's AppArmor
-// restriction) the child runs with Landlock and seccomp only. The CDM is
-// loaded only under the seccomp filter (opInit, F3 in
-// docs/security-review.md).
+// Without unprivileged user namespaces (Flatpak) the child runs with
+// Landlock and seccomp only; under Ubuntu's AppArmor restriction its
+// namespaces have no capabilities, so it keeps the network namespace but
+// not the filesystem view. The CDM is loaded only under the seccomp filter
+// (opInit, F3 in docs/security-review.md).
 type Sandbox struct {
 	NetNS      bool   // runs in its own network namespace
 	MountNS    bool   // runs in its own mount namespace with the filesystem view above

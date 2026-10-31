@@ -10,8 +10,9 @@ distro/session, result, and notes for anything not passed.
 - [ ] `VERSION` holds the new version; nothing else carries it
       (`build/linux/Taskfile.yml` injects it into the binary and nfpm).
 - [ ] CI is green on the commit to tag (`.github/workflows/ci.yml`: Go vet +
-      `go test -race` on Ubuntu 24.04 with apt GStreamer; frontend tsc,
-      eslint, prettier, vitest, build).
+      `go test -race` on Ubuntu 24.04 with apt GStreamer and user namespaces
+      allowed, so the CDM host sandbox tests run; frontend tsc, eslint,
+      prettier, vitest, build).
 - [ ] Locally in devenv: `go test -race ./internal/playback/...` with the real
       CDM (`SONA_WIDEVINE_CDM` set) and `go run ./cmd/playspike -seek 90`.
 - [ ] `bash build/linux/release/release.sh` passes: builds .deb, .rpm, Arch

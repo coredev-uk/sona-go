@@ -54,6 +54,16 @@ After touching playback or Apple request code, also run the DRM path
 regression `go run ./cmd/playspike -seek 90` (needs `MUSIC_USER_TOKEN`).
 Route long listening tests to a PipeWire null sink, not your speakers.
 
+The CDM host sandbox tests (`TestChildCannotOpenInetSockets`,
+`TestSandboxConfinesChild/namespaces`) need unprivileged user namespaces in
+which the child may change its mounts. Where the system refuses them (EPERM
+or EACCES: Flatpak, user namespaces disabled, or Ubuntu 24.04's AppArmor
+restriction `kernel.apparmor_restrict_unprivileged_userns=1`) they skip and
+say why; any other failure fails them. To run them on Ubuntu, lift the
+restriction for the session with
+`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`. CI does, and
+sets `SONA_CDMHOST_REQUIRE_NAMESPACES=1`, which turns a skip into a failure.
+
 Packaging changes: `bash build/linux/release/release.sh` builds every package
 on Ubuntu 24.04 and smoke-tests it on clean Ubuntu, Fedora and Arch
 containers. Before a release, work through `docs/release-checklist.md`.

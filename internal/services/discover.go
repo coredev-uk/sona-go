@@ -39,17 +39,25 @@ type DiscoverService struct {
 	e *Env
 	m mapper
 
+	// Background Home refreshes run on ctx and are counted in bg; close
+	// cancels ctx and waits for them, so none outlives the service (or
+	// the database it writes to).
+	ctx  context.Context
+	stop context.CancelFunc
+	bg   sync.WaitGroup
+
 	mu         sync.Mutex
 	refreshing bool // a background Home refresh is running
+	closed     bool // close ran: no background refresh starts
 }
 
 // newDiscoverService refreshes Home once the network opens (when Apple's
 // shelves are due) and prunes pages not opened for a month.
 func newDiscoverService(e *Env) *DiscoverService {
 	s := &DiscoverService{e: e, m: e.m}
+	s.ctx, s.stop = context.WithCancel(context.Background())
 	e.OnNetwork(func() {
-		e.Go("discover refresh", func() {
-			ctx := context.Background()
+		s.background("discover refresh", func(ctx context.Context) {
 			if n, err := e.DB.Q.DeleteOldDiscoverCache(ctx, db.Millis(e.Now().Add(-discoverKeep))); err != nil {
 				e.Logger.Warn("discover cache prune", "err", err)
 			} else if n > 0 {
@@ -58,7 +66,32 @@ func newDiscoverService(e *Env) *DiscoverService {
 			s.refreshHomeIfDue(ctx)
 		})
 	})
+	e.OnClose(s.close)
 	return s
+}
+
+// background runs fn on its own goroutine (Env.Go) with the service's
+// context, unless the service is closed.
+func (s *DiscoverService) background(name string, fn func(context.Context)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
+	s.bg.Add(1)
+	s.e.Go(name, func() {
+		defer s.bg.Done()
+		fn(s.ctx)
+	})
+}
+
+// close cancels the background refreshes and waits for them to return.
+func (s *DiscoverService) close() {
+	s.mu.Lock()
+	s.closed = true
+	s.mu.Unlock()
+	s.stop()
+	s.bg.Wait()
 }
 
 // signedIn: a Music User Token is available (Home needs one).
@@ -104,7 +137,7 @@ func (s *DiscoverService) Home(ctx context.Context) (HomePage, error) {
 		page := s.homePage(r, fetched)
 		s.e.Logger.Info("home served from cache", "shelves", len(page.Sections), "took", time.Since(start).String(), "network", s.e.Gate.IsOpen())
 		if s.e.Gate.IsOpen() {
-			go s.refreshHomeIfDue(context.Background())
+			s.background("home refresh", s.refreshHomeIfDue)
 		}
 		return page, nil
 	}

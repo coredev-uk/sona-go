@@ -25,14 +25,22 @@ type fakeAMP struct {
 	t      *testing.T
 	mu     sync.Mutex
 	seen   []string
-	status int // non-zero: fail every request with it
+	status int  // non-zero: fail every request with it
+	hold   bool // hold every request until the client gives up on it
 }
 
 func (f *fakeAMP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	f.seen = append(f.seen, r.Method+" "+r.URL.Path)
-	status := f.status
+	status, hold := f.status, f.hold
 	f.mu.Unlock()
+	if hold {
+		select {
+		case <-r.Context().Done():
+		case <-f.t.Context().Done():
+		}
+		return
+	}
 	if status != 0 {
 		http.Error(w, `{"errors":[]}`, status)
 		return
@@ -86,6 +94,9 @@ type discoverEnv struct {
 	ev   *recorder
 }
 
+// newDiscoverEnv builds the Discover service as the app does; the test's
+// cleanup closes it (stopping its background refreshes) before the
+// database closes. Tests wait on s.bg for a background refresh to finish.
 func newDiscoverEnv(t *testing.T) discoverEnv {
 	t.Helper()
 	d, err := db.Open(t.Context(), filepath.Join(t.TempDir(), "sona.db"))
@@ -114,7 +125,9 @@ func newDiscoverEnv(t *testing.T) discoverEnv {
 		},
 		m: mapper{art: art},
 	}
-	return discoverEnv{s: &DiscoverService{e: e, m: e.m}, amp: amp, now: &now, gate: gate, ev: ev}
+	s := newDiscoverService(e)
+	t.Cleanup(e.close)
+	return discoverEnv{s: s, amp: amp, now: &now, gate: gate, ev: ev}
 }
 
 func titles(secs []Section) []string {
@@ -171,14 +184,16 @@ func TestHomeCacheAndRefresh(t *testing.T) {
 		t.Fatalf("cached Home asked Apple: %v", env.amp.requests())
 	}
 
-	// After first paint, with only Recently Played due, that shelf alone is
-	// refreshed and the new page is emitted.
+	// After first paint, the refresh on network open finds Recently Played
+	// due by Apple's date but fetched only two minutes ago: nothing is asked.
 	*env.now = time.Date(2026, 10, 30, 11, 1, 0, 0, time.UTC)
 	env.gate.Open()
-	env.s.refreshHomeIfDue(ctx) // due by Apple's date, but fetched a minute ago
+	env.s.bg.Wait()
 	if n := len(env.amp.requests()); n != 1 {
 		t.Fatalf("refreshed within the minimum life: %v", env.amp.requests())
 	}
+	// With only Recently Played due, that shelf alone is refreshed and the
+	// new page is emitted.
 	*env.now = time.Date(2026, 10, 30, 11, 5, 0, 0, time.UTC)
 	env.s.refreshHomeIfDue(ctx)
 	reqs := env.amp.requests()
@@ -188,17 +203,65 @@ func TestHomeCacheAndRefresh(t *testing.T) {
 	if len(env.ev.events) != 1 || env.ev.events[0] != EventHome {
 		t.Fatalf("events = %v", env.ev.events)
 	}
-	page, _ = env.s.Home(ctx) // served from cache; nothing else is due
+	page, _ = env.s.Home(ctx) // served from cache; its refresh finds nothing due
+	env.s.bg.Wait()
 	if n := len(page.Sections[1].Items); n != 1 {
 		t.Errorf("refreshed Recently Played has %d items, want 1", n)
 	}
+	if n := len(env.amp.requests()); n != 2 {
+		t.Fatalf("refreshed with nothing due: %v", env.amp.requests())
+	}
 
-	// When most shelves are due, Home is refetched whole.
+	// When most shelves are due, Home still answers from the cache, and the
+	// refresh it starts in the background refetches Home whole and emits it.
 	*env.now = time.Date(2026, 10, 30, 13, 0, 0, 0, time.UTC)
-	env.s.refreshHomeIfDue(ctx)
+	page, err = env.s.Home(ctx)
+	if err != nil || len(page.Sections) < 2 || len(page.Sections[1].Items) != 1 {
+		t.Fatalf("Home did not answer from the cache: %+v, %v", page, err)
+	}
+	env.s.bg.Wait()
 	reqs = env.amp.requests()
-	if last := reqs[len(reqs)-1]; last != "GET /v1/me/recommendations" {
-		t.Errorf("last request = %s", last)
+	if len(reqs) != 3 || reqs[2] != "GET /v1/me/recommendations" {
+		t.Errorf("requests = %v", reqs)
+	}
+	if len(env.ev.events) != 2 || env.ev.events[1] != EventHome {
+		t.Errorf("events = %v", env.ev.events)
+	}
+}
+
+// Closing the service cancels a running background refresh and waits for
+// it, and Home starts none afterwards: nothing outlives the database.
+func TestDiscoverCloseStopsRefresh(t *testing.T) {
+	env := newDiscoverEnv(t)
+	ctx := t.Context()
+	if _, err := env.s.Home(ctx); err != nil {
+		t.Fatal(err)
+	}
+	env.amp.mu.Lock()
+	env.amp.hold = true // Apple never answers
+	env.amp.mu.Unlock()
+	*env.now = time.Date(2026, 10, 30, 13, 0, 0, 0, time.UTC) // every shelf due
+	env.gate.Open()
+	waitFor(t, func() bool { return len(env.amp.requests()) == 2 })
+
+	closed := make(chan struct{})
+	go func() {
+		env.s.e.close()
+		close(closed)
+	}()
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("close did not stop the running refresh")
+	}
+	if len(env.ev.events) != 0 {
+		t.Errorf("cancelled refresh emitted %v", env.ev.events)
+	}
+	if _, err := env.s.Home(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(env.amp.requests()); n != 2 {
+		t.Errorf("Home after close asked Apple: %v", env.amp.requests())
 	}
 }
 
@@ -322,6 +385,7 @@ func TestCuratorPageAndStale(t *testing.T) {
 	env := newDiscoverEnv(t)
 	ctx := t.Context()
 	env.gate.Open()
+	env.s.bg.Wait() // the refresh on network open fetches Home
 	p, err := env.s.Curator(ctx, "990050553")
 	if err != nil {
 		t.Fatal(err)

@@ -51,7 +51,22 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+      # Ubuntu 24.04's AppArmor creates unprivileged user namespaces without
+      # capabilities, so the CDM host sandbox would get no mount namespace and
+      # its tests would skip (they skip, with the reason, wherever namespaces
+      # are refused). Lift the restriction so they run here; with
+      # SONA_CDMHOST_REQUIRE_NAMESPACES set, a refusal fails them instead.
+      - name: Allow unprivileged user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: CDM host sandbox tests (verbose, must not skip)
+        env:
+          SONA_CDMHOST_REQUIRE_NAMESPACES: "1"
+        run: go test -race -count=1 -v -run 'TestChildCannotOpenInetSockets|TestSandbox' ./internal/playback/cdmhost
+
       - name: go test -race
+        env:
+          SONA_CDMHOST_REQUIRE_NAMESPACES: "1"
         run: dbus-run-session -- go test -race ./...
 
   frontend:

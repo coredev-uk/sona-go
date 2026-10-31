@@ -54,7 +54,7 @@ The child had the whole environment (including `DBUS_SESSION_BUS_ADDRESS`), ever
   - These fail with EPERM: `ptrace`, `process_vm_readv/writev`, `pidfd_getfd`, `kcmp`, `io_uring_*`, `bpf`, `perf_event_open`, `userfaultfd`, the keyring calls, `unshare`, `setns`, the mount calls and `clone` with namespace flags.
   - `clone3` fails with ENOSYS, and glibc then uses `clone`.
   - The child checks that `AF_INET`, `AF_INET6` and `AF_NETLINK` are refused.
-- **Without unprivileged user namespaces** (Flatpak, Ubuntu's AppArmor restriction), the child runs with Landlock and seccomp only. Diagnostics says why.
+- **Without unprivileged user namespaces** (Flatpak, user namespaces disabled), the child runs with Landlock and seccomp only. Under Ubuntu 24.04's AppArmor restriction the namespaces are created without capabilities: the child keeps its network namespace but gets no private filesystem view ("make mounts private: permission denied", seen on GitHub's ubuntu-24.04 runners). Diagnostics says why.
 - **`PR_SET_DUMPABLE=0` is not set in the parent.** Measured: a non-dumpable process gets `Portal operation not allowed: Unable to open /proc/<pid>/root` from every xdg-desktop-portal call (Settings, and with it the CDM file chooser and settings import/export). Crash capture (`debug.SetCrashOutput`) would not have been affected. The child cannot trace the parent anyway: seccomp denies `ptrace`/`process_vm_*`, and Landlock denies its `/proc` memory and environment.
 
 **Tests and evidence:**
@@ -67,6 +67,7 @@ The child had the whole environment (including `DBUS_SESSION_BUS_ADDRESS`), ever
 
   Observed on Linux 7.2 (Landlock ABI 10): in the namespace path, the bus sockets give "no such file or directory" and a home write gives "read-only file system". In the fallback, the bus gives "permission denied" from Landlock.
 - `TestChildEnvDropsSessionAndSecrets`, `TestChildCannotOpenInetSockets` (now also requires the mount namespace), `TestSandboxFallsBackWithoutNamespaces`.
+- `TestChildCannotOpenInetSockets` and the `namespaces` subtest skip, with the reason, only where the system refuses the namespaces: EPERM or EACCES when a probe child of the test's own creates user, network and mount namespaces (Flatpak, user namespaces disabled) or changes its mounts in them (Ubuntu 24.04's AppArmor restriction creates the namespaces but denies their capabilities). Any other failure, including a sandbox that misses a layer the system allows, fails them. CI lifts Ubuntu's restriction (`kernel.apparmor_restrict_unprivileged_userns=0`) and sets `SONA_CDMHOST_REQUIRE_NAMESPACES=1`, so there they must run.
 - Playback: `PIPEWIRE_NODE=<null sink> go run ./cmd/playspike -seek 90` played a full track with `sandbox netns=true mountns=true landlock=10 seccomp=true inet_denied=true reason=""`. The test track was "Weird Fishes / Arpeggi": first audio after 862 ms, the track advanced 12.1 s past the seek target, and the join into "Reckoner" measured 87 ms. `pw-record` of the null sink's monitor had signal in 22 of the 27 s recorded.
 
 **Residual risks:**
