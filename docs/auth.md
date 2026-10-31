@@ -221,7 +221,7 @@ The UI renders from SQLite in `loading`/`validating` and while `Status.Offline` 
 
 ## 6. Credentials And Playback **[verified]**
 
-- Playback runs in Sona's own engine (`internal/playback/native`). Credentials never leave the Go parent process: every playback request (`webPlayback`, `widevineCert`, `acquireWebPlaybackLicense`, radio `play/assets` and licence, play-activity reports) goes through `applemusic.Client`, which adds the developer token, `Media-User-Token` and `Origin: https://music.apple.com` per request, reading the MUT from `Manager.UserToken()`.
+- Playback runs in Sona's own engine (`internal/playback/native`, `docs/architecture.md` §4). Credentials never leave the Go parent process: every playback request (`webPlayback`, `widevineCert`, `acquireWebPlaybackLicense`, radio `play/assets` and licence, play-activity reports) goes through `applemusic.Client`, which adds the developer token, `Media-User-Token` and `Origin: https://music.apple.com` per request, reading the MUT from `Manager.UserToken()`.
 - The CDM host child process receives only certificates, licence responses and encrypted media bytes over its stdin/stdout pipe; it never sees a token and makes no network requests.
 - A 401/403 from a playback request surfaces as `applemusic.ErrUnauthorized`: the engine emits `auth`, the coordinator pauses with `AuthRequired`, and the services layer passes the error to `Manager.ReportUnauthorized` (§5 triage).
 - Sign-out stops playback, clears the queue and wipes user data (`db.WipeUserData`); there is no engine profile to wipe. Undelivered play-activity events are stored without credentials (tokens are added at send time).

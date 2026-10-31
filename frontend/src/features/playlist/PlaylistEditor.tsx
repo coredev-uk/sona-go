@@ -10,7 +10,7 @@ import { useContentVirtualizer } from "@/shared/lib/useContentVirtualizer";
 import { cn } from "@/shared/lib/utils";
 
 const ROW = 44;
-/** Lists longer than this are virtualised. */
+/** Lists longer than this are virtualised (docs/architecture.md §8). */
 const VIRTUAL_FROM = 200;
 const TEMPLATE = "24px 32px minmax(0,2fr) minmax(0,1fr) 56px 32px";
 

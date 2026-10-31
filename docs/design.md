@@ -10,7 +10,7 @@ What it refuses: the streaming-app default of near-black with a brand-coloured a
 
 ## Principles
 
-1. **Fast before pretty.** Nothing visual may cost first paint or scroll smoothness on WebKitGTK.
+1. **Fast before pretty.** Nothing visual may cost first paint or scroll smoothness on WebKitGTK (`docs/architecture.md` §8).
 2. **The cover is the colour.** Chrome stays neutral so artwork reads true.
 3. **Amber means "playing".** The now-playing row, the play control, the progress fill, the active queue item. Navigation selection, focus and primary buttons do not use amber.
 4. **Native to the desktop.** Light and dark follow the system; it works with the keyboard; it is dense enough to sit tiled at half width beside an editor.

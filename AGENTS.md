@@ -2,13 +2,14 @@
 
 ## Repo
 
-- Go module `github.com/coredev-uk/sona-go`: the Sona desktop app. Entry `main.go` (Wails v3), Wails services in `internal/services`, core packages under `internal/`, React frontend in `frontend/`.
+- Go module `github.com/coredev-uk/sona-go`: the Sona desktop app. Entry `main.go` (Wails v3), Wails services in `internal/services`, core packages under `internal/`, React frontend in `frontend/`. Layout: `docs/architecture.md` §6.
 - Generated code, never hand-edited: `internal/db/dbq` (sqlc, from `internal/db/queries`) and `frontend/bindings` (wails3). Regenerate with the devenv `gen` script.
 - Migrations (`internal/db/migrations`) are numbered densely from `00001` and applied strictly in order (no goose out-of-order): a new one takes the next free number when it lands, and a released one is never renumbered or edited.
 - `VERSION` is the single version source. The build injects it as `main.version` and into the packages.
 
 ## Sources of Truth
 
+- `docs/architecture.md`: product scope, architecture and the decisions behind it (process model, playback and DRM, module layout, data and sync, performance, platforms, testing).
 - `docs/auth.md`: authentication. `docs/apple-music-reference.md`: Apple endpoints and features (functionality only). `docs/design.md`: visual direction. `docs/frontend-architecture.md` and `internal/services/doc.go`: module contracts.
 - External reference, never copied wholesale: [vibez](https://github.com/simonepelosi/vibez) (MIT), which hosts the Widevine CDM the same way.
 
@@ -72,7 +73,7 @@
 - Gate before every PR: `go vet ./...`, the cross-platform type-checks (`GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...`, `go run ./cmd/typecheck -os darwin -arch arm64 ./...`), `go test -race ./...` (touched packages first, then repo-wide), `golangci-lint run --new-from-rev=origin/main ./...` clean, and in `frontend/`: `pnpm exec tsc --noEmit`, `pnpm exec eslint src`, `pnpm exec prettier --check src`, `pnpm i18n:check`, `pnpm exec vitest run`.
 - Update the docs describing what you change in the same PR.
 - Private mode for every playback run: tests, smokes and live checks run with `SONA_PRIVATE=1` (development builds start private, `playspike` is private by default) so nothing is reported to Apple or scrobbled. Never play against Apple without it.
-- Live audio goes to your own PipeWire null sink (`pw-cli create-node adapter '{ factory.name=support.null-audio-sink node.name=<name> media.class=Audio/Sink object.linger=true audio.position=[FL FR] }'`), targeted with `pipewiresink target-object` (`-device` in playspike; `PIPEWIRE_NODE` pins a stream and breaks device-move tests) and recorded with `pw-record --target <name>`. Destroy only nodes you created; if WirePlumber stops linking streams, ask before restarting it.
+- Live audio goes to your own PipeWire null sink (`pw-cli create-node adapter '{ factory.name=support.null-audio-sink node.name=<name> media.class=Audio/Sink object.linger=true audio.position=[FL FR] }'`), targeted with `pipewiresink target-object` (`-device` in playspike; `PIPEWIRE_NODE` pins a stream and breaks device-move tests) and recorded from its monitor with `pw-record --target <name> -P '{ stream.capture.sink=true }' out.wav` (without `stream.capture.sink`, `pw-record` falls back to the default source, i.e. the microphone; check the links with `pw-link -l`). Destroy only nodes you created; if WirePlumber stops linking streams, ask before restarting it.
 - Only one Sona may own the real session bus (single instance and the MPRIS name). Keep real-session runs short and quit the app yourself; everything else uses `dbus-run-session` and private XDG dirs, never the real `~/.config/sona` or `~/.local/share/sona` (copy data into the private dirs when needed).
 
 ## Pull requests and Clarence

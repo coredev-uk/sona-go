@@ -58,7 +58,7 @@ interface TrackListProps {
 }
 
 const ROW = 44;
-/** Lists longer than this are virtualised. */
+/** Lists longer than this are virtualised (docs/architecture.md §8). */
 const VIRTUAL_FROM = 200;
 
 function gridTemplate(c: TrackColumns): string {

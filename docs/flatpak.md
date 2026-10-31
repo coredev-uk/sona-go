@@ -45,7 +45,7 @@ The measurements below were taken when Sona still loaded the host browser's CDM 
 
 ## CDM host sandbox
 
-**What `internal/playback/cdmhost` does today** (`sandbox.go`, `sandbox_fs.go`, `host.go`; full description in [security-review.md](security-review.md) F2):
+**What `internal/playback/cdmhost` does today** (`sandbox.go`, `sandbox_fs.go`, `host.go`; full description in [architecture.md](architecture.md) §4.4 and [security-review.md](security-review.md) F2):
 - **Namespaces.** `spawn` starts the child with `namespaceAttr()`: `Cloneflags: CLONE_NEWUSER|CLONE_NEWNET|CLONE_NEWNS`, uid/gid mapped onto themselves. In the mount namespace the child hides `/run`, `/tmp`, `$XDG_RUNTIME_DIR` (except the audio socket) and makes the home directory read-only. If the `fork/exec` fails, it logs `cdmhost: no namespaces for the playback host; starting it without`, restarts the child without namespaces, and records `Sandbox.NetNS=false` with the reason.
 - **Landlock.** Applied with or without namespaces: no writes outside `/dev`, no TCP/UDP, `connect()` only to the audio socket (ABI 9), abstract sockets and signals scoped (ABI 6).
 - **Seccomp.** The child installs a seccomp filter (TSYNC, `no_new_privs`) that allows `socket` only for `AF_UNIX` and denies ptrace, `process_vm_*`, io_uring, mounts and namespaces, then tests itself (`InetDenied`). Without the filter it does not load the CDM.

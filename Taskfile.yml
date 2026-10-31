@@ -1,9 +1,10 @@
 version: '3'
 
 # Sona build tasks. `go tool wails3 build|package|dev` run these through
-# Wails' embedded Task runner. Linux is the only release target; on
-# macOS `build`, `run` and so `dev` make an unsigned development
-# build (build/darwin/Taskfile.yml), and packaging stays Linux-only.
+# Wails' embedded Task runner. Linux is the only release target
+# (docs/architecture.md §9); on macOS `build`, `run` and so `dev` make an
+# unsigned development build (build/darwin/Taskfile.yml), and packaging
+# stays Linux-only.
 #
 # Never add `go mod tidy` here: other packages are developed in parallel and
 # tidy would drop their dependencies.
