@@ -53,6 +53,8 @@ in
       gst.gst-plugins-base
     ];
 
+  dotenv.enable = true;
+
   env = {
     CGO_ENABLED = "1";
     GOFLAGS = "-tags=sqlite_fts5";
