@@ -11,6 +11,9 @@
   rebaseWhen: "conflicted",
   prHourlyLimit: 4,
   prConcurrentLimit: 10,
+  // Clarence reads the update type from the Update column; Renovate leaves it out
+  // when it shows the Age/Confidence badges unless the columns are set
+  prBodyColumns: ["Package", "Type", "Update", "Change", "Age", "Confidence"],
   // Covers go.mod, frontend/ (pnpm) and .github/workflows. devenv.lock is not
   // a Renovate manager file; bump nixpkgs by hand (CONTRIBUTING.md)
   enabledManagers: ["gomod", "npm", "github-actions"],
