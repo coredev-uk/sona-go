@@ -151,6 +151,17 @@ func run(started time.Time) error {
 	}
 
 	ctx := context.Background()
+	// Without an accessibility bus, WebKit's sandboxed web process warns
+	// on every start; tell it there is none (app.HideMissingA11yBus).
+	a11yCtx, cancelA11y := context.WithTimeout(ctx, 5*time.Second)
+	noA11yBus, err := app.HideMissingA11yBus(a11yCtx, conn)
+	cancelA11y()
+	if err != nil {
+		log.Warn("accessibility bus lookup", "err", err)
+	}
+	if noA11yBus {
+		log.Info("startup: no accessibility bus; web content is not exposed to AT-SPI")
+	}
 	d, err := db.Open(ctx, paths.DatabaseFile())
 	if err != nil {
 		return err
