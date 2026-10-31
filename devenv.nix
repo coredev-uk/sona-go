@@ -86,7 +86,7 @@ in
       set -e
       go vet ./...
       golangci-lint run ./...
-      (cd frontend && pnpm exec tsc --noEmit && pnpm exec eslint src)
+      (cd frontend && node scripts/check-path-case.mjs && pnpm exec tsc --noEmit && pnpm exec eslint src)
     '';
     test.exec = ''
       set -e

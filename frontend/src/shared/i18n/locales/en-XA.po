@@ -1699,7 +1699,7 @@ msgstr ""
 msgid "Daily top 100 by country"
 msgstr ""
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 msgid "Dark"
 msgstr ""
 
@@ -2378,7 +2378,7 @@ msgstr ""
 msgid "Library sync failed"
 msgstr ""
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 msgid "Light"
 msgstr ""
 
@@ -3468,7 +3468,7 @@ msgstr ""
 msgid "Reconnect"
 msgstr ""
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 #: src/features/settings/settings-file.ts
 msgid "Reduce effects"
 msgstr ""
@@ -4104,7 +4104,7 @@ msgstr ""
 msgid "Sleep timer: stop in 30 minutes"
 msgstr ""
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 msgid "Solid surfaces instead of artwork colour washes, and no animation. Smoother on software rendering."
 msgstr ""
 
@@ -4404,7 +4404,7 @@ msgstr ""
 msgid "Syncing your library"
 msgstr ""
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 msgid "System"
 msgstr ""
 
@@ -4416,7 +4416,7 @@ msgstr ""
 msgid "System default · {fallbackName}"
 msgstr ""
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 msgid "System follows your desktop's light or dark preference."
 msgstr ""
 
@@ -4545,7 +4545,7 @@ msgstr ""
 msgid "Their albums and songs leave your library too."
 msgstr ""
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 #: src/features/settings/settings-file.ts
 msgid "Theme"
 msgstr ""

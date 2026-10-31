@@ -89,6 +89,8 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
+      # Paths or module names that differ only by case break macOS checkouts.
+      - run: node scripts/check-path-case.mjs
       - run: pnpm exec tsc --noEmit
       - run: pnpm exec eslint src
       - run: pnpm exec prettier --check src

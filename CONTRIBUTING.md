@@ -42,6 +42,7 @@ Run before sending a change (CI runs the same on every push and pull request,
 go vet ./...
 go test -race ./...
 cd frontend
+node scripts/check-path-case.mjs   # no paths or module names differing only by case
 pnpm exec tsc --noEmit
 pnpm exec eslint src
 pnpm exec prettier --check src     # --write to fix

@@ -1699,7 +1699,7 @@ msgstr "Cuts only: the level stays as it is. Preamp lowers it further."
 msgid "Daily top 100 by country"
 msgstr "Daily top 100 by country"
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 msgid "Dark"
 msgstr "Dark"
 
@@ -2378,7 +2378,7 @@ msgstr "Library sync"
 msgid "Library sync failed"
 msgstr "Library sync failed"
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 msgid "Light"
 msgstr "Light"
 
@@ -3468,7 +3468,7 @@ msgstr "Recommendations need Apple Music"
 msgid "Reconnect"
 msgstr "Reconnect"
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 #: src/features/settings/settings-file.ts
 msgid "Reduce effects"
 msgstr "Reduce effects"
@@ -4104,7 +4104,7 @@ msgstr "Sleep timer: stop in 1 hour"
 msgid "Sleep timer: stop in 30 minutes"
 msgstr "Sleep timer: stop in 30 minutes"
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 msgid "Solid surfaces instead of artwork colour washes, and no animation. Smoother on software rendering."
 msgstr "Solid surfaces instead of artwork colour washes, and no animation. Smoother on software rendering."
 
@@ -4404,7 +4404,7 @@ msgstr "Syncing songs"
 msgid "Syncing your library"
 msgstr "Syncing your library"
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 msgid "System"
 msgstr "System"
 
@@ -4416,7 +4416,7 @@ msgstr "System default"
 msgid "System default · {fallbackName}"
 msgstr "System default · {fallbackName}"
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 msgid "System follows your desktop's light or dark preference."
 msgstr "System follows your desktop's light or dark preference."
 
@@ -4545,7 +4545,7 @@ msgstr "The words in Latin letters"
 msgid "Their albums and songs leave your library too."
 msgstr "Their albums and songs leave your library too."
 
-#: src/features/settings/Appearance.tsx
+#: src/features/settings/AppearanceSection.tsx
 #: src/features/settings/settings-file.ts
 msgid "Theme"
 msgstr "Theme"

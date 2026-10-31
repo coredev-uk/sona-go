@@ -625,3 +625,8 @@ Feature-to-feature imports must stay acyclic. Today: player → settings →
 auth; player → equalizer → settings; home → auth, discover, library, player; discover → player; search → auth, player; album and
 playlist → library, player; artist → player; library → auth; commands → search;
 motion → settings.
+
+No two files or folders may differ only by letter case, including module names
+without their extension (`Appearance.tsx` beside `appearance.ts`): on macOS and
+Windows `./Appearance` resolves to the wrong file. `frontend/scripts/check-path-case.mjs`
+checks every tracked path in CI.

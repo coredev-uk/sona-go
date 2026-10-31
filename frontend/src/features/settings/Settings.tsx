@@ -4,7 +4,7 @@ import { getRouteApi, Link } from "@tanstack/react-router";
 import { AccountSection } from "@/features/auth";
 import { PageHeader } from "@/shared/components/PageHeader";
 
-import { AppearanceSection } from "./Appearance";
+import { AppearanceSection } from "./AppearanceSection";
 import { ConnectionsSection } from "./Connections";
 import { DesktopSection } from "./Desktop";
 import { DiagnosticsSection } from "./Diagnostics";
