@@ -285,11 +285,15 @@ func TestRestartSignedInWithoutBlockingOnNetwork(t *testing.T) {
 func TestStartWithoutAccountValidates(t *testing.T) {
 	e := newEnv(t)
 	e.stored(goodMUT, false)
+	// Hold Apple's answer so the validating state can't already be over.
+	gate := make(chan struct{})
+	e.apple.set(func(f *fakeApple) { f.gate = gate })
 	m, rec := e.manager(t)
 	m.Start(context.Background())
 	if m.Status().State != StateValidating {
 		t.Fatalf("state = %v", m.Status().State)
 	}
+	close(gate)
 	s := rec.wait(t, is(StateSignedIn))
 	if s.StorefrontID != "gb" || !s.Restricted {
 		t.Fatalf("status = %+v", s)
