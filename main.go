@@ -208,7 +208,7 @@ func run(started time.Time) error {
 	defer cdmMgr.Close()
 
 	cur := settings.Get()
-	engine := newEngine(api, cur, log, cdmMgr)
+	engine := newEngine(api, cur, log, cdmMgr, storefront)
 	defer engine.Close()
 
 	// GStreamer's plugin registry is readied in a child after the first

@@ -34,6 +34,19 @@ function Tag({ children, title }: { children: string; title?: string }) {
 }
 
 /**
+ * "Preview" (Apple's word for it) beside a song that plays as Apple Music's
+ * 30-second preview rather than the full track.
+ */
+export function PreviewMark() {
+  const { t } = useLingui();
+  return (
+    <Tag title={t`Apple Music's 30-second preview, not the full song`}>
+      {t({ message: "Preview", context: "a song playing as its 30-second preview" })}
+    </Tag>
+  );
+}
+
+/**
  * The badge line of a collection or song header: Explicit, then Apple's
  * audio labels (Dolby Atmos, Lossless, Apple Digital Master). The labels
  * describe the release as Apple offers it, not what Sona plays (AAC).

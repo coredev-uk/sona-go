@@ -3699,6 +3699,13 @@ export class PlaybackState {
     "noCdm": boolean;
 
     /**
+     * Preview: the current song plays as Apple's 30-second preview, not
+     * the full track (a test or development engine: SONA_PREVIEW=1); the
+     * player labels it, and nothing reports it as a play.
+     */
+    "preview": boolean;
+
+    /**
      * AutoPlay: similar music continues when the queue ends.
      */
     "autoPlay": boolean;
@@ -3778,6 +3785,9 @@ export class PlaybackState {
         if (!("noCdm" in $$source)) {
             this["noCdm"] = false;
         }
+        if (!("preview" in $$source)) {
+            this["preview"] = false;
+        }
         if (!("autoPlay" in $$source)) {
             this["autoPlay"] = false;
         }
@@ -3802,21 +3812,21 @@ export class PlaybackState {
      */
     static createFrom($$source: any = {}): PlaybackState {
         const $$createField1_0 = $$createType66;
-        const $$createField18_0 = $$createType68;
-        const $$createField19_0 = $$createType70;
-        const $$createField20_0 = $$createType72;
+        const $$createField19_0 = $$createType68;
+        const $$createField20_0 = $$createType70;
+        const $$createField21_0 = $$createType72;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("current" in $$parsedSource) {
             $$parsedSource["current"] = $$createField1_0($$parsedSource["current"]);
         }
         if ("station" in $$parsedSource) {
-            $$parsedSource["station"] = $$createField18_0($$parsedSource["station"]);
+            $$parsedSource["station"] = $$createField19_0($$parsedSource["station"]);
         }
         if ("container" in $$parsedSource) {
-            $$parsedSource["container"] = $$createField19_0($$parsedSource["container"]);
+            $$parsedSource["container"] = $$createField20_0($$parsedSource["container"]);
         }
         if ("sleep" in $$parsedSource) {
-            $$parsedSource["sleep"] = $$createField20_0($$parsedSource["sleep"]);
+            $$parsedSource["sleep"] = $$createField21_0($$parsedSource["sleep"]);
         }
         return new PlaybackState($$parsedSource as Partial<PlaybackState>);
     }

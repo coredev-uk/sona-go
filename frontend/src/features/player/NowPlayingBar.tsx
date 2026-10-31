@@ -25,6 +25,7 @@ import { PrivateButton } from "@/features/private";
 import { useOnAirProgramme } from "@/features/radio";
 import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
+import { PreviewMark } from "@/shared/components/Badges";
 import { RatingButtons } from "@/shared/components/RatingButtons";
 import { Button } from "@/shared/ui/button";
 import { Slider } from "@/shared/ui/slider";
@@ -197,6 +198,7 @@ export function NowPlayingBar() {
   const error = usePlayback((s) => s.error);
   const authRequired = usePlayback((s) => s.authRequired);
   const noCdm = usePlayback((s) => s.noCdm);
+  const preview = usePlayback((s) => s.preview);
   const { queueOpen, toggleQueue, overlay, openNowPlaying, closeOverlay, showLyrics } = useUI();
   const toggleKeys = useBinding("player.toggle");
   const { t } = useLingui();
@@ -273,32 +275,36 @@ export function NowPlayingBar() {
             <Artwork src={current?.art.small} size={48} alt="" eager />
           </button>
           <div className="flex min-w-0 flex-col">
-            {current ? (
-              current.live ? (
-                <Link
-                  to="/station/$id"
-                  params={{ id: current.id }}
-                  className="truncate text-ui font-medium text-ink hover:underline hover:underline-offset-2"
-                >
-                  {current.name}
-                </Link>
-              ) : current.albumId ? (
-                <Link
-                  to="/album/$id"
-                  params={{ id: current.albumId }}
-                  search={{ song: current.id }}
-                  className="truncate text-ui font-medium text-ink hover:underline hover:underline-offset-2"
-                >
-                  {current.name}
-                </Link>
+            <div className="flex min-w-0 items-center gap-1.5">
+              {current ? (
+                current.live ? (
+                  <Link
+                    to="/station/$id"
+                    params={{ id: current.id }}
+                    className="truncate text-ui font-medium text-ink hover:underline hover:underline-offset-2"
+                  >
+                    {current.name}
+                  </Link>
+                ) : current.albumId ? (
+                  <Link
+                    to="/album/$id"
+                    params={{ id: current.albumId }}
+                    search={{ song: current.id }}
+                    className="truncate text-ui font-medium text-ink hover:underline hover:underline-offset-2"
+                  >
+                    {current.name}
+                  </Link>
+                ) : (
+                  <span className="truncate text-ui font-medium text-ink">{current.name}</span>
+                )
               ) : (
-                <span className="truncate text-ui font-medium text-ink">{current.name}</span>
-              )
-            ) : (
-              <span className="truncate text-ui font-medium text-ink-muted">
-                <Trans>Not playing</Trans>
-              </span>
-            )}
+                <span className="truncate text-ui font-medium text-ink-muted">
+                  <Trans>Not playing</Trans>
+                </span>
+              )}
+              {/* Apple's 30-second clip instead of the song (SONA_PREVIEW=1). */}
+              {current && preview && <PreviewMark />}
+            </div>
             {subline ?? (
               <span className="truncate text-sub text-ink-faint">
                 <Trans>Choose a song, album or playlist to start</Trans>

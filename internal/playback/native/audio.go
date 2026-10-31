@@ -11,16 +11,16 @@ import (
 )
 
 // Capabilities reports everything the CDM host does itself: volume, the
-// equaliser, Sound Check, crossfades and, where its sink can target one
-// (PipeWire; gst.DeviceChoice), the output device. Sona sends every play
-// report.
+// equaliser, Sound Check, crossfades (not between previews, which join
+// like uploads) and, where its sink can target one (PipeWire;
+// gst.DeviceChoice), the output device. Sona sends every play report.
 func (e *Engine) Capabilities() playback.Capabilities {
 	return playback.Capabilities{
 		Kind:             playback.KindCDM,
 		Volume:           true,
 		Equalizer:        true,
 		SoundCheck:       true,
-		Crossfade:        true,
+		Crossfade:        !e.preview,
 		OutputDevice:     gst.DeviceChoice,
 		PrivateListening: true,
 	}

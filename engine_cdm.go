@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
@@ -25,14 +26,25 @@ func childMain() { cdmhost.ChildMain() }
 
 // newEngine is the CDM host engine, loading the CDM src names; it starts
 // no process until the first play, and reports no_cdm until the download
-// is installed.
-func newEngine(api *applemusic.Client, cur config.Settings, log *slog.Logger, src *cdm.Manager) playback.Engine {
+// is installed. With SONA_PREVIEW on (playback.EnvPreview) it plays every
+// song as its 30-second preview from storefront's catalog instead, with
+// no CDM.
+func newEngine(api *applemusic.Client, cur config.Settings, log *slog.Logger, src *cdm.Manager, storefront func() string) playback.Engine {
+	preview, err := playback.PreviewEnv(os.Getenv(playback.EnvPreview))
+	if err != nil {
+		log.Warn("playback", "err", err)
+	}
+	if preview {
+		log.Info("playback: preview mode: every song plays its 30-second preview", "env", playback.EnvPreview)
+	}
 	return native.New(native.Options{
 		Client:      api,
 		CDM:         src,
 		Logger:      log,
 		IdleTimeout: time.Duration(cur.EngineIdleMinutes) * time.Minute,
 		Quality:     applemusic.Quality(cur.AudioQuality),
+		Preview:     preview,
+		Storefront:  storefront,
 	})
 }
 

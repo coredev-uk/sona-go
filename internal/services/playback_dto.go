@@ -103,6 +103,10 @@ type PlaybackState struct {
 	// download failed: "cdm:status" says which); the item waits, paused,
 	// until a play succeeds.
 	NoCDM bool `json:"noCdm"`
+	// Preview: the current song plays as Apple's 30-second preview, not
+	// the full track (a test or development engine: SONA_PREVIEW=1); the
+	// player labels it, and nothing reports it as a play.
+	Preview bool `json:"preview"`
 	// AutoPlay: similar music continues when the queue ends.
 	AutoPlay bool `json:"autoPlay"`
 	// Station feeding the queue, nil when none.

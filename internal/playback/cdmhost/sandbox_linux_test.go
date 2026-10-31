@@ -481,7 +481,7 @@ func TestCDMRefusedWithoutSeccomp(t *testing.T) {
 	}
 	for _, sb := range []Sandbox{{Reason: "seccomp filter not installed: test"}, {Seccomp: true}, {InetDenied: true}} {
 		s := &server{log: slog.New(slog.DiscardHandler), sandbox: sb}
-		info, err := s.open(cdm)
+		info, err := s.open(cdm, false)
 		if !errors.Is(err, ErrSandbox) || s.cdm != nil {
 			t.Fatalf("%+v: open = %v", sb, err)
 		}

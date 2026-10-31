@@ -172,7 +172,7 @@ func (s *server) handle(r request) reply {
 		if r.EQ != nil {
 			s.eq = *r.EQ
 		}
-		info, err := s.open(r.CDMPath)
+		info, err := s.open(r.CDMPath, r.Clear)
 		if err != nil {
 			rep := fail(r.ID, err)
 			rep.Info = &info
@@ -356,12 +356,13 @@ func (s *server) needCDM() error {
 }
 
 // open loads the CDM library at lib (the parent chose it: the downloaded
-// CDM, internal/playback/cdm) and builds the
-// output pipeline, unless the child only loads the CDM (cdmOnly). On
+// CDM, internal/playback/cdm) and builds the output pipeline, unless the
+// child only loads the CDM (cdmOnly). A clear host loads no CDM: it plays
+// plain audio only (previews, uploads), and every CDM request fails. On
 // Linux the CDM is loaded only under the seccomp filter that keeps it off
 // the network (ErrSandbox; Sandbox.loadsCDM). A library that is missing
 // or fails to load or initialise is ErrCDMLoad.
-func (s *server) open(lib string) (Info, error) {
+func (s *server) open(lib string, clear bool) (Info, error) {
 	info := Info{PID: os.Getpid(), Sandbox: s.sandbox}
 	if !s.cdmOnly {
 		info.GStreamer = gst.Version()
@@ -369,33 +370,35 @@ func (s *server) open(lib string) (Info, error) {
 	if s.cdm != nil {
 		return s.info, nil
 	}
-	if lib == "" {
-		return info, fmt.Errorf("%w: no CDM library given", ErrCDMLoad)
-	}
-	if st, err := os.Stat(lib); err != nil || !st.Mode().IsRegular() {
-		return info, fmt.Errorf("%w: %s is not a readable file", ErrCDMLoad, lib)
-	}
-	info.CDMPath, info.CDMVersion = lib, cdm.LibraryVersion(lib)
-	if !s.sandbox.loadsCDM() {
-		return info, fmt.Errorf("%w: %s", ErrSandbox, s.sandbox.Reason)
-	}
-	c, err := widevine.Open(lib, s.log)
-	if err != nil {
-		return info, fmt.Errorf("%w: %w", ErrCDMLoad, err)
-	}
-	s.cdm = c
-	info.CDMVersion, info.CDMInterface, info.HostInterface = c.Version(), c.Interface(), c.HostInterface()
-	go func() {
-		for m := range c.Messages() {
-			s.emit(Event{Kind: EventMessage, Session: m.SessionID, Type: int(m.Type), Data: m.Data})
+	if !clear {
+		if lib == "" {
+			return info, fmt.Errorf("%w: no CDM library given", ErrCDMLoad)
 		}
-	}()
-	if s.cdmOnly {
-		s.info = info
-		return info, nil
+		if st, err := os.Stat(lib); err != nil || !st.Mode().IsRegular() {
+			return info, fmt.Errorf("%w: %s is not a readable file", ErrCDMLoad, lib)
+		}
+		info.CDMPath, info.CDMVersion = lib, cdm.LibraryVersion(lib)
+		if !s.sandbox.loadsCDM() {
+			return info, fmt.Errorf("%w: %s", ErrSandbox, s.sandbox.Reason)
+		}
+		c, err := widevine.Open(lib, s.log)
+		if err != nil {
+			return info, fmt.Errorf("%w: %w", ErrCDMLoad, err)
+		}
+		s.cdm = c
+		info.CDMVersion, info.CDMInterface, info.HostInterface = c.Version(), c.Interface(), c.HostInterface()
+		go func() {
+			for m := range c.Messages() {
+				s.emit(Event{Kind: EventMessage, Session: m.SessionID, Type: int(m.Type), Data: m.Data})
+			}
+		}()
+		if s.cdmOnly {
+			s.info = info
+			return info, nil
+		}
 	}
 	s.mu.Lock()
-	err = s.ensurePipeline()
+	err := s.ensurePipeline()
 	if s.pipe != nil {
 		info.Decoder, info.Sink = s.pipe.Decoder(), s.pipe.Sink()
 	}

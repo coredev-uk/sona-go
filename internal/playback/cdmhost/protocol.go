@@ -146,7 +146,10 @@ type request struct {
 	ID      uint64
 	Op      op
 	CDMPath string
-	Sink    string        // audio sink override for opInit
+	Sink    string // audio sink override for opInit
+	// Clear (opInit): the host plays plain audio only (previews, library
+	// uploads) and loads no CDM; CDMPath is ignored.
+	Clear   bool
 	Data    []byte        // certificate, licence, init segment or fragment
 	KID     []byte        // opSession: 16-byte key ID or a whole Widevine pssh box; opFeed: key ID override
 	Init    []byte        // opFeed: a stream's new init segment, applied before Data

@@ -19,6 +19,8 @@
 // The CDM is the one Sona downloads (installed under Sona's data directory,
 // or -cdm-dir, on first use).
 //
+//	playspike -preview [-storefront gb]        30-second previews: developer token only (no MUSIC_USER_TOKEN, .env or CDM)
+//
 //	playspike -activity [-private=false]       play activity, private by default (Recently Played must stay unchanged)
 //
 //	playspike -soak 3h [-soak-items ID,ID,…]   long session: licence renewals and stalls
@@ -67,6 +69,8 @@ func main() {
 	soakItems := flag.String("soak-items", "", "comma-separated song or station (ra.…) IDs for -soak")
 	probeLossless := flag.String("probe-lossless", "", "catalog song ID: request a Widevine licence for every key of its enhancedHls (lossless/Atmos) master and print the results")
 	verbose := flag.Bool("v", false, "debug logging")
+	preview := flag.Bool("preview", false, "play -song (or -term's hit), then -next (or -next-term's), as 30-second previews with the developer token only: no MUSIC_USER_TOKEN, .env, CDM or licence; checks that none is requested")
+	storefront := flag.String("storefront", "us", "with -preview: the catalog storefront songs are looked up in")
 	flag.StringVar(&outputDevice, "device", "", deviceHelp)
 	flag.Parse()
 
@@ -81,8 +85,20 @@ func main() {
 		log.Error("playspike: -quality must be 256 or 64", "quality", *quality)
 		os.Exit(2)
 	}
-	// The default and -activity modes end with the licence verdict.
+	// The default, -preview and -activity modes end with the licence verdict.
 	verdict := *probeLossless == "" && *soak <= 0
+	if *preview {
+		// No CDM: a computer that never downloaded one plays previews.
+		err = runPreview(log, *storefront, *songID, *term, *nextID, *nextTerm, *listen)
+		if err != nil {
+			log.Error("playspike failed", "err", err)
+		}
+		fmt.Println(licences.verdict(err))
+		if err != nil {
+			os.Exit(1)
+		}
+		return
+	}
 	lib, err := cdmLibrary(log, *cdmDir)
 	if err != nil {
 		log.Error("playspike: Widevine CDM", "code", cdm.CodeOf(err), "err", err)

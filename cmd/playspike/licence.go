@@ -25,6 +25,9 @@ type licenceTap struct {
 
 	mu        sync.Mutex
 	exchanges []licenceExchange
+	// drm counts requests for full-track playback: webPlayback and the
+	// Widevine service certificate (a preview run must make none).
+	drm int
 }
 
 // licenceExchange is one answer from Apple's licence server.
@@ -50,6 +53,11 @@ func isLicence(r *http.Request) bool {
 
 func (t *licenceTap) RoundTrip(r *http.Request) (*http.Response, error) {
 	resp, err := t.next.RoundTrip(r)
+	if p := strings.ToLower(r.URL.Path); strings.Contains(p, "webplayback") || strings.Contains(p, "widevine") {
+		t.mu.Lock()
+		t.drm++
+		t.mu.Unlock()
+	}
 	if !isLicence(r) {
 		return resp, err
 	}
@@ -100,6 +108,14 @@ func (t *licenceTap) record(x licenceExchange) {
 		kv = append(kv, "err", fmt.Sprintf("%q", x.Err))
 	}
 	step("licence exchange", kv...)
+}
+
+// requests returns how many licence exchanges and other full-track
+// playback requests (drm) went out.
+func (t *licenceTap) requests() (licences, drm int) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return len(t.exchanges), t.drm
 }
 
 // summarize collapses whitespace and keeps the first bodySummary bytes.

@@ -102,6 +102,9 @@
 // play-activity reporter, History, the scrobbler and the Discord presence;
 // a toggle applies from the next event and a listen private at any point
 // stays private. A development build's toggle never writes the setting.
+// A song playing as its 30-second preview (SONA_PREVIEW=1, PlaybackState
+// preview) never reaches a reporter: the coordinator reports no activity
+// and no OnPlayed for it.
 //
 // DTO rules: durations and timestamps in integer milliseconds (timestamps
 // as Unix ms, 0 when unknown); artwork and motion artwork only as

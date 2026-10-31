@@ -98,7 +98,10 @@ src/
                           exports the playback mirror and lyrics for the mini player;
                           CdmNotice: the bar's line while a song waits for the Widevine
                           CDM (snapshot noCdm: downloading with its progress, failed, or
-                          ready for another press of play), linking to Settings → Playback
+                          ready for another press of play), linking to Settings → Playback;
+                          "Preview" beside the title (PreviewMark, shared/components/Badges,
+                          Apple's word) while the song plays as its 30-second preview
+                          (snapshot preview: SONA_PREVIEW=1)
     cdm                   the Widevine CDM Sona downloads from Google: Go's CDMService
                           mirrored from cdm:status (useCdm; CDMService.Status in init),
                           retryCdm, cdmProgress/cdmPercent, canRetryCdm, and cdmProblem

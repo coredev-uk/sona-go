@@ -37,6 +37,10 @@ type Status struct {
 	Volume    float64 // 0..1, the slider position (see VolumeGain)
 	UpdatedAt time.Time
 	Err       string // set with StateError
+	// Preview: the item plays as Apple's 30-second preview of the song
+	// (plain AAC, no DRM, no licence), not the full track. A preview is
+	// not a play: nothing reports it (play activity, history, scrobbles).
+	Preview bool
 }
 
 // ClampVolume clamps a volume to [0, 1]. NaN, which min and max pass

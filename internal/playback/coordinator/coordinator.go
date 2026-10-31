@@ -276,6 +276,7 @@ func (c *Coordinator) Snapshot() Snapshot {
 		Error:          c.lastErr,
 		AuthRequired:   c.auth,
 		NoCDM:          c.noCDM,
+		Preview:        c.index >= 0 && c.st.Preview,
 		AutoPlay:       c.autoplay,
 		Restricted:     c.restricted,
 		CanUndoReplace: c.undo != nil,
@@ -1124,7 +1125,8 @@ func (c *Coordinator) selectLocked(i int, pos time.Duration, fresh bool, s playb
 		c.playedFor = 0
 	}
 	c.playingSince = time.Time{}
-	c.st = playback.Status{State: s, ItemID: e.item.ID, Position: pos, Duration: e.item.Duration, Volume: c.volume, UpdatedAt: time.Now()}
+	// The engine's preview mode carries over until it reports on this item.
+	c.st = playback.Status{State: s, ItemID: e.item.ID, Position: pos, Duration: e.item.Duration, Volume: c.volume, UpdatedAt: time.Now(), Preview: c.st.Preview}
 	c.loaded, c.auth, c.noCDM, c.preloaded = false, false, false, 0
 	c.schedulePreloadLocked()
 }
@@ -1166,9 +1168,10 @@ func (c *Coordinator) applyLocked(s playback.Status) {
 	if s.State == playback.StatePlaying {
 		c.failures, c.lastErr = 0, ""
 	}
-	// Loading (buffering, seeking) keeps a listen open; only a real stop ends it.
+	// Loading (buffering, seeking) keeps a listen open; only a real stop
+	// ends it. A preview is not a listen: no observer hears of it.
 	switch {
-	case s.State == playback.StatePlaying && !c.actOpen && c.index >= 0:
+	case s.State == playback.StatePlaying && !c.actOpen && c.index >= 0 && !s.Preview:
 		c.actOpen, c.actItem = true, c.queue[c.index].item
 		c.addActLocked(Activity{Kind: ActivityStart, Item: c.actItem, Position: s.Position, Duration: s.Duration, At: now})
 	case s.State == playback.StatePaused:
@@ -1281,7 +1284,8 @@ func (c *Coordinator) listenedLocked(now time.Time) time.Duration {
 
 // finalizeLocked ends the current item's listen (closing an open activity
 // with reason) and, if it counts, records it in the session history and
-// returns the OnPlayed call to make after unlocking.
+// returns the OnPlayed call to make after unlocking. A preview never
+// counts.
 func (c *Coordinator) finalizeLocked(completed bool, reason EndReason) func() {
 	if c.index < 0 {
 		return nil
@@ -1295,7 +1299,7 @@ func (c *Coordinator) finalizeLocked(completed bool, reason EndReason) func() {
 	}
 	item := c.queue[c.index].item
 	dur := cmp.Or(c.st.Duration, item.Duration)
-	if !completed && played < HistoryMin && (dur <= 0 || played < dur/2) {
+	if c.st.Preview || (!completed && played < HistoryMin && (dur <= 0 || played < dur/2)) {
 		return nil
 	}
 	c.history = slices.Insert(c.history, 0, item)

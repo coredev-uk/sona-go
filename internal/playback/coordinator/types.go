@@ -122,6 +122,9 @@ type Snapshot struct {
 	// (playback.ErrNoCDM: downloading, or the download failed); the item
 	// stays selected and paused until a play succeeds.
 	NoCDM bool `json:"noCdm"`
+	// Preview: the current item plays as its 30-second preview
+	// (playback.Status.Preview); nothing reports it as a play.
+	Preview bool `json:"preview"`
 	// Station is the station feeding the queue (nil when none).
 	Station *Station `json:"station"`
 	// AutoPlay: when the user's queue ends, similar music keeps playing.

@@ -32,6 +32,10 @@ type Options struct {
 	// choice: internal/playback/cdm). Its directory stays readable in the
 	// child's sandbox.
 	CDMPath string
+	// Clear starts a host that loads no CDM: it plays plain audio only
+	// (song previews, library uploads: LoadFile), so it needs no CDM
+	// downloaded. CDMPath is ignored. The sandbox is the same.
+	Clear bool
 	// Sink overrides the GStreamer sink (e.g. "fakesink" in tests).
 	Sink string
 	// Device is the output to play to: a PipeWire sink's node.name on
@@ -124,15 +128,18 @@ func childEnv(log *slog.Logger) []string {
 	return append(env, EnvChild+"=1", envLogLevel+"="+level.String())
 }
 
-// Start spawns a child, loads the CDM and builds the audio pipeline. The
-// child exits when the Host is closed or the parent dies.
+// Start spawns a child, loads the CDM (unless Clear) and builds the audio
+// pipeline. The child exits when the Host is closed or the parent dies.
 func Start(ctx context.Context, o Options) (*Host, error) {
+	if o.Clear {
+		o.CDMPath = ""
+	}
 	h, err := spawn(o)
 	if err != nil {
 		return nil, err
 	}
 	eq := o.Equalizer
-	r, err := h.call(ctx, request{Op: opInit, CDMPath: o.CDMPath, Sink: o.Sink, Device: o.Device, EQ: &eq})
+	r, err := h.call(ctx, request{Op: opInit, CDMPath: o.CDMPath, Clear: o.Clear, Sink: o.Sink, Device: o.Device, EQ: &eq})
 	if r.Info != nil {
 		h.info = *r.Info
 	}
@@ -732,14 +739,18 @@ func (h *Host) Kill() error {
 
 // Probe spawns a child to report the CDM and audio stack for Diagnostics:
 // CDM path and version, whether it initialised (err nil), GStreamer version,
-// decoder and sink. The returned Info is filled as far as the child got.
+// decoder and sink; with o.Clear, the audio stack alone. The returned Info
+// is filled as far as the child got.
 func Probe(ctx context.Context, o Options) (Info, error) {
+	if o.Clear {
+		o.CDMPath = ""
+	}
 	h, err := spawn(o)
 	if err != nil {
 		return Info{}, err
 	}
 	defer h.Close()
-	r, err := h.call(ctx, request{Op: opInit, CDMPath: o.CDMPath, Sink: o.Sink})
+	r, err := h.call(ctx, request{Op: opInit, CDMPath: o.CDMPath, Clear: o.Clear, Sink: o.Sink})
 	var info Info
 	if r.Info != nil {
 		info = *r.Info

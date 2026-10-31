@@ -23,12 +23,14 @@ import (
 // asset whose URL is the file. The engine downloads the file once into
 // memory (it is not protected content) and streams the bytes to the host,
 // which decodes them itself without the CDM. Seeks happen in the host,
-// within the bytes it has, so the stream to it never restarts.
+// within the bytes it has, so the stream to it never restarts. Song
+// previews (preview.go) take the same path.
 
 // fileChunk is the most file bytes sent to the host in one request.
 const fileChunk = 256 << 10
 
-// upload is a library upload's file being downloaded.
+// upload is a plain audio file being downloaded: a library upload's, or a
+// song's preview.
 type upload struct {
 	url    string
 	cancel context.CancelFunc // ends the download
@@ -45,6 +47,13 @@ type upload struct {
 func (u *upload) signal() {
 	close(u.wake)
 	u.wake = make(chan struct{})
+}
+
+// downloaded returns the part of the file downloaded so far.
+func (u *upload) downloaded() []byte {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return u.data[:u.n]
 }
 
 // wait blocks until more than from bytes are downloaded or the download
@@ -85,9 +94,19 @@ func (u *upload) sized(ctx context.Context) (int64, error) {
 // prepareUpload starts downloading the upload info describes and returns
 // once its length is known.
 func (e *Engine) prepareUpload(ctx context.Context, m *media, info applemusic.PlaybackInfo) error {
+	if err := e.prepareFile(ctx, m, info.PlaylistURL); err != nil {
+		return fmt.Errorf("native: upload %s: %w", m.id, err)
+	}
+	m.info = info
+	return nil
+}
+
+// prepareFile starts downloading the plain audio file at url (an upload,
+// or a song's preview) into m.file and returns once its length is known.
+func (e *Engine) prepareFile(ctx context.Context, m *media, url string) error {
 	dctx, cancel := context.WithCancel(e.bg)
-	u := &upload{url: info.PlaylistURL, cancel: cancel, wake: make(chan struct{}), size: -1}
-	diag.Go(e.log, "upload download", func() { e.download(dctx, u) })
+	u := &upload{url: url, cancel: cancel, wake: make(chan struct{}), size: -1}
+	diag.Go(e.log, "file download", func() { e.download(dctx, u) })
 	size, err := u.sized(ctx)
 	if err == nil {
 		// Sound Check tags sit in the file's head (an MP4 movie box written
@@ -99,14 +118,14 @@ func (e *Engine) prepareUpload(ctx context.Context, m *media, info applemusic.Pl
 	}
 	if err != nil {
 		cancel()
-		return fmt.Errorf("native: upload %s: %w", m.id, err)
+		return err
 	}
-	m.info, m.file = info, u
-	e.log.Debug("prepared upload", "id", m.id, "bytes", size, "gain", m.gain)
+	m.file = u
+	e.log.Debug("prepared file", "id", m.id, "bytes", size, "gain", m.gain)
 	return nil
 }
 
-// soundCheckHead is how much of an upload is read for its Sound Check tag
+// soundCheckHead is how much of a file is read for its Sound Check tag
 // before it starts.
 const soundCheckHead = 1 << 20
 
@@ -118,7 +137,7 @@ func (e *Engine) download(ctx context.Context, u *upload) {
 		if err = e.downloadOnce(ctx, u); err == nil || attempt >= len(e.retry) || !retryable(err) || ctx.Err() != nil {
 			break
 		}
-		e.log.Debug("retrying upload download", "err", err, "in", e.retry[attempt])
+		e.log.Debug("retrying file download", "err", err, "in", e.retry[attempt])
 		select {
 		case <-time.After(e.retry[attempt]):
 		case <-ctx.Done():
@@ -161,7 +180,7 @@ func (e *Engine) downloadOnce(ctx context.Context, u *upload) error {
 		}
 	default:
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
-		return &httpError{url: "upload", code: resp.StatusCode}
+		return &httpError{url: "file", code: resp.StatusCode}
 	}
 	u.mu.Lock()
 	if u.size < 0 {
@@ -186,12 +205,12 @@ func (e *Engine) downloadOnce(ctx context.Context, u *upload) error {
 		}
 		if errors.Is(err, io.EOF) {
 			if from < len(data) {
-				return fmt.Errorf("GET upload: %w after %d of %d bytes", io.ErrUnexpectedEOF, from, len(data))
+				return fmt.Errorf("GET file: %w after %d of %d bytes", io.ErrUnexpectedEOF, from, len(data))
 			}
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("GET upload: %w", err)
+			return fmt.Errorf("GET file: %w", err)
 		}
 	}
 	return nil
@@ -202,7 +221,7 @@ func (e *Engine) downloadOnce(ctx context.Context, u *upload) error {
 func (e *Engine) downloadUnsized(u *upload, body io.Reader) error {
 	b, err := io.ReadAll(body)
 	if err != nil {
-		return fmt.Errorf("GET upload: %w", err)
+		return fmt.Errorf("GET file: %w", err)
 	}
 	u.mu.Lock()
 	u.data, u.n, u.size = b, len(b), int64(len(b))
@@ -219,7 +238,7 @@ func (e *Engine) load(ctx context.Context, h host, tok uint64, m *media, pos tim
 	return h.Load(ctx, tok, m.hostMedia(m.init), pos)
 }
 
-// feedFile streams the upload m to the host as it downloads, for the file
+// feedFile streams the file m to the host as it downloads, for the file
 // loaded as track tok. Seeks keep it running.
 func (e *Engine) feedFile(ctx context.Context, it *item, tok uint64, h host, m *media) {
 	failed := func(err error) {
@@ -230,7 +249,7 @@ func (e *Engine) feedFile(ctx context.Context, it *item, tok uint64, h host, m *
 	for off := 0; ; {
 		data, done, err := m.file.wait(ctx, off)
 		if err != nil {
-			failed(fmt.Errorf("native: upload %s: %w", m.id, err))
+			failed(fmt.Errorf("native: file %s: %w", m.id, err))
 			return
 		}
 		for off < len(data) {

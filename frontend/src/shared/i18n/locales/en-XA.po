@@ -686,6 +686,10 @@ msgstr ""
 msgid "Apple Music subscription required"
 msgstr ""
 
+#: src/shared/components/Badges.tsx
+msgid "Apple Music's 30-second preview, not the full song"
+msgstr ""
+
 #: src/features/auth/Account.tsx
 msgid "Apple sent a {len}-digit code to {phone} by text message."
 msgstr ""
@@ -3482,6 +3486,11 @@ msgstr ""
 
 #: src/features/settings/Shortcuts.tsx
 msgid "Press the new keys. Esc cancels, Backspace removes the shortcut."
+msgstr ""
+
+#: src/shared/components/Badges.tsx
+msgctxt "a song playing as its 30-second preview"
+msgid "Preview"
 msgstr ""
 
 #: src/features/miniplayer/MiniPlayer.tsx

@@ -30,6 +30,7 @@ type fakeEngine struct {
 	failPlay map[string]error
 	next     playback.Next // armed by SetNext
 	volumes  []float64     // SetVolume calls
+	preview  bool          // every item plays its 30 s preview
 }
 
 func newFake() *fakeEngine {
@@ -72,6 +73,9 @@ func (f *fakeEngine) Play(_ context.Context, id string, start time.Duration) err
 		return err
 	}
 	f.st = playback.Status{State: playback.StatePlaying, ItemID: id, Position: start, Duration: durationOf(id), Volume: f.st.Volume, UpdatedAt: time.Now()}
+	if f.preview {
+		f.st.Duration, f.st.Preview = previewLength, true
+	}
 	f.emitLocked(playback.EventItem)
 	return nil
 }
@@ -220,6 +224,9 @@ func durationOf(id string) time.Duration {
 	}
 	return 100 * time.Second
 }
+
+// previewLength is the length of the fake's previews.
+const previewLength = 30 * time.Second
 
 func items(ids ...string) []Item {
 	out := make([]Item, len(ids))

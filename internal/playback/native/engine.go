@@ -6,7 +6,9 @@
 // certificate, licences, HLS playlists and encrypted segments. A cdmhost
 // child process holds the Widevine CDM, decrypts, and plays the audio
 // through GStreamer. The child is started on first use, shut down after an
-// idle period, and restarted transparently after a crash.
+// idle period, and restarted transparently after a crash. In preview mode
+// (Options.Preview, preview.go) every song plays as its 30-second preview
+// through a child that loads no CDM.
 package native
 
 import (
@@ -53,7 +55,8 @@ type Options struct {
 	// HTTP fetches playlists and segments from Apple's CDN, which needs no
 	// credentials. Nil uses a client with sane timeouts.
 	HTTP *http.Client
-	// CDM names the Widevine CDM each host loads (required).
+	// CDM names the Widevine CDM each host loads (required unless
+	// Preview).
 	CDM    CDMSource
 	Logger *slog.Logger
 	// IdleTimeout ends the host process after this long idle, paused or
@@ -65,6 +68,14 @@ type Options struct {
 	// Quality is the AAC bitrate of the Widevine flavor to play; zero
 	// means 256 kbps. SetQuality changes it for later items.
 	Quality applemusic.Quality
+	// Preview plays every song as Apple's 30-second preview (preview.go):
+	// no CDM, no licence and no Music User Token, only the developer
+	// token. Tests, CI and smoke runs use it (SONA_PREVIEW=1, playspike
+	// -preview).
+	Preview bool
+	// Storefront returns the catalog storefront previews are looked up
+	// in (required with Preview).
+	Storefront func() string
 }
 
 // Defaults for Options.
@@ -114,6 +125,8 @@ type Engine struct {
 	readAhead int
 	spawn     func(ctx context.Context, lib string) (host, error)
 	cdm       CDMSource
+	preview   bool          // Options.Preview
+	sf        func() string // Options.Storefront
 	// probe is cdmhost.Probe (Diagnose).
 	probe func(ctx context.Context, o cdmhost.Options) (cdmhost.Info, error)
 
@@ -187,13 +200,15 @@ func New(o Options) *Engine {
 		retry:     retryDelays,
 		probe:     cdmhost.Probe,
 		cdm:       o.CDM,
+		preview:   o.Preview,
+		sf:        o.Storefront,
 	}
 	e.bg, e.stopBG = context.WithCancel(context.Background())
 	e.spawn = func(ctx context.Context, lib string) (host, error) {
 		e.mu.Lock()
 		eq, dev := e.eq, e.device
 		e.mu.Unlock()
-		return cdmhost.Start(ctx, cdmhost.Options{CDMPath: lib, Logger: log, Device: dev, Equalizer: eq})
+		return cdmhost.Start(ctx, cdmhost.Options{CDMPath: lib, Clear: e.preview, Logger: log, Device: dev, Equalizer: eq})
 	}
 	return e
 }
@@ -315,7 +330,7 @@ func (e *Engine) Play(ctx context.Context, id string, start time.Duration) error
 	it.tok = e.track
 	e.cur = it
 	e.stopIdle()
-	e.st = playback.Status{State: playback.StateLoading, ItemID: id, Position: max(start, 0), Volume: e.st.Volume, UpdatedAt: time.Now()}
+	e.st = playback.Status{State: playback.StateLoading, ItemID: id, Position: max(start, 0), Volume: e.st.Volume, UpdatedAt: time.Now(), Preview: e.preview}
 	if m := e.cache[id]; m != nil && m.done() && m.err == nil {
 		e.st.Duration = m.duration
 	}
@@ -813,14 +828,18 @@ func (e *Engine) ensureHost(ctx context.Context) (host, int, error) {
 	}
 	e.mu.Unlock()
 	// The CDM is chosen per host: a version installed since the last one
-	// started applies now, never to a running host.
-	lib, err := e.cdm.Library(ctx)
-	if err != nil {
-		return nil, 0, fmt.Errorf("native: start playback host: %w", err)
+	// started applies now, never to a running host. Previews need none.
+	var lib string
+	if !e.preview {
+		var err error
+		if lib, err = e.cdm.Library(ctx); err != nil {
+			return nil, 0, fmt.Errorf("native: start playback host: %w", err)
+		}
 	}
 	t0 := time.Now()
 	h, err := e.spawn(ctx, lib)
 	switch {
+	case e.preview:
 	case err == nil:
 		e.cdm.ReportInit(lib, nil)
 	case ctx.Err() == nil && (errors.Is(err, cdmhost.ErrCDMLoad) || errors.Is(err, cdmhost.ErrExited)):
@@ -841,7 +860,7 @@ func (e *Engine) ensureHost(ctx context.Context) (host, int, error) {
 	e.mu.Unlock()
 	info := h.Info()
 	e.log.Info("playback host started", "pid", info.PID, "cdm", info.CDMVersion, "cdm_path", info.CDMPath,
-		"sink", info.Sink, "decoder", info.Decoder, "took", time.Since(t0))
+		"preview", e.preview, "sink", info.Sink, "decoder", info.Decoder, "took", time.Since(t0))
 	go e.watch(h, gen)
 	if vol != 1 {
 		_ = h.SetVolume(ctx, playback.VolumeGain(vol))
@@ -893,8 +912,9 @@ func (e *Engine) handle(h host, gen int, ev cdmhost.Event) {
 	if it.tok != ev.Track {
 		return
 	}
-	if ev.Duration > 0 && it.m != nil && it.m.file != nil && ev.Duration != e.st.Duration {
-		// An upload's length comes from the host's demuxer.
+	if ev.Duration > 0 && it.m != nil && it.m.file != nil && !it.m.clip && ev.Duration != e.st.Duration {
+		// An upload's length comes from the host's demuxer (a preview's
+		// from its movie header: see media.clip).
 		it.m.duration, e.st.Duration = ev.Duration, ev.Duration
 		if ev.Kind == cdmhost.EventPosition {
 			e.emit(playback.EventState)

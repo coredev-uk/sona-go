@@ -19,8 +19,9 @@ import (
 func childMain() {}
 
 // newEngine is the engine for a platform without one: every play fails
-// with playback.ErrUnsupported. It needs no CDM, so nothing is downloaded.
-func newEngine(*applemusic.Client, config.Settings, *slog.Logger, *cdm.Manager) playback.Engine {
+// with playback.ErrUnsupported, previews too. It needs no CDM, so nothing
+// is downloaded.
+func newEngine(*applemusic.Client, config.Settings, *slog.Logger, *cdm.Manager, func() string) playback.Engine {
 	return playback.NewUnsupported()
 }
 

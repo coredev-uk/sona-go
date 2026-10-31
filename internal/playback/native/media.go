@@ -52,6 +52,9 @@ type media struct {
 	// trim: duration is the audio between the encoder's priming and
 	// padding, which the host trims (songs; streams play every sample).
 	trim bool
+	// clip: a song's preview, whose duration is its movie header's
+	// (preview.go): the host's demuxer would report the whole song's.
+	clip bool
 }
 
 func (m *media) done() bool {
@@ -172,6 +175,9 @@ func (e *Engine) dropLocked(m *media) {
 func (e *Engine) prepare(ctx context.Context, m *media) error {
 	if e.api == nil {
 		return errors.New("native: no Apple Music client")
+	}
+	if e.preview {
+		return e.preparePreview(ctx, m)
 	}
 	if IsStation(m.id) {
 		return e.prepareStream(ctx, m)
@@ -377,7 +383,7 @@ func (e *Engine) fetchOnce(ctx context.Context, url string, r hls.ByteRange) ([]
 // prefetchCert fetches the default service certificate in the background so
 // the first licence does not wait for it.
 func (e *Engine) prefetchCert() {
-	if e.api == nil {
+	if e.api == nil || e.preview {
 		return
 	}
 	go func() {

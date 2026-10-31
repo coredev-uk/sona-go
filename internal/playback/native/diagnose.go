@@ -15,22 +15,26 @@ import (
 const probeTimeout = 15 * time.Second
 
 // Diagnose checks the playback stack: whether a host is running, and a
-// throwaway probe host that loads the CDM a new host would load and
-// reports the CDM, GStreamer, decoder, sink and sandbox. It returns the
-// probe's error alongside what the probe got as far as reporting; with no
-// CDM ready (the CDM source's error) there is no probe.
+// throwaway probe host that loads the CDM a new host would load (none
+// when playing previews) and reports the CDM, GStreamer, decoder, sink
+// and sandbox. It returns the probe's error alongside what the probe got
+// as far as reporting; with no CDM ready (the CDM source's error) there
+// is no probe.
 func (e *Engine) Diagnose(ctx context.Context) (playback.Diagnosis, error) {
 	var d playback.Diagnosis
 	if info, running := e.Host(); running {
 		d.HostRunning, d.HostPID = true, info.PID
 	}
-	lib, err := e.cdm.Library(ctx)
-	if err != nil {
-		return d, err
+	var lib string
+	if !e.preview {
+		var err error
+		if lib, err = e.cdm.Library(ctx); err != nil {
+			return d, err
+		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
-	info, err := e.probe(ctx, cdmhost.Options{CDMPath: lib, Logger: e.log})
+	info, err := e.probe(ctx, cdmhost.Options{CDMPath: lib, Clear: e.preview, Logger: e.log})
 	d.CDMPath, d.CDMVersion = info.CDMPath, info.CDMVersion
 	if d.CDMPath == "" {
 		// The child never got far enough to say.
