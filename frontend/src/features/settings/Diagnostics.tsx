@@ -43,14 +43,26 @@ const NETNS_NOTE = "network namespace";
 // eslint-disable-next-line lingui/no-unlocalized-strings -- environment variable names, not prose
 const WEBKIT_ENV = ["WEBKIT_DISABLE_DMABUF_RENDERER", "WEBKIT_DISABLE_COMPOSITING_MODE"] as const;
 
-/** The playback host's confinement: namespaces, Landlock and seccomp (cdmhost.Sandbox). */
+/**
+ * The playback host's confinement (cdmhost.Sandbox): namespaces, Landlock
+ * and seccomp on Linux; macOS's sandbox-exec profile, or none, on macOS.
+ */
 function sandboxRow(p: Diagnostics["playback"]): Row {
   const label = t`Host sandbox`;
   if (p.sandboxed)
-    return { label, value: t`Sandboxed · no network or session access`, status: "ok" };
+    return p.sandboxKind === "seatbelt"
+      ? { label, value: t`Sandboxed by macOS · no network or keychain access`, status: "ok" }
+      : { label, value: t`Sandboxed · no network or session access`, status: "ok" };
   if (!p.sandboxNote) return { label, value: t`Unknown (the host did not start)` };
   const note = p.sandboxNote;
   if (p.cdmBlocked) return { label, value: t`Not sandboxed`, status: "error", detail: note };
+  if (p.sandboxKind === "none")
+    return {
+      label,
+      value: t`Not sandboxed`,
+      status: "warning",
+      detail: t`${note}. Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works.`,
+    };
   return {
     label,
     value: t`Not fully sandboxed`,

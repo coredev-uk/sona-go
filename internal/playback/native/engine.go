@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || (darwin && cgo)
 
 // Package native is Sona's CDM host playback engine, the Linux
 // implementation of playback.Engine. The parent process (this package)

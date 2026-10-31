@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || (darwin && cgo)
 
 package native
 
@@ -38,6 +38,9 @@ func (e *Engine) Diagnose(ctx context.Context) (playback.Diagnosis, error) {
 	}
 	d.CDMInterface, d.HostInterface = info.CDMInterface, info.HostInterface
 	d.GStreamer, d.Decoder, d.Sink = info.GStreamer, info.Decoder, info.Sink
+	if info.PID != 0 { // a probe child started
+		d.Sandbox = info.Sandbox.Kind()
+	}
 	d.Sandboxed, d.SandboxNote = info.Sandbox.Active(), info.Sandbox.Reason
 	d.Blocked = errors.Is(err, cdmhost.ErrSandbox)
 	return d, err

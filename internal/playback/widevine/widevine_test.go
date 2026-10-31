@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || (darwin && cgo)
 
 package widevine
 
@@ -79,4 +79,14 @@ func TestCDM(t *testing.T) {
 		t.Fatal("no CDM timer fired within 3s")
 	}
 	t.Logf("timers fired: %d", c.TimersFired())
+}
+
+func TestKeyStatusString(t *testing.T) {
+	for s, want := range map[KeyStatus]string{
+		KeyUsable: "usable", KeyOutputRestricted: "output-restricted", KeyInternalError: "internal-error", 9: "key-status-9",
+	} {
+		if got := s.String(); got != want {
+			t.Errorf("KeyStatus(%d) = %q, want %q", int(s), got, want)
+		}
+	}
 }

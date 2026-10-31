@@ -1779,17 +1779,26 @@ export class DiagPlayback {
     "audioQuality": number;
 
     /**
-     * Sandboxed: the playback child runs with every sandbox layer (its
-     * own network and mount namespace, Landlock, the seccomp filter that
-     * refuses network sockets). SandboxNote says what is missing
-     * otherwise ("" when the probe child never started).
+     * SandboxKind is how the playback child is confined: "linux" (its own
+     * network and mount namespace, Landlock, the seccomp filter that
+     * refuses network sockets), "seatbelt" (macOS: sandbox-exec with
+     * Sona's profile: no network, no access to Sona's folder or the
+     * keychain), "none" (macOS without a working sandbox-exec: the child
+     * runs unconfined) or "" when the probe child never started.
+     */
+    "sandboxKind": string;
+
+    /**
+     * Sandboxed: every layer of SandboxKind is in place. SandboxNote says
+     * what is missing otherwise ("" when the probe child never started).
      */
     "sandboxed": boolean;
     "sandboxNote": string;
 
     /**
      * CDMBlocked: the child refused to load the CDM because its seccomp
-     * filter is missing (cdmhost.ErrSandbox); SandboxNote says why.
+     * filter is missing (cdmhost.ErrSandbox, Linux only); SandboxNote says
+     * why.
      */
     "cdmBlocked": boolean;
 
@@ -1836,6 +1845,9 @@ export class DiagPlayback {
         }
         if (!("audioQuality" in $$source)) {
             this["audioQuality"] = 0;
+        }
+        if (!("sandboxKind" in $$source)) {
+            this["sandboxKind"] = "";
         }
         if (!("sandboxed" in $$source)) {
             this["sandboxed"] = false;

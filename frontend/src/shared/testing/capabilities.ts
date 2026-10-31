@@ -55,3 +55,16 @@ export function bareCapabilities(os = "darwin"): Capabilities {
     webkitGtk: false,
   };
 }
+
+/**
+ * macOS (a development build): the CDM engine without the output device
+ * choice, the tray, and no other desktop services.
+ */
+export function macCapabilities(): Capabilities {
+  return {
+    ...bareCapabilities("darwin"),
+    playback: { ...linuxCapabilities().playback, outputDevice: false },
+    tray: true,
+    discordPresence: true,
+  };
+}

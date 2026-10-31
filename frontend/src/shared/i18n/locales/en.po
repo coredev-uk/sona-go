@@ -241,6 +241,10 @@ msgid "{name}, {artist}, skipped: explicit"
 msgstr "{name}, {artist}, skipped: explicit"
 
 #: src/features/settings/Diagnostics.tsx
+msgid "{note}. Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works."
+msgstr "{note}. Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works."
+
+#: src/features/settings/Diagnostics.tsx
 msgid "{note}. Playback still works."
 msgstr "{note}. Playback still works."
 
@@ -3817,6 +3821,10 @@ msgstr "Running · pid {hostPid}"
 #: src/features/settings/Diagnostics.tsx
 msgid "Sandboxed · no network or session access"
 msgstr "Sandboxed · no network or session access"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Sandboxed by macOS · no network or keychain access"
+msgstr "Sandboxed by macOS · no network or keychain access"
 
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "Save"

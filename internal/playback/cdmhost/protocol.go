@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || (darwin && cgo)
 
 // Package cdmhost runs protected playback in a child process: the same
 // executable re-executed with EnvChild set. The child loads the Widevine CDM,

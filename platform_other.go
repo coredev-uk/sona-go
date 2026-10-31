@@ -3,7 +3,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -12,19 +11,16 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/coredev-uk/sona-go/internal/app"
-	"github.com/coredev-uk/sona-go/internal/applemusic"
-	"github.com/coredev-uk/sona-go/internal/config"
-	"github.com/coredev-uk/sona-go/internal/playback"
-	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 	"github.com/coredev-uk/sona-go/internal/services"
 )
 
-// macOS and Windows (and any other OS): the UI without playback. Sona has
-// no playback engine, media controls, notifications, sleep inhibitor,
-// power monitor, file chooser, autostart entry, single instance or
-// command transport here yet; each is absent from services.Platform, so
-// Capabilities reports it and the frontend hides or explains it. The
-// tray is Wails' own on every OS.
+// macOS and Windows (and any other OS): the UI without the desktop
+// integrations. Sona has no media controls, notifications, sleep
+// inhibitor, power monitor, file chooser, autostart entry, single
+// instance or command transport here yet; each is absent from
+// services.Platform, so Capabilities reports it and the frontend hides or
+// explains it. The tray is Wails' own on every OS. The playback engine is
+// engine_cdm.go's on macOS, engine_other.go's elsewhere.
 
 var (
 	linuxOptions application.LinuxOptions
@@ -38,24 +34,11 @@ var (
 	}
 )
 
-// childMain does nothing: there is no CDM host child here.
-func childMain() {}
-
 // runCommand fails: there is no transport to a running instance here.
 func runCommand(args []string) int {
 	_, _ = fmt.Fprintf(os.Stderr, "sona: %s: commands to a running Sona aren't available on %s yet\n", args[0], runtime.GOOS)
 	return 1
 }
-
-// newEngine is the engine for a platform without one: every play fails
-// with playback.ErrUnsupported. It needs no CDM, so nothing is downloaded.
-func newEngine(*applemusic.Client, config.Settings, *slog.Logger, *cdm.Manager) playback.Engine {
-	return playback.NewUnsupported()
-}
-
-// cdmLoadCheck is nil: there is no playback host here to load a CDM, so a
-// download is only checked statically (its signatures and binary format).
-func cdmLoadCheck(*slog.Logger) func(ctx context.Context, lib string) error { return nil }
 
 // platform has nothing to hold here.
 type platform struct{}

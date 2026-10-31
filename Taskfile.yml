@@ -1,7 +1,9 @@
 version: '3'
 
 # Sona build tasks. `go tool wails3 build|package|dev` run these through
-# Wails' embedded Task runner. Linux is the only v1 target.
+# Wails' embedded Task runner. Linux is the only release target; on
+# macOS `build`, `run` and so `dev` make an unsigned development
+# build (build/darwin/Taskfile.yml), and packaging stays Linux-only.
 #
 # Never add `go mod tidy` here: other packages are developed in parallel and
 # tidy would drop their dependencies.
@@ -19,12 +21,13 @@ vars:
 includes:
   common: ./build/Taskfile.yml
   linux: ./build/linux/Taskfile.yml
+  darwin: ./build/darwin/Taskfile.yml
 
 tasks:
   build:
     summary: Builds the application (production unless DEV=true)
     cmds:
-      - task: linux:build
+      - task: '{{if eq OS "darwin"}}darwin{{else}}linux{{end}}:build'
 
   package:
     summary: Packages a production build as .deb, .rpm, Arch package and AppImage
@@ -39,7 +42,7 @@ tasks:
   run:
     summary: Runs the built application
     cmds:
-      - task: linux:run
+      - task: '{{if eq OS "darwin"}}darwin{{else}}linux{{end}}:run'
 
   dev:
     summary: Runs the application in development mode with Vite hot reload

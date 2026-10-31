@@ -55,8 +55,19 @@ type Diagnosis struct {
 	Decoder   string // AAC decoder element
 	Sink      string // audio sink element
 
-	Sandboxed   bool   // every sandbox layer is in place
+	// Sandbox is how the host is confined: SandboxLinux (namespaces,
+	// Landlock, seccomp), SandboxSeatbelt (macOS sandbox-exec) or
+	// SandboxNone (unconfined, macOS only); "" when no host reported.
+	Sandbox     string
+	Sandboxed   bool   // every layer of Sandbox is in place
 	SandboxNote string // why a layer is missing
 	// Blocked: the sandbox could not be set up, so the CDM was not loaded.
 	Blocked bool
 }
+
+// Diagnosis.Sandbox values.
+const (
+	SandboxLinux    = "linux"
+	SandboxSeatbelt = "seatbelt"
+	SandboxNone     = "none"
+)

@@ -66,8 +66,9 @@
 // session without a bus): its feature does nothing or fails with an error
 // wrapping errors.ErrUnsupported (CodeUnsupported). Features never reach
 // D-Bus, files or OS APIs for these directly. Deps.Engine is the platform's
-// playback engine: the CDM host engine on Linux, playback.Unsupported
-// elsewhere (every play fails with playback.ErrUnsupported; the
+// playback engine: the CDM host engine on Linux and macOS (main's
+// engine_cdm.go), playback.Unsupported elsewhere (every play fails with
+// playback.ErrUnsupported; the
 // coordinator pauses on it rather than skipping the queue); features ask
 // it for optional abilities by interface (audioEngine, engineDiagnoser,
 // qualitySetter).

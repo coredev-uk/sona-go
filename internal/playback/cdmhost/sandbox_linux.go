@@ -1,18 +1,20 @@
-//go:build linux
-
 package cdmhost
 
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
 // Sandbox describes how the CDM host child is confined. The layers, set
@@ -56,6 +58,22 @@ func (s Sandbox) Active() bool {
 	return s.NetNS && s.MountNS && s.Landlock > 0 && s.Seccomp && s.InetDenied
 }
 
+// Kind is the sandbox this OS confines the child with (Diagnostics):
+// playback.SandboxLinux, whichever of its layers are in place.
+func (Sandbox) Kind() string { return playback.SandboxLinux }
+
+// Attrs are the layers as key-value pairs for a log line (playspike).
+func (s Sandbox) Attrs() []any {
+	return []any{
+		"netns", s.NetNS, "mountns", s.MountNS, "landlock", s.Landlock,
+		"seccomp", s.Seccomp, "inet_denied", s.InetDenied, "reason", strconv.Quote(s.Reason),
+	}
+}
+
+// loadsCDM reports whether the child may load the CDM: only under the
+// seccomp filter that keeps it off the network (ErrSandbox otherwise).
+func (s Sandbox) loadsCDM() bool { return s.Seccomp && s.InetDenied }
+
 // Environment between the parent and the child's two stages. The parent
 // sets envSandboxNS when it started the child in namespaces; the first
 // stage sets envSandboxStage to its report (stageReport) when it
@@ -64,6 +82,45 @@ const (
 	envSandboxNS    = "SONA_CDMHOST_NS"
 	envSandboxStage = "SONA_CDMHOST_STAGE"
 )
+
+// sandboxEnv are the sandbox's own variables, never inherited by a child.
+var sandboxEnv = []string{envSandboxNS, envSandboxStage}
+
+// parentSandbox is the parent's part of the sandbox: whether the child got
+// its namespaces, and why not.
+type parentSandbox struct {
+	netns  bool
+	reason string
+}
+
+// startSandboxed starts the child in its own user, network and mount
+// namespace where the kernel allows unprivileged user namespaces;
+// elsewhere without them (Landlock and seccomp only), and the returned
+// parentSandbox says why.
+func startSandboxed(exe string, env []string, log *slog.Logger) (proc, parentSandbox, error) {
+	p, err := startChild([]string{exe}, append(slices.Clip(env), envSandboxNS+"=1"), namespaceAttr())
+	if err == nil {
+		return p, parentSandbox{netns: true}, nil
+	}
+	log.Warn("cdmhost: no namespaces for the playback host; starting it without", "err", err)
+	ps := parentSandbox{reason: "no network namespace or mount namespace (user namespaces unavailable: " + err.Error() + ")"}
+	p, err = startChild([]string{exe}, env, nil)
+	return p, ps, err
+}
+
+// withParent completes the child's report of its sandbox (seccomp) with
+// the parent's part (the network namespace).
+func (s Sandbox) withParent(ps parentSandbox) Sandbox {
+	s.NetNS = ps.netns
+	if ps.reason != "" {
+		if s.Reason != "" {
+			s.Reason = ps.reason + "; " + s.Reason
+		} else {
+			s.Reason = ps.reason
+		}
+	}
+	return s
+}
 
 // namespaceAttr runs the child in a new user namespace that maps the
 // caller's uid and gid onto themselves (files and the PipeWire socket keep

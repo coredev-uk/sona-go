@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || (darwin && cgo)
 
 package cdmhost
 
@@ -33,8 +33,8 @@ type Options struct {
 	CDMPath string
 	// Sink overrides the GStreamer sink (e.g. "fakesink" in tests).
 	Sink string
-	// Device is the PipeWire sink (node.name) to play to; "" follows the
-	// system default.
+	// Device is the output to play to: a PipeWire sink's node.name on
+	// Linux; "" follows the system default (the only choice on macOS).
 	Device string
 	// Equalizer is applied from the first pipeline on.
 	Equalizer equalizer.Curve
@@ -52,10 +52,8 @@ type Host struct {
 	cmd   *exec.Cmd
 	stdin io.WriteCloser
 	info  Info
-	// netns: the child runs in its own network namespace; nsReason says
-	// why not.
-	netns    bool
-	nsReason string
+	// parent is the parent's part of the sandbox (sandbox_<os>.go).
+	parent parentSandbox
 
 	encMu sync.Mutex
 	enc   *gob.Encoder
@@ -108,7 +106,7 @@ func childEnv(log *slog.Logger) []string {
 	var env []string
 	for _, kv := range os.Environ() {
 		k, _, _ := strings.Cut(kv, "=")
-		if k == EnvChild || k == envLogLevel || k == envSandboxNS || k == envSandboxStage || k == envCDMDir || childEnvDropped.MatchString(k) {
+		if k == EnvChild || k == envLogLevel || k == envCDMDir || slices.Contains(sandboxEnv, k) || childEnvDropped.MatchString(k) {
 			continue
 		}
 		env = append(env, kv)
@@ -162,73 +160,60 @@ func spawn(o Options) (*Host, error) {
 	if o.CDMPath != "" {
 		env = append(env, envCDMDir+"="+filepath.Dir(o.CDMPath))
 	}
-	// The child gets its own user, network and mount namespace where the
-	// kernel allows unprivileged user namespaces; elsewhere it runs without
-	// them (Landlock and seccomp only) and Info.Sandbox says why.
-	netns, nsReason := true, ""
-	cmd, stdin, stdout, stderr, err := startChild(exe, append(slices.Clip(env), envSandboxNS+"=1"), namespaceAttr())
+	p, parent, err := startSandboxed(exe, env, log)
 	if err != nil {
-		log.Warn("cdmhost: no namespaces for the playback host; starting it without", "err", err)
-		netns, nsReason = false, "no network namespace or mount namespace (user namespaces unavailable: "+err.Error()+")"
-		if cmd, stdin, stdout, stderr, err = startChild(exe, env, nil); err != nil {
-			return nil, fmt.Errorf("cdmhost: start %s: %w", exe, err)
-		}
+		return nil, fmt.Errorf("cdmhost: start %s: %w", exe, err)
 	}
 	h := &Host{
-		log:      log.With("component", "cdmhost", "pid", cmd.Process.Pid),
-		cmd:      cmd,
-		netns:    netns,
-		nsReason: nsReason,
-		stdin:    stdin,
-		enc:      gob.NewEncoder(stdin),
-		pending:  map[uint64]chan reply{},
-		evWake:   make(chan struct{}, 1),
-		events:   make(chan Event, 16),
-		done:     make(chan struct{}),
+		log:     log.With("component", "cdmhost", "pid", p.cmd.Process.Pid),
+		cmd:     p.cmd,
+		parent:  parent,
+		stdin:   p.stdin,
+		enc:     gob.NewEncoder(p.stdin),
+		pending: map[uint64]chan reply{},
+		evWake:  make(chan struct{}, 1),
+		events:  make(chan Event, 16),
+		done:    make(chan struct{}),
 	}
-	go h.relayLogs(stderr)
+	go h.relayLogs(p.stderr)
 	go h.pump()
-	go h.read(stdout)
+	go h.read(p.stdout)
 	return h, nil
 }
 
-// startChild starts exe with env and attr, wired to fresh pipes, in /.
-func startChild(exe string, env []string, attr *syscall.SysProcAttr) (*exec.Cmd, io.WriteCloser, io.ReadCloser, io.ReadCloser, error) {
-	cmd := exec.Command(exe)
-	cmd.Env = env
-	cmd.Dir = "/"
-	cmd.SysProcAttr = attr
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	if err := cmd.Start(); err != nil {
-		return nil, nil, nil, nil, err
-	}
-	return cmd, stdin, stdout, stderr, nil
+// proc is a started child with its pipes.
+type proc struct {
+	cmd    *exec.Cmd
+	stdin  io.WriteCloser
+	stdout io.ReadCloser
+	stderr io.ReadCloser
 }
 
-// withSandbox completes the child's report of its sandbox (seccomp) with
-// the parent's part (the network namespace).
-func (h *Host) withSandbox(sb Sandbox) Sandbox {
-	sb.NetNS = h.netns
-	if h.nsReason != "" {
-		if sb.Reason != "" {
-			sb.Reason = h.nsReason + "; " + sb.Reason
-		} else {
-			sb.Reason = h.nsReason
-		}
+// startChild starts argv with env and attr, wired to fresh pipes, in /.
+func startChild(argv, env []string, attr *syscall.SysProcAttr) (proc, error) {
+	p := proc{cmd: exec.Command(argv[0], argv[1:]...)}
+	p.cmd.Env = env
+	p.cmd.Dir = "/"
+	p.cmd.SysProcAttr = attr
+	var err error
+	if p.stdin, err = p.cmd.StdinPipe(); err != nil {
+		return proc{}, err
 	}
-	return sb
+	if p.stdout, err = p.cmd.StdoutPipe(); err != nil {
+		return proc{}, err
+	}
+	if p.stderr, err = p.cmd.StderrPipe(); err != nil {
+		return proc{}, err
+	}
+	if err := p.cmd.Start(); err != nil {
+		return proc{}, err
+	}
+	return p, nil
 }
+
+// withSandbox completes the child's report of its sandbox with the
+// parent's part.
+func (h *Host) withSandbox(sb Sandbox) Sandbox { return sb.withParent(h.parent) }
 
 // Info describes the child.
 func (h *Host) Info() Info { return h.info }

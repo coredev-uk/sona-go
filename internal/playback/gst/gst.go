@@ -1,11 +1,14 @@
-//go:build linux
+//go:build linux || (darwin && cgo)
 
 // Package gst is Sona's audio output. Two decode lanes and a mixer feed one
 // output pipeline:
 //
 //	lane ×2: appsrc (AAC access units) ! avdec_aac ! audioconvert ! audioresample ! appsink
 //	mixer:   joins the lanes' decoded tracks gaplessly or with a crossfade
-//	output:  appsrc (PCM) ! tail (equaliser, volume; tail.c) ! pipewiresink
+//	output:  appsrc (PCM) ! tail (equaliser, volume; tail.c) ! sink
+//
+// The sink is pipewiresink on Linux and osxaudiosink on macOS (Sinks,
+// output_<os>.go).
 //
 // A track is loaded into a lane with Load (which flushes everything: play,
 // seek) or Queue (which follows the current track without a gap). Each
@@ -19,6 +22,7 @@ package gst
 
 /*
 #cgo pkg-config: gstreamer-1.0 gstreamer-app-1.0
+#cgo LDFLAGS: -lm
 #include <stdlib.h>
 #include "gst.h"
 */
@@ -34,11 +38,8 @@ import (
 	"unsafe"
 )
 
-// Decoders and sinks tried in order when Options leaves them empty.
-var (
-	Decoders = []string{"avdec_aac", "fdkaacdec", "faad"}
-	Sinks    = []string{"pipewiresink", "pulsesink", "autoaudiosink"}
-)
+// Decoders tried in order when Options leaves Decoder empty.
+var Decoders = []string{"avdec_aac", "fdkaacdec", "faad"}
 
 // Push errors.
 var (
@@ -93,9 +94,16 @@ type Options struct {
 	Sink     string        // "" picks the first of Sinks that reaches READY
 	AppName  string        // client/application name, default "Sona"
 	MaxQueue time.Duration // per-lane queue of access units before Push blocks, default 12s
-	// Device is the PipeWire sink (node.name) to play to; "" follows the
-	// default. Only pipewiresink can target one.
+	// Device is the output to play to; "" follows the default. Only
+	// pipewiresink can target one (a PipeWire node.name; DeviceChoice).
 	Device string
+}
+
+// Device is an audio output.
+type Device struct {
+	Name        string // PipeWire node.name, the sink's target-object
+	Description string // human-readable name
+	Default     bool   // the system's default output
 }
 
 // State is a GstState.
@@ -261,26 +269,6 @@ func New(o Options) (*Pipeline, error) {
 		return nil, fmt.Errorf("gst: no audio sink installed (tried %s)", strings.Join(sinks, ", "))
 	}
 	return nil, errors.Join(errs...)
-}
-
-// streamProps returns the sink's stream-properties: PipeWire wants its own
-// property names and capitalised roles, PulseAudio lower-case roles.
-func streamProps(sink, app, device string) string {
-	clean := strings.NewReplacer(`"`, ``, `\`, ``)
-	esc := clean.Replace(app)
-	switch sink {
-	case "pipewiresink":
-		props := fmt.Sprintf(`props,media.role=(string)Music,media.category=(string)Playback,media.name=(string)"%s",application.name=(string)"%s",application.id=(string)sona,node.description=(string)"%s"`, esc, esc, esc)
-		if device != "" {
-			// What pipewiresink's target-object sets: the session manager
-			// links the stream to this node (or the default if it is gone).
-			props += fmt.Sprintf(`,target.object=(string)"%s"`, clean.Replace(device))
-		}
-		return props
-	case "pulsesink":
-		return fmt.Sprintf(`props,media.role=(string)music,application.name=(string)"%s",application.id=(string)sona`, esc)
-	}
-	return ""
 }
 
 func build(sink string, o Options) (*Pipeline, error) {

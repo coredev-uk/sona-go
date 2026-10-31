@@ -1,10 +1,18 @@
-//go:build linux
+//go:build linux || (darwin && cgo)
 
 // Command playspike proves Sona's native playback path end to end: the
 // Widevine CDM host child decrypts a full Apple Music track and plays it
-// through GStreamer/PipeWire. It reports play→first-audio latency, position
-// checkpoints past the 30 s preview window, the PipeWire stream of the
-// child, the gap between two consecutive tracks, and parent+child memory.
+// through GStreamer (PipeWire on Linux, Core Audio on macOS). It reports
+// play→first-audio latency, position checkpoints past the 30 s preview
+// window, the child's audio stream (Linux), the gap between two
+// consecutive tracks, and parent+child memory. Every licence exchange is
+// printed (HTTP status, Apple's status and message, the licence's size;
+// never the token or the licence), and the default and -activity modes end
+// with one line saying whether Apple licensed this host:
+//
+//	licence: granted
+//	licence: refused (<why>)
+//	licence: not requested (<why>)
 //
 // Usage: playspike [-env .env] [-song ID | -term "query"] [-seek 90] [-next-term "query"] [-crash] [-quality 256|64] [-cdm LIB | -cdm-dir DIR]
 //
@@ -20,13 +28,11 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
-	"os/exec"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -62,7 +68,7 @@ func main() {
 	soakItems := flag.String("soak-items", "", "comma-separated song or station (ra.…) IDs for -soak")
 	probeLossless := flag.String("probe-lossless", "", "catalog song ID: request a Widevine licence for every key of its enhancedHls (lossless/Atmos) master and print the results")
 	verbose := flag.Bool("v", false, "debug logging")
-	flag.StringVar(&outputDevice, "device", "", "PipeWire sink (node.name) to play to (default: the system default)")
+	flag.StringVar(&outputDevice, "device", "", deviceHelp)
 	flag.Parse()
 
 	level := slog.LevelInfo
@@ -76,9 +82,14 @@ func main() {
 		log.Error("playspike: -quality must be 256 or 64", "quality", *quality)
 		os.Exit(2)
 	}
+	// The default and -activity modes end with the licence verdict.
+	verdict := *probeLossless == "" && *soak <= 0
 	lib, err := cdmLibrary(log, *cdmOverride, *cdmDir)
 	if err != nil {
 		log.Error("playspike: Widevine CDM", "code", cdm.CodeOf(err), "err", err)
+		if verdict {
+			fmt.Println(licences.verdict(fmt.Errorf("widevine CDM: %w", err)))
+		}
 		os.Exit(1)
 	}
 	switch {
@@ -105,9 +116,17 @@ func main() {
 	}
 	if err != nil {
 		log.Error("playspike failed", "err", err)
+	}
+	if verdict {
+		fmt.Println(licences.verdict(err))
+	}
+	if err != nil {
 		os.Exit(1)
 	}
 }
+
+// licences watches every licence exchange of the Apple client (signIn).
+var licences = newLicenceTap()
 
 func step(name string, kv ...any) {
 	fmt.Printf("%-28s", name)
@@ -193,11 +212,10 @@ func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen 
 	step("host", "pid", info.PID, "cdm", info.CDMVersion, "cdm_interface", info.CDMInterface, "host_interface", info.HostInterface)
 	step("audio", "gstreamer", info.GStreamer, "decoder", info.Decoder, "sink", info.Sink)
 	step("cdm path", "path", info.CDMPath)
-	step("sandbox", "netns", info.Sandbox.NetNS, "mountns", info.Sandbox.MountNS, "landlock", info.Sandbox.Landlock,
-		"seccomp", info.Sandbox.Seccomp, "inet_denied", info.Sandbox.InetDenied, "reason", fmt.Sprintf("%q", info.Sandbox.Reason))
+	step("sandbox", append([]any{"kind", info.Sandbox.Kind()}, info.Sandbox.Attrs()...)...)
 
 	time.Sleep(2 * time.Second)
-	pipewire(info.PID)
+	audioStream(info.PID)
 
 	// 2. Seek past the preview window and watch the position advance.
 	target := time.Duration(seekTo * float64(time.Second))
@@ -303,7 +321,8 @@ func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen 
 	return nil
 }
 
-// outputDevice is the -device flag: the PipeWire sink every mode plays to.
+// outputDevice is the -device flag: the output every mode plays to
+// (deviceHelp).
 var outputDevice string
 
 func resolve(ctx context.Context, api *applemusic.Client, sf, id, term string) (applemusic.Resource[applemusic.SongAttributes], error) {
@@ -318,73 +337,6 @@ func resolve(ctx context.Context, api *applemusic.Client, sf, id, term string) (
 		return applemusic.Resource[applemusic.SongAttributes]{}, fmt.Errorf("no songs for %q", term)
 	}
 	return songs[0], nil
-}
-
-// pipewire prints the child's PipeWire output stream as pw-dump reports it.
-func pipewire(pid int) {
-	out, err := exec.Command("pw-dump").Output()
-	if err != nil {
-		step("pipewire", "err", err)
-		return
-	}
-	var objs []struct {
-		ID   int    `json:"id"`
-		Type string `json:"type"`
-		Info struct {
-			State string         `json:"state"`
-			Props map[string]any `json:"props"`
-		} `json:"info"`
-	}
-	if err := json.Unmarshal(out, &objs); err != nil {
-		step("pipewire", "err", err)
-		return
-	}
-	// Nodes name their client; the client carries the process ID.
-	clients := map[string]bool{}
-	for _, o := range objs {
-		if o.Type == "PipeWire:Interface:Client" && fmt.Sprint(o.Info.Props["application.process.id"]) == strconv.Itoa(pid) {
-			clients[strconv.Itoa(o.ID)] = true
-		}
-	}
-	found := false
-	for _, o := range objs {
-		p := o.Info.Props
-		if o.Type != "PipeWire:Interface:Node" || !clients[fmt.Sprint(p["client.id"])] {
-			continue
-		}
-		found = true
-		step("pipewire stream", "node", o.ID, "state", o.Info.State, "media.class", fmt.Sprintf("%q", p["media.class"]),
-			"media.role", fmt.Sprintf("%q", p["media.role"]), "application.name", fmt.Sprintf("%q", p["application.name"]),
-			"client", p["client.id"])
-	}
-	if !found {
-		step("pipewire stream", "err", fmt.Sprintf("no node for pid %d", pid))
-	}
-}
-
-// memory prints the proportional set size of this process and the host.
-func memory(label string, child int) {
-	parent := pss(os.Getpid())
-	host := pss(child)
-	step(label, "parent_pss", fmtKiB(parent), "host_pss", fmtKiB(host), "total", fmtKiB(parent+host))
-}
-
-func fmtKiB(k int) string { return fmt.Sprintf("%.1fMiB", float64(k)/1024) }
-
-func pss(pid int) int {
-	f, err := os.Open(fmt.Sprintf("/proc/%d/smaps_rollup", pid))
-	if err != nil {
-		return 0
-	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		if rest, ok := strings.CutPrefix(sc.Text(), "Pss:"); ok {
-			n, _ := strconv.Atoi(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(rest), "kB")))
-			return n
-		}
-	}
-	return 0
 }
 
 func readEnv(path, key string) (string, error) {
@@ -421,7 +373,7 @@ func signIn(ctx context.Context, envFile string) (*applemusic.Client, applemusic
 	if mut == "" {
 		return nil, none, fmt.Errorf("MUSIC_USER_TOKEN not set (env or %s)", envFile)
 	}
-	api := applemusic.New(nil, devtoken.NewWebPlayer(nil), func() string { return mut })
+	api := applemusic.New(&http.Client{Transport: licences}, devtoken.NewWebPlayer(nil), func() string { return mut })
 	sf, err := api.Storefront(ctx)
 	if err != nil {
 		return nil, none, fmt.Errorf("validate MUT: %w", err)

@@ -66,14 +66,20 @@ type DiagPlayback struct {
 	// Sona never plays lossless or Dolby Atmos: Apple refuses those keys
 	// to the desktop Widevine CDM.
 	AudioQuality int `json:"audioQuality"`
-	// Sandboxed: the playback child runs with every sandbox layer (its
-	// own network and mount namespace, Landlock, the seccomp filter that
-	// refuses network sockets). SandboxNote says what is missing
-	// otherwise ("" when the probe child never started).
+	// SandboxKind is how the playback child is confined: "linux" (its own
+	// network and mount namespace, Landlock, the seccomp filter that
+	// refuses network sockets), "seatbelt" (macOS: sandbox-exec with
+	// Sona's profile: no network, no access to Sona's folder or the
+	// keychain), "none" (macOS without a working sandbox-exec: the child
+	// runs unconfined) or "" when the probe child never started.
+	SandboxKind string `json:"sandboxKind"`
+	// Sandboxed: every layer of SandboxKind is in place. SandboxNote says
+	// what is missing otherwise ("" when the probe child never started).
 	Sandboxed   bool   `json:"sandboxed"`
 	SandboxNote string `json:"sandboxNote"`
 	// CDMBlocked: the child refused to load the CDM because its seccomp
-	// filter is missing (cdmhost.ErrSandbox); SandboxNote says why.
+	// filter is missing (cdmhost.ErrSandbox, Linux only); SandboxNote says
+	// why.
 	CDMBlocked bool `json:"cdmBlocked"`
 }
 

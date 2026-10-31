@@ -11,22 +11,17 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/coredev-uk/sona-go/internal/app"
-	"github.com/coredev-uk/sona-go/internal/applemusic"
-	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/desktop/inhibit"
 	"github.com/coredev-uk/sona-go/internal/desktop/notify"
 	"github.com/coredev-uk/sona-go/internal/mpris"
-	"github.com/coredev-uk/sona-go/internal/playback"
-	"github.com/coredev-uk/sona-go/internal/playback/cdm"
-	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
-	"github.com/coredev-uk/sona-go/internal/playback/native"
 	"github.com/coredev-uk/sona-go/internal/power"
 	"github.com/coredev-uk/sona-go/internal/services"
 )
 
-// Linux: the CDM host engine, the freedesktop integrations over D-Bus
-// (MPRIS, notifications, logind/portal inhibit, UPower, the file chooser
-// portal, single instance and commands) and the XDG autostart entry.
+// Linux: the freedesktop integrations over D-Bus (MPRIS, notifications,
+// logind/portal inhibit, UPower, the file chooser portal, single instance
+// and commands) and the XDG autostart entry. The CDM host engine is
+// engine_cdm.go's.
 
 var (
 	linuxOptions = application.LinuxOptions{
@@ -37,31 +32,9 @@ var (
 	windowsOptions application.WindowsOptions
 )
 
-// childMain runs the CDM host child when this process is one (it never
-// returns there).
-func childMain() { cdmhost.ChildMain() }
-
 // runCommand sends a subcommand (`sona private on`) to the running
 // instance over the session bus and returns the exit status.
 func runCommand(args []string) int { return app.RunCommand(args, os.Stdout, os.Stderr) }
-
-// newEngine is the CDM host engine, loading the CDM src names; it starts
-// no process until the first play.
-func newEngine(api *applemusic.Client, cur config.Settings, log *slog.Logger, src *cdm.Manager) playback.Engine {
-	return native.New(native.Options{
-		Client:      api,
-		CDM:         src,
-		Logger:      log,
-		IdleTimeout: time.Duration(cur.EngineIdleMinutes) * time.Minute,
-		Quality:     applemusic.Quality(cur.AudioQuality),
-	})
-}
-
-// cdmLoadCheck loads a newly downloaded CDM in a sandboxed probe child,
-// as a playback host would, before it becomes current (cdm.Options).
-func cdmLoadCheck(log *slog.Logger) func(ctx context.Context, lib string) error {
-	return cdmhost.LoadCheck(log)
-}
 
 // platform is the session bus and the single-instance guard on it.
 type platform struct {

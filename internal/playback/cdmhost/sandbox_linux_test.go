@@ -1,5 +1,3 @@
-//go:build linux
-
 package cdmhost
 
 import (
@@ -122,9 +120,8 @@ func TestSandboxFallsBackWithoutNamespaces(t *testing.T) {
 	}
 }
 
-// Test child modes, selected by envTestChild in the child's environment.
+// The Linux test child modes (envTestChild, cdmhost_test.go).
 const (
-	envTestChild = "SONA_CDMHOST_TEST_CHILD" // "probe", "userns", "big-frame", "flood"
 	// probe: sockets it must not reach (a path list), the audio socket it
 	// must reach, an abstract socket name it must not reach, and a
 	// directory under $HOME it must not write.
@@ -134,17 +131,13 @@ const (
 	envProbeHome     = "SONA_CDMHOST_PROBE_HOME"
 )
 
-func testChildModes() {
-	if os.Getenv(EnvChild) != "1" {
-		return
-	}
-	switch m := os.Getenv(envTestChild); m {
+// osTestChildMode runs the Linux test child modes: "probe" and "userns".
+func osTestChildMode(m string) {
+	switch m {
 	case "probe":
 		probeChild()
 	case "userns":
 		userNSChild()
-	case "big-frame", "flood":
-		misbehave(m)
 	}
 }
 
@@ -218,23 +211,23 @@ func probe(t *testing.T, ns bool, extra ...string) map[string]string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd, stdin, stdout, stderr, err := startChild(exe, env, attr)
+	p, err := startChild([]string{exe}, env, attr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	logged := make(chan struct{})
 	go func() {
 		defer close(logged)
-		sc := bufio.NewScanner(stderr)
+		sc := bufio.NewScanner(p.stderr)
 		for sc.Scan() {
 			t.Log("child:", sc.Text())
 		}
 	}()
 	var res map[string]string
-	derr := json.NewDecoder(stdout).Decode(&res)
-	_ = stdin.Close()
+	derr := json.NewDecoder(p.stdout).Decode(&res)
+	_ = p.stdin.Close()
 	<-logged
-	_ = cmd.Wait()
+	_ = p.cmd.Wait()
 	if derr != nil {
 		t.Fatalf("probe child: %v", derr)
 	}

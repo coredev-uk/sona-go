@@ -80,7 +80,8 @@ void sona_gst_free(void* data);
 uint8_t* sona_gst_alloc(size_t size);
 
 // sona_relink_error reports whether m is pipewiresink's "all buffers have
-// been removed" error, which PipeWire triggers by relinking the stream.
+// been removed" error, which PipeWire triggers by relinking the stream
+// (relink_linux.c; never on macOS, relink_darwin.c).
 int sona_relink_error(GstMessage* m);
 
 // sona_gst_new makes the shared state (message queue, tail) and builds the

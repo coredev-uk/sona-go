@@ -6,7 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useCdm } from "@/features/cdm";
 import { I18nRoot } from "@/shared/i18n";
-import { bareCapabilities, linuxCapabilities } from "@/shared/testing/capabilities";
+import {
+  bareCapabilities,
+  linuxCapabilities,
+  macCapabilities,
+} from "@/shared/testing/capabilities";
 
 import { DiagnosticsSection } from "./Diagnostics";
 
@@ -213,5 +217,27 @@ describe("DiagnosticsSection", () => {
   it("names Windows Credential Manager", async () => {
     await renderSection(bareCapabilities("windows"), report({}, "credential-manager"));
     expect(shown("Windows Credential Manager")).toBe(true);
+  });
+
+  it("shows the macOS sandbox, or that the host runs without it", async () => {
+    const mac = {
+      ...linuxPlayback({ path: "/data/widevine/4.10.3112.0/mac_arm64/libwidevinecdm.dylib" }, true),
+      sink: "osxaudiosink",
+    };
+    await renderSection(
+      macCapabilities(),
+      report({ ...mac, sandboxKind: "seatbelt", sandboxed: true }, "keychain"),
+    );
+    expect(shown("Sandboxed by macOS · no network or keychain access")).toBe(true);
+    cleanup();
+
+    const note = "no macOS sandbox: stat /usr/bin/sandbox-exec: no such file or directory";
+    await renderSection(
+      macCapabilities(),
+      report({ ...mac, sandboxKind: "none", sandboxed: false, sandboxNote: note }, "keychain"),
+    );
+    expect(shown("Not sandboxed")).toBe(true);
+    expect(screen.queryByText(/the host can reach the network and your files/)).not.toBeNull();
+    expect(shown("Sandboxed by macOS · no network or keychain access")).toBe(false);
   });
 });

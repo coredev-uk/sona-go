@@ -1,16 +1,17 @@
-//go:build linux
+//go:build linux || (darwin && cgo)
 
-// Package widevine hosts Google's Widevine CDM (libwidevinecdm.so, which
-// Sona downloads from Google: internal/playback/cdm) through the Chromium
-// CDM API. A C++ shim implements the
-// host interface; this package runs every CDM call on one locked OS thread,
-// fires the CDM's timers, and surfaces licence messages to Go. Sona never
-// bundles, redistributes or patches the CDM and only uses its public API.
+// Package widevine hosts Google's Widevine CDM (libwidevinecdm.so on
+// Linux, libwidevinecdm.dylib on macOS, which Sona downloads from Google:
+// internal/playback/cdm) through the Chromium CDM API. A C++ shim
+// implements the host interface; this package runs every CDM call on one
+// locked OS thread, fires the CDM's timers, and surfaces licence messages
+// to Go. Sona never bundles, redistributes or patches the CDM and only uses
+// its public API.
 package widevine
 
 /*
 #cgo CXXFLAGS: -std=c++17 -O2 -Wall -fno-exceptions
-#cgo LDFLAGS: -ldl
+#cgo linux LDFLAGS: -ldl
 #include <stdlib.h>
 #include "shim.h"
 */
@@ -22,6 +23,8 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
+	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -71,6 +74,26 @@ const (
 	KeyStatusPending
 	KeyReleased
 )
+
+func (s KeyStatus) String() string {
+	switch s {
+	case KeyUsable:
+		return "usable"
+	case KeyInternalError:
+		return "internal-error"
+	case KeyExpired:
+		return "expired"
+	case KeyOutputRestricted:
+		return "output-restricted"
+	case KeyOutputDownscaled:
+		return "output-downscaled"
+	case KeyStatusPending:
+		return "status-pending"
+	case KeyReleased:
+		return "released"
+	}
+	return fmt.Sprintf("key-status-%d", int(s))
+}
 
 // Errors returned by Decrypt.
 var (
@@ -263,7 +286,8 @@ func (c *CDM) CreateSession(ctx context.Context, initData []byte) (id string, re
 }
 
 // UpdateSession passes the licence server's response to session id. It
-// fails with ErrNoUsable when the session has no usable key afterwards.
+// fails with ErrNoUsable, naming the key statuses the CDM reported, when
+// the session has no usable key afterwards.
 func (c *CDM) UpdateSession(ctx context.Context, id string, response []byte) error {
 	if len(response) == 0 {
 		return errors.New("widevine: empty licence response")
@@ -276,17 +300,23 @@ func (c *CDM) UpdateSession(ctx context.Context, id string, response []byte) err
 		return err
 	}
 	usable := false
+	var statuses []string
 	if err := c.do(ctx, func() {
 		if s := c.sessions[id]; s != nil {
 			for _, st := range s.keys {
 				usable = usable || st == KeyUsable
+				statuses = append(statuses, st.String())
 			}
 		}
 	}); err != nil {
 		return err
 	}
 	if !usable {
-		return ErrNoUsable
+		if len(statuses) == 0 {
+			return fmt.Errorf("%w (the CDM reported no keys)", ErrNoUsable)
+		}
+		slices.Sort(statuses)
+		return fmt.Errorf("%w (key statuses: %s)", ErrNoUsable, strings.Join(statuses, ", "))
 	}
 	return nil
 }
@@ -634,6 +664,10 @@ func (c *CDM) handle1(ev event) {
 		v := ev.a
 		c.deferred = append(c.deferred, func() { C.sona_cdm_storage_id(c.ptr, C.uint32_t(v)) })
 	case C.SONA_EV_PLATFORM_CHALLENGE:
+		// A request to have a challenge signed with a platform certificate
+		// (an optional host method); Sona has none and answers with an
+		// empty response. Logged so a licence refusal can be told apart.
+		c.log.Info("widevine: the CDM asked for a platform challenge; answered that none is available")
 		c.deferred = append(c.deferred, func() { C.sona_cdm_platform_challenge_failed(c.ptr) })
 	}
 }

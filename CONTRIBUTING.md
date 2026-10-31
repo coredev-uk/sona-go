@@ -69,29 +69,31 @@ regenerates `frontend/bindings` when Go sources changed, as `build` does.
 of the machine it runs on, which is what `release` runs inside its Ubuntu
 container. A package built on NixOS would link against `/nix/store`.
 
-### Widevine CDM in development
+### Widevine CDM
 
 devenv ships no CDM. The app downloads it itself, with no prompt, once the
 network opens after the first paint: the version and SHA-512 come from
 Mozilla's Firefox GMP manifest, the package from Google's servers, and its
 CRX3 signatures are verified (`internal/playback/cdm`; see
 `docs/security-review.md`, "Widevine CDM downloader"). It lives in
-`<data>/widevine/<version>/<platform>/` behind `current.json`, is checked for
-updates daily (a library that no longer matches the SHA-256 recorded at
-install is removed and downloaded again; 3 failed host starts roll back to
-the previous version), and Settings → Playback shows its state with a Retry button.
-Browser and system copies are never used.
+`<data>/widevine/<version>/<platform>/` behind `current.json` (`linux_x64`;
+`mac_arm64` or `mac_x64` on macOS, where the `.sig` file stays beside the
+dylib), is checked for updates daily (a library that no longer matches the
+SHA-256 recorded at install is removed and downloaded again; 3 failed host
+starts roll back to the previous version), and Settings → Playback shows its
+state with a Retry button. Browser and system copies are never used.
 
-- `SONA_WIDEVINE_CDM=/path/to/libwidevinecdm.so` (or the directory holding
-  it), in the environment or `.env`, is an explicit developer override: the
-  app and tools load that file instead and download nothing.
+- `SONA_WIDEVINE_CDM=/path/to/libwidevinecdm.so` (`.dylib` on macOS, or the
+  directory holding it), in the environment or `.env`, is an explicit
+  developer override: the app and tools load that file instead and download
+  nothing.
 - `go run ./cmd/cdmfetch` downloads, verifies and installs the CDM the way
   the app does: `-dir DIR` installs elsewhere (default Sona's
   `<data>/widevine`), `-platform goos/goarch` fetches another platform's,
   and `-version` only prints the manifest's version for the platform.
 - `playspike` uses the downloaded CDM (installing it on first use);
   `-cdm LIB` overrides it like `SONA_WIDEVINE_CDM`, `-cdm-dir DIR` picks the
-  install directory. It prints the one it used.
+  install directory. It prints the one it used (`cdm source source=download`).
 
 ### Pinned inputs
 
@@ -107,30 +109,82 @@ and the app, and commit `devenv.yaml` and `devenv.lock` together.
 `devenv shell` works on Apple Silicon (`aarch64-darwin`): the Linux-only
 packages (GTK4, WebKitGTK, libsoup, glib-networking, PipeWire, playerctl,
 gcc, dbus) and the GIO module path are left out, and GStreamer keeps core,
-base, good (`osxaudiosink`), bad and libav. Intel Macs (`x86_64-darwin`)
-are not supported: the pinned nixpkgs (26.11) and devenv 2.4 dropped them.
+base, good (`osxaudiosink`), bad and libav, on the same plugin path as on
+Linux. Intel Macs (`x86_64-darwin`) are not supported: the pinned nixpkgs
+(26.11) and devenv 2.4 dropped them.
 
-The app builds and runs on macOS with its UI and everything Go does
-(sign-in, library, sync, catalog), but without playback, media controls,
-notifications, sleep inhibit, autostart, the file chooser or `sona`
-commands yet (see "Platforms"); the Taskfile and `dev` still target Linux,
-so build it directly. From a clean clone:
+The app builds and runs on macOS as an unsigned development build (no
+Apple Developer account, no `.app` bundle, no packaging): its UI,
+everything Go does (sign-in, library, sync, catalog) and playback through
+the same CDM host as Linux, with the CDM Sona downloads from Google for
+macOS (`mac_arm64`, see "Widevine CDM") and Core Audio output
+(`osxaudiosink`, always the system's default output). There are no media
+controls, notifications, sleep inhibit, autostart, file chooser or `sona`
+commands yet (see "Platforms"). Whether Apple licenses an unsigned macOS
+host is what `playspike` answers.
+
+The CDM host child runs under macOS's sandbox (`sandbox-exec` with Sona's
+profile: no network, no writes outside the temporary folders, Sona's folder
+and the keychain out of reach; `docs/security-review.md`, "macOS
+sandbox"). Where `/usr/bin/sandbox-exec` is missing or refuses the profile,
+it runs unsandboxed and Diagnostics → Host sandbox says "Not sandboxed" and
+why. `SONA_SEATBELT=0` turns the sandbox off for one run, to tell a sandbox
+problem from a playback one.
+
+Setup, from a clean clone (Nix from the Determinate or the upstream
+installer, devenv 2.4 or newer):
 
 ```sh
-devenv shell -- bash -c '
-  pnpm -C frontend install --frozen-lockfile && pnpm -C frontend build &&
-  go build -o bin/sona . && go vet ./... && go test ./...'
-SONA_PRIVATE=1 ./bin/sona
+git clone https://github.com/coredev-uk/sona-go.git && cd sona-go
+devenv version                       # 2.4.0 or newer
+devenv shell                         # the first run downloads the toolchain
+# inside the shell:
+gst-inspect-1.0 osxaudiosink avdec_aac | grep -E '^  (Name|Long-name)'
+pnpm -C frontend install --frozen-lockfile
+go vet ./... && go test ./...
+SONA_PRIVATE=1 dev                   # the app with Vite hot reload
 ```
 
-That is a development build (private listening on). Expect the window with
-every page; Settings without the controls macOS can't support yet (the
-equaliser, Sound Check, crossfade, the output device, start at
-login, notifications, keeping the Mac awake); Settings → Playback and
-Diagnostics saying playback isn't available on this platform; the keyring
-backend "Keychain"; data under `~/Library/Application Support/Sona` and
+`dev` (and `build`) build `bin/sona` for macOS through
+`build/darwin/Taskfile.yml`; `build DEV=true && SONA_PRIVATE=1 ./bin/sona`
+runs it without hot reload. Expect the window with every page; Settings
+without the controls macOS can't support yet (the output device, start at
+login, notifications, keeping the Mac awake); the keyring backend
+"Keychain"; data under `~/Library/Application Support/Sona` and
 `~/Library/Caches/Sona` (log: `State/sona.log`). The D-Bus tests skip (no
 `dbus-daemon`).
+
+The CDM: Sona and `playspike` download it themselves; no browser is
+needed. To check the download and the library by hand:
+
+```sh
+go run ./cmd/cdmfetch -dir /tmp/sona-cdm          # prints version=… path=…/mac_arm64/libwidevinecdm.dylib
+ls -l /tmp/sona-cdm/*/mac_arm64/                    # the dylib and its .sig, side by side
+# Loads Google's CDM and makes a licence request in-process (no Apple, no
+# token); downloads into the test cache first:
+SONA_CDM_REQUIRE=1 go test -count=1 -v -run 'TestCDM$' ./internal/playback/widevine
+# Only if the downloaded dylib fails to load, report (don't change the file):
+xattr -l <path>; codesign -dv --verbose=2 <path>; file <path>
+# The sandbox:
+ls -l /usr/bin/sandbox-exec && sandbox-exec -p '(version 1)(allow default)(deny network*)' /usr/bin/true && echo sandbox-exec works
+go test -count=1 -v -run TestSeatbeltConfinesChild ./internal/playback/cdmhost
+```
+
+The DRM path regression and licence check (`.env` holding
+`MUSIC_USER_TOKEN`; always in private mode; no `SONA_WIDEVINE_CDM`, so it
+uses the downloaded CDM; audio plays on the default output, and `-device`
+is refused on macOS):
+
+```sh
+env -u SONA_WIDEVINE_CDM SONA_PRIVATE=1 go run ./cmd/playspike -seek 90 -gap=false
+env -u SONA_WIDEVINE_CDM SONA_PRIVATE=1 go run ./cmd/playspike -activity   # only with SONA_PRIVATE=1
+```
+
+It prints `cdm source source=download` with the library under
+`~/Library/Application Support/Sona/widevine/`, then each `licence
+exchange` (HTTP status, Apple's status and message, the licence's length;
+never the token or the licence), and ends with `licence: granted`,
+`licence: refused (<why>)` or `licence: not requested (<why>)`.
 
 ## Checks
 
@@ -236,17 +290,20 @@ A feature is a Go service plus a frontend module, each self-contained:
 ## Platforms
 
 Linux is the full platform. macOS and Windows build and run the UI, with
-every OS-specific part behind a seam that reports itself unsupported there:
+every OS-specific part behind a seam that reports itself unsupported there; macOS development builds also
+play through the CDM host.
 
 - `main.go` is portable; `platform_linux.go` and `platform_other.go` build
-  what differs per OS: the playback engine (`newEngine`: the CDM host engine
-  on Linux, `playback.Unsupported` elsewhere), the CDM host child hook, the
-  `sona <command>` transport and single instance (`internal/app` over
-  D-Bus), the Wails options, and `services.Platform`: media controls (MPRIS),
-  notifications, the sleep inhibitor, the on-battery monitor, the autostart
-  entry, the file chooser, the tray. A nil seam is unsupported; the service
-  using it does nothing or returns an error wrapping
-  `errors.ErrUnsupported` (error code `unsupported`), and
+  what differs per OS: the `sona <command>` transport and single instance
+  (`internal/app` over D-Bus), the Wails options, and `services.Platform`:
+  media controls (MPRIS), notifications, the sleep inhibitor, the
+  on-battery monitor, the autostart entry, the file chooser, the tray. The
+  playback engine and the CDM host child hook (`newEngine`, `childMain`,
+  `cdmLoadCheck`) are `engine_cdm.go`'s on Linux and macOS (the CDM host
+  engine, loading the downloaded CDM) and `engine_other.go`'s elsewhere
+  (`playback.Unsupported`, and no download). A nil seam is
+  unsupported; the service using it does nothing or returns an error
+  wrapping `errors.ErrUnsupported` (error code `unsupported`), and
   `PlatformService.Capabilities` tells the frontend, which hides or
   explains the control (`internal/services/doc.go`,
   `docs/frontend-architecture.md`).
@@ -259,20 +316,27 @@ every OS-specific part behind a seam that reports itself unsupported there:
   `internal/config/paths_xdg.go`, the Secret Service backend name in
   `internal/auth/store/keyring_other.go`). Tests that only make sense on one
   OS follow their file.
-- Code that only compiles on Linux (Linux syscalls, cgo against Linux
-  libraries) is tagged: the whole CDM host engine (`internal/playback/gst`,
-  `widevine`, `cdmhost`, `native`) and `cmd/playspike` carry
-  `//go:build linux`, as do WebKitGTK (`webkit_linux.go`) and GTK
-  (`internal/shell/*_linux.go`). Portable Go implementations of Linux
-  protocols (the D-Bus clients in `internal/mpris`, `internal/desktop/*`,
-  `internal/power`, `internal/app`; the XDG autostart entry) stay untagged,
-  so they type-check and their tests run everywhere; only
-  `platform_linux.go` uses them.
+- Code that only compiles on some systems is tagged. The CDM host engine
+  (`internal/playback/gst`, `widevine`, `cdmhost`, `native`) and
+  `cmd/playspike` carry `//go:build linux || (darwin && cgo)`: cgo against
+  GStreamer and the C++ shim, which a macOS build has anyway (Wails needs
+  cgo there). Inside them, what differs is in `_linux.go`/`_darwin.go`
+  files: the sink and the output device (`gst/output_<os>.go`; PipeWire's
+  device provider in `devices_linux.c`, its relink detection in
+  `relink_linux.c`), the sandbox (`cdmhost/sandbox_linux.go`,
+  `sandbox_fs_linux.go`; `sandbox_darwin.go` and the portable
+  `seatbelt.go`). WebKitGTK (`webkit_linux.go`) and GTK
+  (`internal/shell/*_linux.go`) are Linux-only. Portable Go implementations
+  of Linux protocols (the D-Bus clients in `internal/mpris`,
+  `internal/desktop/*`, `internal/power`, `internal/app`; the XDG autostart
+  entry) stay untagged, so they type-check and their tests run everywhere;
+  only `platform_linux.go` uses them.
 - Per-OS conventions: config paths (`internal/config`: XDG; `~/Library/...`
   on macOS; `%APPDATA%`/`%LOCALAPPDATA%` on Windows), the keyring backend
   (go-keyring: Secret Service, Keychain, Credential Manager), the Discord
   IPC socket (Unix sockets; unsupported on Windows, which uses a named
-  pipe).
+  pipe), the audio sink (`pipewiresink`; `osxaudiosink`), the CDM library
+  (`libwidevinecdm.so`; `libwidevinecdm.dylib`).
 - Type-checking: every package, tests included, must type-check for
   `windows/amd64` and `darwin/arm64` with cgo off (CI and `check`). Windows
   uses `go vet`. On macOS Wails' `pkg/application` is Objective-C behind
@@ -282,6 +346,24 @@ every OS-specific part behind a seam that reports itself unsupported there:
   `mattn/go-sqlite3` everywhere, and Wails on macOS (Cocoa and WebKit from
   Apple's SDK, so macOS builds happen on a Mac). Wails on Windows is pure Go
   (its own WebView2 loader).
+- The macOS CDM host engine builds only with cgo, so the cgo-off
+  type-check skips it. After touching it, type-check it with cgo on from
+  Linux, with zig as a macOS C compiler. Linux's GStreamer headers lack
+  the macOS-only `gst/gstmacos.h` that `gst/gst.h` includes on Apple
+  targets, so take it from the same GStreamer's source:
+
+  ```sh
+  zig=$(nix build --no-link --print-out-paths nixpkgs#zig)/bin/zig
+  inc=$(mktemp -d) && mkdir -p "$inc/gst"
+  src=$(nix build --no-link --print-out-paths "github:NixOS/nixpkgs/$(sed -n 's|.*github:NixOS/nixpkgs/||p' devenv.yaml)#gst_all_1.gstreamer.src")
+  tar -xOf "$src" --wildcards '*/gst/gstmacos.h' > "$inc/gst/gstmacos.h"
+  devenv shell -- env CGO_CFLAGS="-I$inc" CC="$zig cc -target aarch64-macos" \
+    CXX="$zig c++ -target aarch64-macos" go run ./cmd/typecheck -os darwin -arch arm64 -cgo ./...
+  ```
+
+  It compiles the C and C++ (shim, GStreamer glue) for macOS and
+  type-checks every Sona package, `main` included; only Wails' Objective-C
+  fails, without Apple's SDK.
 - A real Windows build cross-compiles from Linux with zig as the C
   compiler (`nix shell nixpkgs#zig`; Wails' own cross image uses it too):
   `GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC='zig cc -target

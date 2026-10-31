@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || (darwin && cgo)
 
 package native
 
@@ -10,9 +10,10 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/gst"
 )
 
-// Capabilities reports everything: the CDM host applies volume, the
-// equaliser, Sound Check, crossfades and the output device itself, and
-// Sona sends every play report.
+// Capabilities reports everything the CDM host does itself: volume, the
+// equaliser, Sound Check, crossfades and, where its sink can target one
+// (PipeWire; gst.DeviceChoice), the output device. Sona sends every play
+// report.
 func (e *Engine) Capabilities() playback.Capabilities {
 	return playback.Capabilities{
 		Kind:             playback.KindCDM,
@@ -20,14 +21,15 @@ func (e *Engine) Capabilities() playback.Capabilities {
 		Equalizer:        true,
 		SoundCheck:       true,
 		Crossfade:        true,
-		OutputDevice:     true,
+		OutputDevice:     gst.DeviceChoice,
 		PrivateListening: true,
 	}
 }
 
 // OutputDevices lists the audio outputs SetOutputDevice can target
 // (PipeWire sinks). The list is empty when PipeWire's GStreamer plugin is
-// missing; playback then always follows the default output.
+// missing; playback then always follows the default output. On macOS it
+// fails with an error wrapping errors.ErrUnsupported.
 func (e *Engine) OutputDevices() ([]playback.OutputDevice, error) {
 	devs, err := gst.AudioSinks()
 	if err != nil {
@@ -55,8 +57,13 @@ func (e *Engine) SetEqualizer(ctx context.Context, eq equalizer.Curve) error {
 
 // SetOutputDevice plays to the PipeWire sink device (its node.name) from
 // now on; "" follows the system default. A running host moves the playing
-// audio without interrupting it.
+// audio without interrupting it. Where the sink can't choose (macOS,
+// gst.CanPlayTo) any device but "" fails with an error wrapping
+// errors.ErrUnsupported and changes nothing.
 func (e *Engine) SetOutputDevice(ctx context.Context, device string) error {
+	if err := gst.CanPlayTo(device); err != nil {
+		return err
+	}
 	e.mu.Lock()
 	e.device = device
 	h := e.h

@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || (darwin && cgo)
 
 package cdmhost
 
@@ -12,8 +12,9 @@ import (
 	"log/slog"
 	"os"
 	"sync"
-	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
@@ -23,7 +24,7 @@ import (
 )
 
 // ChildMain turns the process into the CDM host when EnvChild is set: it
-// enters the sandbox (which re-executes the process once, see
+// enters the sandbox (on Linux this re-executes the process once, see
 // enterSandbox), serves the parent on stdin/stdout and exits when stdin
 // closes. Otherwise it returns immediately. Call it first thing in main.
 func ChildMain() {
@@ -38,12 +39,12 @@ func ChildMain() {
 func runChild(sb Sandbox) int {
 	// The protocol owns the original stdout; anything else writing to fd 1
 	// (GStreamer, the CDM) is redirected to stderr so it cannot corrupt it.
-	fd, err := syscall.Dup(1)
+	fd, err := unix.Dup(1)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "cdmhost: dup stdout:", err)
 		return 1
 	}
-	if err := syscall.Dup3(2, 1, 0); err != nil {
+	if err := unix.Dup2(2, 1); err != nil {
 		fmt.Fprintln(os.Stderr, "cdmhost: redirect stdout:", err)
 		return 1
 	}
@@ -94,7 +95,7 @@ type server struct {
 
 	cdm     *widevine.CDM
 	info    Info
-	sandbox Sandbox // the child's part: seccomp filter and its self-test
+	sandbox Sandbox // the child's part of the sandbox (sandbox_<os>.go)
 
 	mu        sync.Mutex
 	sink      string
@@ -349,9 +350,9 @@ func (s *server) needCDM() error {
 
 // open loads the CDM library at lib (the parent chose it: the downloaded
 // CDM or the developer override, internal/playback/cdm) and builds the
-// output pipeline. The CDM is loaded only under the seccomp filter that
-// keeps it off the network (ErrSandbox). A library that is missing or
-// fails to load or initialise is ErrCDMLoad.
+// output pipeline. On Linux the CDM is loaded only under the seccomp
+// filter that keeps it off the network (ErrSandbox; Sandbox.loadsCDM). A
+// library that is missing or fails to load or initialise is ErrCDMLoad.
 func (s *server) open(lib string) (Info, error) {
 	info := Info{PID: os.Getpid(), GStreamer: gst.Version(), Sandbox: s.sandbox}
 	if s.cdm != nil {
@@ -364,7 +365,7 @@ func (s *server) open(lib string) (Info, error) {
 		return info, fmt.Errorf("%w: %s is not a readable file", ErrCDMLoad, lib)
 	}
 	info.CDMPath, info.CDMVersion = lib, cdm.LibraryVersion(lib)
-	if !s.sandbox.Seccomp || !s.sandbox.InetDenied {
+	if !s.sandbox.loadsCDM() {
 		return info, fmt.Errorf("%w: %s", ErrSandbox, s.sandbox.Reason)
 	}
 	c, err := widevine.Open(lib, s.log)

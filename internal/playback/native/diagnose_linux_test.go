@@ -1,5 +1,3 @@
-//go:build linux
-
 package native
 
 import (
@@ -30,7 +28,7 @@ func TestDiagnoseReportsTheProbe(t *testing.T) {
 	}
 	want := playback.Diagnosis{
 		CDMPath: testCDM, CDMVersion: "4.10", CDMInterface: 10, HostInterface: 10,
-		GStreamer: "1.26", Decoder: "avdec_aac", Sink: "pipewiresink", Sandboxed: true,
+		GStreamer: "1.26", Decoder: "avdec_aac", Sink: "pipewiresink", Sandbox: playback.SandboxLinux, Sandboxed: true,
 	}
 	if d != want || asked != testCDM {
 		t.Errorf("Diagnose = %+v (probe asked for %q), want %+v", d, asked, want)

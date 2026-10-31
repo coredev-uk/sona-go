@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || (darwin && cgo)
 
 package cdmhost
 
@@ -15,11 +15,28 @@ import (
 )
 
 // The test binary doubles as the child process, and as the probe and
-// misbehaving children of sandbox_test.go and frames_test.go.
+// misbehaving children of sandbox_<os>_test.go and frames_test.go.
 func TestMain(m *testing.M) {
 	testChildModes()
 	ChildMain()
 	os.Exit(m.Run())
+}
+
+// envTestChild selects a test child mode in the child's environment:
+// "big-frame" or "flood" (frames_test.go), or one of this OS's
+// (osTestChildMode in sandbox_<os>_test.go).
+const envTestChild = "SONA_CDMHOST_TEST_CHILD"
+
+func testChildModes() {
+	if os.Getenv(EnvChild) != "1" {
+		return
+	}
+	switch m := os.Getenv(envTestChild); m {
+	case "big-frame", "flood":
+		misbehave(m)
+	default:
+		osTestChildMode(m)
+	}
 }
 
 func startHost(t *testing.T) *Host {
