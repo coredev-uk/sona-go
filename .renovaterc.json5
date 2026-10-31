@@ -1,0 +1,54 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    ":timezone(Europe/London)",
+    ":semanticCommits",
+  ],
+  // Clarence merges, so Renovate never does
+  automerge: false,
+  // Only rebase on conflicts; Clarence serialises merges itself
+  rebaseWhen: "conflicted",
+  prHourlyLimit: 4,
+  prConcurrentLimit: 10,
+  // Covers go.mod, frontend/ (pnpm) and .github/workflows. devenv.lock is not
+  // a Renovate manager file; bump nixpkgs by hand (CONTRIBUTING.md)
+  enabledManagers: ["gomod", "npm", "github-actions"],
+  postUpdateOptions: ["gomodTidy", "gomodUpdateImportPaths"],
+  packageRules: [
+    {
+      description: "Let npm releases settle before proposing them",
+      matchDatasources: ["npm"],
+      minimumReleaseAge: "3 days",
+    },
+    {
+      // The Go module and the npm runtime must move together. Wails v3 is
+      // pinned to exact versions; prereleases are only offered for Wails
+      // while the pinned version is itself a prerelease (Renovate's default)
+      description: "Wails v3 Group",
+      groupName: "wails",
+      matchPackageNames: ["github.com/wailsapp/wails/v3", "@wailsio/runtime"],
+      group: {
+        commitMessageTopic: "{{{groupName}}} group",
+      },
+      rangeStrategy: "pin",
+    },
+    // Labeling rules
+    {
+      matchUpdateTypes: ["major"],
+      addLabels: ["type/major"],
+    },
+    {
+      matchUpdateTypes: ["minor"],
+      addLabels: ["type/minor"],
+    },
+    {
+      matchUpdateTypes: ["patch"],
+      addLabels: ["type/patch"],
+    },
+    {
+      matchUpdateTypes: ["digest"],
+      addLabels: ["type/digest"],
+    },
+  ],
+}
