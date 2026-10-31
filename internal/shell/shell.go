@@ -1,6 +1,6 @@
 // Package shell is Sona's desktop shell around the Wails app: the main
-// window (restored size, close-to-background), the mini player window,
-// and the StatusNotifierItem tray with transport controls.
+// window (restored size, close-to-background, its title bar), the mini
+// player window, and the StatusNotifierItem tray with transport controls.
 //
 // Windows are shown and hidden, never destroyed, until the app quits: a
 // hidden main window keeps its page (and the playback mirror) alive, so
@@ -20,6 +20,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/diag"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
+	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
 // Window names and documents.
@@ -56,6 +57,10 @@ type Options struct {
 	// Hidden starts with no window shown (--hidden): playback and the
 	// tray only, until the user asks for a window.
 	Hidden bool
+	// TitleBar is how title bars work on this platform; with the user's
+	// choice (Settings → Desktop → Title bar) it decides whether the main
+	// window is frameless (titlebar.go).
+	TitleBar windowchrome.Platform
 }
 
 // Shell owns the windows and the tray.
@@ -73,6 +78,10 @@ type Shell struct {
 	saveMu    sync.Mutex
 	saveTimer *time.Timer
 	window    config.Window // the remembered state, as last observed
+
+	stateMu  sync.Mutex
+	state    windowchrome.WindowState         // the main window's, as last observed
+	watchers []func(windowchrome.WindowState) // WatchMain's
 }
 
 // New creates the main window (shown when the app runs, unless
@@ -89,9 +98,12 @@ func New(o Options) *Shell {
 	if cur.Window.Maximised {
 		start = application.WindowStateMaximised
 	}
+	// The title bar setting applies from the next start: GTK doesn't bring
+	// its own title bar back to a window that ran without one.
+	kind, _ := o.TitleBar.Resolve(cur.TitleBar.Style)
 	s.main = o.App.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:             mainName,
-		Title:            "Sona",
+		Title:            windowTitle,
 		Width:            cur.Window.Width,
 		Height:           cur.Window.Height,
 		MinWidth:         config.MinWindowWidth,
@@ -99,10 +111,15 @@ func New(o Options) *Shell {
 		StartState:       start,
 		Hidden:           o.Hidden,
 		BackgroundColour: o.Background,
+		// Sona's own title bar (Windows, Linux stacking desktops): no
+		// frame; the top bar drags, and the web runtime resizes from the
+		// edges.
+		Frameless: kind == windowchrome.KindDrawn,
 		// The hash router starts on the chosen page; settings are read
 		// before the first paint, nothing else.
 		URL:   "/#" + cur.Desktop.StartRoute(),
 		Linux: application.LinuxWindow{Icon: o.WindowIcon},
+		Mac:   macWindow(kind),
 	})
 	s.main.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		if s.quitting.Load() {
@@ -115,6 +132,8 @@ func New(o Options) *Shell {
 		events.Common.WindowDidResize,
 		events.Common.WindowMaximise,
 		events.Common.WindowUnMaximise,
+		events.Common.WindowFullscreen,
+		events.Common.WindowUnFullscreen,
 	} {
 		s.main.OnWindowEvent(ev, func(*application.WindowEvent) { s.observe() })
 	}
@@ -122,6 +141,10 @@ func New(o Options) *Shell {
 	s.tray = newTray(s, o.TrayIcon)
 	o.App.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		guardKeyboard(s.main)
+		trackSecondaryPresses(s.main)
+		if kind == windowchrome.KindDrawn {
+			setFramelessTitle(s.main, windowTitle)
+		}
 		snaps, cancel := o.Coord.Subscribe()
 		s.mu.Lock()
 		s.stopTray = cancel
@@ -277,7 +300,8 @@ func (s *Shell) ensureMini() *application.WebviewWindow {
 // observe records the main window's size and maximised state.
 func (s *Shell) observe() {
 	w, h := s.main.Size()
-	next := observeWindow(s.currentWindow(), w, h, s.main.IsMaximised(), s.main.IsFullscreen())
+	maximised, fullscreen := s.main.IsMaximised(), s.main.IsFullscreen()
+	next := observeWindow(s.currentWindow(), w, h, maximised, fullscreen)
 	s.saveMu.Lock()
 	changed := next != s.window
 	s.window = next
@@ -285,6 +309,7 @@ func (s *Shell) observe() {
 	if changed {
 		s.scheduleSave()
 	}
+	s.setState(windowchrome.WindowState{Maximised: maximised, Fullscreen: fullscreen})
 }
 
 func (s *Shell) currentWindow() config.Window {

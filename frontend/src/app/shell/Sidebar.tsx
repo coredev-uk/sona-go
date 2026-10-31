@@ -2,8 +2,11 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { Link } from "@tanstack/react-router";
 
 import { SonaMark } from "@/shared/brand/SonaMark";
+import { cn } from "@/shared/lib/utils";
 
 import { nav, slots, type ModuleNavItem } from "../compose";
+import { titleBarRegion, useWindowActive, useWindowChrome } from "./window-chrome";
+import { WindowControls } from "./WindowControls";
 
 const footers = slots.flatMap((s) => (s.SidebarFooter ? [s.SidebarFooter] : []));
 const sections = slots.flatMap((s) => (s.SidebarSection ? [s.SidebarSection] : []));
@@ -31,11 +34,35 @@ function NavLink({ item }: { item: ModuleNavItem }) {
  */
 export function Sidebar() {
   const { t } = useLingui();
+  const chrome = useWindowChrome();
+  const active = useWindowActive();
+  const region = titleBarRegion(chrome);
+  const leading = chrome.start.length > 0;
   return (
     <nav aria-label={t`Main`} className="flex min-h-0 flex-col bg-surface px-3 pb-3">
-      <div className="flex h-12 shrink-0 items-center gap-2 px-2.5">
+      {/* The title bar's leading end while the sidebar is shown: macOS's
+          buttons or Sona's leading ones, then the mark. */}
+      <div
+        {...region}
+        style={{
+          ...region.style,
+          height: chrome.height,
+          paddingInlineStart: chrome.startRoom || (leading ? 8 : 22),
+        }}
+        className="-mx-3 flex shrink-0 items-center gap-2 pe-[22px] select-none"
+      >
+        {leading && (
+          <div className="me-3">
+            <WindowControls chrome={chrome} side="start" />
+          </div>
+        )}
         <SonaMark />
-        <span className="text-heading font-bold tracking-tight text-ink">
+        <span
+          className={cn(
+            "text-heading font-bold tracking-tight transition-colors duration-100",
+            chrome.kind !== "none" && !active ? "text-ink-faint" : "text-ink",
+          )}
+        >
           <Trans>Sona</Trans>
         </span>
       </div>

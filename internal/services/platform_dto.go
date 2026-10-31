@@ -32,6 +32,44 @@ type Capabilities struct {
 	// WebKitGTK: the web view is WebKitGTK (Linux), so its rendering
 	// workarounds (Settings → Diagnostics) apply.
 	WebKitGTK bool `json:"webkitGtk"`
+	// WindowControls is how the main window's title bar works here; the
+	// frontend lays out its top bar from it and the title bar setting.
+	WindowControls WindowControls `json:"windowControls"`
+}
+
+// WindowControls is how title bars work on this platform
+// (internal/windowchrome). With Settings → Desktop → Title bar
+// (config.TitleBar.Style, as the window was created: Style) it gives the
+// main window's kind:
+//   - Native "inset" (macOS): always "native-inset", the system's buttons
+//     inside Sona's top bar, which keeps room for them at the start;
+//   - Native "frame" (Windows, Linux): the style, with "auto" standing for
+//     Automatic, gives "drawn" (Sona's own title bar in a frameless
+//     window; "sona" with Start and End's buttons, "sona-no-buttons"
+//     without) or "none" ("desktop": the desktop's own title bar, or none
+//     on a tiling compositor).
+type WindowControls struct {
+	// Native is "inset" (macOS) or "frame" (Windows, Linux).
+	Native string `json:"native"`
+	// Automatic is what the "auto" style stands for here: "sona" on
+	// Windows and the stacking Linux desktops Sona knows, "desktop" on
+	// tiling compositors and unknown desktops (and macOS, which ignores
+	// the setting).
+	Automatic string `json:"automatic"`
+	// Desktop names the desktop or compositor Sona recognised ("GNOME",
+	// "KDE Plasma", "sway"); "" when none (always on macOS and Windows).
+	Desktop string `json:"desktop"`
+	// Start and End are the window buttons on each side, in reading order:
+	// "minimize", "maximize", "close" (the desktop's own layout on Linux;
+	// on macOS the traffic lights' order, for the room they take).
+	Start []string `json:"start"`
+	End   []string `json:"end"`
+	// Style is the title bar style (config.TitleBar.Style) the main window
+	// was created with: a change in Settings applies from the next start.
+	Style string `json:"style"`
+	// WindowMenu: DesktopService.ShowWindowMenu opens the desktop's window
+	// menu, for a right click on Sona's title bar (Linux).
+	WindowMenu bool `json:"windowMenu"`
 }
 
 // PlaybackCapabilities is what the playback engine supports.

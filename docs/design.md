@@ -119,7 +119,7 @@ It is the recommended setting on software rendering (`WEBKIT_DISABLE_COMPOSITING
 
 ```
 ┌──────────┬───────────────────────────────────────────────┐
-│ ● Sona   │ ‹ ›  [ Search Apple Music and your library ]  ◯ │  48px surface
+│ ● Sona   │ ‹ ›  [ Search Apple Music and your library ]  ◯ ✕ │  48px surface, the title bar
 │          ├───────────────────────────────────────────────┤
 │ Listen…  │                                               │
 │ Search   │  h1 + optional one-line subline               │
@@ -140,7 +140,22 @@ It is the recommended setting on software rendering (`WEBKIT_DISABLE_COMPOSITING
 - The mark is a small amber disc with a spindle hole (a record label seen from above), next to the word "Sona" at 16/700.
 - Active nav item: `--active` fill at radius 6, label and icon in ink. Inactive items are `--ink-muted`.
 - Group label "Library" in 12px muted sentence case, 20px above its first item. Settings sits at the sidebar's foot.
-- Top bar: back and forward, then the search field (max 520px, `/` or Ctrl+F focuses it), and the account avatar at the right edge.
+- Top bar: back and forward, then the search field (max 520px, `/` or Ctrl+F focuses it, never narrower than 240px), an empty stretch of at least 64px, and the account avatar.
+
+### Title bar
+
+The sidebar header and the top bar are the window's title bar. Who draws it comes from Go (`Capabilities.windowControls`, `app/shell/window-chrome.ts`), never from the user agent:
+
+- **macOS**: the system's own traffic lights, inset into Sona's band (hidden title bar, full-size content). They keep full screen, tiling, the inactive dimming and VoiceOver. The band is 52px there (AppKit's unified toolbar height, so the lights centre on Sona's controls) and keeps 84px free at the leading edge (in the sidebar header, or the top bar while the sidebar is hidden); in full screen the lights hide and the band returns to 48px with no room.
+- **Windows and the stacking Linux desktops** (GNOME, KDE Plasma, Cinnamon, Xfce, MATE, Budgie, Pantheon, …): the window is frameless and Sona draws the buttons, in the desktop's own set and order (GTK's `gtk-decoration-layout`, GNOME's `button-layout`, KWin's `ButtonsOnLeft`/`ButtonsOnRight`): GNOME's default is Close alone. Leading buttons open the sidebar header (or the top bar while the sidebar is hidden), 8px from the edge, 12px before the mark; trailing ones close the top bar after the account.
+  - Windows: Windows 11 caption buttons, 46px wide and the band's full height, flush to the top and right edges; 10px glyphs drawn at 1px (minimise, maximise, restore, close); hover `--hover`, pressed `--active`; Close hovers in Windows' red `#c42b1c` with a white glyph. This red is the platform's meaning of Close, not an error, so it is the one exception to "danger only".
+  - Linux: Sona's own compact buttons, not Adwaita's or Breeze's: 28px, radius 6, the top bar's 16px outline glyphs at 1.75 stroke (`Minus`, `Square`, `Copy` for Restore, `X`) in `--ink-muted`, 4px apart, `--hover` on hover, `--active` pressed, 8px from the window edge. Close stays neutral.
+- **Tiling compositors** (sway, Hyprland, i3, niri, river, bspwm, …) and desktops Sona doesn't recognise: the desktop's own title bar or none; Sona draws no buttons and the band is not a drag region.
+- Settings → Desktop → **Title bar** (Windows, Linux): Automatic (the hint names the desktop and what Automatic picks there), Sona's with window buttons, Sona's without window buttons, The desktop's. It applies from the next start (GTK doesn't give a window that ran without its title bar its own back).
+- Where Sona draws it, the band's empty parts drag the window, a double click maximises or restores, and a right click opens the desktop's window menu (Linux); every control in the band stays a control. On macOS a double click does what the system's title bar setting says.
+- The buttons are real buttons in a group named "Window", labelled Minimise, Maximise or Restore (by the window's state) and Close, and reachable with Tab. Close does what closing the window does (Settings → Desktop: keep playing in the background, or quit).
+- While the window is inactive, the wordmark and the button glyphs drop to `--ink-faint`.
+- The mini player keeps its own Open Sona and Close buttons, on the side where the platform puts Close (leading on macOS and leading desktop layouts), Close outermost, 4px apart.
 
 ## Empty, loading and error states
 

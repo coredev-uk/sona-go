@@ -1,9 +1,9 @@
 import { DesktopService, PlaybackService } from "@bindings/services";
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
+  AppWindow,
   CircleAlert,
   LoaderCircle,
-  Maximize2,
   Pause,
   Play,
   SkipBack,
@@ -22,6 +22,7 @@ import {
 } from "@/features/player";
 import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
+import { useCapabilities } from "@/shared/lib/capabilities";
 import { callFailure } from "@/shared/lib/errors";
 import { formatTime } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
@@ -186,6 +187,8 @@ export function MiniPlayer() {
   const noCdm = usePlayback((s) => s.noCdm);
   const { notice, command } = useCommand();
   const { t } = useLingui();
+  const controls = useCapabilities()?.windowControls;
+  const leading = controls?.native === "inset" || !!controls?.start.includes("close");
 
   const idle = !current;
   const playing = state === "playing";
@@ -215,7 +218,7 @@ export function MiniPlayer() {
       </div>
 
       <div className="relative flex h-28 min-w-0 flex-1 flex-col">
-        <div className="flex items-start gap-2">
+        <div className={cn("flex items-start gap-2", leading && "flex-row-reverse")}>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-ui font-semibold text-ink" title={current?.name}>
               {current?.name ?? t`Not playing`}
@@ -224,10 +227,19 @@ export function MiniPlayer() {
               {current ? current.artistName : t`Choose music in the main window`}
             </p>
           </div>
-          <div className="-mt-0.5 -mr-1 flex shrink-0 items-center">
+          {/* The window's own buttons, Close outermost on the side the
+              platform puts it (macOS and leading desktop layouts: start). */}
+          <div
+            role="group"
+            aria-label={t`Window`}
+            className={cn(
+              "-mt-0.5 flex shrink-0 items-center gap-1",
+              leading ? "-ml-1 flex-row-reverse" : "-mr-1",
+            )}
+          >
             <ChromeButton
               label={t`Open Sona`}
-              icon={Maximize2}
+              icon={AppWindow}
               onClick={() => command(t`Couldn't open Sona`, DesktopService.ShowMainWindow())}
             />
             <ChromeButton

@@ -1,9 +1,11 @@
 package services
 
 import (
+	"errors"
 	"sync/atomic"
 
 	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
 // Windows is the desktop shell's window control, provided by main
@@ -18,6 +20,19 @@ type Windows interface {
 	CloseMini()
 	// ResetWindowSize returns the main window to its default size.
 	ResetWindowSize()
+	// MinimiseMain, ToggleMaximiseMain and CloseMain are Sona's title
+	// bar's buttons; CloseMain does what closing the window does
+	// (Settings → Desktop).
+	MinimiseMain()
+	ToggleMaximiseMain()
+	CloseMain()
+	// ShowWindowMenu opens the desktop's window menu at the latest right
+	// click on the main window; errors.ErrUnsupported where Sona can't.
+	ShowWindowMenu() error
+	// MainState is the main window's maximised and full-screen state, and
+	// WatchMain follows its changes.
+	MainState() windowchrome.WindowState
+	WatchMain(func(windowchrome.WindowState))
 }
 
 // DesktopService is Sona as a desktop app: its windows, the autostart
@@ -35,6 +50,7 @@ type DesktopService struct {
 func newDesktopService(e *Env) *DesktopService {
 	d := &DesktopService{o: e}
 	e.Settings.OnChange(d.settingsChanged)
+	e.Windows.WatchMain(func(st windowchrome.WindowState) { e.Emit.Emit(EventWindowState, windowState(st)) })
 	// The autostart file may have been removed or disabled from the
 	// desktop's own settings since the last run: the file wins. Local
 	// file work, off the start-up path.
@@ -55,6 +71,32 @@ func (d *DesktopService) CloseMiniPlayer() { d.o.Windows.CloseMini() }
 
 // ResetWindowSize returns the main window to its default size.
 func (d *DesktopService) ResetWindowSize() { d.o.Windows.ResetWindowSize() }
+
+// MinimiseWindow is Sona's title bar's Minimise button.
+func (d *DesktopService) MinimiseWindow() { d.o.Windows.MinimiseMain() }
+
+// ToggleMaximiseWindow is Sona's title bar's Maximise/Restore button and a
+// double click on its title bar.
+func (d *DesktopService) ToggleMaximiseWindow() { d.o.Windows.ToggleMaximiseMain() }
+
+// CloseWindow is Sona's title bar's Close button: the main window closes
+// as Settings → Desktop says (to the background, or quitting).
+func (d *DesktopService) CloseWindow() { d.o.Windows.CloseMain() }
+
+// ShowWindowMenu opens the desktop's window menu for a right click on
+// Sona's title bar (Capabilities.WindowControls.WindowMenu); otherwise it
+// fails with code unsupported.
+func (d *DesktopService) ShowWindowMenu() error {
+	err := d.o.Windows.ShowWindowMenu()
+	if errors.Is(err, errors.ErrUnsupported) {
+		return unsupported("the window menu")
+	}
+	return err
+}
+
+// WindowState is the main window's maximised and full-screen state;
+// "window:state" carries each change.
+func (d *DesktopService) WindowState() WindowState { return windowState(d.o.Windows.MainState()) }
 
 // SetLastRoute remembers the main window's route ("/album/1?song=2") for
 // the next start. It is kept only while "resume where I left off" is on;

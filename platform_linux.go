@@ -16,6 +16,8 @@ import (
 	"github.com/coredev-uk/sona-go/internal/mpris"
 	"github.com/coredev-uk/sona-go/internal/power"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/shell"
+	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
 // Linux: the freedesktop integrations over D-Bus (MPRIS, notifications,
@@ -83,7 +85,7 @@ func openPlatform(act app.Activation, log *slog.Logger) (*platform, error) {
 // Services are the integrations for services.Deps.Platform. Without a
 // session bus only the tray and the autostart entry remain.
 func (p *platform) Services() services.Platform {
-	out := services.Platform{Autostart: app.XDGAutostart{}, Tray: true}
+	out := services.Platform{Autostart: app.XDGAutostart{}, Tray: true, TitleBar: p.TitleBar()}
 	conn := p.conn
 	if conn == nil {
 		return out
@@ -126,6 +128,42 @@ func (p *platform) Services() services.Platform {
 	out.Files = app.Portal{Conn: conn}
 	out.Commands = p.instance != nil
 	return out
+}
+
+// TitleBar is Sona's own title bar on the stacking desktops it recognises
+// and the desktop's on tiling compositors and unknown desktops, with the
+// buttons laid out as the desktop lays out its own: KWin's (kwinrc) on KDE
+// Plasma, GTK's elsewhere.
+func (p *platform) TitleBar() windowchrome.Platform {
+	d := windowchrome.Detect(os.Getenv)
+	return windowchrome.Platform{
+		Native:     windowchrome.NativeFrame,
+		Automatic:  d.Automatic(),
+		Desktop:    d.Name,
+		WindowMenu: true,
+		Layout:     func() windowchrome.Layout { return buttonLayout(d, p.log) },
+	}
+}
+
+// buttonLayout reads the desktop's title bar buttons; KWin's defaults
+// (and GTK's) when it can't.
+func buttonLayout(d windowchrome.Desktop, log *slog.Logger) windowchrome.Layout {
+	if d.KDE {
+		if path := windowchrome.KWinRC(os.Getenv); path != "" {
+			l, err := windowchrome.ReadKWin(path)
+			if err == nil {
+				return l
+			}
+			if !errors.Is(err, os.ErrNotExist) {
+				log.Warn("title bar: read KWin's buttons", "path", path, "err", err)
+			}
+		}
+		return windowchrome.DefaultLayout()
+	}
+	if layout := shell.DecorationLayout(); layout != "" {
+		return windowchrome.ParseGTK(layout)
+	}
+	return windowchrome.DefaultLayout()
 }
 
 // Serve hands later launches' links to activate and runs commands sent by

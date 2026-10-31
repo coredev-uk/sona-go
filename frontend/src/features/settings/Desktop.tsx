@@ -14,8 +14,66 @@ import { useSettings, useUpdateSettings } from "./queries";
 import { SettingRow, SettingsPanel } from "./SettingRow";
 
 /**
+ * Title bar (Windows and Linux; macOS always keeps its own buttons in
+ * Sona's top bar): who draws it. The hint says what Automatic picks here.
+ */
+function TitleBarRow({ value, onChange }: { value: string; onChange: (style: string) => void }) {
+  const { t } = useLingui();
+  const controls = useCapabilities()?.windowControls;
+  if (!controls) return null;
+  const desktop = controls.desktop;
+  let hint: string;
+  if (controls.automatic === "sona") {
+    hint = desktop
+      ? t`Automatic uses Sona's title bar on ${desktop}, with the window buttons where your desktop puts them.`
+      : t`Automatic uses Sona's title bar, with the window buttons where your system puts them.`;
+  } else {
+    hint = desktop
+      ? t`Automatic leaves the title bar to ${desktop}.`
+      : t`Automatic leaves the title bar to your desktop, which Sona doesn't recognise.`;
+  }
+  // The window keeps the title bar it was created with until Sona restarts.
+  const pending = value !== controls.style;
+  return (
+    <SettingRow
+      id="title-bar"
+      title={t`Title bar`}
+      description={
+        pending ? (
+          <>
+            {hint} <span className="text-ink">{t`Applies the next time Sona starts.`}</span>
+          </>
+        ) : (
+          hint
+        )
+      }
+    >
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id="title-bar" aria-describedby="title-bar-desc" className="h-8 w-64">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="auto">
+            <Trans>Automatic</Trans>
+          </SelectItem>
+          <SelectItem value="sona">
+            <Trans>Sona's, with window buttons</Trans>
+          </SelectItem>
+          <SelectItem value="sona-no-buttons">
+            <Trans>Sona's, without window buttons</Trans>
+          </SelectItem>
+          <SelectItem value="desktop">
+            <Trans>The desktop's</Trans>
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </SettingRow>
+  );
+}
+
+/**
  * Settings → Desktop: what closing the window does, starting at login,
- * where Sona opens, and the remembered window size.
+ * where Sona opens, the title bar, and the remembered window size.
  */
 export function DesktopSection() {
   const { t } = useLingui();
@@ -143,6 +201,12 @@ export function DesktopSection() {
           }
         />
       </SettingRow>
+      {caps && caps.windowControls.native === "frame" && (
+        <TitleBarRow
+          value={s.titleBar.style}
+          onChange={(style) => update.mutate({ ...s, titleBar: { style } })}
+        />
+      )}
       <SettingRow
         id="window-size"
         title={t`Window size`}

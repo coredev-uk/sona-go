@@ -152,5 +152,7 @@ export {
     TrackRef,
     Traits,
     TreePlaylist,
-    UpdateStatus
+    UpdateStatus,
+    WindowControls,
+    WindowState
 } from "./models.js";

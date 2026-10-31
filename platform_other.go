@@ -11,7 +11,9 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/coredev-uk/sona-go/internal/app"
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
 // macOS and Windows (and any other OS): the UI without the desktop
@@ -46,8 +48,23 @@ type platform struct{}
 // openPlatform never forwards: there is no single-instance guard here.
 func openPlatform(app.Activation, *slog.Logger) (*platform, error) { return &platform{}, nil }
 
-// Services offers the tray only.
-func (*platform) Services() services.Platform { return services.Platform{Tray: true} }
+// Services offers the tray and the title bar only.
+func (p *platform) Services() services.Platform {
+	return services.Platform{Tray: true, TitleBar: p.TitleBar()}
+}
+
+// TitleBar: on macOS the system's buttons inset into Sona's top bar; on
+// Windows Sona's own title bar with Windows' caption buttons; elsewhere the
+// system's frame.
+func (*platform) TitleBar() windowchrome.Platform {
+	switch runtime.GOOS {
+	case "darwin":
+		return windowchrome.Platform{Native: windowchrome.NativeInset, Automatic: config.TitleBarDesktop, Layout: windowchrome.MacLayout}
+	case "windows":
+		return windowchrome.Platform{Native: windowchrome.NativeFrame, Automatic: config.TitleBarSona, Layout: windowchrome.WindowsLayout}
+	}
+	return windowchrome.Platform{Native: windowchrome.NativeFrame, Automatic: config.TitleBarDesktop}
+}
 
 // Serve does nothing: later launches start their own instance.
 func (*platform) Serve(func(app.Activation, bool), app.Commands) {}

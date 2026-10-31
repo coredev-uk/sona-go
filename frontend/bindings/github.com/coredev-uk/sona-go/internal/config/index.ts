@@ -15,6 +15,7 @@ export {
     Scrobbling,
     Settings,
     Storage,
+    TitleBar,
     Updates,
     Window
 } from "./models.js";

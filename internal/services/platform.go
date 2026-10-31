@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"sync"
 
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/desktop/notify"
 	"github.com/coredev-uk/sona-go/internal/discord"
 	"github.com/coredev-uk/sona-go/internal/mpris"
+	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
 // Platform is what the operating system offers Sona beyond its windows,
@@ -40,6 +42,11 @@ type Platform struct {
 	// Commands: `sona private …` reaches the running instance and a second
 	// launch forwards its links to it (internal/app over D-Bus on Linux).
 	Commands bool
+	// TitleBar is how the main window's title bar works here: the system's
+	// buttons inset into Sona's top bar (macOS), or Sona's own title bar
+	// or the desktop's (Windows, Linux), and the desktop's button layout
+	// (internal/windowchrome).
+	TitleBar windowchrome.Platform
 }
 
 // MediaControls is the desktop's now-playing and media-key integration.
@@ -104,13 +111,15 @@ func unsupported(what string) error {
 // frontend hides or explains what can't work here instead of showing it
 // broken.
 type PlatformService struct {
-	caps Capabilities
+	caps     Capabilities
+	titleBar windowchrome.Platform
+	layout   sync.Once
 }
 
 func newPlatformService(e *Env) *PlatformService {
 	p := e.Platform
 	pc := e.Engine.Capabilities()
-	return &PlatformService{caps: Capabilities{
+	return &PlatformService{titleBar: p.TitleBar, caps: Capabilities{
 		OS: runtime.GOOS,
 		Playback: PlaybackCapabilities{
 			Available:        pc.Kind != "",
@@ -132,10 +141,31 @@ func newPlatformService(e *Env) *PlatformService {
 		CLI:             p.Commands,
 		DiscordPresence: discord.Supported,
 		WebKitGTK:       e.WebKit != "",
+		WindowControls: WindowControls{
+			Native:     p.TitleBar.Native,
+			Automatic:  p.TitleBar.Automatic,
+			Desktop:    p.TitleBar.Desktop,
+			Style:      e.Settings.Get().TitleBar.Style,
+			WindowMenu: p.TitleBar.WindowMenu,
+			Start:      []string{},
+			End:        []string{},
+		},
 	}}
 }
 
 // Capabilities returns what this platform and build support. It is fixed
 // for the process; whether a supported service is reachable right now
 // (the notification server, the inhibitor) is in "integrations:status".
-func (s *PlatformService) Capabilities() Capabilities { return s.caps }
+// The desktop's window button layout is read on the first call, which
+// comes from the page, once the GUI toolkit runs.
+func (s *PlatformService) Capabilities() Capabilities {
+	s.layout.Do(func() {
+		if s.titleBar.Layout == nil {
+			return
+		}
+		l := s.titleBar.Layout()
+		s.caps.WindowControls.Start = append([]string{}, l.Start...)
+		s.caps.WindowControls.End = append([]string{}, l.End...)
+	})
+	return s.caps
+}

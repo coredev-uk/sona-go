@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
 // desktopEnv builds a DesktopService over a fresh settings store with the
@@ -128,5 +130,72 @@ func TestSetLastRouteOnlyWhileResuming(t *testing.T) {
 	}
 	if got := st.Get().Desktop.StartRoute(); got != "/album/1?song=2" {
 		t.Fatalf("start route = %q", got)
+	}
+}
+
+// fakeWindows is the shell's window control: it records nothing but the
+// main window's state and the window menu's answer.
+type fakeWindows struct {
+	state   windowchrome.WindowState
+	watch   func(windowchrome.WindowState)
+	menuErr error
+}
+
+func (*fakeWindows) ShowMain()                                     {}
+func (*fakeWindows) ToggleMini()                                   {}
+func (*fakeWindows) CloseMini()                                    {}
+func (*fakeWindows) ResetWindowSize()                              {}
+func (*fakeWindows) MinimiseMain()                                 {}
+func (*fakeWindows) ToggleMaximiseMain()                           {}
+func (*fakeWindows) CloseMain()                                    {}
+func (f *fakeWindows) ShowWindowMenu() error                       { return f.menuErr }
+func (f *fakeWindows) MainState() windowchrome.WindowState         { return f.state }
+func (f *fakeWindows) WatchMain(fn func(windowchrome.WindowState)) { f.watch = fn }
+
+func windowsEnv(t *testing.T, w *fakeWindows) (*DesktopService, *recorder) {
+	t.Helper()
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	st, err := config.OpenStore(filepath.Join(t.TempDir(), "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := &recorder{}
+	e := &Env{Deps: Deps{Settings: st, Emit: rec, Logger: discard(), Windows: w}}
+	t.Cleanup(e.close)
+	return newDesktopService(e), rec
+}
+
+// The title bar follows the main window: each change of its state reaches
+// the page as "window:state", and the page can read the current one.
+func TestWindowStateReachesThePage(t *testing.T) {
+	w := &fakeWindows{state: windowchrome.WindowState{Fullscreen: true}}
+	d, rec := windowsEnv(t, w)
+	if got := d.WindowState(); got != (WindowState{Fullscreen: true}) {
+		t.Fatalf("WindowState = %+v", got)
+	}
+	w.watch(windowchrome.WindowState{Maximised: true})
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	var sent []WindowState
+	for i, name := range rec.events {
+		if name == EventWindowState {
+			sent = append(sent, rec.data[i].(WindowState))
+		}
+	}
+	if len(sent) != 1 || sent[0] != (WindowState{Maximised: true}) {
+		t.Fatalf("window:state events = %+v, want one maximised", sent)
+	}
+}
+
+// Where Sona can't open the desktop's window menu the call says so with
+// the unsupported code, which the page words as not available here.
+func TestWindowMenuUnsupported(t *testing.T) {
+	d, _ := windowsEnv(t, &fakeWindows{menuErr: errors.ErrUnsupported})
+	if err := d.ShowWindowMenu(); ErrorCode(err) != CodeUnsupported {
+		t.Fatalf("ShowWindowMenu = %v (code %q), want code %q", err, ErrorCode(err), CodeUnsupported)
+	}
+	d, _ = windowsEnv(t, &fakeWindows{})
+	if err := d.ShowWindowMenu(); err != nil {
+		t.Fatalf("ShowWindowMenu = %v", err)
 	}
 }

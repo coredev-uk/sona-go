@@ -307,7 +307,7 @@ func run(started time.Time) error {
 	sh := shell.New(shell.Options{
 		App: wapp, Settings: settings, Coord: coord, Logger: log.With("component", "shell"),
 		WindowIcon: appIcon, TrayIcon: trayIcon, Background: windowBackground(cur.Theme),
-		Hidden: act.Hidden(), Private: private,
+		Hidden: act.Hidden(), Private: private, TitleBar: plat.TitleBar(),
 	})
 	defer sh.Close() // after core.Close, before coord.Close
 	log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "webkitgtk", webkitVersion(), "hidden", act.Hidden())

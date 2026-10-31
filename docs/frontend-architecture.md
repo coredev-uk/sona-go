@@ -664,6 +664,24 @@ Connections (`discordPresence`); the settings file export and import
 Diagnostics' WebKitGTK rows and rendering switches (`webkitGtk`). Diagnostics
 reads `DiagPlayback.engine` ("" without an engine) from its own report.
 
+The window's title bar (`windowControls`) is data, not a gate: its
+`native` ("inset" on macOS, "frame" elsewhere), `automatic` (what the
+"auto" title bar style picks here), `desktop` (the desktop Sona
+recognised), `style` (the title bar style the window was created with),
+`start`/`end` (the desktop's window buttons, in order) and `windowMenu`.
+`app/shell/window-chrome.ts` resolves them with the window's state
+(`window:state`, `DesktopService.WindowState`) into the shell's
+`WindowChrome` (`resolveWindowChrome`, the same rule as Go's
+`windowchrome.Platform.Resolve`): `native-inset` (room at the leading edge
+for macOS's buttons, a 52px band), `drawn` (Sona's own title bar with its
+`WindowControls` at the leading slot, the sidebar header or the top bar
+while the sidebar is hidden, and the trailing slot, the top bar's end) or
+`none`. `titleBarRegion` gives the sidebar header and the top bar the drag
+region (`--wails-draggable: drag`; `index.css` gives every control inside a
+`[data-title-bar]` `no-drag`), the double click (maximise) and the right
+click (the desktop's window menu). The mini player reads `windowControls`
+for the side of its own buttons.
+
 Adding a capability: a field on `Capabilities` (or `PlaybackCapabilities`)
 in `internal/services/platform_dto.go`, filled from the Go platform seam for
 each OS (true on Linux wherever the feature works), regenerate the bindings

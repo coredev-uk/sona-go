@@ -24,6 +24,16 @@ export function linuxCapabilities(): Capabilities {
     cli: true,
     discordPresence: true,
     webkitGtk: true,
+    // GNOME with its default button layout ("appmenu:close").
+    windowControls: {
+      native: "frame",
+      automatic: "sona",
+      desktop: "GNOME",
+      style: "auto",
+      start: [],
+      end: ["close"],
+      windowMenu: true,
+    },
   };
 }
 
@@ -51,6 +61,15 @@ export function bareCapabilities(os = "darwin"): Capabilities {
     cli: false,
     discordPresence: false,
     webkitGtk: false,
+    windowControls: {
+      native: "frame",
+      automatic: "desktop",
+      desktop: "",
+      style: "auto",
+      start: [],
+      end: [],
+      windowMenu: false,
+    },
   };
 }
 
@@ -64,5 +83,31 @@ export function macCapabilities(): Capabilities {
     playback: { ...linuxCapabilities().playback, outputDevice: false },
     tray: true,
     discordPresence: true,
+    windowControls: {
+      native: "inset",
+      automatic: "desktop",
+      desktop: "",
+      style: "auto",
+      start: ["close", "minimize", "maximize"],
+      end: [],
+      windowMenu: false,
+    },
+  };
+}
+
+/** Windows: no playback engine yet, the tray, and Sona's title bar with Windows' caption buttons. */
+export function windowsCapabilities(): Capabilities {
+  return {
+    ...bareCapabilities("windows"),
+    tray: true,
+    windowControls: {
+      native: "frame",
+      automatic: "sona",
+      desktop: "",
+      style: "auto",
+      start: [],
+      end: ["minimize", "maximize", "close"],
+      windowMenu: false,
+    },
   };
 }

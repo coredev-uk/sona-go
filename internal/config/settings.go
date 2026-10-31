@@ -72,6 +72,8 @@ type Settings struct {
 	Crossfade Crossfade `json:"crossfade"`
 	// Private is private listening (private.go).
 	Private Private `json:"private"`
+	// TitleBar is who draws the main window's title bar (titlebar.go).
+	TitleBar TitleBar `json:"titleBar"`
 }
 
 // Diagnostics are WebKitGTK rendering workarounds exposed as toggles. They
@@ -131,6 +133,7 @@ func Defaults() Settings {
 		Queue:             Queue{ReplaceConfirm: ReplaceUndo},
 		Storage:           Storage{ArtCacheMiB: DefaultArtCacheMiB},
 		Crossfade:         Crossfade{Seconds: defaultCrossfadeSeconds},
+		TitleBar:          TitleBar{Style: TitleBarAuto},
 	}
 }
 
@@ -160,6 +163,7 @@ func (s Settings) Normalized() Settings {
 	s.Queue = s.Queue.normalized()
 	s.Storage = s.Storage.normalized()
 	s.Crossfade = s.Crossfade.normalized()
+	s.TitleBar = s.TitleBar.normalized()
 	return s
 }
 

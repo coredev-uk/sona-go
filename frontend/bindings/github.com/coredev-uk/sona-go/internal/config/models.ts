@@ -560,6 +560,11 @@ export class Settings {
      */
     "private": Private;
 
+    /**
+     * TitleBar is who draws the main window's title bar (titlebar.go).
+     */
+    "titleBar": TitleBar;
+
     /** Creates a new Settings instance. */
     constructor($$source: Partial<Settings> = {}) {
         if (!("theme" in $$source)) {
@@ -619,6 +624,9 @@ export class Settings {
         if (!("private" in $$source)) {
             this["private"] = (new Private());
         }
+        if (!("titleBar" in $$source)) {
+            this["titleBar"] = (new TitleBar());
+        }
 
         Object.assign(this, $$source);
     }
@@ -640,6 +648,7 @@ export class Settings {
         const $$createField16_0 = $$createType14;
         const $$createField17_0 = $$createType15;
         const $$createField18_0 = $$createType16;
+        const $$createField19_0 = $$createType17;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("diagnostics" in $$parsedSource) {
             $$parsedSource["diagnostics"] = $$createField6_0($$parsedSource["diagnostics"]);
@@ -680,6 +689,9 @@ export class Settings {
         if ("private" in $$parsedSource) {
             $$parsedSource["private"] = $$createField18_0($$parsedSource["private"]);
         }
+        if ("titleBar" in $$parsedSource) {
+            $$parsedSource["titleBar"] = $$createField19_0($$parsedSource["titleBar"]);
+        }
         return new Settings($$parsedSource as Partial<Settings>);
     }
 }
@@ -717,6 +729,33 @@ export class Storage {
     static createFrom($$source: any = {}): Storage {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new Storage($$parsedSource as Partial<Storage>);
+    }
+}
+
+/**
+ * TitleBar is who draws the main window's title bar and buttons.
+ */
+export class TitleBar {
+    /**
+     * Style is one of the TitleBar* constants; "auto" by default.
+     */
+    "style": string;
+
+    /** Creates a new TitleBar instance. */
+    constructor($$source: Partial<TitleBar> = {}) {
+        if (!("style" in $$source)) {
+            this["style"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TitleBar instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TitleBar {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TitleBar($$parsedSource as Partial<TitleBar>);
     }
 }
 
@@ -806,3 +845,4 @@ const $$createType13 = Queue.createFrom;
 const $$createType14 = Storage.createFrom;
 const $$createType15 = Crossfade.createFrom;
 const $$createType16 = Private.createFrom;
+const $$createType17 = TitleBar.createFrom;

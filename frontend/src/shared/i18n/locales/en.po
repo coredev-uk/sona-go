@@ -710,6 +710,10 @@ msgstr "Apple wants you to review your account (new terms or a security update) 
 msgid "Apple's sign-in page is open in your browser. Sona continues by itself when you're done."
 msgstr "Apple's sign-in page is open in your browser. Sona continues by itself when you're done."
 
+#: src/features/settings/Desktop.tsx
+msgid "Applies the next time Sona starts."
+msgstr "Applies the next time Sona starts."
+
 #: src/features/artist/ArtistViewPage.tsx
 #: src/features/library/pages.tsx
 #: src/features/search/groups.ts
@@ -766,6 +770,26 @@ msgstr "Audio output"
 #: src/features/settings/settings-file.ts
 msgid "Audio quality"
 msgstr "Audio quality"
+
+#: src/features/settings/Desktop.tsx
+msgid "Automatic"
+msgstr "Automatic"
+
+#: src/features/settings/Desktop.tsx
+msgid "Automatic leaves the title bar to {desktop}."
+msgstr "Automatic leaves the title bar to {desktop}."
+
+#: src/features/settings/Desktop.tsx
+msgid "Automatic leaves the title bar to your desktop, which Sona doesn't recognise."
+msgstr "Automatic leaves the title bar to your desktop, which Sona doesn't recognise."
+
+#: src/features/settings/Desktop.tsx
+msgid "Automatic uses Sona's title bar on {desktop}, with the window buttons where your desktop puts them."
+msgstr "Automatic uses Sona's title bar on {desktop}, with the window buttons where your desktop puts them."
+
+#: src/features/settings/Desktop.tsx
+msgid "Automatic uses Sona's title bar, with the window buttons where your system puts them."
+msgstr "Automatic uses Sona's title bar, with the window buttons where your system puts them."
 
 #: src/features/player/QueuePanel.tsx
 #: src/features/settings/settings-file.ts
@@ -990,6 +1014,7 @@ msgstr "Clearing it and the artwork cache keeps your library and settings."
 msgid "Clearing…"
 msgstr "Clearing…"
 
+#: src/app/shell/WindowControls.tsx
 #: src/features/commands/CommandPalette.tsx
 #: src/features/commands/ShortcutHelp.tsx
 #: src/shared/ui/dialog.tsx
@@ -1164,6 +1189,10 @@ msgstr "Couldn't clear the queue"
 #: src/features/miniplayer/MiniPlayer.tsx
 msgid "Couldn't close"
 msgstr "Couldn't close"
+
+#: src/app/shell/WindowControls.tsx
+msgid "Couldn't close the window"
+msgstr "Couldn't close the window"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Couldn't collect diagnostics"
@@ -1405,6 +1434,10 @@ msgstr "Couldn't load your music videos from Apple Music"
 msgid "Couldn't load your recommendations"
 msgstr "Couldn't load your recommendations"
 
+#: src/app/shell/WindowControls.tsx
+msgid "Couldn't minimise the window"
+msgstr "Couldn't minimise the window"
+
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "Couldn't move “{name}”"
 msgstr "Couldn't move “{name}”"
@@ -1581,6 +1614,11 @@ msgstr "Couldn't rename the folder"
 #: src/features/settings/Desktop.tsx
 msgid "Couldn't reset the window"
 msgstr "Couldn't reset the window"
+
+#: src/app/shell/window-chrome.ts
+#: src/app/shell/WindowControls.tsx
+msgid "Couldn't resize the window"
+msgstr "Couldn't resize the window"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Couldn't run the checks"
@@ -2590,9 +2628,17 @@ msgstr "Made for you"
 msgid "Main"
 msgstr "Main"
 
+#: src/app/shell/WindowControls.tsx
+msgid "Maximise"
+msgstr "Maximise"
+
 #: src/features/player/NowPlayingBar.tsx
 msgid "Mini player"
 msgstr "Mini player"
+
+#: src/app/shell/WindowControls.tsx
+msgid "Minimise"
+msgstr "Minimise"
 
 #: src/features/library/views.tsx
 msgid "Mixes made for you"
@@ -3769,6 +3815,10 @@ msgstr "Reset size"
 msgid "Reset to default"
 msgstr "Reset to default"
 
+#: src/app/shell/WindowControls.tsx
+msgid "Restore"
+msgstr "Restore"
+
 #: src/features/commands/CommandPalette.tsx
 #: src/features/search/groups.ts
 #: src/features/search/SearchField.tsx
@@ -4388,6 +4438,14 @@ msgstr "Sona streams AAC: 256 kbps at High, 64 kbps with Data saver for slow or 
 msgid "Sona talks to Apple directly. Your password is used once and never saved."
 msgstr "Sona talks to Apple directly. Your password is used once and never saved."
 
+#: src/features/settings/Desktop.tsx
+msgid "Sona's, with window buttons"
+msgstr "Sona's, with window buttons"
+
+#: src/features/settings/Desktop.tsx
+msgid "Sona's, without window buttons"
+msgstr "Sona's, without window buttons"
+
 #: src/features/search/groups.ts
 #: src/features/song/SongPage.tsx
 msgid "Song"
@@ -4687,6 +4745,10 @@ msgstr "The account's country or region has no Apple Music storefront."
 msgid "The database was already compact"
 msgstr "The database was already compact"
 
+#: src/features/settings/Desktop.tsx
+msgid "The desktop's"
+msgstr "The desktop's"
+
 #: src/features/cdm/messages.ts
 msgid "The download isn't signed by Google, so Sona deleted it. Try again later."
 msgstr "The download isn't signed by Google, so Sona deleted it. Try again later."
@@ -4896,6 +4958,10 @@ msgstr "Time through this programme"
 #: src/shared/tracks/TrackList.tsx
 msgid "Title"
 msgstr "Title"
+
+#: src/features/settings/Desktop.tsx
+msgid "Title bar"
+msgstr "Title bar"
 
 #: src/features/library/history.ts
 msgid "Today"
@@ -5216,6 +5282,11 @@ msgstr "Widevine is ready. Press play to start."
 #: src/features/settings/CdmRow.tsx
 msgid "Widevine update"
 msgstr "Widevine update"
+
+#: src/app/shell/WindowControls.tsx
+#: src/features/miniplayer/MiniPlayer.tsx
+msgid "Window"
+msgstr "Window"
 
 #: src/features/settings/Desktop.tsx
 msgid "Window size"

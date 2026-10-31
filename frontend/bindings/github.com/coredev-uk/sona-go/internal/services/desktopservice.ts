@@ -14,12 +14,31 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
 /**
  * CloseMiniPlayer is the mini player's close button: it keeps playing in
  * the background or quits, like closing the main window.
  */
 export function CloseMiniPlayer(): $CancellablePromise<void> {
     return $Call.ByID(3687982734);
+}
+
+/**
+ * CloseWindow is Sona's title bar's Close button: the main window closes
+ * as Settings → Desktop says (to the background, or quitting).
+ */
+export function CloseWindow(): $CancellablePromise<void> {
+    return $Call.ByID(4154953532);
+}
+
+/**
+ * MinimiseWindow is Sona's title bar's Minimise button.
+ */
+export function MinimiseWindow(): $CancellablePromise<void> {
+    return $Call.ByID(935875113);
 }
 
 /**
@@ -47,8 +66,38 @@ export function ShowMainWindow(): $CancellablePromise<void> {
 }
 
 /**
+ * ShowWindowMenu opens the desktop's window menu for a right click on
+ * Sona's title bar (Capabilities.WindowControls.WindowMenu); otherwise it
+ * fails with code unsupported.
+ */
+export function ShowWindowMenu(): $CancellablePromise<void> {
+    return $Call.ByID(824632130);
+}
+
+/**
+ * ToggleMaximiseWindow is Sona's title bar's Maximise/Restore button and a
+ * double click on its title bar.
+ */
+export function ToggleMaximiseWindow(): $CancellablePromise<void> {
+    return $Call.ByID(2601198647);
+}
+
+/**
  * ToggleMiniPlayer switches between the mini player and the main window.
  */
 export function ToggleMiniPlayer(): $CancellablePromise<void> {
     return $Call.ByID(1585401718);
 }
+
+/**
+ * WindowState is the main window's maximised and full-screen state;
+ * "window:state" carries each change.
+ */
+export function WindowState(): $CancellablePromise<$models.WindowState> {
+    return $Call.ByID(3724417781).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+// Private type creation functions
+const $$createType0 = $models.WindowState.createFrom;

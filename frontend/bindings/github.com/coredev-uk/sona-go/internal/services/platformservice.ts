@@ -20,6 +20,8 @@ import * as $models from "./models.js";
  * Capabilities returns what this platform and build support. It is fixed
  * for the process; whether a supported service is reachable right now
  * (the notification server, the inhibitor) is in "integrations:status".
+ * The desktop's window button layout is read on the first call, which
+ * comes from the page, once the GUI toolkit runs.
  */
 export function Capabilities(): $CancellablePromise<$models.Capabilities> {
     return $Call.ByID(2536812363).then(($result: any) => {

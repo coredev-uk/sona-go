@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import { Outlet } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -13,6 +13,7 @@ import { Sidebar } from "./Sidebar";
 import { StatusBanner } from "./StatusBanner";
 import { TopBar } from "./TopBar";
 import { useRouteMemory } from "./useRouteMemory";
+import { bindWindowState } from "./window-chrome";
 
 const providers = slots.flatMap((s) => (s.Provider ? [s.Provider] : []));
 const asides = slots.flatMap((s) => (s.Aside ? [s.Aside] : []));
@@ -65,6 +66,7 @@ export function AppShell() {
   useGoBridge();
   useShortcuts();
   useRouteMemory();
+  useEffect(() => bindWindowState(), []);
   const overlayOpen = useOverlayOpen();
   const sidebar = useLayout((s) => s.sidebar);
 

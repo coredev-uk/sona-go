@@ -185,6 +185,11 @@
   ::-webkit-scrollbar-thumb:hover {
     background-color: color-mix(in oklab, var(--ink) 34%, transparent);
   }
+  /* Sona's title bar (app/shell/window-chrome.ts) drags the window from its
+     empty parts; its controls stay controls. */
+  [data-title-bar] :is(button, a, input, textarea, select, [role="combobox"], [role="slider"]) {
+    --wails-draggable: no-drag;
+  }
 }
 
 @utility num {

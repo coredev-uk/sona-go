@@ -83,3 +83,8 @@ export const SyncProgress = "sync:progress";
  */
 export const UpdatesAvailable = "updates:available";
 
+/**
+ * Name of the custom event "window:state".
+ */
+export const WindowState = "window:state";
+

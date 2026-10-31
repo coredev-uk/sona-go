@@ -61,7 +61,11 @@
 // small seam per concern, built by main's platform_<os>.go: media controls
 // (MPRIS), notifications, the sleep inhibitor, the on-battery monitor, the
 // autostart entry, the file chooser, plus whether there is a tray and a
-// command transport (`sona private …`, single instance). A nil seam is
+// command transport (`sona private …`, single instance), and how title bars
+// work (TitleBar: macOS's inset buttons, or Sona's or the desktop's title
+// bar and the desktop's button layout). DesktopService offers the title
+// bar's buttons (MinimiseWindow, ToggleMaximiseWindow, CloseWindow),
+// ShowWindowMenu and WindowState ("window:state"). A nil seam is
 // unsupported on this platform (or, for the D-Bus ones, in a Linux
 // session without a bus): its feature does nothing or fails with an error
 // wrapping errors.ErrUnsupported (CodeUnsupported). Features never reach
@@ -76,8 +80,9 @@
 // PlatformService.Capabilities (platform_dto.go) is the capability list
 // the frontend reads once at start: the engine's kind and what it supports
 // (volume, equaliser, Sound Check, crossfade, output device, private
-// listening), which Platform seams exist, and whether the web view is
-// WebKitGTK (its rendering workarounds apply). It is fixed for the process;
+// listening), which Platform seams exist, whether the web view is
+// WebKitGTK (its rendering workarounds apply), and the main window's title
+// bar (WindowControls, from Platform.TitleBar: internal/windowchrome). It is fixed for the process;
 // whether a supported service is reachable right now stays in
 // "integrations:status". A new seam is a Platform field, its use in the
 // feature, and a Capabilities field the frontend gates its control on

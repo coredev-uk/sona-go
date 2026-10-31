@@ -4,13 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
 
 	"github.com/coredev-uk/sona-go/internal/app"
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/discord"
 	"github.com/coredev-uk/sona-go/internal/mpris"
 	"github.com/coredev-uk/sona-go/internal/playback"
+	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
 // A platform with no integrations and no engine (macOS and Windows today)
@@ -18,9 +22,12 @@ import (
 func TestCapabilitiesWithoutPlatformSupport(t *testing.T) {
 	eng := playback.NewUnsupported()
 	t.Cleanup(func() { _ = eng.Close() })
-	got := newPlatformService(&Env{Deps: Deps{Engine: eng}}).Capabilities()
-	want := Capabilities{OS: runtime.GOOS, DiscordPresence: discord.Supported}
-	if got != want {
+	got := newPlatformService(&Env{Deps: Deps{Engine: eng, Settings: testSettings(t)}}).Capabilities()
+	want := Capabilities{
+		OS: runtime.GOOS, DiscordPresence: discord.Supported,
+		WindowControls: WindowControls{Style: config.TitleBarAuto, Start: []string{}, End: []string{}},
+	}
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("capabilities = %+v, want %+v", got, want)
 	}
 }
@@ -33,12 +40,47 @@ func TestCapabilitiesFollowThePlatformAndEngine(t *testing.T) {
 		Tray:          true,
 	}
 	eng := &playEngine{}
-	got := newPlatformService(&Env{Deps: Deps{Engine: eng, Platform: plat}}).Capabilities()
+	got := newPlatformService(&Env{Deps: Deps{Engine: eng, Platform: plat, Settings: testSettings(t)}}).Capabilities()
 	if !got.Playback.Available || got.Playback.Engine != playback.KindCDM || !got.Playback.Volume || got.Playback.Equalizer {
 		t.Errorf("playback = %+v, want the engine's capabilities", got.Playback)
 	}
 	if !got.MediaControls || !got.Autostart || !got.FileChooser || !got.Tray || got.Notifications || got.SleepInhibit || got.PowerState || got.CLI {
 		t.Errorf("capabilities = %+v, want exactly the platform's seams", got)
+	}
+}
+
+// The window controls carry the platform's title bar facts, and the
+// desktop's button layout is read once, on the first call (after the GUI
+// toolkit started), not when the service is built.
+func TestCapabilitiesWindowControls(t *testing.T) {
+	reads := 0
+	plat := Platform{TitleBar: windowchrome.Platform{
+		Native:     windowchrome.NativeFrame,
+		Automatic:  config.TitleBarSona,
+		Desktop:    "GNOME",
+		WindowMenu: true,
+		Layout: func() windowchrome.Layout {
+			reads++
+			return windowchrome.ParseGTK("close:minimize,maximize")
+		},
+	}}
+	eng := playback.NewUnsupported()
+	t.Cleanup(func() { _ = eng.Close() })
+	svc := newPlatformService(&Env{Deps: Deps{Engine: eng, Platform: plat, Settings: testSettings(t)}})
+	if reads != 0 {
+		t.Fatalf("layout read %d times before Capabilities", reads)
+	}
+	want := WindowControls{
+		Native: "frame", Automatic: "sona", Desktop: "GNOME", Style: "auto", WindowMenu: true,
+		Start: []string{"close"}, End: []string{"minimize", "maximize"},
+	}
+	for range 2 {
+		if got := svc.Capabilities().WindowControls; !reflect.DeepEqual(got, want) {
+			t.Fatalf("window controls = %+v, want %+v", got, want)
+		}
+	}
+	if reads != 1 {
+		t.Errorf("layout read %d times, want once", reads)
 	}
 }
 
@@ -75,4 +117,14 @@ func TestInhibitWithoutPlatformSupport(t *testing.T) {
 	if got := s.inhibit(nil, false); got != "" {
 		t.Errorf("inhibit(nil, false) = %q, want none", got)
 	}
+}
+
+// testSettings is a fresh settings store with the defaults.
+func testSettings(t *testing.T) *config.Store {
+	t.Helper()
+	st, err := config.OpenStore(filepath.Join(t.TempDir(), "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
 }

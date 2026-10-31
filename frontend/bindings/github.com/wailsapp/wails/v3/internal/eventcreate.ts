@@ -30,6 +30,7 @@ function configure() {
         "sync:done": $$createType12,
         "sync:progress": $$createType13,
         "updates:available": $$createType14,
+        "window:state": $$createType15,
     }));
 }
 
@@ -49,5 +50,6 @@ const $$createType11 = config$0.Settings.createFrom;
 const $$createType12 = services$0.SyncDone.createFrom;
 const $$createType13 = services$0.SyncProgress.createFrom;
 const $$createType14 = services$0.UpdateStatus.createFrom;
+const $$createType15 = services$0.WindowState.createFrom;
 
 configure();
