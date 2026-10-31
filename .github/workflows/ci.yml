@@ -1,5 +1,8 @@
 # Checks for every push to main and every pull request; release.yml runs the
-# same jobs before building a release.
+# same jobs before building a release. Pull requests run with `pull_request`
+# (never `pull_request_target`): a fork's run gets a read-only GITHUB_TOKEN
+# and no secrets, and no job here reads one (docs/security-review.md,
+# "Workflows").
 name: CI
 
 on:
@@ -7,6 +10,7 @@ on:
     branches: [main]
   pull_request:
   workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -23,7 +27,9 @@ jobs:
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # GTK4/WebKitGTK headers for the main package (cgo), GStreamer for the
       # playback host and its tests (appsrc, avdec_aac, audioconvert,
@@ -38,7 +44,7 @@ jobs:
             gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
             dbus
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
 
@@ -106,9 +112,19 @@ jobs:
           -run '^(TestCDM|TestProbe|TestSessionChallenge|TestPlayClearTrack|TestNextTrackAdvances|TestChildExit|TestChildCrashInBundle)$'
           ./internal/playback/widevine ./internal/playback/cdmhost ./internal/diag
 
+      # Apple's 30-second previews through a host child with no CDM:
+      # needs no MUSIC_USER_TOKEN, so it runs on every pull
+      # request. SONA_PREVIEW_REQUIRE fails it instead of skipping when
+      # Apple is unreachable.
+      - name: Preview playback, no MUSIC_USER_TOKEN (verbose, must not skip)
+        env:
+          SONA_PREVIEW_REQUIRE: "1"
+        run: dbus-run-session -- go test -race -count=1 -v -run '^TestPreviewPlaysLive$' ./internal/playback/native
+
       - name: go test -race
         env:
           SONA_CDMHOST_REQUIRE_NAMESPACES: "1"
+          SONA_PREVIEW_REQUIRE: "1"
         run: dbus-run-session -- go test -race ./...
 
   frontend:
@@ -118,13 +134,15 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           version: 12.9.0
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 24
           cache: pnpm
@@ -138,3 +156,128 @@ jobs:
       - run: pnpm exec prettier --check src
       - run: pnpm exec vitest run
       - run: pnpm run build
+
+  # The macOS and Windows builds (CONTRIBUTING.md, "Platforms"). Hosted macOS
+  # minutes cost ten times Linux's (Windows twice) while the repository is
+  # private, so until it is public these run only when dispatched (Actions →
+  # CI → Run workflow); once it is public, on every push and pull request.
+  macos:
+    name: macOS build and test
+    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.repository.private }}
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: devenv shell -- bash -eo pipefail {0}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The toolchain a contributor's Mac gets (CONTRIBUTING.md, "macOS"):
+      # devenv from the nixpkgs revision devenv.yaml pins. The token only
+      # lifts GitHub's API rate limit for fetching the inputs (read-only).
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+        with:
+          github_access_token: ${{ github.token }}
+
+      - name: Install devenv
+        shell: bash
+        run: |
+          rev=$(sed -n 's|.*github:NixOS/nixpkgs/||p' devenv.yaml)
+          devenv=$(nix build --no-link --print-out-paths "github:NixOS/nixpkgs/$rev#devenv")
+          echo "$devenv/bin" >> "$GITHUB_PATH"
+
+      - name: Enter the devenv shell
+        run: go version && gst-inspect-1.0 --version && echo "MACOSX_DEPLOYMENT_TARGET=$MACOSX_DEPLOYMENT_TARGET"
+
+      # Every cgo object, nixpkgs library and the link itself must target the
+      # same macOS (devenv.nix, MACOSX_DEPLOYMENT_TARGET); ld warns otherwise.
+      - name: Build bin/sona (production, no deployment-target warnings)
+        run: |
+          go tool wails3 build 2>&1 | tee "$RUNNER_TEMP/build.log"
+          if grep 'built for newer macOS version' "$RUNNER_TEMP/build.log"; then
+            echo "::error::objects or libraries target a newer macOS than the link (devenv.nix, MACOSX_DEPLOYMENT_TARGET)"
+            exit 1
+          fi
+          otool -l bin/sona | grep -A4 LC_BUILD_VERSION
+
+      - name: go vet
+        run: go vet ./...
+
+      # The real-CDM tests, with the macOS CDM (mac_arm64) downloaded and
+      # cached the way the Linux job does it.
+      - name: Resolve the Widevine CDM version
+        id: cdm
+        run: echo "version=$(go run ./cmd/cdmfetch -version)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Widevine CDM
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/sona-ci/widevine
+          key: widevine-${{ runner.os }}-${{ runner.arch }}-${{ steps.cdm.outputs.version }}
+
+      - name: Install the Widevine CDM
+        run: |
+          go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine
+          echo "SONA_CDM_CACHE=$HOME/.cache/sona-ci/widevine" >> "$GITHUB_ENV"
+
+      - name: Real Widevine CDM and sandbox tests (verbose, must not skip)
+        env:
+          SONA_CDM_REQUIRE: "1"
+        run: go test -count=1 -v -run '^(TestCDM|TestProbe|TestSessionChallenge|TestSeatbeltConfinesChild)$' ./internal/playback/widevine ./internal/playback/cdmhost
+
+      - name: go test -race (no deployment-target warnings)
+        run: |
+          go test -race ./... 2>&1 | tee "$RUNNER_TEMP/test.log"
+          if grep 'built for newer macOS version' "$RUNNER_TEMP/test.log"; then
+            echo "::error::objects or libraries target a newer macOS than the link (devenv.nix, MACOSX_DEPLOYMENT_TARGET)"
+            exit 1
+          fi
+
+  windows:
+    name: Windows build
+    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.repository.private }}
+    runs-on: windows-2025
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      # mattn/go-sqlite3 needs cgo: the runner's MinGW-w64 gcc. Wails itself
+      # is pure Go on Windows.
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 12.9.0
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build the frontend (production)
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: go vet (cgo on)
+        run: gcc --version && go vet ./...
+
+      - name: Build sona.exe
+        run: |
+          go build -tags production,sqlite_fts5 -trimpath -buildvcs=false \
+            -ldflags "-w -s -H windowsgui -X main.version=$(cat VERSION)" -o bin/sona.exe .
+          ls -l bin/sona.exe

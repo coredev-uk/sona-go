@@ -5,9 +5,11 @@
 # response change is caught within a week; a failure opens (or comments on)
 # an issue.
 #
-# Needs the repository secret MUSIC_USER_TOKEN: a Music User Token of an
-# account with an active subscription and a non-empty library. Tokens last
-# about six months; an expired one fails the "storefront" step with a 401.
+# Needs the secret MUSIC_USER_TOKEN of the `live` environment, which only
+# runs from main (the schedule and a dispatch on main; no pull request can
+# reach it): a Music User Token of an account with an active subscription and
+# a non-empty library. Tokens last about six months; an expired one fails the
+# "storefront" step with a 401.
 # Runs with SONA_PRIVATE=1, so nothing it does can reach the account's
 # listening history.
 name: Live API contract
@@ -28,6 +30,7 @@ jobs:
   live:
     name: Apple Music live contract
     runs-on: ubuntu-24.04
+    environment: live
     permissions:
       contents: read
       issues: write
@@ -35,9 +38,11 @@ jobs:
       # The client and these tests are pure Go.
       CGO_ENABLED: "0"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
 

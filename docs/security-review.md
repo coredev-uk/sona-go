@@ -4,7 +4,7 @@ The review covered the auth loopback server, the `/art/` and `/motion/` handlers
 
 Areas reviewed without findings: native Apple ID input handling, `/art/`, the main.go middleware, `/motion/` path handling, parent→child cdmhost framing, single-instance `Activate` and launch URLs, the other MPRIS methods, notifications, the portal file chooser, the settings file, secret stores, the scrobble queue, the diagnostics bundle, the update check, autostart and the webview URL bindings.
 
-The Widevine CDM downloader, added later, is covered in "Widevine CDM downloader" below.
+The Widevine CDM downloader, added later, is covered in "Widevine CDM downloader" below; the GitHub Actions workflows in "Workflows".
 
 Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/`.
 
@@ -241,3 +241,35 @@ Whether the sandbox is used is decided once per process, on the first host start
 **Not covered yet (verify on a Mac).** None of this has run on macOS: it is type-checked from Linux (`go run ./cmd/typecheck -os darwin -arch arm64 -cgo ./...`) and the profile text and the decision are unit-tested on Linux (`TestSeatbeltProfile`, `TestSeatbeltChoice`). `TestSeatbeltConfinesChild` (macOS only) starts a real child and a probe under the profile: no TCP connect, no write to the home folder, no listing of the keychain folder, but temporary files. Open questions for the Mac run: that Seatbelt's "later rule wins" holds for the write exceptions and for the CDM folder inside Sona's hidden folder; that Core Audio, GStreamer's registry and the CDM work under the profile; and that the CDM needs none of the denied Mach services.
 
 **Residual risks (macOS):** files in the home folder outside the hidden ones stay readable (as on Linux); Mach services other than the keychain's stay reachable; the CDM is Google's downloaded and verified library (see "Widevine CDM downloader"), loaded unmodified, but macOS's library validation does not apply to an unsigned host (none is hardened) [INFERENCE].
+
+## Workflows
+
+The repository's GitHub Actions run on GitHub-hosted runners only (a self-hosted runner reachable from a pull request was ruled out). Once the repository is public, anyone can open a pull request, so the workflows assume the pull request's code is hostile.
+
+**What there is to protect.**
+
+| Asset | Where it lives | Who can read it |
+| --- | --- | --- |
+| `MUSIC_USER_TOKEN` (a real account's Music User Token, about six months' access to its library and playback) | Secret of the `live` environment | Jobs that name `environment: live` and run from `main`: `live.yml` (weekly schedule, dispatch) |
+| Last.fm API key and secret, Discord application ID (compiled into every release binary, so readable by anyone who has one; the risk is someone else's builds or abuse posing as Sona before a release) | Secrets of the `release` environment | Jobs that name `environment: release` and run from `main` or a `v*` tag: `release.yml`'s release job, `release-secrets.yml` (dispatch, prints only whether each is set) |
+| `OP_SERVICE_ACCOUNT_TOKEN` (Renovate's 1Password service account, which yields the Renovate app's key) | Repository secret, maintained with Renovate (`renovate.yaml`) | Any workflow run on a branch of this repository; never a fork's run |
+| `GITHUB_TOKEN` write scopes | Per job | `release` (`contents: write`, to publish), `live` (`issues: write`, to report a failed scheduled run); every other job reads only |
+| Release assets and tags | GitHub releases | The `release` job, after the CI checks |
+
+**Threats and controls.**
+
+- *A fork's pull request runs its own code in CI.* Every workflow a pull request triggers uses `pull_request`, never `pull_request_target` or `workflow_run`, so a fork's run gets a read-only `GITHUB_TOKEN` and no secrets; GitHub withholds both. None of those workflows (`ci.yml`, `pr-title.yml`) reads a secret other than `GITHUB_TOKEN`. Environment secrets stay out of reach even for a pull request from a branch of this repository: an environment deploys only to the refs in its policy (`release`: `main` and `v*` tags; `live`: `main`), and a pull request's ref is `refs/pull/<n>/merge`.
+- *A token that outlives its job.* Every checkout sets `persist-credentials: false`, so the token isn't left in `.git/config` for later steps (tests, `pnpm install`, build scripts) to read. No workflow pushes with git.
+- *Too much token scope.* Each workflow starts from `permissions: contents: read` (`pr-title.yml`: `pull-requests: read`; `release-secrets.yml`: none), and only the two jobs above widen it. The repository's default workflow permission is read.
+- *A third-party action moves its tag.* Every action is pinned to a full commit SHA, with the version in a comment; Renovate proposes updates to the pins, which are reviewed like any other pull request.
+- *Script injection.* No `run:` step expands an attacker-controlled expression (pull request title, branch name, commit message); values reach scripts through `env:`.
+- *A malicious dependency in CI.* Go modules are checked against `go.sum`; `pnpm install --frozen-lockfile` installs the lockfile's versions and runs no dependency install scripts, since none is allowed. A compromised dependency still runs its code in a pull request's job, which holds nothing worth taking (above).
+- *Cache poisoning.* Caches written by a pull request's run are scoped to its ref; the default branch's caches, which every run can restore, are written only by runs on `main`. The cached Widevine CDM is reinstalled through Sona's verifying downloader (`cmd/cdmfetch`, "Widevine CDM downloader").
+- *The live token in a test.* `live.yml` runs with `SONA_PRIVATE=1`, so nothing it does reaches the account's listening history, and plays nothing.
+- *Hosted-runner cost.* The macOS and Windows jobs in `ci.yml` run only when dispatched while the repository is private, and on every push and pull request once it is public.
+
+**Residual risks.**
+
+- Anyone with write access can push a `v*` tag, and with it a workflow that names `environment: release`. A tag ruleset that limits who may create `v*` tags closes that; once releases run from `main` alone, the `v*` rule can leave the environment's policy.
+- `OP_SERVICE_ACCOUNT_TOKEN` is a repository secret, readable by a workflow on any branch of this repository (not a fork's), including the branches Renovate's app pushes. Moving it into an environment limited to `main` would confine it to `renovate.yaml`'s own runs.
+- While the repository is private, forks' pull requests run no workflows at all ("Run workflows from fork pull requests" is off, and so are write tokens and secrets for them). Once it is public, a first-time contributor's pull request waits for a maintainer's approval before CI runs ("Require approval for outside contributors"); the controls above are what holds after that approval.

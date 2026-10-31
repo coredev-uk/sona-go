@@ -24,7 +24,7 @@ tasks:
       - echo "built {{.OUTPUT}} ({{.VERSION}})"
     vars:
       BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production,sqlite_fts5{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false{{end}}'
-      LDFLAGS: '{{if ne .DEV "true"}}-w -s {{end}}-X main.version={{.VERSION}}{{if ne .DEV "true"}}{{if .SONA_LASTFM_KEY}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey={{.SONA_LASTFM_KEY}}{{end}}{{if .SONA_LASTFM_SECRET}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret={{.SONA_LASTFM_SECRET}}{{end}}{{if .SONA_DISCORD_CLIENT_ID}} -X github.com/coredev-uk/sona-go/internal/discord.clientID={{.SONA_DISCORD_CLIENT_ID}}{{end}}{{end}}'
+      LDFLAGS: '{{if ne .DEV "true"}}-w -s {{end}}-X main.version={{.VERSION}}{{if .MACOSX_DEPLOYMENT_TARGET}} -extldflags=-mmacosx-version-min={{.MACOSX_DEPLOYMENT_TARGET}}{{end}}{{if ne .DEV "true"}}{{if .SONA_LASTFM_KEY}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey={{.SONA_LASTFM_KEY}}{{end}}{{if .SONA_LASTFM_SECRET}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret={{.SONA_LASTFM_SECRET}}{{end}}{{if .SONA_DISCORD_CLIENT_ID}} -X github.com/coredev-uk/sona-go/internal/discord.clientID={{.SONA_DISCORD_CLIENT_ID}}{{end}}{{end}}'
       DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
     env:

@@ -5,7 +5,7 @@
 }:
 
 let
-  inherit (pkgs.stdenv.hostPlatform) isLinux;
+  inherit (pkgs.stdenv.hostPlatform) isLinux isDarwin darwinMinVersion;
   gst = pkgs.gst_all_1;
   # GStreamer, for the playback host and WebKit's media players (motion
   # artwork, music videos): appsrc and the converters (base), autoaudiosink
@@ -64,13 +64,26 @@ in
 
   env = {
     CGO_ENABLED = "1";
-    GOFLAGS = "-tags=sqlite_fts5";
+    GOFLAGS =
+      "-tags=sqlite_fts5"
+      + lib.optionalString isDarwin " -ldflags=-extldflags=-mmacosx-version-min=${darwinMinVersion}";
     # Only this environment's plugins; never the host's (glibc mismatch).
     GST_PLUGIN_SYSTEM_PATH_1_0 = lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstPlugins;
     GST_PLUGIN_PATH_1_0 = "";
   }
   // lib.optionalAttrs isLinux {
     GIO_EXTRA_MODULES = "${pkgs.glib-networking}/lib/gio/modules";
+  }
+  # One macOS deployment target for everything a build links: nixpkgs'
+  # (its libraries and the cgo objects its clang compiles target it) and the
+  # link itself. Wails' cgo directives pass -mmacosx-version-min=10.13 to the
+  # linker (11.0 on arm64), so without the -extldflags above, which Go puts
+  # last on the link line, ld warns "object file … was built for newer macOS
+  # version (14.0) than being linked (11.0)" for every cgo object. A
+  # `go build -ldflags=…` replaces GOFLAGS' -ldflags, so
+  # build/darwin/Taskfile.yml adds the same flag itself.
+  // lib.optionalAttrs isDarwin {
+    MACOSX_DEPLOYMENT_TARGET = darwinMinVersion;
   };
 
   # Each script is described in CONTRIBUTING.md ("devenv scripts").
