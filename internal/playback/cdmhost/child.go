@@ -356,7 +356,7 @@ func (s *server) needCDM() error {
 }
 
 // open loads the CDM library at lib (the parent chose it: the downloaded
-// CDM or the developer override, internal/playback/cdm) and builds the
+// CDM, internal/playback/cdm) and builds the
 // output pipeline, unless the child only loads the CDM (cdmOnly). On
 // Linux the CDM is loaded only under the seccomp filter that keeps it off
 // the network (ErrSandbox; Sandbox.loadsCDM). A library that is missing

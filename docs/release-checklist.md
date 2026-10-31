@@ -36,7 +36,7 @@ Hyprland), sign in, and play something. Each check names how to verify it.
 | --- | ----- | --- |
 | D1  | Package installs with only its declared dependencies | `.deb` on Ubuntu 24.04 GNOME (`sudo apt install ./sona_*.deb`), `.rpm` on Fedora KDE (`sudo dnf install ./sona-*.rpm`), Arch package or `sona-bin` on Arch; AppImage on any. `sona --version` prints the version |
 | D2  | Launcher entry and icon | Sona appears in the app grid / launcher with its icon; the running window groups under it (app id `dev.coredev.Sona`) |
-| D3  | CDM detected | Settings → Diagnostics shows the CDM version from the user's Google Chrome; with Chrome absent the playback area says so plainly |
+| D3  | CDM downloaded | Settings → Diagnostics shows the CDM version and Source "Downloaded from Google"; on Linux arm64 (no CDM from Google) the playback area says songs can't play on this computer |
 | D4  | Full-track playback | Play an album track to the end; seek; next/previous; audio on the default PipeWire/Pulse output |
 | D5  | MPRIS in the shell's media widget | GNOME: the media card in the notification/calendar panel shows title, artist, artwork and working play/pause/next/previous. KDE: the Media Player plasmoid / system-tray media controls do the same. Hyprland: `playerctl -p sona metadata`, bar widget. Media keys work |
 | D6  | Notifications | Track-change notification appears with artwork (Settings → Desktop → Notifications on); none while the window is focused if that is the setting |

@@ -14,10 +14,10 @@
 //	licence: refused (<why>)
 //	licence: not requested (<why>)
 //
-// Usage: playspike [-env .env] [-song ID | -term "query"] [-seek 90] [-next-term "query"] [-crash] [-quality 256|64] [-cdm LIB | -cdm-dir DIR]
+// Usage: playspike [-env .env] [-song ID | -term "query"] [-seek 90] [-next-term "query"] [-crash] [-quality 256|64] [-cdm-dir DIR]
 //
 // The CDM is the one Sona downloads (installed under Sona's data directory,
-// or -cdm-dir, on first use); -cdm or SONA_WIDEVINE_CDM override it.
+// or -cdm-dir, on first use).
 //
 //	playspike -activity [-private=false]       play activity, private by default (Recently Played must stay unchanged)
 //
@@ -58,7 +58,6 @@ func main() {
 	nextTerm := flag.String("next-term", "Radiohead Reckoner", "search term for the second song")
 	gap := flag.Bool("gap", true, "play into the next track to measure the gap")
 	crash := flag.Bool("crash", false, "kill the host mid-track and measure recovery")
-	cdmOverride := flag.String("cdm", "", "Widevine CDM library to load instead of the downloaded one (developer override, as SONA_WIDEVINE_CDM)")
 	cdmDir := flag.String("cdm-dir", "", "install directory of the downloaded Widevine CDM (default: Sona's, <data>/widevine under the current XDG directories)")
 	activity := flag.Bool("activity", false, "play -song (or -term's hit) then -next (or -next-term's) through the coordinator with Apple play-activity reporting, and check Recently Played")
 	container := flag.String("container", "", "with -activity: kind:id (album, playlist or station) the songs are queued from, reported with the plays and looked for in Recently Played")
@@ -84,7 +83,7 @@ func main() {
 	}
 	// The default and -activity modes end with the licence verdict.
 	verdict := *probeLossless == "" && *soak <= 0
-	lib, err := cdmLibrary(log, *cdmOverride, *cdmDir)
+	lib, err := cdmLibrary(log, *cdmDir)
 	if err != nil {
 		log.Error("playspike: Widevine CDM", "code", cdm.CodeOf(err), "err", err)
 		if verdict {

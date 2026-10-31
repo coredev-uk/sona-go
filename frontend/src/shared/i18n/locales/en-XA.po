@@ -1801,14 +1801,6 @@ msgstr ""
 msgid "Desktop"
 msgstr ""
 
-#: src/features/settings/CdmRow.tsx
-msgid "Developer override"
-msgstr ""
-
-#: src/features/settings/Diagnostics.tsx
-msgid "Developer override (SONA_WIDEVINE_CDM)"
-msgstr ""
-
 #: src/features/settings/Updates.tsx
 msgid "Development build ({current}): not checked for updates"
 msgstr ""
@@ -4394,18 +4386,6 @@ msgstr ""
 
 #: src/features/auth/Account.tsx
 msgid "Sona talks to Apple directly. Your password is used once and never saved."
-msgstr ""
-
-#: src/features/settings/CdmRow.tsx
-msgid "Sona uses the Widevine library that SONA_WIDEVINE_CDM names, a developer setting, and doesn't download or update it."
-msgstr ""
-
-#: src/features/cdm/messages.ts
-msgid "SONA_WIDEVINE_CDM doesn't point to a Widevine library. Correct the path, then restart Sona."
-msgstr ""
-
-#: src/features/player/CdmNotice.tsx
-msgid "SONA_WIDEVINE_CDM names no Widevine library"
 msgstr ""
 
 #: src/features/search/groups.ts

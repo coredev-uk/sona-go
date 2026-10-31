@@ -40,7 +40,7 @@ func (s *CDMService) Status() CDMStatus {
 }
 
 // Retry checks for the CDM again now: after a failed download, or to look
-// for an update. With the developer override there is nothing to fetch.
+// for an update.
 func (s *CDMService) Retry() error {
 	if !s.on {
 		return unsupported("the Widevine CDM")

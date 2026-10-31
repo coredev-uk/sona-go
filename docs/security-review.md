@@ -30,7 +30,7 @@ Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playbac
 - `localKeys` is only used to leave the local keys out of an export.
 - `Settings.Normalized` drops a `CDMPath` that is not a clean absolute path, or that lies under `/proc` or `/dev` (for example `/proc/self/cwd`, or `/dev/fd` → `/proc/self/fd`).
 
-Since then the `CDMPath` setting has been removed altogether: Sona loads only the CDM it downloaded itself, or the `SONA_WIDEVINE_CDM` developer override from the environment (see "Widevine CDM downloader"), so a settings file can no longer name a library.
+Since then the `CDMPath` setting has been removed altogether: Sona loads only the CDM it downloaded itself (see "Widevine CDM downloader"), so neither a settings file nor the environment can name a library.
 
 **Tests:**
 - `TestImportIgnoresLocalKeysInAnySpelling` imports a fully customised document with every key, local ones included, spelled as exported, in lower case and in upper case. It also covers `"CDMPath"` and `"cdmpath"`.
@@ -177,7 +177,7 @@ Other paths checked: Sona itself never calls `debug.ReadBuildInfo` or reads Wail
 
 ## Widevine CDM downloader
 
-Sona downloads the Widevine CDM itself (`internal/playback/cdm`), with no prompt, once the network opens after the first paint, and checks for updates daily. Browser and system copies are never used. The only other source is the `SONA_WIDEVINE_CDM` environment variable, an explicit developer override that is logged as such and downloads nothing. The CDM is never bundled in a package or the binary, never redistributed and never patched. The threat is a network or mirror attacker getting Sona to install and `dlopen` a library that is not Google's genuine Widevine CDM.
+Sona downloads the Widevine CDM itself (`internal/playback/cdm`), with no prompt, once the network opens after the first paint, and checks for updates daily. Browser and system copies are never used. There is no other source: no setting, environment variable or flag names a library. The CDM is never bundled in a package or the binary, never redistributed and never patched. The threat is a network or mirror attacker getting Sona to install and `dlopen` a library that is not Google's genuine Widevine CDM.
 
 **Manifest trust and pinning** (`manifest.go`):
 - The version, size, SHA-512 and download URLs come from Mozilla's Firefox GMP manifest for Widevine (`toolkit/content/gmp-sources/widevinecdm.json`), the file Firefox's own GMP updater falls back to. Sona fetches it pinned to two URLs, in order: the GitHub mirror (`raw.githubusercontent.com/mozilla-firefox/firefox/refs/heads/main/…`), then `hg.mozilla.org/mozilla-central/raw-file/tip/…`. Only `raw.githubusercontent.com`, `hg.mozilla.org` and `hg-edge.mozilla.org` are allowed, redirects included. The document is capped at 1 MiB.

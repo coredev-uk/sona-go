@@ -1801,14 +1801,6 @@ msgstr "Description"
 msgid "Desktop"
 msgstr "Desktop"
 
-#: src/features/settings/CdmRow.tsx
-msgid "Developer override"
-msgstr "Developer override"
-
-#: src/features/settings/Diagnostics.tsx
-msgid "Developer override (SONA_WIDEVINE_CDM)"
-msgstr "Developer override (SONA_WIDEVINE_CDM)"
-
 #: src/features/settings/Updates.tsx
 msgid "Development build ({current}): not checked for updates"
 msgstr "Development build ({current}): not checked for updates"
@@ -4395,18 +4387,6 @@ msgstr "Sona streams AAC: 256 kbps at High, 64 kbps with Data saver for slow or 
 #: src/features/auth/Account.tsx
 msgid "Sona talks to Apple directly. Your password is used once and never saved."
 msgstr "Sona talks to Apple directly. Your password is used once and never saved."
-
-#: src/features/settings/CdmRow.tsx
-msgid "Sona uses the Widevine library that SONA_WIDEVINE_CDM names, a developer setting, and doesn't download or update it."
-msgstr "Sona uses the Widevine library that SONA_WIDEVINE_CDM names, a developer setting, and doesn't download or update it."
-
-#: src/features/cdm/messages.ts
-msgid "SONA_WIDEVINE_CDM doesn't point to a Widevine library. Correct the path, then restart Sona."
-msgstr "SONA_WIDEVINE_CDM doesn't point to a Widevine library. Correct the path, then restart Sona."
-
-#: src/features/player/CdmNotice.tsx
-msgid "SONA_WIDEVINE_CDM names no Widevine library"
-msgstr "SONA_WIDEVINE_CDM names no Widevine library"
 
 #: src/features/search/groups.ts
 #: src/features/song/SongPage.tsx

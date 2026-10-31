@@ -13,14 +13,12 @@ func init() { application.RegisterEvent[CDMStatus](EventCDMStatus) }
 
 // CDMStatus is the Widevine CDM the playback engine loads: Sona downloads
 // it from Google after the first paint and keeps it up to date
-// (internal/playback/cdm), unless the developer override names one.
+// (internal/playback/cdm).
 type CDMStatus struct {
 	// State is "idle" (not downloaded yet: it starts after the first
 	// paint), "downloading", "ready" or "failed"; "" when this platform's
 	// engine needs no CDM.
 	State string `json:"state"`
-	// Source is "download" or "override" (SONA_WIDEVINE_CDM).
-	Source string `json:"source"`
 	// Version and Path are the CDM the next playback host loads.
 	Version string `json:"version"`
 	Path    string `json:"path"`
@@ -28,8 +26,7 @@ type CDMStatus struct {
 	// "ready", why the last update check failed ("" when it passed).
 	// One of network, unsupported_platform, manifest_invalid,
 	// untrusted_url, too_large, hash_mismatch, signature_invalid,
-	// archive_invalid, load_failed, load_check_incomplete, disk,
-	// override_missing.
+	// archive_invalid, load_failed, load_check_incomplete, disk.
 	Code string `json:"code"`
 	// Received and Total are the running download's progress in bytes.
 	Received int64 `json:"received"`
@@ -43,7 +40,7 @@ type CDMStatus struct {
 
 func cdmStatus(s cdm.Status) CDMStatus {
 	out := CDMStatus{
-		State: string(s.State), Source: s.Source, Version: s.Version, Path: s.Path, Code: s.Code,
+		State: string(s.State), Version: s.Version, Path: s.Path, Code: s.Code,
 		Received: s.Received, Total: s.Total, Updating: s.Updating,
 	}
 	if !s.CheckedAt.IsZero() {

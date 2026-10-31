@@ -20,7 +20,6 @@ vi.mock("@tanstack/react-router", () => ({
 function status(patch: Partial<CDMStatus>): CDMStatus {
   return {
     state: "downloading",
-    source: "download",
     version: "",
     path: "",
     code: "",
@@ -67,11 +66,6 @@ describe("CdmNotice", () => {
   it("says songs can't play where Google makes no CDM", () => {
     show(status({ state: "failed", code: "unsupported_platform" }));
     expect(link().textContent).toBe("Songs can't play on this computer");
-  });
-
-  it("names the developer override when it points nowhere", () => {
-    show(status({ state: "failed", source: "override", code: "override_missing" }));
-    expect(link().textContent).toBe("SONA_WIDEVINE_CDM names no Widevine library");
   });
 
   it("asks for another press of play once the CDM is ready", () => {

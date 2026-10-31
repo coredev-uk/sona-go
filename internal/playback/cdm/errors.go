@@ -48,8 +48,6 @@ const (
 	CodeLoadCheck = "load_check_incomplete"
 	// CodeDisk: the install directory could not be written.
 	CodeDisk = "disk"
-	// CodeOverrideMissing: SONA_WIDEVINE_CDM names no library.
-	CodeOverrideMissing = "override_missing"
 )
 
 // ErrNotLoadable is what a load check (Options.LoadCheck) wraps when the

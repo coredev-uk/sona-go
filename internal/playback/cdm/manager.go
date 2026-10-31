@@ -1,8 +1,7 @@
 // Package cdm gets Google's Widevine CDM for Sona: it downloads the CDM
 // from Google's servers, as Firefox's GMP updater does, verifies it and
-// keeps it installed and up to date in Sona's data directory. Browser and
-// system copies are never used; SONA_WIDEVINE_CDM (EnvOverride) is the
-// developer override.
+// keeps it installed and up to date in Sona's data directory. Browser,
+// system and user-supplied copies are never used.
 //
 // The version, package URL and SHA-512 come from Mozilla's public Firefox
 // GMP manifest (Mozilla, pinned); the package is accepted only from
@@ -18,8 +17,6 @@ package cdm
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -35,23 +32,15 @@ const (
 	StateIdle State = "idle"
 	// StateDownloading: nothing installed; the download is running.
 	StateDownloading State = "downloading"
-	// StateReady: a CDM is installed (or the override names one).
+	// StateReady: a CDM is installed.
 	StateReady State = "ready"
 	// StateFailed: nothing usable; Code says why.
 	StateFailed State = "failed"
 )
 
-// Where the CDM comes from.
-const (
-	SourceDownload = "download"
-	SourceOverride = "override"
-)
-
 // Status is the CDM's state for the UI and Diagnostics.
 type Status struct {
 	State State
-	// Source is SourceDownload or SourceOverride.
-	Source string
 	// Version and Path are the CDM new playback hosts load ("" when
 	// none).
 	Version, Path string
@@ -97,8 +86,7 @@ type Manager struct {
 	st       Status
 	failures int // update checks in a row that failed (backoff)
 	lastTry  time.Time
-	// unsupported: Google ships no CDM for this platform; only the
-	// override can name one.
+	// unsupported: Google ships no CDM for this platform.
 	unsupported bool
 	subs        map[int]func(Status)
 	nextSub     int
@@ -133,36 +121,21 @@ func New(o Options) (*Manager, error) {
 		s:    store{root: o.Dir, p: o.Platform},
 		wake: make(chan struct{}, 1),
 		subs: map[int]func(Status){},
-		st:   Status{State: StateIdle, Source: SourceDownload},
+		st:   Status{State: StateIdle},
 
 		unsupported: unsupported,
 		installWait: installWait,
-	}
-	if o.Override != "" {
-		m.st.Source = SourceOverride
 	}
 	m.ctx, m.stop = context.WithCancel(context.Background())
 	return m, nil
 }
 
-// load reads the pointer (or resolves the override) once. Call with mu
-// held.
+// load reads the pointer once. Call with mu held.
 func (m *Manager) loadLocked() {
 	if m.loaded {
 		return
 	}
 	m.loaded = true
-	if m.o.Override != "" {
-		lib, err := resolveOverride(m.o.Override, m.o.Platform)
-		if err != nil {
-			m.st.State, m.st.Code = StateFailed, CodeOverrideMissing
-			m.o.Logger.Warn("widevine: "+EnvOverride+" names no CDM", "value", m.o.Override, "err", err)
-			return
-		}
-		m.st.State, m.st.Path, m.st.Version = StateReady, lib, LibraryVersion(lib)
-		m.o.Logger.Info("widevine: using the developer override "+EnvOverride+"; nothing is downloaded", "path", lib, "version", m.st.Version)
-		return
-	}
 	if m.unsupported {
 		m.st.State, m.st.Code = StateFailed, CodeUnsupportedPlatform
 		return
@@ -194,15 +167,6 @@ func (m *Manager) Status() Status {
 	defer m.mu.Unlock()
 	m.loadLocked()
 	return m.st
-}
-
-// Source is where the CDM comes from: SourceOverride when the developer
-// override is set, else SourceDownload. It reads nothing.
-func (m *Manager) Source() string {
-	if m.o.Override != "" {
-		return SourceOverride
-	}
-	return SourceDownload
 }
 
 // Subscribe calls fn with every status change until cancel.
@@ -244,8 +208,8 @@ func (m *Manager) setLocked(change func(*Status)) func() {
 // running) before reporting ErrDownloading.
 const installWait = 20 * time.Second
 
-// Library returns the library a new playback host loads: the override
-// when set, else the current installed version. Without one it fails
+// Library returns the library a new playback host loads: the current
+// installed version. Without one it fails
 // with ErrDownloading or ErrUnavailable (both playback.ErrNoCDM), the
 // latter wrapped in an Error carrying Status.Code when there is one.
 // While the first version is past its download and being checked, it
@@ -280,13 +244,12 @@ func (m *Manager) Library(ctx context.Context) (string, error) {
 
 // Start begins keeping the CDM installed: at once when none is installed,
 // else when an update check is due. Call it after the first paint (it
-// reads the network). It does nothing with the override set, or where
-// Google ships no CDM.
+// reads the network). It does nothing where Google ships no CDM.
 func (m *Manager) Start() {
 	m.start.Do(func() {
 		m.mu.Lock()
 		m.loadLocked()
-		if m.closed || m.o.Override != "" || m.unsupported {
+		if m.closed || m.unsupported {
 			m.mu.Unlock()
 			return
 		}
@@ -442,14 +405,14 @@ func (m *Manager) runCheck() {
 // sandbox or audio failure). After rollbackAfter failures in a row with
 // the current version, the previous one becomes current again and the
 // failed one is removed and never installed again. With no previous
-// version nothing changes. Hosts using the override are not counted. It
+// version nothing changes. It
 // returns at once: reports are recorded in call order, after a running
 // update check.
 func (m *Manager) ReportInit(lib string, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.loadLocked()
-	if m.closed || m.o.Override != "" {
+	if m.closed {
 		return
 	}
 	// While earlier reports wait, the pointer here may be stale: queue
@@ -576,26 +539,4 @@ func (m *Manager) commitRepair(ptr pointer, wake bool) {
 		default:
 		}
 	}
-}
-
-// resolveOverride returns the library the override names: the path
-// itself, or the platform's library in that directory.
-func resolveOverride(p string, pl Platform) (string, error) {
-	if !filepath.IsAbs(p) {
-		return "", fmt.Errorf("%s is not an absolute path", p)
-	}
-	st, err := os.Stat(p)
-	if err != nil {
-		return "", err
-	}
-	if st.IsDir() {
-		p = filepath.Join(p, pl.Lib)
-		if st, err = os.Stat(p); err != nil {
-			return "", err
-		}
-	}
-	if !st.Mode().IsRegular() {
-		return "", errors.New(p + " is not a file")
-	}
-	return p, nil
 }

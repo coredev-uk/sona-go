@@ -84,7 +84,6 @@ afterEach(() => {
 function cdm(patch: Partial<CDMStatus> = {}): CDMStatus {
   return {
     state: "ready",
-    source: "download",
     version: "4.10.3112.0",
     path: "/data/widevine/4.10.3112.0/linux_x64/libwidevinecdm.so",
     code: "",
@@ -194,14 +193,6 @@ describe("Widevine row", () => {
     expect(shown("Google doesn't make Widevine for this computer, so songs can't play here.")).toBe(
       true,
     );
-    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
-  });
-
-  it("names the developer override and its library", async () => {
-    const path = "/opt/google/chrome/WidevineCdm/libwidevinecdm.so";
-    await show(cdm({ source: "override", version: "4.10.2830.0", path }));
-    expect(shown("Developer override")).toBe(true);
-    expect(shown(path)).toBe(true);
     expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
   });
 });

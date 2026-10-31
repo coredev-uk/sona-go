@@ -86,7 +86,7 @@
 // CDM (cdm.go) is the Widevine CDM the CDM engine loads, which Sona
 // downloads and updates by itself (Deps.CDM, internal/playback/cdm): the
 // download or update check starts from OnNetwork, after the first paint.
-// Status returns its CDMStatus (state, source download|override, version,
+// Status returns its CDMStatus (state, version,
 // path, error code, progress, checkedAt), Retry checks again now, and
 // "cdm:status" carries every change. Without a CDM engine Status is empty
 // and Retry fails with CodeUnsupported.

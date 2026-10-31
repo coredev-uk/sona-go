@@ -623,7 +623,7 @@ export class AuthStatus {
 /**
  * CDMStatus is the Widevine CDM the playback engine loads: Sona downloads
  * it from Google after the first paint and keeps it up to date
- * (internal/playback/cdm), unless the developer override names one.
+ * (internal/playback/cdm).
  */
 export class CDMStatus {
     /**
@@ -632,11 +632,6 @@ export class CDMStatus {
      * engine needs no CDM.
      */
     "state": string;
-
-    /**
-     * Source is "download" or "override" (SONA_WIDEVINE_CDM).
-     */
-    "source": string;
 
     /**
      * Version and Path are the CDM the next playback host loads.
@@ -649,8 +644,7 @@ export class CDMStatus {
      * "ready", why the last update check failed ("" when it passed).
      * One of network, unsupported_platform, manifest_invalid,
      * untrusted_url, too_large, hash_mismatch, signature_invalid,
-     * archive_invalid, load_failed, load_check_incomplete, disk,
-     * override_missing.
+     * archive_invalid, load_failed, load_check_incomplete, disk.
      */
     "code": string;
 
@@ -675,9 +669,6 @@ export class CDMStatus {
     constructor($$source: Partial<CDMStatus> = {}) {
         if (!("state" in $$source)) {
             this["state"] = "";
-        }
-        if (!("source" in $$source)) {
-            this["source"] = "";
         }
         if (!("version" in $$source)) {
             this["version"] = "";
@@ -3577,14 +3568,6 @@ export class PlaybackCapabilities {
     "engine": string;
 
     /**
-     * CDMSource is where the CDM engine's Widevine CDM comes from:
-     * "download" (Sona downloads and updates it, CDMService) or
-     * "override" (the developer override SONA_WIDEVINE_CDM); "" without
-     * that engine.
-     */
-    "cdmSource": string;
-
-    /**
      * Volume: Sona sets the playback volume.
      */
     "volume": boolean;
@@ -3611,9 +3594,6 @@ export class PlaybackCapabilities {
         }
         if (!("engine" in $$source)) {
             this["engine"] = "";
-        }
-        if (!("cdmSource" in $$source)) {
-            this["cdmSource"] = "";
         }
         if (!("volume" in $$source)) {
             this["volume"] = false;

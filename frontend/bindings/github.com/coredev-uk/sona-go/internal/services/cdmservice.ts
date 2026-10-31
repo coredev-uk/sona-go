@@ -21,7 +21,7 @@ import * as $models from "./models.js";
 
 /**
  * Retry checks for the CDM again now: after a failed download, or to look
- * for an update. With the developer override there is nothing to fetch.
+ * for an update.
  */
 export function Retry(): $CancellablePromise<void> {
     return $Call.ByID(4252749480);

@@ -30,7 +30,7 @@ func TestPSSH(t *testing.T) {
 }
 
 // TestCDM exercises Google's real CDM, which cdmtest downloads and
-// verifies the way Sona does (or SONA_WIDEVINE_CDM names): initialisation,
+// verifies the way Sona does: initialisation,
 // licence request generation, timer delivery, a decrypt without a key,
 // and session close. No network once the CDM is installed.
 func TestCDM(t *testing.T) {

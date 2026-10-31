@@ -34,9 +34,7 @@ export function CdmNotice() {
         <Link to="/settings" search={{ section: "playback" }} className={linkClass}>
           {status.code === "unsupported_platform"
             ? t`Songs can't play on this computer`
-            : status.source === "override"
-              ? t`SONA_WIDEVINE_CDM names no Widevine library`
-              : t`Couldn't get Widevine · Retry in Settings`}
+            : t`Couldn't get Widevine · Retry in Settings`}
         </Link>
       </span>
     );

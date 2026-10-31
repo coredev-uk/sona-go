@@ -42,11 +42,6 @@ type PlaybackCapabilities struct {
 	// Engine is the engine's kind: "cdm" (the Widevine CDM host with
 	// GStreamer), or "" when Available is false.
 	Engine string `json:"engine"`
-	// CDMSource is where the CDM engine's Widevine CDM comes from:
-	// "download" (Sona downloads and updates it, CDMService) or
-	// "override" (the developer override SONA_WIDEVINE_CDM); "" without
-	// that engine.
-	CDMSource string `json:"cdmSource"`
 	// Volume: Sona sets the playback volume.
 	Volume bool `json:"volume"`
 	// Equalizer, SoundCheck, Crossfade, OutputDevice: Sona's own output

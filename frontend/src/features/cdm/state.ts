@@ -8,14 +8,13 @@ import { run } from "@/shared/lib/run";
 /**
  * The Widevine CDM as Go reports it (CDMService.Status, then cdm:status):
  * Sona downloads it from Google after the first paint and keeps it up to
- * date, unless the developer override (SONA_WIDEVINE_CDM) names one. null
- * until Go answers; `state` "" on a platform whose playback needs no CDM.
+ * date. null until Go answers; `state` "" on a platform whose playback needs no CDM.
  */
 export const useCdm = create<{ status: CDMStatus | null }>(() => ({ status: null }));
 
 /**
  * Replaces the mirror with Go's latest status. Returns whether more than
- * the download's progress changed (state, version, code or source), so the
+ * the download's progress changed (state, version or code), so the
  * caller can refresh what depends on the CDM without doing so on every
  * progress step.
  */
@@ -26,8 +25,7 @@ export function applyCdmStatus(status: CDMStatus): boolean {
     prev === null ||
     prev.state !== status.state ||
     prev.version !== status.version ||
-    prev.code !== status.code ||
-    prev.source !== status.source
+    prev.code !== status.code
   );
 }
 
@@ -44,14 +42,12 @@ export function cdmPercent(s: Pick<CDMStatus, "received" | "total">): string {
     : numberFormat({ style: "percent", maximumFractionDigits: 0 }).format(fraction);
 }
 /**
- * Whether trying again can help: a download (never the developer override,
- * which Sona does not fetch) that failed, or whose last update check
- * failed, on a platform Google makes the CDM for.
+ * Whether trying again can help: a download that failed, or whose last
+ * update check failed, on a platform Google makes the CDM for.
  */
 export function canRetryCdm(s: CDMStatus | null): boolean {
   return (
     s !== null &&
-    s.source === "download" &&
     s.code !== "" &&
     s.code !== "unsupported_platform" &&
     (s.state === "failed" || s.state === "ready") &&

@@ -32,10 +32,7 @@ type Options struct {
 	// are kept and the next check loads them again. Without it only the
 	// library's binary format is checked.
 	LoadCheck func(ctx context.Context, lib string) error
-	// Override is SONA_WIDEVINE_CDM: a library, or the directory holding
-	// one, used instead of any download (Manager only; Ensure ignores it).
-	Override string
-	Logger   *slog.Logger
+	Logger    *slog.Logger
 	// Now and After are the clock (tests); defaults time.Now and
 	// time.After.
 	Now   func() time.Time
@@ -46,10 +43,6 @@ type Options struct {
 	UpdateInterval time.Duration
 	RetryInterval  time.Duration
 }
-
-// EnvOverride names the developer override: a Widevine CDM library (or
-// its directory) Sona loads instead of the downloaded one.
-const EnvOverride = "SONA_WIDEVINE_CDM"
 
 // Defaults for Options.
 const (

@@ -35,7 +35,6 @@ vi.mock("./Updates", () => ({ UpdatesGroup: () => null }));
 
 const readyCdm: CDMStatus = {
   state: "ready",
-  source: "download",
   version: "4.10.3112.0",
   path: "/data/widevine/4.10.3112.0/linux_x64/libwidevinecdm.so",
   code: "",
@@ -203,15 +202,6 @@ describe("DiagnosticsSection", () => {
     );
     expect(valueOf("Updates")).toContain("Couldn't check for updates");
     expect(shown("Everything Sona needs is working")).toBe(true);
-  });
-
-  it("names the developer override without update rows", async () => {
-    await renderSection(
-      linuxCapabilities(),
-      report(linuxPlayback({ source: "override" }, true), "keychain"),
-    );
-    expect(valueOf("Source")).toBe("Developer override (SONA_WIDEVINE_CDM)");
-    expect(screen.queryByText("Updates", { selector: "dt" })).toBeNull();
   });
 
   it("names Windows Credential Manager", async () => {

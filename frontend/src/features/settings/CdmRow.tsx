@@ -50,8 +50,7 @@ function DownloadProgress({ status, label }: { status: CDMStatus; label: string 
 }
 
 /**
- * Settings → Playback: the Widevine CDM Sona downloads from Google (or the
- * developer override names), its version, a running download's progress,
+ * Settings → Playback: the Widevine CDM Sona downloads from Google, its version, a running download's progress,
  * and Retry when the download or the last update check failed. The state is
  * an <output> named by the row's label, so a change is announced once; the
  * progress is the bar's value, never a live region.
@@ -62,14 +61,12 @@ export function CdmRow() {
   const [retrying, setRetrying] = useState(false);
   const stateRef = useRef<HTMLOutputElement>(null);
 
-  const override = status?.source === "override";
   const failed = status?.state === "failed";
   const ready = status?.state === "ready";
   const retry = canRetryCdm(status);
   const problem = status?.code ? cdmProblem(status.code) : "";
   const version = status?.version ?? "";
   const checked = status?.checkedAt ? relativeTime(status.checkedAt) : "";
-  const path = status?.path ?? "";
 
   // The button goes away while the download runs, so focus moves to the
   // state it starts (not to the page) and Tab reaches Retry again if it fails.
@@ -113,8 +110,6 @@ export function CdmRow() {
   let note = null;
   if (ready && status?.updating) {
     note = <Trans>Downloading an update…</Trans>;
-  } else if (ready && override) {
-    note = <Trans>Developer override</Trans>;
   } else if (ready && status?.code) {
     note = <Trans>Couldn't check for updates</Trans>;
   } else if (ready && checked) {
@@ -130,18 +125,10 @@ export function CdmRow() {
           <Trans>Widevine</Trans>
         </label>
         <p id="cdm-desc" className="mt-0.5 max-w-[56ch] text-sub text-ink-muted">
-          {override ? (
-            <Trans>
-              Sona uses the Widevine library that SONA_WIDEVINE_CDM names, a developer setting, and
-              doesn't download or update it.
-            </Trans>
-          ) : (
-            <Trans>
-              Google's Widevine plays Apple Music's protected songs. Sona downloads it from Google
-              and keeps it up to date by itself; an update applies the next time playback starts.
-            </Trans>
-          )}
-          {override && path && <span className="mt-1 block break-all text-ink">{path}</span>}
+          <Trans>
+            Google's Widevine plays Apple Music's protected songs. Sona downloads it from Google and
+            keeps it up to date by itself; an update applies the next time playback starts.
+          </Trans>
         </p>
         {problem && (
           <p id="cdm-problem" className="mt-2 max-w-[56ch] text-sub text-ink">

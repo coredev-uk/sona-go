@@ -22,7 +22,6 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 function status(patch: Partial<CDMStatus> = {}): CDMStatus {
   return {
     state: "ready",
-    source: "download",
     version: "4.10.3112.0",
     path: "/data/widevine/4.10.3112.0/linux_x64/libwidevinecdm.so",
     code: "",
@@ -72,9 +71,7 @@ describe("cdm:status", () => {
     expect(applyCdmStatus(status({ state: "idle" }))).toBe(true);
     expect(applyCdmStatus(status({ state: "idle" }))).toBe(false);
     expect(applyCdmStatus(status({ state: "idle", version: "4.11" }))).toBe(true);
-    expect(applyCdmStatus(status({ state: "idle", version: "4.11", source: "override" }))).toBe(
-      true,
-    );
+    expect(applyCdmStatus(status({ state: "idle", version: "4.11", code: "network" }))).toBe(true);
   });
 });
 
@@ -121,9 +118,6 @@ describe("canRetryCdm", () => {
     expect(canRetryCdm(status())).toBe(false);
     expect(canRetryCdm(status({ state: "downloading" }))).toBe(false);
     expect(canRetryCdm(status({ state: "failed", code: "unsupported_platform" }))).toBe(false);
-    expect(
-      canRetryCdm(status({ state: "failed", source: "override", code: "override_missing" })),
-    ).toBe(false);
     expect(canRetryCdm(status({ state: "ready", code: "network", updating: true }))).toBe(false);
   });
 
@@ -143,7 +137,7 @@ describe("cdmProblem", () => {
       "utf8",
     );
     const codes = [...src.matchAll(/^\s*Code\w+\s*=\s*"([a-z0-9_]+)"/gm)].map((m) => m[1]);
-    expect(codes.length).toBe(12);
+    expect(codes.length).toBe(11);
     expect(codes.filter((c) => !hasCdmProblem(c))).toEqual([]);
   });
 

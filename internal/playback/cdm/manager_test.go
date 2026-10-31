@@ -146,11 +146,8 @@ func TestManagerStatusBeforeStartReadsNoNetwork(t *testing.T) {
 	t.Run("nothing installed", func(t *testing.T) {
 		mf := newManagerFixture(t)
 		m := mf.manager(t)
-		if st := m.Status(); st != (Status{State: StateIdle, Source: SourceDownload}) {
+		if st := m.Status(); st != (Status{State: StateIdle}) {
 			t.Errorf("Status = %+v", st)
-		}
-		if m.Source() != SourceDownload {
-			t.Errorf("Source = %s", m.Source())
 		}
 		_, err := m.Library(t.Context())
 		wantNoCDM(t, err, ErrUnavailable, "")
@@ -776,95 +773,24 @@ func TestManagerIgnoresReportsForOtherLibraries(t *testing.T) {
 	}
 }
 
-func TestManagerOverride(t *testing.T) {
-	writeLib := func(t *testing.T, dir string) string {
-		t.Helper()
-		lib := filepath.Join(dir, "libwidevinecdm.so")
-		if err := os.WriteFile(lib, fakeLibrary(linuxAMD64(t)), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, manifestFile), componentManifestJSON(componentName, "4.10.2830.0"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		return lib
-	}
-	ready := func(t *testing.T, override, want string) {
-		t.Helper()
-		mf := newManagerFixture(t)
-		mf.o.Override = override
-		m := mf.manager(t)
-		if m.Source() != SourceOverride {
-			t.Errorf("Source = %s", m.Source())
-		}
-		if st := m.Status(); st != (Status{State: StateReady, Source: SourceOverride, Path: want, Version: "4.10.2830.0"}) {
-			t.Errorf("Status = %+v", st)
-		}
-		if lib, err := m.Library(t.Context()); err != nil || lib != want {
-			t.Errorf("Library = %s, %v", lib, err)
-		}
-		m.Start()
-		m.Retry()
-		for range rollbackAfter {
-			report(m, want, errInit)
-		}
-		m.Close()
-		if mf.f.total() != 0 || len(mf.clk.waits) != 0 {
-			t.Errorf("override made %d requests, %d waits", mf.f.total(), len(mf.clk.waits))
-		}
-		if names := dirNames(t, mf.dir); len(names) != 0 {
-			t.Errorf("install directory holds %q", names)
-		}
-	}
-	t.Run("file", func(t *testing.T) {
-		dir := t.TempDir()
-		lib := writeLib(t, dir)
-		ready(t, lib, lib)
-	})
-	t.Run("directory", func(t *testing.T) {
-		dir := t.TempDir()
-		lib := writeLib(t, dir)
-		ready(t, dir, lib)
-	})
-	t.Run("wins over an installed CDM", func(t *testing.T) {
-		mf := newManagerFixture(t)
-		mf.preinstall(t, "1.0.0.0", t0)
-		dir := t.TempDir()
-		mf.o.Override = writeLib(t, dir)
-		m := mf.manager(t)
-		if lib, err := m.Library(t.Context()); err != nil || lib != mf.o.Override {
-			t.Errorf("Library = %s, %v", lib, err)
-		}
-	})
+// TestManagerUnsupportedPlatform: where Mozilla's manifest lists no CDM
+// (Linux on arm64), the Manager fails with CodeUnsupportedPlatform and
+// installs nothing.
+func TestManagerUnsupportedPlatform(t *testing.T) {
+	mf := newManagerFixture(t)
+	amd := mf.o.Platform
+	mf.f.publish(amd, "1.0.0.0", makeCRX(t, amd, "1.0.0.0"))
+	mf.o.Platform = platform(t, "linux", "arm64")
 
-	missing := map[string]func(t *testing.T) string{
-		"missing file":          func(t *testing.T) string { return filepath.Join(t.TempDir(), "libwidevinecdm.so") },
-		"directory without one": func(t *testing.T) string { return t.TempDir() },
-		"relative":              func(*testing.T) string { return "libwidevinecdm.so" },
-		"directory named as the library": func(t *testing.T) string {
-			dir := filepath.Join(t.TempDir(), "libwidevinecdm.so")
-			if err := os.MkdirAll(filepath.Join(dir, "libwidevinecdm.so"), 0o700); err != nil {
-				t.Fatal(err)
-			}
-			return dir
-		},
+	m := mf.manager(t)
+	m.Start()
+	mf.clk.next(t)
+	if st := m.Status(); st.State != StateFailed || st.Code != CodeUnsupportedPlatform {
+		t.Errorf("Status = %+v", st)
 	}
-	for name, path := range missing {
-		t.Run(name, func(t *testing.T) {
-			mf := newManagerFixture(t)
-			mf.o.Override = path(t)
-			m := mf.manager(t)
-			if st := m.Status(); st.State != StateFailed || st.Code != CodeOverrideMissing || st.Source != SourceOverride {
-				t.Errorf("Status = %+v", st)
-			}
-			_, err := m.Library(t.Context())
-			wantNoCDM(t, err, ErrUnavailable, CodeOverrideMissing)
-			m.Start()
-			m.Close()
-			if mf.f.total() != 0 {
-				t.Error("requests made")
-			}
-		})
-	}
+	_, err := m.Library(t.Context())
+	wantNoCDM(t, err, ErrUnavailable, CodeUnsupportedPlatform)
+	wantInstalled(t, mf.dir)
 }
 
 func TestManagerCloseCancelsADownload(t *testing.T) {

@@ -48,8 +48,7 @@ downloads the Widevine CDM by itself.
 
 The toolchain comes from [devenv](https://devenv.sh) 2.4 or newer (Nix): Go
 1.26, Node 24 + pnpm and the GTK4/WebKitGTK/GStreamer development files.
-A development build downloads the CDM as a release does
-(`SONA_WIDEVINE_CDM` overrides it; see CONTRIBUTING.md). You need [Nix](https://nixos.org/download) with flakes.
+A development build downloads the CDM as a release does. You need [Nix](https://nixos.org/download) with flakes.
 Without a devenv install, write
 `nix run github:NixOS/nixpkgs/nixpkgs-unstable#devenv --` where the commands
 below say `devenv` (your registry's `nixpkgs#devenv` may be older than 2.4,

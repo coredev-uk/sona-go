@@ -194,13 +194,12 @@ func run(started time.Time) error {
 	}
 
 	// The Widevine CDM: downloaded from Google after the first paint (the
-	// gated client), kept up to date in the data directory; the developer
-	// override replaces it. Only an engine that needs it starts it.
+	// gated client), kept up to date in the data directory. Only an engine
+	// that needs it starts it.
 	cdmMgr, err := cdm.New(cdm.Options{
 		Dir:       paths.WidevineDir(),
 		HTTP:      &http.Client{Transport: gate.Transport(newTransport())},
 		LoadCheck: cdmLoadCheck(log.With("component", "widevine")),
-		Override:  os.Getenv(cdm.EnvOverride),
 		Logger:    log.With("component", "widevine"),
 	})
 	if err != nil {

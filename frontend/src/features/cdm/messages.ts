@@ -19,7 +19,6 @@ const problems: Record<string, MessageDescriptor> = {
   load_failed: msg`The downloaded version of Widevine didn't start on this computer, so Sona removed it.`,
   load_check_incomplete: msg`Sona couldn't finish checking the downloaded Widevine. Try again.`,
   disk: msg`Sona couldn't save Widevine on this computer. Make sure there's free disk space, then try again.`,
-  override_missing: msg`SONA_WIDEVINE_CDM doesn't point to a Widevine library. Correct the path, then restart Sona.`,
 };
 
 /** Whether `code` has its own wording. */

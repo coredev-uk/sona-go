@@ -126,12 +126,9 @@ function cdmStateRow(p: Diagnostics["playback"], cdm: CDMStatus): Row {
   return { label, value: t`Doesn't start`, status: "error", detail: p.cdmError || undefined };
 }
 
-/** Where the CDM comes from and how its updates are going (downloads only). */
+/** Where the CDM comes from and how its updates are going. */
 function cdmSourceRows(cdm: CDMStatus): Row[] {
-  if (cdm.source === "override") {
-    return [{ label: t`Source`, value: t`Developer override (SONA_WIDEVINE_CDM)` }];
-  }
-  if (cdm.source !== "download") return [];
+  if (cdm.state === "") return [];
   const checked = cdm.checkedAt ? relativeTime(cdm.checkedAt) : "";
   let updates: Row;
   if (cdm.state === "ready" && cdm.updating) {

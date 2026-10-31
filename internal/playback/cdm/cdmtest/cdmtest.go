@@ -31,9 +31,8 @@ var (
 	err  error
 )
 
-// Library returns the real CDM: the developer override (cdm.EnvOverride)
-// when it is set, else the CDM installed in the test cache, downloaded
-// and verified there first when missing. It skips the test, saying why,
+// Library returns the real CDM: the one installed in the test cache,
+// downloaded and verified there first when missing. It skips the test, saying why,
 // only when the download cannot reach the network; any other failure
 // fails it.
 func Library(t testing.TB) string {
@@ -50,13 +49,6 @@ func Library(t testing.TB) string {
 }
 
 func find() (string, error) {
-	if v := os.Getenv(cdm.EnvOverride); v != "" {
-		m, err := cdm.New(cdm.Options{Dir: os.TempDir(), Override: v})
-		if err != nil {
-			return "", err
-		}
-		return m.Library(context.Background())
-	}
 	dir := os.Getenv(EnvCache)
 	if dir == "" {
 		base, err := os.UserCacheDir()

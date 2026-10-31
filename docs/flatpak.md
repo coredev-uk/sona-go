@@ -34,7 +34,7 @@ A manifest exists at `build/linux/flatpak/dev.coredev.Sona.yml`, and its build a
 
 ## CDM access
 
-Sona downloads the Widevine CDM itself from Google's servers into `<data>/widevine` (inside the Flatpak, the app's own `~/.var/app/dev.coredev.Sona/data/sona/widevine`), verified as described in [security-review.md](security-review.md), "Widevine CDM downloader". Browser and system copies are never used, so the manifest needs no `--filesystem` grant for a CDM and no browser directory is exposed. `SONA_WIDEVINE_CDM` remains a developer override (`flatpak override --env=SONA_WIDEVINE_CDM=… --filesystem=…:ro`).
+Sona downloads the Widevine CDM itself from Google's servers into `<data>/widevine` (inside the Flatpak, the app's own `~/.var/app/dev.coredev.Sona/data/sona/widevine`), verified as described in [security-review.md](security-review.md), "Widevine CDM downloader". Browser and system copies are never used, so the manifest needs no `--filesystem` grant for a CDM and no browser directory is exposed. No setting or environment variable can point Sona at another library.
 
 The measurements below were taken when Sona still loaded the host browser's CDM through read-only `WidevineCdm` grants; the `dlopen` and playback results apply equally to the downloaded copy.
 
@@ -138,11 +138,11 @@ The options:
 
 All Flatpak state was kept outside the user's installation: `FLATPAK_USER_DIR=/tmp/sona-flatpak/user FLATPAK_SYSTEM_DIR=/tmp/sona-flatpak/system`, temporary `HOME=/tmp/sona-flatpak/home`, `XDG_RUNTIME_DIR=/tmp/sona-flatpak/run`, and `dbus-run-session` with a no-activation config. Tools came from `nix shell nixpkgs#flatpak nixpkgs#flatpak-builder` (Flatpak 1.18.4, flatpak-builder 1.4.4). Host kernel 7.2.13.
 
-**CDM dependencies** (devenv `SONA_WIDEVINE_CDM`, google-chrome 156.0.8078.47):
+**CDM dependencies** (`CDM` set to google-chrome 156.0.8078.47's `libwidevinecdm.so`):
 ```
-$ readelf -d "$SONA_WIDEVINE_CDM" | grep NEEDED
+$ readelf -d "$CDM" | grep NEEDED
  (NEEDED) libdl.so.2  libpthread.so.0  libm.so.6  libgcc_s.so.1  libc.so.6  ld-linux-x86-64.so.2
-$ objdump -T "$SONA_WIDEVINE_CDM" | grep -oE "GLIBC_[0-9.]+" | sort -Vu | tail -1
+$ objdump -T "$CDM" | grep -oE "GLIBC_[0-9.]+" | sort -Vu | tail -1
 GLIBC_2.17
 manifest.json "version": "4.10.3112.0"
 ```
