@@ -4,7 +4,7 @@ The review covered the auth loopback server, the `/art/` and `/motion/` handlers
 
 Areas reviewed without findings: native Apple ID input handling, `/art/`, the main.go middleware, `/motion/` path handling, parent→child cdmhost framing, single-instance `Activate` and launch URLs, the other MPRIS methods, notifications, the portal file chooser, the settings file, secret stores, the scrobble queue, the diagnostics bundle, the update check, autostart and the webview URL bindings.
 
-The Widevine CDM downloader, added later, is covered in "Widevine CDM downloader" below; the GitHub Actions workflows in "Workflows".
+The Widevine CDM downloader, added later, is covered in "Widevine CDM downloader" below; the GitHub Actions workflows in "Workflows". The repository's history was scanned for secrets before it went public; see "Secret scanning".
 
 Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/`.
 
@@ -273,3 +273,36 @@ The repository's GitHub Actions run on GitHub-hosted runners only (a self-hosted
 - Anyone with write access can push a `v*` tag, and with it a workflow that names `environment: release`. A tag ruleset that limits who may create `v*` tags closes that; once releases run from `main` alone, the `v*` rule can leave the environment's policy.
 - `OP_SERVICE_ACCOUNT_TOKEN` is a repository secret, readable by a workflow on any branch of this repository (not a fork's), including the branches Renovate's app pushes. Moving it into an environment limited to `main` would confine it to `renovate.yaml`'s own runs.
 - While the repository is private, forks' pull requests run no workflows at all ("Run workflows from fork pull requests" is off, and so are write tokens and secrets for them). Once it is public, a first-time contributor's pull request waits for a maintainer's approval before CI runs ("Require approval for outside contributors"); the controls above are what holds after that approval.
+
+## Secret scanning
+
+**History scan (2026-10-31), before the repository went public: clean.** No credential has ever been committed, and nothing has to be purged from history for secrets.
+
+Scanned: every commit reachable from any branch, tag or pull-request ref on GitHub and in the local clone, plus the pull-request heads GitHub's timeline records as force-pushed away (fetched by SHA): 104 commits, 1,662 unique files. Also every pull request's and issue's title and body, every comment, and the logs of every finished Actions run.
+
+- gitleaks 8.30.1, default rules and `.gitleaks.toml`, over `git log --all` and, separately, over every blob of every tree (which also covers merge commits): nothing beyond the fake test values listed below.
+- The local `.env`'s `MUSIC_USER_TOKEN`, `SONA_LASTFM_KEY`, `SONA_LASTFM_SECRET` and `SONA_DISCORD_CLIENT_ID`, compared byte for byte (counts only): none of them in any blob, commit message, pull request, comment or Actions log.
+- No `.env`, `.env.*`, `.p8`, `.pem`, key, keystore, keychain, log or database file was ever committed (the only file with a credential-like name, `frontend/.npmrc`, holds `minimum-release-age` alone). No PEM block, keyring dump or `Bearer` literal.
+- JWT-shaped strings: only the fake developer tokens of the redaction tests. MUT-shaped strings (long high-entropy base64): only `internal/auth/appleid/testdata/srp_vectors.json`, whose SRP vectors are made from fixed test bytes for `someone@example.com`.
+- Wails `Build Info:` and `-ldflags -X` lines appear only in docs, tests and build files, with placeholders, template variables (`{{.SONA_LASTFM_KEY}}`) or the tests' fake values; no log was ever committed (F10's leak stayed on the developer's machine).
+
+**The guard** (`.github/workflows/secret-scan.yml`, on pull requests and pushes to `main`, read-only token, no secrets): gitleaks 8.30.1 from its release, checked against the release's SHA-256, over every commit of every branch and tag (a pull request's own commits included, since they stay public through it), then over the pull request's title and body (read from the event payload, since a step's `env:` is printed in the log). The public log shows each finding's rule, commit, file and line only, as an annotation: gitleaks' own output prints the rest of the line around a secret even with `--redact`. `.gitleaks.toml` adds to gitleaks' defaults:
+
+| Rule | Catches |
+| --- | --- |
+| `jwt-segment` | A JWT's header segment and dot, so also a developer token split across string literals |
+| `apple-music-user-token` | A long token assigned to, or sent as, `Music-User-Token`, `media-user-token` or `MUSIC_USER_TOKEN` |
+| `long-base64-token` | A base64 run of 150+ characters with high entropy (a MUT without its name) |
+| `lastfm-api-credential` | 32 hex characters next to a Last.fm key or secret name |
+| `discord-client-id` | Replaces the default rule, which takes 18 digits only; Discord IDs have 17 to 20 (Sona's has 19) |
+| `secret-file` | `.env`, `.env.*`, `.p8`, `.p12`, `.pfx`, `.pem`, `.key`, keystores, SSH keys, by name |
+
+Each allowlist entry is commented and tied to its file: the fake developer tokens in `internal/logging/logging_test.go` and `internal/diag/diag_test.go` (only their two exact fake payloads), the fake Discord ID in `logging_test.go` (only that value) and the SRP vectors. The rules were checked against the real `.env` (all four values flagged) and against planted fakes on a scratch branch that was never pushed: a one-line and a split developer token, a MUT in a header map, a Last.fm secret, a Discord ID, a `.p8` key and a `.env.production` are all found, and so are the fixtures' fake payload copied to another file and a new token added to an allowlisted file.
+
+Locally: `nix run nixpkgs#gitleaks -- git --config .gitleaks.toml --redact .` (all local branches) or `… dir --config .gitleaks.toml --redact .` (the working tree, uncommitted files included).
+
+**Residual risks:**
+- A secret pushed in any commit, even one later amended, force-pushed or squashed away, stays fetchable from GitHub by its SHA and through its pull request. If the scan fires, rotate the credential first; removing the commit comes second.
+- Pull-request and issue text and Actions logs can't be rewritten with the history. The workflow scans titles and bodies; comments are not scanned.
+- A pull request can change `.gitleaks.toml` itself; changes to it need the maintainer's review.
+- Shapes the rules can't recognise (a token split into short pieces, encoded differently, or under an unrelated name) pass.

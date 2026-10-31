@@ -1,0 +1,95 @@
+title = "Sona gitleaks configuration"
+
+# gitleaks' default rules (those of the version pinned in
+# .github/workflows/secret-scan.yml), plus Sona's rules below. See
+# docs/security-review.md, "Secret scanning".
+[extend]
+useDefault = true
+
+# Apple Music's developer token is an ES256 JWT. gitleaks' own `jwt` rule
+# needs the whole token on one line; this one fires on a JWT's header segment
+# and its dot alone, so a token split across concatenated string literals
+# (or cut off mid-way) is caught too.
+[[rules]]
+id = "jwt-segment"
+description = "JWT header segment (an Apple Music developer token or any other JWT)"
+regex = '''\b(eyJ[A-Za-z0-9_-]{15,}\.(?:["'\x60]\s*\+\s*["'\x60])?(?:eyJ[A-Za-z0-9_-]{15,})?)'''
+entropy = 3
+keywords = ["eyj"]
+
+    # The redaction tests in internal/logging and internal/diag need
+    # JWT-shaped input. Their fake tokens carry the payload
+    # {"iss":"AMPWebPlay","iat":1700000000,"exp":1799999999} or
+    # {"iss":"AMPWebPlay","iat":1761600000,"exp":1767800000} (round,
+    # hand-written times) and a textual signature, and are never real. Only
+    # those payloads are allowed, and only in those two files.
+    [[rules.allowlists]]
+    description = "fake developer tokens in the log and diagnostics redaction tests"
+    condition = "AND"
+    paths = ['''(?:^|/)internal/(?:logging/logging_test|diag/diag_test)\.go$''']
+    regexes = [
+        '''eyJpc3MiOiJBTVBXZWJQbGF5IiwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjE3OTk5OTk5OTl9$''',
+        '''eyJpc3MiOiJBTVBXZWJQbGF5IiwiaWF0IjoxNzYxNjAwMDAwLCJleHAiOjE3Njc4MDAwMDB9$''',
+    ]
+
+# A Music User Token (MUT) is not a JWT: an opaque string of about 250
+# characters, mostly standard base64 with a short dotted prefix. Fires when
+# one is assigned to, or sent as, a user-token name: an env file line, a
+# header, a JSON or Go literal.
+[[rules]]
+id = "apple-music-user-token"
+description = "Apple Music user token (Music-User-Token, media-user-token, MUSIC_USER_TOKEN)"
+regex = '''(?i)(?:music[-_ ]?user[-_ ]?token|media[-_]user[-_]token)["'\x60]?\s*(?:[:=]|=>|,)\s*["'\x60]?([A-Za-z0-9+/.]{40,}={0,2})(?:[^A-Za-z0-9+/.=]|$)'''
+entropy = 4
+keywords = ["usertoken", "user-token", "user_token", "user token"]
+
+# The same token without a name next to it: a long, high-entropy base64 run
+# (a MUT is about 250 characters).
+[[rules]]
+id = "long-base64-token"
+description = "Long high-entropy base64 string (the shape of an Apple Music user token)"
+regex = '''(?:^|[^A-Za-z0-9+/=%_-])([A-Za-z0-9+/]{150,}={0,2})(?:[^A-Za-z0-9+/=]|$)'''
+entropy = 5
+
+    # SRP test vectors produced with Apple's sign-in worker for the made-up
+    # accounts someone@example.com and Someone@Example.com (see
+    # internal/auth/appleid/srp_test.go): the base64 values are SRP
+    # ephemerals derived from fixed test bytes, not credentials.
+    [[rules.allowlists]]
+    description = "synthetic SRP vectors for example.com accounts"
+    paths = ['''(?:^|/)internal/auth/appleid/testdata/srp_vectors\.json$''']
+
+# Last.fm API key and shared secret: 32 hex characters next to a Last.fm name
+# (`SONA_LASTFM_KEY=…`, `-X …scrobble.lastfmSecret=…`). gitleaks has no
+# Last.fm rule.
+[[rules]]
+id = "lastfm-api-credential"
+description = "Last.fm API key or shared secret"
+regex = '''(?i)(?:lastfm|last\.fm|audioscrobbler)[\w.-]{0,20}?(?:key|secret)[\w.-]{0,10}["'\x60]?\s*(?:[:=]|=>|,)\s*["'\x60]?([0-9a-f]{32})\b'''
+entropy = 3
+keywords = ["lastfm", "last.fm", "audioscrobbler"]
+
+# Replaces gitleaks' `discord-client-id`, which matches 18 digits only:
+# Discord IDs are snowflakes of 17 to 20 digits, and Sona's has 19.
+[[rules]]
+id = "discord-client-id"
+description = "Discord client (application) ID"
+regex = '''(?i)[\w.-]{0,50}?(?:discord)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([0-9]{17,20})(?:[\x60'"\s;]|\\[nr]|$)'''
+entropy = 2
+keywords = ["discord"]
+
+    # The build-credential redaction test injects a made-up application ID
+    # (a counting pattern), never Sona's.
+    [[rules.allowlists]]
+    description = "fake application ID in the build-credential redaction test"
+    condition = "AND"
+    paths = ['''(?:^|/)internal/logging/logging_test\.go$''']
+    regexes = ['''^112233445566778899$''']
+
+# Files that hold credentials by their name, whatever is in them: env files,
+# Apple's .p8 keys, PEM and PKCS#12 keys and certificates, keystores, SSH
+# keys.
+[[rules]]
+id = "secret-file"
+description = "Credential file committed (.env, .p8, .pem, .key, .p12, keystore, SSH key)"
+path = '''(?i)(?:^|/)(?:\.env(?:\.[\w.-]+)?|[^/]*\.(?:p8|p12|pfx|pem|key|keystore|jks|kdbx|mobileprovision)|id_(?:rsa|ecdsa|ed25519|dsa))$'''
