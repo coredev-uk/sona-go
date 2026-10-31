@@ -59,7 +59,7 @@
 
 ## Worktrees and Branches
 
-- Prefer a separate git worktree and branch for each feature or fix, so independent work can run side by side: `git worktree add ../sona-go-<slug> -b <type>/<slug>` (`<type>` is the conventional-commit type, e.g. `feat/queue-autoplay`). A small, self-contained change can be made on a branch in the main checkout instead.
+- Every change gets its own git worktree and branch, beside the main checkout, which stays on `main`: `git worktree add ../sona-go-<slug> -b <type>/<slug> origin/main` (`<type>` is the conventional-commit type, e.g. `feat/queue-autoplay`). Never commit or push to `main`: `.githooks/` refuses both. `devenv shell` enables the hooks (`core.hooksPath`, shared by every worktree); outside devenv run `git config core.hooksPath .githooks` once. `SONA_ALLOW_MAIN=1` overrides them only for an emergency the maintainer asked for.
 - Run independent items in parallel worktrees where they touch different files; serialise items that edit the same files (group them into waves).
 - Generated files are never merged by hand: after rebasing onto `main`, regenerate `frontend/bindings`, the Lingui catalogues (`pnpm i18n:extract`) and `internal/db/dbq` (`gen`), then commit them.
 - A new worktree has no `frontend/node_modules`, `frontend/dist` or `.env`. Run `pnpm install` in `frontend/` inside devenv, build the frontend before `go build .`, and symlink `.env` from the main checkout only when a live token is needed.
@@ -74,3 +74,26 @@
 - Private mode for every playback run: tests, smokes and live checks run with `SONA_PRIVATE=1` (development builds start private, `playspike` is private by default) so nothing is reported to Apple or scrobbled. Never play against Apple without it.
 - Live audio goes to your own PipeWire null sink (`pw-cli create-node adapter '{ factory.name=support.null-audio-sink node.name=<name> media.class=Audio/Sink object.linger=true audio.position=[FL FR] }'`), targeted with `pipewiresink target-object` (`-device` in playspike; `PIPEWIRE_NODE` pins a stream and breaks device-move tests) and recorded with `pw-record --target <name>`. Destroy only nodes you created; if WirePlumber stops linking streams, ask before restarting it.
 - Only one Sona may own the real session bus (single instance and the MPRIS name). Keep real-session runs short and quit the app yourself; everything else uses `dbus-run-session` and private XDG dirs, never the real `~/.config/sona` or `~/.local/share/sona` (copy data into the private dirs when needed).
+
+## Pull requests and Clarence
+
+Pull requests here are merged by Clarence (GitHub App `bot-clarence`), not by hand.
+
+- Never commit or push to `main`. Work on a branch in its own git worktree:
+  `git worktree add ../<repo>-<topic> -b <type>/<topic> origin/main`. The git hooks refuse
+  commits and pushes on `main`.
+- Open the pull request with a conventional-commit title. Clarence posts one card on it (verdict,
+  checks, what it changes, timeline) and keeps it current; read it before asking anyone to look.
+- Never merge with `gh pr merge` or the GitHub button. Once CI is green and the work is done,
+  comment `/clarence merge` (or tick 🎯 Merge on the card). Clarence merges one pull request at a
+  time, then checks the merge (CI on `main`, or the deploy) and opens a revert if it fails.
+- When Clarence needs a human it requests a review from @coredev-uk; don't approve or merge on
+  the maintainer's behalf, and don't merge anything Clarence ruled `clarence/review` without his say.
+- Commands (first line of a comment, `coredev-uk` only): `/clarence merge` (`--allow <check>`,
+  `--batch`, `at HH:MM`, `after #N`), `cancel`, `hold`, `unhold`, `reclassify`, `status`, `explain`,
+  `revert` (on a merged pull request), `help` (anyone).
+- Renovate (`bot-cecil`) opens dependency updates and Clarence merges the eligible ones itself.
+  Don't push to Renovate's branches; close the pull request or tick Renovate's rebase box instead.
+- Labels: `clarence/pass|review|wait` (verdict), `clarence/queued|deploying|live|unhealthy`,
+  `clarence/hold`, `clarence/security`, `clarence/proposal`, `clarence/revert`. Never remove
+  `clarence/unhealthy` without fixing the cause: it halts merging.

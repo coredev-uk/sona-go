@@ -1,0 +1,10 @@
+#!/bin/sh
+# Refuses commits on main: every change lands through a pull request that Clarence merges.
+# Work in a worktree on a branch instead (AGENTS.md, "Worktrees and Branches"). Emergencies only:
+# SONA_ALLOW_MAIN=1 git commit ...
+branch=$(git symbolic-ref --quiet --short HEAD) || exit 0
+if [ "$branch" = "main" ] && [ "${SONA_ALLOW_MAIN:-}" != "1" ]; then
+	echo "pre-commit: refusing to commit on main. Create a worktree on a branch:" >&2
+	echo "  git worktree add ../$(basename "$(git rev-parse --show-toplevel)")-<topic> -b <type>/<topic> origin/main" >&2
+	exit 1
+fi

@@ -126,4 +126,10 @@ in
       auth-spike.exec = ''go run ./cmd/authspike "$@"'';
       play-spike.exec = ''go run ./cmd/playspike "$@"'';
     };
+
+  # .githooks refuse commits and pushes on main (AGENTS.md, "Worktrees and Branches"). The
+  # setting lives in the shared git config, so it covers every worktree.
+  enterShell = ''
+    git config core.hooksPath .githooks
+  '';
 }
