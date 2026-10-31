@@ -11,6 +11,10 @@
 #
 # The Widevine CDM is never part of the Flatpak: Sona reads the copy that the
 # user's Chrome installed, through the read-only paths below.
+#
+# GStreamer comes from the runtime, with the base, good, bad (WebKit's
+# webvttenc, plugin subenc) and libav plugin sets the deb, rpm and Arch
+# packages depend on (docs/flatpak.md, "Audio").
 id: dev.coredev.Sona
 runtime: org.gnome.Platform
 runtime-version: '51'

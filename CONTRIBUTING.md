@@ -5,18 +5,21 @@ touch.
 
 ## Environment
 
-Everything runs through [devenv](https://devenv.sh), which pins Go 1.26,
-Node 24 + pnpm, GTK4/WebKitGTK 6/GStreamer and a development Widevine CDM
-(Google Chrome from nixpkgs, never redistributed):
+Everything runs through [devenv](https://devenv.sh) 2.4 or newer
+(`devenv.yaml` refuses an older CLI). It pins Go 1.26, Node 24 + pnpm and
+GStreamer, plus GTK4/WebKitGTK 6 on Linux:
 
 ```sh
-nix run nixpkgs#devenv -- shell                     # interactive shell
-nix run nixpkgs#devenv -- shell -- <command>        # one command
+devenv shell                     # interactive shell
+devenv shell -- <command>        # one command
+# Without installing devenv. Plain `nixpkgs#devenv` follows your registry,
+# which may carry an older devenv.
+nix run github:NixOS/nixpkgs/nixpkgs-unstable#devenv -- shell
 ```
 
 It sets `CGO_ENABLED=1`, `GOFLAGS=-tags=sqlite_fts5`, the GStreamer plugin
-path and `SONA_WIDEVINE_CDM`. Shell shortcuts: `build`, `dev`, `gen`, `fmt`,
-`check`, `test`, `package`, `play-spike`, `auth-spike`.
+path (core, base, good, bad, libav and, on Linux, PipeWire; never the host's
+plugins) and, on Linux, glib-networking's GIO module path, and loads `.env`.
 
 - `go tool wails3 build` builds the frontend, regenerates the TypeScript
   bindings and writes `bin/sona` (production; `DEV=true` for a debug build).
@@ -45,10 +48,62 @@ plays to the account), and the live tests refuse to run without
 `SONA_PRIVATE=1`. Every test, smoke or live check that plays music runs in
 private mode.
 
+### devenv scripts
+
+| Script       | What it runs                                                                                                                                                                                                                                                                                             |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dev`        | `go tool wails3 dev -config ./build/config.yml -port $WAILS_VITE_PORT` (port 9245 when unset), as Taskfile's `dev`: Vite hot reload, rebuild and restart on Go changes. Extra arguments go to `wails3 dev`.                                                                                              |
+| `build`      | `go tool wails3 build`: frontend, bindings, `bin/sona` (production; `build DEV=true` for a debug build).                                                                                                                                                                                                 |
+| `gen`        | `sqlc generate` and `wails3 generate bindings -clean=true -ts`. Commit the result.                                                                                                                                                                                                                       |
+| `fmt`        | gofumpt on every tracked Go file except `internal/db/dbq`, then `prettier --write src`. Installs the frontend dependencies first when `package.json` or the lockfile changed.                                                                                                                            |
+| `check`      | The static half of the checks below: installs the frontend dependencies and builds `frontend/dist` (development build) when their sources changed, since Go embeds it; then `go vet`, `golangci-lint --new-from-rev=origin/main`, the path-case check, tsc, eslint, `prettier --check` and `i18n:check`. |
+| `tests`      | The same frontend step, then `go test -race ./...` (inside `dbus-run-session` on Linux, so no test reaches your session bus; extra arguments go to `go test`) and vitest. Not named `test`: the shell's `test` builtin would shadow it.                                                                  |
+| `release`    | `build/linux/release/release.sh`, the same as `go tool wails3 task release`: release packages built on Ubuntu 24.04 in podman or docker (falling back to `nix run nixpkgs#podman`) and smoke-tested, into `bin/release`.                                                                                 |
+| `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`).                                                                                                                                                                                                                            |
+| `auth-spike` | `go run ./cmd/authspike`: the Apple sign-in flow from the terminal.                                                                                                                                                                                                                                      |
+
+The frontend step in `check` and `tests` is Taskfile's
+(`common:install:frontend:deps`, `common:build:frontend`), which also
+regenerates `frontend/bindings` when Go sources changed, as `build` does.
+`package` is only Taskfile's (`go tool wails3 package`): it packages a build
+of the machine it runs on, which is what `release` runs inside its Ubuntu
+container. A package built on NixOS would link against `/nix/store`.
+
+### Widevine CDM in development
+
+devenv ships no CDM. Sona and `playspike` find one the way the app does for
+users (`widevine.FindCDM`): Google Chrome under `/opt/google` or on `PATH`,
+the `WidevineCdm` component directory of a Chrome, Chromium, Brave, Vivaldi
+or Edge profile under `~/.config`, or a Firefox or Zen `gmp-widevinecdm`
+profile directory (`~/.mozilla/firefox`, `~/.zen`, `~/.config/zen`). Any of
+these browsers, once it has downloaded its CDM, is enough. To use a specific
+copy, set `SONA_WIDEVINE_CDM=/path/to/libwidevinecdm.so` (or the directory
+holding it) in the environment or in `.env`; Settings → Playback → CDM path
+does the same in the app. `playspike` prints the one it used (`cdm path`).
+
+### Pinned inputs
+
+`devenv.yaml` pins nixpkgs to one nixos-unstable revision and devenv's
+modules to one revision, so every machine gets the same toolchain. To bump
+nixpkgs, put the current nixos-unstable head
+(`git ls-remote https://github.com/NixOS/nixpkgs refs/heads/nixos-unstable`)
+in `devenv.yaml`, run `devenv update`, then `check`, `tests`, `play-spike`
+and the app, and commit `devenv.yaml` and `devenv.lock` together.
+
+### macOS
+
+`devenv shell` works on Apple Silicon (`aarch64-darwin`): the Linux-only
+packages (GTK4, WebKitGTK, libsoup, glib-networking, PipeWire, playerctl,
+gcc, dbus) and the GIO module path are left out, and GStreamer keeps core,
+base, good (`osxaudiosink`), bad and libav. The app itself does not build
+for macOS yet (the Taskfile targets Linux). Intel Macs (`x86_64-darwin`)
+are not supported: the pinned nixpkgs (26.11) and devenv 2.4 dropped them.
+
 ## Checks
 
 Run before sending a change (CI runs the same on every push and pull request,
-`.github/workflows/ci.yml`):
+`.github/workflows/ci.yml`; the devenv `check` and `tests` scripts run all of
+it):
 
 ```sh
 go vet ./...
@@ -63,8 +118,9 @@ pnpm i18n:check
 pnpm exec vitest run
 ```
 
-Real-CDM tests (`internal/playback/widevine`, `internal/playback/cdmhost`)
-run only when `SONA_WIDEVINE_CDM` is set, as devenv does; CI skips them.
+Real-CDM tests (`internal/playback/widevine`, `internal/playback/cdmhost`,
+`internal/diag`) run only when `SONA_WIDEVINE_CDM` names a CDM (see "Widevine
+CDM in development"); CI skips them.
 After touching playback or Apple request code, also run the DRM path
 regression `go run ./cmd/playspike -seek 90` (needs `MUSIC_USER_TOKEN`).
 Every playback run in tests, smokes and live checks uses private mode

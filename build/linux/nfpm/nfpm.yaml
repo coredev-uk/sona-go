@@ -61,8 +61,10 @@ contents:
 # Runtime: GTK4 + WebKitGTK 6.0 for the window; GStreamer core + base
 # (appsrc, audioconvert, audioresample, volume) + good (autoaudiosink) + an
 # AAC decoder (avdec_aac from libav) + a PipeWire or PulseAudio sink for the
-# playback host. The Widevine CDM is a recommendation only: Sona detects the
-# one in the user's Google Chrome at runtime and never ships or downloads it.
+# playback host; bad for WebKit's media players (its WebVTT encoder,
+# webvttenc, and the video parsers motion artwork and music videos use).
+# The Widevine CDM is a recommendation only: Sona detects the one in the
+# user's Google Chrome at runtime and never ships or downloads it.
 depends:
   - libgtk-4-1
   - libwebkitgtk-6.0-4
@@ -70,6 +72,7 @@ depends:
   - libgstreamer-plugins-base1.0-0
   - gstreamer1.0-plugins-base
   - gstreamer1.0-plugins-good
+  - gstreamer1.0-plugins-bad
   - gstreamer1.0-libav
   - gstreamer1.0-pipewire | gstreamer1.0-pulseaudio
 recommends:
@@ -80,12 +83,14 @@ overrides:
   rpm:
     # Fedora; pulsesink ships in gstreamer1-plugins-good there.
     # gstreamer1-plugin-libav is in Fedora proper since 41 (RPM Fusion before).
+    # gstreamer1-plugins-bad-free carries webvttenc (subenc).
     depends:
       - gtk4
       - webkitgtk6.0
       - gstreamer1
       - gstreamer1-plugins-base
       - gstreamer1-plugins-good
+      - gstreamer1-plugins-bad-free
       - gstreamer1-plugin-libav
     recommends:
       - google-chrome-stable
@@ -99,6 +104,7 @@ overrides:
       - gstreamer
       - gst-plugins-base
       - gst-plugins-good
+      - gst-plugins-bad
       - gst-libav
 
 scripts:

@@ -111,6 +111,7 @@ The options:
 ## Audio
 
 - **Runtime:** `org.gnome.Platform//51` (GStreamer 1.28.6) contains every element Sona uses: `appsrc`, `appsink` (same plugin), `avdec_aac`, `audioconvert`, `audioresample`, `volume`, `pipewiresink`, `pulsesink`, `autoaudiosink`. `fdkaacdec` and `faad` are missing, but they are only fallbacks.
+- **WebKit's media players** (motion artwork) need `webvttenc` from gst-plugins-bad (plugin `subenc`); without it WebKit logs "WebKit wasn't able to find a WebVTT encoder" once per player. The runtime carries it: `libgstsubenc.so` and `libgstvideoparsersbad.so` are in its `/usr/lib/x86_64-linux-gnu/gstreamer-1.0` (229 plugins, checked in the installed `org.gnome.Platform//51`), so the manifest adds nothing for it.
 - **AAC without extra extensions:**
   - With `org.freedesktop.Platform.codecs-extra` installed, `libgstlibav.so` links to `/usr/lib/x86_64-linux-gnu/codecs-extra/lib/libavcodec.so.62`.
   - With it uninstalled, `libgstlibav.so` links to the runtime's own `libavcodec.so.62`, and `avdec_aac` is still present.

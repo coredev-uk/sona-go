@@ -12,9 +12,10 @@ You need an Apple Music subscription. Sona is not affiliated with Apple.
 ## Requirements
 
 - Linux (x86_64) with a Wayland or X11 session.
-- GTK 4.14+, WebKitGTK 6.0, GStreamer 1.x with the base, good and libav
-  plugin sets (AAC decoding), and PipeWire or PulseAudio. The packages below
-  declare these; the AppImage bundles all but the audio server.
+- GTK 4.14+, WebKitGTK 6.0, GStreamer 1.x with the base, good, bad (WebKit's
+  media players) and libav (AAC decoding) plugin sets, and PipeWire or
+  PulseAudio. The packages below declare these; the AppImage bundles all but
+  the audio server.
 - **A Widevine CDM, from your own browser install.** Sona loads the
   `libwidevinecdm.so` that Google Chrome installs (`/opt/google/chrome`) or
   that Chrome/Chromium/Brave/Vivaldi/Edge download into your profile
@@ -46,27 +47,31 @@ from your launcher, and sign in with your Apple Account.
 
 ## Build from source
 
-The toolchain comes from [devenv](https://devenv.sh) (Nix): Go 1.26, Node 24 +
-pnpm, the GTK4/WebKitGTK/GStreamer development files, and Google Chrome as the
-development CDM source. You need [Nix](https://nixos.org/download) with flakes;
-devenv itself runs through `nix run`.
+The toolchain comes from [devenv](https://devenv.sh) 2.4 or newer (Nix): Go
+1.26, Node 24 + pnpm and the GTK4/WebKitGTK/GStreamer development files.
+Playback in a development build uses the CDM of a browser you have installed,
+as a release does. You need [Nix](https://nixos.org/download) with flakes.
+Without a devenv install, write
+`nix run github:NixOS/nixpkgs/nixpkgs-unstable#devenv --` where the commands
+below say `devenv` (your registry's `nixpkgs#devenv` may be older than 2.4,
+which the project refuses).
 
 ```sh
 git clone https://github.com/coredev-uk/sona-go.git
 cd sona-go
-nix run nixpkgs#devenv -- shell -- go tool wails3 build   # frontend + bindings + bin/sona
-nix run nixpkgs#devenv -- shell -- bin/sona --version
-nix run nixpkgs#devenv -- shell -- bin/sona
+devenv shell -- go tool wails3 build   # frontend + bindings + bin/sona
+devenv shell -- bin/sona --version
+devenv shell -- bin/sona
 ```
 
-`devenv shell` (or `nix run nixpkgs#devenv -- shell`) gives you an
-interactive shell with everything on `PATH`; inside it, `build`, `dev`
-(Vite hot reload), `test`, `check` and `fmt` are shortcuts. The first run
-downloads the toolchain and Go/pnpm dependencies.
+`devenv shell` gives you an interactive shell with everything on `PATH`;
+inside it, `build`, `dev` (Vite hot reload), `tests`, `check` and `fmt` are
+shortcuts (CONTRIBUTING.md lists them all). The first run downloads the
+toolchain and Go/pnpm dependencies.
 
 If Nix fails to fetch devenv's inputs with an ssh host-key error, your git
 config rewrites https URLs to ssh; run devenv once as
-`XDG_CONFIG_HOME=$(mktemp -d) nix run nixpkgs#devenv -- shell -- true` to lock
+`XDG_CONFIG_HOME=$(mktemp -d) devenv shell -- true` to lock
 them, then drop the prefix (it would move Sona's settings into
 that directory).
 
@@ -74,7 +79,7 @@ A binary built in devenv links against `/nix/store` and runs on the build
 machine only. Distributable packages are built on Ubuntu 24.04 in a container:
 
 ```sh
-nix run nixpkgs#devenv -- shell -- package   # build/linux/release/release.sh → bin/release
+devenv shell -- release   # build/linux/release/release.sh → bin/release
 ```
 
 This needs podman or docker (it falls back to `nix run nixpkgs#podman`), builds

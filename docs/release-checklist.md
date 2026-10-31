@@ -14,13 +14,15 @@ distro/session, result, and notes for anything not passed.
       allowed, so the CDM host sandbox tests run; frontend tsc, eslint,
       prettier, vitest, build).
 - [ ] Locally in devenv: `go test -race ./internal/playback/...` with the real
-      CDM (`SONA_WIDEVINE_CDM` set) and `go run ./cmd/playspike -seek 90`.
-- [ ] `bash build/linux/release/release.sh` passes: builds .deb, .rpm, Arch
-      package, AppImage + .zsync, the AUR files and SHA256SUMS, and
-      smoke-tests the .deb (Ubuntu 24.04), .rpm and AppImage (Fedora 45) and
-      the Arch package through the AUR PKGBUILD (Arch Linux): `sona --version`
-      prints the version, every library resolves, the GStreamer elements
-      exist, and the app paints its first frame under Xvfb.
+      CDM (`SONA_WIDEVINE_CDM` set to an installed browser's
+      `libwidevinecdm.so`) and `go run ./cmd/playspike -seek 90`.
+- [ ] `bash build/linux/release/release.sh` (devenv `release`) passes: builds
+      .deb, .rpm, Arch package, AppImage + .zsync, the AUR files and
+      SHA256SUMS, and smoke-tests the .deb (Ubuntu 24.04), .rpm and AppImage
+      (Fedora 45) and the Arch package through the AUR PKGBUILD (Arch Linux):
+      `sona --version` prints the version, every library resolves, the
+      GStreamer elements exist (WebKit's `webvttenc` from gst-plugins-bad
+      included), and the app paints its first frame under Xvfb.
 - [ ] The tag workflow (`.github/workflows/release.yml`) re-runs the same and
       publishes the GitHub release. Afterwards copy `aur/PKGBUILD` and
       `aur/.SRCINFO` from `sona-bin-<v>-aur.tar.gz` into the AUR `sona-bin`

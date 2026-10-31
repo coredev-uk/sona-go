@@ -86,16 +86,17 @@ else
 fi
 [[ -z $missing ]] || fail "unresolved libraries: $missing"
 
-# GStreamer elements for appsrc ! avdec_aac ! audioconvert ! audioresample ! volume ! <sink>.
+# GStreamer elements for appsrc ! avdec_aac ! audioconvert ! audioresample ! volume ! <sink>,
+# and WebKit's WebVTT encoder (webvttenc, plugin subenc, from gst-plugins-bad).
 if [[ $kind == appimage ]]; then
   # The bundled registry: scan the bundled plugin dir with the bundled scanner.
-  for p in app libav audioconvert audioresample volume pulseaudio; do
+  for p in app libav audioconvert audioresample volume pulseaudio subenc; do
     [[ -f $root/usr/lib/gstreamer-1.0/libgst$p.so ]] || fail "plugin $p not bundled"
   done
   missing=$(cd "$root/usr/lib" && for f in gstreamer-1.0/*.so; do LD_LIBRARY_PATH="$root/usr/lib" ldd "$f" | grep 'not found' || true; done)
   [[ -z $missing ]] || fail "plugin libraries unresolved: $missing"
 else
-  for e in appsrc avdec_aac audioconvert audioresample volume; do
+  for e in appsrc avdec_aac audioconvert audioresample volume webvttenc; do
     gst-inspect-1.0 "$e" >/dev/null 2>&1 || fail "GStreamer element $e missing"
   done
   gst-inspect-1.0 pipewiresink >/dev/null 2>&1 || gst-inspect-1.0 pulsesink >/dev/null 2>&1 || fail "no PipeWire/Pulse sink"

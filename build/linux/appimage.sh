@@ -48,11 +48,14 @@ linuxdeploy="$work/build/linuxdeploy-$arch.AppImage"
 cp -r "$root/build/linux/icons/hicolor" "$appdir/usr/share/icons/"
 
 # GStreamer: appsrc ! avdec_aac ! audioconvert ! audioresample ! volume ! pulsesink
-# (autoaudiosink as the fallback sink), plus the registry scanner.
+# (autoaudiosink as the fallback sink), plus the registry scanner. From
+# gst-plugins-bad, subenc: WebKit's media players need its webvttenc and
+# warn once per player without it. The bundled set is all GStreamer the
+# AppImage sees, WebKit's web process included.
 gst_plugins=$(pkg-config --variable=pluginsdir gstreamer-1.0)
 gst_scanner="$(pkg-config --variable=pluginscannerdir gstreamer-1.0)/gst-plugin-scanner"
 mkdir -p "$appdir/usr/lib/gstreamer-1.0" "$appdir/usr/libexec/gstreamer-1.0"
-for p in coreelements app audioconvert audioresample volume autodetect libav pulseaudio; do
+for p in coreelements app audioconvert audioresample volume autodetect libav pulseaudio subenc; do
   cp "$gst_plugins/libgst$p.so" "$appdir/usr/lib/gstreamer-1.0/"
 done
 cp "$gst_scanner" "$appdir/usr/libexec/gstreamer-1.0/"

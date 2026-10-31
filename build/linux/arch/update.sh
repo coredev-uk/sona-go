@@ -22,7 +22,7 @@ sha=$(sha256sum "$pkg" | cut -d' ' -f1)
 mkdir -p "$out"
 
 # Keep depends in step with the archlinux override in build/linux/nfpm/nfpm.yaml.
-depends=(gtk4 webkitgtk-6.0 gstreamer gst-plugins-base gst-plugins-good gst-libav)
+depends=(gtk4 webkitgtk-6.0 gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav)
 optdepends=(
   "google-chrome: Widevine CDM for full-track playback (Sona uses the installed one; never bundled)"
   "chromium: Widevine CDM via its component updater, as an alternative to Google Chrome"

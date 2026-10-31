@@ -14,13 +14,14 @@
 
 ## Environment and Commands
 
-- Run everything through devenv: `nix run nixpkgs#devenv -- shell -- <cmd>` (or `devenv shell` when installed). It sets `CGO_ENABLED=1`, `GOFLAGS=-tags=sqlite_fts5`, the GStreamer plugin path, and `SONA_WIDEVINE_CDM`.
+- Run everything through devenv 2.4+: `devenv shell -- <cmd>` (without an install: `nix run github:NixOS/nixpkgs/nixpkgs-unstable#devenv -- shell -- <cmd>`; plain `nixpkgs#devenv` may be older and is refused). It sets `CGO_ENABLED=1`, `GOFLAGS=-tags=sqlite_fts5` and the GStreamer plugin path, and loads `.env`. nixpkgs is pinned in `devenv.yaml` (bumping: CONTRIBUTING.md).
 - If locking inputs fails with an ssh hostkey error (a git config that rewrites https to ssh breaks Nix's fetcher), run devenv once with `XDG_CONFIG_HOME` pointing at an empty directory: `XDG_CONFIG_HOME=$(mktemp -d) devenv shell -- true`. Do not keep that prefix when running the app: it moves Sona's settings into that directory.
-- devenv scripts: `dev` (Vite hot reload), `build` (frontend + bindings + `bin/sona`), `gen` (sqlc + TS bindings), `fmt` (gofumpt + prettier), `check` (go vet, golangci-lint, tsc, eslint), `test` (go test + vitest), `play-spike`, `auth-spike`.
-- Before handing off: `check`, `go test -race ./...`, and in `frontend/`: `pnpm exec prettier --check src` and `pnpm exec vitest run`.
+- devenv scripts (each described in CONTRIBUTING.md): `dev` (Vite hot reload, `-config ./build/config.yml`), `build` (frontend + bindings + `bin/sona`), `gen` (sqlc + TS bindings), `fmt` (gofumpt + prettier), `check` (frontend build, go vet, golangci-lint on new code, path case, tsc, eslint, prettier, i18n), `tests` (frontend build, `go test -race` under `dbus-run-session`, vitest), `release` (release packages in a container), `play-spike`, `auth-spike`. `package` is Taskfile's only.
+- Before handing off: `check` and `tests`.
 - `wails3` is a Go tool dependency (`go tool wails3`). Plain `go build .` needs `frontend/dist` built first; production builds use `-tags production,sqlite_fts5`.
+- Widevine CDM: devenv ships none. The app and `playspike` discover an installed browser's copy (Chrome, Chromium-family `WidevineCdm` dirs such as Brave's, Firefox/Zen `gmp-widevinecdm`); `SONA_WIDEVINE_CDM=/path/to/libwidevinecdm.so` (environment or `.env`) overrides discovery and enables the real-CDM tests.
 - DRM path regression, after CDM, playback, or Apple changes: `go run ./cmd/playspike -seek 90`.
-- Release packages: `bash build/linux/release/release.sh` (podman, Ubuntu 24.04; output in `bin/release`).
+- Release packages: `release` (`bash build/linux/release/release.sh`: podman or docker, falling back to `nix run nixpkgs#podman`; Ubuntu 24.04; output in `bin/release`).
 - `.env` (ignored) holds `MUSIC_USER_TOKEN` for local testing. Never print, log, or commit it.
 
 ## Adding Features

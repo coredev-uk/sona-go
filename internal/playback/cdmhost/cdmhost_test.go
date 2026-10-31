@@ -20,7 +20,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// needCDM skips unless SONA_WIDEVINE_CDM names a real CDM (devenv sets it).
+// needCDM skips unless SONA_WIDEVINE_CDM names a real CDM (CONTRIBUTING.md).
 // Discovery alone is not enough: CI runners ship Google Chrome, and the
 // real-CDM tests run only where a developer opted in.
 func needCDM(t *testing.T) {
