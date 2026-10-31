@@ -41,11 +41,13 @@ Run before sending a change (CI runs the same on every push and pull request,
 ```sh
 go vet ./...
 go test -race ./...
+golangci-lint run --new-from-rev=origin/main ./...   # must be clean
 cd frontend
 node scripts/check-path-case.mjs   # no paths or module names differing only by case
 pnpm exec tsc --noEmit
 pnpm exec eslint src
 pnpm exec prettier --check src     # --write to fix
+pnpm i18n:check
 pnpm exec vitest run
 ```
 
@@ -53,7 +55,16 @@ Real-CDM tests (`internal/playback/widevine`, `internal/playback/cdmhost`)
 run only when `SONA_WIDEVINE_CDM` is set, as devenv does; CI skips them.
 After touching playback or Apple request code, also run the DRM path
 regression `go run ./cmd/playspike -seek 90` (needs `MUSIC_USER_TOKEN`).
-Route long listening tests to a PipeWire null sink, not your speakers.
+Every playback run in tests, smokes and live checks uses private mode
+(`SONA_PRIVATE=1`; development builds start private and `playspike` is
+private by default), so nothing is reported to Apple or scrobbled.
+Route long listening tests to your own PipeWire null sink, not your
+speakers, and remove only the sinks you created.
+
+When running the app for a check that doesn't need your desktop, start it
+under `dbus-run-session` with private `XDG_CONFIG_HOME`, `XDG_DATA_HOME`,
+`XDG_STATE_HOME` and `XDG_CACHE_HOME`, so it neither clashes with a running
+Sona (single instance, MPRIS name) nor touches your real settings and library.
 
 The CDM host sandbox tests (`TestChildCannotOpenInetSockets`,
 `TestSandboxConfinesChild/namespaces`) need unprivileged user namespaces in
@@ -68,6 +79,27 @@ sets `SONA_CDMHOST_REQUIRE_NAMESPACES=1`, which turns a skip into a failure.
 Packaging changes: `bash build/linux/release/release.sh` builds every package
 on Ubuntu 24.04 and smoke-tests it on clean Ubuntu, Fedora and Arch
 containers. Before a release, work through `docs/release-checklist.md`.
+
+## Branches and pull requests
+
+- One change per branch and pull request. Parallel work is easiest in
+  separate worktrees (`git worktree add ../sona-go-<slug> -b <type>/<slug>`);
+  a new worktree needs `pnpm install` in `frontend/` and a frontend build
+  before `go build .`. Give each concurrently running worktree its own
+  `WAILS_VITE_PORT`.
+- Commit messages and PR titles follow
+  [Conventional Commits](https://www.conventionalcommits.org): `feat`, `fix`,
+  `perf`, `refactor`, `docs`, `test`, `ci`, `build`, `chore` or `revert`,
+  with an optional scope (`fix(playback): …`). CI fails a PR with a
+  non-conforming title; PRs are squash-merged under that title.
+- Fill in the PR template: what changed, why, evidence (commands and their
+  output; screenshots in light and dark themes for UI changes, without
+  personal account data), tests, docs, and anything left.
+- Update the docs describing what you change in the same PR.
+- Generated files are never edited or merged by hand. After rebasing onto
+  `main`, regenerate `frontend/bindings`, the Lingui catalogues
+  (`pnpm i18n:extract` in `frontend/`) and `internal/db/dbq` (`gen`), then
+  commit them.
 
 ## Module contract
 

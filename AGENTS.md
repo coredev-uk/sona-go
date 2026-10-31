@@ -61,4 +61,13 @@
 - Generated files are never merged by hand: after rebasing onto `main`, regenerate `frontend/bindings`, the Lingui catalogues (`pnpm i18n:extract`) and `internal/db/dbq` (`gen`), then commit them.
 - A new worktree has no `frontend/node_modules`, `frontend/dist` or `.env`. Run `pnpm install` in `frontend/` inside devenv, build the frontend before `go build .`, and symlink `.env` from the main checkout only when a live token is needed.
 - Worktrees running at once must not share runtime state: a different `WAILS_VITE_PORT` per worktree, private XDG dirs and `dbus-run-session` for every run except one on the real desktop session, and a separately named PipeWire null sink.
-- Commits and PR titles follow Conventional Commits (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `test:`, `ci:`, `build:`, `chore:`).
+- Commits and PR titles follow Conventional Commits (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `test:`, `ci:`, `build:`, `chore:`, `revert:`; scope optional). CI (`.github/workflows/pr-title.yml`) fails a PR whose title doesn't match; squash merges use the PR title.
+
+## Process
+
+- One item per branch and PR. Fill in the PR template (`.github/pull_request_template.md`): What, Why, Evidence (commands with their output; light and dark screenshots for UI, with no personal account data), Tests, Docs, Left.
+- Gate before every PR: `go vet ./...`, `go test -race ./...` (touched packages first, then repo-wide), `golangci-lint run --new-from-rev=origin/main ./...` clean, and in `frontend/`: `pnpm exec tsc --noEmit`, `pnpm exec eslint src`, `pnpm exec prettier --check src`, `pnpm i18n:check`, `pnpm exec vitest run`.
+- Update the docs describing what you change in the same PR.
+- Private mode for every playback run: tests, smokes and live checks run with `SONA_PRIVATE=1` (development builds start private, `playspike` is private by default) so nothing is reported to Apple or scrobbled. Never play against Apple without it.
+- Live audio goes to your own PipeWire null sink (`pw-cli create-node adapter '{ factory.name=support.null-audio-sink node.name=<name> media.class=Audio/Sink object.linger=true audio.position=[FL FR] }'`), targeted with `pipewiresink target-object` (`-device` in playspike; `PIPEWIRE_NODE` pins a stream and breaks device-move tests) and recorded with `pw-record --target <name>`. Destroy only nodes you created; if WirePlumber stops linking streams, ask before restarting it.
+- Only one Sona may own the real session bus (single instance and the MPRIS name). Keep real-session runs short and quit the app yourself; everything else uses `dbus-run-session` and private XDG dirs, never the real `~/.config/sona` or `~/.local/share/sona` (copy data into the private dirs when needed).
