@@ -225,7 +225,6 @@ The UI renders from SQLite in `loading`/`validating` and while `Status.Offline` 
 - The CDM host child process receives only certificates, licence responses and encrypted media bytes over its stdin/stdout pipe; it never sees a token and makes no network requests.
 - A 401/403 from a playback request surfaces as `applemusic.ErrUnauthorized`: the engine emits `auth`, the coordinator pauses with `AuthRequired`, and the services layer passes the error to `Manager.ReportUnauthorized` (§5 triage).
 - Sign-out stops playback, clears the queue and wipes user data (`db.WipeUserData`); there is no engine profile to wipe. Undelivered play-activity events are stored without credentials (tokens are added at send time).
-- The retired Chrome engine (`internal/playback/chrome`) configured MusicKit JS with `mk.musicUserToken` inside a Chrome profile served at `https://music.apple.com/sona-engine/`; it is not wired into the app.
 
 ## 7. Storage
 
@@ -236,7 +235,7 @@ The UI renders from SQLite in `loading`/`validating` and while `Status.Offline` 
 - SQLite stores metadata only (`auth.AccountStore`): storefront id/name, language, `itre`, obtained/validated timestamps.
 - `SignOut()` clears the in-memory token, deletes the keyring entry and the fallback file, deletes the account metadata, then runs the `OnSignOut` hooks in registration order (engine sign-out, engine storage, optional user data). Every step runs even if one fails; failures are returned and shown in `Status.LastError`. The library cache stays unless the user also chooses "clear library".
 
-## 8. Auth Spike Checklist (`cmd/authspike`, `cmd/enginespike`)
+## 8. Auth Spike Checklist (`cmd/authspike`)
 
 | # | Check | Status |
 | --- | --- | --- |

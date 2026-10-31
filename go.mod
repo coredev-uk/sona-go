@@ -3,8 +3,6 @@ module github.com/coredev-uk/sona-go
 go 1.26.10
 
 require (
-	github.com/chromedp/cdproto v0.158.6
-	github.com/chromedp/chromedp v0.21.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/godbus/dbus/v5 v5.2.4
 	github.com/mattn/go-sqlite3 v1.14.52

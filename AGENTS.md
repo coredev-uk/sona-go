@@ -3,7 +3,6 @@
 ## Repo
 
 - Go module `github.com/coredev-uk/sona-go`: the Sona desktop app. Entry `main.go` (Wails v3), Wails services in `internal/services`, core packages under `internal/`, React frontend in `frontend/`.
-- The retired headless Chrome engine (`internal/playback/chrome`, `internal/playback/enginepage`, `cmd/enginespike`; chromedp v0.21) is kept only as the documented fallback. It is not wired into the app; do not extend it.
 - Generated code, never hand-edited: `internal/db/dbq` (sqlc, from `internal/db/queries`) and `frontend/bindings` (wails3). Regenerate with the devenv `gen` script.
 - Migrations (`internal/db/migrations`) are numbered densely from `00001` and applied strictly in order (no goose out-of-order): a new one takes the next free number when it lands, and a released one is never renumbered or edited.
 - `VERSION` is the single version source. The build injects it as `main.version` and into the packages.
