@@ -6,7 +6,10 @@
 // checkpoints past the 30 s preview window, the PipeWire stream of the
 // child, the gap between two consecutive tracks, and parent+child memory.
 //
-// Usage: playspike [-env .env] [-song ID | -term "query"] [-seek 90] [-next-term "query"] [-crash] [-quality 256|64]
+// Usage: playspike [-env .env] [-song ID | -term "query"] [-seek 90] [-next-term "query"] [-crash] [-quality 256|64] [-cdm LIB | -cdm-dir DIR]
+//
+// The CDM is the one Sona downloads (installed under Sona's data directory,
+// or -cdm-dir, on first use); -cdm or SONA_WIDEVINE_CDM override it.
 //
 //	playspike -activity [-private=false]       play activity, private by default (Recently Played must stay unchanged)
 //
@@ -31,6 +34,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth/devtoken"
 	"github.com/coredev-uk/sona-go/internal/playback"
+	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/playback/native"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
@@ -48,7 +52,8 @@ func main() {
 	nextTerm := flag.String("next-term", "Radiohead Reckoner", "search term for the second song")
 	gap := flag.Bool("gap", true, "play into the next track to measure the gap")
 	crash := flag.Bool("crash", false, "kill the host mid-track and measure recovery")
-	cdm := flag.String("cdm", "", "Widevine CDM path (default: discover)")
+	cdmOverride := flag.String("cdm", "", "Widevine CDM library to load instead of the downloaded one (developer override, as SONA_WIDEVINE_CDM)")
+	cdmDir := flag.String("cdm-dir", "", "install directory of the downloaded Widevine CDM (default: Sona's, <data>/widevine under the current XDG directories)")
 	activity := flag.Bool("activity", false, "play -song (or -term's hit) then -next (or -next-term's) through the coordinator with Apple play-activity reporting, and check Recently Played")
 	container := flag.String("container", "", "with -activity: kind:id (album, playlist or station) the songs are queued from, reported with the plays and looked for in Recently Played")
 	private := flag.Bool("private", true, "with -activity: report the plays as private (\"private-enabled\": true; kept out of the listening history) and check Recently Played stays unchanged; -private=false reports them to the account and checks they show up. SONA_PRIVATE=1 forces private")
@@ -71,15 +76,20 @@ func main() {
 		log.Error("playspike: -quality must be 256 or 64", "quality", *quality)
 		os.Exit(2)
 	}
+	lib, err := cdmLibrary(log, *cdmOverride, *cdmDir)
+	if err != nil {
+		log.Error("playspike: Widevine CDM", "code", cdm.CodeOf(err), "err", err)
+		os.Exit(1)
+	}
 	switch {
 	case *probeLossless != "":
-		err = runProbeLossless(log, *envFile, *probeLossless, *cdm)
+		err = runProbeLossless(log, *envFile, *probeLossless, lib)
 	case *soak > 0:
 		var items []string
 		if *soakItems != "" {
 			items = strings.Split(*soakItems, ",")
 		}
-		err = runSoak(log, *envFile, items, *term, *soak, *cdm, q)
+		err = runSoak(log, *envFile, items, *term, *soak, lib, q)
 	case *activity:
 		// SONA_PRIVATE=1 (and any value privatemode.Env does not read as
 		// off) wins over -private=false.
@@ -89,9 +99,9 @@ func main() {
 			}
 			*private = true
 		}
-		err = runActivity(log, *envFile, *songID, *term, *nextID, *nextTerm, *listen, *cdm, *container, *private)
+		err = runActivity(log, *envFile, *songID, *term, *nextID, *nextTerm, *listen, lib, *container, *private)
 	default:
-		err = run(log, *envFile, *songID, *term, *seekTo, *listen, *nextID, *nextTerm, *gap, *crash, *cdm, q)
+		err = run(log, *envFile, *songID, *term, *seekTo, *listen, *nextID, *nextTerm, *gap, *crash, lib, q)
 	}
 	if err != nil {
 		log.Error("playspike failed", "err", err)
@@ -143,7 +153,7 @@ func (r *recorder) drain() {
 	}
 }
 
-func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen time.Duration, nextID, nextTerm string, gap, crash bool, cdm string, quality applemusic.Quality) error {
+func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen time.Duration, nextID, nextTerm string, gap, crash bool, lib string, quality applemusic.Quality) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -158,7 +168,7 @@ func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen 
 	}
 	step("song", "id", song.ID, "name", fmt.Sprintf("%q", song.Attributes.Name), "catalog_ms", song.Attributes.DurationInMillis)
 
-	eng := native.New(native.Options{Client: api, CDMPath: cdm, Logger: log, IdleTimeout: -1, Quality: quality})
+	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1, Quality: quality})
 	defer eng.Close()
 	if err := eng.SetOutputDevice(ctx, outputDevice); err != nil {
 		return err

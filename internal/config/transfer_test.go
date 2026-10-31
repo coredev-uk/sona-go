@@ -18,7 +18,6 @@ func custom() Settings {
 	s.ReduceEffects = true
 	s.Volume = 0.3
 	s.AudioQuality = Quality64
-	s.CDMPath = "/opt/chrome/libwidevinecdm.so"
 	s.EngineIdleMinutes = 30
 	s.AutoPlay = false
 	s.Diagnostics = Diagnostics{DisableDMABufRenderer: true}
@@ -39,7 +38,7 @@ func custom() Settings {
 
 // local copies the computer- and session-specific settings from src.
 func local(dst, src Settings) Settings {
-	dst.Volume, dst.CDMPath = src.Volume, src.CDMPath
+	dst.Volume = src.Volume
 	dst.Diagnostics, dst.Scrobbling, dst.Window = src.Diagnostics, src.Scrobbling, src.Window
 	dst.Desktop.Autostart, dst.Desktop.LastRoute = src.Desktop.Autostart, src.Desktop.LastRoute
 	dst.Audio.OutputDevice = src.Audio.OutputDevice
@@ -172,12 +171,11 @@ func TestImportNormalisesAndIgnoresUnknownAndLocalKeys(t *testing.T) {
 }
 
 // encoding/json matches keys case-insensitively, so a document can name a
-// local setting in any spelling ("CDMPath" lands in Settings.CDMPath); none
+// local setting in any spelling ("Volume" lands in Settings.Volume); none
 // of them may be imported. The document carries every key of a fully
 // customised Settings, local ones included, in three spellings.
 func TestImportIgnoresLocalKeysInAnySpelling(t *testing.T) {
 	from := custom()
-	from.CDMPath = "/tmp/evil"
 	m, err := settingsMap(from)
 	if err != nil {
 		t.Fatal(err)
@@ -207,44 +205,21 @@ func TestImportIgnoresLocalKeysInAnySpelling(t *testing.T) {
 			t.Fatalf("%s: %v", name, err)
 		}
 		to := Defaults()
-		to.CDMPath = "/opt/google/chrome/WidevineCdm"
+		to.Volume = 0.9
 		got := to
 		im.Apply(&got)
 		if want := local(from, to); !reflect.DeepEqual(got.Normalized(), want) {
 			t.Errorf("%s: imported\n%+v\nwant\n%+v", name, got, want)
 		}
 	}
-	for _, doc := range []string{`{"CDMPath": "/tmp/evil.so"}`, `{"cdmpath": "/tmp/evil.so"}`} {
+	for _, doc := range []string{`{"Volume": 0.01}`, `{"VOLUME": 0.01}`} {
 		im, err := ParseExport([]byte(`{"format":"sona-settings","version":1,"settings":` + doc + `}`))
 		if err != nil {
 			t.Fatal(err)
 		}
 		got := Defaults()
-		if im.Apply(&got); got.CDMPath != "" {
-			t.Errorf("%s: CDMPath = %q", doc, got.CDMPath)
-		}
-	}
-}
-
-func TestNormalizedDropsUnsafeCDMPath(t *testing.T) {
-	for p, want := range map[string]string{
-		"": "",
-		"/opt/google/chrome/WidevineCdm/_platform_specific/linux_x64/libwidevinecdm.so": "/opt/google/chrome/WidevineCdm/_platform_specific/linux_x64/libwidevinecdm.so",
-		"/home/u/.config/google-chrome/WidevineCdm":                                     "/home/u/.config/google-chrome/WidevineCdm",
-		"Downloads/libwidevinecdm.so":                                                   "",
-		"./libwidevinecdm.so":                                                           "",
-		"/proc/self/cwd/Downloads":                                                      "",
-		"/proc":                                                                         "",
-		"/dev/fd/3":                                                                     "",
-		"/opt/chrome/../../proc/self/cwd":                                               "",
-		"/opt/chrome//libwidevinecdm.so":                                                "",
-		"/opt/chrome/":                                                                  "",
-		"/processes/libwidevinecdm.so":                                                  "/processes/libwidevinecdm.so",
-	} {
-		s := Defaults()
-		s.CDMPath = p
-		if got := s.Normalized().CDMPath; got != want {
-			t.Errorf("CDMPath %q normalised to %q, want %q", p, got, want)
+		if im.Apply(&got); got.Volume != Defaults().Volume {
+			t.Errorf("%s: Volume = %v", doc, got.Volume)
 		}
 	}
 }

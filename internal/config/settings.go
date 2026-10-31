@@ -40,9 +40,6 @@ type Settings struct {
 	Volume float64 `json:"volume"`
 	// AudioQuality is 256 or 64 (kbps).
 	AudioQuality int `json:"audioQuality"`
-	// CDMPath overrides the libwidevinecdm.so location; empty probes the
-	// usual install paths.
-	CDMPath string `json:"cdmPath"`
 	// EngineIdleMinutes is how long the playback host stays alive with no
 	// queue before it is shut down.
 	EngineIdleMinutes int `json:"engineIdleMinutes"`
@@ -139,9 +136,8 @@ func Defaults() Settings {
 
 // Normalized returns s with out-of-range values replaced: unknown themes
 // become "system", volume is clamped to [0, 1], unknown qualities become 256,
-// a non-positive idle timeout becomes the default and a longer one than a
-// day is cut to a day, and a CDM path that is not a clean absolute path
-// outside /proc and /dev is dropped (see cdmPath).
+// and a non-positive idle timeout becomes the default and a longer one than
+// a day is cut to a day.
 func (s Settings) Normalized() Settings {
 	switch s.Theme {
 	case ThemeSystem, ThemeLight, ThemeDark:
@@ -152,7 +148,6 @@ func (s Settings) Normalized() Settings {
 	if s.AudioQuality != Quality256 && s.AudioQuality != Quality64 {
 		s.AudioQuality = Quality256
 	}
-	s.CDMPath = cdmPath(s.CDMPath)
 	if s.EngineIdleMinutes <= 0 {
 		s.EngineIdleMinutes = defaultEngineIdleMinutes
 	}
@@ -175,24 +170,6 @@ func clampVolume(v float64) float64 {
 		return 0
 	}
 	return min(max(v, 0), 1)
-}
-
-// cdmPath returns p if it may name the Widevine CDM to load, else "" (probe
-// the usual install paths). The CDM host dlopens what this names, so it
-// must be a clean absolute path: a relative one resolves against the
-// child's working directory, and /proc (/proc/self/cwd, /proc/<pid>/root)
-// and /dev (/dev/fd -> /proc/self/fd) name another process's view of the
-// filesystem rather than an installed library.
-func cdmPath(p string) string {
-	if p == "" || !filepath.IsAbs(p) || filepath.Clean(p) != p {
-		return ""
-	}
-	for _, pseudo := range []string{"/proc", "/dev"} {
-		if p == pseudo || strings.HasPrefix(p, pseudo+"/") {
-			return ""
-		}
-	}
-	return p
 }
 
 // LoadSettings reads the settings file at path. A missing file yields

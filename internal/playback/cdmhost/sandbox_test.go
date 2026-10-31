@@ -41,6 +41,9 @@ func initChild(t *testing.T) (*Host, Info) {
 	if err == nil || r.Info == nil {
 		t.Fatalf("init with a missing CDM: %v %+v", err, r.Info)
 	}
+	if !errors.Is(replyErr(r), ErrCDMLoad) {
+		t.Fatalf("init with a missing CDM: %v (code %q), want ErrCDMLoad", err, r.Code)
+	}
 	info := *r.Info
 	info.Sandbox = h.withSandbox(info.Sandbox)
 	return h, info
@@ -176,6 +179,12 @@ func probeChild() {
 		_ = os.Remove(f.Name())
 	}
 	res["home write"] = outcome(err)
+	if d := os.Getenv(envCDMDir); d != "" {
+		_, err = os.ReadFile(filepath.Join(d, "libwidevinecdm.so"))
+		res["cdm read"] = outcome(err)
+		err = os.WriteFile(filepath.Join(d, "libwidevinecdm.so"), []byte("patched"), 0o644)
+		res["cdm write"] = outcome(err)
+	}
 	for _, fam := range refusedFamilies {
 		fd, err := unix.Socket(fam.family, fam.typ|unix.SOCK_CLOEXEC, fam.proto)
 		if err == nil {
@@ -356,11 +365,22 @@ func TestSandboxConfinesChild(t *testing.T) {
 	if s := audioSockets(runtimeDir); len(s) > 0 {
 		audio = s[0]
 	}
+	// The CDM's directory, as the parent passes it (spawn): under the
+	// test's temporary directory, which the namespaced child's private
+	// /tmp covers, so it must be bound back, read-only.
+	cdmDir := filepath.Join(t.TempDir(), "widevine", "4.10.0.0", "linux_x64")
+	if err := os.MkdirAll(cdmDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cdmDir, "libwidevinecdm.so"), []byte("not a CDM"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	extra := []string{
 		envProbeDeny + "=" + strings.Join(deny, string(filepath.ListSeparator)),
 		envProbeAudio + "=" + audio,
 		envProbeAbstract + "=" + abstract,
 		envProbeHome + "=" + homeDir,
+		envCDMDir + "=" + cdmDir,
 	}
 	refused := func(t *testing.T, res map[string]string, what string) {
 		t.Helper()
@@ -391,9 +411,10 @@ func TestSandboxConfinesChild(t *testing.T) {
 		for _, p := range deny {
 			refused(t, res, "connect "+p)
 		}
-		for _, w := range []string{"abstract", "home write", "AF_INET", "AF_INET6", "AF_NETLINK", "process_vm_readv"} {
+		for _, w := range []string{"abstract", "home write", "AF_INET", "AF_INET6", "AF_NETLINK", "process_vm_readv", "cdm write"} {
 			refused(t, res, w)
 		}
+		reached(t, res, "cdm read")
 		if landlockABI(res) > 0 {
 			refused(t, res, "parent environ")
 		}
@@ -411,6 +432,8 @@ func TestSandboxConfinesChild(t *testing.T) {
 			t.Skip("no Landlock here; seccomp is the only layer without namespaces")
 		}
 		refused(t, res, "home write")
+		refused(t, res, "cdm write")
+		reached(t, res, "cdm read")
 		refused(t, res, "parent environ")
 		if abi >= 6 {
 			refused(t, res, "abstract")
@@ -427,14 +450,15 @@ func TestSandboxConfinesChild(t *testing.T) {
 }
 
 // The child drops the session's addresses and anything named like a
-// credential, and keeps what GStreamer, PipeWire and the CDM need.
+// credential, and keeps what GStreamer and PipeWire need. An inherited
+// CDM directory is dropped too: only spawn names it.
 func TestChildEnvDropsSessionAndSecrets(t *testing.T) {
 	drop := []string{
 		"DBUS_SESSION_BUS_ADDRESS", "DBUS_SYSTEM_BUS_ADDRESS", "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY",
 		"SSH_AUTH_SOCK", "GPG_AGENT_INFO", "SESSION_MANAGER", "MUSIC_USER_TOKEN", "LASTFM_API_KEY", "GITHUB_TOKEN",
-		"SOME_SECRET", "DB_PASSWORD", envSandboxStage,
+		"SOME_SECRET", "DB_PASSWORD", envSandboxStage, envCDMDir,
 	}
-	keep := []string{"HOME", "PATH", "XDG_RUNTIME_DIR", "GST_PLUGIN_SYSTEM_PATH_1_0", "PIPEWIRE_RUNTIME_DIR", "SONA_WIDEVINE_CDM", "LANG"}
+	keep := []string{"HOME", "PATH", "XDG_RUNTIME_DIR", "GST_PLUGIN_SYSTEM_PATH_1_0", "PIPEWIRE_RUNTIME_DIR", "LANG"}
 	for _, k := range slices.Concat(drop, keep) {
 		t.Setenv(k, "x")
 	}

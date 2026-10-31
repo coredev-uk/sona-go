@@ -344,9 +344,40 @@ func (dev) Invalidate() {}
 type harness struct {
 	e       *Engine
 	fx      *fixture
+	cdm     *fakeCDM
 	mu      sync.Mutex
 	hosts   []*fakeHost
+	libs    []string // the CDM library each host was started with
 	autoEnd bool
+}
+
+// testCDM is the CDM library the harness's source names.
+const testCDM = "/cdm/libwidevinecdm.so"
+
+// fakeCDM is a CDM source: lib, or err when set; it records the reports.
+type fakeCDM struct {
+	mu      sync.Mutex
+	lib     string
+	err     error
+	reports []error
+}
+
+func (c *fakeCDM) Library() (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.lib, c.err
+}
+
+func (c *fakeCDM) ReportInit(lib string, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.reports = append(c.reports, err)
+}
+
+func (c *fakeCDM) set(lib string, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.lib, c.err = lib, err
 }
 
 // newHarness builds an engine over the fixture and fake hosts. With autoEnd
@@ -355,14 +386,15 @@ func newHarness(t *testing.T, idle time.Duration, autoEnd bool) *harness {
 	fx := newFixture(t)
 	hc := &http.Client{Transport: rewrite{fx.srv}}
 	api := applemusic.New(hc, dev{}, func() string { return "mut" })
-	h := &harness{fx: fx, autoEnd: autoEnd}
-	h.e = New(Options{Client: api, HTTP: hc, IdleTimeout: idle})
-	h.e.spawn = func(context.Context) (host, error) {
+	h := &harness{fx: fx, autoEnd: autoEnd, cdm: &fakeCDM{lib: testCDM}}
+	h.e = New(Options{Client: api, HTTP: hc, IdleTimeout: idle, CDM: h.cdm})
+	h.e.spawn = func(_ context.Context, lib string) (host, error) {
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		f := newFake(100 + len(h.hosts))
 		f.autoEnd = h.autoEnd
 		h.hosts = append(h.hosts, f)
+		h.libs = append(h.libs, lib)
 		return f, nil
 	}
 	t.Cleanup(func() { h.e.Close() })
@@ -584,9 +616,9 @@ func TestPauseDuringLoadingDoesNotPlay(t *testing.T) {
 	h := newHarness(t, -1, false)
 	gate := make(chan struct{})
 	inner := h.e.spawn
-	h.e.spawn = func(ctx context.Context) (host, error) {
+	h.e.spawn = func(ctx context.Context, lib string) (host, error) {
 		<-gate
-		return inner(ctx)
+		return inner(ctx, lib)
 	}
 	done := make(chan error, 1)
 	go func() { done <- h.e.Play(context.Background(), "A", 0) }()

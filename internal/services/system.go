@@ -13,13 +13,14 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/playback"
+	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 )
 
 // engineDiagnoser is implemented by engines that can check their
-// playback stack (the CDM host engine: a probe child loads the CDM and
-// GStreamer; cdmPath is the CDM path setting).
+// playback stack (the CDM host engine: a probe child loads the CDM a new
+// host would load, and GStreamer).
 type engineDiagnoser interface {
-	Diagnose(ctx context.Context, cdmPath string) (playback.Diagnosis, error)
+	Diagnose(ctx context.Context) (playback.Diagnosis, error)
 }
 
 // qualitySetter is implemented by the native engine.
@@ -66,7 +67,7 @@ func (s *SystemService) Settings() config.Settings { return s.o.Settings.Get() }
 
 // UpdateSettings saves next and applies it: volume at once, theme and
 // reduce-effects through "settings:changed", the audio quality from the
-// next item; the CDM path, idle timeout and WebKit toggles on the next
+// next item; the idle timeout and WebKit toggles on the next
 // start.
 func (s *SystemService) UpdateSettings(ctx context.Context, next config.Settings) (config.Settings, error) {
 	prev := s.o.Settings.Get()
@@ -117,8 +118,7 @@ func (s *SystemService) Diagnostics(ctx context.Context) (Diagnostics, error) {
 	d.Keyring = DiagKeyring{Backend: string(st.Backend), Unencrypted: st.Backend == store.BackendFile}
 
 	for _, name := range []string{
-		// "SONA_WIDEVINE_CDM" is widevine.EnvCDM (Linux-only package).
-		"WEBKIT_DISABLE_DMABUF_RENDERER", "WEBKIT_DISABLE_COMPOSITING_MODE", "SONA_WIDEVINE_CDM",
+		"WEBKIT_DISABLE_DMABUF_RENDERER", "WEBKIT_DISABLE_COMPOSITING_MODE", cdm.EnvOverride,
 		"GST_PLUGIN_SYSTEM_PATH_1_0", "GST_PLUGIN_PATH_1_0", "WAYLAND_DISPLAY", "GDK_BACKEND",
 	} {
 		v, ok := os.LookupEnv(name)
@@ -160,11 +160,14 @@ func (s *SystemService) playback(ctx context.Context, out *DiagPlayback) {
 	cur := s.o.Settings.Get()
 	out.AudioQuality = cur.AudioQuality
 	out.Engine = s.o.Engine.Capabilities().Kind
+	if out.Engine == playback.KindCDM && s.o.CDM != nil {
+		out.CDM = cdmStatus(s.o.CDM.Status())
+	}
 	d, ok := s.o.Engine.(engineDiagnoser)
 	if !ok {
 		return
 	}
-	info, err := d.Diagnose(ctx, cur.CDMPath)
+	info, err := d.Diagnose(ctx)
 	out.HostRunning, out.HostPID = info.HostRunning, info.HostPID
 	out.CDMPath, out.CDMVersion = info.CDMPath, info.CDMVersion
 	out.CDMInterface, out.HostInterface = info.CDMInterface, info.HostInterface

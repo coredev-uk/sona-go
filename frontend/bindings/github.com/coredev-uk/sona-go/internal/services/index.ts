@@ -3,6 +3,7 @@
 
 import * as AudioService from "./audioservice.js";
 import * as AuthService from "./authservice.js";
+import * as CDMService from "./cdmservice.js";
 import * as CatalogService from "./catalogservice.js";
 import * as DesktopService from "./desktopservice.js";
 import * as DiscoverService from "./discoverservice.js";
@@ -22,6 +23,7 @@ import * as UpdatesService from "./updatesservice.js";
 export {
     AudioService,
     AuthService,
+    CDMService,
     CatalogService,
     DesktopService,
     DiscoverService,
@@ -51,6 +53,7 @@ export {
     ArtistShelf,
     ArtistViewPage,
     AuthStatus,
+    CDMStatus,
     Capabilities,
     CatalogAlbum,
     CatalogArtist,

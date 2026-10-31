@@ -210,9 +210,9 @@ func newUploadHarness(t *testing.T, us *uploadServer, dur time.Duration) *harnes
 	hc := &http.Client{Transport: rewrite{us.srv}}
 	api := applemusic.New(hc, dev{}, func() string { return "mut" })
 	h := &harness{}
-	h.e = New(Options{Client: api, HTTP: hc, IdleTimeout: time.Minute})
+	h.e = New(Options{Client: api, HTTP: hc, IdleTimeout: time.Minute, CDM: CDMPath(testCDM)})
 	h.e.retry = []time.Duration{time.Millisecond, time.Millisecond}
-	h.e.spawn = func(context.Context) (host, error) {
+	h.e.spawn = func(context.Context, string) (host, error) {
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		f := newFake(100 + len(h.hosts))

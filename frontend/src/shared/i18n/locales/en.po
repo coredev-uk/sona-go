@@ -107,10 +107,6 @@ msgid "{catalogEntries, plural, one {# page, {catalogSize}.} other {# pages, {ca
 msgstr "{catalogEntries, plural, one {# page, {catalogSize}.} other {# pages, {catalogSize}.}}"
 
 #: src/features/settings/Diagnostics.tsx
-msgid "{cdmError}. Install Google Chrome, or set the CDM location under Playback."
-msgstr "{cdmError}. Install Google Chrome, or set the CDM location under Playback."
-
-#: src/features/settings/Diagnostics.tsx
 msgid "{cdmInterface} (host {hostInterface})"
 msgstr "{cdmInterface} (host {hostInterface})"
 
@@ -255,6 +251,14 @@ msgstr "{note}. Playback still works. To sandbox it fully, allow unprivileged us
 #: src/features/settings/Connections.tsx
 msgid "{pending, plural, one {# song waiting to send.} other {# songs waiting to send.}}"
 msgstr "{pending, plural, one {# song waiting to send.} other {# songs waiting to send.}}"
+
+#: src/features/settings/CdmRow.tsx
+msgid "{percent} · {received} of {total}"
+msgstr "{percent} · {received} of {total}"
+
+#: src/features/settings/CdmRow.tsx
+msgid "{percent}, {received} of {total}"
+msgstr "{percent}, {received} of {total}"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "{playlists, plural, one {# playlist} other {# playlists}}"
@@ -846,12 +850,12 @@ msgid "Categories"
 msgstr "Categories"
 
 #: src/features/settings/Diagnostics.tsx
-msgid "CDM interface"
-msgstr "CDM interface"
+msgid "CDM file"
+msgstr "CDM file"
 
 #: src/features/settings/Diagnostics.tsx
-msgid "CDM location"
-msgstr "CDM location"
+msgid "CDM interface"
+msgstr "CDM interface"
 
 #: src/features/commands/ShortcutHelp.tsx
 msgid "Change any of them in <0>Settings</0>."
@@ -902,9 +906,21 @@ msgstr "Check the spelling, try fewer words, or search your library instead."
 msgid "Check your connection and try again."
 msgstr "Check your connection and try again."
 
+#: src/features/settings/Diagnostics.tsx
+msgid "Checked {checked}"
+msgstr "Checked {checked}"
+
 #: src/features/settings/Updates.tsx
 msgid "Checked {checked}."
 msgstr "Checked {checked}."
+
+#: src/features/settings/CdmRow.tsx
+msgid "Checked for updates {checked}"
+msgstr "Checked for updates {checked}"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Checked once Widevine is ready"
+msgstr "Checked once Widevine is ready"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Checking the playback host, database and keyring…"
@@ -939,14 +955,6 @@ msgstr "Choose music in the main window"
 #: src/features/auth/Account.tsx
 msgid "Choose one of the trusted phone numbers on this Apple Account."
 msgstr "Choose one of the trusted phone numbers on this Apple Account."
-
-#: src/features/settings/Playback.tsx
-msgid "Choose…"
-msgstr "Choose…"
-
-#: src/features/settings/Playback.tsx
-msgid "Choosing…"
-msgstr "Choosing…"
 
 #. Equaliser preset
 #: src/features/equalizer/curve.ts
@@ -1128,6 +1136,11 @@ msgstr "Couldn't change the pin"
 msgid "Couldn't change the volume"
 msgstr "Couldn't change the volume"
 
+#: src/features/settings/CdmRow.tsx
+#: src/features/settings/Diagnostics.tsx
+msgid "Couldn't check for updates"
+msgstr "Couldn't check for updates"
+
 #: src/features/settings/Updates.tsx
 msgid "Couldn't check: {failure}"
 msgstr "Couldn't check: {failure}"
@@ -1184,6 +1197,11 @@ msgstr "Couldn't delete the folder “{name}”"
 msgid "Couldn't disconnect {name}"
 msgstr "Couldn't disconnect {name}"
 
+#: src/features/settings/CdmRow.tsx
+#: src/features/settings/Diagnostics.tsx
+msgid "Couldn't download"
+msgstr "Couldn't download"
+
 #: src/features/settings/SettingsFileRows.tsx
 msgid "Couldn't export your settings"
 msgstr "Couldn't export your settings"
@@ -1191,6 +1209,10 @@ msgstr "Couldn't export your settings"
 #: src/shared/lib/library-actions.ts
 msgid "Couldn't favourite {subject}"
 msgstr "Couldn't favourite {subject}"
+
+#: src/features/player/CdmNotice.tsx
+msgid "Couldn't get Widevine · Retry in Settings"
+msgstr "Couldn't get Widevine · Retry in Settings"
 
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
@@ -1400,10 +1422,6 @@ msgstr "Couldn't open Apple Music"
 msgid "Couldn't open Sona"
 msgstr "Couldn't open Sona"
 
-#: src/features/settings/Playback.tsx
-msgid "Couldn't open the file chooser"
-msgstr "Couldn't open the file chooser"
-
 #: src/features/settings/Diagnostics.tsx
 msgid "Couldn't open the log folder"
 msgstr "Couldn't open the log folder"
@@ -1611,6 +1629,10 @@ msgstr "Couldn't start a station from {name}"
 msgid "Couldn't start playback"
 msgstr "Couldn't start playback"
 
+#: src/features/cdm/state.ts
+msgid "Couldn't start the Widevine download"
+msgstr "Couldn't start the Widevine download"
+
 #: src/shared/lib/library-actions.ts
 msgid "Couldn't suggest less of {subject}"
 msgstr "Couldn't suggest less of {subject}"
@@ -1772,6 +1794,14 @@ msgstr "Description"
 msgid "Desktop"
 msgstr "Desktop"
 
+#: src/features/settings/CdmRow.tsx
+msgid "Developer override"
+msgstr "Developer override"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Developer override (SONA_WIDEVINE_CDM)"
+msgstr "Developer override (SONA_WIDEVINE_CDM)"
+
 #: src/features/settings/Updates.tsx
 msgid "Development build ({current}): not checked for updates"
 msgstr "Development build ({current}): not checked for updates"
@@ -1848,6 +1878,31 @@ msgstr "Down Arrow"
 #: src/features/settings/Updates.tsx
 msgid "Download the new package from the release page, or update it with your package manager."
 msgstr "Download the new package from the release page, or update it with your package manager."
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Downloaded from Google"
+msgstr "Downloaded from Google"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Downloading · {percent}"
+msgstr "Downloading · {percent}"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Downloading an update"
+msgstr "Downloading an update"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Downloading an update · {percent}"
+msgstr "Downloading an update · {percent}"
+
+#: src/features/settings/CdmRow.tsx
+msgid "Downloading an update…"
+msgstr "Downloading an update…"
+
+#: src/features/settings/CdmRow.tsx
+#: src/features/settings/Diagnostics.tsx
+msgid "Downloading…"
+msgstr "Downloading…"
 
 #: src/features/playlist/PlaylistEditor.tsx
 msgid "Drag {songName} to reorder"
@@ -2081,10 +2136,6 @@ msgstr "For you"
 msgid "Forward"
 msgstr "Forward"
 
-#: src/features/settings/Playback.tsx
-msgid "Found automatically"
-msgstr "Found automatically"
-
 #: src/features/artist/ArtistPage.tsx
 msgid "From"
 msgstr "From"
@@ -2158,6 +2209,14 @@ msgstr "Go to Search"
 #: src/features/song/SongPage.tsx
 msgid "Go to Songs"
 msgstr "Go to Songs"
+
+#: src/features/cdm/messages.ts
+msgid "Google doesn't make Widevine for this computer, so songs can't play here."
+msgstr "Google doesn't make Widevine for this computer, so songs can't play here."
+
+#: src/features/settings/CdmRow.tsx
+msgid "Google's Widevine plays Apple Music's protected songs. Sona downloads it from Google and keeps it up to date by itself; an update applies the next time playback starts."
+msgstr "Google's Widevine plays Apple Music's protected songs. Sona downloads it from Google and keeps it up to date by itself; an update applies the next time playback starts."
 
 #: src/features/settings/Diagnostics.tsx
 msgid "GStreamer"
@@ -2257,10 +2316,6 @@ msgid "Insert"
 msgstr "Insert"
 
 #: src/features/settings/Diagnostics.tsx
-msgid "Install Google Chrome, or set the CDM location under Playback. Without it only 30-second previews play."
-msgstr "Install Google Chrome, or set the CDM location under Playback. Without it only 30-second previews play."
-
-#: src/features/settings/Diagnostics.tsx
 msgid "Install gst-libav or the fdkaac plugin to decode Apple Music's AAC."
 msgstr "Install gst-libav or the fdkaac plugin to decode Apple Music's AAC."
 
@@ -2275,6 +2330,10 @@ msgstr "ISRC {isrc}"
 #: src/shared/lib/library-actions.ts
 msgid "It also leaves any playlists it's in."
 msgstr "It also leaves any playlists it's in."
+
+#: src/features/settings/Diagnostics.tsx
+msgid "It applies the next time playback starts."
+msgstr "It applies the next time playback starts."
 
 #: src/shared/lib/errors.ts
 msgid "It changed elsewhere since Sona read it. Reload and try again."
@@ -2871,6 +2930,15 @@ msgstr "Not available in this build: it was made without a Discord application I
 #: src/features/settings/Diagnostics.tsx
 msgid "Not available on this platform yet"
 msgstr "Not available on this platform yet"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Not checked yet"
+msgstr "Not checked yet"
+
+#: src/features/settings/CdmRow.tsx
+#: src/features/settings/Diagnostics.tsx
+msgid "Not downloaded yet"
+msgstr "Not downloaded yet"
 
 #: src/features/artist/ArtistViewPage.tsx
 #: src/features/settings/Diagnostics.tsx
@@ -3508,6 +3576,10 @@ msgstr "random"
 msgid "Read more"
 msgstr "Read more"
 
+#: src/features/settings/CdmRow.tsx
+msgid "Ready"
+msgstr "Ready"
+
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "Recent"
 msgstr "Recent"
@@ -3714,10 +3786,12 @@ msgid "Resume where you left off"
 msgstr "Resume where you left off"
 
 #: src/features/library/SyncIndicator.tsx
+#: src/features/settings/CdmRow.tsx
 #: src/shared/components/ErrorBlock.tsx
 msgid "Retry"
 msgstr "Retry"
 
+#: src/features/settings/CdmRow.tsx
 #: src/shared/components/ErrorBlock.tsx
 msgid "Retrying…"
 msgstr "Retrying…"
@@ -3749,8 +3823,8 @@ msgid "Save"
 msgstr "Save"
 
 #: src/features/settings/SettingsFileRows.tsx
-msgid "Save your settings to a file, or load one exported from Sona on another computer. The window size, CDM location, audio output, rendering fixes and connected accounts stay with this computer."
-msgstr "Save your settings to a file, or load one exported from Sona on another computer. The window size, CDM location, audio output, rendering fixes and connected accounts stay with this computer."
+msgid "Save your settings to a file, or load one exported from Sona on another computer. The window size, audio output, rendering fixes and connected accounts stay with this computer."
+msgstr "Save your settings to a file, or load one exported from Sona on another computer. The window size, audio output, rendering fixes and connected accounts stay with this computer."
 
 #: src/features/settings/SettingsFileRows.tsx
 msgid "Saved as {file}."
@@ -4223,6 +4297,10 @@ msgstr "Sona {current} is up to date"
 msgid "Sona {latest} is available"
 msgstr "Sona {latest} is available"
 
+#: src/features/settings/CdmRow.tsx
+msgid "Sona also tries again by itself later."
+msgstr "Sona also tries again by itself later."
+
 #: src/features/radio/StationPage.tsx
 msgid "Sona can't play this station"
 msgstr "Sona can't play this station"
@@ -4235,13 +4313,29 @@ msgstr "Sona copies your Apple Music library to this computer after you sign in,
 msgid "Sona couldn't reach Apple to confirm your sign-in. It keeps using your saved token, and retries by itself."
 msgstr "Sona couldn't reach Apple to confirm your sign-in. It keeps using your saved token, and retries by itself."
 
+#: src/features/cdm/messages.ts
+msgid "Sona couldn't reach Google's download server. Check your internet connection."
+msgstr "Sona couldn't reach Google's download server. Check your internet connection."
+
 #: src/shared/lib/errors.ts
 msgid "Sona couldn't reach the network. Check your connection and try again."
 msgstr "Sona couldn't reach the network. Check your connection and try again."
 
+#: src/features/cdm/messages.ts
+msgid "Sona couldn't save Widevine on this computer. Make sure there's free disk space, then try again."
+msgstr "Sona couldn't save Widevine on this computer. Make sure there's free disk space, then try again."
+
+#: src/features/cdm/messages.ts
+msgid "Sona couldn't tell which version of Widevine to download. Try again later."
+msgstr "Sona couldn't tell which version of Widevine to download. Try again later."
+
 #: src/features/settings/Connections.tsx
 msgid "Sona discards them and removes its sign-in from your keyring."
 msgstr "Sona discards them and removes its sign-in from your keyring."
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Sona downloads it from Google once it's online. Songs play when it's ready."
+msgstr "Sona downloads it from Google once it's online. Songs play when it's ready."
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Sona loads the CDM only inside its sandbox, which keeps it off the network, and the sandbox could not be set up. Only 30-second previews play."
@@ -4250,6 +4344,10 @@ msgstr "Sona loads the CDM only inside its sandbox, which keeps it off the netwo
 #: src/features/miniplayer/MiniPlayer.tsx
 msgid "Sona mini player"
 msgstr "Sona mini player"
+
+#: src/shared/lib/errors.ts
+msgid "Sona needs Google's Widevine to play songs, and it isn't ready yet. Settings → Playback shows its progress."
+msgstr "Sona needs Google's Widevine to play songs, and it isn't ready yet. Settings → Playback shows its progress."
 
 #: src/features/settings/Desktop.tsx
 msgid "Sona opens at the size you left it, maximised: <0>{width} × {height}</0>."
@@ -4283,9 +4381,17 @@ msgstr "Sona streams AAC: 256 kbps at High, 64 kbps with Data saver for slow or 
 msgid "Sona talks to Apple directly. Your password is used once and never saved."
 msgstr "Sona talks to Apple directly. Your password is used once and never saved."
 
-#: src/features/settings/Playback.tsx
-msgid "Sona uses the <0>libwidevinecdm.so</0> from your installed Google Chrome. Choose a file only if Diagnostics can't find it. Applies the next time the playback host starts."
-msgstr "Sona uses the <0>libwidevinecdm.so</0> from your installed Google Chrome. Choose a file only if Diagnostics can't find it. Applies the next time the playback host starts."
+#: src/features/settings/CdmRow.tsx
+msgid "Sona uses the Widevine library that SONA_WIDEVINE_CDM names, a developer setting, and doesn't download or update it."
+msgstr "Sona uses the Widevine library that SONA_WIDEVINE_CDM names, a developer setting, and doesn't download or update it."
+
+#: src/features/cdm/messages.ts
+msgid "SONA_WIDEVINE_CDM doesn't point to a Widevine library. Correct the path, then restart Sona."
+msgstr "SONA_WIDEVINE_CDM doesn't point to a Widevine library. Correct the path, then restart Sona."
+
+#: src/features/player/CdmNotice.tsx
+msgid "SONA_WIDEVINE_CDM names no Widevine library"
+msgstr "SONA_WIDEVINE_CDM names no Widevine library"
 
 #: src/features/search/groups.ts
 #: src/features/song/SongPage.tsx
@@ -4308,6 +4414,10 @@ msgstr "Songs added to it in Apple Music on any device appear here after the nex
 msgid "Songs by {artistName} in your library"
 msgstr "Songs by {artistName} in your library"
 
+#: src/features/player/CdmNotice.tsx
+msgid "Songs can't play on this computer"
+msgstr "Songs can't play on this computer"
+
 #: src/features/playlist/PlaylistPage.tsx
 msgid "Songs in {playlistName}"
 msgstr "Songs in {playlistName}"
@@ -4324,6 +4434,10 @@ msgstr "Songs matching {q}"
 #: src/features/album/AlbumPage.tsx
 msgid "Songs on {albumName}"
 msgstr "Songs on {albumName}"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Songs play when the download finishes."
+msgstr "Songs play when the download finishes."
 
 #: src/features/library/pages.tsx
 msgid "Songs you add in Apple Music on any device appear here after the next sync."
@@ -4357,6 +4471,10 @@ msgstr "Sort by"
 #: src/features/settings/settings-file.ts
 msgid "Sound Check"
 msgstr "Sound Check"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Source"
+msgstr "Source"
 
 #: src/shared/shortcuts/chord.ts
 msgctxt "keyboard key"
@@ -4573,6 +4691,30 @@ msgstr "The account's country or region has no Apple Music storefront."
 #: src/features/settings/Storage.tsx
 msgid "The database was already compact"
 msgstr "The database was already compact"
+
+#: src/features/cdm/messages.ts
+msgid "The download isn't signed by Google, so Sona deleted it. Try again later."
+msgstr "The download isn't signed by Google, so Sona deleted it. Try again later."
+
+#: src/features/cdm/messages.ts
+msgid "The download was damaged or incomplete, so Sona deleted it. Try again."
+msgstr "The download was damaged or incomplete, so Sona deleted it. Try again."
+
+#: src/features/cdm/messages.ts
+msgid "The download was larger than expected, so Sona stopped it. Try again later."
+msgstr "The download was larger than expected, so Sona stopped it. Try again later."
+
+#: src/features/cdm/messages.ts
+msgid "The download wasn't coming from Google, so Sona stopped it. Try again later."
+msgstr "The download wasn't coming from Google, so Sona stopped it. Try again later."
+
+#: src/features/cdm/messages.ts
+msgid "The downloaded file wasn't the one expected, so Sona deleted it. Try again."
+msgstr "The downloaded file wasn't the one expected, so Sona deleted it. Try again."
+
+#: src/features/cdm/messages.ts
+msgid "The downloaded version of Widevine didn't start on this computer, so Sona removed it."
+msgstr "The downloaded version of Widevine didn't start on this computer, so Sona removed it."
 
 #: src/features/auth/Account.tsx
 msgid "The email address or phone number you use with Apple."
@@ -4927,6 +5069,7 @@ msgstr "Update this AppImage in place with AppImageUpdate, or download the new o
 msgid "Updated {when}"
 msgstr "Updated {when}"
 
+#: src/features/settings/Diagnostics.tsx
 #: src/features/settings/Updates.tsx
 msgid "Updates"
 msgstr "Updates"
@@ -4938,10 +5081,6 @@ msgstr "Use a passkey, a security key or a browser you're already signed in to:"
 #: src/features/auth/Account.tsx
 msgid "Use another number"
 msgstr "Use another number"
-
-#: src/features/settings/Playback.tsx
-msgid "Use automatic"
-msgstr "Use automatic"
 
 #: src/features/settings/Shortcuts.tsx
 msgid "Use it here"
@@ -4970,6 +5109,10 @@ msgstr "Verify"
 #: src/features/settings/Diagnostics.tsx
 msgid "Version"
 msgstr "Version"
+
+#: src/features/settings/CdmRow.tsx
+msgid "Version {version}"
+msgstr "Version {version}"
 
 #: src/features/updates/UpdateNotice.tsx
 #: src/shared/shortcuts/groups.ts
@@ -5001,6 +5144,18 @@ msgstr "Volume down"
 #: src/features/player/shortcuts.ts
 msgid "Volume up"
 msgstr "Volume up"
+
+#: src/features/player/CdmNotice.tsx
+msgid "Waiting for Widevine to download"
+msgstr "Waiting for Widevine to download"
+
+#: src/features/player/CdmNotice.tsx
+msgid "Waiting for Widevine to download · {percent}"
+msgstr "Waiting for Widevine to download · {percent}"
+
+#: src/features/miniplayer/MiniPlayer.tsx
+msgid "Waiting for Widevine: see Settings → Playback in Sona"
+msgstr "Waiting for Widevine: see Settings → Playback in Sona"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Warning"
@@ -5043,13 +5198,29 @@ msgstr "Which number should Apple call?"
 msgid "Which number should Apple text?"
 msgstr "Which number should Apple text?"
 
+#: src/features/settings/CdmRow.tsx
+msgid "Widevine"
+msgstr "Widevine"
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Widevine CDM"
 msgstr "Widevine CDM"
 
-#: src/features/settings/Playback.tsx
-msgid "Widevine CDM location"
-msgstr "Widevine CDM location"
+#: src/features/cdm/messages.ts
+msgid "Widevine couldn't be downloaded. Try again later."
+msgstr "Widevine couldn't be downloaded. Try again later."
+
+#: src/features/settings/CdmRow.tsx
+msgid "Widevine download"
+msgstr "Widevine download"
+
+#: src/features/player/CdmNotice.tsx
+msgid "Widevine is ready. Press play to start."
+msgstr "Widevine is ready. Press play to start."
+
+#: src/features/settings/CdmRow.tsx
+msgid "Widevine update"
+msgstr "Widevine update"
 
 #: src/features/settings/Desktop.tsx
 msgid "Window size"
@@ -5068,12 +5239,8 @@ msgid "words sing"
 msgstr "words sing"
 
 #: src/features/settings/Diagnostics.tsx
-msgid "Working · {cdmVersion}"
-msgstr "Working · {cdmVersion}"
-
-#: src/features/settings/Diagnostics.tsx
-msgid "Working · version unknown"
-msgstr "Working · version unknown"
+msgid "Working"
+msgstr "Working"
 
 #: src/features/song/SongPage.tsx
 msgid "Written by {songwriters}"

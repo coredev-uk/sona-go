@@ -2,11 +2,11 @@
 
 ## Verdict
 
-**Viable, with conditions.** On the GNOME 51 runtime, a Flatpak build of Sona loads the user's host Widevine CDM read-only, plays a full protected track (AAC decoded in the CDM host child and sent to a sink), owns `org.mpris.MediaPlayer2.sona`, keeps single-instance forwarding, and reaches the Secret Service. All of this was checked here (see [Evidence](#evidence)). The conditions:
+**Viable, with conditions.** On the GNOME 51 runtime, a Flatpak build of Sona loads the Widevine CDM, plays a full protected track (AAC decoded in the CDM host child and sent to a sink), owns `org.mpris.MediaPlayer2.sona`, keeps single-instance forwarding, and reaches the Secret Service. All of this was checked here (see [Evidence](#evidence)). The conditions:
 
 1. **The CDM host's namespace layer.** Inside Flatpak the CDM host child never gets its own user and network namespace. Flatpak's seccomp filter refuses `clone(CLONE_NEWUSER)`. Sona then uses its documented fallback: the inet seccomp filter only, with Diagnostics showing the reason. To get the network namespace back, use the Flatpak portal (`flatpak-spawn --sandbox --no-network`). See [CDM host sandbox](#cdm-host-sandbox).
 2. **Flathub needs an offline build from source.** The manifest in `build/linux/flatpak/` repackages the release `.deb`. That is fine for local and self-hosted builds, but [Flathub does not accept it](https://docs.flathub.org/docs/for-app-authors/requirements#building-from-source). The Go side does build from source in `org.gnome.Sdk//51` (tested). The remaining work is the vendored module and pnpm source lists.
-3. **CDM discovery is narrower.** Chrome installed through Nix (found via `PATH`) and Firefox/Zen GMP profiles are not reachable without broad permissions. Users of those browsers set `SONA_WIDEVINE_CDM` with a `flatpak override`.
+3. **The CDM needs no host access.** Sona now downloads the Widevine CDM from Google into its own data directory (`internal/playback/cdm`), which the Flatpak can always write, so the manifest grants no browser directories. (When this study was done, Sona used the host browser's copy; see [CDM access](#cdm-access).)
 
 A manifest exists at `build/linux/flatpak/dev.coredev.Sona.yml`, and its build and install are tested.
 
@@ -22,45 +22,26 @@ A manifest exists at `build/linux/flatpak/dev.coredev.Sona.yml`, and its build a
 | `--talk-name=org.freedesktop.secrets` | go-keyring calls the Secret Service directly (see [Secrets](#secrets)). |
 | `--talk-name=org.freedesktop.Notifications` | `internal/desktop/notify` calls the notification server directly, not `org.freedesktop.portal.Notification`. |
 | `--talk-name=org.kde.StatusNotifierWatcher` | Tray (`internal/shell/tray.go`, Wails `SystemTray`). |
-| `--filesystem=<CDM dir>:ro` (15 entries) | Host CDM discovery (see next section). |
 
 **No permission needed:**
 - **Single-instance name `dev.coredev.Sona`** (`internal/app/instance.go`). It equals the app ID, which Flatpak grants by default. Verified: `RequestName` returns 1 (primary owner).
-- **Portals.** `org.freedesktop.portal.*` is always reachable. This covers the sleep inhibitor's portal fallback (`internal/desktop/inhibit`, used because logind is on the system bus), the CDM file chooser (`internal/app/portal.go`), and opening URLs. Wails runs `xdg-open`, and in the runtime that is the [flatpak-xdg-utils](https://github.com/flatpak/flatpak-xdg-utils) binary that forwards to the OpenURI portal.
+- **Portals.** `org.freedesktop.portal.*` is always reachable. This covers the sleep inhibitor's portal fallback (`internal/desktop/inhibit`, used because logind is on the system bus), the settings import/export file chooser (`internal/app/portal.go`), and opening URLs. Wails runs `xdg-open`, and in the runtime that is the [flatpak-xdg-utils](https://github.com/flatpak/flatpak-xdg-utils) binary that forwards to the OpenURI portal.
 - **`org.freedesktop.Flatpak` / `--talk-name` for the Flatpak portal.** `flatpak-spawn --sandbox` from the app worked without either.
 
 **Tray name.** Wails also requests `org.kde.StatusNotifierItem-<pid>-1`. The sandbox denies it, and Wails treats that as non-critical: `systemtray_linux.go:338-342` logs it and continues, and registration with the watcher goes by object path. Inside the sandbox the PID is 2 (Sona's log shows `"pid":2`). If a tray host needs the well-known name, add `--own-name=org.kde.StatusNotifierItem-2-1`. Not tested on a real tray host.
 
 **Sleep/wake events.** Wails watches logind's `PrepareForSleep` on the system bus. In the sandbox it logs `Failed to connect to system bus; sleep/wake events will not fire`. Sona does not subscribe to those events (no match for `PowerEvent|SystemWillSleep|ApplicationDidWake` in `internal/`, `main.go`), so no `--system-talk-name` is needed.
 
-## CDM access paths
+## CDM access
 
-`internal/playback/widevine/find.go` probes, in order:
-1. the override, then `$SONA_WIDEVINE_CDM`;
-2. `/opt/google/{chrome,chrome-beta,chrome-unstable}/WidevineCdm`;
-3. the directory of `google-chrome*` on `PATH`;
-4. the `WidevineCdm` component directories under `~/.config/{google-chrome,google-chrome-beta,google-chrome-unstable,chromium,BraveSoftware/Brave-Browser,vivaldi,vivaldi-snapshot,microsoft-edge,microsoft-edge-beta,microsoft-edge-dev}` and the Chrome and Chromium Flatpaks' `~/.var/app/.../config/...`;
-5. the Firefox and Zen `*/gmp-widevinecdm/*` profile directories.
+Sona downloads the Widevine CDM itself from Google's servers into `<data>/widevine` (inside the Flatpak, the app's own `~/.var/app/dev.coredev.Sona/data/sona/widevine`), verified as described in [security-review.md](security-review.md), "Widevine CDM downloader". Browser and system copies are never used, so the manifest needs no `--filesystem` grant for a CDM and no browser directory is exposed. `SONA_WIDEVINE_CDM` remains a developer override (`flatpak override --env=SONA_WIDEVINE_CDM=… --filesystem=…:ro`).
 
-**Exposed read-only in the manifest:** each `.../WidevineCdm` directory from (2) and (4). That is only the CDM component directory, never the browser profile.
-- **Paths keep their location.** `/opt` is not a reserved path. The reserved paths are `/app, /bin, /dev, /etc, /lib*, /proc, /run/flatpak, /run/host, /sbin, /usr` ([docs](https://docs.flatpak.org/en/latest/sandbox-permissions.html#reserved-paths)). Home paths are mounted at the same location, so the absolute `Path` in Chrome's `latest-component-updated-widevine-cdm` stays valid.
-- **Verified in the sandbox:** `~/.config/google-chrome/WidevineCdm`, `~/.config/BraveSoftware/Brave-Browser/WidevineCdm` and `~/.var/app/com.google.Chrome/config/google-chrome/WidevineCdm` are visible and read-only. A sibling `~/.config/google-chrome/Default` is not visible.
-- **Missing paths are harmless.** This host has no `/opt/google`, and the app started normally with the grants present.
-
-**Not reachable:**
-- **(3) Chrome on `PATH`.** The sandbox `PATH` is `/app/bin:/usr/bin`, which covers Nix's `google-chrome` and other non-`/opt` installs.
-- **(5) Firefox/Zen GMP.** These live inside profile directories with random names. A static grant would have to expose the whole `~/.mozilla/firefox`, which also holds cookies and passwords, so the manifest does not ask for it.
-
-For both, the user sets an explicit path:
-```
-flatpak override --user dev.coredev.Sona --filesystem=/path/to/WidevineCdm:ro --env=SONA_WIDEVINE_CDM=/path/to/WidevineCdm/_platform_specific/linux_x64/libwidevinecdm.so
-```
-Settings → Playback's CDM file chooser (portal) is the UI route. **[INFERENCE, untested]** The portal returns a `/run/user/$UID/doc/...` path, and `dlopen` works through the document portal's FUSE mount.
+The measurements below were taken when Sona still loaded the host browser's CDM through read-only `WidevineCdm` grants; the `dlopen` and playback results apply equally to the downloaded copy.
 
 **`dlopen` inside the runtime works.**
 - The CDM needs only `libdl.so.2 libpthread.so.0 libm.so.6 libgcc_s.so.1 libc.so.6 ld-linux-x86-64.so.2`, with symbol versions up to `GLIBC_2.17`. The runtime ships glibc 2.44.
 - Inside the app sandbox the host CDM loaded, reported `GetCdmVersion: 4.10.3112.0`, and played a full track (see Evidence).
-- The CDM is never copied, bundled or downloaded. Only read-only bind mounts of the user's install are used ([AGENTS.md](../AGENTS.md) DRM rules).
+- The CDM is never bundled in the Flatpak or patched ([AGENTS.md](../AGENTS.md) DRM rules).
 
 ## CDM host sandbox
 
@@ -277,7 +258,7 @@ with --talk-name=org.freedesktop.secrets:   OpenSession → (<''>, objectpath '/
 --no-talk-name=org.freedesktop.secrets:     org.freedesktop.DBus.Error.ServiceUnknown
 ```
 
-**CDM path grants** (fake directories under the temporary HOME):
+**CDM path grants** (historical: the browser-directory grants the manifest no longer has; fake directories under the temporary HOME):
 ```
 .config/google-chrome/WidevineCdm: visible, read-only
 .var/app/com.google.Chrome/config/google-chrome/WidevineCdm: visible, read-only
@@ -288,7 +269,6 @@ with --talk-name=org.freedesktop.secrets:   OpenSession → (<''>, objectpath '/
 **Not tested here:**
 - a real desktop session: tray on GNOME/KDE, notifications server, PipeWire on a live session, Wayland;
 - `org.freedesktop.portal.Secret`;
-- the CDM file-chooser path through the document portal;
 - full playback through the (b) subsandbox.
 
 **Cleanup.** Everything installed lives in `/tmp/sona-flatpak` (about 5.2 GB): GNOME Platform/Sdk 51, codecs-extra, GL extensions, the golang extension, the app, the builder state (`state/`, `build.state/`), and the probes. `rm -rf /tmp/sona-flatpak /tmp/flatpak-deb` removes it all. `bin/flatpak/sona.deb` is a staged copy (`bin/` is gitignored). Nothing was installed in `~/.local/share/flatpak` or system-wide. The Nix store paths that were fetched (flatpak, flatpak-builder, pulseaudio, gnome-keyring, xvfb-run) can be garbage-collected.
@@ -298,4 +278,4 @@ with --talk-name=org.freedesktop.secrets:   OpenSession → (<''>, objectpath '/
 1. **cdmhost:** add the `flatpak-spawn --sandbox --no-network --watch-bus --sandbox-flag=share-sound --sandbox-expose-path-ro=<cdm dir>` path when `/.flatpak-info` exists, keeping today's fallback. Report the child's real PID. Test a full playback session through it.
 2. **Flathub source build:** `flatpak-go-mod` sources and `modules.txt`, `flatpak-node-generator pnpm` sources, a metainfo file, and a source-built manifest replacing the `.deb` module.
 3. **Real-desktop checks** (ties to 1.11): tray (and whether `--own-name=org.kde.StatusNotifierItem-2-1` is needed), notifications, PipeWire sink, Secret Service on GNOME and KDE, music:// from a browser.
-4. **Diagnostics wording for Flatpak:** "no network namespace (Flatpak)" instead of the raw `fork/exec` error. Optionally, point users to `flatpak override` for Nix and Firefox CDMs.
+4. **Diagnostics wording for Flatpak:** "no network namespace (Flatpak)" instead of the raw `fork/exec` error.

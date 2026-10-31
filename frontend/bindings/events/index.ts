@@ -19,6 +19,11 @@ export const AppOpen = "app:open";
 export const AuthChanged = "auth:changed";
 
 /**
+ * Name of the custom event "cdm:status".
+ */
+export const CdmStatus = "cdm:status";
+
+/**
  * Name of the custom event "discover:home".
  */
 export const DiscoverHome = "discover:home";

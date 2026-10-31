@@ -13,6 +13,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth/mut"
 	"github.com/coredev-uk/sona-go/internal/catalog"
 	"github.com/coredev-uk/sona-go/internal/library"
+	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/scrobble"
 )
@@ -44,6 +45,7 @@ const (
 	CodeNotConfigured      = "not_configured" // this build lacks the service's API account (Last.fm)
 	CodePrivateForced      = "private_forced" // SONA_PRIVATE=1 keeps private mode on
 	CodeUnsupported        = "unsupported"    // this platform can't do it (Capabilities says so)
+	CodeNoCDM              = "no_cdm"         // the Widevine CDM isn't ready yet (CDMService says why)
 	CodeUnknown            = "unknown"
 )
 
@@ -107,6 +109,8 @@ func ErrorCode(err error) string {
 		return CodeInvalidArgument
 	case errors.Is(err, privatemode.ErrForced):
 		return CodePrivateForced
+	case errors.Is(err, playback.ErrNoCDM):
+		return CodeNoCDM
 	case errors.Is(err, errors.ErrUnsupported):
 		return CodeUnsupported
 	case errors.As(err, &ue), errors.As(err, &ne):

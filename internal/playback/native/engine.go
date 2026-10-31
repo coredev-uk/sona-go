@@ -22,8 +22,28 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
-	"github.com/coredev-uk/sona-go/internal/playback/widevine"
 )
+
+// CDMSource names the Widevine CDM library each new playback host loads,
+// and hears how loading it went (internal/playback/cdm.Manager).
+type CDMSource interface {
+	// Library returns the library to load now, or an error wrapping
+	// playback.ErrNoCDM when none is ready.
+	Library() (string, error)
+	// ReportInit reports a host's start with lib: err nil when the CDM
+	// loaded, else the CDM's failure (cdmhost.ErrCDMLoad, or the host
+	// dying while loading it). Other start failures are not reported.
+	ReportInit(lib string, err error)
+}
+
+// CDMPath is a fixed CDM library (playspike's -cdm, tests).
+type CDMPath string
+
+// Library returns the path.
+func (p CDMPath) Library() (string, error) { return string(p), nil }
+
+// ReportInit does nothing: there is nothing else to fall back to.
+func (CDMPath) ReportInit(string, error) {}
 
 // Options configures an Engine.
 type Options struct {
@@ -32,9 +52,9 @@ type Options struct {
 	// HTTP fetches playlists and segments from Apple's CDN, which needs no
 	// credentials. Nil uses a client with sane timeouts.
 	HTTP *http.Client
-	// CDMPath overrides Widevine CDM discovery.
-	CDMPath string
-	Logger  *slog.Logger
+	// CDM names the Widevine CDM each host loads (required).
+	CDM    CDMSource
+	Logger *slog.Logger
 	// IdleTimeout ends the host process after this long idle, paused or
 	// ended. Zero means 5 minutes; negative never.
 	IdleTimeout time.Duration
@@ -91,10 +111,10 @@ type Engine struct {
 	log       *slog.Logger
 	idle      time.Duration
 	readAhead int
-	spawn     func(ctx context.Context) (host, error)
-	// probe and findCDM are cdmhost.Probe and widevine.FindCDM (Diagnose, FindCDM).
-	probe   func(ctx context.Context, o cdmhost.Options) (cdmhost.Info, error)
-	findCDM func(override string) (path, version string, err error)
+	spawn     func(ctx context.Context, lib string) (host, error)
+	cdm       CDMSource
+	// probe is cdmhost.Probe (Diagnose).
+	probe func(ctx context.Context, o cdmhost.Options) (cdmhost.Info, error)
 
 	spawnMu sync.Mutex // serialises host starts
 	ctl     sync.Mutex // orders control calls to the host (never held across network I/O)
@@ -165,14 +185,14 @@ func New(o Options) *Engine {
 		events:    make(chan playback.Event, 32),
 		retry:     retryDelays,
 		probe:     cdmhost.Probe,
-		findCDM:   widevine.FindCDM,
+		cdm:       o.CDM,
 	}
 	e.bg, e.stopBG = context.WithCancel(context.Background())
-	e.spawn = func(ctx context.Context) (host, error) {
+	e.spawn = func(ctx context.Context, lib string) (host, error) {
 		e.mu.Lock()
 		eq, dev := e.eq, e.device
 		e.mu.Unlock()
-		return cdmhost.Start(ctx, cdmhost.Options{CDMPath: o.CDMPath, Logger: log, Device: dev, Equalizer: eq})
+		return cdmhost.Start(ctx, cdmhost.Options{CDMPath: lib, Logger: log, Device: dev, Equalizer: eq})
 	}
 	return e
 }
@@ -791,8 +811,20 @@ func (e *Engine) ensureHost(ctx context.Context) (host, int, error) {
 		return h, gen, nil
 	}
 	e.mu.Unlock()
+	// The CDM is chosen per host: a version installed since the last one
+	// started applies now, never to a running host.
+	lib, err := e.cdm.Library()
+	if err != nil {
+		return nil, 0, fmt.Errorf("native: start playback host: %w", err)
+	}
 	t0 := time.Now()
-	h, err := e.spawn(ctx)
+	h, err := e.spawn(ctx, lib)
+	switch {
+	case err == nil:
+		e.cdm.ReportInit(lib, nil)
+	case ctx.Err() == nil && (errors.Is(err, cdmhost.ErrCDMLoad) || errors.Is(err, cdmhost.ErrExited)):
+		e.cdm.ReportInit(lib, err)
+	}
 	if err != nil {
 		return nil, 0, fmt.Errorf("native: start playback host: %w", err)
 	}

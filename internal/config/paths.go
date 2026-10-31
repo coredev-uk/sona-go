@@ -63,3 +63,9 @@ func (p Paths) DatabaseFile() string { return filepath.Join(p.Data, "sona.db") }
 
 // LogFile is the JSON log file; rotated copies sit beside it.
 func (p Paths) LogFile() string { return filepath.Join(p.State, "sona.log") }
+
+// WidevineDir is where Sona installs the Widevine CDM it downloads
+// (internal/playback/cdm): a subtree of its own, so a sandbox that hides
+// the rest of Sona's data from the playback host (the macOS Seatbelt
+// profile) can allow reading just this one.
+func (p Paths) WidevineDir() string { return filepath.Join(p.Data, "widevine") }

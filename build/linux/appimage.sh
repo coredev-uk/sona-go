@@ -13,9 +13,9 @@
 # through pipewire-pulse or to PulseAudio. pipewiresink is not bundled: a
 # private libpipewire would have to match the host's PipeWire modules.
 #
-# libwidevinecdm.so is never bundled or downloaded; Sona finds the user's
-# installed CDM (Google Chrome) at runtime. The build fails if one appears in
-# the AppDir.
+# libwidevinecdm.so is never bundled: Sona downloads it from Google into its
+# data directory at runtime (internal/playback/cdm). The build fails if one
+# appears in the AppDir.
 #
 # Run it on the release baseline (build/linux/release/Containerfile), not on
 # NixOS: it bundles the build machine's libraries. Needs network on first

@@ -17,35 +17,37 @@ function configure() {
     Object.freeze(Object.assign($Create.Events, {
         "app:open": $$createType0,
         "auth:changed": $$createType1,
-        "discover:home": $$createType2,
-        "integrations:status": $$createType3,
-        "playback:queue": $$createType4,
-        "playback:state": $$createType5,
-        "playlists:changed": $$createType6,
-        "power:changed": $$createType7,
-        "private:changed": $$createType8,
-        "scrobble:changed": $$createType9,
-        "settings:changed": $$createType10,
-        "sync:done": $$createType11,
-        "sync:progress": $$createType12,
-        "updates:available": $$createType13,
+        "cdm:status": $$createType2,
+        "discover:home": $$createType3,
+        "integrations:status": $$createType4,
+        "playback:queue": $$createType5,
+        "playback:state": $$createType6,
+        "playlists:changed": $$createType7,
+        "power:changed": $$createType8,
+        "private:changed": $$createType9,
+        "scrobble:changed": $$createType10,
+        "settings:changed": $$createType11,
+        "sync:done": $$createType12,
+        "sync:progress": $$createType13,
+        "updates:available": $$createType14,
     }));
 }
 
 // Private type creation functions
 const $$createType0 = services$0.OpenTarget.createFrom;
 const $$createType1 = services$0.AuthStatus.createFrom;
-const $$createType2 = services$0.HomePage.createFrom;
-const $$createType3 = services$0.IntegrationsStatus.createFrom;
-const $$createType4 = services$0.QueueState.createFrom;
-const $$createType5 = services$0.PlaybackState.createFrom;
-const $$createType6 = services$0.PlaylistsChanged.createFrom;
-const $$createType7 = services$0.PowerState.createFrom;
-const $$createType8 = services$0.PrivateState.createFrom;
-const $$createType9 = services$0.ScrobbleStatus.createFrom;
-const $$createType10 = config$0.Settings.createFrom;
-const $$createType11 = services$0.SyncDone.createFrom;
-const $$createType12 = services$0.SyncProgress.createFrom;
-const $$createType13 = services$0.UpdateStatus.createFrom;
+const $$createType2 = services$0.CDMStatus.createFrom;
+const $$createType3 = services$0.HomePage.createFrom;
+const $$createType4 = services$0.IntegrationsStatus.createFrom;
+const $$createType5 = services$0.QueueState.createFrom;
+const $$createType6 = services$0.PlaybackState.createFrom;
+const $$createType7 = services$0.PlaylistsChanged.createFrom;
+const $$createType8 = services$0.PowerState.createFrom;
+const $$createType9 = services$0.PrivateState.createFrom;
+const $$createType10 = services$0.ScrobbleStatus.createFrom;
+const $$createType11 = config$0.Settings.createFrom;
+const $$createType12 = services$0.SyncDone.createFrom;
+const $$createType13 = services$0.SyncProgress.createFrom;
+const $$createType14 = services$0.UpdateStatus.createFrom;
 
 configure();

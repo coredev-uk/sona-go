@@ -18,6 +18,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/motion"
 	"github.com/coredev-uk/sona-go/internal/mpris"
 	"github.com/coredev-uk/sona-go/internal/playback"
+	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
@@ -36,8 +37,11 @@ type Deps struct {
 	Art       *artwork.Cache
 	Motion    *motion.Cache // motion artwork (nil: none offered)
 	Engine    playback.Engine
-	Coord     *coordinator.Coordinator
-	History   *History
+	// CDM keeps the CDM engine's Widevine CDM installed (nil: the engine
+	// needs none).
+	CDM     *cdm.Manager
+	Coord   *coordinator.Coordinator
+	History *History
 	// Private is private listening, which every play reporter asks
 	// (required).
 	Private *privatemode.Mode

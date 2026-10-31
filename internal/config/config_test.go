@@ -31,7 +31,6 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	in.ReduceEffects = true
 	in.Volume = 0.35
 	in.AudioQuality = Quality64
-	in.CDMPath = "/opt/google/chrome/WidevineCdm/_platform_specific/linux_x64/libwidevinecdm.so"
 	in.EngineIdleMinutes = 3
 	in.Diagnostics = Diagnostics{DisableDMABufRenderer: true, DisableCompositingMode: true}
 	in.Shortcuts = Shortcuts{"player.toggle": "K"}

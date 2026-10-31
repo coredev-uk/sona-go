@@ -99,6 +99,10 @@ type PlaybackState struct {
 	// AuthRequired: Apple rejected the credentials; playback is paused
 	// until the user signs in again and resumes.
 	AuthRequired bool `json:"authRequired"`
+	// NoCDM: the Widevine CDM isn't ready yet (downloading, or the
+	// download failed: "cdm:status" says which); the item waits, paused,
+	// until a play succeeds.
+	NoCDM bool `json:"noCdm"`
 	// AutoPlay: similar music continues when the queue ends.
 	AutoPlay bool `json:"autoPlay"`
 	// Station feeding the queue, nil when none.

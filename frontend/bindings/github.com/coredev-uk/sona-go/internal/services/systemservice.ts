@@ -95,7 +95,7 @@ export function Settings(): $CancellablePromise<config$0.Settings> {
 /**
  * UpdateSettings saves next and applies it: volume at once, theme and
  * reduce-effects through "settings:changed", the audio quality from the
- * next item; the CDM path, idle timeout and WebKit toggles on the next
+ * next item; the idle timeout and WebKit toggles on the next
  * start.
  */
 export function UpdateSettings(next: config$0.Settings): $CancellablePromise<config$0.Settings> {

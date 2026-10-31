@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coredev-uk/sona-go/internal/playback/widevine"
+	"github.com/coredev-uk/sona-go/internal/playback/cdm/cdmtest"
 )
 
 // The test binary doubles as the child process, and as the probe and
@@ -22,25 +22,12 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// needCDM skips unless SONA_WIDEVINE_CDM names a real CDM (CONTRIBUTING.md).
-// Discovery alone is not enough: CI runners ship Google Chrome, and the
-// real-CDM tests run only where a developer opted in.
-func needCDM(t *testing.T) {
-	t.Helper()
-	if os.Getenv("SONA_WIDEVINE_CDM") == "" {
-		t.Skip("SONA_WIDEVINE_CDM not set")
-	}
-	if _, _, err := widevine.FindCDM(""); err != nil {
-		t.Skip("no Widevine CDM installed:", err)
-	}
-}
-
 func startHost(t *testing.T) *Host {
 	t.Helper()
-	needCDM(t)
+	lib := cdmtest.Library(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	h, err := Start(ctx, Options{Sink: "fakesink"})
+	h, err := Start(ctx, Options{CDMPath: lib, Sink: "fakesink"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,15 +36,15 @@ func startHost(t *testing.T) *Host {
 }
 
 func TestProbe(t *testing.T) {
-	needCDM(t)
+	lib := cdmtest.Library(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	info, err := Probe(ctx, Options{Sink: "fakesink"})
+	info, err := Probe(ctx, Options{CDMPath: lib, Sink: "fakesink"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("%+v", info)
-	if info.PID == 0 || info.CDMPath == "" || info.CDMVersion == "" || info.CDMInterface == 0 || info.GStreamer == "" || info.Decoder == "" || info.Sink != "fakesink" {
+	if info.PID == 0 || info.CDMPath != lib || info.CDMVersion == "" || info.CDMInterface == 0 || info.GStreamer == "" || info.Decoder == "" || info.Sink != "fakesink" {
 		t.Fatalf("incomplete probe: %+v", info)
 	}
 }
@@ -66,11 +53,29 @@ func TestProbeMissingCDM(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	info, err := Probe(ctx, Options{CDMPath: "/nonexistent/libwidevinecdm.so", Sink: "fakesink"})
-	if err == nil {
-		t.Fatal("probe with a missing CDM succeeded")
+	if !errors.Is(err, ErrCDMLoad) {
+		t.Fatalf("probe with a missing CDM: %v, want ErrCDMLoad", err)
 	}
 	if info.GStreamer == "" || info.PID == 0 {
 		t.Fatalf("probe should still report the audio stack: %+v", info)
+	}
+}
+
+// A file that is not a CDM fails to load: ErrCDMLoad, which the engine
+// counts towards rolling back a downloaded version.
+func TestProbeBrokenCDM(t *testing.T) {
+	lib := t.TempDir() + "/libwidevinecdm.so"
+	if err := os.WriteFile(lib, []byte("not a shared library"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	info, err := Probe(ctx, Options{CDMPath: lib, Sink: "fakesink"})
+	if errors.Is(err, ErrSandbox) {
+		t.Skip("no seccomp filter here, so the CDM is never loaded:", err)
+	}
+	if !errors.Is(err, ErrCDMLoad) || info.CDMPath != lib || info.CDMInterface != 0 {
+		t.Fatalf("probe with a broken CDM: %v %+v, want ErrCDMLoad", err, info)
 	}
 }
 

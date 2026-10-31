@@ -26,10 +26,9 @@ const (
 // Sona, so they never travel to another machine. Export drops them by
 // name; Import restores the matching fields in keepLocal, because
 // encoding/json matches keys case-insensitively and a filter on the raw
-// key ("cdmPath") would let "CDMPath" through.
+// key ("volume") would let "Volume" through.
 var localKeys = []string{
 	"volume",             // the player's live level
-	"cdmPath",            // a path on this computer
 	"diagnostics",        // WebKit workarounds for this GPU and driver
 	"scrobbling",         // account connections; their keys stay in this keyring
 	"window",             // this screen's window size
@@ -40,7 +39,7 @@ var localKeys = []string{
 
 // keepLocal copies the localKeys fields from src into dst.
 func keepLocal(dst *Settings, src Settings) {
-	dst.Volume, dst.CDMPath = src.Volume, src.CDMPath
+	dst.Volume = src.Volume
 	dst.Diagnostics, dst.Scrobbling, dst.Window = src.Diagnostics, src.Scrobbling, src.Window
 	dst.Desktop.Autostart, dst.Desktop.LastRoute = src.Desktop.Autostart, src.Desktop.LastRoute
 	dst.Audio.OutputDevice = src.Audio.OutputDevice

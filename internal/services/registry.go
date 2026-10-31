@@ -28,6 +28,7 @@ var features = []feature{
 	{"catalog", svc(newCatalogService)},
 	{"library", svc(newLibraryService)},
 	{"playback", svc(newPlaybackService)},
+	{"cdm", svc(newCDMService)},
 	{"search", svc(newSearchService)},
 	{"discover", svc(newDiscoverService)},
 	{"playlists", svc(newPlaylistsService)},

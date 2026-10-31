@@ -1,19 +1,14 @@
-import { DesktopService } from "@bindings/services";
 import { plural } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useState } from "react";
-import { toast } from "sonner";
 
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { useCapabilities } from "@/shared/lib/capabilities";
-import { callFailure } from "@/shared/lib/errors";
 import { numberFormat } from "@/shared/lib/format";
-import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Slider } from "@/shared/ui/slider";
 
 import { AudioRows } from "./AudioRows";
+import { CdmRow } from "./CdmRow";
 import { CrossfadeRows } from "./CrossfadeRows";
 import { PrivateRows } from "./PrivateRows";
 import { QueueRows } from "./QueueRows";
@@ -21,60 +16,6 @@ import { useSettings, useUpdateSettings } from "./queries";
 import { SettingRow, SettingsPanel } from "./SettingRow";
 
 const idleChoices = [5, 10, 15, 30, 60];
-
-/**
- * The CDM location: the chosen path (or "found automatically"), a button
- * that opens the desktop's file chooser through Go (xdg-desktop-portal)
- * where there is one, and a way back to the automatic search.
- */
-function CdmPathField({
-  value,
-  canChoose,
-  onSave,
-}: {
-  value: string;
-  canChoose: boolean;
-  onSave: (v: string) => void;
-}) {
-  const { t } = useLingui();
-  const [choosing, setChoosing] = useState(false);
-  const choose = async () => {
-    setChoosing(true);
-    try {
-      const path = await DesktopService.ChooseCDMPath();
-      // "" when the dialog was cancelled.
-      if (path && path !== value) onSave(path);
-    } catch (err) {
-      toast.error(t`Couldn't open the file chooser`, { description: callFailure(err).message });
-    }
-    setChoosing(false);
-  };
-  return (
-    <div className="flex gap-2">
-      <output
-        id="cdm-path"
-        aria-describedby="cdm-path-desc"
-        title={value || undefined}
-        className={cn(
-          "flex h-8 min-w-0 flex-1 items-center truncate rounded-md border border-control-line bg-raised px-3 text-ui",
-          value ? "text-ink" : "text-ink-faint",
-        )}
-      >
-        <span className="truncate">{value || <Trans>Found automatically</Trans>}</span>
-      </output>
-      {canChoose && (
-        <Button variant="outline" size="sm" disabled={choosing} onClick={() => void choose()}>
-          {choosing ? <Trans>Choosing…</Trans> : <Trans>Choose…</Trans>}
-        </Button>
-      )}
-      {value && (
-        <Button variant="outline" size="sm" onClick={() => onSave("")}>
-          <Trans>Use automatic</Trans>
-        </Button>
-      )}
-    </div>
-  );
-}
 
 /**
  * Settings → Playback. Rows for what this platform's playback can't do are
@@ -115,6 +56,7 @@ export function PlaybackSection() {
           </p>
         </div>
       )}
+      {cdm && <CdmRow />}
       <PrivateRows />
       <SettingRow
         id="quality"
@@ -187,26 +129,6 @@ export function PlaybackSection() {
       <AudioRows />
       <CrossfadeRows />
       <QueueRows />
-      {cdm && (
-        <SettingRow
-          id="cdm-path"
-          stacked
-          title={t`Widevine CDM location`}
-          description={
-            <Trans>
-              Sona uses the <span className="text-ink">libwidevinecdm.so</span> from your installed
-              Google Chrome. Choose a file only if Diagnostics can't find it. Applies the next time
-              the playback host starts.
-            </Trans>
-          }
-        >
-          <CdmPathField
-            value={s.cdmPath}
-            canChoose={caps.fileChooser}
-            onSave={(cdmPath) => save({ cdmPath })}
-          />
-        </SettingRow>
-      )}
     </SettingsPanel>
   );
 }

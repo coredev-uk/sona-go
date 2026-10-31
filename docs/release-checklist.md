@@ -14,8 +14,7 @@ distro/session, result, and notes for anything not passed.
       allowed, so the CDM host sandbox tests run; frontend tsc, eslint,
       prettier, vitest, build).
 - [ ] Locally in devenv: `go test -race ./internal/playback/...` with the real
-      CDM (`SONA_WIDEVINE_CDM` set to an installed browser's
-      `libwidevinecdm.so`) and `go run ./cmd/playspike -seek 90`.
+      CDM (found by `cdmtest`; `SONA_CDM_REQUIRE=1` so none skip) and `go run ./cmd/playspike -seek 90`.
 - [ ] `bash build/linux/release/release.sh` (devenv `release`) passes: builds
       .deb, .rpm, Arch package, AppImage + .zsync, the AUR files and
       SHA256SUMS, and smoke-tests the .deb (Ubuntu 24.04), .rpm and AppImage

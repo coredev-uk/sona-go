@@ -1,6 +1,7 @@
 import { albumModule } from "@/features/album";
 import { artistModule } from "@/features/artist";
 import { authModule } from "@/features/auth";
+import { cdmModule } from "@/features/cdm";
 import { commandsModule } from "@/features/commands";
 import { discoverModule } from "@/features/discover";
 import { homeModule } from "@/features/home";
@@ -43,4 +44,5 @@ export const modules = [
   updatesModule,
   motionModule,
   privateModule,
+  cdmModule,
 ] as const;

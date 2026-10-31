@@ -630,6 +630,33 @@ func TestUnsupportedEnginePausesWithoutFailing(t *testing.T) {
 	})
 }
 
+// Without a CDM ready (still downloading) the item is kept, paused, with
+// NoCDM set and nothing counted; once the CDM is ready, play works and
+// NoCDM clears.
+func TestNoCDMPausesUntilTheCDMIsReady(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		h := newHarness(t, nil)
+		ctx := t.Context()
+		noCDM := fmt.Errorf("cdm: still downloading: %w", playback.ErrNoCDM)
+		h.eng.failPlay["a"] = noCDM
+		if err := h.c.SetQueue(ctx, items("a", "b"), 0, ""); !errors.Is(err, playback.ErrNoCDM) {
+			t.Fatalf("SetQueue: %v, want ErrNoCDM", err)
+		}
+		s := h.c.Snapshot()
+		if h.current() != "a" || s.State != playback.StatePaused || !s.NoCDM || s.Error != noCDM.Error() {
+			t.Fatalf("without a CDM: current %q %+v", h.current(), s)
+		}
+		h.eng.mu.Lock()
+		delete(h.eng.failPlay, "a")
+		h.eng.mu.Unlock()
+		must(t, h.c.Resume(ctx))
+		s = h.c.Snapshot()
+		if h.current() != "a" || s.State != playback.StatePlaying || s.NoCDM {
+			t.Fatalf("with the CDM: current %q %+v", h.current(), s)
+		}
+	})
+}
+
 func TestHistoryThresholds(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		h := newHarness(t, nil)

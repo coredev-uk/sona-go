@@ -3,26 +3,16 @@
 
 /**
  * DesktopService is Sona as a desktop app: its windows, the autostart
- * entry, the remembered route and the native file chooser. The close
- * action, start page and window size are settings (config.Desktop,
- * config.Window) that the shell reads; this service applies the autostart
- * toggle when settings change and keeps the frontend's copy of the
- * settings Go writes itself current.
+ * entry and the remembered route. The close action, start page and window
+ * size are settings (config.Desktop, config.Window) that the shell reads;
+ * this service applies the autostart toggle when settings change and keeps
+ * the frontend's copy of the settings Go writes itself current.
  * @module
  */
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
-
-/**
- * ChooseCDMPath opens the desktop's file chooser (xdg-desktop-portal on
- * Linux) for libwidevinecdm.so and returns the chosen path, or "" when the
- * user cancels. It does not save the choice.
- */
-export function ChooseCDMPath(): $CancellablePromise<string> {
-    return $Call.ByID(2328252278);
-}
 
 /**
  * CloseMiniPlayer is the mini player's close button: it keeps playing in

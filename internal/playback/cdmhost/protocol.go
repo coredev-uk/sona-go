@@ -21,6 +21,11 @@ const EnvChild = "SONA_CDMHOST"
 // envLogLevel passes the parent's log level to the child.
 const envLogLevel = "SONA_CDMHOST_LOG"
 
+// envCDMDir passes the directory of the CDM library the parent will load
+// to the child, so its filesystem view keeps it reachable and read-only
+// (sandbox_fs.go) wherever it lies.
+const envCDMDir = "SONA_CDMHOST_CDM_DIR"
+
 // Errors returned by Host calls.
 var (
 	// ErrStale reports a request for a track generation that a later Load
@@ -37,6 +42,9 @@ var (
 	// seccomp filter is missing or does not keep it off the network (see
 	// Sandbox).
 	ErrSandbox = errors.New("cdmhost: the playback sandbox could not be set up, so the Widevine CDM was not loaded")
+	// ErrCDMLoad reports that the Widevine CDM library is missing or
+	// failed to load or initialise in the child.
+	ErrCDMLoad = errors.New("cdmhost: the Widevine CDM failed to load")
 )
 
 // Media is a track for Load and Next.
@@ -156,7 +164,7 @@ type request struct {
 type reply struct {
 	ID        uint64
 	Err       string
-	Code      string // "stale", "no-usable-key", "ended", "sandbox"
+	Code      string // "stale", "no-usable-key", "ended", "sandbox", "cdm-load"
 	Info      *Info
 	Session   string
 	Challenge []byte
@@ -175,4 +183,5 @@ const (
 	codeNoUsableKey = "no-usable-key"
 	codeEnded       = "ended"
 	codeSandbox     = "sandbox"
+	codeCDMLoad     = "cdm-load"
 )

@@ -95,7 +95,15 @@ src/
                           explicit queue rows dimmed on restricted accounts;
                           AutoPlay toggle and station/AutoPlay section in the queue,
                           live radio line in place of the seek bar; mini player button;
-                          exports the playback mirror and lyrics for the mini player
+                          exports the playback mirror and lyrics for the mini player;
+                          CdmNotice: the bar's line while a song waits for the Widevine
+                          CDM (snapshot noCdm: downloading with its progress, failed, or
+                          ready for another press of play), linking to Settings → Playback
+    cdm                   the Widevine CDM Sona downloads from Google: Go's CDMService
+                          mirrored from cdm:status (useCdm; CDMService.Status in init),
+                          retryCdm, cdmProgress/cdmPercent, canRetryCdm, and cdmProblem
+                          (the wording for every failure code in internal/playback/cdm,
+                          + test); a state change refreshes Diagnostics
     motion                whether motion artwork may play (setting, reduce effects, system
                           reduced motion, Go's battery state from power:changed), given to
                           shared covers through its Provider slot
@@ -108,12 +116,15 @@ src/
                           Settings → Playback links here (a route Link, no import, so settings
                           never depends on it)
     settings              Settings page and Playback/Appearance/Desktop/Shortcuts/Storage/
-                          Diagnostics sections (Playback: CDM file through Go's portal chooser;
-                          Storage: artwork cache limit, cache and database sizes, clear caches,
+                          Diagnostics sections (Playback: the Widevine row (CdmRow: version,
+                          source, a running download's progress bar, Retry after a failed
+                          download or update check); Storage: artwork cache limit, cache and
+                          database sizes, clear caches,
                           compact the database, export/import the settings file through Go's
                           portal chooser; Desktop:
                           close action, autostart, start page, resume, window size;
-                          Diagnostics: checks, Copy diagnostics → redacted bundle from Go,
+                          Diagnostics: checks (the Widevine CDM's state, source, version and
+                          update check beside the probe's checks), Copy diagnostics → redacted bundle from Go,
                           the Updates group; Shortcuts: rebinding with conflict checks),
                           appearance store (Appearance: theme, reduce effects, motion
                           artwork), useSettings/useUpdateSettings
@@ -562,6 +573,7 @@ after two animation frames or 300 ms, whichever comes first.
 | `power:changed` | motion | mirrors Go's on-battery state; motion artwork stops on battery |
 | `updates:available` | updates | replaces the `updates` query; the sidebar shows the notice |
 | `private:changed` | private | replaces the private listening mirror (player bar, Settings row, palette command; also sent for the tray and `sona private`) |
+| `cdm:status` | cdm | replaces the Widevine CDM mirror (Settings → Playback's Widevine row, Diagnostics, the player bar's waiting line); a new state, version, source or code (not a progress step) invalidates Diagnostics |
 | `app:open` | app | `routeForOpen` → navigate (album, song, artist, playlist, music video, station, curator) |
 
 Invalidation plans stay pure functions next to their module
@@ -642,8 +654,8 @@ which `callFailure` words as "That isn't available on this platform."
 Gated today: the player bar's volume and the volume and mute shortcuts
 (`playback.volume`); the equaliser button, Settings row, page and shortcut
 (`playback.equalizer`); Settings → Playback's volume, output, Sound Check,
-crossfade rows (their `playback.*` fields), the idle host and CDM location
-rows (`playback.engine === "cdm"`) and its Choose button (`fileChooser`);
+crossfade rows (their `playback.*` fields), the idle host and Widevine
+rows (`playback.engine === "cdm"`);
 Settings → Desktop's close action (`tray`), start at login (`autostart`),
 start in the tray (`autostart` and `tray`), track notifications
 (`notifications`) and stay awake (`sleepInhibit`); the Discord section of
@@ -678,6 +690,7 @@ Enforced by `no-restricted-imports` in `frontend/eslint.config.js`:
 
 Feature-to-feature imports must stay acyclic. Today: player → settings →
 auth; player → equalizer → settings; player → private; settings → private;
+player → cdm; settings → cdm;
 home → auth, discover, library, player; discover → player; search → auth, player; album and
 playlist → library, player; artist → player; library → auth; commands → search;
 motion → settings.

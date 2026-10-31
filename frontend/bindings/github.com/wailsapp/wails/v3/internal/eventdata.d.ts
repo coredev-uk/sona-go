@@ -17,6 +17,7 @@ declare module "@wailsio/runtime" {
         interface CustomEvents {
             "app:open": services$0.OpenTarget;
             "auth:changed": services$0.AuthStatus;
+            "cdm:status": services$0.CDMStatus;
             "discover:home": services$0.HomePage;
             "integrations:status": services$0.IntegrationsStatus;
             "playback:queue": services$0.QueueState;

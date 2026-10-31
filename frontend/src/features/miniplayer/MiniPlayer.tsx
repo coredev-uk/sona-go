@@ -183,6 +183,7 @@ export function MiniPlayer() {
   const canPrevious = usePlayback((s) => s.canPrevious);
   const error = usePlayback((s) => s.error);
   const authRequired = usePlayback((s) => s.authRequired);
+  const noCdm = usePlayback((s) => s.noCdm);
   const { notice, command } = useCommand();
   const { t } = useLingui();
 
@@ -192,6 +193,7 @@ export function MiniPlayer() {
 
   let third = current?.albumName ?? "";
   if (authRequired) third = t`Sign in again in Sona to keep playing`;
+  else if (noCdm) third = t`Waiting for Widevine: see Settings → Playback in Sona`;
   else if (state === "error" && error) third = t`Couldn't play this song. Press play to try again.`;
   else if (current?.live) third = t`Live radio`;
 
@@ -246,7 +248,7 @@ export function MiniPlayer() {
               <CircleAlert className="size-3.5 shrink-0 text-danger" strokeWidth={2} />
               <span className="truncate">{notice.text}</span>
             </p>
-          ) : current && !current.live && !authRequired && state !== "error" ? (
+          ) : current && !current.live && !authRequired && !noCdm && state !== "error" ? (
             <ThirdLine catalogId={current.catalogId} fallback={third} />
           ) : (
             <p className="truncate text-sub text-ink-faint">{third}</p>

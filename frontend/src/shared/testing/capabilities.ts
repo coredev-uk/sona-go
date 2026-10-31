@@ -7,6 +7,7 @@ export function linuxCapabilities(): Capabilities {
     playback: {
       available: true,
       engine: "cdm",
+      cdmSource: "download",
       volume: true,
       equalizer: true,
       soundCheck: true,
@@ -34,6 +35,7 @@ export function bareCapabilities(os = "darwin"): Capabilities {
     playback: {
       available: false,
       engine: "",
+      cdmSource: "",
       volume: false,
       equalizer: false,
       soundCheck: false,

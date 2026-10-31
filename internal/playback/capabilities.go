@@ -27,6 +27,12 @@ type Capabilities struct {
 // engine. It wraps errors.ErrUnsupported.
 var ErrUnsupported = fmt.Errorf("playback is not available on this platform yet: %w", errors.ErrUnsupported)
 
+// ErrNoCDM reports that the engine has no Widevine CDM ready to load: Sona
+// is still downloading it, or the download failed (internal/playback/cdm
+// says why). Nothing can play until it is ready; the player keeps the item
+// and waits for the user to try again.
+var ErrNoCDM = errors.New("playback: no Widevine CDM is ready")
+
 // OutputDevice is an audio output an engine can play to.
 type OutputDevice struct {
 	Name        string // the engine's target id (PipeWire node.name)

@@ -9,8 +9,8 @@
 #   bash build/linux/release/release.sh   # bin/release/sona_$(cat VERSION)_amd64.deb
 #   bash build/linux/flatpak/build.sh     # copies it to bin/flatpak/sona.deb, builds, installs --user
 #
-# The Widevine CDM is never part of the Flatpak: Sona reads the copy that the
-# user's Chrome installed, through the read-only paths below.
+# The Widevine CDM is never part of the Flatpak: Sona downloads it from
+# Google at runtime into its own data directory.
 #
 # GStreamer comes from the runtime, with the base, good, bad (WebKit's
 # webvttenc, plugin subenc) and libav plugin sets the deb, rpm and Arch
@@ -44,22 +44,8 @@ finish-args:
   - --talk-name=org.freedesktop.Notifications
   # Tray icon (Wails SystemTray, StatusNotifierItem).
   - --talk-name=org.kde.StatusNotifierWatcher
-  # Widevine CDM discovery (internal/playback/widevine/find.go), read-only.
-  - --filesystem=/opt/google/chrome/WidevineCdm:ro
-  - --filesystem=/opt/google/chrome-beta/WidevineCdm:ro
-  - --filesystem=/opt/google/chrome-unstable/WidevineCdm:ro
-  - --filesystem=~/.config/google-chrome/WidevineCdm:ro
-  - --filesystem=~/.config/google-chrome-beta/WidevineCdm:ro
-  - --filesystem=~/.config/google-chrome-unstable/WidevineCdm:ro
-  - --filesystem=~/.config/chromium/WidevineCdm:ro
-  - --filesystem=~/.config/BraveSoftware/Brave-Browser/WidevineCdm:ro
-  - --filesystem=~/.config/vivaldi/WidevineCdm:ro
-  - --filesystem=~/.config/vivaldi-snapshot/WidevineCdm:ro
-  - --filesystem=~/.config/microsoft-edge/WidevineCdm:ro
-  - --filesystem=~/.config/microsoft-edge-beta/WidevineCdm:ro
-  - --filesystem=~/.config/microsoft-edge-dev/WidevineCdm:ro
-  - --filesystem=~/.var/app/com.google.Chrome/config/google-chrome/WidevineCdm:ro
-  - --filesystem=~/.var/app/org.chromium.Chromium/config/chromium/WidevineCdm:ro
+  # The Widevine CDM needs no extra permission: Sona downloads it from
+  # Google into its own data directory (internal/playback/cdm).
 
 modules:
   - name: sona

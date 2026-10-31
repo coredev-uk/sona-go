@@ -1,9 +1,10 @@
 import type { Settings } from "@bindings/config";
-import type { Capabilities, Diagnostics } from "@bindings/services";
+import type { Capabilities, CDMStatus, Diagnostics } from "@bindings/services";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useCdm } from "@/features/cdm";
 import { I18nRoot } from "@/shared/i18n";
 import { bareCapabilities, linuxCapabilities } from "@/shared/testing/capabilities";
 
@@ -23,16 +24,36 @@ vi.mock("@bindings/services", () => ({
     UpdateSettings: vi.fn(),
   },
   PlatformService: { Capabilities: () => capabilities() },
+  CDMService: { Retry: vi.fn(), Status: () => new Promise(() => {}) },
 }));
 vi.mock("@wailsio/runtime", () => ({ Clipboard: { SetText: vi.fn() } }));
 vi.mock("./Updates", () => ({ UpdatesGroup: () => null }));
+
+const readyCdm: CDMStatus = {
+  state: "ready",
+  source: "download",
+  version: "4.10.3112.0",
+  path: "/data/widevine/4.10.3112.0/linux_x64/libwidevinecdm.so",
+  code: "",
+  received: 0,
+  total: 0,
+  updating: false,
+  checkedAt: 0,
+};
 
 /** A diagnostics report; `playback` and `keyring` vary per platform. */
 function report(playback: Partial<Diagnostics["playback"]>, backend: string): Diagnostics {
   return {
     app: { version: "1.0.0", goVersion: "go1.26", platform: "test", session: "", startupMs: 0 },
     webkit: { version: "2.48.0" },
-    playback: { engine: "", cdmPath: "", cdmVersion: "", cdmOk: false, ...playback },
+    playback: {
+      engine: "",
+      cdm: { ...readyCdm, state: "" },
+      cdmPath: "",
+      cdmVersion: "",
+      cdmOk: false,
+      ...playback,
+    },
     database: {
       path: "/tmp/sona.db",
       sizeBytes: 0,
@@ -62,10 +83,29 @@ async function renderSection(caps: Capabilities, d: Diagnostics) {
 
 const shown = (text: string) => screen.queryByText(text) !== null;
 
+beforeEach(() => useCdm.setState({ status: null }));
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
+
+/** The Linux report's playback stack with the CDM in `cdm`; the probe loaded it when `cdmOk`. */
+function linuxPlayback(cdm: Partial<CDMStatus>, cdmOk: boolean): Partial<Diagnostics["playback"]> {
+  return {
+    engine: "cdm",
+    cdm: { ...readyCdm, ...cdm },
+    cdmOk,
+    gstreamer: "1.24",
+    decoder: "avdec_aac",
+    sink: "pipewiresink",
+    sandboxed: true,
+  };
+}
+
+/** The value cell beside a row's label (the first such row: Sona's own group has a Version too). */
+const valueOf = (label: string) =>
+  screen.getAllByText(label, { selector: "dt" })[0].nextElementSibling?.textContent ?? "";
 
 describe("DiagnosticsSection", () => {
   it("says playback isn't available instead of the CDM checks when there is no engine", async () => {
@@ -88,8 +128,9 @@ describe("DiagnosticsSection", () => {
       report(
         {
           engine: "cdm",
+          cdm: readyCdm,
           cdmOk: true,
-          cdmVersion: "4.10",
+          cdmVersion: "4.10.3112.0",
           gstreamer: "1.24",
           decoder: "avdec_aac",
           sink: "pipewiresink",
@@ -104,6 +145,69 @@ describe("DiagnosticsSection", () => {
     expect(shown("Secret Service keyring")).toBe(true);
     expect(shown("WEBKIT_DISABLE_DMABUF_RENDERER")).toBe(true);
     expect(shown("Session")).toBe(true);
+    expect(shown("CDM location")).toBe(false);
+  });
+
+  it("names the CDM's state, source, version and update check", async () => {
+    await renderSection(linuxCapabilities(), report(linuxPlayback({}, true), "secret-service"));
+    expect(valueOf("Widevine CDM")).toBe("Working");
+    expect(valueOf("Source")).toBe("Downloaded from Google");
+    expect(valueOf("Version")).toContain("4.10.3112.0");
+    expect(valueOf("Updates")).toBe("Not checked yet");
+    expect(valueOf("CDM file")).toBe(readyCdm.path);
+    expect(shown("Everything Sona needs is working")).toBe(true);
+  });
+
+  it("follows a running download from cdm:status", async () => {
+    await renderSection(
+      linuxCapabilities(),
+      report(linuxPlayback({ state: "downloading", version: "", path: "" }, false), "keychain"),
+    );
+    expect(valueOf("Widevine CDM")).toContain("Downloading…");
+    act(() =>
+      useCdm.setState({
+        status: { ...readyCdm, state: "downloading", version: "", received: 3, total: 4 },
+      }),
+    );
+    expect(valueOf("Widevine CDM")).toContain("Downloading · 75%");
+    expect(valueOf("Version")).toBe("—");
+    // No CDM, no probe: GStreamer and the rest weren't checked, which isn't a problem.
+    expect(valueOf("GStreamer")).toBe("Checked once Widevine is ready");
+    expect(valueOf("AAC decoder")).toBe("Checked once Widevine is ready");
+    expect(shown("Everything Sona needs is working")).toBe(true);
+  });
+
+  it("counts a failed download as a problem and says why", async () => {
+    await renderSection(
+      linuxCapabilities(),
+      report(
+        linuxPlayback({ state: "failed", version: "", path: "", code: "signature_invalid" }, false),
+        "keychain",
+      ),
+    );
+    expect(valueOf("Widevine CDM")).toContain("Couldn't download");
+    expect(valueOf("Widevine CDM")).toContain(
+      "The download isn't signed by Google, so Sona deleted it. Try again later.",
+    );
+    expect(shown("1 problem found")).toBe(true);
+  });
+
+  it("warns when the last update check failed", async () => {
+    await renderSection(
+      linuxCapabilities(),
+      report(linuxPlayback({ code: "network" }, true), "keychain"),
+    );
+    expect(valueOf("Updates")).toContain("Couldn't check for updates");
+    expect(shown("Everything Sona needs is working")).toBe(true);
+  });
+
+  it("names the developer override without update rows", async () => {
+    await renderSection(
+      linuxCapabilities(),
+      report(linuxPlayback({ source: "override" }, true), "keychain"),
+    );
+    expect(valueOf("Source")).toBe("Developer override (SONA_WIDEVINE_CDM)");
+    expect(screen.queryByText("Updates", { selector: "dt" })).toBeNull();
   });
 
   it("names Windows Credential Manager", async () => {

@@ -58,7 +58,7 @@ export function SettingsFileRows() {
     <SettingRow
       id="settings-file"
       title={t`Settings file`}
-      description={t`Save your settings to a file, or load one exported from Sona on another computer. The window size, CDM location, audio output, rendering fixes and connected accounts stay with this computer.`}
+      description={t`Save your settings to a file, or load one exported from Sona on another computer. The window size, audio output, rendering fixes and connected accounts stay with this computer.`}
     >
       <div
         id="settings-file"

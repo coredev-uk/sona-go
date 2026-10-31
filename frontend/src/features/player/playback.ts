@@ -24,6 +24,7 @@ export const emptyState: PlaybackState = {
   canPrevious: false,
   error: "",
   authRequired: false,
+  noCdm: false,
   autoPlay: false,
   station: null,
   container: null,

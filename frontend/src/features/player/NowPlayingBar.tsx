@@ -36,6 +36,7 @@ import { cn } from "@/shared/lib/utils";
 import { useBinding } from "@/shared/shortcuts/bindings";
 import { ChordKeys } from "@/shared/shortcuts/Keys";
 
+import { CdmNotice } from "./CdmNotice";
 import { setVolume, toggleMute } from "./commands";
 import { useLivePosition, usePlayback } from "./playback";
 import { SleepTimer } from "./SleepTimer";
@@ -195,6 +196,7 @@ export function NowPlayingBar() {
   const canPrevious = usePlayback((s) => s.canPrevious);
   const error = usePlayback((s) => s.error);
   const authRequired = usePlayback((s) => s.authRequired);
+  const noCdm = usePlayback((s) => s.noCdm);
   const { queueOpen, toggleQueue, overlay, openNowPlaying, closeOverlay, showLyrics } = useUI();
   const toggleKeys = useBinding("player.toggle");
   const { t } = useLingui();
@@ -217,6 +219,8 @@ export function NowPlayingBar() {
         <Trans>Sign in again to keep playing</Trans>
       </Link>
     );
+  } else if (noCdm) {
+    subline = <CdmNotice />;
   } else if (state === "error" && error) {
     subline = (
       // Go's error is engine detail; the line says what happened, the tooltip why.

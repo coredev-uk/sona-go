@@ -31,7 +31,7 @@ func TestSettingsExportImportBetweenComputers(t *testing.T) {
 		s.Theme = config.ThemeDark
 		s.Desktop.CloseAction = config.CloseQuits
 		s.Window = config.Window{Width: 2000, Height: 1200}
-		s.CDMPath = "/opt/chrome/libwidevinecdm.so"
+		s.Audio.OutputDevice = "alsa_output.usb-dac"
 	})
 	file := filepath.Join(t.TempDir(), "sona-settings.json")
 	if err := from.exportSettings(file); err != nil {
@@ -49,7 +49,7 @@ func TestSettingsExportImportBetweenComputers(t *testing.T) {
 		t.Fatalf("import = %+v, want changed %v", got, want)
 	}
 	cur := st.Get()
-	if cur.Theme != config.ThemeDark || cur.Window != config.Defaults().Window || cur.CDMPath != "" {
+	if cur.Theme != config.ThemeDark || cur.Window != config.Defaults().Window || cur.Audio.OutputDevice != "" {
 		t.Fatalf("settings after import: %+v", cur)
 	}
 	if !slices.Equal(observed, []string{config.ThemeDark}) {

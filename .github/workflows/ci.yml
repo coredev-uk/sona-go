@@ -28,8 +28,6 @@ jobs:
       # GTK4/WebKitGTK headers for the main package (cgo), GStreamer for the
       # playback host and its tests (appsrc, avdec_aac, audioconvert,
       # audioresample, volume, fakesink), dbus for the session-bus tests.
-      # No Widevine CDM is configured: the runner image ships Google Chrome,
-      # but the real-CDM tests run only when SONA_WIDEVINE_CDM is set.
       - name: Install system packages
         run: |
           sudo apt-get update
@@ -74,10 +72,39 @@ jobs:
       - name: Allow unprivileged user namespaces
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      # The real-CDM tests use Google's Widevine CDM, downloaded and verified
+      # the way Sona does it (cmd/cdmfetch, internal/playback/cdm) and cached
+      # per version: Mozilla's manifest names the version, so a new CDM
+      # release fills a new cache entry. SONA_CDM_REQUIRE makes a test that
+      # would skip for want of the CDM fail instead.
+      - name: Resolve the Widevine CDM version
+        id: cdm
+        run: echo "version=$(go run ./cmd/cdmfetch -version)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Widevine CDM
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/sona-ci/widevine
+          key: widevine-${{ runner.os }}-${{ runner.arch }}-${{ steps.cdm.outputs.version }}
+
+      - name: Install the Widevine CDM
+        run: |
+          go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine
+          echo "SONA_CDM_CACHE=$HOME/.cache/sona-ci/widevine" >> "$GITHUB_ENV"
+          echo "SONA_CDM_REQUIRE=1" >> "$GITHUB_ENV"
+
       - name: CDM host sandbox tests (verbose, must not skip)
         env:
           SONA_CDMHOST_REQUIRE_NAMESPACES: "1"
         run: go test -race -count=1 -v -run 'TestChildCannotOpenInetSockets|TestSandbox' ./internal/playback/cdmhost
+
+      - name: Real Widevine CDM tests (verbose, must not skip)
+        env:
+          SONA_CDMHOST_REQUIRE_NAMESPACES: "1"
+        run: >-
+          dbus-run-session -- go test -race -count=1 -v
+          -run '^(TestCDM|TestProbe|TestSessionChallenge|TestPlayClearTrack|TestNextTrackAdvances|TestChildExit|TestChildCrashInBundle)$'
+          ./internal/playback/widevine ./internal/playback/cdmhost ./internal/diag
 
       - name: go test -race
         env:

@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
 	"github.com/coredev-uk/sona-go/internal/playback/fmp4"
 	"github.com/coredev-uk/sona-go/internal/playback/gst"
@@ -152,6 +153,8 @@ func fail(id uint64, err error) reply {
 		r.Code = codeEnded
 	case errors.Is(err, ErrSandbox):
 		r.Code = codeSandbox
+	case errors.Is(err, ErrCDMLoad):
+		r.Code = codeCDMLoad
 	}
 	return r
 }
@@ -344,29 +347,34 @@ func (s *server) needCDM() error {
 	return nil
 }
 
-// open loads the CDM and builds the output pipeline. The CDM is loaded only
-// under the seccomp filter that keeps it off the network (ErrSandbox).
-func (s *server) open(override string) (Info, error) {
+// open loads the CDM library at lib (the parent chose it: the downloaded
+// CDM or the developer override, internal/playback/cdm) and builds the
+// output pipeline. The CDM is loaded only under the seccomp filter that
+// keeps it off the network (ErrSandbox). A library that is missing or
+// fails to load or initialise is ErrCDMLoad.
+func (s *server) open(lib string) (Info, error) {
 	info := Info{PID: os.Getpid(), GStreamer: gst.Version(), Sandbox: s.sandbox}
 	if s.cdm != nil {
 		return s.info, nil
 	}
-	path, version, err := widevine.FindCDM(override)
-	if err != nil {
-		return info, err
+	if lib == "" {
+		return info, fmt.Errorf("%w: no CDM library given", ErrCDMLoad)
 	}
-	info.CDMPath, info.CDMVersion = path, version
+	if st, err := os.Stat(lib); err != nil || !st.Mode().IsRegular() {
+		return info, fmt.Errorf("%w: %s is not a readable file", ErrCDMLoad, lib)
+	}
+	info.CDMPath, info.CDMVersion = lib, cdm.LibraryVersion(lib)
 	if !s.sandbox.Seccomp || !s.sandbox.InetDenied {
 		return info, fmt.Errorf("%w: %s", ErrSandbox, s.sandbox.Reason)
 	}
-	cdm, err := widevine.Open(path, s.log)
+	c, err := widevine.Open(lib, s.log)
 	if err != nil {
-		return info, err
+		return info, fmt.Errorf("%w: %w", ErrCDMLoad, err)
 	}
-	s.cdm = cdm
-	info.CDMVersion, info.CDMInterface, info.HostInterface = cdm.Version(), cdm.Interface(), cdm.HostInterface()
+	s.cdm = c
+	info.CDMVersion, info.CDMInterface, info.HostInterface = c.Version(), c.Interface(), c.HostInterface()
 	go func() {
-		for m := range cdm.Messages() {
+		for m := range c.Messages() {
 			s.emit(Event{Kind: EventMessage, Session: m.SessionID, Type: int(m.Type), Data: m.Data})
 		}
 	}()

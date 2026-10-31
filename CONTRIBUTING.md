@@ -71,15 +71,27 @@ container. A package built on NixOS would link against `/nix/store`.
 
 ### Widevine CDM in development
 
-devenv ships no CDM. Sona and `playspike` find one the way the app does for
-users (`widevine.FindCDM`): Google Chrome under `/opt/google` or on `PATH`,
-the `WidevineCdm` component directory of a Chrome, Chromium, Brave, Vivaldi
-or Edge profile under `~/.config`, or a Firefox or Zen `gmp-widevinecdm`
-profile directory (`~/.mozilla/firefox`, `~/.zen`, `~/.config/zen`). Any of
-these browsers, once it has downloaded its CDM, is enough. To use a specific
-copy, set `SONA_WIDEVINE_CDM=/path/to/libwidevinecdm.so` (or the directory
-holding it) in the environment or in `.env`; Settings → Playback → CDM path
-does the same in the app. `playspike` prints the one it used (`cdm path`).
+devenv ships no CDM. The app downloads it itself, with no prompt, once the
+network opens after the first paint: the version and SHA-512 come from
+Mozilla's Firefox GMP manifest, the package from Google's servers, and its
+CRX3 signatures are verified (`internal/playback/cdm`; see
+`docs/security-review.md`, "Widevine CDM downloader"). It lives in
+`<data>/widevine/<version>/<platform>/` behind `current.json`, is checked for
+updates daily (a library that no longer matches the SHA-256 recorded at
+install is removed and downloaded again; 3 failed host starts roll back to
+the previous version), and Settings → Playback shows its state with a Retry button.
+Browser and system copies are never used.
+
+- `SONA_WIDEVINE_CDM=/path/to/libwidevinecdm.so` (or the directory holding
+  it), in the environment or `.env`, is an explicit developer override: the
+  app and tools load that file instead and download nothing.
+- `go run ./cmd/cdmfetch` downloads, verifies and installs the CDM the way
+  the app does: `-dir DIR` installs elsewhere (default Sona's
+  `<data>/widevine`), `-platform goos/goarch` fetches another platform's,
+  and `-version` only prints the manifest's version for the platform.
+- `playspike` uses the downloaded CDM (installing it on first use);
+  `-cdm LIB` overrides it like `SONA_WIDEVINE_CDM`, `-cdm-dir DIR` picks the
+  install directory. It prints the one it used.
 
 ### Pinned inputs
 
@@ -113,7 +125,7 @@ SONA_PRIVATE=1 ./bin/sona
 
 That is a development build (private listening on). Expect the window with
 every page; Settings without the controls macOS can't support yet (the
-equaliser, Sound Check, crossfade, the output device, the CDM path, start at
+equaliser, Sound Check, crossfade, the output device, start at
 login, notifications, keeping the Mac awake); Settings → Playback and
 Diagnostics saying playback isn't available on this platform; the keyring
 backend "Keychain"; data under `~/Library/Application Support/Sona` and
@@ -142,8 +154,21 @@ pnpm exec vitest run
 ```
 
 Real-CDM tests (`internal/playback/widevine`, `internal/playback/cdmhost`,
-`internal/diag`) run only when `SONA_WIDEVINE_CDM` names a CDM (see "Widevine
-CDM in development"); CI skips them.
+`internal/diag`, `internal/playback/cdm`) find the CDM through
+`internal/playback/cdm/cdmtest`: the `SONA_WIDEVINE_CDM` override, else the
+CDM installed in `SONA_CDM_CACHE` (default
+`<user cache dir>/sona-tests/widevine`, shared by every checkout),
+downloaded and verified there on first use. They skip only when the
+download cannot reach the network; `SONA_CDM_REQUIRE=1` turns that skip into
+a failure. CI ("Resolve the Widevine CDM version") runs
+`go run ./cmd/cdmfetch -version`, restores `~/.cache/sona-ci/widevine` with
+`actions/cache` keyed `widevine-<os>-<arch>-<version>`, and ("Install the
+Widevine CDM") fills a miss with
+`go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine`, exporting
+`SONA_CDM_CACHE` and `SONA_CDM_REQUIRE=1`. "Real Widevine CDM tests (verbose,
+must not skip)" then runs `TestCDM`, `TestProbe`, `TestSessionChallenge`,
+`TestPlayClearTrack`, `TestNextTrackAdvances`, `TestChildExit` and
+`TestChildCrashInBundle` with `-v`.
 After touching playback or Apple request code, also run the DRM path
 regression `go run ./cmd/playspike -seek 90` (needs `MUSIC_USER_TOKEN`).
 Every playback run in tests, smokes and live checks uses private mode
@@ -282,15 +307,20 @@ every OS-specific part behind a seam that reports itself unsupported there:
 ## DRM rules (absolute)
 
 - Protected playback runs in the CDM host child process
-  (`internal/playback/cdmhost`). It loads the user's installed Widevine CDM
-  and decrypts only through the CDM's own `Decrypt` API.
+  (`internal/playback/cdmhost`). It loads the Widevine CDM Sona downloaded
+  (or the developer override) and decrypts only through the CDM's own `Decrypt` API.
 - Decrypted audio never leaves the child: it is never written to disk and
   never crosses the pipe to the parent. Audio processing happens in the
   child, after decryption.
 - The child makes no network requests; the parent fetches everything and
   passes bytes in.
-- Never redistribute, bundle, download or patch the CDM. Never extract keys or
-  use reimplemented CDMs. Do not try to make Widevine work in WebKitGTK.
+- The CDM is never bundled (in packages or the binary), redistributed or
+  patched. It is downloaded only from Google's servers, with the version
+  and SHA-512 from Mozilla's pinned manifest and the CRX3 signatures
+  verified, and stored in Sona's data dir. Browser and system copies are
+  never used; `SONA_WIDEVINE_CDM` is a developer override only.
+- Never extract keys or use reimplemented CDMs (`openwv`, extracted device
+  keys). Do not try to make Widevine work in WebKitGTK.
 
 ## Design rules
 

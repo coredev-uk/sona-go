@@ -129,6 +129,7 @@ type Coordinator struct {
 	failures     int
 	lastErr      string
 	auth         bool
+	noCDM        bool          // the engine had no CDM ready (playback.ErrNoCDM)
 	playedFor    time.Duration // listening time of the current item, excluding the running stretch
 	playingSince time.Time     // start of the running stretch; zero unless playing
 	preloaded    uint64        // UID of the entry last preloaded
@@ -274,6 +275,7 @@ func (c *Coordinator) Snapshot() Snapshot {
 		History:        slices.Clone(c.history),
 		Error:          c.lastErr,
 		AuthRequired:   c.auth,
+		NoCDM:          c.noCDM,
 		AutoPlay:       c.autoplay,
 		Restricted:     c.restricted,
 		CanUndoReplace: c.undo != nil,
@@ -1074,9 +1076,11 @@ func (c *Coordinator) start(ctx context.Context, i int, pos time.Duration, fresh
 			c.mu.Unlock()
 			c.notify()
 			return fmt.Errorf("coordinator: play: %w", err)
-		case errors.Is(err, playback.ErrUnsupported):
-			// Nothing can play here: keep the item, say why, count nothing.
+		case errors.Is(err, playback.ErrUnsupported), errors.Is(err, playback.ErrNoCDM):
+			// Nothing can play here (or not yet: the CDM is still on its
+			// way): keep the item, say why, count nothing.
 			c.lastErr = err.Error()
+			c.noCDM = errors.Is(err, playback.ErrNoCDM)
 			c.setStateLocked(playback.StatePaused)
 			c.st.Err = c.lastErr
 			c.mu.Unlock()
@@ -1121,7 +1125,7 @@ func (c *Coordinator) selectLocked(i int, pos time.Duration, fresh bool, s playb
 	}
 	c.playingSince = time.Time{}
 	c.st = playback.Status{State: s, ItemID: e.item.ID, Position: pos, Duration: e.item.Duration, Volume: c.volume, UpdatedAt: time.Now()}
-	c.loaded, c.auth, c.preloaded = false, false, 0
+	c.loaded, c.auth, c.noCDM, c.preloaded = false, false, false, 0
 	c.schedulePreloadLocked()
 }
 
@@ -1129,7 +1133,7 @@ func (c *Coordinator) selectLocked(i int, pos time.Duration, fresh bool, s playb
 func (c *Coordinator) resetLocked() {
 	c.index = -1
 	c.st = playback.Status{State: playback.StateIdle, Volume: c.volume, UpdatedAt: time.Now()}
-	c.loaded, c.auth, c.preloaded = false, false, 0
+	c.loaded, c.auth, c.noCDM, c.preloaded = false, false, false, 0
 	c.playedFor, c.playingSince = 0, time.Time{}
 	c.failures, c.lastErr = 0, ""
 	c.schedulePreloadLocked()

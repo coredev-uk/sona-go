@@ -63,10 +63,6 @@ func TestFileChooserUnsupported(t *testing.T) {
 	if _, err := s.ImportSettings(context.Background()); !errors.Is(err, errors.ErrUnsupported) {
 		t.Errorf("ImportSettings = %v, want unsupported", err)
 	}
-	d := &DesktopService{o: s.o}
-	if _, err := d.ChooseCDMPath(context.Background()); !errors.Is(err, errors.ErrUnsupported) {
-		t.Errorf("ChooseCDMPath = %v, want unsupported", err)
-	}
 }
 
 // Without a sleep inhibitor on the platform, wanting one reports it

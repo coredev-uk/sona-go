@@ -78,6 +78,9 @@ type fsLayout struct {
 	keep []string
 	// sockets are the Unix sockets the child may connect to (Landlock).
 	sockets []string
+	// cdmDir holds the CDM library the parent will load (envCDMDir); it
+	// is kept and made read-only.
+	cdmDir string
 }
 
 // layout derives the child's filesystem view from its environment.
@@ -114,10 +117,14 @@ func layout() fsLayout {
 	for _, env := range []string{"LD_LIBRARY_PATH", "GST_PLUGIN_PATH", "GST_PLUGIN_PATH_1_0", "GST_PLUGIN_SYSTEM_PATH", "GST_PLUGIN_SYSTEM_PATH_1_0"} {
 		l.keep = append(l.keep, filepath.SplitList(os.Getenv(env))...)
 	}
-	for _, env := range []string{"GST_PLUGIN_SCANNER", "GST_PLUGIN_SCANNER_1_0", "GST_REGISTRY", "GST_REGISTRY_1_0", "SONA_WIDEVINE_CDM"} {
+	for _, env := range []string{"GST_PLUGIN_SCANNER", "GST_PLUGIN_SCANNER_1_0", "GST_REGISTRY", "GST_REGISTRY_1_0"} {
 		if p := os.Getenv(env); p != "" {
 			l.keep = append(l.keep, p)
 		}
+	}
+	if d := os.Getenv(envCDMDir); filepath.IsAbs(d) {
+		l.cdmDir = filepath.Clean(d)
+		l.keep = append(l.keep, l.cdmDir)
 	}
 	return l
 }
@@ -271,6 +278,16 @@ func isolateFS() error {
 		src := "/proc/self/fd/" + strconv.Itoa(k.fd)
 		if err := unix.Mount(src, k.path, "", unix.MS_BIND|unix.MS_REC, ""); err != nil {
 			return fmt.Errorf("bind %s: %w", k.path, err)
+		}
+	}
+	// The CDM's directory is read-only wherever it lies: under the home
+	// directory it already is; under the private /tmp, Landlock would
+	// otherwise let the child write there.
+	if l.cdmDir != "" {
+		if fi, err := os.Stat(l.cdmDir); err == nil && fi.IsDir() {
+			if err := readOnly(l.cdmDir); err != nil {
+				return fmt.Errorf("read-only CDM directory: %w", err)
+			}
 		}
 	}
 	return nil

@@ -10,6 +10,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/desktop/notify"
 	"github.com/coredev-uk/sona-go/internal/discord"
 	"github.com/coredev-uk/sona-go/internal/mpris"
+	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
 // Platform is what the operating system offers Sona beyond its windows,
@@ -110,11 +111,16 @@ type PlatformService struct {
 func newPlatformService(e *Env) *PlatformService {
 	p := e.Platform
 	pc := e.Engine.Capabilities()
+	var cdmSource string
+	if pc.Kind == playback.KindCDM && e.CDM != nil {
+		cdmSource = e.CDM.Source()
+	}
 	return &PlatformService{caps: Capabilities{
 		OS: runtime.GOOS,
 		Playback: PlaybackCapabilities{
 			Available:        pc.Kind != "",
 			Engine:           pc.Kind,
+			CDMSource:        cdmSource,
 			Volume:           pc.Volume,
 			Equalizer:        pc.Equalizer,
 			SoundCheck:       pc.SoundCheck,

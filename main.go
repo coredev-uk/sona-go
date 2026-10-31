@@ -34,6 +34,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/logging"
 	"github.com/coredev-uk/sona-go/internal/motion"
 	"github.com/coredev-uk/sona-go/internal/playback/activity"
+	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/services"
@@ -192,8 +193,23 @@ func run(started time.Time) error {
 		return err
 	}
 
+	// The Widevine CDM: downloaded from Google after the first paint (the
+	// gated client), kept up to date in the data directory; the developer
+	// override replaces it. Only an engine that needs it starts it.
+	cdmMgr, err := cdm.New(cdm.Options{
+		Dir:       paths.WidevineDir(),
+		HTTP:      &http.Client{Transport: gate.Transport(newTransport())},
+		LoadCheck: cdmLoadCheck(log.With("component", "widevine")),
+		Override:  os.Getenv(cdm.EnvOverride),
+		Logger:    log.With("component", "widevine"),
+	})
+	if err != nil {
+		return err
+	}
+	defer cdmMgr.Close()
+
 	cur := settings.Get()
-	engine := newEngine(api, cur, log)
+	engine := newEngine(api, cur, log, cdmMgr)
 	defer engine.Close()
 
 	// Private listening: the one switch every play reporter asks (Apple
@@ -292,7 +308,7 @@ func run(started time.Time) error {
 
 	core := services.New(services.Deps{
 		Paths: paths, QueueFile: queueFile, Settings: settings, DB: d, Auth: authm, API: api,
-		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, Coord: coord,
+		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, CDM: cdmMgr, Coord: coord,
 		History: history, Private: private, Storefront: storefront, Gate: gate, Emit: wapp.Event, Logger: log,
 		OpenURL: wapp.Browser.OpenURL, Focus: sh.ShowMain, Focused: sh.MainFocused, Windows: sh, Platform: plat.Services(),
 		Version: version, WebKit: webkitVersion(), Started: started,

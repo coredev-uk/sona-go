@@ -70,7 +70,7 @@
 // elsewhere (every play fails with playback.ErrUnsupported; the
 // coordinator pauses on it rather than skipping the queue); features ask
 // it for optional abilities by interface (audioEngine, engineDiagnoser,
-// cdmFinder, qualitySetter).
+// qualitySetter).
 //
 // PlatformService.Capabilities (platform_dto.go) is the capability list
 // the frontend reads once at start: the engine's kind and what it supports
@@ -81,6 +81,14 @@
 // "integrations:status". A new seam is a Platform field, its use in the
 // feature, and a Capabilities field the frontend gates its control on
 // (docs/frontend-architecture.md, "Platform capabilities").
+//
+// CDM (cdm.go) is the Widevine CDM the CDM engine loads, which Sona
+// downloads and updates by itself (Deps.CDM, internal/playback/cdm): the
+// download or update check starts from OnNetwork, after the first paint.
+// Status returns its CDMStatus (state, source download|override, version,
+// path, error code, progress, checkedAt), Retry checks again now, and
+// "cdm:status" carries every change. Without a CDM engine Status is empty
+// and Retry fails with CodeUnsupported.
 //
 // Private (private.go) is private listening (internal/privatemode) for the
 // frontend: State, Set and "private:changed". Deps.Private is the one Mode

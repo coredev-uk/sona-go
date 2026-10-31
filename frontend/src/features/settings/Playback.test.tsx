@@ -1,22 +1,23 @@
 import type { Settings } from "@bindings/config";
-import type { Capabilities } from "@bindings/services";
+import type { Capabilities, CDMStatus } from "@bindings/services";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useCdm } from "@/features/cdm";
 import { I18nRoot } from "@/shared/i18n";
 import { bareCapabilities, linuxCapabilities } from "@/shared/testing/capabilities";
 
 import { PlaybackSection } from "./Playback";
 
 const capabilities = vi.fn<() => Promise<Capabilities>>();
+const retry = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 
 const settings = {
   volume: 0.5,
   engineIdleMinutes: 10,
   audioQuality: 256,
-  cdmPath: "",
   audio: { outputDevice: "", soundCheck: false, equalizer: { enabled: false } },
   crossfade: { enabled: false, seconds: 6 },
   queue: { replaceConfirm: "undo" },
@@ -26,7 +27,7 @@ vi.mock("@bindings/services", () => ({
   SystemService: { Settings: () => Promise.resolve(settings), UpdateSettings: vi.fn() },
   PlatformService: { Capabilities: () => capabilities() },
   AudioService: { OutputDevices: () => Promise.resolve([]) },
-  DesktopService: { ChooseCDMPath: vi.fn() },
+  CDMService: { Retry: retry, Status: () => new Promise(() => {}) },
 }));
 vi.mock("@/features/private", () => ({
   usePrivate: (select: (s: { state: null }) => unknown) => select({ state: null }),
@@ -45,8 +46,7 @@ const gated = [
   "Sound Check",
   "Equaliser",
   "Crossfade",
-  "Widevine CDM location",
-  "Choose…",
+  "Widevine",
 ];
 
 const shown = (text: string) => screen.queryByText(text) !== null;
@@ -72,10 +72,29 @@ beforeAll(() => {
   } as unknown as typeof ResizeObserver;
 });
 
+beforeEach(() => {
+  useCdm.setState({ status: cdm() });
+});
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
+
+function cdm(patch: Partial<CDMStatus> = {}): CDMStatus {
+  return {
+    state: "ready",
+    source: "download",
+    version: "4.10.3112.0",
+    path: "/data/widevine/4.10.3112.0/linux_x64/libwidevinecdm.so",
+    code: "",
+    received: 0,
+    total: 0,
+    updating: false,
+    checkedAt: Date.now() - 2 * 3600_000,
+    ...patch,
+  };
+}
 
 describe("PlaybackSection", () => {
   it("shows every playback control on Linux, without the unavailable note", async () => {
@@ -94,15 +113,84 @@ describe("PlaybackSection", () => {
     expect(shown("Private listening")).toBe(true);
   });
 
-  it("keeps the CDM location but not its Choose button without a file chooser", async () => {
-    await renderSection(Promise.resolve({ ...linuxCapabilities(), fileChooser: false }));
-    await screen.findByText("Widevine CDM location");
-    expect(shown("Choose…")).toBe(false);
-  });
-
   it("shows no gated control while the capabilities load", async () => {
     await renderSection(new Promise(() => {}));
     expect(gated.filter(shown)).toEqual([]);
     expect(shown("Playback isn't available on this platform yet")).toBe(false);
+  });
+
+  it("has no CDM file chooser", async () => {
+    await renderSection(Promise.resolve(linuxCapabilities()));
+    await screen.findByText("Widevine");
+    expect(shown("Choose…")).toBe(false);
+    expect(shown("Widevine CDM location")).toBe(false);
+    expect(shown("Use automatic")).toBe(false);
+  });
+});
+
+describe("Widevine row", () => {
+  const show = async (status: CDMStatus) => {
+    useCdm.setState({ status });
+    await renderSection(Promise.resolve(linuxCapabilities()));
+    return screen.findByLabelText("Widevine");
+  };
+
+  it("names the installed version and the last update check", async () => {
+    const output = await show(cdm());
+    expect(output.textContent).toBe("Version 4.10.3112.0");
+    expect(shown("Checked for updates 2 hr. ago")).toBe(true);
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
+  it("shows a running download's progress on its bar", async () => {
+    const output = await show(cdm({ state: "downloading", version: "", received: 42, total: 100 }));
+    expect(output.textContent).toBe("Downloading…");
+    const bar = screen.getByRole("progressbar", { name: "Widevine download" });
+    expect(bar.getAttribute("aria-valuenow")).toBe("42");
+    expect(bar.getAttribute("aria-valuetext")).toBe("42%, 42 byte of 100 byte");
+  });
+
+  it("shows an update downloading beside the version in use", async () => {
+    await show(cdm({ updating: true, received: 10, total: 100 }));
+    expect(shown("Downloading an update…")).toBe(true);
+    expect(screen.getByRole("progressbar", { name: "Widevine update" })).toBeTruthy();
+  });
+
+  it("says why the download failed and retries it", async () => {
+    const output = await show(cdm({ state: "failed", version: "", path: "", code: "network" }));
+    expect(output.textContent).toBe("Couldn't download");
+    const problem =
+      "Sona couldn't reach Google's download server. Check your internet connection. Sona also tries again by itself later.";
+    expect(screen.getByText(problem)).toBeTruthy();
+    const button = screen.getByRole("button", { name: "Retry" });
+    expect(button.getAttribute("aria-describedby")).toBe("cdm-problem");
+    expect(output.getAttribute("aria-describedby")).toBe("cdm-desc cdm-problem");
+    fireEvent.click(button);
+    expect(retry).toHaveBeenCalledTimes(1);
+    // The button leaves while the download runs; focus waits on the state, not the page.
+    expect(document.activeElement).toBe(output);
+  });
+
+  it("offers Retry when the last update check failed", async () => {
+    await show(cdm({ code: "hash_mismatch" }));
+    expect(shown("Couldn't check for updates")).toBe(true);
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
+  it("has no Retry where trying again can't help", async () => {
+    await show(cdm({ state: "failed", version: "", code: "unsupported_platform" }));
+    expect(shown("Google doesn't make Widevine for this computer, so songs can't play here.")).toBe(
+      true,
+    );
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
+  it("names the developer override and its library", async () => {
+    const path = "/opt/google/chrome/WidevineCdm/libwidevinecdm.so";
+    await show(cdm({ source: "override", version: "4.10.2830.0", path }));
+    expect(shown("Developer override")).toBe(true);
+    expect(shown(path)).toBe(true);
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
   });
 });

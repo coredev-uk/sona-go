@@ -129,6 +129,7 @@ func (s *PlaybackService) state(snap coordinator.Snapshot) PlaybackState {
 		CanPrevious:    snap.Current != nil,
 		Error:          snap.Error,
 		AuthRequired:   snap.AuthRequired,
+		NoCDM:          snap.NoCDM,
 		AutoPlay:       snap.AutoPlay,
 		Station:        queueStation(snap.Station),
 		Sleep:          sleepTimer(snap.Sleep),

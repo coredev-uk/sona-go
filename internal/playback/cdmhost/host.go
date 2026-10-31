@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -26,7 +27,9 @@ import (
 
 // Options configures Start.
 type Options struct {
-	// CDMPath overrides CDM discovery in the child (widevine.FindCDM).
+	// CDMPath is the Widevine CDM library the child loads (the parent's
+	// choice: internal/playback/cdm). Its directory stays readable in the
+	// child's sandbox.
 	CDMPath string
 	// Sink overrides the GStreamer sink (e.g. "fakesink" in tests).
 	Sink string
@@ -105,7 +108,7 @@ func childEnv(log *slog.Logger) []string {
 	var env []string
 	for _, kv := range os.Environ() {
 		k, _, _ := strings.Cut(kv, "=")
-		if k == EnvChild || k == envLogLevel || k == envSandboxNS || k == envSandboxStage || childEnvDropped.MatchString(k) {
+		if k == EnvChild || k == envLogLevel || k == envSandboxNS || k == envSandboxStage || k == envCDMDir || childEnvDropped.MatchString(k) {
 			continue
 		}
 		env = append(env, kv)
@@ -156,6 +159,9 @@ func spawn(o Options) (*Host, error) {
 		}
 	}
 	env := childEnv(log)
+	if o.CDMPath != "" {
+		env = append(env, envCDMDir+"="+filepath.Dir(o.CDMPath))
+	}
 	// The child gets its own user, network and mount namespace where the
 	// kernel allows unprivileged user namespaces; elsewhere it runs without
 	// them (Landlock and seccomp only) and Info.Sandbox says why.
@@ -548,6 +554,8 @@ func replyErr(r reply) error {
 	case codeSandbox:
 		// r.Err starts with ErrSandbox's text; keep only the reason.
 		return fmt.Errorf("%w%s", ErrSandbox, strings.TrimPrefix(r.Err, ErrSandbox.Error()))
+	case codeCDMLoad:
+		return fmt.Errorf("%w%s", ErrCDMLoad, strings.TrimPrefix(r.Err, ErrCDMLoad.Error()))
 	case "exited":
 		return fmt.Errorf("%w: %s", ErrExited, r.Err)
 	}
@@ -748,4 +756,29 @@ func Probe(ctx context.Context, o Options) (Info, error) {
 	info.PID = h.cmd.Process.Pid
 	info.Sandbox = h.withSandbox(info.Sandbox)
 	return info, err
+}
+
+// LoadCheck returns the check internal/playback/cdm runs on a newly
+// downloaded CDM before it becomes current: a probe child loads and
+// initialises it, as a playback host would. A failure after the CDM
+// initialised (the audio pipeline) is not the CDM's; without its sandbox
+// the child loads no CDM at all, so the check can't tell and passes, and
+// playback reports the sandbox itself.
+func LoadCheck(log *slog.Logger) func(ctx context.Context, lib string) error {
+	if log == nil {
+		log = slog.New(slog.DiscardHandler)
+	}
+	return func(ctx context.Context, lib string) error {
+		info, err := Probe(ctx, Options{CDMPath: lib, Sink: "fakesink", Logger: log})
+		switch {
+		case info.CDMInterface != 0:
+			return nil
+		case errors.Is(err, ErrSandbox):
+			log.Warn("cdmhost: load check skipped: the playback sandbox is unavailable", "err", err)
+			return nil
+		case err == nil:
+			return errors.New("cdmhost: the probe reported no CDM interface")
+		}
+		return err
+	}
 }

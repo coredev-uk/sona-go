@@ -19,7 +19,7 @@
 - devenv scripts (each described in CONTRIBUTING.md): `dev` (Vite hot reload, `-config ./build/config.yml`), `build` (frontend + bindings + `bin/sona`), `gen` (sqlc + TS bindings), `fmt` (gofumpt + prettier), `check` (frontend build, go vet, the Windows and macOS type-checks, golangci-lint on new code, path case, tsc, eslint, prettier, i18n), `tests` (frontend build, `go test -race` under `dbus-run-session`, vitest), `release` (release packages in a container), `play-spike`, `auth-spike`. `package` is Taskfile's only.
 - Before handing off: `check` and `tests`.
 - `wails3` is a Go tool dependency (`go tool wails3`). Plain `go build .` needs `frontend/dist` built first; production builds use `-tags production,sqlite_fts5`.
-- Widevine CDM: devenv ships none. The app and `playspike` discover an installed browser's copy (Chrome, Chromium-family `WidevineCdm` dirs such as Brave's, Firefox/Zen `gmp-widevinecdm`); `SONA_WIDEVINE_CDM=/path/to/libwidevinecdm.so` (environment or `.env`) overrides discovery and enables the real-CDM tests.
+- Widevine CDM: devenv ships none. The app downloads it itself after first paint (into `<data>/widevine`); `playspike` uses the same downloader (`-cdm-dir`). `SONA_WIDEVINE_CDM=/path/to/libwidevinecdm.so` (environment or `.env`, or playspike's `-cdm`) is an explicit developer override only. `go run ./cmd/cdmfetch` downloads and verifies it by hand (`-dir`, `-platform goos/goarch`, `-version` prints the manifest's version without downloading). Real-CDM tests find it through `internal/playback/cdm/cdmtest` (the override, else a download into `SONA_CDM_CACHE`, default `<user cache>/sona-tests/widevine`); they skip only when offline, and `SONA_CDM_REQUIRE=1` makes that skip a failure.
 - DRM path regression, after CDM, playback, or Apple changes: `go run ./cmd/playspike -seek 90`.
 - Release packages: `release` (`bash build/linux/release/release.sh`: podman or docker, falling back to `nix run nixpkgs#podman`; Ubuntu 24.04; output in `bin/release`).
 - `.env` (ignored) holds `MUSIC_USER_TOKEN` for local testing. Never print, log, or commit it.
@@ -33,16 +33,17 @@
 
 - Go 1.26+, Wails v3.0.0 (GTK4 + WebKitGTK 6.0 on Linux), React + TypeScript + Vite, ShadCN + Tailwind, TanStack Query and Router, `pnpm`.
 - SQLite via `github.com/mattn/go-sqlite3` (FTS5 through the `sqlite_fts5` build tag) with a libSQL-compatible schema, goose + sqlc.
-- Playback: Google's Widevine CDM (`libwidevinecdm.so`) hosted by Sona through a C++ shim, GStreamer `appsrc` for AAC decode and PipeWire output.
+- Playback: Google's Widevine CDM (`libwidevinecdm.so`) downloaded by Sona from Google (`internal/playback/cdm`) and hosted through a C++ shim, GStreamer `appsrc` for AAC decode and PipeWire output.
 
 ## Architecture Rules
 
 - Go owns all Apple Music HTTP traffic, tokens, sync, caching, MPRIS, and artwork. The frontend never holds tokens and never calls `*.apple.com`.
 - The developer token is the web player token (`devtoken.WebPlayer`). Every Apple request must send `Origin: https://music.apple.com`; go through `applemusic.Client`.
 - MUT acquisition: the native in-app sign-in (`internal/auth/appleid`, `auth.Manager.SignInWithPassword`/`SubmitSecurityCode`) is primary; the loopback redirect flow (`internal/auth/mut`) and token paste are fallbacks. Never MusicKit popups or webview header rewriting. Passwords and 2FA codes are never stored or logged.
-- Protected playback runs in the CDM host child process (`internal/playback/cdmhost`): it loads the user's installed Widevine CDM, decrypts through the CDM's own `Decrypt` API, and hands clear AAC only to GStreamer inside that process. Decrypted audio never leaves the child, is never written to disk, and never crosses the pipe to the parent.
+- Protected playback runs in the CDM host child process (`internal/playback/cdmhost`): it loads the downloaded Widevine CDM (or the developer override), decrypts through the CDM's own `Decrypt` API, and hands clear AAC only to GStreamer inside that process. Decrypted audio never leaves the child, is never written to disk, and never crosses the pipe to the parent.
 - The CDM host process makes no network requests. The parent fetches playlists, certificates, licences and segments and passes bytes to the child.
-- Never redistribute, download-and-bundle, or patch the CDM. Never extract keys or use reimplemented CDMs (`openwv`, extracted device keys).
+- The CDM is never bundled (in packages or the binary), redistributed or patched. Sona downloads it only from Google's servers: version and SHA-512 from Mozilla's pinned Firefox GMP manifest, the CRX3 signatures verified (`internal/playback/cdm`), stored in Sona's data dir (each library's SHA-256 recorded in `current.json`; a missing or damaged one is removed and downloaded again, and 3 failed host starts roll back to the previous version). Browser and system copies are never used; `SONA_WIDEVINE_CDM` is a developer override only.
+- Never extract keys or use reimplemented CDMs (`openwv`, extracted device keys).
 - Do not try to make Widevine work in WebKitGTK.
 - Go's MPRIS (`org.mpris.MediaPlayer2.sona`) is the only Sona player on D-Bus.
 - OS-specific code goes behind the platform seams (`platform_<os>.go`, `services.Platform`, build-tag conventions: CONTRIBUTING.md "Platforms"). Where a platform lacks a feature it reports it (`errors.ErrUnsupported`, `PlatformService.Capabilities`) and the UI hides or explains the control; never a stub that pretends to work.

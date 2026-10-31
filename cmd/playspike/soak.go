@@ -50,7 +50,7 @@ func (r renewals) WithGroup(name string) slog.Handler {
 // run, songs play to their end one after another. The engine logs every
 // CDM renewal message and its round trip; runSoak reports each playback
 // stall (an audible gap) and whether one fell near a renewal.
-func runSoak(log *slog.Logger, envFile string, items []string, term string, d time.Duration, cdm string, quality applemusic.Quality) error {
+func runSoak(log *slog.Logger, envFile string, items []string, term string, d time.Duration, lib string, quality applemusic.Quality) error {
 	ctx, cancel := context.WithTimeout(context.Background(), d+5*time.Minute)
 	defer cancel()
 	var (
@@ -77,7 +77,7 @@ func runSoak(log *slog.Logger, envFile string, items []string, term string, d ti
 	}
 	step("soak", "items", len(items), "duration", d, "quality", quality)
 
-	eng := native.New(native.Options{Client: api, CDMPath: cdm, Logger: log, IdleTimeout: -1, Quality: quality})
+	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1, Quality: quality})
 	defer func() { _ = eng.Close() }()
 	events := eng.Events()
 

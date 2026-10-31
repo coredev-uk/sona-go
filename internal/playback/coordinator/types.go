@@ -118,6 +118,10 @@ type Snapshot struct {
 	// AuthRequired reports that Apple rejected the credentials; playback is
 	// paused until the user signs in again and resumes.
 	AuthRequired bool `json:"authRequired"`
+	// NoCDM reports that the engine has no Widevine CDM ready yet
+	// (playback.ErrNoCDM: downloading, or the download failed); the item
+	// stays selected and paused until a play succeeds.
+	NoCDM bool `json:"noCdm"`
 	// Station is the station feeding the queue (nil when none).
 	Station *Station `json:"station"`
 	// AutoPlay: when the user's queue ends, similar music keeps playing.

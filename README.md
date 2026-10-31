@@ -2,8 +2,8 @@
 
 Sona is an Apple Music client for the Linux desktop. It is a native GTK4 /
 WebKitGTK 6 app (Go + [Wails v3](https://v3.wails.io), React frontend) that
-starts from a local cache, plays full tracks through the Widevine CDM of your
-own Google Chrome install, and integrates with the desktop: MPRIS media
+starts from a local cache, plays full tracks through Google's Widevine CDM
+(downloaded by Sona from Google), and integrates with the desktop: MPRIS media
 controls, `music://` links, Secret Service credentials, PipeWire/PulseAudio
 output.
 
@@ -16,13 +16,12 @@ You need an Apple Music subscription. Sona is not affiliated with Apple.
   media players) and libav (AAC decoding) plugin sets, and PipeWire or
   PulseAudio. The packages below declare these; the AppImage bundles all but
   the audio server.
-- **A Widevine CDM, from your own browser install.** Sona loads the
-  `libwidevinecdm.so` that Google Chrome installs (`/opt/google/chrome`) or
-  that Chrome/Chromium/Brave/Vivaldi/Edge download into your profile
-  (`~/.config/<browser>/WidevineCdm`). Sona never bundles, downloads or
-  modifies the CDM. Without one, browsing works but playback does not.
-  To use a CDM elsewhere, set Settings → Playback → CDM path, or
-  `SONA_WIDEVINE_CDM=/path/to/libwidevinecdm.so`.
+- **Google's Widevine CDM, downloaded by Sona.** After the window first
+  appears, Sona downloads the CDM from Google's servers (version and SHA-512
+  from Mozilla's Firefox manifest, Google's signatures verified) into its
+  data directory and keeps it up to date. It is never bundled in Sona's
+  packages, and browser copies are not used. Until it is ready, browsing
+  works but playback waits; Settings → Playback shows the download.
 - Optional: a Secret Service provider (GNOME Keyring, KWallet) for the Apple
   Music token. Without one Sona falls back to a 0600 file in
   `~/.config/sona/` and says so.
@@ -42,15 +41,15 @@ From the [releases page](https://github.com/coredev-uk/sona-go/releases)
 Each release is smoke-tested on clean Ubuntu 24.04, Fedora 45 and Arch Linux
 containers. Release assets also carry the AUR `sona-bin` PKGBUILD.
 
-Then install Google Chrome (or Chromium) once so a CDM is present, start Sona
-from your launcher, and sign in with your Apple Account.
+Then start Sona from your launcher and sign in with your Apple Account; it
+downloads the Widevine CDM by itself.
 
 ## Build from source
 
 The toolchain comes from [devenv](https://devenv.sh) 2.4 or newer (Nix): Go
 1.26, Node 24 + pnpm and the GTK4/WebKitGTK/GStreamer development files.
-Playback in a development build uses the CDM of a browser you have installed,
-as a release does. You need [Nix](https://nixos.org/download) with flakes.
+A development build downloads the CDM as a release does
+(`SONA_WIDEVINE_CDM` overrides it; see CONTRIBUTING.md). You need [Nix](https://nixos.org/download) with flakes.
 Without a devenv install, write
 `nix run github:NixOS/nixpkgs/nixpkgs-unstable#devenv --` where the commands
 below say `devenv` (your registry's `nixpkgs#devenv` may be older than 2.4,
@@ -123,5 +122,6 @@ Chromium's CDM interface and are under Chromium's BSD-3-Clause licence
 the packages ship both notices in `/usr/share/doc/sona/`.
 
 The Widevine CDM is Google's proprietary software. It is not part of Sona,
-not in this repository and not in any Sona package; Sona uses the copy your
-browser installed, under that browser's terms.
+not in this repository, not in the binary and not in any Sona package. Sona
+downloads it from Google's servers onto your computer, verifies Google's
+signatures, and never modifies or redistributes it.

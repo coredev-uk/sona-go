@@ -1,11 +1,8 @@
 package services
 
 import (
-	"context"
-	"path/filepath"
 	"sync/atomic"
 
-	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/config"
 )
 
@@ -24,11 +21,10 @@ type Windows interface {
 }
 
 // DesktopService is Sona as a desktop app: its windows, the autostart
-// entry, the remembered route and the native file chooser. The close
-// action, start page and window size are settings (config.Desktop,
-// config.Window) that the shell reads; this service applies the autostart
-// toggle when settings change and keeps the frontend's copy of the
-// settings Go writes itself current.
+// entry and the remembered route. The close action, start page and window
+// size are settings (config.Desktop, config.Window) that the shell reads;
+// this service applies the autostart toggle when settings change and keeps
+// the frontend's copy of the settings Go writes itself current.
 type DesktopService struct {
 	o *Env
 	// undoing is set while an autostart change that failed is reverted, so
@@ -70,44 +66,6 @@ func (d *DesktopService) SetLastRoute(route string) error {
 	}
 	_, err := d.o.Settings.Update(func(s *config.Settings) { s.Desktop.LastRoute = route })
 	return err
-}
-
-// cdmFinder is implemented by the CDM host engine: where discovery finds
-// the Widevine CDM.
-type cdmFinder interface {
-	FindCDM(override string) (path, version string, err error)
-}
-
-// ChooseCDMPath opens the desktop's file chooser (xdg-desktop-portal on
-// Linux) for libwidevinecdm.so and returns the chosen path, or "" when the
-// user cancels. It does not save the choice.
-func (d *DesktopService) ChooseCDMPath(ctx context.Context) (string, error) {
-	if d.o.Platform.Files == nil {
-		return "", unsupported("the file chooser")
-	}
-	return d.o.Platform.Files.OpenFile(ctx, app.OpenFileOptions{
-		Title:       "Choose the Widevine CDM",
-		AcceptLabel: "Use this CDM",
-		Filters: []app.FileFilter{
-			{Name: "Widevine CDM (libwidevinecdm.so)", Patterns: []string{"libwidevinecdm.so"}},
-			{Name: "Shared libraries", Patterns: []string{"*.so"}},
-		},
-		Folder: d.cdmFolder(d.o.Settings.Get().CDMPath),
-	})
-}
-
-// cdmFolder is where the chooser opens: the CDM in use (the override, else
-// the one the engine finds), or the chooser's default.
-func (d *DesktopService) cdmFolder(override string) string {
-	if f, ok := d.o.Engine.(cdmFinder); ok {
-		if p, _, err := f.FindCDM(override); err == nil {
-			return filepath.Dir(p)
-		}
-	}
-	if override != "" {
-		return filepath.Dir(override)
-	}
-	return ""
 }
 
 // settingsChanged writes or removes the autostart entry when its settings

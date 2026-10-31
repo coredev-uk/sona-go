@@ -27,7 +27,7 @@ import (
 // then that Recently Played (songs and containers) stays as it was for
 // privateWatch. Without it the plays are reported to the account and the
 // first song (and the container) must show up at the top.
-func runActivity(log *slog.Logger, envFile, songID, term, nextID, nextTerm string, listen time.Duration, cdm, container string, private bool) error {
+func runActivity(log *slog.Logger, envFile, songID, term, nextID, nextTerm string, listen time.Duration, lib, container string, private bool) error {
 	var from coordinator.Container
 	if container != "" {
 		kind, id, ok := strings.Cut(container, ":")
@@ -68,7 +68,7 @@ func runActivity(log *slog.Logger, envFile, songID, term, nextID, nextTerm strin
 	if err != nil {
 		return err
 	}
-	eng := native.New(native.Options{Client: api, CDMPath: cdm, Logger: log, IdleTimeout: -1})
+	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1})
 	defer eng.Close()
 	if err := eng.SetOutputDevice(ctx, outputDevice); err != nil {
 		return err

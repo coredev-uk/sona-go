@@ -1,11 +1,12 @@
 import { plural, t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { SystemService, type Diagnostics } from "@bindings/services";
+import { SystemService, type CDMStatus, type Diagnostics } from "@bindings/services";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Clipboard } from "@wailsio/runtime";
 import { CircleAlert, CircleCheck, Copy, FolderOpen, RotateCw, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
+import { cdmPercent, cdmProblem, useCdm } from "@/features/cdm";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { Button } from "@/shared/ui/button";
 import { Switch } from "@/shared/ui/switch";
@@ -75,58 +76,116 @@ function keyringLabel(backend: string): string {
   }
 }
 
-/** The CDM playback engine's checks: the CDM, GStreamer, the host and its sandbox. */
-function cdmRows(p: Diagnostics["playback"]): Row[] {
-  const { cdmVersion, cdmError, cdmInterface, hostInterface, hostPid, audioQuality } = p;
+/** The Widevine CDM's verdict: the probe's when it loaded one, else the download's state. */
+function cdmStateRow(p: Diagnostics["playback"], cdm: CDMStatus): Row {
+  const label = t`Widevine CDM`;
+  if (p.cdmOk) return { label, value: t`Working`, status: "ok" };
+  if (p.cdmBlocked) {
+    return {
+      label,
+      value: t`Blocked`,
+      status: "error",
+      detail: t`Sona loads the CDM only inside its sandbox, which keeps it off the network, and the sandbox could not be set up. Only 30-second previews play.`,
+    };
+  }
+  switch (cdm.state) {
+    case "idle":
+      return {
+        label,
+        value: t`Not downloaded yet`,
+        detail: t`Sona downloads it from Google once it's online. Songs play when it's ready.`,
+      };
+    case "downloading": {
+      const percent = cdmPercent(cdm);
+      return {
+        label,
+        value: percent ? t`Downloading · ${percent}` : t`Downloading…`,
+        detail: t`Songs play when the download finishes.`,
+      };
+    }
+    case "failed":
+      return { label, value: t`Couldn't download`, status: "error", detail: cdmProblem(cdm.code) };
+  }
+  return { label, value: t`Doesn't start`, status: "error", detail: p.cdmError || undefined };
+}
+
+/** Where the CDM comes from and how its updates are going (downloads only). */
+function cdmSourceRows(cdm: CDMStatus): Row[] {
+  if (cdm.source === "override") {
+    return [{ label: t`Source`, value: t`Developer override (SONA_WIDEVINE_CDM)` }];
+  }
+  if (cdm.source !== "download") return [];
+  const checked = cdm.checkedAt ? relativeTime(cdm.checkedAt) : "";
+  let updates: Row;
+  if (cdm.state === "ready" && cdm.updating) {
+    const percent = cdmPercent(cdm);
+    updates = {
+      label: t`Updates`,
+      value: percent ? t`Downloading an update · ${percent}` : t`Downloading an update`,
+      detail: t`It applies the next time playback starts.`,
+    };
+  } else if (cdm.state === "ready" && cdm.code) {
+    updates = {
+      label: t`Updates`,
+      value: t`Couldn't check for updates`,
+      status: "warning",
+      detail: cdmProblem(cdm.code),
+    };
+  } else {
+    updates = { label: t`Updates`, value: checked ? t`Checked ${checked}` : t`Not checked yet` };
+  }
+  return [{ label: t`Source`, value: t`Downloaded from Google` }, updates];
+}
+
+/**
+ * The CDM playback engine's checks: the CDM, GStreamer, the host and its
+ * sandbox. The probe child that checks GStreamer and the sandbox needs a
+ * CDM to load, so without one (the report's CDM not ready) those rows say
+ * they weren't checked rather than failing.
+ */
+function cdmRows(p: Diagnostics["playback"], cdm: CDMStatus): Row[] {
+  const { cdmInterface, hostInterface, hostPid, audioQuality } = p;
+  const probed = p.cdm.state === "ready" || p.cdmOk || p.cdmBlocked;
+  const unchecked = t`Checked once Widevine is ready`;
   return [
-    p.cdmOk
-      ? {
-          label: t`Widevine CDM`,
-          value: cdmVersion ? t`Working · ${cdmVersion}` : t`Working · version unknown`,
-          status: "ok",
-        }
-      : p.cdmBlocked
-        ? {
-            label: t`Widevine CDM`,
-            value: t`Blocked`,
-            status: "error",
-            detail: t`Sona loads the CDM only inside its sandbox, which keeps it off the network, and the sandbox could not be set up. Only 30-second previews play.`,
-          }
-        : {
-            label: t`Widevine CDM`,
-            value: p.cdmPath ? t`Doesn't start` : t`Not found`,
-            status: "error",
-            detail: p.cdmError
-              ? t`${cdmError}. Install Google Chrome, or set the CDM location under Playback.`
-              : t`Install Google Chrome, or set the CDM location under Playback. Without it only 30-second previews play.`,
-          },
-    { label: t`CDM location`, value: p.cdmPath || dash },
+    cdmStateRow(p, cdm),
+    ...cdmSourceRows(cdm),
+    { label: t`Version`, value: cdm.version || p.cdmVersion || dash },
+    { label: t`CDM file`, value: p.cdmPath || cdm.path || dash },
     {
       label: t`CDM interface`,
       value: cdmInterface ? t`${cdmInterface} (host ${hostInterface})` : dash,
     },
-    {
-      label: t`GStreamer`,
-      value: p.gstreamer || t`Not found`,
-      status: p.gstreamer ? "ok" : "error",
-      detail: p.gstreamer ? undefined : t`Install GStreamer 1.x with the base and good plugins.`,
-    },
-    {
-      label: t`AAC decoder`,
-      value: p.decoder || t`None`,
-      status: p.decoder ? "ok" : "error",
-      detail: p.decoder
-        ? undefined
-        : t`Install gst-libav or the fdkaac plugin to decode Apple Music's AAC.`,
-    },
-    {
-      label: t`Audio output`,
-      value: p.sink || t`None`,
-      status: p.sink ? "ok" : "warning",
-      detail: p.sink
-        ? undefined
-        : t`No PipeWire or PulseAudio sink was found; GStreamer falls back to autoaudiosink.`,
-    },
+    !probed
+      ? { label: t`GStreamer`, value: unchecked }
+      : {
+          label: t`GStreamer`,
+          value: p.gstreamer || t`Not found`,
+          status: p.gstreamer ? "ok" : "error",
+          detail: p.gstreamer
+            ? undefined
+            : t`Install GStreamer 1.x with the base and good plugins.`,
+        },
+    !probed
+      ? { label: t`AAC decoder`, value: unchecked }
+      : {
+          label: t`AAC decoder`,
+          value: p.decoder || t`None`,
+          status: p.decoder ? "ok" : "error",
+          detail: p.decoder
+            ? undefined
+            : t`Install gst-libav or the fdkaac plugin to decode Apple Music's AAC.`,
+        },
+    !probed
+      ? { label: t`Audio output`, value: unchecked }
+      : {
+          label: t`Audio output`,
+          value: p.sink || t`None`,
+          status: p.sink ? "ok" : "warning",
+          detail: p.sink
+            ? undefined
+            : t`No PipeWire or PulseAudio sink was found; GStreamer falls back to autoaudiosink.`,
+        },
     {
       label: t`Playback host`,
       value: p.hostRunning ? t`Running · pid ${hostPid}` : t`Stopped (starts with the next song)`,
@@ -142,9 +201,11 @@ function cdmRows(p: Diagnostics["playback"]): Row[] {
 
 /**
  * The Diagnostics struct as labelled rows with a verdict where one applies.
- * The WebKitGTK rows only where the web view is WebKitGTK.
+ * The WebKitGTK rows only where the web view is WebKitGTK. `liveCdm` is the
+ * CDM's status from cdm:status, newer than the report's copy while a
+ * download runs.
  */
-function diagnosticsGroups(d: Diagnostics, webkitGtk: boolean): Group[] {
+function diagnosticsGroups(d: Diagnostics, webkitGtk: boolean, liveCdm: CDMStatus | null): Group[] {
   const p = d.playback;
   const env = (name: string) => d.env.find((e) => e.name === name);
   const { songs, albums, artists, playlists } = d.database.counts;
@@ -154,7 +215,7 @@ function diagnosticsGroups(d: Diagnostics, webkitGtk: boolean): Group[] {
       title: t`Playback`,
       // Engine "" means this platform has no playback engine, so no probe ran.
       rows: p.engine
-        ? cdmRows(p)
+        ? cdmRows(p, liveCdm ?? p.cdm)
         : [{ label: t`Playback`, value: t`Not available on this platform yet` }],
     },
     {
@@ -320,7 +381,8 @@ export function DiagnosticsSection() {
     staleTime: 0,
   });
   const webkitGtk = useCapabilities()?.webkitGtk ?? false;
-  const groups = q.data ? diagnosticsGroups(q.data, webkitGtk) : [];
+  const liveCdm = useCdm((s) => s.status);
+  const groups = q.data ? diagnosticsGroups(q.data, webkitGtk, liveCdm) : [];
   const problems = groups.flatMap((g) => g.rows).filter((r) => r.status === "error").length;
 
   // The redacted bug-report bundle: Go gathers the report, settings, crash

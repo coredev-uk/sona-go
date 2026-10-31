@@ -4,7 +4,9 @@ The review covered the auth loopback server, the `/art/` and `/motion/` handlers
 
 Areas reviewed without findings: native Apple ID input handling, `/art/`, the main.go middleware, `/motion/` path handling, parent→child cdmhost framing, single-instance `Activate` and launch URLs, the other MPRIS methods, notifications, the portal file chooser, the settings file, secret stores, the scrobble queue, the diagnostics bundle, the update check, autostart and the webview URL bindings.
 
-Run the tests with `go test -race ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/...`.
+The Widevine CDM downloader, added later, is covered in "Widevine CDM downloader" below.
+
+Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/...`.
 
 | ID | Severity | Issue | Status |
 | --- | --- | --- | --- |
@@ -27,6 +29,8 @@ Run the tests with `go test -race ./internal/playback/cdmhost/... ./internal/con
 - `localKeys` is only used to leave the local keys out of an export.
 - `Settings.Normalized` drops a `CDMPath` that is not a clean absolute path, or that lies under `/proc` or `/dev` (for example `/proc/self/cwd`, or `/dev/fd` → `/proc/self/fd`).
 
+Since then the `CDMPath` setting has been removed altogether: Sona loads only the CDM it downloaded itself, or the `SONA_WIDEVINE_CDM` developer override from the environment (see "Widevine CDM downloader"), so a settings file can no longer name a library.
+
 **Tests:**
 - `TestImportIgnoresLocalKeysInAnySpelling` imports a fully customised document with every key, local ones included, spelled as exported, in lower case and in upper case. It also covers `"CDMPath"` and `"cdmpath"`.
 - `TestNormalizedDropsUnsafeCDMPath`.
@@ -40,7 +44,7 @@ The child had the whole environment (including `DBUS_SESSION_BUS_ADDRESS`), ever
 - **Environment.** `childEnv` drops `DBUS_*`, `DISPLAY`, `WAYLAND_*`, `XAUTHORITY`, `SSH_*`, `GPG_*`, `GNOME_KEYRING*`, `AT_SPI_*`, `KRB5*` and `SESSION_MANAGER`, plus anything named like a credential (`TOKEN`, `SECRET`, `PASSW`, `CREDENTIAL`, `COOKIE`, `API_KEY`, `PRIVATE_KEY`, `AUTH`). The child also starts in `/`.
 - **Namespaces and filesystem.** The child starts in a new user, network and mount namespace. Its first stage (holding `CAP_SYS_ADMIN` in its own user namespace only, as an ambient capability) changes the view as follows:
   - `/run`, `/tmp`, `/var/tmp` and `$XDG_RUNTIME_DIR` become empty tmpfs. `/run`'s top-level symlinks are recreated.
-  - Only these are bound back: the PipeWire socket (or PulseAudio's when there is no PipeWire), and the program's own files when they live under a covered directory (`APPDIR`, the executable's directory, `LD_LIBRARY_PATH`, the GStreamer plugin paths and scanner, `SONA_WIDEVINE_CDM`).
+  - Only these are bound back: the PipeWire socket (or PulseAudio's when there is no PipeWire), and the program's own files when they live under a covered directory (`APPDIR`, the executable's directory, `LD_LIBRARY_PATH`, the GStreamer plugin paths and scanner, the CDM's directory).
   - The home directory becomes recursively read-only (`mount_setattr`).
   - Sona's config and state directories, `~/.ssh`, `~/.gnupg`, `~/.password-store` and the keyrings are hidden under empty read-only tmpfs.
 - **Landlock** (applied with or without namespaces, at whatever ABI the kernel offers):
@@ -56,7 +60,7 @@ The child had the whole environment (including `DBUS_SESSION_BUS_ADDRESS`), ever
   - `clone3` fails with ENOSYS, and glibc then uses `clone`.
   - The child checks that `AF_INET`, `AF_INET6` and `AF_NETLINK` are refused.
 - **Without unprivileged user namespaces** (Flatpak, user namespaces disabled), the child runs with Landlock and seccomp only. Under Ubuntu 24.04's AppArmor restriction the namespaces are created without capabilities: the child keeps its network namespace but gets no private filesystem view ("make mounts private: permission denied", seen on GitHub's ubuntu-24.04 runners). Diagnostics says why.
-- **`PR_SET_DUMPABLE=0` is not set in the parent.** Measured: a non-dumpable process gets `Portal operation not allowed: Unable to open /proc/<pid>/root` from every xdg-desktop-portal call (Settings, and with it the CDM file chooser and settings import/export). Crash capture (`debug.SetCrashOutput`) would not have been affected. The child cannot trace the parent anyway: seccomp denies `ptrace`/`process_vm_*`, and Landlock denies its `/proc` memory and environment.
+- **`PR_SET_DUMPABLE=0` is not set in the parent.** Measured: a non-dumpable process gets `Portal operation not allowed: Unable to open /proc/<pid>/root` from every xdg-desktop-portal call (Settings, and with it the file chooser for settings import/export). Crash capture (`debug.SetCrashOutput`) would not have been affected. The child cannot trace the parent anyway: seccomp denies `ptrace`/`process_vm_*`, and Landlock denies its `/proc` memory and environment.
 
 **Tests and evidence:**
 - `TestSandboxConfinesChild` runs a probe child that enters the real sandbox and tries each escape. The `namespaces` subtest uses the namespace path, `landlock only` the fallback. It checks:
@@ -154,3 +158,48 @@ Found after the review, by Dependabot alert #1: `github.com/disintegration/imagi
 - The binary no longer links `golang.org/x/image/tiff`, `golang.org/x/image/bmp`, `golang.org/x/image/webp` or `imaging`.
 
 **Tests:** `TestDecodeAcceptsOnlyJPEGAndPNG` (JPEG and PNG decode; TIFF in both byte orders, GIF, BMP, WebP, truncated magic and empty input fail with `ErrFormat`), `TestTIFFSourceRejected` (a TIFF from the CDN fails `Get`, `Backdrop` and `DominantColors`, is not cached, gets a 502, and a TIFF decoder registered with the `image` package is never called), `TestPNGSource`.
+
+## Widevine CDM downloader
+
+Sona downloads the Widevine CDM itself (`internal/playback/cdm`), with no prompt, once the network opens after the first paint, and checks for updates daily. Browser and system copies are never used. The only other source is the `SONA_WIDEVINE_CDM` environment variable, an explicit developer override that is logged as such and downloads nothing. The CDM is never bundled in a package or the binary, never redistributed and never patched. The threat is a network or mirror attacker getting Sona to install and `dlopen` a library that is not Google's genuine Widevine CDM.
+
+**Manifest trust and pinning** (`manifest.go`):
+- The version, size, SHA-512 and download URLs come from Mozilla's Firefox GMP manifest for Widevine (`toolkit/content/gmp-sources/widevinecdm.json`), the file Firefox's own GMP updater falls back to. Sona fetches it pinned to two URLs, in order: the GitHub mirror (`raw.githubusercontent.com/mozilla-firefox/firefox/refs/heads/main/…`), then `hg.mozilla.org/mozilla-central/raw-file/tip/…`. Only `raw.githubusercontent.com`, `hg.mozilla.org` and `hg-edge.mozilla.org` are allowed, redirects included. The document is capped at 1 MiB.
+- `hashFunction` must be `sha512` and every hash 64 bytes; anything else is `manifest_invalid`.
+- The version must be numeric (`^[0-9]{1,6}(\.[0-9]{1,6}){1,3}$`), because it names an install directory.
+- A platform entry's `alias` is followed for at most three hops. A platform with no entry (Linux arm64 today) is `unsupported_platform`.
+- The declared size must be between 1 byte and 64 MiB.
+
+**Package hosts** (`manifest.go`, `download.go`): the file URL and its mirrors are used only when they are `https`, without user info, on the default port and on `edgedl.me.gvt1.com`, `www.google.com` or `dl.google.com`; others are dropped, and an entry with none left is `untrusted_url`. Every redirect is checked against the same list (at most 5). Each URL is tried in turn.
+
+**Download limits** (`download.go`): the package streams to a temp file in the install directory, reading at most the manifest's size plus one byte (a larger `Content-Length` is refused up front as `too_large`), and a transfer that receives nothing for 60 s is cancelled. The size and SHA-512 must match the manifest (`hash_mismatch`).
+
+**CRX3 verification** (`crx3.go`), as Chromium's `crx_verifier.cc` does it:
+- The header is parsed by hand (magic `Cr24`, version 3, header at most 256 KiB, at most 16 proofs), not by a protobuf library.
+- A header containing a ZIP end-of-central-directory token (`PK\x05\x06`, `PK\x06\x07`, `PK\x06\x06`) is refused, so the archive cannot parse differently from what was signed.
+- The signed header's CRX ID must be `oimompecagnajdejgnnjijobebaeigek`, the Widevine component's ID.
+- There must be a proof by the Widevine component key and one by Google's publisher key, and every RSA and ECDSA proof in the header must verify (SHA-256 over `CRX3 SignedData\x00`, the signed header's length and bytes, and the archive). Any failure is `signature_invalid`.
+
+**Extraction** (`extract.go`, `binfmt.go`):
+- Only three entries are written, each under a fixed name: the platform's library, its `.sig` file (macOS and Windows) and the root `manifest.json`. All else is ignored.
+- Unsafe names (empty, absolute, `..` elements, backslashes, NUL, drive letters) anywhere in the archive, a wanted entry appearing twice, a non-regular entry, more than 64 entries, or an entry over its limit (64 MiB for the library, 64 KiB for the others, enforced on the bytes read whatever the header claims) are refused. The CRC is checked.
+- The component manifest must name `WidevineCdm` at the manifest's version.
+- The library's format must match the platform: a 64-bit ELF shared object for the right machine, a Mach-O dylib (or universal slice) for the right CPU, or a PE DLL.
+
+**Install** (`install.go`, `store.go`, `lock_*.go`):
+- Versions live in `<data>/widevine/<version>/<platform>/`. A staging directory is renamed into place, and `current.json` (current, previous, rejected versions, consecutive failures, last check) is replaced by an atomic rename. There are no symlinks. A cross-process lock (`flock` on `.lock`, `LockFileEx` on Windows) serialises installs between Sona, `cdmfetch`, `playspike` and tests.
+- A version is never downgraded: a manifest version not newer than the current one changes nothing, so a stale or replayed manifest can only point at older genuine packages, which are not installed.
+- Before a new version becomes current it must load in a sandboxed probe child (`cdmhost.LoadCheck`, 1 min). If it fails it is deleted and, when a working version exists, recorded as rejected and never fetched again.
+- `current.json` records the SHA-256 of each kept version's library, taken at install. `store.repair` drops a kept version whose library is missing or does not match: its directory is removed, a damaged current version falls back to an intact previous one, else to none, and the same version is downloaded again (not rejected, since the package was fine). It runs when the manager starts (after first paint), on every update check, in `Ensure` (`playspike`, `cdmtest`, `cdmfetch`), and at once when a playback host fails to load the CDM; such a failure then does not count towards rollback and the download starts immediately.
+- After 3 consecutive failed host starts with the current version, the previous version becomes current again and the failed one is removed and rejected. Hosts using the override are not counted.
+- Old versions and leftovers are pruned. A new version applies to the next playback host, never a running one.
+
+**Sandbox** (`cdmhost/host.go`, `sandbox_fs.go`): the parent passes the CDM library's directory to the child (`SONA_CDMHOST_CDM_DIR`). The child keeps it in its filesystem view and bind-mounts it read-only wherever it lies, also under the private `/tmp`, where Landlock would otherwise allow writes. Code in the CDM cannot replace the installed library or `current.json`.
+
+**Tests:** `internal/playback/cdm` (`manifest_test.go`, `crx3_test.go`, `extract_test.go`, `install_test.go`, `manager_test.go`, against fixture packages signed with test keys; `live_test.go` against the real manifest and package).
+
+**Residual risks:**
+- Sona trusts Mozilla's manifest (its repository and the GitHub mirror) for which version to fetch, and Google's Widevine component key and publisher key for what is genuine. A compromised manifest could withhold updates, point at an unsupported or older platform entry (refused if older than the current one, but accepted on a first install), or make every check fail. It cannot make Sona install anything not signed by both Google keys and served from Google's hosts, since the CRX3 proofs, the CRX ID and the component manifest are checked independently of it.
+- A genuine but older Google build is acceptable on a first install. It is still Google's signed CDM.
+- When the playback sandbox is unavailable, the load check is skipped (logged) and the CDM host refuses to load the CDM anyway (F3).
+- The CDM itself remains Google's closed code running in the sandboxed child (F2's residual risks apply).

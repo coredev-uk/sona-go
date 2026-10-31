@@ -16,8 +16,8 @@ maintainer: "Core <core@coredev.uk>"
 description: |
   Apple Music for the Linux desktop.
   A native GTK4/WebKitGTK client with full-track playback through the
-  Widevine CDM of the user's installed Google Chrome (detected at runtime,
-  never bundled), GStreamer decoding and PipeWire/PulseAudio output, MPRIS
+  Widevine CDM, which Sona downloads from Google at runtime (never
+  bundled), GStreamer decoding and PipeWire/PulseAudio output, MPRIS
   media controls and music:// link handling.
 vendor: "Sona"
 homepage: "https://github.com/coredev-uk/sona-go"
@@ -63,8 +63,8 @@ contents:
 # AAC decoder (avdec_aac from libav) + a PipeWire or PulseAudio sink for the
 # playback host; bad for WebKit's media players (its WebVTT encoder,
 # webvttenc, and the video parsers motion artwork and music videos use).
-# The Widevine CDM is a recommendation only: Sona detects the one in the
-# user's Google Chrome at runtime and never ships or downloads it.
+# The Widevine CDM is no dependency: Sona downloads it from Google at
+# runtime and never ships it.
 depends:
   - libgtk-4-1
   - libwebkitgtk-6.0-4
@@ -76,7 +76,6 @@ depends:
   - gstreamer1.0-libav
   - gstreamer1.0-pipewire | gstreamer1.0-pulseaudio
 recommends:
-  - google-chrome-stable
   - gstreamer1.0-pipewire
 
 overrides:
@@ -93,11 +92,10 @@ overrides:
       - gstreamer1-plugins-bad-free
       - gstreamer1-plugin-libav
     recommends:
-      - google-chrome-stable
       - pipewire-gstreamer
   archlinux:
     # nfpm's Arch packager writes depends only (no optdepends), so the
-    # Chrome CDM and gst-plugin-pipewire recommendations do not carry over.
+    # gst-plugin-pipewire recommendation does not carry over.
     depends:
       - gtk4
       - webkitgtk-6.0

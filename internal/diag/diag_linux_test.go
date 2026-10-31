@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/logging"
+	"github.com/coredev-uk/sona-go/internal/playback/cdm/cdmtest"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
-	"github.com/coredev-uk/sona-go/internal/playback/widevine"
 )
 
 func init() {
@@ -27,12 +27,7 @@ func init() {
 // report and stderr tail, and that record reaches the bundle without the
 // tokens logged around it.
 func TestChildCrashInBundle(t *testing.T) {
-	if os.Getenv("SONA_WIDEVINE_CDM") == "" {
-		t.Skip("SONA_WIDEVINE_CDM not set")
-	}
-	if _, _, err := widevine.FindCDM(""); err != nil {
-		t.Skip("no Widevine CDM installed:", err)
-	}
+	lib := cdmtest.Library(t)
 	dir := t.TempDir()
 	logFile := filepath.Join(dir, "sona.log")
 	log, closeLog, err := logging.New(logging.Options{File: logFile, Level: slog.LevelInfo})
@@ -43,7 +38,7 @@ func TestChildCrashInBundle(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	h, err := cdmhost.Start(ctx, cdmhost.Options{Sink: "fakesink", Logger: log})
+	h, err := cdmhost.Start(ctx, cdmhost.Options{CDMPath: lib, Sink: "fakesink", Logger: log})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -44,7 +44,7 @@ type probeKey struct {
 // CDM: for every variant it loads the media playlist and requests a
 // Widevine licence for each key through applemusic.AcquireLicense, the
 // way playback does, and prints one row per variant and key.
-func runProbeLossless(log *slog.Logger, envFile, songID, cdm string) error {
+func runProbeLossless(log *slog.Logger, envFile, songID, lib string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	api, sf, err := signIn(ctx, envFile)
@@ -71,7 +71,7 @@ func runProbeLossless(log *slog.Logger, envFile, songID, cdm string) error {
 		return err
 	}
 
-	h, err := cdmhost.Start(ctx, cdmhost.Options{CDMPath: cdm, Sink: "fakesink", Logger: log})
+	h, err := cdmhost.Start(ctx, cdmhost.Options{CDMPath: lib, Sink: "fakesink", Logger: log})
 	if err != nil {
 		return fmt.Errorf("cdm host: %w", err)
 	}

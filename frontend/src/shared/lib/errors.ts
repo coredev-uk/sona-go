@@ -44,6 +44,7 @@ const codeMessages: Record<string, MessageDescriptor> = {
   pins_full: msg`You have six pins. Unpin one to make room.`,
   not_configured: msg`This build of Sona has no account for that service.`,
   unsupported: msg`That isn't available on this platform.`,
+  no_cdm: msg`Sona needs Google's Widevine to play songs, and it isn't ready yet. Settings → Playback shows its progress.`,
 };
 
 /** Whether `code` has its own translated wording (else the message is Go's text). */

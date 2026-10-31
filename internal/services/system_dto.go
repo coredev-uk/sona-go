@@ -45,7 +45,12 @@ type DiagPlayback struct {
 	// Engine is the playback engine's kind ("cdm"), or "" when this
 	// platform has none: playback is unavailable and the CDM fields stay
 	// empty.
-	Engine        string `json:"engine"`
+	Engine string `json:"engine"`
+	// CDM is the Widevine CDM's source, version and download state
+	// (CDMService.Status).
+	CDM CDMStatus `json:"cdm"`
+	// The CDM fields below are the probe child's report of the CDM a new
+	// playback host would load (empty with no CDM ready).
 	CDMPath       string `json:"cdmPath"`
 	CDMVersion    string `json:"cdmVersion"`
 	CDMOK         bool   `json:"cdmOk"` // the CDM initialised in a probe child
