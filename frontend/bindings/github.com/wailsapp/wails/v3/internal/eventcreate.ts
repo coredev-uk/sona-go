@@ -23,11 +23,12 @@ function configure() {
         "playback:state": $$createType5,
         "playlists:changed": $$createType6,
         "power:changed": $$createType7,
-        "scrobble:changed": $$createType8,
-        "settings:changed": $$createType9,
-        "sync:done": $$createType10,
-        "sync:progress": $$createType11,
-        "updates:available": $$createType12,
+        "private:changed": $$createType8,
+        "scrobble:changed": $$createType9,
+        "settings:changed": $$createType10,
+        "sync:done": $$createType11,
+        "sync:progress": $$createType12,
+        "updates:available": $$createType13,
     }));
 }
 
@@ -40,10 +41,11 @@ const $$createType4 = services$0.QueueState.createFrom;
 const $$createType5 = services$0.PlaybackState.createFrom;
 const $$createType6 = services$0.PlaylistsChanged.createFrom;
 const $$createType7 = services$0.PowerState.createFrom;
-const $$createType8 = services$0.ScrobbleStatus.createFrom;
-const $$createType9 = config$0.Settings.createFrom;
-const $$createType10 = services$0.SyncDone.createFrom;
-const $$createType11 = services$0.SyncProgress.createFrom;
-const $$createType12 = services$0.UpdateStatus.createFrom;
+const $$createType8 = services$0.PrivateState.createFrom;
+const $$createType9 = services$0.ScrobbleStatus.createFrom;
+const $$createType10 = config$0.Settings.createFrom;
+const $$createType11 = services$0.SyncDone.createFrom;
+const $$createType12 = services$0.SyncProgress.createFrom;
+const $$createType13 = services$0.UpdateStatus.createFrom;
 
 configure();

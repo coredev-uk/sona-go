@@ -19,6 +19,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/diag"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
 
 // Window names and documents.
@@ -45,6 +46,8 @@ type Options struct {
 	// Coord drives the tray's transport items and their state.
 	Coord  *coordinator.Coordinator
 	Logger *slog.Logger
+	// Private is private listening, a checkbox in the tray (nil: none).
+	Private *privatemode.Mode
 	// WindowIcon is the windows' icon; TrayIcon the tray's (a small PNG).
 	WindowIcon []byte
 	TrayIcon   []byte

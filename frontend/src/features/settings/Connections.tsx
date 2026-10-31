@@ -8,6 +8,7 @@ import { CircleAlert, ExternalLink, LoaderCircle, ShieldAlert } from "lucide-rea
 import { useId, useRef, useState, type FormEvent, type ReactNode, type Ref } from "react";
 import { toast } from "sonner";
 
+import { usePrivate } from "@/features/private";
 import { callFailure } from "@/shared/lib/errors";
 import { Button } from "@/shared/ui/button";
 import {
@@ -330,6 +331,7 @@ function ScrobblingPanel() {
   const anyConnected = !!lastfm?.connected || !!lb?.connected;
   const statusError = status.error ? callFailure(status.error).message : "";
   const confirmName = confirm ? PROVIDER_NAMES[confirm] : "";
+  const privateOn = usePrivate((p) => p.state?.on ?? false);
 
   return (
     <section aria-labelledby="scrobbling-title" className="flex flex-col gap-3">
@@ -343,6 +345,11 @@ function ScrobblingPanel() {
             seconds or less aren't sent. Songs you play offline are sent when you're back online.
           </Trans>
         </p>
+        {privateOn && (
+          <p className="mt-1 max-w-[64ch] text-sub text-ink">
+            <Trans>Nothing is scrobbled while private listening is on.</Trans>
+          </p>
+        )}
       </div>
       <SettingsPanel>
         <ProviderRow

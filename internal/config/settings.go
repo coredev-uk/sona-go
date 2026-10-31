@@ -73,6 +73,8 @@ type Settings struct {
 	Storage Storage `json:"storage"`
 	// Crossfade overlaps tracks of different albums (crossfade.go).
 	Crossfade Crossfade `json:"crossfade"`
+	// Private is private listening (private.go).
+	Private Private `json:"private"`
 }
 
 // Diagnostics are WebKitGTK rendering workarounds exposed as toggles. They

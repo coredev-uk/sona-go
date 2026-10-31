@@ -17,6 +17,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/mpris"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
 
 const (
@@ -64,14 +65,20 @@ func newIntegrationsService(e *Env) *IntegrationsService {
 		done:    make(chan struct{}),
 	}
 	s.status.Discord.Configured = discord.ClientID() != ""
+	poke := func() {
+		select {
+		case s.changed <- struct{}{}:
+		default:
+		}
+	}
 	e.Settings.OnChange(func(prev, next config.Settings) {
 		if prev.Integrations != next.Integrations {
-			select {
-			case s.changed <- struct{}{}:
-			default:
-			}
+			poke()
 		}
 	})
+	if e.Private != nil {
+		e.Private.OnChange(func(privatemode.State) { poke() })
+	}
 	// D-Bus and the Discord socket are local, but nothing extra touches
 	// them before the first paint.
 	e.OnNetwork(func() {
@@ -151,7 +158,7 @@ func (s *IntegrationsService) run() {
 		st   integrationsState
 	)
 	apply := func() {
-		p := st.plan(last, s.e.Settings.Get().Integrations)
+		p := st.plan(last, s.e.Settings.Get().Integrations, s.e.Private.Since, s.e.Now())
 		if p.announce != nil && s.e.Bus != nil {
 			s.announce(*p.announce)
 		}
@@ -200,6 +207,10 @@ func (s *IntegrationsService) run() {
 type integrationsState struct {
 	notified  uint64 // queue slot last announced (UIDs start at 1)
 	inhibited bool
+	// playing is the queue slot last seen playing and playingAt when it
+	// started, which is when its listen began for private mode.
+	playing   uint64
+	playingAt time.Time
 }
 
 // integrationsPlan is what to do for one snapshot.
@@ -209,8 +220,9 @@ type integrationsPlan struct {
 	presence *presenceWant     // the Discord presence; nil leaves it as is
 }
 
-// plan decides the integrations' actions for snap under set.
-func (st *integrationsState) plan(snap coordinator.Snapshot, set config.Integrations) integrationsPlan {
+// plan decides the integrations' actions for snap under set at now;
+// private is privatemode.Mode.Since (nil: never private).
+func (st *integrationsState) plan(snap coordinator.Snapshot, set config.Integrations, private func(time.Time) bool, now time.Time) integrationsPlan {
 	var p integrationsPlan
 	// Notifications: once per queue slot, when it starts playing (a slot
 	// restored paused is announced when it is played). The slot counts as
@@ -230,10 +242,16 @@ func (st *integrationsState) plan(snap coordinator.Snapshot, set config.Integrat
 		p.inhibit = &want
 	}
 	// Discord: the track while it plays, cleared otherwise; left as is
-	// while the next track loads so it does not flicker.
+	// while the next track loads so it does not flicker. A private listen
+	// (private mode on at any point since its slot started playing) shows
+	// nothing.
+	if cur := snap.Current; cur != nil && snap.State == playback.StatePlaying && cur.UID != st.playing {
+		st.playing, st.playingAt = cur.UID, now
+	}
 	if snap.State != playback.StateLoading {
 		w := presenceWant{enabled: set.DiscordPresence}
-		if set.DiscordPresence {
+		hidden := private != nil && snap.Current != nil && private(st.playingAt)
+		if set.DiscordPresence && !hidden {
 			w.act = presenceFor(snap)
 		}
 		p.presence = &w

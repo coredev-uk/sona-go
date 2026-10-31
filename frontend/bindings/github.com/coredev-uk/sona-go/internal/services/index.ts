@@ -11,6 +11,7 @@ import * as LibraryService from "./libraryservice.js";
 import * as MotionService from "./motionservice.js";
 import * as PlaybackService from "./playbackservice.js";
 import * as PlaylistsService from "./playlistsservice.js";
+import * as PrivateService from "./privateservice.js";
 import * as RadioService from "./radioservice.js";
 import * as ScrobbleService from "./scrobbleservice.js";
 import * as SearchService from "./searchservice.js";
@@ -28,6 +29,7 @@ export {
     MotionService,
     PlaybackService,
     PlaylistsService,
+    PrivateService,
     RadioService,
     ScrobbleService,
     SearchService,
@@ -107,6 +109,7 @@ export {
     PlaylistTree,
     PlaylistsChanged,
     PowerState,
+    PrivateState,
     ProfileDetail,
     QueueContainer,
     QueueItem,

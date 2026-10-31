@@ -21,6 +21,7 @@ import {
 import { useState, type ReactNode } from "react";
 
 import { EqualizerButton } from "@/features/equalizer";
+import { PrivateButton } from "@/features/private";
 import { useOnAirProgramme } from "@/features/radio";
 import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
@@ -382,6 +383,7 @@ export function NowPlayingBar() {
         </div>
 
         <div className="flex items-center justify-end gap-1">
+          <PrivateButton />
           <SleepTimer disabled={idle} />
           <IconButton
             label={t`Lyrics`}

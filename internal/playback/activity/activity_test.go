@@ -17,6 +17,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth/devtoken"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
 
 type dev struct{}
@@ -328,4 +329,117 @@ func mapsEqual(a, b map[string]any) bool {
 		}
 	}
 	return true
+}
+
+// privateFlags returns each delivered event's "private-enabled" as sent;
+// a missing field fails the test.
+func privateFlags(t *testing.T, a *apple) []bool {
+	t.Helper()
+	var out []bool
+	for i, e := range a.got() {
+		v, ok := e["private-enabled"].(bool)
+		if !ok {
+			t.Fatalf("event %d has no private-enabled: %v", i, e)
+		}
+		out = append(out, v)
+	}
+	return out
+}
+
+func sameBools(a, b []bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// A development build with the saved setting off reports every event as
+// private; a release build with it off reports them as public; the saved
+// setting is never written.
+func TestPrivateModeMarksEvents(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		o    privatemode.Options
+		want bool
+	}{
+		{"development build, setting off", privatemode.Options{Dev: true}, true},
+		{"release build, setting off", privatemode.Options{}, false},
+		{"release build, setting on", privatemode.Options{Saved: true}, true},
+		{"development build, SONA_PRIVATE=0", privatemode.Options{Dev: true, Override: privatemode.OverrideOff}, false},
+		{"release build, SONA_PRIVATE=1", privatemode.Options{Override: privatemode.OverrideOn}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			saves := 0
+			tc.o.Save = func(bool) error { saves++; return nil }
+			m := privatemode.New(tc.o)
+			a, client := newApple(t)
+			r, err := New(Options{Client: client, Private: m.Since})
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.Observe(act(coordinator.ActivityStart, 0))
+			end := act(coordinator.ActivityEnd, 60*time.Second)
+			end.Reason = coordinator.EndNatural
+			r.Observe(end)
+			eventually(t, "2 events", func() bool { return len(a.got()) == 2 })
+			if err := r.Close(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			if got := privateFlags(t, a); !sameBools(got, []bool{tc.want, tc.want}) {
+				t.Errorf("private-enabled = %v, want %v", got, tc.want)
+			}
+			if saves != 0 {
+				t.Errorf("the saved setting was written %d times", saves)
+			}
+		})
+	}
+}
+
+// Toggling applies from the next event: turning private mode on keeps the
+// rest of the listen private, turning it off leaves the listen in progress
+// (and its resume after a pause) private, and the next listen is public.
+func TestPrivateToggleMidListen(t *testing.T) {
+	m := privatemode.New(privatemode.Options{})
+	a, client := newApple(t)
+	r, err := New(Options{Client: client, Private: m.Since})
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := func(on bool) {
+		t.Helper()
+		if _, err := m.Set(on); err != nil {
+			t.Fatal(err)
+		}
+	}
+	end := func(pos time.Duration, reason coordinator.EndReason) coordinator.Activity {
+		e := act(coordinator.ActivityEnd, pos)
+		e.Reason = reason
+		return e
+	}
+
+	r.Observe(act(coordinator.ActivityStart, 0)) // public start
+	set(true)
+	seek := act(coordinator.ActivitySeek, 90*time.Second)
+	seek.From = 10 * time.Second
+	r.Observe(seek)                                        // private SCRUB_BEGIN + SCRUB_END
+	r.Observe(end(100*time.Second, coordinator.EndPaused)) // private
+	set(false)
+	r.Observe(act(coordinator.ActivityStart, 100*time.Second))  // resume: still private
+	r.Observe(end(120*time.Second, coordinator.EndSkipForward)) // private
+	next := coordinator.Activity{Kind: coordinator.ActivityStart, Item: coordinator.Item{ID: "1109715170", Duration: time.Minute}, At: time.Now()}
+	r.Observe(next) // the next listen: public
+
+	want := []bool{false, true, true, true, true, true, false}
+	eventually(t, "7 events", func() bool { return len(a.got()) == len(want) })
+	if err := r.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := privateFlags(t, a); !sameBools(got, want) {
+		t.Errorf("private-enabled = %v, want %v", got, want)
+	}
 }

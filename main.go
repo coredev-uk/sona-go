@@ -37,6 +37,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/playback/native"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/shell"
 )
@@ -82,6 +83,11 @@ func main() {
 			fmt.Println("sona", version)
 			return
 		}
+	}
+	// `sona private on` and other subcommands act on the running instance
+	// and exit; they never start Sona.
+	if app.IsCommand(os.Args[1:]) {
+		os.Exit(app.RunCommand(os.Args[1:], os.Stdout, os.Stderr))
 	}
 
 	started := time.Now()
@@ -210,6 +216,24 @@ func run(started time.Time) error {
 	})
 	defer engine.Close()
 
+	// Private listening: the one switch every play reporter asks (Apple
+	// play activity, local history, scrobbles, Discord). Development builds
+	// start private as a session override that never writes the setting;
+	// SONA_PRIVATE=1 forces it, SONA_PRIVATE=0 opts a development build out.
+	override, err := privatemode.Env(os.Getenv(privatemode.EnvVar))
+	if err != nil {
+		log.Warn("private listening", "err", err)
+	}
+	private := privatemode.New(privatemode.Options{
+		Saved: cur.Private.Enabled, Dev: devMode, Override: override,
+		Save: func(on bool) error {
+			_, err := settings.Update(func(s *config.Settings) { s.Private.Enabled = on })
+			return err
+		},
+	})
+	pst := private.State()
+	log.Info("startup: private listening", "on", pst.On, "source", pst.Source)
+
 	// Apple play-activity reporting (what the web player sends, so plays
 	// count in Recently Played and recommendations). Undelivered events are
 	// kept in the state dir, without tokens.
@@ -219,6 +243,7 @@ func run(started time.Time) error {
 		StatePath:  filepath.Join(paths.State, "play-activity.json"),
 		AppVersion: version,
 		Logger:     log.With("component", "activity"),
+		Private:    private.Since,
 	})
 	if err != nil {
 		return err
@@ -234,7 +259,7 @@ func run(started time.Time) error {
 	}()
 
 	queueFile := filepath.Join(paths.State, "queue.json")
-	history := &services.History{DB: d, Logger: log}
+	history := &services.History{DB: d, Logger: log, Private: private.Since}
 	coord, err := coordinator.New(coordinator.Options{
 		Engine:     engine,
 		Logger:     log.With("component", "coordinator"),
@@ -277,7 +302,7 @@ func run(started time.Time) error {
 	sh := shell.New(shell.Options{
 		App: wapp, Settings: settings, Coord: coord, Logger: log.With("component", "shell"),
 		WindowIcon: appIcon, TrayIcon: trayIcon, Background: windowBackground(cur.Theme),
-		Hidden: act.Hidden(),
+		Hidden: act.Hidden(), Private: private,
 	})
 	defer sh.Close() // after core.Close, before coord.Close
 	log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "webkitgtk", webkitVersion(), "hidden", act.Hidden())
@@ -285,7 +310,7 @@ func run(started time.Time) error {
 	core := services.New(services.Deps{
 		Paths: paths, QueueFile: queueFile, Settings: settings, DB: d, Auth: authm, API: api,
 		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, Coord: coord,
-		History: history, Storefront: storefront, Gate: gate, Emit: wapp.Event, Logger: log,
+		History: history, Private: private, Storefront: storefront, Gate: gate, Emit: wapp.Event, Logger: log,
 		OpenURL: wapp.Browser.OpenURL, Focus: sh.ShowMain, Focused: sh.MainFocused, Windows: sh, Bus: conn,
 		Version: version, WebKit: webkitVersion(), Started: started,
 	})
@@ -307,6 +332,7 @@ func run(started time.Time) error {
 
 	core.Activate(act, false)
 	if instance != nil {
+		instance.HandleCommands(app.Commands{"private": private.Command})
 		go func() {
 			for a := range instance.Activations() {
 				core.Activate(a, true)

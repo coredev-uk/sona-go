@@ -9,6 +9,7 @@ export {
     Equalizer,
     Integrations,
     MotionArtwork,
+    Private,
     Queue,
     ScrobbleAccount,
     Scrobbling,

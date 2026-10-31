@@ -3993,6 +3993,50 @@ export class PowerState {
 }
 
 /**
+ * PrivateState is private listening as it applies now.
+ */
+export class PrivateState {
+    "on": boolean;
+
+    /**
+     * Source is where On comes from: "setting" (the saved setting; toggling
+     * saves it), "development" (a development build starts private;
+     * toggling changes this session only and never the saved setting) or
+     * "environment" (SONA_PRIVATE=1 forces it on; it cannot be turned off).
+     */
+    "source": string;
+
+    /**
+     * Saved is the saved setting, which differs from On only while
+     * Source is not "setting".
+     */
+    "saved": boolean;
+
+    /** Creates a new PrivateState instance. */
+    constructor($$source: Partial<PrivateState> = {}) {
+        if (!("on" in $$source)) {
+            this["on"] = false;
+        }
+        if (!("source" in $$source)) {
+            this["source"] = "";
+        }
+        if (!("saved" in $$source)) {
+            this["saved"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PrivateState instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PrivateState {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PrivateState($$parsedSource as Partial<PrivateState>);
+    }
+}
+
+/**
  * ProfileDetail is a profile page: the profile and its public playlists.
  */
 export class ProfileDetail {

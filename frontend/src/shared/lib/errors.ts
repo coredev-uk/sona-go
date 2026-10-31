@@ -38,6 +38,7 @@ const codeMessages: Record<string, MessageDescriptor> = {
   not_found: msg`It couldn't be found. It may have been removed.`,
   not_playable: msg`This song isn't available to stream in your storefront.`,
   sync_running: msg`A library sync is already running.`,
+  private_forced: msg`Private listening stays on because Sona was started with SONA_PRIVATE=1.`,
   invalid_argument: msg`That value isn't valid.`,
   conflict: msg`It changed elsewhere since Sona read it. Reload and try again.`,
   pins_full: msg`You have six pins. Unpin one to make room.`,

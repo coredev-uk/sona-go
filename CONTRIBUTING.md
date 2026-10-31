@@ -33,6 +33,18 @@ path and `SONA_WIDEVINE_CDM`. Shell shortcuts: `build`, `dev`, `gen`, `fmt`,
 Local secrets: `.env` (ignored) may hold `MUSIC_USER_TOKEN` for
 `cmd/playspike` and live tests. Never print, log or commit it.
 
+Private mode for development and testing: a development build (any build
+without the `production` tag: `wails3 dev`, `go run .`, plain `go build`)
+starts with private listening on, whatever the saved setting says. Toggling it
+then lasts for the session only and never writes the setting; the toggle reads
+"Private (development build)". `SONA_PRIVATE=1` forces private mode in any
+build (it cannot be turned off for that run); `SONA_PRIVATE=0` makes a
+development build follow the saved setting, for a deliberate live check.
+`cmd/playspike -activity` is private by default (`-private=false` reports the
+plays to the account), and the live tests refuse to run without
+`SONA_PRIVATE=1`. Every test, smoke or live check that plays music runs in
+private mode.
+
 ## Checks
 
 Run before sending a change (CI runs the same on every push and pull request,

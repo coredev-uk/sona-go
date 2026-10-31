@@ -37,6 +37,10 @@ type Options struct {
 	StatePath  string
 	AppVersion string // reported in build-version ("Sona/<version> …")
 	Logger     *slog.Logger
+	// Private reports whether a listen that started at start is private
+	// (privatemode.Mode.Since); its events then carry "private-enabled".
+	// It is asked for every event as it is made. nil means never.
+	Private func(start time.Time) bool
 }
 
 // Limits.
@@ -53,6 +57,7 @@ type Reporter struct {
 	storefront func() string
 	path       string
 	log        *slog.Logger
+	private    func(time.Time) bool
 	build      string
 	userAgent  string
 	now        func() time.Time
@@ -77,7 +82,9 @@ type last struct {
 	position time.Duration
 	duration time.Duration
 	mode     coordinator.PlayMode
-	hint     int // event-reason-hint-type of its PLAY_START
+	hint     int       // event-reason-hint-type of its PLAY_START
+	started  time.Time // when its listen began (a resume keeps the paused one's)
+	paused   bool      // ended by a pause
 }
 
 // New returns a running Reporter, re-queueing events saved by a previous
@@ -101,6 +108,7 @@ func newReporter(o Options, backoff func(attempt int) time.Duration) (*Reporter,
 		storefront: o.Storefront,
 		path:       o.StatePath,
 		log:        log.With("component", "play-activity"),
+		private:    o.Private,
 		build:      buildVersion(version),
 		userAgent:  fmt.Sprintf("Mozilla/5.0 (X11; Linux %s) Sona/%s", machine(), version),
 		now:        time.Now,
@@ -162,7 +170,16 @@ func (r *Reporter) Observe(a coordinator.Activity) {
 		if c := a.Item.Container; c.ID != "" && (r.prev == nil || r.prev.item.Container.ID != c.ID) {
 			hint = applemusic.PlayHintContainerChanged
 		}
-		r.prev = &last{item: a.Item, position: a.Position, duration: duration(a), mode: a.Mode, hint: hint}
+		started := a.At
+		if started.IsZero() {
+			started = r.now()
+		}
+		// A resume continues the paused listen, which stays private if it
+		// was private at any point since it began.
+		if p := r.prev; p != nil && p.paused && p.item.ID == a.Item.ID {
+			started = p.started
+		}
+		r.prev = &last{item: a.Item, position: a.Position, duration: duration(a), mode: a.Mode, hint: hint, started: started}
 		r.enqueueLocked(r.eventLocked(a.At, applemusic.PlayEventStart, a.Position, a.Position, nil))
 	case coordinator.ActivitySeek:
 		if !r.open || r.prev == nil || r.prev.item.ID != a.Item.ID {
@@ -177,6 +194,7 @@ func (r *Reporter) Observe(a coordinator.Activity) {
 		}
 		r.open = false
 		r.endLocked(a.At, a.Position, endReason(a.Reason))
+		r.prev.paused = a.Reason == coordinator.EndPaused
 	}
 }
 
@@ -239,6 +257,9 @@ func (r *Reporter) eventLocked(at time.Time, kind int, start, pos time.Duration,
 		UTCOffsetSeconds: offset,
 		SourceType:       applemusic.PlaySourceMusicKit,
 		Subscribed:       true,
+		// Asked as the event is made: a toggle applies from the next event,
+		// and a listen private at any point since its start stays private.
+		PrivateEnabled: r.private != nil && r.private(r.prev.started),
 	}
 	if id := r.prev.item.ID; libraryID.MatchString(id) {
 		e.IDs = map[string]string{"cloud-id": id}

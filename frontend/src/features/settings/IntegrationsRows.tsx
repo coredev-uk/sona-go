@@ -1,6 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import type { Settings } from "@bindings/config";
 
+import { usePrivate } from "@/features/private";
 import { Switch } from "@/shared/ui/switch";
 
 import { useIntegrationsStatus } from "./integrations";
@@ -69,6 +70,7 @@ export function IntegrationsDesktopRows() {
 export function IntegrationsConnectionsRows() {
   const { s, status, save } = useIntegrations();
   const { t } = useLingui();
+  const privateOn = usePrivate((p) => p.state?.on ?? false);
   const configured = status?.discord.configured ?? false;
   const discordDescription = (on: boolean) => {
     if (status && !status.discord.configured) {
@@ -76,6 +78,9 @@ export function IntegrationsConnectionsRows() {
     }
     if (!on || !status) {
       return t`Shows the song you're playing, with its artwork and time, as your Discord activity. Cleared when you pause.`;
+    }
+    if (privateOn) {
+      return t`Shows the song you're playing, with its artwork and time, as your Discord activity. Nothing is shown while private listening is on.`;
     }
     return status.discord.connected
       ? t`Shows the song you're playing, with its artwork and time, as your Discord activity. Cleared when you pause. Connected to Discord.`

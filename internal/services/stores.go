@@ -70,6 +70,10 @@ type History struct {
 	// Context returns the current queue label (coordinator Snapshot
 	// Context); nil records none.
 	Context func() string
+	// Private reports whether a listen that started at start is private
+	// (privatemode.Mode.Since): it is not recorded or shown as in
+	// progress. nil means never.
+	Private func(start time.Time) bool
 
 	mu      sync.Mutex
 	current listen // the latest listen started here
@@ -84,12 +88,24 @@ type listen struct {
 
 // Record implements coordinator.Options.OnPlayed. Live radio and episodes
 // ("ra.…") are not songs and are not recorded (Apple keeps the station
-// history, RadioService.Recent).
+// history, RadioService.Recent), nor are private listens.
 func (h *History) Record(item coordinator.Item, playedFor time.Duration, _ bool) {
 	if isStationID(item.ID) {
 		return
 	}
 	now := time.Now()
+	start := now.Add(-playedFor)
+	h.mu.Lock()
+	// The listen in progress knows when it began (pauses make that earlier
+	// than its listening time says), unless it is a new listen of the same
+	// song (repeat one) that began as this one ended.
+	if c := h.current; c.item.ID == item.ID && !c.at.After(now.Add(-playedFor/2)) {
+		start = c.at
+	}
+	h.mu.Unlock()
+	if h.private(start) {
+		return
+	}
 	p := dbq.InsertHistoryParams{
 		PlayedAt:        db.Millis(now.Add(-playedFor)),
 		ItemID:          item.ID,
@@ -144,7 +160,7 @@ func (h *History) started(ctx context.Context) []library.Play {
 	h.mu.Lock()
 	c := h.current
 	h.mu.Unlock()
-	if c.item.ID == "" || c.recorded {
+	if c.item.ID == "" || c.recorded || h.private(c.at) {
 		return nil
 	}
 	p := library.Play{
@@ -164,6 +180,10 @@ func (h *History) started(ctx context.Context) []library.Play {
 		}
 	}
 	return []library.Play{p}
+}
+
+func (h *History) private(start time.Time) bool {
+	return h.Private != nil && h.Private(start)
 }
 
 // trim deletes history older than historyRetention.

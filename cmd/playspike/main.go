@@ -6,6 +6,8 @@
 //
 // Usage: playspike [-env .env] [-song ID | -term "query"] [-seek 90] [-next-term "query"] [-crash] [-quality 256|64]
 //
+//	playspike -activity [-private=false]       play activity, private by default (Recently Played must stay unchanged)
+//
 //	playspike -soak 3h [-soak-items ID,ID,…]   long session: licence renewals and stalls
 //	playspike -probe-lossless SONG_ID          Widevine licences for every enhancedHls variant
 package main
@@ -29,6 +31,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/playback/native"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
 
 func main() {
@@ -46,6 +49,7 @@ func main() {
 	cdm := flag.String("cdm", "", "Widevine CDM path (default: discover)")
 	activity := flag.Bool("activity", false, "play -song (or -term's hit) then -next (or -next-term's) through the coordinator with Apple play-activity reporting, and check Recently Played")
 	container := flag.String("container", "", "with -activity: kind:id (album, playlist or station) the songs are queued from, reported with the plays and looked for in Recently Played")
+	private := flag.Bool("private", true, "with -activity: report the plays as private (\"private-enabled\": true; kept out of the listening history) and check Recently Played stays unchanged; -private=false reports them to the account and checks they show up. SONA_PRIVATE=1 forces private")
 	quality := flag.Int("quality", 256, "AAC bitrate to play: 256 or 64 (kbps)")
 	soak := flag.Duration("soak", 0, "play -soak-items (or the first 25 hits for -term) back to back for this long, logging licence renewals and stalls")
 	soakItems := flag.String("soak-items", "", "comma-separated song or station (ra.…) IDs for -soak")
@@ -75,7 +79,15 @@ func main() {
 		}
 		err = runSoak(log, *envFile, items, *term, *soak, *cdm, q)
 	case *activity:
-		err = runActivity(log, *envFile, *songID, *term, *nextID, *nextTerm, *listen, *cdm, *container)
+		// SONA_PRIVATE=1 (and any value privatemode.Env does not read as
+		// off) wins over -private=false.
+		if o, err := privatemode.Env(os.Getenv(privatemode.EnvVar)); o == privatemode.OverrideOn {
+			if err != nil {
+				log.Warn("playspike", "err", err)
+			}
+			*private = true
+		}
+		err = runActivity(log, *envFile, *songID, *term, *nextID, *nextTerm, *listen, *cdm, *container, *private)
 	default:
 		err = run(log, *envFile, *songID, *term, *seekTo, *listen, *nextID, *nextTerm, *gap, *crash, *cdm, q)
 	}

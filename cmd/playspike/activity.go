@@ -18,11 +18,14 @@ import (
 
 // runActivity proves play-activity reporting: it plays songID (or term's
 // first hit) for listen (≥30 s), skips to nextID (or nextTerm's), stops,
-// and polls Apple's Recently Played until the first song shows up at the
-// top. With container ("album:1440…", "playlist:pl.…", "station:ra.…")
-// the songs are queued from it, and it must also appear in Recently
-// Played's containers.
-func runActivity(log *slog.Logger, envFile, songID, term, nextID, nextTerm string, listen time.Duration, cdm, container string) error {
+// and polls Apple's Recently Played. With container ("album:1440…",
+// "playlist:pl.…", "station:ra.…") the songs are queued from it.
+//
+// private (the default) marks every event "private-enabled": the check is
+// then that Recently Played (songs and containers) stays as it was for
+// privateWatch. Without it the plays are reported to the account and the
+// first song (and the container) must show up at the top.
+func runActivity(log *slog.Logger, envFile, songID, term, nextID, nextTerm string, listen time.Duration, cdm, container string, private bool) error {
 	var from coordinator.Container
 	if container != "" {
 		kind, id, ok := strings.Cut(container, ":")
@@ -31,7 +34,7 @@ func runActivity(log *slog.Logger, envFile, songID, term, nextID, nextTerm strin
 			return fmt.Errorf("-container %q: want album:<id>, playlist:<id>, artist:<id> or station:<id>", container)
 		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 	api, sf, err := signIn(ctx, envFile)
 	if err != nil {
@@ -58,7 +61,8 @@ func runActivity(log *slog.Logger, envFile, songID, term, nextID, nextTerm strin
 		step("recently played containers before", "top", strings.Join(got[:min(5, len(got))], ", "), "container_rank", slices.Index(got, from.ID))
 	}
 
-	rep, err := activity.New(activity.Options{Client: api, Storefront: func() string { return sf.ID }, AppVersion: "0.1", Logger: log})
+	step("play activity", "private", private)
+	rep, err := activity.New(activity.Options{Client: api, Storefront: func() string { return sf.ID }, AppVersion: "0.1", Logger: log, Private: func(time.Time) bool { return private }})
 	if err != nil {
 		return err
 	}
@@ -102,6 +106,9 @@ func runActivity(log *slog.Logger, envFile, songID, term, nextID, nextTerm strin
 		return err
 	}
 	step("play activity", "delivered", "yes (no errors logged above means Apple answered 2xx)")
+	if private {
+		return checkUnchanged(ctx, api, before, first.ID, from.ID)
+	}
 
 	deadline := time.Now().Add(5 * time.Minute)
 	songDone, containerDone := false, from.ID == ""
@@ -137,6 +144,44 @@ func runActivity(log *slog.Logger, envFile, songID, term, nextID, nextTerm strin
 			return fmt.Errorf("activity: Recently Played not updated within 5 minutes (song %v, container %v)", songDone, containerDone)
 		}
 		time.Sleep(20 * time.Second)
+	}
+}
+
+// privateWatch is how long Recently Played is watched after private plays:
+// public plays showed up within a few minutes (the default run's deadline is
+// 5 minutes).
+const privateWatch = 6 * time.Minute
+
+// checkUnchanged watches Recently Played after private plays: the song must
+// not move up from where it was before (or appear), and the container must
+// not become the most recent.
+func checkUnchanged(ctx context.Context, api *applemusic.Client, before []string, song, container string) error {
+	was := slices.Index(before, song)
+	deadline := time.Now().Add(privateWatch)
+	for {
+		after, err := recent(ctx, api)
+		if err != nil {
+			return err
+		}
+		i := slices.Index(after, song)
+		step("recently played", "top", strings.Join(after[:min(5, len(after))], ", "), "first_song_rank", i, "before", was)
+		if i >= 0 && (was < 0 || i < was) {
+			return fmt.Errorf("activity: private play of %s showed up in Recently Played (rank %d, was %d)", song, i, was)
+		}
+		if container != "" {
+			got, err := recentContainers(ctx, api)
+			if err != nil {
+				return err
+			}
+			if len(got) > 0 && got[0] == container {
+				return fmt.Errorf("activity: private play's container %s became the most recently played", container)
+			}
+		}
+		if time.Now().After(deadline) {
+			step("recently played: unchanged", "song", song, "watched", privateWatch)
+			return nil
+		}
+		time.Sleep(30 * time.Second)
 	}
 }
 

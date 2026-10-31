@@ -9,6 +9,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/diag"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
 
 // transportTimeout bounds a tray transport command.
@@ -40,17 +41,32 @@ func trayModel(snap coordinator.Snapshot) trayState {
 	}
 }
 
-// tray is the StatusNotifierItem: transport, the windows and Quit. Its
-// menu follows the coordinator's snapshots.
+// privateItem is the tray's private listening checkbox: its label says
+// where a state the user did not choose comes from, and a forced one
+// cannot be unchecked.
+func privateItem(st privatemode.State) (label string, enabled bool) {
+	switch st.Source {
+	case privatemode.SourceDevelopment:
+		return "Private listening (development build)", true
+	case privatemode.SourceEnvironment:
+		return "Private listening (" + privatemode.EnvVar + "=1)", false
+	}
+	return "Private listening", true
+}
+
+// tray is the StatusNotifierItem: transport, private listening, the
+// windows and Quit. Its menu follows the coordinator's snapshots and the
+// private mode.
 type tray struct {
-	s     *Shell
-	icon  *application.SystemTray
-	now   *application.MenuItem
-	play  *application.MenuItem
-	next  *application.MenuItem
-	prev  *application.MenuItem
-	mini  *application.MenuItem
-	state trayState
+	s       *Shell
+	icon    *application.SystemTray
+	now     *application.MenuItem
+	play    *application.MenuItem
+	next    *application.MenuItem
+	prev    *application.MenuItem
+	private *application.MenuItem // nil without a private mode
+	mini    *application.MenuItem
+	state   trayState
 }
 
 func newTray(s *Shell, icon []byte) *tray {
@@ -61,6 +77,13 @@ func newTray(s *Shell, icon []byte) *tray {
 	t.play = menu.Add("Play").SetEnabled(false).OnClick(func(*application.Context) { t.transport("toggle", s.o.Coord.Toggle) })
 	t.next = menu.Add("Next").SetEnabled(false).OnClick(func(*application.Context) { t.transport("next", s.o.Coord.Next) })
 	t.prev = menu.Add("Previous").SetEnabled(false).OnClick(func(*application.Context) { t.transport("previous", s.o.Coord.Previous) })
+	if m := s.o.Private; m != nil {
+		menu.AddSeparator()
+		st := m.State()
+		label, enabled := privateItem(st)
+		t.private = menu.AddCheckbox(label, st.On).SetEnabled(enabled).OnClick(func(*application.Context) { t.togglePrivate() })
+		m.OnChange(t.privateChanged)
+	}
 	menu.AddSeparator()
 	menu.Add("Show Sona").OnClick(func(*application.Context) { s.ShowMain() })
 	t.mini = menu.Add("Mini player").OnClick(func(*application.Context) { s.ToggleMini() })
@@ -88,6 +111,26 @@ func (t *tray) transport(name string, cmd func(context.Context) error) {
 			t.s.o.Logger.Warn("tray: "+name, "err", err)
 		}
 	})
+}
+
+// togglePrivate flips private listening off the GTK thread (saving the
+// setting writes a file), then shows the resulting state: GTK has already
+// flipped the check mark, which a failed or refused change must undo.
+func (t *tray) togglePrivate() {
+	m := t.s.o.Private
+	diag.Go(t.s.o.Logger, "tray: private", func() {
+		st, err := m.Toggle()
+		if err != nil {
+			t.s.o.Logger.Warn("tray: private listening", "err", err)
+		}
+		t.privateChanged(st)
+	})
+}
+
+// privateChanged shows st on the private listening item.
+func (t *tray) privateChanged(st privatemode.State) {
+	label, enabled := privateItem(st)
+	t.private.SetLabel(label).SetEnabled(enabled).SetChecked(st.On)
 }
 
 // follow applies snapshots to the menu until snaps closes.

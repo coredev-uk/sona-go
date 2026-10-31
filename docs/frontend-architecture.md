@@ -120,6 +120,13 @@ src/
     auth                  Account section, sign-in reducer (+ test), useAuth/hasAccount,
                           auth invalidations (+ test)
     updates               update notice in the sidebar footer (a newer GitHub release)
+    private               private listening: Go's private mode mirrored from private:changed
+                          (usePrivate, setPrivate, isForced), PrivateButton for the player bar
+                          (glyph, "Private" in ink on the selected tone when on, never amber;
+                          "(development build)" when a development build keeps it on;
+                          aria-disabled while SONA_PRIVATE=1 forces it) and the
+                          "private.toggle" palette command (no default keys). Settings →
+                          Playback's row (settings/PrivateRows.tsx) uses the same mirror
 ```
 
 Tests sit next to their code (`*.test.ts`). Vitest runs every file in jsdom
@@ -552,6 +559,7 @@ after two animation frames or 300 ms, whichever comes first.
 | `discover:home` | home | replaces the Home query with Go's refreshed shelves |
 | `power:changed` | motion | mirrors Go's on-battery state; motion artwork stops on battery |
 | `updates:available` | updates | replaces the `updates` query; the sidebar shows the notice |
+| `private:changed` | private | replaces the private listening mirror (player bar, Settings row, palette command; also sent for the tray and `sona private`) |
 | `app:open` | app | `routeForOpen` → navigate (album, song, artist, playlist, music video, station, curator) |
 
 Invalidation plans stay pure functions next to their module
@@ -622,7 +630,8 @@ Enforced by `no-restricted-imports` in `frontend/eslint.config.js`:
 - `src/app/**` may import anything.
 
 Feature-to-feature imports must stay acyclic. Today: player → settings →
-auth; player → equalizer → settings; home → auth, discover, library, player; discover → player; search → auth, player; album and
+auth; player → equalizer → settings; player → private; settings → private;
+home → auth, discover, library, player; discover → player; search → auth, player; album and
 playlist → library, player; artist → player; library → auth; commands → search;
 motion → settings.
 

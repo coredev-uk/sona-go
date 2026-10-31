@@ -8,6 +8,8 @@
 # Needs the repository secret MUSIC_USER_TOKEN: a Music User Token of an
 # account with an active subscription and a non-empty library. Tokens last
 # about six months; an expired one fails the "storefront" step with a 401.
+# Runs with SONA_PRIVATE=1, so nothing it does can reach the account's
+# listening history.
 name: Live API contract
 
 on:
@@ -42,6 +44,9 @@ jobs:
       - name: Live contract tests
         env:
           SONA_LIVE: "1"
+          # Private mode: the tests refuse to run without it, and any play
+          # activity they send must carry "private-enabled".
+          SONA_PRIVATE: "1"
           MUSIC_USER_TOKEN: ${{ secrets.MUSIC_USER_TOKEN }}
         run: go test -count=1 -v -run '^TestLive$' ./internal/applemusic/
 

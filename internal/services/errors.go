@@ -13,6 +13,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth/mut"
 	"github.com/coredev-uk/sona-go/internal/catalog"
 	"github.com/coredev-uk/sona-go/internal/library"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/scrobble"
 )
 
@@ -41,6 +42,7 @@ const (
 	CodeConflict           = "conflict"       // the item changed elsewhere since it was read
 	CodePinsFull           = "pins_full"      // Apple keeps at most six pins
 	CodeNotConfigured      = "not_configured" // this build lacks the service's API account (Last.fm)
+	CodePrivateForced      = "private_forced" // SONA_PRIVATE=1 keeps private mode on
 	CodeUnknown            = "unknown"
 )
 
@@ -102,6 +104,8 @@ func ErrorCode(err error) string {
 		return CodeTimeout
 	case errors.Is(err, ErrInvalidArgument):
 		return CodeInvalidArgument
+	case errors.Is(err, privatemode.ErrForced):
+		return CodePrivateForced
 	case errors.As(err, &ue), errors.As(err, &ne):
 		return CodeNetwork
 	}

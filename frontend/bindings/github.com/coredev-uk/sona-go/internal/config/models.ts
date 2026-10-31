@@ -332,6 +332,39 @@ export class MotionArtwork {
 }
 
 /**
+ * Private is the saved private listening setting (Settings → Playback).
+ * The running state can differ: a development build or SONA_PRIVATE
+ * overrides it for the session (internal/privatemode), and that override
+ * never writes this value. Every value is valid, so there is nothing to
+ * normalise.
+ */
+export class Private {
+    /**
+     * Enabled keeps plays out of Apple's listening history and
+     * recommendations and stops scrobbling, the Discord status and the
+     * local listening history. Off by default.
+     */
+    "enabled": boolean;
+
+    /** Creates a new Private instance. */
+    constructor($$source: Partial<Private> = {}) {
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Private instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Private {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Private($$parsedSource as Partial<Private>);
+    }
+}
+
+/**
  * Queue is the play queue's behaviour (Settings → Playback).
  */
 export class Queue {
@@ -528,6 +561,11 @@ export class Settings {
      */
     "crossfade": Crossfade;
 
+    /**
+     * Private is private listening (private.go).
+     */
+    "private": Private;
+
     /** Creates a new Settings instance. */
     constructor($$source: Partial<Settings> = {}) {
         if (!("theme" in $$source)) {
@@ -587,6 +625,9 @@ export class Settings {
         if (!("crossfade" in $$source)) {
             this["crossfade"] = (new Crossfade());
         }
+        if (!("private" in $$source)) {
+            this["private"] = (new Private());
+        }
 
         Object.assign(this, $$source);
     }
@@ -607,6 +648,7 @@ export class Settings {
         const $$createField16_0 = $$createType13;
         const $$createField17_0 = $$createType14;
         const $$createField18_0 = $$createType15;
+        const $$createField19_0 = $$createType16;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("diagnostics" in $$parsedSource) {
             $$parsedSource["diagnostics"] = $$createField7_0($$parsedSource["diagnostics"]);
@@ -643,6 +685,9 @@ export class Settings {
         }
         if ("crossfade" in $$parsedSource) {
             $$parsedSource["crossfade"] = $$createField18_0($$parsedSource["crossfade"]);
+        }
+        if ("private" in $$parsedSource) {
+            $$parsedSource["private"] = $$createField19_0($$parsedSource["private"]);
         }
         return new Settings($$parsedSource as Partial<Settings>);
     }
@@ -769,3 +814,4 @@ const $$createType12 = MotionArtwork.createFrom;
 const $$createType13 = Queue.createFrom;
 const $$createType14 = Storage.createFrom;
 const $$createType15 = Crossfade.createFrom;
+const $$createType16 = Private.createFrom;

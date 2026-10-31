@@ -34,6 +34,10 @@ type Options struct {
 	// 5 s to 5 min.
 	Backoff func(n int) time.Duration
 	Now     func() time.Time // nil means time.Now
+	// Private reports whether a listen that started at start is private
+	// (privatemode.Mode.Since): it is neither announced nor scrobbled. It
+	// is asked as each transition arrives; nil means never.
+	Private func(start time.Time) bool
 }
 
 // State is one provider's delivery state.
@@ -91,7 +95,7 @@ func New(o Options) *Scrobbler {
 		onChange: o.OnChange,
 		backoff:  backoff,
 		q:        newQueue(o.QueuePath, maxQ),
-		tracker:  Tracker{now: o.Now},
+		tracker:  Tracker{now: o.Now, private: o.Private},
 	}
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	for _, p := range o.Providers {

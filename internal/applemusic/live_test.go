@@ -3,17 +3,22 @@ package applemusic_test
 // Live contract tests: one real request per Apple endpoint family Sona
 // uses, asserting the decoded shapes the app relies on, so an Apple-side
 // response change shows up here (weekly in CI, .github/workflows/live.yml)
-// before users see it. Opt in with SONA_LIVE=1 and a Music User Token in
-// MUSIC_USER_TOKEN (or the repository's .env). Nothing is played: the
-// playback family stops at the playlist, certificate and a licence
-// exchange with a junk challenge.
+// before users see it. Opt in with SONA_LIVE=1, SONA_PRIVATE=1 and a Music
+// User Token in MUSIC_USER_TOKEN (or the repository's .env). Nothing is
+// played: the playback family stops at the playlist, certificate and a
+// licence exchange with a junk challenge. No play activity is sent either;
+// if a test ever does, privateOnly refuses any event outside private mode.
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -23,6 +28,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth/devtoken"
 	"github.com/coredev-uk/sona-go/internal/playback/hls"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
 
 // liveTerm is searched to find the songs the other families use, so the
@@ -60,13 +66,18 @@ func readDotEnv(key string) string {
 
 // liveClient signs in once (developer token from the web player, MUT from
 // the environment) and finds the fixture IDs. Without SONA_LIVE=1 the test
-// is skipped; with it, a missing token fails, so a lost CI secret is loud.
+// is skipped; with it, a missing token or a missing SONA_PRIVATE=1 fails,
+// so a lost CI secret is loud and no live run can report a play.
 func liveClient(t *testing.T) *live {
 	t.Helper()
 	if os.Getenv("SONA_LIVE") != "1" {
-		t.Skip("live Apple Music tests: set SONA_LIVE=1 and MUSIC_USER_TOKEN")
+		t.Skip("live Apple Music tests: set SONA_LIVE=1, SONA_PRIVATE=1 and MUSIC_USER_TOKEN")
 	}
 	liveOnce.Do(func() {
+		if o, _ := privatemode.Env(os.Getenv(privatemode.EnvVar)); o != privatemode.OverrideOn {
+			liveErr = errors.New("SONA_LIVE=1 needs SONA_PRIVATE=1: live tests run in private mode only")
+			return
+		}
 		mut := os.Getenv("MUSIC_USER_TOKEN")
 		if mut == "" {
 			mut = readDotEnv("MUSIC_USER_TOKEN")
@@ -77,7 +88,8 @@ func liveClient(t *testing.T) *live {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		api := applemusic.New(nil, devtoken.NewWebPlayer(nil), func() string { return mut })
+		hc := &http.Client{Transport: privateOnly{http.DefaultTransport}}
+		api := applemusic.New(hc, devtoken.NewWebPlayer(nil), func() string { return mut })
 		sf, err := api.Storefront(ctx)
 		if err != nil {
 			liveErr = err
@@ -95,6 +107,40 @@ func liveCtx(t *testing.T) context.Context {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
 	return ctx
+}
+
+// privateOnly refuses, without sending it, any play-activity request with
+// an event not marked "private-enabled": a live test must never add a play
+// to the account's listening history.
+type privateOnly struct{ base http.RoundTripper }
+
+func (p privateOnly) RoundTrip(r *http.Request) (*http.Response, error) {
+	if u, _ := url.Parse(applemusic.PlayActivityURL); r.URL.Host != u.Host {
+		return p.base.RoundTrip(r)
+	}
+	var body struct {
+		Data []struct {
+			Private *bool `json:"private-enabled"`
+		} `json:"data"`
+	}
+	if r.Body == nil {
+		return nil, errors.New("live: play activity without a body")
+	}
+	b, err := io.ReadAll(r.Body)
+	_ = r.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(b, &body); err != nil || len(body.Data) == 0 {
+		return nil, fmt.Errorf("live: refusing an unreadable play-activity request: %v", err)
+	}
+	for i, e := range body.Data {
+		if e.Private == nil || !*e.Private {
+			return nil, fmt.Errorf("live: refusing play activity: event %d is not private-enabled", i)
+		}
+	}
+	r.Body = io.NopCloser(bytes.NewReader(b))
+	return p.base.RoundTrip(r)
 }
 
 // checkArtwork asserts the artwork template Sona sizes and caches.

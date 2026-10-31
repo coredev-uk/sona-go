@@ -30,7 +30,7 @@
 //     URLs, motionOf motion artwork URLs (internal/motion). New resource
 //     kinds get their mapper here.
 //   - env.go: Env embeds Deps (DB, Auth, API, Catalog, Library, Syncer,
-//     Art, Engine, Coord, History, Settings, Storefront, Gate, Emit,
+//     Art, Engine, Coord, History, Private, Settings, Storefront, Gate, Emit,
 //     Logger, Now, OpenURL, Focus, Focused (main window has focus),
 //     Windows (the desktop shell: main/mini player windows), Bus (the
 //     session bus, nil without one; reuse it for portals and other
@@ -57,6 +57,13 @@
 // of PipeWire outputs. Volume stays the slider value everywhere (settings,
 // coordinator, MPRIS); only the engine maps it through
 // playback.VolumeGain.
+//
+// Private (private.go) is private listening (internal/privatemode) for the
+// frontend: State, Set and "private:changed". Deps.Private is the one Mode
+// every play reporter asks with the start of the listen (Mode.Since): the
+// play-activity reporter, History, the scrobbler and the Discord presence;
+// a toggle applies from the next event and a listen private at any point
+// stays private. A development build's toggle never writes the setting.
 //
 // DTO rules: durations and timestamps in integer milliseconds (timestamps
 // as Unix ms, 0 when unknown); artwork and motion artwork only as

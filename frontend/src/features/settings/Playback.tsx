@@ -14,6 +14,7 @@ import { Slider } from "@/shared/ui/slider";
 
 import { AudioRows } from "./AudioRows";
 import { CrossfadeRows } from "./CrossfadeRows";
+import { PrivateRows } from "./PrivateRows";
 import { QueueRows } from "./QueueRows";
 import { useSettings, useUpdateSettings } from "./queries";
 import { SettingRow, SettingsPanel } from "./SettingRow";
@@ -87,6 +88,7 @@ export function PlaybackSection() {
 
   return (
     <SettingsPanel>
+      <PrivateRows />
       <SettingRow
         id="quality"
         title={t`Audio quality`}

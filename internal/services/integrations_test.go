@@ -7,6 +7,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
 
 func snapAt(state playback.State, uid uint64, title string) coordinator.Snapshot {
@@ -46,7 +47,7 @@ func TestIntegrationsPlan(t *testing.T) {
 	}
 	var st integrationsState
 	for _, s := range steps {
-		p := st.plan(s.snap, s.set)
+		p := st.plan(s.snap, s.set, nil, time.Time{})
 		got := want{}
 		if p.announce != nil {
 			got.announce = p.announce.Title
@@ -63,17 +64,58 @@ func TestIntegrationsPlan(t *testing.T) {
 func TestIntegrationsPlanPresence(t *testing.T) {
 	var st integrationsState
 	set := config.Integrations{DiscordPresence: true}
-	if p := st.plan(snapAt(playback.StatePlaying, 1, "A"), set); p.presence == nil || p.presence.act == nil || p.presence.act.Title != "A" {
+	plan := func(snap coordinator.Snapshot, set config.Integrations) integrationsPlan {
+		return st.plan(snap, set, nil, time.Time{})
+	}
+	if p := plan(snapAt(playback.StatePlaying, 1, "A"), set); p.presence == nil || p.presence.act == nil || p.presence.act.Title != "A" {
 		t.Fatalf("playing: presence = %+v", p.presence)
 	}
-	if p := st.plan(snapAt(playback.StateLoading, 2, "B"), set); p.presence != nil {
+	if p := plan(snapAt(playback.StateLoading, 2, "B"), set); p.presence != nil {
 		t.Fatalf("loading changed the presence: %+v", p.presence)
 	}
-	if p := st.plan(snapAt(playback.StatePaused, 2, "B"), set); p.presence == nil || p.presence.act != nil || !p.presence.enabled {
+	if p := plan(snapAt(playback.StatePaused, 2, "B"), set); p.presence == nil || p.presence.act != nil || !p.presence.enabled {
 		t.Fatalf("paused: presence = %+v, want cleared", p.presence)
 	}
-	if p := st.plan(snapAt(playback.StatePlaying, 2, "B"), config.Integrations{}); p.presence == nil || p.presence.act != nil || p.presence.enabled {
+	if p := plan(snapAt(playback.StatePlaying, 2, "B"), config.Integrations{}); p.presence == nil || p.presence.act != nil || p.presence.enabled {
 		t.Fatalf("disabled: presence = %+v, want cleared and disabled", p.presence)
+	}
+}
+
+// A private listen shows no Discord status, from the toggle on until the
+// listen ends, even if private mode is turned off meanwhile.
+func TestIntegrationsPlanPresencePrivate(t *testing.T) {
+	now := time.Unix(1000, 0)
+	m := privatemode.New(privatemode.Options{Now: func() time.Time { return now }})
+	var st integrationsState
+	set := config.Integrations{DiscordPresence: true}
+	shown := func(uid uint64, title string) bool {
+		t.Helper()
+		p := st.plan(snapAt(playback.StatePlaying, uid, title), set, m.Since, now)
+		if p.presence == nil || !p.presence.enabled {
+			t.Fatalf("%s: presence = %+v", title, p.presence)
+		}
+		return p.presence.act != nil
+	}
+	if !shown(1, "A") {
+		t.Fatal("public listen: no presence")
+	}
+	now = now.Add(time.Minute)
+	if _, err := m.Set(true); err != nil {
+		t.Fatal(err)
+	}
+	if shown(1, "A") {
+		t.Fatal("private mode turned on mid-listen: presence still shown")
+	}
+	now = now.Add(time.Minute)
+	if _, err := m.Set(false); err != nil {
+		t.Fatal(err)
+	}
+	if shown(1, "A") {
+		t.Fatal("private mode turned off mid-listen: the private listen went public")
+	}
+	now = now.Add(time.Minute)
+	if !shown(2, "B") {
+		t.Fatal("next listen after private mode turned off: no presence")
 	}
 }
 

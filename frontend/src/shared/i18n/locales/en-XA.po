@@ -1611,6 +1611,14 @@ msgstr ""
 msgid "Couldn't suggest less of {subject}"
 msgstr ""
 
+#: src/features/private/state.ts
+msgid "Couldn't turn off private listening"
+msgstr ""
+
+#: src/features/private/state.ts
+msgid "Couldn't turn on private listening"
+msgstr ""
+
 #: src/features/library/pages.tsx
 #: src/features/player/commands.ts
 msgid "Couldn't turn on shuffle"
@@ -2908,6 +2916,10 @@ msgstr ""
 msgid "Nothing in your library for “{q}”"
 msgstr ""
 
+#: src/features/settings/Connections.tsx
+msgid "Nothing is scrobbled while private listening is on."
+msgstr ""
+
 #: src/features/playlist/PlaylistPage.tsx
 msgid "Nothing left to arrange"
 msgstr ""
@@ -2980,6 +2992,14 @@ msgstr ""
 
 #: src/features/radio/StationPage.tsx
 msgid "On air"
+msgstr ""
+
+#: src/features/private/PrivateButton.tsx
+msgid "On because Sona was started with SONA_PRIVATE=1"
+msgstr ""
+
+#: src/features/settings/PrivateRows.tsx
+msgid "On because Sona was started with SONA_PRIVATE=1. Start Sona without it to turn private listening off."
 msgstr ""
 
 #: src/features/library/HistoryPage.tsx
@@ -3297,6 +3317,10 @@ msgstr ""
 msgid "Plays on this computer are kept for a year."
 msgstr ""
 
+#: src/features/settings/PrivateRows.tsx
+msgid "Plays stay out of your Apple Music listening history and recommendations, and aren't scrobbled to Last.fm or ListenBrainz, shown on Discord or added to History. The same as the button in the player bar."
+msgstr ""
+
 #: src/features/settings/MotionArtworkRows.tsx
 msgid "Plays the looping covers some albums and playlists have, in their headers and in Now Playing. Paused on battery power."
 msgstr ""
@@ -3337,6 +3361,50 @@ msgstr ""
 
 #: src/features/player/shortcuts.ts
 msgid "Previous track"
+msgstr ""
+
+#. Short label of the private listening switch while it is on
+#. Short label of the private listening switch while it is on
+#: src/features/private/PrivateButton.tsx
+msgid "Private"
+msgstr ""
+
+#. Label of the private listening switch while a development build of Sona keeps it on
+#: src/features/private/PrivateButton.tsx
+msgid "Private (development build)"
+msgstr ""
+
+#: src/features/private/index.ts
+msgid "private incognito history scrobble discord listening"
+msgstr ""
+
+#. Setting name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
+#. Switch name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
+#: src/features/private/PrivateButton.tsx
+#: src/features/settings/PrivateRows.tsx
+msgid "Private listening"
+msgstr ""
+
+#. A development build of Sona, not a release
+#: src/features/private/PrivateButton.tsx
+msgid "Private listening (development build)"
+msgstr ""
+
+#. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'. SONA_PRIVATE=1 is an environment variable, keep as is.
+#: src/features/private/PrivateButton.tsx
+msgid "Private listening (forced by SONA_PRIVATE=1)"
+msgstr ""
+
+#: src/features/private/PrivateButton.tsx
+msgid "Private listening is on for this development build. Turning it off lasts until Sona quits."
+msgstr ""
+
+#: src/features/private/PrivateButton.tsx
+msgid "Private listening is on: plays stay out of your listening history and recommendations, and aren't scrobbled, shown on Discord or added to History."
+msgstr ""
+
+#: src/shared/lib/errors.ts
+msgid "Private listening stays on because Sona was started with SONA_PRIVATE=1."
 msgstr ""
 
 #: src/features/search/ProfilePage.tsx
@@ -3877,6 +3945,10 @@ msgstr ""
 
 #: src/features/settings/IntegrationsRows.tsx
 msgid "Shows the song you're playing, with its artwork and time, as your Discord activity. Cleared when you pause. Discord isn't reachable yet; Sona keeps trying while music plays."
+msgstr ""
+
+#: src/features/settings/IntegrationsRows.tsx
+msgid "Shows the song you're playing, with its artwork and time, as your Discord activity. Nothing is shown while private listening is on."
 msgstr ""
 
 #: src/features/settings/IntegrationsRows.tsx
@@ -4614,6 +4686,14 @@ msgstr ""
 msgid "This build of Sona has no Last.fm API key, so it can't connect to Last.fm."
 msgstr ""
 
+#: src/features/settings/PrivateRows.tsx
+msgid "This development build of Sona starts with private listening on. Switching it here lasts until Sona quits; your saved choice (off) is unchanged."
+msgstr ""
+
+#: src/features/settings/PrivateRows.tsx
+msgid "This development build of Sona starts with private listening on. Switching it here lasts until Sona quits; your saved choice (on) is unchanged."
+msgstr ""
+
 #: src/features/auth/Account.tsx
 msgid "This happens after a password change or when the token expires. Your library on this computer is still here; sign in again to keep syncing and playing."
 msgstr ""
@@ -4731,12 +4811,21 @@ msgstr ""
 msgid "Trusted phone number"
 msgstr ""
 
+#: src/features/private/index.ts
+msgid "Turn off private listening"
+msgstr ""
+
 #: src/features/player/SleepTimer.tsx
 msgid "Turn off sleep timer"
 msgstr ""
 
 #: src/features/player/shortcuts.ts
 msgid "Turn off the sleep timer"
+msgstr ""
+
+#: src/features/private/index.ts
+#: src/features/private/PrivateButton.tsx
+msgid "Turn on private listening"
 msgstr ""
 
 #: src/features/player/replace.ts

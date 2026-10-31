@@ -90,6 +90,9 @@ func trackOf(a coordinator.Activity) *Track {
 type Tracker struct {
 	cur *listening
 	now func() time.Time // for activity without a timestamp; nil means time.Now
+	// private reports whether a listen that started at start is private
+	// (privatemode.Mode.Since); nil means never.
+	private func(start time.Time) bool
 }
 
 // listening is the open (playing or paused) listen.
@@ -106,7 +109,8 @@ type listening struct {
 
 // Observe takes one transition. It returns the track to announce as now
 // playing (on every start and resume) and the listen that has just counted
-// (at most once per listen, when a stretch of playing ends).
+// (at most once per listen, when a stretch of playing ends). A private
+// listen (private mode on at any point since it began) returns neither.
 func (t *Tracker) Observe(a coordinator.Activity) (now *Track, done *Listen) {
 	c := t.cur
 	switch a.Kind {
@@ -151,6 +155,9 @@ func (t *Tracker) Observe(a coordinator.Activity) (now *Track, done *Listen) {
 			c.counted = true
 			done = &Listen{Track: *c.track, ListenedAt: c.start}
 		}
+	}
+	if (now != nil || done != nil) && t.private != nil && t.private(c.start) {
+		return nil, nil
 	}
 	return now, done
 }

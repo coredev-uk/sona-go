@@ -1,5 +1,6 @@
 // Package app holds process-level integration: the single-instance guard on
-// the D-Bus session bus, parsing of the Apple Music links Sona is launched
+// the D-Bus session bus and the `sona <command>` subcommands it carries to
+// the running instance, parsing of the Apple Music links Sona is launched
 // with, the XDG autostart entry and the xdg-desktop-portal file chooser.
 package app
 
@@ -22,7 +23,8 @@ const (
 	BusName = "dev.coredev.Sona"
 	// ObjectPath exports Interface on the primary instance.
 	ObjectPath dbus.ObjectPath = "/dev/coredev/Sona"
-	// Interface carries Activate(as args, a{sv} platform_data).
+	// Interface carries Activate(as args, a{sv} platform_data) and
+	// Command(as args) → (s reply) (command.go).
 	Interface = "dev.coredev.Sona.Instance"
 
 	// Platform data keys sent with Activate.
@@ -64,9 +66,10 @@ type Instance struct {
 	conn *dbus.Conn
 	log  *slog.Logger
 
-	mu     sync.Mutex
-	ch     chan Activation
-	closed bool
+	mu       sync.Mutex
+	ch       chan Activation
+	closed   bool
+	commands Commands // nil until HandleCommands
 
 	closeOnce sync.Once
 	closeErr  error
@@ -84,6 +87,10 @@ const introspectXML = `<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object I
     <method name="Activate">
       <arg name="args" type="as" direction="in"/>
       <arg name="platform_data" type="a{sv}" direction="in"/>
+    </method>
+    <method name="Command">
+      <arg name="args" type="as" direction="in"/>
+      <arg name="reply" type="s" direction="out"/>
     </method>
   </interface>
 </node>`
@@ -103,7 +110,7 @@ func Acquire(ctx context.Context, conn *dbus.Conn, act Activation, log *slog.Log
 	}
 	in := &Instance{conn: conn, log: log, ch: make(chan Activation, activationBuffer)}
 	// Export first so Activate works the moment the name is ours.
-	if err := conn.ExportMethodTable(map[string]any{"Activate": in.activate}, ObjectPath, Interface); err != nil {
+	if err := conn.ExportMethodTable(map[string]any{"Activate": in.activate, "Command": in.command}, ObjectPath, Interface); err != nil {
 		return nil, fmt.Errorf("app: export: %w", err)
 	}
 	if err := conn.Export(introspect.Introspectable(introspectXML), ObjectPath, "org.freedesktop.DBus.Introspectable"); err != nil {

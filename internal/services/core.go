@@ -20,6 +20,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/mpris"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
 
 // Deps are the core components main builds and the services wrap.
@@ -38,6 +39,9 @@ type Deps struct {
 	Engine    playback.Engine
 	Coord     *coordinator.Coordinator
 	History   *History
+	// Private is private listening, which every play reporter asks
+	// (required).
+	Private *privatemode.Mode
 	// Storefront is the catalog storefront in use (the account's, or the
 	// locale's when signed out), for direct applemusic calls.
 	Storefront func() string

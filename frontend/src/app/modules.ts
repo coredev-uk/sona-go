@@ -10,6 +10,7 @@ import { miniplayerModule } from "@/features/miniplayer";
 import { motionModule } from "@/features/motion";
 import { playerModule } from "@/features/player";
 import { playlistModule } from "@/features/playlist";
+import { privateModule } from "@/features/private";
 import { radioModule } from "@/features/radio";
 import { searchModule } from "@/features/search";
 import { songModule } from "@/features/song";
@@ -41,4 +42,5 @@ export const modules = [
   commandsModule,
   updatesModule,
   motionModule,
+  privateModule,
 ] as const;

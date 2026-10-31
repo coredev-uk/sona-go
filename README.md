@@ -93,6 +93,16 @@ Settings `~/.config/sona/settings.json`, library database and artwork under
 (XDG variables are honoured). Settings → Diagnostics shows the version, CDM
 and GStreamer details.
 
+## Private listening
+
+Settings → Playback → Private listening (also the player bar, the tray, the
+command palette and `sona private on|off|toggle|status`) keeps plays out of
+your Apple Music listening history and recommendations (they are reported to
+Apple marked private, as Apple's web player does). While it is on, Sona also
+sends no Last.fm or ListenBrainz scrobbles, shows no Discord status and adds
+nothing to its History page. `sona private …` acts on the running Sona and
+prints the state; with no Sona running it changes nothing.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
