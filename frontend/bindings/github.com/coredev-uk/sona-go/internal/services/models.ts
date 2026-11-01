@@ -566,10 +566,10 @@ export class AuthStatus {
     "lastErrorCode": string;
 
     /**
-     * SignInURL is the browser sign-in start page while a browser sign-in
-     * waits, for "open again" / copy link.
+     * BrowserSignIn is set while a browser sign-in waits; SignInLink then
+     * gives a new link for "open again" / copy link.
      */
-    "signInUrl": string;
+    "browserSignIn": boolean;
 
     /**
      * SecondFactor is set while a native sign-in waits for a code.
@@ -611,8 +611,8 @@ export class AuthStatus {
         if (!("lastErrorCode" in $$source)) {
             this["lastErrorCode"] = "";
         }
-        if (!("signInUrl" in $$source)) {
-            this["signInUrl"] = "";
+        if (!("browserSignIn" in $$source)) {
+            this["browserSignIn"] = false;
         }
         if (!("secondFactor" in $$source)) {
             this["secondFactor"] = null;

@@ -1,10 +1,10 @@
 # Security review
 
-Sona's threat model and the controls behind it. The findings below (F1–F10) record each weakness found in Sona's own code, the control that closed it and the tests that keep it closed; F7 is still open. The Widevine CDM downloader, the macOS sandbox, the GitHub Actions workflows and secret scanning have their own sections. Each section lists the residual risks that remain.
+Sona's threat model and the controls behind it. The findings below (F1–F10) record each weakness found in Sona's own code, the control that closed it and the tests that keep it closed. The Widevine CDM downloader, the macOS sandbox, the GitHub Actions workflows and secret scanning have their own sections. Each section lists the residual risks that remain.
 
 Areas reviewed without findings: native Apple ID input handling, `/art/`, the cmd/sona/main.go middleware, `/motion/` path handling, parent→child cdmhost framing, single-instance `Activate` and launch URLs, the other MPRIS methods, notifications, the portal file chooser, the settings file, secret stores, the scrobble queue, the diagnostics bundle, the update check, autostart and the webview URL bindings.
 
-Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/`.
+Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/ ./internal/auth/...`.
 
 | ID | Severity | Issue | Status |
 | --- | --- | --- | --- |
@@ -14,7 +14,7 @@ Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playbac
 | F4 | Low | Discord IPC trusted any user's socket | Fixed |
 | F5 | Low | NaN/Inf MPRIS volume | Fixed |
 | F6 | Low | Motion artwork followed redirects anywhere | Fixed |
-| F7 | Low | Loopback sign-in could be completed by another local user | Open |
+| F7 | Low | Loopback sign-in could be completed by another local user | Fixed (residual risks listed) |
 | F8 | Low | Child could exhaust the parent's memory | Fixed |
 | F9 | Low | Artwork decoding accepted any registered image format, TIFF included | Fixed |
 | F10 | Low | Development builds logged the build's Last.fm and Discord credentials, and the diagnostics bundle carried them | Fixed |
@@ -122,11 +122,26 @@ Go's `min`/`max` pass NaN through, so `Volume = nan` reached the snapshots, the 
 - `TestRedirectLeavingAllowList`: an allowed host redirects to another https host and to plain http. Nothing is served, and the targets get no request.
 - `TestAppleMedia`.
 
-## F7. Another local user could complete the loopback sign-in with their own account (Low, open)
+## F7. Another local user could complete the loopback sign-in with their own account (Low, fixed)
 
-`internal/auth/mut/loopback.go` uses a nonce as its only secret, and that nonce is in the URL passed to `xdg-open`. That puts it in a browser's argv, which every user can read in `/proc/<pid>/cmdline` unless `/proc` is mounted with `hidepid`. Another user can then POST their own token to `/auth/<nonce>/complete` before the real redirect arrives.
+`internal/auth/mut/loopback.go` used a nonce as its only secret, and that nonce is in the URL passed to `xdg-open`. That puts it in the argv of `xdg-open` and the browser, which every user can read in `/proc/<pid>/cmdline` unless `/proc` is mounted with `hidepid`. Another user could then POST their own token to `/auth/<nonce>/complete` before the real redirect arrived, and Sona would sign in to their account.
 
-**Suggested fix:** make `/start` single-use. It should set an `HttpOnly; SameSite=Strict; Path=/auth/<nonce>/` cookie holding a second random value that never appears in argv, and `/complete` should require that cookie.
+**Fix** (`internal/auth/mut/loopback.go`, `peer.go`, `peer_linux.go`; `internal/auth/manager.go`):
+- **Socket owner (Linux).** The loopback listener looks up each connection's client socket in `/proc/net/tcp` and `/proc/net/tcp6` (the row whose local address is the client's and remote address is the server's) and drops the connection, unanswered, unless Sona's own uid owns it. A connection whose socket is not found is dropped too. Reading the URL from argv no longer gets another user anything. This is what closes the finding: a start-page cookie alone would not, because a process that reads the URL can load `/start` and post `/complete` within milliseconds, before `xdg-open` has started the browser.
+- **Single-use start links bound by a cookie** (every platform). Each start link carries its own random ticket (`/auth/<nonce>/start?t=<ticket>`) and works once. Loading it sets the cookie `sona_signin`: 256 random bits that never appear in a URL, host-only (no `Domain`), `Path=/auth/<nonce>/`, `HttpOnly`, `SameSite=Strict`, `Max-Age` = the rest of the attempt. `/complete` refuses (403) without that cookie, compared in constant time. A ticket loaded a second time ends the attempt (`mut.ErrStartReused`): Sona's pages never load one twice (the start page replaces itself with Apple's), so a repeat means the link reached someone else. The UI's "Open the page again" and "Copy link" ask Go for a new link (`AuthService.SignInLink`) instead of reusing the opened one.
+- **The attempt ends** on success, failure, timeout, cancel or a replayed link. After that every start link and `/complete` answer 410, cookie or not, and the server shuts down. A successful `/complete` deletes the cookie.
+- **Why `SameSite=Strict` works here.** Apple's authorize page returns the browser to `/callback` with a cross-site top-level navigation, so the cookie is not sent there, and does not need to be: `/callback` only serves the page that reads the fragment, and the token never reaches the server on that request. The cookie is needed on the callback page's `fetch` POST to `/complete`, a same-origin request from a top-level `127.0.0.1` document, where `Strict` cookies are sent. Measured in headless Chromium 155 against a stand-in for `authorize.music.apple.com` (served over TLS through `--host-resolver-rules`): `/start` (`Sec-Fetch-Site: none`) sets the cookie, `/callback` arrives `cross-site` with no cookie, `/complete` arrives `same-origin` with it and succeeds. There is no `Secure` attribute or `__Host-` prefix: both need https.
+
+**Tests:**
+- `internal/auth/mut`: `TestCompleteRequiresTheStartCookie` (no cookie, a wrong value and a truncated value get 403 and leave the attempt pending; the right cookie completes, even beside a stray one), `TestCompleteBeforeStartIsRefused`, `TestStartLinkWorksOnceAndAReplayEndsTheAttempt` (the replay gets 410 with no cookie and no authorize URL, `Wait` returns `ErrStartReused`, the first cookie can no longer complete), `TestEachLinkWorksOnce` (a second link works; a missing or guessed ticket is 404 and harmless), `TestTimeoutEndsTheAttempt` (after the deadline the cookie no longer completes, `/start` sets nothing, the server is closed), `TestHappyPathWithCookieJar` (real HTTP with a cookie jar; a racing client without it gets 403; the cookie is deleted after), `TestStartCookieBindsTheAttempt` (the attributes above), `TestCompleteDeliversOnceAndRejectsReplays`.
+- `TestSocketUIDFindsTheClientRow` and `TestParseProcAddrRejectsMalformed` cover the `/proc/net/tcp*` parser (the client's row, not the server end's; IPv4-mapped rows in `tcp6`). `TestOwnerListenerDropsOtherUsers` (Linux) runs the real lookup: a listener expecting another uid closes this process's connection unanswered, one expecting its own uid serves it.
+- `internal/auth`: `TestReplayedStartLinkEndsSignIn`, `TestOpenFailureKeepsWaiting` (a new link from `SignInLink` completes the attempt), `TestLoopbackSignIn` (the manager's browser loads the start link with a cookie jar before completing).
+
+**Residual risks:**
+- On macOS the socket-owner check is not implemented. There other users cannot read a process's arguments (the kernel refuses `KERN_PROCARGS2` across users) and `open` hands the URL to the browser through Launch Services, so the URL does not leak that way; the cookie binding still applies. Windows has neither check, and its loopback sign-in has not been reviewed.
+- Cookies are not isolated by port. A same-user process can always read Sona's state, so this matters only for another user, whom the Linux check already keeps off Sona's port; another user's server on a different `127.0.0.1` port would see the cookie only if the browser visited it with a same-site navigation, which `SameSite=Strict` rules out for links from other sites.
+- Another user who reads the URL can still load a start link to end the attempt (Linux drops that connection, so only on platforms without the check). That is a denial of service only: the user starts again, and the native sign-in is unaffected.
+- If a browser runs in a different network namespace from Sona, it cannot reach `127.0.0.1:<port>` at all; Flatpak and Snap browsers share the host's network namespace, and their sockets carry the user's uid.
 
 ## F8. A compromised child could exhaust the parent's memory (Low, fixed)
 

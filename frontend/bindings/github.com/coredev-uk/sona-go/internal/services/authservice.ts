@@ -60,6 +60,14 @@ export function SignIn(): $CancellablePromise<void> {
 }
 
 /**
+ * SignInLink returns a new single-use link to the pending browser sign-in,
+ * for opening the page again or in another browser.
+ */
+export function SignInLink(): $CancellablePromise<string> {
+    return $Call.ByID(2175896890);
+}
+
+/**
  * SignInWithPassword starts the native sign-in. It returns nil when Apple
  * signed the account in directly, or the two-factor challenge to answer
  * with SubmitSecurityCode. The password is never stored or logged.

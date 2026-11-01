@@ -87,12 +87,15 @@ func loopbackSignIn(ctx context.Context, devToken string, open bool, timeout tim
 	if err != nil {
 		return mut.Result{}, err
 	}
-	fmt.Println("open to sign in:", sess.StartURL())
+	// Each start link works once: xdg-open gets one, the terminal another.
+	msg := "open to sign in (the link works once):"
 	if open {
 		if err := exec.Command("xdg-open", sess.StartURL()).Start(); err != nil {
-			fmt.Println("xdg-open failed; open the URL manually:", err)
+			fmt.Println("xdg-open failed:", err)
 		}
+		msg = "or open this link in another browser (it works once):"
 	}
+	fmt.Println(msg, sess.StartURL())
 	return sess.Wait(ctx)
 }
 

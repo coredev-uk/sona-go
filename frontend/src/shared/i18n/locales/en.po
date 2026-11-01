@@ -1256,6 +1256,10 @@ msgstr "Couldn't export your settings"
 msgid "Couldn't favourite {subject}"
 msgstr "Couldn't favourite {subject}"
 
+#: src/features/auth/Account.tsx
+msgid "Couldn't get a sign-in link"
+msgstr "Couldn't get a sign-in link"
+
 #: src/features/player/CdmNotice.tsx
 msgid "Couldn't get Widevine · Retry in Settings"
 msgstr "Couldn't get Widevine · Retry in Settings"

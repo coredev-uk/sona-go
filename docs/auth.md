@@ -74,16 +74,16 @@ sequenceDiagram
   UI->>Go: SignIn()
   Go->>Go: devToken = webplayer.Token()
   Go->>LB: start, nonce N (128-bit), 10 min deadline
-  Go->>B: open http://127.0.0.1:P/auth/N/start
-  B->>LB: GET /auth/N/start
-  LB-->>B: page: Referrer-Policy unsafe-url, location.assign(authorizeURL)
+  Go->>B: open http://127.0.0.1:P/auth/N/start?t=T (single-use ticket T)
+  B->>LB: GET /auth/N/start?t=T
+  LB-->>B: Set-Cookie sona_signin=K (HttpOnly, SameSite=Strict, Path=/auth/N/); page: Referrer-Policy unsafe-url, location.replace(authorizeURL)
   B->>AZ: GET /woa?a=b64(info)&referrer=http://127.0.0.1:P/auth/N/callback&app=music&p=subscribe
   AZ->>ID: Apple ID sign-in (+2FA)
   ID-->>AZ: validateMusicKitToken
   AZ-->>B: location.assign(callback + "#" + b64({cid,itre,musicUserToken}))
-  B->>LB: GET /auth/N/callback (fragment stays client-side)
+  B->>LB: GET /auth/N/callback (cross-site navigation: no cookie; fragment stays client-side)
   LB-->>B: page JS reads location.hash, history.replaceState, POST /auth/N/complete
-  B->>LB: POST /auth/N/complete {fragment}
+  B->>LB: POST /auth/N/complete {fragment} + cookie K (same-origin fetch)
   LB->>Go: decode, single-use consume N
   Go->>API: GET /v1/me/storefront (Bearer + Media-User-Token)
   API-->>Go: 200 {data:[{id:"<storefront>"}]}
@@ -107,12 +107,17 @@ sequenceDiagram
 
 ### 4.5 Loopback Server Security
 
-- Bind `127.0.0.1` only, on a random port. One server instance per sign-in attempt, shut down on completion, cancel, or deadline.
+- Bind `127.0.0.1` only, on a random port. One server instance per sign-in attempt, shut down on completion, cancel, deadline or a replayed start link.
 - Paths are prefixed with a 128-bit random nonce. Unknown paths return 404. Each nonce is consumed once.
+- The nonce is in the URL handed to the browser, so other local users can read it from `/proc/<pid>/cmdline` (security review F7). Two controls keep that from being enough:
+  - **Socket owner (Linux).** The listener drops every connection whose client socket (looked up in `/proc/net/tcp` and `tcp6`) another uid owns, or that it cannot find.
+  - **Start links and the cookie.** Each start link carries a random ticket and works once (`mut.Session.StartURL`). Loading it sets `sona_signin`, 256 random bits never put in a URL: host-only, `Path=/auth/<nonce>/`, `HttpOnly`, `SameSite=Strict`, `Max-Age` = the rest of the attempt (no `Secure`/`__Host-`, which need https). `POST /complete` requires it (constant-time compare, 403 otherwise) and deletes it on success. A ticket loaded twice ends the attempt with `mut.ErrStartReused`. The UI's "Open the page again" and "Copy link" get a new link from `AuthService.SignInLink`.
+  - `Strict` is enough: Apple's redirect to `/callback` is a cross-site navigation and carries no cookie, but `/callback` receives nothing (the token stays in the fragment). The cookie is needed only on the callback page's same-origin `fetch` to `/complete`, where it is sent. Checked in headless Chromium 155 with a stand-in authorize page (F7).
+- When the attempt ends (success, failure, timeout, cancel, replayed link) every start link and `/complete` answer 410.
 - Reject requests whose `Host` is not `127.0.0.1:<port>` (DNS rebinding defense).
-- `POST /complete` requires `Origin: http://127.0.0.1:<port>` and `Content-Type: application/json`, with a body cap of 16 KiB.
+- `POST /complete` requires `Origin: http://127.0.0.1:<port>`, the start cookie and `Content-Type: application/json`, with a body cap of 16 KiB.
 - Every response sets `Cache-Control: no-store` and a CSP of `default-src 'none'; script-src 'nonce-…'; connect-src 'self'`.
-- Never log the fragment, the MUT, or the dev token. `slog` uses a redacting `LogValuer` on token types.
+- Never log the fragment, the MUT, the dev token or the cookie. `slog` uses a redacting `LogValuer` on token types.
 
 ### 4.6 Failure Modes Handled
 
@@ -124,6 +129,8 @@ sequenceDiagram
 | Restricted account | `itre == "1"` in fragment | store the flag; hide explicit content |
 | Fragment decodes but `/v1/me/storefront` is 401/403 | validation failure | discard the MUT; report the error and offer retry |
 | Second `SignIn` while one is pending | existing attempt | cancel the old attempt (close its server), start a new one |
+| A start link loaded a second time | `mut.ErrStartReused` | the attempt ends; back to the prior state with "the sign-in link was opened twice; start the sign-in again" |
+| `POST /complete` without the start cookie | 403 | the attempt keeps waiting for the browser that started it |
 
 ### 4.7 Native Sign-In (`internal/auth/appleid`)
 
