@@ -13,6 +13,11 @@ import { useSync } from "./sync";
 /**
  * The library sync line at the foot of the sidebar: what is syncing and how
  * far, or when the library was last synced, with a Sync now action.
+ *
+ * Nothing here moves on its own: in WebKitGTK every frame the page draws
+ * costs a composite of the whole window, so a spinning icon held a core
+ * (docs/design.md, Motion). The count and the bar show the progress, and
+ * move only when Go reports some.
  */
 export function SyncIndicator() {
   const { t } = useLingui();
@@ -29,10 +34,11 @@ export function SyncIndicator() {
   const lastSuccess = last?.ok ? last.finishedAt : status.data?.lastSuccess;
 
   let syncing = t`Syncing your library`;
+  let count = "";
   if (current) {
     // One message per domain, so the noun is never spliced into the sentence.
     const domain = current.domain;
-    const what =
+    syncing =
       {
         artists: t`Syncing artists`,
         albums: t`Syncing albums`,
@@ -43,7 +49,7 @@ export function SyncIndicator() {
       }[domain] ?? t`Syncing ${domain}`;
     const done = formatNumber(current.done);
     const total = formatNumber(current.total);
-    syncing = current.total ? `${what} · ${t`${done} of ${total}`}` : what;
+    if (current.total) count = t`${done} of ${total}`;
   }
   const synced = lastSuccess ? relativeTime(lastSuccess) : "";
 
@@ -52,21 +58,25 @@ export function SyncIndicator() {
       {running ? (
         <div>
           <p className="flex items-center gap-1.5 text-meta text-ink-muted">
-            <RefreshCw aria-hidden className="size-3 animate-spin" strokeWidth={2} />
-            <span className="truncate num">{syncing}</span>
+            <RefreshCw aria-hidden className="size-3 shrink-0" strokeWidth={2} />
+            <span className="truncate">{syncing}</span>
           </p>
-          <div
-            role="progressbar"
-            aria-label={t`Library sync`}
-            aria-valuenow={pct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            className="mt-1.5 h-0.5 overflow-hidden rounded-full bg-control-line/60"
-          >
+          {/* The count sits beside the bar, so neither it nor the domain is
+              cut off in the sidebar's width, even for a big library. The row
+              keeps its height before the first count arrives. */}
+          <div className="mt-1 flex h-4 items-center gap-2">
             <div
-              className={cn("h-full bg-ink-muted transition-[width] duration-300")}
-              style={{ width: `${pct}%` }}
-            />
+              role="progressbar"
+              aria-label={t`Library sync`}
+              aria-valuenow={pct}
+              aria-valuetext={count || undefined}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              className="h-0.5 min-w-0 flex-1 overflow-hidden rounded-full bg-control-line/60"
+            >
+              <div className="h-full bg-ink-muted" style={{ width: `${pct}%` }} />
+            </div>
+            {count && <span className="shrink-0 text-meta text-ink-faint num">{count}</span>}
           </div>
         </div>
       ) : (

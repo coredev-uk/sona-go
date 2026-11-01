@@ -98,6 +98,7 @@ The artwork service renders, per cover, a tiny pre-blurred JPEG (target ~32×32,
 
 - Feedback: 120ms on hover and press (background, colour); menus and dialogs 160ms fade + 4px rise (tw-animate defaults trimmed); route content 150ms opacity only.
 - Easing `cubic-bezier(0.16, 1, 0.3, 1)` (exponential out). No bounce, no layout animation, no scroll-linked effects.
+- A loop costs frames for as long as it runs. In WebKitGTK every frame the page draws costs a composite of the whole window in the UI process, however small the part that moved: the sidebar's 12px sync icon spinning at 60 fps held 87% of a core in the UI process and 12% in the web process, a `steps(8)` rotation 15% and 3%, a still icon nothing (headless 2560×1440, `uiprobe -motion -scenarios idle`). So work that can run for long shows a still icon and progress that moves when the work does (the sidebar's sync line: its bar and count); a spinner is for waits of a second or two.
 - `prefers-reduced-motion: reduce` and the reduce-effects mode both cut durations to zero.
 
 ## Reduce effects

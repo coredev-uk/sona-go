@@ -53,7 +53,8 @@ src/
     lib/                  art (artUrl: the one place that sizes artwork requests from the rendered
                           box, density and the artwork's shape; artAspect), capabilities
                           (useCapabilities: what this platform supports), errors
-                          (callFailure), format, keys, queries (isLibraryId), run,
+                          (callFailure), format, go-events (shareEventDispatch: Go's events
+                          reach every copy of the Wails runtime), keys, queries (isLibraryId), run,
                           item-state (useItemState: batched library state + rating;
                           changeItemState, addItemsToLibrary), library-actions (rateItem,
                           addToLibrary, removeFromLibrary and their bulk forms), confirm, content-policy
@@ -716,10 +717,25 @@ every module's handlers (plus the app's own `app:open`), then runs each
 module's `init` (initial snapshots), then calls `SystemService.FirstPaint`
 after two animation frames or 300 ms, whichever comes first.
 
+Go delivers an event by calling `window._wails.dispatchWailsEvent`, which
+each copy of `@wailsio/runtime` replaces with its own dispatcher as it
+loads. Both entry points call `shareEventDispatch()`
+(`shared/lib/go-events.ts`) first, which makes that property a fan-out: a
+second copy loaded into a running page (`import('/wails/runtime.js')`, as
+the Wails MCP server's `call_bound_method` does) gets the events too, and
+no longer takes them from the app's handlers.
+
+Events and call results reach the page by separate paths, so a snapshot a
+module fetched can arrive after events Go sent later. A snapshot is
+applied only if none of the events it would overwrite arrived while it was
+in flight: the sync store counts `sync:progress`/`sync:done` events and
+every `LibraryService.SyncStatus` answer (`syncStatusQuery`) carries the
+count from before the call.
+
 | Event                              | Module   | Does                                                                                                                                                                                                  |
 | ---------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `auth:changed`                     | auth     | replaces the auth query; invalidates `authInvalidations(prev, next)`                                                                                                                                  |
-| `sync:progress`, `sync:done`       | library  | updates the sync store; invalidates `syncInvalidations` / `syncDoneInvalidations`                                                                                                                     |
+| `sync:progress`, `sync:done`       | library  | updates the sync store (`SyncStatus` answers too, unless an event overtook them); invalidates `syncInvalidations` / `syncDoneInvalidations`                                                           |
 | `playback:state`, `playback:queue` | player   | updates the playback mirror; a new track invalidates recently played                                                                                                                                  |
 | `settings:changed`                 | settings | replaces the settings query; applies appearance                                                                                                                                                       |
 | `integrations:status`              | settings | replaces the integrations status query (notifications/inhibitor availability, Discord configured/connected) shown in the Desktop and Connections rows (`IntegrationsRows.tsx`)                        |
