@@ -7,8 +7,11 @@
 // Manager on Windows (SystemBackend). When the keyring isn't reachable, Open and OpenSecret fall back to a file in the config directory
 // (credentials.json for the MUT, credentials-<key> for named secrets) with
 // mode 0600 and say so: they log a warning and Backend reports BackendFile so
-// Settings and Diagnostics can show an "unencrypted" warning. See
-// docs/auth.md §7.
+// Settings and Diagnostics can show an "unencrypted" warning. Only an error
+// from the keyring selects the file: every call blocks for as long as the
+// keyring takes (an unlock prompt, a Secret Service activation), so callers
+// keep it off the UI path (auth.Manager runs it in the background with a
+// deadline). See docs/auth.md §7.
 package store
 
 import (
@@ -107,8 +110,8 @@ func (SystemKeyring) Set(service, user, password string) error {
 func (SystemKeyring) Delete(service, user string) error { return keyring.Delete(service, user) }
 
 // Open returns the Secret Service store when it is reachable and the 0600
-// file store in configDir otherwise. It may block while the desktop keyring
-// prompts to unlock its collection.
+// file store in configDir otherwise. It may block, without a deadline,
+// while the desktop keyring prompts to unlock its collection or starts.
 func Open(configDir string, logger *slog.Logger) (Store, error) {
 	return OpenWith(configDir, SystemKeyring{}, logger)
 }

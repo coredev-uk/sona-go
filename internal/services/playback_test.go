@@ -100,9 +100,10 @@ func TestRestrictedAccountSkipsExplicitSongs(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":[{"id":"us","type":"storefronts","attributes":{"name":"United States","defaultLanguageTag":"en-US","explicitContentPolicy":"opt-in"}}]}`))
 	}))
 	t.Cleanup(apple.Close)
+	creds := &recordStore{rec: store.Record{Token: "mut", ObtainedAt: time.Now(), Restricted: true}}
 	authm, err := auth.NewManager(auth.Config{
 		HTTP: apple.Client(), Dev: testDev{}, APIBase: apple.URL,
-		Store:    &recordStore{rec: store.Record{Token: "mut", ObtainedAt: time.Now(), Restricted: true}},
+		Open:     func() (store.Store, error) { return creds, nil },
 		Accounts: AccountStore{DB: d},
 		Logger:   discard(),
 	})
@@ -128,9 +129,7 @@ func TestRestrictedAccountSkipsExplicitSongs(t *testing.T) {
 	s := newPlaybackService(e)
 	t.Cleanup(e.close)
 
-	if err := authm.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
+	authm.Start()
 	for deadline := time.Now().Add(5 * time.Second); authm.Status().State != auth.StateSignedIn; time.Sleep(5 * time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatalf("not signed in: %+v", authm.Status())

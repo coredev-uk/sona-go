@@ -206,7 +206,7 @@ Storage maintenance (`StorageService`): after first paint it prunes the catalogu
 
 ## 8. Performance
 
-- **Cold start**: the window shows the shell immediately and the first queries hit SQLite only. The network and the CDM host start after the first paint. Target: an interactive shell in under 500 ms on a warm cache.
+- **Cold start**: the window shows the shell immediately and the first queries hit SQLite only. The network and the CDM host start after the first paint. The stored token is read from the keyring in the background (`auth.Manager.Start`, `docs/auth.md` §5), so a slow or silent keyring holds sign-in, never the window. Target: an interactive shell in under 500 ms on a warm cache.
 - **Effects budget**: WebKitGTK `backdrop-filter` and large `filter: blur()` are expensive. Never apply them to scrolling content. Go pre-renders blurred backdrops (tiny blurred JPEGs) instead of CSS-blurring full-size artwork. A "reduce effects" setting gives solid surfaces.
 - **Lists**: TanStack Virtual above about 200 rows; exact-size artwork variants from the Go cache with `loading="lazy"`.
 - **Network**: one shared `http.Client` (HTTP/2 keep-alive), `singleflight` for duplicate requests, bounded parallel paging.

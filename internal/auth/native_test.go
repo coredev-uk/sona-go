@@ -8,13 +8,14 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/auth/appleid"
 	"github.com/coredev-uk/sona-go/internal/auth/appleid/appleidtest"
+	"github.com/coredev-uk/sona-go/internal/auth/store"
 )
 
 func (e *env) nativeManager(t *testing.T, cfg appleidtest.Config, timeout time.Duration) (*Manager, *recorder) {
 	t.Helper()
 	idms := appleidtest.New(t, cfg)
 	m, err := NewManager(Config{
-		HTTP: e.apple.srv.Client(), Dev: e.dev, Store: e.store, Accounts: e.accounts,
+		HTTP: e.apple.srv.Client(), Dev: e.dev, Open: func() (store.Store, error) { return e.store, nil }, Accounts: e.accounts,
 		APIBase: e.apple.srv.URL, AppleID: idms.Options(), SignInTimeout: timeout,
 	})
 	if err != nil {
@@ -23,9 +24,7 @@ func (e *env) nativeManager(t *testing.T, cfg appleidtest.Config, timeout time.D
 	t.Cleanup(m.Close)
 	r := &recorder{ch: make(chan Status, 256)}
 	m.OnChange(func(s Status) { r.ch <- s })
-	if err := m.Start(context.Background()); err != nil {
-		t.Fatal(err)
-	}
+	start(t, m, r)
 	return m, r
 }
 

@@ -83,7 +83,10 @@ export function HomePage() {
           onRetry={() => refresh.mutate()}
         />
       )}
-      {!signedIn ? (
+      {state === "restoring" ? (
+        // Go is still reading the sign-in from the keyring: not signed out.
+        <HomeSkeleton />
+      ) : !signedIn ? (
         state === undefined ? null : (
           <>
             <EmptyState

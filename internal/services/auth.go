@@ -49,6 +49,7 @@ func (s *AuthService) status(st auth.Status) AuthStatus {
 		Restricted:     st.Restricted,
 		Backend:        string(st.Backend),
 		Unencrypted:    st.Backend == store.BackendFile,
+		Keyring:        string(st.Keyring),
 		Offline:        st.Offline,
 		LastError:      st.LastError,
 		SignInURL:      st.SignInURL,
@@ -70,6 +71,8 @@ func (s *AuthService) codeFor(st auth.Status) string {
 	switch {
 	case code != "" && (st.LastError == msg || strings.Contains(msg, st.LastError)):
 		return code
+	case st.Keyring == auth.KeyringUnavailable:
+		return CodeKeyring
 	case st.State == auth.StateNeedsReauth:
 		return CodeMUTRejected
 	case st.State == auth.StateError && strings.Contains(st.LastError, "developer token"):
@@ -143,3 +146,8 @@ func (s *AuthService) SignOut(ctx context.Context) error {
 func (s *AuthService) Revalidate(ctx context.Context) error {
 	return s.note(s.m.Revalidate(ctx))
 }
+
+// RetryKeyring reads the stored sign-in again after the keyring was
+// unavailable (AuthStatus.Keyring "unavailable", or the unencrypted file
+// fallback while signed out); the outcome arrives as auth:changed.
+func (s *AuthService) RetryKeyring() { s.m.RetryKeyring() }

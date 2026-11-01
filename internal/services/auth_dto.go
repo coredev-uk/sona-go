@@ -13,19 +13,25 @@ func init() { application.RegisterEvent[AuthStatus](EventAuthChanged) }
 
 // AuthStatus is the sign-in state ("auth:changed" payload).
 type AuthStatus struct {
-	// State is loading, signed_out, signing_in, validating, signed_in,
+	// State is restoring, signed_out, signing_in, validating, signed_in,
 	// needs_reauth or error.
 	State          string `json:"state"`
 	StorefrontID   string `json:"storefrontId"`
 	StorefrontName string `json:"storefrontName"` // "" until Apple confirmed the token this run
 	Language       string `json:"language"`
 	Restricted     bool   `json:"restricted"`
-	// Backend is where the token is stored; Unencrypted is set for the
-	// 0600 file fallback, which the UI must flag.
+	// Backend is where the token is stored ("" until the store has been
+	// opened); Unencrypted is set for the 0600 file fallback, which the UI
+	// must flag.
 	Backend     string `json:"backend"`
 	Unencrypted bool   `json:"unencrypted"`
-	Offline     bool   `json:"offline"`
-	LastError   string `json:"lastError"`
+	// Keyring is "waiting" while a read (restoring) or a sign-in's write
+	// has waited past a second for the keyring, and from the start of a
+	// RetryKeyring read; "unavailable" when the stored sign-in couldn't be
+	// read (signed_out; RetryKeyring tries again); "" otherwise.
+	Keyring   string `json:"keyring"`
+	Offline   bool   `json:"offline"`
+	LastError string `json:"lastError"`
 	// LastErrorCode classifies LastError (see the Code constants); "" when
 	// LastError is empty.
 	LastErrorCode string `json:"lastErrorCode"`

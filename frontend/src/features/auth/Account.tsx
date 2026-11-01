@@ -18,7 +18,7 @@ import { useEffect, useReducer, useState, type FormEvent, type ReactNode } from 
 import { toast } from "sonner";
 
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
-import { Button } from "@/shared/ui/button";
+import { Button, buttonVariants } from "@/shared/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,7 @@ import { Input } from "@/shared/ui/input";
 import { callFailure } from "@/shared/lib/errors";
 import { cn } from "@/shared/lib/utils";
 
+import { KeyringRetry } from "./KeyringRetry";
 import { useAuth } from "./queries";
 import {
   classifySignInError,
@@ -49,17 +50,20 @@ const openURL = (url: string) => void Browser.OpenURL(url);
 function Notice({
   icon,
   tone = "neutral",
+  live,
   children,
   action,
 }: {
   icon: ReactNode;
   tone?: "neutral" | "problem";
+  /** Overrides the role the tone implies: "status" for a problem shown on arrival, not caused by the user's last action. */
+  live?: "status" | "alert";
   children: ReactNode;
   action?: ReactNode;
 }) {
   return (
     <div
-      role={tone === "problem" ? "alert" : "status"}
+      role={live ?? (tone === "problem" ? "alert" : "status")}
       className={cn(
         "flex items-start gap-3 rounded-lg px-4 py-3",
         tone === "problem" ? "border border-control-line bg-raised" : "bg-hover",
@@ -770,7 +774,9 @@ function SignedIn({ status }: { status: AuthStatus }) {
         <div className="flex items-center justify-between gap-6 border-b border-line py-4">
           <div>
             <p className="text-ui font-medium text-ink">
-              {status.state === "validating" ? (
+              {status.keyring === "waiting" ? (
+                <Trans>Saving your sign-in in your keyring; unlock it if it asks.</Trans>
+              ) : status.state === "validating" ? (
                 <Trans>Checking your sign-in…</Trans>
               ) : (
                 <Trans>Signed in to Apple Music</Trans>
@@ -847,6 +853,84 @@ function SignedIn({ status }: { status: AuthStatus }) {
   );
 }
 
+/**
+ * Where the keyring holds sign-in up: the stored sign-in still being read,
+ * a keyring that didn't answer or failed, or no keyring at all (a sign-in
+ * would go to the unencrypted file). The retry keeps its place across
+ * these, so focus stays on it while it reads again.
+ */
+function KeyringNotice({ status }: { status: AuthStatus }) {
+  const restoring = status.state === "restoring";
+  if (
+    restoring
+      ? status.keyring !== "waiting"
+      : status.keyring !== "unavailable" && !status.unencrypted
+  ) {
+    return null;
+  }
+  const action = (
+    <KeyringRetry status={status} className={buttonVariants({ variant: "ghost", size: "sm" })} />
+  );
+  if (restoring) {
+    return (
+      <Notice
+        icon={
+          <LoaderCircle
+            aria-hidden
+            className="size-4 animate-spin text-ink-muted motion-reduce:animate-none"
+            strokeWidth={1.75}
+          />
+        }
+        action={action}
+      >
+        <p className="font-medium">
+          <Trans>Signing in…</Trans>
+        </p>
+        <p className="mt-0.5 text-ink-muted">
+          <Trans>
+            Sona is waiting for your keyring to hand over your sign-in. If GNOME Keyring or KWallet
+            asks you to unlock it, do that now.
+          </Trans>
+        </p>
+      </Notice>
+    );
+  }
+  return (
+    <Notice
+      tone="problem"
+      live="status"
+      icon={<ShieldAlert aria-hidden className="size-4 text-danger" strokeWidth={1.75} />}
+      action={action}
+    >
+      {status.keyring === "unavailable" ? (
+        <>
+          <p className="font-medium">
+            <Trans>Sona couldn't read your sign-in from your keyring</Trans>
+          </p>
+          <p className="mt-0.5 text-ink-muted">
+            <Trans>
+              Your keyring didn't answer or refused, so you're signed out. Unlock GNOME Keyring or
+              KWallet, then try again.
+            </Trans>
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="font-medium">
+            <Trans>Signing in now stores your token unencrypted</Trans>
+          </p>
+          <p className="mt-0.5 text-ink-muted">
+            <Trans>
+              Sona couldn't open a keyring, so it would keep your Apple Music token in a file only
+              your user can read. Start or unlock GNOME Keyring or KWallet, then try again.
+            </Trans>
+          </p>
+        </>
+      )}
+    </Notice>
+  );
+}
+
 export function AccountSection() {
   const auth = useAuth();
   const { t } = useLingui();
@@ -861,51 +945,61 @@ export function AccountSection() {
     );
   }
   const status = auth.data;
-  if (!status || status.state === "loading") {
+  if (!status) {
     return <div aria-busy className="h-48 rounded-lg bg-surface" />;
   }
   if (status.state === "signed_in" || status.state === "validating") {
     return <SignedIn status={status} />;
   }
+  const restoring = status.state === "restoring";
   return (
     <div className="flex flex-col gap-4">
-      {status.state === "needs_reauth" && (
-        <Notice
-          icon={<CircleAlert aria-hidden className="size-4 text-danger" strokeWidth={1.75} />}
-        >
-          <p className="font-medium">
-            <Trans>Apple stopped accepting Sona's sign-in</Trans>
-          </p>
-          <p className="mt-0.5 text-ink-muted">
-            <Trans>
-              This happens after a password change or when the token expires. Your library on this
-              computer is still here; sign in again to keep syncing and playing.
-            </Trans>
-          </p>
-        </Notice>
+      <KeyringNotice status={status} />
+      {restoring ? (
+        status.keyring !== "waiting" && <div aria-busy className="h-48 rounded-lg bg-surface" />
+      ) : (
+        <>
+          {status.state === "needs_reauth" && (
+            <Notice
+              icon={<CircleAlert aria-hidden className="size-4 text-danger" strokeWidth={1.75} />}
+            >
+              <p className="font-medium">
+                <Trans>Apple stopped accepting Sona's sign-in</Trans>
+              </p>
+              <p className="mt-0.5 text-ink-muted">
+                <Trans>
+                  This happens after a password change or when the token expires. Your library on
+                  this computer is still here; sign in again to keep syncing and playing.
+                </Trans>
+              </p>
+            </Notice>
+          )}
+          {status.state === "error" && (
+            <Notice
+              icon={<CircleAlert aria-hidden className="size-4 text-danger" strokeWidth={1.75} />}
+            >
+              <p className="font-medium">
+                <Trans>Apple Music isn't accepting Sona's requests</Trans>
+              </p>
+              <p className="mt-0.5 text-ink-muted">
+                {status.lastError ? `${status.lastError.replace(/^[a-z]+: /, "")}. ` : ""}
+                <Trans>
+                  Sona refetches its developer token by itself; if this persists, Apple changed its
+                  web player.
+                </Trans>
+              </p>
+            </Notice>
+          )}
+          {status.offline && (
+            <Notice
+              icon={<WifiOff aria-hidden className="size-4 text-ink-muted" strokeWidth={1.75} />}
+            >
+              <Trans>You're offline. Signing in needs a connection to Apple.</Trans>
+            </Notice>
+          )}
+          <SignInFlow status={status} />
+        </>
       )}
-      {status.state === "error" && (
-        <Notice
-          icon={<CircleAlert aria-hidden className="size-4 text-danger" strokeWidth={1.75} />}
-        >
-          <p className="font-medium">
-            <Trans>Apple Music isn't accepting Sona's requests</Trans>
-          </p>
-          <p className="mt-0.5 text-ink-muted">
-            {status.lastError ? `${status.lastError.replace(/^[a-z]+: /, "")}. ` : ""}
-            <Trans>
-              Sona refetches its developer token by itself; if this persists, Apple changed its web
-              player.
-            </Trans>
-          </p>
-        </Notice>
-      )}
-      {status.offline && (
-        <Notice icon={<WifiOff aria-hidden className="size-4 text-ink-muted" strokeWidth={1.75} />}>
-          <Trans>You're offline. Signing in needs a connection to Apple.</Trans>
-        </Notice>
-      )}
-      <SignInFlow status={status} />
     </div>
   );
 }

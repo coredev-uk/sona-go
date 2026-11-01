@@ -46,6 +46,7 @@ const (
 	CodePrivateForced      = "private_forced" // SONA_PRIVATE=1 keeps private mode on
 	CodeUnsupported        = "unsupported"    // this platform can't do it (Capabilities says so)
 	CodeNoCDM              = "no_cdm"         // the Widevine CDM isn't ready yet (CDMService says why)
+	CodeKeyring            = "keyring"        // the token store failed or didn't answer in time
 	CodeUnknown            = "unknown"
 )
 
@@ -77,6 +78,8 @@ func ErrorCode(err error) string {
 		return CodeUnsupported2FA
 	case errors.Is(err, appleid.ErrOutOfOrder):
 		return CodeOutOfOrder
+	case errors.Is(err, auth.ErrKeyring):
+		return CodeKeyring
 	case errors.Is(err, mut.ErrTimeout), errors.Is(err, context.DeadlineExceeded):
 		return CodeTimeout
 	case errors.Is(err, mut.ErrCanceled), errors.Is(err, context.Canceled):

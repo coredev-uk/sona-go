@@ -45,6 +45,7 @@ const codeMessages: Record<string, MessageDescriptor> = {
   not_configured: msg`This build of Sona has no account for that service.`,
   unsupported: msg`That isn't available on this platform.`,
   no_cdm: msg`Sona needs Google's Widevine to play songs, and it isn't ready yet. Settings → Playback shows its progress.`,
+  keyring: msg`Your keyring didn't answer or refused. Unlock it, then try again.`,
 };
 
 /** Whether `code` has its own translated wording (else the message is Go's text). */

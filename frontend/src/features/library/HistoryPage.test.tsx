@@ -15,7 +15,7 @@ vi.mock("@bindings/services", () => ({ LibraryService: { History: (d: number) =>
 vi.mock("@/features/player", () => ({ playSongs: (...a: unknown[]) => playSongs(...a) }));
 vi.mock("@/features/auth", () => ({
   useAuth: () => ({ data: { state: "signed_in" } }),
-  hasAccount: () => true,
+  isSignedOut: () => false,
 }));
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ children }: { children: ReactNode }) => <a href="#">{children}</a>,
