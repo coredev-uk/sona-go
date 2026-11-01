@@ -33,6 +33,7 @@ func custom() Settings {
 	s.MotionArtwork.Enabled = false
 	s.Queue.ReplaceConfirm = ReplaceConfirm
 	s.Storage.ArtCacheMiB = 2048
+	s.Onboarding.Completed = true
 	return s.Normalized()
 }
 
@@ -42,6 +43,7 @@ func local(dst, src Settings) Settings {
 	dst.Diagnostics, dst.Scrobbling, dst.Window = src.Diagnostics, src.Scrobbling, src.Window
 	dst.Desktop.Autostart, dst.Desktop.LastRoute = src.Desktop.Autostart, src.Desktop.LastRoute
 	dst.Audio.OutputDevice = src.Audio.OutputDevice
+	dst.Onboarding = src.Onboarding
 	return dst
 }
 

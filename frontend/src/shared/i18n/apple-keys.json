@@ -75,6 +75,10 @@
     "key": "ASE.Web.Music.SharePlay.Join.Connect"
   },
   {
+    "message": "Continue",
+    "key": "ASE.Web.Platform.Shared.DropdownMenu.Continue"
+  },
+  {
     "message": "Copy link",
     "key": "ASE.Web.Music.Shared.ContextualSharing.CopyLink.Label"
   },
@@ -124,6 +128,10 @@
   {
     "message": "Genre",
     "key": "ASE.Web.Music.ActionModal.Title.Genre"
+  },
+  {
+    "message": "Get started",
+    "key": "FUSE.Upsell.Onboard.CTA"
   },
   {
     "message": "Library",
@@ -182,6 +190,10 @@
   {
     "message": "Next",
     "key": "ASE.Web.Platform.Shared.MediaComponents.Playback.Next"
+  },
+  {
+    "message": "Not now",
+    "key": "FUSE.NotNow"
   },
   {
     "message": "Now playing",

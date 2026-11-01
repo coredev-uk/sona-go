@@ -12,6 +12,7 @@ import { Switch } from "@/shared/ui/switch";
 import { IntegrationsDesktopRows } from "./IntegrationsRows";
 import { useSettings, useUpdateSettings } from "./queries";
 import { SettingRow, SettingsPanel } from "./SettingRow";
+import { SetupRow } from "./SetupRow";
 
 /**
  * Title bar (Windows and Linux; macOS always keeps its own buttons in
@@ -241,6 +242,7 @@ export function DesktopSection() {
         </Button>
       </SettingRow>
       <IntegrationsDesktopRows />
+      <SetupRow />
     </SettingsPanel>
   );
 }

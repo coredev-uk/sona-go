@@ -155,6 +155,17 @@ src/
                           aria-disabled while SONA_PRIVATE=1 forces it) and the
                           "private.toggle" palette command (no default keys). Settings →
                           Playback's row (settings/PrivateRows.tsx) uses the same mirror
+    onboarding            the first-run setup (/welcome?step=welcome|account|widevine|listening|done):
+                          a step list (links; Apple Music and Widevine carry their live state, the
+                          download's percent included) beside one step at a time; Apple Music
+                          reuses auth's AccountSection (native form, browser and token fallbacks),
+                          Widevine shows the cdm mirror's download (no consent step; "playback isn't
+                          available" from Capabilities or code unsupported_platform), Listening
+                          saves private listening (PrivateService), Sound Check and crossfade
+                          (useUpdateSettings). Every step can be skipped; reaching Done or "Skip
+                          setup" saves settings.onboarding.completed. Go opens the window here on a
+                          first start (services.StartRoute: no completed flag and no account in
+                          SQLite); Settings → Desktop's SetupRow links back
 ```
 
 Tests sit next to their code (`*.test.ts`). Vitest runs every file in jsdom
@@ -873,6 +884,7 @@ Enforced by `no-restricted-imports` in `frontend/eslint.config.js`:
 
 Feature-to-feature imports must stay acyclic. Today: player → settings →
 auth; player → equalizer → settings; player → private; settings → private;
+onboarding → auth, cdm, private, settings;
 player → cdm; settings → cdm;
 home → auth, discover, library, player; discover → player; search → auth, player; album and
 playlist → library, player; artist → player; library → auth; commands → search;

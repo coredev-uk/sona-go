@@ -74,6 +74,8 @@ type Settings struct {
 	Private Private `json:"private"`
 	// TitleBar is who draws the main window's title bar (titlebar.go).
 	TitleBar TitleBar `json:"titleBar"`
+	// Onboarding is the first-run setup's state (onboarding.go).
+	Onboarding Onboarding `json:"onboarding"`
 }
 
 // Diagnostics are WebKitGTK rendering workarounds exposed as toggles. They

@@ -9,6 +9,7 @@ import { equalizerModule } from "@/features/equalizer";
 import { libraryModule } from "@/features/library";
 import { miniplayerModule } from "@/features/miniplayer";
 import { motionModule } from "@/features/motion";
+import { onboardingModule } from "@/features/onboarding";
 import { playerModule } from "@/features/player";
 import { playlistModule } from "@/features/playlist";
 import { privateModule } from "@/features/private";
@@ -47,4 +48,5 @@ export const modules = [
   privateModule,
   cdmModule,
   remindersModule,
+  onboardingModule,
 ] as const;
