@@ -6,17 +6,40 @@ import {
   type Playlist,
   type Song,
 } from "@bindings/services";
-import { keepPreviousData, useQueries, useQuery, type QueryKey } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  queryOptions,
+  useQueries,
+  useQuery,
+  type QueryKey,
+} from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
 import { keys, type LibraryKind } from "@/shared/lib/keys";
+
+import { useSync } from "./sync";
 
 export function useCounts() {
   return useQuery({ queryKey: keys.libraryCounts, queryFn: () => LibraryService.Counts() });
 }
 
+/**
+ * LibraryService.SyncStatus. Every answer also brings the sync store up to
+ * date (unless a sync event overtook it, see useSync's snapshot), so the
+ * indicator follows Go at start-up and whenever the status is refetched.
+ */
+export const syncStatusQuery = queryOptions({
+  queryKey: keys.librarySync,
+  queryFn: async () => {
+    const at = useSync.getState().events;
+    const status = await LibraryService.SyncStatus();
+    useSync.getState().snapshot(status.running, at);
+    return status;
+  },
+});
+
 export function useSyncStatus() {
-  return useQuery({ queryKey: keys.librarySync, queryFn: () => LibraryService.SyncStatus() });
+  return useQuery(syncStatusQuery);
 }
 
 const PAGE = 200;

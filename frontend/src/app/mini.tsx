@@ -10,6 +10,7 @@ import { usePlayback } from "@/features/player";
 import { bindAppearance, loadAppearance } from "@/features/settings";
 import { followAccountLanguage, initI18n } from "@/shared/i18n";
 import { wrapTabFocus } from "@/shared/lib/focus-wrap";
+import { shareEventDispatch } from "@/shared/lib/go-events";
 
 import { AppProviders } from "./providers";
 
@@ -19,6 +20,7 @@ import { AppProviders } from "./providers";
  * same Go events and snapshot the main window uses, and follows the theme
  * and the account's language.
  */
+shareEventDispatch();
 initI18n();
 bindAppearance();
 wrapTabFocus();

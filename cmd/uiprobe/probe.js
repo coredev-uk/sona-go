@@ -237,10 +237,8 @@
   // Motion artwork (uiprobe -motion).
 
   /**
-   * Turns Settings → Appearance → Motion artwork on or off with its switch
-   * (importing /wails/runtime.js here instead would take Go's events away
-   * from the app's own copy of the runtime). Returns the switch's state
-   * before.
+   * Turns Settings → Appearance → Motion artwork on or off with its switch,
+   * as a user does. Returns the switch's state before.
    */
   async function setMotion(on) {
     location.hash = "#/settings?section=appearance";

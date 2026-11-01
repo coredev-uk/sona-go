@@ -1,5 +1,4 @@
 import { t } from "@lingui/core/macro";
-import { LibraryService } from "@bindings/services";
 import { createRoute } from "@tanstack/react-router";
 import {
   Clapperboard,
@@ -166,14 +165,6 @@ export const libraryModule: FeatureModule<(typeof routes)[number]> = {
       qc.setQueryData(keys.itemState(data.kind, data.id), data);
       invalidate([["library", "favorite-songs"]]);
     },
-  },
-  init: ({ qc }) => {
-    void qc
-      .fetchQuery({ queryKey: keys.librarySync, queryFn: () => LibraryService.SyncStatus() })
-      .then(
-        (s) => useSync.getState().seed(s.running),
-        () => {},
-      );
   },
   shellSlots: { Provider: LibraryProvider, SidebarFooter: SyncIndicator },
 };
