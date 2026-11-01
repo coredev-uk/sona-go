@@ -555,8 +555,18 @@ lists that mark the playing song.
   hovered or focused, after a 400 ms dwell, one tile at a time; at rest a
   tile with motion renders a hidden marker and nothing else (no video,
   observer or layer). One set of document listeners decides the active
-  tile (`listenForTileMotion`). At most a header, the now-playing cover and
-  one tile decode at once.
+  tile (`listenForTileMotion`). A video pauses while the window is hidden
+  (`visibilitychange`; WebKitGTK reports a window on another Hyprland
+  workspace as hidden) and while its page is inert: under the Now Playing
+  view or full-screen lyrics (which cover the page column) and behind a
+  modal dialog. IntersectionObserver ignores occlusion, so without that the
+  header under Now Playing kept decoding unseen. At most the now-playing
+  cover, or a header and one tile, decode at once.
+- **Cost.** `go run ./cmd/uiprobe -motion` measures it (CONTRIBUTING.md,
+  "Measuring UI performance"): one playing video costs about a tenth of a
+  core in the web process (a quarter for the now-playing cover) and about
+  a quarter in the UI process, on a desktop where WebKit's web process
+  paints in software.
 - **Which tiles.** Every catalog album, playlist, artist and station tile:
   Go's `Album`, `Playlist`, `Artist` and `Station` carry `motion` (an
   `Item` takes its typed field's), and every request that fills tiles asks

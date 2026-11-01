@@ -373,6 +373,35 @@ For a breakdown (paint, style, layout, script), a development build (no `product
 
 What the headless harness cannot show: sway's headless output has no display, so the UI process composites every frame in its own process (about 80% of a core while scrolling an empty page at 2560×1600), and GPU, driver and compositor behaviour differ from a desktop session. Compare before and after on the same machine and configuration, and confirm on a desktop.
 
+#### Motion artwork's cost
+
+`uiprobe -motion` measures what motion artwork costs, motion on against off (it flips Settings → Appearance → Motion artwork with the switch, and leaves it as it found it). Quit your own Sona first (one instance at a time), then on your desktop:
+
+```sh
+go build -tags production,sqlite_fts5,mcp -o bin/sona-mcp ./cmd/sona
+SONA_PRIVATE=1 SONA_PREVIEW=1 WAILS_MCP_PORT=9322 ./bin/sona-mcp & sona=$!
+sleep 15; go run ./cmd/uiprobe -motion -addr 127.0.0.1:9322 -pid $sona | tee motion.md
+kill $sona
+```
+
+It needs a signed-in account (Discover and the album come from the catalog). Now Playing shows the player's song; with nothing in the player it plays `-album`'s first song and pauses it (`SONA_PREVIEW=1`: the preview, no CDM). With private XDG dirs (as for the headless harness) none of that touches your own profile. Each scenario (`-scenarios`) runs `-runs` times (3) with motion on, then off; the table gives the median and the range of the CPU over `-window` (10 s), as % of one core, of the web process, its main thread (script, style, layout, paint) and its GStreamer threads (demuxing and decoding, threads named `<element>:<pad>`), and of the UI process; then the videos playing, their decoded and drawn size in device pixels, the video frames decoded per second (`getVideoPlaybackQuality`) and the page's rAF frame times over 3 s. It prints how each process draws (a GPU device open or not) and, on stderr, each run with its busiest web threads. The scenarios: `idle` (Discover at rest), `tile` (one Discover tile hovered), `album` (`-album`'s header, Graduation by default), `nowplaying` (Now Playing over an empty page), `nowplaying-album` (Now Playing over the album page) and `scroll` (Discover scrolled down and back at `-speed` with a pointer resting over it, measured over the scroll).
+
+Measured (WebKitGTK 2.54.1, GStreamer 1.28.7, H.264; on a 2560×1440 Hyprland desktop with an NVIDIA RTX 3080 and a 1132×1253 window, and in the headless harness at 2560×1440; motion on, medians of 3; off is 0% everywhere but `scroll`). In both the web process paints in software: it loads NVIDIA's GL libraries but has no GPU device open (`/dev/nvidia*`, `/dev/dri`), so it hands the UI process shared-memory buffers to composite, and headless the UI process composites in software too, about twice the desktop's cost:
+
+| scenario | desktop: web process | desktop: UI process | headless: web process | headless: UI process |
+| --- | --- | --- | --- | --- |
+| idle | 0% | 0% | 0% | 0% |
+| tile (360 px rendition drawn at 212 px) | 10% | 23% | 12% | 41% |
+| album header (360 px at 225) | 11% | 23% | 10% | 41% |
+| Now Playing (486 px at 473) | 23% | 23% | 20% | 42% |
+| Now Playing over the album page, before | 97% | 45% | 87% | 83% |
+| Now Playing over the album page, now | 24% | 23% | 21% | 41% |
+| scroll, motion on / off | 100% / 99% | 39% / 38% | 98% / 99% | 46% / 46% |
+
+- One video costs about a tenth of a core in the web process (a quarter for the larger Now Playing cover): two thirds on its main thread painting each frame, the rest in GStreamer (the libav H.264 threads about 1–3%, `appsrc`, which feeds the `data:` URL, about 2%). The UI process's share is compositing. Every video plays at 30 frames/s without dropping a frame, and the page drops none either.
+- Under the Now Playing view the album header kept decoding unseen (IntersectionObserver ignores occlusion), and the web process used four times what Now Playing uses alone (97% against 23%: its main thread at 71%, `appsrc` at 19%). Videos now pause while their page is inert (under an overlay or a modal) as well as while the window is hidden; a window moved to another Hyprland workspace reports `hidden`, and its videos drop to 0%.
+- Tiles already decode Apple's smallest rendition (360 px; the next are 408, 456 and 486), and Now Playing the smallest above its size, so a smaller cap saves nothing. Scrolling plays nothing (tiles wait 400 ms on hover) and costs the same either way. A lower frame rate for tiles or stopping after a number of loops would need the video re-encoded, or would change what the user sees; at a tenth of a core per video, they are not done.
+
 ### Secret scanning
 
 CI runs [gitleaks](https://github.com/gitleaks/gitleaks) on every pull request and every push to `main` (`.github/workflows/secret-scan.yml`): over every commit of every branch and tag, your pull request's own commits included, and over the pull request's title and body. `.gitleaks.toml` adds Sona's rules to gitleaks' defaults: JWTs (the Apple developer token), Music User Tokens, the Last.fm key and secret, the Discord application ID, and credential files (`.env`, `.p8`, `.pem`, keys, keystores). The public log shows only each finding's rule, commit, file and line. Run it before pushing with `nix run nixpkgs#gitleaks -- git --config .gitleaks.toml --redact .` (CI pins gitleaks 8.30.1). Test fixtures that need token-shaped input use obviously fake values; an allowlist entry in `.gitleaks.toml` names the file and the exact fake value, with a comment saying why it is fake. A commit that ever held a real secret stays public through its pull request even after a squash merge or force-push: rotate the secret first, then tell the maintainer. Details: `docs/security-review.md`, "Secret scanning".

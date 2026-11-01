@@ -106,10 +106,24 @@
    * `speed` CSS px/s, one step per frame, and back to the top, recording
    * every frame delta. Call top() first.
    */
-  async function scroll({ speed = 2000, maxPx = 20000, back = true } = {}) {
+  async function scroll({ speed = 2000, maxPx = 20000, back = true, hover = false } = {}) {
     const el = scroller();
     const t0 = performance.now();
     const ds = [];
+    // hover: a pointer resting over the middle of #content while it scrolls,
+    // as a mouse wheel leaves it: each element passing under it is hovered.
+    const box = el.getBoundingClientRect();
+    const hx = box.left + box.width / 2;
+    const hy = box.top + Math.min(box.height, innerHeight) / 2;
+    let under = null;
+    const point = () => {
+      const next = document.elementFromPoint(hx, hy);
+      if (next === under) return;
+      under?.dispatchEvent(new PointerEvent("pointerout", { bubbles: true, relatedTarget: next }));
+      next?.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, relatedTarget: under }));
+      under = next;
+    };
+    let videos = 0;
     const run = async (from, sign) => {
       let prev = await raf();
       const start = prev;
@@ -120,12 +134,15 @@
         const limit = Math.min(maxPx, el.scrollHeight - el.clientHeight);
         const y = from + sign * (speed * (t - start)) / 1000;
         el.scrollTop = Math.max(0, Math.min(limit, y));
+        if (hover) point();
+        videos = Math.max(videos, document.querySelectorAll("video").length);
         if (sign > 0 ? y >= limit : y <= 0) break;
       }
     };
     await run(0, 1);
     const bottom = el.scrollTop;
     if (back) await run(bottom, -1);
+    if (hover) unhover();
     const dur = performance.now() - t0;
     const budget = interval * 1.5;
     let dropped = 0;
@@ -145,6 +162,7 @@
       longFrames: long,
       images: imageStats(t0),
       nodes: document.getElementsByTagName("*").length,
+      videos,
     };
   }
 
@@ -216,6 +234,156 @@
     return page();
   }
 
-  window.__sonaProbe = { settle, idle, top, scroll, layers, page, startup, go };
+  // Motion artwork (uiprobe -motion).
+
+  /**
+   * Turns Settings → Appearance → Motion artwork on or off with its switch
+   * (importing /wails/runtime.js here instead would take Go's events away
+   * from the app's own copy of the runtime). Returns the switch's state
+   * before.
+   */
+  async function setMotion(on) {
+    location.hash = "#/settings?section=appearance";
+    let sw = null;
+    for (let i = 0; i < 100 && !(sw = document.getElementById("motion-artwork")); i++) await sleep(100);
+    if (!sw) throw new Error("no Motion artwork switch in Settings → Appearance");
+    const checked = () => sw.getAttribute("aria-checked") === "true";
+    const was = checked();
+    if (was !== on) sw.click();
+    for (let i = 0; i < 50 && checked() !== on; i++) await sleep(100);
+    if (checked() !== on) throw new Error(`the Motion artwork switch stayed ${was ? "on" : "off"}`);
+    await sleep(500);
+    return was;
+  }
+
+  let hovered = null;
+  function unhover() {
+    hovered?.dispatchEvent(new PointerEvent("pointerout", { bubbles: true, relatedTarget: null }));
+    hovered = null;
+  }
+
+  /**
+   * Hovers the page's index-th cover tile, scrolled into view, as a pointer
+   * resting on it does (shared/lib/motion's delegated listeners). index < 0
+   * picks the first tile with motion artwork and returns its index, for the
+   * motion-off run.
+   */
+  async function hoverTile(index) {
+    unhover();
+    const tiles = [...document.querySelectorAll("[data-cover-tile]")];
+    if (index < 0) index = tiles.findIndex((t) => t.querySelector("[data-tile-motion]"));
+    const tile = tiles[index];
+    if (!tile) return -1;
+    tile.scrollIntoView({ block: "center", inline: "nearest" });
+    await sleep(300);
+    tile.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, relatedTarget: null }));
+    hovered = tile;
+    return index;
+  }
+
+  /** Waits until a <video> plays (motion on) or `ms` pass; returns how many play. */
+  async function playing(ms = 15000) {
+    const end = performance.now() + ms;
+    while (performance.now() < end) {
+      const n = [...document.querySelectorAll("video")].filter((v) => !v.paused && v.currentTime > 0).length;
+      if (n) return n;
+      await sleep(100);
+    }
+    return 0;
+  }
+
+  /** The page's motion videos: decoded and drawn size, frames decoded and dropped so far. */
+  function videos() {
+    return [...document.querySelectorAll("video")].map((v) => {
+      const q = v.getVideoPlaybackQuality?.();
+      const b = v.getBoundingClientRect();
+      return {
+        width: v.videoWidth,
+        height: v.videoHeight,
+        boxWidth: Math.round(b.width * dpr()),
+        boxHeight: Math.round(b.height * dpr()),
+        paused: v.paused,
+        duration: v.duration || 0,
+        frames: q?.totalVideoFrames ?? 0,
+        dropped: q?.droppedVideoFrames ?? 0,
+      };
+    });
+  }
+
+  /** rAF frame deltas over `ms`, with the share of frames dropped against `interval`. */
+  async function frames(ms = 3000) {
+    const ds = [];
+    let prev = await raf();
+    const end = prev + ms;
+    for (;;) {
+      const t = await raf();
+      ds.push(t - prev);
+      prev = t;
+      if (t > end) break;
+    }
+    let dropped = 0;
+    for (const d of ds) if (d > interval * 1.5) dropped += Math.round(d / interval) - 1;
+    const q = quantiles(ds);
+    return {
+      interval: +interval.toFixed(2),
+      p50: +q.p50.toFixed(1),
+      p95: +q.p95.toFixed(1),
+      frames: ds.length,
+      dropped,
+    };
+  }
+
+  /** The player bar's button that opens Now Playing ("Nothing playing" while idle). */
+  const nowPlayingButton = () =>
+    document.querySelector('[aria-label="Player"] button[aria-label="Open now playing"]');
+
+  /**
+   * Gets a song into the player, paused: plays the album's first song (as
+   * its preview with SONA_PREVIEW=1) and pauses it. Returns whether the
+   * player has one.
+   */
+  async function loadSong(album) {
+    if (nowPlayingButton()) return true;
+    await go(`/album/${album}`);
+    // The header's "Play <album>" comes before the songs' "Play <song>".
+    const play = [...document.querySelectorAll("main button[aria-label]")].find((b) =>
+      b.getAttribute("aria-label").startsWith("Play "),
+    );
+    if (!play) return false;
+    play.click();
+    for (let i = 0; i < 100 && !nowPlayingButton(); i++) await sleep(100);
+    await sleep(1500);
+    document.querySelector('[aria-label="Player"] button[aria-label="Pause"]')?.click();
+    await sleep(500);
+    return !!nowPlayingButton();
+  }
+
+  /** Opens or closes the Now Playing view with the player bar's button. */
+  async function nowPlaying(open) {
+    const shown = () => !!document.querySelector('section[aria-label="Now playing"]');
+    if (shown() !== open) nowPlayingButton()?.click();
+    for (let i = 0; i < 50 && shown() !== open; i++) await sleep(100);
+    await sleep(500);
+    return shown();
+  }
+
+  window.__sonaProbe = {
+    settle,
+    idle,
+    top,
+    scroll,
+    layers,
+    page,
+    startup,
+    go,
+    setMotion,
+    hoverTile,
+    unhover,
+    playing,
+    videos,
+    frames,
+    loadSong,
+    nowPlaying,
+  };
   return "installed";
 })();
