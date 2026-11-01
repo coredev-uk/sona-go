@@ -551,9 +551,9 @@ export class AuthStatus {
 
     /**
      * Keyring is "waiting" while a read (restoring) or a sign-in's write
-     * has waited past a second for the keyring, "unavailable" when the
-     * stored sign-in couldn't be read (signed_out; RetryKeyring tries
-     * again), and "" otherwise.
+     * has waited past a second for the keyring, and from the start of a
+     * RetryKeyring read; "unavailable" when the stored sign-in couldn't be
+     * read (signed_out; RetryKeyring tries again); "" otherwise.
      */
     "keyring": string;
     "offline": boolean;
