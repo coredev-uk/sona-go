@@ -58,7 +58,7 @@
 // playback.VolumeGain.
 //
 // Platform (platform.go) is what the OS offers beyond the windows, one
-// small seam per concern, built by main's platform_<os>.go: media controls
+// small seam per concern, built by cmd/sona's platform_<os>.go: media controls
 // (MPRIS), notifications, the sleep inhibitor, the on-battery monitor, the
 // autostart entry, the file chooser, plus whether there is a tray and a
 // command transport (`sona private …`, single instance), and how title bars
@@ -70,7 +70,7 @@
 // session without a bus): its feature does nothing or fails with an error
 // wrapping errors.ErrUnsupported (CodeUnsupported). Features never reach
 // D-Bus, files or OS APIs for these directly. Deps.Engine is the platform's
-// playback engine: the CDM host engine on Linux and macOS (main's
+// playback engine: the CDM host engine on Linux and macOS (cmd/sona's
 // engine_cdm.go), playback.Unsupported elsewhere (every play fails with
 // playback.ErrUnsupported; the
 // coordinator pauses on it rather than skipping the queue); features ask

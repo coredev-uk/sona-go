@@ -48,7 +48,7 @@ jobs:
         with:
           go-version-file: go.mod
 
-      # main.go embeds frontend/dist; the frontend job builds the real one.
+      # The frontend package embeds frontend/dist; the frontend job builds the real one.
       - name: Stub the embedded frontend
         run: mkdir -p frontend/dist && touch frontend/dist/.ci
 
@@ -279,5 +279,5 @@ jobs:
       - name: Build sona.exe
         run: |
           go build -tags production,sqlite_fts5 -trimpath -buildvcs=false \
-            -ldflags "-w -s -H windowsgui -X main.version=$(cat VERSION)" -o bin/sona.exe .
+            -ldflags "-w -s -H windowsgui -X main.version=$(cat VERSION)" -o bin/sona.exe ./cmd/sona
           ls -l bin/sona.exe

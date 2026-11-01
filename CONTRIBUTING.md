@@ -36,7 +36,7 @@ plugins) and, on Linux, glib-networking's GIO module path, and loads `.env`.
   Commit the result.
 - `sqlc generate -f internal/db/sqlc.yaml` after changing queries; migrations
   live in `internal/db/migrations` (goose).
-- `go build .` needs `frontend/dist` (build the frontend first).
+- `go build ./cmd/sona` needs `frontend/dist` (build the frontend first).
 - The version is the `VERSION` file; the build injects it with
   `-ldflags -X main.version` (`bin/sona --version`).
 
@@ -53,7 +53,7 @@ redact `-ldflags` values, but don't rely on that).
 ### Private mode
 
 Private mode for development and testing: a development build (any build
-without the `production` tag: `wails3 dev`, `go run .`, plain `go build`)
+without the `production` tag: `wails3 dev`, `go run ./cmd/sona`, plain `go build`)
 starts with private listening on, whatever the saved setting says. Toggling it
 then lasts for the session only and never writes the setting; the toggle reads
 "Private (development build)". `SONA_PRIVATE=1` forces private mode in any
@@ -365,7 +365,7 @@ CI runs [gitleaks](https://github.com/gitleaks/gitleaks) on every pull request a
 - One change per branch and pull request. Parallel work is easiest in
   separate worktrees (`git worktree add ../sona-go-<slug> -b <type>/<slug>`);
   a new worktree needs `pnpm install` in `frontend/` and a frontend build
-  before `go build .`. Give each concurrently running worktree its own
+  before `go build ./cmd/sona`. Give each concurrently running worktree its own
   `WAILS_VITE_PORT`.
 - Commit messages and PR titles follow
   [Conventional Commits](https://www.conventionalcommits.org): `feat`, `fix`,
@@ -430,7 +430,7 @@ every OS-specific part behind a seam that reports itself unsupported there
 until it is implemented; macOS development builds also play through the CDM
 host. Windows has no playback yet.
 
-- `main.go` is portable; `platform_linux.go` and `platform_other.go` build
+- In `cmd/sona`, `main.go` is portable; `platform_linux.go` and `platform_other.go` build
   what differs per OS: the `sona <command>` transport and single instance
   (`internal/app` over D-Bus), the Wails options, and `services.Platform`:
   media controls (MPRIS), notifications, the sleep inhibitor, the
@@ -505,8 +505,9 @@ host. Windows has no playback yet.
   compiler (`nix shell nixpkgs#zig`; Wails' own cross image uses it too):
   `GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC='zig cc -target
   x86_64-windows-gnu' go build -tags production,sqlite_fts5 -ldflags '-H
-  windowsgui' .` after a production frontend build, with `go tool wails3
-  generate syso` for the icon and manifest. zig ignores the `-mwindows` Go
+  windowsgui' ./cmd/sona` after a production frontend build, with `go tool
+  wails3 generate syso` (its `.syso` in `cmd/sona`) for the icon and
+  manifest. zig ignores the `-mwindows` Go
   passes for `-H windowsgui`, so wrap it to pass
   `-Wl,--subsystem,windows` instead, or the exe opens a console. It needs
   the WebView2 runtime to show its window.

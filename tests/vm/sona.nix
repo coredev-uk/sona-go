@@ -98,11 +98,7 @@ buildGoModule {
 
   vendorHash = "sha256-BxyGnJ97X8CMFU4FokTY++D+5IHIGIAPuCYiEG17iWU=";
 
-  subPackages = [ "." ];
-  # The binary's name everywhere else (bin/sona, /usr/bin/sona), not the module's.
-  postBuild = ''
-    mv $GOPATH/bin/sona-go $GOPATH/bin/sona
-  '';
+  subPackages = [ "cmd/sona" ];
   tags = [
     "production"
     "sqlite_fts5"
@@ -135,7 +131,7 @@ buildGoModule {
     pipewire
   ];
 
-  # main.go embeds frontend/dist.
+  # The frontend package embeds frontend/dist.
   preBuild = ''
     cp -r ${frontend} frontend/dist
     chmod -R u+w frontend/dist

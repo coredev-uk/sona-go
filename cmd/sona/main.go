@@ -7,7 +7,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -20,6 +19,8 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
+	"github.com/coredev-uk/sona-go/build"
+	"github.com/coredev-uk/sona-go/frontend"
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/artwork"
@@ -40,21 +41,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/shell"
 )
-
-// The production frontend build. `go tool wails3 build` (or
-// `pnpm -C frontend build`) must run before `go build`.
-//
-//go:embed all:frontend/dist
-var assets embed.FS
-
-//go:embed build/appicon.png
-var appIcon []byte
-
-// The tray icon: a small PNG, since StatusNotifierItem sends pixels over
-// D-Bus.
-//
-//go:embed build/linux/icons/hicolor/64x64/apps/sona.png
-var trayIcon []byte
 
 // AppID is the GTK application id. GTK4 also uses it as the Wayland app_id,
 // so the desktop file is dev.coredev.Sona.desktop and MPRIS DesktopEntry
@@ -289,11 +275,11 @@ func run(started time.Time) error {
 	wapp := application.New(application.Options{
 		Name:         "Sona",
 		Description:  "Apple Music for the Linux desktop",
-		Icon:         appIcon,
+		Icon:         build.AppIcon,
 		Logger:       log,
 		MarshalError: services.MarshalError,
 		Assets: application.AssetOptions{
-			Handler:        application.AssetFileServerFS(assets),
+			Handler:        application.AssetFileServerFS(frontend.Dist),
 			Middleware:     artMiddleware(art, mot),
 			DisableLogging: !devMode,
 		},
@@ -306,7 +292,7 @@ func run(started time.Time) error {
 	// starts with no window: playback, MPRIS and the tray only.
 	sh := shell.New(shell.Options{
 		App: wapp, Settings: settings, Coord: coord, Logger: log.With("component", "shell"),
-		WindowIcon: appIcon, TrayIcon: trayIcon, Background: windowBackground(cur.Theme),
+		WindowIcon: build.AppIcon, TrayIcon: build.TrayIcon, Background: windowBackground(cur.Theme),
 		Hidden: act.Hidden(), Private: private, TitleBar: plat.TitleBar(),
 	})
 	defer sh.Close() // after core.Close, before coord.Close

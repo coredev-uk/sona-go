@@ -2,7 +2,7 @@
 
 ## Repo
 
-- Go module `github.com/coredev-uk/sona-go`: the Sona desktop app. Entry `main.go` (Wails v3), Wails services in `internal/services`, core packages under `internal/`, React frontend in `frontend/`. Layout: `docs/architecture.md` §6.
+- Go module `github.com/coredev-uk/sona-go`: the Sona desktop app. Entry `cmd/sona` (Wails v3), Wails services in `internal/services`, core packages under `internal/`, React frontend in `frontend/`. Layout: `docs/architecture.md` §6.
 - Generated code, never hand-edited: `internal/db/dbq` (sqlc, from `internal/db/queries`) and `frontend/bindings` (wails3). Regenerate with the devenv `gen` script.
 - Migrations (`internal/db/migrations`) are numbered densely from `00001` and applied strictly in order (no goose out-of-order): a new one takes the next free number when it lands, and a released one is never renumbered or edited.
 - `VERSION` is the single version source. The build injects it as `main.version` and into the packages.
@@ -19,7 +19,7 @@
 - If locking inputs fails with an ssh hostkey error (a git config that rewrites https to ssh breaks Nix's fetcher), run devenv once with `XDG_CONFIG_HOME` pointing at an empty directory: `XDG_CONFIG_HOME=$(mktemp -d) devenv shell -- true`. Do not keep that prefix when running the app: it moves Sona's settings into that directory.
 - devenv scripts (each described in CONTRIBUTING.md): `dev` (Vite hot reload, `-config ./build/config.yml`), `build` (frontend + bindings + `bin/sona`), `gen` (sqlc + TS bindings), `fmt` (gofumpt + prettier), `check` (frontend build, go vet, the Windows and macOS type-checks, golangci-lint on new code, path case, tsc, eslint, prettier, i18n), `tests` (frontend build, `go test -race` under `dbus-run-session`, vitest), `release` (release packages in a container), `play-spike`, `auth-spike`. `package` is Taskfile's only.
 - Before handing off: `check` and `tests`.
-- `wails3` is a Go tool dependency (`go tool wails3`). Plain `go build .` needs `frontend/dist` built first; production builds use `-tags production,sqlite_fts5`.
+- `wails3` is a Go tool dependency (`go tool wails3`). Plain `go build ./cmd/sona` needs `frontend/dist` built first; production builds use `-tags production,sqlite_fts5`.
 - Widevine CDM: devenv ships none. The app downloads it itself after first paint (into `<data>/widevine`; `mac_arm64` and `mac_x64` on macOS, with the `.sig` beside the dylib); `playspike` uses the same downloader (`-cdm-dir`). There is no override: Sona only ever loads the CDM its own downloader installed. Linux on arm64 has no CDM in the manifest, so playback there reports `unsupported_platform`. `go run ./cmd/cdmfetch` downloads and verifies it by hand (`-dir`, `-platform goos/goarch`, `-version` prints the manifest's version without downloading). Real-CDM tests find it through `internal/playback/cdm/cdmtest` (a download into `SONA_CDM_CACHE`, default `<user cache>/sona-tests/widevine`); they skip only when offline, and `SONA_CDM_REQUIRE=1` makes that skip a failure. macOS development builds play through the same CDM host under a `sandbox-exec` profile (CONTRIBUTING.md, "macOS").
 - DRM path regression, after CDM, playback, or Apple changes: `go run ./cmd/playspike -seek 90`.
 - Smoke runs that need audio but no account: `SONA_PREVIEW=1` (the app) or `go run ./cmd/playspike -preview` play 30-second previews with the developer token only (no `MUSIC_USER_TOKEN`, no CDM); the player bar says "Preview" and nothing is reported as a play. The DRM path still needs the MUT (`playspike -seek 90`).
@@ -63,7 +63,7 @@
 
 - Every change gets its own git worktree and branch, beside the main checkout, which stays on `main`: `git worktree add ../sona-go-<slug> -b <type>/<slug> origin/main` (`<type>` is the conventional-commit type, e.g. `feat/queue-autoplay`). Never commit or push to `main`: `.githooks/` refuses both. `devenv shell` enables the hooks (`core.hooksPath`, shared by every worktree); outside devenv run `git config core.hooksPath .githooks` once. `SONA_ALLOW_MAIN=1` overrides them only for an emergency the maintainer asked for.
 - Generated files are never merged by hand: after rebasing onto `main`, regenerate `frontend/bindings`, the Lingui catalogues (`pnpm i18n:extract`) and `internal/db/dbq` (`gen`), then commit them.
-- A new worktree has no `frontend/node_modules`, `frontend/dist` or `.env`. Run `pnpm install` in `frontend/` inside devenv, build the frontend before `go build .`, and symlink `.env` from the main checkout only when a live token is needed.
+- A new worktree has no `frontend/node_modules`, `frontend/dist` or `.env`. Run `pnpm install` in `frontend/` inside devenv, build the frontend before `go build ./cmd/sona`, and symlink `.env` from the main checkout only when a live token is needed.
 - Worktrees running at once must not share runtime state: a different `WAILS_VITE_PORT` per worktree, private XDG dirs and `dbus-run-session` for every run except one on the real desktop session, and a separately named PipeWire null sink.
 - Commits and PR titles follow Conventional Commits (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `test:`, `ci:`, `build:`, `chore:`, `revert:`; scope optional). CI (`.github/workflows/pr-title.yml`) fails a PR whose title doesn't match; squash merges use the PR title.
 

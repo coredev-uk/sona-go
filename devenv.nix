@@ -89,7 +89,7 @@ in
   # Each script is described in CONTRIBUTING.md ("devenv scripts").
   scripts =
     let
-      # The Go packages embed frontend/dist (main.go), so vet, lint, test and
+      # The Go packages embed frontend/dist (cmd/sona, via the frontend package), so vet, lint, test and
       # build need it. Task skips both steps while their sources are unchanged.
       frontend = ''
         go tool wails3 task common:install:frontend:deps
@@ -105,7 +105,7 @@ in
       gen.exec = ''
         set -e
         sqlc generate -f internal/db/sqlc.yaml
-        go tool wails3 generate bindings -clean=true -ts
+        go tool wails3 generate bindings -clean=true -ts ./cmd/sona
       '';
       fmt.exec = ''
         set -e

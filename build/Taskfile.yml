@@ -27,7 +27,7 @@ tasks:
     generates:
       - frontend/bindings/**/*
     cmds:
-      - go tool wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true -ts
+      - go tool wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true -ts ./cmd/sona
 
   build:frontend:
     label: build:frontend (DEV={{.DEV}})
