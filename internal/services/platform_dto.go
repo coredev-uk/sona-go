@@ -23,7 +23,7 @@ type Capabilities struct {
 	PowerState bool `json:"powerState"`
 	// FileChooser: the native file dialog (settings import and export).
 	FileChooser bool `json:"fileChooser"`
-	// CLI: `sona private …` reaches the running instance, and a second
+	// CLI: `sona <command>` reaches the running instance, and a second
 	// launch hands its links to it.
 	CLI bool `json:"cli"`
 	// DiscordPresence: Sona can reach the Discord app on this OS (the

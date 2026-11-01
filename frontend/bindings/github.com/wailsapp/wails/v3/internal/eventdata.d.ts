@@ -20,6 +20,7 @@ declare module "@wailsio/runtime" {
             "cdm:status": services$0.CDMStatus;
             "discover:home": services$0.HomePage;
             "integrations:status": services$0.IntegrationsStatus;
+            "library:item-state": services$0.ItemState;
             "playback:queue": services$0.QueueState;
             "playback:state": services$0.PlaybackState;
             "playlists:changed": services$0.PlaylistsChanged;

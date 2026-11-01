@@ -11,6 +11,8 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/coredev-uk/sona-go/internal/app"
+	"github.com/coredev-uk/sona-go/internal/cli"
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/desktop/inhibit"
 	"github.com/coredev-uk/sona-go/internal/desktop/notify"
 	"github.com/coredev-uk/sona-go/internal/mpris"
@@ -34,9 +36,15 @@ var (
 	windowsOptions application.WindowsOptions
 )
 
-// runCommand sends a subcommand (`sona private on`) to the running
-// instance over the session bus and returns the exit status.
-func runCommand(args []string) int { return app.RunCommand(args, os.Stdout, os.Stderr) }
+// dialInstance reaches the running Sona for `sona <command>` over the
+// session bus.
+func dialInstance() (cli.Transport, error) {
+	c, err := app.DialBus()
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
 
 // platform is the session bus and the single-instance guard on it.
 type platform struct {
@@ -48,7 +56,7 @@ type platform struct {
 // openPlatform connects to the session bus and takes the single-instance
 // name; it fails with app.ErrForwarded when another Sona runs (act went to
 // it). Without a bus Sona runs alone, without the D-Bus integrations.
-func openPlatform(act app.Activation, log *slog.Logger) (*platform, error) {
+func openPlatform(_ config.Paths, act app.Activation, log *slog.Logger) (*platform, error) {
 	p := &platform{log: log}
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
@@ -168,7 +176,7 @@ func buttonLayout(d windowchrome.Desktop, log *slog.Logger) windowchrome.Layout 
 
 // Serve hands later launches' links to activate and runs commands sent by
 // `sona <command>`, while the instance guard is held.
-func (p *platform) Serve(activate func(app.Activation, bool), commands app.Commands) {
+func (p *platform) Serve(activate func(app.Activation, bool), commands cli.Server) {
 	if p.instance == nil {
 		return
 	}

@@ -3,23 +3,27 @@
 package main
 
 import (
-	"fmt"
+	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/coredev-uk/sona-go/internal/app"
+	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
-// macOS and Windows (and any other OS): the UI without the desktop
-// integrations. Sona has no media controls, notifications, sleep
-// inhibitor, power monitor, file chooser, autostart entry, single
-// instance or command transport here yet; each is absent from
+// macOS and Windows (and any other OS): the UI with single instance and
+// `sona <command>` over a local socket in the state folder
+// (app.AcquireSocket), but without the other desktop integrations. Sona
+// has no media controls, notifications, sleep inhibitor, power monitor,
+// file chooser or autostart entry here yet; each is absent from
 // services.Platform, so Capabilities reports it and the frontend hides or
 // explains it. The tray is Wails' own on every OS. The playback engine is
 // engine_cdm.go's on macOS, engine_other.go's elsewhere.
@@ -36,21 +40,49 @@ var (
 	}
 )
 
-// runCommand fails: there is no transport to a running instance here.
-func runCommand(args []string) int {
-	_, _ = fmt.Fprintf(os.Stderr, "sona: %s: commands to a running Sona aren't available on %s yet\n", args[0], runtime.GOOS)
-	return 1
+// dialInstance reaches the running Sona for `sona <command>` through its
+// socket in the state folder.
+func dialInstance() (cli.Transport, error) {
+	paths, err := config.ResolvePaths(os.Getenv)
+	if err != nil {
+		return nil, err
+	}
+	c, err := app.DialSocket(paths.State)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
-// platform has nothing to hold here.
-type platform struct{}
+// platform is the single-instance claim on the socket.
+type platform struct {
+	log      *slog.Logger
+	instance *app.SocketInstance // nil when the socket is unavailable
+}
 
-// openPlatform never forwards: there is no single-instance guard here.
-func openPlatform(app.Activation, *slog.Logger) (*platform, error) { return &platform{}, nil }
+// openPlatform takes the single-instance lock and socket in the state
+// folder; it fails with app.ErrForwarded when another Sona runs (act went
+// to it). When the socket can't be set up Sona runs alone, without
+// commands.
+func openPlatform(paths config.Paths, act app.Activation, log *slog.Logger) (*platform, error) {
+	p := &platform{log: log}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	instance, err := app.AcquireSocket(ctx, paths.State, act, log)
+	switch {
+	case errors.Is(err, app.ErrForwarded):
+		return nil, err
+	case err != nil:
+		log.Warn("single-instance guard unavailable", "err", err)
+	default:
+		p.instance = instance
+	}
+	return p, nil
+}
 
-// Services offers the tray and the title bar only.
+// Services offers the tray, the title bar and, with the socket, commands.
 func (p *platform) Services() services.Platform {
-	return services.Platform{Tray: true, TitleBar: p.TitleBar()}
+	return services.Platform{Tray: true, TitleBar: p.TitleBar(), Commands: p.instance != nil}
 }
 
 // TitleBar: on macOS the system's buttons inset into Sona's top bar; on
@@ -66,8 +98,25 @@ func (*platform) TitleBar() windowchrome.Platform {
 	return windowchrome.Platform{Native: windowchrome.NativeFrame, Automatic: config.TitleBarDesktop}
 }
 
-// Serve does nothing: later launches start their own instance.
-func (*platform) Serve(func(app.Activation, bool), app.Commands) {}
+// Serve hands later launches' links to activate and runs commands sent by
+// `sona <command>`, while the socket is held.
+func (p *platform) Serve(activate func(app.Activation, bool), commands cli.Server) {
+	if p.instance == nil {
+		return
+	}
+	p.instance.HandleCommands(commands)
+	go func() {
+		for a := range p.instance.Activations() {
+			activate(a, true)
+		}
+	}()
+}
 
-// Close does nothing.
-func (*platform) Close() {}
+// Close releases the socket and the lock.
+func (p *platform) Close() {
+	if p.instance != nil {
+		if err := p.instance.Close(); err != nil {
+			p.log.Warn("single instance: close", "err", err)
+		}
+	}
+}

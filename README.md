@@ -37,6 +37,8 @@ this repository or any Sona build, and must never be bundled or modified.
 ## More
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): environment, checks and pull requests
+- [docs/cli.md](docs/cli.md): `sona play`, `sona status --follow` and the
+  other commands for the running Sona (scripts, Waybar, Polybar)
 - [docs/architecture.md](docs/architecture.md): how Sona is put together
 - [SECURITY.md](SECURITY.md): reporting a vulnerability
 

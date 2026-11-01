@@ -768,7 +768,7 @@ export class Capabilities {
     "fileChooser": boolean;
 
     /**
-     * CLI: `sona private …` reaches the running instance, and a second
+     * CLI: `sona <command>` reaches the running instance, and a second
      * launch hands its links to it.
      */
     "cli": boolean;

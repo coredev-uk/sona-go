@@ -12,6 +12,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/artwork"
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/catalog"
+	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/library"
@@ -74,6 +75,7 @@ type Core struct {
 	env      *Env
 	services []application.Service
 	open     *opener
+	commands *commandServer
 
 	media     MediaControls
 	mediaQuit chan struct{}
@@ -102,6 +104,7 @@ func New(d Deps) *Core {
 		env.members.clear()
 		return d.DB.WipeUserData(ctx)
 	})
+	c.commands = newCommandServer(env, c.open, c.services)
 	return c
 }
 
@@ -140,6 +143,10 @@ func (c *Core) StartMediaControls(player mpris.Player) {
 // Activate handles a launch: the process's own argv (forwarded false) or
 // one forwarded by a second instance.
 func (c *Core) Activate(act app.Activation, forwarded bool) { c.open.activate(act, forwarded) }
+
+// Commands answers `sona <command>` (internal/cli) for the platform's
+// command transport.
+func (c *Core) Commands() cli.Server { return c.commands }
 
 // Close stops background work (features' OnClose steps, then the media
 // controls). The caller then closes the coordinator, engine and database.

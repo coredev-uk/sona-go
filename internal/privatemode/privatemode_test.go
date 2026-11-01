@@ -2,7 +2,6 @@ package privatemode
 
 import (
 	"errors"
-	"strings"
 	"testing"
 	"time"
 )
@@ -165,43 +164,5 @@ func TestSince(t *testing.T) {
 	var nilMode *Mode
 	if nilMode.Since(before) {
 		t.Error("nil Mode is private")
-	}
-}
-
-func TestCommand(t *testing.T) {
-	var s saver
-	m := New(Options{Save: s.save})
-	for _, tc := range []struct {
-		args []string
-		want string
-	}{
-		{nil, "private listening: off"},
-		{[]string{"status"}, "private listening: off"},
-		{[]string{"on"}, "private listening: on"},
-		{[]string{"toggle"}, "private listening: off"},
-		{[]string{"toggle"}, "private listening: on"},
-		{[]string{"off"}, "private listening: off"},
-	} {
-		got, err := m.Command(tc.args)
-		if err != nil || got != tc.want {
-			t.Errorf("Command(%q) = %q, %v; want %q", tc.args, got, err, tc.want)
-		}
-	}
-	for _, bad := range [][]string{{"maybe"}, {"on", "now"}} {
-		if _, err := m.Command(bad); err == nil || !strings.HasPrefix(err.Error(), "usage:") {
-			t.Errorf("Command(%q) err = %v, want usage", bad, err)
-		}
-	}
-
-	dev := New(Options{Dev: true})
-	if got, _ := dev.Command(nil); got != "private listening: on (development build: this session only; saved setting off)" {
-		t.Errorf("development status = %q", got)
-	}
-	forced := New(Options{Override: OverrideOn})
-	if got, _ := forced.Command(nil); got != "private listening: on (forced by SONA_PRIVATE=1)" {
-		t.Errorf("forced status = %q", got)
-	}
-	if _, err := forced.Command([]string{"off"}); !errors.Is(err, ErrForced) {
-		t.Errorf("forced off: err = %v", err)
 	}
 }

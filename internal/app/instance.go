@@ -1,7 +1,8 @@
-// Package app holds process-level integration: the single-instance guard on
-// the D-Bus session bus and the `sona <command>` subcommands it carries to
-// the running instance, parsing of the Apple Music links Sona is launched
-// with, the XDG autostart entry and the xdg-desktop-portal file chooser.
+// Package app holds process-level integration: single instance and the
+// `sona <command>` transport (the D-Bus session bus on Linux, a local
+// socket on macOS and Windows), parsing of the Apple Music links Sona is
+// launched with, the XDG autostart entry and the xdg-desktop-portal file
+// chooser.
 package app
 
 import (
@@ -14,6 +15,8 @@ import (
 
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
+
+	"github.com/coredev-uk/sona-go/internal/cli"
 )
 
 const (
@@ -23,8 +26,9 @@ const (
 	BusName = "dev.coredev.Sona"
 	// ObjectPath exports Interface on the primary instance.
 	ObjectPath dbus.ObjectPath = "/dev/coredev/Sona"
-	// Interface carries Activate(as args, a{sv} platform_data) and
-	// Command(as args) → (s reply) (command.go).
+	// Interface carries Activate(as args, a{sv} platform_data),
+	// Run(s request) → (s reply) and the StatusChanged(s status) signal
+	// (command.go).
 	Interface = "dev.coredev.Sona.Instance"
 
 	// Platform data keys sent with Activate.
@@ -66,10 +70,14 @@ type Instance struct {
 	conn *dbus.Conn
 	log  *slog.Logger
 
-	mu       sync.Mutex
-	ch       chan Activation
-	closed   bool
-	commands Commands // nil until HandleCommands
+	mu     sync.Mutex
+	ch     chan Activation
+	closed bool
+	// server answers commands (nil until HandleCommands); stopWatch ends
+	// its status updates and watching closes once the last is published.
+	server    cli.Server
+	stopWatch func()
+	watching  chan struct{}
 
 	closeOnce sync.Once
 	closeErr  error
@@ -88,10 +96,13 @@ const introspectXML = `<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object I
       <arg name="args" type="as" direction="in"/>
       <arg name="platform_data" type="a{sv}" direction="in"/>
     </method>
-    <method name="Command">
-      <arg name="args" type="as" direction="in"/>
+    <method name="Run">
+      <arg name="request" type="s" direction="in"/>
       <arg name="reply" type="s" direction="out"/>
     </method>
+    <signal name="StatusChanged">
+      <arg name="status" type="s"/>
+    </signal>
   </interface>
 </node>`
 
@@ -110,7 +121,7 @@ func Acquire(ctx context.Context, conn *dbus.Conn, act Activation, log *slog.Log
 	}
 	in := &Instance{conn: conn, log: log, ch: make(chan Activation, activationBuffer)}
 	// Export first so Activate works the moment the name is ours.
-	if err := conn.ExportMethodTable(map[string]any{"Activate": in.activate, "Command": in.command}, ObjectPath, Interface); err != nil {
+	if err := conn.ExportMethodTable(map[string]any{"Activate": in.activate, "Run": in.run}, ObjectPath, Interface); err != nil {
 		return nil, fmt.Errorf("app: export: %w", err)
 	}
 	if err := conn.Export(introspect.Introspectable(introspectXML), ObjectPath, "org.freedesktop.DBus.Introspectable"); err != nil {
@@ -184,14 +195,20 @@ func (in *Instance) activate(args []string, platform map[string]dbus.Variant) *d
 // by Close.
 func (in *Instance) Activations() <-chan Activation { return in.ch }
 
-// Close releases BusName, stops accepting activations and closes the
-// Activations channel. Safe to call more than once.
+// Close releases BusName, stops accepting activations and commands, ends
+// the status signals and closes the Activations channel. Safe to call
+// more than once.
 func (in *Instance) Close() error {
 	in.closeOnce.Do(func() {
 		in.mu.Lock()
 		in.closed = true
 		close(in.ch)
+		stop, watching := in.stopWatch, in.watching
 		in.mu.Unlock()
+		if stop != nil {
+			stop()
+			<-watching
+		}
 		if _, err := in.conn.ReleaseName(BusName); err != nil {
 			in.closeErr = fmt.Errorf("app: release %s: %w", BusName, err)
 		}
