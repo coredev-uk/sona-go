@@ -174,6 +174,7 @@ func (s *SystemService) playback(ctx context.Context, out *DiagPlayback) {
 	out.SandboxKind, out.Sandboxed, out.SandboxNote = info.Sandbox, info.Sandboxed, info.SandboxNote
 	out.CDMOK = err == nil
 	out.CDMBlocked = info.Blocked
+	out.Realtime, out.RealtimeVia, out.RealtimePriority, out.RealtimeNote = info.Realtime, info.RealtimeVia, info.RealtimePriority, info.RealtimeNote
 	if err != nil {
 		out.CDMError = err.Error()
 	}

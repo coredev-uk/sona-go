@@ -50,6 +50,8 @@ type Options struct {
 	Exe string
 	// cdmOnly starts a child that loads only the CDM (envCDMOnly).
 	cdmOnly bool
+	// realtime replaces how the child's audio threads are raised (tests).
+	realtime *rtEnv
 }
 
 // Host is the parent's handle on one child process. Its methods are safe for
@@ -85,6 +87,14 @@ type Host struct {
 	report     []string
 	stderrOnce sync.Once
 	stderrDone chan struct{}
+
+	// Realtime scheduling of the child's audio threads (realtime.go):
+	// rtMu guards rt and the threads asked for; rtReq serialises requests.
+	rtEnv   rtEnv
+	rtMu    sync.Mutex
+	rt      Realtime
+	rtAsked map[int]bool
+	rtReq   sync.Mutex
 
 	done chan struct{}
 }
@@ -187,6 +197,12 @@ func spawn(o Options) (*Host, error) {
 		evWake:  make(chan struct{}, 1),
 		events:  make(chan Event, 16),
 		done:    make(chan struct{}),
+		rtEnv:   defaultRTEnv,
+		rt:      realtimeInitial,
+		rtAsked: map[int]bool{},
+	}
+	if o.realtime != nil {
+		h.rtEnv = *o.realtime
 	}
 	go h.relayLogs(p.stderr)
 	go h.pump()
@@ -229,7 +245,11 @@ func startChild(argv, env []string, attr *syscall.SysProcAttr) (proc, error) {
 func (h *Host) withSandbox(sb Sandbox) Sandbox { return sb.withParent(h.parent) }
 
 // Info describes the child.
-func (h *Host) Info() Info { return h.info }
+func (h *Host) Info() Info {
+	info := h.info
+	info.Realtime = h.realtime()
+	return info
+}
 
 // Events delivers child events in order until the child exits. Up to
 // maxQueuedEvents are queued, so a slow receiver never stalls replies;
@@ -352,6 +372,8 @@ loop:
 			case h.evWake <- struct{}{}:
 			default:
 			}
+		case f.Threads != nil:
+			h.audioThreads(f.Threads.TIDs)
 		}
 	}
 	if readErr != nil && !errors.Is(readErr, io.EOF) {

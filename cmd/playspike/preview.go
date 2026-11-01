@@ -72,6 +72,7 @@ func runPreview(log *slog.Logger, sf, songID, term, nextID, nextTerm string, lis
 
 	time.Sleep(2 * time.Second)
 	audioStream(info.PID)
+	realtime(eng)
 
 	// 2. Watch it advance.
 	start := eng.Status()
@@ -141,4 +142,14 @@ func runPreview(log *slog.Logger, sf, songID, term, nextID, nextTerm string, lis
 		return fmt.Errorf("previews made %d licence and %d webPlayback or certificate requests", lic, drm)
 	}
 	return nil
+}
+
+// realtime prints the scheduling the host's audio threads got: the parent
+// asks for it once the output plays, so it is known by the time the
+// stream shows in audioStream.
+func realtime(eng *native.Engine) {
+	info, _ := eng.Host()
+	rt := info.Realtime
+	step("realtime", "state", cmp.Or(rt.State, "not asked"), "via", rt.Via, "priority", rt.Priority, "threads", rt.Threads,
+		"reason", fmt.Sprintf("%q", rt.Reason))
 }

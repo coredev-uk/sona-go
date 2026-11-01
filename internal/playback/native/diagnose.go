@@ -14,16 +14,21 @@ import (
 // probeTimeout bounds the CDM host probe behind Diagnose.
 const probeTimeout = 15 * time.Second
 
-// Diagnose checks the playback stack: whether a host is running, and a
-// throwaway probe host that loads the CDM a new host would load (none
-// when playing previews) and reports the CDM, GStreamer, decoder, sink
-// and sandbox. It returns the probe's error alongside what the probe got
-// as far as reporting; with no CDM ready (the CDM source's error) there
-// is no probe.
+// Diagnose checks the playback stack: whether a host is running and the
+// scheduling its audio threads got, and a throwaway probe host that loads
+// the CDM a new host would load (none when playing previews) and reports
+// the CDM, GStreamer, decoder, sink and sandbox. It returns the probe's
+// error alongside what the probe got as far as reporting; with no CDM
+// ready (the CDM source's error) there is no probe.
 func (e *Engine) Diagnose(ctx context.Context) (playback.Diagnosis, error) {
 	var d playback.Diagnosis
+	if !cdmhost.RealtimeSupported {
+		d.Realtime = playback.RealtimeUnsupported
+	}
 	if info, running := e.Host(); running {
 		d.HostRunning, d.HostPID = true, info.PID
+		rt := info.Realtime
+		d.Realtime, d.RealtimeVia, d.RealtimePriority, d.RealtimeNote = rt.State, rt.Via, rt.Priority, rt.Reason
 	}
 	var lib string
 	if !e.preview {

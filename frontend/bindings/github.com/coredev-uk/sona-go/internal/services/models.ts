@@ -1833,6 +1833,21 @@ export class DiagPlayback {
      */
     "cdmBlocked": boolean;
 
+    /**
+     * Realtime is the scheduling the running host's audio threads got,
+     * asked of RTKit or the Realtime portal on Linux: "granted" (realtime,
+     * RealtimePriority is the SCHED_RR priority), "raised" (realtime
+     * refused, a raised nice level instead: RealtimePriority), "denied",
+     * "unavailable" (neither RTKit nor the portal answered),
+     * "unsupported" (not asked for on this platform) or "" (no host has
+     * started playing yet). RealtimeVia names who answered ("RTKit",
+     * "portal"); RealtimeNote says why realtime was refused or unavailable.
+     */
+    "realtime": string;
+    "realtimeVia": string;
+    "realtimePriority": number;
+    "realtimeNote": string;
+
     /** Creates a new DiagPlayback instance. */
     constructor($$source: Partial<DiagPlayback> = {}) {
         if (!("engine" in $$source)) {
@@ -1888,6 +1903,18 @@ export class DiagPlayback {
         }
         if (!("cdmBlocked" in $$source)) {
             this["cdmBlocked"] = false;
+        }
+        if (!("realtime" in $$source)) {
+            this["realtime"] = "";
+        }
+        if (!("realtimeVia" in $$source)) {
+            this["realtimeVia"] = "";
+        }
+        if (!("realtimePriority" in $$source)) {
+            this["realtimePriority"] = 0;
+        }
+        if (!("realtimeNote" in $$source)) {
+            this["realtimeNote"] = "";
         }
 
         Object.assign(this, $$source);

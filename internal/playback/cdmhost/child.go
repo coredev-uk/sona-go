@@ -52,13 +52,14 @@ func runChild(sb Sandbox) int {
 	var level slog.Level
 	_ = level.UnmarshalText([]byte(os.Getenv(envLogLevel)))
 	s := &server{
-		log:     slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
-		enc:     gob.NewEncoder(out),
-		feeds:   make(chan request, 8),
-		volume:  1,
-		quit:    make(chan struct{}),
-		sandbox: sb,
-		cdmOnly: os.Getenv(envCDMOnly) == "1",
+		log:        slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
+		enc:        gob.NewEncoder(out),
+		feeds:      make(chan request, 8),
+		volume:     1,
+		quit:       make(chan struct{}),
+		sandbox:    sb,
+		cdmOnly:    os.Getenv(envCDMOnly) == "1",
+		rtReported: map[int]bool{},
 	}
 	if s.sandbox.Reason != "" {
 		s.log.Warn("cdmhost: sandbox incomplete", "reason", s.sandbox.Reason)
@@ -98,6 +99,9 @@ type server struct {
 	info    Info
 	sandbox Sandbox // the child's part of the sandbox (sandbox_<os>.go)
 	cdmOnly bool    // loads the CDM and nothing else (envCDMOnly)
+
+	rtMu       sync.Mutex
+	rtReported map[int]bool // audio threads reported to the parent (reportAudioThreads)
 
 	mu        sync.Mutex
 	sink      string
@@ -144,6 +148,26 @@ func (s *server) send(f frame) {
 
 func (s *server) reply(r reply) { s.send(frame{Reply: &r}) }
 func (s *server) emit(ev Event) { s.send(frame{Event: &ev}) }
+
+// reportAudioThreads sends the parent the audio threads (audioThreadIDs)
+// not reported before, so it can ask for realtime scheduling for them:
+// called whenever an output starts playing, which a rebuilt output may do
+// with new threads.
+func (s *server) reportAudioThreads() {
+	tids := audioThreadIDs()
+	s.rtMu.Lock()
+	var fresh []int
+	for _, tid := range tids {
+		if !s.rtReported[tid] {
+			s.rtReported[tid] = true
+			fresh = append(fresh, tid)
+		}
+	}
+	s.rtMu.Unlock()
+	if len(fresh) > 0 {
+		s.send(frame{Threads: &threadReport{TIDs: fresh}})
+	}
+}
 
 func fail(id uint64, err error) reply {
 	r := reply{ID: id, Err: err.Error()}
@@ -489,6 +513,10 @@ func (s *server) watch(p *gst.Pipeline) {
 			}
 			s.mu.Unlock()
 			s.emit(Event{Kind: EventError, Track: track, Err: ev.Err.Error()})
+		case gst.EventState:
+			if ev.State == gst.StatePlaying {
+				s.reportAudioThreads()
+			}
 		case gst.EventWarning:
 			s.log.Warn("cdmhost: pipeline warning", "err", ev.Err)
 		}

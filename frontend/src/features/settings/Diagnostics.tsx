@@ -74,6 +74,46 @@ function sandboxRow(p: Diagnostics["playback"]): Row {
   };
 }
 
+/**
+ * The scheduling the playing host's audio thread got (cdmhost.Realtime).
+ * The sandboxed host has no D-Bus, so on Linux Sona asks RTKit or the
+ * Realtime portal for it on the host's behalf once its output plays.
+ */
+function realtimeRow(p: Diagnostics["playback"]): Row {
+  const label = t`Audio priority`;
+  const priority = p.realtimePriority;
+  const note = p.realtimeNote;
+  const via = p.realtimeVia === "portal" ? t`Realtime portal` : p.realtimeVia;
+  const skips = t`Audio may skip while the computer is under heavy load.`;
+  switch (p.realtime) {
+    case "granted":
+      return { label, value: t`Realtime · priority ${priority} (${via})`, status: "ok" };
+    case "raised":
+      return {
+        label,
+        value: t`Raised · nice ${priority} (${via})`,
+        status: "ok",
+        detail: t`Realtime priority was refused: ${note}.`,
+      };
+    case "denied":
+      return { label, value: t`Normal`, status: "warning", detail: t`${note}. ${skips}` };
+    case "unavailable":
+      return {
+        label,
+        value: t`Normal`,
+        status: "warning",
+        detail: t`Neither RTKit nor the Realtime portal is available (${note}). ${skips} Install and enable RTKit (rtkit) to fix this.`,
+      };
+    case "unsupported":
+      return { label, value: t`Not requested on this platform` };
+    default:
+      return {
+        label,
+        value: p.hostRunning ? t`Requested when audio starts` : t`Requested when playback starts`,
+      };
+  }
+}
+
 /** Token storage backends Go reports, by name; any other keeps Go's name. */
 function keyringLabel(backend: string): string {
   switch (backend) {
@@ -205,6 +245,7 @@ function cdmRows(p: Diagnostics["playback"], cdm: CDMStatus): Row[] {
       value: p.hostRunning ? t`Running · pid ${hostPid}` : t`Stopped (starts with the next song)`,
     },
     sandboxRow(p),
+    realtimeRow(p),
     {
       label: t`Stream format`,
       value: t`AAC ${audioQuality} kbps`,
