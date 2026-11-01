@@ -1256,6 +1256,10 @@ msgstr ""
 msgid "Couldn't favourite {subject}"
 msgstr ""
 
+#: src/features/auth/Account.tsx
+msgid "Couldn't get a sign-in link"
+msgstr ""
+
 #: src/features/player/CdmNotice.tsx
 msgid "Couldn't get Widevine · Retry in Settings"
 msgstr ""

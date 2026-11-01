@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -453,22 +454,32 @@ func TestSignInWithToken(t *testing.T) {
 }
 
 // browser plays the user's browser plus Apple: it returns an open func that
-// posts Apple's fragment for tok to the loopback /complete endpoint.
+// loads the start link (taking the attempt's cookie) and posts Apple's
+// fragment for tok to the loopback /complete endpoint with that cookie.
 func browser(t *testing.T, tok string) func(string) error {
 	return func(startURL string) error {
 		go func() {
-			frag := base64.StdEncoding.EncodeToString([]byte(`{"cid":"c","itre":"1","musicUserToken":"` + tok + `"}`))
-			body, _ := json.Marshal(map[string]string{"fragment": "#" + frag})
-			origin := startURL[:strings.Index(startURL, "/auth/")]
-			req, _ := http.NewRequest(http.MethodPost, strings.TrimSuffix(startURL, "/start")+"/complete", strings.NewReader(string(body)))
-			req.Header.Set("Origin", origin)
-			req.Header.Set("Content-Type", "application/json")
-			resp, err := http.DefaultClient.Do(req)
+			jar, _ := cookiejar.New(nil)
+			c := &http.Client{Jar: jar}
+			resp, err := c.Get(startURL)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
+			frag := base64.StdEncoding.EncodeToString([]byte(`{"cid":"c","itre":"1","musicUserToken":"` + tok + `"}`))
+			body, _ := json.Marshal(map[string]string{"fragment": "#" + frag})
+			origin, rest, _ := strings.Cut(startURL, "/auth/")
+			nonce, _, _ := strings.Cut(rest, "/start")
+			req, _ := http.NewRequest(http.MethodPost, origin+"/auth/"+nonce+"/complete", strings.NewReader(string(body)))
+			req.Header.Set("Origin", origin)
+			req.Header.Set("Content-Type", "application/json")
+			resp, err = c.Do(req)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			_ = resp.Body.Close()
 		}()
 		return nil
 	}
@@ -482,16 +493,40 @@ func TestLoopbackSignIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := m.Status()
-	if s.State != StateSignedIn || !s.Restricted || s.SignInURL != "" {
+	if s.State != StateSignedIn || !s.Restricted || s.BrowserSignIn {
 		t.Fatalf("status = %+v", s)
 	}
 	got, _ := e.store.Get()
 	if got.Token != goodMUT || !got.Restricted {
 		t.Fatalf("stored %v", got)
 	}
-	signingIn := rec.wait(t, func(s Status) bool { return s.State == StateSigningIn && s.SignInURL != "" })
-	if !strings.HasPrefix(signingIn.SignInURL, "http://127.0.0.1:") {
-		t.Fatalf("sign-in URL = %q", signingIn.SignInURL)
+	rec.wait(t, func(s Status) bool { return s.State == StateSigningIn && s.BrowserSignIn })
+}
+
+// TestReplayedStartLinkEndsSignIn: the link Sona opened is loaded a second
+// time (someone else has it), so the attempt fails and nothing is stored.
+func TestReplayedStartLinkEndsSignIn(t *testing.T) {
+	e := newEnv(t)
+	m, rec := e.manager(t)
+	start(t, m, rec)
+	err := m.SignIn(context.Background(), func(u string) error {
+		for range 2 {
+			resp, err := http.Get(u)
+			if err != nil {
+				return err
+			}
+			_ = resp.Body.Close()
+		}
+		return nil
+	})
+	if !errors.Is(err, mut.ErrStartReused) {
+		t.Fatalf("SignIn = %v", err)
+	}
+	if s := m.Status(); s.State != StateSignedOut || s.LastError == "" || s.BrowserSignIn {
+		t.Fatalf("status = %+v", s)
+	}
+	if e.store.token() != "" {
+		t.Fatal("a token was stored")
 	}
 }
 
@@ -520,7 +555,7 @@ func TestCancelSignIn(t *testing.T) {
 		done <- m.SignIn(context.Background(), func(u string) error { urls <- u; return nil })
 	}()
 	u := <-urls
-	if s := m.Status(); s.State != StateSigningIn || s.SignInURL != u {
+	if s := m.Status(); s.State != StateSigningIn || !s.BrowserSignIn {
 		t.Fatalf("status = %+v", s)
 	}
 	m.CancelSignIn()
@@ -558,20 +593,39 @@ func TestSecondSignInSupersedesFirst(t *testing.T) {
 	}
 }
 
+// TestOpenFailureKeepsWaiting: opening the browser failed, the attempt
+// waits, and a new link from SignInLink completes it ("Open the page
+// again" / "Copy link").
 func TestOpenFailureKeepsWaiting(t *testing.T) {
 	e := newEnv(t)
 	m, rec := e.manager(t)
 	start(t, m, rec)
+	if _, err := m.SignInLink(); !errors.Is(err, ErrNoBrowserSignIn) {
+		t.Fatalf("SignInLink before sign-in: %v", err)
+	}
+	opened := make(chan string, 1)
 	done := make(chan error, 1)
 	go func() {
-		done <- m.SignIn(context.Background(), func(string) error { return errors.New("no xdg-open") })
+		done <- m.SignIn(context.Background(), func(u string) error { opened <- u; return errors.New("no xdg-open") })
 	}()
 	s := rec.wait(t, func(s Status) bool { return s.LastError != "" })
-	if s.State != StateSigningIn || s.SignInURL == "" {
+	if s.State != StateSigningIn || !s.BrowserSignIn {
 		t.Fatalf("status = %+v", s)
 	}
-	m.CancelSignIn()
-	<-done
+	link, err := m.SignInLink()
+	if err != nil || link == <-opened || !strings.HasPrefix(link, "http://127.0.0.1:") {
+		t.Fatalf("SignInLink = %q, %v", link, err)
+	}
+	_ = browser(t, goodMUT)(link)
+	if err := <-done; err != nil {
+		t.Fatalf("SignIn = %v", err)
+	}
+	if m.Status().State != StateSignedIn {
+		t.Fatalf("status = %+v", m.Status())
+	}
+	if _, err := m.SignInLink(); !errors.Is(err, ErrNoBrowserSignIn) {
+		t.Fatalf("SignInLink after sign-in: %v", err)
+	}
 }
 
 func TestSignOutClearsStoreAccountAndRunsHooks(t *testing.T) {

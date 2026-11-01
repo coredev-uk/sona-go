@@ -35,9 +35,9 @@ type AuthStatus struct {
 	// LastErrorCode classifies LastError (see the Code constants); "" when
 	// LastError is empty.
 	LastErrorCode string `json:"lastErrorCode"`
-	// SignInURL is the browser sign-in start page while a browser sign-in
-	// waits, for "open again" / copy link.
-	SignInURL string `json:"signInUrl"`
+	// BrowserSignIn is set while a browser sign-in waits; SignInLink then
+	// gives a new link for "open again" / copy link.
+	BrowserSignIn bool `json:"browserSignIn"`
 	// SecondFactor is set while a native sign-in waits for a code.
 	SecondFactor *SecondFactor `json:"secondFactor"`
 }

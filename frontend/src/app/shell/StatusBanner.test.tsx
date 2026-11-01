@@ -36,7 +36,7 @@ function status(patch: Partial<AuthStatus>): AuthStatus {
     offline: false,
     lastError: "",
     lastErrorCode: "",
-    signInUrl: "",
+    browserSignIn: false,
     secondFactor: null,
     ...patch,
   };

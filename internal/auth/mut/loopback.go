@@ -7,11 +7,19 @@
 // `referrer` query parameter when both share an origin. Sona points it at
 // http://127.0.0.1:<port>/auth/<nonce>/callback; the callback page reads the
 // fragment and POSTs it back to this server. See docs/auth.md §4.
+//
+// The nonce travels in the URL Sona hands to the browser, so it is not a
+// secret from other local users. Two controls bind the attempt to the
+// browser Sona opened: each start link works once and sets a cookie with a
+// random value that never appears in a URL, which /complete requires; and
+// on Linux the listener drops connections from sockets another user owns
+// (ownerOnly). See docs/auth.md §4.5.
 package mut
 
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -19,6 +27,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -47,7 +56,14 @@ func (r Result) String() string {
 var (
 	ErrTimeout  = errors.New("sign-in timed out")
 	ErrCanceled = errors.New("sign-in canceled")
+	// ErrStartReused means a start link was loaded a second time. Each link
+	// works once, and Sona's pages never load one twice, so the link has
+	// reached someone else; the attempt ends and the user starts again.
+	ErrStartReused = errors.New("the sign-in link was opened twice; start the sign-in again")
 )
+
+// startCookie names the cookie /start sets and /complete requires.
+const startCookie = "sona_signin"
 
 // fragmentRe matches the hash format MusicKit JS itself parses
 // (_processLocationHash in musickit.js v3).
@@ -131,14 +147,19 @@ type Session struct {
 	devToken string
 	opts     Options
 	nonce    string
-	origin   string // http://127.0.0.1:<port>
+	key      string    // value of the cookie /start gives each browser
+	origin   string    // http://127.0.0.1:<port>
+	deadline time.Time // the attempt ends here (Options.Timeout from Start)
 	srv      *http.Server
 	ln       net.Listener
 
-	once   sync.Once
-	result chan Result
-	closed chan struct{}
-	close  sync.Once
+	mu      sync.Mutex
+	tickets map[string]bool // start tickets StartURL issued; true once used
+	ended   bool            // a result was delivered or the attempt failed
+	result  chan Result
+	failed  chan error
+	closed  chan struct{}
+	close   sync.Once
 }
 
 // Start listens on a random loopback port and returns the session.
@@ -153,7 +174,11 @@ func Start(devToken string, opts Options) (*Session, error) {
 		opts.Timeout = 10 * time.Minute
 	}
 	var nb [16]byte
+	var kb [32]byte
 	if _, err := rand.Read(nb[:]); err != nil {
+		return nil, err
+	}
+	if _, err := rand.Read(kb[:]); err != nil {
 		return nil, err
 	}
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -164,32 +189,49 @@ func Start(devToken string, opts Options) (*Session, error) {
 		devToken: devToken,
 		opts:     opts,
 		nonce:    hex.EncodeToString(nb[:]),
+		key:      base64.RawURLEncoding.EncodeToString(kb[:]),
 		origin:   "http://" + ln.Addr().String(),
+		deadline: time.Now().Add(opts.Timeout),
 		ln:       ln,
+		tickets:  make(map[string]bool),
 		result:   make(chan Result, 1),
+		failed:   make(chan error, 1),
 		closed:   make(chan struct{}),
 	}
 	s.srv = &http.Server{
 		Handler:           s.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	go func() { _ = s.srv.Serve(ln) }()
+	go func() { _ = s.srv.Serve(ownerOnly(ln)) }()
 	return s, nil
 }
 
-// StartURL is the page to open in a browser to begin sign-in.
-func (s *Session) StartURL() string { return s.origin + "/auth/" + s.nonce + "/start" }
+// StartURL returns a new start link for this attempt. Each link carries its
+// own random ticket and works once: Sona opens one in the browser, and the
+// UI asks for another to open the page again or copy it to a different
+// browser.
+func (s *Session) StartURL() string {
+	ticket := rand.Text()
+	s.mu.Lock()
+	s.tickets[ticket] = false
+	s.mu.Unlock()
+	return s.origin + "/auth/" + s.nonce + "/start?t=" + ticket
+}
 
 func (s *Session) callbackURL() string { return s.origin + "/auth/" + s.nonce + "/callback" }
 
-// Wait blocks until sign-in completes, times out, ctx ends, or Close is called.
+// Wait blocks until sign-in completes, fails, reaches the deadline, ctx
+// ends, or Close is called. It always ends the attempt: afterwards every
+// endpoint refuses, cookie or not.
 func (s *Session) Wait(ctx context.Context) (Result, error) {
 	defer s.Close()
-	timer := time.NewTimer(s.opts.Timeout)
+	timer := time.NewTimer(time.Until(s.deadline))
 	defer timer.Stop()
 	select {
 	case r := <-s.result:
 		return r, nil
+	case err := <-s.failed:
+		return Result{}, err
 	case <-timer.C:
 		return Result{}, ErrTimeout
 	case <-ctx.Done():
@@ -199,9 +241,13 @@ func (s *Session) Wait(ctx context.Context) (Result, error) {
 	}
 }
 
-// Close stops the server; a pending Wait returns ErrCanceled.
+// Close ends the attempt and stops the server; a pending Wait returns
+// ErrCanceled.
 func (s *Session) Close() {
 	s.close.Do(func() {
+		s.mu.Lock()
+		s.ended = true
+		s.mu.Unlock()
 		close(s.closed)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
@@ -273,11 +319,63 @@ func (s *Session) render(w http.ResponseWriter, t *template.Template, data map[s
 	_ = t.Execute(w, data)
 }
 
+// overLocked reports whether the attempt has ended. s.mu must be held.
+func (s *Session) overLocked() bool { return s.ended || !time.Now().Before(s.deadline) }
+
+// cookie is the attempt's cookie with value v and lifetime maxAge seconds
+// (negative deletes it). It is host-only (no Domain), scoped to this
+// attempt's paths, hidden from scripts, and SameSite=Strict: the only
+// request that needs it is the callback page's same-origin POST to
+// /complete. Apple's cross-site redirect to /callback arrives without it,
+// which is fine because /callback receives nothing (the token stays in
+// the fragment). There is no Secure attribute or __Host- prefix, as both
+// need https.
+func (s *Session) cookie(v string, maxAge int) *http.Cookie {
+	return &http.Cookie{
+		Name:     startCookie,
+		Value:    v,
+		Path:     "/auth/" + s.nonce + "/",
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	}
+}
+
+// serveStart redeems a start ticket: it hands the browser the attempt's
+// cookie and sends it on to Apple. Each ticket works once. A ticket used a
+// second time ends the attempt (ErrStartReused): Sona's own pages never
+// load one twice (the start page replaces itself), so a repeat means the
+// link reached someone else, who must get nothing to complete with.
 func (s *Session) serveStart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	ticket := r.URL.Query().Get("t")
+	s.mu.Lock()
+	over := s.overLocked()
+	used, known := s.tickets[ticket]
+	if known && !over {
+		s.tickets[ticket] = true
+		s.ended = used
+	}
+	s.mu.Unlock()
+	switch {
+	case over:
+		http.Error(w, "This sign-in attempt has ended. Return to Sona and start again.", http.StatusGone)
+		return
+	case !known:
+		http.NotFound(w, r)
+		return
+	case used:
+		select {
+		case s.failed <- ErrStartReused:
+		default:
+		}
+		http.Error(w, "This sign-in link has already been used. Return to Sona and start again.", http.StatusGone)
+		return
+	}
+	http.SetCookie(w, s.cookie(s.key, max(1, int(math.Ceil(time.Until(s.deadline).Seconds())))))
 	w.Header().Set("Referrer-Policy", "unsafe-url")
 	s.render(w, startTmpl, map[string]any{
 		"URL": AuthorizeURL(s.devToken, s.opts.AppName, s.opts.IconURL, s.callbackURL()),
@@ -293,6 +391,16 @@ func (s *Session) serveCallback(w http.ResponseWriter, r *http.Request) {
 	s.render(w, callbackTmpl, map[string]any{"Complete": "/auth/" + s.nonce + "/complete"})
 }
 
+// hasKey reports whether r carries the attempt's cookie (constant-time).
+func (s *Session) hasKey(r *http.Request) bool {
+	for _, c := range r.CookiesNamed(startCookie) {
+		if subtle.ConstantTimeCompare([]byte(c.Value), []byte(s.key)) == 1 {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Session) serveComplete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -300,6 +408,17 @@ func (s *Session) serveComplete(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Header.Get("Origin") != s.origin {
 		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	s.mu.Lock()
+	over := s.overLocked()
+	s.mu.Unlock()
+	if over {
+		http.Error(w, "already completed", http.StatusGone)
+		return
+	}
+	if !s.hasKey(r) {
+		http.Error(w, "this browser did not start the sign-in", http.StatusForbidden)
 		return
 	}
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
@@ -318,14 +437,15 @@ func (s *Session) serveComplete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid authorization payload", http.StatusBadRequest)
 		return
 	}
-	delivered := false
-	s.once.Do(func() {
-		s.result <- res
-		delivered = true
-	})
-	if !delivered {
+	s.mu.Lock()
+	over = s.overLocked()
+	s.ended = true
+	s.mu.Unlock()
+	if over {
 		http.Error(w, "already completed", http.StatusGone)
 		return
 	}
+	s.result <- res
+	http.SetCookie(w, s.cookie("", -1))
 	w.WriteHeader(http.StatusNoContent)
 }

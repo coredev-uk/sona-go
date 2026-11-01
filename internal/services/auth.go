@@ -52,7 +52,7 @@ func (s *AuthService) status(st auth.Status) AuthStatus {
 		Keyring:        string(st.Keyring),
 		Offline:        st.Offline,
 		LastError:      st.LastError,
-		SignInURL:      st.SignInURL,
+		BrowserSignIn:  st.BrowserSignIn,
 		SecondFactor:   secondFactorDTO(st.SecondFactor),
 	}
 	out.LastErrorCode = s.codeFor(st)
@@ -128,6 +128,10 @@ func (s *AuthService) SignIn(ctx context.Context) error {
 	// with CancelSignIn, SignOut, a newer attempt or the deadline.
 	return s.note(s.m.SignIn(context.WithoutCancel(ctx), s.openFn))
 }
+
+// SignInLink returns a new single-use link to the pending browser sign-in,
+// for opening the page again or in another browser.
+func (s *AuthService) SignInLink() (string, error) { return s.m.SignInLink() }
 
 // CancelSignIn abandons a pending sign-in.
 func (s *AuthService) CancelSignIn() { s.m.CancelSignIn() }

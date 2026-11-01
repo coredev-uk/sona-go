@@ -56,6 +56,7 @@ var (
 	ErrDevTokenRejected = errors.New("auth: developer token rejected")
 	ErrNoAccount        = errors.New("auth: no account metadata")
 	ErrNotSignedIn      = errors.New("auth: not signed in")
+	ErrNoBrowserSignIn  = errors.New("auth: no browser sign-in is waiting")
 	// ErrKeyring wraps every failure of the token store (keyring or file).
 	ErrKeyring = errors.New("auth: keyring unavailable")
 	// ErrKeyringTimeout is a token store that didn't answer within
@@ -97,9 +98,10 @@ type Status struct {
 	// validation retries with backoff.
 	Offline   bool   `json:"offline"`
 	LastError string `json:"lastError,omitempty"`
-	// SignInURL is the loopback start page while State is signing_in, so the
-	// UI can offer it when opening a browser failed.
-	SignInURL string `json:"signInUrl,omitempty"`
+	// BrowserSignIn is set while the browser (loopback) sign-in waits, so
+	// the UI can offer a new link (SignInLink) when opening a browser failed
+	// or the page was closed.
+	BrowserSignIn bool `json:"browserSignIn,omitempty"`
 	// SecondFactor is the pending two-factor challenge of a native
 	// sign-in (SignInWithPassword) while State is signing_in.
 	SecondFactor *appleid.SecondFactor `json:"secondFactor,omitempty"`
@@ -165,7 +167,7 @@ type Manager struct {
 	vault *vault
 
 	mu         sync.Mutex
-	st         Status // State, Keyring, Offline, LastError, SignInURL, SecondFactor
+	st         Status // State, Keyring, Offline, LastError, BrowserSignIn, SecondFactor
 	started    bool
 	restoreGen uint64       // restore generation
 	restoring  uint64       // the restore whose answer still applies; 0: none
@@ -179,6 +181,7 @@ type Manager struct {
 	cancelAttempt context.CancelFunc
 	prior         State          // state to restore when the attempt fails
 	native        *nativeAttempt // pending native two-factor step, if any
+	loopback      *mut.Session   // pending browser sign-in's server, if any
 
 	bgCancel   context.CancelFunc // background validation loop
 	triaging   bool
@@ -758,12 +761,13 @@ func (m *Manager) failAttempt(id uint64, err error) error {
 }
 
 // SignIn runs the loopback sign-in: it starts the single-use loopback
-// server, enters signing_in with Status.SignInURL set, calls open with that
-// URL (a failure is recorded in LastError and the attempt keeps waiting, so
-// the UI can show the link), waits for Apple's redirect, validates the token
-// and stores it. It blocks until the attempt finishes and returns
-// mut.ErrCanceled after CancelSignIn, SignOut or a newer attempt, and
-// mut.ErrTimeout at the deadline. On failure the previous state returns.
+// server, enters signing_in with Status.BrowserSignIn set, calls open with a
+// start link (a failure is recorded in LastError and the attempt keeps
+// waiting, so the UI can offer SignInLink), waits for Apple's redirect,
+// validates the token and stores it. It blocks until the attempt finishes
+// and returns mut.ErrCanceled after CancelSignIn, SignOut or a newer
+// attempt, mut.ErrTimeout at the deadline and mut.ErrStartReused when a
+// start link was loaded twice. On failure the previous state returns.
 func (m *Manager) SignIn(ctx context.Context, open func(url string) error) error {
 	ctx, id, done := m.beginAttempt(ctx, StateSigningIn)
 	defer done()
@@ -776,14 +780,22 @@ func (m *Manager) SignIn(ctx context.Context, open func(url string) error) error
 		return m.failAttempt(id, err)
 	}
 	defer sess.Close()
-	url := sess.StartURL()
 	m.update(func() bool {
 		if m.attempt != id {
 			return false
 		}
-		m.st.SignInURL = url
+		m.st.BrowserSignIn = true
+		m.loopback = sess
 		return true
 	})
+	defer func() {
+		m.mu.Lock()
+		if m.loopback == sess {
+			m.loopback = nil
+		}
+		m.mu.Unlock()
+	}()
+	url := sess.StartURL()
 	if open != nil {
 		if err := open(url); err != nil {
 			m.log.Warn("opening sign-in page failed", "err", err)
@@ -903,6 +915,23 @@ func (m *Manager) undoLateWrite() {
 		return s.Set(prev)
 	})
 	m.log.Warn("the keyring didn't store the sign-in in time; it will be undone if it still lands")
+}
+
+// SignInLink returns a new start link for the pending browser sign-in, for
+// opening the page again or copying it to another browser. Each link works
+// once (mut.Session.StartURL). It returns ErrNoBrowserSignIn when no
+// browser sign-in is waiting.
+func (m *Manager) SignInLink() (string, error) {
+	m.mu.Lock()
+	sess := m.loopback
+	if m.st.State != StateSigningIn || !m.st.BrowserSignIn {
+		sess = nil
+	}
+	m.mu.Unlock()
+	if sess == nil {
+		return "", ErrNoBrowserSignIn
+	}
+	return sess.StartURL(), nil
 }
 
 // CancelSignIn abandons a pending sign-in (closing its loopback server) and

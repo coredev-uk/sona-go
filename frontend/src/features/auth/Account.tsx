@@ -523,6 +523,17 @@ function PhoneChoice({
 /** The browser fallback while Apple's page is open in the system browser. */
 function BrowserWaiting({ status }: { status: AuthStatus }) {
   const { t } = useLingui();
+  // Every sign-in link works once, so each button asks Sona for a new one.
+  const withLink = async (act: (url: string) => Promise<unknown>) => {
+    let url: string;
+    try {
+      url = await AuthService.SignInLink();
+    } catch (err) {
+      toast.error(t`Couldn't get a sign-in link`, { description: callFailure(err).message });
+      return;
+    }
+    await act(url);
+  };
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -544,9 +555,13 @@ function BrowserWaiting({ status }: { status: AuthStatus }) {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {status.signInUrl && (
+        {status.browserSignIn && (
           <>
-            <Button variant="outline" size="sm" onClick={() => openURL(status.signInUrl)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void withLink((url) => Browser.OpenURL(url))}
+            >
               <Trans>Open the page again</Trans>
               <ExternalLink strokeWidth={1.75} />
             </Button>
@@ -554,7 +569,9 @@ function BrowserWaiting({ status }: { status: AuthStatus }) {
               variant="ghost"
               size="sm"
               onClick={() =>
-                void Clipboard.SetText(status.signInUrl).then(() => toast(t`Sign-in link copied`))
+                void withLink((url) =>
+                  Clipboard.SetText(url).then(() => toast(t`Sign-in link copied`)),
+                )
               }
             >
               <Trans>Copy link</Trans>
