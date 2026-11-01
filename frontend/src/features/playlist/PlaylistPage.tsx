@@ -217,6 +217,7 @@ export function PlaylistPage() {
               key: a.id,
               title: a.name,
               art: a.art.medium,
+              motion: a.motion || undefined,
               shape: "round" as const,
               link: { to: "/artist/$id", params: { id: a.id } },
             }))}
@@ -235,6 +236,7 @@ export function PlaylistPage() {
               title: p.name,
               subtitle: p.curatorName,
               art: p.art.medium,
+              motion: p.motion || undefined,
               link: { to: "/playlist/$id", params: { id: p.id } },
             }))}
           />

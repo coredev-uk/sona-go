@@ -70,6 +70,7 @@ func ArtistPage(ctx context.Context, c *Client, sf, id string) (Artist, error) {
 func ArtistView[T any](ctx context.Context, c *Client, sf, id, view string, offset, limit int) (View[T], error) {
 	q := AMPQuery{
 		With:   []string{"attributes"},
+		Extend: []string{"editorialVideo"}, // tile motion
 		Limit:  max(1, min(limit, 100)),
 		Offset: max(offset, 0),
 		Extra: url.Values{

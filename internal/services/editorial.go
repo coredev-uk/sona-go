@@ -354,7 +354,6 @@ func (m mapper) brick(res applemusic.Resources, tile applemusic.Node) (Item, boo
 type editorialArt struct {
 	Artwork          *applemusic.Artwork           `json:"artwork"`
 	EditorialArtwork map[string]applemusic.Artwork `json:"editorialArtwork"`
-	EditorialVideo   applemusic.EditorialVideo     `json:"editorialVideo"`
 	URL              string                        `json:"url"`
 	ArtistNames      string                        `json:"artistNames"`
 }
@@ -485,10 +484,6 @@ func (m mapper) amItem(n applemusic.Node) (Item, bool) {
 		it.Kind, it.Name, it.Subtitle, it.Art = ItemLink, a.Name, a.ArtistName, m.artwork(a.Artwork)
 	default:
 		return Item{}, false
-	}
-	switch it.Kind {
-	case ItemAlbum, ItemPlaylist, ItemArtist, ItemStation:
-		it.Motion = m.motionOf(ea.EditorialVideo)
 	}
 	return it, it.Name != "" || it.Kind == ItemLink
 }

@@ -139,11 +139,13 @@ func (c *Client) LiveStations(ctx context.Context, sf string) ([]Station, error)
 }
 
 // RecentStations returns the stations the user played recently, newest
-// first (Apple's own history, shared with the other Apple Music apps).
+// first (Apple's own history, shared with the other Apple Music apps),
+// with their motion artwork (personal, mood and live stations have it).
 func (c *Client) RecentStations(ctx context.Context, limit int) ([]Station, error) {
 	body, err := AMP[Page[Station]](ctx, c, "/v1/me/recent/radio-stations", AMPQuery{
-		Limit: limit,
-		Extra: url.Values{"include[stations]": {"radio-show"}, "omit[resource]": {"autos"}},
+		Limit:  limit,
+		Extend: []string{"editorialVideo"},
+		Extra:  url.Values{"include[stations]": {"radio-show"}, "omit[resource]": {"autos"}},
 	})
 	return body.Data, err
 }

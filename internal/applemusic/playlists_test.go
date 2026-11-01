@@ -26,7 +26,7 @@ func TestCatalogPlaylistPagesAllTracks(t *testing.T) {
 		q := r.URL.Query()
 		switch r.URL.Path {
 		case "/v1/catalog/gb/playlists/pl.1":
-			if q.Get("limit[tracks]") != "300" || q.Get("include") != "tracks,curator" || q.Get("views") != "featured-artists,more-by-curator" {
+			if q.Get("limit[tracks]") != "300" || q.Get("include") != "tracks,curator" || q.Get("views") != "more-by-curator" {
 				t.Errorf("playlist query = %s", r.URL.RawQuery)
 			}
 			var tracks []any
@@ -40,10 +40,7 @@ func TestCatalogPlaylistPagesAllTracks(t *testing.T) {
 					"tracks":  map[string]any{"data": tracks, "next": "/v1/catalog/gb/playlists/pl.1/tracks?offset=300"},
 					"curator": map[string]any{"data": []any{map[string]any{"id": "976439548", "type": "apple-curators", "attributes": map[string]any{"name": "Apple Music Hits"}}}},
 				},
-				"views": map[string]any{
-					"featured-artists": map[string]any{"data": []any{map[string]any{"id": "1", "type": "artists", "attributes": map[string]any{"name": "A"}}}},
-					"more-by-curator":  map[string]any{"data": []any{}},
-				},
+				"views": map[string]any{"more-by-curator": map[string]any{"data": []any{}}},
 			}}})
 		case "/v1/catalog/gb/playlists/pl.1/tracks":
 			off, _ := strconv.Atoi(q.Get("offset"))
@@ -55,7 +52,16 @@ func TestCatalogPlaylistPagesAllTracks(t *testing.T) {
 				tracks = append(tracks, songJSON(i))
 			}
 			json.NewEncoder(w).Encode(map[string]any{"data": tracks})
+		case "/v1/catalog/gb/playlists/pl.1/view/featured-artists":
+			// Their own request, asking for their motion artwork.
+			if q.Get("extend") != "editorialVideo" || q.Get("fields[artists]") != "name,url,artwork,editorialVideo" {
+				t.Errorf("featured artists query = %s", r.URL.RawQuery)
+			}
+			_, _ = w.Write([]byte(`{"data":[{"id":"1","type":"artists","attributes":{"name":"A","editorialVideo":{"motionArtistSquare1x1":{"video":"https://mvod.itunes.apple.com/a.m3u8"}}}}]}`))
 		case "/v1/catalog/gb/apple-curators/976439548/playlists":
+			if q.Get("extend") != "editorialVideo" {
+				t.Errorf("curator playlists query = %s", r.URL.RawQuery)
+			}
 			// The curator's own list stands in for an empty view, without
 			// the playlist itself.
 			w.Write([]byte(`{"data":[{"id":"pl.1","type":"playlists","attributes":{"name":"Big"}},{"id":"pl.2","type":"playlists","attributes":{"name":"Other"}}]}`))
@@ -78,7 +84,7 @@ func TestCatalogPlaylistPagesAllTracks(t *testing.T) {
 	if p.Curator != (Curator{ID: "976439548", Type: "apple-curators", Name: "Apple Music Hits"}) {
 		t.Fatalf("curator = %+v", p.Curator)
 	}
-	if len(p.FeaturedArtists) != 1 || len(p.MoreByCurator) != 1 || p.MoreByCurator[0].ID != "pl.2" {
+	if len(p.FeaturedArtists) != 1 || p.FeaturedArtists[0].Attributes.EditorialVideo.Square() == "" || len(p.MoreByCurator) != 1 || p.MoreByCurator[0].ID != "pl.2" {
 		t.Fatalf("views = %+v / %+v", p.FeaturedArtists, p.MoreByCurator)
 	}
 }

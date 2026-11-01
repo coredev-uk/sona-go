@@ -483,10 +483,10 @@ func TestSlimResources(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := mapper{motion: mc}
-	if it, ok := m.amItem(nodes[1]); !ok || it.Motion == "" || it.Motion != mc.URL(square) {
-		t.Errorf("item motion = %q, want %q", it.Motion, mc.URL(square))
+	if it, ok := m.amItem(nodes[1]); !ok || it.Album == nil || it.Album.Motion == "" || it.Album.Motion != mc.URL(square) {
+		t.Errorf("item motion = %+v, want %q", it.Album, mc.URL(square))
 	}
-	if it, _ := m.amItem(nodes[0]); it.Motion != "" {
-		t.Errorf("item without motion = %q", it.Motion)
+	if it, _ := m.amItem(nodes[0]); it.Album == nil || it.Album.Motion != "" {
+		t.Errorf("item without motion = %+v", it.Album)
 	}
 }

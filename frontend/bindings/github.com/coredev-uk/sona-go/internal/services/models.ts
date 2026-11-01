@@ -43,6 +43,13 @@ export class Album {
     "traits": Traits;
     "art": Art;
 
+    /**
+     * Motion is the album's square motion artwork, for its tile (a
+     * Go-served /motion/<key>/<size>.mp4 URL; "" when Apple has none or
+     * for library items). Artist, Playlist and Station carry the same.
+     */
+    "motion": string;
+
     /** Creates a new Album instance. */
     constructor($$source: Partial<Album> = {}) {
         if (!("id" in $$source)) {
@@ -95,6 +102,9 @@ export class Album {
         }
         if (!("art" in $$source)) {
             this["art"] = (new Art());
+        }
+        if (!("motion" in $$source)) {
+            this["motion"] = "";
         }
 
         Object.assign(this, $$source);
@@ -272,6 +282,11 @@ export class Artist {
     "genre": string;
     "art": Art;
 
+    /**
+     * as Album.Motion (motionArtistSquare1x1)
+     */
+    "motion": string;
+
     /** Creates a new Artist instance. */
     constructor($$source: Partial<Artist> = {}) {
         if (!("id" in $$source)) {
@@ -294,6 +309,9 @@ export class Artist {
         }
         if (!("art" in $$source)) {
             this["art"] = (new Art());
+        }
+        if (!("motion" in $$source)) {
+            this["motion"] = "";
         }
 
         Object.assign(this, $$source);
@@ -2651,13 +2669,6 @@ export class Item {
      * music.apple.com page, "" when unknown
      */
     "url": string;
-
-    /**
-     * Motion is the item's square motion artwork as a Go-served
-     * /motion/<key>/<size>.mp4 URL ("" when it has none): albums,
-     * playlists, artists and stations on editorial pages and Home.
-     */
-    "motion": string;
     "song"?: Song | null;
     "album"?: Album | null;
     "playlist"?: Playlist | null;
@@ -2697,9 +2708,6 @@ export class Item {
         if (!("url" in $$source)) {
             this["url"] = "";
         }
-        if (!("motion" in $$source)) {
-            this["motion"] = "";
-        }
 
         Object.assign(this, $$source);
     }
@@ -2710,12 +2718,12 @@ export class Item {
     static createFrom($$source: any = {}): Item {
         const $$createField5_0 = $$createType1;
         const $$createField6_0 = $$createType1;
-        const $$createField11_0 = $$createType23;
-        const $$createField12_0 = $$createType18;
-        const $$createField13_0 = $$createType50;
-        const $$createField14_0 = $$createType51;
-        const $$createField15_0 = $$createType53;
-        const $$createField16_0 = $$createType54;
+        const $$createField10_0 = $$createType23;
+        const $$createField11_0 = $$createType18;
+        const $$createField12_0 = $$createType50;
+        const $$createField13_0 = $$createType51;
+        const $$createField14_0 = $$createType53;
+        const $$createField15_0 = $$createType54;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("art" in $$parsedSource) {
             $$parsedSource["art"] = $$createField5_0($$parsedSource["art"]);
@@ -2724,22 +2732,22 @@ export class Item {
             $$parsedSource["wide"] = $$createField6_0($$parsedSource["wide"]);
         }
         if ("song" in $$parsedSource) {
-            $$parsedSource["song"] = $$createField11_0($$parsedSource["song"]);
+            $$parsedSource["song"] = $$createField10_0($$parsedSource["song"]);
         }
         if ("album" in $$parsedSource) {
-            $$parsedSource["album"] = $$createField12_0($$parsedSource["album"]);
+            $$parsedSource["album"] = $$createField11_0($$parsedSource["album"]);
         }
         if ("playlist" in $$parsedSource) {
-            $$parsedSource["playlist"] = $$createField13_0($$parsedSource["playlist"]);
+            $$parsedSource["playlist"] = $$createField12_0($$parsedSource["playlist"]);
         }
         if ("artist" in $$parsedSource) {
-            $$parsedSource["artist"] = $$createField14_0($$parsedSource["artist"]);
+            $$parsedSource["artist"] = $$createField13_0($$parsedSource["artist"]);
         }
         if ("station" in $$parsedSource) {
-            $$parsedSource["station"] = $$createField15_0($$parsedSource["station"]);
+            $$parsedSource["station"] = $$createField14_0($$parsedSource["station"]);
         }
         if ("musicVideo" in $$parsedSource) {
-            $$parsedSource["musicVideo"] = $$createField16_0($$parsedSource["musicVideo"]);
+            $$parsedSource["musicVideo"] = $$createField15_0($$parsedSource["musicVideo"]);
         }
         return new Item($$parsedSource as Partial<Item>);
     }
@@ -4111,6 +4119,11 @@ export class Playlist {
     "art": Art;
     "traits": Traits;
 
+    /**
+     * as Album.Motion
+     */
+    "motion": string;
+
     /** Creates a new Playlist instance. */
     constructor($$source: Partial<Playlist> = {}) {
         if (!("id" in $$source)) {
@@ -4151,6 +4164,9 @@ export class Playlist {
         }
         if (!("traits" in $$source)) {
             this["traits"] = (new Traits());
+        }
+        if (!("motion" in $$source)) {
+            this["motion"] = "";
         }
 
         Object.assign(this, $$source);
@@ -5976,6 +5992,11 @@ export class Station {
     "url": string;
     "art": Art;
 
+    /**
+     * as Album.Motion (live, personal and mood stations)
+     */
+    "motion": string;
+
     /** Creates a new Station instance. */
     constructor($$source: Partial<Station> = {}) {
         if (!("id" in $$source)) {
@@ -6022,6 +6043,9 @@ export class Station {
         }
         if (!("art" in $$source)) {
             this["art"] = (new Art());
+        }
+        if (!("motion" in $$source)) {
+            this["motion"] = "";
         }
 
         Object.assign(this, $$source);

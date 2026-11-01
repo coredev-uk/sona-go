@@ -27,6 +27,7 @@ function stationCover(s: Station): CoverItem {
     title: s.name,
     subtitle: s.tagline || s.showName || s.provider || undefined,
     art: s.art.medium,
+    motion: s.motion || undefined,
     link: { to: "/station/$id", params: { id: s.id } },
     play: s.playable ? { label: playLabel(s.name), run: () => void playStation(s.id) } : undefined,
     target: { kind: "station", target: s },

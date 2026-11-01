@@ -25,7 +25,7 @@ export function toCoverItem(item: Item, index: number, onOpen?: (item: Item) => 
     title: item.name,
     subtitle: itemSubtitle(item),
     art: item.art.medium || item.wide.medium,
-    motion: item.motion || undefined,
+    motion: (item.album ?? item.playlist ?? item.artist ?? item.station)?.motion || undefined,
     shape: itemShape(item),
     aspect: itemAspect(item),
     link,

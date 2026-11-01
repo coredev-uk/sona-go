@@ -551,12 +551,22 @@ lists that mark the playing song.
 ### Motion artwork
 
 - **Where it plays.** Headers (album, playlist, artist, station) and the
-  now-playing cover play while on screen. Cover tiles (Home, Discover, rooms)
-  play only while hovered or focused, after a 400 ms dwell, one tile at a
-  time; at rest a tile with motion renders a hidden marker and nothing else
-  (no video, observer or layer). One set of document listeners decides the
-  active tile (`listenForTileMotion`). At most a header, the now-playing
-  cover and one tile decode at once.
+  now-playing cover play while on screen. Cover tiles play only while
+  hovered or focused, after a 400 ms dwell, one tile at a time; at rest a
+  tile with motion renders a hidden marker and nothing else (no video,
+  observer or layer). One set of document listeners decides the active
+  tile (`listenForTileMotion`). At most a header, the now-playing cover and
+  one tile decode at once.
+- **Which tiles.** Every catalog album, playlist, artist and station tile:
+  Go's `Album`, `Playlist`, `Artist` and `Station` carry `motion` (an
+  `Item` takes its typed field's), and every request that fills tiles asks
+  for `editorialVideo` (Home, Discover and rooms, charts, search, the
+  artist page and its "See all", the album and playlist pages' shelves,
+  the Radio page's own stations). Apple sends a square video for many
+  albums, playlists and artists, for live, personal ("Your Station"), mood
+  and discovery stations, but none for artist, song or genre stations, and
+  only a 3:4 one for radio episodes; those tiles stay still. Library items
+  have none, and wide hero cards don't play.
 - **How.** MotionCover fetches the Go-served `/motion/` file and hands it to
   the `<video>` as a `data:` URL. Measured on WebKitGTK 2.54.1 with
   GStreamer 1.28.7: the app's `wails://` URL is refused outright
