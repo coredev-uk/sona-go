@@ -39,8 +39,9 @@ type Platform struct {
 	Files FileChooser
 	// Tray: the shell shows a tray icon (close to the tray is possible).
 	Tray bool
-	// Commands: `sona private …` reaches the running instance and a second
-	// launch forwards its links to it (internal/app over D-Bus on Linux).
+	// Commands: `sona <command>` (Core.Commands) reaches the running
+	// instance and a second launch forwards its links to it (internal/app:
+	// D-Bus on Linux, a local socket elsewhere).
 	Commands bool
 	// TitleBar is how the main window's title bar works here: the system's
 	// buttons inset into Sona's top bar (macOS), or Sona's own title bar

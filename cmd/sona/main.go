@@ -28,6 +28,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth/devtoken"
 	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/catalog"
+	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/diag"
@@ -69,10 +70,10 @@ func main() {
 			return
 		}
 	}
-	// `sona private on` and other subcommands act on the running instance
-	// and exit; they never start Sona.
-	if app.IsCommand(os.Args[1:]) {
-		os.Exit(runCommand(os.Args[1:]))
+	// `sona play`, `sona status` and the other commands (internal/cli) act
+	// on the running instance and exit; they never start Sona.
+	if cli.IsCommand(os.Args[1:]) {
+		os.Exit(cli.Run(context.Background(), os.Args[1:], cli.Env{Stdout: os.Stdout, Stderr: os.Stderr, Dial: dialInstance, Version: version}))
 	}
 
 	started := time.Now()
@@ -113,7 +114,7 @@ func run(started time.Time) error {
 
 	// Single instance: a second launch forwards its arguments and exits.
 	act := app.CurrentActivation(os.Args[1:])
-	plat, err := openPlatform(act, log)
+	plat, err := openPlatform(paths, act, log)
 	if errors.Is(err, app.ErrForwarded) {
 		log.Info("forwarded to the running instance")
 		return nil
@@ -312,7 +313,7 @@ func run(started time.Time) error {
 	core.StartMediaControls(services.NewMPRISPlayer(coord, sh.ShowMain, sh.Quit, log.With("component", "mpris")))
 
 	core.Activate(act, false)
-	plat.Serve(core.Activate, app.Commands{"private": private.Command})
+	plat.Serve(core.Activate, core.Commands())
 
 	return wapp.Run()
 }

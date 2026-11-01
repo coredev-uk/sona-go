@@ -34,6 +34,11 @@ export const DiscoverHome = "discover:home";
 export const IntegrationsStatus = "integrations:status";
 
 /**
+ * Name of the custom event "library:item-state".
+ */
+export const LibraryItemState = "library:item-state";
+
+/**
  * Name of the custom event "playback:queue".
  */
 export const PlaybackQueue = "playback:queue";

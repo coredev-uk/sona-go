@@ -7,7 +7,9 @@
 #   smoke.sh appimage   # Fedora: run the AppImage with no GTK/WebKit installed
 #   smoke.sh arch       # Arch Linux: install the .pkg.tar.zst with its declared deps
 #
-# Passes when `sona --version` prints SONA_VERSION (when set), the binary
+# Passes when `sona --version` prints SONA_VERSION (when set), `sona status`
+# says Sona isn't running (exit status 3) and the packages install the
+# command's completions and manual page, the binary
 # resolves every shared library, the GStreamer elements the playback host
 # needs exist, and the app, run headless under Xvfb, creates its window and
 # the frontend reports its first paint.
@@ -76,6 +78,19 @@ if [[ -n ${SONA_VERSION:-} ]]; then
   got=$("$exe" --version) || fail "sona --version failed"
   [[ $got == "sona $SONA_VERSION" ]] || fail "sona --version printed '$got', want 'sona $SONA_VERSION'"
   echo "smoke($kind): $got"
+fi
+
+# The command line: no Sona runs here (no session bus either), so status
+# says so with exit status 3.
+rc=0
+out=$("$exe" status 2>&1) || rc=$?
+[[ $rc == 3 && $out == "Sona isn't running" ]] || fail "sona status printed '$out' (exit $rc), want 'Sona isn't running' (exit 3)"
+"$exe" help >/dev/null || fail "sona help failed"
+if [[ $kind != appimage ]]; then
+  for f in /usr/share/bash-completion/completions/sona /usr/share/zsh/site-functions/_sona \
+    /usr/share/fish/vendor_completions.d/sona.fish /usr/share/man/man1/sona.1.gz; do
+    [[ -s $f ]] || fail "$f not installed"
+  done
 fi
 
 # Every shared library resolves.

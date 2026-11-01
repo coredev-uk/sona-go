@@ -159,6 +159,13 @@ export const libraryModule: FeatureModule<(typeof routes)[number]> = {
       useSync.getState().done(data);
       invalidate(syncDoneInvalidations);
     },
+    // A rating changed outside the UI (`sona like`): every view of the
+    // item shows it, and Favourite Songs refreshes. A song it added to the
+    // library arrives with the sync Go starts.
+    "library:item-state": (data, { qc, invalidate }) => {
+      qc.setQueryData(keys.itemState(data.kind, data.id), data);
+      invalidate([["library", "favorite-songs"]]);
+    },
   },
   init: ({ qc }) => {
     void qc

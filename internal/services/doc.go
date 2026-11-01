@@ -63,7 +63,7 @@
 // small seam per concern, built by cmd/sona's platform_<os>.go: media controls
 // (MPRIS), notifications, the sleep inhibitor, the on-battery monitor, the
 // autostart entry, the file chooser, plus whether there is a tray and a
-// command transport (`sona private …`, single instance), and how title bars
+// command transport (`sona <command>`, single instance), and how title bars
 // work (TitleBar: macOS's inset buttons, or Sona's or the desktop's title
 // bar and the desktop's button layout). DesktopService offers the title
 // bar's buttons (MinimiseWindow, ToggleMaximiseWindow, CloseWindow),

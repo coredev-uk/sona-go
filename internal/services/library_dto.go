@@ -6,11 +6,15 @@ import "github.com/wailsapp/wails/v3/pkg/application"
 const (
 	EventSyncProgress = "sync:progress" // SyncProgress
 	EventSyncDone     = "sync:done"     // SyncDone
+	// EventItemState carries an item's new ItemState after a change made
+	// outside the UI (`sona like`).
+	EventItemState = "library:item-state"
 )
 
 func init() {
 	application.RegisterEvent[SyncProgress](EventSyncProgress)
 	application.RegisterEvent[SyncDone](EventSyncDone)
+	application.RegisterEvent[ItemState](EventItemState)
 }
 
 // SongPage, AlbumPage, ArtistPage and PlaylistPage are list pages; Total

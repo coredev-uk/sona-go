@@ -616,6 +616,7 @@ after two animation frames or 300 ms, whichever comes first.
 | `power:changed` | motion | mirrors Go's on-battery state; motion artwork stops on battery |
 | `updates:available` | updates | replaces the `updates` query; the sidebar shows the notice |
 | `private:changed` | private | replaces the private listening mirror (player bar, Settings row, palette command; also sent for the tray and `sona private`) |
+| `library:item-state` | library | sets an item's library state after a change outside the UI (`sona like`); invalidates Favourite Songs |
 | `cdm:status` | cdm | replaces the Widevine CDM mirror (Settings → Playback's Widevine row, Diagnostics, the player bar's waiting line); a new state, version, source or code (not a progress step) invalidates Diagnostics |
 | `app:open` | app | `routeForOpen` → navigate (album, song, artist, playlist, music video, station, curator) |
 

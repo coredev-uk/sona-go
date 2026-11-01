@@ -155,8 +155,9 @@ everything Go does (sign-in, library, sync, catalog) and playback through
 the same CDM host as Linux, with the CDM Sona downloads from Google for
 macOS (`mac_arm64`, see "Widevine CDM") and Core Audio output
 (`osxaudiosink`, always the system's default output). There are no media
-controls, notifications, sleep inhibit, autostart, file chooser or `sona`
-commands yet (see "Platforms"). Apple's licence server grants licences to
+controls, notifications, sleep inhibit, autostart or file chooser yet (see
+"Platforms"); `sona <command>` and single instance work over a socket in
+Sona's state folder (docs/cli.md). Apple's licence server grants licences to
 this unsigned host: full tracks play on Apple Silicon.
 
 The CDM host child runs under macOS's sandbox (`sandbox-exec` with Sona's
@@ -440,7 +441,8 @@ host. Windows has no playback yet.
 
 - In `cmd/sona`, `main.go` is portable; `platform_linux.go` and `platform_other.go` build
   what differs per OS: the `sona <command>` transport and single instance
-  (`internal/app` over D-Bus), the Wails options, and `services.Platform`:
+  (`internal/app`: D-Bus on Linux, a socket in the state folder on macOS
+  and Windows; docs/cli.md), the Wails options, and `services.Platform`:
   media controls (MPRIS), notifications, the sleep inhibitor, the
   on-battery monitor, the autostart entry, the file chooser, the tray. The
   playback engine and the CDM host child hook (`newEngine`, `childMain`,
