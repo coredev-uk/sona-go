@@ -20,18 +20,19 @@ function configure() {
         "cdm:status": $$createType2,
         "discover:home": $$createType3,
         "integrations:status": $$createType4,
-        "playback:queue": $$createType5,
-        "playback:state": $$createType6,
-        "playlists:changed": $$createType7,
-        "power:changed": $$createType8,
-        "private:changed": $$createType9,
-        "reminders:changed": $$createType11,
-        "scrobble:changed": $$createType12,
-        "settings:changed": $$createType13,
-        "sync:done": $$createType14,
-        "sync:progress": $$createType15,
-        "updates:available": $$createType16,
-        "window:state": $$createType17,
+        "library:item-state": $$createType5,
+        "playback:queue": $$createType6,
+        "playback:state": $$createType7,
+        "playlists:changed": $$createType8,
+        "power:changed": $$createType9,
+        "private:changed": $$createType10,
+        "reminders:changed": $$createType12,
+        "scrobble:changed": $$createType13,
+        "settings:changed": $$createType14,
+        "sync:done": $$createType15,
+        "sync:progress": $$createType16,
+        "updates:available": $$createType17,
+        "window:state": $$createType18,
     }));
 }
 
@@ -41,18 +42,19 @@ const $$createType1 = services$0.AuthStatus.createFrom;
 const $$createType2 = services$0.CDMStatus.createFrom;
 const $$createType3 = services$0.HomePage.createFrom;
 const $$createType4 = services$0.IntegrationsStatus.createFrom;
-const $$createType5 = services$0.QueueState.createFrom;
-const $$createType6 = services$0.PlaybackState.createFrom;
-const $$createType7 = services$0.PlaylistsChanged.createFrom;
-const $$createType8 = services$0.PowerState.createFrom;
-const $$createType9 = services$0.PrivateState.createFrom;
-const $$createType10 = services$0.Reminder.createFrom;
-const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = services$0.ScrobbleStatus.createFrom;
-const $$createType13 = config$0.Settings.createFrom;
-const $$createType14 = services$0.SyncDone.createFrom;
-const $$createType15 = services$0.SyncProgress.createFrom;
-const $$createType16 = services$0.UpdateStatus.createFrom;
-const $$createType17 = services$0.WindowState.createFrom;
+const $$createType5 = services$0.ItemState.createFrom;
+const $$createType6 = services$0.QueueState.createFrom;
+const $$createType7 = services$0.PlaybackState.createFrom;
+const $$createType8 = services$0.PlaylistsChanged.createFrom;
+const $$createType9 = services$0.PowerState.createFrom;
+const $$createType10 = services$0.PrivateState.createFrom;
+const $$createType11 = services$0.Reminder.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = services$0.ScrobbleStatus.createFrom;
+const $$createType14 = config$0.Settings.createFrom;
+const $$createType15 = services$0.SyncDone.createFrom;
+const $$createType16 = services$0.SyncProgress.createFrom;
+const $$createType17 = services$0.UpdateStatus.createFrom;
+const $$createType18 = services$0.WindowState.createFrom;
 
 configure();
