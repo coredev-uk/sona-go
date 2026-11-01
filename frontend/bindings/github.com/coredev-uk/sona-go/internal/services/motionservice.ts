@@ -3,8 +3,8 @@
 
 /**
  * MotionService is motion artwork outside detail pages (whose Header
- * carries it): the now-playing cover's, and whether the machine runs on
- * battery, which turns motion artwork off in the UI.
+ * carries it): the now-playing cover's, the power source, which turns
+ * motion artwork off on battery, and what Diagnostics shows about it.
  * @module
  */
 
@@ -27,8 +27,7 @@ export function Album(id: string): $CancellablePromise<string> {
 }
 
 /**
- * Power returns whether the machine runs on battery ("power:changed"
- * follows it).
+ * Power returns the computer's power source ("power:changed" follows it).
  */
 export function Power(): $CancellablePromise<$models.PowerState> {
     return $Call.ByID(205454265).then(($result: any) => {
@@ -36,5 +35,24 @@ export function Power(): $CancellablePromise<$models.PowerState> {
     });
 }
 
+/**
+ * Report keeps the web view's side of motion artwork for the next
+ * bug-report bundle.
+ */
+export function Report(r: $models.MotionReport): $CancellablePromise<void> {
+    return $Call.ByID(1905782298, r);
+}
+
+/**
+ * Status reports the power source, the motion cache and its newest
+ * download (Settings → Diagnostics).
+ */
+export function Status(): $CancellablePromise<$models.MotionStatus> {
+    return $Call.ByID(164161026).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
 // Private type creation functions
 const $$createType0 = $models.PowerState.createFrom;
+const $$createType1 = $models.MotionStatus.createFrom;

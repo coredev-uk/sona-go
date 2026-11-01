@@ -1,6 +1,6 @@
 import { plural, t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { SystemService, type CDMStatus, type Diagnostics } from "@bindings/services";
+import { MotionService, SystemService, type CDMStatus, type Diagnostics } from "@bindings/services";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Clipboard } from "@wailsio/runtime";
 import { CircleAlert, CircleCheck, Copy, FolderOpen, RotateCw, TriangleAlert } from "lucide-react";
@@ -15,14 +15,16 @@ import { useCapabilities } from "@/shared/lib/capabilities";
 import { callFailure } from "@/shared/lib/errors";
 import { formatBytes, relativeTime } from "@/shared/lib/format";
 import { keys } from "@/shared/lib/keys";
+import { useMotionLog, useMotionState } from "@/shared/lib/motion";
 import { cn } from "@/shared/lib/utils";
 
+import { motionGroup, motionReport } from "./MotionDiagnostics";
 import { useSettings, useUpdateSettings } from "./queries";
 import { UpdatesGroup } from "./Updates";
 
 type Status = "ok" | "warning" | "error" | "info";
 
-interface Row {
+export interface Row {
   label: string;
   value: string;
   status?: Status;
@@ -30,7 +32,7 @@ interface Row {
   detail?: string;
 }
 
-interface Group {
+export interface Group {
   title: string;
   rows: Row[];
 }
@@ -437,13 +439,30 @@ export function DiagnosticsSection() {
   });
   const webkitGtk = useCapabilities()?.webkitGtk ?? false;
   const liveCdm = useCdm((s) => s.status);
+  const motionState = useMotionState();
+  const motionLog = useMotionLog();
+  const motionStatus = useQuery({
+    queryKey: [...keys.diagnostics, "motion"],
+    queryFn: () => MotionService.Status(),
+    staleTime: 0,
+    // Downloads happen while the page is open (another window's covers).
+    refetchInterval: 5000,
+  });
+  const visible = document.visibilityState === "visible";
+  const motion = motionGroup(motionState, motionLog.last, motionStatus.data, visible);
   const groups = q.data ? diagnosticsGroups(q.data, webkitGtk, liveCdm) : [];
+  // Motion artwork after Playback.
+  if (motion && groups.length > 0) groups.splice(1, 0, motion);
   const problems = groups.flatMap((g) => g.rows).filter((r) => r.status === "error").length;
 
   // The redacted bug-report bundle: Go gathers the report, settings, crash
   // output and recent log lines, scrubs secrets and saves a copy.
   const bundle = useMutation({
     mutationFn: async () => {
+      // What only the web view knows about motion artwork goes in too.
+      await MotionService.Report(
+        motionReport(motionState, motionLog.last, motionLog.playing.length, visible),
+      ).catch(() => {});
       const b = await SystemService.DiagnosticsBundle();
       await Clipboard.SetText(b.text);
       return b;

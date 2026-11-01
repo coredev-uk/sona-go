@@ -78,34 +78,57 @@ func attributes(s string) map[string]string {
 // is a muted loop behind a cover, not a film.
 const maxBandwidth = 4_000_000
 
-// choose picks the H.264 SDR variant for a cover drawn minWidth device
-// pixels wide: the smallest resolution at least that wide (the largest
-// when none is), and at that resolution the highest bit rate up to
-// maxBandwidth (the lowest when all exceed it). HEVC renditions are
-// skipped: WebKitGTK's GStreamer cannot be assumed to decode them.
-func choose(vs []variant, minWidth int) (variant, bool) {
-	var avc []variant
-	for _, v := range vs {
-		if v.SDR && v.Width > 0 && strings.HasPrefix(v.Codecs, "avc1") {
-			avc = append(avc, v)
+// Codec families a rendition is requested in. Apple's motion artwork has
+// H.264 and HEVC renditions of every size; H.264 is the one WebKitGTK's
+// GStreamer decodes almost everywhere (gst-libav), so HEVC is asked for
+// only where the web view can play HEVC but not H.264.
+const (
+	CodecH264 = "avc"
+	CodecHEVC = "hevc"
+)
+
+// family returns the codec family of an HLS CODECS attribute (the video
+// codec among, e.g., "avc1.64001f,mp4a.40.2"), "" for any other.
+func family(codecs string) string {
+	for c := range strings.SplitSeq(codecs, ",") {
+		c = strings.TrimSpace(c)
+		switch {
+		case strings.HasPrefix(c, "avc1."), strings.HasPrefix(c, "avc3."):
+			return CodecH264
+		case strings.HasPrefix(c, "hvc1."), strings.HasPrefix(c, "hev1."):
+			return CodecHEVC
 		}
 	}
-	if len(avc) == 0 {
+	return ""
+}
+
+// choose picks the SDR variant of codec family fam for a cover drawn
+// minWidth device pixels wide: the smallest resolution at least that wide
+// (the largest when none is), and at that resolution the highest bit rate
+// up to maxBandwidth (the lowest when all exceed it).
+func choose(vs []variant, minWidth int, fam string) (variant, bool) {
+	var ok []variant
+	for _, v := range vs {
+		if v.SDR && v.Width > 0 && family(v.Codecs) == fam {
+			ok = append(ok, v)
+		}
+	}
+	if len(ok) == 0 {
 		return variant{}, false
 	}
 	width := 0
-	for _, v := range avc {
+	for _, v := range ok {
 		if v.Width >= minWidth && (width == 0 || v.Width < width) {
 			width = v.Width
 		}
 	}
 	if width == 0 {
-		for _, v := range avc {
+		for _, v := range ok {
 			width = max(width, v.Width)
 		}
 	}
 	var best variant
-	for _, v := range avc {
+	for _, v := range ok {
 		if v.Width != width {
 			continue
 		}
@@ -123,22 +146,27 @@ func choose(vs []variant, minWidth int) (variant, bool) {
 	return best, true
 }
 
-var errMultiFile = errors.New("media playlist spans several files")
+// describe names a variant for logs and Diagnostics: "avc1.64001f
+// 486×486, 1.7 Mbit/s".
+func (v variant) describe() string {
+	return fmt.Sprintf("%s %d×%d, %.1f Mbit/s", v.Codecs, v.Width, v.Height, float64(v.Bandwidth)/1e6)
+}
 
-// parseMedia returns the one file a byte-range media playlist reads from
-// (its #EXT-X-MAP initialisation section and every segment), resolved
-// against base. Apple's motion renditions are single fragmented MP4 files;
-// a playlist of separate segment files is not supported.
-func parseMedia(body string, base *url.URL) (*url.URL, error) {
-	file := ""
-	use := func(uri string) error {
-		if file == "" {
-			file = uri
-		} else if uri != file {
-			return errMultiFile
+// parseMedia returns the files a media playlist reads, in order: its
+// #EXT-X-MAP initialisation section first, then each segment file once.
+// Apple's album motion is one fragmented MP4 read by byte ranges (one
+// file); editorial playlists' is an initialisation file plus .m4s
+// segment files. Byte ranges are not needed: every file is fetched whole.
+func parseMedia(body string, base *url.URL) ([]*url.URL, error) {
+	var files []string
+	seen := map[string]bool{}
+	use := func(uri string) {
+		if uri != "" && !seen[uri] {
+			seen[uri] = true
+			files = append(files, uri)
 		}
-		return nil
 	}
+	maps := 0
 	sc := bufio.NewScanner(strings.NewReader(body))
 	sc.Buffer(make([]byte, 64<<10), 1<<20)
 	for sc.Scan() {
@@ -150,18 +178,32 @@ func parseMedia(body string, base *url.URL) (*url.URL, error) {
 				return nil, fmt.Errorf("encrypted media playlist (%s)", a["METHOD"])
 			}
 		case strings.HasPrefix(line, "#EXT-X-MAP:"):
-			if err := use(attributes(strings.TrimPrefix(line, "#EXT-X-MAP:"))["URI"]); err != nil {
-				return nil, err
+			if maps++; maps > 1 {
+				return nil, errSeveralInits
 			}
+			uri := attributes(strings.TrimPrefix(line, "#EXT-X-MAP:"))["URI"]
+			if len(files) > 0 && !seen[uri] {
+				// The initialisation section must come before the frames.
+				return nil, errSeveralInits
+			}
+			use(uri)
 		case strings.HasPrefix(line, "#"):
 		default:
-			if err := use(line); err != nil {
-				return nil, err
-			}
+			use(line)
 		}
 	}
-	if file == "" {
+	if len(files) == 0 {
 		return nil, errors.New("media playlist has no segments")
 	}
-	return base.Parse(file)
+	out := make([]*url.URL, 0, len(files))
+	for _, f := range files {
+		u, err := base.Parse(f)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, nil
 }
+
+var errSeveralInits = errors.New("media playlist changes its initialisation section")

@@ -71,6 +71,9 @@ type StationAttributes struct {
 	URL                  string             `json:"url"`
 	AirTime              *AirTime           `json:"airTime"`
 	DurationInMillis     int64              `json:"durationInMillis"`
+	// Motion artwork (station page and editorial shelves,
+	// extend=editorialVideo; Apple's own live stations).
+	EditorialVideo EditorialVideo `json:"editorialVideo,omitempty"`
 }
 
 // StationShowAttributes are a radio show's attributes (an apple-curator
@@ -116,7 +119,7 @@ func (s Station) Format() string {
 func (c *Client) StationDetail(ctx context.Context, sf, id string) (Station, error) {
 	return AMPResource[Station](ctx, c, sf, "stations", id, AMPQuery{
 		Include: []string{"radio-show"},
-		Extend:  []string{"editorialArtwork"},
+		Extend:  []string{"editorialArtwork", "editorialVideo"},
 		Extra:   url.Values{"include[stations]": {"events,radio-show"}, "art[url]": {"f"}},
 	})
 }

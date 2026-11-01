@@ -149,7 +149,7 @@ type MusicVideo struct {
 // 2–3 dominant colours ("#rrggbb", most prominent first; empty when they
 // could not be computed in time), and Apple's looping motion cover as a
 // Go-served /motion/<key>/<size>.mp4 URL ("" when the item has none;
-// catalog album and playlist pages only).
+// catalog album, playlist, artist and station pages only).
 type Header struct {
 	Backdrop string   `json:"backdrop"`
 	Colors   []string `json:"colors"`
@@ -258,6 +258,10 @@ type Item struct {
 	Color    string `json:"color"`
 	Explicit bool   `json:"explicit"`
 	URL      string `json:"url"` // music.apple.com page, "" when unknown
+	// Motion is the item's square motion artwork as a Go-served
+	// /motion/<key>/<size>.mp4 URL ("" when it has none): albums,
+	// playlists, artists and stations on editorial pages and Home.
+	Motion string `json:"motion"`
 
 	Song       *Song       `json:"song,omitempty"`
 	Album      *Album      `json:"album,omitempty"`

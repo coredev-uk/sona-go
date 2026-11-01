@@ -112,18 +112,32 @@ fi
 [[ -z $missing ]] || fail "unresolved libraries: $missing"
 
 # GStreamer elements for appsrc ! avdec_aac ! audioconvert ! audioresample ! volume ! <sink>,
-# and WebKit's WebVTT encoder (webvttenc, plugin subenc, from gst-plugins-bad).
+# WebKit's WebVTT encoder (webvttenc, plugin subenc, from gst-plugins-bad), and
+# what WebKit's video player needs for motion artwork: playbin3/decodebin3
+# (playback), typefind, qtdemux (isomp4), h264parse (videoparsersbad),
+# videoconvert (videoconvertscale), videoflip (videofilter), avdec_h264 (libav).
 if [[ $kind == appimage ]]; then
   # The bundled registry: scan the bundled plugin dir with the bundled scanner.
-  for p in app libav audioconvert audioresample volume pulseaudio subenc; do
+  for p in app libav audioconvert audioresample volume pulseaudio subenc \
+    playback typefindfunctions isomp4 videoparsersbad videoconvertscale videofilter; do
     [[ -f $root/usr/lib/gstreamer-1.0/libgst$p.so ]] || fail "plugin $p not bundled"
   done
   missing=$(cd "$root/usr/lib" && for f in gstreamer-1.0/*.so; do LD_LIBRARY_PATH="$root/usr/lib" ldd "$f" | grep 'not found' || true; done)
   [[ -z $missing ]] || fail "plugin libraries unresolved: $missing"
 else
-  for e in appsrc avdec_aac audioconvert audioresample volume webvttenc; do
+  for e in appsrc avdec_aac audioconvert audioresample volume webvttenc \
+    playbin3 decodebin3 qtdemux h264parse videoconvert videoflip; do
     gst-inspect-1.0 "$e" >/dev/null 2>&1 || fail "GStreamer element $e missing"
   done
+  # Fedora's gst-libav is built on ffmpeg-free, which has no H.264 decoder:
+  # motion artwork needs RPM Fusion's there (Diagnostics says so).
+  if gst-inspect-1.0 avdec_h264 >/dev/null 2>&1; then
+    echo "smoke($kind): avdec_h264 present"
+  elif [[ $kind == rpm ]]; then
+    echo "smoke($kind): no avdec_h264 (ffmpeg-free); motion artwork needs RPM Fusion's gst-libav"
+  else
+    fail "GStreamer element avdec_h264 missing"
+  fi
   gst-inspect-1.0 pipewiresink >/dev/null 2>&1 || gst-inspect-1.0 pulsesink >/dev/null 2>&1 || fail "no PipeWire/Pulse sink"
 fi
 

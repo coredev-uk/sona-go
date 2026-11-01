@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/coredev-uk/sona-go/internal/diag"
@@ -23,8 +24,15 @@ type Env struct {
 	// firstPaint is set by Core; SystemService.FirstPaint calls it.
 	firstPaint func()
 
-	mu      sync.Mutex
-	closers []func()
+	mu       sync.Mutex
+	closers  []func()
+	sections []bundleSection
+}
+
+// bundleSection is a feature's section of the bug-report bundle.
+type bundleSection struct {
+	title string
+	value func() any
 }
 
 // Report passes a failed Apple request to auth triage: a 401/403 that
@@ -62,6 +70,27 @@ func (e *Env) OnClose(fn func()) {
 	e.mu.Lock()
 	e.closers = append(e.closers, fn)
 	e.mu.Unlock()
+}
+
+// OnDiagnostics adds a section to the bug-report bundle (Settings →
+// Diagnostics → Copy diagnostics), after the Diagnostics report and in
+// registration order; value is called each time a bundle is built.
+func (e *Env) OnDiagnostics(title string, value func() any) {
+	e.mu.Lock()
+	e.sections = append(e.sections, bundleSection{title, value})
+	e.mu.Unlock()
+}
+
+// diagnosticSections evaluates the features' bundle sections.
+func (e *Env) diagnosticSections() []diag.Section {
+	e.mu.Lock()
+	registered := slices.Clone(e.sections)
+	e.mu.Unlock()
+	out := make([]diag.Section, 0, len(registered))
+	for _, s := range registered {
+		out = append(out, diag.Section{Title: s.title, Value: s.value()})
+	}
+	return out
 }
 
 func (e *Env) close() {

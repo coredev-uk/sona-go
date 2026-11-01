@@ -60,6 +60,11 @@ msgstr "{0, plural, one {# mix} other {# mixes}}"
 msgid "{0, plural, one {# music video} other {# music videos}}"
 msgstr "{0, plural, one {# music video} other {# music videos}}"
 
+#. placeholder {0}: p.ignored
+#: src/features/settings/MotionDiagnostics.ts
+msgid "{0, plural, one {# peripheral battery (a mouse, keyboard or headset) is ignored.} other {# peripheral batteries (mice, keyboards, headsets) are ignored.}}"
+msgstr "{0, plural, one {# peripheral battery (a mouse, keyboard or headset) is ignored.} other {# peripheral batteries (mice, keyboards, headsets) are ignored.}}"
+
 #. placeholder {0}: list.total
 #: src/features/library/pages.tsx
 msgid "{0, plural, one {# playlist} other {# playlists}}"
@@ -72,6 +77,11 @@ msgstr "{0, plural, one {# playlist} other {# playlists}}"
 #: src/features/library/views.tsx
 msgid "{0, plural, one {# song} other {# songs}}"
 msgstr "{0, plural, one {# song} other {# songs}}"
+
+#. placeholder {0}: status.cacheFiles
+#: src/features/settings/MotionDiagnostics.ts
+msgid "{0, plural, one {# video} other {# videos}}"
+msgstr "{0, plural, one {# video} other {# videos}}"
 
 #: src/features/player/replace.ts
 msgid "{added, plural, one {# song you added was removed.} other {# songs you added were removed.}}"
@@ -994,6 +1004,7 @@ msgstr "Checking your sign-in…"
 
 #: src/features/auth/Account.tsx
 #: src/features/settings/Connections.tsx
+#: src/features/settings/MotionDiagnostics.ts
 #: src/features/settings/Updates.tsx
 msgid "Checking…"
 msgstr "Checking…"
@@ -1263,6 +1274,10 @@ msgstr "Couldn't disconnect {name}"
 #: src/features/cdm/messages.ts
 msgid "Couldn't download"
 msgstr "Couldn't download"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Couldn't download · {when}"
+msgstr "Couldn't download · {when}"
 
 #: src/features/settings/SettingsFileRows.tsx
 msgid "Couldn't export your settings"
@@ -2134,6 +2149,10 @@ msgstr "Exporting…"
 msgid "Fades each song into the next instead of playing them back to back. Songs that follow each other on the same album always play without a gap, as they were mastered."
 msgstr "Fades each song into the next instead of playing them back to back. Songs that follow each other on the same album always play without a gap, as they were mastered."
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Failed · {when}"
+msgstr "Failed · {when}"
+
 #: src/features/library/actions.ts
 #: src/shared/components/RatingButtons.tsx
 msgid "Favourite"
@@ -2309,6 +2328,10 @@ msgstr "Google's Widevine plays Apple Music's protected songs. Sona downloads it
 msgid "GStreamer"
 msgstr "GStreamer"
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "H.264 decoding"
+msgstr "H.264 decoding"
+
 #: src/features/commands/index.ts
 msgid "help keys bindings"
 msgstr "help keys bindings"
@@ -2317,9 +2340,21 @@ msgstr "help keys bindings"
 msgid "Here is its latest version. Make the change again."
 msgstr "Here is its latest version. Make the change again."
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "HEVC decoding"
+msgstr "HEVC decoding"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "HEVC is used instead. {decoderHelp}"
+msgstr "HEVC is used instead. {decoderHelp}"
+
 #: src/shared/lib/traits.ts
 msgid "Hi-Res Lossless"
 msgstr "Hi-Res Lossless"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Hidden: videos pause"
+msgstr "Hidden: videos pause"
 
 #: src/features/settings/Playback.tsx
 msgid "High · 256 kbps"
@@ -2401,6 +2436,10 @@ msgstr "In your library"
 msgctxt "keyboard key"
 msgid "Insert"
 msgstr "Insert"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Install gst-libav (avdec_h264) and gst-plugins-bad (h264parse) for WebKit's GStreamer, then restart Sona."
+msgstr "Install gst-libav (avdec_h264) and gst-plugins-bad (h264parse) for WebKit's GStreamer, then restart Sona."
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Install gst-libav or the fdkaac plugin to decode Apple Music's AAC."
@@ -2485,9 +2524,17 @@ msgstr "Keyboard shortcuts"
 msgid "Labels"
 msgstr "Labels"
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Last download"
+msgstr "Last download"
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Last full sync"
 msgstr "Last full sync"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Last video"
+msgstr "Last video"
 
 #: src/features/settings/Connections.tsx
 msgid "Last.fm refused Sona's request. Try connecting again."
@@ -2584,6 +2631,10 @@ msgstr "Live radio"
 msgid "Loading"
 msgstr "Loading"
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Loading · {when}"
+msgstr "Loading · {when}"
+
 #: src/features/player/RoomLyrics.tsx
 msgid "Loading lyrics"
 msgstr "Loading lyrics"
@@ -2678,6 +2729,14 @@ msgstr "Made for you"
 msgid "Main"
 msgstr "Main"
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Mains power (AC adapter connected)"
+msgstr "Mains power (AC adapter connected)"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Mains power (no battery powers this computer)"
+msgstr "Mains power (no battery powers this computer)"
+
 #: src/app/shell/WindowControls.tsx
 msgid "Maximise"
 msgstr "Maximise"
@@ -2730,9 +2789,14 @@ msgid "More playlists from this curator"
 msgstr "More playlists from this curator"
 
 #: src/features/settings/MotionArtworkRows.tsx
+#: src/features/settings/MotionDiagnostics.ts
 #: src/features/settings/settings-file.ts
 msgid "Motion artwork"
 msgstr "Motion artwork"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Motion cache"
+msgstr "Motion cache"
 
 #: src/features/commands/CommandPalette.tsx
 msgid "Move"
@@ -3021,6 +3085,10 @@ msgstr "None"
 msgid "None of these songs is available to stream."
 msgstr "None of these songs is available to stream."
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "None since Sona started"
+msgstr "None since Sona started"
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Normal"
 msgstr "Normal"
@@ -3043,6 +3111,10 @@ msgstr "Not checked yet"
 msgid "Not downloaded yet"
 msgstr "Not downloaded yet"
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Not followed on this platform: counted as mains power"
+msgstr "Not followed on this platform: counted as mains power"
+
 #: src/features/artist/ArtistViewPage.tsx
 #: src/features/settings/Diagnostics.tsx
 msgid "Not found"
@@ -3056,6 +3128,10 @@ msgstr "Not fully sandboxed"
 #: src/features/player/NowPlayingBar.tsx
 msgid "Not playing"
 msgstr "Not playing"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Not requested"
+msgstr "Not requested"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Not requested on this platform"
@@ -3074,6 +3150,10 @@ msgstr "not set"
 #: src/features/settings/Shortcuts.tsx
 msgid "Not set"
 msgstr "Not set"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Not supported"
+msgstr "Not supported"
 
 #: src/features/album/AlbumPage.tsx
 #: src/features/video/VideoPage.tsx
@@ -3165,6 +3245,7 @@ msgid "Now playing: {name} by {artist}"
 msgstr "Now playing: {name} by {artist}"
 
 #: src/features/equalizer/EqualizerPage.tsx
+#: src/features/settings/MotionDiagnostics.ts
 msgid "Off"
 msgstr "Off"
 
@@ -3172,9 +3253,25 @@ msgstr "Off"
 msgid "Off · Sona plays the music as mastered"
 msgstr "Off · Sona plays the music as mastered"
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Off in Settings → Appearance"
+msgstr "Off in Settings → Appearance"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Off while Reduce effects is on"
+msgstr "Off while Reduce effects is on"
+
 #: src/features/settings/MotionArtworkRows.tsx
 msgid "Off while Reduce effects is on."
 msgstr "Off while Reduce effects is on."
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Off: WebKit can't decode Apple's videos"
+msgstr "Off: WebKit can't decode Apple's videos"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Off: your system asks apps to reduce motion"
+msgstr "Off: your system asks apps to reduce motion"
 
 #: src/app/shell/StatusBanner.tsx
 msgid "Offline. Showing your library from this computer; Sona reconnects by itself."
@@ -3185,12 +3282,17 @@ msgid "OK"
 msgstr "OK"
 
 #: src/features/equalizer/EqualizerPage.tsx
+#: src/features/settings/MotionDiagnostics.ts
 msgid "On"
 msgstr "On"
 
 #: src/features/radio/StationPage.tsx
 msgid "On air"
 msgstr "On air"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "On battery: motion artwork pauses"
+msgstr "On battery: motion artwork pauses"
 
 #: src/features/private/PrivateButton.tsx
 msgid "On because Sona was started with SONA_PRIVATE=1"
@@ -3211,6 +3313,10 @@ msgstr "On this computer and your other devices"
 #: src/features/library/HistoryPage.tsx
 msgid "On this computer only: Apple Music couldn't be reached for your other devices"
 msgstr "On this computer only: Apple Music couldn't be reached for your other devices"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "On UPS battery: motion artwork pauses"
+msgstr "On UPS battery: motion artwork pauses"
 
 #: src/features/search/SearchPage.tsx
 msgid "Only what is synced to this computer is searched. Try Apple Music for everything else."
@@ -3327,6 +3433,10 @@ msgstr "Pause"
 #: src/shared/tracks/Equaliser.tsx
 msgid "Paused"
 msgstr "Paused"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Paused on battery"
+msgstr "Paused on battery"
 
 #: src/features/player/SleepTimer.tsx
 msgid "Pauses at <0>{until}</0>, fading out over the last 10 seconds."
@@ -3457,6 +3567,10 @@ msgstr "Playback host"
 msgid "Playback isn't available on this platform yet"
 msgstr "Playback isn't available on this platform yet"
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Played · {when}"
+msgstr "Played · {when}"
+
 #: src/features/library/HistoryPage.tsx
 msgid "Played {label}"
 msgstr "Played {label}"
@@ -3541,6 +3655,10 @@ msgstr "Plays the looping covers some albums and playlists have, in their header
 msgid "Plays the looping covers some albums and playlists have, in their headers and in Now Playing. Paused on battery power."
 msgstr "Plays the looping covers some albums and playlists have, in their headers and in Now Playing. Paused on battery power."
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Plays where Apple has it"
+msgstr "Plays where Apple has it"
+
 #: src/shared/shortcuts/chord.ts
 msgctxt "keyboard key"
 msgid "Plus"
@@ -3549,6 +3667,10 @@ msgstr "Plus"
 #: src/shared/tracks/TrackList.tsx
 msgid "Popular"
 msgstr "Popular"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Power"
+msgstr "Power"
 
 #: src/features/album/AlbumPage.tsx
 msgid "Pre-add"
@@ -3786,6 +3908,7 @@ msgid "Reconnect"
 msgstr "Reconnect"
 
 #: src/features/settings/AppearanceSection.tsx
+#: src/features/settings/MotionDiagnostics.ts
 #: src/features/settings/settings-file.ts
 msgid "Reduce effects"
 msgstr "Reduce effects"
@@ -3906,6 +4029,10 @@ msgstr "Replace, offer Undo"
 #: src/features/settings/settings-file.ts
 msgid "Replacing your queue"
 msgstr "Replacing your queue"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Requested"
+msgstr "Requested"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Requested when audio starts"
@@ -4108,6 +4235,10 @@ msgstr "Sets WEBKIT_DISABLE_COMPOSITING_MODE=1: software rendering. Turn on Redu
 #: src/features/settings/Diagnostics.tsx
 msgid "Sets WEBKIT_DISABLE_DMABUF_RENDERER=1. Try it if the window is blank or flickers on your GPU driver. Takes effect after you restart Sona."
 msgstr "Sets WEBKIT_DISABLE_DMABUF_RENDERER=1. Try it if the window is blank or flickers on your GPU driver. Takes effect after you restart Sona."
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Setting"
+msgstr "Setting"
 
 #: src/features/settings/Diagnostics.tsx
 #: src/features/settings/index.ts
@@ -4700,6 +4831,10 @@ msgstr "Spatial Audio"
 msgid "Spoken Word"
 msgstr "Spoken Word"
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Stalled · {when}"
+msgstr "Stalled · {when}"
+
 #: src/features/settings/Desktop.tsx
 #: src/features/settings/settings-file.ts
 msgid "Start in the tray"
@@ -4786,6 +4921,10 @@ msgctxt "keyboard key"
 msgid "Super"
 msgstr "Super"
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Supported"
+msgstr "Supported"
+
 #: src/features/library/SyncIndicator.tsx
 msgid "Sync now"
 msgstr "Sync now"
@@ -4841,6 +4980,10 @@ msgstr "System default · {fallbackName}"
 #: src/features/settings/AppearanceSection.tsx
 msgid "System follows your desktop's light or dark preference."
 msgstr "System follows your desktop's light or dark preference."
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "System reduced motion"
+msgstr "System reduced motion"
 
 #: src/shared/shortcuts/chord.ts
 msgctxt "keyboard key"
@@ -5262,6 +5405,10 @@ msgstr "Unknown"
 msgid "Unknown (the host did not start)"
 msgstr "Unknown (the host did not start)"
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Unknown: counted as mains power"
+msgstr "Unknown: counted as mains power"
+
 #: src/features/auth/Account.tsx
 msgid "Unlock at iforgot.apple.com"
 msgstr "Unlock at iforgot.apple.com"
@@ -5309,6 +5456,18 @@ msgstr "Updated {when}"
 #: src/features/settings/Updates.tsx
 msgid "Updates"
 msgstr "Updates"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "UPower didn't answer ({error})."
+msgstr "UPower didn't answer ({error})."
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "UPower itself reports mains power; Sona decides from the power devices instead."
+msgstr "UPower itself reports mains power; Sona decides from the power devices instead."
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "UPower itself reports this computer on battery; Sona decides from the power devices instead."
+msgstr "UPower itself reports this computer on battery; Sona decides from the power devices instead."
 
 #: src/features/auth/Account.tsx
 msgid "Use a passkey, a security key or a browser you're already signed in to:"
@@ -5363,6 +5522,10 @@ msgstr "View credits"
 msgid "View release"
 msgstr "View release"
 
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Visible"
+msgstr "Visible"
+
 #. Equaliser preset
 #: src/features/equalizer/curve.ts
 msgid "Vocal"
@@ -5400,6 +5563,10 @@ msgstr "Warning"
 #: src/features/video/VideoPage.tsx
 msgid "Watch in Apple Music"
 msgstr "Watch in Apple Music"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "WebKit couldn't play it · {when}"
+msgstr "WebKit couldn't play it · {when}"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "WebKitGTK"
@@ -5460,6 +5627,7 @@ msgstr "Widevine update"
 
 #: src/app/shell/WindowControls.tsx
 #: src/features/miniplayer/MiniPlayer.tsx
+#: src/features/settings/MotionDiagnostics.ts
 msgid "Window"
 msgstr "Window"
 
@@ -5550,6 +5718,10 @@ msgstr "Your artists appear here as Sona copies them from Apple Music. Large lib
 #: src/features/equalizer/curve.ts
 msgid "Your curve"
 msgstr "Your curve"
+
+#: src/features/settings/MotionDiagnostics.ts
+msgid "Your desktop asks apps to reduce motion (GTK's gtk-enable-animations is off)."
+msgstr "Your desktop asks apps to reduce motion (GTK's gtk-enable-animations is off)."
 
 #: src/features/playlist/PlaylistPage.tsx
 msgid "Your favourites"

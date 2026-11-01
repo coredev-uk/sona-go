@@ -4,26 +4,31 @@ import (
 	"context"
 	"strings"
 	"sync"
+
+	"github.com/coredev-uk/sona-go/internal/power"
 )
 
 // MotionService is motion artwork outside detail pages (whose Header
-// carries it): the now-playing cover's, and whether the machine runs on
-// battery, which turns motion artwork off in the UI.
+// carries it): the now-playing cover's, the power source, which turns
+// motion artwork off on battery, and what Diagnostics shows about it.
 type MotionService struct {
 	e *Env
 
-	mu     sync.Mutex
-	mon    PowerMonitor
-	closed bool
+	mu       sync.Mutex
+	mon      PowerMonitor
+	powerErr string
+	closed   bool
+	report   *MotionReport
 }
 
 func newMotionService(e *Env) *MotionService {
 	s := &MotionService{e: e}
-	// The power state (UPower on Linux) is read off the start-up path;
-	// until it answers, or where the platform has no monitor, the machine
-	// counts as on mains power.
+	// The power source (UPower on Linux) is read off the start-up path;
+	// until it answers, or where the platform has no monitor, the
+	// computer counts as on mains power.
 	e.Go("power monitor", s.watch)
 	e.OnClose(s.close)
+	e.OnDiagnostics("Motion artwork", s.bundle)
 	return s
 }
 
@@ -33,7 +38,10 @@ func (s *MotionService) watch() {
 	}
 	mon, err := s.e.Platform.Power()
 	if err != nil {
-		s.e.Logger.Info("power: on-battery state unavailable, motion artwork follows the setting only", "err", err)
+		s.e.Logger.Info("power: power source unavailable, motion artwork follows the setting only", "err", err)
+		s.mu.Lock()
+		s.powerErr = err.Error()
+		s.mu.Unlock()
 		return
 	}
 	s.mu.Lock()
@@ -44,11 +52,20 @@ func (s *MotionService) watch() {
 	}
 	s.mon = mon
 	s.mu.Unlock()
-	emit := func(on bool) { s.e.Emit.Emit(EventPower, PowerState{OnBattery: on}) }
-	if mon.OnBattery() {
-		emit(true)
+	st := mon.State()
+	s.e.Logger.Info("power: source", "source", st.Source, "on_battery", st.OnBattery, "upower_on_battery", st.UPower, "ignored", st.Ignored)
+	emit := func(st power.State) {
+		s.e.Logger.Info("power: source changed", "source", st.Source, "on_battery", st.OnBattery, "upower_on_battery", st.UPower)
+		s.e.Emit.Emit(EventPower, followed(st))
+	}
+	if st.OnBattery {
+		emit(st)
 	}
 	mon.Run(emit)
+}
+
+func followed(st power.State) PowerState {
+	return PowerState{Followed: true, OnBattery: st.OnBattery, Source: st.Source, UPower: st.UPower, Ignored: st.Ignored}
 }
 
 func (s *MotionService) close() {
@@ -60,12 +77,52 @@ func (s *MotionService) close() {
 	}
 }
 
-// Power returns whether the machine runs on battery ("power:changed"
-// follows it).
+// Power returns the computer's power source ("power:changed" follows it).
 func (s *MotionService) Power() PowerState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return PowerState{OnBattery: s.mon != nil && s.mon.OnBattery()}
+	if s.mon == nil {
+		return PowerState{Error: s.powerErr}
+	}
+	return followed(s.mon.State())
+}
+
+// Status reports the power source, the motion cache and its newest
+// download (Settings → Diagnostics).
+func (s *MotionService) Status() MotionStatus {
+	out := MotionStatus{Power: s.Power()}
+	if s.e.Motion == nil {
+		return out
+	}
+	st := s.e.Motion.Stats()
+	out.CacheFiles, out.CacheBytes = st.Files, st.Bytes
+	if !st.Last.At.IsZero() {
+		out.Last = MotionFetch{
+			At: st.Last.At.UnixMilli(), Size: st.Last.Size, Codec: st.Last.Codec,
+			Rendition: st.Last.Rendition, Error: st.Last.Err,
+		}
+	}
+	return out
+}
+
+// Report keeps the web view's side of motion artwork for the next
+// bug-report bundle.
+func (s *MotionService) Report(r MotionReport) {
+	s.mu.Lock()
+	s.report = &r
+	s.mu.Unlock()
+}
+
+// bundle is the bug-report bundle's motion artwork section.
+func (s *MotionService) bundle() any {
+	out := struct {
+		Sona    MotionStatus  `json:"sona"`
+		WebView *MotionReport `json:"webView"`
+	}{Sona: s.Status()}
+	s.mu.Lock()
+	out.WebView = s.report
+	s.mu.Unlock()
+	return out
 }
 
 // Album returns the motion cover of album id (catalog, or library "l.…"

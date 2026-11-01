@@ -2408,7 +2408,7 @@ export class Genre {
  * 2–3 dominant colours ("#rrggbb", most prominent first; empty when they
  * could not be computed in time), and Apple's looping motion cover as a
  * Go-served /motion/<key>/<size>.mp4 URL ("" when the item has none;
- * catalog album and playlist pages only).
+ * catalog album, playlist, artist and station pages only).
  */
 export class Header {
     "backdrop": string;
@@ -2651,6 +2651,13 @@ export class Item {
      * music.apple.com page, "" when unknown
      */
     "url": string;
+
+    /**
+     * Motion is the item's square motion artwork as a Go-served
+     * /motion/<key>/<size>.mp4 URL ("" when it has none): albums,
+     * playlists, artists and stations on editorial pages and Home.
+     */
+    "motion": string;
     "song"?: Song | null;
     "album"?: Album | null;
     "playlist"?: Playlist | null;
@@ -2690,6 +2697,9 @@ export class Item {
         if (!("url" in $$source)) {
             this["url"] = "";
         }
+        if (!("motion" in $$source)) {
+            this["motion"] = "";
+        }
 
         Object.assign(this, $$source);
     }
@@ -2700,12 +2710,12 @@ export class Item {
     static createFrom($$source: any = {}): Item {
         const $$createField5_0 = $$createType1;
         const $$createField6_0 = $$createType1;
-        const $$createField10_0 = $$createType23;
-        const $$createField11_0 = $$createType18;
-        const $$createField12_0 = $$createType50;
-        const $$createField13_0 = $$createType51;
-        const $$createField14_0 = $$createType53;
-        const $$createField15_0 = $$createType54;
+        const $$createField11_0 = $$createType23;
+        const $$createField12_0 = $$createType18;
+        const $$createField13_0 = $$createType50;
+        const $$createField14_0 = $$createType51;
+        const $$createField15_0 = $$createType53;
+        const $$createField16_0 = $$createType54;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("art" in $$parsedSource) {
             $$parsedSource["art"] = $$createField5_0($$parsedSource["art"]);
@@ -2714,22 +2724,22 @@ export class Item {
             $$parsedSource["wide"] = $$createField6_0($$parsedSource["wide"]);
         }
         if ("song" in $$parsedSource) {
-            $$parsedSource["song"] = $$createField10_0($$parsedSource["song"]);
+            $$parsedSource["song"] = $$createField11_0($$parsedSource["song"]);
         }
         if ("album" in $$parsedSource) {
-            $$parsedSource["album"] = $$createField11_0($$parsedSource["album"]);
+            $$parsedSource["album"] = $$createField12_0($$parsedSource["album"]);
         }
         if ("playlist" in $$parsedSource) {
-            $$parsedSource["playlist"] = $$createField12_0($$parsedSource["playlist"]);
+            $$parsedSource["playlist"] = $$createField13_0($$parsedSource["playlist"]);
         }
         if ("artist" in $$parsedSource) {
-            $$parsedSource["artist"] = $$createField13_0($$parsedSource["artist"]);
+            $$parsedSource["artist"] = $$createField14_0($$parsedSource["artist"]);
         }
         if ("station" in $$parsedSource) {
-            $$parsedSource["station"] = $$createField14_0($$parsedSource["station"]);
+            $$parsedSource["station"] = $$createField15_0($$parsedSource["station"]);
         }
         if ("musicVideo" in $$parsedSource) {
-            $$parsedSource["musicVideo"] = $$createField15_0($$parsedSource["musicVideo"]);
+            $$parsedSource["musicVideo"] = $$createField16_0($$parsedSource["musicVideo"]);
         }
         return new Item($$parsedSource as Partial<Item>);
     }
@@ -3269,6 +3279,196 @@ export class Lyrics {
             $$parsedSource["lines"] = $$createField5_0($$parsedSource["lines"]);
         }
         return new Lyrics($$parsedSource as Partial<Lyrics>);
+    }
+}
+
+/**
+ * MotionFetch is one rendition download.
+ */
+export class MotionFetch {
+    /**
+     * Unix ms
+     */
+    "at": number;
+
+    /**
+     * rendition bucket, device pixels
+     */
+    "size": number;
+
+    /**
+     * "avc" (H.264) or "hevc"
+     */
+    "codec": string;
+
+    /**
+     * Rendition is the variant chosen ("avc1.64001f 486×486, 1.7
+     * Mbit/s"), "" when none was.
+     */
+    "rendition": string;
+
+    /**
+     * "" when it worked
+     */
+    "error": string;
+
+    /** Creates a new MotionFetch instance. */
+    constructor($$source: Partial<MotionFetch> = {}) {
+        if (!("at" in $$source)) {
+            this["at"] = 0;
+        }
+        if (!("size" in $$source)) {
+            this["size"] = 0;
+        }
+        if (!("codec" in $$source)) {
+            this["codec"] = "";
+        }
+        if (!("rendition" in $$source)) {
+            this["rendition"] = "";
+        }
+        if (!("error" in $$source)) {
+            this["error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MotionFetch instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MotionFetch {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new MotionFetch($$parsedSource as Partial<MotionFetch>);
+    }
+}
+
+/**
+ * MotionReport is the web view's side of motion artwork, which only
+ * WebKit knows: what decides whether motion plays, which codecs it can
+ * decode and how the newest video went. Diagnostics sends it before
+ * building a bug-report bundle, which then carries it.
+ */
+export class MotionReport {
+    "allowed": boolean;
+    "setting": boolean;
+    "reduceEffects": boolean;
+    "reducedMotion": boolean;
+    "onBattery": boolean;
+
+    /**
+     * H264 and HEVC are HTMLMediaElement.canPlayType's answers for
+     * Apple's renditions ("probably", "maybe" or "").
+     */
+    "h264": string;
+    "hevc": string;
+
+    /**
+     * Visible: the window's document is visible (videos pause when not).
+     */
+    "visible": boolean;
+
+    /**
+     * Playing counts the videos playing now.
+     */
+    "playing": number;
+
+    /**
+     * Last is the newest video's outcome as Diagnostics shows it.
+     */
+    "last": string;
+
+    /** Creates a new MotionReport instance. */
+    constructor($$source: Partial<MotionReport> = {}) {
+        if (!("allowed" in $$source)) {
+            this["allowed"] = false;
+        }
+        if (!("setting" in $$source)) {
+            this["setting"] = false;
+        }
+        if (!("reduceEffects" in $$source)) {
+            this["reduceEffects"] = false;
+        }
+        if (!("reducedMotion" in $$source)) {
+            this["reducedMotion"] = false;
+        }
+        if (!("onBattery" in $$source)) {
+            this["onBattery"] = false;
+        }
+        if (!("h264" in $$source)) {
+            this["h264"] = "";
+        }
+        if (!("hevc" in $$source)) {
+            this["hevc"] = "";
+        }
+        if (!("visible" in $$source)) {
+            this["visible"] = false;
+        }
+        if (!("playing" in $$source)) {
+            this["playing"] = 0;
+        }
+        if (!("last" in $$source)) {
+            this["last"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MotionReport instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MotionReport {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new MotionReport($$parsedSource as Partial<MotionReport>);
+    }
+}
+
+/**
+ * MotionStatus is motion artwork's Go side for Settings → Diagnostics:
+ * the power source, the rendition cache and the newest download.
+ */
+export class MotionStatus {
+    "power": PowerState;
+    "cacheFiles": number;
+    "cacheBytes": number;
+
+    /**
+     * Last is the newest rendition download since Sona started (At 0:
+     * none yet).
+     */
+    "last": MotionFetch;
+
+    /** Creates a new MotionStatus instance. */
+    constructor($$source: Partial<MotionStatus> = {}) {
+        if (!("power" in $$source)) {
+            this["power"] = (new PowerState());
+        }
+        if (!("cacheFiles" in $$source)) {
+            this["cacheFiles"] = 0;
+        }
+        if (!("cacheBytes" in $$source)) {
+            this["cacheBytes"] = 0;
+        }
+        if (!("last" in $$source)) {
+            this["last"] = (new MotionFetch());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MotionStatus instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MotionStatus {
+        const $$createField0_0 = $$createType65;
+        const $$createField3_0 = $$createType66;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("power" in $$parsedSource) {
+            $$parsedSource["power"] = $$createField0_0($$parsedSource["power"]);
+        }
+        if ("last" in $$parsedSource) {
+            $$parsedSource["last"] = $$createField3_0($$parsedSource["last"]);
+        }
+        return new MotionStatus($$parsedSource as Partial<MotionStatus>);
     }
 }
 
@@ -3864,10 +4064,10 @@ export class PlaybackState {
      * Creates a new PlaybackState instance from a string or object.
      */
     static createFrom($$source: any = {}): PlaybackState {
-        const $$createField1_0 = $$createType66;
-        const $$createField19_0 = $$createType68;
-        const $$createField20_0 = $$createType70;
-        const $$createField21_0 = $$createType72;
+        const $$createField1_0 = $$createType68;
+        const $$createField19_0 = $$createType70;
+        const $$createField20_0 = $$createType72;
+        const $$createField21_0 = $$createType74;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("current" in $$parsedSource) {
             $$parsedSource["current"] = $$createField1_0($$parsedSource["current"]);
@@ -4132,7 +4332,7 @@ export class PlaylistDetail {
         const $$createField0_0 = $$createType9;
         const $$createField1_0 = $$createType4;
         const $$createField4_0 = $$createType5;
-        const $$createField7_0 = $$createType73;
+        const $$createField7_0 = $$createType75;
         const $$createField8_0 = $$createType8;
         const $$createField9_0 = $$createType10;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
@@ -4313,8 +4513,8 @@ export class PlaylistTree {
      * Creates a new PlaylistTree instance from a string or object.
      */
     static createFrom($$source: any = {}): PlaylistTree {
-        const $$createField0_0 = $$createType75;
-        const $$createField1_0 = $$createType77;
+        const $$createField0_0 = $$createType77;
+        const $$createField1_0 = $$createType79;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("folders" in $$parsedSource) {
             $$parsedSource["folders"] = $$createField0_0($$parsedSource["folders"]);
@@ -4374,16 +4574,63 @@ export class PlaylistsChanged {
 }
 
 /**
- * PowerState is the machine's power source (UPower OnBattery; false where
- * UPower is unavailable).
+ * PowerState is the computer's power source as Sona decides it from
+ * UPower's devices (internal/power): motion artwork stops on battery.
  */
 export class PowerState {
+    /**
+     * Followed: Sona reads the power source (UPower on Linux). False
+     * where the platform has no monitor or UPower is not running; the
+     * computer then counts as on mains power.
+     */
+    "followed": boolean;
     "onBattery": boolean;
+
+    /**
+     * Source is what decided: "ac" (an AC adapter is online), "battery"
+     * (the computer's own battery), "ups" (a UPS is discharging), "mains"
+     * (no adapter reported and nothing that powers the computer is
+     * discharging: a desktop); "" when not followed.
+     */
+    "source": string;
+
+    /**
+     * UPower is UPower's own on-battery verdict, which Sona does not use
+     * (it counts a UPS in an unknown state as discharging, for one).
+     */
+    "upower": boolean;
+
+    /**
+     * Ignored counts devices whose battery does not power the computer
+     * (mice, keyboards, headsets).
+     */
+    "ignored": number;
+
+    /**
+     * Error is why the power source can't be read ("" when followed, or
+     * when the platform has no monitor).
+     */
+    "error": string;
 
     /** Creates a new PowerState instance. */
     constructor($$source: Partial<PowerState> = {}) {
+        if (!("followed" in $$source)) {
+            this["followed"] = false;
+        }
         if (!("onBattery" in $$source)) {
             this["onBattery"] = false;
+        }
+        if (!("source" in $$source)) {
+            this["source"] = "";
+        }
+        if (!("upower" in $$source)) {
+            this["upower"] = false;
+        }
+        if (!("ignored" in $$source)) {
+            this["ignored"] = 0;
+        }
+        if (!("error" in $$source)) {
+            this["error"] = "";
         }
 
         Object.assign(this, $$source);
@@ -4465,7 +4712,7 @@ export class ProfileDetail {
      * Creates a new ProfileDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): ProfileDetail {
-        const $$createField0_0 = $$createType78;
+        const $$createField0_0 = $$createType80;
         const $$createField1_0 = $$createType10;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("profile" in $$parsedSource) {
@@ -4665,9 +4912,9 @@ export class QueueState {
      * Creates a new QueueState instance from a string or object.
      */
     static createFrom($$source: any = {}): QueueState {
-        const $$createField2_0 = $$createType79;
-        const $$createField3_0 = $$createType79;
-        const $$createField4_0 = $$createType68;
+        const $$createField2_0 = $$createType81;
+        const $$createField3_0 = $$createType81;
+        const $$createField4_0 = $$createType70;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField2_0($$parsedSource["items"]);
@@ -4982,8 +5229,8 @@ export class ScrobbleStatus {
      * Creates a new ScrobbleStatus instance from a string or object.
      */
     static createFrom($$source: any = {}): ScrobbleStatus {
-        const $$createField0_0 = $$createType80;
-        const $$createField1_0 = $$createType80;
+        const $$createField0_0 = $$createType82;
+        const $$createField1_0 = $$createType82;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("lastfm" in $$parsedSource) {
             $$parsedSource["lastfm"] = $$createField0_0($$parsedSource["lastfm"]);
@@ -5120,7 +5367,7 @@ export class SearchHints {
      * Creates a new SearchHints instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchHints {
-        const $$createField0_0 = $$createType82;
+        const $$createField0_0 = $$createType84;
         const $$createField1_0 = $$createType25;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("terms" in $$parsedSource) {
@@ -5156,7 +5403,7 @@ export class SearchResults {
      * Creates a new SearchResults instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchResults {
-        const $$createField1_0 = $$createType84;
+        const $$createField1_0 = $$createType86;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("sections" in $$parsedSource) {
             $$parsedSource["sections"] = $$createField1_0($$parsedSource["sections"]);
@@ -5275,7 +5522,7 @@ export class SecondFactor {
      * Creates a new SecondFactor instance from a string or object.
      */
     static createFrom($$source: any = {}): SecondFactor {
-        const $$createField2_0 = $$createType86;
+        const $$createField2_0 = $$createType88;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("phones" in $$parsedSource) {
             $$parsedSource["phones"] = $$createField2_0($$parsedSource["phones"]);
@@ -5834,9 +6081,9 @@ export class StationDetail {
      */
     static createFrom($$source: any = {}): StationDetail {
         const $$createField0_0 = $$createType52;
-        const $$createField1_0 = $$createType88;
+        const $$createField1_0 = $$createType90;
         const $$createField2_0 = $$createType5;
-        const $$createField3_0 = $$createType90;
+        const $$createField3_0 = $$createType92;
         const $$createField4_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("station" in $$parsedSource) {
@@ -6167,7 +6414,7 @@ export class SyncStatus {
      * Creates a new SyncStatus instance from a string or object.
      */
     static createFrom($$source: any = {}): SyncStatus {
-        const $$createField2_0 = $$createType92;
+        const $$createField2_0 = $$createType94;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("domains" in $$parsedSource) {
             $$parsedSource["domains"] = $$createField2_0($$parsedSource["domains"]);
@@ -6577,31 +6824,33 @@ const $$createType61 = LyricText.createFrom;
 const $$createType62 = $Create.Nullable($$createType61);
 const $$createType63 = LyricLine.createFrom;
 const $$createType64 = $Create.Array($$createType63);
-const $$createType65 = QueueItem.createFrom;
-const $$createType66 = $Create.Nullable($$createType65);
-const $$createType67 = QueueStation.createFrom;
+const $$createType65 = PowerState.createFrom;
+const $$createType66 = MotionFetch.createFrom;
+const $$createType67 = QueueItem.createFrom;
 const $$createType68 = $Create.Nullable($$createType67);
-const $$createType69 = QueueContainer.createFrom;
+const $$createType69 = QueueStation.createFrom;
 const $$createType70 = $Create.Nullable($$createType69);
-const $$createType71 = SleepTimer.createFrom;
+const $$createType71 = QueueContainer.createFrom;
 const $$createType72 = $Create.Nullable($$createType71);
-const $$createType73 = PlaylistCurator.createFrom;
-const $$createType74 = PlaylistFolder.createFrom;
-const $$createType75 = $Create.Array($$createType74);
-const $$createType76 = TreePlaylist.createFrom;
+const $$createType73 = SleepTimer.createFrom;
+const $$createType74 = $Create.Nullable($$createType73);
+const $$createType75 = PlaylistCurator.createFrom;
+const $$createType76 = PlaylistFolder.createFrom;
 const $$createType77 = $Create.Array($$createType76);
-const $$createType78 = SocialProfile.createFrom;
-const $$createType79 = $Create.Array($$createType65);
-const $$createType80 = ScrobblerStatus.createFrom;
-const $$createType81 = SearchTerm.createFrom;
-const $$createType82 = $Create.Array($$createType81);
-const $$createType83 = SearchSection.createFrom;
+const $$createType78 = TreePlaylist.createFrom;
+const $$createType79 = $Create.Array($$createType78);
+const $$createType80 = SocialProfile.createFrom;
+const $$createType81 = $Create.Array($$createType67);
+const $$createType82 = ScrobblerStatus.createFrom;
+const $$createType83 = SearchTerm.createFrom;
 const $$createType84 = $Create.Array($$createType83);
-const $$createType85 = Phone.createFrom;
+const $$createType85 = SearchSection.createFrom;
 const $$createType86 = $Create.Array($$createType85);
-const $$createType87 = StationEvent.createFrom;
+const $$createType87 = Phone.createFrom;
 const $$createType88 = $Create.Array($$createType87);
-const $$createType89 = StationSeed.createFrom;
-const $$createType90 = $Create.Nullable($$createType89);
-const $$createType91 = DomainSync.createFrom;
-const $$createType92 = $Create.Array($$createType91);
+const $$createType89 = StationEvent.createFrom;
+const $$createType90 = $Create.Array($$createType89);
+const $$createType91 = StationSeed.createFrom;
+const $$createType92 = $Create.Nullable($$createType91);
+const $$createType93 = DomainSync.createFrom;
+const $$createType94 = $Create.Array($$createType93);

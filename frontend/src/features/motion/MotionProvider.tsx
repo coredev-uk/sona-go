@@ -1,23 +1,27 @@
-import type { ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { useAppearance, useSettings } from "@/features/settings";
 import { MotionContext } from "@/shared/lib/motion";
 import { useMediaQuery } from "@/shared/lib/useMediaQuery";
 
-import { motionAllowed, usePower } from "./policy";
+import { H264_TYPE, HEVC_TYPE, motionState, usePower } from "./policy";
 
-/** Tells covers (useMotionAllowed) whether motion artwork may play now. */
+/** Gives covers (useMotionState) whether and how motion artwork plays now. */
 export function MotionProvider({ children }: { children: ReactNode }) {
   const settings = useSettings();
   const reduceEffects = useAppearance((s) => s.reduceEffects);
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const onBattery = usePower((s) => s.onBattery);
-  const allowed = motionAllowed({
-    // Off until Go's settings arrive, so nothing starts and then stops.
-    enabled: settings.data?.motionArtwork.enabled ?? false,
-    reduceEffects,
-    reducedMotion,
-    onBattery,
+  const power = usePower((s) => s.power);
+  // WebKit answers from its GStreamer registry, fixed for the process.
+  const [codecs] = useState(() => {
+    const probe = document.createElement("video");
+    return { h264: probe.canPlayType(H264_TYPE), hevc: probe.canPlayType(HEVC_TYPE) };
   });
-  return <MotionContext.Provider value={allowed}>{children}</MotionContext.Provider>;
+  // Off until Go's settings arrive, so nothing starts and then stops.
+  const setting = settings.data?.motionArtwork.enabled ?? false;
+  const state = useMemo(
+    () => motionState({ setting, reduceEffects, reducedMotion, power, ...codecs }),
+    [setting, reduceEffects, reducedMotion, power, codecs],
+  );
+  return <MotionContext.Provider value={state}>{children}</MotionContext.Provider>;
 }

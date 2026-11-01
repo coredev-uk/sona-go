@@ -72,7 +72,7 @@ func TestArtistPageAndView(t *testing.T) {
 		q := r.URL.Query()
 		switch r.URL.Path {
 		case "/v1/catalog/gb/artists/657515":
-			if q.Get("extend") != "artistBio,bornOrFormed,origin" || q.Get("platform") != "web" {
+			if q.Get("extend") != "artistBio,bornOrFormed,origin,editorialVideo" || q.Get("platform") != "web" {
 				t.Errorf("artist query = %s", r.URL.RawQuery)
 			}
 			w.Write([]byte(`{"data":[{"id":"657515","type":"artists","attributes":{"name":"Radiohead","genreNames":["Alternative"],"origin":"Abingdon, Oxfordshire, England","bornOrFormed":"1985","artistBio":"More than a band.<br/>Art."},

@@ -312,7 +312,10 @@ var (
 		"fields[curators]":       {"name,url"},
 		"fields[apple-curators]": {"name,url,artwork,kind,shortName,editorialArtwork,showHostName"},
 	}
-	editorialExtend = []string{"artistUrl", "editorialArtwork", "plainEditorialNotes"}
+	// editorialVideo goes beyond the web player's request: it gives the
+	// albums, playlists and stations of a page their motion artwork
+	// (played on a tile's hover); services keep only the square flavour.
+	editorialExtend = []string{"artistUrl", "editorialArtwork", "editorialVideo", "plainEditorialNotes"}
 )
 
 func editorialQuery(extra url.Values) AMPQuery {

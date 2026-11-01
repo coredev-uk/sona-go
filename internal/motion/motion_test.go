@@ -2,6 +2,7 @@ package motion
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -48,50 +49,119 @@ func TestChoose(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		minWidth int
+		codec    string
 		want     string
 	}{
-		{100, "video_360.m3u8"},
+		{100, CodecH264, "video_360.m3u8"},
+		{360, CodecH264, "video_360.m3u8"},
 		// The smallest resolution at least that wide, its best bit rate.
-		{480, "video_486.m3u8"},
-		{720, "video_768.m3u8"},
+		{480, CodecH264, "video_486.m3u8"},
+		{720, CodecH264, "video_768.m3u8"},
 		// Nothing wide enough: the largest, under the bit-rate cap
 		// (both 1080 renditions exceed it: the lower one).
-		{2000, "video_1080.m3u8"},
+		{2000, CodecH264, "video_1080.m3u8"},
+		// A web view that plays HEVC but not H.264 gets HEVC.
+		{480, CodecHEVC, "hevc_768.m3u8"},
 	} {
-		v, ok := choose(vs, tc.minWidth)
+		v, ok := choose(vs, tc.minWidth, tc.codec)
 		if !ok || v.URI != tc.want {
-			t.Errorf("choose(%d) = %q, %v; want %q", tc.minWidth, v.URI, ok, tc.want)
+			t.Errorf("choose(%d, %s) = %q, %v; want %q", tc.minWidth, tc.codec, v.URI, ok, tc.want)
 		}
 	}
-	if _, ok := choose(parseMaster("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,CODECS=\"hvc1.2\",RESOLUTION=768x768\nhevc.m3u8\n"), 480); ok {
-		t.Error("chose a rendition from an HEVC-only master")
+	hevcOnly := parseMaster("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,CODECS=\"hvc1.2\",RESOLUTION=768x768\nhevc.m3u8\n")
+	if _, ok := choose(hevcOnly, 480, CodecH264); ok {
+		t.Error("chose an H.264 rendition from an HEVC-only master")
+	}
+	// Dolby Vision and HDR renditions are never chosen.
+	if _, ok := choose(parseMaster("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,CODECS=\"dvh1.05.01\",RESOLUTION=768x768\ndv.m3u8\n"), 480, CodecHEVC); ok {
+		t.Error("chose a Dolby Vision rendition")
+	}
+	// Renditions with muxed audio still count by their video codec.
+	muxed := parseMaster("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1628801,VIDEO-RANGE=SDR,CODECS=\"avc1.64001f,mp4a.40.2\",RESOLUTION=486x486\nmuxed.m3u8\n")
+	if v, ok := choose(muxed, 480, CodecH264); !ok || v.URI != "muxed.m3u8" || v.describe() != "avc1.64001f,mp4a.40.2 486×486, 1.6 Mbit/s" {
+		t.Errorf("muxed: %+v, %v (%s)", v, ok, v.describe())
+	}
+}
+
+func TestFamily(t *testing.T) {
+	for codecs, want := range map[string]string{
+		"avc1.64001f":                  CodecH264,
+		"avc3.640028":                  CodecH264,
+		"mp4a.40.2, avc1.64001e":       CodecH264,
+		"hvc1.2.20000000.L123.B0":      CodecHEVC,
+		"hev1.1.6.L93.B0,mp4a.40.2":    CodecHEVC,
+		"dvh1.05.01":                   "",
+		"mp4a.40.2":                    "",
+		"":                             "",
+		"avc1":                         "",
+		"hvc1.2.20000000.H150.B0,ec-3": CodecHEVC,
+	} {
+		if got := family(codecs); got != want {
+			t.Errorf("family(%q) = %q, want %q", codecs, got, want)
+		}
 	}
 }
 
 func TestParseMedia(t *testing.T) {
 	base, _ := url.Parse("https://mvod.itunes.apple.com/a/b/video.m3u8")
+	str := func(us []*url.URL) []string {
+		var out []string
+		for _, u := range us {
+			out = append(out, u.String())
+		}
+		return out
+	}
+	// Albums: one file, read by byte ranges.
 	single := "#EXTM3U\n#EXT-X-MAP:URI=\"v.mp4\",BYTERANGE=\"895@0\"\n#EXTINF:2.8,\n#EXT-X-BYTERANGE:622920@895\nv.mp4\n#EXTINF:2.8,\n#EXT-X-BYTERANGE:717742@623815\nv.mp4\n#EXT-X-ENDLIST\n"
-	u, err := parseMedia(single, base)
-	if err != nil || u.String() != "https://mvod.itunes.apple.com/a/b/v.mp4" {
-		t.Errorf("single file = %v, %v", u, err)
+	us, err := parseMedia(single, base)
+	if err != nil || !slices.Equal(str(us), []string{"https://mvod.itunes.apple.com/a/b/v.mp4"}) {
+		t.Errorf("single file = %v, %v", str(us), err)
 	}
-	if _, err := parseMedia("#EXTM3U\n#EXTINF:2,\nseg0.mp4\n#EXTINF:2,\nseg1.mp4\n", base); err == nil {
-		t.Error("accepted a playlist of separate segment files")
+	// Editorial playlists: an initialisation file and segment files
+	// (as served for "Essentials" playlists).
+	segmented := "#EXTM3U\n#EXT-X-TARGETDURATION:5\n#EXT-X-VERSION:7\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-INDEPENDENT-SEGMENTS\n" +
+		"#EXT-X-MAP:URI=\"segmentis_VIDEO_CLIP_480x480_AVC_1_0.mp4\"\n#EXTINF:5.00000,\t\n#EXT-X-BITRATE:260\nsegmentis_VIDEO_CLIP_480x480_AVC_1_1.m4s\n" +
+		"#EXTINF:5.00000,\t\nsegmentis_VIDEO_CLIP_480x480_AVC_1_2.m4s\n#EXT-X-ENDLIST\n"
+	us, err = parseMedia(segmented, base)
+	want := []string{
+		"https://mvod.itunes.apple.com/a/b/segmentis_VIDEO_CLIP_480x480_AVC_1_0.mp4",
+		"https://mvod.itunes.apple.com/a/b/segmentis_VIDEO_CLIP_480x480_AVC_1_1.m4s",
+		"https://mvod.itunes.apple.com/a/b/segmentis_VIDEO_CLIP_480x480_AVC_1_2.m4s",
 	}
-	if _, err := parseMedia("#EXTM3U\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"skd://k\"\n#EXTINF:2,\nv.mp4\n", base); err == nil {
-		t.Error("accepted an encrypted playlist")
+	if err != nil || !slices.Equal(str(us), want) {
+		t.Errorf("segmented = %v, %v; want %v", str(us), err, want)
+	}
+	for name, body := range map[string]string{
+		"encrypted":         "#EXTM3U\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"skd://k\"\n#EXTINF:2,\nv.mp4\n",
+		"two init sections": "#EXTM3U\n#EXT-X-MAP:URI=\"a.mp4\"\n#EXTINF:2,\n1.m4s\n#EXT-X-DISCONTINUITY\n#EXT-X-MAP:URI=\"b.mp4\"\n#EXTINF:2,\n2.m4s\n",
+		"init after frames": "#EXTM3U\n#EXTINF:2,\n1.m4s\n#EXT-X-MAP:URI=\"a.mp4\"\n",
+		"empty":             "#EXTM3U\n#EXT-X-ENDLIST\n",
+	} {
+		if _, err := parseMedia(body, base); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
 	}
 }
 
-// fakeCDN serves master.m3u8 → video_486.m3u8 / video_768.m3u8 → one
-// fragmented MP4 each, counting requests.
+// fakeCDN serves master.m3u8 → video_486.m3u8 / video_768.m3u8 /
+// hevc_768.m3u8 → one fragmented MP4 each, and video_360.m3u8 → an
+// initialisation file and two segment files (editorial packaging);
+// hdr/master.m3u8 has HDR renditions only. It counts requests. files
+// holds each rendition's whole fragmented file by name (v486, v768, h768,
+// v360).
 func fakeCDN(t *testing.T) (*httptest.Server, *atomic.Int32, map[string][]byte) {
 	file := func(gops int) []byte {
 		return testFile{movieScale: 30, scale: 30, base: 300, trunVersion: 1, frags: slices.Repeat([][]frame{gop}, gops)}.build()
 	}
-	files := map[string][]byte{
-		"/v/v486.mp4": file(2),
-		"/v/v768.mp4": file(5),
+	files := map[string][]byte{"v486": file(2), "v768": file(5), "h768": file(4), "v360": file(3)}
+	served := map[string][]byte{"/v/v486.mp4": files["v486"], "/v/v768.mp4": files["v768"], "/v/h768.mp4": files["h768"]}
+	parts := segmented(t, files["v360"])
+	segments := "#EXTM3U\n#EXT-X-MAP:URI=\"s360_0.mp4\"\n"
+	served["/v/s360_0.mp4"] = parts[0]
+	for i, p := range parts[1:] {
+		name := fmt.Sprintf("s360_%d.m4s", i+1)
+		served["/v/"+name] = p
+		segments += "#EXTINF:1,\n" + name + "\n"
 	}
 	var hits atomic.Int32
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -99,14 +169,15 @@ func fakeCDN(t *testing.T) (*httptest.Server, *atomic.Int32, map[string][]byte) 
 		switch r.URL.Path {
 		case "/v/master.m3u8":
 			_, _ = io.WriteString(w, master)
-		case "/v/video_486.m3u8", "/v/video_768.m3u8":
-			name := "v486.mp4"
-			if strings.Contains(r.URL.Path, "768") {
-				name = "v768.mp4"
-			}
+		case "/hdr/master.m3u8":
+			_, _ = io.WriteString(w, "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,VIDEO-RANGE=PQ,CODECS=\"avc1.640020\",RESOLUTION=1080x1080\nhdr.m3u8\n")
+		case "/v/video_360.m3u8":
+			_, _ = io.WriteString(w, segments)
+		case "/v/video_486.m3u8", "/v/video_768.m3u8", "/v/hevc_768.m3u8":
+			name := map[string]string{"/v/video_486.m3u8": "v486.mp4", "/v/video_768.m3u8": "v768.mp4", "/v/hevc_768.m3u8": "h768.mp4"}[r.URL.Path]
 			_, _ = io.WriteString(w, "#EXTM3U\n#EXT-X-MAP:URI=\""+name+"\",BYTERANGE=\"100@0\"\n#EXTINF:2,\n#EXT-X-BYTERANGE:400@100\n"+name+"\n")
 		default:
-			b, ok := files[r.URL.Path]
+			b, ok := served[r.URL.Path]
 			if !ok {
 				http.NotFound(w, r)
 				return
@@ -158,17 +229,36 @@ func TestServe(t *testing.T) {
 	if !strings.HasPrefix(u, "/motion/") || !strings.HasSuffix(u, "/720.mp4") {
 		t.Fatalf("URL = %q", u)
 	}
+	key := strings.Split(u, "/")[2]
 
 	// A header cover (400 device px) gets the 486 px rendition, remuxed.
 	small := strings.Replace(u, "/720.mp4", "/400.mp4", 1)
 	w := get(c, small, nil)
-	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), flattened(t, files["/v/v486.mp4"])) || w.Header().Get("Content-Type") != "video/mp4" {
+	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), flattened(t, files["v486"])) || w.Header().Get("Content-Type") != "video/mp4" {
 		t.Fatalf("small: %d %q (%d bytes)", w.Code, w.Header().Get("Content-Type"), w.Body.Len())
 	}
 	// The now-playing cover gets the 768 px one.
 	w = get(c, u, nil)
-	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), flattened(t, files["/v/v768.mp4"])) {
+	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), flattened(t, files["v768"])) {
 		t.Fatalf("large: %d (%d bytes)", w.Code, w.Body.Len())
+	}
+	// A cover tile (300 device px) gets the 360 px one, packaged as an
+	// initialisation file and segments.
+	w = get(c, strings.Replace(u, "/720.mp4", "/300.mp4", 1), nil)
+	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), flattened(t, files["v360"])) {
+		t.Fatalf("tile: %d (%d bytes) %s", w.Code, w.Body.Len(), w.Body.String())
+	}
+	// A web view that plays only HEVC asks for it; it is a file of its own.
+	w = get(c, u+"?codec=hevc", nil)
+	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), flattened(t, files["h768"])) {
+		t.Fatalf("hevc: %d (%d bytes)", w.Code, w.Body.Len())
+	}
+	if _, err := os.Stat(c.path(key, 720, CodecHEVC)); err != nil {
+		t.Errorf("hevc file: %v", err)
+	}
+	if s := c.Stats(); s.Files != 4 || s.Bytes == 0 || s.Last.Err != "" || s.Last.Codec != CodecHEVC ||
+		s.Last.Rendition != "hvc1.2.20000000.L123.B0 768×768, 1.9 Mbit/s" || s.Last.Size != 720 || s.Last.Key != key {
+		t.Errorf("stats = %+v", s)
 	}
 
 	// Loops and seeks read the disk copy, by range.
@@ -181,20 +271,29 @@ func TestServe(t *testing.T) {
 		t.Errorf("a cached rendition went to the network (%d requests)", hits.Load()-before)
 	}
 
-	// Only handed-out keys are fetched.
+	// Only handed-out keys are fetched, in a codec Sona knows.
 	if w := get(c, "/motion/0123456789abcdef01234567/400.mp4", nil); w.Code != http.StatusNotFound {
 		t.Errorf("unknown key: %d", w.Code)
 	}
-	for _, bad := range []string{"/motion/xyz/400.mp4", strings.Replace(u, "720.mp4", "4000.mp4", 1), strings.Replace(u, "720.mp4", "0400.mp4", 1)} {
+	for _, bad := range []string{"/motion/xyz/400.mp4", strings.Replace(u, "720.mp4", "4000.mp4", 1), strings.Replace(u, "720.mp4", "0400.mp4", 1), u + "?codec=vp9"} {
 		if w := get(c, bad, nil); w.Code != http.StatusNotFound {
 			t.Errorf("%s: %d", bad, w.Code)
 		}
+	}
+
+	// A failed download says why, to the web view and in Stats.
+	hdr := c.URL(srv.URL + "/hdr/master.m3u8")
+	if w := get(c, hdr, nil); w.Code != http.StatusBadGateway || !strings.Contains(w.Body.String(), "no H.264 rendition") {
+		t.Errorf("HDR only: %d %q", w.Code, w.Body.String())
+	}
+	if s := c.Stats(); s.Files != 4 || s.Last.Err != "no H.264 rendition" || s.Last.Rendition != "" {
+		t.Errorf("stats after a failure = %+v", s)
 	}
 }
 
 func TestEvict(t *testing.T) {
 	srv, _, files := fakeCDN(t)
-	n486, n768 := len(flattened(t, files["/v/v486.mp4"])), len(flattened(t, files["/v/v768.mp4"]))
+	n486, n768 := len(flattened(t, files["v486"])), len(flattened(t, files["v768"]))
 	c := newTestCache(t, srv, int64(n486+n768-1))
 	u := c.URL(srv.URL + "/v/master.m3u8")
 	small := strings.Replace(u, "/720.mp4", "/400.mp4", 1)
@@ -209,7 +308,7 @@ func TestEvict(t *testing.T) {
 	if len(names) != 1 || !strings.HasSuffix(names[0], "-720.mp4") {
 		t.Errorf("after eviction: %v", names)
 	}
-	if _, err := os.Stat(c.path(strings.Split(u, "/")[2], 720)); err != nil {
+	if _, err := os.Stat(c.path(strings.Split(u, "/")[2], 720, CodecH264)); err != nil {
 		t.Error(err)
 	}
 }
@@ -218,7 +317,7 @@ func TestEvict(t *testing.T) {
 // looks newer (equal or skewed times): the request it answers still reads it.
 func TestEvictKeepsTheNewDownload(t *testing.T) {
 	srv, _, files := fakeCDN(t)
-	n486, n768 := len(flattened(t, files["/v/v486.mp4"])), len(flattened(t, files["/v/v768.mp4"]))
+	n486, n768 := len(flattened(t, files["v486"])), len(flattened(t, files["v768"]))
 	c := newTestCache(t, srv, int64(n486+n768-1))
 	u := c.URL(srv.URL + "/v/master.m3u8")
 	small := strings.Replace(u, "/720.mp4", "/400.mp4", 1)
@@ -237,7 +336,7 @@ func TestEvictKeepsTheNewDownload(t *testing.T) {
 	if w := get(c, u, nil); w.Code != http.StatusOK {
 		t.Fatalf("new download: %d", w.Code)
 	}
-	if _, err := os.Stat(c.path(key, 720)); err != nil {
+	if _, err := os.Stat(c.path(key, 720, CodecH264)); err != nil {
 		t.Errorf("the new download was evicted: %v", err)
 	}
 	if _, err := os.Stat(first[0]); !os.IsNotExist(err) {

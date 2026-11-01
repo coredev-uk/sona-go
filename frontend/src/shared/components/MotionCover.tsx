@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Artwork } from "@/shared/components/Artwork";
-import { motionAt, useMotionAllowed } from "@/shared/lib/motion";
+import {
+  motionAt,
+  motionOutcome,
+  motionStarted,
+  motionStopped,
+  useMotionState,
+} from "@/shared/lib/motion";
 import { cn } from "@/shared/lib/utils";
 
 interface MotionCoverProps {
@@ -16,60 +22,85 @@ interface MotionCoverProps {
    * place (the now-playing view), so a resize does not reload it.
    */
   videoSize?: number;
+  /** A round picture (artists). */
+  shape?: "square" | "round";
   alt: string;
   eager?: boolean;
 }
 
 /**
  * A cover that moves: Apple's looping motion artwork over the still,
- * when there is one and motion is allowed (useMotionAllowed). The still
+ * when there is one and motion is allowed (useMotionState). The still
  * shows until the first frame plays and stays if the video fails.
  */
-export function MotionCover({ motion, art, size, videoSize, alt, eager }: MotionCoverProps) {
-  const allowed = useMotionAllowed();
-  const src = allowed && motion ? motionAt(motion, videoSize ?? size) : "";
+export function MotionCover({ motion, art, size, videoSize, shape, alt, eager }: MotionCoverProps) {
+  const { allowed, codec } = useMotionState();
+  const src = allowed && motion ? motionAt(motion, videoSize ?? size, codec) : "";
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <Artwork src={art} size={size} alt={alt} eager={eager} />
-      {src && <MotionVideo key={src} src={src} />}
+      <Artwork src={art} size={size} alt={alt} shape={shape} eager={eager} />
+      {src && <MotionVideo key={src} src={src} round={shape === "round"} />}
     </div>
   );
 }
 
+/** How long a video may claim to play without its time moving. */
+const STALL_MS = 4000;
+
 /**
- * The muted loop. It plays only while on screen and while the window is
- * visible, and releases its decoder when it unmounts. WebKitGTK's media
- * player refuses custom URL schemes (the app's wails://), so the file is
- * fetched and played from a blob: URL.
+ * The muted loop over its parent (positioned) box. It plays only while on
+ * screen and while the window is visible, and releases its decoder when it
+ * unmounts.
+ *
+ * The file goes to WebKit as a data: URL. WebKitGTK's media player refuses
+ * the app's own scheme (wails://) outright, and from a blob: URL its
+ * GStreamer source reads past the end of the file through byte ranges:
+ * qtdemux then finds garbage ("atom has bogus size"), so about half the
+ * loads failed or stalled and loops decoded corrupt frames. A data: URL
+ * is decoded in one piece and plays every time (docs/frontend-architecture.md,
+ * Motion artwork).
  */
-function MotionVideo({ src }: { src: string }) {
+export function MotionVideo({ src, round }: { src: string; round?: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
-  const [blobUrl, setBlobUrl] = useState("");
+  const attempt = useRef(0);
+  const [dataUrl, setDataUrl] = useState("");
   const [shown, setShown] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const abort = new AbortController();
-    let url = "";
+    const id = motionStarted(src);
+    attempt.current = id;
     fetch(src, { signal: abort.signal })
-      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
-      .then((b) => {
-        url = URL.createObjectURL(b);
-        setBlobUrl(url);
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${(await r.text()).trim()}`);
+        const blob = await r.blob();
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(reader.error ?? new Error("FileReader failed"));
+          reader.readAsDataURL(blob);
+        });
       })
-      .catch(() => {
-        if (!abort.signal.aborted) setFailed(true);
+      .then((url) => {
+        if (!abort.signal.aborted) setDataUrl(url);
+      })
+      .catch((err: unknown) => {
+        if (abort.signal.aborted) return;
+        setFailed(true);
+        motionOutcome(id, "download-failed", err instanceof Error ? err.message : String(err));
       });
     return () => {
       abort.abort();
-      if (url) URL.revokeObjectURL(url);
+      motionStopped(id);
     };
   }, [src]);
 
   useEffect(() => {
     const video = ref.current;
-    if (!video) return;
+    if (!video || !dataUrl) return;
     let onScreen = false;
+    let stall = 0;
     const sync = () => {
       if (onScreen && document.visibilityState === "visible") void video.play().catch(() => {});
       else video.pause();
@@ -78,46 +109,71 @@ function MotionVideo({ src }: { src: string }) {
       onScreen = entry.isIntersecting;
       sync();
     });
+    const playing = () => {
+      setShown(true);
+      motionOutcome(attempt.current, "playing");
+      const from = video.currentTime;
+      window.clearTimeout(stall);
+      stall = window.setTimeout(() => {
+        if (!video.paused && video.currentTime === from)
+          motionOutcome(
+            attempt.current,
+            "stalled",
+            // eslint-disable-next-line lingui/no-unlocalized-strings -- a diagnostic detail for bug reports, kept in English like WebKit's own errors
+            `WebKit reported playing but the video stayed at ${from.toFixed(2)} s for ${STALL_MS / 1000} s`,
+          );
+      }, STALL_MS);
+    };
+    const paused = () => motionStopped(attempt.current);
+    const failure = () => {
+      const e = video.error;
+      setFailed(true);
+      motionOutcome(
+        attempt.current,
+        "media-error",
+        // eslint-disable-next-line lingui/no-unlocalized-strings -- WebKit's MediaError, verbatim for bug reports
+        e ? `MediaError ${e.code}${e.message ? `: ${e.message}` : ""}` : "",
+      );
+    };
     io.observe(video);
     video.addEventListener("loadeddata", sync);
+    video.addEventListener("playing", playing);
+    video.addEventListener("pause", paused);
+    video.addEventListener("error", failure);
     document.addEventListener("visibilitychange", sync);
     return () => {
+      window.clearTimeout(stall);
       io.disconnect();
       video.removeEventListener("loadeddata", sync);
+      video.removeEventListener("playing", playing);
+      video.removeEventListener("pause", paused);
+      video.removeEventListener("error", failure);
       document.removeEventListener("visibilitychange", sync);
       video.pause();
       // Drops WebKit's GStreamer pipeline now rather than at collection.
       video.removeAttribute("src");
       video.load();
     };
-  }, []);
+  }, [dataUrl]);
 
-  if (failed) return null;
+  if (failed || !dataUrl) return null;
   return (
-    <>
-      <video
-        ref={ref}
-        src={blobUrl || undefined}
-        muted
-        loop
-        playsInline
-        preload="auto"
-        disablePictureInPicture
-        aria-hidden
-        tabIndex={-1}
-        onPlaying={() => setShown(true)}
-        onError={() => setFailed(true)}
-        className={cn(
-          "pointer-events-none absolute inset-0 size-full rounded-sm object-cover transition-opacity duration-300 ease-out",
-          shown ? "opacity-100" : "opacity-0",
-        )}
-      />
-      {shown && (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-sm ring-1 ring-ink/6 ring-inset"
-        />
+    <video
+      ref={ref}
+      src={dataUrl}
+      muted
+      loop
+      playsInline
+      preload="auto"
+      disablePictureInPicture
+      aria-hidden
+      tabIndex={-1}
+      className={cn(
+        // The same edge as Artwork's: an outline on the video itself.
+        "pointer-events-none absolute inset-0 size-full object-cover outline -outline-offset-1 outline-ink/6 transition-opacity duration-300 ease-out",
+        round ? "rounded-full" : "rounded-sm",
+        shown ? "opacity-100" : "opacity-0",
       )}
-    </>
+    />
   );
 }

@@ -50,12 +50,18 @@ cp -r "$root/build/linux/icons/hicolor" "$appdir/usr/share/icons/"
 # GStreamer: appsrc ! avdec_aac ! audioconvert ! audioresample ! volume ! pulsesink
 # (autoaudiosink as the fallback sink), plus the registry scanner. From
 # gst-plugins-bad, subenc: WebKit's media players need its webvttenc and
-# warn once per player without it. The bundled set is all GStreamer the
-# AppImage sees, WebKit's web process included.
+# warn once per player without it. WebKit's video player (motion artwork)
+# needs playbin3 and decodebin3 (playback), typefind (typefindfunctions),
+# qtdemux (isomp4), h264parse (videoparsersbad), videoconvert
+# (videoconvertscale) and videoflip (videofilter), and decodes H.264 with
+# avdec_h264 (libav): the plugins WebKitGTK 2.54's web process loads to
+# play a motion cover. The bundled set is all GStreamer the AppImage sees,
+# WebKit's web process included.
 gst_plugins=$(pkg-config --variable=pluginsdir gstreamer-1.0)
 gst_scanner="$(pkg-config --variable=pluginscannerdir gstreamer-1.0)/gst-plugin-scanner"
 mkdir -p "$appdir/usr/lib/gstreamer-1.0" "$appdir/usr/libexec/gstreamer-1.0"
-for p in coreelements app audioconvert audioresample volume autodetect libav pulseaudio subenc; do
+for p in coreelements app audioconvert audioresample volume autodetect libav pulseaudio subenc \
+  playback typefindfunctions isomp4 videoparsersbad videoconvertscale videofilter; do
   cp "$gst_plugins/libgst$p.so" "$appdir/usr/lib/gstreamer-1.0/"
 done
 cp "$gst_scanner" "$appdir/usr/libexec/gstreamer-1.0/"

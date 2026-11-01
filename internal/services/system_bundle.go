@@ -13,9 +13,10 @@ import (
 // DiagnosticsBundle builds the bug-report bundle (Settings → Diagnostics →
 // Copy diagnostics): the OS (and, on XDG desktops, the desktop and session
 // type), the Diagnostics report (versions, CDM probe, playback host,
-// paths), the settings, crash output and the last log lines, with tokens,
-// e-mail addresses and the home directory scrubbed. It is also saved to a
-// 0600 file in the state directory.
+// paths), the features' sections (Env.OnDiagnostics: motion artwork), the
+// settings, crash output and the last log lines, with tokens, e-mail
+// addresses and the home directory scrubbed. It is also saved to a 0600
+// file in the state directory.
 func (s *SystemService) DiagnosticsBundle(ctx context.Context) (DiagBundle, error) {
 	d, err := s.Diagnostics(ctx)
 	sections := []diag.Section{
@@ -25,6 +26,7 @@ func (s *SystemService) DiagnosticsBundle(ctx context.Context) (DiagBundle, erro
 	if err != nil {
 		sections = append(sections, diag.Section{Title: "Diagnostics errors", Value: err.Error()})
 	}
+	sections = append(sections, s.o.diagnosticSections()...)
 	sections = append(sections,
 		diag.Section{Title: "Account", Value: map[string]string{"state": string(s.o.Auth.Status().State)}},
 		diag.Section{Title: "Settings", Value: s.o.Settings.Get()},

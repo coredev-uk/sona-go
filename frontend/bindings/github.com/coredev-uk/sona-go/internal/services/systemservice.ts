@@ -33,9 +33,10 @@ export function Diagnostics(): $CancellablePromise<$models.Diagnostics> {
  * DiagnosticsBundle builds the bug-report bundle (Settings → Diagnostics →
  * Copy diagnostics): the OS (and, on XDG desktops, the desktop and session
  * type), the Diagnostics report (versions, CDM probe, playback host,
- * paths), the settings, crash output and the last log lines, with tokens,
- * e-mail addresses and the home directory scrubbed. It is also saved to a
- * 0600 file in the state directory.
+ * paths), the features' sections (Env.OnDiagnostics: motion artwork), the
+ * settings, crash output and the last log lines, with tokens, e-mail
+ * addresses and the home directory scrubbed. It is also saved to a 0600
+ * file in the state directory.
  */
 export function DiagnosticsBundle(): $CancellablePromise<$models.DiagBundle> {
     return $Call.ByID(3416477629).then(($result: any) => {
