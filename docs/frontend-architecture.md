@@ -552,6 +552,41 @@ render. `I18nRoot` remounts the tree when the locale changes, so labels
 computed outside hooks follow. There is no language setting until a second
 catalogue ships.
 
+**Translations: Apple first.** A translated locale is built from layers,
+first one wins per message:
+
+1. Apple Music's own translation, for messages mapped to one of Apple's web
+   string keys (`apple/<locale>.po`, same tag).
+2. The community catalogue for the messages Apple has no string for
+   (`community/<locale>.po`, matched like `matchLocale`: the tag, its
+   language, or a sibling region).
+3. English (`locales/en.po`).
+
+`catalogueLayers` (`locale.ts`) picks the files; `loadMessages` (`index.ts`)
+merges them. `lingui.config.ts` lists only the catalogues `lingui extract`
+writes; Vite compiles with `lingui.runtime.config.ts`, which adds the two
+layers and their locales, so extraction never touches them. A locale is
+offered (chosen automatically, and listed for a future Language setting as
+`translatedLocales`) once its layers together translate at least 90% of
+Sona's messages: `cmd/i18ntool` counts that into `completeness.json`
+(`messages`, `threshold`, and per locale `apple`, `community`, `share`,
+`selectable`), read by `selectableLocales`. With no translated locale that
+complete, Sona shows English as before.
+
+The mapping (`apple-keys.json`: msgid, context, Apple key, plural flag,
+Apple → Sona placeholder names) is proposed by `cmd/i18ntool match`, which
+matches each plain or single-plural message against Apple's en-GB strings
+exactly (same text, placeholders paired by position) and then normalised
+(case, curly quotes, ellipsis, dashes, spacing, closing punctuation; plural
+categories must agree), and is reviewed by hand; rejected pairs are kept in
+`apple-keys-rejected.json` so they are not proposed again (CONTRIBUTING.md,
+"Strings and translations"). `cmd/i18ntool import` writes the Apple layer
+from Apple's current bundles: `@@name@@` becomes `{name}` through the
+mapping's renames, a plural key's `.zero`/`.one`/`.two`/`.few`/`.many`/
+`.other` forms become an ICU plural over Sona's argument (Apple's count
+placeholder becomes `#`), and ICU syntax characters in Apple's text are
+quoted. The Apple layer and `completeness.json` are gitignored for now.
+
 **Pseudo-locale.** `en-XA` accents and stretches every English message
 (`⟦Ƥŀåý ñêxţ⟧`), so text that bypassed Lingui stands out. `pnpm dev:pseudo`
 and `pnpm build:pseudo` force it through `VITE_SONA_LOCALE=en-XA`; it is
