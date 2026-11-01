@@ -16,24 +16,32 @@ import { canPlay, playItem } from "./play";
 interface WideRowProps {
   title?: string;
   items: readonly Item[];
-  /** Smallest card width: 400 for heroes, 240 for category bricks. */
+  /** Smallest card width: 420 for heroes, 240 for category bricks. */
   min: number;
   /**
-   * The tallest artwork frame, width / height (2.4 for heroes, 2 for
-   * bricks). A row whose banners are all wider gets their shape instead.
+   * The artwork frame, width / height. With `crop` it is every frame's
+   * shape; otherwise it is the tallest frame (2 for bricks), and a row
+   * whose banners are all wider gets their shape instead.
    */
   ratio: number;
+  /**
+   * Crop every banner to `ratio`, as Apple's hero shelf does: its 4:1 art
+   * keeps what matters in the centre, and Apple's CDN crops it to the box.
+   */
+  crop?: boolean;
   onOpen?: (item: Item) => void;
 }
 
 /**
- * Wide editorial cards: the banner on its own background colour (never
- * cropped, never under text), the title and line below. Every frame in a
- * row has one shape: the tallest of the row's banners within `ratio`, so
- * a row of 4:1 banners has no empty bands and a mixed row letterboxes only
- * the wider ones. As many as fit; arrows page through the rest.
+ * Wide editorial cards: the banner (never under text), the title and line
+ * below. Every frame in a row has one shape. A cropping row (heroes) fills
+ * it with each banner cropped to it. Otherwise banners sit whole on their
+ * own background colour in the tallest of the row's banner shapes within
+ * `ratio`, so a row of 4:1 bricks has no empty bands and a mixed row
+ * letterboxes only the wider ones. As many as fit; arrows page through the
+ * rest.
  */
-export function WideRow({ title, items, min, ratio, onOpen }: WideRowProps) {
+export function WideRow({ title, items, min, ratio, crop = false, onOpen }: WideRowProps) {
   const { t } = useLingui();
   const ref = useRef<HTMLDivElement>(null);
   const { cols, tile } = useCoverColumns(ref, min);
@@ -41,7 +49,7 @@ export function WideRow({ title, items, min, ratio, onOpen }: WideRowProps) {
     const wide = i.wide.large || i.wide.medium;
     return wide ? [artAspect(wide)] : [];
   });
-  const frame = aspects.length ? Math.max(ratio, Math.min(...aspects)) : ratio;
+  const frame = crop || !aspects.length ? ratio : Math.max(ratio, Math.min(...aspects));
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(items.length / cols));
   const at = Math.min(page, pages - 1);
@@ -93,7 +101,7 @@ export function WideRow({ title, items, min, ratio, onOpen }: WideRowProps) {
       >
         {shown.map((item, i) => (
           <div role="listitem" key={`${at}:${i}:${item.kind}:${item.id}`}>
-            <WideCard item={item} width={tile} ratio={frame} onOpen={onOpen} />
+            <WideCard item={item} width={tile} ratio={frame} crop={crop} onOpen={onOpen} />
           </div>
         ))}
       </div>
@@ -105,17 +113,21 @@ function WideCard({
   item,
   width,
   ratio,
+  crop,
   onOpen,
 }: {
   item: Item;
   width: number;
   ratio: number;
+  crop: boolean;
   onOpen?: (item: Item) => void;
 }) {
   const { t } = useLingui();
   const link = itemLink(item);
+  const banner = item.wide.large || item.wide.medium;
   // A card without a banner shows its cover, whole, on the same colour.
-  const src = item.wide.large || item.wide.medium || item.art.large || item.art.medium;
+  const src = banner || item.art.large || item.art.medium;
+  const fit = crop && banner ? "cover" : "contain";
   const [failed, setFailed] = useState(false);
   const openerClassName =
     "min-w-0 flex-1 truncate rounded-sm text-left text-ui font-medium text-ink outline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover/tile:underline group-hover/tile:underline-offset-2";
@@ -129,13 +141,13 @@ function WideCard({
       >
         {!failed && src && (
           <img
-            src={artUrl(src, { width, height: width / ratio }, "contain")}
+            src={artUrl(src, { width, height: width / ratio }, fit)}
             alt=""
             loading="lazy"
             decoding="async"
             draggable={false}
             onError={() => setFailed(true)}
-            className="absolute inset-0 size-full rounded-[inherit] object-contain outline -outline-offset-1 outline-ink/6"
+            className={`absolute inset-0 size-full rounded-[inherit] outline -outline-offset-1 outline-ink/6 ${fit === "cover" ? "object-cover" : "object-contain"}`}
           />
         )}
         {canPlay(item) && (

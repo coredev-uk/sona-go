@@ -78,11 +78,11 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 
 ## Artwork
 
-- Square, 4px radius, a 1px line at 6% ink just inside the edge so pale covers do not dissolve into the ground: an outline on the image (`-outline-offset-1`), not a ring on a pseudo-element, because WebKitGTK repaints the visible page on every scroll step and the ring cost about a quarter of a frame's paint. Video frames are 16:9; editorial banners keep their own 2.4:1 or 4:1 shape.
+- Square, 4px radius, a 1px line at 6% ink just inside the edge so pale covers do not dissolve into the ground: an outline on the image (`-outline-offset-1`), not a ring on a pseudo-element, because WebKitGTK repaints the visible page on every scroll step and the ring cost about a quarter of a frame's paint. Video frames are 16:9; hero cards are Apple's 1060:608; bricks and page banners keep their own 2.4:1 or 4:1 shape.
 - Always requested from Go at the exact rendered box (width and height × the screen's density, at most 2; grid tiles at their exact width, never rounded up, so the art is never resampled while painting) through `/art/<key>/<w>x<h>.jpg` URLs, sized in one place (`shared/lib/art.ts`: `artUrl`), `loading="lazy"`, `decoding="async"`, explicit `width`/`height` so rows never shift.
 - Missing art: a `--hover` square with a 40%-ink outline music glyph centred, at the same size.
 - The cover is never cropped, tinted or overlaid with text, with one exception: an album not out yet carries its release date ("Out 19 Nov") in a small `--raised` chip at the cover's bottom-left corner, where the play control of a playable tile sits (it has none). Its page puts the countdown ("Out in 18 days, 6 hours", the day in full, the songs already out) where the play controls will be, re-read every minute, never a ticking counter.
-- Banners sit whole on their own background colour: a row of banners takes the shape of its tallest one (wide editorial cards at most 2.4:1, bricks at most 2:1), so only a wider banner in a mixed row is letterboxed.
+- Hero cards (the untitled "Featured" row) fill Apple's own card shape, 1060:608, with the 4:1 `subscriptionHero` art cropped to it by the CDN, as music.apple.com does: the art keeps its text and subject in the centre, so nothing is letterboxed or cut. A card without a banner shows its cover whole on its background colour. Bricks sit whole on their own background colour: a row takes the shape of its tallest banner (at most 2:1), so only a wider banner in a mixed row is letterboxed.
 
 ## Backdrops (pre-blurred in Go)
 

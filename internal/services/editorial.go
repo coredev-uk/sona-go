@@ -350,8 +350,11 @@ type editorialArt struct {
 }
 
 // wideKeys are the editorial artwork flavours usable as a wide banner, in
-// order of preference (superHeroWide is 2.4:1, the others 4:1).
-var wideKeys = []string{"superHeroWide", "subscriptionHero", "subscriptionCover", "storeFlowcase"}
+// order of preference. subscriptionHero (4:1) is what music.apple.com's hero
+// shelf ("flowcaseLockup") shows: its centre is the safe area, and the web
+// player crops it to the card ("sr"). storeFlowcase is the same 4:1 shape;
+// superHeroWide (2.4:1) and subscriptionCover (4:1 or square) only stand in.
+var wideKeys = []string{"subscriptionHero", "storeFlowcase", "superHeroWide", "subscriptionCover"}
 
 func (m mapper) wideOf(ea editorialArt) (Art, string) {
 	for _, k := range wideKeys {

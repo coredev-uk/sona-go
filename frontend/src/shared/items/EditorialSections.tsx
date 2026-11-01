@@ -6,6 +6,12 @@ import { LinkList } from "./LinkList";
 import { TrackShelf } from "./TrackShelf";
 import { WideRow } from "./WideRow";
 
+/**
+ * The hero card's shape on music.apple.com: its "flowcaseLockup" requests
+ * the 4:1 subscriptionHero art cropped to 1060×608 ("sr").
+ */
+const HERO_RATIO = 1060 / 608;
+
 interface EditorialSectionsProps {
   sections: readonly Section[];
   /** Where a section's "See all" goes (default: its room). */
@@ -33,7 +39,8 @@ export function EditorialSections({
             title={s.title}
             items={s.items}
             min={420}
-            ratio={2.4}
+            ratio={HERO_RATIO}
+            crop
             onOpen={onOpen}
           />
         );
