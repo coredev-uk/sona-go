@@ -20,14 +20,14 @@ What it refuses: the streaming-app default of near-black with a brand-coloured a
 
 One family: **Schibsted Grotesk** (variable, self-hosted via `@fontsource-variable/schibsted-grotesk`, no network fetch). It is a news grotesque, so it stays sharp at 12–14px in dense lists and has character at title sizes. Fallback: `system-ui, sans-serif`.
 
-| Role | Size / line | Weight | Use |
-| --- | --- | --- | --- |
-| Collection title | 32 / 36, -0.02em | 700 | Album, artist, playlist name in its header |
-| Page title (h1) | 24 / 30, -0.015em | 650 | Listen Now, Songs, Settings |
-| Section | 16 / 22 | 600 | Shelf titles, settings section titles |
-| Body | 14 / 20 | 400–500 | Nav, row titles, form labels |
-| Secondary | 13 / 18 | 400 | Artist and album columns, descriptions |
-| Meta | 12 / 16 | 450 | The catalogue line, durations, timestamps |
+| Role             | Size / line       | Weight  | Use                                        |
+| ---------------- | ----------------- | ------- | ------------------------------------------ |
+| Collection title | 32 / 36, -0.02em  | 700     | Album, artist, playlist name in its header |
+| Page title (h1)  | 24 / 30, -0.015em | 650     | Listen Now, Songs, Settings                |
+| Section          | 16 / 22           | 600     | Shelf titles, settings section titles      |
+| Body             | 14 / 20           | 400–500 | Nav, row titles, form labels               |
+| Secondary        | 13 / 18           | 400     | Artist and album columns, descriptions     |
+| Meta             | 12 / 16           | 450     | The catalogue line, durations, timestamps  |
 
 - Six sizes, three weights in practice (400, 600, 700). No uppercase labels, no letter-spaced small caps, no monospace.
 - Every number that updates or aligns (durations, track numbers, counts, progress) uses `tabular-nums` (utility `.num`).
@@ -37,23 +37,23 @@ One family: **Schibsted Grotesk** (variable, self-hosted via `@fontsource-variab
 
 Strategy: restrained chrome, colour from artwork, one spot colour with one job. All text tiers reach 4.5:1 on the surface they sit on.
 
-| Token | Light | Dark | Role |
-| --- | --- | --- | --- |
-| `--ground` | `#f4f5f3` | `#121513` | Content canvas |
-| `--surface` | `#eceeeb` | `#171a18` | Sidebar, top bar, now-playing bar |
-| `--raised` | `#ffffff` | `#1e2220` | Menus, dialogs, popovers, inputs |
-| `--hover` | `#e4e7e3` | `#222724` | Row and nav hover |
-| `--active` | `#dbdfda` | `#2a302c` | Selected nav item, pressed |
-| `--line` | `#dadcd7` | `#262b28` | Structural 1px lines |
-| `--control-line` | `#838984` | `#6b736d` | Input and outline-button borders (≥ 3:1) |
-| `--ink` | `#161917` | `#eef1ee` | Primary text |
-| `--ink-muted` | `#545a55` | `#a9b0aa` | Secondary text |
-| `--ink-faint` | `#5d635e` | `#959c96` | Meta, placeholders |
-| `--amber` | `#e5a31b` | `#f0b43c` | Spot fill: play button, progress, now-playing marker |
-| `--amber-ink` | `#845500` | `#f0b43c` | Amber as text or icon on the ground |
-| `--on-amber` | `#1a1405` | `#1a1405` | Glyphs on an amber fill |
-| `--danger` | `#b42318` | `#f0705f` | Errors and destructive actions only |
-| `--positive` | `#1f6e47` | `#5cc48c` | Success states only |
+| Token            | Light     | Dark      | Role                                                 |
+| ---------------- | --------- | --------- | ---------------------------------------------------- |
+| `--ground`       | `#f4f5f3` | `#121513` | Content canvas                                       |
+| `--surface`      | `#eceeeb` | `#171a18` | Sidebar, top bar, now-playing bar                    |
+| `--raised`       | `#ffffff` | `#1e2220` | Menus, dialogs, popovers, inputs                     |
+| `--hover`        | `#e4e7e3` | `#222724` | Row and nav hover                                    |
+| `--active`       | `#dbdfda` | `#2a302c` | Selected nav item, pressed                           |
+| `--line`         | `#dadcd7` | `#262b28` | Structural 1px lines                                 |
+| `--control-line` | `#838984` | `#6b736d` | Input and outline-button borders (≥ 3:1)             |
+| `--ink`          | `#161917` | `#eef1ee` | Primary text                                         |
+| `--ink-muted`    | `#545a55` | `#a9b0aa` | Secondary text                                       |
+| `--ink-faint`    | `#5d635e` | `#959c96` | Meta, placeholders                                   |
+| `--amber`        | `#e5a31b` | `#f0b43c` | Spot fill: play button, progress, now-playing marker |
+| `--amber-ink`    | `#845500` | `#f0b43c` | Amber as text or icon on the ground                  |
+| `--on-amber`     | `#1a1405` | `#1a1405` | Glyphs on an amber fill                              |
+| `--danger`       | `#b42318` | `#f0705f` | Errors and destructive actions only                  |
+| `--positive`     | `#1f6e47` | `#5cc48c` | Success states only                                  |
 
 - The faint green-grey tint (hue ~150) keeps the board from reading as dead grey and sits well next to any cover. No cream, no navy, no violet.
 - The primary button is ink-filled (near-black on light, near-white on dark), not amber.
@@ -78,8 +78,8 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 
 ## Artwork
 
-- Square, 4px radius, a 1px inset line at 6% ink so pale covers do not dissolve into the ground. Video frames are 16:9; editorial banners keep their own 2.4:1 or 4:1 shape.
-- Always requested from Go at the exact rendered box (width and height × the screen's density, at most 2) through `/art/<key>/<w>x<h>.jpg` URLs, sized in one place (`shared/lib/art.ts`: `artUrl`), `loading="lazy"`, `decoding="async"`, explicit `width`/`height` so rows never shift.
+- Square, 4px radius, a 1px line at 6% ink just inside the edge so pale covers do not dissolve into the ground: an outline on the image (`-outline-offset-1`), not a ring on a pseudo-element, because WebKitGTK repaints the visible page on every scroll step and the ring cost about a quarter of a frame's paint. Video frames are 16:9; editorial banners keep their own 2.4:1 or 4:1 shape.
+- Always requested from Go at the exact rendered box (width and height × the screen's density, at most 2; grid tiles at their exact width, never rounded up, so the art is never resampled while painting) through `/art/<key>/<w>x<h>.jpg` URLs, sized in one place (`shared/lib/art.ts`: `artUrl`), `loading="lazy"`, `decoding="async"`, explicit `width`/`height` so rows never shift.
 - Missing art: a `--hover` square with a 40%-ink outline music glyph centred, at the same size.
 - The cover is never cropped, tinted or overlaid with text, with one exception: an album not out yet carries its release date ("Out 19 Nov") in a small `--raised` chip at the cover's bottom-left corner, where the play control of a playable tile sits (it has none). Its page puts the countdown ("Out in 18 days, 6 hours", the day in full, the songs already out) where the play controls will be, re-read every minute, never a ticking counter.
 - Banners sit whole on their own background colour: a row of banners takes the shape of its tallest one (wide editorial cards at most 2.4:1, bricks at most 2:1), so only a wider banner in a mixed row is letterboxed.

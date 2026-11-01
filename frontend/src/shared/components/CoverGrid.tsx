@@ -214,7 +214,7 @@ export const CoverCell = memo(function CoverCell({
  */
 export function CoverGrid({ items, label, onRange, min = 160, aspect = "square" }: CoverGridProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const { width, cols, tile, size } = useCoverColumns(ref, min);
+  const { width, cols, tile } = useCoverColumns(ref, min);
   const rowH = (aspect === "video" ? (tile * 9) / 16 : tile) + TEXT_H + GAP_Y;
   const rows = Math.ceil(items.length / cols);
   const virtual = items.length > VIRTUAL_FROM && width > 0;
@@ -266,7 +266,7 @@ export function CoverGrid({ items, label, onRange, min = 160, aspect = "square" 
   };
 
   const cell = (item: CoverItem | undefined, i: number, fallbackKey: string) => (
-    <CoverCell key={item?.key ?? fallbackKey} item={item} index={i} size={size} aspect={aspect} />
+    <CoverCell key={item?.key ?? fallbackKey} item={item} index={i} size={tile} aspect={aspect} />
   );
 
   return (

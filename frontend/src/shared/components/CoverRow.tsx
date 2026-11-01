@@ -31,7 +31,7 @@ export function CoverRow({
   onColumns,
 }: CoverRowProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const { cols, size } = useCoverColumns(ref, min);
+  const { cols, tile } = useCoverColumns(ref, min);
   useEffect(() => onColumns?.(cols), [onColumns, cols]);
   const shown = items.slice(0, cols * rows);
   const list = useItemList({
@@ -59,7 +59,7 @@ export function CoverRow({
         {/* One row for assistive tech; the CSS grid lays the cells out. */}
         <div role="row" className="contents">
           {shown.map((item, i) => (
-            <CoverCell key={item.key} item={item} index={i} size={size} aspect={aspect} />
+            <CoverCell key={item.key} item={item} index={i} size={tile} aspect={aspect} />
           ))}
         </div>
         {list.menu}
