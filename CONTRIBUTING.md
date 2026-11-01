@@ -589,6 +589,59 @@ bar overrides it from the next start. To check it:
 - Never extract keys or use reimplemented CDMs (`openwv`, extracted device
   keys). Do not try to make Widevine work in WebKitGTK.
 
+## Strings and translations
+
+Sona takes Apple Music's own translations for every message that means
+the same as one of Apple's web strings (docs/frontend-architecture.md,
+"Strings and locales"). `frontend/src/shared/i18n/apple-keys.json` maps
+those messages (English msgid and context) to Apple's string keys, with
+placeholder renames; `apple-keys-rejected.json` lists reviewed matches that
+do not hold in Sona's context, with the reason. Neither file holds Apple's
+text, and Apple's bundles are never committed: `cmd/i18ntool` fetches them
+from music.apple.com on every run.
+
+Before writing new English copy, check Apple's wording (its en-GB strings,
+keys like `ASE.Web.Music.*`) and use it where the meaning matches. After
+`pnpm i18n:extract`, from the repository root:
+
+```sh
+go run ./cmd/i18ntool match     # counts; proposals for unmapped messages
+```
+
+The proposals land in `frontend/src/shared/i18n/apple/proposals.json`
+(gitignored; it shows Apple's en-GB text next to each message). Review each
+one in context (where the message is shown, `#:` in `en.po`): set
+`"decision"` to `"accept"`, or to `"reject"` with a `"reason"`, change
+`"key"` to one of `"alternatives"` when another of Apple's keys fits
+better, then:
+
+```sh
+go run ./cmd/i18ntool match -apply frontend/src/shared/i18n/apple/proposals.json
+```
+
+This copies only the message, key and placeholders into the mapping (or the
+pair into the rejected list) and checks them against `en.po`. Reject a match
+when the meaning differs (a keyboard key against a page name, browser
+navigation against skipping a track), when Apple's text is styled for
+another place (upper-case badges, lower case only fits mid-sentence), or
+when Apple's text drops something Sona's says (a closing ellipsis that
+announces a dialog). `match` also fails when a mapped key has gone from
+Apple's en-GB bundle and notes mappings whose English no longer matches.
+
+```sh
+go run ./cmd/i18ntool import    # Apple's translations, every locale
+```
+
+`import` finds each locale's bundle from music.apple.com's current index
+script, converts `@@name@@` placeholders to Sona's `{name}` and Apple's
+`.one`/`.other`/… keys to ICU plurals, and writes
+`frontend/src/shared/i18n/apple/<locale>.po` (each entry tagged
+`#. apple-key: …`) plus `completeness.json`, with a per-locale summary
+(mapped keys found, missing, coverage of Sona's messages). It fails when a
+mapped key has gone from en-GB. Both outputs are gitignored until it is
+decided whether Apple's translated text may be committed.
+`go run ./cmd/i18ntool completeness` recounts after a catalogue changes.
+
 ## Design rules
 
 `docs/design.md` is the visual direction. Design every page fresh: Apple's

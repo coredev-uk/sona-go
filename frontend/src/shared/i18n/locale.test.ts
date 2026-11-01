@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { chooseLocale, formatLocales, matchLocale } from "./locale";
+import {
+  catalogueLayers,
+  chooseLocale,
+  type Completeness,
+  formatLocales,
+  matchLocale,
+  selectableLocales,
+} from "./locale";
 
 describe("matchLocale", () => {
   const available = ["en", "pt-PT", "pt-BR", "zh-Hant"];
@@ -49,5 +56,39 @@ describe("formatLocales", () => {
     ]);
     expect(formatLocales("en-XA", ["en-GB"])).toEqual(["en-GB", "en-XA"]);
     expect(formatLocales("fr", ["en-GB", undefined, ""])).toEqual(["fr"]);
+  });
+});
+
+describe("selectableLocales", () => {
+  const locale = (share: number) => ({ apple: 0, community: 0, share, selectable: share >= 0.9 });
+
+  it("offers only the locales at the threshold or above", () => {
+    const completeness: Completeness = {
+      messages: 100,
+      threshold: 0.9,
+      locales: { "fr-FR": locale(0.95), "de-DE": locale(0.9), ja: locale(0.89) },
+    };
+    expect(selectableLocales(completeness)).toEqual(["de-DE", "fr-FR"]);
+  });
+
+  it("offers none without a completeness file", () => {
+    expect(selectableLocales(undefined)).toEqual([]);
+  });
+});
+
+describe("catalogueLayers", () => {
+  it("takes Apple's catalogue for the same tag and the community one for the language", () => {
+    expect(catalogueLayers("de-DE", ["de-CH", "de-DE"], ["de"])).toEqual({
+      apple: "de-DE",
+      community: "de",
+    });
+  });
+
+  it("leaves out a layer the locale has no catalogue in", () => {
+    expect(catalogueLayers("eo", ["de-DE"], ["eo"])).toEqual({ apple: undefined, community: "eo" });
+    expect(catalogueLayers("pt-BR", ["pt-BR", "pt-PT"], [])).toEqual({
+      apple: "pt-BR",
+      community: undefined,
+    });
   });
 });

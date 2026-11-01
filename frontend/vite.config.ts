@@ -25,11 +25,12 @@ export default defineConfig({
   // React Compiler memoises components and hooks at build time, so parents'
   // inline props stay stable and memo'd rows and tiles skip re-rendering.
   // Lingui compiles its message macros natively (no Babel pass) and turns
-  // `.po` catalogues into JS modules on import.
+  // `.po` catalogues into JS modules on import; its runtime config adds the
+  // translation layers extraction never writes (lingui.runtime.config.ts).
   // The Wails plugin needs generated bindings (`go tool wails3 generate
   // bindings -ts`); unit tests do not touch the runtime, so they skip it.
   plugins: [
-    lingui({ macroTransform: true }),
+    lingui({ macroTransform: true, configPath: "lingui.runtime.config.ts" }),
     react(),
     babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),

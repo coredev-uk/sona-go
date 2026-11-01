@@ -59,3 +59,46 @@ export function formatLocales(
   );
   return [...new Set([...same, locale])];
 }
+
+/**
+ * How complete each translated locale is (`completeness.json`, written by
+ * `cmd/i18ntool`): its Apple-sourced and community-translated message
+ * counts, their share of Sona's messages, and whether that share reaches
+ * the threshold for the locale to be offered.
+ */
+export interface Completeness {
+  messages: number;
+  threshold: number;
+  locales: Record<string, { apple: number; community: number; share: number; selectable: boolean }>;
+}
+
+/**
+ * The translated locales Sona offers, automatically and in the Language
+ * setting: those at least `threshold` complete. Less complete ones would
+ * show mostly English.
+ */
+export function selectableLocales(completeness: Completeness | undefined): string[] {
+  if (!completeness) return [];
+  return Object.entries(completeness.locales)
+    .filter(([, l]) => l.selectable)
+    .map(([tag]) => tag)
+    .sort();
+}
+
+/**
+ * The catalogues that make up `locale`, in precedence order: Apple Music's
+ * own translation (the same tag), then the community catalogue for the
+ * locale (`matchLocale`: the tag, its language, or a sibling region); the
+ * English catalogue fills in the rest. `cmd/i18ntool` counts completeness
+ * with the same pairing.
+ */
+export function catalogueLayers(
+  locale: string,
+  apple: readonly string[],
+  community: readonly string[],
+): { apple?: string; community?: string } {
+  return {
+    apple: apple.find((a) => a.toLowerCase() === locale.toLowerCase()),
+    community: matchLocale([locale], community),
+  };
+}

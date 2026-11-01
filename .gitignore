@@ -35,3 +35,7 @@ node_modules/
 
 # Private planning notes (never published)
 /.plans/
+
+# Apple Music strings imported by cmd/i18ntool (not committed)
+/frontend/src/shared/i18n/apple/
+/frontend/src/shared/i18n/completeness.json

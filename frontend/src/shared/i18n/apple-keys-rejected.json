@@ -1,0 +1,94 @@
+[
+  {
+    "message": "Add to playlist…",
+    "key": "ASE.Web.Music.ContextualMenu.AddToPlaylist",
+    "reason": "Sona's ellipsis says a dialog follows; Apple's key has none"
+  },
+  {
+    "message": "Delete from library…",
+    "key": "ASE.Web.Music.Shared.ContextualMenu.DeleteFromLibrary",
+    "reason": "Sona's ellipsis says a confirmation follows; Apple's key has none"
+  },
+  {
+    "message": "Forward",
+    "key": "ASE.Web.IPod.Wheel.Forward",
+    "reason": "Sona's is browser-style navigation forward; Apple's is the iPod wheel's skip forward"
+  },
+  {
+    "message": "Home",
+    "context": "keyboard key",
+    "key": "ASE.Web.Music.Home.Pageheader",
+    "reason": "Sona's is the Home keyboard key; Apple's is the Home page"
+  },
+  {
+    "message": "Home",
+    "context": "keyboard key",
+    "key": "FUSE.Home.Pageheader",
+    "reason": "Sona's is the Home keyboard key; Apple's is the Home page"
+  },
+  {
+    "message": "Live",
+    "key": "ASE.Web.Music.MediaComponents.Common.Badge.Live",
+    "reason": "Apple's text is upper case for a badge"
+  },
+  {
+    "message": "Live",
+    "key": "ASE.Web.Platform.Shared.MediaComponents.Common.Badge.Live",
+    "reason": "Apple's text is upper case for a badge"
+  },
+  {
+    "message": "Live",
+    "key": "FUSE.Radio.Live",
+    "reason": "Apple's text is upper case for a badge"
+  },
+  {
+    "message": "New playlist…",
+    "key": "ASE.Web.Music.ContextualMenu.NewPlaylist",
+    "reason": "Sona's ellipsis says a dialog follows; Apple's key has none"
+  },
+  {
+    "message": "New playlist…",
+    "key": "ASE.Web.Music.Library.PlaylistCreation.Heading",
+    "reason": "Sona's ellipsis says a dialog follows; Apple's key has none"
+  },
+  {
+    "message": "Previous",
+    "key": "ASE.Web.Platform.Shared.MediaComponents.Playback.Previous",
+    "reason": "Apple's text is upper case"
+  },
+  {
+    "message": "Private",
+    "key": "FUSE.Social.Onboarding.FindandFollow.Explanation.Private",
+    "reason": "Sona's is private listening; Apple's is a private profile"
+  },
+  {
+    "message": "library",
+    "key": "ASE.Web.Platform.Shared.Library",
+    "reason": "Sona's is lower case inside a sentence; Apple's is a title"
+  },
+  {
+    "message": "up next",
+    "key": "ASE.Web.Music.UpNext.Heading",
+    "reason": "Sona's is lower case inside a sentence; Apple's is a heading"
+  },
+  {
+    "message": "{at} of {total}",
+    "key": "ASE.Web.IPod.NowPlaying.Position",
+    "reason": "Sona's is a playback time position; Apple's is a track's place in a list"
+  },
+  {
+    "message": "{count} of {what}",
+    "key": "ASE.Web.IPod.NowPlaying.Position",
+    "reason": "Placeholder-only text; Apple's is a track's place in a list, Sona's counts other things"
+  },
+  {
+    "message": "{current} of {pages}",
+    "key": "ASE.Web.IPod.NowPlaying.Position",
+    "reason": "Placeholder-only text; Apple's is a track's place in a list, Sona's is pages"
+  },
+  {
+    "message": "{done} of {total}",
+    "key": "ASE.Web.IPod.NowPlaying.Position",
+    "reason": "Placeholder-only text; Apple's is a track's place in a list, Sona's is progress"
+  }
+]

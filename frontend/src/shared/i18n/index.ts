@@ -1,21 +1,61 @@
 import { i18n, type Messages } from "@lingui/core";
 
 import { messages as sourceMessages } from "./locales/en.po";
-import { chooseLocale, formatLocales, sourceLocale } from "./locale";
+import {
+  catalogueLayers,
+  chooseLocale,
+  type Completeness,
+  formatLocales,
+  selectableLocales,
+  sourceLocale,
+} from "./locale";
 
 export { I18nRoot } from "./I18nRoot";
 export { pseudoLocale, sourceLocale } from "./locale";
 
+type Catalogue = { messages: Messages };
+type Loaders = Record<string, () => Promise<Catalogue>>;
+
+/** Loaders by locale tag, from `import.meta.glob` paths ("./apple/fr-FR.po"). */
+function byTag(loaders: Loaders): Map<string, Loaders[string]> {
+  return new Map(
+    Object.entries(loaders).map(([path, load]) => [
+      path.slice(path.lastIndexOf("/") + 1, -3),
+      load,
+    ]),
+  );
+}
+
 /**
  * Message catalogues (docs/frontend-architecture.md, "Strings and
- * locales"). English is bundled; every other catalogue, the pseudo-locale
- * included, is its own chunk loaded on demand.
+ * locales"). English is bundled; every other catalogue is its own chunk
+ * loaded on demand. A translated locale layers Apple Music's own
+ * translations (`apple/`, from `cmd/i18ntool import`) over the community
+ * catalogue (`community/`) over English, and is offered once
+ * `completeness.json` says it is complete enough.
  */
-const loaders = import.meta.glob<{ messages: Messages }>(["./locales/*.po", "!./locales/en.po"]);
-const lazy = new Map(
-  Object.entries(loaders).map(([path, load]) => [path.slice("./locales/".length, -3), load]),
-);
-const catalogues = [sourceLocale, ...lazy.keys()];
+const pseudo = byTag(import.meta.glob<Catalogue>(["./locales/*.po", "!./locales/en.po"]));
+const apple = byTag(import.meta.glob<Catalogue>("./apple/*.po"));
+const community = byTag(import.meta.glob<Catalogue>("./community/*.po"));
+const completeness = Object.values(
+  import.meta.glob<Completeness>("./completeness.json", { eager: true, import: "default" }),
+)[0];
+
+/** The translated locales offered (for the Language setting). */
+export const translatedLocales: readonly string[] = selectableLocales(completeness);
+
+const catalogues = [sourceLocale, ...pseudo.keys(), ...translatedLocales];
+
+async function loadMessages(locale: string): Promise<Messages> {
+  const load = pseudo.get(locale);
+  if (load) return (await load()).messages;
+  const layers = catalogueLayers(locale, [...apple.keys()], [...community.keys()]);
+  const [own, shared] = await Promise.all([
+    layers.apple ? apple.get(layers.apple)!() : undefined,
+    layers.community ? community.get(layers.community)!() : undefined,
+  ]);
+  return { ...sourceMessages, ...shared?.messages, ...own?.messages };
+}
 
 /** `VITE_SONA_LOCALE` (`pnpm dev:pseudo`, `pnpm build:pseudo`) overrides the choice. */
 const forced = import.meta.env.VITE_SONA_LOCALE;
@@ -38,7 +78,7 @@ async function activate(locale: string): Promise<void> {
   let messages = sourceMessages;
   if (locale !== sourceLocale) {
     try {
-      messages = (await lazy.get(locale)!()).messages;
+      messages = await loadMessages(locale);
     } catch {
       locale = sourceLocale;
     }
