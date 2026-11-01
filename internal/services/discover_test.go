@@ -316,6 +316,10 @@ func TestNewSections(t *testing.T) {
 	if hero[0].Caption != "Updated playlist" || hero[0].Kind != ItemPlaylist || hero[0].Wide.Large == "" {
 		t.Errorf("hero card 0 = %+v", hero[0])
 	}
+	// Apple's hero shelf shows the 4:1 subscriptionHero, not superHeroWide.
+	if !strings.HasSuffix(hero[0].Wide.Large, "/1000x250.jpg") {
+		t.Errorf("hero card 0 wide art = %q, want the 4:1 subscriptionHero", hero[0].Wide.Large)
+	}
 	// 320 cards carry their own art and tagline.
 	if hero[1].Kind != ItemCurator || !strings.HasPrefix(hero[1].Subtitle, "Hear Overmono") || hero[1].Caption != "Upcoming livestream" {
 		t.Errorf("hero card 1 = %+v", hero[1])

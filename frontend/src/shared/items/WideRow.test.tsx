@@ -39,10 +39,11 @@ function item(id: string, wide: string, cover = ""): Item {
   } as unknown as Item;
 }
 
-function frames(items: Item[], ratio: number) {
-  const { container } = render(<WideRow title="Row" items={items} min={240} ratio={ratio} />, {
-    wrapper: I18nRoot,
-  });
+function frames(items: Item[], ratio: number, crop = false) {
+  const { container } = render(
+    <WideRow title="Row" items={items} min={240} ratio={ratio} crop={crop} />,
+    { wrapper: I18nRoot },
+  );
   const found = container.querySelectorAll<HTMLElement>("[role=listitem] [style*='aspect-ratio']");
   return [...found].map((f) => ({
     // jsdom serialises aspect-ratio as "<w> / <h>".
@@ -51,6 +52,7 @@ function frames(items: Item[], ratio: number) {
       .map(Number)
       .reduce((w, h) => w / h),
     src: f.querySelector("img")?.getAttribute("src") ?? "",
+    cover: f.querySelector("img")?.classList.contains("object-cover") ?? false,
   }));
 }
 
@@ -78,5 +80,27 @@ describe("WideRow", () => {
     const [f] = frames([item("1", "", art(1000, 250))], 2.4);
     expect(f.ratio).toBe(2.4);
     expect(f.src).toMatch(/\/240x60\.jpg$/);
+  });
+
+  it("crops every banner to a cropping row's frame and keeps covers whole", () => {
+    const [wide] = frames([item("1", art(1000, 250))], 1.75, true);
+    const [hero] = frames([item("2", art(1000, 417))], 1.75, true);
+    const [cover] = frames([item("3", "", art(400, 400))], 1.75, true);
+    // Banners are requested at the frame's shape: Apple crops them to it.
+    expect(wide).toMatchObject({
+      ratio: 1.75,
+      cover: true,
+      src: expect.stringMatching(/\/240x137\.jpg$/),
+    });
+    expect(hero).toMatchObject({
+      ratio: 1.75,
+      cover: true,
+      src: expect.stringMatching(/\/240x137\.jpg$/),
+    });
+    expect(cover).toMatchObject({
+      ratio: 1.75,
+      cover: false,
+      src: expect.stringMatching(/\/137x137\.jpg$/),
+    });
   });
 });
