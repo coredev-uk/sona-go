@@ -95,11 +95,15 @@ type memStore struct {
 	mu  sync.Mutex
 	rec *store.Record
 	bad bool
+	err error // returned by Get, like a keyring that failed
 }
 
 func (s *memStore) Get() (store.Record, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.err != nil {
+		return store.Record{}, s.err
+	}
 	if s.bad {
 		return store.Record{}, store.ErrCorrupt
 	}
@@ -108,12 +112,14 @@ func (s *memStore) Get() (store.Record, error) {
 	}
 	return *s.rec, nil
 }
+
 func (s *memStore) Set(r store.Record) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.rec, s.bad = &r, false
 	return nil
 }
+
 func (s *memStore) Delete() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -143,18 +149,21 @@ func (a *memAccounts) Load(context.Context) (Account, error) {
 	}
 	return *a.acct, nil
 }
+
 func (a *memAccounts) Save(_ context.Context, acct Account) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.acct = &acct
 	return nil
 }
+
 func (a *memAccounts) Delete(context.Context) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.acct = nil
 	return nil
 }
+
 func (a *memAccounts) get() *Account {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -166,6 +175,10 @@ type env struct {
 	dev      *fakeDev
 	store    *memStore
 	accounts *memAccounts
+	// open replaces the in-memory store (store.OpenWith a fake keyring).
+	open func() (store.Store, error)
+	// keyringSlow and keyringTimeout override the defaults when set.
+	keyringSlow, keyringTimeout time.Duration
 }
 
 func newEnv(t *testing.T) *env {
@@ -175,10 +188,14 @@ func newEnv(t *testing.T) *env {
 // manager builds a Manager recording every published Status.
 func (e *env) manager(t *testing.T) (*Manager, *recorder) {
 	t.Helper()
+	open := e.open
+	if open == nil {
+		open = func() (store.Store, error) { return e.store, nil }
+	}
 	m, err := NewManager(Config{
-		HTTP: e.apple.srv.Client(), Dev: e.dev, Store: e.store, Accounts: e.accounts,
+		HTTP: e.apple.srv.Client(), Dev: e.dev, Open: open, Accounts: e.accounts,
 		APIBase: e.apple.srv.URL, RetryMin: 5 * time.Millisecond, RetryMax: 20 * time.Millisecond,
-		TriageCooldown: time.Millisecond,
+		TriageCooldown: time.Millisecond, KeyringSlow: e.keyringSlow, KeyringTimeout: e.keyringTimeout,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -192,6 +209,13 @@ func (e *env) manager(t *testing.T) (*Manager, *recorder) {
 		r.ch <- s
 	})
 	return m, r
+}
+
+// start runs Start and returns the first status after restoring.
+func start(t *testing.T, m *Manager, r *recorder) Status {
+	t.Helper()
+	m.Start()
+	return r.wait(t, func(s Status) bool { return s.State != StateRestoring })
 }
 
 type recorder struct {
@@ -239,14 +263,11 @@ func (e *env) stored(tok string, withAccount bool) {
 
 func TestStartWithoutTokenSignedOut(t *testing.T) {
 	e := newEnv(t)
-	m, _ := e.manager(t)
-	if m.Status().State != StateLoading {
-		t.Fatalf("before Start: %v", m.Status().State)
+	m, rec := e.manager(t)
+	if s := m.Status(); s.State != StateRestoring || s.Backend != "" {
+		t.Fatalf("before Start: %+v", s)
 	}
-	if err := m.Start(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	if s := m.Status(); s.State != StateSignedOut || s.Backend != store.BackendSecretService {
+	if s := start(t, m, rec); s.State != StateSignedOut || s.Backend != store.BackendSecretService || s.Keyring != KeyringReady {
 		t.Fatalf("status = %+v", s)
 	}
 	if m.UserToken() != "" {
@@ -265,10 +286,7 @@ func TestRestartSignedInWithoutBlockingOnNetwork(t *testing.T) {
 	gate := make(chan struct{})
 	e.apple.set(func(f *fakeApple) { f.gate = gate })
 	m, rec := e.manager(t)
-	if err := m.Start(context.Background()); err != nil { // must not wait for the gated server
-		t.Fatal(err)
-	}
-	s := m.Status()
+	s := start(t, m, rec) // must not wait for the gated server
 	if s.State != StateSignedIn || s.StorefrontID != "gb" || s.StorefrontName != "United Kingdom" || s.Language != "en-GB" {
 		t.Fatalf("status after restart = %+v", s)
 	}
@@ -289,9 +307,8 @@ func TestStartWithoutAccountValidates(t *testing.T) {
 	gate := make(chan struct{})
 	e.apple.set(func(f *fakeApple) { f.gate = gate })
 	m, rec := e.manager(t)
-	m.Start(context.Background())
-	if m.Status().State != StateValidating {
-		t.Fatalf("state = %v", m.Status().State)
+	if s := start(t, m, rec); s.State != StateValidating {
+		t.Fatalf("state = %v", s.State)
 	}
 	close(gate)
 	s := rec.wait(t, is(StateSignedIn))
@@ -305,7 +322,7 @@ func TestOfflineStartStaysSignedIn(t *testing.T) {
 	e.stored(goodMUT, true)
 	e.apple.set(func(f *fakeApple) { f.offline = true })
 	m, rec := e.manager(t)
-	m.Start(context.Background())
+	m.Start()
 	s := rec.wait(t, func(s Status) bool { return s.Offline })
 	if s.State != StateSignedIn || m.UserToken() != goodMUT {
 		t.Fatalf("offline status = %+v", s)
@@ -321,7 +338,7 @@ func TestRevokedTokenNeedsReauthOnce(t *testing.T) {
 	e := newEnv(t)
 	e.stored(revokedMUT, true)
 	m, rec := e.manager(t)
-	m.Start(context.Background())
+	m.Start()
 	s := rec.wait(t, is(StateNeedsReauth))
 	if s.StorefrontID != "gb" || s.LastError == "" {
 		t.Fatalf("needs_reauth status = %+v", s)
@@ -359,7 +376,7 @@ func TestRevokedTokenNeedsReauthOnce(t *testing.T) {
 func TestReportUnauthorizedKeepsValidToken(t *testing.T) {
 	e := newEnv(t)
 	m, rec := e.manager(t)
-	m.Start(context.Background())
+	start(t, m, rec)
 	if err := m.SignInWithToken(context.Background(), goodMUT); err != nil {
 		t.Fatal(err)
 	}
@@ -384,7 +401,7 @@ func TestDeveloperTokenRejected(t *testing.T) {
 	e.stored(goodMUT, true)
 	e.apple.set(func(f *fakeApple) { f.devOK = false })
 	m, rec := e.manager(t)
-	m.Start(context.Background())
+	m.Start()
 	s := rec.wait(t, is(StateError))
 	if s.LastError != "developer token rejected" {
 		t.Fatalf("status = %+v", s)
@@ -407,7 +424,7 @@ func TestDeveloperTokenRejected(t *testing.T) {
 func TestSignInWithToken(t *testing.T) {
 	e := newEnv(t)
 	m, rec := e.manager(t)
-	m.Start(context.Background())
+	start(t, m, rec)
 
 	err := m.SignInWithToken(context.Background(), revokedMUT)
 	if !errors.Is(err, ErrMUTRejected) {
@@ -460,7 +477,7 @@ func browser(t *testing.T, tok string) func(string) error {
 func TestLoopbackSignIn(t *testing.T) {
 	e := newEnv(t)
 	m, rec := e.manager(t)
-	m.Start(context.Background())
+	start(t, m, rec)
 	if err := m.SignIn(context.Background(), browser(t, goodMUT)); err != nil {
 		t.Fatal(err)
 	}
@@ -482,7 +499,7 @@ func TestLoopbackSignInRejectedTokenRestoresState(t *testing.T) {
 	e := newEnv(t)
 	e.stored(revokedMUT, true)
 	m, rec := e.manager(t)
-	m.Start(context.Background())
+	m.Start()
 	rec.wait(t, is(StateNeedsReauth))
 	err := m.SignIn(context.Background(), browser(t, revokedMUT))
 	if !errors.Is(err, ErrMUTRejected) {
@@ -495,8 +512,8 @@ func TestLoopbackSignInRejectedTokenRestoresState(t *testing.T) {
 
 func TestCancelSignIn(t *testing.T) {
 	e := newEnv(t)
-	m, _ := e.manager(t)
-	m.Start(context.Background())
+	m, rec := e.manager(t)
+	start(t, m, rec)
 	urls := make(chan string, 1)
 	done := make(chan error, 1)
 	go func() {
@@ -522,8 +539,8 @@ func TestCancelSignIn(t *testing.T) {
 
 func TestSecondSignInSupersedesFirst(t *testing.T) {
 	e := newEnv(t)
-	m, _ := e.manager(t)
-	m.Start(context.Background())
+	m, rec := e.manager(t)
+	start(t, m, rec)
 	urls := make(chan string, 1)
 	first := make(chan error, 1)
 	go func() {
@@ -544,7 +561,7 @@ func TestSecondSignInSupersedesFirst(t *testing.T) {
 func TestOpenFailureKeepsWaiting(t *testing.T) {
 	e := newEnv(t)
 	m, rec := e.manager(t)
-	m.Start(context.Background())
+	start(t, m, rec)
 	done := make(chan error, 1)
 	go func() {
 		done <- m.SignIn(context.Background(), func(string) error { return errors.New("no xdg-open") })
@@ -561,7 +578,7 @@ func TestSignOutClearsStoreAccountAndRunsHooks(t *testing.T) {
 	e := newEnv(t)
 	e.stored(goodMUT, true)
 	m, rec := e.manager(t)
-	m.Start(context.Background())
+	start(t, m, rec)
 	var order []string
 	m.OnSignOut("engine", func(context.Context) error { order = append(order, "engine"); return nil })
 	m.OnSignOut("userdata", func(context.Context) error { order = append(order, "userdata"); return errors.New("db locked") })
@@ -596,9 +613,8 @@ func TestSignOutClearsStoreAccountAndRunsHooks(t *testing.T) {
 func TestCorruptStoreSignsOut(t *testing.T) {
 	e := newEnv(t)
 	e.store.bad = true
-	m, _ := e.manager(t)
-	m.Start(context.Background())
-	if s := m.Status(); s.State != StateSignedOut || s.LastError == "" {
+	m, rec := e.manager(t)
+	if s := start(t, m, rec); s.State != StateSignedOut || s.LastError == "" || s.Keyring != KeyringReady {
 		t.Fatalf("status = %+v", s)
 	}
 	if _, err := e.store.Get(); !errors.Is(err, store.ErrNotFound) {

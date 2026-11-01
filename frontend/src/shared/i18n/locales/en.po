@@ -3916,6 +3916,11 @@ msgstr "Save your settings to a file, or load one exported from Sona on another 
 msgid "Saved as {file}."
 msgstr "Saved as {file}."
 
+#: src/app/shell/StatusBanner.tsx
+#: src/features/auth/Account.tsx
+msgid "Saving your sign-in in your keyring; unlock it if it asks."
+msgstr "Saving your sign-in in your keyring; unlock it if it asks."
+
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "Saving…"
 msgstr "Saving…"
@@ -4264,8 +4269,16 @@ msgid "Signed in to Apple Music"
 msgstr "Signed in to Apple Music"
 
 #: src/features/auth/Account.tsx
+msgid "Signing in now stores your token unencrypted"
+msgstr "Signing in now stores your token unencrypted"
+
+#: src/features/auth/Account.tsx
 msgid "Signing in…"
 msgstr "Signing in…"
+
+#: src/app/shell/StatusBanner.tsx
+msgid "Signing in… Sona is waiting for your keyring; unlock it if it asks."
+msgstr "Signing in… Sona is waiting for your keyring; unlock it if it asks."
 
 #: src/features/auth/Account.tsx
 msgid "Signing out…"
@@ -4401,6 +4414,10 @@ msgid "Sona couldn't finish checking the downloaded Widevine. Try again."
 msgstr "Sona couldn't finish checking the downloaded Widevine. Try again."
 
 #: src/features/auth/Account.tsx
+msgid "Sona couldn't open a keyring, so it would keep your Apple Music token in a file only your user can read. Start or unlock GNOME Keyring or KWallet, then try again."
+msgstr "Sona couldn't open a keyring, so it would keep your Apple Music token in a file only your user can read. Start or unlock GNOME Keyring or KWallet, then try again."
+
+#: src/features/auth/Account.tsx
 msgid "Sona couldn't reach Apple to confirm your sign-in. It keeps using your saved token, and retries by itself."
 msgstr "Sona couldn't reach Apple to confirm your sign-in. It keeps using your saved token, and retries by itself."
 
@@ -4412,9 +4429,21 @@ msgstr "Sona couldn't reach Google's download server. Check your internet connec
 msgid "Sona couldn't reach the network. Check your connection and try again."
 msgstr "Sona couldn't reach the network. Check your connection and try again."
 
+#: src/features/auth/Account.tsx
+msgid "Sona couldn't read your sign-in from your keyring"
+msgstr "Sona couldn't read your sign-in from your keyring"
+
+#: src/app/shell/StatusBanner.tsx
+msgid "Sona couldn't read your sign-in from your keyring, so you're signed out."
+msgstr "Sona couldn't read your sign-in from your keyring, so you're signed out."
+
 #: src/features/cdm/messages.ts
 msgid "Sona couldn't save Widevine on this computer. Make sure there's free disk space, then try again."
 msgstr "Sona couldn't save Widevine on this computer. Make sure there's free disk space, then try again."
+
+#: src/features/auth/signin.ts
+msgid "Sona couldn't save your sign-in"
+msgstr "Sona couldn't save your sign-in"
 
 #: src/features/cdm/messages.ts
 msgid "Sona couldn't tell which version of Widevine to download. Try again later."
@@ -4427,6 +4456,10 @@ msgstr "Sona discards them and removes its sign-in from your keyring."
 #: src/features/settings/Diagnostics.tsx
 msgid "Sona downloads it from Google once it's online. Songs play when it's ready."
 msgstr "Sona downloads it from Google once it's online. Songs play when it's ready."
+
+#: src/features/auth/Account.tsx
+msgid "Sona is waiting for your keyring to hand over your sign-in. If GNOME Keyring or KWallet asks you to unlock it, do that now."
+msgstr "Sona is waiting for your keyring to hand over your sign-in. If GNOME Keyring or KWallet asks you to unlock it, do that now."
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Sona loads the CDM only inside its sandbox, which keeps it off the network, and the sandbox could not be set up. Only 30-second previews play."
@@ -5073,6 +5106,15 @@ msgstr "Treble Reducer"
 msgid "Trusted phone number"
 msgstr "Trusted phone number"
 
+#. Reads the sign-in from the system keyring again. Apple's wording: ASE.Web.Music.Error.TryAgain
+#: src/features/auth/KeyringRetry.tsx
+msgid "Try again"
+msgstr "Try again"
+
+#: src/features/auth/KeyringRetry.tsx
+msgid "Trying…"
+msgstr "Trying…"
+
 #: src/features/private/index.ts
 msgid "Turn off private listening"
 msgstr "Turn off private listening"
@@ -5401,6 +5443,18 @@ msgstr "Your curve"
 #: src/features/playlist/PlaylistPage.tsx
 msgid "Your favourites"
 msgstr "Your favourites"
+
+#: src/features/auth/signin.ts
+msgid "Your keyring didn't answer or refused, so nothing was saved. Unlock GNOME Keyring or KWallet, then sign in again."
+msgstr "Your keyring didn't answer or refused, so nothing was saved. Unlock GNOME Keyring or KWallet, then sign in again."
+
+#: src/features/auth/Account.tsx
+msgid "Your keyring didn't answer or refused, so you're signed out. Unlock GNOME Keyring or KWallet, then try again."
+msgstr "Your keyring didn't answer or refused, so you're signed out. Unlock GNOME Keyring or KWallet, then try again."
+
+#: src/shared/lib/errors.ts
+msgid "Your keyring didn't answer or refused. Unlock it, then try again."
+msgstr "Your keyring didn't answer or refused. Unlock it, then try again."
 
 #: src/features/library/gate.tsx
 msgid "Your library is syncing"

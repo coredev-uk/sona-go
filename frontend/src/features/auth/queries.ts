@@ -12,3 +12,14 @@ export function useAuth() {
 export function hasAccount(state: string | undefined): boolean {
   return state === "signed_in" || state === "validating";
 }
+
+/**
+ * Known to be signed out: not while Go still reads the stored sign-in from
+ * the keyring (restoring), and not when Apple only asked to sign in again
+ * (needs_reauth: the library is still here).
+ */
+export function isSignedOut(state: string | undefined): boolean {
+  return (
+    state !== undefined && state !== "restoring" && state !== "needs_reauth" && !hasAccount(state)
+  );
+}

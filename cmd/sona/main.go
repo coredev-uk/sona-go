@@ -135,24 +135,19 @@ func run(started time.Time) error {
 	gate := services.NewGate(paintFallback, log)
 	httpClient := &http.Client{Transport: gate.Transport(newTransport()), Timeout: 60 * time.Second}
 
-	creds, err := store.Open(paths.Config, log)
-	if err != nil {
-		return fmt.Errorf("credentials store: %w", err)
-	}
 	dev := devtoken.NewWebPlayer(httpClient)
+	// The keyring is opened and read in the background (Start, below): an
+	// unlock prompt or a Secret Service that never answers must not hold
+	// the window. Validation runs through the gated client.
 	authm, err := auth.NewManager(auth.Config{
-		HTTP: httpClient, Dev: dev, Store: creds,
+		HTTP: httpClient, Dev: dev,
+		Open:     func() (store.Store, error) { return store.Open(paths.Config, log) },
 		Accounts: services.AccountStore{DB: d}, Logger: log,
 	})
 	if err != nil {
 		return err
 	}
 	defer authm.Close()
-	// Local only: reads the stored token and cached account; validation
-	// runs in the background through the gated client.
-	if err := authm.Start(ctx); err != nil {
-		log.Warn("auth start", "err", err)
-	}
 
 	api := applemusic.New(httpClient, dev, authm.UserToken)
 	fallbackSF := localeStorefront()
@@ -306,6 +301,9 @@ func run(started time.Time) error {
 		Version: version, WebKit: webkitVersion(), Started: started,
 	})
 	defer core.Close() // runs first: stops sync, events and MPRIS
+	// After the services subscribed to auth changes, so none misses the
+	// restored sign-in.
+	authm.Start()
 	for _, s := range core.Services() {
 		wapp.RegisterService(s)
 	}

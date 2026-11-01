@@ -29,6 +29,15 @@ export function ResendSecurityCode(): $CancellablePromise<void> {
 }
 
 /**
+ * RetryKeyring reads the stored sign-in again after the keyring was
+ * unavailable (AuthStatus.Keyring "unavailable", or the unencrypted file
+ * fallback while signed out); the outcome arrives as auth:changed.
+ */
+export function RetryKeyring(): $CancellablePromise<void> {
+    return $Call.ByID(1218338511);
+}
+
+/**
  * Revalidate checks the stored token with Apple now (the UI's retry).
  */
 export function Revalidate(): $CancellablePromise<void> {

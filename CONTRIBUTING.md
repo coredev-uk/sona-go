@@ -303,8 +303,8 @@ Sona (single instance, MPRIS name) nor touches your real settings and library. S
 the XDG variables outside `dbus-run-session` (`env XDG_…=… dbus-run-session
 -- bin/sona`), so services the private bus starts (the Secret Service, the
 portals) use them too; started the other way round, GNOME Keyring opens your
-real, locked keyring and Sona waits on its unlock prompt before showing a
-window.
+real, locked keyring and Sona waits on its unlock prompt (the window shows
+"Signing in…", and the run reads your real keyring).
 
 The CDM host sandbox tests (`TestChildCannotOpenInetSockets`,
 `TestSandboxConfinesChild/namespaces`) need unprivileged user namespaces in

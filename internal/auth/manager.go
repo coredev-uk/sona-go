@@ -1,8 +1,9 @@
 // Package auth owns Sona's Apple Music sign-in state: the stored Music User
 // Token, the account metadata cached next to it, sign-in through Sona's
 // own Apple Account form (package appleid), the loopback browser flow
-// (package mut) or a pasted token, sign-out, and 401/403 triage. See
-// docs/auth.md §4–§7.
+// (package mut) or a pasted token, sign-out, and 401/403 triage. The token
+// store is used off the caller's path with deadlines, so a slow keyring
+// never holds up the window or a sign-in. See docs/auth.md §4–§7.
 package auth
 
 import (
@@ -25,7 +26,7 @@ import (
 type State string
 
 const (
-	StateLoading     State = "loading"      // before Start has read the store
+	StateRestoring   State = "restoring"    // reading the stored token (Start, RetryKeyring); see Status.Keyring
 	StateSignedOut   State = "signed_out"   // no Music User Token
 	StateSigningIn   State = "signing_in"   // sign-in in progress: loopback redirect or native two-factor code
 	StateValidating  State = "validating"   // checking a token against /v1/me/storefront
@@ -34,12 +35,32 @@ const (
 	StateError       State = "error"        // unusable for another reason, e.g. developer token rejected
 )
 
+// KeyringState says whether the token store is holding sign-in up.
+type KeyringState string
+
+const (
+	KeyringReady KeyringState = ""
+	// KeyringWaiting: a read (restoring) or a sign-in's write has waited
+	// longer than Config.KeyringSlow, typically for an unlock prompt; a
+	// RetryKeyring read is waiting from the start, as the user asked for it.
+	KeyringWaiting KeyringState = "waiting"
+	// KeyringUnavailable: the stored token couldn't be read (the keyring
+	// failed, or didn't answer within Config.KeyringTimeout), so the state is
+	// signed_out; RetryKeyring reads it again. A late answer still applies.
+	KeyringUnavailable KeyringState = "unavailable"
+)
+
 // Errors reported by validation and sign-in.
 var (
 	ErrMUTRejected      = errors.New("auth: Apple rejected the Music User Token")
 	ErrDevTokenRejected = errors.New("auth: developer token rejected")
 	ErrNoAccount        = errors.New("auth: no account metadata")
 	ErrNotSignedIn      = errors.New("auth: not signed in")
+	// ErrKeyring wraps every failure of the token store (keyring or file).
+	ErrKeyring = errors.New("auth: keyring unavailable")
+	// ErrKeyringTimeout is a token store that didn't answer within
+	// Config.KeyringTimeout; it wraps ErrKeyring.
+	ErrKeyringTimeout = fmt.Errorf("%w: no answer", ErrKeyring)
 )
 
 // Account is the non-secret metadata cached for the signed-in account.
@@ -68,7 +89,9 @@ type Status struct {
 	StorefrontName string        `json:"storefrontName,omitempty"`
 	Language       string        `json:"language,omitempty"`
 	Restricted     bool          `json:"restricted"`
-	Backend        store.Backend `json:"backend"`
+	Backend        store.Backend `json:"backend"` // "" until the store has been opened
+	// Keyring says whether the token store is holding sign-in up.
+	Keyring KeyringState `json:"keyring,omitempty"`
 	// Offline is set while the last validation of the token in use could not
 	// reach Apple (network or server error); the token is kept and
 	// validation retries with backoff.
@@ -82,11 +105,14 @@ type Status struct {
 	SecondFactor *appleid.SecondFactor `json:"secondFactor,omitempty"`
 }
 
-// Config configures a Manager. Dev, Store and Accounts are required.
+// Config configures a Manager. Dev, Open and Accounts are required.
 type Config struct {
-	HTTP     *http.Client           // default http.DefaultClient
-	Dev      applemusic.TokenSource // the developer token provider, normally *devtoken.WebPlayer
-	Store    store.Store
+	HTTP *http.Client           // default http.DefaultClient
+	Dev  applemusic.TokenSource // the developer token provider, normally *devtoken.WebPlayer
+	// Open opens the token store (normally store.Open). It runs off the
+	// caller's path, the first time the store is needed and again on
+	// RetryKeyring, and may block for as long as the keyring does.
+	Open     func() (store.Store, error)
 	Accounts AccountStore
 	Logger   *slog.Logger
 	APIBase  string // default applemusic.BaseURL
@@ -99,6 +125,14 @@ type Config struct {
 	RetryMin       time.Duration // first validation retry after a network error; default 2s
 	RetryMax       time.Duration // backoff cap; default 5m
 	TriageCooldown time.Duration // minimum gap between ReportUnauthorized probes; default 1m
+
+	// KeyringSlow is how long a token store read or write may take before
+	// Status.Keyring says the keyring is holding sign-in up; default 1s.
+	KeyringSlow time.Duration
+	// KeyringTimeout bounds every wait for the token store: restoring
+	// gives up to signed_out (Keyring unavailable), a sign-in fails with
+	// ErrKeyringTimeout, a sign-out reports it; default 30s.
+	KeyringTimeout time.Duration
 }
 
 type hook struct {
@@ -123,13 +157,18 @@ type Manager struct {
 	// subscribers see every transition in order. Lock order:
 	// persist, then notify, then mu.
 	notify sync.Mutex
-	// persist serializes writes to Store and Accounts with the checks that
-	// the writing flow is still current, so a racing SignOut always wins.
+	// persist serializes writes to the store and Accounts with the checks
+	// that the writing flow is still current, so a racing SignOut always
+	// wins.
 	persist sync.Mutex
 
+	vault *vault
+
 	mu         sync.Mutex
-	st         Status // State, Offline, LastError, SignInURL, SecondFactor
+	st         Status // State, Keyring, Offline, LastError, SignInURL, SecondFactor
 	started    bool
+	restoreGen uint64       // restore generation
+	restoring  uint64       // the restore whose answer still applies; 0: none
 	record     store.Record // stored token, kept in needs_reauth for Revalidate
 	token      string       // token handed to requests; "" unless usable
 	account    Account
@@ -150,15 +189,15 @@ type Manager struct {
 	nextID int
 }
 
-// NewManager returns a Manager in StateLoading; call Start to load the
+// NewManager returns a Manager in StateRestoring; call Start to read the
 // stored token.
 //
 // Wire the app-wide Apple Music client to it with
 // applemusic.New(httpClient, dev, m.UserToken). The manager issues its own
 // validation requests through applemusic clients built from cfg.
 func NewManager(cfg Config) (*Manager, error) {
-	if cfg.Dev == nil || cfg.Store == nil || cfg.Accounts == nil {
-		return nil, errors.New("auth: Dev, Store and Accounts are required")
+	if cfg.Dev == nil || cfg.Open == nil || cfg.Accounts == nil {
+		return nil, errors.New("auth: Dev, Open and Accounts are required")
 	}
 	if cfg.HTTP == nil {
 		cfg.HTTP = http.DefaultClient
@@ -178,15 +217,26 @@ func NewManager(cfg Config) (*Manager, error) {
 	if cfg.TriageCooldown <= 0 {
 		cfg.TriageCooldown = time.Minute
 	}
+	if cfg.KeyringSlow <= 0 {
+		cfg.KeyringSlow = time.Second
+	}
+	if cfg.KeyringTimeout <= 0 {
+		cfg.KeyringTimeout = 30 * time.Second
+	}
 	log := cfg.Logger
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
 	ctx, stop := context.WithCancel(context.Background())
-	return &Manager{cfg: cfg, log: log, ctx: ctx, stop: stop, st: Status{State: StateLoading}}, nil
+	return &Manager{
+		cfg: cfg, log: log, ctx: ctx, stop: stop,
+		vault: newVault(cfg.Open), st: Status{State: StateRestoring},
+	}, nil
 }
 
-// Close cancels a pending sign-in and background validation.
+// Close cancels a pending sign-in, background validation and every wait
+// for the token store; a store operation already running finishes on its
+// own.
 func (m *Manager) Close() { m.stop() }
 
 // Status returns the current state.
@@ -198,8 +248,8 @@ func (m *Manager) Status() Status {
 
 func (m *Manager) statusLocked() Status {
 	s := m.st
-	s.Backend = m.cfg.Store.Backend()
-	if s.State == StateSignedOut || s.State == StateLoading {
+	s.Backend = m.vault.Backend()
+	if s.State == StateSignedOut || s.State == StateRestoring {
 		return s
 	}
 	s.Restricted = m.record.Restricted
@@ -268,44 +318,147 @@ func (m *Manager) update(f func() bool) bool {
 	return changed
 }
 
-// Start loads the stored token. It reads only local storage: a stored token
-// with cached account metadata reports signed_in at once and is validated in
-// the background (offline-first); a stored token without metadata reports
-// validating until Apple answers. Start never waits for the network. Later
-// calls are no-ops. Background work runs until Close; ctx only bounds
-// Start's own reads.
-func (m *Manager) Start(ctx context.Context) error {
+// Start reads the stored token in the background and returns at once, so
+// the window never waits for the keyring. The state stays restoring until
+// the store answers: a stored token with cached account metadata then
+// reports signed_in and is validated in the background (offline-first), a
+// stored token without metadata reports validating until Apple answers, no
+// token reports signed_out. Past Config.KeyringSlow, Status.Keyring is
+// waiting; past Config.KeyringTimeout, or when the store fails, the state is
+// signed_out with Keyring unavailable (RetryKeyring reads again), and an
+// answer that still comes later applies unless a sign-in or sign-out came
+// first. Start never waits for the network. Later calls are no-ops.
+// Background work runs until Close.
+func (m *Manager) Start() {
 	m.mu.Lock()
 	if m.started {
 		m.mu.Unlock()
-		return nil
+		return
 	}
 	m.started = true
 	m.mu.Unlock()
+	m.restore(false)
+}
 
-	rec, err := m.cfg.Store.Get()
+// RetryKeyring reads the stored token again, opening the store afresh
+// (store.Open probes the keyring again), when the last read left Sona
+// signed out because the keyring was unavailable or the token store is the
+// 0600 file. Otherwise it does nothing.
+func (m *Manager) RetryKeyring() {
+	m.mu.Lock()
+	retry := m.started && m.st.State == StateSignedOut && m.cancelAttempt == nil &&
+		(m.st.Keyring == KeyringUnavailable || m.vault.Backend() == store.BackendFile)
+	m.mu.Unlock()
+	if retry {
+		m.restore(true)
+	}
+}
+
+// restore enters restoring and reads the stored token through the vault.
+func (m *Manager) restore(fresh bool) {
+	var id uint64
+	m.update(func() bool {
+		m.restoreGen++
+		id = m.restoreGen
+		m.restoring = id
+		m.st = Status{State: StateRestoring}
+		if fresh {
+			m.st.Keyring = KeyringWaiting
+		}
+		return true
+	})
+	var rec store.Record
+	res := m.vault.do(fresh, func(s store.Store) error {
+		var err error
+		rec, err = s.Get()
+		return err
+	})
+	go func() {
+		err := await(m.ctx, res, m.cfg.KeyringSlow, m.cfg.KeyringTimeout, func() {
+			m.update(func() bool {
+				if m.restoring != id || m.st.State != StateRestoring || m.st.Keyring == KeyringWaiting {
+					return false
+				}
+				m.st.Keyring = KeyringWaiting
+				return true
+			})
+			m.log.Info("waiting for the keyring to answer")
+		})
+		if errors.Is(err, ErrKeyringTimeout) {
+			m.update(func() bool {
+				if m.restoring != id {
+					return false
+				}
+				m.st = Status{State: StateSignedOut, Keyring: KeyringUnavailable, LastError: "the keyring didn't answer"}
+				return true
+			})
+			m.log.Warn("the keyring didn't answer; signed out until it does", "after", m.cfg.KeyringTimeout.String())
+			select {
+			case err = <-res:
+			case <-m.ctx.Done():
+				return
+			}
+		}
+		if m.ctx.Err() != nil {
+			return
+		}
+		m.restored(id, rec, err)
+	}()
+}
+
+// restored applies the answer of restore id, unless a sign-in, sign-out or
+// newer restore came first.
+func (m *Manager) restored(id uint64, rec store.Record, err error) {
+	current := func() bool { return m.restoring == id }
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		m.update(func() bool { m.st = Status{State: StateSignedOut}; return true })
-		return nil
+		m.update(func() bool {
+			if !current() {
+				return false
+			}
+			m.restoring = 0
+			m.st = Status{State: StateSignedOut}
+			return true
+		})
+		return
 	case errors.Is(err, store.ErrCorrupt):
-		m.log.Warn("discarding unreadable stored credentials", "backend", m.cfg.Store.Backend(), "err", err)
+		m.log.Warn("discarding unreadable stored credentials", "backend", m.vault.Backend(), "err", err)
 		msg := "stored credentials were unreadable; sign in again"
-		if derr := m.cfg.Store.Delete(); derr != nil {
+		del := m.vault.do(false, func(s store.Store) error { return s.Delete() })
+		if derr := await(m.ctx, del, m.cfg.KeyringSlow, m.cfg.KeyringTimeout, nil); derr != nil {
 			msg += " (" + derr.Error() + ")"
 		}
-		m.update(func() bool { m.st = Status{State: StateSignedOut, LastError: msg}; return true })
-		return nil
+		m.update(func() bool {
+			if !current() {
+				return false
+			}
+			m.restoring = 0
+			m.st = Status{State: StateSignedOut, LastError: msg}
+			return true
+		})
+		return
 	case err != nil:
-		m.update(func() bool { m.st = Status{State: StateError, LastError: err.Error()}; return true })
-		return fmt.Errorf("auth: load credentials: %w", err)
+		m.update(func() bool {
+			if !current() {
+				return false
+			}
+			m.restoring = 0
+			m.st = Status{State: StateSignedOut, Keyring: KeyringUnavailable, LastError: err.Error()}
+			return true
+		})
+		m.log.Warn("stored credentials unreadable; signed out", "backend", m.vault.Backend(), "err", err)
+		return
 	}
 
-	acct, aerr := m.cfg.Accounts.Load(ctx)
+	acct, aerr := m.cfg.Accounts.Load(m.ctx)
 	if aerr != nil && !errors.Is(aerr, ErrNoAccount) {
 		m.log.Warn("account metadata unavailable; revalidating", "err", aerr)
 	}
-	m.update(func() bool {
+	if !m.update(func() bool {
+		if !current() {
+			return false
+		}
+		m.restoring = 0
 		m.record, m.token, m.validated = rec, rec.Token, false
 		m.account, m.hasAccount = acct, aerr == nil
 		m.st = Status{State: StateValidating}
@@ -313,10 +466,11 @@ func (m *Manager) Start(ctx context.Context) error {
 			m.st.State = StateSignedIn
 		}
 		return true
-	})
-	m.log.Info("loaded stored credentials", "mut", rec, "backend", m.cfg.Store.Backend(), "cached_account", aerr == nil)
+	}) {
+		return
+	}
+	m.log.Info("loaded stored credentials", "mut", rec, "backend", m.vault.Backend(), "cached_account", aerr == nil)
 	m.startValidation(rec)
-	return nil
 }
 
 // startValidation (re)starts the background loop validating rec.
@@ -400,7 +554,7 @@ func (m *Manager) check(ctx context.Context, tok string) (applemusic.Resource[ap
 func (m *Manager) settle(rec store.Record, sf applemusic.Resource[applemusic.StorefrontAttributes], err error) error {
 	current := func() bool {
 		return m.record.Token == rec.Token && m.cancelAttempt == nil &&
-			m.st.State != StateSignedOut && m.st.State != StateLoading
+			m.st.State != StateSignedOut && m.st.State != StateRestoring
 	}
 	switch {
 	case err == nil:
@@ -546,6 +700,7 @@ func (m *Manager) beginAttempt(ctx context.Context, state State) (context.Contex
 			m.prior = m.st.State
 		}
 		m.attempt++
+		m.restoring = 0 // a late answer from the store must not undo the attempt
 		id = m.attempt
 		m.cancelAttempt = cancel
 		m.stopValidationLocked()
@@ -561,7 +716,7 @@ func (m *Manager) restoreLocked(lastErr string) (store.Record, bool) {
 	m.attempt++
 	m.cancelAttempt = nil
 	prior := m.prior
-	if prior == StateLoading || prior == StateSigningIn || prior == "" {
+	if prior == StateRestoring || prior == StateSigningIn || prior == "" {
 		prior = StateSignedOut
 	}
 	m.st = Status{State: prior, LastError: lastErr}
@@ -663,6 +818,9 @@ func (m *Manager) SignInWithToken(ctx context.Context, token string) error {
 }
 
 // finish validates rec for attempt id, persists it and enters signed_in.
+// Past Config.KeyringSlow the write shows Status.Keyring waiting; past
+// Config.KeyringTimeout, or when the attempt ends first, the attempt fails
+// and a write that still lands later is undone.
 func (m *Manager) finish(ctx context.Context, id uint64, rec store.Record) error {
 	m.update(func() bool {
 		if m.attempt != id {
@@ -687,8 +845,28 @@ func (m *Manager) finish(ctx context.Context, id uint64, rec store.Record) error
 	if !current {
 		return mut.ErrCanceled
 	}
-	if err := m.cfg.Store.Set(rec); err != nil {
-		return m.failAttempt(id, fmt.Errorf("auth: store token: %w", err))
+	set := m.vault.do(false, func(s store.Store) error { return s.Set(rec) })
+	err = await(ctx, set, m.cfg.KeyringSlow, m.cfg.KeyringTimeout, func() {
+		m.update(func() bool {
+			if m.attempt != id {
+				return false
+			}
+			m.st.Keyring = KeyringWaiting
+			return true
+		})
+		m.log.Info("waiting for the keyring to store the sign-in")
+	})
+	if err != nil {
+		if errors.Is(err, ErrKeyringTimeout) || ctx.Err() != nil {
+			m.undoLateWrite()
+		}
+		if ctx.Err() != nil {
+			return m.failAttempt(id, mut.ErrCanceled)
+		}
+		if !errors.Is(err, ErrKeyring) {
+			err = fmt.Errorf("%w: store token: %w", ErrKeyring, err)
+		}
+		return m.failAttempt(id, err)
 	}
 	acct := accountFrom(sf, rec, time.Now())
 	if err := m.cfg.Accounts.Save(ctx, acct); err != nil {
@@ -707,8 +885,24 @@ func (m *Manager) finish(ctx context.Context, id uint64, rec store.Record) error
 	}) {
 		return mut.ErrCanceled // SignOut raced in and will delete what was stored
 	}
-	m.log.Info("signed in", "mut", rec, "storefront", acct.StorefrontID, "backend", m.cfg.Store.Backend())
+	m.log.Info("signed in", "mut", rec, "storefront", acct.StorefrontID, "backend", m.vault.Backend())
 	return nil
+}
+
+// undoLateWrite queues, behind a write nobody waits for any more, the
+// write that puts the stored token back to the one in memory, so the store
+// ends as the manager left it however late the keyring answers.
+func (m *Manager) undoLateWrite() {
+	m.mu.Lock()
+	prev := m.record
+	m.mu.Unlock()
+	m.vault.do(false, func(s store.Store) error {
+		if prev.Token == "" {
+			return s.Delete()
+		}
+		return s.Set(prev)
+	})
+	m.log.Warn("the keyring didn't store the sign-in in time; it will be undone if it still lands")
 }
 
 // CancelSignIn abandons a pending sign-in (closing its loopback server) and
@@ -733,12 +927,15 @@ func (m *Manager) CancelSignIn() {
 // SignOut cancels any sign-in and background work, clears the in-memory
 // token, deletes the stored token and the account metadata, then runs the
 // OnSignOut hooks in order. Every step runs even if an earlier one fails;
-// the failures are returned joined and shown in Status.LastError. It ends
-// in signed_out.
+// the failures are returned joined and shown in Status.LastError. A
+// keyring that doesn't answer within Config.KeyringTimeout is such a
+// failure; its delete still runs once the keyring answers. It ends in
+// signed_out.
 func (m *Manager) SignOut(ctx context.Context) error {
 	var hooks []hook
 	m.update(func() bool {
 		m.attempt++
+		m.restoring = 0
 		if m.cancelAttempt != nil {
 			m.cancelAttempt()
 			m.cancelAttempt = nil
@@ -752,7 +949,8 @@ func (m *Manager) SignOut(ctx context.Context) error {
 	})
 	var errs []error
 	m.persist.Lock()
-	if err := m.cfg.Store.Delete(); err != nil {
+	del := m.vault.do(false, func(s store.Store) error { return s.Delete() })
+	if err := await(ctx, del, m.cfg.KeyringSlow, m.cfg.KeyringTimeout, nil); err != nil {
 		errs = append(errs, fmt.Errorf("delete stored token: %w", err))
 	}
 	if err := m.cfg.Accounts.Delete(ctx); err != nil {

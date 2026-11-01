@@ -528,7 +528,7 @@ export class ArtistViewPage {
  */
 export class AuthStatus {
     /**
-     * State is loading, signed_out, signing_in, validating, signed_in,
+     * State is restoring, signed_out, signing_in, validating, signed_in,
      * needs_reauth or error.
      */
     "state": string;
@@ -542,11 +542,20 @@ export class AuthStatus {
     "restricted": boolean;
 
     /**
-     * Backend is where the token is stored; Unencrypted is set for the
-     * 0600 file fallback, which the UI must flag.
+     * Backend is where the token is stored ("" until the store has been
+     * opened); Unencrypted is set for the 0600 file fallback, which the UI
+     * must flag.
      */
     "backend": string;
     "unencrypted": boolean;
+
+    /**
+     * Keyring is "waiting" while a read (restoring) or a sign-in's write
+     * has waited past a second for the keyring, and from the start of a
+     * RetryKeyring read; "unavailable" when the stored sign-in couldn't be
+     * read (signed_out; RetryKeyring tries again); "" otherwise.
+     */
+    "keyring": string;
     "offline": boolean;
     "lastError": string;
 
@@ -590,6 +599,9 @@ export class AuthStatus {
         if (!("unencrypted" in $$source)) {
             this["unencrypted"] = false;
         }
+        if (!("keyring" in $$source)) {
+            this["keyring"] = "";
+        }
         if (!("offline" in $$source)) {
             this["offline"] = false;
         }
@@ -613,10 +625,10 @@ export class AuthStatus {
      * Creates a new AuthStatus instance from a string or object.
      */
     static createFrom($$source: any = {}): AuthStatus {
-        const $$createField11_0 = $$createType14;
+        const $$createField12_0 = $$createType14;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("secondFactor" in $$parsedSource) {
-            $$parsedSource["secondFactor"] = $$createField11_0($$parsedSource["secondFactor"]);
+            $$parsedSource["secondFactor"] = $$createField12_0($$parsedSource["secondFactor"]);
         }
         return new AuthStatus($$parsedSource as Partial<AuthStatus>);
     }

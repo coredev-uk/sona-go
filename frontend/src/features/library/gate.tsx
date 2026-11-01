@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { ReactNode } from "react";
 
-import { hasAccount, useAuth } from "@/features/auth";
+import { isSignedOut, useAuth } from "@/features/auth";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 
@@ -82,8 +82,8 @@ export function useLibraryGate(opts: {
   }
   if (opts.pending || opts.total > 0 || !auth.data) return null;
   const state = auth.data.state;
-  if (state === "loading") return null;
-  if (!hasAccount(state) && state !== "needs_reauth") {
+  if (state === "restoring") return null;
+  if (isSignedOut(state)) {
     return (
       <EmptyState frame={opts.frame} title={copy.signIn} action={signInAction()}>
         <Trans>

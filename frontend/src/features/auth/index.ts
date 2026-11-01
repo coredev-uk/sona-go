@@ -6,7 +6,8 @@ import type { FeatureModule } from "@/shared/module";
 import { authInvalidations } from "./invalidations";
 
 export { AccountSection } from "./Account";
-export { hasAccount, useAuth } from "./queries";
+export { KeyringRetry } from "./KeyringRetry";
+export { hasAccount, isSignedOut, useAuth } from "./queries";
 
 /** Sign-in state: the auth query, its Go event, and the Account settings section. */
 export const authModule: FeatureModule<never> = {

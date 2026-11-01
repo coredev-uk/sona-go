@@ -29,6 +29,7 @@ export type SignInErrorCode =
   | "cancelled"
   | "timeout"
   | "network"
+  | "keyring"
   | "unknown";
 
 export interface SignInError {
@@ -56,6 +57,7 @@ const codePattern: [SignInErrorCode, RegExp][] = [
   ["unsupported_2fa", /two-factor method is not supported|unsupported_2fa/i],
   ["out_of_order", /out of order|out_of_order/i],
   ["cancelled", /cancel/i],
+  ["keyring", /keyring/i],
   ["timeout", /timed out|deadline exceeded/i],
   ["network", /network|no such host|connection refused|connection reset|dial tcp|offline/i],
 ];
@@ -140,6 +142,12 @@ export function errorCopy(e: SignInError): ErrorCopy {
       return {
         title: t`Couldn't reach Apple`,
         detail: t`Check your connection and try again.`,
+        next: "retry",
+      };
+    case "keyring":
+      return {
+        title: t`Sona couldn't save your sign-in`,
+        detail: t`Your keyring didn't answer or refused, so nothing was saved. Unlock GNOME Keyring or KWallet, then sign in again.`,
         next: "retry",
       };
     case "unknown":

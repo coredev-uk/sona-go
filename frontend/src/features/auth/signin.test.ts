@@ -60,6 +60,7 @@ describe("classifySignInError", () => {
       ["appleid: this account's two-factor method is not supported here", "unsupported_2fa"],
       ["appleid: sign-in step called out of order", "out_of_order"],
       ["auth: sign-in timed out", "timeout"],
+      ["auth: keyring unavailable: no answer", "keyring"],
       ['Post "https://idmsa.apple.com": dial tcp: lookup idmsa.apple.com: no such host', "network"],
       ["something else", "unknown"],
     ];
@@ -84,6 +85,7 @@ describe("classifySignInError", () => {
     expect(errorCopy({ code: "unsupported_2fa", message: "" }).next).toBe("browser");
     expect(errorCopy({ code: "action_required", message: "" }).next).toBe("account-site");
     expect(errorCopy({ code: "timeout", message: "" }).next).toBe("restart");
+    expect(errorCopy({ code: "keyring", message: "" }).next).toBe("retry");
   });
 });
 

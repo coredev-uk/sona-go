@@ -3,7 +3,7 @@ import { plural } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback } from "react";
 
-import { hasAccount, useAuth } from "@/features/auth";
+import { isSignedOut, useAuth } from "@/features/auth";
 import { playSongs, shuffleSongs } from "@/features/player";
 import { CoverGrid, type CoverItem } from "@/shared/components/CoverGrid";
 import { EmptyState } from "@/shared/components/EmptyState";
@@ -88,7 +88,7 @@ export function FavoriteSongsPage() {
     (i: number) => playSongs(list.rows, i, t`Favourite songs`),
     [list.rows, t],
   );
-  const signedOut = auth.data && !hasAccount(auth.data.state) && auth.data.state !== "needs_reauth";
+  const signedOut = isSignedOut(auth.data?.state);
   let body;
   if (list.error) {
     body = (
@@ -184,7 +184,7 @@ function onlineGate(opts: {
 
 function useSignedOut() {
   const auth = useAuth();
-  return !!auth.data && !hasAccount(auth.data.state) && auth.data.state !== "needs_reauth";
+  return isSignedOut(auth.data?.state);
 }
 
 /** The personal mixes Apple makes for the account, as library playlists. */

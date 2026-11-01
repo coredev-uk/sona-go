@@ -2,7 +2,7 @@ import { plural } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useMemo, useState } from "react";
 
-import { hasAccount, useAuth } from "@/features/auth";
+import { isSignedOut, useAuth } from "@/features/auth";
 import { playSongs } from "@/features/player";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
@@ -61,8 +61,7 @@ export function HistoryPage() {
   const [days, setDays] = useState(PAGE_DAYS);
   const q = useHistory(days);
   const auth = useAuth();
-  const signedOut =
-    !!auth.data && !hasAccount(auth.data.state) && auth.data.state !== "needs_reauth";
+  const signedOut = isSignedOut(auth.data?.state);
   const groups = useMemo(() => (q.data ? historyGroups(q.data) : []), [q.data]);
   // Day labels are relative to when the data arrived ("Today").
   const now = q.dataUpdatedAt;
