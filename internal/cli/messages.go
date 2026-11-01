@@ -109,6 +109,7 @@ const (
 	msgStarting         = "Sona is starting; try again in a moment"
 	msgShuttingDown     = "Sona is shutting down"
 	msgNothingPlaying   = "nothing is playing"
+	msgAccountLoading   = "Sona is still reading your Apple Music account; try again in a moment"
 	msgNotSignedIn      = "Apple Music needs you signed in to Sona for this"
 	msgPrivateForced    = "private listening is forced on for this run (SONA_PRIVATE=1)"
 	msgIncompatible     = "the running Sona is a different version; quit and start it again"

@@ -13,6 +13,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/applemusic"
+	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
@@ -272,6 +273,15 @@ func (s *commandServer) like(ctx context.Context, args []string) (any, error) {
 	verb := "on"
 	if len(args) > 0 {
 		verb = args[0]
+	}
+	// Favourites are the account's: nothing goes to Apple without one. While
+	// Sona is still reading the stored token (a slow keyring), say so.
+	switch s.e.Auth.Status().State {
+	case auth.StateSignedIn:
+	case auth.StateRestoring, auth.StateValidating:
+		return nil, &cli.Error{Code: cli.CodeAccountLoading}
+	default:
+		return nil, &cli.Error{Code: CodeNotSignedIn}
 	}
 	cur := s.e.Coord.Snapshot().Current
 	if cur == nil {

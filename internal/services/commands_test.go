@@ -15,6 +15,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth"
+	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/catalog"
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
@@ -34,7 +35,35 @@ type commandEnv struct {
 	apple    *fakeState
 	settings *config.Store
 	focused  int
+	// auth stays restoring until signIn or signOut starts it with creds.
+	auth  *auth.Manager
+	creds store.Store
 }
+
+// signIn starts the account with a stored token and waits until it is
+// signed in.
+func (ce *commandEnv) signIn(t *testing.T) {
+	ce.start(t, &recordStore{rec: store.Record{Token: "mut", ObtainedAt: time.Now()}}, auth.StateSignedIn)
+}
+
+// signOut starts the account with nothing stored.
+func (ce *commandEnv) signOut(t *testing.T) { ce.start(t, &emptyStore{}, auth.StateSignedOut) }
+
+func (ce *commandEnv) start(t *testing.T, creds store.Store, want auth.State) {
+	t.Helper()
+	ce.creds = creds
+	ce.auth.Start()
+	for deadline := time.Now().Add(5 * time.Second); ce.auth.Status().State != want; time.Sleep(5 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("auth = %+v, want %s", ce.auth.Status(), want)
+		}
+	}
+}
+
+// emptyStore holds no token.
+type emptyStore struct{ recordStore }
+
+func (*emptyStore) Get() (store.Record, error) { return store.Record{}, store.ErrNotFound }
 
 // pausingEngine is playEngine with a pause that pauses.
 type pausingEngine struct{ *playEngine }
@@ -80,20 +109,25 @@ func newCommandEnv(t *testing.T, private privatemode.Options) *commandEnv {
 				"3":{"id":"3","type":"songs","attributes":{"name":"Abbey Road Medley","artistName":"Someone","contentRating":"explicit","playParams":{"id":"3","kind":"song"}}}}},
 			"meta":{"results":{"order":["top","album","song"]}}}`)
 	})
+	mux.HandleFunc("/v1/me/storefront", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, `{"data":[{"id":"gb","type":"storefronts","attributes":{"name":"United Kingdom","defaultLanguageTag":"en-GB","explicitContentPolicy":"allowed"}}]}`)
+	})
 	mux.Handle("/", ce.apple)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	api := applemusic.New(srv.Client(), testDev{}, func() string { return "" })
-	api.Base, api.AMPBase = srv.URL, srv.URL
-
-	authm, err := auth.NewManager(auth.Config{
+	ce.creds = &recordStore{}
+	ce.auth, err = auth.NewManager(auth.Config{
 		HTTP: srv.Client(), Dev: testDev{}, APIBase: srv.URL,
-		Store: &recordStore{}, Accounts: AccountStore{DB: d}, Logger: discard(),
+		Open:     func() (store.Store, error) { return ce.creds, nil },
+		Accounts: AccountStore{DB: d}, Logger: discard(),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(authm.Close)
+	t.Cleanup(ce.auth.Close)
+	authm := ce.auth
+	api := applemusic.New(srv.Client(), testDev{}, authm.UserToken)
+	api.Base, api.AMPBase = srv.URL, srv.URL
 	ce.settings, err = config.OpenStore(filepath.Join(t.TempDir(), "settings.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -234,6 +268,20 @@ func TestCommandsPrivate(t *testing.T) {
 
 func TestCommandsLike(t *testing.T) {
 	ce := newCommandEnv(t, privatemode.Options{})
+	// While Sona is still reading the stored token (a slow keyring) the
+	// account isn't known yet: nothing goes to Apple, and the CLI says so.
+	if _, err := ce.call(t, "like", "status"); code(err) != cli.CodeAccountLoading {
+		t.Fatalf("like while restoring: %v", err)
+	}
+	out := newCommandEnv(t, privatemode.Options{})
+	out.signOut(t)
+	if _, err := out.call(t, "like"); code(err) != CodeNotSignedIn {
+		t.Fatalf("like signed out: %v", err)
+	}
+	if r := slices.DeleteFunc(append(ce.apple.take(), out.apple.take()...), func(r string) bool { return r[:3] == "GET" }); len(r) != 0 {
+		t.Fatalf("requests without an account: %v", r)
+	}
+	ce.signIn(t)
 	if _, err := ce.call(t, "like"); code(err) != cli.CodeNothingPlaying {
 		t.Fatalf("like with nothing playing: %v", err)
 	}
@@ -246,10 +294,10 @@ func TestCommandsLike(t *testing.T) {
 		liked bool
 		req   string // the rating request sent to Apple
 	}{
+		{"status", true, ""}, // Apple's answer: song 100 is a favourite
+		{"off", false, "DELETE /v1/me/favorites"},
 		{"status", false, ""},
-		{"on", true, "POST /v1/me/favorites"},
-		{"status", true, ""},
-		{"toggle", false, "DELETE /v1/me/favorites"},
+		{"toggle", true, "POST /v1/me/favorites"},
 	} {
 		res, err := ce.call(t, "like", tc.arg)
 		if err != nil {
@@ -277,7 +325,7 @@ func TestCommandsLike(t *testing.T) {
 			states = append(states, ce.rec.data[i].(ItemState))
 		}
 	}
-	if len(states) != 2 || states[0].ID != "i.100" || states[0].Rating != 1 || states[1].Rating != 0 {
+	if len(states) != 2 || states[0].ID != "i.100" || states[0].Rating != 0 || states[1].Rating != 1 {
 		t.Errorf("item-state events = %+v", states)
 	}
 }

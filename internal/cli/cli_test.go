@@ -316,6 +316,7 @@ func TestRunErrors(t *testing.T) {
 		"queue":   &Error{Code: CodeUnknownCommand, Message: "queue"},
 		"pause":   errors.New("connection reset by peer"),
 		"toggle":  &Error{Code: "unauthorized", Message: "403 Forbidden"},
+		"search":  &Error{Code: CodeAccountLoading},
 		"volume":  &Error{Code: CodeUsage},
 	}}
 	for _, tc := range []struct {
@@ -325,6 +326,7 @@ func TestRunErrors(t *testing.T) {
 	}{
 		{[]string{"like"}, ExitFailed, "sona: nothing is playing\n"},
 		{[]string{"toggle"}, ExitFailed, "sona: Apple Music needs you signed in to Sona for this\n"},
+		{[]string{"search", "x"}, ExitFailed, "sona: Sona is still reading your Apple Music account; try again in a moment\n"},
 		{[]string{"private", "off"}, ExitFailed, "sona: private listening is forced on for this run (SONA_PRIVATE=1)\n"},
 		{[]string{"next"}, ExitFailed, "sona: dial tcp: no route to host\n"},
 		{[]string{"open", "https://example.com"}, ExitUsage, "sona: that isn't an Apple Music link Sona can open\n"},

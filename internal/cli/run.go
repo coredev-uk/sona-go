@@ -247,6 +247,8 @@ func errorText(e *Error) string {
 		return msgShuttingDown
 	case CodeNothingPlaying:
 		return msgNothingPlaying
+	case CodeAccountLoading:
+		return msgAccountLoading
 	case CodeUnknownCommand, CodeIncompatible:
 		return msgIncompatible
 	case "not_signed_in", "unauthorized":

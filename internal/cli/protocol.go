@@ -67,6 +67,9 @@ const (
 	CodeShuttingDown = "shutting_down"
 	// CodeNothingPlaying: the command needs a song selected.
 	CodeNothingPlaying = "nothing_playing"
+	// CodeAccountLoading: Sona is still reading the stored account (a slow
+	// keyring); commands that need it can be tried again in a moment.
+	CodeAccountLoading = "account_loading"
 	// CodeIncompatible: the running Sona speaks another version of the
 	// protocol.
 	CodeIncompatible = "incompatible"
