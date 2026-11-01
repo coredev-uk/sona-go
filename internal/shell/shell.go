@@ -266,6 +266,9 @@ func (s *Shell) ensureMini() *application.WebviewWindow {
 		return s.mini
 	}
 	const title = "Sona mini player"
+	// Before its web view exists: WebKitGTK sizes a second view's page
+	// from the font DPI.
+	pinFontDPI()
 	m := s.o.App.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:             miniName,
 		Title:            title,
