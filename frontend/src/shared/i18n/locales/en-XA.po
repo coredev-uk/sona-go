@@ -314,6 +314,10 @@ msgstr ""
 msgid "{title} matching {q}"
 msgstr ""
 
+#: src/features/album/ReleaseStatus.tsx
+msgid "{total, plural, one {{out} of # song out now} other {{out} of # songs out now}}"
+msgstr ""
+
 #: src/features/artist/ArtistPage.tsx
 msgid "{trackCount, plural, one {# song} other {# songs}}"
 msgstr ""
@@ -1617,6 +1621,10 @@ msgstr ""
 msgid "Couldn't remove it"
 msgstr ""
 
+#: src/features/reminders/queries.ts
+msgid "Couldn't remove the reminder"
+msgstr ""
+
 #: src/features/search/RecentSearches.tsx
 msgid "Couldn't remove the search"
 msgstr ""
@@ -1663,6 +1671,10 @@ msgstr ""
 #: src/features/player/NowPlayingBar.tsx
 #: src/features/player/NowPlayingView.tsx
 msgid "Couldn't seek"
+msgstr ""
+
+#: src/features/reminders/queries.ts
+msgid "Couldn't set the reminder"
 msgstr ""
 
 #: src/features/player/commands.ts
@@ -2217,6 +2229,10 @@ msgstr ""
 
 #: src/features/discover/ChartsPage.tsx
 msgid "Genre"
+msgstr ""
+
+#: src/features/reminders/RemindButton.tsx
+msgid "Get a notification when it's out"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
@@ -3240,7 +3256,17 @@ msgid "Other versions"
 msgstr ""
 
 #: src/features/album/AlbumPage.tsx
+#: src/features/album/ReleaseStatus.tsx
+#: src/shared/lib/release.ts
 msgid "Out {releaseDate}"
+msgstr ""
+
+#: src/features/album/ReleaseStatus.tsx
+msgid "Out in {timeLeft}"
+msgstr ""
+
+#: src/features/reminders/queries.ts
+msgid "Out now · {artistName}"
 msgstr ""
 
 #: src/features/settings/AudioRows.tsx
@@ -3500,6 +3526,14 @@ msgstr ""
 msgid "Popular"
 msgstr ""
 
+#: src/features/album/AlbumPage.tsx
+msgid "Pre-add"
+msgstr ""
+
+#: src/features/library/actions.ts
+msgid "Pre-add to library"
+msgstr ""
+
 #: src/features/equalizer/EqualizerPage.tsx
 msgid "Preamp"
 msgstr ""
@@ -3732,6 +3766,11 @@ msgstr ""
 #: src/features/song/SongPage.tsx
 #: src/features/video/VideoPage.tsx
 msgid "Released {releaseDate}"
+msgstr ""
+
+#: src/features/reminders/index.ts
+#: src/features/reminders/RemindButton.tsx
+msgid "Remind me"
 msgstr ""
 
 #: src/shared/lib/library-actions.ts
@@ -5021,6 +5060,10 @@ msgstr ""
 msgid "This song isn't available to stream in your storefront."
 msgstr ""
 
+#: src/shared/lib/errors.ts
+msgid "This song isn't out yet. It plays from its release date."
+msgstr ""
+
 #: src/features/radio/StationPage.tsx
 msgid "Time through this programme"
 msgstr ""
@@ -5121,6 +5164,10 @@ msgstr ""
 
 #: src/features/private/index.ts
 msgid "Turn off private listening"
+msgstr ""
+
+#: src/features/reminders/index.ts
+msgid "Turn off reminder"
 msgstr ""
 
 #: src/features/player/SleepTimer.tsx
@@ -5414,6 +5461,18 @@ msgstr ""
 
 #: src/features/album/AlbumPage.tsx
 msgid "You might also like"
+msgstr ""
+
+#: src/features/reminders/queries.ts
+msgid "You won't be reminded about “{name}”"
+msgstr ""
+
+#: src/features/reminders/queries.ts
+msgid "You'll be reminded when “{name}” is out"
+msgstr ""
+
+#: src/features/reminders/RemindButton.tsx
+msgid "You'll get a notification on {releaseDate}"
 msgstr ""
 
 #: src/features/auth/Account.tsx

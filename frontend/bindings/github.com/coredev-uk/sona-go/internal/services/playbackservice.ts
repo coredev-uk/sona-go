@@ -76,7 +76,9 @@ export function PlayItems(refs: $models.TrackRef[], start: number, $from: $model
 
 /**
  * PlayLibrary queues the whole library songs list in the given order
- * (as LibraryService.Songs) and plays the song at position start.
+ * (as LibraryService.Songs) and plays the song at position start. Songs
+ * not out yet (by their own date or, without one, their album's) are left
+ * out; not_released when it is the start song.
  */
 export function PlayLibrary(sort: string, desc: boolean, start: number): $CancellablePromise<void> {
     return $Call.ByID(1464737872, sort, desc, start);

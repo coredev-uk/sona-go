@@ -191,7 +191,7 @@ SQLite, libSQL-compatible, migrations in `internal/db/migrations` numbered dense
 - `artists`, `albums`, `tracks`, `playlists`, `playlist_tracks`: Apple catalogue and library IDs stored separately, `artwork_template` (the raw `{w}x{h}` URL), `updated_at`.
 - `library_items`, `playback_history`, `favorites` (mirrors `/v1/me/ratings`), `pins`.
 - `sync_state`: domain, offset or cursor, total, last success, last full run, last error.
-- `search_fts`: FTS5 over titles, artists and albums. `recent_searches`: searched terms and opened results (user data, wiped on sign-out).
+- `search_fts`: FTS5 over titles, artists and albums. `recent_searches`: searched terms and opened results (user data, wiped on sign-out). `release_reminders`: pre-release albums to notify about on release day, or at the next start after it (user data, wiped on sign-out).
 - `accounts`: storefront, language, restricted flag, when the MUT was obtained and last validated. Never tokens.
 - A catalogue response cache (key, fetched at, expiry). Sign-out runs `db.WipeUserData`, which keeps only catalogue rows and that cache, and removes the artwork only user data references.
 

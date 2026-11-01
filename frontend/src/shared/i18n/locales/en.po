@@ -314,6 +314,10 @@ msgstr "{title} for {q}"
 msgid "{title} matching {q}"
 msgstr "{title} matching {q}"
 
+#: src/features/album/ReleaseStatus.tsx
+msgid "{total, plural, one {{out} of # song out now} other {{out} of # songs out now}}"
+msgstr "{total, plural, one {{out} of # song out now} other {{out} of # songs out now}}"
+
 #: src/features/artist/ArtistPage.tsx
 msgid "{trackCount, plural, one {# song} other {# songs}}"
 msgstr "{trackCount, plural, one {# song} other {# songs}}"
@@ -1617,6 +1621,10 @@ msgstr "Couldn't remove {what}"
 msgid "Couldn't remove it"
 msgstr "Couldn't remove it"
 
+#: src/features/reminders/queries.ts
+msgid "Couldn't remove the reminder"
+msgstr "Couldn't remove the reminder"
+
 #: src/features/search/RecentSearches.tsx
 msgid "Couldn't remove the search"
 msgstr "Couldn't remove the search"
@@ -1664,6 +1672,10 @@ msgstr "Couldn't search your library"
 #: src/features/player/NowPlayingView.tsx
 msgid "Couldn't seek"
 msgstr "Couldn't seek"
+
+#: src/features/reminders/queries.ts
+msgid "Couldn't set the reminder"
+msgstr "Couldn't set the reminder"
 
 #: src/features/player/commands.ts
 msgid "Couldn't set the sleep timer"
@@ -2218,6 +2230,10 @@ msgstr "General"
 #: src/features/discover/ChartsPage.tsx
 msgid "Genre"
 msgstr "Genre"
+
+#: src/features/reminders/RemindButton.tsx
+msgid "Get a notification when it's out"
+msgstr "Get a notification when it's out"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Go"
@@ -3240,8 +3256,18 @@ msgid "Other versions"
 msgstr "Other versions"
 
 #: src/features/album/AlbumPage.tsx
+#: src/features/album/ReleaseStatus.tsx
+#: src/shared/lib/release.ts
 msgid "Out {releaseDate}"
 msgstr "Out {releaseDate}"
+
+#: src/features/album/ReleaseStatus.tsx
+msgid "Out in {timeLeft}"
+msgstr "Out in {timeLeft}"
+
+#: src/features/reminders/queries.ts
+msgid "Out now · {artistName}"
+msgstr "Out now · {artistName}"
 
 #: src/features/settings/AudioRows.tsx
 msgid "Output"
@@ -3500,6 +3526,14 @@ msgstr "Plus"
 msgid "Popular"
 msgstr "Popular"
 
+#: src/features/album/AlbumPage.tsx
+msgid "Pre-add"
+msgstr "Pre-add"
+
+#: src/features/library/actions.ts
+msgid "Pre-add to library"
+msgstr "Pre-add to library"
+
 #: src/features/equalizer/EqualizerPage.tsx
 msgid "Preamp"
 msgstr "Preamp"
@@ -3733,6 +3767,11 @@ msgstr "Release date"
 #: src/features/video/VideoPage.tsx
 msgid "Released {releaseDate}"
 msgstr "Released {releaseDate}"
+
+#: src/features/reminders/index.ts
+#: src/features/reminders/RemindButton.tsx
+msgid "Remind me"
+msgstr "Remind me"
 
 #: src/shared/lib/library-actions.ts
 msgid "Remove"
@@ -5021,6 +5060,10 @@ msgstr "This song isn't available"
 msgid "This song isn't available to stream in your storefront."
 msgstr "This song isn't available to stream in your storefront."
 
+#: src/shared/lib/errors.ts
+msgid "This song isn't out yet. It plays from its release date."
+msgstr "This song isn't out yet. It plays from its release date."
+
 #: src/features/radio/StationPage.tsx
 msgid "Time through this programme"
 msgstr "Time through this programme"
@@ -5122,6 +5165,10 @@ msgstr "Trying…"
 #: src/features/private/index.ts
 msgid "Turn off private listening"
 msgstr "Turn off private listening"
+
+#: src/features/reminders/index.ts
+msgid "Turn off reminder"
+msgstr "Turn off reminder"
 
 #: src/features/player/SleepTimer.tsx
 msgid "Turn off sleep timer"
@@ -5415,6 +5462,18 @@ msgstr "You have six pins. Unpin one to make room."
 #: src/features/album/AlbumPage.tsx
 msgid "You might also like"
 msgstr "You might also like"
+
+#: src/features/reminders/queries.ts
+msgid "You won't be reminded about “{name}”"
+msgstr "You won't be reminded about “{name}”"
+
+#: src/features/reminders/queries.ts
+msgid "You'll be reminded when “{name}” is out"
+msgstr "You'll be reminded when “{name}” is out"
+
+#: src/features/reminders/RemindButton.tsx
+msgid "You'll get a notification on {releaseDate}"
+msgstr "You'll get a notification on {releaseDate}"
 
 #: src/features/auth/Account.tsx
 msgid "You're offline. Signing in needs a connection to Apple."

@@ -1,5 +1,7 @@
 import type { Item, Song } from "@bindings/services";
 
+import { isUpcoming } from "@/shared/lib/release";
+
 /**
  * Playing items from shared components. Shared code cannot import
  * features, so the features that own playback register players here at
@@ -21,12 +23,17 @@ export function registerSongsPlayer(play: SongsPlayer) {
   songsPlayer = play;
 }
 
-/** Whether `item` has a play control: a registered kind that Sona can play. */
+/**
+ * Whether `item` has a play control: a registered kind that Sona can play
+ * (an album not out yet has none).
+ */
 export function canPlay(item: Item): boolean {
   if (!players.has(item.kind)) return false;
   switch (item.kind) {
     case "song":
       return !!item.song?.playable;
+    case "album":
+      return !item.album || !isUpcoming(item.album);
     case "station":
       return !!item.station?.playable;
     default:

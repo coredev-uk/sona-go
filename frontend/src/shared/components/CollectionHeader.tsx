@@ -20,6 +20,8 @@ interface CollectionHeaderProps {
   badges?: ReactNode;
   description?: string;
   header?: Header;
+  /** A state of the collection above the actions: an album's release countdown. */
+  status?: ReactNode;
   actions?: ReactNode;
 }
 
@@ -40,6 +42,7 @@ export function CollectionHeader({
   badges,
   description,
   header,
+  status,
   actions,
 }: CollectionHeaderProps) {
   const narrow = useMediaQuery("(max-width: 960px)");
@@ -74,6 +77,7 @@ export function CollectionHeader({
           {description && (
             <p className="mt-3 line-clamp-2 max-w-[72ch] text-sub text-ink-muted">{description}</p>
           )}
+          {status && <div className="mt-4">{status}</div>}
           {actions && <div className="mt-5 flex flex-wrap items-center gap-2">{actions}</div>}
         </div>
       </div>

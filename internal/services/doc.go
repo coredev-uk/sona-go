@@ -108,6 +108,16 @@
 // preview) never reaches a reporter: the coordinator reports no activity
 // and no OnPlayed for it.
 //
+// Pre-release albums (release.go): Album.Prerelease and Album.ReleaseAt
+// (local midnight on the release date) mark an album not out yet; its
+// songs not out yet are not playable and PlaybackService refuses them with
+// code "not_released". Reminders (reminders.go, table release_reminders)
+// give one desktop notification when such an album comes out, or after
+// the first paint of the next start when Sona wasn't running then; the
+// notification's words come from the frontend, and without
+// Platform.Notifications Set fails with "unsupported". Pre-add is
+// LibraryService.Add: Apple's web player pre-adds with the same call.
+//
 // DTO rules: durations and timestamps in integer milliseconds (timestamps
 // as Unix ms, 0 when unknown); artwork and motion artwork only as
 // Go-served URLs (never Apple templates, Apple media URLs or tokens); IDs

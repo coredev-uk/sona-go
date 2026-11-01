@@ -2,11 +2,13 @@ import type { Album, Artist, MusicVideo, Playlist } from "@bindings/services";
 
 import type { CoverItem } from "@/shared/components/CoverGrid";
 import { yearOf } from "@/shared/lib/format";
+import { releaseBadge } from "@/shared/lib/release";
 
 /**
  * Cover tiles for the card-level DTOs, linking to each item's page. The
  * subtitle says what tells neighbouring tiles apart: an album's year on an
- * artist's own shelves (`by: "year"`), else its artist.
+ * artist's own shelves (`by: "year"`), else its artist. An album not out
+ * yet carries its release date on the cover.
  */
 export function albumTile(a: Album, by: "artist" | "year" = "artist"): CoverItem {
   return {
@@ -16,6 +18,7 @@ export function albumTile(a: Album, by: "artist" | "year" = "artist"): CoverItem
     art: a.art.medium,
     link: { to: "/album/$id", params: { id: a.id } },
     target: { kind: "album", target: a },
+    badge: releaseBadge(a),
   };
 }
 

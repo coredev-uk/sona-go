@@ -26,6 +26,7 @@ declare module "@wailsio/runtime" {
             "playlists:changed": services$0.PlaylistsChanged;
             "power:changed": services$0.PowerState;
             "private:changed": services$0.PrivateState;
+            "reminders:changed": services$0.Reminder[];
             "scrobble:changed": services$0.ScrobbleStatus;
             "settings:changed": config$0.Settings;
             "sync:done": services$0.SyncDone;

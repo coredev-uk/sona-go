@@ -37,7 +37,19 @@ type Notification struct {
 	// (image-path hint); empty for none.
 	Image   string
 	Actions []Action // buttons in order; DefaultAction is the body click
+	// Urgency is the urgency hint: low (the zero value, for the track
+	// notification) or normal (a reminder the user asked for).
+	Urgency Urgency
 }
+
+// Urgency is a notification's urgency level.
+type Urgency byte
+
+// Urgency levels (the specification's critical level is not used).
+const (
+	UrgencyLow    Urgency = 0
+	UrgencyNormal Urgency = 1
+)
 
 // Action is one notification action.
 type Action struct {
@@ -124,7 +136,7 @@ func (n *Notifier) Show(ctx context.Context, msg Notification) error {
 	// notifications without showing them. Replacing by ID already keeps a
 	// single now-playing notification.
 	hints := map[string]dbus.Variant{
-		"urgency": dbus.MakeVariant(byte(0)), // low
+		"urgency": dbus.MakeVariant(byte(msg.Urgency)),
 	}
 	if n.opts.DesktopEntry != "" {
 		hints["desktop-entry"] = dbus.MakeVariant(n.opts.DesktopEntry)

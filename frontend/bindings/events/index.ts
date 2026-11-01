@@ -64,6 +64,11 @@ export const PowerChanged = "power:changed";
 export const PrivateChanged = "private:changed";
 
 /**
+ * Name of the custom event "reminders:changed".
+ */
+export const RemindersChanged = "reminders:changed";
+
+/**
  * Name of the custom event "scrobble:changed".
  */
 export const ScrobbleChanged = "scrobble:changed";

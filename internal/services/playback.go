@@ -267,9 +267,9 @@ func metaOf(t dbq.Track, src Source) trackMeta {
 }
 
 // resolve turns refs into coordinator items from SQLite (falling back to
-// the catalog for catalog songs not stored yet). Unplayable songs
-// are dropped; start is remapped to the same song, and fails with
-// not_playable when that song itself is unplayable.
+// the catalog for catalog songs not stored yet). Unplayable songs and
+// songs not out yet are dropped; start is remapped to the same song, and
+// fails with not_playable or not_released when that song itself is one.
 func (s *PlaybackService) resolve(ctx context.Context, refs []TrackRef, start int) ([]coordinator.Item, int, error) {
 	if start < 0 || (len(refs) > 0 && start >= len(refs)) {
 		return nil, 0, fmt.Errorf("%w: start %d of %d", ErrInvalidArgument, start, len(refs))
@@ -283,7 +283,7 @@ func (s *PlaybackService) resolve(ctx context.Context, refs []TrackRef, start in
 			if i == start {
 				return nil, 0, err
 			}
-			if errors.Is(err, applemusic.ErrNotPlayable) || errors.Is(err, sql.ErrNoRows) || errors.Is(err, applemusic.ErrNotFound) {
+			if errors.Is(err, applemusic.ErrNotPlayable) || errors.Is(err, ErrNotReleased) || errors.Is(err, sql.ErrNoRows) || errors.Is(err, applemusic.ErrNotFound) {
 				s.o.Logger.Debug("playback: skipping item", "id", r.ID, "err", err)
 				continue
 			}
@@ -320,6 +320,9 @@ func (s *PlaybackService) resolveOne(ctx context.Context, r TrackRef) (coordinat
 				s.o.Report(err)
 				return coordinator.Item{}, trackMeta{}, err
 			}
+			if err := s.released(so.Attributes.ReleaseDate, func() string { return songAlbumDate(so) }); err != nil {
+				return coordinator.Item{}, trackMeta{}, fmt.Errorf("track %s/%s: %w", r.Source, r.ID, err)
+			}
 			dto := s.m.amSong(so)
 			return songItem(so), trackMeta{source: SourceCatalog, id: r.ID, catalogID: r.ID, albumID: dto.AlbumID, artistID: dto.ArtistID}, nil
 		}
@@ -329,7 +332,49 @@ func (s *PlaybackService) resolveOne(ctx context.Context, r TrackRef) (coordinat
 	if err != nil {
 		return coordinator.Item{}, trackMeta{}, fmt.Errorf("track %s/%s: %w", r.Source, r.ID, err)
 	}
+	if err := s.released(t.ReleaseDate, func() string { return s.albumDate(ctx, t) }); err != nil {
+		return coordinator.Item{}, trackMeta{}, fmt.Errorf("track %s/%s: %w", r.Source, r.ID, err)
+	}
 	return trackItem(t)
+}
+
+// released fails with ErrNotReleased for a song released on date that
+// isn't out yet; a song without a date (Apple dates only the songs of a
+// pre-release album already out) goes by its album's date (album, asked
+// only then).
+func (s *PlaybackService) released(date string, album func() string) error {
+	if date == "" {
+		date = album()
+	}
+	if upcoming(date, false, s.m.clock()) {
+		return ErrNotReleased
+	}
+	return nil
+}
+
+// albumDate is the release date of a stored song's album ("" when the
+// album isn't stored).
+func (s *PlaybackService) albumDate(ctx context.Context, t dbq.Track) string {
+	if t.AlbumLibraryID.Valid {
+		if a, err := s.o.DB.RQ.GetAlbumByLibraryID(ctx, t.AlbumLibraryID); err == nil {
+			return a.ReleaseDate
+		}
+	}
+	if t.AlbumCatalogID.Valid {
+		if a, err := s.o.DB.RQ.GetCatalogAlbum(ctx, t.AlbumCatalogID); err == nil {
+			return a.ReleaseDate
+		}
+	}
+	return ""
+}
+
+// songAlbumDate is the release date of a fetched song's album ("" when
+// Apple didn't include it).
+func songAlbumDate(so applemusic.Song) string {
+	if d := so.Relationships.Albums.Data; len(d) > 0 {
+		return d[0].Attributes.ReleaseDate
+	}
+	return ""
 }
 
 // trackItem maps a stored track to a coordinator item. The playback ID is
@@ -427,7 +472,9 @@ func (s *PlaybackService) SetSleep(mode string, minutes int) error {
 }
 
 // PlayLibrary queues the whole library songs list in the given order
-// (as LibraryService.Songs) and plays the song at position start.
+// (as LibraryService.Songs) and plays the song at position start. Songs
+// not out yet (by their own date or, without one, their album's) are left
+// out; not_released when it is the start song.
 func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc bool, start int) error {
 	var songs []library.Song
 	for offset := 0; ; {
@@ -444,10 +491,17 @@ func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc boo
 	if start < 0 || start >= len(songs) {
 		return fmt.Errorf("%w: start %d of %d", ErrInvalidArgument, start, len(songs))
 	}
+	unreleased := s.libraryUnreleased(ctx, songs)
+	if unreleased[start] {
+		return fmt.Errorf("library song %s: %w", songs[start].LibraryID, ErrNotReleased)
+	}
 	items := make([]coordinator.Item, 0, len(songs))
 	idx := 0
 	s.mu.Lock()
 	for i, so := range songs {
+		if unreleased[i] {
+			continue
+		}
 		// Uploads have no catalog ID and play by their library ID.
 		id := cmp.Or(so.CatalogID, so.LibraryID)
 		if i == start {
@@ -464,6 +518,31 @@ func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc boo
 	}
 	s.mu.Unlock()
 	return s.fail(s.o.Coord.SetQueue(ctx, items, idx, "library:songs"))
+}
+
+// libraryUnreleased reports which library songs are not out yet, with the
+// rule resolve applies (released): a song's own date, else its album's,
+// each album read once.
+func (s *PlaybackService) libraryUnreleased(ctx context.Context, songs []library.Song) []bool {
+	dates := map[string]string{}
+	albumDate := func(id string) string {
+		if id == "" {
+			return ""
+		}
+		d, ok := dates[id]
+		if !ok {
+			if a, err := s.o.DB.RQ.GetAlbumByLibraryID(ctx, db.NullString(id)); err == nil {
+				d = a.ReleaseDate
+			}
+			dates[id] = d
+		}
+		return d
+	}
+	out := make([]bool, len(songs))
+	for i, so := range songs {
+		out[i] = s.released(so.ReleaseDate, func() string { return albumDate(so.AlbumLibraryID) }) != nil
+	}
+	return out
 }
 
 // PlayNext inserts refs after the current item.

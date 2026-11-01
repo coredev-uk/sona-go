@@ -1,9 +1,12 @@
 import type { AlbumDetail, CatalogAlbum } from "@bindings/services";
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
+import { hasAccount, useAuth } from "@/features/auth";
 import { playSongs, shuffleSongs } from "@/features/player";
+import { RemindButton } from "@/features/reminders";
 import { ActionMenu } from "@/shared/actions/ActionMenu";
 import { ArtistLinks } from "@/shared/components/ArtistLinks";
 import { Badges } from "@/shared/components/Badges";
@@ -16,11 +19,15 @@ import { PlayButtons } from "@/shared/components/PlayButtons";
 import { RatingButtons } from "@/shared/components/RatingButtons";
 import { Shelf } from "@/shared/components/Shelf";
 import { catalogueLine, longDate, yearOf } from "@/shared/lib/format";
+import { keys } from "@/shared/lib/keys";
 import { isLibraryId } from "@/shared/lib/queries";
+import { isUpcoming } from "@/shared/lib/release";
 import { albumTile, playlistTile, videoTile } from "@/shared/lib/tiles";
+import { useNow } from "@/shared/lib/useNow";
 import { TrackList } from "@/shared/tracks/TrackList";
 
 import { useCatalogAlbum, useLibraryAlbum } from "./queries";
+import { ReleaseStatus } from "./ReleaseStatus";
 
 const route = getRouteApi("/album/$id");
 
@@ -81,6 +88,17 @@ export function AlbumPage() {
   );
   const popular = useMemo(() => new Set(page?.popularIds), [page]);
   const { t } = useLingui();
+  const auth = useAuth();
+  const qc = useQueryClient();
+  // An album not out yet counts down to the minute; at its release the
+  // page reloads it so its songs become playable.
+  const now = useNow(60_000);
+  const loaded = data?.album;
+  const released = !!loaded?.prerelease && !isUpcoming(loaded, now);
+  useEffect(() => {
+    if (!released) return;
+    void qc.invalidateQueries({ queryKey: lib ? keys.libraryAlbum(id) : keys.catalogAlbum(id) });
+  }, [released, qc, lib, id]);
 
   if (q.isPending) return <DetailSkeleton />;
   if (q.error) {
@@ -104,16 +122,16 @@ export function AlbumPage() {
   const kind = album.single ? t`Single` : t`Album`;
   const releaseDate = longDate(album.releaseDate);
   const albumName = album.name;
+  const upcoming = isUpcoming(album, now);
   // The header carries Apple's one-line note; the full notes follow the tracks.
   const lede = page?.notesShort || undefined;
   const meta = [
     catalogueLine(kind, yearOf(album.releaseDate), list.length, durationMs),
     album.genre,
-    page?.prerelease ? t`Out ${releaseDate}` : "",
   ]
     .filter(Boolean)
     .join(" · ");
-
+  const songsOut = list.filter((s) => s.playable).length;
   return (
     <>
       <CollectionHeader
@@ -135,18 +153,34 @@ export function AlbumPage() {
         meta={meta}
         badges={<Badges explicit={album.explicit} traits={album.traits} />}
         description={lede}
+        status={
+          upcoming && <ReleaseStatus album={album} now={now} out={songsOut} total={list.length} />
+        }
         actions={
-          <>
-            <PlayButtons
-              label={album.name}
-              disabled={!list.some((t) => t.playable)}
-              onPlay={() => playSongs(list, 0, { kind: "album", id: album.id })}
-              onShuffle={() => void shuffleSongs(list, { kind: "album", id: album.id })}
-            />
-            <LibraryButton kind="albums" item={album} name={album.name} />
-            <RatingButtons kind="albums" item={album} name={album.name} />
-            <ActionMenu kind="album" target={album} name={album.name} variant="header" />
-          </>
+          upcoming ? (
+            // Not out yet: no Play (its songs already out play from their
+            // rows); a reminder, and Apple's pre-add while signed in.
+            <>
+              <RemindButton album={album} />
+              {hasAccount(auth.data?.state) && (
+                <LibraryButton kind="albums" item={album} name={album.name} addLabel={t`Pre-add`} />
+              )}
+              <RatingButtons kind="albums" item={album} name={album.name} />
+              <ActionMenu kind="album" target={album} name={album.name} variant="header" />
+            </>
+          ) : (
+            <>
+              <PlayButtons
+                label={album.name}
+                disabled={!list.some((t) => t.playable)}
+                onPlay={() => playSongs(list, 0, { kind: "album", id: album.id })}
+                onShuffle={() => void shuffleSongs(list, { kind: "album", id: album.id })}
+              />
+              <LibraryButton kind="albums" item={album} name={album.name} />
+              <RatingButtons kind="albums" item={album} name={album.name} />
+              <ActionMenu kind="album" target={album} name={album.name} variant="header" />
+            </>
+          )
         }
       />
       <TrackList
@@ -161,11 +195,7 @@ export function AlbumPage() {
       <footer className="mt-6 px-2 text-meta text-ink-muted">
         {album.releaseDate && (
           <p>
-            {page?.prerelease ? (
-              <Trans>Out {releaseDate}</Trans>
-            ) : (
-              <Trans>Released {releaseDate}</Trans>
-            )}
+            {upcoming ? <Trans>Out {releaseDate}</Trans> : <Trans>Released {releaseDate}</Trans>}
           </p>
         )}
         {copyright && <p className="mt-0.5">{copyright}</p>}

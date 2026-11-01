@@ -26,12 +26,13 @@ function configure() {
         "playlists:changed": $$createType8,
         "power:changed": $$createType9,
         "private:changed": $$createType10,
-        "scrobble:changed": $$createType11,
-        "settings:changed": $$createType12,
-        "sync:done": $$createType13,
-        "sync:progress": $$createType14,
-        "updates:available": $$createType15,
-        "window:state": $$createType16,
+        "reminders:changed": $$createType12,
+        "scrobble:changed": $$createType13,
+        "settings:changed": $$createType14,
+        "sync:done": $$createType15,
+        "sync:progress": $$createType16,
+        "updates:available": $$createType17,
+        "window:state": $$createType18,
     }));
 }
 
@@ -47,11 +48,13 @@ const $$createType7 = services$0.PlaybackState.createFrom;
 const $$createType8 = services$0.PlaylistsChanged.createFrom;
 const $$createType9 = services$0.PowerState.createFrom;
 const $$createType10 = services$0.PrivateState.createFrom;
-const $$createType11 = services$0.ScrobbleStatus.createFrom;
-const $$createType12 = config$0.Settings.createFrom;
-const $$createType13 = services$0.SyncDone.createFrom;
-const $$createType14 = services$0.SyncProgress.createFrom;
-const $$createType15 = services$0.UpdateStatus.createFrom;
-const $$createType16 = services$0.WindowState.createFrom;
+const $$createType11 = services$0.Reminder.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = services$0.ScrobbleStatus.createFrom;
+const $$createType14 = config$0.Settings.createFrom;
+const $$createType15 = services$0.SyncDone.createFrom;
+const $$createType16 = services$0.SyncProgress.createFrom;
+const $$createType17 = services$0.UpdateStatus.createFrom;
+const $$createType18 = services$0.WindowState.createFrom;
 
 configure();

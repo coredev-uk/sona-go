@@ -15,6 +15,7 @@ import * as PlaybackService from "./playbackservice.js";
 import * as PlaylistsService from "./playlistsservice.js";
 import * as PrivateService from "./privateservice.js";
 import * as RadioService from "./radioservice.js";
+import * as RemindersService from "./remindersservice.js";
 import * as ScrobbleService from "./scrobbleservice.js";
 import * as SearchService from "./searchservice.js";
 import * as StorageService from "./storageservice.js";
@@ -35,6 +36,7 @@ export {
     PlaylistsService,
     PrivateService,
     RadioService,
+    RemindersService,
     ScrobbleService,
     SearchService,
     StorageService,
@@ -124,6 +126,7 @@ export {
     QueueStation,
     RecentItem,
     RecentSearch,
+    Reminder,
     RoomPage,
     ScrobbleStatus,
     ScrobblerStatus,

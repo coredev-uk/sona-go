@@ -25,6 +25,7 @@ import {
   type RemovableKind,
 } from "@/shared/lib/library-actions";
 import { fetchItemState, itemRef, type StateKind } from "@/shared/lib/item-state";
+import { isUpcoming } from "@/shared/lib/release";
 import { run } from "@/shared/lib/run";
 
 /** Copies an item's music.apple.com link (Go writes the clipboard). */
@@ -106,7 +107,11 @@ function itemActions<K extends Exclude<ActionTargetKind, "station">>(
     defs.push({
       id: `library.add.${target}`,
       target,
-      label: () => t`Add to library`,
+      // An album not out yet is pre-added: the same call (Apple's web player's too).
+      label: (item) =>
+        target === "album" && isUpcoming(item as ActionTargets["album"])
+          ? t`Pre-add to library`
+          : t`Add to library`,
       icon: Plus,
       group: "item",
       order: 30,

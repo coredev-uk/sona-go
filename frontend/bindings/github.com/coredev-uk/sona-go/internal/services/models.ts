@@ -16,7 +16,21 @@ export class Album {
     "name": string;
     "artistName": string;
     "artistId": string;
+
+    /**
+     * YYYY-MM-DD, a year alone, or ""
+     */
     "releaseDate": string;
+
+    /**
+     * ReleaseAt is when the album comes out (local midnight on
+     * ReleaseDate, Unix ms; 0 when ReleaseDate isn't a full date).
+     * Prerelease: not out yet, so its unreleased songs don't play
+     * (release.go). It is decided when the DTO is made: compare ReleaseAt
+     * with the clock to see the release happen.
+     */
+    "releaseAt": number;
+    "prerelease": boolean;
     "genre": string;
     "trackCount": number;
     "explicit": boolean;
@@ -55,6 +69,12 @@ export class Album {
         if (!("releaseDate" in $$source)) {
             this["releaseDate"] = "";
         }
+        if (!("releaseAt" in $$source)) {
+            this["releaseAt"] = 0;
+        }
+        if (!("prerelease" in $$source)) {
+            this["prerelease"] = false;
+        }
         if (!("genre" in $$source)) {
             this["genre"] = "";
         }
@@ -84,14 +104,14 @@ export class Album {
      * Creates a new Album instance from a string or object.
      */
     static createFrom($$source: any = {}): Album {
-        const $$createField13_0 = $$createType0;
-        const $$createField14_0 = $$createType1;
+        const $$createField15_0 = $$createType0;
+        const $$createField16_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("traits" in $$parsedSource) {
-            $$parsedSource["traits"] = $$createField13_0($$parsedSource["traits"]);
+            $$parsedSource["traits"] = $$createField15_0($$parsedSource["traits"]);
         }
         if ("art" in $$parsedSource) {
-            $$parsedSource["art"] = $$createField14_0($$parsedSource["art"]);
+            $$parsedSource["art"] = $$createField16_0($$parsedSource["art"]);
         }
         return new Album($$parsedSource as Partial<Album>);
     }
@@ -895,11 +915,6 @@ export class CatalogAlbum {
     "popularIds": string[];
 
     /**
-     * not released yet
-     */
-    "prerelease": boolean;
-
-    /**
      * music.apple.com page
      */
     "url": string;
@@ -956,9 +971,6 @@ export class CatalogAlbum {
         if (!("popularIds" in $$source)) {
             this["popularIds"] = [];
         }
-        if (!("prerelease" in $$source)) {
-            this["prerelease"] = false;
-        }
         if (!("url" in $$source)) {
             this["url"] = "";
         }
@@ -990,11 +1002,11 @@ export class CatalogAlbum {
         const $$createField7_0 = $$createType5;
         const $$createField9_0 = $$createType8;
         const $$createField10_0 = $$createType17;
+        const $$createField12_0 = $$createType6;
         const $$createField13_0 = $$createType6;
         const $$createField14_0 = $$createType6;
-        const $$createField15_0 = $$createType6;
-        const $$createField16_0 = $$createType10;
-        const $$createField17_0 = $$createType12;
+        const $$createField15_0 = $$createType10;
+        const $$createField16_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("album" in $$parsedSource) {
             $$parsedSource["album"] = $$createField0_0($$parsedSource["album"]);
@@ -1012,19 +1024,19 @@ export class CatalogAlbum {
             $$parsedSource["popularIds"] = $$createField10_0($$parsedSource["popularIds"]);
         }
         if ("moreByArtist" in $$parsedSource) {
-            $$parsedSource["moreByArtist"] = $$createField13_0($$parsedSource["moreByArtist"]);
+            $$parsedSource["moreByArtist"] = $$createField12_0($$parsedSource["moreByArtist"]);
         }
         if ("similar" in $$parsedSource) {
-            $$parsedSource["similar"] = $$createField14_0($$parsedSource["similar"]);
+            $$parsedSource["similar"] = $$createField13_0($$parsedSource["similar"]);
         }
         if ("otherVersions" in $$parsedSource) {
-            $$parsedSource["otherVersions"] = $$createField15_0($$parsedSource["otherVersions"]);
+            $$parsedSource["otherVersions"] = $$createField14_0($$parsedSource["otherVersions"]);
         }
         if ("appearsOn" in $$parsedSource) {
-            $$parsedSource["appearsOn"] = $$createField16_0($$parsedSource["appearsOn"]);
+            $$parsedSource["appearsOn"] = $$createField15_0($$parsedSource["appearsOn"]);
         }
         if ("videos" in $$parsedSource) {
-            $$parsedSource["videos"] = $$createField17_0($$parsedSource["videos"]);
+            $$parsedSource["videos"] = $$createField16_0($$parsedSource["videos"]);
         }
         return new CatalogAlbum($$parsedSource as Partial<CatalogAlbum>);
     }
@@ -4796,6 +4808,58 @@ export class RecentSearch {
     static createFrom($$source: any = {}): RecentSearch {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new RecentSearch($$parsedSource as Partial<RecentSearch>);
+    }
+}
+
+/**
+ * Reminder is a release reminder: a pre-release catalog album that gets a
+ * desktop notification when it comes out.
+ */
+export class Reminder {
+    /**
+     * catalog album ID
+     */
+    "albumId": string;
+    "name": string;
+    "artistName": string;
+
+    /**
+     * Unix ms (Album.ReleaseAt)
+     */
+    "releaseAt": number;
+    "art": Art;
+
+    /** Creates a new Reminder instance. */
+    constructor($$source: Partial<Reminder> = {}) {
+        if (!("albumId" in $$source)) {
+            this["albumId"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("artistName" in $$source)) {
+            this["artistName"] = "";
+        }
+        if (!("releaseAt" in $$source)) {
+            this["releaseAt"] = 0;
+        }
+        if (!("art" in $$source)) {
+            this["art"] = (new Art());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Reminder instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Reminder {
+        const $$createField4_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("art" in $$parsedSource) {
+            $$parsedSource["art"] = $$createField4_0($$parsedSource["art"]);
+        }
+        return new Reminder($$parsedSource as Partial<Reminder>);
     }
 }
 
