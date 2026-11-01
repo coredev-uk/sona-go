@@ -14,7 +14,7 @@ licences in their own sources (`go.mod`, `frontend/package.json`).
 
 The Widevine CDM is not third-party code in Sona: it is Google's proprietary
 software, never in this repository, the binary or any package. Sona downloads
-it from Google at runtime ([README](README.md#the-widevine-cdm)).
+it from Google at runtime ([README](README.md#playback-and-the-widevine-cdm)).
 
 ## shadcn/ui (MIT)
 
