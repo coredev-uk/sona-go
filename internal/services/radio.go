@@ -172,7 +172,9 @@ func (s *RadioService) seed(ctx context.Context, st applemusic.Station) *Station
 }
 
 // schedule maps a live station's events that have not ended, in start
-// order.
+// order. A programme's art is the centre square of its 4:1 key art, as
+// Apple's apps show it in the schedule: the whole banner fitted into the
+// square tile would be a strip a quarter of its height.
 func (s *RadioService) schedule(st applemusic.Station, now time.Time) []StationEvent {
 	out := []StationEvent{}
 	for _, ev := range st.Relationships.Events.Data {
@@ -180,7 +182,7 @@ func (s *RadioService) schedule(st applemusic.Station, now time.Time) []StationE
 		e := StationEvent{
 			ID: ev.ID, Title: a.Title, Description: a.Description.Text(),
 			StartMs: parseMs(a.StartTime), EndMs: parseMs(a.EndTime),
-			Art: s.e.m.artwork(a.Artwork),
+			Art: s.e.m.centreSquare(a.Artwork),
 		}
 		if e.EndMs > 0 && e.EndMs <= now.UnixMilli() {
 			continue

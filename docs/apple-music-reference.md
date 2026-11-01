@@ -116,7 +116,7 @@ Actions: open or play items, "See All" (opens the section's `room`), and context
 
 What it shows: the same grouping mechanism with `name=radio`. Observed sections: hero (`316`), "On Air Now" live stations with schedules (kind `488`: Apple Music 1, Hits, Country, Club, Chill and others, each `isLive:true`), Latest Radio Episodes, Live from London, Artists Take Over, Listen to Interviews (stations, i.e. radio episodes `ra.<id>` with `airTime`), Watch Interviews (music-videos, uploaded-videos), Apple Music Sessions / Best Club DJ Mixes (albums), Shows Hosted by Artists / Our Radio Hosts / All Shows (`apple-curators` of `kind: Show`), Local Broadcasters (third-party live stations such as Capital and KISS), Top Stations and Stations by Genre (algorithmic genre stations), and More to Explore.
 
-The live-station schedule page (`/{sf}/radio/{stationId}`) lists `station-events` (`title, description, startTime, endTime, artwork, heroArtwork, editorialVideo`).
+The live-station schedule page (`/{sf}/radio/{stationId}`) lists `station-events` (`title, description, startTime, endTime, artwork, heroArtwork, editorialVideo`). A programme's `artwork` and `heroArtwork` are 4320×1080 key art (`{w}x{h}bb.{f}` with `art[url]=f`, `{w}x{h}{c}.{f}` with `c`), drawn so the centre square is the programme's tile: the web player shows each programme as a square lockup of `artwork` with the `cc` crop (`296x296cc.webp` to `632x632cc.webp`, checked 2026-11-01). Sona's schedule asks for the same square (`cc`); the `bb` template fitted into a square box returns a strip a quarter of the box's height.
 
 | Call | Status | MUT | Response types |
 |---|---|---|---|
