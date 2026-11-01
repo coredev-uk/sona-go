@@ -357,6 +357,21 @@ nix-build tests/vm -A sona      # the Nix package the VMs install
 
 Screenshots land in `result/`. `tests/vm/README.md` lists each check, the checklist rows it covers, the interactive driver, and how to update the package's hashes after a lockfile change. They never run on pull requests: a CI run takes about an hour of runner time, so start the "VM tests" workflow by hand (`workflow_dispatch`) before a major release, or run them locally.
 
+### Measuring UI performance
+
+`cmd/uiprobe` measures a running Sona built with `-tags mcp` (the Wails MCP server; never in release builds): `go build -tags production,sqlite_fts5,mcp -o bin/sona-mcp ./cmd/sona`, then start it as for the accessibility checks (`docs/accessibility.md`: a headless sway, `dbus-run-session`, private XDG dirs, `SONA_PRIVATE=1`, `WAILS_MCP_PORT`). Home needs a signed-in account; the library pages need a synced library (about 650 albums makes a useful grid).
+
+```sh
+go run ./cmd/uiprobe -addr 127.0.0.1:$WAILS_MCP_PORT -pid <sona pid> -log <state>/sona/sona.log
+go run ./cmd/uiprobe -firstpaint run*/sona.log   # startup to first paint over several starts
+```
+
+For each page (`-pages`, default the empty control page, Home, New and library Albums) it waits for the images, then scrolls `main#content` from top to bottom and back at `-speed` CSS px/s, one step per frame, and prints a Markdown table: rAF frame time p50/p95, dropped frames, frames over 50 ms, the web process's main-thread and total CPU and the UI process's CPU (`-pid`, from `/proc`: unlike frame times, they barely move with the rest of the computer's load, which it prints), images decoded and decoded megapixels against the pixels shown. `-log` places the page's load (navigation, HTML, scripts run, first contentful paint) after the process start; `-css` adds a style sheet first, to try a change without a build. WebKitGTK has no `longtask` entries, so frames over 50 ms stand in for long tasks.
+
+For a breakdown (paint, style, layout, script), a development build (no `production` tag) started with `WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:<port>` serves WebKit's remote inspector at `ws://<port>/socket/1/1/WebPage`; its Timeline domain records with timestamps only after `Debugger.enable`.
+
+What the headless harness cannot show: sway's headless output has no display, so the UI process composites every frame in its own process (about 80% of a core while scrolling an empty page at 2560×1600), and GPU, driver and compositor behaviour differ from a desktop session. Compare before and after on the same machine and configuration, and confirm on a desktop.
+
 ### Secret scanning
 
 CI runs [gitleaks](https://github.com/gitleaks/gitleaks) on every pull request and every push to `main` (`.github/workflows/secret-scan.yml`): over every commit of every branch and tag, your pull request's own commits included, and over the pull request's title and body. `.gitleaks.toml` adds Sona's rules to gitleaks' defaults: JWTs (the Apple developer token), Music User Tokens, the Last.fm key and secret, the Discord application ID, and credential files (`.env`, `.p8`, `.pem`, keys, keystores). The public log shows only each finding's rule, commit, file and line. Run it before pushing with `nix run nixpkgs#gitleaks -- git --config .gitleaks.toml --redact .` (CI pins gitleaks 8.30.1). Test fixtures that need token-shaped input use obviously fake values; an allowlist entry in `.gitleaks.toml` names the file and the exact fake value, with a comment saying why it is fake. A commit that ever held a real secret stays public through its pull request even after a squash merge or force-push: rotate the secret first, then tell the maintainer. Details: `docs/security-review.md`, "Secret scanning".

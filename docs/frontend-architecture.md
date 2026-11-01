@@ -465,6 +465,17 @@ pinned playlists (add), the Pinned section (pin), a "New playlist" row,
 the queue panel (insert at the gap via `PlaybackService.Insert`, or reorder
 its own rows), and the playlist editor (reorder).
 
+## Startup code
+
+Every page is in the startup bundle (about 1.4 MB minified, 450 kB gzip).
+Splitting each page route into its own chunk (`lazyRouteComponent`) was
+measured and left out: it cut the startup JS by 255 kB minified (67 kB
+gzip) but not the first paint (median of 5 warm starts 685 ms before,
+708 ms after; scripts run in about 110 ms either way, and the page only
+starts loading about 410 ms after the process starts), while every first
+visit to a page would wait for its chunk. `cmd/uiprobe -log` prints that
+breakdown (CONTRIBUTING.md, "Measuring UI performance").
+
 ## Rendering performance
 
 React Compiler (`babel-plugin-react-compiler` through `@rolldown/plugin-babel`
