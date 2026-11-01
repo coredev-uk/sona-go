@@ -708,7 +708,9 @@ func (h *Host) SetOutputDevice(ctx context.Context, device string) error {
 // audio file of size bytes, such as a library upload, played from start.
 // Its bytes follow with FeedFile, in order, and EndOfFile; the child
 // decodes them itself (MP3, AAC, ALAC) without the CDM. A later Load with
-// no init segment seeks within the file.
+// no init segment seeks within the file. Size gst.Live loads a live
+// stream (a broadcaster's MP3 or ADTS AAC): no length, no seeking, start
+// 0; FeedFile then fails while too much of it is unplayed.
 func (h *Host) LoadFile(ctx context.Context, track uint64, size int64, start time.Duration, gain float64) error {
 	_, err := h.call(ctx, request{Op: opLoadFile, Track: track, Size: size, Start: start, Gain: gain})
 	return err

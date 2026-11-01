@@ -8,6 +8,10 @@
 // The store holds the whole file in memory as it arrives (never on disk);
 // the demuxer pulls any range of it (an MP4's moov may sit at the end), and
 // a read past the bytes received so far waits for them.
+//
+// A live pipeline plays a stream that has no length and cannot seek (a
+// broadcaster's MP3 or ADTS AAC): the source hands its bytes on in order,
+// as they arrive, and keeps only those not yet read.
 #ifndef SONA_FILEHEAD_H_
 #define SONA_FILEHEAD_H_
 
@@ -18,10 +22,11 @@
 
 typedef struct sona_file sona_file;
 
-// sona_file_new builds the pipeline in NULL state for a file of size bytes.
-// props is a GstStructure string for the sink's stream-properties.
-sona_file* sona_file_new(const char* sink, const char* client_name, const char* props, uint64_t size, char* err,
-                         size_t errlen);
+// sona_file_new builds the pipeline in NULL state for a file of size bytes,
+// or, with live set, for a live stream (size is ignored). props is a
+// GstStructure string for the sink's stream-properties.
+sona_file* sona_file_new(const char* sink, const char* client_name, const char* props, uint64_t size, int live,
+                         char* err, size_t errlen);
 void sona_file_free(sona_file* f);
 
 sona_tail* sona_file_tail(sona_file* f);
@@ -31,8 +36,8 @@ int sona_file_set_state(sona_file* f, int state);
 int sona_file_get_state(sona_file* f, int* state, int* pending);
 
 // sona_file_write appends len bytes at off (where the previous write ended).
-// Returns 0, or -1 if off is not the end of the data or the write runs
-// past the file size.
+// Returns 0, or -1 if off is not the end of the data, the write runs past
+// the file size, or a live stream would hold more than it may unread.
 int sona_file_write(sona_file* f, uint64_t off, const uint8_t* data, size_t len);
 // sona_file_complete marks the file complete: a read at its end then ends
 // the stream.

@@ -118,15 +118,18 @@ type host interface {
 
 // Engine implements playback.Engine with the Widevine CDM host.
 type Engine struct {
-	api       *applemusic.Client
-	http      *http.Client
-	log       *slog.Logger
-	idle      time.Duration
-	readAhead int
-	spawn     func(ctx context.Context, lib string) (host, error)
-	cdm       CDMSource
-	preview   bool          // Options.Preview
-	sf        func() string // Options.Storefront
+	api  *applemusic.Client
+	http *http.Client
+	// streamHTTP fetches broadcasters' streams: http's transport without
+	// its overall timeout (a stream lasts for hours).
+	streamHTTP *http.Client
+	log        *slog.Logger
+	idle       time.Duration
+	readAhead  int
+	spawn      func(ctx context.Context, lib string) (host, error)
+	cdm        CDMSource
+	preview    bool          // Options.Preview
+	sf         func() string // Options.Storefront
 	// probe is cdmhost.Probe (Diagnose).
 	probe func(ctx context.Context, o cdmhost.Options) (cdmhost.Info, error)
 
@@ -187,21 +190,22 @@ func New(o Options) *Engine {
 		q = applemusic.Quality256
 	}
 	e := &Engine{
-		api:       o.Client,
-		http:      hc,
-		log:       log.With("component", "playback"),
-		idle:      idle,
-		readAhead: ra,
-		quality:   q,
-		st:        playback.Status{State: playback.StateIdle, Volume: 1, UpdatedAt: time.Now()},
-		cache:     map[string]*media{},
-		sessions:  map[string]*media{},
-		events:    make(chan playback.Event, 32),
-		retry:     retryDelays,
-		probe:     cdmhost.Probe,
-		cdm:       o.CDM,
-		preview:   o.Preview,
-		sf:        o.Storefront,
+		api:        o.Client,
+		http:       hc,
+		streamHTTP: &http.Client{Transport: hc.Transport, CheckRedirect: hc.CheckRedirect},
+		log:        log.With("component", "playback"),
+		idle:       idle,
+		readAhead:  ra,
+		quality:    q,
+		st:         playback.Status{State: playback.StateIdle, Volume: 1, UpdatedAt: time.Now()},
+		cache:      map[string]*media{},
+		sessions:   map[string]*media{},
+		events:     make(chan playback.Event, 32),
+		retry:      retryDelays,
+		probe:      cdmhost.Probe,
+		cdm:        o.CDM,
+		preview:    o.Preview,
+		sf:         o.Storefront,
 	}
 	e.bg, e.stopBG = context.WithCancel(context.Background())
 	e.spawn = func(ctx context.Context, lib string) (host, error) {
@@ -368,7 +372,7 @@ func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
 	}()
 	e.prefetchCert()
 	m, err := e.media(ctx, it.id, false)
-	if err == nil && m.file == nil {
+	if err == nil && m.pl != nil {
 		// The first segment downloads while the licence is negotiated.
 		e.prefetch(m, m.startSegment(pos))
 	}
@@ -560,6 +564,14 @@ func (e *Engine) Pause(ctx context.Context) error {
 	if e.st.State != playback.StateEnded && e.st.State != playback.StateError {
 		e.setState(playback.StatePaused, pos, now)
 	}
+	if it.m != nil && it.m.broadcast != nil {
+		// A broadcast is not held while paused: Resume joins it live
+		// again (restart), as a radio does.
+		if it.cancel != nil {
+			it.cancel()
+		}
+		it.loaded = false
+	}
 	it.signal(nil)
 	e.armIdle()
 	return nil
@@ -638,7 +650,7 @@ func (e *Engine) Seek(ctx context.Context, pos time.Duration) error {
 		return errors.New("native: nothing to seek")
 	}
 	m := it.m
-	if m.stream != nil && m.stream.live {
+	if m.live() {
 		e.mu.Unlock()
 		return nil // live radio cannot seek
 	}
@@ -705,6 +717,10 @@ func (e *Engine) Seek(ctx context.Context, pos time.Duration) error {
 func (e *Engine) startFeed(ctx context.Context, it *item, tok uint64, h host, gen int, m *media, pos time.Duration) {
 	if m.file != nil {
 		go e.feedFile(ctx, it, tok, h, m)
+		return
+	}
+	if m.broadcast != nil {
+		go e.feedBroadcast(ctx, it, tok, h, m)
 		return
 	}
 	if m.stream != nil {

@@ -14,7 +14,8 @@ import (
 // through their own gst.FilePipeline, which decodes with decodebin and
 // shares the output processing (equaliser, volume) with the CDM pipeline;
 // one of the two plays at a time. A Load without an init segment while a
-// file is current seeks within it.
+// file is current seeks within it. A live broadcaster's stream (LoadFile
+// with size gst.Live) takes the same path, without length or seeking.
 
 // output is what the transport controls drive: the CDM pipeline or the
 // file pipeline, whichever plays the current track.
@@ -43,13 +44,15 @@ type fileState struct {
 	seek      time.Duration // seek to make once prerolled; -1 for none
 	complete  bool          // every byte was fed
 	durSent   bool          // the parent was told the duration
+	live      bool          // a live stream (gst.Live)
 }
 
 // fileLowWater is how many bytes past the demuxer's read position count
 // as buffered audio for the underrun detector.
 const fileLowWater = 64 << 10
 
-// loadFile makes r.Track a plain file of r.Size bytes played from r.Start.
+// loadFile makes r.Track a plain file of r.Size bytes (gst.Live: a live
+// stream) played from r.Start.
 func (s *server) loadFile(r request) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -65,7 +68,7 @@ func (s *server) loadFile(r request) error {
 	}
 	f.SetEqualizer(s.eq.Pregain, s.eq.Gains)
 	s.file = f
-	s.fs = fileState{track: r.Track, seek: -1}
+	s.fs = fileState{track: r.Track, seek: -1, live: r.Size == gst.Live}
 	if r.Start > 0 {
 		s.fs.seek = r.Start
 	}
@@ -131,12 +134,23 @@ func (s *server) closeFileLocked() {
 
 // fileQueuedLocked estimates the audio buffered ahead in a file for the
 // underrun detector: plenty once it is complete or well ahead of the
-// demuxer, none when the demuxer has caught up with the download.
+// demuxer, none when the demuxer has caught up with the download. A live
+// stream's unread bytes are timed at the rate of the part played so far.
 func (s *server) fileQueuedLocked() time.Duration {
 	if s.fs.complete {
 		return resumeBuffered
 	}
 	have, _, pos := s.file.Level()
+	if s.fs.live {
+		if have <= pos {
+			return 0
+		}
+		played, ok := s.file.Position()
+		if !ok || pos <= 0 || played < time.Second {
+			return resumeBuffered // too early to know the rate
+		}
+		return time.Duration(float64(have-pos) / float64(pos) * float64(played))
+	}
 	if have-pos > fileLowWater {
 		return resumeBuffered
 	}

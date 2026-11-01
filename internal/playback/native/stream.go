@@ -20,7 +20,8 @@ import (
 // variants, encrypted 'cbcs' (SAMPLE-AES) with a Widevine pssh in the
 // playlist and licences from the radio key server. Live playlists are a
 // sliding window that is reloaded while playing; each programme brings a
-// new init segment and key.
+// new init segment and key. Local broadcasters' stations answer with a
+// clear stream of their own instead (broadcast.go).
 
 // liveStale is how long a prepared live stream's playlist stays usable
 // for a (re)start; older ones are prepared again from the live edge.
@@ -43,7 +44,15 @@ type stream struct {
 func IsStation(id string) bool { return strings.HasPrefix(id, "ra.") }
 
 func (m *media) stale() bool {
+	if m.broadcast != nil {
+		return time.Since(m.broadcast.prepared) > liveStale
+	}
 	return m.stream != nil && m.stream.live && time.Since(m.stream.prepared) > liveStale
+}
+
+// live reports a live stream, which has no duration and cannot seek.
+func (m *media) live() bool {
+	return m.broadcast != nil || m.stream != nil && m.stream.live
 }
 
 // startSegment is the segment playback from pos begins with.
@@ -55,14 +64,33 @@ func (m *media) startSegment(pos time.Duration) int {
 }
 
 // prepareStream resolves station m.id to its stream and fetches the media
-// playlist and the init segment to start with.
+// playlist and the init segment to start with. The asset is requested
+// with the station's own play parameters, as MusicKit does: Apple answers
+// a broadcaster's (hasDrm false) only when asked without DRM.
 func (e *Engine) prepareStream(ctx context.Context, m *media) error {
-	asset, err := e.api.RadioAssets(ctx, applemusic.StationPlayParams{ID: m.id, HasDRM: true})
+	var sf string
+	if e.sf != nil {
+		sf = e.sf()
+	}
+	if sf == "" {
+		return errors.New("native: no storefront to look stations up in")
+	}
+	sts, err := e.api.Stations(ctx, sf, []string{m.id})
 	if err != nil {
 		return err
 	}
-	if asset.KeyServerURL == "" || !strings.Contains(asset.URL, ".m3u8") {
-		return fmt.Errorf("native: %s is a third-party stream, which this engine does not play: %w", m.id, applemusic.ErrNotPlayable)
+	if len(sts) == 0 || sts[0].Attributes.PlayParams == nil || sts[0].Format() != applemusic.StationFormatStream {
+		return fmt.Errorf("native: %s is not a stream station: %w", m.id, applemusic.ErrNotPlayable)
+	}
+	asset, err := e.api.RadioAssets(ctx, *sts[0].Attributes.PlayParams)
+	if err != nil {
+		return err
+	}
+	if asset.KeyServerURL == "" {
+		return e.prepareBroadcast(m, asset.URL)
+	}
+	if !strings.Contains(asset.URL, ".m3u8") {
+		return fmt.Errorf("native: %s: protected radio asset is not an HLS playlist: %w", m.id, applemusic.ErrNotPlayable)
 	}
 	plURL := asset.URL
 	body, err := e.fetch(ctx, plURL, hls.ByteRange{})
