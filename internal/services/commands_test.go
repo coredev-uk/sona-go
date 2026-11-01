@@ -114,7 +114,7 @@ func newCommandEnv(t *testing.T, private privatemode.Options) *commandEnv {
 	ce.e = &Env{Deps: Deps{
 		Settings: ce.settings, DB: d, Auth: authm, API: api, Library: library.New(d, api),
 		Catalog: catalog.New(d, api, sf, nil), Coord: coord, Engine: ce.eng, Private: privatemode.New(private),
-		Storefront: sf, Emit: ce.rec, Logger: discard(), Now: time.Now,
+		Storefront: sf, Emit: ce.rec, Logger: discard(), Now: time.Now, Gate: NewGate(time.Hour, discard()),
 	}, members: newMembership(d)}
 	ce.play = newPlaybackService(ce.e)
 	lib := &LibraryService{o: ce.e, m: ce.e.m}
