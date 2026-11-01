@@ -1,6 +1,6 @@
 // Command notifyprobe shows Sona's track notification through Sona's own
 // notification client (internal/desktop/notify, with the options
-// platform_linux.go gives it), for the desktop VM tests (tests/vm): the
+// cmd/sona/platform_linux.go gives it), for the desktop VM tests (tests/vm): the
 // app announces a track only when it starts playing, and the VMs have no
 // playback (no network, no CDM).
 //

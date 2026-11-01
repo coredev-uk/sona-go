@@ -30,7 +30,7 @@ A manifest exists at `build/linux/flatpak/dev.coredev.Sona.yml`, and its build a
 
 **Tray name.** Wails also requests `org.kde.StatusNotifierItem-<pid>-1`. The sandbox denies it, and Wails treats that as non-critical: `systemtray_linux.go:338-342` logs it and continues, and registration with the watcher goes by object path. Inside the sandbox the PID is 2 (Sona's log shows `"pid":2`). If a tray host needs the well-known name, add `--own-name=org.kde.StatusNotifierItem-2-1`. Not tested on a real tray host.
 
-**Sleep/wake events.** Wails watches logind's `PrepareForSleep` on the system bus. In the sandbox it logs `Failed to connect to system bus; sleep/wake events will not fire`. Sona does not subscribe to those events (no match for `PowerEvent|SystemWillSleep|ApplicationDidWake` in `internal/`, `main.go`), so no `--system-talk-name` is needed.
+**Sleep/wake events.** Wails watches logind's `PrepareForSleep` on the system bus. In the sandbox it logs `Failed to connect to system bus; sleep/wake events will not fire`. Sona does not subscribe to those events (no match for `PowerEvent|SystemWillSleep|ApplicationDidWake` in `internal/`, `cmd/sona/`), so no `--system-talk-name` is needed.
 
 ## CDM access
 

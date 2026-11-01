@@ -15,7 +15,7 @@ tasks:
             ref: .DEV
     cmds:
       # Silent: LDFLAGS may carry the Last.fm API secret.
-      - cmd: go build {{.BUILD_FLAGS}} -ldflags="{{.LDFLAGS}}" -o {{.OUTPUT}}
+      - cmd: go build {{.BUILD_FLAGS}} -ldflags="{{.LDFLAGS}}" -o {{.OUTPUT}} ./cmd/sona
         silent: true
       - echo "built {{.OUTPUT}} ({{.VERSION}})"
     vars:
