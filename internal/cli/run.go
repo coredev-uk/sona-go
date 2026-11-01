@@ -1,12 +1,12 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"text/template"
 )
 
 // Exit statuses of `sona <command>`.
@@ -153,24 +153,33 @@ func (env Env) writeStatus(in *invocation, s Status) error {
 
 // follow runs `status --follow`: a line now and one per change until Sona
 // quits, then a last line saying it isn't running.
+// Lines identical to the one before (a change the line doesn't show, such
+// as the volume in the default text) are left out; --json prints each.
 func (env Env) follow(ctx context.Context, in *invocation, t Transport) int {
-	var tmpl *template.Template
-	if in.format != "" {
-		var err error
-		if tmpl, err = statusTemplate(in.format); err != nil {
-			return env.fail(Usage(msgBadTemplate, err))
+	var (
+		last    *Status
+		printed []byte
+	)
+	emit := func(s Status) error {
+		var b bytes.Buffer
+		line := env
+		line.Stdout = &b
+		if err := line.writeStatus(in, s); err != nil {
+			return err
 		}
+		if bytes.Equal(b.Bytes(), printed) {
+			return nil
+		}
+		printed = b.Bytes()
+		_, err := env.Stdout.Write(printed)
+		return err
 	}
-	var last *Status
 	err := t.Follow(ctx, func(s Status) error {
 		if last != nil && s.sameAs(*last) {
 			return nil
 		}
 		last = &s
-		if tmpl != nil {
-			return executeTemplate(env.Stdout, tmpl, s)
-		}
-		return env.writeStatus(in, s)
+		return emit(s)
 	})
 	if err != nil {
 		var cmdErr *Error
@@ -179,7 +188,7 @@ func (env Env) follow(ctx context.Context, in *invocation, t Transport) int {
 		}
 		return env.unreachable(in, err)
 	}
-	if err := env.writeStatus(in, NotRunning()); err != nil {
+	if err := emit(NotRunning()); err != nil {
 		return env.fail(err)
 	}
 	return ExitOK
@@ -240,7 +249,7 @@ func errorText(e *Error) string {
 		return msgNothingPlaying
 	case CodeUnknownCommand, CodeIncompatible:
 		return msgIncompatible
-	case "not_signed_in":
+	case "not_signed_in", "unauthorized":
 		return msgNotSignedIn
 	case "private_forced":
 		return msgPrivateForced

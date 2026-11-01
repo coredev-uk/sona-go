@@ -315,6 +315,7 @@ func TestRunErrors(t *testing.T) {
 		"play":    &Error{Code: CodeStarting},
 		"queue":   &Error{Code: CodeUnknownCommand, Message: "queue"},
 		"pause":   errors.New("connection reset by peer"),
+		"toggle":  &Error{Code: "unauthorized", Message: "403 Forbidden"},
 		"volume":  &Error{Code: CodeUsage},
 	}}
 	for _, tc := range []struct {
@@ -323,6 +324,7 @@ func TestRunErrors(t *testing.T) {
 		stderr string
 	}{
 		{[]string{"like"}, ExitFailed, "sona: nothing is playing\n"},
+		{[]string{"toggle"}, ExitFailed, "sona: Apple Music needs you signed in to Sona for this\n"},
 		{[]string{"private", "off"}, ExitFailed, "sona: private listening is forced on for this run (SONA_PRIVATE=1)\n"},
 		{[]string{"next"}, ExitFailed, "sona: dial tcp: no route to host\n"},
 		{[]string{"open", "https://example.com"}, ExitUsage, "sona: that isn't an Apple Music link Sona can open\n"},
@@ -351,6 +353,7 @@ func TestRunFollow(t *testing.T) {
 		{Running: true, State: StatePlaying, Track: song, Position: 1},
 		{Running: true, State: StatePlaying, Track: song, Position: 2}, // only the position moved
 		paused,
+		{Running: true, State: StatePaused, Track: song, Position: 10, Volume: 70}, // the text line doesn't show it
 	}}
 	code, out, errOut := run(t, tr, "status", "--follow")
 	want := "playing: Come Together — The Beatles\npaused: Come Together — The Beatles\nnot running\n"
@@ -359,7 +362,7 @@ func TestRunFollow(t *testing.T) {
 	}
 	code, out, _ = run(t, tr, "status", "--follow", "--json")
 	lines := strings.Split(strings.TrimSpace(out), "\n")
-	if code != ExitOK || len(lines) != 3 || !strings.HasPrefix(lines[0], `{"running":true,"state":"playing"`) || !strings.HasPrefix(lines[2], `{"running":false`) {
+	if code != ExitOK || len(lines) != 4 || !strings.HasPrefix(lines[0], `{"running":true,"state":"playing"`) || !strings.HasPrefix(lines[3], `{"running":false`) {
 		t.Errorf("follow --json: %d, %q", code, out)
 	}
 	code, out, _ = run(t, tr, "status", "--follow", "--format", `{"text": {{with .track}}{{json .title}}{{else}}""{{end}}, "class": {{json .state}}}`)
