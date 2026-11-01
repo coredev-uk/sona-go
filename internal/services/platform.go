@@ -11,6 +11,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/desktop/notify"
 	"github.com/coredev-uk/sona-go/internal/discord"
 	"github.com/coredev-uk/sona-go/internal/mpris"
+	"github.com/coredev-uk/sona-go/internal/power"
 	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
@@ -31,7 +32,7 @@ type Platform struct {
 	Notifications func(ctx context.Context, onAction func(key string)) (Notifier, error)
 	// Inhibitor returns the sleep inhibitor held while music plays.
 	Inhibitor func() SleepInhibitor
-	// Power opens the on-battery monitor (UPower on Linux).
+	// Power opens the power source monitor (UPower on Linux).
 	Power func() (PowerMonitor, error)
 	// Autostart is the login item.
 	Autostart Autostart
@@ -77,11 +78,12 @@ type SleepInhibitor interface {
 	Close() error
 }
 
-// PowerMonitor follows whether the machine runs on battery.
+// PowerMonitor follows the computer's power source.
 type PowerMonitor interface {
-	OnBattery() bool
+	// State is the power source now and how it was decided.
+	State() power.State
 	// Run calls fn with each change until Close.
-	Run(fn func(onBattery bool))
+	Run(fn func(power.State))
 	Close() error
 }
 

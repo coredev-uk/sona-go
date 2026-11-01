@@ -93,6 +93,10 @@ type Album struct {
 	DateAdded  int64  `json:"dateAdded"` // library only
 	Traits     Traits `json:"traits"`
 	Art        Art    `json:"art"`
+	// Motion is the album's square motion artwork, for its tile (a
+	// Go-served /motion/<key>/<size>.mp4 URL; "" when Apple has none or
+	// for library items). Artist, Playlist and Station carry the same.
+	Motion string `json:"motion"`
 }
 
 // Artist is an artist from the library or the catalog.
@@ -104,6 +108,7 @@ type Artist struct {
 	Name      string `json:"name"`
 	Genre     string `json:"genre"`
 	Art       Art    `json:"art"`
+	Motion    string `json:"motion"` // as Album.Motion (motionArtistSquare1x1)
 }
 
 // Playlist is a playlist from the library or the catalog.
@@ -121,6 +126,7 @@ type Playlist struct {
 	DateAdded    int64  `json:"dateAdded"` // library only
 	Art          Art    `json:"art"`
 	Traits       Traits `json:"traits"`
+	Motion       string `json:"motion"` // as Album.Motion
 }
 
 // MusicVideo is a music video from the catalog or the library. Its Art is
@@ -149,7 +155,7 @@ type MusicVideo struct {
 // 2–3 dominant colours ("#rrggbb", most prominent first; empty when they
 // could not be computed in time), and Apple's looping motion cover as a
 // Go-served /motion/<key>/<size>.mp4 URL ("" when the item has none;
-// catalog album and playlist pages only).
+// catalog album, playlist, artist and station pages only).
 type Header struct {
 	Backdrop string   `json:"backdrop"`
 	Colors   []string `json:"colors"`
@@ -217,6 +223,7 @@ type Station struct {
 	DurationMs  int64  `json:"durationMs"` // episodes only
 	URL         string `json:"url"`        // music.apple.com link, "" if none
 	Art         Art    `json:"art"`
+	Motion      string `json:"motion"` // as Album.Motion (live, personal and mood stations)
 }
 
 // Item kinds: what an Item is and which page it opens.

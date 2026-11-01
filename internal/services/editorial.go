@@ -110,9 +110,10 @@ func putPage[T any](ctx context.Context, e *Env, key, sf string, personal bool, 
 	}
 }
 
-// slimResources drops, in place, the attributes Sona never reads (motion
-// artwork, editorial card variants, unused editorial artwork flavours) so
-// cached pages are a fraction of Apple's size and decode fast on cold start.
+// slimResources drops, in place, the attributes Sona never reads
+// (editorial card variants, unused editorial artwork flavours, motion
+// artwork other than the square video's playlist URL) so cached pages are
+// a fraction of Apple's size and decode fast on cold start.
 func slimResources(res applemusic.Resources) {
 	keep := map[string]bool{}
 	for _, k := range wideKeys {
@@ -129,11 +130,19 @@ func slimResources(res applemusic.Resources) {
 				continue
 			}
 			changed := false
-			for _, k := range []string{"editorialVideo", "plainEditorialCard"} {
-				if _, ok := attrs[k]; ok {
-					delete(attrs, k)
-					changed = true
+			if _, ok := attrs["plainEditorialCard"]; ok {
+				delete(attrs, "plainEditorialCard")
+				changed = true
+			}
+			if raw, ok := attrs["editorialVideo"]; ok {
+				var ev applemusic.EditorialVideo
+				_ = json.Unmarshal(raw, &ev)
+				if sq := ev.Square(); sq != "" {
+					attrs["editorialVideo"], _ = json.Marshal(applemusic.EditorialVideo{"motionSquareVideo1x1": {Video: sq}})
+				} else {
+					delete(attrs, "editorialVideo")
 				}
+				changed = true
 			}
 			if raw, ok := attrs["editorialArtwork"]; ok {
 				var ea map[string]json.RawMessage

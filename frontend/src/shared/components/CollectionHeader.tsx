@@ -26,11 +26,12 @@ interface CollectionHeaderProps {
 }
 
 /**
- * The album, playlist and artist header: the cover, the title at 32/36,
- * the catalogue line, and the actions, on a wash of the cover's colour
- * (a Go pre-blurred backdrop under the theme's ground scrim). It bleeds to the
- * content edges. A square cover with motion artwork (`header.motion`)
- * plays it, muted and looping, where motion is allowed.
+ * The album, playlist, artist and station header: the cover, the title at
+ * 32/36, the catalogue line, and the actions, on a wash of the cover's
+ * colour (a Go pre-blurred backdrop under the theme's ground scrim). It
+ * bleeds to the content edges. A cover with motion artwork
+ * (`header.motion`) plays it, muted and looping, where motion is allowed
+ * (an artist's clipped round).
  */
 export function CollectionHeader({
   title,
@@ -54,12 +55,13 @@ export function CollectionHeader({
           <div className="shrink-0" style={{ width: narrow ? 240 : 356 }}>
             <FluidArtwork src={art} size={narrow ? 240 : 356} alt="" aspect="video" />
           </div>
-        ) : header?.motion && shape !== "round" ? (
+        ) : header?.motion ? (
           <MotionCover
             motion={header.motion}
             art={art}
             size={narrow ? 136 : 200}
             videoSize={200}
+            shape={shape}
             alt=""
             eager
           />

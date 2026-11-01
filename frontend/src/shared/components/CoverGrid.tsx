@@ -7,6 +7,7 @@ import { ItemActionMenu } from "@/shared/actions/ActionMenu";
 import type { ActionItem } from "@/shared/actions/registry";
 import { FluidArtwork } from "@/shared/components/Artwork";
 import { ExplicitMark } from "@/shared/components/Badges";
+import { TileMotion } from "@/shared/components/TileMotion";
 import { useWithheld } from "@/shared/lib/content-policy";
 import { useContentVirtualizer } from "@/shared/lib/useContentVirtualizer";
 import { GAP_X, useCoverColumns } from "@/shared/lib/useCoverColumns";
@@ -42,6 +43,8 @@ export interface CoverItem {
   target?: ActionItem;
   /** Marks the title explicit; restricted accounts see the tile dimmed and cannot play it. */
   explicit?: boolean;
+  /** Go's square motion artwork URL, played on hover or focus ("" or unset: none). */
+  motion?: string;
 }
 
 interface CoverGridProps {
@@ -121,6 +124,7 @@ export const CoverTile = memo(function CoverTile({
         withheld && "opacity-50",
       )}
       title={withheld ? t`Explicit content is restricted on this account` : undefined}
+      data-cover-tile
     >
       <div className="relative">
         <FluidArtwork
@@ -130,6 +134,7 @@ export const CoverTile = memo(function CoverTile({
           shape={item.shape}
           aspect={item.aspect ?? aspect}
         />
+        {item.motion && !withheld && <TileMotion motion={item.motion} round={round} />}
         {item.play && !withheld && (
           <button
             type="button"

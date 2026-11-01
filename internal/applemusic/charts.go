@@ -87,7 +87,8 @@ func Charts(ctx context.Context, c *Client, sf string, cq ChartsQuery) (ChartsRe
 	if cq.ChartID != "" {
 		v.Set("chartId", cq.ChartID)
 	}
-	q := AMPQuery{Extend: []string{"artistUrl"}, Offset: cq.Offset, Extra: v}
+	// editorialVideo: the albums' and playlists' tile motion.
+	q := AMPQuery{Extend: []string{"artistUrl", "editorialVideo"}, Offset: cq.Offset, Extra: v}
 	if cq.Cities {
 		q.With = []string{"cityCharts", "dailyGlobalTopCharts"}
 	}

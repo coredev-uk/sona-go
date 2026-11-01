@@ -79,8 +79,7 @@ type catalogPlaylistBody struct {
 			Curator Relationship[Resource[curatorAttributes]] `json:"curator"`
 		} `json:"relationships"`
 		Views struct {
-			FeaturedArtists View[Artist]   `json:"featured-artists"`
-			MoreByCurator   View[Playlist] `json:"more-by-curator"`
+			MoreByCurator View[Playlist] `json:"more-by-curator"`
 		} `json:"views"`
 	} `json:"data"`
 }
@@ -97,18 +96,19 @@ func playlistTrackQuery() url.Values {
 		"include[music-videos]": {"artists"},
 		"relate[songs]":         {"albums"},
 		"fields[songs]":         {strings.Join(playlistSongFields, ",")},
-		"fields[artists]":       {"name,url,artwork"}, // artwork: the featured-artists view
+		"fields[artists]":       {"name,url"},
 		"omit[resource]":        {"autos"},
 	}
 }
 
 // CatalogPlaylist fetches catalog playlist id (pl.…, pl.u-…, pl.pm-…,
 // pl.rp-…) with all of its tracks: the first 300 come with the playlist,
-// the rest are fetched in parallel pages of 300.
+// the rest are fetched in parallel pages of 300, beside the featured
+// artists.
 func (c *Client) CatalogPlaylist(ctx context.Context, sf, id string) (CatalogPlaylist, error) {
 	q := AMPQuery{
 		Include: []string{"tracks", "curator"},
-		Views:   []string{"featured-artists", "more-by-curator"},
+		Views:   []string{"more-by-curator"},
 		Extend:  []string{"editorialArtwork", "editorialVideo", "trackCount"},
 		Fields: map[string][]string{
 			"curators":        {"name", "url"},
@@ -118,7 +118,6 @@ func (c *Client) CatalogPlaylist(ctx context.Context, sf, id string) (CatalogPla
 		Extra: playlistTrackQuery(),
 	}
 	q.Extra.Set("limit[tracks]", strconv.Itoa(catalogTrackPage))
-	q.Extra.Set("limit[view.featured-artists]", "15")
 	q.Extra.Set("limit[view.more-by-curator]", "15")
 	body, err := AMP[catalogPlaylistBody](ctx, c, CatalogPath(sf, TypePlaylists, id), q)
 	if err != nil {
@@ -129,9 +128,8 @@ func (c *Client) CatalogPlaylist(ctx context.Context, sf, id string) (CatalogPla
 		return CatalogPlaylist{}, err
 	}
 	out := CatalogPlaylist{
-		Playlist:        Playlist{Resource: d.Resource},
-		FeaturedArtists: d.Views.FeaturedArtists.Data,
-		MoreByCurator:   d.Views.MoreByCurator.Data,
+		Playlist:      Playlist{Resource: d.Resource},
+		MoreByCurator: d.Views.MoreByCurator.Data,
 	}
 	out.Playlist.Relationships.Tracks = d.Relationships.Tracks
 	if cur := d.Relationships.Curator.Data; len(cur) > 0 {
@@ -139,15 +137,40 @@ func (c *Client) CatalogPlaylist(ctx context.Context, sf, id string) (CatalogPla
 		out.Curator = Curator{ID: cur[0].ID, Type: cur[0].Type, Name: a.Name, Handle: a.Handle, URL: a.URL}
 	}
 	tracks := &out.Playlist.Relationships.Tracks
-	rest, err := c.catalogPlaylistTracks(ctx, sf, id, len(tracks.Data), out.Playlist.Attributes.TrackCount, tracks.Next)
-	if err != nil {
-		return CatalogPlaylist{}, fmt.Errorf("playlist %s tracks: %w", id, err)
+	var rest []Song
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		var err error
+		rest, err = c.catalogPlaylistTracks(gctx, sf, id, len(tracks.Data), out.Playlist.Attributes.TrackCount, tracks.Next)
+		if err != nil {
+			return fmt.Errorf("playlist %s tracks: %w", id, err)
+		}
+		return nil
+	})
+	// The featured artists come from their own view request, which asks
+	// for their motion artwork (tile motion): asking for artists' motion
+	// in the playlist request would repeat it for every song's artist
+	// (about 1.6 kB a song). They are decoration: a failed request leaves
+	// the shelf out rather than failing the page.
+	g.Go(func() error {
+		v, err := AMP[View[Artist]](gctx, c, CatalogPath(sf, TypePlaylists, id, "view", "featured-artists"), AMPQuery{
+			Limit:  15,
+			Extend: []string{"editorialVideo"},
+			Fields: map[string][]string{"artists": {"name", "url", "artwork", "editorialVideo"}},
+		})
+		if err == nil {
+			out.FeaturedArtists = v.Data
+		}
+		return nil
+	})
+	if err := g.Wait(); err != nil {
+		return CatalogPlaylist{}, err
 	}
 	tracks.Data = append(tracks.Data, rest...)
 	tracks.Next = ""
 	// The view is often empty; the curator's own playlist list stands in.
 	if len(out.MoreByCurator) == 0 && (out.Curator.Type == "apple-curators" || out.Curator.Type == "curators") {
-		more, err := AMP[Page[Playlist]](ctx, c, CatalogPath(sf, out.Curator.Type, out.Curator.ID, "playlists"), AMPQuery{Limit: 16})
+		more, err := AMP[Page[Playlist]](ctx, c, CatalogPath(sf, out.Curator.Type, out.Curator.ID, "playlists"), AMPQuery{Limit: 16, Extend: []string{"editorialVideo"}})
 		if err != nil && !errors.Is(err, ErrNotFound) {
 			return CatalogPlaylist{}, fmt.Errorf("playlist %s curator playlists: %w", id, err)
 		}

@@ -16,6 +16,7 @@ export function albumTile(a: Album, by: "artist" | "year" = "artist"): CoverItem
     title: a.name,
     subtitle: by === "year" ? yearOf(a.releaseDate) : a.artistName,
     art: a.art.medium,
+    motion: a.motion || undefined,
     link: { to: "/album/$id", params: { id: a.id } },
     target: { kind: "album", target: a },
     badge: releaseBadge(a),
@@ -28,6 +29,7 @@ export function playlistTile(p: Playlist): CoverItem {
     title: p.name,
     subtitle: p.curatorName,
     art: p.art.medium,
+    motion: p.motion || undefined,
     link: { to: "/playlist/$id", params: { id: p.id } },
     target: { kind: "playlist", target: p },
   };
@@ -38,6 +40,7 @@ export function artistTile(a: Artist): CoverItem {
     key: a.id,
     title: a.name,
     art: a.art.medium,
+    motion: a.motion || undefined,
     shape: "round",
     link: { to: "/artist/$id", params: { id: a.id } },
     target: { kind: "artist", target: a },

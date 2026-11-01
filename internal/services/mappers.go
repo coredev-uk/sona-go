@@ -293,6 +293,7 @@ func (m mapper) amAlbum(a applemusic.Album) Album {
 		Single:      at.IsSingle,
 		Traits:      traitsOf(at.AudioTraits, at.IsAppleDigitalMaster || at.IsMasteredForItunes),
 		Art:         m.artwork(at.Artwork),
+		Motion:      m.motionOf(at.EditorialVideo),
 	}
 	if isLibraryType(a.Type) {
 		out.Source, out.LibraryID = SourceLibrary, a.ID
@@ -321,6 +322,7 @@ func (m mapper) amArtist(a applemusic.Artist) Artist {
 		Name:      a.Attributes.Name,
 		Genre:     firstOf(a.Attributes.GenreNames),
 		Art:       m.artwork(a.Attributes.Artwork),
+		Motion:    m.motionOf(a.Attributes.EditorialVideo),
 	}
 	if isLibraryType(a.Type) {
 		out.Source, out.LibraryID = SourceLibrary, a.ID
@@ -342,6 +344,7 @@ func (m mapper) amPlaylist(p applemusic.Playlist) Playlist {
 		LastModified: parseMs(at.LastModifiedDate),
 		Art:          m.artwork(at.Artwork),
 		Traits:       traitsOf(at.AudioTraits, false),
+		Motion:       m.motionOf(at.EditorialVideo),
 	}
 	if isLibraryType(p.Type) {
 		out.Source, out.LibraryID = SourceLibrary, p.ID
@@ -421,6 +424,7 @@ func (m mapper) amStation(s applemusic.Station) Station {
 		DurationMs: a.DurationInMillis,
 		URL:        a.URL,
 		Art:        m.artwork(a.Artwork),
+		Motion:     m.motionOf(a.EditorialVideo),
 	}
 	if n := a.EditorialNotes; n != nil {
 		// Short is a label ("Live Station") when a tagline exists, else

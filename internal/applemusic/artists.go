@@ -48,12 +48,13 @@ var artistViews = []string{
 }
 
 // ArtistPage returns catalog artist id from the web player's API with its
-// biography, origin and formation date, and the page sections in Views
-// (the "classic" views, simpler than the canvas the web app renders).
+// biography, origin and formation date, its motion artwork, and the page
+// sections in Views (the "classic" views, simpler than the canvas the web
+// app renders).
 func ArtistPage(ctx context.Context, c *Client, sf, id string) (Artist, error) {
 	return AMPResource[Artist](ctx, c, sf, TypeArtists, id, AMPQuery{
 		Views:  artistViews,
-		Extend: []string{"artistBio", "bornOrFormed", "origin"},
+		Extend: []string{"artistBio", "bornOrFormed", "origin", "editorialVideo"},
 		Extra: url.Values{
 			"include[songs]":        {"albums,artists"},
 			"include[albums]":       {"artists"},
@@ -69,6 +70,7 @@ func ArtistPage(ctx context.Context, c *Client, sf, id string) (Artist, error) {
 func ArtistView[T any](ctx context.Context, c *Client, sf, id, view string, offset, limit int) (View[T], error) {
 	q := AMPQuery{
 		With:   []string{"attributes"},
+		Extend: []string{"editorialVideo"}, // tile motion
 		Limit:  max(1, min(limit, 100)),
 		Offset: max(offset, 0),
 		Extra: url.Values{

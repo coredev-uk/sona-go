@@ -1,12 +1,14 @@
 // Package motion is Sona's motion artwork cache. Apple's motion artwork
 // (editorialVideo) is an unencrypted HLS master playlist on its media CDN
-// whose H.264 renditions are each one fragmented MP4 file read by byte
-// ranges. The cache picks the rendition for the size the UI draws, fetches
-// that file once, remuxes it into a plain MP4 whose timeline starts at 0
-// (WebKitGTK does not play Apple's fragments, see flatten), and serves it
-// to the web view (with Range support) at /motion/<key>/<size>.mp4, so the
-// frontend never contacts Apple and a looping video plays from disk.
-// Least-recently-used files are evicted over a size cap.
+// whose renditions are fragmented MP4: one file read by byte ranges
+// (albums), or an initialisation file and segment files (editorial
+// playlists). The cache picks the rendition for the size the UI draws (in
+// the codec the web view plays), fetches its files once, remuxes them into
+// a plain MP4 whose timeline starts at 0 (WebKitGTK does not play Apple's
+// fragments, see flatten), and serves it to the web view (with Range
+// support) at /motion/<key>/<size>.mp4, so the frontend never contacts
+// Apple and a looping video plays from disk. Least-recently-used files are
+// evicted over a size cap.
 package motion
 
 import (
@@ -46,8 +48,9 @@ const (
 )
 
 // sizes are the rendition buckets a requested size falls into (device
-// pixels): header covers fit the first, the now-playing cover the second.
-var sizes = []int{480, 720}
+// pixels): cover tiles fit the first, header covers the second, the
+// now-playing cover the third.
+var sizes = []int{360, 480, 720}
 
 // bucket maps a requested size to its rendition bucket: the smallest at
 // least that large, else the largest.
@@ -87,8 +90,28 @@ type Cache struct {
 	mu      sync.Mutex
 	masters map[string]string // key → HLS master playlist URL
 	touched map[string]time.Time
+	last    Fetch
 	flight  singleflight.Group
 	evictMu sync.Mutex
+}
+
+// Fetch is the outcome of the newest rendition download, for Diagnostics.
+type Fetch struct {
+	At    time.Time
+	Key   string
+	Size  int    // rendition bucket (device pixels)
+	Codec string // CodecH264 or CodecHEVC
+	// Rendition is the variant chosen ("avc1.64001f 486×486, 1.7
+	// Mbit/s"), "" when none was.
+	Rendition string
+	Err       string // "" when it worked
+}
+
+// Stats describes the cache for Diagnostics.
+type Stats struct {
+	Files int   // renditions on disk
+	Bytes int64 // their size
+	Last  Fetch // the newest download since start (zero At: none)
 }
 
 // New opens the cache at o.Dir.
@@ -161,10 +184,12 @@ func validKey(k string) bool {
 }
 
 // ServeHTTP serves "<prefix><key>/<size>.mp4" for keys handed out by URL
-// (or already on disk), sizes 16–2048. The first request for a rendition
-// waits for its download; later ones, and Range requests while it loops,
-// read the file on disk. Unknown keys are 404s, so the web view cannot
-// make Sona fetch anything it did not hand out itself.
+// (or already on disk), sizes 16–2048, in H.264, or in HEVC with
+// "?codec=hevc" (for a web view that plays HEVC but not H.264). The first
+// request for a rendition waits for its download; later ones, and Range
+// requests while it loops, read the file on disk. Unknown keys are 404s,
+// so the web view cannot make Sona fetch anything it did not hand out
+// itself.
 func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
@@ -174,12 +199,14 @@ func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rest, ok := strings.CutPrefix(r.URL.Path, c.prefix)
 	key, name, ok2 := strings.Cut(rest, "/")
 	px, err := strconv.Atoi(strings.TrimSuffix(name, ".mp4"))
-	if !ok || !ok2 || !validKey(key) || err != nil || strconv.Itoa(px)+".mp4" != name || px < 16 || px > 2048 {
+	codec := cmp.Or(r.URL.Query().Get("codec"), CodecH264)
+	if !ok || !ok2 || !validKey(key) || err != nil || strconv.Itoa(px)+".mp4" != name || px < 16 || px > 2048 ||
+		(codec != CodecH264 && codec != CodecHEVC) {
 		http.NotFound(w, r)
 		return
 	}
 	size := bucket(px)
-	path := c.path(key, size)
+	path := c.path(key, size, codec)
 	if _, err := os.Stat(path); err != nil {
 		c.mu.Lock()
 		master := c.masters[key]
@@ -193,16 +220,27 @@ func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ch := c.flight.DoChan(filepath.Base(path), func() (any, error) {
 			ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), fetchTimeout)
 			defer cancel()
-			return nil, c.fetch(ctx, master, size, path)
+			start := time.Now()
+			rendition, err := c.fetch(ctx, master, size, codec, path)
+			f := Fetch{At: time.Now(), Key: key, Size: size, Codec: codec, Rendition: rendition}
+			if err != nil {
+				f.Err = err.Error()
+				c.log.Warn("motion: fetch", "key", key, "size", size, "codec", codec, "rendition", rendition, "err", err)
+			} else {
+				c.log.Info("motion: fetched", "key", key, "size", size, "rendition", rendition, "took_ms", time.Since(start).Milliseconds())
+			}
+			c.mu.Lock()
+			c.last = f
+			c.mu.Unlock()
+			return nil, err
 		})
 		select {
 		case <-r.Context().Done():
 			return
 		case res := <-ch:
 			if res.Err != nil {
-				c.log.Warn("motion: fetch", "key", key, "size", size, "err", res.Err)
 				w.Header().Set("Cache-Control", "no-store")
-				http.Error(w, "motion artwork unavailable", http.StatusBadGateway)
+				http.Error(w, "motion artwork unavailable: "+res.Err.Error(), http.StatusBadGateway)
 				return
 			}
 		}
@@ -222,8 +260,34 @@ func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, "", time.Time{}, f)
 }
 
-func (c *Cache) path(key string, size int) string {
-	return filepath.Join(c.dir, key+"-"+strconv.Itoa(size)+".mp4")
+// Stats counts the renditions on disk and reports the newest download.
+func (c *Cache) Stats() Stats {
+	var s Stats
+	if entries, err := os.ReadDir(c.dir); err == nil {
+		for _, e := range entries {
+			if !strings.HasSuffix(e.Name(), ".mp4") || strings.HasPrefix(e.Name(), tempPrefix) {
+				continue
+			}
+			if info, err := e.Info(); err == nil {
+				s.Files++
+				s.Bytes += info.Size()
+			}
+		}
+	}
+	c.mu.Lock()
+	s.Last = c.last
+	c.mu.Unlock()
+	return s
+}
+
+// path is a rendition's file: "<key>-<size>.mp4" in H.264 (as before
+// HEVC could be asked for), "<key>-<size>-hevc.mp4" in HEVC.
+func (c *Cache) path(key string, size int, codec string) string {
+	name := key + "-" + strconv.Itoa(size)
+	if codec != CodecH264 {
+		name += "-" + codec
+	}
+	return filepath.Join(c.dir, name+".mp4")
 }
 
 // touch refreshes path's mtime (its place in eviction order) at most once
@@ -241,44 +305,51 @@ func (c *Cache) touch(path string) {
 	_ = os.Chtimes(path, now, now)
 }
 
-// fetch resolves master to the rendition for size and stores its file at
-// path.
-func (c *Cache) fetch(ctx context.Context, master string, size int, path string) error {
+// fetch resolves master to the rendition of codec for size and stores its
+// file at path. It returns the rendition chosen ("" before one is).
+func (c *Cache) fetch(ctx context.Context, master string, size int, codec, path string) (string, error) {
 	mu, err := url.Parse(master)
 	if err != nil {
-		return err
+		return "", err
 	}
 	body, err := c.get(ctx, mu, maxPlaylist)
 	if err != nil {
-		return fmt.Errorf("master playlist: %w", err)
+		return "", fmt.Errorf("master playlist: %w", err)
 	}
-	v, ok := choose(parseMaster(string(body)), size)
+	v, ok := choose(parseMaster(string(body)), size, codec)
 	if !ok {
-		return errors.New("no H.264 rendition")
+		return "", fmt.Errorf("no %s rendition", codecName(codec))
 	}
+	rendition := v.describe()
 	vu, err := mu.Parse(v.URI)
 	if err != nil {
-		return err
+		return rendition, err
 	}
 	body, err = c.get(ctx, vu, maxPlaylist)
 	if err != nil {
-		return fmt.Errorf("media playlist: %w", err)
+		return rendition, fmt.Errorf("media playlist: %w", err)
 	}
-	fu, err := parseMedia(string(body), vu)
+	files, err := parseMedia(string(body), vu)
 	if err != nil {
-		return err
+		return rendition, err
 	}
-	file, err := c.get(ctx, fu, maxFile)
-	if err != nil {
-		return fmt.Errorf("video: %w", err)
+	parts := make([][]byte, 0, len(files))
+	var total int64
+	for _, fu := range files {
+		b, err := c.get(ctx, fu, maxFile-total)
+		if err != nil {
+			return rendition, fmt.Errorf("video: %w", err)
+		}
+		total += int64(len(b))
+		parts = append(parts, b)
 	}
-	flat, err := flatten(file)
+	flat, err := flatten(parts...)
 	if err != nil {
-		return fmt.Errorf("video %s: %w", fu.Path, err)
+		return rendition, fmt.Errorf("video %s: %w", files[len(files)-1].Path, err)
 	}
 	tmp, err := os.CreateTemp(c.dir, tempPrefix+"*")
 	if err != nil {
-		return err
+		return rendition, err
 	}
 	_, err = tmp.Write(flat)
 	if cerr := tmp.Close(); err == nil {
@@ -289,10 +360,17 @@ func (c *Cache) fetch(ctx context.Context, master string, size int, path string)
 	}
 	if err != nil {
 		_ = os.Remove(tmp.Name())
-		return fmt.Errorf("video: %w", err)
+		return rendition, fmt.Errorf("video: %w", err)
 	}
 	c.evict(path)
-	return nil
+	return rendition, nil
+}
+
+func codecName(codec string) string {
+	if codec == CodecHEVC {
+		return "HEVC"
+	}
+	return "H.264"
 }
 
 // tempPrefix names downloads in progress.

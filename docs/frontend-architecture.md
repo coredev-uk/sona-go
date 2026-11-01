@@ -38,10 +38,13 @@ src/
                           context menu and drag delegated from a list's root)
     dnd/                  the pointer drag-and-drop engine: beginDrag, useDropTarget (+ test)
     components/           Artwork, Backdrop, Badges (ExplicitMark, audio labels), CollectionHeader
-                          (plays header.motion through MotionCover), ConfirmDialog (ConfirmHost),
-                          CoverGrid, DetailStates, EmptyState, ErrorBlock, LibraryButton,
+                          (plays header.motion through MotionCover, round for artists),
+                          ConfirmDialog (ConfirmHost), CoverGrid (a CoverItem.motion tile plays
+                          through TileMotion), DetailStates, EmptyState, ErrorBlock, LibraryButton,
                           MotionCover (muted looping motion artwork over the still, on screen
-                          only), PageHeader, PlayButtons, RatingButtons
+                          only, from a data: URL; logs each video's outcome), TileMotion (a
+                          tile's motion on hover or focus only, one tile at a time), PageHeader,
+                          PlayButtons, RatingButtons
     tracks/               TrackList, Equaliser
     items/                Item (any-kind card DTO) rendering: itemLink, play registry
                           (registerItemPlayer, playItem), ItemMenu, ItemShelf, ItemGrid,
@@ -55,7 +58,8 @@ src/
                           changeItemState, addItemsToLibrary), library-actions (rateItem,
                           addToLibrary, removeFromLibrary and their bulk forms), confirm, content-policy
                           (restricted accounts), traits, now-playing, motion (MotionContext /
-                          useMotionAllowed seam, motionAt), useMediaQuery,
+                          useMotionState seam, motionAt, the video outcome log, the delegated
+                          tile hover listeners), useMediaQuery,
                           useContentVirtualizer, utils (cn)
     shortcuts/            chord parsing/display (+ test), the shortcut registry with
                           bindings, conflicts and rebinding (+ test), useShortcutBindings /
@@ -112,9 +116,10 @@ src/
                           retryCdm, cdmProgress/cdmPercent, canRetryCdm, and cdmProblem
                           (the wording for every failure code in internal/playback/cdm,
                           + test); a state change refreshes Diagnostics
-    motion                whether motion artwork may play (setting, reduce effects, system
-                          reduced motion, Go's battery state from power:changed), given to
-                          shared covers through its Provider slot
+    motion                whether and how motion artwork plays (setting, reduce effects, system
+                          reduced motion, Go's power source from power:changed, the codecs
+                          WebKit decodes: H.264, else HEVC), given to shared covers through
+                          its Provider slot
     miniplayer            the mini player window's UI (MiniPlayer) and its toggle shortcut
     equalizer             the Equaliser page (/equalizer, Ctrl+Shift+E): presets, ten band
                           faders and a preamp over the response curve (response.ts computes
@@ -132,7 +137,9 @@ src/
                           portal chooser; Desktop:
                           close action, autostart, start page, resume, window size;
                           Diagnostics: checks (the Widevine CDM's state, source, version and
-                          update check beside the probe's checks), Copy diagnostics → redacted bundle from Go,
+                          update check beside the probe's checks; Motion artwork: every input,
+                          the codecs, power source, last video and download), Copy diagnostics →
+                          redacted bundle from Go (with the web view's MotionService.Report),
                           the Updates group; Shortcuts: rebinding with conflict checks),
                           appearance store (Appearance: theme, reduce effects, motion
                           artwork), useSettings/useUpdateSettings
@@ -541,6 +548,40 @@ The playback mirror keeps `current` and `station` objects when a snapshot
 leaves them unchanged, so play/pause and seeks do not re-render the track
 lists that mark the playing song.
 
+### Motion artwork
+
+- **Where it plays.** Headers (album, playlist, artist, station) and the
+  now-playing cover play while on screen. Cover tiles play only while
+  hovered or focused, after a 400 ms dwell, one tile at a time; at rest a
+  tile with motion renders a hidden marker and nothing else (no video,
+  observer or layer). One set of document listeners decides the active
+  tile (`listenForTileMotion`). At most a header, the now-playing cover and
+  one tile decode at once.
+- **Which tiles.** Every catalog album, playlist, artist and station tile:
+  Go's `Album`, `Playlist`, `Artist` and `Station` carry `motion` (an
+  `Item` takes its typed field's), and every request that fills tiles asks
+  for `editorialVideo` (Home, Discover and rooms, charts, search, the
+  artist page and its "See all", the album and playlist pages' shelves,
+  the Radio page's own stations). Apple sends a square video for many
+  albums, playlists and artists, for live, personal ("Your Station"), mood
+  and discovery stations, but none for artist, song or genre stations, and
+  only a 3:4 one for radio episodes; those tiles stay still. Library items
+  have none, and wide hero cards don't play.
+- **How.** MotionCover fetches the Go-served `/motion/` file and hands it to
+  the `<video>` as a `data:` URL. Measured on WebKitGTK 2.54.1 with
+  GStreamer 1.28.7: the app's `wails://` URL is refused outright
+  (MediaError 4, no pipeline); a `blob:` URL fails or stalls on about half
+  the loads (qtdemux reads past the end through byte ranges: "atom has bogus
+  size") and decodes corrupt frames at each loop; a `data:` URL played 8 of 8
+  loads and 20 of 20 mount cycles, and looped cleanly.
+- **Sizes.** Tiles ask for 180 CSS px (the 360 px rendition at 2×), headers
+  200, the now-playing cover 420 (`motionAt`, at the screen's density, at
+  most 2×). H.264 always, HEVC (`?codec=hevc`) only where WebKit decodes
+  HEVC but not H.264.
+- **Diagnosable.** Each video's outcome (playing, download failed with Go's
+  reason, MediaError, stalled: no time advance within 4 s of `playing`)
+  goes to `useMotionLog`; Settings → Diagnostics shows it with every input.
+
 ## Strings and locales
 
 Every string the user reads (text, `aria-label`, `title`, placeholders,
@@ -663,7 +704,7 @@ after two animation frames or 300 ms, whichever comes first.
 | `integrations:status`              | settings | replaces the integrations status query (notifications/inhibitor availability, Discord configured/connected) shown in the Desktop and Connections rows (`IntegrationsRows.tsx`)                        |
 | `scrobble:changed`                 | settings | replaces the scrobbler status query (connected, connecting, needs reconnect, listens waiting) shown in Settings → Connections (`Connections.tsx`)                                                     |
 | `discover:home`                    | home     | replaces the Home query with Go's refreshed shelves                                                                                                                                                   |
-| `power:changed`                    | motion   | mirrors Go's on-battery state; motion artwork stops on battery                                                                                                                                        |
+| `power:changed`                    | motion   | mirrors Go's power source (PowerState); motion artwork stops on battery                                                                                                                               |
 | `updates:available`                | updates  | replaces the `updates` query; the sidebar shows the notice                                                                                                                                            |
 | `private:changed`                  | private  | replaces the private listening mirror (player bar, Settings row, palette command; also sent for the tray and `sona private`)                                                                          |
 | `library:item-state`               | library  | sets an item's library state after a change outside the UI (`sona like`); invalidates Favourite Songs                                                                                                 |

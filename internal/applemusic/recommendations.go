@@ -60,7 +60,9 @@ func recommendationQuery(tz string, extra url.Values) AMPQuery {
 	for k, vals := range extra {
 		v[k] = vals
 	}
-	return mapValues(AMPQuery{Extend: []string{"editorialArtwork", "plainEditorialNotes"}, Extra: v})
+	// editorialVideo: motion artwork for Home's tiles (beyond the web
+	// player's request, as for editorial pages).
+	return mapValues(AMPQuery{Extend: []string{"editorialArtwork", "editorialVideo", "plainEditorialNotes"}, Extra: v})
 }
 
 // Recommendations fetches Home: the ordered personal-recommendation

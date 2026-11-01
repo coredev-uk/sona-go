@@ -71,6 +71,9 @@ type StationAttributes struct {
 	URL                  string             `json:"url"`
 	AirTime              *AirTime           `json:"airTime"`
 	DurationInMillis     int64              `json:"durationInMillis"`
+	// Motion artwork (station page and editorial shelves,
+	// extend=editorialVideo; Apple's own live stations).
+	EditorialVideo EditorialVideo `json:"editorialVideo,omitempty"`
 }
 
 // StationShowAttributes are a radio show's attributes (an apple-curator
@@ -116,7 +119,7 @@ func (s Station) Format() string {
 func (c *Client) StationDetail(ctx context.Context, sf, id string) (Station, error) {
 	return AMPResource[Station](ctx, c, sf, "stations", id, AMPQuery{
 		Include: []string{"radio-show"},
-		Extend:  []string{"editorialArtwork"},
+		Extend:  []string{"editorialArtwork", "editorialVideo"},
 		Extra:   url.Values{"include[stations]": {"events,radio-show"}, "art[url]": {"f"}},
 	})
 }
@@ -136,11 +139,13 @@ func (c *Client) LiveStations(ctx context.Context, sf string) ([]Station, error)
 }
 
 // RecentStations returns the stations the user played recently, newest
-// first (Apple's own history, shared with the other Apple Music apps).
+// first (Apple's own history, shared with the other Apple Music apps),
+// with their motion artwork (personal, mood and live stations have it).
 func (c *Client) RecentStations(ctx context.Context, limit int) ([]Station, error) {
 	body, err := AMP[Page[Station]](ctx, c, "/v1/me/recent/radio-stations", AMPQuery{
-		Limit: limit,
-		Extra: url.Values{"include[stations]": {"radio-show"}, "omit[resource]": {"autos"}},
+		Limit:  limit,
+		Extend: []string{"editorialVideo"},
+		Extra:  url.Values{"include[stations]": {"radio-show"}, "omit[resource]": {"autos"}},
 	})
 	return body.Data, err
 }

@@ -85,6 +85,7 @@ func (s *RadioService) Station(ctx context.Context, id string) (StationDetail, e
 		}
 	}
 	wg.Wait()
+	out.Header.Motion = s.e.m.motionOf(st.Attributes.EditorialVideo)
 	return out, nil
 }
 

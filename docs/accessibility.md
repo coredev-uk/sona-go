@@ -106,6 +106,8 @@ change keeps and how to check them.
 transition and animation to 0 s and one iteration
 (`shared/styles/index.css`): state changes still happen, without movement.
 Full-screen lyrics jump instead of scrolling smoothly under reduced motion.
+Motion artwork does not play under either (Settings → Diagnostics → Motion
+artwork says which input stops it); covers show their still.
 
 ### Sessions without an accessibility bus
 

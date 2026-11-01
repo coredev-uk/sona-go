@@ -165,6 +165,7 @@ func (s *CatalogService) artistPage(ctx context.Context, a applemusic.Artist) Ca
 		TopSongsMore: v.TopSongs.Next != "",
 		Shelves:      []ArtistShelf{},
 	}
+	p.Header.Motion = s.m.motionOf(at.EditorialVideo)
 	if d := v.LatestRelease.Data; len(d) > 0 {
 		al := s.m.amAlbum(d[0])
 		p.LatestRelease = &al

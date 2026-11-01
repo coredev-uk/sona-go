@@ -370,3 +370,56 @@ func TestFlattenDamaged(t *testing.T) {
 		t.Error("garbage was accepted")
 	}
 }
+
+// segmented splits a fragmented file the way Apple packages editorial
+// motion: an initialisation file (ftyp, moov) and one segment file per
+// moof + mdat, each starting with an styp box.
+func segmented(t *testing.T, file []byte) [][]byte {
+	t.Helper()
+	top, err := boxes(file, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var init []byte
+	var segs [][]byte
+	for _, b := range top {
+		switch b.typ {
+		case "ftyp", "moov":
+			init = append(init, b.raw...)
+		case "moof":
+			segs = append(segs, slices.Concat(mkbox("styp", be("msdh", uint32(0), "msdh", "msix")), b.raw))
+		case "mdat":
+			segs[len(segs)-1] = append(segs[len(segs)-1], b.raw...)
+		}
+	}
+	return append([][]byte{init}, segs...)
+}
+
+// An initialisation file and segment files flatten to the same video as
+// the single file they were cut from.
+func TestFlattenSegments(t *testing.T) {
+	src := testFile{movieScale: 600, scale: 30, base: 300, trunVersion: 1, frags: [][]frame{gop, gop, gop[:3]}}.build()
+	want, err := flatten(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := segmented(t, src)
+	if len(parts) != 4 {
+		t.Fatalf("%d parts, want an init and 3 segments", len(parts))
+	}
+	got, err := flatten(parts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Errorf("segments flattened to %d bytes, differing from the single file's %d", len(got), len(want))
+	}
+	// An initialisation file alone has no frames.
+	if _, err := flatten(parts[0], parts[0]); err == nil {
+		t.Error("an init file without segments was accepted")
+	}
+	// A segment that is not an MP4 fails.
+	if _, err := flatten(parts[0], []byte("garbage!")); err == nil {
+		t.Error("a garbage segment was accepted")
+	}
+}

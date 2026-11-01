@@ -29,6 +29,7 @@ vi.mock("@bindings/services", () => ({
   },
   PlatformService: { Capabilities: () => capabilities() },
   CDMService: { Retry: vi.fn(), Status: () => new Promise(() => {}) },
+  MotionService: { Status: () => new Promise(() => {}), Report: vi.fn() },
 }));
 vi.mock("@wailsio/runtime", () => ({ Clipboard: { SetText: vi.fn() } }));
 vi.mock("./Updates", () => ({ UpdatesGroup: () => null }));

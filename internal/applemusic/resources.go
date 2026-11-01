@@ -93,10 +93,12 @@ type ArtistAttributes struct {
 	Artwork    *Artwork `json:"artwork"`
 	GenreNames []string `json:"genreNames"`
 	URL        string   `json:"url"`
-	// Artist page only (extend=artistBio,origin,bornOrFormed).
+	// Artist page only (extend=artistBio,origin,bornOrFormed,editorialVideo).
 	ArtistBio    string `json:"artistBio,omitempty"` // may contain HTML
 	Origin       string `json:"origin,omitempty"`
 	BornOrFormed string `json:"bornOrFormed,omitempty"`
+	// Motion artwork (motionArtistSquare1x1 and wide flavours).
+	EditorialVideo EditorialVideo `json:"editorialVideo,omitempty"`
 }
 
 // PlaylistAttributes are the playlist attributes Sona uses.

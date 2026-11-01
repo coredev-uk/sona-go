@@ -112,7 +112,7 @@ func (o SearchOptions) apply(q *AMPQuery) {
 func CatalogSearch(ctx context.Context, c *Client, sf, term string, opt SearchOptions) (SearchResults, error) {
 	q := AMPQuery{
 		With:   []string{"lyricHighlights", "lyrics", "naturalLanguage", "serverBubbles", "subtitles"},
-		Extend: []string{"artistUrl"},
+		Extend: []string{"artistUrl", "editorialVideo"}, // editorialVideo: tile motion
 		Extra: url.Values{
 			"term":                  {term},
 			"types":                 {strings.Join(searchTypes, ",")},

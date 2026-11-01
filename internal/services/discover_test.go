@@ -17,6 +17,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/artwork"
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/db"
+	"github.com/coredev-uk/sona-go/internal/motion"
 )
 
 // fakeAMP serves trimmed real amp-api responses from testdata/discover and
@@ -456,14 +457,36 @@ func TestRoomMultiroomAndCharts(t *testing.T) {
 
 func TestSlimResources(t *testing.T) {
 	var r applemusic.MapResponse
-	body := `{"data":[{"id":"1","type":"albums"}],"resources":{"albums":{"1":{"id":"1","type":"albums",
-		"attributes":{"name":"A","editorialVideo":{"motionSquare":{}},"editorialArtwork":{"superHeroWide":{"url":"u"},"staticDetailTall":{"url":"t"}}}}}}}`
+	const square = "https://mvod.itunes.apple.com/itunes-assets/HLSMusic112/square.m3u8"
+	body := `{"data":[{"id":"1","type":"albums"},{"id":"2","type":"albums"}],"resources":{"albums":{"1":{"id":"1","type":"albums",
+		"attributes":{"name":"A","editorialVideo":{"motionSquare":{}},"editorialArtwork":{"superHeroWide":{"url":"u"},"staticDetailTall":{"url":"t"}}}},
+		"2":{"id":"2","type":"albums","attributes":{"name":"B","editorialVideo":{
+		"motionDetailTall":{"video":"https://mvod.itunes.apple.com/itunes-assets/HLSMusic112/tall.m3u8"},
+		"motionDetailSquare":{"video":"` + square + `","previewFrame":{"url":"https://is1-ssl.mzstatic.com/image/thumb/x/{w}x{h}bb.jpg","width":3840,"height":3840}}}}}}}}`
 	if err := json.Unmarshal([]byte(body), &r); err != nil {
 		t.Fatal(err)
 	}
 	slimResources(r.Resources)
-	raw := string(r.Primary()[0].Raw)
+	nodes := r.Primary()
+	raw := string(nodes[0].Raw)
 	if strings.Contains(raw, "editorialVideo") || strings.Contains(raw, "staticDetailTall") || !strings.Contains(raw, "superHeroWide") || !strings.Contains(raw, `"name":"A"`) {
 		t.Errorf("slimmed = %s", raw)
+	}
+	// The square motion video's playlist stays, alone, and maps to the
+	// item's motion URL.
+	raw = string(nodes[1].Raw)
+	if !strings.Contains(raw, `"editorialVideo":{"motionSquareVideo1x1":{"video":"`+square+`"}}`) || strings.Contains(raw, "tall.m3u8") || strings.Contains(raw, "previewFrame") {
+		t.Errorf("slimmed motion = %s", raw)
+	}
+	mc, err := motion.New(motion.Options{Dir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := mapper{motion: mc}
+	if it, ok := m.amItem(nodes[1]); !ok || it.Album == nil || it.Album.Motion == "" || it.Album.Motion != mc.URL(square) {
+		t.Errorf("item motion = %+v, want %q", it.Album, mc.URL(square))
+	}
+	if it, _ := m.amItem(nodes[0]); it.Album == nil || it.Album.Motion != "" {
+		t.Errorf("item without motion = %+v", it.Album)
 	}
 }

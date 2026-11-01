@@ -149,14 +149,19 @@ type run struct {
 // sampleNonSync is the sample_is_non_sync_sample bit of sample flags.
 const sampleNonSync = 0x00010000
 
-// flatten rewrites the fragmented MP4 src as a plain one: ftyp, moov, then
-// one mdat with every frame of the video track in decode order. Decode
-// times start at 0, and composition offsets are rebased so the earliest
-// frame is presented at 0 with no edit list (signed offsets, ctts version
-// 1, when B-frames need them). A file without fragments is returned as
-// is. Other tracks are dropped.
-func flatten(src []byte) ([]byte, error) {
-	top, err := boxes(src, 0)
+// flatten rewrites a fragmented MP4 as a plain one: ftyp, moov, then one
+// mdat with every frame of the video track in decode order. The video is
+// one file (moov and its fragments) or an initialisation file followed by
+// segment files (each moof's data offsets are relative to its own file).
+// Decode times start at 0, and composition offsets are rebased so the
+// earliest frame is presented at 0 with no edit list (signed offsets,
+// ctts version 1, when B-frames need them). A single file without
+// fragments is returned as is. Other tracks are dropped.
+func flatten(files ...[]byte) ([]byte, error) {
+	if len(files) == 0 {
+		return nil, errors.New("mp4: no data")
+	}
+	top, err := boxes(files[0], 0)
 	if err != nil {
 		return nil, err
 	}
@@ -164,8 +169,8 @@ func flatten(src []byte) ([]byte, error) {
 	if !ok {
 		return nil, errors.New("mp4: no moov box")
 	}
-	if _, ok := first(top, "moof"); !ok {
-		return src, nil
+	if _, ok := first(top, "moof"); !ok && len(files) == 1 {
+		return files[0], nil
 	}
 	tr, err := parseInit(moov)
 	if err != nil {
@@ -173,12 +178,19 @@ func flatten(src []byte) ([]byte, error) {
 	}
 	var samples []sample
 	var runs []run
-	for _, b := range top {
-		if b.typ != "moof" {
-			continue
+	for i, src := range files {
+		if i > 0 {
+			if top, err = boxes(src, 0); err != nil {
+				return nil, err
+			}
 		}
-		if samples, runs, err = parseFragment(src, b, tr, samples, runs); err != nil {
-			return nil, err
+		for _, b := range top {
+			if b.typ != "moof" {
+				continue
+			}
+			if samples, runs, err = parseFragment(src, b, tr, samples, runs); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if len(samples) == 0 {
