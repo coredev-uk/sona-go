@@ -5,12 +5,15 @@
 // probe.js, opens each route, waits for its images, then scrolls the page
 // from top to bottom and back at a fixed speed, one step per frame, and
 // reads the requestAnimationFrame deltas. -firstpaint summarises
-// "startup: first paint" from Sona's logs instead.
+// "startup: first paint" from Sona's logs instead. -motion measures motion
+// artwork instead (motion.go): the CPU each scenario costs with motion on
+// and off.
 //
 // Usage:
 //
 //	uiprobe [-addr 127.0.0.1:9322] [-pid PID] [-log sona.log] [-runs 3] [-speed 2000] [-pages empty=,home=/,new=/new,albums=/library/albums] [-css SHEET]
 //	uiprobe -firstpaint run1/sona.log run2/sona.log …
+//	uiprobe -motion -pid PID [-addr 127.0.0.1:9322] [-runs 3] [-window 10s] [-scenarios idle,tile,album,nowplaying,scroll] [-album 1451901307]
 //
 // How to run it headless: CONTRIBUTING.md, "Measuring UI performance".
 package main
@@ -56,11 +59,19 @@ func main() {
 	flag.StringVar(&o.css, "css", "", "a style sheet added to the page before measuring, to try a change without a build")
 	flag.StringVar(&o.log, "log", "", "Sona's sona.log, to place the page's load after the process start")
 	firstPaintOnly := flag.Bool("firstpaint", false, "summarise `startup: first paint` from the sona.log files given as arguments")
+	motion := flag.Bool("motion", false, "measure motion artwork instead: each -scenarios scenario with motion on and off, -runs times")
+	var m motionOptions
+	flag.StringVar(&m.scenarios, "scenarios", strings.Join(motionScenarioNames(), ","), "with -motion: the scenarios to run, comma separated")
+	flag.DurationVar(&m.window, "window", 10*time.Second, "with -motion: how long each scenario's CPU time is measured")
+	flag.StringVar(&m.album, "album", "1451901307", "with -motion: the catalog album whose header plays and whose song Now Playing shows")
 	flag.Parse()
 	var err error
-	if *firstPaintOnly {
+	switch {
+	case *firstPaintOnly:
 		err = summariseFirstPaint(flag.Args())
-	} else {
+	case *motion:
+		err = probeMotion(&client{url: "http://" + *addr + "/mcp"}, o, m)
+	default:
 		err = probe(&client{url: "http://" + *addr + "/mcp"}, o)
 	}
 	if err != nil {
@@ -82,6 +93,8 @@ type scrollResult struct {
 	LongFrames int     `json:"longFrames"`
 	Nodes      int     `json:"nodes"`
 	Ms         int     `json:"ms"`
+	// Videos is the most <video> elements on the page during the scroll.
+	Videos int `json:"videos"`
 	// CPU time over the scroll's wall time, % of one core, from /proc (not the page).
 	WebMainCPU float64 `json:"-"`
 	WebCPU     float64 `json:"-"`
@@ -102,9 +115,17 @@ type pageResult struct {
 	Height int     `json:"height"`
 }
 
-func probe(c *client, o options) error {
+// install puts probe.js (window.__sonaProbe) into Sona's page.
+func install(c *client) error {
 	if _, err := c.eval("const r = "+probeJS+"\nreturn r;", 10*time.Second); err != nil {
 		return fmt.Errorf("installing the probe (is Sona built with -tags mcp and running?): %w", err)
+	}
+	return nil
+}
+
+func probe(c *client, o options) error {
+	if err := install(c); err != nil {
+		return err
 	}
 	if o.css != "" {
 		js := fmt.Sprintf("const s = document.createElement('style'); s.textContent = %q; document.head.append(s); return 1", o.css)
@@ -201,7 +222,18 @@ func probe(c *client, o options) error {
 
 type cpu struct {
 	webMain, web, ui time.Duration
-	ok               bool
+	// threads is every web process thread's time so far, by thread ID.
+	threads map[string]thread
+	ok      bool
+}
+
+// thread is a web process thread.
+type thread struct {
+	name string
+	t    time.Duration
+	// media: a GStreamer streaming thread (named "<element>:<pad>", e.g.
+	// qtdemux0:sink, av:h264:df0), demuxing or decoding a video.
+	media bool
 }
 
 // stat reads a /proc stat file: parent, command name and CPU time used.
@@ -227,9 +259,9 @@ func stat(path string) (ppid int, comm string, t time.Duration, ok bool) {
 
 // cpuTimes reads the CPU time Sona's UI process (pid) and its WebKit web
 // processes (and their main threads, which run the page's script, style,
-// layout and paint) have used so far, from /proc (Linux; zero elsewhere
-// or without -pid). Unlike frame times, it barely changes with the load
-// the rest of the computer puts on it.
+// layout and paint, and their GStreamer threads) have used so far, from
+// /proc (Linux; zero elsewhere or without -pid). Unlike frame times, it
+// barely changes with the load the rest of the computer puts on it.
 func cpuTimes(pid int) cpu {
 	if pid == 0 {
 		return cpu{}
@@ -257,7 +289,7 @@ func cpuTimes(pid int) cpu {
 	if !ok {
 		return cpu{}
 	}
-	out := cpu{ui: ui.t, ok: true}
+	out := cpu{ui: ui.t, threads: map[string]thread{}, ok: true}
 	for n, p := range procs {
 		if !strings.HasPrefix(p.comm, "WebKitWebProces") {
 			continue
@@ -265,8 +297,16 @@ func cpuTimes(pid int) cpu {
 		for a := p.ppid; a > 1; a = procs[a].ppid {
 			if a == pid {
 				out.web += p.t
-				if _, _, t, ok := stat(fmt.Sprintf("/proc/%d/task/%d/stat", n, n)); ok {
-					out.webMain += t
+				tasks, _ := os.ReadDir(fmt.Sprintf("/proc/%d/task", n))
+				for _, task := range tasks {
+					_, comm, t, ok := stat(fmt.Sprintf("/proc/%d/task/%s/stat", n, task.Name()))
+					if !ok {
+						continue
+					}
+					out.threads[fmt.Sprintf("%d/%s", n, task.Name())] = thread{name: comm, t: t, media: strings.Contains(comm, ":")}
+					if task.Name() == strconv.Itoa(n) {
+						out.webMain += t
+					}
 				}
 				break
 			}

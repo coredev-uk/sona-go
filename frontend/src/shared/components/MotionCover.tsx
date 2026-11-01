@@ -49,8 +49,9 @@ const STALL_MS = 4000;
 
 /**
  * The muted loop over its parent (positioned) box. It plays only while on
- * screen and while the window is visible, and releases its decoder when it
- * unmounts.
+ * screen, while the window is visible and while its page is not inert (under
+ * the Now Playing view or full-screen lyrics, which cover the page, or
+ * behind a modal dialog), and releases its decoder when it unmounts.
  *
  * The file goes to WebKit as a data: URL. WebKitGTK's media player refuses
  * the app's own scheme (wails://) outright, and from a blob: URL its
@@ -101,10 +102,17 @@ export function MotionVideo({ src, round }: { src: string; round?: boolean }) {
     if (!video || !dataUrl) return;
     let onScreen = false;
     let stall = 0;
+    // WebKit keeps decoding a video an overlay hides (IntersectionObserver
+    // ignores occlusion), and the page under an overlay or a modal is
+    // inert: the header under Now Playing made the web process use four
+    // times what Now Playing uses alone (CONTRIBUTING.md, "Motion
+    // artwork's cost").
     const sync = () => {
-      if (onScreen && document.visibilityState === "visible") void video.play().catch(() => {});
+      if (onScreen && !video.closest("[inert]") && document.visibilityState === "visible")
+        void video.play().catch(() => {});
       else video.pause();
     };
+    const inert = new MutationObserver(sync);
     const io = new IntersectionObserver(([entry]) => {
       onScreen = entry.isIntersecting;
       sync();
@@ -136,6 +144,7 @@ export function MotionVideo({ src, round }: { src: string; round?: boolean }) {
       );
     };
     io.observe(video);
+    inert.observe(document.body, { attributes: true, attributeFilter: ["inert"], subtree: true });
     video.addEventListener("loadeddata", sync);
     video.addEventListener("playing", playing);
     video.addEventListener("pause", paused);
@@ -144,6 +153,7 @@ export function MotionVideo({ src, round }: { src: string; round?: boolean }) {
     return () => {
       window.clearTimeout(stall);
       io.disconnect();
+      inert.disconnect();
       video.removeEventListener("loadeddata", sync);
       video.removeEventListener("playing", playing);
       video.removeEventListener("pause", paused);
