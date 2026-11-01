@@ -147,37 +147,46 @@ run, with the evidence for anything not obvious from the check itself.
 Upstream bugs Sona ships with, tracked here until they are reported and
 fixed upstream. Re-check each one on every release.
 
-### Blank mini player on sway (WebKitGTK second web view)
+### Blank mini player without a font DPI (WebKitGTK second web view)
 
-- **Symptom:** on sway, the mini player window opens at its size with its
-  title, but shows only the background colour. Its page loads (the buttons
-  are in the DOM and respond), but `innerWidth` and `innerHeight` stay 0.
-  The main window is fine. On Hyprland the mini player renders.
-- **Versions:** WebKitGTK 2.54.1 (ABI 6.0), GTK 4.22.4, sway 1.12; Wails
-  v3.0.0 is not involved (see the repro).
-- **Repro without Sona or Wails:** `two.c`, about 70 lines (re-create it
-  from this description): a
-  `GtkApplication` with two `GtkApplicationWindow`s, each holding one
-  `WebKitWebView` (hexpand/vexpand in a `GtkBox`). Each loads an HTML page
-  that writes `innerWidth`x`innerHeight` into `document.title` every 500 ms;
-  `notify::title` prints it. The second window is created 3 s after
-  `activate`. Build it with
-  `cc two.c $(pkg-config --cflags --libs webkitgtk-6.0 gtk4)`.
-- **Results:** on sway (headless with the pixman or GLES renderer, and
-  sway nested in Hyprland on the real GPU), the first view reports its size
-  and the second reports `0x0`, every run, while GTK has allocated and
-  mapped its widget (for example 638×1379). This holds whether the first
-  window is shown, hidden, or never shown. A process with a single web
-  view created after 3 s gets its size. On Hyprland 0.56.2 both views get
-  their size.
-- **Tried, no effect:** creating the window hidden, shown, or before the
-  app runs; loading the page after the window is mapped; hiding and
-  re-showing it; `related-view`; a separate `WebKitWebContext`; GPU policy
-  never; `WEBKIT_DISABLE_DMABUF_RENDERER=1`;
-  `WEBKIT_DISABLE_COMPOSITING_MODE=1`; `GSK_RENDERER=cairo`;
-  `GDK_SCALE=1`; `GDK_DISABLE=fractional-scale`.
-- **Next step:** report it to WebKitGTK (bugs.webkit.org, WebKitGTK
-  component) with the repro. Mention sway too, since it does not happen on
-  Hyprland. The only Sona-side workaround would be to drop the second web
-  view, with the main window turning into the mini player. That was
-  decided against.
+- **Symptom:** the mini player window opens at its size with its title, but
+  shows only the background colour. Its page loads (the buttons are in the
+  DOM and respond), but `innerWidth` and `innerHeight` are 0 and
+  `devicePixelRatio` is `Infinity`. The main window is fine. First seen on
+  sway; it is not sway-specific.
+- **Cause:** WebKitGTK scales a web view's page by `fontDPI() / 96`.
+  `fontDPI()` is GTK's `gtk-xft-dpi` when set; when it is -1 (no settings
+  portal, GSettings or XSettings value, for example `GDK_DEBUG=no-portals`
+  or a `dbus-run-session` without xdg-desktop-portal) WebKit falls back to
+  the monitor's physical DPI. Headless and nested wlroots outputs report
+  0 mm (`wl_output.geometry(0, 0, 0, 0, …)`), so the DPI is infinite and
+  the page zoom becomes infinite. The first web view is created before
+  WebKit has screen data and keeps 96 dpi, so only later views are hit.
+  With a monitor that reports its size the later views are zoomed by
+  its DPI / 96 instead (weston headless, 1 mm per pixel: a 640×442 view
+  reports 2418×1670 at `devicePixelRatio` 0.26). Unchanged on WebKit
+  `main` (2026-11-01: `ScreenManagerGtk.cpp`, `PlatformScreenGtk.cpp`
+  `fontDPI()`, `WebKitWebViewBase.cpp` `refreshInternalScaling`).
+- **Versions:** WebKitGTK 2.54.1 (ABI 6.0), GTK 4.22.4, sway 1.12, labwc
+  0.9.7, weston 15.0.1. nixpkgs-unstable and master also carry 2.54.1.
+  Wails is not involved.
+- **Repro without Sona or Wails:** `docs/upstream/webkitgtk-second-view/two.c`
+  (build and run commands in its header).
+- **Results** (headless sway, pixman unless noted; second view's page):
+  with `GDK_DEBUG=no-portals` 0×0 every run; also with the GLES renderer,
+  output scale 2, both views in one window, the second window created on
+  the first one's `map`, `WEBKIT_DISABLE_COMPOSITING_MODE=1`,
+  `WEBKIT_DISABLE_DMABUF_RENDERER=1`, and `GSK_RENDERER=gl|ngl|cairo`.
+  With the settings portal, or `gtk-xft-dpi=98304` in `settings.ini`, it
+  gets its size. labwc behaves like sway; weston zooms as above. Headless
+  Hyprland 0.56 did not start here, so the earlier "Hyprland works" result
+  (a session with the portal) has no headless control.
+- **Workaround in Sona:** before creating the mini player, Sona sets
+  `gtk-xft-dpi` to 96 dpi when GTK has none (`internal/shell/fontdpi_linux.go`).
+  GTK renders at 96 dpi in that case anyway, so only WebKit's fallback
+  changes. Checked with Sona under `GDK_DEBUG=no-portals` on headless sway:
+  the mini player reports 420×132 at `devicePixelRatio` 1 and renders
+  (before: 0×0, `Infinity`, blank).
+- **Upstream:** not reported yet; the report text is in the pull request
+  that added the repro. Remove the workaround once a fixed WebKitGTK ships,
+  after re-running `two.c` under `GDK_DEBUG=no-portals` on headless sway.
