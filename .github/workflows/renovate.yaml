@@ -44,20 +44,14 @@ jobs:
     # Renovate acts through the bot-cecil App token, not GITHUB_TOKEN
     permissions: {}
     steps:
-      - name: Load Secrets
-        id: load-secrets
-        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1 # zizmor: ignore[unpinned-tools]
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          GITHUB_BOT_APP_CLIENT_ID: op://kubernetes/bot-cecil/GITHUB_BOT_APP_CLIENT_ID
-          GITHUB_BOT_APP_PRIVATE_KEY: op://kubernetes/bot-cecil/GITHUB_BOT_APP_PRIVATE_KEY
-
+      # bot-cecil's App credentials are repository secrets (RENOVATE_APP_CLIENT_ID,
+      # RENOVATE_APP_PRIVATE_KEY).
       - name: Generate Token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         with:
-          client-id: ${{ steps.load-secrets.outputs.GITHUB_BOT_APP_CLIENT_ID }}
-          private-key: ${{ steps.load-secrets.outputs.GITHUB_BOT_APP_PRIVATE_KEY }}
+          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-contents: write
           permission-issues: write

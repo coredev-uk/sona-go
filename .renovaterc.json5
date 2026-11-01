@@ -12,8 +12,8 @@
   prHourlyLimit: 4,
   prConcurrentLimit: 10,
   // The dashboard issue, in Clarence's voice: Renovate finds updates, Clarence merges
-  dependencyDashboardTitle: "📦 Renovate dashboard",
-  dependencyDashboardHeader: "## 📦 Renovate dashboard\n\n> 📻 **Reporting in.** Every update Renovate found in Sona is below. Renovate only opens the pull requests: [Clarence](https://github.com/coredev-uk/clarence/blob/main/docs/clarence.md) rules on each one, and a merge counts once CI passes on `main`. Tick a box to make Renovate act on the next run.\n\n| | |\n|---|---|\n| **Merged by** | Clarence, see its card on each pull request |\n| **Verified by** | `Go vet and test (-race)` and the frontend build on `main` |\n| **Release age** | npm releases wait 3 days before Renovate opens them |\n",
+  dependencyDashboardTitle: "📦 Renovate Dashboard",
+  dependencyDashboardHeader: "## 📦 Renovate Dashboard\n\n> 📻 **Reporting in.** Every update Renovate found in Sona is below. Renovate only opens the pull requests: Clarence, the repository's merge bot, rules on each one, and a merge counts once CI passes on `main`. Tick a box to make Renovate act on the next run.\n\n| | |\n|---|---|\n| **Merged by** | Clarence, see its card on each pull request |\n| **Verified by** | `Go vet and test (-race)` and the frontend build on `main` |\n| **Release age** | npm releases wait 3 days before Renovate opens them |\n",
   dependencyDashboardFooter: "<sub>📻 Renovate · runs every two hours from `.github/workflows/renovate.yaml` · merges go through Clarence</sub>",
   // Covers go.mod, frontend/ (pnpm) and .github/workflows. devenv.lock is not
   // a Renovate manager file; bump nixpkgs by hand (CONTRIBUTING.md)
