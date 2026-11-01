@@ -91,10 +91,8 @@ func (f *fakePlaylistAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	case r.Method == http.MethodGet && r.URL.Path == "/v1/me/library/playlists/p.x":
-		json.NewEncoder(w).Encode(map[string]any{"data": []any{map[string]any{
-			"id": "p.x", "type": "library-playlists",
-			"attributes": map[string]any{"name": "X", "canEdit": true, "canDelete": true, "lastModifiedDate": "2026-10-30T12:00:00Z"},
-		}}})
+		json.NewEncoder(w).Encode(map[string]any{"data": []any{map[string]any{"id": "p.x", "type": "library-playlists",
+			"attributes": map[string]any{"name": "X", "canEdit": true, "canDelete": true, "lastModifiedDate": "2026-10-30T12:00:00Z"}}}})
 	default:
 		http.NotFound(w, r)
 	}
@@ -125,10 +123,8 @@ func newPlaylistsEnv(t *testing.T, f *fakePlaylistAPI) (*PlaylistsService, *reco
 		json.Unmarshal(b, &so)
 		songs = append(songs, so)
 	}
-	p := applemusic.Playlist{Resource: applemusic.Resource[applemusic.PlaylistAttributes]{
-		ID: "p.x", Type: applemusic.TypeLibraryPlaylists,
-		Attributes: applemusic.PlaylistAttributes{Name: "X", CanEdit: true, CanDelete: true, LastModifiedDate: "2026-10-30T11:00:00Z"},
-	}}
+	p := applemusic.Playlist{Resource: applemusic.Resource[applemusic.PlaylistAttributes]{ID: "p.x", Type: applemusic.TypeLibraryPlaylists,
+		Attributes: applemusic.PlaylistAttributes{Name: "X", CanEdit: true, CanDelete: true, LastModifiedDate: "2026-10-30T11:00:00Z"}}}
 	if err := e.Library.StorePlaylist(t.Context(), p, "", songs); err != nil {
 		t.Fatal(err)
 	}

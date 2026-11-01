@@ -242,7 +242,7 @@ func (s *RemindersService) movedTo(ctx context.Context, id string) int64 {
 func (s *RemindersService) show(ctx context.Context, r dbq.ReleaseReminder) error {
 	var image string
 	if r.ArtworkTemplate != "" && s.e.Art != nil {
-		if p, err := s.e.Art.LocalPath(ctx, r.ArtworkTemplate, mprisArtSize); err == nil {
+		if p, err := s.e.Art.LocalPath(ctx, r.ArtworkTemplate, mprisArtSize, mprisArtSize); err == nil {
 			image = p
 		} else {
 			s.e.Logger.Debug("reminders: artwork", "err", err)

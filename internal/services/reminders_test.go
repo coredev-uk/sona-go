@@ -13,6 +13,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth"
+	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/catalog"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/desktop/notify"
@@ -108,7 +109,7 @@ func newRemindersHarness(t *testing.T, notifications bool) *remindersHarness {
 	api := applemusic.New(srv.Client(), staticToken{}, func() string { return "" })
 	api.Base, api.AMPBase = srv.URL, srv.URL
 	sf := func() string { return "gb" }
-	authm, err := auth.NewManager(auth.Config{Dev: testDev{}, Store: &recordStore{}, Accounts: AccountStore{DB: d}, Logger: discard()})
+	authm, err := auth.NewManager(auth.Config{Dev: testDev{}, Open: func() (store.Store, error) { return &recordStore{}, nil }, Accounts: AccountStore{DB: d}, Logger: discard()})
 	if err != nil {
 		t.Fatal(err)
 	}
