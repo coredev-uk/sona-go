@@ -44,7 +44,7 @@ Merging a release:
    PR title check don't start on it by themselves. Right before merging,
    close and reopen it (a person) to run them; every merge to `main`
    force-pushes the branch again and drops them.
-3. Merge it through Clarence (`/clarence merge`, AGENTS.md) with its title
+3. Merge it through Clarence (`@bot-clarence merge`, AGENTS.md) with its title
    unchanged: release-please finds it by the title and the
    `autorelease: pending` label.
 4. The Release Please run for that merge tags `vX.Y.Z` on the merge commit,

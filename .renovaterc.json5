@@ -21,9 +21,13 @@
   postUpdateOptions: ["gomodTidy", "gomodUpdateImportPaths"],
   packageRules: [
     {
-      description: "Let npm releases settle before proposing them",
+      // Move the range in package.json with the lockfile: an update inside
+      // the range would otherwise change only pnpm-lock.yaml, which Clarence
+      // always sends to review. Wails, below, still pins.
+      description: "Let npm releases settle, and bump their ranges",
       matchDatasources: ["npm"],
       minimumReleaseAge: "3 days",
+      rangeStrategy: "bump",
     },
     {
       // The Go module and the npm runtime must move together. Wails v3 is

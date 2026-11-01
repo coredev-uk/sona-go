@@ -86,15 +86,17 @@ Pull requests here are merged by Clarence (GitHub App `bot-clarence`), not by ha
 - Open the pull request with a conventional-commit title. Clarence posts one card on it (verdict,
   checks, what it changes, timeline) and keeps it current; read it before asking anyone to look.
 - Never merge with `gh pr merge` or the GitHub button. Once CI is green and the work is done,
-  comment `/clarence merge` (or tick 🎯 Merge on the card). Clarence merges one pull request at a
+  comment `@bot-clarence merge` (or tick 🎯 Merge on the card). Clarence merges one pull request at a
   time, then checks the merge (CI on `main`, or the deploy) and opens a revert if it fails.
 - When Clarence needs a human it requests a review from @coredev-uk; don't approve or merge on
-  the maintainer's behalf, and don't merge anything Clarence ruled `clarence/review` without his say.
-- Commands (first line of a comment, `coredev-uk` only): `/clarence merge` (`--allow <check>`,
-  `--batch`, `at HH:MM`, `after #N`), `cancel`, `hold`, `unhold`, `reclassify`, `status`, `explain`,
-  `revert` (on a merged pull request), `help` (anyone).
+  the maintainer's behalf, and don't merge anything Clarence ruled `verdict/review` without his say.
+- Commands (a comment line starting with the command, `coredev-uk` only): `@bot-clarence merge`
+  (`--allow <check>`, `--batch`, `at HH:MM`, `after #N`), `cancel`, `hold`, `unhold`, `reclassify`,
+  `status`, `explain`, `revert` (on a merged pull request), `help` (anyone). Clarence answers with a
+  reaction: 👀 queued, 👍 done, 🚀 merged, 👎 refused or called off, 😕 not understood or failed; the card's
+  timeline says why. Only `help`, `status` and `explain` get a reply.
 - Renovate (`bot-cecil`) opens dependency updates and Clarence merges the eligible ones itself.
   Don't push to Renovate's branches; close the pull request or tick Renovate's rebase box instead.
-- Labels: `clarence/pass|review|wait` (verdict), `clarence/queued|deploying|live|unhealthy`,
-  `clarence/hold`, `clarence/security`, `clarence/proposal`, `clarence/revert`. Never remove
-  `clarence/unhealthy` without fixing the cause: it halts merging.
+- Labels: `verdict/pass|review|wait`, `state/queued|deploying|live|unhealthy|hold`,
+  `kind/security|proposal|revert|report`. Never remove `state/unhealthy` without fixing the cause:
+  it halts merging.

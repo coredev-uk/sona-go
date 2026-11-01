@@ -378,7 +378,8 @@ CI runs [gitleaks](https://github.com/gitleaks/gitleaks) on every pull request a
 - `main` is protected by a ruleset: changes land only through a pull request,
   squash-merged (linear history), with these checks green: "Go vet and test
   (-race)", "Frontend typecheck, lint, format, test, build", "Conventional
-  Commits title" and "gitleaks". Force pushes and deleting `main` are
+  Commits title" and "gitleaks". Nobody bypasses it but the review bot, and
+  only through a pull request. Force pushes and deleting `main` are
   blocked. Release tags (`v*`) can't be moved or deleted. A first pull
   request from someone outside the project waits for the maintainer to
   approve its CI run. Report vulnerabilities privately (SECURITY.md).
