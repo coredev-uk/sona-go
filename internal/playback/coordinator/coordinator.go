@@ -6,10 +6,12 @@
 // skips failing items, pauses on credential problems, reports listening
 // history and persists the queue so a restart restores it paused.
 //
-// A radio station (PlayStation) or AutoPlay (SetAutoPlay, after the user's
-// queue ends) feeds the queue from a StationSource: its slots are marked
-// Auto, always follow the user's upcoming slots, and are refilled in the
-// background when few remain.
+// A radio station (PlayStation) or AutoPlay (SetAutoPlay) feeds the queue
+// from a StationSource: its slots are marked Auto, always follow the
+// user's upcoming slots, and are refilled in the background when few
+// remain. While online (SetOnline), AutoPlay is fetched ahead, as soon as
+// the user's queue is set, so its songs show after the user's from the
+// start; otherwise it starts when the user's queue is about to end.
 package coordinator
 
 import (
@@ -69,6 +71,9 @@ type Options struct {
 	// FillWait bounds how long running out of items waits for a refill
 	// before playback stops; 0 means 20 s.
 	FillWait time.Duration
+	// AutoPlayDelay debounces fetching AutoPlay ahead after the user's
+	// queue changes; 0 means 2 s.
+	AutoPlayDelay time.Duration
 }
 
 type entry struct {
@@ -78,9 +83,12 @@ type entry struct {
 	added bool // added by hand (PlayNext, Append, Insert)
 }
 
-// fillCall is one station refill; done closes when it finished.
+// fillCall is one station refill; done closes when it finished. seed is
+// the AutoPlay seed key (seedKey) when the refill creates the AutoPlay
+// station.
 type fillCall struct {
 	gen  uint64
+	seed string
 	done chan struct{}
 }
 
@@ -102,6 +110,7 @@ type Coordinator struct {
 	refillAt  int
 	retry     time.Duration
 	fillWait  time.Duration
+	aheadWait time.Duration
 
 	ctx    context.Context // cancelled by Close
 	cancel context.CancelFunc
@@ -141,7 +150,11 @@ type Coordinator struct {
 	actOpen      bool       // an ActivityStart awaits its ActivityEnd
 	actItem      Item
 	autoplay     bool
-	station      *Station  // feeding the queue; nil when none
+	online       bool     // AutoPlay may be fetched ahead (SetOnline)
+	station      *Station // feeding the queue; nil when none
+	autoSeed     string   // seedKey the AutoPlay station was created from
+	aheadTimer   *time.Timer
+	aheadKey     string    // seedKey aheadTimer will fetch AutoPlay for
 	fill         *fillCall // refill in flight
 	fillGen      uint64    // bumped when the queue's station changes; stale refills are dropped
 	fillFailed   time.Time // last failed refill (background retries wait RefillRetry)
@@ -173,6 +186,7 @@ func New(opts Options) (*Coordinator, error) {
 		refillAt:  cmp.Or(opts.RefillAt, 2),
 		retry:     cmp.Or(opts.RefillRetry, 30*time.Second),
 		fillWait:  cmp.Or(opts.FillWait, 20*time.Second),
+		aheadWait: cmp.Or(opts.AutoPlayDelay, 2*time.Second),
 		subs:      map[chan Snapshot]struct{}{},
 		index:     -1,
 		repeat:    RepeatOff,
@@ -217,6 +231,9 @@ func (c *Coordinator) Close() error {
 	}
 	if c.sleepTimer != nil {
 		c.sleepTimer.Stop()
+	}
+	if c.aheadTimer != nil {
+		c.aheadTimer.Stop()
 	}
 	c.mu.Unlock()
 	c.cancel()
@@ -464,6 +481,8 @@ func (c *Coordinator) Remove(ctx context.Context, index int) error {
 }
 
 // Move moves queue[from] to position to; the current item stays current.
+// Station and AutoPlay slots don't move, and the user's slots stay before
+// the upcoming ones (to is clamped).
 func (c *Coordinator) Move(from, to int) error {
 	c.mu.Lock()
 	n := len(c.queue)
@@ -471,11 +490,18 @@ func (c *Coordinator) Move(from, to int) error {
 		c.mu.Unlock()
 		return fmt.Errorf("coordinator: move %d→%d out of range", from, to)
 	}
+	e := c.queue[from]
+	if e.auto {
+		c.mu.Unlock()
+		return fmt.Errorf("coordinator: move %d: station slots keep their place", from)
+	}
+	if end := c.userEndLocked(); from < end {
+		to = min(to, end-1)
+	}
 	var cur uint64
 	if c.index >= 0 {
 		cur = c.queue[c.index].uid
 	}
-	e := c.queue[from]
 	c.queue = slices.Insert(slices.Delete(c.queue, from, from+1), to, e)
 	if c.index >= 0 {
 		c.index = c.indexOfLocked(cur)
@@ -814,13 +840,19 @@ func (c *Coordinator) SetShuffle(on bool) {
 	c.notify()
 }
 
-// SetRepeat sets the repeat mode.
+// SetRepeat sets the repeat mode. AutoPlay runs only with repeat off, so
+// turning repeat on removes the upcoming AutoPlay slots (turning it off
+// brings AutoPlay back).
 func (c *Coordinator) SetRepeat(r Repeat) error {
 	if !r.valid() {
 		return fmt.Errorf("coordinator: invalid repeat mode %q", r)
 	}
 	c.mu.Lock()
 	c.repeat = r
+	if r != RepeatOff {
+		c.dropAutoPlayLocked()
+	}
+	c.aheadLocked()
 	c.schedulePreloadLocked()
 	c.mu.Unlock()
 	c.notify()
@@ -871,6 +903,10 @@ func (c *Coordinator) Restore(ctx context.Context) error {
 	c.repeat = RepeatOff
 	if s.Repeat.valid() {
 		c.repeat = s.Repeat
+	}
+	c.autoSeed = ""
+	if c.station != nil && c.station.AutoPlay {
+		c.autoSeed = seedKey(c.seedsLocked()) // the saved station follows the saved queue
 	}
 	c.volume, c.volumeDirty = min(max(s.Volume, 0), 1), true
 	c.resetLocked()
@@ -1128,6 +1164,7 @@ func (c *Coordinator) selectLocked(i int, pos time.Duration, fresh bool, s playb
 	// The engine's preview mode carries over until it reports on this item.
 	c.st = playback.Status{State: s, ItemID: e.item.ID, Position: pos, Duration: e.item.Duration, Volume: c.volume, UpdatedAt: time.Now(), Preview: c.st.Preview}
 	c.loaded, c.auth, c.noCDM, c.preloaded = false, false, false, 0
+	c.aheadLocked()
 	c.schedulePreloadLocked()
 }
 
@@ -1138,6 +1175,7 @@ func (c *Coordinator) resetLocked() {
 	c.loaded, c.auth, c.noCDM, c.preloaded = false, false, false, 0
 	c.playedFor, c.playingSince = 0, time.Time{}
 	c.failures, c.lastErr = 0, ""
+	c.aheadLocked()
 	c.schedulePreloadLocked()
 }
 
@@ -1411,24 +1449,141 @@ func (c *Coordinator) SetAutoPlay(on bool) {
 		return
 	}
 	c.autoplay = on
-	if !on && c.station != nil && c.station.AutoPlay {
-		c.dropStationLocked()
-		for i := len(c.queue) - 1; i > c.index; i-- {
-			if c.queue[i].auto {
-				c.removeLocked(i)
-			}
-		}
+	if !on {
+		c.dropAutoPlayLocked()
 	}
+	c.aheadLocked()
 	c.schedulePreloadLocked()
 	c.mu.Unlock()
 	c.notify()
 }
 
+// SetOnline says whether the network is open and Apple reachable. While
+// online, AutoPlay is fetched ahead (AutoPlayDelay after the user's queue
+// last changed), so its songs follow the user's before they are needed;
+// offline (the default) it is fetched only when the user's queue is about
+// to end.
+func (c *Coordinator) SetOnline(on bool) {
+	c.mu.Lock()
+	c.online = on
+	c.aheadLocked()
+	c.mu.Unlock()
+}
+
 // dropStationLocked detaches the queue from its station; a refill in
 // flight is discarded when it lands.
 func (c *Coordinator) dropStationLocked() {
-	c.station, c.fill, c.fillFailed = nil, nil, time.Time{}
+	c.station, c.fill, c.fillFailed, c.autoSeed = nil, nil, time.Time{}, ""
 	c.fillGen++
+}
+
+// dropAutoPlayLocked detaches the AutoPlay station (discarding an AutoPlay
+// fetch in flight) and removes its upcoming slots; a station the user
+// started is kept.
+func (c *Coordinator) dropAutoPlayLocked() {
+	if c.station != nil && !c.station.AutoPlay {
+		return
+	}
+	c.dropStationLocked()
+	if c.dropUpcomingAutoLocked() {
+		c.queueChangedLocked()
+	}
+}
+
+// dropUpcomingAutoLocked removes the station slots after the current one
+// and reports whether there were any. The caller reports the queue change.
+func (c *Coordinator) dropUpcomingAutoLocked() bool {
+	from := c.index + 1
+	gone := make(map[uint64]bool)
+	keep := c.queue[:from]
+	for _, e := range c.queue[from:] {
+		if e.auto {
+			gone[e.uid] = true
+		} else {
+			keep = append(keep, e)
+		}
+	}
+	if len(gone) == 0 {
+		return false
+	}
+	clear(c.queue[len(keep):])
+	c.queue = keep
+	if c.shuffle {
+		c.original = slices.DeleteFunc(c.original, func(u uint64) bool { return gone[u] })
+	}
+	return true
+}
+
+// wantsAutoPlayLocked reports whether a new AutoPlay station for seed key
+// seed is still what the queue needs.
+func (c *Coordinator) wantsAutoPlayLocked(seed string) bool {
+	if c.index < 0 || !c.autoPlayLocked() || (c.station != nil && !c.staleAutoPlayLocked()) {
+		return false
+	}
+	return seedKey(c.seedsLocked()) == seed
+}
+
+// autoPlayLocked reports whether AutoPlay continues the queue: it is on,
+// repeat is off and no station the user started feeds the queue.
+func (c *Coordinator) autoPlayLocked() bool {
+	return c.autoplay && c.repeat == RepeatOff && (c.station == nil || c.station.AutoPlay)
+}
+
+// staleAutoPlayLocked reports whether the AutoPlay station no longer
+// follows the user's queue: their last song now comes from another
+// container (one station per container, so edits within an album or
+// playlist keep it). Once an AutoPlay song plays the station stays.
+func (c *Coordinator) staleAutoPlayLocked() bool {
+	if c.station == nil || !c.station.AutoPlay || c.index < 0 || c.queue[c.index].auto {
+		return false
+	}
+	key := seedKey(c.seedsLocked())
+	return key != "" && key != c.autoSeed
+}
+
+// aheadSeedLocked returns the seed key AutoPlay should be fetched ahead
+// for now, or "" when nothing needs fetching (offline, AutoPlay off or
+// already following the user's queue, a refill in flight or backing off).
+func (c *Coordinator) aheadSeedLocked() string {
+	if !c.online || c.closed || c.stations == nil || c.fill != nil || c.index < 0 || !c.autoPlayLocked() {
+		return ""
+	}
+	if c.station != nil && !c.staleAutoPlayLocked() {
+		return ""
+	}
+	if !c.fillFailed.IsZero() && time.Since(c.fillFailed) < c.retry {
+		return ""
+	}
+	return seedKey(c.seedsLocked())
+}
+
+// aheadLocked (re)schedules fetching AutoPlay ahead. It runs whenever the
+// queue, the current item or the AutoPlay conditions change; the fetch
+// waits AutoPlayDelay after the last change of the seed, so a burst of
+// edits makes one request.
+func (c *Coordinator) aheadLocked() {
+	want := c.aheadSeedLocked()
+	if want == c.aheadKey {
+		return
+	}
+	if c.aheadTimer != nil {
+		c.aheadTimer.Stop()
+		c.aheadTimer = nil
+	}
+	c.aheadKey = want
+	if want != "" {
+		c.aheadTimer = time.AfterFunc(c.aheadWait, c.aheadTick)
+	}
+}
+
+// aheadTick fetches AutoPlay ahead once the queue settled.
+func (c *Coordinator) aheadTick() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.aheadTimer, c.aheadKey = nil, ""
+	if c.aheadSeedLocked() != "" {
+		c.startFillLocked()
+	}
 }
 
 // refillLocked starts a background refill when the playing item is
@@ -1448,7 +1603,8 @@ func (c *Coordinator) refillLocked() {
 }
 
 // startFillLocked starts (or joins) a refill from the queue's station, or
-// from a new AutoPlay station seeded by the user's last item. It returns
+// from a new AutoPlay station seeded by the user's last item (also when
+// the AutoPlay station no longer follows the user's queue). It returns
 // nil when nothing can continue the queue.
 func (c *Coordinator) startFillLocked() *fillCall {
 	if c.fill != nil {
@@ -1457,41 +1613,67 @@ func (c *Coordinator) startFillLocked() *fillCall {
 	if c.stations == nil || c.closed || c.index < 0 {
 		return nil
 	}
-	var seeds []Item
-	if c.station == nil {
-		if !c.autoplay || c.repeat != RepeatOff {
+	var (
+		seeds []Item
+		st    *Station
+	)
+	if c.station == nil || c.staleAutoPlayLocked() {
+		if !c.autoPlayLocked() {
 			return nil
 		}
 		if seeds = c.seedsLocked(); len(seeds) == 0 {
 			return nil
 		}
-	}
-	f := &fillCall{gen: c.fillGen, done: make(chan struct{})}
-	c.fill = f
-	var st *Station
-	if c.station != nil {
+	} else {
 		s := *c.station
 		st = &s
 	}
+	f := &fillCall{gen: c.fillGen, seed: seedKey(seeds), done: make(chan struct{})}
+	c.fill = f
+	c.aheadLocked() // a refill in flight: nothing to fetch ahead
 	c.wg.Add(1)
 	go c.runFill(c.stations, f, st, seeds)
 	return f
 }
 
-// seedsLocked returns the AutoPlay seed: the user's last song in the queue
-// (stations and radio items, "ra.…", cannot seed).
+// seedsLocked returns the AutoPlay seed: the user's last song in the queue,
+// in the unshuffled order while shuffled (stations and radio items, "ra.…",
+// cannot seed).
 func (c *Coordinator) seedsLocked() []Item {
+	seed := func(e entry) bool { return !e.auto && !strings.HasPrefix(e.item.ID, "ra.") }
+	if c.shuffle {
+		for i := len(c.original) - 1; i >= 0; i-- {
+			if j := c.indexOfLocked(c.original[i]); j >= 0 && seed(c.queue[j]) {
+				return []Item{c.queue[j].item}
+			}
+		}
+		return nil
+	}
 	for i := len(c.queue) - 1; i >= 0; i-- {
-		if e := c.queue[i]; !e.auto && !strings.HasPrefix(e.item.ID, "ra.") {
-			return []Item{e.item}
+		if seed(c.queue[i]) {
+			return []Item{c.queue[i].item}
 		}
 	}
 	return nil
 }
 
+// seedKey identifies the AutoPlay station seeds lead to: the container the
+// last seed was queued from, else the song itself. "" without seeds.
+func seedKey(seeds []Item) string {
+	if len(seeds) == 0 {
+		return ""
+	}
+	it := seeds[len(seeds)-1]
+	if it.Container.ID != "" {
+		return string(it.Container.Kind) + ":" + it.Container.ID
+	}
+	return "song:" + it.ID
+}
+
 // runFill fetches one batch for f (creating the AutoPlay station first
 // when st is nil) and appends it as station slots, unless the queue moved
-// to another station meanwhile.
+// to another station meanwhile. A new AutoPlay station replaces the
+// upcoming slots of the one it follows on from.
 func (c *Coordinator) runFill(src StationSource, f *fillCall, st *Station, seeds []Item) {
 	defer c.wg.Done()
 	defer close(f.done)
@@ -1520,6 +1702,12 @@ func (c *Coordinator) runFill(src StationSource, f *fillCall, st *Station, seeds
 		c.mu.Unlock()
 		return
 	}
+	if st == nil && !c.wantsAutoPlayLocked(f.seed) {
+		// The user's queue moved on meanwhile: fetch again for it.
+		c.aheadLocked()
+		c.mu.Unlock()
+		return
+	}
 	if err != nil {
 		c.fillFailed = time.Now()
 		c.mu.Unlock()
@@ -1529,8 +1717,9 @@ func (c *Coordinator) runFill(src StationSource, f *fillCall, st *Station, seeds
 		return
 	}
 	c.fillFailed = time.Time{}
-	if c.station == nil {
-		c.station = &station
+	if st == nil {
+		c.dropUpcomingAutoLocked()
+		c.station, c.autoSeed = &station, f.seed
 	}
 	es := c.entriesLocked(fromStation(items, station.ID), true)
 	c.queue = append(c.queue, es...)
@@ -1686,6 +1875,7 @@ func (c *Coordinator) removeLocked(i int) {
 
 func (c *Coordinator) queueChangedLocked() {
 	c.queueVersion++
+	c.aheadLocked()
 	c.schedulePreloadLocked()
 }
 

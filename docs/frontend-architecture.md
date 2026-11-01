@@ -93,7 +93,9 @@ src/
                           used by radio and library Songs); sleep timer menu in the bar
                           (Go's PlaybackService.SetSleep) and palette commands;
                           explicit queue rows dimmed on restricted accounts;
-                          AutoPlay toggle and station/AutoPlay section in the queue,
+                          AutoPlay toggle and the station/AutoPlay part of the queue
+                          (its own list under its heading, queue-lines.ts; AutoPlay rows
+                          set back in grey and never moved, but removable and playable),
                           live radio line in place of the seek bar; mini player button;
                           exports the playback mirror and lyrics for the mini player;
                           CdmNotice: the bar's line while a song waits for the Widevine

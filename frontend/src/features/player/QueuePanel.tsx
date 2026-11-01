@@ -26,19 +26,16 @@ import { cn } from "@/shared/lib/utils";
 
 import { queueItems } from "./commands";
 import { usePlayback } from "./playback";
-import { focusedRow, rowForKey, type QueueFocus } from "./queue-focus";
+import { focusedRow, moveForKey, rowForKey, type QueueFocus } from "./queue-focus";
+import { queueLines } from "./queue-lines";
 import { QUEUE_TOGGLE_ID, useUI } from "./ui";
 
 const ROW = 52;
-const HEAD = 44;
+/** The heading of the station's or AutoPlay's part, with room above it. */
+const HEAD = 60;
+const NOTE = 44;
 /** The queue's id as a drag origin and drop target. */
 const QUEUE = "queue";
-
-/** A line of the queue list: a song, or the heading of the station's part. */
-type Line =
-  | { kind: "row"; qi: number }
-  | { kind: "head"; key: string; title: string; detail: string }
-  | { kind: "note"; key: string; text: string };
 
 interface RowProps {
   item: QueueItem;
@@ -51,10 +48,16 @@ interface RowProps {
   upNext: boolean;
   /** The list's Tab stop (roving tabindex). */
   focused: boolean;
+  /** An AutoPlay song: not what the user chose, so it is set back. */
+  autoPlay: boolean;
+  /** Where the user's songs end (the station's or AutoPlay's part starts). */
+  userEnd: number;
 }
 
 /** The queue's keyboard help, read after each row's name. */
 const KEYS_HELP = "queue-keys-help";
+/** The help of station and AutoPlay rows, which keep their place. */
+const AUTO_KEYS_HELP = "queue-auto-keys-help";
 
 /** Memoised: a drag or track change re-renders only the rows whose props change. */
 const QueueRow = memo(function QueueRow({
@@ -65,8 +68,9 @@ const QueueRow = memo(function QueueRow({
   dragged,
   upNext,
   focused,
+  autoPlay,
+  userEnd,
 }: RowProps) {
-  const len = usePlayback((s) => s.queue.items.length);
   // Skipped by Go on an account that restricts explicit content.
   const withheld = useWithheld(item.explicit);
   const { t } = useLingui();
@@ -81,8 +85,9 @@ const QueueRow = memo(function QueueRow({
       void run(t`Couldn't remove it`, PlaybackService.Remove(index));
     } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
       e.preventDefault();
-      const to = index + (e.key === "ArrowUp" ? -1 : 1);
-      if (to >= 0 && to < len) void run(t`Couldn't move it`, PlaybackService.Move(index, to));
+      // Station and AutoPlay songs keep their place; the user's stay before them.
+      const to = item.auto ? null : moveForKey(e.key, index, userEnd);
+      if (to !== null) void run(t`Couldn't move it`, PlaybackService.Move(index, to));
     }
   };
   const label = withheld ? t`${name}, ${artist}, skipped: explicit` : t`${name}, ${artist}`;
@@ -92,7 +97,7 @@ const QueueRow = memo(function QueueRow({
       tabIndex={focused ? 0 : -1}
       aria-current={current || undefined}
       aria-label={upNext ? t`Up next: ${label}` : label}
-      aria-describedby={current ? undefined : KEYS_HELP}
+      aria-describedby={current ? undefined : item.auto ? AUTO_KEYS_HELP : KEYS_HELP}
       title={
         withheld ? t`Explicit content is restricted on this account; it will be skipped` : undefined
       }
@@ -113,12 +118,27 @@ const QueueRow = memo(function QueueRow({
           strokeWidth={1.75}
         />
       )}
-      <Artwork src={item.art.small} size={36} alt="" />
+      <Artwork
+        src={item.art.small}
+        size={36}
+        alt=""
+        className={cn(
+          autoPlay &&
+            "opacity-70 transition-opacity duration-100 group-focus-within/q:opacity-100 group-hover/q:opacity-100",
+        )}
+      />
       <div className="min-w-0 flex-1">
-        <p className={cn("truncate text-ui", current ? "font-medium text-play-ink" : "text-ink")}>
+        <p
+          className={cn(
+            "truncate text-ui",
+            current ? "font-medium text-play-ink" : autoPlay ? "text-ink-muted" : "text-ink",
+          )}
+        >
           {item.name}
         </p>
-        <p className="truncate text-sub text-ink-muted">{item.artistName}</p>
+        <p className={cn("truncate text-sub", autoPlay ? "text-ink-faint" : "text-ink-muted")}>
+          {item.artistName}
+        </p>
       </div>
       {current ? (
         <Equaliser playing={playing} className="mr-1.5" />
@@ -149,12 +169,12 @@ const QueueRow = memo(function QueueRow({
  * change only when the visible range or the line positions do, and uses
  * `virtualizer` only in event handlers and effects (`scrollToIndex`).
  */
-function useQueueLines(scrollRef: RefObject<HTMLDivElement | null>, lines: readonly Line[]) {
+function useQueueLines(scrollRef: RefObject<HTMLDivElement | null>, heights: readonly number[]) {
   // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer is isolated in this hook on purpose; the compiler skips it
   const v = useVirtualizer({
-    count: lines.length,
+    count: heights.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (i) => (lines[i].kind === "row" ? ROW : HEAD),
+    estimateSize: (i) => heights[i],
     overscan: 8,
   });
   return { virtualizer: v, items: v.getVirtualItems(), totalSize: v.getTotalSize() };
@@ -163,10 +183,12 @@ function useQueueLines(scrollRef: RefObject<HTMLDivElement | null>, lines: reado
 /**
  * The queue beside the page: the current song, then what plays next, the
  * user's songs first and then, under their own heading, what the station
- * or AutoPlay adds. The list is one Tab stop: ↑/↓/Home/End move between
- * songs, drag or Alt+↑/↓ reorders, Delete removes, Enter or double-click
- * jumps, Escape closes the panel. Songs, albums and playlists dragged from
- * a page drop into the gap under the pointer (or after the user's songs).
+ * or AutoPlay adds (AutoPlay songs set back: they keep their place, and
+ * playing one jumps there). The lists are one Tab stop: ↑/↓/Home/End move
+ * between songs, drag or Alt+↑/↓ reorders the user's songs, Delete
+ * removes, Enter or double-click jumps, Escape closes the panel. Songs,
+ * albums and playlists dragged from a page drop into the gap under the
+ * pointer (or after the user's songs).
  */
 export function QueuePanel() {
   const items = usePlayback((s) => s.queue.items);
@@ -188,38 +210,28 @@ export function QueuePanel() {
 
   // The current song first, then the rest of the queue; earlier songs are played.
   const start = Math.max(0, index);
-  const lines: Line[] = [];
-  let mine = 0;
-  let auto = 0;
-  for (let qi = start; qi < items.length; qi++) {
-    const it = items[qi];
-    // The station's part gets a heading when it follows songs the user
-    // queued, and always for AutoPlay (it is not what the user chose).
-    if (qi > start && it.auto && auto === 0 && station && (station.autoPlay || mine > 0)) {
-      const stationName = station.name;
-      lines.push({
-        kind: "head",
-        key: "head",
-        title: station.autoPlay ? t`AutoPlay` : t`Then ${stationName}`,
-        detail: station.autoPlay
-          ? t`Similar music, from ${stationName}`
-          : t`The station continues after your songs`,
-      });
-    }
-    if (qi > start) {
-      if (it.auto) auto++;
-      else mine++;
-    }
-    lines.push({ kind: "row", qi });
-  }
   // AutoPlay needs a song to continue from; radio streams ("ra.…") are not songs.
   const continues =
     autoPlay && !station && repeat === "off" && items.some((i) => !i.id.startsWith("ra."));
-  if (continues) {
-    lines.push({ kind: "note", key: "note", text: t`Then AutoPlay continues with similar music` });
-  }
+  const { lines, mine, auto, userEnd, head } = queueLines(items, start, station, continues);
+  const heights = lines.map((l) => (l.kind === "row" ? ROW : l.kind === "head" ? HEAD : NOTE));
+  const stationName = station?.name;
+  const headTitle = station?.autoPlay
+    ? t({
+        message: "AutoPlay",
+        comment:
+          "Apple's name for the feature: the queue's heading over the songs it adds, and its toggle. Apple: ASE.Web.Music.UpNext.Autoplay.Heading",
+      })
+    : t`Then ${stationName}`;
+  const headDetail = station?.autoPlay
+    ? t({
+        message: "Similar music will keep playing",
+        comment:
+          "Under the AutoPlay heading in the queue. Apple: ASE.Web.Music.UpNext.Autoplay.Description",
+      })
+    : t`The station continues after your songs`;
 
-  const { virtualizer, items: rows, totalSize } = useQueueLines(scrollRef, lines);
+  const { virtualizer, items: rows, totalSize } = useQueueLines(scrollRef, heights);
 
   // Roving focus: one row is the list's Tab stop and the arrows move it. The
   // stop must be rendered, so while the focused row is scrolled out of the
@@ -250,7 +262,9 @@ export function QueuePanel() {
   };
   // The row that has focus. When its song leaves the list with focus on it
   // (removed, played), focus goes to the row that takes its place, not to
-  // <body>. A row the virtualizer unmounts while scrolling is not followed.
+  // <body>; a row that moved to the other list (an AutoPlay song that now
+  // plays) keeps it. A row the virtualizer unmounts while scrolling is not
+  // followed.
   const focusedEl = useRef<HTMLElement | null>(null);
   useLayoutEffect(() => {
     const el = focusedEl.current;
@@ -258,7 +272,13 @@ export function QueuePanel() {
     focusedEl.current = null;
     const listed = focus !== null && items.findIndex((it) => it.uid === focus.uid) >= start;
     const active = document.activeElement;
-    if (listed || focusQi < 0 || (active && active !== document.body)) return;
+    if (focusQi < 0 || (active && active !== document.body)) return;
+    if (listed) {
+      scrollRef.current
+        ?.querySelector<HTMLElement>(`[data-qi="${focusQi}"]`)
+        ?.focus({ preventScroll: true });
+      return;
+    }
     showRow(focusQi);
   });
   const onListFocus = (e: FocusEvent<HTMLDivElement>) => {
@@ -296,23 +316,16 @@ export function QueuePanel() {
     document.getElementById(QUEUE_TOGGLE_ID)?.focus();
   };
 
-  // The user's part ends at the first station slot; drops land inside it.
-  let userEnd = items.length;
-  for (let qi = start + 1; qi < items.length; qi++) {
-    if (items[qi].auto) {
-      userEnd = qi;
-      break;
-    }
-  }
-  // Nothing goes before the current song (with none, anywhere).
+  // Nothing goes before the current song (with none, anywhere); drops land
+  // in the user's part, which ends at the first station slot (userEnd).
   const first = Math.min(index + 1, items.length);
 
   // Line tops (fixed heights), to place the drop line and map the pointer to a gap.
   const tops: number[] = [];
   let y = 0;
-  for (const l of lines) {
+  for (const h of heights) {
     tops.push(y);
-    y += l.kind === "row" ? ROW : HEAD;
+    y += h;
   }
   const slotAt = (clientY: number): number => {
     const top = bodyRef.current?.getBoundingClientRect().top ?? 0;
@@ -376,17 +389,54 @@ export function QueuePanel() {
   };
 
   const playingFrom = station?.name;
+  const autoPlayRows = auto > 0 && !!station?.autoPlay;
   const summary = !items.length ? (
     ""
   ) : items[start]?.live && !mine ? (
     t`Live radio`
+  ) : mine && autoPlayRows ? (
+    <Plural
+      value={mine}
+      one="# song after this one, then AutoPlay"
+      other="# songs after this one, then AutoPlay"
+    />
   ) : mine ? (
     <Plural value={mine} one="# song after this one" other="# songs after this one" />
+  ) : autoPlayRows ? (
+    t({
+      message: "AutoPlay is on",
+      comment:
+        "Queue summary when only AutoPlay's songs follow. Apple's ASE.Web.Music.UpNext.Heading.AutoplayActive ('autoplay is on') is lower case, for a subline, so it is not mapped.",
+    })
   ) : auto ? (
     t`Nothing queued after this song`
   ) : (
     t`Nothing after this song`
   );
+
+  /** The song row of `qi`, placed at `top`. */
+  const queueRow = (qi: number, top: number) => {
+    const item: QueueItem = items[qi];
+    return (
+      <div
+        key={item.uid}
+        className="absolute inset-x-0 top-0"
+        style={{ transform: `translateY(${top}px)` }}
+      >
+        <QueueRow
+          item={item}
+          index={qi}
+          current={qi === index}
+          playing={playing}
+          dragged={dragFrom === qi}
+          upNext={qi === start + 1}
+          focused={qi === tabQi}
+          autoPlay={qi !== index && item.auto && !!station?.autoPlay}
+          userEnd={userEnd}
+        />
+      </div>
+    );
+  };
 
   return (
     <aside
@@ -463,7 +513,8 @@ export function QueuePanel() {
         </div>
       ) : (
         <>
-          <p className="shrink-0 truncate px-4 pb-2 text-meta text-ink-muted num">
+          {/* Proportional figures: tabular ones widen the comma in this sentence. */}
+          <p className="shrink-0 truncate px-4 pb-2 text-meta text-ink-muted">
             {station && !station.autoPlay ? (
               <Trans>
                 Playing from{" "}
@@ -485,10 +536,14 @@ export function QueuePanel() {
               the queue.
             </Trans>
           </p>
+          <p id={AUTO_KEYS_HELP} className="sr-only">
+            <Trans>Enter plays the song, Delete removes it, Escape closes the queue.</Trans>
+          </p>
+          {/* One scroller, two lists: the user's songs, then the station's or
+              AutoPlay's part named by its heading. The lines are positioned
+              in the body, so the lists themselves take no space. */}
           <div
             ref={scrollRef}
-            role="list"
-            aria-label={t`Queue`}
             className="min-h-0 flex-1 overflow-y-auto px-2 pb-3"
             onPointerDown={grab}
             onFocus={onListFocus}
@@ -496,45 +551,52 @@ export function QueuePanel() {
             onKeyDown={onListKeyDown}
           >
             <div ref={bodyRef} className="relative" style={{ height: totalSize }}>
+              <div role="list" aria-label={t`Queue`}>
+                {rows.map((row) => {
+                  const line = lines[row.index];
+                  if (line.kind !== "row" || (head >= 0 && row.index > head)) return null;
+                  return queueRow(line.qi, row.start);
+                })}
+              </div>
+              {head >= 0 && (
+                <div role="list" aria-label={headTitle}>
+                  {rows.map((row) => {
+                    const line = lines[row.index];
+                    if (line.kind !== "row" || row.index < head) return null;
+                    return queueRow(line.qi, row.start);
+                  })}
+                </div>
+              )}
               {rows.map((row) => {
                 const line = lines[row.index];
-                const style = { transform: `translateY(${row.start}px)` };
-                if (line.kind !== "row") {
-                  return (
-                    <div
-                      key={line.key}
-                      role="listitem"
-                      className="absolute inset-x-0 top-0 flex flex-col justify-end px-2 pb-1.5"
-                      style={{ ...style, height: HEAD }}
-                    >
-                      {line.kind === "head" ? (
-                        <>
-                          <h3 className="text-ui font-medium text-ink">{line.title}</h3>
-                          <p className="truncate text-meta text-ink-muted">{line.detail}</p>
-                        </>
-                      ) : (
-                        <p className="flex items-center gap-1.5 text-meta text-ink-muted">
-                          <InfinityIcon aria-hidden className="size-3.5" strokeWidth={1.75} />
-                          {line.text}
-                        </p>
+                if (line.kind === "row") return null;
+                const style = {
+                  transform: `translateY(${row.start}px)`,
+                  height: heights[row.index],
+                };
+                return line.kind === "head" ? (
+                  <div
+                    key="head"
+                    className="absolute inset-x-0 top-0 flex flex-col justify-end px-2 pb-2"
+                    style={style}
+                  >
+                    <h3 className="flex items-center gap-1.5 text-ui font-medium text-ink">
+                      {station?.autoPlay && (
+                        <InfinityIcon aria-hidden className="size-4" strokeWidth={1.75} />
                       )}
-                    </div>
-                  );
-                }
-                const qi = line.qi;
-                const item: QueueItem = items[qi];
-                return (
-                  <div key={item.uid} className="absolute inset-x-0 top-0" style={style}>
-                    <QueueRow
-                      item={item}
-                      index={qi}
-                      current={qi === index}
-                      playing={playing}
-                      dragged={dragFrom === qi}
-                      upNext={qi === start + 1}
-                      focused={qi === tabQi}
-                    />
+                      {headTitle}
+                    </h3>
+                    <p className="truncate text-meta text-ink-muted">{headDetail}</p>
                   </div>
+                ) : (
+                  <p
+                    key="note"
+                    className="absolute inset-x-0 top-0 flex items-end gap-1.5 px-2 pb-1.5 text-meta text-ink-muted"
+                    style={style}
+                  >
+                    <InfinityIcon aria-hidden className="size-3.5" strokeWidth={1.75} />
+                    <Trans>Then AutoPlay continues with similar music</Trans>
+                  </p>
                 );
               })}
               {showSlot && (

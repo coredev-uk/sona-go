@@ -183,6 +183,10 @@ msgid "{len, plural, one {# digit} other {# digits}}"
 msgstr ""
 
 #: src/features/player/QueuePanel.tsx
+msgid "{mine, plural, one {# song after this one, then AutoPlay} other {# songs after this one, then AutoPlay}}"
+msgstr ""
+
+#: src/features/player/QueuePanel.tsx
 msgid "{mine, plural, one {# song after this one} other {# songs after this one}}"
 msgstr ""
 
@@ -795,9 +799,15 @@ msgstr ""
 msgid "Automatic uses Sona's title bar, with the window buttons where your system puts them."
 msgstr ""
 
+#. Apple's name for the feature: the queue's heading over the songs it adds, and its toggle. Apple: ASE.Web.Music.UpNext.Autoplay.Heading
 #: src/features/player/QueuePanel.tsx
 #: src/features/settings/settings-file.ts
 msgid "AutoPlay"
+msgstr ""
+
+#. Queue summary when only AutoPlay's songs follow. Apple's ASE.Web.Music.UpNext.Heading.AutoplayActive ('autoplay is on') is lower case, for a subline, so it is not mapped.
+#: src/features/player/QueuePanel.tsx
+msgid "AutoPlay is on"
 msgstr ""
 
 #: src/features/player/QueuePanel.tsx
@@ -2007,6 +2017,10 @@ msgstr ""
 
 #: src/features/player/QueuePanel.tsx
 msgid "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes the queue."
+msgstr ""
+
+#: src/features/player/QueuePanel.tsx
+msgid "Enter plays the song, Delete removes it, Escape closes the queue."
 msgstr ""
 
 #: src/features/auth/signin.ts
@@ -4265,8 +4279,9 @@ msgstr ""
 msgid "Similar artists"
 msgstr ""
 
+#. Under the AutoPlay heading in the queue. Apple: ASE.Web.Music.UpNext.Autoplay.Description
 #: src/features/player/QueuePanel.tsx
-msgid "Similar music, from {stationName}"
+msgid "Similar music will keep playing"
 msgstr ""
 
 #: src/features/album/AlbumPage.tsx
