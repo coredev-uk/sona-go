@@ -713,6 +713,27 @@ func TestProportions(t *testing.T) {
 	}
 }
 
+// WithCrop swaps only the file name's crop code, whatever its spelling,
+// keeping the extension and any "bb" elsewhere in the path.
+func TestWithCrop(t *testing.T) {
+	const dir = "https://is1-ssl.mzstatic.com/image/thumb/RadioSource221/v4/e2/bb_source.png/"
+	for _, tc := range []struct{ tmpl, want string }{
+		{dir + "{w}x{h}bb.{f}", dir + "{w}x{h}cc.{f}"},
+		{dir + "{w}x{h}{c}.{f}", dir + "{w}x{h}cc.{f}"},
+		{dir + "{w}x{h}SC.DN02.jpg", dir + "{w}x{h}cc.jpg"},
+		{dir + "{w}x{h}cc.jpg", dir + "{w}x{h}cc.jpg"},
+		{dir + "{w}x{h}.jpg", dir + "{w}x{h}cc.jpg"},
+		// No {w}x{h} file name: nothing to crop.
+		{dir + "600x600bb.jpg", dir + "600x600bb.jpg"},
+		{"https://a/{w}x{h}/art", "https://a/{w}x{h}/art"},
+		{"", ""},
+	} {
+		if got := WithCrop(tc.tmpl, "cc"); got != tc.want {
+			t.Errorf("WithCrop(%q) = %q, want %q", tc.tmpl, got, tc.want)
+		}
+	}
+}
+
 // Boxes keep their aspect ratio while their long edge is clamped.
 func TestURLClampsBox(t *testing.T) {
 	c := newCache(t, newImageServer(t), "", 0)

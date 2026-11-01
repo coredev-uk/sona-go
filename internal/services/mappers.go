@@ -24,7 +24,8 @@ const colorsTimeout = 1500 * time.Millisecond
 
 // mapper turns applemusic resources and library rows into DTOs. Methods:
 // artwork (Apple artwork descriptor → Art at its own aspect ratio), artOf
-// (bare template → square Art), header (template → backdrop + colours),
+// (bare template → square Art), centreSquare (Apple artwork → Art of its
+// centre square), header (template → backdrop + colours),
 // motionOf (editorialVideo → motion cover URL),
 // libSong/libSongs/libAlbum/libAlbums/libArtist/libPlaylist (library rows),
 // amSong/amSongs/amAlbum/amAlbums/amArtist/amArtists/amPlaylist/amPlaylists
@@ -63,6 +64,16 @@ func (m mapper) artwork(a *applemusic.Artwork) Art {
 // artOf maps a bare template (library rows and the queue keep no size),
 // which is shown square.
 func (m mapper) artOf(template string) Art { return m.sized(template, 1, 1) }
+
+// centreSquare maps artwork shown as its centre square, cut by Apple's CDN
+// from the full image (the "cc" crop): a live programme's 4:1 key art is
+// drawn so that square is its tile, which is how Apple's apps show it.
+func (m mapper) centreSquare(a *applemusic.Artwork) Art {
+	if a == nil {
+		return Art{}
+	}
+	return m.artOf(artwork.WithCrop(a.URL, "cc"))
+}
 
 // sized returns template's Art for a w:h shape, each URL's long edge at
 // the size the UI renders it.

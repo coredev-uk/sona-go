@@ -166,6 +166,23 @@ func Proportions(tmpl string, width, height int) (int, int) {
 	return width, height
 }
 
+// WithCrop returns tmpl with its crop code (what follows "{w}x{h}" in the
+// file name up to the extension: "bb", "sr", "{c}", "SC.DN02") replaced
+// by code, e.g. "cc" for the centre square Apple's apps cut from wide key
+// art. A template without a "{w}x{h}" file name is returned unchanged.
+func WithCrop(tmpl, code string) string {
+	const box = "{w}x{h}"
+	i := strings.LastIndex(tmpl, box) + len(box)
+	if i < len(box) {
+		return tmpl
+	}
+	ext := strings.LastIndexByte(tmpl, '.')
+	if ext < i || strings.ContainsRune(tmpl[i:], '/') {
+		return tmpl
+	}
+	return tmpl[:i] + code + tmpl[ext:]
+}
+
 // sourceDims is the box a source is fetched at for a request: the request's
 // aspect ratio with its long edge raised to the smallest standard size
 // covering it, so requests of one shape share at most len(Sizes) sources.
