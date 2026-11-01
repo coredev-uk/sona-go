@@ -8,16 +8,16 @@ import (
 	"errors"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
 
-// ServeHTTP serves "<prefix><key>/<size>.jpg" and "<prefix><key>/backdrop.jpg"
+// ServeHTTP serves "<prefix><key>/<w>x<h>.jpg" (and "<n>.jpg" for n×n,
+// the square-only URLs of earlier versions) and "<prefix><key>/backdrop.jpg"
 // for keys produced by URL and BackdropURL. Responses are immutable for a
-// year and carry a strong ETag of the bytes; unknown keys and sizes outside
-// [MinSize, MaxSize] are 404s, so clients cannot make Sona fetch anything
-// it did not hand out itself.
+// year and carry a strong ETag of the bytes; unknown keys, non-canonical
+// names and boxes whose long edge is outside [MinSize, MaxSize] are 404s,
+// so clients cannot make Sona fetch anything it did not hand out itself.
 func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
@@ -42,12 +42,13 @@ func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if name == "backdrop.jpg" {
 		path, err = c.backdropPath(r.Context(), key, tmpl)
 	} else {
-		size, perr := strconv.Atoi(strings.TrimSuffix(name, ".jpg"))
-		if perr != nil || strconv.Itoa(size)+".jpg" != name || size < MinSize || size > MaxSize {
+		stem, jpg := strings.CutSuffix(name, ".jpg")
+		d, valid := parseDims(stem)
+		if !jpg || !valid {
 			http.NotFound(w, r)
 			return
 		}
-		path, err = c.variant(r.Context(), key, tmpl, size)
+		path, err = c.variant(r.Context(), key, tmpl, d)
 	}
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {

@@ -175,7 +175,7 @@ func runMediaControls(srv MediaControls, snaps <-chan coordinator.Snapshot, quit
 					diag.Go(log, "mpris artwork", func() {
 						ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 						defer cancel()
-						p, err := art.LocalPath(ctx, t, mprisArtSize)
+						p, err := art.LocalPath(ctx, t, mprisArtSize, mprisArtSize)
 						if err != nil {
 							log.Debug("mpris: artwork", "err", err)
 							return

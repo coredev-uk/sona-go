@@ -278,7 +278,7 @@ func (s *IntegrationsService) announce(item coordinator.Item) {
 		var image string
 		if item.Artwork != "" && s.e.Art != nil {
 			ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
-			p, err := s.e.Art.LocalPath(ctx, item.Artwork, mprisArtSize)
+			p, err := s.e.Art.LocalPath(ctx, item.Artwork, mprisArtSize, mprisArtSize)
 			cancel()
 			if err != nil {
 				s.e.Logger.Debug("notification artwork", "err", err)

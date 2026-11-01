@@ -5,8 +5,7 @@ import { ChevronLeft, ChevronRight, Play } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { GAP_X, useCoverColumns } from "@/shared/lib/useCoverColumns";
-import { artAt } from "@/shared/lib/art";
-import { cn } from "@/shared/lib/utils";
+import { artAspect, artUrl } from "@/shared/lib/art";
 import { Button } from "@/shared/ui/button";
 
 import { openExternal } from "./cover";
@@ -19,20 +18,30 @@ interface WideRowProps {
   items: readonly Item[];
   /** Smallest card width: 400 for heroes, 240 for category bricks. */
   min: number;
-  /** Artwork box, width / height (2.4 for heroes, 2 for bricks). */
+  /**
+   * The tallest artwork frame, width / height (2.4 for heroes, 2 for
+   * bricks). A row whose banners are all wider gets their shape instead.
+   */
   ratio: number;
   onOpen?: (item: Item) => void;
 }
 
 /**
- * Wide editorial cards: the banner letterboxed on its own background
- * colour (never cropped, never under text), the title and line below.
- * As many as fit; arrows page through the rest.
+ * Wide editorial cards: the banner on its own background colour (never
+ * cropped, never under text), the title and line below. Every frame in a
+ * row has one shape: the tallest of the row's banners within `ratio`, so
+ * a row of 4:1 banners has no empty bands and a mixed row letterboxes only
+ * the wider ones. As many as fit; arrows page through the rest.
  */
 export function WideRow({ title, items, min, ratio, onOpen }: WideRowProps) {
   const { t } = useLingui();
   const ref = useRef<HTMLDivElement>(null);
   const { cols, size } = useCoverColumns(ref, min);
+  const aspects = items.flatMap((i) => {
+    const wide = i.wide.large || i.wide.medium;
+    return wide ? [artAspect(wide)] : [];
+  });
+  const frame = aspects.length ? Math.max(ratio, Math.min(...aspects)) : ratio;
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(items.length / cols));
   const at = Math.min(page, pages - 1);
@@ -84,7 +93,7 @@ export function WideRow({ title, items, min, ratio, onOpen }: WideRowProps) {
       >
         {shown.map((item, i) => (
           <div role="listitem" key={`${at}:${i}:${item.kind}:${item.id}`}>
-            <WideCard item={item} width={size} ratio={ratio} onOpen={onOpen} />
+            <WideCard item={item} width={size} ratio={frame} onOpen={onOpen} />
           </div>
         ))}
       </div>
@@ -105,9 +114,8 @@ function WideCard({
 }) {
   const { t } = useLingui();
   const link = itemLink(item);
-  const wide = item.wide.large || item.wide.medium;
-  const square = item.art.large || item.art.medium;
-  const height = Math.round(width / ratio);
+  // A card without a banner shows its cover, whole, on the same colour.
+  const src = item.wide.large || item.wide.medium || item.art.large || item.art.medium;
   const [failed, setFailed] = useState(false);
   const openerClassName =
     "min-w-0 flex-1 truncate rounded-sm text-left text-ui font-medium text-ink outline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover/tile:underline group-hover/tile:underline-offset-2";
@@ -119,18 +127,15 @@ function WideCard({
         className="relative w-full overflow-hidden rounded-sm bg-hover after:pointer-events-none after:absolute after:inset-0 after:rounded-sm after:ring-1 after:ring-ink/6 after:ring-inset"
         style={{ aspectRatio: ratio, backgroundColor: item.color || undefined }}
       >
-        {!failed && (wide || square) && (
+        {!failed && src && (
           <img
-            src={wide ? artAt(wide, width) : artAt(square, height)}
+            src={artUrl(src, { width, height: width / ratio }, "contain")}
             alt=""
             loading="lazy"
             decoding="async"
             draggable={false}
             onError={() => setFailed(true)}
-            className={cn(
-              "absolute inset-0 m-auto",
-              wide ? "size-full object-contain" : "aspect-square h-full",
-            )}
+            className="absolute inset-0 size-full object-contain"
           />
         )}
         {canPlay(item) && (

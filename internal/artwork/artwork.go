@@ -1,8 +1,10 @@
 // Package artwork is Sona's artwork disk cache. It turns Apple artwork
-// templates ({w}x{h} URLs on *.mzstatic.com) into Go-served URLs, fetches each
-// source size once, derives exact-size JPEG variants, pre-blurred backdrops
-// and dominant colours from disk, and evicts least-recently-used artwork when
-// the cache exceeds its size cap. Sources must be JPEG or PNG, recognised by
+// templates ({w}x{h} URLs on *.mzstatic.com) into Go-served URLs for a
+// width×height box, fetches each source size and aspect ratio once (Apple
+// fills or crops the box by the template's crop code), derives exact-size
+// JPEG variants, pre-blurred backdrops and dominant colours from disk, and
+// evicts least-recently-used artwork when the cache exceeds its size cap.
+// Sources must be JPEG or PNG, recognised by
 // their magic bytes and decoded by image/jpeg or image/png directly; anything
 // else is refused with ErrFormat before any decoder runs.
 package artwork
@@ -173,7 +175,8 @@ func New(opts Options) (*Cache, error) {
 	return c, nil
 }
 
-// scan builds the index from disk and removes interrupted writes.
+// scan builds the index from disk and removes interrupted writes and the
+// files of the square-only layout (legacyName).
 func (c *Cache) scan() error {
 	des, err := os.ReadDir(c.dir)
 	if err != nil {
@@ -193,7 +196,7 @@ func (c *Cache) scan() error {
 			e.used, e.touched = info.ModTime(), info.ModTime()
 		}
 		for _, f := range files {
-			if strings.HasPrefix(f.Name(), ".tmp-") {
+			if strings.HasPrefix(f.Name(), ".tmp-") || legacyName(f.Name()) {
 				_ = os.Remove(filepath.Join(kdir, f.Name()))
 				continue
 			}
@@ -276,16 +279,17 @@ func (c *Cache) Remove(refs []string) (int64, error) {
 	return freed, errors.Join(errs...)
 }
 
-// URL returns the Go-served path of template's size px variant
-// ("/art/<key>/<size>.jpg"), or "" when template is empty or not an Apple
-// artwork URL. size is clamped to [MinSize, MaxSize]. Nothing is fetched
-// until the URL is requested from Handler.
-func (c *Cache) URL(template string, size int) string {
+// URL returns the Go-served path of template's variant for a w×h box
+// ("/art/<key>/<w>x<h>.jpg"), or "" when template is empty or not an Apple
+// artwork URL. The box keeps its aspect ratio with its long edge clamped to
+// [MinSize, MaxSize]. Nothing is fetched until the URL is requested from
+// Handler.
+func (c *Cache) URL(template string, w, h int) string {
 	key, err := c.register(template)
 	if err != nil {
 		return ""
 	}
-	return c.prefix + key + "/" + strconv.Itoa(clampSize(size)) + ".jpg"
+	return c.prefix + key + "/" + clampDims(w, h).String() + ".jpg"
 }
 
 // BackdropURL returns the Go-served path of template's backdrop
@@ -298,10 +302,11 @@ func (c *Cache) BackdropURL(template string) string {
 	return c.prefix + key + "/backdrop.jpg"
 }
 
-// Get returns template's variant at size px (clamped to [MinSize, MaxSize])
-// as JPEG bytes, fetching a source from Apple at most once per standard size.
-func (c *Cache) Get(ctx context.Context, template string, size int) ([]byte, error) {
-	p, err := c.LocalPath(ctx, template, size)
+// Get returns template's variant for a w×h box (clamped as in URL) as JPEG
+// bytes, fetching a source from Apple at most once per standard size and
+// aspect ratio.
+func (c *Cache) Get(ctx context.Context, template string, w, h int) ([]byte, error) {
+	p, err := c.LocalPath(ctx, template, w, h)
 	if err != nil {
 		return nil, err
 	}
@@ -311,12 +316,12 @@ func (c *Cache) Get(ctx context.Context, template string, size int) ([]byte, err
 // LocalPath is Get returning the JPEG's path on disk, e.g. for MPRIS
 // mpris:artUrl ("file://" + path). The file may be evicted later; call again
 // rather than holding paths across tracks.
-func (c *Cache) LocalPath(ctx context.Context, template string, size int) (string, error) {
+func (c *Cache) LocalPath(ctx context.Context, template string, w, h int) (string, error) {
 	key, err := c.register(template)
 	if err != nil {
 		return "", err
 	}
-	return c.variant(ctx, key, c.templateOf(key), clampSize(size))
+	return c.variant(ctx, key, c.templateOf(key), clampDims(w, h))
 }
 
 // Backdrop returns template's pre-blurred backdrop JPEG (see BackdropStyle).
@@ -528,143 +533,157 @@ func (c *Cache) evictLocked() {
 	}
 }
 
-// sourceName names a fetched source: JPEGs can be served as-is.
-func sourceName(std int, data []byte) string {
-	if isJPEG(data) {
-		return "src-" + strconv.Itoa(std) + ".jpg"
+// sourceName names a source fetched for box d: "src-<w>x<h>.jpg" for a JPEG
+// within its box, which a request for exactly that box is served as-is,
+// and ".img" for anything else (a PNG, Apple's w×w square for a "cc" crop,
+// or a fixed template's single source, "src-0x0").
+func sourceName(d dims, data []byte, cfg image.Config) string {
+	if isJPEG(data) && cfg.Width <= d.w && cfg.Height <= d.h {
+		return "src-" + d.String() + ".jpg"
 	}
-	return "src-" + strconv.Itoa(std) + ".img"
+	return "src-" + d.String() + ".img"
 }
 
-// cachedSource finds the smallest indexed source of at least std px
-// (or the single source of a fixed-size template).
-func (c *Cache) cachedSource(key string, std int, fixedSize bool) (path string, srcStd int, ok bool) {
+// sourceDimsOf parses the box of a source file name.
+func sourceDimsOf(name string) (dims, bool) {
+	rest, ok := strings.CutPrefix(name, "src-")
+	if !ok {
+		return dims{}, false
+	}
+	rest, _, _ = strings.Cut(rest, ".")
+	ws, hs, ok := strings.Cut(rest, "x")
+	w, err1 := strconv.Atoi(ws)
+	h, err2 := strconv.Atoi(hs)
+	return dims{w, h}, ok && err1 == nil && err2 == nil
+}
+
+// cachedSource finds the smallest indexed source covering want (or the
+// single source of a fixed-size template).
+func (c *Cache) cachedSource(key string, want dims, fixedSize bool) (path string, src dims, ok bool) {
 	c.mu.Lock()
 	e := c.keys[key]
-	best, bestName := 0, ""
+	bestName := ""
 	if e != nil {
 		for name := range e.files {
-			rest, found := strings.CutPrefix(name, "src-")
-			if !found {
+			d, found := sourceDimsOf(name)
+			if !found || (fixedSize && d != dims{}) || (!fixedSize && !d.covers(want)) {
 				continue
 			}
-			n, err := strconv.Atoi(strings.TrimSuffix(strings.TrimSuffix(rest, ".jpg"), ".img"))
-			if err != nil || (!fixedSize && n < std) || (fixedSize && n != 0) {
-				continue
-			}
-			if bestName == "" || n < best {
-				best, bestName = n, name
+			if bestName == "" || d.w*d.h < src.w*src.h {
+				src, bestName = d, name
 			}
 		}
 	}
 	c.mu.Unlock()
 	if bestName == "" {
-		return "", 0, false
+		return "", dims{}, false
 	}
 	p, ok := c.hit(key, bestName)
-	return p, best, ok
+	return p, src, ok
 }
 
-// source returns a source image covering size px, fetching it if needed.
-func (c *Cache) source(ctx context.Context, key, tmpl string, size int) (string, int, error) {
+// source returns a source image covering want, fetching it if needed.
+func (c *Cache) source(ctx context.Context, key, tmpl string, want dims) (string, dims, error) {
 	fx := fixed(tmpl)
-	std := standard(size)
+	sd := sourceDims(want)
 	if fx {
-		std = 0
+		sd = dims{}
 	}
-	if p, n, ok := c.cachedSource(key, std, fx); ok {
-		return p, n, nil
+	if p, d, ok := c.cachedSource(key, want, fx); ok {
+		return p, d, nil
 	}
 	type src struct {
 		path string
-		std  int
+		d    dims
 	}
-	ch := c.flight.DoChan("src/"+key+"/"+strconv.Itoa(std), func() (any, error) {
+	ch := c.flight.DoChan("src/"+key+"/"+sd.String(), func() (any, error) {
 		c.acquire(key)
 		defer c.release(key)
-		if p, n, ok := c.cachedSource(key, std, fx); ok {
-			return src{p, n}, nil
+		if p, d, ok := c.cachedSource(key, want, fx); ok {
+			return src{p, d}, nil
 		}
 		u := tmpl
 		if !fx {
-			u = fill(tmpl, std)
+			u = fill(tmpl, sd)
 		}
-		data, err := c.fetch(u)
+		data, cfg, err := c.fetch(u)
 		if err != nil {
 			return nil, err
 		}
-		p, err := c.store(key, tmpl, sourceName(std, data), data)
-		return src{p, std}, err
+		p, err := c.store(key, tmpl, sourceName(sd, data, cfg), data)
+		return src{p, sd}, err
 	})
 	select {
 	case <-ctx.Done():
-		return "", 0, ctx.Err()
+		return "", dims{}, ctx.Err()
 	case r := <-ch:
 		if r.Err != nil {
-			return "", 0, r.Err
+			return "", dims{}, r.Err
 		}
 		s := r.Val.(src)
-		return s.path, s.std, nil
+		return s.path, s.d, nil
 	}
 }
 
-// fetch downloads one artwork URL. It runs detached from the caller's
-// context so a cancelled request does not fail the others sharing it.
-func (c *Cache) fetch(u string) ([]byte, error) {
+// fetch downloads one artwork URL and reads its image header. It runs
+// detached from the caller's context so a cancelled request does not fail
+// the others sharing it.
+func (c *Cache) fetch(u string) ([]byte, image.Config, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
 	defer cancel()
 	c.fetchSem <- struct{}{}
 	defer func() { <-c.fetchSem }()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, fmt.Errorf("artwork: %w", err)
+		return nil, image.Config{}, fmt.Errorf("artwork: %w", err)
 	}
 	if err := checkURL(req.URL); err != nil {
-		return nil, err
+		return nil, image.Config{}, err
 	}
 	req.Header.Set("Accept", "image/jpeg,image/png;q=0.9")
 	req.Header.Set("User-Agent", c.ua)
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("artwork: fetch: %w", err)
+		return nil, image.Config{}, fmt.Errorf("artwork: fetch: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("artwork: fetch %s: %s", req.URL.Redacted(), resp.Status)
+		return nil, image.Config{}, fmt.Errorf("artwork: fetch %s: %s", req.URL.Redacted(), resp.Status)
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxSourceBytes+1))
 	if err != nil {
-		return nil, fmt.Errorf("artwork: fetch: %w", err)
+		return nil, image.Config{}, fmt.Errorf("artwork: fetch: %w", err)
 	}
 	if len(data) > maxSourceBytes {
-		return nil, errors.New("artwork: source too large")
+		return nil, image.Config{}, errors.New("artwork: source too large")
 	}
-	if _, err := decodeConfig(data); err != nil {
-		return nil, fmt.Errorf("artwork: fetch %s: %w", req.URL.Redacted(), err)
+	cfg, err := decodeConfig(data)
+	if err != nil {
+		return nil, image.Config{}, fmt.Errorf("artwork: fetch %s: %w", req.URL.Redacted(), err)
 	}
 	c.log.Debug("artwork: fetched", "url", req.URL.Redacted(), "bytes", len(data))
-	return data, nil
+	return data, cfg, nil
 }
 
-// variant returns the path of key's size px JPEG, deriving it if needed.
-func (c *Cache) variant(ctx context.Context, key, tmpl string, size int) (string, error) {
+// variant returns the path of key's JPEG for box d, deriving it if needed.
+func (c *Cache) variant(ctx context.Context, key, tmpl string, d dims) (string, error) {
 	if tmpl == "" {
 		return "", errors.New("artwork: unknown key")
 	}
 	c.acquire(key)
 	defer c.release(key)
-	name := strconv.Itoa(size) + ".jpg"
+	name := d.String() + ".jpg"
 	if p, ok := c.hit(key, name); ok {
 		return p, nil
 	}
 	if p, ok := c.hit(key, "src-"+name); ok {
 		return p, nil
 	}
-	src, std, err := c.source(ctx, key, tmpl, size)
+	src, sd, err := c.source(ctx, key, tmpl, d)
 	if err != nil {
 		return "", err
 	}
-	if std == size && strings.HasSuffix(src, ".jpg") {
+	if sd == d && strings.HasSuffix(src, ".jpg") {
 		return src, nil
 	}
 	return c.derive(ctx, key, tmpl, name, func() ([]byte, error) {
@@ -672,7 +691,7 @@ func (c *Cache) variant(ctx context.Context, key, tmpl string, size int) (string
 		if err != nil {
 			return nil, err
 		}
-		img = fit(img, size)
+		img = fit(img, d.w, d.h)
 		return encodeJPEG(img, variantQuality)
 	})
 }
@@ -689,7 +708,7 @@ func (c *Cache) backdropPath(ctx context.Context, key, tmpl string) (string, err
 	if p, ok := c.hit(key, name); ok {
 		return p, nil
 	}
-	src, _, err := c.source(ctx, key, tmpl, st.Size)
+	src, _, err := c.source(ctx, key, tmpl, dims{st.Size, st.Size})
 	if err != nil {
 		return "", err
 	}

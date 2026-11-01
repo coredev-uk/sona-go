@@ -305,7 +305,7 @@ func (m mapper) heroCard(res applemusic.Resources, card applemusic.Node) (Item, 
 		return Item{}, false
 	}
 	if a.Artwork != nil {
-		it.Wide, it.Color = m.artOf(a.Artwork.Template()), hexColor(a.Artwork.BgColor)
+		it.Wide, it.Color = m.artwork(a.Artwork), hexColor(a.Artwork.BgColor)
 	}
 	if a.DesignTag != "" && a.Kind == applemusic.ElementHeroArt {
 		it.Subtitle = a.DesignTag
@@ -333,7 +333,7 @@ func (m mapper) brick(res applemusic.Resources, tile applemusic.Node) (Item, boo
 		return Item{}, false
 	}
 	if a.Artwork != nil {
-		it.Wide, it.Color = m.artOf(a.Artwork.Template()), hexColor(a.Artwork.BgColor)
+		it.Wide, it.Color = m.artwork(a.Artwork), hexColor(a.Artwork.BgColor)
 	}
 	if a.DesignTag != "" {
 		it.Name = a.DesignTag
@@ -356,7 +356,7 @@ var wideKeys = []string{"superHeroWide", "subscriptionHero", "subscriptionCover"
 func (m mapper) wideOf(ea editorialArt) (Art, string) {
 	for _, k := range wideKeys {
 		if a, ok := ea.EditorialArtwork[k]; ok && a.URL != "" {
-			return m.artOf(a.URL), hexColor(a.BgColor)
+			return m.artwork(&a), hexColor(a.BgColor)
 		}
 	}
 	return Art{}, ""
@@ -428,7 +428,7 @@ func (m mapper) amItem(n applemusic.Node) (Item, bool) {
 		var a applemusic.CuratorAttributes
 		_ = n.Attrs(&a)
 		it.Kind, it.Name, it.Subtitle = ItemCurator, cmp.Or(a.ShortName, a.Name), curatorKind(a)
-		it.Art = m.artOf(a.Artwork.Template())
+		it.Art = m.artwork(a.Artwork)
 	case applemusic.TypeRooms:
 		var a applemusic.RoomAttributes
 		_ = n.Attrs(&a)
@@ -438,7 +438,7 @@ func (m mapper) amItem(n applemusic.Node) (Item, bool) {
 		_ = n.Attrs(&a)
 		it.Kind, it.Name = ItemMultiroom, a.Title
 		if a.Uber != nil && a.Uber.MasterArt != nil {
-			it.Wide, it.Color = m.artOf(a.Uber.MasterArt.Template()), hexColor(a.Uber.MasterArt.BgColor)
+			it.Wide, it.Color = m.artwork(a.Uber.MasterArt), hexColor(a.Uber.MasterArt.BgColor)
 		}
 	case applemusic.TypeGroupings:
 		var a applemusic.GroupingAttributes
@@ -457,7 +457,7 @@ func (m mapper) amItem(n applemusic.Node) (Item, bool) {
 			it.Name, it.Subtitle = a.PlainEditorialNote.Name, a.PlainEditorialNote.Short
 		}
 		if c, ok := a.EditorialArtwork["subscriptionCover"]; ok {
-			it.Wide, it.Color = m.artOf(c.URL), hexColor(c.BgColor)
+			it.Wide, it.Color = m.artwork(&c), hexColor(c.BgColor)
 		}
 	case applemusic.TypeUploadedVideos, applemusic.TypeMusicMovies:
 		var a struct {
@@ -469,7 +469,7 @@ func (m mapper) amItem(n applemusic.Node) (Item, bool) {
 		if ea.URL == "" {
 			return Item{}, false
 		}
-		it.Kind, it.Name, it.Subtitle, it.Art = ItemLink, a.Name, a.ArtistName, m.artOf(a.Artwork.Template())
+		it.Kind, it.Name, it.Subtitle, it.Art = ItemLink, a.Name, a.ArtistName, m.artwork(a.Artwork)
 	default:
 		return Item{}, false
 	}

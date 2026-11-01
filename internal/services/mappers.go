@@ -23,7 +23,8 @@ import (
 const colorsTimeout = 1500 * time.Millisecond
 
 // mapper turns applemusic resources and library rows into DTOs. Methods:
-// artOf (template → Art), header (template → backdrop + colours),
+// artwork (Apple artwork descriptor → Art at its own aspect ratio), artOf
+// (bare template → square Art), header (template → backdrop + colours),
 // motionOf (editorialVideo → motion cover URL),
 // libSong/libSongs/libAlbum/libAlbums/libArtist/libPlaylist (library rows),
 // amSong/amSongs/amAlbum/amAlbums/amArtist/amArtists/amPlaylist/amPlaylists
@@ -33,15 +34,32 @@ type mapper struct {
 	motion *motion.Cache
 }
 
-func (m mapper) artOf(template string) Art {
+// artwork maps an Apple artwork descriptor: its URLs carry the shape Apple
+// serves it at (artwork.Proportions), so the UI can size wide editorial
+// art by its aspect ratio.
+func (m mapper) artwork(a *applemusic.Artwork) Art {
+	if a == nil {
+		return Art{}
+	}
+	w, h := artwork.Proportions(a.URL, a.Width, a.Height)
+	return m.sized(a.URL, w, h)
+}
+
+// artOf maps a bare template (library rows and the queue keep no size),
+// which is shown square.
+func (m mapper) artOf(template string) Art { return m.sized(template, 1, 1) }
+
+// sized returns template's Art for a w:h shape, each URL's long edge at
+// the size the UI renders it.
+func (m mapper) sized(template string, w, h int) Art {
 	if template == "" || m.art == nil {
 		return Art{}
 	}
-	return Art{
-		Small:  m.art.URL(template, artSmall),
-		Medium: m.art.URL(template, artMedium),
-		Large:  m.art.URL(template, artLarge),
+	at := func(long int) string {
+		l := max(w, h)
+		return m.art.URL(template, (w*long+l/2)/l, (h*long+l/2)/l)
 	}
+	return Art{Small: at(artSmall), Medium: at(artMedium), Large: at(artLarge)}
 }
 
 // header computes a detail page's backdrop and colours.
@@ -220,7 +238,7 @@ func (m mapper) amSong(s applemusic.Song) Song {
 		HasLyrics:   a.HasLyrics,
 		Playable:    a.PlayParams != nil,
 		Traits:      traitsOf(a.AudioTraits, a.IsAppleDigitalMaster || a.IsMasteredForItunes),
-		Art:         m.artOf(a.Artwork.Template()),
+		Art:         m.artwork(a.Artwork),
 	}
 	if isLibraryType(s.Type) {
 		out.Source, out.LibraryID = SourceLibrary, s.ID
@@ -256,7 +274,7 @@ func (m mapper) amAlbum(a applemusic.Album) Album {
 		Explicit:    at.ContentRating == "explicit",
 		Single:      at.IsSingle,
 		Traits:      traitsOf(at.AudioTraits, at.IsAppleDigitalMaster || at.IsMasteredForItunes),
-		Art:         m.artOf(at.Artwork.Template()),
+		Art:         m.artwork(at.Artwork),
 	}
 	if isLibraryType(a.Type) {
 		out.Source, out.LibraryID = SourceLibrary, a.ID
@@ -283,7 +301,7 @@ func (m mapper) amArtist(a applemusic.Artist) Artist {
 		CatalogID: a.CatalogID(),
 		Name:      a.Attributes.Name,
 		Genre:     firstOf(a.Attributes.GenreNames),
-		Art:       m.artOf(a.Attributes.Artwork.Template()),
+		Art:       m.artwork(a.Attributes.Artwork),
 	}
 	if isLibraryType(a.Type) {
 		out.Source, out.LibraryID = SourceLibrary, a.ID
@@ -303,7 +321,7 @@ func (m mapper) amPlaylist(p applemusic.Playlist) Playlist {
 		CanEdit:      at.CanEdit,
 		TrackCount:   len(p.Relationships.Tracks.Data),
 		LastModified: parseMs(at.LastModifiedDate),
-		Art:          m.artOf(at.Artwork.Template()),
+		Art:          m.artwork(at.Artwork),
 		Traits:       traitsOf(at.AudioTraits, false),
 	}
 	if isLibraryType(p.Type) {
@@ -353,7 +371,7 @@ func (m mapper) amMusicVideo(v applemusic.MusicVideo) MusicVideo {
 		Has4K:       a.Has4K,
 		HasHDR:      a.HasHDR,
 		URL:         a.URL,
-		Art:         m.artOf(a.Artwork.Template()),
+		Art:         m.artwork(a.Artwork),
 	}
 	if isLibraryType(v.Type) {
 		out.Source, out.LibraryID = SourceLibrary, v.ID
@@ -383,7 +401,7 @@ func (m mapper) amStation(s applemusic.Station) Station {
 		Provider:   a.StationProviderName,
 		DurationMs: a.DurationInMillis,
 		URL:        a.URL,
-		Art:        m.artOf(a.Artwork.Template()),
+		Art:        m.artwork(a.Artwork),
 	}
 	if n := a.EditorialNotes; n != nil {
 		// Short is a label ("Live Station") when a tagline exists, else

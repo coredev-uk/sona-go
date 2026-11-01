@@ -11,15 +11,75 @@ import (
 	"strings"
 )
 
-// Sizes are the source variants fetched from Apple. A request for any size
-// is served from the smallest cached source at least that large.
+// Sizes are the long edges of the sources fetched from Apple. A request
+// is served from the smallest cached source at least that large with the
+// same aspect ratio.
 var Sizes = []int{64, 128, 256, 512, 1024, 2048}
 
 const (
-	// MinSize and MaxSize bound the edge length of a served variant.
+	// MinSize and MaxSize bound the long edge of a served variant; its
+	// short edge is at least 1.
 	MinSize = 16
 	MaxSize = 2048
 )
+
+// dims is an artwork box in pixels: Apple fills a template's {w} and {h}
+// with it, and a variant fits inside it.
+type dims struct{ w, h int }
+
+// String is the box as it appears in file and URL names: "<w>x<h>".
+func (d dims) String() string { return strconv.Itoa(d.w) + "x" + strconv.Itoa(d.h) }
+
+func (d dims) long() int { return max(d.w, d.h) }
+
+// scaled returns d with its long edge set to long, keeping its aspect
+// ratio (each edge at least 1).
+func (d dims) scaled(long int) dims {
+	l := d.long()
+	return dims{max(1, (d.w*long+l/2)/l), max(1, (d.h*long+l/2)/l)}
+}
+
+// covers reports whether a source fetched for box d can serve a request
+// for r: at least as large (1 px of rounding slack) and of the same aspect
+// ratio within 2%, because Apple crops to the box for most crop codes.
+func (d dims) covers(r dims) bool {
+	if d.w+1 < r.w || d.h+1 < r.h {
+		return false
+	}
+	diff := d.w*r.h - d.h*r.w
+	return 50*max(diff, -diff) <= d.h*r.w
+}
+
+// clampDims keeps w×h's aspect ratio while bringing its long edge into
+// [MinSize, MaxSize]; each edge is at least 1.
+func clampDims(w, h int) dims {
+	d := dims{max(w, 1), max(h, 1)}
+	if l := d.long(); l > MaxSize || l < MinSize {
+		return d.scaled(min(max(l, MinSize), MaxSize))
+	}
+	return d
+}
+
+// parseDims parses a variant name without ".jpg": "<w>x<h>", or a bare
+// "<n>" for n×n (the square-only URLs of earlier versions, still held in
+// recent searches). Only the canonical spelling of an in-range box is
+// accepted, so one box has one file.
+func parseDims(s string) (dims, bool) {
+	ws, hs, wide := strings.Cut(s, "x")
+	if !wide {
+		hs = ws
+	}
+	w, err1 := strconv.Atoi(ws)
+	h, err2 := strconv.Atoi(hs)
+	d := dims{w, h}
+	if err1 != nil || err2 != nil || clampDims(w, h) != d {
+		return dims{}, false
+	}
+	if wide {
+		return d, d.String() == s
+	}
+	return d, strconv.Itoa(w) == s
+}
 
 // ErrHost reports a template outside Apple's artwork CDN.
 var ErrHost = errors.New("artwork: host not allowed")
@@ -54,7 +114,7 @@ func parseTemplate(tmpl string) (string, string, error) {
 	if tmpl == "" {
 		return "", "", errors.New("artwork: empty template")
 	}
-	u, err := url.Parse(fill(tmpl, 1))
+	u, err := url.Parse(fill(tmpl, dims{1, 1}))
 	if err != nil {
 		return "", "", fmt.Errorf("artwork: parse template: %w", err)
 	}
@@ -86,19 +146,43 @@ func validKey(s string) bool {
 // fixed reports whether tmpl has no size placeholder (a plain image URL).
 func fixed(tmpl string) bool { return !strings.Contains(tmpl, "{w}") }
 
-// fill substitutes Apple's placeholders: {w}/{h} with n, {c} (crop) with
-// "bb" (fit in a bounding box) and {f} (format) with jpg.
-func fill(tmpl string, n int) string {
-	s := strconv.Itoa(n)
-	return strings.NewReplacer("{w}", s, "{h}", s, "{c}", "bb", "{f}", "jpg").Replace(tmpl)
+// fill substitutes Apple's placeholders: {w} and {h} with d, {c} (crop)
+// with "sr" and {f} (format) with jpg. Apple's crop codes decide what a
+// box means (checked against the CDN, 2026-11-01): "bb" fits the image
+// inside it; "sr" (and named crops such as "SC.DN02") crop it to the box,
+// which at the image's own aspect ratio is the whole image, the same bytes
+// as "bb"; "cc" crops a w×w square whatever h is; "mv" sizes by w alone.
+func fill(tmpl string, d dims) string {
+	return strings.NewReplacer("{w}", strconv.Itoa(d.w), "{h}", strconv.Itoa(d.h), "{c}", "sr", "{f}", "jpg").Replace(tmpl)
 }
 
-// standard returns the smallest standard source size covering size.
-func standard(size int) int {
-	if i := slices.IndexFunc(Sizes, func(s int) bool { return s >= size }); i >= 0 {
-		return Sizes[i]
+// Proportions returns the width and height a template's artwork is shown
+// at, from the width and height Apple lists for it: a square for "cc"
+// templates (Apple crops those to w×w) and for unknown sizes.
+func Proportions(tmpl string, width, height int) (int, int) {
+	if width <= 0 || height <= 0 || strings.Contains(tmpl, "{h}cc.") {
+		return 1, 1
 	}
-	return Sizes[len(Sizes)-1]
+	return width, height
 }
 
-func clampSize(size int) int { return min(max(size, MinSize), MaxSize) }
+// sourceDims is the box a source is fetched at for a request: the request's
+// aspect ratio with its long edge raised to the smallest standard size
+// covering it, so requests of one shape share at most len(Sizes) sources.
+func sourceDims(d dims) dims {
+	l := d.long()
+	if i := slices.IndexFunc(Sizes, func(s int) bool { return s >= l }); i >= 0 {
+		return d.scaled(Sizes[i])
+	}
+	return d.scaled(Sizes[len(Sizes)-1])
+}
+
+// legacyName reports a file of the square-only cache layout ("<n>.jpg"
+// variants, "src-<n>.jpg|.img" sources). Those filled {c} with "bb", so
+// they are deleted rather than reused; they refetch on demand.
+func legacyName(name string) bool {
+	stem := strings.TrimPrefix(name, "src-")
+	stem, _, _ = strings.Cut(stem, ".")
+	_, err := strconv.Atoi(stem)
+	return err == nil && (strings.HasSuffix(name, ".jpg") || strings.HasSuffix(name, ".img"))
+}

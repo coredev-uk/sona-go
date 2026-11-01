@@ -347,7 +347,7 @@ func (s *SearchService) profile(n applemusic.Node) SocialProfile {
 	_ = n.Attrs(&a)
 	return SocialProfile{
 		ID: n.ID, Name: a.Name, Handle: a.Handle, Verified: a.IsVerified, Private: a.IsPrivate, URL: a.URL,
-		Art: s.m.artOf(a.Artwork.Template()),
+		Art: s.m.artwork(a.Artwork),
 	}
 }
 

@@ -35,7 +35,7 @@ func (c *Cache) DominantColors(ctx context.Context, template string) ([]Color, e
 	}
 	c.acquire(key)
 	defer c.release(key)
-	src, _, err := c.source(ctx, key, c.templateOf(key), Sizes[0])
+	src, _, err := c.source(ctx, key, c.templateOf(key), dims{Sizes[0], Sizes[0]})
 	if err != nil {
 		return nil, err
 	}

@@ -78,10 +78,10 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 
 ## Artwork
 
-- Square, 4px radius, a 1px inset line at 6% ink so pale covers do not dissolve into the ground.
-- Always requested from Go at the exact rendered size (×2 for HiDPI) through `/art/...` URLs, `loading="lazy"`, `decoding="async"`, explicit `width`/`height` so rows never shift.
+- Square, 4px radius, a 1px inset line at 6% ink so pale covers do not dissolve into the ground. Video frames are 16:9; editorial banners keep their own 2.4:1 or 4:1 shape.
+- Always requested from Go at the exact rendered box (width and height × the screen's density, at most 2) through `/art/<key>/<w>x<h>.jpg` URLs, sized in one place (`shared/lib/art.ts`: `artUrl`), `loading="lazy"`, `decoding="async"`, explicit `width`/`height` so rows never shift.
 - Missing art: a `--hover` square with a 40%-ink outline music glyph centred, at the same size.
-- The cover is never cropped, tinted or overlaid with text.
+- The cover is never cropped, tinted or overlaid with text. Banners sit whole on their own background colour: a row of banners takes the shape of its tallest one (wide editorial cards at most 2.4:1, bricks at most 2:1), so only a wider banner in a mixed row is letterboxed.
 
 ## Backdrops (pre-blurred in Go)
 

@@ -373,7 +373,7 @@ func (s *DiscoverService) Curator(ctx context.Context, id string) (EditorialPage
 	_ = c.Attrs(&ea)
 	p := EditorialPage{
 		Kind: ItemCurator, ID: c.ID, Title: a.Name, Subtitle: curatorKind(a), URL: a.URL,
-		Art: s.m.artOf(a.Artwork.Template()), Sections: []Section{},
+		Art: s.m.artwork(a.Artwork), Sections: []Section{},
 		FetchedAt: info.FetchedAt, Stale: info.Stale,
 	}
 	p.Wide, p.Color = s.m.wideOf(ea)
@@ -420,7 +420,7 @@ func (s *DiscoverService) Multiroom(ctx context.Context, id string) (EditorialPa
 	p := EditorialPage{Kind: ItemMultiroom, ID: mr.ID, Title: a.Title, Sections: []Section{}, FetchedAt: info.FetchedAt, Stale: info.Stale}
 	if u := a.Uber; u != nil {
 		if u.MasterArt != nil {
-			p.Wide, p.Color = s.m.artOf(u.MasterArt.Template()), hexColor(u.MasterArt.BgColor)
+			p.Wide, p.Color = s.m.artwork(u.MasterArt), hexColor(u.MasterArt.BgColor)
 		}
 		if u.Description != nil {
 			p.Notes = plainText(*u.Description)

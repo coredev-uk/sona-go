@@ -63,7 +63,7 @@ func TestSignOutRemovesUserArtwork(t *testing.T) {
 	}
 	keyOf := map[string]string{}
 	for _, tp := range []string{cover, played, shared, catalog} {
-		key := strings.Split(strings.TrimPrefix(probe.URL(tp, 128), "/art/"), "/")[0]
+		key := strings.Split(strings.TrimPrefix(probe.URL(tp, 128, 128), "/art/"), "/")[0]
 		keyOf[tp] = key
 		if err := os.MkdirAll(filepath.Join(dir, key), 0o755); err != nil {
 			t.Fatal(err)

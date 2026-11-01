@@ -1,7 +1,7 @@
 import { Music, User } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { artAt } from "@/shared/lib/art";
+import { artUrl } from "@/shared/lib/art";
 import { cn } from "@/shared/lib/utils";
 
 interface ArtworkProps {
@@ -68,7 +68,7 @@ function useImage(url: string | undefined) {
 
 /** Square cover art at an exact size, lazy-loaded, with a placeholder when missing. */
 export function Artwork({ src, size, alt, shape = "square", className, eager }: ArtworkProps) {
-  const url = artAt(src, size);
+  const url = artUrl(src, { width: size, height: size });
   const img = useImage(url);
   return (
     <div
@@ -100,7 +100,7 @@ export function Artwork({ src, size, alt, shape = "square", className, eager }: 
 /**
  * A cover that fills its container's width (grid tiles). `size` is the
  * largest width the tile renders at, so the request stays exact. Music
- * video frames are 16:9 (`aspect="video"`); Go keeps their aspect.
+ * video frames are 16:9 (`aspect="video"`), requested at that box.
  */
 export function FluidArtwork({
   src,
@@ -109,7 +109,7 @@ export function FluidArtwork({
   shape = "square",
   aspect = "square",
 }: Omit<ArtworkProps, "className" | "eager"> & { aspect?: "square" | "video" }) {
-  const url = artAt(src, size);
+  const url = artUrl(src, { width: size, height: aspect === "video" ? (size * 9) / 16 : size });
   const img = useImage(url);
   return (
     <div

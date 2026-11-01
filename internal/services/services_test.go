@@ -145,7 +145,7 @@ func TestMapLibrarySong(t *testing.T) {
 	if s.ID != "i.abc" || s.Source != SourceLibrary || !s.Playable || s.AlbumID != "l.1" || s.DurationMs != 1234 {
 		t.Errorf("library song = %+v", s)
 	}
-	if !strings.HasPrefix(s.Art.Small, "/art/") || !strings.HasSuffix(s.Art.Small, "/96.jpg") || !strings.HasSuffix(s.Art.Large, "/1000.jpg") {
+	if !strings.HasPrefix(s.Art.Small, "/art/") || !strings.HasSuffix(s.Art.Small, "/96x96.jpg") || !strings.HasSuffix(s.Art.Large, "/1000x1000.jpg") {
 		t.Errorf("art = %+v", s.Art)
 	}
 	upload := m.libSong(library.Song{LibraryID: "i.up", Name: "Upload"})
@@ -158,6 +158,30 @@ func TestMapLibrarySong(t *testing.T) {
 	// A template outside Apple's CDN is never handed to the UI.
 	if a := m.artOf("https://example.com/{w}x{h}.jpg"); a != (Art{}) {
 		t.Errorf("foreign artwork host gave %+v", a)
+	}
+}
+
+// Apple artwork carries its own shape in its URLs (wide editorial banners,
+// video frames), except "cc" templates, which Apple crops square.
+func TestArtworkKeepsAppleShape(t *testing.T) {
+	m := newMapper(t)
+	for _, tc := range []struct {
+		a           applemusic.Artwork
+		small, large string
+	}{
+		{applemusic.Artwork{URL: "https://is1-ssl.mzstatic.com/image/thumb/F/hero.png/{w}x{h}sr.{f}", Width: 4320, Height: 1800}, "/96x40.jpg", "/1000x417.jpg"},
+		{applemusic.Artwork{URL: "https://is1-ssl.mzstatic.com/image/thumb/F/brick.png/{w}x{h}{c}.{f}", Width: 4320, Height: 1080}, "/96x24.jpg", "/1000x250.jpg"},
+		{applemusic.Artwork{URL: "https://is1-ssl.mzstatic.com/image/thumb/V/frame.jpg/{w}x{h}mv.{f}", Width: 1920, Height: 1080}, "/96x54.jpg", "/1000x563.jpg"},
+		{applemusic.Artwork{URL: "https://is1-ssl.mzstatic.com/image/thumb/F/chart.png/{w}x{h}cc.{f}", Width: 4320, Height: 1080}, "/96x96.jpg", "/1000x1000.jpg"},
+		{applemusic.Artwork{URL: tmpl}, "/96x96.jpg", "/1000x1000.jpg"},
+	} {
+		a := m.artwork(&tc.a)
+		if !strings.HasSuffix(a.Small, tc.small) || !strings.HasSuffix(a.Large, tc.large) {
+			t.Errorf("%s %dx%d: art = %+v, want …%s and …%s", tc.a.URL, tc.a.Width, tc.a.Height, a, tc.small, tc.large)
+		}
+	}
+	if a := m.artwork(nil); a != (Art{}) {
+		t.Errorf("nil artwork gave %+v", a)
 	}
 }
 

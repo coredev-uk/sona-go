@@ -179,7 +179,7 @@ func (s *RadioService) schedule(st applemusic.Station, now time.Time) []StationE
 		e := StationEvent{
 			ID: ev.ID, Title: a.Title, Description: a.Description.Text(),
 			StartMs: parseMs(a.StartTime), EndMs: parseMs(a.EndTime),
-			Art: s.e.m.artOf(a.Artwork.Template()),
+			Art: s.e.m.artwork(a.Artwork),
 		}
 		if e.EndMs > 0 && e.EndMs <= now.UnixMilli() {
 			continue
