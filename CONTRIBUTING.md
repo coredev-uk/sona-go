@@ -327,8 +327,8 @@ Linux Go job "Go vet and test (-race)" and "Frontend typecheck, lint,
 format, test, build"; plus "macOS build and test" (devenv on macos-15:
 production build, go vet, real-CDM and sandbox tests, `go test -race`) and
 "Windows build" (windows-2025: frontend, `go vet` with cgo, `sona.exe`),
-which run only when dispatched while the repository is private and on every
-push/PR once public), `pr-title.yml` (Conventional Commits title),
+which take several minutes and so never run on pull requests: they run
+after each merge to main, before a release, and when dispatched), `pr-title.yml` (Conventional Commits title),
 `live.yml` (weekly Apple Music contract tests, private mode), `release.yml`
 (releases), `release-secrets.yml` (dispatch: checks the `release`
 environment's secrets are set, publishes nothing), `renovate.yaml`

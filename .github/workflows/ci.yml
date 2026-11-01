@@ -163,7 +163,10 @@ jobs:
   # CI → Run workflow); once it is public, on every push and pull request.
   macos:
     name: macOS build and test
-    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.repository.private }}
+    # Not on pull requests: these jobs take several minutes and are not
+    # required checks. They run after each merge to main, from release.yml,
+    # and on demand (workflow_dispatch).
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && !github.event.repository.private) }}
     runs-on: macos-15
     timeout-minutes: 60
     defaults:
@@ -193,6 +196,17 @@ jobs:
 
       # Every cgo object, nixpkgs library and the link itself must target the
       # same macOS (devenv.nix, MACOSX_DEPLOYMENT_TARGET); ld warns otherwise.
+      # Go's module and build caches (devenv puts GOPATH under .devenv/state/go;
+      # GOCACHE stays at macOS's default), so a run rebuilds only what changed.
+      - name: Cache Go modules and builds
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .devenv/state/go/pkg/mod
+            ~/Library/Caches/go-build
+          key: go-macos-${{ runner.arch }}-${{ hashFiles('go.sum') }}
+          restore-keys: go-macos-${{ runner.arch }}-
+
       - name: Build bin/sona (production, no deployment-target warnings)
         run: |
           go tool wails3 build 2>&1 | tee "$RUNNER_TEMP/build.log"
@@ -237,7 +251,10 @@ jobs:
 
   windows:
     name: Windows build
-    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.repository.private }}
+    # Not on pull requests: these jobs take several minutes and are not
+    # required checks. They run after each merge to main, from release.yml,
+    # and on demand (workflow_dispatch).
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && !github.event.repository.private) }}
     runs-on: windows-2025
     timeout-minutes: 45
     defaults:
