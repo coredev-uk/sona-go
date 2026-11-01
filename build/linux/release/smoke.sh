@@ -8,7 +8,7 @@
 #   smoke.sh arch       # Arch Linux: install the .pkg.tar.zst with its declared deps
 #
 # Passes when `sona --version` prints SONA_VERSION (when set), `sona status`
-# says Sona isn't running (exit status 3) and the packages install the
+# says Sona isn't running (exit status 3) and the packages carry the
 # command's completions and manual page, the binary
 # resolves every shared library, the GStreamer elements the playback host
 # needs exist, and the app, run headless under Xvfb, creates its window and
@@ -29,11 +29,13 @@ deb)
   apt-get install -y -qq --no-install-recommends /pkg/sona_*.deb >/dev/null
   apt-get install -y -qq --no-install-recommends xvfb xauth dbus gstreamer1.0-tools >/dev/null
   exe=/usr/bin/sona
+  contents() { dpkg-deb -c /pkg/sona_*.deb | awk '{print $6}' | sed 's|^\./|/|'; }
   ;;
 rpm)
   dnf install -y -q --setopt=install_weak_deps=False /pkg/sona-*.rpm
   dnf install -y -q --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon gstreamer1 gstreamer1-plugins-base-tools which
   exe=/usr/bin/sona
+  contents() { rpm -qlp /pkg/sona-*.rpm; }
   ;;
 appimage)
   # Only what any desktop has: X/Xvfb, D-Bus, fonts, and the libraries the
@@ -64,12 +66,15 @@ arch)
     # of the runtime depends, and pacman -U below resolves them from the repos.
     runuser -u builder -- makepkg --nodeps --noconfirm >/dev/null || fail "makepkg"
     pacman -U --noconfirm --noprogressbar /tmp/aur/sona-bin-*.pkg.tar.zst >/dev/null
+    pkgfile=$(echo /tmp/aur/sona-bin-*.pkg.tar.zst)
     [[ -f /usr/share/licenses/sona-bin/LICENSE.chromium ]] || fail "licence notice missing"
     cd /
   else
     pacman -U --noconfirm --noprogressbar /pkg/sona-*.pkg.tar.zst >/dev/null
+    pkgfile=$(echo /pkg/sona-*.pkg.tar.zst)
   fi
   exe=/usr/bin/sona
+  contents() { bsdtar -tf "$pkgfile" | sed 's|^|/|'; }
   ;;
 *) fail "unknown kind" ;;
 esac
@@ -86,10 +91,15 @@ rc=0
 out=$("$exe" status 2>&1) || rc=$?
 [[ $rc == 3 && $out == "Sona isn't running" ]] || fail "sona status printed '$out' (exit $rc), want 'Sona isn't running' (exit 3)"
 "$exe" help >/dev/null || fail "sona help failed"
+# The completions and the manual page are in the package. Checked in its
+# file list, not on disk: the distro images drop documentation on install
+# (Ubuntu's dpkg path-exclude for /usr/share/man, Fedora's nodocs, Arch's
+# NoExtract), as a desktop install does not.
 if [[ $kind != appimage ]]; then
+  list=$(contents)
   for f in /usr/share/bash-completion/completions/sona /usr/share/zsh/site-functions/_sona \
     /usr/share/fish/vendor_completions.d/sona.fish /usr/share/man/man1/sona.1.gz; do
-    [[ -s $f ]] || fail "$f not installed"
+    grep -qxF "$f" <<<"$list" || fail "$f not in the package"
   done
 fi
 
