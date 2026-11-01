@@ -138,6 +138,8 @@ func osTestChildMode(m string) {
 		probeChild()
 	case "userns":
 		userNSChild()
+	case "threads":
+		threadsChild()
 	}
 }
 

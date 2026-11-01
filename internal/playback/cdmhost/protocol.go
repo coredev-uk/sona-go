@@ -73,7 +73,8 @@ type Info struct {
 	GStreamer     string
 	Decoder       string
 	Sink          string
-	Sandbox       Sandbox // how the child is confined
+	Sandbox       Sandbox  // how the child is confined
+	Realtime      Realtime // the scheduling its audio threads got (the parent's part)
 }
 
 // EventKind classifies a child event.
@@ -184,8 +185,9 @@ type reply struct {
 
 // frame is a child→parent frame: exactly one field is set.
 type frame struct {
-	Reply *reply
-	Event *Event
+	Reply   *reply
+	Event   *Event
+	Threads *threadReport
 }
 
 const (

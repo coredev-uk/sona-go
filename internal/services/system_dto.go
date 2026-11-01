@@ -81,6 +81,18 @@ type DiagPlayback struct {
 	// filter is missing (cdmhost.ErrSandbox, Linux only); SandboxNote says
 	// why.
 	CDMBlocked bool `json:"cdmBlocked"`
+	// Realtime is the scheduling the running host's audio threads got,
+	// asked of RTKit or the Realtime portal on Linux: "granted" (realtime,
+	// RealtimePriority is the SCHED_RR priority), "raised" (realtime
+	// refused, a raised nice level instead: RealtimePriority), "denied",
+	// "unavailable" (neither RTKit nor the portal answered),
+	// "unsupported" (not asked for on this platform) or "" (no host has
+	// started playing yet). RealtimeVia names who answered ("RTKit",
+	// "portal"); RealtimeNote says why realtime was refused or unavailable.
+	Realtime         string `json:"realtime"`
+	RealtimeVia      string `json:"realtimeVia"`
+	RealtimePriority int    `json:"realtimePriority"`
+	RealtimeNote     string `json:"realtimeNote"`
 }
 
 type DiagDatabase struct {

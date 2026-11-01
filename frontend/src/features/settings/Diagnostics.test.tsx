@@ -209,16 +209,78 @@ describe("DiagnosticsSection", () => {
     expect(shown("Windows Credential Manager")).toBe(true);
   });
 
+  it("shows the audio thread's priority and why it is normal", async () => {
+    const linux = linuxPlayback({}, true);
+    await renderSection(linuxCapabilities(), report({ ...linux, hostRunning: false }, "keychain"));
+    expect(valueOf("Audio priority")).toBe("Requested when playback starts");
+    cleanup();
+
+    await renderSection(
+      linuxCapabilities(),
+      report(
+        {
+          ...linux,
+          hostRunning: true,
+          realtime: "granted",
+          realtimeVia: "RTKit",
+          realtimePriority: 20,
+        },
+        "keychain",
+      ),
+    );
+    expect(valueOf("Audio priority")).toBe("Realtime · priority 20 (RTKit)");
+    cleanup();
+
+    await renderSection(
+      linuxCapabilities(),
+      report(
+        {
+          ...linux,
+          hostRunning: true,
+          realtime: "raised",
+          realtimeVia: "portal",
+          realtimePriority: -15,
+          realtimeNote: "portal: Access denied",
+        },
+        "keychain",
+      ),
+    );
+    expect(valueOf("Audio priority")).toContain("Raised · nice -15 (Realtime portal)");
+    expect(valueOf("Audio priority")).toContain(
+      "Realtime priority was refused: portal: Access denied.",
+    );
+    cleanup();
+
+    await renderSection(
+      linuxCapabilities(),
+      report(
+        {
+          ...linux,
+          hostRunning: true,
+          realtime: "unavailable",
+          realtimeNote: "RTKit: The name is not activatable",
+        },
+        "keychain",
+      ),
+    );
+    expect(valueOf("Audio priority")).toContain("Normal");
+    expect(valueOf("Audio priority")).toContain("Install and enable RTKit");
+    // Normal priority is a warning, not a problem.
+    expect(shown("Everything Sona needs is working")).toBe(true);
+  });
+
   it("shows the macOS sandbox, or that the host runs without it", async () => {
     const mac = {
       ...linuxPlayback({ path: "/data/widevine/4.10.3112.0/mac_arm64/libwidevinecdm.dylib" }, true),
       sink: "osxaudiosink",
+      realtime: "unsupported",
     };
     await renderSection(
       macCapabilities(),
       report({ ...mac, sandboxKind: "seatbelt", sandboxed: true }, "keychain"),
     );
     expect(shown("Sandboxed by macOS · no network or keychain access")).toBe(true);
+    expect(valueOf("Audio priority")).toBe("Not requested on this platform");
     cleanup();
 
     const note = "no macOS sandbox: stat /usr/bin/sandbox-exec: no such file or directory";

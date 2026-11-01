@@ -231,6 +231,7 @@ func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen 
 
 	time.Sleep(2 * time.Second)
 	audioStream(info.PID)
+	realtime(eng)
 
 	// 2. Seek past the preview window and watch the position advance.
 	target := time.Duration(seekTo * float64(time.Second))

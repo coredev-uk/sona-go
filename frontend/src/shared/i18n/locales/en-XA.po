@@ -245,6 +245,10 @@ msgid "{name}, {artist}, skipped: explicit"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
+msgid "{note}. {skips}"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
 msgid "{note}. Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works."
 msgstr ""
 
@@ -775,7 +779,15 @@ msgid "At the end of this song"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
+msgid "Audio may skip while the computer is under heavy load."
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
 msgid "Audio output"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Audio priority"
 msgstr ""
 
 #: src/features/settings/Playback.tsx
@@ -2805,6 +2817,10 @@ msgstr ""
 msgid "Navigation"
 msgstr ""
 
+#: src/features/settings/Diagnostics.tsx
+msgid "Neither RTKit nor the Realtime portal is available ({note}). {skips} Install and enable RTKit (rtkit) to fix this."
+msgstr ""
+
 #: src/shared/lib/format.ts
 msgid "never"
 msgstr ""
@@ -3005,6 +3021,10 @@ msgstr ""
 msgid "None of these songs is available to stream."
 msgstr ""
 
+#: src/features/settings/Diagnostics.tsx
+msgid "Normal"
+msgstr ""
+
 #: src/features/settings/IntegrationsRows.tsx
 msgid "Not available in this build: it was made without a Discord application ID."
 msgstr ""
@@ -3035,6 +3055,10 @@ msgstr ""
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
 msgid "Not playing"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Not requested on this platform"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
@@ -3684,6 +3708,10 @@ msgstr ""
 msgid "Radio shows"
 msgstr ""
 
+#: src/features/settings/Diagnostics.tsx
+msgid "Raised · nice {priority} ({via})"
+msgstr ""
+
 #: src/features/player/shortcuts.ts
 msgid "random"
 msgstr ""
@@ -3694,6 +3722,18 @@ msgstr ""
 
 #: src/features/settings/CdmRow.tsx
 msgid "Ready"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Realtime · priority {priority} ({via})"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Realtime portal"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Realtime priority was refused: {note}."
 msgstr ""
 
 #: src/features/playlist/PlaylistDialogs.tsx
@@ -3865,6 +3905,14 @@ msgstr ""
 #: src/features/settings/QueueRows.tsx
 #: src/features/settings/settings-file.ts
 msgid "Replacing your queue"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Requested when audio starts"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Requested when playback starts"
 msgstr ""
 
 #: src/features/settings/Shortcuts.tsx

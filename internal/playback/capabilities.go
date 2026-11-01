@@ -63,6 +63,14 @@ type Diagnosis struct {
 	SandboxNote string // why a layer is missing
 	// Blocked: the sandbox could not be set up, so the CDM was not loaded.
 	Blocked bool
+
+	// Realtime is the scheduling the running host's audio threads got:
+	// RealtimeGranted, RealtimeRaised, RealtimeDenied, RealtimeUnavailable
+	// or RealtimeUnsupported; "" while no host has started its output.
+	Realtime         string
+	RealtimeVia      string // who answered: "RTKit" or "portal"
+	RealtimePriority int    // the SCHED_RR priority (granted) or nice level (raised)
+	RealtimeNote     string // why realtime was refused or is unavailable
 }
 
 // Diagnosis.Sandbox values.
@@ -70,4 +78,13 @@ const (
 	SandboxLinux    = "linux"
 	SandboxSeatbelt = "seatbelt"
 	SandboxNone     = "none"
+)
+
+// Diagnosis.Realtime values.
+const (
+	RealtimeGranted     = "granted"     // realtime scheduling (SCHED_RR)
+	RealtimeRaised      = "raised"      // realtime refused; a raised nice level instead
+	RealtimeDenied      = "denied"      // both refused
+	RealtimeUnavailable = "unavailable" // neither RTKit nor the Realtime portal answered
+	RealtimeUnsupported = "unsupported" // not asked for on this platform
 )

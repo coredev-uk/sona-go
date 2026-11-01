@@ -184,6 +184,10 @@ func (s *server) watchFile(f *gst.FilePipeline) {
 			if current {
 				s.emit(Event{Kind: EventError, Track: track, Err: ev.Err.Error()})
 			}
+		case gst.EventState:
+			if ev.State == gst.StatePlaying {
+				s.reportAudioThreads()
+			}
 		case gst.EventWarning:
 			s.log.Warn("cdmhost: file pipeline warning", "err", ev.Err)
 		}

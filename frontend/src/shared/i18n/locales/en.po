@@ -245,6 +245,10 @@ msgid "{name}, {artist}, skipped: explicit"
 msgstr "{name}, {artist}, skipped: explicit"
 
 #: src/features/settings/Diagnostics.tsx
+msgid "{note}. {skips}"
+msgstr "{note}. {skips}"
+
+#: src/features/settings/Diagnostics.tsx
 msgid "{note}. Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works."
 msgstr "{note}. Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works."
 
@@ -775,8 +779,16 @@ msgid "At the end of this song"
 msgstr "At the end of this song"
 
 #: src/features/settings/Diagnostics.tsx
+msgid "Audio may skip while the computer is under heavy load."
+msgstr "Audio may skip while the computer is under heavy load."
+
+#: src/features/settings/Diagnostics.tsx
 msgid "Audio output"
 msgstr "Audio output"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Audio priority"
+msgstr "Audio priority"
 
 #: src/features/settings/Playback.tsx
 #: src/features/settings/settings-file.ts
@@ -2805,6 +2817,10 @@ msgstr "Name and description"
 msgid "Navigation"
 msgstr "Navigation"
 
+#: src/features/settings/Diagnostics.tsx
+msgid "Neither RTKit nor the Realtime portal is available ({note}). {skips} Install and enable RTKit (rtkit) to fix this."
+msgstr "Neither RTKit nor the Realtime portal is available ({note}). {skips} Install and enable RTKit (rtkit) to fix this."
+
 #: src/shared/lib/format.ts
 msgid "never"
 msgstr "never"
@@ -3005,6 +3021,10 @@ msgstr "None"
 msgid "None of these songs is available to stream."
 msgstr "None of these songs is available to stream."
 
+#: src/features/settings/Diagnostics.tsx
+msgid "Normal"
+msgstr "Normal"
+
 #: src/features/settings/IntegrationsRows.tsx
 msgid "Not available in this build: it was made without a Discord application ID."
 msgstr "Not available in this build: it was made without a Discord application ID."
@@ -3036,6 +3056,10 @@ msgstr "Not fully sandboxed"
 #: src/features/player/NowPlayingBar.tsx
 msgid "Not playing"
 msgstr "Not playing"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Not requested on this platform"
+msgstr "Not requested on this platform"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Not sandboxed"
@@ -3684,6 +3708,10 @@ msgstr "Radio episodes"
 msgid "Radio shows"
 msgstr "Radio shows"
 
+#: src/features/settings/Diagnostics.tsx
+msgid "Raised · nice {priority} ({via})"
+msgstr "Raised · nice {priority} ({via})"
+
 #: src/features/player/shortcuts.ts
 msgid "random"
 msgstr "random"
@@ -3695,6 +3723,18 @@ msgstr "Read more"
 #: src/features/settings/CdmRow.tsx
 msgid "Ready"
 msgstr "Ready"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Realtime · priority {priority} ({via})"
+msgstr "Realtime · priority {priority} ({via})"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Realtime portal"
+msgstr "Realtime portal"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Realtime priority was refused: {note}."
+msgstr "Realtime priority was refused: {note}."
 
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "Recent"
@@ -3866,6 +3906,14 @@ msgstr "Replace, offer Undo"
 #: src/features/settings/settings-file.ts
 msgid "Replacing your queue"
 msgstr "Replacing your queue"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Requested when audio starts"
+msgstr "Requested when audio starts"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Requested when playback starts"
+msgstr "Requested when playback starts"
 
 #: src/features/settings/Shortcuts.tsx
 msgid "Reset {label} to {defaults}"
