@@ -315,10 +315,17 @@ static GstPadProbeReturn prime_probe(GstPad* pad, GstPadProbeInfo* info, gpointe
   return GST_PAD_PROBE_OK;
 }
 
+// is_playing reports whether the pipeline was last asked to play, whether or
+// not it got there. Not its current or pending state: right after a pause
+// (PLAYING to PAUSED is asynchronous: the sink waits for a buffer to
+// preroll), it is still PLAYING, with PAUSED pending, for as long as that
+// takes, which under load can be long, while the sink already holds the
+// stream as a paused one.
 static gboolean is_playing(sona_file* f) {
-  GstState cur = GST_STATE_VOID_PENDING, pend = GST_STATE_VOID_PENDING;
-  gst_element_get_state(f->pipeline, &cur, &pend, 0);
-  return cur == GST_STATE_PLAYING || pend == GST_STATE_PLAYING;
+  GST_OBJECT_LOCK(f->pipeline);
+  gboolean r = GST_STATE_TARGET(f->pipeline) == GST_STATE_PLAYING;
+  GST_OBJECT_UNLOCK(f->pipeline);
+  return r;
 }
 
 sona_file* sona_file_new(const char* sink, const char* client_name, const char* props, uint64_t size, char* err,
@@ -608,10 +615,11 @@ static void swap_unref(gpointer p) { g_atomic_rc_box_release_full(p, swap_free);
 
 int sona_file_set_sink_props(sona_file* f, const char* props) {
   if (!is_playing(f)) {
-    // Paused or not yet played: nothing flows to the sink, or the old sink
-    // holds the paused stream, which stopping it releases. Swap at once
-    // behind the closed gate, then restart the stream where it was (unless
-    // it had ended), held at the gate until PLAYING.
+    // Paused (also while the pause completes) or not yet played: nothing
+    // flows to the sink, or the old sink holds the paused stream, which
+    // stopping it releases. Swap at once behind the closed gate, then
+    // restart the stream where it was (unless it had ended), held at the
+    // gate until PLAYING.
     g_mutex_lock(&f->mu);
     gboolean flowing = f->gate == 0 && !f->eos;
     g_mutex_unlock(&f->mu);
