@@ -5,10 +5,16 @@ import { MotionVideo } from "./MotionCover";
 
 // jsdom has neither IntersectionObserver nor media playback, and is not visible.
 let intersect: (visible: boolean) => void = () => {};
+// Set once the component's IntersectionObserver watches the video: its effect
+// runs after the <video> is in the DOM, so a test must wait for this, not
+// for the element, before calling intersect.
+let observing = false;
 const play = vi.fn(() => Promise.resolve());
 const pause = vi.fn();
 
 beforeEach(() => {
+  intersect = () => {};
+  observing = false;
   vi.stubGlobal(
     "IntersectionObserver",
     class {
@@ -19,7 +25,9 @@ beforeEach(() => {
             this as unknown as IntersectionObserver,
           );
       }
-      observe() {}
+      observe() {
+        observing = true;
+      }
       disconnect() {}
     },
   );
@@ -47,7 +55,7 @@ describe("MotionVideo", () => {
         <MotionVideo src="/motion/0123456789abcdef01234567/200.mp4" />
       </main>,
     );
-    await waitFor(() => expect(container.querySelector("video")).not.toBeNull());
+    await waitFor(() => expect(observing).toBe(true));
     act(() => intersect(true));
     expect(play).toHaveBeenCalledTimes(1);
 
