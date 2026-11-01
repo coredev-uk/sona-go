@@ -19,8 +19,10 @@
 // Shared pieces every feature uses:
 //
 //   - model.go: DTOs shared by more than one feature — Source
-//     ("library"|"catalog"), Art (Small 96 / Medium 400 / Large 1000 px
-//     Go-served /art/ URLs), Header (backdrop + colours + motion: a
+//     ("library"|"catalog"), Art (Go-served /art/<key>/<w>x<h>.jpg URLs,
+//     long edge Small 96 / Medium 400 / Large 1000 px, at the shape Apple
+//     serves the artwork: square covers, 16:9 frames, wide banners),
+//     Header (backdrop + colours + motion: a
 //     Go-served /motion/ URL of Apple's motion cover), Song, Album,
 //     Artist, Playlist (the card-level types), AlbumDetail, ArtistDetail,
 //     PlaylistDetail, TrackRef. A type moves here when a second feature

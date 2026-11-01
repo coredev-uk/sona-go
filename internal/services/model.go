@@ -12,7 +12,8 @@ const (
 	SourceCatalog Source = "catalog" // ID is a catalog ID ("1440…", "pl.…")
 )
 
-// Artwork sizes handed to the UI, in device pixels (the CSS size ×2).
+// Artwork sizes handed to the UI, in device pixels (the CSS size ×2): the
+// long edge of each Art URL.
 const (
 	artSmall  = 96   // list rows, queue, now-playing bar (48 CSS px)
 	artMedium = 400  // grid tiles (up to 200 CSS px)
@@ -20,8 +21,10 @@ const (
 )
 
 // Art is an item's artwork at the sizes the UI renders. Every URL is ""
-// when the item has no artwork. Other sizes are served by replacing the
-// final "<size>.jpg" path element (16–2048).
+// when the item has no artwork. Each ends in "<w>x<h>.jpg" at the shape
+// Apple serves the artwork at (square for covers, 16:9 for music videos,
+// 2.4:1 or 4:1 for editorial banners); the UI serves other sizes by
+// replacing that path element (long edge 16–2048).
 type Art struct {
 	Small  string `json:"small"`
 	Medium string `json:"medium"`

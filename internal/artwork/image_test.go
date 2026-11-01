@@ -107,7 +107,7 @@ func TestTIFFSourceRejected(t *testing.T) {
 	c := newCache(t, s, "", 0)
 	tmpl := "https://" + host + "/image/thumb/Music/tif/{w}x{h}bb.tif"
 
-	if _, err := c.Get(t.Context(), tmpl, 100); !errors.Is(err, ErrFormat) {
+	if _, err := c.Get(t.Context(), tmpl, 100, 100); !errors.Is(err, ErrFormat) {
 		t.Fatalf("Get err = %v, want ErrFormat", err)
 	}
 	if _, err := c.Backdrop(t.Context(), tmpl); !errors.Is(err, ErrFormat) {
@@ -117,7 +117,7 @@ func TestTIFFSourceRejected(t *testing.T) {
 		t.Fatalf("DominantColors err = %v, want ErrFormat", err)
 	}
 	rec := httptest.NewRecorder()
-	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, c.URL(tmpl, 200), nil))
+	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, c.URL(tmpl, 200, 200), nil))
 	if rec.Code != http.StatusBadGateway {
 		t.Fatalf("handler: %d", rec.Code)
 	}
@@ -133,7 +133,7 @@ func TestPNGSource(t *testing.T) {
 	s := newImageServer(t)
 	c := newCache(t, s, "", 0)
 	tmpl := "https://" + host + "/image/thumb/Music/p/{w}x{h}bb.png"
-	b, err := c.Get(t.Context(), tmpl, 100)
+	b, err := c.Get(t.Context(), tmpl, 100, 100)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,19 +170,22 @@ func solid(w, h int, c color.RGBA) *image.RGBA {
 }
 
 func TestFitKeepsAspect(t *testing.T) {
-	for _, tc := range []struct{ w, h, size, ww, wh int }{
-		{300, 150, 100, 100, 50},
-		{150, 300, 100, 50, 100},
-		{300, 300, 128, 128, 128},
-		{1000, 1, 100, 100, 1},
+	for _, tc := range []struct{ w, h, bw, bh, ww, wh int }{
+		{300, 150, 100, 100, 100, 50},
+		{150, 300, 100, 100, 50, 100},
+		{300, 300, 128, 128, 128, 128},
+		{1000, 1, 100, 100, 100, 1},
+		{2048, 853, 1200, 500, 1200, 500},  // 2.4:1 source into a 2.4:1 box
+		{4320, 1080, 1000, 417, 1000, 250}, // 4:1 into 2.4:1: width-bound
+		{1080, 1080, 1000, 417, 417, 417},  // square into 2.4:1: height-bound
 	} {
-		got := fit(solid(tc.w, tc.h, color.RGBA{10, 20, 30, 255}), tc.size).Bounds()
+		got := fit(solid(tc.w, tc.h, color.RGBA{10, 20, 30, 255}), tc.bw, tc.bh).Bounds()
 		if got.Dx() != tc.ww || got.Dy() != tc.wh {
-			t.Errorf("fit %dx%d to %d = %v, want %dx%d", tc.w, tc.h, tc.size, got, tc.ww, tc.wh)
+			t.Errorf("fit %dx%d into %dx%d = %v, want %dx%d", tc.w, tc.h, tc.bw, tc.bh, got, tc.ww, tc.wh)
 		}
 	}
 	small := solid(80, 60, color.RGBA{A: 255})
-	if fit(small, 100) != image.Image(small) {
+	if fit(small, 100, 60) != image.Image(small) {
 		t.Error("an image that fits was resampled")
 	}
 }

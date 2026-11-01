@@ -1,12 +1,13 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { EditorialPage as Page } from "@bindings/services";
 import { getRouteApi } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { CollectionHeader } from "@/shared/components/CollectionHeader";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { PageHeader } from "@/shared/components/PageHeader";
-import { artAt } from "@/shared/lib/art";
+import { artAspect, artUrl } from "@/shared/lib/art";
+import { useElementWidth } from "@/shared/lib/useCoverColumns";
 import { EditorialSections } from "@/shared/items/EditorialSections";
 
 import { useEditorialPage, type EditorialKind } from "./queries";
@@ -94,22 +95,32 @@ function Header({ page: p }: { page: Page }) {
   );
 }
 
-/** A campaign banner, letterboxed on its own colour; never cropped. */
+/**
+ * A campaign banner at its own shape, at most 256px tall, letterboxed on
+ * its own colour when that cap bites; never cropped.
+ */
 function Banner({ src, color }: { src: string; color: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  // Rounded up to 40px steps, so resizing the window reuses cached sizes.
+  const width = Math.ceil(useElementWidth(ref) / 40) * 40;
   const [failed, setFailed] = useState(false);
   if (failed) return null;
+  const aspect = artAspect(src);
   return (
     <div
-      className="relative mb-6 aspect-[4/1] max-h-64 w-full overflow-hidden rounded-sm bg-hover"
-      style={{ backgroundColor: color || undefined }}
+      ref={ref}
+      className="relative mb-6 max-h-64 w-full overflow-hidden rounded-sm bg-hover"
+      style={{ aspectRatio: aspect, backgroundColor: color || undefined }}
     >
-      <img
-        src={artAt(src, 1200)}
-        alt=""
-        decoding="async"
-        onError={() => setFailed(true)}
-        className="absolute inset-0 size-full object-contain"
-      />
+      {width > 0 && (
+        <img
+          src={artUrl(src, { width, height: Math.min(width / aspect, 256) }, "contain")}
+          alt=""
+          decoding="async"
+          onError={() => setFailed(true)}
+          className="absolute inset-0 size-full object-contain"
+        />
+      )}
     </div>
   );
 }

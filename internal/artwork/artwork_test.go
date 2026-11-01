@@ -24,8 +24,11 @@ import (
 
 // imageServer stands in for is*-ssl.mzstatic.com: every request, whatever
 // its host, is dialled to an httptest TLS server that renders a noisy
-// red/blue image of the size named in the path ("…/512x512bb.jpg"): a JPEG,
-// a PNG for ".png" paths, or a TIFF payload for ".tif" paths.
+// red/blue image for the box named in the path ("…/512x256bb.jpg"): a
+// JPEG, a PNG for ".png" paths, or a TIFF payload for ".tif" paths. Like
+// Apple's CDN, an image whose path holds "/native-<w>x<h>/" is fitted into
+// the box for "bb" and cropped to a w×w square for "cc"; any other image is
+// rendered at the box.
 type imageServer struct {
 	srv    *httptest.Server
 	mu     sync.Mutex
@@ -64,18 +67,31 @@ func (s *imageServer) serve(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "https://evil.example/x.jpg", http.StatusFound)
 		return
 	}
-	var n int
+	var bw, bh int
 	base := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
-	if _, err := fmt.Sscanf(base, "%dx", &n); err != nil || n <= 0 {
+	if _, err := fmt.Sscanf(base, "%dx%d", &bw, &bh); err != nil || bw <= 0 || bh <= 0 {
 		http.NotFound(w, r)
 		return
 	}
-	rng := rand.New(rand.NewPCG(uint64(n), uint64(len(r.URL.Path))))
-	img := image.NewRGBA(image.Rect(0, 0, n, n))
-	for y := range n {
-		for x := range n {
+	iw, ih := bw, bh
+	var nw, nh int
+	if i := strings.Index(r.URL.Path, "/native-"); i >= 0 {
+		_, _ = fmt.Sscanf(r.URL.Path[i+len("/native-"):], "%dx%d", &nw, &nh)
+	}
+	code := strings.TrimLeft(base, "0123456789x")
+	switch {
+	case nw > 0 && strings.HasPrefix(code, "bb"):
+		s := min(float64(bw)/float64(nw), float64(bh)/float64(nh), 1)
+		iw, ih = max(1, int(float64(nw)*s+0.5)), max(1, int(float64(nh)*s+0.5))
+	case nw > 0 && strings.HasPrefix(code, "cc"):
+		ih = bw
+	}
+	rng := rand.New(rand.NewPCG(uint64(iw*ih), uint64(len(r.URL.Path))))
+	img := image.NewRGBA(image.Rect(0, 0, iw, ih))
+	for y := range ih {
+		for x := range iw {
 			j := uint8(rng.IntN(40))
-			if x < n/2 {
+			if x < iw/2 {
 				img.Set(x, y, color.RGBA{200 + j/2, 20 + j, 20 + j, 255})
 			} else {
 				img.Set(x, y, color.RGBA{20 + j, 50 + j, 200 + j/2, 255})
@@ -159,7 +175,7 @@ func TestVariantReuse(t *testing.T) {
 	ctx := t.Context()
 	tmpl := tmplFor("a")
 
-	b, err := c.Get(ctx, tmpl, 512)
+	b, err := c.Get(ctx, tmpl, 512, 512)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +183,7 @@ func TestVariantReuse(t *testing.T) {
 		t.Fatalf("512 variant is %v", got)
 	}
 	for _, size := range []int{128, 300, 512, 100} {
-		b, err := c.Get(ctx, tmpl, size)
+		b, err := c.Get(ctx, tmpl, size, size)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -178,7 +194,7 @@ func TestVariantReuse(t *testing.T) {
 	if n := s.total(); n != 1 {
 		t.Fatalf("fetches = %d, want 1 (all sizes ≤ 512 from one source)", n)
 	}
-	if _, err := c.Get(ctx, tmpl, 700); err != nil {
+	if _, err := c.Get(ctx, tmpl, 700, 700); err != nil {
 		t.Fatal(err)
 	}
 	if s.count(host, pathFor("a", 1024)) != 1 || s.total() != 2 {
@@ -186,7 +202,7 @@ func TestVariantReuse(t *testing.T) {
 	}
 
 	// A small request on a fresh template fetches the nearest standard size.
-	if _, err := c.Get(ctx, tmplFor("b"), 40); err != nil {
+	if _, err := c.Get(ctx, tmplFor("b"), 40, 40); err != nil {
 		t.Fatal(err)
 	}
 	if s.count(host, pathFor("b", 64)) != 1 {
@@ -202,7 +218,8 @@ func TestSingleflight(t *testing.T) {
 	errs := make(chan error, 16)
 	for i := range 16 {
 		wg.Go(func() {
-			_, err := c.Get(t.Context(), tmplFor("same"), 62+i%3) // 62..64: one 64 px source
+			size := 62 + i%3 // 62..64: one 64 px source
+			_, err := c.Get(t.Context(), tmplFor("same"), size, size)
 			errs <- err
 		})
 	}
@@ -233,14 +250,14 @@ func TestHostValidation(t *testing.T) {
 		"file:///etc/passwd",
 	}
 	for _, tmpl := range bad {
-		if u := c.URL(tmpl, 128); u != "" {
+		if u := c.URL(tmpl, 128, 128); u != "" {
 			t.Errorf("URL(%q) = %q, want empty", tmpl, u)
 		}
-		if _, err := c.Get(t.Context(), tmpl, 128); err == nil {
+		if _, err := c.Get(t.Context(), tmpl, 128, 128); err == nil {
 			t.Errorf("Get(%q) succeeded", tmpl)
 		}
 	}
-	if _, err := c.Get(t.Context(), "https://evil.example/{w}x{h}.jpg", 64); !errors.Is(err, ErrHost) {
+	if _, err := c.Get(t.Context(), "https://evil.example/{w}x{h}.jpg", 64, 64); !errors.Is(err, ErrHost) {
 		t.Errorf("want ErrHost, got %v", err)
 	}
 	if s.total() != 0 {
@@ -253,13 +270,13 @@ func TestHostValidation(t *testing.T) {
 		"https://is2-ssl.mzstatic.com:443/image/thumb/x/600x600bb.jpg",
 	}
 	for _, tmpl := range good {
-		if u := c.URL(tmpl, 128); !strings.HasPrefix(u, "/art/") {
+		if u := c.URL(tmpl, 128, 128); !strings.HasPrefix(u, "/art/") {
 			t.Errorf("URL(%q) = %q", tmpl, u)
 		}
 	}
 
 	// Redirects off the CDN are refused.
-	if _, err := c.Get(t.Context(), tmplFor("redirect"), 64); !errors.Is(err, ErrHost) {
+	if _, err := c.Get(t.Context(), tmplFor("redirect"), 64, 64); !errors.Is(err, ErrHost) {
 		t.Fatalf("redirect: want ErrHost, got %v", err)
 	}
 	if s.count("evil.example", "/x.jpg") != 0 {
@@ -285,7 +302,7 @@ func TestFixedTemplate(t *testing.T) {
 	c := newCache(t, s, "", 0)
 	tmpl := "https://" + host + "/image/thumb/Music/f/600x600bb.jpg"
 	for _, size := range []int{100, 256} {
-		b, err := c.Get(t.Context(), tmpl, size)
+		b, err := c.Get(t.Context(), tmpl, size, size)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -351,7 +368,10 @@ func TestHandler(t *testing.T) {
 	dir := t.TempDir()
 	c := newCache(t, s, dir, 0)
 	tmpl := tmplFor("h")
-	u := c.URL(tmpl, 200)
+	u := c.URL(tmpl, 200, 200)
+	if !strings.HasSuffix(u, "/200x200.jpg") {
+		t.Fatalf("URL = %q", u)
+	}
 
 	get := func(c *Cache, path, etag string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
@@ -385,9 +405,17 @@ func TestHandler(t *testing.T) {
 		t.Fatalf("backdrop: %d", rec.Code)
 	}
 	key := strings.Split(u, "/")[2]
-	for _, p := range []string{"/art/" + key + "/9999.jpg", "/art/" + key + "/064.jpg", "/art/" + key + "/8.jpg", "/art/" + key + "/x.png"} {
-		if rec := get(c, p, ""); rec.Code != http.StatusNotFound {
-			t.Errorf("%s: %d", p, rec.Code)
+	// The square-only URLs of earlier versions (kept in recent searches)
+	// still resolve, to the same variant.
+	if rec := get(c, "/art/"+key+"/200.jpg", ""); rec.Code != http.StatusOK || rec.Header().Get("ETag") != etag {
+		t.Fatalf("legacy URL: %d etag %q", rec.Code, rec.Header().Get("ETag"))
+	}
+	for _, name := range []string{
+		"9999.jpg", "064.jpg", "8.jpg", "x.png", "200x200.png", "200X200.jpg", "0200x200.jpg",
+		"200x0.jpg", "4096x100.jpg", "8x4.jpg", "200x200x2.jpg", "-200x200.jpg", "+200.jpg", "200x.jpg",
+	} {
+		if rec := get(c, "/art/"+key+"/"+name, ""); rec.Code != http.StatusNotFound {
+			t.Errorf("%s: %d", name, rec.Code)
 		}
 	}
 	rec = httptest.NewRecorder()
@@ -412,7 +440,7 @@ func TestHandler(t *testing.T) {
 func TestEviction(t *testing.T) {
 	s := newImageServer(t)
 	probe := newCache(t, s, "", 0)
-	if _, err := probe.Get(t.Context(), tmplFor("probe"), 256); err != nil {
+	if _, err := probe.Get(t.Context(), tmplFor("probe"), 256, 256); err != nil {
 		t.Fatal(err)
 	}
 	unit := probe.Size()
@@ -422,7 +450,7 @@ func TestEviction(t *testing.T) {
 	c := newCache(t, s, dir, limit) // room for three keys, not four
 	get := func(name string) {
 		t.Helper()
-		if _, err := c.Get(t.Context(), tmplFor(name), 256); err != nil {
+		if _, err := c.Get(t.Context(), tmplFor(name), 256, 256); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -466,7 +494,7 @@ func TestClear(t *testing.T) {
 	dir := t.TempDir()
 	c := newCache(t, s, dir, 0)
 	tmpl := tmplFor("c")
-	if _, err := c.Get(t.Context(), tmpl, 128); err != nil {
+	if _, err := c.Get(t.Context(), tmpl, 128, 128); err != nil {
 		t.Fatal(err)
 	}
 	if err := c.Clear(); err != nil {
@@ -480,7 +508,7 @@ func TestClear(t *testing.T) {
 	}
 	// Registered URLs keep working.
 	rec := httptest.NewRecorder()
-	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, c.URL(tmpl, 128), nil))
+	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, c.URL(tmpl, 128, 128), nil))
 	if rec.Code != http.StatusOK || s.total() != 2 {
 		t.Fatalf("after clear: %d, fetches %d", rec.Code, s.total())
 	}
@@ -491,7 +519,7 @@ func TestSetMaxBytesEvictsAtOnce(t *testing.T) {
 	dir := t.TempDir()
 	c := newCache(t, s, dir, 0)
 	for _, n := range []string{"m1", "m2", "m3", "m4"} {
-		if _, err := c.Get(t.Context(), tmplFor(n), 256); err != nil {
+		if _, err := c.Get(t.Context(), tmplFor(n), 256, 256); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -514,7 +542,7 @@ func TestRemove(t *testing.T) {
 	dir := t.TempDir()
 	c := newCache(t, s, dir, 0)
 	for _, n := range []string{"user", "url", "keep"} {
-		if _, err := c.Get(t.Context(), tmplFor(n), 128); err != nil {
+		if _, err := c.Get(t.Context(), tmplFor(n), 128, 128); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -534,7 +562,7 @@ func TestRemove(t *testing.T) {
 		t.Fatalf("left on disk: %v", des)
 	}
 	// A removed template's URL no longer resolves (nothing on disk names it).
-	u := "/art/" + keyOf(tmplFor("user")) + "/128.jpg"
+	u := "/art/" + keyOf(tmplFor("user")) + "/128x128.jpg"
 	rec := httptest.NewRecorder()
 	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, u, nil))
 	if rec.Code != http.StatusNotFound {
@@ -554,10 +582,10 @@ func TestEditorialCropTemplate(t *testing.T) {
 	s := newImageServer(t)
 	c := newCache(t, s, "", 0)
 	tmpl := "https://" + host + "/image/thumb/Features221/v4/65/8a/52/x/4fff2b77.png/{w}x{h}SC.DN02.jpg"
-	if u := c.URL(tmpl, 400); !strings.HasSuffix(u, "/400.jpg") {
+	if u := c.URL(tmpl, 400, 400); !strings.HasSuffix(u, "/400x400.jpg") {
 		t.Fatalf("URL = %q", u)
 	}
-	b, err := c.Get(t.Context(), tmpl, 400)
+	b, err := c.Get(t.Context(), tmpl, 400, 400)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -583,7 +611,7 @@ func TestUnavailableCoverIsRetried(t *testing.T) {
 	s := newImageServer(t)
 	s.notReady = 1
 	c := newCache(t, s, "", 0)
-	u := c.URL("https://"+host+"/image/thumb/gen/600x600AM.PDCXS11.jpg?c1=F2DE9D&t=U29uYQ", 200)
+	u := c.URL("https://"+host+"/image/thumb/gen/600x600AM.PDCXS11.jpg?c1=F2DE9D&t=U29uYQ", 200, 200)
 	rec := httptest.NewRecorder()
 	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, u, nil))
 	if rec.Code != http.StatusBadGateway || rec.Header().Get("Cache-Control") != "no-store" {
@@ -593,5 +621,155 @@ func TestUnavailableCoverIsRetried(t *testing.T) {
 	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, u+"?retry=1", nil))
 	if rec.Code != http.StatusOK || bounds(t, rec.Body.Bytes()).Dx() != 200 {
 		t.Fatalf("retry: %d", rec.Code)
+	}
+}
+
+// Wide editorial art ("{w}x{h}{c}.{f}", 2.4:1) is requested from Apple at
+// the box's own width and height with {c} as "sr", never as a square, and
+// requests of the same shape share one source.
+func TestWideTemplateKeepsAspect(t *testing.T) {
+	s := newImageServer(t)
+	c := newCache(t, s, "", 0)
+	const dir = "/image/thumb/Features/v4/native-4320x1800/hero.png/"
+	tmpl := "https://" + host + dir + "{w}x{h}{c}.{f}"
+	u := c.URL(tmpl, 1000, 417)
+	if !strings.HasSuffix(u, "/1000x417.jpg") {
+		t.Fatalf("URL = %q", u)
+	}
+	rec := httptest.NewRecorder()
+	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, u, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET %s: %d", u, rec.Code)
+	}
+	if got := bounds(t, rec.Body.Bytes()); got.Dx() != 1000 || got.Dy() != 417 {
+		t.Fatalf("variant is %v, want 1000x417", got)
+	}
+	if n := s.count(host, dir+"1024x427sr.jpg"); n != 1 || s.total() != 1 {
+		t.Fatalf("want one 1024x427sr fetch; hits %v", s.hits)
+	}
+	// Another 2.4:1 box (rounded differently) reuses the source.
+	b, err := c.Get(t.Context(), tmpl, 480, 200)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := bounds(t, b); got.Dx() != 480 || got.Dy() != 200 {
+		t.Fatalf("480x200 variant is %v", got)
+	}
+	if s.total() != 1 {
+		t.Fatalf("a 2.4:1 box refetched; hits %v", s.hits)
+	}
+	// A square box is another crop from Apple, not a cut of the wide source.
+	if _, err := c.Get(t.Context(), tmpl, 400, 400); err != nil {
+		t.Fatal(err)
+	}
+	if s.count(host, dir+"512x512sr.jpg") != 1 {
+		t.Fatalf("square box: hits %v", s.hits)
+	}
+}
+
+// A "bb" template fits the image inside the box, so a wide image asked for
+// in a square box comes back wide, never stretched or padded.
+func TestBoundingBoxTemplateFits(t *testing.T) {
+	s := newImageServer(t)
+	c := newCache(t, s, "", 0)
+	tmpl := "https://" + host + "/image/thumb/Video/native-1920x1080/frame.jpg/{w}x{h}bb.jpg"
+	b, err := c.Get(t.Context(), tmpl, 256, 256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := bounds(t, b); got.Dx() != 256 || got.Dy() != 144 {
+		t.Fatalf("variant is %v, want 256x144", got)
+	}
+}
+
+// A "cc" template comes back as a w×w square whatever the box's height;
+// the variant still fits its box.
+func TestCentreCropTemplateFitsBox(t *testing.T) {
+	s := newImageServer(t)
+	c := newCache(t, s, "", 0)
+	tmpl := "https://" + host + "/image/thumb/Features/native-4320x1080/chart.png/{w}x{h}cc.{f}"
+	b, err := c.Get(t.Context(), tmpl, 400, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := bounds(t, b); got.Dx() != 100 || got.Dy() != 100 {
+		t.Fatalf("variant is %v, want 100x100", got)
+	}
+}
+
+func TestProportions(t *testing.T) {
+	for _, tc := range []struct {
+		tmpl         string
+		w, h, ww, wh int
+	}{
+		{"https://a/{w}x{h}sr.jpg", 4320, 1800, 4320, 1800},
+		{"https://a/{w}x{h}{c}.{f}", 1920, 1080, 1920, 1080},
+		{"https://a/{w}x{h}cc.jpg", 4320, 1080, 1, 1},
+		{"https://a/{w}x{h}bb.jpg", 0, 0, 1, 1},
+	} {
+		if w, h := Proportions(tc.tmpl, tc.w, tc.h); w != tc.ww || h != tc.wh {
+			t.Errorf("Proportions(%q, %d, %d) = %d, %d", tc.tmpl, tc.w, tc.h, w, h)
+		}
+	}
+}
+
+// Boxes keep their aspect ratio while their long edge is clamped.
+func TestURLClampsBox(t *testing.T) {
+	c := newCache(t, newImageServer(t), "", 0)
+	tmpl := tmplFor("clamp")
+	for _, tc := range []struct {
+		w, h int
+		want string
+	}{
+		{4096, 1024, "/2048x512.jpg"},
+		{8, 2, "/16x4.jpg"},
+		{0, 0, "/16x16.jpg"},
+		{2048, 1, "/2048x1.jpg"},
+	} {
+		if u := c.URL(tmpl, tc.w, tc.h); !strings.HasSuffix(u, tc.want) {
+			t.Errorf("URL(%d, %d) = %q, want …%s", tc.w, tc.h, u, tc.want)
+		}
+	}
+}
+
+// The square-only layout of earlier versions filled {c} with "bb", so its
+// files are deleted at start rather than reused; the backdrop stays, and
+// the old URLs refetch.
+func TestLegacyFilesRemoved(t *testing.T) {
+	s := newImageServer(t)
+	dir := t.TempDir()
+	tmpl := tmplFor("legacy")
+	key := keyOf(tmpl)
+	kdir := filepath.Join(dir, key)
+	if err := os.MkdirAll(kdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	backdrop := DefaultBackdrop.name()
+	for name, body := range map[string]string{
+		"template": tmpl, "src-512.jpg": "old", "src-0.img": "old", "400.jpg": "old", backdrop: "keep",
+	} {
+		if err := os.WriteFile(filepath.Join(kdir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := newCache(t, s, dir, 0)
+	des, _ := os.ReadDir(kdir)
+	var left []string
+	for _, de := range des {
+		left = append(left, de.Name())
+	}
+	if strings.Join(left, " ") != backdrop+" template" {
+		t.Fatalf("left on disk: %v", left)
+	}
+	if want := int64(len(tmpl) + len("keep")); c.Size() != want {
+		t.Fatalf("size %d, want %d", c.Size(), want)
+	}
+	rec := httptest.NewRecorder()
+	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/art/"+key+"/400.jpg", nil))
+	if rec.Code != http.StatusOK || bounds(t, rec.Body.Bytes()).Dx() != 400 {
+		t.Fatalf("legacy URL: %d", rec.Code)
+	}
+	if s.count(host, pathFor("legacy", 512)) != 1 {
+		t.Fatalf("legacy URL did not refetch; hits %v", s.hits)
 	}
 }

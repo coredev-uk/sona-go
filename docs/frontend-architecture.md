@@ -47,7 +47,9 @@ src/
                           (registerItemPlayer, playItem), ItemMenu, ItemShelf, ItemGrid,
                           WideRow (editorial banners), TrackShelf, LinkList,
                           EditorialSections (renders Section kinds; Home, Discover, Radio)
-    lib/                  art, capabilities (useCapabilities: what this platform supports), errors
+    lib/                  art (artUrl: the one place that sizes artwork requests from the rendered
+                          box, density and the artwork's shape; artAspect), capabilities
+                          (useCapabilities: what this platform supports), errors
                           (callFailure), format, keys, queries (isLibraryId), run,
                           item-state (useItemState: batched library state + rating;
                           changeItemState, addItemsToLibrary), library-actions (rateItem,

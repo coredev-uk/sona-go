@@ -206,8 +206,10 @@ export class AlbumPage {
 
 /**
  * Art is an item's artwork at the sizes the UI renders. Every URL is ""
- * when the item has no artwork. Other sizes are served by replacing the
- * final "<size>.jpg" path element (16–2048).
+ * when the item has no artwork. Each ends in "<w>x<h>.jpg" at the shape
+ * Apple serves the artwork at (square for covers, 16:9 for music videos,
+ * 2.4:1 or 4:1 for editorial banners); the UI serves other sizes by
+ * replacing that path element (long edge 16–2048).
  */
 export class Art {
     "small": string;

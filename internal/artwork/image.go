@@ -229,18 +229,18 @@ func resample(src image.Image, sr image.Rectangle, w, h int, k kernel) *image.RG
 	return in
 }
 
-// fit scales img down, keeping its aspect ratio, to fit within size×size.
+// fit scales img down, keeping its aspect ratio, to fit within w×h.
 // Images that already fit are returned unchanged.
-func fit(img image.Image, size int) image.Image {
+func fit(img image.Image, w, h int) image.Image {
 	b := img.Bounds()
-	w, h := b.Dx(), b.Dy()
-	if w <= size && h <= size {
+	iw, ih := b.Dx(), b.Dy()
+	if iw <= w && ih <= h {
 		return img
 	}
-	if w >= h {
-		w, h = size, max(1, h*size/w)
+	if iw*h >= ih*w {
+		h = max(1, (ih*w+iw/2)/iw)
 	} else {
-		w, h = max(1, w*size/h), size
+		w = max(1, (iw*h+ih/2)/ih)
 	}
 	return resample(img, b, w, h, lanczos)
 }
