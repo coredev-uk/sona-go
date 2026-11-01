@@ -90,6 +90,68 @@ describe("buildTree", () => {
   });
 });
 
+describe("buildTree with pins", () => {
+  // A folder shows how many of its playlists were left out: "Mixes+1[…]".
+  const withPins = (nodes: TreeNode[]): string[] =>
+    nodes.map((n) =>
+      n.kind === "folder"
+        ? `${n.folder.name}${n.pinned ? `+${n.pinned}` : ""}[${withPins(n.children).join(",")}]`
+        : n.item.playlist.name,
+    );
+
+  it("leaves pinned playlists out at every level and keeps their folders", () => {
+    expect(withPins(buildTree(tree, new Set(["p.a", "p.in", "p.deep"])))).toEqual([
+      "Mixes+1[Old+1[]]",
+      "Orphan[]",
+      "Beta",
+      "Made for you",
+    ]);
+  });
+
+  it("counts every pinned playlist of a folder", () => {
+    const running: PlaylistTree = {
+      folders: [{ id: "f.run", parentId: "", name: "Running", position: 0 }],
+      playlists: [pl("p.t", "Tempo", "f.run", 0), pl("p.l", "Long", "f.run", 1)],
+    };
+    expect(withPins(buildTree(running, new Set(["p.t", "p.l"])))).toEqual(["Running+2[]"]);
+    expect(withPins(buildTree(running, new Set(["p.l"])))).toEqual(["Running+1[Tempo]"]);
+  });
+
+  it("puts an unpinned playlist back in its place", () => {
+    const pinned = new Set(["p.b", "p.in"]);
+    expect(withPins(buildTree(tree, pinned))).toEqual([
+      "Mixes+1[Old[Deep]]",
+      "Orphan[]",
+      "Alpha",
+      "Made for you",
+    ]);
+    pinned.delete("p.b");
+    pinned.delete("p.in");
+    expect(withPins(buildTree(tree, pinned))).toEqual(withPins(buildTree(tree)));
+    expect(withPins(buildTree(tree))).toEqual([
+      "Mixes[Old[Deep],Inside]",
+      "Orphan[]",
+      "Alpha",
+      "Beta",
+      "Made for you",
+    ]);
+  });
+
+  it("ignores pins that are not playlists in the tree", () => {
+    expect(withPins(buildTree(tree, new Set(["l.album", "r.artist", "p.gone"])))).toEqual(
+      withPins(buildTree(tree)),
+    );
+  });
+
+  it("leaves out a pinned playlist whose folder is unknown", () => {
+    const lost: PlaylistTree = {
+      folders: [],
+      playlists: [pl("p.x", "Stray", "f.gone", 0), pl("p.y", "Kept", "", 1)],
+    };
+    expect(withPins(buildTree(lost, new Set(["p.x"])))).toEqual(["Kept"]);
+  });
+});
+
 describe("addTargets", () => {
   const nodes = buildTree(tree);
 

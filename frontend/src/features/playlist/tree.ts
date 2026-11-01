@@ -1,20 +1,31 @@
 import type { PlaylistFolder, PlaylistTree, TreePlaylist } from "@bindings/services";
 
 export type TreeNode =
-  | { kind: "folder"; folder: PlaylistFolder; children: TreeNode[] }
+  | {
+      kind: "folder";
+      folder: PlaylistFolder;
+      children: TreeNode[];
+      /** How many of its playlists are left out because they are pinned. */
+      pinned: number;
+    }
   | { kind: "playlist"; item: TreePlaylist };
 
 const position = (n: TreeNode) => (n.kind === "folder" ? n.folder.position : n.item.position);
 const name = (n: TreeNode) => (n.kind === "folder" ? n.folder.name : n.item.playlist.name);
 
+const NONE: ReadonlySet<string> = new Set();
+
 /**
  * The folder tree: at every level folders come first, then playlists, each
  * group in Apple's position order (then by name). Folders whose parent is
  * unknown, and playlists in an unknown folder, sit at the top level.
+ * Playlists in `pinned` (library IDs) are left out, as the sidebar shows
+ * them under Pinned; their folders stay, counting them in `pinned`.
  */
-export function buildTree(tree: PlaylistTree): TreeNode[] {
+export function buildTree(tree: PlaylistTree, pinned = NONE): TreeNode[] {
   const folders = new Map<string, TreeNode & { kind: "folder" }>();
-  for (const f of tree.folders) folders.set(f.id, { kind: "folder", folder: f, children: [] });
+  for (const f of tree.folders)
+    folders.set(f.id, { kind: "folder", folder: f, children: [], pinned: 0 });
   const root: TreeNode[] = [];
   const parentList = (id: string) => (id && folders.get(id)?.children) || root;
   for (const node of folders.values()) {
@@ -22,7 +33,13 @@ export function buildTree(tree: PlaylistTree): TreeNode[] {
     if (node.folder.parentId === node.folder.id) root.push(node);
     else parentList(node.folder.parentId).push(node);
   }
-  for (const item of tree.playlists) parentList(item.folderId).push({ kind: "playlist", item });
+  for (const item of tree.playlists) {
+    if (!pinned.has(item.playlist.id)) parentList(item.folderId).push({ kind: "playlist", item });
+    else {
+      const folder = folders.get(item.folderId);
+      if (folder) folder.pinned++;
+    }
+  }
   const sort = (list: TreeNode[]) => {
     list.sort(
       (a, b) =>

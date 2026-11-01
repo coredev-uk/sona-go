@@ -4,7 +4,7 @@ import {
   type PlaylistFolder,
   type TreePlaylist,
 } from "@bindings/services";
-import { Trans, useLingui } from "@lingui/react/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ChevronRight,
@@ -287,11 +287,13 @@ interface FolderState {
 function FolderRow({
   folder,
   children,
+  pinned,
   depth,
   folders,
 }: {
   folder: PlaylistFolder;
   children: TreeNode[];
+  pinned: number;
   depth: number;
   folders: FolderState;
 }) {
@@ -346,10 +348,10 @@ function FolderRow({
               <Trans>Rename…</Trans>
             </DropdownMenuItem>
             <DropdownMenuItem
-              disabled={children.length > 0}
+              disabled={children.length + pinned > 0}
               onSelect={() => void deleteFolder(folder.id, folder.name)}
             >
-              {children.length > 0 ? t`Delete (move its playlists out first)` : t`Delete…`}
+              {children.length + pinned > 0 ? t`Delete (move its playlists out first)` : t`Delete…`}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -359,7 +361,15 @@ function FolderRow({
           <Tree nodes={children} depth={depth + 1} folders={folders} />
         ) : (
           <p className="py-1.5 text-meta text-ink-faint" style={{ paddingLeft: 36 + depth * 14 }}>
-            <Trans>Empty folder</Trans>
+            {pinned ? (
+              <Plural
+                value={pinned}
+                one="Its playlist is pinned above"
+                other="Its # playlists are pinned above"
+              />
+            ) : (
+              <Trans>Empty folder</Trans>
+            )}
           </p>
         ))}
     </li>
@@ -379,7 +389,13 @@ function Tree({
     <ul className="flex flex-col gap-0.5">
       {nodes.map((n) =>
         n.kind === "folder" ? (
-          <FolderRow key={n.folder.id} folder={n.folder} depth={depth} folders={folders}>
+          <FolderRow
+            key={n.folder.id}
+            folder={n.folder}
+            pinned={n.pinned}
+            depth={depth}
+            folders={folders}
+          >
             {n.children}
           </FolderRow>
         ) : (
@@ -410,7 +426,14 @@ function NewPlaylistDrop() {
 function Playlists() {
   const { t } = useLingui();
   const tree = usePlaylistTree();
-  const nodes = useMemo(() => (tree.data ? buildTree(tree.data) : []), [tree.data]);
+  const pins = usePins();
+  // Pinned playlists show under Pinned only; waiting for the pins keeps them
+  // from showing in the tree for a moment first.
+  const data = pins.isPending ? undefined : tree.data;
+  const nodes = useMemo(
+    () => (data ? buildTree(data, new Set(pins.data?.map((p) => p.id))) : []),
+    [data, pins.data],
+  );
   const folders = useOpenFolders();
   return (
     <section>
@@ -446,9 +469,14 @@ function Playlists() {
       {nodes.length ? (
         <Tree nodes={nodes} depth={0} folders={folders} />
       ) : (
-        !tree.isPending && (
+        !tree.isPending &&
+        !pins.isPending && (
           <p className="px-2.5 text-meta text-ink-faint">
-            <Trans>Your playlists appear here.</Trans>
+            {tree.data?.playlists.length ? (
+              <Trans>All your playlists are pinned above.</Trans>
+            ) : (
+              <Trans>Your playlists appear here.</Trans>
+            )}
           </p>
         )
       )}

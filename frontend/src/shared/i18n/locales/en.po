@@ -284,6 +284,10 @@ msgstr "{percent} · {received} of {total}"
 msgid "{percent}, {received} of {total}"
 msgstr "{percent}, {received} of {total}"
 
+#: src/features/playlist/PlaylistSidebar.tsx
+msgid "{pinned, plural, one {Its playlist is pinned above} other {Its # playlists are pinned above}}"
+msgstr "{pinned, plural, one {Its playlist is pinned above} other {Its # playlists are pinned above}}"
+
 #: src/features/settings/Diagnostics.tsx
 msgid "{playlists, plural, one {# playlist} other {# playlists}}"
 msgstr "{playlists, plural, one {# playlist} other {# playlists}}"
@@ -550,6 +554,10 @@ msgstr "All genres"
 #: src/features/settings/Shortcuts.tsx
 msgid "All shortcuts go back to their default keys."
 msgstr "All shortcuts go back to their default keys."
+
+#: src/features/playlist/PlaylistSidebar.tsx
+msgid "All your playlists are pinned above."
+msgstr "All your playlists are pinned above."
 
 #: src/features/settings/Connections.tsx
 msgid "Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself."
