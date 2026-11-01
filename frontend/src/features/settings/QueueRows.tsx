@@ -2,7 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
 import { useSettings, useUpdateSettings } from "./queries";
-import { SettingRow } from "./SettingRow";
+import { SELECT_WIDTH, SettingRow } from "./SettingRow";
 
 /** Settings → Playback: what happens when playing something would replace a queue you built. */
 export function QueueRows() {
@@ -24,7 +24,7 @@ export function QueueRows() {
         <SelectTrigger
           id="replace-queue"
           aria-describedby="replace-queue-desc"
-          className="h-8 w-44"
+          className={SELECT_WIDTH}
         >
           <SelectValue />
         </SelectTrigger>

@@ -1,12 +1,13 @@
 import type { Settings } from "@bindings/config";
 import type { Capabilities, CDMStatus } from "@bindings/services";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useCdm } from "@/features/cdm";
 import { I18nRoot } from "@/shared/i18n";
+import { keys } from "@/shared/lib/keys";
 import { bareCapabilities, linuxCapabilities } from "@/shared/testing/capabilities";
 
 import { PlaybackSection } from "./Playback";
@@ -15,7 +16,6 @@ const capabilities = vi.fn<() => Promise<Capabilities>>();
 const retry = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 
 const settings = {
-  volume: 0.5,
   engineIdleMinutes: 10,
   audioQuality: 256,
   audio: { outputDevice: "", soundCheck: false, equalizer: { enabled: false } },
@@ -38,19 +38,22 @@ vi.mock("@tanstack/react-router", () => ({
   Link: ({ children }: { children: ReactNode }) => <a href="#">{children}</a>,
 }));
 
-/** The rows and buttons that need a playback capability. */
+/** The rows and buttons that need playback, or one of its capabilities. */
 const gated = [
-  "Volume",
-  "Stop the playback host when idle",
+  "Audio quality",
+  "Free memory when idle",
   "Output",
   "Sound Check",
   "Equaliser",
   "Crossfade",
   "Widevine",
+  "Private listening",
+  "Replacing your queue",
 ];
 
 const shown = (text: string) => screen.queryByText(text) !== null;
 
+/** Renders the section and waits for the settings (not the capabilities) to load. */
 async function renderSection(caps: Promise<Capabilities>) {
   capabilities.mockReturnValue(caps);
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -60,17 +63,8 @@ async function renderSection(caps: Promise<Capabilities>) {
     </QueryClientProvider>,
     { wrapper: I18nRoot },
   );
-  await screen.findByText("Audio quality");
+  await waitFor(() => expect(qc.getQueryData(keys.settings)).toBeDefined());
 }
-
-beforeAll(() => {
-  // Radix's slider measures with ResizeObserver, which jsdom lacks.
-  globalThis.ResizeObserver ??= class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  } as unknown as typeof ResizeObserver;
-});
 
 beforeEach(() => {
   useCdm.setState({ status: cdm() });
@@ -96,20 +90,38 @@ function cdm(patch: Partial<CDMStatus> = {}): CDMStatus {
 }
 
 describe("PlaybackSection", () => {
-  it("shows every playback control on Linux, without the unavailable note", async () => {
+  it("groups every playback control on Linux, without the unavailable note", async () => {
     await renderSection(Promise.resolve(linuxCapabilities()));
     await screen.findByText("Sound Check");
     expect(gated.filter((text) => !shown(text))).toEqual([]);
-    expect(shown("Private listening")).toBe(true);
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+      "Sound",
+      "Listening",
+      "Advanced",
+    ]);
     expect(shown("Playback isn't available on this platform yet")).toBe(false);
   });
 
-  it("says playback isn't available and leaves out its controls without an engine", async () => {
+  it("has no volume: the player bar, MPRIS and the CLI set it", async () => {
+    await renderSection(Promise.resolve(linuxCapabilities()));
+    await screen.findByText("Sound Check");
+    expect(screen.queryByRole("slider", { name: /volume/i })).toBeNull();
+    expect(shown("Volume")).toBe(false);
+  });
+
+  it("says playback isn't available and shows nothing else without an engine", async () => {
     await renderSection(Promise.resolve(bareCapabilities()));
     await screen.findByText("Playback isn't available on this platform yet");
     expect(gated.filter(shown)).toEqual([]);
-    expect(shown("Audio quality")).toBe(true);
-    expect(shown("Private listening")).toBe(true);
+    expect(screen.queryAllByRole("heading")).toEqual([]);
+  });
+
+  it("leaves out private listening where the engine reports plays itself", async () => {
+    const caps = linuxCapabilities();
+    caps.playback.privateListening = false;
+    await renderSection(Promise.resolve(caps));
+    await screen.findByText("Replacing your queue");
+    expect(shown("Private listening")).toBe(false);
   });
 
   it("shows no gated control while the capabilities load", async () => {

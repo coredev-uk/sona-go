@@ -32,7 +32,6 @@ vi.mock("@bindings/services", () => ({
   MotionService: { Status: () => new Promise(() => {}), Report: vi.fn() },
 }));
 vi.mock("@wailsio/runtime", () => ({ Clipboard: { SetText: vi.fn() } }));
-vi.mock("./Updates", () => ({ UpdatesGroup: () => null }));
 
 const readyCdm: CDMStatus = {
   state: "ready",

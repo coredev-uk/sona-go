@@ -51,7 +51,7 @@ const buttons = (list: readonly string[] | undefined): WindowButton[] =>
 
 /**
  * The main window's title bar from Go's platform data (with the title bar
- * style the window was created with: a change in Settings → Desktop
+ * style the window was created with: a change in Settings → General
  * applies from the next start) and the window's state. The same rule as
  * Go's windowchrome.Platform.Resolve, which made the window frameless.
  */

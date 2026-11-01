@@ -339,7 +339,7 @@ export class MotionArtwork {
  */
 export class Onboarding {
     /**
-     * Completed: the setup was finished or skipped. Settings → Desktop
+     * Completed: the setup was finished or skipped. Settings → General
      * opens it again without changing this.
      */
     "completed": boolean;

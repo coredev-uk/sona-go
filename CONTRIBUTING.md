@@ -578,7 +578,7 @@ Sona's own buttons in the desktop's layout (KWin's `kwinrc` on KDE
 Plasma, GTK's `gtk-decoration-layout` elsewhere, read through
 `internal/shell`); tiling compositors (their `SWAYSOCK`,
 `HYPRLAND_INSTANCE_SIGNATURE`, `I3SOCK`, `NIRI_SOCKET`, or their desktop
-name) and unknown desktops keep the desktop's. Settings → Desktop → Title
+name) and unknown desktops keep the desktop's. Settings → General → Title
 bar overrides it from the next start. To check it:
 
 - Linux, tiling: run Sona in sway (headless: `WLR_BACKENDS=headless

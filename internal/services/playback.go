@@ -72,10 +72,13 @@ func newPlaybackService(e *Env) *PlaybackService {
 	return s
 }
 
-// run forwards coordinator snapshots as events until close.
+// run forwards coordinator snapshots as events until close. A volume
+// change from any path (the player bar, MPRIS, `sona volume`) is saved
+// into the settings a second after it settles.
 func (s *PlaybackService) run() {
 	snaps, cancel := s.o.Coord.Subscribe()
 	s.started = true
+	volume := s.o.Coord.Snapshot().Volume
 	s.o.Go("playback events", func() {
 		defer close(s.done)
 		defer cancel()
@@ -104,6 +107,10 @@ func (s *PlaybackService) run() {
 				s.o.Report(applemusic.ErrUnauthorized)
 			}
 			auth = snap.AuthRequired
+			if snap.Volume != volume {
+				volume = snap.Volume
+				s.saveVolumeSoon()
+			}
 		}
 	})
 }
@@ -113,6 +120,11 @@ func (s *PlaybackService) close() {
 		close(s.quit)
 		<-s.done
 	}
+	s.volMu.Lock()
+	if s.volTimer != nil {
+		s.volTimer.Stop()
+	}
+	s.volMu.Unlock()
 	s.flushVolume()
 }
 
@@ -638,11 +650,14 @@ func (s *PlaybackService) Next(ctx context.Context) error { return s.fail(s.o.Co
 // first seconds.
 func (s *PlaybackService) Prev(ctx context.Context) error { return s.fail(s.o.Coord.Previous(ctx)) }
 
-// SetVolume sets the volume (0..1); it is remembered in the settings.
+// SetVolume sets the volume (0..1). The settings remember it (run).
 func (s *PlaybackService) SetVolume(ctx context.Context, volume float64) error {
-	if err := s.o.Coord.SetVolume(ctx, volume); err != nil {
-		return err
-	}
+	return s.o.Coord.SetVolume(ctx, volume)
+}
+
+// saveVolumeSoon saves the volume a second after the last change, so a
+// dragged slider writes the settings file once.
+func (s *PlaybackService) saveVolumeSoon() {
 	s.volMu.Lock()
 	defer s.volMu.Unlock()
 	if s.volTimer == nil {
@@ -650,7 +665,6 @@ func (s *PlaybackService) SetVolume(ctx context.Context, volume float64) error {
 	} else {
 		s.volTimer.Reset(time.Second)
 	}
-	return nil
 }
 
 // flushVolume saves the coordinator volume into the settings.

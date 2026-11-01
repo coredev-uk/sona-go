@@ -1,22 +1,29 @@
 import { Trans } from "@lingui/react/macro";
+import { Fragment } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
 import { chordParts, chordText, type Chord } from "./chord";
 
-/** One chord as keycaps; assistive tech reads it as words ("Ctrl+Left Arrow"). */
+/**
+ * One chord as keycaps; assistive tech reads it as words ("Ctrl+Left Arrow").
+ * A space separates the keycaps' text (the flex gap lays them out), so their
+ * visible text reads "Ctrl B", not "CtrlB", where a label must contain it.
+ */
 export function ChordKeys({ chord, className }: { chord: Chord; className?: string }) {
   return (
     <kbd className={cn("inline-flex shrink-0 items-center gap-0.5 font-sans", className)}>
       <span className="sr-only">{chordText(chord)}</span>
       {chordParts(chord).map((part, i) => (
-        <span
-          key={i}
-          aria-hidden
-          className="inline-grid h-5 min-w-5 place-items-center rounded-sm border border-control-line px-1 text-meta font-medium text-ink-muted num"
-        >
-          {part}
-        </span>
+        <Fragment key={i}>
+          {i > 0 && " "}
+          <span
+            aria-hidden
+            className="inline-grid h-5 min-w-5 place-items-center rounded-sm border border-control-line px-1 text-meta font-medium text-ink-muted num"
+          >
+            {part}
+          </span>
+        </Fragment>
       ))}
     </kbd>
   );

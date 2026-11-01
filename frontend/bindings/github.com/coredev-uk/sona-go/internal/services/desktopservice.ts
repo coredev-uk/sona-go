@@ -28,7 +28,7 @@ export function CloseMiniPlayer(): $CancellablePromise<void> {
 
 /**
  * CloseWindow is Sona's title bar's Close button: the main window closes
- * as Settings → Desktop says (to the background, or quitting).
+ * as Settings → General says (to the background, or quitting).
  */
 export function CloseWindow(): $CancellablePromise<void> {
     return $Call.ByID(4154953532);

@@ -15,7 +15,7 @@ const welcomeRoute = createRoute({
 /**
  * The first-run setup: its own page (/welcome) with no sidebar link. Go
  * opens the main window on it on a first start (services.StartRoute);
- * Settings → Desktop links to it.
+ * Settings → General links to it.
  */
 export const onboardingModule: FeatureModule<typeof welcomeRoute> = {
   id: "onboarding",

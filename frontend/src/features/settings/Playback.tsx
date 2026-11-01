@@ -3,9 +3,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { useCapabilities } from "@/shared/lib/capabilities";
-import { numberFormat } from "@/shared/lib/format";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
-import { Slider } from "@/shared/ui/slider";
 
 import { AudioRows } from "./AudioRows";
 import { CdmRow } from "./CdmRow";
@@ -13,13 +11,22 @@ import { CrossfadeRows } from "./CrossfadeRows";
 import { PrivateRows } from "./PrivateRows";
 import { QueueRows } from "./QueueRows";
 import { useSettings, useUpdateSettings } from "./queries";
-import { SettingRow, SettingsPanel } from "./SettingRow";
+import {
+  SELECT_WIDTH,
+  SettingRow,
+  SettingsGroup,
+  SettingsPanel,
+  SettingsSections,
+} from "./SettingRow";
 
 const idleChoices = [5, 10, 15, 30, 60];
 
 /**
- * Settings → Playback. Rows for what this platform's playback can't do are
- * left out; without any playback, one line says so at the top.
+ * Settings → Playback: Widevine's state first (the player bar's Widevine
+ * notice links here), then Sound, Listening and Advanced. Rows for what
+ * this platform's playback can't do are left out; without any playback,
+ * one line says so instead. The volume is the player bar's (and MPRIS's
+ * and `sona volume`'s), never a row here.
  */
 export function PlaybackSection() {
   const { t } = useLingui();
@@ -36,17 +43,11 @@ export function PlaybackSection() {
     );
   }
   const s = settings.data;
-  if (!s) return <SettingsPanel className="h-72" />;
-  const save = (patch: Partial<typeof s>) => update.mutate({ ...s, ...patch });
-  const idle = idleChoices.includes(s.engineIdleMinutes)
-    ? idleChoices
-    : [...idleChoices, s.engineIdleMinutes].sort((a, b) => a - b);
-  const volume = numberFormat({ style: "percent", maximumFractionDigits: 0 }).format(s.volume);
-  const cdm = caps?.playback.engine === "cdm";
-
-  return (
-    <SettingsPanel>
-      {caps && !caps.playback.available && (
+  if (!s || !caps) return <SettingsPanel className="h-72" />;
+  const playback = caps.playback;
+  if (!playback.available) {
+    return (
+      <SettingsPanel>
         <div className="py-4">
           <p className="text-ui font-medium text-ink">
             <Trans>Playback isn't available on this platform yet</Trans>
@@ -55,80 +56,77 @@ export function PlaybackSection() {
             <Trans>Browsing Apple Music and your library works as usual.</Trans>
           </p>
         </div>
-      )}
-      {cdm && <CdmRow />}
-      <PrivateRows />
-      <SettingRow
-        id="quality"
-        title={t`Audio quality`}
-        description={t`Sona streams AAC: 256 kbps at High, 64 kbps with Data saver for slow or metered connections. Changes apply from the next song. Lossless and Dolby Atmos aren't available, so albums marked with them play as AAC too.`}
-      >
-        <Select
-          value={String(s.audioQuality)}
-          onValueChange={(v) => save({ audioQuality: Number(v) })}
-        >
-          <SelectTrigger id="quality" aria-describedby="quality-desc" className="h-8 w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="256">
-              <Trans>High · 256 kbps</Trans>
-            </SelectItem>
-            <SelectItem value="64">
-              <Trans>Data saver · 64 kbps</Trans>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </SettingRow>
-      {caps?.playback.volume && (
-        <SettingRow
-          id="volume"
-          title={t`Volume`}
-          description={t`The same volume as the slider in the player bar. Its steps follow loudness, so the lower half stays useful.`}
-        >
-          <div
-            className="flex w-44 items-center gap-3"
-            style={{ "--slider-range": "var(--ink-muted)" } as React.CSSProperties}
-          >
-            <Slider
-              id="volume"
-              aria-labelledby="volume-label"
-              aria-describedby="volume-desc"
-              value={[Math.round(s.volume * 100)]}
-              max={100}
-              step={1}
-              onValueCommit={([v]) => save({ volume: v / 100 })}
-            />
-            <span className="w-9 text-right text-meta text-ink-muted num">{volume}</span>
-          </div>
-        </SettingRow>
-      )}
+      </SettingsPanel>
+    );
+  }
+  const save = (patch: Partial<typeof s>) => update.mutate({ ...s, ...patch });
+  const idle = idleChoices.includes(s.engineIdleMinutes)
+    ? idleChoices
+    : [...idleChoices, s.engineIdleMinutes].sort((a, b) => a - b);
+  const cdm = playback.engine === "cdm";
+
+  return (
+    <SettingsSections>
       {cdm && (
+        <SettingsPanel>
+          <CdmRow />
+        </SettingsPanel>
+      )}
+      <SettingsGroup id="playback-sound" title={t`Sound`}>
         <SettingRow
-          id="idle"
-          title={t`Stop the playback host when idle`}
-          description={t`The playback host holds the Widevine CDM and the audio pipeline. With nothing queued, it shuts down after this long to free memory; the next song takes a few seconds longer to start. Applies the next time it starts.`}
+          id="quality"
+          title={t`Audio quality`}
+          description={t`AAC at 256 kbps, or 64 kbps with Data saver for slow or metered connections. Applies from the next song. Lossless and Dolby Atmos albums play as AAC too.`}
         >
           <Select
-            value={String(s.engineIdleMinutes)}
-            onValueChange={(v) => save({ engineIdleMinutes: Number(v) })}
+            value={String(s.audioQuality)}
+            onValueChange={(v) => save({ audioQuality: Number(v) })}
           >
-            <SelectTrigger id="idle" aria-describedby="idle-desc" className="h-8 w-44">
+            <SelectTrigger id="quality" aria-describedby="quality-desc" className={SELECT_WIDTH}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {idle.map((m) => (
-                <SelectItem key={m} value={String(m)}>
-                  {t`After ${plural(m, { one: "# minute", other: "# minutes" })}`}
-                </SelectItem>
-              ))}
+              <SelectItem value="256">
+                <Trans>High · 256 kbps</Trans>
+              </SelectItem>
+              <SelectItem value="64">
+                <Trans>Data saver · 64 kbps</Trans>
+              </SelectItem>
             </SelectContent>
           </Select>
         </SettingRow>
+        <AudioRows />
+        <CrossfadeRows />
+      </SettingsGroup>
+      <SettingsGroup id="playback-listening" title={t`Listening`}>
+        {playback.privateListening && <PrivateRows />}
+        <QueueRows />
+      </SettingsGroup>
+      {cdm && (
+        <SettingsGroup id="playback-advanced" title={t`Advanced`}>
+          <SettingRow
+            id="idle"
+            title={t`Free memory when idle`}
+            description={t`With nothing queued, Sona stops its playback host (Widevine and the audio pipeline) after this long. The next song then takes a few seconds longer to start. Applies the next time the host starts.`}
+          >
+            <Select
+              value={String(s.engineIdleMinutes)}
+              onValueChange={(v) => save({ engineIdleMinutes: Number(v) })}
+            >
+              <SelectTrigger id="idle" aria-describedby="idle-desc" className={SELECT_WIDTH}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {idle.map((m) => (
+                  <SelectItem key={m} value={String(m)}>
+                    {t`After ${plural(m, { one: "# minute", other: "# minutes" })}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingRow>
+        </SettingsGroup>
       )}
-      <AudioRows />
-      <CrossfadeRows />
-      <QueueRows />
-    </SettingsPanel>
+    </SettingsSections>
   );
 }

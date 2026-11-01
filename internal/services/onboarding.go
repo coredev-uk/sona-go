@@ -20,7 +20,7 @@ const OnboardingRoute = "/welcome"
 // first-run setup was neither finished nor skipped, and where no Apple
 // Music account is signed in (the account Sona keeps in SQLite: cold start
 // reads nothing else, so the keyring is not asked), opens on the setup.
-// Every other start opens where Settings → Desktop says, except that
+// Every other start opens where Settings → General says, except that
 // resuming never lands on the setup again. When the database can't be
 // read, the settings' route comes back with the error.
 func StartRoute(ctx context.Context, d *db.DB, s config.Settings) (string, error) {

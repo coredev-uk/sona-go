@@ -64,20 +64,21 @@ func (s *SystemService) FirstPaint() {
 // Settings returns the current settings.
 func (s *SystemService) Settings() config.Settings { return s.o.Settings.Get() }
 
-// UpdateSettings saves next and applies it: volume at once, theme and
-// reduce-effects through "settings:changed", the audio quality from the
-// next item; the idle timeout and WebKit toggles on the next
-// start.
-func (s *SystemService) UpdateSettings(ctx context.Context, next config.Settings) (config.Settings, error) {
+// UpdateSettings saves next and applies it: theme and reduce-effects
+// through "settings:changed", the audio quality from the next item; the
+// idle timeout and WebKit toggles on the next start. The volume is the
+// player's (the player bar, MPRIS, `sona volume`; PlaybackService saves
+// it), so the saved one is kept whatever next carries: a page holding an
+// older copy of the settings can't turn the music back up or down.
+func (s *SystemService) UpdateSettings(next config.Settings) (config.Settings, error) {
 	prev := s.o.Settings.Get()
-	saved, err := s.o.Settings.Update(func(st *config.Settings) { *st = next })
+	saved, err := s.o.Settings.Update(func(st *config.Settings) {
+		volume := st.Volume
+		*st = next
+		st.Volume = volume
+	})
 	if err != nil {
 		return prev, err
-	}
-	if saved.Volume != prev.Volume {
-		if err := s.o.Coord.SetVolume(ctx, saved.Volume); err != nil {
-			s.o.Logger.Warn("settings: apply volume", "err", err)
-		}
 	}
 	s.o.Emit.Emit(EventSettingsChanged, saved)
 	return saved, nil

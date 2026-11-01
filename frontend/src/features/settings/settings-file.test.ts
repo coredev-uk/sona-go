@@ -19,6 +19,10 @@ describe("changedRows", () => {
     expect(changedRows(["crossfade.seconds"])).toEqual(["Crossfade"]);
   });
 
+  it("names Open on once for its page and the last-page choice", () => {
+    expect(changedRows(["desktop.resumeLastRoute", "desktop.startPage"])).toEqual(["Open on"]);
+  });
+
   it("keeps a name it has no row for", () => {
     expect(changedRows(["future.setting"])).toEqual(["future.setting"]);
   });

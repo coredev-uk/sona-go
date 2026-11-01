@@ -5,7 +5,7 @@ package config
 // Music account is already on this computer (services.StartRoute). Every
 // value is valid, so there is nothing to normalise.
 type Onboarding struct {
-	// Completed: the setup was finished or skipped. Settings → Desktop
+	// Completed: the setup was finished or skipped. Settings → General
 	// opens it again without changing this.
 	Completed bool `json:"completed"`
 }

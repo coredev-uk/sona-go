@@ -57,7 +57,10 @@
 // equaliser preview while a control is dragged (not saved) and the list
 // of PipeWire outputs (from the engine). Volume stays the slider value everywhere (settings,
 // coordinator, MPRIS); only the engine maps it through
-// playback.VolumeGain.
+// playback.VolumeGain. The player owns it: the player bar, MPRIS and
+// `sona volume` set it on the coordinator, PlaybackService saves it into
+// the settings a second after it settles (and on quit), and
+// SystemService.UpdateSettings keeps the saved volume whatever it is sent.
 //
 // Platform (platform.go) is what the OS offers beyond the windows, one
 // small seam per concern, built by cmd/sona's platform_<os>.go: media controls
@@ -111,7 +114,7 @@
 // First-run setup (onboarding.go): StartRoute picks the main window's
 // first route before it is created, from the settings and SQLite only
 // (config.Onboarding.Completed, the cached account): the setup
-// (OnboardingRoute) on a first start, else Settings → Desktop's page. The
+// (OnboardingRoute) on a first start, else Settings → General's page. The
 // frontend saves the completed flag through SystemService.UpdateSettings.
 //
 // Pre-release albums (release.go): Album.Prerelease and Album.ReleaseAt

@@ -16,13 +16,13 @@ type Windows interface {
 	// ToggleMini switches between the mini player and the main window.
 	ToggleMini()
 	// CloseMini closes the mini player as its window's close button
-	// would: to the background, or quitting (Settings → Desktop).
+	// would: to the background, or quitting (Settings → General).
 	CloseMini()
 	// ResetWindowSize returns the main window to its default size.
 	ResetWindowSize()
 	// MinimiseMain, ToggleMaximiseMain and CloseMain are Sona's title
 	// bar's buttons; CloseMain does what closing the window does
-	// (Settings → Desktop).
+	// (Settings → General).
 	MinimiseMain()
 	ToggleMaximiseMain()
 	CloseMain()
@@ -80,7 +80,7 @@ func (d *DesktopService) MinimiseWindow() { d.o.Windows.MinimiseMain() }
 func (d *DesktopService) ToggleMaximiseWindow() { d.o.Windows.ToggleMaximiseMain() }
 
 // CloseWindow is Sona's title bar's Close button: the main window closes
-// as Settings → Desktop says (to the background, or quitting).
+// as Settings → General says (to the background, or quitting).
 func (d *DesktopService) CloseWindow() { d.o.Windows.CloseMain() }
 
 // ShowWindowMenu opens the desktop's window menu for a right click on

@@ -20,7 +20,6 @@ import { cn } from "@/shared/lib/utils";
 
 import { motionGroup, motionReport } from "./MotionDiagnostics";
 import { useSettings, useUpdateSettings } from "./queries";
-import { UpdatesGroup } from "./Updates";
 
 type Status = "ok" | "warning" | "error" | "info";
 
@@ -554,7 +553,7 @@ export function DiagnosticsSection() {
           <dl className="rounded-lg bg-surface px-5 py-1.5">
             {g.rows.map((r) => (
               <div key={r.label} className="grid grid-cols-[200px_minmax(0,1fr)] gap-4 py-2">
-                <dt className="text-sub text-ink-muted">{r.label}</dt>
+                <dt className="text-sub [overflow-wrap:anywhere] text-ink-muted">{r.label}</dt>
                 <dd className="min-w-0">
                   <span className="flex items-start gap-2">
                     <StatusIcon status={r.status} />
@@ -575,7 +574,6 @@ export function DiagnosticsSection() {
           {webkitGtk && g.title === t`Rendering` && <RenderingToggles />}
         </section>
       ))}
-      {q.data && <UpdatesGroup />}
     </div>
   );
 }
