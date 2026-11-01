@@ -3,12 +3,16 @@ package services
 import (
 	"errors"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
+	"github.com/coredev-uk/sona-go/internal/library"
+	"github.com/coredev-uk/sona-go/internal/playback"
+	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 )
 
 // A pre-release album as Apple lists it (trimmed from a live answer): no
@@ -98,5 +102,69 @@ func TestPlaybackRefusesUnreleasedSongs(t *testing.T) {
 	items, _, err = s.resolve(ctx, refs, 0)
 	if err != nil || len(items) != 2 || items[0].ID != "1" || items[1].ID != "2" {
 		t.Fatalf("resolve on release day = %+v, %v", items, err)
+	}
+}
+
+// Playing the library song list applies the same rule: a song without a
+// date of its own goes by its album's.
+func TestPlayLibrarySkipsUnreleasedSongs(t *testing.T) {
+	ctx := t.Context()
+	d, err := db.Open(ctx, filepath.Join(t.TempDir(), "sona.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.Close() })
+	for _, a := range []struct{ id, date string }{{"l.soon", "2026-11-19"}, {"l.old", "2020-01-01"}} {
+		if _, err := d.Q.UpsertLibraryAlbum(ctx, dbq.UpsertLibraryAlbumParams{LibraryID: db.NullString(a.id), Name: a.id, ReleaseDate: a.date, UpdatedAt: 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// In title order: a single already out, a song of the pre-release
+	// album without a date, a song of an old album without one, one of
+	// no stored album, and one dated ahead itself.
+	for _, tr := range []struct{ id, name, album, date string }{
+		{"i.1", "A single", "l.soon", "2026-09-17"},
+		{"i.2", "B undated", "l.soon", ""},
+		{"i.3", "C old", "l.old", ""},
+		{"i.4", "D loose", "", ""},
+		{"i.5", "E later", "", "2026-12-01"},
+	} {
+		ref, err := d.Q.UpsertLibraryTrack(ctx, dbq.UpsertLibraryTrackParams{
+			LibraryID: db.NullString(tr.id), Name: tr.name, AlbumLibraryID: db.NullString(tr.album), ReleaseDate: tr.date, UpdatedAt: 1,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := d.Q.MarkLibraryItem(ctx, dbq.MarkLibraryItemParams{Kind: "song", Ref: ref, Generation: 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	eng := &playEngine{events: make(chan playback.Event)}
+	coord, err := coordinator.New(coordinator.Options{Engine: eng})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = coord.Close() })
+	now := localDay(t, "2026-11-01")
+	e := &Env{Deps: Deps{DB: d, Library: library.New(d, nil), Coord: coord, Logger: discard(), Now: func() time.Time { return now }}}
+	s := &PlaybackService{o: e, m: mapper{now: e.Now}, meta: map[string]trackMeta{}}
+
+	for _, start := range []int{1, 4} {
+		if err := s.PlayLibrary(ctx, "title", false, start); ErrorCode(err) != CodeNotReleased {
+			t.Fatalf("start %d: %v, want not_released", start, err)
+		}
+	}
+	if err := s.PlayLibrary(ctx, "title", false, 2); err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, it := range s.Queue().Items {
+		ids = append(ids, it.ID)
+	}
+	if !slices.Equal(ids, []string{"i.1", "i.3", "i.4"}) {
+		t.Fatalf("queue = %v, want the songs already out", ids)
+	}
+	if got := eng.played(); !slices.Equal(got, []string{"i.3"}) {
+		t.Fatalf("played %v, want the start song", got)
 	}
 }

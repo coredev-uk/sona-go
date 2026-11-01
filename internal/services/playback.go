@@ -473,7 +473,8 @@ func (s *PlaybackService) SetSleep(mode string, minutes int) error {
 
 // PlayLibrary queues the whole library songs list in the given order
 // (as LibraryService.Songs) and plays the song at position start. Songs
-// not out yet are left out (not_released when it is the start song).
+// not out yet (by their own date or, without one, their album's) are left
+// out; not_released when it is the start song.
 func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc bool, start int) error {
 	var songs []library.Song
 	for offset := 0; ; {
@@ -490,15 +491,15 @@ func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc boo
 	if start < 0 || start >= len(songs) {
 		return fmt.Errorf("%w: start %d of %d", ErrInvalidArgument, start, len(songs))
 	}
-	now := s.m.clock()
-	if upcoming(songs[start].ReleaseDate, false, now) {
+	unreleased := s.libraryUnreleased(ctx, songs)
+	if unreleased[start] {
 		return fmt.Errorf("library song %s: %w", songs[start].LibraryID, ErrNotReleased)
 	}
 	items := make([]coordinator.Item, 0, len(songs))
 	idx := 0
 	s.mu.Lock()
 	for i, so := range songs {
-		if upcoming(so.ReleaseDate, false, now) {
+		if unreleased[i] {
 			continue
 		}
 		// Uploads have no catalog ID and play by their library ID.
@@ -517,6 +518,31 @@ func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc boo
 	}
 	s.mu.Unlock()
 	return s.fail(s.o.Coord.SetQueue(ctx, items, idx, "library:songs"))
+}
+
+// libraryUnreleased reports which library songs are not out yet, with the
+// rule resolve applies (released): a song's own date, else its album's,
+// each album read once.
+func (s *PlaybackService) libraryUnreleased(ctx context.Context, songs []library.Song) []bool {
+	dates := map[string]string{}
+	albumDate := func(id string) string {
+		if id == "" {
+			return ""
+		}
+		d, ok := dates[id]
+		if !ok {
+			if a, err := s.o.DB.RQ.GetAlbumByLibraryID(ctx, db.NullString(id)); err == nil {
+				d = a.ReleaseDate
+			}
+			dates[id] = d
+		}
+		return d
+	}
+	out := make([]bool, len(songs))
+	for i, so := range songs {
+		out[i] = s.released(so.ReleaseDate, func() string { return albumDate(so.AlbumLibraryID) }) != nil
+	}
+	return out
 }
 
 // PlayNext inserts refs after the current item.
