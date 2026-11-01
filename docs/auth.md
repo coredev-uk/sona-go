@@ -1,6 +1,6 @@
 # Sona Authentication Design
 
-Status: decided (web player developer token; native in-app sign-in as the primary MUT flow, loopback and token paste as fallbacks) and implemented in `internal/auth/devtoken`, `internal/auth/appleid`, `internal/auth/mut`, `internal/auth/store`, `internal/auth` (`Manager`), and `cmd/authspike`. Items marked **[verified]** were observed on 2026-10-29 against live Apple endpoints. Items marked **[unverified]** still need an interactive Apple ID login.
+Status: decided (web player developer token; native in-app sign-in as the primary MUT flow, loopback and token paste as fallbacks) and implemented in `internal/auth/devtoken`, `internal/auth/appleid`, `internal/auth/mut`, `internal/auth/store`, `internal/auth` (`Manager`), and `cmd/authspike`. Items marked **[verified]** were observed against live Apple endpoints. Items marked **[unverified]** still need an interactive Apple ID login.
 
 ## 1. What Must Be Obtained
 
@@ -38,7 +38,7 @@ Implementation: `internal/auth/devtoken/webplayer.go` (`WebPlayer.Token`, `Inval
 - **[verified]** `https://music.apple.com/us/browse` references one entry bundle, `/assets/index~<hash>.js`. That bundle assigns the JWT to a minified variable that it passes as `developerToken:` into MusicKit configure.
 - Extraction: fetch the HTML, take `/assets/index~*.js`, regex `"(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)"`, and accept only claims with `iss == "AMPWebPlay"`.
 - **[verified]** Claims: `{"iss":"AMPWebPlay","iat":1792780534,"exp":1798828534,"root_https_origin":["apple.com"]}`, header `kid: WebPlayKid` (70-day lifetime).
-- **[verified]** On both `api.music.apple.com` and `amp-api.music.apple.com`, `GET /v1/catalog/gb/search` returns **401 without** `Origin` and **200 with** `Origin: https://music.apple.com` + `Referer: https://music.apple.com/`. `internal/applemusic` always sets both.
+- **[verified]** On both `api.music.apple.com` and `amp-api.music.apple.com`, `GET /v1/catalog/{sf}/search` returns **401 without** `Origin` and **200 with** `Origin: https://music.apple.com` + `Referer: https://music.apple.com/`. `internal/applemusic` always sets both.
 - Refresh: cached in memory, refetched when fewer than 7 days remain or after a 401 (`Client.Get` invalidates and retries once).
 - The playback engine needs no origin spoofing, because its page is served at `https://music.apple.com/sona-engine/` (§6).
 
@@ -56,8 +56,8 @@ Implementation: `internal/auth/devtoken/webplayer.go` (`WebPlayer.Token`, `Inval
 - MusicKit builds the URL as `https://authorize.music.apple.com/woa?a=<btoa(thirdPartyInfo)>&referrer=<location.href>&app=music&p=subscribe`. `thirdPartyInfo = {thirdPartyIconURL, thirdPartyName, thirdPartyParameters, thirdPartyToken: <devToken>}`.
 - **[verified]** With the web player token and `referrer=http://127.0.0.1:<port>/auth/<nonce>/callback`, reached from Sona's loopback start page in headless Chrome, the authorize page reaches the real Apple ID sign-in (`<title>Sign In - Apple</title>`, a top-level redirect to `idmsa.apple.com/IDMSWebAuth/auth`, `appReturnUrl=…/commerce/account/validateMusicKitToken`).
 - **[verified]** Apple's authorize page stored `sessionStorage.ac = "http://127.0.0.1:<port>/auth/<nonce>/callback"` (with `document.referrer` = the start URL), so after sign-in it redirects to Sona's callback.
-- **[verified]** Simulating Apple's final hop (navigating to `callback#<btoa({cid,itre,musicUserToken})>` with the real MUT) runs the callback page JS, posts to `/complete`, and `authspike` prints `signed in: storefront=gb (United Kingdom)`.
-- **[unverified]** Apple's own post-sign-in redirect to a loopback referrer. Run `go run ./cmd/authspike -save .env` and sign in to close this.
+- **[verified]** Simulating Apple's final hop (navigating to `callback#<btoa({cid,itre,musicUserToken})>` with a real MUT) runs the callback page JS, posts to `/complete`, and `authspike` prints `signed in: storefront=<id> (<name>)`.
+- **[verified]** Apple's own post-sign-in redirect to the loopback referrer: an interactive sign-in in the system browser completes the flow.
 
 ### 4.2 Sequence
 
@@ -86,7 +86,7 @@ sequenceDiagram
   B->>LB: POST /auth/N/complete {fragment}
   LB->>Go: decode, single-use consume N
   Go->>API: GET /v1/me/storefront (Bearer + Media-User-Token)
-  API-->>Go: 200 {data:[{id:"gb"}]}
+  API-->>Go: 200 {data:[{id:"<storefront>"}]}
   Go->>Go: store MUT (keyring), storefront (DB)
   Go-->>UI: event auth:changed {state: signed_in}
   LB-->>B: "You can close this window" (Wails window closes itself)
@@ -129,7 +129,7 @@ sequenceDiagram
 
 Sona collects the Apple Account name, password and two-factor code in its own UI. Go replays the exact requests Apple's sign-in widget and the Apple Music authorize page make, so no browser or webview is involved. The password is used for one SRP exchange, never stored, never logged; each attempt has its own cookie jar, discarded when it ends.
 
-Sources, all fetched 2026-10-29 and read with REA (`analyze-javascript-application`) plus manual reading of the prettified bundles:
+Sources (Apple's shipped JavaScript, read from the prettified bundles):
 
 | Step | Apple source |
 | --- | --- |
@@ -151,14 +151,13 @@ Verification:
 
 - **[verified]** `internal/auth/appleid/testdata/srp_vectors.json` was produced by running Apple's `webSRPClientWorker.js` under Node with a fixed private value; the Go client reproduces A, M1 and M2 byte for byte for both `s2k` and `s2k_fo` (including a zero-led salt, mixed-case account and non-ASCII password).
 - **[verified]** Live: mkauth → IDMSWebAuth → widget frame → `signin/init` 200 → `signin/complete` (with hashcash) 401 `-20101` for a nonexistent account, i.e. Apple accepted the request framing and rejected only the credentials.
-- **[verified]** 2026-10-30 (app log): a real account completed native sign-in through an SMS code to `getMusicUserToken` and a stored MUT, and the browser fallback completed too.
-- **[verified]** 2026-10-30 13:10 (app log): a real account with Apple devices got `hasTrustedDevices` from the HTML boot data (`trustedDevices=true phones=0`), the form asked only for the device code, and `verify/trusteddevice/securitycode` → `getMusicUserToken` signed in.
-- **[unverified]** The no-device paths (texted `phoneNumber`, phone list without auto-send, text/call switch, `nonFTEU`) against a real account; covered only by `appleidtest`. Needs an Apple Account with no trusted device.
+- **[verified]** Native sign-in completes to `getMusicUserToken` and a stored MUT through an SMS code, and through a trusted-device code (`hasTrustedDevices` read from the HTML boot data, the form asking only for the device code, then `verify/trusteddevice/securitycode`). The browser fallback completes too.
+- **[unverified]** The no-device paths (texted `phoneNumber`, phone list without auto-send, text/call switch, `nonFTEU`) against a live account; covered only by `appleidtest`. Needs an Apple Account with no trusted device.
 - `appleidtest` is a fake that checks SRP with a real server-side computation, the hashcash stamp and header rotation; `auth` and `appleid` tests run the whole flow against it.
 
 Manager API (`internal/auth/native.go`): `SignInWithPassword(account, password)` returns `nil` (signed in) or the `*appleid.SecondFactor`. `SubmitSecurityCode(code, phoneID, mode)` (phoneID 0 = trusted device), `SendCodeToPhone(phoneID, mode)` and `ResendSecurityCode()` act on the pending attempt. While waiting, the state is `signing_in` with `Status.SecondFactor` set.
 
-Two-factor routing: Apple prompts the trusted devices server-side when the password is accepted; Apple's own widget sends no request that triggers or withholds that prompt, it only reads the options and shows the device-code screen [INFERENCE from the widget code and the observed prompt; not isolated per request]. An earlier version read `GET /appleauth/auth` as JSON and guessed `trustedDeviceCount`/`noTrustedDevices`; on a real account (2026-10-30, log `trustedDevices=false phones=1`) that missed the devices.
+Two-factor routing: Apple prompts the trusted devices server-side when the password is accepted; Apple's own widget sends no request that triggers or withholds that prompt, it only reads the options and shows the device-code screen [INFERENCE from the widget code and the observed prompt; not isolated per request]. Read the options from the HTML boot data, not `GET /appleauth/auth` as JSON: its `trustedDeviceCount`/`noTrustedDevices` miss the devices.
 
 Sona offers every route the account has. The code step always shows a three-way switcher: **Apple device**, **Text message**, **Phone call**. Apple device is disabled (with "No Apple device is signed in to this account…") when `hasTrustedDevices` is false; text and call are disabled when the account lists no phone. Picking text or call with one number asks Apple at once; with several, the number picker opens with that method preselected. Picking Apple device again returns to the device code with no request (Apple already prompted the devices).
 
@@ -228,22 +227,16 @@ The UI renders from SQLite in `loading`/`validating` and while `Status.Offline` 
 
 ## 7. Storage
 
-- `internal/auth/store`: `github.com/zalando/go-keyring`, service `sona`, key `mut`, value JSON `{token, obtained_at, restricted}`. The dev token is not stored, because it is refetched from the web player. `store.Open` probes the Secret Service by reading the real entry; **[verified]** on the dev host (Hyprland) the Secret Service is available.
+- `internal/auth/store`: `github.com/zalando/go-keyring`, service `sona`, key `mut`, value JSON `{token, obtained_at, restricted}`. The dev token is not stored, because it is refetched from the web player. `store.Open` probes the Secret Service by reading the real entry.
 - Secret Service unavailable (no gnome-keyring/kwallet): fall back to `$XDG_CONFIG_HOME/sona/credentials.json`, mode 0600 (written atomically), owned by the user. `Store.Backend()` reports `file (unencrypted)`, Settings and Diagnostics show an explicit "credentials stored unencrypted" warning, and `Open` logs a warning. Never fall back silently. Once the Secret Service is reachable again, the file is moved into it and deleted.
 - Other secrets use the same store through `store.OpenSecret(configDir, key)`: one keyring entry per key under service `sona` (`lastfm`: the Last.fm session key; `listenbrainz`: the ListenBrainz user token), the same Secret Service probe, and a 0600 fallback file `credentials-<key>` that moves into the keyring once it is reachable. Settings → Connections shows the "stored unencrypted" warning for them.
 - Apple sign-out does not disconnect the scrobblers: they are separate accounts the user connected on this desktop, and nothing in them is Apple user data. Disconnecting a scrobbler in Settings → Connections deletes its keyring entry (and fallback file) and its unsent listens.
 - SQLite stores metadata only (`auth.AccountStore`): storefront id/name, language, `itre`, obtained/validated timestamps.
 - `SignOut()` clears the in-memory token, deletes the keyring entry and the fallback file, deletes the account metadata, then runs the `OnSignOut` hooks in registration order (engine sign-out, engine storage, optional user data). Every step runs even if one fails; failures are returned and shown in `Status.LastError`. The library cache stays unless the user also chooses "clear library".
 
-## 8. Auth Spike Checklist (`cmd/authspike`)
+## 8. Open checks
 
-| # | Check | Status |
-| --- | --- | --- |
-| 1 | Web player token extraction, catalog search with/without `Origin` | done **[verified]** |
-| 2 | Loopback start page → Apple sign-in; Apple stores the callback as the redirect target | done **[verified]** |
-| 3 | Callback page → `/complete` → MUT decoded → `/v1/me/storefront` | done **[verified]** with a simulated final hop |
-| 4 | Interactive login in the system browser | done **[verified]** 2026-10-30 (app) |
-| 4a | Interactive native login with 2FA | device-code path done **[verified]** 2026-10-30 (app); no-device SMS/call path pending (needs an account without an Apple device) |
-| 5 | Same flow in a Wails window (UA requirements) | superseded by the native form (§4.7) |
-| 6 | Paste flow: user-supplied MUT validated and used for playback | done **[verified]** |
-| 7 | Revocation: sign out in Apple ID settings, record the 401/403 shape | not done |
+`go run ./cmd/authspike` runs either flow from the terminal (`-native` for the native sign-in; `-save .env` writes the MUT for local testing). Still to confirm against Apple:
+
+- The native no-device two-factor paths (§4.7).
+- Revocation: sign out in the Apple Account settings and record the 401/403 shape Sona then sees.

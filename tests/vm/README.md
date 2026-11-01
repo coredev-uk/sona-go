@@ -68,7 +68,7 @@ have something to show without playback.
 | D1 package | `sona --version` from the Nix package | same |
 | D2 launcher | Shell's app system finds `dev.coredev.Sona.desktop` (name Sona, icon `sona`) and starts it; the window belongs to that app | Kickoff search for "Sona" shows it ("Music Player"), Enter starts it; KWin's window class is `dev.coredev.Sona` |
 | First paint | log `startup: first paint`; AT-SPI shows the page; screenshot | same |
-| Title bar (#16) | Close only, at the right (`appmenu:close`); `close,minimize,maximize:` puts all three at the left | Minimise, Maximise, Close at the right (KWin's default); kwinrc `X` / `IA` puts Close left, the others right |
+| Title bar | Close only, at the right (`appmenu:close`); `close,minimize,maximize:` puts all three at the left | Minimise, Maximise, Close at the right (KWin's default); kwinrc `X` / `IA` puts Close left, the others right |
 | Offline | the CDM update check fails with `code=network`; Sona keeps running | same |
 | `sona private status` | `private listening: on (forced by SONA_PRIVATE=1)` | same |
 | D5 MPRIS | one `org.mpris.MediaPlayer2.sona`; `playerctl` title, status, `DesktopEntry`; the calendar panel's media card shows the track (OCR) | same bus checks; the tray's media player icon appears (screenshot only: opening Plasma's media popup needs a pointer click, so the widget's contents stay a manual check) |

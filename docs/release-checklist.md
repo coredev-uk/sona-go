@@ -3,7 +3,7 @@
 Releases come from release-please ("Releasing" below). Work through §1 and
 §2 on the release PR's branch before merging it. Automated gates come first;
 the desktop matrix needs real sessions (GNOME and KDE in VMs, Hyprland on
-the dev host). Record each run in the results table at the end: date, Sona
+real hardware). Record each run in the results table at the end: date, Sona
 version, distro/session, result, and notes for anything not passed.
 
 ## Releasing
@@ -65,37 +65,17 @@ and merge the fix: release-please falls back to the `vX.Y.Z` tag as the
 last release and the fix ships as the next patch release. Never revert the
 merged release PR: `VERSION` and the tag would disagree.
 
-### First release (after the history rewrite and publishing)
+### Repository settings release-please needs
 
-The changelog starts at a `v0.1.0` tag with no GitHub release: when
-release-please finds no release for the manifest's version (0.1.0), it uses
-the tag `v0.1.0` as the last release. The tag can only be set after the
-history rewrite, which changes every commit hash.
-
-1. Check `release.yml` on `main` is called only by `release-please.yml`
-   (no `push: tags` trigger), so pushing the tag builds nothing.
-2. After the rewritten history is force-pushed, tag its `main`:
-   `git fetch origin && git tag -a v0.1.0 -m "Sona 0.1.0" origin/main && git push origin v0.1.0`.
-   Builds of that commit report 0.1.0.
-3. Run the dry run above: it logs `found: v0.1.0 <sha>` and, with nothing
-   user-facing after the tag, `Would open 0 pull requests`.
-4. Repository settings when publishing (1.7): Settings → Actions → General →
-   Workflow permissions → "Allow GitHub Actions to create and approve pull
-   requests" on (release-please can't open its PR otherwise); squash merging
-   only, with the commit message defaulting to "Pull request title" (title
-   `PR_TITLE`, body blank), since the default "commit or PR title" takes a
-   lone commit's subject instead of the checked PR title. The `release`
-   environment allows branch `main`, the ref of the release-please run that
-   calls `release.yml`.
-5. After publishing, the first `feat:` merge opens
-   `chore(main): release 0.2.0`. Merge it as above.
-6. Check: `gh release view v0.2.0` lists the packages, the AppImage .zsync,
-   the AUR tarball and SHA256SUMS;
-   `curl -s https://api.github.com/repos/coredev-uk/sona-go/releases/latest | jq -r .tag_name`
-   prints `v0.2.0`; a production build of `v0.1.0` (the packages from
-   `release.sh` on a checkout of the tag) shows the update notice in the
-   sidebar footer, opening the v0.2.0 release page. Development builds never
-   check.
+Settings → Actions → General → Workflow permissions → "Allow GitHub Actions
+to create and approve pull requests" on (release-please can't open its PR
+otherwise); squash merging only, with the commit message defaulting to
+"Pull request title" (title `PR_TITLE`, body blank), since the default
+"commit or PR title" takes a lone commit's subject instead of the checked
+PR title. The `release` environment allows branch `main`, the ref of the
+release-please run that calls `release.yml`. `release.yml` is called only by
+`release-please.yml` (no `push: tags` trigger), so pushing a tag builds
+nothing.
 
 ## 1. Automated gates
 
@@ -121,8 +101,8 @@ history rewrite, which changes every commit hash.
 
 ## 2. Desktop matrix
 
-Install the package for that distro on a clean VM (or the dev host for
-Hyprland), sign in, and play something. Each check names how to verify it.
+Install the package for that distro on a clean VM (or a real Hyprland
+session), sign in, and play something. Each check names how to verify it.
 
 The VM column says what the desktop VM tests (`tests/vm`, README there)
 check on GNOME 50 and KDE Plasma 6.8 (both Wayland, plus XWayland). They
@@ -156,45 +136,11 @@ still need the hand check for what the VM can't show.
 ## 3. Results
 
 GNOME and KDE rows run in the desktop VM tests where the VM column says
-so; the rest stay open until someone runs them by hand.
+so; the rest stay open until someone runs them by hand. Add one row per
+run, with the evidence for anything not obvious from the check itself.
 
 | Date | Version | Distro / session | Checks | Result | Notes |
 | ---- | ------- | ---------------- | ------ | ------ | ----- |
-| 2026-10-30 | 0.1.0 | Ubuntu 24.04, Fedora 45, Arch (containers, Xvfb) | §1 release smoke, D1 (install + `--version`) | pass | `release.sh` on a clean clone: deb, rpm, AppImage, Arch via AUR PKGBUILD all PASS (first paint 689–971 ms under Xvfb) |
-| 2026-10-30 | 0.1.0 | NixOS, Hyprland 0.56.2 (Wayland), devenv build | D5 (MPRIS bus), D7, D8, D11 (XWayland), D10 (1.5× in headless sway) | pass | See evidence below |
-| 2026-10-30 | 0.1.0 | NixOS, Hyprland 0.56.2 + Quickshell, devenv build (Integrations' live run) | D6, D13 | pass | Track-change notification with artwork, title and "artist — album"; the next track replaces it; none while Sona's window is focused; its Next button advanced the track. `systemd-inhibit --list` shows "Sona … sleep Playing music block" only while playing (gone after pause and after quit) |
-| 2026-10-30 | 0.1.0 | NixOS, Hyprland | D2–D4, D9, D12, D14–D18 | open | Need an installed package and a hands-on signed-in session; not run by the automated pass |
-| 2026-11-01 | 0.1.0 | NixOS VMs: GNOME 50 and KDE Plasma 6.8 (Wayland + XWayland), Nix package; AppImage on GNOME | D1 (Nix package, AppImage), D2, D5–D8, D10, D11, title bar, offline | pass | `tests/vm` (`nix-build tests/vm -A all`, `-A appimage`). Partial rows as the VM column says. GNOME shows Sona's low-urgency notifications in the list without a banner. The AppImage needs `appimage-run` extra libraries and WebKit's sandbox off inside appimage-run; it also runs on X11 always (the GTK AppRun hook sets `GDK_BACKEND=x11`) |
-| — | — | Ubuntu 24.04 GNOME (Wayland + Xorg), .deb | manual rows of §2 | open | The NixOS VMs cover the session side (VM column); the distro's package in its own session and the manual rows are still to do |
-| — | — | Fedora / Kubuntu KDE Plasma 6 (Wayland + X11), .rpm | manual rows of §2 | open | Same |
-
-### Evidence: Hyprland, 2026-10-30
-
-Binary: devenv build of a clean clone (`go tool wails3 build`, `sona 0.1.0`),
-run with private XDG directories on the real session bus and compositor.
-
-- D8 single instance: first launch painted at 1002 ms; second launch
-  `sona music://music.apple.com/us/album/1440857781` exited 0 after 0.13 s,
-  log `"forwarded to the running instance"`; still one `dev.coredev.Sona`
-  client, which became the active window; after quitting, neither
-  `dev.coredev.Sona` nor `org.mpris.MediaPlayer2.sona` stays on the bus.
-- D5 MPRIS (bus side): `playerctl -l` lists `sona`; `Identity` "Sona",
-  `DesktopEntry` "dev.coredev.Sona", `CanRaise` true, status `Stopped`. The
-  bar's media widget with real playback is part of the open row.
-- D7 tray (working-tree build, which has the tray; the clone predates it):
-  Sona registers `org.kde.StatusNotifierItem-<pid>-1` with the
-  bar's `org.kde.StatusNotifierWatcher` (Quickshell); Title "Sona"; menu
-  labels "Not playing, Play, Next, Previous, Show Sona, Mini player, Quit
-  Sona". Closing the window (`hl.dsp.window.close`) logs "shell: window
-  closed to the background": the client disappears and the process stays.
-  The item's `Activate` brings the window back (mapped). Clicking menu
-  entries by hand is part of the open row.
-- D11 X11: `GDK_BACKEND=x11` → Hyprland client `xwayland: true`, first paint
-  709 ms, `playerctl -l` lists `sona`. A native Xorg session is still to do
-  in the VMs.
-- D10 scaling: headless sway output at scale 1.5 (1920×1080): first paint
-  1578 ms, window 1276×692 logical, screenshot text and icons sharp. The dev
-  host's monitors are at scale 1, so mixed-scale monitor moves are open.
 
 ## 4. Known issues
 

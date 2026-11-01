@@ -62,7 +62,6 @@
 ## Worktrees and Branches
 
 - Every change gets its own git worktree and branch, beside the main checkout, which stays on `main`: `git worktree add ../sona-go-<slug> -b <type>/<slug> origin/main` (`<type>` is the conventional-commit type, e.g. `feat/queue-autoplay`). Never commit or push to `main`: `.githooks/` refuses both. `devenv shell` enables the hooks (`core.hooksPath`, shared by every worktree); outside devenv run `git config core.hooksPath .githooks` once. `SONA_ALLOW_MAIN=1` overrides them only for an emergency the maintainer asked for.
-- Run independent items in parallel worktrees where they touch different files; serialise items that edit the same files (group them into waves).
 - Generated files are never merged by hand: after rebasing onto `main`, regenerate `frontend/bindings`, the Lingui catalogues (`pnpm i18n:extract`) and `internal/db/dbq` (`gen`), then commit them.
 - A new worktree has no `frontend/node_modules`, `frontend/dist` or `.env`. Run `pnpm install` in `frontend/` inside devenv, build the frontend before `go build .`, and symlink `.env` from the main checkout only when a live token is needed.
 - Worktrees running at once must not share runtime state: a different `WAILS_VITE_PORT` per worktree, private XDG dirs and `dbus-run-session` for every run except one on the real desktop session, and a separately named PipeWire null sink.
@@ -70,7 +69,7 @@
 
 ## Process
 
-- One item per branch and PR. Fill in the PR template (`.github/pull_request_template.md`): What, Why, Evidence (commands with their output; light and dark screenshots for UI, with no personal account data), Tests, Docs, Left.
+- One change per branch and PR. Fill in the PR template (`.github/pull_request_template.md`): What, Why, Evidence (commands with their output; light and dark screenshots for UI, with no personal account data), Tests, Docs, Left.
 - Gate before every PR: `go vet ./...`, the cross-platform type-checks (`GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...`, `go run ./cmd/typecheck -os darwin -arch arm64 ./...`), `go test -race ./...` (touched packages first, then repo-wide), `golangci-lint run --new-from-rev=origin/main ./...` clean, and in `frontend/`: `pnpm exec tsc --noEmit`, `pnpm exec eslint src`, `pnpm exec prettier --check src`, `pnpm i18n:check`, `pnpm exec vitest run`.
 - Update the docs describing what you change in the same PR.
 - Private mode for every playback run: tests, smokes and live checks run with `SONA_PRIVATE=1` (development builds start private, `playspike` is private by default) so nothing is reported to Apple or scrobbled. Never play against Apple without it.

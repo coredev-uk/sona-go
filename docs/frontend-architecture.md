@@ -499,7 +499,7 @@ React Compiler) into calls carrying a short hashed ID; production builds drop
 the English source text from the code, and `.po` catalogues compile into
 plain JS objects on import, so no ICU parser ships. The runtime
 (`@lingui/core` + `@lingui/react`) is 11.5 kB minified, 4.3 kB gzipped
-(measured 2026-10-30); the English catalogue adds 54 kB minified, 20 kB
+(when it was chosen); the English catalogue adds 54 kB minified, 20 kB
 gzipped, most of it the text the code no longer carries. FormatJS/react-intl
 was the alternative: a larger runtime (`IntlProvider` and its formatters),
 and it needs its own `@formatjs/cli` precompile step to keep the ICU parser

@@ -157,8 +157,7 @@ macOS (`mac_arm64`, see "Widevine CDM") and Core Audio output
 (`osxaudiosink`, always the system's default output). There are no media
 controls, notifications, sleep inhibit, autostart, file chooser or `sona`
 commands yet (see "Platforms"). Apple's licence server grants licences to
-this unsigned host: the maintainer verified full-track playback on an Apple
-Silicon Mac.
+this unsigned host: full tracks play on Apple Silicon.
 
 The CDM host child runs under macOS's sandbox (`sandbox-exec` with Sona's
 profile: no network, no writes outside the temporary folders, Sona's folder
@@ -546,7 +545,7 @@ bar overrides it from the next start. To check it:
   and the WebView2 runtime, in a wine virtual desktop (`wine explorer
   /desktop=sona,1600x1000 sona.exe`): the caption buttons at the top right,
   flush with the edges.
-- macOS: on a Mac only (see the PR that added this for the checklist):
+- macOS: on a Mac only:
   the traffic lights centred on the top bar's controls, the top bar
   dragging the window, a double click zooming, full screen, and the mini
   player.

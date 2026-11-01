@@ -1,10 +1,8 @@
 # Security review
 
-The review covered the auth loopback server, the `/art/` and `/motion/` handlers, cdmhost framing and sandbox, D-Bus `Activate` arguments, URL parsing and settings file handling. It found 8 issues: 2 Medium and 6 Low, none Critical or High. Seven are fixed. F7 belongs to the auth flow and is recorded below with its fix.
+Sona's threat model and the controls behind it. The findings below (F1–F10) record each weakness found in Sona's own code, the control that closed it and the tests that keep it closed; F7 is still open. The Widevine CDM downloader, the macOS sandbox, the GitHub Actions workflows and secret scanning have their own sections. Each section lists the residual risks that remain.
 
 Areas reviewed without findings: native Apple ID input handling, `/art/`, the main.go middleware, `/motion/` path handling, parent→child cdmhost framing, single-instance `Activate` and launch URLs, the other MPRIS methods, notifications, the portal file chooser, the settings file, secret stores, the scrobble queue, the diagnostics bundle, the update check, autostart and the webview URL bindings.
-
-The Widevine CDM downloader, added later, is covered in "Widevine CDM downloader" below; the GitHub Actions workflows in "Workflows". The repository's history was scanned for secrets before it went public; see "Secret scanning".
 
 Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/`.
 
@@ -16,25 +14,22 @@ Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playbac
 | F4 | Low | Discord IPC trusted any user's socket | Fixed |
 | F5 | Low | NaN/Inf MPRIS volume | Fixed |
 | F6 | Low | Motion artwork followed redirects anywhere | Fixed |
-| F7 | Low | Loopback sign-in could be completed by another local user | Open: owned by the auth flow |
+| F7 | Low | Loopback sign-in could be completed by another local user | Open |
 | F8 | Low | Child could exhaust the parent's memory | Fixed |
-| F9 | Low | Artwork decoding accepted any registered image format, TIFF included (found after the review, Dependabot alert #1) | Fixed |
-| F10 | Low | Development builds logged the build's Last.fm and Discord credentials, and the diagnostics bundle carried them (found after the review, in a macOS run log) | Fixed |
+| F9 | Low | Artwork decoding accepted any registered image format, TIFF included | Fixed |
+| F10 | Low | Development builds logged the build's Last.fm and Discord credentials, and the diagnostics bundle carried them | Fixed |
 
 ## F1. Settings import could set the CDM path (Medium, fixed)
 
 `ParseExport` filtered local keys by their exact name, but `encoding/json` matches field names case-insensitively. So `"CDMPath"` or `"cdmpath"` in a shared settings file still landed in `Settings.CDMPath`, and the CDM host then `dlopen`ed whatever that path named.
 
-**Fix** (`internal/config/transfer.go`, `settings.go`):
+**Fix** (`internal/config/transfer.go`):
 - `Import.Apply` decodes the document over a copy of the current settings and then puts back every local field from the current settings (`keepLocal`). No raw-key filtering is involved.
 - `localKeys` is only used to leave the local keys out of an export.
-- `Settings.Normalized` drops a `CDMPath` that is not a clean absolute path, or that lies under `/proc` or `/dev` (for example `/proc/self/cwd`, or `/dev/fd` → `/proc/self/fd`).
 
-Since then the `CDMPath` setting has been removed altogether: Sona loads only the CDM it downloaded itself (see "Widevine CDM downloader"), so neither a settings file nor the environment can name a library.
+The `CDMPath` setting no longer exists: Sona loads only the CDM it downloaded itself (see "Widevine CDM downloader"), so neither a settings file nor the environment can name a library.
 
-**Tests:**
-- `TestImportIgnoresLocalKeysInAnySpelling` imports a fully customised document with every key, local ones included, spelled as exported, in lower case and in upper case. It also covers `"CDMPath"` and `"cdmpath"`.
-- `TestNormalizedDropsUnsafeCDMPath`.
+**Test:** `TestImportIgnoresLocalKeysInAnySpelling` imports a fully customised document with every key, local ones included, spelled as exported, in lower case and in upper case.
 
 ## F2. The CDM child sandbox blocked only inet sockets (Medium, fixed)
 
@@ -63,18 +58,16 @@ The child had the whole environment (including `DBUS_SESSION_BUS_ADDRESS`), ever
 - **Without unprivileged user namespaces** (Flatpak, user namespaces disabled), the child runs with Landlock and seccomp only. Under Ubuntu 24.04's AppArmor restriction the namespaces are created without capabilities: the child keeps its network namespace but gets no private filesystem view ("make mounts private: permission denied", seen on GitHub's ubuntu-24.04 runners). Diagnostics says why.
 - **`PR_SET_DUMPABLE=0` is not set in the parent.** Measured: a non-dumpable process gets `Portal operation not allowed: Unable to open /proc/<pid>/root` from every xdg-desktop-portal call (Settings, and with it the file chooser for settings import/export). Crash capture (`debug.SetCrashOutput`) would not have been affected. The child cannot trace the parent anyway: seccomp denies `ptrace`/`process_vm_*`, and Landlock denies its `/proc` memory and environment.
 
-**Tests and evidence:**
+**Tests:**
 - `TestSandboxConfinesChild` runs a probe child that enters the real sandbox and tries each escape. The `namespaces` subtest uses the namespace path, `landlock only` the fallback. It checks:
-  - The child cannot connect to the session bus, the system bus, resolved's socket (where present; not on the test machine), or test sockets in `$XDG_RUNTIME_DIR` and `/tmp`, nor to an abstract socket.
+  - The child cannot connect to the session bus, the system bus, resolved's socket (where present), or test sockets in `$XDG_RUNTIME_DIR` and `/tmp`, nor to an abstract socket.
   - It cannot write under `$HOME`.
   - It cannot open `AF_INET`/`AF_INET6`/`AF_NETLINK`.
   - It cannot read the parent's `/proc/<pid>/environ` or call `process_vm_readv` on it.
   - It does reach the PipeWire socket.
-
-  Observed on Linux 7.2 (Landlock ABI 10): in the namespace path, the bus sockets give "no such file or directory" and a home write gives "read-only file system". In the fallback, the bus gives "permission denied" from Landlock.
-- `TestChildEnvDropsSessionAndSecrets`, `TestChildCannotOpenInetSockets` (now also requires the mount namespace), `TestSandboxFallsBackWithoutNamespaces`.
+- `TestChildEnvDropsSessionAndSecrets`, `TestChildCannotOpenInetSockets` (also requires the mount namespace), `TestSandboxFallsBackWithoutNamespaces`.
 - `TestChildCannotOpenInetSockets` and the `namespaces` subtest skip, with the reason, only where the system refuses the namespaces: EPERM or EACCES when a probe child of the test's own creates user, network and mount namespaces (Flatpak, user namespaces disabled) or changes its mounts in them (Ubuntu 24.04's AppArmor restriction creates the namespaces but denies their capabilities). Any other failure, including a sandbox that misses a layer the system allows, fails them. CI lifts Ubuntu's restriction (`kernel.apparmor_restrict_unprivileged_userns=0`) and sets `SONA_CDMHOST_REQUIRE_NAMESPACES=1`, so there they must run.
-- Playback: `PIPEWIRE_NODE=<null sink> go run ./cmd/playspike -seek 90` played a full track with `sandbox netns=true mountns=true landlock=10 seccomp=true inet_denied=true reason=""`. The test track was "Weird Fishes / Arpeggi": first audio after 862 ms, the track advanced 12.1 s past the seek target, and the join into "Reckoner" measured 87 ms. `pw-record` of the null sink's monitor had signal in 22 of the 27 s recorded.
+- The DRM path regression (`go run ./cmd/playspike -seek 90`) prints the sandbox it got (its `sandbox` line: kind, namespaces, Landlock ABI, seccomp, `inet_denied`, reason) and plays a full track inside it.
 
 **Residual risks:**
 - The PipeWire (or PulseAudio) socket stays reachable, because output needs it. The audio server is trusted. A PulseAudio server would also accept `load-module` requests.
@@ -133,8 +126,6 @@ Go's `min`/`max` pass NaN through, so `Volume = nan` reached the snapshots, the 
 
 `internal/auth/mut/loopback.go` uses a nonce as its only secret, and that nonce is in the URL passed to `xdg-open`. That puts it in a browser's argv, which every user can read in `/proc/<pid>/cmdline` unless `/proc` is mounted with `hidepid`. Another user can then POST their own token to `/auth/<nonce>/complete` before the real redirect arrives.
 
-This item is owned by the auth flow work (`internal/auth/**`) and was left to its owners.
-
 **Suggested fix:** make `/start` single-use. It should set an `HttpOnly; SameSite=Strict; Path=/auth/<nonce>/` cookie holding a second random value that never appears in argv, and `/complete` should require that cookie.
 
 ## F8. A compromised child could exhaust the parent's memory (Low, fixed)
@@ -151,7 +142,7 @@ This item is owned by the auth flow work (`internal/auth/**`) and was left to it
 
 ## F9. Artwork decoding accepted any registered image format (Low, fixed)
 
-Found after the review, by Dependabot alert #1: `github.com/disintegration/imaging` crashes on crafted TIFF files and has no patched version. Sona used it to resize and blur artwork, and it also registers TIFF and BMP decoders with the `image` package. Artwork was decoded with `image.Decode`, which picks a decoder by sniffing the bytes, so a TIFF served for an artwork URL would have reached the vulnerable decoder (the same went for the WebP decoder Sona imported itself).
+`github.com/disintegration/imaging` crashes on crafted TIFF files and has no patched version. Sona used it to resize and blur artwork, and it also registers TIFF and BMP decoders with the `image` package. Artwork was decoded with `image.Decode`, which picks a decoder by sniffing the bytes, so a TIFF served for an artwork URL would have reached the vulnerable decoder (the same went for the WebP decoder Sona imported itself).
 
 **Fix** (`internal/artwork/image.go`, `artwork.go`, `color.go`):
 - Artwork bytes are recognised by their magic numbers and decoded with `image/jpeg` or `image/png` directly, never through the `image` format registry. Anything else fails at fetch with `artwork.ErrFormat`, is not cached, and the `/art/` handler answers 502. Apple's CDN serves JPEG or PNG for every template Sona fills.
@@ -162,7 +153,7 @@ Found after the review, by Dependabot alert #1: `github.com/disintegration/imagi
 
 ## F10. Development builds logged the build credentials (Low, fixed)
 
-Found after the review, in a macOS development run's log. The build compiles Sona's Last.fm API key and secret and its Discord application ID in with `-ldflags "-X …scrobble.lastfmKey=… -X …scrobble.lastfmSecret=… -X …discord.clientID=…"` (from `SONA_LASTFM_KEY`, `SONA_LASTFM_SECRET`, `SONA_DISCORD_CLIENT_ID`). Without `-trimpath`, Go records `-ldflags` in the binary's build info (`debug.ReadBuildInfo`), and in builds without the `production` tag Wails logs every build-info setting at startup as `"Build Info:"` (`pkg/application/application_debug.go`, `logStartup`). The record went through Sona's log handler unchanged into `sona.log` and the dev stderr, and from the log tail into the diagnostics bundle (Settings → Diagnostics → Copy diagnostics, meant for pasting into issues). Production builds were not affected: `-trimpath` keeps `-ldflags` out of the build info, and the `production` tag compiles `logStartup` out.
+The build compiles Sona's Last.fm API key and secret and its Discord application ID in with `-ldflags "-X …scrobble.lastfmKey=… -X …scrobble.lastfmSecret=… -X …discord.clientID=…"` (from `SONA_LASTFM_KEY`, `SONA_LASTFM_SECRET`, `SONA_DISCORD_CLIENT_ID`). Without `-trimpath`, Go records `-ldflags` in the binary's build info (`debug.ReadBuildInfo`), and in builds without the `production` tag Wails logs every build-info setting at startup as `"Build Info:"` (`pkg/application/application_debug.go`, `logStartup`). The record went through Sona's log handler unchanged into `sona.log` and the dev stderr, and from the log tail into the diagnostics bundle (Settings → Diagnostics → Copy diagnostics, meant for pasting into issues). Production builds were not affected: `-trimpath` keeps `-ldflags` out of the build info, and the `production` tag compiles `logStartup` out.
 
 Severity Low: the values are compiled into every distributed binary, where anyone can read them, so they are not true secrets. The exposure was a log file on the developer's own machine and any bundle copied from it.
 
@@ -276,16 +267,6 @@ The repository's GitHub Actions run on GitHub-hosted runners only (a self-hosted
 
 ## Secret scanning
 
-**History scan (2026-10-31), before the repository went public: clean.** No credential has ever been committed, and nothing has to be purged from history for secrets.
-
-Scanned: every commit reachable from any branch, tag or pull-request ref on GitHub and in the local clone, plus the pull-request heads GitHub's timeline records as force-pushed away (fetched by SHA): 104 commits, 1,662 unique files. Also every pull request's and issue's title and body, every comment, and the logs of every finished Actions run.
-
-- gitleaks 8.30.1, default rules and `.gitleaks.toml`, over `git log --all` and, separately, over every blob of every tree (which also covers merge commits): nothing beyond the fake test values listed below.
-- The local `.env`'s `MUSIC_USER_TOKEN`, `SONA_LASTFM_KEY`, `SONA_LASTFM_SECRET` and `SONA_DISCORD_CLIENT_ID`, compared byte for byte (counts only): none of them in any blob, commit message, pull request, comment or Actions log.
-- No `.env`, `.env.*`, `.p8`, `.pem`, key, keystore, keychain, log or database file was ever committed (the only file with a credential-like name, `frontend/.npmrc`, holds `minimum-release-age` alone). No PEM block, keyring dump or `Bearer` literal.
-- JWT-shaped strings: only the fake developer tokens of the redaction tests. MUT-shaped strings (long high-entropy base64): only `internal/auth/appleid/testdata/srp_vectors.json`, whose SRP vectors are made from fixed test bytes for `someone@example.com`.
-- Wails `Build Info:` and `-ldflags -X` lines appear only in docs, tests and build files, with placeholders, template variables (`{{.SONA_LASTFM_KEY}}`) or the tests' fake values; no log was ever committed (F10's leak stayed on the developer's machine).
-
 **The guard** (`.github/workflows/secret-scan.yml`, on pull requests and pushes to `main`, read-only token, no secrets): gitleaks 8.30.1 from its release, checked against the release's SHA-256, over every commit of every branch and tag (a pull request's own commits included, since they stay public through it), then over the pull request's title and body (read from the event payload, since a step's `env:` is printed in the log). The public log shows each finding's rule, commit, file and line only, as an annotation: gitleaks' own output prints the rest of the line around a secret even with `--redact`. `.gitleaks.toml` adds to gitleaks' defaults:
 
 | Rule | Catches |
@@ -297,7 +278,7 @@ Scanned: every commit reachable from any branch, tag or pull-request ref on GitH
 | `discord-client-id` | Replaces the default rule, which takes 18 digits only; Discord IDs have 17 to 20 (Sona's has 19) |
 | `secret-file` | `.env`, `.env.*`, `.p8`, `.p12`, `.pfx`, `.pem`, `.key`, keystores, SSH keys, by name |
 
-Each allowlist entry is commented and tied to its file: the fake developer tokens in `internal/logging/logging_test.go` and `internal/diag/diag_test.go` (only their two exact fake payloads), the fake Discord ID in `logging_test.go` (only that value) and the SRP vectors. The rules were checked against the real `.env` (all four values flagged) and against planted fakes on a scratch branch that was never pushed: a one-line and a split developer token, a MUT in a header map, a Last.fm secret, a Discord ID, a `.p8` key and a `.env.production` are all found, and so are the fixtures' fake payload copied to another file and a new token added to an allowlisted file.
+Each allowlist entry is commented and tied to its file: the fake developer tokens in `internal/logging/logging_test.go` and `internal/diag/diag_test.go` (only their two exact fake payloads), the fake Discord ID in `logging_test.go` (only that value) and the SRP vectors (`internal/auth/appleid/testdata/srp_vectors.json`, made from fixed test bytes). After changing a rule, check it against planted fakes on a branch you never push: a one-line and a split developer token, a MUT in a header map, a Last.fm secret, a Discord ID, a `.p8` key, a `.env.production`, a fixture's fake payload copied to another file and a new token added to an allowlisted file must all be found.
 
 Locally: `nix run nixpkgs#gitleaks -- git --config .gitleaks.toml --redact .` (all local branches) or `… dir --config .gitleaks.toml --redact .` (the working tree, uncommitted files included).
 
