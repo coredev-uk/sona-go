@@ -28,10 +28,25 @@ const colorsTimeout = 1500 * time.Millisecond
 // motionOf (editorialVideo → motion cover URL),
 // libSong/libSongs/libAlbum/libAlbums/libArtist/libPlaylist (library rows),
 // amSong/amSongs/amAlbum/amAlbums/amArtist/amArtists/amPlaylist/amPlaylists
-// (Apple resources, catalog or library-typed).
+// (Apple resources, catalog or library-typed). now (Deps.Now; time.Now
+// when nil) decides what is still unreleased (release.go).
 type mapper struct {
 	art    *artwork.Cache
 	motion *motion.Cache
+	now    func() time.Time
+}
+
+func (m mapper) clock() time.Time {
+	if m.now == nil {
+		return time.Now()
+	}
+	return m.now()
+}
+
+// release fills an album's release state from its date and Apple's flag.
+func (m mapper) release(a *Album, flagged bool) {
+	a.ReleaseAt = releaseAt(a.ReleaseDate)
+	a.Prerelease = upcoming(a.ReleaseDate, flagged, m.clock())
 }
 
 // artwork maps an Apple artwork descriptor: its URLs carry the shape Apple
@@ -129,8 +144,9 @@ func (m mapper) libSong(s library.Song) Song {
 		Genre:       s.Genre,
 		Explicit:    s.Explicit,
 		HasLyrics:   s.HasLyrics,
-		Playable:    s.CatalogID != "" || s.LibraryID != "", // uploads play from their library ID
-		Art:         m.artOf(s.ArtworkTemplate),
+		// Uploads play from their library ID; songs not out yet don't.
+		Playable: (s.CatalogID != "" || s.LibraryID != "") && !upcoming(s.ReleaseDate, false, m.clock()),
+		Art:      m.artOf(s.ArtworkTemplate),
 	}
 }
 
@@ -143,7 +159,7 @@ func (m mapper) libSongs(in []library.Song) []Song {
 }
 
 func (m mapper) libAlbum(a library.Album) Album {
-	return Album{
+	out := Album{
 		ID:          a.LibraryID,
 		Source:      SourceLibrary,
 		CatalogID:   a.CatalogID,
@@ -158,6 +174,8 @@ func (m mapper) libAlbum(a library.Album) Album {
 		DateAdded:   unixMs(a.DateAdded),
 		Art:         m.artOf(a.ArtworkTemplate),
 	}
+	m.release(&out, false)
+	return out
 }
 
 func (m mapper) libAlbums(in []library.Album) []Album {
@@ -236,7 +254,7 @@ func (m mapper) amSong(s applemusic.Song) Song {
 		Genre:       firstOf(a.GenreNames),
 		Explicit:    a.ContentRating == "explicit",
 		HasLyrics:   a.HasLyrics,
-		Playable:    a.PlayParams != nil,
+		Playable:    a.PlayParams != nil && !upcoming(a.ReleaseDate, false, m.clock()),
 		Traits:      traitsOf(a.AudioTraits, a.IsAppleDigitalMaster || a.IsMasteredForItunes),
 		Art:         m.artwork(a.Artwork),
 	}
@@ -283,6 +301,7 @@ func (m mapper) amAlbum(a applemusic.Album) Album {
 	if d := a.Relationships.Artists.Data; len(d) > 0 {
 		out.ArtistID = d[0].ID
 	}
+	m.release(&out, at.IsPrerelease)
 	return out
 }
 

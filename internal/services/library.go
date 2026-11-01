@@ -135,8 +135,12 @@ func (s *LibraryService) Album(ctx context.Context, id string) (AlbumDetail, err
 		return AlbumDetail{}, err
 	}
 	tracks := s.m.libSongs(songs)
+	album := s.m.libAlbum(a)
+	if album.Prerelease {
+		markUnreleased(tracks, s.m.clock())
+	}
 	return AlbumDetail{
-		Album:      s.m.libAlbum(a),
+		Album:      album,
 		Tracks:     tracks,
 		DurationMs: totalMs(tracks),
 		InLibrary:  true,

@@ -54,6 +54,7 @@ func TestErrorCode(t *testing.T) {
 		{&applemusic.StatusError{Status: "403 Forbidden", Code: 403}, CodeUnauthorized},
 		{&applemusic.StatusError{Status: "404 Not Found", Code: 404}, CodeNotFound},
 		{fmt.Errorf("play: %w", applemusic.ErrNotPlayable), CodeNotPlayable},
+		{fmt.Errorf("track catalog/1: %w", ErrNotReleased), CodeNotReleased},
 		{library.ErrSyncRunning, CodeSyncRunning},
 		{&url.Error{Op: "Get", URL: "https://api.music.apple.com", Err: errors.New("dial tcp: no route")}, CodeNetwork},
 		{errors.New("boom"), CodeUnknown},

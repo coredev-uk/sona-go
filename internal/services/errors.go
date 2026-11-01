@@ -38,6 +38,7 @@ const (
 	CodeUnauthorized       = "unauthorized" // Apple refused the request (401/403); auth triage runs
 	CodeNotFound           = "not_found"
 	CodeNotPlayable        = "not_playable"
+	CodeNotReleased        = "not_released" // the song isn't out yet (ErrNotReleased)
 	CodeSyncRunning        = "sync_running"
 	CodeInvalidArgument    = "invalid_argument"
 	CodeConflict           = "conflict"       // the item changed elsewhere since it was read
@@ -92,6 +93,8 @@ func ErrorCode(err error) string {
 		return CodeNotSignedIn
 	case errors.Is(err, applemusic.ErrNotPlayable):
 		return CodeNotPlayable
+	case errors.Is(err, ErrNotReleased):
+		return CodeNotReleased
 	case errors.Is(err, applemusic.ErrUnauthorized):
 		return CodeUnauthorized
 	case errors.Is(err, applemusic.ErrNotFound), errors.Is(err, library.ErrNotFound), errors.Is(err, catalog.ErrNoStorefront):

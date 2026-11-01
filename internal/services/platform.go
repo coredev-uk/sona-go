@@ -57,7 +57,8 @@ type MediaControls interface {
 	Close() error
 }
 
-// Notifier shows Sona's one track notification.
+// Notifier shows one replaceable notification: the track notification, or
+// one release reminder (each reminder has its own).
 type Notifier interface {
 	// Show replaces the shown notification with n.
 	Show(ctx context.Context, n notify.Notification) error

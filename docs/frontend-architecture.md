@@ -733,6 +733,26 @@ each OS (true on Linux wherever the feature works), regenerate the bindings
 with a test showing the control hidden when false and shown when true
 (`shared/testing/capabilities.ts` has Linux and bare fixtures).
 
+## Pre-release albums
+
+`shared/lib/release.ts` reads Go's `Album.prerelease` and `releaseAt`
+(local midnight on the release date): `isUpcoming` (also compared with the
+clock, so an open page sees the release), `releaseBadge` ("Out 19 Nov",
+Intl, locale-aware) and the long and short release days. Album tiles
+(`albumTile`, `toCoverItem`) carry the badge as `CoverItem.badge`, drawn on
+the cover's corner instead of a play control (`canPlay` is false for an
+upcoming album) and read after the title by assistive technology. The album
+page (`features/album/ReleaseStatus.tsx`) replaces Play and Shuffle with
+the countdown (`formatTimeLeft`, re-read every minute with
+`shared/lib/useNow`), "Remind me" and, signed in, "Pre-add"
+(`LibraryButton`'s `addLabel`; the menu says "Pre-add to library"); the
+songs already out still play from their rows, and Go refuses the rest
+(`not_released`). When the release passes, the page reloads the album.
+`features/reminders` mirrors Go's `RemindersService` ("reminders:changed"),
+owns `RemindButton` (hidden without `Capabilities.notifications`) and the
+album menu's "Remind me" / "Turn off reminder"; it sends the notification's
+body ("Out now · {artist}") in the interface's language.
+
 ## Boundaries
 
 Enforced by `no-restricted-imports` in `frontend/eslint.config.js`:

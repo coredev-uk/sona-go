@@ -78,14 +78,21 @@ type Album struct {
 	Name        string `json:"name"`
 	Artist      string `json:"artistName"`
 	ArtistID    string `json:"artistId"`
-	ReleaseDate string `json:"releaseDate"`
-	Genre       string `json:"genre"`
-	TrackCount  int    `json:"trackCount"`
-	Explicit    bool   `json:"explicit"`
-	Single      bool   `json:"single"`
-	DateAdded   int64  `json:"dateAdded"` // library only
-	Traits      Traits `json:"traits"`
-	Art         Art    `json:"art"`
+	ReleaseDate string `json:"releaseDate"` // YYYY-MM-DD, a year alone, or ""
+	// ReleaseAt is when the album comes out (local midnight on
+	// ReleaseDate, Unix ms; 0 when ReleaseDate isn't a full date).
+	// Prerelease: not out yet, so its unreleased songs don't play
+	// (release.go). It is decided when the DTO is made: compare ReleaseAt
+	// with the clock to see the release happen.
+	ReleaseAt  int64  `json:"releaseAt"`
+	Prerelease bool   `json:"prerelease"`
+	Genre      string `json:"genre"`
+	TrackCount int    `json:"trackCount"`
+	Explicit   bool   `json:"explicit"`
+	Single     bool   `json:"single"`
+	DateAdded  int64  `json:"dateAdded"` // library only
+	Traits     Traits `json:"traits"`
+	Art        Art    `json:"art"`
 }
 
 // Artist is an artist from the library or the catalog.

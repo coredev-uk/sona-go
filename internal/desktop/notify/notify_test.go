@@ -147,12 +147,18 @@ func TestShowReplacesPrevious(t *testing.T) {
 	if got := first.hints["desktop-entry"].Value(); got != "dev.coredev.Sona" {
 		t.Errorf("desktop-entry = %v", got)
 	}
-	second := h.show(t, Notification{Summary: "Next song"})
+	if got := first.hints["urgency"].Value(); got != byte(0) {
+		t.Errorf("urgency = %v, want low", got)
+	}
+	second := h.show(t, Notification{Summary: "Next song", Urgency: UrgencyNormal})
 	if second.replaces != 1 {
 		t.Errorf("second replaces %d, want 1", second.replaces)
 	}
 	if _, ok := second.hints["image-path"]; ok {
 		t.Error("image-path sent without an image")
+	}
+	if got := second.hints["urgency"].Value(); got != byte(1) {
+		t.Errorf("urgency = %v, want normal", got)
 	}
 }
 

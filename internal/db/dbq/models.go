@@ -157,6 +157,16 @@ type RecentSearch struct {
 	SearchedAt int64
 }
 
+type ReleaseReminder struct {
+	AlbumID         string
+	Name            string
+	ArtistName      string
+	ArtworkTemplate string
+	ReleaseAt       int64
+	Message         string
+	CreatedAt       int64
+}
+
 type SearchFt struct {
 	Kind    string
 	Ref     string

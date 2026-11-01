@@ -37,6 +37,7 @@ const codeMessages: Record<string, MessageDescriptor> = {
   unauthorized: msg`Apple Music refused the request.`,
   not_found: msg`It couldn't be found. It may have been removed.`,
   not_playable: msg`This song isn't available to stream in your storefront.`,
+  not_released: msg`This song isn't out yet. It plays from its release date.`,
   sync_running: msg`A library sync is already running.`,
   private_forced: msg`Private listening stays on because Sona was started with SONA_PRIVATE=1.`,
   invalid_argument: msg`That value isn't valid.`,

@@ -123,12 +123,13 @@ func TestWipeUserData(t *testing.T) {
 	_, err = q.InsertHistory(ctx, dbq.InsertHistoryParams{PlayedAt: 1, ItemID: "9"})
 	must(err)
 	must(q.StartSync(ctx, dbq.StartSyncParams{Domain: "songs", Generation: 1}))
+	must(q.PutReminder(ctx, dbq.PutReminderParams{AlbumID: "7", Name: "Soon", ReleaseAt: 2, CreatedAt: 1}))
 
 	must(d.WipeUserData(ctx))
 
 	for table, want := range map[string]int{
 		"tracks": 1, "catalog_cache": 1, "playlists": 0, "playlist_tracks": 0, "library_items": 0,
-		"accounts": 0, "favorites": 0, "pins": 0, "playback_history": 0, "sync_state": 0,
+		"accounts": 0, "favorites": 0, "pins": 0, "playback_history": 0, "sync_state": 0, "release_reminders": 0,
 	} {
 		var n int
 		must(d.R.QueryRowContext(ctx, "SELECT count(*) FROM "+table).Scan(&n))

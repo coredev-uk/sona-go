@@ -3,7 +3,6 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { CircleSlash } from "lucide-react";
-import { useEffect, useState } from "react";
 
 import { ActionMenu } from "@/shared/actions/ActionMenu";
 import { Artwork } from "@/shared/components/Artwork";
@@ -12,6 +11,7 @@ import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { PlayButtons } from "@/shared/components/PlayButtons";
 import { formatTime } from "@/shared/lib/format";
 import { useNowPlaying } from "@/shared/lib/now-playing";
+import { useNow } from "@/shared/lib/useNow";
 import { cn } from "@/shared/lib/utils";
 
 import { playStation } from "./commands";
@@ -217,16 +217,6 @@ function Upcoming({ songs }: { songs: Song[] }) {
       </ol>
     </section>
   );
-}
-
-/** Re-renders every `ms` so the on-air marker follows the clock. */
-function useNow(ms: number): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), ms);
-    return () => window.clearInterval(t);
-  }, [ms]);
-  return now;
 }
 
 /**

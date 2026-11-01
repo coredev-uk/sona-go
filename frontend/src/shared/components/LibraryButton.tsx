@@ -9,18 +9,21 @@ import { addToLibrary, removeFromLibrary } from "@/shared/lib/library-actions";
 
 /**
  * A header's library control: "Add" for a catalog item outside the
- * library, "In library" once it is there (choosing it offers removal,
- * with a confirmation). Membership comes from the batched library state,
- * so it is right on every page without a sync.
+ * library (`addLabel` names it otherwise: "Pre-add" for an album not out
+ * yet), "In library" once it is there (choosing it offers removal, with a
+ * confirmation). Membership comes from the batched library state, so it
+ * is right on every page without a sync.
  */
 export function LibraryButton({
   kind,
   item,
   name,
+  addLabel,
 }: {
   kind: "songs" | "albums" | "playlists" | "music-videos";
   item: StateItem;
   name: string;
+  addLabel?: string;
 }) {
   const { t } = useLingui();
   const state = useItemState(kind, item);
@@ -34,7 +37,7 @@ export function LibraryButton({
         onClick={() => void addToLibrary(kind, [item], name)}
       >
         <Plus strokeWidth={1.75} />
-        <Trans>Add</Trans>
+        {addLabel ?? <Trans>Add</Trans>}
       </Button>
     );
   }

@@ -60,6 +60,22 @@ export function formatRunningTime(ms: number): string {
   );
 }
 
+/**
+ * The time left until a moment, in words and to the minute, never finer:
+ * days and hours a day or more ahead, then hours and minutes ("18 days,
+ * 6 hours", "5 hours, 12 minutes", "1 minute").
+ */
+export function formatTimeLeft(ms: number): string {
+  const minutes = Math.max(1, Math.ceil(ms / 60_000));
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const duration =
+    days > 0 ? { days, hours } : hours > 0 ? { hours, minutes: minutes % 60 } : { minutes };
+  return cached("duration-long", {}, (l) => new Intl.DurationFormat(l, { style: "long" })).format(
+    duration,
+  );
+}
+
 /** The year of an ISO date ("2008-06-02" or "2008"), or "". */
 export function yearOf(date: string | undefined): string {
   const m = date?.match(/^(\d{4})/);

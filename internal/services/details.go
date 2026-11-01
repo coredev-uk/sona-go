@@ -39,6 +39,9 @@ func (s *CatalogService) albumPage(ctx context.Context, a applemusic.Album) Cata
 			tracks[i].ArtistID = album.ArtistID
 		}
 	}
+	if album.Prerelease {
+		markUnreleased(tracks, s.m.clock())
+	}
 	notes := ""
 	if n := at.EditorialNotes; n != nil {
 		notes = plainText(n.Standard)
@@ -64,7 +67,6 @@ func (s *CatalogService) albumPage(ctx context.Context, a applemusic.Album) Cata
 		NotesShort:    short,
 		Artists:       s.m.amArtists(a.Relationships.Artists.Data),
 		PopularIDs:    popularTracks(a.Relationships.Tracks.Data),
-		Prerelease:    at.IsPrerelease,
 		URL:           at.URL,
 		MoreByArtist:  s.m.amAlbums(v.MoreByArtist.Data),
 		Similar:       s.m.amAlbums(v.YouMightAlsoLike.Data),

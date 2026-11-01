@@ -29,6 +29,12 @@ export interface CoverItem {
   /** A play control on the cover, for items that play directly. */
   play?: { label: string; run: () => void };
   /**
+   * A short note on the cover's corner, where the play control would be:
+   * an upcoming album's release date ("Out 19 Nov"). Also read after the
+   * title by assistive technology.
+   */
+  badge?: string;
+  /**
    * What the tile is, for its "more" menu, right-click, selection and drag
    * (songs, albums, playlists, artists, stations). Tiles without one (music
    * videos, web-only items) have no menu and cannot be selected.
@@ -94,6 +100,7 @@ export const CoverTile = memo(function CoverTile({
   const title = (
     <span className="truncate group-hover/tile:underline group-hover/tile:underline-offset-2">
       {item.title}
+      {item.badge && <span className="sr-only">, {item.badge}</span>}
     </span>
   );
   // The title is the tile's one link; its ::after stretches over the whole
@@ -132,6 +139,14 @@ export const CoverTile = memo(function CoverTile({
           >
             <Play fill="currentColor" strokeWidth={0} className="size-4 translate-x-px" />
           </button>
+        )}
+        {item.badge && !item.play && (
+          <span
+            aria-hidden
+            className="absolute bottom-2 left-2 rounded-md bg-raised px-1.5 py-0.5 text-meta font-medium text-ink num ring-1 ring-ink/10"
+          >
+            {item.badge}
+          </span>
         )}
       </div>
       <div className="mt-2 flex h-5 min-w-0 items-center gap-1">

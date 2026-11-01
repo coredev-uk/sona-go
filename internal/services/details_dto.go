@@ -14,8 +14,7 @@ type CatalogAlbum struct {
 	Artists []Artist `json:"artists"`
 	// PopularIDs are the IDs of the album's most played tracks (at most 3).
 	PopularIDs []string `json:"popularIds"`
-	Prerelease bool     `json:"prerelease"` // not released yet
-	URL        string   `json:"url"`        // music.apple.com page
+	URL        string   `json:"url"` // music.apple.com page
 	// Sections, each empty when Apple has none.
 	MoreByArtist  []Album      `json:"moreByArtist"`
 	Similar       []Album      `json:"similar"` // "you might also like"

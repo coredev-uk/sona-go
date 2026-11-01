@@ -2,6 +2,7 @@ import type { Item } from "@bindings/services";
 import { Browser } from "@wailsio/runtime";
 
 import type { CoverItem } from "@/shared/components/CoverGrid";
+import { releaseBadge } from "@/shared/lib/release";
 
 import { actionItemOf, itemAspect, itemLink, itemShape, itemSubtitle } from "./links";
 import { canPlay, playItem } from "./play";
@@ -13,8 +14,9 @@ export function openExternal(item: Item) {
 
 /**
  * An Item as a cover tile: its page, a play control when it plays
- * directly, and its "more" menu. `onOpen` runs whenever the tile is opened
- * (search remembers opened items).
+ * directly, an upcoming album's release date, and its "more" menu.
+ * `onOpen` runs whenever the tile is opened (search remembers opened
+ * items).
  */
 export function toCoverItem(item: Item, index: number, onOpen?: (item: Item) => void): CoverItem {
   const link = itemLink(item);
@@ -33,6 +35,7 @@ export function toCoverItem(item: Item, index: number, onOpen?: (item: Item) => 
           openExternal(item);
         },
     play: canPlay(item) ? { label: item.name, run: () => playItem(item) } : undefined,
+    badge: item.album ? releaseBadge(item.album) : undefined,
     target: actionItemOf(item),
   };
 }

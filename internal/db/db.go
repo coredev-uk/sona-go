@@ -136,13 +136,15 @@ DELETE FROM sync_state;
 DELETE FROM accounts;
 DELETE FROM search_fts;
 DELETE FROM recent_searches;
+DELETE FROM release_reminders;
 DELETE FROM discover_cache WHERE personal = 1;
 `
 
 // WipeUserData deletes everything tied to the signed-in user (library rows
 // and membership, playlists, history, ratings, pins, sync checkpoints, the
-// account row and the search index) for sign-out. Catalog rows and the
-// catalog response cache are storefront data, not user data, and are kept.
+// account row, the search index, recent searches and release reminders)
+// for sign-out. Catalog rows and the catalog response cache are storefront
+// data, not user data, and are kept.
 func (d *DB) WipeUserData(ctx context.Context) error {
 	tx, err := d.W.BeginTx(ctx, nil)
 	if err != nil {
@@ -165,6 +167,7 @@ UNION SELECT artwork_template FROM artists WHERE library_id IS NOT NULL
 UNION SELECT artwork_template FROM pins
 UNION SELECT artwork_template FROM playback_history
 UNION SELECT art_url FROM recent_searches
+UNION SELECT artwork_template FROM release_reminders
 `
 
 // catalogArtwork lists the artwork templates of catalog rows.
