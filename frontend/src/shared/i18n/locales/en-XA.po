@@ -3088,6 +3088,16 @@ msgstr ""
 msgid "Now playing"
 msgstr ""
 
+#. Said by screen readers when a song starts. A preview is Apple Music's 30-second clip of the song, not the full song.
+#: src/features/player/TrackAnnouncer.tsx
+msgid "Now playing a preview: {name}"
+msgstr ""
+
+#. Said by screen readers when a song starts. A preview is Apple Music's 30-second clip of the song, not the full song.
+#: src/features/player/TrackAnnouncer.tsx
+msgid "Now playing a preview: {name} by {artist}"
+msgstr ""
+
 #: src/features/player/TrackAnnouncer.tsx
 msgid "Now playing: {name}"
 msgstr ""

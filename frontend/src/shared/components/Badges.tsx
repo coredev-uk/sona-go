@@ -1,5 +1,6 @@
 import type { Traits } from "@bindings/services";
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useId } from "react";
 
 import { traitLabels } from "@/shared/lib/traits";
 import { cn } from "@/shared/lib/utils";
@@ -22,14 +23,29 @@ export function ExplicitMark({ className }: { className?: string }) {
   );
 }
 
+/**
+ * A small bordered label. Its title is the hover tooltip; WebKitGTK passes
+ * the title of this inline-flex box to no assistive technology, so the text
+ * inside is described by a hidden copy of it. The description sits on the
+ * inner text, not the box: beside a title, aria-describedby makes WebKitGTK
+ * name the box by its title, which would hide the label's own text.
+ */
 function Tag({ children, title }: { children: string; title?: string }) {
+  const id = useId();
   return (
-    <span
-      title={title}
-      className="inline-flex h-5 flex-none items-center rounded-[4px] border border-control-line px-1.5 text-[11px] leading-none font-medium whitespace-nowrap text-ink-muted"
-    >
-      {children}
-    </span>
+    <>
+      <span
+        title={title}
+        className="inline-flex h-5 flex-none items-center rounded-[4px] border border-control-line px-1.5 text-[11px] leading-none font-medium whitespace-nowrap text-ink-muted"
+      >
+        {title ? <span aria-describedby={id}>{children}</span> : children}
+      </span>
+      {title && (
+        <span id={id} hidden>
+          {title}
+        </span>
+      )}
+    </>
   );
 }
 

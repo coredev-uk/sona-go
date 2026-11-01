@@ -7,9 +7,13 @@ const track = (id: string) =>
   ({ id, name: `Song ${id}`, artistName: "Artist" }) as NonNullable<PlaybackState["current"]>;
 
 describe("announcedTrack", () => {
-  it("announces a new track that starts", () => {
-    expect(announcedTrack(undefined, { state: "loading", current: track("a") })?.id).toBe("a");
+  it("announces a new track once it plays", () => {
+    expect(announcedTrack(undefined, { state: "playing", current: track("a") })?.id).toBe("a");
     expect(announcedTrack("a", { state: "playing", current: track("b") })?.id).toBe("b");
+  });
+
+  it("waits while the new track loads: whether it is a preview is not known yet", () => {
+    expect(announcedTrack("a", { state: "loading", current: track("b") })).toBeNull();
   });
 
   it("stays quiet for the same track: pause, resume, seek", () => {
