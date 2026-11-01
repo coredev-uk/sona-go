@@ -32,7 +32,7 @@ var (
 	linuxOptions application.LinuxOptions
 	macOptions   = application.MacOptions{
 		// The shell hides windows rather than closing them and quits
-		// itself (Settings → Desktop); keep running with no window.
+		// itself (Settings → General); keep running with no window.
 		ApplicationShouldTerminateAfterLastWindowClosed: false,
 	}
 	windowsOptions = application.WindowsOptions{

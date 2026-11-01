@@ -128,20 +128,20 @@ src/
                           through settings' useUpdateSettings; EqualizerButton for the player bar.
                           Settings → Playback links here (a route Link, no import, so settings
                           never depends on it)
-    settings              Settings page and Playback/Appearance/Desktop/Shortcuts/Storage/
-                          Diagnostics sections (Playback: the Widevine row (CdmRow: version,
-                          source, a running download's progress bar, Retry after a failed
-                          download or update check); Storage: artwork cache limit, cache and
-                          database sizes, clear caches,
+    settings              Settings page (a route, /settings?section=…; see "Settings" below)
+                          and its Account/General/Playback/Appearance/Connections/Shortcuts/
+                          Storage/Diagnostics sections (General: starting Sona, the window,
+                          while music plays, updates; Playback: the Widevine row (CdmRow:
+                          version, source, a running download's progress bar, Retry after a
+                          failed download or update check), Sound, Listening, Advanced;
+                          Storage: artwork cache limit, cache and database sizes, clear caches,
                           compact the database, export/import the settings file through Go's
-                          portal chooser; Desktop:
-                          close action, autostart, start page, resume, window size;
-                          Diagnostics: checks (the Widevine CDM's state, source, version and
-                          update check beside the probe's checks; Motion artwork: every input,
-                          the codecs, power source, last video and download), Copy diagnostics →
-                          redacted bundle from Go (with the web view's MotionService.Report),
-                          the Updates group; Shortcuts: rebinding with conflict checks),
-                          appearance store (Appearance: theme, reduce effects, motion
+                          portal chooser; Diagnostics: checks (the Widevine CDM's state,
+                          source, version and update check beside the probe's checks; Motion
+                          artwork: every input, the codecs, power source, last video and
+                          download), Copy diagnostics → redacted bundle from Go (with the web
+                          view's MotionService.Report); Shortcuts: rebinding with conflict
+                          checks), appearance store (Appearance: theme, reduce effects, motion
                           artwork), useSettings/useUpdateSettings
     commands              Ctrl+K command palette (pages, actions, library items; rank + test),
                           "?" shortcut help sheet
@@ -165,7 +165,7 @@ src/
                           (useUpdateSettings). Every step can be skipped; reaching Done or "Skip
                           setup" saves settings.onboarding.completed. Go opens the window here on a
                           first start (services.StartRoute: no completed flag and no account in
-                          SQLite); Settings → Desktop's SetupRow links back
+                          SQLite); Settings → General's SetupRow links back
 ```
 
 Tests sit next to their code (`*.test.ts`). Vitest runs every file in jsdom
@@ -782,6 +782,48 @@ through its suggestions (an ARIA combobox), Enter opens the active one or
 searches, Esc closes the list, and ↓ with the list closed moves into the
 results.
 
+## Settings
+
+Settings is a page, `/settings?section=<id>` (`features/settings`), not a
+dialog. Deep links (the status banner, the player bar's Widevine notice,
+empty states, the shortcut help) name a section; Back and Forward leave it
+like any page; the player bar stays live while you change what you hear;
+the equaliser and other pages it links to open in place; dialogs inside a
+section (Reset all shortcuts, Disconnect) never stack on another dialog;
+and the 940×600 minimum window keeps its whole content area.
+
+- **Sections**, in order: Account, General, Playback, Appearance,
+  Connections, Shortcuts, Storage, Diagnostics (`search-params.ts`). A
+  section is one entry there plus its title and component in
+  `Settings.tsx`. Choosing a section replaces the history entry.
+  `/settings` with no section, or one that no longer exists (old links to
+  `desktop`), opens the section shown last in this run, at first the first
+  one, so removing a section from the list needs no other change.
+- **Groups**: a section is a stack of groups (`SettingsSections`), each an
+  h3 over one panel (`SettingsGroup`), with an optional untitled panel
+  first for a state that needs attention (Playback's Widevine row). Rows
+  are `SettingRow`: label and description on the left (the description is
+  the control's `aria-describedby`), the control on the right; selects use
+  `SELECT_WIDTH`, which grows with a long value instead of cutting it.
+  Below 960px the section list wraps above the content and the section
+  heading is visually hidden.
+- **General** holds starting Sona (start at login, start in the tray once
+  that is on, Open on with "The page you were last on" as its first
+  choice), the window (close action, title bar, size), while music plays
+  (track notifications, stay awake) and updates. A Language setting
+  belongs at the top of General; first-run setup's "Set up Sona again" row
+  is the last row of its Starting Sona group.
+- **Playback**: Widevine's state first (the notice in the player bar links
+  here), then Sound (quality, output, Sound Check, equaliser, crossfade),
+  Listening (private listening, replacing the queue) and Advanced (the idle
+  playback host).
+- **Saving**: each control saves itself through `useUpdateSettings`
+  (optimistic, rolled back with a toast on failure; `settings:changed`
+  confirms). The volume is not a Settings row: the player bar, MPRIS and
+  `sona volume` set it on the coordinator, `PlaybackService` saves it, and
+  `SystemService.UpdateSettings` keeps the saved volume whatever the page
+  sends, so an older copy of the settings never moves it.
+
 ## Platform capabilities
 
 Sona builds for Linux, macOS and Windows, but not everything works
@@ -809,12 +851,15 @@ which `callFailure` words as "That isn't available on this platform."
 
 Gated today: the player bar's volume and the volume and mute shortcuts
 (`playback.volume`); the equaliser button, Settings row, page and shortcut
-(`playback.equalizer`); Settings → Playback's volume, output, Sound Check,
-crossfade rows (their `playback.*` fields), the idle host and Widevine
-rows (`playback.engine === "cdm"`);
-Settings → Desktop's close action (`tray`), start at login (`autostart`),
-start in the tray (`autostart` and `tray`), track notifications
-(`notifications`) and stay awake (`sleepInhibit`); the Discord section of
+(`playback.equalizer`); all of Settings → Playback but its "isn't
+available" note (`playback.available`), and within it the output, Sound
+Check and crossfade rows (their `playback.*` fields), private listening
+(`playback.privateListening`), the idle host and Widevine rows
+(`playback.engine === "cdm"`);
+Settings → General's close action (`tray`), start at login (`autostart`),
+start in the tray (`autostart` and `tray`, shown once start at login is
+on), track notifications (`notifications`) and stay awake
+(`sleepInhibit`), with their group; the Discord section of
 Connections (`discordPresence`); the settings file export and import
 (`fileChooser`); motion artwork's "paused on battery" note (`powerState`);
 Diagnostics' WebKitGTK rows and rendering switches (`webkitGtk`). Diagnostics

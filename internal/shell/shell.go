@@ -58,7 +58,7 @@ type Options struct {
 	// tray only, until the user asks for a window.
 	Hidden bool
 	// TitleBar is how title bars work on this platform; with the user's
-	// choice (Settings → Desktop → Title bar) it decides whether the main
+	// choice (Settings → General → Title bar) it decides whether the main
 	// window is frameless (titlebar.go).
 	TitleBar windowchrome.Platform
 	// StartRoute is the route the main window opens on
@@ -159,7 +159,7 @@ func New(o Options) *Shell {
 }
 
 // close handles a window's close button: hide it and keep playing, or
-// quit, as Settings → Desktop says.
+// quit, as Settings → General says.
 func (s *Shell) close(w *application.WebviewWindow) {
 	if s.o.Settings.Get().Desktop.CloseAction == config.CloseQuits {
 		s.Quit()

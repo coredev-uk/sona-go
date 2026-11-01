@@ -12,7 +12,7 @@ import { Button } from "@/shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
 import { useSettings, useUpdateSettings } from "./queries";
-import { SettingRow, SettingsPanel } from "./SettingRow";
+import { SELECT_WIDTH, SettingRow, SettingsPanel } from "./SettingRow";
 import { SettingsFileRows } from "./SettingsFileRows";
 
 /** Artwork cache limits offered, in MiB. */
@@ -93,7 +93,7 @@ export function StorageSection() {
               Covers and backdrops kept on this computer so pages open without downloading them
               again. Above the limit, the artwork shown least recently is removed first.
             </Trans>{" "}
-            <span className="text-ink num">
+            <span className="text-ink">
               <Trans>
                 {artworkUsed} of {artworkLimit} used.
               </Trans>
@@ -111,7 +111,7 @@ export function StorageSection() {
             )
           }
         >
-          <SelectTrigger id="art-cache" aria-describedby="art-cache-desc" className="h-8 w-44">
+          <SelectTrigger id="art-cache" aria-describedby="art-cache-desc" className={SELECT_WIDTH}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -135,7 +135,7 @@ export function StorageSection() {
               Apple Music pages kept so they open at once and while offline; expired pages are
               removed every few hours.
             </Trans>{" "}
-            <span className="text-ink num">
+            <span className="text-ink">
               <Plural
                 value={catalogEntries}
                 one={`# page, ${catalogSize}.`}
@@ -173,7 +173,7 @@ export function StorageSection() {
                 idle and nothing is playing.
               </Trans>
             )}{" "}
-            <span className="text-ink num">
+            <span className="text-ink">
               {u.databaseFreeBytes > 0 ? (
                 <Trans>
                   {databaseSize}, of which {databaseFree} is free space.

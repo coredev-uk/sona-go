@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/shared/ui/switch";
 
 import { useSettings, useUpdateSettings } from "./queries";
-import { SettingRow } from "./SettingRow";
+import { SELECT_WIDTH, SettingRow } from "./SettingRow";
 
 /** The value standing for "follow the system default" (Radix Select needs a non-empty value). */
 const SYSTEM = "system-default";
@@ -49,7 +49,7 @@ function OutputRow() {
           update.mutate({ ...s, audio: { ...s.audio, outputDevice: v === SYSTEM ? "" : v } })
         }
       >
-        <SelectTrigger id="output" aria-describedby="output-desc" className="h-8 w-60">
+        <SelectTrigger id="output" aria-describedby="output-desc" className={SELECT_WIDTH}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

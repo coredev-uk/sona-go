@@ -11,9 +11,9 @@ import { keys } from "@/shared/lib/keys";
 import { run } from "@/shared/lib/run";
 
 import { useSettings, useUpdateSettings } from "./queries";
-import { SettingRow, SettingsPanel } from "./SettingRow";
+import { SettingRow, SettingsGroup } from "./SettingRow";
 
-/** Settings → Diagnostics: the start-up update check and its latest result. */
+/** Settings → General: the start-up update check and its latest result. */
 export function UpdatesGroup() {
   const { t } = useLingui();
   const verdict = (st: UpdateStatus): { text: string; detail?: string; ok?: boolean } => {
@@ -59,83 +59,74 @@ export function UpdatesGroup() {
   const failure = check.error ? callFailure(check.error).message : undefined;
 
   return (
-    <section className="mt-6">
-      <h3 className="mb-2 text-ui font-semibold text-ink">
-        <Trans>Updates</Trans>
-      </h3>
-      <SettingsPanel>
-        {s && (
-          <SettingRow
+    <SettingsGroup id="general-updates" title={t`Updates`}>
+      {s && (
+        <SettingRow
+          id="updates-check"
+          title={t`Check for updates when Sona starts`}
+          description={t`Asks GitHub for the newest Sona release once the window has opened. Nothing about you, your account or your library is sent.`}
+        >
+          <Switch
             id="updates-check"
-            title={t`Check for updates when Sona starts`}
-            description={t`Asks GitHub for the newest Sona release once the window has opened. Nothing about you, your account or your library is sent.`}
-          >
-            <Switch
-              id="updates-check"
-              aria-describedby="updates-check-desc"
-              checked={s.updates.check}
-              onCheckedChange={(on) =>
-                update.mutate({ ...s, updates: { ...s.updates, check: on } })
-              }
-            />
-          </SettingRow>
-        )}
-        {st && v && (
-          <div className="flex items-start justify-between gap-8 py-4" aria-live="polite">
-            <div className="min-w-0">
-              <p className="flex items-start gap-2 text-sub text-ink">
-                {v.ok === true && (
-                  <CircleCheck
-                    aria-hidden
-                    className="mt-px size-4 shrink-0 text-positive"
-                    strokeWidth={1.75}
-                  />
-                )}
-                {(v.ok === false || failure) && (
-                  <CircleAlert
-                    aria-hidden
-                    className="mt-px size-4 shrink-0 text-danger"
-                    strokeWidth={1.75}
-                  />
-                )}
-                <span className={st.available ? "font-medium" : undefined}>
-                  {failure ? t`Couldn't check: ${failure}` : v.text}
-                </span>
-              </p>
-              {v.detail && !failure && (
-                <p className="mt-1 max-w-[56ch] text-sub text-ink-muted">{v.detail}</p>
+            aria-describedby="updates-check-desc"
+            checked={s.updates.check}
+            onCheckedChange={(on) => update.mutate({ ...s, updates: { ...s.updates, check: on } })}
+          />
+        </SettingRow>
+      )}
+      {st && v && (
+        <div className="flex items-start justify-between gap-8 py-4" aria-live="polite">
+          <div className="min-w-0">
+            <p className="flex items-start gap-2 text-sub text-ink">
+              {v.ok === true && (
+                <CircleCheck
+                  aria-hidden
+                  className="mt-px size-4 shrink-0 text-positive"
+                  strokeWidth={1.75}
+                />
               )}
-            </div>
-            <div className="flex shrink-0 gap-2">
-              {st.available && (
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    void run(t`Couldn't open the release`, UpdatesService.OpenRelease())
-                  }
-                >
-                  <ExternalLink strokeWidth={1.75} />
-                  <Trans>View release</Trans>
-                </Button>
+              {(v.ok === false || failure) && (
+                <CircleAlert
+                  aria-hidden
+                  className="mt-px size-4 shrink-0 text-danger"
+                  strokeWidth={1.75}
+                />
               )}
-              {st.checkable && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => check.mutate()}
-                  disabled={check.isPending}
-                >
-                  <RotateCw
-                    strokeWidth={1.75}
-                    className={check.isPending ? "animate-spin" : undefined}
-                  />
-                  {check.isPending ? <Trans>Checking…</Trans> : <Trans>Check now</Trans>}
-                </Button>
-              )}
-            </div>
+              <span className={st.available ? "font-medium" : undefined}>
+                {failure ? t`Couldn't check: ${failure}` : v.text}
+              </span>
+            </p>
+            {v.detail && !failure && (
+              <p className="mt-1 max-w-[56ch] text-sub text-ink-muted">{v.detail}</p>
+            )}
           </div>
-        )}
-      </SettingsPanel>
-    </section>
+          <div className="flex shrink-0 gap-2">
+            {st.available && (
+              <Button
+                size="sm"
+                onClick={() => void run(t`Couldn't open the release`, UpdatesService.OpenRelease())}
+              >
+                <ExternalLink strokeWidth={1.75} />
+                <Trans>View release</Trans>
+              </Button>
+            )}
+            {st.checkable && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => check.mutate()}
+                disabled={check.isPending}
+              >
+                <RotateCw
+                  strokeWidth={1.75}
+                  className={check.isPending ? "animate-spin" : undefined}
+                />
+                {check.isPending ? <Trans>Checking…</Trans> : <Trans>Check now</Trans>}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </SettingsGroup>
   );
 }

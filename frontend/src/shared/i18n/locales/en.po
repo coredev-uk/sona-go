@@ -390,6 +390,10 @@ msgstr "A to Z"
 msgid "AAC {audioQuality} kbps"
 msgstr "AAC {audioQuality} kbps"
 
+#: src/features/settings/Playback.tsx
+msgid "AAC at 256 kbps, or 64 kbps with Data saver for slow or metered connections. Applies from the next song. Lossless and Dolby Atmos albums play as AAC too."
+msgstr "AAC at 256 kbps, or 64 kbps with Data saver for slow or metered connections. Applies from the next song. Lossless and Dolby Atmos albums play as AAC too."
+
 #: src/features/settings/Diagnostics.tsx
 msgid "AAC decoder"
 msgstr "AAC decoder"
@@ -489,9 +493,13 @@ msgstr "Adds each song you play to your Last.fm profile."
 msgid "Adds each song you play to your public ListenBrainz history."
 msgstr "Adds each song you play to your public ListenBrainz history."
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Adds Sona to your desktop's startup applications."
 msgstr "Adds Sona to your desktop's startup applications."
+
+#: src/features/settings/Playback.tsx
+msgid "Advanced"
+msgstr "Advanced"
 
 #: src/features/settings/Playback.tsx
 msgid "After {m, plural, one {# minute} other {# minutes}}"
@@ -510,7 +518,7 @@ msgstr "Album"
 #: src/features/library/pages.tsx
 #: src/features/search/groups.ts
 #: src/features/search/SearchPage.tsx
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Albums"
 msgstr "Albums"
 
@@ -746,7 +754,7 @@ msgstr "Apple wants you to review your account (new terms or a security update) 
 msgid "Apple's sign-in page is open in your browser. Sona continues by itself when you're done."
 msgstr "Apple's sign-in page is open in your browser. Sona continues by itself when you're done."
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Applies the next time Sona starts."
 msgstr "Applies the next time Sona starts."
 
@@ -761,7 +769,7 @@ msgstr "Artist"
 #: src/features/library/pages.tsx
 #: src/features/search/groups.ts
 #: src/features/search/SearchPage.tsx
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Artists"
 msgstr "Artists"
 
@@ -786,7 +794,7 @@ msgstr "Ask first"
 msgid "Asks GitHub for the newest Sona release once the window has opened. Nothing about you, your account or your library is sent."
 msgstr "Asks GitHub for the newest Sona release once the window has opened. Nothing about you, your account or your library is sent."
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "At login, Sona starts without a window, ready to play from the tray or your media keys."
 msgstr "At login, Sona starts without a window, ready to play from the tray or your media keys."
 
@@ -815,23 +823,23 @@ msgstr "Audio priority"
 msgid "Audio quality"
 msgstr "Audio quality"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Automatic"
 msgstr "Automatic"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Automatic leaves the title bar to {desktop}."
 msgstr "Automatic leaves the title bar to {desktop}."
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Automatic leaves the title bar to your desktop, which Sona doesn't recognise."
 msgstr "Automatic leaves the title bar to your desktop, which Sona doesn't recognise."
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Automatic uses Sona's title bar on {desktop}, with the window buttons where your desktop puts them."
 msgstr "Automatic uses Sona's title bar on {desktop}, with the window buttons where your desktop puts them."
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Automatic uses Sona's title bar, with the window buttons where your system puts them."
 msgstr "Automatic uses Sona's title bar, with the window buttons where your system puts them."
 
@@ -968,7 +976,7 @@ msgstr "Chart"
 #: src/features/discover/ChartsPage.tsx
 #: src/features/discover/index.ts
 #: src/features/search/groups.ts
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Charts"
 msgstr "Charts"
 
@@ -1608,7 +1616,7 @@ msgid "Couldn't reach GitHub: {error}"
 msgstr "Couldn't reach GitHub: {error}"
 
 #: src/features/onboarding/ListeningStep.tsx
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 #: src/features/settings/Playback.tsx
 #: src/features/settings/Shortcuts.tsx
 msgid "Couldn't read Sona's settings"
@@ -1699,7 +1707,7 @@ msgstr "Couldn't remove the songs"
 msgid "Couldn't rename the folder"
 msgstr "Couldn't rename the folder"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Couldn't reset the window"
 msgstr "Couldn't reset the window"
 
@@ -1930,10 +1938,6 @@ msgstr "Deleted the folder “{name}”"
 msgid "Description"
 msgstr "Description"
 
-#: src/features/settings/Settings.tsx
-msgid "Desktop"
-msgstr "Desktop"
-
 #: src/features/settings/Updates.tsx
 msgid "Development build ({current}): not checked for updates"
 msgstr "Development build ({current}): not checked for updates"
@@ -1986,7 +1990,7 @@ msgstr "Discord status"
 
 #: src/features/discover/index.ts
 #: src/features/discover/NewPage.tsx
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Discover"
 msgstr "Discover"
 
@@ -2100,8 +2104,8 @@ msgid "End"
 msgstr "End"
 
 #: src/features/onboarding/SetupPage.tsx
-msgid "Ends the setup; Settings → Desktop opens it again."
-msgstr "Ends the setup; Settings → Desktop opens it again."
+msgid "Ends the setup; Settings → General opens it again."
+msgstr "Ends the setup; Settings → General opens it again."
 
 #: src/shared/shortcuts/chord.ts
 msgctxt "keyboard key"
@@ -2162,8 +2166,8 @@ msgid "Every artist with a song or album in your library is listed here, A to Z.
 msgstr "Every artist with a song or album in your library is listed here, A to Z."
 
 #: src/features/onboarding/DoneStep.tsx
-msgid "Everything here can be changed in Settings, and Settings → Desktop runs this setup again."
-msgstr "Everything here can be changed in Settings, and Settings → Desktop runs this setup again."
+msgid "Everything here can be changed in Settings, and Settings → General runs this setup again."
+msgstr "Everything here can be changed in Settings, and Settings → General runs this setup again."
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Everything Sona needs is working"
@@ -2292,13 +2296,18 @@ msgstr "Folders group playlists in the sidebar on all your devices."
 
 #: src/features/home/HomePage.tsx
 #: src/features/home/index.ts
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "For you"
 msgstr "For you"
 
 #: src/app/shell/TopBar.tsx
 msgid "Forward"
 msgstr "Forward"
+
+#: src/features/settings/Playback.tsx
+#: src/features/settings/settings-file.ts
+msgid "Free memory when idle"
+msgstr "Free memory when idle"
 
 #: src/features/artist/ArtistPage.tsx
 msgid "From"
@@ -2316,6 +2325,7 @@ msgstr "Full-screen lyrics"
 msgid "Gave back {size} to the disk"
 msgstr "Gave back {size} to the disk"
 
+#: src/features/settings/Settings.tsx
 #: src/shared/shortcuts/groups.ts
 msgid "General"
 msgstr "General"
@@ -2497,7 +2507,7 @@ msgstr "In library"
 msgid "In library. Remove “{name}” from your library"
 msgstr "In library. Remove “{name}” from your library"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "In the background, music keeps playing and Sona stays in the system tray. Open it again from the tray, your media keys' player or the app launcher."
 msgstr "In the background, music keeps playing and Sona stays in the system tray. Open it again from the tray, your media keys' player or the app launcher."
 
@@ -2584,7 +2594,7 @@ msgstr "just now"
 msgid "Keep connected"
 msgstr "Keep connected"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Keep playing in the background"
 msgstr "Keep playing in the background"
 
@@ -2676,6 +2686,7 @@ msgstr "ListenBrainz didn't accept that token. Copy it again from your ListenBra
 #: src/features/onboarding/ListeningStep.tsx
 #: src/features/onboarding/SetupPage.tsx
 #: src/features/onboarding/WelcomeStep.tsx
+#: src/features/settings/Playback.tsx
 msgid "Listening"
 msgstr "Listening"
 
@@ -3447,7 +3458,7 @@ msgstr "Open log folder"
 msgid "Open now playing"
 msgstr "Open now playing"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 #: src/features/settings/settings-file.ts
 msgid "Open on"
 msgstr "Open on"
@@ -3471,10 +3482,6 @@ msgstr "Open the page again"
 #: src/shared/items/LinkList.tsx
 msgid "Opens in your browser"
 msgstr "Opens in your browser"
-
-#: src/features/settings/Desktop.tsx
-msgid "Opens on the page you were last on instead. Your queue is always kept."
-msgstr "Opens on the page you were last on instead. Your queue is always kept."
 
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "Optional"
@@ -3715,7 +3722,7 @@ msgstr "Playlist"
 #: src/features/playlist/PlaylistSidebar.tsx
 #: src/features/search/groups.ts
 #: src/features/search/SearchPage.tsx
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Playlists"
 msgstr "Playlists"
 
@@ -3935,13 +3942,13 @@ msgstr "Queue replaced"
 msgid "quieter"
 msgstr "quieter"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Quit Sona"
 msgstr "Quit Sona"
 
 #: src/features/radio/index.ts
 #: src/features/radio/RadioPage.tsx
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Radio"
 msgstr "Radio"
 
@@ -4000,7 +4007,7 @@ msgstr "Recent searches"
 #: src/features/library/index.ts
 #: src/features/library/pages.tsx
 #: src/features/library/views.tsx
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Recently added"
 msgstr "Recently added"
 
@@ -4187,7 +4194,7 @@ msgstr "Reset all"
 msgid "Reset every shortcut?"
 msgstr "Reset every shortcut?"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Reset size"
 msgstr "Reset size"
 
@@ -4208,11 +4215,6 @@ msgstr "Results"
 #: src/features/player/shortcuts.ts
 msgid "resume stop"
 msgstr "resume stop"
-
-#: src/features/settings/Desktop.tsx
-#: src/features/settings/settings-file.ts
-msgid "Resume where you left off"
-msgstr "Resume where you left off"
 
 #: src/features/library/SyncIndicator.tsx
 #: src/features/onboarding/WidevineStep.tsx
@@ -4867,11 +4869,11 @@ msgstr "Sona mini player"
 msgid "Sona needs Google's Widevine to play songs, and it isn't ready yet. Settings → Playback shows its progress."
 msgstr "Sona needs Google's Widevine to play songs, and it isn't ready yet. Settings → Playback shows its progress."
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Sona opens at the size you left it, maximised: <0>{width} × {height}</0>."
 msgstr "Sona opens at the size you left it, maximised: <0>{width} × {height}</0>."
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Sona opens at the size you left it: <0>{width} × {height}</0>."
 msgstr "Sona opens at the size you left it: <0>{width} × {height}</0>."
 
@@ -4895,19 +4897,15 @@ msgstr "Sona refetches its developer token by itself; if this persists, Apple ch
 msgid "Sona removes your token from the keyring, stops playback and deletes the copy of your library on this computer. Your Apple Music library itself isn't changed."
 msgstr "Sona removes your token from the keyring, stops playback and deletes the copy of your library on this computer. Your Apple Music library itself isn't changed."
 
-#: src/features/settings/Playback.tsx
-msgid "Sona streams AAC: 256 kbps at High, 64 kbps with Data saver for slow or metered connections. Changes apply from the next song. Lossless and Dolby Atmos aren't available, so albums marked with them play as AAC too."
-msgstr "Sona streams AAC: 256 kbps at High, 64 kbps with Data saver for slow or metered connections. Changes apply from the next song. Lossless and Dolby Atmos aren't available, so albums marked with them play as AAC too."
-
 #: src/features/auth/Account.tsx
 msgid "Sona talks to Apple directly. Your password is used once and never saved."
 msgstr "Sona talks to Apple directly. Your password is used once and never saved."
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Sona's, with window buttons"
 msgstr "Sona's, with window buttons"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Sona's, without window buttons"
 msgstr "Sona's, without window buttons"
 
@@ -4920,7 +4918,7 @@ msgstr "Song"
 #: src/features/library/pages.tsx
 #: src/features/search/groups.ts
 #: src/features/search/SearchPage.tsx
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Songs"
 msgstr "Songs"
 
@@ -4985,6 +4983,10 @@ msgstr "Songs, albums, artists and playlists synced to this computer, matched as
 msgid "Sort by"
 msgstr "Sort by"
 
+#: src/features/settings/Playback.tsx
+msgid "Sound"
+msgstr "Sound"
+
 #: src/features/onboarding/DoneStep.tsx
 #: src/features/onboarding/ListeningStep.tsx
 #: src/features/settings/AudioRows.tsx
@@ -5013,18 +5015,22 @@ msgstr "Spoken Word"
 msgid "Stalled · {when}"
 msgstr "Stalled · {when}"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 #: src/features/settings/settings-file.ts
 msgid "Start in the tray"
 msgstr "Start in the tray"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Start Sona when you log in"
 msgstr "Start Sona when you log in"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Start-up to first paint"
 msgstr "Start-up to first paint"
+
+#: src/features/settings/General.tsx
+msgid "Starting Sona"
+msgstr "Starting Sona"
 
 #: src/features/onboarding/WidevineStep.tsx
 msgid "Starting the download…"
@@ -5051,11 +5057,6 @@ msgstr "Stay awake while playing"
 #: src/features/player/SleepTimer.tsx
 msgid "Stop playing"
 msgstr "Stop playing"
-
-#: src/features/settings/Playback.tsx
-#: src/features/settings/settings-file.ts
-msgid "Stop the playback host when idle"
-msgstr "Stop the playback host when idle"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Stopped (starts with the next song)"
@@ -5232,7 +5233,7 @@ msgstr "The account's country or region has no Apple Music storefront."
 msgid "The database was already compact"
 msgstr "The database was already compact"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "The desktop's"
 msgstr "The desktop's"
 
@@ -5284,21 +5285,17 @@ msgstr "The level drops {drop} dB ahead of the bands, so the largest boost canno
 msgid "The output Sona was set to isn't connected; it plays to the system default until it's back."
 msgstr "The output Sona was set to isn't connected; it plays to the system default until it's back."
 
-#: src/features/settings/Desktop.tsx
-msgid "The page Sona shows when it starts."
-msgstr "The page Sona shows when it starts."
+#: src/features/settings/General.tsx
+msgid "The page Sona shows when it starts. Your queue is always kept."
+msgstr "The page Sona shows when it starts. Your queue is always kept."
 
-#: src/features/settings/Playback.tsx
-msgid "The playback host holds the Widevine CDM and the audio pipeline. With nothing queued, it shuts down after this long to free memory; the next song takes a few seconds longer to start. Applies the next time it starts."
-msgstr "The playback host holds the Widevine CDM and the audio pipeline. With nothing queued, it shuts down after this long to free memory; the next song takes a few seconds longer to start. Applies the next time it starts."
+#: src/features/settings/General.tsx
+msgid "The page you were last on"
+msgstr "The page you were last on"
 
 #: src/features/player/QueuePanel.tsx
 msgid "The queue is empty"
 msgstr "The queue is empty"
-
-#: src/features/settings/Playback.tsx
-msgid "The same volume as the slider in the player bar. Its steps follow loudness, so the lower half stays useful."
-msgstr "The same volume as the slider in the player bar. Its steps follow loudness, so the lower half stays useful."
 
 #: src/features/settings/SettingsFileRows.tsx
 msgid "The settings in {file} already match yours."
@@ -5458,7 +5455,7 @@ msgstr "Time through this programme"
 msgid "Title"
 msgstr "Title"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Title bar"
 msgstr "Title bar"
 
@@ -5731,7 +5728,6 @@ msgid "Vocal"
 msgstr "Vocal"
 
 #: src/features/player/NowPlayingBar.tsx
-#: src/features/settings/Playback.tsx
 msgid "Volume"
 msgstr "Volume"
 
@@ -5783,7 +5779,7 @@ msgstr "Welcome to Sona"
 msgid "When chosen"
 msgstr "When chosen"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 #: src/features/settings/settings-file.ts
 msgid "When the window is closed"
 msgstr "When the window is closed"
@@ -5807,6 +5803,10 @@ msgstr "Which number should Apple call?"
 #: src/features/auth/Account.tsx
 msgid "Which number should Apple text?"
 msgstr "Which number should Apple text?"
+
+#: src/features/settings/General.tsx
+msgid "While music plays"
+msgstr "While music plays"
 
 #: src/features/onboarding/DoneStep.tsx
 #: src/features/onboarding/SetupPage.tsx
@@ -5839,11 +5839,12 @@ msgstr "Widevine update"
 
 #: src/app/shell/WindowControls.tsx
 #: src/features/miniplayer/MiniPlayer.tsx
+#: src/features/settings/General.tsx
 #: src/features/settings/MotionDiagnostics.ts
 msgid "Window"
 msgstr "Window"
 
-#: src/features/settings/Desktop.tsx
+#: src/features/settings/General.tsx
 msgid "Window size"
 msgstr "Window size"
 
@@ -5854,6 +5855,10 @@ msgstr "Windows Credential Manager"
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "With {withLabel}."
 msgstr "With {withLabel}."
+
+#: src/features/settings/Playback.tsx
+msgid "With nothing queued, Sona stops its playback host (Widevine and the audio pipeline) after this long. The next song then takes a few seconds longer to start. Applies the next time the host starts."
+msgstr "With nothing queued, Sona stops its playback host (Widevine and the audio pipeline) after this long. The next song then takes a few seconds longer to start. Applies the next time the host starts."
 
 #: src/features/player/shortcuts.ts
 msgid "words sing"

@@ -1,6 +1,6 @@
 package config
 
-// Title bar styles for [TitleBar.Style] (Settings → Desktop → Title bar;
+// Title bar styles for [TitleBar.Style] (Settings → General → Title bar;
 // not offered on macOS, where the window always keeps the system's own
 // buttons inside Sona's top bar).
 const (

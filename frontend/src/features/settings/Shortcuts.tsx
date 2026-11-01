@@ -6,7 +6,7 @@ import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { confirm } from "@/shared/lib/confirm";
 import { cn } from "@/shared/lib/utils";
 import { shortcutGroups, type Shortcut } from "@/shared/module";
-import { chordText, eventChord, type Chord } from "@/shared/shortcuts/chord";
+import { chordParts, chordText, eventChord, type Chord } from "@/shared/shortcuts/chord";
 import { groupTitle } from "@/shared/shortcuts/groups";
 import { BindingKeys, ChordKeys } from "@/shared/shortcuts/Keys";
 import {
@@ -138,7 +138,7 @@ function ShortcutRow({
               "flex h-8 min-w-36 items-center justify-end gap-1.5 rounded-md border px-2 transition-colors duration-100",
               recording
                 ? "border-ink bg-raised"
-                : "border-transparent hover:border-control-line hover:bg-raised",
+                : "border-control-line/40 hover:border-control-line hover:bg-raised",
               conflicted && !recording && "border-danger/50",
             )}
           >
@@ -148,8 +148,14 @@ function ShortcutRow({
                 <Trans>Press keys…</Trans>
               </span>
             ) : (
+              // The keycaps as shown ("Ctrl B", "Esc"), so the name contains
+              // the visible label (2.5.3) for speech input.
               <span id={`${noteId}-keys`} className="sr-only">
-                {chords.length ? orList(chords) : t`not set`}
+                {chords.length
+                  ? new Intl.ListFormat(i18n.locale, { type: "disjunction" }).format(
+                      chords.map((c) => chordParts(c).join(" ")),
+                    )
+                  : t`not set`}
               </span>
             )}
             {recording ? null : chords.length ? (

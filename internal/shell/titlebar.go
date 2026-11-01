@@ -36,7 +36,7 @@ func (s *Shell) ToggleMaximiseMain() {
 }
 
 // CloseMain is Sona's title bar's Close button: what closing the window
-// does (Settings → Desktop: keep playing in the background, or quit).
+// does (Settings → General: keep playing in the background, or quit).
 func (s *Shell) CloseMain() {
 	s.close(s.main)
 }

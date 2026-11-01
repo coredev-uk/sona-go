@@ -75,7 +75,7 @@ export function DoneStep() {
     <>
       <StepHeader title={signedIn ? t`You're all set` : t`Setup is done`}>
         <Trans>
-          Everything here can be changed in Settings, and Settings → Desktop runs this setup again.
+          Everything here can be changed in Settings, and Settings → General runs this setup again.
         </Trans>
       </StepHeader>
       <Panel>

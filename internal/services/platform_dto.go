@@ -38,7 +38,7 @@ type Capabilities struct {
 }
 
 // WindowControls is how title bars work on this platform
-// (internal/windowchrome). With Settings → Desktop → Title bar
+// (internal/windowchrome). With Settings → General → Title bar
 // (config.TitleBar.Style, as the window was created: Style) it gives the
 // main window's kind:
 //   - Native "inset" (macOS): always "native-inset", the system's buttons

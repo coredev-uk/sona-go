@@ -66,7 +66,7 @@ const compactGlyph: Record<WindowButton | "restore", LucideIcon> = {
  * The main window's own buttons on one side of Sona's title bar, in the
  * desktop's order: Windows' caption buttons (46px wide, the bar's full
  * height, red Close) or Sona's compact ones elsewhere (28px, the top bar's
- * icon style). Close does what closing the window does (Settings → Desktop).
+ * icon style). Close does what closing the window does (Settings → General).
  */
 export function WindowControls({ chrome, side }: { chrome: WindowChrome; side: "start" | "end" }) {
   const { t } = useLingui();

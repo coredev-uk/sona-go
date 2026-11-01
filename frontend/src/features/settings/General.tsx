@@ -1,0 +1,263 @@
+import { Trans, useLingui } from "@lingui/react/macro";
+import type { Settings } from "@bindings/config";
+import { DesktopService } from "@bindings/services";
+
+import { ErrorBlock } from "@/shared/components/ErrorBlock";
+import { useCapabilities } from "@/shared/lib/capabilities";
+import { run } from "@/shared/lib/run";
+import { Button } from "@/shared/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import { Switch } from "@/shared/ui/switch";
+
+import { IntegrationsDesktopRows } from "./IntegrationsRows";
+import { useSettings, useUpdateSettings } from "./queries";
+import {
+  SELECT_WIDTH,
+  SettingRow,
+  SettingsGroup,
+  SettingsPanel,
+  SettingsSections,
+} from "./SettingRow";
+import { SetupRow } from "./SetupRow";
+import { UpdatesGroup } from "./Updates";
+
+/** The "Open on" value standing for the page Sona was last on (Radix Select needs a non-empty value). */
+const LAST_PAGE = "last-page";
+
+/**
+ * Title bar (Windows and Linux; macOS always keeps its own buttons in
+ * Sona's top bar): who draws it. The hint says what Automatic picks here.
+ */
+function TitleBarRow({ value, onChange }: { value: string; onChange: (style: string) => void }) {
+  const { t } = useLingui();
+  const controls = useCapabilities()?.windowControls;
+  if (!controls) return null;
+  const desktop = controls.desktop;
+  let hint: string;
+  if (controls.automatic === "sona") {
+    hint = desktop
+      ? t`Automatic uses Sona's title bar on ${desktop}, with the window buttons where your desktop puts them.`
+      : t`Automatic uses Sona's title bar, with the window buttons where your system puts them.`;
+  } else {
+    hint = desktop
+      ? t`Automatic leaves the title bar to ${desktop}.`
+      : t`Automatic leaves the title bar to your desktop, which Sona doesn't recognise.`;
+  }
+  // The window keeps the title bar it was created with until Sona restarts.
+  const pending = value !== controls.style;
+  return (
+    <SettingRow
+      id="title-bar"
+      title={t`Title bar`}
+      description={
+        pending ? (
+          <>
+            {hint} <span className="text-ink">{t`Applies the next time Sona starts.`}</span>
+          </>
+        ) : (
+          hint
+        )
+      }
+    >
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id="title-bar" aria-describedby="title-bar-desc" className={SELECT_WIDTH}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="auto">
+            <Trans>Automatic</Trans>
+          </SelectItem>
+          <SelectItem value="sona">
+            <Trans>Sona's, with window buttons</Trans>
+          </SelectItem>
+          <SelectItem value="sona-no-buttons">
+            <Trans>Sona's, without window buttons</Trans>
+          </SelectItem>
+          <SelectItem value="desktop">
+            <Trans>The desktop's</Trans>
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </SettingRow>
+  );
+}
+
+/**
+ * Settings → General: starting Sona, its window, what it does while music
+ * plays, and updates. Rows the platform can't back are left out
+ * (capabilities), and a group with none left goes with them.
+ */
+export function GeneralSection() {
+  const { t } = useLingui();
+  /** The pages Sona can open on, in sidebar order (Go's config.StartPages). */
+  const startPages = [
+    { route: "/", label: t`For you` },
+    { route: "/new", label: t`Discover` },
+    { route: "/charts", label: t`Charts` },
+    { route: "/radio", label: t`Radio` },
+    { route: "/library/recently-added", label: t`Recently added` },
+    { route: "/library/artists", label: t`Artists` },
+    { route: "/library/albums", label: t`Albums` },
+    { route: "/library/songs", label: t`Songs` },
+    { route: "/library/playlists", label: t`Playlists` },
+  ];
+  const settings = useSettings();
+  const update = useUpdateSettings();
+  const caps = useCapabilities();
+  if (settings.error) {
+    return (
+      <ErrorBlock
+        title={t`Couldn't read Sona's settings`}
+        error={settings.error}
+        onRetry={() => void settings.refetch()}
+      />
+    );
+  }
+  const s = settings.data;
+  if (!s) return <SettingsPanel className="h-96" />;
+  const d = s.desktop;
+  const { width, height } = s.window;
+  const save = (patch: Partial<Settings["desktop"]>) =>
+    update.mutate({ ...s, desktop: { ...d, ...patch } });
+
+  return (
+    <SettingsSections>
+      <SettingsGroup id="general-startup" title={t`Starting Sona`}>
+        {caps?.autostart && (
+          <SettingRow
+            id="autostart"
+            title={t`Start Sona when you log in`}
+            description={t`Adds Sona to your desktop's startup applications.`}
+          >
+            <Switch
+              id="autostart"
+              aria-describedby="autostart-desc"
+              checked={d.autostart}
+              onCheckedChange={(autostart) => save({ autostart })}
+            />
+          </SettingRow>
+        )}
+        {/* Starting without a window needs the tray to open it from, and only applies at login. */}
+        {caps?.autostart && caps.tray && d.autostart && (
+          <SettingRow
+            id="start-hidden"
+            title={t`Start in the tray`}
+            description={t`At login, Sona starts without a window, ready to play from the tray or your media keys.`}
+          >
+            <Switch
+              id="start-hidden"
+              aria-describedby="start-hidden-desc"
+              checked={d.startHidden}
+              onCheckedChange={(startHidden) => save({ startHidden })}
+            />
+          </SettingRow>
+        )}
+        <SettingRow
+          id="start-page"
+          title={t`Open on`}
+          description={t`The page Sona shows when it starts. Your queue is always kept.`}
+        >
+          <Select
+            value={d.resumeLastRoute ? LAST_PAGE : d.startPage}
+            onValueChange={(v) =>
+              v === LAST_PAGE
+                ? save({ resumeLastRoute: true })
+                : save({ startPage: v, resumeLastRoute: false, lastRoute: "" })
+            }
+          >
+            <SelectTrigger
+              id="start-page"
+              aria-describedby="start-page-desc"
+              className={SELECT_WIDTH}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={LAST_PAGE}>
+                <Trans>The page you were last on</Trans>
+              </SelectItem>
+              {startPages.map((p) => (
+                <SelectItem key={p.route} value={p.route}>
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingRow>
+        <SetupRow />
+      </SettingsGroup>
+      <SettingsGroup id="general-window" title={t`Window`}>
+        {caps?.tray && (
+          <SettingRow
+            id="close-action"
+            title={t`When the window is closed`}
+            description={t`In the background, music keeps playing and Sona stays in the system tray. Open it again from the tray, your media keys' player or the app launcher.`}
+          >
+            <Select value={d.closeAction} onValueChange={(closeAction) => save({ closeAction })}>
+              <SelectTrigger
+                id="close-action"
+                aria-describedby="close-action-desc"
+                className={SELECT_WIDTH}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="background">
+                  <Trans>Keep playing in the background</Trans>
+                </SelectItem>
+                <SelectItem value="quit">
+                  <Trans>Quit Sona</Trans>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+        )}
+        {caps && caps.windowControls.native === "frame" && (
+          <TitleBarRow
+            value={s.titleBar.style}
+            onChange={(style) => update.mutate({ ...s, titleBar: { style } })}
+          />
+        )}
+        <SettingRow
+          id="window-size"
+          title={t`Window size`}
+          description={
+            s.window.maximised ? (
+              <Trans>
+                Sona opens at the size you left it, maximised:{" "}
+                <span className="text-ink num">
+                  {width} × {height}
+                </span>
+                .
+              </Trans>
+            ) : (
+              <Trans>
+                Sona opens at the size you left it:{" "}
+                <span className="text-ink num">
+                  {width} × {height}
+                </span>
+                .
+              </Trans>
+            )
+          }
+        >
+          <Button
+            id="window-size"
+            aria-describedby="window-size-desc"
+            variant="outline"
+            size="sm"
+            onClick={() => void run(t`Couldn't reset the window`, DesktopService.ResetWindowSize())}
+          >
+            <Trans>Reset size</Trans>
+          </Button>
+        </SettingRow>
+      </SettingsGroup>
+      {(caps?.notifications || caps?.sleepInhibit) && (
+        <SettingsGroup id="general-playing" title={t`While music plays`}>
+          <IntegrationsDesktopRows />
+        </SettingsGroup>
+      )}
+      <UpdatesGroup />
+    </SettingsSections>
+  );
+}

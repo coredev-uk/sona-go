@@ -95,10 +95,12 @@ export function Settings(): $CancellablePromise<config$0.Settings> {
 }
 
 /**
- * UpdateSettings saves next and applies it: volume at once, theme and
- * reduce-effects through "settings:changed", the audio quality from the
- * next item; the idle timeout and WebKit toggles on the next
- * start.
+ * UpdateSettings saves next and applies it: theme and reduce-effects
+ * through "settings:changed", the audio quality from the next item; the
+ * idle timeout and WebKit toggles on the next start. The volume is the
+ * player's (the player bar, MPRIS, `sona volume`; PlaybackService saves
+ * it), so the saved one is kept whatever next carries: a page holding an
+ * older copy of the settings can't turn the music back up or down.
  */
 export function UpdateSettings(next: config$0.Settings): $CancellablePromise<config$0.Settings> {
     return $Call.ByID(630933011, next).then(($result: any) => {

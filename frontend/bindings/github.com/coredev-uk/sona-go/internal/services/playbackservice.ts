@@ -161,7 +161,7 @@ export function SetSleep(mode: string, minutes: number): $CancellablePromise<voi
 }
 
 /**
- * SetVolume sets the volume (0..1); it is remembered in the settings.
+ * SetVolume sets the volume (0..1). The settings remember it (run).
  */
 export function SetVolume(volume: number): $CancellablePromise<void> {
     return $Call.ByID(3545672775, volume);

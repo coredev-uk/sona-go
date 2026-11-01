@@ -8,7 +8,7 @@ import { useSettings } from "@/features/settings";
 const SAVE_DELAY_MS = 1000;
 
 /**
- * "Resume where you left off" (Settings → Desktop): saves the main
+ * Open on "The page you were last on" (Settings → General): saves the main
  * window's route in Go as it changes, debounced, while the setting is on.
  * Go opens the next start on it (config.Desktop.StartRoute).
  */

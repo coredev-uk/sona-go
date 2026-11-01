@@ -9,7 +9,7 @@
 //     does not recognise keep the desktop's: its own title bar and frame,
 //     or none at all on a tiling compositor.
 //
-// Settings → Desktop → Title bar (config.TitleBar) overrides the automatic
+// Settings → General → Title bar (config.TitleBar) overrides the automatic
 // choice on Windows and Linux. The package is portable: the detection reads
 // environment variables and files, and the GTK setting is read by
 // internal/shell on Linux.

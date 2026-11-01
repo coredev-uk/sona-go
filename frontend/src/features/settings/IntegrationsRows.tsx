@@ -20,7 +20,7 @@ function useIntegrations() {
   return { s: s?.integrations, status: status.data, save };
 }
 
-/** Settings → Desktop: track notifications and the suspend inhibitor, where the platform has them. */
+/** Settings → General: track notifications and the suspend inhibitor, where the platform has them. */
 export function IntegrationsDesktopRows() {
   const { t } = useLingui();
   const { s, status, save } = useIntegrations();

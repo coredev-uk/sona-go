@@ -102,7 +102,7 @@ function StepList() {
  * listening preferences, done. It is a page inside the shell, so the
  * sidebar and everything else stay a click away; every step can be
  * skipped, and "Skip setup" ends it. The window opens here on a first
- * start (Go's services.StartRoute); Settings → Desktop opens it again.
+ * start (Go's services.StartRoute); Settings → General opens it again.
  */
 export function SetupPage() {
   const { t } = useLingui();
@@ -145,7 +145,7 @@ export function SetupPage() {
             variant="ghost"
             size="sm"
             className="px-2.5 text-ink-muted"
-            title={t`Ends the setup; Settings → Desktop opens it again.`}
+            title={t`Ends the setup; Settings → General opens it again.`}
             onClick={() => void leave()}
           >
             <Trans>Skip setup</Trans>

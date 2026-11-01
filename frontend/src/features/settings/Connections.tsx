@@ -26,7 +26,7 @@ import { Switch } from "@/shared/ui/switch";
 import { IntegrationsConnectionsRows } from "./IntegrationsRows";
 import { useSettings, useUpdateSettings } from "./queries";
 import { scrobbleStatusKey, useScrobbleStatus } from "./scrobble";
-import { SettingsPanel } from "./SettingRow";
+import { SettingsGroup, SettingsPanel, SettingsSections } from "./SettingRow";
 
 type Provider = "lastfm" | "listenbrainz";
 
@@ -474,20 +474,16 @@ function ScrobblingPanel() {
 }
 
 export function ConnectionsSection() {
+  const { t } = useLingui();
   const discord = useCapabilities()?.discordPresence ?? false;
   return (
-    <div className="flex flex-col gap-8">
+    <SettingsSections>
       <ScrobblingPanel />
       {discord && (
-        <section aria-labelledby="discord-title" className="flex flex-col gap-3">
-          <h3 id="discord-title" className="text-ui font-semibold text-ink">
-            <Trans>Discord</Trans>
-          </h3>
-          <SettingsPanel>
-            <IntegrationsConnectionsRows />
-          </SettingsPanel>
-        </section>
+        <SettingsGroup id="discord-title" title={t`Discord`}>
+          <IntegrationsConnectionsRows />
+        </SettingsGroup>
       )}
-    </div>
+    </SettingsSections>
   );
 }
