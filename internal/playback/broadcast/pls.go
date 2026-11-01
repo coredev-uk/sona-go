@@ -50,8 +50,8 @@ func parseM3U(b []byte) []string {
 	var out []string
 	sc := bufio.NewScanner(bytes.NewReader(b))
 	for sc.Scan() {
-		if l := strings.TrimSpace(sc.Text()); l != "" && !strings.HasPrefix(l, "#") {
-			out = append(out, strings.TrimPrefix(l, "\ufeff"))
+		if l := strings.TrimSpace(strings.TrimPrefix(sc.Text(), "\ufeff")); l != "" && !strings.HasPrefix(l, "#") {
+			out = append(out, l)
 		}
 	}
 	return out

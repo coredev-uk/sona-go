@@ -22,6 +22,7 @@ import (
 	"mime"
 	"net/http"
 	"net/http/cookiejar"
+	neturl "net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -393,16 +394,19 @@ func (s *session) segment(ctx context.Context, ts *tsDemuxer, seg hls.Segment, d
 // tag names neither (packed audio's timestamp tags, for instance), so it
 // says nothing about what is on air.
 func tagOnAir(tag []byte) (m playback.OnAir, ok bool) {
+	var event string
 	id3.Frames(tag, func(id string, body []byte) bool {
 		switch id {
 		case "TIT2", "TT2":
 			m.Title, ok = id3.Text(body), true
 		case "TPE1", "TP1":
 			m.Artist, ok = id3.Text(body), true
+		case "WXXX", "WXX":
+			event = id3.Text(body)
 		}
 		return true
 	})
-	return m, ok
+	return planetRadio(m, event), ok
 }
 
 // extinfOnAir reads title="…" and artist="…" from an EXTINF title, which
@@ -417,7 +421,24 @@ func extinfOnAir(title string) (playback.OnAir, bool) {
 	}
 	t, okT := attrs["title"]
 	a, okA := attrs["artist"]
-	return playback.OnAir{Title: strings.TrimSpace(t), Artist: strings.TrimSpace(a)}, okT || okA
+	return planetRadio(playback.OnAir{Title: strings.TrimSpace(t), Artist: strings.TrimSpace(a)}, attrs["url"]), okT || okA
+}
+
+// planetRadio puts the title and artist of Bauer's Planet Radio streams
+// (KISS, Magic, Absolute Radio, …) the right way round: their ID3 tags and
+// EXTINF titles name the artist as the title and the song as the artist.
+// Such metadata links its event on Planet Radio's listen API (event: the
+// EXTINF url attribute, or the ID3 WXXX frame, "URL, https://…").
+func planetRadio(m playback.OnAir, event string) playback.OnAir {
+	_, link, _ := strings.Cut(event, "https://")
+	u, err := neturl.Parse("https://" + link)
+	if link == "" || err != nil {
+		return m
+	}
+	if h := u.Hostname(); h == "planetradio.co.uk" || strings.HasSuffix(h, ".planetradio.co.uk") {
+		m.Title, m.Artist = m.Artist, m.Title
+	}
+	return m
 }
 
 // statusError is an HTTP response other than 200 or 206.

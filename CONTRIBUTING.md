@@ -223,6 +223,16 @@ exchange` (HTTP status, Apple's status and message, the licence's length;
 never the token or the licence), and ends with `licence: granted`,
 `licence: refused (<why>)` or `licence: not requested (<why>)`.
 
+A stream station (Apple's live radio, or a local broadcaster such as KISS,
+`ra.1445918457`) plays with `-station` for `-listen` (default 12s), and
+each change of what its stream says is on air is printed as playback
+reaches it; it fails unless the station is still playing and played at
+least nine tenths of that time:
+
+```sh
+SONA_PRIVATE=1 go run ./cmd/playspike -station ra.1445918457 -listen 2m
+```
+
 To see a computer's first run again (the CDM download, its load check and
 GStreamer's first plugin scan), quit Sona and remove the downloaded CDM and
 GStreamer's registry, then start it:

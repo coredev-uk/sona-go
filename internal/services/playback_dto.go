@@ -73,6 +73,14 @@ type QueueStation struct {
 	AutoPlay bool   `json:"autoPlay"`
 }
 
+// OnAir is what a local broadcaster's stream names as on air: Title may
+// be the whole "Artist - Title" line (Shoutcast streams); Artist is ""
+// unless the stream names it separately.
+type OnAir struct {
+	Title  string `json:"title"`
+	Artist string `json:"artist"`
+}
+
 // PlaybackState is the now-playing state ("playback:state", latest wins).
 // PositionMs is exact at At (Unix ms); while State is "playing" the UI
 // extrapolates PositionMs + (now - At). Events are sent on changes only.
@@ -107,6 +115,10 @@ type PlaybackState struct {
 	// the full track (a test or development engine: SONA_PREVIEW=1); the
 	// player labels it, and nothing reports it as a play.
 	Preview bool `json:"preview"`
+	// OnAir is what the current local broadcaster's stream says is on
+	// air (the song or advert it names), as heard; nil when it says
+	// nothing.
+	OnAir *OnAir `json:"onAir"`
 	// AutoPlay: similar music continues when the queue ends.
 	AutoPlay bool `json:"autoPlay"`
 	// Station feeding the queue, nil when none.

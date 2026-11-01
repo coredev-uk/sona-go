@@ -1,8 +1,12 @@
 import type { Item, Section } from "@bindings/services";
 
+import { Shelf } from "@/shared/components/Shelf";
+
 import { ItemShelf } from "./ItemShelf";
 import { roomLink, type ItemLinkProps } from "./links";
 import { LinkList } from "./LinkList";
+import { playItem } from "./play";
+import { StationList } from "./StationList";
 import { TrackShelf } from "./TrackShelf";
 import { WideRow } from "./WideRow";
 
@@ -21,7 +25,7 @@ interface EditorialSectionsProps {
 
 /**
  * Renders editorial and recommendation sections by kind: wide hero cards,
- * feature and cover shelves, track blocks, category bricks, link lists and
+ * feature and cover shelves, track blocks, station lists, category bricks, link lists and
  * paragraphs. New, Radio, curators, groupings, multirooms and Home share it.
  */
 export function EditorialSections({
@@ -52,6 +56,19 @@ export function EditorialSections({
         return <TrackShelf key={s.id} title={s.title} items={s.items} more={more} />;
       case "links":
         return <LinkList key={s.id} title={s.title} items={s.items} />;
+      case "stations":
+        return (
+          <Shelf key={s.id} title={s.title} more={more}>
+            <StationList
+              label={s.title}
+              stations={s.items.flatMap((i) => (i.station ? [i.station] : []))}
+              onPlay={(station) => {
+                const item = s.items.find((i) => i.station === station);
+                if (item) playItem(item);
+              }}
+            />
+          </Shelf>
+        );
       case "text":
         return (
           <p

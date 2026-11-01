@@ -128,11 +128,13 @@ function Seek({ disabled }: { disabled: boolean }) {
 }
 
 /**
- * In place of the seek bar for live radio: a live marker and the
- * programme on air, from the station's schedule.
+ * In place of the seek bar for live radio: a live marker and what is on
+ * air, as a broadcaster's stream names it, else the programme from the
+ * station's schedule.
  */
 function LiveLine({ id, playing }: { id: string; playing: boolean }) {
   const programme = useOnAirProgramme(id);
+  const onAir = usePlayback((s) => s.onAir);
   const until = programme ? clockTime(programme.endMs) : "";
   return (
     <div className="flex h-4 w-full min-w-0 items-center justify-center gap-2 text-meta">
@@ -143,14 +145,20 @@ function LiveLine({ id, playing }: { id: string; playing: boolean }) {
         />
         <Trans>Live</Trans>
       </span>
-      {programme && (
+      {onAir ? (
         <span className="min-w-0 truncate text-ink-muted">
-          {programme.title}
-          <span className="num">
-            {" · "}
-            <Trans>until {until}</Trans>
-          </span>
+          {onAir.artist ? `${onAir.artist} – ${onAir.title}` : onAir.title}
         </span>
+      ) : (
+        programme && (
+          <span className="min-w-0 truncate text-ink-muted">
+            {programme.title}
+            <span className="num">
+              {" · "}
+              <Trans>until {until}</Trans>
+            </span>
+          </span>
+        )
       )}
     </div>
   );
@@ -233,6 +241,9 @@ export function NowPlayingBar() {
         </span>
       </span>
     );
+  } else if (current && !current.artistName && !current.albumName) {
+    // A broadcaster names no provider: its name stands alone, centred.
+    subline = false;
   } else if (current) {
     subline = (
       <span className="truncate text-sub text-ink-muted">

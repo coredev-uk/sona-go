@@ -294,6 +294,7 @@ func (c *Coordinator) Snapshot() Snapshot {
 		AuthRequired:   c.auth,
 		NoCDM:          c.noCDM,
 		Preview:        c.index >= 0 && c.st.Preview,
+		OnAir:          c.onAirLocked(),
 		AutoPlay:       c.autoplay,
 		Restricted:     c.restricted,
 		CanUndoReplace: c.undo != nil,
@@ -317,6 +318,14 @@ func (c *Coordinator) Snapshot() Snapshot {
 		s.Error = c.st.Err
 	}
 	return s
+}
+
+// onAirLocked is what the current item's stream says is on air.
+func (c *Coordinator) onAirLocked() playback.OnAir {
+	if c.index < 0 {
+		return playback.OnAir{}
+	}
+	return c.st.OnAir
 }
 
 // SetQueue replaces the queue with items and plays items[start]. label
