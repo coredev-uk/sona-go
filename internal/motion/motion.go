@@ -291,7 +291,7 @@ func (c *Cache) fetch(ctx context.Context, master string, size int, path string)
 		_ = os.Remove(tmp.Name())
 		return fmt.Errorf("video: %w", err)
 	}
-	c.evict()
+	c.evict(path)
 	return nil
 }
 
@@ -336,8 +336,10 @@ func (c *Cache) copy(ctx context.Context, u *url.URL, dst io.Writer, limit int64
 }
 
 // evict removes downloads abandoned by a crash, then the least recently
-// used files until the cache fits its cap.
-func (c *Cache) evict() {
+// used files until the cache fits its cap. It never removes keep, the file
+// just downloaded to answer a request: files written within the same clock
+// tick have equal times, and the unstable sort could otherwise pick it.
+func (c *Cache) evict(keep string) {
 	c.evictMu.Lock()
 	defer c.evictMu.Unlock()
 	entries, err := os.ReadDir(c.dir)
@@ -363,8 +365,10 @@ func (c *Cache) evict() {
 				_ = os.Remove(path)
 			}
 		case strings.HasSuffix(e.Name(), ".mp4"):
-			files = append(files, file{path, info.Size(), info.ModTime()})
 			total += info.Size()
+			if path != keep {
+				files = append(files, file{path, info.Size(), info.ModTime()})
+			}
 		}
 	}
 	slices.SortFunc(files, func(a, b file) int { return a.mod.Compare(b.mod) })

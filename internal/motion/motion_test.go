@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // master is trimmed from a live editorialVideo master playlist: I-frame
@@ -210,6 +211,37 @@ func TestEvict(t *testing.T) {
 	}
 	if _, err := os.Stat(c.path(strings.Split(u, "/")[2], 720)); err != nil {
 		t.Error(err)
+	}
+}
+
+// The file just downloaded is never the one evicted, even when an older file
+// looks newer (equal or skewed times): the request it answers still reads it.
+func TestEvictKeepsTheNewDownload(t *testing.T) {
+	srv, _, files := fakeCDN(t)
+	n486, n768 := len(flattened(t, files["/v/v486.mp4"])), len(flattened(t, files["/v/v768.mp4"]))
+	c := newTestCache(t, srv, int64(n486+n768-1))
+	u := c.URL(srv.URL + "/v/master.m3u8")
+	small := strings.Replace(u, "/720.mp4", "/400.mp4", 1)
+	if w := get(c, small, nil); w.Code != http.StatusOK {
+		t.Fatal(w.Code)
+	}
+	key := strings.Split(u, "/")[2]
+	first, _ := filepath.Glob(filepath.Join(c.dir, "*.mp4"))
+	if len(first) != 1 {
+		t.Fatalf("after the first download: %v", first)
+	}
+	future := time.Now().Add(time.Hour)
+	if err := os.Chtimes(first[0], future, future); err != nil {
+		t.Fatal(err)
+	}
+	if w := get(c, u, nil); w.Code != http.StatusOK {
+		t.Fatalf("new download: %d", w.Code)
+	}
+	if _, err := os.Stat(c.path(key, 720)); err != nil {
+		t.Errorf("the new download was evicted: %v", err)
+	}
+	if _, err := os.Stat(first[0]); !os.IsNotExist(err) {
+		t.Errorf("the other file stayed: %v", err)
 	}
 }
 
