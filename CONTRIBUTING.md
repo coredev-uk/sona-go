@@ -66,17 +66,17 @@ private mode.
 
 ### devenv scripts
 
-| Script       | What it runs                                                                                                                                                                                                                                                                                             |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dev`        | `go tool wails3 dev -config ./build/config.yml -port $WAILS_VITE_PORT` (port 9245 when unset), as Taskfile's `dev`: Vite hot reload, rebuild and restart on Go changes. Extra arguments go to `wails3 dev`.                                                                                              |
-| `build`      | `go tool wails3 build`: frontend, bindings, `bin/sona` (production; `build DEV=true` for a debug build).                                                                                                                                                                                                 |
-| `gen`        | `sqlc generate` and `wails3 generate bindings -clean=true -ts`. Commit the result.                                                                                                                                                                                                                       |
-| `fmt`        | gofumpt on every tracked Go file except `internal/db/dbq`, then `prettier --write src`. Installs the frontend dependencies first when `package.json` or the lockfile changed.                                                                                                                            |
+| Script       | What it runs                                                                                                                                                                                                                                                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dev`        | `go tool wails3 dev -config ./build/config.yml -port $WAILS_VITE_PORT` (port 9245 when unset), as Taskfile's `dev`: Vite hot reload, rebuild and restart on Go changes. Extra arguments go to `wails3 dev`.                                                                                                                                 |
+| `build`      | `go tool wails3 build`: frontend, bindings, `bin/sona` (production; `build DEV=true` for a debug build).                                                                                                                                                                                                                                    |
+| `gen`        | `sqlc generate` and `wails3 generate bindings -clean=true -ts`. Commit the result.                                                                                                                                                                                                                                                          |
+| `fmt`        | gofumpt on every tracked Go file except `internal/db/dbq`, then `prettier --write src`. Installs the frontend dependencies first when `package.json` or the lockfile changed.                                                                                                                                                               |
 | `check`      | The static half of the checks below: installs the frontend dependencies and builds `frontend/dist` (development build) when their sources changed, since Go embeds it; then `go vet`, the Windows and macOS type-checks, `golangci-lint --new-from-rev=origin/main`, the path-case check, tsc, eslint, `prettier --check` and `i18n:check`. |
-| `tests`      | The same frontend step, then `go test -race ./...` (inside `dbus-run-session` on Linux, so no test reaches your session bus; extra arguments go to `go test`) and vitest. Not named `test`: the shell's `test` builtin would shadow it.                                                                  |
-| `release`    | `build/linux/release/release.sh`, the same as `go tool wails3 task release`: release packages built on Ubuntu 24.04 in podman or docker (falling back to `nix run nixpkgs#podman`) and smoke-tested, into `bin/release`.                                                                                 |
-| `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`); `play-spike -preview` needs none.                                                                                                                                                                                                                            |
-| `auth-spike` | `go run ./cmd/authspike`: the Apple sign-in flow from the terminal.                                                                                                                                                                                                                                      |
+| `tests`      | The same frontend step, then `go test -race ./...` (inside `dbus-run-session` on Linux, so no test reaches your session bus; extra arguments go to `go test`) and vitest. Not named `test`: the shell's `test` builtin would shadow it.                                                                                                     |
+| `release`    | `build/linux/release/release.sh`, the same as `go tool wails3 task release`: release packages built on Ubuntu 24.04 in podman or docker (falling back to `nix run nixpkgs#podman`) and smoke-tested, into `bin/release`.                                                                                                                    |
+| `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`); `play-spike -preview` needs none.                                                                                                                                                                                                                             |
+| `auth-spike` | `go run ./cmd/authspike`: the Apple sign-in flow from the terminal.                                                                                                                                                                                                                                                                         |
 
 The frontend step in `check` and `tests` is Taskfile's
 (`common:install:frontend:deps`, `common:build:frontend`), which also
@@ -274,6 +274,7 @@ Widevine CDM") fills a miss with
 must not skip)" then runs `TestCDM`, `TestProbe`, `TestSessionChallenge`,
 `TestPlayClearTrack`, `TestNextTrackAdvances`, `TestChildExit` and
 `TestChildCrashInBundle` with `-v`.
+
 ### Preview playback (tests without a Music User Token)
 
 `MUSIC_USER_TOKEN` is not a test credential: Apple refreshes it now and then, so a stored copy (`.env`, a repository secret) goes stale. Tests, CI and smoke runs that need audio play Apple's 30-second song previews instead, which need only the developer token Sona reads from Apple's web player: no `.env`, no Widevine CDM, no licence. (Apple's web player does the same when signed out: MusicKit JS `instance.previewOnly = true`, i.e. `playbackMode` `PREVIEW_ONLY`.)
@@ -503,7 +504,7 @@ host. Windows has no playback yet.
   `windows/amd64` and `darwin/arm64` with cgo off (CI and `check`). Windows
   uses `go vet`. On macOS Wails' `pkg/application` is Objective-C behind
   cgo, so `go vet` stops there; `go run ./cmd/typecheck -os darwin -arch
-  arm64 ./...` type-checks Sona's packages from source and only names the
+arm64 ./...` type-checks Sona's packages from source and only names the
   third-party packages that need cgo. Real builds need cgo on both:
   `mattn/go-sqlite3` everywhere, and Wails on macOS (Cocoa and WebKit from
   Apple's SDK, so macOS builds happen on a Mac). Wails on Windows is pure Go
@@ -526,12 +527,13 @@ host. Windows has no playback yet.
   It compiles the C and C++ (shim, GStreamer glue) for macOS and
   type-checks every Sona package, `main` included; only Wails' Objective-C
   fails, without Apple's SDK.
+
 - A real Windows build cross-compiles from Linux with zig as the C
   compiler (`nix shell nixpkgs#zig`; Wails' own cross image uses it too):
   `GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC='zig cc -target
-  x86_64-windows-gnu' go build -tags production,sqlite_fts5 -ldflags '-H
-  windowsgui' ./cmd/sona` after a production frontend build, with `go tool
-  wails3 generate syso` (its `.syso` in `cmd/sona`) for the icon and
+x86_64-windows-gnu' go build -tags production,sqlite_fts5 -ldflags '-H
+windowsgui' ./cmd/sona` after a production frontend build, with `go tool
+wails3 generate syso` (its `.syso` in `cmd/sona`) for the icon and
   manifest. zig ignores the `-mwindows` Go
   passes for `-H windowsgui`, so wrap it to pass
   `-Wl,--subsystem,windows` instead, or the exe opens a console. It needs
@@ -551,12 +553,12 @@ name) and unknown desktops keep the desktop's. Settings → Desktop → Title
 bar overrides it from the next start. To check it:
 
 - Linux, tiling: run Sona in sway (headless: `WLR_BACKENDS=headless
-  WLR_LIBINPUT_NO_DEVICES=1 sway`, then the app with `WAYLAND_DISPLAY`,
+WLR_LIBINPUT_NO_DEVICES=1 sway`, then the app with `WAYLAND_DISPLAY`,
   `dbus-run-session` and private XDG dirs): no buttons, and the window is
   not frameless.
 - Linux, stacking: a headless GNOME Shell needs no system changes:
   `dbus-run-session -- env GSETTINGS_BACKEND=keyfile gnome-shell --headless
-  --wayland --no-x11 --virtual-monitor 1600x1000 --wayland-display=gnome-0`
+--wayland --no-x11 --virtual-monitor 1600x1000 --wayland-display=gnome-0`
   (`nix build nixpkgs#gnome-shell`), then the app on `WAYLAND_DISPLAY=gnome-0`
   with `XDG_CURRENT_DESKTOP=GNOME` and the tiling variables unset. Set
   `gtk-decoration-layout` in the app's `$XDG_CONFIG_HOME/gtk-4.0/settings.ini`
@@ -569,7 +571,7 @@ bar overrides it from the next start. To check it:
   the close action.
 - Windows: the zig cross-build below under wine 11 with a Windows 7 prefix
   and the WebView2 runtime, in a wine virtual desktop (`wine explorer
-  /desktop=sona,1600x1000 sona.exe`): the caption buttons at the top right,
+/desktop=sona,1600x1000 sona.exe`): the caption buttons at the top right,
   flush with the edges.
 - macOS: on a Mac only:
   the traffic lights centred on the top bar's controls, the top bar

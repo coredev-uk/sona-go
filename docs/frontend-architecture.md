@@ -7,7 +7,7 @@ slots and item actions from the ordered list in `src/app/modules.ts`. Adding
 an Apple Music page means adding a folder and one line in that list.
 
 Visual direction is `docs/design.md`. beta.music.apple.com is a reference for
-*functionality* only (pages, data, actions); every page is designed under
+_functionality_ only (pages, data, actions); every page is designed under
 Sona's own direction. Before designing or restyling a page, read
 `skill://impeccable` and `skill://design-taste-frontend` and follow them.
 
@@ -167,7 +167,7 @@ export type NavSection = "primary" | "library" | "footer";
 
 export interface NavItem<TPath extends string = string> {
   section: NavSection;
-  label: () => string;         // translated where shown: () => t`Albums`
+  label: () => string; // translated where shown: () => t`Albums`
   icon: LucideIcon;
   /** One of the module's own route paths. */
   to: TPath;
@@ -189,10 +189,19 @@ export interface EventContext {
   navigate: UseNavigateResult<string>;
 }
 
-export type GoEventHandler<E extends GoEventName> = (data: GoEventData<E>, ctx: EventContext) => void;
+export type GoEventHandler<E extends GoEventName> = (
+  data: GoEventData<E>,
+  ctx: EventContext,
+) => void;
 export type GoEventHandlers = { [E in GoEventName]?: GoEventHandler<E> };
 
-export const shortcutGroups = ["playback", "view", "pages", "navigation", "general"] as const;
+export const shortcutGroups = [
+  "playback",
+  "view",
+  "pages",
+  "navigation",
+  "general",
+] as const;
 export type ShortcutGroup = (typeof shortcutGroups)[number];
 
 /** "page" (default): not in text fields. "global": Ctrl/Alt/Meta chords work in
@@ -205,16 +214,16 @@ export interface ShortcutContext {
 }
 
 export interface Shortcut {
-  id: string;                  // stable, "<module>.<action>"; settings store bindings by it
-  label: () => string;         // () => t`Play or pause`
+  id: string; // stable, "<module>.<action>"; settings store bindings by it
+  label: () => string; // () => t`Play or pause`
   group: ShortcutGroup;
-  keys: readonly string[];     // default chords: "Space", "Ctrl+K", "Shift+ArrowRight"; [] = none
+  keys: readonly string[]; // default chords: "Space", "Ctrl+K", "Shift+ArrowRight"; [] = none
   scope?: ShortcutScope;
-  keywords?: () => string;     // extra palette words, translated
+  keywords?: () => string; // extra palette words, translated
   icon?: LucideIcon;
-  when?: () => boolean;        // available now (key and palette)
-  repeat?: boolean;            // fires again while held
-  palette?: false;             // hidden from the palette
+  when?: () => boolean; // available now (key and palette)
+  repeat?: boolean; // fires again while held
+  palette?: false; // hidden from the palette
   run: (ctx: ShortcutContext) => void;
 }
 
@@ -298,12 +307,23 @@ import { childRoute } from "@/shared/router";
 
 import { RadioPage } from "./RadioPage";
 
-const radioRoute = createRoute({ ...childRoute("/radio"), component: RadioPage });
+const radioRoute = createRoute({
+  ...childRoute("/radio"),
+  component: RadioPage,
+});
 
 export const radioModule: FeatureModule<typeof radioRoute> = {
   id: "radio",
   routes: [radioRoute],
-  nav: [{ section: "primary", label: () => t`Radio`, icon: Radio, to: "/radio", order: 30 }],
+  nav: [
+    {
+      section: "primary",
+      label: () => t`Radio`,
+      icon: Radio,
+      to: "/radio",
+      order: 30,
+    },
+  ],
   // Hypothetical event: any key of the generated Events.CustomEvents works.
   // eventHandlers: { "radio:changed": (data, { invalidate }) => invalidate([["catalog", "radio"]]) },
 };
@@ -312,7 +332,7 @@ export const radioModule: FeatureModule<typeof radioRoute> = {
 ```ts
 // src/app/modules.ts — the one line
 import { radioModule } from "@/features/radio";
-export const modules = [homeModule, searchModule, radioModule, /* … */] as const;
+export const modules = [homeModule, searchModule, radioModule /* … */] as const;
 ```
 
 Inside `RadioPage.tsx`, use `getRouteApi("/radio")` for typed search/params,
@@ -326,7 +346,12 @@ schemas live in the feature (`search-params.ts`) and are passed to
 `src/shared/actions/registry.ts` — row/item menus list registered actions.
 
 ```ts
-export interface ActionTargets { song: Song; album: Album; playlist: Playlist; artist: Artist }
+export interface ActionTargets {
+  song: Song;
+  album: Album;
+  playlist: Playlist;
+  artist: Artist;
+}
 export type ActionTargetKind = keyof ActionTargets;
 
 /** Menu sections in display order; a separator divides neighbouring non-empty sections. */
@@ -341,34 +366,43 @@ export interface MenuData<K extends ActionTargetKind, V> {
 
 // The collection a row is listed in; <TrackList container={{kind, id, editable}}>
 // passes it (with the row's index) to each row's <ActionMenu container>.
-export interface ActionContainer { kind: string; id: string; index: number; editable: boolean }
+export interface ActionContainer {
+  kind: string;
+  id: string;
+  index: number;
+  editable: boolean;
+}
 
 export interface ActionContext<K extends ActionTargetKind> {
   navigate: UseNavigateResult<string>;
   data<V>(data: MenuData<K, V>): V | undefined; // undefined until loaded
-  container?: ActionContainer;    // e.g. "Remove from this playlist"
+  container?: ActionContainer; // e.g. "Remove from this playlist"
 }
 
 type Read<K, R> = (target: ActionTargets[K], ctx: ActionContext<K>) => R;
 
 export interface ActionDef<K extends ActionTargetKind> {
-  id: string;                     // unique, e.g. "player.play-next"
+  id: string; // unique, e.g. "player.play-next"
   target: K;
-  label: Read<K, string>;         // (target, ctx) => t`Play next`
+  label: Read<K, string>; // (target, ctx) => t`Play next`
   icon: LucideIcon;
-  filled?: Read<K, boolean>;      // filled icon (a favourite's star)
+  filled?: Read<K, boolean>; // filled icon (a favourite's star)
   group: ActionGroup;
-  order: number;                  // within the group
+  order: number; // within the group
   isAvailable?: Read<K, boolean>; // listed at all (default true)
-  isEnabled?: Read<K, boolean>;   // greyed out when false (default true)
+  isEnabled?: Read<K, boolean>; // greyed out when false (default true)
   data?: readonly MenuData<K, unknown>[];
   run: Read<K, void>;
 }
 
-export type AnyActionDef = { [K in ActionTargetKind]: ActionDef<K> }[ActionTargetKind];
+export type AnyActionDef = {
+  [K in ActionTargetKind]: ActionDef<K>;
+}[ActionTargetKind];
 
 /** One item of any kind: what a selection holds and a drag carries. */
-export type ActionItem = { [K in ActionTargetKind]: { kind: K; target: ActionTargets[K] } }[ActionTargetKind];
+export type ActionItem = {
+  [K in ActionTargetKind]: { kind: K; target: ActionTargets[K] };
+}[ActionTargetKind];
 
 // The targets[] form: one run receives every selected item, in list order.
 // Listed when every selected item's kind is in `kinds`; same fields as
@@ -383,11 +417,16 @@ export interface BulkActionDef {
 export type ItemActionDef = AnyActionDef | BulkActionDef; // a module's `actions`
 
 export function registerActions(defs: readonly ItemActionDef[]): void; // throws on a duplicate id
-export function actionsFor<K extends ActionTargetKind>(kind: K): readonly ActionDef<K>[];
-export function bulkActionsFor(items: readonly ActionItem[]): readonly BulkActionDef[];
+export function actionsFor<K extends ActionTargetKind>(
+  kind: K,
+): readonly ActionDef<K>[];
+export function bulkActionsFor(
+  items: readonly ActionItem[],
+): readonly BulkActionDef[];
 export function describeItems(items: readonly ActionItem[]): string; // “Airbag”, "12 songs", "5 items"
-export function menuSections<A extends { group: ActionGroup }>(actions: readonly A[]):
-  { group: ActionGroup; actions: A[] }[];
+export function menuSections<A extends { group: ActionGroup }>(
+  actions: readonly A[],
+): { group: ActionGroup; actions: A[] }[];
 ```
 
 Features declare actions in their module's `actions`; the app registers them.
@@ -399,17 +438,17 @@ menu data loaded on open.
 Registered song actions today (album, artist and playlist menus get the
 library and rating rows too; stations get Copy link):
 
-| Group  | Order | Action | Module |
-| ------ | ----- | ------ | ------ |
-| queue  | 10 | Play next (disabled if not playable) | player |
-| queue  | 20 | Add to queue (disabled if not playable) | player |
-| item   | 10 | Go to album (if the song has an album) | album |
-| item   | 20 | Go to artist (if the song has an artist) | artist |
-| item   | 30 | Add to library (catalogue items not in the library) | library |
-| item   | 35 | Remove from library (with confirmation; not playlists) | library |
-| item   | 90 | Copy link (items with a catalogue ID) | library |
-| rating | 10 | Favourite / Undo favourite | library |
-| rating | 20 | Suggest less / Undo suggest less | library |
+| Group  | Order | Action                                                 | Module  |
+| ------ | ----- | ------------------------------------------------------ | ------- |
+| queue  | 10    | Play next (disabled if not playable)                   | player  |
+| queue  | 20    | Add to queue (disabled if not playable)                | player  |
+| item   | 10    | Go to album (if the song has an album)                 | album   |
+| item   | 20    | Go to artist (if the song has an artist)               | artist  |
+| item   | 30    | Add to library (catalogue items not in the library)    | library |
+| item   | 35    | Remove from library (with confirmation; not playlists) | library |
+| item   | 90    | Copy link (items with a catalogue ID)                  | library |
+| rating | 10    | Favourite / Undo favourite                             | library |
+| rating | 20    | Suggest less / Undo suggest less                       | library |
 
 Library state and rating come from `useItemState` / the menu's state data:
 one batched `LibraryService.States` call per frame, cached briefly in Go.
@@ -615,21 +654,21 @@ every module's handlers (plus the app's own `app:open`), then runs each
 module's `init` (initial snapshots), then calls `SystemService.FirstPaint`
 after two animation frames or 300 ms, whichever comes first.
 
-| Event | Module | Does |
-| ----- | ------ | ---- |
-| `auth:changed` | auth | replaces the auth query; invalidates `authInvalidations(prev, next)` |
-| `sync:progress`, `sync:done` | library | updates the sync store; invalidates `syncInvalidations` / `syncDoneInvalidations` |
-| `playback:state`, `playback:queue` | player | updates the playback mirror; a new track invalidates recently played |
-| `settings:changed` | settings | replaces the settings query; applies appearance |
-| `integrations:status` | settings | replaces the integrations status query (notifications/inhibitor availability, Discord configured/connected) shown in the Desktop and Connections rows (`IntegrationsRows.tsx`) |
-| `scrobble:changed` | settings | replaces the scrobbler status query (connected, connecting, needs reconnect, listens waiting) shown in Settings → Connections (`Connections.tsx`) |
-| `discover:home` | home | replaces the Home query with Go's refreshed shelves |
-| `power:changed` | motion | mirrors Go's on-battery state; motion artwork stops on battery |
-| `updates:available` | updates | replaces the `updates` query; the sidebar shows the notice |
-| `private:changed` | private | replaces the private listening mirror (player bar, Settings row, palette command; also sent for the tray and `sona private`) |
-| `library:item-state` | library | sets an item's library state after a change outside the UI (`sona like`); invalidates Favourite Songs |
-| `cdm:status` | cdm | replaces the Widevine CDM mirror (Settings → Playback's Widevine row, Diagnostics, the player bar's waiting line); a new state, version, source or code (not a progress step) invalidates Diagnostics |
-| `app:open` | app | `routeForOpen` → navigate (album, song, artist, playlist, music video, station, curator) |
+| Event                              | Module   | Does                                                                                                                                                                                                  |
+| ---------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth:changed`                     | auth     | replaces the auth query; invalidates `authInvalidations(prev, next)`                                                                                                                                  |
+| `sync:progress`, `sync:done`       | library  | updates the sync store; invalidates `syncInvalidations` / `syncDoneInvalidations`                                                                                                                     |
+| `playback:state`, `playback:queue` | player   | updates the playback mirror; a new track invalidates recently played                                                                                                                                  |
+| `settings:changed`                 | settings | replaces the settings query; applies appearance                                                                                                                                                       |
+| `integrations:status`              | settings | replaces the integrations status query (notifications/inhibitor availability, Discord configured/connected) shown in the Desktop and Connections rows (`IntegrationsRows.tsx`)                        |
+| `scrobble:changed`                 | settings | replaces the scrobbler status query (connected, connecting, needs reconnect, listens waiting) shown in Settings → Connections (`Connections.tsx`)                                                     |
+| `discover:home`                    | home     | replaces the Home query with Go's refreshed shelves                                                                                                                                                   |
+| `power:changed`                    | motion   | mirrors Go's on-battery state; motion artwork stops on battery                                                                                                                                        |
+| `updates:available`                | updates  | replaces the `updates` query; the sidebar shows the notice                                                                                                                                            |
+| `private:changed`                  | private  | replaces the private listening mirror (player bar, Settings row, palette command; also sent for the tray and `sona private`)                                                                          |
+| `library:item-state`               | library  | sets an item's library state after a change outside the UI (`sona like`); invalidates Favourite Songs                                                                                                 |
+| `cdm:status`                       | cdm      | replaces the Widevine CDM mirror (Settings → Playback's Widevine row, Diagnostics, the player bar's waiting line); a new state, version, source or code (not a progress step) invalidates Diagnostics |
+| `app:open`                         | app      | `routeForOpen` → navigate (album, song, artist, playlist, music video, station, curator)                                                                                                              |
 
 Invalidation plans stay pure functions next to their module
 (`features/auth/invalidations.ts`, `features/library/invalidations.ts`,

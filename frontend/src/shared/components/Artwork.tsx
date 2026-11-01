@@ -17,10 +17,17 @@ interface ArtworkProps {
   eager?: boolean;
 }
 
-const frameClassName =
-  "relative shrink-0 overflow-hidden bg-hover after:pointer-events-none after:absolute after:inset-0 after:ring-1 after:ring-ink/6 after:ring-inset";
-const rounding = (shape: "square" | "round") =>
-  cn(shape === "round" ? "rounded-full after:rounded-full" : "rounded-sm after:rounded-sm");
+const frameClassName = "relative shrink-0 overflow-hidden bg-hover";
+/**
+ * The 1px line at 6% ink inside the cover's edge, so pale covers do not
+ * dissolve into the ground. An outline on the image itself: WebKitGTK
+ * repaints the visible page on every scroll step, and an inset ring on a
+ * pseudo-element per tile cost about a quarter of a Home frame's paint;
+ * the outline costs no measurable paint and, unlike a border, leaves the
+ * image at the size it was decoded for.
+ */
+const edgeClassName = "rounded-[inherit] outline -outline-offset-1 outline-ink/6";
+const rounding = (shape: "square" | "round") => (shape === "round" ? "rounded-full" : "rounded-sm");
 
 /** The missing-art square: a 40%-ink outline glyph on --hover. */
 function Placeholder({ shape, glyph }: { shape: "square" | "round"; glyph: string }) {
@@ -85,7 +92,7 @@ export function Artwork({ src, size, alt, shape = "square", className, eager }: 
           decoding="async"
           draggable={false}
           onError={img.onError}
-          className="size-full object-cover"
+          className={cn("size-full object-cover", edgeClassName)}
         />
       ) : (
         <>
@@ -128,7 +135,7 @@ export function FluidArtwork({
           decoding="async"
           draggable={false}
           onError={img.onError}
-          className="absolute inset-0 size-full object-cover"
+          className={cn("absolute inset-0 size-full object-cover", edgeClassName)}
         />
       ) : (
         <Placeholder shape={shape} glyph="40%" />

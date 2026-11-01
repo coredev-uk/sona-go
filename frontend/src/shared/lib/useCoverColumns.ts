@@ -19,12 +19,14 @@ export function useElementWidth(ref: RefObject<HTMLElement | null>) {
 
 /**
  * The tile columns that fit the element's width: at least `min` wide,
- * GAP_X apart, growing to fill the row. `size` is the tile width rounded
- * up to 40px steps, so resizing the window reuses cached artwork sizes.
+ * GAP_X apart, growing to fill the row. `tile` is the exact tile width,
+ * which artwork is requested at (`artUrl`): WebKitGTK repaints the visible
+ * page on every scroll step, and art decoded at another size is resampled
+ * each time.
  */
 export function useCoverColumns(ref: RefObject<HTMLElement | null>, min: number) {
   const width = useElementWidth(ref);
   const cols = Math.max(1, Math.floor((width + GAP_X) / (min + GAP_X)));
   const tile = width ? (width - GAP_X * (cols - 1)) / cols : min;
-  return { width, cols, tile, size: Math.ceil(tile / 40) * 40 };
+  return { width, cols, tile };
 }

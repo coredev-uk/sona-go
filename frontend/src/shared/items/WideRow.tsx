@@ -36,7 +36,7 @@ interface WideRowProps {
 export function WideRow({ title, items, min, ratio, onOpen }: WideRowProps) {
   const { t } = useLingui();
   const ref = useRef<HTMLDivElement>(null);
-  const { cols, size } = useCoverColumns(ref, min);
+  const { cols, tile } = useCoverColumns(ref, min);
   const aspects = items.flatMap((i) => {
     const wide = i.wide.large || i.wide.medium;
     return wide ? [artAspect(wide)] : [];
@@ -93,7 +93,7 @@ export function WideRow({ title, items, min, ratio, onOpen }: WideRowProps) {
       >
         {shown.map((item, i) => (
           <div role="listitem" key={`${at}:${i}:${item.kind}:${item.id}`}>
-            <WideCard item={item} width={size} ratio={frame} onOpen={onOpen} />
+            <WideCard item={item} width={tile} ratio={frame} onOpen={onOpen} />
           </div>
         ))}
       </div>
@@ -124,7 +124,7 @@ function WideCard({
   return (
     <div className="group/tile group/row relative flex min-w-0 flex-col">
       <div
-        className="relative w-full overflow-hidden rounded-sm bg-hover after:pointer-events-none after:absolute after:inset-0 after:rounded-sm after:ring-1 after:ring-ink/6 after:ring-inset"
+        className="relative w-full overflow-hidden rounded-sm bg-hover"
         style={{ aspectRatio: ratio, backgroundColor: item.color || undefined }}
       >
         {!failed && src && (
@@ -135,7 +135,7 @@ function WideCard({
             decoding="async"
             draggable={false}
             onError={() => setFailed(true)}
-            className="absolute inset-0 size-full object-contain"
+            className="absolute inset-0 size-full rounded-[inherit] object-contain outline -outline-offset-1 outline-ink/6"
           />
         )}
         {canPlay(item) && (
