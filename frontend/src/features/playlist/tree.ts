@@ -8,9 +8,9 @@ const position = (n: TreeNode) => (n.kind === "folder" ? n.folder.position : n.i
 const name = (n: TreeNode) => (n.kind === "folder" ? n.folder.name : n.item.playlist.name);
 
 /**
- * The folder tree as Apple orders it: siblings by position (folders before
- * playlists on a tie, then by name). Folders whose parent is unknown, and
- * playlists in an unknown folder, sit at the top level.
+ * The folder tree: at every level folders come first, then playlists, each
+ * group in Apple's position order (then by name). Folders whose parent is
+ * unknown, and playlists in an unknown folder, sit at the top level.
  */
 export function buildTree(tree: PlaylistTree): TreeNode[] {
   const folders = new Map<string, TreeNode & { kind: "folder" }>();
@@ -26,8 +26,8 @@ export function buildTree(tree: PlaylistTree): TreeNode[] {
   const sort = (list: TreeNode[]) => {
     list.sort(
       (a, b) =>
-        position(a) - position(b) ||
         (a.kind === b.kind ? 0 : a.kind === "folder" ? -1 : 1) ||
+        position(a) - position(b) ||
         name(a).localeCompare(name(b)),
     );
     for (const n of list) if (n.kind === "folder") sort(n.children);

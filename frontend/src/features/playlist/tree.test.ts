@@ -42,14 +42,43 @@ const outline = (nodes: TreeNode[]): string[] =>
   );
 
 describe("buildTree", () => {
-  it("nests folders and orders siblings by Apple's position", () => {
+  it("lists folders before playlists at every level, each by Apple's position", () => {
     expect(outline(buildTree(tree))).toEqual([
-      "Alpha",
       "Mixes[Old[Deep],Inside]",
+      "Orphan[]",
+      "Alpha",
       "Beta",
       "Made for you",
-      "Orphan[]",
     ]);
+  });
+
+  it("puts folders first in nested folders too, and keeps empty folders", () => {
+    const nested: PlaylistTree = {
+      folders: [
+        { id: "f.top", parentId: "", name: "Top", position: 5 },
+        { id: "f.b", parentId: "f.top", name: "B", position: 3 },
+        { id: "f.a", parentId: "f.top", name: "A", position: 3 },
+        { id: "f.empty", parentId: "f.b", name: "Empty", position: 2 },
+      ],
+      playlists: [
+        pl("p.1", "One", "f.top", 0),
+        pl("p.2", "Two", "f.b", 1),
+        pl("p.0", "Zero", "", 0),
+      ],
+    };
+    expect(outline(buildTree(nested))).toEqual(["Top[A[],B[Empty[],Two],One]", "Zero"]);
+  });
+
+  it("orders a level with only folders or only playlists by position, then name", () => {
+    const onlyFolders: PlaylistTree = {
+      folders: [
+        { id: "f.2", parentId: "", name: "Second", position: 2 },
+        { id: "f.1", parentId: "", name: "First", position: 1 },
+      ],
+      playlists: [pl("p.y", "Yankee", "f.1", 1), pl("p.x", "Xray", "f.1", 1)],
+    };
+    expect(outline(buildTree(onlyFolders))).toEqual(["First[Xray,Yankee]", "Second[]"]);
+    expect(outline(buildTree({ folders: [], playlists: [] }))).toEqual([]);
   });
 
   it("lists folder paths depth-first", () => {
