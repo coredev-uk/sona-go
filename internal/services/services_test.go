@@ -167,7 +167,7 @@ func TestMapLibrarySong(t *testing.T) {
 func TestArtworkKeepsAppleShape(t *testing.T) {
 	m := newMapper(t)
 	for _, tc := range []struct {
-		a           applemusic.Artwork
+		a            applemusic.Artwork
 		small, large string
 	}{
 		{applemusic.Artwork{URL: "https://is1-ssl.mzstatic.com/image/thumb/F/hero.png/{w}x{h}sr.{f}", Width: 4320, Height: 1800}, "/96x40.jpg", "/1000x417.jpg"},
@@ -325,6 +325,25 @@ func TestMPRISSnapshot(t *testing.T) {
 	}
 	if m := mprisSnapshot(coordinator.Snapshot{State: playback.StateIdle, Index: -1}, ""); m.Status != mpris.StatusStopped || m.Track != nil || m.CanPlay {
 		t.Errorf("empty snapshot = %+v", m)
+	}
+}
+
+func TestMPRISSnapshotOnAir(t *testing.T) {
+	item := coordinator.Item{ID: "ra.1445918457", Title: "KISS"}
+	snap := coordinator.Snapshot{
+		State: playback.StatePlaying, Current: &coordinator.Entry{Item: item}, Index: 0,
+		Queue: []coordinator.Entry{{Item: item}},
+	}
+	if m := mprisSnapshot(snap, ""); m.Track.Title != "KISS" || m.Track.Artist != "" || m.CanSeek {
+		t.Errorf("silent broadcaster = %+v", m.Track)
+	}
+	snap.OnAir = playback.OnAir{Title: "Espresso", Artist: "Sabrina Carpenter"}
+	if m := mprisSnapshot(snap, ""); m.Track.Title != "Espresso" || m.Track.Artist != "Sabrina Carpenter" || m.Track.Album != "KISS" {
+		t.Errorf("on air with artist = %+v", m.Track)
+	}
+	snap.OnAir = playback.OnAir{Title: "Sabrina Carpenter - Espresso"}
+	if m := mprisSnapshot(snap, ""); m.Track.Title != "Sabrina Carpenter - Espresso" || m.Track.Artist != "KISS" || m.Track.Album != "KISS" {
+		t.Errorf("on air without artist = %+v", m.Track)
 	}
 }
 

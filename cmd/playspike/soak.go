@@ -77,7 +77,8 @@ func runSoak(log *slog.Logger, envFile string, items []string, term string, d ti
 	}
 	step("soak", "items", len(items), "duration", d, "quality", quality)
 
-	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1, Quality: quality})
+	// Stations are looked up in the account's storefront.
+	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1, Quality: quality, Storefront: func() string { return sf.ID }})
 	defer func() { _ = eng.Close() }()
 	events := eng.Events()
 

@@ -15,6 +15,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/diag"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
+	"github.com/coredev-uk/sona-go/internal/playback/gst"
 	"github.com/coredev-uk/sona-go/internal/playback/soundcheck"
 )
 
@@ -230,8 +231,12 @@ func (e *Engine) downloadUnsized(u *upload, body io.Reader) error {
 	return nil
 }
 
-// load hands m to the host as track tok, starting at pos.
+// load hands m to the host as track tok, starting at pos (a live
+// broadcast joins where it is).
 func (e *Engine) load(ctx context.Context, h host, tok uint64, m *media, pos time.Duration) error {
+	if m.broadcast != nil {
+		return h.LoadFile(ctx, tok, gst.Live, 0, 0)
+	}
 	if m.file != nil {
 		return h.LoadFile(ctx, tok, m.file.size, pos, m.gain)
 	}

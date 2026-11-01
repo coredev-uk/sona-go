@@ -48,6 +48,7 @@ type media struct {
 	keyGen      int
 	sessionKeys map[string]*hls.Key // session → key, for renewals
 	file        *upload             // a library upload (no playlist, key or licence)
+	broadcast   *broadcastMedia     // a local broadcaster's clear live stream (broadcast.go)
 	gain        float64             // Sound Check gain (linear; 0 = none known)
 	// trim: duration is the audio between the encoder's priming and
 	// padding, which the host trims (songs; streams play every sample).
@@ -69,7 +70,7 @@ func (m *media) done() bool {
 // outdated reports a prepared song of another bitrate than the current
 // setting that the current item is not playing from; with mu held.
 func (e *Engine) outdated(m *media) bool {
-	return m.stream == nil && m.quality != e.quality && (e.cur == nil || e.cur.m != m)
+	return m.stream == nil && m.broadcast == nil && m.quality != e.quality && (e.cur == nil || e.cur.m != m)
 }
 
 // media returns the prepared item id, preparing it (or waiting for a
@@ -114,7 +115,7 @@ func (e *Engine) media(ctx context.Context, id string, withSeg0 bool) (*media, e
 			}
 			return nil, m.err
 		}
-		if withSeg0 && m.file == nil {
+		if withSeg0 && m.pl != nil {
 			if _, err := e.segment(ctx, m, 0); err != nil {
 				return nil, err
 			}
@@ -427,8 +428,8 @@ func (e *Engine) certificate(ctx context.Context, h host, gen int, url string) e
 
 // license makes sure host generation gen holds m's key.
 func (e *Engine) license(ctx context.Context, m *media, h host, gen int) error {
-	if m.file != nil {
-		return nil // plain file: no licence
+	if m.file != nil || m.broadcast != nil {
+		return nil // plain file or clear stream: no licence
 	}
 	if m.stream != nil {
 		return e.streamLicense(ctx, m, m.key, h, gen)

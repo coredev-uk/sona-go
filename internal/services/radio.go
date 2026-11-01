@@ -260,13 +260,18 @@ func (s *RadioService) play(ctx context.Context, st applemusic.Station) error {
 }
 
 // stationSubtitle is the line under a stream item's name: the show for an
-// episode, else the provider.
+// episode, else the provider; Apple's own live stations say "Apple Music
+// Radio", a broadcaster without a provider (Capital, KISS) nothing (what
+// it has on air comes from its stream: Snapshot.OnAir).
 func stationSubtitle(st applemusic.Station) string {
 	if d := st.Relationships.RadioShow.Data; len(d) > 0 && d[0].Attributes.Name != "" {
 		return d[0].Attributes.Name
 	}
 	if st.Attributes.StationProviderName != "" {
 		return st.Attributes.StationProviderName
+	}
+	if stationKind(st) == StationBroadcast {
+		return ""
 	}
 	return "Apple Music Radio"
 }
@@ -292,12 +297,10 @@ func stationKind(st applemusic.Station) string {
 
 // stationPlayability says whether Sona can play st, and why not. Track
 // stations play song by song; Apple's live stations and episodes stream
-// through the Widevine engine; third-party broadcasts (TuneIn Shoutcast
-// streams outside Apple's encrypted radio) are not supported.
+// through the Widevine engine; local broadcasters' clear streams (their
+// own HLS, or TuneIn's Shoutcast) play without DRM.
 func stationPlayability(st applemusic.Station) (bool, string) {
 	switch stationKind(st) {
-	case StationBroadcast:
-		return false, "This broadcaster streams through TuneIn outside Apple Music, which Sona can't play."
 	case StationLive, StationEpisode:
 		if d := st.Attributes.SupportedDRMs; len(d) > 0 && !slices.Contains(d, "widevine") {
 			return false, "This stream isn't offered with Widevine, the only protection Sona can play."

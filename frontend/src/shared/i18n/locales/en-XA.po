@@ -3629,6 +3629,7 @@ msgid "Play {label}"
 msgstr ""
 
 #: src/features/radio/RadioPage.tsx
+#: src/shared/items/StationList.tsx
 #: src/shared/items/TrackShelf.tsx
 #: src/shared/items/WideRow.tsx
 #: src/shared/tracks/TrackList.tsx

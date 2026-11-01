@@ -90,3 +90,38 @@ func TestStationPreviews(t *testing.T) {
 		t.Error("batch survived clear")
 	}
 }
+
+func TestStreamStations(t *testing.T) {
+	st := func(name, provider string, live bool, p applemusic.StationPlayParams) applemusic.Station {
+		var s applemusic.Station
+		p.Format = applemusic.StationFormatStream
+		s.Attributes.Name, s.Attributes.StationProviderName, s.Attributes.IsLive, s.Attributes.PlayParams = name, provider, live, &p
+		return s
+	}
+	for _, tc := range []struct {
+		st             applemusic.Station
+		kind, subtitle string
+	}{
+		{st("Apple Music 1", "", true, applemusic.StationPlayParams{HasDRM: true}), StationLive, "Apple Music Radio"},
+		// Global and Bauer: their own clear HLS, no provider named.
+		{st("Capital", "", true, applemusic.StationPlayParams{}), StationBroadcast, ""},
+		{st("WNYC", "TuneIn", true, applemusic.StationPlayParams{StreamingKind: 2}), StationBroadcast, "TuneIn"},
+	} {
+		if k := stationKind(tc.st); k != tc.kind {
+			t.Errorf("%s: kind %q, want %q", tc.st.Attributes.Name, k, tc.kind)
+		}
+		if ok, why := stationPlayability(tc.st); !ok {
+			t.Errorf("%s: not playable: %s", tc.st.Attributes.Name, why)
+		}
+		if s := stationSubtitle(tc.st); s != tc.subtitle {
+			t.Errorf("%s: subtitle %q, want %q", tc.st.Attributes.Name, s, tc.subtitle)
+		}
+	}
+	broadcaster := Item{Kind: ItemStation, Station: &Station{Kind: StationBroadcast}}
+	if !allBroadcasters([]Item{broadcaster, broadcaster}) {
+		t.Error("a shelf of broadcasters is not a station list")
+	}
+	if allBroadcasters([]Item{broadcaster, {Kind: ItemStation, Station: &Station{Kind: StationLive}}}) || allBroadcasters(nil) {
+		t.Error("a mixed or empty shelf is a station list")
+	}
+}

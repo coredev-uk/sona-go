@@ -2,7 +2,8 @@
 // songs (VOD, fMP4 with EXT-X-MAP, byte-range segments of one resource and
 // an ISO-23001-7 key with the key ID inline as a data URI) and radio (live
 // sliding windows and episodes, SAMPLE-AES keys in several KEYFORMATs,
-// master playlists of AAC variants).
+// master playlists of AAC variants), and the clear live playlists of local
+// broadcasters (MPEG-TS or packed audio segments, EXTINF titles).
 package hls
 
 import (
@@ -65,6 +66,9 @@ type Segment struct {
 	Map      *Map
 	// Discontinuity: EXT-X-DISCONTINUITY precedes the segment.
 	Discontinuity bool
+	// Title is the EXTINF title, the text after the duration's comma
+	// (broadcasters put attributes there: title="…",artist="…").
+	Title string
 }
 
 // Playlist is a parsed media playlist.
@@ -174,7 +178,8 @@ func Parse(data []byte) (*Playlist, error) {
 			start += pending.Duration
 			pending, haveInf, haveRng, rngOff = Segment{}, false, false, -1
 		case tag == "#EXTINF":
-			d, _, _ := strings.Cut(value, ",")
+			d, title, _ := strings.Cut(value, ",")
+			pending.Title = strings.TrimSpace(title)
 			pending.Duration, err = seconds(d)
 			haveInf = true
 		case tag == "#EXT-X-BYTERANGE":
@@ -262,7 +267,7 @@ func parseRange(s string) (length, off int64, err error) {
 }
 
 func parseMap(s string) (*Map, error) {
-	attrs, err := parseAttrs(s)
+	attrs, err := ParseAttributes(s)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +286,7 @@ func parseMap(s string) (*Map, error) {
 }
 
 func parseKey(s string) (*Key, error) {
-	attrs, err := parseAttrs(s)
+	attrs, err := ParseAttributes(s)
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +397,7 @@ func ParseMaster(data []byte) ([]Variant, error) {
 		switch {
 		case line == "":
 		case strings.HasPrefix(line, "#EXT-X-STREAM-INF:"):
-			attrs, err := parseAttrs(strings.TrimPrefix(line, "#EXT-X-STREAM-INF:"))
+			attrs, err := ParseAttributes(strings.TrimPrefix(line, "#EXT-X-STREAM-INF:"))
 			if err != nil {
 				return nil, fmt.Errorf("hls: EXT-X-STREAM-INF: %w", err)
 			}
@@ -434,8 +439,8 @@ func BestAAC(vs []Variant) Variant {
 	return vs[best]
 }
 
-// parseAttrs parses an HLS attribute list (KEY=VALUE,KEY="quoted, value").
-func parseAttrs(s string) (map[string]string, error) {
+// ParseAttributes parses an HLS attribute list (KEY=VALUE,KEY="quoted, value").
+func ParseAttributes(s string) (map[string]string, error) {
 	attrs := map[string]string{}
 	for s = strings.TrimSpace(s); s != ""; {
 		name, rest, ok := strings.Cut(s, "=")

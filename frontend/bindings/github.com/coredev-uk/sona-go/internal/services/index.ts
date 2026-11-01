@@ -104,6 +104,7 @@ export {
     MotionStatus,
     MusicVideo,
     MusicVideoPage,
+    OnAir,
     OpenTarget,
     OutputDevice,
     Phone,

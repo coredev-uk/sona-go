@@ -41,6 +41,18 @@ type Status struct {
 	// (plain AAC, no DRM, no licence), not the full track. A preview is
 	// not a play: nothing reports it (play activity, history, scrobbles).
 	Preview bool
+	// OnAir is what a live broadcaster says is on air now (its stream's
+	// metadata, as heard: ICY titles, ID3 tags, playlist titles); zero
+	// when it says nothing.
+	OnAir OnAir
+}
+
+// OnAir is a live broadcaster's now-playing metadata, as the stream gives
+// it. Title may be the whole "Artist - Title" line (ICY StreamTitle);
+// Artist is set only when the stream names it separately.
+type OnAir struct {
+	Title  string `json:"title"`
+	Artist string `json:"artist"`
 }
 
 // ClampVolume clamps a volume to [0, 1]. NaN, which min and max pass

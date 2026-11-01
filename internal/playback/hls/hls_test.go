@@ -167,3 +167,64 @@ func TestResolve(t *testing.T) {
 		t.Fatalf("absolute: %q", got)
 	}
 }
+
+func TestExtinfTitle(t *testing.T) {
+	p, err := Parse([]byte(`#EXTM3U
+#EXT-X-TARGETDURATION:10
+#EXT-X-MEDIA-SEQUENCE:7
+#EXTINF:10.0,title="Hello, World",artist="Adele"
+a.ts
+#EXTINF:10,  Plain title  
+b.ts
+#EXTINF:10
+c.ts
+#EXTINF:10,
+d.ts
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{`title="Hello, World",artist="Adele"`, "Plain title", "", ""}
+	if len(p.Segments) != len(want) {
+		t.Fatalf("segments: %d", len(p.Segments))
+	}
+	for i, s := range p.Segments {
+		if s.Title != want[i] {
+			t.Errorf("segment %d title %q, want %q", i, s.Title, want[i])
+		}
+		if s.Duration != 10*time.Second || s.Seq != 7+i {
+			t.Errorf("segment %d: %v seq %d", i, s.Duration, s.Seq)
+		}
+	}
+	attrs, err := ParseAttributes(p.Segments[0].Title)
+	if err != nil || attrs["title"] != "Hello, World" || attrs["artist"] != "Adele" {
+		t.Fatalf("attributes %v %v", attrs, err)
+	}
+}
+
+func TestParseAttributes(t *testing.T) {
+	for _, c := range []struct {
+		in   string
+		want map[string]string
+	}{
+		{`A=1,B="x, y",C=z`, map[string]string{"A": "1", "B": "x, y", "C": "z"}},
+		{` title="t" , artist=a `, map[string]string{"title": "t", "artist": "a"}},
+		{"", map[string]string{}},
+	} {
+		got, err := ParseAttributes(c.in)
+		if err != nil || len(got) != len(c.want) {
+			t.Errorf("%q: %v %v", c.in, got, err)
+			continue
+		}
+		for k, v := range c.want {
+			if got[k] != v {
+				t.Errorf("%q: %s=%q, want %q", c.in, k, got[k], v)
+			}
+		}
+	}
+	for _, in := range []string{"A", `A="x`, `A="x"y`} {
+		if _, err := ParseAttributes(in); err == nil {
+			t.Errorf("%q: expected error", in)
+		}
+	}
+}

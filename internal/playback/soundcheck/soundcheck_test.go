@@ -1,11 +1,11 @@
 package soundcheck
 
 import (
-	"encoding/binary"
 	"math"
 	"testing"
 
 	"github.com/coredev-uk/sona-go/internal/playback/fmp4"
+	"github.com/coredev-uk/sona-go/internal/playback/id3/id3test"
 )
 
 func db(g float64) float64 { return 20 * math.Log10(g) }
@@ -57,30 +57,6 @@ func TestFromITunNORM(t *testing.T) {
 	}
 }
 
-func syncsafeBytes(n int) []byte {
-	return []byte{byte(n >> 21 & 0x7f), byte(n >> 14 & 0x7f), byte(n >> 7 & 0x7f), byte(n & 0x7f)}
-}
-
-func id3(major byte, frames ...[]byte) []byte {
-	var body []byte
-	for _, f := range frames {
-		body = append(body, f...)
-	}
-	body = append(body, make([]byte, 32)...) // padding
-	return append(append([]byte{'I', 'D', '3', major, 0, 0}, syncsafeBytes(len(body))...), body...)
-}
-
-func frame(major byte, id string, body []byte) []byte {
-	switch major {
-	case 2:
-		n := len(body)
-		return append([]byte{id[0], id[1], id[2], byte(n >> 16), byte(n >> 8), byte(n)}, body...)
-	case 3:
-		return append(append([]byte(id), binary.BigEndian.AppendUint32(nil, uint32(len(body)))...), append([]byte{0, 0}, body...)...)
-	}
-	return append(append([]byte(id), syncsafeBytes(len(body))...), append([]byte{0, 0}, body...)...)
-}
-
 func latin1Comment(desc, text string) []byte {
 	return append(append([]byte{0, 'e', 'n', 'g'}, append([]byte(desc), 0)...), text...)
 }
@@ -102,9 +78,9 @@ func TestFromFileMP3(t *testing.T) {
 	const norm = " 000007D0 000003E8 00000000 00000000 0 0 0 0 0 0"
 	smpb := latin1Comment("iTunSMPB", " 00000000 00000210")
 	for name, tag := range map[string][]byte{
-		"v2.2":       id3(2, frame(2, "TSS", []byte{0, 'x'}), frame(2, "COM", smpb), frame(2, "COM", latin1Comment("iTunNORM", norm))),
-		"v2.3 utf16": id3(3, frame(3, "COMM", utf16Comment("iTunNORM", norm))),
-		"v2.4":       id3(4, frame(4, "COMM", latin1Comment("", "a comment")), frame(4, "COMM", latin1Comment("iTunNORM", norm))),
+		"v2.2":       id3test.Tag(2, id3test.Frame(2, "TSS", []byte{0, 'x'}), id3test.Frame(2, "COM", smpb), id3test.Frame(2, "COM", latin1Comment("iTunNORM", norm))),
+		"v2.3 utf16": id3test.Tag(3, id3test.Frame(3, "COMM", utf16Comment("iTunNORM", norm))),
+		"v2.4":       id3test.Tag(4, id3test.Frame(4, "COMM", latin1Comment("", "a comment")), id3test.Frame(4, "COMM", latin1Comment("iTunNORM", norm))),
 	} {
 		mp3 := append(tag, 0xff, 0xfb, 0x90, 0x00)
 		g, ok := FromFile(mp3)
@@ -112,10 +88,10 @@ func TestFromFileMP3(t *testing.T) {
 			t.Errorf("%s: %.3f dB, %v", name, db(g), ok)
 		}
 	}
-	if _, ok := FromFile(id3(3, frame(3, "TIT2", []byte{0, 'x'}))); ok {
+	if _, ok := FromFile(id3test.Tag(3, id3test.Frame(3, "TIT2", []byte{0, 'x'}))); ok {
 		t.Error("untagged mp3 reported a gain")
 	}
-	if _, ok := FromFile(id3(3, frame(3, "COMM", latin1Comment("iTunNORM", norm)))[:20]); ok {
+	if _, ok := FromFile(id3test.Tag(3, id3test.Frame(3, "COMM", latin1Comment("iTunNORM", norm)))[:20]); ok {
 		t.Error("truncated tag reported a gain")
 	}
 }

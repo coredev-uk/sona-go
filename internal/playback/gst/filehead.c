@@ -11,9 +11,18 @@
 // pull mode the demuxer asks for the ranges it needs.
 #define FILE_BLOCK (64 * 1024)
 
+// Most bytes a live stream may hold that the decoder has not read yet:
+// minutes of radio. The parent feeds a live stream as it arrives, at about
+// the speed it plays, and stops feeding while paused.
+#define LIVE_MAX (8 * 1024 * 1024)
+
 // store is the file arriving in order. It is reference-counted: the source
 // element and the sona_file hold one reference each, and every buffer
 // handed out (which wraps the store's memory without copying) another.
+//
+// A live store (a broadcaster's stream: no length, no end until it is
+// complete, no seeking) keeps the bytes not yet read as a queue of
+// buffers instead, and drops each once it has been handed on.
 typedef struct {
   GMutex mu;
   GCond cond;  // signalled when bytes arrive, the file completes or reads are cancelled
@@ -24,6 +33,9 @@ typedef struct {
   uint64_t pos;       // end of the last range read
   gboolean complete;  // every byte was received
   gboolean flushing;  // reads return FLUSHING (the source is unlocked)
+  gboolean live;      // a live stream: chunks instead of data, alloc and size
+  GQueue chunks;      // live: the GstBuffers received and not yet read, in order
+  uint64_t queued;    // live: bytes in chunks
 } store;
 
 static void store_free(gpointer p) {
@@ -31,6 +43,7 @@ static void store_free(gpointer p) {
   g_mutex_clear(&s->mu);
   g_cond_clear(&s->cond);
   g_free(s->data);
+  g_queue_clear_full(&s->chunks, (GDestroyNotify)gst_buffer_unref);
 }
 
 static void store_unref(gpointer p) { g_atomic_rc_box_release_full(p, store_free); }
@@ -38,7 +51,8 @@ static void store_unref(gpointer p) { g_atomic_rc_box_release_full(p, store_free
 // SonaBytesSrc serves the store as a random-access byte source: demuxers
 // pull any range (qtdemux reads an MP4's moov wherever it is, tag demuxers
 // read the file's end), and a read of bytes not yet received waits for them
-// until the source is unlocked (flush, stop).
+// until the source is unlocked (flush, stop). A live store is served in
+// order only (push mode), with no size.
 typedef struct {
   GstBaseSrc parent;
   store* st;
@@ -55,10 +69,11 @@ static GstStaticPadTemplate bytes_src_template =
 
 static store* bytes_store(GstBaseSrc* src) { return ((SonaBytesSrc*)src)->st; }
 
-static gboolean bytes_is_seekable(GstBaseSrc* src) { return TRUE; }
+static gboolean bytes_is_seekable(GstBaseSrc* src) { return !bytes_store(src)->live; }
 
 static gboolean bytes_get_size(GstBaseSrc* src, guint64* size) {
   store* s = bytes_store(src);
+  if (s->live) return FALSE;
   g_mutex_lock(&s->mu);
   *size = s->size;
   g_mutex_unlock(&s->mu);
@@ -82,11 +97,47 @@ static gboolean bytes_unlock_stop(GstBaseSrc* src) {
   return TRUE;
 }
 
+// live_create hands on up to len of the live bytes next in line, waiting
+// for some; with mu held, released before returning.
+static GstFlowReturn live_create(store* s, guint len, GstBuffer** out) {
+  for (;;) {
+    if (s->flushing) {
+      g_mutex_unlock(&s->mu);
+      return GST_FLOW_FLUSHING;
+    }
+    if (!g_queue_is_empty(&s->chunks)) break;
+    if (s->complete) {
+      g_mutex_unlock(&s->mu);
+      return GST_FLOW_EOS;
+    }
+    g_cond_wait(&s->cond, &s->mu);
+  }
+  GstBuffer* b = g_queue_pop_head(&s->chunks);
+  gsize n = gst_buffer_get_size(b);
+  if (n > len) {
+    // Hand on the first len bytes and keep the rest first in line (both
+    // share the received memory).
+    g_queue_push_head(&s->chunks, gst_buffer_copy_region(b, GST_BUFFER_COPY_MEMORY, len, n - len));
+    GstBuffer* head = gst_buffer_copy_region(b, GST_BUFFER_COPY_MEMORY, 0, len);
+    gst_buffer_unref(b);
+    b = head;
+    n = len;
+  }
+  s->queued -= n;
+  GST_BUFFER_OFFSET(b) = s->pos;
+  GST_BUFFER_OFFSET_END(b) = s->pos + n;
+  s->pos += n;
+  g_mutex_unlock(&s->mu);
+  *out = b;
+  return GST_FLOW_OK;
+}
+
 // bytes_create returns [off, off+len) once received (less at the end of
-// the file), waiting for it.
+// the file), waiting for it; a live store's next bytes, whatever off.
 static GstFlowReturn bytes_create(GstBaseSrc* src, guint64 off, guint len, GstBuffer** out) {
   store* s = bytes_store(src);
   g_mutex_lock(&s->mu);
+  if (s->live) return live_create(s, len, out);
   guint64 end;
   for (;;) {
     if (s->flushing) {
@@ -328,8 +379,8 @@ static gboolean is_playing(sona_file* f) {
   return r;
 }
 
-sona_file* sona_file_new(const char* sink, const char* client_name, const char* props, uint64_t size, char* err,
-                         size_t errlen) {
+sona_file* sona_file_new(const char* sink, const char* client_name, const char* props, uint64_t size, int live,
+                         char* err, size_t errlen) {
   GstElement* dec = gst_element_factory_make("decodebin", NULL);
   GstElement* snk = gst_element_factory_make(sink, NULL);
   if (!dec || !snk) {
@@ -350,8 +401,11 @@ sona_file* sona_file_new(const char* sink, const char* client_name, const char* 
   store* st = g_atomic_rc_box_new0(store);
   g_mutex_init(&st->mu);
   g_cond_init(&st->cond);
-  st->size = st->alloc = size;
-  st->data = g_malloc(size ? size : 1);
+  st->live = live != 0;
+  if (!st->live) {
+    st->size = st->alloc = size;
+    st->data = g_malloc(size ? size : 1);
+  }
   SonaBytesSrc* src = g_object_new(sona_bytes_src_get_type(), NULL);
   src->st = g_atomic_rc_box_acquire(st);
   g_signal_connect(dec, "pad-added", G_CALLBACK(pad_added), tb);
@@ -423,7 +477,15 @@ int sona_file_write(sona_file* f, uint64_t off, const uint8_t* data, size_t len)
   store* s = f->st;
   g_mutex_lock(&s->mu);
   int r = -1;
-  if (!s->complete && off == s->have && len <= s->size - s->have) {
+  if (s->live) {
+    if (!s->complete && off == s->have && s->queued + len <= LIVE_MAX) {
+      g_queue_push_tail(&s->chunks, gst_buffer_new_memdup(data, len));
+      s->have += len;
+      s->queued += len;
+      g_cond_broadcast(&s->cond);
+      r = 0;
+    }
+  } else if (!s->complete && off == s->have && len <= s->size - s->have) {
     memcpy(s->data + off, data, len);
     s->have += len;
     g_cond_broadcast(&s->cond);

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"cmp"
 	"context"
 	"log/slog"
 	"time"
@@ -134,6 +135,11 @@ func mprisSnapshot(snap coordinator.Snapshot, artURL string) mpris.Snapshot {
 		out.Track = &mpris.Track{
 			ID: cur.Item.ID, Title: cur.Item.Title, Artist: cur.Item.Artist,
 			Album: cur.Item.Album, Length: dur, ArtURL: artURL,
+		}
+		if on := snap.OnAir; on.Title != "" {
+			// What a broadcaster has on air, from the station (its name
+			// as the album, and as the artist when the stream names none).
+			out.Track.Title, out.Track.Artist, out.Track.Album = on.Title, cmp.Or(on.Artist, cur.Item.Title), cur.Item.Title
 		}
 		out.CanPause = true
 		out.CanSeek = dur > 0

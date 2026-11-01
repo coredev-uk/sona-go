@@ -199,7 +199,7 @@ type TrackRef struct {
 const (
 	StationTracks    = "tracks"    // algorithmic: artist, song, mood, personal, genre, AutoPlay
 	StationLive      = "live"      // Apple Music live radio (Apple Music 1, Hits, …)
-	StationBroadcast = "broadcast" // third-party live broadcaster (TuneIn)
+	StationBroadcast = "broadcast" // local broadcaster's own clear stream (Capital, KISS; TuneIn)
 	StationEpisode   = "episode"   // on-demand radio show episode
 )
 
@@ -276,14 +276,15 @@ type Item struct {
 
 // Section kinds: how an editorial or recommendation section is presented.
 const (
-	SectionHero    = "hero"    // wide editorial cards (Item.Wide)
-	SectionFeature = "feature" // large cards with captions (Home's "notes" shelves)
-	SectionShelf   = "shelf"   // a row of cover cards
-	SectionTracks  = "tracks"  // songs, as a compact track list
-	SectionBricks  = "bricks"  // category tiles linking to curators, rooms, multirooms
-	SectionLinks   = "links"   // text links (Items without art)
-	SectionLive    = "live"    // live radio stations
-	SectionText    = "text"    // a paragraph (Text)
+	SectionHero     = "hero"     // wide editorial cards (Item.Wide)
+	SectionFeature  = "feature"  // large cards with captions (Home's "notes" shelves)
+	SectionShelf    = "shelf"    // a row of cover cards
+	SectionTracks   = "tracks"   // songs, as a compact track list
+	SectionBricks   = "bricks"   // category tiles linking to curators, rooms, multirooms
+	SectionLinks    = "links"    // text links (Items without art)
+	SectionLive     = "live"     // live radio stations
+	SectionStations = "stations" // local broadcasters, as a dense station list
+	SectionText     = "text"     // a paragraph (Text)
 )
 
 // Section is one block of an editorial page or Home.

@@ -25,6 +25,7 @@
 //
 //	playspike -soak 3h [-soak-items ID,ID,…]   long session: licence renewals and stalls
 //	playspike -probe-lossless SONG_ID          Widevine licences for every enhancedHls variant
+//	playspike -station ra.ID [-listen 2m]      a stream station (live radio, or a local broadcaster's clear stream) and what is on air
 package main
 
 import (
@@ -68,6 +69,7 @@ func main() {
 	soak := flag.Duration("soak", 0, "play -soak-items (or the first 25 hits for -term) back to back for this long, logging licence renewals and stalls")
 	soakItems := flag.String("soak-items", "", "comma-separated song or station (ra.…) IDs for -soak")
 	probeLossless := flag.String("probe-lossless", "", "catalog song ID: request a Widevine licence for every key of its enhancedHls (lossless/Atmos) master and print the results")
+	station := flag.String("station", "", "play a stream station (ra.…: live radio, or a local broadcaster) for -listen, printing what its stream says is on air as it changes")
 	verbose := flag.Bool("v", false, "debug logging")
 	preview := flag.Bool("preview", false, "play -song (or -term's hit), then -next (or -next-term's), as 30-second previews with the developer token only: no MUSIC_USER_TOKEN, .env, CDM or licence; checks that none is requested")
 	storefront := flag.String("storefront", "us", "with -preview: the catalog storefront songs are looked up in")
@@ -86,7 +88,7 @@ func main() {
 		os.Exit(2)
 	}
 	// The default, -preview and -activity modes end with the licence verdict.
-	verdict := *probeLossless == "" && *soak <= 0
+	verdict := *probeLossless == "" && *soak <= 0 && *station == ""
 	if *preview {
 		// No CDM: a computer that never downloaded one plays previews.
 		err = runPreview(log, *storefront, *songID, *term, *nextID, *nextTerm, *listen)
@@ -110,6 +112,8 @@ func main() {
 	switch {
 	case *probeLossless != "":
 		err = runProbeLossless(log, *envFile, *probeLossless, lib)
+	case *station != "":
+		err = runStation(log, *envFile, *station, *listen, lib)
 	case *soak > 0:
 		var items []string
 		if *soakItems != "" {

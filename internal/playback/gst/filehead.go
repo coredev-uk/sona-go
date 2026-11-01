@@ -27,6 +27,9 @@ import (
 // the first Play (see filehead.c's gate_probe), so Pause reaches PAUSED once
 // the decoder is set up (EventAsyncDone): the duration is known and Seek
 // works from then on.
+//
+// A live pipeline (size Live: a broadcaster's stream) has no length and no
+// duration, cannot seek, and keeps only the bytes not yet decoded.
 type FilePipeline struct {
 	f      *C.sona_file
 	sink   string
@@ -38,13 +41,17 @@ type FilePipeline struct {
 	closed bool
 }
 
-// NewFile builds a file pipeline for size bytes and brings it to READY.
-// o.Decoder and o.MaxQueue are ignored (decodebin picks the decoder).
+// Live is the size NewFile takes for a live stream.
+const Live int64 = -1
+
+// NewFile builds a file pipeline for size bytes (Live for a live stream)
+// and brings it to READY. o.Decoder and o.MaxQueue are ignored (decodebin
+// picks the decoder).
 func NewFile(o Options, size int64) (*FilePipeline, error) {
 	if err := Init(); err != nil {
 		return nil, err
 	}
-	if size <= 0 {
+	if size == 0 || size < Live {
 		return nil, errors.New("gst: empty file")
 	}
 	if o.AppName == "" {
@@ -79,7 +86,11 @@ func buildFile(sink string, o Options, size int64) (*FilePipeline, error) {
 		}
 	}()
 	var buf [256]C.char
-	f := C.sona_file_new(csink, capp, cprops, C.uint64_t(size), &buf[0], C.size_t(len(buf)))
+	live := C.int(0)
+	if size == Live {
+		live, size = 1, 0
+	}
+	f := C.sona_file_new(csink, capp, cprops, C.uint64_t(size), live, &buf[0], C.size_t(len(buf)))
 	if f == nil {
 		return nil, fmt.Errorf("gst: %s", C.GoString(&buf[0]))
 	}
@@ -185,7 +196,7 @@ func (p *FilePipeline) Feed(off int64, data []byte) error {
 	}
 	defer p.life.RUnlock()
 	if C.sona_file_write(p.f, C.uint64_t(off), (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data))) != 0 {
-		return fmt.Errorf("gst: file bytes at %d out of order or past the end", off)
+		return fmt.Errorf("gst: file bytes at %d out of order, past the end, or (live) too far ahead of playback", off)
 	}
 	return nil
 }
@@ -198,7 +209,8 @@ func (p *FilePipeline) Complete() {
 	}
 }
 
-// Level reports the bytes fed, the file size and the demuxer's read offset.
+// Level reports the bytes fed, the file size (0 when live) and the
+// demuxer's read offset.
 func (p *FilePipeline) Level() (have, size, pos int64) {
 	var h, s, r C.uint64_t
 	if p.use() {

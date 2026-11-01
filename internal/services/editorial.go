@@ -253,8 +253,11 @@ func (m mapper) section(res applemusic.Resources, el applemusic.Node) (Section, 
 			s.Kind = SectionLive
 		}
 		s.Items = m.items(res, el.Rel("contents"))
-		if a.Kind == applemusic.ElementTracks || allKind(s.Items, ItemSong) {
+		switch {
+		case a.Kind == applemusic.ElementTracks || allKind(s.Items, ItemSong):
 			s.Kind = SectionTracks
+		case allBroadcasters(s.Items):
+			s.Kind = SectionStations
 		}
 		if len(s.Items) == 0 {
 			// A container without contents of its own (nested sections).
@@ -268,6 +271,21 @@ func (m mapper) section(res applemusic.Resources, el applemusic.Node) (Section, 
 		}
 	}
 	return s, len(s.Items) > 0
+}
+
+// allBroadcasters reports a section of local broadcasters only (Apple's
+// "Local Broadcasters" and "International Broadcasters" shelves), which
+// read as a list of stations rather than a row of covers.
+func allBroadcasters(items []Item) bool {
+	if len(items) == 0 {
+		return false
+	}
+	for _, it := range items {
+		if it.Station == nil || it.Station.Kind != StationBroadcast {
+			return false
+		}
+	}
+	return true
 }
 
 func allKind(items []Item, kind string) bool {

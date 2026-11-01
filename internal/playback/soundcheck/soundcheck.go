@@ -14,12 +14,12 @@ package soundcheck
 
 import (
 	"bytes"
-	"encoding/binary"
 	"math"
 	"strconv"
 	"strings"
 
 	"github.com/coredev-uk/sona-go/internal/playback/fmp4"
+	"github.com/coredev-uk/sona-go/internal/playback/id3"
 )
 
 // Target is the loudness tracks are brought to, in LUFS (the level Apple
@@ -100,56 +100,18 @@ func linear(db float64) float64 {
 
 // id3ITunNORM finds the iTunNORM comment in an ID3v2.2–2.4 tag at the
 // start of b ("COM"/"COMM" frame with description "iTunNORM").
-func id3ITunNORM(b []byte) (string, bool) {
-	if len(b) < 10 || string(b[:3]) != "ID3" {
-		return "", false
-	}
-	major, flags := b[3], b[5]
-	size := syncsafe(b[6:10])
-	if flags&0x80 != 0 || 10+size > len(b) { // unsynchronised, or cut off
-		return "", false
-	}
-	tag := b[10 : 10+size]
-	if flags&0x40 != 0 && major >= 3 && len(tag) >= 4 { // skip the extended header
-		ext := int(binary.BigEndian.Uint32(tag))
-		if major == 4 {
-			ext = syncsafe(tag[:4])
-		} else {
-			ext += 4
-		}
-		if ext > len(tag) {
-			return "", false
-		}
-		tag = tag[ext:]
-	}
-	idLen, hdr := 4, 10
-	if major == 2 {
-		idLen, hdr = 3, 6
-	}
-	for len(tag) >= hdr && tag[0] != 0 {
-		id := string(tag[:idLen])
-		var n int
-		switch major {
-		case 2:
-			n = int(tag[3])<<16 | int(tag[4])<<8 | int(tag[5])
-		case 3:
-			n = int(binary.BigEndian.Uint32(tag[4:8]))
-		default:
-			n = syncsafe(tag[4:8])
-		}
-		if n < 0 || hdr+n > len(tag) {
-			return "", false
-		}
-		body := tag[hdr : hdr+n]
-		tag = tag[hdr+n:]
+func id3ITunNORM(b []byte) (norm string, found bool) {
+	id3.Frames(b, func(id string, body []byte) bool {
 		if id != "COM" && id != "COMM" {
-			continue
+			return true
 		}
 		if desc, text, ok := comment(body); ok && desc == "iTunNORM" {
-			return strings.TrimSpace(text), true
+			norm, found = strings.TrimSpace(text), true
+			return false
 		}
-	}
-	return "", false
+		return true
+	})
+	return norm, found
 }
 
 // comment splits a comment frame body (encoding, language, description,
@@ -175,31 +137,5 @@ func comment(body []byte) (desc, text string, ok bool) {
 		}
 		i += j + 1
 	}
-	return decode(enc, rest[:i]), decode(enc, rest[i+width:]), true
-}
-
-// decode returns ID3 text as Go text; the tags this package reads are
-// ASCII, so UTF-16 is narrowed by dropping the high bytes.
-func decode(enc byte, b []byte) string {
-	if enc != 1 && enc != 2 {
-		return strings.TrimRight(string(b), "\x00")
-	}
-	if len(b) >= 2 && (b[0] == 0xff && b[1] == 0xfe || b[0] == 0xfe && b[1] == 0xff) {
-		b = b[2:]
-	}
-	var sb strings.Builder
-	for i := 0; i+1 < len(b); i += 2 {
-		c := b[i]
-		if c == 0 {
-			c = b[i+1]
-		}
-		if c != 0 {
-			sb.WriteByte(c)
-		}
-	}
-	return sb.String()
-}
-
-func syncsafe(b []byte) int {
-	return int(b[0]&0x7f)<<21 | int(b[1]&0x7f)<<14 | int(b[2]&0x7f)<<7 | int(b[3]&0x7f)
+	return id3.Decode(enc, rest[:i]), id3.Decode(enc, rest[i+width:]), true
 }

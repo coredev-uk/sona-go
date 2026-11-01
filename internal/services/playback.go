@@ -153,6 +153,7 @@ func (s *PlaybackService) state(snap coordinator.Snapshot) PlaybackState {
 		AuthRequired:   snap.AuthRequired,
 		NoCDM:          snap.NoCDM,
 		Preview:        snap.Preview,
+		OnAir:          onAir(snap.OnAir),
 		AutoPlay:       snap.AutoPlay,
 		Station:        queueStation(snap.Station),
 		Sleep:          sleepTimer(snap.Sleep),
@@ -170,6 +171,14 @@ func (s *PlaybackService) state(snap coordinator.Snapshot) PlaybackState {
 		}
 	}
 	return out
+}
+
+// onAir maps what a broadcaster has on air; nil when it names nothing.
+func onAir(o playback.OnAir) *OnAir {
+	if o.Title == "" && o.Artist == "" {
+		return nil
+	}
+	return &OnAir{Title: o.Title, Artist: o.Artist}
 }
 
 func canNext(snap coordinator.Snapshot) bool {

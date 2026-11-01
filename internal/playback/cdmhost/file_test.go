@@ -195,3 +195,29 @@ func TestUploadStartPastEndEnds(t *testing.T) {
 		t.Errorf("moving the output took %v", took)
 	}
 }
+
+// A live stream (a broadcaster's ADTS AAC) plays through the file path fed
+// while it plays, with no duration, and ends once the parent ends it.
+func TestLiveFilePlaysToEnd(t *testing.T) {
+	if !gst.Have("decodebin") {
+		t.Skip("decodebin not installed")
+	}
+	data, err := os.ReadFile(filepath.Join("..", "gst", "testdata", "sine3s.adts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, events := eventServer(t)
+	s.must(t, request{Op: opLoadFile, Track: 1, Size: gst.Live})
+	s.must(t, request{Op: opPlay})
+	const chunk = 4096
+	for off := 0; off < len(data); off += chunk {
+		end := min(off+chunk, len(data))
+		s.must(t, request{Op: opFileData, Track: 1, Offset: int64(off), Data: data[off:end]})
+	}
+	ev := waitChildEvent(t, events, EventStarted, 1, 5*time.Second)
+	if ev.Position > 300*time.Millisecond {
+		t.Errorf("started at %v, want the start", ev.Position)
+	}
+	s.must(t, request{Op: opFileEnd, Track: 1})
+	waitChildEvent(t, events, EventEnded, 1, 5*time.Second)
+}
