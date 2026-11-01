@@ -1,7 +1,14 @@
 # Contributing to Sona
 
-Read this, then `AGENTS.md` (the binding rules) and the doc for the area you
-touch.
+Thanks for helping. Read this first, then
+[docs/architecture.md](docs/architecture.md) (how Sona is put together) and
+the doc for the area you touch. Everyone taking part follows the
+[Code of Conduct](CODE_OF_CONDUCT.md); security problems go through
+[SECURITY.md](SECURITY.md), not public issues.
+
+Bugs and feature ideas: open an issue with the matching form. For anything
+larger than a fix, open an issue before writing code, so the design can be
+agreed first.
 
 ## Environment
 
@@ -43,6 +50,8 @@ environment at runtime. Never pass them in `-ldflags` of a build without
 builds log them as `Build Info:` (the log handler and the diagnostics bundle
 redact `-ldflags` values, but don't rely on that).
 
+### Private mode
+
 Private mode for development and testing: a development build (any build
 without the `production` tag: `wails3 dev`, `go run .`, plain `go build`)
 starts with private listening on, whatever the saved setting says. Toggling it
@@ -66,7 +75,7 @@ private mode.
 | `check`      | The static half of the checks below: installs the frontend dependencies and builds `frontend/dist` (development build) when their sources changed, since Go embeds it; then `go vet`, the Windows and macOS type-checks, `golangci-lint --new-from-rev=origin/main`, the path-case check, tsc, eslint, `prettier --check` and `i18n:check`. |
 | `tests`      | The same frontend step, then `go test -race ./...` (inside `dbus-run-session` on Linux, so no test reaches your session bus; extra arguments go to `go test`) and vitest. Not named `test`: the shell's `test` builtin would shadow it.                                                                  |
 | `release`    | `build/linux/release/release.sh`, the same as `go tool wails3 task release`: release packages built on Ubuntu 24.04 in podman or docker (falling back to `nix run nixpkgs#podman`) and smoke-tested, into `bin/release`.                                                                                 |
-| `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`).                                                                                                                                                                                                                            |
+| `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`); `play-spike -preview` needs none.                                                                                                                                                                                                                            |
 | `auth-spike` | `go run ./cmd/authspike`: the Apple sign-in flow from the terminal.                                                                                                                                                                                                                                      |
 
 The frontend step in `check` and `tests` is Taskfile's
@@ -131,6 +140,15 @@ base, good (`osxaudiosink`), bad and libav, on the same plugin path as on
 Linux. Intel Macs (`x86_64-darwin`) are not supported: the pinned nixpkgs
 (26.11) and devenv 2.4 dropped them.
 
+devenv sets one macOS deployment target on macOS: `MACOSX_DEPLOYMENT_TARGET`
+= nixpkgs' (14.0), and `GOFLAGS` adds
+`-ldflags=-extldflags=-mmacosx-version-min=14.0`, which overrides the 10.13
+that Wails' cgo directives pass to the linker; without it ld warns "object
+file … was built for newer macOS version (14.0) than being linked (11.0)" for
+every cgo object. A `go build -ldflags=…` of your own replaces GOFLAGS'
+`-ldflags`; add `-extldflags=-mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET`
+to it (`build/darwin/Taskfile.yml` does).
+
 The app builds and runs on macOS as an unsigned development build (no
 Apple Developer account, no `.app` bundle, no packaging): its UI,
 everything Go does (sign-in, library, sync, catalog) and playback through
@@ -138,8 +156,9 @@ the same CDM host as Linux, with the CDM Sona downloads from Google for
 macOS (`mac_arm64`, see "Widevine CDM") and Core Audio output
 (`osxaudiosink`, always the system's default output). There are no media
 controls, notifications, sleep inhibit, autostart, file chooser or `sona`
-commands yet (see "Platforms"). Whether Apple licenses an unsigned macOS
-host is what `playspike` answers.
+commands yet (see "Platforms"). Apple's licence server grants licences to
+this unsigned host: the maintainer verified full-track playback on an Apple
+Silicon Mac.
 
 The CDM host child runs under macOS's sandbox (`sandbox-exec` with Sona's
 profile: no network, no writes outside the temporary folders, Sona's folder
@@ -176,8 +195,9 @@ The CDM: Sona and `playspike` download it themselves; no browser is
 needed. To check the download and the library by hand:
 
 ```sh
-go run ./cmd/cdmfetch -dir /tmp/sona-cdm          # prints version=… path=…/mac_arm64/libwidevinecdm.dylib
-ls -l /tmp/sona-cdm/*/mac_arm64/                    # the dylib and its .sig, side by side
+cdm=$(mktemp -d)
+go run ./cmd/cdmfetch -dir "$cdm"                 # prints version=… path=…/mac_arm64/libwidevinecdm.dylib
+ls -l "$cdm"/*/mac_arm64/                           # the dylib and its .sig, side by side
 # Loads Google's CDM and makes a licence request in-process (no Apple, no
 # token); downloads into the test cache first:
 SONA_CDM_REQUIRE=1 go test -count=1 -v -run 'TestCDM$' ./internal/playback/widevine
@@ -220,9 +240,9 @@ passed` with its `took` (the CDM alone), `installed`, and separately
 
 ## Checks
 
-Run before sending a change (CI runs the same on every push and pull request,
-`.github/workflows/ci.yml`; the devenv `check` and `tests` scripts run all of
-it):
+Run before sending a change (the devenv `check` and `tests` scripts run all
+of it; CI, `.github/workflows/ci.yml`, runs the same on every push and pull
+request except `golangci-lint` and `i18n:check`, so run those yourself):
 
 ```sh
 go vet ./...
@@ -254,18 +274,38 @@ Widevine CDM") fills a miss with
 must not skip)" then runs `TestCDM`, `TestProbe`, `TestSessionChallenge`,
 `TestPlayClearTrack`, `TestNextTrackAdvances`, `TestChildExit` and
 `TestChildCrashInBundle` with `-v`.
+### Preview playback (tests without a Music User Token)
+
+`MUSIC_USER_TOKEN` is not a test credential: Apple refreshes it now and then, so a stored copy (`.env`, a repository secret) goes stale. Tests, CI and smoke runs that need audio play Apple's 30-second song previews instead, which need only the developer token Sona reads from Apple's web player: no `.env`, no Widevine CDM, no licence. (Apple's web player does the same when signed out: MusicKit JS `instance.previewOnly = true`, i.e. `playbackMode` `PREVIEW_ONLY`.)
+
+- The app: `SONA_PREVIEW=1` (any build) plays every song as its preview, through a playback host that loads no CDM (still sandboxed, still without network). The player bar shows "Preview" beside the title. Songs are looked up in the account's storefront, or the locale's when signed out. Library uploads and radio have no preview and are skipped. Nothing reports a preview as a play: no Apple play activity, history or scrobble.
+- `go run ./cmd/playspike -preview [-storefront gb] [-device <sink>]` plays a song's preview, watches it advance, plays it out and starts the next one, with no `.env` and no CDM (none is downloaded). It ends with `licence: not requested` and fails if any webPlayback, certificate or licence request went out.
+- `TestPreviewPlaysLive` (`internal/playback/native`) plays a real preview end to end into a fakesink. It skips only when Apple can't be reached; `SONA_PREVIEW_REQUIRE=1` (CI) turns that skip into a failure.
+- The full DRM path keeps its own deliberate check with a Music User Token: `go run ./cmd/playspike -seek 90` and the live workflow.
+
 After touching playback or Apple request code, also run the DRM path
 regression `go run ./cmd/playspike -seek 90` (needs `MUSIC_USER_TOKEN`).
 Every playback run in tests, smokes and live checks uses private mode
 (`SONA_PRIVATE=1`; development builds start private and `playspike` is
 private by default), so nothing is reported to Apple or scrobbled.
 Route long listening tests to your own PipeWire null sink, not your
-speakers, and remove only the sinks you created.
+speakers, and remove only the sinks you created:
+
+```sh
+pw-cli create-node adapter '{ factory.name=support.null-audio-sink node.name=sona-test media.class=Audio/Sink object.linger=true audio.position=[FL FR] }'
+SONA_PRIVATE=1 go run ./cmd/playspike -device sona-test -seek 90
+pw-cli destroy sona-test
+```
 
 When running the app for a check that doesn't need your desktop, start it
 under `dbus-run-session` with private `XDG_CONFIG_HOME`, `XDG_DATA_HOME`,
 `XDG_STATE_HOME` and `XDG_CACHE_HOME`, so it neither clashes with a running
-Sona (single instance, MPRIS name) nor touches your real settings and library.
+Sona (single instance, MPRIS name) nor touches your real settings and library. Set
+the XDG variables outside `dbus-run-session` (`env XDG_…=… dbus-run-session
+-- bin/sona`), so services the private bus starts (the Secret Service, the
+portals) use them too; started the other way round, GNOME Keyring opens your
+real, locked keyring and Sona waits on its unlock prompt before showing a
+window.
 
 The CDM host sandbox tests (`TestChildCannotOpenInetSockets`,
 `TestSandboxConfinesChild/namespaces`) need unprivileged user namespaces in
@@ -281,6 +321,46 @@ Packaging changes: `bash build/linux/release/release.sh` builds every package
 on Ubuntu 24.04 and smoke-tests it on clean Ubuntu, Fedora and Arch
 containers. Before a release, work through `docs/release-checklist.md`.
 
+### CI and workflows
+
+`.github/workflows/`: `ci.yml` (every push to main and pull request: the
+Linux Go job "Go vet and test (-race)" and "Frontend typecheck, lint,
+format, test, build"; plus "macOS build and test" (devenv on macos-15:
+production build, go vet, real-CDM and sandbox tests, `go test -race`) and
+"Windows build" (windows-2025: frontend, `go vet` with cgo, `sona.exe`),
+which run only when dispatched while the repository is private and on every
+push/PR once public), `pr-title.yml` (Conventional Commits title),
+`live.yml` (weekly Apple Music contract tests, private mode), `release.yml`
+(releases), `release-secrets.yml` (dispatch: checks the `release`
+environment's secrets are set, publishes nothing), `renovate.yaml`
+(dependency updates; maintained with Renovate).
+
+Rules for workflow changes: trigger pull requests with `pull_request`, never
+`pull_request_target` or `workflow_run`; start from `permissions: contents:
+read` and widen per job only where needed; pin every action to a full commit
+SHA with the version in a comment (`uses: actions/checkout@<sha> # v7.0.1`;
+Renovate keeps pins current); `persist-credentials: false` on every checkout
+that doesn't push; pass expressions to scripts through `env:`, never inline
+in `run:`; secrets live in environments (`release`: Last.fm key/secret,
+Discord ID, deploys from main and `v*` tags; `live`: `MUSIC_USER_TOKEN`, main
+only), so no pull request run can read them. Run `actionlint` on changed
+workflows. Threat model: `docs/security-review.md`, "Workflows".
+
+### Desktop VM tests
+
+`tests/vm` holds NixOS VM tests that run Sona in real GNOME and KDE Plasma sessions (headless QEMU, no network, private mode) and check what the release checklist's desktop rows ask: first paint, the title bar's buttons, launcher entry, single instance, MPRIS in the shell, notifications, tray, X11 (XWayland), HiDPI scaling and `sona private status`. They need Linux with KVM and Nix (no devenv):
+
+```sh
+nix-build tests/vm -A gnome     # or -A plasma; -A all runs every test
+nix-build tests/vm -A sona      # the Nix package the VMs install
+```
+
+Screenshots land in `result/`. `tests/vm/README.md` lists each check, the checklist rows it covers, the interactive driver, and how to update the package's hashes after a lockfile change. They never run on pull requests: a CI run takes about an hour of runner time, so start the "VM tests" workflow by hand (`workflow_dispatch`) before a major release, or run them locally.
+
+### Secret scanning
+
+CI runs [gitleaks](https://github.com/gitleaks/gitleaks) on every pull request and every push to `main` (`.github/workflows/secret-scan.yml`): over every commit of every branch and tag, your pull request's own commits included, and over the pull request's title and body. `.gitleaks.toml` adds Sona's rules to gitleaks' defaults: JWTs (the Apple developer token), Music User Tokens, the Last.fm key and secret, the Discord application ID, and credential files (`.env`, `.p8`, `.pem`, keys, keystores). The public log shows only each finding's rule, commit, file and line. Run it before pushing with `nix run nixpkgs#gitleaks -- git --config .gitleaks.toml --redact .` (CI pins gitleaks 8.30.1). Test fixtures that need token-shaped input use obviously fake values; an allowlist entry in `.gitleaks.toml` names the file and the exact fake value, with a comment saying why it is fake. A commit that ever held a real secret stays public through its pull request even after a squash merge or force-push: rotate the secret first, then tell the maintainer. Details: `docs/security-review.md`, "Secret scanning".
+
 ## Branches and pull requests
 
 - One change per branch and pull request. Parallel work is easiest in
@@ -293,6 +373,9 @@ containers. Before a release, work through `docs/release-checklist.md`.
   `perf`, `refactor`, `docs`, `test`, `ci`, `build`, `chore` or `revert`,
   with an optional scope (`fix(playback): …`). CI fails a PR with a
   non-conforming title; PRs are squash-merged under that title.
+- Never commit or push on `main`: `devenv shell` sets `core.hooksPath` to
+  `.githooks/`, whose hooks refuse both. The maintainer merges pull requests
+  through the project's review bot once CI passes; don't merge them yourself.
 - Fill in the PR template: what changed, why, evidence (commands and their
   output; screenshots in light and dark themes for UI changes, without
   personal account data), tests, docs, and anything left.
@@ -301,6 +384,29 @@ containers. Before a release, work through `docs/release-checklist.md`.
   `main`, regenerate `frontend/bindings`, the Lingui catalogues
   (`pnpm i18n:extract` in `frontend/`) and `internal/db/dbq` (`gen`), then
   commit them.
+
+## Releases
+
+Releases are automated with release-please
+(`.github/workflows/release-please.yml`, config in
+`release-please-config.json`). Your PR title is what it reads: PRs are
+squash-merged, so the title becomes the commit subject. `feat` titles land
+under Features, `fix` under Bug Fixes, `perf` under Performance and `revert`
+under Reverts in `CHANGELOG.md`; `refactor`, `docs`, `test`, `ci`, `build`
+and `chore` stay out of the changelog. Mark a breaking change with `!`
+(`feat!: …`) or a `BREAKING CHANGE:` footer. release-please keeps one
+release PR open that bumps `VERSION` and `CHANGELOG.md`; a maintainer merges
+it, which tags `v<VERSION>` and runs `release.yml` to build and publish the
+packages. Never edit `VERSION` or `CHANGELOG.md` by hand. Steps:
+`docs/release-checklist.md`, "Releasing".
+
+## Dependency updates
+
+Renovate opens pull requests for Go modules, pnpm packages and GitHub
+Actions, and a review bot checks and merges them; the pinned devenv inputs
+are bumped by hand (see "Pinned inputs"). You
+don't need to update dependencies yourself; a change that needs a newer
+dependency bumps it in the same PR.
 
 ## Module contract
 
@@ -321,8 +427,9 @@ A feature is a Go service plus a frontend module, each self-contained:
 ## Platforms
 
 Linux is the full platform. macOS and Windows build and run the UI, with
-every OS-specific part behind a seam that reports itself unsupported there; macOS development builds also
-play through the CDM host.
+every OS-specific part behind a seam that reports itself unsupported there
+until it is implemented; macOS development builds also play through the CDM
+host. Windows has no playback yet.
 
 - `main.go` is portable; `platform_linux.go` and `platform_other.go` build
   what differs per OS: the `sona <command>` transport and single instance
@@ -485,5 +592,6 @@ light and dark follow the system; everything works from the keyboard; states
 
 By contributing you agree your contribution is licensed under the AGPL-3.0
 (`LICENSE`). Code copied from elsewhere must carry a compatible licence and
-its notice; the vendored Chromium CDM headers keep theirs
+its notice, and gets a row in `THIRD_PARTY_NOTICES.md`; the vendored
+Chromium CDM headers keep theirs
 (`internal/playback/widevine/LICENSE.chromium`, BSD-3-Clause).
