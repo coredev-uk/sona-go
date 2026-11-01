@@ -5,6 +5,11 @@
     "reason": "Sona's ellipsis says a dialog follows; Apple's key has none"
   },
   {
+    "message": "AutoPlay is on",
+    "key": "ASE.Web.Music.UpNext.Heading.AutoplayActive",
+    "reason": "Apple's text is lower case for a subline after its Up Next heading; Sona shows it as a sentence on its own"
+  },
+  {
     "message": "Delete from library…",
     "key": "ASE.Web.Music.Shared.ContextualMenu.DeleteFromLibrary",
     "reason": "Sona's ellipsis says a confirmation follows; Apple's key has none"

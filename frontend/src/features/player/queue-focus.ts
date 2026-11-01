@@ -43,3 +43,13 @@ export function rowForKey(key: string, qi: number, start: number, end: number): 
       return null;
   }
 }
+
+/**
+ * Where Alt+Up or Alt+Down moves the user's song at `qi`: one step, staying
+ * before the station's or AutoPlay's part (which starts at `userEnd`); null
+ * when it can't move that way or for other keys.
+ */
+export function moveForKey(key: string, qi: number, userEnd: number): number | null {
+  const to = key === "ArrowUp" ? qi - 1 : key === "ArrowDown" ? qi + 1 : -1;
+  return to >= 0 && to < userEnd ? to : null;
+}

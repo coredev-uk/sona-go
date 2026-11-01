@@ -124,7 +124,7 @@ func TestRestrictedAccountSkipsExplicitSongs(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = coord.Close() })
-	e := &Env{Deps: Deps{Settings: settings, DB: d, Auth: authm, Coord: coord, Emit: &recorder{}, Logger: discard()}}
+	e := &Env{Deps: Deps{Settings: settings, DB: d, Auth: authm, Coord: coord, Gate: NewGate(time.Hour, nil), Emit: &recorder{}, Logger: discard()}}
 	s := newPlaybackService(e)
 	t.Cleanup(e.close)
 

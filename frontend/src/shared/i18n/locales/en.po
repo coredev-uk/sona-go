@@ -183,6 +183,10 @@ msgid "{len, plural, one {# digit} other {# digits}}"
 msgstr "{len, plural, one {# digit} other {# digits}}"
 
 #: src/features/player/QueuePanel.tsx
+msgid "{mine, plural, one {# song after this one, then AutoPlay} other {# songs after this one, then AutoPlay}}"
+msgstr "{mine, plural, one {# song after this one, then AutoPlay} other {# songs after this one, then AutoPlay}}"
+
+#: src/features/player/QueuePanel.tsx
 msgid "{mine, plural, one {# song after this one} other {# songs after this one}}"
 msgstr "{mine, plural, one {# song after this one} other {# songs after this one}}"
 
@@ -795,10 +799,16 @@ msgstr "Automatic uses Sona's title bar on {desktop}, with the window buttons wh
 msgid "Automatic uses Sona's title bar, with the window buttons where your system puts them."
 msgstr "Automatic uses Sona's title bar, with the window buttons where your system puts them."
 
+#. Apple's name for the feature: the queue's heading over the songs it adds, and its toggle. Apple: ASE.Web.Music.UpNext.Autoplay.Heading
 #: src/features/player/QueuePanel.tsx
 #: src/features/settings/settings-file.ts
 msgid "AutoPlay"
 msgstr "AutoPlay"
+
+#. Queue summary when only AutoPlay's songs follow. Apple's ASE.Web.Music.UpNext.Heading.AutoplayActive ('autoplay is on') is lower case, for a subline, so it is not mapped.
+#: src/features/player/QueuePanel.tsx
+msgid "AutoPlay is on"
+msgstr "AutoPlay is on"
 
 #: src/features/player/QueuePanel.tsx
 msgid "AutoPlay off"
@@ -2008,6 +2018,10 @@ msgstr "Enter"
 #: src/features/player/QueuePanel.tsx
 msgid "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes the queue."
 msgstr "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes the queue."
+
+#: src/features/player/QueuePanel.tsx
+msgid "Enter plays the song, Delete removes it, Escape closes the queue."
+msgstr "Enter plays the song, Delete removes it, Escape closes the queue."
 
 #: src/features/auth/signin.ts
 msgid "Enter the latest code you received. Older codes stop working once a new one is sent."
@@ -4265,9 +4279,10 @@ msgstr "silence sound"
 msgid "Similar artists"
 msgstr "Similar artists"
 
+#. Under the AutoPlay heading in the queue. Apple: ASE.Web.Music.UpNext.Autoplay.Description
 #: src/features/player/QueuePanel.tsx
-msgid "Similar music, from {stationName}"
-msgstr "Similar music, from {stationName}"
+msgid "Similar music will keep playing"
+msgstr "Similar music will keep playing"
 
 #: src/features/album/AlbumPage.tsx
 #: src/features/artist/ArtistPage.tsx

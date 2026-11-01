@@ -47,12 +47,22 @@ type PlaybackService struct {
 // sign-out stops playback and empties the queue (it names the user's
 // songs). The account's explicit-content restriction (Apple's itre flag,
 // auth Status.Restricted) makes the coordinator skip explicit items.
+// AutoPlay is fetched ahead only once the network opens after the first
+// paint, while signed in (its station needs the Music User Token) and
+// reaching Apple.
 func newPlaybackService(e *Env) *PlaybackService {
 	s := &PlaybackService{o: e, m: e.m, meta: map[string]trackMeta{}, quit: make(chan struct{}), done: make(chan struct{})}
 	e.Coord.SetStationSource(stationFeed{s})
 	e.Coord.SetAutoPlay(e.Settings.Get().AutoPlay)
-	unwatch := e.Auth.OnChange(func(st auth.Status) { e.Coord.SetRestricted(st.Restricted) })
+	online := func(st auth.Status) {
+		e.Coord.SetOnline(e.Gate.IsOpen() && st.State == auth.StateSignedIn && !st.Offline)
+	}
+	unwatch := e.Auth.OnChange(func(st auth.Status) {
+		e.Coord.SetRestricted(st.Restricted)
+		online(st)
+	})
 	e.Coord.SetRestricted(e.Auth.Status().Restricted)
+	e.OnNetwork(func() { online(e.Auth.Status()) })
 	s.run()
 	e.OnSignOut("playback", e.Coord.Stop)
 	e.OnClose(func() {

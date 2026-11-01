@@ -332,6 +332,10 @@
     "key": "ASE.Web.Platform.Shared.AccountMenu.SignOut"
   },
   {
+    "message": "Similar music will keep playing",
+    "key": "ASE.Web.Music.UpNext.Autoplay.Description"
+  },
+  {
     "message": "Song",
     "key": "ASE.Web.Music.SongsListHeaders.song"
   },

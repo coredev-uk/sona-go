@@ -301,6 +301,7 @@ Data: concerts near a chosen location, filterable by dates and genres. Each conc
   1. `POST amp-api /v1/me/stations/continuous` with body `{"data":[{"id":"<seed songId>","type":"songs","meta":{"container":{"id":"<container id>"}}}]}`. Library seeds use `"type":"library-songs"`, and the seed can be several items. The optional query `limit[results:tracks]=N&with=tracks` returns tracks inline. Result: **200**, MUT: yes. `results.station` = `stations{id: "ra.cp-<songId>", name, artwork, kind, …}`.
   2. `POST amp-api /v1/me/stations/next-tracks/ra.cp-<songId>?limit=10` → **200**, 10 `songs`. These are appended after the user's queue and refilled as it drains.
   Verified live with the UI capture and the probe.
+  The web player's Up Next lists the AutoPlay songs in their own list under the "AutoPlay" heading (`ASE.Web.Music.UpNext.Autoplay.Heading`) with "Similar music will keep playing" under it (`ASE.Web.Music.UpNext.Autoplay.Description`); its header says "autoplay is on" (`ASE.Web.Music.UpNext.Heading.AutoplayActive`). Checked in its bundle: the user's rows are drop targets and the AutoPlay rows are not, so nothing can be dropped among or move into the AutoPlay songs, but each AutoPlay row keeps its remove button and "Remove item from Up Next" (`ASE.Web.Music.UpNext.RemoveItem`), and a double-click plays it (a jump to that queue position). Sona does the same, sets the AutoPlay rows back in grey, and fetches the AutoPlay batch ahead (`docs/architecture.md` §4.6).
 
 ### 5.3 Lyrics
 

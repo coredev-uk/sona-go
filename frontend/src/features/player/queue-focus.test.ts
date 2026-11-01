@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { focusedRow, rowForKey } from "./queue-focus";
+import { focusedRow, moveForKey, rowForKey } from "./queue-focus";
 
 const q = (...uids: number[]) => uids.map((uid) => ({ uid }));
 const uids = q(10, 11, 12, 13, 14);
@@ -44,5 +44,21 @@ describe("rowForKey", () => {
 
   it("ignores other keys", () => {
     expect(rowForKey("Enter", 2, 1, 5)).toBeNull();
+  });
+});
+
+describe("moveForKey", () => {
+  it("moves one step either way", () => {
+    expect(moveForKey("ArrowUp", 2, 5)).toBe(1);
+    expect(moveForKey("ArrowDown", 2, 5)).toBe(3);
+  });
+
+  it("keeps the user's songs before AutoPlay and inside the queue", () => {
+    expect(moveForKey("ArrowDown", 4, 5)).toBeNull();
+    expect(moveForKey("ArrowUp", 0, 5)).toBeNull();
+  });
+
+  it("ignores other keys", () => {
+    expect(moveForKey("Home", 2, 5)).toBeNull();
   });
 });
