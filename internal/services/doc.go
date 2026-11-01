@@ -108,6 +108,12 @@
 // preview) never reaches a reporter: the coordinator reports no activity
 // and no OnPlayed for it.
 //
+// First-run setup (onboarding.go): StartRoute picks the main window's
+// first route before it is created, from the settings and SQLite only
+// (config.Onboarding.Completed, the cached account): the setup
+// (OnboardingRoute) on a first start, else Settings → Desktop's page. The
+// frontend saves the completed flag through SystemService.UpdateSettings.
+//
 // Pre-release albums (release.go): Album.Prerelease and Album.ReleaseAt
 // (local midnight on the release date) mark an album not out yet; its
 // songs not out yet are not playable and PlaybackService refuses them with

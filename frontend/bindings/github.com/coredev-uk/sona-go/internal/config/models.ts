@@ -332,6 +332,37 @@ export class MotionArtwork {
 }
 
 /**
+ * Onboarding is the first-run setup (frontend features/onboarding): the
+ * main window opens on it until it is finished or skipped, unless an Apple
+ * Music account is already on this computer (services.StartRoute). Every
+ * value is valid, so there is nothing to normalise.
+ */
+export class Onboarding {
+    /**
+     * Completed: the setup was finished or skipped. Settings → Desktop
+     * opens it again without changing this.
+     */
+    "completed": boolean;
+
+    /** Creates a new Onboarding instance. */
+    constructor($$source: Partial<Onboarding> = {}) {
+        if (!("completed" in $$source)) {
+            this["completed"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Onboarding instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Onboarding {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Onboarding($$parsedSource as Partial<Onboarding>);
+    }
+}
+
+/**
  * Private is the saved private listening setting (Settings → Playback).
  * The running state can differ: a development build or SONA_PRIVATE
  * overrides it for the session (internal/privatemode), and that override
@@ -565,6 +596,11 @@ export class Settings {
      */
     "titleBar": TitleBar;
 
+    /**
+     * Onboarding is the first-run setup's state (onboarding.go).
+     */
+    "onboarding": Onboarding;
+
     /** Creates a new Settings instance. */
     constructor($$source: Partial<Settings> = {}) {
         if (!("theme" in $$source)) {
@@ -627,6 +663,9 @@ export class Settings {
         if (!("titleBar" in $$source)) {
             this["titleBar"] = (new TitleBar());
         }
+        if (!("onboarding" in $$source)) {
+            this["onboarding"] = (new Onboarding());
+        }
 
         Object.assign(this, $$source);
     }
@@ -649,6 +688,7 @@ export class Settings {
         const $$createField17_0 = $$createType15;
         const $$createField18_0 = $$createType16;
         const $$createField19_0 = $$createType17;
+        const $$createField20_0 = $$createType18;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("diagnostics" in $$parsedSource) {
             $$parsedSource["diagnostics"] = $$createField6_0($$parsedSource["diagnostics"]);
@@ -691,6 +731,9 @@ export class Settings {
         }
         if ("titleBar" in $$parsedSource) {
             $$parsedSource["titleBar"] = $$createField19_0($$parsedSource["titleBar"]);
+        }
+        if ("onboarding" in $$parsedSource) {
+            $$parsedSource["onboarding"] = $$createField20_0($$parsedSource["onboarding"]);
         }
         return new Settings($$parsedSource as Partial<Settings>);
     }
@@ -846,3 +889,4 @@ const $$createType14 = Storage.createFrom;
 const $$createType15 = Crossfade.createFrom;
 const $$createType16 = Private.createFrom;
 const $$createType17 = TitleBar.createFrom;
+const $$createType18 = Onboarding.createFrom;

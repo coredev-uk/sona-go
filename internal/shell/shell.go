@@ -61,6 +61,10 @@ type Options struct {
 	// choice (Settings → Desktop → Title bar) it decides whether the main
 	// window is frameless (titlebar.go).
 	TitleBar windowchrome.Platform
+	// StartRoute is the route the main window opens on
+	// (services.StartRoute: the first-run setup, or the Desktop
+	// settings' page).
+	StartRoute string
 }
 
 // Shell owns the windows and the tray.
@@ -115,9 +119,9 @@ func New(o Options) *Shell {
 		// frame; the top bar drags, and the web runtime resizes from the
 		// edges.
 		Frameless: kind == windowchrome.KindDrawn,
-		// The hash router starts on the chosen page; settings are read
-		// before the first paint, nothing else.
-		URL:   "/#" + cur.Desktop.StartRoute(),
+		// The hash router starts on the chosen page; settings and the
+		// cached account are read before the first paint, nothing else.
+		URL:   "/#" + o.StartRoute,
 		Linux: application.LinuxWindow{Icon: o.WindowIcon},
 		Mac:   macWindow(kind),
 	})

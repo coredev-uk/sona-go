@@ -285,11 +285,16 @@ func run(started time.Time) error {
 	})
 
 	// The windows and the tray. --hidden (the autostart entry's choice)
-	// starts with no window: playback, MPRIS and the tray only.
+	// starts with no window: playback, MPRIS and the tray only. A first
+	// start opens on the first-run setup.
+	startRoute, err := services.StartRoute(ctx, d, cur)
+	if err != nil {
+		log.Warn("startup: first-run setup", "err", err)
+	}
 	sh := shell.New(shell.Options{
 		App: wapp, Settings: settings, Coord: coord, Logger: log.With("component", "shell"),
 		WindowIcon: build.AppIcon, TrayIcon: build.TrayIcon, Background: windowBackground(cur.Theme),
-		Hidden: act.Hidden(), Private: private, TitleBar: plat.TitleBar(),
+		Hidden: act.Hidden(), Private: private, TitleBar: plat.TitleBar(), StartRoute: startRoute,
 	})
 	defer sh.Close() // after core.Close, before coord.Close
 	log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "webkitgtk", webkitVersion(), "hidden", act.Hidden())

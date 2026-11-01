@@ -35,6 +35,7 @@ var localKeys = []string{
 	"desktop.autostart",  // mirrors this computer's autostart entry
 	"desktop.lastRoute",  // where this session left off
 	"audio.outputDevice", // a PipeWire sink on this computer
+	"onboarding",         // whether this computer's first-run setup was done
 }
 
 // keepLocal copies the localKeys fields from src into dst.
@@ -43,6 +44,7 @@ func keepLocal(dst *Settings, src Settings) {
 	dst.Diagnostics, dst.Scrobbling, dst.Window = src.Diagnostics, src.Scrobbling, src.Window
 	dst.Desktop.Autostart, dst.Desktop.LastRoute = src.Desktop.Autostart, src.Desktop.LastRoute
 	dst.Audio.OutputDevice = src.Audio.OutputDevice
+	dst.Onboarding = src.Onboarding
 }
 
 // Import errors, worded for the person who picked the file.
