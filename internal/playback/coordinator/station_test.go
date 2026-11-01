@@ -249,9 +249,11 @@ func TestAutoPlay(t *testing.T) {
 		if got := autoFlags(h.c.Snapshot()); !slices.Equal(got, []bool{false, false, false, false, false, false, true, true}) {
 			t.Fatalf("auto %v", got)
 		}
-		// Clear keeps the upcoming AutoPlay slots.
+		// Clear keeps the upcoming AutoPlay slots, and with two left the
+		// station tops them up (in the background, so wait for it).
 		h.c.Clear()
-		if got := h.ids(); !slices.Equal(got, []string{"b", "ra.cp-d-1", "ra.cp-d-2"}) {
+		synctest.Wait()
+		if got := h.ids(); !slices.Equal(got, []string{"b", "ra.cp-d-1", "ra.cp-d-2", "ra.cp-d-3", "ra.cp-d-4"}) {
 			t.Fatalf("after clear %v", got)
 		}
 		// The user queue ends: AutoPlay continues, refilling from the same station.
