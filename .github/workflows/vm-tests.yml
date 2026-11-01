@@ -1,0 +1,92 @@
+# Desktop VM tests (tests/vm): Sona in NixOS VMs running GNOME and KDE
+# Plasma sessions. A run takes about an hour of runner time (GNOME ~17 min,
+# Plasma ~38 min), so it never runs on pull requests: start it by hand from
+# the Actions tab before a major release, or run the same tests locally
+# (tests/vm/README.md), which costs no Actions minutes.
+name: VM tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      test:
+        description: Which test to run
+        type: choice
+        options: [all, gnome, plasma]
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vm-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vm:
+    name: VM test (${{ matrix.test }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        test: [gnome, plasma]
+    steps:
+      - name: Skip tests not asked for
+        id: want
+        env:
+          WANT: ${{ inputs.test || 'all' }}
+          TEST: ${{ matrix.test }}
+        run: |
+          if [[ $WANT == all || $WANT == "$TEST" ]]; then echo run=true; else echo run=false; fi >>"$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.want.outputs.run == 'true'
+        with:
+          persist-credentials: false
+
+      # The desktops' closures and the VM disks need more room than the
+      # runner leaves free.
+      - name: Free disk space
+        if: steps.want.outputs.run == 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      # GitHub's Linux runners have KVM; a udev rule opens it to the runner
+      # user (https://github.blog/changelog/2024-04-02-github-actions-hardware-accelerated-android-virtualization-now-available/).
+      - name: Enable KVM
+        if: steps.want.outputs.run == 'true'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+        if: steps.want.outputs.run == 'true'
+        with:
+          extra_nix_config: |
+            system-features = nixos-test benchmark big-parallel kvm
+
+      # Sona's own builds (Go modules, pnpm store, the package); the desktops
+      # come from cache.nixos.org.
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        if: steps.want.outputs.run == 'true'
+        with:
+          primary-key: vm-tests-${{ matrix.test }}-${{ hashFiles('devenv.lock', 'go.sum', 'frontend/pnpm-lock.yaml', 'tests/vm/**') }}
+          restore-prefixes-first-match: vm-tests-${{ matrix.test }}-
+          gc-max-store-size-linux: 8G
+
+      - name: Run the ${{ matrix.test }} VM test
+        if: steps.want.outputs.run == 'true'
+        env:
+          TEST: ${{ matrix.test }}
+        run: nix-build tests/vm -A "$TEST" -o result-"$TEST"
+
+      - name: Upload screenshots
+        if: always() && steps.want.outputs.run == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vm-test-${{ matrix.test }}
+          path: result-${{ matrix.test }}/*.png
+          if-no-files-found: warn

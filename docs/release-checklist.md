@@ -124,31 +124,39 @@ history rewrite, which changes every commit hash.
 Install the package for that distro on a clean VM (or the dev host for
 Hyprland), sign in, and play something. Each check names how to verify it.
 
-| #   | Check | How |
-| --- | ----- | --- |
-| D1  | Package installs with only its declared dependencies | `.deb` on Ubuntu 24.04 GNOME (`sudo apt install ./sona_*.deb`), `.rpm` on Fedora KDE (`sudo dnf install ./sona-*.rpm`), Arch package or `sona-bin` on Arch; AppImage on any. `sona --version` prints the version |
-| D2  | Launcher entry and icon | Sona appears in the app grid / launcher with its icon; the running window groups under it (app id `dev.coredev.Sona`) |
-| D3  | CDM downloaded | Settings → Diagnostics shows the CDM version and Source "Downloaded from Google"; on Linux arm64 (no CDM from Google) the playback area says songs can't play on this computer |
-| D4  | Full-track playback | Play an album track to the end; seek; next/previous; audio on the default PipeWire/Pulse output |
-| D5  | MPRIS in the shell's media widget | GNOME: the media card in the notification/calendar panel shows title, artist, artwork and working play/pause/next/previous. KDE: the Media Player plasmoid / system-tray media controls do the same. Hyprland: `playerctl -p sona metadata`, bar widget. Media keys work |
-| D6  | Notifications | Track-change notification appears with artwork (Settings → Desktop → Notifications on); none while the window is focused if that is the setting |
-| D16 | Sign-in flows | Native sign-in with 2FA; loopback and token-paste fallbacks reachable |
-| D17 | Large-library sync | An account with a large library syncs fully; lists scroll smoothly; restart shows it from cache |
-| D18 | Queue, stations, live radio | Queue add/reorder/remove; start a song station and a live radio station; both play and advance |
-| D7  | Tray | GNOME needs the AppIndicator extension (state if absent: no tray, close quits or minimises per setting). KDE: tray icon, menu Play/Next/Previous/Show/Mini player/Quit work. Hyprland: in the bar's tray (StatusNotifierWatcher) |
-| D8  | Single instance across two real launches | Launch from the launcher, then launch again (launcher and `sona music://music.apple.com/…` in a terminal): the second exits at once, the first window comes forward and opens the link; still one window and one `org.mpris.MediaPlayer2.sona` |
-| D9  | `music://` links | Clicking a `music://` / `itms://` link in a browser opens it in Sona |
-| D10 | Wayland scaling | Native Wayland session at 100 %, 150 % (fractional) and 200 %: text and artwork sharp, no blurry upscaling, layout fits; move between monitors with different scales |
-| D11 | X11 session | GNOME on Xorg / Plasma X11 (or `GDK_BACKEND=x11` under XWayland): window, playback, MPRIS, tray, single instance all work |
-| D12 | Secrets | Token stored in GNOME Keyring / KWallet (Settings shows Secret Service); sign out removes it; restart stays signed in |
-| D13 | Sleep inhibit | While playing, the session does not suspend on idle (`systemd-inhibit --list` shows Sona); paused, it does |
-| D14 | Restart persistence | Quit and relaunch: signed in, library from cache before any network, last route/queue restored per settings |
-| D15 | Uninstall | Removing the package leaves no launcher entry; user data stays in XDG dirs |
+The VM column says what the desktop VM tests (`tests/vm`, README there)
+check on GNOME 50 and KDE Plasma 6.8 (both Wayland, plus XWayland). They
+run for major releases only, since a run takes about an hour of runner time:
+locally with `nix-build tests/vm -A all`, or by starting the "VM tests"
+workflow by hand. They never run on pull requests.
+"Manual" rows need a person or a signed-in, playing session; "part" rows
+still need the hand check for what the VM can't show.
+
+| #   | Check | How | VM |
+| --- | ----- | --- | -- |
+| D1  | Package installs with only its declared dependencies | `.deb` on Ubuntu 24.04 GNOME (`sudo apt install ./sona_*.deb`), `.rpm` on Fedora KDE (`sudo dnf install ./sona-*.rpm`), Arch package or `sona-bin` on Arch; AppImage on any. `sona --version` prints the version | Part: the Nix package, and the AppImage under `appimage-run` (`-A appimage`). .deb/.rpm/Arch: `release.sh`'s container smoke tests |
+| D2  | Launcher entry and icon | Sona appears in the app grid / launcher with its icon; the running window groups under it (app id `dev.coredev.Sona`) | Yes: GNOME's app system (name, icon, window's app); Plasma's Kickoff search starts it, KWin class `dev.coredev.Sona` |
+| D3  | CDM downloaded | Settings → Diagnostics shows the CDM version and Source "Downloaded from Google"; on Linux arm64 (no CDM from Google) the playback area says songs can't play on this computer | No (offline). The VMs check that a failed CDM check offline leaves Sona running |
+| D4  | Full-track playback | Play an album track to the end; seek; next/previous; audio on the default PipeWire/Pulse output | Manual |
+| D5  | MPRIS in the shell's media widget | GNOME: the media card in the notification/calendar panel shows title, artist, artwork and working play/pause/next/previous. KDE: the Media Player plasmoid / system-tray media controls do the same. Hyprland: `playerctl -p sona metadata`, bar widget. Media keys work | Part: one MPRIS name, metadata, `Quit`; GNOME's media card shows the track (OCR). Plasma's popup, artwork, the buttons with real playback and media keys stay manual |
+| D6  | Notifications | Track-change notification appears with artwork (Settings → Desktop → Notifications on); none while the window is focused if that is the setting | Part: Sona's notification client against GNOME's and Plasma's servers (replace, image, GNOME's default action). The app's own track-change trigger needs playback: manual |
+| D16 | Sign-in flows | Native sign-in with 2FA; loopback and token-paste fallbacks reachable | Manual |
+| D17 | Large-library sync | An account with a large library syncs fully; lists scroll smoothly; restart shows it from cache | Manual |
+| D18 | Queue, stations, live radio | Queue add/reorder/remove; start a song station and a live radio station; both play and advance | Manual |
+| D7  | Tray | GNOME needs the AppIndicator extension (state if absent: no tray, close quits or minimises per setting). KDE: tray icon, menu Play/Next/Previous/Show/Mini player/Quit work. Hyprland: in the bar's tray (StatusNotifierWatcher) | Part: the item and its menu are registered and shown (GNOME with the extension, Plasma). Clicking the menu entries stays manual |
+| D8  | Single instance across two real launches | Launch from the launcher, then launch again (launcher and `sona music://music.apple.com/…` in a terminal): the second exits at once, the first window comes forward and opens the link; still one window and one `org.mpris.MediaPlayer2.sona` | Yes, except "comes forward and opens the link" (no network to open it) |
+| D9  | `music://` links | Clicking a `music://` / `itms://` link in a browser opens it in Sona | Manual |
+| D10 | Wayland scaling | Native Wayland session at 100 %, 150 % (fractional) and 200 %: text and artwork sharp, no blurry upscaling, layout fits; move between monitors with different scales | Part: 200 % on GNOME, 200 % and 150 % on Plasma (fits the screen; sharpness by screenshot). Mixed-scale monitors manual |
+| D11 | X11 session | GNOME on Xorg / Plasma X11 (or `GDK_BACKEND=x11` under XWayland): window, playback, MPRIS, tray, single instance all work | Part: XWayland on both (window, title bar, MPRIS, tray, single instance). nixpkgs' GNOME 50 and Plasma 6.8 have no X11 session; playback manual |
+| D12 | Secrets | Token stored in GNOME Keyring / KWallet (Settings shows Secret Service); sign out removes it; restart stays signed in | Manual |
+| D13 | Sleep inhibit | While playing, the session does not suspend on idle (`systemd-inhibit --list` shows Sona); paused, it does | Manual |
+| D14 | Restart persistence | Quit and relaunch: signed in, library from cache before any network, last route/queue restored per settings | Part: the saved queue is restored after each start. The rest manual |
+| D15 | Uninstall | Removing the package leaves no launcher entry; user data stays in XDG dirs | Manual (NixOS installs declaratively) |
 
 ## 3. Results
 
-GNOME and KDE rows need VMs (not available on the dev host, a NixOS
-Hyprland machine). They are open until someone runs them.
+GNOME and KDE rows run in the desktop VM tests where the VM column says
+so; the rest stay open until someone runs them by hand.
 
 | Date | Version | Distro / session | Checks | Result | Notes |
 | ---- | ------- | ---------------- | ------ | ------ | ----- |
@@ -156,8 +164,9 @@ Hyprland machine). They are open until someone runs them.
 | 2026-10-30 | 0.1.0 | NixOS, Hyprland 0.56.2 (Wayland), devenv build | D5 (MPRIS bus), D7, D8, D11 (XWayland), D10 (1.5× in headless sway) | pass | See evidence below |
 | 2026-10-30 | 0.1.0 | NixOS, Hyprland 0.56.2 + Quickshell, devenv build (Integrations' live run) | D6, D13 | pass | Track-change notification with artwork, title and "artist — album"; the next track replaces it; none while Sona's window is focused; its Next button advanced the track. `systemd-inhibit --list` shows "Sona … sleep Playing music block" only while playing (gone after pause and after quit) |
 | 2026-10-30 | 0.1.0 | NixOS, Hyprland | D2–D4, D9, D12, D14–D18 | open | Need an installed package and a hands-on signed-in session; not run by the automated pass |
-| — | — | Ubuntu 24.04 GNOME (Wayland + Xorg) VM | all of §2 | open | No VM available on the dev host |
-| — | — | Fedora / Kubuntu KDE Plasma 6 (Wayland + X11) VM | all of §2 | open | No VM available on the dev host |
+| 2026-11-01 | 0.1.0 | NixOS VMs: GNOME 50 and KDE Plasma 6.8 (Wayland + XWayland), Nix package; AppImage on GNOME | D1 (Nix package, AppImage), D2, D5–D8, D10, D11, title bar, offline | pass | `tests/vm` (`nix-build tests/vm -A all`, `-A appimage`). Partial rows as the VM column says. GNOME shows Sona's low-urgency notifications in the list without a banner. The AppImage needs `appimage-run` extra libraries and WebKit's sandbox off inside appimage-run; it also runs on X11 always (the GTK AppRun hook sets `GDK_BACKEND=x11`) |
+| — | — | Ubuntu 24.04 GNOME (Wayland + Xorg), .deb | manual rows of §2 | open | The NixOS VMs cover the session side (VM column); the distro's package in its own session and the manual rows are still to do |
+| — | — | Fedora / Kubuntu KDE Plasma 6 (Wayland + X11), .rpm | manual rows of §2 | open | Same |
 
 ### Evidence: Hyprland, 2026-10-30
 
