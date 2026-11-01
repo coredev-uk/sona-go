@@ -62,17 +62,17 @@ func (d *tsDemuxer) segment(b []byte, audio func([]byte) error, meta func([]byte
 			payload = payload[1+int(p[4]):]
 		}
 		var err error
-		switch {
-		case pid == 0:
+		switch pid {
+		case 0:
 			d.pat(payload, pusi)
-		case pid == d.pmtPID:
+		case d.pmtPID:
 			err = d.pmt(payload, pusi)
-		case pid == d.audioPID:
+		case d.audioPID:
 			if pusi {
 				err = d.flushAudio(audio)
 			}
 			d.audio = append(d.audio, payload...)
-		case pid == d.id3PID:
+		case d.id3PID:
 			if pusi {
 				d.flushID3(meta)
 			}
