@@ -47,7 +47,10 @@ type Line struct {
 	Background string `json:"background,omitempty"`
 	Part       string `json:"part,omitempty"`  // song part, e.g. "Verse"
 	Agent      string `json:"agent,omitempty"` // the voice: "v1", "v2" (a duet's second voice), …
-	Words      []Word `json:"words,omitempty"`
+	// AgentType is the voice's kind where the source declares it:
+	// "person", "group" (every voice together) or "other".
+	AgentType string `json:"agentType,omitempty"`
+	Words     []Word `json:"words,omitempty"`
 	// Translation and Transliteration are the line's localizations (nil
 	// when there is none for the line).
 	Translation     *Text `json:"translation,omitempty"`

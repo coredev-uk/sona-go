@@ -48,6 +48,14 @@ export function lyricsClock(positionMs: number, offsetMs: number): number {
   return positionMs + LYRICS_LEAD_MS - offsetMs;
 }
 
+/**
+ * The words' clock at playback position `positionMs`: like lyricsClock
+ * but without the lead, so a word lights as the voice reaches it.
+ */
+export function wordClock(positionMs: number, offsetMs: number): number {
+  return positionMs - offsetMs;
+}
+
 /** Where to seek so that the line starting at `beginMs` is the one sung. */
 export function seekTarget(beginMs: number, offsetMs: number): number {
   return Math.max(0, beginMs + offsetMs);
@@ -85,11 +93,11 @@ export function useSongOffset(songId: string): number {
   return useLyricsOffset((s) => s.offsets[songId] ?? 0);
 }
 
-/** What the lyrics view adds to the sung words. */
+/** What the lyrics view adds under the sung words. */
 export interface LyricsPrefs {
-  /** The line translated into the account's language, under each line. */
+  /** The line translated into the chosen language (Settings → Playback → Lyrics). */
   translation: boolean;
-  /** The words in Latin script (romanization) instead of the original script. */
+  /** The words in Latin script (romanisation). */
   pronunciation: boolean;
 }
 
@@ -125,27 +133,44 @@ export function lyricsExtras(
   return { translation: !!l?.translationLanguage, pronunciation: !!l?.transliterationLanguage };
 }
 
+/** Words, or plain text where the lyrics have no word timing. */
+export interface ShownText {
+  text: string;
+  /** The timed words; empty for untimed text. */
+  words: LyricWord[];
+}
+
 /** One line as the view shows it under the current choices. */
 export interface ShownLine {
-  text: string;
-  background: string;
-  words: LyricWord[];
+  /** The main vocal. */
+  lead: ShownText;
+  /** The background vocals ("" text when there are none). */
+  background: ShownText;
+  /** The line in Latin script, under it; null when not shown or missing. */
+  pronunciation: ShownText | null;
   /** The translated line, "" when not shown or missing. */
   translation: string;
 }
 
+function joined(...parts: string[]): string {
+  return parts.filter(Boolean).join(" ");
+}
+
 /**
- * A line under `prefs`: its romanization in place of the original when
- * pronunciation is on and the line has one, and its translation beneath
- * when translation is on.
+ * A line under `prefs`: its main vocal and background vocals (each with
+ * its own words), then its romanisation and translation beneath when they
+ * are on and the line has them.
  */
 export function shownLine(line: LyricLine, prefs: LyricsPrefs): ShownLine {
   const tl = prefs.pronunciation ? line.transliteration : null;
   const tr = prefs.translation ? line.translation : null;
   return {
-    text: tl?.text || line.text,
-    background: tl ? tl.backgroundText : line.backgroundText,
-    words: tl ? tl.words : line.words,
-    translation: tr ? [tr.text, tr.backgroundText].filter(Boolean).join(" ") : "",
+    lead: { text: line.text, words: line.words.filter((w) => !w.background) },
+    background: { text: line.backgroundText, words: line.words.filter((w) => w.background) },
+    pronunciation:
+      tl && (tl.text || tl.backgroundText)
+        ? { text: joined(tl.text, tl.backgroundText), words: tl.words }
+        : null,
+    translation: tr ? joined(tr.text, tr.backgroundText) : "",
   };
 }

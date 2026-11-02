@@ -101,7 +101,7 @@ func lyricsDTO(l lyrics.Lyrics) Lyrics {
 	for i, ln := range l.Lines {
 		out.Lines[i] = LyricLine{
 			BeginMs: ln.Begin.Milliseconds(), EndMs: ln.End.Milliseconds(),
-			Text: ln.Text, Background: ln.Background, Part: ln.Part, Agent: ln.Agent,
+			Text: ln.Text, Background: ln.Background, Part: ln.Part, Agent: ln.Agent, AgentType: ln.AgentType,
 			Words:           lyricWords(ln.Words),
 			Translation:     lyricText(ln.Translation),
 			Transliteration: lyricText(ln.Transliteration),

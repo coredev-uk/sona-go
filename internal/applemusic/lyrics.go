@@ -70,7 +70,10 @@ type LyricLine struct {
 	BackgroundText string        `json:"backgroundText,omitempty"`
 	Part           string        `json:"part,omitempty"`  // itunes:songPart, e.g. "Verse"
 	Agent          string        `json:"agent,omitempty"` // ttm:agent, e.g. "v1"; v2 marks a duet voice
-	Words          []LyricWord   `json:"words,omitempty"` // word-timed lyrics only
+	// AgentType is how the head declares Agent: "person", "group" (every
+	// voice together) or "other"; "" when it isn't declared.
+	AgentType string      `json:"agentType,omitempty"`
+	Words     []LyricWord `json:"words,omitempty"` // word-timed lyrics only
 }
 
 // LyricWord is one timed <span> (a word or syllable). Text keeps a trailing
@@ -95,7 +98,8 @@ func ParseTTML(ttml string) (Lyrics, error) {
 		bgText     strings.Builder // text inside an untimed background <span>
 		spans      []spanFrame     // open <span> elements inside the line
 		songwriter *strings.Builder
-		loc        *LyricLocalization // the open <translation>/<transliteration>
+		loc        *LyricLocalization    // the open <translation>/<transliteration>
+		agentTypes = map[string]string{} // ttm:agent declarations by xml:id
 	)
 	startLine := func(ln *LyricLine) {
 		line = ln
@@ -117,6 +121,8 @@ func ParseTTML(ttml string) (Lyrics, error) {
 			case "tt":
 				l.Timing = attr(t, "timing")
 				l.Language = attr(t, "lang")
+			case "agent":
+				agentTypes[attr(t, "id")] = attr(t, "type")
 			case "songwriter":
 				songwriter = &strings.Builder{}
 			case LocalizationTranslation, LocalizationTransliteration:
@@ -130,7 +136,8 @@ func ParseTTML(ttml string) (Lyrics, error) {
 			case "p":
 				begin, _ := parseClock(attr(t, "begin"))
 				end, _ := parseClock(attr(t, "end"))
-				startLine(&LyricLine{Begin: begin, End: end, Key: attr(t, "key"), Part: part, Agent: attr(t, "agent")})
+				agent := attr(t, "agent")
+				startLine(&LyricLine{Begin: begin, End: end, Key: attr(t, "key"), Part: part, Agent: agent, AgentType: agentTypes[agent]})
 			case "span":
 				if line == nil {
 					continue

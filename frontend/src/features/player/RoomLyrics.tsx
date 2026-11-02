@@ -13,11 +13,14 @@ import { ChordKeys } from "@/shared/shortcuts/Keys";
 import { Button } from "@/shared/ui/button";
 
 import { isSynced, shownLine, useLyricsPrefs, type LyricsPrefs } from "./lyrics";
+import { LyricBody, type LyricLangs } from "./LyricBody";
+import { hasWordTiming, lineVoices, type Voice } from "./lyric-words";
 import { LyricsTiming } from "./LyricsTiming";
 import { usePlayback } from "./playback";
 import { useLyrics } from "./queries";
 import { useUI } from "./ui";
-import { useFollowLine, useSungLine } from "./useLyricsView";
+import { useFollowLine, useLyricLangs, useSungLine } from "./useLyricsView";
+import { useWordSync } from "./useWordSync";
 
 /**
  * Room-sized type: about 40 characters across a 1920 px screen, so the
@@ -27,42 +30,50 @@ const ROOM_TYPE =
   "text-[clamp(2.25rem,4.4vw,5.25rem)] leading-[1.1] font-bold tracking-[-0.02em] text-balance";
 
 const RoomLine = memo(function RoomLine({
+  index,
   line,
   state,
   prefs,
+  langs,
+  voice,
 }: {
+  index: number;
   line: LyricLine;
   state: "past" | "active" | "future" | "plain";
   prefs: LyricsPrefs;
+  langs: LyricLangs;
+  voice: Voice;
 }) {
-  const shown = shownLine(line, prefs);
+  // Word-timed lines light word by word (useWordSync); the others whole.
+  const sung = line.words.length > 0 ? "text-ink" : "text-play-ink";
   return (
     <p
+      dir="auto"
+      data-line={index}
       data-active={state === "active" || undefined}
       aria-current={state === "active" ? "true" : undefined}
       className={cn(
         "max-w-[22ch] py-[0.22em] transition-colors duration-200 ease-out",
         state === "active"
-          ? "text-play-ink"
+          ? sung
           : state === "past"
             ? "text-ink-faint"
             : state === "plain"
               ? "text-ink"
               : "text-ink-muted",
-        line.agent === "v2" && "ml-auto text-right",
+        // A duet's second voice on the other side, every voice together in the middle.
+        voice === "two" && "ms-auto text-end",
+        voice === "all" && "mx-auto text-center",
       )}
     >
-      {shown.text}
-      {shown.background && (
-        <span className="mt-[0.15em] block text-[0.5em] leading-[1.2] font-semibold">
-          {shown.background}
-        </span>
-      )}
-      {shown.translation && (
-        <span className="mt-[0.2em] block text-[0.45em] leading-[1.25] font-medium">
-          {shown.translation}
-        </span>
-      )}
+      <LyricBody
+        shown={shownLine(line, prefs)}
+        langs={langs}
+        subClassName={cn(
+          "mt-[0.15em] text-[0.5em] leading-[1.2]",
+          state === "past" ? "text-ink-faint" : "text-ink-muted",
+        )}
+      />
     </p>
   );
 });
@@ -72,11 +83,14 @@ function RoomLines({ catalogId }: { catalogId: string }) {
   const translation = useLyricsPrefs((s) => s.translation);
   const pronunciation = useLyricsPrefs((s) => s.pronunciation);
   const prefs = useMemo(() => ({ translation, pronunciation }), [translation, pronunciation]);
-  const lines = lyrics.data?.lines ?? [];
+  const lines = useMemo(() => lyrics.data?.lines ?? [], [lyrics.data]);
   const synced = isSynced(lyrics.data);
   const active = useSungLine(catalogId, lines, synced);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolled = useFollowLine(scrollRef, active);
+  useWordSync(scrollRef, catalogId, lines, hasWordTiming(lyrics.data), prefs);
+  const voices = useMemo(() => lineVoices(lines), [lines]);
+  const langs = useLyricLangs(lyrics.data);
   const { t } = useLingui();
 
   if (lyrics.isPending) return <div aria-busy aria-label={t`Loading lyrics`} className="flex-1" />;
@@ -110,8 +124,11 @@ function RoomLines({ catalogId }: { catalogId: string }) {
       {lines.map((line, i) => (
         <RoomLine
           key={i}
+          index={i}
           line={line}
           prefs={prefs}
+          langs={langs}
+          voice={voices[i]}
           state={!synced ? "plain" : i > active ? "future" : i === active ? "active" : "past"}
         />
       ))}

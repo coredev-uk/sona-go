@@ -329,7 +329,7 @@ func (staticDev) Token(context.Context) (devtoken.Token, error) {
 }
 func (staticDev) Invalidate() {}
 
-const appleTTML = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" itunes:timing="Word" xml:lang="ko"><head><metadata><iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal">` +
+const appleTTML = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" itunes:timing="Word" xml:lang="ko"><head><metadata><ttm:agent type="person" xml:id="v1"/><iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal">` +
 	`<translations><translation type="subtitle" xml:lang="en-US"><text for="L1">alpha bravo</text></translation></translations>` +
 	`<transliterations><transliteration xml:lang="ko-Latn"><text for="L1"><span begin="1" end="1.5">al</span> <span begin="1.5" end="2">pha</span></text></transliteration></transliterations>` +
 	`<songwriters><songwriter>Ann Writer</songwriter></songwriters></iTunesMetadata></metadata></head>` +
@@ -364,7 +364,7 @@ func TestApple(t *testing.T) {
 		t.Fatal(err)
 	}
 	ln := l.Lines[0]
-	if l.Timing != TimingWord || l.Language != "ko" || ln.Text != "가 나" || ln.Background != "(다)" || ln.Agent != "v1" || ln.Part != "Verse" ||
+	if l.Timing != TimingWord || l.Language != "ko" || ln.Text != "가 나" || ln.Background != "(다)" || ln.Agent != "v1" || ln.AgentType != "person" || ln.Part != "Verse" ||
 		len(ln.Words) != 3 || !ln.Words[2].Background {
 		t.Fatalf("lyrics = %+v", l)
 	}

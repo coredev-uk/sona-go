@@ -3170,9 +3170,11 @@ export class ListeningHistory {
 /**
  * LyricLine is one line; Words is set for word-timed lyrics. Background is
  * the background vocals (their words are in Words, flagged Background);
- * Agent the voice ("v1", "v2" for a duet's second voice, …). Translation
- * and Transliteration are the line's localizations (nil when the lyrics
- * have none, or none for this line).
+ * Agent the voice ("v1", "v2" for a duet's second voice, …) and AgentType
+ * its kind where the source declares it ("person", "group" for every voice
+ * together, "other"; "" otherwise). Translation and Transliteration are the
+ * line's localizations (nil when the lyrics have none, or none for this
+ * line).
  */
 export class LyricLine {
     "beginMs": number;
@@ -3189,6 +3191,11 @@ export class LyricLine {
      * "v1", "v2" (duet voice), …
      */
     "agent": string;
+
+    /**
+     * "person", "group", "other" or ""
+     */
+    "agentType": string;
     "words": LyricWord[];
     "translation": LyricText | null;
     "transliteration": LyricText | null;
@@ -3213,6 +3220,9 @@ export class LyricLine {
         if (!("agent" in $$source)) {
             this["agent"] = "";
         }
+        if (!("agentType" in $$source)) {
+            this["agentType"] = "";
+        }
         if (!("words" in $$source)) {
             this["words"] = [];
         }
@@ -3230,18 +3240,18 @@ export class LyricLine {
      * Creates a new LyricLine instance from a string or object.
      */
     static createFrom($$source: any = {}): LyricLine {
-        const $$createField6_0 = $$createType61;
-        const $$createField7_0 = $$createType63;
+        const $$createField7_0 = $$createType61;
         const $$createField8_0 = $$createType63;
+        const $$createField9_0 = $$createType63;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("words" in $$parsedSource) {
-            $$parsedSource["words"] = $$createField6_0($$parsedSource["words"]);
+            $$parsedSource["words"] = $$createField7_0($$parsedSource["words"]);
         }
         if ("translation" in $$parsedSource) {
-            $$parsedSource["translation"] = $$createField7_0($$parsedSource["translation"]);
+            $$parsedSource["translation"] = $$createField8_0($$parsedSource["translation"]);
         }
         if ("transliteration" in $$parsedSource) {
-            $$parsedSource["transliteration"] = $$createField8_0($$parsedSource["transliteration"]);
+            $$parsedSource["transliteration"] = $$createField9_0($$parsedSource["transliteration"]);
         }
         return new LyricLine($$parsedSource as Partial<LyricLine>);
     }

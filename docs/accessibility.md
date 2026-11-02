@@ -89,6 +89,13 @@ change keeps and how to check them.
   play/pause, seeking and repeating the same track stay quiet.
 - Errors are `role=alert` with the field `aria-invalid`; filter results
   with no match are announced in a `role=status`.
+- Lyrics are not a live region. Each synced line in Now Playing is one
+  button (Enter seeks to it) named by its whole text: the words, the
+  background vocals and the romanisation and translation when shown. The
+  sung line carries `aria-current`; word-by-word lighting changes only
+  attributes and styles on spans inside it, so nothing is announced or
+  re-read per word. Each line has `dir="auto"` and its parts their own
+  `lang` (the lyrics', the romanisation's, the translation's).
 
 ### Keyboard alternatives for drag and drop
 
@@ -105,7 +112,9 @@ change keeps and how to check them.
 `prefers-reduced-motion: reduce` and the reduce-effects mode set every
 transition and animation to 0 s and one iteration
 (`shared/styles/index.css`): state changes still happen, without movement.
-Full-screen lyrics jump instead of scrolling smoothly under reduced motion.
+Full-screen lyrics jump instead of scrolling smoothly under reduced motion,
+and word-timed lyrics light each word whole as it begins instead of
+filling it.
 Motion artwork does not play under either (Settings → Diagnostics → Motion
 artwork says which input stops it); covers show their still.
 

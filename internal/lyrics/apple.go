@@ -61,7 +61,7 @@ func fromApple(l applemusic.Lyrics, lang string) Lyrics {
 	}
 	for i, ln := range l.Lines {
 		out.Lines[i] = Line{
-			Begin: ln.Begin, End: ln.End, Text: ln.Text, Background: ln.BackgroundText, Part: ln.Part, Agent: ln.Agent,
+			Begin: ln.Begin, End: ln.End, Text: ln.Text, Background: ln.BackgroundText, Part: ln.Part, Agent: ln.Agent, AgentType: ln.AgentType,
 			Words:           appleWords(ln.Words),
 			Translation:     appleLocalized(tr, ln.Key),
 			Transliteration: appleLocalized(tl, ln.Key),
