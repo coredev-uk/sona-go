@@ -1,0 +1,159 @@
+{
+ "message": {
+  "header": {
+   "status_code": 200,
+   "execute_time": 0.061,
+   "pid": 21,
+   "surrogate_key_list": []
+  },
+  "body": {
+   "macro_calls": {
+    "track.lyrics.get": {
+     "message": {
+      "header": {
+       "status_code": 200,
+       "execute_time": 0.015851974487305
+      },
+      "body": {
+       "lyrics": {
+        "lyrics_id": 5001,
+        "can_edit": 0,
+        "locked": 0,
+        "published_status": 1,
+        "verified": 0,
+        "restricted": 0,
+        "instrumental": 0,
+        "explicit": 0,
+        "lyrics_body": "alpha\nbravo charlie delta echo\nfoxtrot golf hotel india juliet kilo lima mike\nnovember oscar papa alpha bravo charlie delta echo foxtrot\n\n******* This Lyrics is NOT for Commercial use *******\n(1409600000001)",
+        "lyrics_language": "en",
+        "lyrics_language_description": "English",
+        "lyrics_copyright": "Writer(s): Ann Writer, Bo Writer\nCopyright: Test Publishing\n",
+        "writer_list": [],
+        "publisher_list": [],
+        "updated_time": "2024-01-01T00:00:00Z"
+       }
+      }
+     }
+    },
+    "track.snippet.get": {
+     "message": {
+      "header": {
+       "status_code": 200,
+       "execute_time": 0.016370058059692
+      },
+      "body": {
+       "snippet": {
+        "snippet_id": 8001,
+        "snippet_language": "en",
+        "restricted": 0,
+        "instrumental": 0,
+        "snippet_body": "bravo charlie delta echo"
+       }
+      }
+     }
+    },
+    "track.subtitles.get": {
+     "message": {
+      "header": {
+       "status_code": 200,
+       "available": 14,
+       "execute_time": 0.013859033584595,
+       "instrumental": 0
+      },
+      "body": {
+       "subtitle_list": [
+        {
+         "subtitle": {
+          "subtitle_id": 6001,
+          "restricted": 0,
+          "published_status": 1,
+          "subtitle_body": "[{\"text\":\"alpha\",\"time\":{\"total\":13.12,\"minutes\":0,\"seconds\":13,\"hundredths\":12}},{\"text\":\"\",\"time\":{\"total\":16.55,\"minutes\":0,\"seconds\":16,\"hundredths\":55}},{\"text\":\"bravo charlie delta echo\",\"time\":{\"total\":27.17,\"minutes\":0,\"seconds\":27,\"hundredths\":17}},{\"text\":\"foxtrot golf hotel india juliet kilo lima mike\",\"time\":{\"total\":29.96,\"minutes\":0,\"seconds\":29,\"hundredths\":96}},{\"text\":\"november oscar papa alpha bravo charlie delta echo foxtrot\",\"time\":{\"total\":32.74,\"minutes\":0,\"seconds\":32,\"hundredths\":74}}]",
+          "subtitle_avg_count": 10,
+          "lyrics_copyright": "Writer(s): Ann Writer, Bo Writer\nCopyright: Test Publishing\n",
+          "subtitle_length": 200,
+          "subtitle_language": "en",
+          "subtitle_language_description": "English",
+          "writer_list": [],
+          "publisher_list": [],
+          "updated_time": "2024-01-01T00:00:00Z"
+         }
+        }
+       ]
+      }
+     }
+    },
+    "userblob.get": {
+     "message": {
+      "header": {
+       "status_code": 404
+      }
+     }
+    },
+    "matcher.track.get": {
+     "message": {
+      "header": {
+       "status_code": 200,
+       "execute_time": 0.013945817947388,
+       "confidence": 1000,
+       "mode": "search",
+       "cached": 1
+      },
+      "body": {
+       "track": {
+        "track_id": 1001,
+        "track_mbid": "",
+        "track_isrc": "",
+        "commontrack_isrcs": [
+         [
+          "ZZTST2600001"
+         ]
+        ],
+        "track_rating": 96,
+        "track_length": 200,
+        "commontrack_id": 2001,
+        "instrumental": 0,
+        "explicit": 0,
+        "has_lyrics": 1,
+        "has_subtitles": 1,
+        "has_richsync": 1,
+        "num_favourite": 9599,
+        "lyrics_id": 5001,
+        "subtitle_id": 6001,
+        "album_id": 3001,
+        "album_name": "Test Album",
+        "artist_id": 4001,
+        "artist_name": "Test Artist",
+        "track_name": "Placeholder Song",
+        "restricted": 0,
+        "updated_time": "2026-10-27T07:28:29Z"
+       }
+      }
+     }
+    },
+    "track.richsync.get": {
+     "message": {
+      "header": {
+       "status_code": 200,
+       "available": 9,
+       "execute_time": 0.032638072967529
+      },
+      "body": {
+       "richsync": {
+        "richsync_id": 7001,
+        "restricted": 0,
+        "richsync_body": "[{\"ts\":13.12,\"te\":14.551,\"l\":[{\"c\":\"alpha\",\"o\":0.039}],\"x\":\"alpha\"},{\"ts\":27.17,\"te\":28.268,\"l\":[{\"c\":\"bravo\",\"o\":0.039},{\"c\":\" \",\"o\":0.41},{\"c\":\"charlie\",\"o\":0.428},{\"c\":\" \",\"o\":0.6899},{\"c\":\"delta\",\"o\":0.719},{\"c\":\" \",\"o\":1.01},{\"c\":\"echo\",\"o\":1.03}],\"x\":\"bravo charlie delta echo\"},{\"ts\":29.96,\"te\":31.779,\"l\":[{\"c\":\"foxtrot\",\"o\":0.039},{\"c\":\" \",\"o\":0.151},{\"c\":\"golf\",\"o\":0.2},{\"c\":\" \",\"o\":0.399},{\"c\":\"hotel\",\"o\":0.42},{\"c\":\" \",\"o\":0.53},{\"c\":\"india\",\"o\":0.618},{\"c\":\" \",\"o\":0.708},{\"c\":\"juliet\",\"o\":0.799},{\"c\":\" \",\"o\":0.998},{\"c\":\"kilo\",\"o\":1.028},{\"c\":\" \",\"o\":1.219},{\"c\":\"lima\",\"o\":1.311},{\"c\":\" \",\"o\":1.6278},{\"c\":\"mike\",\"o\":1.681}],\"x\":\"foxtrot golf hotel india juliet kilo lima mike\"},{\"ts\":32.74,\"te\":36.301,\"l\":[{\"c\":\"november\",\"o\":0.039},{\"c\":\" \",\"o\":0.128},{\"c\":\"oscar\",\"o\":0.189},{\"c\":\" \",\"o\":0.199},{\"c\":\"papa\",\"o\":0.27},{\"c\":\" \",\"o\":0.34},{\"c\":\"alpha\",\"o\":0.35},{\"c\":\" \",\"o\":0.661},{\"c\":\"bravo\",\"o\":0.67},{\"c\":\" \",\"o\":0.81},{\"c\":\"charlie\",\"o\":0.87},{\"c\":\" \",\"o\":1.008},{\"c\":\"delta\",\"o\":1.039},{\"c\":\" \",\"o\":1.179},{\"c\":\"echo\",\"o\":1.268},{\"c\":\" \",\"o\":2.6589},{\"c\":\"foxtrot\",\"o\":2.73}],\"x\":\"november oscar papa alpha bravo charlie delta echo foxtrot\"}]",
+        "lyrics_copyright": "Writer(s): Ann Writer, Bo Writer\nCopyright: Test Publishing\n",
+        "richsync_length": 200,
+        "richssync_language": "en",
+        "richsync_language_description": "english",
+        "richsync_avg_count": 40,
+        "letter_by_letter": 0,
+        "updated_time": "2024-01-01T00:00:00Z"
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

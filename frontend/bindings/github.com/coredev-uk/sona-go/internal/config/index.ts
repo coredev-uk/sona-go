@@ -8,6 +8,8 @@ export {
     Diagnostics,
     Equalizer,
     Integrations,
+    Lyrics,
+    LyricsProvider,
     MotionArtwork,
     Onboarding,
     Private,

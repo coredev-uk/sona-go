@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AudioRows } from "./AudioRows";
 import { CdmRow } from "./CdmRow";
 import { CrossfadeRows } from "./CrossfadeRows";
+import { LyricsRows } from "./LyricsRows";
 import { PrivateRows } from "./PrivateRows";
 import { QueueRows } from "./QueueRows";
 import { QualityRow } from "./QualityRow";
@@ -24,10 +25,11 @@ const idleChoices = [5, 10, 15, 30, 60];
 
 /**
  * Settings → Playback: Widevine's state first (the player bar's Widevine
- * notice links here), then Sound, Listening and Advanced. Rows for what
- * this platform's playback can't do are left out; without any playback,
- * one line says so instead. The volume is the player bar's (and MPRIS's
- * and `sona volume`'s), never a row here.
+ * notice links here), then Sound, Listening, Lyrics and Advanced. Rows for
+ * what this platform's playback can't do are left out; without any
+ * playback, one line says so instead (lyrics still show on song pages).
+ * The volume is the player bar's (and MPRIS's and `sona volume`'s), never
+ * a row here.
  */
 export function PlaybackSection() {
   const { t } = useLingui();
@@ -48,16 +50,19 @@ export function PlaybackSection() {
   const playback = caps.playback;
   if (!playback.available) {
     return (
-      <SettingsPanel>
-        <div className="py-4">
-          <p className="text-ui font-medium text-ink">
-            <Trans>Playback isn't available on this platform yet</Trans>
-          </p>
-          <p className="mt-0.5 max-w-[56ch] text-sub text-ink-muted">
-            <Trans>Browsing Apple Music and your library works as usual.</Trans>
-          </p>
-        </div>
-      </SettingsPanel>
+      <SettingsSections>
+        <SettingsPanel>
+          <div className="py-4">
+            <p className="text-ui font-medium text-ink">
+              <Trans>Playback isn't available on this platform yet</Trans>
+            </p>
+            <p className="mt-0.5 max-w-[56ch] text-sub text-ink-muted">
+              <Trans>Browsing Apple Music and your library works as usual.</Trans>
+            </p>
+          </div>
+        </SettingsPanel>
+        <LyricsRows />
+      </SettingsSections>
     );
   }
   const save = (patch: Partial<typeof s>) => update.mutate({ ...s, ...patch });
@@ -82,6 +87,7 @@ export function PlaybackSection() {
         {playback.privateListening && <PrivateRows />}
         <QueueRows />
       </SettingsGroup>
+      <LyricsRows />
       {cdm && (
         <SettingsGroup id="playback-advanced" title={t`Advanced`}>
           <SettingRow

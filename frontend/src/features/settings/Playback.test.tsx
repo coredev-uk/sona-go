@@ -1,7 +1,7 @@
 import type { Settings } from "@bindings/config";
 import type { Capabilities, CDMStatus } from "@bindings/services";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,10 +10,12 @@ import { I18nRoot } from "@/shared/i18n";
 import { keys } from "@/shared/lib/keys";
 import { bareCapabilities, linuxCapabilities } from "@/shared/testing/capabilities";
 
+import { moveProvider } from "./lyrics-order";
 import { PlaybackSection } from "./Playback";
 
 const capabilities = vi.fn<() => Promise<Capabilities>>();
 const retry = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const updateSettings = vi.hoisted(() => vi.fn((s: unknown) => Promise.resolve(s)));
 
 const settings = {
   engineIdleMinutes: 10,
@@ -21,10 +23,20 @@ const settings = {
   audio: { outputDevice: "", soundCheck: false, equalizer: { enabled: false } },
   crossfade: { enabled: false, seconds: 6 },
   queue: { replaceConfirm: "undo" },
+  lyrics: {
+    providers: [
+      { id: "apple", enabled: true },
+      { id: "musixmatch", enabled: true },
+      { id: "lrclib", enabled: true },
+      { id: "netease", enabled: false },
+    ],
+    preferWordTiming: true,
+    translationLanguage: "",
+  },
 } as unknown as Settings;
 
 vi.mock("@bindings/services", () => ({
-  SystemService: { Settings: () => Promise.resolve(settings), UpdateSettings: vi.fn() },
+  SystemService: { Settings: () => Promise.resolve(settings), UpdateSettings: updateSettings },
   PlatformService: { Capabilities: () => capabilities() },
   AudioService: { OutputDevices: () => Promise.resolve([]) },
   CDMService: { Retry: retry, Status: () => new Promise(() => {}) },
@@ -97,6 +109,7 @@ describe("PlaybackSection", () => {
     expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
       "Sound",
       "Listening",
+      "Lyrics",
       "Advanced",
     ]);
     expect(shown("Playback isn't available on this platform yet")).toBe(false);
@@ -109,11 +122,12 @@ describe("PlaybackSection", () => {
     expect(shown("Volume")).toBe(false);
   });
 
-  it("says playback isn't available and shows nothing else without an engine", async () => {
+  it("says playback isn't available and keeps only the lyrics without an engine", async () => {
     await renderSection(Promise.resolve(bareCapabilities()));
     await screen.findByText("Playback isn't available on this platform yet");
     expect(gated.filter(shown)).toEqual([]);
-    expect(screen.queryAllByRole("heading")).toEqual([]);
+    // Song pages still show lyrics.
+    expect(screen.queryAllByRole("heading").map((h) => h.textContent)).toEqual(["Lyrics"]);
   });
 
   it("leaves out private listening where the engine reports plays itself", async () => {
@@ -206,5 +220,65 @@ describe("Widevine row", () => {
       true,
     );
     expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+});
+
+describe("Lyrics rows", () => {
+  const sources = () =>
+    within(screen.getByRole("list", { name: "Lyrics sources" }))
+      .getAllByRole("listitem")
+      .map((li) => li.querySelector("label")?.textContent);
+  const saved = () => (updateSettings.mock.calls.at(-1)?.[0] as Settings).lyrics;
+
+  it("lists the sources in order, with NetEase off", async () => {
+    await renderSection(Promise.resolve(linuxCapabilities()));
+    await screen.findByRole("list", { name: "Lyrics sources" });
+    expect(sources()).toEqual(["Apple Music", "Musixmatch", "LRCLIB", "NetEase Cloud Music"]);
+    expect(
+      screen.getByRole("switch", { name: "NetEase Cloud Music" }).getAttribute("aria-checked"),
+    ).toBe("false");
+    expect(screen.getByRole("button", { name: "Move Apple Music up" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(screen.getByRole("button", { name: "Move NetEase Cloud Music down" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+  });
+
+  it("moves a source and switches one on, saving each change", async () => {
+    await renderSection(Promise.resolve(linuxCapabilities()));
+    fireEvent.click(await screen.findByRole("button", { name: "Move LRCLIB up" }));
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(1));
+    expect(saved().providers.map((p) => p.id)).toEqual([
+      "apple",
+      "lrclib",
+      "musixmatch",
+      "netease",
+    ]);
+    await waitFor(() => expect(sources()[1]).toBe("LRCLIB"));
+    fireEvent.click(screen.getByRole("switch", { name: "NetEase Cloud Music" }));
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(2));
+    expect(saved().providers.find((p) => p.id === "netease")?.enabled).toBe(true);
+  });
+
+  it("saves the word-timing preference", async () => {
+    await renderSection(Promise.resolve(linuxCapabilities()));
+    fireEvent.click(await screen.findByRole("switch", { name: "Prefer word-by-word lyrics" }));
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(1));
+    expect(saved().preferWordTiming).toBe(false);
+  });
+});
+
+describe("moveProvider", () => {
+  const list = [
+    { id: "a", enabled: true },
+    { id: "b", enabled: false },
+  ];
+  it("swaps with the neighbour and stops at the ends", () => {
+    expect(moveProvider(list, 1, -1).map((p) => p.id)).toEqual(["b", "a"]);
+    expect(moveProvider(list, 0, -1).map((p) => p.id)).toEqual(["a", "b"]);
+    expect(moveProvider(list, 1, 1).map((p) => p.id)).toEqual(["a", "b"]);
   });
 });

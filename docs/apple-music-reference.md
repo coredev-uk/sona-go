@@ -330,7 +330,7 @@ Data: concerts near a chosen location, filterable by dates and genres. Each conc
 - `GET amp-api /v1/catalog/{sf}/songs/{id}/syllable-lyrics?l[lyrics]=en-gb&l[script]=en-Latn&extend=ttmlLocalizations` → **200**, MUT: **yes** (404 without). `syllable-lyrics{ttmlLocalizations, playParams}`: TTML with `itunes:timing="Line"` or `"Word"`, `<translations>` / transliterations (time-synced translation and pronunciation, toggled from the lyrics menu), songwriters and `ttm:agent` (singer parts).
 - `GET amp-api /v1/catalog/{sf}/songs/{id}/lyrics` → **200**, `lyrics{ttml}` (line-timed fallback).
 - `songs.attributes.hasLyrics` / `hasTimeSyncedLyrics` decide whether lyrics are available. `lyricsExcerpt` gives the song page excerpt.
-- `GET api …/lyrics` → 400. **Sona already uses amp-api** with syllable→line fallback. Sona does not yet request `extend=ttmlLocalizations` / `l[script]` (translations and pronunciation).
+- `GET api …/lyrics` → 400. Sona uses amp-api: `syllable-lyrics` with the `l[lyrics]`/`l[script]`/`extend=ttmlLocalizations` query, then `lyrics` (`internal/lyrics`'s Apple provider, one of the lyrics sources in Settings → Playback → Lyrics).
 - The bundle also has `/v1/lyrics/{sf}/snippet/songs/{id}` (lyric share snippet). Unverified, and not needed.
 
 ### 5.4 Create Station

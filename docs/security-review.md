@@ -1,10 +1,10 @@
 # Security review
 
-Sona's threat model and the controls behind it. The findings below (F1–F10) record each weakness found in Sona's own code, the control that closed it and the tests that keep it closed. The Widevine CDM downloader, Apple's runtime translations, the macOS sandbox, the GitHub Actions workflows and secret scanning have their own sections. Each section lists the residual risks that remain.
+Sona's threat model and the controls behind it. The findings below (F1–F10) record each weakness found in Sona's own code, the control that closed it and the tests that keep it closed. The Widevine CDM downloader, Apple's runtime translations, lyrics from other services, the macOS sandbox, the GitHub Actions workflows and secret scanning have their own sections. Each section lists the residual risks that remain.
 
 Areas reviewed without findings: native Apple ID input handling, `/art/`, the cmd/sona/main.go middleware, `/motion/` path handling, parent→child cdmhost framing, single-instance `Activate` and launch URLs, the other MPRIS methods, notifications, the portal file chooser, the settings file, secret stores, the scrobble queue, the diagnostics bundle, the update check, autostart and the webview URL bindings.
 
-Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/ ./internal/auth/... ./internal/i18n/...`.
+Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/ ./internal/auth/... ./internal/i18n/... ./internal/lyrics/...`.
 
 | ID | Severity | Issue | Status |
 | --- | --- | --- | --- |
@@ -246,6 +246,27 @@ Sona's UI text in other languages comes first from Apple Music's own web strings
 
 **Residual risks:**
 - Sona trusts music.apple.com over TLS for what the strings say: Apple (or anyone able to serve that origin) can put wrong or misleading wording in place of a mapped message, within its placeholders and the size cap.
+
+## Lyrics from other services
+
+Besides Apple's, Sona shows lyrics from Musixmatch, LRCLIB and NetEase Cloud Music (`internal/lyrics`, docs/architecture.md §3 "Lyrics"). The threats are a service (or a network attacker) sending text that misleads the user, breaks rendering or runs as code; a service learning more about the user than the song; and Musixmatch's user token leaking.
+
+**Requests** (`provider.go`, `services/lyrics.go`): only from Go, after first paint, through the start-up gate, to fixed `https` hosts (`apic-appmobile.musixmatch.com`, `lrclib.net`, `music.163.com`); redirects must stay on `https` (at most 5). Each request carries the song's title, artist, album, length and ISRC, a `Sona/<version>` User-Agent and no cookies or Apple credentials; the frontend never talks to these hosts. A body is read up to 8 MiB; a larger one fails to decode. Each provider has a 10 s timeout, its own pace and a backoff, so a slow or hostile service delays only its own answer.
+
+**Musixmatch's user token** (`musixmatch.go`): anonymous, from Musixmatch's `token.get` (no account), kept in the keyring with the usual 0600 file fallback (`store.OpenSecret`, key `musixmatch`), never in SQLite or the settings. It is added to the query only when a request is sent, and a transport error is rewrapped without its URL, so the token never reaches an error message or the log. A token Musixmatch no longer accepts is replaced once; a captcha answer is a rate limit (15 minutes' rest).
+
+**Parsing** (`lrc.go`, `musixmatch.go`, `netease.go`): bodies are JSON decoded into fixed structs; LRC, Musixmatch's richsync and subtitle bodies are parsed as data (timestamps and text), never run or interpreted as markup. A result whose song does not match (title, artist, length within 3 s, or the ISRC) is dropped.
+
+**Cache** (`cache.go`): the parsed result (`lyrics.Lyrics` JSON) per provider, song and translation language in `lyrics_cache`; an entry that doesn't decode is ignored and fetched again.
+
+**Rendering**: lines, words and translations reach the frontend as plain strings in the lyrics DTO and are rendered as React text; no `dangerouslySetInnerHTML` is involved.
+
+**Tests:** `internal/lyrics` (`TestMusixmatchKeepsTokenOutOfErrors`, `TestMusixmatchCaptchaAndTokenRenewal`, `TestMusixmatchMatchesByISRC`, `TestLRCLIB`, `TestNetEase`, `TestRateLimitBacksOff`, `TestLimiter`, `TestCachePositiveAndNegative`).
+
+**Residual risks:**
+- Each service sees which songs the user looks up lyrics for (title, artist, album, ISRC) and the user's IP address. Sources can be switched off in Settings → Playback → Lyrics; NetEase is off by default.
+- The services decide what the lyrics say: a wrong or offensive text is shown as sent. A wrong match is limited by the title, artist and length checks.
+- Musixmatch's endpoint and token flow are the ones its own apps use, not a documented API; Musixmatch can change or refuse them, and Sona then shows other sources' lyrics.
 
 ## macOS sandbox (development builds)
 

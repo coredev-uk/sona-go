@@ -34,7 +34,6 @@ const (
 	ArtistTTL   = 24 * time.Hour
 	PlaylistTTL = time.Hour
 	SongTTL     = 7 * 24 * time.Hour
-	LyricsTTL   = 30 * 24 * time.Hour
 )
 
 // ErrNoStorefront is returned when the storefront func reports none (signed
@@ -189,24 +188,6 @@ func (c *Catalog) Song(ctx context.Context, id string) (applemusic.Song, error) 
 		_, err := storeSong(ctx, q, s, now)
 		return err
 	})
-}
-
-// Lyrics returns the lyrics of catalog song id (see
-// applemusic.LyricsOptions). Songs without lyrics return an error matching
-// applemusic.ErrNotFound.
-func (c *Catalog) Lyrics(ctx context.Context, id string, opt applemusic.LyricsOptions) (applemusic.Lyrics, error) {
-	kind := "lyrics"
-	if opt.Syllable {
-		kind = "syllable-lyrics|" + strings.ToLower(opt.Language)
-	}
-	ttml, err := cached(ctx, c, kind, id, LyricsTTL, func(ctx context.Context, sf string) (string, error) {
-		l, err := c.api.Lyrics(ctx, sf, id, opt)
-		return l.TTML, err
-	}, nil)
-	if err != nil {
-		return applemusic.Lyrics{}, err
-	}
-	return applemusic.ParseTTML(ttml)
 }
 
 // Prune deletes expired cache entries and returns how many it removed.

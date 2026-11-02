@@ -663,16 +663,14 @@ msgstr ""
 #: src/features/onboarding/DoneStep.tsx
 #: src/features/onboarding/StepRail.tsx
 #: src/features/onboarding/WelcomeStep.tsx
+#: src/features/player/NowPlayingView.tsx
 #: src/features/search/ScopeSwitch.tsx
+#: src/features/settings/LyricsRows.tsx
 msgid "Apple Music"
 msgstr ""
 
 #: src/app/shell/StatusBanner.tsx
 msgid "Apple Music asked Sona to sign in again. Your library is still here."
-msgstr ""
-
-#: src/features/player/NowPlayingView.tsx
-msgid "Apple Music doesn't have lyrics for it in your storefront."
 msgstr ""
 
 #: src/features/song/SongPage.tsx
@@ -2770,6 +2768,14 @@ msgstr ""
 msgid "like love star favorite"
 msgstr ""
 
+#: src/features/settings/LyricsRows.tsx
+msgid "Line-by-line lyrics from an open, shared database."
+msgstr ""
+
+#: src/features/settings/LyricsRows.tsx
+msgid "Line-by-line lyrics, strongest for Chinese, Japanese and Korean music."
+msgstr ""
+
 #: src/features/library/actions.ts
 msgid "Link copied"
 msgstr ""
@@ -2860,9 +2866,16 @@ msgstr ""
 msgid "Loudness"
 msgstr ""
 
+#: src/features/player/NowPlayingView.tsx
+#: src/features/settings/LyricsRows.tsx
+msgid "LRCLIB"
+msgstr ""
+
 #: src/features/player/NowPlayingBar.tsx
 #: src/features/player/NowPlayingView.tsx
 #: src/features/player/RoomLyrics.tsx
+#: src/features/settings/LyricsRows.tsx
+#: src/features/settings/settings-file.ts
 #: src/features/song/SongPage.tsx
 msgid "Lyrics"
 msgstr ""
@@ -2875,12 +2888,24 @@ msgstr ""
 msgid "Lyrics across the whole screen, large enough to read across a room"
 msgstr ""
 
+#: src/features/player/NowPlayingView.tsx
+msgid "Lyrics from {source}"
+msgstr ""
+
 #: src/features/player/LyricsTiming.tsx
 msgid "Lyrics on time"
 msgstr ""
 
 #: src/features/player/shortcuts.ts
 msgid "lyrics room karaoke big large tv"
+msgstr ""
+
+#: src/features/settings/LyricsRows.tsx
+msgid "Lyrics sources"
+msgstr ""
+
+#: src/features/settings/LyricsRows.tsx
+msgid "Lyrics timed word by word win over line-by-line lyrics from a source higher in the list."
 msgstr ""
 
 #: src/features/player/LyricsTiming.tsx
@@ -2893,6 +2918,10 @@ msgstr ""
 
 #: src/features/player/shortcuts.ts
 msgid "lyrics timing offset sync reset"
+msgstr ""
+
+#: src/features/settings/LyricsRows.tsx
+msgid "Lyrics translation"
 msgstr ""
 
 #: src/features/player/RoomLyrics.tsx
@@ -2986,6 +3015,14 @@ msgstr ""
 msgid "Move"
 msgstr ""
 
+#: src/features/settings/LyricsRows.tsx
+msgid "Move {name} down"
+msgstr ""
+
+#: src/features/settings/LyricsRows.tsx
+msgid "Move {name} up"
+msgstr ""
+
 #: src/features/player/QueuePanel.tsx
 #: src/features/playlist/PlaylistEditor.tsx
 msgid "Move here"
@@ -3045,6 +3082,11 @@ msgstr ""
 msgid "Music videos you add in Apple Music on any device are listed here."
 msgstr ""
 
+#: src/features/player/NowPlayingView.tsx
+#: src/features/settings/LyricsRows.tsx
+msgid "Musixmatch"
+msgstr ""
+
 #: src/features/player/NowPlayingBar.tsx
 msgid "Mute"
 msgstr ""
@@ -3067,6 +3109,11 @@ msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Neither RTKit nor the Realtime portal is available ({note}). {skips} Install and enable RTKit (rtkit) to fix this."
+msgstr ""
+
+#: src/features/player/NowPlayingView.tsx
+#: src/features/settings/LyricsRows.tsx
+msgid "NetEase Cloud Music"
 msgstr ""
 
 #: src/shared/lib/format.ts
@@ -3268,6 +3315,10 @@ msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
 msgid "None"
+msgstr ""
+
+#: src/features/player/NowPlayingView.tsx
+msgid "None of the lyrics sources in Settings has lyrics for it."
 msgstr ""
 
 #: src/features/player/commands.ts
@@ -3922,6 +3973,10 @@ msgstr ""
 
 #: src/features/equalizer/EqualizerPage.tsx
 msgid "Preamp"
+msgstr ""
+
+#: src/features/settings/LyricsRows.tsx
+msgid "Prefer word-by-word lyrics"
 msgstr ""
 
 #: src/features/equalizer/EqualizerPage.tsx
@@ -4611,6 +4666,10 @@ msgstr ""
 msgid "Show the mini player"
 msgstr ""
 
+#: src/features/settings/LyricsRows.tsx
+msgid "Shown under each line where a source has a translation into this language."
+msgstr ""
+
 #: src/features/settings/IntegrationsRows.tsx
 msgid "Shows the song you're playing, with its artwork and time, as your Discord activity. Cleared when you pause."
 msgstr ""
@@ -4918,6 +4977,10 @@ msgstr ""
 #: src/features/onboarding/WidevinePanel.tsx
 #: src/features/settings/CdmRow.tsx
 msgid "Sona also tries again by itself later."
+msgstr ""
+
+#: src/features/settings/LyricsRows.tsx
+msgid "Sona asks every source that's on and shows the lyrics with the finest timing: word by word, then line by line, then plain text. A source higher in the list wins a tie."
 msgstr ""
 
 #: src/features/radio/StationPage.tsx
@@ -6039,6 +6102,14 @@ msgstr ""
 msgid "With nothing queued, Sona stops its playback host (Widevine and the audio pipeline) after this long. The next song then takes a few seconds longer to start. Applies the next time the host starts."
 msgstr ""
 
+#: src/features/settings/LyricsRows.tsx
+msgid "Word-by-word and line-by-line lyrics, with translations and pronunciation."
+msgstr ""
+
+#: src/features/settings/LyricsRows.tsx
+msgid "Word-by-word and line-by-line lyrics, with translations from its community."
+msgstr ""
+
 #: src/features/player/shortcuts.ts
 msgid "words sing"
 msgstr ""
@@ -6121,6 +6192,10 @@ msgstr ""
 
 #: src/shared/lib/errors.ts
 msgid "Your Apple Account needs attention at account.apple.com before it can sign in."
+msgstr ""
+
+#: src/features/settings/LyricsRows.tsx
+msgid "Your Apple Music language"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx

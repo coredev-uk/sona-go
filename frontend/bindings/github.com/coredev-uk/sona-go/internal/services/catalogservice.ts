@@ -47,24 +47,12 @@ export function ArtistView(id: string, view: string, offset: number, limit: numb
 }
 
 /**
- * Lyrics returns the lyrics of catalog song songID, word-timed where
- * Apple has them, with a translation into the account's language and a
- * Latin-script pronunciation when Apple has them. Songs without lyrics
- * fail with code not_found.
- */
-export function Lyrics(songID: string): $CancellablePromise<$models.Lyrics> {
-    return $Call.ByID(413506823, songID).then(($result: any) => {
-        return $$createType3($result);
-    });
-}
-
-/**
  * MusicVideo returns a catalog music video page. Videos cannot be played
  * in Sona; OpenInAppleMusic opens Video.URL.
  */
 export function MusicVideo(id: string): $CancellablePromise<$models.CatalogVideo> {
     return $Call.ByID(2154869837, id).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType3($result);
     });
 }
 
@@ -81,7 +69,7 @@ export function OpenInAppleMusic(url: string): $CancellablePromise<void> {
  */
 export function Song(id: string): $CancellablePromise<$models.Song> {
     return $Call.ByID(1420428906, id).then(($result: any) => {
-        return $$createType5($result);
+        return $$createType4($result);
     });
 }
 
@@ -91,7 +79,7 @@ export function Song(id: string): $CancellablePromise<$models.Song> {
  */
 export function SongPage(id: string): $CancellablePromise<$models.CatalogSong> {
     return $Call.ByID(4108650321, id).then(($result: any) => {
-        return $$createType6($result);
+        return $$createType5($result);
     });
 }
 
@@ -99,7 +87,6 @@ export function SongPage(id: string): $CancellablePromise<$models.CatalogSong> {
 const $$createType0 = $models.CatalogAlbum.createFrom;
 const $$createType1 = $models.CatalogArtist.createFrom;
 const $$createType2 = $models.ArtistViewPage.createFrom;
-const $$createType3 = $models.Lyrics.createFrom;
-const $$createType4 = $models.CatalogVideo.createFrom;
-const $$createType5 = $models.Song.createFrom;
-const $$createType6 = $models.CatalogSong.createFrom;
+const $$createType3 = $models.CatalogVideo.createFrom;
+const $$createType4 = $models.Song.createFrom;
+const $$createType5 = $models.CatalogSong.createFrom;

@@ -119,6 +119,13 @@ function LyricsPane({ catalogId }: { catalogId: string }) {
   }
   if (!lines.length) return <NoLyrics />;
   const writers = lyrics.data?.songwriters?.join(", ");
+  const sources: Record<string, string> = {
+    apple: t`Apple Music`,
+    musixmatch: t`Musixmatch`,
+    lrclib: t`LRCLIB`,
+    netease: t`NetEase Cloud Music`,
+  };
+  const source = sources[lyrics.data?.provider ?? ""] ?? "";
 
   return (
     <div
@@ -143,6 +150,11 @@ function LyricsPane({ catalogId }: { catalogId: string }) {
           <Trans>Written by {writers}</Trans>
         </p>
       )}
+      {!!source && (
+        <p className={cn("px-3 text-sub text-ink-muted", writers ? "mt-1" : "mt-10")}>
+          <Trans>Lyrics from {source}</Trans>
+        </p>
+      )}
     </div>
   );
 }
@@ -154,7 +166,7 @@ function NoLyrics() {
         <Trans>No lyrics for this song</Trans>
       </p>
       <p className="mt-1 text-ui text-ink-muted">
-        <Trans>Apple Music doesn't have lyrics for it in your storefront.</Trans>
+        <Trans>None of the lyrics sources in Settings has lyrics for it.</Trans>
       </p>
     </div>
   );

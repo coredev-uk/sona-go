@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"html"
 	"regexp"
@@ -14,8 +13,8 @@ import (
 	"github.com/coredev-uk/sona-go/internal/catalog"
 )
 
-// Detail pages (album, artist, song, music video) and lyrics, on
-// CatalogService. Everything comes from amp-api through the catalog cache.
+// Detail pages (album, artist, song, music video), on CatalogService.
+// Everything comes from amp-api through the catalog cache.
 
 // Album returns a catalog album page: its tracks (disc and track order)
 // and its sections.
@@ -355,65 +354,6 @@ func (s *CatalogService) OpenInAppleMusic(url string) error {
 		return fmt.Errorf("%w: not an Apple Music link", ErrInvalidArgument)
 	}
 	return s.e.OpenURL(url)
-}
-
-// Lyrics returns the lyrics of catalog song songID, word-timed where
-// Apple has them, with a translation into the account's language and a
-// Latin-script pronunciation when Apple has them. Songs without lyrics
-// fail with code not_found.
-func (s *CatalogService) Lyrics(ctx context.Context, songID string) (Lyrics, error) {
-	lang := s.e.Auth.Status().Language
-	l, err := s.c.Lyrics(ctx, songID, applemusic.LyricsOptions{Syllable: true, Language: lang})
-	if err != nil {
-		if errors.Is(err, applemusic.ErrNotFound) {
-			return Lyrics{}, err
-		}
-		return Lyrics{}, s.fail(err)
-	}
-	return lyricsDTO(l, lang), nil
-}
-
-// lyricsDTO maps parsed lyrics, attaching to each line its translation
-// (preferring lang) and transliteration.
-func lyricsDTO(l applemusic.Lyrics, lang string) Lyrics {
-	out := Lyrics{Timing: l.Timing, Language: l.Language, Songwriters: nonNil(l.Songwriters), Lines: make([]LyricLine, len(l.Lines))}
-	tr := l.Localization(applemusic.LocalizationTranslation, lang)
-	tl := l.Localization(applemusic.LocalizationTransliteration, lang)
-	if tr != nil {
-		out.TranslationLanguage = tr.Language
-	}
-	if tl != nil {
-		out.TransliterationLanguage = tl.Language
-	}
-	for i, ln := range l.Lines {
-		out.Lines[i] = LyricLine{
-			BeginMs: ln.Begin.Milliseconds(), EndMs: ln.End.Milliseconds(),
-			Text: ln.Text, Background: ln.BackgroundText, Part: ln.Part, Agent: ln.Agent,
-			Words:           lyricWords(ln.Words),
-			Translation:     localizedLine(tr, ln.Key),
-			Transliteration: localizedLine(tl, ln.Key),
-		}
-	}
-	return out
-}
-
-func localizedLine(loc *applemusic.LyricLocalization, key string) *LyricText {
-	if loc == nil || key == "" {
-		return nil
-	}
-	ln, ok := loc.Lines[key]
-	if !ok || (ln.Text == "" && ln.BackgroundText == "") {
-		return nil
-	}
-	return &LyricText{Text: ln.Text, Background: ln.BackgroundText, Words: lyricWords(ln.Words)}
-}
-
-func lyricWords(in []applemusic.LyricWord) []LyricWord {
-	out := make([]LyricWord, len(in))
-	for i, w := range in {
-		out[i] = LyricWord{BeginMs: w.Begin.Milliseconds(), EndMs: w.End.Milliseconds(), Text: w.Text, Background: w.Background}
-	}
-	return out
 }
 
 var (

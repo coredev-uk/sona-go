@@ -1,4 +1,4 @@
-import { CatalogService } from "@bindings/services";
+import { CatalogService, LyricsService } from "@bindings/services";
 import { useQuery } from "@tanstack/react-query";
 
 import { keys } from "@/shared/lib/keys";
@@ -15,7 +15,7 @@ export function useSongPage(id: string) {
 export function useFullLyrics(id: string, enabled: boolean) {
   return useQuery({
     queryKey: keys.lyrics(id),
-    queryFn: () => CatalogService.Lyrics(id),
+    queryFn: () => LyricsService.Lyrics(id),
     enabled,
     retry: false,
   });

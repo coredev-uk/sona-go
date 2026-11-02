@@ -9,6 +9,7 @@ import * as DesktopService from "./desktopservice.js";
 import * as DiscoverService from "./discoverservice.js";
 import * as IntegrationsService from "./integrationsservice.js";
 import * as LibraryService from "./libraryservice.js";
+import * as LyricsService from "./lyricsservice.js";
 import * as MotionService from "./motionservice.js";
 import * as PlatformService from "./platformservice.js";
 import * as PlaybackService from "./playbackservice.js";
@@ -31,6 +32,7 @@ export {
     DiscoverService,
     IntegrationsService,
     LibraryService,
+    LyricsService,
     MotionService,
     PlatformService,
     PlaybackService,

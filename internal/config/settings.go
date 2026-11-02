@@ -76,6 +76,8 @@ type Settings struct {
 	TitleBar TitleBar `json:"titleBar"`
 	// Onboarding is the first-run setup's state (onboarding.go).
 	Onboarding Onboarding `json:"onboarding"`
+	// Lyrics is where lyrics come from (lyrics.go).
+	Lyrics Lyrics `json:"lyrics"`
 }
 
 // Diagnostics are WebKitGTK rendering workarounds exposed as toggles. They
@@ -136,6 +138,7 @@ func Defaults() Settings {
 		Storage:           Storage{ArtCacheMiB: DefaultArtCacheMiB},
 		Crossfade:         Crossfade{Seconds: defaultCrossfadeSeconds},
 		TitleBar:          TitleBar{Style: TitleBarAuto},
+		Lyrics:            defaultLyrics(),
 	}
 }
 
@@ -166,6 +169,7 @@ func (s Settings) Normalized() Settings {
 	s.Storage = s.Storage.normalized()
 	s.Crossfade = s.Crossfade.normalized()
 	s.TitleBar = s.TitleBar.normalized()
+	s.Lyrics = s.Lyrics.normalized()
 	return s
 }
 
@@ -294,6 +298,7 @@ func (st *Store) Get() Settings {
 func (s Settings) clone() Settings {
 	s.Shortcuts = maps.Clone(s.Shortcuts)
 	s.Audio.Equalizer.Custom = slices.Clone(s.Audio.Equalizer.Custom)
+	s.Lyrics.Providers = slices.Clone(s.Lyrics.Providers)
 	return s
 }
 

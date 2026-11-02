@@ -1,0 +1,21 @@
+{
+ "message": {
+  "header": {
+   "status_code": 200,
+   "execute_time": 0.757,
+   "pid": 21,
+   "surrogate_key_list": []
+  },
+  "body": {
+   "user_token": "fake-user-token-0001",
+   "app_config": {
+    "last_updated": "2024-01-01T00:00:00Z",
+    "cluster": "web"
+   },
+   "location": {
+    "GEOIP_CITY_COUNTRY_CODE": "GB",
+    "GEOIP_CITY_COUNTRY_NAME": "United Kingdom"
+   }
+  }
+ }
+}

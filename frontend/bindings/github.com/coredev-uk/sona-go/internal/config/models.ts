@@ -301,6 +301,86 @@ export class Integrations {
 }
 
 /**
+ * Lyrics chooses where lyrics come from. Every enabled provider is asked
+ * and the result with the best timing wins (word over line over plain
+ * text); among equal results the one earlier in Providers wins.
+ */
+export class Lyrics {
+    /**
+     * Providers are every known provider, in the user's order.
+     */
+    "providers": LyricsProvider[];
+
+    /**
+     * PreferWordTiming lets word-timed lyrics win over line-timed ones from
+     * a provider earlier in the order. Off, any synced lyrics count alike
+     * and the order decides.
+     */
+    "preferWordTiming": boolean;
+
+    /**
+     * TranslationLanguage is the BCP 47 tag translations are asked in
+     * (e.g. "es", "pt-BR"); "" uses the Apple Music account's language.
+     */
+    "translationLanguage": string;
+
+    /** Creates a new Lyrics instance. */
+    constructor($$source: Partial<Lyrics> = {}) {
+        if (!("providers" in $$source)) {
+            this["providers"] = [];
+        }
+        if (!("preferWordTiming" in $$source)) {
+            this["preferWordTiming"] = false;
+        }
+        if (!("translationLanguage" in $$source)) {
+            this["translationLanguage"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Lyrics instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Lyrics {
+        const $$createField0_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("providers" in $$parsedSource) {
+            $$parsedSource["providers"] = $$createField0_0($$parsedSource["providers"]);
+        }
+        return new Lyrics($$parsedSource as Partial<Lyrics>);
+    }
+}
+
+/**
+ * LyricsProvider is one provider's place in the order and its switch.
+ */
+export class LyricsProvider {
+    "id": string;
+    "enabled": boolean;
+
+    /** Creates a new LyricsProvider instance. */
+    constructor($$source: Partial<LyricsProvider> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LyricsProvider instance from a string or object.
+     */
+    static createFrom($$source: any = {}): LyricsProvider {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LyricsProvider($$parsedSource as Partial<LyricsProvider>);
+    }
+}
+
+/**
  * MotionArtwork is the motion cover setting (Settings → Appearance). The
  * frontend plays motion covers only while Enabled, reduce effects is off,
  * the system does not ask for reduced motion and the machine is on mains
@@ -475,8 +555,8 @@ export class Scrobbling {
      * Creates a new Scrobbling instance from a string or object.
      */
     static createFrom($$source: any = {}): Scrobbling {
-        const $$createField0_0 = $$createType2;
-        const $$createField1_0 = $$createType2;
+        const $$createField0_0 = $$createType4;
+        const $$createField1_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("lastfm" in $$parsedSource) {
             $$parsedSource["lastfm"] = $$createField0_0($$parsedSource["lastfm"]);
@@ -601,6 +681,11 @@ export class Settings {
      */
     "onboarding": Onboarding;
 
+    /**
+     * Lyrics is where lyrics come from (lyrics.go).
+     */
+    "lyrics": Lyrics;
+
     /** Creates a new Settings instance. */
     constructor($$source: Partial<Settings> = {}) {
         if (!("theme" in $$source)) {
@@ -666,6 +751,9 @@ export class Settings {
         if (!("onboarding" in $$source)) {
             this["onboarding"] = (new Onboarding());
         }
+        if (!("lyrics" in $$source)) {
+            this["lyrics"] = (new Lyrics());
+        }
 
         Object.assign(this, $$source);
     }
@@ -674,21 +762,22 @@ export class Settings {
      * Creates a new Settings instance from a string or object.
      */
     static createFrom($$source: any = {}): Settings {
-        const $$createField6_0 = $$createType3;
-        const $$createField7_0 = $$createType4;
-        const $$createField8_0 = $$createType5;
-        const $$createField9_0 = $$createType6;
-        const $$createField10_0 = $$createType7;
-        const $$createField11_0 = $$createType9;
-        const $$createField12_0 = $$createType10;
-        const $$createField13_0 = $$createType11;
-        const $$createField14_0 = $$createType12;
-        const $$createField15_0 = $$createType13;
-        const $$createField16_0 = $$createType14;
-        const $$createField17_0 = $$createType15;
-        const $$createField18_0 = $$createType16;
-        const $$createField19_0 = $$createType17;
-        const $$createField20_0 = $$createType18;
+        const $$createField6_0 = $$createType5;
+        const $$createField7_0 = $$createType6;
+        const $$createField8_0 = $$createType7;
+        const $$createField9_0 = $$createType8;
+        const $$createField10_0 = $$createType9;
+        const $$createField11_0 = $$createType11;
+        const $$createField12_0 = $$createType12;
+        const $$createField13_0 = $$createType13;
+        const $$createField14_0 = $$createType14;
+        const $$createField15_0 = $$createType15;
+        const $$createField16_0 = $$createType16;
+        const $$createField17_0 = $$createType17;
+        const $$createField18_0 = $$createType18;
+        const $$createField19_0 = $$createType19;
+        const $$createField20_0 = $$createType20;
+        const $$createField21_0 = $$createType21;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("diagnostics" in $$parsedSource) {
             $$parsedSource["diagnostics"] = $$createField6_0($$parsedSource["diagnostics"]);
@@ -734,6 +823,9 @@ export class Settings {
         }
         if ("onboarding" in $$parsedSource) {
             $$parsedSource["onboarding"] = $$createField20_0($$parsedSource["onboarding"]);
+        }
+        if ("lyrics" in $$parsedSource) {
+            $$parsedSource["lyrics"] = $$createField21_0($$parsedSource["lyrics"]);
         }
         return new Settings($$parsedSource as Partial<Settings>);
     }
@@ -868,25 +960,28 @@ export class Window {
 // Private type creation functions
 const $$createType0 = Equalizer.createFrom;
 const $$createType1 = $Create.Array($Create.Any);
-const $$createType2 = ScrobbleAccount.createFrom;
-const $$createType3 = Diagnostics.createFrom;
-const $$createType4 = Scrobbling.createFrom;
-const $$createType5 = Desktop.createFrom;
-const $$createType6 = Window.createFrom;
-var $$createType7 = (function $$initCreateType7(...args: any[]): any {
-    if ($$createType7 === $$initCreateType7) {
-        $$createType7 = $$createType8;
+const $$createType2 = LyricsProvider.createFrom;
+const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = ScrobbleAccount.createFrom;
+const $$createType5 = Diagnostics.createFrom;
+const $$createType6 = Scrobbling.createFrom;
+const $$createType7 = Desktop.createFrom;
+const $$createType8 = Window.createFrom;
+var $$createType9 = (function $$initCreateType9(...args: any[]): any {
+    if ($$createType9 === $$initCreateType9) {
+        $$createType9 = $$createType10;
     }
-    return $$createType7(...args);
+    return $$createType9(...args);
 });
-const $$createType8 = $Create.Map($Create.Any, $Create.Any);
-const $$createType9 = Updates.createFrom;
-const $$createType10 = Integrations.createFrom;
-const $$createType11 = Audio.createFrom;
-const $$createType12 = MotionArtwork.createFrom;
-const $$createType13 = Queue.createFrom;
-const $$createType14 = Storage.createFrom;
-const $$createType15 = Crossfade.createFrom;
-const $$createType16 = Private.createFrom;
-const $$createType17 = TitleBar.createFrom;
-const $$createType18 = Onboarding.createFrom;
+const $$createType10 = $Create.Map($Create.Any, $Create.Any);
+const $$createType11 = Updates.createFrom;
+const $$createType12 = Integrations.createFrom;
+const $$createType13 = Audio.createFrom;
+const $$createType14 = MotionArtwork.createFrom;
+const $$createType15 = Queue.createFrom;
+const $$createType16 = Storage.createFrom;
+const $$createType17 = Crossfade.createFrom;
+const $$createType18 = Private.createFrom;
+const $$createType19 = TitleBar.createFrom;
+const $$createType20 = Onboarding.createFrom;
+const $$createType21 = Lyrics.createFrom;
