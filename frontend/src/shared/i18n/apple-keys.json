@@ -340,6 +340,10 @@
     "key": "ASE.Web.Platform.Shared.AccountMenu.Settings"
   },
   {
+    "message": "Show complete album",
+    "key": "ASE.Web.Music.Library.Album.ShowCompleteAlbum"
+  },
+  {
     "message": "Shuffle",
     "key": "ASE.Web.Music.Shuffle"
   },

@@ -60,11 +60,18 @@ interface TrackListProps {
    * (`undefined` when Apple doesn't say). Absent: no column.
    */
   addedBy?: readonly (SocialProfile | undefined)[];
+  /**
+   * The line under each row's title, in place of the default (the artist,
+   * for a list numbered by row without an artist column); undefined or ""
+   * keeps a row on one line. The album page names a featured artist there,
+   * and why a song doesn't play.
+   */
+  subline?: (song: Song) => string | undefined;
 }
 
 const ROW = 44;
-/** Lists longer than this are virtualised (docs/architecture.md §8). */
-const VIRTUAL_FROM = 200;
+/** Lists longer than this are virtualised (docs/architecture.md §8); they show no disc headings. */
+export const VIRTUAL_FROM = 200;
 
 function gridTemplate(c: TrackColumns, addedBy: boolean): string {
   return [
@@ -141,6 +148,7 @@ interface RowProps {
   onPlay: (index: number) => void;
   onFocusRow: (index: number) => void;
   container?: Omit<ActionContainer, "index">;
+  subline?: (song: Song) => string | undefined;
 }
 
 /**
@@ -176,6 +184,7 @@ const TrackRow = memo(function TrackRow({
   onPlay,
   onFocusRow,
   container,
+  subline,
 }: RowProps) {
   const { t } = useLingui();
   // Restricted accounts see explicit songs greyed out and cannot play them.
@@ -205,6 +214,11 @@ const TrackRow = memo(function TrackRow({
   }
   const number = columns.number === "track" ? song.trackNumber || index + 1 : index + 1;
   const disabled = !song.playable || withheld;
+  const sub = subline
+    ? subline(song)
+    : !columns.artist && columns.number === "row"
+      ? song.artistName
+      : undefined;
   const name = song.name;
   return (
     <div
@@ -265,10 +279,8 @@ const TrackRow = memo(function TrackRow({
               </span>
             )}
           </span>
-          {/* Without an artist column the artist sits under the title. */}
-          {!columns.artist && columns.number === "row" && (
-            <span className="block truncate text-sub text-ink-muted">{song.artistName}</span>
-          )}
+          {/* The artist, without an artist column, or the caller's subline. */}
+          {sub && <span className="block truncate text-sub text-ink-muted">{sub}</span>}
         </span>
       </span>
       {columns.artist && (
@@ -365,6 +377,7 @@ export function TrackList({
   popular,
   container,
   addedBy,
+  subline,
 }: TrackListProps) {
   const { t } = useLingui();
   const { current, playing } = useNowPlaying();
@@ -504,6 +517,7 @@ export function TrackList({
       onPlay={play}
       onFocusRow={setFocus}
       container={container}
+      subline={subline}
     />
   );
 

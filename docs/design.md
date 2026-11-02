@@ -81,14 +81,14 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 - Square, 4px radius, a 1px line at 6% ink just inside the edge so pale covers do not dissolve into the ground: an outline on the image (`-outline-offset-1`), not a ring on a pseudo-element, because WebKitGTK repaints the visible page on every scroll step and the ring cost about a quarter of a frame's paint. Video frames are 16:9; hero cards are Apple's 1060:608; bricks and page banners keep their own 2.4:1 or 4:1 shape.
 - Always requested from Go at the exact rendered box (width and height × the screen's density, at most 2; grid tiles at their exact width, never rounded up, so the art is never resampled while painting) through `/art/<key>/<w>x<h>.jpg` URLs, sized in one place (`shared/lib/art.ts`: `artUrl`), `loading="lazy"`, `decoding="async"`, explicit `width`/`height` so rows never shift.
 - Missing art: a `--hover` square with a 40%-ink outline music glyph centred, at the same size.
-- The cover is never cropped, tinted or overlaid with text, with one exception: an album not out yet carries its release date ("Out 19 Nov") in a small `--raised` chip at the cover's bottom-left corner, where the play control of a playable tile sits (it has none). Its page puts the countdown ("Out in 18 days, 6 hours", the day in full, the songs already out) where the play controls will be, re-read every minute, never a ticking counter.
+- The cover is never cropped, tinted or overlaid with text, with one exception: an album not out yet carries its release date ("Out 19 Nov") in a small `--raised` chip at the cover's bottom-left corner, where the play control of a playable tile sits (it has none). Its page puts the countdown ("Out in 18 days, 6 hours", the day in full, the songs already out) above the actions, re-read every minute, never a ticking counter (Album page, below).
 - Hero cards (the untitled "Featured" row) fill Apple's own card shape, 1060:608, with the 4:1 `subscriptionHero` art cropped to it by the CDN, as music.apple.com does: the art keeps its text and subject in the centre, so nothing is letterboxed or cut. A card without a banner shows its cover whole on its background colour. On Discover they are the front page's lead and list (Discover, below). Bricks sit whole on their own background colour: a row takes the shape of its tallest banner (at most 2:1), so only a wider banner in a mixed row is letterboxed.
 
 ## Backdrops (pre-blurred in Go)
 
 The artwork service renders, per cover, a tiny pre-blurred JPEG (target ~32×32, heavy Gaussian blur, saturation kept). The frontend never blurs anything itself.
 
-- **Where**: behind the now-playing bar, the mini player, the now-playing view, full-screen lyrics, collection headers (album, playlist, artist), and the top of Home (from its lead pick).
+- **Where**: behind the now-playing bar, the mini player, the now-playing view, full-screen lyrics, collection headers (playlist, artist), the album page's sleeve, and the top of Home (from its lead pick).
 - **How**: an `<img>` (component `Backdrop`) absolutely positioned, `object-fit: cover`, scaled up by the browser (bilinear upscaling of the tiny image is the softness), under a solid scrim of the surface colour (bar, mini player) or the ground colour (views, headers) at `--backdrop-scrim`: 92% in light, 86% in dark. The result is a wash of the cover's colour, never a recognisable picture. Text sits on the scrim, so contrast is the scrim's, not the image's: the scrim is the floor at which `--ink-muted` and `--ink-faint` stay ≥ 4.5:1 over any backdrop, a black one in light (the binding case: 91% on surface) and a white one in dark (85%). It is one value per theme, never lowered per surface; a stronger cover colour would need a darker text token, not a thinner scrim.
 - **Change**: when the track changes the new backdrop fades in over 320ms (the one authored motion moment). Images are decoded before the swap so the fade never shows an empty frame.
 - **Banned**: `backdrop-filter`, `filter: blur()` on anything larger than an icon, and any blur on scrolling content.
@@ -249,6 +249,38 @@ Discover (`/new`) sets Apple's editorial front page as Sona's own issue: the fea
 - **Contents** ("On this page"). One line per band: its name at 14/500 in ink, then its titled shelves at 13 muted with middle dots between, each a button that jumps to its place (no smooth scroll) and moves focus there, so the next Tab is that shelf's first control.
 - **Bands.** The shelves are grouped by what they hold, in this order: Songs and albums, Playlists, Radio, Videos, Browse (category bricks and links). Apple's order holds inside each band; a shelf of mixed items goes by most of them (the first item breaks a tie), and a paragraph stays with the shelf after it. Each band opens with one 1px `--line` across the column, 56px below the band before, and its heading 24px under the line at the page-title size, 24/30: the line is what sets a band heading apart from the page's h1, which has none. Inside, shelves keep their usual 40px pitch.
 - **Loading.** The freshness line's place holds a bar; the front page's own frame (the lead's block and caption bars, the list's covers and lines at their row height), the contents' lines and the first band's line and heading stand where they will land, then bars for the shelves.
+
+### Album page
+
+A record is two things in the hand: the sleeve, and the listing on its back. The album page lays them side by side instead of stacking a banner over a table.
+
+```
+┌ sleeve ─────────────┐   Title (32/36, wraps; never moves the cover)
+│ ┌─────────────────┐ │   Artist
+│ │                 │ │   Album · 1995 · 40 songs, 2 hrs, 49 mins · Indie Rock
+│ │      cover      │ │   [Lossless]
+│ │   256 or 320    │ │   Apple's one-line note
+│ │                 │ │   status: countdown, or "2 of 13 songs in your library"
+│ └─────────────────┘ │   (▶) Shuffle  + Add  Favourite  Suggest less  ⋯
+│ Disc 1 · 12 songs…  │   #  Title                                     ◷
+│ Disc 2 · 14 songs…  │   Disc 1
+│ Released 2 Oct 1995 │   1  Hello (Remastered)                      3:22
+│ Label               │   …
+│ ℗ line              │   Notes (68ch)
+└─────────────────────┘
+Other versions · Music videos · More by · Featured in playlists · You might also like
+```
+
+- **The sleeve** is the page's one coloured surface: a radius-8 panel washed in the cover's colour (the Go backdrop under the ground scrim, as headers) with a 4% ink layer over it, so it stays one tone step off the ground whatever the cover (a dark cover in the dark theme, a pale one in the light) and under reduce effects. The cover sits inset 16px, then the disc index of a multi-disc album and the record's fine print in meta type, one fact a line (released, label unless the ℗ line names it, ℗). Text on the sleeve is `--ink` or `--ink-muted` only: over the extreme backdrops the tone step leaves `--ink-muted` at 4.9:1 (a white cover in dark) but `--ink-faint` under 4.5. The listing sits on the plain ground beside it, so the colour stays with the record.
+- **One station**: the cover's top and the title's first line share a line on every album, whatever the title's length; the title wraps instead of clamping. Covers come in fixed sizes so Go serves them at the exact box: 256px, 320px from 1280px of content width.
+- **Held while the songs scroll**: the sleeve is sticky beside the listing whenever the pane shows all of it (measured, so a one-disc sleeve holds in a shorter window than a three-disc one), so a 40-song album keeps its cover and disc index in view. Motion artwork plays there while it is on screen, under the same rules as every header.
+- **The listing is 2/3 of the width**, not the whole pane: at 1440 the title-to-duration scan drops from about 980px to 680px.
+- **The disc index**: each disc in the catalogue line's form ("Disc 2 · 14 songs, 1 hr, 3 mins"); choosing one brings its heading to the top and focuses its first song. A list long enough to be virtualised (over 200 songs) has no disc headings, so no index either.
+- **Rows explain themselves**: the line under a title names a credit other than the album artist's (an Artist column only for a real compilation, where most songs are someone else's) and why a song doesn't play: "Out 19 Nov" on an album not out yet, "Unavailable", or the account's explicit restriction. An unpublished song's stand-in artist ("unknown") is dropped.
+- **The catalogue line describes the record**: a library album holding some of its songs counts the whole album and says "2 of 13 songs in your library · Show complete album" in the status slot; an album not out yet leaves out a running time its unpublished songs can't add to.
+- **Not out yet**: the countdown takes the status slot; Play plays the songs already out (named "Play the 8 songs out now"), beside Remind me and Pre-add.
+- **Below 860px of content** (a 940px window) the sleeve heads the page with the title beside a 168px cover, the songs follow at full width, then the fine print; the disc headings in the list stand in for the index.
+- Then Notes at a reading measure, and Apple's shelves in Apple's order.
 
 ## Empty, loading and error states
 
