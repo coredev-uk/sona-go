@@ -10,6 +10,7 @@ import { CdmRow } from "./CdmRow";
 import { CrossfadeRows } from "./CrossfadeRows";
 import { PrivateRows } from "./PrivateRows";
 import { QueueRows } from "./QueueRows";
+import { QualityRow } from "./QualityRow";
 import { useSettings, useUpdateSettings } from "./queries";
 import {
   SELECT_WIDTH,
@@ -73,28 +74,7 @@ export function PlaybackSection() {
         </SettingsPanel>
       )}
       <SettingsGroup id="playback-sound" title={t`Sound`}>
-        <SettingRow
-          id="quality"
-          title={t`Audio quality`}
-          description={t`AAC at 256 kbps, or 64 kbps with Data saver for slow or metered connections. Applies from the next song. Lossless and Dolby Atmos albums play as AAC too.`}
-        >
-          <Select
-            value={String(s.audioQuality)}
-            onValueChange={(v) => save({ audioQuality: Number(v) })}
-          >
-            <SelectTrigger id="quality" aria-describedby="quality-desc" className={SELECT_WIDTH}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="256">
-                <Trans>High · 256 kbps</Trans>
-              </SelectItem>
-              <SelectItem value="64">
-                <Trans>Data saver · 64 kbps</Trans>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingRow>
+        <QualityRow />
         <AudioRows />
         <CrossfadeRows />
       </SettingsGroup>

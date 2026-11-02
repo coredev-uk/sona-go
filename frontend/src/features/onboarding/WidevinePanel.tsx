@@ -16,7 +16,6 @@ import { useCapabilities } from "@/shared/lib/capabilities";
 import { formatBytes } from "@/shared/lib/format";
 import { Button } from "@/shared/ui/button";
 
-import { StepActions, StepHeader } from "./parts";
 import { widevineView } from "./steps";
 
 const ICON_MUTED = "size-4 shrink-0 text-ink-muted";
@@ -61,18 +60,21 @@ function DownloadBar({ status }: { status: CDMStatus }) {
 }
 
 /**
- * The Widevine step: what Widevine is and where it comes from, then the
- * download Sona started after the first paint (no consent step: Sona
- * downloads it by itself, as it does on every start). The state is an
- * <output>, so a change is announced once; the progress is the bar's value.
+ * Widevine, at the head of the Playback step: what it is and where it
+ * comes from, then the download Sona started after the first paint (no
+ * consent step: Sona downloads it by itself, as on every start). The state
+ * is an <output>, so a change is announced once; the progress is the bar's
+ * value. On a platform without playback it says so instead, and where the
+ * engine needs no CDM it says nothing at all.
  */
-export function WidevineStep({ onNext }: { onNext: () => void }) {
+export function WidevinePanel() {
   const { t } = useLingui();
   const caps = useCapabilities();
   const status = useCdm((s) => s.status);
   const view = widevineView(caps, status);
   const [retrying, setRetrying] = useState(false);
   const stateRef = useRef<HTMLOutputElement>(null);
+  if (view === "not-needed") return null;
 
   const onRetry = async () => {
     setRetrying(true);
@@ -90,10 +92,6 @@ export function WidevineStep({ onNext }: { onNext: () => void }) {
       icon = <CircleSlash aria-hidden className={ICON_MUTED} strokeWidth={1.75} />;
       state = <Trans>Playback isn't available on this platform yet</Trans>;
       detail = <Trans>Browsing Apple Music and your library works as usual.</Trans>;
-      break;
-    case "not-needed":
-      icon = <CircleCheck aria-hidden className={ICON_POSITIVE} strokeWidth={1.75} />;
-      state = <Trans>Nothing to download on this computer</Trans>;
       break;
     case "unsupported":
       icon = <CircleSlash aria-hidden className={ICON_MUTED} strokeWidth={1.75} />;
@@ -126,15 +124,23 @@ export function WidevineStep({ onNext }: { onNext: () => void }) {
       break;
   }
   const retry = view === "failed" && canRetryCdm(status);
+  const playback = view !== "unavailable";
 
   return (
-    <>
-      <StepHeader title={t`Widevine`}>
-        <Trans>
-          Apple Music's songs are protected, and Google's Widevine is what plays them. Sona
-          downloads it from Google, checks Google's signature and keeps it up to date by itself.
-        </Trans>
-      </StepHeader>
+    <section aria-labelledby="setup-widevine" className="flex flex-col gap-2">
+      <div>
+        <h2 id="setup-widevine" className="text-ui font-semibold text-ink">
+          {playback ? t`Widevine` : t`Playback`}
+        </h2>
+        {playback && (
+          <p className="mt-0.5 max-w-[64ch] text-sub text-ink-muted">
+            <Trans>
+              Apple Music's songs are protected, and Google's Widevine is what plays them. Sona
+              downloads it from Google, checks Google's signature and keeps it up to date by itself.
+            </Trans>
+          </p>
+        )}
+      </div>
       <div className="rounded-lg bg-surface p-5">
         <output
           ref={stateRef}
@@ -170,11 +176,6 @@ export function WidevineStep({ onNext }: { onNext: () => void }) {
           </Button>
         )}
       </div>
-      <StepActions>
-        <Button size="sm" onClick={onNext}>
-          <Trans>Continue</Trans>
-        </Button>
-      </StepActions>
-    </>
+    </section>
   );
 }

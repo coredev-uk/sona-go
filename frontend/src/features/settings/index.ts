@@ -16,6 +16,19 @@ import { SettingsPage } from "./Settings";
 
 export { bindAppearance, useAppearance, type Theme } from "./appearance";
 export { loadAppearance, useSettings, useUpdateSettings } from "./queries";
+export { useScrobbleStatus } from "./scrobble";
+// Rows the first-run setup shows as they are in Settings.
+export { ReduceEffectsRow } from "./AppearanceSection";
+export { SoundCheckRow } from "./AudioRows";
+export { ConnectionsSection } from "./Connections";
+export { CrossfadeRows } from "./CrossfadeRows";
+export { CloseActionRow, StartupRows } from "./DesktopRows";
+export { IntegrationsDesktopRows } from "./IntegrationsRows";
+export { MotionArtworkRows } from "./MotionArtworkRows";
+export { PrivateRows } from "./PrivateRows";
+export { QualityRow } from "./QualityRow";
+export { GroupHeadingLevel } from "./heading-level";
+export { SettingsGroup, SettingsPanel } from "./SettingRow";
 
 const settingsRoute = createRoute({
   ...childRoute("/settings"),

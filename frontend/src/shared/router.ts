@@ -14,3 +14,15 @@ export const rootRoute = createRootRoute();
  */
 export const childRoute = <P extends string>(path: P) =>
   ({ getParentRoute: () => rootRoute, path }) as const;
+
+declare module "@tanstack/react-router" {
+  interface StaticDataRouteOption {
+    /**
+     * The page takes the whole window: the shell draws only the title
+     * bar's band (the window's buttons and the mark, over the page's top
+     * `--title-bar-height` pixels) and no sidebar, top bar, asides or
+     * bottom bars. The first-run setup is one.
+     */
+    fullWindow?: boolean;
+  }
+}

@@ -160,6 +160,32 @@ The sidebar header and the top bar are the window's title bar. Who draws it come
 - While the window is inactive, the wordmark and the button glyphs drop to `--ink-faint`.
 - The mini player keeps its own Open Sona and Close buttons, on the side where the platform puts Close (leading on macOS and leading desktop layouts), Close outermost, 4px apart.
 
+### First-run setup
+
+The setup (`/welcome`) takes the whole window: no sidebar, top bar or player bar, nothing to play yet and nothing to wander off to. What stays is the title bar's band, so the window still drags, maximises and closes as everywhere else, and the mark sits exactly where the sidebar's header will put it when the setup gives way to the app.
+
+```
+┌──────────┬───────────────────────────────────────────────┐
+│ ● Sona   │                                        – □ ✕ │  the band only, no top bar
+│          │                                               │
+│ Set up…  │        h1 + one line                          │
+│ Welcome  │                                               │
+│ Apple M… │        groups and rows, as in Settings        │
+│  Signed in                                               │
+│ Playback │        (680px column, centred)                │
+│  Widevine ready · High quality                           │
+│ …        │                                               │
+│          ├───────────────────────────────────────────────┤
+│ Skip set…│        ‹ Back                       Continue  │  64px, stays while the step scrolls
+└──────────┴───────────────────────────────────────────────┘
+```
+
+- The steps run down a 232px `--surface` column, the sidebar's width and tone. Each carries a live meta line in the catalogue line's form (`Widevine 42% · Data saver · Private`), so the list is also the summary: nothing on the last step repeats it.
+- Every step is skippable (the list's links, "Not now", Continue) and "Skip setup" ends it; the last step lists only what is still to do (signing in, a download that hasn't finished), each with the way back to its step.
+- The rows are Settings' own rows, so a choice reads and saves the same way in both places. Where the platform can't do something (no tray, no autostart, no notifications) the row is named with the reason instead of left out, because a first run is where people look for it.
+- Theme is the one picture in the setup: three windows in miniature, drawn from the tokens in each palette (System is both, halved), chosen as radio buttons.
+- One primary button, at the foot's trailing end; Back is a ghost button at its leading end. No amber anywhere but the mark and the previews' play controls.
+
 ## Empty, loading and error states
 
 - An empty route keeps its frame: the h1, any column header row it will have, then one dashed-border block (1px `--line`, radius 8) holding a 16/600 sentence-case title, one sentence in the product's own words, and at most one action.

@@ -15,7 +15,7 @@ export function SetupRow() {
     <SettingRow
       id="setup-again"
       title={t`First-run setup`}
-      description={t`Sign in, Widevine and how you listen, one step at a time, as on Sona's first start.`}
+      description={t`Sign in, then how Sona plays, connects, looks and starts, one step at a time, as on Sona's first start.`}
     >
       <Button
         id="setup-again"

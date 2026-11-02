@@ -76,6 +76,30 @@ function OutputRow() {
   );
 }
 
+/** Sound Check, where the platform's playback has it (Settings → Playback, the first-run setup). */
+export function SoundCheckRow() {
+  const { t } = useLingui();
+  const settings = useSettings();
+  const update = useUpdateSettings();
+  const supported = useCapabilities()?.playback.soundCheck ?? false;
+  const s = settings.data;
+  if (!s || !supported) return null;
+  return (
+    <SettingRow
+      id="sound-check"
+      title={t`Sound Check`}
+      description={t`Plays every song at about the same loudness, using the loudness Apple measured for it. Uploaded songs use their own Sound Check tag, if iTunes or Music wrote one.`}
+    >
+      <Switch
+        id="sound-check"
+        aria-describedby="sound-check-desc"
+        checked={s.audio.soundCheck}
+        onCheckedChange={(soundCheck) => update.mutate({ ...s, audio: { ...s.audio, soundCheck } })}
+      />
+    </SettingRow>
+  );
+}
+
 /**
  * Settings → Playback: the output device, Sound Check and the way to the
  * equaliser, each only where the platform's playback supports it.
@@ -83,7 +107,6 @@ function OutputRow() {
 export function AudioRows() {
   const { t } = useLingui();
   const settings = useSettings();
-  const update = useUpdateSettings();
   const playback = useCapabilities()?.playback;
   const s = settings.data;
   if (!s || !playback) return null;
@@ -91,22 +114,7 @@ export function AudioRows() {
   return (
     <>
       {playback.outputDevice && <OutputRow />}
-      {playback.soundCheck && (
-        <SettingRow
-          id="sound-check"
-          title={t`Sound Check`}
-          description={t`Plays every song at about the same loudness, using the loudness Apple measured for it. Uploaded songs use their own Sound Check tag, if iTunes or Music wrote one.`}
-        >
-          <Switch
-            id="sound-check"
-            aria-describedby="sound-check-desc"
-            checked={s.audio.soundCheck}
-            onCheckedChange={(soundCheck) =>
-              update.mutate({ ...s, audio: { ...s.audio, soundCheck } })
-            }
-          />
-        </SettingRow>
-      )}
+      <SoundCheckRow />
       {playback.equalizer && (
         <SettingRow
           id="equalizer"

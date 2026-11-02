@@ -5,16 +5,15 @@ import { cdmFailedState, cdmPercent } from "@/features/cdm";
 
 import type { WidevineView } from "./steps";
 
-/** Widevine in a few words, for the step list and the summary. */
+/** Widevine's state in a few words, for the welcome and the last step. */
 export function widevineShort(view: WidevineView, status: CDMStatus | null): string {
   switch (view) {
     case "loading":
+    case "not-needed":
       return "";
     case "unavailable":
     case "unsupported":
       return t`Not available here`;
-    case "not-needed":
-      return t`Not needed here`;
     case "waiting":
       return t`Starting…`;
     case "downloading": {
@@ -23,9 +22,31 @@ export function widevineShort(view: WidevineView, status: CDMStatus | null): str
     }
     case "ready": {
       const version = status?.version ?? "";
-      return version ? t`Version ${version}` : t`Ready`;
+      return version ? t`Ready, version ${version}` : t`Ready`;
     }
     case "failed":
       return status ? cdmFailedState(status.code) : "";
+  }
+}
+
+/** Widevine's state as one item of the step list's line under Playback. */
+export function widevineItem(view: WidevineView, status: CDMStatus | null): string {
+  switch (view) {
+    case "loading":
+    case "not-needed":
+      return "";
+    case "unavailable":
+    case "unsupported":
+      return t`No playback here`;
+    case "waiting":
+      return t`Widevine starting…`;
+    case "downloading": {
+      const percent = status ? cdmPercent(status) : "";
+      return percent ? t`Widevine ${percent}` : t`Widevine downloading…`;
+    }
+    case "ready":
+      return t`Widevine ready`;
+    case "failed":
+      return t`Widevine failed`;
   }
 }

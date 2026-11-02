@@ -162,16 +162,26 @@ src/
                           aria-disabled while SONA_PRIVATE=1 forces it) and the
                           "private.toggle" palette command (no default keys). Settings →
                           Playback's row (settings/PrivateRows.tsx) uses the same mirror
-    onboarding            the first-run setup (/welcome?step=welcome|account|widevine|listening|done):
-                          a step list (links; Apple Music and Widevine carry their live state, the
-                          download's percent included) beside one step at a time; Apple Music
-                          reuses auth's AccountSection (native form, browser and token fallbacks),
-                          Widevine shows the cdm mirror's download (no consent step; "playback isn't
-                          available" from Capabilities or code unsupported_platform), Listening
-                          saves private listening (PrivateService), Sound Check and crossfade
-                          (useUpdateSettings). Every step can be skipped; reaching Done or "Skip
-                          setup" saves settings.onboarding.completed. Go opens the window here on a
-                          first start (services.StartRoute: no completed flag and no account in
+    onboarding            the first-run setup (/welcome?step=welcome|account|playback|connections|
+                          appearance|desktop|done), a full-window route (staticData.fullWindow:
+                          no sidebar, top bar or player bar, only the title bar's band): the steps
+                          down the leading side, each with a live line (signed in, Widevine's
+                          download and quality, connected scrobblers, theme, start at login),
+                          one step at a time in a centred column, Back and the way on in a bar
+                          along the foot. Apple Music reuses auth's AccountSection; Playback
+                          shows the cdm mirror's download (no consent step; "playback isn't
+                          available" from Capabilities or code unsupported_platform) above
+                          Settings' own quality, Sound Check, crossfade and private listening
+                          rows; Connections is Settings → Connections' section; Appearance picks
+                          the theme from pictures of the window in each palette (`.theme-light`
+                          / `.dark` scope the tokens to an element), then reduce effects and
+                          motion artwork; Desktop has start at login, the close action, track
+                          notifications and stay awake, and names what the platform can't do
+                          where its row would be. Rows come from settings' exports, with their
+                          group headings one level up (GroupHeadingLevel). Every step can be
+                          skipped; reaching Done or "Skip setup" saves
+                          settings.onboarding.completed. Go opens the window here on a first
+                          start (services.StartRoute: no completed flag and no account in
                           SQLite); Settings → General's SetupRow links back
 ```
 
@@ -316,7 +326,12 @@ as `TRoute["fullPath"]`).
 - `app/shell/AppShell.tsx`: wraps the layout in every `Provider` slot, puts
   `Aside` slots beside `main#content`, `overlay` components over the page
   column (the page is `inert` while any overlay's `useOpen()` is true), and
-  `Bottom` slots across the window's foot.
+  `Bottom` slots across the window's foot. A route with
+  `staticData: { fullWindow: true }` (the first-run setup) gets none of it:
+  only the title bar's band (`TitleBarStart`, the mark and the desktop's
+  window buttons, a `<header>` that drags the window) over the page's top
+  `--title-bar-height` pixels; the page draws its own `main#content` under
+  the band and keeps that strip free of controls.
 
 ## Adding a feature (worked example)
 
