@@ -344,12 +344,12 @@ func TestNextTrackAdvances(t *testing.T) {
 	}
 	started := waitEvent(t, h, EventStarted, 1, 5*time.Second)
 	adv := waitEvent(t, h, EventAdvance, 2, 5*time.Second)
-	if adv.Position > 100*time.Millisecond {
-		t.Errorf("advanced at position %v of the next track, want ~0", adv.Position)
-	}
-	// The first track's second of audio played before the switch.
-	if el := adv.At.Sub(started.At) + started.Position; el < dur-100*time.Millisecond || el > dur+200*time.Millisecond {
-		t.Errorf("switch after %v of the first track, want ~%v", el, dur)
+	// The child notices the switch at its next sample, later under load,
+	// but each Position is exact at its At: the next track's counts from
+	// its own start, which came after the first track's second of audio.
+	switched := adv.At.Add(-adv.Position)
+	if played := switched.Sub(started.At.Add(-started.Position)); played < dur-100*time.Millisecond || played > dur+200*time.Millisecond {
+		t.Errorf("switch after %v of the first track (reported at %v of the next), want ~%v", played, adv.Position, dur)
 	}
 	waitEvent(t, h, EventEnded, 2, 5*time.Second)
 	// Too late to queue behind a track that has ended.

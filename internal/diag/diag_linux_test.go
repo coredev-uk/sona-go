@@ -42,7 +42,12 @@ func TestChildCrashInBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := syscall.Kill(h.Info().PID, syscall.SIGABRT); err != nil {
+	// To the main thread, always one of the Go runtime's, so the child
+	// dies with its crash report: sent to the process, the signal may land
+	// on a GStreamer or CDM thread, where the runtime lets it kill the
+	// child silently.
+	pid := h.Info().PID
+	if err := syscall.Tgkill(pid, pid, syscall.SIGABRT); err != nil {
 		t.Fatal(err)
 	}
 	select {
