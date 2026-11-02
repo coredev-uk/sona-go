@@ -97,6 +97,6 @@ Pull requests here are merged by Clarence (GitHub App `bot-clarence`), not by ha
   timeline says why. Only `help`, `status` and `explain` get a reply.
 - Renovate (`bot-cecil`) opens dependency updates and Clarence merges the eligible ones itself.
   Don't push to Renovate's branches; close the pull request or tick Renovate's rebase box instead.
-- Labels: `verdict/pass|review|wait`, `state/queued|deploying|live|unhealthy|hold`,
+- Labels: `verdict/pass|review|wait`, `state/queued|deploying|soaking|live|unhealthy|hold`,
   `kind/security|proposal|revert|report`. Never remove `state/unhealthy` without fixing the cause:
   it halts merging.
