@@ -304,6 +304,10 @@
     "key": "ASE.Web.Music.Library.Playlists.Suggested.Refresh"
   },
   {
+    "message": "Released",
+    "key": "FUSE.OC.Information.Released"
+  },
+  {
     "message": "Remove",
     "key": "FUSE.Settings.SDK.AppsAccess.delete.DT"
   },

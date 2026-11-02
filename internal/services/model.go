@@ -31,6 +31,19 @@ type Art struct {
 	Large  string `json:"large"`
 }
 
+// ArtworkColors are Apple's colours for a cover ("#rrggbb"; each "" when
+// Apple gives none): Background is the colour the cover sits on, Text1
+// and Text2 the primary and secondary text colours Apple picks to set
+// over it, Text3 and Text4 softer ones. They are Apple's choices, not
+// checked for contrast: the UI checks them before use.
+type ArtworkColors struct {
+	Background string `json:"background"`
+	Text1      string `json:"text1"`
+	Text2      string `json:"text2"`
+	Text3      string `json:"text3"`
+	Text4      string `json:"text4"`
+}
+
 // Traits are an item's audio badges from Apple's attributes (audioTraits,
 // isAppleDigitalMaster). They are labels only: Sona streams AAC.
 type Traits struct {
@@ -62,6 +75,13 @@ type Song struct {
 	Genre       string `json:"genre"`
 	Explicit    bool   `json:"explicit"`
 	HasLyrics   bool   `json:"hasLyrics"`
+	// Composer is Apple's composer credit ("Lindsey Buckingham", "Taylor
+	// Swift & Jack Antonoff"); Work and Movement name the classical work
+	// a track belongs to and its movement ("Goldberg Variations, BWV 988",
+	// "Aria"). Catalog songs only; "" when Apple gives none.
+	Composer string `json:"composerName"`
+	Work     string `json:"workName"`
+	Movement string `json:"movementName"`
 	// Playable is false for catalog songs without play parameters (not
 	// streamable in the storefront).
 	Playable bool   `json:"playable"`

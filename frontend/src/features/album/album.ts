@@ -31,10 +31,74 @@ export function discsOf(songs: readonly Song[]): Disc[] {
  * Whether the songs are credited to many artists (a soundtrack, a
  * compilation): then the list gets an Artist column. An album with a
  * featured artist on a few songs names them under those titles instead.
+ * A song with no credit yet (unpublished, on an album not out) counts for
+ * neither.
  */
 export function isCompilation(songs: readonly Song[], albumArtist: string): boolean {
-  const others = songs.filter((s) => s.artistName !== albumArtist).length;
-  return others * 2 > songs.length;
+  const credited = songs.filter((s) => s.artistName);
+  const others = credited.filter((s) => s.artistName !== albumArtist).length;
+  return others * 2 > credited.length;
+}
+
+/**
+ * The people in Apple's composer credits ("Taylor Swift, Jack Antonoff &
+ * Zoë Kravitz"), each once, most credited first (ties in album order).
+ */
+export function writersOf(songs: readonly Song[]): string[] {
+  const count = new Map<string, number>();
+  for (const s of songs) {
+    for (const name of s.composerName.split(/\s*(?:,|&)\s*/)) {
+      const n = name.trim();
+      if (n) count.set(n, (count.get(n) ?? 0) + 1);
+    }
+  }
+  // Map keeps first-seen order, and the sort is stable.
+  return [...count.entries()].sort((a, b) => b[1] - a[1]).map(([n]) => n);
+}
+
+/**
+ * A classical album: Apple names the work its tracks belong to. Its rows
+ * are grouped under their works and read by movement.
+ */
+export function hasWorks(songs: readonly Song[]): boolean {
+  return songs.some((s) => s.workName);
+}
+
+/**
+ * The heading a work's first track carries on a classical album: the work,
+ * led by its composer when the album has more than one ("Johann Sebastian
+ * Bach · Goldberg Variations"). A track outside any work gets none.
+ */
+export function workHeading(
+  song: Song,
+  prev: Song | undefined,
+  composers: number,
+): string | undefined {
+  if (!song.workName) return undefined;
+  if (prev && prev.workName === song.workName && prev.discNumber === song.discNumber)
+    return undefined;
+  return composers > 1 && song.composerName
+    ? `${song.composerName} · ${song.workName}`
+    : song.workName;
+}
+
+/** A track's title under its work's heading: the movement, when Apple names one. */
+export function movementTitle(song: Song): string {
+  return song.workName && song.movementName ? song.movementName : song.name;
+}
+
+/**
+ * The year the album's oldest recording first came out, when that is
+ * before the album's own year (a reissue, a compilation); "" otherwise.
+ */
+export function firstReleased(songs: readonly Song[], albumDate: string): string {
+  const album = albumDate.slice(0, 4);
+  let first = "";
+  for (const s of songs) {
+    const y = s.releaseDate.slice(0, 4);
+    if (/^\d{4}$/.test(y) && (!first || y < first)) first = y;
+  }
+  return first && album && first < album ? first : "";
 }
 
 /**

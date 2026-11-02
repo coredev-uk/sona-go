@@ -143,7 +143,7 @@ func TestContentLanguageIsPartOfKey(t *testing.T) {
 	if f.hits.Load() != 2 {
 		t.Fatalf("hits = %d, want one per language", f.hits.Load())
 	}
-	for _, key := range []string{"gb|album-page|7", "gb@fr-CA|album-page|7"} {
+	for _, key := range []string{"gb|album-page.2|7", "gb@fr-CA|album-page.2|7"} {
 		if _, err := f.db.RQ.GetCache(ctx, key); err != nil {
 			t.Errorf("cache %q: %v", key, err)
 		}

@@ -6,7 +6,10 @@ import (
 )
 
 // Artwork is an artwork descriptor. URL is a template containing {w} and
-// {h} (and sometimes {f}); store it raw and size it with Sized.
+// {h} (and sometimes {f}); store it raw and size it with Sized. BgColor and
+// TextColor1–4 are Apple's colours for the image ("rrggbb", "" when absent):
+// its background colour and the text colours Apple sets over it (1 and 2
+// primary and secondary, 3 and 4 the same, softer).
 type Artwork struct {
 	URL        string `json:"url"`
 	Width      int    `json:"width"`
@@ -14,6 +17,8 @@ type Artwork struct {
 	BgColor    string `json:"bgColor"`
 	TextColor1 string `json:"textColor1"`
 	TextColor2 string `json:"textColor2"`
+	TextColor3 string `json:"textColor3"`
+	TextColor4 string `json:"textColor4"`
 }
 
 // Template returns the raw URL template, "" for a nil artwork.
@@ -183,6 +188,9 @@ type Album struct {
 		Tracks  Relationship[Song]   `json:"tracks"`
 		Artists Relationship[Artist] `json:"artists"`
 		Catalog Relationship[Album]  `json:"catalog"`
+		// Genres are the album's top-level genres and the root genre
+		// (AlbumPage only, include=genres).
+		Genres Relationship[Resource[GenreAttributes]] `json:"genres,omitzero"`
 	} `json:"relationships"`
 	// Views are the album page's sections (AlbumPage only).
 	Views AlbumViews `json:"views,omitzero"`

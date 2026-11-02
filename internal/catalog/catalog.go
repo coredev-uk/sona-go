@@ -153,10 +153,15 @@ func (c *Catalog) SearchLanding(ctx context.Context) (applemusic.MapResponse, er
 	}, nil)
 }
 
+// albumPageKind names cached album pages. Its version goes up when
+// AlbumPage asks Apple for more, so a page cached by an older query
+// isn't served without it until it expires.
+const albumPageKind = "album-page.2"
+
 // Album returns catalog album id's page: every track (with popularity),
-// its artists and the page sections (applemusic.AlbumPage).
+// its artists and genres and the page sections (applemusic.AlbumPage).
 func (c *Catalog) Album(ctx context.Context, id string) (applemusic.Album, error) {
-	return cached(ctx, c, "album-page", id, AlbumTTL, func(ctx context.Context, sf string) (applemusic.Album, error) {
+	return cached(ctx, c, albumPageKind, id, AlbumTTL, func(ctx context.Context, sf string) (applemusic.Album, error) {
 		return applemusic.AlbumPage(ctx, c.api, sf, id)
 	}, func(q *dbq.Queries, a applemusic.Album, now int64) error {
 		return storeAlbum(ctx, q, a, now)

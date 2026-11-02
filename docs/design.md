@@ -12,7 +12,7 @@ What it refuses: the streaming-app default of near-black with a brand-coloured a
 
 1. **Fast before pretty.** Nothing visual may cost first paint or scroll smoothness on WebKitGTK (`docs/architecture.md` §8).
 2. **The cover is the colour.** Chrome stays neutral so artwork reads true.
-3. **Amber means "playing".** The now-playing row, the play control, the progress fill, the active queue item. Navigation selection, focus and primary buttons do not use amber.
+3. **Amber means "playing".** The now-playing row, the play control, the progress fill, the active queue item. Navigation selection, focus and primary buttons do not use amber. On an album page the cover's own accent does amber's job for that record (Album page, below).
 4. **Native to the desktop.** Light and dark follow the system; it works with the keyboard; it is dense enough to sit tiled at half width beside an editor.
 5. **Honest states.** Signed out, syncing, offline, no CDM: each is said plainly where the missing data would be.
 
@@ -88,7 +88,7 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 
 The artwork service renders, per cover, a tiny pre-blurred JPEG (target ~32×32, heavy Gaussian blur, saturation kept). The frontend never blurs anything itself.
 
-- **Where**: behind the now-playing bar, the mini player, the now-playing view, full-screen lyrics, collection headers (playlist, artist), the album page's sleeve, and the top of Home (from its lead pick).
+- **Where**: behind the now-playing bar, the mini player, the now-playing view, full-screen lyrics, collection headers (playlist, artist), the album page's sleeve when the cover's colour isn't known (Album page), and the top of Home (from its lead pick).
 - **How**: an `<img>` (component `Backdrop`) absolutely positioned, `object-fit: cover`, scaled up by the browser (bilinear upscaling of the tiny image is the softness), under a solid scrim of the surface colour (bar, mini player) or the ground colour (views, headers) at `--backdrop-scrim`: 92% in light, 86% in dark. The result is a wash of the cover's colour, never a recognisable picture. Text sits on the scrim, so contrast is the scrim's, not the image's: the scrim is the floor at which `--ink-muted` and `--ink-faint` stay ≥ 4.5:1 over any backdrop, a black one in light (the binding case: 91% on surface) and a white one in dark (85%). It is one value per theme, never lowered per surface; a stronger cover colour would need a darker text token, not a thinner scrim.
 - **Change**: when the track changes the new backdrop fades in over 320ms (the one authored motion moment). Images are decoded before the swap so the fade never shows an empty frame.
 - **Banned**: `backdrop-filter`, `filter: blur()` on anything larger than an icon, and any blur on scrolling content.
@@ -256,7 +256,7 @@ A record is two things in the hand: the sleeve, and the listing on its back. The
 
 ```
 ┌ sleeve ─────────────┐   Title (32/36, wraps; never moves the cover)
-│ ┌─────────────────┐ │   Artist
+│ ┌─────────────────┐ │   Artist (in the cover's accent)
 │ │                 │ │   Album · 1995 · 40 songs, 2 hrs, 49 mins · Indie Rock
 │ │      cover      │ │   [Lossless]
 │ │   256 or 320    │ │   Apple's one-line note
@@ -264,23 +264,32 @@ A record is two things in the hand: the sleeve, and the listing on its back. The
 │ └─────────────────┘ │   (▶) Shuffle  + Add  Favourite  Suggest less  ⋯
 │ Disc 1 · 12 songs…  │   #  Title                                     ◷
 │ Disc 2 · 14 songs…  │   Disc 1
-│ Released 2 Oct 1995 │   1  Hello (Remastered)                      3:22
-│ Label               │   …
-│ ℗ line              │   Notes (68ch)
+│ Released            │   Goldberg Variations (1981 Recording)    ← a work
+│ 2 October 1995      │   1  Aria                                    3:22
+│ Genres · Written by │   …
+│ Label               │   Notes (58ch)
+│ ℗ line              │
 └─────────────────────┘
-Other versions · Music videos · More by · Featured in playlists · You might also like
+Other versions · Music videos · More to hear · More by · Featured in playlists · You might also like
 ```
 
-- **The sleeve** is the page's one coloured surface: a radius-8 panel washed in the cover's colour (the Go backdrop under the ground scrim, as headers) with a 4% ink layer over it, so it stays one tone step off the ground whatever the cover (a dark cover in the dark theme, a pale one in the light) and under reduce effects. The cover sits inset 16px, then the disc index of a multi-disc album and the record's fine print in meta type, one fact a line (released, label unless the ℗ line names it, ℗). Text on the sleeve is `--ink` or `--ink-muted` only: over the extreme backdrops the tone step leaves `--ink-muted` at 4.9:1 (a white cover in dark) but `--ink-faint` under 4.5. The listing sits on the plain ground beside it, so the colour stays with the record.
+- **The sleeve is printed in the cover's colour**: a radius-8 panel in the colour Apple gives for the cover's background (`ArtworkColors.background`; Go's first dominant colour when Apple gives none), flat, with nothing blended at paint time (`features/album/palette.ts`). It is the page's one coloured surface; the listing sits on the plain ground beside it, so the colour stays with the record. A cover with no colour known keeps the earlier wash: Go's backdrop under the ground scrim with a 4% ink layer. Three rules hold the colour to the board:
+  - one tone step off the ground: a cover the colour of the ground (a white one in light, a black one in dark) moves 0.05 in OKLCH lightness away from it, the way the theme's own tones go;
+  - in the dark theme no lighter than 0.36 OKLCH lightness, hue kept, so a white or pale cover is a dark tint of itself rather than the brightest slab in the window; in the light theme a dark cover stays dark;
+  - never so near a mid grey that black or white loses 5.8:1 on it and its pressed tone, so the text and a muted step below it can both reach 4.5:1.
+- **Text on the sleeve** takes Apple's own text colours for the cover (`text1` for ink, `text2` or `text3` for muted) when they read at 4.5:1 on the sleeve and on its hover and pressed tones; otherwise ink is black or white with a trace of the sleeve, and muted is ink mixed 35% towards the sleeve, moved in lightness only as far as 4.5:1 needs. The sleeve declares its own `--ink`, `--ink-muted`, `--hover`, `--active`, `--line`, `--control-line` and the ShadCN roles, so the disc index, badges and outline buttons inside it (the whole head, below 860px) follow it; focus rings there are the sleeve's ink. Reduce effects changes nothing: the sleeve is a flat colour already.
+- **The cover's accent takes amber's job on the page**: the most colourful of Apple's colours and Go's dominant ones (OKLCH chroma ≥ 0.06) fills the Play disc, marks the playing row and its equaliser, and sets the artist's name, the record's one link out. Its fill keeps at least amber's own distance from the ground (2:1 in light, 3:1 in dark) and from the sleeve when it sits on it, its glyph 4.5:1; as text it keeps 4.5:1 on every row tone, a selected row included. A greyscale cover keeps amber. Apple's shelves below keep amber, as everywhere else. Every pair is checked by unit tests over extreme covers (white, black, mid grey, the sRGB primaries, a 6-level grid in both themes).
 - **One station**: the cover's top and the title's first line share a line on every album, whatever the title's length; the title wraps instead of clamping. Covers come in fixed sizes so Go serves them at the exact box: 256px, 320px from 1280px of content width.
-- **Held while the songs scroll**: the sleeve is sticky beside the listing whenever the pane shows all of it (measured, so a one-disc sleeve holds in a shorter window than a three-disc one), so a 40-song album keeps its cover and disc index in view. Motion artwork plays there while it is on screen, under the same rules as every header.
+- **Held while the songs scroll**: the sleeve is sticky beside the listing whenever the pane shows all of it (measured, so a one-disc sleeve holds in a shorter window than a three-disc one), so a 40-song album keeps its cover, disc index and fine print in view. Motion artwork plays there while it is on screen, under the same rules as every header.
+- **The back of the sleeve** is the record's fine print in meta type, each fact a muted name over its entry: released (the day in full), first released (the year of its oldest recording, when that is earlier: a reissue, a compilation), genres (all of Apple's, without the root "Music"), written by (every songwriter in Apple's composer credits, most credited first, eight named and the rest counted) or, on a classical album, composer, then the label unless the ℗ line names it, and the ℗ line last.
 - **The listing is 2/3 of the width**, not the whole pane: at 1440 the title-to-duration scan drops from about 980px to 680px.
 - **The disc index**: each disc in the catalogue line's form ("Disc 2 · 14 songs, 1 hr, 3 mins"); choosing one brings its heading to the top and focuses its first song. A list long enough to be virtualised (over 200 songs) has no disc headings, so no index either.
-- **Rows explain themselves**: the line under a title names a credit other than the album artist's (an Artist column only for a real compilation, where most songs are someone else's) and why a song doesn't play: "Out 19 Nov" on an album not out yet, "Unavailable", or the account's explicit restriction. An unpublished song's stand-in artist ("unknown") is dropped.
+- **Classical albums read by work**: where Apple names the work a track belongs to, each work gets a heading (14/500 ink, under the disc's) and its rows show the movement alone ("Aria", not "Goldberg Variations, BWV 988 (1955 Recording): Aria"); the row's play control and menu still name the song in full, and the queue and now playing show its full name. An album of several composers leads each work with its composer and names the composer under a piece outside any work.
+- **Rows explain themselves**: the line under a title names a credit other than the album artist's (an Artist column only for a real compilation, where most credited songs are someone else's; a song with no credit yet counts for neither) and why a song doesn't play: "Out 19 Nov" on an album not out yet, "Unavailable", or the account's explicit restriction. An unpublished song's stand-in artist ("unknown") is dropped, and "Popular" only marks a song that plays.
 - **The catalogue line describes the record**: a library album holding some of its songs counts the whole album and says "2 of 13 songs in your library · Show complete album" in the status slot; an album not out yet leaves out a running time its unpublished songs can't add to.
 - **Not out yet**: the countdown takes the status slot; Play plays the songs already out (named "Play the 8 songs out now"), beside Remind me and Pre-add.
-- **Below 860px of content** (a 940px window) the sleeve heads the page with the title beside a 168px cover, the songs follow at full width, then the fine print; the disc headings in the list stand in for the index.
-- Then Notes at a reading measure, and Apple's shelves in Apple's order.
+- **Below 860px of content** (a 940px window) the sleeve heads the page with the title beside a 168px cover, the songs follow at full width, then the fine print on the ground; the disc headings in the list stand in for the index.
+- Then Notes at a reading measure (58ch, about 75 characters at the body size), and Apple's shelves in Apple's order, with the radio episodes about the record ("More to hear") after its music videos.
 
 ### Artist page
 
