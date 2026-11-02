@@ -75,6 +75,14 @@ describe("chooseTranslation", () => {
     const load = (tag: string) => Promise.resolve(translation(tag, 98 / 1415));
     expect(await chooseTranslation(["fr-FR", "fr"], load)).toBeUndefined();
   });
+
+  it("shows a chosen language however complete, once it translates anything", async () => {
+    const shares: Record<string, number> = { "fr-FR": 98 / 1415, "de-DE": 0 };
+    const load = (tag: string) => Promise.resolve(translation(tag, shares[tag] ?? 0));
+    expect((await chooseTranslation(["fr-FR"], load, 0))?.locale).toBe("fr-FR");
+    expect(await chooseTranslation(["de-DE"], load, 0)).toBeUndefined();
+    expect(await chooseTranslation(["en"], load, 0)).toBeUndefined();
+  });
 });
 
 describe("formatLocales", () => {

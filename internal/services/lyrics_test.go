@@ -87,7 +87,7 @@ func TestLyricsServiceUsesSongDetails(t *testing.T) {
 }
 
 func TestLyricsServiceNotFoundCode(t *testing.T) {
-	if got := ErrorCode(lyrics.ErrNotFound); got != CodeNotFound {
+	if got := CodeOf(lyrics.ErrNotFound); got != CodeNotFound {
 		t.Fatalf("code = %q", got)
 	}
 }

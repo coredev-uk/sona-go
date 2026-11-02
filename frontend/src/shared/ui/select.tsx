@@ -63,9 +63,16 @@ function SelectContent({
         {...props}
       >
         <SelectScrollUpButton />
+        {/* A long list (Language) scrolls, and a scrolling region must be
+            focusable (axe scrollable-region-focusable). Radix keeps Tab inside
+            the open list, so tabIndex 0 adds no Tab stop. A focusable element
+            can't be presentational, so the viewport is a group: a listbox may
+            hold groups of options. */}
         <SelectPrimitive.Viewport
+          role="group"
+          tabIndex={0}
           className={cn(
-            "p-1",
+            "p-1 outline-none",
             position === "popper" &&
               "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1",
           )}

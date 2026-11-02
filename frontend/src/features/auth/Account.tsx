@@ -700,10 +700,10 @@ function SignInFlow({ status, framed }: { status: AuthStatus; framed: boolean })
       type: "status",
       state: status.state,
       factor: status.secondFactor,
-      lastError: status.lastError,
       lastErrorCode: status.lastErrorCode,
+      lastAppleMessage: status.lastAppleMessage,
     });
-  }, [status.state, status.secondFactor, status.lastError, status.lastErrorCode]);
+  }, [status.state, status.secondFactor, status.lastErrorCode, status.lastAppleMessage]);
 
   const browser = async () => {
     dispatch({ type: "cancel" });
@@ -1067,7 +1067,6 @@ export function AccountSection({
                 <Trans>Apple Music isn't accepting Sona's requests</Trans>
               </p>
               <p className="mt-0.5 text-ink-muted">
-                {status.lastError ? `${status.lastError.replace(/^[a-z]+: /, "")}. ` : ""}
                 <Trans>
                   Sona refetches its developer token by itself; if this persists, Apple changed its
                   web player.

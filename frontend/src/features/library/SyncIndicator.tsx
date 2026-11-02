@@ -1,8 +1,10 @@
 import { LibraryService } from "@bindings/services";
+import { ErrorCode } from "@bindings/services/models";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { CircleAlert, RefreshCw } from "lucide-react";
 
 import { hasAccount, useAuth } from "@/features/auth";
+import { codeMessage } from "@/shared/lib/errors";
 import { formatNumber, relativeTime } from "@/shared/lib/format";
 import { run } from "@/shared/lib/run";
 import { cn } from "@/shared/lib/utils";
@@ -26,7 +28,7 @@ export function SyncIndicator() {
   const { running, current, last } = useSync();
   if (!hasAccount(auth.data?.state)) return null;
 
-  const failed = last && !last.ok && last.errorCode !== "cancelled";
+  const failed = last && !last.ok && last.errorCode !== ErrorCode.CodeCancelled;
   const pct =
     current && current.total > 0
       ? Math.min(100, Math.round((current.done / current.total) * 100))
@@ -90,7 +92,7 @@ export function SyncIndicator() {
             {failed && (
               <CircleAlert aria-hidden className="size-3 shrink-0 text-danger" strokeWidth={2} />
             )}
-            <span className="truncate" title={failed ? last.error : undefined}>
+            <span className="truncate" title={failed ? codeMessage(last.errorCode) : undefined}>
               {failed ? (
                 <Trans>Library sync failed</Trans>
               ) : lastSuccess ? (

@@ -7,30 +7,32 @@ import (
 	"math"
 	"strings"
 	"text/template"
+
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 )
 
 // stateText is a status state as printed.
-func stateText(state string) string {
+func stateText(p *l10n.Printer, state string) string {
 	switch state {
 	case StateLoading:
-		return msgStateLoading
+		return p.T(msgStateLoading)
 	case StatePlaying:
-		return msgStatePlaying
+		return p.T(msgStatePlaying)
 	case StatePaused:
-		return msgStatePaused
+		return p.T(msgStatePaused)
 	case StateEnded:
-		return msgStateEnded
+		return p.T(msgStateEnded)
 	case StateError:
-		return msgStateError
+		return p.T(msgStateError)
 	}
-	return msgStateIdle
+	return p.T(msgStateIdle)
 }
 
-func onOff(on bool) string {
+func onOff(p *l10n.Printer, on bool) string {
 	if on {
-		return msgOn
+		return p.T(msgOn)
 	}
-	return msgOff
+	return p.T(msgOff)
 }
 
 // clock writes seconds as m:ss, or h:mm:ss from an hour.
@@ -42,38 +44,38 @@ func clock(seconds float64) string {
 	return fmt.Sprintf("%d:%02d", s/60, s%60)
 }
 
-func byArtist(title, artist string) string {
+func byArtist(p *l10n.Printer, title, artist string) string {
 	if artist == "" {
 		return title
 	}
-	return fmt.Sprintf(msgTrackByArtist, title, artist)
+	return p.Sprintf(msgTrackByArtist, title, artist)
 }
 
 // summary is the one-line status: what play, pause, toggle, next and prev
 // print, and each line of `status --follow`.
-func summary(s Status) string {
+func summary(p *l10n.Printer, s Status) string {
 	if !s.Running {
-		return msgNotRunningState
+		return p.T(msgNotRunningState)
 	}
-	line := stateText(s.State)
+	line := stateText(p, s.State)
 	if s.Track != nil {
-		line = fmt.Sprintf(msgTrackLine, line, byArtist(s.Track.Title, s.Track.Artist))
+		line = p.Sprintf(msgFieldLine, line, byArtist(p, s.Track.Title, s.Track.Artist))
 	}
 	if s.Preview {
-		line += msgPreviewSuffix
+		line += p.T(msgPreviewSuffix)
 	}
 	return line
 }
 
 // writeStatus prints `sona status`: one field per line.
-func writeStatus(w io.Writer, s Status) error {
+func writeStatus(w io.Writer, p *l10n.Printer, s Status) error {
 	if !s.Running {
-		_, err := fmt.Fprintln(w, msgStatusNotRunning)
+		_, err := fmt.Fprintln(w, p.T(msgStatusNotRunning))
 		return err
 	}
 	var b strings.Builder
-	field := func(k, v string) { fmt.Fprintf(&b, "%s: %s\n", k, v) }
-	field(msgFieldState, stateText(s.State))
+	field := func(k l10n.Message, v string) { b.WriteString(p.Sprintf(msgFieldLine, p.T(k), v) + "\n") }
+	field(msgFieldState, stateText(p, s.State))
 	if t := s.Track; t != nil {
 		field(msgFieldTitle, t.Title)
 		if t.Artist != "" {
@@ -84,16 +86,16 @@ func writeStatus(w io.Writer, s Status) error {
 		}
 		pos := clock(s.Position)
 		if t.Duration > 0 {
-			pos = fmt.Sprintf(msgPositionOf, pos, clock(t.Duration))
+			pos = p.Sprintf(msgPositionOf, pos, clock(t.Duration))
 		}
 		field(msgFieldPosition, pos)
 	}
-	field(msgFieldVolume, fmt.Sprintf(msgPercent, s.Volume))
-	field(msgFieldShuffle, onOff(s.Shuffle))
-	field(msgFieldRepeat, repeatText(s.Repeat))
-	field(msgFieldPrivate, onOff(s.Private))
+	field(msgFieldVolume, p.Sprintf(msgPercent, s.Volume))
+	field(msgFieldShuffle, onOff(p, s.Shuffle))
+	field(msgFieldRepeat, repeatText(p, s.Repeat))
+	field(msgFieldPrivate, onOff(p, s.Private))
 	if s.Preview {
-		field(msgFieldPreview, msgYes)
+		field(msgFieldPreview, p.T(msgYes))
 	}
 	if s.Error != "" {
 		field(msgFieldError, s.Error)
@@ -102,19 +104,19 @@ func writeStatus(w io.Writer, s Status) error {
 	return err
 }
 
-func repeatText(r string) string {
+func repeatText(p *l10n.Printer, r string) string {
 	switch r {
 	case "all":
-		return msgRepeatAll
+		return p.T(msgRepeatAll)
 	case "one":
-		return msgRepeatOne
+		return p.T(msgRepeatOne)
 	}
-	return msgOff
+	return p.T(msgOff)
 }
 
-func writeQueue(w io.Writer, q Queue) error {
+func writeQueue(w io.Writer, p *l10n.Printer, q Queue) error {
 	if len(q.Tracks) == 0 {
-		_, err := fmt.Fprintln(w, msgQueueEmpty)
+		_, err := fmt.Fprintln(w, p.T(msgQueueEmpty))
 		return err
 	}
 	width := len(fmt.Sprint(len(q.Tracks)))
@@ -122,11 +124,11 @@ func writeQueue(w io.Writer, q Queue) error {
 	for i, t := range q.Tracks {
 		mark := " "
 		if i == q.Index {
-			mark = msgQueueCurrent
+			mark = queueMark
 		}
-		line := byArtist(t.Title, t.Artist)
+		line := byArtist(p, t.Title, t.Artist)
 		if t.AutoPlay {
-			line += " " + msgQueueAutoPlay
+			line += " " + p.T(msgQueueAutoPlay)
 		}
 		fmt.Fprintf(&b, "%s %*d  %s\n", mark, width, i+1, line)
 	}
@@ -134,9 +136,9 @@ func writeQueue(w io.Writer, q Queue) error {
 	return err
 }
 
-func writeSearch(w io.Writer, r SearchResults) error {
+func writeSearch(w io.Writer, p *l10n.Printer, r SearchResults) error {
 	if len(r.Results) == 0 {
-		_, err := fmt.Fprintf(w, msgSearchNone+"\n", r.Term)
+		_, err := fmt.Fprintln(w, p.Sprintf(msgSearchNone, r.Term))
 		return err
 	}
 	var b strings.Builder
@@ -144,13 +146,13 @@ func writeSearch(w io.Writer, r SearchResults) error {
 	for _, it := range r.Results {
 		if it.Kind != kind {
 			kind = it.Kind
-			heading, ok := msgKinds[kind]
-			if !ok {
-				heading = kind
+			heading := kind
+			if m, ok := msgKinds[kind]; ok {
+				heading = p.T(m)
 			}
 			b.WriteString(heading + "\n")
 		}
-		line := byArtist(it.Name, it.Subtitle)
+		line := byArtist(p, it.Name, it.Subtitle)
 		if it.URL != "" {
 			line += "  " + it.URL
 		}
@@ -162,23 +164,23 @@ func writeSearch(w io.Writer, r SearchResults) error {
 
 // privateLine is `sona private`'s line: on or off, then what decides it
 // when that isn't the saved setting.
-func privateLine(p Private) string {
-	line := fmt.Sprintf(msgPrivateLine, onOff(p.On))
-	switch p.Source {
+func privateLine(p *l10n.Printer, pv Private) string {
+	line := p.Sprintf(msgPrivateLine, onOff(p, pv.On))
+	switch pv.Source {
 	case SourceDevelopment:
-		line += fmt.Sprintf(msgPrivateDev, onOff(p.Saved))
+		line += p.Sprintf(msgPrivateDev, onOff(p, pv.Saved))
 	case SourceEnvironment:
-		line += msgPrivateForcedEnv
+		line += p.T(msgPrivateForcedEnv)
 	}
 	return line
 }
 
-func likeLine(l Like) string {
-	song := byArtist(l.Track.Title, l.Track.Artist)
+func likeLine(p *l10n.Printer, l Like) string {
+	song := byArtist(p, l.Track.Title, l.Track.Artist)
 	if l.Liked {
-		return fmt.Sprintf(msgLiked, song)
+		return p.Sprintf(msgLiked, song)
 	}
-	return fmt.Sprintf(msgNotLiked, song)
+	return p.Sprintf(msgNotLiked, song)
 }
 
 // statusTemplate parses a --format template. Its data is the status's

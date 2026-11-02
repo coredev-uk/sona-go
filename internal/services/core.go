@@ -16,6 +16,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 	"github.com/coredev-uk/sona-go/internal/library"
 	"github.com/coredev-uk/sona-go/internal/motion"
 	"github.com/coredev-uk/sona-go/internal/mpris"
@@ -45,8 +46,12 @@ type Deps struct {
 	// AppleStrings keeps Apple Music's translations of Sona's messages
 	// (nil: none served).
 	AppleStrings *applestrings.Store
-	Coord        *coordinator.Coordinator
-	History      *History
+	// Language is the user's language for Go's own text (notifications,
+	// file chooser titles) and Apple's content (nil: English, the
+	// storefront's default content language).
+	Language *l10n.Language
+	Coord    *coordinator.Coordinator
+	History  *History
 	// Private is private listening, which every play reporter asks
 	// (required).
 	Private *privatemode.Mode

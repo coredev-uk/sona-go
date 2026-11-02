@@ -95,6 +95,10 @@ type Cache struct {
 	evictMu sync.Mutex
 }
 
+// ErrNoRendition is a master playlist with no rendition in the codec asked
+// for.
+var ErrNoRendition = errors.New("motion: no rendition in the codec")
+
 // Fetch is the outcome of the newest rendition download, for Diagnostics.
 type Fetch struct {
 	At    time.Time
@@ -104,7 +108,7 @@ type Fetch struct {
 	// Rendition is the variant chosen ("avc1.64001f 486×486, 1.7
 	// Mbit/s"), "" when none was.
 	Rendition string
-	Err       string // "" when it worked
+	Err       error // nil when it worked
 }
 
 // Stats describes the cache for Diagnostics.
@@ -224,7 +228,7 @@ func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			rendition, err := c.fetch(ctx, master, size, codec, path)
 			f := Fetch{At: time.Now(), Key: key, Size: size, Codec: codec, Rendition: rendition}
 			if err != nil {
-				f.Err = err.Error()
+				f.Err = err
 				c.log.Warn("motion: fetch", "key", key, "size", size, "codec", codec, "rendition", rendition, "err", err)
 			} else {
 				c.log.Info("motion: fetched", "key", key, "size", size, "rendition", rendition, "took_ms", time.Since(start).Milliseconds())
@@ -318,7 +322,7 @@ func (c *Cache) fetch(ctx context.Context, master string, size int, codec, path 
 	}
 	v, ok := choose(parseMaster(string(body)), size, codec)
 	if !ok {
-		return "", fmt.Errorf("no %s rendition", codecName(codec))
+		return "", fmt.Errorf("%w: no %s rendition", ErrNoRendition, codecName(codec))
 	}
 	rendition := v.describe()
 	vu, err := mu.Parse(v.URI)

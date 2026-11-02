@@ -4,6 +4,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
 // EventSettingsChanged carries the saved config.Settings after
@@ -51,17 +52,17 @@ type DiagPlayback struct {
 	CDM CDMStatus `json:"cdm"`
 	// The CDM fields below are the probe child's report of the CDM a new
 	// playback host would load (empty with no CDM ready).
-	CDMPath       string `json:"cdmPath"`
-	CDMVersion    string `json:"cdmVersion"`
-	CDMOK         bool   `json:"cdmOk"` // the CDM initialised in a probe child
-	CDMError      string `json:"cdmError"`
-	CDMInterface  int    `json:"cdmInterface"`
-	HostInterface int    `json:"hostInterface"`
-	GStreamer     string `json:"gstreamer"`
-	Decoder       string `json:"decoder"`
-	Sink          string `json:"sink"`
-	HostRunning   bool   `json:"hostRunning"` // the playback child is up
-	HostPID       int    `json:"hostPid"`
+	CDMPath       string    `json:"cdmPath"`
+	CDMVersion    string    `json:"cdmVersion"`
+	CDMOK         bool      `json:"cdmOk"`    // the CDM initialised in a probe child
+	CDMError      ErrorCode `json:"cdmError"` // why the probe failed; "" when CDMOK
+	CDMInterface  int       `json:"cdmInterface"`
+	HostInterface int       `json:"hostInterface"`
+	GStreamer     string    `json:"gstreamer"`
+	Decoder       string    `json:"decoder"`
+	Sink          string    `json:"sink"`
+	HostRunning   bool      `json:"hostRunning"` // the playback child is up
+	HostPID       int       `json:"hostPid"`
 	// AudioQuality is the AAC bitrate Sona plays (kbps, the setting).
 	// Sona never plays lossless or Dolby Atmos: Apple refuses those keys
 	// to the desktop Widevine CDM.
@@ -73,12 +74,12 @@ type DiagPlayback struct {
 	// keychain), "none" (macOS without a working sandbox-exec: the child
 	// runs unconfined) or "" when the probe child never started.
 	SandboxKind string `json:"sandboxKind"`
-	// Sandboxed: every layer of SandboxKind is in place. SandboxNote says
-	// what is missing otherwise ("" when the probe child never started).
-	Sandboxed   bool   `json:"sandboxed"`
-	SandboxNote string `json:"sandboxNote"`
+	// Sandboxed: every layer of SandboxKind is in place. SandboxGaps says
+	// what is missing otherwise (empty when the probe child never started).
+	Sandboxed   bool                  `json:"sandboxed"`
+	SandboxGaps []playback.SandboxGap `json:"sandboxGaps"`
 	// CDMBlocked: the child refused to load the CDM because its seccomp
-	// filter is missing (cdmhost.ErrSandbox, Linux only); SandboxNote says
+	// filter is missing (cdmhost.ErrSandbox, Linux only); SandboxGaps says
 	// why.
 	CDMBlocked bool `json:"cdmBlocked"`
 	// Realtime is the scheduling the running host's audio threads got,
@@ -88,11 +89,11 @@ type DiagPlayback struct {
 	// "unavailable" (neither RTKit nor the portal answered),
 	// "unsupported" (not asked for on this platform) or "" (no host has
 	// started playing yet). RealtimeVia names who answered ("RTKit",
-	// "portal"); RealtimeNote says why realtime was refused or unavailable.
-	Realtime         string `json:"realtime"`
-	RealtimeVia      string `json:"realtimeVia"`
-	RealtimePriority int    `json:"realtimePriority"`
-	RealtimeNote     string `json:"realtimeNote"`
+	// "portal"); RealtimeRefusal says why realtime was refused.
+	Realtime         string                   `json:"realtime"`
+	RealtimeVia      string                   `json:"realtimeVia"`
+	RealtimePriority int                      `json:"realtimePriority"`
+	RealtimeRefusal  playback.RealtimeRefusal `json:"realtimeRefusal"`
 }
 
 type DiagDatabase struct {
@@ -130,6 +131,8 @@ type EnvVar struct {
 
 // DiagBundle is the redacted diagnostics bundle for a bug report.
 type DiagBundle struct {
+	// Text is the bundle itself. It stays English on purpose: it is copied
+	// into bug reports for the maintainers, never shown as UI text.
 	Text string `json:"text"`
 	// Path is where the bundle was saved ("" if saving failed).
 	Path string `json:"path"`

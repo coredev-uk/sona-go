@@ -50,10 +50,7 @@ export function StatusBanner() {
       </button>
     );
   } else if (data.state === "error") {
-    const reason = data.lastError?.replace(/^[a-z]+: /, "");
-    text = reason
-      ? t`Apple Music isn't accepting Sona's requests: ${reason}`
-      : t`Apple Music isn't accepting Sona's requests.`;
+    text = t`Apple Music isn't accepting Sona's requests.`;
     action = (
       <Link to="/settings" search={{ section: "diagnostics" }} className={ACTION_CLS}>
         {t`Diagnostics`}

@@ -41,3 +41,38 @@ func appleTranslations(l applestrings.Locale) AppleTranslations {
 	}
 	return out
 }
+
+// EventAppleLanguages carries AppleLanguages when Apple's locale table
+// arrives or changes, so the Language setting can offer its locales.
+const EventAppleLanguages = "translations:languages"
+
+func init() { application.RegisterEvent[AppleLanguages](EventAppleLanguages) }
+
+// AppleLanguages is what the Language setting can offer of Apple's
+// translations (applestrings.Available).
+type AppleLanguages struct {
+	// Mapped is the share of Sona's messages mapped to Apple's strings
+	// (0-1): no Apple locale translates more.
+	Mapped float64 `json:"mapped"`
+	// Locales are Apple's locales, when Mapped reaches the share asked
+	// for; empty otherwise.
+	Locales []AppleLanguage `json:"locales"`
+}
+
+// AppleLanguage is one of Apple's locales.
+type AppleLanguage struct {
+	// Tag is the locale in BCP 47 ("fr-FR").
+	Tag string `json:"tag"`
+	// Coverage is the share of Sona's messages it translates (0-1):
+	// counted when it is cached (Measured), else Mapped, its upper bound.
+	Coverage float64 `json:"coverage"`
+	Measured bool    `json:"measured"`
+}
+
+func appleLanguages(a applestrings.Available) AppleLanguages {
+	out := AppleLanguages{Mapped: a.Mapped, Locales: make([]AppleLanguage, 0, len(a.Locales))}
+	for _, l := range a.Locales {
+		out.Locales = append(out.Locales, AppleLanguage{Tag: l.Tag, Coverage: l.Coverage, Measured: l.Measured})
+	}
+	return out
+}

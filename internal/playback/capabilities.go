@@ -58,9 +58,12 @@ type Diagnosis struct {
 	// Sandbox is how the host is confined: SandboxLinux (namespaces,
 	// Landlock, seccomp), SandboxSeatbelt (macOS sandbox-exec) or
 	// SandboxNone (unconfined, macOS only); "" when no host reported.
-	Sandbox     string
-	Sandboxed   bool   // every layer of Sandbox is in place
-	SandboxNote string // why a layer is missing
+	Sandbox   string
+	Sandboxed bool // every layer of Sandbox is in place
+	// SandboxGaps are the layers that are missing, or why the host runs
+	// unconfined; empty when Sandboxed or no host reported. The host's log
+	// line has the system's own reasons.
+	SandboxGaps []SandboxGap
 	// Blocked: the sandbox could not be set up, so the CDM was not loaded.
 	Blocked bool
 
@@ -70,7 +73,9 @@ type Diagnosis struct {
 	Realtime         string
 	RealtimeVia      string // who answered: "RTKit" or "portal"
 	RealtimePriority int    // the SCHED_RR priority (granted) or nice level (raised)
-	RealtimeNote     string // why realtime was refused or is unavailable
+	// RealtimeRefusal is why realtime was refused (RealtimeRaised or
+	// RealtimeDenied); "" otherwise. The log has the backend's own error.
+	RealtimeRefusal RealtimeRefusal
 }
 
 // Diagnosis.Sandbox values.
@@ -87,4 +92,32 @@ const (
 	RealtimeDenied      = "denied"      // both refused
 	RealtimeUnavailable = "unavailable" // neither RTKit nor the Realtime portal answered
 	RealtimeUnsupported = "unsupported" // not asked for on this platform
+)
+
+// SandboxGap is a missing layer of the host's sandbox, or why it runs
+// unconfined.
+type SandboxGap string
+
+// The SandboxGap values: Linux layers, then macOS ones.
+const (
+	SandboxGapNamespaces SandboxGap = "namespaces"  // no network or mount namespace: unprivileged user namespaces are blocked
+	SandboxGapFilesystem SandboxGap = "filesystem"  // no private filesystem view
+	SandboxGapLandlock   SandboxGap = "landlock"    // no Landlock domain
+	SandboxGapSeccomp    SandboxGap = "seccomp"     // the seccomp filter isn't installed
+	SandboxGapNetwork    SandboxGap = "network"     // the host could open network sockets
+	SandboxGapKeychain   SandboxGap = "keychain"    // the host could read the keychain folder (macOS)
+	SandboxGapTurnedOff  SandboxGap = "turned_off"  // the developer turned the macOS sandbox off (SONA_SEATBELT=0)
+	SandboxGapNoSeatbelt SandboxGap = "no_seatbelt" // sandbox-exec is missing or didn't start (macOS)
+	SandboxGapRefused    SandboxGap = "refused"     // sandbox-exec refused Sona's profile (macOS)
+)
+
+// RealtimeRefusal is why the host's audio threads didn't get realtime
+// scheduling.
+type RealtimeRefusal string
+
+// The RealtimeRefusal values.
+const (
+	RealtimeNoPriority RealtimeRefusal = "no_priority" // RTKit or the portal allows no realtime priority
+	RealtimeCPULimit   RealtimeRefusal = "cpu_limit"   // the host's realtime CPU time couldn't be limited, as RTKit requires
+	RealtimeRefused    RealtimeRefusal = "refused"     // RTKit or the portal said no
 )

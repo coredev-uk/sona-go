@@ -43,8 +43,19 @@
 //     a panic is recovered and logged with its stack; never a bare `go`),
 //     and members (catalog item → in the library).
 //   - errors.go: every returned error reaches JS as err.cause =
-//     {code, message}; add a Code constant and an ErrorCode case for new
-//     classes of failure.
+//     {code, message}; the frontend words the code (an ErrorCode, bound
+//     as a TypeScript enum) and keeps message, Go's English, for logs.
+//     Go's text never reaches the UI: a DTO field that explains a failure
+//     carries an ErrorCode, or its own string enum for a non-error reason
+//     (StationUnavailable, playback.SandboxGap), never free text
+//     (errors_test.go walks the bound types). New classes of failure the
+//     user needs to tell apart get a sentinel error, a Code constant and
+//     a CodeOf case, plus wording in frontend/src/shared/lib/errors.ts.
+//   - Text Go shows itself, outside the web view (notification buttons,
+//     file chooser titles and filters, the sleep inhibitor's reason), is
+//     an l10n.Message shown through Deps.Language.Printer() when it is
+//     shown, so it follows the Language setting (CONTRIBUTING.md, "Go's
+//     own text").
 //   - applemusic: one file per Apple domain; new amp-api endpoints are
 //     one-liners with applemusic.AMP / AMPResource / AMPResources and
 //     AMPQuery{Views, Include, Extend, With, Fields, Limit, Offset, Extra}

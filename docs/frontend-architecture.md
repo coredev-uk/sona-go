@@ -708,10 +708,17 @@ out of the bundle.
   `shared/lib/format.ts` (`formatNumber`, `longDate`, `clockTime`,
   `relativeTime`, `formatRunningTime`, `formatBytes`, `numberFormat`,
   `dateFormat`), never `toLocaleString()` without a locale.
-- Go errors: `callFailure(err).message` is the translated wording for the
-  services error code (`err.cause.code`, `internal/services/errors.go`),
-  mapped once in `shared/lib/errors.ts`; codes without wording (`unknown`)
-  keep Go's text, also available as `.detail`.
+- Go errors: Go sends codes, never text for the UI. `callFailure(err).message`
+  is the translated wording for the services error code (`err.cause.code`,
+  the generated `ErrorCode` enum from `internal/services/errors.go`), mapped
+  once in `shared/lib/errors.ts` as a `Record<ErrorCode, …>`, so a new code
+  without wording fails the type check; `codeMessage(code)` words a code a
+  DTO carries (`AuthStatus.lastErrorCode`, sync events, update checks).
+  `unknown`, an empty or an unrecognised code get a generic "Something went
+  wrong."; Go's text is only in `.detail`, for logs. Non-error reasons have
+  their own enums, worded where they show (`stationUnavailable`, the
+  sandbox and realtime rows in Diagnostics). Import enums from
+  `@bindings/<pkg>/models`: tests mock `@bindings/services` itself.
 - Brand and product names stay as written but still sit inside messages, so
   a translator can place them.
 
@@ -734,7 +741,28 @@ tag's layers and shows the first locale complete enough
 (`chooseTranslation`); otherwise English stays. `I18nRoot` remounts the tree
 when the locale changes, or when the shown locale's catalogue changes (a
 revision bumped in `revision.ts`), so labels computed outside hooks follow.
-There is no language setting.
+
+**The Language setting** (`Settings.language`, Settings → General's first
+row, `LanguageRow.tsx`; also on the first-run setup's welcome step). Its
+options are Automatic, English, and every locale complete enough to show:
+Apple's locales from `TranslationsService.Languages(minShare)` (Go lists
+them only once its mapping could reach the share Apple's layer needs,
+`appleShareNeeded()`: below that it answers with the mapped share alone and
+fetches nothing; a locale's coverage is counted once it is cached, else the
+mapped share bounds it), with the community catalogue of the same language
+added, and community catalogues Apple has no locale for (`languageOptions`
+in `languages.ts`, names in each language's own words through
+`Intl.DisplayNames`). The row appears once one option besides English
+exists, or while a language is chosen. "translations:languages" announces
+Apple's locale table when it arrives. Automatic chooses as above; a chosen
+tag (`followLanguageSetting`) is shown whenever Sona has any of it, English
+otherwise. Go's own text (the tray, notifications, the command line, file
+dialogs: `internal/i18n/l10n`) follows the setting, else the system's
+languages, and so does Apple's content: requests ask for it with `l=` when
+the account's storefront offers it (`applemusic.ContentLanguage`; the
+storefront's `supportedLanguageTags` are kept with the account, and cached
+Apple responses are keyed by the language they were asked in). Changing
+the setting refetches every query.
 
 **Translations: Apple first.** A translated locale is built from layers,
 first one wins per message:

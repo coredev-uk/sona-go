@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand/v2"
 	"net/http"
 	"net/url"
@@ -83,6 +84,10 @@ type Client struct {
 	// AMPBase is the web player's API host for AMP requests (default
 	// AMPBaseURL); tests point it at a fake.
 	AMPBase string
+	// Language returns the content language to ask Apple for (the l=
+	// parameter, see ContentLanguage): a tag the storefront offers, or ""
+	// for the storefront's default. Nil sends none.
+	Language func() string
 
 	flight singleflight.Group
 	// sleep waits between retries; tests replace it.
@@ -157,20 +162,128 @@ func (c *Client) Do(ctx context.Context, r Request, out any) error {
 	}
 }
 
-// resolve returns r's absolute URL including the query.
+// resolve returns r's absolute URL including the query, with the content
+// language (l=) added where it applies (wantsLanguage).
 func (c *Client) resolve(r Request) string {
 	u := r.URL
 	if !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
 		u = c.Base + u
 	}
-	if len(r.Query) > 0 {
+	q := r.Query
+	if lang := c.ContentLanguage(); lang != "" && !namesLanguage(q) && c.wantsLanguage(r.Method, u) {
+		q = maps.Clone(q)
+		if q == nil {
+			q = url.Values{}
+		}
+		q.Set("l", lang)
+	}
+	if len(q) > 0 {
 		sep := "?"
 		if strings.Contains(u, "?") {
 			sep = "&"
 		}
-		u += sep + r.Query.Encode()
+		u += sep + q.Encode()
 	}
 	return u
+}
+
+// ContentLanguage is the l= tag requests send now ("" for none): Language's
+// answer. Caches of Apple's responses key on it.
+func (c *Client) ContentLanguage() string {
+	if c == nil || c.Language == nil {
+		return ""
+	}
+	return c.Language()
+}
+
+// wantsLanguage reports whether a request reads content Apple localises:
+// a GET from the API hosts (api and amp-api), except playback assets and
+// a URL that names its own language already.
+func (c *Client) wantsLanguage(method, u string) bool {
+	if method != "" && method != http.MethodGet {
+		return false
+	}
+	base, query, _ := strings.Cut(u, "?")
+	if vals, err := url.ParseQuery(query); err != nil || namesLanguage(vals) {
+		return false
+	}
+	for _, host := range []string{c.Base, c.ampBase()} {
+		path, ok := strings.CutPrefix(base, host)
+		if ok && host != "" && strings.HasPrefix(path, "/v1/") {
+			return !strings.HasPrefix(path, "/v1/play/")
+		}
+	}
+	return false
+}
+
+// namesLanguage reports whether a query chooses its own language: l=, or
+// lyrics' l[lyrics]= and l[script]=, which the web player sends without l=.
+func namesLanguage(q url.Values) bool {
+	for k := range q {
+		if k == "l" || strings.HasPrefix(k, "l[") {
+			return true
+		}
+	}
+	return false
+}
+
+// ContentLanguage picks the l= tag for the preferred languages (the
+// Language setting alone, else the system's; most preferred first) among
+// the storefront's supported ones: the first preferred tag the storefront
+// offers (the tag itself, else a tag of the same language and script), in
+// Apple's spelling. "" when the storefront's default (def) already is that
+// language, when the storefront offers none of them, or when its languages
+// are unknown: Apple then answers in the default.
+func ContentLanguage(preferred []string, def string, supported []string) string {
+	for _, want := range preferred {
+		want = strings.TrimSpace(want)
+		if want == "" {
+			continue
+		}
+		match := ""
+		for _, s := range supported {
+			if strings.EqualFold(s, want) {
+				match = s
+				break
+			}
+		}
+		if match == "" && sameLanguage(def, want) {
+			return ""
+		}
+		if match == "" {
+			for _, s := range supported {
+				if sameLanguage(s, want) {
+					match = s
+					break
+				}
+			}
+		}
+		if match != "" {
+			if strings.EqualFold(match, def) {
+				return ""
+			}
+			return match
+		}
+	}
+	return ""
+}
+
+// sameLanguage reports whether two BCP 47 tags name the same language, and
+// the same script when both name one ("zh-Hant-TW" and "zh-Hans-CN" do
+// not).
+func sameLanguage(a, b string) bool {
+	la, sa := languageScript(a)
+	lb, sb := languageScript(b)
+	return la != "" && la == lb && (sa == "" || sb == "" || sa == sb)
+}
+
+// languageScript is a tag's language and script subtags, lower case.
+func languageScript(tag string) (lang, script string) {
+	parts := strings.Split(strings.ToLower(tag), "-")
+	if len(parts) > 1 && len(parts[1]) == 4 {
+		script = parts[1]
+	}
+	return parts[0], script
 }
 
 func decode(b []byte, out any) error {

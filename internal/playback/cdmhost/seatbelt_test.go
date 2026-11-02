@@ -6,6 +6,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
 func TestSeatbeltProfile(t *testing.T) {
@@ -65,20 +67,20 @@ func TestSeatbeltChoice(t *testing.T) {
 		off     bool
 		lookErr error
 		probe   error
-		use     bool
+		gap     playback.SandboxGap
 		reason  string
 		probed  bool
 	}{
-		{"works", false, nil, nil, true, "", true},
-		{"turned off", true, nil, nil, false, "turned off (SONA_SEATBELT=0)", false},
-		{"missing", false, errors.New("stat /usr/bin/sandbox-exec: no such file or directory"), nil, false, "no macOS sandbox: stat /usr/bin/sandbox-exec", false},
-		{"refused", false, nil, refused, false, "sandbox-exec refused Sona's profile: exit status 65", true},
+		{"works", false, nil, nil, "", "", true},
+		{"turned off", true, nil, nil, playback.SandboxGapTurnedOff, "turned off (SONA_SEATBELT=0)", false},
+		{"missing", false, errors.New("stat /usr/bin/sandbox-exec: no such file or directory"), nil, playback.SandboxGapNoSeatbelt, "no macOS sandbox: stat /usr/bin/sandbox-exec", false},
+		{"refused", false, nil, refused, playback.SandboxGapRefused, "sandbox-exec refused Sona's profile: exit status 65", true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			probed := false
-			use, reason := seatbeltChoice(c.off, c.lookErr, func() error { probed = true; return c.probe })
-			if use != c.use || probed != c.probed || (c.reason == "") != (reason == "") || !strings.Contains(reason, c.reason) {
-				t.Errorf("seatbeltChoice = %v %q (probed %v), want %v containing %q (probed %v)", use, reason, probed, c.use, c.reason, c.probed)
+			gap, reason := seatbeltChoice(c.off, c.lookErr, func() error { probed = true; return c.probe })
+			if gap != c.gap || probed != c.probed || (c.reason == "") != (reason == "") || !strings.Contains(reason, c.reason) {
+				t.Errorf("seatbeltChoice = %q %q (probed %v), want %q containing %q (probed %v)", gap, reason, probed, c.gap, c.reason, c.probed)
 			}
 		})
 	}

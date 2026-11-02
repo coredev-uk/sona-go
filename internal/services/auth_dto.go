@@ -29,12 +29,16 @@ type AuthStatus struct {
 	// has waited past a second for the keyring, and from the start of a
 	// RetryKeyring read; "unavailable" when the stored sign-in couldn't be
 	// read (signed_out; RetryKeyring tries again); "" otherwise.
-	Keyring   string `json:"keyring"`
-	Offline   bool   `json:"offline"`
-	LastError string `json:"lastError"`
-	// LastErrorCode classifies LastError (see the Code constants); "" when
-	// LastError is empty.
-	LastErrorCode string `json:"lastErrorCode"`
+	Keyring string `json:"keyring"`
+	Offline bool   `json:"offline"`
+	// LastErrorCode is the latest failure the sign-in state reports (a
+	// rejected sign-in, a keyring that didn't answer, an incomplete
+	// sign-out…); "" when there is none.
+	LastErrorCode ErrorCode `json:"lastErrorCode"`
+	// LastAppleMessage is Apple's own, already localised wording of that
+	// failure when Apple sent one and LastErrorCode is "unknown" (a sign-in
+	// error code Sona doesn't map); "" otherwise.
+	LastAppleMessage string `json:"lastAppleMessage,omitempty"`
 	// BrowserSignIn is set while a browser sign-in waits; SignInLink then
 	// gives a new link for "open again" / copy link.
 	BrowserSignIn bool `json:"browserSignIn"`

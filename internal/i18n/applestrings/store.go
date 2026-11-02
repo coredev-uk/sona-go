@@ -110,10 +110,12 @@ type Store struct {
 	indexLoaded  bool
 	locales      map[string]*localeFile // Apple tag → cache (nil: none)
 	wanted       []string               // preferred tags, lower case
+	wantIndex    bool                   // the locale table was asked for (Available)
 	attempted    map[string]bool        // Apple tags fetched this session
 	indexChecked bool
 	started      bool
 	subs         map[int]func(Locale)
+	indexSubs    map[int]func()
 	nextSub      int
 
 	kick   chan struct{}
@@ -154,7 +156,7 @@ func New(o Options) (*Store, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Store{
 		dir: o.Dir, fetch: fetch, catalogue: catalogue, log: o.Logger, now: o.Now,
-		locales: map[string]*localeFile{}, attempted: map[string]bool{}, subs: map[int]func(Locale){},
+		locales: map[string]*localeFile{}, attempted: map[string]bool{}, subs: map[int]func(Locale){}, indexSubs: map[int]func(){},
 		kick: make(chan struct{}, 1), ctx: ctx, cancel: cancel,
 	}, nil
 }
@@ -199,6 +201,80 @@ func (s *Store) Lookup(tag string) Locale {
 		return Locale{}
 	}
 	return s.locale(s.loadLocaleLocked(apple))
+}
+
+// Available is what the Language setting can offer of Apple's locales.
+type Available struct {
+	// Mapped is the share of Sona's messages mapped to one of Apple's
+	// keys: no Apple locale can translate more.
+	Mapped float64
+	// Locales are Apple's locales Sona uses (BCP 47), sorted, when Mapped
+	// reaches the share asked for; none otherwise.
+	Locales []AvailableLocale
+}
+
+// AvailableLocale is one of Apple's locales and how much of Sona's
+// messages it translates.
+type AvailableLocale struct {
+	Tag string
+	// Coverage is the share of Sona's messages translated: counted when
+	// the locale is in the cache (Measured), else Mapped, its upper bound.
+	Coverage float64
+	Measured bool
+}
+
+// Available lists Apple's locales for the Language setting, when Sona's
+// mapping could translate at least minShare of its messages; below that no
+// Apple locale could, and nothing is fetched. Otherwise it serves the
+// cached locale table and, once started, has the store fetch it when there
+// is none or it is due (RefreshInterval); SubscribeIndex hears when it
+// arrives. Locales are measured only when cached: the store never
+// downloads a locale nobody asked for.
+func (s *Store) Available(minShare float64) Available {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.catalogueLocked() || s.cat.Messages == 0 {
+		return Available{}
+	}
+	out := Available{Mapped: float64(len(s.cat.Mappings)) / float64(s.cat.Messages)}
+	if out.Mapped < minShare {
+		return out
+	}
+	if !s.wantIndex {
+		s.wantIndex = true
+		if s.started {
+			s.signal()
+		}
+	}
+	idx := s.loadIndexLocked()
+	if idx == nil {
+		return out
+	}
+	tags := usable(idx.Locales)
+	slices.Sort(tags)
+	for _, apple := range tags {
+		l := AvailableLocale{Tag: BCP47(apple), Coverage: out.Mapped}
+		if f := s.loadLocaleLocked(apple); f != nil && f.Mapping == s.cat.Version {
+			l.Coverage, l.Measured = s.locale(f).Coverage(), true
+		}
+		out.Locales = append(out.Locales, l)
+	}
+	return out
+}
+
+// SubscribeIndex calls fn when Apple's locale table arrives or changes
+// (Available's answer). The returned function unsubscribes.
+func (s *Store) SubscribeIndex(fn func()) func() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	id := s.nextSub
+	s.nextSub++
+	s.indexSubs[id] = fn
+	return func() {
+		s.mu.Lock()
+		delete(s.indexSubs, id)
+		s.mu.Unlock()
+	}
 }
 
 // Start begins fetching: call it once the network opens.
@@ -281,7 +357,7 @@ func chunkName(url string) string { return url[strings.LastIndexByte(url, '/')+1
 func (s *Store) refresh(ctx context.Context) {
 	s.mu.Lock()
 	wanted := slices.Clone(s.wanted)
-	if len(wanted) == 0 {
+	if len(wanted) == 0 && !s.wantIndex {
 		s.mu.Unlock()
 		return // nothing asked for yet: no request at all
 	}
@@ -295,12 +371,19 @@ func (s *Store) refresh(ctx context.Context) {
 		if err != nil {
 			s.log.Warn("apple strings: index check failed", "err", err)
 		} else {
+			changed := idx == nil || !maps.Equal(idx.Locales, fresh.Locales)
 			idx = fresh
 			s.mu.Lock()
 			s.index = fresh
+			subs := slices.Collect(maps.Values(s.indexSubs))
 			s.mu.Unlock()
 			if err := s.save("index.json", fresh); err != nil {
 				s.log.Warn("apple strings: save index", "err", err)
+			}
+			if changed {
+				for _, fn := range subs {
+					fn()
+				}
 			}
 		}
 	}

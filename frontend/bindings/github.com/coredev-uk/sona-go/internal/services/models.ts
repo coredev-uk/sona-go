@@ -5,6 +5,10 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as playback$0 from "../playback/models.js";
+
 /**
  * Album is an album from the library or the catalog.
  */
@@ -235,6 +239,88 @@ export class AlbumPage {
 }
 
 /**
+ * AppleLanguage is one of Apple's locales.
+ */
+export class AppleLanguage {
+    /**
+     * Tag is the locale in BCP 47 ("fr-FR").
+     */
+    "tag": string;
+
+    /**
+     * Coverage is the share of Sona's messages it translates (0-1):
+     * counted when it is cached (Measured), else Mapped, its upper bound.
+     */
+    "coverage": number;
+    "measured": boolean;
+
+    /** Creates a new AppleLanguage instance. */
+    constructor($$source: Partial<AppleLanguage> = {}) {
+        if (!("tag" in $$source)) {
+            this["tag"] = "";
+        }
+        if (!("coverage" in $$source)) {
+            this["coverage"] = 0;
+        }
+        if (!("measured" in $$source)) {
+            this["measured"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AppleLanguage instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AppleLanguage {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AppleLanguage($$parsedSource as Partial<AppleLanguage>);
+    }
+}
+
+/**
+ * AppleLanguages is what the Language setting can offer of Apple's
+ * translations (applestrings.Available).
+ */
+export class AppleLanguages {
+    /**
+     * Mapped is the share of Sona's messages mapped to Apple's strings
+     * (0-1): no Apple locale translates more.
+     */
+    "mapped": number;
+
+    /**
+     * Locales are Apple's locales, when Mapped reaches the share asked
+     * for; empty otherwise.
+     */
+    "locales": AppleLanguage[];
+
+    /** Creates a new AppleLanguages instance. */
+    constructor($$source: Partial<AppleLanguages> = {}) {
+        if (!("mapped" in $$source)) {
+            this["mapped"] = 0;
+        }
+        if (!("locales" in $$source)) {
+            this["locales"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AppleLanguages instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AppleLanguages {
+        const $$createField1_0 = $$createType8;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("locales" in $$parsedSource) {
+            $$parsedSource["locales"] = $$createField1_0($$parsedSource["locales"]);
+        }
+        return new AppleLanguages($$parsedSource as Partial<AppleLanguages>);
+    }
+}
+
+/**
  * AppleTranslations is Apple Music's own translation of Sona's mapped
  * messages for one locale, fetched from Apple at run time and cached
  * (internal/i18n/applestrings). The frontend layers it over the community
@@ -293,7 +379,7 @@ export class AppleTranslations {
      * Creates a new AppleTranslations instance from a string or object.
      */
     static createFrom($$source: any = {}): AppleTranslations {
-        const $$createField1_0 = $$createType7;
+        const $$createField1_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("messages" in $$parsedSource) {
             $$parsedSource["messages"] = $$createField1_0($$parsedSource["messages"]);
@@ -435,7 +521,7 @@ export class ArtistDetail {
      * Creates a new ArtistDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): ArtistDetail {
-        const $$createField0_0 = $$createType8;
+        const $$createField0_0 = $$createType10;
         const $$createField1_0 = $$createType4;
         const $$createField2_0 = $$createType6;
         const $$createField3_0 = $$createType4;
@@ -480,7 +566,7 @@ export class ArtistPage {
      * Creates a new ArtistPage instance from a string or object.
      */
     static createFrom($$source: any = {}): ArtistPage {
-        const $$createField0_0 = $$createType9;
+        const $$createField0_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
@@ -535,9 +621,9 @@ export class ArtistShelf {
      */
     static createFrom($$source: any = {}): ArtistShelf {
         const $$createField3_0 = $$createType6;
-        const $$createField4_0 = $$createType11;
-        const $$createField5_0 = $$createType13;
-        const $$createField6_0 = $$createType9;
+        const $$createField4_0 = $$createType13;
+        const $$createField5_0 = $$createType15;
+        const $$createField6_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("albums" in $$parsedSource) {
             $$parsedSource["albums"] = $$createField3_0($$parsedSource["albums"]);
@@ -606,9 +692,9 @@ export class ArtistViewPage {
     static createFrom($$source: any = {}): ArtistViewPage {
         const $$createField3_0 = $$createType4;
         const $$createField4_0 = $$createType6;
-        const $$createField5_0 = $$createType11;
-        const $$createField6_0 = $$createType13;
-        const $$createField7_0 = $$createType9;
+        const $$createField5_0 = $$createType13;
+        const $$createField6_0 = $$createType15;
+        const $$createField7_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("songs" in $$parsedSource) {
             $$parsedSource["songs"] = $$createField3_0($$parsedSource["songs"]);
@@ -663,13 +749,20 @@ export class AuthStatus {
      */
     "keyring": string;
     "offline": boolean;
-    "lastError": string;
 
     /**
-     * LastErrorCode classifies LastError (see the Code constants); "" when
-     * LastError is empty.
+     * LastErrorCode is the latest failure the sign-in state reports (a
+     * rejected sign-in, a keyring that didn't answer, an incomplete
+     * sign-out…); "" when there is none.
      */
-    "lastErrorCode": string;
+    "lastErrorCode": ErrorCode;
+
+    /**
+     * LastAppleMessage is Apple's own, already localised wording of that
+     * failure when Apple sent one and LastErrorCode is "unknown" (a sign-in
+     * error code Sona doesn't map); "" otherwise.
+     */
+    "lastAppleMessage"?: string;
 
     /**
      * BrowserSignIn is set while a browser sign-in waits; SignInLink then
@@ -711,11 +804,8 @@ export class AuthStatus {
         if (!("offline" in $$source)) {
             this["offline"] = false;
         }
-        if (!("lastError" in $$source)) {
-            this["lastError"] = "";
-        }
         if (!("lastErrorCode" in $$source)) {
-            this["lastErrorCode"] = "";
+            this["lastErrorCode"] = ErrorCode.$zero;
         }
         if (!("browserSignIn" in $$source)) {
             this["browserSignIn"] = false;
@@ -731,7 +821,7 @@ export class AuthStatus {
      * Creates a new AuthStatus instance from a string or object.
      */
     static createFrom($$source: any = {}): AuthStatus {
-        const $$createField12_0 = $$createType15;
+        const $$createField12_0 = $$createType17;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("secondFactor" in $$parsedSource) {
             $$parsedSource["secondFactor"] = $$createField12_0($$parsedSource["secondFactor"]);
@@ -946,8 +1036,8 @@ export class Capabilities {
      * Creates a new Capabilities instance from a string or object.
      */
     static createFrom($$source: any = {}): Capabilities {
-        const $$createField1_0 = $$createType16;
-        const $$createField12_0 = $$createType17;
+        const $$createField1_0 = $$createType18;
+        const $$createField12_0 = $$createType19;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("playback" in $$parsedSource) {
             $$parsedSource["playback"] = $$createField1_0($$parsedSource["playback"]);
@@ -1086,13 +1176,13 @@ export class CatalogAlbum {
         const $$createField0_0 = $$createType2;
         const $$createField1_0 = $$createType4;
         const $$createField7_0 = $$createType5;
-        const $$createField9_0 = $$createType9;
-        const $$createField10_0 = $$createType18;
+        const $$createField9_0 = $$createType11;
+        const $$createField10_0 = $$createType20;
         const $$createField12_0 = $$createType6;
         const $$createField13_0 = $$createType6;
         const $$createField14_0 = $$createType6;
-        const $$createField15_0 = $$createType11;
-        const $$createField16_0 = $$createType13;
+        const $$createField15_0 = $$createType13;
+        const $$createField16_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("album" in $$parsedSource) {
             $$parsedSource["album"] = $$createField0_0($$parsedSource["album"]);
@@ -1197,12 +1287,12 @@ export class CatalogArtist {
      * Creates a new CatalogArtist instance from a string or object.
      */
     static createFrom($$source: any = {}): CatalogArtist {
-        const $$createField0_0 = $$createType8;
+        const $$createField0_0 = $$createType10;
         const $$createField1_0 = $$createType5;
-        const $$createField5_0 = $$createType18;
-        const $$createField7_0 = $$createType19;
+        const $$createField5_0 = $$createType20;
+        const $$createField7_0 = $$createType21;
         const $$createField8_0 = $$createType4;
-        const $$createField10_0 = $$createType21;
+        const $$createField10_0 = $$createType23;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("artist" in $$parsedSource) {
             $$parsedSource["artist"] = $$createField0_0($$parsedSource["artist"]);
@@ -1297,10 +1387,10 @@ export class CatalogSong {
     static createFrom($$source: any = {}): CatalogSong {
         const $$createField0_0 = $$createType3;
         const $$createField1_0 = $$createType5;
-        const $$createField2_0 = $$createType19;
-        const $$createField3_0 = $$createType9;
-        const $$createField9_0 = $$createType23;
-        const $$createField10_0 = $$createType13;
+        const $$createField2_0 = $$createType21;
+        const $$createField3_0 = $$createType11;
+        const $$createField9_0 = $$createType25;
+        const $$createField10_0 = $$createType15;
         const $$createField11_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("song" in $$parsedSource) {
@@ -1373,12 +1463,12 @@ export class CatalogVideo {
      * Creates a new CatalogVideo instance from a string or object.
      */
     static createFrom($$source: any = {}): CatalogVideo {
-        const $$createField0_0 = $$createType12;
+        const $$createField0_0 = $$createType14;
         const $$createField1_0 = $$createType5;
-        const $$createField3_0 = $$createType9;
-        const $$createField4_0 = $$createType24;
-        const $$createField5_0 = $$createType13;
-        const $$createField6_0 = $$createType13;
+        const $$createField3_0 = $$createType11;
+        const $$createField4_0 = $$createType26;
+        const $$createField5_0 = $$createType15;
+        const $$createField6_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("video" in $$parsedSource) {
             $$parsedSource["video"] = $$createField0_0($$parsedSource["video"]);
@@ -1442,7 +1532,7 @@ export class Chart {
      * Creates a new Chart instance from a string or object.
      */
     static createFrom($$source: any = {}): Chart {
-        const $$createField3_0 = $$createType26;
+        const $$createField3_0 = $$createType28;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField3_0($$parsedSource["items"]);
@@ -1487,8 +1577,8 @@ export class ChartsPage {
      * Creates a new ChartsPage instance from a string or object.
      */
     static createFrom($$source: any = {}): ChartsPage {
-        const $$createField1_0 = $$createType28;
-        const $$createField2_0 = $$createType30;
+        const $$createField1_0 = $$createType30;
+        const $$createField2_0 = $$createType32;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("genres" in $$parsedSource) {
             $$parsedSource["genres"] = $$createField1_0($$parsedSource["genres"]);
@@ -1613,7 +1703,7 @@ export class Credit {
      * Creates a new Credit instance from a string or object.
      */
     static createFrom($$source: any = {}): Credit {
-        const $$createField1_0 = $$createType18;
+        const $$createField1_0 = $$createType20;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("roles" in $$parsedSource) {
             $$parsedSource["roles"] = $$createField1_0($$parsedSource["roles"]);
@@ -1651,7 +1741,7 @@ export class CreditGroup {
      * Creates a new CreditGroup instance from a string or object.
      */
     static createFrom($$source: any = {}): CreditGroup {
-        const $$createField2_0 = $$createType32;
+        const $$createField2_0 = $$createType34;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("credits" in $$parsedSource) {
             $$parsedSource["credits"] = $$createField2_0($$parsedSource["credits"]);
@@ -1717,6 +1807,10 @@ export class DiagApp {
  * DiagBundle is the redacted diagnostics bundle for a bug report.
  */
 export class DiagBundle {
+    /**
+     * Text is the bundle itself. It stays English on purpose: it is copied
+     * into bug reports for the maintainers, never shown as UI text.
+     */
     "text": string;
 
     /**
@@ -1785,7 +1879,7 @@ export class DiagDatabase {
      * Creates a new DiagDatabase instance from a string or object.
      */
     static createFrom($$source: any = {}): DiagDatabase {
-        const $$createField3_0 = $$createType33;
+        const $$createField3_0 = $$createType35;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("counts" in $$parsedSource) {
             $$parsedSource["counts"] = $$createField3_0($$parsedSource["counts"]);
@@ -1901,7 +1995,11 @@ export class DiagPlayback {
      * the CDM initialised in a probe child
      */
     "cdmOk": boolean;
-    "cdmError": string;
+
+    /**
+     * why the probe failed; "" when CDMOK
+     */
+    "cdmError": ErrorCode;
     "cdmInterface": number;
     "hostInterface": number;
     "gstreamer": string;
@@ -1932,15 +2030,15 @@ export class DiagPlayback {
     "sandboxKind": string;
 
     /**
-     * Sandboxed: every layer of SandboxKind is in place. SandboxNote says
-     * what is missing otherwise ("" when the probe child never started).
+     * Sandboxed: every layer of SandboxKind is in place. SandboxGaps says
+     * what is missing otherwise (empty when the probe child never started).
      */
     "sandboxed": boolean;
-    "sandboxNote": string;
+    "sandboxGaps": playback$0.SandboxGap[];
 
     /**
      * CDMBlocked: the child refused to load the CDM because its seccomp
-     * filter is missing (cdmhost.ErrSandbox, Linux only); SandboxNote says
+     * filter is missing (cdmhost.ErrSandbox, Linux only); SandboxGaps says
      * why.
      */
     "cdmBlocked": boolean;
@@ -1953,12 +2051,12 @@ export class DiagPlayback {
      * "unavailable" (neither RTKit nor the portal answered),
      * "unsupported" (not asked for on this platform) or "" (no host has
      * started playing yet). RealtimeVia names who answered ("RTKit",
-     * "portal"); RealtimeNote says why realtime was refused or unavailable.
+     * "portal"); RealtimeRefusal says why realtime was refused.
      */
     "realtime": string;
     "realtimeVia": string;
     "realtimePriority": number;
-    "realtimeNote": string;
+    "realtimeRefusal": playback$0.RealtimeRefusal;
 
     /** Creates a new DiagPlayback instance. */
     constructor($$source: Partial<DiagPlayback> = {}) {
@@ -1978,7 +2076,7 @@ export class DiagPlayback {
             this["cdmOk"] = false;
         }
         if (!("cdmError" in $$source)) {
-            this["cdmError"] = "";
+            this["cdmError"] = ErrorCode.$zero;
         }
         if (!("cdmInterface" in $$source)) {
             this["cdmInterface"] = 0;
@@ -2010,8 +2108,8 @@ export class DiagPlayback {
         if (!("sandboxed" in $$source)) {
             this["sandboxed"] = false;
         }
-        if (!("sandboxNote" in $$source)) {
-            this["sandboxNote"] = "";
+        if (!("sandboxGaps" in $$source)) {
+            this["sandboxGaps"] = [];
         }
         if (!("cdmBlocked" in $$source)) {
             this["cdmBlocked"] = false;
@@ -2025,8 +2123,8 @@ export class DiagPlayback {
         if (!("realtimePriority" in $$source)) {
             this["realtimePriority"] = 0;
         }
-        if (!("realtimeNote" in $$source)) {
-            this["realtimeNote"] = "";
+        if (!("realtimeRefusal" in $$source)) {
+            this["realtimeRefusal"] = playback$0.RealtimeRefusal.$zero;
         }
 
         Object.assign(this, $$source);
@@ -2036,10 +2134,14 @@ export class DiagPlayback {
      * Creates a new DiagPlayback instance from a string or object.
      */
     static createFrom($$source: any = {}): DiagPlayback {
-        const $$createField1_0 = $$createType34;
+        const $$createField1_0 = $$createType36;
+        const $$createField16_0 = $$createType37;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cdm" in $$parsedSource) {
             $$parsedSource["cdm"] = $$createField1_0($$parsedSource["cdm"]);
+        }
+        if ("sandboxGaps" in $$parsedSource) {
+            $$parsedSource["sandboxGaps"] = $$createField16_0($$parsedSource["sandboxGaps"]);
         }
         return new DiagPlayback($$parsedSource as Partial<DiagPlayback>);
     }
@@ -2124,13 +2226,13 @@ export class Diagnostics {
      * Creates a new Diagnostics instance from a string or object.
      */
     static createFrom($$source: any = {}): Diagnostics {
-        const $$createField0_0 = $$createType35;
-        const $$createField1_0 = $$createType36;
-        const $$createField2_0 = $$createType37;
-        const $$createField3_0 = $$createType38;
-        const $$createField4_0 = $$createType39;
-        const $$createField5_0 = $$createType40;
-        const $$createField7_0 = $$createType42;
+        const $$createField0_0 = $$createType38;
+        const $$createField1_0 = $$createType39;
+        const $$createField2_0 = $$createType40;
+        const $$createField3_0 = $$createType41;
+        const $$createField4_0 = $$createType42;
+        const $$createField5_0 = $$createType43;
+        const $$createField7_0 = $$createType45;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("app" in $$parsedSource) {
             $$parsedSource["app"] = $$createField0_0($$parsedSource["app"]);
@@ -2208,7 +2310,11 @@ export class DomainSync {
     "total": number;
     "lastStarted": number;
     "lastSuccess": number;
-    "lastError": string;
+
+    /**
+     * Failed is set when the domain's last run failed (sync:done said why).
+     */
+    "failed": boolean;
 
     /** Creates a new DomainSync instance. */
     constructor($$source: Partial<DomainSync> = {}) {
@@ -2230,8 +2336,8 @@ export class DomainSync {
         if (!("lastSuccess" in $$source)) {
             this["lastSuccess"] = 0;
         }
-        if (!("lastError" in $$source)) {
-            this["lastError"] = "";
+        if (!("failed" in $$source)) {
+            this["failed"] = false;
         }
 
         Object.assign(this, $$source);
@@ -2337,7 +2443,7 @@ export class EditorialPage {
     static createFrom($$source: any = {}): EditorialPage {
         const $$createField5_0 = $$createType1;
         const $$createField6_0 = $$createType1;
-        const $$createField9_0 = $$createType44;
+        const $$createField9_0 = $$createType47;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("art" in $$parsedSource) {
             $$parsedSource["art"] = $$createField5_0($$parsedSource["art"]);
@@ -2434,8 +2540,8 @@ export class EqualizerInfo {
      * Creates a new EqualizerInfo instance from a string or object.
      */
     static createFrom($$source: any = {}): EqualizerInfo {
-        const $$createField0_0 = $$createType45;
-        const $$createField5_0 = $$createType47;
+        const $$createField0_0 = $$createType48;
+        const $$createField5_0 = $$createType50;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("frequencies" in $$parsedSource) {
             $$parsedSource["frequencies"] = $$createField0_0($$parsedSource["frequencies"]);
@@ -2478,7 +2584,7 @@ export class EqualizerPreset {
      * Creates a new EqualizerPreset instance from a string or object.
      */
     static createFrom($$source: any = {}): EqualizerPreset {
-        const $$createField2_0 = $$createType45;
+        const $$createField2_0 = $$createType48;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("gains" in $$parsedSource) {
             $$parsedSource["gains"] = $$createField2_0($$parsedSource["gains"]);
@@ -2486,6 +2592,164 @@ export class EqualizerPreset {
         return new EqualizerPreset($$parsedSource as Partial<EqualizerPreset>);
     }
 }
+
+/**
+ * ErrorCode is a stable error code the frontend words through its own
+ * catalogue (frontend/src/shared/lib/errors.ts): a rejected call carries
+ * one in err.cause.code (see MarshalError), and DTOs carry one where Go
+ * would otherwise send English (AuthStatus.LastErrorCode, sync events…).
+ * Wails binds it as the TypeScript enum ErrorCode, so the frontend can't
+ * miss a code. Go's error text never reaches the UI; it is for logs.
+ */
+export enum ErrorCode {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * The error codes. TestEveryCodeIsClassified needs an example error for
+     * each one.
+     */
+    CodeInvalidCredentials = "invalid_credentials",
+    CodeIncorrectCode = "incorrect_code",
+    CodeLocked = "locked",
+    CodeActionRequired = "action_required",
+    CodeNoSubscription = "no_subscription",
+    CodeUnsupportedCountry = "unsupported_country",
+    CodeUnsupported2FA = "unsupported_2fa",
+    CodeOutOfOrder = "out_of_order",
+    CodeTimeout = "timeout",
+    CodeCancelled = "cancelled",
+    CodeNetwork = "network",
+    CodeMUTRejected = "mut_rejected",
+    CodeDevTokenRejected = "dev_token_rejected",
+    CodeNotSignedIn = "not_signed_in",
+
+    /**
+     * Apple refused the request (401/403); auth triage runs
+     */
+    CodeUnauthorized = "unauthorized",
+    CodeNotFound = "not_found",
+    CodeNotPlayable = "not_playable",
+
+    /**
+     * the song isn't out yet (ErrNotReleased)
+     */
+    CodeNotReleased = "not_released",
+    CodeSyncRunning = "sync_running",
+    CodeInvalidArgument = "invalid_argument",
+
+    /**
+     * a playlist or folder needs a name (ErrNameRequired)
+     */
+    CodeNameRequired = "name_required",
+
+    /**
+     * ErrFolderNotEmpty
+     */
+    CodeFolderNotEmpty = "folder_not_empty",
+
+    /**
+     * ErrNotAppleMusicLink
+     */
+    CodeNotAppleMusicLink = "not_apple_music_link",
+
+    /**
+     * ErrClipboard
+     */
+    CodeClipboard = "clipboard_unavailable",
+
+    /**
+     * a pasted token is empty (ErrTokenRequired)
+     */
+    CodeTokenRequired = "token_required",
+
+    /**
+     * the web browser couldn't be opened
+     */
+    CodeBrowserOpen = "browser_open",
+
+    /**
+     * auth.ErrSignOutIncomplete
+     */
+    CodeSignOutIncomplete = "sign_out_incomplete",
+
+    /**
+     * stored sign-in discarded (auth.ErrStoredUnreadable)
+     */
+    CodeStoredUnreadable = "stored_unreadable",
+
+    /**
+     * config.ErrNotExport
+     */
+    CodeSettingsNotExport = "settings_not_export",
+
+    /**
+     * config.ErrNewerExport
+     */
+    CodeSettingsNewerExport = "settings_newer_export",
+
+    /**
+     * config.ErrBadValue
+     */
+    CodeSettingsBadValue = "settings_bad_value",
+
+    /**
+     * ErrSettingsRead
+     */
+    CodeSettingsRead = "settings_read",
+
+    /**
+     * ErrSettingsWrite
+     */
+    CodeSettingsWrite = "settings_write",
+
+    /**
+     * Apple has no motion video in the codec (motion.ErrNoRendition)
+     */
+    CodeNoRendition = "no_rendition",
+
+    /**
+     * the item changed elsewhere since it was read
+     */
+    CodeConflict = "conflict",
+
+    /**
+     * Apple keeps at most six pins
+     */
+    CodePinsFull = "pins_full",
+
+    /**
+     * this build lacks the service's API account (Last.fm)
+     */
+    CodeNotConfigured = "not_configured",
+
+    /**
+     * SONA_PRIVATE=1 keeps private mode on
+     */
+    CodePrivateForced = "private_forced",
+
+    /**
+     * this platform can't do it (Capabilities says so)
+     */
+    CodeUnsupported = "unsupported",
+
+    /**
+     * the Widevine CDM isn't ready yet (CDMService says why)
+     */
+    CodeNoCDM = "no_cdm",
+
+    /**
+     * the token store failed or didn't answer in time
+     */
+    CodeKeyring = "keyring",
+
+    /**
+     * none of the above; the frontend shows a generic message
+     */
+    CodeUnknown = "unknown",
+};
 
 /**
  * Genre is a chart genre; ID "" is all music.
@@ -2546,7 +2810,7 @@ export class Header {
      * Creates a new Header instance from a string or object.
      */
     static createFrom($$source: any = {}): Header {
-        const $$createField1_0 = $$createType18;
+        const $$createField1_0 = $$createType20;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("colors" in $$parsedSource) {
             $$parsedSource["colors"] = $$createField1_0($$parsedSource["colors"]);
@@ -2582,7 +2846,7 @@ export class HistoryDay {
      * Creates a new HistoryDay instance from a string or object.
      */
     static createFrom($$source: any = {}): HistoryDay {
-        const $$createField1_0 = $$createType49;
+        const $$createField1_0 = $$createType52;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("entries" in $$parsedSource) {
             $$parsedSource["entries"] = $$createField1_0($$parsedSource["entries"]);
@@ -2666,7 +2930,7 @@ export class HomePage {
      * Creates a new HomePage instance from a string or object.
      */
     static createFrom($$source: any = {}): HomePage {
-        const $$createField0_0 = $$createType44;
+        const $$createField0_0 = $$createType47;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("sections" in $$parsedSource) {
             $$parsedSource["sections"] = $$createField0_0($$parsedSource["sections"]);
@@ -2713,7 +2977,7 @@ export class IntegrationsStatus {
      * Creates a new IntegrationsStatus instance from a string or object.
      */
     static createFrom($$source: any = {}): IntegrationsStatus {
-        const $$createField2_0 = $$createType50;
+        const $$createField2_0 = $$createType53;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("discord" in $$parsedSource) {
             $$parsedSource["discord"] = $$createField2_0($$parsedSource["discord"]);
@@ -2812,12 +3076,12 @@ export class Item {
     static createFrom($$source: any = {}): Item {
         const $$createField5_0 = $$createType1;
         const $$createField6_0 = $$createType1;
-        const $$createField10_0 = $$createType24;
-        const $$createField11_0 = $$createType19;
-        const $$createField12_0 = $$createType51;
-        const $$createField13_0 = $$createType52;
-        const $$createField14_0 = $$createType54;
-        const $$createField15_0 = $$createType55;
+        const $$createField10_0 = $$createType26;
+        const $$createField11_0 = $$createType21;
+        const $$createField12_0 = $$createType54;
+        const $$createField13_0 = $$createType55;
+        const $$createField14_0 = $$createType57;
+        const $$createField15_0 = $$createType58;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("art" in $$parsedSource) {
             $$parsedSource["art"] = $$createField5_0($$parsedSource["art"]);
@@ -2870,7 +3134,7 @@ export class ItemPage {
      * Creates a new ItemPage instance from a string or object.
      */
     static createFrom($$source: any = {}): ItemPage {
-        const $$createField0_0 = $$createType26;
+        const $$createField0_0 = $$createType28;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
@@ -3001,8 +3265,8 @@ export class LibraryEntry {
      * Creates a new LibraryEntry instance from a string or object.
      */
     static createFrom($$source: any = {}): LibraryEntry {
-        const $$createField1_0 = $$createType19;
-        const $$createField2_0 = $$createType51;
+        const $$createField1_0 = $$createType21;
+        const $$createField2_0 = $$createType54;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("album" in $$parsedSource) {
             $$parsedSource["album"] = $$createField1_0($$parsedSource["album"]);
@@ -3038,7 +3302,7 @@ export class LibraryEntryPage {
      * Creates a new LibraryEntryPage instance from a string or object.
      */
     static createFrom($$source: any = {}): LibraryEntryPage {
-        const $$createField0_0 = $$createType57;
+        const $$createField0_0 = $$createType60;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
@@ -3097,8 +3361,8 @@ export class LibrarySearch {
     static createFrom($$source: any = {}): LibrarySearch {
         const $$createField0_0 = $$createType4;
         const $$createField1_0 = $$createType6;
-        const $$createField2_0 = $$createType9;
-        const $$createField3_0 = $$createType11;
+        const $$createField2_0 = $$createType11;
+        const $$createField3_0 = $$createType13;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("songs" in $$parsedSource) {
             $$parsedSource["songs"] = $$createField0_0($$parsedSource["songs"]);
@@ -3158,7 +3422,7 @@ export class ListeningHistory {
      * Creates a new ListeningHistory instance from a string or object.
      */
     static createFrom($$source: any = {}): ListeningHistory {
-        const $$createField0_0 = $$createType59;
+        const $$createField0_0 = $$createType62;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("days" in $$parsedSource) {
             $$parsedSource["days"] = $$createField0_0($$parsedSource["days"]);
@@ -3240,9 +3504,9 @@ export class LyricLine {
      * Creates a new LyricLine instance from a string or object.
      */
     static createFrom($$source: any = {}): LyricLine {
-        const $$createField7_0 = $$createType61;
-        const $$createField8_0 = $$createType63;
-        const $$createField9_0 = $$createType63;
+        const $$createField7_0 = $$createType64;
+        const $$createField8_0 = $$createType66;
+        const $$createField9_0 = $$createType66;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("words" in $$parsedSource) {
             $$parsedSource["words"] = $$createField7_0($$parsedSource["words"]);
@@ -3285,7 +3549,7 @@ export class LyricText {
      * Creates a new LyricText instance from a string or object.
      */
     static createFrom($$source: any = {}): LyricText {
-        const $$createField2_0 = $$createType61;
+        const $$createField2_0 = $$createType64;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("words" in $$parsedSource) {
             $$parsedSource["words"] = $$createField2_0($$parsedSource["words"]);
@@ -3391,8 +3655,8 @@ export class Lyrics {
      * Creates a new Lyrics instance from a string or object.
      */
     static createFrom($$source: any = {}): Lyrics {
-        const $$createField3_0 = $$createType18;
-        const $$createField6_0 = $$createType65;
+        const $$createField3_0 = $$createType20;
+        const $$createField6_0 = $$createType68;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("songwriters" in $$parsedSource) {
             $$parsedSource["songwriters"] = $$createField3_0($$parsedSource["songwriters"]);
@@ -3432,7 +3696,7 @@ export class MotionFetch {
     /**
      * "" when it worked
      */
-    "error": string;
+    "error": ErrorCode;
 
     /** Creates a new MotionFetch instance. */
     constructor($$source: Partial<MotionFetch> = {}) {
@@ -3449,7 +3713,7 @@ export class MotionFetch {
             this["rendition"] = "";
         }
         if (!("error" in $$source)) {
-            this["error"] = "";
+            this["error"] = ErrorCode.$zero;
         }
 
         Object.assign(this, $$source);
@@ -3495,7 +3759,8 @@ export class MotionReport {
     "playing": number;
 
     /**
-     * Last is the newest video's outcome as Diagnostics shows it.
+     * Last is the newest video's outcome as Diagnostics shows it, for the
+     * bundle (maintainer-facing, never shown in the UI).
      */
     "last": string;
 
@@ -3581,8 +3846,8 @@ export class MotionStatus {
      * Creates a new MotionStatus instance from a string or object.
      */
     static createFrom($$source: any = {}): MotionStatus {
-        const $$createField0_0 = $$createType66;
-        const $$createField3_0 = $$createType67;
+        const $$createField0_0 = $$createType69;
+        const $$createField3_0 = $$createType70;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("power" in $$parsedSource) {
             $$parsedSource["power"] = $$createField0_0($$parsedSource["power"]);
@@ -3716,7 +3981,7 @@ export class MusicVideoPage {
      * Creates a new MusicVideoPage instance from a string or object.
      */
     static createFrom($$source: any = {}): MusicVideoPage {
-        const $$createField0_0 = $$createType13;
+        const $$createField0_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
@@ -4088,7 +4353,7 @@ export class PlaybackState {
     /**
      * Error is the latest playback failure (clears once an item plays).
      */
-    "error": string;
+    "error": ErrorCode;
 
     /**
      * AuthRequired: Apple rejected the credentials; playback is paused
@@ -4189,7 +4454,7 @@ export class PlaybackState {
             this["canPrevious"] = false;
         }
         if (!("error" in $$source)) {
-            this["error"] = "";
+            this["error"] = ErrorCode.$zero;
         }
         if (!("authRequired" in $$source)) {
             this["authRequired"] = false;
@@ -4226,11 +4491,11 @@ export class PlaybackState {
      * Creates a new PlaybackState instance from a string or object.
      */
     static createFrom($$source: any = {}): PlaybackState {
-        const $$createField1_0 = $$createType69;
-        const $$createField18_0 = $$createType71;
-        const $$createField20_0 = $$createType73;
-        const $$createField21_0 = $$createType75;
-        const $$createField22_0 = $$createType77;
+        const $$createField1_0 = $$createType72;
+        const $$createField18_0 = $$createType74;
+        const $$createField20_0 = $$createType76;
+        const $$createField21_0 = $$createType78;
+        const $$createField22_0 = $$createType80;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("current" in $$parsedSource) {
             $$parsedSource["current"] = $$createField1_0($$parsedSource["current"]);
@@ -4406,9 +4671,9 @@ export class PlaylistCollaboration {
      * Creates a new PlaylistCollaboration instance from a string or object.
      */
     static createFrom($$source: any = {}): PlaylistCollaboration {
-        const $$createField2_0 = $$createType79;
-        const $$createField3_0 = $$createType79;
-        const $$createField5_0 = $$createType81;
+        const $$createField2_0 = $$createType82;
+        const $$createField3_0 = $$createType82;
+        const $$createField5_0 = $$createType84;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("collaborators" in $$parsedSource) {
             $$parsedSource["collaborators"] = $$createField2_0($$parsedSource["collaborators"]);
@@ -4579,12 +4844,12 @@ export class PlaylistDetail {
      * Creates a new PlaylistDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): PlaylistDetail {
-        const $$createField0_0 = $$createType10;
+        const $$createField0_0 = $$createType12;
         const $$createField1_0 = $$createType4;
         const $$createField4_0 = $$createType5;
-        const $$createField7_0 = $$createType82;
-        const $$createField8_0 = $$createType9;
-        const $$createField9_0 = $$createType11;
+        const $$createField7_0 = $$createType85;
+        const $$createField8_0 = $$createType11;
+        const $$createField9_0 = $$createType13;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("playlist" in $$parsedSource) {
             $$parsedSource["playlist"] = $$createField0_0($$parsedSource["playlist"]);
@@ -4731,7 +4996,7 @@ export class PlaylistPage {
      * Creates a new PlaylistPage instance from a string or object.
      */
     static createFrom($$source: any = {}): PlaylistPage {
-        const $$createField0_0 = $$createType11;
+        const $$createField0_0 = $$createType13;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
@@ -4763,8 +5028,8 @@ export class PlaylistTree {
      * Creates a new PlaylistTree instance from a string or object.
      */
     static createFrom($$source: any = {}): PlaylistTree {
-        const $$createField0_0 = $$createType84;
-        const $$createField1_0 = $$createType86;
+        const $$createField0_0 = $$createType87;
+        const $$createField1_0 = $$createType89;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("folders" in $$parsedSource) {
             $$parsedSource["folders"] = $$createField0_0($$parsedSource["folders"]);
@@ -4814,7 +5079,7 @@ export class PlaylistsChanged {
      * Creates a new PlaylistsChanged instance from a string or object.
      */
     static createFrom($$source: any = {}): PlaylistsChanged {
-        const $$createField0_0 = $$createType18;
+        const $$createField0_0 = $$createType20;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("ids" in $$parsedSource) {
             $$parsedSource["ids"] = $$createField0_0($$parsedSource["ids"]);
@@ -4857,10 +5122,10 @@ export class PowerState {
     "ignored": number;
 
     /**
-     * Error is why the power source can't be read ("" when followed, or
-     * when the platform has no monitor).
+     * Unreadable: the platform has a power monitor but it couldn't be read
+     * (UPower not answering); the log says why.
      */
-    "error": string;
+    "unreadable": boolean;
 
     /** Creates a new PowerState instance. */
     constructor($$source: Partial<PowerState> = {}) {
@@ -4879,8 +5144,8 @@ export class PowerState {
         if (!("ignored" in $$source)) {
             this["ignored"] = 0;
         }
-        if (!("error" in $$source)) {
-            this["error"] = "";
+        if (!("unreadable" in $$source)) {
+            this["unreadable"] = false;
         }
 
         Object.assign(this, $$source);
@@ -4962,8 +5227,8 @@ export class ProfileDetail {
      * Creates a new ProfileDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): ProfileDetail {
-        const $$createField0_0 = $$createType78;
-        const $$createField1_0 = $$createType11;
+        const $$createField0_0 = $$createType81;
+        const $$createField1_0 = $$createType13;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("profile" in $$parsedSource) {
             $$parsedSource["profile"] = $$createField0_0($$parsedSource["profile"]);
@@ -5162,9 +5427,9 @@ export class QueueState {
      * Creates a new QueueState instance from a string or object.
      */
     static createFrom($$source: any = {}): QueueState {
-        const $$createField2_0 = $$createType87;
-        const $$createField3_0 = $$createType87;
-        const $$createField4_0 = $$createType73;
+        const $$createField2_0 = $$createType90;
+        const $$createField3_0 = $$createType90;
+        const $$createField4_0 = $$createType76;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField2_0($$parsedSource["items"]);
@@ -5433,8 +5698,8 @@ export class RoomPage {
      * Creates a new RoomPage instance from a string or object.
      */
     static createFrom($$source: any = {}): RoomPage {
-        const $$createField3_0 = $$createType26;
-        const $$createField4_0 = $$createType18;
+        const $$createField3_0 = $$createType28;
+        const $$createField4_0 = $$createType20;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField3_0($$parsedSource["items"]);
@@ -5479,8 +5744,8 @@ export class ScrobbleStatus {
      * Creates a new ScrobbleStatus instance from a string or object.
      */
     static createFrom($$source: any = {}): ScrobbleStatus {
-        const $$createField0_0 = $$createType88;
-        const $$createField1_0 = $$createType88;
+        const $$createField0_0 = $$createType91;
+        const $$createField1_0 = $$createType91;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("lastfm" in $$parsedSource) {
             $$parsedSource["lastfm"] = $$createField0_0($$parsedSource["lastfm"]);
@@ -5584,7 +5849,7 @@ export class SearchGroupPage {
      * Creates a new SearchGroupPage instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchGroupPage {
-        const $$createField1_0 = $$createType26;
+        const $$createField1_0 = $$createType28;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField1_0($$parsedSource["items"]);
@@ -5617,8 +5882,8 @@ export class SearchHints {
      * Creates a new SearchHints instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchHints {
-        const $$createField0_0 = $$createType90;
-        const $$createField1_0 = $$createType26;
+        const $$createField0_0 = $$createType93;
+        const $$createField1_0 = $$createType28;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("terms" in $$parsedSource) {
             $$parsedSource["terms"] = $$createField0_0($$parsedSource["terms"]);
@@ -5653,7 +5918,7 @@ export class SearchResults {
      * Creates a new SearchResults instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchResults {
-        const $$createField1_0 = $$createType92;
+        const $$createField1_0 = $$createType95;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("sections" in $$parsedSource) {
             $$parsedSource["sections"] = $$createField1_0($$parsedSource["sections"]);
@@ -5694,7 +5959,7 @@ export class SearchSection {
      * Creates a new SearchSection instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchSection {
-        const $$createField1_0 = $$createType26;
+        const $$createField1_0 = $$createType28;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField1_0($$parsedSource["items"]);
@@ -5772,7 +6037,7 @@ export class SecondFactor {
      * Creates a new SecondFactor instance from a string or object.
      */
     static createFrom($$source: any = {}): SecondFactor {
-        const $$createField2_0 = $$createType94;
+        const $$createField2_0 = $$createType97;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("phones" in $$parsedSource) {
             $$parsedSource["phones"] = $$createField2_0($$parsedSource["phones"]);
@@ -5850,7 +6115,7 @@ export class Section {
      * Creates a new Section instance from a string or object.
      */
     static createFrom($$source: any = {}): Section {
-        const $$createField4_0 = $$createType26;
+        const $$createField4_0 = $$createType28;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField4_0($$parsedSource["items"]);
@@ -5891,7 +6156,7 @@ export class SettingsImport {
      * Creates a new SettingsImport instance from a string or object.
      */
     static createFrom($$source: any = {}): SettingsImport {
-        const $$createField1_0 = $$createType18;
+        const $$createField1_0 = $$createType20;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("changed" in $$parsedSource) {
             $$parsedSource["changed"] = $$createField1_0($$parsedSource["changed"]);
@@ -6204,7 +6469,7 @@ export class Station {
      * playable).
      */
     "playable": boolean;
-    "unavailable": string;
+    "unavailable": StationUnavailable;
 
     /**
      * stationProviderName, e.g. "Apple Music", "TuneIn"
@@ -6256,7 +6521,7 @@ export class Station {
             this["playable"] = false;
         }
         if (!("unavailable" in $$source)) {
-            this["unavailable"] = "";
+            this["unavailable"] = StationUnavailable.$zero;
         }
         if (!("provider" in $$source)) {
             this["provider"] = "";
@@ -6348,10 +6613,10 @@ export class StationDetail {
      * Creates a new StationDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): StationDetail {
-        const $$createField0_0 = $$createType53;
-        const $$createField1_0 = $$createType96;
+        const $$createField0_0 = $$createType56;
+        const $$createField1_0 = $$createType99;
         const $$createField2_0 = $$createType5;
-        const $$createField3_0 = $$createType98;
+        const $$createField3_0 = $$createType101;
         const $$createField4_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("station" in $$parsedSource) {
@@ -6495,6 +6760,25 @@ export class StationSeed {
 }
 
 /**
+ * StationUnavailable is why Sona can't play a station; the frontend words
+ * it.
+ */
+export enum StationUnavailable {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * The reasons a station is unavailable.
+     *
+     * StationNoWidevine is a stream offered only with a protection other
+     * than Widevine, the only one Sona can play.
+     */
+    StationNoWidevine = "no_widevine",
+};
+
+/**
  * StorageUsage is what Settings → Storage shows: the local caches and the
  * database, in bytes.
  */
@@ -6566,8 +6850,11 @@ export class StorageUsage {
  */
 export class SyncDone {
     "ok": boolean;
-    "error": string;
-    "errorCode": string;
+
+    /**
+     * why the sync failed; "" when OK
+     */
+    "errorCode": ErrorCode;
     "counts": Counts;
     "finishedAt": number;
 
@@ -6576,11 +6863,8 @@ export class SyncDone {
         if (!("ok" in $$source)) {
             this["ok"] = false;
         }
-        if (!("error" in $$source)) {
-            this["error"] = "";
-        }
         if (!("errorCode" in $$source)) {
-            this["errorCode"] = "";
+            this["errorCode"] = ErrorCode.$zero;
         }
         if (!("counts" in $$source)) {
             this["counts"] = (new Counts());
@@ -6596,10 +6880,10 @@ export class SyncDone {
      * Creates a new SyncDone instance from a string or object.
      */
     static createFrom($$source: any = {}): SyncDone {
-        const $$createField3_0 = $$createType33;
+        const $$createField2_0 = $$createType35;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("counts" in $$parsedSource) {
-            $$parsedSource["counts"] = $$createField3_0($$parsedSource["counts"]);
+            $$parsedSource["counts"] = $$createField2_0($$parsedSource["counts"]);
         }
         return new SyncDone($$parsedSource as Partial<SyncDone>);
     }
@@ -6615,10 +6899,14 @@ export class SyncProgress {
     "total": number;
 
     /**
-     * the domain completed (or failed: Error)
+     * the domain completed (or failed: ErrorCode)
      */
     "finished": boolean;
-    "error": string;
+
+    /**
+     * ErrorCode is why the domain failed; "" otherwise.
+     */
+    "errorCode": ErrorCode;
 
     /** Creates a new SyncProgress instance. */
     constructor($$source: Partial<SyncProgress> = {}) {
@@ -6634,8 +6922,8 @@ export class SyncProgress {
         if (!("finished" in $$source)) {
             this["finished"] = false;
         }
-        if (!("error" in $$source)) {
-            this["error"] = "";
+        if (!("errorCode" in $$source)) {
+            this["errorCode"] = ErrorCode.$zero;
         }
 
         Object.assign(this, $$source);
@@ -6682,7 +6970,7 @@ export class SyncStatus {
      * Creates a new SyncStatus instance from a string or object.
      */
     static createFrom($$source: any = {}): SyncStatus {
-        const $$createField2_0 = $$createType100;
+        const $$createField2_0 = $$createType103;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("domains" in $$parsedSource) {
             $$parsedSource["domains"] = $$createField2_0($$parsedSource["domains"]);
@@ -6825,7 +7113,7 @@ export class TreePlaylist {
      * Creates a new TreePlaylist instance from a string or object.
      */
     static createFrom($$source: any = {}): TreePlaylist {
-        const $$createField0_0 = $$createType10;
+        const $$createField0_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("playlist" in $$parsedSource) {
             $$parsedSource["playlist"] = $$createField0_0($$parsedSource["playlist"]);
@@ -6878,7 +7166,7 @@ export class UpdateStatus {
     /**
      * Error is why the last check failed ("" when it succeeded).
      */
-    "error": string;
+    "error": ErrorCode;
 
     /**
      * AppImage: this process runs from an AppImage, which AppImageUpdate
@@ -6910,7 +7198,7 @@ export class UpdateStatus {
             this["checked"] = 0;
         }
         if (!("error" in $$source)) {
-            this["error"] = "";
+            this["error"] = ErrorCode.$zero;
         }
         if (!("appImage" in $$source)) {
             this["appImage"] = false;
@@ -7012,8 +7300,8 @@ export class WindowControls {
      * Creates a new WindowControls instance from a string or object.
      */
     static createFrom($$source: any = {}): WindowControls {
-        const $$createField3_0 = $$createType18;
-        const $$createField4_0 = $$createType18;
+        const $$createField3_0 = $$createType20;
+        const $$createField4_0 = $$createType20;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("start" in $$parsedSource) {
             $$parsedSource["start"] = $$createField3_0($$parsedSource["start"]);
@@ -7063,97 +7351,100 @@ const $$createType3 = Song.createFrom;
 const $$createType4 = $Create.Array($$createType3);
 const $$createType5 = Header.createFrom;
 const $$createType6 = $Create.Array($$createType2);
-const $$createType7 = $Create.Map($Create.Any, $Create.Any);
-const $$createType8 = Artist.createFrom;
-const $$createType9 = $Create.Array($$createType8);
-const $$createType10 = Playlist.createFrom;
+const $$createType7 = AppleLanguage.createFrom;
+const $$createType8 = $Create.Array($$createType7);
+const $$createType9 = $Create.Map($Create.Any, $Create.Any);
+const $$createType10 = Artist.createFrom;
 const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = MusicVideo.createFrom;
+const $$createType12 = Playlist.createFrom;
 const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = SecondFactor.createFrom;
-const $$createType15 = $Create.Nullable($$createType14);
-const $$createType16 = PlaybackCapabilities.createFrom;
-const $$createType17 = WindowControls.createFrom;
-const $$createType18 = $Create.Array($Create.Any);
-const $$createType19 = $Create.Nullable($$createType2);
-const $$createType20 = ArtistShelf.createFrom;
-const $$createType21 = $Create.Array($$createType20);
-const $$createType22 = CreditGroup.createFrom;
+const $$createType14 = MusicVideo.createFrom;
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = SecondFactor.createFrom;
+const $$createType17 = $Create.Nullable($$createType16);
+const $$createType18 = PlaybackCapabilities.createFrom;
+const $$createType19 = WindowControls.createFrom;
+const $$createType20 = $Create.Array($Create.Any);
+const $$createType21 = $Create.Nullable($$createType2);
+const $$createType22 = ArtistShelf.createFrom;
 const $$createType23 = $Create.Array($$createType22);
-const $$createType24 = $Create.Nullable($$createType3);
-const $$createType25 = Item.createFrom;
-const $$createType26 = $Create.Array($$createType25);
-const $$createType27 = Genre.createFrom;
+const $$createType24 = CreditGroup.createFrom;
+const $$createType25 = $Create.Array($$createType24);
+const $$createType26 = $Create.Nullable($$createType3);
+const $$createType27 = Item.createFrom;
 const $$createType28 = $Create.Array($$createType27);
-const $$createType29 = Chart.createFrom;
+const $$createType29 = Genre.createFrom;
 const $$createType30 = $Create.Array($$createType29);
-const $$createType31 = Credit.createFrom;
+const $$createType31 = Chart.createFrom;
 const $$createType32 = $Create.Array($$createType31);
-const $$createType33 = Counts.createFrom;
-const $$createType34 = CDMStatus.createFrom;
-const $$createType35 = DiagApp.createFrom;
-const $$createType36 = DiagWebKit.createFrom;
-const $$createType37 = DiagPlayback.createFrom;
-const $$createType38 = DiagDatabase.createFrom;
-const $$createType39 = DiagKeyring.createFrom;
-const $$createType40 = DiagPaths.createFrom;
-const $$createType41 = EnvVar.createFrom;
-const $$createType42 = $Create.Array($$createType41);
-const $$createType43 = Section.createFrom;
-const $$createType44 = $Create.Array($$createType43);
-const $$createType45 = $Create.Array($Create.Any);
-const $$createType46 = EqualizerPreset.createFrom;
+const $$createType33 = Credit.createFrom;
+const $$createType34 = $Create.Array($$createType33);
+const $$createType35 = Counts.createFrom;
+const $$createType36 = CDMStatus.createFrom;
+const $$createType37 = $Create.Array($Create.Any);
+const $$createType38 = DiagApp.createFrom;
+const $$createType39 = DiagWebKit.createFrom;
+const $$createType40 = DiagPlayback.createFrom;
+const $$createType41 = DiagDatabase.createFrom;
+const $$createType42 = DiagKeyring.createFrom;
+const $$createType43 = DiagPaths.createFrom;
+const $$createType44 = EnvVar.createFrom;
+const $$createType45 = $Create.Array($$createType44);
+const $$createType46 = Section.createFrom;
 const $$createType47 = $Create.Array($$createType46);
-const $$createType48 = HistoryEntry.createFrom;
-const $$createType49 = $Create.Array($$createType48);
-const $$createType50 = DiscordStatus.createFrom;
-const $$createType51 = $Create.Nullable($$createType10);
-const $$createType52 = $Create.Nullable($$createType8);
-const $$createType53 = Station.createFrom;
-const $$createType54 = $Create.Nullable($$createType53);
-const $$createType55 = $Create.Nullable($$createType12);
-const $$createType56 = LibraryEntry.createFrom;
-const $$createType57 = $Create.Array($$createType56);
-const $$createType58 = HistoryDay.createFrom;
-const $$createType59 = $Create.Array($$createType58);
-const $$createType60 = LyricWord.createFrom;
-const $$createType61 = $Create.Array($$createType60);
-const $$createType62 = LyricText.createFrom;
-const $$createType63 = $Create.Nullable($$createType62);
-const $$createType64 = LyricLine.createFrom;
-const $$createType65 = $Create.Array($$createType64);
-const $$createType66 = PowerState.createFrom;
-const $$createType67 = MotionFetch.createFrom;
-const $$createType68 = QueueItem.createFrom;
-const $$createType69 = $Create.Nullable($$createType68);
-const $$createType70 = OnAir.createFrom;
-const $$createType71 = $Create.Nullable($$createType70);
-const $$createType72 = QueueStation.createFrom;
-const $$createType73 = $Create.Nullable($$createType72);
-const $$createType74 = QueueContainer.createFrom;
-const $$createType75 = $Create.Nullable($$createType74);
-const $$createType76 = SleepTimer.createFrom;
-const $$createType77 = $Create.Nullable($$createType76);
-const $$createType78 = SocialProfile.createFrom;
-const $$createType79 = $Create.Array($$createType78);
-const $$createType80 = TrackAddedBy.createFrom;
-const $$createType81 = $Create.Array($$createType80);
-const $$createType82 = PlaylistCurator.createFrom;
-const $$createType83 = PlaylistFolder.createFrom;
+const $$createType48 = $Create.Array($Create.Any);
+const $$createType49 = EqualizerPreset.createFrom;
+const $$createType50 = $Create.Array($$createType49);
+const $$createType51 = HistoryEntry.createFrom;
+const $$createType52 = $Create.Array($$createType51);
+const $$createType53 = DiscordStatus.createFrom;
+const $$createType54 = $Create.Nullable($$createType12);
+const $$createType55 = $Create.Nullable($$createType10);
+const $$createType56 = Station.createFrom;
+const $$createType57 = $Create.Nullable($$createType56);
+const $$createType58 = $Create.Nullable($$createType14);
+const $$createType59 = LibraryEntry.createFrom;
+const $$createType60 = $Create.Array($$createType59);
+const $$createType61 = HistoryDay.createFrom;
+const $$createType62 = $Create.Array($$createType61);
+const $$createType63 = LyricWord.createFrom;
+const $$createType64 = $Create.Array($$createType63);
+const $$createType65 = LyricText.createFrom;
+const $$createType66 = $Create.Nullable($$createType65);
+const $$createType67 = LyricLine.createFrom;
+const $$createType68 = $Create.Array($$createType67);
+const $$createType69 = PowerState.createFrom;
+const $$createType70 = MotionFetch.createFrom;
+const $$createType71 = QueueItem.createFrom;
+const $$createType72 = $Create.Nullable($$createType71);
+const $$createType73 = OnAir.createFrom;
+const $$createType74 = $Create.Nullable($$createType73);
+const $$createType75 = QueueStation.createFrom;
+const $$createType76 = $Create.Nullable($$createType75);
+const $$createType77 = QueueContainer.createFrom;
+const $$createType78 = $Create.Nullable($$createType77);
+const $$createType79 = SleepTimer.createFrom;
+const $$createType80 = $Create.Nullable($$createType79);
+const $$createType81 = SocialProfile.createFrom;
+const $$createType82 = $Create.Array($$createType81);
+const $$createType83 = TrackAddedBy.createFrom;
 const $$createType84 = $Create.Array($$createType83);
-const $$createType85 = TreePlaylist.createFrom;
-const $$createType86 = $Create.Array($$createType85);
-const $$createType87 = $Create.Array($$createType68);
-const $$createType88 = ScrobblerStatus.createFrom;
-const $$createType89 = SearchTerm.createFrom;
-const $$createType90 = $Create.Array($$createType89);
-const $$createType91 = SearchSection.createFrom;
-const $$createType92 = $Create.Array($$createType91);
-const $$createType93 = Phone.createFrom;
-const $$createType94 = $Create.Array($$createType93);
-const $$createType95 = StationEvent.createFrom;
-const $$createType96 = $Create.Array($$createType95);
-const $$createType97 = StationSeed.createFrom;
-const $$createType98 = $Create.Nullable($$createType97);
-const $$createType99 = DomainSync.createFrom;
-const $$createType100 = $Create.Array($$createType99);
+const $$createType85 = PlaylistCurator.createFrom;
+const $$createType86 = PlaylistFolder.createFrom;
+const $$createType87 = $Create.Array($$createType86);
+const $$createType88 = TreePlaylist.createFrom;
+const $$createType89 = $Create.Array($$createType88);
+const $$createType90 = $Create.Array($$createType71);
+const $$createType91 = ScrobblerStatus.createFrom;
+const $$createType92 = SearchTerm.createFrom;
+const $$createType93 = $Create.Array($$createType92);
+const $$createType94 = SearchSection.createFrom;
+const $$createType95 = $Create.Array($$createType94);
+const $$createType96 = Phone.createFrom;
+const $$createType97 = $Create.Array($$createType96);
+const $$createType98 = StationEvent.createFrom;
+const $$createType99 = $Create.Array($$createType98);
+const $$createType100 = StationSeed.createFrom;
+const $$createType101 = $Create.Nullable($$createType100);
+const $$createType102 = DomainSync.createFrom;
+const $$createType103 = $Create.Array($$createType102);

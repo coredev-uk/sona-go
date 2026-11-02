@@ -1,4 +1,5 @@
 import type { AuthStatus, PrivateState } from "@bindings/services";
+import { ErrorCode } from "@bindings/services/models";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -42,8 +43,7 @@ const status = (over: Partial<AuthStatus>): AuthStatus =>
     unencrypted: false,
     keyring: "",
     offline: false,
-    lastError: "",
-    lastErrorCode: "",
+    lastErrorCode: ErrorCode.$zero,
     browserSignIn: false,
     ...over,
   }) as AuthStatus;

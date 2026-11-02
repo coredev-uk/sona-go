@@ -69,7 +69,7 @@ func cached[T any](ctx context.Context, c *Catalog, kind, id string, ttl time.Du
 	if sf == "" {
 		return zero, ErrNoStorefront
 	}
-	key := sf + "|" + kind + "|" + id
+	key := CacheScope(sf, c.api.ContentLanguage()) + "|" + kind + "|" + id
 	now := c.now()
 	var stale *T
 	row, err := c.db.RQ.GetCache(ctx, key)
@@ -120,6 +120,17 @@ func cached[T any](ctx context.Context, c *Catalog, kind, id string, ttl time.Du
 		c.log.Warn("catalog cache: write", "key", key, "err", err)
 	}
 	return v, nil
+}
+
+// CacheScope is the prefix of a cached Apple response's key: its
+// storefront and the content language it was asked in (l=; none for the
+// storefront's default), so a language change never serves another
+// language's copy.
+func CacheScope(sf, lang string) string {
+	if lang == "" {
+		return sf
+	}
+	return sf + "@" + lang
 }
 
 // Search searches the catalog (every result group, or one group's page).

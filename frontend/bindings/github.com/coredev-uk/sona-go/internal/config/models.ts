@@ -575,6 +575,13 @@ export class Scrobbling {
  */
 export class Settings {
     /**
+     * Language is the interface language: "" (Automatic) or a BCP 47 tag
+     * (language.go). Go's own text (tray, notifications, the command line,
+     * dialog titles) and Apple's content language follow it too.
+     */
+    "language": string;
+
+    /**
      * Theme is "system", "light" or "dark".
      */
     "theme": string;
@@ -688,6 +695,9 @@ export class Settings {
 
     /** Creates a new Settings instance. */
     constructor($$source: Partial<Settings> = {}) {
+        if (!("language" in $$source)) {
+            this["language"] = "";
+        }
         if (!("theme" in $$source)) {
             this["theme"] = "";
         }
@@ -762,70 +772,70 @@ export class Settings {
      * Creates a new Settings instance from a string or object.
      */
     static createFrom($$source: any = {}): Settings {
-        const $$createField6_0 = $$createType5;
-        const $$createField7_0 = $$createType6;
-        const $$createField8_0 = $$createType7;
-        const $$createField9_0 = $$createType8;
-        const $$createField10_0 = $$createType9;
-        const $$createField11_0 = $$createType11;
-        const $$createField12_0 = $$createType12;
-        const $$createField13_0 = $$createType13;
-        const $$createField14_0 = $$createType14;
-        const $$createField15_0 = $$createType15;
-        const $$createField16_0 = $$createType16;
-        const $$createField17_0 = $$createType17;
-        const $$createField18_0 = $$createType18;
-        const $$createField19_0 = $$createType19;
-        const $$createField20_0 = $$createType20;
-        const $$createField21_0 = $$createType21;
+        const $$createField7_0 = $$createType5;
+        const $$createField8_0 = $$createType6;
+        const $$createField9_0 = $$createType7;
+        const $$createField10_0 = $$createType8;
+        const $$createField11_0 = $$createType9;
+        const $$createField12_0 = $$createType11;
+        const $$createField13_0 = $$createType12;
+        const $$createField14_0 = $$createType13;
+        const $$createField15_0 = $$createType14;
+        const $$createField16_0 = $$createType15;
+        const $$createField17_0 = $$createType16;
+        const $$createField18_0 = $$createType17;
+        const $$createField19_0 = $$createType18;
+        const $$createField20_0 = $$createType19;
+        const $$createField21_0 = $$createType20;
+        const $$createField22_0 = $$createType21;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("diagnostics" in $$parsedSource) {
-            $$parsedSource["diagnostics"] = $$createField6_0($$parsedSource["diagnostics"]);
+            $$parsedSource["diagnostics"] = $$createField7_0($$parsedSource["diagnostics"]);
         }
         if ("scrobbling" in $$parsedSource) {
-            $$parsedSource["scrobbling"] = $$createField7_0($$parsedSource["scrobbling"]);
+            $$parsedSource["scrobbling"] = $$createField8_0($$parsedSource["scrobbling"]);
         }
         if ("desktop" in $$parsedSource) {
-            $$parsedSource["desktop"] = $$createField8_0($$parsedSource["desktop"]);
+            $$parsedSource["desktop"] = $$createField9_0($$parsedSource["desktop"]);
         }
         if ("window" in $$parsedSource) {
-            $$parsedSource["window"] = $$createField9_0($$parsedSource["window"]);
+            $$parsedSource["window"] = $$createField10_0($$parsedSource["window"]);
         }
         if ("shortcuts" in $$parsedSource) {
-            $$parsedSource["shortcuts"] = $$createField10_0($$parsedSource["shortcuts"]);
+            $$parsedSource["shortcuts"] = $$createField11_0($$parsedSource["shortcuts"]);
         }
         if ("updates" in $$parsedSource) {
-            $$parsedSource["updates"] = $$createField11_0($$parsedSource["updates"]);
+            $$parsedSource["updates"] = $$createField12_0($$parsedSource["updates"]);
         }
         if ("integrations" in $$parsedSource) {
-            $$parsedSource["integrations"] = $$createField12_0($$parsedSource["integrations"]);
+            $$parsedSource["integrations"] = $$createField13_0($$parsedSource["integrations"]);
         }
         if ("audio" in $$parsedSource) {
-            $$parsedSource["audio"] = $$createField13_0($$parsedSource["audio"]);
+            $$parsedSource["audio"] = $$createField14_0($$parsedSource["audio"]);
         }
         if ("motionArtwork" in $$parsedSource) {
-            $$parsedSource["motionArtwork"] = $$createField14_0($$parsedSource["motionArtwork"]);
+            $$parsedSource["motionArtwork"] = $$createField15_0($$parsedSource["motionArtwork"]);
         }
         if ("queue" in $$parsedSource) {
-            $$parsedSource["queue"] = $$createField15_0($$parsedSource["queue"]);
+            $$parsedSource["queue"] = $$createField16_0($$parsedSource["queue"]);
         }
         if ("storage" in $$parsedSource) {
-            $$parsedSource["storage"] = $$createField16_0($$parsedSource["storage"]);
+            $$parsedSource["storage"] = $$createField17_0($$parsedSource["storage"]);
         }
         if ("crossfade" in $$parsedSource) {
-            $$parsedSource["crossfade"] = $$createField17_0($$parsedSource["crossfade"]);
+            $$parsedSource["crossfade"] = $$createField18_0($$parsedSource["crossfade"]);
         }
         if ("private" in $$parsedSource) {
-            $$parsedSource["private"] = $$createField18_0($$parsedSource["private"]);
+            $$parsedSource["private"] = $$createField19_0($$parsedSource["private"]);
         }
         if ("titleBar" in $$parsedSource) {
-            $$parsedSource["titleBar"] = $$createField19_0($$parsedSource["titleBar"]);
+            $$parsedSource["titleBar"] = $$createField20_0($$parsedSource["titleBar"]);
         }
         if ("onboarding" in $$parsedSource) {
-            $$parsedSource["onboarding"] = $$createField20_0($$parsedSource["onboarding"]);
+            $$parsedSource["onboarding"] = $$createField21_0($$parsedSource["onboarding"]);
         }
         if ("lyrics" in $$parsedSource) {
-            $$parsedSource["lyrics"] = $$createField21_0($$parsedSource["lyrics"]);
+            $$parsedSource["lyrics"] = $$createField22_0($$parsedSource["lyrics"]);
         }
         return new Settings($$parsedSource as Partial<Settings>);
     }

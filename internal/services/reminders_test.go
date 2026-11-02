@@ -157,7 +157,7 @@ func TestRemindersNeedNotificationsAndAPrerelease(t *testing.T) {
 	ctx := t.Context()
 	h := newRemindersHarness(t, false)
 	h.apple.set("7", "2026-11-19")
-	if _, err := h.s.Set(ctx, "7", "Out now"); ErrorCode(err) != CodeUnsupported {
+	if _, err := h.s.Set(ctx, "7", "Out now"); CodeOf(err) != CodeUnsupported {
 		t.Fatalf("without notifications: %v, want unsupported", err)
 	}
 
@@ -165,15 +165,15 @@ func TestRemindersNeedNotificationsAndAPrerelease(t *testing.T) {
 	h.apple.set("8", "2026-10-30")
 	h.apple.set("9", "2027")
 	for _, id := range []string{"8", "9"} {
-		if _, err := h.s.Set(ctx, id, "Out now"); ErrorCode(err) != CodeInvalidArgument {
+		if _, err := h.s.Set(ctx, id, "Out now"); CodeOf(err) != CodeInvalidArgument {
 			t.Fatalf("album %s: %v, want invalid_argument", id, err)
 		}
 	}
 	h.apple.set("7", "2026-11-19")
-	if _, err := h.s.Set(ctx, "7", strings.Repeat("x", maxReminderMessage+1)); ErrorCode(err) != CodeInvalidArgument {
+	if _, err := h.s.Set(ctx, "7", strings.Repeat("x", maxReminderMessage+1)); CodeOf(err) != CodeInvalidArgument {
 		t.Fatalf("long message: %v", err)
 	}
-	if _, err := h.s.Set(ctx, "404", "Out now"); ErrorCode(err) != CodeNotFound {
+	if _, err := h.s.Set(ctx, "404", "Out now"); CodeOf(err) != CodeNotFound {
 		t.Fatalf("unknown album: %v", err)
 	}
 }

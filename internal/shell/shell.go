@@ -18,6 +18,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/diag"
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/windowchrome"
@@ -37,6 +38,9 @@ const (
 	miniHeight = 132
 )
 
+// The mini player window's title, shown in task switchers.
+const msgMiniTitle l10n.Message = "Sona mini player"
+
 // saveDelay debounces window-size writes while the user drags an edge.
 const saveDelay = time.Second
 
@@ -49,6 +53,9 @@ type Options struct {
 	Logger *slog.Logger
 	// Private is private listening, a checkbox in the tray (nil: none).
 	Private *privatemode.Mode
+	// Language is the language of the tray menu and the mini player's
+	// title (nil: English); they follow its changes.
+	Language *l10n.Language
 	// WindowIcon is the windows' icon; TrayIcon the tray's (a small PNG).
 	WindowIcon []byte
 	TrayIcon   []byte
@@ -76,6 +83,7 @@ type Shell struct {
 	mu       sync.Mutex
 	mini     *application.WebviewWindow // nil until first opened
 	stopTray func()                     // ends the tray's subscription
+	stopLang func()                     // ends the language subscription
 
 	quitting atomic.Bool
 
@@ -94,7 +102,7 @@ func New(o Options) *Shell {
 	if o.Logger == nil {
 		o.Logger = slog.New(slog.DiscardHandler)
 	}
-	s := &Shell{o: o, stopTray: func() {}}
+	s := &Shell{o: o, stopTray: func() {}, stopLang: func() {}}
 	cur := o.Settings.Get()
 	s.window = cur.Window
 
@@ -143,6 +151,9 @@ func New(o Options) *Shell {
 	}
 
 	s.tray = newTray(s, o.TrayIcon)
+	if o.Language != nil {
+		s.stopLang = o.Language.OnChange(s.languageChanged)
+	}
 	o.App.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		guardKeyboard(s.main)
 		trackSecondaryPresses(s.main)
@@ -156,6 +167,18 @@ func New(o Options) *Shell {
 		diag.Go(o.Logger, "tray: follow playback", func() { s.tray.follow(snaps) })
 	})
 	return s
+}
+
+// languageChanged shows the tray menu and the mini player's title in the
+// new language. It runs on the goroutine that changed the language, never
+// the main thread.
+func (s *Shell) languageChanged() {
+	s.tray.render()
+	if m := s.miniWindow(); m != nil {
+		title := s.o.Language.Printer().T(msgMiniTitle)
+		m.SetTitle(title)
+		setFramelessTitle(m, title)
+	}
 }
 
 // close handles a window's close button: hide it and keep playing, or
@@ -240,13 +263,14 @@ func (s *Shell) ResetWindowSize() {
 	s.scheduleSave()
 }
 
-// Close stops following playback and writes a pending window size. Call
-// it before the coordinator closes.
+// Close stops following playback and the language and writes a pending
+// window size. Call it before the coordinator closes.
 func (s *Shell) Close() {
 	s.mu.Lock()
 	stop := s.stopTray
 	s.mu.Unlock()
 	stop()
+	s.stopLang()
 	s.saveMu.Lock()
 	pending := s.saveTimer != nil && s.saveTimer.Stop()
 	s.saveMu.Unlock()
@@ -269,7 +293,7 @@ func (s *Shell) ensureMini() *application.WebviewWindow {
 	if s.mini != nil {
 		return s.mini
 	}
-	const title = "Sona mini player"
+	title := s.o.Language.Printer().T(msgMiniTitle)
 	// Before its web view exists: WebKitGTK sizes a second view's page
 	// from the font DPI.
 	pinFontDPI()

@@ -32,8 +32,9 @@ function configure() {
         "sync:done": $$createType15,
         "sync:progress": $$createType16,
         "translations:apple": $$createType17,
-        "updates:available": $$createType18,
-        "window:state": $$createType19,
+        "translations:languages": $$createType18,
+        "updates:available": $$createType19,
+        "window:state": $$createType20,
     }));
 }
 
@@ -56,7 +57,8 @@ const $$createType14 = config$0.Settings.createFrom;
 const $$createType15 = services$0.SyncDone.createFrom;
 const $$createType16 = services$0.SyncProgress.createFrom;
 const $$createType17 = services$0.AppleTranslations.createFrom;
-const $$createType18 = services$0.UpdateStatus.createFrom;
-const $$createType19 = services$0.WindowState.createFrom;
+const $$createType18 = services$0.AppleLanguages.createFrom;
+const $$createType19 = services$0.UpdateStatus.createFrom;
+const $$createType20 = services$0.WindowState.createFrom;
 
 configure();

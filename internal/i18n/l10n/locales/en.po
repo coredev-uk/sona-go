@@ -1,0 +1,713 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: sona i18ntool\n"
+"Language: en\n"
+
+#: internal/cli/messages.go
+#, go-format
+msgid " (development build: this session only; saved setting %s)"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid " (forced by SONA_PRIVATE=1)"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid " (preview)"
+msgstr ""
+
+#. the volume
+#: internal/cli/messages.go
+#, go-format
+msgid "%d%%"
+msgstr ""
+
+#. the position, then the song's length (m:ss)
+#: internal/cli/messages.go
+#, go-format
+msgid "%s / %s"
+msgstr ""
+
+#. a song, then its artist
+#: internal/cli/messages.go
+#, go-format
+msgid "%s — %s"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "%s: %q isn't one of %s"
+msgstr ""
+
+#. A label and its value: a status field (“volume: 50%”), or the state and the song (“playing: Song — Artist”).
+#: internal/cli/messages.go
+#, go-format
+msgid "%s: %s"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "%s: %s and %s can't be used together"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "%s: %s must be one of %s"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "%s: %s needs a value"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "%s: %s takes no value"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "%s: --limit must be a number from 1 to %d"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "%s: missing %s"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "%s: too many arguments"
+msgstr ""
+
+#. the command, then the option
+#: internal/cli/messages.go
+#, go-format
+msgid "%s: unknown option %s"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "(AutoPlay)"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "0 to 100, or +N or -N to change it by N"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Albums"
+msgstr ""
+
+#. Sona's description in the About panel (macOS's application menu), in the language at startup.
+#: cmd/sona/main.go
+msgid "Apple Music for the Linux desktop"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Apple Music needs you signed in to Sona for this"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Apple Music no longer accepts your sign-in; sign in again in Sona"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Arguments"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Artists"
+msgstr ""
+
+#: internal/shell/tray.go
+msgid "Close mini player"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Commands"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Commands control the Sona that is running; run `sona help <command>` for one command's options."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Curators"
+msgstr ""
+
+#. a manual page's section, shown in capitals
+#: internal/cli/messages.go
+msgid "Description"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Exit status"
+msgstr ""
+
+#. the file chooser's save button
+#: internal/services/system_settings.go
+msgid "Export"
+msgstr ""
+
+#: internal/services/system_settings.go
+msgid "Export Sona settings"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Favourite the playing song"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Favourites the playing song (on, the default), removes it from your favourites (off), switches it (toggle) or shows whether it is one (status). Favouriting a song adds it to your library, as in Sona. Needs an Apple Music account signed in to Sona."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Files"
+msgstr ""
+
+#. the file chooser's open button
+#: internal/services/system_settings.go
+msgid "Import"
+msgstr ""
+
+#: internal/services/system_settings.go
+msgid "Import Sona settings"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "JSON output"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "List the queue"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Lists the queue in play order, marking the playing song."
+msgstr ""
+
+#: internal/shell/tray.go
+msgid "Mini player"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Music videos"
+msgstr ""
+
+#. a manual page's section, shown in capitals
+#: internal/cli/messages.go
+msgid "Name"
+msgstr ""
+
+#. a track notification's button: plays the next song
+#. plays the next song
+#: internal/services/integrations.go
+#: internal/shell/tray.go
+msgid "Next"
+msgstr ""
+
+#: internal/shell/tray.go
+msgid "Not playing"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "On macOS and Windows the running Sona listens on sona.sock in its state folder (%s, %s), with sona.lock beside it. Only the user running Sona may connect."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Open an Apple Music link in Sona"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Opens an Apple Music link (music.apple.com, music:// or itms://) in Sona's window, as clicking it would."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Options"
+msgstr ""
+
+#: internal/shell/tray.go
+msgid "Pause"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Pause playback"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Pause when playing, play otherwise"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Pauses playback. Prints the status line."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Pauses when music plays and resumes otherwise, like the play/pause key. Prints the status line."
+msgstr ""
+
+#: internal/shell/tray.go
+msgid "Play"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Play the next song"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Play the previous song"
+msgstr ""
+
+#. why Sona keeps the computer from sleeping (the system's inhibitor list)
+#: internal/services/integrations.go
+msgid "Playing music"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Playlists"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Plays the next song in the queue. Prints the status line."
+msgstr ""
+
+#. plays the previous song
+#: internal/shell/tray.go
+msgid "Previous"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Print a shell completion script"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Prints the completion script for bash, zsh or fish. Packages install them; to load one by hand: `source <(sona completion bash)`, `sona completion zsh > \"${fpath[1]}/_sona\"` or `sona completion fish | source`."
+msgstr ""
+
+#: internal/shell/tray.go
+msgid "Private listening"
+msgstr ""
+
+#. the environment variable that forces it on, as NAME=1
+#: internal/shell/tray.go
+#, go-format
+msgid "Private listening (%s)"
+msgstr ""
+
+#: internal/shell/tray.go
+msgid "Private listening (development build)"
+msgstr ""
+
+#: internal/shell/tray.go
+msgid "Quit Sona"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Restarts the playing song, or plays the previous one within its first seconds, like the previous key. Prints the status line."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Resume playback"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Resumes playback, or starts the queue Sona saved when it last quit. Prints the status line."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Search Apple Music"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Searches the Apple Music catalogue in Sona's storefront and lists the results by kind, with their links; give a link to `sona open` to open it in Sona."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "See also"
+msgstr ""
+
+#. a track notification's button: brings the window back
+#: internal/services/integrations.go
+#: internal/shell/tray.go
+msgid "Show Sona"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Show help for Sona's commands"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Show or set the volume"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Show or switch private listening"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Show what's playing"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Shows private listening (status, the default), or turns it on, off or over (toggle). While it is on, nothing you play is reported to Apple, scrobbled or kept in Sona's history."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Shows the commands, or one command's arguments and options. With --man it prints the manual page in roff instead."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Shows the playback state, the song, its position, the volume, shuffle, repeat and private listening. With --follow it keeps running and prints one line each time any of them changes (the position alone doesn't count), for status bars such as Waybar and Polybar; it ends when Sona quits. When Sona isn't running, it says so and exits with status 3."
+msgstr ""
+
+#. Sona's own message follows, in English
+#: internal/cli/messages.go
+#, go-format
+msgid "Sona couldn't do that: %s"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Sona couldn't reach the network; check your connection and try again"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Sona is an Apple Music client for the desktop. Started without a command, `sona` opens it, or hands its Apple Music links to the Sona already running. With a command, it controls the running Sona instead: on Linux over the D-Bus session bus, on macOS and Windows over a socket in Sona's state folder that only your user can reach. Commands never start Sona."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Sona is shutting down"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Sona is starting; try again in a moment"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Sona is still reading your Apple Music account; try again in a moment"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Sona isn't running"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Sona isn't running (status still prints it), or can't be reached"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Sona isn't running; start it first"
+msgstr ""
+
+#. The mini player window's title, shown in task switchers.
+#: internal/shell/shell.go
+msgid "Sona mini player"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Sona needs Google's Widevine to play songs, and it isn't ready yet (Settings → Playback shows its progress)"
+msgstr ""
+
+#: internal/services/system_settings.go
+msgid "Sona settings (JSON)"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Songs"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Starting Sona"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Stations"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Status bars"
+msgstr ""
+
+#. a manual page's section, shown in capitals
+#: internal/cli/messages.go
+msgid "Synopsis"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "With --json, a command prints one JSON object on standard output; `status --follow --json` prints one per line. Fields are only ever added, never renamed or removed. Errors go to standard error as text, with the exit status below."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Without a value, shows the volume. A number from 0 to 100 sets it; +N or -N changes it by N."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "`sona` starts Sona, or brings the running one to the front. Apple Music links among the arguments open in it. --hidden starts it without a window (playback, media keys and the tray only), as the start-at-login entry does. --version prints the version."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "`status --format TEMPLATE` prints each status through a Go text/template whose fields are the JSON fields (`{{.state}}`, `{{with .track}}{{.artist}} – {{.title}}{{end}}`, `{{.volume}}`); `{{json .x}}` quotes a value as JSON and `{{clock .position}}` writes seconds as m:ss. With --follow it suits Waybar's and Polybar's custom modules."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "a command"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "album"
+msgstr ""
+
+#. repeat: the whole queue
+#: internal/cli/messages.go
+msgid "all"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "an Apple Music link"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "artist"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "at most this many results of each kind (1 to 20, default 5)"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "bash, zsh or fish"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "can't reach the running Sona: %v"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "control the running Sona from the command line"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "ended"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "error"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "favourite: off (%s)"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "favourite: on (%s)"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "it couldn't be found; it may have been removed"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "keep printing a line each time the status changes, until Sona quits"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "loading"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "lost the connection to Sona: %v"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "no results for %q"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "not running"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "nothing is playing"
+msgstr ""
+
+#. a switch (shuffle, repeat, private listening) is off
+#: internal/cli/messages.go
+msgid "off"
+msgstr ""
+
+#. a switch (shuffle, private listening) is on
+#: internal/cli/messages.go
+msgid "on"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "on, off, toggle or status"
+msgstr ""
+
+#. repeat: the playing song
+#: internal/cli/messages.go
+msgid "one"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "only results of this kind"
+msgstr ""
+
+#. the kind of item (album, song…), then its ID
+#: internal/cli/messages.go
+#, go-format
+msgid "opening %s %s"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "paused"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "playing"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "position"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "preview"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "print each status with a Go text/template over the JSON fields"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "print the manual page in roff"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "print the result as JSON"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "private listening"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "private listening is forced on for this run (SONA_PRIVATE=1)"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "private listening: %s"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "repeat"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "show help for the command"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "shuffle"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "state"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "status: --format: %v"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "stopped"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "success"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "that isn't an Apple Music link Sona can open"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "that took too long and timed out; try again"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "the command failed in Sona (the message says why)"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "the command line is wrong: an unknown command, argument or option"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "the queue is empty"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "the running Sona is a different version; quit and start it again"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "this Apple Account doesn't have an active Apple Music subscription"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "this isn't available on this system"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "this song isn't available to stream in your storefront"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "this song isn't out yet; it plays from its release date"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "title"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "unknown command %q (run `sona help`)"
+msgstr ""
+
+#. before a usage line: “usage: sona …”
+#: internal/cli/messages.go
+msgid "usage"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "volume"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "volume: %q isn't 0 to 100, +N or -N"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "what to search for"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "yes"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "your keyring didn't answer or refused; unlock it, then try again"
+msgstr ""

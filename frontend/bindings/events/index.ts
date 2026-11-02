@@ -94,6 +94,11 @@ export const SyncProgress = "sync:progress";
 export const TranslationsApple = "translations:apple";
 
 /**
+ * Name of the custom event "translations:languages".
+ */
+export const TranslationsLanguages = "translations:languages";
+
+/**
  * Name of the custom event "updates:available".
  */
 export const UpdatesAvailable = "updates:available";

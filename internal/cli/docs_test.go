@@ -13,7 +13,7 @@ import (
 func script(t *testing.T, shell string) string {
 	t.Helper()
 	var b bytes.Buffer
-	if err := writeCompletion(&b, shell); err != nil {
+	if err := writeCompletion(&b, nil, shell); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(t.TempDir(), "sona."+shell)
@@ -90,7 +90,7 @@ func TestZshFishCompletionSyntax(t *testing.T) {
 // linter (where installed).
 func TestManPage(t *testing.T) {
 	var b bytes.Buffer
-	if err := writeMan(&b, "1.2.3"); err != nil {
+	if err := writeMan(&b, nil, "1.2.3"); err != nil {
 		t.Fatal(err)
 	}
 	page := b.String()
@@ -132,7 +132,7 @@ func TestManPage(t *testing.T) {
 
 func TestHelp(t *testing.T) {
 	var b bytes.Buffer
-	if err := writeOverview(&b); err != nil {
+	if err := writeOverview(&b, nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range commands {
@@ -141,7 +141,7 @@ func TestHelp(t *testing.T) {
 		}
 	}
 	b.Reset()
-	if err := writeHelp(&b, lookup("search")); err != nil {
+	if err := writeHelp(&b, nil, lookup("search")); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"usage: sona search <term>… [options]", "--type KIND", "song, album", "--limit N", "-h, --help", "Exit status:"} {

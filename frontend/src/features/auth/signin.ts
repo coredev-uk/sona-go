@@ -1,7 +1,7 @@
 import { t } from "@lingui/core/macro";
-import type { SecondFactor } from "@bindings/services";
+import type { ErrorCode, SecondFactor } from "@bindings/services";
 
-import { callFailure } from "@/shared/lib/errors";
+import { callFailure, codeMessage } from "@/shared/lib/errors";
 
 /**
  * The native sign-in flow (docs/auth.md §4.7) as a pure reducer: the
@@ -34,7 +34,7 @@ export type SignInErrorCode =
 
 export interface SignInError {
   code: SignInErrorCode;
-  /** Go's or Apple's message, shown when the code has no fixed wording. */
+  /** The code's wording (errors.ts), shown when errorCopy has none of its own. */
   message: string;
 }
 
@@ -47,37 +47,38 @@ export interface ErrorCopy {
   next: NextStep;
 }
 
-const codePattern: [SignInErrorCode, RegExp][] = [
-  ["invalid_credentials", /incorrect apple account or password|-20101|invalid_credentials/i],
-  ["incorrect_code", /incorrect verification code|-21669|incorrect_code/i],
-  ["locked", /locked|temporarily unavailable|-20209|-20283|-24761/i],
-  ["action_required", /needs attention|action_required|\b412\b/i],
-  ["no_subscription", /subscription required|no_subscription|no-subscription/i],
-  ["unsupported_country", /not available in this account's country|unsupported_country/i],
-  ["unsupported_2fa", /two-factor method is not supported|unsupported_2fa/i],
-  ["out_of_order", /out of order|out_of_order/i],
-  ["cancelled", /cancel/i],
-  ["keyring", /keyring/i],
-  ["timeout", /timed out|deadline exceeded/i],
-  ["network", /network|no such host|connection refused|connection reset|dial tcp|offline/i],
-];
-
-const knownCodes = new Set<string>(codePattern.map(([c]) => c));
+const knownCodes = new Set<string>([
+  "invalid_credentials",
+  "incorrect_code",
+  "locked",
+  "action_required",
+  "no_subscription",
+  "unsupported_country",
+  "unsupported_2fa",
+  "out_of_order",
+  "cancelled",
+  "timeout",
+  "network",
+  "keyring",
+] satisfies SignInErrorCode[]);
 
 /**
- * Classifies a rejected binding call, or a Status.lastError with its
- * lastErrorCode. Prefers the stable Services code and falls back to
- * matching Go's error text.
+ * Classifies a rejected binding call, or an AuthStatus.lastErrorCode
+ * (statusCode, with its lastAppleMessage) by its services error code.
+ * Other codes are "unknown", with their own wording, or Apple's own
+ * (already localised) message when Apple sent one Sona has no code for.
  */
-export function classifySignInError(err: unknown, statusCode = ""): SignInError {
+export function classifySignInError(
+  err: unknown,
+  statusCode: ErrorCode | "" = "",
+  statusAppleMessage = "",
+): SignInError {
   const failure = callFailure(err);
   const code = statusCode || failure.code;
-  const message = failure.message;
+  const message = codeMessage(code);
   if (knownCodes.has(code)) return { code: code as SignInErrorCode, message };
-  for (const [c, re] of codePattern) {
-    if (re.test(failure.detail)) return { code: c, message };
-  }
-  return { code: "unknown", message: message || t`Sign-in failed.` };
+  const apple = statusCode ? statusAppleMessage : failure.appleMessage;
+  return { code: "unknown", message: apple || message };
 }
 
 /** The message and next step for each case in docs/auth.md §4.7. */
@@ -202,8 +203,8 @@ export type SignInAction =
       type: "status";
       state: string;
       factor?: SecondFactor | null;
-      lastError?: string;
-      lastErrorCode?: string;
+      lastErrorCode?: ErrorCode | "";
+      lastAppleMessage?: string;
     };
 
 export const initialSignIn: SignInStep = { kind: "credentials", busy: false };
@@ -340,8 +341,8 @@ export function signInReducer(step: SignInStep, action: SignInAction): SignInSte
       }
       if (step.kind === "code" || step.kind === "choose-phone") {
         // Go dropped the attempt (deadline, cancel, sign-out elsewhere).
-        const error = action.lastError
-          ? classifySignInError(action.lastError, action.lastErrorCode)
+        const error = action.lastErrorCode
+          ? classifySignInError(undefined, action.lastErrorCode, action.lastAppleMessage)
           : { code: "cancelled" as const, message: "" };
         return { kind: "credentials", busy: false, error };
       }

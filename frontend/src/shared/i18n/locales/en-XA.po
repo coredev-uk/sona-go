@@ -266,19 +266,15 @@ msgid "{name}, {artist}, skipped: explicit"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
-msgid "{note}. {skips}"
+msgid "{note} Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works."
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
-msgid "{note}. Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works."
+msgid "{note} Playback still works."
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
-msgid "{note}. Playback still works."
-msgstr ""
-
-#: src/features/settings/Diagnostics.tsx
-msgid "{note}. Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction)."
+msgid "{note} Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction)."
 msgstr ""
 
 #: src/features/playlist/Collaborators.tsx
@@ -367,6 +363,14 @@ msgstr ""
 
 #: src/features/artist/ArtistPage.tsx
 msgid "{trackCount, plural, one {# song} other {# songs}}"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "{via} allows no realtime priority."
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "{via} refused it."
 msgstr ""
 
 #: src/shared/actions/ActionMenu.tsx
@@ -659,6 +663,10 @@ msgstr ""
 msgid "Apple Digital Master"
 msgstr ""
 
+#: src/shared/lib/errors.ts
+msgid "Apple doesn't offer this video in a format Sona can play."
+msgstr ""
+
 #: src/features/auth/signin.ts
 msgid "Apple has locked the account or made it temporarily unavailable. Unlock it at iforgot.apple.com, or sign in with your browser."
 msgstr ""
@@ -720,10 +728,6 @@ msgstr ""
 #: src/features/auth/Account.tsx
 #: src/features/auth/AccountMenu.tsx
 msgid "Apple Music isn't accepting Sona's requests"
-msgstr ""
-
-#: src/app/shell/StatusBanner.tsx
-msgid "Apple Music isn't accepting Sona's requests: {reason}"
 msgstr ""
 
 #: src/app/shell/StatusBanner.tsx
@@ -898,7 +902,12 @@ msgid "Audio quality"
 msgstr ""
 
 #: src/features/settings/General.tsx
+#: src/features/settings/LanguageRow.tsx
 msgid "Automatic"
+msgstr ""
+
+#: src/features/settings/LanguageRow.tsx
+msgid "Automatic follows your Apple Music account and your system. Apple Music's own text, such as album notes, follows too where your country or region offers the language."
 msgstr ""
 
 #: src/features/settings/General.tsx
@@ -1328,6 +1337,10 @@ msgid "Couldn't check for updates"
 msgstr ""
 
 #: src/features/settings/Updates.tsx
+msgid "Couldn't check GitHub for updates"
+msgstr ""
+
+#: src/features/settings/Updates.tsx
 msgid "Couldn't check: {failure}"
 msgstr ""
 
@@ -1684,10 +1697,6 @@ msgstr ""
 
 #: src/features/auth/Account.tsx
 msgid "Couldn't reach Apple to check the token. Check your connection and try again."
-msgstr ""
-
-#: src/features/settings/Updates.tsx
-msgid "Couldn't reach GitHub: {error}"
 msgstr ""
 
 #: src/features/onboarding/DesktopStep.tsx
@@ -2209,6 +2218,10 @@ msgctxt "keyboard key"
 msgid "Enter"
 msgstr ""
 
+#: src/shared/lib/errors.ts
+msgid "Enter a name."
+msgstr ""
+
 #: src/features/home/ItemRows.tsx
 msgid "Enter opens, Space plays, Shift+F10 shows more actions."
 msgstr ""
@@ -2668,12 +2681,28 @@ msgstr ""
 msgid "It applies the next time playback starts."
 msgstr ""
 
+#: src/features/settings/Diagnostics.tsx
+msgid "It can open network connections."
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "It can read your keychain folder."
+msgstr ""
+
 #: src/shared/lib/errors.ts
 msgid "It changed elsewhere since Sona read it. Reload and try again."
 msgstr ""
 
 #: src/shared/lib/errors.ts
 msgid "It couldn't be found. It may have been removed."
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "It has no network or mount namespace of its own, because unprivileged user namespaces are blocked."
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "It has no private view of the filesystem."
 msgstr ""
 
 #: src/shared/components/DetailStates.tsx
@@ -2695,6 +2724,10 @@ msgstr ""
 #: src/features/home/ShelfIndex.tsx
 #: src/shared/items/ItemShelf.tsx
 msgid "Items"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Its seccomp filter isn't installed."
 msgstr ""
 
 #: src/shared/lib/library-actions.ts
@@ -2730,6 +2763,14 @@ msgstr ""
 
 #: src/features/search/groups.ts
 msgid "Labels"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Landlock doesn't restrict its files."
+msgstr ""
+
+#: src/features/settings/LanguageRow.tsx
+msgid "Language"
 msgstr ""
 
 #: src/features/settings/MotionDiagnostics.ts
@@ -2970,6 +3011,14 @@ msgstr ""
 msgid "macOS Keychain"
 msgstr ""
 
+#: src/features/settings/Diagnostics.tsx
+msgid "macOS's sandbox-exec is missing or didn't start."
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "macOS's sandbox-exec refused Sona's profile."
+msgstr ""
+
 #: src/features/library/index.ts
 #: src/features/library/views.tsx
 #: src/features/playlist/PlaylistPage.tsx
@@ -3155,7 +3204,7 @@ msgid "Navigation"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
-msgid "Neither RTKit nor the Realtime portal is available ({note}). {skips} Install and enable RTKit (rtkit) to fix this."
+msgid "Neither RTKit nor the Realtime portal is available. {skips} Install and enable RTKit (rtkit) to fix this."
 msgstr ""
 
 #: src/features/player/NowPlayingView.tsx
@@ -3755,6 +3804,10 @@ msgstr ""
 msgid "Paste a Music User Token"
 msgstr ""
 
+#: src/shared/lib/errors.ts
+msgid "Paste your user token first."
+msgstr ""
+
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
 msgid "Pause"
@@ -3951,6 +4004,7 @@ msgstr ""
 #: src/features/search/groups.ts
 #: src/features/search/SearchPage.tsx
 #: src/features/settings/General.tsx
+#: src/shared/items/EditorialSections.tsx
 msgid "Playlists"
 msgstr ""
 
@@ -4227,7 +4281,11 @@ msgid "Realtime portal"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
-msgid "Realtime priority was refused: {note}."
+msgid "Realtime priority was refused: {refusal}"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Realtime priority was refused."
 msgstr ""
 
 #: src/features/playlist/PlaylistDialogs.tsx
@@ -4880,10 +4938,6 @@ msgstr ""
 msgid "Sign-in didn't work"
 msgstr ""
 
-#: src/features/auth/signin.ts
-msgid "Sign-in failed."
-msgstr ""
-
 #: src/features/auth/Account.tsx
 msgid "Sign-in link copied"
 msgstr ""
@@ -5024,6 +5078,10 @@ msgstr ""
 msgid "Solid surfaces instead of artwork colour washes, and no animation. Smoother on software rendering."
 msgstr ""
 
+#: src/shared/lib/errors.ts
+msgid "Something went wrong."
+msgstr ""
+
 #: src/app/shell/TitleBarStart.tsx
 #: src/features/settings/Diagnostics.tsx
 msgid "Sona"
@@ -5071,8 +5129,16 @@ msgstr ""
 msgid "Sona couldn't finish checking the downloaded Widevine. Try again."
 msgstr ""
 
+#: src/features/settings/Diagnostics.tsx
+msgid "Sona couldn't limit the host's realtime CPU time, which {via} requires."
+msgstr ""
+
 #: src/features/auth/Account.tsx
 msgid "Sona couldn't open a keyring, so it would keep your Apple Music token in a file only your user can read. Start or unlock GNOME Keyring or KWallet, then try again."
+msgstr ""
+
+#: src/shared/lib/errors.ts
+msgid "Sona couldn't open your web browser. Open the link yourself."
 msgstr ""
 
 #: src/features/auth/Account.tsx
@@ -5087,6 +5153,10 @@ msgstr ""
 msgid "Sona couldn't reach the network. Check your connection and try again."
 msgstr ""
 
+#: src/shared/lib/errors.ts
+msgid "Sona couldn't read that file."
+msgstr ""
+
 #: src/features/auth/Account.tsx
 #: src/features/auth/AccountMenu.tsx
 msgid "Sona couldn't read your sign-in from your keyring"
@@ -5094,6 +5164,10 @@ msgstr ""
 
 #: src/app/shell/StatusBanner.tsx
 msgid "Sona couldn't read your sign-in from your keyring, so you're signed out."
+msgstr ""
+
+#: src/shared/lib/errors.ts
+msgid "Sona couldn't save the file there."
 msgstr ""
 
 #: src/features/cdm/messages.ts
@@ -5106,6 +5180,10 @@ msgstr ""
 
 #: src/features/cdm/messages.ts
 msgid "Sona couldn't tell which version of Widevine to download. Try again later."
+msgstr ""
+
+#: src/shared/lib/errors.ts
+msgid "Sona couldn't use the clipboard."
 msgstr ""
 
 #: src/features/settings/Connections.tsx
@@ -5166,6 +5244,10 @@ msgstr ""
 
 #: src/features/auth/Account.tsx
 msgid "Sona removes your token from the keyring, stops playback and deletes the copy of your library on this computer. Your Apple Music library itself isn't changed."
+msgstr ""
+
+#: src/shared/lib/errors.ts
+msgid "Sona signed out, but couldn't remove everything it saved. Unlock your keyring, then sign out again."
 msgstr ""
 
 #: src/features/auth/Account.tsx
@@ -5501,6 +5583,22 @@ msgid "That code isn't right"
 msgstr ""
 
 #: src/shared/lib/errors.ts
+msgid "That file has a setting Sona can't use, so nothing changed."
+msgstr ""
+
+#: src/shared/lib/errors.ts
+msgid "That file isn't a Sona settings export."
+msgstr ""
+
+#: src/shared/lib/errors.ts
+msgid "That file was exported by a newer version of Sona. Update Sona, then import it."
+msgstr ""
+
+#: src/shared/lib/errors.ts
+msgid "That isn't an Apple Music link."
+msgstr ""
+
+#: src/shared/lib/errors.ts
 msgid "That isn't available on this platform."
 msgstr ""
 
@@ -5568,12 +5666,20 @@ msgstr ""
 msgid "The empty folder is removed on all your devices."
 msgstr ""
 
+#: src/shared/lib/errors.ts
+msgid "The folder isn't empty. Move or delete what's in it first."
+msgstr ""
+
 #: src/features/settings/Connections.tsx
 msgid "The Last.fm approval expired before it was confirmed. Connect again to get a new one."
 msgstr ""
 
 #: src/features/equalizer/EqualizerPage.tsx
 msgid "The level drops {drop} dB ahead of the bands, so the largest boost cannot clip. Preamp lowers it further."
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "The macOS sandbox is turned off ({SEATBELT_OFF})."
 msgstr ""
 
 #: src/features/settings/AudioRows.tsx
@@ -5736,6 +5842,10 @@ msgstr ""
 
 #: src/shared/lib/errors.ts
 msgid "This song isn't out yet. It plays from its release date."
+msgstr ""
+
+#: src/shared/items/station.ts
+msgid "This stream isn't offered with Widevine, the only protection Sona can play."
 msgstr ""
 
 #: src/features/radio/StationPage.tsx
@@ -5952,7 +6062,7 @@ msgid "Updates"
 msgstr ""
 
 #: src/features/settings/MotionDiagnostics.ts
-msgid "UPower didn't answer ({error})."
+msgid "UPower didn't answer. Sona's log says why."
 msgstr ""
 
 #: src/features/settings/MotionDiagnostics.ts
@@ -6358,6 +6468,10 @@ msgstr ""
 
 #: src/features/library/gate.tsx
 msgid "Your recent additions appear here as Sona copies them from Apple Music. Large libraries take a minute or two the first time."
+msgstr ""
+
+#: src/shared/lib/errors.ts
+msgid "Your saved sign-in couldn't be read, so Sona removed it. Sign in again."
 msgstr ""
 
 #: src/features/settings/Connections.tsx

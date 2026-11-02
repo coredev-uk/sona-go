@@ -84,15 +84,15 @@ func TestCapabilitiesWindowControls(t *testing.T) {
 	}
 }
 
-func TestUnsupportedIsItsOwnErrorCode(t *testing.T) {
+func TestUnsupportedIsItsOwnCode(t *testing.T) {
 	for _, err := range []error{
 		playback.ErrUnsupported,
 		fmt.Errorf("coordinator: play: %w", playback.ErrUnsupported),
 		unsupported("the file chooser"),
 		discord.ErrUnsupported,
 	} {
-		if got := ErrorCode(err); got != CodeUnsupported {
-			t.Errorf("ErrorCode(%v) = %q, want %q", err, got, CodeUnsupported)
+		if got := CodeOf(err); got != CodeUnsupported {
+			t.Errorf("CodeOf(%v) = %q, want %q", err, got, CodeUnsupported)
 		}
 	}
 }

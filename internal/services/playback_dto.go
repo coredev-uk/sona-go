@@ -103,7 +103,7 @@ type PlaybackState struct {
 	CanNext      bool   `json:"canNext"`
 	CanPrevious  bool   `json:"canPrevious"`
 	// Error is the latest playback failure (clears once an item plays).
-	Error string `json:"error"`
+	Error ErrorCode `json:"error"`
 	// AuthRequired: Apple rejected the credentials; playback is paused
 	// until the user signs in again and resumes.
 	AuthRequired bool `json:"authRequired"`

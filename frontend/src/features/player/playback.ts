@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { create } from "zustand";
 
 import type { PlaybackState, QueueState } from "@bindings/services";
+import { ErrorCode } from "@bindings/services/models";
 
 /** Engine states, mirroring Go's playback.State values. */
 export type EngineState = "idle" | "loading" | "playing" | "paused" | "ended" | "error";
@@ -22,7 +23,7 @@ export const emptyState: PlaybackState = {
   queueVersion: 0,
   canNext: false,
   canPrevious: false,
-  error: "",
+  error: ErrorCode.$zero,
   authRequired: false,
   noCdm: false,
   preview: false,

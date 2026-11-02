@@ -302,7 +302,7 @@ func (s *PlaylistsService) expand(ctx context.Context, items []PlaylistItem) (re
 func cleanInput(in PlaylistInput) (applemusic.PlaylistAttributesInput, error) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
-		return applemusic.PlaylistAttributesInput{}, fmt.Errorf("%w: a playlist needs a name", ErrInvalidArgument)
+		return applemusic.PlaylistAttributesInput{}, ErrNameRequired
 	}
 	return applemusic.PlaylistAttributesInput{Name: name, Description: strings.TrimSpace(in.Description), IsPublic: in.IsPublic}, nil
 }
@@ -570,7 +570,7 @@ func (s *PlaylistsService) MoveToFolder(ctx context.Context, id, folderID string
 func (s *PlaylistsService) CreateFolder(ctx context.Context, name string) (PlaylistFolder, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return PlaylistFolder{}, fmt.Errorf("%w: a folder needs a name", ErrInvalidArgument)
+		return PlaylistFolder{}, ErrNameRequired
 	}
 	f, err := s.e.API.CreatePlaylistFolder(ctx, name)
 	if err != nil {
@@ -591,7 +591,7 @@ func (s *PlaylistsService) CreateFolder(ctx context.Context, name string) (Playl
 func (s *PlaylistsService) RenameFolder(ctx context.Context, id, name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return fmt.Errorf("%w: a folder needs a name", ErrInvalidArgument)
+		return ErrNameRequired
 	}
 	if err := s.e.API.RenamePlaylistFolder(ctx, id, name); err != nil {
 		return s.e.Fail(err)

@@ -88,7 +88,7 @@ func TestPlaybackRefusesUnreleasedSongs(t *testing.T) {
 	refs := []TrackRef{{ID: "1", Source: SourceCatalog}, {ID: "2", Source: SourceCatalog}, {ID: "4", Source: SourceCatalog}}
 
 	for _, start := range []int{0, 2} {
-		if _, _, err := s.resolve(ctx, refs, start); !errors.Is(err, ErrNotReleased) || ErrorCode(err) != CodeNotReleased {
+		if _, _, err := s.resolve(ctx, refs, start); !errors.Is(err, ErrNotReleased) || CodeOf(err) != CodeNotReleased {
 			t.Fatalf("start %d: err = %v, want not_released", start, err)
 		}
 	}
@@ -150,7 +150,7 @@ func TestPlayLibrarySkipsUnreleasedSongs(t *testing.T) {
 	s := &PlaybackService{o: e, m: mapper{now: e.Now}, meta: map[string]trackMeta{}}
 
 	for _, start := range []int{1, 4} {
-		if err := s.PlayLibrary(ctx, "title", false, start); ErrorCode(err) != CodeNotReleased {
+		if err := s.PlayLibrary(ctx, "title", false, start); CodeOf(err) != CodeNotReleased {
 			t.Fatalf("start %d: %v, want not_released", start, err)
 		}
 	}

@@ -9,8 +9,8 @@ const syncStatus = vi.fn<() => Promise<SyncStatus>>();
 vi.mock("@bindings/services", () => ({ LibraryService: { SyncStatus: () => syncStatus() } }));
 
 const progress = (domain: string, done: number, total: number, finished = false) =>
-  ({ domain, done, total, finished, error: "" }) as SyncProgress;
-const finished = { ok: true, error: "", errorCode: "", finishedAt: 1 } as SyncDone;
+  ({ domain, done, total, finished, errorCode: "" }) as unknown as SyncProgress;
+const finished = { ok: true, errorCode: "", finishedAt: 1 } as SyncDone;
 const status = (running: boolean) => ({ running, domains: [], lastSuccess: 0 }) as SyncStatus;
 
 const sync = () => useSync.getState();

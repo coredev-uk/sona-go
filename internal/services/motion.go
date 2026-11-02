@@ -14,11 +14,11 @@ import (
 type MotionService struct {
 	e *Env
 
-	mu       sync.Mutex
-	mon      PowerMonitor
-	powerErr string
-	closed   bool
-	report   *MotionReport
+	mu         sync.Mutex
+	mon        PowerMonitor
+	unreadable bool // the power monitor failed to start
+	closed     bool
+	report     *MotionReport
 }
 
 func newMotionService(e *Env) *MotionService {
@@ -40,7 +40,7 @@ func (s *MotionService) watch() {
 	if err != nil {
 		s.e.Logger.Info("power: power source unavailable, motion artwork follows the setting only", "err", err)
 		s.mu.Lock()
-		s.powerErr = err.Error()
+		s.unreadable = true
 		s.mu.Unlock()
 		return
 	}
@@ -82,7 +82,7 @@ func (s *MotionService) Power() PowerState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.mon == nil {
-		return PowerState{Error: s.powerErr}
+		return PowerState{Unreadable: s.unreadable}
 	}
 	return followed(s.mon.State())
 }
@@ -99,7 +99,7 @@ func (s *MotionService) Status() MotionStatus {
 	if !st.Last.At.IsZero() {
 		out.Last = MotionFetch{
 			At: st.Last.At.UnixMilli(), Size: st.Last.Size, Codec: st.Last.Codec,
-			Rendition: st.Last.Rendition, Error: st.Last.Err,
+			Rendition: st.Last.Rendition, Error: CodeOf(st.Last.Err),
 		}
 	}
 	return out

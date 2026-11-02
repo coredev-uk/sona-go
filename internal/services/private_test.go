@@ -89,7 +89,7 @@ func TestPrivateDevelopmentBuildLeavesTheSettingAlone(t *testing.T) {
 func TestPrivateForcedCannotBeTurnedOff(t *testing.T) {
 	s, _, _, _ := privateEnv(t, privatemode.Options{Override: privatemode.OverrideOn})
 	got, err := s.Set(false)
-	if ErrorCode(err) != CodePrivateForced || !got.On || got.Source != "environment" {
-		t.Errorf("Set(false) = %+v, %v (code %s)", got, err, ErrorCode(err))
+	if CodeOf(err) != CodePrivateForced || !got.On || got.Source != "environment" {
+		t.Errorf("Set(false) = %+v, %v (code %s)", got, err, CodeOf(err))
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -57,6 +58,14 @@ var (
 	ErrNoAccount        = errors.New("auth: no account metadata")
 	ErrNotSignedIn      = errors.New("auth: not signed in")
 	ErrNoBrowserSignIn  = errors.New("auth: no browser sign-in is waiting")
+	// ErrBrowserOpen is a browser sign-in whose page couldn't be opened;
+	// the attempt keeps waiting for the link to be opened by hand.
+	ErrBrowserOpen = errors.New("auth: could not open a browser; open the sign-in link manually")
+	// ErrStoredUnreadable is stored credentials that couldn't be decoded
+	// and were discarded.
+	ErrStoredUnreadable = errors.New("auth: stored credentials were unreadable; sign in again")
+	// ErrSignOutIncomplete wraps the steps of SignOut that failed.
+	ErrSignOutIncomplete = errors.New("auth: sign-out incomplete")
 	// ErrKeyring wraps every failure of the token store (keyring or file).
 	ErrKeyring = errors.New("auth: keyring unavailable")
 	// ErrKeyringTimeout is a token store that didn't answer within
@@ -66,10 +75,11 @@ var (
 
 // Account is the non-secret metadata cached for the signed-in account.
 type Account struct {
-	StorefrontID       string // e.g. "gb"
-	StorefrontName     string // e.g. "United Kingdom"
-	Language           string // storefront default language tag, e.g. "en-GB"
-	Restricted         bool   // explicit content restricted (itre)
+	StorefrontID       string   // e.g. "gb"
+	StorefrontName     string   // e.g. "United Kingdom"
+	Language           string   // storefront default language tag, e.g. "en-GB"
+	Languages          []string // every content language the storefront offers
+	Restricted         bool     // explicit content restricted (itre)
 	MUTObtainedAt      time.Time
 	MUTLastValidatedAt time.Time
 }
@@ -98,6 +108,10 @@ type Status struct {
 	// validation retries with backoff.
 	Offline   bool   `json:"offline"`
 	LastError string `json:"lastError,omitempty"`
+	// LastCause is the error behind LastError (nil when it is empty), so
+	// callers can classify it without parsing LastError, which is English
+	// for logs.
+	LastCause error `json:"-"`
 	// BrowserSignIn is set while the browser (loopback) sign-in waits, so
 	// the UI can offer a new link (SignInLink) when opening a browser failed
 	// or the page was closed.
@@ -264,6 +278,18 @@ func (m *Manager) statusLocked() Status {
 	return s
 }
 
+// Languages returns the signed-in storefront's content languages: its
+// default and every one it offers (BCP 47 tags). Both are empty while
+// signed out, restoring, or before a validation has read them.
+func (m *Manager) Languages() (def string, supported []string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if !m.hasAccount || m.st.State == StateSignedOut || m.st.State == StateRestoring {
+		return "", nil
+	}
+	return m.account.Language, slices.Clone(m.account.Languages)
+}
+
 // UserToken returns the Music User Token for requests, or "" when signed
 // out or when Apple rejected the token (needs_reauth), so catalog requests
 // keep working with the developer token alone. Pass it to applemusic.New.
@@ -392,7 +418,7 @@ func (m *Manager) restore(fresh bool) {
 				if m.restoring != id {
 					return false
 				}
-				m.st = Status{State: StateSignedOut, Keyring: KeyringUnavailable, LastError: "the keyring didn't answer"}
+				m.st = Status{State: StateSignedOut, Keyring: KeyringUnavailable, LastError: "the keyring didn't answer", LastCause: ErrKeyringTimeout}
 				return true
 			})
 			m.log.Warn("the keyring didn't answer; signed out until it does", "after", m.cfg.KeyringTimeout.String())
@@ -436,7 +462,7 @@ func (m *Manager) restored(id uint64, rec store.Record, err error) {
 				return false
 			}
 			m.restoring = 0
-			m.st = Status{State: StateSignedOut, LastError: msg}
+			m.st = Status{State: StateSignedOut, LastError: msg, LastCause: ErrStoredUnreadable}
 			return true
 		})
 		return
@@ -446,7 +472,11 @@ func (m *Manager) restored(id uint64, rec store.Record, err error) {
 				return false
 			}
 			m.restoring = 0
-			m.st = Status{State: StateSignedOut, Keyring: KeyringUnavailable, LastError: err.Error()}
+			cause := err
+			if !errors.Is(cause, ErrKeyring) {
+				cause = fmt.Errorf("%w: %w", ErrKeyring, err)
+			}
+			m.st = Status{State: StateSignedOut, Keyring: KeyringUnavailable, LastError: err.Error(), LastCause: cause}
 			return true
 		})
 		m.log.Warn("stored credentials unreadable; signed out", "backend", m.vault.Backend(), "err", err)
@@ -590,7 +620,7 @@ func (m *Manager) settle(rec store.Record, sf applemusic.Resource[applemusic.Sto
 				return false
 			}
 			m.token = ""
-			m.st = Status{State: StateNeedsReauth, LastError: "Apple no longer accepts this sign-in; sign in again"}
+			m.st = Status{State: StateNeedsReauth, LastError: "Apple no longer accepts this sign-in; sign in again", LastCause: ErrMUTRejected}
 			return true
 		})
 		m.log.Warn("music user token rejected", "err", err)
@@ -600,7 +630,7 @@ func (m *Manager) settle(rec store.Record, sf applemusic.Resource[applemusic.Sto
 			if !current() || m.st.State == StateError {
 				return false
 			}
-			m.st = Status{State: StateError, LastError: "developer token rejected"}
+			m.st = Status{State: StateError, LastError: "developer token rejected", LastCause: ErrDevTokenRejected}
 			return true
 		})
 		m.log.Error("developer token rejected", "err", err)
@@ -622,6 +652,7 @@ func accountFrom(sf applemusic.Resource[applemusic.StorefrontAttributes], rec st
 		StorefrontID:       sf.ID,
 		StorefrontName:     sf.Attributes.Name,
 		Language:           sf.Attributes.DefaultLanguageTag,
+		Languages:          slices.Clone(sf.Attributes.SupportedLanguageTags),
 		Restricted:         rec.Restricted,
 		MUTObtainedAt:      rec.ObtainedAt,
 		MUTLastValidatedAt: now,
@@ -715,7 +746,7 @@ func (m *Manager) beginAttempt(ctx context.Context, state State) (context.Contex
 
 // restoreLocked ends the pending attempt and returns to the prior state; it
 // returns the record to revalidate, if any.
-func (m *Manager) restoreLocked(lastErr string) (store.Record, bool) {
+func (m *Manager) restoreLocked(lastErr string, cause error) (store.Record, bool) {
 	m.attempt++
 	m.cancelAttempt = nil
 	prior := m.prior
@@ -723,6 +754,9 @@ func (m *Manager) restoreLocked(lastErr string) (store.Record, bool) {
 		prior = StateSignedOut
 	}
 	m.st = Status{State: prior, LastError: lastErr}
+	if lastErr != "" {
+		m.st.LastCause = cause
+	}
 	needs := m.record.Token != "" && !m.validated && (prior == StateSignedIn || prior == StateValidating)
 	return m.record, needs
 }
@@ -749,7 +783,7 @@ func (m *Manager) failAttempt(id uint64, err error) error {
 		if m.attempt != id {
 			return false
 		}
-		rec, revl = m.restoreLocked(msg)
+		rec, revl = m.restoreLocked(msg, err)
 		return true
 	}) && revl {
 		m.startValidation(rec)
@@ -803,7 +837,8 @@ func (m *Manager) SignIn(ctx context.Context, open func(url string) error) error
 				if m.attempt != id {
 					return false
 				}
-				m.st.LastError = "could not open a browser; open the sign-in link manually"
+				m.st.LastError = ErrBrowserOpen.Error()
+				m.st.LastCause = ErrBrowserOpen
 				return true
 			})
 		}
@@ -946,7 +981,7 @@ func (m *Manager) CancelSignIn() {
 			return false
 		}
 		m.cancelAttempt()
-		rec, revl = m.restoreLocked("")
+		rec, revl = m.restoreLocked("", nil)
 		return true
 	}) && revl {
 		m.startValidation(rec)
@@ -992,9 +1027,13 @@ func (m *Manager) SignOut(ctx context.Context) error {
 		}
 	}
 	err := errors.Join(errs...)
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrSignOutIncomplete, err)
+	}
 	m.update(func() bool {
 		if m.st.State == StateSignedOut && err != nil {
-			m.st.LastError = "sign-out incomplete: " + err.Error()
+			m.st.LastError = err.Error()
+			m.st.LastCause = err
 		}
 		return true
 	})

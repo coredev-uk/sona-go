@@ -1,5 +1,5 @@
 import type { Settings } from "@bindings/config";
-import type { Capabilities } from "@bindings/services";
+import type { AppleLanguages, Capabilities } from "@bindings/services";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -12,6 +12,7 @@ import { GeneralSection } from "./General";
 
 const capabilities = vi.fn<() => Promise<Capabilities>>();
 let settings: Settings;
+let appleLanguages: AppleLanguages = { mapped: 0.07, locales: [] };
 
 vi.mock("@bindings/services", () => ({
   SystemService: { Settings: () => Promise.resolve(settings), UpdateSettings: vi.fn() },
@@ -19,6 +20,7 @@ vi.mock("@bindings/services", () => ({
   DesktopService: { ResetWindowSize: vi.fn() },
   IntegrationsService: { Status: () => new Promise(() => {}) },
   UpdatesService: { Status: () => new Promise(() => {}), Check: vi.fn() },
+  TranslationsService: { Languages: () => Promise.resolve(appleLanguages) },
 }));
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ children }: { children: ReactNode }) => <a href="#">{children}</a>,
@@ -58,6 +60,7 @@ async function renderSection(s: Settings, caps: Capabilities = linuxCapabilities
 const headings = () => screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
 
 afterEach(() => {
+  appleLanguages = { mapped: 0.07, locales: [] };
   cleanup();
   vi.clearAllMocks();
 });
@@ -67,6 +70,32 @@ describe("GeneralSection", () => {
     await renderSection(desktop());
     await screen.findByText("Track notifications");
     expect(headings()).toEqual(["Starting Sona", "Window", "While music plays", "Updates"]);
+  });
+
+  it("offers no Language row while English is the only complete language", async () => {
+    await renderSection(desktop());
+    await screen.findByText("Track notifications");
+    expect(screen.queryByRole("combobox", { name: "Language" })).toBeNull();
+  });
+
+  it("puts Language first once a second language is selectable", async () => {
+    appleLanguages = {
+      mapped: 0.95,
+      locales: [
+        { tag: "fr-FR", coverage: 0.95, measured: true },
+        { tag: "de-DE", coverage: 0.4, measured: true },
+      ],
+    };
+    await renderSection(desktop());
+    const language = await screen.findByRole("combobox", { name: "Language" });
+    expect(language.textContent).toBe("Automatic");
+    expect(screen.getAllByRole("combobox")[0]).toBe(language);
+  });
+
+  it("keeps the Language row while a language is chosen", async () => {
+    await renderSection({ ...desktop(), language: "fr-FR" } as Settings);
+    const language = await screen.findByRole("combobox", { name: "Language" });
+    expect(language.textContent).toBe("Français (France)");
   });
 
   it("offers Start in the tray only once Sona starts at login", async () => {

@@ -27,8 +27,12 @@ type Realtime struct {
 	Priority int
 	// Threads counts the child's threads that got it.
 	Threads int
-	// Reason says why realtime was refused or is unavailable.
+	// Reason says why realtime was refused or is unavailable, in the
+	// backend's words (for the log).
 	Reason string
+	// Refusal is why realtime was refused (RealtimeRaised or
+	// RealtimeDenied); "" otherwise.
+	Refusal playback.RealtimeRefusal
 }
 
 // threadReport is a child→parent frame: the child's audio threads, by
@@ -103,10 +107,10 @@ func (env rtEnv) raise(pid int, tids []int) (rt Realtime, ok bool) {
 	var rtErr error
 	switch {
 	case priority < 1:
-		rtErr = fmt.Errorf("%s allows no realtime priority", b.name())
+		rtErr, rt.Refusal = fmt.Errorf("%s allows no realtime priority", b.name()), playback.RealtimeNoPriority
 	case lim.rttimeMax > 0:
 		if err := env.limitRTTime(pid, lim.rttimeMax); err != nil {
-			rtErr = fmt.Errorf("limit the host's realtime CPU time: %w", err)
+			rtErr, rt.Refusal = fmt.Errorf("limit the host's realtime CPU time: %w", err), playback.RealtimeCPULimit
 		}
 	}
 	var realtime, raised int
@@ -118,7 +122,7 @@ func (env rtEnv) raise(pid int, tids []int) (rt Realtime, ok bool) {
 				realtime++
 				continue
 			}
-			rtErr = fmt.Errorf("%s: %w", b.name(), err)
+			rtErr, rt.Refusal = fmt.Errorf("%s: %w", b.name(), err), playback.RealtimeRefused
 		}
 		if lim.minNice >= 0 {
 			continue

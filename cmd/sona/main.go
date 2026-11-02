@@ -33,6 +33,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/diag"
 	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 	"github.com/coredev-uk/sona-go/internal/library"
 	"github.com/coredev-uk/sona-go/internal/logging"
 	"github.com/coredev-uk/sona-go/internal/motion"
@@ -60,6 +61,10 @@ var version = "dev"
 // first paint.
 const paintFallback = 10 * time.Second
 
+// Sona's description in the About panel (macOS's application menu), in
+// the language at startup.
+const msgDescription l10n.Message = "Apple Music for the Linux desktop"
+
 func main() {
 	// The CDM host re-executes this binary as its child process; in the
 	// child this never returns. It must run before anything else.
@@ -74,7 +79,9 @@ func main() {
 	// `sona play`, `sona status` and the other commands (internal/cli) act
 	// on the running instance and exit; they never start Sona.
 	if cli.IsCommand(os.Args[1:]) {
-		os.Exit(cli.Run(context.Background(), os.Args[1:], cli.Env{Stdout: os.Stdout, Stderr: os.Stderr, Dial: dialInstance, Version: version}))
+		os.Exit(cli.Run(context.Background(), os.Args[1:], cli.Env{
+			Stdout: os.Stdout, Stderr: os.Stderr, Dial: dialInstance, Version: version, Printer: cliPrinter(),
+		}))
 	}
 
 	started := time.Now()
@@ -82,6 +89,18 @@ func main() {
 		fmt.Fprintln(os.Stderr, "sona:", err)
 		os.Exit(1)
 	}
+}
+
+// cliPrinter is the command line's language: the Language setting
+// (Settings → General) when one is chosen, else the system's languages.
+// An unreadable settings file means Automatic.
+func cliPrinter() *l10n.Printer {
+	if paths, err := config.ResolvePaths(os.Getenv); err == nil {
+		if s, err := config.LoadSettings(paths.SettingsFile()); err == nil && s.Language != config.LanguageAutomatic {
+			return l10n.For([]string{s.Language})
+		}
+	}
+	return l10n.For(l10n.SystemLanguages())
 }
 
 func run(started time.Time) error {
@@ -132,6 +151,16 @@ func run(started time.Time) error {
 	}
 	defer d.Close()
 
+	// The user's language (Settings → General → Language, else the
+	// system's) for Go's own text and Apple's content language.
+	lang := l10n.NewLanguage(settings.Get().Language)
+	lang.DetectSystem()
+	settings.OnChange(func(prev, next config.Settings) {
+		if prev.Language != next.Language {
+			lang.SetSetting(next.Language)
+		}
+	})
+
 	// One HTTP/2 client for every Apple request; its transport holds
 	// requests until the first paint so cold start stays local.
 	gate := services.NewGate(paintFallback, log)
@@ -152,6 +181,12 @@ func run(started time.Time) error {
 	defer authm.Close()
 
 	api := applemusic.New(httpClient, dev, authm.UserToken)
+	// Apple's content in the user's language where the account's
+	// storefront offers it (l=), else the storefront's default.
+	api.Language = func() string {
+		def, supported := authm.Languages()
+		return applemusic.ContentLanguage(lang.Preferred(), def, supported)
+	}
 	fallbackSF := localeStorefront()
 	storefront := func() string {
 		if sf := authm.Status().StorefrontID; sf != "" {
@@ -284,7 +319,7 @@ func run(started time.Time) error {
 
 	wapp := application.New(application.Options{
 		Name:         "Sona",
-		Description:  "Apple Music for the Linux desktop",
+		Description:  lang.Printer().T(msgDescription),
 		Icon:         build.AppIcon,
 		Logger:       log,
 		MarshalError: services.MarshalError,
@@ -308,14 +343,14 @@ func run(started time.Time) error {
 	sh := shell.New(shell.Options{
 		App: wapp, Settings: settings, Coord: coord, Logger: log.With("component", "shell"),
 		WindowIcon: build.AppIcon, TrayIcon: build.TrayIcon, Background: windowBackground(cur.Theme),
-		Hidden: act.Hidden(), Private: private, TitleBar: plat.TitleBar(), StartRoute: startRoute,
+		Hidden: act.Hidden(), Private: private, Language: lang, TitleBar: plat.TitleBar(), StartRoute: startRoute,
 	})
 	defer sh.Close() // after core.Close, before coord.Close
 	log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "webkitgtk", webkitVersion(), "hidden", act.Hidden())
 
 	core := services.New(services.Deps{
 		Paths: paths, QueueFile: queueFile, Settings: settings, DB: d, Auth: authm, API: api,
-		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, CDM: cdmMgr, AppleStrings: appleStrings, Coord: coord,
+		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, CDM: cdmMgr, AppleStrings: appleStrings, Language: lang, Coord: coord,
 		History: history, Private: private, Storefront: storefront, Gate: gate, Emit: wapp.Event, Logger: log,
 		OpenURL: wapp.Browser.OpenURL, Focus: sh.ShowMain, Focused: sh.MainFocused, Windows: sh, Platform: plat.Services(),
 		Version: version, WebKit: webkitVersion(), Started: started,

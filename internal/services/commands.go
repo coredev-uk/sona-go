@@ -131,8 +131,8 @@ func (s *commandServer) Call(ctx context.Context, req cli.Request) (any, error) 
 // fail is err as the command's error, with Sona's error code.
 func (s *commandServer) fail(err error) error {
 	s.e.Report(err)
-	code := ErrorCode(err)
-	if code == CodeUnknown {
+	code := string(CodeOf(err))
+	if code == string(CodeUnknown) {
 		code = cli.CodeFailed
 	}
 	return &cli.Error{Code: code, Message: err.Error()}
@@ -281,7 +281,7 @@ func (s *commandServer) like(ctx context.Context, args []string) (any, error) {
 	case auth.StateRestoring, auth.StateValidating:
 		return nil, &cli.Error{Code: cli.CodeAccountLoading}
 	default:
-		return nil, &cli.Error{Code: CodeNotSignedIn}
+		return nil, &cli.Error{Code: string(CodeNotSignedIn)}
 	}
 	cur := s.e.Coord.Snapshot().Current
 	if cur == nil {

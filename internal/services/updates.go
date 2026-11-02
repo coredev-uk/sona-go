@@ -79,7 +79,7 @@ func (s *UpdatesService) check(ctx context.Context) (UpdateStatus, error) {
 	case errors.Is(err, update.ErrNoRelease):
 		st.Latest, st.Available, st.URL, st.Published = "", false, "", 0
 	case err != nil:
-		st.Error = err.Error()
+		st.Error = CodeOf(err)
 		s.o.Logger.Warn("update check failed", "err", err)
 		return *st, err
 	default:

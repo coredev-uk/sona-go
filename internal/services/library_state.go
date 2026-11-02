@@ -331,7 +331,7 @@ func (s *LibraryService) CopyLink(r ItemRef) (string, error) {
 	}
 	u := "https://music.apple.com/" + url.PathEscape(s.o.Storefront()) + "/" + seg + "/" + url.PathEscape(cat)
 	if !s.setClipboard(u) {
-		return "", fmt.Errorf("copy link: the clipboard is unavailable")
+		return "", fmt.Errorf("copy link: %w", ErrClipboard)
 	}
 	return u, nil
 }

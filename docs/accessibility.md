@@ -156,6 +156,8 @@ mode, audio on your own null sink: CONTRIBUTING.md), in both themes.
 - No one has yet listened to Orca speak Sona's announcements in a desktop
   session.
 - Behind a modal, Radix keeps live regions exposed, so `<main>` (which holds
-  the shortcut recorders' live notes) stays out of `aria-hidden`/`inert`,
-  and axe reports `scrollable-region-focusable` on it while the Settings →
-  Shortcuts "Reset all" dialog is open. Nothing needs to scroll it then.
+  the shortcut recorders' live notes, or Settings → General's update status)
+  stays out of `aria-hidden`/`inert`, and axe reports
+  `scrollable-region-focusable` on it while the Settings → Shortcuts "Reset
+  all" dialog or any Settings → General select (Language, Open on…) is
+  open. Nothing needs to scroll it then.

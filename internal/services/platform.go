@@ -30,8 +30,9 @@ type Platform struct {
 	// receives a clicked action's key (notify.DefaultAction for the body).
 	// It is called again after a failure (the server may start later).
 	Notifications func(ctx context.Context, onAction func(key string)) (Notifier, error)
-	// Inhibitor returns the sleep inhibitor held while music plays.
-	Inhibitor func() SleepInhibitor
+	// Inhibitor returns the sleep inhibitor held while music plays; why
+	// is the reason it shows, in the user's language when it is taken.
+	Inhibitor func(why func() string) SleepInhibitor
 	// Power opens the power source monitor (UPower on Linux).
 	Power func() (PowerMonitor, error)
 	// Autostart is the login item.

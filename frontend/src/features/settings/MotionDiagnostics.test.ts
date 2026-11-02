@@ -1,4 +1,5 @@
 import type { MotionStatus, PowerState } from "@bindings/services";
+import { ErrorCode } from "@bindings/services/models";
 import { describe, expect, it } from "vitest";
 
 import type { MotionState } from "@/shared/lib/motion";
@@ -11,7 +12,7 @@ const mains: PowerState = {
   source: "mains",
   upower: false,
   ignored: 0,
-  error: "",
+  unreadable: false,
 };
 
 const playing: MotionState = {
@@ -30,7 +31,7 @@ const status: MotionStatus = {
   power: mains,
   cacheFiles: 2,
   cacheBytes: 2048,
-  last: { at: 0, size: 0, codec: "", rendition: "", error: "" },
+  last: { at: 0, size: 0, codec: "", rendition: "", error: ErrorCode.$zero },
 };
 
 const row = (s: MotionState, label: string, st: MotionStatus | undefined = status) =>
@@ -66,15 +67,27 @@ describe("motionGroup", () => {
     expect(p?.detail).toMatch(/UPower itself reports this computer on battery/);
   });
 
-  it("shows Go's last download failure", () => {
+  it("words Go's last download failure", () => {
     const failed = {
       ...status,
-      last: { at: Date.now(), size: 480, codec: "avc", rendition: "", error: "no H.264 rendition" },
+      last: {
+        at: Date.now(),
+        size: 480,
+        codec: "avc",
+        rendition: "",
+        error: ErrorCode.CodeNoRendition,
+      },
     };
     expect(row(playing, "Last download", failed)).toMatchObject({
       status: "warning",
-      detail: "no H.264 rendition",
+      detail: "Apple doesn't offer this video in a format Sona can play.",
     });
+  });
+
+  it("says when UPower didn't answer", () => {
+    const p = row({ ...playing, power: { ...mains, followed: false, unreadable: true } }, "Power");
+    expect(p).toMatchObject({ status: "warning" });
+    expect(p?.detail).toBe("UPower didn't answer. Sona's log says why.");
   });
 });
 

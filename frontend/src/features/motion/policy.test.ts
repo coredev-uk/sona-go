@@ -11,7 +11,7 @@ const mains: PowerState = {
   source: "mains",
   upower: false,
   ignored: 0,
-  error: "",
+  unreadable: false,
 };
 
 describe("motionState", () => {

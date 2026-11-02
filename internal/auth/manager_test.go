@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -76,7 +77,7 @@ func (f *fakeApple) serve(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "", http.StatusForbidden)
 			return
 		}
-		w.Write([]byte(`{"data":[{"id":"gb","type":"storefronts","attributes":{"name":"United Kingdom","defaultLanguageTag":"en-GB"}}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"id":"gb","type":"storefronts","attributes":{"name":"United Kingdom","defaultLanguageTag":"en-GB","supportedLanguageTags":["en-GB","cy-GB"]}}]}`))
 	case strings.HasPrefix(r.URL.Path, "/v1/storefronts/"):
 		f.catalog.Add(1)
 		w.Write([]byte(`{"data":[{"id":"gb","type":"storefronts"}]}`))
@@ -287,7 +288,13 @@ func TestRestartSignedInWithoutBlockingOnNetwork(t *testing.T) {
 	gate := make(chan struct{})
 	e.apple.set(func(f *fakeApple) { f.gate = gate })
 	m, rec := e.manager(t)
+	if def, supported := m.Languages(); def != "" || supported != nil {
+		t.Fatalf("languages before the restore = %q, %q", def, supported)
+	}
 	s := start(t, m, rec) // must not wait for the gated server
+	if def, supported := m.Languages(); def != "en-GB" || !slices.Equal(supported, []string{"en-GB", "cy-GB"}) {
+		t.Fatalf("languages after restart = %q, %q", def, supported)
+	}
 	if s.State != StateSignedIn || s.StorefrontID != "gb" || s.StorefrontName != "United Kingdom" || s.Language != "en-GB" {
 		t.Fatalf("status after restart = %+v", s)
 	}

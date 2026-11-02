@@ -151,7 +151,7 @@ func (s *ScrobbleService) approveLastFM(ctx context.Context) (scrobble.Session, 
 		return scrobble.Session{}, err
 	}
 	if err := s.e.OpenURL(s.lastfm.AuthURL(token)); err != nil {
-		return scrobble.Session{}, fmt.Errorf("open the Last.fm approval page: %w", err)
+		return scrobble.Session{}, fmt.Errorf("%w: the Last.fm approval page: %w", ErrOpenBrowser, err)
 	}
 	return s.lastfm.AwaitSession(ctx, token, s.poll)
 }
@@ -169,7 +169,7 @@ func (s *ScrobbleService) CancelConnect() {
 func (s *ScrobbleService) ConnectListenBrainz(ctx context.Context, token string) (ScrobbleStatus, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
-		return ScrobbleStatus{}, fmt.Errorf("%w: paste your ListenBrainz user token", ErrInvalidArgument)
+		return ScrobbleStatus{}, ErrTokenRequired
 	}
 	s.load()
 	user, err := s.lb.Validate(ctx, token)

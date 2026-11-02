@@ -1,0 +1,70 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: sona i18ntool\n"
+"Language: en\n"
+
+#: player/player.go
+#, go-format
+msgid "%d songs"
+msgstr ""
+
+#: player/player.go
+msgid "A raw \"quoted\" string"
+msgstr ""
+
+#: player/player.go
+msgid "Converted"
+msgstr ""
+
+#. English is a message inside the package itself.
+#: internal/i18n/l10n/l10n.go
+msgid "Inside the package"
+msgstr ""
+
+#: player/player.go
+msgid "Joined from parts"
+msgstr ""
+
+#: player/player.go
+msgid "Next"
+msgstr ""
+
+#: platform/platform_windows.go
+msgid "Only on Windows"
+msgstr ""
+
+#. the pause button
+#: player/player.go
+msgid "Pause"
+msgstr ""
+
+#. msgPlay is the play button.
+#: player/player.go
+#: tray/tray.go
+msgid "Play"
+msgstr ""
+
+#: player/player.go
+msgid "Previous"
+msgstr ""
+
+#. msgQuit is the tray's last item. keep it short
+#: tray/tray.go
+msgid "Quit"
+msgstr ""
+
+#. MsgPublic is used from another package.
+#: player/player.go
+msgid "Shared"
+msgstr ""
+
+#: player/player.go
+msgid "Shuffle"
+msgstr ""
+
+#: player/player.go
+msgid "Stop"
+msgstr ""

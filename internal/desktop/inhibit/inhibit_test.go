@@ -23,6 +23,7 @@ type fakeLogind struct {
 	mu    sync.Mutex
 	modes []string
 	what  []string
+	whys  []string
 	ends  []*os.File // read ends, one per lock
 	srv   []*os.File // the server's copies of the write ends
 }
@@ -32,6 +33,7 @@ func (f *fakeLogind) Inhibit(what, who, why, mode string) (dbus.UnixFD, *dbus.Er
 	defer f.mu.Unlock()
 	f.modes = append(f.modes, mode)
 	f.what = append(f.what, what)
+	f.whys = append(f.whys, why)
 	r, w, err := os.Pipe()
 	if err != nil {
 		f.t.Error(err)
@@ -141,7 +143,8 @@ func dialer(t *testing.T, addr string) func() (*dbus.Conn, error) {
 func TestLogindLockHeldUntilRelease(t *testing.T) {
 	addr := dbustest.Start(t)
 	logind := startLogind(t, addr)
-	in := New(Options{System: dialer(t, addr), Who: "Sona", Why: "Playing music"})
+	reason := "Playing music"
+	in := New(Options{System: dialer(t, addr), Who: "Sona", Why: func() string { return reason }})
 	t.Cleanup(func() { _ = in.Close() })
 
 	ctx := context.Background()
@@ -156,10 +159,10 @@ func TestLogindLockHeldUntilRelease(t *testing.T) {
 		t.Fatalf("backend = %q", in.Backend())
 	}
 	logind.mu.Lock()
-	locks, what, modes := len(logind.ends), logind.what, logind.modes
+	locks, what, modes, whys := len(logind.ends), logind.what, logind.modes, logind.whys
 	logind.mu.Unlock()
-	if locks != 1 || what[0] != "sleep" || modes[0] != "block" {
-		t.Fatalf("locks %d, what %v, modes %v", locks, what, modes)
+	if locks != 1 || what[0] != "sleep" || modes[0] != "block" || whys[0] != "Playing music" {
+		t.Fatalf("locks %d, what %v, modes %v, why %q", locks, what, modes, whys)
 	}
 	if !logind.held(t, 0) {
 		t.Fatal("lock not held after Acquire")
@@ -174,9 +177,17 @@ func TestLogindLockHeldUntilRelease(t *testing.T) {
 		t.Errorf("backend after release = %q", in.Backend())
 	}
 
-	// Acquire again after a release takes a new lock.
+	// Acquire again after a release takes a new lock, with the reason as
+	// it is now (the language may have changed).
+	reason = "Lecture en cours"
 	if err := in.Acquire(ctx); err != nil {
 		t.Fatal(err)
+	}
+	logind.mu.Lock()
+	why := logind.whys[1]
+	logind.mu.Unlock()
+	if why != reason {
+		t.Errorf("second lock's reason = %q", why)
 	}
 	logind.dropServerCopies()
 	if !logind.held(t, 1) {
@@ -193,7 +204,7 @@ func TestLogindLockHeldUntilRelease(t *testing.T) {
 func TestPortalFallback(t *testing.T) {
 	addr := dbustest.Start(t)
 	portal := startPortal(t, addr) // no logind on this bus
-	in := New(Options{System: dialer(t, addr), Session: dbustest.Conn(t, addr), Who: "Sona", Why: "Playing music"})
+	in := New(Options{System: dialer(t, addr), Session: dbustest.Conn(t, addr), Who: "Sona", Why: func() string { return "Playing music" }})
 	t.Cleanup(func() { _ = in.Close() })
 	if err := in.Acquire(context.Background()); err != nil {
 		t.Fatal(err)
@@ -219,7 +230,7 @@ func TestPortalFallback(t *testing.T) {
 
 func TestNothingAvailable(t *testing.T) {
 	addr := dbustest.Start(t)
-	in := New(Options{System: dialer(t, addr), Session: dbustest.Conn(t, addr), Who: "Sona", Why: "x"})
+	in := New(Options{System: dialer(t, addr), Session: dbustest.Conn(t, addr), Who: "Sona"})
 	t.Cleanup(func() { _ = in.Close() })
 	if err := in.Acquire(context.Background()); err == nil {
 		t.Fatal("Acquire succeeded with neither logind nor the portal")

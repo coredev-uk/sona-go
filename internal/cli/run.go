@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 )
 
 // Exit statuses of `sona <command>`.
@@ -28,6 +30,10 @@ type Env struct {
 	Dial func() (Transport, error)
 	// Version is Sona's version, for the manual page.
 	Version string
+	// Printer words help, the manual page, completions' descriptions,
+	// printed lines and errors (nil: English). JSON output is the same in
+	// every language.
+	Printer *l10n.Printer
 }
 
 // Run runs a command line whose first argument is a command (IsCommand)
@@ -38,20 +44,21 @@ func Run(ctx context.Context, argv []string, env Env) int {
 	if err != nil {
 		return env.fail(err)
 	}
+	p := env.Printer
 	if in.help {
-		return env.done(writeHelp(env.Stdout, in.cmd))
+		return env.done(writeHelp(env.Stdout, p, in.cmd))
 	}
 	switch in.cmd.name {
 	case "help":
 		switch {
 		case in.man:
-			return env.done(writeMan(env.Stdout, env.Version))
+			return env.done(writeMan(env.Stdout, p, env.Version))
 		case len(in.args) == 1:
-			return env.done(writeHelp(env.Stdout, lookup(in.args[0])))
+			return env.done(writeHelp(env.Stdout, p, lookup(in.args[0])))
 		}
-		return env.done(writeOverview(env.Stdout))
+		return env.done(writeOverview(env.Stdout, p))
 	case "completion":
-		return env.done(writeCompletion(env.Stdout, in.args[0]))
+		return env.done(writeCompletion(env.Stdout, p, in.args[0]))
 	}
 
 	t, err := env.Dial()
@@ -81,7 +88,7 @@ func (env Env) print(in *invocation, raw json.RawMessage) error {
 		_, err := fmt.Fprintf(env.Stdout, "%s\n", raw)
 		return err
 	}
-	w := env.Stdout
+	w, p := env.Stdout, env.Printer
 	switch in.cmd.name {
 	case "status", "play", "pause", "toggle", "next", "prev":
 		var s Status
@@ -94,37 +101,37 @@ func (env Env) print(in *invocation, raw json.RawMessage) error {
 		if err := decode(raw, &q); err != nil {
 			return err
 		}
-		return writeQueue(w, q)
+		return writeQueue(w, p, q)
 	case "search":
 		var r SearchResults
 		if err := decode(raw, &r); err != nil {
 			return err
 		}
-		return writeSearch(w, r)
+		return writeSearch(w, p, r)
 	case "open":
 		var o Opened
 		if err := decode(raw, &o); err != nil {
 			return err
 		}
-		return writeLine(w, fmt.Sprintf(msgOpened, o.Kind, o.ID))
+		return writeLine(w, p.Sprintf(msgOpened, o.Kind, o.ID))
 	case "volume":
 		var v Volume
 		if err := decode(raw, &v); err != nil {
 			return err
 		}
-		return writeLine(w, msgFieldVolume+": "+fmt.Sprintf(msgPercent, v.Volume))
+		return writeLine(w, p.Sprintf(msgFieldLine, p.T(msgFieldVolume), p.Sprintf(msgPercent, v.Volume)))
 	case "like":
 		var l Like
 		if err := decode(raw, &l); err != nil {
 			return err
 		}
-		return writeLine(w, likeLine(l))
+		return writeLine(w, likeLine(p, l))
 	case "private":
-		var p Private
-		if err := decode(raw, &p); err != nil {
+		var pv Private
+		if err := decode(raw, &pv); err != nil {
 			return err
 		}
-		return writeLine(w, privateLine(p))
+		return writeLine(w, privateLine(p, pv))
 	}
 	return writeLine(w, string(raw))
 }
@@ -146,9 +153,9 @@ func (env Env) writeStatus(in *invocation, s Status) error {
 		}
 		return executeTemplate(env.Stdout, t, s)
 	case in.cmd.name == "status" && !in.follow:
-		return writeStatus(env.Stdout, s)
+		return writeStatus(env.Stdout, env.Printer, s)
 	}
-	return writeLine(env.Stdout, summary(s))
+	return writeLine(env.Stdout, summary(env.Printer, s))
 }
 
 // follow runs `status --follow`: a line now and one per change until Sona
@@ -184,7 +191,7 @@ func (env Env) follow(ctx context.Context, in *invocation, t Transport) int {
 	if err != nil {
 		var cmdErr *Error
 		if !errors.Is(err, ErrNotRunning) && !errors.As(err, &cmdErr) && last != nil {
-			err = fmt.Errorf(msgFollowEnded, err)
+			err = errors.New(env.Printer.Sprintf(msgFollowEnded, err))
 		}
 		return env.unreachable(in, err)
 	}
@@ -207,7 +214,7 @@ func (env Env) unreachable(in *invocation, err error) int {
 		}
 		return ExitNotRunning
 	case errors.Is(err, ErrNotRunning):
-		env.errorf("%s", msgNotRunning)
+		env.errorf(msgNotRunning)
 	default:
 		env.errorf(msgUnreachable, err)
 	}
@@ -218,10 +225,10 @@ func (env Env) unreachable(in *invocation, err error) int {
 func (env Env) fail(err error) int {
 	var e *Error
 	if !errors.As(err, &e) {
-		env.errorf("%v", err)
+		env.write(err.Error())
 		return ExitFailed
 	}
-	env.errorf("%s", errorText(e))
+	env.write(errorText(env.Printer, e))
 	switch e.Code {
 	case CodeUsage, CodeBadLink:
 		return ExitUsage
@@ -231,38 +238,64 @@ func (env Env) fail(err error) int {
 	return ExitFailed
 }
 
-// errorText is the message for a failed command: the client's own for the
-// codes it knows, Sona's otherwise.
-func errorText(e *Error) string {
+// errorText is the message for a failed command: the client's own for
+// the codes it knows, else Sona's (in English) after the client's words.
+func errorText(p *l10n.Printer, e *Error) string {
+	if e.format != "" {
+		return p.Sprintf(e.format, e.args...)
+	}
 	switch e.Code {
 	case CodeUsage:
 		if e.Message == "" {
-			return msgExitUsage
+			return p.T(msgExitUsage)
 		}
+		return e.Message
 	case CodeBadLink:
-		return msgBadLink
+		return p.T(msgBadLink)
 	case CodeStarting:
-		return msgStarting
+		return p.T(msgStarting)
 	case CodeShuttingDown:
-		return msgShuttingDown
+		return p.T(msgShuttingDown)
 	case CodeNothingPlaying:
-		return msgNothingPlaying
+		return p.T(msgNothingPlaying)
 	case CodeAccountLoading:
-		return msgAccountLoading
+		return p.T(msgAccountLoading)
 	case CodeUnknownCommand, CodeIncompatible:
-		return msgIncompatible
-	case "not_signed_in", "unauthorized":
-		return msgNotSignedIn
-	case "private_forced":
-		return msgPrivateForced
-	case "unsupported":
-		return msgUnsupportedOnOS
+		return p.T(msgIncompatible)
 	}
-	return e.Error()
+	// Services' codes (internal/services/errors.go) the commands can fail
+	// with.
+	if m, ok := serviceErrors[e.Code]; ok {
+		return p.T(m)
+	}
+	return p.Sprintf(msgFailed, e.Error())
 }
 
-func (env Env) errorf(format string, args ...any) {
-	_, _ = fmt.Fprintf(env.Stderr, msgErrorPrefix+format+"\n", args...)
+// serviceErrors words the running Sona's error codes
+// (internal/services/errors.go) that commands can fail with.
+var serviceErrors = map[string]l10n.Message{
+	"not_signed_in":   msgNotSignedIn,
+	"unauthorized":    msgNotSignedIn,
+	"mut_rejected":    msgSignInAgain,
+	"private_forced":  msgPrivateForced,
+	"unsupported":     msgUnsupportedOnOS,
+	"network":         msgNetwork,
+	"timeout":         msgTimeout,
+	"not_found":       msgNotFound,
+	"not_playable":    msgNotPlayable,
+	"not_released":    msgNotReleased,
+	"no_subscription": msgNoSubscription,
+	"no_cdm":          msgNoCDM,
+	"keyring":         msgKeyring,
+}
+
+// errorf prints an error message, "sona: " first.
+func (env Env) errorf(format l10n.Message, args ...any) {
+	env.write(env.Printer.Sprintf(format, args...))
+}
+
+func (env Env) write(msg string) {
+	_, _ = fmt.Fprintln(env.Stderr, errorPrefix+msg)
 }
 
 // done is the exit status after printing locally.

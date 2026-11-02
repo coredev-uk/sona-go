@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
 // The macOS sandbox (sandbox_darwin.go) runs the child under sandbox-exec
@@ -111,18 +113,19 @@ func sbplString(s string) string { return strconv.Quote(s) }
 // seatbeltChoice decides whether the child runs under sandbox-exec: not
 // when the developer turned the sandbox off (off), when sandbox-exec is
 // missing (lookErr) or when it refuses the profile (probe, run only if the
-// others pass). reason says why it doesn't.
-func seatbeltChoice(off bool, lookErr error, probe func() error) (use bool, reason string) {
+// others pass). gap says why it doesn't ("" when it does), and reason in
+// the system's words, for the log.
+func seatbeltChoice(off bool, lookErr error, probe func() error) (gap playback.SandboxGap, reason string) {
 	switch {
 	case off:
-		return false, "the macOS sandbox is turned off (" + EnvSeatbelt + "=0)"
+		return playback.SandboxGapTurnedOff, "the macOS sandbox is turned off (" + EnvSeatbelt + "=0)"
 	case lookErr != nil:
-		return false, "no macOS sandbox: " + lookErr.Error()
+		return playback.SandboxGapNoSeatbelt, "no macOS sandbox: " + lookErr.Error()
 	}
 	if err := probe(); err != nil {
-		return false, "no macOS sandbox: sandbox-exec refused Sona's profile: " + err.Error()
+		return playback.SandboxGapRefused, "no macOS sandbox: sandbox-exec refused Sona's profile: " + err.Error()
 	}
-	return true, ""
+	return "", ""
 }
 
 // EnvSeatbelt=0 runs the macOS CDM host child without its sandbox, for

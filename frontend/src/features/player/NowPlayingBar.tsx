@@ -32,6 +32,7 @@ import { Slider } from "@/shared/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { openAccountDialog } from "@/shared/lib/account";
 import { useCapabilities } from "@/shared/lib/capabilities";
+import { codeMessage } from "@/shared/lib/errors";
 import { clockTime, formatTime } from "@/shared/lib/format";
 import { run } from "@/shared/lib/run";
 import { cn } from "@/shared/lib/utils";
@@ -234,8 +235,11 @@ export function NowPlayingBar() {
     subline = <CdmNotice />;
   } else if (state === "error" && error) {
     subline = (
-      // Go's error is engine detail; the line says what happened, the tooltip why.
-      <span className="flex min-w-0 items-center gap-1.5 text-sub text-ink" title={error}>
+      // The line says what happened, the tooltip why (Go's error code, worded).
+      <span
+        className="flex min-w-0 items-center gap-1.5 text-sub text-ink"
+        title={codeMessage(error)}
+      >
         <CircleAlert aria-hidden className="size-3.5 shrink-0 text-danger" strokeWidth={2} />
         <span className="truncate">
           <Trans>Couldn't play this song. Press play to try again.</Trans>

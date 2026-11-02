@@ -37,6 +37,12 @@ type cacheInfo struct {
 	Expired   bool  // past its lifetime, whether or not it was refetched
 }
 
+// cacheScope is the storefront part of a discover_cache key, with the
+// content language Apple is asked in (catalog.CacheScope).
+func (e *Env) cacheScope(sf string) string {
+	return catalog.CacheScope(sf, e.API.ContentLanguage())
+}
+
 // cachedPage reads key from discover_cache and refetches it when it has
 // expired. Before the first paint an existing entry is served as is (cold
 // start never waits for the network); when Apple fails, an expired entry
@@ -50,7 +56,7 @@ func cachedPage[T any](ctx context.Context, e *Env, key string, personal bool, t
 	if sf == "" {
 		return zero, cacheInfo{}, catalog.ErrNoStorefront
 	}
-	key = sf + "|" + key
+	key = e.cacheScope(sf) + "|" + key
 	now := e.Now()
 	var stale *T
 	var info cacheInfo

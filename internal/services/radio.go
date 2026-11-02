@@ -299,12 +299,23 @@ func stationKind(st applemusic.Station) string {
 // stations play song by song; Apple's live stations and episodes stream
 // through the Widevine engine; local broadcasters' clear streams (their
 // own HLS, or TuneIn's Shoutcast) play without DRM.
-func stationPlayability(st applemusic.Station) (bool, string) {
+func stationPlayability(st applemusic.Station) (bool, StationUnavailable) {
 	switch stationKind(st) {
 	case StationLive, StationEpisode:
 		if d := st.Attributes.SupportedDRMs; len(d) > 0 && !slices.Contains(d, "widevine") {
-			return false, "This stream isn't offered with Widevine, the only protection Sona can play."
+			return false, StationNoWidevine
 		}
 	}
 	return true, ""
 }
+
+// StationUnavailable is why Sona can't play a station; the frontend words
+// it.
+type StationUnavailable string
+
+// The reasons a station is unavailable.
+const (
+	// StationNoWidevine is a stream offered only with a protection other
+	// than Widevine, the only one Sona can play.
+	StationNoWidevine StationUnavailable = "no_widevine"
+)

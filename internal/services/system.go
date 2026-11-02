@@ -172,11 +172,9 @@ func (s *SystemService) playback(ctx context.Context, out *DiagPlayback) {
 	out.CDMPath, out.CDMVersion = info.CDMPath, info.CDMVersion
 	out.CDMInterface, out.HostInterface = info.CDMInterface, info.HostInterface
 	out.GStreamer, out.Decoder, out.Sink = info.GStreamer, info.Decoder, info.Sink
-	out.SandboxKind, out.Sandboxed, out.SandboxNote = info.Sandbox, info.Sandboxed, info.SandboxNote
+	out.SandboxKind, out.Sandboxed, out.SandboxGaps = info.Sandbox, info.Sandboxed, info.SandboxGaps
 	out.CDMOK = err == nil
 	out.CDMBlocked = info.Blocked
-	out.Realtime, out.RealtimeVia, out.RealtimePriority, out.RealtimeNote = info.Realtime, info.RealtimeVia, info.RealtimePriority, info.RealtimeNote
-	if err != nil {
-		out.CDMError = err.Error()
-	}
+	out.Realtime, out.RealtimeVia, out.RealtimePriority, out.RealtimeRefusal = info.Realtime, info.RealtimeVia, info.RealtimePriority, info.RealtimeRefusal
+	out.CDMError = CodeOf(err)
 }

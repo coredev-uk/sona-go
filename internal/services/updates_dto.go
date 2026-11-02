@@ -24,7 +24,7 @@ type UpdateStatus struct {
 	Published int64  `json:"published"` // Latest's publication, Unix ms
 	Checked   int64  `json:"checked"`   // last successful check, Unix ms; 0 never
 	// Error is why the last check failed ("" when it succeeded).
-	Error string `json:"error"`
+	Error ErrorCode `json:"error"`
 	// AppImage: this process runs from an AppImage, which AppImageUpdate
 	// can update in place; packages update through the package manager.
 	AppImage bool `json:"appImage"`

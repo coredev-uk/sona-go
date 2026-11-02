@@ -50,7 +50,28 @@ type Sandbox struct {
 	Landlock   int    // Landlock ABI version enforced; 0 when the kernel has none
 	Seccomp    bool   // the seccomp filter is installed
 	InetDenied bool   // the child's own socket(AF_INET, AF_INET6, AF_NETLINK) attempts were refused
-	Reason     string // why a layer is missing; "" when Active
+	Reason     string // why a layer is missing, for the log; "" when Active
+}
+
+// Gaps are the missing layers (Diagnostics).
+func (s Sandbox) Gaps() []playback.SandboxGap {
+	var gaps []playback.SandboxGap
+	switch {
+	case !s.NetNS:
+		gaps = append(gaps, playback.SandboxGapNamespaces)
+	case !s.MountNS:
+		gaps = append(gaps, playback.SandboxGapFilesystem)
+	}
+	if s.Landlock == 0 {
+		gaps = append(gaps, playback.SandboxGapLandlock)
+	}
+	if !s.Seccomp {
+		gaps = append(gaps, playback.SandboxGapSeccomp)
+	}
+	if !s.InetDenied {
+		gaps = append(gaps, playback.SandboxGapNetwork)
+	}
+	return gaps
 }
 
 // Active reports whether every layer is in place.

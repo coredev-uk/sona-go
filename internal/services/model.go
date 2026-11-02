@@ -222,19 +222,19 @@ type Station struct {
 	Kind string `json:"kind"`
 	// Playable: Sona can play it. Unavailable says why not ("" when
 	// playable).
-	Playable    bool   `json:"playable"`
-	Unavailable string `json:"unavailable"`
-	Provider    string `json:"provider"` // stationProviderName, e.g. "Apple Music", "TuneIn"
-	Tagline     string `json:"tagline"`
-	Notes       string `json:"notes"`
-	ShowID      string `json:"showId"` // radio show (apple-curator) of an episode, "" if none
-	ShowName    string `json:"showName"`
-	HostName    string `json:"hostName"`
-	AirTimeMs   int64  `json:"airTimeMs"`  // episode's original broadcast start (Unix ms), 0 if none
-	DurationMs  int64  `json:"durationMs"` // episodes only
-	URL         string `json:"url"`        // music.apple.com link, "" if none
-	Art         Art    `json:"art"`
-	Motion      string `json:"motion"` // as Album.Motion (live, personal and mood stations)
+	Playable    bool               `json:"playable"`
+	Unavailable StationUnavailable `json:"unavailable"`
+	Provider    string             `json:"provider"` // stationProviderName, e.g. "Apple Music", "TuneIn"
+	Tagline     string             `json:"tagline"`
+	Notes       string             `json:"notes"`
+	ShowID      string             `json:"showId"` // radio show (apple-curator) of an episode, "" if none
+	ShowName    string             `json:"showName"`
+	HostName    string             `json:"hostName"`
+	AirTimeMs   int64              `json:"airTimeMs"`  // episode's original broadcast start (Unix ms), 0 if none
+	DurationMs  int64              `json:"durationMs"` // episodes only
+	URL         string             `json:"url"`        // music.apple.com link, "" if none
+	Art         Art                `json:"art"`
+	Motion      string             `json:"motion"` // as Album.Motion (live, personal and mood stations)
 }
 
 // Item kinds: what an Item is and which page it opens.
@@ -296,6 +296,9 @@ const (
 	SectionLive     = "live"     // live radio stations
 	SectionStations = "stations" // local broadcasters, as a dense station list
 	SectionText     = "text"     // a paragraph (Text)
+	// SectionPlaylists is a curator's playlists as a row of cover cards,
+	// untitled: the frontend words its heading.
+	SectionPlaylists = "playlists"
 )
 
 // Section is one block of an editorial page or Home.
