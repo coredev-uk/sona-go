@@ -148,7 +148,7 @@ Go's `min`/`max` pass NaN through, so `Volume = nan` reached the snapshots, the 
 ## F8. A compromised child could exhaust the parent's memory (Low, fixed)
 
 **Fix** (`internal/playback/cdmhost/host.go`):
-- **Frame size.** The parent reads child frames through `gobFrames`. It parses gob's per-message length prefix and fails a message over 16 MiB (`maxChildFrame`) before gob allocates for it. The largest legitimate child→parent frame is a licence request or renewal of a few KiB.
+- **Frame size.** The parent reads child frames through `gobFrames`. It parses gob's per-message length prefix and fails a message over 16 MiB (`maxChildFrame`) before gob allocates for it. The largest legitimate child→parent frame is a decoded music video picture: about 630 KB for an SD picture (864×486 I420), at most about 5.5 MB at the 1920×1920 limit. Licence requests and renewals are a few KiB.
 - **Event queue.** At most 1024 events (`maxQueuedEvents`) wait for the receiver. Beyond that, position samples are dropped and any other event ends the child.
 - **On a violation**, the parent kills the child, and `Err` wraps the reason (`errMisbehaved`).
 
@@ -227,6 +227,22 @@ Sona downloads the Widevine CDM itself (`internal/playback/cdm`), with no prompt
 - A genuine but older Google build is acceptable on a first install. It is still Google's signed CDM.
 - When the playback sandbox is unavailable, the load check is skipped (logged) and the CDM host refuses to load the CDM anyway (F3).
 - The CDM itself remains Google's closed code running in the sandboxed child (F2's residual risks apply).
+
+## Music videos
+
+Music videos play through the same CDM host child as songs: the CDM decrypts and decodes the video rendition with its own video decoder (`internal/playback/widevine`, `cdmhost`), and the child paces the pictures against the audio clock (docs/architecture.md §4.2). The threats are protected content leaving the child in a form that could be saved, and a compromised child or a page abusing the picture path.
+
+**What leaves the child:** decoded pictures only, as I420 planes, one at a time when each is due. The clear bitstream and the keys never go from the child to the parent (licence requests go out as they do for audio); the parent only sends the child the encrypted segments it fetched.
+
+**Checks in the parent** (`internal/playback/cdmhost/video.go`, `host.go`): a picture is dropped before it reaches `OnVideoFrame` unless both sides are positive and at most 1920 (`MaxVideoSize`) and its data is exactly the I420 size for them (`I420Size`). The general frame limit (F8, 16 MiB) still bounds the message itself.
+
+**Memory only** (`internal/playback/video`): the surface keeps only the latest picture, never a backlog, and never writes one to disk, a cache or a log. When the current item stops being a video, the engine clears it.
+
+**Serving** (`cmd/sona/main.go`): `/video/frame` is answered only by the app's own Wails asset handler, the same one that serves the embedded frontend, so only the app's web view can reach it. No loopback or network listener serves pictures. The answer is the raw planes as `application/octet-stream`, not an image or media format a browser would offer to save.
+
+**Quality:** SD only. Apple licenses HD and 4K only to hardware-backed CDMs (HDCP), and Sona never works around that (docs/apple-music-reference.md §4.5).
+
+**Tests:** `TestVideoFrameValid` and `TestI420Size` (`cdmhost/videotime_test.go`: wrong sizes, short and long data, over the limit), the surface tests (`internal/playback/video/surface_test.go`), and the engine test that only the loaded video's pictures reach the surface (`internal/playback/native/video_test.go`).
 
 ## Apple's translations
 

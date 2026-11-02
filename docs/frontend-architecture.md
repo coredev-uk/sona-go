@@ -773,13 +773,24 @@ standard definition.
   `internal/playback/video` surface, a same-origin asset URL), aborted when
   the view unmounts. A 200 is a picture (`parseFrame`: the 16-byte "SVF1"
   header, little-endian seq, width, height and position, then the I420
-  planes, `planeLayout`), drawn at once (Go times pictures to the audio) and
-  the next request waits from its `X-Video-Seq`. A 204 without
-  `X-Video-Seq` timed out: the picture stays and the view counts a stall. A
-  204 with it means the surface was cleared: the picture goes and the next
-  request waits from that sequence. A failed request waits a second and
-  asks again. Each picture goes straight to the canvas; React re-renders
-  only on a new size, a new queue entry or a stall.
+  planes, `planeLayout`), and the next request waits from its
+  `X-Video-Seq`. A 204 without `X-Video-Seq` timed out: the picture stays
+  and the view counts a stall. A 204 with it means the surface was cleared:
+  the picture goes and the next request waits from that sequence. A failed
+  request waits a second and asks again. React re-renders only on a new
+  size, a new queue entry or a stall.
+- **Frame pacing.** Go already times pictures to the audio clock (the
+  child releases each when it is due), so the web view adds no clock of its
+  own: a picture is drawn at the next animation frame
+  (`requestAnimationFrame`), and the next one is fetched only after that,
+  so at most one picture is uploaded per display frame and none queue up.
+  A picture that waited longer than `STALE_MS` (250 ms) for its animation
+  frame is dropped and the same `after` asked again, which answers at once
+  with the picture due now. A window that isn't drawn (minimised, on
+  another workspace) gets no animation frames, so the loop stops fetching
+  and uploading until it is drawn again. Most of a video's CPU cost is
+  WebKitGTK compositing each new frame, not this path (docs/architecture.md
+  §8, "Music videos").
 - **The renderer** (`video-render.ts`): WebGL, the three planes as
   `LUMINANCE` textures (unpack alignment 1, linear filtering, clamped) and a
   fragment shader converting BT.709 limited range to RGB; a lost context is
@@ -797,8 +808,8 @@ standard definition.
   bar, Now Playing and the mini player drop what a video lacks: lyrics
   (`lyricsSongId` is "" for a video, so nothing fetches them, and the lyrics
   shortcuts are unavailable), the album, and favouriting it as a song (the
-  `F` shortcut and `toggleFavourite`). Videos have no item actions yet, so
-  no Play Next or Add to Queue in menus.
+  `F` shortcut and `toggleFavourite`). Videos have their own action kind,
+  `music-video` ("Item action registry"): Play Next and Add to Queue only.
 
 ## Strings and locales
 
