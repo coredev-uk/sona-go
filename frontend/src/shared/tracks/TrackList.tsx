@@ -70,8 +70,8 @@ interface TrackListProps {
 }
 
 const ROW = 44;
-/** Lists longer than this are virtualised (docs/architecture.md §8). */
-const VIRTUAL_FROM = 200;
+/** Lists longer than this are virtualised (docs/architecture.md §8); they show no disc headings. */
+export const VIRTUAL_FROM = 200;
 
 function gridTemplate(c: TrackColumns, addedBy: boolean): string {
   return [

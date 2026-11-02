@@ -1,6 +1,6 @@
 import type { Header } from "@bindings/services";
 import { useLingui } from "@lingui/react/macro";
-import type { ReactNode, RefObject } from "react";
+import type { ReactNode, Ref, RefObject } from "react";
 
 import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
@@ -13,21 +13,26 @@ import type { Disc } from "./album";
 /**
  * The sleeve: a panel washed in the cover's colour (Go's pre-blurred
  * backdrop under the ground scrim, so text keeps its contrast) that holds
- * the cover and the record's fine print. It is the page's one coloured
+ * the cover and the record's fine print. A 4% ink layer keeps it one tone
+ * step off the ground whatever the cover, a dark one in the dark theme
+ * included, and with reduce effects. It is the page's one coloured
  * surface; the listing beside it sits on the plain ground.
  */
 export function Sleeve({
+  ref,
   header,
   className,
   children,
 }: {
+  ref?: Ref<HTMLDivElement>;
   header: Header;
   className?: string;
   children: ReactNode;
 }) {
   return (
-    <div className={cn("relative overflow-hidden rounded-lg", className)}>
+    <div ref={ref} className={cn("relative overflow-hidden rounded-lg", className)}>
       <Backdrop src={header.backdrop} color={header.colors[0]} tone="ground" />
+      <div aria-hidden className="absolute inset-0 bg-ink/4" />
       <div className="relative">{children}</div>
     </div>
   );

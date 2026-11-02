@@ -24,8 +24,9 @@ import { keys } from "@/shared/lib/keys";
 import { isLibraryId } from "@/shared/lib/queries";
 import { isUpcoming, releaseBadge } from "@/shared/lib/release";
 import { albumTile, playlistTile, videoTile } from "@/shared/lib/tiles";
+import { cn } from "@/shared/lib/utils";
 import { useNow } from "@/shared/lib/useNow";
-import { TrackList } from "@/shared/tracks/TrackList";
+import { TrackList, VIRTUAL_FROM } from "@/shared/tracks/TrackList";
 
 import {
   discsOf,
@@ -40,7 +41,7 @@ import { AlbumCover, Credits, DiscIndex, Sleeve } from "./AlbumSleeve";
 import { albumLayout, type AlbumLayout } from "./layout";
 import { useCatalogAlbum, useLibraryAlbum } from "./queries";
 import { ReleaseStatus } from "./ReleaseStatus";
-import { useWidth } from "./useWidth";
+import { useFitsInPane, useWidth } from "./measure";
 
 const route = getRouteApi("/album/$id");
 
@@ -98,7 +99,7 @@ function LibraryShare({
     other: `${have} of # songs in your library`,
   });
   return (
-    <p className="text-sub text-ink-muted">
+    <p className="text-sub text-ink">
       {line}
       {" · "}
       <Link
@@ -204,6 +205,9 @@ function AlbumBody({
   const { t } = useLingui();
   const auth = useAuth();
   const listRef = useRef<HTMLDivElement>(null);
+  const sleeveRef = useRef<HTMLDivElement>(null);
+  // The sleeve stays beside the songs while they scroll only when the pane shows all of it.
+  const sticky = useFitsInPane(sleeveRef, 28, layout.wide);
   const { album, header, durationMs } = detail;
   const upcoming = isUpcoming(album, now);
   const list = useMemo(
@@ -218,7 +222,8 @@ function AlbumBody({
   const popular = useMemo(() => new Set(page?.popularIds), [page]);
   const compilation = isCompilation(list, album.artistName);
   const subline = useSubline(album, compilation, upcoming, now);
-  const discs: Disc[] = useMemo(() => discsOf(list), [list]);
+  // A list long enough to be virtualised has no disc headings to jump to.
+  const discs: Disc[] = useMemo(() => (list.length > VIRTUAL_FROM ? [] : discsOf(list)), [list]);
 
   const recordLabel = detail.recordLabel || page?.recordLabel || "";
   const copyright = detail.copyright || page?.copyright || "";
@@ -345,9 +350,9 @@ function AlbumBody({
           {/* Reading order: the head, the sleeve (its disc index leads into the songs), the songs, the notes. */}
           <div className="col-start-2 row-start-1 min-w-0 pt-4">{head}</div>
           <Sleeve
+            ref={sleeveRef}
             header={header}
-            // Held beside the songs while they scroll, where the window is tall enough to show all of it.
-            className="col-start-1 row-span-4 row-start-1 [@media(min-height:760px)]:sticky [@media(min-height:760px)]:top-7"
+            className={cn("col-start-1 row-span-4 row-start-1", sticky && "sticky top-7")}
           >
             <div className="p-4">
               {cover}
