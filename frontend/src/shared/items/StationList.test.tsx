@@ -37,7 +37,11 @@ const heart = station("ra.1", "Heart UK", "TuneIn");
 function renderList(current: string | null, onPlay = vi.fn()) {
   render(
     <NowPlayingContext.Provider
-      value={{ current: current ? ({ id: current } as QueueItem) : null, playing: true }}
+      value={{
+        current: current ? ({ id: current } as QueueItem) : null,
+        playing: true,
+        covered: false,
+      }}
     >
       <StationList label="Local Broadcasters" stations={[capital, heart]} onPlay={onPlay} />
     </NowPlayingContext.Provider>,

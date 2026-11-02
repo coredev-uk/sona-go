@@ -1543,13 +1543,10 @@ msgid "Couldn't load the live stations"
 msgstr "Couldn't load the live stations"
 
 #: src/features/player/NowPlayingView.tsx
+#: src/features/player/RoomLyrics.tsx
 #: src/features/song/SongPage.tsx
 msgid "Couldn't load the lyrics"
 msgstr "Couldn't load the lyrics"
-
-#: src/features/player/RoomLyrics.tsx
-msgid "Couldn't load the lyrics."
-msgstr "Couldn't load the lyrics."
 
 #: src/features/discover/players.ts
 msgid "Couldn't load the playlist"
@@ -5943,6 +5940,11 @@ msgstr "Title bar"
 #: src/features/library/history.ts
 msgid "Today"
 msgstr "Today"
+
+#: src/features/player/NowPlayingView.tsx
+#: src/features/player/RoomLyrics.tsx
+msgid "Together"
+msgstr "Together"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Token storage"

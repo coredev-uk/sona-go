@@ -26,13 +26,26 @@ export interface WordState {
 }
 
 /**
- * A word's state at `t`. Without `smooth` (reduced motion) a word is lit
- * whole from its begin and never shows a part.
+ * Words sung at least this long are held notes: they fill as the voice
+ * holds them. Shorter words light whole as they begin, where a fill
+ * would be a blur of frames nobody can follow (each drawn frame costs a
+ * composite of the whole window: docs/frontend-architecture.md,
+ * "Word-timed lyrics").
+ */
+export const HELD_MS = 600;
+
+/** A held note's fill is redrawn at most this often (12.5 fps). */
+export const FILL_STEP_MS = 80;
+
+/**
+ * A word's state at `t`. A held note (HELD_MS) is part-sung while the
+ * voice holds it; any other word, and every word without `smooth`
+ * (reduced motion), is lit whole from its begin.
  */
 export function wordState(w: Span, t: number, smooth: boolean): WordState {
   const p = wordProgress(w, t);
   if (t < w.beginMs) return { sung: "", p: 0 };
-  if (p >= 1 || !smooth) return { sung: "done", p: 1 };
+  if (p >= 1 || !smooth || w.endMs - w.beginMs < HELD_MS) return { sung: "done", p: 1 };
   return { sung: "part", p };
 }
 
@@ -51,19 +64,87 @@ export function lineSpan(line: Pick<LyricLine, "beginMs" | "endMs" | "words">): 
   return { beginMs, endMs };
 }
 
+/**
+ * A pause at least this long between one line's end and the next one's
+ * begin is a break between verses: the sheet leaves a gap there, and
+ * nothing is lit while the voice rests.
+ */
+export const VERSE_BREAK_MS = 3_000;
+
+/** How long a line stays lit after it ends when a break follows it. */
+const REST_GRACE_MS = 500;
+
+/**
+ * When the voice rests after line `i`: its end plus a short grace when a
+ * break follows it (the last line is followed by one), Infinity when the
+ * next line follows closely or the line has no end.
+ */
+export function restFrom(spans: readonly Span[], i: number): number {
+  const { beginMs, endMs } = spans[i];
+  if (endMs <= beginMs) return Infinity;
+  const next = i + 1 < spans.length ? spans[i + 1].beginMs : Infinity;
+  return next - endMs >= VERSE_BREAK_MS ? endMs + REST_GRACE_MS : Infinity;
+}
+
+/** The sung line and where the sheet should be. */
+export interface Sung {
+  /** The line sung now, -1 before the first and while the voice rests. */
+  active: number;
+  /** The line to keep in view: the sung one, or the one coming after a rest. */
+  anchor: number;
+  /** When `active` or `anchor` next changes (Infinity: never). */
+  next: number;
+}
+
+/**
+ * The sung line at `t`: the last line that has begun, unless the voice
+ * is resting in a break after it. `spans` are the lines' spans in order.
+ */
+export function sungLine(spans: readonly Span[], t: number): Sung {
+  const k = activeLine(spans, t);
+  if (k < 0) {
+    return { active: -1, anchor: spans.length ? 0 : -1, next: spans[0]?.beginMs ?? Infinity };
+  }
+  const nextBegin = k + 1 < spans.length ? spans[k + 1].beginMs : Infinity;
+  const rest = restFrom(spans, k);
+  if (t >= rest) {
+    return { active: -1, anchor: k + 1 < spans.length ? k + 1 : k, next: nextBegin };
+  }
+  return { active: k, anchor: k, next: Math.min(rest, nextBegin) };
+}
+
+/**
+ * Which lines open a verse: after a break (VERSE_BREAK_MS), or where the
+ * song part the lyrics name changes ("Verse" to "Chorus"). The first line
+ * opens none: it starts the sheet.
+ */
+export function verseStarts(
+  lines: readonly Pick<LyricLine, "part">[],
+  spans: readonly Span[],
+): boolean[] {
+  return lines.map((l, i) => {
+    if (i === 0) return false;
+    const prev = lines[i - 1];
+    if (l.part && prev.part && l.part !== prev.part) return true;
+    const end = spans[i - 1].endMs;
+    return end > spans[i - 1].beginMs && spans[i].beginMs - end >= VERSE_BREAK_MS;
+  });
+}
+
 /** How many earlier lines may still be sung under the current one. */
 const LOOK_BACK = 4;
 
 /**
  * The lines whose words are lit at `t`, in order: the last line that has
- * begun (it stays lit until the next begins) and the earlier ones still
- * being sung, such as background vocals running on under the next line.
- * `spans` are the lines' spans, in the lines' order (by begin).
+ * begun (it stays lit until the next begins, or until the voice rests
+ * after it) and the earlier ones still being sung, such as background
+ * vocals running on under the next line. `spans` are the lines' spans, in
+ * the lines' order (by begin).
  */
 export function singingLines(spans: readonly Span[], t: number): number[] {
   const k = activeLine(spans, t);
   if (k < 0) return [];
-  const out = [k];
+  const out = t < restFrom(spans, k) ? [k] : [];
   for (let j = k - 1; j >= 0 && j >= k - LOOK_BACK; j--) {
     if (spans[j].endMs > t) out.unshift(j);
   }
@@ -72,8 +153,8 @@ export function singingLines(spans: readonly Span[], t: number): number[] {
 
 /**
  * The next time after `t` at which anything lit could change: a word of
- * `words` beginning or ending, the next line beginning, or a singing line
- * ending. Infinity when nothing is left.
+ * `words` beginning or ending, the next line beginning, a singing line
+ * ending, or the voice resting. Infinity when nothing is left.
  */
 export function nextChange(
   spans: readonly Span[],
@@ -91,13 +172,14 @@ export function nextChange(
   }
   for (const i of singing) consider(spans[i].endMs);
   const k = activeLine(spans, t);
+  if (k >= 0) consider(restFrom(spans, k));
   if (k + 1 < spans.length) consider(spans[k + 1].beginMs);
   return next;
 }
 
 /**
- * Where a line sits: "one" for the lead voice, "two" for a duet's other
- * voices (the other side), "all" for every voice together.
+ * Whose line it is: "one" for the lead voice, "two" for a duet's other
+ * voices, "all" for every voice together.
  */
 export type Voice = "one" | "two" | "all";
 

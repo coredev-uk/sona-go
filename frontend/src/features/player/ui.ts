@@ -11,6 +11,8 @@ interface UIStore {
   overlay: Overlay;
   /** Lyrics or the cover on the now-playing view. */
   showLyrics: boolean;
+  /** Now playing was reopened by leaving full-screen lyrics: focus goes back to its Full screen button. */
+  fromRoom: boolean;
   toggleQueue: () => void;
   setQueueOpen: (open: boolean) => void;
   openNowPlaying: (lyrics: boolean) => void;
@@ -23,15 +25,22 @@ interface UIStore {
 
 /** The player bar's queue toggle: the queue's Escape returns focus to it. */
 export const QUEUE_TOGGLE_ID = "player-queue-toggle";
+/** Now playing's Full screen button: leaving full-screen lyrics returns focus to it. */
+export const ROOM_TOGGLE_ID = "player-room-toggle";
 
 export const useUI = create<UIStore>((set) => ({
   queueOpen: false,
   overlay: "none",
   showLyrics: true,
+  fromRoom: false,
   toggleQueue: () => set((s) => ({ queueOpen: !s.queueOpen })),
   setQueueOpen: (queueOpen) => set({ queueOpen }),
-  openNowPlaying: (showLyrics) => set({ overlay: "now-playing", showLyrics }),
+  openNowPlaying: (showLyrics) => set({ overlay: "now-playing", showLyrics, fromRoom: false }),
   openRoom: () => set({ overlay: "room", showLyrics: true }),
-  closeOverlay: () => set((s) => ({ overlay: s.overlay === "room" ? "now-playing" : "none" })),
+  closeOverlay: () =>
+    set((s) => ({
+      overlay: s.overlay === "room" ? "now-playing" : "none",
+      fromRoom: s.overlay === "room",
+    })),
   setShowLyrics: (showLyrics) => set({ showLyrics }),
 }));

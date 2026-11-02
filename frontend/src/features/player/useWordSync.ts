@@ -1,7 +1,14 @@
 import type { LyricLine } from "@bindings/services";
 import { useEffect, type RefObject } from "react";
 
-import { lineSpan, nextChange, singingLines, wordState, type Span } from "./lyric-words";
+import {
+  FILL_STEP_MS,
+  lineSpan,
+  nextChange,
+  singingLines,
+  wordState,
+  type Span,
+} from "./lyric-words";
 import { useLyricsOffset, wordClock } from "./lyrics";
 import { livePosition, usePlayback } from "./playback";
 import { useReducedMotion } from "./useLyricsView";
@@ -36,16 +43,18 @@ function paint(w: WordEl, sung: string, p: number) {
  * Lights word-timed lyrics word by word inside `ref`, without rendering
  * React: each line is a `[data-line=<index>]` element, each timed word a
  * `[data-wb][data-we]` span (its begin and end in ms). Words already sung
- * get `data-sung="done"`; the word being sung gets `data-sung="part"` and
- * `--p`, how far through it the voice is (0–1), which the stylesheet
+ * get `data-sung="done"`; a held note being sung gets `data-sung="part"`
+ * and `--p`, how far through it the voice is (0–1), which the stylesheet
  * turns into a wipe. Only the lines being sung are touched.
  *
  * The clock is the playback position, extrapolated between Go's
- * snapshots. One requestAnimationFrame loop runs only while a word is
- * being sung, the song plays and the page is visible; between words it
- * sleeps on a timer until the next one begins. Under reduced motion words
- * light whole at their begin, on timers only. `layout` changes whenever
- * the words rendered change (the pronunciation toggle), so the loop finds
+ * snapshots. It runs on timers only, while the song plays and the page is
+ * visible: one at the next word boundary, or every FILL_STEP_MS while a
+ * held note fills (`lyric-words.ts`, wordState). There is no frame loop:
+ * every drawn frame costs a composite of the whole window. Under reduced
+ * motion, or with `whole` (the mini player, a glance), every word lights
+ * whole at its begin. `layout` changes whenever the words rendered change
+ * (the pronunciation toggle, the mini player's line), so the loop finds
  * them again.
  */
 export function useWordSync(
@@ -54,16 +63,16 @@ export function useWordSync(
   lines: readonly LyricLine[],
   enabled: boolean,
   layout: unknown,
+  whole = false,
 ) {
   const reduced = useReducedMotion();
 
   useEffect(() => {
     const root = ref.current;
     if (!enabled || !root) return;
-    const smooth = !reduced;
+    const smooth = !reduced && !whole;
     const spans = lines.map(lineSpan);
     const lit = new Map<number, LitLine>();
-    let frame = 0;
     let timer = 0;
 
     const find = (i: number): LitLine | null => {
@@ -82,9 +91,7 @@ export function useWordSync(
       for (const w of l.words) paint(w, "", 0);
     };
     const stop = () => {
-      cancelAnimationFrame(frame);
       window.clearTimeout(timer);
-      frame = 0;
       timer = 0;
     };
 
@@ -119,12 +126,11 @@ export function useWordSync(
       }
 
       if (pb.state !== "playing" || document.hidden) return;
-      if (partial) {
-        frame = requestAnimationFrame(tick);
-        return;
-      }
-      const next = nextChange(spans, singing, words, t);
-      if (next < Infinity) timer = window.setTimeout(tick, next - t + 1);
+      // Timers only, never a frame loop: a held note's fill steps every
+      // FILL_STEP_MS, everything else changes at word boundaries.
+      const next = nextChange(spans, singing, words, t) - t + 1;
+      const wait = partial ? Math.min(FILL_STEP_MS, next) : next;
+      if (wait < Infinity) timer = window.setTimeout(tick, wait);
     };
 
     // A new snapshot from Go (play, pause, seek), a new offset or the page
@@ -143,5 +149,5 @@ export function useWordSync(
       document.removeEventListener("visibilitychange", tick);
       for (const l of lit.values()) clear(l);
     };
-  }, [ref, songId, lines, enabled, reduced, layout]);
+  }, [ref, songId, lines, enabled, reduced, whole, layout]);
 }

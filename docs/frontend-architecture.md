@@ -125,7 +125,7 @@ src/
                           (its own list under its heading, queue-lines.ts; AutoPlay rows
                           set back in grey and never moved, but removable and playable),
                           live radio line in place of the seek bar; mini player button;
-                          exports the playback mirror and lyrics for the mini player;
+                          exports the playback mirror and the sung line (SungLine) for the mini player;
                           CdmNotice: the bar's line while a song waits for the Widevine
                           CDM (snapshot noCdm: downloading with its progress, failed, or
                           ready for another press of play), linking to Settings → Playback;
@@ -650,32 +650,57 @@ lists that mark the playing song.
 
 The lyrics column and full-screen lyrics render each timed word as a span
 carrying its begin and end (`data-wb`, `data-we`, in ms) inside a
-`[data-line=<index>]` element, and React renders them once: the sung line
-still re-renders through `useSungLine` (5 times a second, as for
-line-timed lyrics), but nothing re-renders per word.
+`[data-line=<index>]` element, lines grouped into `[data-verse]` blocks,
+and React renders them once. The sung line comes from `useSungLine`
+(`lyric-words.ts`, `sungLine`): a timer waits for the next line or rest,
+so the view re-renders only when the sung line changes, never per word
+and never on a polling interval. `useTurnPage` scrolls the sheet a verse
+at a time when the sung line leaves the reading band.
 
 - **The loop** (`useWordSync`) reads the playback mirror's position,
   extrapolated from Go's last snapshot (`livePosition`), minus the song's
   lyrics offset (`wordClock`: no lead, unlike the line clock), and touches
-  only the lines being sung (`singingLines`: the last line begun, plus
-  earlier ones whose background vocals still run). On each word it sets
-  `data-sung` ("part" or "done") and, on the word being sung, `--p`
-  (0–1, three decimals); the stylesheet turns those into the fill. The
-  timing maths is plain functions in `lyric-words.ts`.
-- **When it runs.** One `requestAnimationFrame` loop, only while a word is
-  being sung, the song plays and the window is visible. Between words and
-  through instrumental breaks it sleeps on a timer until the next change
-  (`nextChange`). A new snapshot (play, pause, seek), an offset change or
-  the window becoming visible restarts it from the new clock; paused, it
-  draws the paused position once and stops. Under reduced motion or reduce
-  effects it never asks for frames: words light whole at their begin, on
-  timers.
-- **Cost** (headless harness, 1440×900, a 30-second preview with
-  Musixmatch word timing, Now Playing's lyrics open over Settings, medians
-  of 3 × 10 s, % of one core): before word timing, web process 1.8%, UI
-  process 1.6%; word by word, web 4.1%, UI 9.5% (each drawn frame costs a
-  composite of the window in the UI process, `docs/design.md` Motion);
-  with reduce effects, web 1.3%, UI 2.1%.
+  only the lines being sung (`singingLines`: the last line begun unless
+  the voice rests after it, plus earlier ones whose background vocals
+  still run). On each word it sets `data-sung` ("part" or "done") and, on
+  a held note being sung, `--p` (0–1); the stylesheet turns those into
+  the fill. The timing maths is plain functions in `lyric-words.ts`.
+- **When it runs.** Timers only, while the song plays and the window is
+  visible: one at the next word boundary, line or rest (`nextChange`), or
+  every 80 ms while a held note (600 ms or longer, `HELD_MS`) fills. Short
+  words light whole. A new snapshot (play, pause, seek), an offset change
+  or the window becoming visible restarts it from the new clock; paused,
+  it draws the paused position once and stops. Under reduced motion,
+  reduce effects and in the mini player (`whole`) every word lights whole.
+- **Offsets** are shared between the windows over a `BroadcastChannel`
+  (`lyrics.ts`, `shareOffsets`), so the mini player keeps the timing set
+  in the main window.
+
+### Performance: what playing costs
+
+In WebKitGTK every frame the page draws costs a composite of the whole
+window in the UI process, and where the web process paints in software
+(NVIDIA on Wayland) a large share in the web process too, so the cost of
+anything that moves is its frame rate. Measured (the lyrics view open over
+Settings, a 30-second preview with placeholder word-timed lyrics in which
+every word is a held note, the worst case; one 10 s sample, % of one core):
+
+|                                                                                  | desktop web   | desktop UI    | headless web  | headless UI   |
+| -------------------------------------------------------------------------------- | ------------- | ------------- | ------------- | ------------- |
+| paused                                                                           | 0.1%          | 0.2%          | 0.2%          | 0.3%          |
+| playing, 60 fps fill (before)                                                    | 15.1%         | 35.0%         | 18.6%         | 33.9%         |
+| playing, held-note fill on timers                                                | 5.4%          | 11.6%         | 8.0%          | 15.6%         |
+| full screen, before → after                                                      | 28.0% → 13.1% | 78.3% → 26.4% | 23.3% → 12.9% | 32.4% → 13.1% |
+| Now Playing over Search (the playing row's equaliser underneath), before → after | 99.5% → 5.6%  | 22.7% → 8.8%  | 100% → 11.2%  | 44.2% → 11.2% |
+| Search, no overlay, equaliser smooth → stepped                                   | 99.7% → 9.6%  | 29.2% → 4.8%  | 99.6% → 13.4% | 67.3% → 12.2% |
+
+Desktop: Hyprland on NVIDIA (RTX 3080), 1276×704 window, WebKitGTK
+2.54.1; headless: the sway harness at 1440×900. Before, frames with the
+equaliser under Now Playing took 39 ms at the median (25 fps): the whole
+app lagged while a song played. The rules that follow: nothing in Sona
+runs a frame loop while music plays; a loop that must show life steps
+(`steps()`) at a few changes a second; anything covered by an overlay
+stops (`NowPlaying.covered`, MotionCover's `inert` check).
 
 ## Strings and locales
 
