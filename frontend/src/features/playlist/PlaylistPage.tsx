@@ -1,4 +1,11 @@
-import { PlaylistsService, Source, type PlaylistDetail, type Song } from "@bindings/services";
+import {
+  CollaborationRole,
+  PlaylistsService,
+  Source,
+  type PlaylistCollaboration,
+  type PlaylistDetail,
+  type Song,
+} from "@bindings/services";
 import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,11 +30,13 @@ import { catalogueLine, formatTime, relativeTime } from "@/shared/lib/format";
 import { TrackList } from "@/shared/tracks/TrackList";
 import { Button } from "@/shared/ui/button";
 
+import { addedByRows } from "./collaboration";
+import { Collaborators } from "./Collaborators";
 import { showDialog } from "./dialogs";
 import { serial } from "./edit";
 import { moveTrack, removeTracks } from "./track-edits";
 import { PlaylistEditor } from "./PlaylistEditor";
-import { playlistKeys, useSuggestions, usePlaylist } from "./queries";
+import { playlistKeys, useCollaboration, useSuggestions, usePlaylist } from "./queries";
 
 const route = getRouteApi("/playlist/$id");
 const LINK = "hover:underline underline-offset-2";
@@ -55,18 +64,23 @@ function Byline({ d }: { d: PlaylistDetail }) {
   return <span className="text-ink-muted">{name}</span>;
 }
 
-function metaLine(d: PlaylistDetail): string {
-  const kind =
-    d.kind === "personal-mix"
+function metaLine(d: PlaylistDetail, c: PlaylistCollaboration | undefined): string {
+  const kind = c
+    ? t`Collaborative playlist`
+    : d.kind === "personal-mix"
       ? t`Made for you`
       : d.isChart
         ? t`Chart`
         : d.favorited
           ? t`Your favourites`
           : t`Playlist`;
+  const role = c?.viewer === CollaborationRole.RoleCollaborator ? t`You're a collaborator` : "";
   const when = d.playlist.lastModified ? relativeTime(d.playlist.lastModified) : "";
   const updated = when ? t`Updated ${when}` : "";
-  return [catalogueLine(kind, "", d.tracks.length, d.durationMs), updated]
+  return [
+    catalogueLine([kind, role].filter(Boolean).join(" · "), "", d.tracks.length, d.durationMs),
+    updated,
+  ]
     .filter(Boolean)
     .join(" · ");
 }
@@ -93,6 +107,14 @@ export function PlaylistPage() {
   );
   const editable = !!q.data && q.data.kind === "library" && q.data.playlist.canEdit;
   const suggestions = useSuggestions(id, editable && !editingTracks);
+  // Only user playlists shared to Apple Music (pl.u-…) can be collaborative.
+  const shared = !!q.data && (q.data.playlist.catalogId || id).startsWith("pl.u-");
+  const collab = useCollaboration(id, shared);
+  const c = collab.data?.collaborative ? collab.data : undefined;
+  const addedBy = useMemo(() => {
+    const rows = c && tracks ? addedByRows(tracks, c) : undefined;
+    return rows?.some(Boolean) ? rows : undefined;
+  }, [c, tracks]);
 
   if (q.isPending) return <DetailSkeleton />;
   if (q.error) {
@@ -123,8 +145,8 @@ export function PlaylistPage() {
         title={playlist.name}
         art={playlist.art.large}
         header={d.header}
-        byline={<Byline d={d} />}
-        meta={metaLine(d)}
+        byline={c ? <Collaborators c={c} /> : <Byline d={d} />}
+        meta={metaLine(d, c)}
         description={playlist.description}
         actions={
           inEdit ? (
@@ -192,6 +214,7 @@ export function PlaylistPage() {
           label={t`Songs in ${playlistName}`}
           onPlay={onPlay}
           container={editable ? container : undefined}
+          addedBy={addedBy}
         />
       ) : (
         <EmptyState title={t`This playlist is empty`}>

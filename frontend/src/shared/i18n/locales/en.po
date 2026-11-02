@@ -65,6 +65,11 @@ msgstr "{0, plural, one {# music video} other {# music videos}}"
 msgid "{0, plural, one {# peripheral battery (a mouse, keyboard or headset) is ignored.} other {# peripheral batteries (mice, keyboards, headsets) are ignored.}}"
 msgstr "{0, plural, one {# peripheral battery (a mouse, keyboard or headset) is ignored.} other {# peripheral batteries (mice, keyboards, headsets) are ignored.}}"
 
+#. placeholder {0}: c.collaborators.length
+#: src/features/playlist/Collaborators.tsx
+msgid "{0, plural, one {# person can add songs to this playlist.} other {# people can add songs to this playlist.}}"
+msgstr "{0, plural, one {# person can add songs to this playlist.} other {# people can add songs to this playlist.}}"
+
 #. placeholder {0}: list.total
 #: src/features/library/pages.tsx
 msgid "{0, plural, one {# playlist} other {# playlists}}"
@@ -269,6 +274,14 @@ msgstr "{note}. Playback still works."
 #: src/features/settings/Diagnostics.tsx
 msgid "{note}. Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction)."
 msgstr "{note}. Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction)."
+
+#: src/features/playlist/Collaborators.tsx
+msgid "{others, plural, one {{lead} & # other} other {{lead} & # others}}"
+msgstr "{others, plural, one {{lead} & # other} other {{lead} & # others}}"
+
+#: src/features/playlist/Collaborators.tsx
+msgid "{others, plural, one {You & # other} other {You & # others}}"
+msgstr "{others, plural, one {You & # other} other {You & # others}}"
 
 #: src/features/settings/Connections.tsx
 msgid "{pending, plural, one {# song waiting to send.} other {# songs waiting to send.}}"
@@ -509,6 +522,10 @@ msgstr "Added {what} to the queue"
 #: src/shared/lib/library-actions.ts
 msgid "Added {what} to your library"
 msgstr "Added {what} to your library"
+
+#: src/shared/tracks/TrackList.tsx
+msgid "Added by"
+msgstr "Added by"
 
 #: src/features/settings/Connections.tsx
 msgid "Adds each song you play to your Last.fm profile."
@@ -1147,6 +1164,14 @@ msgstr "Close queue"
 #: src/features/auth/Account.tsx
 msgid "Code"
 msgstr "Code"
+
+#: src/features/playlist/PlaylistPage.tsx
+msgid "Collaborative playlist"
+msgstr "Collaborative playlist"
+
+#: src/features/playlist/Collaborators.tsx
+msgid "Collaborators"
+msgstr "Collaborators"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Collecting…"
@@ -2348,6 +2373,10 @@ msgstr "Follows your desktop"
 #: src/features/settings/General.tsx
 msgid "For you"
 msgstr "For you"
+
+#: src/features/playlist/Collaborators.tsx
+msgid "Former collaborators"
+msgstr "Former collaborators"
 
 #: src/app/shell/TopBar.tsx
 msgid "Forward"
@@ -3591,6 +3620,10 @@ msgstr "Out now · {artistName}"
 #: src/features/settings/AudioRows.tsx
 msgid "Output"
 msgstr "Output"
+
+#: src/features/playlist/Collaborators.tsx
+msgid "Owner"
+msgstr "Owner"
 
 #: src/shared/shortcuts/chord.ts
 msgctxt "keyboard key"
@@ -5826,6 +5859,10 @@ msgstr "View"
 msgid "View credits"
 msgstr "View credits"
 
+#: src/features/playlist/Collaborators.tsx
+msgid "View playlist collaborators"
+msgstr "View playlist collaborators"
+
 #: src/features/settings/Updates.tsx
 msgid "View release"
 msgstr "View release"
@@ -6022,6 +6059,10 @@ msgstr "Written by {writers}"
 msgid "Yesterday"
 msgstr "Yesterday"
 
+#: src/features/playlist/Collaborators.tsx
+msgid "You"
+msgstr "You"
+
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "You have no folders yet. Create one from the sidebar’s Playlists menu."
 msgstr "You have no folders yet. Create one from the sidebar’s Playlists menu."
@@ -6038,6 +6079,10 @@ msgstr "You have six pins. Unpin one to make room."
 msgid "You might also like"
 msgstr "You might also like"
 
+#: src/features/playlist/Collaborators.tsx
+msgid "You started this playlist."
+msgstr "You started this playlist."
+
 #: src/features/reminders/queries.ts
 msgid "You won't be reminded about “{name}”"
 msgstr "You won't be reminded about “{name}”"
@@ -6049,6 +6094,14 @@ msgstr "You'll be reminded when “{name}” is out"
 #: src/features/reminders/RemindButton.tsx
 msgid "You'll get a notification on {releaseDate}"
 msgstr "You'll get a notification on {releaseDate}"
+
+#: src/features/playlist/PlaylistPage.tsx
+msgid "You're a collaborator"
+msgstr "You're a collaborator"
+
+#: src/features/playlist/Collaborators.tsx
+msgid "You're a collaborator."
+msgstr "You're a collaborator."
 
 #: src/features/onboarding/DoneStep.tsx
 msgid "You're all set"

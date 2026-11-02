@@ -65,6 +65,11 @@ msgstr ""
 msgid "{0, plural, one {# peripheral battery (a mouse, keyboard or headset) is ignored.} other {# peripheral batteries (mice, keyboards, headsets) are ignored.}}"
 msgstr ""
 
+#. placeholder {0}: c.collaborators.length
+#: src/features/playlist/Collaborators.tsx
+msgid "{0, plural, one {# person can add songs to this playlist.} other {# people can add songs to this playlist.}}"
+msgstr ""
+
 #. placeholder {0}: list.total
 #: src/features/library/pages.tsx
 msgid "{0, plural, one {# playlist} other {# playlists}}"
@@ -268,6 +273,14 @@ msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
 msgid "{note}. Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction)."
+msgstr ""
+
+#: src/features/playlist/Collaborators.tsx
+msgid "{others, plural, one {{lead} & # other} other {{lead} & # others}}"
+msgstr ""
+
+#: src/features/playlist/Collaborators.tsx
+msgid "{others, plural, one {You & # other} other {You & # others}}"
 msgstr ""
 
 #: src/features/settings/Connections.tsx
@@ -508,6 +521,10 @@ msgstr ""
 
 #: src/shared/lib/library-actions.ts
 msgid "Added {what} to your library"
+msgstr ""
+
+#: src/shared/tracks/TrackList.tsx
+msgid "Added by"
 msgstr ""
 
 #: src/features/settings/Connections.tsx
@@ -1146,6 +1163,14 @@ msgstr ""
 
 #: src/features/auth/Account.tsx
 msgid "Code"
+msgstr ""
+
+#: src/features/playlist/PlaylistPage.tsx
+msgid "Collaborative playlist"
+msgstr ""
+
+#: src/features/playlist/Collaborators.tsx
+msgid "Collaborators"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
@@ -2347,6 +2372,10 @@ msgstr ""
 #: src/features/home/index.ts
 #: src/features/settings/General.tsx
 msgid "For you"
+msgstr ""
+
+#: src/features/playlist/Collaborators.tsx
+msgid "Former collaborators"
 msgstr ""
 
 #: src/app/shell/TopBar.tsx
@@ -3590,6 +3619,10 @@ msgstr ""
 
 #: src/features/settings/AudioRows.tsx
 msgid "Output"
+msgstr ""
+
+#: src/features/playlist/Collaborators.tsx
+msgid "Owner"
 msgstr ""
 
 #: src/shared/shortcuts/chord.ts
@@ -5826,6 +5859,10 @@ msgstr ""
 msgid "View credits"
 msgstr ""
 
+#: src/features/playlist/Collaborators.tsx
+msgid "View playlist collaborators"
+msgstr ""
+
 #: src/features/settings/Updates.tsx
 msgid "View release"
 msgstr ""
@@ -6022,6 +6059,10 @@ msgstr ""
 msgid "Yesterday"
 msgstr ""
 
+#: src/features/playlist/Collaborators.tsx
+msgid "You"
+msgstr ""
+
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "You have no folders yet. Create one from the sidebar’s Playlists menu."
 msgstr ""
@@ -6038,6 +6079,10 @@ msgstr ""
 msgid "You might also like"
 msgstr ""
 
+#: src/features/playlist/Collaborators.tsx
+msgid "You started this playlist."
+msgstr ""
+
 #: src/features/reminders/queries.ts
 msgid "You won't be reminded about “{name}”"
 msgstr ""
@@ -6048,6 +6093,14 @@ msgstr ""
 
 #: src/features/reminders/RemindButton.tsx
 msgid "You'll get a notification on {releaseDate}"
+msgstr ""
+
+#: src/features/playlist/PlaylistPage.tsx
+msgid "You're a collaborator"
+msgstr ""
+
+#: src/features/playlist/Collaborators.tsx
+msgid "You're a collaborator."
 msgstr ""
 
 #: src/features/onboarding/DoneStep.tsx

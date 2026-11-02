@@ -23,6 +23,10 @@
     "key": "ASE.Web.Music.ContextualMenu.AddToPlaylist"
   },
   {
+    "message": "Added by",
+    "key": "FUSE.SongsListHeaders.contributor"
+  },
+  {
     "message": "Album",
     "key": "ASE.Web.Music.Library.Headers.album"
   },
@@ -409,6 +413,10 @@
   {
     "message": "View credits",
     "key": "ASE.Web.Music.ContextualMenu.ViewCredits"
+  },
+  {
+    "message": "View playlist collaborators",
+    "key": "ASE.Web.Music.Library.PlaylistCollaborators.View"
   },
   {
     "message": "Volume",

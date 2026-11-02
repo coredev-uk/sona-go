@@ -29,6 +29,20 @@ export function usePlaylist(id: string) {
   });
 }
 
+/**
+ * Who works on a shared user playlist (network). It sits under the
+ * playlist's own key, so whatever refreshes the playlist refreshes it too.
+ */
+export function useCollaboration(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...playlistKeys.detail(id), "collaboration"],
+    queryFn: () => PlaylistsService.Collaboration(id),
+    enabled,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+}
+
 /** Folders and library playlists, from SQLite. */
 export function usePlaylistTree() {
   return useQuery({ queryKey: playlistKeys.tree, queryFn: () => PlaylistsService.Tree() });
