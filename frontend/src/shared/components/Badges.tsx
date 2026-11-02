@@ -63,6 +63,20 @@ export function PreviewMark() {
 }
 
 /**
+ * "SD" beside a music video playing in standard definition, the only
+ * quality Apple licenses a software-protected player; its tooltip and
+ * description say so.
+ */
+export function SDMark() {
+  const { t } = useLingui();
+  return (
+    <Tag title={t`Standard definition: Apple allows HD only on players with hardware protection`}>
+      {t({ message: "SD", context: "standard-definition video, as a short badge" })}
+    </Tag>
+  );
+}
+
+/**
  * The badge line of a collection or song header: Explicit, then Apple's
  * audio labels (Dolby Atmos, Lossless, Apple Digital Master). The labels
  * describe the release as Apple offers it, not what Sona plays (AAC).

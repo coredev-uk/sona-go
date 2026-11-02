@@ -2,7 +2,7 @@ import type { LyricLine } from "@bindings/services";
 import { Window } from "@wailsio/runtime";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Minimize2 } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
 
 import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
@@ -17,8 +17,9 @@ import { isSynced, shownLine, useLyricsPrefs, type LyricsPrefs } from "./lyrics"
 import { LyricBody, type LyricLangs } from "./LyricBody";
 import { hasWordTiming, lineVoices, type Voice } from "./lyric-words";
 import { LyricsTiming } from "./LyricsTiming";
-import { usePlayback } from "./playback";
+import { lyricsSongId, usePlayback } from "./playback";
 import { useLyrics } from "./queries";
+import { trapTab } from "./trap-tab";
 import { useUI } from "./ui";
 import {
   lineTone,
@@ -198,26 +199,6 @@ function useWindowFullscreen() {
   }, []);
 }
 
-/** Keeps Tab inside the view: the rest of the window is underneath it. */
-function trapTab(e: KeyboardEvent<HTMLElement>) {
-  if (e.key !== "Tab") return;
-  const focusable = [
-    ...e.currentTarget.querySelectorAll<HTMLElement>(
-      "button:not([disabled]), a[href], [tabindex='0']",
-    ),
-  ];
-  if (!focusable.length) return;
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (e.shiftKey && document.activeElement === first) {
-    e.preventDefault();
-    last.focus();
-  } else if (!e.shiftKey && document.activeElement === last) {
-    e.preventDefault();
-    first.focus();
-  }
-}
-
 /**
  * Full-screen lyrics: the whole window (and the screen) given to the
  * words at room size, the sung line in amber, the song and the timing
@@ -230,14 +211,15 @@ export function RoomLyrics() {
   const exitRef = useRef<HTMLButtonElement>(null);
   const exitKeys = useBinding("player.close-overlay");
   const { t } = useLingui();
+  const songId = lyricsSongId(current);
   useWindowFullscreen();
 
   useEffect(() => exitRef.current?.focus(), []);
   // Nothing to read once the queue is cleared or the song has no lyrics.
   useEffect(() => {
-    if (!current?.catalogId) closeOverlay();
-  }, [current, closeOverlay]);
-  if (!current?.catalogId) return null;
+    if (!songId) closeOverlay();
+  }, [songId, closeOverlay]);
+  if (!current || !songId) return null;
 
   return (
     <section
@@ -246,14 +228,14 @@ export function RoomLyrics() {
       className="fixed inset-0 z-50 flex animate-in flex-col bg-ground duration-200 fade-in"
     >
       <Backdrop src={current.backdrop} tone="ground" />
-      <RoomLines key={current.catalogId} catalogId={current.catalogId} />
+      <RoomLines key={songId} catalogId={songId} />
       <footer className="relative flex shrink-0 items-center gap-4 px-[7vw] pt-3 pb-7">
         <Artwork src={current.art.small} size={44} alt="" eager />
         <div className="min-w-0 flex-1">
           <p className="truncate text-ui font-medium text-ink">{current.name}</p>
           <p className="truncate text-sub text-ink-muted">{current.artistName}</p>
         </div>
-        <LyricsTiming songId={current.catalogId} />
+        <LyricsTiming songId={songId} />
         <Button ref={exitRef} variant="ghost" size="sm" onClick={closeOverlay}>
           <Minimize2 strokeWidth={1.75} />
           <Trans>Exit full screen</Trans>

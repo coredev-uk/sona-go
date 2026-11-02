@@ -10,17 +10,17 @@ import { playerShortcuts } from "./shortcuts";
 import { NowPlayingOverlay, NowPlayingProvider, QueueAside } from "./slots";
 import { useUI } from "./ui";
 
-export { playSongs, queueItems, shuffleSongs, type PlaySource } from "./commands";
+export { playSongs, playVideos, queueItems, shuffleSongs, type PlaySource } from "./commands";
 /** Starting a new queue (a station, the library): asks or offers Undo over a long user queue. */
 export { replaceQueue } from "./replace";
 /** The playback mirror, the sung line and track announcements, for a second window (the mini player). */
-export { livePosition, useLivePosition, usePlayback } from "./playback";
+export { livePosition, lyricsSongId, useLivePosition, usePlayback } from "./playback";
 export { SungLine } from "./SungLine";
 export { TrackAnnouncer } from "./TrackAnnouncer";
 
 /**
  * The player: Go's playback mirror, the now-playing bar, queue and view,
- * media-key shortcuts and the queue actions on song rows.
+ * the video view, media-key shortcuts and the queue actions on song rows.
  */
 export const playerModule: FeatureModule<never> = {
   id: "player",
@@ -31,8 +31,12 @@ export const playerModule: FeatureModule<never> = {
     "playback:state": (data, { invalidate }) => {
       const prev = usePlayback.getState().current;
       usePlayback.getState().apply(data);
+      const next = data.current;
       // A new track makes Apple's recently played list stale.
-      if (data.current && data.current.id !== prev?.id) invalidate([keys.libraryRecent]);
+      if (next && next.id !== prev?.id) invalidate([keys.libraryRecent]);
+      // A music video that starts (the queue reaching one) shows its picture.
+      const starting = data.state === "loading" || data.state === "playing";
+      if (next?.video && next.id !== prev?.id && starting) useUI.getState().openVideo();
     },
     "playback:queue": (data) => usePlayback.getState().applyQueue(data),
   },

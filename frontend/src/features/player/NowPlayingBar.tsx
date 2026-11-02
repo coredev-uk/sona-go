@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
   CircleAlert,
+  Clapperboard,
   ListMusic,
   LoaderCircle,
   MicVocal,
@@ -14,9 +15,6 @@ import {
   Shuffle,
   SkipBack,
   SkipForward,
-  Volume1,
-  Volume2,
-  VolumeX,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
@@ -31,7 +29,6 @@ import { Button } from "@/shared/ui/button";
 import { Slider } from "@/shared/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { openAccountDialog } from "@/shared/lib/account";
-import { useCapabilities } from "@/shared/lib/capabilities";
 import { codeMessage } from "@/shared/lib/errors";
 import { clockTime, formatTime } from "@/shared/lib/format";
 import { run } from "@/shared/lib/run";
@@ -40,53 +37,11 @@ import { useBinding } from "@/shared/shortcuts/bindings";
 import { ChordKeys } from "@/shared/shortcuts/Keys";
 
 import { CdmNotice } from "./CdmNotice";
-import { setVolume, toggleMute } from "./commands";
+import { IconButton, Volume } from "./controls";
 import { useLivePosition, usePlayback } from "./playback";
 import { SleepTimer } from "./SleepTimer";
 import { TrackAnnouncer } from "./TrackAnnouncer";
 import { QUEUE_TOGGLE_ID, useUI } from "./ui";
-
-function IconButton({
-  id,
-  label,
-  disabled,
-  pressed,
-  onClick,
-  children,
-}: {
-  id?: string;
-  label: string;
-  disabled?: boolean;
-  /** Toggle buttons (shuffle, repeat, queue, lyrics) report their state. */
-  pressed?: boolean;
-  onClick?: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          id={id}
-          variant="ghost"
-          size="icon-sm"
-          aria-label={label}
-          aria-pressed={pressed}
-          disabled={disabled}
-          onClick={onClick}
-          className={cn(
-            "relative text-ink-muted hover:text-ink disabled:opacity-40",
-            // On: ink, with a dot under the glyph (amber is kept for "playing").
-            pressed &&
-              "text-ink after:absolute after:bottom-0.5 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-ink",
-          )}
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  );
-}
 
 /** The seek bar: the only part of the bar that re-renders while playing. */
 function Seek({ disabled }: { disabled: boolean }) {
@@ -166,37 +121,10 @@ function LiveLine({ id, playing }: { id: string; playing: boolean }) {
   );
 }
 
-/** Mute and the volume slider, where Sona sets the playback volume. */
-function Volume() {
-  const volume = usePlayback((s) => s.volume);
-  const supported = useCapabilities()?.playback.volume ?? false;
-  const VolumeIcon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
-  const { t } = useLingui();
-  if (!supported) return null;
-  return (
-    <div
-      className="flex items-center gap-1"
-      style={{ "--slider-range": "var(--ink-muted)" } as React.CSSProperties}
-    >
-      <IconButton label={volume === 0 ? t`Unmute` : t`Mute`} onClick={toggleMute}>
-        <VolumeIcon strokeWidth={1.75} />
-      </IconButton>
-      <Slider
-        aria-label={t`Volume`}
-        className="w-24 shrink-0"
-        value={[Math.round(volume * 100)]}
-        max={100}
-        step={1}
-        onValueChange={([v]) => setVolume(v / 100)}
-      />
-    </div>
-  );
-}
-
 /**
  * The bottom bar: the cover and title, the transport with the seek bar,
- * and volume, queue and lyrics. It mirrors Go's playback:state; only the
- * seek bar ticks while playing.
+ * and volume, queue and lyrics (for a music video, its video view). It
+ * mirrors Go's playback:state; only the seek bar ticks while playing.
  */
 export function NowPlayingBar() {
   const current = usePlayback((s) => s.current);
@@ -209,7 +137,8 @@ export function NowPlayingBar() {
   const authRequired = usePlayback((s) => s.authRequired);
   const noCdm = usePlayback((s) => s.noCdm);
   const preview = usePlayback((s) => s.preview);
-  const { queueOpen, toggleQueue, overlay, openNowPlaying, closeOverlay, showLyrics } = useUI();
+  const { queueOpen, toggleQueue, overlay, openNowPlaying, openVideo, closeOverlay, showLyrics } =
+    useUI();
   const toggleKeys = useBinding("player.toggle");
   const { t } = useLingui();
 
@@ -217,6 +146,8 @@ export function NowPlayingBar() {
   const playing = state === "playing";
   const loading = state === "loading";
   const lyricsOpen = overlay === "now-playing" && showLyrics;
+  const video = !!current?.video;
+  const videoOpen = overlay === "video";
   const nextRepeat = repeat === "off" ? "all" : repeat === "all" ? "one" : "off";
   const RepeatIcon = repeat === "one" ? Repeat1 : Repeat;
 
@@ -242,7 +173,11 @@ export function NowPlayingBar() {
       >
         <CircleAlert aria-hidden className="size-3.5 shrink-0 text-danger" strokeWidth={2} />
         <span className="truncate">
-          <Trans>Couldn't play this song. Press play to try again.</Trans>
+          {video ? (
+            <Trans>Couldn't play this video.</Trans>
+          ) : (
+            <Trans>Couldn't play this song. Press play to try again.</Trans>
+          )}
         </span>
       </span>
     );
@@ -284,8 +219,14 @@ export function NowPlayingBar() {
           <button
             type="button"
             disabled={idle}
-            onClick={() => (overlay === "now-playing" ? closeOverlay() : openNowPlaying(false))}
-            aria-label={idle ? t`Nothing playing` : t`Open now playing`}
+            onClick={() => {
+              if (video) {
+                if (videoOpen) closeOverlay();
+                else openVideo();
+              } else if (overlay === "now-playing") closeOverlay();
+              else openNowPlaying(false);
+            }}
+            aria-label={idle ? t`Nothing playing` : video ? t`Show video` : t`Open now playing`}
             className="shrink-0 rounded-sm"
           >
             <Artwork src={current?.art.small} size={48} alt="" eager />
@@ -297,6 +238,14 @@ export function NowPlayingBar() {
                   <Link
                     to="/station/$id"
                     params={{ id: current.id }}
+                    className="truncate text-ui font-medium text-ink hover:underline hover:underline-offset-2"
+                  >
+                    {current.name}
+                  </Link>
+                ) : current.video ? (
+                  <Link
+                    to="/music-video/$id"
+                    params={{ id: current.catalogId || current.id }}
                     className="truncate text-ui font-medium text-ink hover:underline hover:underline-offset-2"
                   >
                     {current.name}
@@ -327,17 +276,20 @@ export function NowPlayingBar() {
               </span>
             )}
           </div>
-          {current && !current.live && (current.catalogId || current.libraryId) && (
-            <div className="flex shrink-0 items-center">
-              <RatingButtons
-                kind="songs"
-                item={current}
-                name={current.name}
-                compact
-                suggestLess={false}
-              />
-            </div>
-          )}
+          {current &&
+            !current.live &&
+            !current.video &&
+            (current.catalogId || current.libraryId) && (
+              <div className="flex shrink-0 items-center">
+                <RatingButtons
+                  kind="songs"
+                  item={current}
+                  name={current.name}
+                  compact
+                  suggestLess={false}
+                />
+              </div>
+            )}
         </div>
 
         <div className="flex w-full min-w-0 flex-col items-center gap-1">
@@ -415,14 +367,24 @@ export function NowPlayingBar() {
         <div className="flex items-center justify-end gap-1">
           <PrivateButton />
           <SleepTimer disabled={idle} />
-          <IconButton
-            label={t`Lyrics`}
-            pressed={lyricsOpen}
-            disabled={idle}
-            onClick={() => (lyricsOpen ? closeOverlay() : openNowPlaying(true))}
-          >
-            <MicVocal strokeWidth={1.75} />
-          </IconButton>
+          {video ? (
+            <IconButton
+              label={t`Show video`}
+              pressed={videoOpen}
+              onClick={() => (videoOpen ? closeOverlay() : openVideo())}
+            >
+              <Clapperboard strokeWidth={1.75} />
+            </IconButton>
+          ) : (
+            <IconButton
+              label={t`Lyrics`}
+              pressed={lyricsOpen}
+              disabled={idle}
+              onClick={() => (lyricsOpen ? closeOverlay() : openNowPlaying(true))}
+            >
+              <MicVocal strokeWidth={1.75} />
+            </IconButton>
+          )}
           <IconButton
             id={QUEUE_TOGGLE_ID}
             label={t`Queue`}

@@ -4,14 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { ExternalLink, Play } from "lucide-react";
 
-import { playSongs } from "@/features/player";
+import { playSongs, playVideos } from "@/features/player";
 import { Badges } from "@/shared/components/Badges";
 import { ArtistLinks } from "@/shared/components/ArtistLinks";
 import { CollectionHeader } from "@/shared/components/CollectionHeader";
 import { CoverShelf } from "@/shared/components/CoverShelf";
 import { DetailError, DetailSkeleton } from "@/shared/components/DetailStates";
 import { Notes } from "@/shared/components/Notes";
+import { PlayButtons } from "@/shared/components/PlayButtons";
 import { Shelf } from "@/shared/components/Shelf";
+import { useCapabilities } from "@/shared/lib/capabilities";
 import { formatTime, longDate, yearOf } from "@/shared/lib/format";
 import { keys } from "@/shared/lib/keys";
 import { run } from "@/shared/lib/run";
@@ -25,8 +27,10 @@ const FORMAT_4K = "4K";
 const FORMAT_HDR = "HDR";
 
 /**
- * A music video's page. Sona plays audio only, so the video itself opens
- * in Apple Music on the web; the song it belongs to plays here.
+ * A music video's page. Where videos play (Capabilities.playback.video)
+ * the video plays here, in standard definition, in the player's video
+ * view; elsewhere the page says so. Either way it opens in Apple Music on
+ * the web, and the song it belongs to plays here.
  */
 export function VideoPage() {
   const { id } = route.useParams();
@@ -34,6 +38,8 @@ export function VideoPage() {
     queryKey: keys.catalogVideo(id),
     queryFn: () => CatalogService.MusicVideo(id),
   });
+  // Undefined until Go answers: neither the play control nor the note yet.
+  const videoPlays = useCapabilities()?.playback.video;
   const { t } = useLingui();
 
   if (q.isPending) return <DetailSkeleton />;
@@ -94,9 +100,13 @@ export function VideoPage() {
         badges={<Badges explicit={video.explicit} extra={formats} />}
         actions={
           <>
+            {videoPlays && (
+              <PlayButtons label={video.name} onPlay={() => void playVideos([video], 0)} />
+            )}
             {video.url && (
               <Button
                 size="sm"
+                variant={videoPlays ? "outline" : "default"}
                 onClick={() =>
                   void run(t`Couldn't open Apple Music`, CatalogService.OpenInAppleMusic(video.url))
                 }
@@ -115,7 +125,17 @@ export function VideoPage() {
         }
       />
       <p className="-mt-2 mb-2 max-w-[68ch] text-sub text-ink-muted">
-        <Trans>Sona plays music, not video: the video opens in Apple Music in your browser.</Trans>
+        {videoPlays === true && (
+          <Trans>
+            Sona plays music videos in standard definition: Apple allows HD only on players with
+            hardware protection.
+          </Trans>
+        )}
+        {videoPlays === false && (
+          <Trans>
+            Sona can't play music videos here: the video opens in Apple Music in your browser.
+          </Trans>
+        )}
         {song && <> {songLine(song)}</>}
       </p>
       {q.data.notes && (

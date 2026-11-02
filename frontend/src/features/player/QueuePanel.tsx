@@ -2,7 +2,7 @@ import { PlaybackService, type QueueItem } from "@bindings/services";
 import { Link } from "@tanstack/react-router";
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { GripVertical, Infinity as InfinityIcon, X } from "lucide-react";
+import { Clapperboard, GripVertical, Infinity as InfinityIcon, X } from "lucide-react";
 import {
   memo,
   useLayoutEffect,
@@ -90,7 +90,13 @@ const QueueRow = memo(function QueueRow({
       if (to !== null) void run(t`Couldn't move it`, PlaybackService.Move(index, to));
     }
   };
-  const label = withheld ? t`${name}, ${artist}, skipped: explicit` : t`${name}, ${artist}`;
+  const label = item.video
+    ? withheld
+      ? t`${name}, ${artist}, music video, skipped: explicit`
+      : t`${name}, ${artist}, music video`
+    : withheld
+      ? t`${name}, ${artist}, skipped: explicit`
+      : t`${name}, ${artist}`;
   return (
     <div
       role="listitem"
@@ -130,14 +136,35 @@ const QueueRow = memo(function QueueRow({
       <div className="min-w-0 flex-1">
         <p
           className={cn(
-            "truncate text-ui",
+            "flex min-w-0 items-center gap-1.5 text-ui",
             current ? "font-medium text-play-ink" : autoPlay ? "text-ink-muted" : "text-ink",
           )}
         >
-          {item.name}
+          {item.video ? (
+            // A video opens its page (a pointer shortcut: the row is the
+            // list's one Tab stop, and Enter plays it).
+            <Link
+              to="/music-video/$id"
+              params={{ id: item.catalogId || item.id }}
+              tabIndex={-1}
+              className="truncate hover:underline hover:underline-offset-2"
+            >
+              {name}
+            </Link>
+          ) : (
+            <span className="truncate">{name}</span>
+          )}
+          {item.video && (
+            <Clapperboard
+              role="img"
+              aria-label={t`Music video`}
+              className="size-3.5 shrink-0 text-ink-muted"
+              strokeWidth={1.75}
+            />
+          )}
         </p>
         <p className={cn("truncate text-sub", autoPlay ? "text-ink-faint" : "text-ink-muted")}>
-          {item.artistName}
+          {artist}
         </p>
       </div>
       {current ? (

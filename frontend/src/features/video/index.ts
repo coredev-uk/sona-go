@@ -9,8 +9,8 @@ import { VideoPage } from "./VideoPage";
 const videoRoute = createRoute({ ...childRoute("/music-video/$id"), component: VideoPage });
 
 /**
- * The music video page. Video playback is not part of Sona's audio
- * pipeline: the page opens the video in Apple Music on the web.
+ * The music video page: plays the video in the player's video view where
+ * videos play, and opens it in Apple Music on the web.
  */
 export const videoModule: FeatureModule<typeof videoRoute> = {
   id: "video",

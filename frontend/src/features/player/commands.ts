@@ -1,4 +1,10 @@
-import { PlaybackService, type PlayFrom, type Song, type TrackRef } from "@bindings/services";
+import {
+  PlaybackService,
+  type MusicVideo,
+  type PlayFrom,
+  type Song,
+  type TrackRef,
+} from "@bindings/services";
 import { plural, t } from "@lingui/core/macro";
 import { toast } from "sonner";
 
@@ -11,6 +17,7 @@ import { run } from "@/shared/lib/run";
 
 import { livePosition, usePlayback, type Repeat } from "./playback";
 import { replaceQueue } from "./replace";
+import { useUI } from "./ui";
 
 /** Songs that can be queued, and where `start` lands among them. */
 export function playable(songs: readonly (Song | undefined)[], start: number) {
@@ -55,6 +62,23 @@ export async function shuffleSongs(songs: readonly (Song | undefined)[], from: P
   void replaceQueue(() =>
     run(t`Couldn't start playback`, PlaybackService.PlayItems(refs, start, playFrom)),
   );
+}
+
+/** TrackRef.kind of a music video (Go's services.TrackKindVideo); "" is a song. */
+const VIDEO_KIND = "music-video";
+
+/**
+ * Plays `videos` from `start` as the queue (a library copy plays its
+ * catalogue video) and opens the video view. Videos are never reported as
+ * plays, so they carry no PlayFrom collection.
+ */
+export async function playVideos(videos: readonly MusicVideo[], start: number) {
+  if (!videos.length) return;
+  const refs: TrackRef[] = videos.map((v) => ({ id: v.id, source: v.source, kind: VIDEO_KIND }));
+  const started = await replaceQueue(() =>
+    run(t`Couldn't start playback`, PlaybackService.PlayItems(refs, start, { kind: "", id: "" })),
+  );
+  if (started) useUI.getState().openVideo();
 }
 
 /**
@@ -139,10 +163,12 @@ export function cycleRepeat() {
   void run(t`Couldn't change repeat`, PlaybackService.SetRepeat(nextRepeat[s.repeat as Repeat]));
 }
 
-/** Favourites the playing song, or undoes it (not live radio or songs outside Apple Music). */
+/** Favourites the playing song, or undoes it (not live radio, music videos or songs outside Apple Music). */
 export async function toggleFavourite() {
   const current = usePlayback.getState().current;
-  if (!current || current.live || !(current.catalogId || current.libraryId)) return;
+  if (!current || current.live || current.video || !(current.catalogId || current.libraryId)) {
+    return;
+  }
   const state = await fetchItemState("songs", current);
   rateItem("songs", current, current.name, state?.rating === 1 ? "unfavorite" : "favorite");
 }
