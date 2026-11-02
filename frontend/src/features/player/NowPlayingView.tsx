@@ -31,7 +31,7 @@ import { hasWordTiming, lineVoices, type Voice } from "./lyric-words";
 import { LyricsTiming } from "./LyricsTiming";
 import { usePlayback } from "./playback";
 import { useAlbumMotion, useLyrics } from "./queries";
-import { useUI } from "./ui";
+import { ROOM_TOGGLE_ID, useUI } from "./ui";
 import {
   lineTone,
   useLyricLangs,
@@ -322,7 +322,7 @@ function SyncedControls({ catalogId }: { catalogId: string }) {
       <span aria-hidden className="mx-1 h-4 w-px bg-line" />
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="sm" onClick={openRoom}>
+          <Button id={ROOM_TOGGLE_ID} variant="ghost" size="sm" onClick={openRoom}>
             <Maximize2 strokeWidth={1.75} />
             <Trans>Full screen</Trans>
           </Button>
@@ -366,7 +366,10 @@ export function NowPlayingView() {
   const closeRef = useRef<HTMLButtonElement>(null);
   const { t } = useLingui();
 
-  useEffect(() => closeRef.current?.focus(), []);
+  useEffect(() => {
+    const toggle = useUI.getState().fromRoom ? document.getElementById(ROOM_TOGGLE_ID) : null;
+    (toggle ?? closeRef.current)?.focus();
+  }, []);
   // Nothing to show once the queue is cleared.
   useEffect(() => {
     if (!current) closeOverlay();
