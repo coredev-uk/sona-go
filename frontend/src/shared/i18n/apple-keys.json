@@ -453,13 +453,5 @@
     "placeholders": {
       "count": "songs"
     }
-  },
-  {
-    "message": "{trackCount, plural, one {# song} other {# songs}}",
-    "key": "ASE.Web.Music.NoOfSongs",
-    "plural": true,
-    "placeholders": {
-      "count": "trackCount"
-    }
   }
 ]
