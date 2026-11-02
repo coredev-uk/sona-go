@@ -33,6 +33,9 @@ node_modules/
 .idea/
 .vscode/
 
+# Design-review tools' local state (the live detector writes a session token here)
+.impeccable/
+
 # Private planning notes (never published)
 /.plans/
 
