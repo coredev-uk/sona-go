@@ -12,7 +12,7 @@ function failed(what: string, err: unknown) {
   const { code, message } = callFailure(err);
   const description =
     code === "not_signed_in" || code === "mut_rejected"
-      ? t`Sign in to Apple Music in Settings → Account.`
+      ? t`Sign in to Apple Music from the account menu in the top bar.`
       : code === "not_found"
         ? t`Apple Music has no station for this.`
         : message;
