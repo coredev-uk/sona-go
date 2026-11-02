@@ -94,7 +94,9 @@ src/
                           useLibraryList, sync store, SyncIndicator,
                           sync invalidations; item actions (library, Favourite, Suggest Less,
                           Copy link); shell Provider (ConfirmHost, content policy)
-    album, artist, playlist  detail pages + their queries; "Go to album/artist" actions
+    album, artist, playlist  detail pages + their queries; "Go to album/artist" actions;
+                          the album page lays out by its content's width (sleeve and
+                          listing side by side from 860px, `features/album/layout.ts`)
     player                now-playing bar, queue, now-playing view (motion cover of the
                           playing album), playback mirror, lyrics (LyricsService: the best
                           of the sources in Settings → Playback → Lyrics, refetched when
@@ -979,12 +981,14 @@ Intl, locale-aware) and the long and short release days. Album tiles
 (`albumTile`, `toCoverItem`) carry the badge as `CoverItem.badge`, drawn on
 the cover's corner instead of a play control (`canPlay` is false for an
 upcoming album) and read after the title by assistive technology. The album
-page (`features/album/ReleaseStatus.tsx`) replaces Play and Shuffle with
-the countdown (`formatTimeLeft`, re-read every minute with
-`shared/lib/useNow`), "Remind me" and, signed in, "Pre-add"
-(`LibraryButton`'s `addLabel`; the menu says "Pre-add to library"); the
-songs already out still play from their rows, and Go refuses the rest
-(`not_released`). When the release passes, the page reloads the album.
+page (`features/album/ReleaseStatus.tsx`) puts the countdown
+(`formatTimeLeft`, re-read every minute with `shared/lib/useNow`) above its
+actions: Play takes only the songs already out ("Play the 8 songs out
+now"; `playSongs` skips the rest), with no Shuffle until the release,
+then "Remind me" and, signed in, "Pre-add" (`LibraryButton`'s `addLabel`;
+the menu says "Pre-add to library"). Each song not out yet says "Out
+19 Nov" under its title, and Go refuses to play it (`not_released`). When
+the release passes, the page reloads the album.
 `features/reminders` mirrors Go's `RemindersService` ("reminders:changed"),
 owns `RemindButton` (hidden without `Capabilities.notifications`) and the
 album menu's "Remind me" / "Turn off reminder"; it sends the notification's
