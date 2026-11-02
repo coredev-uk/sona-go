@@ -11,6 +11,7 @@ import { PageHeader } from "@/shared/components/PageHeader";
 import { Shelf } from "@/shared/components/Shelf";
 import { ItemGrid } from "@/shared/items/ItemGrid";
 import { ItemShelf } from "@/shared/items/ItemShelf";
+import { openAccountDialog } from "@/shared/lib/account";
 import { callFailure } from "@/shared/lib/errors";
 import { TrackList } from "@/shared/tracks/TrackList";
 
@@ -138,7 +139,7 @@ function CatalogResults({ q }: { q: string }) {
       return (
         <EmptyState
           title={t`Sign in to search Apple Music`}
-          action={{ label: t`Sign in`, to: "/settings", search: { section: "account" } }}
+          action={{ label: t`Sign in`, onClick: openAccountDialog }}
         >
           <Trans>
             Searching the catalogue needs your account's storefront. Your library on this computer

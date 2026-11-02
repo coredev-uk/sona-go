@@ -1,8 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Link, useRouter } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, User } from "lucide-react";
+import { useRouter } from "@tanstack/react-router";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
+import { AccountMenu } from "@/features/auth";
 import { Button } from "@/shared/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
@@ -16,9 +16,9 @@ const SearchSlot = slots.find((s) => s.TopBarSearch)?.TopBarSearch;
 
 /**
  * The top bar, which is also the window's title bar where Sona draws it
- * (window-chrome.ts): history, search, the account, and the window's own
- * buttons at the desktop's side. While the sidebar is hidden it also takes
- * the leading end (macOS's buttons, Sona's leading ones).
+ * (window-chrome.ts): history, search, the account menu, and the window's
+ * own buttons at the desktop's side. While the sidebar is hidden it also
+ * takes the leading end (macOS's buttons, Sona's leading ones).
  */
 export function TopBar() {
   const { t } = useLingui();
@@ -84,25 +84,7 @@ export function TopBar() {
       )}
       {/* Room to grab the window by, at every width. */}
       <div aria-hidden className="h-full min-w-16 flex-1" />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Link
-            to="/settings"
-            search={{ section: "account" }}
-            aria-label={t`Account`}
-            className="rounded-full"
-          >
-            <Avatar className="size-7">
-              <AvatarFallback className="bg-hover text-ink-muted">
-                <User aria-hidden className="size-4" strokeWidth={1.75} />
-              </AvatarFallback>
-            </Avatar>
-          </Link>
-        </TooltipTrigger>
-        <TooltipContent>
-          <Trans>Account</Trans>
-        </TooltipContent>
-      </Tooltip>
+      <AccountMenu />
       {trailing && <WindowControls chrome={chrome} side="end" />}
     </header>
   );

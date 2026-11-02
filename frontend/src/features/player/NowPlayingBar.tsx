@@ -30,6 +30,7 @@ import { RatingButtons } from "@/shared/components/RatingButtons";
 import { Button } from "@/shared/ui/button";
 import { Slider } from "@/shared/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
+import { openAccountDialog } from "@/shared/lib/account";
 import { useCapabilities } from "@/shared/lib/capabilities";
 import { clockTime, formatTime } from "@/shared/lib/format";
 import { run } from "@/shared/lib/run";
@@ -221,13 +222,13 @@ export function NowPlayingBar() {
   let subline: ReactNode = null;
   if (authRequired) {
     subline = (
-      <Link
-        to="/settings"
-        search={{ section: "account" }}
-        className="truncate text-sub text-ink underline underline-offset-2"
+      <button
+        type="button"
+        onClick={openAccountDialog}
+        className="truncate text-start text-sub text-ink underline underline-offset-2"
       >
         <Trans>Sign in again to keep playing</Trans>
-      </Link>
+      </button>
     );
   } else if (noCdm) {
     subline = <CdmNotice />;

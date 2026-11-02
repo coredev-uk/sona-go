@@ -1,6 +1,5 @@
 import type { Capabilities } from "@bindings/services";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { I18nRoot } from "@/shared/i18n";
@@ -27,13 +26,9 @@ const env = vi.hoisted(() => ({ caps: undefined as Capabilities | undefined }));
 vi.mock("@bindings/services", () => ({ DesktopService: desktop }));
 vi.mock("@/shared/lib/capabilities", () => ({ useCapabilities: () => env.caps }));
 vi.mock("../compose", () => ({ slots: [] }));
+vi.mock("@/features/auth", () => ({ AccountMenu: () => <button type="button">Account</button> }));
 vi.mock("@tanstack/react-router", () => ({
   useRouter: () => ({ history: { back: vi.fn(), forward: vi.fn() } }),
-  Link: ({ children, ...props }: { children: ReactNode }) => (
-    <a href="#" {...props}>
-      {children}
-    </a>
-  ),
 }));
 
 function renderBar(caps: Capabilities, style = "auto") {

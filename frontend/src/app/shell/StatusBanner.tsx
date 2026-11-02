@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 
 import { KeyringRetry, useAuth } from "@/features/auth";
 
+import { openAccountDialog } from "@/shared/lib/account";
+
 const ACTION_CLS =
   "shrink-0 font-medium underline underline-offset-2 hover:text-ink aria-disabled:text-ink-muted aria-disabled:no-underline";
 
@@ -42,13 +44,21 @@ export function StatusBanner() {
     action = <KeyringRetry status={data} className={ACTION_CLS} />;
   } else if (data.state === "needs_reauth") {
     text = t`Apple Music asked Sona to sign in again. Your library is still here.`;
-    action = <SettingsLink label={t`Sign in`} section="account" />;
+    action = (
+      <button type="button" onClick={openAccountDialog} className={ACTION_CLS}>
+        {t`Sign in`}
+      </button>
+    );
   } else if (data.state === "error") {
     const reason = data.lastError?.replace(/^[a-z]+: /, "");
     text = reason
       ? t`Apple Music isn't accepting Sona's requests: ${reason}`
       : t`Apple Music isn't accepting Sona's requests.`;
-    action = <SettingsLink label={t`Diagnostics`} section="diagnostics" />;
+    action = (
+      <Link to="/settings" search={{ section: "diagnostics" }} className={ACTION_CLS}>
+        {t`Diagnostics`}
+      </Link>
+    );
   } else if (data.offline) {
     icon = <WifiOff aria-hidden className="size-4 shrink-0 text-ink-muted" strokeWidth={1.75} />;
     text = t`Offline. Showing your library from this computer; Sona reconnects by itself.`;
@@ -65,13 +75,5 @@ export function StatusBanner() {
       <span className="min-w-0 flex-1 truncate">{text}</span>
       {action}
     </div>
-  );
-}
-
-function SettingsLink({ label, section }: { label: string; section: "account" | "diagnostics" }) {
-  return (
-    <Link to="/settings" search={{ section }} className={ACTION_CLS}>
-      {label}
-    </Link>
   );
 }

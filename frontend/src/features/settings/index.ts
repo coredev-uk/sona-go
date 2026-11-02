@@ -1,8 +1,9 @@
 import { t } from "@lingui/core/macro";
 import { SystemService } from "@bindings/services";
-import { createRoute } from "@tanstack/react-router";
+import { createRoute, redirect } from "@tanstack/react-router";
 import { Settings } from "lucide-react";
 
+import { openAccountDialog } from "@/shared/lib/account";
 import { keys } from "@/shared/lib/keys";
 import type { FeatureModule } from "@/shared/module";
 import { childRoute } from "@/shared/router";
@@ -10,7 +11,7 @@ import { childRoute } from "@/shared/router";
 import { integrationsStatusKey } from "./integrations";
 import { loadAppearance } from "./queries";
 import { scrobbleStatusKey } from "./scrobble";
-import { settingsSearch } from "./search-params";
+import { namesAccountSection, settingsSearch } from "./search-params";
 import { SettingsPage } from "./Settings";
 
 export { bindAppearance, useAppearance, type Theme } from "./appearance";
@@ -19,6 +20,13 @@ export { loadAppearance, useSettings, useUpdateSettings } from "./queries";
 const settingsRoute = createRoute({
   ...childRoute("/settings"),
   validateSearch: settingsSearch,
+  // Settings → Account moved to the top bar's account menu: an old link
+  // (or a saved last page) opens the account dialog over Settings.
+  beforeLoad: ({ location }) => {
+    if (!namesAccountSection(location.search)) return;
+    openAccountDialog();
+    throw redirect({ to: "/settings", replace: true });
+  },
   component: SettingsPage,
 });
 

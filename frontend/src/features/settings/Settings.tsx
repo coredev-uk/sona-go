@@ -2,7 +2,6 @@ import { useLingui } from "@lingui/react/macro";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
 
-import { AccountSection } from "@/features/auth";
 import { PageHeader } from "@/shared/components/PageHeader";
 
 import { AppearanceSection } from "./AppearanceSection";
@@ -24,8 +23,6 @@ let lastSection: SettingsSection = settingsSections[0];
 
 function SectionBody({ section }: { section: SettingsSection }) {
   switch (section) {
-    case "account":
-      return <AccountSection />;
     case "general":
       return <GeneralSection />;
     case "playback":
@@ -57,7 +54,6 @@ export function SettingsPage() {
     lastSection = section;
   }, [section]);
   const titles: Record<SettingsSection, string> = {
-    account: t`Account`,
     general: t`General`,
     playback: t`Playback`,
     appearance: t`Appearance`,
