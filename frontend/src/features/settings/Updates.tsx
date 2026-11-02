@@ -9,9 +9,10 @@ import { callFailure, codeMessage } from "@/shared/lib/errors";
 import { relativeTime } from "@/shared/lib/format";
 import { keys } from "@/shared/lib/keys";
 import { run } from "@/shared/lib/run";
+import { cn } from "@/shared/lib/utils";
 
 import { useSettings, useUpdateSettings } from "./queries";
-import { SettingRow, SettingsGroup } from "./SettingRow";
+import { ROW_FRAME, SettingRow, SettingsGroup } from "./SettingRow";
 
 /** Settings → General: the start-up update check and its latest result. */
 export function UpdatesGroup() {
@@ -76,7 +77,10 @@ export function UpdatesGroup() {
         </SettingRow>
       )}
       {st && v && (
-        <div className="flex items-start justify-between gap-8 py-4" aria-live="polite">
+        <div
+          className={cn(ROW_FRAME, "flex items-start justify-between gap-10")}
+          aria-live="polite"
+        >
           <div className="min-w-0">
             <p className="flex items-start gap-2 text-sub text-ink">
               {v.ok === true && (

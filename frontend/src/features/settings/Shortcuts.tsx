@@ -23,7 +23,7 @@ import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 
 import { useSettings, useUpdateSettings } from "./queries";
-import { SettingsPanel } from "./SettingRow";
+import { ROW_FRAME, SettingsLoading, SettingsPanel } from "./SettingRow";
 
 /** Chords the recorder refuses: they move focus. */
 // eslint-disable-next-line lingui/no-unlocalized-strings -- chord names, not shown
@@ -109,7 +109,10 @@ function ShortcutRow({
   };
 
   return (
-    <div className="py-1.5">
+    <div
+      data-setting={`shortcut-${shortcut.id}`}
+      className={cn(ROW_FRAME, "break-inside-avoid py-1.5")}
+    >
       <div className="flex min-h-8 items-center justify-between gap-6">
         <span id={`${noteId}-label`} className="min-w-0 text-ui text-ink">
           {label}
@@ -135,7 +138,7 @@ function ShortcutRow({
             onBlur={stop}
             onKeyDown={onKeyDown}
             className={cn(
-              "flex h-8 min-w-36 items-center justify-end gap-1.5 rounded-md border px-2 transition-colors duration-100",
+              "flex h-8 min-w-28 items-center justify-end gap-1.5 rounded-md border px-2 transition-colors duration-100",
               recording
                 ? "border-ink bg-raised"
                 : "border-control-line/40 hover:border-control-line hover:bg-raised",
@@ -246,7 +249,7 @@ export function ShortcutsSection() {
     );
   }
   const s = settings.data;
-  if (!s) return <SettingsPanel className="h-72" />;
+  if (!s) return <SettingsLoading rows={8} />;
 
   const overrides: Overrides = s.shortcuts ?? {};
   const all = registeredShortcuts();
@@ -302,29 +305,41 @@ export function ShortcutsSection() {
           <Trans>Reset all</Trans>
         </Button>
       </div>
-      {shortcutGroups.map((group) => {
-        const list = shown.filter((x) => x.group === group);
-        if (!list.length) return null;
-        return (
-          <section key={group} aria-labelledby={`shortcuts-${group}`}>
-            <h3 id={`shortcuts-${group}`} className="mb-2 text-ui font-semibold text-ink">
-              {groupTitle(group)}
-            </h3>
-            <SettingsPanel>
-              {list.map((x) => (
-                <ShortcutRow
-                  key={x.id}
-                  shortcut={x}
-                  bindings={bindings}
-                  conflicted={conflicted.has(x.id)}
-                  overridden={x.id in overrides}
-                  onSave={(chords, steal) => save(rebind(all, overrides, x.id, chords, steal))}
-                />
-              ))}
-            </SettingsPanel>
-          </section>
-        );
-      })}
+      {/* Two columns where the section is wide enough, the groups running on from one to the next. */}
+      <div className="@container">
+        <div className="gap-x-10 @min-[46rem]:columns-2">
+          {shortcutGroups.map((group) => {
+            const list = shown.filter((x) => x.group === group);
+            if (!list.length) return null;
+            return (
+              <section
+                key={group}
+                aria-labelledby={`shortcuts-${group}`}
+                className="break-inside-avoid pb-8"
+              >
+                <h3
+                  id={`shortcuts-${group}`}
+                  className="mb-2 break-after-avoid text-heading text-ink"
+                >
+                  {groupTitle(group)}
+                </h3>
+                <SettingsPanel>
+                  {list.map((x) => (
+                    <ShortcutRow
+                      key={x.id}
+                      shortcut={x}
+                      bindings={bindings}
+                      conflicted={conflicted.has(x.id)}
+                      overridden={x.id in overrides}
+                      onSave={(chords, steal) => save(rebind(all, overrides, x.id, chords, steal))}
+                    />
+                  ))}
+                </SettingsPanel>
+              </section>
+            );
+          })}
+        </div>
+      </div>
       <div role="status">
         {shown.length === 0 && (
           <p className="py-6 text-center text-sub text-ink-muted">

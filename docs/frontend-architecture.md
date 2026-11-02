@@ -1086,14 +1086,30 @@ page) opens the dialog over Settings (the route's `beforeLoad`).
   `/settings` with no section, or one that no longer exists (old links to
   `desktop`), opens the section shown last in this run, at first the first
   one, so removing a section from the list needs no other change.
+- **The index** (`Settings.tsx`): the h1, Find a setting (`FindSetting.tsx`)
+  and the section list, each section with its state in one line
+  (`summaries.ts`, `useSectionSummaries`: settings, capabilities and the
+  scrobblers' status only). Below 960px it wraps above the content and the
+  section heading is visually hidden.
+- **Find a setting** (`find.ts`): `settingIndex()` lists every row (its
+  `data-setting` id, section, group, title, a few other words, and `when`
+  for rows a section shows only in some states) and every registered
+  shortcut; `findSettings` matches every word of the query, accents and
+  case folded, titles that start with it first. Choosing a result
+  replaces the section and calls `focusSetting(id)`, which waits up to 3 s
+  for the row, focuses its control (or the row) and sets `data-found` on
+  it for 2 s. `find.test.tsx` renders each section and checks that every
+  entry's row is there, so a renamed or new row can't be missed.
 - **Groups**: a section is a stack of groups (`SettingsSections`), each an
-  h3 over one panel (`SettingsGroup`), with an optional untitled panel
-  first for a state that needs attention (Playback's Widevine row). Rows
-  are `SettingRow`: label and description on the left (the description is
-  the control's `aria-describedby`), the control on the right; selects use
-  `SELECT_WIDTH`, which grows with a long value instead of cutting it.
-  Below 960px the section list wraps above the content and the section
-  heading is visually hidden.
+  h3 over its rows (`SettingsGroup`, `SettingsPanel`), with an optional
+  untitled block first for a state that needs attention (Playback's
+  Widevine row). Rows are `SettingRow` (`data-setting` = its id; the frame
+  is `ROW_FRAME`, one line above each row): label and description on the
+  left (the description is the control's `aria-describedby`), the control
+  on the right; selects use `SELECT_WIDTH`, which grows with a long value
+  instead of cutting it. A row the platform can't back is an
+  `UnavailableRow` (title and why, a `group` named by the title), never a
+  missing row. Loading draws `SettingsLoading`.
 - **General** holds starting Sona (start at login, start in the tray once
   that is on, Open on with "The page you were last on" as its first
   choice), the window (close action, title bar, size), while music plays
@@ -1128,10 +1144,11 @@ reports what this platform and build support through
   shortcut's `when`.
 
 The rule: a control whose capability is false is hidden, or its absence is
-explained where it would be (Settings → Playback says playback isn't
-available; Diagnostics shows one row instead of the CDM checks; the
-Equaliser page says it isn't available). A control is never shown only to
-fail, and undefined (still loading) counts as false. On Linux every
+explained where it would be (Settings keeps the row and says why, with
+`UnavailableRow`; Settings → Playback says playback isn't available;
+Diagnostics shows one row instead of the CDM checks; the Equaliser page
+says it isn't available). A control is never shown only to fail, and
+undefined (still loading) counts as false and shows neither. On Linux every
 capability that works today is true, so the Linux UI is unchanged. A call
 that still reaches an unsupported path fails with error code `unsupported`,
 which `callFailure` words as "That isn't available on this platform."
@@ -1148,8 +1165,8 @@ video tiles and cards, otherwise explained on the page and in the view);
 Settings → General's close action (`tray`), start at login (`autostart`),
 start in the tray (`autostart` and `tray`, shown once start at login is
 on), track notifications (`notifications`) and stay awake
-(`sleepInhibit`), with their group; the Discord section of
-Connections (`discordPresence`); the settings file export and import
+(`sleepInhibit`); the Discord row of Connections (`discordPresence`);
+the settings file export and import
 (`fileChooser`); motion artwork's "paused on battery" note (`powerState`);
 Diagnostics' WebKitGTK rows and rendering switches (`webkitGtk`). Diagnostics
 reads `DiagPlayback.engine` ("" without an engine) from its own report.

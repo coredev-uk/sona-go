@@ -13,7 +13,10 @@ import {
   useCdm,
 } from "@/features/cdm";
 import { formatBytes, relativeTime } from "@/shared/lib/format";
+import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
+
+import { ROW_FRAME } from "./SettingRow";
 
 /** A download's bar: the value is the bar's own (role progressbar), the text beside it is decoration. */
 function DownloadProgress({ status, label }: { status: CDMStatus; label: string }) {
@@ -119,7 +122,7 @@ export function CdmRow() {
   const downloading = status?.state === "downloading" || (ready && !!status?.updating);
 
   return (
-    <div className="flex items-start justify-between gap-8 py-4">
+    <div data-setting="cdm" className={cn(ROW_FRAME, "flex items-start justify-between gap-10")}>
       <div className="min-w-0">
         <label htmlFor="cdm" id="cdm-label" className="text-ui font-medium text-ink">
           <Trans>Widevine</Trans>

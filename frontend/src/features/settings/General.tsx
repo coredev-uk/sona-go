@@ -16,10 +16,11 @@ import {
   SELECT_WIDTH,
   SettingRow,
   SettingsGroup,
-  SettingsPanel,
+  SettingsLoading,
   SettingsSections,
 } from "./SettingRow";
 import { SetupRow } from "./SetupRow";
+import { startPages } from "./summaries";
 import { UpdatesGroup } from "./Updates";
 
 /** The "Open on" value standing for the page Sona was last on (Radix Select needs a non-empty value). */
@@ -86,23 +87,11 @@ function TitleBarRow({ value, onChange }: { value: string; onChange: (style: str
 /**
  * Settings → General: the language (once there is a choice), starting
  * Sona, its window, what it does while music plays, and updates. Rows the
- * platform can't back are left out (capabilities), and a group with none
- * left goes with them.
+ * platform can't back keep their place and say so (UnavailableRow).
  */
 export function GeneralSection() {
   const { t } = useLingui();
-  /** The pages Sona can open on, in sidebar order (Go's config.StartPages). */
-  const startPages = [
-    { route: "/", label: t`For you` },
-    { route: "/new", label: t`Discover` },
-    { route: "/charts", label: t`Charts` },
-    { route: "/radio", label: t`Radio` },
-    { route: "/library/recently-added", label: t`Recently added` },
-    { route: "/library/artists", label: t`Artists` },
-    { route: "/library/albums", label: t`Albums` },
-    { route: "/library/songs", label: t`Songs` },
-    { route: "/library/playlists", label: t`Playlists` },
-  ];
+  const pages = startPages();
   const settings = useSettings();
   const update = useUpdateSettings();
   const caps = useCapabilities();
@@ -116,7 +105,7 @@ export function GeneralSection() {
     );
   }
   const s = settings.data;
-  if (!s) return <SettingsPanel className="h-96" />;
+  if (!s) return <SettingsLoading rows={6} />;
   const d = s.desktop;
   const { width, height } = s.window;
   const save = (patch: Partial<Settings["desktop"]>) =>
@@ -151,7 +140,7 @@ export function GeneralSection() {
               <SelectItem value={LAST_PAGE}>
                 <Trans>The page you were last on</Trans>
               </SelectItem>
-              {startPages.map((p) => (
+              {pages.map((p) => (
                 <SelectItem key={p.route} value={p.route}>
                   {p.label}
                 </SelectItem>
@@ -203,7 +192,7 @@ export function GeneralSection() {
           </Button>
         </SettingRow>
       </SettingsGroup>
-      {(caps?.notifications || caps?.sleepInhibit) && (
+      {caps && (
         <SettingsGroup id="general-playing" title={t`While music plays`}>
           <IntegrationsDesktopRows />
         </SettingsGroup>

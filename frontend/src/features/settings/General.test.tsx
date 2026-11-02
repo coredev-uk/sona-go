@@ -116,10 +116,20 @@ describe("GeneralSection", () => {
     expect(screen.getByRole("combobox", { name: "Open on" }).textContent).toBe("Radio");
   });
 
-  it("leaves out rows and groups the platform can't back", async () => {
+  it("keeps the rows the platform can't back, each saying why", async () => {
     await renderSection(desktop(), bareCapabilities());
-    expect(screen.queryByText("Start Sona when you log in")).toBeNull();
-    expect(screen.queryByText("When the window is closed")).toBeNull();
-    expect(headings()).toEqual(["Starting Sona", "Window", "Updates"]);
+    expect(headings()).toEqual(["Starting Sona", "Window", "While music plays", "Updates"]);
+    const reasons: [string, string][] = [
+      ["Start Sona when you log in", "Not available on macOS yet."],
+      ["When the window is closed", "Sona quits: it can't stay in the system tray on macOS yet."],
+      ["Track notifications", "Not available on macOS yet."],
+      ["Stay awake while playing", "Not available on macOS yet."],
+    ];
+    for (const [title, reason] of reasons) {
+      expect(screen.getByRole("group", { name: title }).textContent).toContain(reason);
+    }
+    expect(screen.queryByRole("switch", { name: "Start Sona when you log in" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "When the window is closed" })).toBeNull();
+    expect(screen.queryByText("Start in the tray")).toBeNull();
   });
 });

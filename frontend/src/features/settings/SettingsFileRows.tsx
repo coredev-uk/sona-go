@@ -8,7 +8,7 @@ import { useCapabilities } from "@/shared/lib/capabilities";
 import { callFailure } from "@/shared/lib/errors";
 import { Button } from "@/shared/ui/button";
 
-import { SettingRow } from "./SettingRow";
+import { SettingRow, UnavailableRow } from "./SettingRow";
 import { changedRows } from "./settings-file";
 
 /**
@@ -19,7 +19,7 @@ import { changedRows } from "./settings-file";
  */
 export function SettingsFileRows() {
   const { t } = useLingui();
-  const fileChooser = useCapabilities()?.fileChooser ?? false;
+  const fileChooser = useCapabilities()?.fileChooser;
   const exporting = useMutation({
     mutationFn: () => SystemService.ExportSettings(),
     onSuccess: (path) => {
@@ -52,7 +52,8 @@ export function SettingsFileRows() {
       toast.error(t`Couldn't import the settings`, { description: callFailure(err).message }),
   });
   const busy = exporting.isPending || importing.isPending;
-  if (!fileChooser) return null;
+  if (fileChooser === undefined) return null;
+  if (!fileChooser) return <UnavailableRow id="settings-file" title={t`Settings file`} />;
 
   return (
     <SettingRow

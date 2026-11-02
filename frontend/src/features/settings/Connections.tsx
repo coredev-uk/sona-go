@@ -9,7 +9,7 @@ import { useId, useRef, useState, type FormEvent, type ReactNode, type Ref } fro
 import { toast } from "sonner";
 
 import { usePrivate } from "@/features/private";
-import { useCapabilities } from "@/shared/lib/capabilities";
+import { cn } from "@/shared/lib/utils";
 import { callFailure } from "@/shared/lib/errors";
 import { Button } from "@/shared/ui/button";
 import {
@@ -33,7 +33,13 @@ import {
   useScrobbleStatus,
   type Provider,
 } from "./scrobble";
-import { GroupHeading, SettingsGroup, SettingsPanel, SettingsSections } from "./SettingRow";
+import {
+  GroupHeading,
+  ROW_FRAME,
+  SettingsGroup,
+  SettingsPanel,
+  SettingsSections,
+} from "./SettingRow";
 
 const listenBrainzTokenPage = "https://listenbrainz.org/settings/";
 
@@ -92,8 +98,8 @@ function ProviderRow({
   const id = `scrobble-${provider}`;
   const connected = status?.connected ?? false;
   return (
-    <div className="flex flex-col gap-3 py-4">
-      <div className="flex items-center justify-between gap-8">
+    <div data-setting={id} className={cn(ROW_FRAME, "flex flex-col gap-3")}>
+      <div className="flex items-center justify-between gap-10">
         <div className="min-w-0">
           <p id={`${id}-title`} className="text-ui font-medium text-ink">
             {PROVIDER_NAMES[provider]}
@@ -312,7 +318,7 @@ function ScrobblingPanel() {
         <GroupHeading id="scrobbling-title">
           <Trans>Scrobbling</Trans>
         </GroupHeading>
-        <p className="mt-0.5 max-w-[64ch] text-sub text-ink-muted">
+        <p className="mt-1 max-w-[64ch] text-sub text-pretty text-ink-muted">
           <Trans>
             A song counts once you've played half of it or four minutes. Radio and songs of 30
             seconds or less aren't sent. Songs you play offline are sent when you're back online.
@@ -447,15 +453,12 @@ function ScrobblingPanel() {
 
 export function ConnectionsSection() {
   const { t } = useLingui();
-  const discord = useCapabilities()?.discordPresence ?? false;
   return (
     <SettingsSections>
       <ScrobblingPanel />
-      {discord && (
-        <SettingsGroup id="discord-title" title={t`Discord`}>
-          <IntegrationsConnectionsRows />
-        </SettingsGroup>
-      )}
+      <SettingsGroup id="discord-title" title={t`Discord`}>
+        <IntegrationsConnectionsRows />
+      </SettingsGroup>
     </SettingsSections>
   );
 }

@@ -130,12 +130,33 @@ describe("PlaybackSection", () => {
     expect(screen.queryAllByRole("heading").map((h) => h.textContent)).toEqual(["Lyrics"]);
   });
 
-  it("leaves out private listening where the engine reports plays itself", async () => {
+  it("explains private listening where the engine reports plays itself", async () => {
     const caps = linuxCapabilities();
     caps.playback.privateListening = false;
     await renderSection(Promise.resolve(caps));
     await screen.findByText("Replacing your queue");
-    expect(shown("Private listening")).toBe(false);
+    expect(shown("Private listening")).toBe(true);
+    expect(screen.queryByRole("switch", { name: "Private listening" })).toBeNull();
+    expect(
+      shown("This platform's player reports plays to Apple itself, so Sona can't hold them back."),
+    ).toBe(true);
+  });
+
+  it("keeps the rows this platform's playback can't back, saying why", async () => {
+    const caps = linuxCapabilities();
+    caps.os = "darwin";
+    caps.playback.outputDevice = false;
+    caps.playback.equalizer = false;
+    caps.playback.soundCheck = false;
+    caps.playback.crossfade = false;
+    await renderSection(Promise.resolve(caps));
+    await screen.findByText("Replacing your queue");
+    for (const title of ["Output", "Sound Check", "Equaliser", "Crossfade"]) {
+      const row = screen.getByRole("group", { name: title });
+      expect(row.textContent).toContain("Not available on macOS yet.");
+    }
+    expect(screen.queryByRole("switch", { name: "Crossfade" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open equaliser" })).toBeNull();
   });
 
   it("shows no gated control while the capabilities load", async () => {

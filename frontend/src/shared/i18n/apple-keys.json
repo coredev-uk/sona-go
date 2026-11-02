@@ -447,6 +447,14 @@
     }
   },
   {
+    "message": "{artworkUsed} of {artworkLimit}",
+    "key": "ASE.Web.IPod.NowPlaying.Position",
+    "placeholders": {
+      "index": "artworkUsed",
+      "total": "artworkLimit"
+    }
+  },
+  {
     "message": "{n, plural, one {# song} other {# songs}}",
     "key": "ASE.Web.Music.NoOfSongs",
     "plural": true,

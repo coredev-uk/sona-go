@@ -5,6 +5,7 @@ import { MotionService, SystemService, type CDMStatus, type Diagnostics } from "
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Clipboard } from "@wailsio/runtime";
 import { CircleAlert, CircleCheck, Copy, FolderOpen, RotateCw, TriangleAlert } from "lucide-react";
+import { Fragment } from "react";
 import { toast } from "sonner";
 
 import { cdmFailedState, cdmPercent, cdmProblem, useCdm } from "@/features/cdm";
@@ -21,6 +22,7 @@ import { cn } from "@/shared/lib/utils";
 
 import { motionGroup, motionReport } from "./MotionDiagnostics";
 import { useSettings, useUpdateSettings } from "./queries";
+import { SettingRow, SettingsPanel } from "./SettingRow";
 
 type Status = "ok" | "warning" | "error" | "info";
 
@@ -445,42 +447,31 @@ function RenderingToggles() {
   const set = (patch: Partial<typeof s.diagnostics>) =>
     update.mutate({ ...s, diagnostics: { ...s.diagnostics, ...patch } });
   return (
-    <div className="mt-3 rounded-lg bg-surface px-5">
+    <SettingsPanel className="mt-3">
       {(
         [
           [
             "disableDmabufRenderer",
             t`Disable the DMA-BUF renderer`,
-            t`Sets WEBKIT_DISABLE_DMABUF_RENDERER=1. Try it if the window is blank or flickers on your GPU driver. Takes effect after you restart Sona.`,
+            t`Try it if the window stays blank or flickers on your graphics driver. Applies from Sona's next start (WEBKIT_DISABLE_DMABUF_RENDERER=1).`,
           ],
           [
             "disableCompositingMode",
             t`Disable compositing`,
-            t`Sets WEBKIT_DISABLE_COMPOSITING_MODE=1: software rendering. Turn on Reduce effects with it. Takes effect after you restart Sona.`,
+            t`Software rendering, for when the DMA-BUF switch isn't enough. Turn on Reduce effects in Appearance with it. Applies from Sona's next start (WEBKIT_DISABLE_COMPOSITING_MODE=1).`,
           ],
         ] as const
       ).map(([key, title, desc]) => (
-        <div
-          key={key}
-          className="flex items-center justify-between gap-8 border-b border-line py-4 last:border-b-0"
-        >
-          <div>
-            <label htmlFor={key} className="text-ui font-medium text-ink">
-              {title}
-            </label>
-            <p id={`${key}-desc`} className="mt-0.5 max-w-[56ch] text-sub text-ink-muted">
-              {desc}
-            </p>
-          </div>
+        <SettingRow key={key} id={key} title={title} description={desc}>
           <Switch
             id={key}
             aria-describedby={`${key}-desc`}
             checked={s.diagnostics[key]}
             onCheckedChange={(on) => set({ [key]: on })}
           />
-        </div>
+        </SettingRow>
       ))}
-    </div>
+    </SettingsPanel>
   );
 }
 
@@ -507,7 +498,9 @@ export function DiagnosticsSection() {
   const groups = q.data ? diagnosticsGroups(q.data, webkitGtk, liveCdm) : [];
   // Motion artwork after Playback.
   if (motion && groups.length > 0) groups.splice(1, 0, motion);
-  const problems = groups.flatMap((g) => g.rows).filter((r) => r.status === "error").length;
+  const rows = groups.flatMap((g) => g.rows);
+  const problems = rows.filter((r) => r.status === "error").length;
+  const warnings = rows.filter((r) => r.status === "warning").length;
 
   // The redacted bug-report bundle: Go gathers the report, settings, crash
   // output and recent log lines, scrubs secrets and saves a copy.
@@ -542,42 +535,63 @@ export function DiagnosticsSection() {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <p className="mr-auto text-sub text-ink-muted" aria-live="polite">
-          {q.isFetching
-            ? t`Checking the playback host, database and keyring…`
-            : q.data
-              ? problems
-                ? t`${plural(problems, { one: "# problem found", other: "# problems found" })}`
-                : t`Everything Sona needs is working`
-              : ""}
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void q.refetch()}
-          disabled={q.isFetching}
-        >
-          <RotateCw strokeWidth={1.75} />
-          <Trans>Check again</Trans>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => bundle.mutate()}
-          disabled={bundle.isPending}
-        >
-          <Copy strokeWidth={1.75} />
-          {bundle.isPending ? <Trans>Collecting…</Trans> : <Trans>Copy diagnostics</Trans>}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void run(t`Couldn't open the log folder`, SystemService.OpenLogFolder())}
-        >
-          <FolderOpen strokeWidth={1.75} />
-          <Trans>Open log folder</Trans>
-        </Button>
+      <div className="mb-8 flex flex-wrap items-start gap-x-6 gap-y-3 border-t border-line pt-4">
+        <div className="mr-auto flex min-h-8 items-start gap-2.5" aria-live="polite">
+          {q.data && !q.isFetching && (
+            <span className="mt-0.5">
+              <StatusIcon status={problems ? "error" : "ok"} />
+            </span>
+          )}
+          <div>
+            <p className="text-heading text-ink">
+              {q.isFetching
+                ? t`Checking the playback host, database and keyring…`
+                : q.data
+                  ? problems
+                    ? t`${plural(problems, { one: "# problem found", other: "# problems found" })}`
+                    : t`Everything Sona needs is working`
+                  : ""}
+            </p>
+            {q.data && !q.isFetching && warnings > 0 && (
+              <p className="text-sub text-ink-muted">
+                {plural(warnings, {
+                  one: "# warning to look at below",
+                  other: "# warnings to look at below",
+                })}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void q.refetch()}
+            disabled={q.isFetching}
+          >
+            <RotateCw strokeWidth={1.75} />
+            <Trans>Check again</Trans>
+          </Button>
+          <Button
+            data-setting="diagnostics-copy"
+            variant="outline"
+            size="sm"
+            onClick={() => bundle.mutate()}
+            disabled={bundle.isPending}
+          >
+            <Copy strokeWidth={1.75} />
+            {bundle.isPending ? <Trans>Collecting…</Trans> : <Trans>Copy diagnostics</Trans>}
+          </Button>
+          <Button
+            data-setting="diagnostics-logs"
+            variant="outline"
+            size="sm"
+            onClick={() => void run(t`Couldn't open the log folder`, SystemService.OpenLogFolder())}
+          >
+            <FolderOpen strokeWidth={1.75} />
+            <Trans>Open log folder</Trans>
+          </Button>
+        </div>
       </div>
 
       {q.error && (
@@ -589,9 +603,10 @@ export function DiagnosticsSection() {
         />
       )}
       {q.isPending && (
-        <div aria-busy className="rounded-lg bg-surface px-5 py-2">
+        <div aria-busy>
+          <div className="mb-3 h-4 w-28 rounded-sm bg-hover" />
           {Array.from({ length: 7 }, (_, i) => (
-            <div key={i} className="flex h-10 items-center gap-6">
+            <div key={i} className="flex h-10 items-center gap-6 border-t border-line">
               <div className="h-3 w-32 rounded-sm bg-hover" />
               <div
                 className="h-3 rounded-sm bg-hover"
@@ -602,33 +617,52 @@ export function DiagnosticsSection() {
         </div>
       )}
 
-      {groups.map((g) => (
-        <section key={g.title} className="mt-6 first:mt-0">
-          <h3 className="mb-2 text-ui font-semibold text-ink">{g.title}</h3>
-          <dl className="rounded-lg bg-surface px-5 py-1.5">
-            {g.rows.map((r) => (
-              <div key={r.label} className="grid grid-cols-[200px_minmax(0,1fr)] gap-4 py-2">
-                <dt className="text-sub [overflow-wrap:anywhere] text-ink-muted">{r.label}</dt>
-                <dd className="min-w-0">
-                  <span className="flex items-start gap-2">
-                    <StatusIcon status={r.status} />
-                    <span
-                      className={cn(
-                        "min-w-0 text-sub break-words text-ink",
-                        r.status === "error" && "font-medium",
-                      )}
-                    >
-                      {r.value}
+      <div className="flex flex-col gap-10">
+        {groups.map((g) => (
+          <section key={g.title}>
+            <h3 className="mb-3 text-heading text-ink">{g.title}</h3>
+            <dl>
+              {g.rows.map((r) => (
+                <div
+                  key={r.label}
+                  className="grid grid-cols-[200px_minmax(0,1fr)] gap-6 border-t border-line py-2.5 max-[960px]:grid-cols-[160px_minmax(0,1fr)]"
+                >
+                  <dt className="text-sub [overflow-wrap:anywhere] text-ink-muted">
+                    {/* Long variable names break after an underscore, not mid-word. */}
+                    {r.label.split("_").map((part, i) => (
+                      <Fragment key={i}>
+                        {i > 0 && (
+                          <>
+                            _<wbr />
+                          </>
+                        )}
+                        {part}
+                      </Fragment>
+                    ))}
+                  </dt>
+                  <dd className="min-w-0">
+                    <span className="flex items-start gap-2">
+                      <StatusIcon status={r.status} />
+                      <span
+                        className={cn(
+                          "min-w-0 text-sub [overflow-wrap:anywhere] text-ink",
+                          r.status === "error" && "font-medium",
+                        )}
+                      >
+                        {r.value}
+                      </span>
                     </span>
-                  </span>
-                  {r.detail && <p className="mt-1 ml-6 text-sub text-ink-muted">{r.detail}</p>}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          {webkitGtk && g.title === t`Rendering` && <RenderingToggles />}
-        </section>
-      ))}
+                    {r.detail && (
+                      <p className="mt-1 ml-6 max-w-[64ch] text-sub text-ink-muted">{r.detail}</p>
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            {webkitGtk && g.title === t`Rendering` && <RenderingToggles />}
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

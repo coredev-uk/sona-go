@@ -3,13 +3,14 @@ import { useLingui } from "@lingui/react/macro";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useRef } from "react";
 
+import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Switch } from "@/shared/ui/switch";
 
 import { moveProvider } from "./lyrics-order";
 import { useSettings, useUpdateSettings } from "./queries";
-import { SELECT_WIDTH, SettingRow, SettingsGroup } from "./SettingRow";
+import { ROW_FRAME, SELECT_WIDTH, SettingRow, SettingsGroup } from "./SettingRow";
 
 /** Languages offered for translations ("" is the Apple Music account's). */
 const translationLanguages = [
@@ -110,13 +111,13 @@ export function LyricsRows() {
       title={t`Lyrics`}
       description={t`Sona asks every source that's on and shows the lyrics with the finest timing: word by word, then line by line, then plain text. A source higher in the list wins a tie.`}
     >
-      <ul aria-label={t`Lyrics sources`} className="divide-y divide-line">
+      <ul aria-label={t`Lyrics sources`} data-setting="lyrics-sources" className="isolate">
         {lyrics.providers.map((p, i) => {
           const about = names[p.id] ?? { name: p.id, about: "" };
           const name = about.name;
           const rowId = `lyrics-${p.id}`;
           return (
-            <li key={p.id} className="flex items-center justify-between gap-6 py-4">
+            <li key={p.id} className={cn(ROW_FRAME, "flex items-center justify-between gap-6")}>
               <div className="min-w-0">
                 <label htmlFor={rowId} className="text-ui font-medium text-ink">
                   {name}
