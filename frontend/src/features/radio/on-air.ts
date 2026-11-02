@@ -1,8 +1,8 @@
-import { RadioService, type StationEvent } from "@bindings/services";
+import type { StationEvent } from "@bindings/services";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import { radioKeys } from "./queries";
+import { stationQuery } from "./queries";
 import { onAir } from "./schedule";
 
 /**
@@ -11,12 +11,7 @@ import { onAir } from "./schedule";
  * when the slot ends.
  */
 export function useOnAirProgramme(id: string | undefined): StationEvent | undefined {
-  const q = useQuery({
-    queryKey: radioKeys.station(id ?? ""),
-    queryFn: () => RadioService.Station(id ?? ""),
-    enabled: !!id,
-    staleTime: 5 * 60 * 1000,
-  });
+  const q = useQuery({ ...stationQuery(id ?? ""), enabled: !!id });
   const [now, setNow] = useState(() => Date.now());
   const programme = q.data ? onAir(q.data.schedule, now) : undefined;
   const until = programme?.endMs ?? 0;

@@ -1,5 +1,5 @@
 import { RadioService } from "@bindings/services";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 
 /** Query keys; every key starts with "radio" so sign-in changes can drop them all. */
 export const radioKeys = {
@@ -39,11 +39,18 @@ export function useRecentStations(enabled: boolean) {
   });
 }
 
-/** A station page; a live station's schedule is refetched when its programme ends. */
+/** A station page's data; a live station's schedule is refetched when its programme ends. */
+export const stationQuery = (id: string) => ({
+  queryKey: radioKeys.station(id),
+  queryFn: () => RadioService.Station(id),
+  staleTime: 5 * 60 * 1000,
+});
+
 export function useStation(id: string) {
-  return useQuery({
-    queryKey: radioKeys.station(id),
-    queryFn: () => RadioService.Station(id),
-    staleTime: 5 * 60 * 1000,
-  });
+  return useQuery(stationQuery(id));
+}
+
+/** Several stations' pages at once (the Radio page's schedules), shared with each station's page. */
+export function useStations(ids: readonly string[]) {
+  return useQueries({ queries: ids.map(stationQuery) });
 }

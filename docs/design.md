@@ -326,6 +326,34 @@ The now-playing view's lyrics column and full-screen lyrics share one treatment 
 - **Duets.** When two or more voices take lines, the first to sing sits at the start and the others at the end, each kept 15% clear of the other's side (full screen: the 22ch column moves across); lines every voice sings together are centred. A song with one voice is laid out as before.
 - **Motion.** The fill is the only thing that moves each frame, and only while a word is being sung (CPU: `docs/frontend-architecture.md`, "Word-timed lyrics"). Under `prefers-reduced-motion` or reduce effects each word lights whole as it begins, without a fill.
 
+### Radio
+
+Radio (`/radio`) answers what radio alone can: what is on air right now, and for how long. Apple's live stations open the page as a now-and-next board drawn from their schedules; the local broadcasters follow, as they are live too; then Apple's radio page in bands, with the stations to tune to before the shows to listen back to.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ Radio                                                    │
+│ Live now                                                 │
+│ ▣ Apple Music 1                ▶  ▣ Apple Music Hits   ▶ │
+│   The Zane Lowe Show                Songs you know…      │
+│   10:00–12:00 ━━━━──── 1 hr left    08:00–10:00 ━━── 42… │
+│   Next at 12:00: Rebecca Judd                            │
+│ (6 stations, two columns at 1440, one at 940)            │
+│                                                          │
+│ Local Broadcasters   (the shared station list)           │
+│ ──────────────────────────────────────────────────────── │
+│ Stations             Your stations · Top · by genre      │
+│ Shows and episodes   episodes, interviews, shows, hosts  │
+│ Browse               more to explore                     │
+└──────────────────────────────────────────────────────────┘
+```
+
+- **Live now.** The section's heading is at the bands' size (it is the first of them, with no line above it), and the local broadcasters' list sits inside it. One row per live station, 96px with an 8px inset, `--hover` fill at radius 6 like track rows (on hover and while a control in the row has focus), in a grid of 420px minimum columns (two at 1440, one at Sona's narrowest, three on a wide screen). The art is the programme's own square from the schedule (the station's when it has none) at 80px. Beside it, on fixed lines so every row's bar sits at the same height: the station's name at 14/500 (a link to its page over the whole row), what is on at 13 in ink, then the slot, a 2px progress bar and the time left ("1 hr, 18 mins left") in meta, and the next programme with a name of its own ("Next at 11:00: The Matt Wilkinson Show", or "Later at 20:00: The Ebro Show" when the station's own hours come between). A slot named after the station shows its description, or the tagline when that is all it says. The station's own hours count as one stretch with the slots around them, so the slot and the time left run to the next named show and no hour goes unaccounted for; when those hours run to the end of the schedule there is nothing to count down to, and the row shows the tagline alone. A show's back-to-back slots are one stretch too. The board reads the clock every 30 seconds and moves on by itself when a slot ends; the schedules are the station pages' own queries, so opening a station is instant.
+- **Play and state.** The play control is always shown at the row's end (a 32px ghost circle): picking a station is the page's job, so it is not left to hover. The station playing takes amber where the board shows it: its name in `--amber-ink`, the equaliser in place of the play control, and the progress fill in amber while it plays. A station Sona can't play has no play control; its row says why where the slot would be, with the `CircleSlash` icon.
+- **Bands.** After the live part the page's shelves go by what they hold: Stations (the user's own first, Apple's top and genre stations), Shows and episodes (episodes, interviews, sessions, DJ mixes, shows and hosts), Browse (the links). Apple's order holds inside each; the band line and heading are Discover's. Apple's own rows of the live stations are left out while the board lists them, and kept when Sona couldn't list them.
+- **Signed out.** The Stations band opens with a "Your stations" block saying what signing in adds, with Sign in.
+- **Loading and errors.** The board's frame (rows at their height, the art and lines as bars) and the first band's line and heading stand where they will land. A block that fails says so in place; when nothing loads, the page says it once, with one Retry.
+
 ## Empty, loading and error states
 
 - An empty route keeps its frame: the h1, any column header row it will have, then one dashed-border block (1px `--line`, radius 8) holding a 16/600 sentence-case title, one sentence in the product's own words, and at most one action.
