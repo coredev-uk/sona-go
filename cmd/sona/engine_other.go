@@ -10,6 +10,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/cdm"
+	"github.com/coredev-uk/sona-go/internal/playback/video"
 )
 
 // Windows, and macOS built without cgo (which Wails needs there anyway):
@@ -19,9 +20,9 @@ import (
 func childMain() {}
 
 // newEngine is the engine for a platform without one: every play fails
-// with playback.ErrUnsupported, previews too. It needs no CDM, so nothing
-// is downloaded.
-func newEngine(*applemusic.Client, config.Settings, *slog.Logger, *cdm.Manager, func() string) playback.Engine {
+// with playback.ErrUnsupported, previews and videos too. It needs no CDM,
+// so nothing is downloaded.
+func newEngine(*applemusic.Client, config.Settings, *slog.Logger, *cdm.Manager, func() string, *video.Surface) playback.Engine {
 	return playback.NewUnsupported()
 }
 

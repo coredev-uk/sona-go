@@ -55,6 +55,8 @@ func runChild(sb Sandbox) int {
 		log:        slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
 		enc:        gob.NewEncoder(out),
 		feeds:      make(chan request, 8),
+		vfeeds:     make(chan request, 8),
+		video:      newVideoState(),
 		volume:     1,
 		quit:       make(chan struct{}),
 		sandbox:    sb,
@@ -66,6 +68,9 @@ func runChild(sb Sandbox) int {
 	}
 	go s.feeder()
 	go s.monitor()
+	go s.videoFeeder()
+	go s.videoDecoder()
+	go s.videoPresenter()
 	dec := gob.NewDecoder(os.Stdin)
 	for {
 		var r request
@@ -75,8 +80,12 @@ func runChild(sb Sandbox) int {
 			}
 			break
 		}
-		if r.Op == opFeed {
+		switch r.Op {
+		case opFeed:
 			s.feeds <- r
+			continue
+		case opVideoFeed:
+			s.vfeeds <- r
 			continue
 		}
 		s.reply(s.handle(r))
@@ -93,7 +102,10 @@ type server struct {
 	encMu sync.Mutex
 	enc   *gob.Encoder
 	feeds chan request
-	quit  chan struct{}
+	// vfeeds and video: the current music video (child_video.go).
+	vfeeds chan request
+	video  *videoState
+	quit   chan struct{}
 
 	cdm     *widevine.CDM
 	info    Info
@@ -269,6 +281,14 @@ func (s *server) handle(r request) reply {
 		if err := s.queueNext(r); err != nil {
 			return fail(r.ID, err)
 		}
+	case opVideoLoad:
+		if err := s.loadVideo(ctx, r); err != nil {
+			return fail(r.ID, err)
+		}
+	case opVideoEnd:
+		if err := s.endVideo(r); err != nil {
+			return fail(r.ID, err)
+		}
 	case opEnd:
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -314,6 +334,7 @@ func (s *server) handle(r request) reply {
 		defer s.mu.Unlock()
 		s.track, s.playing, s.started, s.ended, s.buffering = r.Track, false, false, false, false
 		s.next = nextTrack{}
+		s.stopVideo()
 		s.closeFileLocked()
 		if s.pipe != nil {
 			s.pipe.Stop(r.Track)
@@ -554,6 +575,7 @@ func (s *server) load(r request) error {
 	t := gstTrack(r.Track, in, dur, gain)
 	t.Start = r.Start
 	s.track, s.init, s.start, s.duration, s.gain = r.Track, in, t.Priming+r.Start, dur, gain
+	s.stopVideo() // a video's LoadVideo follows its Load
 	s.next = nextTrack{}
 	s.started, s.havePrev, s.ended, s.buffering = false, false, false, false
 	s.pipe.Load(t)
@@ -889,6 +911,7 @@ func (s *server) shutdown() {
 		s.file = nil
 	}
 	s.mu.Unlock()
+	s.closeVideo()
 	if p != nil {
 		p.Close()
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
 	"github.com/coredev-uk/sona-go/internal/library"
+	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 )
 
@@ -90,9 +91,10 @@ type listen struct {
 
 // Record implements coordinator.Options.OnPlayed. Live radio and episodes
 // ("ra.…") are not songs and are not recorded (Apple keeps the station
-// history, RadioService.Recent), nor are private listens.
+// history, RadioService.Recent), nor are music videos (the History page
+// lists songs) or private listens.
 func (h *History) Record(item coordinator.Item, playedFor time.Duration, _ bool) {
-	if isStationID(item.ID) {
+	if isStationID(item.ID) || playback.IsVideo(item.ID) {
 		return
 	}
 	now := time.Now()
@@ -145,7 +147,7 @@ func (h *History) Record(item coordinator.Item, playedFor time.Duration, _ bool)
 // observe notes each listen that starts here; a resume continues its
 // listen.
 func (h *History) observe(a coordinator.Activity) {
-	if a.Kind != coordinator.ActivityStart || isStationID(a.Item.ID) {
+	if a.Kind != coordinator.ActivityStart || isStationID(a.Item.ID) || playback.IsVideo(a.Item.ID) {
 		return
 	}
 	h.mu.Lock()

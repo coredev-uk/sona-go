@@ -56,6 +56,9 @@ type media struct {
 	// clip: a song's preview, whose duration is its movie header's
 	// (preview.go): the host's demuxer would report the whole song's.
 	clip bool
+	// video: a music video's video rendition (video.go); the fields above
+	// describe its audio rendition, which plays like a song.
+	video *videoTrack
 }
 
 func (m *media) done() bool {
@@ -160,6 +163,9 @@ func (e *Engine) dropLocked(m *media) {
 	for _, sid := range m.keySessions {
 		sids[sid] = m.keyGen
 	}
+	if m.video != nil && m.video.session != "" {
+		sids[m.video.session] = m.video.sessionGen
+	}
 	for sid, gen := range sids {
 		delete(e.sessions, sid)
 		if h := e.h; h != nil && gen == e.hostGen {
@@ -176,6 +182,9 @@ func (e *Engine) dropLocked(m *media) {
 func (e *Engine) prepare(ctx context.Context, m *media) error {
 	if e.api == nil {
 		return errors.New("native: no Apple Music client")
+	}
+	if playback.IsVideo(m.id) {
+		return e.prepareVideo(ctx, m)
 	}
 	if e.preview {
 		return e.preparePreview(ctx, m)
@@ -426,7 +435,7 @@ func (e *Engine) certificate(ctx context.Context, h host, gen int, url string) e
 	return nil
 }
 
-// license makes sure host generation gen holds m's key.
+// license makes sure host generation gen holds m's keys.
 func (e *Engine) license(ctx context.Context, m *media, h host, gen int) error {
 	if m.file != nil || m.broadcast != nil {
 		return nil // plain file or clear stream: no licence
@@ -436,14 +445,29 @@ func (e *Engine) license(ctx context.Context, m *media, h host, gen int) error {
 	}
 	m.licMu.Lock()
 	defer m.licMu.Unlock()
-	if m.session != "" && m.sessionGen == gen {
-		return nil
+	if m.session == "" || m.sessionGen != gen {
+		if err := e.licenseAudio(ctx, m, h, gen); err != nil {
+			return err
+		}
 	}
+	if m.video != nil {
+		return e.licenseVideo(ctx, m, h, gen)
+	}
+	return nil
+}
+
+// licenseAudio licenses m's (audio) key on host generation gen; with
+// m.licMu held.
+func (e *Engine) licenseAudio(ctx context.Context, m *media, h host, gen int) error {
 	if err := e.certificate(ctx, h, gen, m.info.CertURL); err != nil {
 		return err
 	}
 	t0 := time.Now()
-	sid, challenge, err := h.CreateSession(ctx, m.key.KID)
+	kid := m.key.KID
+	if m.video != nil {
+		kid = m.key.InitData // a music video's playlists carry a whole pssh box
+	}
+	sid, challenge, err := h.CreateSession(ctx, kid)
 	if err != nil {
 		return err
 	}
@@ -496,17 +520,29 @@ func (e *Engine) renew(h host, gen int, ev cdmhost.Event) {
 		}
 		lic, err = e.renewStream(ctx, m, ev.Session, ev.Data)
 	} else {
-		if m.session != ev.Session || m.sessionGen != gen {
+		video := m.video != nil && m.video.session == ev.Session
+		switch {
+		case video && m.video.sessionGen == gen:
+		case !video && m.session == ev.Session && m.sessionGen == gen:
+		default:
 			return
 		}
+		keyURI, slot := m.key.URI, m.slotToken
+		if video {
+			keyURI, slot = m.video.key.URI, m.video.slotToken
+		}
 		lic, err = e.api.AcquireLicense(ctx, applemusic.LicenseRequest{
-			URL: m.info.LicenseURL, Challenge: ev.Data, KeyURI: m.key.URI,
-			AdamID: m.info.SongID, IsLibrary: m.info.IsLibrary, Renewal: true, SlotToken: m.slotToken,
+			URL: m.info.LicenseURL, Challenge: ev.Data, KeyURI: keyURI,
+			AdamID: m.info.SongID, IsLibrary: m.info.IsLibrary, Renewal: true, SlotToken: slot,
 		})
 	}
 	if err == nil {
 		if lic.SlotToken != "" {
-			m.slotToken = lic.SlotToken
+			if m.video != nil && m.video.session == ev.Session {
+				m.video.slotToken = lic.SlotToken
+			} else {
+				m.slotToken = lic.SlotToken
+			}
 		}
 		err = h.UpdateSession(ctx, ev.Session, lic.Data)
 	}
@@ -546,7 +582,14 @@ func (e *Engine) feed(ctx context.Context, it *item, tok uint64, h host, m *medi
 	}()
 	for r := range ch {
 		err := r.err
-		if err == nil {
+		switch {
+		case err != nil:
+		case m.video != nil:
+			// A video's audio init segment may carry no usable key ID
+			// (the playlist's is the one), and its timestamps start at
+			// an offset.
+			err = h.FeedStream(ctx, tok, cdmhost.StreamFragment{Data: r.data, KID: m.key.KID, Shift: m.video.offset})
+		default:
 			err = h.Feed(ctx, tok, r.data)
 		}
 		if err != nil {

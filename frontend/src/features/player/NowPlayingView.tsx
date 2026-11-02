@@ -1,9 +1,10 @@
 import { PlaybackService, type LyricLine } from "@bindings/services";
 import { Link } from "@tanstack/react-router";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Disc3, Languages, Maximize2, MicVocal, SpellCheck, X } from "lucide-react";
+import { Clapperboard, Disc3, Languages, Maximize2, MicVocal, SpellCheck, X } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
+import { FluidArtwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { MotionCover } from "@/shared/components/MotionCover";
@@ -29,7 +30,7 @@ import {
 import { LyricBody, type LyricLangs } from "./LyricBody";
 import { hasWordTiming, lineVoices, type Voice } from "./lyric-words";
 import { LyricsTiming } from "./LyricsTiming";
-import { usePlayback } from "./playback";
+import { lyricsSongId, usePlayback } from "./playback";
 import { useAlbumMotion, useLyrics } from "./queries";
 import { ROOM_TOGGLE_ID, useUI } from "./ui";
 import {
@@ -357,11 +358,12 @@ function NowPlayingCover({
 /**
  * The full now-playing view over the page: the cover on a wash of its
  * colour and, when asked for, the time-synced lyrics with the sung line in
- * amber. Escape or the close button returns to the page.
+ * amber. A music video has no lyrics: its frame, and a way to its picture.
+ * Escape or the close button returns to the page.
  */
 export function NowPlayingView() {
   const current = usePlayback((s) => s.current);
-  const { showLyrics, setShowLyrics, closeOverlay } = useUI();
+  const { showLyrics, setShowLyrics, closeOverlay, openVideo } = useUI();
   const narrow = useMediaQuery("(max-width: 1100px)");
   const closeRef = useRef<HTMLButtonElement>(null);
   const { t } = useLingui();
@@ -376,9 +378,12 @@ export function NowPlayingView() {
   }, [current, closeOverlay]);
   if (!current) return null;
 
-  const lyricsOn = showLyrics && !!current.catalogId;
+  const songId = lyricsSongId(current);
+  const lyricsOn = showLyrics && !!songId;
   const albumName = current.albumName;
   const cover = lyricsOn ? (narrow ? 200 : 320) : narrow ? 280 : 420;
+  // A video's frame is 16:9: wider than a cover, about as tall.
+  const frame = narrow ? 480 : 640;
 
   return (
     <section
@@ -387,18 +392,25 @@ export function NowPlayingView() {
     >
       <Backdrop src={current.backdrop} tone="ground" />
       <div className="relative flex h-12 shrink-0 items-center justify-end gap-1 px-4">
-        {lyricsOn && <LyricsOptions catalogId={current.catalogId} />}
-        {lyricsOn && <SyncedControls catalogId={current.catalogId} />}
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-pressed={lyricsOn}
-          disabled={!current.catalogId}
-          onClick={() => setShowLyrics(!showLyrics)}
-        >
-          {lyricsOn ? <Disc3 strokeWidth={1.75} /> : <MicVocal strokeWidth={1.75} />}
-          {lyricsOn ? t`Cover only` : t`Lyrics`}
-        </Button>
+        {lyricsOn && <LyricsOptions catalogId={songId} />}
+        {lyricsOn && <SyncedControls catalogId={songId} />}
+        {current.video ? (
+          <Button variant="ghost" size="sm" onClick={openVideo}>
+            <Clapperboard strokeWidth={1.75} />
+            <Trans>Show video</Trans>
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-pressed={lyricsOn}
+            disabled={!songId}
+            onClick={() => setShowLyrics(!showLyrics)}
+          >
+            {lyricsOn ? <Disc3 strokeWidth={1.75} /> : <MicVocal strokeWidth={1.75} />}
+            {lyricsOn ? t`Cover only` : t`Lyrics`}
+          </Button>
+        )}
         <Button
           ref={closeRef}
           variant="ghost"
@@ -416,13 +428,19 @@ export function NowPlayingView() {
         )}
       >
         <div className={cn("flex flex-col self-center", !lyricsOn && "items-center text-center")}>
-          <NowPlayingCover
-            albumId={current.albumId}
-            art={current.art.large}
-            size={cover}
-            alt={t`${albumName} cover`}
-          />
-          <div className="mt-6 min-w-0" style={{ maxWidth: cover }}>
+          {current.video ? (
+            <div style={{ width: frame }}>
+              <FluidArtwork src={current.art.large} size={frame} alt="" aspect="video" />
+            </div>
+          ) : (
+            <NowPlayingCover
+              albumId={current.albumId}
+              art={current.art.large}
+              size={cover}
+              alt={t`${albumName} cover`}
+            />
+          )}
+          <div className="mt-6 min-w-0" style={{ maxWidth: current.video ? frame : cover }}>
             <h2 className="line-clamp-2 text-page text-ink">{current.name}</h2>
             <p className="mt-1 truncate text-heading font-medium text-ink-muted">
               {current.artistId ? (
@@ -458,7 +476,7 @@ export function NowPlayingView() {
         </div>
         {lyricsOn && (
           <div className="h-full min-h-0">
-            <LyricsPane key={current.catalogId} catalogId={current.catalogId} />
+            <LyricsPane key={songId} catalogId={songId} />
           </div>
         )}
       </div>

@@ -1,6 +1,7 @@
 import { PlaybackService } from "@bindings/services";
 import { t } from "@lingui/core/macro";
 import {
+  Clapperboard,
   Disc3,
   FastForward,
   ListMusic,
@@ -37,7 +38,7 @@ import {
   toggleShuffle,
 } from "./commands";
 import { useLyricsOffset } from "./lyrics";
-import { usePlayback } from "./playback";
+import { lyricsSongId, usePlayback } from "./playback";
 import { useUI } from "./ui";
 
 const SEEK_MS = 10_000;
@@ -47,12 +48,17 @@ const VOLUME_STEP = 0.05;
 function lyricsShown(): boolean {
   const ui = useUI.getState();
   const shown = ui.overlay === "room" || (ui.overlay === "now-playing" && ui.showLyrics);
-  return shown && !!usePlayback.getState().current?.catalogId;
+  return shown && !!lyricsSongId(usePlayback.getState().current);
 }
 
 function nudgeLyrics(dir: 1 | -1) {
-  const id = usePlayback.getState().current?.catalogId;
+  const id = lyricsSongId(usePlayback.getState().current);
   if (id) useLyricsOffset.getState().nudge(id, dir);
+}
+
+/** A music video is playing: no lyrics, no song to favourite. */
+function videoPlaying(): boolean {
+  return !!usePlayback.getState().current?.video;
 }
 
 /** Sona sets the playback volume on this platform (volume keys and mute). */
@@ -170,6 +176,7 @@ export const playerShortcuts: Shortcut[] = [
     keys: ["F"],
     keywords: () => t`like love star favorite`,
     icon: Star,
+    when: () => !videoPlaying(),
     run: () => void toggleFavourite(),
   },
   {
@@ -188,6 +195,7 @@ export const playerShortcuts: Shortcut[] = [
     keys: ["L"],
     keywords: () => t`words sing`,
     icon: MicVocal,
+    when: () => !videoPlaying(),
     run: () => {
       const ui = useUI.getState();
       if (ui.overlay === "now-playing" && ui.showLyrics) ui.closeOverlay();
@@ -205,6 +213,20 @@ export const playerShortcuts: Shortcut[] = [
       const ui = useUI.getState();
       if (ui.overlay === "now-playing" && !ui.showLyrics) ui.closeOverlay();
       else if (usePlayback.getState().current) ui.openNowPlaying(false);
+    },
+  },
+  {
+    id: "player.video",
+    label: () => t`Show or hide the video`,
+    group: "view",
+    keys: ["V"],
+    keywords: () => t`music video picture watch`,
+    icon: Clapperboard,
+    when: videoPlaying,
+    run: () => {
+      const ui = useUI.getState();
+      if (ui.overlay === "video") ui.closeOverlay();
+      else ui.openVideo();
     },
   },
   {
@@ -249,7 +271,7 @@ export const playerShortcuts: Shortcut[] = [
     icon: TimerReset,
     when: lyricsShown,
     run: () => {
-      const id = usePlayback.getState().current?.catalogId;
+      const id = lyricsSongId(usePlayback.getState().current);
       if (id) useLyricsOffset.getState().reset(id);
     },
   },
@@ -260,7 +282,7 @@ export const playerShortcuts: Shortcut[] = [
     keys: ["Shift+L"],
     keywords: () => t`lyrics room karaoke big large tv`,
     icon: Maximize2,
-    when: () => !!usePlayback.getState().current?.catalogId,
+    when: () => !!lyricsSongId(usePlayback.getState().current),
     run: () => {
       const ui = useUI.getState();
       if (ui.overlay === "room") ui.closeOverlay();

@@ -1,4 +1,4 @@
-import type { Album, Artist, Playlist, Song, Station } from "@bindings/services";
+import type { Album, Artist, MusicVideo, Playlist, Song, Station } from "@bindings/services";
 import type { UseNavigateResult } from "@tanstack/react-router";
 import { plural, t } from "@lingui/core/macro";
 import type { LucideIcon } from "lucide-react";
@@ -10,6 +10,8 @@ export interface ActionTargets {
   playlist: Playlist;
   artist: Artist;
   station: Station;
+  /** Only where videos play (canPlayVideo): tiles and cards give no other video a target. */
+  "music-video": MusicVideo;
 }
 export type ActionTargetKind = keyof ActionTargets;
 
@@ -131,6 +133,7 @@ const registry: { [K in ActionTargetKind]: ActionDef<K>[] } = {
   playlist: [],
   artist: [],
   station: [],
+  "music-video": [],
 };
 const bulk: BulkActionDef[] = [];
 const ids = new Set<string>();
@@ -173,6 +176,8 @@ function countOf(kind: ActionTargetKind, n: number): string {
       return plural(n, { one: "# artist", other: "# artists" });
     case "station":
       return plural(n, { one: "# station", other: "# stations" });
+    case "music-video":
+      return plural(n, { one: "# music video", other: "# music videos" });
   }
 }
 

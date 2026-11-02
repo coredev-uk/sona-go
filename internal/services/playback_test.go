@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
 
 // playEngine plays instantly and records what it was asked to play.
@@ -155,5 +157,45 @@ func TestRestrictedAccountSkipsExplicitSongs(t *testing.T) {
 	}
 	if st := s.State(); st.Container == nil || st.Container.Kind != "album" || st.Container.ID != "l.album" {
 		t.Fatalf("container %+v", st.Container)
+	}
+}
+
+// A music video ref resolves through the catalog to the video's playback
+// ID, and its queue item says it is a video, by its catalog ID.
+func TestPlayMusicVideo(t *testing.T) {
+	ce := newCommandEnv(t, privatemode.Options{Override: privatemode.OverrideOn})
+	ce.signIn(t)
+	ctx := t.Context()
+	refs := []TrackRef{
+		{ID: "i.100", Source: SourceLibrary},
+		{ID: "1440841363", Source: SourceCatalog, Kind: TrackKindVideo},
+	}
+	if err := ce.play.PlayItems(ctx, refs, 1, PlayFrom{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := ce.eng.played(); !slices.Equal(got, []string{"mv.1440841363"}) {
+		t.Fatalf("played %v, want the video's playback ID", got)
+	}
+	q := ce.play.Queue()
+	if len(q.Items) != 2 {
+		t.Fatalf("queue %+v", q.Items)
+	}
+	if song := q.Items[0]; song.Video || song.ID != "i.100" {
+		t.Fatalf("song item %+v", song)
+	}
+	v := q.Items[1]
+	if !v.Video || v.ID != "1440841363" || v.CatalogID != "1440841363" || v.Source != SourceCatalog ||
+		v.Name != "Something" || v.Artist != "The Beatles" || v.ArtistID != "136975" || v.Album != "" ||
+		v.DurationMs != 182000 || !v.Explicit {
+		t.Fatalf("video item %+v", v)
+	}
+
+	err := ce.play.PlayItems(ctx, []TrackRef{{ID: "1440841363", Source: SourceCatalog, Kind: "podcast"}}, 0, PlayFrom{})
+	if !errors.Is(err, ErrInvalidArgument) {
+		t.Fatalf("unknown kind: %v, want ErrInvalidArgument", err)
+	}
+	err = ce.play.PlayItems(ctx, []TrackRef{{ID: "1440841363", Source: "station", Kind: TrackKindVideo}}, 0, PlayFrom{})
+	if !errors.Is(err, ErrInvalidArgument) {
+		t.Fatalf("video from an unknown source: %v, want ErrInvalidArgument", err)
 	}
 }

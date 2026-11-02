@@ -2822,6 +2822,16 @@ export enum ErrorCode {
     CodeNoCDM = "no_cdm",
 
     /**
+     * Apple offers the music video only in HD, which a software CDM may not play (playback.ErrVideoHDOnly)
+     */
+    CodeVideoHDOnly = "video_hd_only",
+
+    /**
+     * Apple refused the music video's licence, or its key is unusable here (playback.ErrVideoLicence)
+     */
+    CodeVideoLicence = "video_licence_refused",
+
+    /**
      * the token store failed or didn't answer in time
      */
     CodeKeyring = "keyring",
@@ -4351,6 +4361,12 @@ export class PlaybackCapabilities {
      */
     "privateListening": boolean;
 
+    /**
+     * Video: music videos play (in SD, the only quality Apple licenses a
+     * software CDM), their pictures served at /video/frame.
+     */
+    "video": boolean;
+
     /** Creates a new PlaybackCapabilities instance. */
     constructor($$source: Partial<PlaybackCapabilities> = {}) {
         if (!("available" in $$source)) {
@@ -4376,6 +4392,9 @@ export class PlaybackCapabilities {
         }
         if (!("privateListening" in $$source)) {
             this["privateListening"] = false;
+        }
+        if (!("video" in $$source)) {
+            this["video"] = false;
         }
 
         Object.assign(this, $$source);
@@ -5352,7 +5371,8 @@ export class QueueContainer {
 
 /**
  * QueueItem is one queue slot. UID is stable while the slot exists, so it
- * suits list keys. ID/Source identify the song for navigation.
+ * suits list keys. ID/Source identify the song (or, with Video, the music
+ * video) for navigation.
  */
 export class QueueItem {
     "uid": number;
@@ -5394,6 +5414,12 @@ export class QueueItem {
      * restricts explicit content).
      */
     "explicit": boolean;
+
+    /**
+     * Video: a music video (ID and CatalogID are its catalog ID): it
+     * plays in the video view, in SD; it has no album or lyrics.
+     */
+    "video": boolean;
 
     /** Creates a new QueueItem instance. */
     constructor($$source: Partial<QueueItem> = {}) {
@@ -5447,6 +5473,9 @@ export class QueueItem {
         }
         if (!("explicit" in $$source)) {
             this["explicit"] = false;
+        }
+        if (!("video" in $$source)) {
+            this["video"] = false;
         }
 
         Object.assign(this, $$source);
@@ -7109,12 +7138,18 @@ export class TrackAddedBy {
 }
 
 /**
- * TrackRef names a song to queue: its ID in Source (as in Song.ID and
- * Song.Source).
+ * TrackRef names an item to queue: a song, or with Kind TrackKindVideo a
+ * music video, by its ID in Source (as in Song.ID and Song.Source, or
+ * MusicVideo.ID and MusicVideo.Source).
  */
 export class TrackRef {
     "id": string;
     "source": Source;
+
+    /**
+     * "" (a song) or TrackKindVideo
+     */
+    "kind"?: string;
 
     /** Creates a new TrackRef instance. */
     constructor($$source: Partial<TrackRef> = {}) {

@@ -80,7 +80,7 @@ func (e *pausingEngine) set(s playback.State) {
 // newCommandEnv builds the command server over the services it uses, a
 // coordinator with an instant engine, two library songs (i.100 with
 // catalog ID 100, i.101) and a fake Apple API: fakeState for ratings,
-// plus a catalogue search for "abbey".
+// plus a catalogue search for "abbey" and catalog music video 1440841363.
 func newCommandEnv(t *testing.T, private privatemode.Options) *commandEnv {
 	t.Helper()
 	ctx := t.Context()
@@ -111,6 +111,11 @@ func newCommandEnv(t *testing.T, private privatemode.Options) *commandEnv {
 	})
 	mux.HandleFunc("/v1/me/storefront", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = fmt.Fprint(w, `{"data":[{"id":"gb","type":"storefronts","attributes":{"name":"United Kingdom","defaultLanguageTag":"en-GB","explicitContentPolicy":"allowed"}}]}`)
+	})
+	mux.HandleFunc("/v1/catalog/gb/music-videos/1440841363", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, `{"data":[{"id":"1440841363","type":"music-videos","attributes":{"name":"Something","artistName":"The Beatles",
+			"durationInMillis":182000,"contentRating":"explicit","playParams":{"id":"1440841363","kind":"musicVideo"}},
+			"relationships":{"artists":{"data":[{"id":"136975","type":"artists"}]}}}]}`)
 	})
 	mux.Handle("/", ce.apple)
 	srv := httptest.NewServer(mux)

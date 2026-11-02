@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
+	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 )
 
@@ -156,9 +157,11 @@ func (r *Reporter) Observe(a coordinator.Activity) {
 	if r.closed {
 		return
 	}
-	if strings.HasPrefix(a.Item.ID, "ra.") {
+	if strings.HasPrefix(a.Item.ID, "ra.") || playback.IsVideo(a.Item.ID) {
 		// Live radio and episodes are not songs: MusicKit reports them with
-		// a radio event shape Sona does not produce, so they are not reported.
+		// a radio event shape Sona does not produce, so they are not
+		// reported. Nor are music videos, whose event shape Sona has not
+		// checked against MusicKit's.
 		return
 	}
 	switch a.Kind {

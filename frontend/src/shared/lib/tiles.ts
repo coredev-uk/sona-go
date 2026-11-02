@@ -1,6 +1,7 @@
 import type { Album, Artist, MusicVideo, Playlist } from "@bindings/services";
 
 import type { CoverItem } from "@/shared/components/CoverGrid";
+import { canPlayVideo, playVideo } from "@/shared/items/play";
 import { yearOf } from "@/shared/lib/format";
 import { releaseBadge } from "@/shared/lib/release";
 
@@ -47,6 +48,10 @@ export function artistTile(a: Artist): CoverItem {
   };
 }
 
+/**
+ * A music video's tile; where videos play (canPlayVideo) it has a play
+ * control and queue actions.
+ */
 export function videoTile(v: MusicVideo, by: "artist" | "year" = "artist"): CoverItem {
   return {
     key: v.id,
@@ -54,6 +59,9 @@ export function videoTile(v: MusicVideo, by: "artist" | "year" = "artist"): Cove
     subtitle: by === "year" ? yearOf(v.releaseDate) : v.artistName,
     art: v.art.medium,
     aspect: "video",
+    explicit: v.explicit,
     link: { to: "/music-video/$id", params: { id: v.catalogId || v.id } },
+    play: canPlayVideo() ? { label: v.name, run: () => playVideo(v) } : undefined,
+    target: canPlayVideo() ? { kind: "music-video", target: v } : undefined,
   };
 }

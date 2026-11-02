@@ -372,6 +372,17 @@ Radio (`/radio`) answers what radio alone can: what is on air right now, and for
 - **Signed out.** The Stations band opens with a "Your stations" block saying what signing in adds, with Sign in.
 - **Loading and errors.** The board's frame (rows at their height, the art and lines as bars) and the first band's line and heading stand where they will land. A block that fails says so in place; when nothing loads, the page says it once, with one Retry.
 
+## Video view
+
+A music video takes the whole window, like full-screen lyrics: the picture is the page (`features/player/VideoView.tsx`). It opens when a video starts, and again from the bar's cover or "Show video", Now Playing's "Show video" or V; closing it leaves the video playing in the bar.
+
+- **Strips.** A 64px title strip: the video's name at heading size (a link to its page), the artist in `--ink-muted` (a link), the SD badge, a status line in meta type ("Loading the video…" before the first picture, "Buffering…" when pictures stop), then Full screen and Close. A foot strip: the seek bar with elapsed and remaining time, Previous, the 44px amber Play/Pause disc, Next, and the bar's volume control at the right.
+- **The picture** keeps its own shape inside the stage, black behind the picture only, never behind the strips; the stage is the theme's `--ground`, light or dark. Before the first picture the video's artwork stands in at 16:9.
+- **Fading.** While a picture plays, the strips fade after 3 s with no pointer or key (and the pointer hides); any movement or key brings them back. They stay while paused, loading, failed, or while a control has keyboard focus. Reduced motion makes the fade instant.
+- **SD badge.** The house `Tag` reading "SD", its title explaining that Apple allows HD only on players with hardware protection. Shown while the video plays, hidden in an error state.
+- **Error states** replace the picture with the usual dashed error block: what failed ("Couldn't play this video", or "Music videos don't play here" where Sona can't), the reason in Sona's words, "Watch in Apple Music", and "Try again" unless trying again can't help (Apple offers the video only in HD, or refused the licence). The bar and the mini player say "Couldn't play this video." with the reason on hover.
+- **Keys:** Space or K play and pause, ← and → seek 5 s, F toggles the window's full screen, M mutes, Escape leaves full screen then closes, V closes.
+
 ## Empty, loading and error states
 
 - An empty route keeps its frame: the h1, any column header row it will have, then one dashed-border block (1px `--line`, radius 8) holding a 16/600 sentence-case title, one sentence in the product's own words, and at most one action.

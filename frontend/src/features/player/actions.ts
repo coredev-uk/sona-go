@@ -1,7 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { ListEnd, ListStart } from "lucide-react";
 
-import type { ActionDef, ActionItem, BulkActionDef } from "@/shared/actions/registry";
+import type { ActionItem, ItemActionDef } from "@/shared/actions/registry";
 
 import { queueItems } from "./commands";
 
@@ -10,10 +10,12 @@ const somePlayable = (items: readonly ActionItem[]) =>
   items.some((i) => i.kind !== "song" || i.target.playable);
 
 /**
- * Queue actions: a song row queues next or last; a selection of songs,
- * albums and playlists queues all their songs in order.
+ * Queue actions: a song or music video queues next or last; a selection
+ * of songs, music videos, albums and playlists queues them all in order
+ * (a collection as its songs). Music videos have action targets only
+ * where videos play.
  */
-export const playerActions: (ActionDef<"song"> | BulkActionDef)[] = [
+export const playerActions: ItemActionDef[] = [
   {
     id: "player.play-next",
     target: "song",
@@ -35,9 +37,27 @@ export const playerActions: (ActionDef<"song"> | BulkActionDef)[] = [
     run: (song) => void queueItems([{ kind: "song", target: song }], "last"),
   },
   {
+    id: "player.play-next.video",
+    target: "music-video",
+    label: () => t`Play next`,
+    icon: ListStart,
+    group: "queue",
+    order: 10,
+    run: (video) => void queueItems([{ kind: "music-video", target: video }], "next"),
+  },
+  {
+    id: "player.add-to-queue.video",
+    target: "music-video",
+    label: () => t`Add to queue`,
+    icon: ListEnd,
+    group: "queue",
+    order: 20,
+    run: (video) => void queueItems([{ kind: "music-video", target: video }], "last"),
+  },
+  {
     id: "player.play-next.many",
     target: "selection",
-    kinds: ["song", "album", "playlist"],
+    kinds: ["song", "music-video", "album", "playlist"],
     label: () => t`Play next`,
     icon: ListStart,
     group: "queue",
@@ -48,7 +68,7 @@ export const playerActions: (ActionDef<"song"> | BulkActionDef)[] = [
   {
     id: "player.add-to-queue.many",
     target: "selection",
-    kinds: ["song", "album", "playlist"],
+    kinds: ["song", "music-video", "album", "playlist"],
     label: () => t`Add to queue`,
     icon: ListEnd,
     group: "queue",

@@ -73,6 +73,19 @@ change keeps and how to check them.
   follows a moved song, off-screen targets scrolled into the virtual range
   before focusing. Escape anywhere in the queue closes it and focuses the
   player bar's queue toggle.
+- The video view (`features/player/VideoView.tsx`) is a region named
+  "Music video", described by a visually hidden line listing its keys. It
+  takes focus when it opens and keeps Tab inside (`trap-tab.ts`). Keys:
+  Space or K play and pause (Space stays a focused button's), ← and → seek
+  5 s (a focused slider keeps its arrows; Shift+arrows stay the player's
+  10 s), F toggles full screen, M mutes (only where Sona sets the volume),
+  Escape leaves full screen and then closes, V closes. Closing returns focus
+  to the control that opened it ("Show video" or the bar's cover). Its
+  controls never fade while one has keyboard focus, so Tab never lands on
+  an unseen control. Loading and buffering are announced through a status
+  region; an error is a `role="alert"` block with "Watch in Apple Music"
+  and, where it can help, "Try again". The SD badge carries its
+  explanation as its title.
 - Tab wraps inside each window (`shared/lib/focus-wrap.ts`: Tab on the last
   element goes to the skip link, Shift+Tab on the first to the last). On
   Linux, GTK focus must never land on WebKitGTK's hidden key-binding text
@@ -169,3 +182,6 @@ mode, audio on your own null sink: CONTRIBUTING.md), in both themes.
   `scrollable-region-focusable` on it while the Settings → Shortcuts "Reset
   all" dialog or any Settings → General select (Language, Open on…) is
   open. Nothing needs to scroll it then.
+- When the video view opens by itself (a video starts from a tile or the
+  queue moves on to one) no control opened it, so closing it puts focus on
+  the page rather than a control.

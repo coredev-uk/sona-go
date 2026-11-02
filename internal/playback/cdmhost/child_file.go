@@ -73,6 +73,7 @@ func (s *server) loadFile(r request) error {
 		s.fs.seek = r.Start
 	}
 	s.track, s.start, s.init, s.gain = r.Track, r.Start, nil, r.Gain
+	s.stopVideo()
 	s.started, s.havePrev, s.ended, s.buffering = false, false, false, false
 	s.applyVolumeLocked()
 	go s.watchFile(f)

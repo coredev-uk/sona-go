@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 
-import type { PlaybackState, QueueState } from "@bindings/services";
+import type { PlaybackState, QueueItem, QueueState } from "@bindings/services";
 import { ErrorCode } from "@bindings/services/models";
 
 /** Engine states, mirroring Go's playback.State values. */
@@ -71,6 +71,14 @@ export const usePlayback = create<PlaybackStore>((set) => ({
   applyQueue: (queue) => set({ queue }),
   patch: (p) => set(p),
 }));
+
+/**
+ * The catalogue song whose lyrics go with `item`: "" when it has none to
+ * look up (nothing playing, live radio, a music video).
+ */
+export function lyricsSongId(item: QueueItem | null | undefined): string {
+  return item && !item.video ? item.catalogId : "";
+}
 
 /** Position in ms at `now`, extrapolated while playing and clamped to the duration. */
 export function livePosition(

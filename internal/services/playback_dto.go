@@ -14,7 +14,8 @@ func init() {
 }
 
 // QueueItem is one queue slot. UID is stable while the slot exists, so it
-// suits list keys. ID/Source identify the song for navigation.
+// suits list keys. ID/Source identify the song (or, with Video, the music
+// video) for navigation.
 type QueueItem struct {
 	UID        uint64 `json:"uid"`
 	ID         string `json:"id"`
@@ -39,6 +40,9 @@ type QueueItem struct {
 	// Explicit: Apple rates the song explicit (skipped while the account
 	// restricts explicit content).
 	Explicit bool `json:"explicit"`
+	// Video: a music video (ID and CatalogID are its catalog ID): it
+	// plays in the video view, in SD; it has no album or lyrics.
+	Video bool `json:"video"`
 }
 
 // PlayFrom names where PlayItems' songs come from. Kind is "album",

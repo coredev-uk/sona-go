@@ -13,7 +13,13 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 
-import { SungLine, TrackAnnouncer, useLivePosition, usePlayback } from "@/features/player";
+import {
+  lyricsSongId,
+  SungLine,
+  TrackAnnouncer,
+  useLivePosition,
+  usePlayback,
+} from "@/features/player";
 import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
 import { useCapabilities } from "@/shared/lib/capabilities";
@@ -163,9 +169,11 @@ export function MiniPlayer() {
   const playing = state === "playing";
   const loading = state === "loading";
 
-  let third = current?.albumName ?? "";
+  // A music video's picture shows in the main window's video view, not here.
+  let third = current?.video ? t`Music video` : (current?.albumName ?? "");
   if (authRequired) third = t`Sign in again in Sona to keep playing`;
   else if (noCdm) third = t`Waiting for Widevine: see Settings → Playback in Sona`;
+  else if (state === "error" && error && current?.video) third = t`Couldn't play this video.`;
   else if (state === "error" && error) third = t`Couldn't play this song. Press play to try again.`;
   else if (current?.live) third = t`Live radio`;
 
@@ -230,7 +238,7 @@ export function MiniPlayer() {
               <span className="truncate">{notice.text}</span>
             </p>
           ) : current && !current.live && !authRequired && !noCdm && state !== "error" ? (
-            <SungLine catalogId={current.catalogId} fallback={third} />
+            <SungLine catalogId={lyricsSongId(current)} fallback={third} />
           ) : (
             <p className="truncate text-sub text-ink-faint">{third}</p>
           )}

@@ -11,6 +11,7 @@ import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { PlayButtons } from "@/shared/components/PlayButtons";
 import { formatTime } from "@/shared/lib/format";
+import { videoTile } from "@/shared/lib/tiles";
 import { TrackList } from "@/shared/tracks/TrackList";
 
 import { signInAction } from "./sign-in";
@@ -233,7 +234,7 @@ export function MadeForYouPage() {
   );
 }
 
-/** Music videos in the library; each opens its page (video playback is not supported). */
+/** Music videos in the library; each opens its page, and plays where videos play. */
 export function MusicVideosPage() {
   const { t } = useLingui();
   const q = useMusicVideos();
@@ -257,15 +258,10 @@ export function MusicVideosPage() {
   });
   const items: (CoverItem | undefined)[] = q.data
     ? q.data.map((v) => ({
-        key: v.id,
-        title: v.name,
+        ...videoTile(v),
         subtitle: [v.artistName, v.durationMs ? formatTime(v.durationMs) : ""]
           .filter(Boolean)
           .join(" · "),
-        art: v.art.medium,
-        aspect: "video",
-        explicit: v.explicit,
-        link: { to: "/music-video/$id", params: { id: v.catalogId || v.id } },
       }))
     : skeletonTiles.slice(0, 6);
   return (

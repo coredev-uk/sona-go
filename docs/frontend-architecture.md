@@ -33,7 +33,7 @@ src/
     module.ts             the module contract (types below)
     router.ts             rootRoute and childRoute(path)
     actions/              item action registry (single and targets[] forms, + test), ActionMenu,
-                          ItemActionMenu, ContextActionMenu, songsOf (albums/playlists → songs)
+                          ItemActionMenu, ContextActionMenu, tracksOf (albums/playlists → songs)
     selection/            multi-select model (+ test), per-list store, useItemList (selection,
                           context menu and drag delegated from a list's root)
     dnd/                  the pointer drag-and-drop engine: beginDrag, useDropTarget (+ test)
@@ -47,7 +47,8 @@ src/
                           PlayButtons, RatingButtons
     tracks/               TrackList, Equaliser
     items/                Item (any-kind card DTO) rendering: itemLink, play registry
-                          (registerItemPlayer, playItem), ItemMenu, ItemShelf, ItemGrid,
+                          (registerItemPlayer, registerVideoPlayer, canPlay, canPlayVideo,
+                          playItem), ItemMenu, ItemShelf, ItemGrid,
                           WideRow (editorial banners), TrackShelf, LinkList,
                           EditorialSections (renders Section kinds; Home, Discover, Radio)
     lib/                  art (artUrl: the one place that sizes artwork requests from the rendered
@@ -79,7 +80,7 @@ src/
     discover              Discover (New: the featured cards as a front page, the contents,
                           the shelves in bands by what they hold), rooms, multirooms,
                           groupings, curators, Charts; registers the song/album/playlist
-                          item players
+                          and music video item players
     radio                 Radio (the live stations as a now-and-next board from their
                           schedules, the local broadcasters, then Apple's radio page in
                           bands: stations with your own first, shows and episodes, browse),
@@ -132,7 +133,12 @@ src/
                           "Preview" beside the title (PreviewMark, shared/components/Badges,
                           Apple's word; its tooltip is also its description) while the song
                           plays as its 30-second preview (snapshot preview: SONA_PREVIEW=1),
-                          and TrackAnnouncer says "Now playing a preview: …"
+                          and TrackAnnouncer says "Now playing a preview: …";
+                          music videos: playVideos (TrackRef kind "music-video"), the video
+                          view (VideoView: the picture over the whole window, its frame
+                          loop and renderer in video-frames.ts and video-render.ts; see
+                          "Music videos" below), video rows in the queue, "Show video" in
+                          the bar and Now Playing
     cdm                   the Widevine CDM Sona downloads from Google: Go's CDMService
                           mirrored from cdm:status (useCdm; CDMService.Status in init),
                           retryCdm, cdmProgress/cdmPercent, canRetryCdm, and cdmProblem
@@ -422,6 +428,8 @@ export interface ActionTargets {
   album: Album;
   playlist: Playlist;
   artist: Artist;
+  station: Station;
+  "music-video": MusicVideo; // only where videos play (canPlayVideo)
 }
 export type ActionTargetKind = keyof ActionTargets;
 
@@ -507,7 +515,9 @@ available actions by group and order, separators between non-empty groups,
 menu data loaded on open.
 
 Registered song actions today (album, artist and playlist menus get the
-library and rating rows too; stations get Copy link):
+library and rating rows too; stations get Copy link; music videos get Play
+next and Add to queue only, and have a target at all only where videos play:
+`videoTile` and `actionItemOf` check `canPlayVideo`):
 
 | Group  | Order | Action                                                 | Module  |
 | ------ | ----- | ------------------------------------------------------ | ------- |
@@ -533,12 +543,14 @@ mounts), so long lists do not mount a menu per row. `ContextActionMenu` is
 the same menu opened at a point (right-click, Shift+F10, the Menu key).
 
 Bulk (`targets[]`) actions registered today: Play next, Add to queue
-(player; songs, albums and playlists, their tracks in order), Add to
-playlist… and Remove from playlist (playlist; the latter in an editable
-playlist's list), Add to library, Remove from library (one confirmation),
-Favourite / Undo favourite (library; states loaded for the whole selection
-on open). `shared/actions/songs.ts` (`songsOf`) expands albums and
-playlists to their songs.
+(player; songs, music videos, albums and playlists, in order, a collection
+as its tracks), Add to playlist… and Remove from playlist (playlist; the
+latter in an editable playlist's list), Add to library, Remove from library
+(one confirmation), Favourite / Undo favourite (library; states loaded for
+the whole selection on open). `shared/actions/songs.ts` (`tracksOf`)
+expands albums and playlists to their songs; `queueItems` turns music
+videos into `kind: "music-video"` queue entries. A dragged music video
+drops on the queue panel, not on a playlist or the pins.
 
 ## Selection, context menus and drag and drop
 
@@ -711,6 +723,93 @@ app lagged while a song played. The rules that follow: nothing in Sona
 runs a frame loop while music plays; a loop that must show life steps
 (`steps()`) at a few changes a second; anything covered by an overlay
 stops (`NowPlaying.covered`, MotionCover's `inert` check).
+
+## Music videos
+
+A music video is a queue entry like a song (`QueueItem.video`; its `id` is
+the catalogue video's). Cards and tiles of kind `music-video` (`Item`, and
+`videoTile` for the `MusicVideo` DTO: artist, album and song shelves, the
+video page's own shelves, the library's Music Videos) play through the video
+player discover registers (`registerVideoPlayer`), which calls the player's
+`playVideos`: `PlaybackService.PlayItems` with `{ id, source, kind:
+"music-video" }` refs and no PlayFrom (videos are never reported as plays),
+then the video view. `canPlay`/`canPlayVideo` give them a play control only
+where `Capabilities.playback.video` is true (false on Windows, in preview
+mode, without an engine); elsewhere the tiles keep opening the video's page,
+which says Sona can't play videos here and keeps "Watch in Apple Music". The
+video page's play control is the amber disc, with a note that Sona plays
+standard definition.
+
+- **The view** (`features/player/VideoView.tsx`) is the player's fourth
+  overlay, `useUI` overlay `"video"`, rendered by `NowPlayingOverlay` over
+  the whole window (`fixed inset-0`, like full-screen lyrics). It opens when
+  `playVideos` starts a video and when Go's state names a new video that is
+  loading or playing (`playback:state` in `features/player/index.ts`), and
+  again from the bar's cover or "Show video" button, Now Playing's "Show
+  video" and the `player.video` shortcut (V). It closes with Escape or its
+  close button (playback carries on in the bar), when the queue moves on to
+  a song, or after 2 s if the play that opened it never reaches the mirror.
+- **Layout.** A title strip (the video's name, linking to its page, the
+  artist, the SD badge with its explanation, a status line: "Loading the
+  video…" before the first picture, "Buffering…" when Go is loading or
+  pictures stop coming while playing), the picture, and the transport (seek
+  with elapsed and remaining time, previous, play/pause, next, the bar's
+  volume control). The picture's box takes the picture's shape inside the
+  stage (`fitPicture`), black behind the picture only; before the first
+  picture it shows the video's artwork at 16:9. The strips fade after 3 s
+  of no pointer or key while playing, and stay while paused, loading,
+  failed, or while a control has keyboard focus (`:focus-visible`), so Tab
+  never lands on an unseen control; reduced motion makes the fade instant.
+- **Keys** (handled on the view, which takes focus when it opens and keeps
+  Tab inside): Space and K play and pause (Space stays a focused button's),
+  Left and Right seek 5 s (`seekBy`; a focused slider keeps its arrows,
+  Shift+arrows stay the player's 10 s), F toggles the window's full screen
+  (`Window.Fullscreen`/`UnFullscreen`; the view leaves full screen when it
+  closes if it entered it), M mutes where Sona sets the volume, Escape
+  leaves full screen, then closes. Ctrl chords and other keys reach the
+  shortcut dispatcher.
+- **The frame loop** (`video-frames.ts`, `runFrameLoop`): one request in
+  flight at a time to `GET /video/frame?after=<seq>` (Go's
+  `internal/playback/video` surface, a same-origin asset URL), aborted when
+  the view unmounts. A 200 is a picture (`parseFrame`: the 16-byte "SVF1"
+  header, little-endian seq, width, height and position, then the I420
+  planes, `planeLayout`), and the next request waits from its
+  `X-Video-Seq`. A 204 without `X-Video-Seq` timed out: the picture stays
+  and the view counts a stall. A 204 with it means the surface was cleared:
+  the picture goes and the next request waits from that sequence. A failed
+  request waits a second and asks again. React re-renders only on a new
+  size, a new queue entry or a stall.
+- **Frame pacing.** Go already times pictures to the audio clock (the
+  child releases each when it is due), so the web view adds no clock of its
+  own: a picture is drawn at the next animation frame
+  (`requestAnimationFrame`), and the next one is fetched only after that,
+  so at most one picture is uploaded per display frame and none queue up.
+  A picture that waited longer than `STALE_MS` (250 ms) for its animation
+  frame is dropped and the same `after` asked again, which answers at once
+  with the picture due now. A window that isn't drawn (minimised, on
+  another workspace) gets no animation frames, so the loop stops fetching
+  and uploading until it is drawn again. Most of a video's CPU cost is
+  WebKitGTK compositing each new frame, not this path (docs/architecture.md
+  §8, "Music videos").
+- **The renderer** (`video-render.ts`): WebGL, the three planes as
+  `LUMINANCE` textures (unpack alignment 1, linear filtering, clamped) and a
+  fragment shader converting BT.709 limited range to RGB; a lost context is
+  rebuilt and the picture redrawn. Without WebGL, a 2D canvas with the same
+  conversion in JavaScript (`i420ToRgba`). The canvas is the picture's size
+  (at most 864×486, SD only) and CSS scales it to the box.
+- **Errors** come from `PlaybackState.error` and replace the picture with a
+  block (what failed, `codeMessage`'s reason, "Watch in Apple Music" from
+  the video's catalogue page, and "Try again" except for `video_hd_only` and
+  `video_licence_refused`, which playing again can't change). Where videos
+  don't play at all the block says so. The bar and the mini player say
+  "Couldn't play this video." with the reason on hover.
+- **Elsewhere.** Queue rows mark a video with a clapperboard (and "music
+  video" in the row's name) and link its title to `/music-video/$id`. The
+  bar, Now Playing and the mini player drop what a video lacks: lyrics
+  (`lyricsSongId` is "" for a video, so nothing fetches them, and the lyrics
+  shortcuts are unavailable), the album, and favouriting it as a song (the
+  `F` shortcut and `toggleFavourite`). Videos have their own action kind,
+  `music-video` ("Item action registry"): Play Next and Add to Queue only.
 
 ## Strings and locales
 
@@ -1043,7 +1142,9 @@ Gated today: the player bar's volume and the volume and mute shortcuts
 available" note (`playback.available`), and within it the output, Sound
 Check and crossfade rows (their `playback.*` fields), private listening
 (`playback.privateListening`), the idle host and Widevine rows
-(`playback.engine === "cdm"`);
+(`playback.engine === "cdm"`); music videos' play controls and the video
+view (`playback.video`: the play disc on the video page, play controls on
+video tiles and cards, otherwise explained on the page and in the view);
 Settings → General's close action (`tray`), start at login (`autostart`),
 start in the tray (`autostart` and `tray`, shown once start at login is
 on), track notifications (`notifications`) and stay awake

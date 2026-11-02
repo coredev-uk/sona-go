@@ -71,6 +71,41 @@ class Block final : public cdm::DecryptedBlock {
   int64_t ts_ = 0;
 };
 
+// Frame receives one decoded picture from DecryptAndDecodeFrame.
+class Frame final : public cdm::VideoFrame {
+ public:
+  ~Frame() override {
+    if (buffer_) buffer_->Destroy();
+  }
+  void SetFormat(cdm::VideoFormat format) override { format_ = format; }
+  cdm::VideoFormat Format() const override { return format_; }
+  void SetSize(cdm::Size size) override { size_ = size; }
+  cdm::Size Size() const override { return size_; }
+  void SetFrameBuffer(cdm::Buffer* buffer) override {
+    if (buffer_ && buffer_ != buffer) buffer_->Destroy();
+    buffer_ = buffer;
+  }
+  cdm::Buffer* FrameBuffer() override { return buffer_; }
+  void SetPlaneOffset(cdm::VideoPlane plane, uint32_t offset) override {
+    if (plane < cdm::kMaxPlanes) offset_[plane] = offset;
+  }
+  uint32_t PlaneOffset(cdm::VideoPlane plane) override { return plane < cdm::kMaxPlanes ? offset_[plane] : 0; }
+  void SetStride(cdm::VideoPlane plane, uint32_t stride) override {
+    if (plane < cdm::kMaxPlanes) stride_[plane] = stride;
+  }
+  uint32_t Stride(cdm::VideoPlane plane) override { return plane < cdm::kMaxPlanes ? stride_[plane] : 0; }
+  void SetTimestamp(int64_t ts) override { ts_ = ts; }
+  int64_t Timestamp() const override { return ts_; }
+
+ private:
+  cdm::VideoFormat format_ = cdm::kUnknownVideoFormat;
+  cdm::Size size_ = {0, 0};
+  cdm::Buffer* buffer_ = nullptr;
+  uint32_t offset_[cdm::kMaxPlanes] = {};
+  uint32_t stride_[cdm::kMaxPlanes] = {};
+  int64_t ts_ = 0;
+};
+
 // Host implements both host interface versions this CDM generation may ask
 // for; Host_11 only appends ReportMetrics to Host_10.
 class Host final : public cdm::Host_10, public cdm::Host_11 {
@@ -285,7 +320,9 @@ void sona_cdm_timer_expired(sona_cdm* c, uintptr_t context) {
 }
 
 void sona_cdm_output_protection_status(sona_cdm* c) {
-  // Audio only: no display links, nothing to protect.
+  // Sona inspects no display links and claims no protection on them: the
+  // only video keys a software CDM is issued (SD) require none, and HD
+  // keys, which need HDCP, stay output-restricted and are never played.
   c->call([&](auto* m) {
     m->OnQueryOutputProtectionStatus(cdm::kQuerySucceeded, cdm::kLinkTypeNone, cdm::kProtectionNone);
     return 0;
@@ -334,6 +371,105 @@ int sona_cdm_decrypt(sona_cdm* c, const uint8_t* kid, uint32_t kid_size, const u
   std::memmove(out, buf->Data(), buf->Size());
   *out_size = buf->Size();
   return 0;
+}
+
+int sona_cdm_video_init(sona_cdm* c, uint32_t codec, uint32_t profile, int32_t width, int32_t height,
+                        const uint8_t* extra, uint32_t extra_size, int cbcs) {
+  cdm::VideoDecoderConfig_2 cfg = {};
+  cfg.codec = static_cast<cdm::VideoCodec>(codec);
+  cfg.profile = static_cast<cdm::VideoCodecProfile>(profile);
+  cfg.format = cdm::kI420;
+  cfg.coded_size = {width, height};
+  cfg.extra_data = const_cast<uint8_t*>(extra);
+  cfg.extra_data_size = extra_size;
+  cfg.encryption_scheme = cbcs ? cdm::EncryptionScheme::kCbcs : cdm::EncryptionScheme::kCenc;
+  cdm::Status status = c->call([&](auto* m) { return m->InitializeVideoDecoder(cfg); });
+  return static_cast<int>(status);
+}
+
+void sona_cdm_video_reset(sona_cdm* c) {
+  c->call([&](auto* m) {
+    m->ResetDecoder(cdm::kStreamTypeVideo);
+    return 0;
+  });
+}
+
+void sona_cdm_video_deinit(sona_cdm* c) {
+  c->call([&](auto* m) {
+    m->DeinitializeDecoder(cdm::kStreamTypeVideo);
+    return 0;
+  });
+}
+
+// copyPlane copies rows x cols bytes of a plane at offset (stride apart)
+// to dst, failing if the plane runs past the buffer.
+static bool copyPlane(cdm::Buffer* buf, uint32_t offset, uint32_t stride, int32_t cols, int32_t rows, uint8_t* dst) {
+  if (rows <= 0 || cols <= 0) return true;
+  uint64_t end = uint64_t(offset) + uint64_t(stride) * uint64_t(rows - 1) + uint64_t(cols);
+  if (stride < uint32_t(cols) || end > buf->Size()) return false;
+  const uint8_t* src = buf->Data() + offset;
+  for (int32_t y = 0; y < rows; y++) {
+    std::memcpy(dst, src, size_t(cols));
+    dst += cols;
+    src += stride;
+  }
+  return true;
+}
+
+int sona_cdm_video_decode(sona_cdm* c, const uint8_t* kid, uint32_t kid_size, const uint8_t* iv, uint32_t iv_size,
+                          const uint8_t* data, uint32_t size, const uint32_t* subsamples, uint32_t nsub,
+                          int64_t timestamp_us, int cbcs, uint32_t crypt_blocks, uint32_t skip_blocks,
+                          sona_video_frame* out) {
+  *out = {};
+  cdm::InputBuffer_2 in = {};
+  cdm::SubsampleEntry whole = {0, size};
+  if (data && size) {
+    in.data = data;
+    in.data_size = size;
+    in.timestamp = timestamp_us;
+    if (kid && kid_size) {
+      in.encryption_scheme = cbcs ? cdm::EncryptionScheme::kCbcs : cdm::EncryptionScheme::kCenc;
+      if (cbcs) in.pattern = {crypt_blocks, skip_blocks};
+      in.key_id = kid;
+      in.key_id_size = kid_size;
+      in.iv = iv;
+      in.iv_size = iv_size;
+      in.subsamples = nsub ? reinterpret_cast<const cdm::SubsampleEntry*>(subsamples) : &whole;
+      in.num_subsamples = nsub ? nsub : 1;
+    }
+  }
+
+  Frame frame;
+  cdm::Status status = c->call([&](auto* m) { return m->DecryptAndDecodeFrame(in, &frame); });
+  if (status != cdm::kSuccess) return static_cast<int>(status);
+  cdm::Buffer* buf = frame.FrameBuffer();
+  cdm::Size sz = frame.Size();
+  if (!buf || sz.width <= 0 || sz.height <= 0) return -2;
+  if (frame.Format() != cdm::kI420 && frame.Format() != cdm::kYv12) return -3;
+  int32_t cw = (sz.width + 1) / 2, ch = (sz.height + 1) / 2;
+  size_t ysize = size_t(sz.width) * size_t(sz.height), csize = size_t(cw) * size_t(ch);
+  auto* dst = static_cast<uint8_t*>(std::malloc(ysize + 2 * csize));
+  if (!dst) return -4;
+  // The U and V plane offsets name the planes whatever their order in
+  // memory (YV12 stores V first).
+  if (!copyPlane(buf, frame.PlaneOffset(cdm::kYPlane), frame.Stride(cdm::kYPlane), sz.width, sz.height, dst) ||
+      !copyPlane(buf, frame.PlaneOffset(cdm::kUPlane), frame.Stride(cdm::kUPlane), cw, ch, dst + ysize) ||
+      !copyPlane(buf, frame.PlaneOffset(cdm::kVPlane), frame.Stride(cdm::kVPlane), cw, ch, dst + ysize + csize)) {
+    std::free(dst);
+    return -2;
+  }
+  out->data = dst;
+  out->size = uint32_t(ysize + 2 * csize);
+  out->width = sz.width;
+  out->height = sz.height;
+  out->timestamp_us = frame.Timestamp();
+  return 0;
+}
+
+void sona_video_frame_free(sona_video_frame* f) {
+  if (!f) return;
+  std::free(f->data);
+  f->data = nullptr;
 }
 
 void sona_cdm_destroy(sona_cdm* c) {

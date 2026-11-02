@@ -73,6 +73,8 @@ const (
 	CodePrivateForced       ErrorCode = "private_forced"        // SONA_PRIVATE=1 keeps private mode on
 	CodeUnsupported         ErrorCode = "unsupported"           // this platform can't do it (Capabilities says so)
 	CodeNoCDM               ErrorCode = "no_cdm"                // the Widevine CDM isn't ready yet (CDMService says why)
+	CodeVideoHDOnly         ErrorCode = "video_hd_only"         // Apple offers the music video only in HD, which a software CDM may not play (playback.ErrVideoHDOnly)
+	CodeVideoLicence        ErrorCode = "video_licence_refused" // Apple refused the music video's licence, or its key is unusable here (playback.ErrVideoLicence)
 	CodeKeyring             ErrorCode = "keyring"               // the token store failed or didn't answer in time
 	CodeUnknown             ErrorCode = "unknown"               // none of the above; the frontend shows a generic message
 )
@@ -109,6 +111,10 @@ func CodeOf(err error) ErrorCode {
 	switch {
 	case err == nil:
 		return ""
+	case errors.Is(err, playback.ErrVideoHDOnly):
+		return CodeVideoHDOnly
+	case errors.Is(err, playback.ErrVideoLicence):
+		return CodeVideoLicence
 	case errors.Is(err, appleid.ErrInvalidCredentials):
 		return CodeInvalidCredentials
 	case errors.Is(err, appleid.ErrIncorrectCode):

@@ -21,6 +21,9 @@ type Capabilities struct {
 	// PrivateListening: Sona itself sends every play report for this
 	// engine, so private listening can withhold them.
 	PrivateListening bool
+	// Video: the engine plays music videos (VideoID items) and shows
+	// their pictures on its video.Surface.
+	Video bool
 }
 
 // ErrUnsupported reports that this platform or build has no playback

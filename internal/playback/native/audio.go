@@ -23,6 +23,7 @@ func (e *Engine) Capabilities() playback.Capabilities {
 		Crossfade:        !e.preview,
 		OutputDevice:     gst.DeviceChoice,
 		PrivateListening: true,
+		Video:            e.surface != nil && !e.preview,
 	}
 }
 

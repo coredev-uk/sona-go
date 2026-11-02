@@ -1,9 +1,15 @@
-import { PlaybackService, type PlayFrom, type Song, type TrackRef } from "@bindings/services";
+import {
+  PlaybackService,
+  type MusicVideo,
+  type PlayFrom,
+  type Song,
+  type TrackRef,
+} from "@bindings/services";
 import { plural, t } from "@lingui/core/macro";
 import { toast } from "sonner";
 
 import { describeItems, type ActionItem } from "@/shared/actions/registry";
-import { songsOf } from "@/shared/actions/songs";
+import { tracksOf } from "@/shared/actions/songs";
 import { callFailure } from "@/shared/lib/errors";
 import { fetchItemState } from "@/shared/lib/item-state";
 import { rateItem } from "@/shared/lib/library-actions";
@@ -11,6 +17,7 @@ import { run } from "@/shared/lib/run";
 
 import { livePosition, usePlayback, type Repeat } from "./playback";
 import { replaceQueue } from "./replace";
+import { useUI } from "./ui";
 
 /** Songs that can be queued, and where `start` lands among them. */
 export function playable(songs: readonly (Song | undefined)[], start: number) {
@@ -57,6 +64,25 @@ export async function shuffleSongs(songs: readonly (Song | undefined)[], from: P
   );
 }
 
+/** A music video's queue entry: TrackRef.kind "music-video" (Go's services.TrackKindVideo; "" is a song). */
+function videoRef(v: MusicVideo): TrackRef {
+  return { id: v.id, source: v.source, kind: "music-video" };
+}
+
+/**
+ * Plays `videos` from `start` as the queue (a library copy plays its
+ * catalogue video) and opens the video view. Videos are never reported as
+ * plays, so they carry no PlayFrom collection.
+ */
+export async function playVideos(videos: readonly MusicVideo[], start: number) {
+  if (!videos.length) return;
+  const refs = videos.map(videoRef);
+  const started = await replaceQueue(() =>
+    run(t`Couldn't start playback`, PlaybackService.PlayItems(refs, start, { kind: "", id: "" })),
+  );
+  if (started) useUI.getState().openVideo();
+}
+
 /**
  * Sets the sleep timer: mode "after" (in `minutes`), "track" or "queue";
  * "" turns it off.
@@ -66,19 +92,23 @@ export function setSleep(mode: "" | "after" | "track" | "queue", minutes = 0) {
 }
 
 /**
- * Queues songs, albums and playlists (their tracks, in order): `"next"`
- * after the current song, `"last"` after the user's queue, or at queue
- * position `at` (a drop on the queue panel).
+ * Queues songs, music videos, albums and playlists (their tracks), in
+ * order: `"next"` after the current item, `"last"` after the user's
+ * queue, or at queue position `at` (a drop on the queue panel).
  */
 export async function queueItems(items: readonly ActionItem[], where: "next" | "last" | number) {
-  let songs: Song[];
+  let refs: TrackRef[];
   try {
-    songs = await songsOf(items);
+    const lists = await Promise.all(
+      items.map(async (i) =>
+        i.kind === "music-video" ? [videoRef(i.target)] : playable(await tracksOf(i), 0).refs,
+      ),
+    );
+    refs = lists.flat();
   } catch (err) {
     toast.error(t`Couldn't add to the queue`, { description: callFailure(err).message });
     return;
   }
-  const { refs } = playable(songs, 0);
   if (!refs.length) {
     toast.error(t`Nothing here can be played`, {
       description: t`None of these songs is available to stream.`,
@@ -139,10 +169,12 @@ export function cycleRepeat() {
   void run(t`Couldn't change repeat`, PlaybackService.SetRepeat(nextRepeat[s.repeat as Repeat]));
 }
 
-/** Favourites the playing song, or undoes it (not live radio or songs outside Apple Music). */
+/** Favourites the playing song, or undoes it (not live radio, music videos or songs outside Apple Music). */
 export async function toggleFavourite() {
   const current = usePlayback.getState().current;
-  if (!current || current.live || !(current.catalogId || current.libraryId)) return;
+  if (!current || current.live || current.video || !(current.catalogId || current.libraryId)) {
+    return;
+  }
   const state = await fetchItemState("songs", current);
   rateItem("songs", current, current.name, state?.rating === 1 ? "unfavorite" : "favorite");
 }

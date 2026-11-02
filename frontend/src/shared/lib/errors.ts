@@ -68,6 +68,8 @@ const codeMessages: Record<ErrorCode, MessageDescriptor> = {
   [ErrorCode.CodeNotConfigured]: msg`This build of Sona has no account for that service.`,
   [ErrorCode.CodeUnsupported]: msg`That isn't available on this platform.`,
   [ErrorCode.CodeNoCDM]: msg`Sona needs Google's Widevine to play songs, and it isn't ready yet. Settings → Playback shows its progress.`,
+  [ErrorCode.CodeVideoHDOnly]: msg`Apple offers this video only in HD, which needs a hardware-protected player. Sona plays videos in standard definition.`,
+  [ErrorCode.CodeVideoLicence]: msg`Apple refused the licence for this video, or it can't be used on this computer.`,
   [ErrorCode.CodeKeyring]: msg`Your keyring didn't answer or refused. Unlock it, then try again.`,
 };
 

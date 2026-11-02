@@ -8,6 +8,7 @@ import { RoomLyrics } from "./RoomLyrics";
 import { usePlayback } from "./playback";
 import { QueuePanel } from "./QueuePanel";
 import { useUI } from "./ui";
+import { VideoView } from "./VideoView";
 
 /**
  * Gives shared lists (TrackList) the playing track, so they can mark it,
@@ -29,13 +30,14 @@ export function QueueAside() {
 }
 
 /**
- * The full now-playing view over the page column, or full-screen lyrics,
- * while open. Stepping between the two keeps focus inside; closing returns
- * it to whatever opened the first.
+ * The full now-playing view over the page column, full-screen lyrics, or
+ * the video view, while open. Stepping between them keeps focus inside;
+ * closing returns it to whatever opened the first.
  */
 export function NowPlayingOverlay() {
   const overlay = useUI((s) => s.overlay);
   useReturnFocus(overlay !== "none");
   if (overlay === "room") return <RoomLyrics />;
+  if (overlay === "video") return <VideoView />;
   return overlay === "now-playing" ? <NowPlayingView /> : null;
 }

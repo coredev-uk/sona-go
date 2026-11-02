@@ -3,6 +3,8 @@ import type { LinkProps } from "@tanstack/react-router";
 
 import type { ActionItem } from "@/shared/actions/registry";
 
+import { canPlayVideo } from "./play";
+
 export type ItemLinkProps = Pick<LinkProps, "to" | "params" | "search">;
 
 /**
@@ -77,5 +79,6 @@ export function actionItemOf(item: Item): ActionItem | undefined {
   if (item.playlist) return { kind: "playlist", target: item.playlist };
   if (item.station) return { kind: "station", target: item.station };
   if (item.artist) return { kind: "artist", target: item.artist };
+  if (item.musicVideo && canPlayVideo()) return { kind: "music-video", target: item.musicVideo };
   return undefined;
 }

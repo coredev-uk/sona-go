@@ -124,6 +124,7 @@ msgstr ""
 
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
+#: src/features/player/VideoView.tsx
 msgid "{at} of {total}"
 msgstr ""
 
@@ -204,6 +205,7 @@ msgstr ""
 msgid "{label}: Apple's label for this release. Sona plays it as AAC."
 msgstr ""
 
+#: src/features/player/VideoView.tsx
 #: src/features/radio/OnAir.tsx
 msgid "{left} left"
 msgstr ""
@@ -232,6 +234,10 @@ msgstr ""
 #: src/features/home/ShelfIndex.tsx
 #: src/shared/actions/registry.ts
 msgid "{n, plural, one {# artist} other {# artists}}"
+msgstr ""
+
+#: src/shared/actions/registry.ts
+msgid "{n, plural, one {# music video} other {# music videos}}"
 msgstr ""
 
 #: src/features/home/ShelfIndex.tsx
@@ -273,6 +279,14 @@ msgstr ""
 
 #: src/features/player/QueuePanel.tsx
 msgid "{name}, {artist}"
+msgstr ""
+
+#: src/features/player/QueuePanel.tsx
+msgid "{name}, {artist}, music video"
+msgstr ""
+
+#: src/features/player/QueuePanel.tsx
+msgid "{name}, {artist}, music video, skipped: explicit"
 msgstr ""
 
 #: src/features/player/QueuePanel.tsx
@@ -835,6 +849,14 @@ msgstr ""
 msgid "Apple Music's 30-second preview, not the full song"
 msgstr ""
 
+#: src/shared/lib/errors.ts
+msgid "Apple offers this video only in HD, which needs a hardware-protected player. Sona plays videos in standard definition."
+msgstr ""
+
+#: src/shared/lib/errors.ts
+msgid "Apple refused the licence for this video, or it can't be used on this computer."
+msgstr ""
+
 #: src/features/auth/Account.tsx
 msgid "Apple sent a {len}-digit code to {phone} by text message."
 msgstr ""
@@ -1036,6 +1058,10 @@ msgstr ""
 msgid "Browsing Apple Music and your library works as usual."
 msgstr ""
 
+#: src/features/player/VideoView.tsx
+msgid "Buffering…"
+msgstr ""
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Cache"
 msgstr ""
@@ -1226,6 +1252,10 @@ msgstr ""
 
 #: src/features/player/QueuePanel.tsx
 msgid "Close queue"
+msgstr ""
+
+#: src/features/player/VideoView.tsx
+msgid "Close video"
 msgstr ""
 
 #: src/features/onboarding/DesktopStep.tsx
@@ -1474,6 +1504,7 @@ msgstr ""
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
 #: src/features/player/shortcuts.ts
+#: src/features/player/VideoView.tsx
 msgid "Couldn't go back"
 msgstr ""
 
@@ -1680,6 +1711,7 @@ msgstr ""
 msgid "Couldn't move the song"
 msgstr ""
 
+#: src/features/player/VideoView.tsx
 #: src/features/video/VideoPage.tsx
 msgid "Couldn't open Apple Music"
 msgstr ""
@@ -1713,6 +1745,7 @@ msgstr ""
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
 #: src/features/player/shortcuts.ts
+#: src/features/player/VideoView.tsx
 msgid "Couldn't play or pause"
 msgstr ""
 
@@ -1727,6 +1760,15 @@ msgstr ""
 
 #: src/features/radio/commands.ts
 msgid "Couldn't play this station"
+msgstr ""
+
+#: src/features/player/VideoView.tsx
+msgid "Couldn't play this video"
+msgstr ""
+
+#: src/features/miniplayer/MiniPlayer.tsx
+#: src/features/player/NowPlayingBar.tsx
+msgid "Couldn't play this video."
 msgstr ""
 
 #: src/features/settings/scrobble.ts
@@ -1874,6 +1916,7 @@ msgstr ""
 #: src/features/player/commands.ts
 #: src/features/player/NowPlayingBar.tsx
 #: src/features/player/NowPlayingView.tsx
+#: src/features/player/VideoView.tsx
 msgid "Couldn't seek"
 msgstr ""
 
@@ -1892,6 +1935,7 @@ msgstr ""
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
 #: src/features/player/shortcuts.ts
+#: src/features/player/VideoView.tsx
 msgid "Couldn't skip"
 msgstr ""
 
@@ -2342,6 +2386,7 @@ msgid "Everything Sona needs is working"
 msgstr ""
 
 #: src/features/player/RoomLyrics.tsx
+#: src/features/player/VideoView.tsx
 msgid "Exit full screen"
 msgstr ""
 
@@ -2501,6 +2546,7 @@ msgid "From"
 msgstr ""
 
 #: src/features/player/NowPlayingView.tsx
+#: src/features/player/VideoView.tsx
 msgid "Full screen"
 msgstr ""
 
@@ -2989,6 +3035,10 @@ msgstr ""
 msgid "Loading the lyrics…"
 msgstr ""
 
+#: src/features/player/VideoView.tsx
+msgid "Loading the video…"
+msgstr ""
+
 #: src/features/library/HistoryPage.tsx
 msgid "Loading your listening history"
 msgstr ""
@@ -3234,9 +3284,16 @@ msgid "Music User Token"
 msgstr ""
 
 #: src/features/home/catalogue-line.ts
+#: src/features/miniplayer/MiniPlayer.tsx
+#: src/features/player/QueuePanel.tsx
+#: src/features/player/VideoView.tsx
 #: src/features/search/groups.ts
 #: src/features/video/VideoPage.tsx
 msgid "Music video"
+msgstr ""
+
+#: src/features/player/shortcuts.ts
+msgid "music video picture watch"
 msgstr ""
 
 #: src/features/album/AlbumPage.tsx
@@ -3246,6 +3303,10 @@ msgstr ""
 #: src/features/search/groups.ts
 #: src/features/song/SongPage.tsx
 msgid "Music videos"
+msgstr ""
+
+#: src/features/player/VideoView.tsx
+msgid "Music videos don't play here"
 msgstr ""
 
 #: src/features/library/views.tsx
@@ -3265,7 +3326,7 @@ msgstr ""
 msgid "Musixmatch"
 msgstr ""
 
-#: src/features/player/NowPlayingBar.tsx
+#: src/features/player/controls.tsx
 msgid "Mute"
 msgstr ""
 
@@ -3335,6 +3396,7 @@ msgstr ""
 
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
+#: src/features/player/VideoView.tsx
 msgid "Next"
 msgstr ""
 
@@ -3910,6 +3972,7 @@ msgstr ""
 
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
+#: src/features/player/VideoView.tsx
 msgid "Pause"
 msgstr ""
 
@@ -3982,6 +4045,7 @@ msgstr ""
 
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
+#: src/features/player/VideoView.tsx
 #: src/features/playlist/PlaylistSidebar.tsx
 #: src/features/radio/index.ts
 #: src/features/search/ItemRow.tsx
@@ -4228,6 +4292,7 @@ msgstr ""
 
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
+#: src/features/player/VideoView.tsx
 msgid "Previous"
 msgstr ""
 
@@ -4721,6 +4786,11 @@ msgstr ""
 msgid "Scrobbling."
 msgstr ""
 
+#: src/shared/components/Badges.tsx
+msgctxt "standard-definition video, as a short badge"
+msgid "SD"
+msgstr ""
+
 #: src/features/search/index.ts
 #: src/features/search/SearchField.tsx
 #: src/features/search/SearchPage.tsx
@@ -4764,6 +4834,7 @@ msgstr ""
 
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
+#: src/features/player/VideoView.tsx
 msgid "Seek"
 msgstr ""
 
@@ -4926,8 +4997,17 @@ msgstr ""
 msgid "Show or hide the sidebar"
 msgstr ""
 
+#: src/features/player/shortcuts.ts
+msgid "Show or hide the video"
+msgstr ""
+
 #: src/features/miniplayer/index.ts
 msgid "Show the mini player"
+msgstr ""
+
+#: src/features/player/NowPlayingBar.tsx
+#: src/features/player/NowPlayingView.tsx
+msgid "Show video"
 msgstr ""
 
 #: src/features/settings/LyricsRows.tsx
@@ -5269,6 +5349,10 @@ msgstr ""
 msgid "Sona asks every source that's on and shows the lyrics with the finest timing: word by word, then line by line, then plain text. A source higher in the list wins a tie."
 msgstr ""
 
+#: src/features/video/VideoPage.tsx
+msgid "Sona can't play music videos here: the video opens in Apple Music in your browser."
+msgstr ""
+
 #: src/features/radio/OnAir.tsx
 #: src/features/radio/StationPage.tsx
 msgid "Sona can't play this station"
@@ -5384,7 +5468,7 @@ msgid "Sona plays Apple Music on this computer. A few short steps sign you in an
 msgstr ""
 
 #: src/features/video/VideoPage.tsx
-msgid "Sona plays music, not video: the video opens in Apple Music in your browser."
+msgid "Sona plays music videos in standard definition: Apple allows HD only on players with hardware protection."
 msgstr ""
 
 #: src/features/auth/Account.tsx
@@ -5521,6 +5605,14 @@ msgctxt "keyboard key"
 msgid "Space"
 msgstr ""
 
+#: src/features/player/VideoView.tsx
+msgid "Space or K plays and pauses, Left and Right go back or ahead 5 seconds, F switches full screen, Escape closes the video."
+msgstr ""
+
+#: src/features/player/VideoView.tsx
+msgid "Space or K plays and pauses, Left and Right go back or ahead 5 seconds, F switches full screen, M mutes, Escape closes the video."
+msgstr ""
+
 #: src/shared/lib/traits.ts
 msgid "Spatial Audio"
 msgstr ""
@@ -5531,6 +5623,10 @@ msgstr ""
 
 #: src/features/settings/MotionDiagnostics.ts
 msgid "Stalled · {when}"
+msgstr ""
+
+#: src/shared/components/Badges.tsx
+msgid "Standard definition: Apple allows HD only on players with hardware protection"
 msgstr ""
 
 #: src/features/onboarding/DesktopStep.tsx
@@ -5985,6 +6081,10 @@ msgstr ""
 msgid "This music video isn't available"
 msgstr ""
 
+#: src/features/player/VideoView.tsx
+msgid "This platform or build of Sona can't play music videos. You can watch it in Apple Music."
+msgstr ""
+
 #: src/features/playlist/track-edits.ts
 msgid "This playlist changed on another device"
 msgstr ""
@@ -6125,6 +6225,7 @@ msgstr ""
 #. Reads the sign-in from the system keyring again. Apple's wording: ASE.Web.Music.Error.TryAgain
 #: src/features/auth/AccountMenu.tsx
 #: src/features/auth/KeyringRetry.tsx
+#: src/features/player/VideoView.tsx
 msgid "Try again"
 msgstr ""
 
@@ -6196,7 +6297,7 @@ msgstr ""
 msgid "Unlock at iforgot.apple.com"
 msgstr ""
 
-#: src/features/player/NowPlayingBar.tsx
+#: src/features/player/controls.tsx
 msgid "Unmute"
 msgstr ""
 
@@ -6322,7 +6423,7 @@ msgstr ""
 msgid "Vocal"
 msgstr ""
 
-#: src/features/player/NowPlayingBar.tsx
+#: src/features/player/controls.tsx
 msgid "Volume"
 msgstr ""
 
@@ -6350,6 +6451,7 @@ msgstr ""
 msgid "Warning"
 msgstr ""
 
+#: src/features/player/VideoView.tsx
 #: src/features/video/VideoPage.tsx
 msgid "Watch in Apple Music"
 msgstr ""

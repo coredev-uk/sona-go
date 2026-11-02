@@ -27,10 +27,3 @@ export async function tracksOf(item: ActionItem): Promise<Song[]> {
       return [];
   }
 }
-
-/** Every song the items hold, in item order; rejects when a collection fails to load. */
-export async function songsOf(items: readonly ActionItem[]): Promise<Song[]> {
-  if (items.every((i) => i.kind === "song")) return items.map((i) => i.target as Song);
-  const lists = await Promise.all(items.map(tracksOf));
-  return lists.flat();
-}

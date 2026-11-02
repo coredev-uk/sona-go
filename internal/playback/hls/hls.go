@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -376,6 +377,36 @@ type Variant struct {
 	Bandwidth int
 	Codecs    string
 	Audio     string // AUDIO rendition group, e.g. "audio-alac-stereo-44100-16"
+	// Width and Height are the RESOLUTION of a video variant; 0 for audio.
+	Width, Height int
+	FrameRate     float64 // FRAME-RATE; 0 when absent
+	// HDCPLevel is the output protection the variant needs: "NONE",
+	// "TYPE-0", "TYPE-1"; "" when absent (none).
+	HDCPLevel string
+	// AllowedCPC is the raw ALLOWED-CPC list: KEYFORMAT:LABEL[/LABEL…]
+	// entries, comma-separated; "" when absent (no restriction).
+	AllowedCPC string
+}
+
+// widevineSoftware is the CPC label of a software Widevine CDM (L3).
+const widevineSoftware = "WIDEVINE_SOFTWARE"
+
+// SoftwareWidevine reports whether a software Widevine CDM may play v:
+// ALLOWED-CPC is absent, does not restrict the Widevine key format, or
+// lists WIDEVINE_SOFTWARE for it.
+func (v Variant) SoftwareWidevine() bool {
+	restricted := false
+	for entry := range strings.SplitSeq(v.AllowedCPC, ",") {
+		i := strings.LastIndexByte(entry, ':')
+		if i < 0 || strings.TrimSpace(entry[:i]) != WidevineKeyFormat {
+			continue
+		}
+		if slices.Contains(strings.Split(strings.TrimSpace(entry[i+1:]), "/"), widevineSoftware) {
+			return true
+		}
+		restricted = true
+	}
+	return !restricted
 }
 
 // IsMaster reports whether data is a master playlist.
@@ -402,7 +433,15 @@ func ParseMaster(data []byte) ([]Variant, error) {
 				return nil, fmt.Errorf("hls: EXT-X-STREAM-INF: %w", err)
 			}
 			bw, _ := strconv.Atoi(attrs["BANDWIDTH"])
-			pending = &Variant{Bandwidth: bw, Codecs: attrs["CODECS"], Audio: attrs["AUDIO"]}
+			pending = &Variant{
+				Bandwidth: bw, Codecs: attrs["CODECS"], Audio: attrs["AUDIO"],
+				HDCPLevel: attrs["HDCP-LEVEL"], AllowedCPC: attrs["ALLOWED-CPC"],
+			}
+			if w, h, ok := strings.Cut(attrs["RESOLUTION"], "x"); ok {
+				pending.Width, _ = strconv.Atoi(w)
+				pending.Height, _ = strconv.Atoi(h)
+			}
+			pending.FrameRate, _ = strconv.ParseFloat(attrs["FRAME-RATE"], 64)
 		case strings.HasPrefix(line, "#"):
 		case pending != nil:
 			pending.URI = line

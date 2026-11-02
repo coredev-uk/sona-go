@@ -1650,7 +1650,9 @@ func (c *Coordinator) startFillLocked() *fillCall {
 // in the unshuffled order while shuffled (stations and radio items, "ra.…",
 // cannot seed).
 func (c *Coordinator) seedsLocked() []Item {
-	seed := func(e entry) bool { return !e.auto && !strings.HasPrefix(e.item.ID, "ra.") }
+	// Stations and music videos seed no AutoPlay station (Apple makes one
+	// from a song).
+	seed := func(e entry) bool { return !e.auto && !strings.HasPrefix(e.item.ID, "ra.") && !playback.IsVideo(e.item.ID) }
 	if c.shuffle {
 		for i := len(c.original) - 1; i >= 0; i-- {
 			if j := c.indexOfLocked(c.original[i]); j >= 0 && seed(c.queue[j]) {

@@ -1,10 +1,11 @@
 import { create } from "zustand";
 
 /**
- * The panels the player can open over the page: the now-playing view, and
- * its full-screen lyrics ("room": sized to be read across a room).
+ * The panels the player can open over the page: the now-playing view, its
+ * full-screen lyrics ("room": sized to be read across a room), and the
+ * video view while a music video plays.
  */
-export type Overlay = "none" | "now-playing" | "room";
+export type Overlay = "none" | "now-playing" | "room" | "video";
 
 interface UIStore {
   queueOpen: boolean;
@@ -18,7 +19,9 @@ interface UIStore {
   openNowPlaying: (lyrics: boolean) => void;
   /** Full-screen lyrics, over the whole window. */
   openRoom: () => void;
-  /** Steps back one level: full-screen lyrics → now playing → the page. */
+  /** The playing music video's picture, over the whole window. */
+  openVideo: () => void;
+  /** Steps back one level: full-screen lyrics → now playing → the page; the video view → the page. */
   closeOverlay: () => void;
   setShowLyrics: (on: boolean) => void;
 }
@@ -37,6 +40,7 @@ export const useUI = create<UIStore>((set) => ({
   setQueueOpen: (queueOpen) => set({ queueOpen }),
   openNowPlaying: (showLyrics) => set({ overlay: "now-playing", showLyrics, fromRoom: false }),
   openRoom: () => set({ overlay: "room", showLyrics: true }),
+  openVideo: () => set({ overlay: "video", fromRoom: false }),
   closeOverlay: () =>
     set((s) => ({
       overlay: s.overlay === "room" ? "now-playing" : "none",

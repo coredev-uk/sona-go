@@ -11,17 +11,22 @@ import (
 	"time"
 )
 
-// Init describes the single audio track of an init segment.
+// Init describes the single track of an init segment: audio, or video.
 type Init struct {
 	TrackID   uint32
 	Timescale uint32 // media timescale (mdhd)
-	Codec     string // sample entry format before encryption, e.g. "mp4a"
+	Codec     string // sample entry format before encryption, e.g. "mp4a", "avc1"
 
 	ObjectType  uint8  // esds objectTypeIndication (0x40 MPEG-4 audio)
 	AudioConfig []byte // AudioSpecificConfig (esds DecoderSpecificInfo)
 	AudioObject int    // AAC audio object type from AudioConfig (2 = LC)
 	SampleRate  int    // from AudioConfig, else the sample entry
 	Channels    int    // from AudioConfig, else the sample entry
+
+	// Video: the picture size of the sample entry and the codec's decoder
+	// configuration record (the avcC or hvcC box body); nil for audio.
+	Width, Height int
+	VideoConfig   []byte
 
 	Protected  bool   // tenc default_isProtected
 	Scheme     string // "cenc", "cbcs", …; "" when unencrypted

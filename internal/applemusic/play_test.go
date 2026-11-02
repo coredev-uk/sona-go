@@ -134,6 +134,59 @@ func TestWebPlaybackForbidden(t *testing.T) {
 	}
 }
 
+func TestVideoPlayback(t *testing.T) {
+	c, seen := playClient(t, 200, `{"songList":[{"songId":1447440393,"assets":[],
+ "hls-playlist-url":"https://play.itunes.apple.com/WebObjects/MZPlay.woa/hls/subscription/playlist.m3u8?cc=GB&a=1447440393&dsid=1",
+ "hls-key-server-url":"https://play.itunes.apple.com/WebObjects/MZPlay.woa/wa/acquireWebPlaybackLicense",
+ "widevine-cert-url":"https://play.itunes.apple.com/WebObjects/MZPlay.woa/wa/widevineCert"}],"status":0}`)
+	info, err := c.VideoPlayback(context.Background(), "1447440393")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := VideoPlaybackInfo{
+		SongID:     "1447440393",
+		MasterURL:  "https://play.itunes.apple.com/WebObjects/MZPlay.woa/hls/subscription/playlist.m3u8?cc=GB&a=1447440393&dsid=1",
+		LicenseURL: LicenseURL, CertURL: WidevineCertURL,
+	}
+	if info != want {
+		t.Fatalf("info %+v, want %+v", info, want)
+	}
+	if b := (*seen)[0].body; b["salableAdamId"] != "1447440393" || len(b) != 1 {
+		t.Fatalf("body %v", b)
+	}
+}
+
+func TestVideoPlaybackNotPlayable(t *testing.T) {
+	// A song's answer (assets, no master playlist) is no video.
+	c, _ := playClient(t, 200, fmt.Sprintf(songList, `{"flavor":"28:ctrp256","URL":"https://aod/r256.m3u8"}`))
+	if _, err := c.VideoPlayback(context.Background(), "1"); !errors.Is(err, ErrNotPlayable) {
+		t.Fatalf("no master: %v", err)
+	}
+	c, _ = playClient(t, 200, `{"failureType":"3076","customerMessage":"This item is not available."}`)
+	if _, err := c.VideoPlayback(context.Background(), "1"); !errors.Is(err, ErrNotPlayable) {
+		t.Fatalf("failure answer: %v", err)
+	}
+	c, _ = playClient(t, http.StatusForbidden, `{}`)
+	if _, err := c.VideoPlayback(context.Background(), "1"); !errors.Is(err, ErrUnauthorized) {
+		t.Fatalf("403: %v", err)
+	}
+}
+
+func TestLibraryMusicVideo(t *testing.T) {
+	c, _, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/me/library/music-videos/i.9" || r.URL.Query().Get("include") != "catalog" {
+			t.Errorf("request %s?%s", r.URL.Path, r.URL.RawQuery)
+		}
+		_, _ = io.WriteString(w, `{"data":[{"id":"i.9","type":"library-music-videos","attributes":{"name":"Video"},
+			"relationships":{"catalog":{"data":[{"id":"1447440393","type":"music-videos"}]}}}]}`)
+	}))
+	c.AMPBase = c.Base
+	v, err := c.LibraryMusicVideo(context.Background(), "i.9")
+	if err != nil || v.CatalogID() != "1447440393" || v.Attributes.Name != "Video" {
+		t.Fatalf("%+v %v", v, err)
+	}
+}
+
 func TestAcquireLicense(t *testing.T) {
 	lic := []byte{1, 2, 3, 4}
 	c, seen := playClient(t, 200, `{"license":"`+base64.StdEncoding.EncodeToString(lic)+`","status":0,"stkn":"slot-1"}`)

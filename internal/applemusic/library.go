@@ -122,6 +122,18 @@ func (c *Client) LibraryMusicVideos(ctx context.Context, limit, offset int) (Pag
 	})
 }
 
+// LibraryMusicVideo returns the user's library music video id with its
+// catalog copy (MusicVideo.CatalogID).
+func (c *Client) LibraryMusicVideo(ctx context.Context, id string) (MusicVideo, error) {
+	body, err := AMP[Page[MusicVideo]](ctx, c, "/v1/me/library/music-videos/"+url.PathEscape(id), AMPQuery{
+		Extra: url.Values{"include": {"catalog"}},
+	})
+	if err != nil {
+		return MusicVideo{}, err
+	}
+	return first(body.Data, TypeLibraryMusicVideos+" "+id)
+}
+
 // RecentlyPlayed returns a page of the user's recently played tracks
 // (catalog or library songs; Apple caps limit at 30).
 func (c *Client) RecentlyPlayed(ctx context.Context, limit, offset int) (Relationship[Song], error) {

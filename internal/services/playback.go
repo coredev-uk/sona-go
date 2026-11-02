@@ -263,6 +263,7 @@ func (s *PlaybackService) item(uid uint64, it coordinator.Item) QueueItem {
 		DurationMs: it.Duration.Milliseconds(), Art: s.m.artOf(it.Artwork),
 		Live:     isStationID(it.ID) && it.Duration <= 0,
 		Explicit: it.Explicit,
+		Video:    playback.IsVideo(it.ID),
 	}
 }
 
@@ -271,6 +272,9 @@ func (s *PlaybackService) item(uid uint64, it coordinator.Item) QueueItem {
 // copy.
 func (s *PlaybackService) lookupMeta(id string) trackMeta {
 	ctx := context.Background()
+	if c := playback.VideoCatalogID(id); c != "" {
+		return trackMeta{source: SourceCatalog, id: c, catalogID: c}
+	}
 	if isLibraryID(id) {
 		if t, err := s.o.DB.RQ.GetTrackByLibraryID(ctx, db.NullString(id)); err == nil {
 			return metaOf(t, SourceLibrary)
@@ -337,6 +341,13 @@ func (s *PlaybackService) resolve(ctx context.Context, refs []TrackRef, start in
 }
 
 func (s *PlaybackService) resolveOne(ctx context.Context, r TrackRef) (coordinator.Item, trackMeta, error) {
+	switch r.Kind {
+	case "":
+	case TrackKindVideo:
+		return s.resolveVideo(ctx, r)
+	default:
+		return coordinator.Item{}, trackMeta{}, fmt.Errorf("%w: kind %q", ErrInvalidArgument, r.Kind)
+	}
 	var (
 		t   dbq.Track
 		err error
@@ -369,6 +380,44 @@ func (s *PlaybackService) resolveOne(ctx context.Context, r TrackRef) (coordinat
 		return coordinator.Item{}, trackMeta{}, fmt.Errorf("track %s/%s: %w", r.Source, r.ID, err)
 	}
 	return trackItem(t)
+}
+
+// resolveVideo turns a music video ref into a coordinator item, played by
+// its catalog ID (a library copy names its catalog video).
+func (s *PlaybackService) resolveVideo(ctx context.Context, r TrackRef) (coordinator.Item, trackMeta, error) {
+	id := r.ID
+	switch r.Source {
+	case SourceCatalog:
+	case SourceLibrary:
+		lv, err := s.o.API.LibraryMusicVideo(ctx, r.ID)
+		if err != nil {
+			s.o.Report(err)
+			return coordinator.Item{}, trackMeta{}, err
+		}
+		if id = lv.CatalogID(); id == "" {
+			return coordinator.Item{}, trackMeta{}, fmt.Errorf("library music video %s has no catalog copy: %w", r.ID, applemusic.ErrNotPlayable)
+		}
+	default:
+		return coordinator.Item{}, trackMeta{}, fmt.Errorf("%w: source %q", ErrInvalidArgument, r.Source)
+	}
+	v, err := s.o.Catalog.MusicVideo(ctx, id)
+	if err != nil {
+		s.o.Report(err)
+		return coordinator.Item{}, trackMeta{}, err
+	}
+	a := v.Attributes
+	m := trackMeta{source: SourceCatalog, id: id, catalogID: id}
+	if ar := v.Relationships.Artists.Data; len(ar) > 0 {
+		m.artistID = ar[0].ID
+	}
+	return coordinator.Item{
+		ID:       playback.VideoID(id),
+		Title:    a.Name,
+		Artist:   a.ArtistName,
+		Duration: time.Duration(a.DurationInMillis) * time.Millisecond,
+		Artwork:  a.Artwork.Template(),
+		Explicit: a.ContentRating == "explicit",
+	}, m, nil
 }
 
 // released fails with ErrNotReleased for a song released on date that

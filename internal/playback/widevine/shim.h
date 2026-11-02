@@ -68,6 +68,40 @@ int sona_cdm_decrypt(sona_cdm* c, const uint8_t* kid, uint32_t kid_size, const u
 
 void sona_cdm_destroy(sona_cdm* c);
 
+// Video: the CDM's own decoder, the only way to use keys of level
+// SW_SECURE_DECODE (Apple's music video keys), which Decrypt refuses.
+// sona_cdm_video_init initialises it (cdm::VideoDecoderConfig_2 fields:
+// codec, profile, I420 output, coded size, extra data, cbcs or cenc) and
+// returns the cdm::Status (0 = success).
+int sona_cdm_video_init(sona_cdm* c, uint32_t codec, uint32_t profile, int32_t width, int32_t height,
+                        const uint8_t* extra, uint32_t extra_size, int cbcs);
+// sona_cdm_video_reset drops every frame the decoder holds (a seek).
+void sona_cdm_video_reset(sona_cdm* c);
+// sona_cdm_video_deinit releases the decoder.
+void sona_cdm_video_deinit(sona_cdm* c);
+
+// sona_video_frame is a decoded picture, its planes packed as I420 (Y,
+// then U, then V; chroma (width+1)/2 by (height+1)/2) in data, which
+// sona_video_frame_free releases.
+typedef struct {
+  uint8_t* data;
+  uint32_t size;
+  int32_t width, height;
+  int64_t timestamp_us;
+} sona_video_frame;
+
+// sona_cdm_video_decode decrypts and decodes one access unit (arguments
+// as sona_cdm_decrypt; data NULL and size 0 drain the decoder at the end
+// of the stream). It returns the cdm::Status: 0 with a frame in out,
+// 1 (kNeedMoreData) when no frame is ready yet (or, draining, none is
+// left); -3 for a frame in a format other than I420/YV12, -4 when the
+// frame's memory could not be allocated.
+int sona_cdm_video_decode(sona_cdm* c, const uint8_t* kid, uint32_t kid_size, const uint8_t* iv, uint32_t iv_size,
+                          const uint8_t* data, uint32_t size, const uint32_t* subsamples, uint32_t nsub,
+                          int64_t timestamp_us, int cbcs, uint32_t crypt_blocks, uint32_t skip_blocks,
+                          sona_video_frame* out);
+void sona_video_frame_free(sona_video_frame* f);
+
 #ifdef __cplusplus
 }
 #endif
