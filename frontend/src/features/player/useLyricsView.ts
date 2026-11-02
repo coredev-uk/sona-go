@@ -1,9 +1,10 @@
-import type { LyricLine } from "@bindings/services";
-import { useEffect, useRef, type RefObject } from "react";
+import type { LyricLine, Lyrics } from "@bindings/services";
+import { useEffect, useMemo, useRef, type RefObject } from "react";
 
 import { useAppearance } from "@/features/settings";
 import { useMediaQuery } from "@/shared/lib/useMediaQuery";
 
+import type { LyricLangs } from "./LyricBody";
 import { activeLine, lyricsClock, useSongOffset } from "./lyrics";
 import { useLivePosition } from "./playback";
 
@@ -17,7 +18,15 @@ export function useSungLine(songId: string, lines: readonly LyricLine[], synced:
   return synced ? activeLine(lines, lyricsClock(position, offset)) : -1;
 }
 
-/** Reduce effects or the system's reduced motion: no smooth scrolling. */
+/** The languages of the lyrics and their localizations, for `lang`. */
+export function useLyricLangs(l: Lyrics | undefined): LyricLangs {
+  const lead = l?.language ?? "";
+  const pronunciation = l?.transliterationLanguage ?? "";
+  const translation = l?.translationLanguage ?? "";
+  return useMemo(() => ({ lead, pronunciation, translation }), [lead, pronunciation, translation]);
+}
+
+/** Reduce effects or the system's reduced motion: no smooth scrolling, words lit whole. */
 export function useReducedMotion(): boolean {
   const reduceEffects = useAppearance((s) => s.reduceEffects);
   const system = useMediaQuery("(prefers-reduced-motion: reduce)");

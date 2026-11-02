@@ -327,7 +327,7 @@ Data: concerts near a chosen location, filterable by dates and genres. Each conc
 
 ### 5.3 Lyrics
 
-- `GET amp-api /v1/catalog/{sf}/songs/{id}/syllable-lyrics?l[lyrics]=en-gb&l[script]=en-Latn&extend=ttmlLocalizations` → **200**, MUT: **yes** (404 without). `syllable-lyrics{ttmlLocalizations, playParams}`: TTML with `itunes:timing="Line"` or `"Word"`, `<translations>` / transliterations (time-synced translation and pronunciation, toggled from the lyrics menu), songwriters and `ttm:agent` (singer parts).
+- `GET amp-api /v1/catalog/{sf}/songs/{id}/syllable-lyrics?l[lyrics]=en-gb&l[script]=en-Latn&extend=ttmlLocalizations` → **200**, MUT: **yes** (404 without). `syllable-lyrics{ttmlLocalizations, playParams}`: TTML with `itunes:timing="Line"` or `"Word"`, `<translations>` / transliterations (time-synced translation and pronunciation, toggled from the lyrics menu), songwriters and `ttm:agent` (singer parts: each `<p>` names one, declared in the head as `<ttm:agent type="person|group|other" xml:id="v1">`; `group` is every voice together), and background vocals as `<span ttm:role="x-bg">` inside a line.
 - `GET amp-api /v1/catalog/{sf}/songs/{id}/lyrics` → **200**, `lyrics{ttml}` (line-timed fallback).
 - `songs.attributes.hasLyrics` / `hasTimeSyncedLyrics` decide whether lyrics are available. `lyricsExcerpt` gives the song page excerpt.
 - `GET api …/lyrics` → 400. Sona uses amp-api: `syllable-lyrics` with the `l[lyrics]`/`l[script]`/`extend=ttmlLocalizations` query, then `lyrics` (`internal/lyrics`'s Apple provider, one of the lyrics sources in Settings → Playback → Lyrics).

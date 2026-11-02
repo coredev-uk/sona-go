@@ -232,6 +232,33 @@
   }
 }
 
+/* Word-timed lyrics (features/player/useWordSync). A sung word is amber;
+   the word being sung is filled with amber from its start to --p (0–1,
+   written per frame by the word loop) over its own colour, with a soft
+   0.3em edge. Under reduced motion the loop lights words whole and never
+   sets "part". */
+.lyric-word[data-sung="done"] {
+  color: var(--amber-ink);
+}
+.lyric-word[data-sung="part"] {
+  --edge: 0.3em;
+  background-image: linear-gradient(
+    to right,
+    var(--amber-ink) calc(var(--p, 0) * (100% + var(--edge)) - var(--edge)),
+    currentColor calc(var(--p, 0) * (100% + var(--edge)))
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.lyric-word[data-sung="part"]:dir(rtl) {
+  background-image: linear-gradient(
+    to left,
+    var(--amber-ink) calc(var(--p, 0) * (100% + var(--edge)) - var(--edge)),
+    currentColor calc(var(--p, 0) * (100% + var(--edge)))
+  );
+}
+
 /* Reduce effects: solid surfaces, no backdrops, no motion. Reduced motion
    from the OS drops motion too. */
 .reduce-effects [data-backdrop] {

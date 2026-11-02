@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const wordTTML = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" itunes:timing="Word" xml:lang="en"><head><metadata><ttm:agent type="person" xml:id="v1"/><iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal"><songwriters><songwriter>Ann Writer</songwriter><songwriter>Bo Writer</songwriter></songwriters></iTunesMetadata></metadata></head><body dur="3:21.570"><div begin="27.395" end="48.621" itunes:songPart="Verse"><p begin="27.395" end="28.960" itunes:key="L1" ttm:agent="v1"><span begin="27.395" end="27.549">Sing</span> <span begin="27.549" end="27.740">a</span> <span begin="27.740" end="28.077">lo</span><span begin="28.077" end="28.960">ng</span></p><p begin="1:02.000" end="1:05.5" ttm:agent="v2"><span begin="1:02.000" end="1:03.000">Echo</span> <span ttm:role="x-bg"><span begin="1:03.100" end="1:04.000">(back</span> <span begin="1:04.000" end="1:05.500">up)</span></span></p></div><div begin="1:10" end="1:20" itunes:songPart="Chorus"><p begin="1:10" end="1:12"><span begin="1:10" end="1:12">Hey</span></p></div></body></tt>`
+const wordTTML = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" itunes:timing="Word" xml:lang="en"><head><metadata><ttm:agent type="person" xml:id="v1"/><ttm:agent type="other" xml:id="v2"/><ttm:agent type="group" xml:id="v1000"/><iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal"><songwriters><songwriter>Ann Writer</songwriter><songwriter>Bo Writer</songwriter></songwriters></iTunesMetadata></metadata></head><body dur="3:21.570"><div begin="27.395" end="48.621" itunes:songPart="Verse"><p begin="27.395" end="28.960" itunes:key="L1" ttm:agent="v1"><span begin="27.395" end="27.549">Sing</span> <span begin="27.549" end="27.740">a</span> <span begin="27.740" end="28.077">lo</span><span begin="28.077" end="28.960">ng</span></p><p begin="1:02.000" end="1:05.5" ttm:agent="v2"><span begin="1:02.000" end="1:03.000">Echo</span> <span ttm:role="x-bg"><span begin="1:03.100" end="1:04.000">(back</span> <span begin="1:04.000" end="1:05.500">up)</span></span></p></div><div begin="1:10" end="1:20" itunes:songPart="Chorus"><p begin="1:10" end="1:12" ttm:agent="v1000"><span begin="1:10" end="1:12">Hey</span></p></div></body></tt>`
 
 const lineTTML = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" itunes:timing="Line" xml:lang="en-GB"><head><metadata/></head><body><div itunes:songPart="Verse"><p begin="8.481" end="11.6">First line here</p><p begin="1:00:01.25" end="1:00:03">Second &amp; last</p></div></body></tt>`
 
@@ -26,7 +26,7 @@ func TestParseTTMLWordTimed(t *testing.T) {
 		t.Fatalf("lines = %d", len(l.Lines))
 	}
 	l1 := l.Lines[0]
-	if l1.Text != "Sing a long" || l1.Part != "Verse" || l1.Agent != "v1" ||
+	if l1.Text != "Sing a long" || l1.Part != "Verse" || l1.Agent != "v1" || l1.AgentType != "person" ||
 		l1.Begin != 27395*time.Millisecond || l1.End != 28960*time.Millisecond {
 		t.Fatalf("line 1 = %+v", l1)
 	}
@@ -39,13 +39,13 @@ func TestParseTTMLWordTimed(t *testing.T) {
 		t.Fatalf("words = %q", words)
 	}
 	l2 := l.Lines[1]
-	if l2.Text != "Echo" || l2.BackgroundText != "(back up)" || l2.Agent != "v2" || l2.Begin != 62*time.Second {
+	if l2.Text != "Echo" || l2.BackgroundText != "(back up)" || l2.Agent != "v2" || l2.AgentType != "other" || l2.Begin != 62*time.Second {
 		t.Fatalf("line 2 = %+v", l2)
 	}
 	if len(l2.Words) != 3 || l2.Words[0].Background || !l2.Words[1].Background || !l2.Words[2].Background {
 		t.Fatalf("line 2 words = %+v", l2.Words)
 	}
-	if l.Lines[2].Part != "Chorus" || l.Lines[2].Begin != 70*time.Second {
+	if l.Lines[2].Part != "Chorus" || l.Lines[2].Begin != 70*time.Second || l.Lines[2].AgentType != "group" {
 		t.Fatalf("line 3 = %+v", l.Lines[2])
 	}
 	if l.TTML != wordTTML {

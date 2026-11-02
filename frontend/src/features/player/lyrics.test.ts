@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   activeLine,
   describeOffset,
+  wordClock,
   lyricsClock,
   lyricsExtras,
   MAX_OFFSET_MS,
@@ -58,6 +59,12 @@ describe("lyrics offset", () => {
     expect(activeLine(lines, lyricsClock(12_750, 1_000))).toBe(1);
   });
 
+  it("lights words without the lines' lead, under the offset", () => {
+    expect(wordClock(10_000, 0)).toBe(10_000);
+    expect(wordClock(10_000, 500)).toBe(9_500);
+    expect(wordClock(10_000, -500)).toBe(10_500);
+  });
+
   it("seeks to where a line is sung under the offset", () => {
     // Clicking a line lands where the view makes it the sung line.
     for (const offset of [0, 500, -1_500]) {
@@ -86,46 +93,57 @@ describe("lyrics offset", () => {
 });
 
 describe("shownLine", () => {
-  const word = (text: string) => ({ beginMs: 0, endMs: 1, text, background: false });
+  const word = (text: string, background = false) => ({ beginMs: 0, endMs: 1, text, background });
   const line = {
     beginMs: 0,
     endMs: 1,
-    text: "보고 싶다",
-    backgroundText: "(보고 싶다)",
+    text: "lorem ipsum",
+    backgroundText: "(dolor)",
     part: "",
     agent: "v1",
-    words: [word("보고 "), word("싶다")],
-    translation: { text: "I miss you", backgroundText: "(I miss you)", words: [] },
+    agentType: "person",
+    words: [word("lorem "), word("ipsum"), word("(dolor)", true)],
+    translation: { text: "alpha bravo", backgroundText: "(charlie)", words: [] },
     transliteration: {
-      text: "bo go sip da",
-      backgroundText: "(bo go sip da)",
-      words: [word("bo go ")],
+      text: "lo rem ip sum",
+      backgroundText: "(do lor)",
+      words: [word("lo "), word("rem ")],
     },
   };
 
-  it("shows the original when nothing is chosen", () => {
+  it("shows the main and background vocals, each with its own words", () => {
     const s = shownLine(line, { translation: false, pronunciation: false });
     expect(s).toEqual({
-      text: "보고 싶다",
-      background: "(보고 싶다)",
-      words: line.words,
+      lead: { text: "lorem ipsum", words: line.words.slice(0, 2) },
+      background: { text: "(dolor)", words: line.words.slice(2) },
+      pronunciation: null,
       translation: "",
     });
   });
 
-  it("swaps in the romanization and adds the translation", () => {
+  it("adds the romanisation and the translation under the line", () => {
     const s = shownLine(line, { translation: true, pronunciation: true });
-    expect(s.text).toBe("bo go sip da");
-    expect(s.background).toBe("(bo go sip da)");
-    expect(s.words).toHaveLength(1);
-    expect(s.translation).toBe("I miss you (I miss you)");
+    expect(s.lead.text).toBe("lorem ipsum");
+    expect(s.pronunciation).toEqual({
+      text: "lo rem ip sum (do lor)",
+      words: line.transliteration.words,
+    });
+    expect(s.translation).toBe("alpha bravo (charlie)");
   });
 
-  it("keeps the original for lines without localizations", () => {
+  it("adds nothing for lines without localizations", () => {
     const bare = { ...line, translation: null, transliteration: null };
     const s = shownLine(bare, { translation: true, pronunciation: true });
-    expect(s.text).toBe("보고 싶다");
+    expect(s.lead.text).toBe("lorem ipsum");
+    expect(s.pronunciation).toBeNull();
     expect(s.translation).toBe("");
+  });
+
+  it("keeps line-timed text without words", () => {
+    const plain = { ...line, words: [], translation: null, transliteration: null };
+    const s = shownLine(plain, { translation: false, pronunciation: false });
+    expect(s.lead).toEqual({ text: "lorem ipsum", words: [] });
+    expect(s.background).toEqual({ text: "(dolor)", words: [] });
   });
 });
 

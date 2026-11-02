@@ -101,6 +101,9 @@ src/
                           playing album), playback mirror, lyrics (LyricsService: the best
                           of the sources in Settings → Playback → Lyrics, refetched when
                           those settings change; per-song session timing offset, ±0.5 s;
+                          word by word where the lyrics are word-timed (useWordSync),
+                          background vocals, duet voices, romanisation and translation
+                          under each line (LyricBody);
                           full-screen "room" lyrics over the whole window),
                           shortcuts, playSongs/shuffleSongs (from a PlayFrom {kind, id}:
                           album/playlist/artist go to Apple's play activity)/queueItems;
@@ -633,6 +636,37 @@ lists that mark the playing song.
 - **Diagnosable.** Each video's outcome (playing, download failed with Go's
   reason, MediaError, stalled: no time advance within 4 s of `playing`)
   goes to `useMotionLog`; Settings → Diagnostics shows it with every input.
+
+### Word-timed lyrics
+
+The lyrics column and full-screen lyrics render each timed word as a span
+carrying its begin and end (`data-wb`, `data-we`, in ms) inside a
+`[data-line=<index>]` element, and React renders them once: the sung line
+still re-renders through `useSungLine` (5 times a second, as for
+line-timed lyrics), but nothing re-renders per word.
+
+- **The loop** (`useWordSync`) reads the playback mirror's position,
+  extrapolated from Go's last snapshot (`livePosition`), minus the song's
+  lyrics offset (`wordClock`: no lead, unlike the line clock), and touches
+  only the lines being sung (`singingLines`: the last line begun, plus
+  earlier ones whose background vocals still run). On each word it sets
+  `data-sung` ("part" or "done") and, on the word being sung, `--p`
+  (0–1, three decimals); the stylesheet turns those into the fill. The
+  timing maths is plain functions in `lyric-words.ts`.
+- **When it runs.** One `requestAnimationFrame` loop, only while a word is
+  being sung, the song plays and the window is visible. Between words and
+  through instrumental breaks it sleeps on a timer until the next change
+  (`nextChange`). A new snapshot (play, pause, seek), an offset change or
+  the window becoming visible restarts it from the new clock; paused, it
+  draws the paused position once and stops. Under reduced motion or reduce
+  effects it never asks for frames: words light whole at their begin, on
+  timers.
+- **Cost** (headless harness, 1440×900, a 30-second preview with
+  Musixmatch word timing, Now Playing's lyrics open over Settings, medians
+  of 3 × 10 s, % of one core): before word timing, web process 1.8%, UI
+  process 1.6%; word by word, web 4.1%, UI 9.5% (each drawn frame costs a
+  composite of the window in the UI process, `docs/design.md` Motion);
+  with reduce effects, web 1.3%, UI 2.1%.
 
 ## Strings and locales
 

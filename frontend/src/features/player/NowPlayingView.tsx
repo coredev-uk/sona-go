@@ -26,49 +26,67 @@ import {
   useLyricsPrefs,
   type LyricsPrefs,
 } from "./lyrics";
+import { LyricBody, type LyricLangs } from "./LyricBody";
+import { hasWordTiming, lineVoices, type Voice } from "./lyric-words";
 import { LyricsTiming } from "./LyricsTiming";
 import { usePlayback } from "./playback";
 import { useAlbumMotion, useLyrics } from "./queries";
 import { useUI } from "./ui";
-import { useFollowLine, useSungLine } from "./useLyricsView";
+import { useFollowLine, useLyricLangs, useSungLine } from "./useLyricsView";
+import { useWordSync } from "./useWordSync";
 
 const Line = memo(function Line({
   songId,
+  index,
   line,
   state,
   synced,
   prefs,
+  langs,
+  voice,
+  duet,
 }: {
   songId: string;
+  index: number;
   line: LyricLine;
   state: "past" | "active" | "future";
   synced: boolean;
   prefs: LyricsPrefs;
+  langs: LyricLangs;
+  voice: Voice;
+  duet: boolean;
 }) {
-  const shown = shownLine(line, prefs);
   const { t } = useLingui();
   const body = (
-    <>
-      <span className="block">{shown.text}</span>
-      {shown.background && (
-        <span className="mt-1 block text-heading font-medium opacity-80">{shown.background}</span>
-      )}
-      {shown.translation && (
-        <span className="mt-1.5 block text-heading font-medium opacity-70">
-          {shown.translation}
-        </span>
-      )}
-    </>
+    <LyricBody
+      shown={shownLine(line, prefs)}
+      langs={langs}
+      subClassName="mt-1 text-heading text-ink-muted"
+    />
   );
+  // Word-timed lines light word by word (useWordSync); the others whole.
+  const sung = line.words.length > 0 ? "text-ink" : "text-play-ink";
   const cls = cn(
-    "block w-full rounded-md px-3 py-2 text-left text-page text-balance transition-colors duration-150",
-    state === "active" ? "text-play-ink" : state === "past" ? "text-ink-muted" : "text-ink",
-    line.agent === "v2" && "text-right",
+    "block w-full rounded-md px-3 py-2 text-start text-page text-balance transition-colors duration-150",
+    state === "active" ? sung : state === "past" ? "text-ink-muted" : "text-ink",
+    // A duet's voices sit on their own sides, clear of each other; every
+    // voice together in the middle.
+    voice === "two" && "ps-[15%] text-end",
+    voice === "one" && duet && "pe-[15%]",
+    voice === "all" && "text-center",
   );
-  if (!synced) return <p className={cls}>{body}</p>;
+  if (!synced) {
+    return (
+      <p dir="auto" className={cls}>
+        {body}
+      </p>
+    );
+  }
   return (
     <button
       type="button"
+      dir="auto"
+      data-line={index}
       data-active={state === "active" || undefined}
       aria-current={state === "active" ? "true" : undefined}
       onClick={() => {
@@ -88,11 +106,15 @@ function LyricsPane({ catalogId }: { catalogId: string }) {
   const pronunciation = useLyricsPrefs((s) => s.pronunciation);
   const prefs = useMemo(() => ({ translation, pronunciation }), [translation, pronunciation]);
 
-  const lines = lyrics.data?.lines ?? [];
+  const lines = useMemo(() => lyrics.data?.lines ?? [], [lyrics.data]);
   const synced = isSynced(lyrics.data);
   const active = useSungLine(catalogId, lines, synced);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolled = useFollowLine(scrollRef, active);
+  useWordSync(scrollRef, catalogId, lines, hasWordTiming(lyrics.data), prefs);
+  const voices = useMemo(() => lineVoices(lines), [lines]);
+  const duet = voices.includes("two");
+  const langs = useLyricLangs(lyrics.data);
   const { t } = useLingui();
 
   if (lyrics.isPending) {
@@ -139,10 +161,14 @@ function LyricsPane({ catalogId }: { catalogId: string }) {
         <Line
           key={i}
           songId={catalogId}
+          index={i}
           line={line}
           synced={synced}
           state={!synced || i > active ? "future" : i === active ? "active" : "past"}
           prefs={prefs}
+          langs={langs}
+          voice={voices[i]}
+          duet={duet}
         />
       ))}
       {!!writers && (
@@ -182,8 +208,9 @@ function languageName(tag: string, locale: string): string {
 }
 
 /**
- * The translation and pronunciation toggles, shown only when Apple has
- * them for this song. The choice is kept for every song.
+ * The translation and pronunciation toggles, shown only when the lyrics
+ * have them for this song; each adds its line under every sung line. The
+ * choice is kept for every song.
  */
 function LyricsOptions({ catalogId }: { catalogId: string }) {
   const lyrics = useLyrics(catalogId);

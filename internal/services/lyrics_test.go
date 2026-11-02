@@ -95,13 +95,13 @@ func TestLyricsServiceNotFoundCode(t *testing.T) {
 func TestLyricsDTO(t *testing.T) {
 	ms := time.Millisecond
 	l := lyricsDTO(lyrics.Lyrics{Provider: "apple", Timing: lyrics.TimingWord, TranslationLanguage: "en-US", TransliterationLanguage: "ko-Latn", Lines: []lyrics.Line{{
-		Begin: 1500 * ms, End: 3 * time.Second, Text: "hi there", Background: "(hey)", Agent: "v2", Part: "Chorus",
+		Begin: 1500 * ms, End: 3 * time.Second, Text: "hi there", Background: "(hey)", Agent: "v2", AgentType: "other", Part: "Chorus",
 		Words:           []lyrics.Word{{Begin: 1500 * ms, End: 2 * time.Second, Text: "hi "}, {Begin: 2 * time.Second, End: 2500 * ms, Text: "(hey)", Background: true}},
 		Translation:     &lyrics.Text{Text: "hello"},
 		Transliteration: &lyrics.Text{Text: "an nyeong", Words: []lyrics.Word{{Begin: 1500 * ms, End: 1800 * ms, Text: "an "}}},
 	}, {Text: "plain"}}})
 	ln := l.Lines[0]
-	if l.Provider != "apple" || l.Songwriters == nil || ln.BeginMs != 1500 || ln.EndMs != 3000 || ln.Background != "(hey)" || ln.Agent != "v2" ||
+	if l.Provider != "apple" || l.Songwriters == nil || ln.BeginMs != 1500 || ln.EndMs != 3000 || ln.Background != "(hey)" || ln.Agent != "v2" || ln.AgentType != "other" ||
 		ln.Words[1].EndMs != 2500 || !ln.Words[1].Background || ln.Translation.Text != "hello" || ln.Transliteration.Words[0].EndMs != 1800 {
 		t.Fatalf("lyrics = %+v", l)
 	}

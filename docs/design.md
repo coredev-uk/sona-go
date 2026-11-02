@@ -282,6 +282,15 @@ Other versions · Music videos · More by · Featured in playlists · You might 
 - **Below 860px of content** (a 940px window) the sleeve heads the page with the title beside a 168px cover, the songs follow at full width, then the fine print; the disc headings in the list stand in for the index.
 - Then Notes at a reading measure, and Apple's shelves in Apple's order.
 
+## Lyrics
+
+The now-playing view's lyrics column and full-screen lyrics share one treatment (`features/player/LyricBody.tsx`).
+
+- **The sung line is amber.** Line-timed lyrics light the whole line in `--amber-ink`. Word-timed lyrics keep the sung line in `--ink` and fill each word with `--amber-ink` as the voice reaches it, in the reading direction, with a soft 0.3em edge; sung words stay lit until the next line begins. Earlier lines are `--ink-muted` (`--ink-faint` full screen), later ones `--ink`.
+- **Under each line**, smaller and in `--ink-muted`, each on its own line: the background vocals (600: they are sung, and they light on their own timing, so they can still be filling under the next line), then, when switched on in the view's bar, the romanisation (400, lit like the line when it is word-timed) and the translation (400) in the language chosen in Settings → Playback → Lyrics.
+- **Duets.** When two or more voices take lines, the first to sing sits at the start and the others at the end, each kept 15% clear of the other's side (full screen: the 22ch column moves across); lines every voice sings together are centred. A song with one voice is laid out as before.
+- **Motion.** The fill is the only thing that moves each frame, and only while a word is being sung (CPU: `docs/frontend-architecture.md`, "Word-timed lyrics"). Under `prefers-reduced-motion` or reduce effects each word lights whole as it begins, without a fill.
+
 ## Empty, loading and error states
 
 - An empty route keeps its frame: the h1, any column header row it will have, then one dashed-border block (1px `--line`, radius 8) holding a 16/600 sentence-case title, one sentence in the product's own words, and at most one action.
