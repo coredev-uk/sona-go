@@ -20,6 +20,7 @@ import * as ScrobbleService from "./scrobbleservice.js";
 import * as SearchService from "./searchservice.js";
 import * as StorageService from "./storageservice.js";
 import * as SystemService from "./systemservice.js";
+import * as TranslationsService from "./translationsservice.js";
 import * as UpdatesService from "./updatesservice.js";
 export {
     AudioService,
@@ -41,6 +42,7 @@ export {
     SearchService,
     StorageService,
     SystemService,
+    TranslationsService,
     UpdatesService
 };
 
@@ -48,6 +50,7 @@ export {
     Album,
     AlbumDetail,
     AlbumPage,
+    AppleTranslations,
     Art,
     Artist,
     ArtistDetail,

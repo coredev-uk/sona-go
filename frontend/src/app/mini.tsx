@@ -8,7 +8,7 @@ import "@/shared/styles/index.css";
 import { MiniPlayer } from "@/features/miniplayer";
 import { usePlayback } from "@/features/player";
 import { bindAppearance, loadAppearance } from "@/features/settings";
-import { followAccountLanguage, initI18n } from "@/shared/i18n";
+import { followAccountLanguage, initI18n, startTranslations } from "@/shared/i18n";
 import { wrapTabFocus } from "@/shared/lib/focus-wrap";
 import { shareEventDispatch } from "@/shared/lib/go-events";
 
@@ -22,6 +22,7 @@ import { AppProviders } from "./providers";
  */
 shareEventDispatch();
 initI18n();
+startTranslations();
 bindAppearance();
 wrapTabFocus();
 Events.On("playback:state", ({ data }) => usePlayback.getState().apply(data));

@@ -6,21 +6,12 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
+	"github.com/coredev-uk/sona-go/internal/i18n/po"
 )
 
-// missingKeys lists the mapped keys a bundle lacks (a plural key lacks its
-// `.other` form).
-func missingKeys(ms []mapping, b appleBundle) []string {
-	var missing []string
-	for _, m := range ms {
-		if _, ok := appleMessage(b, m.Key, m.Plural); !ok {
-			missing = append(missing, m.Key)
-		}
-	}
-	return missing
-}
-
-func runMatch(ctx context.Context, r repo, f *fetcher) error {
+func runMatch(ctx context.Context, r repo, f *applestrings.Fetcher) error {
 	sona, err := r.loadSona()
 	if err != nil {
 		return err
@@ -33,16 +24,16 @@ func runMatch(ctx context.Context, r repo, f *fetcher) error {
 	if err != nil {
 		return err
 	}
-	urls, err := f.discoverBundles(ctx)
+	urls, err := f.Discover(ctx)
 	if err != nil {
 		return err
 	}
-	bundle, err := f.bundle(ctx, urls[appleSourceLocale])
+	bundle, err := f.Bundle(ctx, urls[applestrings.SourceLocale])
 	if err != nil {
 		return err
 	}
 	if missing := missingKeys(ms, bundle); len(missing) > 0 {
-		return fmt.Errorf("mapped keys missing from Apple's %s bundle: %s", appleSourceLocale, strings.Join(missing, ", "))
+		return fmt.Errorf("mapped keys missing from Apple's %s bundle: %s", applestrings.SourceLocale, strings.Join(missing, ", "))
 	}
 	ix := indexBundle(bundle)
 	res := matchAll(sona, ix, ms, rejected)
@@ -56,7 +47,7 @@ func runMatch(ctx context.Context, r repo, f *fetcher) error {
 	if err := writeJSON(out, res.proposals); err != nil {
 		return err
 	}
-	fmt.Printf("Apple %s bundle: %d strings (%d plain keys, %d plural keys)\n", appleSourceLocale, len(bundle), len(ix.plain), len(ix.plural))
+	fmt.Printf("Apple %s bundle: %d strings (%d plain keys, %d plural keys)\n", applestrings.SourceLocale, len(bundle), len(ix.plain), len(ix.plural))
 	fmt.Printf("Sona messages: %d (%d plain or single-plural, so mappable)\n", len(sona.entries), len(sona.parsed))
 	fmt.Printf("Messages with a match: %d exact, %d normalised\n", res.exact, res.normalised)
 	fmt.Printf("Mapped: %d; rejected pairs: %d; matches left out by a rejection: %d\n", len(ms), len(rejected), res.rejectedHits)
@@ -71,27 +62,27 @@ type matchResult struct {
 	exact, normalised int // messages whose best match is of that kind
 	rejectedHits      int // messages whose every match was rejected
 	proposals         []proposal
-	drifted           []mapping
+	drifted           []applestrings.Mapping
 }
 
 // matchAll matches every mappable Sona message; messages already mapped
 // are counted, not proposed, and rejected pairs are skipped.
-func matchAll(sona *sonaCatalogue, ix *appleIndex, ms []mapping, rejected []rejection) matchResult {
+func matchAll(sona *sonaCatalogue, ix *appleIndex, ms []applestrings.Mapping, rejected []rejection) matchResult {
 	var res matchResult
-	mapped := map[msgKey]mapping{}
+	mapped := map[po.Key]applestrings.Mapping{}
 	for _, m := range ms {
-		mapped[m.msgKey()] = m
+		mapped[m.MsgKey()] = m
 	}
-	isRejected := map[msgKey]map[string]bool{}
+	isRejected := map[po.Key]map[string]bool{}
 	for _, rj := range rejected {
-		k := msgKey{rj.Message, rj.Context}
+		k := po.Key{ID: rj.Message, Context: rj.Context}
 		if isRejected[k] == nil {
 			isRejected[k] = map[string]bool{}
 		}
 		isRejected[k][rj.Key] = true
 	}
 	for _, e := range sona.entries {
-		k := e.key()
+		k := e.Key()
 		msg, ok := sona.parsed[k]
 		if !ok {
 			continue
@@ -126,7 +117,7 @@ func matchAll(sona *sonaCatalogue, ix *appleIndex, ms []mapping, rejected []reje
 		}
 		best := open[0]
 		p := proposal{
-			mapping: mapping{Message: k.ID, Context: k.Context, Key: best.Key, Plural: best.Plural, Placeholders: best.Placeholders},
+			Mapping: applestrings.Mapping{Message: k.ID, Context: k.Context, Key: best.Key, Plural: best.Plural, Placeholders: best.Placeholders},
 			Match:   best.Kind,
 			Apple:   appleText(ix.bundle, best.Key, best.Plural),
 		}
@@ -152,12 +143,12 @@ func hasKey(cs []candidate, key string) bool {
 
 // appleText shows a key's en-GB text for review ("one: …; other: …" for a
 // plural).
-func appleText(b appleBundle, key string, plural bool) string {
+func appleText(b applestrings.Bundle, key string, plural bool) string {
 	if !plural {
 		return b[key]
 	}
 	var parts []string
-	for _, c := range pluralCategories {
+	for _, c := range applestrings.PluralCategories {
 		if s, ok := b[key+"."+c]; ok {
 			parts = append(parts, c+": "+s)
 		}
@@ -184,21 +175,21 @@ func applyReview(r repo, path string) error {
 	if err != nil {
 		return err
 	}
-	have := map[msgKey]bool{}
+	have := map[po.Key]bool{}
 	for _, m := range ms {
-		have[m.msgKey()] = true
+		have[m.MsgKey()] = true
 	}
 	var errs []error
 	accepted, rejectedN, undecided := 0, 0, 0
 	for _, p := range ps {
 		switch p.Decision {
 		case "accept":
-			if have[p.msgKey()] {
+			if have[p.MsgKey()] {
 				errs = append(errs, fmt.Errorf("already mapped: %q", p.Message))
 				continue
 			}
-			have[p.msgKey()] = true
-			ms = append(ms, p.mapping)
+			have[p.MsgKey()] = true
+			ms = append(ms, p.Mapping)
 			accepted++
 		case "reject":
 			if strings.TrimSpace(p.Reason) == "" {
@@ -216,7 +207,7 @@ func applyReview(r repo, path string) error {
 	if err := errors.Join(errs...); err != nil {
 		return err
 	}
-	if err := validateMappings(ms, sona.parsed); err != nil {
+	if err := applestrings.ValidateMappings(ms, sona.parsed); err != nil {
 		return err
 	}
 	sortMappings(ms)

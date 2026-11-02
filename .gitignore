@@ -36,6 +36,6 @@ node_modules/
 # Private planning notes (never published)
 /.plans/
 
-# Apple Music strings imported by cmd/i18ntool (not committed)
+# Apple Music's strings, converted by `cmd/i18ntool import` for review only
+# (never committed: Sona fetches them at run time)
 /frontend/src/shared/i18n/apple/
-/frontend/src/shared/i18n/completeness.json

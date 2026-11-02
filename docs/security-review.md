@@ -1,10 +1,10 @@
 # Security review
 
-Sona's threat model and the controls behind it. The findings below (F1–F10) record each weakness found in Sona's own code, the control that closed it and the tests that keep it closed. The Widevine CDM downloader, the macOS sandbox, the GitHub Actions workflows and secret scanning have their own sections. Each section lists the residual risks that remain.
+Sona's threat model and the controls behind it. The findings below (F1–F10) record each weakness found in Sona's own code, the control that closed it and the tests that keep it closed. The Widevine CDM downloader, Apple's runtime translations, the macOS sandbox, the GitHub Actions workflows and secret scanning have their own sections. Each section lists the residual risks that remain.
 
 Areas reviewed without findings: native Apple ID input handling, `/art/`, the cmd/sona/main.go middleware, `/motion/` path handling, parent→child cdmhost framing, single-instance `Activate` and launch URLs, the other MPRIS methods, notifications, the portal file chooser, the settings file, secret stores, the scrobble queue, the diagnostics bundle, the update check, autostart and the webview URL bindings.
 
-Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/ ./internal/auth/...`.
+Run the tests with `go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/ ./internal/auth/... ./internal/i18n/...`.
 
 | ID | Severity | Issue | Status |
 | --- | --- | --- | --- |
@@ -227,6 +227,26 @@ Sona downloads the Widevine CDM itself (`internal/playback/cdm`), with no prompt
 - A genuine but older Google build is acceptable on a first install. It is still Google's signed CDM.
 - When the playback sandbox is unavailable, the load check is skipped (logged) and the CDM host refuses to load the CDM anyway (F3).
 - The CDM itself remains Google's closed code running in the sandboxed child (F2's residual risks apply).
+
+## Apple's translations
+
+Sona's UI text in other languages comes first from Apple Music's own web strings, which Go fetches from music.apple.com at run time and caches (`internal/i18n/applestrings`, docs/frontend-architecture.md "Strings and locales"). The threat is a network attacker (or Apple serving something unexpected) getting text into the UI that misleads the user, breaks rendering, or runs as code.
+
+**Requests** (`bundle.go`, `store.go`): plain `GET`s of the `/us/home` page, the index script it names and one locale's bundle, with a browser User-Agent and no credentials or cookies, through the start-up gate (after first paint). Redirects must stay on `https://music.apple.com` (at most 5). Responses are capped (page 4 MiB, index script 16 MiB, bundle 4 MiB, read up to the cap plus one byte). Cached URLs are trusted only under `https://music.apple.com/assets/`, and cache file names come only from Apple's locale tags matching `^[a-z0-9]+(-[a-z0-9]+){0,3}$`.
+
+**Parsing** (`bundle.go`): the bundle is a JS module, read as data and never run: string constants and one object literal of string keys and string values, with JS string escapes decoded; calls, template substitutions, numbers, arrays or anything else fail the whole bundle.
+
+**Conversion and checks** (`mapping.go`, `icu.go`): only the keys `apple-keys.json` maps are read; everything else in the bundle is ignored. Each becomes a Lingui (ICU) message for its Sona message: Apple's `@@name@@` placeholders are renamed through the reviewed mapping, ICU syntax characters in Apple's text are quoted, so Apple's text cannot add arguments, selects or plurals. A message is dropped when an Apple placeholder has no Sona argument, a Sona argument is missing from Apple's text (the count in a plural's `other` form), the plural shape differs, or it is over 4 KiB.
+
+**Cache** (`store.go`): `<cache>/strings/index.json` and `<apple-tag>.json`, written atomically. A file over 1 MiB, with unknown fields, another format version or an untrusted URL is ignored and fetched again; cached messages are kept only for IDs the current mapping has.
+
+**Rendering**: the frontend compiles the messages with Lingui's `compileMessageOrThrow` (one that fails stays English) and renders them through Lingui as text in React, never as HTML; no `dangerouslySetInnerHTML` is involved. A locale is shown only when its layers translate 90% of Sona's messages.
+
+**Tests:** `internal/i18n/applestrings` (`TestParseBundleModuleRejectsCode`, `TestToICURefuses*`, `TestConvertKeepsOnlyMappedCheckedMessages`, `TestStoreRefusesOversizedBundle`, `TestStoreStaysOnApplesOrigin`, `TestStoreIgnoresEnglishAndDamagedCache`); `frontend/src/shared/i18n/index.test.ts`.
+
+**Residual risks:**
+- Sona trusts music.apple.com over TLS for what the strings say: Apple (or anyone able to serve that origin) can put wrong or misleading wording in place of a mapped message, within its placeholders and the size cap.
+
 ## macOS sandbox (development builds)
 
 macOS has none of the Linux layers above (namespaces, Landlock, seccomp, `prctl`). The CDM host child there runs under Seatbelt, macOS's own sandbox, through `/usr/bin/sandbox-exec -p <profile> <sona>` (`internal/playback/cdmhost/seatbelt.go` writes the profile, `sandbox_darwin.go` applies it). The profile starts from `(allow default)` and takes away what the child never needs; later rules win, so each exception follows its rule:

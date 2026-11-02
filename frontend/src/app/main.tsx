@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import "@/shared/styles/index.css";
 
 import { bindAppearance } from "@/features/settings";
-import { initI18n } from "@/shared/i18n";
+import { initI18n, startTranslations } from "@/shared/i18n";
 import { wrapTabFocus } from "@/shared/lib/focus-wrap";
 import { shareEventDispatch } from "@/shared/lib/go-events";
 import { mirrorModalInert } from "@/shared/lib/modal-inert";
@@ -17,8 +17,9 @@ import { router } from "./router";
 
 shareEventDispatch();
 // Before the first render, so the first frame already has the right theme
-// and language.
+// and language (English; a translation follows after the first paint).
 initI18n();
+startTranslations();
 bindAppearance();
 registerModuleActions();
 registerModuleShortcuts();

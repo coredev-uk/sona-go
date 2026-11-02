@@ -7,36 +7,32 @@ import base from "./lingui.config";
 
 /**
  * The catalogues the app loads (vite.config.ts), a superset of the ones
- * `lingui extract` writes (lingui.config.ts): also the translation layers
- * that do not come from Sona's source, so extraction never creates or
- * rewrites them (docs/frontend-architecture.md, "Strings and locales").
+ * `lingui extract` writes (lingui.config.ts): also the community
+ * translations (`community/{locale}`), made for Sona, which do not come
+ * from Sona's source, so extraction never creates or rewrites them
+ * (docs/frontend-architecture.md, "Strings and locales"). Apple Music's own
+ * translations are not built in: Go fetches them at run time.
  *
- * - `apple/{locale}`: Apple Music's own translations of the messages mapped
- *   to an Apple key (`cmd/i18ntool import`; gitignored).
- * - `community/{locale}`: translations of the other messages, made for
- *   Sona.
- *
- * Lingui compiles only the locales its config lists, so the layers' files
- * add theirs.
+ * Lingui compiles only the locales its config lists, so the community
+ * catalogues add theirs.
  */
-const i18nDir = path.join(import.meta.dirname, "src/shared/i18n");
+const communityDir = path.join(import.meta.dirname, "src/shared/i18n/community");
 
-function localesIn(dir: string): string[] {
+function communityLocales(): string[] {
   try {
-    return readdirSync(path.join(i18nDir, dir))
+    return readdirSync(communityDir)
       .filter((f) => f.endsWith(".po"))
       .map((f) => f.slice(0, -3));
   } catch {
-    return []; // no catalogues in this layer yet
+    return []; // no community catalogues yet
   }
 }
 
 export default defineConfig({
   ...base,
-  locales: [...new Set([...base.locales, ...localesIn("apple"), ...localesIn("community")])],
+  locales: [...new Set([...base.locales, ...communityLocales()])],
   catalogs: [
     ...(base.catalogs ?? []),
-    { path: "<rootDir>/src/shared/i18n/apple/{locale}", include: [] },
     { path: "<rootDir>/src/shared/i18n/community/{locale}", include: [] },
   ],
 });

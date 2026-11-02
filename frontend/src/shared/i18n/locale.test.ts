@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  catalogueLayers,
-  chooseLocale,
-  type Completeness,
+  chooseTranslation,
   formatLocales,
   matchLocale,
-  selectableLocales,
+  selectableShare,
+  type Translation,
+  translatedShare,
+  translationCandidates,
 } from "./locale";
 
 describe("matchLocale", () => {
@@ -25,25 +26,54 @@ describe("matchLocale", () => {
   });
 });
 
-describe("chooseLocale", () => {
-  const catalogues = ["en", "en-XA", "fr"];
+describe("translationCandidates", () => {
+  it("takes the account's then the system's tags up to the first English one", () => {
+    expect(translationCandidates(["fr-FR", "de-DE", "en-GB", "ja"])).toEqual(["fr-FR", "de-DE"]);
+    expect(translationCandidates(["", "fr-FR", "fr-fr", "fr"])).toEqual(["fr-FR", "fr"]);
+    expect(translationCandidates(["en-GB", "fr-FR"])).toEqual([]);
+  });
+});
 
-  it("follows the account's storefront language over the system", () => {
-    expect(chooseLocale({ account: "fr-FR", system: ["en-US"] }, catalogues)).toBe("fr");
+describe("translatedShare", () => {
+  const source = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+
+  it("adds the community messages Apple's layer lacks to Apple's coverage", () => {
+    expect(
+      translatedShare(0.2, { a: "A", b: "B" }, { b: "b", c: "c", z: "z" }, source),
+    ).toBeCloseTo(0.3);
+    expect(translatedShare(0.2, { a: "A", b: "B" }, undefined, source)).toBe(0.2);
+    expect(translatedShare(0, {}, { a: "a" }, [])).toBe(0);
+  });
+});
+
+describe("chooseTranslation", () => {
+  const translation = (locale: string, share: number): Translation => ({
+    locale,
+    share,
+    messages: {},
   });
 
-  it("falls back to the system languages, then English, when the account has no catalogue", () => {
-    expect(chooseLocale({ account: "ja-JP", system: ["de-DE", "fr-CA"] }, catalogues)).toBe("fr");
-    expect(chooseLocale({ account: "ja-JP", system: ["de-DE"] }, catalogues)).toBe("en");
+  it("shows a locale only from the selectable share", async () => {
+    expect(selectableShare).toBe(0.9);
+    const shares: Record<string, number> = { "fr-FR": 0.89, "de-DE": 0.9, ja: 1 };
+    const load = (tag: string) => Promise.resolve(translation(tag, shares[tag] ?? 0));
+    expect((await chooseTranslation(["fr-FR", "de-DE", "ja"], load))?.locale).toBe("de-DE");
+    expect(await chooseTranslation(["fr-FR"], load)).toBeUndefined();
   });
 
-  it("never picks the pseudo-locale unless forced", () => {
-    expect(chooseLocale({ account: "en-XA", system: ["en-XA"] }, ["en-XA", "fr"])).toBe("en");
-    expect(chooseLocale({ forced: "en-XA", account: "fr", system: [] }, catalogues)).toBe("en-XA");
+  it("stops at English: an English preference before a translation keeps English", async () => {
+    const asked: string[] = [];
+    const load = (tag: string) => {
+      asked.push(tag);
+      return Promise.resolve(translation(tag, 1));
+    };
+    expect(await chooseTranslation(["", "en-GB", "fr-FR"], load)).toBeUndefined();
+    expect(asked).toEqual([]);
   });
 
-  it("ignores a forced locale without a catalogue", () => {
-    expect(chooseLocale({ forced: "xx", account: "fr", system: [] }, catalogues)).toBe("fr");
+  it("asks for today's typical coverage and keeps English", async () => {
+    const load = (tag: string) => Promise.resolve(translation(tag, 98 / 1415));
+    expect(await chooseTranslation(["fr-FR", "fr"], load)).toBeUndefined();
   });
 });
 
@@ -56,39 +86,5 @@ describe("formatLocales", () => {
     ]);
     expect(formatLocales("en-XA", ["en-GB"])).toEqual(["en-GB", "en-XA"]);
     expect(formatLocales("fr", ["en-GB", undefined, ""])).toEqual(["fr"]);
-  });
-});
-
-describe("selectableLocales", () => {
-  const locale = (share: number) => ({ apple: 0, community: 0, share, selectable: share >= 0.9 });
-
-  it("offers only the locales at the threshold or above", () => {
-    const completeness: Completeness = {
-      messages: 100,
-      threshold: 0.9,
-      locales: { "fr-FR": locale(0.95), "de-DE": locale(0.9), ja: locale(0.89) },
-    };
-    expect(selectableLocales(completeness)).toEqual(["de-DE", "fr-FR"]);
-  });
-
-  it("offers none without a completeness file", () => {
-    expect(selectableLocales(undefined)).toEqual([]);
-  });
-});
-
-describe("catalogueLayers", () => {
-  it("takes Apple's catalogue for the same tag and the community one for the language", () => {
-    expect(catalogueLayers("de-DE", ["de-CH", "de-DE"], ["de"])).toEqual({
-      apple: "de-DE",
-      community: "de",
-    });
-  });
-
-  it("leaves out a layer the locale has no catalogue in", () => {
-    expect(catalogueLayers("eo", ["de-DE"], ["eo"])).toEqual({ apple: undefined, community: "eo" });
-    expect(catalogueLayers("pt-BR", ["pt-BR", "pt-PT"], [])).toEqual({
-      apple: "pt-BR",
-      community: undefined,
-    });
   });
 });

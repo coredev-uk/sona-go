@@ -32,6 +32,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/diag"
+	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
 	"github.com/coredev-uk/sona-go/internal/library"
 	"github.com/coredev-uk/sona-go/internal/logging"
 	"github.com/coredev-uk/sona-go/internal/motion"
@@ -189,6 +190,19 @@ func run(started time.Time) error {
 	}
 	defer cdmMgr.Close()
 
+	// Apple Music's own translations of Sona's messages: fetched from
+	// music.apple.com after the first paint (the gated client), for the
+	// locales the UI asks for, and cached; never bundled.
+	appleStrings, err := applestrings.New(applestrings.Options{
+		Dir:    filepath.Join(paths.Cache, "strings"),
+		HTTP:   &http.Client{Transport: gate.Transport(newTransport()), Timeout: time.Minute},
+		Logger: log.With("component", "strings"),
+	})
+	if err != nil {
+		return err
+	}
+	defer appleStrings.Close()
+
 	cur := settings.Get()
 	engine := newEngine(api, cur, log, cdmMgr, storefront)
 	defer engine.Close()
@@ -301,7 +315,7 @@ func run(started time.Time) error {
 
 	core := services.New(services.Deps{
 		Paths: paths, QueueFile: queueFile, Settings: settings, DB: d, Auth: authm, API: api,
-		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, CDM: cdmMgr, Coord: coord,
+		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, CDM: cdmMgr, AppleStrings: appleStrings, Coord: coord,
 		History: history, Private: private, Storefront: storefront, Gate: gate, Emit: wapp.Event, Logger: log,
 		OpenURL: wapp.Browser.OpenURL, Focus: sh.ShowMain, Focused: sh.MainFocused, Windows: sh, Platform: plat.Services(),
 		Version: version, WebKit: webkitVersion(), Started: started,

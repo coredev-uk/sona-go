@@ -614,7 +614,8 @@ and lands in the English catalogue `src/shared/i18n/locales/en.po`.
 `macroTransform: true`, a native transform, so no extra Babel pass next to
 React Compiler) into calls carrying a short hashed ID; production builds drop
 the English source text from the code, and `.po` catalogues compile into
-plain JS objects on import, so no ICU parser ships. The runtime
+plain JS objects on import, so the ICU parser stays out of the main bundle
+(a separate chunk loads it only for Apple's runtime translations). The runtime
 (`@lingui/core` + `@lingui/react`) is 11.5 kB minified, 4.3 kB gzipped
 (when it was chosen); the English catalogue adds 54 kB minified, 20 kB
 gzipped, most of it the text the code no longer carries. FormatJS/react-intl
@@ -659,50 +660,78 @@ tokens). `pnpm i18n:extract` rewrites the catalogues after string changes;
 `pnpm i18n:check` fails when they are out of date.
 
 **Choosing the locale** (`shared/i18n`). `initI18n()` runs before the first
-render in both windows. The choice is the account's storefront language
+render in both windows and activates English, which is bundled, at once.
+After the first paint `startTranslations()` looks for a translation: for
+each preferred tag in turn, the account's storefront language
 (`AuthStatus.language`, followed live by `ShellProviders` and the mini
-player) when a catalogue matches it, else the system languages
-(`navigator.languages`), else English (`chooseLocale` in `locale.ts`:
-exact tag, then same language). English is bundled and activates
-synchronously; any other catalogue is its own chunk, loaded before the first
-render. `I18nRoot` remounts the tree when the locale changes, so labels
-computed outside hooks follow. There is no language setting until a second
-catalogue ships.
+player) and then the system languages (`navigator.languages`), up to the
+first English one (`translationCandidates` in `locale.ts`), it loads the
+tag's layers and shows the first locale complete enough
+(`chooseTranslation`); otherwise English stays. `I18nRoot` remounts the tree
+when the locale changes, or when the shown locale's catalogue changes (a
+revision bumped in `revision.ts`), so labels computed outside hooks follow.
+There is no language setting.
 
 **Translations: Apple first.** A translated locale is built from layers,
 first one wins per message:
 
 1. Apple Music's own translation, for messages mapped to one of Apple's web
-   string keys (`apple/<locale>.po`, same tag).
+   string keys (`apple-keys.json`). It is never committed or bundled: Go
+   fetches it from Apple at run time (below), and `TranslationsService.Apple(tag)`
+   returns it from Go's cache, keyed by Sona's message ID, with its locale
+   (Apple's, e.g. "fr-FR" for "fr-BE") and its coverage.
 2. The community catalogue for the messages Apple has no string for
-   (`community/<locale>.po`, matched like `matchLocale`: the tag, its
-   language, or a sibling region).
+   (`community/<locale>.po`, bundled as on-demand chunks, matched like
+   `matchLocale`: the tag, its language, or a sibling region).
 3. English (`locales/en.po`).
 
-`catalogueLayers` (`locale.ts`) picks the files; `loadMessages` (`index.ts`)
-merges them. `lingui.config.ts` lists only the catalogues `lingui extract`
-writes; Vite compiles with `lingui.runtime.config.ts`, which adds the two
-layers and their locales, so extraction never touches them. A locale is
-offered (chosen automatically, and listed for a future Language setting as
-`translatedLocales`) once its layers together translate at least 90% of
-Sona's messages: `cmd/i18ntool` counts that into `completeness.json`
-(`messages`, `threshold`, and per locale `apple`, `community`, `share`,
-`selectable`), read by `selectableLocales`. With no translated locale that
-complete, Sona shows English as before.
+`loadTranslation` (`index.ts`) merges them. Apple's messages arrive as ICU
+text; they are compiled with `@lingui/message-utils`' `compileMessageOrThrow`,
+imported only when a translation arrives, so English never loads the
+parser, and a message that does not compile stays English. `lingui.config.ts`
+lists only the catalogues `lingui extract` writes; Vite compiles with
+`lingui.runtime.config.ts`, which adds the community catalogues and their
+locales, so extraction never touches them. A locale is shown once its
+layers translate at least `selectableShare` (90%) of Sona's messages:
+Apple's coverage, counted by Go against the same `en.po`, plus the
+community messages Apple lacks (`translatedShare`). With about 7% of Sona's
+messages mapped today, no locale reaches it, and Sona shows English.
+
+**Fetching Apple's translations** (`internal/i18n/applestrings`,
+`TranslationsService`). Each `TranslationsService.Apple(tag)` call reads
+Go's cache and remembers the tag. Once the network opens after the first
+paint, Go finds the locale table in music.apple.com's current index script
+(from the small `/us/home` page), matches each remembered tag to Apple's
+locale (`MatchLocale`: the tag, the same region, script, bare language,
+the language's own region), downloads that locale's bundle, converts the
+mapped keys and caches the result in `<cache>/strings/<apple-tag>.json`
+with the bundle's content-hashed name and the mapping's version. It checks
+for a new Apple release at most once a day (`RefreshInterval`), and
+re-converts after a Sona update changes the mapping; between checks and
+offline the cache serves. "translations:apple" announces a locale whose
+messages arrived or changed, and the frontend chooses again. Apple's input
+is checked before anything is kept: size caps on each response, the bundle
+parsed as data (string constants and one object literal, never run),
+only mapped keys converted, placeholders checked against the mapping (an
+Apple placeholder with no Sona argument, or a Sona argument missing from
+Apple's text, drops the message), and a size cap per message. The text is
+rendered through Lingui as text, never as HTML.
 
 The mapping (`apple-keys.json`: msgid, context, Apple key, plural flag,
-Apple → Sona placeholder names) is proposed by `cmd/i18ntool match`, which
-matches each plain or single-plural message against Apple's en-GB strings
-exactly (same text, placeholders paired by position) and then normalised
-(case, curly quotes, ellipsis, dashes, spacing, closing punctuation; plural
-categories must agree), and is reviewed by hand; rejected pairs are kept in
-`apple-keys-rejected.json` so they are not proposed again (CONTRIBUTING.md,
-"Strings and translations"). `cmd/i18ntool import` writes the Apple layer
-from Apple's current bundles: `@@name@@` becomes `{name}` through the
-mapping's renames, a plural key's `.zero`/`.one`/`.two`/`.few`/`.many`/
-`.other` forms become an ICU plural over Sona's argument (Apple's count
-placeholder becomes `#`), and ICU syntax characters in Apple's text are
-quoted. The Apple layer and `completeness.json` are gitignored for now.
+Apple → Sona placeholder names; embedded into the Go binary together with
+`en.po` by `frontend/src/shared/i18n/embed.go`) is proposed by
+`cmd/i18ntool match`, which matches each plain or single-plural message
+against Apple's en-GB strings exactly (same text, placeholders paired by
+position) and then normalised (case, curly quotes, ellipsis, dashes,
+spacing, closing punctuation; plural categories must agree), and is
+reviewed by hand; rejected pairs are kept in `apple-keys-rejected.json` so
+they are not proposed again (CONTRIBUTING.md, "Strings and translations").
+The conversion: `@@name@@` becomes `{name}` through the mapping's renames,
+a plural key's `.zero`/`.one`/`.two`/`.few`/`.many`/`.other` forms become an
+ICU plural over Sona's argument (Apple's count placeholder becomes `#`),
+and ICU syntax characters in Apple's text are quoted. `cmd/i18ntool import`
+runs the same conversion and checks over every locale and writes
+gitignored `apple/<locale>.po` copies for review; the app never reads them.
 
 **Pseudo-locale.** `en-XA` accents and stretches every English message
 (`⟦Ƥŀåý ñêxţ⟧`), so text that bypassed Lingui stands out. `pnpm dev:pseudo`

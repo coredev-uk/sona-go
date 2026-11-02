@@ -15,6 +15,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/db"
+	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
 	"github.com/coredev-uk/sona-go/internal/library"
 	"github.com/coredev-uk/sona-go/internal/motion"
 	"github.com/coredev-uk/sona-go/internal/mpris"
@@ -40,9 +41,12 @@ type Deps struct {
 	Engine    playback.Engine
 	// CDM keeps the CDM engine's Widevine CDM installed (nil: the engine
 	// needs none).
-	CDM     *cdm.Manager
-	Coord   *coordinator.Coordinator
-	History *History
+	CDM *cdm.Manager
+	// AppleStrings keeps Apple Music's translations of Sona's messages
+	// (nil: none served).
+	AppleStrings *applestrings.Store
+	Coord        *coordinator.Coordinator
+	History      *History
 	// Private is private listening, which every play reporter asks
 	// (required).
 	Private *privatemode.Mode

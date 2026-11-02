@@ -1,11 +1,14 @@
 import { i18n } from "@lingui/core";
 import { I18nProvider, useLingui } from "@lingui/react";
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode, useSyncExternalStore } from "react";
+
+import { getRevision, subscribeRevision } from "./revision";
 
 /**
  * Provides the active locale and remounts its subtree when the locale (or
- * the locales it formats with) changes, so strings computed outside hooks
- * (registries, memoised components) are recomputed in the new language.
+ * the locales it formats with, or its catalogue) changes, so strings
+ * computed outside hooks (registries, memoised components) are recomputed
+ * in the new language.
  */
 export function I18nRoot({ children }: { children: ReactNode }) {
   return (
@@ -17,5 +20,8 @@ export function I18nRoot({ children }: { children: ReactNode }) {
 
 function LocaleKeyed({ children }: { children: ReactNode }) {
   const { i18n: active } = useLingui();
-  return <Fragment key={`${active.locale}|${String(active.locales)}`}>{children}</Fragment>;
+  const revision = useSyncExternalStore(subscribeRevision, getRevision);
+  return (
+    <Fragment key={`${active.locale}|${String(active.locales)}|${revision}`}>{children}</Fragment>
+  );
 }

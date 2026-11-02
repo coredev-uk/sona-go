@@ -1,4 +1,7 @@
-package main
+// Package po reads and writes the gettext PO catalogues Lingui keeps
+// Sona's messages in (frontend/src/shared/i18n): the subset Lingui and
+// translation tools write.
+package po
 
 import (
 	"bufio"
@@ -8,10 +11,10 @@ import (
 	"strings"
 )
 
-// poEntry is one gettext message. Lingui writes the English source text as
+// Entry is one gettext message. Lingui writes the English source text as
 // msgid (its runtime IDs are hashes of msgid and msgctxt), so an entry's
 // identity is its msgid and context.
-type poEntry struct {
+type Entry struct {
 	Translator []string // "# " lines
 	Extracted  []string // "#." lines
 	References []string // "#:" lines
@@ -23,14 +26,16 @@ type poEntry struct {
 	Obsolete   bool
 }
 
-// msgKey identifies a message across catalogues.
-type msgKey struct {
+// Key identifies a message across catalogues.
+type Key struct {
 	ID, Context string
 }
 
-func (e *poEntry) key() msgKey { return msgKey{e.ID, e.Context} }
+// Key returns the entry's identity.
+func (e *Entry) Key() Key { return Key{e.ID, e.Context} }
 
-func (e *poEntry) fuzzy() bool {
+// Fuzzy reports the "fuzzy" flag.
+func (e *Entry) Fuzzy() bool {
 	for _, f := range e.Flags {
 		if f == "fuzzy" {
 			return true
@@ -39,31 +44,33 @@ func (e *poEntry) fuzzy() bool {
 	return false
 }
 
-// poFile is a parsed catalogue: the header (the msgid "" entry's msgstr)
+// File is a parsed catalogue: the header (the msgid "" entry's msgstr)
 // and the messages in file order.
-type poFile struct {
+type File struct {
 	Header  string
-	Entries []*poEntry
+	Entries []*Entry
 }
 
-func readPO(path string) (*poFile, error) {
+// Read parses the catalogue at path.
+func Read(path string) (*File, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	f, err := parsePO(b)
+	f, err := Parse(b)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	return f, nil
 }
 
-// parsePO reads the subset of gettext PO that Lingui and translation tools write:
-// comments, flags, msgctxt, msgid, msgstr (no msgid_plural: Sona's plurals
-// are ICU inside one message), continuation lines and obsolete "#~" entries.
-func parsePO(b []byte) (*poFile, error) {
-	f := &poFile{}
-	var cur *poEntry
+// Parse reads the subset of gettext PO that Lingui and translation tools
+// write: comments, flags, msgctxt, msgid, msgstr (no msgid_plural: Sona's
+// plurals are ICU inside one message), continuation lines and obsolete
+// "#~" entries.
+func Parse(b []byte) (*File, error) {
+	f := &File{}
+	var cur *Entry
 	var field *string
 	headerDone := false
 	flush := func() {
@@ -80,7 +87,7 @@ func parsePO(b []byte) (*poFile, error) {
 	}
 	ensure := func() {
 		if cur == nil {
-			cur = &poEntry{}
+			cur = &Entry{}
 		}
 	}
 	sc := bufio.NewScanner(bytes.NewReader(b))
@@ -127,7 +134,7 @@ func parsePO(b []byte) (*poFile, error) {
 			}
 			ensure()
 			cur.Obsolete = cur.Obsolete || obsolete
-			v, err := unquotePO(rest)
+			v, err := unquote(rest)
 			if err != nil {
 				return nil, fmt.Errorf("line %d: %w", line, err)
 			}
@@ -143,7 +150,7 @@ func parsePO(b []byte) (*poFile, error) {
 			if field == nil {
 				return nil, fmt.Errorf("line %d: string outside a field", line)
 			}
-			v, err := unquotePO(s)
+			v, err := unquote(s)
 			if err != nil {
 				return nil, fmt.Errorf("line %d: %w", line, err)
 			}
@@ -159,7 +166,7 @@ func parsePO(b []byte) (*poFile, error) {
 	return f, nil
 }
 
-func unquotePO(s string) (string, error) {
+func unquote(s string) (string, error) {
 	if len(s) < 2 || s[0] != '"' || s[len(s)-1] != '"' {
 		return "", fmt.Errorf("not a quoted string: %s", s)
 	}
@@ -191,18 +198,18 @@ func unquotePO(s string) (string, error) {
 	return b.String(), nil
 }
 
-func quotePO(s string) string {
+func quote(s string) string {
 	r := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\t", `\t`, "\r", `\r`)
 	return `"` + r.Replace(s) + `"`
 }
 
-// formatPO writes the catalogue without line wrapping, as Lingui does.
-func formatPO(f *poFile) []byte {
+// Format writes the catalogue without line wrapping, as Lingui does.
+func Format(f *File) []byte {
 	var b bytes.Buffer
 	b.WriteString("msgid \"\"\nmsgstr \"\"\n")
 	for _, l := range strings.SplitAfter(f.Header, "\n") {
 		if l != "" {
-			b.WriteString(quotePO(l) + "\n")
+			b.WriteString(quote(l) + "\n")
 		}
 	}
 	for _, e := range f.Entries {
@@ -223,16 +230,16 @@ func formatPO(f *poFile) []byte {
 			b.WriteString("#, " + strings.Join(e.Flags, ", ") + "\n")
 		}
 		if e.HasContext {
-			b.WriteString("msgctxt " + quotePO(e.Context) + "\n")
+			b.WriteString("msgctxt " + quote(e.Context) + "\n")
 		}
-		b.WriteString("msgid " + quotePO(e.ID) + "\n")
-		b.WriteString("msgstr " + quotePO(e.Str) + "\n")
+		b.WriteString("msgid " + quote(e.ID) + "\n")
+		b.WriteString("msgstr " + quote(e.Str) + "\n")
 	}
 	return b.Bytes()
 }
 
-// poHeader builds a header from ordered fields.
-func poHeader(fields ...[2]string) string {
+// Header builds a header from ordered fields.
+func Header(fields ...[2]string) string {
 	var b strings.Builder
 	for _, f := range fields {
 		b.WriteString(f[0] + ": " + f[1] + "\n")
@@ -240,8 +247,8 @@ func poHeader(fields ...[2]string) string {
 	return b.String()
 }
 
-// headerField returns a header field's value ("" when absent).
-func headerField(header, name string) string {
+// HeaderField returns a header field's value ("" when absent).
+func HeaderField(header, name string) string {
 	for _, l := range strings.Split(header, "\n") {
 		if k, v, ok := strings.Cut(l, ":"); ok && strings.EqualFold(strings.TrimSpace(k), name) {
 			return strings.TrimSpace(v)

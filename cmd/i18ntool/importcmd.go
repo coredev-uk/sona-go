@@ -8,72 +8,42 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
+	"github.com/coredev-uk/sona-go/internal/i18n/po"
 )
-
-// bcp47 writes Apple's lower-case tags in BCP 47 case: "zh-hans-cn" →
-// "zh-Hans-CN", "es-419" stays.
-func bcp47(tag string) string {
-	parts := strings.Split(strings.ToLower(tag), "-")
-	for i, p := range parts {
-		if i == 0 {
-			continue
-		}
-		switch len(p) {
-		case 2:
-			parts[i] = strings.ToUpper(p)
-		case 4:
-			parts[i] = strings.ToUpper(p[:1]) + p[1:]
-		}
-	}
-	return strings.Join(parts, "-")
-}
-
-// skipLocale says why an Apple locale is not imported ("" to import it).
-func skipLocale(tag string) string {
-	switch {
-	case tag == "dev":
-		return "Apple's development strings"
-	case tag == "en" || strings.HasPrefix(tag, "en-"):
-		return "English: Sona's source text"
-	}
-	return ""
-}
 
 // localeResult is one locale's import.
 type localeResult struct {
 	Tag     string // BCP 47
 	Apple   string // Apple's tag
 	Skip    string
-	Entries []*poEntry
+	Entries []*po.Entry
 	Missing []string
 	Invalid []string
 	Err     error
 }
 
 // importLocale converts each mapped key the bundle has into a Lingui
-// message, tagged with its Apple key.
-func importLocale(b appleBundle, ms []mapping, sona *sonaCatalogue) (entries []*poEntry, missing, invalid []string) {
-	byKey := map[msgKey]*poEntry{}
+// message, tagged with its Apple key, with the checks Sona applies at run
+// time (applestrings.Mapping.Translate).
+func importLocale(b applestrings.Bundle, ms []applestrings.Mapping, sona *sonaCatalogue) (entries []*po.Entry, missing, invalid []string) {
+	byKey := map[po.Key]*po.Entry{}
 	for _, e := range sona.entries {
-		byKey[e.key()] = e
+		byKey[e.Key()] = e
 	}
 	for _, m := range ms {
-		apple, ok := appleMessage(b, m.Key, m.Plural)
-		if !ok {
+		text, err := m.Translate(b)
+		switch {
+		case errors.Is(err, applestrings.ErrMissing):
 			missing = append(missing, m.Key)
 			continue
-		}
-		renames := m.Placeholders
-		if renames == nil {
-			renames = map[string]string{}
-		}
-		text, err := toICU(apple, sona.parsed[m.msgKey()], renames)
-		if err != nil {
+		case err != nil:
 			invalid = append(invalid, fmt.Sprintf("%s: %v", m.Key, err))
 			continue
 		}
-		src := byKey[m.msgKey()]
-		entries = append(entries, &poEntry{
+		src := byKey[m.MsgKey()]
+		entries = append(entries, &po.Entry{
 			Extracted:  []string{"apple-key: " + m.Key},
 			References: src.References,
 			Context:    src.Context,
@@ -85,7 +55,19 @@ func importLocale(b appleBundle, ms []mapping, sona *sonaCatalogue) (entries []*
 	return entries, missing, invalid
 }
 
-func runImport(ctx context.Context, r repo, f *fetcher) error {
+// missingKeys lists the mapped keys a bundle lacks (a plural key lacks its
+// `.other` form).
+func missingKeys(ms []applestrings.Mapping, b applestrings.Bundle) []string {
+	var missing []string
+	for _, m := range ms {
+		if _, ok := applestrings.AppleMessage(b, m.Key, m.Plural); !ok {
+			missing = append(missing, m.Key)
+		}
+	}
+	return missing
+}
+
+func runImport(ctx context.Context, r repo, f *applestrings.Fetcher) error {
 	sona, err := r.loadSona()
 	if err != nil {
 		return err
@@ -94,16 +76,16 @@ func runImport(ctx context.Context, r repo, f *fetcher) error {
 	if err != nil {
 		return err
 	}
-	urls, err := f.discoverBundles(ctx)
+	urls, err := f.Discover(ctx)
 	if err != nil {
 		return err
 	}
-	source, err := f.bundle(ctx, urls[appleSourceLocale])
+	source, err := f.Bundle(ctx, urls[applestrings.SourceLocale])
 	if err != nil {
 		return err
 	}
 	if missing := missingKeys(ms, source); len(missing) > 0 {
-		return fmt.Errorf("mapped keys disappeared from Apple's %s bundle (update the mapping): %s", appleSourceLocale, strings.Join(missing, ", "))
+		return fmt.Errorf("mapped keys disappeared from Apple's %s bundle (update the mapping): %s", applestrings.SourceLocale, strings.Join(missing, ", "))
 	}
 
 	tags := sortedKeys(urls)
@@ -111,7 +93,7 @@ func runImport(ctx context.Context, r repo, f *fetcher) error {
 	sem := make(chan struct{}, 6)
 	var wg sync.WaitGroup
 	for i, tag := range tags {
-		results[i] = localeResult{Tag: bcp47(tag), Apple: tag, Skip: skipLocale(tag)}
+		results[i] = localeResult{Tag: applestrings.BCP47(tag), Apple: tag, Skip: applestrings.Skip(tag)}
 		if results[i].Skip != "" {
 			continue
 		}
@@ -120,7 +102,7 @@ func runImport(ctx context.Context, r repo, f *fetcher) error {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			b, err := f.bundle(ctx, url)
+			b, err := f.Bundle(ctx, url)
 			if err != nil {
 				res.Err = err
 				return
@@ -149,8 +131,8 @@ func runImport(ctx context.Context, r repo, f *fetcher) error {
 		if res.Skip != "" {
 			continue
 		}
-		po := &poFile{
-			Header: poHeader(
+		f := &po.File{
+			Header: po.Header(
 				[2]string{"MIME-Version", "1.0"},
 				[2]string{"Content-Type", "text/plain; charset=utf-8"},
 				[2]string{"Content-Transfer-Encoding", "8bit"},
@@ -160,14 +142,12 @@ func runImport(ctx context.Context, r repo, f *fetcher) error {
 			),
 			Entries: res.Entries,
 		}
-		if err := os.WriteFile(filepath.Join(dir, res.Tag+".po"), formatPO(po), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, res.Tag+".po"), po.Format(f), 0o644); err != nil {
 			return err
 		}
 	}
 	printImportSummary(results, ms, len(sona.entries))
-	if err := writeCompleteness(r, sona); err != nil {
-		return err
-	}
+	fmt.Printf("\nReview copies (gitignored): %s/<locale>.po\n", appleDir)
 	return errors.Join(errs...)
 }
 
@@ -178,10 +158,10 @@ func percent(n, total int) string {
 	return fmt.Sprintf("%.1f%%", 100*float64(n)/float64(total))
 }
 
-func printImportSummary(results []localeResult, ms []mapping, total int) {
-	fmt.Printf("Apple locales: %d; mapped keys: %d; Sona messages: %d; a locale is offered from %.0f%% complete\n\n", len(results), len(ms), total, selectableShare*100)
-	fmt.Println("| Locale | Apple tag | Mapped keys found | Missing | Coverage of Sona's messages |")
-	fmt.Println("| ------ | --------- | ----------------- | ------- | --------------------------- |")
+func printImportSummary(results []localeResult, ms []applestrings.Mapping, total int) {
+	fmt.Printf("Apple locales: %d; mapped keys: %d; Sona messages: %d\n\n", len(results), len(ms), total)
+	fmt.Println("| Locale | Apple tag | Mapped keys found | Missing or refused | Coverage of Sona's messages |")
+	fmt.Println("| ------ | --------- | ----------------- | ------------------ | --------------------------- |")
 	for _, res := range results {
 		switch {
 		case res.Skip != "":
@@ -195,7 +175,7 @@ func printImportSummary(results []localeResult, ms []mapping, total int) {
 	}
 	for _, res := range results {
 		for _, s := range res.Invalid {
-			fmt.Printf("%s: not imported: %s\n", res.Tag, s)
+			fmt.Printf("%s: refused: %s\n", res.Tag, s)
 		}
 	}
 }

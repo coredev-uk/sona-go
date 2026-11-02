@@ -9,22 +9,9 @@ import (
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
 )
-
-// mapping is one reviewed pair: a Sona message (its English msgid and
-// context, which Lingui hashes into the runtime ID) and the Apple key that
-// translates it. A plural mapping names the key base; the import reads its
-// `.one`, `.other`, ... forms. Placeholders maps Apple's names to Sona's.
-// The file holds no Apple text.
-type mapping struct {
-	Message      string            `json:"message"`
-	Context      string            `json:"context,omitempty"`
-	Key          string            `json:"key"`
-	Plural       bool              `json:"plural,omitempty"`
-	Placeholders map[string]string `json:"placeholders,omitempty"`
-}
-
-func (m mapping) msgKey() msgKey { return msgKey{m.Message, m.Context} }
 
 // rejection is a reviewed match that does not hold in Sona's context; the
 // matcher never proposes the same message and key again.
@@ -39,7 +26,7 @@ type rejection struct {
 // reviewer ("accept" or "reject", with Reason for a rejection) and applied
 // with `match -apply`, which copies only the message, key and placeholders.
 type proposal struct {
-	mapping
+	applestrings.Mapping
 	Match        string   `json:"match"`
 	Apple        string   `json:"apple"`
 	Alternatives []string `json:"alternatives,omitempty"`
@@ -74,8 +61,8 @@ func writeJSON(path string, v any) error {
 	return os.WriteFile(path, append(b, '\n'), 0o644)
 }
 
-func sortMappings(ms []mapping) {
-	slices.SortFunc(ms, func(a, b mapping) int {
+func sortMappings(ms []applestrings.Mapping) {
+	slices.SortFunc(ms, func(a, b applestrings.Mapping) int {
 		if c := strings.Compare(a.Message, b.Message); c != 0 {
 			return c
 		}
@@ -93,34 +80,4 @@ func sortRejections(rs []rejection) {
 		}
 		return strings.Compare(a.Key, b.Key)
 	})
-}
-
-// validateMappings checks the reviewed file against Sona's catalogue: each
-// message exists once, parses, and its placeholders rename onto its own
-// arguments.
-func validateMappings(ms []mapping, sona map[msgKey]message) error {
-	var errs []error
-	seen := map[msgKey]bool{}
-	for _, m := range ms {
-		k := m.msgKey()
-		if seen[k] {
-			errs = append(errs, fmt.Errorf("mapped twice: %q", m.Message))
-		}
-		seen[k] = true
-		msg, ok := sona[k]
-		if !ok {
-			errs = append(errs, fmt.Errorf("mapped message is not in en.po (changed or removed? re-run match): %q", m.Message))
-			continue
-		}
-		if msg.isPlural() != m.Plural {
-			errs = append(errs, fmt.Errorf("plural flag does not fit the message: %q", m.Message))
-		}
-		names := msg.placeholders()
-		for an, sn := range m.Placeholders {
-			if !slices.Contains(names, sn) {
-				errs = append(errs, fmt.Errorf("placeholder %s → {%s} is not an argument of %q", an, sn, m.Message))
-			}
-		}
-	}
-	return errors.Join(errs...)
 }

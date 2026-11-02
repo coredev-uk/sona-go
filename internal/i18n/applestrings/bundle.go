@@ -1,53 +1,79 @@
-package main
-
-import (
-	"context"
-	"fmt"
-	"io"
-	"net/http"
-	"regexp"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
-	"unicode/utf8"
-)
-
+// Package applestrings brings Apple Music's own translations into Sona
+// (docs/frontend-architecture.md, "Strings and locales"): it reads Apple's
+// web string bundles, converts the strings mapped to Sona's messages
+// (apple-keys.json) into Lingui (ICU) messages, and, at run time, keeps
+// the converted messages for the user's locales in Sona's cache directory
+// (Store). Apple's text is never committed or bundled: the app fetches it
+// from music.apple.com, like the Widevine CDM from Google.
+//
 // Apple Music on the web (music.apple.com) is a Vite app: its index script
 // maps each locale's `locales/<tag>/translations.json` to a hashed chunk
 // (`./translations~<hash>.js`), a JS module whose default export is the
 // locale's strings. The chunk names change with every Apple release, so
-// they are found from the current index script on every run.
-const appleOrigin = "https://music.apple.com"
+// they are found from the current index script.
+package applestrings
 
-// The page whose HTML names the index script. Any page does; a catalog
-// page needs no account.
-const appleIndexPage = appleOrigin + "/gb/new"
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+	"unicode/utf8"
+)
 
-// Apple serves an empty page to clients without a browser user agent.
-const userAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+// Origin is Apple Music on the web.
+const Origin = "https://music.apple.com"
 
-// appleSourceLocale is the bundle the mapping is made and checked against.
-const appleSourceLocale = "en-gb"
+// indexPath is the page whose HTML names the index script: any page does;
+// this one needs no account and is small (about 10 kB compressed).
+const indexPath = "/us/home"
 
-// appleBundle is one locale's strings: key → text.
-type appleBundle map[string]string
+// UserAgent is a browser's: Apple serves an empty page to other clients.
+const UserAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
 
-type fetcher struct {
-	client *http.Client
+// SourceLocale is the bundle the mapping is made and checked against.
+const SourceLocale = "en-gb"
+
+// Size caps on Apple's responses (decompressed). Today the page is about
+// 75 kB, the index script 0.9 MB and a locale's bundle 0.1 MB.
+const (
+	maxPageBytes   = 4 << 20
+	maxScriptBytes = 16 << 20
+	maxBundleBytes = 4 << 20
+)
+
+// ErrTooLarge is a response over its size cap.
+var ErrTooLarge = errors.New("response too large")
+
+// Bundle is one locale's strings: key → text.
+type Bundle map[string]string
+
+// Fetcher downloads Apple's web assets: plain GETs with a browser user
+// agent and no credentials, like the web player's own page loads.
+type Fetcher struct {
+	HTTP *http.Client
+	// Origin replaces music.apple.com (tests).
+	Origin string
 }
 
-func newFetcher() *fetcher {
-	return &fetcher{client: &http.Client{Timeout: 60 * time.Second}}
+func (f *Fetcher) origin() string {
+	if f.Origin != "" {
+		return f.Origin
+	}
+	return Origin
 }
 
-func (f *fetcher) get(ctx context.Context, url string) ([]byte, error) {
+func (f *Fetcher) get(ctx context.Context, url string, limit int64) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", userAgent)
-	resp, err := f.client.Do(req)
+	req.Header.Set("User-Agent", UserAgent)
+	resp, err := f.HTTP.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -55,9 +81,12 @@ func (f *fetcher) get(ctx context.Context, url string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GET %s: %s", url, resp.Status)
 	}
-	b, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
+	b, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if err != nil {
 		return nil, fmt.Errorf("GET %s: %w", url, err)
+	}
+	if int64(len(b)) > limit {
+		return nil, fmt.Errorf("GET %s: %w (over %d bytes)", url, ErrTooLarge, limit)
 	}
 	if len(b) == 0 {
 		return nil, fmt.Errorf("GET %s: empty body", url)
@@ -70,72 +99,85 @@ var (
 	localeChunkRe = regexp.MustCompile(`"[^"]*/locales/([A-Za-z0-9-]+)/translations\.json"\s*:\s*\(\)\s*=>[^"]*"\./(translations~[0-9a-f]+\.js)"`)
 )
 
-// discoverBundles returns each locale's bundle URL (Apple's lower-case tag →
-// URL) from the current index script.
-func (f *fetcher) discoverBundles(ctx context.Context) (map[string]string, error) {
-	html, err := f.get(ctx, appleIndexPage)
+// IndexScript returns the URL of the web app's current index script.
+func (f *Fetcher) IndexScript(ctx context.Context) (string, error) {
+	page := f.origin() + indexPath
+	html, err := f.get(ctx, page, maxPageBytes)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	m := indexScriptRe.FindSubmatch(html)
 	if m == nil {
-		return nil, fmt.Errorf("no index script in %s", appleIndexPage)
+		return "", fmt.Errorf("no index script in %s", page)
 	}
-	js, err := f.get(ctx, appleOrigin+string(m[1]))
+	return f.origin() + string(m[1]), nil
+}
+
+// Locales returns each locale's bundle URL (Apple's lower-case tag → URL)
+// from an index script.
+func (f *Fetcher) Locales(ctx context.Context, script string) (map[string]string, error) {
+	js, err := f.get(ctx, script, maxScriptBytes)
 	if err != nil {
 		return nil, err
 	}
-	urls := localeBundles(js)
+	urls := localeBundles(js, f.origin())
 	if len(urls) == 0 {
-		return nil, fmt.Errorf("no locale bundles in %s%s", appleOrigin, m[1])
+		return nil, fmt.Errorf("no locale bundles in %s", script)
 	}
-	if _, ok := urls[appleSourceLocale]; !ok {
-		return nil, fmt.Errorf("no %s bundle in %s%s", appleSourceLocale, appleOrigin, m[1])
+	return urls, nil
+}
+
+// Discover returns each locale's bundle URL from the current index
+// script, which must have the source locale's.
+func (f *Fetcher) Discover(ctx context.Context) (map[string]string, error) {
+	script, err := f.IndexScript(ctx)
+	if err != nil {
+		return nil, err
+	}
+	urls, err := f.Locales(ctx, script)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := urls[SourceLocale]; !ok {
+		return nil, fmt.Errorf("no %s bundle in %s", SourceLocale, script)
 	}
 	return urls, nil
 }
 
 // localeBundles finds the locale → chunk URL table in an index script.
-func localeBundles(js []byte) map[string]string {
+func localeBundles(js []byte, origin string) map[string]string {
 	urls := map[string]string{}
 	for _, m := range localeChunkRe.FindAllSubmatch(js, -1) {
-		urls[strings.ToLower(string(m[1]))] = appleOrigin + "/assets/" + string(m[2])
+		urls[strings.ToLower(string(m[1]))] = origin + "/assets/" + string(m[2])
 	}
 	return urls
 }
 
-func (f *fetcher) bundle(ctx context.Context, url string) (appleBundle, error) {
-	js, err := f.get(ctx, url)
+// Bundle downloads and parses a locale's bundle.
+func (f *Fetcher) Bundle(ctx context.Context, url string) (Bundle, error) {
+	js, err := f.get(ctx, url, maxBundleBytes)
 	if err != nil {
 		return nil, err
 	}
-	b, err := parseBundleModule(string(js))
+	b, err := ParseBundleModule(string(js))
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", url, err)
 	}
 	return b, nil
 }
 
-func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-// parseBundleModule reads a minified Vite JSON chunk without running it:
+// ParseBundleModule reads a minified Vite JSON chunk without running it:
 //
 //	const e="Back",i="Done",o={"ASE.Web.Music.X":"Text",Back:e};export{e as Back,o as default};
 //
 // Constants hold strings; the default export is an object of string keys
-// (quoted or bare) whose values are strings or constants.
-func parseBundleModule(src string) (appleBundle, error) {
+// (quoted or bare) whose values are strings or constants. Anything else
+// (calls, template substitutions, numbers) is refused.
+func ParseBundleModule(src string) (Bundle, error) {
 	p := &jsParser{src: src}
 	consts := map[string]string{}
 	var def string
-	objects := map[string]appleBundle{}
+	objects := map[string]Bundle{}
 	for {
 		p.space()
 		if p.eof() {
@@ -301,11 +343,11 @@ func (p *jsParser) value(consts map[string]string) (string, error) {
 	return v, nil
 }
 
-func (p *jsParser) object(consts map[string]string) (appleBundle, error) {
+func (p *jsParser) object(consts map[string]string) (Bundle, error) {
 	if err := p.expect('{'); err != nil {
 		return nil, err
 	}
-	obj := appleBundle{}
+	obj := Bundle{}
 	for {
 		p.space()
 		if p.peek() == '}' {

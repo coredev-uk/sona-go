@@ -1,24 +1,32 @@
-// Command i18ntool maps Sona's messages to Apple Music's string keys and
-// builds the catalogues around them (docs/frontend-architecture.md,
-// "Strings and locales"; CONTRIBUTING.md, "Strings and translations").
+// Command i18ntool maps Sona's messages to Apple Music's string keys
+// (docs/frontend-architecture.md, "Strings and locales"; CONTRIBUTING.md,
+// "Strings and translations").
 //
 //	i18ntool match            propose Apple keys for unmapped messages
 //	i18ntool match -apply F   move reviewed proposals into the mapping
-//	i18ntool import           write Apple's translations (gitignored)
-//	i18ntool completeness     recount how complete each locale is
+//	i18ntool import           convert Apple's translations for review (gitignored)
 //
 // Apple's bundles are fetched from music.apple.com on every run and never
 // committed; the mapping holds only message IDs, keys and placeholder
-// names. Run it from the repository root (or pass -root).
+// names. Sona itself fetches the translations at run time
+// (internal/i18n/applestrings); `import` runs the same conversion and
+// checks and writes the result where a reviewer can read it. Run it from
+// the repository root (or pass -root).
 package main
 
 import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
+	"time"
+
+	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
+	"github.com/coredev-uk/sona-go/internal/i18n/po"
 )
 
 // Paths under the repository root.
@@ -27,19 +35,16 @@ const (
 	sourcePOPath = i18nDir + "/locales/en.po"
 	mappingPath  = i18nDir + "/apple-keys.json"
 	rejectedPath = i18nDir + "/apple-keys-rejected.json"
-	appleDir     = i18nDir + "/apple" // gitignored: Apple's text
-	communityDir = i18nDir + "/community"
-	// completenessPath is gitignored while it counts Apple's text.
-	completenessPath = i18nDir + "/completeness.json"
+	appleDir     = i18nDir + "/apple" // gitignored: Apple's text, for review
 )
 
-// selectableShare is how complete a locale's catalogues must be before
-// Sona offers the locale (frontend `selectableShare`).
-const selectableShare = 0.9
-
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: i18ntool [-root DIR] match [-apply FILE] | import | completeness")
+	fmt.Fprintln(os.Stderr, "usage: i18ntool [-root DIR] match [-apply FILE] | import")
 	os.Exit(2)
+}
+
+func newFetcher() *applestrings.Fetcher {
+	return &applestrings.Fetcher{HTTP: &http.Client{Timeout: 60 * time.Second}}
 }
 
 func main() {
@@ -66,11 +71,6 @@ func main() {
 		}
 	case "import":
 		err = runImport(ctx, r, newFetcher())
-	case "completeness":
-		var sona *sonaCatalogue
-		if sona, err = r.loadSona(); err == nil {
-			err = writeCompleteness(r, sona)
-		}
 	default:
 		usage()
 	}
@@ -88,35 +88,44 @@ func (r repo) path(p string) string { return filepath.Join(string(r), filepath.F
 // sonaCatalogue is en.po: every message, and the ones that can map to an
 // Apple key, parsed.
 type sonaCatalogue struct {
-	entries []*poEntry
-	parsed  map[msgKey]message
+	entries []*po.Entry
+	parsed  map[po.Key]applestrings.Message
 }
 
 func (r repo) loadSona() (*sonaCatalogue, error) {
-	f, err := readPO(r.path(sourcePOPath))
+	f, err := po.Read(r.path(sourcePOPath))
 	if err != nil {
 		return nil, err
 	}
-	c := &sonaCatalogue{parsed: map[msgKey]message{}}
+	c := &sonaCatalogue{parsed: map[po.Key]applestrings.Message{}}
 	for _, e := range f.Entries {
 		if e.Obsolete {
 			continue
 		}
 		c.entries = append(c.entries, e)
-		if m, ok := parseSona(e.ID); ok {
-			c.parsed[e.key()] = m
+		if m, ok := applestrings.ParseSona(e.ID); ok {
+			c.parsed[e.Key()] = m
 		}
 	}
 	return c, nil
 }
 
-func (r repo) loadMappings(sona *sonaCatalogue) ([]mapping, error) {
-	ms, err := readJSON[mapping](r.path(mappingPath))
+func (r repo) loadMappings(sona *sonaCatalogue) ([]applestrings.Mapping, error) {
+	ms, err := readJSON[applestrings.Mapping](r.path(mappingPath))
 	if err != nil {
 		return nil, err
 	}
-	if err := validateMappings(ms, sona.parsed); err != nil {
+	if err := applestrings.ValidateMappings(ms, sona.parsed); err != nil {
 		return nil, fmt.Errorf("%s: %w", mappingPath, err)
 	}
 	return ms, nil
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
