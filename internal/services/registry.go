@@ -45,4 +45,5 @@ var features = []feature{
 	{"platform", svc(newPlatformService)},
 	{"reminders", svc(newRemindersService)},
 	{"translations", svc(newTranslationsService)},
+	{"lyrics", svc(newLyricsService)},
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth/mut"
 	"github.com/coredev-uk/sona-go/internal/catalog"
 	"github.com/coredev-uk/sona-go/internal/library"
+	"github.com/coredev-uk/sona-go/internal/lyrics"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/scrobble"
@@ -97,7 +98,8 @@ func ErrorCode(err error) string {
 		return CodeNotReleased
 	case errors.Is(err, applemusic.ErrUnauthorized):
 		return CodeUnauthorized
-	case errors.Is(err, applemusic.ErrNotFound), errors.Is(err, library.ErrNotFound), errors.Is(err, catalog.ErrNoStorefront):
+	case errors.Is(err, applemusic.ErrNotFound), errors.Is(err, library.ErrNotFound), errors.Is(err, catalog.ErrNoStorefront),
+		errors.Is(err, lyrics.ErrNotFound):
 		return CodeNotFound
 	case errors.Is(err, library.ErrSyncRunning):
 		return CodeSyncRunning

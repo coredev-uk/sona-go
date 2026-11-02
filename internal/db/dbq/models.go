@@ -83,6 +83,16 @@ type LibraryItem struct {
 	Generation int64
 }
 
+type LyricsCache struct {
+	Provider  string
+	Track     string
+	Language  string
+	Found     int64
+	Body      []byte
+	FetchedAt int64
+	ExpiresAt int64
+}
+
 type Pin struct {
 	Kind            string
 	AppleID         string

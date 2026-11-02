@@ -127,6 +127,19 @@
 // Platform.Notifications Set fails with "unsupported". Pre-add is
 // LibraryService.Add: Apple's web player pre-adds with the same call.
 //
+// Lyrics (lyrics.go): LyricsService.Lyrics(songID) asks the lyrics
+// sources switched on in config.Settings.Lyrics (internal/lyrics: Apple
+// Music, Musixmatch, LRCLIB, NetEase) in parallel, matching them by the
+// catalog song's title, artist, album, length and ISRC (read through the
+// catalog cache), and returns the one with the finest timing (word, line,
+// plain; the order breaks ties) with a translation into
+// Settings.Lyrics.TranslationLanguage (the account's language when "").
+// Lyrics.Provider names the source. Every source's answer is cached in
+// SQLite (lyrics_cache, emptied with the catalogue cache by
+// StorageService.Clear); Musixmatch's anonymous user token is a keyring
+// secret ("musixmatch"). Songs no source has lyrics for fail with code
+// not_found.
+//
 // DTO rules: durations and timestamps in integer milliseconds (timestamps
 // as Unix ms, 0 when unknown); artwork and motion artwork only as
 // Go-served URLs (never Apple templates, Apple media URLs or tokens); IDs

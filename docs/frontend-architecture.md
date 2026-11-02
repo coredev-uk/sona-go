@@ -91,8 +91,10 @@ src/
                           Copy link); shell Provider (ConfirmHost, content policy)
     album, artist, playlist  detail pages + their queries; "Go to album/artist" actions
     player                now-playing bar, queue, now-playing view (motion cover of the
-                          playing album), playback mirror, lyrics (per-song session timing
-                          offset, ±0.5 s; full-screen "room" lyrics over the whole window),
+                          playing album), playback mirror, lyrics (LyricsService: the best
+                          of the sources in Settings → Playback → Lyrics, refetched when
+                          those settings change; per-song session timing offset, ±0.5 s;
+                          full-screen "room" lyrics over the whole window),
                           shortcuts, playSongs/shuffleSongs (from a PlayFrom {kind, id}:
                           album/playlist/artist go to Apple's play activity)/queueItems;
                           replaceQueue (Undo toast, or a confirm with setting

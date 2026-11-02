@@ -43,6 +43,9 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
+/** The lyrics settings last seen, to refetch lyrics when they change. */
+let lyricsSettings = "";
+
 /** Settings: the page and its sections, Go's settings, and the appearance mirror. */
 export const settingsModule: FeatureModule<typeof settingsRoute> = {
   id: "settings",
@@ -61,13 +64,23 @@ export const settingsModule: FeatureModule<typeof settingsRoute> = {
     "settings:changed": (data, { qc }) => {
       qc.setQueryData(keys.settings, data);
       loadAppearance(data);
+      // Another source, order or language can pick other lyrics.
+      const lyrics = JSON.stringify(data.lyrics);
+      if (lyricsSettings && lyrics !== lyricsSettings) {
+        void qc.invalidateQueries({ queryKey: keys.lyricsAll });
+      }
+      lyricsSettings = lyrics;
     },
     "integrations:status": (data, { qc }) => qc.setQueryData(integrationsStatusKey, data),
     "scrobble:changed": (data, { qc }) => qc.setQueryData(scrobbleStatusKey, data),
   },
   init: ({ qc }) => {
-    void qc
-      .fetchQuery({ queryKey: keys.settings, queryFn: () => SystemService.Settings() })
-      .then(loadAppearance, () => {});
+    void qc.fetchQuery({ queryKey: keys.settings, queryFn: () => SystemService.Settings() }).then(
+      (s) => {
+        lyricsSettings = JSON.stringify(s.lyrics);
+        loadAppearance(s);
+      },
+      () => {},
+    );
   },
 };

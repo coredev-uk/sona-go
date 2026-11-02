@@ -1,0 +1,79 @@
+{
+ "message": {
+  "header": {
+   "status_code": 200,
+   "execute_time": 0.025470972061157
+  },
+  "body": {
+   "translations_list": [
+    {
+     "translation": {
+      "type_id": "track_translation",
+      "language_from": "en",
+      "selected_language": "es",
+      "position": 0,
+      "language": "",
+      "wantkey": true,
+      "type_id_weight": 1,
+      "moderator": 1,
+      "effectiveness": 0.69,
+      "last_updated": "2021-09-21T12:52:35Z",
+      "snippet": "alpha",
+      "description": "traducido alpha",
+      "matched_line": "alpha",
+      "subtitle_matched_line": "alpha",
+      "commontrack_id": 2001,
+      "artist_id": 4001,
+      "user_id": "mxm:0000",
+      "app_id": "community-app-v1.0"
+     }
+    },
+    {
+     "translation": {
+      "type_id": "track_translation",
+      "language_from": "en",
+      "selected_language": "es",
+      "position": 0,
+      "language": "",
+      "wantkey": true,
+      "type_id_weight": 1,
+      "moderator": 1,
+      "effectiveness": 0.99,
+      "last_updated": "2022-08-19T15:06:25Z",
+      "snippet": "bravo charlie delta echo",
+      "description": "traducido bravo",
+      "matched_line": "bravo charlie delta echo",
+      "subtitle_matched_line": "bravo charlie delta echo",
+      "commontrack_id": 2001,
+      "artist_id": 4001,
+      "user_id": "mxm:0000",
+      "app_id": "community-app-v1.0"
+     }
+    },
+    {
+     "translation": {
+      "type_id": "track_translation",
+      "language_from": "en",
+      "selected_language": "es",
+      "position": 0,
+      "language": "",
+      "wantkey": true,
+      "type_id_weight": 1,
+      "moderator": 1,
+      "effectiveness": 0.69,
+      "last_updated": "2021-09-21T12:52:35Z",
+      "snippet": "foxtrot golf hotel india juliet kilo lima mike",
+      "description": "traducido foxtrot",
+      "matched_line": "foxtrot golf hotel india juliet kilo lima mike",
+      "subtitle_matched_line": "foxtrot golf hotel india juliet kilo lima mike",
+      "commontrack_id": 2001,
+      "artist_id": 4001,
+      "user_id": "mxm:0000",
+      "app_id": "community-app-v1.0"
+     }
+    }
+   ],
+   "locked": null
+  }
+ }
+}

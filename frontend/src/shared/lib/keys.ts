@@ -54,4 +54,5 @@ export const keys = {
   catalogSongPage: (id: string) => ["catalog", "song-page", id] as const,
   catalogVideo: (id: string) => ["catalog", "music-video", id] as const,
   lyrics: (songId: string) => ["catalog", "lyrics", songId] as const,
+  lyricsAll: ["catalog", "lyrics"] as const,
 };

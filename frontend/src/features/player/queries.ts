@@ -1,4 +1,4 @@
-import { CatalogService, MotionService } from "@bindings/services";
+import { LyricsService, MotionService } from "@bindings/services";
 import { useQuery } from "@tanstack/react-query";
 
 import { keys } from "@/shared/lib/keys";
@@ -6,7 +6,7 @@ import { keys } from "@/shared/lib/keys";
 export function useLyrics(catalogId: string | undefined) {
   return useQuery({
     queryKey: keys.lyrics(catalogId ?? ""),
-    queryFn: () => CatalogService.Lyrics(catalogId ?? ""),
+    queryFn: () => LyricsService.Lyrics(catalogId ?? ""),
     enabled: !!catalogId,
     retry: false,
   });

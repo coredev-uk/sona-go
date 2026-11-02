@@ -1,0 +1,99 @@
+{
+ "message": {
+  "header": {
+   "status_code": 200,
+   "execute_time": 0.242,
+   "pid": 20,
+   "surrogate_key_list": []
+  },
+  "body": {
+   "macro_calls": {
+    "track.lyrics.get": {
+     "message": {
+      "header": {
+       "status_code": 404,
+       "execute_time": 0.0079679489135742
+      },
+      "body": []
+     }
+    },
+    "track.snippet.get": {
+     "message": {
+      "header": {
+       "status_code": 404,
+       "execute_time": 0.0080139636993408
+      },
+      "body": []
+     }
+    },
+    "track.subtitles.get": {
+     "message": {
+      "header": {
+       "status_code": 200,
+       "available": 0,
+       "execute_time": 0.0078699588775635,
+       "instrumental": 0
+      },
+      "body": []
+     }
+    },
+    "userblob.get": {
+     "message": {
+      "header": {
+       "status_code": 404
+      }
+     }
+    },
+    "matcher.track.get": {
+     "message": {
+      "header": {
+       "status_code": 200,
+       "execute_time": 0.14740085601807,
+       "confidence": 1000,
+       "mode": "search",
+       "cached": 0
+      },
+      "body": {
+       "track": {
+        "track_id": 1002,
+        "track_mbid": "",
+        "track_isrc": "ZZTST2600002",
+        "commontrack_isrcs": [
+         [
+          "ZZTST2600002"
+         ]
+        ],
+        "track_rating": 16,
+        "track_length": 318,
+        "commontrack_id": 2002,
+        "instrumental": 0,
+        "explicit": 0,
+        "has_lyrics": 0,
+        "has_subtitles": 0,
+        "has_richsync": 0,
+        "num_favourite": 0,
+        "album_id": 3001,
+        "album_name": "Test Album",
+        "artist_id": 4001,
+        "artist_name": "Test Artist",
+        "track_name": "Quiet Song",
+        "restricted": 0,
+        "updated_time": "2026-10-26T05:56:49Z"
+       }
+      }
+     }
+    },
+    "track.richsync.get": {
+     "message": {
+      "header": {
+       "status_code": 404,
+       "available": 0,
+       "execute_time": 0.0080728530883789
+      },
+      "body": []
+     }
+    }
+   }
+  }
+ }
+}

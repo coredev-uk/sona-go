@@ -1,0 +1,22 @@
+{
+ "sgc": false,
+ "sfy": false,
+ "qfy": false,
+ "lrc": {
+  "version": 3,
+  "lyric": "[00:00.00] 作词 : Ann Writer\n[00:01.00] 作曲 : Bo Writer\n[00:13.12]alpha\n[00:27.17]bravo charlie delta echo\n[00:29.96]foxtrot golf hotel india juliet kilo lima mike\n[00:32.74]november oscar papa alpha bravo charlie delta echo foxtrot\n"
+ },
+ "klyric": {
+  "version": 0,
+  "lyric": ""
+ },
+ "tlyric": {
+  "version": 2,
+  "lyric": "[by:tester]\n[00:13.12]译 alpha\n[00:27.17]译 bravo\n[00:29.96]译 foxtrot\n[00:32.74]译 november\n"
+ },
+ "romalrc": {
+  "version": 0,
+  "lyric": ""
+ },
+ "code": 200
+}

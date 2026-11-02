@@ -1,0 +1,147 @@
+{
+ "result": {
+  "songs": [
+   {
+    "album": {
+     "publishTime": 1191945600000,
+     "size": 10,
+     "artist": {
+      "img1v1Url": "",
+      "musicSize": 0,
+      "albumSize": 0,
+      "img1v1": 0,
+      "name": "Test Artist",
+      "alias": [],
+      "id": 12001,
+      "picId": 0
+     },
+     "copyrightId": 390012,
+     "name": "Live Album",
+     "id": 13001,
+     "picId": 109951168981920700,
+     "mark": 0,
+     "status": 1
+    },
+    "fee": 1,
+    "duration": 230000,
+    "rtype": 0,
+    "ftype": 0,
+    "artists": [
+     {
+      "img1v1Url": "",
+      "musicSize": 0,
+      "albumSize": 0,
+      "img1v1": 0,
+      "name": "Test Artist",
+      "alias": [],
+      "id": 12001,
+      "picId": 0,
+      "picUrl": null
+     }
+    ],
+    "copyrightId": 390012,
+    "mvid": 0,
+    "name": "Placeholder Song (Live)",
+    "alias": [],
+    "id": 11001,
+    "mark": 17180139520,
+    "status": 0
+   },
+   {
+    "album": {
+     "publishTime": 1191945600000,
+     "size": 10,
+     "artist": {
+      "img1v1Url": "",
+      "musicSize": 0,
+      "albumSize": 0,
+      "img1v1": 0,
+      "name": "Test Artist",
+      "alias": [],
+      "id": 12001,
+      "picId": 0
+     },
+     "copyrightId": 390012,
+     "name": "Test Album",
+     "id": 13002,
+     "picId": 109951168981920700,
+     "mark": 0,
+     "status": 1
+    },
+    "fee": 1,
+    "duration": 200400,
+    "rtype": 0,
+    "ftype": 0,
+    "artists": [
+     {
+      "img1v1Url": "",
+      "musicSize": 0,
+      "albumSize": 0,
+      "img1v1": 0,
+      "name": "Test Artist",
+      "alias": [],
+      "id": 12001,
+      "picId": 0,
+      "picUrl": null
+     }
+    ],
+    "copyrightId": 390012,
+    "mvid": 0,
+    "name": "Placeholder Song",
+    "alias": [],
+    "id": 11002,
+    "mark": 17180139520,
+    "status": 0
+   },
+   {
+    "album": {
+     "publishTime": 1191945600000,
+     "size": 10,
+     "artist": {
+      "img1v1Url": "",
+      "musicSize": 0,
+      "albumSize": 0,
+      "img1v1": 0,
+      "name": "Test Artist",
+      "alias": [],
+      "id": 12001,
+      "picId": 0
+     },
+     "copyrightId": 390012,
+     "name": "Other Album",
+     "id": 13003,
+     "picId": 109951168981920700,
+     "mark": 0,
+     "status": 1
+    },
+    "fee": 1,
+    "duration": 150000,
+    "rtype": 0,
+    "ftype": 0,
+    "artists": [
+     {
+      "img1v1Url": "",
+      "musicSize": 0,
+      "albumSize": 0,
+      "img1v1": 0,
+      "name": "Test Artist",
+      "alias": [],
+      "id": 12001,
+      "picId": 0,
+      "picUrl": null
+     }
+    ],
+    "copyrightId": 390012,
+    "mvid": 0,
+    "name": "Placeholder Song",
+    "alias": [],
+    "id": 11003,
+    "mark": 17180139520,
+    "status": 0
+   }
+  ],
+  "hasMore": false,
+  "songCount": 3
+ },
+ "code": 200
+}

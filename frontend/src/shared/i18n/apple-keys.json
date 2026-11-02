@@ -162,6 +162,10 @@
     "key": "ASE.Web.Music.MediaComponents.Lyrics.Header"
   },
   {
+    "message": "Lyrics translation",
+    "key": "ASE.Web.Music.MediaComponents.LyricsTranslation.Header"
+  },
+  {
     "message": "Made for you",
     "key": "ASE.Web.Music.MadeForYou"
   },

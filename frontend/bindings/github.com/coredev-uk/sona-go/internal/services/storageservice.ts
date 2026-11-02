@@ -17,8 +17,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
- * Clear deletes the cached artwork and the cached catalogue responses.
- * Library data and settings are kept; artwork refetches as it is shown.
+ * Clear deletes the cached artwork, the cached catalogue responses and the
+ * cached lyrics. Library data and settings are kept; artwork refetches as
+ * it is shown.
  */
 export function Clear(): $CancellablePromise<$models.ClearResult> {
     return $Call.ByID(2719266490).then(($result: any) => {
@@ -27,16 +28,16 @@ export function Clear(): $CancellablePromise<$models.ClearResult> {
 }
 
 /**
- * Compact prunes expired catalogue responses and rebuilds the database
- * file (VACUUM), returning the bytes given back to the disk.
+ * Compact prunes expired catalogue responses and lyrics and rebuilds the
+ * database file (VACUUM), returning the bytes given back to the disk.
  */
 export function Compact(): $CancellablePromise<number> {
     return $Call.ByID(3405556238);
 }
 
 /**
- * Usage reports the sizes of the artwork cache, the catalogue cache and
- * the database.
+ * Usage reports the sizes of the artwork cache, the catalogue cache (with
+ * the cached lyrics) and the database.
  */
 export function Usage(): $CancellablePromise<$models.StorageUsage> {
     return $Call.ByID(3896703408).then(($result: any) => {

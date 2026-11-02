@@ -11,12 +11,13 @@ import (
 	"github.com/coredev-uk/sona-go/internal/artwork"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/db"
+	"github.com/coredev-uk/sona-go/internal/lyrics"
 	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
 // Storage upkeep timing. Upkeep starts upkeepFirst after the first paint
 // (never during cold start) and checks every upkeepEvery: it prunes the
-// catalogue cache every pruneEvery and, when the app is idle (no library
+// catalogue and lyrics caches every pruneEvery and, when the app is idle (no library
 // sync, nothing playing or loading), optimises the database (VACUUM when
 // enough of it is free pages) every optimizeEvery.
 const (
@@ -90,7 +91,7 @@ func (s *StorageService) upkeep() {
 	now := s.e.Now()
 	if now.Sub(s.pruned) >= pruneEvery {
 		s.pruned = now
-		if n, err := s.e.Catalog.Prune(s.ctx); err != nil {
+		if n, err := s.prune(s.ctx); err != nil {
 			s.e.Logger.Warn("storage: catalogue prune", "err", err)
 		} else if n > 0 {
 			s.e.Logger.Info("storage: catalogue cache pruned", "entries", n)
@@ -132,8 +133,8 @@ func (s *StorageService) close() {
 	}
 }
 
-// Usage reports the sizes of the artwork cache, the catalogue cache and
-// the database.
+// Usage reports the sizes of the artwork cache, the catalogue cache (with
+// the cached lyrics) and the database.
 func (s *StorageService) Usage(ctx context.Context) (StorageUsage, error) {
 	out := StorageUsage{ArtworkBytes: s.e.Art.Size(), ArtworkLimitBytes: s.e.Art.MaxBytes()}
 	path := s.e.Paths.DatabaseFile()
@@ -148,32 +149,38 @@ func (s *StorageService) Usage(ctx context.Context) (StorageUsage, error) {
 	out.DatabaseFreeBytes = free
 	out.CatalogEntries, out.CatalogBytes, err = s.e.Catalog.CacheSize(ctx)
 	errs = append(errs, err)
+	lyricEntries, lyricBytes, err := lyrics.CacheSize(ctx, s.e.DB)
+	out.CatalogEntries += lyricEntries
+	out.CatalogBytes += lyricBytes
+	errs = append(errs, err)
 	s.mu.Lock()
 	out.LastMaintenance = unixMs(s.optimized)
 	s.mu.Unlock()
 	return out, errors.Join(errs...)
 }
 
-// Clear deletes the cached artwork and the cached catalogue responses.
-// Library data and settings are kept; artwork refetches as it is shown.
+// Clear deletes the cached artwork, the cached catalogue responses and the
+// cached lyrics. Library data and settings are kept; artwork refetches as
+// it is shown.
 func (s *StorageService) Clear(ctx context.Context) (ClearResult, error) {
 	var out ClearResult
 	before := s.e.Art.Size()
 	errArt := s.e.Art.Clear()
 	out.ArtworkBytes = before - s.e.Art.Size()
 	n, errDB := s.e.Catalog.ClearCache(ctx)
-	out.CatalogEntries = n
+	m, errLyrics := lyrics.ClearCache(ctx, s.e.DB)
+	out.CatalogEntries = n + m
 	s.e.Logger.Info("storage: cache cleared", "artwork_bytes", out.ArtworkBytes, "catalog_entries", out.CatalogEntries)
-	return out, errors.Join(errArt, errDB)
+	return out, errors.Join(errArt, errDB, errLyrics)
 }
 
-// Compact prunes expired catalogue responses and rebuilds the database
-// file (VACUUM), returning the bytes given back to the disk.
+// Compact prunes expired catalogue responses and lyrics and rebuilds the
+// database file (VACUUM), returning the bytes given back to the disk.
 func (s *StorageService) Compact(ctx context.Context) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := s.e.Now()
-	if _, err := s.e.Catalog.Prune(ctx); err != nil {
+	if _, err := s.prune(ctx); err != nil {
 		return 0, err
 	}
 	s.pruned = now
@@ -184,6 +191,13 @@ func (s *StorageService) Compact(ctx context.Context) (int64, error) {
 	s.optimized = now
 	s.e.Logger.Info("storage: database compacted", "freed_bytes", freed)
 	return freed, nil
+}
+
+// prune deletes the expired catalogue responses and cached lyrics.
+func (s *StorageService) prune(ctx context.Context) (int64, error) {
+	n, err := s.e.Catalog.Prune(ctx)
+	m, errLyrics := lyrics.Prune(ctx, s.e.DB, s.e.Now())
+	return n + m, errors.Join(err, errLyrics)
 }
 
 // wipeUserArtwork removes from the artwork cache what only the signed-in

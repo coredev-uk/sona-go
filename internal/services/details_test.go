@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/db"
@@ -123,35 +122,6 @@ func TestCreditGroups(t *testing.T) {
 	g := creditGroups(s.Relationships.Credits.Data)
 	if len(g) != 1 || g[0].Kind != "performer" || g[0].Credits[0].Name != "Thom Yorke" || len(g[0].Credits[0].Roles) != 2 {
 		t.Fatalf("credits = %+v", g)
-	}
-}
-
-func TestLyricsDTO(t *testing.T) {
-	ms := time.Millisecond
-	l := lyricsDTO(applemusic.Lyrics{Timing: "Word", Lines: []applemusic.LyricLine{{
-		Begin: 1500 * ms, End: 3 * time.Second, Key: "L1", Text: "hi there",
-		Words: []applemusic.LyricWord{{Begin: 1500 * ms, End: 2 * time.Second, Text: "hi "}},
-	}, {Key: "L2", Text: "untranslated"}}, Localizations: []applemusic.LyricLocalization{
-		{Kind: "translation", Language: "fr-FR", Lines: map[string]applemusic.LyricLine{"L1": {Text: "salut"}}},
-		{Kind: "translation", Language: "en-US", Lines: map[string]applemusic.LyricLine{"L1": {Text: "hello", BackgroundText: "(hey)"}}},
-		{Kind: "transliteration", Language: "ko-Latn", Lines: map[string]applemusic.LyricLine{"L1": {Text: "an nyeong", Words: []applemusic.LyricWord{{Begin: 1500 * ms, End: 1800 * ms, Text: "an "}}}}},
-	}}, "en-GB")
-	if l.Songwriters == nil || len(l.Lines) != 2 || l.Lines[0].BeginMs != 1500 || l.Lines[0].EndMs != 3000 || l.Lines[0].Words[0].EndMs != 2000 {
-		t.Fatalf("lyrics = %+v", l)
-	}
-	if l.TranslationLanguage != "en-US" || l.TransliterationLanguage != "ko-Latn" {
-		t.Fatalf("languages = %q %q", l.TranslationLanguage, l.TransliterationLanguage)
-	}
-	tr, tl := l.Lines[0].Translation, l.Lines[0].Transliteration
-	if tr == nil || tr.Text != "hello" || tr.Background != "(hey)" || tl == nil || tl.Words[0].EndMs != 1800 {
-		t.Fatalf("line 1 localizations = %+v %+v", tr, tl)
-	}
-	if l.Lines[1].Translation != nil || l.Lines[1].Transliteration != nil || l.Lines[1].Words == nil {
-		t.Fatalf("line 2 = %+v", l.Lines[1])
-	}
-	plain := lyricsDTO(applemusic.Lyrics{Lines: []applemusic.LyricLine{{Key: "L1", Text: "x"}}}, "en-GB")
-	if plain.TranslationLanguage != "" || plain.Lines[0].Translation != nil {
-		t.Fatalf("plain = %+v", plain)
 	}
 }
 

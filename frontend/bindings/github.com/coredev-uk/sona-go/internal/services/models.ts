@@ -3168,7 +3168,9 @@ export class ListeningHistory {
 }
 
 /**
- * LyricLine is one line; Words is set for word-timed lyrics. Translation
+ * LyricLine is one line; Words is set for word-timed lyrics. Background is
+ * the background vocals (their words are in Words, flagged Background);
+ * Agent the voice ("v1", "v2" for a duet's second voice, …). Translation
  * and Transliteration are the line's localizations (nil when the lyrics
  * have none, or none for this line).
  */
@@ -3319,12 +3321,17 @@ export class LyricWord {
 }
 
 /**
- * Lyrics are a song's timed lyrics. TranslationLanguage and
- * TransliterationLanguage name the localizations carried on the lines
- * ("" when Apple has none): a translation into the account's language and
- * a pronunciation in Latin script.
+ * Lyrics are a song's lyrics from the provider that had the best ones.
+ * Provider is its config.Lyrics* ID ("apple", "musixmatch", "lrclib",
+ * "netease"). TranslationLanguage and TransliterationLanguage name the
+ * localizations carried on the lines ("" when there are none): a
+ * translation into the chosen language and a pronunciation in Latin
+ * script ("und-Latn" when the provider doesn't say which language it
+ * spells).
  */
 export class Lyrics {
+    "provider": string;
+
     /**
      * "Word", "Line" or "None"
      */
@@ -3345,6 +3352,9 @@ export class Lyrics {
 
     /** Creates a new Lyrics instance. */
     constructor($$source: Partial<Lyrics> = {}) {
+        if (!("provider" in $$source)) {
+            this["provider"] = "";
+        }
         if (!("timing" in $$source)) {
             this["timing"] = "";
         }
@@ -3371,14 +3381,14 @@ export class Lyrics {
      * Creates a new Lyrics instance from a string or object.
      */
     static createFrom($$source: any = {}): Lyrics {
-        const $$createField2_0 = $$createType18;
-        const $$createField5_0 = $$createType65;
+        const $$createField3_0 = $$createType18;
+        const $$createField6_0 = $$createType65;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("songwriters" in $$parsedSource) {
-            $$parsedSource["songwriters"] = $$createField2_0($$parsedSource["songwriters"]);
+            $$parsedSource["songwriters"] = $$createField3_0($$parsedSource["songwriters"]);
         }
         if ("lines" in $$parsedSource) {
-            $$parsedSource["lines"] = $$createField5_0($$parsedSource["lines"]);
+            $$parsedSource["lines"] = $$createField6_0($$parsedSource["lines"]);
         }
         return new Lyrics($$parsedSource as Partial<Lyrics>);
     }

@@ -17,6 +17,7 @@ const rowTitles: Record<string, () => string> = {
   "audio.equalizer": () => t`Equaliser`,
   crossfade: () => t`Crossfade`,
   "queue.replaceConfirm": () => t`Replacing your queue`,
+  lyrics: () => t`Lyrics`,
   "desktop.closeAction": () => t`When the window is closed`,
   "desktop.startHidden": () => t`Start in the tray`,
   "desktop.startPage": () => t`Open on`,
