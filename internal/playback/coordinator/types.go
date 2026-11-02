@@ -115,6 +115,9 @@ type Snapshot struct {
 	// plays. After MaxFailures consecutive failures State is error and
 	// playback stops.
 	Error string `json:"error,omitempty"`
+	// Cause is the error behind Error when the coordinator has one (nil
+	// for an engine's own failure text), for classifying it.
+	Cause error `json:"-"`
 	// AuthRequired reports that Apple rejected the credentials; playback is
 	// paused until the user signs in again and resumes.
 	AuthRequired bool `json:"authRequired"`

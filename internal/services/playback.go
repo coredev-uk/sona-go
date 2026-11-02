@@ -149,7 +149,7 @@ func (s *PlaybackService) state(snap coordinator.Snapshot) PlaybackState {
 		QueueVersion:   snap.QueueVersion,
 		CanNext:        canNext(snap),
 		CanPrevious:    snap.Current != nil,
-		Error:          snap.Error,
+		Error:          playbackError(snap),
 		AuthRequired:   snap.AuthRequired,
 		NoCDM:          snap.NoCDM,
 		Preview:        snap.Preview,
@@ -171,6 +171,18 @@ func (s *PlaybackService) state(snap coordinator.Snapshot) PlaybackState {
 		}
 	}
 	return out
+}
+
+// playbackError classifies the snapshot's failure: an engine's own failure
+// text, with no error behind it, is unknown.
+func playbackError(s coordinator.Snapshot) ErrorCode {
+	switch {
+	case s.Error == "":
+		return ""
+	case s.Cause == nil:
+		return CodeUnknown
+	}
+	return CodeOf(s.Cause)
 }
 
 // onAir maps what a broadcaster has on air; nil when it names nothing.

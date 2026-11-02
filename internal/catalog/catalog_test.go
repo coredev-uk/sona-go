@@ -126,6 +126,30 @@ func TestStorefrontIsPartOfKey(t *testing.T) {
 	}
 }
 
+// TestContentLanguageIsPartOfKey: a response asked for in another content
+// language (l=) is a separate cache entry, and the default's keeps the
+// storefront-only key.
+func TestContentLanguageIsPartOfKey(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	lang := ""
+	f.cat.api.Language = func() string { return lang }
+	for _, l := range []string{"", "fr-CA", "fr-CA", ""} {
+		lang = l
+		if _, err := f.cat.Album(ctx, "7"); err != nil {
+			t.Fatalf("album in %q: %v", l, err)
+		}
+	}
+	if f.hits.Load() != 2 {
+		t.Fatalf("hits = %d, want one per language", f.hits.Load())
+	}
+	for _, key := range []string{"gb|album-page|7", "gb@fr-CA|album-page|7"} {
+		if _, err := f.db.RQ.GetCache(ctx, key); err != nil {
+			t.Errorf("cache %q: %v", key, err)
+		}
+	}
+}
+
 func TestNotFoundIsNotCached(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()

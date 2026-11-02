@@ -1,4 +1,5 @@
 import type { Settings } from "@bindings/config";
+import { RealtimeRefusal, SandboxGap } from "@bindings/playback/models";
 import type { Capabilities, CDMStatus, Diagnostics } from "@bindings/services";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen } from "@testing-library/react";
@@ -240,14 +241,14 @@ describe("DiagnosticsSection", () => {
           realtime: "raised",
           realtimeVia: "portal",
           realtimePriority: -15,
-          realtimeNote: "portal: Access denied",
+          realtimeRefusal: RealtimeRefusal.RealtimeRefused,
         },
         "keychain",
       ),
     );
     expect(valueOf("Audio priority")).toContain("Raised · nice -15 (Realtime portal)");
     expect(valueOf("Audio priority")).toContain(
-      "Realtime priority was refused: portal: Access denied.",
+      "Realtime priority was refused: Realtime portal refused it.",
     );
     cleanup();
 
@@ -258,7 +259,6 @@ describe("DiagnosticsSection", () => {
           ...linux,
           hostRunning: true,
           realtime: "unavailable",
-          realtimeNote: "RTKit: The name is not activatable",
         },
         "keychain",
       ),
@@ -283,12 +283,20 @@ describe("DiagnosticsSection", () => {
     expect(valueOf("Audio priority")).toBe("Not requested on this platform");
     cleanup();
 
-    const note = "no macOS sandbox: stat /usr/bin/sandbox-exec: no such file or directory";
     await renderSection(
       macCapabilities(),
-      report({ ...mac, sandboxKind: "none", sandboxed: false, sandboxNote: note }, "keychain"),
+      report(
+        {
+          ...mac,
+          sandboxKind: "none",
+          sandboxed: false,
+          sandboxGaps: [SandboxGap.SandboxGapNoSeatbelt],
+        },
+        "keychain",
+      ),
     );
     expect(shown("Not sandboxed")).toBe(true);
+    expect(screen.queryByText(/sandbox-exec is missing or didn't start/)).not.toBeNull();
     expect(screen.queryByText(/the host can reach the network and your files/)).not.toBeNull();
     expect(shown("Sandboxed by macOS · no network or keychain access")).toBe(false);
   });

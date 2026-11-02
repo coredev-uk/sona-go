@@ -46,7 +46,9 @@ type Options struct {
 	// caller). Nil skips the portal.
 	Session *dbus.Conn
 	Who     string // the application's name
-	Why     string // the reason shown in inhibitor lists
+	// Why returns the reason shown in inhibitor lists, read on each
+	// Acquire so it follows the user's language (nil: none given).
+	Why func() string
 }
 
 // Inhibitor holds at most one suspend inhibitor. Its methods are safe for
@@ -83,7 +85,7 @@ func (in *Inhibitor) Acquire(ctx context.Context) error {
 		errs = append(errs, err)
 	}
 	if in.opts.Session != nil {
-		l, err := portalInhibit(ctx, in.opts.Session, in.opts.Why)
+		l, err := portalInhibit(ctx, in.opts.Session, in.why())
 		if err == nil {
 			in.held, in.backend = l, BackendPortal
 			return nil
@@ -140,7 +142,7 @@ func (in *Inhibitor) logind(ctx context.Context) (lock, error) {
 	}
 	var fd dbus.UnixFD
 	err := in.system.Object(logindName, logindPath).
-		CallWithContext(ctx, logindIfc+".Inhibit", 0, "sleep", in.opts.Who, in.opts.Why, "block").
+		CallWithContext(ctx, logindIfc+".Inhibit", 0, "sleep", in.opts.Who, in.why(), "block").
 		Store(&fd)
 	if err != nil {
 		// A broken connection (e.g. the system bus restarted) is redialled
@@ -153,6 +155,13 @@ func (in *Inhibitor) logind(ctx context.Context) (lock, error) {
 		return nil, errors.New("inhibit: logind returned no file descriptor")
 	}
 	return fdLock{os.NewFile(uintptr(fd), "logind-inhibit")}, nil
+}
+
+func (in *Inhibitor) why() string {
+	if in.opts.Why == nil {
+		return ""
+	}
+	return in.opts.Why()
 }
 
 // fdLock is a logind lock: it lasts until its file descriptor is closed.

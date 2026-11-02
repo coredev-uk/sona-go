@@ -138,12 +138,12 @@ func TestScrobbleConnectLastFMAndDisconnect(t *testing.T) {
 
 func TestScrobbleConnectListenBrainz(t *testing.T) {
 	se := newScrobbleEnv(t)
-	if _, err := se.s.ConnectListenBrainz(t.Context(), "  "); ErrorCode(err) != CodeInvalidArgument {
+	if _, err := se.s.ConnectListenBrainz(t.Context(), "  "); CodeOf(err) != CodeTokenRequired {
 		t.Fatalf("empty token: %v", err)
 	}
 	_, err := se.s.ConnectListenBrainz(t.Context(), "wrong")
-	if ErrorCode(err) != CodeInvalidCredentials || se.secrets["listenbrainz"] != nil && se.secrets["listenbrainz"].v != "" {
-		t.Fatalf("bad token: %v (code %s)", err, ErrorCode(err))
+	if CodeOf(err) != CodeInvalidCredentials || se.secrets["listenbrainz"] != nil && se.secrets["listenbrainz"].v != "" {
+		t.Fatalf("bad token: %v (code %s)", err, CodeOf(err))
 	}
 	st, err := se.s.ConnectListenBrainz(t.Context(), " good\n")
 	if err != nil || !st.ListenBrainz.Connected {
@@ -155,7 +155,7 @@ func TestScrobbleConnectListenBrainz(t *testing.T) {
 	if a := se.s.e.Settings.Get().Scrobbling.ListenBrainz; a.Username != "lb-user" || !a.Enabled {
 		t.Fatalf("settings = %+v", a)
 	}
-	if _, err := se.s.Disconnect("spotify"); ErrorCode(err) != CodeInvalidArgument {
+	if _, err := se.s.Disconnect("spotify"); CodeOf(err) != CodeInvalidArgument {
 		t.Fatalf("unknown provider: %v", err)
 	}
 }
@@ -164,7 +164,7 @@ func TestScrobbleLastFMNotConfigured(t *testing.T) {
 	se := newScrobbleEnv(t)
 	se.s.lastfm = nil
 	_, err := se.s.ConnectLastFM(t.Context())
-	if !errors.Is(err, scrobble.ErrNotConfigured) || ErrorCode(err) != CodeNotConfigured || !strings.Contains(err.Error(), "not configured") {
+	if !errors.Is(err, scrobble.ErrNotConfigured) || CodeOf(err) != CodeNotConfigured || !strings.Contains(err.Error(), "not configured") {
 		t.Fatalf("err = %v", err)
 	}
 	if se.s.Status().LastFM.Available {

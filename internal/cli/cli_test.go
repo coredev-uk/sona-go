@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 )
 
 func TestIsCommand(t *testing.T) {
@@ -207,8 +209,14 @@ func (f *fakeTransport) Close() error { f.closed = true; return nil }
 
 func run(t *testing.T, tr Transport, argv ...string) (code int, stdout, stderr string) {
 	t.Helper()
+	return runIn(t, nil, tr, argv...)
+}
+
+// runIn runs a command line with p's text.
+func runIn(t *testing.T, p *l10n.Printer, tr Transport, argv ...string) (code int, stdout, stderr string) {
+	t.Helper()
 	var out, errOut bytes.Buffer
-	code = Run(context.Background(), argv, Env{Stdout: &out, Stderr: &errOut, Dial: func() (Transport, error) {
+	code = Run(context.Background(), argv, Env{Stdout: &out, Stderr: &errOut, Printer: p, Dial: func() (Transport, error) {
 		if tr == nil {
 			return nil, ErrNotRunning
 		}
@@ -294,7 +302,7 @@ func TestRunOutput(t *testing.T) {
 	if !tr.closed {
 		t.Error("transport not closed")
 	}
-	if got := privateLine(Private{On: true, Source: SourceDevelopment}); got != "private listening: on (development build: this session only; saved setting off)" {
+	if got := privateLine(nil, Private{On: true, Source: SourceDevelopment}); got != "private listening: on (development build: this session only; saved setting off)" {
 		t.Errorf("development line = %q", got)
 	}
 	tr.results["queue"] = Queue{Index: -1, Tracks: []QueueTrack{}}
@@ -311,6 +319,7 @@ func TestRunErrors(t *testing.T) {
 		"like":    &Error{Code: CodeNothingPlaying},
 		"private": &Error{Code: "private_forced", Message: "private mode is forced on"},
 		"next":    &Error{Code: "network", Message: "dial tcp: no route to host"},
+		"prev":    &Error{Code: CodeFailed, Message: "the queue file is damaged"},
 		"open":    &Error{Code: CodeBadLink, Message: "unsupported Apple Music URL"},
 		"play":    &Error{Code: CodeStarting},
 		"queue":   &Error{Code: CodeUnknownCommand, Message: "queue"},
@@ -328,7 +337,8 @@ func TestRunErrors(t *testing.T) {
 		{[]string{"toggle"}, ExitFailed, "sona: Apple Music needs you signed in to Sona for this\n"},
 		{[]string{"search", "x"}, ExitFailed, "sona: Sona is still reading your Apple Music account; try again in a moment\n"},
 		{[]string{"private", "off"}, ExitFailed, "sona: private listening is forced on for this run (SONA_PRIVATE=1)\n"},
-		{[]string{"next"}, ExitFailed, "sona: dial tcp: no route to host\n"},
+		{[]string{"next"}, ExitFailed, "sona: Sona couldn't reach the network; check your connection and try again\n"},
+		{[]string{"prev"}, ExitFailed, "sona: Sona couldn't do that: the queue file is damaged\n"},
 		{[]string{"open", "https://example.com"}, ExitUsage, "sona: that isn't an Apple Music link Sona can open\n"},
 		{[]string{"play"}, ExitNotRunning, "sona: Sona is starting; try again in a moment\n"},
 		{[]string{"queue"}, ExitFailed, "sona: the running Sona is a different version; quit and start it again\n"},
@@ -466,5 +476,46 @@ func TestHandle(t *testing.T) {
 	}
 	if raw, err := DecodeReply(StatusReply(Status{Running: true})); err != nil || !strings.HasPrefix(string(raw), `{"running":true`) {
 		t.Errorf("StatusReply round trip: %s, %v", raw, err)
+	}
+}
+
+// Help, printed lines and errors are in the Printer's language; JSON and
+// the command line's syntax are not.
+func TestRunTranslated(t *testing.T) {
+	fr := l10n.NewPrinter("fr", map[l10n.Message]string{
+		msgUsage:          "utilisation",
+		msgPlaySummary:    "Reprendre la lecture",
+		msgStatePlaying:   "lecture",
+		msgFieldLine:      "%s : %s",
+		msgTrackByArtist:  "%[2]s – %[1]s",
+		msgNothingPlaying: "rien n'est en cours de lecture",
+		msgUnknownCommand: "commande inconnue %q",
+		msgNotRunning:     "Sona n'est pas lancé",
+	})
+	if _, out, _ := runIn(t, fr, nil, "help"); !strings.HasPrefix(out, "utilisation: sona <command>") || !strings.Contains(out, "Reprendre la lecture") {
+		t.Errorf("help:\n%s", out)
+	}
+	if _, out, _ := runIn(t, fr, nil, "completion", "fish"); !strings.Contains(out, "'Reprendre la lecture'") {
+		t.Error("completion descriptions untranslated")
+	}
+	playing := Status{Running: true, State: StatePlaying, Track: song}
+	tr := &fakeTransport{
+		results: map[string]any{"play": playing, "status": playing},
+		errs:    map[string]error{"like": &Error{Code: CodeNothingPlaying}},
+	}
+	if _, out, _ := runIn(t, fr, tr, "play"); out != "lecture : The Beatles – Come Together\n" {
+		t.Errorf("play = %q", out)
+	}
+	if _, out, _ := runIn(t, fr, tr, "status", "--json"); !strings.HasPrefix(out, `{"running":true,"state":"playing"`) {
+		t.Errorf("status --json = %q", out)
+	}
+	if _, _, errOut := runIn(t, fr, tr, "like"); errOut != "sona: rien n'est en cours de lecture\n" {
+		t.Errorf("like = %q", errOut)
+	}
+	if _, _, errOut := runIn(t, fr, tr, "plya"); errOut != "sona: commande inconnue \"plya\"\n" {
+		t.Errorf("unknown command = %q", errOut)
+	}
+	if _, _, errOut := runIn(t, fr, nil, "play"); errOut != "sona: Sona n'est pas lancé\n" {
+		t.Errorf("not running = %q", errOut)
 	}
 }

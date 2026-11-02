@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -20,7 +21,9 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/auth/appleid"
 	"github.com/coredev-uk/sona-go/internal/auth/mut"
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/library"
+	"github.com/coredev-uk/sona-go/internal/motion"
 	"github.com/coredev-uk/sona-go/internal/mpris"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
@@ -40,10 +43,10 @@ func (r *recorder) Emit(name string, data ...any) bool {
 	return false
 }
 
-func TestErrorCode(t *testing.T) {
+func TestCodeOf(t *testing.T) {
 	for _, tc := range []struct {
 		err  error
-		want string
+		want ErrorCode
 	}{
 		{fmt.Errorf("sign in: %w", appleid.ErrInvalidCredentials), CodeInvalidCredentials},
 		{&appleid.ServiceError{Status: 400, Code: "-21669", Message: "Incorrect verification code."}, CodeUnknown},
@@ -57,10 +60,29 @@ func TestErrorCode(t *testing.T) {
 		{fmt.Errorf("track catalog/1: %w", ErrNotReleased), CodeNotReleased},
 		{library.ErrSyncRunning, CodeSyncRunning},
 		{&url.Error{Op: "Get", URL: "https://api.music.apple.com", Err: errors.New("dial tcp: no route")}, CodeNetwork},
+		{fmt.Errorf("delete: %w", ErrFolderNotEmpty), CodeFolderNotEmpty},
+		{fmt.Errorf("%w: %w (3 items)", ErrInvalidArgument, ErrFolderNotEmpty), CodeFolderNotEmpty},
+		{ErrNameRequired, CodeNameRequired},
+		{ErrNotAppleMusicLink, CodeNotAppleMusicLink},
+		{ErrTokenRequired, CodeTokenRequired},
+		{fmt.Errorf("copy link: %w", ErrClipboard), CodeClipboard},
+		{fmt.Errorf("%w: Last.fm: %w", ErrOpenBrowser, errors.New("xdg-open")), CodeBrowserOpen},
+		{auth.ErrBrowserOpen, CodeBrowserOpen},
+		{fmt.Errorf("%w: %w", auth.ErrSignOutIncomplete, auth.ErrKeyringTimeout), CodeSignOutIncomplete},
+		{auth.ErrStoredUnreadable, CodeStoredUnreadable},
+		{auth.ErrKeyringTimeout, CodeKeyring},
+		{auth.ErrDevTokenRejected, CodeDevTokenRejected},
+		{config.ErrNotExport, CodeSettingsNotExport},
+		{config.ErrNewerExport, CodeSettingsNewerExport},
+		{fmt.Errorf("%w: theme", config.ErrBadValue), CodeSettingsBadValue},
+		{fmt.Errorf("%w: %w", ErrSettingsRead, os.ErrPermission), CodeSettingsRead},
+		{fmt.Errorf("%w: %w", ErrSettingsWrite, os.ErrPermission), CodeSettingsWrite},
+		{fmt.Errorf("fetch: %w", motion.ErrNoRendition), CodeNoRendition},
+		{nil, ""},
 		{errors.New("boom"), CodeUnknown},
 	} {
-		if got := ErrorCode(tc.err); got != tc.want {
-			t.Errorf("ErrorCode(%v) = %q, want %q", tc.err, got, tc.want)
+		if got := CodeOf(tc.err); got != tc.want {
+			t.Errorf("CodeOf(%v) = %q, want %q", tc.err, got, tc.want)
 		}
 	}
 	if b := string(MarshalError(fmt.Errorf("x: %w", appleid.ErrLocked))); !strings.Contains(b, `"code":"locked"`) {

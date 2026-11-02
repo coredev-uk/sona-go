@@ -15,6 +15,8 @@ import { namesAccountSection, settingsSearch } from "./search-params";
 import { SettingsPage } from "./Settings";
 
 export { bindAppearance, useAppearance, type Theme } from "./appearance";
+export { useLanguageOptions, useSetLanguage } from "./language-queries";
+export { LanguagePanel, LanguageSelect } from "./LanguageRow";
 export { loadAppearance, useSettings, useUpdateSettings } from "./queries";
 export { useScrobbleStatus } from "./scrobble";
 // Rows the first-run setup shows as they are in Settings.
@@ -73,6 +75,8 @@ export const settingsModule: FeatureModule<typeof settingsRoute> = {
     },
     "integrations:status": (data, { qc }) => qc.setQueryData(integrationsStatusKey, data),
     "scrobble:changed": (data, { qc }) => qc.setQueryData(scrobbleStatusKey, data),
+    "translations:languages": (_data, { qc }) =>
+      void qc.invalidateQueries({ queryKey: keys.translationsLanguages }),
   },
   init: ({ qc }) => {
     void qc.fetchQuery({ queryKey: keys.settings, queryFn: () => SystemService.Settings() }).then(

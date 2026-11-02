@@ -7,6 +7,7 @@ import {
   chooseTranslation,
   formatLocales,
   matchLocale,
+  selectableShare,
   sourceLocale,
   type Translation,
   translatedShare,
@@ -14,7 +15,8 @@ import {
 import { bumpRevision } from "./revision";
 
 export { I18nRoot } from "./I18nRoot";
-export { pseudoLocale, sourceLocale } from "./locale";
+export { type LanguageOption, languageOptions, nativeName, offersLanguages } from "./languages";
+export { pseudoLocale, selectableShare, sourceLocale } from "./locale";
 
 type Catalogue = { messages: Messages };
 type Loaders = Record<string, () => Promise<Catalogue>>;
@@ -44,13 +46,15 @@ const sourceIds = Object.keys(sourceMessages);
 const forced = import.meta.env.VITE_SONA_LOCALE;
 const forcedPseudo = forced && pseudo.has(forced) ? forced : undefined;
 let account = "";
+/** The Language setting: "" (Automatic) or the tag the user chose. */
+let setting = "";
 let request = 0;
 let started = false;
 let shown: Messages = sourceMessages;
 
 /** Shows `locale`'s messages; `Intl` formats with the regional tags of its language. */
 function show(locale: string, messages: Messages): void {
-  const locales = formatLocales(locale, [...navigator.languages, account]);
+  const locales = formatLocales(locale, [setting, ...navigator.languages, account]);
   const sameLocale = locale === i18n.locale && locales.join() === i18n.locales?.toString();
   if (sameLocale && messages === shown) return;
   shown = messages;
@@ -95,19 +99,49 @@ async function loadTranslation(tag: string): Promise<Translation | undefined> {
   };
 }
 
-/** Shows the preferred translation that is complete enough, else English. */
+/**
+ * Shows the language chosen in Settings (however complete), else, under
+ * Automatic, the preferred translation that is complete enough, else
+ * English.
+ */
 async function retranslate(): Promise<void> {
   const ticket = ++request;
   let next: Translation | undefined;
   try {
-    next = await chooseTranslation([account, ...navigator.languages], loadTranslation);
+    next = setting
+      ? await chooseTranslation([setting], loadTranslation, 0)
+      : await chooseTranslation([account, ...navigator.languages], loadTranslation);
   } catch {
     next = undefined;
   }
-  // A later choice (the account's language, a download) supersedes this one.
+  // A later choice (the setting, the account's language, a download) supersedes this one.
   if (ticket !== request) return;
   if (next) show(next.locale, next.messages);
   else show(sourceLocale, sourceMessages);
+}
+
+/**
+ * The share of Sona's messages each community catalogue translates, for
+ * the Language setting's options (loads the catalogues' chunks).
+ */
+export async function communityShares(): Promise<{ tag: string; share: number }[]> {
+  return Promise.all(
+    [...community].map(async ([tag, load]) => {
+      const { messages } = await load();
+      const share = sourceIds.filter((id) => id in messages).length / (sourceIds.length || 1);
+      return { tag, share };
+    }),
+  );
+}
+
+/**
+ * The share of Sona's messages Apple's layer alone must reach for a locale
+ * to be selectable: all of `selectableShare` without community catalogues,
+ * else none (one may make up the rest), so Go knows when to list Apple's
+ * locales at all (`TranslationsService.Languages`).
+ */
+export function appleShareNeeded(): number {
+  return community.size ? 0 : selectableShare;
 }
 
 /**
@@ -160,4 +194,15 @@ export function followAccountLanguage(tag: string): void {
   account = tag;
   if (started) void retranslate();
   else show(i18n.locale || sourceLocale, shown);
+}
+
+/**
+ * Follows the Language setting (Settings → General): "" is Automatic (the
+ * account's language, then the system's); a tag shows that language
+ * whenever Sona has any of it, English otherwise.
+ */
+export function followLanguageSetting(tag: string): void {
+  if (tag === setting || forcedPseudo) return;
+  setting = tag;
+  if (started) void retranslate();
 }

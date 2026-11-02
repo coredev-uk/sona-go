@@ -1,7 +1,11 @@
-// Command i18ntool maps Sona's messages to Apple Music's string keys
+// Command i18ntool keeps Sona's message catalogues: it extracts Go's own
+// messages (internal/i18n/l10n) into their English catalogue, and maps
+// the frontend's messages to Apple Music's string keys
 // (docs/frontend-architecture.md, "Strings and locales"; CONTRIBUTING.md,
 // "Strings and translations").
 //
+//	i18ntool extract          write Go's catalogue, internal/i18n/l10n/locales/en.po
+//	i18ntool extract -check   fail when that catalogue is out of date
 //	i18ntool match            propose Apple keys for unmapped messages
 //	i18ntool match -apply F   move reviewed proposals into the mapping
 //	i18ntool import           convert Apple's translations for review (gitignored)
@@ -39,7 +43,7 @@ const (
 )
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: i18ntool [-root DIR] match [-apply FILE] | import")
+	fmt.Fprintln(os.Stderr, "usage: i18ntool [-root DIR] extract [-check] | match [-apply FILE] | import")
 	os.Exit(2)
 }
 
@@ -60,6 +64,11 @@ func main() {
 	cmd, args := flag.Arg(0), flag.Args()[1:]
 	var err error
 	switch cmd {
+	case "extract":
+		fs := flag.NewFlagSet("extract", flag.ExitOnError)
+		check := fs.Bool("check", false, "fail when the catalogue is out of date instead of writing it")
+		_ = fs.Parse(args)
+		err = runExtract(r, *check)
 	case "match":
 		fs := flag.NewFlagSet("match", flag.ExitOnError)
 		apply := fs.String("apply", "", "reviewed proposals file to apply")

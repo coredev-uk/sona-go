@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
 
 func TestObserveWindowKeepsTheRestoredSize(t *testing.T) {
@@ -42,5 +44,34 @@ func TestTrayModel(t *testing.T) {
 	got = trayModel(coordinator.Snapshot{State: playback.StatePaused, Current: &coordinator.Entry{Item: coordinator.Item{Title: "Song"}}})
 	if got != (trayState{NowPlaying: "Song", HasItem: true}) {
 		t.Fatalf("paused, no artist: %+v", got)
+	}
+}
+
+// The tray menu's text is in the printer's language; the song is not text
+// of Sona's.
+func TestTrayView(t *testing.T) {
+	fr := l10n.NewPrinter("fr", map[l10n.Message]string{
+		msgNotPlaying: "Aucune lecture",
+		msgPlay:       "Lire",
+		msgCloseMini:  "Fermer le mini lecteur",
+		msgPrivateEnv: "Écoute privée (%s)",
+	})
+	tr := &tray{}
+	want := trayView{
+		now: "Aucune lecture", play: "Lire", next: "Next", prev: "Previous", private: "Private listening",
+		show: "Show Sona", mini: "Mini player", quit: "Quit Sona", privateEnabled: true,
+	}
+	if v := tr.view(fr); v != want {
+		t.Errorf("idle:\n%+v\nwant\n%+v", v, want)
+	}
+	tr.state = trayState{NowPlaying: "Song – Artist", Playing: true, HasItem: true}
+	tr.miniOpen = true
+	tr.privateNow = privatemode.State{On: true, Source: privatemode.SourceEnvironment}
+	want = trayView{
+		now: "Song – Artist", play: "Pause", next: "Next", prev: "Previous", private: "Écoute privée (" + privatemode.EnvVar + "=1)",
+		show: "Show Sona", mini: "Fermer le mini lecteur", quit: "Quit Sona", hasItem: true, privateOn: true,
+	}
+	if v := tr.view(fr); v != want {
+		t.Errorf("playing:\n%+v\nwant\n%+v", v, want)
 	}
 }

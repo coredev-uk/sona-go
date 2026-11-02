@@ -2,6 +2,7 @@ package motion
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -256,7 +257,7 @@ func TestServe(t *testing.T) {
 	if _, err := os.Stat(c.path(key, 720, CodecHEVC)); err != nil {
 		t.Errorf("hevc file: %v", err)
 	}
-	if s := c.Stats(); s.Files != 4 || s.Bytes == 0 || s.Last.Err != "" || s.Last.Codec != CodecHEVC ||
+	if s := c.Stats(); s.Files != 4 || s.Bytes == 0 || s.Last.Err != nil || s.Last.Codec != CodecHEVC ||
 		s.Last.Rendition != "hvc1.2.20000000.L123.B0 768×768, 1.9 Mbit/s" || s.Last.Size != 720 || s.Last.Key != key {
 		t.Errorf("stats = %+v", s)
 	}
@@ -286,7 +287,7 @@ func TestServe(t *testing.T) {
 	if w := get(c, hdr, nil); w.Code != http.StatusBadGateway || !strings.Contains(w.Body.String(), "no H.264 rendition") {
 		t.Errorf("HDR only: %d %q", w.Code, w.Body.String())
 	}
-	if s := c.Stats(); s.Files != 4 || s.Last.Err != "no H.264 rendition" || s.Last.Rendition != "" {
+	if s := c.Stats(); s.Files != 4 || !errors.Is(s.Last.Err, ErrNoRendition) || s.Last.Rendition != "" {
 		t.Errorf("stats after a failure = %+v", s)
 	}
 }

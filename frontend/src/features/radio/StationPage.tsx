@@ -9,6 +9,7 @@ import { Artwork } from "@/shared/components/Artwork";
 import { CollectionHeader } from "@/shared/components/CollectionHeader";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { PlayButtons } from "@/shared/components/PlayButtons";
+import { stationUnavailable } from "@/shared/items/station";
 import { formatTime } from "@/shared/lib/format";
 import { useNowPlaying } from "@/shared/lib/now-playing";
 import { useNow } from "@/shared/lib/useNow";
@@ -158,7 +159,7 @@ function Station({ detail }: { detail: StationDetail }) {
             <p className="text-ui font-medium text-ink">
               <Trans>Sona can't play this station</Trans>
             </p>
-            <p className="mt-0.5 text-sub text-ink-muted">{s.unavailable}</p>
+            <p className="mt-0.5 text-sub text-ink-muted">{stationUnavailable(s.unavailable)}</p>
           </div>
         </div>
       )}

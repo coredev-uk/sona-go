@@ -131,17 +131,17 @@ type SyncProgress struct {
 	Domain   string `json:"domain"`
 	Done     int    `json:"done"`
 	Total    int    `json:"total"`
-	Finished bool   `json:"finished"` // the domain completed (or failed: Error)
-	Error    string `json:"error"`
+	Finished bool   `json:"finished"` // the domain completed (or failed: ErrorCode)
+	// ErrorCode is why the domain failed; "" otherwise.
+	ErrorCode ErrorCode `json:"errorCode"`
 }
 
 // SyncDone is the "sync:done" payload.
 type SyncDone struct {
-	OK         bool   `json:"ok"`
-	Error      string `json:"error"`
-	ErrorCode  string `json:"errorCode"`
-	Counts     Counts `json:"counts"`
-	FinishedAt int64  `json:"finishedAt"`
+	OK         bool      `json:"ok"`
+	ErrorCode  ErrorCode `json:"errorCode"` // why the sync failed; "" when OK
+	Counts     Counts    `json:"counts"`
+	FinishedAt int64     `json:"finishedAt"`
 }
 
 // DomainSync is the stored state of one sync domain.
@@ -152,7 +152,8 @@ type DomainSync struct {
 	Total       int    `json:"total"`
 	LastStarted int64  `json:"lastStarted"`
 	LastSuccess int64  `json:"lastSuccess"`
-	LastError   string `json:"lastError"`
+	// Failed is set when the domain's last run failed (sync:done said why).
+	Failed bool `json:"failed"`
 }
 
 // SyncStatus summarises the library sync.

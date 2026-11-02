@@ -21,7 +21,8 @@ const historyRetention = 365 * 24 * time.Hour
 
 // AccountStore is auth.AccountStore over the accounts table. The
 // storefront's display name is not stored; it returns with the next
-// validation.
+// validation. The storefront's content languages are stored
+// space-separated.
 type AccountStore struct{ DB *db.DB }
 
 var _ auth.AccountStore = AccountStore{}
@@ -34,7 +35,7 @@ func (s AccountStore) Load(ctx context.Context) (auth.Account, error) {
 	if err != nil {
 		return auth.Account{}, err
 	}
-	out := auth.Account{StorefrontID: a.Storefront, Language: a.Language, Restricted: a.Restricted != 0}
+	out := auth.Account{StorefrontID: a.Storefront, Language: a.Language, Languages: strings.Fields(a.Languages), Restricted: a.Restricted != 0}
 	if a.MutObtainedAt.Valid {
 		out.MUTObtainedAt = db.Time(a.MutObtainedAt.Int64)
 	}
@@ -48,6 +49,7 @@ func (s AccountStore) Save(ctx context.Context, a auth.Account) error {
 	return s.DB.Q.UpsertAccount(ctx, dbq.UpsertAccountParams{
 		Storefront:         a.StorefrontID,
 		Language:           a.Language,
+		Languages:          strings.Join(a.Languages, " "),
 		Restricted:         db.Bool(a.Restricted),
 		MutObtainedAt:      db.NullMillis(a.MUTObtainedAt),
 		MutLastValidatedAt: db.NullMillis(a.MUTLastValidatedAt),

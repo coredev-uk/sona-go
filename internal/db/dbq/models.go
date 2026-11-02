@@ -16,6 +16,7 @@ type Account struct {
 	MutObtainedAt      sql.NullInt64
 	MutLastValidatedAt sql.NullInt64
 	UpdatedAt          int64
+	Languages          string
 }
 
 type Album struct {

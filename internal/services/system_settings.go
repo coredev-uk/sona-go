@@ -8,10 +8,23 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
+)
+
+// The file chooser's text for a settings export, in the user's language
+// (Deps.Language).
+const (
+	msgExportTitle    l10n.Message = "Export Sona settings"
+	msgExportAccept   l10n.Message = "Export" // the file chooser's save button
+	msgImportTitle    l10n.Message = "Import Sona settings"
+	msgImportAccept   l10n.Message = "Import" // the file chooser's open button
+	msgSettingsFilter l10n.Message = "Sona settings (JSON)"
 )
 
 // settingsFilters are the file chooser's types for a settings export.
-var settingsFilters = []app.FileFilter{{Name: "Sona settings (JSON)", Patterns: []string{"*.json"}}}
+func settingsFilters(p *l10n.Printer) []app.FileFilter {
+	return []app.FileFilter{{Name: p.T(msgSettingsFilter), Patterns: []string{"*.json"}}}
+}
 
 // ExportSettings asks where to save (the desktop's file chooser,
 // Platform.Files) and writes the settings there as an export document
@@ -22,11 +35,12 @@ func (s *SystemService) ExportSettings(ctx context.Context) (string, error) {
 	if s.o.Platform.Files == nil {
 		return "", unsupported("the file chooser")
 	}
+	p := s.o.Language.Printer()
 	path, err := s.o.Platform.Files.SaveFile(ctx, app.SaveFileOptions{
-		Title:       "Export Sona settings",
-		AcceptLabel: "Export",
+		Title:       p.T(msgExportTitle),
+		AcceptLabel: p.T(msgExportAccept),
 		Name:        "sona-settings.json",
-		Filters:     settingsFilters,
+		Filters:     settingsFilters(p),
 	})
 	if err != nil || path == "" {
 		return "", err
@@ -40,7 +54,7 @@ func (s *SystemService) exportSettings(path string) error {
 		return err
 	}
 	if err := os.WriteFile(path, b, 0o644); err != nil {
-		return fmt.Errorf("couldn't write the settings file: %w", err)
+		return fmt.Errorf("%w: %w", ErrSettingsWrite, err)
 	}
 	s.o.Logger.Info("settings exported", "path", path)
 	return nil
@@ -57,10 +71,11 @@ func (s *SystemService) ImportSettings(ctx context.Context) (SettingsImport, err
 	if s.o.Platform.Files == nil {
 		return SettingsImport{}, unsupported("the file chooser")
 	}
+	p := s.o.Language.Printer()
 	path, err := s.o.Platform.Files.OpenFile(ctx, app.OpenFileOptions{
-		Title:       "Import Sona settings",
-		AcceptLabel: "Import",
-		Filters:     settingsFilters,
+		Title:       p.T(msgImportTitle),
+		AcceptLabel: p.T(msgImportAccept),
+		Filters:     settingsFilters(p),
 	})
 	if err != nil || path == "" {
 		return SettingsImport{}, err
@@ -71,12 +86,12 @@ func (s *SystemService) ImportSettings(ctx context.Context) (SettingsImport, err
 func (s *SystemService) importSettings(path string) (SettingsImport, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return SettingsImport{}, fmt.Errorf("couldn't read the settings file: %w", err)
+		return SettingsImport{}, fmt.Errorf("%w: %w", ErrSettingsRead, err)
 	}
 	defer func() { _ = f.Close() }()
 	b, err := io.ReadAll(io.LimitReader(f, config.MaxExportBytes+1))
 	if err != nil {
-		return SettingsImport{}, fmt.Errorf("couldn't read the settings file: %w", err)
+		return SettingsImport{}, fmt.Errorf("%w: %w", ErrSettingsRead, err)
 	}
 	if len(b) > config.MaxExportBytes {
 		return SettingsImport{}, config.ErrNotExport

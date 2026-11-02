@@ -32,6 +32,10 @@ const (
 // JSON field names are the frontend's names, so the struct can be bound to
 // Wails as-is. It never holds tokens.
 type Settings struct {
+	// Language is the interface language: "" (Automatic) or a BCP 47 tag
+	// (language.go). Go's own text (tray, notifications, the command line,
+	// dialog titles) and Apple's content language follow it too.
+	Language string `json:"language"`
 	// Theme is "system", "light" or "dark".
 	Theme string `json:"theme"`
 	// ReduceEffects turns off backdrops and animation for solid surfaces.
@@ -170,6 +174,7 @@ func (s Settings) Normalized() Settings {
 	s.Crossfade = s.Crossfade.normalized()
 	s.TitleBar = s.TitleBar.normalized()
 	s.Lyrics = s.Lyrics.normalized()
+	s.Language = normalizedLanguage(s.Language)
 	return s
 }
 

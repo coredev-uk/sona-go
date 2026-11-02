@@ -118,12 +118,12 @@ func (p *platform) Services() services.Platform {
 		}
 		return n, nil
 	}
-	out.Inhibitor = func() services.SleepInhibitor {
+	out.Inhibitor = func(why func() string) services.SleepInhibitor {
 		return inhibit.New(inhibit.Options{
 			System:  func() (*dbus.Conn, error) { return dbus.ConnectSystemBus() },
 			Session: conn,
 			Who:     "Sona",
-			Why:     "Playing music",
+			Why:     why,
 		})
 	}
 	out.Power = func() (services.PowerMonitor, error) {

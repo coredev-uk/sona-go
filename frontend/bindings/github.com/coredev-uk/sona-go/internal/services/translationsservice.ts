@@ -8,7 +8,8 @@
  * first paint, for the locales the UI asked for, and keeps them in its
  * cache directory, checking for a new Apple release at most daily; the
  * cache serves offline. "translations:apple" announces a locale's messages
- * when they arrive or change. Without a store it serves nothing.
+ * when they arrive or change, "translations:languages" Apple's locale
+ * table (Languages). Without a store it serves nothing.
  * @module
  */
 
@@ -32,5 +33,21 @@ export function Apple(tag: string): $CancellablePromise<$models.AppleTranslation
     });
 }
 
+/**
+ * Languages lists Apple's locales for the Language setting (Settings →
+ * General), when Sona's mapping could translate at least minShare of its
+ * messages (the frontend's selectable share, less what the community
+ * catalogues add); below that it only reports the mapped share and fetches
+ * nothing. Otherwise it serves the cached locale table and has Sona fetch
+ * it after the first paint when it is missing or due; it then arrives as
+ * "translations:languages".
+ */
+export function Languages(minShare: number): $CancellablePromise<$models.AppleLanguages> {
+    return $Call.ByID(3409743433, minShare).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
 // Private type creation functions
 const $$createType0 = $models.AppleTranslations.createFrom;
+const $$createType1 = $models.AppleLanguages.createFrom;

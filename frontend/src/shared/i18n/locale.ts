@@ -80,15 +80,18 @@ export interface Translation {
 
 /**
  * The translation to show: the first preferred locale (translationCandidates)
- * whose layers reach `selectableShare`; undefined shows English.
+ * whose layers translate something and reach `minShare` (`selectableShare`
+ * when Sona chooses; 0 for the language the user chose in Settings, which
+ * is shown however complete it is); undefined shows English.
  */
 export async function chooseTranslation(
   preferred: readonly (string | undefined)[],
   load: (tag: string) => Promise<Translation | undefined>,
+  minShare = selectableShare,
 ): Promise<Translation | undefined> {
   for (const tag of translationCandidates(preferred)) {
     const t = await load(tag);
-    if (t && t.share >= selectableShare) return t;
+    if (t && t.share > 0 && t.share >= minShare) return t;
   }
   return undefined;
 }

@@ -4,11 +4,12 @@
 SELECT * FROM accounts WHERE id = 1;
 
 -- name: UpsertAccount :exec
-INSERT INTO accounts (id, storefront, language, restricted, mut_obtained_at, mut_last_validated_at, updated_at)
-VALUES (1, ?, ?, ?, ?, ?, ?)
+INSERT INTO accounts (id, storefront, language, languages, restricted, mut_obtained_at, mut_last_validated_at, updated_at)
+VALUES (1, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (id) DO UPDATE SET
     storefront = excluded.storefront,
     language = excluded.language,
+    languages = excluded.languages,
     restricted = excluded.restricted,
     mut_obtained_at = coalesce(excluded.mut_obtained_at, accounts.mut_obtained_at),
     mut_last_validated_at = coalesce(excluded.mut_last_validated_at, accounts.mut_last_validated_at),

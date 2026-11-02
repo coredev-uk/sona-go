@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 import { CloseActionRow, StartupRows } from "./DesktopRows";
 import { IntegrationsDesktopRows } from "./IntegrationsRows";
+import { LanguagePanel } from "./LanguageRow";
 import { useSettings, useUpdateSettings } from "./queries";
 import {
   SELECT_WIDTH,
@@ -83,9 +84,10 @@ function TitleBarRow({ value, onChange }: { value: string; onChange: (style: str
 }
 
 /**
- * Settings → General: starting Sona, its window, what it does while music
- * plays, and updates. Rows the platform can't back are left out
- * (capabilities), and a group with none left goes with them.
+ * Settings → General: the language (once there is a choice), starting
+ * Sona, its window, what it does while music plays, and updates. Rows the
+ * platform can't back are left out (capabilities), and a group with none
+ * left goes with them.
  */
 export function GeneralSection() {
   const { t } = useLingui();
@@ -122,6 +124,7 @@ export function GeneralSection() {
 
   return (
     <SettingsSections>
+      <LanguagePanel />
       <SettingsGroup id="general-startup" title={t`Starting Sona`}>
         <StartupRows />
         <SettingRow

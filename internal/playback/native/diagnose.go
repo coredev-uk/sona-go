@@ -28,7 +28,7 @@ func (e *Engine) Diagnose(ctx context.Context) (playback.Diagnosis, error) {
 	if info, running := e.Host(); running {
 		d.HostRunning, d.HostPID = true, info.PID
 		rt := info.Realtime
-		d.Realtime, d.RealtimeVia, d.RealtimePriority, d.RealtimeNote = rt.State, rt.Via, rt.Priority, rt.Reason
+		d.Realtime, d.RealtimeVia, d.RealtimePriority, d.RealtimeRefusal = rt.State, rt.Via, rt.Priority, rt.Refusal
 	}
 	var lib string
 	if !e.preview {
@@ -47,10 +47,13 @@ func (e *Engine) Diagnose(ctx context.Context) (playback.Diagnosis, error) {
 	}
 	d.CDMInterface, d.HostInterface = info.CDMInterface, info.HostInterface
 	d.GStreamer, d.Decoder, d.Sink = info.GStreamer, info.Decoder, info.Sink
+	d.Sandboxed = info.Sandbox.Active()
 	if info.PID != 0 { // a probe child started
 		d.Sandbox = info.Sandbox.Kind()
+		if !d.Sandboxed {
+			d.SandboxGaps = info.Sandbox.Gaps()
+		}
 	}
-	d.Sandboxed, d.SandboxNote = info.Sandbox.Active(), info.Sandbox.Reason
 	d.Blocked = errors.Is(err, cdmhost.ErrSandbox)
 	return d, err
 }

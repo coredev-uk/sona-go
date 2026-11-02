@@ -393,7 +393,7 @@ func syncStatus(ds []library.DomainStatus, running bool) SyncStatus {
 	for i, d := range ds {
 		out.Domains[i] = DomainSync{
 			Domain: string(d.Domain), InProgress: d.InProgress, Done: d.Done, Total: d.Total,
-			LastStarted: unixMs(d.LastStarted), LastSuccess: unixMs(d.LastSuccess), LastError: d.LastError,
+			LastStarted: unixMs(d.LastStarted), LastSuccess: unixMs(d.LastSuccess), Failed: d.LastError != "",
 		}
 		if !d.LastSuccess.IsZero() {
 			have[d.Domain] = d.LastSuccess
@@ -473,9 +473,7 @@ func (s *LibraryService) startSync(mode library.Mode, domains ...library.Domain)
 		s.o.Logger.Info("library: sync started", "full", mode == library.Full, "domains", domains)
 		err := s.o.Syncer.Sync(ctx, mode, func(p library.Progress) {
 			ev := SyncProgress{Domain: string(p.Domain), Done: p.Done, Total: p.Total, Finished: p.Finished}
-			if p.Err != nil {
-				ev.Error = p.Err.Error()
-			}
+			ev.ErrorCode = CodeOf(p.Err)
 			s.o.Emit.Emit(EventSyncProgress, ev)
 		}, domains...)
 		s.mu.Lock()
@@ -493,9 +491,7 @@ func (s *LibraryService) startSync(mode library.Mode, domains ...library.Domain)
 			s.o.Logger.Warn("library: counts", "err", cerr)
 		}
 		ev := SyncDone{OK: err == nil, Counts: Counts(c), FinishedAt: unixMs(s.o.Now())}
-		if err != nil {
-			ev.Error, ev.ErrorCode = err.Error(), ErrorCode(err)
-		}
+		ev.ErrorCode = CodeOf(err)
 		s.o.Logger.Info("library: sync finished", "ok", err == nil, "took", s.o.Now().Sub(start).Round(time.Millisecond), "counts", c)
 		s.o.Emit.Emit(EventSyncDone, ev)
 		if len(again) > 0 && ctx.Err() == nil {

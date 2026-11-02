@@ -25,6 +25,10 @@ const (
 	// playback before it counts as a discontinuity and emits Seeked.
 	seekThreshold = time.Second
 
+	// The D-Bus errors MPRIS calls fail with. Their names and messages are
+	// for the programs calling (media key daemons, playerctl), not shown
+	// to the user, so they stay in English rather than in Go's message
+	// catalogue (internal/i18n/l10n).
 	errUnknownInterface = "org.freedesktop.DBus.Error.UnknownInterface"
 	errUnknownProperty  = "org.freedesktop.DBus.Error.UnknownProperty"
 	errReadOnly         = "org.freedesktop.DBus.Error.PropertyReadOnly"

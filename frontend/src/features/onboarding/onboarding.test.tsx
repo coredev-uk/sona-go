@@ -52,6 +52,7 @@ vi.mock("@bindings/services", () => ({
         discord: { configured: true, connected: false },
       }),
   },
+  TranslationsService: { Languages: () => Promise.resolve({ mapped: 0.07, locales: [] }) },
 }));
 vi.mock("@/features/auth", () => ({
   AccountSection: () => <form aria-label="Sign in to Apple Music" />,

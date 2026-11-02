@@ -191,8 +191,8 @@ func TestWindowStateReachesThePage(t *testing.T) {
 // the unsupported code, which the page words as not available here.
 func TestWindowMenuUnsupported(t *testing.T) {
 	d, _ := windowsEnv(t, &fakeWindows{menuErr: errors.ErrUnsupported})
-	if err := d.ShowWindowMenu(); ErrorCode(err) != CodeUnsupported {
-		t.Fatalf("ShowWindowMenu = %v (code %q), want code %q", err, ErrorCode(err), CodeUnsupported)
+	if err := d.ShowWindowMenu(); CodeOf(err) != CodeUnsupported {
+		t.Fatalf("ShowWindowMenu = %v (code %q), want code %q", err, CodeOf(err), CodeUnsupported)
 	}
 	d, _ = windowsEnv(t, &fakeWindows{})
 	if err := d.ShowWindowMenu(); err != nil {

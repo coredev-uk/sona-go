@@ -122,6 +122,9 @@ in
         GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
         go run ./cmd/typecheck -os darwin -arch arm64 ./...
         golangci-lint run --new-from-rev=origin/main ./...
+        # Go's message catalogue matches the source, as i18n:check checks
+        # the frontend's below (CONTRIBUTING.md, "Strings and translations").
+        go run ./cmd/i18ntool extract -check
         cd frontend
         node scripts/check-path-case.mjs
         pnpm exec tsc --noEmit

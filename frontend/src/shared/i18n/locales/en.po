@@ -266,20 +266,16 @@ msgid "{name}, {artist}, skipped: explicit"
 msgstr "{name}, {artist}, skipped: explicit"
 
 #: src/features/settings/Diagnostics.tsx
-msgid "{note}. {skips}"
-msgstr "{note}. {skips}"
+msgid "{note} Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works."
+msgstr "{note} Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works."
 
 #: src/features/settings/Diagnostics.tsx
-msgid "{note}. Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works."
-msgstr "{note}. Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works."
+msgid "{note} Playback still works."
+msgstr "{note} Playback still works."
 
 #: src/features/settings/Diagnostics.tsx
-msgid "{note}. Playback still works."
-msgstr "{note}. Playback still works."
-
-#: src/features/settings/Diagnostics.tsx
-msgid "{note}. Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction)."
-msgstr "{note}. Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction)."
+msgid "{note} Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction)."
+msgstr "{note} Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction)."
 
 #: src/features/playlist/Collaborators.tsx
 msgid "{others, plural, one {{lead} & # other} other {{lead} & # others}}"
@@ -368,6 +364,14 @@ msgstr "{total, plural, one {{out} of # song out now} other {{out} of # songs ou
 #: src/features/artist/ArtistPage.tsx
 msgid "{trackCount, plural, one {# song} other {# songs}}"
 msgstr "{trackCount, plural, one {# song} other {# songs}}"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "{via} allows no realtime priority."
+msgstr "{via} allows no realtime priority."
+
+#: src/features/settings/Diagnostics.tsx
+msgid "{via} refused it."
+msgstr "{via} refused it."
 
 #: src/shared/actions/ActionMenu.tsx
 msgid "{what} selected"
@@ -659,6 +663,10 @@ msgstr "Apple didn't accept that token. Copy a fresh one from a signed-in Apple 
 msgid "Apple Digital Master"
 msgstr "Apple Digital Master"
 
+#: src/shared/lib/errors.ts
+msgid "Apple doesn't offer this video in a format Sona can play."
+msgstr "Apple doesn't offer this video in a format Sona can play."
+
 #: src/features/auth/signin.ts
 msgid "Apple has locked the account or made it temporarily unavailable. Unlock it at iforgot.apple.com, or sign in with your browser."
 msgstr "Apple has locked the account or made it temporarily unavailable. Unlock it at iforgot.apple.com, or sign in with your browser."
@@ -721,10 +729,6 @@ msgstr "Apple Music has nothing more of this kind for the search."
 #: src/features/auth/AccountMenu.tsx
 msgid "Apple Music isn't accepting Sona's requests"
 msgstr "Apple Music isn't accepting Sona's requests"
-
-#: src/app/shell/StatusBanner.tsx
-msgid "Apple Music isn't accepting Sona's requests: {reason}"
-msgstr "Apple Music isn't accepting Sona's requests: {reason}"
 
 #: src/app/shell/StatusBanner.tsx
 msgid "Apple Music isn't accepting Sona's requests."
@@ -898,8 +902,13 @@ msgid "Audio quality"
 msgstr "Audio quality"
 
 #: src/features/settings/General.tsx
+#: src/features/settings/LanguageRow.tsx
 msgid "Automatic"
 msgstr "Automatic"
+
+#: src/features/settings/LanguageRow.tsx
+msgid "Automatic follows your Apple Music account and your system. Apple Music's own text, such as album notes, follows too where your country or region offers the language."
+msgstr "Automatic follows your Apple Music account and your system. Apple Music's own text, such as album notes, follows too where your country or region offers the language."
 
 #: src/features/settings/General.tsx
 msgid "Automatic leaves the title bar to {desktop}."
@@ -1328,6 +1337,10 @@ msgid "Couldn't check for updates"
 msgstr "Couldn't check for updates"
 
 #: src/features/settings/Updates.tsx
+msgid "Couldn't check GitHub for updates"
+msgstr "Couldn't check GitHub for updates"
+
+#: src/features/settings/Updates.tsx
 msgid "Couldn't check: {failure}"
 msgstr "Couldn't check: {failure}"
 
@@ -1685,10 +1698,6 @@ msgstr "Couldn't reach Apple Music · showing the copy from {when}"
 #: src/features/auth/Account.tsx
 msgid "Couldn't reach Apple to check the token. Check your connection and try again."
 msgstr "Couldn't reach Apple to check the token. Check your connection and try again."
-
-#: src/features/settings/Updates.tsx
-msgid "Couldn't reach GitHub: {error}"
-msgstr "Couldn't reach GitHub: {error}"
 
 #: src/features/onboarding/DesktopStep.tsx
 #: src/features/onboarding/PlaybackStep.tsx
@@ -2209,6 +2218,10 @@ msgctxt "keyboard key"
 msgid "Enter"
 msgstr "Enter"
 
+#: src/shared/lib/errors.ts
+msgid "Enter a name."
+msgstr "Enter a name."
+
 #: src/features/home/ItemRows.tsx
 msgid "Enter opens, Space plays, Shift+F10 shows more actions."
 msgstr "Enter opens, Space plays, Shift+F10 shows more actions."
@@ -2668,6 +2681,14 @@ msgstr "It also leaves any playlists it's in."
 msgid "It applies the next time playback starts."
 msgstr "It applies the next time playback starts."
 
+#: src/features/settings/Diagnostics.tsx
+msgid "It can open network connections."
+msgstr "It can open network connections."
+
+#: src/features/settings/Diagnostics.tsx
+msgid "It can read your keychain folder."
+msgstr "It can read your keychain folder."
+
 #: src/shared/lib/errors.ts
 msgid "It changed elsewhere since Sona read it. Reload and try again."
 msgstr "It changed elsewhere since Sona read it. Reload and try again."
@@ -2675,6 +2696,14 @@ msgstr "It changed elsewhere since Sona read it. Reload and try again."
 #: src/shared/lib/errors.ts
 msgid "It couldn't be found. It may have been removed."
 msgstr "It couldn't be found. It may have been removed."
+
+#: src/features/settings/Diagnostics.tsx
+msgid "It has no network or mount namespace of its own, because unprivileged user namespaces are blocked."
+msgstr "It has no network or mount namespace of its own, because unprivileged user namespaces are blocked."
+
+#: src/features/settings/Diagnostics.tsx
+msgid "It has no private view of the filesystem."
+msgstr "It has no private view of the filesystem."
 
 #: src/shared/components/DetailStates.tsx
 msgid "It isn't in your library on this computer, and Apple Music didn't return it. It may not be offered in your storefront, or it was removed."
@@ -2696,6 +2725,10 @@ msgstr "It's removed from your library on all your devices. The songs in it stay
 #: src/shared/items/ItemShelf.tsx
 msgid "Items"
 msgstr "Items"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Its seccomp filter isn't installed."
+msgstr "Its seccomp filter isn't installed."
 
 #: src/shared/lib/library-actions.ts
 msgid "Its songs leave your library and any playlists they're in."
@@ -2731,6 +2764,14 @@ msgstr "Keyboard shortcuts"
 #: src/features/search/groups.ts
 msgid "Labels"
 msgstr "Labels"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Landlock doesn't restrict its files."
+msgstr "Landlock doesn't restrict its files."
+
+#: src/features/settings/LanguageRow.tsx
+msgid "Language"
+msgstr "Language"
 
 #: src/features/settings/MotionDiagnostics.ts
 msgid "Last download"
@@ -2970,6 +3011,14 @@ msgstr "Lyrics, full screen"
 msgid "macOS Keychain"
 msgstr "macOS Keychain"
 
+#: src/features/settings/Diagnostics.tsx
+msgid "macOS's sandbox-exec is missing or didn't start."
+msgstr "macOS's sandbox-exec is missing or didn't start."
+
+#: src/features/settings/Diagnostics.tsx
+msgid "macOS's sandbox-exec refused Sona's profile."
+msgstr "macOS's sandbox-exec refused Sona's profile."
+
 #: src/features/library/index.ts
 #: src/features/library/views.tsx
 #: src/features/playlist/PlaylistPage.tsx
@@ -3155,8 +3204,8 @@ msgid "Navigation"
 msgstr "Navigation"
 
 #: src/features/settings/Diagnostics.tsx
-msgid "Neither RTKit nor the Realtime portal is available ({note}). {skips} Install and enable RTKit (rtkit) to fix this."
-msgstr "Neither RTKit nor the Realtime portal is available ({note}). {skips} Install and enable RTKit (rtkit) to fix this."
+msgid "Neither RTKit nor the Realtime portal is available. {skips} Install and enable RTKit (rtkit) to fix this."
+msgstr "Neither RTKit nor the Realtime portal is available. {skips} Install and enable RTKit (rtkit) to fix this."
 
 #: src/features/player/NowPlayingView.tsx
 #: src/features/settings/LyricsRows.tsx
@@ -3755,6 +3804,10 @@ msgstr "Password"
 msgid "Paste a Music User Token"
 msgstr "Paste a Music User Token"
 
+#: src/shared/lib/errors.ts
+msgid "Paste your user token first."
+msgstr "Paste your user token first."
+
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
 msgid "Pause"
@@ -3951,6 +4004,7 @@ msgstr "Playlist"
 #: src/features/search/groups.ts
 #: src/features/search/SearchPage.tsx
 #: src/features/settings/General.tsx
+#: src/shared/items/EditorialSections.tsx
 msgid "Playlists"
 msgstr "Playlists"
 
@@ -4227,8 +4281,12 @@ msgid "Realtime portal"
 msgstr "Realtime portal"
 
 #: src/features/settings/Diagnostics.tsx
-msgid "Realtime priority was refused: {note}."
-msgstr "Realtime priority was refused: {note}."
+msgid "Realtime priority was refused: {refusal}"
+msgstr "Realtime priority was refused: {refusal}"
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Realtime priority was refused."
+msgstr "Realtime priority was refused."
 
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "Recent"
@@ -4880,10 +4938,6 @@ msgstr "Sign out of Apple Music?"
 msgid "Sign-in didn't work"
 msgstr "Sign-in didn't work"
 
-#: src/features/auth/signin.ts
-msgid "Sign-in failed."
-msgstr "Sign-in failed."
-
 #: src/features/auth/Account.tsx
 msgid "Sign-in link copied"
 msgstr "Sign-in link copied"
@@ -5024,6 +5078,10 @@ msgstr "Sleep timer: stop in 30 minutes"
 msgid "Solid surfaces instead of artwork colour washes, and no animation. Smoother on software rendering."
 msgstr "Solid surfaces instead of artwork colour washes, and no animation. Smoother on software rendering."
 
+#: src/shared/lib/errors.ts
+msgid "Something went wrong."
+msgstr "Something went wrong."
+
 #: src/app/shell/TitleBarStart.tsx
 #: src/features/settings/Diagnostics.tsx
 msgid "Sona"
@@ -5071,9 +5129,17 @@ msgstr "Sona copies your Apple Music library to this computer after you sign in,
 msgid "Sona couldn't finish checking the downloaded Widevine. Try again."
 msgstr "Sona couldn't finish checking the downloaded Widevine. Try again."
 
+#: src/features/settings/Diagnostics.tsx
+msgid "Sona couldn't limit the host's realtime CPU time, which {via} requires."
+msgstr "Sona couldn't limit the host's realtime CPU time, which {via} requires."
+
 #: src/features/auth/Account.tsx
 msgid "Sona couldn't open a keyring, so it would keep your Apple Music token in a file only your user can read. Start or unlock GNOME Keyring or KWallet, then try again."
 msgstr "Sona couldn't open a keyring, so it would keep your Apple Music token in a file only your user can read. Start or unlock GNOME Keyring or KWallet, then try again."
+
+#: src/shared/lib/errors.ts
+msgid "Sona couldn't open your web browser. Open the link yourself."
+msgstr "Sona couldn't open your web browser. Open the link yourself."
 
 #: src/features/auth/Account.tsx
 msgid "Sona couldn't reach Apple to confirm your sign-in. It keeps using your saved token, and retries by itself."
@@ -5087,6 +5153,10 @@ msgstr "Sona couldn't reach Google's download server. Check your internet connec
 msgid "Sona couldn't reach the network. Check your connection and try again."
 msgstr "Sona couldn't reach the network. Check your connection and try again."
 
+#: src/shared/lib/errors.ts
+msgid "Sona couldn't read that file."
+msgstr "Sona couldn't read that file."
+
 #: src/features/auth/Account.tsx
 #: src/features/auth/AccountMenu.tsx
 msgid "Sona couldn't read your sign-in from your keyring"
@@ -5095,6 +5165,10 @@ msgstr "Sona couldn't read your sign-in from your keyring"
 #: src/app/shell/StatusBanner.tsx
 msgid "Sona couldn't read your sign-in from your keyring, so you're signed out."
 msgstr "Sona couldn't read your sign-in from your keyring, so you're signed out."
+
+#: src/shared/lib/errors.ts
+msgid "Sona couldn't save the file there."
+msgstr "Sona couldn't save the file there."
 
 #: src/features/cdm/messages.ts
 msgid "Sona couldn't save Widevine on this computer. Make sure there's free disk space, then try again."
@@ -5107,6 +5181,10 @@ msgstr "Sona couldn't save your sign-in"
 #: src/features/cdm/messages.ts
 msgid "Sona couldn't tell which version of Widevine to download. Try again later."
 msgstr "Sona couldn't tell which version of Widevine to download. Try again later."
+
+#: src/shared/lib/errors.ts
+msgid "Sona couldn't use the clipboard."
+msgstr "Sona couldn't use the clipboard."
 
 #: src/features/settings/Connections.tsx
 msgid "Sona discards them and removes its sign-in from your keyring."
@@ -5167,6 +5245,10 @@ msgstr "Sona refetches its developer token by itself; if this persists, Apple ch
 #: src/features/auth/Account.tsx
 msgid "Sona removes your token from the keyring, stops playback and deletes the copy of your library on this computer. Your Apple Music library itself isn't changed."
 msgstr "Sona removes your token from the keyring, stops playback and deletes the copy of your library on this computer. Your Apple Music library itself isn't changed."
+
+#: src/shared/lib/errors.ts
+msgid "Sona signed out, but couldn't remove everything it saved. Unlock your keyring, then sign out again."
+msgstr "Sona signed out, but couldn't remove everything it saved. Unlock your keyring, then sign out again."
 
 #: src/features/auth/Account.tsx
 msgid "Sona talks to Apple directly. Your password is used once and never saved."
@@ -5501,6 +5583,22 @@ msgid "That code isn't right"
 msgstr "That code isn't right"
 
 #: src/shared/lib/errors.ts
+msgid "That file has a setting Sona can't use, so nothing changed."
+msgstr "That file has a setting Sona can't use, so nothing changed."
+
+#: src/shared/lib/errors.ts
+msgid "That file isn't a Sona settings export."
+msgstr "That file isn't a Sona settings export."
+
+#: src/shared/lib/errors.ts
+msgid "That file was exported by a newer version of Sona. Update Sona, then import it."
+msgstr "That file was exported by a newer version of Sona. Update Sona, then import it."
+
+#: src/shared/lib/errors.ts
+msgid "That isn't an Apple Music link."
+msgstr "That isn't an Apple Music link."
+
+#: src/shared/lib/errors.ts
 msgid "That isn't available on this platform."
 msgstr "That isn't available on this platform."
 
@@ -5568,6 +5666,10 @@ msgstr "The email address or phone number you use with Apple."
 msgid "The empty folder is removed on all your devices."
 msgstr "The empty folder is removed on all your devices."
 
+#: src/shared/lib/errors.ts
+msgid "The folder isn't empty. Move or delete what's in it first."
+msgstr "The folder isn't empty. Move or delete what's in it first."
+
 #: src/features/settings/Connections.tsx
 msgid "The Last.fm approval expired before it was confirmed. Connect again to get a new one."
 msgstr "The Last.fm approval expired before it was confirmed. Connect again to get a new one."
@@ -5575,6 +5677,10 @@ msgstr "The Last.fm approval expired before it was confirmed. Connect again to g
 #: src/features/equalizer/EqualizerPage.tsx
 msgid "The level drops {drop} dB ahead of the bands, so the largest boost cannot clip. Preamp lowers it further."
 msgstr "The level drops {drop} dB ahead of the bands, so the largest boost cannot clip. Preamp lowers it further."
+
+#: src/features/settings/Diagnostics.tsx
+msgid "The macOS sandbox is turned off ({SEATBELT_OFF})."
+msgstr "The macOS sandbox is turned off ({SEATBELT_OFF})."
 
 #: src/features/settings/AudioRows.tsx
 msgid "The output Sona was set to isn't connected; it plays to the system default until it's back."
@@ -5737,6 +5843,10 @@ msgstr "This song isn't available to stream in your storefront."
 #: src/shared/lib/errors.ts
 msgid "This song isn't out yet. It plays from its release date."
 msgstr "This song isn't out yet. It plays from its release date."
+
+#: src/shared/items/station.ts
+msgid "This stream isn't offered with Widevine, the only protection Sona can play."
+msgstr "This stream isn't offered with Widevine, the only protection Sona can play."
 
 #: src/features/radio/StationPage.tsx
 msgid "Time through this programme"
@@ -5952,8 +6062,8 @@ msgid "Updates"
 msgstr "Updates"
 
 #: src/features/settings/MotionDiagnostics.ts
-msgid "UPower didn't answer ({error})."
-msgstr "UPower didn't answer ({error})."
+msgid "UPower didn't answer. Sona's log says why."
+msgstr "UPower didn't answer. Sona's log says why."
 
 #: src/features/settings/MotionDiagnostics.ts
 msgid "UPower itself reports mains power; Sona decides from the power devices instead."
@@ -6359,6 +6469,10 @@ msgstr "Your playlists appear here."
 #: src/features/library/gate.tsx
 msgid "Your recent additions appear here as Sona copies them from Apple Music. Large libraries take a minute or two the first time."
 msgstr "Your recent additions appear here as Sona copies them from Apple Music. Large libraries take a minute or two the first time."
+
+#: src/shared/lib/errors.ts
+msgid "Your saved sign-in couldn't be read, so Sona removed it. Sign in again."
+msgstr "Your saved sign-in couldn't be read, so Sona removed it. Sign in again."
 
 #: src/features/settings/Connections.tsx
 msgid "Your scrobbler sign-ins are stored unencrypted"

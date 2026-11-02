@@ -1,6 +1,7 @@
 import { plural, t } from "@lingui/core/macro";
 import type { MotionReport, MotionStatus, PowerState } from "@bindings/services";
 
+import { codeMessage } from "@/shared/lib/errors";
 import { formatBytes, relativeTime } from "@/shared/lib/format";
 import type { MotionAttempt, MotionState } from "@/shared/lib/motion";
 
@@ -24,13 +25,12 @@ function powerRow(p: PowerState | null): Row {
   const label = t`Power`;
   if (!p) return { label, value: t`Checking…` };
   if (!p.followed) {
-    const error = p.error;
-    return error
+    return p.unreadable
       ? {
           label,
           value: t`Unknown: counted as mains power`,
           status: "warning",
-          detail: t`UPower didn't answer (${error}).`,
+          detail: t`UPower didn't answer. Sona's log says why.`,
         }
       : { label, value: t`Not followed on this platform: counted as mains power` };
   }
@@ -102,7 +102,7 @@ function lastDownload(s: MotionStatus | undefined): Row {
       label,
       value: t`Failed · ${when}`,
       status: "warning",
-      detail: l.rendition ? `${l.rendition}: ${l.error}` : l.error,
+      detail: l.rendition ? `${l.rendition}: ${codeMessage(l.error)}` : codeMessage(l.error),
     };
   return { label, value: `${l.rendition} · ${when}`, status: "ok" };
 }

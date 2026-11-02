@@ -104,8 +104,7 @@ func (s *DiscoverService) timezone() string { return s.e.Now().Format("-07:00") 
 
 // homeEntry reads the cached Home response.
 func (s *DiscoverService) homeEntry(ctx context.Context) (applemusic.MapResponse, int64, bool, error) {
-	sf := s.e.Storefront()
-	row, err := s.e.DB.RQ.GetDiscoverCache(ctx, sf+"|"+homeKey)
+	row, err := s.e.DB.RQ.GetDiscoverCache(ctx, s.e.cacheScope(s.e.Storefront())+"|"+homeKey)
 	if errors.Is(err, sql.ErrNoRows) {
 		return applemusic.MapResponse{}, 0, false, nil
 	}
@@ -160,7 +159,8 @@ func (s *DiscoverService) RefreshHome(ctx context.Context) (HomePage, error) {
 }
 
 func (s *DiscoverService) putHome(ctx context.Context, r applemusic.MapResponse, now time.Time) {
-	putPage(ctx, s.e, s.e.Storefront()+"|"+homeKey, s.e.Storefront(), true, r, now, 0,
+	sf := s.e.Storefront()
+	putPage(ctx, s.e, s.e.cacheScope(sf)+"|"+homeKey, sf, true, r, now, 0,
 		func(r applemusic.MapResponse, now time.Time) time.Time { return homeExpiry(r, now) })
 }
 
@@ -386,7 +386,7 @@ func (s *DiscoverService) Curator(ctx context.Context, id string) (EditorialPage
 		}
 	}
 	if pls := s.m.items(r.Resources, c.Rel("playlists")); len(pls) > 0 && !hasPlaylistShelf(p.Sections) {
-		p.Sections = append(p.Sections, Section{ID: c.ID + "-playlists", Kind: SectionShelf, Title: "Playlists", Items: pls})
+		p.Sections = append(p.Sections, Section{ID: c.ID + "-playlists", Kind: SectionPlaylists, Items: pls})
 	}
 	return p, nil
 }

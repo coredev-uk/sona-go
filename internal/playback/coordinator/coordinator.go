@@ -136,7 +136,7 @@ type Coordinator struct {
 	volume       float64
 	volumeDirty  bool // restored volume not yet applied to the engine
 	failures     int
-	lastErr      string
+	lastErr      error
 	auth         bool
 	noCDM        bool          // the engine had no CDM ready (playback.ErrNoCDM)
 	playedFor    time.Duration // listening time of the current item, excluding the running stretch
@@ -290,7 +290,7 @@ func (c *Coordinator) Snapshot() Snapshot {
 		Queue:          make([]Entry, len(c.queue)),
 		QueueVersion:   c.queueVersion,
 		History:        slices.Clone(c.history),
-		Error:          c.lastErr,
+		Cause:          c.lastErr,
 		AuthRequired:   c.auth,
 		NoCDM:          c.noCDM,
 		Preview:        c.index >= 0 && c.st.Preview,
@@ -314,7 +314,9 @@ func (c *Coordinator) Snapshot() Snapshot {
 		cur := s.Queue[c.index]
 		s.Current = &cur
 	}
-	if s.Error == "" && c.st.State == playback.StateError {
+	if c.lastErr != nil {
+		s.Error = c.lastErr.Error()
+	} else if c.st.State == playback.StateError {
 		s.Error = c.st.Err
 	}
 	return s
@@ -353,7 +355,7 @@ func (c *Coordinator) SetQueue(ctx context.Context, items []Item, start int, lab
 		c.original = nil
 	}
 	c.queue, c.index, c.label = q, -1, label
-	c.failures, c.lastErr = 0, ""
+	c.failures, c.lastErr = 0, nil
 	c.dropStationLocked()
 	c.queueChangedLocked()
 	c.mu.Unlock()
@@ -573,7 +575,7 @@ func (c *Coordinator) Jump(ctx context.Context, index int) error {
 		return fmt.Errorf("coordinator: index %d out of range", index)
 	}
 	fx := c.finalizeLocked(false, EndSelected)
-	c.failures, c.lastErr = 0, ""
+	c.failures, c.lastErr = 0, nil
 	c.mu.Unlock()
 	run(fx)
 	return c.start(ctx, index, 0, true)
@@ -606,7 +608,7 @@ func (c *Coordinator) Next(ctx context.Context) error {
 		run(fx)
 		return c.stopEngine(ctx, loaded)
 	}
-	c.failures, c.lastErr = 0, ""
+	c.failures, c.lastErr = 0, nil
 	c.mu.Unlock()
 	run(fx)
 	return c.start(ctx, next, 0, true)
@@ -629,7 +631,7 @@ func (c *Coordinator) Previous(ctx context.Context) error {
 	}
 	if c.positionLocked(time.Now()) <= RestartThreshold && prev >= 0 && prev != c.index {
 		fx := c.finalizeLocked(false, EndSkipBackward)
-		c.failures, c.lastErr = 0, ""
+		c.failures, c.lastErr = 0, nil
 		c.mu.Unlock()
 		run(fx)
 		return c.start(ctx, prev, 0, true)
@@ -657,7 +659,7 @@ func (c *Coordinator) restartLocked(ctx context.Context) error {
 		return nil
 	default:
 		idx := c.index
-		c.failures, c.lastErr = 0, ""
+		c.failures, c.lastErr = 0, nil
 		c.mu.Unlock()
 		return c.start(ctx, idx, 0, true)
 	}
@@ -694,7 +696,7 @@ func (c *Coordinator) Resume(ctx context.Context) error {
 		return nil
 	}
 	if c.index < 0 {
-		c.failures, c.lastErr = 0, ""
+		c.failures, c.lastErr = 0, nil
 		c.mu.Unlock()
 		return c.start(ctx, 0, 0, true)
 	}
@@ -716,7 +718,7 @@ func (c *Coordinator) Resume(ctx context.Context) error {
 		c.mu.Unlock()
 		return c.start(ctx, idx, pos, false)
 	default: // ended, error, idle
-		c.failures, c.lastErr = 0, ""
+		c.failures, c.lastErr = 0, nil
 		c.mu.Unlock()
 		return c.start(ctx, idx, 0, true)
 	}
@@ -975,8 +977,7 @@ func (c *Coordinator) handle(ev playback.Event) {
 			c.log.Warn("coordinator: pause after auth failure", "err", err)
 		}
 	case ev.Kind == playback.EventError || ev.Status.State == playback.StateError:
-		msg := cmp.Or(ev.Status.Err, "playback failed")
-		next, ok, fx := c.failLocked(msg)
+		next, ok, fx := c.failLocked(errors.New(cmp.Or(ev.Status.Err, "playback failed")))
 		c.mu.Unlock()
 		c.notify()
 		run(fx)
@@ -1074,7 +1075,7 @@ func (c *Coordinator) start(ctx context.Context, i int, pos time.Duration, fresh
 			// Explicit content is restricted: play the next allowed item.
 			next, ok := c.followingLocked(i, false)
 			if !ok {
-				c.lastErr = ErrRestricted.Error()
+				c.lastErr = ErrRestricted
 				c.mu.Unlock()
 				c.notify()
 				return ErrRestricted
@@ -1125,15 +1126,15 @@ func (c *Coordinator) start(ctx context.Context, i int, pos time.Duration, fresh
 		case errors.Is(err, playback.ErrUnsupported), errors.Is(err, playback.ErrNoCDM):
 			// Nothing can play here (or not yet: the CDM is still on its
 			// way): keep the item, say why, count nothing.
-			c.lastErr = err.Error()
+			c.lastErr = err
 			c.noCDM = errors.Is(err, playback.ErrNoCDM)
 			c.setStateLocked(playback.StatePaused)
-			c.st.Err = c.lastErr
+			c.st.Err = err.Error()
 			c.mu.Unlock()
 			c.notify()
 			return fmt.Errorf("coordinator: play: %w", err)
 		}
-		next, ok, fx := c.failLocked(err.Error())
+		next, ok, fx := c.failLocked(err)
 		c.mu.Unlock()
 		c.notify()
 		run(fx)
@@ -1147,15 +1148,15 @@ func (c *Coordinator) start(ctx context.Context, i int, pos time.Duration, fresh
 
 // failLocked records a failure of the current item and returns the item
 // to try next, or ok=false when playback stops.
-func (c *Coordinator) failLocked(msg string) (next int, ok bool, fx func()) {
+func (c *Coordinator) failLocked(err error) (next int, ok bool, fx func()) {
 	c.failures++
-	c.lastErr = msg
+	c.lastErr = err
 	fx = c.finalizeLocked(false, EndFailed)
-	c.st.Err = msg
+	c.st.Err = err.Error()
 	c.setStateLocked(playback.StateError)
 	c.loaded = false
 	if c.failures >= c.maxFail {
-		c.lastErr = fmt.Sprintf("playback stopped after %d failed items: %s", c.failures, msg)
+		c.lastErr = fmt.Errorf("playback stopped after %d failed items: %w", c.failures, err)
 		return -1, false, fx
 	}
 	next, ok = c.nextIndexLocked(false)
@@ -1183,7 +1184,7 @@ func (c *Coordinator) resetLocked() {
 	c.st = playback.Status{State: playback.StateIdle, Volume: c.volume, UpdatedAt: time.Now()}
 	c.loaded, c.auth, c.noCDM, c.preloaded = false, false, false, 0
 	c.playedFor, c.playingSince = 0, time.Time{}
-	c.failures, c.lastErr = 0, ""
+	c.failures, c.lastErr = 0, nil
 	c.aheadLocked()
 	c.schedulePreloadLocked()
 }
@@ -1213,7 +1214,7 @@ func (c *Coordinator) applyLocked(s playback.Status) {
 		c.playingSince = now
 	}
 	if s.State == playback.StatePlaying {
-		c.failures, c.lastErr = 0, ""
+		c.failures, c.lastErr = 0, nil
 	}
 	// Loading (buffering, seeking) keeps a listen open; only a real stop
 	// ends it. A preview is not a listen: no observer hears of it.
@@ -1421,7 +1422,7 @@ func (c *Coordinator) PlayStation(ctx context.Context, st Station) error {
 		c.original = uids(q)
 	}
 	c.queue, c.index, c.label = q, -1, st.ID
-	c.failures, c.lastErr = 0, ""
+	c.failures, c.lastErr = 0, nil
 	c.dropStationLocked()
 	st.AutoPlay = false
 	c.station = &st

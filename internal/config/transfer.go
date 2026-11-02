@@ -51,6 +51,7 @@ func keepLocal(dst *Settings, src Settings) {
 var (
 	ErrNotExport   = errors.New("this file isn't a Sona settings export")
 	ErrNewerExport = errors.New("this file was exported by a newer version of Sona")
+	ErrBadValue    = errors.New("this file has a value that isn't valid")
 )
 
 type exportDoc struct {
@@ -113,7 +114,7 @@ func ParseExport(data []byte) (Import, error) {
 	probe := Defaults()
 	if err := json.Unmarshal(doc.Settings, &probe); err != nil {
 		if te, ok := errors.AsType[*json.UnmarshalTypeError](err); ok && te.Field != "" {
-			return Import{}, fmt.Errorf("this file's value for %s isn't valid", te.Field)
+			return Import{}, fmt.Errorf("%w: %s", ErrBadValue, te.Field)
 		}
 		return Import{}, ErrNotExport
 	}

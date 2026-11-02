@@ -351,7 +351,7 @@ func (s *CatalogService) MusicVideo(ctx context.Context, id string) (CatalogVide
 // system browser, e.g. a music video Sona cannot play.
 func (s *CatalogService) OpenInAppleMusic(url string) error {
 	if !strings.HasPrefix(url, "https://music.apple.com/") {
-		return fmt.Errorf("%w: not an Apple Music link", ErrInvalidArgument)
+		return ErrNotAppleMusicLink
 	}
 	return s.e.OpenURL(url)
 }

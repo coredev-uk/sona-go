@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 
 import { useCdm } from "@/features/cdm";
-import { SettingsPanel } from "@/features/settings";
+import { LanguagePanel, SettingsPanel } from "@/features/settings";
 import { SonaMark } from "@/shared/brand/SonaMark";
 import { useCapabilities } from "@/shared/lib/capabilities";
 
@@ -10,7 +10,8 @@ import { widevineShort } from "./status";
 import { widevineView } from "./steps";
 
 /**
- * The first step: what Sona is, and the two things whole songs need, the
+ * The first step: the language (once there is a choice, as in Settings →
+ * General), what Sona is, and the two things whole songs need, the
  * download's state included (it is already running), so nothing about
  * playback is a surprise later.
  */
@@ -30,6 +31,7 @@ export function WelcomeStep() {
           Settings.
         </Trans>
       </StepHeader>
+      <LanguagePanel className="mb-6" />
       <section aria-labelledby="setup-needs" className="flex flex-col gap-2">
         <h2 id="setup-needs" className="text-ui font-semibold text-ink">
           <Trans>What whole songs need</Trans>

@@ -5,6 +5,8 @@ import (
 	"io"
 	"regexp"
 	"strings"
+
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 )
 
 // code is `text` in a message: a command or file name, set in bold.
@@ -22,30 +24,31 @@ func roff(text string) string {
 }
 
 // writeMan prints the manual page, sona(1), in roff, for Sona version.
-func writeMan(w io.Writer, version string) error {
+func writeMan(w io.Writer, p *l10n.Printer, version string) error {
 	var b strings.Builder
 	line := func(format string, args ...any) { fmt.Fprintf(&b, format+"\n", args...) }
-	section := func(title string) { line(".SH %s", strings.ToUpper(roff(title))) }
+	text := func(m l10n.Message) { line("%s", roff(p.T(m))) }
+	section := func(title l10n.Message) { line(".SH %s", strings.ToUpper(roff(p.T(title)))) }
 
 	line(`.TH SONA 1 "" "Sona %s" "User Commands"`, roff(version))
-	section("Name")
-	line(`sona \- %s`, roff(msgManName))
-	section("Synopsis")
+	section(msgManNameSection)
+	line(`sona \- %s`, roff(p.T(msgManName)))
+	section(msgManSynopsis)
 	line(".nf")
-	for _, s := range []string{msgLaunchLine, msgUsageLine, msgVersionLine} {
+	for _, s := range []string{launchLine, usageLine, versionLine} {
 		line("%s", roff(s))
 	}
 	line(".fi")
-	section("Description")
-	line("%s", roff(msgManDescription))
+	section(msgManDescriptionSection)
+	text(msgManDescription)
 	section(msgManLaunch)
-	line("%s", roff(msgManLaunchText))
+	text(msgManLaunchText)
 
 	section(msgCommands)
 	for _, c := range commands {
 		line(".TP")
 		line(`.B "%s"`, roff("sona "+c.synopsis()))
-		line("%s", roff(c.help))
+		text(c.help)
 		if c.args == "" && len(c.flags) == 0 {
 			continue
 		}
@@ -53,32 +56,32 @@ func writeMan(w io.Writer, version string) error {
 		if c.args != "" {
 			line(".TP")
 			line(`.I "%s"`, roff(c.args))
-			line("%s", roff(c.argHelp))
+			text(c.argHelp)
 		}
 		for _, f := range c.flags {
 			line(".TP")
 			line(`.B "%s"`, roff(f.synopsis()))
-			line("%s", roff(f.text()))
+			line("%s", roff(f.text(p)))
 		}
 		line(".RE")
 	}
 	line(".PP")
-	line("%s", roff(`-h, --help`)+" "+roff(msgFlagHelp))
+	line("%s", roff(`-h, --help`)+" "+roff(p.T(msgFlagHelp)))
 
 	section(msgManJSON)
-	line("%s", roff(msgManJSONText))
+	text(msgManJSONText)
 	section(msgManFormat)
-	line("%s", roff(msgManFormatText))
+	text(msgManFormatText)
 	section(msgExitStatus)
 	for _, e := range exitStatuses {
 		line(".TP")
 		line(".B %d", e.code)
-		line("%s", roff(e.text))
+		text(e.text)
 	}
 	section(msgManFiles)
-	line("%s", roff(msgManFilesText))
+	line("%s", roff(p.Sprintf(msgManFilesText, stateDirMac, stateDirWindows)))
 	section(msgManSeeAlso)
-	line("%s", roff(msgManSeeAlsoText))
+	line("%s", roff(seeAlsoURL))
 	_, err := io.WriteString(w, b.String())
 	return err
 }

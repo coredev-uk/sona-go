@@ -117,7 +117,7 @@ func (q *Queries) FinishSync(ctx context.Context, arg FinishSyncParams) error {
 
 const getAccount = `-- name: GetAccount :one
 
-SELECT id, storefront, language, restricted, mut_obtained_at, mut_last_validated_at, updated_at FROM accounts WHERE id = 1
+SELECT id, storefront, language, restricted, mut_obtained_at, mut_last_validated_at, updated_at, languages FROM accounts WHERE id = 1
 `
 
 // Account, sync checkpoints, ratings mirror, pins and playback history.
@@ -132,6 +132,7 @@ func (q *Queries) GetAccount(ctx context.Context) (Account, error) {
 		&i.MutObtainedAt,
 		&i.MutLastValidatedAt,
 		&i.UpdatedAt,
+		&i.Languages,
 	)
 	return i, err
 }
@@ -515,11 +516,12 @@ func (q *Queries) TrimHistory(ctx context.Context, playedAt int64) (int64, error
 }
 
 const upsertAccount = `-- name: UpsertAccount :exec
-INSERT INTO accounts (id, storefront, language, restricted, mut_obtained_at, mut_last_validated_at, updated_at)
-VALUES (1, ?, ?, ?, ?, ?, ?)
+INSERT INTO accounts (id, storefront, language, languages, restricted, mut_obtained_at, mut_last_validated_at, updated_at)
+VALUES (1, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (id) DO UPDATE SET
     storefront = excluded.storefront,
     language = excluded.language,
+    languages = excluded.languages,
     restricted = excluded.restricted,
     mut_obtained_at = coalesce(excluded.mut_obtained_at, accounts.mut_obtained_at),
     mut_last_validated_at = coalesce(excluded.mut_last_validated_at, accounts.mut_last_validated_at),
@@ -529,6 +531,7 @@ ON CONFLICT (id) DO UPDATE SET
 type UpsertAccountParams struct {
 	Storefront         string
 	Language           string
+	Languages          string
 	Restricted         int64
 	MutObtainedAt      sql.NullInt64
 	MutLastValidatedAt sql.NullInt64
@@ -539,6 +542,7 @@ func (q *Queries) UpsertAccount(ctx context.Context, arg UpsertAccountParams) er
 	_, err := q.db.ExecContext(ctx, upsertAccount,
 		arg.Storefront,
 		arg.Language,
+		arg.Languages,
 		arg.Restricted,
 		arg.MutObtainedAt,
 		arg.MutLastValidatedAt,

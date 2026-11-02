@@ -5,16 +5,17 @@
 // ends share. The transports (D-Bus on Linux, a local socket elsewhere)
 // are internal/app's; the running Sona's side is internal/services'.
 //
-// This package imports nothing of Sona's, so every other package may use
-// its types.
+// This package imports nothing of Sona's but Go's message catalogue
+// (internal/i18n/l10n), so every other package may use its types.
 package cli
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"sync"
+
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 )
 
 // Request is one command sent to the running Sona. Args are the command's
@@ -37,10 +38,15 @@ type Reply struct {
 }
 
 // Error is a command that failed in the running Sona: a stable Code (the
-// client prints its own text for the codes it knows) and Sona's message.
+// client prints its own text for the codes it knows) and Sona's message,
+// in English. An Error made here (Usage) also keeps its message's format
+// and arguments, so the client words it in the user's language.
 type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"message,omitempty"`
+
+	format l10n.Message
+	args   []any
 }
 
 func (e *Error) Error() string {
@@ -77,9 +83,9 @@ const (
 	CodeFailed = "failed"
 )
 
-// Usage returns a CodeUsage error with msg.
-func Usage(format string, args ...any) *Error {
-	return &Error{Code: CodeUsage, Message: fmt.Sprintf(format, args...)}
+// Usage returns a CodeUsage error with the message format and args.
+func Usage(format l10n.Message, args ...any) *Error {
+	return &Error{Code: CodeUsage, Message: l10n.English.Sprintf(format, args...), format: format, args: args}
 }
 
 // ErrNotRunning is returned by a Transport (or its dialler) when no Sona

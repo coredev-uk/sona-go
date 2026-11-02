@@ -32,7 +32,29 @@ type Sandbox struct {
 	// SecretsHidden: the child could not list ~/Library/Keychains, which
 	// the profile hides along with Sona's folder, ~/.ssh and ~/.gnupg.
 	SecretsHidden bool
-	Reason        string // why a layer is missing; "" when Active
+	Reason        string // why a layer is missing, for the log; "" when Active
+	// Unconfined is why the child runs without sandbox-exec ("" when it
+	// runs under it); the parent sets it.
+	Unconfined playback.SandboxGap
+}
+
+// Gaps are the missing layers (Diagnostics), or why the child runs
+// unconfined.
+func (s Sandbox) Gaps() []playback.SandboxGap {
+	if !s.Seatbelt {
+		if s.Unconfined == "" {
+			return []playback.SandboxGap{playback.SandboxGapNoSeatbelt}
+		}
+		return []playback.SandboxGap{s.Unconfined}
+	}
+	var gaps []playback.SandboxGap
+	if !s.InetDenied {
+		gaps = append(gaps, playback.SandboxGapNetwork)
+	}
+	if !s.SecretsHidden {
+		gaps = append(gaps, playback.SandboxGapKeychain)
+	}
+	return gaps
 }
 
 // Active reports whether the child runs under the profile and its
@@ -70,8 +92,10 @@ var sandboxEnv = []string{envSeatbeltChild}
 const sandboxExec = "/usr/bin/sandbox-exec"
 
 // parentSandbox is the parent's part of the sandbox: why the child runs
-// unconfined ("" when it runs under sandbox-exec).
+// unconfined (gap; reason in the system's words, for the log), "" when it
+// runs under sandbox-exec.
 type parentSandbox struct {
+	gap    playback.SandboxGap
 	reason string
 }
 
@@ -79,10 +103,10 @@ type parentSandbox struct {
 // process run unconfined: decided once, on the first spawn
 // (seatbeltChoice), with a probe of sandbox-exec running /usr/bin/true
 // under the profile.
-var seatbelt = sync.OnceValues(func() (paths seatbeltPaths, reason string) {
-	paths = darwinSeatbeltPaths()
+var seatbelt = sync.OnceValues(func() (seatbeltPaths, parentSandbox) {
+	paths := darwinSeatbeltPaths()
 	_, lookErr := os.Stat(sandboxExec)
-	use, reason := seatbeltChoice(os.Getenv(EnvSeatbelt) == "0", lookErr, func() error {
+	gap, reason := seatbeltChoice(os.Getenv(EnvSeatbelt) == "0", lookErr, func() error {
 		out, err := exec.Command(sandboxExec, "-p", seatbeltProfile(paths), "/usr/bin/true").CombinedOutput()
 		if err != nil {
 			if line, _, _ := strings.Cut(strings.TrimSpace(string(out)), "\n"); line != "" {
@@ -91,18 +115,18 @@ var seatbelt = sync.OnceValues(func() (paths seatbeltPaths, reason string) {
 		}
 		return err
 	})
-	if !use {
-		return seatbeltPaths{}, reason
+	if gap != "" {
+		return seatbeltPaths{}, parentSandbox{gap: gap, reason: reason}
 	}
-	return paths, ""
+	return paths, parentSandbox{}
 })
 
 // startSandboxed starts the child under sandbox-exec with Sona's profile,
 // which also lets it read the CDM library's folder (envCDMDir in env), or
 // unconfined when the sandbox is unavailable (parentSandbox.reason).
 func startSandboxed(exe string, env []string, log *slog.Logger) (proc, parentSandbox, error) {
-	paths, reason := seatbelt()
-	if reason == "" {
+	paths, ps := seatbelt()
+	if ps.gap == "" {
 		paths.Readable = nil
 		for _, kv := range env {
 			if d, ok := strings.CutPrefix(kv, envCDMDir+"="); ok && filepath.IsAbs(d) {
@@ -116,15 +140,16 @@ func startSandboxed(exe string, env []string, log *slog.Logger) (proc, parentSan
 		if err == nil {
 			return p, parentSandbox{}, nil
 		}
-		reason = "no macOS sandbox: sandbox-exec did not start: " + err.Error()
+		ps = parentSandbox{gap: playback.SandboxGapNoSeatbelt, reason: "no macOS sandbox: sandbox-exec did not start: " + err.Error()}
 	}
-	log.Warn("cdmhost: starting the playback host without the macOS sandbox", "reason", reason)
+	log.Warn("cdmhost: starting the playback host without the macOS sandbox", "reason", ps.reason)
 	p, err := startChild([]string{exe}, env, nil)
-	return p, parentSandbox{reason: reason}, err
+	return p, ps, err
 }
 
 // withParent adds the parent's reason for an unconfined child.
 func (s Sandbox) withParent(ps parentSandbox) Sandbox {
+	s.Unconfined = ps.gap
 	if ps.reason != "" {
 		if s.Reason != "" {
 			s.Reason = ps.reason + "; " + s.Reason

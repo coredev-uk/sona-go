@@ -1,4 +1,5 @@
 import type { SecondFactor } from "@bindings/services";
+import { ErrorCode } from "@bindings/services/models";
 import { describe, expect, it } from "vitest";
 
 import { callFailure } from "@/shared/lib/errors";
@@ -49,38 +50,36 @@ describe("classifySignInError", () => {
     expect(callFailure(err).message).not.toBe("This Apple Account has been locked.");
   });
 
-  it("falls back to Go's error text", () => {
-    const cases: [string, string][] = [
-      ["appleid: Your Apple Account or password was incorrect. (-20101)", "invalid_credentials"],
-      ["appleid: incorrect verification code", "incorrect_code"],
-      ["appleid: This Apple Account has been locked. (-20209)", "locked"],
-      ["appleid: the account needs attention at account.apple.com", "action_required"],
-      ["appleid: Apple Music subscription required", "no_subscription"],
-      ["appleid: Apple Music is not available in this account's country", "unsupported_country"],
-      ["appleid: this account's two-factor method is not supported here", "unsupported_2fa"],
-      ["appleid: sign-in step called out of order", "out_of_order"],
-      ["auth: sign-in timed out", "timeout"],
-      ["auth: keyring unavailable: no answer", "keyring"],
-      ['Post "https://idmsa.apple.com": dial tcp: lookup idmsa.apple.com: no such host', "network"],
-      ["something else", "unknown"],
-    ];
-    for (const [message, code] of cases) {
-      expect(classifySignInError(new Error(message)).code, message).toBe(code);
-    }
+  it("classifies by code, never by Go's text", () => {
+    expect(classifySignInError(new Error("auth: sign-in timed out")).code).toBe("unknown");
+    expect(classifySignInError(undefined, ErrorCode.CodeTimeout).code).toBe("timeout");
+    const other = classifySignInError({
+      cause: { code: "dev_token_rejected", message: "auth: x" },
+    });
+    expect(other.code).toBe("unknown");
+    expect(other.message).toBe(callFailure({ cause: { code: "dev_token_rejected" } }).message);
   });
 
-  it("strips the Go package prefix from the message", () => {
-    expect(classifySignInError("appleid: Too many codes requested.").message).toBe(
-      "Too many codes requested.",
+  it("shows Apple's own message for a sign-in code Sona doesn't map", () => {
+    const french = "Ce compte Apple est désactivé.";
+    const fromCall = classifySignInError({
+      cause: { code: "unknown", message: "appleid: x (-99999)", appleMessage: french },
+    });
+    expect(fromCall).toEqual({ code: "unknown", message: french });
+    expect(errorCopy(fromCall).detail).toBe(french);
+    expect(classifySignInError(undefined, ErrorCode.CodeUnknown, french).message).toBe(french);
+    // A code Sona words keeps its own wording; Go's text never shows.
+    expect(classifySignInError(undefined, ErrorCode.CodeLocked, french).message).not.toBe(french);
+    expect(classifySignInError({ cause: { code: "unknown", message: "x" } }).message).toBe(
+      "Something went wrong.",
     );
   });
 
   it("gives every code a title and a next step", () => {
-    const unknown = classifySignInError("Too many codes requested.");
-    expect(errorCopy(unknown)).toMatchObject({
-      detail: "Too many codes requested.",
-      next: "retry",
+    const unknown = classifySignInError({
+      cause: { code: "unknown", message: "Too many codes requested." },
     });
+    expect(errorCopy(unknown)).toMatchObject({ detail: "Something went wrong.", next: "retry" });
     expect(errorCopy({ code: "locked", message: "" }).next).toBe("browser");
     expect(errorCopy({ code: "unsupported_2fa", message: "" }).next).toBe("browser");
     expect(errorCopy({ code: "action_required", message: "" }).next).toBe("account-site");
@@ -209,7 +208,7 @@ describe("signInReducer", () => {
     // Go dropped the attempt: back to the form with the reason.
     const dropped = run([
       { type: "second-factor", factor: device },
-      { type: "status", state: "signed_out", lastError: "auth: sign-in timed out" },
+      { type: "status", state: "signed_out", lastErrorCode: ErrorCode.CodeTimeout },
     ]);
     expect(dropped).toMatchObject({ kind: "credentials", error: { code: "timeout" } });
     // Minted: done.

@@ -11,6 +11,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/desktop/notify"
 	"github.com/coredev-uk/sona-go/internal/discord"
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
@@ -28,6 +29,14 @@ const (
 	presenceRetry = 30 * time.Second
 
 	actionNext = "next"
+)
+
+// Go's own text in the integrations, in the user's language
+// (Deps.Language).
+const (
+	msgShowSona      l10n.Message = "Show Sona"     // a track notification's button: brings the window back
+	msgNextSong      l10n.Message = "Next"          // a track notification's button: plays the next song
+	msgInhibitReason l10n.Message = "Playing music" // why Sona keeps the computer from sleeping (the system's inhibitor list)
 )
 
 // IntegrationsService drives the desktop integrations from playback:
@@ -127,7 +136,7 @@ func (s *IntegrationsService) run() {
 
 	var inh SleepInhibitor
 	if s.e.Platform.Inhibitor != nil {
-		inh = s.e.Platform.Inhibitor()
+		inh = s.e.Platform.Inhibitor(func() string { return s.e.Language.Printer().T(msgInhibitReason) })
 	}
 	var presence *presenceWorker
 	if id := discord.ClientID(); id != "" && discord.Supported {
@@ -304,7 +313,7 @@ func (s *IntegrationsService) announce(item coordinator.Item) {
 			s.setStatus(func(st *IntegrationsStatus) { st.Notifications = IntegrationUnavailable })
 			return
 		}
-		if err := n.Show(ctx, trackNotification(item, image)); err != nil {
+		if err := n.Show(ctx, trackNotification(s.e.Language.Printer(), item, image)); err != nil {
 			s.e.Logger.Warn("notification", "err", err)
 		}
 	})
@@ -360,9 +369,9 @@ func (s *IntegrationsService) onAction(key string) {
 	}
 }
 
-// trackNotification is the notification for item; image is a local
-// artwork file or "".
-func trackNotification(item coordinator.Item, image string) notify.Notification {
+// trackNotification is the notification for item, its buttons in p's
+// language; image is a local artwork file or "".
+func trackNotification(p *l10n.Printer, item coordinator.Item, image string) notify.Notification {
 	body := item.Artist
 	if item.Album != "" {
 		if body != "" {
@@ -375,8 +384,8 @@ func trackNotification(item coordinator.Item, image string) notify.Notification 
 		Body:    body,
 		Image:   image,
 		Actions: []notify.Action{
-			{Key: notify.DefaultAction, Label: "Show Sona"},
-			{Key: actionNext, Label: "Next"},
+			{Key: notify.DefaultAction, Label: p.T(msgShowSona)},
+			{Key: actionNext, Label: p.T(msgNextSong)},
 		},
 	}
 }

@@ -1,5 +1,6 @@
 import { plural, t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
+import { RealtimeRefusal, SandboxGap } from "@bindings/playback/models";
 import { MotionService, SystemService, type CDMStatus, type Diagnostics } from "@bindings/services";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Clipboard } from "@wailsio/runtime";
@@ -12,7 +13,7 @@ import { Button } from "@/shared/ui/button";
 import { Switch } from "@/shared/ui/switch";
 import { run } from "@/shared/lib/run";
 import { useCapabilities } from "@/shared/lib/capabilities";
-import { callFailure } from "@/shared/lib/errors";
+import { callFailure, codeMessage } from "@/shared/lib/errors";
 import { formatBytes, relativeTime } from "@/shared/lib/format";
 import { keys } from "@/shared/lib/keys";
 import { useMotionLog, useMotionState } from "@/shared/lib/motion";
@@ -38,7 +39,48 @@ export interface Group {
 
 const dash = "—";
 
-const NETNS_NOTE = "network namespace";
+/** The variable that turns the macOS sandbox off (cdmhost.EnvSeatbelt). */
+const SEATBELT_OFF = "SONA_SEATBELT=0";
+
+/** What a missing layer of the host's sandbox means (playback.SandboxGap), as a sentence. */
+function sandboxGap(gap: SandboxGap): string {
+  switch (gap) {
+    case SandboxGap.SandboxGapNamespaces:
+      return t`It has no network or mount namespace of its own, because unprivileged user namespaces are blocked.`;
+    case SandboxGap.SandboxGapFilesystem:
+      return t`It has no private view of the filesystem.`;
+    case SandboxGap.SandboxGapLandlock:
+      return t`Landlock doesn't restrict its files.`;
+    case SandboxGap.SandboxGapSeccomp:
+      return t`Its seccomp filter isn't installed.`;
+    case SandboxGap.SandboxGapNetwork:
+      return t`It can open network connections.`;
+    case SandboxGap.SandboxGapKeychain:
+      return t`It can read your keychain folder.`;
+    case SandboxGap.SandboxGapTurnedOff:
+      return t`The macOS sandbox is turned off (${SEATBELT_OFF}).`;
+    case SandboxGap.SandboxGapNoSeatbelt:
+      return t`macOS's sandbox-exec is missing or didn't start.`;
+    case SandboxGap.SandboxGapRefused:
+      return t`macOS's sandbox-exec refused Sona's profile.`;
+    case SandboxGap.$zero:
+      return "";
+  }
+}
+
+/** Why realtime priority was refused (playback.RealtimeRefusal), as a sentence. */
+function realtimeRefusal(refusal: RealtimeRefusal, via: string): string {
+  switch (refusal) {
+    case RealtimeRefusal.RealtimeNoPriority:
+      return t`${via} allows no realtime priority.`;
+    case RealtimeRefusal.RealtimeCPULimit:
+      return t`Sona couldn't limit the host's realtime CPU time, which ${via} requires.`;
+    case RealtimeRefusal.RealtimeRefused:
+      return t`${via} refused it.`;
+    case RealtimeRefusal.$zero:
+      return "";
+  }
+}
 
 /** WebKitGTK rendering switches, shown by their environment variable names. */
 // eslint-disable-next-line lingui/no-unlocalized-strings -- environment variable names, not prose
@@ -54,24 +96,25 @@ function sandboxRow(p: Diagnostics["playback"]): Row {
     return p.sandboxKind === "seatbelt"
       ? { label, value: t`Sandboxed by macOS · no network or keychain access`, status: "ok" }
       : { label, value: t`Sandboxed · no network or session access`, status: "ok" };
-  if (!p.sandboxNote) return { label, value: t`Unknown (the host did not start)` };
-  const note = p.sandboxNote;
+  const gaps = p.sandboxGaps ?? [];
+  if (!p.sandboxKind || gaps.length === 0)
+    return { label, value: t`Unknown (the host did not start)` };
+  const note = gaps.map(sandboxGap).join(" ");
   if (p.cdmBlocked) return { label, value: t`Not sandboxed`, status: "error", detail: note };
   if (p.sandboxKind === "none")
     return {
       label,
       value: t`Not sandboxed`,
       status: "warning",
-      detail: t`${note}. Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works.`,
+      detail: t`${note} Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works.`,
     };
   return {
     label,
     value: t`Not fully sandboxed`,
     status: "warning",
-    // Go's note names the missing network namespace when user namespaces are blocked.
-    detail: note.includes(NETNS_NOTE)
-      ? t`${note}. Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction).`
-      : t`${note}. Playback still works.`,
+    detail: gaps.includes(SandboxGap.SandboxGapNamespaces)
+      ? t`${note} Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction).`
+      : t`${note} Playback still works.`,
   };
 }
 
@@ -83,8 +126,8 @@ function sandboxRow(p: Diagnostics["playback"]): Row {
 function realtimeRow(p: Diagnostics["playback"]): Row {
   const label = t`Audio priority`;
   const priority = p.realtimePriority;
-  const note = p.realtimeNote;
   const via = p.realtimeVia === "portal" ? t`Realtime portal` : p.realtimeVia;
+  const refusal = realtimeRefusal(p.realtimeRefusal, via);
   const skips = t`Audio may skip while the computer is under heavy load.`;
   switch (p.realtime) {
     case "granted":
@@ -94,16 +137,23 @@ function realtimeRow(p: Diagnostics["playback"]): Row {
         label,
         value: t`Raised · nice ${priority} (${via})`,
         status: "ok",
-        detail: t`Realtime priority was refused: ${note}.`,
+        detail: refusal
+          ? t`Realtime priority was refused: ${refusal}`
+          : t`Realtime priority was refused.`,
       };
     case "denied":
-      return { label, value: t`Normal`, status: "warning", detail: t`${note}. ${skips}` };
+      return {
+        label,
+        value: t`Normal`,
+        status: "warning",
+        detail: refusal ? `${refusal} ${skips}` : skips,
+      };
     case "unavailable":
       return {
         label,
         value: t`Normal`,
         status: "warning",
-        detail: t`Neither RTKit nor the Realtime portal is available (${note}). ${skips} Install and enable RTKit (rtkit) to fix this.`,
+        detail: t`Neither RTKit nor the Realtime portal is available. ${skips} Install and enable RTKit (rtkit) to fix this.`,
       };
     case "unsupported":
       return { label, value: t`Not requested on this platform` };
@@ -164,7 +214,12 @@ function cdmStateRow(p: Diagnostics["playback"], cdm: CDMStatus): Row {
         detail: cdmProblem(cdm.code),
       };
   }
-  return { label, value: t`Doesn't start`, status: "error", detail: p.cdmError || undefined };
+  return {
+    label,
+    value: t`Doesn't start`,
+    status: "error",
+    detail: p.cdmError ? codeMessage(p.cdmError) : undefined,
+  };
 }
 
 /** Where the CDM comes from and how its updates are going. */

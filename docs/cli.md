@@ -179,4 +179,10 @@ Both carry the same protocol (`internal/cli/protocol.go`): a JSON request
 against the command table before acting on it, and acts through the
 services the UI uses (`internal/services/commands.go`), so the window
 follows every change. All command-line text is in
-`internal/cli/messages.go`.
+`internal/cli/messages.go`, in Go's message catalogue
+(`internal/i18n/l10n`): help, the manual page, the completions'
+descriptions, the lines commands print and errors are in Sona's Language
+setting (read from `settings.json`), else the system's languages. Command
+and option names, `--json` output and `--format` templates are the same in
+every language. An error's `code` is what the command line words; Sona's
+`message` (English) is shown only for a failure it has no words for.

@@ -1,4 +1,5 @@
 import type { Item, Section } from "@bindings/services";
+import { useLingui } from "@lingui/react/macro";
 
 import { Shelf } from "@/shared/components/Shelf";
 
@@ -33,6 +34,7 @@ export function EditorialSections({
   moreFor = roomLink,
   onOpen,
 }: EditorialSectionsProps) {
+  const { t } = useLingui();
   return sections.map((s) => {
     const more = moreFor(s);
     switch (s.kind) {
@@ -77,6 +79,10 @@ export function EditorialSections({
           >
             {s.text}
           </p>
+        );
+      case "playlists":
+        return (
+          <ItemShelf key={s.id} title={t`Playlists`} items={s.items} more={more} onOpen={onOpen} />
         );
       case "feature":
         return (

@@ -257,7 +257,7 @@ func TestCommandsPrivate(t *testing.T) {
 		}
 	}
 	forced := newCommandEnv(t, privatemode.Options{Override: privatemode.OverrideOn})
-	if _, err := forced.call(t, "private", "off"); code(err) != CodePrivateForced {
+	if _, err := forced.call(t, "private", "off"); code(err) != string(CodePrivateForced) {
 		t.Errorf("forced off: %v", err)
 	}
 	dev := newCommandEnv(t, privatemode.Options{Dev: true})
@@ -275,7 +275,7 @@ func TestCommandsLike(t *testing.T) {
 	}
 	out := newCommandEnv(t, privatemode.Options{})
 	out.signOut(t)
-	if _, err := out.call(t, "like"); code(err) != CodeNotSignedIn {
+	if _, err := out.call(t, "like"); code(err) != string(CodeNotSignedIn) {
 		t.Fatalf("like signed out: %v", err)
 	}
 	if r := slices.DeleteFunc(append(ce.apple.take(), out.apple.take()...), func(r string) bool { return r[:3] == "GET" }); len(r) != 0 {

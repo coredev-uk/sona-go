@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -30,7 +31,7 @@ func TestDiagnoseReportsTheProbe(t *testing.T) {
 		CDMPath: testCDM, CDMVersion: "4.10", CDMInterface: 10, HostInterface: 10,
 		GStreamer: "1.26", Decoder: "avdec_aac", Sink: "pipewiresink", Sandbox: playback.SandboxLinux, Sandboxed: true,
 	}
-	if d != want || asked != testCDM {
+	if !reflect.DeepEqual(d, want) || asked != testCDM {
 		t.Errorf("Diagnose = %+v (probe asked for %q), want %+v", d, asked, want)
 	}
 }
@@ -41,7 +42,7 @@ func TestDiagnoseReportsTheLibraryWhenTheProbeFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.e.probe = func(context.Context, cdmhost.Options) (cdmhost.Info, error) {
-		return cdmhost.Info{Sandbox: cdmhost.Sandbox{Reason: "no seccomp"}}, fmt.Errorf("init: %w", cdmhost.ErrSandbox)
+		return cdmhost.Info{PID: 7, Sandbox: cdmhost.Sandbox{NetNS: true, MountNS: true, Landlock: 3, InetDenied: true, Reason: "no seccomp"}}, fmt.Errorf("init: %w", cdmhost.ErrSandbox)
 	}
 	d, err := h.e.Diagnose(ctx(t))
 	if !errors.Is(err, cdmhost.ErrSandbox) {
@@ -49,9 +50,9 @@ func TestDiagnoseReportsTheLibraryWhenTheProbeFails(t *testing.T) {
 	}
 	want := playback.Diagnosis{
 		HostRunning: true, HostPID: 100, CDMPath: testCDM,
-		SandboxNote: "no seccomp", Blocked: true,
+		Sandbox: playback.SandboxLinux, SandboxGaps: []playback.SandboxGap{playback.SandboxGapSeccomp}, Blocked: true,
 	}
-	if d != want {
+	if !reflect.DeepEqual(d, want) {
 		t.Errorf("Diagnose = %+v, want %+v", d, want)
 	}
 }

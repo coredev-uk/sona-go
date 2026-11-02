@@ -74,8 +74,8 @@ func TestSeatbeltConfinesChild(t *testing.T) {
 	}
 	sb := h.withSandbox(r.Info.Sandbox)
 	t.Logf("sandbox %+v", sb)
-	paths, reason := seatbelt()
-	if reason != "" {
+	paths, ps := seatbelt()
+	if reason := ps.reason; reason != "" {
 		if sb.Seatbelt || sb.Active() || sb.Reason != reason || reason == "" {
 			t.Fatalf("unconfined child: sandbox %+v, want the reason %q", sb, reason)
 		}

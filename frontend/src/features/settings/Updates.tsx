@@ -5,7 +5,7 @@ import { CircleAlert, CircleCheck, ExternalLink, RotateCw } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { Switch } from "@/shared/ui/switch";
-import { callFailure } from "@/shared/lib/errors";
+import { callFailure, codeMessage } from "@/shared/lib/errors";
 import { relativeTime } from "@/shared/lib/format";
 import { keys } from "@/shared/lib/keys";
 import { run } from "@/shared/lib/run";
@@ -31,7 +31,8 @@ export function UpdatesGroup() {
           ? t`Update this AppImage in place with AppImageUpdate, or download the new one from the release page.`
           : t`Download the new package from the release page, or update it with your package manager.`,
       };
-    if (error) return { text: t`Couldn't reach GitHub: ${error}`, ok: false };
+    if (error)
+      return { text: t`Couldn't check GitHub for updates`, detail: codeMessage(error), ok: false };
     if (!st.checked) return { text: t`Sona ${current} · not checked yet` };
     const checked = relativeTime(st.checked);
     return {

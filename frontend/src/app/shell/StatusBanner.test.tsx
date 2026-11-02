@@ -1,4 +1,5 @@
 import type { AuthStatus } from "@bindings/services";
+import { ErrorCode } from "@bindings/services/models";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -34,8 +35,7 @@ function status(patch: Partial<AuthStatus>): AuthStatus {
     unencrypted: false,
     keyring: "",
     offline: false,
-    lastError: "",
-    lastErrorCode: "",
+    lastErrorCode: ErrorCode.$zero,
     browserSignIn: false,
     secondFactor: null,
     ...patch,
@@ -70,8 +70,7 @@ describe("StatusBanner and the keyring", () => {
     const view = show(
       status({
         keyring: "unavailable",
-        lastError: "the keyring didn't answer",
-        lastErrorCode: "keyring",
+        lastErrorCode: ErrorCode.CodeKeyring,
       }),
     );
     expect(screen.getByRole("status").textContent).toContain(

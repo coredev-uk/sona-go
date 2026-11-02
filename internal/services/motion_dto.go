@@ -26,9 +26,9 @@ type PowerState struct {
 	// Ignored counts devices whose battery does not power the computer
 	// (mice, keyboards, headsets).
 	Ignored int `json:"ignored"`
-	// Error is why the power source can't be read ("" when followed, or
-	// when the platform has no monitor).
-	Error string `json:"error"`
+	// Unreadable: the platform has a power monitor but it couldn't be read
+	// (UPower not answering); the log says why.
+	Unreadable bool `json:"unreadable"`
 }
 
 // MotionStatus is motion artwork's Go side for Settings → Diagnostics:
@@ -49,8 +49,8 @@ type MotionFetch struct {
 	Codec string `json:"codec"` // "avc" (H.264) or "hevc"
 	// Rendition is the variant chosen ("avc1.64001f 486×486, 1.7
 	// Mbit/s"), "" when none was.
-	Rendition string `json:"rendition"`
-	Error     string `json:"error"` // "" when it worked
+	Rendition string    `json:"rendition"`
+	Error     ErrorCode `json:"error"` // "" when it worked
 }
 
 // MotionReport is the web view's side of motion artwork, which only
@@ -71,6 +71,7 @@ type MotionReport struct {
 	Visible bool `json:"visible"`
 	// Playing counts the videos playing now.
 	Playing int `json:"playing"`
-	// Last is the newest video's outcome as Diagnostics shows it.
+	// Last is the newest video's outcome as Diagnostics shows it, for the
+	// bundle (maintainer-facing, never shown in the UI).
 	Last string `json:"last"`
 }

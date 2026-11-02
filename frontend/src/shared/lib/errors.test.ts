@@ -1,27 +1,41 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
+import { ErrorCode } from "@bindings/services/models";
 import { describe, expect, it } from "vitest";
 
-import { callFailure, hasCodeMessage } from "./errors";
+import { callFailure, codeMessage } from "./errors";
+
+const generic = callFailure({ cause: { code: "unknown", message: "x" } }).message;
 
 describe("callFailure", () => {
-  it("has wording for every services error code except unknown", () => {
-    const src = readFileSync(
-      path.resolve(import.meta.dirname, "../../../../internal/services/errors.go"),
-      "utf8",
-    );
-    const codes = [...src.matchAll(/^\s*Code\w+\s*=\s*"([a-z0-9_]+)"/gm)].map((m) => m[1]);
+  it("words every services error code, never with Go's text", () => {
+    const codes = Object.values(ErrorCode);
     expect(codes.length).toBeGreaterThan(10);
-    expect(codes.filter((c) => c !== "unknown" && !hasCodeMessage(c))).toEqual([]);
+    for (const code of codes) {
+      const goText = `services: Go's own text for ${code}`;
+      const f = callFailure({ cause: { code, message: goText } });
+      expect(f.message, code).toBeTruthy();
+      expect(f.message, code).not.toContain("Go's own text");
+      expect(f.detail, code).toBe(`Go's own text for ${code}`);
+      // Only unknown (and no code) share the generic wording.
+      if (code !== ErrorCode.CodeUnknown && code !== ErrorCode.$zero) {
+        expect(f.message, code).not.toBe(generic);
+      }
+    }
   });
 
-  it("translates known codes and keeps Go's text for unknown ones", () => {
-    const known = callFailure({ cause: { code: "not_playable", message: "applemusic: gone" } });
-    expect(known.message).not.toBe("gone");
-    expect(known.detail).toBe("gone");
+  it("gives unknown and unrecognised codes the generic message", () => {
+    expect(generic).toBe("Something went wrong.");
     const unknown = callFailure({ cause: { code: "unknown", message: "library: disk full" } });
-    expect(unknown.message).toBe("disk full");
-    expect(callFailure(new Error("boom")).message).toBe("boom");
+    expect(unknown.message).toBe(generic);
+    expect(unknown.detail).toBe("disk full");
+    expect(callFailure({ cause: { code: "made_up", message: "x" } }).message).toBe(generic);
+    expect(callFailure(new Error("boom")).message).toBe(generic);
+    expect(callFailure(new Error("boom")).detail).toBe("boom");
+  });
+
+  it("words codes sent in DTOs", () => {
+    expect(codeMessage(ErrorCode.CodeKeyring)).toBe(
+      callFailure({ cause: { code: "keyring", message: "" } }).message,
+    );
+    expect(codeMessage("made_up")).toBe(generic);
   });
 });

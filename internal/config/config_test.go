@@ -263,3 +263,24 @@ func TestCrossfadeSecondsBounds(t *testing.T) {
 		t.Errorf("default crossfade %+v, want off at 6 s", d)
 	}
 }
+
+func TestLanguageKeepsWellFormedTags(t *testing.T) {
+	for in, want := range map[string]string{
+		"":           LanguageAutomatic,
+		"en":         "en",
+		"fr-CA":      "fr-CA",
+		"zh-Hant-TW": "zh-Hant-TW",
+		"es-419":     "es-419",
+		"fr_CA":      LanguageAutomatic,
+		"../etc":     LanguageAutomatic,
+		"automatic":  LanguageAutomatic,
+		" fr":        LanguageAutomatic,
+	} {
+		if got := (Settings{Language: in}).Normalized().Language; got != want {
+			t.Errorf("language %q → %q, want %q", in, got, want)
+		}
+	}
+	if Defaults().Language != LanguageAutomatic {
+		t.Errorf("default language %q, want Automatic", Defaults().Language)
+	}
+}

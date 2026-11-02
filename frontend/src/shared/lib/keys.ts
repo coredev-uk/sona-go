@@ -15,6 +15,10 @@ export const keys = {
   updates: ["updates"] as const,
   /** What this platform supports (PlatformService.Capabilities); fixed per process. */
   capabilities: ["capabilities"] as const,
+  /** Apple's locales the Language setting may offer (TranslationsService.Languages, "translations:languages"). */
+  translationsLanguages: ["translations", "languages"] as const,
+  /** The community catalogues' shares (bundled; fixed per build). */
+  translationsCommunity: ["translations", "community"] as const,
 
   library: ["library"] as const,
   libraryCounts: ["library", "counts"] as const,

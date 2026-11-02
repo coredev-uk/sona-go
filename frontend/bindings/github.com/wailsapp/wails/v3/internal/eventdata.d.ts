@@ -32,6 +32,7 @@ declare module "@wailsio/runtime" {
             "sync:done": services$0.SyncDone;
             "sync:progress": services$0.SyncProgress;
             "translations:apple": services$0.AppleTranslations;
+            "translations:languages": services$0.AppleLanguages;
             "updates:available": services$0.UpdateStatus;
             "window:state": services$0.WindowState;
         }

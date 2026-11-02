@@ -72,7 +72,7 @@ private mode.
 | `build`      | `go tool wails3 build`: frontend, bindings, `bin/sona` (production; `build DEV=true` for a debug build).                                                                                                                                                                                                                                    |
 | `gen`        | `sqlc generate` and `wails3 generate bindings -clean=true -ts`. Commit the result.                                                                                                                                                                                                                                                          |
 | `fmt`        | gofumpt on every tracked Go file except `internal/db/dbq`, then `prettier --write src`. Installs the frontend dependencies first when `package.json` or the lockfile changed.                                                                                                                                                               |
-| `check`      | The static half of the checks below: installs the frontend dependencies and builds `frontend/dist` (development build) when their sources changed, since Go embeds it; then `go vet`, the Windows and macOS type-checks, `golangci-lint --new-from-rev=origin/main`, the path-case check, tsc, eslint, `prettier --check` and `i18n:check`. |
+| `check`      | The static half of the checks below: installs the frontend dependencies and builds `frontend/dist` (development build) when their sources changed, since Go embeds it; then `go vet`, the Windows and macOS type-checks, `golangci-lint --new-from-rev=origin/main`, Go's catalogue (`i18ntool extract -check`), the path-case check, tsc, eslint, `prettier --check` and `i18n:check`. |
 | `tests`      | The same frontend step, then `go test -race ./...` (inside `dbus-run-session` on Linux, so no test reaches your session bus; extra arguments go to `go test`) and vitest. Not named `test`: the shell's `test` builtin would shadow it.                                                                                                     |
 | `release`    | `build/linux/release/release.sh`, the same as `go tool wails3 task release`: release packages built on Ubuntu 24.04 in podman or docker (falling back to `nix run nixpkgs#podman`) and smoke-tested, into `bin/release`.                                                                                                                    |
 | `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`); `play-spike -preview` needs none.                                                                                                                                                                                                                             |
@@ -260,6 +260,7 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...   # see "Platforms"
 go run ./cmd/typecheck -os darwin -arch arm64 ./...
 go test -race ./...
 golangci-lint run --new-from-rev=origin/main ./...   # must be clean
+go run ./cmd/i18ntool extract -check   # Go's catalogue; go test checks it too
 cd frontend
 node scripts/check-path-case.mjs   # no paths or module names differing only by case
 pnpm exec tsc --noEmit
@@ -707,6 +708,51 @@ never reads these files.
 To see Apple's strings in the app while a locale is below the 90% it needs
 (`selectableShare` in `frontend/src/shared/i18n/locale.ts`), lower that
 value in a local build only; the cache is `$XDG_CACHE_HOME/sona/strings`.
+
+### Go's own text
+
+Text Go shows itself, outside the web view (the tray menu, the mini
+player's title, desktop notification buttons, file chooser titles and
+filters, the sleep inhibitor's reason, and the command line's help, manual
+page, completions, output and errors), lives in Go's catalogue,
+`internal/i18n/l10n`, never in Lingui's. Go never sends text to the web
+view: it sends codes the frontend words (`internal/services/errors.go`).
+Mark a message by its type, `l10n.Message`, and show it through the user's
+`*l10n.Printer` (`Deps.Language.Printer()` in services,
+`Options.Language` in the shell, `Env.Printer` in the command line):
+
+```go
+const msgQuit l10n.Message = "Quit Sona" // a translator note
+
+label := p.T(msgQuit)
+line := p.Sprintf(msgSearchNone, term) // msgSearchNone = "no results for %q"
+```
+
+A typed constant or variable, a conversion `l10n.Message("…")` or the
+values of a `map[K]l10n.Message` or `[]l10n.Message` literal are messages;
+their value must be a string literal (or literals joined with `+`), or the
+name of another message. The declaration's comment becomes the
+translator's note. Messages are `fmt` formats: a translation keeps the
+English verbs and may reorder them (`%[2]s`), and the app ignores one
+whose verbs differ (extraction flags such messages `go-format` so
+translators and their tools know). Text that is the same in every language
+stays a plain string: command and option names, usage lines, file names,
+protocol strings (MPRIS errors), logs and the diagnostics bundle.
+
+After adding or changing a message, from the repository root:
+
+```sh
+go run ./cmd/i18ntool extract          # writes internal/i18n/l10n/locales/en.po
+go run ./cmd/i18ntool extract -check   # fails, with the changes, when it is stale
+```
+
+`en.po` is generated (sorted, with the files each message comes from and
+an empty `msgstr`); `go test ./internal/i18n/l10n/extract` and the devenv
+`check` script fail when it is out of date. A translation is
+`internal/i18n/l10n/locales/<tag>.po`: the same msgids with `msgstr`
+filled in (fuzzy entries are skipped), embedded in the binary and picked
+for the Language setting, else the system's languages, as the frontend
+picks its catalogue.
 
 ## Design rules
 

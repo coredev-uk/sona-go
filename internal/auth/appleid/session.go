@@ -62,6 +62,16 @@ type ServiceError struct {
 	Code    string // Apple service error code, e.g. "-20101"
 	Message string // Apple's user-facing message, possibly localized
 	kind    error
+	apple   bool // Message is Apple's own wording, from its error response
+}
+
+// AppleText is Apple's own wording of the failure, already localised by
+// Apple, when its error response carried one; "" when Message is Sona's.
+func (e *ServiceError) AppleText() string {
+	if !e.apple {
+		return ""
+	}
+	return e.Message
 }
 
 func (e *ServiceError) Error() string {
@@ -790,7 +800,7 @@ func (s *Session) send(ctx context.Context, method, path string, in any, extra h
 	}
 	s.track(resp)
 	if resp.StatusCode/100 != 2 && !containsInt(ok, resp.StatusCode) {
-		return resp, raw, serviceError(resp.StatusCode, raw)
+		return resp, raw, ParseServiceError(resp.StatusCode, raw)
 	}
 	return resp, raw, nil
 }
@@ -848,7 +858,9 @@ func (s *Session) track(resp *http.Response) {
 	}
 }
 
-func serviceError(status int, body []byte) error {
+// ParseServiceError reads Apple's error response (serviceErrors or
+// validationErrors) into a *ServiceError, classified by Apple's code.
+func ParseServiceError(status int, body []byte) error {
 	var r struct {
 		ServiceErrors []struct {
 			Code    string `json:"code"`
@@ -866,6 +878,7 @@ func serviceError(status int, body []byte) error {
 	}
 	if len(r.ServiceErrors) > 0 {
 		e.Code, e.Message = r.ServiceErrors[0].Code, r.ServiceErrors[0].Message
+		e.apple = e.Message != ""
 	}
 	switch {
 	case e.Code == "-20101" || e.Code == "-20751" || (status == http.StatusUnauthorized && e.Code == ""):

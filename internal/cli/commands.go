@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 )
 
 // command is one `sona <command>`. The table below is the only list of
@@ -14,11 +16,11 @@ import (
 // read it.
 type command struct {
 	name    string
-	args    string // the arguments' synopsis ("" for none)
-	argName string // what a missing argument is called in errors
-	argHelp string // the arguments' description
-	summary string
-	help    string
+	args    string       // the arguments' synopsis ("" for none)
+	argName string       // what a missing argument is called in errors
+	argHelp l10n.Message // the arguments' description
+	summary l10n.Message
+	help    l10n.Message
 	flags   []flag
 	// choices are the values the first argument may take (validation and
 	// completion).
@@ -38,7 +40,7 @@ type command struct {
 type flag struct {
 	name    string
 	value   string
-	help    string
+	help    l10n.Message
 	choices []string
 }
 

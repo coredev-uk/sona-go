@@ -288,3 +288,50 @@ func TestStoreStaysOnApplesOrigin(t *testing.T) {
 		t.Fatalf("followed a redirect off Apple's origin: %v", a.hits)
 	}
 }
+
+// TestStoreAvailable: below the share asked for, Available answers without
+// a request; at it, it has the store fetch the locale table (not the
+// bundles), tells SubscribeIndex, and measures only cached locales.
+func TestStoreAvailable(t *testing.T) {
+	a := newFakeApple(t)
+	clk := &clock{t: time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)}
+	s, updates := newTestStore(t, t.TempDir(), a, clk, testCatalogue)
+	indexed := make(chan struct{}, 4)
+	s.SubscribeIndex(func() { indexed <- struct{}{} })
+
+	if got := s.Available(0.9); got.Mapped != 0.4 || len(got.Locales) != 0 {
+		t.Fatalf("Available(0.9) = %+v, want Mapped 0.4 and no locales", got)
+	}
+	refreshNow(t, s)
+	if n := a.count(); n != 0 {
+		t.Fatalf("%d requests for a share no locale can reach", n)
+	}
+
+	if got := s.Available(0.3); len(got.Locales) != 0 {
+		t.Fatalf("Available before the table = %+v", got)
+	}
+	refreshNow(t, s)
+	select {
+	case <-indexed:
+	default:
+		t.Fatal("SubscribeIndex not told about the table")
+	}
+	if a.hits["/assets/translations~faaa111.js"] != 0 || a.hits["/assets/translations~d0d0.js"] != 0 {
+		t.Fatalf("bundles fetched for Available: %v", a.hits)
+	}
+	got := s.Available(0.3)
+	want := []AvailableLocale{{Tag: "de-DE", Coverage: 0.4}, {Tag: "fr-FR", Coverage: 0.4}}
+	if fmt.Sprint(got.Locales) != fmt.Sprint(want) {
+		t.Fatalf("Available = %+v, want %+v", got.Locales, want)
+	}
+
+	// French asked for and downloaded: measured (one mapped message is
+	// refused by its bundle).
+	s.Lookup("fr-FR")
+	refreshNow(t, s)
+	waitLocale(t, updates)
+	got = s.Available(0.3)
+	if fr := got.Locales[1]; fr.Tag != "fr-FR" || !fr.Measured || fr.Coverage != 0.3 {
+		t.Fatalf("French = %+v, want measured", fr)
+	}
+}

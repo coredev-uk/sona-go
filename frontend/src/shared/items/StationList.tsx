@@ -9,6 +9,8 @@ import { cn } from "@/shared/lib/utils";
 import { Equaliser } from "@/shared/tracks/Equaliser";
 import { Button } from "@/shared/ui/button";
 
+import { stationUnavailable } from "./station";
+
 /** The station list's grid; loading placeholders share it. */
 export const STATION_GRID =
   "grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-x-4 gap-y-1 -mx-2";
@@ -59,7 +61,7 @@ export function StationList({ stations, onPlay, label }: StationListProps) {
                 variant="ghost"
                 size="icon-sm"
                 disabled={!s.playable}
-                title={s.playable ? undefined : s.unavailable}
+                title={s.playable ? undefined : stationUnavailable(s.unavailable)}
                 aria-label={t`Play ${name}`}
                 onClick={(e) => {
                   // The equaliser replaces this button once the station

@@ -177,7 +177,7 @@ func (m *Manager) noteNative(na *nativeAttempt, err error) {
 		if m.native != na || m.attempt != na.id || m.st.LastError == msg {
 			return false
 		}
-		m.st.LastError = msg
+		m.st.LastError, m.st.LastCause = msg, err
 		return true
 	})
 }
