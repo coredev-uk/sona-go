@@ -145,6 +145,7 @@ msgstr "{count} of {what}"
 msgid "{count}, {time}"
 msgstr "{count}, {time}"
 
+#: src/features/discover/FrontPage.tsx
 #: src/shared/items/WideRow.tsx
 msgid "{current} of {pages}"
 msgstr "{current} of {pages}"
@@ -678,6 +679,7 @@ msgid "Apple Music has no credits or lyrics for this song."
 msgstr "Apple Music has no credits or lyrics for this song."
 
 #: src/features/discover/EditorialPage.tsx
+#: src/features/discover/NewPage.tsx
 msgid "Apple Music has no music on this page at the moment."
 msgstr "Apple Music has no music on this page at the moment."
 
@@ -956,6 +958,10 @@ msgstr "Blocked"
 #: src/features/artist/ArtistPage.tsx
 msgid "Born or formed"
 msgstr "Born or formed"
+
+#: src/features/discover/bands.ts
+msgid "Browse"
+msgstr "Browse"
 
 #: src/features/search/SearchPage.tsx
 msgid "Browse categories"
@@ -2301,6 +2307,7 @@ msgstr "Favourite songs"
 msgid "Favourite the playing song"
 msgstr "Favourite the playing song"
 
+#: src/features/discover/FrontPage.tsx
 #: src/shared/items/WideRow.tsx
 msgid "Featured"
 msgstr "Featured"
@@ -2972,6 +2979,10 @@ msgstr "Mixes made for you"
 msgid "More by {artistName}"
 msgstr "More by {artistName}"
 
+#: src/features/discover/FrontPage.tsx
+msgid "More featured"
+msgstr "More featured"
+
 #: src/shared/actions/ActionMenu.tsx
 msgid "More for {name}"
 msgstr "More for {name}"
@@ -3160,6 +3171,7 @@ msgstr "Newest first"
 msgid "Next"
 msgstr "Next"
 
+#: src/features/discover/FrontPage.tsx
 #: src/shared/items/WideRow.tsx
 msgid "Next in {label}"
 msgstr "Next in {label}"
@@ -3435,6 +3447,7 @@ msgid "Nothing here can be played"
 msgstr "Nothing here can be played"
 
 #: src/features/discover/EditorialPage.tsx
+#: src/features/discover/NewPage.tsx
 msgid "Nothing here right now"
 msgstr "Nothing here right now"
 
@@ -3581,6 +3594,10 @@ msgstr "On this computer and your other devices"
 #: src/features/library/HistoryPage.tsx
 msgid "On this computer only: Apple Music couldn't be reached for your other devices"
 msgstr "On this computer only: Apple Music couldn't be reached for your other devices"
+
+#: src/features/discover/Contents.tsx
+msgid "On this page"
+msgstr "On this page"
 
 #: src/features/settings/MotionDiagnostics.ts
 msgid "On UPS battery: motion artwork pauses"
@@ -3787,6 +3804,7 @@ msgstr "Play {artistName}'s top songs"
 msgid "Play {label}"
 msgstr "Play {label}"
 
+#: src/features/discover/FrontPage.tsx
 #: src/features/radio/RadioPage.tsx
 #: src/shared/items/StationList.tsx
 #: src/shared/items/TrackShelf.tsx
@@ -3883,6 +3901,7 @@ msgstr "Playing from <0>{playingFrom}</0>"
 msgid "Playlist"
 msgstr "Playlist"
 
+#: src/features/discover/bands.ts
 #: src/features/library/index.ts
 #: src/features/library/pages.tsx
 #: src/features/playlist/PlaylistDialogs.tsx
@@ -4001,6 +4020,7 @@ msgstr "Preview"
 msgid "Previous"
 msgstr "Previous"
 
+#: src/features/discover/FrontPage.tsx
 #: src/shared/items/WideRow.tsx
 msgid "Previous in {label}"
 msgstr "Previous in {label}"
@@ -4111,6 +4131,7 @@ msgstr "quieter"
 msgid "Quit Sona"
 msgstr "Quit Sona"
 
+#: src/features/discover/bands.ts
 #: src/features/radio/index.ts
 #: src/features/radio/RadioPage.tsx
 #: src/features/settings/General.tsx
@@ -5121,6 +5142,10 @@ msgstr "Songs"
 msgid "Songs added to it in Apple Music on any device appear here after the next sync."
 msgstr "Songs added to it in Apple Music on any device appear here after the next sync."
 
+#: src/features/discover/bands.ts
+msgid "Songs and albums"
+msgstr "Songs and albums"
+
 #: src/features/artist/ArtistPage.tsx
 msgid "Songs by {artistName} in your library"
 msgstr "Songs by {artistName} in your library"
@@ -5912,6 +5937,10 @@ msgstr "Version {version}"
 #: src/features/onboarding/WidevinePanel.tsx
 msgid "Version {version} is ready"
 msgstr "Version {version} is ready"
+
+#: src/features/discover/bands.ts
+msgid "Videos"
+msgstr "Videos"
 
 #: src/features/updates/UpdateNotice.tsx
 #: src/shared/shortcuts/groups.ts
