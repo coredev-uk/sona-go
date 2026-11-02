@@ -5,8 +5,10 @@
  * `X-Video-Seq` and a 16-byte header, then the I420 planes; a 204 means no
  * new picture came within the second, or, with `X-Video-Seq`, that the
  * surface was cleared (nothing with a picture plays) and the sequence to
- * wait from. Pictures arrive already timed to the audio: each is drawn as
- * soon as it arrives.
+ * wait from. Pictures arrive already timed to the audio: each is drawn at
+ * the next animation frame, and the next is asked for only after that, so
+ * a window that isn't drawing (minimised, on another workspace) neither
+ * fetches nor uploads pictures.
  */
 
 export const FRAME_PATH = "/video/frame";
@@ -22,6 +24,13 @@ const MAGIC = [0x53, 0x56, 0x46, 0x31];
 
 /** How long the loop waits after a failed request before asking again. */
 const RETRY_MS = 1000;
+
+/**
+ * A picture that waited longer than this for an animation frame is stale
+ * (the window wasn't drawing): it is dropped and the one on show now is
+ * fetched instead.
+ */
+export const STALE_MS = 250;
 
 export interface FrameHeader {
   /** Sequence number (uint32, wrapping); the request uses X-Video-Seq instead. */
@@ -144,6 +153,25 @@ export interface FrameLoopHandlers {
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
+/** Waits for the next animation frame (or `signal`), resolving with how many milliseconds it took. */
+type NextFrame = (signal: AbortSignal) => Promise<number>;
+
+function animationFrame(signal: AbortSignal): Promise<number> {
+  const start = performance.now();
+  return new Promise((resolve) => {
+    const done = () => resolve(performance.now() - start);
+    const id = requestAnimationFrame(done);
+    signal.addEventListener(
+      "abort",
+      () => {
+        cancelAnimationFrame(id);
+        done();
+      },
+      { once: true },
+    );
+  });
+}
+
 /** Resolves after `ms`, or at once when `signal` aborts. */
 function pause(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
@@ -161,13 +189,14 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
 
 /**
  * Asks Go for pictures until `signal` aborts, one request in flight at a
- * time, handing each answer to `handlers`. Starts from 0 (whatever is on
- * show).
+ * time, handing each answer to `handlers`; a picture waits for the next
+ * animation frame (`nextFrame`). Starts from 0 (whatever is on show).
  */
 export async function runFrameLoop(
   signal: AbortSignal,
   handlers: FrameLoopHandlers,
   fetchFn: Fetch = (url, init) => fetch(url, init),
+  nextFrame: NextFrame = animationFrame,
 ): Promise<void> {
   let after = 0;
   while (!signal.aborted) {
@@ -180,11 +209,16 @@ export async function runFrameLoop(
       answer = { kind: "failed", after };
     }
     if (signal.aborted) return;
-    after = answer.after;
     switch (answer.kind) {
-      case "picture":
+      case "picture": {
+        const waited = await nextFrame(signal);
+        if (signal.aborted) return;
+        // Stale: ask again from the same place, which answers at once
+        // with the picture on show now (this one, if nothing newer came).
+        if (waited > STALE_MS) continue;
         handlers.onPicture(answer.frame);
         break;
+      }
       case "waiting":
         handlers.onWaiting();
         break;
@@ -195,6 +229,7 @@ export async function runFrameLoop(
         await pause(RETRY_MS, signal);
         break;
     }
+    after = answer.after;
   }
 }
 

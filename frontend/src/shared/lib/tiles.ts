@@ -48,7 +48,10 @@ export function artistTile(a: Artist): CoverItem {
   };
 }
 
-/** A music video's tile, with a play control where videos play (canPlayVideo). */
+/**
+ * A music video's tile; where videos play (canPlayVideo) it has a play
+ * control and queue actions.
+ */
 export function videoTile(v: MusicVideo, by: "artist" | "year" = "artist"): CoverItem {
   return {
     key: v.id,
@@ -59,5 +62,6 @@ export function videoTile(v: MusicVideo, by: "artist" | "year" = "artist"): Cove
     explicit: v.explicit,
     link: { to: "/music-video/$id", params: { id: v.catalogId || v.id } },
     play: canPlayVideo() ? { label: v.name, run: () => playVideo(v) } : undefined,
+    target: canPlayVideo() ? { kind: "music-video", target: v } : undefined,
   };
 }

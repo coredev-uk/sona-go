@@ -17,9 +17,9 @@ The Apple Music web app is a reference for functionality only (`docs/apple-music
 
 Non-goals:
 
-- Decrypting protected audio by any means other than the Widevine CDM's own `Decrypt` API. Sona hosts Google's CDM, downloaded from Google (§4.3); it never extracts keys, never uses reimplemented CDMs, and never lets decrypted audio leave the CDM host process.
+- Decrypting protected media by any means other than the Widevine CDM's own APIs: `Decrypt` for audio, and for music video pictures only its own video decoder (`DecryptAndDecodeFrame`, §4.2). Sona hosts Google's CDM, downloaded from Google (§4.3); it never extracts keys, never uses reimplemented CDMs, and never lets decrypted audio or the video bitstream leave the CDM host process (decoded pictures leave it for display only, in memory).
 - Shipping Apple private keys, user tokens or a Widevine CDM binary in the repository, the binary or the packages; redistributing or patching the CDM.
-- Deliberately not built: music video playback (Apple licenses a software CDM only for SD video, with keys its `Decrypt` API refuses: `docs/apple-music-reference.md` §4.5), concerts, social graph changes (follow and unfollow need a request signature the web token cannot produce), taste onboarding, report a concern, account and billing pages (web-only).
+- Deliberately not built: HD and 4K music videos (Apple licenses a software CDM for SD only: `docs/apple-music-reference.md` §4.5), uploaded videos and music movies, concerts, social graph changes (follow and unfollow need a request signature the web token cannot produce), taste onboarding, report a concern, account and billing pages (web-only).
 
 ## 2. Stack
 
@@ -52,7 +52,7 @@ flowchart LR
     L[loopback HTTP server<br/>auth only, per attempt]
   end
   subgraph E["CDM host child (stdin/stdout)"]
-    K[Widevine CDM + fMP4 decrypt<br/>GStreamer → PipeWire]
+    K[Widevine CDM: fMP4 decrypt,<br/>video decoder<br/>GStreamer → PipeWire]
   end
   R <-- bindings + events --> S
   S --> A & C & W & P & I
@@ -61,14 +61,16 @@ flowchart LR
   S --> D
   P --> N
   N --> C
-  N <-- certificate, licence, encrypted segments / events --> K
+  N <-- certificate, licence, encrypted segments / events, video pictures --> K
+  N -- latest picture --> V[video surface<br/>/video/frame]
+  R -- fetch --> V
   P --> M
   A --- L
 ```
 
-- **UI (WebKitGTK)**: renders from generated bindings and Go events. It holds no credentials and makes no requests to `*.apple.com`; artwork comes from Go-served `/art/` and `/motion/` URLs.
+- **UI (WebKitGTK)**: renders from generated bindings and Go events. It holds no credentials and makes no requests to `*.apple.com`; artwork comes from Go-served `/art/` and `/motion/` URLs, and a playing music video's picture from `/video/frame`.
 - **Go core**: start-up, configuration (XDG directories), `log/slog` logging with token redaction; the developer-token and Music User Token lifecycle; the only Apple Music HTTP client; the SQLite cache; the library sync worker; the playback coordinator; MPRIS, single instance and `music://`/`itms://` handling; the desktop shell (main window, mini player, tray); desktop integrations (notifications, sleep inhibitor, Discord presence, scrobbling); the artwork cache.
-- **CDM host child**: the same executable re-executed with `SONA_CDMHOST=1` (`cdmhost.ChildMain()` runs first in `main`). It loads the downloaded Widevine CDM, decrypts, decodes and plays, and makes no network requests. Decrypted audio never leaves it.
+- **CDM host child**: the same executable re-executed with `SONA_CDMHOST=1` (`cdmhost.ChildMain()` runs first in `main`). It loads the downloaded Widevine CDM, decrypts, decodes and plays, and makes no network requests. Decrypted audio never leaves it; a music video's decoded pictures go to the parent for display (§4.2).
 
 ### Go core responsibilities in detail
 
@@ -98,6 +100,7 @@ flowchart LR
   Go <-- framed protocol on stdin/stdout --> H[CDM host child<br/>same binary, SONA_CDMHOST=1]
   H -- dlopen --> W[libwidevinecdm<br/>downloaded from Google]
   H --> G[GStreamer decode lanes → mixer → PipeWire / Core Audio]
+  H -- decoded video pictures, when due --> Go
   Go -- HTTPS: webPlayback, cert, licence, playlist, segments --> Apple[(Apple)]
 ```
 
@@ -111,6 +114,7 @@ Precedent: [vibez](https://github.com/simonepelosi/vibez) (MIT, Go TUI) hosts th
 - **Output resilience**: the output is rebuilt in place (no reload, position kept) when the device changes or the sink fails. pipewiresink's "all buffers have been removed" error, raised when PipeWire relinks the stream, is not fatal, so the output reconnects in place; the old sink closes in the background. A watchdog rebuilds the output if it stands still for 3 s with audio queued or runs ahead of real time. An output that has never played is held in READY rather than PAUSED, because pipewiresink 1.6 deadlocks its PipeWire loop when it prerolls without rendering.
 - **Library uploads (`i.` IDs)**: webPlayback returns a plain unencrypted file (MP3, AAC or ALAC). The parent downloads it into memory and streams the bytes to the child (`LoadFile`/`FeedFile`/`EndOfFile`; the child still makes no requests), which plays it through `gst.FilePipeline`: a random-access byte source over the bytes received (`filehead.c`; a read past them waits, so an MP4 whose `moov` sits at the end plays once it has arrived) `! decodebin !` the shared output tail. Because of the same pipewiresink deadlock, decoded audio is held back from the sink until the first Play, a Pause or Close waits for the first render, and a stream that ends with nothing rendered gets 10 ms of silence first.
 - **Local broadcasters (`ra.` stations with `hasDrm: false`: Capital, KISS, TuneIn's stations)**: the engine looks the station up for its play parameters and asks `/v1/play/assets` without DRM, which answers one clear URL on the broadcaster's servers and no key server, so there is no licence. The parent plays that stream (`internal/playback/broadcast`: HLS of MPEG-TS or packed AAC segments, a PLS or M3U playlist, or a Shoutcast/Icecast stream; reconnects and stall detection) and feeds its elementary audio (ADTS AAC or MP3 frames) to the child as a live file (`LoadFile` with size `gst.Live`: no length, no seeking, bytes dropped once decoded, at most 8 MiB held). What the stream names as on air (ICY `StreamTitle`, ID3 tags, `EXTINF` titles) is stamped with the stream time it applies from, counted from the audio frames, and becomes `Status.OnAir` once playback reaches it: the player bar's live line and the MPRIS title show it. Pause lets the stream go; Resume joins it live again. Nothing is reported as play activity (Apple's web player doesn't play these at all).
+- **Music videos (`mv.<id>` queue items)**: a video is a track whose audio is the video's audio rendition, fetched, licensed, decrypted with `Decrypt` and played exactly like a song, plus its video rendition. The parent fetches the master playlist (its URL names the account and is never logged), picks the best SD H.264 variant a software CDM may play (`hls.SelectVideo`; HD needs HDCP and this CDM's decoder has no HEVC, `docs/apple-music-reference.md` §4.5), licenses the video key in its own session (Apple's video keys are `SW_SECURE_DECODE`, which `Decrypt` refuses) and sends the encrypted fragments with `LoadVideo`/`FeedVideo`. The child rewrites each sample to Annex B (`internal/playback/avc`, encrypted bytes left in place), decrypts and decodes it with the CDM's own video decoder (`DecryptAndDecodeFrame`, I420 out) a few pictures ahead, and sends each picture to the parent when the audio being heard reaches it (20 ms early for the trip to the screen), so the picture follows the audio clock through pauses, seeks and output changes. The parent drops pictures that are not valid I420 of at most 1920×1920 and keeps only the latest on a `video.Surface`, in memory; the web view long-polls `/video/frame` for the next one and draws it with WebGL at its next animation frame (`docs/frontend-architecture.md`, "Music videos"). **Decision:** the maintainer allowed the CDM's video decoder in the sandboxed child and decoded pictures leaving it for display, in memory only, because a child-owned window can't follow the page on Wayland; the hard lines stay: no key extraction, no reimplemented or patched CDM, no bundling, no network requests from the child, never the bitstream or audio out of the child, nothing on disk. Videos are never joined gaplessly to their neighbours, never reported to Apple as plays, never written to local history and never start AutoPlay.
 - **Realtime priority**: the thread that exchanges buffers with PipeWire's graph (pipewiresink's `pipewire-main-loop`, or a `data-loop.N`) needs realtime scheduling to meet the graph's deadline under CPU load, and PipeWire's own module-rt would ask RTKit for it over D-Bus, which the sandboxed child has none of. So once an output plays, the child reports the threads libpipewire created (it marks each `SCHED_RESET_ON_FORK`; nothing else in the child does) over the pipe, and the parent asks for them (`cdmhost/realtime_linux.go`): it skips any thread outside `/proc/<child>/task` (the child shares the parent's PID namespace, so its thread IDs are valid there), lowers the child's `RLIMIT_RTTIME` (soft and hard) to RTKit's `RTTimeUSecMax`, and calls RTKit's `MakeThreadRealtimeWithPID` on the system bus at PipeWire's client priority (83) capped by `MaxRealtimePriority` (RTKit's default 20); in Flatpak, or without RTKit, the Realtime portal (`org.freedesktop.portal.Realtime`, same methods). Refused, it asks for a raised nice level (`MakeThreadHighPriorityWithPID`, `MinNiceLevel`). At most 8 threads per child, each asked for once. Failure is not fatal and Diagnostics → Audio priority shows the outcome (granted, raised, denied or unavailable, and why); macOS asks nothing (Core Audio runs its own I/O thread at realtime priority) and reports it unsupported.
 - **Licence renewal**: Apple's licences expire after 15 minutes; the CDM asks for a renewal 13 minutes after a licence is installed, and the engine posts it to `acquireWebPlaybackLicense` with `X-Apple-Renewal: true` and the `stkn` slot token.
 - **Lifecycle**: the child starts lazily on the first Play or Preload, shuts down after the idle timeout (Settings, default 5 minutes) while idle or paused, and is respawned transparently after a crash, resuming at the last position.
@@ -130,7 +134,7 @@ On macOS the child runs under `sandbox-exec` with Sona's profile (no network, no
 - **Widevine stream (`28:ctrp256`)**: HLS v7 with `#EXT-X-KEY:METHOD=ISO-23001-7,URI="data:;base64,…"` (the KID; Sona wraps it in a Widevine PSSH), CENC AES-CTR, the init segment by `EXT-X-MAP` byte range, fragmented MP4 AAC. The CDM decrypts and GStreamer decodes.
 - **FairPlay streams (`cbcp` flavours)**: `METHOD=SAMPLE-AES` with `skd://` key URIs. Not usable by Sona.
 - **Local broadcasters' streams**: clear. Global's are HLS of MPEG-TS (ADTS AAC, no in-stream metadata); Bauer's HLS of packed HE-AAC with an ID3 tag per segment and the same in `EXTINF` (`title="…",artist="…"`, with the artist in the title and the song in the artist, which Sona swaps back when the metadata links Planet Radio's listen API); TuneIn's a PLS of the station ident, a pre-roll advert and an Icecast MP3 stream with ICY metadata. Details: `docs/apple-music-reference.md` §5.1.
-- **Music videos**: Widevine HLS (`cbcs`, separate video and audio renditions). A software CDM gets usable keys for SD video only (≤864×486), at level `SW_SECURE_DECODE`, which the CDM's `Decrypt` refuses (only its own decoder may use them); HD needs HDCP (`output-restricted`), 4K is refused. So videos do not play on this path (`docs/apple-music-reference.md` §4.5).
+- **Music videos**: Widevine HLS (`cbcs`, separate video and audio renditions). A software CDM gets usable keys for SD video only (≤864×486), at level `SW_SECURE_DECODE`, which only the CDM's own video decoder may use; HD needs HDCP (`output-restricted`), 4K is refused. Sona plays the SD H.264 variant through that decoder (§4.2, `docs/apple-music-reference.md` §4.5).
 - **Lossless, Hi-Res and Atmos**: shown as badges. Apple's licence server refuses the ALAC key to the desktop CDM (`go run ./cmd/playspike -probe-lossless <song>` re-checks it), so these do not play on this path.
 
 ### 4.6 Engine contract
@@ -177,6 +181,7 @@ internal/
   artwork/ motion/           artwork disk cache, variants, pre-blurred backdrops; motion artwork cache
   playback/                  Engine contract
     native/ cdmhost/ widevine/ cdm/  engine (parent); CDM host child; C++ CDM shim; CDM download
+    video/ avc/              music video pictures for the web view (/video/frame); H.264 to Annex B
     fmp4/ hls/ gst/          fMP4 + CENC parsing; HLS playlists; GStreamer lanes, mixer and output
     coordinator/ activity/   queue and state machine; Apple play-activity reports
     equalizer/ soundcheck/   EQ bands and presets; Sound Check gain

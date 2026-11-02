@@ -5,6 +5,7 @@ import { getRouteApi, Link } from "@tanstack/react-router";
 import { ExternalLink, Play } from "lucide-react";
 
 import { playSongs, playVideos } from "@/features/player";
+import { ActionMenu } from "@/shared/actions/ActionMenu";
 import { Badges } from "@/shared/components/Badges";
 import { ArtistLinks } from "@/shared/components/ArtistLinks";
 import { CollectionHeader } from "@/shared/components/CollectionHeader";
@@ -120,6 +121,9 @@ export function VideoPage() {
                 <Play strokeWidth={1.75} />
                 <Trans>Play the song</Trans>
               </Button>
+            )}
+            {videoPlays && (
+              <ActionMenu kind="music-video" target={video} name={video.name} variant="header" />
             )}
           </>
         }

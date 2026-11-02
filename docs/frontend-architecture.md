@@ -33,7 +33,7 @@ src/
     module.ts             the module contract (types below)
     router.ts             rootRoute and childRoute(path)
     actions/              item action registry (single and targets[] forms, + test), ActionMenu,
-                          ItemActionMenu, ContextActionMenu, songsOf (albums/playlists → songs)
+                          ItemActionMenu, ContextActionMenu, tracksOf (albums/playlists → songs)
     selection/            multi-select model (+ test), per-list store, useItemList (selection,
                           context menu and drag delegated from a list's root)
     dnd/                  the pointer drag-and-drop engine: beginDrag, useDropTarget (+ test)
@@ -428,6 +428,8 @@ export interface ActionTargets {
   album: Album;
   playlist: Playlist;
   artist: Artist;
+  station: Station;
+  "music-video": MusicVideo; // only where videos play (canPlayVideo)
 }
 export type ActionTargetKind = keyof ActionTargets;
 
@@ -513,7 +515,9 @@ available actions by group and order, separators between non-empty groups,
 menu data loaded on open.
 
 Registered song actions today (album, artist and playlist menus get the
-library and rating rows too; stations get Copy link):
+library and rating rows too; stations get Copy link; music videos get Play
+next and Add to queue only, and have a target at all only where videos play:
+`videoTile` and `actionItemOf` check `canPlayVideo`):
 
 | Group  | Order | Action                                                 | Module  |
 | ------ | ----- | ------------------------------------------------------ | ------- |
@@ -539,12 +543,14 @@ mounts), so long lists do not mount a menu per row. `ContextActionMenu` is
 the same menu opened at a point (right-click, Shift+F10, the Menu key).
 
 Bulk (`targets[]`) actions registered today: Play next, Add to queue
-(player; songs, albums and playlists, their tracks in order), Add to
-playlist… and Remove from playlist (playlist; the latter in an editable
-playlist's list), Add to library, Remove from library (one confirmation),
-Favourite / Undo favourite (library; states loaded for the whole selection
-on open). `shared/actions/songs.ts` (`songsOf`) expands albums and
-playlists to their songs.
+(player; songs, music videos, albums and playlists, in order, a collection
+as its tracks), Add to playlist… and Remove from playlist (playlist; the
+latter in an editable playlist's list), Add to library, Remove from library
+(one confirmation), Favourite / Undo favourite (library; states loaded for
+the whole selection on open). `shared/actions/songs.ts` (`tracksOf`)
+expands albums and playlists to their songs; `queueItems` turns music
+videos into `kind: "music-video"` queue entries. A dragged music video
+drops on the queue panel, not on a playlist or the pins.
 
 ## Selection, context menus and drag and drop
 

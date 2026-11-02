@@ -634,10 +634,16 @@ WLR_LIBINPUT_NO_DEVICES=1 sway`, then the app with `WAYLAND_DISPLAY`,
 
 - Protected playback runs in the CDM host child process
   (`internal/playback/cdmhost`). It loads the Widevine CDM Sona downloaded
-  and decrypts only through the CDM's own `Decrypt` API.
+  and decrypts audio only through the CDM's own `Decrypt` API; music video
+  pictures only through the CDM's own video decoder
+  (`DecryptAndDecodeFrame`), in SD.
 - Decrypted audio never leaves the child: it is never written to disk and
   never crosses the pipe to the parent. Audio processing happens in the
   child, after decryption.
+- The only media that leaves the child is decoded music video pictures,
+  for display: sent to the parent when due, kept in memory (the latest
+  one), never written to disk. Never the compressed or decrypted video
+  bitstream.
 - The child makes no network requests; the parent fetches everything and
   passes bytes in.
 - The CDM is never bundled (in packages or the binary), redistributed or

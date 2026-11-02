@@ -378,7 +378,13 @@ export function QueuePanel() {
 
   const accepts = (p: DragPayload) =>
     p.origin?.list === QUEUE ||
-    p.items.some((i) => i.kind === "song" || i.kind === "album" || i.kind === "playlist");
+    p.items.some(
+      (i) =>
+        i.kind === "song" ||
+        i.kind === "music-video" ||
+        i.kind === "album" ||
+        i.kind === "playlist",
+    );
   const over = useDropTarget(QUEUE, {
     accepts,
     describe: (p) => (p.origin?.list === QUEUE ? t`Move here` : t`Add to the queue`),

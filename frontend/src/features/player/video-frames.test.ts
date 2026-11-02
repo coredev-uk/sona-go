@@ -9,6 +9,7 @@ import {
   planeLayout,
   readAnswer,
   runFrameLoop,
+  STALE_MS,
   type Frame,
 } from "./video-frames";
 
@@ -150,6 +151,7 @@ describe("runFrameLoop", () => {
         onCleared: () => events.push("cleared"),
       },
       fetchFn,
+      async () => 0,
     );
     expect(urls).toEqual([
       "/video/frame?after=0",
@@ -161,6 +163,62 @@ describe("runFrameLoop", () => {
     expect(events).toEqual(["picture", "waiting", "cleared", "picture"]);
     expect(pictures).toEqual([40, 80]);
     expect(most).toBe(1);
+  });
+
+  it("draws at the next animation frame, asking for the next picture only after it", async () => {
+    const abort = new AbortController();
+    const log: string[] = [];
+    const answers = [response(200, "5", body(5, 2, 2, 40)), response(200, "6", body(6, 2, 2, 80))];
+    const fetchFn = vi.fn(async (url: string) => {
+      log.push(url);
+      const next = answers.shift();
+      if (!next) abort.abort();
+      return next ?? response(204);
+    });
+    await runFrameLoop(
+      abort.signal,
+      {
+        onPicture: (f) => log.push(`draw ${f.positionMs}`),
+        onWaiting: vi.fn(),
+        onCleared: vi.fn(),
+      },
+      fetchFn,
+      async () => {
+        log.push("frame");
+        return 16;
+      },
+    );
+    expect(log).toEqual([
+      "/video/frame?after=0",
+      "frame",
+      "draw 40",
+      "/video/frame?after=5",
+      "frame",
+      "draw 80",
+      "/video/frame?after=6",
+    ]);
+  });
+
+  it("drops a picture that waited too long for a frame and asks again from the same place", async () => {
+    const abort = new AbortController();
+    const urls: string[] = [];
+    const answers = [response(200, "5", body(5, 2, 2, 40)), response(200, "9", body(9, 2, 2, 360))];
+    const fetchFn = vi.fn(async (url: string) => {
+      urls.push(url);
+      const next = answers.shift();
+      if (!next) abort.abort();
+      return next ?? response(204);
+    });
+    const waits = [STALE_MS + 1, 16];
+    const drawn: number[] = [];
+    await runFrameLoop(
+      abort.signal,
+      { onPicture: (f) => drawn.push(f.positionMs), onWaiting: vi.fn(), onCleared: vi.fn() },
+      fetchFn,
+      async () => waits.shift() ?? 16,
+    );
+    expect(urls).toEqual(["/video/frame?after=0", "/video/frame?after=0", "/video/frame?after=9"]);
+    expect(drawn).toEqual([360]);
   });
 
   it("stops when aborted mid-request, without handling the answer", async () => {
@@ -175,6 +233,7 @@ describe("runFrameLoop", () => {
       abort.signal,
       { onPicture, onWaiting: vi.fn(), onCleared: vi.fn() },
       fetchFn,
+      async () => 0,
     );
     abort.abort();
     await done;

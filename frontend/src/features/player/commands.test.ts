@@ -1,17 +1,26 @@
-import type { MusicVideo } from "@bindings/services";
+import type { MusicVideo, Song } from "@bindings/services";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { playVideos } from "./commands";
+import { playVideos, queueItems } from "./commands";
 import { useUI } from "./ui";
 
-const playItems = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const svc = vi.hoisted(() => ({
+  PlayItems: vi.fn(() => Promise.resolve()),
+  PlayNext: vi.fn(() => Promise.resolve()),
+  Append: vi.fn(() => Promise.resolve()),
+  Insert: vi.fn(() => Promise.resolve()),
+}));
+const playItems = svc.PlayItems;
 
-vi.mock("@bindings/services", () => ({ PlaybackService: { PlayItems: playItems } }));
+vi.mock("@bindings/services", () => ({ PlaybackService: svc }));
+vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 
-const video = (id: string, source: string) => ({ id, source }) as unknown as MusicVideo;
+const video = (id: string, source: string) => ({ id, source, name: id }) as unknown as MusicVideo;
+const song = (id: string, playable = true) =>
+  ({ id, source: "catalog", name: id, playable }) as unknown as Song;
 
 beforeEach(() => {
-  playItems.mockClear();
+  Object.values(svc).forEach((f) => f.mockClear());
   useUI.setState({ overlay: "none" });
 });
 
@@ -33,5 +42,33 @@ describe("playVideos", () => {
     playItems.mockImplementationOnce(() => Promise.reject(new Error("no")));
     await playVideos([video("1442907386", "catalog")], 0);
     expect(useUI.getState().overlay).toBe("none");
+  });
+});
+
+describe("queueItems", () => {
+  it("queues songs and music videos in order, videos as music-video refs", async () => {
+    await queueItems(
+      [
+        { kind: "song", target: song("1") },
+        { kind: "music-video", target: video("2", "catalog") },
+        { kind: "song", target: song("3", false) },
+      ],
+      "next",
+    );
+    expect(svc.PlayNext).toHaveBeenCalledWith([
+      { id: "1", source: "catalog" },
+      { id: "2", source: "catalog", kind: "music-video" },
+    ]);
+  });
+
+  it("appends a video alone, or inserts it at a queue position", async () => {
+    await queueItems([{ kind: "music-video", target: video("l.abc", "library") }], "last");
+    expect(svc.Append).toHaveBeenCalledWith([
+      { id: "l.abc", source: "library", kind: "music-video" },
+    ]);
+    await queueItems([{ kind: "music-video", target: video("2", "catalog") }], 3);
+    expect(svc.Insert).toHaveBeenCalledWith(3, [
+      { id: "2", source: "catalog", kind: "music-video" },
+    ]);
   });
 });

@@ -9,7 +9,7 @@ import { plural, t } from "@lingui/core/macro";
 import { toast } from "sonner";
 
 import { describeItems, type ActionItem } from "@/shared/actions/registry";
-import { songsOf } from "@/shared/actions/songs";
+import { tracksOf } from "@/shared/actions/songs";
 import { callFailure } from "@/shared/lib/errors";
 import { fetchItemState } from "@/shared/lib/item-state";
 import { rateItem } from "@/shared/lib/library-actions";
@@ -64,8 +64,10 @@ export async function shuffleSongs(songs: readonly (Song | undefined)[], from: P
   );
 }
 
-/** TrackRef.kind of a music video (Go's services.TrackKindVideo); "" is a song. */
-const VIDEO_KIND = "music-video";
+/** A music video's queue entry: TrackRef.kind "music-video" (Go's services.TrackKindVideo; "" is a song). */
+function videoRef(v: MusicVideo): TrackRef {
+  return { id: v.id, source: v.source, kind: "music-video" };
+}
 
 /**
  * Plays `videos` from `start` as the queue (a library copy plays its
@@ -74,7 +76,7 @@ const VIDEO_KIND = "music-video";
  */
 export async function playVideos(videos: readonly MusicVideo[], start: number) {
   if (!videos.length) return;
-  const refs: TrackRef[] = videos.map((v) => ({ id: v.id, source: v.source, kind: VIDEO_KIND }));
+  const refs = videos.map(videoRef);
   const started = await replaceQueue(() =>
     run(t`Couldn't start playback`, PlaybackService.PlayItems(refs, start, { kind: "", id: "" })),
   );
@@ -90,19 +92,23 @@ export function setSleep(mode: "" | "after" | "track" | "queue", minutes = 0) {
 }
 
 /**
- * Queues songs, albums and playlists (their tracks, in order): `"next"`
- * after the current song, `"last"` after the user's queue, or at queue
- * position `at` (a drop on the queue panel).
+ * Queues songs, music videos, albums and playlists (their tracks), in
+ * order: `"next"` after the current item, `"last"` after the user's
+ * queue, or at queue position `at` (a drop on the queue panel).
  */
 export async function queueItems(items: readonly ActionItem[], where: "next" | "last" | number) {
-  let songs: Song[];
+  let refs: TrackRef[];
   try {
-    songs = await songsOf(items);
+    const lists = await Promise.all(
+      items.map(async (i) =>
+        i.kind === "music-video" ? [videoRef(i.target)] : playable(await tracksOf(i), 0).refs,
+      ),
+    );
+    refs = lists.flat();
   } catch (err) {
     toast.error(t`Couldn't add to the queue`, { description: callFailure(err).message });
     return;
   }
-  const { refs } = playable(songs, 0);
   if (!refs.length) {
     toast.error(t`Nothing here can be played`, {
       description: t`None of these songs is available to stream.`,

@@ -236,6 +236,10 @@ msgstr ""
 msgid "{n, plural, one {# artist} other {# artists}}"
 msgstr ""
 
+#: src/shared/actions/registry.ts
+msgid "{n, plural, one {# music video} other {# music videos}}"
+msgstr ""
+
 #: src/features/home/ShelfIndex.tsx
 #: src/shared/actions/registry.ts
 msgid "{n, plural, one {# playlist} other {# playlists}}"

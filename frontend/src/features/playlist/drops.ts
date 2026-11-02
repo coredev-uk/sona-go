@@ -57,7 +57,7 @@ export function pinnable(p: DragPayload, pins: readonly Pin[]): { id: string; na
   const pinned = new Set(pins.map((x) => x.id));
   const out: { id: string; name: string }[] = [];
   for (const i of p.items) {
-    if (i.kind === "station") return [];
+    if (i.kind === "station" || i.kind === "music-video") return [];
     const id = libraryIdOf(i.target);
     if (!id) return [];
     if (!pinned.has(id)) out.push({ id, name: i.target.name });

@@ -155,17 +155,19 @@ export const libraryActions: ItemActionDef[] = [
   ...bulkActions(),
 ];
 
-const stateKinds: Record<Exclude<ActionTargetKind, "station">, StateKind> = {
+const stateKinds: Record<Exclude<ActionTargetKind, "station" | "music-video">, StateKind> = {
   song: "songs",
   album: "albums",
   artist: "artists",
   playlist: "playlists",
 };
 
-/** The selection with each item's state kind (stations have none). */
+/** The selection with each item's state kind (stations and music videos have none here). */
 function kinded(items: readonly ActionItem[]): KindedItem[] {
   return items.flatMap((i) =>
-    i.kind === "station" ? [] : [{ kind: stateKinds[i.kind], item: i.target }],
+    i.kind === "station" || i.kind === "music-video"
+      ? []
+      : [{ kind: stateKinds[i.kind], item: i.target }],
   );
 }
 
