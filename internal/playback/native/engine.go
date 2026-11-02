@@ -6,9 +6,11 @@
 // certificate, licences, HLS playlists and encrypted segments. A cdmhost
 // child process holds the Widevine CDM, decrypts, and plays the audio
 // through GStreamer. The child is started on first use, shut down after an
-// idle period, and restarted transparently after a crash. In preview mode
-// (Options.Preview, preview.go) every song plays as its 30-second preview
-// through a child that loads no CDM.
+// idle period, and restarted transparently after a crash. Music videos
+// play the same way, their pictures decoded in the child and shown on a
+// video.Surface (video.go). In preview mode (Options.Preview, preview.go)
+// every song plays as its 30-second preview through a child that loads
+// no CDM.
 package native
 
 import (
@@ -18,12 +20,14 @@ import (
 	"log/slog"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
+	"github.com/coredev-uk/sona-go/internal/playback/video"
 )
 
 // CDMSource names the Widevine CDM library each new playback host loads,
@@ -76,6 +80,9 @@ type Options struct {
 	// Storefront returns the catalog storefront previews are looked up
 	// in (required with Preview).
 	Storefront func() string
+	// Video is where music video pictures are shown (playback.VideoID
+	// items); nil plays no videos (Capabilities.Video is false).
+	Video *video.Surface
 }
 
 // Defaults for Options.
@@ -114,6 +121,9 @@ type host interface {
 	FeedFile(ctx context.Context, track uint64, offset int64, data []byte) error
 	EndOfFile(ctx context.Context, track uint64) error
 	Close() error
+	LoadVideo(ctx context.Context, track uint64, m cdmhost.VideoMedia, start time.Duration) error
+	FeedVideo(ctx context.Context, track uint64, fragment []byte) error
+	EndOfVideo(ctx context.Context, track uint64) error
 }
 
 // Engine implements playback.Engine with the Widevine CDM host.
@@ -132,6 +142,10 @@ type Engine struct {
 	sf         func() string // Options.Storefront
 	// probe is cdmhost.Probe (Diagnose).
 	probe func(ctx context.Context, o cdmhost.Options) (cdmhost.Info, error)
+	// surface shows music video pictures; vtok is the track whose
+	// pictures it takes (0: none), read by the host's reading goroutine.
+	surface *video.Surface
+	vtok    atomic.Uint64
 
 	spawnMu sync.Mutex // serialises host starts
 	ctl     sync.Mutex // orders control calls to the host (never held across network I/O)
@@ -206,13 +220,14 @@ func New(o Options) *Engine {
 		cdm:        o.CDM,
 		preview:    o.Preview,
 		sf:         o.Storefront,
+		surface:    o.Video,
 	}
 	e.bg, e.stopBG = context.WithCancel(context.Background())
 	e.spawn = func(ctx context.Context, lib string) (host, error) {
 		e.mu.Lock()
 		eq, dev := e.eq, e.device
 		e.mu.Unlock()
-		return cdmhost.Start(ctx, cdmhost.Options{CDMPath: lib, Clear: e.preview, Logger: log, Device: dev, Equalizer: eq})
+		return cdmhost.Start(ctx, cdmhost.Options{CDMPath: lib, Clear: e.preview, Logger: log, Device: dev, Equalizer: eq, OnVideoFrame: e.showFrame})
 	}
 	return e
 }
@@ -328,6 +343,7 @@ func (e *Engine) Play(ctx context.Context, id string, start time.Duration) error
 		e.mu.Unlock()
 		return errClosed
 	}
+	e.clearVideo()
 	e.replaceCurrent()
 	it := &item{id: id, wantPlay: true}
 	e.track++
@@ -704,6 +720,10 @@ func (e *Engine) Seek(ctx context.Context, pos time.Duration) error {
 		cancel()
 		return e.fail(it, err)
 	}
+	if err := e.loadVideo(ctx, h, tok, m, pos); err != nil {
+		cancel()
+		return e.fail(it, err)
+	}
 	if m.file == nil {
 		e.startFeed(feedCtx, it, tok, h, gen, m, pos)
 	}
@@ -728,6 +748,9 @@ func (e *Engine) startFeed(ctx context.Context, it *item, tok uint64, h host, ge
 		return
 	}
 	go e.feed(ctx, it, tok, h, m, m.pl.SegmentAt(pos))
+	if m.video != nil {
+		go e.feedVideo(ctx, it, tok, h, m, m.video.pl.SegmentAt(pos))
+	}
 }
 
 // SetVolume sets the output volume (0..1, the slider position); the host
@@ -751,6 +774,7 @@ func (e *Engine) Stop(ctx context.Context) error {
 	defer e.ctl.Unlock()
 	e.mu.Lock()
 	e.replaceCurrent()
+	e.clearVideo()
 	e.track++
 	tok := e.track
 	h := e.h

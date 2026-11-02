@@ -4,8 +4,11 @@
 // executable re-executed with EnvChild set. The child loads the Widevine CDM,
 // decrypts the encrypted fMP4 fragments the parent sends, and plays the clear
 // AAC through GStreamer. It makes no network requests, and decrypted audio
-// never leaves it. Parent and child talk over the child's stdin/stdout with
-// gob-encoded frames: requests with replies, plus child→parent events.
+// never leaves it. For music videos it also decodes the video through the
+// CDM's own decoder and sends the parent each decoded picture when it is
+// due (child_video.go), and nothing else of the video. Parent and child talk
+// over the child's stdin/stdout with gob-encoded frames: requests with
+// replies, plus child→parent events and video pictures.
 package cdmhost
 
 import (
@@ -140,6 +143,9 @@ const (
 	opTrackGain    op = "track-gain"
 	opNext         op = "next"
 	opAudio        op = "audio"
+	opVideoLoad    op = "video-load"
+	opVideoFeed    op = "video-feed"
+	opVideoEnd     op = "video-end"
 )
 
 // request is a parent→child frame.
@@ -152,12 +158,12 @@ type request struct {
 	// uploads) and loads no CDM; CDMPath is ignored.
 	Clear   bool
 	Data    []byte        // certificate, licence, init segment or fragment
-	KID     []byte        // opSession: 16-byte key ID or a whole Widevine pssh box; opFeed: key ID override
+	KID     []byte        // opSession: 16-byte key ID or a whole Widevine pssh box; opFeed: key ID override; opVideoLoad: the video's key ID
 	Init    []byte        // opFeed: a stream's new init segment, applied before Data
 	Shift   time.Duration // opFeed: subtracted from the fragment's timestamps
 	Session string
 	Track   uint64
-	Start   time.Duration
+	Start   time.Duration // opLoad, opLoadFile: where to start; opVideoLoad: the first picture to show
 	Volume  float64
 	EQ      *equalizer.Curve // opInit, opEqualizer
 	Device  string           // opInit, opDevice: PipeWire sink node.name; "" follows the default
@@ -188,6 +194,7 @@ type frame struct {
 	Reply   *reply
 	Event   *Event
 	Threads *threadReport
+	Video   *VideoFrame
 }
 
 const (

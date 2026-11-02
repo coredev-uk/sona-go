@@ -135,6 +135,7 @@ func newPlatformService(e *Env) *PlatformService {
 			Crossfade:        pc.Crossfade,
 			OutputDevice:     pc.OutputDevice,
 			PrivateListening: pc.PrivateListening,
+			Video:            pc.Video,
 		},
 		MediaControls:   p.MediaControls != nil,
 		Notifications:   p.Notifications != nil,

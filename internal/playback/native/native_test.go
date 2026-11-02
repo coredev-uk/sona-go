@@ -49,6 +49,7 @@ type fakeHost struct {
 	started  bool
 	autoEnd  bool      // emit EventEnded on EndOfTrack
 	audio    fakeAudio // volume, equaliser, device and file calls (audio_test.go)
+	video    fakeVideo // LoadVideo, FeedVideo, EndOfVideo (video_test.go)
 }
 
 type loadCall struct {
@@ -223,6 +224,27 @@ func (f *fakeHost) SetVolume(_ context.Context, v float64) error {
 	return f.alive()
 }
 func (f *fakeHost) Close() error { f.exit(cdmhost.ErrExited); return nil }
+
+func (f *fakeHost) LoadVideo(_ context.Context, track uint64, m cdmhost.VideoMedia, start time.Duration) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.video.loads = append(f.video.loads, videoLoad{track: track, init: m.Init, kid: m.KID, start: start})
+	return f.alive()
+}
+
+func (f *fakeHost) FeedVideo(_ context.Context, track uint64, data []byte) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.video.feeds = append(f.video.feeds, feedCall{track: track, data: data})
+	return f.alive()
+}
+
+func (f *fakeHost) EndOfVideo(_ context.Context, track uint64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.video.ends = append(f.video.ends, track)
+	return f.alive()
+}
 
 func (f *fakeHost) snapshot() (loads []loadCall, feeds []feedCall, sessions int) {
 	f.mu.Lock()

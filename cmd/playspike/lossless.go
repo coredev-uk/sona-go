@@ -191,13 +191,14 @@ func probeLicence(ctx context.Context, api *applemusic.Client, h *cdmhost.Host, 
 		}
 		return "licence request failed: " + err.Error()
 	}
+	policy := " (" + licencePolicy(lic.Data) + ")"
 	if err := h.UpdateSession(ctx, sid, lic.Data); err != nil {
 		if errors.Is(err, cdmhost.ErrNoUsableKey) {
-			return "licence issued, key NOT usable"
+			return "licence issued, key NOT usable: " + strings.TrimPrefix(err.Error(), cdmhost.ErrNoUsableKey.Error()+": ") + policy
 		}
-		return "licence issued, CDM refused it: " + err.Error()
+		return "licence issued, CDM refused it: " + err.Error() + policy
 	}
-	return "licence issued, key usable"
+	return "licence issued, key usable" + policy
 }
 
 // attr returns the value of name in an HLS attribute list.

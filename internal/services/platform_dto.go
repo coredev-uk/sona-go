@@ -91,4 +91,7 @@ type PlaybackCapabilities struct {
 	// PrivateListening: Sona sends every play report itself, so private
 	// listening withholds them all.
 	PrivateListening bool `json:"privateListening"`
+	// Video: music videos play (in SD, the only quality Apple licenses a
+	// software CDM), their pictures served at /video/frame.
+	Video bool `json:"video"`
 }

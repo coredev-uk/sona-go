@@ -85,15 +85,42 @@ func (e *WebPlaybackError) Error() string {
 // Unwrap makes errors.Is(err, ErrNotPlayable) match.
 func (e *WebPlaybackError) Unwrap() error { return ErrNotPlayable }
 
+type webPlaybackSong struct {
+	SongID          json.RawMessage `json:"songId"`
+	Assets          []Asset         `json:"assets"`
+	PlaylistURL     string          `json:"hls-playlist-url"`
+	KeyServerURL    string          `json:"hls-key-server-url"`
+	WidevineCertURL string          `json:"widevine-cert-url"`
+}
+
 type webPlaybackResponse struct {
-	SongList []struct {
-		SongID          json.RawMessage `json:"songId"`
-		Assets          []Asset         `json:"assets"`
-		KeyServerURL    string          `json:"hls-key-server-url"`
-		WidevineCertURL string          `json:"widevine-cert-url"`
-	} `json:"songList"`
-	FailureType     string `json:"failureType"`
-	CustomerMessage string `json:"customerMessage"`
+	SongList        []webPlaybackSong `json:"songList"`
+	FailureType     string            `json:"failureType"`
+	CustomerMessage string            `json:"customerMessage"`
+}
+
+// webPlayback posts body for id and returns the first song of the answer,
+// with the licence and certificate URLs defaulted. An answer without one
+// wraps ErrNotPlayable.
+func (c *Client) webPlayback(ctx context.Context, id string, body any) (webPlaybackSong, error) {
+	var resp webPlaybackResponse
+	if err := c.Do(ctx, Request{Method: http.MethodPost, URL: WebPlaybackURL, Body: body, Header: c.playHeader()}, &resp); err != nil {
+		return webPlaybackSong{}, fmt.Errorf("webPlayback %s: %w", id, err)
+	}
+	if len(resp.SongList) == 0 {
+		if resp.FailureType != "" {
+			return webPlaybackSong{}, &WebPlaybackError{FailureType: resp.FailureType, CustomerMessage: resp.CustomerMessage}
+		}
+		return webPlaybackSong{}, fmt.Errorf("webPlayback %s: empty song list: %w", id, ErrNotPlayable)
+	}
+	s := resp.SongList[0]
+	if s.KeyServerURL == "" {
+		s.KeyServerURL = LicenseURL
+	}
+	if s.WidevineCertURL == "" {
+		s.WidevineCertURL = WidevineCertURL
+	}
+	return s, nil
 }
 
 // WebPlayback fetches playback metadata for id: a catalog song ID
@@ -108,29 +135,16 @@ func (c *Client) WebPlayback(ctx context.Context, id string, q Quality) (Playbac
 	if library {
 		body = map[string]any{"universalLibraryId": id, "isLibrary": true}
 	}
-	var resp webPlaybackResponse
-	if err := c.Do(ctx, Request{Method: http.MethodPost, URL: WebPlaybackURL, Body: body, Header: c.playHeader()}, &resp); err != nil {
-		return PlaybackInfo{}, fmt.Errorf("webPlayback %s: %w", id, err)
+	s, err := c.webPlayback(ctx, id, body)
+	if err != nil {
+		return PlaybackInfo{}, err
 	}
-	if len(resp.SongList) == 0 {
-		if resp.FailureType != "" {
-			return PlaybackInfo{}, &WebPlaybackError{FailureType: resp.FailureType, CustomerMessage: resp.CustomerMessage}
-		}
-		return PlaybackInfo{}, fmt.Errorf("webPlayback %s: empty song list: %w", id, ErrNotPlayable)
-	}
-	s := resp.SongList[0]
 	info := PlaybackInfo{
 		SongID:     strings.Trim(string(s.SongID), `"`),
 		LicenseURL: s.KeyServerURL,
 		CertURL:    s.WidevineCertURL,
 		IsLibrary:  library,
 		Assets:     s.Assets,
-	}
-	if info.LicenseURL == "" {
-		info.LicenseURL = LicenseURL
-	}
-	if info.CertURL == "" {
-		info.CertURL = WidevineCertURL
 	}
 	for _, want := range widevineFlavors(q) {
 		for _, a := range s.Assets {
@@ -149,6 +163,40 @@ func (c *Client) WebPlayback(ctx context.Context, id string, q Quality) (Playbac
 		flavors = append(flavors, a.Flavor)
 	}
 	return PlaybackInfo{}, fmt.Errorf("webPlayback %s: flavors %v: %w", id, flavors, ErrNotPlayable)
+}
+
+// VideoPlaybackInfo is the webPlayback answer for a music video.
+type VideoPlaybackInfo struct {
+	SongID string // the ID licences are requested for (the video's adamId)
+	// MasterURL is the HLS master playlist of every rendition. It carries
+	// the account's dsid: never log it above debug level.
+	MasterURL  string
+	LicenseURL string // Widevine licence server (hls-key-server-url)
+	CertURL    string // Widevine service certificate (widevine-cert-url)
+}
+
+// VideoPlayback fetches playback metadata for catalog music video id: an
+// HLS master playlist (hls-playlist-url; a video has no assets) and the
+// Widevine licence and certificate URLs. An answer without a master
+// playlist wraps ErrNotPlayable.
+func (c *Client) VideoPlayback(ctx context.Context, id string) (VideoPlaybackInfo, error) {
+	s, err := c.webPlayback(ctx, id, map[string]string{"salableAdamId": id})
+	if err != nil {
+		return VideoPlaybackInfo{}, err
+	}
+	if s.PlaylistURL == "" {
+		return VideoPlaybackInfo{}, fmt.Errorf("webPlayback %s: no video playlist: %w", id, ErrNotPlayable)
+	}
+	info := VideoPlaybackInfo{
+		SongID:     strings.Trim(string(s.SongID), `"`),
+		MasterURL:  s.PlaylistURL,
+		LicenseURL: s.KeyServerURL,
+		CertURL:    s.WidevineCertURL,
+	}
+	if info.SongID == "" {
+		info.SongID = id
+	}
+	return info, nil
 }
 
 // WidevineCert downloads the Widevine service certificate at url

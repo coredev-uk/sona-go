@@ -48,6 +48,11 @@ type Options struct {
 	// Exe is the executable to run as the child; default os.Executable().
 	// It must call ChildMain first thing in main.
 	Exe string
+	// OnVideoFrame receives each decoded music video picture as it falls
+	// due (VideoFrame), from the goroutine reading the child: it must not
+	// block. Pictures that are not valid I420 of at most MaxVideoSize are
+	// dropped before it.
+	OnVideoFrame func(VideoFrame)
 	// cdmOnly starts a child that loads only the CDM (envCDMOnly).
 	cdmOnly bool
 	// realtime replaces how the child's audio threads are raised (tests).
@@ -62,7 +67,8 @@ type Host struct {
 	stdin io.WriteCloser
 	info  Info
 	// parent is the parent's part of the sandbox (sandbox_<os>.go).
-	parent parentSandbox
+	parent  parentSandbox
+	onFrame func(VideoFrame)
 
 	encMu sync.Mutex
 	enc   *gob.Encoder
@@ -200,6 +206,7 @@ func spawn(o Options) (*Host, error) {
 		rtEnv:   defaultRTEnv,
 		rt:      realtimeInitial,
 		rtAsked: map[int]bool{},
+		onFrame: o.OnVideoFrame,
 	}
 	if o.realtime != nil {
 		h.rtEnv = *o.realtime
@@ -374,6 +381,10 @@ loop:
 			}
 		case f.Threads != nil:
 			h.audioThreads(f.Threads.TIDs)
+		case f.Video != nil:
+			if h.onFrame != nil && f.Video.valid() {
+				h.onFrame(*f.Video)
+			}
 		}
 	}
 	if readErr != nil && !errors.Is(readErr, io.EOF) {

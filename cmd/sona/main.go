@@ -40,6 +40,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/activity"
 	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
+	"github.com/coredev-uk/sona-go/internal/playback/video"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/shell"
@@ -239,7 +240,10 @@ func run(started time.Time) error {
 	defer appleStrings.Close()
 
 	cur := settings.Get()
-	engine := newEngine(api, cur, log, cdmMgr, storefront)
+	// Music video pictures: the engine shows each on vid as it falls due,
+	// and the web view fetches it from /video/frame (memory only).
+	vid := video.NewSurface()
+	engine := newEngine(api, cur, log, cdmMgr, storefront, vid)
 	defer engine.Close()
 
 	// GStreamer's plugin registry is readied in a child after the first
@@ -325,7 +329,7 @@ func run(started time.Time) error {
 		MarshalError: services.MarshalError,
 		Assets: application.AssetOptions{
 			Handler:        application.AssetFileServerFS(frontend.Dist),
-			Middleware:     artMiddleware(art, mot),
+			Middleware:     artMiddleware(art, mot, vid),
 			DisableLogging: !devMode,
 		},
 		Linux:   linuxOptions,
@@ -386,9 +390,10 @@ func newTransport() *http.Transport {
 	}
 }
 
-// artMiddleware serves the artwork cache at /art/ and motion artwork at
-// /motion/ ahead of the frontend.
-func artMiddleware(art, mot http.Handler) application.Middleware {
+// artMiddleware serves the artwork cache at /art/, motion artwork at
+// /motion/ and music video pictures at /video/frame ahead of the
+// frontend.
+func artMiddleware(art, mot, vid http.Handler) application.Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch {
@@ -396,6 +401,8 @@ func artMiddleware(art, mot http.Handler) application.Middleware {
 				art.ServeHTTP(w, r)
 			case strings.HasPrefix(r.URL.Path, "/motion/"):
 				mot.ServeHTTP(w, r)
+			case r.URL.Path == video.Path:
+				vid.ServeHTTP(w, r)
 			default:
 				next.ServeHTTP(w, r)
 			}

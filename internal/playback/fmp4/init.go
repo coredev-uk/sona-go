@@ -6,7 +6,8 @@ import (
 	"time"
 )
 
-// ParseInit parses an init segment (ftyp + moov) with one audio track.
+// ParseInit parses an init segment (ftyp + moov) with one track: audio
+// (AAC) or, for music videos, video (H.264 or HEVC).
 func ParseInit(b []byte) (*Init, error) {
 	top, err := boxes(b, 0)
 	if err != nil {
@@ -193,8 +194,13 @@ func path(bs []box, names ...string) (box, error) {
 	return b, nil
 }
 
-// parseSampleEntry parses an AudioSampleEntry ('mp4a' or 'enca').
+// parseSampleEntry parses the track's sample entry: audio ('mp4a' or
+// 'enca') or video ('avc1', 'avc3', 'hvc1', 'hev1' or 'encv').
 func (in *Init) parseSampleEntry(e box) error {
+	switch e.typ {
+	case "encv", "avc1", "avc3", "hvc1", "hev1":
+		return in.parseVisualEntry(e)
+	}
 	in.Codec = e.typ
 	const audioEntryHeader = 28 // reserved(6) dref(2) reserved(8) channels(2) size(2) predef(2) reserved(2) rate(4)
 	if len(e.body) < audioEntryHeader {
@@ -227,6 +233,48 @@ func (in *Init) parseSampleEntry(e box) error {
 	}
 	return in.parseESDS(esds.body)
 }
+
+// videoConfigBox is the decoder configuration box of each video codec.
+var videoConfigBox = map[string]string{"avc1": "avcC", "avc3": "avcC", "hvc1": "hvcC", "hev1": "hvcC"}
+
+// parseVisualEntry parses a VisualSampleEntry: the picture size and the
+// codec's decoder configuration (avcC or hvcC).
+func (in *Init) parseVisualEntry(e box) error {
+	in.Codec = e.typ
+	const visualEntryHeader = 78 // reserved(6) dref(2) predef/reserved(16) width(2) height(2) resolution(8) reserved(4) frames(2) compressor(32) depth(2) predef(2)
+	if len(e.body) < visualEntryHeader {
+		return fmt.Errorf("fmp4: %s sample entry: %w", e.typ, ErrTruncated)
+	}
+	r := reader{b: e.body}
+	r.take(24)
+	in.Width, in.Height = int(r.u16()), int(r.u16())
+	kids, err := boxes(e.body[visualEntryHeader:], e.bodyAt+visualEntryHeader)
+	if err != nil {
+		return err
+	}
+	if e.typ == "encv" {
+		sinf, ok := find(kids, "sinf")
+		if !ok {
+			return errors.New("fmp4: encv without sinf")
+		}
+		if err := in.parseSinf(sinf); err != nil {
+			return err
+		}
+	}
+	name, ok := videoConfigBox[in.Codec]
+	if !ok {
+		return fmt.Errorf("fmp4: unsupported codec %q", in.Codec)
+	}
+	cfg, ok := find(kids, name)
+	if !ok || len(cfg.body) == 0 {
+		return fmt.Errorf("fmp4: %s without %s", in.Codec, name)
+	}
+	in.VideoConfig = cfg.body
+	return nil
+}
+
+// IsVideo reports whether the track is video.
+func (in *Init) IsVideo() bool { return in.VideoConfig != nil }
 
 func (in *Init) parseSinf(sinf box) error {
 	sc, err := children(sinf)

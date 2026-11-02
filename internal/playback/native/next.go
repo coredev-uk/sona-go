@@ -63,7 +63,8 @@ func (e *Engine) fed(it *item, tok uint64) {
 // once that is fed to its end. With mu held.
 func (e *Engine) armLocked() {
 	it := e.cur
-	if e.closed || e.next.ID == "" || it == nil || !it.fed || it.pending != nil || it.m == nil || !it.m.trim || e.h == nil {
+	if e.closed || e.next.ID == "" || it == nil || !it.fed || it.pending != nil || it.m == nil || !it.m.trim || e.h == nil ||
+		it.m.video != nil || playback.IsVideo(e.next.ID) { // a video starts and ends on its own
 		return
 	}
 	ctx, cancel := context.WithCancel(e.bg)

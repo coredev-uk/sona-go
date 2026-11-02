@@ -219,12 +219,17 @@ type ArtistDetail struct {
 	Header   Header  `json:"header"`
 }
 
-// TrackRef names a song to queue: its ID in Source (as in Song.ID and
-// Song.Source).
+// TrackRef names an item to queue: a song, or with Kind TrackKindVideo a
+// music video, by its ID in Source (as in Song.ID and Song.Source, or
+// MusicVideo.ID and MusicVideo.Source).
 type TrackRef struct {
 	ID     string `json:"id"`
 	Source Source `json:"source"`
+	Kind   string `json:"kind,omitempty"` // "" (a song) or TrackKindVideo
 }
+
+// TrackKindVideo is TrackRef.Kind for a music video.
+const TrackKindVideo = "music-video"
 
 // Station kinds (Station.Kind).
 const (

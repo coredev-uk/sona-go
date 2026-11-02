@@ -240,7 +240,10 @@ func (e *Engine) load(ctx context.Context, h host, tok uint64, m *media, pos tim
 	if m.file != nil {
 		return h.LoadFile(ctx, tok, m.file.size, pos, m.gain)
 	}
-	return h.Load(ctx, tok, m.hostMedia(m.init), pos)
+	if err := h.Load(ctx, tok, m.hostMedia(m.init), pos); err != nil {
+		return err
+	}
+	return e.loadVideo(ctx, h, tok, m, pos)
 }
 
 // feedFile streams the file m to the host as it downloads, for the file

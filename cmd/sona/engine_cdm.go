@@ -15,6 +15,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/playback/native"
+	"github.com/coredev-uk/sona-go/internal/playback/video"
 )
 
 // Linux and macOS: the Widevine CDM host engine (internal/playback/native),
@@ -26,10 +27,10 @@ func childMain() { cdmhost.ChildMain() }
 
 // newEngine is the CDM host engine, loading the CDM src names; it starts
 // no process until the first play, and reports no_cdm until the download
-// is installed. With SONA_PREVIEW on (playback.EnvPreview) it plays every
-// song as its 30-second preview from storefront's catalog instead, with
-// no CDM.
-func newEngine(api *applemusic.Client, cur config.Settings, log *slog.Logger, src *cdm.Manager, storefront func() string) playback.Engine {
+// is installed. Music video pictures go to vid. With SONA_PREVIEW on
+// (playback.EnvPreview) it plays every song as its 30-second preview
+// from storefront's catalog instead, with no CDM.
+func newEngine(api *applemusic.Client, cur config.Settings, log *slog.Logger, src *cdm.Manager, storefront func() string, vid *video.Surface) playback.Engine {
 	preview, err := playback.PreviewEnv(os.Getenv(playback.EnvPreview))
 	if err != nil {
 		log.Warn("playback", "err", err)
@@ -45,6 +46,7 @@ func newEngine(api *applemusic.Client, cur config.Settings, log *slog.Logger, sr
 		Quality:     applemusic.Quality(cur.AudioQuality),
 		Preview:     preview,
 		Storefront:  storefront,
+		Video:       vid,
 	})
 }
 
