@@ -41,7 +41,7 @@ func (f *fakeSocialAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]any{"data": []any{map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": []any{map[string]any{
 			"id": "me", "type": "personal-social-profiles",
 			"relationships": map[string]any{"social-profile": map[string]any{"data": []any{map[string]any{"id": f.me, "type": "social-profiles"}}}},
 		}}})
@@ -52,7 +52,10 @@ func (f *fakeSocialAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var body map[string]any
-		json.Unmarshal(b, &body)
+		if err := json.Unmarshal(b, &body); err != nil {
+			f.t.Error(err)
+			return
+		}
 		pl := body["data"].([]any)[0].(map[string]any)
 		q := r.URL.Query()
 		if q.Get("associate[playlists:tracks]") != "collaborators" {
@@ -63,9 +66,9 @@ func (f *fakeSocialAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(q.Get("views"), "collaborators") {
 			delete(pl, "views")
 		}
-		json.NewEncoder(w).Encode(body)
+		_ = json.NewEncoder(w).Encode(body)
 	case "/v1/catalog/gb/playlists/pl.u-solo":
-		json.NewEncoder(w).Encode(map[string]any{"data": []any{map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": []any{map[string]any{
 			"id": "pl.u-solo", "type": "playlists", "attributes": map[string]any{"hasCollaboration": false},
 			"relationships": map[string]any{"tracks": map[string]any{"data": []any{map[string]any{"id": "1001", "type": "songs"}}}},
 			"views":         map[string]any{"collaborators": map[string]any{"data": []any{}}},
@@ -91,7 +94,7 @@ func newCollaborationEnv(t *testing.T, f *fakeSocialAPI, mut string) *PlaylistsS
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() { _ = d.Close() })
 	srv := httptest.NewServer(f)
 	t.Cleanup(srv.Close)
 	api := applemusic.New(srv.Client(), staticToken{}, func() string { return mut })

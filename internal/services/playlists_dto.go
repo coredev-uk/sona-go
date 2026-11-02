@@ -86,7 +86,7 @@ type PlaylistCollaboration struct {
 	// Collaborators are everyone who can add songs, the owner first.
 	Collaborators []SocialProfile `json:"collaborators"`
 	// Former are people who added songs but no longer collaborate.
-	Former []SocialProfile    `json:"former"`
+	Former []SocialProfile   `json:"former"`
 	Viewer CollaborationRole `json:"viewer"`
 	// AddedBy says who added each of the playlist's first 300 tracks, in
 	// Apple's order (later tracks are not attributed).
