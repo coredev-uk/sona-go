@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
+import { openAccountDialog } from "@/shared/lib/account";
 import { callFailure } from "@/shared/lib/errors";
 
 /** The collection header and track rows at their real sizes while the detail loads. */
@@ -86,7 +87,7 @@ export function DetailError({
     return (
       <EmptyState
         title={t`Sign in to see this`}
-        action={{ label: t`Sign in`, to: "/settings", search: { section: "account" } }}
+        action={{ label: t`Sign in`, onClick: openAccountDialog }}
         className="mt-2"
       >
         {body}

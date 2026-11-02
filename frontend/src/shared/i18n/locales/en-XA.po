@@ -406,9 +406,18 @@ msgstr ""
 msgid "About {artistName}"
 msgstr ""
 
-#: src/app/shell/TopBar.tsx
-#: src/features/settings/Settings.tsx
+#: src/features/auth/AccountDialog.tsx
+#: src/features/auth/AccountMenu.tsx
 msgid "Account"
+msgstr ""
+
+#: src/features/auth/index.ts
+msgid "account apple music sign in sign out storefront keyring"
+msgstr ""
+
+#: src/features/auth/AccountMenu.tsx
+#: src/features/auth/index.ts
+msgid "Account settings"
 msgstr ""
 
 #. Equaliser preset
@@ -608,6 +617,7 @@ msgstr ""
 msgid "Apple is calling with your code."
 msgstr ""
 
+#: src/features/auth/AccountMenu.tsx
 #: src/features/commands/CommandPalette.tsx
 #: src/features/library/views.tsx
 #: src/features/onboarding/AccountStep.tsx
@@ -655,6 +665,7 @@ msgid "Apple Music has nothing more of this kind for the search."
 msgstr ""
 
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 msgid "Apple Music isn't accepting Sona's requests"
 msgstr ""
 
@@ -707,7 +718,7 @@ msgid "Apple Music needs a signed-in account to show this song."
 msgstr ""
 
 #: src/shared/lib/errors.ts
-msgid "Apple Music no longer accepts your sign-in. Sign in again in Settings → Account."
+msgid "Apple Music no longer accepts your sign-in. Sign in again from the account menu in the top bar."
 msgstr ""
 
 #: src/features/settings/Storage.tsx
@@ -751,6 +762,7 @@ msgid "Apple sent a code by text message."
 msgstr ""
 
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 msgid "Apple stopped accepting Sona's sign-in"
 msgstr ""
 
@@ -1001,6 +1013,7 @@ msgid "Check for updates when Sona starts"
 msgstr ""
 
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 #: src/features/settings/Updates.tsx
 msgid "Check now"
 msgstr ""
@@ -1042,6 +1055,7 @@ msgid "Checking your account with Apple…"
 msgstr ""
 
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 #: src/features/onboarding/AccountStep.tsx
 msgid "Checking your sign-in…"
 msgstr ""
@@ -1607,6 +1621,7 @@ msgid "Couldn't reach {name}. Check your connection and try again."
 msgstr ""
 
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 #: src/features/auth/signin.ts
 msgid "Couldn't reach Apple"
 msgstr ""
@@ -2200,6 +2215,7 @@ msgid "Explicit content is restricted on this account; it will be skipped"
 msgstr ""
 
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 msgid "Explicit content is restricted on this account; Sona hides it."
 msgstr ""
 
@@ -3262,6 +3278,8 @@ msgstr ""
 msgid "Not set"
 msgstr ""
 
+#. The account menu's status line
+#: src/features/auth/AccountMenu.tsx
 #: src/features/onboarding/DoneStep.tsx
 msgid "Not signed in"
 msgstr ""
@@ -3397,6 +3415,11 @@ msgstr ""
 msgid "Offline. Showing your library from this computer; Sona reconnects by itself."
 msgstr ""
 
+#. In the account menu while Apple can't be reached
+#: src/features/auth/AccountMenu.tsx
+msgid "Offline. Sona keeps using your saved sign-in."
+msgstr ""
+
 #: src/features/settings/Diagnostics.tsx
 msgid "OK"
 msgstr ""
@@ -3415,6 +3438,7 @@ msgstr ""
 msgid "On battery: motion artwork pauses"
 msgstr ""
 
+#: src/features/auth/AccountMenu.tsx
 #: src/features/private/PrivateButton.tsx
 msgid "On because Sona was started with SONA_PRIVATE=1"
 msgstr ""
@@ -3783,6 +3807,11 @@ msgstr ""
 msgid "Plays stay out of your Apple Music listening history and recommendations, and aren't scrobbled, shown on Discord or added to History."
 msgstr ""
 
+#. Under the account menu's Private listening switch
+#: src/features/auth/AccountMenu.tsx
+msgid "Plays stay out of your listening history, scrobbles and Discord."
+msgstr ""
+
 #: src/features/settings/MotionArtworkRows.tsx
 msgid "Plays the looping covers some albums and playlists have, in their headers and in Now Playing."
 msgstr ""
@@ -3868,6 +3897,8 @@ msgstr ""
 #. Setting name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
 #. Setting name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
 #. Switch name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
+#. Switch name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
+#: src/features/auth/AccountMenu.tsx
 #: src/features/onboarding/DoneStep.tsx
 #: src/features/onboarding/ListeningStep.tsx
 #: src/features/private/PrivateButton.tsx
@@ -3885,6 +3916,7 @@ msgstr ""
 msgid "Private listening (forced by SONA_PRIVATE=1)"
 msgstr ""
 
+#: src/features/auth/AccountMenu.tsx
 #: src/features/private/PrivateButton.tsx
 msgid "Private listening is on for this development build. Turning it off lasts until Sona quits."
 msgstr ""
@@ -4278,6 +4310,7 @@ msgstr ""
 
 #: src/app/shell/StatusBanner.tsx
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 msgid "Saving your sign-in in your keyring; unlock it if it asks."
 msgstr ""
 
@@ -4540,6 +4573,7 @@ msgstr ""
 
 #: src/app/shell/StatusBanner.tsx
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 #: src/features/home/HomePage.tsx
 #: src/features/library/sign-in.ts
 #: src/features/onboarding/DoneStep.tsx
@@ -4567,7 +4601,7 @@ msgstr ""
 
 #: src/features/radio/commands.ts
 #: src/shared/lib/errors.ts
-msgid "Sign in to Apple Music in Settings → Account."
+msgid "Sign in to Apple Music from the account menu in the top bar."
 msgstr ""
 
 #: src/features/miniplayer/MiniPlayer.tsx
@@ -4627,6 +4661,7 @@ msgid "Sign in, Widevine and how you listen, one step at a time, as on Sona's fi
 msgstr ""
 
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 msgid "Sign out"
 msgstr ""
 
@@ -4655,7 +4690,13 @@ msgstr ""
 msgid "Signed in"
 msgstr ""
 
+#. The account menu's status line: signed in, then the storefront's country
+#: src/features/auth/AccountMenu.tsx
+msgid "Signed in · {store}"
+msgstr ""
+
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 #: src/features/onboarding/AccountStep.tsx
 msgid "Signed in to Apple Music"
 msgstr ""
@@ -4665,10 +4706,12 @@ msgid "Signing in brings your Apple Music library, playlists and recommendations
 msgstr ""
 
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 msgid "Signing in now stores your token unencrypted"
 msgstr ""
 
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 msgid "Signing in…"
 msgstr ""
 
@@ -4835,6 +4878,7 @@ msgid "Sona couldn't reach the network. Check your connection and try again."
 msgstr ""
 
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 msgid "Sona couldn't read your sign-in from your keyring"
 msgstr ""
 
@@ -5545,6 +5589,8 @@ msgid "Trusted phone number"
 msgstr ""
 
 #. Reads the sign-in from the system keyring again. Apple's wording: ASE.Web.Music.Error.TryAgain
+#. Reads the sign-in from the system keyring again. Apple's wording: ASE.Web.Music.Error.TryAgain
+#: src/features/auth/AccountMenu.tsx
 #: src/features/auth/KeyringRetry.tsx
 msgid "Try again"
 msgstr ""
@@ -6018,5 +6064,6 @@ msgid "Your synced library, history and the catalogue cache. Sona optimises it w
 msgstr ""
 
 #: src/features/auth/Account.tsx
+#: src/features/auth/AccountMenu.tsx
 msgid "Your token is stored unencrypted"
 msgstr ""

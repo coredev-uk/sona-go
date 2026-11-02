@@ -7,6 +7,10 @@
     }
   },
   {
+    "message": "Account settings",
+    "key": "ASE.Web.Platform.Shared.AccountMenu.AccountSettings"
+  },
+  {
     "message": "Add",
     "key": "ASE.Web.Music.Shared.Add"
   },
@@ -381,6 +385,10 @@
     "placeholders": {
       "artistName": "artistName"
     }
+  },
+  {
+    "message": "Try again",
+    "key": "ASE.Web.Music.Error.TryAgain"
   },
   {
     "message": "Undo favourite",

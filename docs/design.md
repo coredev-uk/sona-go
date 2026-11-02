@@ -143,6 +143,7 @@ It is the recommended setting on software rendering (`WEBKIT_DISABLE_COMPOSITING
 - Active nav item: `--active` fill at radius 6, label and icon in ink. Inactive items are `--ink-muted`.
 - Group label "Library" in 12px muted sentence case, 20px above its first item. Settings sits at the sidebar's foot.
 - Top bar: back and forward, then the search field (max 520px, `/` or Ctrl+F focuses it, never narrower than 240px), an empty stretch of at least 64px, and the account avatar.
+- The avatar is the account menu's button: a `--hover` circle signed out, `--active` with the glyph in ink signed in, and a small `--danger` dot when the account needs the user (Apple stopped taking the sign-in, the keyring didn't hand it over, Apple refuses Sona's requests). The menu (`--raised`, 288px, end-aligned) opens with where the account stands in meta text (storefront, restricted content, offline, an unencrypted token), then the one action that fits (Sign in or Account settings, Check now, Try again), private listening as a checkbox item with its note, and Sign out in danger red last. Anything that needs room (the sign-in form, the account's details) opens the account dialog, never a page.
 
 ### Title bar
 

@@ -130,7 +130,7 @@ src/
                           Settings → Playback links here (a route Link, no import, so settings
                           never depends on it)
     settings              Settings page (a route, /settings?section=…; see "Settings" below)
-                          and its Account/General/Playback/Appearance/Connections/Shortcuts/
+                          and its General/Playback/Appearance/Connections/Shortcuts/
                           Storage/Diagnostics sections (General: starting Sona, the window,
                           while music plays, updates; Playback: the Widevine row (CdmRow:
                           version, source, a running download's progress bar, Retry after a
@@ -146,8 +146,14 @@ src/
                           artwork), useSettings/useUpdateSettings
     commands              Ctrl+K command palette (pages, actions, library items; rank + test),
                           "?" shortcut help sheet
-    auth                  Account section, sign-in reducer (+ test), useAuth/hasAccount,
-                          auth invalidations (+ test)
+    auth                  the top bar's AccountMenu (avatar: where the account stands, a dot
+                          when it needs the user; storefront, restricted content, offline with
+                          Check now, the keyring's Try again, private listening, Sign out with
+                          its confirmation) and the account dialog it opens (AccountSection:
+                          the native sign-in form, browser and token fallbacks, keyring
+                          notices; signed in, the account's details), the palette's "Account
+                          settings", sign-in reducer (+ test), useAuth/hasAccount, auth
+                          invalidations (+ test)
     updates               update notice in the sidebar footer (a newer GitHub release)
     private               private listening: Go's private mode mirrored from private:changed
                           (usePrivate, setPrivate, isForced), PrivateButton for the player bar
@@ -831,13 +837,20 @@ results.
 
 Settings is a page, `/settings?section=<id>` (`features/settings`), not a
 dialog. Deep links (the status banner, the player bar's Widevine notice,
-empty states, the shortcut help) name a section; Back and Forward leave it
+the shortcut help) name a section; Back and Forward leave it
 like any page; the player bar stays live while you change what you hear;
 the equaliser and other pages it links to open in place; dialogs inside a
 section (Reset all shortcuts, Disconnect) never stack on another dialog;
 and the 940×600 minimum window keeps its whole content area.
 
-- **Sections**, in order: Account, General, Playback, Appearance,
+The Apple Music account is not a section: it lives in the top bar's account
+menu and the account dialog (`features/auth`). Every "Sign in" action (empty
+states, the status banner, the player bar) opens that dialog through
+`shared/lib/account.ts` (`openAccountDialog`), so no feature depends on
+auth to offer it; an old `/settings?section=account` link (a saved last
+page) opens the dialog over Settings (the route's `beforeLoad`).
+
+- **Sections**, in order: General, Playback, Appearance,
   Connections, Shortcuts, Storage, Diagnostics (`search-params.ts`). A
   section is one entry there plus its title and component in
   `Settings.tsx`. Choosing a section replaces the history entry.
@@ -968,12 +981,13 @@ Enforced by `no-restricted-imports` in `frontend/eslint.config.js`:
   relative path). Where shared UI needs feature state it defines a seam the
   feature fills: `NowPlayingContext` (player's `Provider` slot), `MotionContext`
   (motion's `Provider` slot), the action registry (modules' `actions`), the item
-  player registry (`shared/items/play`, filled in module `init`), and props (the
+  player registry (`shared/items/play`, filled in module `init`), the account
+  dialog's open state (`shared/lib/account.ts`, rendered by auth), and props (the
   Toaster's `theme`).
 - `src/app/**` may import anything.
 
-Feature-to-feature imports must stay acyclic. Today: player → settings →
-auth; player → equalizer → settings; player → private; settings → private;
+Feature-to-feature imports must stay acyclic. Today: player → settings;
+auth → private; player → equalizer → settings; player → private; settings → private;
 onboarding → auth, cdm, private, settings;
 player → cdm; settings → cdm;
 home → auth, discover, library, player; discover → player; search → auth, player; album and

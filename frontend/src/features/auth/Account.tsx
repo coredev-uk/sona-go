@@ -14,7 +14,15 @@ import {
   ShieldAlert,
   WifiOff,
 } from "lucide-react";
-import { useEffect, useReducer, useState, type FormEvent, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useReducer,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
@@ -46,6 +54,17 @@ import {
 } from "./signin";
 
 const openURL = (url: string) => void Browser.OpenURL(url);
+
+/**
+ * The sign-in flow's titles sit one level under whatever holds the section:
+ * h3 under the account dialog's title, h2 under the setup's page title.
+ */
+const HeadingLevel = createContext<2 | 3>(3);
+
+function FlowTitle({ children }: { children: ReactNode }) {
+  const Heading = useContext(HeadingLevel) === 2 ? "h2" : "h3";
+  return <Heading className="text-heading text-ink">{children}</Heading>;
+}
 
 function Notice({
   icon,
@@ -363,9 +382,9 @@ function CodeForm({
       aria-busy={step.busy}
     >
       <div>
-        <h3 className="text-heading text-ink">
+        <FlowTitle>
           <Trans>Enter the verification code</Trans>
-        </h3>
+        </FlowTitle>
         <p className="mt-1 text-ui text-ink-muted">{where}</p>
       </div>
       <MethodSwitcher
@@ -451,13 +470,13 @@ function PhoneChoice({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h3 className="text-heading text-ink">
+        <FlowTitle>
           {mode === "voice" ? (
             <Trans>Which number should Apple call?</Trans>
           ) : (
             <Trans>Which number should Apple text?</Trans>
           )}
-        </h3>
+        </FlowTitle>
         <p className="mt-1 text-ui text-ink-muted">
           <Trans>Choose one of the trusted phone numbers on this Apple Account.</Trans>
         </p>
@@ -543,9 +562,9 @@ function BrowserWaiting({ status }: { status: AuthStatus }) {
           strokeWidth={1.75}
         />
         <div>
-          <h3 className="text-heading text-ink">
+          <FlowTitle>
             <Trans>Finish signing in in your browser</Trans>
-          </h3>
+          </FlowTitle>
           <p className="mt-0.5 text-ui text-ink-muted">
             <Trans>
               Apple's sign-in page is open in your browser. Sona continues by itself when you're
@@ -672,7 +691,7 @@ function TokenPaste() {
   );
 }
 
-function SignInFlow({ status }: { status: AuthStatus }) {
+function SignInFlow({ status, framed }: { status: AuthStatus; framed: boolean }) {
   const [step, dispatch] = useReducer(signInReducer, initialSignIn);
 
   // Keep the form in step with Go: restored challenges, timeouts, sign-in elsewhere.
@@ -700,7 +719,7 @@ function SignInFlow({ status }: { status: AuthStatus }) {
     status.state === "signing_in" && !status.secondFactor && step.kind === "credentials";
 
   return (
-    <div className="rounded-lg bg-surface p-6">
+    <div className={framed ? "rounded-lg bg-surface p-6" : undefined}>
       {browserPending ? (
         <BrowserWaiting status={status} />
       ) : step.kind === "code" ? (
@@ -715,9 +734,9 @@ function SignInFlow({ status }: { status: AuthStatus }) {
       ) : (
         <>
           <div className="mb-5">
-            <h3 className="text-heading text-ink">
+            <FlowTitle>
               <Trans>Sign in to Apple Music</Trans>
-            </h3>
+            </FlowTitle>
             <p className="mt-1 text-ui text-ink-muted">
               <Trans>Use the Apple Account with your Apple Music subscription.</Trans>
             </p>
@@ -741,23 +760,20 @@ function SignInFlow({ status }: { status: AuthStatus }) {
   );
 }
 
-function SignedIn({ status }: { status: AuthStatus }) {
-  const { t } = useLingui();
+/** "en-GB" as the interface's language names it ("British English"); the tag when Intl can't. */
+function languageName(tag: string, locale: string): string {
+  try {
+    return new Intl.DisplayNames([locale], { type: "language" }).of(tag) ?? tag;
+  } catch {
+    return tag;
+  }
+}
+
+function SignedIn({ status, framed }: { status: AuthStatus; framed: boolean }) {
+  const { t, i18n } = useLingui();
   const [confirm, setConfirm] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
 
-  const signOut = async () => {
-    setBusy(true);
-    try {
-      await AuthService.SignOut();
-      setConfirm(false);
-    } catch (err) {
-      toast.error(t`Couldn't sign out`, { description: callFailure(err).message });
-    } finally {
-      setBusy(false);
-    }
-  };
   const revalidate = async () => {
     setChecking(true);
     try {
@@ -770,6 +786,7 @@ function SignedIn({ status }: { status: AuthStatus }) {
   };
 
   const store = status.storefrontName || status.storefrontId.toUpperCase();
+  const language = status.language && languageName(status.language, i18n.locale);
   return (
     <div className="flex flex-col gap-4">
       {status.offline && (
@@ -787,8 +804,13 @@ function SignedIn({ status }: { status: AuthStatus }) {
           </Trans>
         </Notice>
       )}
-      <div className="rounded-lg bg-surface px-5">
-        <div className="flex items-center justify-between gap-6 border-b border-line py-4">
+      <div
+        className={cn(
+          "divide-y divide-line",
+          framed ? "rounded-lg bg-surface px-5" : "border-y border-line",
+        )}
+      >
+        <div className="flex items-center justify-between gap-6 py-4">
           <div>
             <p className="text-ui font-medium text-ink">
               {status.keyring === "waiting" ? (
@@ -805,7 +827,7 @@ function SignedIn({ status }: { status: AuthStatus }) {
               ) : (
                 <Trans>Storefront unknown until Apple confirms the token</Trans>
               )}
-              {status.language && ` · ${status.language}`}
+              {language && ` · ${language}`}
             </p>
           </div>
           <Button variant="destructive" size="sm" onClick={() => setConfirm(true)}>
@@ -813,18 +835,21 @@ function SignedIn({ status }: { status: AuthStatus }) {
           </Button>
         </div>
         {status.restricted && (
-          <div className="border-b border-line py-4 text-sub text-ink-muted">
+          <div className="py-4 text-sub text-ink-muted">
             <Trans>Explicit content is restricted on this account; Sona hides it.</Trans>
           </div>
         )}
-        <div className="flex items-start justify-between gap-6 py-4">
-          <div>
-            <p className="text-ui font-medium text-ink">
-              <Trans>Where your token is kept</Trans>
-            </p>
-            <p className="mt-0.5 text-sub text-ink-muted">{status.backend || t`Unknown`}</p>
+        {/* An unencrypted file gets its own notice below, which says where the token is. */}
+        {!status.unencrypted && (
+          <div className="flex items-start justify-between gap-6 py-4">
+            <div>
+              <p className="text-ui font-medium text-ink">
+                <Trans>Where your token is kept</Trans>
+              </p>
+              <p className="mt-0.5 text-sub text-ink-muted">{status.backend || t`Unknown`}</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
       {status.unencrypted && (
         <Notice
@@ -843,30 +868,60 @@ function SignedIn({ status }: { status: AuthStatus }) {
           </p>
         </Notice>
       )}
-      <Dialog open={confirm} onOpenChange={setConfirm}>
-        <DialogContent showCloseButton={false} className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              <Trans>Sign out of Apple Music?</Trans>
-            </DialogTitle>
-            <DialogDescription>
-              <Trans>
-                Sona removes your token from the keyring, stops playback and deletes the copy of
-                your library on this computer. Your Apple Music library itself isn't changed.
-              </Trans>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirm(false)}>
-              <Trans>Cancel</Trans>
-            </Button>
-            <Button variant="destructive" onClick={() => void signOut()} disabled={busy}>
-              {busy ? <Trans>Signing out…</Trans> : <Trans>Sign out</Trans>}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SignOutDialog open={confirm} onOpenChange={setConfirm} />
     </div>
+  );
+}
+
+/**
+ * Asks before signing out of Apple Music (the account dialog's Sign out
+ * button and the account menu's item), then signs out; a failure stays
+ * open with a toast.
+ */
+export function SignOutDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { t } = useLingui();
+  const [busy, setBusy] = useState(false);
+  const signOut = async () => {
+    setBusy(true);
+    try {
+      await AuthService.SignOut();
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(t`Couldn't sign out`, { description: callFailure(err).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent showCloseButton={false} className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            <Trans>Sign out of Apple Music?</Trans>
+          </DialogTitle>
+          <DialogDescription>
+            <Trans>
+              Sona removes your token from the keyring, stops playback and deletes the copy of your
+              library on this computer. Your Apple Music library itself isn't changed.
+            </Trans>
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            <Trans>Cancel</Trans>
+          </Button>
+          <Button variant="destructive" onClick={() => void signOut()} disabled={busy}>
+            {busy ? <Trans>Signing out…</Trans> : <Trans>Sign out</Trans>}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -948,7 +1003,20 @@ function KeyringNotice({ status }: { status: AuthStatus }) {
   );
 }
 
-export function AccountSection() {
+/**
+ * Apple Music sign-in and the signed-in account: the account dialog's body
+ * and the setup's Apple Music step. `headingLevel` is the level of the
+ * sign-in flow's titles (3 under a dialog title, 2 under a page's h1).
+ * `framed` sets the form and the account's rows on their own panel; a
+ * dialog, which is the frame already, turns it off.
+ */
+export function AccountSection({
+  headingLevel = 3,
+  framed = true,
+}: {
+  headingLevel?: 2 | 3;
+  framed?: boolean;
+}) {
   const auth = useAuth();
   const { t } = useLingui();
   if (auth.error) {
@@ -966,7 +1034,7 @@ export function AccountSection() {
     return <div aria-busy className="h-48 rounded-lg bg-surface" />;
   }
   if (status.state === "signed_in" || status.state === "validating") {
-    return <SignedIn status={status} />;
+    return <SignedIn status={status} framed={framed} />;
   }
   const restoring = status.state === "restoring";
   return (
@@ -1014,7 +1082,9 @@ export function AccountSection() {
               <Trans>You're offline. Signing in needs a connection to Apple.</Trans>
             </Notice>
           )}
-          <SignInFlow status={status} />
+          <HeadingLevel value={headingLevel}>
+            <SignInFlow status={status} framed={framed} />
+          </HeadingLevel>
         </>
       )}
     </div>

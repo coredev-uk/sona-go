@@ -9,6 +9,7 @@ import { discoverKeys } from "@/features/discover";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { PageHeader } from "@/shared/components/PageHeader";
+import { openAccountDialog } from "@/shared/lib/account";
 import { relativeTime } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 import { EditorialSections } from "@/shared/items/EditorialSections";
@@ -92,7 +93,7 @@ export function HomePage() {
             <EmptyState
               frame="covers"
               title={t`Recommendations need Apple Music`}
-              action={{ label: t`Sign in`, to: "/settings", search: { section: "account" } }}
+              action={{ label: t`Sign in`, onClick: openAccountDialog }}
               className="mb-10"
             >
               <Trans>

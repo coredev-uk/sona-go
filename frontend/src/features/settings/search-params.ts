@@ -2,7 +2,6 @@ import { z } from "zod";
 
 /** Settings' sections, in the order the page lists them. */
 export const settingsSections = [
-  "account",
   "general",
   "playback",
   "appearance",
@@ -20,3 +19,17 @@ export type SettingsSection = (typeof settingsSections)[number];
 export const settingsSearch = z.object({
   section: z.enum(settingsSections).optional().catch(undefined),
 });
+
+/**
+ * Whether a /settings link names the retired Account section (a saved
+ * "last page", an old link): the account lives in the top bar's account
+ * menu now, so the route opens the account dialog instead.
+ */
+export function namesAccountSection(search: unknown): boolean {
+  return (
+    typeof search === "object" &&
+    search !== null &&
+    "section" in search &&
+    search.section === "account"
+  );
+}
