@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronLeft } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { hasAccount, useAuth } from "@/features/auth";
 import { SonaMark } from "@/shared/brand/SonaMark";
@@ -16,6 +16,7 @@ import { useLeaveSetup } from "./complete";
 import { ConnectionsStep } from "./ConnectionsStep";
 import { DesktopStep } from "./DesktopStep";
 import { DoneStep } from "./DoneStep";
+import { SetupFoot } from "./foot";
 import { STEP_TITLE_ID } from "./parts";
 import { PlaybackStep } from "./PlaybackStep";
 import { StepProgress } from "./StepProgress";
@@ -98,6 +99,7 @@ export function SetupLayer() {
   const text = useStepText(step, signedIn);
   const body = useRef<HTMLDivElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
+  const [foot, setFoot] = useState<HTMLElement | null>(null);
 
   // A new step starts at its top and is announced by its title: focus moves there.
   useEffect(() => {
@@ -135,10 +137,15 @@ export function SetupLayer() {
       </Button>
     );
   } else if (step === "account" && !signedIn) {
+    // The sign-in form's own Sign in lands in the span (SetupFoot) as the
+    // primary action; "Not now" is the way past it.
     forward = (
-      <Button variant="ghost" size="sm" onClick={next}>
-        <Trans>Not now</Trans>
-      </Button>
+      <>
+        <Button variant="ghost" size="sm" onClick={next}>
+          <Trans>Not now</Trans>
+        </Button>
+        <span ref={setFoot} className="contents" />
+      </>
     );
   } else if (step === "done") {
     forward = (
@@ -164,7 +171,7 @@ export function SetupLayer() {
         aria-describedby={DESCRIPTION_ID}
         // Its top edge stays put from step to step (the strip and the foot
         // don't jump); a step taller than the window scrolls inside.
-        className="top-[max(1.5rem,10vh)] flex max-h-[calc(100%-max(1.5rem,10vh)-1.5rem)] w-[min(40rem,calc(100%-3rem))] max-w-none translate-y-0 flex-col gap-0 overflow-hidden rounded-lg border-0 bg-raised p-0 shadow-float sm:max-w-none"
+        className="top-[max(1.5rem,10vh)] flex max-h-[calc(100%-max(1.5rem,10vh)-1.5rem)] w-[min(40rem,calc(100%-3rem))] max-w-none translate-y-0 flex-col gap-0 overflow-hidden rounded-lg border-0 bg-raised p-0 shadow-float sm:max-w-none dark:ring-1 dark:ring-white/10"
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           title.current?.focus();
@@ -225,7 +232,9 @@ export function SetupLayer() {
           >
             {text.line}
           </DialogDescription>
-          <div className="mt-5">{bodies[step]}</div>
+          <div className="mt-5">
+            <SetupFoot.Provider value={foot}>{bodies[step]}</SetupFoot.Provider>
+          </div>
         </div>
         <div className="flex h-16 shrink-0 items-center gap-3 border-t border-line px-6">
           {step !== "welcome" && (

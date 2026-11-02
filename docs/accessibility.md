@@ -62,7 +62,8 @@ change keeps and how to check them.
   (`shared/lib/modal-inert.ts`, which undoes only the `inert` it added).
 - Every dialog's scrim is drawn on its own compositing layer
   (`transform-gpu` on the shared `DialogOverlay`): without it WebKitGTK
-  never painted the dimming, so a dialog sat on an undimmed page.
+  never painted the dimming, so a dialog sat on an undimmed page. It is
+  black/50 in light and black/70 in dark, never blurred.
 - Menus opened from the keyboard start on their first item; row menu
   buttons answer Enter, Space and AT clicks
   (`shared/actions/ActionMenu.tsx`, `shared/selection/useItemList.tsx`).

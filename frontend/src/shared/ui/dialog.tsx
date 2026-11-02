@@ -33,7 +33,7 @@ function DialogOverlay({
       // transform-gpu: its own compositing layer. WebKitGTK leaves a scrim
       // painted in the page's layer blank under the transformed content.
       className={cn(
-        "fixed inset-0 z-50 transform-gpu bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+        "fixed inset-0 z-50 transform-gpu bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 dark:bg-black/70",
         className,
       )}
       {...props}

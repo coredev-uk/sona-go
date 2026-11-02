@@ -1,19 +1,23 @@
 import { Trans } from "@lingui/react/macro";
 import { CircleCheck } from "lucide-react";
+import { useContext } from "react";
 
 import { AccountSection, hasAccount, useAuth } from "@/features/auth";
 
+import { SetupFoot } from "./foot";
 import { Well } from "./parts";
 
 /**
  * The Apple Music step: the account dialog's own sign-in (the native form,
- * then the browser and token fallbacks, with its keyring notices), or,
+ * then the browser and token fallbacks, with its keyring notices; its Sign
+ * in sits in the setup's foot as the step's primary action), or,
  * once signed in, a line saying so. Nothing about the account itself is
  * shown here.
  */
 export function AccountStep() {
   const state = useAuth().data?.state;
-  if (!hasAccount(state)) return <AccountSection />;
+  const foot = useContext(SetupFoot);
+  if (!hasAccount(state)) return <AccountSection actions={foot} />;
   return (
     <Well className="flex items-start gap-3">
       <CircleCheck

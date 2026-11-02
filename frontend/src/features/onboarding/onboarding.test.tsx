@@ -62,11 +62,25 @@ vi.mock("@bindings/services", () => ({
   },
   TranslationsService: { Languages: () => Promise.resolve({ mapped: 0.07, locales: [] }) },
 }));
-vi.mock("@/features/auth", () => ({
-  AccountSection: () => <form aria-label="Sign in to Apple Music" />,
-  useAuth: () => ({ data: { state: h.auth } as AuthStatus }),
-  hasAccount: (s: string | undefined) => s === "signed_in" || s === "validating",
-}));
+vi.mock("@/features/auth", async () => {
+  const { createPortal } = await import("react-dom");
+  return {
+    // As the real one: with `actions`, the form's Sign in goes there.
+    AccountSection: ({ actions }: { actions?: HTMLElement | null }) => (
+      <form id="sign-in" aria-label="Sign in to Apple Music">
+        {actions &&
+          createPortal(
+            <button type="submit" form="sign-in">
+              Sign in
+            </button>,
+            actions,
+          )}
+      </form>
+    ),
+    useAuth: () => ({ data: { state: h.auth } as AuthStatus }),
+    hasAccount: (s: string | undefined) => s === "signed_in" || s === "validating",
+  };
+});
 vi.mock("@/features/private", () => ({
   usePrivate: (select: (s: { state: unknown }) => unknown) =>
     select({ state: { on: false, saved: false, source: "setting", since: 0 } }),
@@ -226,6 +240,9 @@ describe("SetupLayer", () => {
     expect(title().textContent).toBe("Playback");
     const current = within(strip()).getByRole("button", { current: "step" });
     expect(current.textContent).toBe("Playback");
+    // Every step's name shows under its segment, not only to screen readers.
+    expect(strip().querySelector(".sr-only")).toBeNull();
+    expect(within(strip()).getByText("Connections").className).not.toContain("sr-only");
     expect(within(setup()).getByText("3 of 7")).toBeTruthy();
     expect(document.activeElement).toBe(title());
   });
@@ -314,7 +331,11 @@ describe("Apple Music step", () => {
 
   it("offers the sign-in, and lets you carry on without it", async () => {
     await show("account");
-    expect(screen.getByRole("form", { name: "Sign in to Apple Music" })).toBeTruthy();
+    const form = screen.getByRole("form", { name: "Sign in to Apple Music" });
+    // Sign in is the foot's primary action, beside "Not now", outside the scrolling body.
+    const signIn = screen.getByRole("button", { name: "Sign in" });
+    expect(form.contains(signIn)).toBe(false);
+    expect(signIn.parentElement?.previousElementSibling?.textContent).toBe("Not now");
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(title().textContent).toBe("Playback");
   });

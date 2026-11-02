@@ -188,7 +188,7 @@ src/
                           when the window is short; the sidebar, top bar and player bar stay
                           drawn behind the scrim and are inert. Its head is the mark, "Set
                           up Sona", "3 of 7" and "Skip setup", over a strip of seven
-                          segments (StepProgress: one Tab stop, ←/→ and Home/End move,
+                          segments, each named under it (StepProgress: one Tab stop, ←/→ and Home/End move,
                           Enter goes); each step is a title and one line, Back and the way
                           on along the foot. Escape asks first (the shared confirm; on
                           Done it is Done); a click outside does nothing. The steps draw
@@ -200,8 +200,11 @@ src/
                           Widevine status from the cdm mirror, and Last.fm, ListenBrainz and
                           Discord rows using settings' connection flows (useConnectLastFM,
                           LastFMWaiting, ListenBrainzForm). Apple Music reuses auth's
-                          AccountSection; a sign-in asked for while the setup is open goes
-                          to that step instead of the account dialog. What the platform
+                          AccountSection with `actions`: an element in the setup's foot
+                          (SetupFoot context) its password form portals Sign in into, as the
+                          step's primary beside "Not now" (a `form=` submit); a sign-in
+                          asked for while the setup is open goes to that step instead of
+                          the account dialog. What the platform
                           can't do is named in one line at the foot of Desktop. Every step
                           can be skipped; Done or "Skip setup" saves
                           settings.onboarding.completed. /welcome?step=welcome|account|
