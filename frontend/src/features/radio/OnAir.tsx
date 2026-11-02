@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { CircleSlash, Play } from "lucide-react";
 
 import { Artwork } from "@/shared/components/Artwork";
+import { stationUnavailable } from "@/shared/items/station";
 import { formatRunningTime } from "@/shared/lib/format";
 import { useNowPlaying } from "@/shared/lib/now-playing";
 import { useNow } from "@/shared/lib/useNow";
@@ -97,8 +98,8 @@ function OnAirRow({
         {!s.playable ? (
           <p className="mt-2 flex min-w-0 items-center gap-1.5 text-meta text-ink-muted">
             <CircleSlash aria-hidden className="size-3.5 shrink-0" strokeWidth={1.75} />
-            <span className="truncate" title={s.unavailable}>
-              {s.unavailable || <Trans>Sona can't play this station</Trans>}
+            <span className="truncate" title={stationUnavailable(s.unavailable) || undefined}>
+              {stationUnavailable(s.unavailable) || <Trans>Sona can't play this station</Trans>}
             </span>
           </p>
         ) : (

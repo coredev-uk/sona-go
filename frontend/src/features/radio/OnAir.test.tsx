@@ -1,4 +1,5 @@
 import type { Station, StationDetail, StationEvent } from "@bindings/services";
+import { StationUnavailable } from "@bindings/services/models";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -135,11 +136,11 @@ describe("OnAirBoard", () => {
   it("says why a station can't play instead of offering a play button", () => {
     const off = station("ra.4", "Off", {
       playable: false,
-      unavailable: "This stream isn't offered with Widevine.",
+      unavailable: StationUnavailable.StationNoWidevine,
     });
     renderBoard([off]);
     const row = screen.getByRole("listitem");
-    expect(within(row).getByText("This stream isn't offered with Widevine.")).toBeTruthy();
+    expect(within(row).getByText(/isn't offered with Widevine/)).toBeTruthy();
     expect(within(row).queryByRole("button")).toBeNull();
   });
 
