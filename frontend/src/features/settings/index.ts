@@ -16,21 +16,12 @@ import { SettingsPage } from "./Settings";
 
 export { bindAppearance, useAppearance, type Theme } from "./appearance";
 export { useLanguageOptions, useSetLanguage } from "./language-queries";
-export { LanguagePanel, LanguageSelect } from "./LanguageRow";
+export { LanguageSelect } from "./LanguageRow";
 export { loadAppearance, useSettings, useUpdateSettings } from "./queries";
-export { useScrobbleStatus } from "./scrobble";
-// Rows the first-run setup shows as they are in Settings.
-export { ReduceEffectsRow } from "./AppearanceSection";
-export { SoundCheckRow } from "./AudioRows";
-export { ConnectionsSection } from "./Connections";
-export { CrossfadeRows } from "./CrossfadeRows";
-export { CloseActionRow, StartupRows } from "./DesktopRows";
-export { IntegrationsDesktopRows } from "./IntegrationsRows";
-export { MotionArtworkRows } from "./MotionArtworkRows";
-export { PrivateRows } from "./PrivateRows";
-export { QualityRow } from "./QualityRow";
-export { GroupHeadingLevel } from "./heading-level";
-export { SettingsGroup, SettingsPanel } from "./SettingRow";
+export { useIntegrationsStatus } from "./integrations";
+export { PROVIDER_NAMES, scrobbleStatusKey, useConnectLastFM, useScrobbleStatus } from "./scrobble";
+// The scrobbler connection flows the first-run setup's Connections step shares.
+export { LastFMWaiting, ListenBrainzForm } from "./Connections";
 
 const settingsRoute = createRoute({
   ...childRoute("/settings"),

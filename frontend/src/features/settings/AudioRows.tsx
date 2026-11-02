@@ -76,7 +76,7 @@ function OutputRow() {
   );
 }
 
-/** Sound Check, where the platform's playback has it (Settings → Playback, the first-run setup). */
+/** Sound Check, where the platform's playback has it (Settings → Playback). */
 export function SoundCheckRow() {
   const { t } = useLingui();
   const settings = useSettings();

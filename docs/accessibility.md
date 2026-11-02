@@ -53,11 +53,16 @@ change keeps and how to check them.
 - Focus returns where it came from: closing the Now Playing view,
   full-screen lyrics or the queue returns it to whatever opened the panel
   (`shared/lib/useReturnFocus`); a dialog opened from a menu returns it to
-  the last page element focused (`shared/lib/page-focus.ts`); removing a
+  the last page element focused, and one opened from another dialog (the
+  setup's skip confirm) returns it into that dialog
+  (`shared/lib/page-focus.ts`); removing a
   row moves it to the row that takes its place. Focus never drops to
   `<body>`.
 - Modal overlays make the page behind them `inert`, not only `aria-hidden`
   (`shared/lib/modal-inert.ts`, which undoes only the `inert` it added).
+- Every dialog's scrim is drawn on its own compositing layer
+  (`transform-gpu` on the shared `DialogOverlay`): without it WebKitGTK
+  never painted the dimming, so a dialog sat on an undimmed page.
 - Menus opened from the keyboard start on their first item; row menu
   buttons answer Enter, Space and AT clicks
   (`shared/actions/ActionMenu.tsx`, `shared/selection/useItemList.tsx`).

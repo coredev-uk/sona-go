@@ -83,6 +83,10 @@
     "key": "ASE.Web.Music.SharePlay.Join.Connect"
   },
   {
+    "message": "Connected",
+    "key": "ASE.Web.Music.SharePlay.Manage.Connected"
+  },
+  {
     "message": "Continue",
     "key": "ASE.Web.Platform.Shared.DropdownMenu.Continue"
   },
@@ -448,6 +452,14 @@
     "plural": true,
     "placeholders": {
       "count": "n"
+    }
+  },
+  {
+    "message": "{position} of {total}",
+    "key": "ASE.Web.IPod.NowPlaying.Position",
+    "placeholders": {
+      "index": "position",
+      "total": "total"
     }
   },
   {

@@ -3,6 +3,8 @@ import { useLingui } from "@lingui/react/macro";
 import { useSettings, useUpdateSettings, type Theme } from "@/features/settings";
 import { cn } from "@/shared/lib/utils";
 
+import { ChoiceCards, StepGroup, type Choice } from "./parts";
+
 /**
  * Sona's window in miniature, in one palette (`.theme-light` or `.dark`
  * scope the tokens to it whatever the page's theme): the sidebar with the
@@ -52,8 +54,7 @@ function Preview({ theme }: { theme: Theme }) {
 
 /**
  * The theme as three pictures to choose from (Settings → Appearance has
- * the same setting as a list). Radio buttons: Tab reaches the chosen one,
- * the arrow keys choose, and the whole setup changes at once.
+ * the same setting as a list). The app behind the setup changes at once.
  */
 export function ThemePicker() {
   const { t } = useLingui();
@@ -61,44 +62,25 @@ export function ThemePicker() {
   const update = useUpdateSettings();
   const saved = settings.data?.theme;
   const theme: Theme = saved === "light" || saved === "dark" ? saved : "system";
-  const choices: { value: Theme; label: string; hint: string }[] = [
-    { value: "system", label: t`System`, hint: t`Follows your desktop` },
-    { value: "light", label: t`Light`, hint: t`Always light` },
-    { value: "dark", label: t`Dark`, hint: t`Always dark` },
-  ];
+  const choices: Choice<Theme>[] = (
+    [
+      { value: "system", label: t`System`, hint: t`Follows your desktop` },
+      { value: "light", label: t`Light`, hint: t`Always light` },
+      { value: "dark", label: t`Dark`, hint: t`Always dark` },
+    ] as const
+  ).map((c) => ({ ...c, picture: <Preview theme={c.value} /> }));
   return (
-    <section aria-labelledby="setup-theme" className="flex flex-col gap-2">
-      <h2 id="setup-theme" className="text-ui font-semibold text-ink">
-        {t`Theme`}
-      </h2>
-      <div
-        role="radiogroup"
-        aria-labelledby="setup-theme"
-        className="grid grid-cols-3 gap-3 max-[1080px]:gap-2"
-      >
-        {choices.map((c) => (
-          <label key={c.value} className="group relative flex cursor-pointer flex-col">
-            <input
-              type="radio"
-              name="setup-theme"
-              value={c.value}
-              checked={theme === c.value}
-              disabled={!settings.data}
-              onChange={() => {
-                if (settings.data) update.mutate({ ...settings.data, theme: c.value });
-              }}
-              className="peer sr-only"
-            />
-            <span className="flex flex-col gap-3 rounded-lg bg-surface p-3 transition-colors duration-100 group-hover:bg-hover peer-checked:ring-2 peer-checked:ring-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
-              <Preview theme={c.value} />
-              <span className="flex flex-col">
-                <span className="text-ui font-medium text-ink">{c.label}</span>
-                <span className="text-sub text-ink-muted">{c.hint}</span>
-              </span>
-            </span>
-          </label>
-        ))}
-      </div>
-    </section>
+    <StepGroup id="setup-theme" title={t`Theme`}>
+      <ChoiceCards
+        name="setup-theme"
+        labelledBy="setup-theme"
+        value={theme}
+        choices={choices}
+        disabled={!settings.data}
+        onChange={(next) => {
+          if (settings.data) update.mutate({ ...settings.data, theme: next });
+        }}
+      />
+    </StepGroup>
   );
 }

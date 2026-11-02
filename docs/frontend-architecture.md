@@ -183,27 +183,34 @@ src/
                           aria-disabled while SONA_PRIVATE=1 forces it) and the
                           "private.toggle" palette command (no default keys). Settings →
                           Playback's row (settings/PrivateRows.tsx) uses the same mirror
-    onboarding            the first-run setup (/welcome?step=welcome|account|playback|connections|
-                          appearance|desktop|done), a full-window route (staticData.fullWindow:
-                          no sidebar, top bar or player bar, only the title bar's band): the steps
-                          down the leading side, each with a live line (signed in, Widevine's
-                          download and quality, connected scrobblers, theme, start at login),
-                          one step at a time in a centred column, Back and the way on in a bar
-                          along the foot. Apple Music reuses auth's AccountSection; Playback
-                          shows the cdm mirror's download (no consent step; "playback isn't
-                          available" from Capabilities or code unsupported_platform) above
-                          Settings' own quality, Sound Check, crossfade and private listening
-                          rows; Connections is Settings → Connections' section; Appearance picks
-                          the theme from pictures of the window in each palette (`.theme-light`
-                          / `.dark` scope the tokens to an element), then reduce effects and
-                          motion artwork; Desktop has start at login, the close action, track
-                          notifications and stay awake, and names what the platform can't do
-                          where its row would be. Rows come from settings' exports, with their
-                          group headings one level up (GroupHeadingLevel). Every step can be
-                          skipped; reaching Done or "Skip setup" saves
-                          settings.onboarding.completed. Go opens the window here on a first
-                          start (services.StartRoute: no completed flag and no account in
-                          SQLite); Settings → General's SetupRow links back
+    onboarding            the first-run setup, a modal over the live app (the `Layer` slot,
+                          SetupLayer): a 640px card sized to its step that scrolls inside
+                          when the window is short; the sidebar, top bar and player bar stay
+                          drawn behind the scrim and are inert. Its head is the mark, "Set
+                          up Sona", "3 of 7" and "Skip setup", over a strip of seven
+                          segments (StepProgress: one Tab stop, ←/→ and Home/End move,
+                          Enter goes); each step is a title and one line, Back and the way
+                          on along the foot. Escape asks first (the shared confirm; on
+                          Done it is Done); a click outside does nothing. The steps draw
+                          their own parts, saving
+                          through the same queries as Settings: choice cards (audio quality,
+                          the theme pictures, the close action), short switch rows (Sound
+                          Check, crossfade, private listening, reduce effects, motion
+                          artwork, start at login, notifications, stay awake), a compact
+                          Widevine status from the cdm mirror, and Last.fm, ListenBrainz and
+                          Discord rows using settings' connection flows (useConnectLastFM,
+                          LastFMWaiting, ListenBrainzForm). Apple Music reuses auth's
+                          AccountSection; a sign-in asked for while the setup is open goes
+                          to that step instead of the account dialog. What the platform
+                          can't do is named in one line at the foot of Desktop. Every step
+                          can be skipped; Done or "Skip setup" saves
+                          settings.onboarding.completed. /welcome?step=welcome|account|
+                          playback|connections|appearance|desktop|done opens the setup at
+                          that step over For you and redirects to /, so Go's start route
+                          (services.StartRoute: no completed flag and no account in SQLite)
+                          is unchanged. Settings → General's SetupRow opens it over Settings
+                          at Welcome through shared/lib/setup.ts (useSetupOpen, openSetup),
+                          so settings never imports onboarding
 ```
 
 Tests sit next to their code (`*.test.ts`). Vitest runs every file in jsdom
@@ -292,6 +299,8 @@ export interface ShellSlots {
   overlay?: { Component: ComponentType; useOpen: () => boolean };
   /** Across the bottom of the window (the now-playing bar). */
   Bottom?: ComponentType;
+  /** Over the whole window, after everything else (the first-run setup); portals itself. */
+  Layer?: ComponentType;
   /** Below the library links, in the sidebar's scrolling middle (pins, playlist tree). */
   SidebarSection?: ComponentType;
   /** At the foot of the sidebar, above its footer links (the sync indicator). */
@@ -347,12 +356,10 @@ as `TRoute["fullPath"]`).
 - `app/shell/AppShell.tsx`: wraps the layout in every `Provider` slot, puts
   `Aside` slots beside `main#content`, `overlay` components over the page
   column (the page is `inert` while any overlay's `useOpen()` is true), and
-  `Bottom` slots across the window's foot. A route with
-  `staticData: { fullWindow: true }` (the first-run setup) gets none of it:
-  only the title bar's band (`TitleBarStart`, the mark and the desktop's
-  window buttons, a `<header>` that drags the window) over the page's top
-  `--title-bar-height` pixels; the page draws its own `main#content` under
-  the band and keeps that strip free of controls.
+  `Bottom` slots across the window's foot, then the `Layer` slots over all
+  of it: a module's own modal that covers the sidebar, top bar and player
+  bar too (the first-run setup), with the window behind it inert while it
+  is open. There is no full-window route: every page has the whole shell.
 
 ## Adding a feature (worked example)
 

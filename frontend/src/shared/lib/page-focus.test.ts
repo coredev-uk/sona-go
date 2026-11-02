@@ -16,6 +16,13 @@ describe("returnTarget", () => {
     expect(returnTarget(open)).toBe(open);
   });
 
+  it("returns into the dialog under it when opened from one", () => {
+    document.body.innerHTML = `<div role="dialog"><h2 id="title" tabindex="-1">Step</h2></div>`;
+    stop = trackPageFocus();
+    const title = document.getElementById("title")!;
+    expect(returnTarget(title)).toBe(title);
+  });
+
   it("returns to the page element focused before a menu whose item opened the dialog", () => {
     document.body.innerHTML = `<div id="row" tabindex="0"></div><div role="menu"><div id="item" role="menuitem" tabindex="-1"></div></div>`;
     stop = trackPageFocus();

@@ -1,16 +1,13 @@
-import { useContext, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
-import { GroupHeadingLevel } from "./heading-level";
-
-/** A group's heading at the level its page needs (GroupHeadingLevel). */
+/** A group's heading: an h3 under the section's h2. */
 export function GroupHeading({ id, children }: { id: string; children: ReactNode }) {
-  const Tag = useContext(GroupHeadingLevel) === 2 ? "h2" : "h3";
   return (
-    <Tag id={id} className="text-ui font-semibold text-ink">
+    <h3 id={id} className="text-ui font-semibold text-ink">
       {children}
-    </Tag>
+    </h3>
   );
 }
 

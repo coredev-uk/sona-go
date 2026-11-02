@@ -30,12 +30,16 @@ export function trackPageFocus(doc: Document = document): () => void {
 
 /**
  * Where a closing dialog should send focus: `opener` (what was focused when
- * it opened) while it is still on the page, else the last page element
- * focused before it. Null when neither is focusable any more.
+ * it opened) while it is still on the page or in the dialog under it, else
+ * the last page element focused before it. Null when neither is focusable
+ * any more.
  */
 export function returnTarget(opener: Element | null): HTMLElement | null {
-  const usable = (el: Element | null): el is HTMLElement =>
-    el instanceof HTMLElement && el.isConnected && !el.closest(LAYER) && !el.closest("[inert]");
-  if (usable(opener)) return opener;
-  return usable(last) ? last : null;
+  const live = (el: Element | null): el is HTMLElement =>
+    el instanceof HTMLElement && el.isConnected && !el.closest("[inert]");
+  // A dialog opened from another dialog (a confirm over the setup) goes back
+  // into it; a menu item is gone or closing, so it never counts.
+  const POPUP = "[role=menu], [data-radix-popper-content-wrapper]";
+  if (live(opener) && !opener.closest(POPUP)) return opener;
+  return live(last) && !last.closest(LAYER) ? last : null;
 }

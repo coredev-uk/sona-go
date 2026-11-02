@@ -1,13 +1,13 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Link } from "@tanstack/react-router";
 
+import { openSetup } from "@/shared/lib/setup";
 import { Button } from "@/shared/ui/button";
 
 import { SettingRow } from "./SettingRow";
 
 /**
- * Opens the first-run setup again (features/onboarding's /welcome): a
- * route link, so settings never imports onboarding.
+ * Opens the first-run setup again over Settings (features/onboarding's
+ * layer), through shared/lib/setup, so settings never imports onboarding.
  */
 export function SetupRow() {
   const { t } = useLingui();
@@ -22,11 +22,9 @@ export function SetupRow() {
         aria-describedby="setup-again-desc"
         variant="outline"
         size="sm"
-        asChild
+        onClick={openSetup}
       >
-        <Link to="/welcome" search={{ step: "welcome" }}>
-          <Trans>Set up Sona again</Trans>
-        </Link>
+        <Trans>Set up Sona again</Trans>
       </Button>
     </SettingRow>
   );

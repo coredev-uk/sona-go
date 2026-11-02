@@ -67,20 +67,20 @@ export function LanguageSelect({
 }
 
 /**
- * Sona's language: Settings → General's first row, and the first-run
- * setup's welcome step. Offered once a language besides English is
- * complete enough to choose (or while one is chosen). Go's own text (tray,
- * notifications, the command line, file dialogs) and Apple Music's content
- * follow it.
+ * Sona's language: Settings → General's first row (the first-run setup
+ * has its own, with the same select). Offered once a language besides
+ * English is complete enough to choose (or while one is chosen). Go's own
+ * text (tray, notifications, the command line, file dialogs) and Apple
+ * Music's content follow it.
  */
-export function LanguagePanel({ className }: { className?: string }) {
+export function LanguagePanel() {
   const { t } = useLingui();
   const current = useSettings().data?.language ?? "";
   const options = useLanguageOptions(current);
   const setLanguage = useSetLanguage();
   if (!options || !offersLanguages(options, current)) return null;
   return (
-    <SettingsPanel className={className}>
+    <SettingsPanel>
       <SettingRow
         id="language"
         title={t`Language`}

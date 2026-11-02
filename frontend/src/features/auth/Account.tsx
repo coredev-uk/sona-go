@@ -14,15 +14,7 @@ import {
   ShieldAlert,
   WifiOff,
 } from "lucide-react";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useReducer,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useReducer, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
@@ -55,15 +47,9 @@ import {
 
 const openURL = (url: string) => void Browser.OpenURL(url);
 
-/**
- * The sign-in flow's titles sit one level under whatever holds the section:
- * h3 under the account dialog's title, h2 under the setup's page title.
- */
-const HeadingLevel = createContext<2 | 3>(3);
-
+/** The sign-in flow's titles: h3, under the account dialog's (or the setup's) title. */
 function FlowTitle({ children }: { children: ReactNode }) {
-  const Heading = useContext(HeadingLevel) === 2 ? "h2" : "h3";
-  return <Heading className="text-heading text-ink">{children}</Heading>;
+  return <h3 className="text-heading text-ink">{children}</h3>;
 }
 
 function Notice({
@@ -691,7 +677,7 @@ function TokenPaste() {
   );
 }
 
-function SignInFlow({ status, framed }: { status: AuthStatus; framed: boolean }) {
+function SignInFlow({ status }: { status: AuthStatus }) {
   const [step, dispatch] = useReducer(signInReducer, initialSignIn);
 
   // Keep the form in step with Go: restored challenges, timeouts, sign-in elsewhere.
@@ -719,7 +705,7 @@ function SignInFlow({ status, framed }: { status: AuthStatus; framed: boolean })
     status.state === "signing_in" && !status.secondFactor && step.kind === "credentials";
 
   return (
-    <div className={framed ? "rounded-lg bg-surface p-6" : undefined}>
+    <div>
       {browserPending ? (
         <BrowserWaiting status={status} />
       ) : step.kind === "code" ? (
@@ -769,7 +755,7 @@ function languageName(tag: string, locale: string): string {
   }
 }
 
-function SignedIn({ status, framed }: { status: AuthStatus; framed: boolean }) {
+function SignedIn({ status }: { status: AuthStatus }) {
   const { t, i18n } = useLingui();
   const [confirm, setConfirm] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -804,12 +790,7 @@ function SignedIn({ status, framed }: { status: AuthStatus; framed: boolean }) {
           </Trans>
         </Notice>
       )}
-      <div
-        className={cn(
-          "divide-y divide-line",
-          framed ? "rounded-lg bg-surface px-5" : "border-y border-line",
-        )}
-      >
+      <div className="divide-y divide-line border-y border-line">
         <div className="flex items-center justify-between gap-6 py-4">
           <div>
             <p className="text-ui font-medium text-ink">
@@ -1004,19 +985,11 @@ function KeyringNotice({ status }: { status: AuthStatus }) {
 }
 
 /**
- * Apple Music sign-in and the signed-in account: the account dialog's body
- * and the setup's Apple Music step. `headingLevel` is the level of the
- * sign-in flow's titles (3 under a dialog title, 2 under a page's h1).
- * `framed` sets the form and the account's rows on their own panel; a
- * dialog, which is the frame already, turns it off.
+ * Apple Music sign-in and the signed-in account: the account dialog's body,
+ * also embedded in the first-run setup's Apple Music step. Its holder is
+ * the frame, so nothing here draws a panel of its own.
  */
-export function AccountSection({
-  headingLevel = 3,
-  framed = true,
-}: {
-  headingLevel?: 2 | 3;
-  framed?: boolean;
-}) {
+export function AccountSection() {
   const auth = useAuth();
   const { t } = useLingui();
   if (auth.error) {
@@ -1034,7 +1007,7 @@ export function AccountSection({
     return <div aria-busy className="h-48 rounded-lg bg-surface" />;
   }
   if (status.state === "signed_in" || status.state === "validating") {
-    return <SignedIn status={status} framed={framed} />;
+    return <SignedIn status={status} />;
   }
   const restoring = status.state === "restoring";
   return (
@@ -1081,9 +1054,7 @@ export function AccountSection({
               <Trans>You're offline. Signing in needs a connection to Apple.</Trans>
             </Notice>
           )}
-          <HeadingLevel value={headingLevel}>
-            <SignInFlow status={status} framed={framed} />
-          </HeadingLevel>
+          <SignInFlow status={status} />
         </>
       )}
     </div>

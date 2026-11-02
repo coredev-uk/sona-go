@@ -1,5 +1,9 @@
 import type { Capabilities, CDMStatus } from "@bindings/services";
+import { useLingui } from "@lingui/react/macro";
 import { z } from "zod";
+import { create } from "zustand";
+
+import { openSetup, useSetupOpen } from "@/shared/lib/setup";
 
 /** The setup's steps, in order. */
 export const setupSteps = [
@@ -27,6 +31,51 @@ export function stepAfter(step: SetupStep): SetupStep {
 export function stepBefore(step: SetupStep): SetupStep {
   return setupSteps[Math.max(setupSteps.indexOf(step) - 1, 0)];
 }
+
+/** Each step's name, as the strip and the step titles say it. */
+export function useStepNames(): Record<SetupStep, string> {
+  const { t } = useLingui();
+  return {
+    welcome: t`Welcome`,
+    account: t`Apple Music`,
+    playback: t`Playback`,
+    connections: t`Connections`,
+    appearance: t`Appearance`,
+    desktop: t`Desktop`,
+    done: t`Done`,
+  };
+}
+
+/**
+ * The step the setup shows. It lives outside the layer, which a new
+ * language remounts with the whole tree.
+ */
+export const useSetupStep = create<{ step: SetupStep }>(() => ({ step: "welcome" }));
+
+export function goToStep(step: SetupStep) {
+  useSetupStep.setState({ step });
+}
+
+/** The step the next opening starts at, when it isn't the welcome. */
+let requested: SetupStep | null = null;
+
+/** Opens the setup over the app at `step` (the /welcome?step= links). */
+export function showSetup(step: SetupStep) {
+  if (useSetupOpen.getState().open) {
+    goToStep(step);
+    return;
+  }
+  requested = step;
+  openSetup();
+}
+
+// Every opening starts at the welcome ("Set up Sona again") or at the step
+// a link asked for; while it stays open the step is the user's.
+useSetupOpen.subscribe((now, before) => {
+  if (!now.open || before.open) return;
+  goToStep(requested ?? "welcome");
+  requested = null;
+});
 
 /**
  * What the setup can say about Widevine, from the platform's capabilities

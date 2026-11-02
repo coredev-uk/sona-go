@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
-import { Outlet, useMatches } from "@tanstack/react-router";
-import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { Outlet } from "@tanstack/react-router";
+import { useEffect, type ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -11,16 +11,15 @@ import { useShortcuts } from "../shortcuts";
 import { useLayout } from "./layout";
 import { Sidebar } from "./Sidebar";
 import { StatusBanner } from "./StatusBanner";
-import { TitleBarStart } from "./TitleBarStart";
 import { TopBar } from "./TopBar";
 import { useRouteMemory } from "./useRouteMemory";
-import { bindWindowState, titleBarRegion, useWindowChrome } from "./window-chrome";
-import { WindowControls } from "./WindowControls";
+import { bindWindowState } from "./window-chrome";
 
 const providers = slots.flatMap((s) => (s.Provider ? [s.Provider] : []));
 const asides = slots.flatMap((s) => (s.Aside ? [s.Aside] : []));
 const overlays = slots.flatMap((s) => (s.overlay ? [s.overlay] : []));
 const bottoms = slots.flatMap((s) => (s.Bottom ? [s.Bottom] : []));
+const layers = slots.flatMap((s) => (s.Layer ? [s.Layer] : []));
 
 /** True while any module's overlay covers the page. */
 function useOverlayOpen(): boolean {
@@ -58,49 +57,12 @@ function SkipLink() {
 }
 
 /**
- * A full-window page's frame (route staticData.fullWindow, the first-run
- * setup): the title bar's band over the page's top `--title-bar-height`
- * pixels, with the mark at its leading end, as in the sidebar's header,
- * and the window's own buttons where the desktop puts them; nothing else
- * of the shell. The page lays itself out under the band and keeps that
- * strip free of controls, since it drags the window.
- */
-function FullWindow() {
-  const chrome = useWindowChrome();
-  const region = titleBarRegion(chrome);
-  const trailing = chrome.end.length > 0;
-  return (
-    <div
-      className="relative h-full"
-      style={{ "--title-bar-height": `${chrome.height}px` } as CSSProperties}
-    >
-      <SkipLink />
-      <header className="absolute inset-x-0 top-0 z-10 flex">
-        <TitleBarStart chrome={chrome} className="w-[232px]" />
-        <div
-          {...region}
-          style={{
-            ...region.style,
-            height: chrome.height,
-            paddingInlineEnd: trailing && !chrome.captions ? 8 : 0,
-          }}
-          className="flex flex-1 items-center justify-end select-none"
-        >
-          {trailing && <WindowControls chrome={chrome} side="end" />}
-        </div>
-      </header>
-      <Outlet />
-    </div>
-  );
-}
-
-/**
  * The window layout: sidebar and top bar on the surface tone, the routed page
  * on the ground, module asides (the queue) beside it, module bars (now
  * playing) across the bottom. Only the page area scrolls, so it is the
- * scroll element for virtualised lists. Module overlays cover the page column.
+ * scroll element for virtualised lists. Module overlays cover the page column;
+ * module layers (the first-run setup) cover the whole window.
  * The sidebar can be hidden (shell.sidebar, Ctrl+B); its column collapses.
- * A full-window page gets only the title bar (FullWindow).
  */
 export function AppShell() {
   useGoBridge();
@@ -109,17 +71,7 @@ export function AppShell() {
   useEffect(() => bindWindowState(), []);
   const overlayOpen = useOverlayOpen();
   const sidebar = useLayout((s) => s.sidebar);
-  const fullWindow = useMatches({ select: (ms) => ms.some((m) => m.staticData.fullWindow) });
 
-  if (fullWindow) {
-    return (
-      <ShellProviders>
-        <ModuleProviders>
-          <FullWindow />
-        </ModuleProviders>
-      </ShellProviders>
-    );
-  }
   return (
     <ShellProviders>
       <ModuleProviders>
@@ -163,6 +115,9 @@ export function AppShell() {
             <Bottom key={i} />
           ))}
         </div>
+        {layers.map((Layer, i) => (
+          <Layer key={i} />
+        ))}
       </ModuleProviders>
     </ShellProviders>
   );

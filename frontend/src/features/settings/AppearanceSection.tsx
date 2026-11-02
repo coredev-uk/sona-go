@@ -7,7 +7,7 @@ import { useSettings, useUpdateSettings } from "./queries";
 import { MotionArtworkRows } from "./MotionArtworkRows";
 import { SELECT_WIDTH, SettingRow, SettingsPanel } from "./SettingRow";
 
-/** Reduce effects (Settings → Appearance, the first-run setup). */
+/** Reduce effects (Settings → Appearance). */
 export function ReduceEffectsRow() {
   const { t } = useLingui();
   const settings = useSettings();

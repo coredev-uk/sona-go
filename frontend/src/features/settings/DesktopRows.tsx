@@ -20,7 +20,7 @@ function useDesktop() {
 
 /**
  * Start at login, and start in the tray once that is on (Settings →
- * General, the first-run setup), where the platform can do them.
+ * General), where the platform can do them.
  */
 export function StartupRows() {
   const { t } = useLingui();
@@ -60,7 +60,7 @@ export function StartupRows() {
   );
 }
 
-/** What closing the window does (Settings → General, the first-run setup); needs the tray. */
+/** What closing the window does (Settings → General); needs the tray. */
 export function CloseActionRow() {
   const { t } = useLingui();
   const tray = useCapabilities()?.tray ?? false;

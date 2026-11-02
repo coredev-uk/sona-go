@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useSettings, useUpdateSettings } from "./queries";
 import { SELECT_WIDTH, SettingRow } from "./SettingRow";
 
-/** Settings → Playback (and the first-run setup): AAC 256 or Data saver. */
+/** Settings → Playback: AAC 256 or Data saver. */
 export function QualityRow() {
   const { t } = useLingui();
   const settings = useSettings();

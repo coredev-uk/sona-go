@@ -9,8 +9,7 @@ import { WindowControls } from "./WindowControls";
 /**
  * The title bar's leading end: macOS's buttons (the room kept for them) or
  * Sona's leading ones, then the mark and the wordmark, which dim while the
- * window is inactive. The sidebar's header, and the band of a full-window
- * page, so the mark keeps its place when the setup gives way to the app.
+ * window is inactive. The sidebar's header.
  */
 export function TitleBarStart({ chrome, className }: { chrome: WindowChrome; className?: string }) {
   const active = useWindowActive();
