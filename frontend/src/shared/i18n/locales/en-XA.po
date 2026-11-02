@@ -88,6 +88,16 @@ msgstr ""
 msgid "{0, plural, one {# video} other {# videos}}"
 msgstr ""
 
+#. placeholder {0}: writers.length
+#: src/features/album/AlbumPage.tsx
+msgid "{0, plural, one {Composer} other {Composers}}"
+msgstr ""
+
+#. placeholder {0}: genres.length
+#: src/features/album/AlbumPage.tsx
+msgid "{0, plural, one {Genre} other {Genres}}"
+msgstr ""
+
 #: src/features/player/replace.ts
 msgid "{added, plural, one {# song you added was removed.} other {# songs you added were removed.}}"
 msgstr ""
@@ -317,6 +327,10 @@ msgstr ""
 
 #: src/features/artist/artist.ts
 msgid "{releases, plural, one {# release} other {# releases}}"
+msgstr ""
+
+#: src/features/album/AlbumPage.tsx
+msgid "{rest, plural, one {# other} other {# others}}"
 msgstr ""
 
 #: src/features/player/lyrics.ts
@@ -2414,6 +2428,10 @@ msgstr ""
 msgid "Finish signing in in your browser"
 msgstr ""
 
+#: src/features/album/AlbumPage.tsx
+msgid "First released"
+msgstr ""
+
 #: src/features/settings/SetupRow.tsx
 msgid "First-run setup"
 msgstr ""
@@ -2782,6 +2800,10 @@ msgstr ""
 msgid "Keyboard shortcuts"
 msgstr ""
 
+#: src/features/album/AlbumPage.tsx
+msgid "Label"
+msgstr ""
+
 #: src/features/search/groups.ts
 msgid "Labels"
 msgstr ""
@@ -3121,6 +3143,10 @@ msgstr ""
 
 #: src/features/playlist/PlaylistPage.tsx
 msgid "More playlists from this curator"
+msgstr ""
+
+#: src/features/album/AlbumPage.tsx
+msgid "More to hear"
 msgstr ""
 
 #: src/features/settings/MotionArtworkRows.tsx
@@ -3928,6 +3954,7 @@ msgstr ""
 msgid "Play {label}"
 msgstr ""
 
+#: src/features/album/AlbumPage.tsx
 #: src/features/discover/FrontPage.tsx
 #: src/features/home/ItemRows.tsx
 #: src/features/radio/OnAir.tsx
@@ -4396,6 +4423,9 @@ msgid "Release date"
 msgstr ""
 
 #: src/features/album/AlbumPage.tsx
+msgid "Released"
+msgstr ""
+
 #: src/features/song/SongPage.tsx
 #: src/features/video/VideoPage.tsx
 msgid "Released {releaseDate}"
@@ -6373,6 +6403,10 @@ msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Working"
+msgstr ""
+
+#: src/features/album/AlbumPage.tsx
+msgid "Written by"
 msgstr ""
 
 #: src/features/song/SongPage.tsx

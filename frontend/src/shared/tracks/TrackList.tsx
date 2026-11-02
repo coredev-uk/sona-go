@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { Link } from "@tanstack/react-router";
 import { ArrowDown, ArrowUp, Clock3, Play } from "lucide-react";
 import {
+  createElement,
   memo,
   useCallback,
   useEffect,
@@ -67,6 +68,17 @@ interface TrackListProps {
    * and why a song doesn't play.
    */
   subline?: (song: Song) => string | undefined;
+  /**
+   * The title shown in a row in place of the song's name: a classical
+   * album shows the movement under its work's heading. The song's name
+   * stays its accessible name.
+   */
+  title?: (song: Song) => string;
+  /**
+   * A heading before a row, below any disc heading: a classical album's
+   * works. Undefined for no heading. Lists that are virtualised show none.
+   */
+  heading?: (song: Song, prev: Song | undefined) => string | undefined;
 }
 
 const ROW = 44;
@@ -149,6 +161,7 @@ interface RowProps {
   onFocusRow: (index: number) => void;
   container?: Omit<ActionContainer, "index">;
   subline?: (song: Song) => string | undefined;
+  title?: (song: Song) => string;
 }
 
 /**
@@ -185,6 +198,7 @@ const TrackRow = memo(function TrackRow({
   onFocusRow,
   container,
   subline,
+  title,
 }: RowProps) {
   const { t } = useLingui();
   // Restricted accounts see explicit songs greyed out and cannot play them.
@@ -270,7 +284,7 @@ const TrackRow = memo(function TrackRow({
                 current ? "font-medium text-play-ink" : disabled ? "text-ink-faint" : "text-ink",
               )}
             >
-              {song.name}
+              {title ? title(song) : song.name}
             </span>
             {song.explicit && <ExplicitMark />}
             {popular && (
@@ -378,6 +392,8 @@ export function TrackList({
   container,
   addedBy,
   subline,
+  title,
+  heading,
 }: TrackListProps) {
   const { t } = useLingui();
   const { current, playing } = useNowPlaying();
@@ -518,6 +534,7 @@ export function TrackList({
       onFocusRow={setFocus}
       container={container}
       subline={subline}
+      title={title}
     />
   );
 
@@ -570,32 +587,43 @@ export function TrackList({
           ) : (
             songs.map((song, i) => {
               const disc = song?.discNumber;
+              const prev = songs[i - 1];
+              const discHeading = multiDisc && song && (i === 0 || prev?.discNumber !== disc);
+              const groupHeading = song && heading?.(song, prev);
+              const colSpan =
+                4 + Number(!!columns.artist) + Number(!!columns.album) + Number(!!addedBy);
               return (
                 <div key={song?.id ?? `loading-${i}`}>
-                  {multiDisc &&
-                    song &&
-                    (i === 0 || songs[i - 1]?.discNumber !== song.discNumber) && (
-                      <div role="row">
-                        <div
-                          role="gridcell"
-                          aria-colspan={
-                            4 +
-                            Number(!!columns.artist) +
-                            Number(!!columns.album) +
-                            Number(!!addedBy)
-                          }
+                  {discHeading && (
+                    <div role="row">
+                      <div role="gridcell" aria-colspan={colSpan}>
+                        <h3
+                          className={cn(
+                            "px-2 pb-2 text-sub font-semibold text-ink-muted",
+                            i === 0 ? "pt-2" : "pt-5",
+                          )}
                         >
-                          <h3
-                            className={cn(
-                              "px-2 pb-2 text-sub font-semibold text-ink-muted",
-                              i === 0 ? "pt-2" : "pt-5",
-                            )}
-                          >
-                            <Trans>Disc {disc}</Trans>
-                          </h3>
-                        </div>
+                          <Trans>Disc {disc}</Trans>
+                        </h3>
                       </div>
-                    )}
+                    </div>
+                  )}
+                  {groupHeading && (
+                    <div role="row">
+                      <div role="gridcell" aria-colspan={colSpan}>
+                        {createElement(
+                          multiDisc ? "h4" : "h3",
+                          {
+                            className: cn(
+                              "px-2 pb-1.5 text-ui font-medium text-balance text-ink",
+                              i === 0 || discHeading ? "pt-2" : "pt-5",
+                            ),
+                          },
+                          groupHeading,
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {row(song, i)}
                 </div>
               );

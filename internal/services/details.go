@@ -67,15 +67,51 @@ func (s *CatalogService) albumPage(ctx context.Context, a applemusic.Album) Cata
 		Artists:       s.m.amArtists(a.Relationships.Artists.Data),
 		PopularIDs:    popularTracks(a.Relationships.Tracks.Data),
 		URL:           at.URL,
+		ArtworkColors: artworkColors(at.Artwork),
+		Genres:        albumGenres(at.GenreNames, a.Relationships.Genres.Data),
 		MoreByArtist:  s.m.amAlbums(v.MoreByArtist.Data),
 		Similar:       s.m.amAlbums(v.YouMightAlsoLike.Data),
 		OtherVersions: s.m.amAlbums(v.OtherVersions.Data),
 		AppearsOn:     s.m.amPlaylists(v.AppearsOn.Data),
 		Videos:        s.m.amMusicVideos(v.RelatedVideos.Data),
+		MoreToHear:    s.m.amStations(v.AudioExtras.Data),
 	}
 	p.Header.Motion = s.m.motionOf(at.EditorialVideo)
 	p.Album.LibraryID, p.InLibrary = s.e.members.lookup(ctx, kindAlbum, album.CatalogID)
 	return p
+}
+
+// artworkColors returns Apple's colours for a cover.
+func artworkColors(a *applemusic.Artwork) ArtworkColors {
+	if a == nil {
+		return ArtworkColors{}
+	}
+	return ArtworkColors{
+		Background: hexColor(a.BgColor),
+		Text1:      hexColor(a.TextColor1),
+		Text2:      hexColor(a.TextColor2),
+		Text3:      hexColor(a.TextColor3),
+		Text4:      hexColor(a.TextColor4),
+	}
+}
+
+// albumGenres returns an album's genre names in Apple's order without the
+// root genre ("Music", localised), which the genres relationship names as
+// the one without a parent. Names repeated by Apple appear once.
+func albumGenres(names []string, genres []applemusic.Resource[applemusic.GenreAttributes]) []string {
+	root := ""
+	for _, g := range genres {
+		if g.Attributes.ParentID == "" {
+			root = g.Attributes.Name
+		}
+	}
+	out := make([]string, 0, len(names))
+	for _, n := range names {
+		if n != "" && n != root && !slices.Contains(out, n) {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // Popular-track policy: Apple scores an album's tracks 0–1 (1 = its most

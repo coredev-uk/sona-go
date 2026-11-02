@@ -88,6 +88,16 @@ msgstr "{0, plural, one {# song} other {# songs}}"
 msgid "{0, plural, one {# video} other {# videos}}"
 msgstr "{0, plural, one {# video} other {# videos}}"
 
+#. placeholder {0}: writers.length
+#: src/features/album/AlbumPage.tsx
+msgid "{0, plural, one {Composer} other {Composers}}"
+msgstr "{0, plural, one {Composer} other {Composers}}"
+
+#. placeholder {0}: genres.length
+#: src/features/album/AlbumPage.tsx
+msgid "{0, plural, one {Genre} other {Genres}}"
+msgstr "{0, plural, one {Genre} other {Genres}}"
+
 #: src/features/player/replace.ts
 msgid "{added, plural, one {# song you added was removed.} other {# songs you added were removed.}}"
 msgstr "{added, plural, one {# song you added was removed.} other {# songs you added were removed.}}"
@@ -318,6 +328,10 @@ msgstr "{problems, plural, one {# problem found} other {# problems found}}"
 #: src/features/artist/artist.ts
 msgid "{releases, plural, one {# release} other {# releases}}"
 msgstr "{releases, plural, one {# release} other {# releases}}"
+
+#: src/features/album/AlbumPage.tsx
+msgid "{rest, plural, one {# other} other {# others}}"
+msgstr "{rest, plural, one {# other} other {# others}}"
 
 #: src/features/player/lyrics.ts
 msgid "{s} s earlier"
@@ -2414,6 +2428,10 @@ msgstr "find focus"
 msgid "Finish signing in in your browser"
 msgstr "Finish signing in in your browser"
 
+#: src/features/album/AlbumPage.tsx
+msgid "First released"
+msgstr "First released"
+
 #: src/features/settings/SetupRow.tsx
 msgid "First-run setup"
 msgstr "First-run setup"
@@ -2782,6 +2800,10 @@ msgstr "Keep playing in the background"
 msgid "Keyboard shortcuts"
 msgstr "Keyboard shortcuts"
 
+#: src/features/album/AlbumPage.tsx
+msgid "Label"
+msgstr "Label"
+
 #: src/features/search/groups.ts
 msgid "Labels"
 msgstr "Labels"
@@ -3122,6 +3144,10 @@ msgstr "More links"
 #: src/features/playlist/PlaylistPage.tsx
 msgid "More playlists from this curator"
 msgstr "More playlists from this curator"
+
+#: src/features/album/AlbumPage.tsx
+msgid "More to hear"
+msgstr "More to hear"
 
 #: src/features/settings/MotionArtworkRows.tsx
 #: src/features/settings/MotionDiagnostics.ts
@@ -3928,6 +3954,7 @@ msgstr "Play {artistName}'s top songs"
 msgid "Play {label}"
 msgstr "Play {label}"
 
+#: src/features/album/AlbumPage.tsx
 #: src/features/discover/FrontPage.tsx
 #: src/features/home/ItemRows.tsx
 #: src/features/radio/OnAir.tsx
@@ -4396,6 +4423,9 @@ msgid "Release date"
 msgstr "Release date"
 
 #: src/features/album/AlbumPage.tsx
+msgid "Released"
+msgstr "Released"
+
 #: src/features/song/SongPage.tsx
 #: src/features/video/VideoPage.tsx
 msgid "Released {releaseDate}"
@@ -6374,6 +6404,10 @@ msgstr "words sing"
 #: src/features/settings/Diagnostics.tsx
 msgid "Working"
 msgstr "Working"
+
+#: src/features/album/AlbumPage.tsx
+msgid "Written by"
+msgstr "Written by"
 
 #: src/features/song/SongPage.tsx
 msgid "Written by {songwriters}"

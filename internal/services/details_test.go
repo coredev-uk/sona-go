@@ -31,23 +31,41 @@ func decode[T any](t *testing.T, s string) T {
 
 func TestAlbumPageMapping(t *testing.T) {
 	a := decode[applemusic.Album](t, `{"id":"7","type":"albums","attributes":{"name":"In Rainbows","artistName":"Radiohead","url":"https://music.apple.com/gb/album/x/7",
-		"editorialNotes":{"short":"A <i>classic</i>.","standard":"First &amp; best.<br /><br />Second para."},"recordLabel":"XL","copyright":"℗ 2007"},
+		"editorialNotes":{"short":"A <i>classic</i>.","standard":"First &amp; best.<br /><br />Second para."},"recordLabel":"XL","copyright":"℗ 2007",
+		"genreNames":["Alternative","Music","Rock","Alternative"],
+		"artwork":{"url":"https://a/{w}x{h}bb.jpg","bgColor":"8ACF00","textColor1":"050800","textColor2":"070a00","textColor3":"203000","textColor4":"bad"}},
 		"relationships":{"artists":{"data":[{"id":"55","type":"artists","attributes":{"name":"Radiohead"}},{"id":"56","type":"artists","attributes":{"name":"Guest"}}]},
+		"genres":{"data":[{"id":"20","type":"genres","attributes":{"name":"Alternative","parentId":"34"}},{"id":"34","type":"genres","attributes":{"name":"Music"}}]},
 		"tracks":{"data":[
-			{"id":"1","type":"songs","meta":{"popularity":0.67},"attributes":{"name":"15 Step","durationInMillis":1000,"playParams":{"id":"1"}}},
-			{"id":"2","type":"songs","meta":{"popularity":1},"attributes":{"name":"Weird Fishes","durationInMillis":2000}},
+			{"id":"1","type":"songs","meta":{"popularity":0.67},"attributes":{"name":"15 Step","durationInMillis":1000,"playParams":{"id":"1"},"composerName":"Thom Yorke & Jonny Greenwood"}},
+			{"id":"2","type":"songs","meta":{"popularity":1},"attributes":{"name":"Weird Fishes","durationInMillis":2000,"workName":"Fishes","movementName":"Weird"}},
 			{"id":"3","type":"songs","meta":{"popularity":0.98},"attributes":{"name":"All I Need"}},
 			{"id":"4","type":"songs","meta":{"popularity":0.85},"attributes":{"name":"Jigsaw"}},
 			{"id":"5","type":"songs","meta":{"popularity":0.81},"attributes":{"name":"Reckoner"}}]}},
 		"views":{"more-by-artist":{"data":[{"id":"8","type":"albums","attributes":{"name":"Kid A"}}]},
 		"appears-on":{"data":[{"id":"pl.1","type":"playlists","attributes":{"name":"Essentials"}}]},
-		"related-videos":{"data":[{"id":"9","type":"music-videos","attributes":{"name":"Clip","hasHDR":true}}]}}}`)
+		"related-videos":{"data":[{"id":"9","type":"music-videos","attributes":{"name":"Clip","hasHDR":true}}]},
+		"audio-extras":{"data":[{"id":"ra.11","type":"stations","attributes":{"name":"No. 11: In Rainbows","kind":"streaming","durationInMillis":1800000}}]}}}`)
 	p := detailsService(t).albumPage(t.Context(), a)
 	if p.Album.ArtistID != "55" || len(p.Artists) != 2 || p.Tracks[0].AlbumID != "7" || p.Tracks[0].ArtistID != "55" || p.DurationMs != 3000 {
 		t.Fatalf("album = %+v", p.AlbumDetail)
 	}
 	if p.Notes != "First & best.\n\nSecond para." || p.NotesShort != "A classic." || p.Label != "XL" || p.URL == "" {
 		t.Fatalf("notes = %q / %q", p.Notes, p.NotesShort)
+	}
+	// Apple's colours as CSS hex, lower case; a malformed one is dropped.
+	if c := p.ArtworkColors; c != (ArtworkColors{Background: "#8acf00", Text1: "#050800", Text2: "#070a00", Text3: "#203000"}) {
+		t.Fatalf("colours = %+v", c)
+	}
+	// Every genre once, in Apple's order, without the root genre.
+	if !slices.Equal(p.Genres, []string{"Alternative", "Rock"}) {
+		t.Fatalf("genres = %v", p.Genres)
+	}
+	if s := p.Tracks[0]; s.Composer != "Thom Yorke & Jonny Greenwood" || s.Work != "" {
+		t.Fatalf("track 1 credits = %+v", s)
+	}
+	if s := p.Tracks[1]; s.Work != "Fishes" || s.Movement != "Weird" {
+		t.Fatalf("track 2 work = %+v", s)
 	}
 	// The three most played tracks over the floor, most played first.
 	if !slices.Equal(p.PopularIDs, []string{"2", "3", "4"}) {
@@ -56,12 +74,24 @@ func TestAlbumPageMapping(t *testing.T) {
 	if len(p.MoreByArtist) != 1 || len(p.AppearsOn) != 1 || !p.Videos[0].HasHDR || p.Similar == nil || p.OtherVersions == nil {
 		t.Fatalf("sections = %+v", p)
 	}
+	if len(p.MoreToHear) != 1 || p.MoreToHear[0].ID != "ra.11" || p.MoreToHear[0].DurationMs != 1800000 {
+		t.Fatalf("more to hear = %+v", p.MoreToHear)
+	}
 	// Empty sections are [] in JSON, never null.
 	b, _ := json.Marshal(p)
 	raw := decode[map[string]any](t, string(b))
-	for _, k := range []string{"similar", "otherVersions", "popularIds", "tracks"} {
+	for _, k := range []string{"similar", "otherVersions", "popularIds", "tracks", "genres", "moreToHear"} {
 		if _, ok := raw[k].([]any); !ok {
 			t.Errorf("%s = %v", k, raw[k])
+		}
+	}
+	// An album without genres or views still writes [].
+	empty := detailsService(t).albumPage(t.Context(), decode[applemusic.Album](t, `{"id":"9","type":"albums","attributes":{"name":"Bare"}}`))
+	b, _ = json.Marshal(empty)
+	raw = decode[map[string]any](t, string(b))
+	for _, k := range []string{"genres", "moreToHear"} {
+		if _, ok := raw[k].([]any); !ok {
+			t.Errorf("bare %s = %v", k, raw[k])
 		}
 	}
 }

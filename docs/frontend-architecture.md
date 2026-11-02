@@ -98,7 +98,12 @@ src/
                           Copy link); shell Provider (ConfirmHost, content policy)
     album, artist, playlist  detail pages + their queries; "Go to album/artist" actions;
                           the album page lays out by its content's width (sleeve and
-                          listing side by side from 860px, `features/album/layout.ts`);
+                          listing side by side from 860px, `features/album/layout.ts`),
+                          takes its colours from the cover (`features/album/palette.ts`:
+                          Apple's ArtworkColors and Go's dominant colours, worked out per
+                          theme and contrast-checked; the sleeve redeclares the tokens,
+                          the accent replaces amber on the page) and groups a classical
+                          album's movements under their works (TrackList `heading`/`title`);
                           the artist page too (header and lead columns from 900px, the
                           release lists, its bands: `features/artist/artist.ts`)
     player                now-playing bar, queue, now-playing view (motion cover of the

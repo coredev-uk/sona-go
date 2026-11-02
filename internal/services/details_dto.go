@@ -15,12 +15,18 @@ type CatalogAlbum struct {
 	// PopularIDs are the IDs of the album's most played tracks (at most 3).
 	PopularIDs []string `json:"popularIds"`
 	URL        string   `json:"url"` // music.apple.com page
+	// ArtworkColors are Apple's colours for the cover.
+	ArtworkColors ArtworkColors `json:"artworkColors"`
+	// Genres are every genre Apple files the album under, the main one
+	// (Album.Genre) first, without the root "Music".
+	Genres []string `json:"genres"`
 	// Sections, each empty when Apple has none.
 	MoreByArtist  []Album      `json:"moreByArtist"`
 	Similar       []Album      `json:"similar"` // "you might also like"
 	OtherVersions []Album      `json:"otherVersions"`
 	AppearsOn     []Playlist   `json:"appearsOn"` // playlists featuring the album
 	Videos        []MusicVideo `json:"videos"`
+	MoreToHear    []Station    `json:"moreToHear"` // radio episodes about the album
 }
 
 // Artist page view names (ArtistShelf.View, CatalogService.ArtistView).

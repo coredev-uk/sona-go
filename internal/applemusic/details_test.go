@@ -13,18 +13,21 @@ func TestAlbumPage(t *testing.T) {
 		q := r.URL.Query()
 		switch r.URL.Path {
 		case "/v1/catalog/gb/albums/7":
-			if q.Get("platform") != "web" || q.Get("views") != "more-by-artist,you-might-also-like,appears-on,other-versions,related-videos" ||
-				q.Get("meta[albums:tracks]") != "popularity" || q.Get("include") != "artists" {
+			if q.Get("platform") != "web" || q.Get("views") != "more-by-artist,you-might-also-like,appears-on,other-versions,related-videos,audio-extras" ||
+				q.Get("meta[albums:tracks]") != "popularity" || q.Get("include") != "artists,genres" || q.Get("fields[genres]") != "name,parentId" {
 				t.Errorf("album query = %s", r.URL.RawQuery)
 			}
-			w.Write([]byte(`{"data":[{"id":"7","type":"albums","attributes":{"name":"Big","isPrerelease":false,"editorialNotes":{"short":"Short.","standard":"A <i>long</i> note."},"artwork":{"url":"https://a/{w}x{h}bb.jpg"}},
+			_, _ = w.Write([]byte(`{"data":[{"id":"7","type":"albums","attributes":{"name":"Big","isPrerelease":false,"editorialNotes":{"short":"Short.","standard":"A <i>long</i> note."},
+				"artwork":{"url":"https://a/{w}x{h}bb.jpg","bgColor":"cccbc9","textColor1":"0e0808","textColor2":"392926","textColor3":"342f2f","textColor4":"564a47"}},
 				"relationships":{"artists":{"data":[{"id":"55","type":"artists","attributes":{"name":"Band"}}]},
-				"tracks":{"data":[{"id":"1","type":"songs","meta":{"popularity":0.67},"attributes":{"name":"One","discNumber":1}}],"next":"/v1/catalog/gb/albums/7/tracks?offset=1"}},
+				"genres":{"data":[{"id":"5","type":"genres","attributes":{"name":"Classical","parentId":"34"}},{"id":"34","type":"genres","attributes":{"name":"Music"}}]},
+				"tracks":{"data":[{"id":"1","type":"songs","meta":{"popularity":0.67},"attributes":{"name":"Goldberg Variations: Aria","discNumber":1,"composerName":"Johann Sebastian Bach","workName":"Goldberg Variations","movementName":"Aria"}}],"next":"/v1/catalog/gb/albums/7/tracks?offset=1"}},
 				"views":{"more-by-artist":{"attributes":{"title":"More by Band"},"data":[{"id":"8","type":"albums","attributes":{"name":"Other"}}],"next":"/v1/catalog/gb/albums/7/view/more-by-artist?offset=15"},
 				"appears-on":{"attributes":{"title":"Featured On"},"data":[{"id":"pl.1","type":"playlists","attributes":{"name":"Mix","curatorName":"Apple Music"}}]},
 				"related-videos":{"attributes":{"title":"Music Videos"},"data":[{"id":"9","type":"music-videos","attributes":{"name":"Clip","has4K":true,"durationInMillis":254612}}]},
+				"audio-extras":{"attributes":{"title":"More to Hear"},"data":[{"id":"ra.1745191891","type":"stations","attributes":{"name":"No. 11: Rumours","kind":"streaming","isLive":false,"durationInMillis":1800000}}]},
 				"other-versions":{"attributes":{"title":"Other Versions"},"data":[]}},
-				"meta":{"views":{"order":["other-versions","related-videos","more-by-artist","appears-on","you-might-also-like"]}}}]}`))
+				"meta":{"views":{"order":["other-versions","related-videos","more-by-artist","appears-on","you-might-also-like","audio-extras"]}}}]}`))
 		case "/v1/catalog/gb/albums/7/tracks":
 			if q.Get("offset") != "1" || q.Get("limit") != "100" || q.Get("platform") != "web" || q.Get("include[songs]") != "artists" {
 				t.Errorf("tracks query = %s", r.URL.RawQuery)
@@ -45,8 +48,17 @@ func TestAlbumPage(t *testing.T) {
 	}
 	v := a.Views
 	if len(v.MoreByArtist.Data) != 1 || v.MoreByArtist.Next == "" || v.AppearsOn.Data[0].Attributes.CuratorName != "Apple Music" ||
-		!v.RelatedVideos.Data[0].Attributes.Has4K || len(v.OtherVersions.Data) != 0 {
+		!v.RelatedVideos.Data[0].Attributes.Has4K || len(v.OtherVersions.Data) != 0 || v.AudioExtras.Data[0].ID != "ra.1745191891" {
 		t.Fatalf("views = %+v", v)
+	}
+	if art := a.Attributes.Artwork; art.BgColor != "cccbc9" || art.TextColor1 != "0e0808" || art.TextColor3 != "342f2f" || art.TextColor4 != "564a47" {
+		t.Fatalf("artwork colours = %+v", art)
+	}
+	if g := a.Relationships.Genres.Data; len(g) != 2 || g[1].Attributes.Name != "Music" || g[1].Attributes.ParentID != "" {
+		t.Fatalf("genres = %+v", g)
+	}
+	if s := tr[0].Attributes; s.WorkName != "Goldberg Variations" || s.MovementName != "Aria" || s.ComposerName != "Johann Sebastian Bach" {
+		t.Fatalf("classical attributes = %+v", s)
 	}
 	if got := Sized(a.Attributes.Artwork.Template(), 300, 300); got != "https://a/300x300bb.jpg" {
 		t.Fatalf("Sized = %s", got)

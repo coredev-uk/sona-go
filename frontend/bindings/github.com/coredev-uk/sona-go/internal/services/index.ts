@@ -61,6 +61,7 @@ export {
     ArtistPage,
     ArtistShelf,
     ArtistViewPage,
+    ArtworkColors,
     AuthStatus,
     CDMStatus,
     Capabilities,

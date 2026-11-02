@@ -1,7 +1,17 @@
 import { Song } from "@bindings/services";
 import { describe, expect, it } from "vitest";
 
-import { discsOf, isCompilation, libraryShare, withoutPlaceholderCredits } from "./album";
+import {
+  discsOf,
+  firstReleased,
+  hasWorks,
+  isCompilation,
+  libraryShare,
+  movementTitle,
+  withoutPlaceholderCredits,
+  workHeading,
+  writersOf,
+} from "./album";
 
 const song = (p: Partial<Song>) =>
   new Song({ id: String(Math.random()), discNumber: 1, playable: true, ...p });
@@ -28,6 +38,73 @@ describe("album page", () => {
     expect(
       isCompilation([song({ artistName: "A" }), song({ artistName: "B" })], "Various Artists"),
     ).toBe(true);
+  });
+
+  it("doesn't count songs with no credit yet towards a compilation", () => {
+    // An album not out yet: most songs are placeholders with their credit dropped.
+    const out = song({ artistName: "Kings of Leon" });
+    const unpublished = song({ artistName: "" });
+    expect(isCompilation([out, out, unpublished, unpublished, unpublished], "Kings of Leon")).toBe(
+      false,
+    );
+  });
+
+  it("lists each songwriter once, the most credited first", () => {
+    const list = [
+      song({ composerName: "Christine McVie" }),
+      song({ composerName: "Lindsey Buckingham" }),
+      song({ composerName: "Lindsey Buckingham & Stevie Nicks" }),
+      song({
+        composerName:
+          "Christine McVie, John McVie, Lindsey Buckingham, Mick Fleetwood & Stevie Nicks",
+      }),
+      song({ composerName: "" }),
+    ];
+    expect(writersOf(list)).toEqual([
+      "Lindsey Buckingham",
+      "Christine McVie",
+      "Stevie Nicks",
+      "John McVie",
+      "Mick Fleetwood",
+    ]);
+  });
+
+  it("groups a classical album's movements under their works", () => {
+    const aria = song({
+      name: "Goldberg Variations, BWV 988 (1955 Recording): Aria",
+      workName: "Goldberg Variations, BWV 988 (1955 Recording)",
+      movementName: "Aria",
+      composerName: "Johann Sebastian Bach",
+    });
+    const var1 = song({ ...aria, id: "v1", name: "…: Variation 1", movementName: "Variation 1" });
+    const later = song({
+      ...aria,
+      id: "l",
+      workName: "Goldberg Variations, BWV 988 (1981 Recording)",
+    });
+    const pop = song({ name: "Dreams" });
+    expect(hasWorks([pop, aria])).toBe(true);
+    expect(hasWorks([pop])).toBe(false);
+    expect(workHeading(aria, undefined, 1)).toBe("Goldberg Variations, BWV 988 (1955 Recording)");
+    expect(workHeading(var1, aria, 1)).toBeUndefined();
+    expect(workHeading(later, var1, 1)).toBe("Goldberg Variations, BWV 988 (1981 Recording)");
+    // A recital of several composers names the composer with the work.
+    expect(workHeading(aria, pop, 2)).toBe(
+      "Johann Sebastian Bach · Goldberg Variations, BWV 988 (1955 Recording)",
+    );
+    // A new disc starts the work again.
+    expect(workHeading(song({ ...var1, discNumber: 2 }), aria, 1)).toBeDefined();
+    expect(workHeading(pop, aria, 1)).toBeUndefined();
+    expect(movementTitle(var1)).toBe("Variation 1");
+    expect(movementTitle(pop)).toBe("Dreams");
+  });
+
+  it("says when the recordings are older than the album", () => {
+    const list = [song({ releaseDate: "1982-09-02" }), song({ releaseDate: "1959-01-01" })];
+    expect(firstReleased(list, "2013-01-28")).toBe("1959");
+    expect(firstReleased(list, "1959-05-01")).toBe("");
+    expect(firstReleased([song({ releaseDate: "" })], "2013")).toBe("");
+    expect(firstReleased(list, "")).toBe("");
   });
 
   it("drops the stand-in credit of an unpublished song on an album not out yet", () => {

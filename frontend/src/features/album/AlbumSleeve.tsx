@@ -1,6 +1,6 @@
 import type { Header } from "@bindings/services";
 import { useLingui } from "@lingui/react/macro";
-import type { ReactNode, Ref, RefObject } from "react";
+import type { CSSProperties, ReactNode, Ref, RefObject } from "react";
 
 import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
@@ -9,26 +9,43 @@ import { catalogueLine } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 
 import type { Disc } from "./album";
+import { sleeveVars, type SleeveColors } from "./palette";
 
 /**
- * The sleeve: a panel washed in the cover's colour (Go's pre-blurred
- * backdrop under the ground scrim, so text keeps its contrast) that holds
- * the cover and the record's fine print. A 4% ink layer keeps it one tone
- * step off the ground whatever the cover, a dark one in the dark theme
- * included, and with reduce effects. It is the page's one coloured
- * surface; the listing beside it sits on the plain ground.
+ * The sleeve: the page's one coloured surface, holding the cover and the
+ * record's fine print. It is printed in the cover's own background colour
+ * (`palette.ts`: one tone step off the ground, text checked to 4.5:1 on
+ * it), its tokens redeclared so everything inside follows it. A cover
+ * with no colour known (a library-only album) keeps the wash of Go's
+ * pre-blurred backdrop under the ground scrim, with a 4% ink layer to
+ * hold it one tone step off the ground. The listing beside it sits on the
+ * plain ground.
  */
 export function Sleeve({
   ref,
   header,
+  colors,
   className,
   children,
 }: {
   ref?: Ref<HTMLDivElement>;
   header: Header;
+  colors: SleeveColors | undefined;
   className?: string;
   children: ReactNode;
 }) {
+  if (colors) {
+    return (
+      <div
+        ref={ref}
+        data-sleeve
+        className={cn("relative rounded-lg bg-(--sleeve) text-ink", className)}
+        style={sleeveVars(colors) as CSSProperties}
+      >
+        {children}
+      </div>
+    );
+  }
   return (
     <div ref={ref} className={cn("relative overflow-hidden rounded-lg", className)}>
       <Backdrop src={header.backdrop} color={header.colors[0]} tone="ground" />
@@ -47,17 +64,34 @@ export function AlbumCover({ art, motion, size }: { art: string; motion: string;
   );
 }
 
+/** One line of the fine print: what it is ("Label") and the record's entry. */
+export interface Fact {
+  label: string;
+  value: string;
+}
+
 /**
- * The back of the sleeve: release day, label and ℗ line in meta type,
- * one fact a line.
+ * The back of the sleeve: the record's facts in meta type, each a muted
+ * name over its entry (released, first released, genres, who wrote or
+ * composed it, label), then the ℗ line, which names itself.
  */
-export function Credits({ lines }: { lines: readonly string[] }) {
-  if (!lines.length) return null;
+export function FinePrint({ facts, rights }: { facts: readonly Fact[]; rights: string }) {
+  if (!facts.length && !rights) return null;
   return (
-    <div className="space-y-1 text-meta text-ink-muted">
-      {lines.map((l) => (
-        <p key={l}>{l}</p>
-      ))}
+    <div className="text-meta">
+      {facts.length > 0 && (
+        <dl className="space-y-2">
+          {facts.map((f) => (
+            <div key={f.label}>
+              <dt className="text-ink-muted">{f.label}</dt>
+              <dd className="text-pretty text-ink">{f.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {rights && (
+        <p className={cn("text-pretty text-ink-muted", facts.length > 0 && "mt-3")}>{rights}</p>
+      )}
     </div>
   );
 }

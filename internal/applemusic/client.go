@@ -468,10 +468,14 @@ type StorefrontAttributes struct {
 // SongAttributes are the song attributes Sona uses, for catalog songs and
 // library songs (which carry a subset).
 type SongAttributes struct {
-	Name             string   `json:"name"`
-	ArtistName       string   `json:"artistName"`
-	AlbumName        string   `json:"albumName"`
-	ComposerName     string   `json:"composerName"`
+	Name         string `json:"name"`
+	ArtistName   string `json:"artistName"`
+	AlbumName    string `json:"albumName"`
+	ComposerName string `json:"composerName"`
+	// Classical works: the work a movement belongs to and the movement's
+	// own name (catalog songs; "" for everything else).
+	WorkName         string   `json:"workName,omitempty"`
+	MovementName     string   `json:"movementName,omitempty"`
 	DurationInMillis int64    `json:"durationInMillis"`
 	TrackNumber      int      `json:"trackNumber"`
 	DiscNumber       int      `json:"discNumber"`
