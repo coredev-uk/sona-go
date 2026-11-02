@@ -73,8 +73,10 @@ src/
     ui/                   ShadCN components
   features/<name>/        one folder per feature; public API is index.ts
     home                  For you (Apple's personal shelves, local fallback shelves)
-    discover              Discover (New), rooms, multirooms, groupings, curators, Charts;
-                          registers the song/album/playlist item players
+    discover              Discover (New: the featured cards as a front page, the contents,
+                          the shelves in bands by what they hold), rooms, multirooms,
+                          groupings, curators, Charts; registers the song/album/playlist
+                          item players
     radio                 Radio (live stations, your stations, Apple's radio page), station
                           pages (/station/$id: schedule, unavailable state; a track station's
                           seed as its byline and the songs it plays first); playStation,

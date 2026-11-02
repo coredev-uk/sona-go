@@ -145,6 +145,7 @@ msgstr ""
 msgid "{count}, {time}"
 msgstr ""
 
+#: src/features/discover/FrontPage.tsx
 #: src/shared/items/WideRow.tsx
 msgid "{current} of {pages}"
 msgstr ""
@@ -678,6 +679,7 @@ msgid "Apple Music has no credits or lyrics for this song."
 msgstr ""
 
 #: src/features/discover/EditorialPage.tsx
+#: src/features/discover/NewPage.tsx
 msgid "Apple Music has no music on this page at the moment."
 msgstr ""
 
@@ -955,6 +957,10 @@ msgstr ""
 
 #: src/features/artist/ArtistPage.tsx
 msgid "Born or formed"
+msgstr ""
+
+#: src/features/discover/bands.ts
+msgid "Browse"
 msgstr ""
 
 #: src/features/search/SearchPage.tsx
@@ -2301,6 +2307,7 @@ msgstr ""
 msgid "Favourite the playing song"
 msgstr ""
 
+#: src/features/discover/FrontPage.tsx
 #: src/shared/items/WideRow.tsx
 msgid "Featured"
 msgstr ""
@@ -2972,6 +2979,10 @@ msgstr ""
 msgid "More by {artistName}"
 msgstr ""
 
+#: src/features/discover/FrontPage.tsx
+msgid "More featured"
+msgstr ""
+
 #: src/shared/actions/ActionMenu.tsx
 msgid "More for {name}"
 msgstr ""
@@ -3160,6 +3171,7 @@ msgstr ""
 msgid "Next"
 msgstr ""
 
+#: src/features/discover/FrontPage.tsx
 #: src/shared/items/WideRow.tsx
 msgid "Next in {label}"
 msgstr ""
@@ -3435,6 +3447,7 @@ msgid "Nothing here can be played"
 msgstr ""
 
 #: src/features/discover/EditorialPage.tsx
+#: src/features/discover/NewPage.tsx
 msgid "Nothing here right now"
 msgstr ""
 
@@ -3580,6 +3593,10 @@ msgstr ""
 
 #: src/features/library/HistoryPage.tsx
 msgid "On this computer only: Apple Music couldn't be reached for your other devices"
+msgstr ""
+
+#: src/features/discover/Contents.tsx
+msgid "On this page"
 msgstr ""
 
 #: src/features/settings/MotionDiagnostics.ts
@@ -3787,6 +3804,7 @@ msgstr ""
 msgid "Play {label}"
 msgstr ""
 
+#: src/features/discover/FrontPage.tsx
 #: src/features/radio/RadioPage.tsx
 #: src/shared/items/StationList.tsx
 #: src/shared/items/TrackShelf.tsx
@@ -3883,6 +3901,7 @@ msgstr ""
 msgid "Playlist"
 msgstr ""
 
+#: src/features/discover/bands.ts
 #: src/features/library/index.ts
 #: src/features/library/pages.tsx
 #: src/features/playlist/PlaylistDialogs.tsx
@@ -4001,6 +4020,7 @@ msgstr ""
 msgid "Previous"
 msgstr ""
 
+#: src/features/discover/FrontPage.tsx
 #: src/shared/items/WideRow.tsx
 msgid "Previous in {label}"
 msgstr ""
@@ -4111,6 +4131,7 @@ msgstr ""
 msgid "Quit Sona"
 msgstr ""
 
+#: src/features/discover/bands.ts
 #: src/features/radio/index.ts
 #: src/features/radio/RadioPage.tsx
 #: src/features/settings/General.tsx
@@ -5121,6 +5142,10 @@ msgstr ""
 msgid "Songs added to it in Apple Music on any device appear here after the next sync."
 msgstr ""
 
+#: src/features/discover/bands.ts
+msgid "Songs and albums"
+msgstr ""
+
 #: src/features/artist/ArtistPage.tsx
 msgid "Songs by {artistName} in your library"
 msgstr ""
@@ -5911,6 +5936,10 @@ msgstr ""
 
 #: src/features/onboarding/WidevinePanel.tsx
 msgid "Version {version} is ready"
+msgstr ""
+
+#: src/features/discover/bands.ts
+msgid "Videos"
 msgstr ""
 
 #: src/features/updates/UpdateNotice.tsx

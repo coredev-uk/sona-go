@@ -82,7 +82,7 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 - Always requested from Go at the exact rendered box (width and height × the screen's density, at most 2; grid tiles at their exact width, never rounded up, so the art is never resampled while painting) through `/art/<key>/<w>x<h>.jpg` URLs, sized in one place (`shared/lib/art.ts`: `artUrl`), `loading="lazy"`, `decoding="async"`, explicit `width`/`height` so rows never shift.
 - Missing art: a `--hover` square with a 40%-ink outline music glyph centred, at the same size.
 - The cover is never cropped, tinted or overlaid with text, with one exception: an album not out yet carries its release date ("Out 19 Nov") in a small `--raised` chip at the cover's bottom-left corner, where the play control of a playable tile sits (it has none). Its page puts the countdown ("Out in 18 days, 6 hours", the day in full, the songs already out) where the play controls will be, re-read every minute, never a ticking counter.
-- Hero cards (the untitled "Featured" row) fill Apple's own card shape, 1060:608, with the 4:1 `subscriptionHero` art cropped to it by the CDN, as music.apple.com does: the art keeps its text and subject in the centre, so nothing is letterboxed or cut. A card without a banner shows its cover whole on its background colour. Bricks sit whole on their own background colour: a row takes the shape of its tallest banner (at most 2:1), so only a wider banner in a mixed row is letterboxed.
+- Hero cards (the untitled "Featured" row) fill Apple's own card shape, 1060:608, with the 4:1 `subscriptionHero` art cropped to it by the CDN, as music.apple.com does: the art keeps its text and subject in the centre, so nothing is letterboxed or cut. A card without a banner shows its cover whole on its background colour. On Discover they are the front page's lead and list (Discover, below). Bricks sit whole on their own background colour: a row takes the shape of its tallest banner (at most 2:1), so only a wider banner in a mixed row is letterboxed.
 
 ## Backdrops (pre-blurred in Go)
 
@@ -185,6 +185,38 @@ The setup (`/welcome`) takes the whole window: no sidebar, top bar or player bar
 - The rows are Settings' own rows, so a choice reads and saves the same way in both places. Where the platform can't do something (no tray, no autostart, no notifications) the row is named with the reason instead of left out, because a first run is where people look for it.
 - Theme is the one picture in the setup: three windows in miniature, drawn from the tokens in each palette (System is both, halved), chosen as radio buttons.
 - One primary button, at the foot's trailing end; Back is a ghost button at its leading end. No amber anywhere but the mark and the previews' play controls.
+
+### Discover
+
+Discover (`/new`) sets Apple's editorial front page as Sona's own issue: the featured cards as a front page, then the page's contents, then its shelves grouped by what they hold. It is the one long page in the app (twenty-odd shelves), so it gets a lead to start from and a way to reach any shelf without scrolling or tabbing through the rest.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ Discover                                                 │
+│ Updated 12 min ago                                       │
+│ ┌───────────────────────────────┐  ▭ Title               │
+│ │                               │  ▭ Title               │
+│ │  lead: 2/3 width, 1060:608    │  ▭ Title     the list, │
+│ │                               │  ▭ Title     as many   │
+│ └───────────────────────────────┘  ▭ Title     rows as   │
+│ Lead title                         ▭ Title     fit       │
+│ Caption · curator                            1 of 3  ‹ › │
+│                                                          │
+│ On this page                                             │
+│ Songs and albums   Best New Songs · New This Week · …    │
+│ Playlists          Updated Playlists · Daily Top 100 · … │
+│ Radio · Videos · Browse  (one line each)                 │
+│ ──────────────────────────────────────────────────────── │
+│ Songs and albums                     24/30, the band     │
+│ Best New Songs                       16/600, the shelf   │
+│ …                                                        │
+└──────────────────────────────────────────────────────────┘
+```
+
+- **Front page.** The first featured card is the lead: two thirds of the content width, in the hero card shape, its title at 16/600 and its line at 13 muted below. The rest are a list beside it: rows with the item's 64px square cover (Apple's banners lose their text cropped that small), the title at 14/500 and the line at 13 muted, a `--hover` fill at radius 6 like track rows. The list holds as many rows as fit the lead's height, stretched so its pager ends level with the lead's caption. The pager ("1 of 3", 28px chevrons) turns the list only and wraps round, so a focused chevron is never disabled under the keyboard. Under 880px of content the list moves under the lead, in two columns of three. Play controls appear on hover and focus as on every tile; a right-click, Shift+F10 or the Menu key opens the item's menu. What the front page shows is left out of the cover shelves below it (a shelf it would empty stays whole), so one album isn't met four times on the way down.
+- **Contents** ("On this page"). One line per band: its name at 14/500 in ink, then its titled shelves at 13 muted with middle dots between, each a button that jumps to its place (no smooth scroll) and moves focus there, so the next Tab is that shelf's first control.
+- **Bands.** The shelves are grouped by what they hold, in this order: Songs and albums, Playlists, Radio, Videos, Browse (category bricks and links). Apple's order holds inside each band; a shelf of mixed items goes by most of them (the first item breaks a tie), and a paragraph stays with the shelf after it. Each band opens with one 1px `--line` across the column, 56px below the band before, and its heading 24px under the line at the page-title size, 24/30: the line is what sets a band heading apart from the page's h1, which has none. Inside, shelves keep their usual 40px pitch.
+- **Loading.** The freshness line's place holds a bar; the front page's own frame (the lead's block and caption bars, the list's covers and lines at their row height), the contents' lines and the first band's line and heading stand where they will land, then bars for the shelves.
 
 ## Empty, loading and error states
 

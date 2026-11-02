@@ -67,6 +67,11 @@
     "reason": "Sona's is private listening; Apple's is a private profile"
   },
   {
+    "message": "Videos",
+    "key": "FUSE.Meta.TopCharts.Description.Kind.videos",
+    "reason": "Apple's text is the lower-case kind inside a chart description; Sona's is a band heading"
+  },
+  {
     "message": "library",
     "key": "ASE.Web.Platform.Shared.Library",
     "reason": "Sona's is lower case inside a sentence; Apple's is a title"
