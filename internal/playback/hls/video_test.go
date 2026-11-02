@@ -1,6 +1,10 @@
 package hls
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/binary"
+	"strings"
 	"testing"
 )
 
@@ -155,6 +159,78 @@ func TestSelectAudio(t *testing.T) {
 		if ok != (tc.want != "") || got.URI != tc.want {
 			t.Errorf("%s: got %q (%v), want %q", tc.name, got.URI, ok, tc.want)
 		}
+	}
+}
+
+// testPSSH is a Widevine pssh box carrying kid: version 0 with the key ID
+// in WidevinePsshData.key_id, or version 1 with it in the box's KID list
+// too.
+func testPSSH(version byte, kid []byte) []byte {
+	data := append([]byte{0x08, 0x01, 0x12, byte(len(kid))}, kid...)
+	data = append(data, 0x48, 0xf3, 0xc6, 0x89, 0x9b, 0x06) // protection_scheme 'cbcs'
+	b := []byte{
+		0, 0, 0, 0, 'p', 's', 's', 'h', version, 0, 0, 0,
+		0xed, 0xef, 0x8b, 0xa9, 0x79, 0xd6, 0x4a, 0xce, 0xa3, 0xc8, 0x27, 0xdc, 0xd5, 0x1d, 0x21, 0xed,
+	}
+	if version >= 1 {
+		b = binary.BigEndian.AppendUint32(b, 1)
+		b = append(b, kid...)
+	}
+	b = binary.BigEndian.AppendUint32(b, uint32(len(data)))
+	b = append(b, data...)
+	binary.BigEndian.PutUint32(b, uint32(len(b)))
+	return b
+}
+
+func TestVideoMediaKey(t *testing.T) {
+	kid := []byte{0x9c, 0x6f, 0x2a, 0x11, 0x41, 0x0b, 0x4e, 0x2d, 0x8f, 0x67, 0x3a, 0xe2, 0x14, 0x5d, 0x0c, 0x77}
+	fairPlay := `#EXT-X-KEY:METHOD=SAMPLE-AES,URI="skd://itunes.apple.com/P000000000/s1/e1",KEYFORMAT="com.apple.streamingkeydelivery",KEYFORMATVERSIONS="1"`
+	playReady := `#EXT-X-KEY:METHOD=SAMPLE-AES,URI="data:text/plain;charset=UTF-16;base64,vgEAAAEAAQ==",KEYFORMAT="com.microsoft.playready",KEYFORMATVERSIONS="1"`
+	widevine := func(pssh []byte) string {
+		return `#EXT-X-KEY:METHOD=SAMPLE-AES,URI="data:text/plain;base64,` + base64.StdEncoding.EncodeToString(pssh) +
+			`",KEYFORMAT="urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed",KEYFORMATVERSIONS="1"`
+	}
+	playlist := func(keys ...string) []byte {
+		return []byte("#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:6\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-INDEPENDENT-SEGMENTS\n" +
+			strings.Join(keys, "\n") + "\n" +
+			`#EXT-X-MAP:URI="init.mp4"` + "\n#EXTINF:6.006,\nseg1.mp4\n#EXTINF:6.006,\nseg2.mp4\n#EXT-X-ENDLIST\n")
+	}
+	v0, v1 := testPSSH(0, kid), testPSSH(1, kid)
+	for _, tc := range []struct {
+		name string
+		data []byte
+		pssh []byte
+	}{
+		{"FairPlay, PlayReady, Widevine", playlist(fairPlay, playReady, widevine(v0)), v0},
+		{"Widevine first", playlist(widevine(v0), fairPlay, playReady), v0},
+		{"version 1 pssh", playlist(fairPlay, playReady, widevine(v1)), v1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p, err := Parse(tc.data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(p.Segments) != 2 {
+				t.Fatalf("%d segments", len(p.Segments))
+			}
+			for i, s := range p.Segments {
+				k := s.Key
+				if k == nil || k.KeyFormat != WidevineKeyFormat || k.Method != "SAMPLE-AES" {
+					t.Fatalf("segment %d key %+v, want the Widevine one", i, k)
+				}
+				if !bytes.Equal(k.InitData, tc.pssh) {
+					t.Fatalf("segment %d init data %x, want the whole pssh %x", i, k.InitData, tc.pssh)
+				}
+				// Apple's video init segments carry an all-zero tenc KID:
+				// the key ID to decrypt with is the playlist's.
+				if !bytes.Equal(k.KID, kid) || bytes.Equal(k.KID, make([]byte, 16)) {
+					t.Fatalf("segment %d KID %x, want %x", i, k.KID, kid)
+				}
+				if s.Map == nil || s.Map.URI != "init.mp4" {
+					t.Fatalf("segment %d map %+v", i, s.Map)
+				}
+			}
+		})
 	}
 }
 

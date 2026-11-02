@@ -295,8 +295,7 @@ func (s *server) videoDecoder() {
 	v := s.video
 	for {
 		v.mu.Lock()
-		for !v.closed && !(v.gen != 0 && v.failed == nil && len(v.frames) < maxQueuedPictures &&
-			(len(v.units) > 0 || (v.ended && !v.drained))) {
+		for !v.closed && !v.decodableLocked() {
 			v.cond.Wait()
 		}
 		if v.closed {
@@ -455,4 +454,12 @@ func (s *server) closeVideo() {
 	v.closed = true
 	v.cond.Broadcast()
 	v.mu.Unlock()
+}
+
+// decodableLocked reports whether the decoder has work: a current video
+// that has not failed, room for another picture, and a unit to decode or
+// a drain to run. With mu held.
+func (v *videoState) decodableLocked() bool {
+	return v.gen != 0 && v.failed == nil && len(v.frames) < maxQueuedPictures &&
+		(len(v.units) > 0 || (v.ended && !v.drained))
 }

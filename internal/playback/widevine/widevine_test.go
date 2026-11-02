@@ -90,3 +90,15 @@ func TestKeyStatusString(t *testing.T) {
 		}
 	}
 }
+
+func TestH264Profile(t *testing.T) {
+	for idc, want := range map[uint8]VideoProfile{
+		66: ProfileH264Baseline, 77: ProfileH264Main, 88: ProfileH264Extended, 100: ProfileH264High,
+		110: ProfileH264High10, 122: ProfileH264High422, 244: ProfileH264High444Predictive,
+		0: ProfileUnknown, 44: ProfileUnknown, 118: ProfileUnknown, 255: ProfileUnknown,
+	} {
+		if got := H264Profile(idc); got != want {
+			t.Errorf("H264Profile(%d) = %d, want %d", idc, got, want)
+		}
+	}
+}

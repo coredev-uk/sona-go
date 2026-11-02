@@ -26,9 +26,9 @@ import (
 
 // videoTrack is a prepared music video's video rendition.
 type videoTrack struct {
-	url           string // media playlist
-	pl            *hls.Playlist
-	key           *hls.Key
+	url string // media playlist
+	pl  *hls.Playlist
+	key *hls.Key
 	// offset is where the renditions' timestamps start (Apple's start at
 	// the same offset, e.g. 10 s): subtracted from the audio's (Shift)
 	// so it plays on the playlist's timeline. shift is what puts the

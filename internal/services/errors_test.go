@@ -108,6 +108,8 @@ func TestEveryCodeIsClassified(t *testing.T) {
 		CodeUnsupported:         errors.ErrUnsupported,
 		CodeNoCDM:               playback.ErrNoCDM,
 		CodeKeyring:             auth.ErrKeyring,
+		CodeVideoHDOnly:         playback.ErrVideoHDOnly,
+		CodeVideoLicence:        playback.ErrVideoLicence,
 		CodeUnknown:             errors.New("boom"),
 	}
 	seen := map[ErrorCode]string{}
@@ -126,6 +128,15 @@ func TestEveryCodeIsClassified(t *testing.T) {
 		}
 		if got := CodeOf(err); got != code {
 			t.Errorf("CodeOf(%v) = %q, want %s (%q)", err, got, name, code)
+		}
+	}
+	// Engines report the video failures wrapped.
+	for err, code := range map[error]ErrorCode{
+		fmt.Errorf("native: video 1440841363: %w", playback.ErrVideoHDOnly):                    CodeVideoHDOnly,
+		fmt.Errorf("native: video licence: %w: %w", playback.ErrVideoLicence, errors.New("x")): CodeVideoLicence,
+	} {
+		if got := CodeOf(err); got != code {
+			t.Errorf("CodeOf(%v) = %q, want %q", err, got, code)
 		}
 	}
 }

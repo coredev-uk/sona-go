@@ -177,7 +177,7 @@ func TestLibraryMusicVideo(t *testing.T) {
 		if r.URL.Path != "/v1/me/library/music-videos/i.9" || r.URL.Query().Get("include") != "catalog" {
 			t.Errorf("request %s?%s", r.URL.Path, r.URL.RawQuery)
 		}
-		io.WriteString(w, `{"data":[{"id":"i.9","type":"library-music-videos","attributes":{"name":"Video"},
+		_, _ = io.WriteString(w, `{"data":[{"id":"i.9","type":"library-music-videos","attributes":{"name":"Video"},
 			"relationships":{"catalog":{"data":[{"id":"1447440393","type":"music-videos"}]}}}]}`)
 	}))
 	c.AMPBase = c.Base
