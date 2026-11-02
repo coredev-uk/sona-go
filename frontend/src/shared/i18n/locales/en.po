@@ -311,6 +311,10 @@ msgstr "{playlists, plural, one {# playlist} other {# playlists}}"
 msgid "{problems, plural, one {# problem found} other {# problems found}}"
 msgstr "{problems, plural, one {# problem found} other {# problems found}}"
 
+#: src/features/artist/artist.ts
+msgid "{releases, plural, one {# release} other {# releases}}"
+msgstr "{releases, plural, one {# release} other {# releases}}"
+
 #: src/features/player/lyrics.ts
 msgid "{s} s earlier"
 msgstr "{s} s earlier"
@@ -360,10 +364,6 @@ msgstr "{total, plural, one {{have} of # song in your library} other {{have} of 
 #: src/features/album/ReleaseStatus.tsx
 msgid "{total, plural, one {{out} of # song out now} other {{out} of # songs out now}}"
 msgstr "{total, plural, one {{out} of # song out now} other {{out} of # songs out now}}"
-
-#: src/features/artist/ArtistPage.tsx
-msgid "{trackCount, plural, one {# song} other {# songs}}"
-msgstr "{trackCount, plural, one {# song} other {# songs}}"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "{via} allows no realtime priority."
@@ -566,7 +566,7 @@ msgid "After {m, plural, one {# minute} other {# minutes}}"
 msgstr "After {m, plural, one {# minute} other {# minutes}}"
 
 #: src/features/album/AlbumPage.tsx
-#: src/features/artist/ArtistPage.tsx
+#: src/features/artist/ArtistHead.tsx
 #: src/features/home/catalogue-line.ts
 #: src/features/library/pages.tsx
 #: src/features/search/groups.ts
@@ -835,6 +835,7 @@ msgstr "Apple's sign-in page is open in your browser. Sona continues by itself w
 msgid "Applies the next time Sona starts."
 msgstr "Applies the next time Sona starts."
 
+#: src/features/artist/artist.ts
 #: src/features/artist/ArtistViewPage.tsx
 #: src/features/home/catalogue-line.ts
 #: src/features/library/pages.tsx
@@ -2065,6 +2066,10 @@ msgstr "Disable the DMA-BUF renderer"
 msgid "Disc {disc}"
 msgstr "Disc {disc}"
 
+#: src/features/artist/ArtistPage.tsx
+msgid "Discography"
+msgstr "Discography"
+
 #: src/features/settings/Connections.tsx
 msgid "Disconnect"
 msgstr "Disconnect"
@@ -2242,6 +2247,11 @@ msgstr "Enter the latest code you received. Older codes stop working once a new 
 msgid "Enter the verification code"
 msgstr "Enter the verification code"
 
+#: src/features/artist/ArtistHead.tsx
+#: src/features/artist/ReleaseList.tsx
+msgid "EP"
+msgstr "EP"
+
 #: src/features/radio/schedule.ts
 msgid "Episode"
 msgstr "Episode"
@@ -2271,6 +2281,7 @@ msgctxt "keyboard key"
 msgid "Escape"
 msgstr "Escape"
 
+#: src/features/artist/ArtistPage.tsx
 #: src/features/artist/views.ts
 msgid "Essential albums"
 msgstr "Essential albums"
@@ -2296,6 +2307,7 @@ msgid "Explicit"
 msgstr "Explicit"
 
 #: src/features/album/AlbumPage.tsx
+#: src/features/artist/ReleaseList.tsx
 #: src/features/home/HomeLead.tsx
 #: src/features/home/ItemRows.tsx
 #: src/shared/components/CoverGrid.tsx
@@ -2789,7 +2801,7 @@ msgstr "Last video"
 msgid "Last.fm refused Sona's request. Try connecting again."
 msgstr "Last.fm refused Sona's request. Try connecting again."
 
-#: src/features/artist/ArtistPage.tsx
+#: src/features/artist/ArtistHead.tsx
 msgid "Latest release"
 msgstr "Latest release"
 
@@ -2891,6 +2903,7 @@ msgid "Live radio"
 msgstr "Live radio"
 
 #: src/features/album/AlbumSkeleton.tsx
+#: src/features/artist/ArtistSkeleton.tsx
 #: src/features/discover/states.tsx
 #: src/features/home/HomeLead.tsx
 #: src/features/home/HomePage.tsx
@@ -4254,6 +4267,7 @@ msgstr "Raised · nice {priority} ({via})"
 msgid "random"
 msgstr "random"
 
+#: src/features/artist/ArtistHead.tsx
 #: src/shared/components/Notes.tsx
 msgid "Read more"
 msgstr "Read more"
@@ -4354,6 +4368,10 @@ msgstr "Refresh"
 #: src/features/home/HomePage.tsx
 msgid "Refreshing…"
 msgstr "Refreshing…"
+
+#: src/features/artist/ArtistPage.tsx
+msgid "Related"
+msgstr "Related"
 
 #: src/features/library/pages.tsx
 msgid "Release date"
@@ -4997,7 +5015,8 @@ msgid "Similar music will keep playing"
 msgstr "Similar music will keep playing"
 
 #: src/features/album/AlbumPage.tsx
-#: src/features/artist/ArtistPage.tsx
+#: src/features/artist/ArtistHead.tsx
+#: src/features/artist/ReleaseList.tsx
 msgid "Single"
 msgstr "Single"
 

@@ -311,6 +311,10 @@ msgstr ""
 msgid "{problems, plural, one {# problem found} other {# problems found}}"
 msgstr ""
 
+#: src/features/artist/artist.ts
+msgid "{releases, plural, one {# release} other {# releases}}"
+msgstr ""
+
 #: src/features/player/lyrics.ts
 msgid "{s} s earlier"
 msgstr ""
@@ -359,10 +363,6 @@ msgstr ""
 
 #: src/features/album/ReleaseStatus.tsx
 msgid "{total, plural, one {{out} of # song out now} other {{out} of # songs out now}}"
-msgstr ""
-
-#: src/features/artist/ArtistPage.tsx
-msgid "{trackCount, plural, one {# song} other {# songs}}"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
@@ -566,7 +566,7 @@ msgid "After {m, plural, one {# minute} other {# minutes}}"
 msgstr ""
 
 #: src/features/album/AlbumPage.tsx
-#: src/features/artist/ArtistPage.tsx
+#: src/features/artist/ArtistHead.tsx
 #: src/features/home/catalogue-line.ts
 #: src/features/library/pages.tsx
 #: src/features/search/groups.ts
@@ -835,6 +835,7 @@ msgstr ""
 msgid "Applies the next time Sona starts."
 msgstr ""
 
+#: src/features/artist/artist.ts
 #: src/features/artist/ArtistViewPage.tsx
 #: src/features/home/catalogue-line.ts
 #: src/features/library/pages.tsx
@@ -2065,6 +2066,10 @@ msgstr ""
 msgid "Disc {disc}"
 msgstr ""
 
+#: src/features/artist/ArtistPage.tsx
+msgid "Discography"
+msgstr ""
+
 #: src/features/settings/Connections.tsx
 msgid "Disconnect"
 msgstr ""
@@ -2242,6 +2247,11 @@ msgstr ""
 msgid "Enter the verification code"
 msgstr ""
 
+#: src/features/artist/ArtistHead.tsx
+#: src/features/artist/ReleaseList.tsx
+msgid "EP"
+msgstr ""
+
 #: src/features/radio/schedule.ts
 msgid "Episode"
 msgstr ""
@@ -2271,6 +2281,7 @@ msgctxt "keyboard key"
 msgid "Escape"
 msgstr ""
 
+#: src/features/artist/ArtistPage.tsx
 #: src/features/artist/views.ts
 msgid "Essential albums"
 msgstr ""
@@ -2296,6 +2307,7 @@ msgid "Explicit"
 msgstr ""
 
 #: src/features/album/AlbumPage.tsx
+#: src/features/artist/ReleaseList.tsx
 #: src/features/home/HomeLead.tsx
 #: src/features/home/ItemRows.tsx
 #: src/shared/components/CoverGrid.tsx
@@ -2789,7 +2801,7 @@ msgstr ""
 msgid "Last.fm refused Sona's request. Try connecting again."
 msgstr ""
 
-#: src/features/artist/ArtistPage.tsx
+#: src/features/artist/ArtistHead.tsx
 msgid "Latest release"
 msgstr ""
 
@@ -2891,6 +2903,7 @@ msgid "Live radio"
 msgstr ""
 
 #: src/features/album/AlbumSkeleton.tsx
+#: src/features/artist/ArtistSkeleton.tsx
 #: src/features/discover/states.tsx
 #: src/features/home/HomeLead.tsx
 #: src/features/home/HomePage.tsx
@@ -4254,6 +4267,7 @@ msgstr ""
 msgid "random"
 msgstr ""
 
+#: src/features/artist/ArtistHead.tsx
 #: src/shared/components/Notes.tsx
 msgid "Read more"
 msgstr ""
@@ -4353,6 +4367,10 @@ msgstr ""
 
 #: src/features/home/HomePage.tsx
 msgid "Refreshing…"
+msgstr ""
+
+#: src/features/artist/ArtistPage.tsx
+msgid "Related"
 msgstr ""
 
 #: src/features/library/pages.tsx
@@ -4997,7 +5015,8 @@ msgid "Similar music will keep playing"
 msgstr ""
 
 #: src/features/album/AlbumPage.tsx
-#: src/features/artist/ArtistPage.tsx
+#: src/features/artist/ArtistHead.tsx
+#: src/features/artist/ReleaseList.tsx
 msgid "Single"
 msgstr ""
 
