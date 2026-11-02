@@ -2,22 +2,28 @@ import { DiscoverService, type Section } from "@bindings/services";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { RotateCw } from "lucide-react";
+import { ChevronDown, RotateCw } from "lucide-react";
+import { useState } from "react";
 
 import { hasAccount, useAuth } from "@/features/auth";
 import { discoverKeys } from "@/features/discover";
-import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { PageHeader } from "@/shared/components/PageHeader";
-import { openAccountDialog } from "@/shared/lib/account";
+import { Shelf, ShelfToggle } from "@/shared/components/Shelf";
 import { relativeTime } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 import { EditorialSections } from "@/shared/items/EditorialSections";
 import { ItemGrid } from "@/shared/items/ItemGrid";
+import { ItemShelf } from "@/shared/items/ItemShelf";
 import type { ItemLinkProps } from "@/shared/items/links";
 import { Button } from "@/shared/ui/button";
 
+import { HeroCard } from "./HeroCard";
+import { HomeLead, LeadBand, LeadSkeleton, OfflineLead, SignInLead } from "./HomeLead";
+import { ItemRows } from "./ItemRows";
 import { LocalShelves } from "./LocalShelves";
+import { isStations, planHome, RECENTLY_PLAYED, withoutSharedCaption } from "./plan";
+import { ShelfIndex } from "./ShelfIndex";
 
 const shelfMore = (s: Section): ItemLinkProps | undefined =>
   s.seeAll ? { to: "/for-you/$id", params: { id: s.id } } : undefined;
@@ -25,13 +31,15 @@ const shelfMore = (s: Section): ItemLinkProps | undefined =>
 /**
  * For you: Apple's personal shelves for this account, read from Go's cache
  * at once (Go renews due shelves after the first paint and pushes them as
- * "discover:home"). Signed out or without any copy yet, what Sona knows
- * locally.
+ * "discover:home"), set as a lead (Top Picks), the shelves Apple ranks
+ * first, and an index of the rest (plan.ts). Signed out, offline without a
+ * copy yet, or when Home is empty: what Sona knows locally.
  */
 export function HomePage() {
   const { t } = useLingui();
   const auth = useAuth();
   const state = auth.data?.state;
+  const offline = !!auth.data?.offline;
   const signedIn = hasAccount(state);
   const qc = useQueryClient();
   const home = useQuery({
@@ -45,8 +53,8 @@ export function HomePage() {
     onSuccess: (page) => qc.setQueryData(discoverKeys.home, page),
   });
 
-  const page = home.data;
-  const sections = page?.sections ?? [];
+  const page = signedIn ? home.data : undefined;
+  const plan = planHome(page?.sections ?? []);
   const fetched = page?.fetchedAt ? relativeTime(page.fetchedAt) : "";
   const subline = page?.fetchedAt
     ? page.stale
@@ -54,99 +62,163 @@ export function HomePage() {
       : t`Picked for you ${fetched}`
     : undefined;
 
-  return (
-    <>
-      <PageHeader
-        title={t`For you`}
-        subline={subline}
-        actions={
-          signedIn && (
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={refresh.isPending}
-              onClick={() => refresh.mutate()}
-            >
-              <RotateCw
-                strokeWidth={1.75}
-                className={cn(refresh.isPending && "animate-spin motion-reduce:animate-none")}
-              />
-              {refresh.isPending ? <Trans>Refreshing…</Trans> : <Trans>Refresh</Trans>}
-            </Button>
-          )
-        }
-      />
-      {refresh.isError && (
-        <ErrorBlock
-          className="mb-8"
-          title={t`Couldn't refresh your recommendations`}
-          error={refresh.error}
-          onRetry={() => refresh.mutate()}
-        />
-      )}
-      {state === "restoring" ? (
-        // Go is still reading the sign-in from the keyring: not signed out.
-        <HomeSkeleton />
-      ) : !signedIn ? (
-        state === undefined ? null : (
-          <>
-            <EmptyState
-              frame="covers"
-              title={t`Recommendations need Apple Music`}
-              action={{ label: t`Sign in`, onClick: openAccountDialog }}
-              className="mb-10"
-            >
-              <Trans>
-                Sign in to see picks, mixes and stations chosen for you. Your library is below.
-              </Trans>
-            </EmptyState>
-            <LocalShelves signedIn={false} />
-          </>
+  const header = (
+    <PageHeader
+      title={t`For you`}
+      subline={subline}
+      actions={
+        // Offline a refresh can only fail; Go renews Home when it reconnects.
+        signedIn &&
+        !offline && (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={refresh.isPending}
+            onClick={() => refresh.mutate()}
+          >
+            <RotateCw
+              strokeWidth={1.75}
+              className={cn(refresh.isPending && "animate-spin motion-reduce:animate-none")}
+            />
+            {refresh.isPending ? <Trans>Refreshing…</Trans> : <Trans>Refresh</Trans>}
+          </Button>
         )
-      ) : home.isPending ? (
-        <HomeSkeleton />
-      ) : home.isError ? (
-        <>
+      }
+    />
+  );
+  const refreshError = refresh.isError && (
+    <ErrorBlock
+      className="mb-8"
+      title={t`Couldn't refresh your recommendations`}
+      error={refresh.error}
+      onRetry={() => refresh.mutate()}
+    />
+  );
+
+  if (state === "restoring" || (signedIn && home.isPending)) {
+    // Restoring: Go is still reading the sign-in from the keyring, so not signed out.
+    return (
+      <>
+        {header}
+        <LeadSkeleton />
+      </>
+    );
+  }
+  if (!signedIn) {
+    if (state === undefined) return header;
+    return (
+      <>
+        {header}
+        <SignInLead />
+        <LocalShelves signedIn={false} />
+      </>
+    );
+  }
+  if (home.isError) {
+    return (
+      <>
+        {header}
+        {offline ? (
+          <OfflineLead />
+        ) : (
           <ErrorBlock
-            className="mb-10"
             title={t`Couldn't load your recommendations`}
             error={home.error}
             onRetry={() => void home.refetch()}
             retrying={home.isRefetching}
           />
-          <LocalShelves signedIn />
-        </>
-      ) : sections.length ? (
-        <EditorialSections sections={sections} moreFor={shelfMore} />
-      ) : (
+        )}
         <LocalShelves signedIn />
-      )}
+      </>
+    );
+  }
+  if (!plan.lead && !plan.open.length && !plan.index.length) {
+    return (
+      <>
+        {header}
+        {refreshError}
+        <LocalShelves signedIn />
+      </>
+    );
+  }
+  return (
+    <>
+      <LeadBand lead={plan.lead?.items[0]}>
+        {header}
+        {refreshError}
+        {plan.lead && <HomeLead section={plan.lead} />}
+      </LeadBand>
+      {plan.open.map((s) => (
+        <HomeSection key={s.id} section={s} />
+      ))}
+      {plan.index.length > 0 && <ShelfIndex sections={plan.index} moreFor={shelfMore} />}
     </>
   );
 }
 
-function HomeSkeleton() {
-  const { t } = useLingui();
+/** One shelf shown in full, set by what it holds. */
+function HomeSection({ section }: { section: Section }) {
+  const items = withoutSharedCaption(section.items);
+  switch (section.kind) {
+    case "hero":
+      return section.items.length === 1 ? (
+        <HeroCard item={section.items[0]} />
+      ) : (
+        <EditorialSections sections={[section]} moreFor={shelfMore} />
+      );
+    case "feature":
+      return <ItemShelf title={section.title} items={items} more={shelfMore(section)} min={176} />;
+    case "shelf":
+      return section.source === RECENTLY_PLAYED || isStations(section) ? (
+        <RowShelf section={section} />
+      ) : (
+        <ItemShelf title={section.title} items={items} more={shelfMore(section)} />
+      );
+    default:
+      return <EditorialSections sections={[section]} moreFor={shelfMore} />;
+  }
+}
+
+/** Rows shown before "Show all" on a row shelf. */
+const ROW_SHELF_ROWS = 2;
+
+/**
+ * Recently Played and station shelves as compact rows: what you go back to
+ * and what plays at once need a play control and a name more than a large
+ * cover.
+ */
+function RowShelf({ section }: { section: Section }) {
+  const [cols, setCols] = useState(0);
+  const [open, setOpen] = useState(false);
+  const more = shelfMore(section);
+  const hidden = cols > 0 && section.items.length > cols * ROW_SHELF_ROWS;
+  const count = section.items.length;
   return (
-    <div aria-busy aria-label={t`Loading`} className="flex flex-col gap-10">
-      {[208, 160, 160].map((min, s) => (
-        <div key={s}>
-          <div className="mb-3 h-4 w-40 rounded-sm bg-hover" />
-          <div
-            className="grid [grid-auto-rows:0] [grid-template-rows:auto] gap-x-6 overflow-hidden"
-            style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${min}px, 1fr))` }}
-          >
-            {Array.from({ length: 10 }, (_, i) => (
-              <div key={i}>
-                <div className="aspect-square rounded-sm bg-hover" />
-                <div className="mt-2 h-3.5 w-3/4 rounded-sm bg-hover" />
-                <div className="mt-1.5 h-3 w-1/2 rounded-sm bg-hover" />
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
+    <Shelf
+      title={section.title}
+      more={more}
+      actions={
+        !more &&
+        (hidden || open) && (
+          <ShelfToggle open={open} onToggle={() => setOpen((o) => !o)}>
+            {open ? <Trans>Show fewer</Trans> : <Trans>Show all {count}</Trans>}
+            <ChevronDown
+              aria-hidden
+              className={cn("size-3.5 transition-transform duration-100", open && "rotate-180")}
+              strokeWidth={1.75}
+            />
+          </ShelfToggle>
+        )
+      }
+    >
+      <ItemRows
+        items={withoutSharedCaption(section.items)}
+        label={section.title}
+        rows={ROW_SHELF_ROWS}
+        open={open}
+        onColumns={setCols}
+      />
+    </Shelf>
   );
 }
 

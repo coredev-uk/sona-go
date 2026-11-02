@@ -72,7 +72,10 @@ src/
                           file's pending timers
     ui/                   ShadCN components
   features/<name>/        one folder per feature; public API is index.ts
-    home                  For you (Apple's personal shelves, local fallback shelves)
+    home                  For you: Apple's personal shelves set by plan.ts (the lead, shelves
+                          in full, the index of the rest; Section.source marks Recently
+                          Played), ItemRows (compact item rows, one Tab stop), local
+                          fallback shelves
     discover              Discover (New: the featured cards as a front page, the contents,
                           the shelves in bands by what they hold), rooms, multirooms,
                           groupings, curators, Charts; registers the song/album/playlist

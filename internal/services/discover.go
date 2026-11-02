@@ -309,7 +309,7 @@ func (s *DiscoverService) homeSections(r applemusic.MapResponse) []Section {
 		if shelf.Attrs(&a) != nil {
 			continue
 		}
-		sec := Section{ID: shelf.ID, Title: a.Heading(), SeeAll: a.HasSeeAll, Kind: SectionShelf}
+		sec := Section{ID: shelf.ID, Title: a.Heading(), SeeAll: a.HasSeeAll, Kind: SectionShelf, Source: a.Kind}
 		switch a.Display.Kind {
 		case "MusicConcertsEmptyShelf":
 			continue

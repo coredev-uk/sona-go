@@ -69,7 +69,7 @@ function item(n: number, kind = "playlist"): Item {
 }
 
 function section(id: string, kind: string, items: Item[], title = id): Section {
-  return { id, kind, title, text: "", items, room: "", seeAll: false };
+  return { id, kind, title, text: "", items, room: "", seeAll: false, source: "" };
 }
 
 function renderPage(sections: Section[]) {

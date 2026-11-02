@@ -62,17 +62,23 @@ function RecentlyPlayed() {
       </Shelf>
     );
   }
+  // Apple's list failed: what this computer played is a different list, and says so.
+  const title = recent.isError ? t`Played on this computer` : t`Recently played`;
   if (!songs.length) {
     return (
-      <Shelf title={t`Recently played`}>
+      <Shelf title={title}>
         <EmptyState title={t`Nothing played yet`}>
-          <Trans>Songs you play in Sona or Apple Music on any device appear here.</Trans>
+          {recent.isError ? (
+            <Trans>Songs you play in Sona appear here.</Trans>
+          ) : (
+            <Trans>Songs you play in Sona or Apple Music on any device appear here.</Trans>
+          )}
         </EmptyState>
       </Shelf>
     );
   }
   return (
-    <Shelf title={recent.isError ? t`Played on this computer` : t`Recently played`}>
+    <Shelf title={title}>
       <TrackList
         songs={songs}
         columns={{ number: "row", artwork: true, artist: true, album: true }}

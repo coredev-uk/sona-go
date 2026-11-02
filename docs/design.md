@@ -23,7 +23,7 @@ One family: **Schibsted Grotesk** (variable, self-hosted via `@fontsource-variab
 | Role             | Size / line       | Weight  | Use                                        |
 | ---------------- | ----------------- | ------- | ------------------------------------------ |
 | Collection title | 32 / 36, -0.02em  | 700     | Album, artist, playlist name in its header |
-| Page title (h1)  | 24 / 30, -0.015em | 650     | Listen Now, Songs, Settings                |
+| Page title (h1)  | 24 / 30, -0.015em | 650     | For you, Songs, Settings                   |
 | Section          | 16 / 22           | 600     | Shelf titles, settings section titles      |
 | Body             | 14 / 20           | 400–500 | Nav, row titles, form labels               |
 | Secondary        | 13 / 18           | 400     | Artist and album columns, descriptions     |
@@ -88,7 +88,7 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 
 The artwork service renders, per cover, a tiny pre-blurred JPEG (target ~32×32, heavy Gaussian blur, saturation kept). The frontend never blurs anything itself.
 
-- **Where**: behind the now-playing bar, the mini player, the now-playing view, full-screen lyrics, and collection headers (album, playlist, artist).
+- **Where**: behind the now-playing bar, the mini player, the now-playing view, full-screen lyrics, collection headers (album, playlist, artist), and the top of Home (from its lead pick).
 - **How**: an `<img>` (component `Backdrop`) absolutely positioned, `object-fit: cover`, scaled up by the browser (bilinear upscaling of the tiny image is the softness), under a solid scrim of the surface colour (bar, mini player) or the ground colour (views, headers) at `--backdrop-scrim`: 92% in light, 86% in dark. The result is a wash of the cover's colour, never a recognisable picture. Text sits on the scrim, so contrast is the scrim's, not the image's: the scrim is the floor at which `--ink-muted` and `--ink-faint` stay ≥ 4.5:1 over any backdrop, a black one in light (the binding case: 91% on surface) and a white one in dark (85%). It is one value per theme, never lowered per surface; a stronger cover colour would need a darker text token, not a thinner scrim.
 - **Change**: when the track changes the new backdrop fades in over 320ms (the one authored motion moment). Images are decoded before the swap so the fade never shows an empty frame.
 - **Banned**: `backdrop-filter`, `filter: blur()` on anything larger than an icon, and any blur on scrolling content.
@@ -116,6 +116,38 @@ It is the recommended setting on software rendering (`WEBKIT_DISABLE_COMPOSITING
 - TanStack Virtual for any list that can exceed ~200 rows (library songs, albums, artists, long playlists). The content pane is the scroll element, so the shell never scrolls.
 - Fixed row heights (44px, or the grid's computed row height) so virtualisation never measures.
 - The playing track's row is marked in place wherever it appears: its index is replaced by an amber equaliser glyph and its title takes `--amber-ink`. It keeps that mark while the list scrolls or re-sorts.
+
+## Home
+
+Home ("For you") answers one question first: what shall I play now. It sets Apple's personal shelves (`features/home/plan.ts`) instead of stacking them as Apple sends them, and never copies Apple's own Home.
+
+```
+┌───────────────────────────────────────────────────────────┐
+│ For you                                        ⟳ Refresh  │  wash of the lead's cover,
+│ Picked for you 3 min. ago                                 │  full bleed like a
+│ Top Picks for You                                         │  collection header
+│ [cover 232]  Your Station        │ [40] Apple Music Live   [40] 1                │
+│              Station · Made for… │      New Release · …         More from …      │
+│              (▶) (⋯)             │ [40] …                  [40] …                │
+├───────────────────────────────────────────────────────────┤
+│ Recently Played                                  See all ›│  rows, 2 deep
+│ [40] Your Station   [40] Zara Larsson   [40] …   [40] …    │
+│ World of Oasis                               Show all 10  │  cover tiles
+│ …                                                         │
+│ More for you                                              │  the index
+│ › Country           [44][44][44][44][44][44][44][44]…     │
+│   3 playlists · 9 albums                                  │
+└───────────────────────────────────────────────────────────┘
+```
+
+- **The lead**: the first "feature" shelf (Top Picks). Its first pick is set like a collection header in miniature: the cover (232px; 168px when the page is under 900px wide), the name at 32/700, the artist or curator at 16/500, then the catalogue line (`Station · Made for You`: what it is, then Apple's reason) and the amber play disc with the item's menu. Every other pick sits beside it as a row (two columns of four; under it when narrow), so the first screen holds all of Top Picks. The page header and the lead sit on the lead cover's pre-blurred backdrop, ground scrim, full bleed; reduce effects leaves the plain ground.
+- **Rows** (`ItemRows`): 56px rows with 40px art, the title at 14/500 and Apple's reason with the artist or curator at 13 muted, in as many columns as fit from 264px (248 beside the lead). Recently Played and every shelf of stations only (Stations for You, moods, favourite artists) are rows two deep: you go back to them or play them at once, so a name and a play control matter more than a large cover. On a backdrop the hover is ink at 6%, not the opaque `--hover`.
+- **Cover shelves**: the first three plain shelves Apple ranks highest keep their cover tiles (160px; feature shelves 176px). Features, heroes and track shelves always stay in full.
+- **The index** ("More for you"): every later plain shelf (genres, "more like", fans also like) is one 64px line: a chevron, the title at 16/600, what it holds at 12 muted ("3 playlists · 9 albums"), and a strip of its covers at 44px. The line is a disclosure button; open, the shelf's cover tiles appear under it and the strip goes. Twelve shelves take one screen instead of four, and their full-size covers load only when asked for.
+- **A lone hero** (Apple's untitled featured card): its 1060:608 banner at 40% of the row beside its name at 24/650, the catalogue line and the play disc, never a half-width card with an empty half.
+- **Captions** every item of a shelf shares are dropped; said once in the heading, they are noise.
+- **States**: signed out, the lead's place holds one dashed block (Recommendations need Apple Music, one sentence, an ink Sign in), then the library's shelves. Offline with no copy of Home, it says there are no recommendations while offline and that Sona fetches them when it reconnects: no Retry, and no Refresh in the header while offline. Apple's Recently Played failing falls back to "Played on this computer", with its own empty line. Loading draws the lead's shape: the cover, the name's lines and eight rows.
+- **Keyboard**: the lead's title, play and menu are Tab stops; each row list is one Tab stop (the arrow keys, Home and End move; Enter opens, Space plays, Shift+F10 or the Menu key opens the row's menu; the row focused last is where Tab returns). Index lines are buttons with `aria-expanded`.
 
 ## Shell
 
