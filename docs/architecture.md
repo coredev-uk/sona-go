@@ -19,7 +19,7 @@ Non-goals:
 
 - Decrypting protected audio by any means other than the Widevine CDM's own `Decrypt` API. Sona hosts Google's CDM, downloaded from Google (§4.3); it never extracts keys, never uses reimplemented CDMs, and never lets decrypted audio leave the CDM host process.
 - Shipping Apple private keys, user tokens or a Widevine CDM binary in the repository, the binary or the packages; redistributing or patching the CDM.
-- Deliberately not built: music video playback (needs a video pipeline), concerts, social graph changes (follow and unfollow need a request signature the web token cannot produce), taste onboarding, report a concern, account and billing pages (web-only).
+- Deliberately not built: music video playback (Apple licenses a software CDM only for SD video, with keys its `Decrypt` API refuses: `docs/apple-music-reference.md` §4.5), concerts, social graph changes (follow and unfollow need a request signature the web token cannot produce), taste onboarding, report a concern, account and billing pages (web-only).
 
 ## 2. Stack
 
@@ -128,6 +128,7 @@ On macOS the child runs under `sandbox-exec` with Sona's profile (no network, no
 - **Widevine stream (`28:ctrp256`)**: HLS v7 with `#EXT-X-KEY:METHOD=ISO-23001-7,URI="data:;base64,…"` (the KID; Sona wraps it in a Widevine PSSH), CENC AES-CTR, the init segment by `EXT-X-MAP` byte range, fragmented MP4 AAC. The CDM decrypts and GStreamer decodes.
 - **FairPlay streams (`cbcp` flavours)**: `METHOD=SAMPLE-AES` with `skd://` key URIs. Not usable by Sona.
 - **Local broadcasters' streams**: clear. Global's are HLS of MPEG-TS (ADTS AAC, no in-stream metadata); Bauer's HLS of packed HE-AAC with an ID3 tag per segment and the same in `EXTINF` (`title="…",artist="…"`, with the artist in the title and the song in the artist, which Sona swaps back when the metadata links Planet Radio's listen API); TuneIn's a PLS of the station ident, a pre-roll advert and an Icecast MP3 stream with ICY metadata. Details: `docs/apple-music-reference.md` §5.1.
+- **Music videos**: Widevine HLS (`cbcs`, separate video and audio renditions). A software CDM gets usable keys for SD video only (≤864×486), at level `SW_SECURE_DECODE`, which the CDM's `Decrypt` refuses (only its own decoder may use them); HD needs HDCP (`output-restricted`), 4K is refused. So videos do not play on this path (`docs/apple-music-reference.md` §4.5).
 - **Lossless, Hi-Res and Atmos**: shown as badges. Apple's licence server refuses the ALAC key to the desktop CDM (`go run ./cmd/playspike -probe-lossless <song>` re-checks it), so these do not play on this path.
 
 ### 4.6 Engine contract
