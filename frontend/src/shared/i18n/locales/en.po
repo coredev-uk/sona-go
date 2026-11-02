@@ -210,14 +210,17 @@ msgstr "{mine, plural, one {# song after this one} other {# songs after this one
 msgid "{minutes}m"
 msgstr "{minutes}m"
 
+#: src/features/home/ShelfIndex.tsx
 #: src/shared/actions/registry.ts
 msgid "{n, plural, one {# album} other {# albums}}"
 msgstr "{n, plural, one {# album} other {# albums}}"
 
+#: src/features/home/ShelfIndex.tsx
 #: src/shared/actions/registry.ts
 msgid "{n, plural, one {# artist} other {# artists}}"
 msgstr "{n, plural, one {# artist} other {# artists}}"
 
+#: src/features/home/ShelfIndex.tsx
 #: src/shared/actions/registry.ts
 msgid "{n, plural, one {# playlist} other {# playlists}}"
 msgstr "{n, plural, one {# playlist} other {# playlists}}"
@@ -226,12 +229,14 @@ msgstr "{n, plural, one {# playlist} other {# playlists}}"
 msgid "{n, plural, one {# song you played hasn't been sent yet.} other {# songs you played haven't been sent yet.}}"
 msgstr "{n, plural, one {# song you played hasn't been sent yet.} other {# songs you played haven't been sent yet.}}"
 
+#: src/features/home/ShelfIndex.tsx
 #: src/features/playlist/PlaylistDialogs.tsx
 #: src/features/settings/scrobble.ts
 #: src/shared/actions/registry.ts
 msgid "{n, plural, one {# song} other {# songs}}"
 msgstr "{n, plural, one {# song} other {# songs}}"
 
+#: src/features/home/ShelfIndex.tsx
 #: src/shared/actions/registry.ts
 msgid "{n, plural, one {# station} other {# stations}}"
 msgstr "{n, plural, one {# station} other {# stations}}"
@@ -550,6 +555,7 @@ msgstr "After {m, plural, one {# minute} other {# minutes}}"
 
 #: src/features/album/AlbumPage.tsx
 #: src/features/artist/ArtistPage.tsx
+#: src/features/home/catalogue-line.ts
 #: src/features/library/pages.tsx
 #: src/features/search/groups.ts
 #: src/shared/tracks/TrackList.tsx
@@ -818,6 +824,7 @@ msgid "Applies the next time Sona starts."
 msgstr "Applies the next time Sona starts."
 
 #: src/features/artist/ArtistViewPage.tsx
+#: src/features/home/catalogue-line.ts
 #: src/features/library/pages.tsx
 #: src/features/search/groups.ts
 #: src/shared/tracks/TrackList.tsx
@@ -2189,6 +2196,10 @@ msgctxt "keyboard key"
 msgid "Enter"
 msgstr "Enter"
 
+#: src/features/home/ItemRows.tsx
+msgid "Enter opens, Space plays, Shift+F10 shows more actions."
+msgstr "Enter opens, Space plays, Shift+F10 shows more actions."
+
 #: src/features/player/QueuePanel.tsx
 msgid "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes the queue."
 msgstr "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes the queue."
@@ -2258,6 +2269,8 @@ msgstr "Exit full screen"
 msgid "Explicit"
 msgstr "Explicit"
 
+#: src/features/home/HomeLead.tsx
+#: src/features/home/ItemRows.tsx
 #: src/shared/components/CoverGrid.tsx
 #: src/shared/items/TrackShelf.tsx
 #: src/shared/tracks/TrackList.tsx
@@ -2308,6 +2321,7 @@ msgid "Favourite the playing song"
 msgstr "Favourite the playing song"
 
 #: src/features/discover/FrontPage.tsx
+#: src/features/home/HeroCard.tsx
 #: src/shared/items/WideRow.tsx
 msgid "Featured"
 msgstr "Featured"
@@ -2664,6 +2678,7 @@ msgstr "It was replaced or cancelled before the code arrived. Start again."
 msgid "It's removed from your library on all your devices. The songs in it stay in your library."
 msgstr "It's removed from your library on all your devices. The songs in it stay in your library."
 
+#: src/features/home/ShelfIndex.tsx
 #: src/shared/items/ItemShelf.tsx
 msgid "Items"
 msgstr "Items"
@@ -2821,6 +2836,7 @@ msgid "Live radio"
 msgstr "Live radio"
 
 #: src/features/discover/states.tsx
+#: src/features/home/HomeLead.tsx
 #: src/features/home/HomePage.tsx
 #: src/features/radio/RadioPage.tsx
 #: src/features/radio/StationPage.tsx
@@ -2995,6 +3011,10 @@ msgstr "More for {pinName}"
 msgid "More for the folder {folderName}"
 msgstr "More for the folder {folderName}"
 
+#: src/features/home/ShelfIndex.tsx
+msgid "More for you"
+msgstr "More for you"
+
 #: src/features/playlist/PlaylistPage.tsx
 msgid "More from {curatorName}"
 msgstr "More from {curatorName}"
@@ -3067,6 +3087,7 @@ msgstr "Moved {songName} to position {position} of {count}"
 msgid "Music User Token"
 msgstr "Music User Token"
 
+#: src/features/home/catalogue-line.ts
 #: src/features/search/groups.ts
 #: src/features/video/VideoPage.tsx
 msgid "Music video"
@@ -3292,6 +3313,10 @@ msgstr "No radio shows for “{q}”"
 #: src/features/library/gate.tsx
 msgid "No recent additions in your library yet"
 msgstr "No recent additions in your library yet"
+
+#: src/features/home/HomeLead.tsx
+msgid "No recommendations while offline"
+msgstr "No recommendations while offline"
 
 #: src/features/settings/Connections.tsx
 msgid "No Secret Service keyring is running, so Sona keeps them in files only your user can read. Start GNOME Keyring or KWallet and Sona moves them into the keyring."
@@ -3805,6 +3830,7 @@ msgid "Play {label}"
 msgstr "Play {label}"
 
 #: src/features/discover/FrontPage.tsx
+#: src/features/home/ItemRows.tsx
 #: src/features/radio/RadioPage.tsx
 #: src/shared/items/StationList.tsx
 #: src/shared/items/TrackShelf.tsx
@@ -3895,6 +3921,7 @@ msgstr "Playing {station}"
 msgid "Playing from <0>{playingFrom}</0>"
 msgstr "Playing from <0>{playingFrom}</0>"
 
+#: src/features/home/catalogue-line.ts
 #: src/features/library/views.tsx
 #: src/features/playlist/PlaylistPage.tsx
 #: src/features/search/groups.ts
@@ -4229,7 +4256,7 @@ msgstr "Recently updated playlists"
 msgid "Recently, on your other devices"
 msgstr "Recently, on your other devices"
 
-#: src/features/home/HomePage.tsx
+#: src/features/home/HomeLead.tsx
 msgid "Recommendations need Apple Music"
 msgstr "Recommendations need Apple Music"
 
@@ -4531,6 +4558,7 @@ msgid "Secret Service keyring"
 msgstr "Secret Service keyring"
 
 #: src/features/discover/ChartsPage.tsx
+#: src/features/home/ShelfIndex.tsx
 #: src/shared/components/Shelf.tsx
 msgid "See all"
 msgstr "See all"
@@ -4620,6 +4648,8 @@ msgstr "Show"
 msgid "Show all"
 msgstr "Show all"
 
+#: src/features/home/HomeLead.tsx
+#: src/features/home/HomePage.tsx
 #: src/shared/items/ItemShelf.tsx
 msgid "Show all {count}"
 msgstr "Show all {count}"
@@ -4636,6 +4666,8 @@ msgstr "Show all lyrics"
 msgid "Show earlier days"
 msgstr "Show earlier days"
 
+#: src/features/home/HomeLead.tsx
+#: src/features/home/HomePage.tsx
 #: src/features/search/SearchPage.tsx
 #: src/shared/components/CoverShelf.tsx
 #: src/shared/items/ItemShelf.tsx
@@ -4735,7 +4767,7 @@ msgstr "Shuffle on or off"
 #: src/app/shell/StatusBanner.tsx
 #: src/features/auth/Account.tsx
 #: src/features/auth/AccountMenu.tsx
-#: src/features/home/HomePage.tsx
+#: src/features/home/HomeLead.tsx
 #: src/features/library/sign-in.ts
 #: src/features/onboarding/DoneStep.tsx
 #: src/features/search/SearchPage.tsx
@@ -4768,9 +4800,9 @@ msgstr "sign in to Apple Music in Sona"
 msgid "Sign in to search Apple Music"
 msgstr "Sign in to search Apple Music"
 
-#: src/features/home/HomePage.tsx
-msgid "Sign in to see picks, mixes and stations chosen for you. Your library is below."
-msgstr "Sign in to see picks, mixes and stations chosen for you. Your library is below."
+#: src/features/home/HomeLead.tsx
+msgid "Sign in to see picks, mixes and stations chosen for you."
+msgstr "Sign in to see picks, mixes and stations chosen for you."
 
 #: src/shared/components/DetailStates.tsx
 msgid "Sign in to see this"
@@ -5065,6 +5097,10 @@ msgstr "Sona discards them and removes its sign-in from your keyring."
 msgid "Sona downloads it from Google once it's online. Songs play when it's ready."
 msgstr "Sona downloads it from Google once it's online. Songs play when it's ready."
 
+#: src/features/home/HomeLead.tsx
+msgid "Sona fetches them as soon as it reconnects."
+msgstr "Sona fetches them as soon as it reconnects."
+
 #: src/features/auth/Account.tsx
 msgid "Sona is waiting for your keyring to hand over your sign-in. If GNOME Keyring or KWallet asks you to unlock it, do that now."
 msgstr "Sona is waiting for your keyring to hand over your sign-in. If GNOME Keyring or KWallet asks you to unlock it, do that now."
@@ -5125,6 +5161,7 @@ msgstr "Sona's, with window buttons"
 msgid "Sona's, without window buttons"
 msgstr "Sona's, without window buttons"
 
+#: src/features/home/catalogue-line.ts
 #: src/features/search/groups.ts
 #: src/features/song/SongPage.tsx
 msgid "Song"
@@ -5186,6 +5223,10 @@ msgstr "Songs you favourite in Sona or any Apple Music app are collected here."
 #: src/features/library/HistoryPage.tsx
 msgid "Songs you play here or in any Apple Music app are listed here by day."
 msgstr "Songs you play here or in any Apple Music app are listed here by day."
+
+#: src/features/home/LocalShelves.tsx
+msgid "Songs you play in Sona appear here."
+msgstr "Songs you play in Sona appear here."
 
 #: src/features/library/HistoryPage.tsx
 msgid "Songs you play in Sona are listed here by day. Sign in to add what you play on your other devices."
@@ -5265,6 +5306,7 @@ msgstr "Starting…"
 msgid "Starts at login"
 msgstr "Starts at login"
 
+#: src/features/home/catalogue-line.ts
 #: src/features/radio/schedule.ts
 #: src/features/search/groups.ts
 msgid "Station"
@@ -5721,6 +5763,10 @@ msgstr "Top level"
 #: src/features/discover/chart-titles.ts
 msgid "Top music videos"
 msgstr "Top music videos"
+
+#: src/features/home/HomeLead.tsx
+msgid "Top picks"
+msgstr "Top picks"
 
 #: src/features/discover/chart-titles.ts
 msgid "Top playlists"

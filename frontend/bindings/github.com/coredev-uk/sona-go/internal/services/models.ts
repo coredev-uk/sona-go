@@ -5799,6 +5799,13 @@ export class Section {
      */
     "seeAll": boolean;
 
+    /**
+     * Source is a Home shelf's source in Apple's recommendations
+     * ("recently-played", "your-favorites", "music-recommendations", …);
+     * "" on editorial pages.
+     */
+    "source": string;
+
     /** Creates a new Section instance. */
     constructor($$source: Partial<Section> = {}) {
         if (!("id" in $$source)) {
@@ -5821,6 +5828,9 @@ export class Section {
         }
         if (!("seeAll" in $$source)) {
             this["seeAll"] = false;
+        }
+        if (!("source" in $$source)) {
+            this["source"] = "";
         }
 
         Object.assign(this, $$source);

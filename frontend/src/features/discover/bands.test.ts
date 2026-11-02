@@ -23,7 +23,8 @@ function item(kind: string, url = ""): Item {
 }
 
 function section(id: string, kind: string, kinds: string[] = [], title = id): Section {
-  return { id, kind, title, text: "", items: kinds.map((k) => item(k)), room: "", seeAll: false };
+  const items = kinds.map((k) => item(k));
+  return { id, kind, title, text: "", items, room: "", seeAll: false, source: "" };
 }
 
 const ids = (sections: readonly Section[]) => sections.map((s) => s.id);

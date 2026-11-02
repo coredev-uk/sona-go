@@ -162,8 +162,8 @@ func TestHomeCacheAndRefresh(t *testing.T) {
 	if it := top.Items[2]; it.Kind != ItemStation || it.Station == nil || it.Caption != "Mood for You" {
 		t.Errorf("station pick = %+v", it)
 	}
-	if !page.Sections[1].SeeAll {
-		t.Error("Recently Played lost its See all")
+	if s := page.Sections[1]; !s.SeeAll || s.Source != "recently-played" {
+		t.Errorf("Recently Played lost its See all or its source: %+v", s)
 	}
 	if hero := page.Sections[2].Items[0]; hero.Wide.Large == "" || hero.Color == "" {
 		t.Errorf("hero card without wide art: %+v", hero)

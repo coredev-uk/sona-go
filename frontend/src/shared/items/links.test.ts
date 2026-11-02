@@ -57,7 +57,16 @@ describe("item presentation", () => {
     expect(itemShape(item({ kind: "playlist" }))).toBe("square");
   });
   it("links a section to its room only when it has one", () => {
-    const s = { id: "s", kind: "shelf", title: "T", text: "", items: [], room: "", seeAll: false };
+    const s = {
+      id: "s",
+      kind: "shelf",
+      title: "T",
+      text: "",
+      items: [],
+      room: "",
+      seeAll: false,
+      source: "",
+    };
     expect(roomLink(s)).toBeUndefined();
     expect(roomLink({ ...s, room: "77" })).toEqual({ to: "/room/$id", params: { id: "77" } });
   });

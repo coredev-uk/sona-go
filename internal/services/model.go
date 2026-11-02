@@ -309,6 +309,10 @@ type Section struct {
 	Room string `json:"room"`
 	// SeeAll: a Home shelf with a "See all" view (by Section.ID).
 	SeeAll bool `json:"seeAll"`
+	// Source is a Home shelf's source in Apple's recommendations
+	// ("recently-played", "your-favorites", "music-recommendations", …);
+	// "" on editorial pages.
+	Source string `json:"source"`
 }
 
 // EditorialPage is an editorial page: a grouping (New, Radio, hubs), a
