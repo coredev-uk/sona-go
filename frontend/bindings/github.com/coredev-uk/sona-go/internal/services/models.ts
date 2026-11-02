@@ -1529,6 +1529,32 @@ export class ClearResult {
 }
 
 /**
+ * CollaborationRole is what the signed-in user is to a collaborative
+ * playlist.
+ */
+export enum CollaborationRole {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * started it
+     */
+    RoleOwner = "owner",
+
+    /**
+     * was let in to add songs
+     */
+    RoleCollaborator = "collaborator",
+
+    /**
+     * neither, or not known
+     */
+    RoleListener = "listener",
+};
+
+/**
  * Counts are the library list sizes.
  */
 export class Counts {
@@ -4302,6 +4328,82 @@ export class Playlist {
 }
 
 /**
+ * PlaylistCollaboration is who works on a collaborative playlist, from
+ * Apple (network). Collaborative is false for every other playlist, and
+ * then the rest is empty.
+ */
+export class PlaylistCollaboration {
+    "collaborative": boolean;
+
+    /**
+     * OwnerID is the owner's profile ID, one of Collaborators ("" when
+     * Apple names none).
+     */
+    "ownerId": string;
+
+    /**
+     * Collaborators are everyone who can add songs, the owner first.
+     */
+    "collaborators": SocialProfile[];
+
+    /**
+     * Former are people who added songs but no longer collaborate.
+     */
+    "former": SocialProfile[];
+    "viewer": CollaborationRole;
+
+    /**
+     * AddedBy says who added each of the playlist's first 300 tracks, in
+     * Apple's order (later tracks are not attributed).
+     */
+    "addedBy": TrackAddedBy[];
+
+    /** Creates a new PlaylistCollaboration instance. */
+    constructor($$source: Partial<PlaylistCollaboration> = {}) {
+        if (!("collaborative" in $$source)) {
+            this["collaborative"] = false;
+        }
+        if (!("ownerId" in $$source)) {
+            this["ownerId"] = "";
+        }
+        if (!("collaborators" in $$source)) {
+            this["collaborators"] = [];
+        }
+        if (!("former" in $$source)) {
+            this["former"] = [];
+        }
+        if (!("viewer" in $$source)) {
+            this["viewer"] = CollaborationRole.$zero;
+        }
+        if (!("addedBy" in $$source)) {
+            this["addedBy"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PlaylistCollaboration instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PlaylistCollaboration {
+        const $$createField2_0 = $$createType79;
+        const $$createField3_0 = $$createType79;
+        const $$createField5_0 = $$createType81;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("collaborators" in $$parsedSource) {
+            $$parsedSource["collaborators"] = $$createField2_0($$parsedSource["collaborators"]);
+        }
+        if ("former" in $$parsedSource) {
+            $$parsedSource["former"] = $$createField3_0($$parsedSource["former"]);
+        }
+        if ("addedBy" in $$parsedSource) {
+            $$parsedSource["addedBy"] = $$createField5_0($$parsedSource["addedBy"]);
+        }
+        return new PlaylistCollaboration($$parsedSource as Partial<PlaylistCollaboration>);
+    }
+}
+
+/**
  * PlaylistCurator is who made a playlist: an Apple Music curator or show
  * ("apple-curator"), an external curator ("curator"), or a user's social
  * profile ("profile"). Kind is "" when unknown.
@@ -4460,7 +4562,7 @@ export class PlaylistDetail {
         const $$createField0_0 = $$createType10;
         const $$createField1_0 = $$createType4;
         const $$createField4_0 = $$createType5;
-        const $$createField7_0 = $$createType78;
+        const $$createField7_0 = $$createType82;
         const $$createField8_0 = $$createType9;
         const $$createField9_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
@@ -4641,8 +4743,8 @@ export class PlaylistTree {
      * Creates a new PlaylistTree instance from a string or object.
      */
     static createFrom($$source: any = {}): PlaylistTree {
-        const $$createField0_0 = $$createType80;
-        const $$createField1_0 = $$createType82;
+        const $$createField0_0 = $$createType84;
+        const $$createField1_0 = $$createType86;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("folders" in $$parsedSource) {
             $$parsedSource["folders"] = $$createField0_0($$parsedSource["folders"]);
@@ -4840,7 +4942,7 @@ export class ProfileDetail {
      * Creates a new ProfileDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): ProfileDetail {
-        const $$createField0_0 = $$createType83;
+        const $$createField0_0 = $$createType78;
         const $$createField1_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("profile" in $$parsedSource) {
@@ -5040,8 +5142,8 @@ export class QueueState {
      * Creates a new QueueState instance from a string or object.
      */
     static createFrom($$source: any = {}): QueueState {
-        const $$createField2_0 = $$createType84;
-        const $$createField3_0 = $$createType84;
+        const $$createField2_0 = $$createType87;
+        const $$createField3_0 = $$createType87;
         const $$createField4_0 = $$createType73;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
@@ -5357,8 +5459,8 @@ export class ScrobbleStatus {
      * Creates a new ScrobbleStatus instance from a string or object.
      */
     static createFrom($$source: any = {}): ScrobbleStatus {
-        const $$createField0_0 = $$createType85;
-        const $$createField1_0 = $$createType85;
+        const $$createField0_0 = $$createType88;
+        const $$createField1_0 = $$createType88;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("lastfm" in $$parsedSource) {
             $$parsedSource["lastfm"] = $$createField0_0($$parsedSource["lastfm"]);
@@ -5495,7 +5597,7 @@ export class SearchHints {
      * Creates a new SearchHints instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchHints {
-        const $$createField0_0 = $$createType87;
+        const $$createField0_0 = $$createType90;
         const $$createField1_0 = $$createType26;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("terms" in $$parsedSource) {
@@ -5531,7 +5633,7 @@ export class SearchResults {
      * Creates a new SearchResults instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchResults {
-        const $$createField1_0 = $$createType89;
+        const $$createField1_0 = $$createType92;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("sections" in $$parsedSource) {
             $$parsedSource["sections"] = $$createField1_0($$parsedSource["sections"]);
@@ -5650,7 +5752,7 @@ export class SecondFactor {
      * Creates a new SecondFactor instance from a string or object.
      */
     static createFrom($$source: any = {}): SecondFactor {
-        const $$createField2_0 = $$createType91;
+        const $$createField2_0 = $$createType94;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("phones" in $$parsedSource) {
             $$parsedSource["phones"] = $$createField2_0($$parsedSource["phones"]);
@@ -6217,9 +6319,9 @@ export class StationDetail {
      */
     static createFrom($$source: any = {}): StationDetail {
         const $$createField0_0 = $$createType53;
-        const $$createField1_0 = $$createType93;
+        const $$createField1_0 = $$createType96;
         const $$createField2_0 = $$createType5;
-        const $$createField3_0 = $$createType95;
+        const $$createField3_0 = $$createType98;
         const $$createField4_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("station" in $$parsedSource) {
@@ -6550,12 +6652,41 @@ export class SyncStatus {
      * Creates a new SyncStatus instance from a string or object.
      */
     static createFrom($$source: any = {}): SyncStatus {
-        const $$createField2_0 = $$createType97;
+        const $$createField2_0 = $$createType100;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("domains" in $$parsedSource) {
             $$parsedSource["domains"] = $$createField2_0($$parsedSource["domains"]);
         }
         return new SyncStatus($$parsedSource as Partial<SyncStatus>);
+    }
+}
+
+/**
+ * TrackAddedBy is one track of a collaborative playlist: its catalog ID
+ * and the profile ID of who added it ("" when Apple does not say).
+ */
+export class TrackAddedBy {
+    "songId": string;
+    "profileId": string;
+
+    /** Creates a new TrackAddedBy instance. */
+    constructor($$source: Partial<TrackAddedBy> = {}) {
+        if (!("songId" in $$source)) {
+            this["songId"] = "";
+        }
+        if (!("profileId" in $$source)) {
+            this["profileId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TrackAddedBy instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TrackAddedBy {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TrackAddedBy($$parsedSource as Partial<TrackAddedBy>);
     }
 }
 
@@ -6973,23 +7104,26 @@ const $$createType74 = QueueContainer.createFrom;
 const $$createType75 = $Create.Nullable($$createType74);
 const $$createType76 = SleepTimer.createFrom;
 const $$createType77 = $Create.Nullable($$createType76);
-const $$createType78 = PlaylistCurator.createFrom;
-const $$createType79 = PlaylistFolder.createFrom;
-const $$createType80 = $Create.Array($$createType79);
-const $$createType81 = TreePlaylist.createFrom;
-const $$createType82 = $Create.Array($$createType81);
-const $$createType83 = SocialProfile.createFrom;
-const $$createType84 = $Create.Array($$createType68);
-const $$createType85 = ScrobblerStatus.createFrom;
-const $$createType86 = SearchTerm.createFrom;
-const $$createType87 = $Create.Array($$createType86);
-const $$createType88 = SearchSection.createFrom;
-const $$createType89 = $Create.Array($$createType88);
-const $$createType90 = Phone.createFrom;
-const $$createType91 = $Create.Array($$createType90);
-const $$createType92 = StationEvent.createFrom;
-const $$createType93 = $Create.Array($$createType92);
-const $$createType94 = StationSeed.createFrom;
-const $$createType95 = $Create.Nullable($$createType94);
-const $$createType96 = DomainSync.createFrom;
-const $$createType97 = $Create.Array($$createType96);
+const $$createType78 = SocialProfile.createFrom;
+const $$createType79 = $Create.Array($$createType78);
+const $$createType80 = TrackAddedBy.createFrom;
+const $$createType81 = $Create.Array($$createType80);
+const $$createType82 = PlaylistCurator.createFrom;
+const $$createType83 = PlaylistFolder.createFrom;
+const $$createType84 = $Create.Array($$createType83);
+const $$createType85 = TreePlaylist.createFrom;
+const $$createType86 = $Create.Array($$createType85);
+const $$createType87 = $Create.Array($$createType68);
+const $$createType88 = ScrobblerStatus.createFrom;
+const $$createType89 = SearchTerm.createFrom;
+const $$createType90 = $Create.Array($$createType89);
+const $$createType91 = SearchSection.createFrom;
+const $$createType92 = $Create.Array($$createType91);
+const $$createType93 = Phone.createFrom;
+const $$createType94 = $Create.Array($$createType93);
+const $$createType95 = StationEvent.createFrom;
+const $$createType96 = $Create.Array($$createType95);
+const $$createType97 = StationSeed.createFrom;
+const $$createType98 = $Create.Nullable($$createType97);
+const $$createType99 = DomainSync.createFrom;
+const $$createType100 = $Create.Array($$createType99);

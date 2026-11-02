@@ -13,7 +13,7 @@ import {
 
 import { Artwork } from "@/shared/components/Artwork";
 import { ExplicitMark } from "@/shared/components/Badges";
-import type { Song } from "@bindings/services";
+import type { SocialProfile, Song } from "@bindings/services";
 import { formatTime } from "@/shared/lib/format";
 import { useContentVirtualizer } from "@/shared/lib/useContentVirtualizer";
 import { cn } from "@/shared/lib/utils";
@@ -55,18 +55,24 @@ interface TrackListProps {
   onRange?: (start: number, end: number) => void;
   /** The collection the songs belong to, for row actions (see ActionContainer). */
   container?: Omit<ActionContainer, "index">;
+  /**
+   * A collaborative playlist's "Added by" column: who added each row
+   * (`undefined` when Apple doesn't say). Absent: no column.
+   */
+  addedBy?: readonly (SocialProfile | undefined)[];
 }
 
 const ROW = 44;
 /** Lists longer than this are virtualised (docs/architecture.md §8). */
 const VIRTUAL_FROM = 200;
 
-function gridTemplate(c: TrackColumns): string {
+function gridTemplate(c: TrackColumns, addedBy: boolean): string {
   return [
     "40px",
     "minmax(0,2fr)",
     c.artist && "minmax(0,1fr)",
     c.album && "minmax(0,1fr)",
+    addedBy && "minmax(0,0.8fr)",
     "56px",
     "32px",
   ]
@@ -123,6 +129,9 @@ interface RowProps {
   prevKey: string | undefined;
   nextKey: string | undefined;
   columns: TrackColumns;
+  /** The "Added by" cell: shown when the list has the column. */
+  addedByColumn: boolean;
+  addedBy: SocialProfile | undefined;
   template: string;
   current: boolean;
   playing: boolean;
@@ -156,6 +165,8 @@ const TrackRow = memo(function TrackRow({
   prevKey,
   nextKey,
   columns,
+  addedByColumn,
+  addedBy,
   template,
   current,
   playing,
@@ -186,6 +197,7 @@ const TrackRow = memo(function TrackRow({
         </span>
         {columns.artist && <span className="h-3 w-1/2 rounded-sm bg-hover" />}
         {columns.album && <span className="h-3 w-1/2 rounded-sm bg-hover" />}
+        {addedByColumn && <span className="h-3 w-1/2 rounded-sm bg-hover" />}
         <span />
         <span />
       </div>
@@ -273,6 +285,11 @@ const TrackRow = memo(function TrackRow({
           </EntityLink>
         </span>
       )}
+      {addedByColumn && (
+        <span role="gridcell" className="min-w-0 text-sub text-ink-muted">
+          {addedBy && <AddedBy profile={addedBy} />}
+        </span>
+      )}
       <span role="gridcell" className="text-right text-sub text-ink-faint num">
         {song.durationMs ? formatTime(song.durationMs) : "—"}
       </span>
@@ -311,6 +328,23 @@ function EntityLink({
   );
 }
 
+/** Who added a collaborative playlist's song: their avatar and name, linking to their profile. */
+function AddedBy({ profile }: { profile: SocialProfile }) {
+  return (
+    <Link
+      to="/profile/$id"
+      params={{ id: profile.id }}
+      tabIndex={-1}
+      className="group/by flex min-w-0 items-center gap-2 underline-offset-2 hover:text-ink"
+    >
+      <Artwork src={profile.art.small} size={20} alt="" shape="round" />
+      <span className="truncate group-hover/by:underline">
+        {profile.name || `@${profile.handle}`}
+      </span>
+    </Link>
+  );
+}
+
 /**
  * A track table: fixed 44px rows, no dividers, the playing track marked in
  * place. Double-click or Enter plays from that row with the list as the
@@ -330,11 +364,12 @@ export function TrackList({
   onRange,
   popular,
   container,
+  addedBy,
 }: TrackListProps) {
   const { t } = useLingui();
   const { current, playing } = useNowPlaying();
   const restricted = useContentPolicy((s) => s.restricted);
-  const template = gridTemplate(columns);
+  const template = gridTemplate(columns, !!addedBy);
   // A shared link's song is marked and takes the initial keyboard focus.
   const highlightIndex = highlight
     ? songs.findIndex((s) => s && (s.id === highlight || s.catalogId === highlight))
@@ -458,6 +493,8 @@ export function TrackList({
       prevKey={keys[i - 1]}
       nextKey={keys[i + 1]}
       columns={columns}
+      addedByColumn={!!addedBy}
+      addedBy={addedBy?.[i]}
       template={template}
       current={!!song && isCurrent(song, current)}
       playing={playing}
@@ -495,6 +532,7 @@ export function TrackList({
             <HeaderCell label={t`Artist`} sortKey={sort && "artist"} sort={sort} />
           )}
           {columns.album && <HeaderCell label={t`Album`} sortKey={sort && "album"} sort={sort} />}
+          {addedBy && <HeaderCell label={t`Added by`} />}
           <span role="columnheader" className="flex justify-end">
             <Clock3 aria-label={t`Duration`} className="size-3.5" strokeWidth={1.75} />
           </span>
@@ -526,7 +564,12 @@ export function TrackList({
                       <div role="row">
                         <div
                           role="gridcell"
-                          aria-colspan={4 + Number(!!columns.artist) + Number(!!columns.album)}
+                          aria-colspan={
+                            4 +
+                            Number(!!columns.artist) +
+                            Number(!!columns.album) +
+                            Number(!!addedBy)
+                          }
                         >
                           <h3
                             className={cn(

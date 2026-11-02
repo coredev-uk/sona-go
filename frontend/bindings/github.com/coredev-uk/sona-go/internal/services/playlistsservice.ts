@@ -28,13 +28,27 @@ export function Add(id: string, items: $models.PlaylistItem[]): $CancellableProm
 }
 
 /**
+ * Collaboration returns who works on playlist id (library or catalog) when
+ * it is a collaborative playlist: its owner, its collaborators, who added
+ * each song and what the signed-in user is to it. Only user playlists
+ * shared to Apple Music (pl.u-…) can be collaborative; for any other
+ * playlist it answers at once, without the network, with Collaborative
+ * false. A shared playlist Apple no longer has is not collaborative.
+ */
+export function Collaboration(id: string): $CancellablePromise<$models.PlaylistCollaboration> {
+    return $Call.ByID(2279601740, id).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
+/**
  * Create creates a library playlist with the songs of items (may be
  * empty) in folder folderID ("" for the top level) and returns it.
  * Catalog songs added to it also join the library.
  */
 export function Create($in: $models.PlaylistInput, items: $models.PlaylistItem[], folderID: string): $CancellablePromise<$models.Playlist> {
     return $Call.ByID(3775856027, $in, items, folderID).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
@@ -43,7 +57,7 @@ export function Create($in: $models.PlaylistInput, items: $models.PlaylistItem[]
  */
 export function CreateFolder(name: string): $CancellablePromise<$models.PlaylistFolder> {
     return $Call.ByID(1925146591, name).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType3($result);
     });
 }
 
@@ -101,7 +115,7 @@ export function Pin(id: string): $CancellablePromise<void> {
  */
 export function PinTracks(id: string): $CancellablePromise<$models.Song[]> {
     return $Call.ByID(867393222, id).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType5($result);
     });
 }
 
@@ -111,7 +125,7 @@ export function PinTracks(id: string): $CancellablePromise<$models.Song[]> {
  */
 export function Pins(): $CancellablePromise<$models.Pin[]> {
     return $Call.ByID(1022647011).then(($result: any) => {
-        return $$createType6($result);
+        return $$createType7($result);
     });
 }
 
@@ -132,7 +146,7 @@ export function Playlist(id: string): $CancellablePromise<$models.PlaylistDetail
  */
 export function RecentTargets(): $CancellablePromise<string[]> {
     return $Call.ByID(1814008470).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType8($result);
     });
 }
 
@@ -174,7 +188,7 @@ export function SetPinAction(id: string, action: string): $CancellablePromise<vo
  */
 export function Suggestions(id: string): $CancellablePromise<$models.Song[]> {
     return $Call.ByID(957779440, id).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType5($result);
     });
 }
 
@@ -184,7 +198,7 @@ export function Suggestions(id: string): $CancellablePromise<$models.Song[]> {
  */
 export function Tree(): $CancellablePromise<$models.PlaylistTree> {
     return $Call.ByID(2183968935).then(($result: any) => {
-        return $$createType8($result);
+        return $$createType9($result);
     });
 }
 
@@ -205,11 +219,12 @@ export function Update(id: string, $in: $models.PlaylistInput): $CancellableProm
 
 // Private type creation functions
 const $$createType0 = $models.PlaylistDetail.createFrom;
-const $$createType1 = $models.Playlist.createFrom;
-const $$createType2 = $models.PlaylistFolder.createFrom;
-const $$createType3 = $models.Song.createFrom;
-const $$createType4 = $Create.Array($$createType3);
-const $$createType5 = $models.Pin.createFrom;
-const $$createType6 = $Create.Array($$createType5);
-const $$createType7 = $Create.Array($Create.Any);
-const $$createType8 = $models.PlaylistTree.createFrom;
+const $$createType1 = $models.PlaylistCollaboration.createFrom;
+const $$createType2 = $models.Playlist.createFrom;
+const $$createType3 = $models.PlaylistFolder.createFrom;
+const $$createType4 = $models.Song.createFrom;
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = $models.Pin.createFrom;
+const $$createType7 = $Create.Array($$createType6);
+const $$createType8 = $Create.Array($Create.Any);
+const $$createType9 = $models.PlaylistTree.createFrom;

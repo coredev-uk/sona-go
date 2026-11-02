@@ -1,0 +1,286 @@
+{
+ "data": [
+  {
+   "id": "pl.u-collab",
+   "type": "playlists",
+   "href": "/v1/catalog/gb/playlists/pl.u-collab",
+   "attributes": {
+    "hasCollaboration": true
+   },
+   "relationships": {
+    "curator": {
+     "href": "/v1/catalog/gb/playlists/pl.u-collab/curator",
+     "data": [
+      {
+       "id": "sp.robin",
+       "type": "social-profiles",
+       "href": "/v1/social/gb/social-profiles/sp.robin",
+       "attributes": {
+        "handle": "robinhale",
+        "name": "Robin Hale",
+        "artwork": {
+         "hasP3": false,
+         "height": 500,
+         "width": 500,
+         "url": "https://is1-ssl.mzstatic.com/image/thumb/Test/robinhale/{w}x{h}{c}.jpg"
+        },
+        "url": "https://music.apple.com/profile/robinhale",
+        "isPrivate": false,
+        "isVerified": false
+       }
+      }
+     ]
+    },
+    "tracks": {
+     "href": "/v1/catalog/gb/playlists/pl.u-collab/tracks",
+     "data": [
+      {
+       "id": "1001",
+       "type": "songs",
+       "href": "/v1/catalog/gb/songs/1001",
+       "attributes": {
+        "playParams": {
+         "id": "1001",
+         "kind": "song"
+        }
+       },
+       "meta": {
+        "associations": {
+         "collaborators": {
+          "data": [
+           {
+            "id": "sp.ada",
+            "type": "social-profiles",
+            "href": "/v1/social/gb/social-profiles/sp.ada",
+            "attributes": {
+             "handle": "adaokafor",
+             "name": "Ada Okafor",
+             "artwork": {
+              "hasP3": false,
+              "height": 500,
+              "width": 500,
+              "url": "https://is1-ssl.mzstatic.com/image/thumb/Test/adaokafor/{w}x{h}{c}.jpg"
+             }
+            }
+           }
+          ]
+         }
+        }
+       }
+      },
+      {
+       "id": "1002",
+       "type": "songs",
+       "href": "/v1/catalog/gb/songs/1002",
+       "attributes": {
+        "playParams": {
+         "id": "1002",
+         "kind": "song"
+        }
+       },
+       "meta": {
+        "associations": {
+         "collaborators": {
+          "data": [
+           {
+            "id": "sp.robin",
+            "type": "social-profiles",
+            "href": "/v1/social/gb/social-profiles/sp.robin",
+            "attributes": {
+             "handle": "robinhale",
+             "name": "Robin Hale",
+             "artwork": {
+              "hasP3": false,
+              "height": 500,
+              "width": 500,
+              "url": "https://is1-ssl.mzstatic.com/image/thumb/Test/robinhale/{w}x{h}{c}.jpg"
+             },
+             "url": "https://music.apple.com/profile/robinhale",
+             "isPrivate": false,
+             "isVerified": false
+            }
+           }
+          ]
+         }
+        }
+       }
+      },
+      {
+       "id": "1003",
+       "type": "songs",
+       "href": "/v1/catalog/gb/songs/1003",
+       "attributes": {
+        "playParams": {
+         "id": "1003",
+         "kind": "song"
+        }
+       },
+       "meta": {
+        "associations": {
+         "collaborators": {
+          "data": []
+         }
+        }
+       }
+      },
+      {
+       "id": "1004",
+       "type": "songs",
+       "href": "/v1/catalog/gb/songs/1004",
+       "attributes": {
+        "playParams": {
+         "id": "1004",
+         "kind": "song"
+        }
+       },
+       "meta": {
+        "associations": {
+         "collaborators": {
+          "data": [
+           {
+            "id": "sp.jules",
+            "type": "social-profiles",
+            "href": "/v1/social/gb/social-profiles/sp.jules",
+            "attributes": {
+             "handle": "julesm",
+             "name": "Jules Moreau",
+             "artwork": {
+              "hasP3": false,
+              "height": 500,
+              "width": 500,
+              "url": "https://is1-ssl.mzstatic.com/image/thumb/Test/julesm/{w}x{h}{c}.jpg"
+             }
+            }
+           }
+          ]
+         }
+        }
+       }
+      },
+      {
+       "id": "1001",
+       "type": "songs",
+       "href": "/v1/catalog/gb/songs/1001",
+       "attributes": {
+        "playParams": {
+         "id": "1001",
+         "kind": "song"
+        }
+       },
+       "meta": {
+        "associations": {
+         "collaborators": {
+          "data": [
+           {
+            "id": "sp.mika",
+            "type": "social-profiles",
+            "href": "/v1/social/gb/social-profiles/sp.mika",
+            "attributes": {
+             "handle": "mikasato",
+             "name": "Mika Sato"
+            }
+           }
+          ]
+         }
+        }
+       }
+      },
+      {
+       "id": "2001",
+       "type": "music-videos",
+       "href": "/v1/catalog/gb/music-videos/2001",
+       "attributes": {
+        "playParams": {
+         "id": "2001",
+         "kind": "musicVideo"
+        }
+       },
+       "meta": {
+        "associations": {
+         "collaborators": {
+          "data": [
+           {
+            "id": "sp.ada",
+            "type": "social-profiles",
+            "href": "/v1/social/gb/social-profiles/sp.ada",
+            "attributes": {
+             "handle": "adaokafor",
+             "name": "Ada Okafor",
+             "artwork": {
+              "hasP3": false,
+              "height": 500,
+              "width": 500,
+              "url": "https://is1-ssl.mzstatic.com/image/thumb/Test/adaokafor/{w}x{h}{c}.jpg"
+             }
+            }
+           }
+          ]
+         }
+        }
+       }
+      }
+     ]
+    }
+   },
+   "views": {
+    "collaborators": {
+     "href": "/v1/catalog/gb/playlists/pl.u-collab/view/collaborators",
+     "attributes": {
+      "title": "Collaborators"
+     },
+     "data": [
+      {
+       "id": "sp.ada",
+       "type": "social-profiles",
+       "href": "/v1/social/gb/social-profiles/sp.ada",
+       "attributes": {
+        "handle": "adaokafor",
+        "name": "Ada Okafor",
+        "artwork": {
+         "hasP3": false,
+         "height": 500,
+         "width": 500,
+         "url": "https://is1-ssl.mzstatic.com/image/thumb/Test/adaokafor/{w}x{h}{c}.jpg"
+        }
+       }
+      },
+      {
+       "id": "sp.robin",
+       "type": "social-profiles",
+       "href": "/v1/social/gb/social-profiles/sp.robin",
+       "attributes": {
+        "handle": "robinhale",
+        "name": "Robin Hale",
+        "artwork": {
+         "hasP3": false,
+         "height": 500,
+         "width": 500,
+         "url": "https://is1-ssl.mzstatic.com/image/thumb/Test/robinhale/{w}x{h}{c}.jpg"
+        },
+        "url": "https://music.apple.com/profile/robinhale",
+        "isPrivate": false,
+        "isVerified": false
+       }
+      },
+      {
+       "id": "sp.mika",
+       "type": "social-profiles",
+       "href": "/v1/social/gb/social-profiles/sp.mika",
+       "attributes": {
+        "handle": "mikasato",
+        "name": "Mika Sato"
+       }
+      }
+     ]
+    }
+   },
+   "meta": {
+    "views": {
+     "order": [
+      "collaborators"
+     ]
+    }
+   }
+  }
+ ]
+}
