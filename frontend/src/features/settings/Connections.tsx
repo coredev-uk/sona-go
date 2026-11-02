@@ -26,7 +26,7 @@ import { Switch } from "@/shared/ui/switch";
 import { IntegrationsConnectionsRows } from "./IntegrationsRows";
 import { useSettings, useUpdateSettings } from "./queries";
 import { scrobbleStatusKey, useScrobbleStatus } from "./scrobble";
-import { SettingsGroup, SettingsPanel, SettingsSections } from "./SettingRow";
+import { GroupHeading, SettingsGroup, SettingsPanel, SettingsSections } from "./SettingRow";
 
 type Provider = "lastfm" | "listenbrainz";
 
@@ -337,9 +337,9 @@ function ScrobblingPanel() {
   return (
     <section aria-labelledby="scrobbling-title" className="flex flex-col gap-3">
       <div>
-        <h3 id="scrobbling-title" className="text-ui font-semibold text-ink">
+        <GroupHeading id="scrobbling-title">
           <Trans>Scrobbling</Trans>
-        </h3>
+        </GroupHeading>
         <p className="mt-0.5 max-w-[64ch] text-sub text-ink-muted">
           <Trans>
             A song counts once you've played half of it or four minutes. Radio and songs of 30

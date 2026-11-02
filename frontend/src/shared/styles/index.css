@@ -3,11 +3,14 @@
 @import "@fontsource-variable/schibsted-grotesk";
 
 /* Tokens: see docs/design.md. Light is the default; `.dark` on <html> is set
-   by the appearance store from the theme setting or prefers-color-scheme. */
+   by the appearance store from the theme setting or prefers-color-scheme.
+   `.theme-light` and `.dark` on an element inside the page set its palette
+   whatever the page's theme is (the setup's theme previews). */
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
+:root,
+.theme-light {
   --ground: #f4f5f3;
   --surface: #eceeeb;
   --raised: #ffffff;

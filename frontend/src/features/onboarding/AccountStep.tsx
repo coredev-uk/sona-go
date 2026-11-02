@@ -2,20 +2,17 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { CircleCheck } from "lucide-react";
 
 import { AccountSection, hasAccount, useAuth } from "@/features/auth";
-import { Button } from "@/shared/ui/button";
 
-import { StepActions, StepHeader } from "./parts";
+import { StepHeader } from "./parts";
 
 /**
- * The Apple Music step: Settings → Account's own sign-in (the native form,
- * then the browser and token fallbacks, with its keyring notices), or,
- * once signed in, a line saying so. Nothing about the account itself is
- * shown here.
+ * The Apple Music step: the app's own sign-in (the native form, then the
+ * browser and token fallbacks, with its keyring notices), or, once signed
+ * in, a line saying so. Nothing about the account itself is shown here.
  */
-export function AccountStep({ onNext }: { onNext: () => void }) {
+export function AccountStep() {
   const { t } = useLingui();
   const state = useAuth().data?.state;
-  const signedIn = hasAccount(state);
   return (
     <>
       <StepHeader title={t`Apple Music`}>
@@ -25,7 +22,7 @@ export function AccountStep({ onNext }: { onNext: () => void }) {
           password.
         </Trans>
       </StepHeader>
-      {signedIn ? (
+      {hasAccount(state) ? (
         <div className="flex items-start gap-3 rounded-lg bg-surface p-5">
           <CircleCheck
             aria-hidden
@@ -46,19 +43,8 @@ export function AccountStep({ onNext }: { onNext: () => void }) {
           </div>
         </div>
       ) : (
-        <AccountSection />
+        <AccountSection headingLevel={2} />
       )}
-      <StepActions>
-        {signedIn ? (
-          <Button size="sm" onClick={onNext}>
-            <Trans>Continue</Trans>
-          </Button>
-        ) : (
-          <Button variant="outline" size="sm" onClick={onNext}>
-            <Trans>Not now</Trans>
-          </Button>
-        )}
-      </StepActions>
     </>
   );
 }

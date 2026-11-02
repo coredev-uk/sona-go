@@ -1,75 +1,68 @@
-import { plural } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Link } from "@tanstack/react-router";
+import { CircleCheck } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 
 import { hasAccount, useAuth } from "@/features/auth";
 import { useCdm } from "@/features/cdm";
-import { usePrivate } from "@/features/private";
-import { useSettings } from "@/features/settings";
+import { SettingsPanel } from "@/features/settings";
 import { useCapabilities } from "@/shared/lib/capabilities";
 import { Button } from "@/shared/ui/button";
 
-import { useCompleteSetup, useLeaveSetup } from "./complete";
-import { Panel, StepActions, StepHeader } from "./parts";
+import { useCompleteSetup } from "./complete";
+import { StepHeader } from "./parts";
 import { widevineShort } from "./status";
 import { widevineView, type SetupStep } from "./steps";
 
-/** One choice and its value; `action` leads back to the step that sets it. */
-function SummaryRow({
-  term,
-  value,
+/** Something the setup left undone: what, its state, and the way back to its step. */
+function LeftRow({
+  title,
+  children,
+  step,
   action,
 }: {
-  term: string;
-  value: ReactNode;
-  action?: { step: SetupStep; text: ReactNode; label: string };
+  title: string;
+  children: ReactNode;
+  step: SetupStep;
+  action: string;
 }) {
   return (
-    <div className="grid grid-cols-[9rem_minmax(0,1fr)] items-baseline gap-x-6 py-3.5 max-[960px]:grid-cols-1">
-      <dt className="text-ui font-medium text-ink">{term}</dt>
-      <dd className="flex min-w-0 items-baseline justify-between gap-6 text-ui text-ink-muted">
-        <span>{value}</span>
-        {action && (
-          <Link
-            to="/welcome"
-            search={{ step: action.step }}
-            aria-label={action.label}
-            className="shrink-0 rounded-sm text-sub underline underline-offset-2 hover:text-ink"
-          >
-            {action.text}
-          </Link>
-        )}
-      </dd>
+    <div className="flex items-center justify-between gap-8 py-4">
+      <div className="min-w-0">
+        <p className="text-ui font-medium text-ink">{title}</p>
+        <p className="mt-0.5 max-w-[56ch] text-sub text-ink-muted">{children}</p>
+      </div>
+      <Button variant="outline" size="sm" asChild>
+        <Link to="/welcome" search={{ step }}>
+          {action}
+        </Link>
+      </Button>
     </div>
   );
 }
 
 /**
- * The last step: what the setup left behind, each with the way back to
- * its step. Reaching it marks the setup finished; Done opens For you.
+ * The last step: what is still to do (signing in, a Widevine download that
+ * hasn't finished), each with the way back to its step, or that everything
+ * is ready. Reaching it marks the setup finished; Done opens For you.
  */
 export function DoneStep() {
   const { t } = useLingui();
-  const leave = useLeaveSetup();
   const complete = useCompleteSetup();
   const state = useAuth().data?.state;
   const caps = useCapabilities();
   const cdm = useCdm((s) => s.status);
-  const priv = usePrivate((s) => s.state);
-  const s = useSettings().data;
 
   // Saved once: a later run finds the setup already marked.
   useEffect(() => void complete(), [complete]);
 
   const signedIn = hasAccount(state);
-  const seconds = s?.crossfade.seconds ?? 0;
-  const appleMusic = t`Apple Music`;
-  const widevine = t`Widevine`;
-  const privateListening = t`Private listening`;
-  const soundCheck = t`Sound Check`;
-  const crossfade = t`Crossfade`;
-  const change = <Trans>Change</Trans>;
+  const view = widevineView(caps, cdm);
+  const widevine = widevineShort(view, cdm);
+  const pending = view === "waiting" || view === "downloading";
+  const failed = view === "failed";
+  const left = !signedIn || pending || failed;
+  const noPlayback = view === "unavailable" || view === "unsupported";
 
   return (
     <>
@@ -78,52 +71,52 @@ export function DoneStep() {
           Everything here can be changed in Settings, and Settings → General runs this setup again.
         </Trans>
       </StepHeader>
-      <Panel>
-        <dl className="divide-y divide-line">
-          <SummaryRow
-            term={appleMusic}
-            value={signedIn ? t`Signed in` : t`Not signed in`}
-            action={
-              signedIn
-                ? undefined
-                : {
-                    step: "account",
-                    text: <Trans>Sign in</Trans>,
-                    label: t`Sign in to Apple Music`,
-                  }
-            }
+      {left ? (
+        <section aria-labelledby="setup-left" className="flex flex-col gap-2">
+          <h2 id="setup-left" className="text-ui font-semibold text-ink">
+            <Trans>Still to do</Trans>
+          </h2>
+          <SettingsPanel>
+            {!signedIn && (
+              <LeftRow title={t`Apple Music`} step="account" action={t`Sign in`}>
+                <Trans>Not signed in. Signing in brings your library and plays whole songs.</Trans>
+              </LeftRow>
+            )}
+            {pending && (
+              <LeftRow title={t`Widevine`} step="playback" action={t`Go to Playback`}>
+                <Trans>
+                  {widevine}. Songs play once it's ready; it carries on in the background.
+                </Trans>
+              </LeftRow>
+            )}
+            {failed && (
+              <LeftRow title={t`Widevine`} step="playback" action={t`Go to Playback`}>
+                <Trans>{widevine}. Sona tries again by itself later.</Trans>
+              </LeftRow>
+            )}
+          </SettingsPanel>
+        </section>
+      ) : (
+        <div className="flex items-start gap-3 rounded-lg bg-surface p-5">
+          <CircleCheck
+            aria-hidden
+            className="mt-0.5 size-4 shrink-0 text-positive"
+            strokeWidth={1.75}
           />
-          <SummaryRow term={widevine} value={widevineShort(widevineView(caps, cdm), cdm)} />
-          <SummaryRow
-            term={privateListening}
-            value={priv ? (priv.on ? t`On` : t`Off`) : ""}
-            action={{ step: "listening", text: change, label: t`Change ${privateListening}` }}
-          />
-          {caps?.playback.soundCheck && s && (
-            <SummaryRow
-              term={soundCheck}
-              value={s.audio.soundCheck ? t`On` : t`Off`}
-              action={{ step: "listening", text: change, label: t`Change ${soundCheck}` }}
-            />
-          )}
-          {caps?.playback.crossfade && s && (
-            <SummaryRow
-              term={crossfade}
-              value={
-                s.crossfade.enabled
-                  ? t`On, ${plural(seconds, { one: "# second", other: "# seconds" })}`
-                  : t`Off`
-              }
-              action={{ step: "listening", text: change, label: t`Change ${crossfade}` }}
-            />
-          )}
-        </dl>
-      </Panel>
-      <StepActions>
-        <Button size="sm" onClick={() => void leave()}>
-          <Trans>Done</Trans>
-        </Button>
-      </StepActions>
+          <div>
+            <p className="text-ui font-medium text-ink">
+              {noPlayback ? (
+                <Trans>Playback isn't available here yet</Trans>
+              ) : (
+                <Trans>Ready to play</Trans>
+              )}
+            </p>
+            <p className="mt-0.5 text-sub text-ink-muted">
+              <Trans>Your library syncs in the background.</Trans>
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 }

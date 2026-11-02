@@ -1,6 +1,18 @@
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
+
+import { GroupHeadingLevel } from "./heading-level";
+
+/** A group's heading at the level its page needs (GroupHeadingLevel). */
+export function GroupHeading({ id, children }: { id: string; children: ReactNode }) {
+  const Tag = useContext(GroupHeadingLevel) === 2 ? "h2" : "h3";
+  return (
+    <Tag id={id} className="text-ui font-semibold text-ink">
+      {children}
+    </Tag>
+  );
+}
 
 /**
  * Every select in a row: wide enough for most values, growing with a
@@ -29,8 +41,8 @@ export function SettingsSections({ children }: { children: ReactNode }) {
 }
 
 /**
- * A named group of rows within a section: an h3 (under the section's h2)
- * over one panel, optionally with a line about the whole group.
+ * A named group of rows within a section: a heading (an h3 under the
+ * section's h2) over one panel, optionally with a line about the whole group.
  */
 export function SettingsGroup({
   id,
@@ -46,9 +58,7 @@ export function SettingsGroup({
   return (
     <section aria-labelledby={id} className="flex flex-col gap-2">
       <div>
-        <h3 id={id} className="text-ui font-semibold text-ink">
-          {title}
-        </h3>
+        <GroupHeading id={id}>{title}</GroupHeading>
         {description && (
           <div className="mt-0.5 max-w-[64ch] text-sub text-ink-muted">{description}</div>
         )}

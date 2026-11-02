@@ -7,8 +7,8 @@ import { useCapabilities } from "@/shared/lib/capabilities";
 import { run } from "@/shared/lib/run";
 import { Button } from "@/shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
-import { Switch } from "@/shared/ui/switch";
 
+import { CloseActionRow, StartupRows } from "./DesktopRows";
 import { IntegrationsDesktopRows } from "./IntegrationsRows";
 import { useSettings, useUpdateSettings } from "./queries";
 import {
@@ -123,35 +123,7 @@ export function GeneralSection() {
   return (
     <SettingsSections>
       <SettingsGroup id="general-startup" title={t`Starting Sona`}>
-        {caps?.autostart && (
-          <SettingRow
-            id="autostart"
-            title={t`Start Sona when you log in`}
-            description={t`Adds Sona to your desktop's startup applications.`}
-          >
-            <Switch
-              id="autostart"
-              aria-describedby="autostart-desc"
-              checked={d.autostart}
-              onCheckedChange={(autostart) => save({ autostart })}
-            />
-          </SettingRow>
-        )}
-        {/* Starting without a window needs the tray to open it from, and only applies at login. */}
-        {caps?.autostart && caps.tray && d.autostart && (
-          <SettingRow
-            id="start-hidden"
-            title={t`Start in the tray`}
-            description={t`At login, Sona starts without a window, ready to play from the tray or your media keys.`}
-          >
-            <Switch
-              id="start-hidden"
-              aria-describedby="start-hidden-desc"
-              checked={d.startHidden}
-              onCheckedChange={(startHidden) => save({ startHidden })}
-            />
-          </SettingRow>
-        )}
+        <StartupRows />
         <SettingRow
           id="start-page"
           title={t`Open on`}
@@ -187,31 +159,7 @@ export function GeneralSection() {
         <SetupRow />
       </SettingsGroup>
       <SettingsGroup id="general-window" title={t`Window`}>
-        {caps?.tray && (
-          <SettingRow
-            id="close-action"
-            title={t`When the window is closed`}
-            description={t`In the background, music keeps playing and Sona stays in the system tray. Open it again from the tray, your media keys' player or the app launcher.`}
-          >
-            <Select value={d.closeAction} onValueChange={(closeAction) => save({ closeAction })}>
-              <SelectTrigger
-                id="close-action"
-                aria-describedby="close-action-desc"
-                className={SELECT_WIDTH}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="background">
-                  <Trans>Keep playing in the background</Trans>
-                </SelectItem>
-                <SelectItem value="quit">
-                  <Trans>Quit Sona</Trans>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </SettingRow>
-        )}
+        <CloseActionRow />
         {caps && caps.windowControls.native === "frame" && (
           <TitleBarRow
             value={s.titleBar.style}
