@@ -91,11 +91,29 @@ describe("OnAirBoard", () => {
     const bar = within(row).getByRole("progressbar", { name: "Time through this programme" });
     expect(bar.getAttribute("aria-valuenow")).toBe("25");
     expect(bar.getAttribute("aria-valuetext")).toMatch(/45 min.* left/);
+    // The station's own hour comes between, so the show is "later", not "next".
     expect(row.textContent).toContain(
-      `Next at ${clockTime(t0 + 2 * hour)}: The Matt Wilkinson Show`,
+      `Later at ${clockTime(t0 + 2 * hour)}: The Matt Wilkinson Show`,
     );
     // The schedule's own art, not the station's.
     expect(row.querySelector("img")?.getAttribute("src")).toContain("/show.jpg");
+  });
+
+  it("counts the station's own hours down to the next named show", () => {
+    const one = station("ra.1", "Apple Music 1");
+    h.details.set("ra.1", {
+      station: one,
+      schedule: [
+        ev("Apple Music 1", t0, t0 + hour, "New music."),
+        ev("Apple Music 1", t0 + hour, t0 + 2 * hour),
+        ev("The Ebro Show", t0 + 2 * hour, t0 + 3 * hour),
+      ],
+    } as StationDetail);
+    renderBoard([one]);
+    const row = screen.getByRole("listitem");
+    expect(within(row).getByText("New music.")).toBeTruthy();
+    expect(row.textContent).toContain(`${clockTime(t0)}–${clockTime(t0 + 2 * hour)}`);
+    expect(row.textContent).toContain(`Next at ${clockTime(t0 + 2 * hour)}: The Ebro Show`);
   });
 
   it("falls back to the station's tagline for its own hours and without a schedule", () => {

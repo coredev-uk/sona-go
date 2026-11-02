@@ -127,9 +127,16 @@ function OnAirRow({
             )}
             {next && (
               <p className={cn("truncate text-meta text-ink-muted", span ? "mt-0.5" : "mt-2")}>
-                <Trans>
-                  Next at <span className="num">{nextAt}</span>: {nextTitle}
-                </Trans>
+                {span && next.startMs > span.endMs ? (
+                  // The station's own hours come between: the show isn't next.
+                  <Trans>
+                    Later at <span className="num">{nextAt}</span>: {nextTitle}
+                  </Trans>
+                ) : (
+                  <Trans>
+                    Next at <span className="num">{nextAt}</span>: {nextTitle}
+                  </Trans>
+                )}
               </p>
             )}
           </>
