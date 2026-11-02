@@ -13,13 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 
-import {
-  activeLine,
-  TrackAnnouncer,
-  useLivePosition,
-  useLyrics,
-  usePlayback,
-} from "@/features/player";
+import { SungLine, TrackAnnouncer, useLivePosition, usePlayback } from "@/features/player";
 import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
 import { useCapabilities } from "@/shared/lib/capabilities";
@@ -147,31 +141,6 @@ function Seek({ disabled, onSeek }: { disabled: boolean; onSeek: (ms: number) =>
   );
 }
 
-/** The line being sung now, when Apple has synced lyrics for the song. */
-function useLyricLine(catalogId: string): string {
-  const lyrics = useLyrics(catalogId || undefined);
-  const position = useLivePosition(250);
-  const lines = lyrics.data?.lines ?? [];
-  const synced = lyrics.data?.timing === "Line" || lyrics.data?.timing === "Word";
-  if (!synced) return "";
-  // Shown slightly early, like the lyrics view, so the eye arrives with the voice.
-  const i = activeLine(lines, position + 250);
-  return i >= 0 ? lines[i].text : "";
-}
-
-function ThirdLine({ catalogId, fallback }: { catalogId: string; fallback: string }) {
-  const line = useLyricLine(catalogId);
-  return (
-    <p
-      className={cn("truncate text-sub", line ? "text-ink" : "text-ink-faint")}
-      aria-live="off"
-      title={line || fallback}
-    >
-      {line || fallback}
-    </p>
-  );
-}
-
 /**
  * The mini player: a small always-on-top window with the cover, the song,
  * the line being sung, transport and seek. It mirrors Go's playback state
@@ -250,7 +219,7 @@ export function MiniPlayer() {
           </div>
         </div>
 
-        <div className="mt-1 min-h-[18px]">
+        <div className="min-h-[18px]">
           {notice ? (
             <p
               aria-hidden
@@ -261,7 +230,7 @@ export function MiniPlayer() {
               <span className="truncate">{notice.text}</span>
             </p>
           ) : current && !current.live && !authRequired && !noCdm && state !== "error" ? (
-            <ThirdLine catalogId={current.catalogId} fallback={third} />
+            <SungLine catalogId={current.catalogId} fallback={third} />
           ) : (
             <p className="truncate text-sub text-ink-faint">{third}</p>
           )}

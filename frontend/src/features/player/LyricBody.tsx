@@ -7,7 +7,7 @@ import type { ShownLine, ShownText } from "./lyrics";
  * (useWordSync: `data-wb`/`data-we` are the word's begin and end in ms).
  * Untimed text is plain.
  */
-function Sung({ text }: { text: ShownText }) {
+export function Sung({ text }: { text: ShownText }) {
   if (!text.words.length) return text.text;
   return text.words.map((w, i) => (
     <span key={i} className="lyric-word" data-wb={w.beginMs} data-we={w.endMs}>

@@ -2,7 +2,7 @@ import { PlaybackService, type LyricLine } from "@bindings/services";
 import { Link } from "@tanstack/react-router";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Disc3, Languages, Maximize2, MicVocal, SpellCheck, X } from "lucide-react";
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import { Backdrop } from "@/shared/components/Backdrop";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
@@ -32,7 +32,14 @@ import { LyricsTiming } from "./LyricsTiming";
 import { usePlayback } from "./playback";
 import { useAlbumMotion, useLyrics } from "./queries";
 import { useUI } from "./ui";
-import { useFollowLine, useLyricLangs, useSungLine } from "./useLyricsView";
+import {
+  lineTone,
+  useLyricLangs,
+  useSungLine,
+  useTurnPage,
+  useVerses,
+  type LineState,
+} from "./useLyricsView";
 import { useWordSync } from "./useWordSync";
 
 const Line = memo(function Line({
@@ -40,42 +47,49 @@ const Line = memo(function Line({
   index,
   line,
   state,
-  synced,
   prefs,
   langs,
   voice,
-  duet,
+  together,
+  tabbable,
+  onFocusLine,
 }: {
   songId: string;
   index: number;
   line: LyricLine;
-  state: "past" | "active" | "future";
-  synced: boolean;
+  state: LineState;
   prefs: LyricsPrefs;
   langs: LyricLangs;
   voice: Voice;
-  duet: boolean;
+  /** The first line of a passage every voice sings: it carries the "Together" cue. */
+  together: boolean;
+  tabbable: boolean;
+  onFocusLine: (index: number) => void;
 }) {
   const { t } = useLingui();
   const body = (
-    <LyricBody
-      shown={shownLine(line, prefs)}
-      langs={langs}
-      subClassName="mt-1 text-heading text-ink-muted"
-    />
+    <>
+      {together && (
+        <span className="mb-0.5 block text-meta font-medium text-ink-muted">
+          <Trans>Together</Trans>
+        </span>
+      )}
+      <LyricBody
+        shown={shownLine(line, prefs)}
+        langs={langs}
+        subClassName="mt-0.5 text-heading text-ink-muted"
+      />
+    </>
   );
-  // Word-timed lines light word by word (useWordSync); the others whole.
-  const sung = line.words.length > 0 ? "text-ink" : "text-play-ink";
+  // No colour transition between states: each line change would draw a
+  // dozen frames (docs/frontend-architecture.md, "Word-timed lyrics").
   const cls = cn(
-    "block w-full rounded-md px-3 py-2 text-start text-page text-balance transition-colors duration-150",
-    state === "active" ? sung : state === "past" ? "text-ink-muted" : "text-ink",
-    // A duet's voices sit on their own sides, clear of each other; every
-    // voice together in the middle.
-    voice === "two" && "ps-[15%] text-end",
-    voice === "one" && duet && "pe-[15%]",
-    voice === "all" && "text-center",
+    "block w-full rounded-md px-3 py-1.5 text-start text-page text-balance",
+    lineTone(state, line.words.length > 0),
+    // A duet's other voice, as a lyric sheet sets it: indented, in italic.
+    voice === "two" && "ps-[calc(0.75rem+1.5em)] italic",
   );
-  if (!synced) {
+  if (state === "plain") {
     return (
       <p dir="auto" className={cls}>
         {body}
@@ -89,6 +103,8 @@ const Line = memo(function Line({
       data-line={index}
       data-active={state === "active" || undefined}
       aria-current={state === "active" ? "true" : undefined}
+      tabIndex={tabbable ? 0 : -1}
+      onFocus={() => onFocusLine(index)}
       onClick={() => {
         const offset = useLyricsOffset.getState().offsets[songId] ?? 0;
         void run(t`Couldn't seek`, PlaybackService.Seek(seekTarget(line.beginMs, offset)));
@@ -100,6 +116,14 @@ const Line = memo(function Line({
   );
 });
 
+/** The keys that move between synced lines: one Tab stop, the arrows inside. */
+const LINE_KEYS: Record<string, (i: number, last: number) => number> = {
+  ArrowDown: (i, last) => Math.min(i + 1, last),
+  ArrowUp: (i) => Math.max(i - 1, 0),
+  Home: () => 0,
+  End: (_, last) => last,
+};
+
 function LyricsPane({ catalogId }: { catalogId: string }) {
   const lyrics = useLyrics(catalogId);
   const translation = useLyricsPrefs((s) => s.translation);
@@ -108,18 +132,20 @@ function LyricsPane({ catalogId }: { catalogId: string }) {
 
   const lines = useMemo(() => lyrics.data?.lines ?? [], [lyrics.data]);
   const synced = isSynced(lyrics.data);
-  const active = useSungLine(catalogId, lines, synced);
+  const { active, anchor } = useSungLine(catalogId, lines, synced);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const userScrolled = useFollowLine(scrollRef, active);
+  const userScrolled = useTurnPage(scrollRef, anchor);
   useWordSync(scrollRef, catalogId, lines, hasWordTiming(lyrics.data), prefs);
   const voices = useMemo(() => lineVoices(lines), [lines]);
   const duet = voices.includes("two");
+  const verses = useVerses(lines, synced);
   const langs = useLyricLangs(lyrics.data);
+  const [focused, setFocused] = useState(-1);
   const { t } = useLingui();
 
   if (lyrics.isPending) {
     return (
-      <div aria-busy className="flex flex-col gap-5 px-3 pt-24">
+      <div aria-busy className="flex flex-col gap-5 px-3 pt-[14vh]">
         {[72, 56, 64, 40, 60].map((w, i) => (
           <div key={i} className="h-6 rounded-sm bg-ink/8" style={{ width: `${w}%` }} />
         ))}
@@ -148,28 +174,58 @@ function LyricsPane({ catalogId }: { catalogId: string }) {
     netease: t`NetEase Cloud Music`,
   };
   const source = sources[lyrics.data?.provider ?? ""] ?? "";
+  // The line Tab lands on: the one focused last, else the one being sung.
+  const tabStop = focused >= 0 ? focused : Math.max(anchor, 0);
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const to = LINE_KEYS[e.key];
+    if (!to || !synced) return;
+    const buttons = [...e.currentTarget.querySelectorAll<HTMLElement>("button[data-line]")];
+    const i = buttons.findIndex((b) => b === document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    userScrolled();
+    buttons[to(i, buttons.length - 1)].focus();
+  };
 
   return (
     <div
       ref={scrollRef}
+      role="group"
+      aria-label={t`Lyrics`}
+      // Plain lyrics hold no buttons: the sheet itself takes focus to scroll.
+      tabIndex={synced ? undefined : 0}
       onWheel={userScrolled}
       onTouchMove={userScrolled}
-      className="no-scrollbar h-full overflow-y-auto py-[35vh] pr-2"
-      aria-label={t`Lyrics`}
+      onKeyDown={onKeyDown}
+      className="no-scrollbar h-full overflow-y-auto lyrics-fade pe-2 pt-[14vh] pb-[70vh] focus-visible:outline-offset-[-2px]"
     >
-      {lines.map((line, i) => (
-        <Line
-          key={i}
-          songId={catalogId}
-          index={i}
-          line={line}
-          synced={synced}
-          state={!synced || i > active ? "future" : i === active ? "active" : "past"}
-          prefs={prefs}
-          langs={langs}
-          voice={voices[i]}
-          duet={duet}
-        />
+      {verses.map((verse, v) => (
+        <div key={v} data-verse className={cn(v > 0 && "mt-8")}>
+          {verse.map((i) => (
+            <Line
+              key={i}
+              songId={catalogId}
+              index={i}
+              line={lines[i]}
+              state={
+                !synced
+                  ? "plain"
+                  : i === active
+                    ? "active"
+                    : i < Math.max(active, anchor)
+                      ? "past"
+                      : "future"
+              }
+              prefs={prefs}
+              langs={langs}
+              voice={voices[i]}
+              together={duet && voices[i] === "all" && voices[i - 1] !== "all"}
+              tabbable={i === tabStop}
+              onFocusLine={setFocused}
+            />
+          ))}
+        </div>
       ))}
       {!!writers && (
         <p className="mt-10 px-3 text-sub text-ink-muted">
@@ -399,7 +455,7 @@ export function NowPlayingView() {
         </div>
         {lyricsOn && (
           <div className="h-full min-h-0">
-            <LyricsPane catalogId={current.catalogId} />
+            <LyricsPane key={current.catalogId} catalogId={current.catalogId} />
           </div>
         )}
       </div>

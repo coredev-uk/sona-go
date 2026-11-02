@@ -5,7 +5,10 @@ import {
   lineSpan,
   lineVoices,
   nextChange,
+  restFrom,
   singingLines,
+  sungLine,
+  verseStarts,
   wordProgress,
   wordState,
 } from "./lyric-words";
@@ -55,6 +58,16 @@ describe("wordState", () => {
     expect(wordState(w, 999, false).sung).toBe("");
     expect(wordState(w, 1_000, false)).toEqual({ sung: "done", p: 1 });
     expect(wordState(w, 1_500, false)).toEqual({ sung: "done", p: 1 });
+  });
+
+  it("fills only held notes: a short word lights whole as it begins", () => {
+    const short = { beginMs: 1_000, endMs: 1_599 };
+    expect(wordState(short, 999, true).sung).toBe("");
+    expect(wordState(short, 1_000, true)).toEqual({ sung: "done", p: 1 });
+    expect(wordState({ beginMs: 1_000, endMs: 1_600 }, 1_300, true)).toEqual({
+      sung: "part",
+      p: 0.5,
+    });
   });
 
   it("follows the clock back after a seek", () => {
@@ -118,10 +131,22 @@ describe("singingLines", () => {
     expect(singingLines(spans, 4_500)).toEqual([2]);
   });
 
-  it("keeps the last line lit through a gap until the next begins", () => {
+  it("keeps the last line lit through a short gap until the next begins", () => {
     expect(singingLines(spans, 7_000)).toEqual([2]);
     expect(singingLines(spans, 8_000)).toEqual([3]);
-    expect(singingLines(spans, 60_000)).toEqual([3]);
+  });
+
+  it("lets a line go once the voice rests after it", () => {
+    // The last line is followed by a rest: lit until its end and a grace.
+    expect(singingLines(spans, 9_499)).toEqual([3]);
+    expect(singingLines(spans, 9_500)).toEqual([]);
+    const brk = [
+      { beginMs: 0, endMs: 2_000 },
+      { beginMs: 5_000, endMs: 6_000 },
+    ];
+    expect(singingLines(brk, 2_499)).toEqual([0]);
+    expect(singingLines(brk, 2_500)).toEqual([]);
+    expect(singingLines(brk, 5_000)).toEqual([1]);
   });
 
   it("follows a seek backwards and forwards", () => {
@@ -151,12 +176,85 @@ describe("nextChange", () => {
   it("is Infinity once everything is sung", () => {
     expect(nextChange(spans, [1], [word(5_000, 6_000)], 7_000)).toBe(Infinity);
   });
+
+  it("wakes when the voice rests after the line", () => {
+    expect(nextChange(spans, [0], [word(0, 800)], 2_100)).toBe(2_500);
+  });
+});
+
+describe("restFrom", () => {
+  it("is the line's end plus a grace when a break follows", () => {
+    const spans = [
+      { beginMs: 0, endMs: 2_000 },
+      { beginMs: 4_999, endMs: 6_000 },
+      { beginMs: 9_000, endMs: 10_000 },
+    ];
+    expect(restFrom(spans, 0)).toBe(Infinity); // 2.999 s: no break
+    expect(restFrom(spans, 1)).toBe(6_500); // 3 s: a break
+    expect(restFrom(spans, 2)).toBe(10_500); // the last line
+  });
+
+  it("never rests on a line without an end", () => {
+    expect(restFrom([{ beginMs: 1_000, endMs: 0 }], 0)).toBe(Infinity);
+  });
+});
+
+describe("sungLine", () => {
+  const spans = [
+    { beginMs: 1_000, endMs: 2_000 },
+    { beginMs: 2_100, endMs: 3_000 },
+    { beginMs: 8_000, endMs: 9_000 },
+  ];
+
+  it("anchors the first line before anything is sung", () => {
+    expect(sungLine(spans, 0)).toEqual({ active: -1, anchor: 0, next: 1_000 });
+    expect(sungLine([], 0)).toEqual({ active: -1, anchor: -1, next: Infinity });
+  });
+
+  it("is the last line begun, waking at the next line", () => {
+    expect(sungLine(spans, 1_500)).toEqual({ active: 0, anchor: 0, next: 2_100 });
+  });
+
+  it("lights nothing in a break and anchors the line coming", () => {
+    expect(sungLine(spans, 3_400)).toEqual({ active: 1, anchor: 1, next: 3_500 });
+    expect(sungLine(spans, 3_500)).toEqual({ active: -1, anchor: 2, next: 8_000 });
+    expect(sungLine(spans, 8_000)).toEqual({ active: 2, anchor: 2, next: 9_500 });
+    expect(sungLine(spans, 9_500)).toEqual({ active: -1, anchor: 2, next: Infinity });
+  });
+});
+
+describe("verseStarts", () => {
+  const l = (part = "") => ({ part });
+
+  it("opens a verse after a break or where the song part changes", () => {
+    const spans = [
+      { beginMs: 0, endMs: 1_000 },
+      { beginMs: 1_200, endMs: 2_000 },
+      { beginMs: 5_000, endMs: 6_000 },
+      { beginMs: 6_100, endMs: 7_000 },
+    ];
+    expect(verseStarts([l(), l(), l(), l()], spans)).toEqual([false, false, true, false]);
+    expect(verseStarts([l("Verse"), l("Chorus"), l("Chorus"), l("Chorus")], spans)).toEqual([
+      false,
+      true,
+      true,
+      false,
+    ]);
+  });
+
+  it("finds no breaks in lines without ends", () => {
+    const spans = [
+      { beginMs: 0, endMs: 0 },
+      { beginMs: 9_000, endMs: 0 },
+    ];
+    expect(verseStarts([l(), l()], spans)).toEqual([false, false]);
+  });
 });
 
 describe("lineVoices", () => {
   const l = (agent: string, agentType = "person") => ({ agent, agentType });
 
-  it("puts a duet's second voice on the other side and groups in the middle", () => {
+  it("tells a duet's other voices and every voice together from the lead", () => {
     expect(lineVoices([l("v1"), l("v2", "other"), l("v1000", "group"), l("v1")])).toEqual([
       "one",
       "two",

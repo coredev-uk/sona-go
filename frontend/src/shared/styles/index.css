@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@fontsource-variable/schibsted-grotesk";
+/* The italic sets a duet's second voice in the lyrics (docs/design.md, Lyrics). */
+@import "@fontsource-variable/schibsted-grotesk/wght-italic.css";
 
 /* Tokens: see docs/design.md. Light is the default; `.dark` on <html> is set
    by the appearance store from the theme setting or prefers-color-scheme.
@@ -207,7 +209,32 @@
   }
 }
 
-/* The now-playing equaliser glyph (components/tracks/Equaliser). */
+/* The lyric sheets fade out over their top and bottom edges (--fade), so
+   a line leaving the view never shows clipped glyphs. A mask, not a blur:
+   nothing is drawn for it while the sheet holds still. */
+@utility lyrics-fade {
+  --fade: 3rem;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade),
+    #000 calc(100% - var(--fade)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade),
+    #000 calc(100% - var(--fade)),
+    transparent
+  );
+}
+
+/* The now-playing equaliser glyph (shared/tracks/Equaliser). Its bars move
+   in three steps, not smoothly: a smooth loop drew 60 frames a second for
+   as long as a song played, a full core of the web process and two thirds
+   of the UI process's with the playing song in a list (docs/design.md,
+   Motion); stepped it draws about ten. */
 .eq-bar {
   width: 3px;
   border-radius: 1px;
@@ -215,7 +242,7 @@
   transform-origin: bottom;
 }
 .eq-live .eq-bar {
-  animation: eq 900ms var(--ease-out) infinite alternate;
+  animation: eq 900ms steps(3, jump-none) infinite alternate;
 }
 .eq-live .eq-bar:nth-child(2) {
   animation-delay: -300ms;
@@ -233,15 +260,15 @@
 }
 
 /* Word-timed lyrics (features/player/useWordSync). A sung word is amber;
-   the word being sung is filled with amber from its start to --p (0–1,
-   written per frame by the word loop) over its own colour, with a soft
-   0.3em edge. Under reduced motion the loop lights words whole and never
-   sets "part". */
+   a held note being sung is filled with amber from its start to --p (0–1,
+   stepped by the word loop's timer, about 12 times a second) over its own
+   colour, with a soft 0.5em edge that hides the steps. Under reduced
+   motion the loop lights words whole and never sets "part". */
 .lyric-word[data-sung="done"] {
   color: var(--amber-ink);
 }
 .lyric-word[data-sung="part"] {
-  --edge: 0.3em;
+  --edge: 0.5em;
   background-image: linear-gradient(
     to right,
     var(--amber-ink) calc(var(--p, 0) * (100% + var(--edge)) - var(--edge)),

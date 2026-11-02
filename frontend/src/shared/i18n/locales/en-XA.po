@@ -1543,12 +1543,9 @@ msgid "Couldn't load the live stations"
 msgstr ""
 
 #: src/features/player/NowPlayingView.tsx
+#: src/features/player/RoomLyrics.tsx
 #: src/features/song/SongPage.tsx
 msgid "Couldn't load the lyrics"
-msgstr ""
-
-#: src/features/player/RoomLyrics.tsx
-msgid "Couldn't load the lyrics."
 msgstr ""
 
 #: src/features/discover/players.ts
@@ -5942,6 +5939,11 @@ msgstr ""
 
 #: src/features/library/history.ts
 msgid "Today"
+msgstr ""
+
+#: src/features/player/NowPlayingView.tsx
+#: src/features/player/RoomLyrics.tsx
+msgid "Together"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx

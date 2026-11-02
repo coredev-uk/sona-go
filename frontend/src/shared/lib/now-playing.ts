@@ -6,9 +6,18 @@ export interface NowPlaying {
   current: QueueItem | null;
   /** Playing or loading: the equaliser moves. */
   playing: boolean;
+  /**
+   * The page and the queue are covered by the Now Playing view or
+   * full-screen lyrics: nothing under them needs to move.
+   */
+  covered: boolean;
 }
 
-export const NowPlayingContext = createContext<NowPlaying>({ current: null, playing: false });
+export const NowPlayingContext = createContext<NowPlaying>({
+  current: null,
+  playing: false,
+  covered: false,
+});
 
 export function useNowPlaying(): NowPlaying {
   return useContext(NowPlayingContext);

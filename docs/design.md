@@ -115,7 +115,7 @@ It is the recommended setting on software rendering (`WEBKIT_DISABLE_COMPOSITING
 
 - TanStack Virtual for any list that can exceed ~200 rows (library songs, albums, artists, long playlists). The content pane is the scroll element, so the shell never scrolls.
 - Fixed row heights (44px, or the grid's computed row height) so virtualisation never measures.
-- The playing track's row is marked in place wherever it appears: its index is replaced by an amber equaliser glyph and its title takes `--amber-ink`. It keeps that mark while the list scrolls or re-sorts.
+- The playing track's row is marked in place wherever it appears: its index is replaced by an amber equaliser glyph and its title takes `--amber-ink`. It keeps that mark while the list scrolls or re-sorts. The glyph's bars move in three steps (a smooth loop held a full core of the web process for as long as a song played), and hold still while paused and while the Now Playing view or full-screen lyrics cover the list.
 
 ## Home
 
@@ -328,12 +328,18 @@ About Radiohead: the whole biography (32rem) │ From · Born or formed · Genre
 
 ## Lyrics
 
-The now-playing view's lyrics column and full-screen lyrics share one treatment (`features/player/LyricBody.tsx`).
+A lyric sheet, the insert in a record's sleeve: the words set in verses down one column in the house type, with amber marking only where the voice is. The now-playing view's lyrics column and full-screen lyrics share it (`features/player/LyricBody.tsx`, `useLyricsView.ts`); the mini player shows the line being sung (`SungLine.tsx`).
 
-- **The sung line is amber.** Line-timed lyrics light the whole line in `--amber-ink`. Word-timed lyrics keep the sung line in `--ink` and fill each word with `--amber-ink` as the voice reaches it, in the reading direction, with a soft 0.3em edge; sung words stay lit until the next line begins. Earlier lines are `--ink-muted` (`--ink-faint` full screen), later ones `--ink`.
+- **One sung line.** The sung line is the only line in `--ink` (timed by line only, it is `--amber-ink` itself); earlier lines are `--ink-faint`, later ones `--ink-muted`, plain lyrics `--ink`. Word-timed lyrics light each word `--amber-ink` as the voice reaches it. Short words light whole as they begin; held notes (600 ms or longer) fill in the reading direction, stepped about 12 times a second behind a soft 0.5em edge. Lines change colour without a transition.
+- **Verses.** A pause of 3 s or more between one line's end and the next, or a change of the song part the lyrics name (Apple's "Verse", "Chorus"), starts a verse: a 32px gap in the column, 0.9em full screen. While the voice rests in a break (from 0.5 s after the line's end) nothing is lit.
+- **The sheet turns; it doesn't crawl.** While the sung line sits in the reading band (14–72% of the sheet's height) nothing moves. When it leaves, the sheet scrolls once so its verse starts at the band's top (the line itself when the verse is taller than the band); in a break it turns to the verse coming. Smooth, or a jump under reduced motion; a wheel, touch or key scroll by the user is left alone for 4 s.
+- **Edges.** The sheet fades out over its top and bottom edges (3rem in the column, 12vh full screen), a mask, so a line leaving the view never shows clipped glyphs. It draws nothing while the sheet holds still.
 - **Under each line**, smaller and in `--ink-muted`, each on its own line: the background vocals (600: they are sung, and they light on their own timing, so they can still be filling under the next line), then, when switched on in the view's bar, the romanisation (400, lit like the line when it is word-timed) and the translation (400) in the language chosen in Settings → Playback → Lyrics.
-- **Duets.** When two or more voices take lines, the first to sing sits at the start and the others at the end, each kept 15% clear of the other's side (full screen: the 22ch column moves across); lines every voice sings together are centred. A song with one voice is laid out as before.
-- **Motion.** The fill is the only thing that moves each frame, and only while a word is being sung (CPU: `docs/frontend-architecture.md`, "Word-timed lyrics"). Under `prefers-reduced-motion` or reduce effects each word lights whole as it begins, without a fill.
+- **Duets**, as a lyric sheet sets them, from one reading edge: the second voice is indented 1.5em and set in italic; lines every voice sings stay at the margin, upright, the first of each such passage headed "Together" in meta type, `--ink-muted`. Never voices on opposite sides of the screen.
+- **Full screen**: room type (`clamp(36px, 4.4vw, 84px)`, 700, -0.02em), the sheet a 24ch column centred on the screen, the song and the timing nudge in the quiet strip at the foot. A failed load is the usual error block with Retry.
+- **The mini player** puts the sung line in the album's place: up to two lines at 13/18 in `--ink` after the 12px lyrics glyph, its words lit whole in `--amber-ink` (no fill: a glance needs no frames). Before the first line, in breaks and for songs without synced lyrics it shows the album in `--ink-faint`. It keeps the main window's per-song timing.
+- **Keyboard.** In the column the lines are one Tab stop (the sung line, or the one focused last): ↑/↓ move, Home/End go to the ends, Enter or Space seeks there.
+- **Motion and cost.** Nothing runs a frame loop: the words change on timers (`docs/frontend-architecture.md`, "Word-timed lyrics"). Under `prefers-reduced-motion` or reduce effects every word lights whole as it begins.
 
 ### Radio
 

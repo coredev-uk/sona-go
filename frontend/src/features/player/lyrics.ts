@@ -79,7 +79,8 @@ interface LyricsOffsetStore {
  * Per-song lyrics offsets for this session. A misaligned lyrics file is a
  * property of the song, so the offset stays with it: a new song starts in
  * sync, and going back to a song keeps what was set for it. Nothing is
- * stored across restarts.
+ * stored across restarts. The windows share them (shareOffsets), so the
+ * mini player's line keeps the timing set in the main window.
  */
 export const useLyricsOffset = create<LyricsOffsetStore>((set) => ({
   offsets: {},
@@ -87,6 +88,34 @@ export const useLyricsOffset = create<LyricsOffsetStore>((set) => ({
     set((s) => ({ offsets: { ...s.offsets, [songId]: nudgeOffset(s.offsets[songId] ?? 0, dir) } })),
   reset: (songId) => set((s) => ({ offsets: { ...s.offsets, [songId]: 0 } })),
 }));
+
+/**
+ * Carries the offsets between Sona's windows: each change goes to the
+ * others whole, and a window that opens later (the mini player) asks for
+ * them once.
+ */
+function shareOffsets() {
+  if (typeof BroadcastChannel === "undefined") return;
+  const channel = new BroadcastChannel("sona.lyrics-offsets");
+  // Node's channel (tests) would otherwise keep the process alive.
+  if ("unref" in channel && typeof channel.unref === "function") channel.unref();
+  let applying = false;
+  channel.onmessage = (e: MessageEvent<{ ask?: boolean; offsets?: Record<string, number> }>) => {
+    const { offsets } = useLyricsOffset.getState();
+    if (e.data.ask) {
+      if (Object.keys(offsets).length) channel.postMessage({ offsets });
+    } else if (e.data.offsets) {
+      applying = true;
+      useLyricsOffset.setState({ offsets: { ...offsets, ...e.data.offsets } });
+      applying = false;
+    }
+  };
+  useLyricsOffset.subscribe((s, prev) => {
+    if (!applying && s.offsets !== prev.offsets) channel.postMessage({ offsets: s.offsets });
+  });
+  channel.postMessage({ ask: true });
+}
+shareOffsets();
 
 /** The lyrics offset of `songId` (0 when none is set). */
 export function useSongOffset(songId: string): number {

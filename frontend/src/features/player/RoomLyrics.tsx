@@ -6,6 +6,7 @@ import { memo, useEffect, useMemo, useRef, type KeyboardEvent, type ReactNode } 
 
 import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
+import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { callFailure } from "@/shared/lib/errors";
 import { cn } from "@/shared/lib/utils";
 import { useBinding } from "@/shared/shortcuts/bindings";
@@ -19,7 +20,14 @@ import { LyricsTiming } from "./LyricsTiming";
 import { usePlayback } from "./playback";
 import { useLyrics } from "./queries";
 import { useUI } from "./ui";
-import { useFollowLine, useLyricLangs, useSungLine } from "./useLyricsView";
+import {
+  lineTone,
+  useLyricLangs,
+  useSungLine,
+  useTurnPage,
+  useVerses,
+  type LineState,
+} from "./useLyricsView";
 import { useWordSync } from "./useWordSync";
 
 /**
@@ -36,16 +44,16 @@ const RoomLine = memo(function RoomLine({
   prefs,
   langs,
   voice,
+  together,
 }: {
   index: number;
   line: LyricLine;
-  state: "past" | "active" | "future" | "plain";
+  state: LineState;
   prefs: LyricsPrefs;
   langs: LyricLangs;
   voice: Voice;
+  together: boolean;
 }) {
-  // Word-timed lines light word by word (useWordSync); the others whole.
-  const sung = line.words.length > 0 ? "text-ink" : "text-play-ink";
   return (
     <p
       dir="auto"
@@ -53,19 +61,17 @@ const RoomLine = memo(function RoomLine({
       data-active={state === "active" || undefined}
       aria-current={state === "active" ? "true" : undefined}
       className={cn(
-        "max-w-[22ch] py-[0.22em] transition-colors duration-200 ease-out",
-        state === "active"
-          ? sung
-          : state === "past"
-            ? "text-ink-faint"
-            : state === "plain"
-              ? "text-ink"
-              : "text-ink-muted",
-        // A duet's second voice on the other side, every voice together in the middle.
-        voice === "two" && "ms-auto text-end",
-        voice === "all" && "mx-auto text-center",
+        "py-[0.2em]",
+        lineTone(state, line.words.length > 0),
+        // A duet's other voice: indented, in italic.
+        voice === "two" && "ps-[1.5em] italic",
       )}
     >
+      {together && (
+        <span className="mb-[0.1em] block text-[0.3em] leading-[1.3] font-medium tracking-normal text-ink-muted">
+          <Trans>Together</Trans>
+        </span>
+      )}
       <LyricBody
         shown={shownLine(line, prefs)}
         langs={langs}
@@ -85,20 +91,28 @@ function RoomLines({ catalogId }: { catalogId: string }) {
   const prefs = useMemo(() => ({ translation, pronunciation }), [translation, pronunciation]);
   const lines = useMemo(() => lyrics.data?.lines ?? [], [lyrics.data]);
   const synced = isSynced(lyrics.data);
-  const active = useSungLine(catalogId, lines, synced);
+  const { active, anchor } = useSungLine(catalogId, lines, synced);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const userScrolled = useFollowLine(scrollRef, active);
+  const userScrolled = useTurnPage(scrollRef, anchor);
   useWordSync(scrollRef, catalogId, lines, hasWordTiming(lyrics.data), prefs);
   const voices = useMemo(() => lineVoices(lines), [lines]);
+  const duet = voices.includes("two");
+  const verses = useVerses(lines, synced);
   const langs = useLyricLangs(lyrics.data);
   const { t } = useLingui();
 
   if (lyrics.isPending) return <div aria-busy aria-label={t`Loading lyrics`} className="flex-1" />;
   if (lyrics.error && callFailure(lyrics.error).code !== "not_found") {
     return (
-      <RoomMessage>
-        <Trans>Couldn't load the lyrics.</Trans>
-      </RoomMessage>
+      <div className="relative flex min-h-0 flex-1 items-center justify-center px-[7vw]">
+        <ErrorBlock
+          className="w-full max-w-xl"
+          title={t`Couldn't load the lyrics`}
+          error={lyrics.error}
+          onRetry={() => void lyrics.refetch()}
+          retrying={lyrics.isRefetching}
+        />
+      </div>
     );
   }
   if (!lines.length)
@@ -113,33 +127,51 @@ function RoomLines({ catalogId }: { catalogId: string }) {
       ref={scrollRef}
       onWheel={userScrolled}
       onTouchMove={userScrolled}
-      // Focusable so the arrow keys can scroll plain-text lyrics.
+      onKeyDown={userScrolled}
+      // Focusable so the arrow keys can scroll the sheet.
       tabIndex={0}
+      role="group"
       aria-label={t`Lyrics`}
       className={cn(
-        "relative no-scrollbar min-h-0 flex-1 overflow-y-auto px-[7vw] py-[38vh] focus-visible:outline-offset-[-6px]",
+        "relative no-scrollbar min-h-0 flex-1 overflow-y-auto lyrics-fade px-[7vw] pt-[12vh] pb-[70vh] [--fade:12vh] focus-visible:outline-offset-[-6px]",
         ROOM_TYPE,
       )}
     >
-      {lines.map((line, i) => (
-        <RoomLine
-          key={i}
-          index={i}
-          line={line}
-          prefs={prefs}
-          langs={langs}
-          voice={voices[i]}
-          state={!synced ? "plain" : i > active ? "future" : i === active ? "active" : "past"}
-        />
-      ))}
+      {/* One sheet down the middle of the screen, read from one edge. */}
+      <div className="mx-auto max-w-[24ch]">
+        {verses.map((verse, v) => (
+          <div key={v} data-verse className={cn(v > 0 && "mt-[0.9em]")}>
+            {verse.map((i) => (
+              <RoomLine
+                key={i}
+                index={i}
+                line={lines[i]}
+                prefs={prefs}
+                langs={langs}
+                voice={voices[i]}
+                together={duet && voices[i] === "all" && voices[i - 1] !== "all"}
+                state={
+                  !synced
+                    ? "plain"
+                    : i === active
+                      ? "active"
+                      : i < Math.max(active, anchor)
+                        ? "past"
+                        : "future"
+                }
+              />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 function RoomMessage({ children }: { children: ReactNode }) {
   return (
-    <div className="relative flex min-h-0 flex-1 items-center px-[7vw]">
-      <p className={cn(ROOM_TYPE, "text-ink-muted")}>{children}</p>
+    <div className="relative flex min-h-0 flex-1 items-center justify-center px-[7vw]">
+      <p className={cn(ROOM_TYPE, "max-w-[24ch] text-ink-muted")}>{children}</p>
     </div>
   );
 }

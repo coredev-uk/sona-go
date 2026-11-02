@@ -92,6 +92,8 @@ change keeps and how to check them.
 - Lyrics are not a live region. Each synced line in Now Playing is one
   button (Enter seeks to it) named by its whole text: the words, the
   background vocals and the romanisation and translation when shown. The
+  lines are one Tab stop in a "Lyrics" group (the sung line, or the one
+  focused last): ↑/↓ move between them, Home/End go to the ends. The
   sung line carries `aria-current`; word-by-word lighting changes only
   attributes and styles on spans inside it, so nothing is announced or
   re-read per word. Each line has `dir="auto"` and its parts their own

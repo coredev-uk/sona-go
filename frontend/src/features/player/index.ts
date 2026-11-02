@@ -13,10 +13,9 @@ import { useUI } from "./ui";
 export { playSongs, queueItems, shuffleSongs, type PlaySource } from "./commands";
 /** Starting a new queue (a station, the library): asks or offers Undo over a long user queue. */
 export { replaceQueue } from "./replace";
-/** The playback mirror, lyrics and track announcements, for a second window (the mini player). */
+/** The playback mirror, the sung line and track announcements, for a second window (the mini player). */
 export { livePosition, useLivePosition, usePlayback } from "./playback";
-export { activeLine } from "./lyrics";
-export { useLyrics } from "./queries";
+export { SungLine } from "./SungLine";
 export { TrackAnnouncer } from "./TrackAnnouncer";
 
 /**
