@@ -655,8 +655,12 @@ the same as one of Apple's web strings (docs/frontend-architecture.md,
 those messages (English msgid and context) to Apple's string keys, with
 placeholder renames; `apple-keys-rejected.json` lists reviewed matches that
 do not hold in Sona's context, with the reason. Neither file holds Apple's
-text, and Apple's bundles are never committed: `cmd/i18ntool` fetches them
-from music.apple.com on every run.
+text, and Apple's text is never committed or bundled: the app fetches
+Apple's bundles from music.apple.com at run time and caches them
+(`internal/i18n/applestrings`), and `cmd/i18ntool` fetches them on every
+run. The mapping is built into the app, and
+`go test ./internal/i18n/applestrings` fails when it no longer fits `en.po`
+(a mapped message changed or removed: re-run `match`).
 
 Before writing new English copy, check Apple's wording (its en-GB strings,
 keys like `ASE.Web.Music.*`) and use it where the meaning matches. After
@@ -687,18 +691,22 @@ announces a dialog). `match` also fails when a mapped key has gone from
 Apple's en-GB bundle and notes mappings whose English no longer matches.
 
 ```sh
-go run ./cmd/i18ntool import    # Apple's translations, every locale
+go run ./cmd/i18ntool import    # what the app would get, every locale
 ```
 
 `import` finds each locale's bundle from music.apple.com's current index
-script, converts `@@name@@` placeholders to Sona's `{name}` and Apple's
-`.one`/`.other`/… keys to ICU plurals, and writes
-`frontend/src/shared/i18n/apple/<locale>.po` (each entry tagged
-`#. apple-key: …`) plus `completeness.json`, with a per-locale summary
-(mapped keys found, missing, coverage of Sona's messages). It fails when a
-mapped key has gone from en-GB. Both outputs are gitignored until it is
-decided whether Apple's translated text may be committed.
-`go run ./cmd/i18ntool completeness` recounts after a catalogue changes.
+script and runs the app's conversion and checks: `@@name@@` placeholders
+become Sona's `{name}`, Apple's `.one`/`.other`/… keys ICU plurals, and a
+message whose placeholders do not agree with Sona's is refused. It writes
+`frontend/src/shared/i18n/apple/<locale>.po` (gitignored, each entry tagged
+`#. apple-key: …`) for review in context, with a per-locale summary (mapped
+keys found, missing or refused, coverage of Sona's messages) and each
+refusal's reason. It fails when a mapped key has gone from en-GB. The app
+never reads these files.
+
+To see Apple's strings in the app while a locale is below the 90% it needs
+(`selectableShare` in `frontend/src/shared/i18n/locale.ts`), lower that
+value in a local build only; the cache is `$XDG_CACHE_HOME/sona/strings`.
 
 ## Design rules
 

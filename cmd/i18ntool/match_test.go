@@ -3,7 +3,19 @@ package main
 import (
 	"maps"
 	"testing"
+
+	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
+	"github.com/coredev-uk/sona-go/internal/i18n/po"
 )
+
+func mustSona(t *testing.T, id string) applestrings.Message {
+	t.Helper()
+	m, ok := applestrings.ParseSona(id)
+	if !ok {
+		t.Fatalf("ParseSona(%q) not ok", id)
+	}
+	return m
+}
 
 func TestCompareKinds(t *testing.T) {
 	cases := []struct {
@@ -20,7 +32,7 @@ func TestCompareKinds(t *testing.T) {
 		{"Sign  in", "Sign\u00a0In", matchNormalised, map[string]string{}},
 	}
 	for _, c := range cases {
-		apple, _ := appleMessage(appleBundle{"K": c.apple}, "K", false)
+		apple, _ := applestrings.AppleMessage(applestrings.Bundle{"K": c.apple}, "K", false)
 		kind, renames, ok := compare(mustSona(t, c.sona), apple)
 		if !ok || kind != c.kind || !maps.Equal(renames, c.renames) {
 			t.Errorf("compare(%q, %q) = %q %v %v; want %q %v", c.sona, c.apple, kind, renames, ok, c.kind, c.renames)
@@ -37,7 +49,7 @@ func TestCompareRejects(t *testing.T) {
 		{"Add to playlist", "Add to the playlist"},
 	}
 	for _, c := range cases {
-		apple, _ := appleMessage(appleBundle{"K": c.apple}, "K", false)
+		apple, _ := applestrings.AppleMessage(applestrings.Bundle{"K": c.apple}, "K", false)
 		if kind, _, ok := compare(mustSona(t, c.sona), apple); ok {
 			t.Errorf("compare(%q, %q) = %q, want no match", c.sona, c.apple, kind)
 		}
@@ -45,22 +57,22 @@ func TestCompareRejects(t *testing.T) {
 }
 
 func TestComparePluralForms(t *testing.T) {
-	b := appleBundle{"N.one": "@@count@@ Song", "N.other": "@@count@@ Songs", "Z.zero": "No Songs", "Z.one": "@@count@@ Song", "Z.other": "@@count@@ Songs"}
+	b := applestrings.Bundle{"N.one": "@@count@@ Song", "N.other": "@@count@@ Songs", "Z.zero": "No Songs", "Z.one": "@@count@@ Song", "Z.other": "@@count@@ Songs"}
 	sona := mustSona(t, "{n, plural, one {# song} other {# songs}}")
-	apple, _ := appleMessage(b, "N", true)
+	apple, _ := applestrings.AppleMessage(b, "N", true)
 	kind, renames, ok := compare(sona, apple)
 	if !ok || kind != matchNormalised || renames["count"] != "n" {
 		t.Fatalf("compare = %q %v %v", kind, renames, ok)
 	}
 	// Different categories (Apple adds a zero form): no match.
-	apple, _ = appleMessage(b, "Z", true)
+	apple, _ = applestrings.AppleMessage(b, "Z", true)
 	if _, _, ok := compare(sona, apple); ok {
 		t.Fatal("matched despite different categories")
 	}
 }
 
 func TestIndexMatchPrefersExactThenAppleMusicKeys(t *testing.T) {
-	ix := indexBundle(appleBundle{
+	ix := indexBundle(applestrings.Bundle{
 		"FUSE.Library":                  "Library",
 		"ASE.Web.Platform.Shared.Lib":   "Library",
 		"ASE.Web.Music.Side.Library":    "Library",
@@ -92,15 +104,15 @@ func TestIndexMatchPrefersExactThenAppleMusicKeys(t *testing.T) {
 }
 
 func TestMatchAllSkipsMappedAndRejected(t *testing.T) {
-	sona := &sonaCatalogue{parsed: map[msgKey]message{}}
+	sona := &sonaCatalogue{parsed: map[po.Key]applestrings.Message{}}
 	for _, id := range []string{"Play", "Pause", "Home", "Queue"} {
-		e := &poEntry{ID: id}
+		e := &po.Entry{ID: id}
 		sona.entries = append(sona.entries, e)
-		sona.parsed[e.key()] = mustSona(t, id)
+		sona.parsed[e.Key()] = mustSona(t, id)
 	}
-	ix := indexBundle(appleBundle{"A.Play": "Play", "A.Pause": "Pause", "A.Home": "Home", "B.Home": "Home"})
+	ix := indexBundle(applestrings.Bundle{"A.Play": "Play", "A.Pause": "Pause", "A.Home": "Home", "B.Home": "Home"})
 	res := matchAll(sona, ix,
-		[]mapping{{Message: "Play", Key: "A.Play"}},
+		[]applestrings.Mapping{{Message: "Play", Key: "A.Play"}},
 		[]rejection{{Message: "Home", Key: "A.Home", Reason: "keyboard key"}, {Message: "Home", Key: "B.Home", Reason: "keyboard key"}})
 	if res.exact != 3 || res.rejectedHits != 1 {
 		t.Fatalf("exact %d, rejectedHits %d", res.exact, res.rejectedHits)

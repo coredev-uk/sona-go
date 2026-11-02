@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strings"
 	"unicode"
+
+	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
 )
 
 // Match kinds: exact means the literal text is identical (placeholders may
@@ -25,16 +27,16 @@ type candidate struct {
 // appleIndex is the en-GB bundle grouped for matching: plain keys, and
 // plural groups (a key base with a `.other` form).
 type appleIndex struct {
-	bundle appleBundle
+	bundle applestrings.Bundle
 	plain  []string
 	plural []string
 }
 
-func indexBundle(b appleBundle) *appleIndex {
+func indexBundle(b applestrings.Bundle) *appleIndex {
 	ix := &appleIndex{bundle: b}
 	bases := map[string]bool{}
 	for _, k := range sortedKeys(b) {
-		if base, _, ok := splitPluralKey(k); ok {
+		if base, _, ok := applestrings.SplitPluralKey(k); ok {
 			if _, other := b[base+".other"]; other && !bases[base] {
 				bases[base] = true
 				ix.plural = append(ix.plural, base)
@@ -47,14 +49,14 @@ func indexBundle(b appleBundle) *appleIndex {
 }
 
 // match returns every Apple key that matches the Sona message, best first.
-func (ix *appleIndex) match(sona message) []candidate {
+func (ix *appleIndex) match(sona applestrings.Message) []candidate {
 	keys, plural := ix.plain, false
-	if sona.isPlural() {
+	if sona.IsPlural() {
 		keys, plural = ix.plural, true
 	}
 	var out []candidate
 	for _, k := range keys {
-		apple, _ := appleMessage(ix.bundle, k, plural)
+		apple, _ := applestrings.AppleMessage(ix.bundle, k, plural)
 		if kind, renames, ok := compare(sona, apple); ok {
 			out = append(out, candidate{Key: k, Plural: plural, Kind: kind, Placeholders: renames})
 		}
@@ -96,16 +98,16 @@ func keyRank(key string) int {
 // have the same categories (English: one and other). Placeholders pair up
 // by position, consistently in every form; the result maps Apple's names
 // to Sona's.
-func compare(sona, apple message) (kind string, renames map[string]string, ok bool) {
-	if sona.isPlural() != apple.isPlural() {
+func compare(sona, apple applestrings.Message) (kind string, renames map[string]string, ok bool) {
+	if sona.IsPlural() != apple.IsPlural() {
 		return "", nil, false
 	}
-	if !slices.Equal(sona.categories(), apple.categories()) {
+	if !slices.Equal(sona.Categories(), apple.Categories()) {
 		return "", nil, false
 	}
 	renames = map[string]string{}
 	exact := true
-	for _, c := range sona.categories() {
+	for _, c := range sona.Categories() {
 		s, a := sona.Forms[c], apple.Forms[c]
 		sArgs, aArgs := args(s), args(a)
 		if len(sArgs) != len(aArgs) {
@@ -113,7 +115,7 @@ func compare(sona, apple message) (kind string, renames map[string]string, ok bo
 		}
 		for i, an := range aArgs {
 			sn := sArgs[i]
-			if sn == pluralValue {
+			if sn == applestrings.PluralValue {
 				sn = sona.Plural
 			}
 			if prev, seen := renames[an]; seen && prev != sn {
@@ -130,7 +132,7 @@ func compare(sona, apple message) (kind string, renames map[string]string, ok bo
 	}
 	// Text that is only placeholders and punctuation ("{a}, {b}") says
 	// nothing about meaning, so any Apple key of that shape would match.
-	if !slices.ContainsFunc(sona.categories(), func(c string) bool {
+	if !slices.ContainsFunc(sona.Categories(), func(c string) bool {
 		return strings.IndexFunc(literal(sona.Forms[c]), unicode.IsLetter) >= 0
 	}) {
 		return "", nil, false
@@ -149,7 +151,7 @@ func compare(sona, apple message) (kind string, renames map[string]string, ok bo
 	return matchNormalised, renames, true
 }
 
-func args(toks []token) []string {
+func args(toks []applestrings.Token) []string {
 	var names []string
 	for _, t := range toks {
 		if t.IsArg {
@@ -162,7 +164,7 @@ func args(toks []token) []string {
 // argMark stands for any placeholder in compared text.
 const argMark = "\x00"
 
-func literal(toks []token) string {
+func literal(toks []applestrings.Token) string {
 	var b strings.Builder
 	for _, t := range toks {
 		if t.IsArg {
@@ -184,7 +186,7 @@ var normaliser = strings.NewReplacer(
 
 // normalise folds case, quotes, ellipses, dashes and spacing, and drops
 // closing punctuation (".", "!", ":", "...").
-func normalise(toks []token) string {
+func normalise(toks []applestrings.Token) string {
 	s := strings.ToLower(normaliser.Replace(literal(toks)))
 	s = strings.Join(strings.FieldsFunc(s, unicode.IsSpace), " ")
 	for {

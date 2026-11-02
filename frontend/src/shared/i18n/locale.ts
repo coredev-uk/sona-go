@@ -1,3 +1,5 @@
+import type { Messages } from "@lingui/core";
+
 /** BCP 47 tag of the source catalogue: message IDs come from its text. */
 export const sourceLocale = "en";
 
@@ -6,6 +8,12 @@ export const sourceLocale = "en";
  * forced through `VITE_SONA_LOCALE`, never matched from a preference.
  */
 export const pseudoLocale = "en-XA";
+
+/**
+ * How much of Sona's messages a locale's layers must translate before Sona
+ * shows it. Less complete ones would show mostly English.
+ */
+export const selectableShare = 0.9;
 
 const language = (tag: string) => tag.split("-")[0];
 
@@ -31,16 +39,58 @@ export function matchLocale(
 }
 
 /**
- * The locale to show: a forced one when it has a catalogue, else the
- * account's storefront language, else the system's languages, else English.
+ * The preferred tags (the account's storefront language, then the
+ * system's) to look for a translation of, in order: up to the first
+ * English one, since English, the source, answers it. Empty and repeated
+ * tags are skipped.
  */
-export function chooseLocale(
-  { forced, account, system }: { forced?: string; account?: string; system: readonly string[] },
-  catalogues: readonly string[],
-): string {
-  if (forced && catalogues.includes(forced)) return forced;
-  const selectable = catalogues.filter((l) => l !== pseudoLocale);
-  return matchLocale([account], selectable) ?? matchLocale(system, selectable) ?? sourceLocale;
+export function translationCandidates(preferred: readonly (string | undefined)[]): string[] {
+  const out: string[] = [];
+  for (const tag of preferred) {
+    if (!tag) continue;
+    const lower = tag.toLowerCase();
+    if (language(lower) === sourceLocale) break;
+    if (!out.some((t) => t.toLowerCase() === lower)) out.push(tag);
+  }
+  return out;
+}
+
+/**
+ * The share of Sona's messages a locale translates: Apple's layer's
+ * coverage (counted by Go against the same catalogue) plus the community
+ * catalogue's messages Apple's layer lacks.
+ */
+export function translatedShare(
+  appleCoverage: number,
+  apple: Messages,
+  community: Messages | undefined,
+  source: readonly string[],
+): number {
+  if (!source.length) return 0;
+  const extra = community ? source.filter((id) => id in community && !(id in apple)).length : 0;
+  return appleCoverage + extra / source.length;
+}
+
+/** A locale's catalogue: its layers merged over English. */
+export interface Translation {
+  locale: string;
+  share: number;
+  messages: Messages;
+}
+
+/**
+ * The translation to show: the first preferred locale (translationCandidates)
+ * whose layers reach `selectableShare`; undefined shows English.
+ */
+export async function chooseTranslation(
+  preferred: readonly (string | undefined)[],
+  load: (tag: string) => Promise<Translation | undefined>,
+): Promise<Translation | undefined> {
+  for (const tag of translationCandidates(preferred)) {
+    const t = await load(tag);
+    if (t && t.share >= selectableShare) return t;
+  }
+  return undefined;
 }
 
 /**
@@ -58,47 +108,4 @@ export function formatLocales(
     (tag): tag is string => !!tag && language(tag.toLowerCase()) === lang,
   );
   return [...new Set([...same, locale])];
-}
-
-/**
- * How complete each translated locale is (`completeness.json`, written by
- * `cmd/i18ntool`): its Apple-sourced and community-translated message
- * counts, their share of Sona's messages, and whether that share reaches
- * the threshold for the locale to be offered.
- */
-export interface Completeness {
-  messages: number;
-  threshold: number;
-  locales: Record<string, { apple: number; community: number; share: number; selectable: boolean }>;
-}
-
-/**
- * The translated locales Sona offers, automatically and in the Language
- * setting: those at least `threshold` complete. Less complete ones would
- * show mostly English.
- */
-export function selectableLocales(completeness: Completeness | undefined): string[] {
-  if (!completeness) return [];
-  return Object.entries(completeness.locales)
-    .filter(([, l]) => l.selectable)
-    .map(([tag]) => tag)
-    .sort();
-}
-
-/**
- * The catalogues that make up `locale`, in precedence order: Apple Music's
- * own translation (the same tag), then the community catalogue for the
- * locale (`matchLocale`: the tag, its language, or a sibling region); the
- * English catalogue fills in the rest. `cmd/i18ntool` counts completeness
- * with the same pairing.
- */
-export function catalogueLayers(
-  locale: string,
-  apple: readonly string[],
-  community: readonly string[],
-): { apple?: string; community?: string } {
-  return {
-    apple: apple.find((a) => a.toLowerCase() === locale.toLowerCase()),
-    community: matchLocale([locale], community),
-  };
 }

@@ -89,6 +89,11 @@ export const SyncDone = "sync:done";
 export const SyncProgress = "sync:progress";
 
 /**
+ * Name of the custom event "translations:apple".
+ */
+export const TranslationsApple = "translations:apple";
+
+/**
  * Name of the custom event "updates:available".
  */
 export const UpdatesAvailable = "updates:available";

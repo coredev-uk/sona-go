@@ -1,4 +1,4 @@
-package main
+package applestrings
 
 import (
 	"fmt"
@@ -7,47 +7,51 @@ import (
 	"strings"
 )
 
-// A token is literal text or a placeholder. In a plural branch the plural
-// value (ICU's `#`) is the placeholder named pluralValue.
-type token struct {
+// A Token is literal text or a placeholder. In a plural branch the plural
+// value (ICU's `#`) is the placeholder named PluralValue.
+type Token struct {
 	Text        string
 	Placeholder string
 	IsArg       bool
 }
 
-const pluralValue = "#"
+// PluralValue names the plural value (`#`) as a placeholder.
+const PluralValue = "#"
 
-func lit(s string) token { return token{Text: s} }
-func arg(n string) token { return token{Placeholder: n, IsArg: true} }
-func (t token) String() string {
+func lit(s string) Token { return Token{Text: s} }
+func arg(n string) Token { return Token{Placeholder: n, IsArg: true} }
+
+func (t Token) String() string {
 	if t.IsArg {
 		return "{" + t.Placeholder + "}"
 	}
 	return t.Text
 }
 
-// message is a Sona or Apple message reduced to what matching compares: a
-// plain text, or a plural over one argument with a text per CLDR category.
-type message struct {
+// Message is a Sona or Apple message reduced to what matching and
+// conversion compare: a plain text, or a plural over one argument with a
+// text per CLDR category.
+type Message struct {
 	Plural string             // the plural argument ("" for plain text)
-	Forms  map[string][]token // category ("" for plain text) → tokens
+	Forms  map[string][]Token // category ("" for plain text) → tokens
 }
 
-func (m message) isPlural() bool { return m.Plural != "" }
+// IsPlural reports a plural message.
+func (m Message) IsPlural() bool { return m.Plural != "" }
 
-// pluralCategories are CLDR's, the suffixes Apple's keys use.
-var pluralCategories = []string{"zero", "one", "two", "few", "many", "other"}
+// PluralCategories are CLDR's, the suffixes Apple's keys use.
+var PluralCategories = []string{"zero", "one", "two", "few", "many", "other"}
 
-// placeholders lists a message's argument names (the plural argument
+// Placeholders lists a message's argument names (the plural argument
 // included), each once.
-func (m message) placeholders() []string {
+func (m Message) Placeholders() []string {
 	var names []string
-	if m.isPlural() {
+	if m.IsPlural() {
 		names = append(names, m.Plural)
 	}
-	for _, c := range m.categories() {
+	for _, c := range m.Categories() {
 		for _, t := range m.Forms[c] {
-			if t.IsArg && t.Placeholder != pluralValue && !slices.Contains(names, t.Placeholder) {
+			if t.IsArg && t.Placeholder != PluralValue && !slices.Contains(names, t.Placeholder) {
 				names = append(names, t.Placeholder)
 			}
 		}
@@ -55,12 +59,13 @@ func (m message) placeholders() []string {
 	return names
 }
 
-func (m message) categories() []string {
-	if !m.isPlural() {
+// Categories lists the message's forms in CLDR order ("" for plain text).
+func (m Message) Categories() []string {
+	if !m.IsPlural() {
 		return []string{""}
 	}
 	var cs []string
-	for _, c := range pluralCategories {
+	for _, c := range PluralCategories {
 		if _, ok := m.Forms[c]; ok {
 			cs = append(cs, c)
 		}
@@ -70,27 +75,27 @@ func (m message) categories() []string {
 
 var simpleArgRe = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 
-// parseSona reads a Lingui message (ICU MessageFormat) when it is plain text
+// ParseSona reads a Lingui message (ICU MessageFormat) when it is plain text
 // with simple `{name}` arguments, or one plural argument spanning the whole
 // message whose branches are such text. Anything else (selects, several
 // plurals, text around a plural, `=n` branches) cannot map to one Apple
 // key, so ok is false.
-func parseSona(id string) (m message, ok bool) {
+func ParseSona(id string) (m Message, ok bool) {
 	if name, body, isPlural := cutPlural(id); isPlural {
 		forms, ok := parseBranches(body)
 		if !ok {
-			return message{}, false
+			return Message{}, false
 		}
 		if _, ok := forms["other"]; !ok {
-			return message{}, false
+			return Message{}, false
 		}
-		return message{Plural: name, Forms: forms}, true
+		return Message{Plural: name, Forms: forms}, true
 	}
 	toks, ok := parseText(id, false)
 	if !ok {
-		return message{}, false
+		return Message{}, false
 	}
-	return message{Forms: map[string][]token{"": toks}}, true
+	return Message{Forms: map[string][]Token{"": toks}}, true
 }
 
 // cutPlural splits "{n, plural, one {...} other {...}}" when the plural is
@@ -131,8 +136,8 @@ func matchBrace(s string, open int) int {
 	return -1
 }
 
-func parseBranches(body string) (map[string][]token, bool) {
-	forms := map[string][]token{}
+func parseBranches(body string) (map[string][]Token, bool) {
+	forms := map[string][]Token{}
 	s := strings.TrimSpace(body)
 	for s != "" {
 		open := strings.IndexByte(s, '{')
@@ -140,7 +145,7 @@ func parseBranches(body string) (map[string][]token, bool) {
 			return nil, false
 		}
 		sel := strings.TrimSpace(s[:open])
-		if !slices.Contains(pluralCategories, sel) {
+		if !slices.Contains(PluralCategories, sel) {
 			return nil, false // offset:, =n branches
 		}
 		end := matchBrace(s, open)
@@ -160,8 +165,8 @@ func parseBranches(body string) (map[string][]token, bool) {
 // parseText splits text with simple `{name}` arguments (and `#` in a plural
 // branch). ICU quoting with apostrophes is not used in Sona's messages; a
 // message using it does not match.
-func parseText(s string, inPlural bool) ([]token, bool) {
-	var toks []token
+func parseText(s string, inPlural bool) ([]Token, bool) {
+	var toks []Token
 	var b strings.Builder
 	flush := func() {
 		if b.Len() > 0 {
@@ -187,7 +192,7 @@ func parseText(s string, inPlural bool) ([]token, bool) {
 			return nil, false
 		case c == '#' && inPlural:
 			flush()
-			toks = append(toks, arg(pluralValue))
+			toks = append(toks, arg(PluralValue))
 		case c == '\'' && i+1 < len(s) && strings.IndexByte("{}#'", s[i+1]) >= 0:
 			return nil, false
 		default:
@@ -201,8 +206,8 @@ func parseText(s string, inPlural bool) ([]token, bool) {
 var applePlaceholderRe = regexp.MustCompile(`@@([A-Za-z0-9_]+)@@`)
 
 // parseAppleText splits Apple's text at its `@@name@@` placeholders.
-func parseAppleText(s string) []token {
-	var toks []token
+func parseAppleText(s string) []Token {
+	var toks []Token
 	last := 0
 	for _, m := range applePlaceholderRe.FindAllStringSubmatchIndex(s, -1) {
 		if m[0] > last {
@@ -217,38 +222,38 @@ func parseAppleText(s string) []token {
 	return toks
 }
 
-// splitPluralKey cuts a CLDR category suffix off an Apple key
+// SplitPluralKey cuts a CLDR category suffix off an Apple key
 // ("ASE.Web.Music.NoOfSongs.one" → "ASE.Web.Music.NoOfSongs", "one").
-func splitPluralKey(key string) (base, category string, ok bool) {
+func SplitPluralKey(key string) (base, category string, ok bool) {
 	i := strings.LastIndexByte(key, '.')
-	if i < 0 || !slices.Contains(pluralCategories, key[i+1:]) {
+	if i < 0 || !slices.Contains(PluralCategories, key[i+1:]) {
 		return key, "", false
 	}
 	return key[:i], key[i+1:], true
 }
 
-// appleMessage reads key from a bundle: the plain string, or, for a plural
+// AppleMessage reads key from a bundle: the plain string, or, for a plural
 // mapping, every category form of the key (`.other` required).
-func appleMessage(b appleBundle, key string, plural bool) (message, bool) {
+func AppleMessage(b Bundle, key string, plural bool) (Message, bool) {
 	if !plural {
 		s, ok := b[key]
 		if !ok {
-			return message{}, false
+			return Message{}, false
 		}
-		return message{Forms: map[string][]token{"": parseAppleText(s)}}, true
+		return Message{Forms: map[string][]Token{"": parseAppleText(s)}}, true
 	}
-	forms := map[string][]token{}
-	for _, c := range pluralCategories {
+	forms := map[string][]Token{}
+	for _, c := range PluralCategories {
 		if s, ok := b[key+"."+c]; ok {
 			forms[c] = parseAppleText(s)
 		}
 	}
 	if _, ok := forms["other"]; !ok {
-		return message{}, false
+		return Message{}, false
 	}
 	// Apple's plural argument is filled in by Apple's own code; Sona names
 	// it through the mapping, so any name serves here.
-	return message{Plural: "@", Forms: forms}, true
+	return Message{Plural: "@", Forms: forms}, true
 }
 
 // icuEscape quotes ICU's syntax characters in literal text: apostrophes
@@ -268,13 +273,16 @@ func icuEscape(s string, inPlural bool) string {
 	return b.String()
 }
 
-// toICU renders Apple's message as a Lingui (ICU) message for the Sona
+// ToICU renders Apple's message as a Lingui (ICU) message for the Sona
 // message it maps to. renames maps Apple's placeholder names to Sona's; in
 // a plural, Apple's placeholder renamed to Sona's plural argument becomes
-// `#`. Every Apple placeholder must be renamed to one of Sona's.
-func toICU(apple message, sona message, renames map[string]string) (string, error) {
-	known := sona.placeholders()
-	render := func(toks []token, inPlural bool) (string, error) {
+// `#`. The placeholders must agree: every Apple placeholder renames to one
+// of Sona's arguments, and every argument Sona's message shows appears in
+// Apple's text (in a plural, the count in the `other` form when Sona's
+// `other` shows it; a `one` form may spell the number out).
+func ToICU(apple, sona Message, renames map[string]string) (string, error) {
+	known := sona.Placeholders()
+	render := func(toks []Token, inPlural bool, used map[string]bool) (string, error) {
 		var b strings.Builder
 		for _, t := range toks {
 			if !t.IsArg {
@@ -287,30 +295,79 @@ func toICU(apple message, sona message, renames map[string]string) (string, erro
 			}
 			if inPlural && name == sona.Plural {
 				b.WriteByte('#')
+				used[PluralValue] = true
 			} else {
 				b.WriteString("{" + name + "}")
+				used[name] = true
 			}
 		}
 		return b.String(), nil
 	}
-	if !sona.isPlural() {
-		if apple.isPlural() {
+	if !sona.IsPlural() {
+		if apple.IsPlural() {
 			return "", fmt.Errorf("a plural Apple key for a plain message")
 		}
-		return render(apple.Forms[""], false)
+		used := map[string]bool{}
+		s, err := render(apple.Forms[""], false, used)
+		if err != nil {
+			return "", err
+		}
+		return s, missingArgs(sona.Forms[""], used)
 	}
-	if !apple.isPlural() {
+	if !apple.IsPlural() {
 		return "", fmt.Errorf("a plain Apple key for a plural message")
 	}
 	var b strings.Builder
 	b.WriteString("{" + sona.Plural + ", plural,")
-	for _, c := range apple.categories() {
-		s, err := render(apple.Forms[c], true)
+	used := map[string]bool{}
+	for _, c := range apple.Categories() {
+		form := map[string]bool{}
+		s, err := render(apple.Forms[c], true, form)
 		if err != nil {
 			return "", fmt.Errorf("%s: %w", c, err)
+		}
+		if c == "other" {
+			if err := missingArgs(onlyCount(sona.Forms["other"]), form); err != nil {
+				return "", fmt.Errorf("other: %w", err)
+			}
+		}
+		for n := range form {
+			used[n] = true
 		}
 		b.WriteString(" " + c + " {" + s + "}")
 	}
 	b.WriteString("}")
+	var named []Token
+	for _, c := range sona.Categories() {
+		for _, t := range sona.Forms[c] {
+			if t.IsArg && t.Placeholder != PluralValue {
+				named = append(named, t)
+			}
+		}
+	}
+	if err := missingArgs(named, used); err != nil {
+		return "", err
+	}
 	return b.String(), nil
+}
+
+// onlyCount keeps a plural form's `#`.
+func onlyCount(toks []Token) []Token {
+	var out []Token
+	for _, t := range toks {
+		if t.IsArg && t.Placeholder == PluralValue {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// missingArgs names the first argument of want that used lacks.
+func missingArgs(want []Token, used map[string]bool) error {
+	for _, t := range want {
+		if t.IsArg && !used[t.Placeholder] {
+			return fmt.Errorf("the argument %s is missing from Apple's text", t)
+		}
+	}
+	return nil
 }
