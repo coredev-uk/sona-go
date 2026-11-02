@@ -194,6 +194,10 @@ msgstr "{key} moves between controls. Choose another key."
 msgid "{label}: Apple's label for this release. Sona plays it as AAC."
 msgstr "{label}: Apple's label for this release. Sona plays it as AAC."
 
+#: src/features/radio/OnAir.tsx
+msgid "{left} left"
+msgstr "{left} left"
+
 #: src/features/auth/Account.tsx
 msgid "{len, plural, one {# digit} other {# digits}}"
 msgstr "{len, plural, one {# digit} other {# digits}}"
@@ -985,6 +989,7 @@ msgid "Born or formed"
 msgstr "Born or formed"
 
 #: src/features/discover/bands.ts
+#: src/features/radio/bands.ts
 msgid "Browse"
 msgstr "Browse"
 
@@ -1442,6 +1447,10 @@ msgstr "Couldn't install"
 #: src/features/search/groups.ts
 msgid "Couldn't load albums"
 msgstr "Couldn't load albums"
+
+#: src/features/radio/RadioPage.tsx
+msgid "Couldn't load Apple Music's radio"
+msgstr "Couldn't load Apple Music's radio"
 
 #: src/features/radio/RadioPage.tsx
 msgid "Couldn't load Apple Music's radio page"
@@ -2907,6 +2916,7 @@ msgstr "Live radio"
 #: src/features/discover/states.tsx
 #: src/features/home/HomeLead.tsx
 #: src/features/home/HomePage.tsx
+#: src/features/radio/OnAir.tsx
 #: src/features/radio/RadioPage.tsx
 #: src/features/radio/StationPage.tsx
 #: src/shared/components/DetailStates.tsx
@@ -3268,6 +3278,10 @@ msgstr "Newest first"
 #: src/features/player/NowPlayingBar.tsx
 msgid "Next"
 msgstr "Next"
+
+#: src/features/radio/OnAir.tsx
+msgid "Next at <0>{nextAt}</0>: {nextTitle}"
+msgstr "Next at <0>{nextAt}</0>: {nextTitle}"
 
 #: src/features/discover/FrontPage.tsx
 #: src/shared/items/WideRow.tsx
@@ -3912,7 +3926,7 @@ msgstr "Play {label}"
 
 #: src/features/discover/FrontPage.tsx
 #: src/features/home/ItemRows.tsx
-#: src/features/radio/RadioPage.tsx
+#: src/features/radio/OnAir.tsx
 #: src/shared/items/StationList.tsx
 #: src/shared/items/TrackShelf.tsx
 #: src/shared/items/WideRow.tsx
@@ -4818,6 +4832,10 @@ msgstr "Show the mini player"
 msgid "Shown under each line where a source has a translation into this language."
 msgstr "Shown under each line where a source has a translation into this language."
 
+#: src/features/radio/bands.ts
+msgid "Shows and episodes"
+msgstr "Shows and episodes"
+
 #: src/features/settings/IntegrationsRows.tsx
 msgid "Shows the song you're playing, with its artwork and time, as your Discord activity. Cleared when you pause."
 msgstr "Shows the song you're playing, with its artwork and time, as your Discord activity. Cleared when you pause."
@@ -4865,6 +4883,7 @@ msgstr "Shuffle on or off"
 #: src/features/home/HomeLead.tsx
 #: src/features/library/sign-in.ts
 #: src/features/onboarding/DoneStep.tsx
+#: src/features/radio/RadioPage.tsx
 #: src/features/search/SearchPage.tsx
 #: src/shared/components/DetailStates.tsx
 msgid "Sign in"
@@ -4898,6 +4917,10 @@ msgstr "Sign in to search Apple Music"
 #: src/features/home/HomeLead.tsx
 msgid "Sign in to see picks, mixes and stations chosen for you."
 msgstr "Sign in to see picks, mixes and stations chosen for you."
+
+#: src/features/radio/RadioPage.tsx
+msgid "Sign in to see the stations you play in Apple Music on any of your devices."
+msgstr "Sign in to see the stations you play in Apple Music on any of your devices."
 
 #: src/shared/components/DetailStates.tsx
 msgid "Sign in to see this"
@@ -5132,6 +5155,7 @@ msgstr "Sona also tries again by itself later."
 msgid "Sona asks every source that's on and shows the lyrics with the finest timing: word by word, then line by line, then plain text. A source higher in the list wins a tie."
 msgstr "Sona asks every source that's on and shows the lyrics with the finest timing: word by word, then line by line, then plain text. A source higher in the list wins a tie."
 
+#: src/features/radio/OnAir.tsx
 #: src/features/radio/StationPage.tsx
 msgid "Sona can't play this station"
 msgstr "Sona can't play this station"
@@ -5432,6 +5456,7 @@ msgstr "Starts at login"
 msgid "Station"
 msgstr "Station"
 
+#: src/features/radio/bands.ts
 #: src/features/search/groups.ts
 msgid "Stations"
 msgstr "Stations"
@@ -5867,6 +5892,7 @@ msgstr "This song isn't out yet. It plays from its release date."
 msgid "This stream isn't offered with Widevine, the only protection Sona can play."
 msgstr "This stream isn't offered with Widevine, the only protection Sona can play."
 
+#: src/features/radio/OnAir.tsx
 #: src/features/radio/StationPage.tsx
 msgid "Time through this programme"
 msgstr "Time through this programme"

@@ -3,13 +3,22 @@ import { describe, expect, it } from "vitest";
 
 import { dateFormat } from "@/shared/lib/format";
 
-import { onAir, progressOf, slotLabel, stationLine } from "./schedule";
+import {
+  nextProgramme,
+  onAirSpan,
+  onAir,
+  programmeName,
+  progressOf,
+  slotLabel,
+  startLabel,
+  stationLine,
+} from "./schedule";
 
-const ev = (id: string, startMs: number, endMs: number) =>
+const ev = (id: string, startMs: number, endMs: number, description = "") =>
   ({
     id,
     title: id,
-    description: "",
+    description,
     startMs,
     endMs,
     art: { small: "", medium: "", large: "" },
@@ -39,6 +48,59 @@ describe("schedule", () => {
     const tomorrow = ev("c", t0 + 24 * h, t0 + 25 * h);
     const weekday = dateFormat({ weekday: "short" }).format(tomorrow.startMs);
     expect(slotLabel(tomorrow, t0)).toBe(`${weekday} ${slotLabel(tomorrow, tomorrow.startMs)}`);
+    expect(startLabel(tomorrow, t0)).toBe(`${weekday} ${startLabel(tomorrow, tomorrow.startMs)}`);
+    expect(slotLabel(sched[0], t0).startsWith(startLabel(sched[0], t0))).toBe(true);
+  });
+});
+
+describe("now and next", () => {
+  const h = 3600_000;
+  const t0 = new Date(2026, 9, 30, 10, 0).getTime();
+  const station = { name: "Hits", tagline: "Songs you know." };
+
+  it("names a programme by its title, or by what it says when it is the station's own hour", () => {
+    expect(programmeName(station, ev("The Zane Lowe Show", t0, t0 + h))).toBe("The Zane Lowe Show");
+    expect(programmeName(station, ev("hits", t0, t0 + h, "Club euphoria with NAINA."))).toBe(
+      "Club euphoria with NAINA.",
+    );
+    expect(programmeName(station, ev("Hits", t0, t0 + h, "Songs you know."))).toBe("");
+    expect(programmeName(station, ev("Hits", t0, t0 + h))).toBe("");
+  });
+
+  it("finds the next programme with a name of its own", () => {
+    const day = [
+      ev("Hits", t0, t0 + h),
+      ev("Hits", t0 + h, t0 + 2 * h),
+      ev("The Matt Wilkinson Show", t0 + 2 * h, t0 + 4 * h),
+      ev("The Matt Wilkinson Show", t0 + 4 * h, t0 + 5 * h),
+      ev("Rebecca Judd", t0 + 5 * h, t0 + 6 * h),
+    ];
+    expect(nextProgramme(station, day, t0 + 10)?.startMs).toBe(t0 + 2 * h);
+    // The show on air is not its own "next", even when it runs on.
+    expect(nextProgramme(station, day, t0 + 3 * h)?.title).toBe("Rebecca Judd");
+    expect(nextProgramme(station, day, t0 + 5 * h)).toBeUndefined();
+    expect(nextProgramme(station, day.slice(0, 2), t0)).toBeUndefined();
+    // Nothing on air (a gap in the schedule): the next named slot from now.
+    expect(nextProgramme(station, day.slice(2), t0)?.startMs).toBe(t0 + 2 * h);
+  });
+
+  it("counts the station's own hours and a show's run of slots as one stretch", () => {
+    const day = [
+      ev("Hits", t0, t0 + h),
+      ev("Hits", t0 + h, t0 + 2 * h),
+      ev("Matt", t0 + 2 * h, t0 + 3 * h),
+      ev("Matt", t0 + 3 * h, t0 + 4 * h),
+      ev("Hits", t0 + 4 * h, t0 + 5 * h),
+    ];
+    expect(onAirSpan(station, day, t0 + 10)).toEqual({ startMs: t0, endMs: t0 + 2 * h });
+    expect(onAirSpan(station, day, t0 + 3 * h)).toEqual({ startMs: t0 + 2 * h, endMs: t0 + 4 * h });
+    // The station's own hours to the end of the schedule: nothing to count down to.
+    expect(onAirSpan(station, day, t0 + 4 * h)).toBeUndefined();
+    expect(onAirSpan(station, day.slice(0, 2), t0)).toBeUndefined();
+    // A break in the run ends it.
+    const gap = [ev("Hits", t0, t0 + h), ev("Hits", t0 + 2 * h, t0 + 3 * h), day[2]];
+    expect(onAirSpan(station, gap, t0)).toEqual({ startMs: t0, endMs: t0 + h });
+    expect(onAirSpan(station, day, t0 - 1)).toBeUndefined();
   });
 });
 

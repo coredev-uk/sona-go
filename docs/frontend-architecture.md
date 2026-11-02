@@ -80,11 +80,13 @@ src/
                           the shelves in bands by what they hold), rooms, multirooms,
                           groupings, curators, Charts; registers the song/album/playlist
                           item players
-    radio                 Radio (live stations, your stations, Apple's radio page), station
-                          pages (/station/$id: schedule, unavailable state; a track station's
-                          seed as its byline and the songs it plays first); playStation,
-                          useOnAirProgramme; Create station on songs/albums/artists; the
-                          station item player
+    radio                 Radio (the live stations as a now-and-next board from their
+                          schedules, the local broadcasters, then Apple's radio page in
+                          bands: stations with your own first, shows and episodes, browse),
+                          station pages (/station/$id: schedule, unavailable state; a track
+                          station's seed as its byline and the songs it plays first);
+                          playStation, useOnAirProgramme; Create station on songs/albums/
+                          artists; the station item player
     search                the top bar's search field (suggestions, recent searches), Search page
                           (Apple Music results by group, library scope, browse categories),
                           "see all" pages per group (/search/$group), profiles (/profile/$id)
