@@ -115,6 +115,12 @@ export interface ShellSlots {
   overlay?: { Component: ComponentType; useOpen: () => boolean };
   /** Across the bottom of the window (the now-playing bar). */
   Bottom?: ComponentType;
+  /**
+   * Over the whole window, after everything else: a modal of the module's
+   * own that covers the sidebar, top bar and player bar too (the first-run
+   * setup). It portals itself; the window behind is inert while it is open.
+   */
+  Layer?: ComponentType;
   /** At the foot of the sidebar, above its footer links (the sync indicator). */
   SidebarFooter?: ComponentType;
   /**

@@ -14,15 +14,8 @@ import {
   ShieldAlert,
   WifiOff,
 } from "lucide-react";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useReducer,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useReducer, useState, type FormEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
@@ -55,15 +48,9 @@ import {
 
 const openURL = (url: string) => void Browser.OpenURL(url);
 
-/**
- * The sign-in flow's titles sit one level under whatever holds the section:
- * h3 under the account dialog's title, h2 under the setup's page title.
- */
-const HeadingLevel = createContext<2 | 3>(3);
-
+/** The sign-in flow's titles: h3, under the account dialog's (or the setup's) title. */
 function FlowTitle({ children }: { children: ReactNode }) {
-  const Heading = useContext(HeadingLevel) === 2 ? "h2" : "h3";
-  return <Heading className="text-heading text-ink">{children}</Heading>;
+  return <h3 className="text-heading text-ink">{children}</h3>;
 }
 
 function Notice({
@@ -163,14 +150,18 @@ function SignInErrorNotice({ error, onBrowser }: { error: SignInError; onBrowser
   );
 }
 
+const FORM_ID = "apple-sign-in";
+
 function CredentialsForm({
   step,
   dispatch,
   onBrowser,
+  actions,
 }: {
   step: Extract<SignInStep, { kind: "credentials" }>;
   dispatch: (a: Parameters<typeof signInReducer>[1]) => void;
   onBrowser: () => void;
+  actions?: HTMLElement | null;
 }) {
   const { t } = useLingui();
   const [account, setAccount] = useState("");
@@ -193,8 +184,25 @@ function CredentialsForm({
     }
   };
 
+  const signIn = (
+    <Button
+      type="submit"
+      form={FORM_ID}
+      size={actions ? "sm" : "default"}
+      disabled={step.busy || !account.trim() || !password}
+    >
+      {step.busy && <LoaderCircle className="animate-spin" />}
+      {step.busy ? <Trans>Signing in…</Trans> : <Trans>Sign in</Trans>}
+    </Button>
+  );
+
   return (
-    <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4" aria-busy={step.busy}>
+    <form
+      id={FORM_ID}
+      onSubmit={(e) => void submit(e)}
+      className="flex flex-col gap-4"
+      aria-busy={step.busy}
+    >
       {step.error && <SignInErrorNotice error={step.error} onBrowser={onBrowser} />}
       <Field
         id="apple-account"
@@ -229,10 +237,8 @@ function CredentialsForm({
         />
       </Field>
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={step.busy || !account.trim() || !password}>
-          {step.busy && <LoaderCircle className="animate-spin" />}
-          {step.busy ? <Trans>Signing in…</Trans> : <Trans>Sign in</Trans>}
-        </Button>
+        {/* With `actions`, Sign in sits in the host's foot (still this form's submit). */}
+        {actions ? createPortal(signIn, actions) : signIn}
         <p className="text-meta text-ink-muted">
           <Trans>Sona talks to Apple directly. Your password is used once and never saved.</Trans>
         </p>
@@ -691,7 +697,7 @@ function TokenPaste() {
   );
 }
 
-function SignInFlow({ status, framed }: { status: AuthStatus; framed: boolean }) {
+function SignInFlow({ status, actions }: { status: AuthStatus; actions?: HTMLElement | null }) {
   const [step, dispatch] = useReducer(signInReducer, initialSignIn);
 
   // Keep the form in step with Go: restored challenges, timeouts, sign-in elsewhere.
@@ -719,7 +725,7 @@ function SignInFlow({ status, framed }: { status: AuthStatus; framed: boolean })
     status.state === "signing_in" && !status.secondFactor && step.kind === "credentials";
 
   return (
-    <div className={framed ? "rounded-lg bg-surface p-6" : undefined}>
+    <div>
       {browserPending ? (
         <BrowserWaiting status={status} />
       ) : step.kind === "code" ? (
@@ -733,15 +739,23 @@ function SignInFlow({ status, framed }: { status: AuthStatus; framed: boolean })
         </p>
       ) : (
         <>
-          <div className="mb-5">
-            <FlowTitle>
-              <Trans>Sign in to Apple Music</Trans>
-            </FlowTitle>
-            <p className="mt-1 text-ui text-ink-muted">
-              <Trans>Use the Apple Account with your Apple Music subscription.</Trans>
-            </p>
-          </div>
-          <CredentialsForm step={step} dispatch={dispatch} onBrowser={() => void browser()} />
+          {/* A host with its own foot (the setup) titles the form itself. */}
+          {!actions && (
+            <div className="mb-5">
+              <FlowTitle>
+                <Trans>Sign in to Apple Music</Trans>
+              </FlowTitle>
+              <p className="mt-1 text-ui text-ink-muted">
+                <Trans>Use the Apple Account with your Apple Music subscription.</Trans>
+              </p>
+            </div>
+          )}
+          <CredentialsForm
+            step={step}
+            dispatch={dispatch}
+            onBrowser={() => void browser()}
+            actions={actions}
+          />
         </>
       )}
       {step.kind === "credentials" && !browserPending && (
@@ -769,7 +783,7 @@ function languageName(tag: string, locale: string): string {
   }
 }
 
-function SignedIn({ status, framed }: { status: AuthStatus; framed: boolean }) {
+function SignedIn({ status }: { status: AuthStatus }) {
   const { t, i18n } = useLingui();
   const [confirm, setConfirm] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -804,12 +818,7 @@ function SignedIn({ status, framed }: { status: AuthStatus; framed: boolean }) {
           </Trans>
         </Notice>
       )}
-      <div
-        className={cn(
-          "divide-y divide-line",
-          framed ? "rounded-lg bg-surface px-5" : "border-y border-line",
-        )}
-      >
+      <div className="divide-y divide-line border-y border-line">
         <div className="flex items-center justify-between gap-6 py-4">
           <div>
             <p className="text-ui font-medium text-ink">
@@ -1004,19 +1013,14 @@ function KeyringNotice({ status }: { status: AuthStatus }) {
 }
 
 /**
- * Apple Music sign-in and the signed-in account: the account dialog's body
- * and the setup's Apple Music step. `headingLevel` is the level of the
- * sign-in flow's titles (3 under a dialog title, 2 under a page's h1).
- * `framed` sets the form and the account's rows on their own panel; a
- * dialog, which is the frame already, turns it off.
+ * Apple Music sign-in and the signed-in account: the account dialog's body,
+ * also embedded in the first-run setup's Apple Music step. Its holder is
+ * the frame, so nothing here draws a panel of its own. `actions` is an
+ * element in a host's own foot (the setup's): the password form's Sign in
+ * goes there, so it stays in view however far the form scrolls, and the
+ * form's own heading is left to the host.
  */
-export function AccountSection({
-  headingLevel = 3,
-  framed = true,
-}: {
-  headingLevel?: 2 | 3;
-  framed?: boolean;
-}) {
+export function AccountSection({ actions }: { actions?: HTMLElement | null } = {}) {
   const auth = useAuth();
   const { t } = useLingui();
   if (auth.error) {
@@ -1034,7 +1038,7 @@ export function AccountSection({
     return <div aria-busy className="h-48 rounded-lg bg-surface" />;
   }
   if (status.state === "signed_in" || status.state === "validating") {
-    return <SignedIn status={status} framed={framed} />;
+    return <SignedIn status={status} />;
   }
   const restoring = status.state === "restoring";
   return (
@@ -1081,9 +1085,7 @@ export function AccountSection({
               <Trans>You're offline. Signing in needs a connection to Apple.</Trans>
             </Notice>
           )}
-          <HeadingLevel value={headingLevel}>
-            <SignInFlow status={status} framed={framed} />
-          </HeadingLevel>
+          <SignInFlow status={status} actions={actions} />
         </>
       )}
     </div>

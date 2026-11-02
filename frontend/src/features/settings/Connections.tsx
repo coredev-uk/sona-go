@@ -25,18 +25,15 @@ import { Switch } from "@/shared/ui/switch";
 
 import { IntegrationsConnectionsRows } from "./IntegrationsRows";
 import { useSettings, useUpdateSettings } from "./queries";
-import { scrobbleStatusKey, useScrobbleStatus } from "./scrobble";
+import {
+  errorLine,
+  PROVIDER_NAMES,
+  scrobbleStatusKey,
+  useConnectLastFM,
+  useScrobbleStatus,
+  type Provider,
+} from "./scrobble";
 import { GroupHeading, SettingsGroup, SettingsPanel, SettingsSections } from "./SettingRow";
-
-type Provider = "lastfm" | "listenbrainz";
-
-/** Brand names, never translated. */
-const PROVIDER_NAMES = {
-  // eslint-disable-next-line lingui/no-unlocalized-strings -- brand name
-  lastfm: "Last.fm",
-  // eslint-disable-next-line lingui/no-unlocalized-strings -- brand name
-  listenbrainz: "ListenBrainz",
-} as const satisfies Record<Provider, string>;
 
 const listenBrainzTokenPage = "https://listenbrainz.org/settings/";
 
@@ -138,29 +135,11 @@ function ProviderRow({
   );
 }
 
-function errorLine(p: Provider, err: unknown): string | null {
-  const { code, message } = callFailure(err);
-  switch (code) {
-    case "cancelled":
-      return null;
-    case "invalid_credentials":
-      return p === "listenbrainz"
-        ? t`ListenBrainz didn't accept that token. Copy it again from your ListenBrainz settings.`
-        : t`Last.fm refused Sona's request. Try connecting again.`;
-    case "timeout":
-      return t`The Last.fm approval expired before it was confirmed. Connect again to get a new one.`;
-    case "network": {
-      const name = PROVIDER_NAMES[p];
-      return t`Couldn't reach ${name}. Check your connection and try again.`;
-    }
-    case "not_configured":
-      return t`This build of Sona has no Last.fm API key, so it can't connect to Last.fm.`;
-  }
-  return message;
-}
-
-/** Last.fm desktop authorisation: approve in the browser, Sona waits. */
-function LastFMWaiting() {
+/**
+ * Last.fm desktop authorisation: approve in the browser, Sona waits
+ * (Settings → Connections, the first-run setup).
+ */
+export function LastFMWaiting() {
   return (
     <div role="status" className="flex items-center gap-3 rounded-md bg-hover px-4 py-3">
       <LoaderCircle
@@ -180,8 +159,11 @@ function LastFMWaiting() {
   );
 }
 
-/** The ListenBrainz user token form, shown under its row. */
-function ListenBrainzForm({
+/**
+ * The ListenBrainz user token form, shown under its row (Settings →
+ * Connections, the first-run setup).
+ */
+export function ListenBrainzForm({
   onDone,
   onCancel,
 }: {
@@ -298,17 +280,7 @@ function ScrobblingPanel() {
     };
     update.mutate({ ...s, scrobbling });
   };
-  const connectLastFM = async () => {
-    setBusy("lastfm");
-    try {
-      qc.setQueryData(scrobbleStatusKey, await ScrobbleService.ConnectLastFM());
-    } catch (err) {
-      const line = errorLine("lastfm", err);
-      if (line) toast.error(t`Couldn't connect Last.fm`, { description: line });
-    } finally {
-      setBusy(null);
-    }
-  };
+  const lastfmConnect = useConnectLastFM();
   const disconnect = async (p: Provider) => {
     setBusy(p);
     try {
@@ -328,7 +300,7 @@ function ScrobblingPanel() {
 
   const lastfm = st?.lastfm;
   const lb = st?.listenbrainz;
-  const lastfmConnecting = !!lastfm?.connecting || busy === "lastfm";
+  const lastfmConnecting = !!lastfm?.connecting || lastfmConnect.busy;
   const anyConnected = !!lastfm?.connected || !!lb?.connected;
   const statusError = status.error ? callFailure(status.error).message : "";
   const confirmName = confirm ? PROVIDER_NAMES[confirm] : "";
@@ -368,7 +340,7 @@ function ScrobblingPanel() {
               variant="outline"
               size="sm"
               disabled={!lastfm?.available || lastfmConnecting}
-              onClick={() => void connectLastFM()}
+              onClick={() => void lastfmConnect.connect()}
             >
               {lastfm?.needsReconnect ? t`Reconnect` : t`Connect`}
               <ExternalLink strokeWidth={1.75} />

@@ -32,7 +32,7 @@ export function AccountDialog() {
             <Trans>Account</Trans>
           </DialogTitle>
         </DialogHeader>
-        <AccountSection framed={false} />
+        <AccountSection />
       </DialogContent>
     </Dialog>
   );

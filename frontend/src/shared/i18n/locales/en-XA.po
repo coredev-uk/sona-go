@@ -303,12 +303,12 @@ msgstr ""
 msgid "{pending, plural, one {# song waiting to send.} other {# songs waiting to send.}}"
 msgstr ""
 
-#: src/features/onboarding/WidevinePanel.tsx
+#: src/features/onboarding/WidevineStatus.tsx
 #: src/features/settings/CdmRow.tsx
 msgid "{percent} · {received} of {total}"
 msgstr ""
 
-#: src/features/onboarding/WidevinePanel.tsx
+#: src/features/onboarding/WidevineStatus.tsx
 #: src/features/settings/CdmRow.tsx
 msgid "{percent}, {received} of {total}"
 msgstr ""
@@ -319,6 +319,10 @@ msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
 msgid "{playlists, plural, one {# playlist} other {# playlists}}"
+msgstr ""
+
+#: src/features/onboarding/SetupLayer.tsx
+msgid "{position} of {total}"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
@@ -341,10 +345,12 @@ msgstr ""
 msgid "{s} s later"
 msgstr ""
 
+#: src/features/onboarding/PlaybackStep.tsx
 #: src/features/settings/CrossfadeRows.tsx
 msgid "{seconds, plural, one {# second} other {# seconds}}"
 msgstr ""
 
+#: src/features/onboarding/PlaybackStep.tsx
 #: src/features/settings/CrossfadeRows.tsx
 msgid "{seconds} s"
 msgstr ""
@@ -444,7 +450,7 @@ msgid "A song counts once you've played half of it or four minutes. Radio and so
 msgstr ""
 
 #: src/features/onboarding/WelcomeStep.tsx
-msgid "A subscription, signed in on the next step. You can browse Apple Music without one."
+msgid "A subscription, signed in to Sona. Browsing works without one."
 msgstr ""
 
 #: src/features/discover/RoomPage.tsx
@@ -455,8 +461,16 @@ msgstr ""
 msgid "AAC {audioQuality} kbps"
 msgstr ""
 
+#: src/features/onboarding/PlaybackStep.tsx
+msgid "AAC at 256 kbps"
+msgstr ""
+
 #: src/features/settings/QualityRow.tsx
 msgid "AAC at 256 kbps, or 64 kbps with Data saver for slow or metered connections. Applies from the next song. Lossless and Dolby Atmos albums play as AAC too."
+msgstr ""
+
+#: src/features/onboarding/PlaybackStep.tsx
+msgid "AAC at 64 kbps, for metered connections"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
@@ -563,14 +577,17 @@ msgstr ""
 msgid "Added by"
 msgstr ""
 
+#: src/features/onboarding/ConnectionsStep.tsx
 #: src/features/settings/Connections.tsx
 msgid "Adds each song you play to your Last.fm profile."
 msgstr ""
 
+#: src/features/onboarding/ConnectionsStep.tsx
 #: src/features/settings/Connections.tsx
 msgid "Adds each song you play to your public ListenBrainz history."
 msgstr ""
 
+#: src/features/onboarding/DesktopStep.tsx
 #: src/features/settings/DesktopRows.tsx
 msgid "Adds Sona to your desktop's startup applications."
 msgstr ""
@@ -655,8 +672,7 @@ msgstr ""
 msgid "Always light"
 msgstr ""
 
-#: src/features/onboarding/AppearanceStep.tsx
-#: src/features/onboarding/StepRail.tsx
+#: src/features/onboarding/steps.ts
 #: src/features/settings/Settings.tsx
 msgid "Appearance"
 msgstr ""
@@ -700,9 +716,8 @@ msgstr ""
 #: src/features/auth/AccountMenu.tsx
 #: src/features/commands/CommandPalette.tsx
 #: src/features/library/views.tsx
-#: src/features/onboarding/AccountStep.tsx
 #: src/features/onboarding/DoneStep.tsx
-#: src/features/onboarding/StepRail.tsx
+#: src/features/onboarding/steps.ts
 #: src/features/onboarding/WelcomeStep.tsx
 #: src/features/player/NowPlayingView.tsx
 #: src/features/search/ScopeSwitch.tsx
@@ -820,10 +835,6 @@ msgstr ""
 msgid "Apple Music's 30-second preview, not the full song"
 msgstr ""
 
-#: src/features/onboarding/WidevinePanel.tsx
-msgid "Apple Music's songs are protected, and Google's Widevine is what plays them. Sona downloads it from Google, checks Google's signature and keeps it up to date by itself."
-msgstr ""
-
 #: src/features/auth/Account.tsx
 msgid "Apple sent a {len}-digit code to {phone} by text message."
 msgstr ""
@@ -891,6 +902,10 @@ msgstr ""
 msgid "Asks GitHub for the newest Sona release once the window has opened. Nothing about you, your account or your library is sent."
 msgstr ""
 
+#: src/features/onboarding/DesktopStep.tsx
+msgid "At login, Sona starts without a window, ready for your media keys."
+msgstr ""
+
 #: src/features/settings/DesktopRows.tsx
 msgid "At login, Sona starts without a window, ready to play from the tray or your media keys."
 msgstr ""
@@ -915,6 +930,7 @@ msgstr ""
 msgid "Audio priority"
 msgstr ""
 
+#: src/features/onboarding/PlaybackStep.tsx
 #: src/features/settings/QualityRow.tsx
 #: src/features/settings/settings-file.ts
 msgid "Audio quality"
@@ -923,6 +939,10 @@ msgstr ""
 #: src/features/settings/General.tsx
 #: src/features/settings/LanguageRow.tsx
 msgid "Automatic"
+msgstr ""
+
+#: src/features/onboarding/WelcomeStep.tsx
+msgid "Automatic follows your Apple Music account and your system."
 msgstr ""
 
 #: src/features/settings/LanguageRow.tsx
@@ -965,7 +985,7 @@ msgid "AutoPlay on: similar music plays when the queue ends"
 msgstr ""
 
 #: src/app/shell/TopBar.tsx
-#: src/features/onboarding/SetupPage.tsx
+#: src/features/onboarding/SetupLayer.tsx
 msgid "Back"
 msgstr ""
 
@@ -1011,7 +1031,7 @@ msgstr ""
 msgid "Browse categories"
 msgstr ""
 
-#: src/features/onboarding/WidevinePanel.tsx
+#: src/features/onboarding/WidevineStatus.tsx
 #: src/features/settings/Playback.tsx
 msgid "Browsing Apple Music and your library works as usual."
 msgstr ""
@@ -1133,7 +1153,6 @@ msgid "Checking your sign-in…"
 msgstr ""
 
 #: src/features/auth/Account.tsx
-#: src/features/onboarding/StepRail.tsx
 #: src/features/settings/Connections.tsx
 #: src/features/settings/MotionDiagnostics.ts
 #: src/features/settings/Updates.tsx
@@ -1209,6 +1228,10 @@ msgstr ""
 msgid "Close queue"
 msgstr ""
 
+#: src/features/onboarding/DesktopStep.tsx
+msgid "Closing the window quits Sona: playing on in the background needs a system tray, which Sona can't use here yet."
+msgstr ""
+
 #: src/features/auth/Account.tsx
 msgid "Code"
 msgstr ""
@@ -1266,8 +1289,13 @@ msgstr ""
 msgid "Composition and lyrics"
 msgstr ""
 
+#: src/features/onboarding/ConnectionsStep.tsx
 #: src/features/settings/Connections.tsx
 msgid "Connect"
+msgstr ""
+
+#: src/features/onboarding/ConnectionsStep.tsx
+msgid "Connected"
 msgstr ""
 
 #: src/features/settings/Connections.tsx
@@ -1278,8 +1306,7 @@ msgstr ""
 msgid "Connected, paused. Songs you play now aren't sent."
 msgstr ""
 
-#: src/features/onboarding/ConnectionsStep.tsx
-#: src/features/onboarding/StepRail.tsx
+#: src/features/onboarding/steps.ts
 #: src/features/settings/Settings.tsx
 msgid "Connections"
 msgstr ""
@@ -1288,7 +1315,7 @@ msgstr ""
 msgid "Contents"
 msgstr ""
 
-#: src/features/onboarding/SetupPage.tsx
+#: src/features/onboarding/SetupLayer.tsx
 msgid "Continue"
 msgstr ""
 
@@ -1392,7 +1419,7 @@ msgstr ""
 msgid "Couldn't compact the database"
 msgstr ""
 
-#: src/features/settings/Connections.tsx
+#: src/features/settings/scrobble.ts
 msgid "Couldn't connect Last.fm"
 msgstr ""
 
@@ -1702,7 +1729,7 @@ msgstr ""
 msgid "Couldn't play this station"
 msgstr ""
 
-#: src/features/settings/Connections.tsx
+#: src/features/settings/scrobble.ts
 msgid "Couldn't reach {name}. Check your connection and try again."
 msgstr ""
 
@@ -1951,6 +1978,7 @@ msgstr ""
 msgid "Credits"
 msgstr ""
 
+#: src/features/onboarding/PlaybackStep.tsx
 #: src/features/settings/CrossfadeRows.tsx
 #: src/features/settings/settings-file.ts
 msgid "Crossfade"
@@ -1990,15 +2018,11 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: src/features/onboarding/StepRail.tsx
-msgid "Dark theme"
-msgstr ""
-
 #: src/features/settings/Diagnostics.tsx
 msgid "Data"
 msgstr ""
 
-#: src/features/onboarding/StepRail.tsx
+#: src/features/onboarding/PlaybackStep.tsx
 msgid "Data saver"
 msgstr ""
 
@@ -2051,8 +2075,7 @@ msgstr ""
 msgid "Description"
 msgstr ""
 
-#: src/features/onboarding/DesktopStep.tsx
-#: src/features/onboarding/StepRail.tsx
+#: src/features/onboarding/steps.ts
 msgid "Desktop"
 msgstr ""
 
@@ -2106,6 +2129,7 @@ msgstr ""
 msgid "Discord"
 msgstr ""
 
+#: src/features/onboarding/ConnectionsStep.tsx
 #: src/features/settings/IntegrationsRows.tsx
 #: src/features/settings/settings-file.ts
 msgid "Discord status"
@@ -2129,8 +2153,8 @@ msgstr ""
 msgid "Dolby Atmos"
 msgstr ""
 
-#: src/features/onboarding/SetupPage.tsx
-#: src/features/onboarding/StepRail.tsx
+#: src/features/onboarding/SetupLayer.tsx
+#: src/features/onboarding/steps.ts
 #: src/features/playlist/PlaylistPage.tsx
 msgid "Done"
 msgstr ""
@@ -2164,12 +2188,15 @@ msgstr ""
 msgid "Downloading an update…"
 msgstr ""
 
+#: src/features/onboarding/WidevineStatus.tsx
+msgid "Downloading Widevine…"
+msgstr ""
+
 #: src/features/onboarding/status.ts
 msgid "Downloading, {percent}"
 msgstr ""
 
 #: src/features/onboarding/status.ts
-#: src/features/onboarding/WidevinePanel.tsx
 #: src/features/settings/CdmRow.tsx
 #: src/features/settings/Diagnostics.tsx
 msgid "Downloading…"
@@ -2196,6 +2223,10 @@ msgctxt "explicit content mark"
 msgid "E"
 msgstr ""
 
+#: src/features/onboarding/SetupLayer.tsx
+msgid "Each choice applies at once, to the app behind."
+msgstr ""
+
 #: src/features/playlist/PlaylistPage.tsx
 msgid "Edit"
 msgstr ""
@@ -2216,10 +2247,6 @@ msgstr ""
 msgid "Editors' order"
 msgstr ""
 
-#: src/features/onboarding/AppearanceStep.tsx
-msgid "Effects"
-msgstr ""
-
 #. Equaliser preset
 #: src/features/equalizer/curve.ts
 msgid "Electronic"
@@ -2234,7 +2261,7 @@ msgctxt "keyboard key"
 msgid "End"
 msgstr ""
 
-#: src/features/onboarding/SetupPage.tsx
+#: src/features/onboarding/SetupLayer.tsx
 msgid "Ends the setup; Settings → General opens it again."
 msgstr ""
 
@@ -2310,10 +2337,6 @@ msgstr ""
 msgid "Every artist with a song or album in your library is listed here, A to Z."
 msgstr ""
 
-#: src/features/onboarding/DoneStep.tsx
-msgid "Everything here can be changed in Settings, and Settings → General runs this setup again."
-msgstr ""
-
 #: src/features/settings/Diagnostics.tsx
 msgid "Everything Sona needs is working"
 msgstr ""
@@ -2355,6 +2378,10 @@ msgstr ""
 
 #: src/features/settings/CrossfadeRows.tsx
 msgid "Fades each song into the next instead of playing them back to back. Songs that follow each other on the same album always play without a gap, as they were mastered."
+msgstr ""
+
+#: src/features/onboarding/PlaybackStep.tsx
+msgid "Fades each song into the next. Songs of one album still play without a gap."
 msgstr ""
 
 #: src/features/settings/MotionDiagnostics.ts
@@ -2498,7 +2525,7 @@ msgstr ""
 msgid "Get a notification when it's out"
 msgstr ""
 
-#: src/features/onboarding/SetupPage.tsx
+#: src/features/onboarding/SetupLayer.tsx
 msgid "Get started"
 msgstr ""
 
@@ -2560,8 +2587,12 @@ msgstr ""
 msgid "Google doesn't make Widevine for this computer, so songs can't play here."
 msgstr ""
 
+#: src/features/onboarding/WidevineStatus.tsx
+msgid "Google's component that plays Apple Music's protected songs. Sona downloads it, checks Google's signature and keeps it up to date."
+msgstr ""
+
 #: src/features/onboarding/WelcomeStep.tsx
-msgid "Google's component that plays Apple Music's protected songs. Sona downloads it by itself."
+msgid "Google's component that plays protected songs. Sona downloads it by itself."
 msgstr ""
 
 #: src/features/settings/CdmRow.tsx
@@ -2604,7 +2635,7 @@ msgstr ""
 msgid "High · 256 kbps"
 msgstr ""
 
-#: src/features/onboarding/StepRail.tsx
+#: src/features/onboarding/PlaybackStep.tsx
 msgid "High quality"
 msgstr ""
 
@@ -2631,12 +2662,8 @@ msgstr ""
 msgid "How long the end of one song overlaps the start of the next. Applies from the next song."
 msgstr ""
 
-#: src/features/onboarding/AppearanceStep.tsx
-msgid "How Sona looks. Each choice applies at once."
-msgstr ""
-
-#: src/features/onboarding/DesktopStep.tsx
-msgid "How Sona starts, what closing its window does, and what it shows while music plays."
+#: src/features/onboarding/SetupLayer.tsx
+msgid "How Sona starts, and what it does in the background."
 msgstr ""
 
 #: src/features/auth/Account.tsx
@@ -2787,6 +2814,10 @@ msgstr ""
 msgid "Keep connected"
 msgstr ""
 
+#: src/features/onboarding/DesktopStep.tsx
+msgid "Keep playing"
+msgstr ""
+
 #: src/features/settings/DesktopRows.tsx
 msgid "Keep playing in the background"
 msgstr ""
@@ -2809,6 +2840,7 @@ msgstr ""
 msgid "Landlock doesn't restrict its files."
 msgstr ""
 
+#: src/features/onboarding/WelcomeStep.tsx
 #: src/features/settings/LanguageRow.tsx
 msgid "Language"
 msgstr ""
@@ -2825,7 +2857,7 @@ msgstr ""
 msgid "Last video"
 msgstr ""
 
-#: src/features/settings/Connections.tsx
+#: src/features/settings/scrobble.ts
 msgid "Last.fm refused Sona's request. Try connecting again."
 msgstr ""
 
@@ -2840,6 +2872,10 @@ msgstr ""
 #: src/shared/shortcuts/chord.ts
 msgctxt "keyboard key"
 msgid "Left Arrow"
+msgstr ""
+
+#: src/features/onboarding/PlaybackStep.tsx
+msgid "Length"
 msgstr ""
 
 #: src/app/compose.ts
@@ -2881,10 +2917,6 @@ msgstr ""
 msgid "Light"
 msgstr ""
 
-#: src/features/onboarding/StepRail.tsx
-msgid "Light theme"
-msgstr ""
-
 #: src/features/player/shortcuts.ts
 msgid "like love star favorite"
 msgstr ""
@@ -2901,11 +2933,10 @@ msgstr ""
 msgid "Link copied"
 msgstr ""
 
-#: src/features/settings/Connections.tsx
+#: src/features/settings/scrobble.ts
 msgid "ListenBrainz didn't accept that token. Copy it again from your ListenBrainz settings."
 msgstr ""
 
-#: src/features/onboarding/PlaybackStep.tsx
 #: src/features/settings/Playback.tsx
 msgid "Listening"
 msgstr ""
@@ -3146,6 +3177,7 @@ msgstr ""
 msgid "More to hear"
 msgstr ""
 
+#: src/features/onboarding/AppearanceStep.tsx
 #: src/features/settings/MotionArtworkRows.tsx
 #: src/features/settings/MotionDiagnostics.ts
 #: src/features/settings/settings-file.ts
@@ -3315,6 +3347,10 @@ msgstr ""
 msgid "Next in {label}"
 msgstr ""
 
+#: src/features/onboarding/WelcomeStep.tsx
+msgid "Next step"
+msgstr ""
+
 #: src/features/player/shortcuts.ts
 msgid "Next track"
 msgstr ""
@@ -3389,11 +3425,6 @@ msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
 msgid "No PipeWire or PulseAudio sink was found; GStreamer falls back to autoaudiosink."
-msgstr ""
-
-#: src/features/onboarding/status.ts
-#: src/features/onboarding/StepRail.tsx
-msgid "No playback here"
 msgstr ""
 
 #: src/features/playlist/PlaylistDialogs.tsx
@@ -3492,6 +3523,10 @@ msgstr ""
 msgid "Not available here"
 msgstr ""
 
+#: src/features/onboarding/ConnectionsStep.tsx
+msgid "Not available in this build of Sona."
+msgstr ""
+
 #: src/features/settings/IntegrationsRows.tsx
 msgid "Not available in this build: it was made without a Discord application ID."
 msgstr ""
@@ -3499,10 +3534,6 @@ msgstr ""
 #: src/features/equalizer/EqualizerPage.tsx
 #: src/features/settings/Diagnostics.tsx
 msgid "Not available on this platform yet"
-msgstr ""
-
-#: src/features/onboarding/DesktopStep.tsx
-msgid "Not available on this platform yet."
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
@@ -3527,8 +3558,12 @@ msgstr ""
 msgid "Not fully sandboxed"
 msgstr ""
 
-#: src/features/onboarding/SetupPage.tsx
+#: src/features/onboarding/SetupLayer.tsx
 msgid "Not now"
+msgstr ""
+
+#: src/features/onboarding/DesktopStep.tsx
+msgid "Not on this platform yet: {missingList}."
 msgstr ""
 
 #: src/features/miniplayer/MiniPlayer.tsx
@@ -3560,7 +3595,6 @@ msgstr ""
 
 #. The account menu's status line
 #: src/features/auth/AccountMenu.tsx
-#: src/features/onboarding/StepRail.tsx
 msgid "Not signed in"
 msgstr ""
 
@@ -3600,6 +3634,10 @@ msgstr ""
 
 #: src/features/search/SearchPage.tsx
 msgid "Nothing in your library for “{q}”"
+msgstr ""
+
+#: src/features/onboarding/ConnectionsStep.tsx
+msgid "Nothing is scrobbled or shown on Discord while private listening is on."
 msgstr ""
 
 #: src/features/settings/Connections.tsx
@@ -3679,6 +3717,7 @@ msgstr ""
 msgid "Off while Reduce effects is on"
 msgstr ""
 
+#: src/features/onboarding/AppearanceStep.tsx
 #: src/features/settings/MotionArtworkRows.tsx
 msgid "Off while Reduce effects is on."
 msgstr ""
@@ -3722,8 +3761,16 @@ msgstr ""
 msgid "On because Sona was started with SONA_PRIVATE=1"
 msgstr ""
 
+#: src/features/onboarding/PlaybackStep.tsx
+msgid "On because Sona was started with SONA_PRIVATE=1."
+msgstr ""
+
 #: src/features/settings/PrivateRows.tsx
 msgid "On because Sona was started with SONA_PRIVATE=1. Start Sona without it to turn private listening off."
+msgstr ""
+
+#: src/features/onboarding/PlaybackStep.tsx
+msgid "On in development builds; switching it here lasts until Sona quits."
 msgstr ""
 
 #: src/features/library/HistoryPage.tsx
@@ -3793,13 +3840,12 @@ msgstr ""
 msgid "Opens in your browser"
 msgstr ""
 
-#: src/features/onboarding/StepRail.tsx
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "Optional"
 msgstr ""
 
-#: src/features/onboarding/ConnectionsStep.tsx
-msgid "Optional. Keep a record of what you play on Last.fm or ListenBrainz, or show it on Discord. Settings → Connections has these too."
+#: src/features/onboarding/SetupLayer.tsx
+msgid "Optional. Keep a record of what you play, or show it on Discord."
 msgstr ""
 
 #: src/shared/shortcuts/Keys.tsx
@@ -3994,9 +4040,7 @@ msgstr ""
 msgid "Play your songs"
 msgstr ""
 
-#: src/features/onboarding/PlaybackStep.tsx
-#: src/features/onboarding/StepRail.tsx
-#: src/features/onboarding/WidevinePanel.tsx
+#: src/features/onboarding/steps.ts
 #: src/features/settings/Diagnostics.tsx
 #: src/features/settings/Settings.tsx
 #: src/shared/shortcuts/groups.ts
@@ -4011,11 +4055,11 @@ msgstr ""
 msgid "Playback isn't available here yet"
 msgstr ""
 
-#: src/features/onboarding/WidevinePanel.tsx
+#: src/features/onboarding/WidevineStatus.tsx
 msgid "Playback isn't available on this computer"
 msgstr ""
 
-#: src/features/onboarding/WidevinePanel.tsx
+#: src/features/onboarding/WidevineStatus.tsx
 #: src/features/settings/Playback.tsx
 msgid "Playback isn't available on this platform yet"
 msgstr ""
@@ -4091,12 +4135,20 @@ msgstr ""
 msgid "Plays every song at about the same loudness, using the loudness Apple measured for it. Uploaded songs use their own Sound Check tag, if iTunes or Music wrote one."
 msgstr ""
 
+#: src/features/onboarding/PlaybackStep.tsx
+msgid "Plays every song at about the same loudness."
+msgstr ""
+
 #: src/features/radio/StationPage.tsx
 msgid "Plays first"
 msgstr ""
 
 #: src/features/library/HistoryPage.tsx
 msgid "Plays on this computer are kept for a year."
+msgstr ""
+
+#: src/features/onboarding/PlaybackStep.tsx
+msgid "Plays stay out of your Apple Music history and recommendations, and aren't scrobbled."
 msgstr ""
 
 #: src/features/settings/PrivateRows.tsx
@@ -4114,6 +4166,14 @@ msgstr ""
 
 #: src/features/settings/MotionArtworkRows.tsx
 msgid "Plays the looping covers some albums and playlists have, in their headers and in Now Playing. Paused on battery power."
+msgstr ""
+
+#: src/features/onboarding/AppearanceStep.tsx
+msgid "Plays the looping covers some albums have."
+msgstr ""
+
+#: src/features/onboarding/AppearanceStep.tsx
+msgid "Plays the looping covers some albums have. Paused on battery power."
 msgstr ""
 
 #: src/features/settings/MotionDiagnostics.ts
@@ -4182,7 +4242,6 @@ msgstr ""
 
 #. Short label of the private listening switch while it is on
 #. Short label of the private listening switch while it is on
-#: src/features/onboarding/StepRail.tsx
 #: src/features/private/PrivateButton.tsx
 msgid "Private"
 msgstr ""
@@ -4200,6 +4259,7 @@ msgstr ""
 #. Switch name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
 #. Switch name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
 #: src/features/auth/AccountMenu.tsx
+#: src/features/onboarding/PlaybackStep.tsx
 #: src/features/private/PrivateButton.tsx
 #: src/features/settings/PrivateRows.tsx
 msgid "Private listening"
@@ -4278,6 +4338,7 @@ msgstr ""
 msgid "quieter"
 msgstr ""
 
+#: src/features/onboarding/DesktopStep.tsx
 #: src/features/settings/DesktopRows.tsx
 msgid "Quit Sona"
 msgstr ""
@@ -4315,7 +4376,6 @@ msgid "Read more"
 msgstr ""
 
 #: src/features/onboarding/status.ts
-#: src/features/onboarding/WidevinePanel.tsx
 #: src/features/settings/CdmRow.tsx
 msgid "Ready"
 msgstr ""
@@ -4389,18 +4449,16 @@ msgstr ""
 msgid "Recommendations need Apple Music"
 msgstr ""
 
+#: src/features/onboarding/ConnectionsStep.tsx
 #: src/features/settings/Connections.tsx
 msgid "Reconnect"
 msgstr ""
 
+#: src/features/onboarding/AppearanceStep.tsx
 #: src/features/settings/AppearanceSection.tsx
 #: src/features/settings/MotionDiagnostics.ts
 #: src/features/settings/settings-file.ts
 msgid "Reduce effects"
-msgstr ""
-
-#: src/features/onboarding/StepRail.tsx
-msgid "Reduced effects"
 msgstr ""
 
 #: src/features/home/HomePage.tsx
@@ -4578,13 +4636,13 @@ msgid "resume stop"
 msgstr ""
 
 #: src/features/library/SyncIndicator.tsx
-#: src/features/onboarding/WidevinePanel.tsx
+#: src/features/onboarding/WidevineStatus.tsx
 #: src/features/settings/CdmRow.tsx
 #: src/shared/components/ErrorBlock.tsx
 msgid "Retry"
 msgstr ""
 
-#: src/features/onboarding/WidevinePanel.tsx
+#: src/features/onboarding/WidevineStatus.tsx
 #: src/features/settings/CdmRow.tsx
 #: src/shared/components/ErrorBlock.tsx
 msgid "Retrying…"
@@ -4650,10 +4708,15 @@ msgstr ""
 msgid "Scrobbling"
 msgstr ""
 
+#: src/features/onboarding/ConnectionsStep.tsx
+msgid "Scrobbling as {name}."
+msgstr ""
+
 #: src/features/settings/Connections.tsx
 msgid "Scrobbling as {user}."
 msgstr ""
 
+#: src/features/onboarding/ConnectionsStep.tsx
 #: src/features/settings/Connections.tsx
 msgid "Scrobbling."
 msgstr ""
@@ -4724,7 +4787,7 @@ msgstr ""
 msgid "Session"
 msgstr ""
 
-#: src/features/onboarding/StepRail.tsx
+#: src/features/onboarding/SetupLayer.tsx
 msgid "Set up Sona"
 msgstr ""
 
@@ -4758,12 +4821,20 @@ msgstr ""
 msgid "Settings file"
 msgstr ""
 
+#: src/features/onboarding/SetupLayer.tsx
+msgid "Settings has all of this, and Settings → General runs the setup again."
+msgstr ""
+
 #: src/features/settings/Settings.tsx
 msgid "Settings sections"
 msgstr ""
 
-#: src/features/onboarding/DoneStep.tsx
+#: src/features/onboarding/SetupLayer.tsx
 msgid "Setup is done"
+msgstr ""
+
+#: src/features/onboarding/StepProgress.tsx
+msgid "Setup steps"
 msgstr ""
 
 #: src/shared/shortcuts/chord.ts
@@ -4865,6 +4936,10 @@ msgstr ""
 
 #: src/features/radio/bands.ts
 msgid "Shows and episodes"
+msgstr ""
+
+#: src/features/onboarding/ConnectionsStep.tsx
+msgid "Shows the song you're playing as your Discord activity."
 msgstr ""
 
 #: src/features/settings/IntegrationsRows.tsx
@@ -5018,7 +5093,7 @@ msgstr ""
 msgid "Sign-in timed out"
 msgstr ""
 
-#: src/features/onboarding/StepRail.tsx
+#: src/features/onboarding/WelcomeStep.tsx
 msgid "Signed in"
 msgstr ""
 
@@ -5033,8 +5108,8 @@ msgstr ""
 msgid "Signed in to Apple Music"
 msgstr ""
 
-#: src/features/onboarding/AccountStep.tsx
-msgid "Signing in brings your Apple Music library, playlists and recommendations to Sona, and lets it play whole songs. Sona keeps the sign-in in your keyring; it never saves your password."
+#: src/features/onboarding/SetupLayer.tsx
+msgid "Signing in brings your library, playlists and recommendations, and plays whole songs. Sona keeps the sign-in in your keyring and never saves your password."
 msgstr ""
 
 #: src/features/auth/Account.tsx
@@ -5094,8 +5169,12 @@ msgstr ""
 msgid "skip forward"
 msgstr ""
 
-#: src/features/onboarding/SetupPage.tsx
+#: src/features/onboarding/SetupLayer.tsx
 msgid "Skip setup"
+msgstr ""
+
+#: src/features/onboarding/SetupLayer.tsx
+msgid "Skip the rest of the setup?"
 msgstr ""
 
 #: src/app/shell/AppShell.tsx
@@ -5147,6 +5226,10 @@ msgstr ""
 msgid "Sleep timer: stop in 30 minutes"
 msgstr ""
 
+#: src/features/onboarding/AppearanceStep.tsx
+msgid "Solid surfaces and no animation. Smoother on software rendering."
+msgstr ""
+
 #: src/features/settings/AppearanceSection.tsx
 msgid "Solid surfaces instead of artwork colour washes, and no animation. Smoother on software rendering."
 msgstr ""
@@ -5177,7 +5260,7 @@ msgstr ""
 msgid "Sona {latest} is available"
 msgstr ""
 
-#: src/features/onboarding/WidevinePanel.tsx
+#: src/features/onboarding/WidevineStatus.tsx
 #: src/features/settings/CdmRow.tsx
 msgid "Sona also tries again by itself later."
 msgstr ""
@@ -5189,10 +5272,6 @@ msgstr ""
 #: src/features/radio/OnAir.tsx
 #: src/features/radio/StationPage.tsx
 msgid "Sona can't play this station"
-msgstr ""
-
-#: src/features/onboarding/WidevinePanel.tsx
-msgid "Sona checks for a newer version every day; an update applies the next time playback starts."
 msgstr ""
 
 #: src/features/library/gate.tsx
@@ -5300,16 +5379,12 @@ msgstr ""
 msgid "Sona plays AAC only. Albums marked Lossless or Dolby Atmos play as AAC: Apple doesn't license lossless to desktop Widevine players."
 msgstr ""
 
-#: src/features/onboarding/WelcomeStep.tsx
-msgid "Sona plays Apple Music on this computer. The next few steps sign you in and set how Sona plays, looks and starts. Each can be skipped, and everything can be changed later in Settings."
+#: src/features/onboarding/SetupLayer.tsx
+msgid "Sona plays Apple Music on this computer. A few short steps sign you in and set how it plays, looks and starts. Each can be skipped and changed later in Settings."
 msgstr ""
 
 #: src/features/video/VideoPage.tsx
 msgid "Sona plays music, not video: the video opens in Apple Music in your browser."
-msgstr ""
-
-#: src/features/onboarding/DesktopStep.tsx
-msgid "Sona quits. Playing on in the background needs a system tray, which Sona can't use on this platform yet."
 msgstr ""
 
 #: src/features/auth/Account.tsx
@@ -5322,6 +5397,10 @@ msgstr ""
 
 #: src/shared/lib/errors.ts
 msgid "Sona signed out, but couldn't remove everything it saved. Unlock your keyring, then sign out again."
+msgstr ""
+
+#: src/features/onboarding/DesktopStep.tsx
+msgid "Sona stays in the system tray."
 msgstr ""
 
 #: src/features/auth/Account.tsx
@@ -5383,6 +5462,10 @@ msgstr ""
 msgid "Songs on {albumName}"
 msgstr ""
 
+#: src/features/onboarding/WidevineStatus.tsx
+msgid "Songs play once it's ready. The download carries on if you continue."
+msgstr ""
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Songs play when the download finishes."
 msgstr ""
@@ -5419,11 +5502,11 @@ msgstr ""
 msgid "Sort by"
 msgstr ""
 
-#: src/features/onboarding/PlaybackStep.tsx
 #: src/features/settings/Playback.tsx
 msgid "Sound"
 msgstr ""
 
+#: src/features/onboarding/PlaybackStep.tsx
 #: src/features/settings/AudioRows.tsx
 #: src/features/settings/settings-file.ts
 msgid "Sound Check"
@@ -5450,6 +5533,7 @@ msgstr ""
 msgid "Stalled · {when}"
 msgstr ""
 
+#: src/features/onboarding/DesktopStep.tsx
 #: src/features/settings/DesktopRows.tsx
 #: src/features/settings/settings-file.ts
 msgid "Start in the tray"
@@ -5465,20 +5549,20 @@ msgid "Start-up to first paint"
 msgstr ""
 
 #: src/features/onboarding/DesktopStep.tsx
+msgid "starting at login"
+msgstr ""
+
 #: src/features/settings/General.tsx
 msgid "Starting Sona"
 msgstr ""
 
-#: src/features/onboarding/WidevinePanel.tsx
-msgid "Starting the download…"
+#: src/features/onboarding/WidevineStatus.tsx
+msgid "Starting Widevine's download…"
 msgstr ""
 
 #: src/features/onboarding/status.ts
+#: src/features/onboarding/WidevineStatus.tsx
 msgid "Starting…"
-msgstr ""
-
-#: src/features/onboarding/StepRail.tsx
-msgid "Starts at login"
 msgstr ""
 
 #: src/features/home/catalogue-line.ts
@@ -5492,6 +5576,7 @@ msgstr ""
 msgid "Stations"
 msgstr ""
 
+#: src/features/onboarding/DesktopStep.tsx
 #: src/features/settings/IntegrationsRows.tsx
 #: src/features/settings/settings-file.ts
 msgid "Stay awake while playing"
@@ -5620,10 +5705,6 @@ msgstr ""
 msgid "System reduced motion"
 msgstr ""
 
-#: src/features/onboarding/StepRail.tsx
-msgid "System theme"
-msgstr ""
-
 #: src/shared/shortcuts/chord.ts
 msgctxt "keyboard key"
 msgid "Tab"
@@ -5697,16 +5778,16 @@ msgstr ""
 msgid "The account's country or region has no Apple Music storefront."
 msgstr ""
 
+#: src/features/onboarding/DesktopStep.tsx
+msgid "The computer doesn't suspend on its own while music plays."
+msgstr ""
+
 #: src/features/settings/Storage.tsx
 msgid "The database was already compact"
 msgstr ""
 
 #: src/features/settings/General.tsx
 msgid "The desktop's"
-msgstr ""
-
-#: src/features/onboarding/WidevinePanel.tsx
-msgid "The download carries on if you continue."
 msgstr ""
 
 #: src/features/cdm/messages.ts
@@ -5745,7 +5826,7 @@ msgstr ""
 msgid "The folder isn't empty. Move or delete what's in it first."
 msgstr ""
 
-#: src/features/settings/Connections.tsx
+#: src/features/settings/scrobble.ts
 msgid "The Last.fm approval expired before it was confirmed. Connect again to get a new one."
 msgstr ""
 
@@ -5755,6 +5836,10 @@ msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
 msgid "The macOS sandbox is turned off ({SEATBELT_OFF})."
+msgstr ""
+
+#: src/features/onboarding/DesktopStep.tsx
+msgid "The music stops with it."
 msgstr ""
 
 #: src/features/settings/AudioRows.tsx
@@ -5779,6 +5864,10 @@ msgstr ""
 
 #: src/shared/lib/errors.ts
 msgid "The sign-in was replaced or cancelled. Start again."
+msgstr ""
+
+#: src/features/onboarding/DesktopStep.tsx
+msgid "The song and artist when a new track starts, while Sona is in the background."
 msgstr ""
 
 #: src/features/video/VideoPage.tsx
@@ -5867,11 +5956,16 @@ msgstr ""
 msgid "This artist page doesn't have a list called “{view}”."
 msgstr ""
 
+#: src/features/onboarding/ConnectionsStep.tsx
+msgid "This build of Sona can't connect to Last.fm."
+msgstr ""
+
 #: src/shared/lib/errors.ts
 msgid "This build of Sona has no account for that service."
 msgstr ""
 
 #: src/features/settings/Connections.tsx
+#: src/features/settings/scrobble.ts
 msgid "This build of Sona has no Last.fm API key, so it can't connect to Last.fm."
 msgstr ""
 
@@ -5995,6 +6089,10 @@ msgstr ""
 
 #: src/features/artist/ArtistPage.tsx
 msgid "Top songs by {artistName}"
+msgstr ""
+
+#: src/features/onboarding/DesktopStep.tsx
+msgid "track notifications"
 msgstr ""
 
 #: src/features/onboarding/DesktopStep.tsx
@@ -6194,10 +6292,6 @@ msgstr ""
 msgid "Version {version}"
 msgstr ""
 
-#: src/features/onboarding/WidevinePanel.tsx
-msgid "Version {version} is ready"
-msgstr ""
-
 #: src/features/discover/bands.ts
 msgid "Videos"
 msgstr ""
@@ -6268,30 +6362,37 @@ msgstr ""
 msgid "WebKitGTK"
 msgstr ""
 
-#: src/features/onboarding/StepRail.tsx
+#: src/features/onboarding/steps.ts
 msgid "Welcome"
 msgstr ""
 
-#: src/features/onboarding/WelcomeStep.tsx
+#: src/features/onboarding/SetupLayer.tsx
 msgid "Welcome to Sona"
 msgstr ""
 
-#: src/features/onboarding/PlaybackStep.tsx
-msgid "What plays your music and how it sounds. Settings → Playback has these and more."
+#: src/features/onboarding/SetupLayer.tsx
+msgid "What plays your music and how it sounds."
 msgstr ""
 
 #: src/features/onboarding/WelcomeStep.tsx
 msgid "What whole songs need"
 msgstr ""
 
+#: src/features/onboarding/SetupLayer.tsx
+msgid "What you've chosen so far is kept. Settings → General runs the setup again."
+msgstr ""
+
 #: src/features/playlist/PlaylistSidebar.tsx
 msgid "When chosen"
 msgstr ""
 
-#: src/features/onboarding/DesktopStep.tsx
 #: src/features/settings/DesktopRows.tsx
 #: src/features/settings/settings-file.ts
 msgid "When the window is closed"
+msgstr ""
+
+#: src/features/onboarding/DesktopStep.tsx
+msgid "When you close the window"
 msgstr ""
 
 #: src/features/settings/QueueRows.tsx
@@ -6314,20 +6415,18 @@ msgstr ""
 msgid "Which number should Apple text?"
 msgstr ""
 
-#: src/features/onboarding/DesktopStep.tsx
 #: src/features/settings/General.tsx
 msgid "While music plays"
 msgstr ""
 
 #: src/features/onboarding/DoneStep.tsx
 #: src/features/onboarding/WelcomeStep.tsx
-#: src/features/onboarding/WidevinePanel.tsx
 #: src/features/settings/CdmRow.tsx
 msgid "Widevine"
 msgstr ""
 
-#: src/features/onboarding/status.ts
-msgid "Widevine {percent}"
+#: src/features/onboarding/WidevineStatus.tsx
+msgid "Widevine {version} is ready"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
@@ -6338,29 +6437,17 @@ msgstr ""
 msgid "Widevine couldn't be downloaded. Try again later."
 msgstr ""
 
-#: src/features/onboarding/WidevinePanel.tsx
+#: src/features/onboarding/WidevineStatus.tsx
 #: src/features/settings/CdmRow.tsx
 msgid "Widevine download"
 msgstr ""
 
-#: src/features/onboarding/status.ts
-msgid "Widevine downloading…"
-msgstr ""
-
-#: src/features/onboarding/status.ts
-msgid "Widevine failed"
+#: src/features/onboarding/WidevineStatus.tsx
+msgid "Widevine is ready"
 msgstr ""
 
 #: src/features/player/CdmNotice.tsx
 msgid "Widevine is ready. Press play to start."
-msgstr ""
-
-#: src/features/onboarding/status.ts
-msgid "Widevine ready"
-msgstr ""
-
-#: src/features/onboarding/status.ts
-msgid "Widevine starting…"
 msgstr ""
 
 #: src/features/settings/CdmRow.tsx
@@ -6369,7 +6456,6 @@ msgstr ""
 
 #: src/app/shell/WindowControls.tsx
 #: src/features/miniplayer/MiniPlayer.tsx
-#: src/features/onboarding/DesktopStep.tsx
 #: src/features/settings/General.tsx
 #: src/features/settings/MotionDiagnostics.ts
 msgid "Window"
@@ -6467,7 +6553,7 @@ msgstr ""
 msgid "You're a collaborator."
 msgstr ""
 
-#: src/features/onboarding/DoneStep.tsx
+#: src/features/onboarding/SetupLayer.tsx
 msgid "You're all set"
 msgstr ""
 

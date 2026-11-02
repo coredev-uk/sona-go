@@ -28,25 +28,3 @@ export function widevineShort(view: WidevineView, status: CDMStatus | null): str
       return status ? cdmFailedState(status.code) : "";
   }
 }
-
-/** Widevine's state as one item of the step list's line under Playback. */
-export function widevineItem(view: WidevineView, status: CDMStatus | null): string {
-  switch (view) {
-    case "loading":
-    case "not-needed":
-      return "";
-    case "unavailable":
-    case "unsupported":
-      return t`No playback here`;
-    case "waiting":
-      return t`Widevine starting…`;
-    case "downloading": {
-      const percent = status ? cdmPercent(status) : "";
-      return percent ? t`Widevine ${percent}` : t`Widevine downloading…`;
-    }
-    case "ready":
-      return t`Widevine ready`;
-    case "failed":
-      return t`Widevine failed`;
-  }
-}

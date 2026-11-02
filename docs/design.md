@@ -194,29 +194,32 @@ The sidebar header and the top bar are the window's title bar. Who draws it come
 
 ### First-run setup
 
-The setup (`/welcome`) takes the whole window: no sidebar, top bar or player bar, nothing to play yet and nothing to wander off to. What stays is the title bar's band, so the window still drags, maximises and closes as everywhere else, and the mark sits exactly where the sidebar's header will put it when the setup gives way to the app.
+The setup is a modal over the live app, not a page of its own: the sidebar, top bar and player bar stay drawn behind the dialog scrim (inert), so the first thing anyone sees is the app they are setting up, and each Appearance choice shows at once on the window behind. The card is as tall as its step, so there is no empty column to fill.
 
 ```
-┌──────────┬───────────────────────────────────────────────┐
-│ ● Sona   │                                        – □ ✕ │  the band only, no top bar
-│          │                                               │
-│ Set up…  │        h1 + one line                          │
-│ Welcome  │                                               │
-│ Apple M… │        groups and rows, as in Settings        │
-│  Signed in                                               │
-│ Playback │        (680px column, centred)                │
-│  Widevine ready · High quality                           │
-│ …        │                                               │
-│          ├───────────────────────────────────────────────┤
-│ Skip set…│        ‹ Back                       Continue  │  64px, stays while the step scrolls
-└──────────┴───────────────────────────────────────────────┘
+┌────────┬─────────────────────────────────────────────────┐
+│ sidebar│ top bar          (scrim over all of it)         │
+│        │      ┌──────────────────────────────────┐       │
+│        │      │ ● Set up Sona  3 of 7  Skip setup│       │
+│        │      │ ▬▬ ▬▬ ▬▬ ── ── ── ──             │  strip: one Tab stop
+│        │      │ Playback                         │  title + one line
+│        │      │ What plays your music…           │
+│        │      │ [cards] / rows                   │  scrolls inside when short
+│        │      ├──────────────────────────────────┤
+│        │      │ ‹ Back                  Continue │  64px foot
+│        │      └──────────────────────────────────┘       │
+├────────┴─────────────────────────────────────────────────┤
+│ player bar                                               │
+└──────────────────────────────────────────────────────────┘
 ```
 
-- The steps run down a 232px `--surface` column, the sidebar's width and tone. Each carries a live meta line in the catalogue line's form (`Widevine 42% · Data saver · Private`), so the list is also the summary: nothing on the last step repeats it.
-- Every step is skippable (the list's links, "Not now", Continue) and "Skip setup" ends it; the last step lists only what is still to do (signing in, a download that hasn't finished), each with the way back to its step.
-- The rows are Settings' own rows, so a choice reads and saves the same way in both places. Where the platform can't do something (no tray, no autostart, no notifications) the row is named with the reason instead of left out, because a first run is where people look for it.
-- Theme is the one picture in the setup: three windows in miniature, drawn from the tokens in each palette (System is both, halved), chosen as radio buttons.
-- One primary button, at the foot's trailing end; Back is a ghost button at its leading end. No amber anywhere but the mark and the previews' play controls.
+- The card is 640px wide (less 24px a side on a narrow window), `--raised` with the float shadow and, in dark, a 1px white/10 ring. The dialog scrim is black/50 in light and black/70 in dark, where a lighter one left the card barely apart from the app behind; no blur. Its top edge is fixed at 10% of the window's height (at least 24px), so the strip and the foot don't move from step to step; it grows downwards to 24px above the window's foot, and past that its body scrolls while the head and foot stay.
+- The head names the setup and the place in it ("3 of 7"); the strip under it has one segment per step, filled up to the current one, with each step's name under its segment (the current one in `--ink` and medium weight, the rest muted), so where you are and what comes next read without hovering. The strip is one Tab stop: ←/→ and Home/End move between steps, Enter goes there.
+- Each step is a title, one line, and its own parts, not Settings' rows: choice cards for a choice between a few (audio quality, theme, what closing the window does), short switch rows for on/off, a compact Widevine status, and a row per connection. They save through the same queries as Settings, so a choice made here reads the same there.
+- Theme is the one picture: three windows in miniature drawn from each palette's tokens (System is both, halved), as choice cards.
+- Where the platform can't do something (no tray, no autostart, no notifications) Desktop says so in one line at its foot instead of leaving the reader to look for a missing row.
+- One primary button, at the foot's trailing end ("Get started", Continue, Done). On Apple Music, before signing in, the password form's Sign in is that primary, in the foot beside a ghost "Not now", so it stays in view however far the form scrolls (at 940×600 the form runs below the fold); the form's own heading is left out, the step's title names it; Back is a ghost button at the leading end. No amber but the mark and the previews' play controls.
+- Every step can be skipped. "Skip setup" ends it at once; Escape asks first ("Skip the rest of the setup?"), except on the last step, where it is Done; a click outside does nothing. The last step lists only what is still to do, each with the way back to its step.
 
 ### Discover
 
