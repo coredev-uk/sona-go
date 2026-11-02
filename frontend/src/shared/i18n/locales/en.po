@@ -2810,6 +2810,10 @@ msgstr "Last video"
 msgid "Last.fm refused Sona's request. Try connecting again."
 msgstr "Last.fm refused Sona's request. Try connecting again."
 
+#: src/features/radio/OnAir.tsx
+msgid "Later at <0>{nextAt}</0>: {nextTitle}"
+msgstr "Later at <0>{nextAt}</0>: {nextTitle}"
+
 #: src/features/artist/ArtistHead.tsx
 msgid "Latest release"
 msgstr "Latest release"
