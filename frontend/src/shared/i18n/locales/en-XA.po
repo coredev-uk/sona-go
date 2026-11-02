@@ -341,6 +341,10 @@ msgstr ""
 msgid "{songs, plural, one {# song} other {# songs}}, {plays, plural, one {# play} other {# plays}}"
 msgstr ""
 
+#: src/features/album/AlbumPage.tsx
+msgid "{songsOut, plural, one {Play the # song out now} other {Play the # songs out now}}"
+msgstr ""
+
 #: src/features/settings/Diagnostics.tsx
 msgid "{startupMs} ms"
 msgstr ""
@@ -351,6 +355,10 @@ msgstr ""
 
 #: src/features/search/GroupPage.tsx
 msgid "{title} matching {q}"
+msgstr ""
+
+#: src/features/album/AlbumPage.tsx
+msgid "{total, plural, one {{have} of # song in your library} other {{have} of # songs in your library}}"
 msgstr ""
 
 #: src/features/album/ReleaseStatus.tsx
@@ -2043,6 +2051,7 @@ msgstr ""
 msgid "Disable the DMA-BUF renderer"
 msgstr ""
 
+#: src/features/album/AlbumSleeve.tsx
 #: src/shared/tracks/TrackList.tsx
 msgid "Disc {disc}"
 msgstr ""
@@ -2072,6 +2081,10 @@ msgstr ""
 #: src/features/discover/NewPage.tsx
 #: src/features/settings/General.tsx
 msgid "Discover"
+msgstr ""
+
+#: src/features/album/AlbumSleeve.tsx
+msgid "Discs"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
@@ -2269,6 +2282,7 @@ msgstr ""
 msgid "Explicit"
 msgstr ""
 
+#: src/features/album/AlbumPage.tsx
 #: src/features/home/HomeLead.tsx
 #: src/features/home/ItemRows.tsx
 #: src/shared/components/CoverGrid.tsx
@@ -2835,6 +2849,7 @@ msgstr ""
 msgid "Live radio"
 msgstr ""
 
+#: src/features/album/AlbumSkeleton.tsx
 #: src/features/discover/states.tsx
 #: src/features/home/HomeLead.tsx
 #: src/features/home/HomePage.tsx
@@ -4662,6 +4677,10 @@ msgstr ""
 msgid "Show all lyrics"
 msgstr ""
 
+#: src/features/album/AlbumPage.tsx
+msgid "Show complete album"
+msgstr ""
+
 #: src/features/library/HistoryPage.tsx
 msgid "Show earlier days"
 msgstr ""
@@ -5843,6 +5862,10 @@ msgstr ""
 #: src/features/private/index.ts
 #: src/features/private/PrivateButton.tsx
 msgid "Turn on private listening"
+msgstr ""
+
+#: src/features/album/AlbumPage.tsx
+msgid "Unavailable"
 msgstr ""
 
 #: src/features/player/replace.ts
