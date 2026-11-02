@@ -284,6 +284,10 @@ msgstr ""
 msgid "{percent}, {received} of {total}"
 msgstr ""
 
+#: src/features/playlist/PlaylistSidebar.tsx
+msgid "{pinned, plural, one {Its playlist is pinned above} other {Its # playlists are pinned above}}"
+msgstr ""
+
 #: src/features/settings/Diagnostics.tsx
 msgid "{playlists, plural, one {# playlist} other {# playlists}}"
 msgstr ""
@@ -549,6 +553,10 @@ msgstr ""
 
 #: src/features/settings/Shortcuts.tsx
 msgid "All shortcuts go back to their default keys."
+msgstr ""
+
+#: src/features/playlist/PlaylistSidebar.tsx
+msgid "All your playlists are pinned above."
 msgstr ""
 
 #: src/features/settings/Connections.tsx
