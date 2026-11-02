@@ -26,6 +26,7 @@ type PlaylistsService struct {
 
 	mu    sync.Mutex
 	locks map[string]*sync.Mutex // per playlist: edits apply one at a time
+	me    string                 // the user's profile ID, once asked (Collaboration)
 }
 
 // newPlaylistsService also refreshes the pins once the network opens and
@@ -37,6 +38,11 @@ func newPlaylistsService(e *Env) *PlaylistsService {
 	e.Auth.OnChange(func(st auth.Status) {
 		was := prev
 		prev = st.State
+		if st.State != was {
+			s.mu.Lock()
+			s.me = ""
+			s.mu.Unlock()
+		}
 		if st.State == auth.StateSignedIn && was != auth.StateSignedIn {
 			go e.OnNetwork(func() { go s.refreshPinsQuietly() })
 		}

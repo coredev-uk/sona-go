@@ -364,6 +364,14 @@ func (m mapper) amPlaylist(p applemusic.Playlist) Playlist {
 	return out
 }
 
+func (m mapper) amProfile(p applemusic.Profile) SocialProfile {
+	a := p.Attributes
+	return SocialProfile{
+		ID: p.ID, Name: a.Name, Handle: a.Handle, Verified: a.IsVerified, Private: a.IsPrivate, URL: a.URL,
+		Art: m.artwork(a.Artwork),
+	}
+}
+
 func totalMs(songs []Song) int64 {
 	var t int64
 	for _, s := range songs {

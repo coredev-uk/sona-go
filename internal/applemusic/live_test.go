@@ -261,6 +261,20 @@ func TestLive(t *testing.T) {
 		}
 	})
 
+	t.Run("social profile", func(t *testing.T) {
+		// Collaborative playlists tell the owner and collaborators apart by it.
+		id, err := l.api.OwnSocialProfileID(liveCtx(t))
+		if errors.Is(err, applemusic.ErrNotFound) {
+			t.Skip("the account has no Apple Music profile")
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(id, "sp.") {
+			t.Errorf("own profile id %q, want sp.…", id)
+		}
+	})
+
 	t.Run("recommendations", func(t *testing.T) {
 		r, err := applemusic.Recommendations(liveCtx(t), l.api, time.Now().Format("-07:00"))
 		if err != nil {

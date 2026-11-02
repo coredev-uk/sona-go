@@ -65,6 +65,41 @@ type PlaylistDetail struct {
 	URL string `json:"url"`
 }
 
+// CollaborationRole is what the signed-in user is to a collaborative
+// playlist.
+type CollaborationRole string
+
+const (
+	RoleOwner        CollaborationRole = "owner"        // started it
+	RoleCollaborator CollaborationRole = "collaborator" // was let in to add songs
+	RoleListener     CollaborationRole = "listener"     // neither, or not known
+)
+
+// PlaylistCollaboration is who works on a collaborative playlist, from
+// Apple (network). Collaborative is false for every other playlist, and
+// then the rest is empty.
+type PlaylistCollaboration struct {
+	Collaborative bool `json:"collaborative"`
+	// OwnerID is the owner's profile ID, one of Collaborators ("" when
+	// Apple names none).
+	OwnerID string `json:"ownerId"`
+	// Collaborators are everyone who can add songs, the owner first.
+	Collaborators []SocialProfile `json:"collaborators"`
+	// Former are people who added songs but no longer collaborate.
+	Former []SocialProfile    `json:"former"`
+	Viewer CollaborationRole `json:"viewer"`
+	// AddedBy says who added each of the playlist's first 300 tracks, in
+	// Apple's order (later tracks are not attributed).
+	AddedBy []TrackAddedBy `json:"addedBy"`
+}
+
+// TrackAddedBy is one track of a collaborative playlist: its catalog ID
+// and the profile ID of who added it ("" when Apple does not say).
+type TrackAddedBy struct {
+	SongID    string `json:"songId"`
+	ProfileID string `json:"profileId"`
+}
+
 // PlaylistInput is the editable part of a library playlist.
 type PlaylistInput struct {
 	Name        string `json:"name"`

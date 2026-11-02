@@ -129,6 +129,17 @@ type Playlist struct {
 	Motion       string `json:"motion"` // as Album.Motion
 }
 
+// SocialProfile is an Apple Music user profile.
+type SocialProfile struct {
+	ID       string `json:"id"` // "sp.…"
+	Name     string `json:"name"`
+	Handle   string `json:"handle"`
+	Verified bool   `json:"verified"`
+	Private  bool   `json:"private"`
+	URL      string `json:"url"`
+	Art      Art    `json:"art"`
+}
+
 // MusicVideo is a music video from the catalog or the library. Its Art is
 // a 16:9 frame (the Go variants keep the aspect: Medium is 400 px wide).
 // Video playback is not supported; URL opens it on music.apple.com.

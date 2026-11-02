@@ -99,17 +99,6 @@ type RecentItem struct {
 	Art      string `json:"art"` // the Go-served URL the result showed
 }
 
-// SocialProfile is an Apple Music user profile.
-type SocialProfile struct {
-	ID       string `json:"id"` // "sp.…"
-	Name     string `json:"name"`
-	Handle   string `json:"handle"`
-	Verified bool   `json:"verified"`
-	Private  bool   `json:"private"`
-	URL      string `json:"url"`
-	Art      Art    `json:"art"`
-}
-
 // ProfileDetail is a profile page: the profile and its public playlists.
 type ProfileDetail struct {
 	Profile   SocialProfile `json:"profile"`

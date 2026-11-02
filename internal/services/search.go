@@ -336,19 +336,9 @@ func profileItem(p SocialProfile) Item {
 }
 
 func (s *SearchService) profile(n applemusic.Node) SocialProfile {
-	var a struct {
-		Name       string              `json:"name"`
-		Handle     string              `json:"handle"`
-		IsVerified bool                `json:"isVerified"`
-		IsPrivate  bool                `json:"isPrivate"`
-		URL        string              `json:"url"`
-		Artwork    *applemusic.Artwork `json:"artwork"`
-	}
+	var a applemusic.SocialProfileAttributes
 	_ = n.Attrs(&a)
-	return SocialProfile{
-		ID: n.ID, Name: a.Name, Handle: a.Handle, Verified: a.IsVerified, Private: a.IsPrivate, URL: a.URL,
-		Art: s.m.artwork(a.Artwork),
-	}
+	return s.m.amProfile(applemusic.Profile{ID: n.ID, Attributes: a})
 }
 
 // nextOffset is the offset of a group's next page, 0 when there is none.
