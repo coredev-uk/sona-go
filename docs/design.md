@@ -387,6 +387,27 @@ Radio (`/radio`) answers what radio alone can: what is on air right now, and for
 - **Signed out.** The Stations band opens with a "Your stations" block saying what signing in adds, with Sign in.
 - **Loading and errors.** The board's frame (rows at their height, the art and lines as bars) and the first band's line and heading stand where they will land. A block that fails says so in place; when nothing loads, the page says it once, with one Retry.
 
+## Link lists
+
+Apple ends its catalogue pages with lists of links, "More to Explore": hubs (Browse by Genre, Decades, Charts), then every genre. They are the page's way on, so they are controls, not a paragraph of text (`shared/items/LinkList.tsx`, one component for every page that shows them: Discover and Radio today, Home and the editorial pages whenever Apple sends one).
+
+```
+More to Explore (16/600)
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ Concerts   ↗ │ │ Decades      │ │ Worldwide    │ │ Music Videos │   the hubs: eight, two rows of four
+│ Browse by G… │ │ Moods and A… │ │ Charts       │ │ Spatial Audio│
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+  (24px)
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ African Music│ │ Classic Rock │ │ Indie        │ │ Música Tropi…│ │ Soul/Funk    │   the genres: Apple's
+│ Americana    │ │ Country      │ │ Jazz         │ │ Oldies       │ │ Urbano Latino│   untitled continuation
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+```
+
+- **A button each.** 44px at least, a `--hover` fill at radius 6 (`--active` on hover and press: the same fill every row of Sona takes), the name at 14/500 in ink, two lines before it is cut. The one glyph is the 16px arrow out in `--ink-muted` at the end of a link that opens in the browser (its name says "Opens in your browser"); a page in Sona needs none, being what a button is. Nothing else is added: Apple sends a link's label and URL and nothing more, so a colour or an icon per tile would be Sona's invention and amber means playing. Focus is the page's 2px ring outside the tile; in forced colours, where fills go, the tile gets a 1px border.
+- **Columns.** As many as hold a button of 184px, 8px apart, filled top to bottom in Apple's order (`linkGrid`): the genres are alphabetical, so they read down a column, and Tab follows the same path. A short list keeps the long list's tracks, so a button is one width on the whole page and the lists line up. The columns fill so the last holds at least half of one: 21 genres at five columns set 6, 6, 6 and 3, never 5, 5, 5, 5 and a lone button.
+- **Continuation.** Apple splits a long list in two; the second has no title and sits 24px under the first, a clear step from the 8px between buttons. It is its own region, "More links". Every link is a Tab stop, in reading order: they are navigation, not a list to arrow through.
+
 ## Video view
 
 A music video takes the whole window, like full-screen lyrics: the picture is the page (`features/player/VideoView.tsx`). It opens when a video starts, and again from the bar's cover or "Show video", Now Playing's "Show video" or V; closing it leaves the video playing in the bar.
