@@ -99,10 +99,13 @@ type ArtistViewPage struct {
 	Artists   []Artist     `json:"artists"`
 }
 
-// Credit is one credited person with their roles on a song.
+// Credit is one credited person with their roles on a song. Art is the
+// person's picture when Apple has one (all "" otherwise: the UI draws their
+// initials).
 type Credit struct {
 	Name  string   `json:"name"`
 	Roles []string `json:"roles"`
+	Art   Art      `json:"art"`
 }
 
 // CreditGroup is one category of a song's credits. Kind is "performer",

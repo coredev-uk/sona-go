@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
@@ -146,12 +147,32 @@ func TestArtistPageViewMapping(t *testing.T) {
 }
 
 func TestCreditGroups(t *testing.T) {
+	// The shapes Apple sends for the credits of Radiohead's "Weird Fishes /
+	// Arpeggi" and Kenshi Yonezu's "Lemon": a picture, Apple's generated
+	// initials image (under /gen/), and no artwork at all.
 	s := decode[applemusic.Song](t, `{"id":"1","type":"songs","relationships":{"credits":{"data":[
-		{"id":"1-4","type":"role-categories","attributes":{"kind":"performer","title":"PERFORMING ARTISTS"},"relationships":{"credit-artists":{"data":[{"id":"a","type":"credit-artists","attributes":{"name":"Thom Yorke","roleNames":["Guitar","Lead Vocals"]}}]}}},
+		{"id":"1-4","type":"role-categories","attributes":{"kind":"performer","title":"PERFORMING ARTISTS"},"relationships":{"credit-artists":{"data":[
+			{"id":"a","type":"credit-artists","attributes":{"name":"Thom Yorke","roleNames":["Guitar","Lead Vocals"],"artwork":{"url":"https://is1-ssl.mzstatic.com/image/thumb/AMCArtistImages221/v4/b0/09/53/x/ami-identity-40cf.png/{w}x{h}bb.jpg","width":2400,"height":2400}}},
+			{"id":"b","type":"credit-artists","attributes":{"name":"Colin Greenwood","roleNames":["Bass"],"artwork":{"url":"https://is1-ssl.mzstatic.com/image/thumb/gen/{w}x{h}AM.SCM01.jpg?name=Q0c%3D&signature=b1be&vkey=1","width":2000,"height":2000}}},
+			{"id":"c","type":"credit-artists","attributes":{"name":"室屋光一郎","roleNames":["Strings"]}},
+			{"id":"d","type":"credit-artists","attributes":{"name":"","roleNames":["Nobody"]}}]}}},
 		{"id":"1-5","type":"role-categories","attributes":{"kind":"production-and-engineering","title":"PRODUCTION & ENGINEERING"},"relationships":{"credit-artists":{"data":[]}}}]}}}`)
-	g := creditGroups(s.Relationships.Credits.Data)
-	if len(g) != 1 || g[0].Kind != "performer" || g[0].Credits[0].Name != "Thom Yorke" || len(g[0].Credits[0].Roles) != 2 {
+	g := newMapper(t).creditGroups(s.Relationships.Credits.Data)
+	if len(g) != 1 || g[0].Kind != "performer" || len(g[0].Credits) != 3 {
 		t.Fatalf("credits = %+v", g)
+	}
+	yorke, greenwood, muroya := g[0].Credits[0], g[0].Credits[1], g[0].Credits[2]
+	if yorke.Name != "Thom Yorke" || len(yorke.Roles) != 2 {
+		t.Errorf("Thom Yorke = %+v", yorke)
+	}
+	if !strings.HasPrefix(yorke.Art.Small, "/art/") || !strings.HasSuffix(yorke.Art.Small, "/96x96.jpg") {
+		t.Errorf("a person with a picture has art %+v, want Go-served square art", yorke.Art)
+	}
+	if greenwood.Art != (Art{}) {
+		t.Errorf("Apple's generated initials image became art %+v: the UI draws initials itself", greenwood.Art)
+	}
+	if muroya.Art != (Art{}) || muroya.Roles == nil {
+		t.Errorf("a credit with no artwork = %+v, want empty art and non-nil roles", muroya)
 	}
 }
 

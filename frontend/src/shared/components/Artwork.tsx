@@ -1,5 +1,5 @@
 import { Music, User } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { artUrl } from "@/shared/lib/art";
 import { cn } from "@/shared/lib/utils";
@@ -15,6 +15,8 @@ interface ArtworkProps {
   className?: string;
   /** Eager-load covers that are above the fold on arrival (headers, now playing). */
   eager?: boolean;
+  /** Drawn in place of the missing-art glyph while there is no picture (it fills the frame). */
+  fallback?: ReactNode;
 }
 
 const frameClassName = "relative shrink-0 overflow-hidden bg-hover";
@@ -74,7 +76,15 @@ function useImage(url: string | undefined) {
 }
 
 /** Square cover art at an exact size, lazy-loaded, with a placeholder when missing. */
-export function Artwork({ src, size, alt, shape = "square", className, eager }: ArtworkProps) {
+export function Artwork({
+  src,
+  size,
+  alt,
+  shape = "square",
+  className,
+  eager,
+  fallback,
+}: ArtworkProps) {
   const url = artUrl(src, { width: size, height: size });
   const img = useImage(url);
   return (
@@ -96,7 +106,7 @@ export function Artwork({ src, size, alt, shape = "square", className, eager }: 
         />
       ) : (
         <>
-          <Placeholder shape={shape} glyph={`${Math.max(12, size * 0.4)}px`} />
+          {fallback ?? <Placeholder shape={shape} glyph={`${Math.max(12, size * 0.4)}px`} />}
           {alt && <span className="sr-only">{alt}</span>}
         </>
       )}
@@ -115,7 +125,7 @@ export function FluidArtwork({
   alt,
   shape = "square",
   aspect = "square",
-}: Omit<ArtworkProps, "className" | "eager"> & { aspect?: "square" | "video" }) {
+}: Omit<ArtworkProps, "className" | "eager" | "fallback"> & { aspect?: "square" | "video" }) {
   const url = artUrl(src, { width: size, height: aspect === "video" ? (size * 9) / 16 : size });
   const img = useImage(url);
   return (

@@ -12,6 +12,7 @@ import { CoverShelf } from "@/shared/components/CoverShelf";
 import { DetailError, DetailSkeleton } from "@/shared/components/DetailStates";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { LibraryButton } from "@/shared/components/LibraryButton";
+import { PersonAvatar } from "@/shared/components/PersonAvatar";
 import { PlayButtons } from "@/shared/components/PlayButtons";
 import { RatingButtons } from "@/shared/components/RatingButtons";
 import { Shelf, ShelfToggle } from "@/shared/components/Shelf";
@@ -72,6 +73,9 @@ function LyricsBlock({ page }: { page: CatalogSong }) {
   );
 }
 
+/** A credited person's picture or initials, in CSS pixels. */
+const AVATAR = 40;
+
 function Credits({ groups }: { groups: CreditGroup[] }) {
   const { t } = useLingui();
   return (
@@ -80,10 +84,21 @@ function Credits({ groups }: { groups: CreditGroup[] }) {
         {groups.map((g) => (
           <section key={g.kind} aria-label={creditTitle(g)}>
             <h3 className="mb-2 text-sub font-semibold text-ink-muted">{creditTitle(g)}</h3>
-            <dl className="grid gap-x-8 gap-y-2.5 min-[720px]:grid-cols-2">
+            <dl className="grid items-start gap-x-8 gap-y-3 min-[720px]:grid-cols-2">
               {g.credits.map((c) => (
-                <div key={c.name} className="min-w-0">
-                  <dt className="truncate text-ui text-ink">{c.name}</dt>
+                <div
+                  key={c.name}
+                  className="relative flex min-h-10 min-w-0 flex-col justify-center pl-13"
+                >
+                  <dt className="text-ui text-ink">
+                    <PersonAvatar
+                      name={c.name}
+                      src={c.art.small}
+                      size={AVATAR}
+                      className="absolute top-0 left-0"
+                    />
+                    <span className="block truncate">{c.name}</span>
+                  </dt>
                   <dd className="text-sub text-ink-muted">{c.roles.join(", ")}</dd>
                 </div>
               ))}

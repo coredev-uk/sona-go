@@ -227,7 +227,7 @@ Actions: play, shuffle, add to library, favourite, Suggest Less, Play Next / Pla
 
 ### 4.4 Song (`/{sf}/song/{slug}/{id}`)
 
-Data: song attributes (see the badges in §5.9), the album it is on, artists, `lyricsExcerpt` (a few lines and "View Full Lyrics"), credits grouped into role categories ("Performing Artists", "Composition & Lyrics", "Production & Engineering") using `credit-artists{name, roleNames}`, and "More By …" albums. Actions: play, Create Station, Favourite / Undo Favourite, Show Album, Pin Song (when in library), Delete from Library, Add to Playlist, Play Next / Last, Copy Link / Embed.
+Data: song attributes (see the badges in §5.9), the album it is on, artists, `lyricsExcerpt` (a few lines and "View Full Lyrics"), credits grouped into role categories ("Performing Artists", "Composition & Lyrics", "Production & Engineering") using `credit-artists{name, roleNames, artwork}` (no relationship to an `artists` resource: the id is `<category>-ami:identity:<hash>`; `artwork` is a square picture where Apple has one, otherwise an initials image generated under `/image/thumb/gen/{w}x{h}AM.SCM01.jpg?name=<base64>&signature=…`, or absent; checked 2026-11-03 on songs of Radiohead, Kenshi Yonezu, Fairuz, Yo-Yo Ma and BTS), and "More By …" albums. Actions: play, Create Station, Favourite / Undo Favourite, Show Album, Pin Song (when in library), Delete from Library, Add to Playlist, Play Next / Last, Copy Link / Embed.
 
 | Call | Status | MUT | Response |
 |---|---|---|---|

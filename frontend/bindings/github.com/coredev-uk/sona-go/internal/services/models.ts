@@ -1762,11 +1762,14 @@ export class Counts {
 }
 
 /**
- * Credit is one credited person with their roles on a song.
+ * Credit is one credited person with their roles on a song. Art is the
+ * person's picture when Apple has one (all "" otherwise: the UI draws their
+ * initials).
  */
 export class Credit {
     "name": string;
     "roles": string[];
+    "art": Art;
 
     /** Creates a new Credit instance. */
     constructor($$source: Partial<Credit> = {}) {
@@ -1775,6 +1778,9 @@ export class Credit {
         }
         if (!("roles" in $$source)) {
             this["roles"] = [];
+        }
+        if (!("art" in $$source)) {
+            this["art"] = (new Art());
         }
 
         Object.assign(this, $$source);
@@ -1785,9 +1791,13 @@ export class Credit {
      */
     static createFrom($$source: any = {}): Credit {
         const $$createField1_0 = $$createType20;
+        const $$createField2_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("roles" in $$parsedSource) {
             $$parsedSource["roles"] = $$createField1_0($$parsedSource["roles"]);
+        }
+        if ("art" in $$parsedSource) {
+            $$parsedSource["art"] = $$createField2_0($$parsedSource["art"]);
         }
         return new Credit($$parsedSource as Partial<Credit>);
     }

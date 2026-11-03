@@ -21,9 +21,12 @@ type CreditCategory struct {
 }
 
 // CreditArtist is one credited person with their roles on the song.
+// Artwork is the person's picture where Apple has one: a person without a
+// picture has no artwork, or a generated initials image (Generated).
 type CreditArtist = Resource[struct {
 	Name      string   `json:"name"`
 	RoleNames []string `json:"roleNames"`
+	Artwork   *Artwork `json:"artwork"`
 }]
 
 // SongPage returns catalog song id from the web player's API with its

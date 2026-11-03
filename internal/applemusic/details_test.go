@@ -133,7 +133,7 @@ func TestSongPageCredits(t *testing.T) {
 		w.Write([]byte(`{"data":[{"id":"1109715168","type":"songs","attributes":{"name":"Weird Fishes / Arpeggi","hasTimeSyncedLyrics":true,"lyricsExcerpt":"In the deepest ocean\nThe bottom of the sea"},
 			"relationships":{"albums":{"data":[{"id":"1109714933","type":"albums","attributes":{"name":"In Rainbows"}}]},
 			"credits":{"data":[{"id":"1109715168-4","type":"role-categories","attributes":{"kind":"performer","title":"PERFORMING ARTISTS"},
-				"relationships":{"credit-artists":{"data":[{"id":"4-ami:identity:x","type":"credit-artists","attributes":{"name":"Thom Yorke","roleNames":["Guitar","Lead Vocals"]}}]}}}]},
+				"relationships":{"credit-artists":{"data":[{"id":"4-ami:identity:x","type":"credit-artists","attributes":{"name":"Thom Yorke","roleNames":["Guitar","Lead Vocals"],"artwork":{"url":"https://is1-ssl.mzstatic.com/image/thumb/x/{w}x{h}bb.jpg","width":2400,"height":2400}}}]}}}]},
 			"music-videos":{"data":[]}}}]}`))
 	}))
 	c.AMPBase = c.Base
@@ -143,7 +143,8 @@ func TestSongPageCredits(t *testing.T) {
 	}
 	cr := s.Relationships.Credits.Data
 	if !s.Attributes.HasTimeSyncedLyrics || s.Attributes.LyricsExcerpt == "" || len(cr) != 1 || cr[0].Attributes.Kind != "performer" ||
-		cr[0].Relationships.CreditArtists.Data[0].Attributes.RoleNames[1] != "Lead Vocals" || s.Relationships.Albums.Data[0].ID != "1109714933" {
+		cr[0].Relationships.CreditArtists.Data[0].Attributes.RoleNames[1] != "Lead Vocals" ||
+		cr[0].Relationships.CreditArtists.Data[0].Attributes.Artwork.Template() == "" || s.Relationships.Albums.Data[0].ID != "1109714933" {
 		t.Fatalf("song = %+v", s)
 	}
 }
@@ -170,5 +171,23 @@ func TestMusicVideoPage(t *testing.T) {
 	json.Unmarshal([]byte(`{"id":"i.9","type":"library-music-videos","attributes":{"playParams":{"catalogId":"99"}}}`), &lib)
 	if lib.CatalogID() != "99" {
 		t.Fatalf("library CatalogID = %q", lib.CatalogID())
+	}
+}
+
+func TestArtworkGenerated(t *testing.T) {
+	for url, want := range map[string]bool{
+		// Apple's initials image for a credited person it has no picture of.
+		"https://is1-ssl.mzstatic.com/image/thumb/gen/{w}x{h}AM.SCM01.jpg?name=Q0c%3D&signature=b1be&vkey=1":    true,
+		"https://is1-ssl.mzstatic.com/image/thumb/AMCArtistImages221/v4/b0/ami-identity-40cf.png/{w}x{h}bb.jpg": false,
+		// "gen" only counts as the first path element after /image/thumb/.
+		"https://is1-ssl.mzstatic.com/image/thumb/Music/gen/{w}x{h}bb.jpg": false,
+		"": false,
+	} {
+		if got := (&Artwork{URL: url}).Generated(); got != want {
+			t.Errorf("Generated(%q) = %v, want %v", url, got, want)
+		}
+	}
+	if (*Artwork)(nil).Generated() {
+		t.Error("a missing artwork is not a generated one")
 	}
 }
