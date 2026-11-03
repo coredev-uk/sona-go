@@ -437,3 +437,52 @@ func TestCommandsWatch(t *testing.T) {
 		t.Errorf("after close: %v", err)
 	}
 }
+
+// While a live station plays, skipping from the command line and queueing
+// from the UI are refused with the live-station code; the state tells every
+// surface which controls apply.
+func TestLiveStationControls(t *testing.T) {
+	ce := newCommandEnv(t, privatemode.Options{Override: privatemode.OverrideOn})
+	ctx := t.Context()
+	live := coordinator.Item{ID: "ra.1445918457", Title: "KISS"}
+	if err := ce.e.Coord.SetQueue(ctx, []coordinator.Item{live}, 0, "ra.1445918457"); err != nil {
+		t.Fatal(err)
+	}
+	st := ce.play.State()
+	if st.Current == nil || !st.Current.Live || st.Controls != (PlaybackControls{}) {
+		t.Fatalf("state on a live station: live %v, controls %+v", st.Current != nil && st.Current.Live, st.Controls)
+	}
+	for _, cmd := range []string{"next", "prev"} {
+		if _, err := ce.call(t, cmd); code(err) != string(CodeLiveStation) {
+			t.Errorf("%s on a live station: code %q (%v)", cmd, code(err), err)
+		}
+	}
+	refs := []TrackRef{{ID: "i.100", Source: SourceLibrary}}
+	for name, err := range map[string]error{
+		"PlayNext": ce.play.PlayNext(ctx, refs),
+		"Append":   ce.play.Append(ctx, refs),
+		"Insert":   ce.play.Insert(ctx, 1, refs),
+		"Seek":     ce.play.Seek(ctx, 1000),
+	} {
+		if CodeOf(err) != CodeLiveStation {
+			t.Errorf("%s on a live station: %v", name, err)
+		}
+	}
+	if q := ce.play.Queue(); len(q.Items) != 1 {
+		t.Errorf("a refused add changed the queue: %d items", len(q.Items))
+	}
+	if st := ce.status(t, "pause"); st.State != cli.StatePaused {
+		t.Errorf("pause on a live station → %+v", st)
+	}
+
+	// Songs bring the controls back.
+	if err := ce.play.PlayItems(ctx, []TrackRef{{ID: "i.100", Source: SourceLibrary}, {ID: "i.101", Source: SourceLibrary}}, 0, PlayFrom{}); err != nil {
+		t.Fatal(err)
+	}
+	if c := ce.play.State().Controls; !c.Next || !c.Previous || !c.Seek || !c.Shuffle || !c.Repeat || !c.AutoPlay || !c.Queue {
+		t.Errorf("controls on songs: %+v", c)
+	}
+	if err := ce.play.Append(ctx, refs); err != nil {
+		t.Errorf("Append on songs: %v", err)
+	}
+}

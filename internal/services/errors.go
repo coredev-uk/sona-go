@@ -18,6 +18,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/lyrics"
 	"github.com/coredev-uk/sona-go/internal/motion"
 	"github.com/coredev-uk/sona-go/internal/playback"
+	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/scrobble"
 )
@@ -50,6 +51,8 @@ const (
 	CodeUnauthorized        ErrorCode = "unauthorized" // Apple refused the request (401/403); auth triage runs
 	CodeNotFound            ErrorCode = "not_found"
 	CodeNotPlayable         ErrorCode = "not_playable"
+	CodeLiveStation         ErrorCode = "live_station" // the control doesn't apply while a live station plays (coordinator.ErrLiveStation)
+	CodeStation             ErrorCode = "station"      // the control doesn't apply while a station of songs plays (coordinator.ErrStation)
 	CodeNotReleased         ErrorCode = "not_released" // the song isn't out yet (ErrNotReleased)
 	CodeSyncRunning         ErrorCode = "sync_running"
 	CodeInvalidArgument     ErrorCode = "invalid_argument"
@@ -149,6 +152,10 @@ func CodeOf(err error) ErrorCode {
 		return CodeDevTokenRejected
 	case errors.Is(err, auth.ErrNotSignedIn):
 		return CodeNotSignedIn
+	case errors.Is(err, coordinator.ErrLiveStation):
+		return CodeLiveStation
+	case errors.Is(err, coordinator.ErrStation):
+		return CodeStation
 	case errors.Is(err, applemusic.ErrNotPlayable):
 		return CodeNotPlayable
 	case errors.Is(err, ErrNotReleased):

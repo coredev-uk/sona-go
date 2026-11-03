@@ -45,6 +45,8 @@ const codeMessages: Record<ErrorCode, MessageDescriptor> = {
   [ErrorCode.CodeUnauthorized]: msg`Apple Music refused the request.`,
   [ErrorCode.CodeNotFound]: msg`It couldn't be found. It may have been removed.`,
   [ErrorCode.CodeNotPlayable]: msg`This song isn't available to stream in your storefront.`,
+  [ErrorCode.CodeLiveStation]: msg`This isn't available while listening to a live station.`,
+  [ErrorCode.CodeStation]: msg`This isn't available while listening to a station.`,
   [ErrorCode.CodeNotReleased]: msg`This song isn't out yet. It plays from its release date.`,
   [ErrorCode.CodeSyncRunning]: msg`A library sync is already running.`,
   [ErrorCode.CodePrivateForced]: msg`Private listening stays on because Sona was started with SONA_PRIVATE=1.`,

@@ -3271,6 +3271,16 @@ export enum ErrorCode {
     CodeNotPlayable = "not_playable",
 
     /**
+     * the control doesn't apply while a live station plays (coordinator.ErrLiveStation)
+     */
+    CodeLiveStation = "live_station",
+
+    /**
+     * the control doesn't apply while a station of songs plays (coordinator.ErrStation)
+     */
+    CodeStation = "station",
+
+    /**
      * the song isn't out yet (ErrNotReleased)
      */
     CodeNotReleased = "not_released",
@@ -4979,6 +4989,63 @@ export class PlaybackCapabilities {
 }
 
 /**
+ * PlaybackControls is which playback controls apply to the current item.
+ * While a live radio station plays, only pause and the volume do: it has
+ * no timeline, nothing before or after it, and no queue to shuffle,
+ * repeat, continue with AutoPlay or add to. A station that plays songs
+ * keeps its skips. With nothing playing, Previous, Next and Seek are off
+ * and the modes (Shuffle, Repeat, AutoPlay) and Queue stay on.
+ */
+export class PlaybackControls {
+    "previous": boolean;
+    "next": boolean;
+    "seek": boolean;
+    "shuffle": boolean;
+    "repeat": boolean;
+    "autoPlay": boolean;
+
+    /**
+     * Queue: Play Next and Add to Queue take effect.
+     */
+    "queue": boolean;
+
+    /** Creates a new PlaybackControls instance. */
+    constructor($$source: Partial<PlaybackControls> = {}) {
+        if (!("previous" in $$source)) {
+            this["previous"] = false;
+        }
+        if (!("next" in $$source)) {
+            this["next"] = false;
+        }
+        if (!("seek" in $$source)) {
+            this["seek"] = false;
+        }
+        if (!("shuffle" in $$source)) {
+            this["shuffle"] = false;
+        }
+        if (!("repeat" in $$source)) {
+            this["repeat"] = false;
+        }
+        if (!("autoPlay" in $$source)) {
+            this["autoPlay"] = false;
+        }
+        if (!("queue" in $$source)) {
+            this["queue"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PlaybackControls instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PlaybackControls {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PlaybackControls($$parsedSource as Partial<PlaybackControls>);
+    }
+}
+
+/**
  * PlaybackState is the now-playing state ("playback:state", latest wins).
  * PositionMs is exact at At (Unix ms); while State is "playing" the UI
  * extrapolates PositionMs + (now - At). Events are sent on changes only.
@@ -5016,8 +5083,12 @@ export class PlaybackState {
     "context": string;
     "queueLength": number;
     "queueVersion": number;
-    "canNext": boolean;
-    "canPrevious": boolean;
+
+    /**
+     * Controls says which controls apply to what plays: every surface
+     * reads it, none works it out again.
+     */
+    "controls": PlaybackControls;
 
     /**
      * Error is the latest playback failure (clears once an item plays).
@@ -5122,11 +5193,8 @@ export class PlaybackState {
         if (!("queueVersion" in $$source)) {
             this["queueVersion"] = 0;
         }
-        if (!("canNext" in $$source)) {
-            this["canNext"] = false;
-        }
-        if (!("canPrevious" in $$source)) {
-            this["canPrevious"] = false;
+        if (!("controls" in $$source)) {
+            this["controls"] = (new PlaybackControls());
         }
         if (!("error" in $$source)) {
             this["error"] = ErrorCode.$zero;
@@ -5170,29 +5238,33 @@ export class PlaybackState {
      */
     static createFrom($$source: any = {}): PlaybackState {
         const $$createField1_0 = $$createType83;
-        const $$createField18_0 = $$createType85;
-        const $$createField19_0 = $$createType87;
-        const $$createField21_0 = $$createType89;
-        const $$createField22_0 = $$createType91;
-        const $$createField23_0 = $$createType93;
+        const $$createField12_0 = $$createType84;
+        const $$createField17_0 = $$createType86;
+        const $$createField18_0 = $$createType88;
+        const $$createField20_0 = $$createType90;
+        const $$createField21_0 = $$createType92;
+        const $$createField22_0 = $$createType94;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("current" in $$parsedSource) {
             $$parsedSource["current"] = $$createField1_0($$parsedSource["current"]);
         }
+        if ("controls" in $$parsedSource) {
+            $$parsedSource["controls"] = $$createField12_0($$parsedSource["controls"]);
+        }
         if ("onAir" in $$parsedSource) {
-            $$parsedSource["onAir"] = $$createField18_0($$parsedSource["onAir"]);
+            $$parsedSource["onAir"] = $$createField17_0($$parsedSource["onAir"]);
         }
         if ("broadcaster" in $$parsedSource) {
-            $$parsedSource["broadcaster"] = $$createField19_0($$parsedSource["broadcaster"]);
+            $$parsedSource["broadcaster"] = $$createField18_0($$parsedSource["broadcaster"]);
         }
         if ("station" in $$parsedSource) {
-            $$parsedSource["station"] = $$createField21_0($$parsedSource["station"]);
+            $$parsedSource["station"] = $$createField20_0($$parsedSource["station"]);
         }
         if ("container" in $$parsedSource) {
-            $$parsedSource["container"] = $$createField22_0($$parsedSource["container"]);
+            $$parsedSource["container"] = $$createField21_0($$parsedSource["container"]);
         }
         if ("sleep" in $$parsedSource) {
-            $$parsedSource["sleep"] = $$createField23_0($$parsedSource["sleep"]);
+            $$parsedSource["sleep"] = $$createField22_0($$parsedSource["sleep"]);
         }
         return new PlaybackState($$parsedSource as Partial<PlaybackState>);
     }
@@ -5353,9 +5425,9 @@ export class PlaylistCollaboration {
      * Creates a new PlaylistCollaboration instance from a string or object.
      */
     static createFrom($$source: any = {}): PlaylistCollaboration {
-        const $$createField2_0 = $$createType95;
-        const $$createField3_0 = $$createType95;
-        const $$createField5_0 = $$createType97;
+        const $$createField2_0 = $$createType96;
+        const $$createField3_0 = $$createType96;
+        const $$createField5_0 = $$createType98;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("collaborators" in $$parsedSource) {
             $$parsedSource["collaborators"] = $$createField2_0($$parsedSource["collaborators"]);
@@ -5529,7 +5601,7 @@ export class PlaylistDetail {
         const $$createField0_0 = $$createType14;
         const $$createField1_0 = $$createType4;
         const $$createField4_0 = $$createType5;
-        const $$createField7_0 = $$createType98;
+        const $$createField7_0 = $$createType99;
         const $$createField8_0 = $$createType18;
         const $$createField9_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
@@ -5710,8 +5782,8 @@ export class PlaylistTree {
      * Creates a new PlaylistTree instance from a string or object.
      */
     static createFrom($$source: any = {}): PlaylistTree {
-        const $$createField0_0 = $$createType100;
-        const $$createField1_0 = $$createType102;
+        const $$createField0_0 = $$createType101;
+        const $$createField1_0 = $$createType103;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("folders" in $$parsedSource) {
             $$parsedSource["folders"] = $$createField0_0($$parsedSource["folders"]);
@@ -5909,7 +5981,7 @@ export class ProfileDetail {
      * Creates a new ProfileDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): ProfileDetail {
-        const $$createField0_0 = $$createType94;
+        const $$createField0_0 = $$createType95;
         const $$createField1_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("profile" in $$parsedSource) {
@@ -6128,9 +6200,9 @@ export class QueueState {
      * Creates a new QueueState instance from a string or object.
      */
     static createFrom($$source: any = {}): QueueState {
-        const $$createField2_0 = $$createType103;
-        const $$createField3_0 = $$createType103;
-        const $$createField4_0 = $$createType89;
+        const $$createField2_0 = $$createType104;
+        const $$createField3_0 = $$createType104;
+        const $$createField4_0 = $$createType90;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField2_0($$parsedSource["items"]);
@@ -6445,8 +6517,8 @@ export class ScrobbleStatus {
      * Creates a new ScrobbleStatus instance from a string or object.
      */
     static createFrom($$source: any = {}): ScrobbleStatus {
-        const $$createField0_0 = $$createType104;
-        const $$createField1_0 = $$createType104;
+        const $$createField0_0 = $$createType105;
+        const $$createField1_0 = $$createType105;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("lastfm" in $$parsedSource) {
             $$parsedSource["lastfm"] = $$createField0_0($$parsedSource["lastfm"]);
@@ -6583,7 +6655,7 @@ export class SearchHints {
      * Creates a new SearchHints instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchHints {
-        const $$createField0_0 = $$createType106;
+        const $$createField0_0 = $$createType107;
         const $$createField1_0 = $$createType34;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("terms" in $$parsedSource) {
@@ -6619,7 +6691,7 @@ export class SearchResults {
      * Creates a new SearchResults instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchResults {
-        const $$createField1_0 = $$createType108;
+        const $$createField1_0 = $$createType109;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("sections" in $$parsedSource) {
             $$parsedSource["sections"] = $$createField1_0($$parsedSource["sections"]);
@@ -6738,7 +6810,7 @@ export class SecondFactor {
      * Creates a new SecondFactor instance from a string or object.
      */
     static createFrom($$source: any = {}): SecondFactor {
-        const $$createField2_0 = $$createType110;
+        const $$createField2_0 = $$createType111;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("phones" in $$parsedSource) {
             $$parsedSource["phones"] = $$createField2_0($$parsedSource["phones"]);
@@ -7346,9 +7418,9 @@ export class StationDetail {
      */
     static createFrom($$source: any = {}): StationDetail {
         const $$createField0_0 = $$createType25;
-        const $$createField1_0 = $$createType112;
+        const $$createField1_0 = $$createType113;
         const $$createField2_0 = $$createType5;
-        const $$createField3_0 = $$createType114;
+        const $$createField3_0 = $$createType115;
         const $$createField4_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("station" in $$parsedSource) {
@@ -7702,7 +7774,7 @@ export class SyncStatus {
      * Creates a new SyncStatus instance from a string or object.
      */
     static createFrom($$source: any = {}): SyncStatus {
-        const $$createField2_0 = $$createType116;
+        const $$createField2_0 = $$createType117;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("domains" in $$parsedSource) {
             $$parsedSource["domains"] = $$createField2_0($$parsedSource["domains"]);
@@ -8166,36 +8238,37 @@ const $$createType80 = PowerState.createFrom;
 const $$createType81 = MotionFetch.createFrom;
 const $$createType82 = QueueItem.createFrom;
 const $$createType83 = $Create.Nullable($$createType82);
-const $$createType84 = OnAir.createFrom;
-const $$createType85 = $Create.Nullable($$createType84);
-const $$createType86 = BroadcasterInfo.createFrom;
-const $$createType87 = $Create.Nullable($$createType86);
-const $$createType88 = QueueStation.createFrom;
-const $$createType89 = $Create.Nullable($$createType88);
-const $$createType90 = QueueContainer.createFrom;
-const $$createType91 = $Create.Nullable($$createType90);
-const $$createType92 = SleepTimer.createFrom;
-const $$createType93 = $Create.Nullable($$createType92);
-const $$createType94 = SocialProfile.createFrom;
-const $$createType95 = $Create.Array($$createType94);
-const $$createType96 = TrackAddedBy.createFrom;
-const $$createType97 = $Create.Array($$createType96);
-const $$createType98 = PlaylistCurator.createFrom;
-const $$createType99 = PlaylistFolder.createFrom;
-const $$createType100 = $Create.Array($$createType99);
-const $$createType101 = TreePlaylist.createFrom;
-const $$createType102 = $Create.Array($$createType101);
-const $$createType103 = $Create.Array($$createType82);
-const $$createType104 = ScrobblerStatus.createFrom;
-const $$createType105 = SearchTerm.createFrom;
-const $$createType106 = $Create.Array($$createType105);
-const $$createType107 = SearchSection.createFrom;
-const $$createType108 = $Create.Array($$createType107);
-const $$createType109 = Phone.createFrom;
-const $$createType110 = $Create.Array($$createType109);
-const $$createType111 = StationEvent.createFrom;
-const $$createType112 = $Create.Array($$createType111);
-const $$createType113 = StationSeed.createFrom;
-const $$createType114 = $Create.Nullable($$createType113);
-const $$createType115 = DomainSync.createFrom;
-const $$createType116 = $Create.Array($$createType115);
+const $$createType84 = PlaybackControls.createFrom;
+const $$createType85 = OnAir.createFrom;
+const $$createType86 = $Create.Nullable($$createType85);
+const $$createType87 = BroadcasterInfo.createFrom;
+const $$createType88 = $Create.Nullable($$createType87);
+const $$createType89 = QueueStation.createFrom;
+const $$createType90 = $Create.Nullable($$createType89);
+const $$createType91 = QueueContainer.createFrom;
+const $$createType92 = $Create.Nullable($$createType91);
+const $$createType93 = SleepTimer.createFrom;
+const $$createType94 = $Create.Nullable($$createType93);
+const $$createType95 = SocialProfile.createFrom;
+const $$createType96 = $Create.Array($$createType95);
+const $$createType97 = TrackAddedBy.createFrom;
+const $$createType98 = $Create.Array($$createType97);
+const $$createType99 = PlaylistCurator.createFrom;
+const $$createType100 = PlaylistFolder.createFrom;
+const $$createType101 = $Create.Array($$createType100);
+const $$createType102 = TreePlaylist.createFrom;
+const $$createType103 = $Create.Array($$createType102);
+const $$createType104 = $Create.Array($$createType82);
+const $$createType105 = ScrobblerStatus.createFrom;
+const $$createType106 = SearchTerm.createFrom;
+const $$createType107 = $Create.Array($$createType106);
+const $$createType108 = SearchSection.createFrom;
+const $$createType109 = $Create.Array($$createType108);
+const $$createType110 = Phone.createFrom;
+const $$createType111 = $Create.Array($$createType110);
+const $$createType112 = StationEvent.createFrom;
+const $$createType113 = $Create.Array($$createType112);
+const $$createType114 = StationSeed.createFrom;
+const $$createType115 = $Create.Nullable($$createType114);
+const $$createType116 = DomainSync.createFrom;
+const $$createType117 = $Create.Array($$createType116);

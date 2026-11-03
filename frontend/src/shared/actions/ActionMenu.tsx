@@ -249,18 +249,28 @@ function Row({
   label,
   filled,
   disabled,
+  reason,
   onSelect,
 }: {
   icon: LucideIcon;
   label: string;
   filled?: boolean;
   disabled?: boolean;
+  /** Why the row is greyed out, said under its label. */
+  reason?: string;
   onSelect: () => void;
 }) {
   return (
-    <DropdownMenuItem disabled={disabled} onSelect={onSelect}>
+    <DropdownMenuItem disabled={disabled || !!reason} onSelect={onSelect}>
       {filled === undefined ? <Icon /> : <Icon fill={filled ? "currentColor" : "none"} />}
-      {label}
+      {reason ? (
+        <span className="flex min-w-0 flex-col">
+          {label}
+          <span className="text-meta font-normal text-ink-faint">{reason}</span>
+        </span>
+      ) : (
+        label
+      )}
     </DropdownMenuItem>
   );
 }
@@ -335,6 +345,7 @@ function SingleItems<K extends ActionTargetKind>({
           label={a.label(target, ctx)}
           filled={a.filled?.(target, ctx)}
           disabled={a.isEnabled ? !a.isEnabled(target, ctx) : undefined}
+          reason={a.disabledReason?.(target, ctx)}
           onSelect={() => a.run(target, ctx)}
         />
       )}
@@ -388,6 +399,7 @@ function BulkItems({
             label={a.label(items, ctx)}
             filled={a.filled?.(items, ctx)}
             disabled={a.isEnabled ? !a.isEnabled(items, ctx) : undefined}
+            reason={a.disabledReason?.(items, ctx)}
             onSelect={() => a.run(items, ctx)}
           />
         )}

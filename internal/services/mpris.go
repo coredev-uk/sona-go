@@ -45,10 +45,13 @@ func (p *MPRISPlayer) Next(ctx context.Context) error     { return p.c.Next(ctx)
 func (p *MPRISPlayer) Previous(ctx context.Context) error { return p.c.Previous(ctx) }
 
 // Stop pauses and rewinds; it keeps the queue (the app's Stop empties it,
-// which a media key should not do).
+// which a media key should not do). A live station has nothing to rewind.
 func (p *MPRISPlayer) Stop(ctx context.Context) error {
 	if err := p.c.Pause(ctx); err != nil {
 		return err
+	}
+	if !p.c.Snapshot().Controls.Seek {
+		return nil
 	}
 	return p.c.Seek(ctx, 0)
 }
@@ -71,7 +74,13 @@ func (p *MPRISPlayer) SetPosition(ctx context.Context, trackID string, pos time.
 
 func (p *MPRISPlayer) SetVolume(ctx context.Context, v float64) error { return p.c.SetVolume(ctx, v) }
 
+// SetLoopStatus and SetShuffle refuse while a station plays (the snapshot
+// reports them off, and a client writing them would otherwise change what
+// plays after it).
 func (p *MPRISPlayer) SetLoopStatus(_ context.Context, l mpris.LoopStatus) error {
+	if err := p.c.Snapshot().Refusal(func(c coordinator.Controls) bool { return c.Repeat }); err != nil {
+		return err
+	}
 	r := coordinator.RepeatOff
 	switch l {
 	case mpris.LoopTrack:
@@ -82,9 +91,16 @@ func (p *MPRISPlayer) SetLoopStatus(_ context.Context, l mpris.LoopStatus) error
 	return p.c.SetRepeat(r)
 }
 
-func (p *MPRISPlayer) SetShuffle(_ context.Context, on bool) error { p.c.SetShuffle(on); return nil }
-func (p *MPRISPlayer) Raise(context.Context) error                 { p.raise(); return nil }
-func (p *MPRISPlayer) Quit(context.Context) error                  { p.quit(); return nil }
+func (p *MPRISPlayer) SetShuffle(_ context.Context, on bool) error {
+	if err := p.c.Snapshot().Refusal(func(c coordinator.Controls) bool { return c.Shuffle }); err != nil {
+		return err
+	}
+	p.c.SetShuffle(on)
+	return nil
+}
+
+func (p *MPRISPlayer) Raise(context.Context) error { p.raise(); return nil }
+func (p *MPRISPlayer) Quit(context.Context) error  { p.quit(); return nil }
 
 func (p *MPRISPlayer) Snapshot() mpris.Snapshot { return mprisSnapshot(p.c.Snapshot(), "") }
 
@@ -104,17 +120,21 @@ func position(snap coordinator.Snapshot, now time.Time) time.Duration {
 // current item's cached artwork (file://), if known.
 func mprisSnapshot(snap coordinator.Snapshot, artURL string) mpris.Snapshot {
 	out := mpris.Snapshot{
-		Shuffle:    snap.Shuffle,
 		Volume:     snap.Volume,
 		Position:   snap.Position,
 		UpdatedAt:  snap.At,
 		CanControl: true,
 		CanPlay:    len(snap.Queue) > 0,
 	}
-	switch snap.Repeat {
-	case coordinator.RepeatOne:
+	// Shuffle and repeat don't apply to a station: it reports them off
+	// (the settings come back with the next song).
+	out.Shuffle = snap.Shuffle && snap.Controls.Shuffle
+	switch {
+	case !snap.Controls.Repeat:
+		out.Loop = mpris.LoopNone
+	case snap.Repeat == coordinator.RepeatOne:
 		out.Loop = mpris.LoopTrack
-	case coordinator.RepeatAll:
+	case snap.Repeat == coordinator.RepeatAll:
 		out.Loop = mpris.LoopPlaylist
 	default:
 		out.Loop = mpris.LoopNone
@@ -142,9 +162,9 @@ func mprisSnapshot(snap coordinator.Snapshot, artURL string) mpris.Snapshot {
 			out.Track.Title, out.Track.Artist, out.Track.Album = on.Title, cmp.Or(on.Artist, cur.Item.Title), cur.Item.Title
 		}
 		out.CanPause = true
-		out.CanSeek = dur > 0
-		out.CanGoPrevious = true
-		out.CanGoNext = canNext(snap)
+		out.CanSeek = snap.Controls.Seek && dur > 0
+		out.CanGoPrevious = snap.Controls.Previous
+		out.CanGoNext = snap.Controls.Next
 	}
 	return out
 }

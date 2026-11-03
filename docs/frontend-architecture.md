@@ -141,6 +141,11 @@ src/
                           background vocals, duet voices, romanisation and translation
                           under each line (LyricBody);
                           full-screen "room" lyrics over the whole window),
+                          the controls Go says apply (`controls` in the playback state, read
+                          through `availability.ts`: `useUnavailable`, `unavailableNow`,
+                          `refuse`; a live station turns off Previous, Next, Shuffle, Repeat,
+                          seek, AutoPlay and queueing, each control `IconButton`
+                          `unavailable`: aria-disabled with its reason),
                           shortcuts, playSongs/shuffleSongs (from a PlayFrom {kind, id}:
                           album/playlist/artist go to Apple's play activity)/queueItems;
                           replaceQueue (Undo toast, or a confirm with setting
@@ -512,6 +517,7 @@ export interface ActionDef<K extends ActionTargetKind> {
   order: number; // within the group
   isAvailable?: Read<K, boolean>; // listed at all (default true)
   isEnabled?: Read<K, boolean>; // greyed out when false (default true)
+  disabledReason?: Read<K, string | undefined>; // greyed out, the reason under the label
   data?: readonly MenuData<K, unknown>[];
   run: Read<K, void>;
 }
@@ -563,8 +569,8 @@ next and Add to queue only, and have a target at all only where videos play:
 
 | Group  | Order | Action                                                 | Module  |
 | ------ | ----- | ------------------------------------------------------ | ------- |
-| queue  | 10    | Play next (disabled if not playable)                   | player  |
-| queue  | 20    | Add to queue (disabled if not playable)                | player  |
+| queue  | 10    | Play next (disabled if not playable or a live station) | player  |
+| queue  | 20    | Add to queue (disabled if not playable or a live station) | player  |
 | item   | 10    | Go to album (if the song has an album)                 | album   |
 | item   | 20    | Go to artist (if the song has an artist)               | artist  |
 | item   | 30    | Add to library (catalogue items not in the library)    | library |
@@ -1080,7 +1086,10 @@ registry (`shared/shortcuts/registry.ts`) the app derives:
   text field, and Space, Enter, arrows and paging keys never fire on a
   control that uses them; `global` modifier chords work in text fields. The
   first shortcut on the chord whose scope allows it and whose `when` holds
-  runs (default prevented; held keys repeat only with `repeat`).
+  runs (default prevented; held keys repeat only with `repeat`). One whose
+  `unavailable()` returns a reason (Next on a live station) takes the chord
+  but only says the reason (`announceUnavailable`, a toast under one id, said
+  once however long the key is held); the command palette leaves it out.
 - **Conflicts.** Two shortcuts conflict when they share a chord in
   overlapping scopes (`page`/`global` overlap everything; two different
   contexts do not). Settings → Shortcuts records a new chord by keypress,

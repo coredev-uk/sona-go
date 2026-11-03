@@ -100,7 +100,9 @@ export function PlayLibrary(sort: string, desc: boolean, start: number): $Cancel
 }
 
 /**
- * PlayNext inserts refs after the current item.
+ * PlayNext inserts refs after the current item. Like Append and Insert it
+ * fails with coordinator.ErrLiveStation or ErrStation while a station
+ * plays: the queue is the station.
  */
 export function PlayNext(refs: $models.TrackRef[]): $CancellablePromise<void> {
     return $Call.ByID(1409330024, refs);

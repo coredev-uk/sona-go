@@ -38,6 +38,7 @@ import { useBinding } from "@/shared/shortcuts/bindings";
 import { ChordKeys } from "@/shared/shortcuts/Keys";
 
 import { CdmNotice } from "./CdmNotice";
+import { useUnavailable } from "./availability";
 import { IconButton, Volume } from "./controls";
 import { useLivePosition, usePlayback } from "./playback";
 import { SleepTimer } from "./SleepTimer";
@@ -130,8 +131,13 @@ export function NowPlayingBar() {
   const state = usePlayback((s) => s.state);
   const shuffle = usePlayback((s) => s.shuffle);
   const repeat = usePlayback((s) => s.repeat);
-  const canNext = usePlayback((s) => s.canNext);
-  const canPrevious = usePlayback((s) => s.canPrevious);
+  const canNext = usePlayback((s) => s.controls.next);
+  const canPrevious = usePlayback((s) => s.controls.previous);
+  // Why a control that doesn't apply to what plays (a live station) is off.
+  const noShuffle = useUnavailable("shuffle");
+  const noPrevious = useUnavailable("previous");
+  const noNext = useUnavailable("next");
+  const noRepeat = useUnavailable("repeat");
   const error = usePlayback((s) => s.error);
   const authRequired = usePlayback((s) => s.authRequired);
   const noCdm = usePlayback((s) => s.noCdm);
@@ -149,7 +155,7 @@ export function NowPlayingBar() {
   const video = !!current?.video;
   const videoOpen = overlay === "video";
   const nextRepeat = repeat === "off" ? "all" : repeat === "all" ? "one" : "off";
-  const RepeatIcon = repeat === "one" ? Repeat1 : Repeat;
+  const RepeatIcon = repeat === "one" && !noRepeat ? Repeat1 : Repeat;
 
   let subline: ReactNode = null;
   if (authRequired) {
@@ -306,9 +312,10 @@ export function NowPlayingBar() {
         <div className="flex w-full min-w-0 flex-col items-center gap-1">
           <div className="flex items-center gap-2">
             <IconButton
-              label={shuffle ? t`Shuffle on` : t`Shuffle off`}
-              pressed={shuffle}
+              label={shuffle && !noShuffle ? t`Shuffle on` : t`Shuffle off`}
+              pressed={shuffle && !noShuffle}
               disabled={idle}
+              unavailable={noShuffle}
               onClick={() =>
                 void run(t`Couldn't change shuffle`, PlaybackService.SetShuffle(!shuffle))
               }
@@ -317,7 +324,8 @@ export function NowPlayingBar() {
             </IconButton>
             <IconButton
               label={t`Previous`}
-              disabled={idle || !canPrevious}
+              disabled={idle || (!canPrevious && !noPrevious)}
+              unavailable={noPrevious}
               onClick={() => void run(t`Couldn't go back`, PlaybackService.Prev())}
             >
               <SkipBack strokeWidth={1.75} fill="currentColor" />
@@ -350,17 +358,23 @@ export function NowPlayingBar() {
             </Tooltip>
             <IconButton
               label={t`Next`}
-              disabled={idle || !canNext}
+              disabled={idle || (!canNext && !noNext)}
+              unavailable={noNext}
               onClick={() => void run(t`Couldn't skip`, PlaybackService.Next())}
             >
               <SkipForward strokeWidth={1.75} fill="currentColor" />
             </IconButton>
             <IconButton
               label={
-                repeat === "off" ? t`Repeat off` : repeat === "all" ? t`Repeat all` : t`Repeat one`
+                repeat === "off" || noRepeat
+                  ? t`Repeat off`
+                  : repeat === "all"
+                    ? t`Repeat all`
+                    : t`Repeat one`
               }
-              pressed={repeat !== "off"}
+              pressed={repeat !== "off" && !noRepeat}
               disabled={idle}
+              unavailable={noRepeat}
               onClick={() =>
                 void run(t`Couldn't change repeat`, PlaybackService.SetRepeat(nextRepeat))
               }

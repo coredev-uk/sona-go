@@ -3,6 +3,7 @@ import { useNavigate, useRouter } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, PanelLeft } from "lucide-react";
 import { useEffect } from "react";
 
+import { announceUnavailable } from "@/shared/lib/unavailable";
 import type { Shortcut, ShortcutScope } from "@/shared/module";
 import { useShortcutBindings } from "@/shared/shortcuts/bindings";
 import { chordKey, eventChord, isPlainChord, type Chord } from "@/shared/shortcuts/chord";
@@ -101,6 +102,7 @@ export function chordIndex(list: readonly Shortcut[], bindings: Bindings): Map<C
  * handled, composing text, or inside an open menu, dialog or listbox are
  * left alone; otherwise the first shortcut bound to the chord that is
  * allowed with the current focus and whose `when` holds takes the key.
+ * One that is `unavailable` takes it too, but only says why.
  */
 export function useShortcuts() {
   const navigate = useNavigate();
@@ -123,6 +125,11 @@ export function useShortcuts() {
       if (!shortcut) return;
       e.preventDefault();
       if (e.repeat && !shortcut.repeat) return;
+      const why = shortcut.unavailable?.();
+      if (why) {
+        if (!e.repeat) announceUnavailable(why);
+        return;
+      }
       shortcut.run({ navigate, history });
     };
     window.addEventListener("keydown", onKey);

@@ -25,6 +25,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/library"
 	"github.com/coredev-uk/sona-go/internal/motion"
 	"github.com/coredev-uk/sona-go/internal/playback"
+	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/scrobble"
 )
@@ -84,6 +85,8 @@ func TestEveryCodeIsClassified(t *testing.T) {
 		CodeUnauthorized:        applemusic.ErrUnauthorized,
 		CodeNotFound:            library.ErrNotFound,
 		CodeNotPlayable:         applemusic.ErrNotPlayable,
+		CodeLiveStation:         coordinator.ErrLiveStation,
+		CodeStation:             coordinator.ErrStation,
 		CodeNotReleased:         ErrNotReleased,
 		CodeSyncRunning:         library.ErrSyncRunning,
 		CodeInvalidArgument:     ErrInvalidArgument,

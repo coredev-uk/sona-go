@@ -642,6 +642,14 @@ msgid "that isn't an Apple Music link Sona can open"
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "that isn't available while listening to a live station"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "that isn't available while listening to a station"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "that took too long and timed out; try again"
 msgstr ""
 

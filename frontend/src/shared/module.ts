@@ -98,6 +98,12 @@ export interface Shortcut {
   icon?: LucideIcon;
   /** Available now; when false the key goes on to the next match and the palette hides it. */
   when?: () => boolean;
+  /**
+   * Why it doesn't apply to what is happening now (Next on a live station),
+   * or undefined when it does. The key still takes the chord: it does
+   * nothing and says why (a notification); the palette leaves it out.
+   */
+  unavailable?: () => string | undefined;
   /** Runs again while the key is held (volume, seeking). */
   repeat?: boolean;
   /** Left out of the command palette (Escape-style keys). */

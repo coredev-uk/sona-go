@@ -76,6 +76,8 @@ export interface ActionDef<K extends ActionTargetKind> {
   isAvailable?: Read<K, boolean>;
   /** Listed but greyed out when false (default: enabled). */
   isEnabled?: Read<K, boolean>;
+  /** Greyed out, with this line under its label saying why (a live station has no queue to add to). */
+  disabledReason?: Read<K, string | undefined>;
   /** Menu data the action reads through `ctx.data`, loaded when the menu opens. */
   data?: readonly MenuData<K, unknown>[];
   run: Read<K, void>;
@@ -120,6 +122,7 @@ export interface BulkActionDef {
   order: number;
   isAvailable?: ReadMany<boolean>;
   isEnabled?: ReadMany<boolean>;
+  disabledReason?: ReadMany<string | undefined>;
   data?: readonly BulkMenuData<unknown>[];
   run: ReadMany<void>;
 }

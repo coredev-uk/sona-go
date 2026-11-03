@@ -3966,6 +3966,14 @@ msgstr ""
 msgid "Not available on this platform yet"
 msgstr ""
 
+#: src/features/player/availability.ts
+msgid "Not available while listening to a live station"
+msgstr ""
+
+#: src/features/player/availability.ts
+msgid "Not available while listening to a station"
+msgstr ""
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Not checked yet"
 msgstr ""
@@ -6600,6 +6608,14 @@ msgstr ""
 
 #: src/features/auth/Account.tsx
 msgid "This happens after a password change or when the token expires. Your library on this computer is still here; sign in again to keep syncing and playing."
+msgstr ""
+
+#: src/shared/lib/errors.ts
+msgid "This isn't available while listening to a live station."
+msgstr ""
+
+#: src/shared/lib/errors.ts
+msgid "This isn't available while listening to a station."
 msgstr ""
 
 #: src/shared/components/DetailStates.tsx

@@ -1,10 +1,13 @@
 package services
 
 import (
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/desktop/notify"
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
@@ -170,5 +173,22 @@ func TestPublicArtURL(t *testing.T) {
 		if got := publicArtURL(bad, 512); got != "" {
 			t.Errorf("publicArtURL(%q) = %q, want rejected", bad, got)
 		}
+	}
+}
+
+// The notification offers Next after a song, not after a live station.
+func TestTrackNotificationActions(t *testing.T) {
+	keys := func(item coordinator.Item) []string {
+		var out []string
+		for _, a := range trackNotification(l10n.NewPrinter("en", nil), item, "").Actions {
+			out = append(out, a.Key)
+		}
+		return out
+	}
+	if got := keys(coordinator.Item{ID: "1440", Title: "Song", Duration: time.Minute}); !slices.Equal(got, []string{notify.DefaultAction, actionNext}) {
+		t.Errorf("song actions = %v", got)
+	}
+	if got := keys(coordinator.Item{ID: "ra.1", Title: "KISS"}); !slices.Equal(got, []string{notify.DefaultAction}) {
+		t.Errorf("live station actions = %v", got)
 	}
 }

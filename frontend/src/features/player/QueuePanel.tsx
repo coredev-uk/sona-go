@@ -27,6 +27,7 @@ import { run } from "@/shared/lib/run";
 import { useWithheld } from "@/shared/lib/content-policy";
 import { cn } from "@/shared/lib/utils";
 
+import { useUnavailable } from "./availability";
 import { queueItems } from "./commands";
 import { usePlayback } from "./playback";
 import { focusedRow, menuMoves, moveForKey, rowForKey, type QueueFocus } from "./queue-focus";
@@ -289,6 +290,8 @@ function useQueueParts() {
 /** The queue's own controls: Clear (while the user has songs queued) and the AutoPlay toggle. */
 export function QueueTools() {
   const { mine, autoPlay } = useQueueParts();
+  // Why AutoPlay is off the table: a live station never ends.
+  const noAutoPlay = useUnavailable("autoPlay");
   const { t } = useLingui();
   return (
     <div className="flex items-center gap-1">
@@ -307,22 +310,33 @@ export function QueueTools() {
             variant="ghost"
             size="icon-sm"
             aria-label={t`AutoPlay`}
-            aria-pressed={autoPlay}
+            aria-pressed={autoPlay && !noAutoPlay}
+            aria-disabled={noAutoPlay ? true : undefined}
+            aria-describedby={noAutoPlay ? "autoplay-unavailable" : undefined}
             onClick={() => {
+              if (noAutoPlay) return;
               usePlayback.getState().patch({ autoPlay: !autoPlay });
               void run(t`Couldn't change AutoPlay`, PlaybackService.SetAutoPlay(!autoPlay));
             }}
             className={cn(
               "relative text-ink-muted hover:text-ink",
+              noAutoPlay && "opacity-40 hover:bg-transparent hover:text-ink-muted",
               autoPlay &&
+                !noAutoPlay &&
                 "text-ink after:absolute after:bottom-0.5 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-ink",
             )}
           >
             <InfinityIcon strokeWidth={1.75} />
+            {noAutoPlay && (
+              <span id="autoplay-unavailable" hidden>
+                {noAutoPlay}
+              </span>
+            )}
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          {autoPlay ? t`AutoPlay on: similar music plays when the queue ends` : t`AutoPlay off`}
+          {noAutoPlay ??
+            (autoPlay ? t`AutoPlay on: similar music plays when the queue ends` : t`AutoPlay off`)}
         </TooltipContent>
       </Tooltip>
     </div>

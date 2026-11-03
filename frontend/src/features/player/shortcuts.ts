@@ -28,6 +28,7 @@ import { currentCapabilities } from "@/shared/lib/capabilities";
 import { run } from "@/shared/lib/run";
 import type { Shortcut } from "@/shared/module";
 
+import { unavailableNow } from "./availability";
 import {
   cycleRepeat,
   seekBy,
@@ -88,6 +89,7 @@ export const playerShortcuts: Shortcut[] = [
     keys: ["Ctrl+ArrowRight"],
     keywords: () => t`skip forward`,
     icon: SkipForward,
+    unavailable: () => unavailableNow("next"),
     run: () => void run(t`Couldn't skip`, PlaybackService.Next()),
   },
   {
@@ -97,6 +99,7 @@ export const playerShortcuts: Shortcut[] = [
     keys: ["Ctrl+ArrowLeft"],
     keywords: () => t`back restart`,
     icon: SkipBack,
+    unavailable: () => unavailableNow("previous"),
     run: () => void run(t`Couldn't go back`, PlaybackService.Prev()),
   },
   {
@@ -107,6 +110,7 @@ export const playerShortcuts: Shortcut[] = [
     keywords: () => t`seek forward`,
     icon: FastForward,
     repeat: true,
+    unavailable: () => unavailableNow("seek"),
     run: () => seekBy(SEEK_MS),
   },
   {
@@ -117,6 +121,7 @@ export const playerShortcuts: Shortcut[] = [
     keywords: () => t`seek rewind`,
     icon: Rewind,
     repeat: true,
+    unavailable: () => unavailableNow("seek"),
     run: () => seekBy(-SEEK_MS),
   },
   {
@@ -158,6 +163,7 @@ export const playerShortcuts: Shortcut[] = [
     keys: ["S"],
     keywords: () => t`random`,
     icon: Shuffle,
+    unavailable: () => unavailableNow("shuffle"),
     run: toggleShuffle,
   },
   {
@@ -167,6 +173,7 @@ export const playerShortcuts: Shortcut[] = [
     keys: ["R"],
     keywords: () => t`loop`,
     icon: Repeat,
+    unavailable: () => unavailableNow("repeat"),
     run: cycleRepeat,
   },
   {
