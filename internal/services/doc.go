@@ -151,6 +151,17 @@
 // secret ("musixmatch"). Songs no source has lyrics for fail with code
 // not_found.
 //
+// Concerts (concerts.go): ConcertsService.Concerts lists Apple's concerts near
+// the chosen city, filtered by days, genre and (signed in) the user's own
+// artists, ForArtist an artist's upcoming concerts, Places searches
+// internal/places's own list of cities for the picker and SetLocation
+// saves the choice (config.Concerts, announced as settings:changed; ""
+// returns to the storefront's main city). Apple wants an area as a
+// geohash and is told that and nothing else of the place; lists are cached
+// with discover_cache's rules, keyed by area, filters and day. Ticket links
+// are https only. Home's concerts shelf is a Section of kind "concerts"
+// with no items, filled by the frontend from Concerts.
+//
 // DTO rules: durations and timestamps in integer milliseconds (timestamps
 // as Unix ms, 0 when unknown); artwork and motion artwork only as
 // Go-served URLs (never Apple templates, Apple media URLs or tokens); IDs

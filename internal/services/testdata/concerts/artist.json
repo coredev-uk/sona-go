@@ -1,0 +1,32 @@
+{
+  "data": [{"id": "900001", "type": "artists", "href": "/v1/catalog/gb/artists/900001"}],
+  "resources": {
+    "artists": {
+      "900001": {
+        "id": "900001", "type": "artists",
+        "attributes": {"name": "Example Band", "artwork": {"url": "https://is1-ssl.mzstatic.com/image/thumb/x/{w}x{h}{c}.jpg", "width": 800, "height": 800}},
+        "meta": {"views": {"order": ["nearby-upcoming-concerts", "all-upcoming-concerts"]}},
+        "views": {
+          "nearby-upcoming-concerts": {"attributes": {"title": "Nearby Concerts"}, "data": [{"id": "ce.0001", "type": "concerts"}]},
+          "all-upcoming-concerts": {"attributes": {"title": "All Upcoming Concerts"}, "data": [{"id": "ce.0001", "type": "concerts"}, {"id": "ce.0009", "type": "concerts"}]}
+        }
+      }
+    },
+    "concerts": {
+      "ce.0001": {
+        "id": "ce.0001", "type": "concerts",
+        "attributes": {"name": "Example Band @ Example Hall", "startISODateTime": "2027-04-14T17:00:00Z", "endISODateTime": "2027-04-14T21:00:00Z", "timezone": "Europe/London", "tickets": [{"vendor": "Example Tickets", "url": "https://tickets.example.com/e/1"}]},
+        "relationships": {"venues": {"data": [{"id": "evu.A1", "type": "venues"}]}}
+      },
+      "ce.0009": {
+        "id": "ce.0009", "type": "concerts",
+        "attributes": {"name": "Example Band @ Faraway Stadium", "startISODateTime": "2027-09-01T18:00:00Z", "timezone": "America/New_York"},
+        "relationships": {"venues": {"data": [{"id": "evu.C3", "type": "venues"}]}}
+      }
+    },
+    "venues": {
+      "evu.A1": {"id": "evu.A1", "type": "venues", "attributes": {"name": "Example Hall", "geoLocation": {"latitude": 51.5, "longitude": -0.1}, "structuredAddress": {"city": "London", "countryIsoCode": "GB"}}},
+      "evu.C3": {"id": "evu.C3", "type": "venues", "attributes": {"name": "Faraway Stadium", "geoLocation": {"latitude": 40.7, "longitude": -74.0}, "structuredAddress": {"city": "New York", "region": "NY", "countryIsoCode": "US"}}}
+    }
+  }
+}

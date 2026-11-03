@@ -40,6 +40,20 @@ describe("planHome", () => {
     expect(plan.index.map((s) => s.id)).toEqual(["country", "pop"]);
   });
 
+  it("keeps the concerts shelf, which has no items of its own, in the open", () => {
+    const sections = [
+      shelf("top", "feature"),
+      shelf("a"),
+      shelf("b"),
+      shelf("c"),
+      shelf("d"),
+      shelf("concerts", "concerts", []),
+    ];
+    const plan = planHome(sections);
+    expect(plan.open.map((s) => s.id)).toEqual(["a", "b", "c", "concerts"]);
+    expect(plan.index.map((s) => s.id)).toEqual(["d"]);
+  });
+
   it("has no lead without a feature shelf with items", () => {
     const plan = planHome([shelf("top", "feature", []), shelf("oasis")]);
     expect(plan.lead).toBeUndefined();

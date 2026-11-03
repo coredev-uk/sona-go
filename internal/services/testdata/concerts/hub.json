@@ -1,0 +1,95 @@
+{
+  "results": {
+    "containers": {
+      "popular-concerts": {
+        "href": "/v1/concerts/gb/hub?containers=popular-concerts",
+        "title": "Popular",
+        "data": [
+          {"id": "ce.0001", "type": "concerts", "href": "/v1/catalog/gb/concerts/ce.0001"},
+          {"id": "ce.0002", "type": "concerts", "href": "/v1/catalog/gb/concerts/ce.0002"},
+          {"id": "ce.0404", "type": "concerts", "href": "/v1/catalog/gb/concerts/ce.0404"}
+        ]
+      },
+      "favorite-artists-concerts": {
+        "href": "/v1/concerts/gb/hub?containers=favorite-artists-concerts",
+        "title": "Favourites",
+        "data": [
+          {"id": "ce.0002", "type": "concerts", "href": "/v1/catalog/gb/concerts/ce.0002"},
+          {"id": "ce.0003", "type": "concerts", "href": "/v1/catalog/gb/concerts/ce.0003"}
+        ]
+      }
+    }
+  },
+  "resources": {
+    "concerts": {
+      "ce.0001": {
+        "id": "ce.0001", "type": "concerts",
+        "attributes": {
+          "name": "Example Band with Opener Duo @ Example Hall",
+          "startISODateTime": "2027-04-14T17:00:00Z",
+          "endISODateTime": "2027-04-14T21:00:00Z",
+          "timezone": "Europe/London",
+          "url": "https://music.apple.com/gb/concerts/ce.0001",
+          "tickets": [
+            {"vendor": "Example Tickets", "url": "https://tickets.example.com/e/1"},
+            {"vendor": "Broken", "url": ""}
+          ]
+        },
+        "relationships": {
+          "artists": {"data": [{"id": "900001", "type": "artists"}]},
+          "venues": {"data": [{"id": "evu.A1", "type": "venues"}]}
+        }
+      },
+      "ce.0002": {
+        "id": "ce.0002", "type": "concerts",
+        "attributes": {
+          "name": "Sample Singer @ Placeholder Arena",
+          "startISODateTime": "2027-05-02T18:30:00Z",
+          "endISODateTime": "2027-05-02T22:00:00Z",
+          "timezone": "Europe/London",
+          "url": "https://music.apple.com/gb/concerts/ce.0002"
+        },
+        "relationships": {
+          "artists": {"data": [{"id": "900002", "type": "artists"}]},
+          "venues": {"data": [{"id": "evu.B2", "type": "venues"}]}
+        }
+      },
+      "ce.0003": {
+        "id": "ce.0003", "type": "concerts",
+        "attributes": {
+          "name": "Another Act @ Nowhere Club",
+          "startISODateTime": "2027-06-01T19:00:00Z",
+          "endISODateTime": "2027-06-01T23:00:00Z",
+          "timezone": "Europe/London",
+          "url": "https://music.apple.com/gb/concerts/ce.0003"
+        },
+        "relationships": {
+          "artists": {"data": [{"id": "900003", "type": "artists"}]},
+          "venues": {"data": []}
+        }
+      }
+    },
+    "venues": {
+      "evu.A1": {
+        "id": "evu.A1", "type": "venues",
+        "attributes": {
+          "name": "Example Hall",
+          "geoLocation": {"latitude": 51.5, "longitude": -0.1},
+          "structuredAddress": {"address": "1 Sample Street", "city": "London", "country": "United Kingdom", "countryIsoCode": "GB", "postCode": "AB1 2CD", "region": null}
+        }
+      },
+      "evu.B2": {
+        "id": "evu.B2", "type": "venues",
+        "attributes": {
+          "name": "Placeholder Arena",
+          "geoLocation": {"latitude": 51.6, "longitude": -0.2},
+          "structuredAddress": {"address": "2 Test Road", "city": "Watford", "country": "United Kingdom", "countryIsoCode": "GB", "region": "Hertfordshire"}
+        }
+      }
+    },
+    "artists": {
+      "900001": {"id": "900001", "type": "artists", "attributes": {"name": "Example Band", "artwork": {"url": "https://is1-ssl.mzstatic.com/image/thumb/x/{w}x{h}{c}.jpg", "width": 800, "height": 800, "bgColor": "112233"}}},
+      "900002": {"id": "900002", "type": "artists", "attributes": {"name": "Sample Singer"}}
+    }
+  }
+}

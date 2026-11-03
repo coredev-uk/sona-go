@@ -1,0 +1,594 @@
+us-new-york	New York	us	40.71	-74.01	nyc manhattan brooklyn
+us-los-angeles	Los Angeles	us	34.05	-118.24	la
+us-chicago	Chicago	us	41.88	-87.63	
+us-houston	Houston	us	29.76	-95.37	
+us-phoenix	Phoenix	us	33.45	-112.07	
+us-philadelphia	Philadelphia	us	39.95	-75.17	philly
+us-san-antonio	San Antonio	us	29.42	-98.49	
+us-san-diego	San Diego	us	32.72	-117.16	
+us-dallas	Dallas	us	32.78	-96.80	
+us-san-jose	San Jose	us	37.34	-121.89	
+us-austin	Austin	us	30.27	-97.74	
+us-nashville	Nashville	us	36.16	-86.78	
+us-atlanta	Atlanta	us	33.75	-84.39	
+us-miami	Miami	us	25.76	-80.19	
+us-san-francisco	San Francisco	us	37.77	-122.42	sf
+us-seattle	Seattle	us	47.61	-122.33	
+us-denver	Denver	us	39.74	-104.99	
+us-boston	Boston	us	42.36	-71.06	
+us-washington	Washington	us	38.91	-77.04	washington dc d.c.
+us-las-vegas	Las Vegas	us	36.17	-115.14	
+us-portland	Portland	us	45.52	-122.68	
+us-detroit	Detroit	us	42.33	-83.05	
+us-minneapolis	Minneapolis	us	44.98	-93.27	
+us-orlando	Orlando	us	28.54	-81.38	
+us-tampa	Tampa	us	27.95	-82.46	
+us-charlotte	Charlotte	us	35.23	-80.84	
+us-new-orleans	New Orleans	us	29.95	-90.07	
+us-st-louis	St. Louis	us	38.63	-90.20	saint louis
+us-kansas-city	Kansas City	us	39.10	-94.58	
+us-pittsburgh	Pittsburgh	us	40.44	-80.00	
+us-cleveland	Cleveland	us	41.50	-81.69	
+us-baltimore	Baltimore	us	39.29	-76.61	
+us-salt-lake-city	Salt Lake City	us	40.76	-111.89	
+us-sacramento	Sacramento	us	38.58	-121.49	
+us-columbus	Columbus	us	39.96	-83.00	
+us-indianapolis	Indianapolis	us	39.77	-86.16	
+us-cincinnati	Cincinnati	us	39.10	-84.51	
+us-milwaukee	Milwaukee	us	43.04	-87.91	
+us-raleigh	Raleigh	us	35.78	-78.64	
+us-oklahoma-city	Oklahoma City	us	35.47	-97.52	
+us-memphis	Memphis	us	35.15	-90.05	
+us-louisville	Louisville	us	38.25	-85.76	
+us-richmond	Richmond	us	37.54	-77.44	
+us-honolulu	Honolulu	us	21.31	-157.86	
+us-anchorage	Anchorage	us	61.22	-149.90	
+us-albuquerque	Albuquerque	us	35.08	-106.65	
+us-tucson	Tucson	us	32.22	-110.97	
+us-omaha	Omaha	us	41.26	-95.93	
+us-boise	Boise	us	43.62	-116.20	
+us-buffalo	Buffalo	us	42.89	-78.88	
+us-jacksonville	Jacksonville	us	30.33	-81.66	
+us-birmingham	Birmingham	us	33.52	-86.80	
+us-oakland	Oakland	us	37.80	-122.27	
+us-fort-worth	Fort Worth	us	32.75	-97.33	
+us-el-paso	El Paso	us	31.76	-106.49	
+us-charleston	Charleston	us	32.78	-79.93	
+us-savannah	Savannah	us	32.08	-81.09	
+us-madison	Madison	us	43.07	-89.40	
+us-providence	Providence	us	41.82	-71.41	
+us-hartford	Hartford	us	41.76	-72.67	
+us-albany	Albany	us	42.65	-73.76	
+us-des-moines	Des Moines	us	41.59	-93.62	
+us-little-rock	Little Rock	us	34.75	-92.29	
+us-baton-rouge	Baton Rouge	us	30.45	-91.15	
+us-knoxville	Knoxville	us	35.96	-83.92	
+us-asheville	Asheville	us	35.60	-82.55	
+us-spokane	Spokane	us	47.66	-117.43	
+us-reno	Reno	us	39.53	-119.81	
+us-tulsa	Tulsa	us	36.15	-95.99	
+us-greenville	Greenville	us	34.85	-82.40	
+us-lexington	Lexington	us	38.04	-84.50	
+us-fort-lauderdale	Fort Lauderdale	us	26.12	-80.14	
+us-colorado-springs	Colorado Springs	us	38.83	-104.82	
+us-fresno	Fresno	us	36.74	-119.79	
+us-newark	Newark	us	40.74	-74.17	
+us-wichita	Wichita	us	37.69	-97.34	
+us-lincoln	Lincoln	us	40.81	-96.70	
+us-norfolk	Norfolk	us	36.85	-76.29	
+us-santa-barbara	Santa Barbara	us	34.42	-119.70	
+us-palm-springs	Palm Springs	us	33.83	-116.55	
+us-jackson	Jackson	us	32.30	-90.18	
+us-burlington	Burlington	us	44.48	-73.21	
+us-portland-me	Portland ME	us	43.66	-70.26	portland maine
+ca-toronto	Toronto	ca	43.65	-79.38	
+ca-montreal	Montreal	ca	45.50	-73.57	montréal
+ca-vancouver	Vancouver	ca	49.28	-123.12	
+ca-calgary	Calgary	ca	51.05	-114.07	
+ca-edmonton	Edmonton	ca	53.55	-113.49	
+ca-ottawa	Ottawa	ca	45.42	-75.70	
+ca-winnipeg	Winnipeg	ca	49.90	-97.14	
+ca-quebec-city	Quebec City	ca	46.81	-71.21	québec
+ca-hamilton	Hamilton	ca	43.26	-79.87	
+ca-halifax	Halifax	ca	44.65	-63.57	
+ca-victoria	Victoria	ca	48.43	-123.37	
+ca-saskatoon	Saskatoon	ca	52.13	-106.67	
+ca-regina	Regina	ca	50.45	-104.62	
+ca-london	London	ca	42.98	-81.25	london ontario
+ca-kitchener	Kitchener	ca	43.45	-80.49	waterloo
+ca-windsor	Windsor	ca	42.32	-83.04	
+ca-st-john-s	St. John's	ca	47.56	-52.71	saint johns
+ca-kelowna	Kelowna	ca	49.89	-119.50	
+mx-mexico-city	Mexico City	mx	19.43	-99.13	ciudad de méxico cdmx
+mx-guadalajara	Guadalajara	mx	20.67	-103.35	
+mx-monterrey	Monterrey	mx	25.69	-100.32	
+mx-puebla	Puebla	mx	19.04	-98.21	
+mx-tijuana	Tijuana	mx	32.51	-117.04	
+mx-queretaro	Querétaro	mx	20.59	-100.39	
+mx-merida	Mérida	mx	20.97	-89.62	
+mx-cancun	Cancún	mx	21.16	-86.85	
+mx-leon	León	mx	21.12	-101.68	
+mx-san-luis-potosi	San Luis Potosí	mx	22.15	-100.98	
+gb-london	London	gb	51.51	-0.13	
+gb-manchester	Manchester	gb	53.48	-2.24	
+gb-birmingham	Birmingham	gb	52.49	-1.89	
+gb-glasgow	Glasgow	gb	55.86	-4.25	
+gb-leeds	Leeds	gb	53.80	-1.55	
+gb-bristol	Bristol	gb	51.45	-2.59	
+gb-liverpool	Liverpool	gb	53.41	-2.98	
+gb-edinburgh	Edinburgh	gb	55.95	-3.19	
+gb-sheffield	Sheffield	gb	53.38	-1.47	
+gb-newcastle	Newcastle	gb	54.98	-1.62	newcastle upon tyne
+gb-nottingham	Nottingham	gb	52.95	-1.15	
+gb-cardiff	Cardiff	gb	51.48	-3.18	caerdydd
+gb-belfast	Belfast	gb	54.60	-5.93	
+gb-southampton	Southampton	gb	50.90	-1.40	
+gb-leicester	Leicester	gb	52.64	-1.13	
+gb-brighton	Brighton	gb	50.82	-0.14	
+gb-aberdeen	Aberdeen	gb	57.15	-2.09	
+gb-cambridge	Cambridge	gb	52.21	0.12	
+gb-oxford	Oxford	gb	51.75	-1.26	
+gb-norwich	Norwich	gb	52.63	1.30	
+gb-plymouth	Plymouth	gb	50.38	-4.14	
+gb-exeter	Exeter	gb	50.72	-3.53	
+gb-bournemouth	Bournemouth	gb	50.72	-1.88	
+gb-portsmouth	Portsmouth	gb	50.82	-1.09	
+gb-swansea	Swansea	gb	51.62	-3.94	
+gb-coventry	Coventry	gb	52.41	-1.51	
+gb-hull	Hull	gb	53.74	-0.33	
+gb-stoke-on-trent	Stoke-on-Trent	gb	53.00	-2.18	
+gb-derby	Derby	gb	52.92	-1.48	
+gb-dundee	Dundee	gb	56.46	-2.97	
+gb-inverness	Inverness	gb	57.48	-4.22	
+gb-york	York	gb	53.96	-1.08	
+gb-reading	Reading	gb	51.45	-0.97	
+gb-wolverhampton	Wolverhampton	gb	52.59	-2.13	
+gb-sunderland	Sunderland	gb	54.91	-1.38	
+gb-bath	Bath	gb	51.38	-2.36	
+gb-northampton	Northampton	gb	52.24	-0.90	
+gb-ipswich	Ipswich	gb	52.06	1.15	
+gb-peterborough	Peterborough	gb	52.57	-0.24	
+gb-blackpool	Blackpool	gb	53.82	-3.05	
+gb-middlesbrough	Middlesbrough	gb	54.57	-1.23	
+gb-preston	Preston	gb	53.76	-2.70	
+gb-gloucester	Gloucester	gb	51.86	-2.24	
+gb-canterbury	Canterbury	gb	51.28	1.08	
+gb-lincoln	Lincoln	gb	53.23	-0.54	
+gb-carlisle	Carlisle	gb	54.89	-2.93	
+gb-truro	Truro	gb	50.26	-5.05	
+ie-dublin	Dublin	ie	53.35	-6.26	
+ie-cork	Cork	ie	51.90	-8.47	
+ie-galway	Galway	ie	53.27	-9.05	
+ie-limerick	Limerick	ie	52.66	-8.63	
+ie-waterford	Waterford	ie	52.26	-7.11	
+fr-paris	Paris	fr	48.86	2.35	
+fr-lyon	Lyon	fr	45.76	4.84	
+fr-marseille	Marseille	fr	43.30	5.37	
+fr-toulouse	Toulouse	fr	43.60	1.44	
+fr-bordeaux	Bordeaux	fr	44.84	-0.58	
+fr-lille	Lille	fr	50.63	3.06	
+fr-nantes	Nantes	fr	47.22	-1.55	
+fr-strasbourg	Strasbourg	fr	48.57	7.75	
+fr-nice	Nice	fr	43.70	7.27	
+fr-montpellier	Montpellier	fr	43.61	3.88	
+fr-rennes	Rennes	fr	48.12	-1.68	
+fr-grenoble	Grenoble	fr	45.19	5.72	
+fr-dijon	Dijon	fr	47.32	5.04	
+fr-rouen	Rouen	fr	49.44	1.10	
+fr-clermont-ferrand	Clermont-Ferrand	fr	45.78	3.09	
+fr-saint-etienne	Saint-Étienne	fr	45.44	4.39	
+fr-toulon	Toulon	fr	43.12	5.93	
+fr-le-havre	Le Havre	fr	49.49	0.11	
+fr-reims	Reims	fr	49.26	4.03	
+fr-angers	Angers	fr	47.47	-0.55	
+fr-caen	Caen	fr	49.18	-0.37	
+fr-metz	Metz	fr	49.12	6.18	
+fr-tours	Tours	fr	47.39	0.69	
+fr-nancy	Nancy	fr	48.69	6.18	
+fr-perpignan	Perpignan	fr	42.70	2.90	
+fr-limoges	Limoges	fr	45.83	1.26	
+fr-poitiers	Poitiers	fr	46.58	0.34	
+fr-orleans	Orléans	fr	47.90	1.91	
+fr-ajaccio	Ajaccio	fr	41.93	8.74	
+de-berlin	Berlin	de	52.52	13.40	
+de-hamburg	Hamburg	de	53.55	9.99	
+de-munich	Munich	de	48.14	11.58	münchen
+de-cologne	Cologne	de	50.94	6.96	köln
+de-frankfurt	Frankfurt	de	50.11	8.68	frankfurt am main
+de-stuttgart	Stuttgart	de	48.78	9.18	
+de-dusseldorf	Düsseldorf	de	51.23	6.78	
+de-leipzig	Leipzig	de	51.34	12.37	
+de-dortmund	Dortmund	de	51.51	7.47	
+de-essen	Essen	de	51.46	7.01	
+de-bremen	Bremen	de	53.08	8.80	
+de-dresden	Dresden	de	51.05	13.74	
+de-hannover	Hannover	de	52.37	9.74	hanover
+de-nuremberg	Nuremberg	de	49.45	11.08	nürnberg
+de-duisburg	Duisburg	de	51.43	6.77	
+de-bochum	Bochum	de	51.48	7.22	
+de-bonn	Bonn	de	50.74	7.10	
+de-mannheim	Mannheim	de	49.49	8.47	
+de-karlsruhe	Karlsruhe	de	49.01	8.40	
+de-munster	Münster	de	51.96	7.63	munster
+de-augsburg	Augsburg	de	48.37	10.90	
+de-wiesbaden	Wiesbaden	de	50.08	8.24	
+de-kiel	Kiel	de	54.32	10.14	
+de-freiburg	Freiburg	de	48.00	7.84	
+de-mainz	Mainz	de	50.00	8.27	
+de-rostock	Rostock	de	54.09	12.14	
+de-erfurt	Erfurt	de	50.98	11.03	
+de-saarbrucken	Saarbrücken	de	49.24	6.99	
+de-bielefeld	Bielefeld	de	52.02	8.53	
+de-regensburg	Regensburg	de	49.01	12.10	
+de-magdeburg	Magdeburg	de	52.13	11.63	
+de-braunschweig	Braunschweig	de	52.27	10.52	
+de-heidelberg	Heidelberg	de	49.40	8.67	
+de-potsdam	Potsdam	de	52.40	13.07	
+de-wurzburg	Würzburg	de	49.79	9.95	
+at-vienna	Vienna	at	48.21	16.37	wien
+at-graz	Graz	at	47.07	15.44	
+at-salzburg	Salzburg	at	47.81	13.04	
+at-linz	Linz	at	48.31	14.29	
+at-innsbruck	Innsbruck	at	47.27	11.39	
+at-klagenfurt	Klagenfurt	at	46.62	14.31	
+ch-zurich	Zurich	ch	47.38	8.54	zürich
+ch-geneva	Geneva	ch	46.20	6.14	genève genf
+ch-basel	Basel	ch	47.56	7.59	
+ch-bern	Bern	ch	46.95	7.45	
+ch-lausanne	Lausanne	ch	46.52	6.63	
+ch-lucerne	Lucerne	ch	47.05	8.31	luzern
+ch-st-gallen	St. Gallen	ch	47.42	9.37	
+ch-lugano	Lugano	ch	46.01	8.96	
+nl-amsterdam	Amsterdam	nl	52.37	4.90	
+nl-rotterdam	Rotterdam	nl	51.92	4.48	
+nl-the-hague	The Hague	nl	52.08	4.30	den haag
+nl-utrecht	Utrecht	nl	52.09	5.12	
+nl-eindhoven	Eindhoven	nl	51.44	5.48	
+nl-groningen	Groningen	nl	53.22	6.57	
+nl-tilburg	Tilburg	nl	51.56	5.09	
+nl-nijmegen	Nijmegen	nl	51.84	5.85	
+nl-arnhem	Arnhem	nl	51.98	5.91	
+nl-maastricht	Maastricht	nl	50.85	5.69	
+nl-breda	Breda	nl	51.59	4.78	
+be-brussels	Brussels	be	50.85	4.35	bruxelles brussel
+be-antwerp	Antwerp	be	51.22	4.40	antwerpen anvers
+be-ghent	Ghent	be	51.05	3.72	gent
+be-liege	Liège	be	50.63	5.57	liege luik
+be-bruges	Bruges	be	51.21	3.22	brugge
+be-charleroi	Charleroi	be	50.41	4.44	
+be-leuven	Leuven	be	50.88	4.70	
+be-namur	Namur	be	50.47	4.87	
+lu-luxembourg	Luxembourg	lu	49.61	6.13	
+es-madrid	Madrid	es	40.42	-3.70	
+es-barcelona	Barcelona	es	41.39	2.17	
+es-valencia	Valencia	es	39.47	-0.38	
+es-seville	Seville	es	37.39	-5.98	sevilla
+es-zaragoza	Zaragoza	es	41.65	-0.89	
+es-malaga	Málaga	es	36.72	-4.42	malaga
+es-bilbao	Bilbao	es	43.26	-2.93	
+es-palma	Palma	es	39.57	2.65	palma de mallorca majorca
+es-granada	Granada	es	37.18	-3.60	
+es-murcia	Murcia	es	37.99	-1.13	
+es-alicante	Alicante	es	38.35	-0.48	
+es-a-coruna	A Coruña	es	43.36	-8.41	la coruña corunna
+es-valladolid	Valladolid	es	41.65	-4.72	
+es-san-sebastian	San Sebastián	es	43.32	-1.98	donostia san sebastian
+es-las-palmas	Las Palmas	es	28.12	-15.43	gran canaria
+es-santander	Santander	es	43.46	-3.81	
+es-vigo	Vigo	es	42.24	-8.72	
+es-cordoba	Córdoba	es	37.89	-4.78	
+es-pamplona	Pamplona	es	42.82	-1.64	
+es-santa-cruz-de-tenerife	Santa Cruz de Tenerife	es	28.46	-16.25	tenerife
+es-ibiza	Ibiza	es	38.91	1.43	
+pt-lisbon	Lisbon	pt	38.72	-9.14	lisboa
+pt-porto	Porto	pt	41.15	-8.61	
+pt-braga	Braga	pt	41.55	-8.43	
+pt-faro	Faro	pt	37.02	-7.93	
+pt-coimbra	Coimbra	pt	40.21	-8.43	
+pt-funchal	Funchal	pt	32.65	-16.91	madeira
+it-rome	Rome	it	41.90	12.50	roma
+it-milan	Milan	it	45.46	9.19	milano
+it-naples	Naples	it	40.85	14.27	napoli
+it-turin	Turin	it	45.07	7.69	torino
+it-bologna	Bologna	it	44.49	11.34	
+it-florence	Florence	it	43.77	11.26	firenze
+it-genoa	Genoa	it	44.41	8.93	genova
+it-venice	Venice	it	45.44	12.32	venezia
+it-verona	Verona	it	45.44	10.99	
+it-padua	Padua	it	45.41	11.88	padova
+it-palermo	Palermo	it	38.12	13.36	
+it-catania	Catania	it	37.50	15.09	
+it-bari	Bari	it	41.12	16.87	
+it-cagliari	Cagliari	it	39.22	9.12	
+it-trieste	Trieste	it	45.65	13.78	
+it-parma	Parma	it	44.80	10.33	
+it-modena	Modena	it	44.65	10.93	
+it-pisa	Pisa	it	43.72	10.40	
+it-rimini	Rimini	it	44.06	12.57	
+it-perugia	Perugia	it	43.11	12.39	
+it-bergamo	Bergamo	it	45.70	9.67	
+it-brescia	Brescia	it	45.54	10.22	
+it-udine	Udine	it	46.06	13.24	
+it-ancona	Ancona	it	43.62	13.52	
+it-lecce	Lecce	it	40.35	18.17	
+gr-athens	Athens	gr	37.98	23.73	athína
+gr-thessaloniki	Thessaloniki	gr	40.64	22.94	
+gr-patras	Patras	gr	38.25	21.73	
+gr-heraklion	Heraklion	gr	35.34	25.14	
+cy-nicosia	Nicosia	cy	35.19	33.38	
+cy-limassol	Limassol	cy	34.68	33.04	
+mt-valletta	Valletta	mt	35.90	14.51	
+dk-copenhagen	Copenhagen	dk	55.68	12.57	københavn
+dk-aarhus	Aarhus	dk	56.16	10.20	
+dk-odense	Odense	dk	55.40	10.39	
+dk-aalborg	Aalborg	dk	57.05	9.92	
+se-stockholm	Stockholm	se	59.33	18.07	
+se-gothenburg	Gothenburg	se	57.71	11.97	göteborg
+se-malmo	Malmö	se	55.60	13.00	malmo
+se-uppsala	Uppsala	se	59.86	17.64	
+se-linkoping	Linköping	se	58.41	15.62	
+se-orebro	Örebro	se	59.27	15.21	
+se-umea	Umeå	se	63.83	20.26	
+no-oslo	Oslo	no	59.91	10.75	
+no-bergen	Bergen	no	60.39	5.32	
+no-trondheim	Trondheim	no	63.43	10.40	
+no-stavanger	Stavanger	no	58.97	5.73	
+no-troms	Tromsø	no	69.65	18.96	
+no-kristiansand	Kristiansand	no	58.15	8.00	
+fi-helsinki	Helsinki	fi	60.17	24.94	
+fi-tampere	Tampere	fi	61.50	23.76	
+fi-turku	Turku	fi	60.45	22.27	
+fi-oulu	Oulu	fi	65.01	25.47	
+is-reykjavik	Reykjavik	is	64.15	-21.94	reykjavík
+ee-tallinn	Tallinn	ee	59.44	24.75	
+ee-tartu	Tartu	ee	58.38	26.72	
+lv-riga	Riga	lv	56.95	24.11	
+lt-vilnius	Vilnius	lt	54.69	25.28	
+lt-kaunas	Kaunas	lt	54.90	23.89	
+pl-warsaw	Warsaw	pl	52.23	21.01	warszawa
+pl-krakow	Kraków	pl	50.06	19.94	krakow cracow
+pl-wroc-aw	Wrocław	pl	51.11	17.04	wroclaw
+pl-poznan	Poznań	pl	52.41	16.93	poznan
+pl-gdansk	Gdańsk	pl	54.35	18.65	gdansk
+pl-odz	Łódź	pl	51.76	19.46	lodz
+pl-katowice	Katowice	pl	50.26	19.02	
+pl-szczecin	Szczecin	pl	53.43	14.55	
+pl-lublin	Lublin	pl	51.25	22.57	
+pl-bydgoszcz	Bydgoszcz	pl	53.12	18.01	
+cz-prague	Prague	cz	50.08	14.44	praha
+cz-brno	Brno	cz	49.20	16.61	
+cz-ostrava	Ostrava	cz	49.83	18.29	
+cz-plzen	Plzeň	cz	49.75	13.38	pilsen
+sk-bratislava	Bratislava	sk	48.15	17.11	
+sk-kosice	Košice	sk	48.72	21.26	
+hu-budapest	Budapest	hu	47.50	19.04	
+hu-debrecen	Debrecen	hu	47.53	21.63	
+hu-szeged	Szeged	hu	46.25	20.15	
+ro-bucharest	Bucharest	ro	44.43	26.10	bucurești
+ro-cluj-napoca	Cluj-Napoca	ro	46.77	23.59	cluj
+ro-timisoara	Timișoara	ro	45.75	21.23	timisoara
+ro-iasi	Iași	ro	47.16	27.59	iasi
+ro-brasov	Brașov	ro	45.65	25.61	brasov
+bg-sofia	Sofia	bg	42.70	23.32	
+bg-plovdiv	Plovdiv	bg	42.14	24.75	
+bg-varna	Varna	bg	43.21	27.91	
+hr-zagreb	Zagreb	hr	45.81	15.98	
+hr-split	Split	hr	43.51	16.44	
+hr-rijeka	Rijeka	hr	45.33	14.44	
+rs-belgrade	Belgrade	rs	44.79	20.45	beograd
+rs-novi-sad	Novi Sad	rs	45.25	19.84	
+si-ljubljana	Ljubljana	si	46.06	14.51	
+ba-sarajevo	Sarajevo	ba	43.86	18.41	
+al-tirana	Tirana	al	41.33	19.82	
+mk-skopje	Skopje	mk	41.99	21.43	
+me-podgorica	Podgorica	me	42.44	19.26	
+ua-kyiv	Kyiv	ua	50.45	30.52	kiev
+ua-lviv	Lviv	ua	49.84	24.03	
+ua-odesa	Odesa	ua	46.48	30.73	odessa
+ua-kharkiv	Kharkiv	ua	49.99	36.23	kharkov
+tr-istanbul	Istanbul	tr	41.01	28.98	i̇stanbul
+tr-ankara	Ankara	tr	39.93	32.86	
+tr-izmir	İzmir	tr	38.42	27.14	izmir
+tr-antalya	Antalya	tr	36.90	30.70	
+tr-bursa	Bursa	tr	40.18	29.07	
+il-tel-aviv	Tel Aviv	il	32.09	34.78	
+il-jerusalem	Jerusalem	il	31.77	35.21	
+il-haifa	Haifa	il	32.79	34.99	
+ae-dubai	Dubai	ae	25.20	55.27	
+ae-abu-dhabi	Abu Dhabi	ae	24.45	54.38	
+sa-riyadh	Riyadh	sa	24.71	46.68	
+sa-jeddah	Jeddah	sa	21.54	39.17	
+qa-doha	Doha	qa	25.29	51.53	
+kw-kuwait-city	Kuwait City	kw	29.38	47.99	
+bh-manama	Manama	bh	26.23	50.59	
+om-muscat	Muscat	om	23.59	58.41	
+jo-amman	Amman	jo	31.95	35.93	
+lb-beirut	Beirut	lb	33.89	35.50	
+eg-cairo	Cairo	eg	30.04	31.24	
+eg-alexandria	Alexandria	eg	31.20	29.92	
+za-johannesburg	Johannesburg	za	-26.20	28.05	
+za-cape-town	Cape Town	za	-33.92	18.42	
+za-durban	Durban	za	-29.86	31.02	
+za-pretoria	Pretoria	za	-25.75	28.19	
+za-port-elizabeth	Port Elizabeth	za	-33.96	25.60	gqeberha
+za-bloemfontein	Bloemfontein	za	-29.09	26.16	
+ng-lagos	Lagos	ng	6.52	3.38	
+ng-abuja	Abuja	ng	9.08	7.40	
+ke-nairobi	Nairobi	ke	-1.29	36.82	
+gh-accra	Accra	gh	5.60	-0.19	
+ma-casablanca	Casablanca	ma	33.57	-7.59	
+ma-marrakech	Marrakech	ma	31.63	-8.01	
+ma-rabat	Rabat	ma	34.02	-6.84	
+tn-tunis	Tunis	tn	36.81	10.18	
+tz-dar-es-salaam	Dar es Salaam	tz	-6.79	39.21	
+ug-kampala	Kampala	ug	0.35	32.58	
+sn-dakar	Dakar	sn	14.72	-17.47	
+dz-algiers	Algiers	dz	36.75	3.06	
+et-addis-ababa	Addis Ababa	et	9.03	38.74	
+in-mumbai	Mumbai	in	19.08	72.88	bombay
+in-delhi	Delhi	in	28.61	77.21	new delhi
+in-bengaluru	Bengaluru	in	12.97	77.59	bangalore
+in-hyderabad	Hyderabad	in	17.39	78.49	
+in-chennai	Chennai	in	13.08	80.27	madras
+in-kolkata	Kolkata	in	22.57	88.36	calcutta
+in-pune	Pune	in	18.52	73.86	
+in-ahmedabad	Ahmedabad	in	23.02	72.57	
+in-jaipur	Jaipur	in	26.91	75.79	
+in-goa	Goa	in	15.50	73.83	panaji
+in-chandigarh	Chandigarh	in	30.73	76.78	
+in-lucknow	Lucknow	in	26.85	80.95	
+in-kochi	Kochi	in	9.93	76.27	cochin
+in-indore	Indore	in	22.72	75.86	
+pk-karachi	Karachi	pk	24.86	67.01	
+pk-lahore	Lahore	pk	31.55	74.34	
+pk-islamabad	Islamabad	pk	33.68	73.05	
+bd-dhaka	Dhaka	bd	23.81	90.41	
+lk-colombo	Colombo	lk	6.93	79.86	
+np-kathmandu	Kathmandu	np	27.72	85.32	
+jp-tokyo	Tokyo	jp	35.68	139.69	東京
+jp-osaka	Osaka	jp	34.69	135.50	大阪
+jp-nagoya	Nagoya	jp	35.18	136.91	名古屋
+jp-fukuoka	Fukuoka	jp	33.59	130.40	福岡
+jp-sapporo	Sapporo	jp	43.06	141.35	札幌
+jp-yokohama	Yokohama	jp	35.44	139.64	横浜
+jp-kyoto	Kyoto	jp	35.01	135.77	京都
+jp-kobe	Kobe	jp	34.69	135.20	神戸
+jp-sendai	Sendai	jp	38.27	140.87	仙台
+jp-hiroshima	Hiroshima	jp	34.39	132.46	広島
+jp-saitama	Saitama	jp	35.86	139.65	
+jp-chiba	Chiba	jp	35.61	140.12	
+jp-kawasaki	Kawasaki	jp	35.53	139.70	
+jp-naha	Naha	jp	26.21	127.68	okinawa
+jp-niigata	Niigata	jp	37.92	139.04	
+jp-kumamoto	Kumamoto	jp	32.80	130.71	
+jp-okayama	Okayama	jp	34.66	133.92	
+jp-kanazawa	Kanazawa	jp	36.56	136.66	
+jp-shizuoka	Shizuoka	jp	34.98	138.38	
+kr-seoul	Seoul	kr	37.57	126.98	서울
+kr-busan	Busan	kr	35.18	129.08	부산
+kr-incheon	Incheon	kr	37.46	126.71	인천
+kr-daegu	Daegu	kr	35.87	128.60	대구
+kr-daejeon	Daejeon	kr	36.35	127.38	대전
+kr-gwangju	Gwangju	kr	35.16	126.85	광주
+kr-suwon	Suwon	kr	37.26	127.03	
+kr-ulsan	Ulsan	kr	35.54	129.31	
+kr-jeju	Jeju	kr	33.50	126.53	
+cn-shanghai	Shanghai	cn	31.23	121.47	上海
+cn-beijing	Beijing	cn	39.90	116.41	北京
+cn-guangzhou	Guangzhou	cn	23.13	113.26	广州
+cn-shenzhen	Shenzhen	cn	22.54	114.06	深圳
+cn-chengdu	Chengdu	cn	30.57	104.07	成都
+cn-hangzhou	Hangzhou	cn	30.27	120.15	杭州
+cn-wuhan	Wuhan	cn	30.59	114.31	
+cn-chongqing	Chongqing	cn	29.56	106.55	
+cn-nanjing	Nanjing	cn	32.06	118.80	
+cn-xi-an	Xi'an	cn	34.34	108.94	xian
+hk-hong-kong	Hong Kong	hk	22.32	114.17	香港
+mo-macau	Macau	mo	22.20	113.54	macao
+tw-taipei	Taipei	tw	25.03	121.57	台北
+tw-kaohsiung	Kaohsiung	tw	22.63	120.30	
+tw-taichung	Taichung	tw	24.15	120.67	
+tw-tainan	Tainan	tw	22.99	120.20	
+sg-singapore	Singapore	sg	1.35	103.82	
+my-kuala-lumpur	Kuala Lumpur	my	3.14	101.69	
+my-penang	Penang	my	5.41	100.33	george town
+my-johor-bahru	Johor Bahru	my	1.49	103.74	
+th-bangkok	Bangkok	th	13.76	100.50	
+th-chiang-mai	Chiang Mai	th	18.79	98.98	
+th-phuket	Phuket	th	7.88	98.39	
+vn-ho-chi-minh-city	Ho Chi Minh City	vn	10.82	106.63	saigon
+vn-hanoi	Hanoi	vn	21.03	105.85	
+vn-da-nang	Da Nang	vn	16.05	108.22	
+ph-manila	Manila	ph	14.60	120.98	
+ph-cebu	Cebu	ph	10.32	123.89	
+ph-davao	Davao	ph	7.19	125.46	
+id-jakarta	Jakarta	id	-6.21	106.85	
+id-surabaya	Surabaya	id	-7.25	112.75	
+id-bandung	Bandung	id	-6.92	107.61	
+id-denpasar	Denpasar	id	-8.65	115.22	bali
+id-medan	Medan	id	3.59	98.67	
+id-yogyakarta	Yogyakarta	id	-7.80	110.36	
+kh-phnom-penh	Phnom Penh	kh	11.56	104.92	
+mm-yangon	Yangon	mm	16.87	96.20	
+mn-ulaanbaatar	Ulaanbaatar	mn	47.89	106.91	
+au-sydney	Sydney	au	-33.87	151.21	
+au-melbourne	Melbourne	au	-37.81	144.96	
+au-brisbane	Brisbane	au	-27.47	153.03	
+au-perth	Perth	au	-31.95	115.86	
+au-adelaide	Adelaide	au	-34.93	138.60	
+au-gold-coast	Gold Coast	au	-28.02	153.40	
+au-newcastle	Newcastle	au	-32.93	151.78	
+au-canberra	Canberra	au	-35.28	149.13	
+au-hobart	Hobart	au	-42.88	147.33	
+au-wollongong	Wollongong	au	-34.43	150.89	
+au-darwin	Darwin	au	-12.46	130.84	
+au-cairns	Cairns	au	-16.92	145.77	
+au-geelong	Geelong	au	-38.15	144.36	
+au-sunshine-coast	Sunshine Coast	au	-26.65	153.07	
+au-townsville	Townsville	au	-19.26	146.82	
+nz-auckland	Auckland	nz	-36.85	174.76	
+nz-wellington	Wellington	nz	-41.29	174.78	
+nz-christchurch	Christchurch	nz	-43.53	172.64	
+nz-hamilton	Hamilton	nz	-37.79	175.28	
+nz-dunedin	Dunedin	nz	-45.87	170.50	
+nz-queenstown	Queenstown	nz	-45.03	168.66	
+nz-tauranga	Tauranga	nz	-37.69	176.17	
+fj-suva	Suva	fj	-18.14	178.44	
+br-sao-paulo	São Paulo	br	-23.55	-46.63	sao paulo
+br-rio-de-janeiro	Rio de Janeiro	br	-22.91	-43.17	rio
+br-brasilia	Brasília	br	-15.79	-47.88	brasilia
+br-belo-horizonte	Belo Horizonte	br	-19.92	-43.94	
+br-porto-alegre	Porto Alegre	br	-30.03	-51.23	
+br-curitiba	Curitiba	br	-25.43	-49.27	
+br-salvador	Salvador	br	-12.97	-38.51	
+br-recife	Recife	br	-8.05	-34.88	
+br-fortaleza	Fortaleza	br	-3.73	-38.53	
+br-manaus	Manaus	br	-3.12	-60.02	
+br-campinas	Campinas	br	-22.91	-47.06	
+br-goiania	Goiânia	br	-16.68	-49.26	goiania
+br-florianopolis	Florianópolis	br	-27.60	-48.55	florianopolis
+br-belem	Belém	br	-1.46	-48.50	belem
+ar-buenos-aires	Buenos Aires	ar	-34.60	-58.38	
+ar-cordoba	Córdoba	ar	-31.42	-64.18	cordoba
+ar-rosario	Rosario	ar	-32.94	-60.65	
+ar-mendoza	Mendoza	ar	-32.89	-68.84	
+ar-la-plata	La Plata	ar	-34.92	-57.95	
+cl-santiago	Santiago	cl	-33.45	-70.67	
+cl-valparaiso	Valparaíso	cl	-33.05	-71.62	valparaiso
+cl-concepcion	Concepción	cl	-36.83	-73.05	concepcion
+co-bogota	Bogotá	co	4.71	-74.07	bogota
+co-medellin	Medellín	co	6.24	-75.58	medellin
+co-cali	Cali	co	3.45	-76.53	
+co-barranquilla	Barranquilla	co	10.97	-74.78	
+co-cartagena	Cartagena	co	10.39	-75.51	
+pe-lima	Lima	pe	-12.05	-77.04	
+pe-arequipa	Arequipa	pe	-16.41	-71.54	
+pe-cusco	Cusco	pe	-13.53	-71.97	
+uy-montevideo	Montevideo	uy	-34.90	-56.16	
+py-asuncion	Asunción	py	-25.26	-57.58	asuncion
+bo-la-paz	La Paz	bo	-16.50	-68.15	
+bo-santa-cruz	Santa Cruz	bo	-17.78	-63.18	
+ec-quito	Quito	ec	-0.18	-78.47	
+ec-guayaquil	Guayaquil	ec	-2.17	-79.92	
+ve-caracas	Caracas	ve	10.48	-66.90	
+cr-san-jose	San José	cr	9.93	-84.08	san jose
+pa-panama-city	Panama City	pa	8.98	-79.52	ciudad de panamá
+gt-guatemala-city	Guatemala City	gt	14.63	-90.51	
+sv-san-salvador	San Salvador	sv	13.69	-89.19	
+hn-tegucigalpa	Tegucigalpa	hn	14.07	-87.19	
+do-santo-domingo	Santo Domingo	do	18.49	-69.93	
+jm-kingston	Kingston	jm	17.99	-76.79	
+tt-port-of-spain	Port of Spain	tt	10.66	-61.51	
+pr-san-juan	San Juan	pr	18.47	-66.11	
+ru-moscow	Moscow	ru	55.76	37.62	москва
+ru-saint-petersburg	Saint Petersburg	ru	59.93	30.34	санкт-петербург st petersburg
+ru-novosibirsk	Novosibirsk	ru	55.03	82.92	
+ru-yekaterinburg	Yekaterinburg	ru	56.84	60.61	
+ru-kazan	Kazan	ru	55.80	49.11	
+kz-almaty	Almaty	kz	43.24	76.89	
+kz-astana	Astana	kz	51.17	71.43	
+by-minsk	Minsk	by	53.90	27.57	
+ge-tbilisi	Tbilisi	ge	41.72	44.79	
+am-yerevan	Yerevan	am	40.18	44.51	
+az-baku	Baku	az	40.41	49.87	
+uz-tashkent	Tashkent	uz	41.30	69.24	

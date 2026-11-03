@@ -169,7 +169,7 @@ func TestNoGoTextReachesTheUI(t *testing.T) {
 		"motion": newMotionService, "desktop": newDesktopService, "scrobble": newScrobbleService,
 		"audio": newAudioService, "storage": newStorageService, "private": newPrivateService,
 		"platform": newPlatformService, "reminders": newRemindersService, "translations": newTranslationsService,
-		"lyrics": newLyricsService,
+		"lyrics": newLyricsService, "concerts": newConcertsService,
 	}
 	var roots []reflect.Type
 	for _, f := range features {

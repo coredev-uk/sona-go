@@ -6,6 +6,7 @@ import { ChevronDown, RotateCw } from "lucide-react";
 import { useState } from "react";
 
 import { hasAccount, useAuth } from "@/features/auth";
+import { ConcertsShelf } from "@/features/concerts";
 import { discoverKeys } from "@/features/discover";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { PageHeader } from "@/shared/components/PageHeader";
@@ -168,6 +169,8 @@ function HomeSection({ section }: { section: Section }) {
       );
     case "feature":
       return <ItemShelf title={section.title} items={items} more={shelfMore(section)} min={176} />;
+    case "concerts":
+      return <ConcertsShelf />;
     case "shelf":
       return section.source === RECENTLY_PLAYED || isStations(section) ? (
         <RowShelf section={section} />

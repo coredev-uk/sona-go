@@ -301,7 +301,9 @@ func (s *DiscoverService) homePage(r applemusic.MapResponse, fetched int64) Home
 	return p
 }
 
-// homeSections maps Home shelves; concerts and web-only cards are left out.
+// homeSections maps Home shelves; web-only cards are left out, and
+// Apple's concerts shelf (a prompt to set a location on the web) becomes a
+// SectionConcerts the frontend fills from ConcertsService.
 func (s *DiscoverService) homeSections(r applemusic.MapResponse) []Section {
 	out := []Section{}
 	for _, shelf := range r.Primary() {
@@ -312,6 +314,8 @@ func (s *DiscoverService) homeSections(r applemusic.MapResponse) []Section {
 		sec := Section{ID: shelf.ID, Title: a.Heading(), SeeAll: a.HasSeeAll, Kind: SectionShelf, Source: a.Kind}
 		switch a.Display.Kind {
 		case "MusicConcertsEmptyShelf":
+			sec.Kind, sec.Items = SectionConcerts, []Item{}
+			out = append(out, sec)
 			continue
 		case "MusicSuperHeroShelf":
 			sec.Kind = SectionHero

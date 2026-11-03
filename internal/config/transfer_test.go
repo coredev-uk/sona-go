@@ -34,6 +34,7 @@ func custom() Settings {
 	s.Queue.ReplaceConfirm = ReplaceConfirm
 	s.Storage.ArtCacheMiB = 2048
 	s.Onboarding.Completed = true
+	s.Concerts.City = "gb-manchester"
 	return s.Normalized()
 }
 
@@ -44,6 +45,7 @@ func local(dst, src Settings) Settings {
 	dst.Desktop.Autostart, dst.Desktop.LastRoute = src.Desktop.Autostart, src.Desktop.LastRoute
 	dst.Audio.OutputDevice = src.Audio.OutputDevice
 	dst.Onboarding = src.Onboarding
+	dst.Concerts = src.Concerts
 	return dst
 }
 
@@ -98,7 +100,7 @@ func TestExportLeavesOutLocalSettings(t *testing.T) {
 			t.Errorf("export has %s", k)
 		}
 	}
-	for _, leak := range []string{"listener", "libwidevinecdm", "usb-dac", "/album/1"} {
+	for _, leak := range []string{"manchester", "listener", "libwidevinecdm", "usb-dac", "/album/1"} {
 		if strings.Contains(string(b), leak) {
 			t.Errorf("export contains %q", leak)
 		}

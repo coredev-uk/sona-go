@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -539,7 +540,9 @@ func linkItem(label, raw string) Item {
 // parseAppleLink resolves an editorial link to an Item kind and ID:
 // music.apple.com pages (/curator/…/id, /room/id, /multi-room/id,
 // /grouping/id, /album/…/id, /playlist/…/id, /artist/…/id, /station/…/id,
-// /music-video/…/id, /new/top-charts) and legacy store URLs
+// /music-video/…/id, /new/top-charts, /concerts and a concert's page, which
+// open Concerts; a concert's artist page, /concerts/artist/id, opens the
+// artist) and legacy store URLs
 // (…/wa/viewMultiRoom?fcId=, viewRoom?fcId=, viewGrouping?id=,
 // viewTop?genreId=, /collection/…?fcId=). kind is "" for anything else.
 func parseAppleLink(raw string) (kind, id string) {
@@ -566,6 +569,11 @@ func parseAppleLink(raw string) (kind, id string) {
 	}
 	if q.Get("fcId") != "" && containsPart(parts, "collection") {
 		return ItemRoom, q.Get("fcId")
+	}
+	// Concerts: /concerts, /{sf}/concerts and /{sf}/concerts/{id} (a
+	// concert: the page lists them; its artist form is matched below).
+	if ci := slices.Index(parts, "concerts"); ci >= 0 && ci <= 1 && !containsPart(parts, "artist") {
+		return ItemConcerts, ""
 	}
 	// Path forms: /{sf}/{kind}/{slug?}/{id}.
 	if len(parts) < 2 {
