@@ -812,8 +812,8 @@ func (s *server) monitor() {
 		select {
 		case <-s.quit:
 			return
-		case now := <-t.C:
-			if ev, ok := s.tick(now); ok {
+		case <-t.C:
+			if ev, ok := s.tick(); ok {
 				s.emit(ev)
 			}
 		}
@@ -826,7 +826,10 @@ const (
 	resumeBuffered = 2 * time.Second
 )
 
-func (s *server) tick(now time.Time) (Event, bool) {
+// tick samples the playback state. Events carry the time the position was
+// read, not the tick's: under load the monitor runs late, and the parent
+// takes Position as exact at At.
+func (s *server) tick() (Event, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	o := s.outLocked()
@@ -835,6 +838,7 @@ func (s *server) tick(now time.Time) (Event, bool) {
 	}
 	if s.file == nil && s.next.gen != 0 {
 		if gen, pos, ok := s.pipe.Position(); ok && gen == s.next.gen {
+			now := time.Now()
 			// The queued track is heard: it is current from here on.
 			n := s.next
 			s.track, s.init, s.start, s.duration, s.gain, s.ended = n.gen, n.init, n.start, n.dur, n.gain, n.ended
@@ -844,6 +848,7 @@ func (s *server) tick(now time.Time) (Event, bool) {
 		}
 	}
 	pos, ok := s.positionLocked()
+	now := time.Now()
 	if !s.started {
 		if !ok {
 			return Event{}, false

@@ -100,9 +100,12 @@ var req = Request{Track: song}
 
 func TestBestTimingWins(t *testing.T) {
 	apple := &fakeProvider{id: config.LyricsApple, l: timed(TimingLine, "line")}
-	mxm := &fakeProvider{id: config.LyricsMusixmatch, l: timed(TimingWord, "word")}
 	lrclib := &fakeProvider{id: config.LyricsLRCLIB, l: timed(TimingNone, "plain")}
-	h := newHarness(t, apple, mxm, lrclib)
+	mxm := &fakeProvider{id: config.LyricsMusixmatch, l: timed(TimingWord, "word")}
+	// The word-timed provider comes last, so the answer waits for (and
+	// caches) all three: one that could not change the answer is not
+	// awaited, and its answer may reach the cache after a later lookup.
+	h := newHarness(t, apple, lrclib, mxm)
 	l, err := h.r.Lyrics(context.Background(), req)
 	if err != nil || l.Provider != config.LyricsMusixmatch || l.Timing != TimingWord {
 		t.Fatalf("word preferred: %+v, %v", l, err)
@@ -113,8 +116,8 @@ func TestBestTimingWins(t *testing.T) {
 		t.Fatalf("order: %+v", l)
 	}
 	// Plain text loses to synced lyrics from a later provider.
-	h.cfg.Providers[0], h.cfg.Providers[2] = h.cfg.Providers[2], h.cfg.Providers[0]
-	h.cfg.Providers[1].Enabled = false
+	h.cfg.Providers[0], h.cfg.Providers[1] = h.cfg.Providers[1], h.cfg.Providers[0]
+	h.cfg.Providers[2].Enabled = false
 	if l, _ = h.r.Lyrics(context.Background(), req); l.Provider != config.LyricsApple || l.Timing != TimingLine {
 		t.Fatalf("synced over plain: %+v", l)
 	}

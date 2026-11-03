@@ -47,9 +47,10 @@ type fakeHost struct {
 	playing  bool
 	fed      bool
 	started  bool
-	autoEnd  bool      // emit EventEnded on EndOfTrack
-	audio    fakeAudio // volume, equaliser, device and file calls (audio_test.go)
-	video    fakeVideo // LoadVideo, FeedVideo, EndOfVideo (video_test.go)
+	autoEnd  bool            // emit EventEnded on EndOfTrack
+	endGate  <-chan struct{} // when set, autoEnd waits for it to close
+	audio    fakeAudio       // volume, equaliser, device and file calls (audio_test.go)
+	video    fakeVideo       // LoadVideo, FeedVideo, EndOfVideo (video_test.go)
 }
 
 type loadCall struct {
@@ -196,9 +197,25 @@ func (f *fakeHost) EndOfTrack(_ context.Context, track uint64) error {
 		return cdmhost.ErrStale
 	}
 	if f.autoEnd {
-		f.emit(cdmhost.Event{Kind: cdmhost.EventEnded, Track: track, At: time.Now()})
+		if f.endGate == nil {
+			f.emit(cdmhost.Event{Kind: cdmhost.EventEnded, Track: track, At: time.Now()})
+		} else {
+			go f.endAfter(f.endGate, track)
+		}
 	}
 	return f.alive()
+}
+
+// endAfter ends track once gate closes, as a real track plays out first.
+func (f *fakeHost) endAfter(gate <-chan struct{}, track uint64) {
+	select {
+	case <-gate:
+	case <-f.done:
+		return
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.emit(cdmhost.Event{Kind: cdmhost.EventEnded, Track: track, At: time.Now()})
 }
 
 func (f *fakeHost) Play(context.Context) error {
@@ -381,6 +398,7 @@ type harness struct {
 	hosts   []*fakeHost
 	libs    []string // the CDM library each host was started with
 	autoEnd bool
+	endGate chan struct{} // see holdEnds
 }
 
 // testCDM is the CDM library the harness's source names.
@@ -413,7 +431,7 @@ func (c *fakeCDM) set(lib string, err error) {
 }
 
 // newHarness builds an engine over the fixture and fake hosts. With autoEnd
-// the fakes end a track as soon as its last fragment is fed.
+// the fakes end a track as soon as its last fragment is fed (see holdEnds).
 func newHarness(t *testing.T, idle time.Duration, autoEnd bool) *harness {
 	fx := newFixture(t)
 	hc := &http.Client{Transport: rewrite{fx.srv}}
@@ -424,13 +442,25 @@ func newHarness(t *testing.T, idle time.Duration, autoEnd bool) *harness {
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		f := newFake(100 + len(h.hosts))
-		f.autoEnd = h.autoEnd
+		f.autoEnd, f.endGate = h.autoEnd, h.endGate
 		h.hosts = append(h.hosts, f)
 		h.libs = append(h.libs, lib)
 		return f, nil
 	}
 	t.Cleanup(func() { h.e.Close() })
 	return h
+}
+
+// holdEnds makes the auto ends of hosts started from now on wait until
+// release is called, as a real track plays for a while after its last
+// fragment: without it, the end may come before the test sees the item
+// playing.
+func (h *harness) holdEnds() (release func()) {
+	gate := make(chan struct{})
+	h.mu.Lock()
+	h.endGate = gate
+	h.mu.Unlock()
+	return sync.OnceFunc(func() { close(gate) })
 }
 
 func (h *harness) host(i int) *fakeHost {
@@ -469,6 +499,7 @@ func segment(i int) []byte { return mediaBytes[initLen+100*i : initLen+100+100*i
 
 func TestPlayFeedsTrackAndEnds(t *testing.T) {
 	h := newHarness(t, -1, true)
+	release := h.holdEnds()
 	if err := h.e.Play(ctx(t), "A", 0); err != nil {
 		t.Fatal(err)
 	}
@@ -478,6 +509,7 @@ func TestPlayFeedsTrackAndEnds(t *testing.T) {
 		t.Fatalf("status %+v", st)
 	}
 	f := h.host(0)
+	release()
 	eventually(t, "ended", func() bool { return h.e.Status().State == playback.StateEnded })
 	loads, feeds, sessions := f.snapshot()
 	if len(loads) != 1 || !bytes.Equal(loads[0].init, initSeg) || loads[0].start != 0 || sessions != 1 || f.certs != 1 {

@@ -116,35 +116,42 @@ describe("albumColors", () => {
     expect(contrast(sleeve.ink, sleeve.active)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
   });
 
-  it("keeps every pair readable for every cover colour on a 6-level grid, with any text colours", () => {
-    const levels = ["00", "33", "66", "99", "cc", "ff"];
-    const grid = levels.flatMap((r) => levels.flatMap((g) => levels.map((b) => `#${r}${g}${b}`)));
-    let failures = 0;
-    for (const theme of themes) {
-      grid.forEach((bg, i) => {
-        // Apple's text colours: none, or arbitrary ones from the grid.
-        const text = i % 3 === 0 ? [] : [grid[(i * 7) % grid.length], grid[(i * 13) % grid.length]];
-        const { sleeve, accent } = albumColors(
-          apple(bg, ...text),
-          [grid[(i * 5) % grid.length]],
-          theme,
-        )!;
-        const tones = [sleeve.surface, sleeve.hover, sleeve.active];
-        const texts = [
-          sleeve.ink,
-          sleeve.inkMuted,
-          ...(sleeve.accentInk ? [sleeve.accentInk] : []),
-        ];
-        if (texts.some((c) => tones.some((t) => contrast(c, t) < TEXT_CONTRAST))) failures++;
-        if (accent) {
-          if (contrast(accent.onFill, accent.fill) < TEXT_CONTRAST) failures++;
-          if (pageBackgrounds(theme).some((b) => contrast(accent.ink, b) < TEXT_CONTRAST))
-            failures++;
-        }
-      });
-    }
-    expect(failures).toBe(0);
-  });
+  // The sweep runs albumColors 432 times, ~0.6 s on an idle machine; a loaded CI
+  // runner takes several times that, so the budget is 30 s rather than vitest's 5 s.
+  it(
+    "keeps every pair readable for every cover colour on a 6-level grid, with any text colours",
+    { timeout: 30_000 },
+    () => {
+      const levels = ["00", "33", "66", "99", "cc", "ff"];
+      const grid = levels.flatMap((r) => levels.flatMap((g) => levels.map((b) => `#${r}${g}${b}`)));
+      let failures = 0;
+      for (const theme of themes) {
+        grid.forEach((bg, i) => {
+          // Apple's text colours: none, or arbitrary ones from the grid.
+          const text =
+            i % 3 === 0 ? [] : [grid[(i * 7) % grid.length], grid[(i * 13) % grid.length]];
+          const { sleeve, accent } = albumColors(
+            apple(bg, ...text),
+            [grid[(i * 5) % grid.length]],
+            theme,
+          )!;
+          const tones = [sleeve.surface, sleeve.hover, sleeve.active];
+          const texts = [
+            sleeve.ink,
+            sleeve.inkMuted,
+            ...(sleeve.accentInk ? [sleeve.accentInk] : []),
+          ];
+          if (texts.some((c) => tones.some((t) => contrast(c, t) < TEXT_CONTRAST))) failures++;
+          if (accent) {
+            if (contrast(accent.onFill, accent.fill) < TEXT_CONTRAST) failures++;
+            if (pageBackgrounds(theme).some((b) => contrast(accent.ink, b) < TEXT_CONTRAST))
+              failures++;
+          }
+        });
+      }
+      expect(failures).toBe(0);
+    },
+  );
 
   it("takes amber's job only for a cover with colour", () => {
     expect(albumColors(covers.white, [], "light")!.accent).toBeUndefined();

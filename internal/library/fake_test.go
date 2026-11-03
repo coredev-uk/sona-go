@@ -186,6 +186,7 @@ func (f *fakeApple) reqs(path string) []int {
 }
 
 type env struct {
+	path  string // the database file
 	db    *db.DB
 	api   *applemusic.Client
 	fake  *fakeApple
@@ -199,7 +200,8 @@ func newEnv(t testing.TB) *env {
 	fake := newFakeApple()
 	srv := httptest.NewServer(fake)
 	t.Cleanup(srv.Close)
-	d, err := db.Open(context.Background(), filepath.Join(t.TempDir(), "sona.db"))
+	path := filepath.Join(t.TempDir(), "sona.db")
+	d, err := db.Open(context.Background(), path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +209,7 @@ func newEnv(t testing.TB) *env {
 	api := applemusic.New(srv.Client(), staticDev{}, func() string { return "mut" })
 	api.Base = srv.URL
 	api.AMPBase = srv.URL
-	return &env{db: d, api: api, fake: fake, sync: NewSyncer(d, api, nil, 4), lib: New(d, api)}
+	return &env{path: path, db: d, api: api, fake: fake, sync: NewSyncer(d, api, nil, 4), lib: New(d, api)}
 }
 
 // run syncs domains as the app does on startup (Incremental, which runs
