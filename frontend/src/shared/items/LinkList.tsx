@@ -6,7 +6,7 @@ import { useRef } from "react";
 
 import { useElementWidth } from "@/shared/lib/useCoverColumns";
 
-import { openWithoutPage } from "./cover";
+import { openWithoutPage, playsWhenOpened } from "./cover";
 import { itemLink } from "./links";
 import { LINK_GAP, linkGrid } from "./linkGrid";
 

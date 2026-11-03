@@ -89,7 +89,7 @@ describe("LinkList", () => {
   });
 
   it("plays a station with no page: a button named by its text with Play after it, no arrow", () => {
-    const station = link("station", "ra.1", "Local FM");
+    const station = { ...link("station", "ra.1", "Local FM"), station: { hasPage: false } } as Item;
     render(<LinkList title="Stations" items={[station]} />, { wrapper: I18nRoot });
     const tile = screen.getByRole("button", { name: "Local FM Play" });
     expect(tile.querySelector("[aria-label]")).toBeNull();
