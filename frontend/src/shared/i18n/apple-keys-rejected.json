@@ -1,18 +1,8 @@
 [
   {
-    "message": "Add to playlist…",
-    "key": "ASE.Web.Music.ContextualMenu.AddToPlaylist",
-    "reason": "Sona's ellipsis says a dialog follows; Apple's key has none"
-  },
-  {
     "message": "AutoPlay is on",
     "key": "ASE.Web.Music.UpNext.Heading.AutoplayActive",
     "reason": "Apple's text is lower case for a subline after its Up Next heading; Sona shows it as a sentence on its own"
-  },
-  {
-    "message": "Delete from library…",
-    "key": "ASE.Web.Music.Shared.ContextualMenu.DeleteFromLibrary",
-    "reason": "Sona's ellipsis says a confirmation follows; Apple's key has none"
   },
   {
     "message": "Forward",
@@ -45,16 +35,6 @@
     "message": "Live",
     "key": "FUSE.Radio.Live",
     "reason": "Apple's text is upper case for a badge"
-  },
-  {
-    "message": "New playlist…",
-    "key": "ASE.Web.Music.ContextualMenu.NewPlaylist",
-    "reason": "Sona's ellipsis says a dialog follows; Apple's key has none"
-  },
-  {
-    "message": "New playlist…",
-    "key": "ASE.Web.Music.Library.PlaylistCreation.Heading",
-    "reason": "Sona's ellipsis says a dialog follows; Apple's key has none"
   },
   {
     "message": "Previous",

@@ -127,7 +127,7 @@ describe("RadioPage", () => {
     h.grouping = failed();
     render(<RadioPage />, { wrapper: I18nRoot });
     expect(screen.getByText("Couldn't load Apple Music's radio")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: /Retry/ })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /Try again/ })).toHaveLength(1);
     expect(screen.queryByText("Couldn't load the live stations")).toBeNull();
   });
 });

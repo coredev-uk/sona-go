@@ -585,17 +585,10 @@ msgstr "Add to “{name}”"
 msgid "Add to library"
 msgstr "Add to library"
 
+#: src/features/playlist/actions.ts
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "Add to playlist"
 msgstr "Add to playlist"
-
-#: src/features/playlist/actions.ts
-msgid "Add to playlist…"
-msgstr "Add to playlist…"
-
-#: src/features/player/actions.ts
-msgid "Add to queue"
-msgstr "Add to queue"
 
 #: src/features/player/QueuePanel.tsx
 msgid "Add to the queue"
@@ -670,7 +663,6 @@ msgstr "Album"
 msgid "Album type"
 msgstr "Album type"
 
-#: src/features/artist/views.ts
 #: src/features/library/ArtistsPage.tsx
 #: src/features/library/index.ts
 #: src/features/library/pages.tsx
@@ -684,9 +676,17 @@ msgstr "Albums"
 msgid "Albums and playlists you add in Apple Music appear here, newest first."
 msgstr "Albums and playlists you add in Apple Music appear here, newest first."
 
+#: src/features/artist/views.ts
+msgid "Albums by {artist}"
+msgstr "Albums by {artist}"
+
 #: src/features/library/ArtistsPage.tsx
 msgid "Albums by {name} in your library"
 msgstr "Albums by {name} in your library"
+
+#: src/features/artist/views.ts
+msgid "Albums featuring {artist}"
+msgstr "Albums featuring {artist}"
 
 #: src/features/artist/ArtistPage.tsx
 #: src/features/library/pages.tsx
@@ -755,10 +755,6 @@ msgstr "Any date"
 #: src/features/settings/find.ts
 msgid "Appearance"
 msgstr "Appearance"
-
-#: src/features/artist/views.ts
-msgid "Appears on"
-msgstr "Appears on"
 
 #: src/features/auth/Account.tsx
 msgid "Apple Account"
@@ -1087,6 +1083,7 @@ msgid "AutoPlay on: similar music plays when the queue ends"
 msgstr "AutoPlay on: similar music plays when the queue ends"
 
 #: src/app/shell/TopBar.tsx
+#: src/app/shortcuts.ts
 #: src/features/onboarding/SetupLayer.tsx
 msgid "Back"
 msgstr "Back"
@@ -1429,8 +1426,8 @@ msgid "Compacting…"
 msgstr "Compacting…"
 
 #: src/features/artist/views.ts
-msgid "Compilations"
-msgstr "Compilations"
+msgid "Compilations featuring {artist}"
+msgstr "Compilations featuring {artist}"
 
 #: src/features/song/SongPage.tsx
 msgid "Composed by {composer}"
@@ -1602,8 +1599,13 @@ msgid "Couldn't create the playlist"
 msgstr "Couldn't create the playlist"
 
 #: src/features/playlist/commands.ts
+#: src/shared/lib/library-actions.ts
 msgid "Couldn't delete “{name}”"
 msgstr "Couldn't delete “{name}”"
+
+#: src/shared/lib/library-actions.ts
+msgid "Couldn't delete {what}"
+msgstr "Couldn't delete {what}"
 
 #: src/features/playlist/commands.ts
 msgid "Couldn't delete the folder “{name}”"
@@ -1999,17 +2001,12 @@ msgid "Couldn't refresh your recommendations"
 msgstr "Couldn't refresh your recommendations"
 
 #: src/features/playlist/track-edits.ts
-#: src/shared/lib/library-actions.ts
 msgid "Couldn't remove “{name}”"
 msgstr "Couldn't remove “{name}”"
 
 #: src/shared/lib/library-actions.ts
 msgid "Couldn't remove {subject}"
 msgstr "Couldn't remove {subject}"
-
-#: src/shared/lib/library-actions.ts
-msgid "Couldn't remove {what}"
-msgstr "Couldn't remove {what}"
 
 #: src/features/player/QueuePanel.tsx
 msgid "Couldn't remove it"
@@ -2208,10 +2205,6 @@ msgstr "Current"
 msgid "Cuts only: the level stays as it is. Preamp lowers it further."
 msgstr "Cuts only: the level stays as it is. Preamp lowers it further."
 
-#: src/features/discover/chart-titles.ts
-msgid "Daily top 100 by country"
-msgstr "Daily top 100 by country"
-
 #: src/features/onboarding/ThemePicker.tsx
 #: src/features/settings/AppearanceSection.tsx
 msgid "Dark"
@@ -2246,10 +2239,18 @@ msgstr "Dates"
 msgid "Default keys"
 msgstr "Default keys"
 
+#: src/shared/lib/library-actions.ts
+msgid "Delete"
+msgstr "Delete"
+
 #: src/shared/shortcuts/chord.ts
 msgctxt "keyboard key"
 msgid "Delete"
 msgstr "Delete"
+
+#: src/shared/lib/library-actions.ts
+msgid "Delete “{name}” from your library?"
+msgstr "Delete “{name}” from your library?"
 
 #: src/features/playlist/commands.ts
 msgid "Delete “{name}”?"
@@ -2259,13 +2260,19 @@ msgstr "Delete “{name}”?"
 msgid "Delete (move its playlists out first)"
 msgstr "Delete (move its playlists out first)"
 
+#: src/shared/lib/library-actions.ts
+msgid "Delete {what} from your library?"
+msgstr "Delete {what} from your library?"
+
 #: src/features/playlist/commands.ts
 msgid "Delete folder"
 msgstr "Delete folder"
 
+#: src/features/library/actions.ts
 #: src/features/playlist/actions.ts
-msgid "Delete from library…"
-msgstr "Delete from library…"
+#: src/shared/components/LibraryButton.tsx
+msgid "Delete from library"
+msgstr "Delete from library"
 
 #: src/features/playlist/commands.ts
 msgid "Delete playlist"
@@ -2282,6 +2289,14 @@ msgstr "Delete…"
 #: src/features/playlist/commands.ts
 msgid "Deleted “{name}”"
 msgstr "Deleted “{name}”"
+
+#: src/shared/lib/library-actions.ts
+msgid "Deleted “{name}” from your library"
+msgstr "Deleted “{name}” from your library"
+
+#: src/shared/lib/library-actions.ts
+msgid "Deleted {what} from your library"
+msgstr "Deleted {what} from your library"
 
 #: src/features/playlist/commands.ts
 msgid "Deleted the folder “{name}”"
@@ -2575,10 +2590,9 @@ msgctxt "keyboard key"
 msgid "Escape"
 msgstr "Escape"
 
-#: src/features/artist/ArtistPage.tsx
 #: src/features/artist/views.ts
-msgid "Essential albums"
-msgstr "Essential albums"
+msgid "Essential albums by {artist}"
+msgstr "Essential albums by {artist}"
 
 #: src/features/library/ArtistsPage.tsx
 msgid "Every artist with a song or album in your library is listed here, A to Z."
@@ -2833,10 +2847,6 @@ msgstr "Get tickets for {lineup} from {seller}, opens in your browser"
 msgid "Go"
 msgstr "Go"
 
-#: src/app/shortcuts.ts
-msgid "Go back"
-msgstr "Go back"
-
 #: src/features/player/shortcuts.ts
 msgid "Go back 10 seconds"
 msgstr "Go back 10 seconds"
@@ -3004,8 +3014,8 @@ msgid "In library"
 msgstr "In library"
 
 #: src/shared/components/LibraryButton.tsx
-msgid "In library. Remove “{name}” from your library"
-msgstr "In library. Remove “{name}” from your library"
+msgid "In library. Delete “{name}” from your library"
+msgstr "In library. Delete “{name}” from your library"
 
 #: src/features/settings/DesktopRows.tsx
 msgid "In the background, music keeps playing and Sona stays in the system tray. Open it again from the tray, your media keys' player or the app launcher."
@@ -3276,8 +3286,8 @@ msgid "Live"
 msgstr "Live"
 
 #: src/features/artist/views.ts
-msgid "Live albums"
-msgstr "Live albums"
+msgid "Live albums by {artist}"
+msgstr "Live albums by {artist}"
 
 #: src/features/radio/schedule.ts
 msgid "Live broadcast"
@@ -3612,13 +3622,16 @@ msgid "music video picture watch"
 msgstr "music video picture watch"
 
 #: src/features/album/AlbumPage.tsx
-#: src/features/artist/views.ts
 #: src/features/library/index.ts
 #: src/features/library/views.tsx
 #: src/features/search/groups.ts
 #: src/features/song/SongPage.tsx
 msgid "Music videos"
 msgstr "Music videos"
+
+#: src/features/artist/views.ts
+msgid "Music videos by {artist}"
+msgstr "Music videos by {artist}"
 
 #: src/features/player/VideoView.tsx
 msgid "Music videos don't play here"
@@ -3707,11 +3720,6 @@ msgstr "New playlist here"
 #: src/features/playlist/PlaylistSidebar.tsx
 msgid "New playlist or folder"
 msgstr "New playlist or folder"
-
-#: src/features/playlist/PlaylistDialogs.tsx
-#: src/features/playlist/PlaylistSidebar.tsx
-msgid "New playlist…"
-msgstr "New playlist…"
 
 #: src/features/discover/RoomPage.tsx
 msgid "Newest first"
@@ -4439,11 +4447,26 @@ msgstr "Piano"
 msgid "Picked for you {fetched}"
 msgstr "Picked for you {fetched}"
 
+#: src/features/playlist/actions.ts
+msgid "Pin album"
+msgstr "Pin album"
+
+#: src/features/playlist/actions.ts
+msgid "Pin artist"
+msgstr "Pin artist"
+
 #: src/features/playlist/PlaylistSidebar.tsx
 msgid "Pin here"
 msgstr "Pin here"
 
 #: src/features/playlist/actions.ts
+msgid "Pin playlist"
+msgstr "Pin playlist"
+
+#: src/features/playlist/actions.ts
+msgid "Pin song"
+msgstr "Pin song"
+
 #: src/features/playlist/drops.ts
 msgid "Pin to sidebar"
 msgstr "Pin to sidebar"
@@ -4510,6 +4533,10 @@ msgstr "Play an album, playlist or station, choose Play next on any song, or dra
 #: src/features/discover/FrontPage.tsx
 msgid "Play featured rotation"
 msgstr "Play featured rotation"
+
+#: src/features/player/actions.ts
+msgid "Play last"
+msgstr "Play last"
 
 #: src/features/player/actions.ts
 #: src/features/player/QueueRowMenu.tsx
@@ -4606,10 +4633,6 @@ msgstr "Playlists"
 #: src/features/search/groups.ts
 msgid "Playlists by listeners"
 msgstr "Playlists by listeners"
-
-#: src/features/artist/views.ts
-msgid "Playlists featuring"
-msgstr "Playlists featuring"
 
 #: src/features/artist/views.ts
 msgid "Playlists featuring {artist}"
@@ -4922,10 +4945,6 @@ msgstr "Recent"
 msgid "Recently added"
 msgstr "Recently added"
 
-#: src/features/library/views.tsx
-msgid "Recently added to your library"
-msgstr "Recently added to your library"
-
 #: src/features/home/LocalShelves.tsx
 msgid "Recently played"
 msgstr "Recently played"
@@ -5003,13 +5022,8 @@ msgid "Remind me"
 msgstr "Remind me"
 
 #: src/features/player/QueueRowMenu.tsx
-#: src/shared/lib/library-actions.ts
 msgid "Remove"
 msgstr "Remove"
-
-#: src/shared/lib/library-actions.ts
-msgid "Remove “{name}” from your library?"
-msgstr "Remove “{name}” from your library?"
 
 #: src/features/search/RecentSearches.tsx
 msgid "Remove {label} from recent searches"
@@ -5023,30 +5037,13 @@ msgstr "Remove {name} from the queue"
 msgid "Remove {songName} from {playlist}"
 msgstr "Remove {songName} from {playlist}"
 
-#: src/shared/lib/library-actions.ts
-msgid "Remove {what} from your library?"
-msgstr "Remove {what} from your library?"
-
-#: src/features/library/actions.ts
-#: src/shared/components/LibraryButton.tsx
-msgid "Remove from library"
-msgstr "Remove from library"
-
 #: src/features/playlist/actions.ts
 msgid "Remove from playlist"
 msgstr "Remove from playlist"
 
-#: src/shared/lib/library-actions.ts
-msgid "Removed “{name}” from your library"
-msgstr "Removed “{name}” from your library"
-
 #: src/features/playlist/PlaylistEditor.tsx
 msgid "Removed {songName}"
 msgstr "Removed {songName}"
-
-#: src/shared/lib/library-actions.ts
-msgid "Removed {what} from your library"
-msgstr "Removed {what} from your library"
 
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "Rename"
@@ -5149,13 +5146,6 @@ msgstr "Results"
 msgid "resume stop"
 msgstr "resume stop"
 
-#: src/features/library/SyncIndicator.tsx
-#: src/features/onboarding/WidevineStatus.tsx
-#: src/features/settings/CdmRow.tsx
-#: src/shared/components/ErrorBlock.tsx
-msgid "Retry"
-msgstr "Retry"
-
 #: src/features/onboarding/WidevineStatus.tsx
 #: src/features/settings/CdmRow.tsx
 #: src/shared/components/ErrorBlock.tsx
@@ -5255,10 +5245,6 @@ msgstr "SD"
 msgid "Search"
 msgstr "Search"
 
-#: src/features/search/SearchField.tsx
-msgid "Search Apple Music"
-msgstr "Search Apple Music"
-
 #: src/features/commands/CommandPalette.tsx
 msgid "Search Apple Music for “{term}”"
 msgstr "Search Apple Music for “{term}”"
@@ -5268,6 +5254,13 @@ msgid "Search in"
 msgstr "Search in"
 
 #: src/features/search/SearchField.tsx
+msgid "Search in Apple Music"
+msgstr "Search in Apple Music"
+
+#: src/features/search/SearchField.tsx
+msgid "Search in library"
+msgstr "Search in library"
+
 #: src/features/search/SearchPage.tsx
 msgid "Search your library"
 msgstr "Search your library"
@@ -5403,10 +5396,6 @@ msgstr "Show all {songCount}"
 #: src/features/library/pages.tsx
 msgid "Show all albums"
 msgstr "Show all albums"
-
-#: src/features/song/SongPage.tsx
-msgid "Show all lyrics"
-msgstr "Show all lyrics"
 
 #: src/features/album/AlbumPage.tsx
 msgid "Show complete album"
@@ -5598,10 +5587,6 @@ msgid "Sign in to see your artists"
 msgstr "Sign in to see your artists"
 
 #: src/features/library/views.tsx
-msgid "Sign in to see your favourite songs"
-msgstr "Sign in to see your favourite songs"
-
-#: src/features/library/views.tsx
 msgid "Sign in to see your music videos"
 msgstr "Sign in to see your music videos"
 
@@ -5688,8 +5673,8 @@ msgid "silence sound"
 msgstr "silence sound"
 
 #: src/features/artist/views.ts
-msgid "Similar artists"
-msgstr "Similar artists"
+msgid "Similar artists to {artist}"
+msgstr "Similar artists to {artist}"
 
 #. Under the AutoPlay heading in the queue. Apple: ASE.Web.Music.UpNext.Autoplay.Description
 #: src/features/player/QueuePanel.tsx
@@ -5707,7 +5692,6 @@ msgstr "Single"
 msgid "Singles & EPs"
 msgstr "Singles & EPs"
 
-#: src/features/artist/views.ts
 #: src/features/library/ArtistsPage.tsx
 msgid "Singles and EPs"
 msgstr "Singles and EPs"
@@ -5715,6 +5699,10 @@ msgstr "Singles and EPs"
 #: src/features/library/ArtistsPage.tsx
 msgid "Singles and EPs by {name} in your library"
 msgstr "Singles and EPs by {name} in your library"
+
+#: src/features/artist/views.ts
+msgid "Singles and EPs featuring {artist}"
+msgstr "Singles and EPs featuring {artist}"
 
 #: src/features/artist/ArtistPage.tsx
 #: src/features/library/pages.tsx
@@ -6092,8 +6080,8 @@ msgid "Songs, albums, artists and playlists synced to this computer, matched as 
 msgstr "Songs, albums, artists and playlists synced to this computer, matched as you type each word."
 
 #: src/features/library/pages.tsx
-msgid "Sort by"
-msgstr "Sort by"
+msgid "Sort"
+msgstr "Sort"
 
 #: src/features/settings/find.ts
 #: src/features/settings/Playback.tsx
@@ -6715,8 +6703,12 @@ msgid "Tokens and your e-mail address are removed. A copy is saved as {file} in 
 msgstr "Tokens and your e-mail address are removed. A copy is saved as {file} in the log folder."
 
 #: src/features/discover/chart-titles.ts
-msgid "Top 25 by city"
-msgstr "Top 25 by city"
+msgid "Top 100 songs by country"
+msgstr "Top 100 songs by country"
+
+#: src/features/discover/chart-titles.ts
+msgid "Top 25 songs by city"
+msgstr "Top 25 songs by city"
 
 #: src/features/discover/chart-titles.ts
 msgid "Top albums"
@@ -6744,10 +6736,13 @@ msgid "Top results"
 msgstr "Top results"
 
 #: src/features/artist/ArtistPage.tsx
-#: src/features/artist/views.ts
 #: src/features/discover/chart-titles.ts
 msgid "Top songs"
 msgstr "Top songs"
+
+#: src/features/artist/views.ts
+msgid "Top songs by {artist}"
+msgstr "Top songs by {artist}"
 
 #: src/features/artist/ArtistPage.tsx
 msgid "Top songs by {artistName}"
@@ -6792,7 +6787,11 @@ msgstr "Trusted phone number"
 #. Reads the sign-in from the system keyring again. Apple's wording: ASE.Web.Music.Error.TryAgain
 #: src/features/auth/AccountMenu.tsx
 #: src/features/auth/KeyringRetry.tsx
+#: src/features/library/SyncIndicator.tsx
+#: src/features/onboarding/WidevineStatus.tsx
 #: src/features/player/VideoView.tsx
+#: src/features/settings/CdmRow.tsx
+#: src/shared/components/ErrorBlock.tsx
 msgid "Try again"
 msgstr "Try again"
 
@@ -6876,10 +6875,25 @@ msgstr "Unlock at iforgot.apple.com"
 msgid "Unmute"
 msgstr "Unmute"
 
-#: src/features/playlist/actions.ts
 #: src/features/playlist/PlaylistSidebar.tsx
 msgid "Unpin"
 msgstr "Unpin"
+
+#: src/features/playlist/actions.ts
+msgid "Unpin album"
+msgstr "Unpin album"
+
+#: src/features/playlist/actions.ts
+msgid "Unpin artist"
+msgstr "Unpin artist"
+
+#: src/features/playlist/actions.ts
+msgid "Unpin playlist"
+msgstr "Unpin playlist"
+
+#: src/features/playlist/actions.ts
+msgid "Unpin song"
+msgstr "Unpin song"
 
 #: src/features/player/NowPlayingBar.tsx
 #: src/features/player/NowPlayingView.tsx
@@ -7000,6 +7014,10 @@ msgstr "View"
 #: src/features/song/index.ts
 msgid "View credits"
 msgstr "View credits"
+
+#: src/features/song/SongPage.tsx
+msgid "View full lyrics"
+msgstr "View full lyrics"
 
 #: src/features/playlist/Collaborators.tsx
 msgid "View playlist collaborators"
@@ -7247,6 +7265,10 @@ msgstr "You have six pins. Unpin one to make room."
 #: src/features/album/AlbumPage.tsx
 msgid "You might also like"
 msgstr "You might also like"
+
+#: src/features/library/views.tsx
+msgid "You need to sign in to see your favourite songs"
+msgstr "You need to sign in to see your favourite songs"
 
 #: src/features/playlist/Collaborators.tsx
 msgid "You started this playlist."

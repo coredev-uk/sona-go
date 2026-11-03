@@ -228,7 +228,7 @@ function CatalogBody({ page, width }: { page: CatalogArtist; width: number }) {
   );
   const essentialShelf = essentialAlbums.length > 0 && (
     <Shelf
-      title={t`Essential albums`}
+      title={viewTitle("featured-albums", artist.name)}
       more={seeAll(
         artist.id,
         "featured-albums",
@@ -238,7 +238,7 @@ function CatalogBody({ page, width }: { page: CatalogArtist; width: number }) {
     >
       <ReleaseList
         albums={essentialAlbums}
-        label={t`Essential albums`}
+        label={viewTitle("featured-albums", artist.name)}
         columns={wide || !top ? 1 : 2}
       />
     </Shelf>

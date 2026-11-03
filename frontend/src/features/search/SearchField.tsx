@@ -288,7 +288,7 @@ export function SearchField() {
         onFocus={() => setOpen(true)}
         onClick={() => setOpen(true)}
         onKeyDown={onKeyDown}
-        placeholder={scope === "library" ? t`Search your library` : t`Search Apple Music`}
+        placeholder={scope === "library" ? t`Search in library` : t`Search in Apple Music`}
         className="h-8 border-transparent bg-hover pr-10 pl-9 text-ui shadow-none placeholder:text-ink-faint focus-visible:border-control-line focus-visible:bg-raised focus-visible:ring-0"
       />
       {value ? (

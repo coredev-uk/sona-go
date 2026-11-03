@@ -73,9 +73,7 @@ export function RecentlyAddedPage() {
             : undefined
         }
       />
-      {gate ?? (
-        <CoverGrid items={items} label={t`Recently added to your library`} onRange={list.onRange} />
-      )}
+      {gate ?? <CoverGrid items={items} label={t`Recently added`} onRange={list.onRange} />}
     </>
   );
 }
@@ -102,7 +100,10 @@ export function FavoriteSongsPage() {
     );
   } else if (!list.isPending && list.total === 0) {
     body = signedOut ? (
-      <EmptyState title={t`Sign in to see your favourite songs`} action={signInAction()}>
+      <EmptyState
+        title={t`You need to sign in to see your favourite songs`}
+        action={signInAction()}
+      >
         <Trans>Songs you favourite in Sona or any Apple Music app are collected here.</Trans>
       </EmptyState>
     ) : (

@@ -34,7 +34,7 @@ export const playerActions: ItemActionDef[] = [
   {
     id: "player.add-to-queue",
     target: "song",
-    label: () => t`Add to queue`,
+    label: () => t`Play last`,
     icon: ListEnd,
     group: "queue",
     order: 20,
@@ -55,7 +55,7 @@ export const playerActions: ItemActionDef[] = [
   {
     id: "player.add-to-queue.video",
     target: "music-video",
-    label: () => t`Add to queue`,
+    label: () => t`Play last`,
     icon: ListEnd,
     group: "queue",
     order: 20,
@@ -78,7 +78,7 @@ export const playerActions: ItemActionDef[] = [
     id: "player.add-to-queue.many",
     target: "selection",
     kinds: ["song", "music-video", "album", "playlist"],
-    label: () => t`Add to queue`,
+    label: () => t`Play last`,
     icon: ListEnd,
     group: "queue",
     order: 20,

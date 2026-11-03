@@ -172,7 +172,7 @@ export function CdmRow() {
             onClick={() => void onRetry()}
           >
             <RotateCw strokeWidth={1.75} />
-            {retrying ? <Trans>Retrying…</Trans> : <Trans>Retry</Trans>}
+            {retrying ? <Trans>Retrying…</Trans> : <Trans>Try again</Trans>}
           </Button>
         )}
       </div>

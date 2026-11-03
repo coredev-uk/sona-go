@@ -378,7 +378,7 @@ describe("Playback step", () => {
         "Sona couldn't reach Google's download server. Check your internet connection. Sona also tries again by itself later.",
       ),
     ).toBeTruthy();
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Retry" })));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Try again" })));
     expect(h.retry).toHaveBeenCalledTimes(1);
     expect(document.activeElement).toBe(state());
   });
@@ -389,7 +389,7 @@ describe("Playback step", () => {
     });
     await show("playback");
     expect(state().textContent).toBe("Playback isn't available on this computer");
-    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
   it("saves the quality from its cards, Sound Check and crossfade, and private listening", async () => {

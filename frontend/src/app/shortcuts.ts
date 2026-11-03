@@ -15,7 +15,7 @@ import { useLayout } from "./shell/layout";
 export const shellShortcuts: Shortcut[] = [
   {
     id: "shell.back",
-    label: () => t`Go back`,
+    label: () => t`Back`,
     group: "navigation",
     keys: ["Alt+ArrowLeft"],
     scope: "global",

@@ -47,7 +47,7 @@ function addTo<K extends "song" | "album" | "playlist">(target: K): ActionDef<K>
   return {
     id: `playlists.add-to.${target}`,
     target,
-    label: () => t`Add to playlist…`,
+    label: () => t`Add to playlist`,
     icon: ListPlus,
     group: "item",
     order: 40,
@@ -59,6 +59,13 @@ function addTo<K extends "song" | "album" | "playlist">(target: K): ActionDef<K>
 /** Library items Apple can pin. */
 type Pinnable = "song" | "album" | "artist" | "playlist";
 
+const pinLabels: Record<Pinnable, { pin: () => string; unpin: () => string }> = {
+  song: { pin: () => t`Pin song`, unpin: () => t`Unpin song` },
+  album: { pin: () => t`Pin album`, unpin: () => t`Unpin album` },
+  artist: { pin: () => t`Pin artist`, unpin: () => t`Unpin artist` },
+  playlist: { pin: () => t`Pin playlist`, unpin: () => t`Unpin playlist` },
+};
+
 function pinAction<K extends Pinnable>(target: K): ActionDef<K> {
   const pinned = pinnedData<K>();
   const isPinned = (item: ActionTargets[K], data: ReadonlySet<string> | undefined) =>
@@ -66,7 +73,8 @@ function pinAction<K extends Pinnable>(target: K): ActionDef<K> {
   return {
     id: `playlists.pin.${target}`,
     target,
-    label: (item, ctx) => (isPinned(item, ctx.data(pinned)) ? t`Unpin` : t`Pin to sidebar`),
+    label: (item, ctx) =>
+      isPinned(item, ctx.data(pinned)) ? pinLabels[target].unpin() : pinLabels[target].pin(),
     icon: Pin,
     group: "item",
     order: 60,
@@ -109,7 +117,7 @@ export const playlistActions: readonly ItemActionDef[] = [
     id: "playlists.add-to.many",
     target: "selection",
     kinds: ["song", "album", "playlist"],
-    label: () => t`Add to playlist…`,
+    label: () => t`Add to playlist`,
     icon: ListPlus,
     group: "item",
     order: 40,
@@ -183,7 +191,7 @@ export const playlistActions: readonly ItemActionDef[] = [
   {
     id: "playlists.delete",
     target: "playlist",
-    label: () => t`Delete from library…`,
+    label: () => t`Delete from library`,
     icon: Trash2,
     group: "item",
     order: 90,

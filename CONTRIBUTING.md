@@ -715,23 +715,29 @@ pair into the rejected list) and checks them against `en.po`. Reject a match
 when the meaning differs (a keyboard key against a page name, browser
 navigation against skipping a track), when Apple's text is styled for
 another place (upper-case badges, lower case only fits mid-sentence), or
-when Apple's text drops something Sona's says (a closing ellipsis that
-announces a dialog). `match` also fails when a mapped key has gone from
+when Apple's text drops something Sona's says. `match` also fails when a mapped key has gone from
 Apple's en-GB bundle and notes mappings whose English no longer matches.
 
 Wording and case. Sona's English is sentence case (docs/design.md) and
 stays so: `match` ignores case, curly quotes, ellipses and closing
 punctuation, so "Add to library" maps to Apple's "Add to Library" and a
-title-case Apple string is no reason to reject a match (the other locales'
-text is Apple's own). Rewrite a message to Apple's words only when the
-meaning is the same ("Recently searched", "Concerts in {city}"); never to
-make it worse or vaguer. Near misses that stay as they are: Sona's text
-names the thing Apple's leaves out ("Remove from library" against "Delete
-from Library"), carries a trailing ellipsis for a dialog, or fills a
-placeholder Apple's does not have. Most of Sona's messages have no Apple
-counterpart at all (Apple's en-GB bundle is about 1,000 strings, Sona has
-about 1,700 of its own), so coverage stays far below the 90% a locale needs;
-check Apple's wording before writing a new message, not afterwards.
+title-case Apple string is no reason to reject a match. Adopt Apple's
+wording, in sentence case, whenever Apple's string names the same action,
+concept or state in the same kind of UI place, even when the words differ
+(verb, articles, "Back" for "Go back", "Delete from library" for "Remove
+from library", no closing ellipsis on a dialog opener, "Top 25 songs by
+city"). Keep Sona's own wording only when the meaning differs, Apple's text
+would mislead in Sona's context (a keyboard Home against the Home page, the
+iPod wheel's Forward against history navigation, Apple's upper-case
+badges) or the placeholders cannot map (Apple's "1 Playlist" fixes the
+count in its singular form). Record each such refusal in
+`apple-keys-rejected.json` with its reason. A message and its siblings
+should use one verb: when a button says "Delete from library", its
+confirmation, toast and failure message say "delete" too. Most of Sona's
+messages still have no Apple counterpart (Apple's en-GB bundle is about
+1,000 strings, Sona has about 1,700 of its own), so coverage stays far below
+the 90% a locale needs; check Apple's wording before writing a new message,
+not afterwards.
 
 ```sh
 go run ./cmd/i18ntool import    # what the app would get, every locale

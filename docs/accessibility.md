@@ -135,7 +135,7 @@ change keeps and how to check them.
 
 | Drag | Keyboard |
 | --- | --- |
-| Songs, albums, playlists onto a sidebar playlist | "Add to playlist…" in every item's action and context menu |
+| Songs, albums, playlists onto a sidebar playlist | "Add to playlist" in every item's action and context menu |
 | Onto the queue | "Play next" / "Add to queue" in the same menus |
 | Reorder the queue | Alt+↑ / Alt+↓ on a focused queue row (Delete removes, Enter plays), or "Play next" and "Move to end" in the row's menu (Shift+F10 or the Menu key); each move is announced in a status region with the song's new place. Only the user's songs move, and they stay before the station's or AutoPlay's songs, which keep their place (their rows say so in their keyboard help) |
 | Reorder a playlist in the editor | Alt+↑ / Alt+↓ on a focused row, announced in a live region |

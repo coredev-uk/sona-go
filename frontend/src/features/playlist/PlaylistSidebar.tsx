@@ -447,7 +447,7 @@ function Playlists({ lists, pending }: { lists: SidebarPlaylists; pending: boole
               <DropdownMenuItem
                 onSelect={() => showDialog({ kind: "create", items: [], label: "", folderId: "" })}
               >
-                <Trans>New playlist…</Trans>
+                <Trans>New playlist</Trans>
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => showDialog({ kind: "folder" })}>
                 <Trans>New folder…</Trans>
