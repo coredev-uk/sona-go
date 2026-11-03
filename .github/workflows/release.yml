@@ -1,9 +1,23 @@
-# Called by release-please.yml when merging a release PR has tagged
-# v<VERSION> and created its draft GitHub release: runs the CI checks, builds
-# the .deb/.rpm/Arch/AppImage packages on the Ubuntu 24.04 baseline with
-# build/linux/release/release.sh (which smoke-tests each on a clean Ubuntu,
-# Fedora and Arch container), then uploads the packages, the AppImage .zsync,
-# the AUR sona-bin files and SHA256SUMS to the draft and publishes it.
+# Sona's Linux release. Called by release-please.yml when merging a release
+# PR has tagged v<VERSION> and created its draft GitHub release:
+#
+#   checks   the Linux CI jobs (ci.yml, linux-only: no macOS or Windows)
+#   build    the .deb/.rpm/Arch/AppImage packages on the Ubuntu 24.04 baseline
+#            with build/linux/release/release.sh (which writes SHA256SUMS and
+#            smoke-tests each package on a clean Ubuntu, Fedora and Arch
+#            container), then signed build provenance for every file
+#   publish  uploads the files to the draft and publishes it, as the
+#            bot-cecil GitHub App
+#
+# The notes in the draft are release-please's changelog entry; publishing
+# keeps them. The version in the binary and in the file names is VERSION's,
+# and the tag must equal it.
+#
+# Dispatching it (Actions → Release → Run workflow, on any branch) is the dry
+# run: it builds and smoke-tests the same packages, attaches them to the run
+# as the `linux-release` artifact, and publishes and attests nothing. It runs
+# without the `release` environment (which only deploys from main), so the
+# build has no Last.fm or Discord credentials.
 name: Release
 
 on:
@@ -13,29 +27,66 @@ on:
         description: Release tag (v<VERSION>) whose draft release receives the packages
         required: true
         type: string
+    secrets:
+      RENOVATE_APP_CLIENT_ID:
+        description: bot-cecil GitHub App client ID
+        required: true
+      RENOVATE_APP_PRIVATE_KEY:
+        description: bot-cecil GitHub App private key
+        required: true
+  workflow_dispatch:
+    inputs:
+      checks:
+        description: Run the Linux CI checks first (the branch's own CI normally covers them)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+# One release run per tag (per ref for a dry run); a second never cancels a
+# first that is already uploading.
+concurrency:
+  group: release-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
 jobs:
   checks:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.checks }}
     uses: ./.github/workflows/ci.yml
+    with:
+      linux-only: true
 
-  release:
+  build:
+    name: Build and smoke-test Linux packages
     needs: checks
+    # A dry run may skip the checks; a release may not.
+    if: ${{ !cancelled() && (needs.checks.result == 'success' || needs.checks.result == 'skipped') }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     # The Last.fm key and secret and the Discord application ID are secrets
-    # of the `release` environment, which only runs from main and `v*` tags.
-    environment: release
+    # of the `release` environment, which only runs from main. A dry run
+    # from a branch has none, and Sona reads the same variables at runtime.
+    environment: ${{ github.event_name != 'workflow_dispatch' && 'release' || '' }}
     permissions:
-      contents: write
+      contents: read
+      id-token: write # sign the build provenance
+      attestations: write # store it
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
 
+      # release.sh's output directory and the directory it keeps the Go and
+      # pnpm caches in; both outside the checkout, which release.sh snapshots.
+      - name: Choose the output and cache directories
+        run: |
+          echo "RELEASE_DIR=$RUNNER_TEMP/release" >>"$GITHUB_ENV"
+          echo "CACHE_DIR=$RUNNER_TEMP/release-cache" >>"$GITHUB_ENV"
+
       - name: Tag matches VERSION
+        if: ${{ inputs.tag != '' }}
         env:
           TAG: ${{ inputs.tag }}
         run: |
@@ -45,23 +96,93 @@ jobs:
             exit 1
           fi
 
-      # Podman is preinstalled on the runner image. The release secrets are
-      # optional; without them Sona reads the same variables at runtime.
+      # release.sh builds in a container whose Go module and build caches and
+      # pnpm store sit in CACHE_DIR; a run restores the last run's and a new
+      # go.sum or pnpm lockfile refills it. Only runs on main save a cache
+      # every run can restore.
+      - name: Cache Go modules, Go build and pnpm store
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.CACHE_DIR }}
+          key: release-${{ runner.os }}-${{ hashFiles('go.sum', 'frontend/pnpm-lock.yaml') }}
+          restore-keys: release-${{ runner.os }}-
+
+      # Podman is preinstalled on the runner image.
       - name: Build and smoke-test packages
         env:
           SONA_LASTFM_KEY: ${{ secrets.SONA_LASTFM_KEY }}
           SONA_LASTFM_SECRET: ${{ secrets.SONA_LASTFM_SECRET }}
           SONA_DISCORD_CLIENT_ID: ${{ secrets.SONA_DISCORD_CLIENT_ID }}
-        run: bash build/linux/release/release.sh "$RUNNER_TEMP/release"
+          SONA_RELEASE_CACHE: ${{ env.CACHE_DIR }}
+        run: bash build/linux/release/release.sh "$RELEASE_DIR"
+
+      - name: Check SHA256SUMS
+        working-directory: ${{ env.RELEASE_DIR }}
+        run: |
+          sha256sum --check --strict SHA256SUMS
+          {
+            echo '### SHA256SUMS'
+            echo '```'
+            cat SHA256SUMS
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      # Verify with `gh attestation verify <file> --repo "$GITHUB_REPOSITORY"`.
+      # A dry run has no release to vouch for, so it signs nothing.
+      - name: Attest build provenance
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: ${{ env.RELEASE_DIR }}/SHA256SUMS
+
+      - name: Keep the packages for the publish job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux-release
+          path: |
+            ${{ env.RELEASE_DIR }}/sona[-_]*
+            ${{ env.RELEASE_DIR }}/SHA256SUMS
+          if-no-files-found: error
+          retention-days: ${{ github.event_name == 'workflow_dispatch' && 7 || 14 }}
+
+  publish:
+    name: Publish the GitHub release
+    needs: build
+    if: ${{ github.event_name != 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # The upload and the publish go through the bot-cecil App token.
+    permissions: {}
+    steps:
+      - name: Generate bot-cecil token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          permission-contents: write # upload to and publish the release
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: linux-release
+          path: release
 
       # release-please wrote the notes into the draft; publishing it makes it
       # the latest release, which the update notice and AppImageUpdate read.
-      - name: Publish the GitHub release
+      # Re-running the job uploads again over the same names (--clobber); a
+      # release that is already published is left alone.
+      - name: Upload the packages and publish
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           TAG: ${{ inputs.tag }}
+        working-directory: release
         run: |
-          cd "$RUNNER_TEMP/release"
+          draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
+          if [ "$draft" != true ]; then
+            echo "::notice::$TAG is already published; nothing to upload"
+            exit 0
+          fi
+          sha256sum --check --strict SHA256SUMS
           gh release upload "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --clobber \
