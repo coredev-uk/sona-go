@@ -204,16 +204,6 @@ func (s *LibraryService) FavoriteSongs(ctx context.Context, offset, limit int) (
 	return SongPage{Items: s.m.libSongs(songs), Total: total}, nil
 }
 
-// MadeForYou returns the library copies of the account's personal mixes
-// from Apple (needs sign-in and the network).
-func (s *LibraryService) MadeForYou(ctx context.Context) ([]Playlist, error) {
-	pls, err := s.o.API.MadeForYou(ctx)
-	if err != nil {
-		return nil, s.o.Fail(err)
-	}
-	return s.m.amPlaylists(pls), nil
-}
-
 // MusicVideos lists the library's music videos from Apple (up to 100 per
 // page; needs sign-in and the network).
 func (s *LibraryService) MusicVideos(ctx context.Context, offset, limit int) (MusicVideoPage, error) {

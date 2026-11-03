@@ -1,7 +1,14 @@
 import type { Playlist, PlaylistTree, TreePlaylist } from "@bindings/services";
 import { describe, expect, it } from "vitest";
 
-import { addTargets, buildTree, folderPaths, type TreeNode } from "./tree";
+import {
+  addTargets,
+  buildTree,
+  folderPaths,
+  playlistSection,
+  sidebarPlaylists,
+  type TreeNode,
+} from "./tree";
 
 function pl(
   id: string,
@@ -9,9 +16,10 @@ function pl(
   folderId: string,
   position: number,
   canEdit = true,
+  catalogId = "",
 ): TreePlaylist {
   return {
-    playlist: { id, name, canEdit } as Playlist,
+    playlist: { id, name, canEdit, catalogId } as Playlist,
     folderId,
     position,
     canDelete: true,
@@ -95,7 +103,7 @@ describe("buildTree with pins", () => {
   const withPins = (nodes: TreeNode[]): string[] =>
     nodes.map((n) =>
       n.kind === "folder"
-        ? `${n.folder.name}${n.pinned ? `+${n.pinned}` : ""}[${withPins(n.children).join(",")}]`
+        ? `${n.folder.name}${n.hidden ? `+${n.hidden}` : ""}[${withPins(n.children).join(",")}]`
         : n.item.playlist.name,
     );
 
@@ -149,6 +157,77 @@ describe("buildTree with pins", () => {
       playlists: [pl("p.x", "Stray", "f.gone", 0), pl("p.y", "Kept", "", 1)],
     };
     expect(withPins(buildTree(lost, new Set(["p.x"])))).toEqual(["Kept"]);
+  });
+});
+
+describe("playlistSection", () => {
+  it("names Apple's personal mixes by their catalog ID, editable or not", () => {
+    expect(playlistSection({ catalogId: "pl.pm-4c1f", canEdit: false })).toBe("madeForYou");
+    expect(playlistSection({ catalogId: "pl.pm-4c1f", canEdit: true })).toBe("madeForYou");
+  });
+
+  it("puts playlists the user cannot edit under Apple Music, whoever made them", () => {
+    expect(playlistSection({ catalogId: "pl.f4d106fe", canEdit: false })).toBe("apple"); // editorial
+    expect(playlistSection({ catalogId: "pl.u-8aZ", canEdit: false })).toBe("apple"); // someone's shared playlist
+    expect(playlistSection({ catalogId: "pl.rp-1", canEdit: false })).toBe("apple"); // Replay is not a mix
+    expect(playlistSection({ catalogId: "", canEdit: false })).toBe("apple");
+  });
+
+  it("keeps editable playlists with the user's own, shared or private", () => {
+    expect(playlistSection({ catalogId: "", canEdit: true })).toBe("own");
+    expect(playlistSection({ catalogId: "pl.u-8aZ", canEdit: true })).toBe("own"); // collaborative
+  });
+});
+
+describe("sidebarPlaylists", () => {
+  const library: PlaylistTree = {
+    folders: [{ id: "f.run", parentId: "", name: "Running", position: 0 }],
+    playlists: [
+      pl("p.own", "Mine", "", 5),
+      pl("p.fav", "Favourites Mix", "", 2, false, "pl.pm-1"),
+      pl("p.new", "New Music Mix", "", 1, false, "pl.pm-2"),
+      pl("p.zed", "Zen", "", 7, false, "pl.f4d"),
+      pl("p.abe", "Alt Rock", "f.run", 0, false, "pl.f4e"),
+      pl("p.tempo", "Tempo", "f.run", 1),
+    ],
+  };
+  const names = (items: TreePlaylist[]) => items.map((i) => i.playlist.name);
+  const withHidden = (nodes: TreeNode[]): string[] =>
+    nodes.map((n) =>
+      n.kind === "folder"
+        ? `${n.folder.name}${n.hidden ? `+${n.hidden}` : ""}[${withHidden(n.children).join(",")}]`
+        : n.item.playlist.name,
+    );
+
+  it("splits the library into the three sections", () => {
+    const s = sidebarPlaylists(library);
+    expect(names(s.madeForYou)).toEqual(["New Music Mix", "Favourites Mix"]); // Apple's order
+    expect(names(s.apple)).toEqual(["Alt Rock", "Zen"]); // by name
+    expect(withHidden(s.own)).toEqual(["Running+1[Tempo]", "Mine"]);
+  });
+
+  it("lists a pinned playlist under no section, whichever it belongs to", () => {
+    const s = sidebarPlaylists(library, new Set(["p.fav", "p.zed", "p.own", "p.tempo"]));
+    expect(names(s.madeForYou)).toEqual(["New Music Mix"]);
+    expect(names(s.apple)).toEqual(["Alt Rock"]);
+    expect(withHidden(s.own)).toEqual(["Running+2[]"]);
+  });
+
+  it("lists it again in its own section once unpinned", () => {
+    const pinned = new Set(["p.fav"]);
+    expect(names(sidebarPlaylists(library, pinned).madeForYou)).toEqual(["New Music Mix"]);
+    pinned.clear();
+    expect(names(sidebarPlaylists(library, pinned).madeForYou)).toEqual([
+      "New Music Mix",
+      "Favourites Mix",
+    ]);
+  });
+
+  it("leaves a section empty when the library has none for it", () => {
+    const s = sidebarPlaylists({ folders: [], playlists: [pl("p.own", "Mine", "", 0)] });
+    expect(s.madeForYou).toEqual([]);
+    expect(s.apple).toEqual([]);
+    expect(withHidden(s.own)).toEqual(["Mine"]);
   });
 });
 

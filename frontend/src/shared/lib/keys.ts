@@ -38,7 +38,6 @@ export const keys = {
   libraryRecentSearches: ["library", "recent-searches"] as const,
   libraryRecentlyAdded: (page: number) => ["library", "recently-added", page] as const,
   libraryFavorites: (page: number) => ["library", "favorite-songs", page] as const,
-  libraryMadeForYou: ["library", "made-for-you"] as const,
   libraryMusicVideos: ["library", "music-videos"] as const,
   /** An item's library state and rating (shared/lib/item-state.ts). */
   itemState: (kind: string, id: string) => ["library", "state", kind, id] as const,

@@ -117,22 +117,12 @@ export function History(days: number): $CancellablePromise<$models.ListeningHist
 }
 
 /**
- * MadeForYou returns the library copies of the account's personal mixes
- * from Apple (needs sign-in and the network).
- */
-export function MadeForYou(): $CancellablePromise<$models.Playlist[]> {
-    return $Call.ByID(919592156).then(($result: any) => {
-        return $$createType9($result);
-    });
-}
-
-/**
  * MusicVideos lists the library's music videos from Apple (up to 100 per
  * page; needs sign-in and the network).
  */
 export function MusicVideos(offset: number, limit: number): $CancellablePromise<$models.MusicVideoPage> {
     return $Call.ByID(1965074906, offset, limit).then(($result: any) => {
-        return $$createType10($result);
+        return $$createType8($result);
     });
 }
 
@@ -142,7 +132,7 @@ export function MusicVideos(offset: number, limit: number): $CancellablePromise<
  */
 export function Playlists(sort: string, desc: boolean, offset: number, limit: number): $CancellablePromise<$models.PlaylistPage> {
     return $Call.ByID(3514231570, sort, desc, offset, limit).then(($result: any) => {
-        return $$createType11($result);
+        return $$createType9($result);
     });
 }
 
@@ -152,7 +142,7 @@ export function Playlists(sort: string, desc: boolean, offset: number, limit: nu
  */
 export function RecentlyAdded(offset: number, limit: number): $CancellablePromise<$models.LibraryEntryPage> {
     return $Call.ByID(1094065299, offset, limit).then(($result: any) => {
-        return $$createType12($result);
+        return $$createType10($result);
     });
 }
 
@@ -162,7 +152,7 @@ export function RecentlyAdded(offset: number, limit: number): $CancellablePromis
  */
 export function RecentlyPlayed(limit: number, offset: number): $CancellablePromise<$models.Song[]> {
     return $Call.ByID(3182673932, limit, offset).then(($result: any) => {
-        return $$createType14($result);
+        return $$createType12($result);
     });
 }
 
@@ -200,7 +190,7 @@ export function Songs(sort: string, desc: boolean, offset: number, limit: number
  */
 export function States(refs: $models.ItemRef[]): $CancellablePromise<$models.ItemState[]> {
     return $Call.ByID(763294581, refs).then(($result: any) => {
-        return $$createType15($result);
+        return $$createType13($result);
     });
 }
 
@@ -230,7 +220,7 @@ export function Sync(): $CancellablePromise<void> {
  */
 export function SyncStatus(): $CancellablePromise<$models.SyncStatus> {
     return $Call.ByID(1828793550).then(($result: any) => {
-        return $$createType16($result);
+        return $$createType14($result);
     });
 }
 
@@ -243,12 +233,10 @@ const $$createType4 = $models.Counts.createFrom;
 const $$createType5 = $models.ItemState.createFrom;
 const $$createType6 = $models.SongPage.createFrom;
 const $$createType7 = $models.ListeningHistory.createFrom;
-const $$createType8 = $models.Playlist.createFrom;
-const $$createType9 = $Create.Array($$createType8);
-const $$createType10 = $models.MusicVideoPage.createFrom;
-const $$createType11 = $models.PlaylistPage.createFrom;
-const $$createType12 = $models.LibraryEntryPage.createFrom;
-const $$createType13 = $models.Song.createFrom;
-const $$createType14 = $Create.Array($$createType13);
-const $$createType15 = $Create.Array($$createType5);
-const $$createType16 = $models.SyncStatus.createFrom;
+const $$createType8 = $models.MusicVideoPage.createFrom;
+const $$createType9 = $models.PlaylistPage.createFrom;
+const $$createType10 = $models.LibraryEntryPage.createFrom;
+const $$createType11 = $models.Song.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = $Create.Array($$createType5);
+const $$createType14 = $models.SyncStatus.createFrom;

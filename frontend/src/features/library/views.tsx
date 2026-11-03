@@ -16,7 +16,7 @@ import { TrackList } from "@/shared/tracks/TrackList";
 
 import { signInAction } from "./sign-in";
 import { skeletonRows, skeletonTiles, useLibraryGate } from "./gate";
-import { useFavoriteSongs, useMadeForYou, useMusicVideos, useRecentlyAdded } from "./queries";
+import { useFavoriteSongs, useMusicVideos, useRecentlyAdded } from "./queries";
 
 /** `playlist` is the fallback subtitle for playlists without a curator. */
 function entryTile(e: LibraryEntry, playlist: string): CoverItem | undefined {
@@ -186,52 +186,6 @@ function onlineGate(opts: {
 function useSignedOut() {
   const auth = useAuth();
   return isSignedOut(auth.data?.state);
-}
-
-/** The personal mixes Apple makes for the account, as library playlists. */
-export function MadeForYouPage() {
-  const { t } = useLingui();
-  const q = useMadeForYou();
-  const signedOut = useSignedOut();
-  const gate = onlineGate({
-    signedOut,
-    error: q.error,
-    retry: () => void q.refetch(),
-    retrying: q.isRefetching,
-    signInTitle: t`Sign in to see your mixes`,
-    errorTitle: t`Couldn't load your mixes from Apple Music`,
-    frame: "covers",
-    signInText: t`Apple Music makes personal mixes from what you play. Sign in to see yours.`,
-    empty:
-      q.data && q.data.length === 0
-        ? {
-            title: t`No mixes yet`,
-            text: t`Apple Music makes mixes once it knows what you like. Keep listening and they appear here.`,
-          }
-        : null,
-  });
-  const items: (CoverItem | undefined)[] = q.data
-    ? q.data.map((p) => ({
-        key: p.id,
-        title: p.name,
-        // The library copy's dates are when it was added, not when Apple last refreshed it.
-        subtitle: p.curatorName || t`Apple Music`,
-        art: p.art.medium,
-        link: { to: "/playlist/$id", params: { id: p.id } },
-        target: { kind: "playlist", target: p },
-      }))
-    : skeletonTiles.slice(0, 6);
-  return (
-    <>
-      <PageHeader
-        title={t`Made for you`}
-        subline={
-          q.data?.length ? plural(q.data.length, { one: "# mix", other: "# mixes" }) : undefined
-        }
-      />
-      {gate ?? <CoverGrid items={items} label={t`Mixes made for you`} />}
-    </>
-  );
 }
 
 /** Music videos in the library; each opens its page, and plays where videos play. */

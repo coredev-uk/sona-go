@@ -1,5 +1,5 @@
 import { t } from "@lingui/core/macro";
-import { createRoute } from "@tanstack/react-router";
+import { createRoute, redirect } from "@tanstack/react-router";
 import {
   Clapperboard,
   Clock3,
@@ -9,7 +9,6 @@ import {
   MicVocal,
   Music,
   Star,
-  UserRound,
 } from "lucide-react";
 
 import { keys } from "@/shared/lib/keys";
@@ -29,7 +28,7 @@ import { LibraryProvider } from "./provider";
 import { albumSorts, listSearch, playlistSorts, songSorts } from "./search-params";
 import { useSync } from "./sync";
 import { SyncIndicator } from "./SyncIndicator";
-import { FavoriteSongsPage, MadeForYouPage, MusicVideosPage, RecentlyAddedPage } from "./views";
+import { FavoriteSongsPage, MusicVideosPage, RecentlyAddedPage } from "./views";
 
 export { copyLink } from "./actions";
 export { useCounts } from "./queries";
@@ -56,9 +55,12 @@ const videosRoute = createRoute({
   ...childRoute("/library/music-videos"),
   component: MusicVideosPage,
 });
+// Made for You is a sidebar section now; an old link (or a saved last page) opens Home.
 const madeForYouRoute = createRoute({
   ...childRoute("/library/made-for-you"),
-  component: MadeForYouPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/", replace: true });
+  },
 });
 const favoritesRoute = createRoute({
   ...childRoute("/library/favourites"),
@@ -87,8 +89,8 @@ const routes = [
 ] as const;
 
 /**
- * The library: Recently Added, Artists, Albums, Songs, Music Videos, Made
- * for You, Favourite Songs, History and Playlists; the sync mirror and indicator;
+ * The library: Recently Added, Artists, Albums, Songs, Music Videos,
+ * Favourite Songs, History and Playlists; the sync mirror and indicator;
  * and the item actions every list and header uses (add to and remove
  * from the library, Favourite, Suggest Less, Copy link).
  */
@@ -118,13 +120,6 @@ export const libraryModule: FeatureModule<(typeof routes)[number]> = {
       icon: Clapperboard,
       to: "/library/music-videos",
       order: 40,
-    },
-    {
-      section: "library",
-      label: () => t`Made for you`,
-      icon: UserRound,
-      to: "/library/made-for-you",
-      order: 50,
     },
     {
       section: "library",

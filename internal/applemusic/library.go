@@ -101,17 +101,6 @@ func (c *Client) LibraryPlaylistTracks(ctx context.Context, id string, opt PageO
 	return out, err
 }
 
-// MadeForYou returns the library copies of the user's personal mixes
-// (Apple's Made for You: Favourites Mix, New Music, Heavy Rotation, …),
-// in Apple's order.
-func (c *Client) MadeForYou(ctx context.Context) ([]Playlist, error) {
-	body, err := AMP[Page[Playlist]](ctx, c, LibraryPlaylistsPath, AMPQuery{
-		Limit: 100,
-		Extra: url.Values{"filter[featured]": {"made-for-you"}, "sort": {"type"}},
-	})
-	return body.Data, err
-}
-
 // LibraryMusicVideos returns a page of the user's library music videos
 // (Apple caps limit at 100) and, in Meta.Total, how many there are.
 func (c *Client) LibraryMusicVideos(ctx context.Context, limit, offset int) (Page[MusicVideo], error) {

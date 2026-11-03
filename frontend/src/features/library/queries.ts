@@ -147,15 +147,6 @@ export function useHistory(days: number) {
   });
 }
 
-/** The account's personal mixes (Apple; needs the network). */
-export function useMadeForYou() {
-  return useQuery({
-    queryKey: keys.libraryMadeForYou,
-    queryFn: () => LibraryService.MadeForYou(),
-    staleTime: 10 * 60_000,
-  });
-}
-
 /** Library music videos (Apple; needs the network). Libraries rarely hold more than a page. */
 export function useMusicVideos() {
   return useQuery({
