@@ -1,11 +1,7 @@
 package services
 
-import "github.com/wailsapp/wails/v3/pkg/application"
-
 // EventPower carries PowerState when the computer's power source changes.
 const EventPower = "power:changed"
-
-func init() { application.RegisterEvent[PowerState](EventPower) }
 
 // PowerState is the computer's power source as Sona decides it from
 // UPower's devices (internal/power): motion artwork stops on battery.

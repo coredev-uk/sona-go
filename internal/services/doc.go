@@ -1,19 +1,21 @@
-// Package services is Sona's Wails service surface: frontend-shaped
+// Package services is Sona's service surface: frontend-shaped
 // wrappers over the core packages (auth, catalog, library, playback
 // coordinator, artwork, settings), and the start-up policy that keeps cold
 // start local until the first paint.
 //
 // # Module contract (for feature work)
 //
-// One feature = one bound Wails service, in its own files:
+// One feature = one service, in its own files:
 //
 //   - <feature>.go: the service type (exported methods are the bindings;
 //     everything else unexported), and its constructor
 //     func new<Feature>Service(e *Env) *<Feature>Service.
 //   - <feature>_dto.go: the feature's own DTOs, its event name constants
-//     and an init() registering each event payload with
-//     application.RegisterEvent (so bindings carry the type).
-//   - One line in registry.go: {"<feature>", svc(new<Feature>Service)}.
+//     (plain declarations: the app shell registers each event payload with
+//     its UI bridge, see cmd/sona/events_wails.go while Wails remains).
+//   - One line in registry.go: {"<feature>", svc(new<Feature>Service)}
+//     (the registry returns the typed instances; Core.Services lists them,
+//     Service[T] finds one).
 //     No other file changes; features never call each other's services.
 //
 // Shared pieces every feature uses:

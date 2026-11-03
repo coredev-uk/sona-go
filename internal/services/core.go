@@ -5,8 +5,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/wailsapp/wails/v3/pkg/application"
-
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/artwork"
@@ -59,10 +57,13 @@ type Deps struct {
 	// locale's when signed out), for direct applemusic calls.
 	Storefront func() string
 	// Gate holds network requests until the first paint.
-	Gate   *Gate
-	Emit   Emitter
-	Logger *slog.Logger
-	Now    func() time.Time // default time.Now
+	Gate *Gate
+	Emit Emitter
+	// Clipboard puts text on the system clipboard and reports success (nil:
+	// copying fails).
+	Clipboard func(text string) bool
+	Logger    *slog.Logger
+	Now       func() time.Time // default time.Now
 
 	OpenURL func(string) error // system browser / file manager
 	Focus   func()             // raise the main window
@@ -82,7 +83,7 @@ type Deps struct {
 // Core holds the bound services and the hooks main drives.
 type Core struct {
 	env      *Env
-	services []application.Service
+	services []any
 	open     *opener
 	commands *commandServer
 
@@ -91,11 +92,13 @@ type Core struct {
 	mediaDone chan struct{}
 }
 
-// New builds every registered feature (registry.go). Register Services()
-// with the application.
+// New builds every registered feature (registry.go).
 func New(d Deps) *Core {
 	if d.Now == nil {
 		d.Now = time.Now
+	}
+	if d.Clipboard == nil {
+		d.Clipboard = func(string) bool { return false }
 	}
 	if d.Logger == nil {
 		d.Logger = slog.New(slog.DiscardHandler)
@@ -117,8 +120,12 @@ func New(d Deps) *Core {
 	return c
 }
 
-// Services returns the Wails services to register, in registry order.
-func (c *Core) Services() []application.Service { return c.services }
+// Services returns the typed service instances (*XService), in registry
+// order.
+func (c *Core) Services() []any { return c.services }
+
+// Service returns the registered service of type T; it panics if none is.
+func Service[T any](c *Core) *T { return instance[T](c.services) }
 
 // firstPaint delivers held app:open links and opens the network.
 func (c *Core) firstPaint() {

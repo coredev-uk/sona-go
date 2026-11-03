@@ -1,12 +1,8 @@
 package services
 
-import "github.com/wailsapp/wails/v3/pkg/application"
-
 // EventScrobbleChanged carries the ScrobbleStatus whenever a connection,
 // a pending count or a rejected credential changes.
 const EventScrobbleChanged = "scrobble:changed"
-
-func init() { application.RegisterEvent[ScrobbleStatus](EventScrobbleChanged) }
 
 // Scrobbler provider names (ScrobbleService.Disconnect).
 const (

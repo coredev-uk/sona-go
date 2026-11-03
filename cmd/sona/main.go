@@ -321,6 +321,7 @@ func run(started time.Time) error {
 	}
 	log.Info("startup: core ready", "since_start_ms", time.Since(started).Milliseconds())
 
+	registerEvents()
 	wapp := application.New(application.Options{
 		Name:         "Sona",
 		Description:  lang.Printer().T(msgDescription),
@@ -356,7 +357,7 @@ func run(started time.Time) error {
 	core := services.New(services.Deps{
 		Paths: paths, QueueFile: queueFile, Settings: settings, DB: d, Auth: authm, API: api,
 		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, CDM: cdmMgr, AppleStrings: appleStrings, Language: lang, Coord: coord,
-		History: history, Private: private, Storefront: storefront, Gate: gate, Emit: wapp.Event, Logger: log,
+		History: history, Private: private, Storefront: storefront, Gate: gate, Emit: wapp.Event, Clipboard: wapp.Clipboard.SetText, Logger: log,
 		OpenURL: wapp.Browser.OpenURL, Focus: sh.ShowMain, Focused: sh.MainFocused, Windows: sh, Platform: plat.Services(),
 		Version: version, WebKit: webkitVersion(), Started: started,
 	})
@@ -364,9 +365,33 @@ func run(started time.Time) error {
 	// After the services subscribed to auth changes, so none misses the
 	// restored sign-in.
 	authm.Start()
-	for _, s := range core.Services() {
-		wapp.RegisterService(s)
-	}
+	// Wails v3 marshals a bound method's error with its service's
+	// MarshalError only. Typed calls (not a loop over core.Services()) let
+	// the bindings generator see each service's type.
+	opts := application.ServiceOptions{MarshalError: services.MarshalError}
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.AuthService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.CatalogService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.LibraryService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.PlaybackService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.CDMService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.SearchService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.DiscoverService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.PlaylistsService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.RadioService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.SystemService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.UpdatesService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.IntegrationsService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.MotionService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.DesktopService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.ScrobbleService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.AudioService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.StorageService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.PrivateService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.PlatformService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.RemindersService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.TranslationsService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.LyricsService](core), opts))
+	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.ConcertsService](core), opts))
 	// The shell quits asynchronously: shutdown closes the media controls,
 	// which must not wait on the call that asked for it.
 	core.StartMediaControls(services.NewMPRISPlayer(coord, sh.ShowMain, sh.Quit, log.With("component", "mpris")))

@@ -1,15 +1,11 @@
 package services
 
 import (
-	"github.com/wailsapp/wails/v3/pkg/application"
-
 	"github.com/coredev-uk/sona-go/internal/auth/appleid"
 )
 
 // EventAuthChanged carries AuthStatus on every sign-in transition.
 const EventAuthChanged = "auth:changed"
-
-func init() { application.RegisterEvent[AuthStatus](EventAuthChanged) }
 
 // AuthStatus is the sign-in state ("auth:changed" payload).
 type AuthStatus struct {

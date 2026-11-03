@@ -29,7 +29,7 @@ type LibraryService struct {
 	resync     []library.Domain // domains to sync again after the running sync
 	closed     bool
 
-	setClipboard func(string) bool // CopyLink; the Wails clipboard
+	setClipboard func(string) bool // CopyLink; Deps.Clipboard
 	// removeRecheck is how long after a removal Remove checks that Apple
 	// really dropped the item (see confirmRemoved).
 	removeRecheck time.Duration
@@ -38,7 +38,7 @@ type LibraryService struct {
 // newLibraryService also schedules the library sync: after first paint
 // and on sign-in when stale, cancelled before the sign-out wipe.
 func newLibraryService(e *Env) *LibraryService {
-	s := &LibraryService{o: e, m: e.m, setClipboard: clipboardText, removeRecheck: 10 * time.Second}
+	s := &LibraryService{o: e, m: e.m, setClipboard: e.Clipboard, removeRecheck: 10 * time.Second}
 	e.OnNetwork(func() {
 		go s.syncIfStale(context.Background())
 		if e.History != nil {

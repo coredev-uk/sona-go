@@ -1,23 +1,16 @@
 package services
 
-import "github.com/wailsapp/wails/v3/pkg/application"
-
-// feature is one bound Wails service: build constructs it from the shared
-// Env (registering any hooks it needs) and wraps it for Wails; its
-// exported methods become bindings.
+// feature is one service: build constructs it from the shared Env
+// (registering any hooks it needs) and returns the typed instance (a *T);
+// its exported methods are the UI-facing API.
 type feature struct {
 	name  string
-	build func(*Env) application.Service
+	build func(*Env) any
 }
 
-// svc adapts a typed constructor for the registry. Wails v3 marshals a
-// bound method's error with its service's MarshalError only (the
-// application-level option does not reach bound methods), so every service
-// carries MarshalError for err.cause = {code, message}.
-func svc[T any](build func(*Env) *T) func(*Env) application.Service {
-	return func(e *Env) application.Service {
-		return application.NewServiceWithOptions(build(e), application.ServiceOptions{MarshalError: MarshalError})
-	}
+// svc adapts a typed constructor for the registry.
+func svc[T any](build func(*Env) *T) func(*Env) any {
+	return func(e *Env) any { return build(e) }
 }
 
 // features are the bound services, built in this order (which is also the

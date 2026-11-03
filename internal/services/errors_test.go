@@ -9,7 +9,6 @@ import (
 	"go/token"
 	"net/url"
 	"os"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"slices"
@@ -231,7 +230,7 @@ func TestNoGoTextReachesTheUI(t *testing.T) {
 }
 
 // eventPayloads are the payload types of every event the package
-// registers (application.RegisterEvent[T] in its files).
+// registers (application.RegisterEvent[T] in cmd/sona/events_wails.go).
 func eventPayloads(t *testing.T) []reflect.Type {
 	t.Helper()
 	known := map[string]reflect.Type{
@@ -257,16 +256,10 @@ func eventPayloads(t *testing.T) []reflect.Type {
 		"AppleLanguages":     reflect.TypeFor[AppleLanguages](),
 		"UpdateStatus":       reflect.TypeFor[UpdateStatus](),
 	}
-	files, err := filepath.Glob("*.go")
-	if err != nil {
-		t.Fatal(err)
-	}
+	files := []string{"../../cmd/sona/events_wails.go"}
 	var out []reflect.Type
 	fset := token.NewFileSet()
 	for _, name := range files {
-		if strings.HasSuffix(name, "_test.go") {
-			continue
-		}
 		src, err := os.ReadFile(name)
 		if err != nil {
 			t.Fatal(err)
@@ -285,6 +278,7 @@ func eventPayloads(t *testing.T) []reflect.Type {
 				return true
 			}
 			arg := string(src[fset.Position(ix.Index.Pos()).Offset:fset.Position(ix.Index.End()).Offset])
+			arg = strings.ReplaceAll(arg, "services.", "")
 			ty, ok := known[arg]
 			if !ok {
 				t.Errorf("%s: event payload %s: add it to eventPayloads", name, arg)

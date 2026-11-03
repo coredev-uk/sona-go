@@ -1,11 +1,7 @@
 package services
 
-import "github.com/wailsapp/wails/v3/pkg/application"
-
 // EventIntegrationsStatus carries IntegrationsStatus whenever it changes.
 const EventIntegrationsStatus = "integrations:status"
-
-func init() { application.RegisterEvent[IntegrationsStatus](EventIntegrationsStatus) }
 
 // Notification and inhibitor states in IntegrationsStatus.
 const (

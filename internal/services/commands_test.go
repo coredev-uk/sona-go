@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wailsapp/wails/v3/pkg/application"
-
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/auth/store"
@@ -160,8 +158,8 @@ func newCommandEnv(t *testing.T, private privatemode.Options) *commandEnv {
 	search := newSearchService(ce.e)
 	open := &opener{emit: ce.rec, focus: func() { ce.focused++ }, log: discard()}
 	open.markReady()
-	ce.srv = newCommandServer(ce.e, open, []application.Service{
-		application.NewService(ce.play), application.NewService(lib), application.NewService(search),
+	ce.srv = newCommandServer(ce.e, open, []any{
+		ce.play, lib, search,
 	})
 	t.Cleanup(ce.e.close)
 	return ce

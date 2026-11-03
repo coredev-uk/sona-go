@@ -1,7 +1,5 @@
 package services
 
-import "github.com/wailsapp/wails/v3/pkg/application"
-
 // Library events.
 const (
 	EventSyncProgress = "sync:progress" // SyncProgress
@@ -10,12 +8,6 @@ const (
 	// outside the UI (`sona like`).
 	EventItemState = "library:item-state"
 )
-
-func init() {
-	application.RegisterEvent[SyncProgress](EventSyncProgress)
-	application.RegisterEvent[SyncDone](EventSyncDone)
-	application.RegisterEvent[ItemState](EventItemState)
-}
 
 // SongPage, AlbumPage and PlaylistPage are list pages; Total
 // is the size of the whole list.

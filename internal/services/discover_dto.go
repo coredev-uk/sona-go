@@ -1,14 +1,10 @@
 package services
 
-import "github.com/wailsapp/wails/v3/pkg/application"
-
 // Discover events.
 const (
 	// EventHome carries the new HomePage after a background refresh.
 	EventHome = "discover:home"
 )
-
-func init() { application.RegisterEvent[HomePage](EventHome) }
 
 // HomePage is Home: Apple's personal recommendation shelves in order.
 // Sections is empty when signed out. FetchedAt is when Apple produced them

@@ -9,8 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wailsapp/wails/v3/pkg/application"
-
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth"
@@ -42,7 +40,7 @@ type commandServer struct {
 
 // newCommandServer builds the server and publishes the status on every
 // coordinator or private listening change until Core.Close.
-func newCommandServer(e *Env, open *opener, svcs []application.Service) *commandServer {
+func newCommandServer(e *Env, open *opener, svcs []any) *commandServer {
 	s := &commandServer{
 		e: e, open: open,
 		play: instance[PlaybackService](svcs), lib: instance[LibraryService](svcs), search: instance[SearchService](svcs),
@@ -78,9 +76,9 @@ func newCommandServer(e *Env, open *opener, svcs []application.Service) *command
 }
 
 // instance finds the registered service of type T.
-func instance[T any](svcs []application.Service) *T {
+func instance[T any](svcs []any) *T {
 	for _, s := range svcs {
-		if t, ok := s.Instance().(*T); ok {
+		if t, ok := s.(*T); ok {
 			return t
 		}
 	}

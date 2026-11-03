@@ -1,15 +1,11 @@
 package services
 
 import (
-	"github.com/wailsapp/wails/v3/pkg/application"
-
 	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 )
 
 // EventCDMStatus carries CDMStatus on every change (latest wins).
 const EventCDMStatus = "cdm:status"
-
-func init() { application.RegisterEvent[CDMStatus](EventCDMStatus) }
 
 // CDMStatus is the Widevine CDM the playback engine loads: Sona downloads
 // it from Google after the first paint and keeps it up to date
