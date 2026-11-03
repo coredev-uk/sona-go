@@ -504,25 +504,65 @@ func (c *Coordinator) Remove(ctx context.Context, index int) error {
 // Station and AutoPlay slots don't move, and the user's slots stay before
 // the upcoming ones (to is clamped).
 func (c *Coordinator) Move(from, to int) error {
+	return c.move(from, func() int { return to })
+}
+
+// MoveNext moves queue[from] to play right after the current item (the
+// front of the user's upcoming songs). The current item stays where it is.
+func (c *Coordinator) MoveNext(from int) error {
+	return c.move(from, func() int {
+		switch {
+		case from == c.index:
+			return from
+		case from < c.index:
+			return c.index // the current item shifts down by one
+		}
+		return c.index + 1
+	})
+}
+
+// MoveToEnd moves queue[from] to the end of the user's songs, before any
+// station or AutoPlay slots. The current item stays where it is.
+func (c *Coordinator) MoveToEnd(from int) error {
+	return c.move(from, func() int {
+		if from == c.index {
+			return from
+		}
+		return c.userEndLocked() - 1
+	})
+}
+
+// move moves queue[from] to the position `to` names, read under the lock
+// with the queue as it is now. A song already there stays as it is.
+func (c *Coordinator) move(from int, to func() int) error {
 	c.mu.Lock()
 	n := len(c.queue)
-	if from < 0 || from >= n || to < 0 || to >= n {
+	if from < 0 || from >= n {
 		c.mu.Unlock()
-		return fmt.Errorf("coordinator: move %d→%d out of range", from, to)
+		return fmt.Errorf("coordinator: move %d out of range [0,%d)", from, n)
 	}
 	e := c.queue[from]
 	if e.auto {
 		c.mu.Unlock()
 		return fmt.Errorf("coordinator: move %d: station slots keep their place", from)
 	}
+	dest := to()
+	if dest < 0 || dest >= n {
+		c.mu.Unlock()
+		return fmt.Errorf("coordinator: move %d→%d out of range", from, dest)
+	}
 	if end := c.userEndLocked(); from < end {
-		to = min(to, end-1)
+		dest = min(dest, end-1)
+	}
+	if dest == from {
+		c.mu.Unlock()
+		return nil
 	}
 	var cur uint64
 	if c.index >= 0 {
 		cur = c.queue[c.index].uid
 	}
-	c.queue = slices.Insert(slices.Delete(c.queue, from, from+1), to, e)
+	c.queue = slices.Insert(slices.Delete(c.queue, from, from+1), dest, e)
 	if c.index >= 0 {
 		c.index = c.indexOfLocked(cur)
 	}

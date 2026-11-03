@@ -2,14 +2,17 @@ import { PlaybackService, type QueueItem } from "@bindings/services";
 import { Link } from "@tanstack/react-router";
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Clapperboard, GripVertical, Infinity as InfinityIcon, X } from "lucide-react";
+import { Clapperboard, Ellipsis, GripVertical, Infinity as InfinityIcon, X } from "lucide-react";
 import {
   memo,
+  useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type FocusEvent,
   type KeyboardEvent,
+  type MouseEvent,
   type PointerEvent,
   type RefObject,
 } from "react";
@@ -26,7 +29,8 @@ import { cn } from "@/shared/lib/utils";
 
 import { queueItems } from "./commands";
 import { usePlayback } from "./playback";
-import { focusedRow, moveForKey, rowForKey, type QueueFocus } from "./queue-focus";
+import { focusedRow, menuMoves, moveForKey, rowForKey, type QueueFocus } from "./queue-focus";
+import { QueueRowMenu, type QueueMenuAt } from "./QueueRowMenu";
 import { queueLines } from "./queue-lines";
 import { QUEUE_TOGGLE_ID, useUI } from "./ui";
 
@@ -54,6 +58,20 @@ interface RowProps {
   userEnd: number;
   /** On the now-playing view's wash: hover and focus fills are ink at 6%, not the opaque --hover. */
   wash: boolean;
+  /** Opens the menu of the song `uid` at a point. */
+  onMenu: (uid: number, at: QueueMenuAt) => void;
+  /** A move was asked for (null: it failed), so it can be announced and kept in view. */
+  onMoved: (move: PendingMove | null) => void;
+}
+
+/** A move asked of Go, until it shows in the queue. */
+interface PendingMove {
+  uid: number;
+  name: string;
+  /** The queue index the song moved from. */
+  from: number;
+  /** Focus is on the song (or its menu): it stays on the song, scrolled into view. */
+  focus: boolean;
 }
 
 /** The queue's keyboard help, read after each row's name. */
@@ -73,13 +91,15 @@ const QueueRow = memo(function QueueRow({
   autoPlay,
   userEnd,
   wash,
+  onMenu,
+  onMoved,
 }: RowProps) {
   // Skipped by Go on an account that restricts explicit content.
   const withheld = useWithheld(item.explicit);
   const { t } = useLingui();
   const name = item.name;
   const artist = item.artistName;
-  const onKeyDown = (e: KeyboardEvent) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
       void run(t`Couldn't play that song`, PlaybackService.Jump(index));
@@ -90,8 +110,25 @@ const QueueRow = memo(function QueueRow({
       e.preventDefault();
       // Station and AutoPlay songs keep their place; the user's stay before them.
       const to = item.auto ? null : moveForKey(e.key, index, userEnd);
-      if (to !== null) void run(t`Couldn't move it`, PlaybackService.Move(index, to));
+      if (to === null) return;
+      onMoved({ uid: item.uid, name, from: index, focus: true });
+      void run(t`Couldn't move it`, PlaybackService.Move(index, to)).then(
+        (ok) => ok || onMoved(null),
+      );
+    } else if (!current && (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10"))) {
+      e.preventDefault();
+      const r = e.currentTarget.getBoundingClientRect();
+      onMenu(item.uid, {
+        x: r.left + Math.min(48, r.width / 2),
+        y: r.top + Math.min(r.height, 40),
+        keyboard: true,
+      });
     }
+  };
+  const onContextMenu = (e: MouseEvent<HTMLDivElement>) => {
+    if (current) return;
+    e.preventDefault();
+    onMenu(item.uid, { x: e.clientX, y: e.clientY, keyboard: false });
   };
   const label = item.video
     ? withheld
@@ -114,6 +151,7 @@ const QueueRow = memo(function QueueRow({
       data-movable={(!current && !item.auto) || undefined}
       onDoubleClick={() => void run(t`Couldn't play that song`, PlaybackService.Jump(index))}
       onKeyDown={onKeyDown}
+      onContextMenu={onContextMenu}
       className={cn(
         "group/q relative flex h-[52px] items-center gap-3 rounded-md px-2 transition-colors duration-100 select-none focus-visible:outline-offset-[-2px]",
         wash ? "hover:bg-ink/6 focus-visible:bg-ink/6" : "hover:bg-hover focus-visible:bg-hover",
@@ -178,6 +216,20 @@ const QueueRow = memo(function QueueRow({
           <span className="text-meta text-ink-faint num group-focus-within/q:hidden group-hover/q:hidden">
             {formatTime(item.durationMs)}
           </span>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            tabIndex={-1}
+            aria-label={t`More for ${name}`}
+            aria-haspopup="menu"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              onMenu(item.uid, { x: r.left, y: r.bottom, keyboard: e.detail === 0 });
+            }}
+            className="hidden text-ink-muted group-focus-within/q:inline-flex group-hover/q:inline-flex hover:text-ink"
+          >
+            <Ellipsis />
+          </Button>
           <Button
             variant="ghost"
             size="icon-xs"
@@ -345,6 +397,39 @@ export function QueueList({ inView = false }: { inView?: boolean }) {
     };
     requestAnimationFrame(() => go(0));
   };
+  // A move asked of Go (the menu, Alt+↑/↓, a drop) shows in the queue a moment
+  // later: then it is announced with the song's new place, and a song with
+  // focus is brought into view (it may now be far down the list).
+  const [moved, setMoved] = useState<(PendingMove & { n: number }) | null>(null);
+  const onMoved = useCallback(
+    (m: PendingMove | null) => setMoved((prev) => m && { ...m, n: (prev?.n ?? 0) + 1 }),
+    [],
+  );
+  const movedAt = moved ? items.findIndex((it) => it.uid === moved.uid) : -1;
+  const landed = moved !== null && movedAt >= 0 && movedAt !== moved.from;
+  const movedName = moved?.name ?? "";
+  const movedPosition = movedAt - start;
+  const movedOf = userEnd - start - 1;
+  const announcement = landed
+    ? t`${movedName}: moved to position ${movedPosition} of ${movedOf}`
+    : "";
+  const shown = useRef(0);
+  useEffect(() => {
+    if (!moved || !landed || shown.current === moved.n) return;
+    shown.current = moved.n;
+    if (moved.focus) showRow(movedAt);
+  });
+  // The row menu. It lives out here, not in its row: the rows sit in translated
+  // lines, which would carry the menu's fixed anchor with them. It follows its
+  // song if the queue moves under it.
+  const [menu, setMenu] = useState<{ uid: number; at: QueueMenuAt } | null>(null);
+  const onMenu = useCallback((uid: number, at: QueueMenuAt) => setMenu({ uid, at }), []);
+  const menuQi = menu ? items.findIndex((it) => it.uid === menu.uid) : -1;
+  const menuItem = menuQi > index ? items[menuQi] : undefined;
+  const moveFromMenu = (it: QueueItem, ask: Promise<unknown>) => {
+    onMoved({ uid: it.uid, name: it.name, from: menuQi, focus: true });
+    void run(t`Couldn't move it`, ask).then((ok) => ok || onMoved(null));
+  };
   // The row that has focus. When its song leaves the list with focus on it
   // (removed, played), focus goes to the row that takes its place, not to
   // <body>; a row that moved to the other list (an AutoPlay song that now
@@ -448,7 +533,12 @@ export function QueueList({ inView = false }: { inView?: boolean }) {
       if (p.origin?.list === QUEUE) {
         const from = p.origin.index;
         const to = s === null ? from : dropIndex(from, s);
-        if (to !== from) void run(t`Couldn't move it`, PlaybackService.Move(from, to));
+        if (to !== from) {
+          onMoved({ uid: items[from].uid, name: items[from].name, from, focus: false });
+          void run(t`Couldn't move it`, PlaybackService.Move(from, to)).then(
+            (ok) => ok || onMoved(null),
+          );
+        }
       } else {
         void queueItems(p.items, s ?? "last");
       }
@@ -492,6 +582,8 @@ export function QueueList({ inView = false }: { inView?: boolean }) {
           autoPlay={qi !== index && item.auto && !!station?.autoPlay}
           userEnd={userEnd}
           wash={inView}
+          onMenu={onMenu}
+          onMoved={onMoved}
         />
       </div>
     );
@@ -522,21 +614,30 @@ export function QueueList({ inView = false }: { inView?: boolean }) {
           <p id={KEYS_HELP} className="sr-only">
             {inView ? (
               <Trans>
-                Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes
-                now playing.
+                Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Shift+F10 opens
+                its menu, Escape closes now playing.
               </Trans>
             ) : (
               <Trans>
-                Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes
-                the queue.
+                Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Shift+F10 opens
+                its menu, Escape closes the queue.
               </Trans>
             )}
           </p>
+          <div role="status" className="sr-only">
+            {moved && announcement && <p key={moved.n}>{announcement}</p>}
+          </div>
           <p id={AUTO_KEYS_HELP} className="sr-only">
             {inView ? (
-              <Trans>Enter plays the song, Delete removes it, Escape closes now playing.</Trans>
+              <Trans>
+                Enter plays the song, Delete removes it, Shift+F10 opens its menu, Escape closes now
+                playing.
+              </Trans>
             ) : (
-              <Trans>Enter plays the song, Delete removes it, Escape closes the queue.</Trans>
+              <Trans>
+                Enter plays the song, Delete removes it, Shift+F10 opens its menu, Escape closes the
+                queue.
+              </Trans>
             )}
           </p>
           {/* One scroller, two lists: the user's songs, then the station's or
@@ -609,6 +710,21 @@ export function QueueList({ inView = false }: { inView?: boolean }) {
               )}
             </div>
           </div>
+          {menu && menuItem && (
+            <QueueRowMenu
+              at={menu.at}
+              canNext={menuMoves(menuQi, index, userEnd, menuItem.auto).next}
+              canEnd={menuMoves(menuQi, index, userEnd, menuItem.auto).end}
+              onPlay={() => void run(t`Couldn't play that song`, PlaybackService.Jump(menuQi))}
+              onNext={() => moveFromMenu(menuItem, PlaybackService.MoveNext(menuQi))}
+              onEnd={() => moveFromMenu(menuItem, PlaybackService.MoveToEnd(menuQi))}
+              onRemove={() => void run(t`Couldn't remove it`, PlaybackService.Remove(menuQi))}
+              onClose={() => setMenu(null)}
+              returnFocus={() =>
+                scrollRef.current?.querySelector<HTMLElement>(`[data-qi="${menuQi}"]`)
+              }
+            />
+          )}
         </>
       )}
     </div>

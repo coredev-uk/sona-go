@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { focusedRow, moveForKey, rowForKey } from "./queue-focus";
+import { focusedRow, menuMoves, moveForKey, rowForKey } from "./queue-focus";
 
 const q = (...uids: number[]) => uids.map((uid) => ({ uid }));
 const uids = q(10, 11, 12, 13, 14);
@@ -60,5 +60,28 @@ describe("moveForKey", () => {
 
   it("ignores other keys", () => {
     expect(moveForKey("Home", 2, 5)).toBeNull();
+  });
+});
+
+describe("menuMoves", () => {
+  // Playing queue[1]; the user's songs are queue[2..4], AutoPlay's start at 5.
+  it("offers both for a song in the middle of what plays next", () => {
+    expect(menuMoves(3, 1, 5, false)).toEqual({ next: true, end: true });
+  });
+
+  it("leaves out the move that would change nothing", () => {
+    expect(menuMoves(2, 1, 5, false)).toEqual({ next: false, end: true });
+    expect(menuMoves(4, 1, 5, false)).toEqual({ next: true, end: false });
+    expect(menuMoves(2, 1, 3, false)).toEqual({ next: false, end: false });
+  });
+
+  it("offers neither for the playing song or for station and AutoPlay songs", () => {
+    expect(menuMoves(1, 1, 5, false)).toEqual({ next: false, end: false });
+    expect(menuMoves(6, 1, 5, true)).toEqual({ next: false, end: false });
+  });
+
+  it("counts from the first song when nothing is playing", () => {
+    expect(menuMoves(0, -1, 3, false)).toEqual({ next: false, end: true });
+    expect(menuMoves(1, -1, 3, false)).toEqual({ next: true, end: true });
   });
 });

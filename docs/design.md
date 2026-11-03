@@ -127,6 +127,7 @@ It is the recommended setting on software rendering (`WEBKIT_DISABLE_COMPOSITING
 - TanStack Virtual for any list that can exceed ~200 rows (library songs, albums, artists, long playlists). The content pane is the scroll element, so the shell never scrolls.
 - Fixed row heights (44px, or the grid's computed row height) so virtualisation never measures.
 - The playing track's row is marked in place wherever it appears: its index is replaced by an amber equaliser glyph and its title takes `--amber-ink`. It keeps that mark while the list scrolls or re-sorts. The glyph's bars move in three steps (a smooth loop held a full core of the web process for as long as a song played), and hold still while paused and while the Now Playing view or full-screen lyrics cover the list.
+- Queue rows have one menu, opened by right-click, Shift+F10 or the Menu key, or the ellipsis button that shares the hover and focus slot with the remove button (both replace the duration): Play, Play next (to the front of what plays next), Move to end (to the back of the user's songs, before AutoPlay's), then Remove. An item that would change nothing is left out (no Play next on the first song after the current one, no Move to end on the last of the user's), and the playing song has no menu. AutoPlay and station rows keep their place, so their menu is Play and Remove. A move is announced in a status region ("Airbag: moved to position 2 of 6") and a row with focus stays focused and in view.
 
 ## Home
 

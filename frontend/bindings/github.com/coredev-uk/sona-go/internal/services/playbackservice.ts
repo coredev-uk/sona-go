@@ -51,6 +51,21 @@ export function Move($from: number, to: number): $CancellablePromise<void> {
 }
 
 /**
+ * MoveNext moves queue[from] to play right after the current song.
+ */
+export function MoveNext($from: number): $CancellablePromise<void> {
+    return $Call.ByID(356019331, $from);
+}
+
+/**
+ * MoveToEnd moves queue[from] to the end of the user's songs, before
+ * AutoPlay's.
+ */
+export function MoveToEnd($from: number): $CancellablePromise<void> {
+    return $Call.ByID(1419651296, $from);
+}
+
+/**
  * Next plays the following item.
  */
 export function Next(): $CancellablePromise<void> {

@@ -151,6 +151,9 @@ src/
                           AutoPlay toggle and the station/AutoPlay part of the queue
                           (its own list under its heading, queue-lines.ts; AutoPlay rows
                           set back in grey and never moved, but removable and playable),
+                          queue rows' menu (QueueRowMenu.tsx: Play, Play next, Move to end,
+                          Remove; menuMoves in queue-focus.ts leaves out a no-op; Go's
+                          MoveNext/MoveToEnd; the panel announces a landed move),
                           live radio line in place of the seek bar (the song a local
                           broadcaster has on air, its cover in the bar and Now Playing,
                           snapshot onAir/broadcaster); mini player button;
@@ -624,7 +627,8 @@ under the pointer scrolls near its edges; Escape cancels. The drag image
 shows the items and what a drop would do. Targets: sidebar playlists and
 pinned playlists (add), the Pinned section (pin), a "New playlist" row,
 the queue panel (insert at the gap via `PlaybackService.Insert`, or reorder
-its own rows), and the playlist editor (reorder).
+its own rows; Alt+↑/↓ and the row menu's Play next and Move to end are the
+keyboard ways, via `Move`, `MoveNext` and `MoveToEnd`), and the playlist editor (reorder).
 
 ## Startup code
 

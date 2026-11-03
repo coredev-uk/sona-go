@@ -53,3 +53,20 @@ export function moveForKey(key: string, qi: number, userEnd: number): number | n
   const to = key === "ArrowUp" ? qi - 1 : key === "ArrowDown" ? qi + 1 : -1;
   return to >= 0 && to < userEnd ? to : null;
 }
+
+/**
+ * Which moves the context and row menu offer for the song at `qi`: to the
+ * front of what plays next, and to the end of the user's songs. Neither for
+ * the playing song or a station or AutoPlay song (those keep their place);
+ * each is left out where it would not change the order. `index` is the
+ * current song (-1 with none), `userEnd` where the user's part ends.
+ */
+export function menuMoves(
+  qi: number,
+  index: number,
+  userEnd: number,
+  auto: boolean,
+): { next: boolean; end: boolean } {
+  if (auto || qi <= index) return { next: false, end: false };
+  return { next: qi > index + 1, end: qi < userEnd - 1 };
+}

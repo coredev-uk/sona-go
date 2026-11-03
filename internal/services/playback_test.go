@@ -199,3 +199,68 @@ func TestPlayMusicVideo(t *testing.T) {
 		t.Fatalf("video from an unknown source: %v, want ErrInvalidArgument", err)
 	}
 }
+
+// Play next and Move to end from the queue panel change what the media
+// keys (MPRIS Next) and the queue view say plays next, and the panel is
+// told the queue changed.
+func TestQueueMoveReachesMediaKeysAndPanel(t *testing.T) {
+	ce := newCommandEnv(t, privatemode.Options{Override: privatemode.OverrideOn})
+	ce.signIn(t)
+	ctx := t.Context()
+	for _, n := range []string{"102", "103"} {
+		if _, err := ce.e.DB.W.ExecContext(ctx, `INSERT INTO tracks (library_id, catalog_id, name, duration_ms, updated_at) VALUES ('i.'||?, ?, ?, 60000, 0)`, n, n, n); err != nil {
+			t.Fatal(err)
+		}
+	}
+	refs := []TrackRef{{ID: "i.100", Source: SourceLibrary}, {ID: "i.101", Source: SourceLibrary}, {ID: "i.102", Source: SourceLibrary}, {ID: "i.103", Source: SourceLibrary}}
+	if err := ce.play.PlayItems(ctx, refs, 0, PlayFrom{}); err != nil {
+		t.Fatal(err)
+	}
+	order := func() []string {
+		var out []string
+		for _, it := range ce.play.Queue().Items {
+			out = append(out, it.ID)
+		}
+		return out
+	}
+	queueEvents := func() int {
+		ce.rec.mu.Lock()
+		defer ce.rec.mu.Unlock()
+		return slices.Index(ce.rec.events, EventPlaybackQueue) + 1 // 0: never
+	}
+	v := ce.play.Queue().Version
+
+	if err := ce.play.MoveNext(3); err != nil {
+		t.Fatal(err)
+	}
+	q := ce.play.Queue()
+	if got := order(); !slices.Equal(got, []string{"i.100", "i.103", "i.101", "i.102"}) || q.Index != 0 || q.Version == v {
+		t.Fatalf("play next: %v index %d version %d→%d", got, q.Index, v, q.Version)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for queueEvents() == 0 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if queueEvents() == 0 {
+		t.Fatal("the panel was not told the queue changed")
+	}
+	if err := ce.play.MoveToEnd(1); err != nil { // i.103 back to the end
+		t.Fatal(err)
+	}
+	if got := order(); !slices.Equal(got, []string{"i.100", "i.101", "i.102", "i.103"}) {
+		t.Fatalf("move to end: %v", got)
+	}
+	if err := ce.play.MoveNext(2); err != nil { // i.102 first
+		t.Fatal(err)
+	}
+	mp := NewMPRISPlayer(ce.e.Coord, func() {}, func() {}, discard())
+	if !mp.Snapshot().CanGoNext {
+		t.Fatal("MPRIS cannot go next")
+	}
+	if err := mp.Next(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := ce.eng.played(); got[len(got)-1] != "102" {
+		t.Fatalf("the media key's Next played %v, want the moved song (102) last", got)
+	}
+}
