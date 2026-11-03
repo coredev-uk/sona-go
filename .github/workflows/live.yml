@@ -29,7 +29,7 @@ concurrency:
 jobs:
   live:
     name: Apple Music live contract
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     environment: live
     permissions:
       contents: read
