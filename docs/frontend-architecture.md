@@ -130,8 +130,11 @@ src/
                           album's movements under their works (TrackList `heading`/`title`);
                           the artist page too (header and lead columns from 900px, the
                           release lists, its bands: `features/artist/artist.ts`)
-    player                now-playing bar, queue, now-playing view (motion cover of the
-                          playing album), playback mirror, lyrics (LyricsService: the best
+    player                now-playing bar, queue (QueueList: beside the page in QueuePanel,
+                          and as the view's Up next), now-playing view (the cover, sized
+                          from its measured box, and the song's label copy beside one
+                          pane, `ui.ts` `pane`: the lyric sheet or Up next; motion cover
+                          of the playing album), playback mirror, lyrics (LyricsService: the best
                           of the sources in Settings → Playback → Lyrics, refetched when
                           those settings change; per-song session timing offset, ±0.5 s;
                           word by word where the lyrics are word-timed (useWordSync),

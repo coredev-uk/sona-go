@@ -1357,6 +1357,7 @@ msgstr "Close"
 msgid "Close mini player"
 msgstr "Close mini player"
 
+#: src/features/player/NowPlayingBar.tsx
 #: src/features/player/shortcuts.ts
 msgid "Close now playing"
 msgstr "Close now playing"
@@ -2137,10 +2138,6 @@ msgstr "Couldn't unpin “{name}”"
 msgid "cover artwork full"
 msgstr "cover artwork full"
 
-#: src/features/player/NowPlayingView.tsx
-msgid "Cover only"
-msgstr "Cover only"
-
 #: src/features/settings/Storage.tsx
 msgid "Covers and backdrops kept on this computer so pages open without downloading them again. Above the limit, the artwork shown least recently is removed first."
 msgstr "Covers and backdrops kept on this computer so pages open without downloading them again. Above the limit, the artwork shown least recently is removed first."
@@ -2515,8 +2512,16 @@ msgid "Enter opens, Space plays, Shift+F10 shows more actions."
 msgstr "Enter opens, Space plays, Shift+F10 shows more actions."
 
 #: src/features/player/QueuePanel.tsx
+msgid "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes now playing."
+msgstr "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes now playing."
+
+#: src/features/player/QueuePanel.tsx
 msgid "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes the queue."
 msgstr "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes the queue."
+
+#: src/features/player/QueuePanel.tsx
+msgid "Enter plays the song, Delete removes it, Escape closes now playing."
+msgstr "Enter plays the song, Delete removes it, Escape closes now playing."
 
 #: src/features/player/QueuePanel.tsx
 msgid "Enter plays the song, Delete removes it, Escape closes the queue."
@@ -3262,6 +3267,7 @@ msgstr "Listening"
 
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
+#: src/features/player/NowPlayingView.tsx
 msgid "Live"
 msgstr "Live"
 
@@ -3398,6 +3404,7 @@ msgstr "Lyrics on time"
 msgid "lyrics room karaoke big large tv"
 msgstr "lyrics room karaoke big large tv"
 
+#: src/features/player/NowPlayingView.tsx
 #: src/features/settings/find.ts
 #: src/features/settings/LyricsRows.tsx
 msgid "Lyrics sources"
@@ -6846,6 +6853,7 @@ msgid "Unpin"
 msgstr "Unpin"
 
 #: src/features/player/NowPlayingBar.tsx
+#: src/features/player/NowPlayingView.tsx
 msgid "until {until}"
 msgstr "until {until}"
 
@@ -6857,6 +6865,10 @@ msgstr "Up Arrow"
 #: src/features/player/shortcuts.ts
 msgid "up next"
 msgstr "up next"
+
+#: src/features/player/NowPlayingView.tsx
+msgid "Up next"
+msgstr "Up next"
 
 #: src/features/player/QueuePanel.tsx
 msgid "Up next: {label}"
@@ -6955,6 +6967,7 @@ msgstr "Videos"
 msgid "View"
 msgstr "View"
 
+#: src/features/player/NowPlayingView.tsx
 #: src/features/song/index.ts
 msgid "View credits"
 msgstr "View credits"

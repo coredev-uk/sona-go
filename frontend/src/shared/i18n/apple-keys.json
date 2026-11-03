@@ -455,6 +455,10 @@
     "key": "ASE.Web.Platform.Shared.MediaComponents.Volume.Unmute"
   },
   {
+    "message": "Up next",
+    "key": "ASE.Web.Music.UpNext.Heading"
+  },
+  {
     "message": "Upcoming concerts",
     "key": "MusicUI.ArtistConcertsPage.Eyebrow"
   },

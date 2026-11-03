@@ -371,6 +371,36 @@ Library → Artists is an overview, not a launcher: every artist in the library 
 - **Narrow windows** (the page under 880px wide, which is a 940px window with the sidebar open): the list and the detail take turns. The list fills the page; choosing an artist (a click or Enter, which opens the filter's top match when nothing is marked) shows the detail with a ghost **‹ Artists** button above it; the artist's name is then the page's h1. The arrow keys move a cursor in the list without opening anything. The list stays mounted while hidden, so its scroll and filter survive. Back (the button or the browser's) returns to it with focus in the filter and the artist you left still marked; Escape in the detail moves focus to the button.
 - **States**: signed out, syncing, empty and error are the library gate's block in place of both columns (`Artists` title above it). Loading draws fourteen list rows. An artist's albums loading draw six cover tiles; failing, an inline error with Retry. No match: "No artist matches “xyz”" under the filter, and no detail open.
 
+## Now Playing
+
+The record held open: the sleeve on one side (the cover and its label copy), the insert on the other, one at a time: the lyric sheet (Lyrics, below) or the running order still to play (Up next). It covers the page column, so the sidebar, the top bar and the player bar with its transport stay where they are, over a wash of the cover (Backdrops).
+
+```
+┌ page column, the cover's wash ───────────────────────────────────────┐
+│ ┌──────────────────┐    Lyrics   Up next                         ✕  │  tabs at 16/600, Close
+│ │                  │    ──────                                       │
+│ │  cover 400       │                                                 │
+│ │  (320, 240)      │    the pane: the lyric sheet,                   │
+│ │                  │    or the queue's rows                          │
+│ └──────────────────┘                                                 │
+│ SKINNY (32/36)                                                       │
+│ Billie Eilish (16/500)                                               │
+│ HIT ME HARD AND SOFT (13)                                            │
+│ [E] [Preview]                                                        │
+│ ☆  ⊘  ⓘ View credits     Translation …   − Lyrics on time + ⤢ Full screen │  the pane's own strip
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+- **The sleeve.** The cover at a fixed size so Go serves it at its exact box: 400px from 1000px of column and 720px of height, 320px below either, 240px in a short window. Under it the label copy: the title at 32/36 (24/30 under a 320px cover), wrapping to three lines; the artist at 16/500 and the album at 13 muted, both links out that close the view; the marks the bar also shows (Explicit, Preview); then the song's own actions: Favourite, Suggest Less and View credits (the song page). A station shows its name, a Live line with the dot (amber while it plays) and what is on air, as the stream or the schedule names it. A local broadcaster is headed by the song its stream names on air (that song's cover, its artist under it), with the station, its genre and place, its description and an Open website button below; a music video shows its 16:9 frame at the cover's width and a Show video button.
+- **The insert.** Tabs named in words (Lyrics, Up next), the shown one in ink over a 2px ink rule: not amber, which stays with what plays. A station or a song outside the catalogue has no lyrics, so its row holds only the heading Up next. The view reopens on the pane it showed last; the bar's Lyrics opens it on the lyrics and its Queue (or Q) on Up next, and each closes the view when its pane is already showing. The queue beside the page steps out while the view is open and comes back when it closes, so the queue is never drawn twice or hidden under the view.
+- **Each pane's controls sit at its foot**, as full screen keeps its own: the lyric sheet's Translation and Pronunciation at the start, the timing nudge and Full screen at the end; Up next's line ("9 songs after this one", or the station it plays from) at the start, Clear and AutoPlay at the end. The tab row holds only the tabs and Close, so the column opens on the words.
+- **One text edge.** The tabs, the lyric lines, the queue's covers and the foot's line all start 12px into the column. Up next is the queue's own list (rows, keys, drag and drop); on the wash its hover and focus fill is ink at 6%, not the opaque `--hover`, and the playing row's equaliser holds still under the view like every other (Lists).
+- **The sheet's reading band** is measured from the sheet's own height, not the window's (a size container: the first line starts 14% down), so the first line sits at the band's top however much the header above takes.
+- **Narrow** (under 880px of column, a 940px window with the sidebar): the sleeve becomes a header, the cover at 168px beside the label copy and Close at its end, over the tabs and the pane at full width.
+- **No lyrics**: the usual dashed block ("No lyrics for this song", the reason) with one link, Lyrics sources, to Settings → Playback.
+- **Cost.** Nothing new moves, and nothing beneath it is drawn: the page under the view is `invisible` as well as `inert`, because WebKit paints a covered page, and every frame of the motion cover repainted the page's own header under it (the album page's video, its text; about a third more web-process CPU). The layout is measured once and on resize (a ResizeObserver), and re-renders only when its size class changes. The pane not shown is unmounted, so on Up next the lyrics' timers are gone. Motion artwork plays on the cover from one rendition (420) at every size, so a resize never reloads it.
+- **Focus.** Opening the view focuses the shown tab (Close when there is one pane); leaving full screen returns to Full screen; Escape closes the view, from anywhere in it.
+
 ## Lyrics
 
 A lyric sheet, the insert in a record's sleeve: the words set in verses down one column in the house type, with amber marking only where the voice is. The now-playing view's lyrics column and full-screen lyrics share it (`features/player/LyricBody.tsx`, `useLyricsView.ts`); the mini player shows the line being sung (`SungLine.tsx`).
