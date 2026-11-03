@@ -600,6 +600,13 @@ function PaneTabs({ panes, shown }: { panes: readonly Pane[]; shown: Pane }) {
   const setPane = useUI((s) => s.setPane);
   const { t } = useLingui();
   const names: Record<Pane, string> = { lyrics: t`Lyrics`, queue: t`Up next` };
+  // The pane changed from outside the tabs (the bar's Queue or Lyrics, Q):
+  // a focused tab follows it, so the focus ring never sits on the pane not shown.
+  useEffect(() => {
+    const focused = document.activeElement;
+    if (focused?.getAttribute("role") === "tab" && focused.id !== tabId(shown))
+      document.getElementById(tabId(shown))?.focus();
+  }, [shown]);
   if (panes.length < 2) {
     return <h3 className="text-heading leading-10 text-ink">{names[shown]}</h3>;
   }
