@@ -5,6 +5,7 @@ import * as AudioService from "./audioservice.js";
 import * as AuthService from "./authservice.js";
 import * as CDMService from "./cdmservice.js";
 import * as CatalogService from "./catalogservice.js";
+import * as ConcertsService from "./concertsservice.js";
 import * as DesktopService from "./desktopservice.js";
 import * as DiscoverService from "./discoverservice.js";
 import * as IntegrationsService from "./integrationsservice.js";
@@ -28,6 +29,7 @@ export {
     AuthService,
     CDMService,
     CatalogService,
+    ConcertsService,
     DesktopService,
     DiscoverService,
     IntegrationsService,
@@ -58,6 +60,7 @@ export {
     Art,
     Artist,
     ArtistAlbums,
+    ArtistConcerts,
     ArtistDetail,
     ArtistEntry,
     ArtistShelf,
@@ -75,6 +78,14 @@ export {
     ChartsPage,
     ClearResult,
     CollaborationRole,
+    Concert,
+    ConcertArtist,
+    ConcertLocation,
+    ConcertPlace,
+    ConcertTicket,
+    ConcertVenue,
+    ConcertsPage,
+    ConcertsRequest,
     Counts,
     Credit,
     CreditGroup,
