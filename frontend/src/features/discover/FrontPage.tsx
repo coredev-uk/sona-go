@@ -173,7 +173,7 @@ export function FrontPage({ items }: { items: readonly Item[] }) {
         {width > 0 && count > 1 && (
           <div className="flex min-w-0 flex-col">
             <ul
-              aria-label={t`Featured cards`}
+              aria-label={t`Featured`}
               className="-mx-2 grid grid-flow-col"
               style={{
                 gridTemplateColumns: `repeat(${layout.columns}, minmax(0, 1fr))`,

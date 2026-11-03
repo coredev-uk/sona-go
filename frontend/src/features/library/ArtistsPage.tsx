@@ -369,7 +369,7 @@ function SongsOnly({
   if (artist.songs === 0) {
     return (
       <p className="max-w-[60ch] text-ui text-ink-muted">
-        <Trans>Nothing by {name} is in your library yet.</Trans>
+        <Trans>Add music by {name} to collect it here.</Trans>
       </p>
     );
   }

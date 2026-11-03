@@ -100,11 +100,8 @@ export function ConcertsShelf() {
       {!data ? (
         <AgendaSkeleton rows={3} />
       ) : data.concerts.length === 0 ? (
-        <EmptyState
-          title={t`No concerts near ${city}`}
-          action={{ label: t`Choose another city`, to: "/concerts" }}
-        >
-          <Trans>Apple Music lists no upcoming concerts in this area.</Trans>
+        <EmptyState title={t`No concerts`} action={{ label: t`Set location`, to: "/concerts" }}>
+          <Trans>No upcoming concerts. Please check back later.</Trans>
         </EmptyState>
       ) : (
         <Rows shows={data.concerts.slice(0, HOME_SHOWS)} columns={2} />

@@ -300,20 +300,16 @@ function NoConcerts({
   const { t } = useLingui();
   const city = location?.name ?? "";
   return filtered ? (
-    <EmptyState title={t`No concerts match`} action={{ label: t`Clear filters`, onClick: onClear }}>
+    <EmptyState title={t`No concerts`} action={{ label: t`Clear filters`, onClick: onClear }}>
       <Trans>
         Apple Music lists nothing near {city} for these filters. Widen the dates or choose another
         genre.
       </Trans>
     </EmptyState>
   ) : (
-    <EmptyState
-      title={t`No concerts near ${city}`}
-      action={{ label: t`Choose another city`, onClick: onChoose }}
-    >
-      <Trans>
-        Apple Music lists no upcoming concerts in this area. A larger city nearby may have some.
-      </Trans>
+    <EmptyState title={t`No concerts`} action={{ label: t`Set location`, onClick: onChoose }}>
+      <Trans>No upcoming concerts. Please check back later.</Trans>{" "}
+      <Trans>A larger city nearby may have some.</Trans>
     </EmptyState>
   );
 }
