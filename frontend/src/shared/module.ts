@@ -111,7 +111,7 @@ export interface ShellSlots {
   Provider?: ComponentType<{ children: ReactNode }>;
   /** Beside the page, right of it (the queue); renders null when closed. */
   Aside?: ComponentType;
-  /** Covers the page column; the page is inert while `useOpen` is true. */
+  /** Covers the page column; the page is inert and hidden (not painted) while `useOpen` is true. */
   overlay?: { Component: ComponentType; useOpen: () => boolean };
   /** Across the bottom of the window (the now-playing bar). */
   Bottom?: ComponentType;

@@ -332,7 +332,7 @@ export interface ShellSlots {
   Provider?: ComponentType<{ children: ReactNode }>;
   /** Beside the page, right of it (the queue); renders null when closed. */
   Aside?: ComponentType;
-  /** Covers the page column; the page is inert while `useOpen` is true. */
+  /** Covers the page column; the page is inert and hidden while `useOpen` is true. */
   overlay?: { Component: ComponentType; useOpen: () => boolean };
   /** Across the bottom of the window (the now-playing bar). */
   Bottom?: ComponentType;
@@ -401,7 +401,9 @@ as `TRoute["fullPath"]`).
   for you page: `/library/made-for-you` redirects to Home.
 - `app/shell/AppShell.tsx`: wraps the layout in every `Provider` slot, puts
   `Aside` slots beside `main#content`, `overlay` components over the page
-  column (the page is `inert` while any overlay's `useOpen()` is true), and
+  column (the page is `inert` and `invisible` while any overlay's `useOpen()` is
+  true: WebKit paints a covered page beneath the overlay, and each frame of the
+  overlay's motion cover repainted it), and
   `Bottom` slots across the window's foot, then the `Layer` slots over all
   of it: a module's own modal that covers the sidebar, top bar and player
   bar too (the first-run setup), with the window behind it inert while it
