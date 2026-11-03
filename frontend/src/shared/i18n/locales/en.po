@@ -613,6 +613,10 @@ msgstr "Adds each song you play to your Last.fm profile."
 msgid "Adds each song you play to your public ListenBrainz history."
 msgstr "Adds each song you play to your public ListenBrainz history."
 
+#: src/features/settings/DeveloperTools.tsx
+msgid "Adds Inspect Element to the right-click menu and the button below: the console, network and storage of Sona's page, for debugging and writing plugins. Applies from Sona's next start (SONA_DEVTOOLS=1 turns it on for one run). Only paste into the console what you understand: it runs with Sona's access."
+msgstr "Adds Inspect Element to the right-click menu and the button below: the console, network and storage of Sona's page, for debugging and writing plugins. Applies from Sona's next start (SONA_DEVTOOLS=1 turns it on for one run). Only paste into the console what you understand: it runs with Sona's access."
+
 #: src/features/onboarding/DesktopStep.tsx
 #: src/features/settings/DesktopRows.tsx
 msgid "Adds Sona to your desktop's startup applications."
@@ -1769,6 +1773,10 @@ msgstr "Couldn't open the mini player"
 msgid "Couldn't open the release"
 msgstr "Couldn't open the release"
 
+#: src/features/settings/DeveloperTools.tsx
+msgid "Couldn't open the web inspector"
+msgstr "Couldn't open the web inspector"
+
 #: src/features/playlist/commands.ts
 msgid "Couldn't pin “{name}”"
 msgstr "Couldn't pin “{name}”"
@@ -2177,6 +2185,11 @@ msgstr "Description"
 msgid "Desktop"
 msgstr "Desktop"
 
+#: src/features/settings/DeveloperTools.tsx
+#: src/features/settings/find.ts
+msgid "Developer tools"
+msgstr "Developer tools"
+
 #: src/features/settings/Updates.tsx
 msgid "Development build ({current}): not checked for updates"
 msgstr "Development build ({current}): not checked for updates"
@@ -2184,6 +2197,14 @@ msgstr "Development build ({current}): not checked for updates"
 #: src/features/settings/Updates.tsx
 msgid "Development build (no version): not checked for updates"
 msgstr "Development build (no version): not checked for updates"
+
+#: src/features/settings/find.ts
+msgid "devtools, console, inspect element"
+msgstr "devtools, console, inspect element"
+
+#: src/features/settings/find.ts
+msgid "devtools, console, inspect element, plugins, debug"
+msgstr "devtools, console, inspect element, plugins, debug"
 
 #: src/app/shell/StatusBanner.tsx
 #: src/features/settings/find.ts
@@ -3998,6 +4019,7 @@ msgstr "Only what is synced to this computer is searched. Try Apple Music for ev
 #: src/features/playlist/commands.ts
 #: src/features/playlist/PlaylistDialogs.tsx
 #: src/features/playlist/PlaylistSidebar.tsx
+#: src/features/settings/DeveloperTools.tsx
 msgid "Open"
 msgstr "Open"
 
@@ -4035,6 +4057,11 @@ msgstr "Open the equaliser"
 #: src/features/auth/Account.tsx
 msgid "Open the page again"
 msgstr "Open the page again"
+
+#: src/features/settings/DeveloperTools.tsx
+#: src/features/settings/find.ts
+msgid "Open the web inspector"
+msgstr "Open the web inspector"
 
 #: src/shared/items/LinkList.tsx
 msgid "Opens in your browser"
@@ -5182,6 +5209,10 @@ msgstr "Shown under each line where a source has a translation into this languag
 #: src/features/radio/bands.ts
 msgid "Shows and episodes"
 msgstr "Shows and episodes"
+
+#: src/features/settings/DeveloperTools.tsx
+msgid "Shows the inspector docked in Sona's window."
+msgstr "Shows the inspector docked in Sona's window."
 
 #: src/features/onboarding/ConnectionsStep.tsx
 msgid "Shows the song you're playing as your Discord activity."
@@ -6465,6 +6496,10 @@ msgstr "Turn off the sleep timer"
 msgid "Turn on private listening"
 msgstr "Turn on private listening"
 
+#: src/features/settings/DeveloperTools.tsx
+msgid "Turn on Web inspector and restart Sona first."
+msgstr "Turn on Web inspector and restart Sona first."
+
 #: src/features/album/AlbumPage.tsx
 msgid "Unavailable"
 msgstr "Unavailable"
@@ -6671,6 +6706,11 @@ msgstr "Warning"
 #: src/features/video/VideoPage.tsx
 msgid "Watch in Apple Music"
 msgstr "Watch in Apple Music"
+
+#: src/features/settings/DeveloperTools.tsx
+#: src/features/settings/find.ts
+msgid "Web inspector"
+msgstr "Web inspector"
 
 #: src/features/settings/MotionDiagnostics.ts
 msgid "WebKit couldn't play it · {when}"

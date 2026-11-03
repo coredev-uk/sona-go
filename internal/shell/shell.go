@@ -68,6 +68,10 @@ type Options struct {
 	// choice (Settings → General → Title bar) it decides whether the main
 	// window is frameless (titlebar.go).
 	TitleBar windowchrome.Platform
+	// DeveloperTools is the main window's web inspector (Settings →
+	// Diagnostics → Developer tools, SONA_DEVTOOLS=1, or a development
+	// build: main decides); it is fixed when the window is created.
+	DeveloperTools bool
 	// StartRoute is the route the main window opens on
 	// (services.StartRoute: the first-run setup, or the Desktop
 	// settings' page).
@@ -127,7 +131,8 @@ func New(o Options) *Shell {
 		// Sona's own title bar (Windows, Linux stacking desktops): no
 		// frame; the top bar drags, and the web runtime resizes from the
 		// edges.
-		Frameless: kind == windowchrome.KindDrawn,
+		Frameless:       kind == windowchrome.KindDrawn,
+		DevToolsEnabled: o.DeveloperTools,
 		// The hash router starts on the chosen page; settings and the
 		// cached account are read before the first paint, nothing else.
 		URL:   "/#" + o.StartRoute,

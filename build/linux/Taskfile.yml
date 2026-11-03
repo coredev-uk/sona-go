@@ -21,7 +21,7 @@ tasks:
     vars:
       # A command-line -tags replaces the one in GOFLAGS (devenv's
       # -tags=sqlite_fts5), so production builds name sqlite_fts5 again.
-      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production,sqlite_fts5{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false{{end}}'
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production,sqlite_fts5,devtools{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false{{end}}'
       # -X main.version carries VERSION into the binary (`sona --version`,
       # Diagnostics, the log). Production builds also compile in the
       # Last.fm API key and secret and the Discord application ID from

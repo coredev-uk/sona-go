@@ -211,7 +211,7 @@ describe("the setting index", () => {
       (e) =>
         e.section === section &&
         (!e.when || e.when(context)) &&
-        !(section === "diagnostics" && e.group === "Rendering"),
+        !(section === "diagnostics" && (e.group === "Rendering" || e.group === "Developer tools")),
     );
     expect(expected.length).toBeGreaterThan(0);
     const missing = expected.filter((e) => !document.querySelector(`[data-setting="${e.id}"]`));

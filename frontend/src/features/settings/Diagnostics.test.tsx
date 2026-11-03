@@ -2,7 +2,7 @@ import type { Settings } from "@bindings/config";
 import { RealtimeRefusal, SandboxGap } from "@bindings/playback/models";
 import type { Capabilities, CDMStatus, Diagnostics } from "@bindings/services";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useCdm } from "@/features/cdm";
@@ -19,15 +19,22 @@ const capabilities = vi.fn<() => Promise<Capabilities>>();
 const diagnostics = vi.fn<() => Promise<Diagnostics>>();
 
 const settings = {
-  diagnostics: { disableDmabufRenderer: false, disableCompositingMode: false },
+  diagnostics: {
+    disableDmabufRenderer: false,
+    disableCompositingMode: false,
+    developerTools: false,
+  },
 } as unknown as Settings;
+const updateSettings = vi.fn();
+const openDeveloperTools = vi.fn<() => Promise<void>>();
 
 vi.mock("@bindings/services", () => ({
   SystemService: {
     Diagnostics: () => diagnostics(),
     Settings: () => Promise.resolve(settings),
-    UpdateSettings: vi.fn(),
+    UpdateSettings: (next: Settings) => updateSettings(next),
   },
+  DesktopService: { OpenDeveloperTools: () => openDeveloperTools() },
   PlatformService: { Capabilities: () => capabilities() },
   CDMService: { Retry: vi.fn(), Status: () => new Promise(() => {}) },
   MotionService: { Status: () => new Promise(() => {}), Report: vi.fn() },
@@ -154,6 +161,34 @@ describe("DiagnosticsSection", () => {
     for (const id of ["disableDmabufRenderer", "disableCompositingMode"]) {
       expect(document.querySelector(`[data-setting="${id}"] [role="switch"]`)).not.toBeNull();
     }
+  });
+
+  it("turns the web inspector on from the next start and opens it only while it is on", async () => {
+    await renderSection(linuxCapabilities(), report(linuxPlayback({}, true), "secret-service"));
+    const toggle = await screen.findByRole("switch", { name: "Web inspector" });
+    const open = screen.getByRole("button", { name: "Open the web inspector" });
+    expect((open as HTMLButtonElement).disabled).toBe(true);
+    expect(shown("Turn on Web inspector and restart Sona first.")).toBe(true);
+    fireEvent.click(toggle);
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledOnce());
+    expect(updateSettings.mock.calls[0][0].diagnostics.developerTools).toBe(true);
+  });
+
+  it("opens the web inspector when this run has it on", async () => {
+    openDeveloperTools.mockResolvedValue();
+    await renderSection(
+      { ...linuxCapabilities(), developerTools: true },
+      report(linuxPlayback({}, true), "secret-service"),
+    );
+    const open = await screen.findByRole("button", { name: "Open the web inspector" });
+    expect((open as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(open);
+    expect(openDeveloperTools).toHaveBeenCalledOnce();
+  });
+
+  it("has no web inspector switch where the web view is not WebKitGTK", async () => {
+    await renderSection(bareCapabilities(), report({ engine: "" }, "keychain"));
+    expect(shown("Web inspector")).toBe(false);
   });
 
   it("names the CDM's state, source, version and update check", async () => {

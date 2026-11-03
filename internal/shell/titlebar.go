@@ -41,6 +41,22 @@ func (s *Shell) CloseMain() {
 	s.close(s.main)
 }
 
+// DeveloperTools reports whether the main window was created with its web
+// inspector on.
+func (s *Shell) DeveloperTools() bool { return s.o.DeveloperTools }
+
+// OpenDeveloperTools shows the main window's web inspector (docked in the
+// window). It fails with errors.ErrUnsupported when the window was created
+// without developer tools.
+func (s *Shell) OpenDeveloperTools() error {
+	if !s.o.DeveloperTools {
+		return errors.ErrUnsupported
+	}
+	s.ShowMain()
+	s.main.OpenDevTools()
+	return nil
+}
+
 // ShowWindowMenu opens the desktop's window menu for the main window at
 // the pointer, for a right click on Sona's title bar. It fails with
 // errors.ErrUnsupported where the platform has no such menu or Sona can't

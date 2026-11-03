@@ -222,6 +222,36 @@ func TestDiagnosticsApplyEnv(t *testing.T) {
 	}
 }
 
+// The inspector is on by the setting or by SONA_DEVTOOLS=1, and only 1
+// counts (so a stray "0" or "false" keeps it off).
+func TestDeveloperToolsOn(t *testing.T) {
+	env := func(v string) func(string) string {
+		return func(k string) string {
+			if k != EnvDeveloperTools {
+				t.Errorf("read %q", k)
+			}
+			return v
+		}
+	}
+	for _, tc := range []struct {
+		name string
+		d    Diagnostics
+		env  string
+		want bool
+	}{
+		{"default", Diagnostics{}, "", false},
+		{"setting", Diagnostics{DeveloperTools: true}, "", true},
+		{"environment", Diagnostics{}, "1", true},
+		{"environment off", Diagnostics{}, "0", false},
+		{"environment words", Diagnostics{}, "true", false},
+		{"setting wins over a 0", Diagnostics{DeveloperTools: true}, "0", true},
+	} {
+		if got := tc.d.DeveloperToolsOn(env(tc.env)); got != tc.want {
+			t.Errorf("%s: DeveloperToolsOn = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
 // A null or partly blank shortcuts object loads as an object holding only
 // real overrides: the frontend reads it without a nil check, and a blank
 // binding means "use the default", not "no key".

@@ -29,6 +29,11 @@ type Windows interface {
 	// ShowWindowMenu opens the desktop's window menu at the latest right
 	// click on the main window; errors.ErrUnsupported where Sona can't.
 	ShowWindowMenu() error
+	// DeveloperTools reports whether the main window has its web inspector
+	// on this run, and OpenDeveloperTools shows it; errors.ErrUnsupported
+	// when it is off.
+	DeveloperTools() bool
+	OpenDeveloperTools() error
 	// MainState is the main window's maximised and full-screen state, and
 	// WatchMain follows its changes.
 	MainState() windowchrome.WindowState
@@ -101,6 +106,17 @@ func (d *DesktopService) ShowWindowMenu() error {
 	err := d.o.Windows.ShowWindowMenu()
 	if errors.Is(err, errors.ErrUnsupported) {
 		return unsupported("the window menu")
+	}
+	return err
+}
+
+// OpenDeveloperTools shows the main window's web inspector, for debugging
+// and writing plugins (Capabilities.DeveloperTools); otherwise it fails
+// with code unsupported.
+func (d *DesktopService) OpenDeveloperTools() error {
+	err := d.o.Windows.OpenDeveloperTools()
+	if errors.Is(err, errors.ErrUnsupported) {
+		return unsupported("the developer tools")
 	}
 	return err
 }

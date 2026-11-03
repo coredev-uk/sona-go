@@ -613,6 +613,10 @@ msgstr ""
 msgid "Adds each song you play to your public ListenBrainz history."
 msgstr ""
 
+#: src/features/settings/DeveloperTools.tsx
+msgid "Adds Inspect Element to the right-click menu and the button below: the console, network and storage of Sona's page, for debugging and writing plugins. Applies from Sona's next start (SONA_DEVTOOLS=1 turns it on for one run). Only paste into the console what you understand: it runs with Sona's access."
+msgstr ""
+
 #: src/features/onboarding/DesktopStep.tsx
 #: src/features/settings/DesktopRows.tsx
 msgid "Adds Sona to your desktop's startup applications."
@@ -1769,6 +1773,10 @@ msgstr ""
 msgid "Couldn't open the release"
 msgstr ""
 
+#: src/features/settings/DeveloperTools.tsx
+msgid "Couldn't open the web inspector"
+msgstr ""
+
 #: src/features/playlist/commands.ts
 msgid "Couldn't pin “{name}”"
 msgstr ""
@@ -2177,12 +2185,25 @@ msgstr ""
 msgid "Desktop"
 msgstr ""
 
+#: src/features/settings/DeveloperTools.tsx
+#: src/features/settings/find.ts
+msgid "Developer tools"
+msgstr ""
+
 #: src/features/settings/Updates.tsx
 msgid "Development build ({current}): not checked for updates"
 msgstr ""
 
 #: src/features/settings/Updates.tsx
 msgid "Development build (no version): not checked for updates"
+msgstr ""
+
+#: src/features/settings/find.ts
+msgid "devtools, console, inspect element"
+msgstr ""
+
+#: src/features/settings/find.ts
+msgid "devtools, console, inspect element, plugins, debug"
 msgstr ""
 
 #: src/app/shell/StatusBanner.tsx
@@ -3998,6 +4019,7 @@ msgstr ""
 #: src/features/playlist/commands.ts
 #: src/features/playlist/PlaylistDialogs.tsx
 #: src/features/playlist/PlaylistSidebar.tsx
+#: src/features/settings/DeveloperTools.tsx
 msgid "Open"
 msgstr ""
 
@@ -4034,6 +4056,11 @@ msgstr ""
 
 #: src/features/auth/Account.tsx
 msgid "Open the page again"
+msgstr ""
+
+#: src/features/settings/DeveloperTools.tsx
+#: src/features/settings/find.ts
+msgid "Open the web inspector"
 msgstr ""
 
 #: src/shared/items/LinkList.tsx
@@ -5181,6 +5208,10 @@ msgstr ""
 
 #: src/features/radio/bands.ts
 msgid "Shows and episodes"
+msgstr ""
+
+#: src/features/settings/DeveloperTools.tsx
+msgid "Shows the inspector docked in Sona's window."
 msgstr ""
 
 #: src/features/onboarding/ConnectionsStep.tsx
@@ -6465,6 +6496,10 @@ msgstr ""
 msgid "Turn on private listening"
 msgstr ""
 
+#: src/features/settings/DeveloperTools.tsx
+msgid "Turn on Web inspector and restart Sona first."
+msgstr ""
+
 #: src/features/album/AlbumPage.tsx
 msgid "Unavailable"
 msgstr ""
@@ -6670,6 +6705,11 @@ msgstr ""
 #: src/features/player/VideoView.tsx
 #: src/features/video/VideoPage.tsx
 msgid "Watch in Apple Music"
+msgstr ""
+
+#: src/features/settings/DeveloperTools.tsx
+#: src/features/settings/find.ts
+msgid "Web inspector"
 msgstr ""
 
 #: src/features/settings/MotionDiagnostics.ts

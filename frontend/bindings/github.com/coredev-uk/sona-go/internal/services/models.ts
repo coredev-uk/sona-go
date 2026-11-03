@@ -1026,6 +1026,14 @@ export class Capabilities {
     "webkitGtk": boolean;
 
     /**
+     * DeveloperTools: the main window's web inspector is on for this run
+     * (a development build, Settings → Diagnostics → Developer tools from
+     * the start before, or SONA_DEVTOOLS=1); DesktopService.OpenDeveloperTools
+     * shows it. The setting itself only applies from the next start.
+     */
+    "developerTools": boolean;
+
+    /**
      * WindowControls is how the main window's title bar works here; the
      * frontend lays out its top bar from it and the title bar setting.
      */
@@ -1069,6 +1077,9 @@ export class Capabilities {
         if (!("webkitGtk" in $$source)) {
             this["webkitGtk"] = false;
         }
+        if (!("developerTools" in $$source)) {
+            this["developerTools"] = false;
+        }
         if (!("windowControls" in $$source)) {
             this["windowControls"] = (new WindowControls());
         }
@@ -1081,13 +1092,13 @@ export class Capabilities {
      */
     static createFrom($$source: any = {}): Capabilities {
         const $$createField1_0 = $$createType18;
-        const $$createField12_0 = $$createType19;
+        const $$createField13_0 = $$createType19;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("playback" in $$parsedSource) {
             $$parsedSource["playback"] = $$createField1_0($$parsedSource["playback"]);
         }
         if ("windowControls" in $$parsedSource) {
-            $$parsedSource["windowControls"] = $$createField12_0($$parsedSource["windowControls"]);
+            $$parsedSource["windowControls"] = $$createField13_0($$parsedSource["windowControls"]);
         }
         return new Capabilities($$parsedSource as Partial<Capabilities>);
     }
