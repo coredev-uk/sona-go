@@ -409,6 +409,10 @@ msgstr "{songsOut, plural, one {Play the # song out now} other {Play the # songs
 msgid "{startupMs} ms"
 msgstr "{startupMs} ms"
 
+#: src/features/concerts/dates.ts
+msgid "{text} away"
+msgstr "{text} away"
+
 #: src/features/search/SearchPage.tsx
 msgid "{title} for {q}"
 msgstr "{title} for {q}"
@@ -701,6 +705,7 @@ msgstr "All"
 msgid "All charts"
 msgstr "All charts"
 
+#: src/features/concerts/ConcertsPage.tsx
 #: src/features/discover/ChartsPage.tsx
 msgid "All genres"
 msgstr "All genres"
@@ -737,6 +742,10 @@ msgstr "Always light"
 #: src/features/settings/find.ts
 msgid "animation, motion, blur"
 msgstr "animation, motion, blur"
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Any date"
+msgstr "Any date"
 
 #: src/features/onboarding/steps.ts
 #: src/features/settings/find.ts
@@ -844,6 +853,18 @@ msgstr "Apple Music isn't available in this account's country or region."
 #: src/features/radio/RadioPage.tsx
 msgid "Apple Music lists no live radio for your storefront right now."
 msgstr "Apple Music lists no live radio for your storefront right now."
+
+#: src/features/concerts/Upcoming.tsx
+msgid "Apple Music lists no upcoming concerts in this area."
+msgstr "Apple Music lists no upcoming concerts in this area."
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Apple Music lists no upcoming concerts in this area. A larger city nearby may have some."
+msgstr "Apple Music lists no upcoming concerts in this area. A larger city nearby may have some."
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Apple Music lists nothing near {city} for these filters. Widen the dates or choose another genre."
+msgstr "Apple Music lists nothing near {city} for these filters. Widen the dates or choose another genre."
 
 #: src/shared/components/DetailStates.tsx
 msgid "Apple Music needs a signed-in account to show this album."
@@ -1262,6 +1283,19 @@ msgstr "Checks, logs and bug reports"
 msgid "Choose a song, album or playlist to start"
 msgstr "Choose a song, album or playlist to start"
 
+#: src/features/concerts/ConcertsPage.tsx
+#: src/features/concerts/Upcoming.tsx
+msgid "Choose another city"
+msgstr "Choose another city"
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Choose both dates"
+msgstr "Choose both dates"
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Choose dates…"
+msgstr "Choose dates…"
+
 #: src/features/library/views.tsx
 msgid "Choose Favourite on any song, here or in Apple Music, and it is kept here and in your library."
 msgstr "Choose Favourite on any song, here or in Apple Music, and it is kept here and in your library."
@@ -1273,6 +1307,10 @@ msgstr "Choose music in the main window"
 #: src/features/auth/Account.tsx
 msgid "Choose one of the trusted phone numbers on this Apple Account."
 msgstr "Choose one of the trusted phone numbers on this Apple Account."
+
+#: src/features/concerts/LocationDialog.tsx
+msgid "Cities that match"
+msgstr "Cities that match"
 
 #. Equaliser preset
 #: src/features/equalizer/curve.ts
@@ -1291,6 +1329,10 @@ msgstr "Clear caches"
 #: src/features/settings/find.ts
 msgid "Clear caches, offline"
 msgstr "Clear caches, offline"
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Clear filters"
+msgstr "Clear filters"
 
 #: src/features/search/SearchField.tsx
 msgid "Clear search"
@@ -1392,6 +1434,20 @@ msgstr "Composed by {composer}"
 #: src/features/song/credits.ts
 msgid "Composition and lyrics"
 msgstr "Composition and lyrics"
+
+#: src/features/concerts/ConcertsPage.tsx
+#: src/features/concerts/index.ts
+#: src/features/concerts/Upcoming.tsx
+msgid "Concerts"
+msgstr "Concerts"
+
+#: src/features/concerts/LocationDialog.tsx
+msgid "Concerts are listed near the city you choose. Sona keeps your choice on this computer and tells Apple Music only the area it covers."
+msgstr "Concerts are listed near the city you choose. Sona keeps your choice on this computer and tells Apple Music only the area it covers."
+
+#: src/features/concerts/Upcoming.tsx
+msgid "Concerts near {city}"
+msgstr "Concerts near {city}"
 
 #: src/features/onboarding/ConnectionsStep.tsx
 #: src/features/settings/Connections.tsx
@@ -1667,6 +1723,10 @@ msgstr "Couldn't load the categories"
 msgid "Couldn't load the charts"
 msgstr "Couldn't load the charts"
 
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Couldn't load the concerts"
+msgstr "Couldn't load the concerts"
+
 #: src/features/equalizer/EqualizerPage.tsx
 msgid "Couldn't load the equaliser"
 msgstr "Couldn't load the equaliser"
@@ -1856,6 +1916,7 @@ msgstr "Couldn't reach {name}. Check your connection and try again."
 msgid "Couldn't reach Apple"
 msgstr "Couldn't reach Apple"
 
+#: src/features/concerts/ConcertsPage.tsx
 #: src/features/discover/freshness.ts
 msgid "Couldn't reach Apple Music · showing the copy from {when}"
 msgstr "Couldn't reach Apple Music · showing the copy from {when}"
@@ -1986,6 +2047,10 @@ msgstr "Couldn't save the playlist"
 #: src/features/settings/queries.ts
 msgid "Couldn't save the setting"
 msgstr "Couldn't save the setting"
+
+#: src/features/concerts/queries.ts
+msgid "Couldn't save your city"
+msgstr "Couldn't save your city"
 
 #: src/features/search/SearchPage.tsx
 msgid "Couldn't search Apple Music"
@@ -2171,6 +2236,10 @@ msgstr "Data saver"
 #: src/features/settings/QualityRow.tsx
 msgid "Data saver · 64 kbps"
 msgstr "Data saver · 64 kbps"
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Dates"
+msgstr "Dates"
 
 #: src/features/settings/summaries.ts
 msgid "Default keys"
@@ -2618,9 +2687,17 @@ msgstr "Filter artists"
 msgid "Filter by action or key"
 msgstr "Filter by action or key"
 
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Filter concerts"
+msgstr "Filter concerts"
+
 #: src/features/settings/Shortcuts.tsx
 msgid "Filter shortcuts"
 msgstr "Filter shortcuts"
+
+#: src/features/concerts/LocationDialog.tsx
+msgid "Find a city"
+msgstr "Find a city"
 
 #: src/features/commands/CommandPalette.tsx
 msgid "Find a page, action or music in your library"
@@ -2689,6 +2766,7 @@ msgid "Free memory when idle"
 msgstr "Free memory when idle"
 
 #: src/features/artist/ArtistPage.tsx
+#: src/features/concerts/ConcertsPage.tsx
 msgid "From"
 msgstr "From"
 
@@ -2718,6 +2796,10 @@ msgstr "General"
 msgid "Genre"
 msgstr "Genre"
 
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Genres"
+msgstr "Genres"
+
 #: src/features/reminders/RemindButton.tsx
 msgid "Get a notification when it's out"
 msgstr "Get a notification when it's out"
@@ -2725,6 +2807,18 @@ msgstr "Get a notification when it's out"
 #: src/features/onboarding/SetupLayer.tsx
 msgid "Get started"
 msgstr "Get started"
+
+#: src/features/concerts/ConcertRow.tsx
+msgid "Get tickets"
+msgstr "Get tickets"
+
+#: src/features/concerts/ConcertRow.tsx
+msgid "Get tickets for {lineup}"
+msgstr "Get tickets for {lineup}"
+
+#: src/features/concerts/ConcertRow.tsx
+msgid "Get tickets for {lineup} from {seller}, opens in your browser"
+msgstr "Get tickets for {lineup} from {seller}, opens in your browser"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Go"
@@ -3192,6 +3286,7 @@ msgstr "Live radio"
 
 #: src/features/album/AlbumSkeleton.tsx
 #: src/features/artist/ArtistSkeleton.tsx
+#: src/features/concerts/ConcertsPage.tsx
 #: src/features/discover/states.tsx
 #: src/features/home/HomeLead.tsx
 #: src/features/home/HomePage.tsx
@@ -3226,9 +3321,14 @@ msgstr "Loading your listening history"
 msgid "Loading your playlists…"
 msgstr "Loading your playlists…"
 
+#: src/features/concerts/ConcertsPage.tsx
 #: src/features/library/HistoryPage.tsx
 msgid "Loading…"
 msgstr "Loading…"
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Location"
+msgstr "Location"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Log file"
@@ -3378,6 +3478,10 @@ msgstr "Minimise"
 #: src/features/video/VideoPage.tsx
 msgid "More by {artistName}"
 msgstr "More by {artistName}"
+
+#: src/features/concerts/Upcoming.tsx
+msgid "More concerts near {city}"
+msgstr "More concerts near {city}"
 
 #: src/shared/actions/ActionMenu.tsx
 msgid "More for {name}"
@@ -3540,6 +3644,14 @@ msgstr "Name and description"
 msgid "Navigation"
 msgstr "Navigation"
 
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Near {city}"
+msgstr "Near {city}"
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Near {city}, the main city of your Apple Music storefront"
+msgstr "Near {city}, the main city of your Apple Music storefront"
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Neither RTKit nor the Realtime portal is available. {skips} Install and enable RTKit (rtkit) to fix this."
 msgstr "Neither RTKit nor the Realtime portal is available. {skips} Install and enable RTKit (rtkit) to fix this."
@@ -3593,6 +3705,10 @@ msgstr "Newest first"
 #: src/features/player/VideoView.tsx
 msgid "Next"
 msgstr "Next"
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Next 30 days"
+msgstr "Next 30 days"
 
 #: src/features/radio/OnAir.tsx
 msgid "Next at <0>{nextAt}</0>: {nextTitle}"
@@ -3651,9 +3767,26 @@ msgstr "No categories for “{q}”"
 msgid "No chart here"
 msgstr "No chart here"
 
+#: src/features/concerts/LocationDialog.tsx
+msgid "No cities match “{term}”."
+msgstr "No cities match “{term}”."
+
+#: src/features/concerts/LocationDialog.tsx
+msgid "No cities match “{term}”. Try the name of a bigger city nearby."
+msgstr "No cities match “{term}”. Try the name of a bigger city nearby."
+
 #: src/features/auth/signin.ts
 msgid "No code was entered in time, so Apple closed the attempt. Start again."
 msgstr "No code was entered in time, so Apple closed the attempt. Start again."
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "No concerts match"
+msgstr "No concerts match"
+
+#: src/features/concerts/ConcertsPage.tsx
+#: src/features/concerts/Upcoming.tsx
+msgid "No concerts near {city}"
+msgstr "No concerts near {city}"
 
 #: src/features/search/groups.ts
 msgid "No curators for “{q}”"
@@ -4141,6 +4274,7 @@ msgstr "Open the web inspector"
 msgid "Open website"
 msgstr "Open website"
 
+#: src/features/concerts/ConcertRow.tsx
 #: src/shared/items/LinkList.tsx
 msgid "Opens in your browser"
 msgstr "Opens in your browser"
@@ -5154,6 +5288,10 @@ msgstr "Sending…"
 msgid "Session"
 msgstr "Session"
 
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Set location"
+msgstr "Set location"
+
 #: src/features/onboarding/SetupLayer.tsx
 msgid "Set up Sona"
 msgstr "Set up Sona"
@@ -5223,6 +5361,7 @@ msgstr "Show"
 msgid "Show all"
 msgstr "Show all"
 
+#: src/features/concerts/Upcoming.tsx
 #: src/features/home/HomeLead.tsx
 #: src/features/home/HomePage.tsx
 #: src/shared/items/ItemShelf.tsx
@@ -5249,6 +5388,7 @@ msgstr "Show complete album"
 msgid "Show earlier days"
 msgstr "Show earlier days"
 
+#: src/features/concerts/Upcoming.tsx
 #: src/features/home/HomeLead.tsx
 #: src/features/home/HomePage.tsx
 #: src/features/search/SearchPage.tsx
@@ -5277,6 +5417,10 @@ msgstr "Show lyrics half a second earlier"
 #: src/features/player/shortcuts.ts
 msgid "Show lyrics half a second later"
 msgstr "Show lyrics half a second later"
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Show more concerts"
+msgstr "Show more concerts"
 
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "Show on my profile"
@@ -6075,6 +6219,10 @@ msgstr "Suggest less"
 msgid "Suggest less like {name}"
 msgstr "Suggest less like {name}"
 
+#: src/features/concerts/LocationDialog.tsx
+msgid "Suggested cities"
+msgstr "Suggested cities"
+
 #: src/features/playlist/PlaylistPage.tsx
 msgid "Suggested songs"
 msgstr "Suggested songs"
@@ -6482,6 +6630,14 @@ msgstr "This station isn't naming what it is playing."
 msgid "This stream isn't offered with Widevine, the only protection Sona can play."
 msgstr "This stream isn't offered with Widevine, the only protection Sona can play."
 
+#: src/features/concerts/ConcertsPage.tsx
+msgid "This week"
+msgstr "This week"
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "This weekend"
+msgstr "This weekend"
+
 #: src/features/radio/OnAir.tsx
 #: src/features/radio/StationPage.tsx
 msgid "Time through this programme"
@@ -6496,6 +6652,10 @@ msgstr "Title"
 #: src/features/settings/General.tsx
 msgid "Title bar"
 msgstr "Title bar"
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "To"
+msgstr "To"
 
 #: src/features/library/history.ts
 msgid "Today"
@@ -6706,10 +6866,15 @@ msgstr "Up next: {label}"
 msgid "Up to {size}"
 msgstr "Up to {size}"
 
+#: src/features/concerts/Upcoming.tsx
+msgid "Upcoming concerts"
+msgstr "Upcoming concerts"
+
 #: src/features/settings/Updates.tsx
 msgid "Update this AppImage in place with AppImageUpdate, or download the new one from the release page."
 msgstr "Update this AppImage in place with AppImageUpdate, or download the new one from the release page."
 
+#: src/features/concerts/ConcertsPage.tsx
 #: src/features/discover/freshness.ts
 #: src/features/playlist/PlaylistPage.tsx
 msgid "Updated {when}"
@@ -6744,6 +6909,10 @@ msgstr "Use another number"
 #: src/features/settings/Shortcuts.tsx
 msgid "Use it here"
 msgstr "Use it here"
+
+#: src/features/concerts/LocationDialog.tsx
+msgid "Use my storefront’s main city"
+msgstr "Use my storefront’s main city"
 
 #: src/features/auth/Account.tsx
 msgid "Use the Apple Account with your Apple Music subscription."
@@ -6890,6 +7059,10 @@ msgstr "When you close the window"
 #: src/features/settings/QueueRows.tsx
 msgid "When you play an album, playlist or station while more than three songs you added are waiting in the queue."
 msgstr "When you play an album, playlist or station while more than three songs you added are waiting in the queue."
+
+#: src/features/concerts/LocationDialog.tsx
+msgid "Where are you?"
+msgstr "Where are you?"
 
 #: src/features/settings/AudioRows.tsx
 msgid "Where Sona plays. Switching moves the music that's playing without a pause."
@@ -7084,6 +7257,14 @@ msgstr "Your Apple Music language"
 #: src/features/settings/Diagnostics.tsx
 msgid "Your Apple Music token is in a file only your user can read, not in a keyring. Start GNOME Keyring or KWallet and Sona moves it there."
 msgstr "Your Apple Music token is in a file only your user can read, not in a keyring. Start GNOME Keyring or KWallet and Sona moves it there."
+
+#: src/features/concerts/ConcertRow.tsx
+msgid "Your artist"
+msgstr "Your artist"
+
+#: src/features/concerts/ConcertsPage.tsx
+msgid "Your artists ({yours})"
+msgstr "Your artists ({yours})"
 
 #: src/features/library/gate.tsx
 msgid "Your artists appear here as Sona copies them from Apple Music. Large libraries take a minute or two the first time."
