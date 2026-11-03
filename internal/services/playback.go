@@ -685,6 +685,13 @@ func (s *PlaybackService) Remove(ctx context.Context, index int) error {
 // Move moves queue[from] to position to.
 func (s *PlaybackService) Move(from, to int) error { return s.o.Coord.Move(from, to) }
 
+// MoveNext moves queue[from] to play right after the current song.
+func (s *PlaybackService) MoveNext(from int) error { return s.o.Coord.MoveNext(from) }
+
+// MoveToEnd moves queue[from] to the end of the user's songs, before
+// AutoPlay's.
+func (s *PlaybackService) MoveToEnd(from int) error { return s.o.Coord.MoveToEnd(from) }
+
 // Clear removes every queued item except the current one.
 func (s *PlaybackService) Clear() { s.o.Coord.Clear() }
 
