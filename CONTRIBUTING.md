@@ -500,7 +500,9 @@ A feature is a Go service plus a frontend module, each self-contained:
 
 - Go: `internal/services/<feature>.go` (the service; exported methods are the
   bindings) + `<feature>_dto.go` (its DTOs and events) + one line in
-  `internal/services/registry.go`. Features never call each other's
+  `internal/services/registry.go`; while Wails remains, also one
+  `RegisterService` line in `cmd/sona/main.go` and one `RegisterEvent` line
+  per event in `cmd/sona/events_wails.go`. Features never call each other's
   services. Full contract: `internal/services/doc.go`.
 - Frontend: `frontend/src/features/<name>/index.ts` exporting the module
   (routes, nav items, Go event handlers) + one line in

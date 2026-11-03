@@ -8,7 +8,7 @@ import (
 	"go/parser"
 	"go/token"
 	"net/url"
-	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"slices"
@@ -229,64 +229,66 @@ func TestNoGoTextReachesTheUI(t *testing.T) {
 	}
 }
 
-// eventPayloads are the payload types of every event the package
-// registers (application.RegisterEvent[T] in cmd/sona/events_wails.go).
+// eventPayloads are the payload types of every event the package declares:
+// each Event… constant must be listed here with its payload type.
 func eventPayloads(t *testing.T) []reflect.Type {
 	t.Helper()
 	known := map[string]reflect.Type{
-		"AuthStatus":         reflect.TypeFor[AuthStatus](),
-		"CDMStatus":          reflect.TypeFor[CDMStatus](),
-		"WindowState":        reflect.TypeFor[WindowState](),
-		"string":             reflect.TypeFor[string](),
-		"HomePage":           reflect.TypeFor[HomePage](),
-		"OpenTarget":         reflect.TypeFor[OpenTarget](),
-		"IntegrationsStatus": reflect.TypeFor[IntegrationsStatus](),
-		"SyncProgress":       reflect.TypeFor[SyncProgress](),
-		"SyncDone":           reflect.TypeFor[SyncDone](),
-		"ItemState":          reflect.TypeFor[ItemState](),
-		"PowerState":         reflect.TypeFor[PowerState](),
-		"PlaybackState":      reflect.TypeFor[PlaybackState](),
-		"QueueState":         reflect.TypeFor[QueueState](),
-		"PlaylistsChanged":   reflect.TypeFor[PlaylistsChanged](),
-		"PrivateState":       reflect.TypeFor[PrivateState](),
-		"[]Reminder":         reflect.TypeFor[[]Reminder](),
-		"ScrobbleStatus":     reflect.TypeFor[ScrobbleStatus](),
-		"config.Settings":    reflect.TypeFor[config.Settings](),
-		"AppleTranslations":  reflect.TypeFor[AppleTranslations](),
-		"AppleLanguages":     reflect.TypeFor[AppleLanguages](),
-		"UpdateStatus":       reflect.TypeFor[UpdateStatus](),
+		"EventAuthChanged":        reflect.TypeFor[AuthStatus](),
+		"EventCDMStatus":          reflect.TypeFor[CDMStatus](),
+		"EventWindowState":        reflect.TypeFor[WindowState](),
+		"EventNavigate":           reflect.TypeFor[string](),
+		"EventHome":               reflect.TypeFor[HomePage](),
+		"EventAppOpen":            reflect.TypeFor[OpenTarget](),
+		"EventIntegrationsStatus": reflect.TypeFor[IntegrationsStatus](),
+		"EventSyncProgress":       reflect.TypeFor[SyncProgress](),
+		"EventSyncDone":           reflect.TypeFor[SyncDone](),
+		"EventItemState":          reflect.TypeFor[ItemState](),
+		"EventPower":              reflect.TypeFor[PowerState](),
+		"EventPlaybackState":      reflect.TypeFor[PlaybackState](),
+		"EventPlaybackQueue":      reflect.TypeFor[QueueState](),
+		"EventPlaylistsChanged":   reflect.TypeFor[PlaylistsChanged](),
+		"EventPrivateChanged":     reflect.TypeFor[PrivateState](),
+		"EventRemindersChanged":   reflect.TypeFor[[]Reminder](),
+		"EventScrobbleChanged":    reflect.TypeFor[ScrobbleStatus](),
+		"EventSettingsChanged":    reflect.TypeFor[config.Settings](),
+		"EventAppleTranslations":  reflect.TypeFor[AppleTranslations](),
+		"EventAppleLanguages":     reflect.TypeFor[AppleLanguages](),
+		"EventUpdateAvailable":    reflect.TypeFor[UpdateStatus](),
 	}
-	files := []string{"../../cmd/sona/events_wails.go"}
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
 	var out []reflect.Type
 	fset := token.NewFileSet()
 	for _, name := range files {
-		src, err := os.ReadFile(name)
+		if strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, name, nil, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
-		f, err := parser.ParseFile(fset, name, src, 0)
-		if err != nil {
-			t.Fatal(err)
+		for _, d := range f.Decls {
+			gd, ok := d.(*ast.GenDecl)
+			if !ok || gd.Tok != token.CONST {
+				continue
+			}
+			for _, sp := range gd.Specs {
+				for _, id := range sp.(*ast.ValueSpec).Names {
+					if !strings.HasPrefix(id.Name, "Event") {
+						continue
+					}
+					ty, ok := known[id.Name]
+					if !ok {
+						t.Errorf("event %s: add its payload to eventPayloads", id.Name)
+						continue
+					}
+					out = append(out, ty)
+				}
+			}
 		}
-		ast.Inspect(f, func(n ast.Node) bool {
-			ix, ok := n.(*ast.IndexExpr)
-			if !ok {
-				return true
-			}
-			sel, ok := ix.X.(*ast.SelectorExpr)
-			if !ok || sel.Sel.Name != "RegisterEvent" {
-				return true
-			}
-			arg := string(src[fset.Position(ix.Index.Pos()).Offset:fset.Position(ix.Index.End()).Offset])
-			arg = strings.ReplaceAll(arg, "services.", "")
-			ty, ok := known[arg]
-			if !ok {
-				t.Errorf("%s: event payload %s: add it to eventPayloads", name, arg)
-				return true
-			}
-			out = append(out, ty)
-			return true
-		})
 	}
 	if len(out) < len(known) {
 		t.Errorf("found %d event payloads, want at least %d", len(out), len(known))

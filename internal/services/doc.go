@@ -11,12 +11,16 @@
 //     everything else unexported), and its constructor
 //     func new<Feature>Service(e *Env) *<Feature>Service.
 //   - <feature>_dto.go: the feature's own DTOs, its event name constants
-//     (plain declarations: the app shell registers each event payload with
-//     its UI bridge, see cmd/sona/events_wails.go while Wails remains).
+//     (plain declarations, no registration here).
 //   - One line in registry.go: {"<feature>", svc(new<Feature>Service)}
 //     (the registry returns the typed instances; Core.Services lists them,
 //     Service[T] finds one).
-//     No other file changes; features never call each other's services.
+//   - While Wails remains, cmd/sona binds a fixed list: one
+//     wapp.RegisterService(application.NewServiceWithOptions(
+//     services.Service[services.<Feature>Service](core), opts)) line in
+//     main.go, and one application.RegisterEvent[<Payload>](services.Event<X>)
+//     line per event in cmd/sona/events_wails.go (so bindings carry the
+//     types). Features never call each other's services.
 //
 // Shared pieces every feature uses:
 //
@@ -170,7 +174,7 @@
 // as strings with an explicit Source where an item can be either; empty
 // lists as [] not null.
 //
-// main builds Deps and calls New; Core then exposes Services() for
-// registration, Activate (launch links → "app:open"), StartMediaControls
+// main builds Deps, calls New and binds each service through Service[T];
+// Core then exposes Activate (launch links → "app:open"), StartMediaControls
 // and Close.
 package services
