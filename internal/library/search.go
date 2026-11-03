@@ -72,6 +72,9 @@ func (l *Library) SearchAll(ctx context.Context, term string, perKind int) (Resu
 		WHERE p.library_id IN `, playlistIDs, scanPlaylist, func(p Playlist) string { return p.LibraryID }); err != nil {
 		return r, err
 	}
+	if err := l.FillCovers(ctx, r.Playlists); err != nil {
+		return r, err
+	}
 	return r, nil
 }
 

@@ -160,11 +160,9 @@ func (s *PlaylistsService) libraryDetail(ctx context.Context, id string) (Playli
 			tracks[i].ID, tracks[i].Source = tracks[i].CatalogID, SourceCatalog
 		}
 	}
+	// A playlist Apple gave no cover has one made from its tracks
+	// (library.FillCovers), which also shapes its backdrop and colours.
 	tmpl := p.ArtworkTemplate
-	if tmpl == "" && len(all) > 0 {
-		// New playlists have no artwork until Apple renders one.
-		tmpl = all[0].ArtworkTemplate
-	}
 	d := PlaylistDetail{
 		Playlist:        s.m.libPlaylist(p),
 		Tracks:          tracks,
@@ -180,7 +178,6 @@ func (s *PlaylistsService) libraryDetail(ctx context.Context, id string) (Playli
 		Favorited:       flags.Favorited != 0,
 		FolderID:        flags.FolderID,
 	}
-	d.Playlist.Art = s.m.artOf(tmpl)
 	d.Playlist.TrackCount = len(tracks)
 	if p.CatalogID != "" && (d.IsPublic || !p.CanEdit) {
 		d.URL = "https://music.apple.com/" + s.e.Storefront() + "/playlist/" + p.CatalogID
@@ -215,17 +212,24 @@ func (s *PlaylistsService) Tree(ctx context.Context) (PlaylistTree, error) {
 	for i, f := range folders {
 		out.Folders[i] = PlaylistFolder{ID: f.LibraryID, ParentID: f.ParentID, Name: f.Name, Position: int(f.Position)}
 	}
+	pls := make([]library.Playlist, len(rows))
 	for i, r := range rows {
-		p := library.Playlist{
+		pls[i] = library.Playlist{
 			LibraryID: r.LibraryID.String, CatalogID: r.CatalogID.String, Name: r.Name, Description: r.Description,
 			CuratorName: r.CuratorName, ArtworkTemplate: r.ArtworkTemplate, CanEdit: r.CanEdit != 0,
 			TrackCount: int(r.TrackCount), LastModified: r.LastModified,
 		}
 		if r.DateAdded.Valid {
-			p.DateAdded = db.Time(r.DateAdded.Int64)
+			pls[i].DateAdded = db.Time(r.DateAdded.Int64)
 		}
+	}
+	// Playlists Apple gave no cover get one made from their tracks.
+	if err := s.e.Library.FillCovers(ctx, pls); err != nil {
+		return PlaylistTree{}, err
+	}
+	for i, r := range rows {
 		out.Playlists[i] = TreePlaylist{
-			Playlist: s.m.libPlaylist(p), FolderID: r.FolderID, Position: int(r.FolderPosition),
+			Playlist: s.m.libPlaylist(pls[i]), FolderID: r.FolderID, Position: int(r.FolderPosition),
 			CanDelete: r.CanDelete != 0, Favorited: r.Favorited != 0,
 		}
 	}

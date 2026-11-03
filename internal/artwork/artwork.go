@@ -582,9 +582,15 @@ func (c *Cache) cachedSource(key string, want dims, fixedSize bool) (path string
 	return p, src, ok
 }
 
-// source returns a source image covering want, fetching it if needed.
+// source returns a source image covering want, fetching it if needed. A
+// mosaic's source is composed from its tiles' sources instead, always
+// square: a request for another shape is served by fitting that square.
 func (c *Cache) source(ctx context.Context, key, tmpl string, want dims) (string, dims, error) {
-	fx := fixed(tmpl)
+	mosaic := isMosaic(tmpl)
+	if mosaic {
+		want = dims{want.long(), want.long()}
+	}
+	fx := !mosaic && fixed(tmpl)
 	sd := sourceDims(want)
 	if fx {
 		sd = dims{}
@@ -602,11 +608,21 @@ func (c *Cache) source(ctx context.Context, key, tmpl string, want dims) (string
 		if p, d, ok := c.cachedSource(key, want, fx); ok {
 			return src{p, d}, nil
 		}
-		u := tmpl
-		if !fx {
-			u = fill(tmpl, sd)
+		var (
+			data []byte
+			cfg  image.Config
+			err  error
+		)
+		if mosaic {
+			data, err = c.compose(tmpl, sd.w)
+			cfg = image.Config{Width: sd.w, Height: sd.h}
+		} else {
+			u := tmpl
+			if !fx {
+				u = fill(tmpl, sd)
+			}
+			data, cfg, err = c.fetch(u)
 		}
-		data, cfg, err := c.fetch(u)
 		if err != nil {
 			return nil, err
 		}
