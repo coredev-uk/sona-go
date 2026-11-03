@@ -181,7 +181,7 @@ jobs:
     # required checks. They run after each merge to main and on demand
     # (workflow_dispatch), never from release.yml (linux-only).
     if: ${{ !inputs.linux-only && (github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && !github.event.repository.private)) }}
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     defaults:
       run:
