@@ -399,7 +399,7 @@ The record held open: the sleeve on one side (the cover and its label copy), the
 - **Narrow** (under 880px of column, a 940px window with the sidebar): the sleeve becomes a header, the cover at 168px beside the label copy and Close at its end, over the tabs and the pane at full width.
 - **No lyrics**: the usual dashed block ("No lyrics for this song", the reason) with one link, Lyrics sources, to Settings → Playback.
 - **Cost.** Nothing new moves, and nothing beneath it is drawn: the page under the view is `invisible` as well as `inert`, because WebKit paints a covered page, and every frame of the motion cover repainted the page's own header under it (the album page's video, its text; about a third more web-process CPU). The layout is measured once and on resize (a ResizeObserver), and re-renders only when its size class changes. The pane not shown is unmounted, so on Up next the lyrics' timers are gone. Motion artwork plays on the cover from one rendition (420) at every size, so a resize never reloads it.
-- **Focus.** Opening the view focuses the shown tab (Close when there is one pane); leaving full screen returns to Full screen; Escape closes the view, from anywhere in it.
+- **Focus.** Opening the view focuses the shown tab (Close when there is one pane); leaving full screen returns to Full screen; Escape closes the view, from anywhere in it (a tooltip showing on the focused button takes the first Escape, as everywhere).
 
 ## Lyrics
 
