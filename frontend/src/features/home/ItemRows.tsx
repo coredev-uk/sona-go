@@ -7,7 +7,7 @@ import { memo, useEffect, useId, useRef, useState, type KeyboardEvent } from "re
 import { ItemActionMenu } from "@/shared/actions/ActionMenu";
 import { Artwork } from "@/shared/components/Artwork";
 import { ExplicitMark } from "@/shared/components/Badges";
-import { openExternal } from "@/shared/items/cover";
+import { openWithoutPage, playsWhenOpened } from "@/shared/items/cover";
 import { actionItemOf, itemLink, itemShape, itemSubtitle } from "@/shared/items/links";
 import { canPlay, playItem } from "@/shared/items/play";
 import { useWithheld } from "@/shared/lib/content-policy";
@@ -150,6 +150,9 @@ const ItemRow = memo(function ItemRow({
   const link = itemLink(item);
   const target = actionItemOf(item);
   const playable = canPlay(item) && !withheld;
+  // A station with no page plays when it is opened: the name is that
+  // button, and the cover's play mark is not a second control.
+  const direct = playable && playsWhenOpened(item);
   const round = itemShape(item) === "round";
   const subtitle = itemSubtitle(item);
   const name = item.name;
@@ -182,7 +185,18 @@ const ItemRow = memo(function ItemRow({
     >
       <div className="relative shrink-0">
         <Artwork src={item.art.small || item.art.medium} size={40} alt="" shape={itemShape(item)} />
-        {playable && (
+        {direct && (
+          <span
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute inset-0 z-10 grid place-items-center bg-ground/70 text-ink opacity-0 transition-opacity duration-100 group-hover/row:opacity-100",
+              round ? "rounded-full" : "rounded-sm",
+            )}
+          >
+            <Play fill="currentColor" strokeWidth={0} className="size-4 translate-x-px" />
+          </span>
+        )}
+        {playable && !direct && (
           <button
             type="button"
             tabIndex={-1}
@@ -204,8 +218,14 @@ const ItemRow = memo(function ItemRow({
               {name}
             </Link>
           ) : (
-            <button type="button" onClick={() => openExternal(item)} {...opener}>
+            <button type="button" onClick={() => openWithoutPage(item)} {...opener}>
               {name}
+              {direct && (
+                <>
+                  {" "}
+                  <span className="sr-only">{t`Play`}</span>
+                </>
+              )}
             </button>
           )}
           {item.explicit && <ExplicitMark />}

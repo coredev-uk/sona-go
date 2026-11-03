@@ -250,7 +250,7 @@ func (s *session) readStream(ctx context.Context, resp *http.Response, br *bufio
 	})
 	defer watch.Stop()
 	metaint, _ := strconv.Atoi(resp.Header.Get("icy-metaint"))
-	r := newICYReader(br, metaint, func(title string) { s.meta(playback.OnAir{Title: title}) })
+	r := newICYReader(br, metaint, func(title string) { s.meta(onAirOfTitle(title)) })
 	var (
 		buf  = make([]byte, 16<<10)
 		head []byte // the stream's first bytes, until a leading ID3 tag is ruled out

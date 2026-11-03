@@ -6,7 +6,7 @@ import { useRef } from "react";
 
 import { useElementWidth } from "@/shared/lib/useCoverColumns";
 
-import { openExternal } from "./cover";
+import { openWithoutPage } from "./cover";
 import { itemLink } from "./links";
 import { LINK_GAP, linkGrid } from "./linkGrid";
 
@@ -50,12 +50,22 @@ export function LinkList({ title, items }: { title: string; items: readonly Item
                   <span className="line-clamp-2 min-w-0">{item.name}</span>
                 </Link>
               ) : (
-                <button type="button" className={TILE} onClick={() => openExternal(item)}>
-                  <span className="line-clamp-2 min-w-0">{item.name}</span>
-                  <ArrowUpRight
-                    aria-label={t`Opens in your browser`}
-                    className="size-4 shrink-0 text-ink-muted"
-                  />
+                <button type="button" className={TILE} onClick={() => openWithoutPage(item)}>
+                  <span className="line-clamp-2 min-w-0">
+                    {item.name}
+                    {playsWhenOpened(item) && (
+                      <>
+                        {" "}
+                        <span className="sr-only">{t`Play`}</span>
+                      </>
+                    )}
+                  </span>
+                  {!playsWhenOpened(item) && (
+                    <ArrowUpRight
+                      aria-label={t`Opens in your browser`}
+                      className="size-4 shrink-0 text-ink-muted"
+                    />
+                  )}
                 </button>
               )}
             </li>

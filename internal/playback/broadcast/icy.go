@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/id3"
 )
 
@@ -91,4 +92,18 @@ func streamTitle(block string) (string, bool) {
 		v = id3.Decode(0, []byte(v))
 	}
 	return strings.TrimSpace(v), true
+}
+
+// onAirOfTitle reads an ICY StreamTitle. Shoutcast and Icecast servers
+// send "Artist - Title" as one line: split at its first " - " when both
+// sides name something, else (a station's own line, an advert, a title
+// with no artist) the whole line is the title.
+func onAirOfTitle(line string) playback.OnAir {
+	if artist, title, ok := strings.Cut(line, " - "); ok {
+		artist, title = strings.TrimSpace(artist), strings.TrimSpace(title)
+		if artist != "" && title != "" {
+			return playback.OnAir{Artist: artist, Title: title}
+		}
+	}
+	return playback.OnAir{Title: line}
 }

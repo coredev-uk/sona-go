@@ -45,14 +45,29 @@ type Status struct {
 	// metadata, as heard: ICY titles, ID3 tags, playlist titles); zero
 	// when it says nothing.
 	OnAir OnAir
+	// Info is what is known about the live broadcaster being heard, beyond
+	// what it names on air (TuneIn's profile of a TuneIn station); zero
+	// when nothing is.
+	Info StationInfo
 }
 
 // OnAir is a live broadcaster's now-playing metadata, as the stream gives
-// it. Title may be the whole "Artist - Title" line (ICY StreamTitle);
-// Artist is set only when the stream names it separately.
+// it (or, for a station whose stream carries none, as TuneIn does). Artist
+// is set when the source names it separately or the ICY line is "Artist -
+// Title"; otherwise Title is the whole line. Art is Apple's artwork
+// template ({w}x{h}) for the song when the catalog has it, else "".
 type OnAir struct {
 	Title  string `json:"title"`
 	Artist string `json:"artist"`
+	Art    string `json:"art"`
+}
+
+// StationInfo is what TuneIn says about a broadcaster it serves.
+type StationInfo struct {
+	Description string `json:"description"`
+	Genre       string `json:"genre"`
+	Location    string `json:"location"`
+	Website     string `json:"website"` // an http(s) URL, or ""
 }
 
 // ClampVolume clamps a volume to [0, 1]. NaN, which min and max pass

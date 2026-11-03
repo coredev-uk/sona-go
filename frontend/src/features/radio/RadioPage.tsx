@@ -19,17 +19,28 @@ import { playStation } from "./commands";
 import { OnAirBoard, OnAirSkeleton } from "./OnAir";
 import { useLiveStations, useRadioGrouping, useRecentStations } from "./queries";
 
-/** A station as a cover tile: its page, a play control, its menu. */
+/**
+ * A station as a cover tile: its page and a play control, or, for a
+ * station with no page (a local broadcaster), the tile itself plays; its
+ * menu either way.
+ */
 function stationCover(s: Station): CoverItem {
+  const play = () => void playStation(s.id);
   return {
     key: s.id,
     title: s.name,
     subtitle: s.tagline || s.showName || s.provider || undefined,
     art: s.art.medium,
     motion: s.motion || undefined,
-    link: { to: "/station/$id", params: { id: s.id } },
-    // The tile names its play control "Play {label}".
-    play: s.playable ? { label: s.name, run: () => void playStation(s.id) } : undefined,
+    ...(s.hasPage
+      ? {
+          link: { to: "/station/$id", params: { id: s.id } },
+          // The tile names its play control "Play {label}".
+          play: s.playable ? { label: s.name, run: play } : undefined,
+        }
+      : s.playable
+        ? { onOpen: play, playsOnOpen: true }
+        : {}),
     target: { kind: "station", target: s },
   };
 }

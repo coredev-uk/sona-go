@@ -30,6 +30,12 @@ export interface CoverItem {
   /** A play control on the cover, for items that play directly. */
   play?: { label: string; run: () => void };
   /**
+   * The tile plays when it is opened (a station with no page): its opener
+   * is a button named "Play {title}" and the cover shows a play mark that
+   * is not a second control.
+   */
+  playsOnOpen?: boolean;
+  /**
    * A short note on the cover's corner, where the play control would be:
    * an upcoming album's release date ("Out 19 Nov"). Also read after the
    * title by assistive technology.
@@ -104,6 +110,12 @@ export const CoverTile = memo(function CoverTile({
     <span className="truncate group-hover/tile:underline group-hover/tile:underline-offset-2">
       {item.title}
       {item.badge && <span className="sr-only">, {item.badge}</span>}
+      {item.playsOnOpen && (
+        <>
+          {" "}
+          <span className="sr-only">{t`Play`}</span>
+        </>
+      )}
     </span>
   );
   // The title is the tile's one link; its ::after stretches over the whole
@@ -144,6 +156,14 @@ export const CoverTile = memo(function CoverTile({
           >
             <Play fill="currentColor" strokeWidth={0} className="size-4 translate-x-px" />
           </button>
+        )}
+        {item.playsOnOpen && !withheld && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute bottom-2 left-2 z-10 grid size-9 place-items-center rounded-full bg-play text-on-play opacity-0 transition-opacity duration-100 group-focus-within/tile:opacity-100 group-hover/tile:opacity-100"
+          >
+            <Play fill="currentColor" strokeWidth={0} className="size-4 translate-x-px" />
+          </span>
         )}
         {item.badge && !item.play && (
           <span

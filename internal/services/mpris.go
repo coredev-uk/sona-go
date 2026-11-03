@@ -149,6 +149,19 @@ func mprisSnapshot(snap coordinator.Snapshot, artURL string) mpris.Snapshot {
 	return out
 }
 
+// mprisArtTemplate is the artwork template MPRIS shows for snap: the cover
+// of the song a local broadcaster has on air when the catalog has it, else
+// the current item's.
+func mprisArtTemplate(snap coordinator.Snapshot) string {
+	if snap.Current == nil {
+		return ""
+	}
+	if snap.OnAir.Title != "" && snap.OnAir.Art != "" {
+		return snap.OnAir.Art
+	}
+	return snap.Current.Item.Artwork
+}
+
 // runMediaControls pushes coordinator snapshots to srv until quit closes. Artwork
 // is resolved to a local file off the update path; the track is
 // republished with it once it is on disk.
@@ -170,10 +183,7 @@ func runMediaControls(srv MediaControls, snaps <-chan coordinator.Snapshot, quit
 				return
 			}
 			last = snap
-			cur := ""
-			if snap.Current != nil {
-				cur = snap.Current.Item.Artwork
-			}
+			cur := mprisArtTemplate(snap)
 			if cur != tmpl {
 				tmpl, artURL = cur, ""
 				if cur != "" && art != nil {

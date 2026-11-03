@@ -16,7 +16,7 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 vi.mock("@/shared/items/ItemMenu", () => ({ ItemMenu: () => null }));
 vi.mock("@/shared/items/play", () => ({ canPlay: () => false, playItem: vi.fn() }));
-vi.mock("@/shared/items/cover", () => ({ openExternal: vi.fn() }));
+vi.mock("@/shared/items/cover", () => ({ openWithoutPage: vi.fn() }));
 vi.mock("@/features/settings", () => ({
   useAppearance: (select: (s: { reduceEffects: boolean }) => boolean) =>
     select({ reduceEffects: false }),

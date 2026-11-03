@@ -1,4 +1,4 @@
-import type { QueueItem, Song } from "@bindings/services";
+import type { OnAir, QueueItem, Song } from "@bindings/services";
 import { createContext, useContext } from "react";
 
 /** What shared lists need to mark the playing track; the player provides it. */
@@ -6,6 +6,8 @@ export interface NowPlaying {
   current: QueueItem | null;
   /** Playing or loading: the equaliser moves. */
   playing: boolean;
+  /** What the playing local broadcaster's stream names on air (song, artist, cover); null otherwise. */
+  onAir: OnAir | null;
   /**
    * The page and the queue are covered by the Now Playing view or
    * full-screen lyrics: nothing under them needs to move.
@@ -16,6 +18,7 @@ export interface NowPlaying {
 export const NowPlayingContext = createContext<NowPlaying>({
   current: null,
   playing: false,
+  onAir: null,
   covered: false,
 });
 

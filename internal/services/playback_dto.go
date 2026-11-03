@@ -34,6 +34,9 @@ type QueueItem struct {
 	Auto bool `json:"auto"`
 	// Live: a live radio stream (no duration, cannot seek).
 	Live bool `json:"live"`
+	// Broadcast: a local broadcaster, which has no page of its own (its
+	// name is not a link).
+	Broadcast bool `json:"broadcast"`
 	// Added: the user queued the song by hand (Play Next, Add to Queue)
 	// rather than it coming with the album or playlist that was played.
 	Added bool `json:"added"`
@@ -83,6 +86,18 @@ type QueueStation struct {
 type OnAir struct {
 	Title  string `json:"title"`
 	Artist string `json:"artist"`
+	// Art is the song's cover from the Apple Music catalog; empty (no
+	// pictures) when the catalog has no such song.
+	Art Art `json:"art"`
+}
+
+// BroadcasterInfo is what TuneIn says about the local broadcaster playing,
+// for Now Playing: any field may be empty.
+type BroadcasterInfo struct {
+	Description string `json:"description"`
+	Genre       string `json:"genre"`
+	Location    string `json:"location"`
+	Website     string `json:"website"` // an http(s) page, opened in the browser
 }
 
 // PlaybackState is the now-playing state ("playback:state", latest wins).
@@ -123,6 +138,9 @@ type PlaybackState struct {
 	// air (the song or advert it names), as heard; nil when it says
 	// nothing.
 	OnAir *OnAir `json:"onAir"`
+	// Broadcaster is what is known of the current local broadcaster
+	// beyond its on-air line (TuneIn's profile); nil when nothing is.
+	Broadcaster *BroadcasterInfo `json:"broadcaster"`
 	// AutoPlay: similar music continues when the queue ends.
 	AutoPlay bool `json:"autoPlay"`
 	// Station feeding the queue, nil when none.

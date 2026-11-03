@@ -153,7 +153,8 @@ func (s *PlaybackService) state(snap coordinator.Snapshot) PlaybackState {
 		AuthRequired:   snap.AuthRequired,
 		NoCDM:          snap.NoCDM,
 		Preview:        snap.Preview,
-		OnAir:          onAir(snap.OnAir),
+		OnAir:          s.onAir(snap.OnAir),
+		Broadcaster:    broadcaster(snap.Info),
 		AutoPlay:       snap.AutoPlay,
 		Station:        queueStation(snap.Station),
 		Sleep:          sleepTimer(snap.Sleep),
@@ -186,11 +187,19 @@ func playbackError(s coordinator.Snapshot) ErrorCode {
 }
 
 // onAir maps what a broadcaster has on air; nil when it names nothing.
-func onAir(o playback.OnAir) *OnAir {
+func (s *PlaybackService) onAir(o playback.OnAir) *OnAir {
 	if o.Title == "" && o.Artist == "" {
 		return nil
 	}
-	return &OnAir{Title: o.Title, Artist: o.Artist}
+	return &OnAir{Title: o.Title, Artist: o.Artist, Art: s.m.artOf(o.Art)}
+}
+
+// broadcaster maps what TuneIn says about a broadcaster; nil when nothing.
+func broadcaster(i playback.StationInfo) *BroadcasterInfo {
+	if i == (playback.StationInfo{}) {
+		return nil
+	}
+	return &BroadcasterInfo{Description: i.Description, Genre: i.Genre, Location: i.Location, Website: i.Website}
 }
 
 func canNext(snap coordinator.Snapshot) bool {
@@ -261,9 +270,10 @@ func (s *PlaybackService) item(uid uint64, it coordinator.Item) QueueItem {
 		UID: uid, ID: m.id, Source: m.source, CatalogID: m.catalogID, LibraryID: m.libraryID,
 		Name: it.Title, Artist: it.Artist, Album: it.Album, AlbumID: m.albumID, ArtistID: m.artistID,
 		DurationMs: it.Duration.Milliseconds(), Art: s.m.artOf(it.Artwork),
-		Live:     isStationID(it.ID) && it.Duration <= 0,
-		Explicit: it.Explicit,
-		Video:    playback.IsVideo(it.ID),
+		Live:      isStationID(it.ID) && it.Duration <= 0,
+		Broadcast: it.Broadcast,
+		Explicit:  it.Explicit,
+		Video:     playback.IsVideo(it.ID),
 	}
 }
 

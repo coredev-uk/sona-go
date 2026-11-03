@@ -25,6 +25,7 @@ import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
 import { PreviewMark } from "@/shared/components/Badges";
 import { RatingButtons } from "@/shared/components/RatingButtons";
+import { onAirLine } from "@/shared/items/station";
 import { Button } from "@/shared/ui/button";
 import { Slider } from "@/shared/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
@@ -103,9 +104,7 @@ function LiveLine({ id, playing }: { id: string; playing: boolean }) {
         <Trans>Live</Trans>
       </span>
       {onAir ? (
-        <span className="min-w-0 truncate text-ink-muted">
-          {onAir.artist ? `${onAir.artist} – ${onAir.title}` : onAir.title}
-        </span>
+        <span className="min-w-0 truncate text-ink-muted">{onAirLine(onAir)}</span>
       ) : (
         programme && (
           <span className="min-w-0 truncate text-ink-muted">
@@ -137,6 +136,7 @@ export function NowPlayingBar() {
   const authRequired = usePlayback((s) => s.authRequired);
   const noCdm = usePlayback((s) => s.noCdm);
   const preview = usePlayback((s) => s.preview);
+  const onAir = usePlayback((s) => s.onAir);
   const { queueOpen, toggleQueue, overlay, openNowPlaying, openVideo, closeOverlay, showLyrics } =
     useUI();
   const toggleKeys = useBinding("player.toggle");
@@ -229,12 +229,15 @@ export function NowPlayingBar() {
             aria-label={idle ? t`Nothing playing` : video ? t`Show video` : t`Open now playing`}
             className="shrink-0 rounded-sm"
           >
-            <Artwork src={current?.art.small} size={48} alt="" eager />
+            <Artwork src={onAir?.art.small || current?.art.small} size={48} alt="" eager />
           </button>
           <div className="flex min-w-0 flex-col">
             <div className="flex min-w-0 items-center gap-1.5">
               {current ? (
-                current.live ? (
+                current.live && current.broadcast ? (
+                  // A local broadcaster has no page to link to.
+                  <span className="truncate text-ui font-medium text-ink">{current.name}</span>
+                ) : current.live ? (
                   <Link
                     to="/station/$id"
                     params={{ id: current.id }}

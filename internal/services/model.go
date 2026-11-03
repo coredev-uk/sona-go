@@ -249,17 +249,23 @@ type Station struct {
 	// playable).
 	Playable    bool               `json:"playable"`
 	Unavailable StationUnavailable `json:"unavailable"`
-	Provider    string             `json:"provider"` // stationProviderName, e.g. "Apple Music", "TuneIn"
-	Tagline     string             `json:"tagline"`
-	Notes       string             `json:"notes"`
-	ShowID      string             `json:"showId"` // radio show (apple-curator) of an episode, "" if none
-	ShowName    string             `json:"showName"`
-	HostName    string             `json:"hostName"`
-	AirTimeMs   int64              `json:"airTimeMs"`  // episode's original broadcast start (Unix ms), 0 if none
-	DurationMs  int64              `json:"durationMs"` // episodes only
-	URL         string             `json:"url"`        // music.apple.com link, "" if none
-	Art         Art                `json:"art"`
-	Motion      string             `json:"motion"` // as Album.Motion (live, personal and mood stations)
+	// HasPage: the station has a page worth opening (a schedule, an
+	// episode's show, the songs a track station plays first). A station
+	// without one (a local broadcaster, a live station with no schedule)
+	// plays when it is opened and offers its menu; the player and Now
+	// Playing show what it has on air.
+	HasPage    bool   `json:"hasPage"`
+	Provider   string `json:"provider"` // stationProviderName, e.g. "Apple Music", "TuneIn"
+	Tagline    string `json:"tagline"`
+	Notes      string `json:"notes"`
+	ShowID     string `json:"showId"` // radio show (apple-curator) of an episode, "" if none
+	ShowName   string `json:"showName"`
+	HostName   string `json:"hostName"`
+	AirTimeMs  int64  `json:"airTimeMs"`  // episode's original broadcast start (Unix ms), 0 if none
+	DurationMs int64  `json:"durationMs"` // episodes only
+	URL        string `json:"url"`        // music.apple.com link, "" if none
+	Art        Art    `json:"art"`
+	Motion     string `json:"motion"` // as Album.Motion (live, personal and mood stations)
 }
 
 // Item kinds: what an Item is and which page it opens.

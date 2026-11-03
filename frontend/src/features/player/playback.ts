@@ -28,6 +28,7 @@ export const emptyState: PlaybackState = {
   noCdm: false,
   preview: false,
   onAir: null,
+  broadcaster: null,
   autoPlay: false,
   station: null,
   container: null,

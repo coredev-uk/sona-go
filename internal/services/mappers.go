@@ -464,6 +464,7 @@ func (m mapper) amStation(s applemusic.Station) Station {
 		out.ShowID, out.ShowName, out.HostName = d[0].ID, d[0].Attributes.Name, d[0].Attributes.ShowHostName
 	}
 	out.Playable, out.Unavailable = stationPlayability(s)
+	out.HasPage = stationHasPage(out.Kind, -1)
 	return out
 }
 

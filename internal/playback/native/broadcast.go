@@ -7,12 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/broadcast"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
+	"github.com/coredev-uk/sona-go/internal/tunein"
 )
 
 // Local broadcasters (Capital, KISS, …) are stations whose /v1/play/assets
@@ -29,13 +31,16 @@ import (
 type broadcastMedia struct {
 	url      string
 	prepared time.Time // the URL may carry session parameters; see liveStale
+	// tuneIn is the station's TuneIn ID when Apple serves it through
+	// TuneIn ("" otherwise).
+	tuneIn string
 }
 
 func (e *Engine) prepareBroadcast(m *media, url string) error {
 	if url == "" {
 		return fmt.Errorf("native: %s: broadcaster asset without a URL: %w", m.id, applemusic.ErrNotPlayable)
 	}
-	m.broadcast = &broadcastMedia{url: url, prepared: time.Now()}
+	m.broadcast = &broadcastMedia{url: url, prepared: time.Now(), tuneIn: e.tuneInID(url)}
 	e.log.Info("prepared broadcast", "id", m.id)
 	return nil
 }
@@ -46,6 +51,9 @@ func (e *Engine) prepareBroadcast(m *media, url string) error {
 func (e *Engine) feedBroadcast(ctx context.Context, it *item, tok uint64, h host, m *media) {
 	s := &broadcastSink{e: e, it: it, tok: tok, h: h, wake: make(chan struct{}, 1)}
 	go s.announce(ctx)
+	if id := m.broadcast.tuneIn; id != "" {
+		go s.watchTuneIn(ctx, id)
+	}
 	err := broadcast.Play(ctx, broadcast.Options{HTTP: e.streamHTTP, UserAgent: applemusic.UserAgent, Logger: e.log}, m.broadcast.url, s)
 	if err == nil {
 		err = h.EndOfFile(ctx, tok)
@@ -68,6 +76,10 @@ type broadcastSink struct {
 	mu      sync.Mutex
 	pending []timedOnAir
 	wake    chan struct{}
+
+	// heard: the stream itself has named something on air, which then
+	// stands in preference to TuneIn's.
+	heard atomic.Bool
 }
 
 type timedOnAir struct {
@@ -88,6 +100,9 @@ func (s *broadcastSink) Audio(ctx context.Context, b []byte) error {
 }
 
 func (s *broadcastSink) Meta(at time.Duration, m playback.OnAir) {
+	if m != (playback.OnAir{}) {
+		s.heard.Store(true)
+	}
 	s.mu.Lock()
 	s.pending = append(s.pending, timedOnAir{at, m})
 	s.mu.Unlock()
@@ -119,6 +134,7 @@ func (s *broadcastSink) announce(ctx context.Context) {
 			}
 			if pos >= next.at {
 				s.e.setOnAir(s.it, s.tok, next.m)
+				go s.addArt(ctx, next.m)
 				s.mu.Lock()
 				s.pending = s.pending[1:]
 				s.mu.Unlock()
@@ -132,6 +148,46 @@ func (s *broadcastSink) announce(ctx context.Context) {
 		case <-s.wake:
 		case <-time.After(wait):
 		}
+	}
+}
+
+// addArt gives the song m, once it is on air, its catalog artwork.
+func (s *broadcastSink) addArt(ctx context.Context, m playback.OnAir) {
+	if art := s.e.onAirArt(ctx, m); art != "" {
+		s.e.setOnAirArt(s.it, s.tok, m, art)
+	}
+}
+
+// watchTuneIn reads station id's TuneIn profile: always once, for what
+// Now Playing shows about the station, and then, for as long as the
+// stream names nothing on air itself, for the song TuneIn says is playing
+// (most stations feed TuneIn none). Failures back off (tunein.Watcher).
+func (s *broadcastSink) watchTuneIn(ctx context.Context, id string) {
+	var last playback.OnAir // what TuneIn last put on air
+	w := &tunein.Watcher{
+		Client: s.e.tuneIn,
+		ID:     id,
+		Want:   func() bool { return !s.heard.Load() },
+		Emit: func(st tunein.Station) {
+			s.e.setInfo(s.it, s.tok, playback.StationInfo{
+				Description: st.Description, Genre: st.Genre, Location: st.Location, Website: st.Website,
+			})
+			if s.heard.Load() {
+				return
+			}
+			m := playback.OnAir{Artist: st.Artist, Title: st.Title}
+			if m == last {
+				return
+			}
+			last = m
+			s.e.setOnAir(s.it, s.tok, m)
+			if m != (playback.OnAir{}) {
+				go s.addArt(ctx, m)
+			}
+		},
+	}
+	if err := w.Watch(ctx); err != nil && ctx.Err() == nil {
+		s.e.log.Debug("tunein", "err", err)
 	}
 }
 
@@ -150,10 +206,37 @@ func (e *Engine) trackPosition(it *item, tok uint64) (time.Duration, bool) {
 func (e *Engine) setOnAir(it *item, tok uint64, m playback.OnAir) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.cur != it || it.tok != tok || e.st.OnAir == m {
+	if e.cur != it || it.tok != tok || sameSong(e.st.OnAir, m) {
 		return
 	}
 	e.st.OnAir = m
 	e.log.Debug("on air", "id", it.id, "title", m.Title, "artist", m.Artist)
+	e.emit(playback.EventState)
+}
+
+// sameSong reports whether a and b name the same song (the artwork found
+// for it is not part of the name).
+func sameSong(a, b playback.OnAir) bool { return a.Title == b.Title && a.Artist == b.Artist }
+
+// setOnAirArt adds art to what is on air while that is still the song m.
+func (e *Engine) setOnAirArt(it *item, tok uint64, m playback.OnAir, art string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.cur != it || it.tok != tok || !sameSong(e.st.OnAir, m) || e.st.OnAir.Art == art {
+		return
+	}
+	e.st.OnAir.Art = art
+	e.emit(playback.EventState)
+}
+
+// setInfo makes info what is known about the broadcaster while track tok
+// of it is current.
+func (e *Engine) setInfo(it *item, tok uint64, info playback.StationInfo) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.cur != it || it.tok != tok || e.st.Info == info {
+		return
+	}
+	e.st.Info = info
 	e.emit(playback.EventState)
 }

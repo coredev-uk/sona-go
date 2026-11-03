@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 
 import { ItemActionMenu } from "@/shared/actions/ActionMenu";
 import { PlayButtons } from "@/shared/components/PlayButtons";
-import { openExternal } from "@/shared/items/cover";
+import { openWithoutPage } from "@/shared/items/cover";
 import { actionItemOf, itemLink } from "@/shared/items/links";
 import { canPlay, playItem } from "@/shared/items/play";
 import { artUrl } from "@/shared/lib/art";
@@ -63,7 +63,7 @@ export function HeroCard({ item }: { item: Item }) {
               {name}
             </Link>
           ) : (
-            <button type="button" onClick={() => openExternal(item)} className={opener}>
+            <button type="button" onClick={() => openWithoutPage(item)} className={opener}>
               {name}
             </button>
           )}

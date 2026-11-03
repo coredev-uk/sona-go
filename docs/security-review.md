@@ -284,6 +284,22 @@ Besides Apple's, Sona shows lyrics from Musixmatch, LRCLIB and NetEase Cloud Mus
 - The services decide what the lyrics say: a wrong or offensive text is shown as sent. A wrong match is limited by the title, artist and length checks.
 - Musixmatch's endpoint and token flow are the ones its own apps use, not a documented API; Musixmatch can change or refuse them, and Sona then shows other sources' lyrics.
 
+## Local broadcasters' on-air metadata (TuneIn)
+
+While a local broadcaster plays, Sona shows the song its stream names, and for the stations Apple serves through TuneIn, TuneIn's profile of the station (`internal/tunein`, `internal/playback/native/broadcast.go` and `onair.go`; docs/architecture.md §4.2). The threats are a service (or a network attacker) sending text that misleads the user or breaks rendering, a request that can be steered to another host, and listening data leaving Sona.
+
+**Requests:** from the parent only (the CDM host child has no network and the frontend never contacts these hosts), to one fixed `https` host, `opml.radiotime.com` (`Describe.ashx?id=s…&render=json`). The station ID is not free text: `tunein.StationID` takes it from the `ti_ad_params` of Apple's own play URL, only when that URL is on `tunein.com`, and only when it matches `^s[0-9]{1,12}$`; `Describe` refuses anything else before a request is built, so a station name or a hostile URL cannot add a path or parameter. No search by name is made, so a station Apple does not serve through TuneIn is never looked up there. A response is read up to 256 KiB. Polling is bounded (30 s while the station lists songs and the stream names none, 10 min otherwise, exponential backoff from 30 s to 10 min on failure, none for a station TuneIn does not know, and none once the stream names the song itself) and ends with the track. The song's cover is a catalog search at Apple (`amp-api.music.apple.com`, the usual client), whose artwork goes through the existing artwork cache, so no new image host is allowed.
+
+**Parsing:** TuneIn's JSON is decoded into a fixed struct; every field reaches the frontend as plain text rendered by React (no HTML). The website TuneIn lists is kept only if it is an `http` or `https` URL without user info, and opens in the system browser on a click (`Browser.OpenURL`), never in the app's webview. A stream's ICY text is split at " - " and never interpreted.
+
+**Not a listen:** the queue item is the station; the song on air is display and MPRIS metadata. It is never reported as Apple play activity, never recorded in the history, and live radio is never scrobbled (`internal/scrobble/track.go`).
+
+**Tests:** `internal/tunein` (`TestStationID`, `TestParseDescribe`, `TestDescribe`, `TestWatch…`), `internal/playback/native` (`TestBroadcastTuneIn`, `TestBroadcastOnAirWhenHeard`, `TestMatchArt`), `internal/playback/broadcast` (`TestOnAirOfTitle`).
+
+**Residual risks:**
+- TuneIn sees the user's IP address and which of its stations they play (as it already does when Apple's playlist makes Sona fetch TuneIn's PLS); the catalog search tells Apple which song is on air, with the account's token. Private mode does not stop either (it keeps plays out of Apple's history and the scrobblers; these are reads).
+- `Describe.ashx` is TuneIn's long-public OPML endpoint, not a documented API for third parties: it can change or be withdrawn, in which case the profile and TuneIn's song disappear and the stream's own metadata remains. The cover can be wrong only if the catalog holds a different song with the same title and artist.
+
 ## macOS sandbox (development builds)
 
 macOS has none of the Linux layers above (namespaces, Landlock, seccomp, `prctl`). The CDM host child there runs under Seatbelt, macOS's own sandbox, through `/usr/bin/sandbox-exec -p <profile> <sona>` (`internal/playback/cdmhost/seatbelt.go` writes the profile, `sandbox_darwin.go` applies it). The profile starts from `(allow default)` and takes away what the child never needs; later rules win, so each exception follows its rule:

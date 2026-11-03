@@ -47,7 +47,7 @@ function station(id: string, name: string): Item {
     color: "",
     explicit: false,
     url: "",
-    station: { id, name, kind: "tracks", playable: true } as unknown as Station,
+    station: { id, name, kind: "tracks", hasPage: true, playable: true } as unknown as Station,
   } as Item;
 }
 

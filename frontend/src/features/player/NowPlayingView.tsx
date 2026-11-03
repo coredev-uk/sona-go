@@ -1,6 +1,7 @@
-import { PlaybackService, type LyricLine } from "@bindings/services";
+import { PlaybackService, type BroadcasterInfo, type LyricLine } from "@bindings/services";
 import { Link } from "@tanstack/react-router";
 import { Trans, useLingui } from "@lingui/react/macro";
+import { Browser } from "@wailsio/runtime";
 import { Clapperboard, Disc3, Languages, Maximize2, MicVocal, SpellCheck, X } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
@@ -356,6 +357,37 @@ function NowPlayingCover({
 }
 
 /**
+ * What Now Playing says about a local broadcaster under the song on air:
+ * the station's name with its genre and place, its description (TuneIn's,
+ * for the stations it serves) and a link to its website.
+ */
+function BroadcasterBlock({ name, info }: { name: string; info: BroadcasterInfo | null }) {
+  const line = [name, info?.genre, info?.location].filter(Boolean).join(" · ");
+  return (
+    <div className="mt-4 min-w-0 text-sub text-ink-muted">
+      <p className="truncate">
+        <span className="font-medium text-ink">
+          <Trans>On air</Trans>
+        </span>
+        {" · "}
+        {line}
+      </p>
+      {info?.description && <p className="mt-1 line-clamp-3 text-pretty">{info.description}</p>}
+      {info?.website && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3"
+          onClick={() => void Browser.OpenURL(info.website)}
+        >
+          <Trans>Open website</Trans>
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/**
  * The full now-playing view over the page: the cover on a wash of its
  * colour and, when asked for, the time-synced lyrics with the sung line in
  * amber. A music video has no lyrics: its frame, and a way to its picture.
@@ -363,6 +395,8 @@ function NowPlayingCover({
  */
 export function NowPlayingView() {
   const current = usePlayback((s) => s.current);
+  const onAir = usePlayback((s) => s.onAir);
+  const broadcaster = usePlayback((s) => s.broadcaster);
   const { showLyrics, setShowLyrics, closeOverlay, openVideo } = useUI();
   const narrow = useMediaQuery("(max-width: 1100px)");
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -381,6 +415,11 @@ export function NowPlayingView() {
   const songId = lyricsSongId(current);
   const lyricsOn = showLyrics && !!songId;
   const albumName = current.albumName;
+  // A local broadcaster: what its stream names on air heads the view, the
+  // station and what is known of it come under it.
+  const broadcast = current.live && current.broadcast;
+  const heading = broadcast && onAir ? onAir.title : current.name;
+  const byline = broadcast ? (onAir ? onAir.artist : current.artistName) : current.artistName;
   const cover = lyricsOn ? (narrow ? 200 : 320) : narrow ? 280 : 420;
   // A video's frame is 16:9: wider than a cover, about as tall.
   const frame = narrow ? 480 : 640;
@@ -435,13 +474,13 @@ export function NowPlayingView() {
           ) : (
             <NowPlayingCover
               albumId={current.albumId}
-              art={current.art.large}
+              art={(broadcast && onAir?.art.large) || current.art.large}
               size={cover}
               alt={t`${albumName} cover`}
             />
           )}
           <div className="mt-6 min-w-0" style={{ maxWidth: current.video ? frame : cover }}>
-            <h2 className="line-clamp-2 text-page text-ink">{current.name}</h2>
+            <h2 className="line-clamp-2 text-page text-ink">{heading}</h2>
             <p className="mt-1 truncate text-heading font-medium text-ink-muted">
               {current.artistId ? (
                 <Link
@@ -450,12 +489,13 @@ export function NowPlayingView() {
                   onClick={closeOverlay}
                   className="hover:text-ink hover:underline hover:underline-offset-2"
                 >
-                  {current.artistName}
+                  {byline}
                 </Link>
               ) : (
-                current.artistName
+                byline
               )}
             </p>
+            {broadcast && <BroadcasterBlock name={current.name} info={broadcaster} />}
             {current.albumName && (
               <p className="mt-0.5 truncate text-sub text-ink-muted">
                 {current.albumId ? (

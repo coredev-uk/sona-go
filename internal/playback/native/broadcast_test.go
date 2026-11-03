@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,6 +30,11 @@ type broadcastServer struct {
 	srv  *httptest.Server
 	head []byte // the stream's audio before the title
 	tail []byte // after it
+
+	// silent: the stream names nothing on air (an empty StreamTitle).
+	silent bool
+	// describe is TuneIn's Describe.ashx answer for the station "s100001".
+	describe string
 
 	mu    sync.Mutex
 	paths []string
@@ -65,17 +71,41 @@ func newBroadcastServer(t *testing.T, headFrames int) *broadcastServer {
 				switch id {
 				case "ra.bcast":
 					out = append(out, `{"id":"ra.bcast","type":"stations","attributes":{"name":"Local FM","playParams":{"id":"ra.bcast","kind":"radioStation","format":"stream","hasDrm":false,"mediaType":0,"streamingKind":2}}}`)
+				case "ra.tunein":
+					out = append(out, `{"id":"ra.tunein","type":"stations","attributes":{"name":"Tune FM","stationProviderName":"TuneIn","playParams":{"id":"ra.tunein","kind":"radioStation","format":"stream","hasDrm":false,"mediaType":0,"streamingKind":2}}}`)
 				case "ra.tracks":
 					out = append(out, `{"id":"ra.tracks","type":"stations","attributes":{"name":"Mix","playParams":{"id":"ra.tracks","kind":"radioStation","format":"tracks"}}}`)
 				}
 			}
 			_, _ = fmt.Fprintf(w, `{"data":[%s]}`, strings.Join(out, ","))
 		case "/v1/play/assets":
-			if r.URL.Query().Get("id") != "ra.bcast" || r.URL.Query().Get("hasDrm") != "false" {
+			if r.URL.Query().Get("hasDrm") != "false" {
 				http.NotFound(w, r)
 				return
 			}
-			_, _ = fmt.Fprint(w, `{"results":{"assets":[{"url":"https://stream.local.test/localfm"}]}}`)
+			switch r.URL.Query().Get("id") {
+			case "ra.bcast":
+				_, _ = fmt.Fprint(w, `{"results":{"assets":[{"url":"https://stream.local.test/localfm"}]}}`)
+			case "ra.tunein":
+				// TuneIn's playlist, naming its station in the ad parameters (which
+				// TuneIn escapes a second time).
+				u := url.URL{Scheme: "https", Host: "pls.tunein.com", Path: "/pre/v1/playlist.pls", RawQuery: url.Values{
+					"ti_ad_params": {url.QueryEscape("aw_0_1st.bundleId=tunein.com&aw_0_1st.stationId=s100001")},
+					"url":          {"https://stream.local.test/localfm"},
+				}.Encode()}
+				_, _ = fmt.Fprintf(w, `{"results":{"assets":[{"url":%q}]}}`, u.String())
+			default:
+				http.NotFound(w, r)
+			}
+		case "/pre/v1/playlist.pls":
+			w.Header().Set("Content-Type", "audio/x-scpls")
+			_, _ = fmt.Fprint(w, "[playlist]\nNumberOfEntries=1\nFile1=https://stream.local.test/localfm\n")
+		case "/Describe.ashx":
+			_, _ = fmt.Fprint(w, bs.describe)
+		case "/v1/catalog/gb/search":
+			// One hit that is the on-air song, one that only looks like it.
+			_, _ = fmt.Fprint(w, `{"results":{"songs":{"data":[
+				{"id":"1","type":"songs","attributes":{"name":"Song (Radio Edit)","artistName":"Artist","artwork":{"url":"https://is1-ssl.mzstatic.com/cover/{w}x{h}bb.jpg","width":600,"height":600}}}]}}}`)
 		case "/localfm":
 			bs.mu.Lock()
 			bs.open++
@@ -85,7 +115,11 @@ func newBroadcastServer(t *testing.T, headFrames int) *broadcastServer {
 				bs.open--
 				bs.mu.Unlock()
 			}()
-			meta := []byte("StreamTitle='" + onAirTitle + "';")
+			title := onAirTitle
+			if bs.silent {
+				title = ""
+			}
+			meta := []byte("StreamTitle='" + title + "';")
 			meta = append(meta, make([]byte, (16-len(meta)%16)%16)...)
 			w.Header().Set("Content-Type", "audio/aac")
 			w.Header().Set("icy-metaint", strconv.Itoa(len(bs.head)))
@@ -307,14 +341,106 @@ func TestBroadcastOnAirWhenHeard(t *testing.T) {
 			t.Fatal("on air never announced")
 		}
 	}
-	if want := (playback.OnAir{Title: onAirTitle}); got.Status.OnAir != want {
+	if want := (playback.OnAir{Title: "Song", Artist: "Artist"}); !sameSong(got.Status.OnAir, want) {
 		t.Errorf("OnAir = %+v, want %+v", got.Status.OnAir, want)
 	}
 	if p := heard(got.Status); p < at {
 		t.Errorf("announced at position %v, before its stream time %v", p, at)
 	}
-	if st := h.e.Status(); st.OnAir.Title != onAirTitle {
+	if st := h.e.Status(); st.OnAir.Title != "Song" {
 		t.Errorf("status %+v lost what is on air", st)
+	}
+	// The catalog's cover for that song arrives with a second state event;
+	// the search names only the song, and nothing else is asked of Apple.
+	const cover = "https://is1-ssl.mzstatic.com/cover/{w}x{h}bb.jpg"
+	eventually(t, "the song's cover", func() bool { return h.e.Status().OnAir.Art == cover })
+	if n := bs.requests("/v1/catalog/gb/search"); n != 1 {
+		t.Errorf("%d catalog searches, want one", n)
+	}
+	if n := bs.requests("/Describe.ashx"); n != 0 {
+		t.Errorf("%d TuneIn requests for a station that is not TuneIn's", n)
+	}
+}
+
+const tuneInProfile = `{"head":{"status":"200"},"body":[{"element":"station","guide_id":"s100001","name":"Tune FM","has_song":%t,"current_song":"Tune Song","current_artist":"Tune Artist","genre_name":"Pop","location":"Exampletown","description":"Hits.","url":"https://www.example.com/"}]}`
+
+// A TuneIn station's profile is read once for what Now Playing shows about
+// it; the song TuneIn names stands in only while the stream names none.
+func TestBroadcastTuneIn(t *testing.T) {
+	info := playback.StationInfo{Description: "Hits.", Genre: "Pop", Location: "Exampletown", Website: "https://www.example.com/"}
+
+	t.Run("the stream names nothing", func(t *testing.T) {
+		bs := newBroadcastServer(t, 4)
+		bs.silent, bs.describe = true, fmt.Sprintf(tuneInProfile, true)
+		h := newBroadcastHarness(t, bs)
+		if err := h.e.Play(ctx(t), "ra.tunein", 0); err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, "TuneIn's song on air", func() bool {
+			st := h.e.Status()
+			return st.OnAir.Title == "Tune Song" && st.OnAir.Artist == "Tune Artist" && st.Info == info
+		})
+		if n := bs.requests("/Describe.ashx"); n != 1 {
+			t.Errorf("%d TuneIn requests, want one", n)
+		}
+	})
+
+	t.Run("the stream names the song", func(t *testing.T) {
+		bs := newBroadcastServer(t, 4)
+		bs.describe = fmt.Sprintf(tuneInProfile, true)
+		h := newBroadcastHarness(t, bs)
+		if err := h.e.Play(ctx(t), "ra.tunein", 0); err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, "the profile", func() bool { return h.e.Status().Info == info })
+		eventually(t, "the stream's song on air", func() bool { return h.e.Status().OnAir.Title == "Song" })
+		// TuneIn's song never replaces the stream's.
+		time.Sleep(50 * time.Millisecond)
+		if st := h.e.Status(); st.OnAir.Title != "Song" || st.OnAir.Artist != "Artist" {
+			t.Errorf("on air %+v, want the stream's song", st.OnAir)
+		}
+	})
+
+	t.Run("a station TuneIn does not know", func(t *testing.T) {
+		bs := newBroadcastServer(t, 4)
+		bs.silent, bs.describe = true, `{"head":{"status":"400","fault":"Station not found"},"body":[]}`
+		h := newBroadcastHarness(t, bs)
+		if err := h.e.Play(ctx(t), "ra.tunein", 0); err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, "the profile asked for", func() bool { return bs.requests("/Describe.ashx") == 1 })
+		waitFed(t, h.host(0), len(bs.head)+len(bs.tail))
+		if st := h.e.Status(); st.OnAir != (playback.OnAir{}) || st.Info != (playback.StationInfo{}) {
+			t.Errorf("status %+v, want nothing on air", st)
+		}
+		if n := bs.requests("/Describe.ashx"); n != 1 {
+			t.Errorf("%d TuneIn requests, want one (an unknown station is not retried)", n)
+		}
+	})
+}
+
+func TestMatchArt(t *testing.T) {
+	cands := []artCandidate{
+		{"Song (Live)", "Other Band", "other"},
+		{"Song", "Artist", ""}, // no cover
+		{"SONG (Radio Edit)", "Artist & Friend", "match"},
+		{"Song", "Artist", "later"},
+	}
+	for _, c := range []struct {
+		name string
+		m    playback.OnAir
+		want string
+	}{
+		{"title and artist match, bracketed suffix ignored", playback.OnAir{Artist: "Artist", Title: "Song"}, "match"},
+		{"no artist named", playback.OnAir{Title: "Song"}, ""},
+		{"wrong artist", playback.OnAir{Artist: "Nobody", Title: "Song"}, ""},
+		{"wrong title", playback.OnAir{Artist: "Artist", Title: "Other Song"}, ""},
+		{"short artist is not a substring match", playback.OnAir{Artist: "Art", Title: "Song"}, ""},
+		{"punctuation and case", playback.OnAir{Artist: "ARTIST!", Title: "song."}, "match"},
+	} {
+		if got := matchArt(c.m, cands); got != c.want {
+			t.Errorf("%s: matchArt = %q, want %q", c.name, got, c.want)
+		}
 	}
 }
 
