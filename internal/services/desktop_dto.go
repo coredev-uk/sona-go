@@ -11,6 +11,19 @@ const EventWindowState = "window:state"
 
 func init() { application.RegisterEvent[WindowState](EventWindowState) }
 
+// EventNavigate carries NavigateBack or NavigateForward when the mouse's
+// back or forward button is pressed on the main window; the page goes
+// through its history as its own back and forward controls do.
+const EventNavigate = "window:navigate"
+
+// The directions EventNavigate carries.
+const (
+	NavigateBack    = "back"
+	NavigateForward = "forward"
+)
+
+func init() { application.RegisterEvent[string](EventNavigate) }
+
 // WindowState is the main window's state that Sona's title bar follows:
 // the maximise button shows Restore while Maximised, and on macOS the
 // room for the system's buttons goes while Fullscreen (they hide there).
