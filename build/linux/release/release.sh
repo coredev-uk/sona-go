@@ -7,6 +7,11 @@
 #
 #   build/linux/release/release.sh [output-dir]     # default: bin/release
 #   SONA_SKIP_SMOKE=1 build/linux/release/release.sh
+#   SONA_RELEASE_CACHE=~/.cache/sona-release build/linux/release/release.sh
+#
+# The Go module and build caches and the pnpm store live in the podman/docker
+# volume sona-release-cache, or in the directory SONA_RELEASE_CACHE names
+# (CI keeps that one with actions/cache).
 #
 # The version is VERSION's. SONA_LASTFM_KEY / SONA_LASTFM_SECRET and
 # SONA_DISCORD_CLIENT_ID, when set, are passed to the build
@@ -45,6 +50,12 @@ if [[ ${engine[0]} != docker && ! -e /etc/containers/policy.json && ! -e ${XDG_C
 fi
 pull() { "${engine[@]}" pull "${policy[@]}" "$1"; }
 
+cache=sona-release-cache
+if [[ -n ${SONA_RELEASE_CACHE:-} ]]; then
+  mkdir -p "$SONA_RELEASE_CACHE"
+  cache=$(realpath "$SONA_RELEASE_CACHE")
+fi
+
 pull docker.io/library/ubuntu:24.04
 "${engine[@]}" build "${policy[@]}" --pull=never -t "$image" -f "$here/Containerfile" "$here"
 
@@ -61,7 +72,7 @@ tar -C "$root" \
   -cf - . |
   "${engine[@]}" run --rm -i \
     -v "$out:/out" \
-    -v sona-release-cache:/cache \
+    -v "$cache:/cache" \
     -e GOMODCACHE=/cache/gomod -e GOCACHE=/cache/gobuild -e npm_config_store_dir=/cache/pnpm \
     -e SONA_LASTFM_KEY -e SONA_LASTFM_SECRET -e SONA_DISCORD_CLIENT_ID \
     -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \

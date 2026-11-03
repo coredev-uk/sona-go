@@ -340,10 +340,13 @@ Linux Go job "Go vet and test (-race)" and "Frontend typecheck, lint,
 format, test, build"; plus "macOS build and test" (devenv on macos-15:
 production build, go vet, real-CDM and sandbox tests, `go test -race`) and
 "Windows build" (windows-2025: frontend, `go vet` with cgo, `sona.exe`),
-which take several minutes and so never run on pull requests: they run
-after each merge to main, before a release, and when dispatched), `pr-title.yml` (Conventional Commits title),
-`live.yml` (weekly Apple Music contract tests, private mode), `release.yml`
-(releases), `release-secrets.yml` (dispatch: checks the `release`
+which take several minutes and so never run on pull requests or for a
+release: they run after each merge to main and when dispatched),
+`pr-title.yml` (Conventional Commits title),
+`live.yml` (weekly Apple Music contract tests, private mode),
+`release-please.yml` (the release PR and tag, as bot-cecil), `release.yml`
+(builds, attests and publishes the Linux packages; dispatch = dry run),
+`release-secrets.yml` (dispatch: checks the `release`
 environment's secrets are set, publishes nothing), `renovate.yaml`
 (dependency updates; maintained with Renovate).
 
@@ -460,8 +463,14 @@ under Reverts in `CHANGELOG.md`; `refactor`, `docs`, `test`, `ci`, `build`
 and `chore` stay out of the changelog. Mark a breaking change with `!`
 (`feat!: …`) or a `BREAKING CHANGE:` footer. release-please keeps one
 release PR open that bumps `VERSION` and `CHANGELOG.md`; a maintainer merges
-it, which tags `v<VERSION>` and runs `release.yml` to build and publish the
-packages. Never edit `VERSION` or `CHANGELOG.md` by hand. Steps:
+it, which tags `v<VERSION>` and runs `release.yml` to build the Linux
+packages (.deb, .rpm, Arch, AppImage; no macOS or Windows build yet), attest
+and publish them with `SHA256SUMS`. release-please and the publish step act
+as the bot-cecil GitHub App, so its release PR gets the same checks as yours.
+Never edit `VERSION` or `CHANGELOG.md` by hand. Changing the packaging or
+`release.yml`? Dispatch `release.yml` on your branch (`gh workflow run
+release.yml --ref <branch>`): it builds and smoke-tests the packages and
+publishes nothing. Steps, dry run and the App's permissions:
 `docs/release-checklist.md`, "Releasing".
 
 ## Dependency updates

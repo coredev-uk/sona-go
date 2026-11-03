@@ -3,11 +3,17 @@
 # updates the release PR (VERSION, CHANGELOG.md, .release-please-manifest.json).
 # Merging that PR tags vX.Y.Z, creates a draft GitHub release with the
 # changelog entry, and calls release.yml, which builds and smoke-tests the
-# packages, uploads them to the draft and publishes it. Configuration:
-# release-please-config.json; steps: docs/release-checklist.md ("Releasing").
+# Linux packages, attests them, uploads them to the draft and publishes it.
+# Configuration: release-please-config.json; steps: docs/release-checklist.md
+# ("Releasing").
 #
-# Everything runs on GITHUB_TOKEN: the tag it creates triggers no other
-# workflow, so the release build is a reusable-workflow call, not a tag push.
+# release-please acts as the bot-cecil GitHub App (the identity Renovate uses),
+# not as GITHUB_TOKEN: events caused by GITHUB_TOKEN start no workflow, so the
+# release PR would never get its required checks. The App's token is minted in
+# the job from the repository secrets RENOVATE_APP_CLIENT_ID and
+# RENOVATE_APP_PRIVATE_KEY and lives for that job only. The tag it creates
+# still triggers no release by itself: the build is a reusable-workflow call
+# below, not a tag push.
 name: Release Please
 
 on:
@@ -23,28 +29,48 @@ jobs:
     # releases only, and release PR text can't be rewritten later.
     if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     concurrency:
       group: release-please
       cancel-in-progress: false
-    permissions:
-      contents: write # release branch, tag and draft release
-      pull-requests: write # the release PR
-      issues: write # its autorelease labels
+    # Everything goes through the App token below.
+    permissions: {}
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
+      # bot-cecil's installation permissions must include at least these three
+      # (docs/release-checklist.md, "bot-cecil App permissions").
+      - name: Generate bot-cecil token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          permission-contents: write # release branch, tag and draft release
+          permission-pull-requests: write # the release PR
+          permission-issues: write # its autorelease labels
+
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
+          token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
   release:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    # What release.yml's jobs ask for (a called workflow can only narrow
+    # these): contents to read the code, id-token and attestations for the
+    # build provenance. Publishing uses the App token, not GITHUB_TOKEN.
     permissions:
-      contents: write # upload to and publish the draft release
+      contents: read
+      id-token: write
+      attestations: write
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.release-please.outputs.tag_name }}
+    secrets:
+      RENOVATE_APP_CLIENT_ID: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+      RENOVATE_APP_PRIVATE_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}

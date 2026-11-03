@@ -8,6 +8,10 @@ version, distro/session, result, and notes for anything not passed.
 
 ## Releasing
 
+Sona 0.2 ships as Linux packages only (.deb, .rpm, Arch, AppImage); the
+release workflow builds no macOS or Windows artifact (see "Platforms in a
+release" below).
+
 `.github/workflows/release-please.yml` runs on every push to `main` while
 the repository is public (it skips itself while private). release-please
 reads the Conventional Commits subjects merged since the last release (PRs
@@ -40,42 +44,103 @@ line, put `BEGIN_COMMIT_OVERRIDE`, the new Conventional Commits line(s) and
 Merging a release:
 
 1. Run §1 and §2 against the release PR's head.
-2. release-please pushes the release PR with `GITHUB_TOKEN`, so CI and the
-   PR title check don't start on it by themselves. Right before merging,
-   close and reopen it (a person) to run them; every merge to `main`
-   force-pushes the branch again and drops them.
+2. release-please pushes the release PR as the bot-cecil GitHub App, so CI
+   and the PR title check start on it like on any other PR, and re-run on
+   every push to its branch. Wait for the four required checks ("Go vet and
+   test (-race)", "Frontend typecheck, lint, format, test, build",
+   "Conventional Commits title", "gitleaks"). If a push changed nothing in
+   the PR and the checks are missing (the release PR opened before the App
+   token was in use), close and reopen it to start them.
 3. Merge it through Clarence (`@bot-clarence merge`, AGENTS.md) with its title
    unchanged: release-please finds it by the title and the
    `autorelease: pending` label.
 4. The Release Please run for that merge tags `vX.Y.Z` on the merge commit,
    creates a draft GitHub release holding the changelog entry (the PR's
-   label becomes `autorelease: tagged`) and calls `release.yml` (job
-   `release / release`, environment `release`): the CI checks,
-   `Tag matches VERSION`, `release.sh` with its smoke tests, then the
-   packages are uploaded to the draft and it is published as `Sona X.Y.Z`,
-   marked latest. `releases/latest` never returns a draft, so the update
-   notice and AppImageUpdate only see a release once its packages are on it.
-5. Copy `aur/PKGBUILD` and `aur/.SRCINFO` from `sona-bin-<v>-aur.tar.gz` into
+   label becomes `autorelease: tagged`), as bot-cecil, and calls
+   `release.yml`:
+   - `checks`: the Linux CI jobs (`ci.yml` with `linux-only`).
+   - `build` (job "Build and smoke-test Linux packages", environment
+     `release`): `Tag matches VERSION`, then `release.sh` builds the
+     packages with `VERSION` in `main.version` and the file names, writes
+     `SHA256SUMS` and smoke-tests every package; the build provenance of
+     every file listed in `SHA256SUMS` is attested; the files are kept as
+     the `linux-release` run artifact.
+   - `publish` (as bot-cecil): the packages, the AppImage `.zsync`, the AUR
+     `sona-bin` files and `SHA256SUMS` are uploaded to the draft
+     (`--clobber`) and it is published as `Sona X.Y.Z`, marked latest.
+     `releases/latest` never returns a draft, so the update notice and
+     AppImageUpdate only see a release once its packages are on it.
+5. Check a download: `sha256sum -c SHA256SUMS` and
+   `gh attestation verify sona_X.Y.Z_amd64.deb --repo coredev-uk/sona-go`
+   (any of the files; the attestation is the build's signed provenance, from
+   the workflow's OIDC token, not from the App).
+6. Copy `aur/PKGBUILD` and `aur/.SRCINFO` from `sona-bin-<v>-aur.tar.gz` into
    the AUR `sona-bin` repo and push there by hand.
 
 If the build fails on something transient, "Re-run failed jobs" on that
-Release Please run builds the same tag again. If it needs a code change,
-delete only the draft (`gh release delete vX.Y.Z --yes`, keeping the tag)
-and merge the fix: release-please falls back to the `vX.Y.Z` tag as the
-last release and the fix ships as the next patch release. Never revert the
-merged release PR: `VERSION` and the tag would disagree.
+Release Please run builds the same tag again; the publish job uploads over
+what an earlier attempt attached and leaves an already published release
+alone. If it needs a code change, delete only the draft
+(`gh release delete vX.Y.Z --yes`, keeping the tag) and merge the fix:
+release-please falls back to the `vX.Y.Z` tag as the last release and the
+fix ships as the next patch release. Never revert the merged release PR:
+`VERSION` and the tag would disagree.
+
+### Dry run
+
+Before merging a release (and after any change to `release.yml`,
+`release.sh` or the packaging), build the Linux packages without publishing:
+
+    gh workflow run release.yml --ref <branch>            # add -f checks=true to run the CI jobs first
+    gh run watch                                          # then:
+    gh run download <run-id> -n linux-release             # packages and SHA256SUMS
+
+Dispatching `release.yml` builds and smoke-tests the same packages, uploads
+them as the `linux-release` run artifact (kept 7 days) and neither attests
+nor publishes. It runs without the `release` environment, which only
+deploys from `main`, so these packages have no Last.fm or Discord
+credentials compiled in. `release-secrets.yml` checks those secrets.
+
+### Platforms in a release
+
+`release.yml` calls `ci.yml` with `linux-only`, so the "macOS build and
+test" and "Windows build" jobs never run for, or hold up, a release; they
+run after each merge to `main` (once the repository is public) and when
+`ci.yml` is dispatched, and macOS and Windows packages are not built or
+attached. To ship them, add build and attestation jobs to `release.yml` and
+list their files in the `publish` job's upload; until then the cross-platform
+type-checks in "Go vet and test (-race)" only keep those ports compiling.
+
+### bot-cecil App permissions
+
+release-please and the publish job act as the bot-cecil GitHub App (the same
+App Renovate uses), through a token minted by
+`actions/create-github-app-token` in each job from the repository secrets
+`RENOVATE_APP_CLIENT_ID` and `RENOVATE_APP_PRIVATE_KEY`. The App must be
+installed on this repository with at least these repository permissions, all
+of which Renovate's token (`renovate.yaml`) already requests:
+
+| Permission     | Level | Used by                                                            |
+| -------------- | ----- | ------------------------------------------------------------------ |
+| Contents       | write | release-please: release branch, tag, draft release; publish job: upload and publish |
+| Pull requests  | write | release-please: open and update the release PR                     |
+| Issues         | write | release-please: the `autorelease:` labels on the release PR        |
+
+Each job requests only what it uses (`permission-*` inputs), so the token is
+narrower than the installation. The build provenance needs no App
+permission: it uses the workflow's `id-token: write` and
+`attestations: write`.
 
 ### Repository settings release-please needs
 
-Settings → Actions → General → Workflow permissions → "Allow GitHub Actions
-to create and approve pull requests" on (release-please can't open its PR
-otherwise); squash merging only, with the commit message defaulting to
-"Pull request title" (title `PR_TITLE`, body blank), since the default
-"commit or PR title" takes a lone commit's subject instead of the checked
-PR title. The `release` environment allows branch `main`, the ref of the
-release-please run that calls `release.yml`. `release.yml` is called only by
-`release-please.yml` (no `push: tags` trigger), so pushing a tag builds
-nothing.
+Squash merging only, with the commit message defaulting to "Pull request
+title" (title `PR_TITLE`, body blank), since the default "commit or PR
+title" takes a lone commit's subject instead of the checked PR title.
+"Allow GitHub Actions to create and approve pull requests" is not needed:
+the App opens the PR. The `release` environment allows branch `main`, the
+ref of the release-please run that calls `release.yml`. `release.yml` is
+called only by `release-please.yml` (no `push: tags` trigger), so pushing a
+tag builds nothing; the `release tags` ruleset keeps `v*` tags immutable.
 
 ## 1. Automated gates
 
@@ -95,9 +160,11 @@ nothing.
       `sona --version` prints the version, every library resolves, the
       GStreamer elements exist (WebKit's `webvttenc` from gst-plugins-bad
       included), and the app paints its first frame under Xvfb.
+- [ ] The dry run ("Dry run") on the release PR's branch passes.
 - [ ] After the merge, the release workflow (`release.yml`, called by
-      `release-please.yml`) re-runs the same and publishes the GitHub
-      release; then the AUR push ("Releasing", step 5).
+      `release-please.yml`) re-runs the same, attests the files and
+      publishes the GitHub release; then the checksum and attestation check
+      and the AUR push ("Releasing", steps 5 and 6).
 
 ## 2. Desktop matrix
 
