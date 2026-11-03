@@ -51,7 +51,7 @@ export function LocationDialog({
     if (e.key === "ArrowDown") {
       e.preventDefault();
       buttons()[0]?.focus();
-    } else if (e.key === "Enter" && items[0]) {
+    } else if (e.key === "Enter" && term && items[0]) {
       e.preventDefault();
       set.mutate(items[0].id);
     }

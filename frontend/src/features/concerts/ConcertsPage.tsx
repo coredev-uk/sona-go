@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/shared/ui/switch";
 
 import { ConcertRow, DateBlock } from "./ConcertRow";
-import { groupShows, rangeFor, showDayLong, type When } from "./dates";
+import { groupShows, isoDay, rangeFor, showDayLong, type When } from "./dates";
 import { useRoving } from "./roving";
 import { LocationDialog } from "./LocationDialog";
 import { PAGE_SIZE, requestOf, useConcerts, useLocation } from "./queries";
@@ -185,6 +185,7 @@ function Filters({
           <DateInput
             label={t`From`}
             value={search.from ?? ""}
+            min={isoDay(new Date())}
             max={search.to}
             onChange={(from) => onChange({ from: from || undefined })}
           />
@@ -194,6 +195,11 @@ function Filters({
             min={search.from}
             onChange={(to) => onChange({ to: to || undefined })}
           />
+          {!rangeFor(search, new Date()) && (
+            <span className="text-sub text-ink-muted">
+              <Trans>Choose both dates</Trans>
+            </span>
+          )}
         </>
       )}
       {genres.length > 1 && (

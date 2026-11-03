@@ -5,7 +5,7 @@ import { useCallback, useLayoutEffect, useRef, type FocusEvent, type KeyboardEve
  * two controls (`[data-stop]`: the artist's link, then the tickets), and
  * the whole list is one Tab stop. ↑ and ↓ move to the same control of the
  * row above or below, ← and → between a row's controls, Home and End to the
- * first and last row. Tab leaves the list; coming back lands on the control
+ * first and last row (a ticket menu's button keeps ↓ for moving: its menu opens with Enter or Space). Tab leaves the list; coming back lands on the control
  * focused last (docs/accessibility.md: long lists are one Tab stop).
  */
 
@@ -90,9 +90,6 @@ export function useRoving(deps: readonly unknown[]) {
     const rows = layout(e.currentTarget);
     const at = locate(rows, e.target);
     if (!at) return;
-    // A menu button opens its menu on ↓: that is the menu's.
-    const target = e.target as HTMLElement;
-    if (e.key === "ArrowDown" && target.getAttribute("aria-haspopup")) return;
     const to = moveFrom(
       e.key,
       at,

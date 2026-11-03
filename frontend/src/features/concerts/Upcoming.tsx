@@ -30,7 +30,8 @@ function Rows({
     <ul
       className={cn(
         "grid gap-x-8",
-        columns === 2 && "grid-cols-[repeat(auto-fill,minmax(420px,1fr))]",
+        columns === 2 &&
+          "min-[900px]:grid-flow-col min-[900px]:grid-cols-2 min-[900px]:grid-rows-3",
       )}
     >
       {shows.map((c) => (

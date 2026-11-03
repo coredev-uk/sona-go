@@ -76,6 +76,10 @@ export function TicketsButton({ concert }: { concert: Concert }) {
           size="sm"
           className="text-ink"
           aria-label={t`Get tickets for ${lineup}`}
+          // ↓ moves down the agenda (roving.ts); Enter and Space open the menu.
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") e.preventDefault();
+          }}
         >
           <Trans>Get tickets</Trans>
           <ChevronDown aria-hidden className="size-3.5" strokeWidth={1.75} />
@@ -141,7 +145,7 @@ export function ConcertRow({
         </p>
         {place && <p className="truncate text-sub text-ink-muted">{place}</p>}
         {others && <p className="truncate text-sub text-ink-muted">{others}</p>}
-        <p className="truncate text-meta text-ink-faint tabular-nums">
+        <p className="truncate text-meta text-ink-faint">
           {meta}
           {concert.yourArtist && (
             <>
