@@ -13,10 +13,11 @@ import { LINK_GAP, linkGrid } from "./linkGrid";
 /**
  * One destination as a button: a `--hover` tile, 44px at least, the name in
  * ink (two lines before it is cut), and an arrow out at the end of the one
- * that leaves Sona. The border is for forced colours only, where fills go.
+ * that leaves Sona. In light a 1px `--line` border sets the tile off the ground (and
+ * is the tile in forced colours, where fills go); in dark the fill alone does.
  */
 const TILE =
-  "flex min-h-11 w-full items-center justify-between gap-3 rounded-md bg-hover px-4 py-2 text-left text-ui font-medium text-ink transition-colors duration-[120ms] hover:bg-active active:bg-active forced-colors:border";
+  "flex min-h-11 w-full items-center justify-between gap-3 rounded-md border border-line bg-hover px-4 py-2 dark:border-transparent text-left text-ui font-medium text-ink transition-colors duration-[120ms] hover:bg-active active:bg-active";
 
 /**
  * Links to editorial pages as a wall of buttons in even columns, in Apple's
