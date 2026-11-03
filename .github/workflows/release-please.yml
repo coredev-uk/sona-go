@@ -28,7 +28,7 @@ jobs:
     # Off while the repository is private: the update notice reads public
     # releases only, and release PR text can't be rewritten later.
     if: ${{ !github.event.repository.private }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     concurrency:
       group: release-please

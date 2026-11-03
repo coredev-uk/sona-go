@@ -62,7 +62,7 @@ jobs:
     needs: checks
     # A dry run may skip the checks; a release may not.
     if: ${{ !cancelled() && (needs.checks.result == 'success' || needs.checks.result == 'skipped') }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     # The Last.fm key and secret and the Discord application ID are secrets
     # of the `release` environment, which only runs from main. A dry run
@@ -149,7 +149,7 @@ jobs:
     name: Publish the GitHub release
     needs: build
     if: ${{ github.event_name != 'workflow_dispatch' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     # The upload and the publish go through the bot-cecil App token.
     permissions: {}
