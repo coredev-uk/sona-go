@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/shared/ui/switch";
 
 import { useSettings, useUpdateSettings } from "./queries";
-import { SELECT_WIDTH, SettingRow } from "./SettingRow";
+import { usePlatformName } from "./platform";
+import { SELECT_WIDTH, SettingRow, UnavailableRow } from "./SettingRow";
 
 function useDesktop() {
   const settings = useSettings();
@@ -26,7 +27,10 @@ export function StartupRows() {
   const { t } = useLingui();
   const caps = useCapabilities();
   const { d, save } = useDesktop();
-  if (!d || !caps?.autostart) return null;
+  if (!d || !caps) return null;
+  if (!caps.autostart) {
+    return <UnavailableRow id="autostart" title={t`Start Sona when you log in`} />;
+  }
   return (
     <>
       <SettingRow
@@ -63,9 +67,19 @@ export function StartupRows() {
 /** What closing the window does (Settings → General); needs the tray. */
 export function CloseActionRow() {
   const { t } = useLingui();
-  const tray = useCapabilities()?.tray ?? false;
+  const caps = useCapabilities();
+  const platform = usePlatformName();
   const { d, save } = useDesktop();
-  if (!d || !tray) return null;
+  if (!d || !caps) return null;
+  if (!caps.tray) {
+    return (
+      <UnavailableRow
+        id="close-action"
+        title={t`When the window is closed`}
+        reason={t`Sona quits: it can't stay in the system tray on ${platform} yet.`}
+      />
+    );
+  }
   return (
     <SettingRow
       id="close-action"

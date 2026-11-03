@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/shared/ui/switch";
 
 import { useSettings, useUpdateSettings } from "./queries";
-import { SELECT_WIDTH, SettingRow } from "./SettingRow";
+import { SELECT_WIDTH, SettingRow, UnavailableRow } from "./SettingRow";
 
 /** The value standing for "follow the system default" (Radix Select needs a non-empty value). */
 const SYSTEM = "system-default";
@@ -81,9 +81,12 @@ export function SoundCheckRow() {
   const { t } = useLingui();
   const settings = useSettings();
   const update = useUpdateSettings();
-  const supported = useCapabilities()?.playback.soundCheck ?? false;
+  const caps = useCapabilities();
   const s = settings.data;
-  if (!s || !supported) return null;
+  if (!s || !caps) return null;
+  if (!caps.playback.soundCheck) {
+    return <UnavailableRow id="sound-check" title={t`Sound Check`} />;
+  }
   return (
     <SettingRow
       id="sound-check"
@@ -113,9 +116,11 @@ export function AudioRows() {
   const eq = s.audio.equalizer;
   return (
     <>
-      {playback.outputDevice && <OutputRow />}
+      {playback.outputDevice ? <OutputRow /> : <UnavailableRow id="output" title={t`Output`} />}
       <SoundCheckRow />
-      {playback.equalizer && (
+      {!playback.equalizer ? (
+        <UnavailableRow id="equalizer" title={t`Equaliser`} />
+      ) : (
         <SettingRow
           id="equalizer"
           title={t`Equaliser`}

@@ -1,5 +1,5 @@
 import { plural } from "@lingui/core/macro";
-import { Trans, useLingui } from "@lingui/react/macro";
+import { useLingui } from "@lingui/react/macro";
 
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { useCapabilities } from "@/shared/lib/capabilities";
@@ -17,8 +17,10 @@ import {
   SELECT_WIDTH,
   SettingRow,
   SettingsGroup,
+  SettingsLoading,
   SettingsPanel,
   SettingsSections,
+  UnavailableRow,
 } from "./SettingRow";
 
 const idleChoices = [5, 10, 15, 30, 60];
@@ -26,8 +28,8 @@ const idleChoices = [5, 10, 15, 30, 60];
 /**
  * Settings → Playback: Widevine's state first (the player bar's Widevine
  * notice links here), then Sound, Listening, Lyrics and Advanced. Rows for
- * what this platform's playback can't do are left out; without any
- * playback, one line says so instead (lyrics still show on song pages).
+ * what this platform's playback can't do say so in their place; without
+ * any playback, one line says so instead (lyrics still show on song pages).
  * The volume is the player bar's (and MPRIS's and `sona volume`'s), never
  * a row here.
  */
@@ -46,20 +48,17 @@ export function PlaybackSection() {
     );
   }
   const s = settings.data;
-  if (!s || !caps) return <SettingsPanel className="h-72" />;
+  if (!s || !caps) return <SettingsLoading rows={5} />;
   const playback = caps.playback;
   if (!playback.available) {
     return (
       <SettingsSections>
         <SettingsPanel>
-          <div className="py-4">
-            <p className="text-ui font-medium text-ink">
-              <Trans>Playback isn't available on this platform yet</Trans>
-            </p>
-            <p className="mt-0.5 max-w-[56ch] text-sub text-ink-muted">
-              <Trans>Browsing Apple Music and your library works as usual.</Trans>
-            </p>
-          </div>
+          <UnavailableRow
+            id="playback"
+            title={t`Playback isn't available on this platform yet`}
+            reason={t`Browsing Apple Music and your library works as usual.`}
+          />
         </SettingsPanel>
         <LyricsRows />
       </SettingsSections>
@@ -84,7 +83,19 @@ export function PlaybackSection() {
         <CrossfadeRows />
       </SettingsGroup>
       <SettingsGroup id="playback-listening" title={t`Listening`}>
-        {playback.privateListening && <PrivateRows />}
+        {playback.privateListening ? (
+          <PrivateRows />
+        ) : (
+          <UnavailableRow
+            id="private-listening"
+            title={t({
+              message: "Private listening",
+              comment:
+                "Apple Music's own name for the mode: plays aren't reported to Apple, so they don't shape recommendations or Replay.",
+            })}
+            reason={t`This platform's player reports plays to Apple itself, so Sona can't hold them back.`}
+          />
+        )}
         <QueueRows />
       </SettingsGroup>
       <LyricsRows />

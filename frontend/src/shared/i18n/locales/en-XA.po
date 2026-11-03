@@ -119,7 +119,7 @@ msgid "{artists, plural, one {# artist} other {# artists}}"
 msgstr ""
 
 #: src/features/settings/Storage.tsx
-msgid "{artworkUsed} of {artworkLimit} used."
+msgid "{artworkUsed} of {artworkLimit}"
 msgstr ""
 
 #: src/features/miniplayer/MiniPlayer.tsx
@@ -129,19 +129,31 @@ msgid "{at} of {total}"
 msgstr ""
 
 #: src/features/settings/Storage.tsx
-msgid "{catalogEntries, plural, one {# page, {catalogSize}.} other {# pages, {catalogSize}.}}"
+msgid "{catalogEntries, plural, one {# page} other {# pages}}"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
 msgid "{cdmInterface} (host {hostInterface})"
 msgstr ""
 
+#: src/features/settings/summaries.ts
+msgid "{changed, plural, one {# changed} other {# changed}}"
+msgstr ""
+
 #: src/features/settings/AudioRows.tsx
 msgid "{chosen} · not connected"
 msgstr ""
 
+#: src/features/settings/summaries.ts
+msgid "{conflicts, plural, one {# conflict} other {# conflicts}}"
+msgstr ""
+
 #: src/features/player/commands.ts
 msgid "{count, plural, one {{what} plays next} other {{what} play next}}"
+msgstr ""
+
+#: src/features/settings/FindSetting.tsx
+msgid "{count, plural, one {# setting found} other {# settings found}}"
 msgstr ""
 
 #: src/features/settings/SettingsFileRows.tsx
@@ -166,11 +178,7 @@ msgid "{curveName} · shapes everything Sona plays"
 msgstr ""
 
 #: src/features/settings/Storage.tsx
-msgid "{databaseSize}, of which {databaseFree} is free space."
-msgstr ""
-
-#: src/features/settings/Storage.tsx
-msgid "{databaseSize}."
+msgid "{databaseFree} of it free space"
 msgstr ""
 
 #: src/features/equalizer/Fader.tsx
@@ -190,6 +198,7 @@ msgid "{freq} Hz"
 msgstr ""
 
 #: src/features/settings/Storage.tsx
+#: src/features/settings/summaries.ts
 msgid "{gb} GB"
 msgstr ""
 
@@ -212,6 +221,10 @@ msgstr ""
 
 #: src/features/auth/Account.tsx
 msgid "{len, plural, one {# digit} other {# digits}}"
+msgstr ""
+
+#: src/features/settings/summaries.ts
+msgid "{mib} MB"
 msgstr ""
 
 #: src/features/player/QueuePanel.tsx
@@ -411,6 +424,10 @@ msgstr ""
 msgid "{via} refused it."
 msgstr ""
 
+#: src/features/settings/Diagnostics.tsx
+msgid "{warnings, plural, one {# warning to look at below} other {# warnings to look at below}}"
+msgstr ""
+
 #: src/shared/actions/ActionMenu.tsx
 msgid "{what} selected"
 msgstr ""
@@ -606,6 +623,7 @@ msgstr ""
 msgid "Adds Sona to your desktop's startup applications."
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/Playback.tsx
 msgid "Advanced"
 msgstr ""
@@ -628,7 +646,7 @@ msgstr ""
 #: src/features/library/pages.tsx
 #: src/features/search/groups.ts
 #: src/features/search/SearchPage.tsx
-#: src/features/settings/General.tsx
+#: src/features/settings/summaries.ts
 msgid "Albums"
 msgstr ""
 
@@ -686,8 +704,12 @@ msgstr ""
 msgid "Always light"
 msgstr ""
 
+#: src/features/settings/find.ts
+msgid "animation, motion, blur"
+msgstr ""
+
 #: src/features/onboarding/steps.ts
-#: src/features/settings/Settings.tsx
+#: src/features/settings/find.ts
 msgid "Appearance"
 msgstr ""
 
@@ -826,7 +848,7 @@ msgid "Apple Music no longer accepts your sign-in. Sign in again from the accoun
 msgstr ""
 
 #: src/features/settings/Storage.tsx
-msgid "Apple Music pages kept so they open at once and while offline; expired pages are removed every few hours."
+msgid "Apple Music pages kept so they open at once and while offline; expired pages are removed every few hours. Clearing it and the artwork cache keeps your library and settings."
 msgstr ""
 
 #: src/shared/lib/errors.ts
@@ -843,6 +865,10 @@ msgstr ""
 
 #: src/features/auth/signin.ts
 msgid "Apple Music subscription required"
+msgstr ""
+
+#: src/features/settings/find.ts
+msgid "Apple Music, Musixmatch, LRCLIB, NetEase"
 msgstr ""
 
 #: src/shared/components/Badges.tsx
@@ -899,7 +925,7 @@ msgstr ""
 #: src/features/library/pages.tsx
 #: src/features/search/groups.ts
 #: src/features/search/SearchPage.tsx
-#: src/features/settings/General.tsx
+#: src/features/settings/summaries.ts
 msgid "Artists"
 msgstr ""
 
@@ -908,12 +934,17 @@ msgid "Artists in your library"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/Storage.tsx
 msgid "Artwork cache"
 msgstr ""
 
 #: src/features/settings/settings-file.ts
 msgid "Artwork cache limit"
+msgstr ""
+
+#: src/features/settings/summaries.ts
+msgid "Artwork up to {limit}"
 msgstr ""
 
 #: src/features/settings/QueueRows.tsx
@@ -953,6 +984,7 @@ msgid "Audio priority"
 msgstr ""
 
 #: src/features/onboarding/PlaybackStep.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/QualityRow.tsx
 #: src/features/settings/settings-file.ts
 msgid "Audio quality"
@@ -1036,6 +1068,14 @@ msgstr ""
 msgid "Bass Reducer"
 msgstr ""
 
+#: src/features/settings/find.ts
+msgid "bitrate, data saver, lossless"
+msgstr ""
+
+#: src/features/settings/find.ts
+msgid "blank window, flicker"
+msgstr ""
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Blocked"
 msgstr ""
@@ -1062,6 +1102,10 @@ msgstr ""
 msgid "Buffering…"
 msgstr ""
 
+#: src/features/settings/find.ts
+msgid "bug report"
+msgstr ""
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Cache"
 msgstr ""
@@ -1082,6 +1126,7 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/Storage.tsx
 msgid "Catalogue cache"
 msgstr ""
@@ -1114,7 +1159,7 @@ msgstr ""
 #: src/features/discover/ChartsPage.tsx
 #: src/features/discover/index.ts
 #: src/features/search/groups.ts
-#: src/features/settings/General.tsx
+#: src/features/settings/summaries.ts
 msgid "Charts"
 msgstr ""
 
@@ -1126,6 +1171,7 @@ msgstr ""
 msgid "Check for updates"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/Updates.tsx
 msgid "Check for updates when Sona starts"
 msgstr ""
@@ -1185,6 +1231,10 @@ msgstr ""
 msgid "Checking…"
 msgstr ""
 
+#: src/features/settings/summaries.ts
+msgid "Checks, logs and bug reports"
+msgstr ""
+
 #: src/features/player/NowPlayingBar.tsx
 msgid "Choose a song, album or playlist to start"
 msgstr ""
@@ -1215,16 +1265,16 @@ msgstr ""
 msgid "Clear caches"
 msgstr ""
 
+#: src/features/settings/find.ts
+msgid "Clear caches, offline"
+msgstr ""
+
 #: src/features/search/SearchField.tsx
 msgid "Clear search"
 msgstr ""
 
 #: src/features/settings/Storage.tsx
 msgid "Cleared {artwork} of artwork and {pages, plural, one {# cached page} other {# cached pages}}"
-msgstr ""
-
-#: src/features/settings/Storage.tsx
-msgid "Clearing it and the artwork cache keeps your library and settings."
 msgstr ""
 
 #: src/features/settings/Storage.tsx
@@ -1295,6 +1345,7 @@ msgstr ""
 msgid "Commands"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/Storage.tsx
 msgid "Compact now"
 msgstr ""
@@ -1337,7 +1388,7 @@ msgid "Connected, paused. Songs you play now aren't sent."
 msgstr ""
 
 #: src/features/onboarding/steps.ts
-#: src/features/settings/Settings.tsx
+#: src/features/settings/find.ts
 msgid "Connections"
 msgstr ""
 
@@ -1350,6 +1401,7 @@ msgid "Continue"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
+#: src/features/settings/find.ts
 msgid "Copy diagnostics"
 msgstr ""
 
@@ -2024,11 +2076,17 @@ msgstr ""
 
 #: src/features/onboarding/PlaybackStep.tsx
 #: src/features/settings/CrossfadeRows.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/settings-file.ts
 msgid "Crossfade"
 msgstr ""
 
+#: src/features/settings/summaries.ts
+msgid "Crossfade {seconds} s"
+msgstr ""
+
 #: src/features/settings/CrossfadeRows.tsx
+#: src/features/settings/find.ts
 msgid "Crossfade length"
 msgstr ""
 
@@ -2062,16 +2120,29 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
+#: src/features/settings/summaries.ts
+msgid "Dark theme"
+msgstr ""
+
+#: src/features/settings/find.ts
+msgid "dark, light"
+msgstr ""
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Data"
 msgstr ""
 
 #: src/features/onboarding/PlaybackStep.tsx
+#: src/features/settings/summaries.ts
 msgid "Data saver"
 msgstr ""
 
 #: src/features/settings/QualityRow.tsx
 msgid "Data saver · 64 kbps"
+msgstr ""
+
+#: src/features/settings/summaries.ts
+msgid "Default keys"
 msgstr ""
 
 #: src/shared/shortcuts/chord.ts
@@ -2132,7 +2203,7 @@ msgid "Development build (no version): not checked for updates"
 msgstr ""
 
 #: src/app/shell/StatusBanner.tsx
-#: src/features/settings/Settings.tsx
+#: src/features/settings/find.ts
 msgid "Diagnostics"
 msgstr ""
 
@@ -2141,10 +2212,12 @@ msgid "Diagnostics copied"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
+#: src/features/settings/find.ts
 msgid "Disable compositing"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
+#: src/features/settings/find.ts
 msgid "Disable the DMA-BUF renderer"
 msgstr ""
 
@@ -2170,10 +2243,12 @@ msgid "Disconnecting…"
 msgstr ""
 
 #: src/features/settings/Connections.tsx
+#: src/features/settings/find.ts
 msgid "Discord"
 msgstr ""
 
 #: src/features/onboarding/ConnectionsStep.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/IntegrationsRows.tsx
 #: src/features/settings/settings-file.ts
 msgid "Discord status"
@@ -2181,12 +2256,16 @@ msgstr ""
 
 #: src/features/discover/index.ts
 #: src/features/discover/NewPage.tsx
-#: src/features/settings/General.tsx
+#: src/features/settings/summaries.ts
 msgid "Discover"
 msgstr ""
 
 #: src/features/album/AlbumSleeve.tsx
 msgid "Discs"
+msgstr ""
+
+#: src/features/settings/find.ts
+msgid "disk, space"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
@@ -2354,6 +2433,7 @@ msgstr ""
 #: src/features/equalizer/EqualizerButton.tsx
 #: src/features/equalizer/EqualizerPage.tsx
 #: src/features/settings/AudioRows.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/settings-file.ts
 msgid "Equaliser"
 msgstr ""
@@ -2411,6 +2491,10 @@ msgstr ""
 #: src/features/auth/Account.tsx
 #: src/features/auth/AccountMenu.tsx
 msgid "Explicit content is restricted on this account; Sona hides it."
+msgstr ""
+
+#: src/features/settings/find.ts
+msgid "export, import, backup"
 msgstr ""
 
 #: src/features/settings/SettingsFileRows.tsx
@@ -2489,6 +2573,10 @@ msgstr ""
 msgid "Find a playlist"
 msgstr ""
 
+#: src/features/settings/FindSetting.tsx
+msgid "Find a setting"
+msgstr ""
+
 #: src/features/search/index.ts
 msgid "find focus"
 msgstr ""
@@ -2501,6 +2589,7 @@ msgstr ""
 msgid "First released"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/SetupRow.tsx
 msgid "First-run setup"
 msgstr ""
@@ -2524,7 +2613,7 @@ msgstr ""
 
 #: src/features/home/HomePage.tsx
 #: src/features/home/index.ts
-#: src/features/settings/General.tsx
+#: src/features/settings/summaries.ts
 msgid "For you"
 msgstr ""
 
@@ -2536,6 +2625,7 @@ msgstr ""
 msgid "Forward"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/Playback.tsx
 #: src/features/settings/settings-file.ts
 msgid "Free memory when idle"
@@ -2558,7 +2648,7 @@ msgstr ""
 msgid "Gave back {size} to the disk"
 msgstr ""
 
-#: src/features/settings/Settings.tsx
+#: src/features/settings/find.ts
 #: src/shared/shortcuts/groups.ts
 msgid "General"
 msgstr ""
@@ -2682,6 +2772,7 @@ msgid "High · 256 kbps"
 msgstr ""
 
 #: src/features/onboarding/PlaybackStep.tsx
+#: src/features/settings/summaries.ts
 msgid "High quality"
 msgstr ""
 
@@ -2868,6 +2959,10 @@ msgstr ""
 msgid "Keep playing in the background"
 msgstr ""
 
+#: src/features/settings/summaries.ts
+msgid "Keeps playing when closed"
+msgstr ""
+
 #: src/features/commands/index.ts
 #: src/features/commands/ShortcutHelp.tsx
 #: src/features/settings/settings-file.ts
@@ -2886,7 +2981,12 @@ msgstr ""
 msgid "Landlock doesn't restrict its files."
 msgstr ""
 
+#: src/features/settings/find.ts
+msgid "language"
+msgstr ""
+
 #: src/features/onboarding/WelcomeStep.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/LanguageRow.tsx
 msgid "Language"
 msgstr ""
@@ -2901,6 +3001,10 @@ msgstr ""
 
 #: src/features/settings/MotionDiagnostics.ts
 msgid "Last video"
+msgstr ""
+
+#: src/features/settings/find.ts
+msgid "Last.fm"
 msgstr ""
 
 #: src/features/settings/scrobble.ts
@@ -2938,6 +3042,7 @@ msgid "Library · {page}"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/Storage.tsx
 msgid "Library database"
 msgstr ""
@@ -2963,6 +3068,10 @@ msgstr ""
 msgid "Light"
 msgstr ""
 
+#: src/features/settings/summaries.ts
+msgid "Light theme"
+msgstr ""
+
 #: src/features/player/shortcuts.ts
 msgid "like love star favorite"
 msgstr ""
@@ -2979,10 +3088,19 @@ msgstr ""
 msgid "Link copied"
 msgstr ""
 
+#: src/features/settings/platform.ts
+msgid "Linux"
+msgstr ""
+
+#: src/features/settings/find.ts
+msgid "ListenBrainz"
+msgstr ""
+
 #: src/features/settings/scrobble.ts
 msgid "ListenBrainz didn't accept that token. Copy it again from your ListenBrainz settings."
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/Playback.tsx
 msgid "Listening"
 msgstr ""
@@ -3055,6 +3173,14 @@ msgstr ""
 msgid "Log file"
 msgstr ""
 
+#: src/features/settings/find.ts
+msgid "login, startup, autostart"
+msgstr ""
+
+#: src/features/settings/find.ts
+msgid "logs"
+msgstr ""
+
 #: src/features/player/shortcuts.ts
 msgid "loop"
 msgstr ""
@@ -3072,6 +3198,10 @@ msgstr ""
 msgid "Loudness"
 msgstr ""
 
+#: src/features/settings/find.ts
+msgid "loudness, volume"
+msgstr ""
+
 #: src/features/player/NowPlayingView.tsx
 #: src/features/settings/LyricsRows.tsx
 msgid "LRCLIB"
@@ -3080,6 +3210,7 @@ msgstr ""
 #: src/features/player/NowPlayingBar.tsx
 #: src/features/player/NowPlayingView.tsx
 #: src/features/player/RoomLyrics.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/LyricsRows.tsx
 #: src/features/settings/settings-file.ts
 #: src/features/song/SongPage.tsx
@@ -3106,6 +3237,7 @@ msgstr ""
 msgid "lyrics room karaoke big large tv"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/LyricsRows.tsx
 msgid "Lyrics sources"
 msgstr ""
@@ -3126,12 +3258,17 @@ msgstr ""
 msgid "lyrics timing offset sync reset"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/LyricsRows.tsx
 msgid "Lyrics translation"
 msgstr ""
 
 #: src/features/player/RoomLyrics.tsx
 msgid "Lyrics, full screen"
+msgstr ""
+
+#: src/features/settings/platform.ts
+msgid "macOS"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
@@ -3228,10 +3365,15 @@ msgid "More to hear"
 msgstr ""
 
 #: src/features/onboarding/AppearanceStep.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/MotionArtworkRows.tsx
 #: src/features/settings/MotionDiagnostics.ts
 #: src/features/settings/settings-file.ts
 msgid "Motion artwork"
+msgstr ""
+
+#: src/features/settings/summaries.ts
+msgid "Motion artwork off"
 msgstr ""
 
 #: src/features/settings/MotionDiagnostics.ts
@@ -3537,6 +3679,10 @@ msgstr ""
 msgid "No Secret Service keyring is running, so Sona keeps your Apple Music token in a file only your user can read. Start GNOME Keyring or KWallet and Sona moves it into the keyring."
 msgstr ""
 
+#: src/features/settings/FindSetting.tsx
+msgid "No setting matches “{q}”."
+msgstr ""
+
 #: src/features/settings/Shortcuts.tsx
 msgid "No shortcut matches “{query}”."
 msgstr ""
@@ -3591,6 +3737,14 @@ msgstr ""
 
 #: src/features/settings/IntegrationsRows.tsx
 msgid "Not available in this build: it was made without a Discord application ID."
+msgstr ""
+
+#: src/features/settings/summaries.ts
+msgid "Not available on {platform} yet"
+msgstr ""
+
+#: src/features/settings/SettingRow.tsx
+msgid "Not available on {platform} yet."
 msgstr ""
 
 #: src/features/equalizer/EqualizerPage.tsx
@@ -3677,6 +3831,10 @@ msgstr ""
 msgid "Nothing after this song"
 msgstr ""
 
+#: src/features/settings/summaries.ts
+msgid "Nothing connected"
+msgstr ""
+
 #: src/features/search/groups.ts
 msgid "Nothing for “{q}”"
 msgstr ""
@@ -3760,6 +3918,10 @@ msgstr ""
 
 #: src/features/player/TrackAnnouncer.tsx
 msgid "Now playing: {name} by {artist}"
+msgstr ""
+
+#: src/features/settings/Storage.tsx
+msgid "of {artworkLimit}"
 msgstr ""
 
 #: src/features/equalizer/EqualizerPage.tsx
@@ -3870,6 +4032,7 @@ msgid "Open equaliser"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
+#: src/features/settings/find.ts
 msgid "Open log folder"
 msgstr ""
 
@@ -3877,6 +4040,7 @@ msgstr ""
 msgid "Open now playing"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/General.tsx
 #: src/features/settings/settings-file.ts
 msgid "Open on"
@@ -3900,6 +4064,14 @@ msgstr ""
 
 #: src/shared/items/LinkList.tsx
 msgid "Opens in your browser"
+msgstr ""
+
+#: src/features/settings/summaries.ts
+msgid "Opens on {page}"
+msgstr ""
+
+#: src/features/settings/summaries.ts
+msgid "Opens where you left off"
 msgstr ""
 
 #: src/features/playlist/PlaylistDialogs.tsx
@@ -3937,6 +4109,7 @@ msgid "Out now · {artistName}"
 msgstr ""
 
 #: src/features/settings/AudioRows.tsx
+#: src/features/settings/find.ts
 msgid "Output"
 msgstr ""
 
@@ -4106,7 +4279,7 @@ msgstr ""
 
 #: src/features/onboarding/steps.ts
 #: src/features/settings/Diagnostics.tsx
-#: src/features/settings/Settings.tsx
+#: src/features/settings/find.ts
 #: src/shared/shortcuts/groups.ts
 msgid "Playback"
 msgstr ""
@@ -4166,7 +4339,7 @@ msgstr ""
 #: src/features/playlist/PlaylistSidebar.tsx
 #: src/features/search/groups.ts
 #: src/features/search/SearchPage.tsx
-#: src/features/settings/General.tsx
+#: src/features/settings/summaries.ts
 #: src/shared/items/EditorialSections.tsx
 msgid "Playlists"
 msgstr ""
@@ -4269,6 +4442,7 @@ msgstr ""
 msgid "Preamp"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/LyricsRows.tsx
 msgid "Prefer word-by-word lyrics"
 msgstr ""
@@ -4320,12 +4494,16 @@ msgstr ""
 msgid "private incognito history scrobble discord listening"
 msgstr ""
 
+#. Apple Music's own name for the mode: plays aren't reported to Apple, so they don't shape recommendations or Replay.
+#. Apple Music's own name for the mode: plays aren't reported to Apple, so they don't shape recommendations or Replay.
 #. Setting name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
 #. Switch name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
 #. Switch name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
 #: src/features/auth/AccountMenu.tsx
 #: src/features/onboarding/PlaybackStep.tsx
 #: src/features/private/PrivateButton.tsx
+#: src/features/settings/find.ts
+#: src/features/settings/Playback.tsx
 #: src/features/settings/PrivateRows.tsx
 msgid "Private listening"
 msgstr ""
@@ -4408,10 +4586,14 @@ msgstr ""
 msgid "Quit Sona"
 msgstr ""
 
+#: src/features/settings/summaries.ts
+msgid "Quits when closed"
+msgstr ""
+
 #: src/features/discover/bands.ts
 #: src/features/radio/index.ts
 #: src/features/radio/RadioPage.tsx
-#: src/features/settings/General.tsx
+#: src/features/settings/summaries.ts
 msgid "Radio"
 msgstr ""
 
@@ -4482,7 +4664,7 @@ msgstr ""
 #: src/features/library/index.ts
 #: src/features/library/pages.tsx
 #: src/features/library/views.tsx
-#: src/features/settings/General.tsx
+#: src/features/settings/summaries.ts
 msgid "Recently added"
 msgstr ""
 
@@ -4521,9 +4703,14 @@ msgstr ""
 
 #: src/features/onboarding/AppearanceStep.tsx
 #: src/features/settings/AppearanceSection.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/MotionDiagnostics.ts
 #: src/features/settings/settings-file.ts
 msgid "Reduce effects"
+msgstr ""
+
+#: src/features/settings/summaries.ts
+msgid "Reduced effects"
 msgstr ""
 
 #: src/features/home/HomePage.tsx
@@ -4614,6 +4801,7 @@ msgid "Rename…"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
+#: src/features/settings/find.ts
 msgid "Rendering"
 msgstr ""
 
@@ -4645,6 +4833,7 @@ msgstr ""
 msgid "Replace, offer Undo"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/QueueRows.tsx
 #: src/features/settings/settings-file.ts
 msgid "Replacing your queue"
@@ -4770,6 +4959,7 @@ msgid "Schema version"
 msgstr ""
 
 #: src/features/settings/Connections.tsx
+#: src/features/settings/find.ts
 msgid "Scrobbling"
 msgstr ""
 
@@ -4866,12 +5056,8 @@ msgstr ""
 msgid "Set up Sona again"
 msgstr ""
 
-#: src/features/settings/Diagnostics.tsx
-msgid "Sets WEBKIT_DISABLE_COMPOSITING_MODE=1: software rendering. Turn on Reduce effects with it. Takes effect after you restart Sona."
-msgstr ""
-
-#: src/features/settings/Diagnostics.tsx
-msgid "Sets WEBKIT_DISABLE_DMABUF_RENDERER=1. Try it if the window is blank or flickers on your GPU driver. Takes effect after you restart Sona."
+#: src/features/settings/find.ts
+msgid "Set up Sona again, welcome"
 msgstr ""
 
 #: src/features/settings/MotionDiagnostics.ts
@@ -4888,8 +5074,13 @@ msgstr ""
 msgid "Settings exported"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/SettingsFileRows.tsx
 msgid "Settings file"
+msgstr ""
+
+#: src/features/settings/FindSetting.tsx
+msgid "Settings found"
 msgstr ""
 
 #: src/features/onboarding/SetupLayer.tsx
@@ -4914,7 +5105,7 @@ msgid "Shift"
 msgstr ""
 
 #: src/features/commands/ShortcutHelp.tsx
-#: src/features/settings/Settings.tsx
+#: src/features/settings/find.ts
 msgid "Shortcuts"
 msgstr ""
 
@@ -5306,6 +5497,18 @@ msgstr ""
 msgid "Sleep timer: stop in 30 minutes"
 msgstr ""
 
+#: src/features/settings/find.ts
+msgid "sleep, suspend"
+msgstr ""
+
+#: src/features/settings/find.ts
+msgid "software rendering"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Software rendering, for when the DMA-BUF switch isn't enough. Turn on Reduce effects in Appearance with it. Applies from Sona's next start (WEBKIT_DISABLE_COMPOSITING_MODE=1)."
+msgstr ""
+
 #: src/features/onboarding/AppearanceStep.tsx
 msgid "Solid surfaces and no animation. Smoother on software rendering."
 msgstr ""
@@ -5471,6 +5674,10 @@ msgstr ""
 msgid "Sona plays music videos in standard definition: Apple allows HD only on players with hardware protection."
 msgstr ""
 
+#: src/features/settings/DesktopRows.tsx
+msgid "Sona quits: it can't stay in the system tray on {platform} yet."
+msgstr ""
+
 #: src/features/auth/Account.tsx
 msgid "Sona refetches its developer token by itself; if this persists, Apple changed its web player."
 msgstr ""
@@ -5509,7 +5716,7 @@ msgstr ""
 #: src/features/library/pages.tsx
 #: src/features/search/groups.ts
 #: src/features/search/SearchPage.tsx
-#: src/features/settings/General.tsx
+#: src/features/settings/summaries.ts
 msgid "Songs"
 msgstr ""
 
@@ -5586,13 +5793,16 @@ msgstr ""
 msgid "Sort by"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/Playback.tsx
 msgid "Sound"
 msgstr ""
 
 #: src/features/onboarding/PlaybackStep.tsx
 #: src/features/settings/AudioRows.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/settings-file.ts
+#: src/features/settings/summaries.ts
 msgid "Sound Check"
 msgstr ""
 
@@ -5617,6 +5827,10 @@ msgstr ""
 msgid "Spatial Audio"
 msgstr ""
 
+#: src/features/settings/find.ts
+msgid "speakers, headphones, device"
+msgstr ""
+
 #: src/features/equalizer/curve.ts
 msgid "Spoken Word"
 msgstr ""
@@ -5631,12 +5845,18 @@ msgstr ""
 
 #: src/features/onboarding/DesktopStep.tsx
 #: src/features/settings/DesktopRows.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/settings-file.ts
 msgid "Start in the tray"
 msgstr ""
 
+#: src/features/settings/find.ts
+msgid "start page, resume"
+msgstr ""
+
 #: src/features/onboarding/DesktopStep.tsx
 #: src/features/settings/DesktopRows.tsx
+#: src/features/settings/find.ts
 msgid "Start Sona when you log in"
 msgstr ""
 
@@ -5648,6 +5868,7 @@ msgstr ""
 msgid "starting at login"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/General.tsx
 msgid "Starting Sona"
 msgstr ""
@@ -5673,6 +5894,7 @@ msgid "Stations"
 msgstr ""
 
 #: src/features/onboarding/DesktopStep.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/IntegrationsRows.tsx
 #: src/features/settings/settings-file.ts
 msgid "Stay awake while playing"
@@ -5698,7 +5920,7 @@ msgstr ""
 msgid "Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. Neither logind nor the desktop portal answered, so sleep can't be blocked."
 msgstr ""
 
-#: src/features/settings/Settings.tsx
+#: src/features/settings/find.ts
 msgid "Storage"
 msgstr ""
 
@@ -5799,6 +6021,10 @@ msgstr ""
 
 #: src/features/settings/MotionDiagnostics.ts
 msgid "System reduced motion"
+msgstr ""
+
+#: src/features/settings/summaries.ts
+msgid "System theme"
 msgstr ""
 
 #: src/shared/shortcuts/chord.ts
@@ -5992,6 +6218,7 @@ msgstr ""
 
 #: src/features/onboarding/ThemePicker.tsx
 #: src/features/settings/AppearanceSection.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/settings-file.ts
 msgid "Theme"
 msgstr ""
@@ -6085,6 +6312,10 @@ msgstr ""
 msgid "This platform or build of Sona can't play music videos. You can watch it in Apple Music."
 msgstr ""
 
+#: src/features/settings/Playback.tsx
+msgid "This platform's player reports plays to Apple itself, so Sona can't hold them back."
+msgstr ""
+
 #: src/features/playlist/track-edits.ts
 msgid "This playlist changed on another device"
 msgstr ""
@@ -6127,6 +6358,7 @@ msgstr ""
 msgid "Title"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/General.tsx
 msgid "Title bar"
 msgstr ""
@@ -6196,6 +6428,7 @@ msgid "track notifications"
 msgstr ""
 
 #: src/features/onboarding/DesktopStep.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/IntegrationsRows.tsx
 #: src/features/settings/settings-file.ts
 msgid "Track notifications"
@@ -6207,6 +6440,10 @@ msgstr ""
 
 #: src/features/player/NowPlayingView.tsx
 msgid "Translation into {language}"
+msgstr ""
+
+#: src/features/settings/find.ts
+msgid "tray, background, quit"
 msgstr ""
 
 #: src/features/equalizer/curve.ts
@@ -6227,6 +6464,10 @@ msgstr ""
 #: src/features/auth/KeyringRetry.tsx
 #: src/features/player/VideoView.tsx
 msgid "Try again"
+msgstr ""
+
+#: src/features/settings/Diagnostics.tsx
+msgid "Try it if the window stays blank or flickers on your graphics driver. Applies from Sona's next start (WEBKIT_DISABLE_DMABUF_RENDERER=1)."
 msgstr ""
 
 #: src/features/auth/KeyringRetry.tsx
@@ -6337,6 +6578,7 @@ msgid "Updated {when}"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/Updates.tsx
 msgid "Updates"
 msgstr ""
@@ -6391,6 +6633,10 @@ msgstr ""
 
 #: src/features/settings/CdmRow.tsx
 msgid "Version {version}"
+msgstr ""
+
+#: src/features/settings/find.ts
+msgid "video, animated covers"
 msgstr ""
 
 #: src/features/discover/bands.ts
@@ -6489,6 +6735,7 @@ msgid "When chosen"
 msgstr ""
 
 #: src/features/settings/DesktopRows.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/settings-file.ts
 msgid "When the window is closed"
 msgstr ""
@@ -6517,6 +6764,7 @@ msgstr ""
 msgid "Which number should Apple text?"
 msgstr ""
 
+#: src/features/settings/find.ts
 #: src/features/settings/General.tsx
 msgid "While music plays"
 msgstr ""
@@ -6524,6 +6772,7 @@ msgstr ""
 #: src/features/onboarding/DoneStep.tsx
 #: src/features/onboarding/WelcomeStep.tsx
 #: src/features/settings/CdmRow.tsx
+#: src/features/settings/find.ts
 msgid "Widevine"
 msgstr ""
 
@@ -6558,13 +6807,23 @@ msgstr ""
 
 #: src/app/shell/WindowControls.tsx
 #: src/features/miniplayer/MiniPlayer.tsx
+#: src/features/settings/find.ts
 #: src/features/settings/General.tsx
 #: src/features/settings/MotionDiagnostics.ts
 msgid "Window"
 msgstr ""
 
+#: src/features/settings/find.ts
+msgid "window buttons, decorations"
+msgstr ""
+
+#: src/features/settings/find.ts
 #: src/features/settings/General.tsx
 msgid "Window size"
+msgstr ""
+
+#: src/features/settings/platform.ts
+msgid "Windows"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx

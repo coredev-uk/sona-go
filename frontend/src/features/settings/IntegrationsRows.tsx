@@ -7,7 +7,7 @@ import { Switch } from "@/shared/ui/switch";
 
 import { useIntegrationsStatus } from "./integrations";
 import { useSettings, useUpdateSettings } from "./queries";
-import { SettingRow } from "./SettingRow";
+import { SettingRow, UnavailableRow } from "./SettingRow";
 
 function useIntegrations() {
   const settings = useSettings();
@@ -36,9 +36,12 @@ export function IntegrationsDesktopRows() {
       ? t`Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. Neither logind nor the desktop portal answered, so sleep can't be blocked.`
       : t`Stops the computer from suspending on its own while music plays. The screen can still lock and turn off.`;
   };
+  if (!caps) return null;
   return (
     <>
-      {caps?.notifications && (
+      {!caps.notifications ? (
+        <UnavailableRow id="track-notifications" title={t`Track notifications`} />
+      ) : (
         <SettingRow
           id="track-notifications"
           title={t`Track notifications`}
@@ -53,7 +56,9 @@ export function IntegrationsDesktopRows() {
           />
         </SettingRow>
       )}
-      {caps?.sleepInhibit && (
+      {!caps.sleepInhibit ? (
+        <UnavailableRow id="inhibit-sleep" title={t`Stay awake while playing`} />
+      ) : (
         <SettingRow
           id="inhibit-sleep"
           title={t`Stay awake while playing`}
@@ -76,6 +81,7 @@ export function IntegrationsDesktopRows() {
 export function IntegrationsConnectionsRows() {
   const { s, status, save } = useIntegrations();
   const { t } = useLingui();
+  const discord = useCapabilities()?.discordPresence;
   const privateOn = usePrivate((p) => p.state?.on ?? false);
   const configured = status?.discord.configured ?? false;
   const discordDescription = (on: boolean) => {
@@ -92,6 +98,8 @@ export function IntegrationsConnectionsRows() {
       ? t`Shows the song you're playing, with its artwork and time, as your Discord activity. Cleared when you pause. Connected to Discord.`
       : t`Shows the song you're playing, with its artwork and time, as your Discord activity. Cleared when you pause. Discord isn't reachable yet; Sona keeps trying while music plays.`;
   };
+  if (discord === undefined) return null;
+  if (!discord) return <UnavailableRow id="discord-presence" title={t`Discord status`} />;
   return (
     <SettingRow
       id="discord-presence"

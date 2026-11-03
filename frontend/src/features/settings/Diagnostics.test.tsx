@@ -150,6 +150,10 @@ describe("DiagnosticsSection", () => {
     expect(shown("WEBKIT_DISABLE_DMABUF_RENDERER")).toBe(true);
     expect(shown("Session")).toBe(true);
     expect(shown("CDM location")).toBe(false);
+    // Find a setting lands on both switches (find.ts).
+    for (const id of ["disableDmabufRenderer", "disableCompositingMode"]) {
+      expect(document.querySelector(`[data-setting="${id}"] [role="switch"]`)).not.toBeNull();
+    }
   });
 
   it("names the CDM's state, source, version and update check", async () => {
