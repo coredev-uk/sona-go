@@ -1,17 +1,12 @@
 package services
 
 import (
-	"github.com/wailsapp/wails/v3/pkg/application"
-
-	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
 // EventSettingsChanged carries the saved config.Settings after
 // UpdateSettings.
 const EventSettingsChanged = "settings:changed"
-
-func init() { application.RegisterEvent[config.Settings](EventSettingsChanged) }
 
 // Diagnostics describes the running app for the Diagnostics page.
 type Diagnostics struct {

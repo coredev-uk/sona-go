@@ -1,15 +1,11 @@
 package services
 
 import (
-	"github.com/wailsapp/wails/v3/pkg/application"
-
 	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
 // EventWindowState carries the main window's WindowState when it changes.
 const EventWindowState = "window:state"
-
-func init() { application.RegisterEvent[WindowState](EventWindowState) }
 
 // EventNavigate carries NavigateBack or NavigateForward when the mouse's
 // back or forward button is pressed on the main window; the page goes
@@ -21,8 +17,6 @@ const (
 	NavigateBack    = "back"
 	NavigateForward = "forward"
 )
-
-func init() { application.RegisterEvent[string](EventNavigate) }
 
 // WindowState is the main window's state that Sona's title bar follows:
 // the maximise button shows Restore while Maximised, and on macOS the

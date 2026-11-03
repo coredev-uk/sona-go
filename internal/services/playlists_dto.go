@@ -1,17 +1,11 @@
 package services
 
-import "github.com/wailsapp/wails/v3/pkg/application"
-
 // Playlists events.
 const (
 	// EventPlaylistsChanged: library playlists, the folder tree or the pins
 	// changed on this machine (an edit) or after a refresh from Apple.
 	EventPlaylistsChanged = "playlists:changed" // PlaylistsChanged
 )
-
-func init() {
-	application.RegisterEvent[PlaylistsChanged](EventPlaylistsChanged)
-}
 
 // PlaylistsChanged is the "playlists:changed" payload.
 type PlaylistsChanged struct {

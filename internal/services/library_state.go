@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/wailsapp/wails/v3/pkg/application"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
@@ -334,10 +333,4 @@ func (s *LibraryService) CopyLink(r ItemRef) (string, error) {
 		return "", fmt.Errorf("copy link: %w", ErrClipboard)
 	}
 	return u, nil
-}
-
-// clipboardText puts text on the system clipboard through Wails.
-func clipboardText(text string) bool {
-	app := application.Get()
-	return app != nil && app.Clipboard.SetText(text)
 }

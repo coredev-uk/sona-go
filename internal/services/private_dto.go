@@ -1,13 +1,9 @@
 package services
 
-import "github.com/wailsapp/wails/v3/pkg/application"
-
 // EventPrivateChanged carries PrivateState whenever private listening turns
 // on or off (Settings, the player bar, the tray, the command palette or
 // `sona private`).
 const EventPrivateChanged = "private:changed"
-
-func init() { application.RegisterEvent[PrivateState](EventPrivateChanged) }
 
 // PrivateState is private listening as it applies now.
 type PrivateState struct {

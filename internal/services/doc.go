@@ -1,20 +1,26 @@
-// Package services is Sona's Wails service surface: frontend-shaped
+// Package services is Sona's service surface: frontend-shaped
 // wrappers over the core packages (auth, catalog, library, playback
 // coordinator, artwork, settings), and the start-up policy that keeps cold
 // start local until the first paint.
 //
 // # Module contract (for feature work)
 //
-// One feature = one bound Wails service, in its own files:
+// One feature = one service, in its own files:
 //
 //   - <feature>.go: the service type (exported methods are the bindings;
 //     everything else unexported), and its constructor
 //     func new<Feature>Service(e *Env) *<Feature>Service.
 //   - <feature>_dto.go: the feature's own DTOs, its event name constants
-//     and an init() registering each event payload with
-//     application.RegisterEvent (so bindings carry the type).
-//   - One line in registry.go: {"<feature>", svc(new<Feature>Service)}.
-//     No other file changes; features never call each other's services.
+//     (plain declarations, no registration here).
+//   - One line in registry.go: {"<feature>", svc(new<Feature>Service)}
+//     (the registry returns the typed instances; Core.Services lists them,
+//     Service[T] finds one).
+//   - While Wails remains, cmd/sona binds a fixed list: one
+//     wapp.RegisterService(application.NewServiceWithOptions(
+//     services.Service[services.<Feature>Service](core), opts)) line in
+//     main.go, and one application.RegisterEvent[<Payload>](services.Event<X>)
+//     line per event in cmd/sona/events_wails.go (so bindings carry the
+//     types). Features never call each other's services.
 //
 // Shared pieces every feature uses:
 //
@@ -168,7 +174,7 @@
 // as strings with an explicit Source where an item can be either; empty
 // lists as [] not null.
 //
-// main builds Deps and calls New; Core then exposes Services() for
-// registration, Activate (launch links → "app:open"), StartMediaControls
+// main builds Deps, calls New and binds each service through Service[T];
+// Core then exposes Activate (launch links → "app:open"), StartMediaControls
 // and Close.
 package services

@@ -1,17 +1,10 @@
 package services
 
-import "github.com/wailsapp/wails/v3/pkg/application"
-
 // Playback events.
 const (
 	EventPlaybackState = "playback:state" // PlaybackState (latest wins)
 	EventPlaybackQueue = "playback:queue" // QueueState, only when the queue changed
 )
-
-func init() {
-	application.RegisterEvent[PlaybackState](EventPlaybackState)
-	application.RegisterEvent[QueueState](EventPlaybackQueue)
-}
 
 // QueueItem is one queue slot. UID is stable while the slot exists, so it
 // suits list keys. ID/Source identify the song (or, with Video, the music

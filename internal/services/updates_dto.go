@@ -1,12 +1,8 @@
 package services
 
-import "github.com/wailsapp/wails/v3/pkg/application"
-
 // EventUpdateAvailable carries the UpdateStatus when the start-up check
 // finds a newer release.
 const EventUpdateAvailable = "updates:available"
-
-func init() { application.RegisterEvent[UpdateStatus](EventUpdateAvailable) }
 
 // UpdateStatus is the update check's latest result.
 type UpdateStatus struct {

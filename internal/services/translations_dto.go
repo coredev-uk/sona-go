@@ -1,16 +1,12 @@
 package services
 
 import (
-	"github.com/wailsapp/wails/v3/pkg/application"
-
 	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
 )
 
 // EventAppleTranslations carries AppleTranslations when a locale's
 // messages arrive or change (a download after the first paint).
 const EventAppleTranslations = "translations:apple"
-
-func init() { application.RegisterEvent[AppleTranslations](EventAppleTranslations) }
 
 // AppleTranslations is Apple Music's own translation of Sona's mapped
 // messages for one locale, fetched from Apple at run time and cached
@@ -45,8 +41,6 @@ func appleTranslations(l applestrings.Locale) AppleTranslations {
 // EventAppleLanguages carries AppleLanguages when Apple's locale table
 // arrives or changes, so the Language setting can offer its locales.
 const EventAppleLanguages = "translations:languages"
-
-func init() { application.RegisterEvent[AppleLanguages](EventAppleLanguages) }
 
 // AppleLanguages is what the Language setting can offer of Apple's
 // translations (applestrings.Available).
