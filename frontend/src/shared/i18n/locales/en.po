@@ -40,11 +40,6 @@ msgstr "{0, plural, one {# album} other {# albums}}"
 msgid "{0, plural, one {# album} other {# albums}}, {1, plural, one {# song} other {# songs}} in your library"
 msgstr "{0, plural, one {# album} other {# albums}}, {1, plural, one {# song} other {# songs}} in your library"
 
-#. placeholder {0}: list.total
-#: src/features/library/pages.tsx
-msgid "{0, plural, one {# artist} other {# artists}}"
-msgstr "{0, plural, one {# artist} other {# artists}}"
-
 #. placeholder {0}: items.length
 #: src/shared/actions/registry.ts
 msgid "{0, plural, one {# item} other {# items}}"
@@ -98,6 +93,10 @@ msgstr "{0, plural, one {Composer} other {Composers}}"
 msgid "{0, plural, one {Genre} other {Genres}}"
 msgstr "{0, plural, one {Genre} other {Genres}}"
 
+#: src/features/library/artists.ts
+msgid "{a}, {s}"
+msgstr "{a}, {s}"
+
 #: src/features/player/replace.ts
 msgid "{added, plural, one {# song you added was removed.} other {# songs you added were removed.}}"
 msgstr "{added, plural, one {# song you added was removed.} other {# songs you added were removed.}}"
@@ -110,6 +109,7 @@ msgstr "{added, plural, one {The # song you added to the queue will be removed.}
 msgid "{albumName} cover"
 msgstr "{albumName} cover"
 
+#: src/features/library/artists.ts
 #: src/features/settings/Diagnostics.tsx
 msgid "{albums, plural, one {# album} other {# albums}}"
 msgstr "{albums, plural, one {# album} other {# albums}}"
@@ -193,6 +193,10 @@ msgstr "{done} of {total}"
 msgid "{elsewhere} from other devices"
 msgstr "{elsewhere} from other devices"
 
+#: src/features/library/ArtistsPage.tsx
+msgid "{found} of {everyone}"
+msgstr "{found} of {everyone}"
+
 #: src/features/equalizer/EqualizerPage.tsx
 msgid "{freq} Hz"
 msgstr "{freq} Hz"
@@ -226,6 +230,10 @@ msgstr "{left} left"
 #: src/features/auth/Account.tsx
 msgid "{len, plural, one {# digit} other {# digits}}"
 msgstr "{len, plural, one {# digit} other {# digits}}"
+
+#: src/features/library/ArtistsPage.tsx
+msgid "{matches, plural, one {# artist matches} other {# artists match}}"
+msgstr "{matches, plural, one {# artist matches} other {# artists match}}"
 
 #: src/features/settings/summaries.ts
 msgid "{mib} MB"
@@ -382,6 +390,7 @@ msgstr "{seconds, plural, one {# second} other {# seconds}}"
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
+#: src/features/library/artists.ts
 #: src/features/library/HistoryPage.tsx
 #: src/features/settings/Diagnostics.tsx
 #: src/shared/lib/format.ts
@@ -415,6 +424,10 @@ msgstr "{total, plural, one {{have} of # song in your library} other {{have} of 
 #: src/features/album/ReleaseStatus.tsx
 msgid "{total, plural, one {{out} of # song out now} other {{out} of # songs out now}}"
 msgstr "{total, plural, one {{out} of # song out now} other {{out} of # songs out now}}"
+
+#: src/features/library/ArtistsPage.tsx
+msgid "{total, plural, one {# artist} other {# artists}}"
+msgstr "{total, plural, one {# artist} other {# artists}}"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "{via} allows no realtime priority."
@@ -650,6 +663,7 @@ msgid "Album type"
 msgstr "Album type"
 
 #: src/features/artist/views.ts
+#: src/features/library/ArtistsPage.tsx
 #: src/features/library/index.ts
 #: src/features/library/pages.tsx
 #: src/features/search/groups.ts
@@ -661,6 +675,10 @@ msgstr "Albums"
 #: src/features/library/views.tsx
 msgid "Albums and playlists you add in Apple Music appear here, newest first."
 msgstr "Albums and playlists you add in Apple Music appear here, newest first."
+
+#: src/features/library/ArtistsPage.tsx
+msgid "Albums by {name} in your library"
+msgstr "Albums by {name} in your library"
 
 #: src/features/artist/ArtistPage.tsx
 #: src/features/library/pages.tsx
@@ -919,21 +937,22 @@ msgstr "Applies the next time Sona starts."
 #: src/features/artist/artist.ts
 #: src/features/artist/ArtistViewPage.tsx
 #: src/features/home/catalogue-line.ts
+#: src/features/library/ArtistsPage.tsx
 #: src/features/library/pages.tsx
 #: src/features/search/groups.ts
 #: src/shared/tracks/TrackList.tsx
 msgid "Artist"
 msgstr "Artist"
 
+#: src/features/library/ArtistsPage.tsx
 #: src/features/library/index.ts
-#: src/features/library/pages.tsx
 #: src/features/search/groups.ts
 #: src/features/search/SearchPage.tsx
 #: src/features/settings/summaries.ts
 msgid "Artists"
 msgstr "Artists"
 
-#: src/features/library/pages.tsx
+#: src/features/library/ArtistsPage.tsx
 msgid "Artists in your library"
 msgstr "Artists in your library"
 
@@ -1865,6 +1884,14 @@ msgstr "Couldn't read the scrobbler connections: {statusError}"
 msgid "Couldn't read the sign-in state"
 msgstr "Couldn't read the sign-in state"
 
+#: src/features/library/ArtistsPage.tsx
+msgid "Couldn't read this artist's albums from this computer"
+msgstr "Couldn't read this artist's albums from this computer"
+
+#: src/features/library/ArtistsPage.tsx
+msgid "Couldn't read this artist's songs from this computer"
+msgstr "Couldn't read this artist's songs from this computer"
+
 #: src/features/home/LocalShelves.tsx
 msgid "Couldn't read your albums"
 msgstr "Couldn't read your albums"
@@ -2436,6 +2463,7 @@ msgstr "Enter the verification code"
 
 #: src/features/artist/ArtistHead.tsx
 #: src/features/artist/ReleaseList.tsx
+#: src/features/library/ArtistsPage.tsx
 msgid "EP"
 msgstr "EP"
 
@@ -2474,7 +2502,7 @@ msgstr "Escape"
 msgid "Essential albums"
 msgstr "Essential albums"
 
-#: src/features/library/pages.tsx
+#: src/features/library/ArtistsPage.tsx
 msgid "Every artist with a song or album in your library is listed here, A to Z."
 msgstr "Every artist with a song or album in your library is listed here, A to Z."
 
@@ -2582,6 +2610,10 @@ msgstr "File"
 msgid "File (unencrypted)"
 msgstr "File (unencrypted)"
 
+#: src/features/library/ArtistsPage.tsx
+msgid "Filter artists"
+msgstr "Filter artists"
+
 #: src/features/settings/Shortcuts.tsx
 msgid "Filter by action or key"
 msgstr "Filter by action or key"
@@ -2659,6 +2691,10 @@ msgstr "Free memory when idle"
 #: src/features/artist/ArtistPage.tsx
 msgid "From"
 msgstr "From"
+
+#: src/features/library/ArtistsPage.tsx
+msgid "Full artist page"
+msgstr "Full artist page"
 
 #: src/features/player/NowPlayingView.tsx
 #: src/features/player/VideoView.tsx
@@ -3591,6 +3627,14 @@ msgstr "No albums in your library yet"
 msgid "No Apple device is signed in to this account, so Apple sends codes by text or call."
 msgstr "No Apple device is signed in to this account, so Apple sends codes by text or call."
 
+#: src/features/library/ArtistsPage.tsx
+msgid "No artist matches “{query}”"
+msgstr "No artist matches “{query}”"
+
+#: src/features/library/ArtistsPage.tsx
+msgid "No artist matches “{query}”."
+msgstr "No artist matches “{query}”."
+
 #: src/features/search/groups.ts
 msgid "No artists for “{q}”"
 msgstr "No artists for “{q}”"
@@ -3850,6 +3894,10 @@ msgstr "Notes"
 #: src/features/player/QueuePanel.tsx
 msgid "Nothing after this song"
 msgstr "Nothing after this song"
+
+#: src/features/library/ArtistsPage.tsx
+msgid "Nothing by {name} is in your library yet."
+msgstr "Nothing by {name} is in your library yet."
 
 #: src/features/settings/summaries.ts
 msgid "Nothing connected"
@@ -5463,6 +5511,7 @@ msgstr "Similar music will keep playing"
 #: src/features/album/AlbumPage.tsx
 #: src/features/artist/ArtistHead.tsx
 #: src/features/artist/ReleaseList.tsx
+#: src/features/library/ArtistsPage.tsx
 msgid "Single"
 msgstr "Single"
 
@@ -5471,8 +5520,13 @@ msgid "Singles & EPs"
 msgstr "Singles & EPs"
 
 #: src/features/artist/views.ts
+#: src/features/library/ArtistsPage.tsx
 msgid "Singles and EPs"
 msgstr "Singles and EPs"
+
+#: src/features/library/ArtistsPage.tsx
+msgid "Singles and EPs by {name} in your library"
+msgstr "Singles and EPs by {name} in your library"
 
 #: src/features/artist/ArtistPage.tsx
 #: src/features/library/pages.tsx
@@ -5787,6 +5841,10 @@ msgstr "Songs and albums"
 msgid "Songs by {artistName} in your library"
 msgstr "Songs by {artistName} in your library"
 
+#: src/features/library/ArtistsPage.tsx
+msgid "Songs by {name} in your library"
+msgstr "Songs by {name} in your library"
+
 #: src/features/player/CdmNotice.tsx
 msgid "Songs can't play on this computer"
 msgstr "Songs can't play on this computer"
@@ -5796,6 +5854,7 @@ msgid "Songs in {playlistName}"
 msgstr "Songs in {playlistName}"
 
 #: src/features/artist/ArtistPage.tsx
+#: src/features/library/ArtistsPage.tsx
 #: src/features/library/pages.tsx
 msgid "Songs in your library"
 msgstr "Songs in your library"

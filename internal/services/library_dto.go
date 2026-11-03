@@ -17,7 +17,7 @@ func init() {
 	application.RegisterEvent[ItemState](EventItemState)
 }
 
-// SongPage, AlbumPage, ArtistPage and PlaylistPage are list pages; Total
+// SongPage, AlbumPage and PlaylistPage are list pages; Total
 // is the size of the whole list.
 type SongPage struct {
 	Items []Song `json:"items"`
@@ -29,9 +29,23 @@ type AlbumPage struct {
 	Total int     `json:"total"`
 }
 
-type ArtistPage struct {
-	Items []Artist `json:"items"`
-	Total int      `json:"total"`
+// ArtistEntry is one row of the Artists overview's list: a library artist
+// with how many of their albums and songs the library holds. Art is the
+// small artwork URL (the artist's, else their newest album's; "" for none).
+type ArtistEntry struct {
+	ID        string `json:"id"`
+	CatalogID string `json:"catalogId"`
+	Name      string `json:"name"`
+	Art       string `json:"art"`
+	Albums    int    `json:"albums"`
+	Songs     int    `json:"songs"`
+}
+
+// ArtistAlbums is a library artist and their library albums, newest
+// release first (the Artists overview's detail).
+type ArtistAlbums struct {
+	Artist Artist  `json:"artist"`
+	Albums []Album `json:"albums"`
 }
 
 type PlaylistPage struct {

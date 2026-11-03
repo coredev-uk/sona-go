@@ -311,14 +311,6 @@ func scanArtist(sc interface{ Scan(...any) error }) (Artist, error) {
 	return a, err
 }
 
-// Artists lists library artists by name.
-func (l *Library) Artists(ctx context.Context, o ListOptions) ([]Artist, error) {
-	limit, offset := o.page()
-	return query(ctx, l, `SELECT r.library_id, r.catalog_id, r.name, r.artwork_template FROM artists r
-		JOIN library_items li ON li.kind = 'artist' AND li.ref = r.id
-		ORDER BY r.name COLLATE NOCASE `+dir(o.Desc)+`, r.id LIMIT ? OFFSET ?`, scanArtist, limit, offset)
-}
-
 const playlistColumns = `p.library_id, p.catalog_id, p.name, p.description, p.curator_name,
 	p.artwork_template, p.can_edit, p.track_count, p.last_modified, li.date_added`
 
@@ -384,18 +376,28 @@ func (l *Library) Album(ctx context.Context, id string) (Album, []Song, error) {
 	return a, songsFromRows(rows), nil
 }
 
-// Artist returns library artist id, its library albums (newest first) and
-// its library songs.
-func (l *Library) Artist(ctx context.Context, id string) (Artist, []Album, []Song, error) {
+// ArtistAlbums returns library artist id and its library albums (newest
+// release first), without its songs: what the Artists overview shows.
+func (l *Library) ArtistAlbums(ctx context.Context, id string) (Artist, []Album, error) {
 	a, err := one(query(ctx, l, `SELECT r.library_id, r.catalog_id, r.name, r.artwork_template FROM artists r
 		WHERE r.library_id = ?`, scanArtist, id))
 	if err != nil {
-		return Artist{}, nil, nil, err
+		return Artist{}, nil, err
 	}
 	albums, err := query(ctx, l, `SELECT `+albumColumns+` FROM albums a
 		JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
 		WHERE a.artist_library_id = ?
 		ORDER BY a.release_date DESC, a.name COLLATE NOCASE`, scanAlbum, id)
+	if err != nil {
+		return Artist{}, nil, err
+	}
+	return a, albums, nil
+}
+
+// Artist returns library artist id, its library albums (newest first) and
+// its library songs.
+func (l *Library) Artist(ctx context.Context, id string) (Artist, []Album, []Song, error) {
+	a, albums, err := l.ArtistAlbums(ctx, id)
 	if err != nil {
 		return Artist{}, nil, nil, err
 	}
@@ -404,6 +406,41 @@ func (l *Library) Artist(ctx context.Context, id string) (Artist, []Album, []Son
 		return Artist{}, nil, nil, fmt.Errorf("library: artist tracks: %w", err)
 	}
 	return a, albums, songsFromRows(rows), nil
+}
+
+// ArtistSummary is a library artist with how much of them the library
+// holds. An artist with no artwork of their own takes the cover of their
+// newest library album.
+type ArtistSummary struct {
+	Artist
+	Albums int `json:"albums"`
+	Songs  int `json:"songs"`
+}
+
+// ArtistIndex lists every library artist by name with the number of library
+// albums and songs they have: the Artists overview's list, filtered in the
+// UI, so it is one query and never paged.
+func (l *Library) ArtistIndex(ctx context.Context) ([]ArtistSummary, error) {
+	return query(ctx, l, `SELECT r.library_id, r.catalog_id, r.name,
+			COALESCE(NULLIF(r.artwork_template, ''), (
+				SELECT a.artwork_template FROM albums a
+				JOIN library_items x ON x.kind = 'album' AND x.ref = a.id
+				WHERE a.artist_library_id = r.library_id AND a.artwork_template <> ''
+				ORDER BY a.release_date DESC LIMIT 1), ''),
+			COALESCE(al.n, 0), COALESCE(so.n, 0)
+		FROM artists r
+		JOIN library_items li ON li.kind = 'artist' AND li.ref = r.id
+		LEFT JOIN (SELECT a.artist_library_id AS id, COUNT(*) AS n FROM albums a
+			JOIN library_items x ON x.kind = 'album' AND x.ref = a.id GROUP BY 1) al ON al.id = r.library_id
+		LEFT JOIN (SELECT t.artist_library_id AS id, COUNT(*) AS n FROM tracks t
+			JOIN library_items x ON x.kind = 'song' AND x.ref = t.id GROUP BY 1) so ON so.id = r.library_id
+		ORDER BY r.name COLLATE NOCASE, r.id`, func(sc interface{ Scan(...any) error }) (ArtistSummary, error) {
+		var s ArtistSummary
+		var lib, cat sql.NullString
+		err := sc.Scan(&lib, &cat, &s.Name, &s.ArtworkTemplate, &s.Albums, &s.Songs)
+		s.LibraryID, s.CatalogID = lib.String, cat.String
+		return s, err
+	})
 }
 
 // Playlist returns library playlist id and a page of its tracks in

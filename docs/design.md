@@ -344,6 +344,33 @@ About Radiohead: the whole biography (32rem) │ From · Born or formed · Genre
 - **Loading** holds a major act's final frame: the header's portrait, name, line, two biography lines, Read more, actions and slip, then top songs and the essential albums as loading rows of the real lists. For such an act nothing moves when the data lands, but the scrollbar arriving with it narrows the column by its width. A small act with no biography or slip has a shorter header, so under 900px of content its songs move up when they load.
 - A library artist keeps its library shelves (albums, singles and EPs, songs in your library) between the header and the lead; its catalogue line counts the library (`Artist · Alternative · 3 albums, 20 songs in your library`).
 
+### Library Artists
+
+Library → Artists is an overview, not a launcher: every artist in the library on one side, and whichever one is open on the other, with their library albums. Moving from one artist to the next never leaves the page.
+
+```
+┌ list 320 ────────────┬ detail ───────────────────────────────────────────┐
+│ Artists (24/30)      │ ( portrait 96 )  ABBA (32/36)                     │
+│ 90 artists           │                  Artist · 12 albums, 130 songs    │
+│ [ Filter artists   ] │                  (▶) Shuffle  Go to artist  ⋯     │
+│ A                    │                                                   │
+│ ◉ ABBA               │ Albums (16/600)                                   │
+│   12 albums, 130 s…  │ ▭ Voyage         ▭ More ABBA Gold   ▭ Oro   ▭ Gold │
+│ ◉ AC/DC              │   2021             1993               1993    1992 │
+│ …                    │ Singles and EPs                                   │
+│ B                    │ ▭ …                                               │
+└──────────────────────┴───────────────────────────────────────────────────┘
+```
+
+- **Two columns, two scrolls.** The list is a sticky column as tall as the window (`--pane-h`, measured from `main#content`, which stays the page's one scroll element), with a 1px `--line` to the detail, which scrolls with the page. So the albums' grid virtualises against `#content` like every other cover grid, and the list keeps its place while they scroll. The page bleeds to the content edges to let the column run from the top bar to the player bar.
+- **The list**: the page title and count (24/30 and 13 muted; `5 of 90 artists` while filtering), the filter (32px, the Shortcuts filter's field), then the artists A to Z under a letter heading each (12/600 muted: the letter itself, not a label), `#` last for digits, symbols and other scripts. Rows are 44px with a 32px round portrait (the artist's own, else their newest album's cover, else the placeholder), the name at 14/500 and what the library holds of them at 12 muted (`12 albums, 130 songs`, tabular figures). The open artist is a `--active` fill at radius 6; hover is `--hover`. Heights are fixed, so the virtualiser (own scroll box, `usePaneVirtualizer`) never measures: thousands of artists scroll like ninety.
+- **The filter** matches as you type, ignoring case and accents (`bjork` finds Björk, `edith` Édith Piaf, `sorensen` Sørensen), best first: names starting with it, then names with a word starting with it, then any substring, then the name without its spaces and punctuation (`acdc` finds AC/DC). Filtering drops the letter headings, since the order is the match's. The artists come from one query (`LibraryService.ArtistIndex`: name, portrait, album and song counts, from SQLite only), so filtering never calls Go and never waits.
+- **The detail** is the open artist's library, not the catalogue: the portrait (96px), the name at 32/36, the catalogue line (`Artist · 12 albums, 130 songs`), the amber play disc, Shuffle, **Full artist page** (the artist's own page, with the catalogue: biography, top songs, the whole discography), the artist's menu, then **Albums** as a cover grid, newest release first, and **Singles and EPs** under their own heading (Apple's ` - Single` / ` - EP` title suffix, or the album's single flag, decides; the suffix moves to the tile's line: `2020 · Single`). Play and Shuffle read the artist's songs from SQLite when pressed. An artist with songs but no albums shows their songs (Songs in your library, the track table) where the albums would be.
+- **In the URL**: the open artist is `?artist=<library id>`, so reload, Back and Forward keep it. With none (or one not in the library) the first match is open beside the list, without writing the URL. Clicking an artist adds a history entry; moving with the arrow keys replaces the entry, so a walk down the list is one step back, not fifty.
+- **Keyboard**: the filter (a combobox) and the list (a listbox, the second Tab stop) share their keys. ↑/↓ move the open artist (PageUp/PageDown by ten, Home/End on the list), Enter or → (from the end of the filter's text) go into the detail: focus lands on its first album, or on its first control while the albums are still being read. Escape clears the filter, and from the detail returns to it. Typing on the list types into the filter. The open artist is the `aria-activedescendant` of both while its row is on the page; rows carry `aria-posinset` / `aria-setsize`. The count of matches is announced in a `role=status`.
+- **Narrow windows** (the page under 880px wide, which is a 940px window with the sidebar open): the list and the detail take turns. The list fills the page; choosing an artist (a click or Enter, which opens the filter's top match when nothing is marked) shows the detail with a ghost **‹ Artists** button above it; the artist's name is then the page's h1. The arrow keys move a cursor in the list without opening anything. The list stays mounted while hidden, so its scroll and filter survive. Back (the button or the browser's) returns to it with focus in the filter and the artist you left still marked; Escape in the detail moves focus to the button.
+- **States**: signed out, syncing, empty and error are the library gate's block in place of both columns (`Artists` title above it). Loading draws fourteen list rows. An artist's albums loading draw six cover tiles; failing, an inline error with Retry. No match: "No artist matches “xyz”" under the filter, and no detail open.
+
 ## Lyrics
 
 A lyric sheet, the insert in a record's sleeve: the words set in verses down one column in the house type, with amber marking only where the voice is. The now-playing view's lyrics column and full-screen lyrics share it (`features/player/LyricBody.tsx`, `useLyricsView.ts`); the mini player shows the line being sung (`SungLine.tsx`).

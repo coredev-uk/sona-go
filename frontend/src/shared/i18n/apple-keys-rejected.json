@@ -110,5 +110,10 @@
     "message": "{done} of {total}",
     "key": "ASE.Web.IPod.NowPlaying.Position",
     "reason": "Placeholder-only text; Apple's is a track's place in a list, Sona's is progress"
+  },
+  {
+    "message": "{found} of {everyone}",
+    "key": "ASE.Web.IPod.NowPlaying.Position",
+    "reason": "Apple's string is the Now Playing track position (\"3 of 12\"); this one counts how many artists match a filter out of all of them."
   }
 ]

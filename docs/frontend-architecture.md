@@ -93,7 +93,8 @@ src/
     search                the top bar's search field (suggestions, recent searches), Search page
                           (Apple Music results by group, library scope, browse categories),
                           "see all" pages per group (/search/$group), profiles (/profile/$id)
-    library               Recently Added, Artists, Albums, Songs, Music Videos,
+    library               Recently Added, Artists (list and detail side by side, ?artist=),
+                          Albums, Songs, Music Videos,
                           Favourite Songs, History (plays by day: this computer + Apple's
                           recently played, repeats folded per day), Playlists;
                           useLibraryList, sync store, SyncIndicator,

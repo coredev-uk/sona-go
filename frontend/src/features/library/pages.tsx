@@ -1,13 +1,10 @@
-import { PlaybackService, type Artist } from "@bindings/services";
+import { PlaybackService } from "@bindings/services";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
-import { getRouteApi, Link } from "@tanstack/react-router";
-import { memo, useEffect, useRef } from "react";
+import { getRouteApi } from "@tanstack/react-router";
 
 import { replaceQueue } from "@/features/player";
-import { ActionMenu } from "@/shared/actions/ActionMenu";
 import { CoverGrid, type CoverItem } from "@/shared/components/CoverGrid";
-import { Artwork } from "@/shared/components/Artwork";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { PlayButtons } from "@/shared/components/PlayButtons";
@@ -15,7 +12,6 @@ import { Segmented } from "@/shared/components/Segmented";
 import { TrackList, type SongSort } from "@/shared/tracks/TrackList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { run } from "@/shared/lib/run";
-import { useContentVirtualizer } from "@/shared/lib/useContentVirtualizer";
 
 import { skeletonRows, skeletonTiles, useLibraryGate } from "./gate";
 import { useCounts, useLibraryList } from "./queries";
@@ -243,94 +239,6 @@ export function LibraryAlbumsPage() {
             onRange={list.onRange}
           />
         ))}
-    </>
-  );
-}
-
-const ARTIST_ROW = 52;
-
-/** One artist row; memoised so rows already on screen skip re-rendering as the range moves. */
-const ArtistRow = memo(function ArtistRow({ artist: a }: { artist: Artist | undefined }) {
-  if (!a) {
-    return (
-      <div aria-hidden className="flex h-[52px] items-center gap-3 px-2">
-        <div className="size-9 rounded-full bg-hover" />
-        <div className="h-3.5 w-40 rounded-sm bg-hover" />
-      </div>
-    );
-  }
-  return (
-    <div className="group/row flex h-[52px] items-center gap-2 rounded-md pr-2 transition-colors duration-100 hover:bg-hover">
-      <Link
-        to="/artist/$id"
-        params={{ id: a.id }}
-        className="flex h-full min-w-0 flex-1 items-center gap-3 rounded-md px-2 text-ui text-ink focus-visible:bg-hover focus-visible:outline-offset-[-2px]"
-      >
-        <Artwork src={a.art.small} size={36} alt="" shape="round" />
-        <span className="truncate">{a.name}</span>
-      </Link>
-      <ActionMenu kind="artist" target={a} name={a.name} />
-    </div>
-  );
-});
-
-function ArtistRows({
-  rows,
-  onRange,
-}: {
-  rows: readonly (Artist | undefined)[];
-  onRange: (start: number, end: number) => void;
-}) {
-  const { t } = useLingui();
-  const ref = useRef<HTMLDivElement>(null);
-  const { items, totalSize, margin } = useContentVirtualizer(ref, rows.length, ARTIST_ROW, 10);
-  const first = items[0]?.index ?? 0;
-  const last = items[items.length - 1]?.index ?? -1;
-  useEffect(() => {
-    if (last >= 0) onRange(first, last);
-  }, [onRange, first, last]);
-  return (
-    <div ref={ref} role="list" aria-label={t`Artists in your library`}>
-      <div className="relative" style={{ height: totalSize }}>
-        {items.map((it) => (
-          <div
-            key={it.key}
-            role="listitem"
-            className="absolute inset-x-0 top-0"
-            style={{ transform: `translateY(${it.start - margin}px)` }}
-          >
-            <ArtistRow artist={rows[it.index]} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function LibraryArtistsPage() {
-  const { t } = useLingui();
-  const list = useLibraryList("artists", "title", false);
-  const gate = useLibraryGate({
-    total: list.total,
-    pending: list.isPending,
-    error: list.error,
-    retry: () => void list.refetch(),
-    retrying: list.isRefetching,
-    kind: "artists",
-    empty: t`Every artist with a song or album in your library is listed here, A to Z.`,
-    frame: "box",
-  });
-  return (
-    <>
-      <PageHeader
-        title={t`Artists`}
-        subline={
-          list.total ? plural(list.total, { one: "# artist", other: "# artists" }) : undefined
-        }
-      />
-      {gate ?? (
-        <ArtistRows rows={list.isPending ? skeletonRows : list.rows} onRange={list.onRange} />
-      )}
     </>
   );
 }

@@ -96,21 +96,40 @@ func (s *LibraryService) Albums(ctx context.Context, sort string, desc bool, alb
 	return AlbumPage{Items: s.m.libAlbums(albums), Total: total}, nil
 }
 
-// Artists lists library artists by name (sort "title").
-func (s *LibraryService) Artists(ctx context.Context, sort string, desc bool, offset, limit int) (ArtistPage, error) {
-	artists, err := s.o.Library.Artists(ctx, listOpts(sort, desc, offset, limit))
+// ArtistIndex lists every library artist by name with the number of
+// library albums and songs they have. The Artists overview filters it in
+// the UI, so it is not paged.
+func (s *LibraryService) ArtistIndex(ctx context.Context) ([]ArtistEntry, error) {
+	artists, err := s.o.Library.ArtistIndex(ctx)
 	if err != nil {
-		return ArtistPage{}, err
+		return nil, err
 	}
-	c, err := s.o.Library.Counts(ctx)
-	if err != nil {
-		return ArtistPage{}, err
-	}
-	out := ArtistPage{Items: make([]Artist, len(artists)), Total: c.Artists}
+	out := make([]ArtistEntry, len(artists))
 	for i, a := range artists {
-		out.Items[i] = s.m.libArtist(a)
+		out[i] = ArtistEntry{
+			ID:        a.LibraryID,
+			CatalogID: a.CatalogID,
+			Name:      a.Name,
+			Art:       s.m.artOf(a.ArtworkTemplate).Small,
+			Albums:    a.Albums,
+			Songs:     a.Songs,
+		}
 	}
 	return out, nil
+}
+
+// ArtistAlbums returns a library artist and their library albums, newest
+// release first, without their songs.
+func (s *LibraryService) ArtistAlbums(ctx context.Context, id string) (ArtistAlbums, error) {
+	a, albums, err := s.o.Library.ArtistAlbums(ctx, id)
+	if err != nil {
+		return ArtistAlbums{}, err
+	}
+	art := s.m.libArtist(a)
+	if a.ArtworkTemplate == "" && len(albums) > 0 {
+		art.Art = s.m.artOf(albums[0].ArtworkTemplate)
+	}
+	return ArtistAlbums{Artist: art, Albums: s.m.libAlbums(albums)}, nil
 }
 
 // Playlists lists library playlists. sort is "title", "dateAdded" or

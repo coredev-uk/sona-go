@@ -18,14 +18,10 @@ import { childRoute } from "@/shared/router";
 import { libraryActions } from "./actions";
 import { HistoryPage } from "./HistoryPage";
 import { syncDoneInvalidations, syncInvalidations } from "./invalidations";
-import {
-  LibraryAlbumsPage,
-  LibraryArtistsPage,
-  LibraryPlaylistsPage,
-  LibrarySongsPage,
-} from "./pages";
+import { LibraryArtistsPage } from "./ArtistsPage";
+import { LibraryAlbumsPage, LibraryPlaylistsPage, LibrarySongsPage } from "./pages";
 import { LibraryProvider } from "./provider";
-import { albumsSearch, listSearch, playlistSorts, songSorts } from "./search-params";
+import { albumsSearch, artistsSearch, listSearch, playlistSorts, songSorts } from "./search-params";
 import { useSync } from "./sync";
 import { SyncIndicator } from "./SyncIndicator";
 import { FavoriteSongsPage, MusicVideosPage, RecentlyAddedPage } from "./views";
@@ -39,6 +35,7 @@ const recentRoute = createRoute({
 });
 const artistsRoute = createRoute({
   ...childRoute("/library/artists"),
+  validateSearch: artistsSearch,
   component: LibraryArtistsPage,
 });
 const albumsRoute = createRoute({

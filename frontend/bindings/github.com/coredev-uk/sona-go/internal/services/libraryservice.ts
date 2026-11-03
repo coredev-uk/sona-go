@@ -55,11 +55,23 @@ export function Artist(id: string): $CancellablePromise<$models.ArtistDetail> {
 }
 
 /**
- * Artists lists library artists by name (sort "title").
+ * ArtistAlbums returns a library artist and their library albums, newest
+ * release first, without their songs.
  */
-export function Artists(sort: string, desc: boolean, offset: number, limit: number): $CancellablePromise<$models.ArtistPage> {
-    return $Call.ByID(2927581, sort, desc, offset, limit).then(($result: any) => {
+export function ArtistAlbums(id: string): $CancellablePromise<$models.ArtistAlbums> {
+    return $Call.ByID(3868601688, id).then(($result: any) => {
         return $$createType3($result);
+    });
+}
+
+/**
+ * ArtistIndex lists every library artist by name with the number of
+ * library albums and songs they have. The Artists overview filters it in
+ * the UI, so it is not paged.
+ */
+export function ArtistIndex(): $CancellablePromise<$models.ArtistEntry[]> {
+    return $Call.ByID(886409976).then(($result: any) => {
+        return $$createType5($result);
     });
 }
 
@@ -78,7 +90,7 @@ export function CopyLink(r: $models.ItemRef): $CancellablePromise<string> {
  */
 export function Counts(): $CancellablePromise<$models.Counts> {
     return $Call.ByID(1740329075).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType6($result);
     });
 }
 
@@ -89,7 +101,7 @@ export function Counts(): $CancellablePromise<$models.Counts> {
  */
 export function Favorite(r: $models.ItemRef, on: boolean): $CancellablePromise<$models.ItemState> {
     return $Call.ByID(3452658011, r, on).then(($result: any) => {
-        return $$createType5($result);
+        return $$createType7($result);
     });
 }
 
@@ -99,7 +111,7 @@ export function Favorite(r: $models.ItemRef, on: boolean): $CancellablePromise<$
  */
 export function FavoriteSongs(offset: number, limit: number): $CancellablePromise<$models.SongPage> {
     return $Call.ByID(254221715, offset, limit).then(($result: any) => {
-        return $$createType6($result);
+        return $$createType8($result);
     });
 }
 
@@ -113,7 +125,7 @@ export function FavoriteSongs(offset: number, limit: number): $CancellablePromis
  */
 export function History(days: number): $CancellablePromise<$models.ListeningHistory> {
     return $Call.ByID(3152954669, days).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType9($result);
     });
 }
 
@@ -123,7 +135,7 @@ export function History(days: number): $CancellablePromise<$models.ListeningHist
  */
 export function MusicVideos(offset: number, limit: number): $CancellablePromise<$models.MusicVideoPage> {
     return $Call.ByID(1965074906, offset, limit).then(($result: any) => {
-        return $$createType8($result);
+        return $$createType10($result);
     });
 }
 
@@ -133,7 +145,7 @@ export function MusicVideos(offset: number, limit: number): $CancellablePromise<
  */
 export function Playlists(sort: string, desc: boolean, offset: number, limit: number): $CancellablePromise<$models.PlaylistPage> {
     return $Call.ByID(3514231570, sort, desc, offset, limit).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType11($result);
     });
 }
 
@@ -143,7 +155,7 @@ export function Playlists(sort: string, desc: boolean, offset: number, limit: nu
  */
 export function RecentlyAdded(offset: number, limit: number): $CancellablePromise<$models.LibraryEntryPage> {
     return $Call.ByID(1094065299, offset, limit).then(($result: any) => {
-        return $$createType10($result);
+        return $$createType12($result);
     });
 }
 
@@ -153,7 +165,7 @@ export function RecentlyAdded(offset: number, limit: number): $CancellablePromis
  */
 export function RecentlyPlayed(limit: number, offset: number): $CancellablePromise<$models.Song[]> {
     return $Call.ByID(3182673932, limit, offset).then(($result: any) => {
-        return $$createType12($result);
+        return $$createType14($result);
     });
 }
 
@@ -166,7 +178,7 @@ export function RecentlyPlayed(limit: number, offset: number): $CancellablePromi
  */
 export function Remove(r: $models.ItemRef): $CancellablePromise<$models.ItemState> {
     return $Call.ByID(3964028735, r).then(($result: any) => {
-        return $$createType5($result);
+        return $$createType7($result);
     });
 }
 
@@ -176,7 +188,7 @@ export function Remove(r: $models.ItemRef): $CancellablePromise<$models.ItemStat
  */
 export function Songs(sort: string, desc: boolean, offset: number, limit: number): $CancellablePromise<$models.SongPage> {
     return $Call.ByID(1134647451, sort, desc, offset, limit).then(($result: any) => {
-        return $$createType6($result);
+        return $$createType8($result);
     });
 }
 
@@ -191,7 +203,7 @@ export function Songs(sort: string, desc: boolean, offset: number, limit: number
  */
 export function States(refs: $models.ItemRef[]): $CancellablePromise<$models.ItemState[]> {
     return $Call.ByID(763294581, refs).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType15($result);
     });
 }
 
@@ -201,7 +213,7 @@ export function States(refs: $models.ItemRef[]): $CancellablePromise<$models.Ite
  */
 export function SuggestLess(r: $models.ItemRef, on: boolean): $CancellablePromise<$models.ItemState> {
     return $Call.ByID(2867042834, r, on).then(($result: any) => {
-        return $$createType5($result);
+        return $$createType7($result);
     });
 }
 
@@ -221,7 +233,7 @@ export function Sync(): $CancellablePromise<void> {
  */
 export function SyncStatus(): $CancellablePromise<$models.SyncStatus> {
     return $Call.ByID(1828793550).then(($result: any) => {
-        return $$createType14($result);
+        return $$createType16($result);
     });
 }
 
@@ -229,15 +241,17 @@ export function SyncStatus(): $CancellablePromise<$models.SyncStatus> {
 const $$createType0 = $models.AlbumDetail.createFrom;
 const $$createType1 = $models.AlbumPage.createFrom;
 const $$createType2 = $models.ArtistDetail.createFrom;
-const $$createType3 = $models.ArtistPage.createFrom;
-const $$createType4 = $models.Counts.createFrom;
-const $$createType5 = $models.ItemState.createFrom;
-const $$createType6 = $models.SongPage.createFrom;
-const $$createType7 = $models.ListeningHistory.createFrom;
-const $$createType8 = $models.MusicVideoPage.createFrom;
-const $$createType9 = $models.PlaylistPage.createFrom;
-const $$createType10 = $models.LibraryEntryPage.createFrom;
-const $$createType11 = $models.Song.createFrom;
-const $$createType12 = $Create.Array($$createType11);
-const $$createType13 = $Create.Array($$createType5);
-const $$createType14 = $models.SyncStatus.createFrom;
+const $$createType3 = $models.ArtistAlbums.createFrom;
+const $$createType4 = $models.ArtistEntry.createFrom;
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = $models.Counts.createFrom;
+const $$createType7 = $models.ItemState.createFrom;
+const $$createType8 = $models.SongPage.createFrom;
+const $$createType9 = $models.ListeningHistory.createFrom;
+const $$createType10 = $models.MusicVideoPage.createFrom;
+const $$createType11 = $models.PlaylistPage.createFrom;
+const $$createType12 = $models.LibraryEntryPage.createFrom;
+const $$createType13 = $models.Song.createFrom;
+const $$createType14 = $Create.Array($$createType13);
+const $$createType15 = $Create.Array($$createType7);
+const $$createType16 = $models.SyncStatus.createFrom;
