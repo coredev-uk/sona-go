@@ -17,6 +17,10 @@ vi.mock("@tanstack/react-router", () => ({
 vi.mock("@/shared/items/ItemMenu", () => ({ ItemMenu: () => null }));
 vi.mock("@/shared/items/play", () => ({ canPlay: () => false, playItem: vi.fn() }));
 vi.mock("@/shared/items/cover", () => ({ openExternal: vi.fn() }));
+vi.mock("@/features/settings", () => ({
+  useAppearance: (select: (s: { reduceEffects: boolean }) => boolean) =>
+    select({ reduceEffects: false }),
+}));
 vi.mock("@/shared/items/EditorialSections", () => ({
   EditorialSections: ({ sections }: { sections: Section[] }) =>
     sections.map((s) => (
@@ -47,6 +51,11 @@ beforeAll(() => {
     get: () => 1200,
   });
   Element.prototype.scrollIntoView = vi.fn();
+  window.matchMedia = (() => ({
+    matches: false,
+    addEventListener() {},
+    removeEventListener() {},
+  })) as unknown as typeof window.matchMedia;
 });
 afterEach(cleanup);
 
@@ -85,19 +94,22 @@ const hero = section(
 );
 
 describe("Discover's front page", () => {
-  it("leads with the first featured card, at the lead's width, and lists the rest beside it a page at a time", () => {
+  it("leads with the first featured card, at the lead's width, and lists them all beside it a page at a time", () => {
     renderPage([hero]);
     const featured = screen.getByRole("region", { name: "Featured" });
     // Two thirds of 1200px less the gap, at Apple's 1060:608 hero shape.
     const lead = featured.querySelector("img");
     expect(lead?.getAttribute("src")).toMatch(/\/784x450\.jpg$/);
-    const list = within(featured).getByRole("list", { name: "More featured" });
-    // As many rows as fit beside the lead: six of the fifteen.
+    const list = within(featured).getByRole("list", { name: "Featured cards" });
+    // As many rows as fit beside the lead: six of the sixteen, the lead's first.
     expect(
       within(list)
         .getAllByRole("listitem")
         .map((li) => li.textContent),
-    ).toEqual(["Card 2", "Card 3", "Card 4", "Card 5", "Card 6", "Card 7"]);
+    ).toEqual(["Card 1", "Card 2", "Card 3", "Card 4", "Card 5", "Card 6"]);
+    expect(within(list).getByRole("button", { name: "Card 1" }).getAttribute("aria-current")).toBe(
+      "true",
+    );
     expect(featured.textContent).toContain("1 of 3");
   });
 
@@ -111,7 +123,7 @@ describe("Discover's front page", () => {
       within(featured)
         .getAllByRole("listitem")
         .map((li) => li.textContent),
-    ).toEqual(["Card 14", "Card 15", "Card 16"]);
+    ).toEqual(["Card 13", "Card 14", "Card 15", "Card 16"]);
     expect((previous as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(within(featured).getByRole("button", { name: "Next in Featured" }));
     expect(featured.textContent).toContain("1 of 3");

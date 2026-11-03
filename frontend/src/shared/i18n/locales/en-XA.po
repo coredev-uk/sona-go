@@ -2566,6 +2566,10 @@ msgstr ""
 msgid "Featured artists"
 msgstr ""
 
+#: src/features/discover/FrontPage.tsx
+msgid "Featured cards"
+msgstr ""
+
 #: src/features/album/AlbumPage.tsx
 msgid "Featured in playlists"
 msgstr ""
@@ -3337,10 +3341,6 @@ msgstr ""
 #: src/features/song/SongPage.tsx
 #: src/features/video/VideoPage.tsx
 msgid "More by {artistName}"
-msgstr ""
-
-#: src/features/discover/FrontPage.tsx
-msgid "More featured"
 msgstr ""
 
 #: src/shared/actions/ActionMenu.tsx
@@ -4175,6 +4175,10 @@ msgstr ""
 msgid "Pause"
 msgstr ""
 
+#: src/features/discover/FrontPage.tsx
+msgid "Pause featured rotation"
+msgstr ""
+
 #: src/shared/tracks/Equaliser.tsx
 msgid "Paused"
 msgstr ""
@@ -4281,6 +4285,10 @@ msgstr ""
 
 #: src/features/player/QueuePanel.tsx
 msgid "Play an album, playlist or station, choose Play next on any song, or drag songs here."
+msgstr ""
+
+#: src/features/discover/FrontPage.tsx
+msgid "Play featured rotation"
 msgstr ""
 
 #: src/features/player/actions.ts
@@ -4936,6 +4944,14 @@ msgstr ""
 #. Equaliser preset
 #: src/features/equalizer/curve.ts
 msgid "Rock"
+msgstr ""
+
+#: src/features/discover/FrontPage.tsx
+msgid "Rotation paused"
+msgstr ""
+
+#: src/features/discover/FrontPage.tsx
+msgid "Rotation playing"
 msgstr ""
 
 #: src/features/commands/CommandPalette.tsx

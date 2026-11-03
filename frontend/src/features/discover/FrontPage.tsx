@@ -1,8 +1,15 @@
 import type { Item } from "@bindings/services";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Link } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Play } from "lucide-react";
-import { useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 
 import { ContextActionMenu } from "@/shared/actions/ActionMenu";
 import { openExternal } from "@/shared/items/cover";
@@ -12,6 +19,8 @@ import { canPlay, playItem } from "@/shared/items/play";
 import { artUrl } from "@/shared/lib/art";
 import { GAP_X, useElementWidth } from "@/shared/lib/useCoverColumns";
 import { Button } from "@/shared/ui/button";
+
+import { useLeadRotation } from "./useLeadRotation";
 
 /**
  * The hero card's shape on music.apple.com: its "flowcaseLockup" requests
@@ -65,28 +74,71 @@ function layoutFor(width: number): Layout {
 }
 
 /**
- * Discover's front page: Apple's featured cards as one lead, large, and the
- * rest as a list beside it (under it in a narrow window), paged so the
- * list never runs past the lead.
+ * Discover's front page: Apple's featured cards, one of them the lead,
+ * large, and all of them as a list beside it (under it in a narrow window),
+ * paged so the list never runs past the lead. The lead moves on by itself
+ * (useLeadRotation) unless the user pauses it or asks for reduced motion;
+ * choosing a row makes it the lead, and the list shows the page the lead
+ * is on.
  */
 export function FrontPage({ items }: { items: readonly Item[] }) {
   const { t } = useLingui();
+  const sectionRef = useRef<HTMLElement>(null);
   const ref = useRef<HTMLDivElement>(null);
   const width = useElementWidth(ref);
   const layout = layoutFor(width);
-  const [page, setPage] = useState(0);
-  const [lead, ...rest] = items;
-  const pages = Math.max(1, Math.ceil(rest.length / layout.perPage));
-  const at = Math.min(page, pages - 1);
-  const shown = rest.slice(at * layout.perPage, (at + 1) * layout.perPage);
+  // `from` is the lead on its way out while the new one fades in.
+  const [view, setView] = useState<{ at: number; from: number | null }>({ at: 0, from: null });
+  const [turned, setTurned] = useState<{ at: number; page: number } | null>(null);
+  const [said, setSaid] = useState({ n: 0, text: "" });
+  const count = items.length;
+  const at = Math.min(view.at, count - 1);
+  const lead = items[at];
+  const choose = useCallback(
+    (to: number) => setView((v) => (to === v.at ? v : { at: to, from: v.at })),
+    [],
+  );
+  const advance = useCallback(() => choose((at + 1) % count), [choose, at, count]);
+  const rotation = useLeadRotation(sectionRef, { count, at, advance });
+  // The next lead's picture is fetched and decoded while this one is read,
+  // so it fades in as a picture rather than as an empty box.
+  const upcoming = rotation.available && width > 0 ? items[(at + 1) % count] : undefined;
+  useEffect(() => {
+    const { src } = upcoming ? leadArt(upcoming, layout.lead) : { src: "" };
+    if (!src) return;
+    const img = new Image();
+    img.src = src;
+    // jsdom has no decode().
+    void img.decode?.().catch(() => {});
+  }, [upcoming, layout.lead]);
+  const pages = Math.max(1, Math.ceil(count / layout.perPage));
+  // The list shows the lead's page until the user turns it, and returns
+  // to it when the lead changes.
+  const page = Math.min(
+    turned?.at === at ? turned.page : Math.floor(at / layout.perPage),
+    pages - 1,
+  );
+  const shown = items.slice(page * layout.perPage, (page + 1) * layout.perPage);
   const label = t`Featured`;
-  const current = at + 1;
+  const current = page + 1;
+  // Said only for what the user did: the lead and the list's page change
+  // by themselves, and a live region on those would speak every few seconds.
+  const say = (text: string) => setSaid((s) => ({ n: s.n + 1, text }));
   // The pager wraps round rather than disabling a button, so focus never
   // drops from it to the page.
-  const turn = (by: number) => setPage((at + by + pages) % pages);
+  const turn = (by: number) => {
+    const to = (page + by + pages) % pages;
+    setTurned({ at, page: to });
+    const current = to + 1;
+    say(t`${current} of ${pages}`);
+  };
+  const toggle = () => {
+    say(rotation.paused ? t`Rotation playing` : t`Rotation paused`);
+    rotation.toggle();
+  };
 
   return (
-    <section aria-label={label} className="mb-12">
+    <section ref={sectionRef} aria-label={label} className="mb-12">
       <div
         ref={ref}
         className="grid gap-y-6"
@@ -95,11 +147,33 @@ export function FrontPage({ items }: { items: readonly Item[] }) {
           columnGap: GAP_X,
         }}
       >
-        {width > 0 && lead && <Lead item={lead} width={layout.lead} />}
-        {width > 0 && rest.length > 0 && (
+        {width > 0 && lead && (
+          <div className="grid min-w-0">
+            {view.from !== null && items[view.from] && (
+              <div
+                key={leadKey(items[view.from], view.from)}
+                inert
+                aria-hidden
+                className="lead-out pointer-events-none col-start-1 row-start-1 min-w-0"
+                onAnimationEnd={(e) => {
+                  if (e.target === e.currentTarget) setView((v) => ({ ...v, from: null }));
+                }}
+              >
+                <Lead item={items[view.from]} width={layout.lead} />
+              </div>
+            )}
+            <div
+              key={leadKey(lead, at)}
+              className={`col-start-1 row-start-1 min-w-0 ${view.from === null ? "" : "lead-in"}`}
+            >
+              <Lead item={lead} width={layout.lead} />
+            </div>
+          </div>
+        )}
+        {width > 0 && count > 1 && (
           <div className="flex min-w-0 flex-col">
             <ul
-              aria-label={t`More featured`}
+              aria-label={t`Featured cards`}
               className="-mx-2 grid grid-flow-col"
               style={{
                 gridTemplateColumns: `repeat(${layout.columns}, minmax(0, 1fr))`,
@@ -107,45 +181,80 @@ export function FrontPage({ items }: { items: readonly Item[] }) {
                 columnGap: GAP_X - 16,
               }}
             >
-              {shown.map((item, i) => (
-                <FeatureRow key={`${at}:${i}:${item.kind}:${item.id}`} item={item} />
-              ))}
+              {shown.map((item, i) => {
+                const index = page * layout.perPage + i;
+                return (
+                  <FeatureRow
+                    key={`${page}:${i}:${item.kind}:${item.id}`}
+                    item={item}
+                    current={index === at}
+                    onChoose={() => choose(index)}
+                  />
+                );
+              })}
             </ul>
-            {pages > 1 && (
+            {(pages > 1 || rotation.available) && (
               <div className="mt-auto flex h-7 shrink-0 items-center justify-end gap-1 pt-2">
-                <span className="mr-1 text-meta text-ink-muted num" aria-live="polite">
-                  {/* A new element per page: WebKitGTK announces only inserted nodes. */}
-                  <span key={current}>
-                    <Trans>
-                      {current} of {pages}
-                    </Trans>
-                  </span>
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="size-7"
-                  aria-label={t`Previous in ${label}`}
-                  onClick={() => turn(-1)}
-                >
-                  <ChevronLeft />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="size-7"
-                  aria-label={t`Next in ${label}`}
-                  onClick={() => turn(1)}
-                >
-                  <ChevronRight />
-                </Button>
+                {rotation.available && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="mr-2 size-7"
+                    aria-label={
+                      rotation.paused ? t`Play featured rotation` : t`Pause featured rotation`
+                    }
+                    onClick={toggle}
+                  >
+                    {rotation.paused ? (
+                      <Play fill="currentColor" strokeWidth={0} />
+                    ) : (
+                      <Pause fill="currentColor" strokeWidth={0} />
+                    )}
+                  </Button>
+                )}
+                {pages > 1 && (
+                  <>
+                    <span className="mr-1 text-meta text-ink-muted num">
+                      <Trans>
+                        {current} of {pages}
+                      </Trans>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="size-7"
+                      aria-label={t`Previous in ${label}`}
+                      onClick={() => turn(-1)}
+                    >
+                      <ChevronLeft />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="size-7"
+                      aria-label={t`Next in ${label}`}
+                      onClick={() => turn(1)}
+                    >
+                      <ChevronRight />
+                    </Button>
+                  </>
+                )}
               </div>
             )}
           </div>
         )}
       </div>
+      {/* A new element per message: WebKitGTK announces only inserted nodes. */}
+      <span className="sr-only" aria-live="polite">
+        <span key={said.n}>{said.text}</span>
+      </span>
     </section>
   );
+}
+
+/** The lead's key: its own card, so a card that changes place keeps its state. */
+function leadKey(item: Item, index: number) {
+  return `${index}:${item.kind}:${item.id}`;
 }
 
 const openerClassName =
@@ -207,12 +316,20 @@ function useCardMenu(item: Item) {
   return { handlers, menu: node };
 }
 
+/** The lead's picture at its width: the wide banner cropped to the card, else the cover whole on its colour. */
+function leadArt(item: Item, width: number) {
+  const banner = item.wide.large || item.wide.medium;
+  const from = banner || item.art.large || item.art.medium;
+  const fit = banner ? "cover" : "contain";
+  return {
+    src: from ? artUrl(from, { width, height: width / HERO_RATIO }, fit) : "",
+    fit,
+  } as const;
+}
+
 function Lead({ item, width }: { item: Item; width: number }) {
   const { t } = useLingui();
-  // The wide banner cropped to the card, else the cover whole on its colour.
-  const banner = item.wide.large || item.wide.medium;
-  const src = banner || item.art.large || item.art.medium;
-  const fit = banner ? "cover" : "contain";
+  const { src, fit } = leadArt(item, width);
   const [failed, setFailed] = useState(false);
   const { handlers, menu } = useCardMenu(item);
   const name = item.name;
@@ -225,7 +342,7 @@ function Lead({ item, width }: { item: Item; width: number }) {
       >
         {!failed && src && (
           <img
-            src={artUrl(src, { width, height: width / HERO_RATIO }, fit)}
+            src={src}
             alt=""
             decoding="async"
             draggable={false}
@@ -259,7 +376,17 @@ function Lead({ item, width }: { item: Item; width: number }) {
   );
 }
 
-function FeatureRow({ item }: { item: Item }) {
+/** A list row: choosing it makes its card the lead (the lead's own title opens the card). */
+function FeatureRow({
+  item,
+  current,
+  onChoose,
+}: {
+  item: Item;
+  /** The row is the lead now. */
+  current: boolean;
+  onChoose: () => void;
+}) {
   const { t } = useLingui();
   const src = item.art.medium || item.art.large || item.wide.medium;
   const [failed, setFailed] = useState(false);
@@ -269,7 +396,7 @@ function FeatureRow({ item }: { item: Item }) {
   return (
     <li
       {...handlers}
-      className="group/row relative flex min-w-0 items-center gap-3 rounded-md px-2 transition-colors duration-100 hover:bg-hover"
+      className={`group/row relative flex min-w-0 items-center gap-3 rounded-md px-2 transition-colors duration-100 ${current ? "bg-active" : "hover:bg-hover"}`}
     >
       <div
         className="relative shrink-0 overflow-hidden rounded-sm bg-hover"
@@ -300,7 +427,14 @@ function FeatureRow({ item }: { item: Item }) {
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
-        <Opener item={item} className="text-ui font-medium text-ink" />
+        <button
+          type="button"
+          aria-current={current || undefined}
+          className={`${openerClassName} text-ui font-medium text-ink`}
+          onClick={onChoose}
+        >
+          {name}
+        </button>
         {subtitle && <span className="truncate text-sub text-ink-muted">{subtitle}</span>}
       </div>
       <div className="relative z-10 shrink-0">
