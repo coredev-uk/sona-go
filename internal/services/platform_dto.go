@@ -32,6 +32,11 @@ type Capabilities struct {
 	// WebKitGTK: the web view is WebKitGTK (Linux), so its rendering
 	// workarounds (Settings → Diagnostics) apply.
 	WebKitGTK bool `json:"webkitGtk"`
+	// DeveloperTools: the main window's web inspector is on for this run
+	// (a development build, Settings → Diagnostics → Developer tools from
+	// the start before, or SONA_DEVTOOLS=1); DesktopService.OpenDeveloperTools
+	// shows it. The setting itself only applies from the next start.
+	DeveloperTools bool `json:"developerTools"`
 	// WindowControls is how the main window's title bar works here; the
 	// frontend lays out its top bar from it and the title bar setting.
 	WindowControls WindowControls `json:"windowControls"`

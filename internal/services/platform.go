@@ -147,6 +147,7 @@ func newPlatformService(e *Env) *PlatformService {
 		CLI:             p.Commands,
 		DiscordPresence: discord.Supported,
 		WebKitGTK:       e.WebKit != "",
+		DeveloperTools:  e.Windows != nil && e.Windows.DeveloperTools(),
 		WindowControls: WindowControls{
 			Native:     p.TitleBar.Native,
 			Automatic:  p.TitleBar.Automatic,

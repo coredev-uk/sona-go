@@ -19,14 +19,18 @@ static gboolean on_context_key(GtkEventControllerKey *controller, guint keyval, 
   return FALSE;
 }
 
-// The web view's GTK ancestor of w, or NULL when w is not inside one.
+// True when w is a web view: the page's WebKitWebView, or the docked
+// inspector's view (a plain WebKitWebViewBase, which WebKitGTK parents
+// inside the page's view).
+static gboolean is_web_view(GtkWidget *w) {
+  GType base = g_type_from_name("WebKitWebViewBase");
+  return base != 0 && G_TYPE_CHECK_INSTANCE_TYPE(w, base);
+}
+
+// The nearest web view above w, or NULL when w is not inside one.
 static GtkWidget *web_view_ancestor(GtkWidget *w) {
-  GType view = g_type_from_name("WebKitWebView");
-  if (view == 0) {
-    return NULL;
-  }
   for (GtkWidget *p = gtk_widget_get_parent(w); p != NULL; p = gtk_widget_get_parent(p)) {
-    if (G_TYPE_CHECK_INSTANCE_TYPE(p, view)) {
+    if (is_web_view(p)) {
       return p;
     }
   }
@@ -39,14 +43,17 @@ static gboolean refocus_web_view(gpointer view) {
   return G_SOURCE_REMOVE;
 }
 
-// GTK focus moved inside the web view but off it: onto the hidden text
+// GTK focus moved inside a web view but off it: onto the hidden text
 // widget WebKit keeps as its child. Nothing there passes keys to the page,
 // so focus goes back to the view (after this notification, not inside it).
+// A web view holding the focus itself is right as it is: the docked
+// inspector's view sits inside the page's, and sending focus to the page
+// would leave the inspector's console unable to take a key.
 static void on_focus_widget(GObject *window, GParamSpec *pspec, gpointer data) {
   (void)pspec;
   (void)data;
   GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(window));
-  if (focus == NULL) {
+  if (focus == NULL || is_web_view(focus)) {
     return;
   }
   GtkWidget *view = web_view_ancestor(focus);

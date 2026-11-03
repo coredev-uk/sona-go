@@ -163,9 +163,10 @@ export class Desktop {
 }
 
 /**
- * Diagnostics are WebKitGTK rendering workarounds exposed as toggles. They
- * take effect on the next start because they must be in the environment
- * before the web view is created.
+ * Diagnostics are WebKitGTK rendering workarounds and the developer tools,
+ * exposed as toggles. They take effect on the next start because the
+ * workarounds must be in the environment, and the inspector enabled, before
+ * the web view is created.
  */
 export class Diagnostics {
     /**
@@ -178,6 +179,13 @@ export class Diagnostics {
      */
     "disableCompositingMode": boolean;
 
+    /**
+     * DeveloperTools turns the web inspector on in the main window (a
+     * right click → Inspect Element, or Settings → Diagnostics), for
+     * debugging and writing plugins. Development builds have it on anyway.
+     */
+    "developerTools": boolean;
+
     /** Creates a new Diagnostics instance. */
     constructor($$source: Partial<Diagnostics> = {}) {
         if (!("disableDmabufRenderer" in $$source)) {
@@ -185,6 +193,9 @@ export class Diagnostics {
         }
         if (!("disableCompositingMode" in $$source)) {
             this["disableCompositingMode"] = false;
+        }
+        if (!("developerTools" in $$source)) {
+            this["developerTools"] = false;
         }
 
         Object.assign(this, $$source);

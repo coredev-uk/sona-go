@@ -140,6 +140,8 @@ type fakeWindows struct {
 	watch   func(windowchrome.WindowState)
 	nav     func(forward bool)
 	menuErr error
+	// devtoolsErr is OpenDeveloperTools' answer.
+	devtoolsErr error
 }
 
 func (*fakeWindows) ShowMain()                                     {}
@@ -151,6 +153,8 @@ func (*fakeWindows) ToggleMaximiseMain()                           {}
 func (*fakeWindows) CloseMain()                                    {}
 func (f *fakeWindows) ShowWindowMenu() error                       { return f.menuErr }
 func (f *fakeWindows) MainState() windowchrome.WindowState         { return f.state }
+func (*fakeWindows) DeveloperTools() bool                          { return false }
+func (f *fakeWindows) OpenDeveloperTools() error                   { return f.devtoolsErr }
 func (f *fakeWindows) WatchMain(fn func(windowchrome.WindowState)) { f.watch = fn }
 
 func (f *fakeWindows) WatchNavigate(fn func(bool)) { f.nav = fn }
@@ -220,5 +224,19 @@ func TestWindowMenuUnsupported(t *testing.T) {
 	d, _ = windowsEnv(t, &fakeWindows{})
 	if err := d.ShowWindowMenu(); err != nil {
 		t.Fatalf("ShowWindowMenu = %v", err)
+	}
+}
+
+// The inspector opens when the window has it on; otherwise the call says
+// unsupported, which the page words as not available (it only offers the
+// button while Capabilities.DeveloperTools holds).
+func TestOpenDeveloperTools(t *testing.T) {
+	d, _ := windowsEnv(t, &fakeWindows{})
+	if err := d.OpenDeveloperTools(); err != nil {
+		t.Fatalf("OpenDeveloperTools = %v", err)
+	}
+	d, _ = windowsEnv(t, &fakeWindows{devtoolsErr: errors.ErrUnsupported})
+	if err := d.OpenDeveloperTools(); CodeOf(err) != CodeUnsupported {
+		t.Fatalf("OpenDeveloperTools = %v (code %q), want code %q", err, CodeOf(err), CodeUnsupported)
 	}
 }

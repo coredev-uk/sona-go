@@ -1053,6 +1053,14 @@ registry (`shared/shortcuts/registry.ts`) the app derives:
   contexts do not). Settings → Shortcuts records a new chord by keypress,
   asks before taking a chord another shortcut uses (that one keeps its
   other keys), resets one binding or all, and marks remaining conflicts.
+
+These listeners only see the page's own document. WebKit's web inspector is a separate web view docked in the main
+window, so its keys never reach them; typing in its console depends on GTK
+giving that view the keyboard focus, which Go's focus guard
+(`internal/shell/contextkey_linux.c`) leaves alone. Debugging with it:
+CONTRIBUTING.md, "Debugging with the web inspector"; Settings → Diagnostics →
+Developer tools (`features/settings/DeveloperTools.tsx`) turns it on in
+release builds from the next start and opens it.
 - **Commands.** Ctrl+K (`features/commands`) is an ARIA combobox over a
   grouped listbox: with nothing typed, every available command by group;
   typed, the best-ranked commands (`rank.ts`: whole label, label start,

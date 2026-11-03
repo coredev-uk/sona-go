@@ -42,6 +42,15 @@ export function MinimiseWindow(): $CancellablePromise<void> {
 }
 
 /**
+ * OpenDeveloperTools shows the main window's web inspector, for debugging
+ * and writing plugins (Capabilities.DeveloperTools); otherwise it fails
+ * with code unsupported.
+ */
+export function OpenDeveloperTools(): $CancellablePromise<void> {
+    return $Call.ByID(4091590337);
+}
+
+/**
  * ResetWindowSize returns the main window to its default size.
  */
 export function ResetWindowSize(): $CancellablePromise<void> {

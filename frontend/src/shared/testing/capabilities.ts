@@ -25,6 +25,7 @@ export function linuxCapabilities(): Capabilities {
     cli: true,
     discordPresence: true,
     webkitGtk: true,
+    developerTools: false,
     // GNOME with its default button layout ("appmenu:close").
     windowControls: {
       native: "frame",
@@ -63,6 +64,7 @@ export function bareCapabilities(os = "darwin"): Capabilities {
     cli: false,
     discordPresence: false,
     webkitGtk: false,
+    developerTools: false,
     windowControls: {
       native: "frame",
       automatic: "desktop",

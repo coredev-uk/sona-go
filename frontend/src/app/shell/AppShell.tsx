@@ -12,6 +12,7 @@ import { useLayout } from "./layout";
 import { Sidebar } from "./Sidebar";
 import { StatusBanner } from "./StatusBanner";
 import { TopBar } from "./TopBar";
+import { useDeveloperContextMenu } from "./useDeveloperContextMenu";
 import { useMouseNavigation } from "./useMouseNavigation";
 import { useRouteMemory } from "./useRouteMemory";
 import { bindWindowState } from "./window-chrome";
@@ -70,6 +71,7 @@ export function AppShell() {
   useShortcuts();
   useRouteMemory();
   useMouseNavigation();
+  useDeveloperContextMenu();
   useEffect(() => bindWindowState(), []);
   const overlayOpen = useOverlayOpen();
   const sidebar = useLayout((s) => s.sidebar);

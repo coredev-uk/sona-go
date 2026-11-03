@@ -20,6 +20,7 @@ import { keys } from "@/shared/lib/keys";
 import { useMotionLog, useMotionState } from "@/shared/lib/motion";
 import { cn } from "@/shared/lib/utils";
 
+import { DeveloperTools } from "./DeveloperTools";
 import { motionGroup, motionReport } from "./MotionDiagnostics";
 import { useSettings, useUpdateSettings } from "./queries";
 import { SettingRow, SettingsPanel } from "./SettingRow";
@@ -662,6 +663,7 @@ export function DiagnosticsSection() {
             {webkitGtk && g.title === t`Rendering` && <RenderingToggles />}
           </section>
         ))}
+        {webkitGtk && <DeveloperTools />}
       </div>
     </div>
   );

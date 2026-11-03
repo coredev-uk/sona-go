@@ -348,6 +348,7 @@ func run(started time.Time) error {
 		App: wapp, Settings: settings, Coord: coord, Logger: log.With("component", "shell"),
 		WindowIcon: build.AppIcon, TrayIcon: build.TrayIcon, Background: windowBackground(cur.Theme),
 		Hidden: act.Hidden(), Private: private, Language: lang, TitleBar: plat.TitleBar(), StartRoute: startRoute,
+		DeveloperTools: devMode || cur.Diagnostics.DeveloperToolsOn(os.Getenv),
 	})
 	defer sh.Close() // after core.Close, before coord.Close
 	log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "webkitgtk", webkitVersion(), "hidden", act.Hidden())

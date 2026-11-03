@@ -74,6 +74,7 @@ export function settingIndex(): SettingEntry[] {
   const storage = sectionTitle("storage");
   const diagnostics = sectionTitle("diagnostics");
   const rendering = t`Rendering`;
+  const developerTools = t`Developer tools`;
 
   const entries: SettingEntry[] = [
     {
@@ -316,6 +317,22 @@ export function settingIndex(): SettingEntry[] {
       group: rendering,
       title: t`Disable compositing`,
       keywords: t`software rendering`,
+      when: (c) => c.caps?.webkitGtk ?? false,
+    },
+    {
+      id: "developerTools",
+      section: "diagnostics",
+      group: developerTools,
+      title: t`Web inspector`,
+      keywords: t`devtools, console, inspect element, plugins, debug`,
+      when: (c) => c.caps?.webkitGtk ?? false,
+    },
+    {
+      id: "openDeveloperTools",
+      section: "diagnostics",
+      group: developerTools,
+      title: t`Open the web inspector`,
+      keywords: t`devtools, console, inspect element`,
       when: (c) => c.caps?.webkitGtk ?? false,
     },
   ];

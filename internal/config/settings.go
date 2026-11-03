@@ -84,14 +84,29 @@ type Settings struct {
 	Lyrics Lyrics `json:"lyrics"`
 }
 
-// Diagnostics are WebKitGTK rendering workarounds exposed as toggles. They
-// take effect on the next start because they must be in the environment
-// before the web view is created.
+// Diagnostics are WebKitGTK rendering workarounds and the developer tools,
+// exposed as toggles. They take effect on the next start because the
+// workarounds must be in the environment, and the inspector enabled, before
+// the web view is created.
 type Diagnostics struct {
 	// DisableDMABufRenderer sets WEBKIT_DISABLE_DMABUF_RENDERER=1.
 	DisableDMABufRenderer bool `json:"disableDmabufRenderer"`
 	// DisableCompositingMode sets WEBKIT_DISABLE_COMPOSITING_MODE=1.
 	DisableCompositingMode bool `json:"disableCompositingMode"`
+	// DeveloperTools turns the web inspector on in the main window (a
+	// right click → Inspect Element, or Settings → Diagnostics), for
+	// debugging and writing plugins. Development builds have it on anyway.
+	DeveloperTools bool `json:"developerTools"`
+}
+
+// EnvDeveloperTools turns the web inspector on for a run, whatever the
+// setting says: SONA_DEVTOOLS=1.
+const EnvDeveloperTools = "SONA_DEVTOOLS"
+
+// DeveloperToolsOn reports whether the main window's web inspector is on:
+// the setting, or EnvDeveloperTools=1 in the environment getenv reads.
+func (d Diagnostics) DeveloperToolsOn(getenv func(string) string) bool {
+	return d.DeveloperTools || getenv(EnvDeveloperTools) == "1"
 }
 
 // Scrobbling holds the non-secret part of the scrobbler connections.
