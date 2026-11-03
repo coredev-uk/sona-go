@@ -4311,6 +4311,7 @@ msgstr ""
 #: src/features/search/ItemRow.tsx
 #: src/shared/components/CoverGrid.tsx
 #: src/shared/components/PlayButtons.tsx
+#: src/shared/items/LinkList.tsx
 #: src/shared/items/StationList.tsx
 msgid "Play"
 msgstr ""
