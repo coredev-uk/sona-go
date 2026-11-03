@@ -67,11 +67,6 @@
     "reason": "Sona's is private listening; Apple's is a private profile"
   },
   {
-    "message": "Something went wrong.",
-    "key": "ASE.Web.Music.TransferMusic.Alert.Error.Generic",
-    "reason": "Apple's casing (title case) does not match Sona's sentence case"
-  },
-  {
     "message": "Videos",
     "key": "FUSE.Meta.TopCharts.Description.Kind.videos",
     "reason": "Apple's text is the lower-case kind inside a chart description; Sona's is a band heading"
@@ -85,11 +80,6 @@
     "message": "up next",
     "key": "ASE.Web.Music.UpNext.Heading",
     "reason": "Sona's is lower case inside a sentence; Apple's is a heading"
-  },
-  {
-    "message": "{0, plural, one {# video} other {# videos}}",
-    "key": "FUSE.NoOfVideos",
-    "reason": "Apple's casing (title case) does not match Sona's sentence case"
   },
   {
     "message": "{at} of {total}",

@@ -1451,8 +1451,8 @@ msgid "Concerts are listed near the city you choose. Sona keeps your choice on t
 msgstr "Concerts are listed near the city you choose. Sona keeps your choice on this computer and tells Apple Music only the area it covers."
 
 #: src/features/concerts/Upcoming.tsx
-msgid "Concerts near {city}"
-msgstr "Concerts near {city}"
+msgid "Concerts in {city}"
+msgstr "Concerts in {city}"
 
 #: src/features/onboarding/ConnectionsStep.tsx
 #: src/features/settings/Connections.tsx
@@ -4914,11 +4914,6 @@ msgstr "Realtime priority was refused."
 msgid "Recent"
 msgstr "Recent"
 
-#: src/features/search/RecentSearches.tsx
-#: src/features/search/SearchField.tsx
-msgid "Recent searches"
-msgstr "Recent searches"
-
 #: src/features/home/LocalShelves.tsx
 #: src/features/library/index.ts
 #: src/features/library/pages.tsx
@@ -4938,6 +4933,11 @@ msgstr "Recently played"
 #: src/features/home/LocalShelves.tsx
 msgid "Recently played songs"
 msgstr "Recently played songs"
+
+#: src/features/search/RecentSearches.tsx
+#: src/features/search/SearchField.tsx
+msgid "Recently searched"
+msgstr "Recently searched"
 
 #: src/features/library/pages.tsx
 msgid "Recently updated"

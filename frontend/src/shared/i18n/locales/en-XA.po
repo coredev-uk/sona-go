@@ -1451,7 +1451,7 @@ msgid "Concerts are listed near the city you choose. Sona keeps your choice on t
 msgstr ""
 
 #: src/features/concerts/Upcoming.tsx
-msgid "Concerts near {city}"
+msgid "Concerts in {city}"
 msgstr ""
 
 #: src/features/onboarding/ConnectionsStep.tsx
@@ -4914,11 +4914,6 @@ msgstr ""
 msgid "Recent"
 msgstr ""
 
-#: src/features/search/RecentSearches.tsx
-#: src/features/search/SearchField.tsx
-msgid "Recent searches"
-msgstr ""
-
 #: src/features/home/LocalShelves.tsx
 #: src/features/library/index.ts
 #: src/features/library/pages.tsx
@@ -4937,6 +4932,11 @@ msgstr ""
 
 #: src/features/home/LocalShelves.tsx
 msgid "Recently played songs"
+msgstr ""
+
+#: src/features/search/RecentSearches.tsx
+#: src/features/search/SearchField.tsx
+msgid "Recently searched"
 msgstr ""
 
 #: src/features/library/pages.tsx

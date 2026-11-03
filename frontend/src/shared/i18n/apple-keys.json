@@ -87,6 +87,13 @@
     "key": "MusicUI.ConcertsHub.Page.Title"
   },
   {
+    "message": "Concerts in {city}",
+    "key": "MusicUI.ConcertsHub.GlobalHub.CityHeader",
+    "placeholders": {
+      "cityName": "city"
+    }
+  },
+  {
     "message": "Connect",
     "key": "ASE.Web.Music.SharePlay.Join.Connect"
   },
@@ -328,6 +335,10 @@
     "key": "ASE.Web.Music.Sorts.RecentlyAdded"
   },
   {
+    "message": "Recently searched",
+    "key": "FUSE.Search.RecentlySearched"
+  },
+  {
     "message": "Refresh",
     "key": "ASE.Web.Music.Library.Playlists.Suggested.Refresh"
   },
@@ -398,6 +409,10 @@
   {
     "message": "Similar music will keep playing",
     "key": "ASE.Web.Music.UpNext.Autoplay.Description"
+  },
+  {
+    "message": "Something went wrong.",
+    "key": "ASE.Web.Music.TransferMusic.Alert.Error.Generic"
   },
   {
     "message": "Song",
@@ -481,6 +496,14 @@
   {
     "message": "{0, plural, one {# song} other {# songs}}",
     "key": "ASE.Web.Music.NoOfSongs",
+    "plural": true,
+    "placeholders": {
+      "count": "0"
+    }
+  },
+  {
+    "message": "{0, plural, one {# video} other {# videos}}",
+    "key": "FUSE.NoOfVideos",
     "plural": true,
     "placeholders": {
       "count": "0"

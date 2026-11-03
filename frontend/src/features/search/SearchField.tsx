@@ -318,13 +318,13 @@ export function SearchField() {
       <ul
         id={listId}
         role="listbox"
-        aria-label={typed ? t`Suggestions` : t`Recent searches`}
+        aria-label={typed ? t`Suggestions` : t`Recently searched`}
         hidden={!shown}
         className="absolute inset-x-0 top-full z-50 mt-1.5 max-h-[min(70vh,520px)] overflow-y-auto rounded-lg border border-line bg-raised p-1.5 shadow-float"
       >
         {!typed && (
           <GroupLabel>
-            <Trans>Recent searches</Trans>
+            <Trans>Recently searched</Trans>
           </GroupLabel>
         )}
         {options.map((o, i) => {

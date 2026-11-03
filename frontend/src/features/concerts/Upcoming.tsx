@@ -94,7 +94,7 @@ export function ConcertsShelf() {
   if (q.isError && !q.data) return null;
   const data = q.data;
   const city = data?.location.name ?? "";
-  const title = data ? t`Concerts near ${city}` : t`Concerts`;
+  const title = data ? t`Concerts in ${city}` : t`Concerts`;
   return (
     <Shelf title={title} more={{ to: "/concerts" }}>
       {!data ? (
