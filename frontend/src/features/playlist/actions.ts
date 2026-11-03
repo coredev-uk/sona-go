@@ -14,6 +14,7 @@ import {
 import { addToPlaylist, deletePlaylist, pin, playlistItems, unpin } from "./commands";
 import { showDialog } from "./dialogs";
 import { boundQueryClient, removeTracks } from "./track-edits";
+import { playlistSection } from "./tree";
 
 /** The library ID an item can be pinned by ("" when it is not in the library). */
 export function libraryIdOf(t: { id: string; source: Source; libraryId: string }): string {
@@ -168,7 +169,8 @@ export const playlistActions: readonly ItemActionDef[] = [
     icon: FolderInput,
     group: "item",
     order: 75,
-    isAvailable: isLibraryPlaylist,
+    // Folders hold the user's own playlists; the others sit in their sidebar section.
+    isAvailable: (p) => isLibraryPlaylist(p) && p.canEdit,
     data: [treeData],
     run: (p, ctx) =>
       showDialog({
@@ -185,7 +187,8 @@ export const playlistActions: readonly ItemActionDef[] = [
     icon: Trash2,
     group: "item",
     order: 90,
-    isAvailable: isLibraryPlaylist,
+    // Apple keeps the personal mixes it makes; only playlists the user added can go.
+    isAvailable: (p) => isLibraryPlaylist(p) && playlistSection(p) !== "madeForYou",
     isEnabled: (p, ctx) => ctx.data(treeData)?.get(p.id)?.canDelete ?? false,
     data: [treeData],
     run: (p, ctx) =>

@@ -91,7 +91,7 @@ src/
     search                the top bar's search field (suggestions, recent searches), Search page
                           (Apple Music results by group, library scope, browse categories),
                           "see all" pages per group (/search/$group), profiles (/profile/$id)
-    library               Recently Added, Artists, Albums, Songs, Music Videos, Made for You,
+    library               Recently Added, Artists, Albums, Songs, Music Videos,
                           Favourite Songs, History (plays by day: this computer + Apple's
                           recently played, repeats folded per day), Playlists;
                           useLibraryList, sync store, SyncIndicator,
@@ -360,8 +360,17 @@ as `TRoute["fullPath"]`).
   so `Link`, `getRouteApi` and `navigate` check paths, params and search
   everywhere.
 - `app/shell/Sidebar.tsx`: renders `nav.primary`, then a "Library" heading
-  with `nav.library` (when non-empty), then the `SidebarFooter` slots and
-  `nav.footer`.
+  with `nav.library` (when non-empty), then the `SidebarSection` slots, then
+  the `SidebarFooter` slots and `nav.footer`. The playlist module's section
+  (`features/playlist/PlaylistSidebar.tsx`) draws, in order, Pinned, Made for
+  you, Apple Music and Playlists. `tree.ts` decides which a library playlist
+  belongs to (`playlistSection`: a catalog ID starting `pl.pm-` is a personal
+  mix, any other playlist with `canEdit` false is Apple Music, the rest are
+  the user's own) and builds the lists (`sidebarPlaylists`: pinned playlists
+  are in none of them, folders hold only the user's own playlists and count
+  the ones listed elsewhere). Made for you and Apple Music fold shut, the
+  state kept in `localStorage` (`sona.sidebar.collapsed`). There is no Made
+  for you page: `/library/made-for-you` redirects to Home.
 - `app/shell/AppShell.tsx`: wraps the layout in every `Provider` slot, puts
   `Aside` slots beside `main#content`, `overlay` components over the page
   column (the page is `inert` while any overlay's `useOpen()` is true), and

@@ -38,7 +38,7 @@ import { deleteFolder, playPin, unpin } from "./commands";
 import { showDialog } from "./dialogs";
 import { addable, pinnable, useNewPlaylistDrop, usePinDrop, usePlaylistDrop } from "./drops";
 import { usePins, usePlaylistTree } from "./queries";
-import { buildTree, type TreeNode } from "./tree";
+import { sidebarPlaylists, type SidebarPlaylists, type TreeNode } from "./tree";
 
 const ROW =
   "flex h-8 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2.5 text-ui text-ink-muted transition-colors duration-100 hover:bg-hover hover:text-ink";
@@ -287,13 +287,13 @@ interface FolderState {
 function FolderRow({
   folder,
   children,
-  pinned,
+  hidden,
   depth,
   folders,
 }: {
   folder: PlaylistFolder;
   children: TreeNode[];
-  pinned: number;
+  hidden: number;
   depth: number;
   folders: FolderState;
 }) {
@@ -348,10 +348,10 @@ function FolderRow({
               <Trans>Rename…</Trans>
             </DropdownMenuItem>
             <DropdownMenuItem
-              disabled={children.length + pinned > 0}
+              disabled={children.length + hidden > 0}
               onSelect={() => void deleteFolder(folder.id, folder.name)}
             >
-              {children.length + pinned > 0 ? t`Delete (move its playlists out first)` : t`Delete…`}
+              {children.length + hidden > 0 ? t`Delete (move its playlists out first)` : t`Delete…`}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -361,11 +361,11 @@ function FolderRow({
           <Tree nodes={children} depth={depth + 1} folders={folders} />
         ) : (
           <p className="py-1.5 text-meta text-ink-faint" style={{ paddingLeft: 36 + depth * 14 }}>
-            {pinned ? (
+            {hidden ? (
               <Plural
-                value={pinned}
-                one="Its playlist is pinned above"
-                other="Its # playlists are pinned above"
+                value={hidden}
+                one="Its playlist is listed in another section"
+                other="Its # playlists are listed in other sections"
               />
             ) : (
               <Trans>Empty folder</Trans>
@@ -392,7 +392,7 @@ function Tree({
           <FolderRow
             key={n.folder.id}
             folder={n.folder}
-            pinned={n.pinned}
+            hidden={n.hidden}
             depth={depth}
             folders={folders}
           >
@@ -423,18 +423,11 @@ function NewPlaylistDrop() {
   );
 }
 
-function Playlists() {
+function Playlists({ lists, pending }: { lists: SidebarPlaylists; pending: boolean }) {
   const { t } = useLingui();
   const tree = usePlaylistTree();
-  const pins = usePins();
-  // Pinned playlists show under Pinned only; waiting for the pins keeps them
-  // from showing in the tree for a moment first.
-  const data = pins.isPending ? undefined : tree.data;
-  const nodes = useMemo(
-    () => (data ? buildTree(data, new Set(pins.data?.map((p) => p.id))) : []),
-    [data, pins.data],
-  );
   const folders = useOpenFolders();
+  const nodes = lists.own;
   return (
     <section>
       <Heading
@@ -469,10 +462,9 @@ function Playlists() {
       {nodes.length ? (
         <Tree nodes={nodes} depth={0} folders={folders} />
       ) : (
-        !tree.isPending &&
-        !pins.isPending && (
+        !pending && (
           <p className="px-2.5 text-meta text-ink-faint">
-            {tree.data?.playlists.length ? (
+            {tree.data?.playlists.some((p) => p.playlist.canEdit) ? (
               <Trans>All your playlists are pinned above.</Trans>
             ) : (
               <Trans>Your playlists appear here.</Trans>
@@ -484,12 +476,101 @@ function Playlists() {
   );
 }
 
-/** The sidebar's pins and playlist tree (a SidebarSection slot). */
+const COLLAPSED_KEY = "sona.sidebar.collapsed";
+
+function readCollapsed(): ReadonlySet<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
+/** The sections folded shut, kept across restarts; every section starts open. */
+function useCollapsed(id: string): { open: boolean; toggle: () => void } {
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const toggle = () =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  return { open: !collapsed.has(id), toggle };
+}
+
+/**
+ * A flat list of library playlists the user cannot edit: no rename, no
+ * folders, no drops, no "New playlist". The heading folds it shut.
+ */
+function ReadOnlySection({
+  id,
+  title,
+  items,
+}: {
+  id: string;
+  title: string;
+  items: TreePlaylist[];
+}) {
+  const { open, toggle } = useCollapsed(id);
+  const listId = `sidebar-${id}`;
+  if (!items.length) return null;
+  return (
+    <section>
+      <h2 className="mt-6 mb-1.5 h-5 text-meta text-ink-faint">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={listId}
+          onClick={toggle}
+          className="flex h-5 w-full items-center justify-between rounded-md px-2.5 text-left transition-colors duration-100 hover:text-ink"
+        >
+          {title}
+          <ChevronRight
+            aria-hidden
+            className={cn(
+              "size-3.5 shrink-0 transition-transform duration-100",
+              open && "rotate-90",
+            )}
+            strokeWidth={1.75}
+          />
+        </button>
+      </h2>
+      <ul id={listId} hidden={!open} className="flex flex-col gap-0.5">
+        {open && items.map((item) => <PlaylistRow key={item.playlist.id} item={item} depth={0} />)}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * The sidebar's playlists, under the library links: Pinned, Made for You
+ * (Apple's personal mixes), Apple Music (playlists added from Apple Music
+ * or another curator, which cannot be edited) and the user's own Playlists
+ * with their folders (a SidebarSection slot). A pinned playlist shows under
+ * Pinned only.
+ */
 export function PlaylistSidebar() {
+  const { t } = useLingui();
+  const tree = usePlaylistTree();
+  const pins = usePins();
+  // Waiting for the pins keeps pinned playlists from showing in their
+  // section for a moment first.
+  const pending = tree.isPending || pins.isPending;
+  const data = pins.isPending ? undefined : tree.data;
+  const lists = useMemo(
+    () =>
+      data
+        ? sidebarPlaylists(data, new Set(pins.data?.map((p) => p.id)))
+        : { madeForYou: [], apple: [], own: [] },
+    [data, pins.data],
+  );
   return (
     <>
       <Pins />
-      <Playlists />
+      <ReadOnlySection id="made-for-you" title={t`Made for you`} items={lists.madeForYou} />
+      <ReadOnlySection id="apple-music" title={t`Apple Music`} items={lists.apple} />
+      <Playlists lists={lists} pending={pending} />
     </>
   );
 }

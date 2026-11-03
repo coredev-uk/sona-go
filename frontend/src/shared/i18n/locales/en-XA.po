@@ -52,11 +52,6 @@ msgstr ""
 
 #. placeholder {0}: q.data.length
 #: src/features/library/views.tsx
-msgid "{0, plural, one {# mix} other {# mixes}}"
-msgstr ""
-
-#. placeholder {0}: q.data.length
-#: src/features/library/views.tsx
 msgid "{0, plural, one {# music video} other {# music videos}}"
 msgstr ""
 
@@ -206,6 +201,10 @@ msgstr ""
 msgid "{genreCount, plural, one {Genre} other {Genres}}"
 msgstr ""
 
+#: src/features/playlist/PlaylistSidebar.tsx
+msgid "{hidden, plural, one {Its playlist is listed in another section} other {Its # playlists are listed in other sections}}"
+msgstr ""
+
 #: src/features/settings/Shortcuts.tsx
 msgid "{key} moves between controls. Choose another key."
 msgstr ""
@@ -338,10 +337,6 @@ msgstr ""
 #: src/features/onboarding/WidevineStatus.tsx
 #: src/features/settings/CdmRow.tsx
 msgid "{percent}, {received} of {total}"
-msgstr ""
-
-#: src/features/playlist/PlaylistSidebar.tsx
-msgid "{pinned, plural, one {Its playlist is pinned above} other {Its # playlists are pinned above}}"
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx
@@ -751,11 +746,11 @@ msgstr ""
 
 #: src/features/auth/AccountMenu.tsx
 #: src/features/commands/CommandPalette.tsx
-#: src/features/library/views.tsx
 #: src/features/onboarding/DoneStep.tsx
 #: src/features/onboarding/steps.ts
 #: src/features/onboarding/WelcomeStep.tsx
 #: src/features/player/NowPlayingView.tsx
+#: src/features/playlist/PlaylistSidebar.tsx
 #: src/features/search/ScopeSwitch.tsx
 #: src/features/settings/LyricsRows.tsx
 msgid "Apple Music"
@@ -813,14 +808,6 @@ msgstr ""
 
 #: src/features/radio/RadioPage.tsx
 msgid "Apple Music lists no live radio for your storefront right now."
-msgstr ""
-
-#: src/features/library/views.tsx
-msgid "Apple Music makes mixes once it knows what you like. Keep listening and they appear here."
-msgstr ""
-
-#: src/features/library/views.tsx
-msgid "Apple Music makes personal mixes from what you play. Sign in to see yours."
 msgstr ""
 
 #: src/shared/components/DetailStates.tsx
@@ -1729,10 +1716,6 @@ msgstr ""
 
 #: src/features/discover/NewPage.tsx
 msgid "Couldn't load what's new"
-msgstr ""
-
-#: src/features/library/views.tsx
-msgid "Couldn't load your mixes from Apple Music"
 msgstr ""
 
 #: src/features/library/views.tsx
@@ -3283,9 +3266,8 @@ msgstr ""
 msgid "macOS's sandbox-exec refused Sona's profile."
 msgstr ""
 
-#: src/features/library/index.ts
-#: src/features/library/views.tsx
 #: src/features/playlist/PlaylistPage.tsx
+#: src/features/playlist/PlaylistSidebar.tsx
 msgid "Made for you"
 msgstr ""
 
@@ -3311,10 +3293,6 @@ msgstr ""
 
 #: src/app/shell/WindowControls.tsx
 msgid "Minimise"
-msgstr ""
-
-#: src/features/library/views.tsx
-msgid "Mixes made for you"
 msgstr ""
 
 #: src/features/album/AlbumPage.tsx
@@ -3613,10 +3591,6 @@ msgstr ""
 
 #: src/features/player/RoomLyrics.tsx
 msgid "No lyrics for this song."
-msgstr ""
-
-#: src/features/library/views.tsx
-msgid "No mixes yet"
 msgstr ""
 
 #: src/features/search/groups.ts
@@ -5313,10 +5287,6 @@ msgstr ""
 
 #: src/features/library/views.tsx
 msgid "Sign in to see your favourite songs"
-msgstr ""
-
-#: src/features/library/views.tsx
-msgid "Sign in to see your mixes"
 msgstr ""
 
 #: src/features/library/views.tsx

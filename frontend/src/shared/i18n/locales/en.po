@@ -52,11 +52,6 @@ msgstr "{0, plural, one {# item} other {# items}}"
 
 #. placeholder {0}: q.data.length
 #: src/features/library/views.tsx
-msgid "{0, plural, one {# mix} other {# mixes}}"
-msgstr "{0, plural, one {# mix} other {# mixes}}"
-
-#. placeholder {0}: q.data.length
-#: src/features/library/views.tsx
 msgid "{0, plural, one {# music video} other {# music videos}}"
 msgstr "{0, plural, one {# music video} other {# music videos}}"
 
@@ -206,6 +201,10 @@ msgstr "{gb} GB"
 msgid "{genreCount, plural, one {Genre} other {Genres}}"
 msgstr "{genreCount, plural, one {Genre} other {Genres}}"
 
+#: src/features/playlist/PlaylistSidebar.tsx
+msgid "{hidden, plural, one {Its playlist is listed in another section} other {Its # playlists are listed in other sections}}"
+msgstr "{hidden, plural, one {Its playlist is listed in another section} other {Its # playlists are listed in other sections}}"
+
 #: src/features/settings/Shortcuts.tsx
 msgid "{key} moves between controls. Choose another key."
 msgstr "{key} moves between controls. Choose another key."
@@ -339,10 +338,6 @@ msgstr "{percent} · {received} of {total}"
 #: src/features/settings/CdmRow.tsx
 msgid "{percent}, {received} of {total}"
 msgstr "{percent}, {received} of {total}"
-
-#: src/features/playlist/PlaylistSidebar.tsx
-msgid "{pinned, plural, one {Its playlist is pinned above} other {Its # playlists are pinned above}}"
-msgstr "{pinned, plural, one {Its playlist is pinned above} other {Its # playlists are pinned above}}"
 
 #: src/features/settings/Diagnostics.tsx
 msgid "{playlists, plural, one {# playlist} other {# playlists}}"
@@ -751,11 +746,11 @@ msgstr "Apple is calling with your code."
 
 #: src/features/auth/AccountMenu.tsx
 #: src/features/commands/CommandPalette.tsx
-#: src/features/library/views.tsx
 #: src/features/onboarding/DoneStep.tsx
 #: src/features/onboarding/steps.ts
 #: src/features/onboarding/WelcomeStep.tsx
 #: src/features/player/NowPlayingView.tsx
+#: src/features/playlist/PlaylistSidebar.tsx
 #: src/features/search/ScopeSwitch.tsx
 #: src/features/settings/LyricsRows.tsx
 msgid "Apple Music"
@@ -814,14 +809,6 @@ msgstr "Apple Music isn't available in this account's country or region."
 #: src/features/radio/RadioPage.tsx
 msgid "Apple Music lists no live radio for your storefront right now."
 msgstr "Apple Music lists no live radio for your storefront right now."
-
-#: src/features/library/views.tsx
-msgid "Apple Music makes mixes once it knows what you like. Keep listening and they appear here."
-msgstr "Apple Music makes mixes once it knows what you like. Keep listening and they appear here."
-
-#: src/features/library/views.tsx
-msgid "Apple Music makes personal mixes from what you play. Sign in to see yours."
-msgstr "Apple Music makes personal mixes from what you play. Sign in to see yours."
 
 #: src/shared/components/DetailStates.tsx
 msgid "Apple Music needs a signed-in account to show this album."
@@ -1730,10 +1717,6 @@ msgstr "Couldn't load what you played recently"
 #: src/features/discover/NewPage.tsx
 msgid "Couldn't load what's new"
 msgstr "Couldn't load what's new"
-
-#: src/features/library/views.tsx
-msgid "Couldn't load your mixes from Apple Music"
-msgstr "Couldn't load your mixes from Apple Music"
 
 #: src/features/library/views.tsx
 msgid "Couldn't load your music videos from Apple Music"
@@ -3283,9 +3266,8 @@ msgstr "macOS's sandbox-exec is missing or didn't start."
 msgid "macOS's sandbox-exec refused Sona's profile."
 msgstr "macOS's sandbox-exec refused Sona's profile."
 
-#: src/features/library/index.ts
-#: src/features/library/views.tsx
 #: src/features/playlist/PlaylistPage.tsx
+#: src/features/playlist/PlaylistSidebar.tsx
 msgid "Made for you"
 msgstr "Made for you"
 
@@ -3312,10 +3294,6 @@ msgstr "Mini player"
 #: src/app/shell/WindowControls.tsx
 msgid "Minimise"
 msgstr "Minimise"
-
-#: src/features/library/views.tsx
-msgid "Mixes made for you"
-msgstr "Mixes made for you"
 
 #: src/features/album/AlbumPage.tsx
 #: src/features/song/SongPage.tsx
@@ -3614,10 +3592,6 @@ msgstr "No lyrics for this song"
 #: src/features/player/RoomLyrics.tsx
 msgid "No lyrics for this song."
 msgstr "No lyrics for this song."
-
-#: src/features/library/views.tsx
-msgid "No mixes yet"
-msgstr "No mixes yet"
 
 #: src/features/search/groups.ts
 msgid "No music videos for “{q}”"
@@ -5314,10 +5288,6 @@ msgstr "Sign in to see your artists"
 #: src/features/library/views.tsx
 msgid "Sign in to see your favourite songs"
 msgstr "Sign in to see your favourite songs"
-
-#: src/features/library/views.tsx
-msgid "Sign in to see your mixes"
-msgstr "Sign in to see your mixes"
 
 #: src/features/library/views.tsx
 msgid "Sign in to see your music videos"
