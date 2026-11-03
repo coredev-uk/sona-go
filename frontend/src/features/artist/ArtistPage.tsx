@@ -9,6 +9,7 @@ import { plural } from "@lingui/core/macro";
 import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useRef, type ReactNode, type RefObject } from "react";
 
+import { ArtistConcerts } from "@/features/concerts";
 import { playSongs, shuffleSongs } from "@/features/player";
 import { ActionMenu } from "@/shared/actions/ActionMenu";
 import type { CoverItem } from "@/shared/components/CoverGrid";
@@ -265,6 +266,7 @@ function CatalogBody({ page, width }: { page: CatalogArtist; width: number }) {
           {essentialShelf}
         </div>
       )}
+      <ArtistConcerts artistId={artist.id} />
       {(albums.length > 0 || catalogue.length > 0 || videos) && (
         <Band id="artist-discography" title={t`Discography`}>
           {albums.map((sh) => (

@@ -40,6 +40,8 @@ export function itemLink(item: Item): ItemLinkProps | undefined {
       return { to: "/charts", search: item.id ? { genre: item.id } : {} };
     case "profile":
       return { to: "/profile/$id", params };
+    case "concerts":
+      return { to: "/concerts" };
     default:
       return undefined;
   }

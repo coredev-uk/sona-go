@@ -305,6 +305,41 @@ func TestLive(t *testing.T) {
 		}
 	})
 
+	t.Run("concerts", func(t *testing.T) {
+		// London's area (the cell Apple's own page uses) and a year of listings:
+		// there are always some. The artist views are checked on the first
+		// artist found.
+		r, err := applemusic.ConcertsNear(liveCtx(t), l.api, l.sf, applemusic.ConcertsQuery{GeoHash: "gcpv", Limit: 20, Favourites: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(r.Concerts) == 0 {
+			t.Fatal("no concerts near London")
+		}
+		artist := ""
+		for _, c := range r.Concerts {
+			if c.Name == "" || c.StartTime().IsZero() || c.Timezone == "" || c.Venue == nil || c.Venue.Name == "" || c.Venue.City == "" {
+				t.Errorf("concert %s = %+v", c.ID, c)
+			}
+			if _, err := time.LoadLocation(c.Timezone); err != nil {
+				t.Errorf("concert %s: %v", c.ID, err)
+			}
+			if artist == "" && len(c.Artists) > 0 {
+				artist = c.Artists[0].ID
+			}
+		}
+		if artist == "" {
+			t.Fatal("no concert names an artist")
+		}
+		a, err := applemusic.ArtistConcerts(liveCtx(t), l.api, l.sf, artist, "gcpv")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(a.All) == 0 {
+			t.Errorf("artist %s: no upcoming concerts, though one is listed near London", artist)
+		}
+	})
+
 	t.Run("lyrics", func(t *testing.T) {
 		ly, err := l.api.Lyrics(liveCtx(t), l.sf, l.song, applemusic.LyricsOptions{Syllable: true, Language: "en-GB"})
 		if err != nil {

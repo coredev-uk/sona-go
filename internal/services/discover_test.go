@@ -149,9 +149,10 @@ func TestHomeCacheAndRefresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := strings.Join(titles(page.Sections), " | ")
-	// Concerts is left out; Replay keeps its playlists but not the web-only
+	// Apple's concerts shelf is Sona's own (the frontend fills it from
+	// ConcertsService); Replay keeps its playlists but not the web-only
 	// Replay card.
-	want := "feature:Top Picks for You | shelf:Recently Played | hero: | feature:Replay: Your Top Music"
+	want := "feature:Top Picks for You | shelf:Recently Played | concerts:Concerts | hero: | feature:Replay: Your Top Music"
 	if got != want {
 		t.Fatalf("sections = %s\nwant       %s", got, want)
 	}
@@ -165,10 +166,13 @@ func TestHomeCacheAndRefresh(t *testing.T) {
 	if s := page.Sections[1]; !s.SeeAll || s.Source != "recently-played" {
 		t.Errorf("Recently Played lost its See all or its source: %+v", s)
 	}
-	if hero := page.Sections[2].Items[0]; hero.Wide.Large == "" || hero.Color == "" {
+	if c := page.Sections[2]; c.Kind != SectionConcerts || c.Source != "concerts-for-you" || c.Items == nil || len(c.Items) != 0 {
+		t.Errorf("concerts shelf = %+v", c)
+	}
+	if hero := page.Sections[3].Items[0]; hero.Wide.Large == "" || hero.Color == "" {
 		t.Errorf("hero card without wide art: %+v", hero)
 	}
-	for _, it := range page.Sections[3].Items {
+	for _, it := range page.Sections[4].Items {
 		if it.Kind != ItemPlaylist {
 			t.Errorf("Replay item %s %q kept", it.Kind, it.Name)
 		}
@@ -337,7 +341,7 @@ func TestNewSections(t *testing.T) {
 		links[l.Name] = l
 	}
 	for name, want := range map[string][2]string{
-		"Concerts":        {ItemLink, ""},
+		"Concerts":        {ItemConcerts, ""},
 		"Browse by Genre": {ItemRoom, "6456176470"},
 		"Charts":          {ItemCharts, ""},
 		"Music Videos":    {ItemGrouping, "10023"},
@@ -364,7 +368,12 @@ func TestParseAppleLink(t *testing.T) {
 		{"https://itunes.apple.com/WebObjects/MZStore.woa/wa/viewMultiRoom?cc=gb&fcId=1425024236&mt=1", ItemMultiroom, "1425024236"},
 		{"https://music.apple.com/WebObjects/MZStore.woa/wa/viewGrouping?cc=gb&id=172080", ItemGrouping, "172080"},
 		{"https://itunes.apple.com/gb/collection/decades/id178644?fcId=6456176471&mt=1", ItemRoom, "6456176471"},
-		{"https://music.apple.com/concerts", "", ""},
+		{"https://music.apple.com/concerts", ItemConcerts, ""},
+		{"https://music.apple.com/concerts?route=set-location", ItemConcerts, ""},
+		{"https://music.apple.com/gb/concerts", ItemConcerts, ""},
+		{"https://music.apple.com/gb/concerts/ce.0b6e4f7c-1111-2222-3333-444455556666", ItemConcerts, ""},
+		{"https://music.apple.com/gb/concerts/artist/136975", ItemArtist, "136975"},
+		{"https://music.apple.com/gb/artist/example/136975", ItemArtist, "136975"},
 		{"https://replay.music.apple.com/gb", "", ""},
 		{"https://example.com/gb/album/x/1", "", ""},
 	} {

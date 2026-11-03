@@ -3,6 +3,7 @@ import { artistModule } from "@/features/artist";
 import { authModule } from "@/features/auth";
 import { cdmModule } from "@/features/cdm";
 import { commandsModule } from "@/features/commands";
+import { concertsModule } from "@/features/concerts";
 import { discoverModule } from "@/features/discover";
 import { homeModule } from "@/features/home";
 import { equalizerModule } from "@/features/equalizer";
@@ -30,6 +31,7 @@ export const modules = [
   homeModule,
   discoverModule,
   searchModule,
+  concertsModule,
   libraryModule,
   albumModule,
   artistModule,

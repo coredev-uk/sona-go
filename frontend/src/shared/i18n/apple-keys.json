@@ -83,6 +83,10 @@
     "key": "ASE.Web.Music.Shared.AX.Close"
   },
   {
+    "message": "Concerts",
+    "key": "MusicUI.ConcertsHub.Page.Title"
+  },
+  {
     "message": "Connect",
     "key": "ASE.Web.Music.SharePlay.Join.Connect"
   },
@@ -101,6 +105,10 @@
   {
     "message": "Create station",
     "key": "ASE.Web.Music.ContextualMenu.CreateStation"
+  },
+  {
+    "message": "Dates",
+    "key": "ASE.Web.Music.ActionModal.Title.Dates"
   },
   {
     "message": "Description",
@@ -146,8 +154,16 @@
     "key": "ASE.Web.Music.ActionModal.Title.Genre"
   },
   {
+    "message": "Genres",
+    "key": "MusicUI.ConcertsHub.FacetItem.Genre"
+  },
+  {
     "message": "Get started",
     "key": "FUSE.Upsell.Onboard.CTA"
+  },
+  {
+    "message": "Get tickets",
+    "key": "MusicUI.ConcertDetail.GetTickets.Title"
   },
   {
     "message": "Library",
@@ -164,6 +180,10 @@
   {
     "message": "Loading…",
     "key": "ASE.Web.Music.CityPicker.Loading"
+  },
+  {
+    "message": "Location",
+    "key": "ASE.Web.Music.ActionModal.Title.Location"
   },
   {
     "message": "Lyrics",
@@ -348,6 +368,10 @@
     "key": "ASE.Web.Platform.Shared.LocaleSwitcher.SeeAll"
   },
   {
+    "message": "Set location",
+    "key": "MusicUI.ConcertsHub.NoLocation.CTA.Title"
+  },
+  {
     "message": "Settings",
     "key": "ASE.Web.Platform.Shared.AccountMenu.Settings"
   },
@@ -396,6 +420,10 @@
     "key": "ASE.Web.Platform.Shared.SearchInput.Suggestions"
   },
   {
+    "message": "This weekend",
+    "key": "ASE.Web.Music.DatePicker.Preset.ThisWeekend"
+  },
+  {
     "message": "Title",
     "key": "ASE.Web.Music.Sorts.Title"
   },
@@ -425,6 +453,10 @@
   {
     "message": "Unmute",
     "key": "ASE.Web.Platform.Shared.MediaComponents.Volume.Unmute"
+  },
+  {
+    "message": "Upcoming concerts",
+    "key": "MusicUI.ArtistConcertsPage.Eyebrow"
   },
   {
     "message": "Version",

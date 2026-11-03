@@ -48,9 +48,16 @@ describe("itemLink", () => {
       search: { genre: "14" },
     });
   });
+  it("opens Apple's concerts links in the Concerts page, not the browser", () => {
+    expect(
+      itemLink(item({ kind: "concerts", id: "", url: "https://music.apple.com/gb/concerts" })),
+    ).toEqual({
+      to: "/concerts",
+    });
+  });
   it("has no page for web-only items", () => {
     expect(
-      itemLink(item({ kind: "link", url: "https://music.apple.com/concerts" })),
+      itemLink(item({ kind: "link", url: "https://music.apple.com/gb/post/123" })),
     ).toBeUndefined();
   });
 });

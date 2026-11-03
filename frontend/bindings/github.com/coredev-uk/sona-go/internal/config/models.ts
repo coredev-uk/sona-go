@@ -55,6 +55,36 @@ export class Audio {
 }
 
 /**
+ * Concerts is where the Concerts page looks (internal/places).
+ */
+export class Concerts {
+    /**
+     * City is the ID of the chosen city in internal/places's list
+     * ("gb-manchester"); "" is the main city of the Apple Music
+     * storefront. It stays on this computer: only the geohash of the
+     * city's area goes to Apple, with each concerts request.
+     */
+    "city": string;
+
+    /** Creates a new Concerts instance. */
+    constructor($$source: Partial<Concerts> = {}) {
+        if (!("city" in $$source)) {
+            this["city"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Concerts instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Concerts {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Concerts($$parsedSource as Partial<Concerts>);
+    }
+}
+
+/**
  * Crossfade overlaps consecutive tracks. It never applies between
  * consecutive tracks of the same album: those play gapless, as mastered.
  */
@@ -704,6 +734,11 @@ export class Settings {
      */
     "lyrics": Lyrics;
 
+    /**
+     * Concerts is where the Concerts page looks (concerts.go).
+     */
+    "concerts": Concerts;
+
     /** Creates a new Settings instance. */
     constructor($$source: Partial<Settings> = {}) {
         if (!("language" in $$source)) {
@@ -775,6 +810,9 @@ export class Settings {
         if (!("lyrics" in $$source)) {
             this["lyrics"] = (new Lyrics());
         }
+        if (!("concerts" in $$source)) {
+            this["concerts"] = (new Concerts());
+        }
 
         Object.assign(this, $$source);
     }
@@ -799,6 +837,7 @@ export class Settings {
         const $$createField20_0 = $$createType19;
         const $$createField21_0 = $$createType20;
         const $$createField22_0 = $$createType21;
+        const $$createField23_0 = $$createType22;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("diagnostics" in $$parsedSource) {
             $$parsedSource["diagnostics"] = $$createField7_0($$parsedSource["diagnostics"]);
@@ -847,6 +886,9 @@ export class Settings {
         }
         if ("lyrics" in $$parsedSource) {
             $$parsedSource["lyrics"] = $$createField22_0($$parsedSource["lyrics"]);
+        }
+        if ("concerts" in $$parsedSource) {
+            $$parsedSource["concerts"] = $$createField23_0($$parsedSource["concerts"]);
         }
         return new Settings($$parsedSource as Partial<Settings>);
     }
@@ -1006,3 +1048,4 @@ const $$createType18 = Private.createFrom;
 const $$createType19 = TitleBar.createFrom;
 const $$createType20 = Onboarding.createFrom;
 const $$createType21 = Lyrics.createFrom;
+const $$createType22 = Concerts.createFrom;

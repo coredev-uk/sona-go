@@ -437,6 +437,34 @@ More to Explore (16/600)
 - **Columns.** As many as hold a button of 184px, 8px apart, filled top to bottom in Apple's order (`linkGrid`): the genres are alphabetical, so they read down a column, and Tab follows the same path. A short list keeps the long list's tracks, so a button is one width on the whole page and the lists line up. The columns fill so the last holds at least half of one: 21 genres at five columns set 6, 6, 6 and 3, never 5, 5, 5, 5 and a lone button.
 - **Continuation.** Apple splits a long list in two; the second has no title and sits 24px under the first, a clear step from the 8px between buttons. It is its own region, "More links". Every link is a Tab stop, in reading order: they are navigation, not a list to arrow through.
 
+### Concerts
+
+Concerts (`/concerts`) answers one question: what is on near me, and when. A gig is a date, a place and a ticket, so the page is an agenda set by the venue's own calendar, not a grid of covers, and it is the one list in the app that is read down by date.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ Concerts                                  (⌖ Set location)│
+│ Near London, the main city of your… · Updated 5 min ago   │
+│ [Any date ▾] [All genres ▾] ◯ Your artists (3)            │
+│                                                          │
+│ November 2026                                  16/600    │
+│ Tue   (●) Stevie Wonder                  Get tickets ▾   │
+│  3        The O2 · London                                │
+│           18:30 · 6 mi away                              │
+│ Thu   (●) Skepta                         Get tickets ↗   │
+│  5        The Cause · London                             │
+└──────────────────────────────────────────────────────────┘
+```
+
+- **The agenda.** Months under a 16/600 heading, then days: the date column (weekday at 12 muted over the day number at 24/650, tabular) once per day, with that day's shows as rows to its right. The day, month and clock are read in the venue's own time zone, in the interface's language; a show whose clock is not this computer's carries its zone's name ("8:00 pm EDT"), so a gig in another country is never read as local. Shows are Apple's, soonest first; there is no popularity ordering to explain.
+- **A row** is 72px with the headliner's portrait (56px, round like every artist), the line-up at 14/500 (a link to the artist), the venue and city at 13 muted, and the start and the straight-line distance from the chosen city at 12 faint (`18:30 · 6 mi away`, miles where the locale uses them). A show by an artist the user follows says so in that line. Its one action is **Get tickets**, a ghost button: Apple lists the sellers, and one seller opens its https page in the browser (a trailing arrow), several are a menu of them (a chevron); a show with none shows no button. `--hover` fill at radius 6, as track rows.
+- **Where.** The header's outline button names the chosen city ("Manchester"), or says "Set location" while the page is on the default, and the line under the title says what the default is (the storefront's main city). It opens one small dialog: a search field and Sona's own list of cities (the storefront's first, then well-known ones), with a sentence saying the choice stays on this computer and Apple Music is told only the area. ↓ moves from the field into the list, Enter takes the first match, Escape closes and returns focus to the button; "Use my storefront's main city" undoes a choice.
+- **Filters** are one row of 32px controls: dates (any date, this week, this weekend, next 30 days, or two date fields), genre, and a switch "Your artists (n)" that appears only when the signed-in account has shows in this area. They live in the address (`when`, `from`, `to`, `genre`, `yours`), so Back returns to them. A change keeps the list on screen until the new one arrives.
+- **Long lists.** Asked 100 at a time (Apple has no paging, so "Show more concerts" asks for 100 more, up to 500). The agenda is one Tab stop: ↑/↓ move between rows, ←/→ between a row's link and its tickets, Home/End jump, Tab leaves.
+- **States.** Loading draws rows at their height; no concerts near the city (some countries have none) says so with "Choose another city"; filters that match nothing say that with "Clear filters"; a failed load is the usual error block with Retry, and a stale copy says when it is from.
+- **Elsewhere.** An artist's page carries "Upcoming concerts" between its lead and its discography: three rows with the date column first (the artist's portrait and name are left out, the venue leads), the ones near the chosen city first, "Show all n", and a link to the agenda. It is left out when the artist has none. Home carries "Concerts near {city}" where Apple puts its concerts shelf: six rows in two columns and "See all". Apple's own concerts links open this page.
+- No amber: nothing here is playing.
+
 ## Video view
 
 A music video takes the whole window, like full-screen lyrics: the picture is the page (`features/player/VideoView.tsx`). It opens when a video starts, and again from the bar's cover or "Show video", Now Playing's "Show video" or V; closing it leaves the video playing in the bar.

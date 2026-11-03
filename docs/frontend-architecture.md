@@ -95,6 +95,24 @@ src/
     search                the top bar's search field (suggestions, recent searches), Search page
                           (Apple Music results by group, library scope, browse categories),
                           "see all" pages per group (/search/$group), profiles (/profile/$id)
+    concerts              Concerts (/concerts, after Search in the sidebar): the shows near the
+                          chosen city as an agenda by the venue's own days (dates.ts: the day,
+                          month and clock are read in each show's IANA zone, the date presets
+                          are the user's calendar days, miles where the locale uses them),
+                          filtered by date, genre and "your artists" (search params when,
+                          from, to, genre, yours); the city is chosen in LocationDialog (a
+                          search over Go's own list: ConcertsService.Places; the choice saves
+                          through ConcertsService.SetLocation, which announces
+                          settings:changed and every concerts query is asked again);
+                          ConcertRow (the portrait, the line-up linking to the artist, the
+                          venue, the start, the distance; "Get tickets" opens the seller's
+                          https link in the browser, a menu for several sellers; on an
+                          artist's page the venue leads); useRoving makes the agenda one Tab
+                          stop (↑/↓ rows, ←/→ a row's link and tickets). Exports
+                          ArtistConcerts (the artist page's "Upcoming concerts", nothing
+                          when there are none) and ConcertsShelf (Home's concerts section,
+                          Section.kind "concerts"); concerts links in Apple's editorial
+                          (Item kind "concerts") open the page
     library               Recently Added, Artists (list and detail side by side, ?artist=),
                           Albums, Songs, Music Videos,
                           Favourite Songs, History (plays by day: this computer + Apple's
@@ -1274,7 +1292,7 @@ Enforced by `no-restricted-imports` in `frontend/eslint.config.js`:
 Feature-to-feature imports must stay acyclic. Today: player → settings;
 auth → private; player → equalizer → settings; player → private; settings → private;
 onboarding → auth, cdm, private, settings;
-player → cdm; settings → cdm;
+player → cdm; settings → cdm; concerts → auth; home and artist → concerts;
 home → auth, discover, library, player; discover → player; search → auth, player; album and
 playlist → library, player; artist → player; library → auth; commands → search;
 motion → settings.

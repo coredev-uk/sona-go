@@ -281,7 +281,8 @@ const (
 	ItemMultiroom  = "multiroom"   // campaign page; /multiroom/$id
 	ItemGrouping   = "grouping"    // editorial hub; /grouping/$id
 	ItemCharts     = "charts"      // Charts; ID is a genre ID ("" for all music)
-	ItemLink       = "link"        // only on the web (videos, concerts): URL
+	ItemConcerts   = "concerts"    // the Concerts page; ID "" (a concert's or an artist's link goes to the artist)
+	ItemLink       = "link"        // only on the web (uploaded videos, music movies, posts): URL
 )
 
 // Item is one card of any kind on a recommendation or editorial shelf, a
@@ -327,6 +328,9 @@ const (
 	SectionLive     = "live"     // live radio stations
 	SectionStations = "stations" // local broadcasters, as a dense station list
 	SectionText     = "text"     // a paragraph (Text)
+	// SectionConcerts is Home's concerts shelf: no Items, the frontend
+	// shows the concerts near the user (ConcertsService) in its place.
+	SectionConcerts = "concerts"
 	// SectionPlaylists is a curator's playlists as a row of cover cards,
 	// untitled: the frontend words its heading.
 	SectionPlaylists = "playlists"

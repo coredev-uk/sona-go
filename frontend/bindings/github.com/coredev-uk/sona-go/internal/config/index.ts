@@ -3,6 +3,7 @@
 
 export {
     Audio,
+    Concerts,
     Crossfade,
     Desktop,
     Diagnostics,

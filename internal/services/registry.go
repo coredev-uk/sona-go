@@ -46,4 +46,5 @@ var features = []feature{
 	{"reminders", svc(newRemindersService)},
 	{"translations", svc(newTranslationsService)},
 	{"lyrics", svc(newLyricsService)},
+	{"concerts", svc(newConcertsService)},
 }
