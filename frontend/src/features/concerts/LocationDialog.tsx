@@ -81,7 +81,7 @@ export function LocationDialog({
       <DialogContent className="gap-4 sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            <Trans>Where are you?</Trans>
+            <Trans>Location</Trans>
           </DialogTitle>
           <DialogDescription>
             <Trans>
@@ -97,20 +97,20 @@ export function LocationDialog({
             autoFocus
             autoComplete="off"
             spellCheck={false}
-            aria-label={t`Find a city`}
-            placeholder={t`Find a city`}
+            aria-label={t`Search cities`}
+            placeholder={t`Search cities`}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKey}
             className="h-8"
           />
           {/* Only an announcement: the list below is the control. */}
           <p className="sr-only" role="status">
-            {term && items.length === 0 && !places.isFetching ? t`No cities match “${term}”.` : ""}
+            {term && items.length === 0 && !places.isFetching ? t`No cities found` : ""}
           </p>
           {items.length > 0 ? (
             <ul
               ref={list}
-              aria-label={term ? t`Cities that match` : t`Suggested cities`}
+              aria-label={term ? t`Cities that match` : t`Suggestions`}
               onKeyDown={onListKey}
               className="mt-3 max-h-72 overflow-y-auto"
             >
@@ -126,7 +126,7 @@ export function LocationDialog({
           ) : (
             term && (
               <p className="mt-3 text-sub text-ink-muted">
-                <Trans>No cities match “{term}”. Try the name of a bigger city nearby.</Trans>
+                <Trans>No cities found</Trans>. <Trans>Try the name of a bigger city nearby.</Trans>
               </p>
             )
           )}

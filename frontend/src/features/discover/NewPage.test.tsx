@@ -100,7 +100,7 @@ describe("Discover's front page", () => {
     // Two thirds of 1200px less the gap, at Apple's 1060:608 hero shape.
     const lead = featured.querySelector("img");
     expect(lead?.getAttribute("src")).toMatch(/\/784x450\.jpg$/);
-    const list = within(featured).getByRole("list", { name: "Featured cards" });
+    const list = within(featured).getByRole("list", { name: "Featured" });
     // As many rows as fit beside the lead: six of the sixteen, the lead's first.
     expect(
       within(list)

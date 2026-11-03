@@ -485,6 +485,10 @@ msgstr "<0>Only songs by </0>{name}<1> by </1>{by}"
 msgid "0 dB"
 msgstr "0 dB"
 
+#: src/features/concerts/ConcertsPage.tsx
+msgid "A larger city nearby may have some."
+msgstr "A larger city nearby may have some."
+
 #: src/shared/lib/errors.ts
 msgid "A library sync is already running."
 msgstr "A library sync is already running."
@@ -564,6 +568,10 @@ msgstr "Add"
 #: src/features/playlist/PlaylistPage.tsx
 msgid "Add {songName} to {playlistName}"
 msgstr "Add {songName} to {playlistName}"
+
+#: src/features/library/ArtistsPage.tsx
+msgid "Add music by {name} to collect it here."
+msgstr "Add music by {name} to collect it here."
 
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "Add songs from any album, playlist or search result."
@@ -853,14 +861,6 @@ msgstr "Apple Music isn't available in this account's country or region."
 #: src/features/radio/RadioPage.tsx
 msgid "Apple Music lists no live radio for your storefront right now."
 msgstr "Apple Music lists no live radio for your storefront right now."
-
-#: src/features/concerts/Upcoming.tsx
-msgid "Apple Music lists no upcoming concerts in this area."
-msgstr "Apple Music lists no upcoming concerts in this area."
-
-#: src/features/concerts/ConcertsPage.tsx
-msgid "Apple Music lists no upcoming concerts in this area. A larger city nearby may have some."
-msgstr "Apple Music lists no upcoming concerts in this area. A larger city nearby may have some."
 
 #: src/features/concerts/ConcertsPage.tsx
 msgid "Apple Music lists nothing near {city} for these filters. Widen the dates or choose another genre."
@@ -1283,11 +1283,6 @@ msgstr "Checks, logs and bug reports"
 #: src/features/player/NowPlayingBar.tsx
 msgid "Choose a song, album or playlist to start"
 msgstr "Choose a song, album or playlist to start"
-
-#: src/features/concerts/ConcertsPage.tsx
-#: src/features/concerts/Upcoming.tsx
-msgid "Choose another city"
-msgstr "Choose another city"
 
 #: src/features/concerts/ConcertsPage.tsx
 msgid "Choose both dates"
@@ -2686,10 +2681,6 @@ msgstr "Featured"
 msgid "Featured artists"
 msgstr "Featured artists"
 
-#: src/features/discover/FrontPage.tsx
-msgid "Featured cards"
-msgstr "Featured cards"
-
 #: src/features/album/AlbumPage.tsx
 msgid "Featured in playlists"
 msgstr "Featured in playlists"
@@ -2717,10 +2708,6 @@ msgstr "Filter concerts"
 #: src/features/settings/Shortcuts.tsx
 msgid "Filter shortcuts"
 msgstr "Filter shortcuts"
-
-#: src/features/concerts/LocationDialog.tsx
-msgid "Find a city"
-msgstr "Find a city"
 
 #: src/features/commands/CommandPalette.tsx
 msgid "Find a page, action or music in your library"
@@ -3347,6 +3334,7 @@ msgid "Loading…"
 msgstr "Loading…"
 
 #: src/features/concerts/ConcertsPage.tsx
+#: src/features/concerts/LocationDialog.tsx
 msgid "Location"
 msgstr "Location"
 
@@ -3793,25 +3781,17 @@ msgid "No chart here"
 msgstr "No chart here"
 
 #: src/features/concerts/LocationDialog.tsx
-msgid "No cities match “{term}”."
-msgstr "No cities match “{term}”."
-
-#: src/features/concerts/LocationDialog.tsx
-msgid "No cities match “{term}”. Try the name of a bigger city nearby."
-msgstr "No cities match “{term}”. Try the name of a bigger city nearby."
+msgid "No cities found"
+msgstr "No cities found"
 
 #: src/features/auth/signin.ts
 msgid "No code was entered in time, so Apple closed the attempt. Start again."
 msgstr "No code was entered in time, so Apple closed the attempt. Start again."
 
 #: src/features/concerts/ConcertsPage.tsx
-msgid "No concerts match"
-msgstr "No concerts match"
-
-#: src/features/concerts/ConcertsPage.tsx
 #: src/features/concerts/Upcoming.tsx
-msgid "No concerts near {city}"
-msgstr "No concerts near {city}"
+msgid "No concerts"
+msgstr "No concerts"
 
 #: src/features/search/groups.ts
 msgid "No curators for “{q}”"
@@ -3924,6 +3904,11 @@ msgstr "No stations for “{q}”"
 #: src/features/search/groups.ts
 msgid "No top results for “{q}”"
 msgstr "No top results for “{q}”"
+
+#: src/features/concerts/ConcertsPage.tsx
+#: src/features/concerts/Upcoming.tsx
+msgid "No upcoming concerts. Please check back later."
+msgstr "No upcoming concerts. Please check back later."
 
 #: src/features/auth/signin.ts
 msgid "No way to receive a code."
@@ -4060,10 +4045,6 @@ msgstr "Notes"
 #: src/features/player/QueuePanel.tsx
 msgid "Nothing after this song"
 msgstr "Nothing after this song"
-
-#: src/features/library/ArtistsPage.tsx
-msgid "Nothing by {name} is in your library yet."
-msgstr "Nothing by {name} is in your library yet."
 
 #: src/features/settings/summaries.ts
 msgid "Nothing connected"
@@ -5249,6 +5230,10 @@ msgstr "Search"
 msgid "Search Apple Music for “{term}”"
 msgstr "Search Apple Music for “{term}”"
 
+#: src/features/concerts/LocationDialog.tsx
+msgid "Search cities"
+msgstr "Search cities"
+
 #: src/features/search/ScopeSwitch.tsx
 msgid "Search in"
 msgstr "Search in"
@@ -5310,6 +5295,7 @@ msgid "Session"
 msgstr "Session"
 
 #: src/features/concerts/ConcertsPage.tsx
+#: src/features/concerts/Upcoming.tsx
 msgid "Set location"
 msgstr "Set location"
 
@@ -6235,14 +6221,11 @@ msgstr "Suggest less"
 msgid "Suggest less like {name}"
 msgstr "Suggest less like {name}"
 
-#: src/features/concerts/LocationDialog.tsx
-msgid "Suggested cities"
-msgstr "Suggested cities"
-
 #: src/features/playlist/PlaylistPage.tsx
 msgid "Suggested songs"
 msgstr "Suggested songs"
 
+#: src/features/concerts/LocationDialog.tsx
 #: src/features/search/SearchField.tsx
 msgid "Suggestions"
 msgstr "Suggestions"
@@ -6799,6 +6782,10 @@ msgstr "Try again"
 msgid "Try it if the window stays blank or flickers on your graphics driver. Applies from Sona's next start (WEBKIT_DISABLE_DMABUF_RENDERER=1)."
 msgstr "Try it if the window stays blank or flickers on your graphics driver. Applies from Sona's next start (WEBKIT_DISABLE_DMABUF_RENDERER=1)."
 
+#: src/features/concerts/LocationDialog.tsx
+msgid "Try the name of a bigger city nearby."
+msgstr "Try the name of a bigger city nearby."
+
 #: src/features/auth/KeyringRetry.tsx
 msgid "Trying…"
 msgstr "Trying…"
@@ -7119,10 +7106,6 @@ msgstr "When you close the window"
 #: src/features/settings/QueueRows.tsx
 msgid "When you play an album, playlist or station while more than three songs you added are waiting in the queue."
 msgstr "When you play an album, playlist or station while more than three songs you added are waiting in the queue."
-
-#: src/features/concerts/LocationDialog.tsx
-msgid "Where are you?"
-msgstr "Where are you?"
 
 #: src/features/settings/AudioRows.tsx
 msgid "Where Sona plays. Switching moves the music that's playing without a pause."
