@@ -4527,7 +4527,7 @@ msgid "Play {songName}"
 msgstr ""
 
 #: src/features/player/QueuePanel.tsx
-msgid "Play an album, playlist or station, choose Play next on any song, or drag songs here."
+msgid "Play an album, playlist or station, choose Play next or Play last on any song, or drag songs here."
 msgstr ""
 
 #: src/features/discover/FrontPage.tsx

@@ -97,7 +97,7 @@ describe("on a live station", () => {
   });
   afterEach(() => usePlayback.setState({ ...emptyState }));
 
-  it("queues nothing: Play next, Add to queue and a drop on the queue all say why", async () => {
+  it("queues nothing: Play next, Play last and a drop on the queue all say why", async () => {
     await queueItems([{ kind: "song", target: song("1") }], "next");
     await queueItems([{ kind: "song", target: song("1") }], "last");
     await queueItems([{ kind: "song", target: song("1") }], 2);

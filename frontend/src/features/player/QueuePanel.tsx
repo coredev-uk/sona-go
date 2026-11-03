@@ -618,7 +618,8 @@ export function QueueList({ inView = false }: { inView?: boolean }) {
           </p>
           <p className="mt-1 text-sub text-ink-muted">
             <Trans>
-              Play an album, playlist or station, choose Play next on any song, or drag songs here.
+              Play an album, playlist or station, choose Play next or Play last on any song, or drag
+              songs here.
             </Trans>
           </p>
         </div>

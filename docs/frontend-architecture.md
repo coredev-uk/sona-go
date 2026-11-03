@@ -564,13 +564,13 @@ menu data loaded on open.
 
 Registered song actions today (album, artist and playlist menus get the
 library and rating rows too; stations get Copy link; music videos get Play
-next and Add to queue only, and have a target at all only where videos play:
+next and Play last only, and have a target at all only where videos play:
 `videoTile` and `actionItemOf` check `canPlayVideo`):
 
 | Group  | Order | Action                                                 | Module  |
 | ------ | ----- | ------------------------------------------------------ | ------- |
 | queue  | 10    | Play next (disabled if not playable or a live station) | player  |
-| queue  | 20    | Add to queue (disabled if not playable or a live station) | player  |
+| queue  | 20    | Play last (disabled if not playable or a live station) | player  |
 | item   | 10    | Go to album (if the song has an album)                 | album   |
 | item   | 20    | Go to artist (if the song has an artist)               | artist  |
 | item   | 30    | Add to library (catalogue items not in the library)    | library |
@@ -590,7 +590,7 @@ reaches it, then mounts the Radix menu (a press before that opens it as it
 mounts), so long lists do not mount a menu per row. `ContextActionMenu` is
 the same menu opened at a point (right-click, Shift+F10, the Menu key).
 
-Bulk (`targets[]`) actions registered today: Play next, Add to queue
+Bulk (`targets[]`) actions registered today: Play next, Play last
 (player; songs, music videos, albums and playlists, in order, a collection
 as its tracks), Add to playlist… and Remove from playlist (playlist; the
 latter in an editable playlist's list), Add to library, Remove from library
