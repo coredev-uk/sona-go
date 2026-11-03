@@ -1,6 +1,7 @@
 package applemusic
 
 import (
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -27,6 +28,21 @@ func (a *Artwork) Template() string {
 		return ""
 	}
 	return a.URL
+}
+
+// generatedPath is where Apple's CDN serves the initials images it
+// generates for people it has no picture of (checked against credits,
+// 2026-11-03: gen/{w}x{h}AM.SCM01.jpg?name=<base64 initials>&signature=…).
+const generatedPath = "/image/thumb/gen/"
+
+// Generated reports whether the artwork is one of Apple's generated
+// placeholders (initials on a grey ground), not a picture of the person.
+func (a *Artwork) Generated() bool {
+	if a == nil {
+		return false
+	}
+	u, err := url.Parse(a.URL)
+	return err == nil && strings.HasPrefix(u.Path, generatedPath)
 }
 
 // Sized fills a {w}x{h} artwork template (format jpg when {f} is present).

@@ -44,7 +44,8 @@ src/
                           MotionCover (muted looping motion artwork over the still, on screen
                           only, from a data: URL; logs each video's outcome), TileMotion (a
                           tile's motion on hover or focus only, one tile at a time), PageHeader,
-                          PlayButtons, RatingButtons
+                          PersonAvatar (a person's picture or initials, decorative; lib/avatar.ts
+                          has the initials and tint rules), PlayButtons, RatingButtons
     tracks/               TrackList, Equaliser
     items/                Item (any-kind card DTO) rendering: itemLink, play registry
                           (registerItemPlayer, registerVideoPlayer, canPlay, canPlayVideo,

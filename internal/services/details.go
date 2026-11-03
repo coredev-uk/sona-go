@@ -313,7 +313,7 @@ func (s *CatalogService) SongPage(ctx context.Context, id string) (CatalogSong, 
 		URL:                 at.URL,
 		HasTimeSyncedLyrics: at.HasTimeSyncedLyrics,
 		LyricsExcerpt:       strings.TrimSpace(at.LyricsExcerpt),
-		Credits:             creditGroups(rel.Credits.Data),
+		Credits:             s.m.creditGroups(rel.Credits.Data),
 		Videos:              s.m.amMusicVideos(rel.MusicVideos.Data),
 		MoreByArtist:        []Album{},
 	}
@@ -343,14 +343,21 @@ func (s *CatalogService) SongPage(ctx context.Context, id string) (CatalogSong, 
 	return p, nil
 }
 
-// creditGroups maps Apple's role categories, dropping empty ones.
-func creditGroups(in []applemusic.CreditCategory) []CreditGroup {
+// creditGroups maps Apple's role categories, dropping empty ones. A person
+// has a picture when Apple sends artwork that is not its generated
+// initials image; their pictures come with the song page, so the credits
+// cost no request of their own and the images load lazily from /art/.
+func (m mapper) creditGroups(in []applemusic.CreditCategory) []CreditGroup {
 	out := make([]CreditGroup, 0, len(in))
 	for _, c := range in {
 		g := CreditGroup{Kind: c.Attributes.Kind, Title: c.Attributes.Title, Credits: []Credit{}}
 		for _, a := range c.Relationships.CreditArtists.Data {
 			if a.Attributes.Name != "" {
-				g.Credits = append(g.Credits, Credit{Name: a.Attributes.Name, Roles: nonNil(a.Attributes.RoleNames)})
+				cr := Credit{Name: a.Attributes.Name, Roles: nonNil(a.Attributes.RoleNames)}
+				if !a.Attributes.Artwork.Generated() {
+					cr.Art = m.centreSquare(a.Attributes.Artwork)
+				}
+				g.Credits = append(g.Credits, cr)
 			}
 		}
 		if len(g.Credits) > 0 {
