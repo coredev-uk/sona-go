@@ -485,6 +485,43 @@ export class Artist {
 }
 
 /**
+ * ArtistAlbums is a library artist and their library albums, newest
+ * release first (the Artists overview's detail).
+ */
+export class ArtistAlbums {
+    "artist": Artist;
+    "albums": Album[];
+
+    /** Creates a new ArtistAlbums instance. */
+    constructor($$source: Partial<ArtistAlbums> = {}) {
+        if (!("artist" in $$source)) {
+            this["artist"] = (new Artist());
+        }
+        if (!("albums" in $$source)) {
+            this["albums"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ArtistAlbums instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ArtistAlbums {
+        const $$createField0_0 = $$createType10;
+        const $$createField1_0 = $$createType6;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("artist" in $$parsedSource) {
+            $$parsedSource["artist"] = $$createField0_0($$parsedSource["artist"]);
+        }
+        if ("albums" in $$parsedSource) {
+            $$parsedSource["albums"] = $$createField1_0($$parsedSource["albums"]);
+        }
+        return new ArtistAlbums($$parsedSource as Partial<ArtistAlbums>);
+    }
+}
+
+/**
  * ArtistDetail is an artist page. Catalog artists carry TopSongs and their
  * full discography in Albums; library artists carry their library Albums
  * and Songs.
@@ -546,32 +583,49 @@ export class ArtistDetail {
     }
 }
 
-export class ArtistPage {
-    "items": Artist[];
-    "total": number;
+/**
+ * ArtistEntry is one row of the Artists overview's list: a library artist
+ * with how many of their albums and songs the library holds. Art is the
+ * small artwork URL (the artist's, else their newest album's; "" for none).
+ */
+export class ArtistEntry {
+    "id": string;
+    "catalogId": string;
+    "name": string;
+    "art": string;
+    "albums": number;
+    "songs": number;
 
-    /** Creates a new ArtistPage instance. */
-    constructor($$source: Partial<ArtistPage> = {}) {
-        if (!("items" in $$source)) {
-            this["items"] = [];
+    /** Creates a new ArtistEntry instance. */
+    constructor($$source: Partial<ArtistEntry> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
         }
-        if (!("total" in $$source)) {
-            this["total"] = 0;
+        if (!("catalogId" in $$source)) {
+            this["catalogId"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("art" in $$source)) {
+            this["art"] = "";
+        }
+        if (!("albums" in $$source)) {
+            this["albums"] = 0;
+        }
+        if (!("songs" in $$source)) {
+            this["songs"] = 0;
         }
 
         Object.assign(this, $$source);
     }
 
     /**
-     * Creates a new ArtistPage instance from a string or object.
+     * Creates a new ArtistEntry instance from a string or object.
      */
-    static createFrom($$source: any = {}): ArtistPage {
-        const $$createField0_0 = $$createType11;
+    static createFrom($$source: any = {}): ArtistEntry {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("items" in $$parsedSource) {
-            $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
-        }
-        return new ArtistPage($$parsedSource as Partial<ArtistPage>);
+        return new ArtistEntry($$parsedSource as Partial<ArtistEntry>);
     }
 }
 
@@ -621,9 +675,9 @@ export class ArtistShelf {
      */
     static createFrom($$source: any = {}): ArtistShelf {
         const $$createField3_0 = $$createType6;
-        const $$createField4_0 = $$createType13;
-        const $$createField5_0 = $$createType15;
-        const $$createField6_0 = $$createType11;
+        const $$createField4_0 = $$createType12;
+        const $$createField5_0 = $$createType14;
+        const $$createField6_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("albums" in $$parsedSource) {
             $$parsedSource["albums"] = $$createField3_0($$parsedSource["albums"]);
@@ -692,9 +746,9 @@ export class ArtistViewPage {
     static createFrom($$source: any = {}): ArtistViewPage {
         const $$createField3_0 = $$createType4;
         const $$createField4_0 = $$createType6;
-        const $$createField5_0 = $$createType13;
-        const $$createField6_0 = $$createType15;
-        const $$createField7_0 = $$createType11;
+        const $$createField5_0 = $$createType12;
+        const $$createField6_0 = $$createType14;
+        const $$createField7_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("songs" in $$parsedSource) {
             $$parsedSource["songs"] = $$createField3_0($$parsedSource["songs"]);
@@ -1256,15 +1310,15 @@ export class CatalogAlbum {
         const $$createField0_0 = $$createType2;
         const $$createField1_0 = $$createType4;
         const $$createField7_0 = $$createType5;
-        const $$createField9_0 = $$createType11;
+        const $$createField9_0 = $$createType15;
         const $$createField10_0 = $$createType20;
         const $$createField12_0 = $$createType21;
         const $$createField13_0 = $$createType20;
         const $$createField14_0 = $$createType6;
         const $$createField15_0 = $$createType6;
         const $$createField16_0 = $$createType6;
-        const $$createField17_0 = $$createType13;
-        const $$createField18_0 = $$createType15;
+        const $$createField17_0 = $$createType12;
+        const $$createField18_0 = $$createType14;
         const $$createField19_0 = $$createType23;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("album" in $$parsedSource) {
@@ -1480,9 +1534,9 @@ export class CatalogSong {
         const $$createField0_0 = $$createType3;
         const $$createField1_0 = $$createType5;
         const $$createField2_0 = $$createType24;
-        const $$createField3_0 = $$createType11;
+        const $$createField3_0 = $$createType15;
         const $$createField9_0 = $$createType28;
-        const $$createField10_0 = $$createType15;
+        const $$createField10_0 = $$createType14;
         const $$createField11_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("song" in $$parsedSource) {
@@ -1555,12 +1609,12 @@ export class CatalogVideo {
      * Creates a new CatalogVideo instance from a string or object.
      */
     static createFrom($$source: any = {}): CatalogVideo {
-        const $$createField0_0 = $$createType14;
+        const $$createField0_0 = $$createType13;
         const $$createField1_0 = $$createType5;
-        const $$createField3_0 = $$createType11;
+        const $$createField3_0 = $$createType15;
         const $$createField4_0 = $$createType29;
-        const $$createField5_0 = $$createType15;
-        const $$createField6_0 = $$createType15;
+        const $$createField5_0 = $$createType14;
+        const $$createField6_0 = $$createType14;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("video" in $$parsedSource) {
             $$parsedSource["video"] = $$createField0_0($$parsedSource["video"]);
@@ -3473,8 +3527,8 @@ export class LibrarySearch {
     static createFrom($$source: any = {}): LibrarySearch {
         const $$createField0_0 = $$createType4;
         const $$createField1_0 = $$createType6;
-        const $$createField2_0 = $$createType11;
-        const $$createField3_0 = $$createType13;
+        const $$createField2_0 = $$createType15;
+        const $$createField3_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("songs" in $$parsedSource) {
             $$parsedSource["songs"] = $$createField0_0($$parsedSource["songs"]);
@@ -4093,7 +4147,7 @@ export class MusicVideoPage {
      * Creates a new MusicVideoPage instance from a string or object.
      */
     static createFrom($$source: any = {}): MusicVideoPage {
-        const $$createField0_0 = $$createType15;
+        const $$createField0_0 = $$createType14;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
@@ -4965,12 +5019,12 @@ export class PlaylistDetail {
      * Creates a new PlaylistDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): PlaylistDetail {
-        const $$createField0_0 = $$createType12;
+        const $$createField0_0 = $$createType11;
         const $$createField1_0 = $$createType4;
         const $$createField4_0 = $$createType5;
         const $$createField7_0 = $$createType87;
-        const $$createField8_0 = $$createType11;
-        const $$createField9_0 = $$createType13;
+        const $$createField8_0 = $$createType15;
+        const $$createField9_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("playlist" in $$parsedSource) {
             $$parsedSource["playlist"] = $$createField0_0($$parsedSource["playlist"]);
@@ -5117,7 +5171,7 @@ export class PlaylistPage {
      * Creates a new PlaylistPage instance from a string or object.
      */
     static createFrom($$source: any = {}): PlaylistPage {
-        const $$createField0_0 = $$createType13;
+        const $$createField0_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
@@ -5349,7 +5403,7 @@ export class ProfileDetail {
      */
     static createFrom($$source: any = {}): ProfileDetail {
         const $$createField0_0 = $$createType83;
-        const $$createField1_0 = $$createType13;
+        const $$createField1_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("profile" in $$parsedSource) {
             $$parsedSource["profile"] = $$createField0_0($$parsedSource["profile"]);
@@ -6550,7 +6604,7 @@ export class Song {
 }
 
 /**
- * SongPage, AlbumPage, ArtistPage and PlaylistPage are list pages; Total
+ * SongPage, AlbumPage and PlaylistPage are list pages; Total
  * is the size of the whole list.
  */
 export class SongPage {
@@ -7269,7 +7323,7 @@ export class TreePlaylist {
      * Creates a new TreePlaylist instance from a string or object.
      */
     static createFrom($$source: any = {}): TreePlaylist {
-        const $$createField0_0 = $$createType12;
+        const $$createField0_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("playlist" in $$parsedSource) {
             $$parsedSource["playlist"] = $$createField0_0($$parsedSource["playlist"]);
@@ -7511,11 +7565,11 @@ const $$createType7 = AppleLanguage.createFrom;
 const $$createType8 = $Create.Array($$createType7);
 const $$createType9 = $Create.Map($Create.Any, $Create.Any);
 const $$createType10 = Artist.createFrom;
-const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = Playlist.createFrom;
-const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = MusicVideo.createFrom;
-const $$createType15 = $Create.Array($$createType14);
+const $$createType11 = Playlist.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = MusicVideo.createFrom;
+const $$createType14 = $Create.Array($$createType13);
+const $$createType15 = $Create.Array($$createType10);
 const $$createType16 = SecondFactor.createFrom;
 const $$createType17 = $Create.Nullable($$createType16);
 const $$createType18 = PlaybackCapabilities.createFrom;
@@ -7557,10 +7611,10 @@ const $$createType53 = $Create.Array($$createType52);
 const $$createType54 = HistoryEntry.createFrom;
 const $$createType55 = $Create.Array($$createType54);
 const $$createType56 = DiscordStatus.createFrom;
-const $$createType57 = $Create.Nullable($$createType12);
+const $$createType57 = $Create.Nullable($$createType11);
 const $$createType58 = $Create.Nullable($$createType10);
 const $$createType59 = $Create.Nullable($$createType22);
-const $$createType60 = $Create.Nullable($$createType14);
+const $$createType60 = $Create.Nullable($$createType13);
 const $$createType61 = LibraryEntry.createFrom;
 const $$createType62 = $Create.Array($$createType61);
 const $$createType63 = HistoryDay.createFrom;

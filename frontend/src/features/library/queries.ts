@@ -1,7 +1,6 @@
 import {
   LibraryService,
   type Album,
-  type Artist,
   type LibraryEntry,
   type Playlist,
   type Song,
@@ -17,7 +16,26 @@ import { useCallback, useMemo, useState } from "react";
 
 import { keys, type LibraryKind } from "@/shared/lib/keys";
 
+import { indexArtists } from "./artists";
 import { useSync } from "./sync";
+
+/** Every library artist with the albums and songs they have; the Artists overview filters it. */
+export function useArtistIndex() {
+  return useQuery({
+    queryKey: keys.libraryArtistIndex,
+    queryFn: () => LibraryService.ArtistIndex(),
+    select: indexArtists,
+  });
+}
+
+/** One library artist's albums, newest release first. */
+export function useArtistAlbums(id: string | undefined) {
+  return useQuery({
+    queryKey: keys.libraryArtistAlbums(id ?? ""),
+    queryFn: () => LibraryService.ArtistAlbums(id ?? ""),
+    enabled: !!id,
+  });
+}
 
 export function useCounts() {
   return useQuery({ queryKey: keys.libraryCounts, queryFn: () => LibraryService.Counts() });
@@ -93,7 +111,6 @@ function usePagedList<T>(
 interface ListItem {
   songs: Song;
   albums: Album;
-  artists: Artist;
   playlists: Playlist;
 }
 
@@ -109,12 +126,11 @@ const fetchers: {
   songs: LibraryService.Songs,
   albums: (sort, desc, offset, limit, type) =>
     LibraryService.Albums(sort, desc, type, offset, limit),
-  artists: LibraryService.Artists,
   playlists: LibraryService.Playlists,
 };
 
 /**
- * A library list (songs, albums, artists, playlists) in an order. `type`
+ * A library list (songs, albums, playlists) in an order. `type`
  * narrows albums to standard albums or singles and EPs ("" is all).
  */
 export function useLibraryList<K extends LibraryKind>(

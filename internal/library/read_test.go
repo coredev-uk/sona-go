@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -65,12 +67,74 @@ func TestListSorting(t *testing.T) {
 	if albums[0].Name != "Alpha" {
 		t.Fatalf("albums by title = %+v", albums)
 	}
-	artists, _ := e.lib.Artists(ctx, ListOptions{})
+	artists, _ := e.lib.ArtistIndex(ctx)
 	if len(artists) != 2 || artists[0].Name != "abba" {
 		t.Fatalf("artists = %+v", artists)
 	}
 	if hits, _ := e.lib.Search(ctx, `"*) OR`, 5); len(hits) != 0 {
 		t.Fatalf("FTS syntax not neutralised: %+v", hits)
+	}
+}
+
+func TestArtistIndex(t *testing.T) {
+	e := newEnv(t)
+	f := e.fake
+	bare := artist("r.c", "Étienne")
+	delete(bare["relationships"].(map[string]any), "catalog") // an artist Apple gives no artwork
+	f.artists = []map[string]any{artist("r.a", "Zed"), artist("r.b", "abba"), bare, artist("r.d", "Nobody")}
+	old := album("l.1", "Beta", "Zed", "r.a", "2024-01-02T00:00:00Z")
+	old["attributes"].(map[string]any)["releaseDate"] = "2010-05-01"
+	cover := album("l.3", "Gamma", "Étienne", "r.c", "2024-02-01T00:00:00Z")
+	cover["attributes"].(map[string]any)["artwork"] = map[string]any{"url": "https://art/gamma/{w}x{h}bb.jpg"}
+	f.albums = []map[string]any{
+		old,
+		album("l.2", "Alpha", "Zed", "r.a", "2024-03-01T00:00:00Z"),
+		cover,
+	}
+	f.songs = []map[string]any{
+		song("i.1", "One", "Zed", "Beta", "l.1", "r.a"),
+		song("i.2", "Two", "Zed", "Alpha", "l.2", "r.a"),
+		song("i.3", "Three", "Zed", "Alpha", "l.2", "r.a"),
+		song("i.4", "Four", "abba", "Elsewhere", "l.x", "r.b"), // songs without an album in the library
+	}
+	if err := e.run(t); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	got, err := e.lib.ArtistIndex(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]ArtistSummary{}
+	var order []string
+	for _, a := range got {
+		byID[a.LibraryID] = a
+		order = append(order, a.LibraryID)
+	}
+	// Counts are the library's albums and songs. Case never decides the
+	// order (accents are the UI's to fold: SQLite's NOCASE is ASCII only).
+	counts := map[string][2]int{"r.a": {2, 3}, "r.b": {0, 1}, "r.c": {1, 0}, "r.d": {0, 0}}
+	for id, want := range counts {
+		if a, ok := byID[id]; !ok || [2]int{a.Albums, a.Songs} != want {
+			t.Errorf("artist %s albums, songs = %d, %d (listed %v), want %v", id, a.Albums, a.Songs, ok, want)
+		}
+	}
+	if len(got) != len(counts) || slices.Index(order, "r.b") > slices.Index(order, "r.d") || slices.Index(order, "r.d") > slices.Index(order, "r.a") {
+		t.Errorf("artists in order %v, want abba, Nobody, Zed (r.b r.d r.a)", order)
+	}
+	if a := byID["r.c"]; a.Albums != 1 || a.ArtworkTemplate != "https://art/gamma/{w}x{h}bb.jpg" {
+		t.Errorf("an artist without artwork takes their album's cover: %+v", a)
+	}
+	if a := byID["r.a"]; a.ArtworkTemplate == "" {
+		t.Errorf("an artist's own artwork is kept: %+v", a)
+	}
+
+	a, albums, err := e.lib.ArtistAlbums(ctx, "r.a")
+	if err != nil || a.Name != "Zed" || len(albums) != 2 || albums[0].LibraryID != "l.2" || albums[1].LibraryID != "l.1" {
+		t.Fatalf("ArtistAlbums = %+v, %+v, %v; want Zed's albums newest release first", a, albums, err)
+	}
+	if _, _, err := e.lib.ArtistAlbums(ctx, "r.nope"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("ArtistAlbums(unknown) err = %v, want ErrNotFound", err)
 	}
 }
 
@@ -88,6 +152,9 @@ func TestLargeLibraryListsFast(t *testing.T) {
 	}
 	e := newEnv(t)
 	seed(e.fake, 12000)
+	for i := range 3000 { // a library of thousands of artists, most with one song or none
+		e.fake.artists = append(e.fake.artists, artist("r.big"+strconv.Itoa(i), "Band "+strconv.Itoa(i)))
+	}
 	start := time.Now()
 	if err := e.run(t, DomainArtists, DomainAlbums, DomainSongs); err != nil {
 		t.Fatal(err)
@@ -137,6 +204,14 @@ func TestLargeLibraryListsFast(t *testing.T) {
 		r, err := lib.Search(ctx, "son 1199", 50)
 		return len(r), err
 	}, 11, 1, 11)
+	check("artist index", func() (int, error) {
+		r, err := lib.ArtistIndex(ctx)
+		return len(r), err
+	}, 3005, 1, 3005)
+	check("artist albums", func() (int, error) {
+		_, r, err := lib.ArtistAlbums(ctx, "r.1")
+		return len(r), err
+	}, 240, 2, 241) // the artist, then their albums
 	check("album detail", func() (int, error) {
 		_, r, err := lib.Album(ctx, "l.500")
 		return len(r), err

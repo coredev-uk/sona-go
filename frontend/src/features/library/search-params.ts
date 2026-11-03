@@ -20,3 +20,8 @@ export type AlbumType = (typeof albumTypes)[number];
 export const albumsSearch = listSearch(albumSorts).extend({
   type: z.enum(albumTypes).optional().catch(undefined),
 });
+
+/** The Artists overview's open artist: ?artist=<library id>. Anything else shows none. */
+export const artistsSearch = z.object({
+  artist: z.string().optional().catch(undefined),
+});

@@ -3,7 +3,7 @@
  * a whole domain by prefix (each module's invalidations.ts).
  */
 
-export type LibraryKind = "songs" | "albums" | "artists" | "playlists";
+export type LibraryKind = "songs" | "albums" | "playlists";
 
 export const keys = {
   auth: ["auth"] as const,
@@ -35,6 +35,10 @@ export const keys = {
       : (["library", kind, sort, desc, page] as const),
   libraryAlbum: (id: string) => ["library", "album", id] as const,
   libraryArtist: (id: string) => ["library", "artist", id] as const,
+  /** The Artists overview's list (every library artist, filtered in the UI). */
+  libraryArtistIndex: ["library", "artists", "index"] as const,
+  /** An artist's library albums, for the overview's detail; under libraryArtist so edits refresh it. */
+  libraryArtistAlbums: (id: string) => ["library", "artist", id, "albums"] as const,
   libraryPlaylist: (id: string) => ["library", "playlist", id] as const,
   librarySearch: (term: string, perKind: number) => ["library", "search", term, perKind] as const,
   /** Recent searches are user data: cleared with the library on sign-out. */

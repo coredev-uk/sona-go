@@ -8,6 +8,8 @@ import { childRoute } from "@/shared/router";
 import { ArtistPage } from "./ArtistPage";
 import { ArtistViewPage } from "./ArtistViewPage";
 
+export { releaseTitle } from "./artist";
+
 const artistRoute = createRoute({ ...childRoute("/artist/$id"), component: ArtistPage });
 
 /** One shelf of a catalogue artist in full ("See all"): `view` is Go's view name. */
