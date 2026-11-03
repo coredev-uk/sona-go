@@ -71,8 +71,9 @@ change keeps and how to check them.
   The queue (`features/player/queue-focus.ts`): ↑/↓ one row, Home/End the
   current and the last song, the focused row remembered by entry so it
   follows a moved song, off-screen targets scrolled into the virtual range
-  before focusing. Escape anywhere in the queue closes it and focuses the
-  player bar's queue toggle.
+  before focusing. Escape anywhere in the queue beside the page closes it
+  and focuses the player bar's queue toggle; in the Now Playing view's Up
+  next, Escape closes the view.
 - The video view (`features/player/VideoView.tsx`) is a region named
   "Music video", described by a visually hidden line listing its keys. It
   takes focus when it opens and keeps Tab inside (`trap-tab.ts`). Keys:
@@ -86,6 +87,10 @@ change keeps and how to check them.
   region; an error is a `role="alert"` block with "Watch in Apple Music"
   and, where it can help, "Try again". The SD badge carries its
   explanation as its title.
+- The Now Playing view's panes are tabs (Lyrics, Up next): one Tab stop,
+  ←/→ and Home/End move and show, the pane is a `tabpanel` named by its
+  tab. Opening the view focuses the shown tab (Close when a station or a
+  song outside the catalogue leaves one pane, under a plain heading).
 - Tab wraps inside each window (`shared/lib/focus-wrap.ts`: Tab on the last
   element goes to the skip link, Shift+Tab on the first to the last). On
   Linux, GTK focus must never land on WebKitGTK's hidden key-binding text

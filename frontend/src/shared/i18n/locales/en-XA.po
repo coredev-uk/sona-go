@@ -1357,6 +1357,7 @@ msgstr ""
 msgid "Close mini player"
 msgstr ""
 
+#: src/features/player/NowPlayingBar.tsx
 #: src/features/player/shortcuts.ts
 msgid "Close now playing"
 msgstr ""
@@ -2137,10 +2138,6 @@ msgstr ""
 msgid "cover artwork full"
 msgstr ""
 
-#: src/features/player/NowPlayingView.tsx
-msgid "Cover only"
-msgstr ""
-
 #: src/features/settings/Storage.tsx
 msgid "Covers and backdrops kept on this computer so pages open without downloading them again. Above the limit, the artwork shown least recently is removed first."
 msgstr ""
@@ -2515,7 +2512,15 @@ msgid "Enter opens, Space plays, Shift+F10 shows more actions."
 msgstr ""
 
 #: src/features/player/QueuePanel.tsx
+msgid "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes now playing."
+msgstr ""
+
+#: src/features/player/QueuePanel.tsx
 msgid "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes the queue."
+msgstr ""
+
+#: src/features/player/QueuePanel.tsx
+msgid "Enter plays the song, Delete removes it, Escape closes now playing."
 msgstr ""
 
 #: src/features/player/QueuePanel.tsx
@@ -3262,6 +3267,7 @@ msgstr ""
 
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
+#: src/features/player/NowPlayingView.tsx
 msgid "Live"
 msgstr ""
 
@@ -3398,6 +3404,7 @@ msgstr ""
 msgid "lyrics room karaoke big large tv"
 msgstr ""
 
+#: src/features/player/NowPlayingView.tsx
 #: src/features/settings/find.ts
 #: src/features/settings/LyricsRows.tsx
 msgid "Lyrics sources"
@@ -6846,6 +6853,7 @@ msgid "Unpin"
 msgstr ""
 
 #: src/features/player/NowPlayingBar.tsx
+#: src/features/player/NowPlayingView.tsx
 msgid "until {until}"
 msgstr ""
 
@@ -6856,6 +6864,10 @@ msgstr ""
 
 #: src/features/player/shortcuts.ts
 msgid "up next"
+msgstr ""
+
+#: src/features/player/NowPlayingView.tsx
+msgid "Up next"
 msgstr ""
 
 #: src/features/player/QueuePanel.tsx
@@ -6955,6 +6967,7 @@ msgstr ""
 msgid "View"
 msgstr ""
 
+#: src/features/player/NowPlayingView.tsx
 #: src/features/song/index.ts
 msgid "View credits"
 msgstr ""

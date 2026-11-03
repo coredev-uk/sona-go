@@ -101,7 +101,15 @@ export function AppShell() {
                 // Focus target for the skip link (not a Tab stop itself).
                 tabIndex={-1}
                 inert={overlayOpen}
-                className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-ground focus-visible:outline-offset-[-2px]"
+                // An overlay covers the page, but WebKit still paints it
+                // beneath: every frame of the overlay's motion cover
+                // repainted the page's own header under it (a paused
+                // video's frame, its text), a third more web-process CPU.
+                // Hidden keeps the layout and the scroll position.
+                className={cn(
+                  "min-h-0 min-w-0 flex-1 overflow-y-auto bg-ground focus-visible:outline-offset-[-2px]",
+                  overlayOpen && "invisible",
+                )}
               >
                 <div className="px-8 pt-7 pb-12 max-[960px]:px-6">
                   <Outlet />

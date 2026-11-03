@@ -50,8 +50,10 @@ interface RowProps {
   focused: boolean;
   /** An AutoPlay song: not what the user chose, so it is set back. */
   autoPlay: boolean;
-  /** Where the user's songs end (the station's or AutoPlay's part starts). */
+  /** Where the user's part ends: the first upcoming station slot, else the end. */
   userEnd: number;
+  /** On the now-playing view's wash: hover and focus fills are ink at 6%, not the opaque --hover. */
+  wash: boolean;
 }
 
 /** The queue's keyboard help, read after each row's name. */
@@ -70,6 +72,7 @@ const QueueRow = memo(function QueueRow({
   focused,
   autoPlay,
   userEnd,
+  wash,
 }: RowProps) {
   // Skipped by Go on an account that restricts explicit content.
   const withheld = useWithheld(item.explicit);
@@ -112,7 +115,8 @@ const QueueRow = memo(function QueueRow({
       onDoubleClick={() => void run(t`Couldn't play that song`, PlaybackService.Jump(index))}
       onKeyDown={onKeyDown}
       className={cn(
-        "group/q relative flex h-[52px] items-center gap-3 rounded-md px-2 transition-colors duration-100 select-none hover:bg-hover focus-visible:bg-hover focus-visible:outline-offset-[-2px]",
+        "group/q relative flex h-[52px] items-center gap-3 rounded-md px-2 transition-colors duration-100 select-none focus-visible:outline-offset-[-2px]",
+        wash ? "hover:bg-ink/6 focus-visible:bg-ink/6" : "hover:bg-hover focus-visible:bg-hover",
         dragged && "bg-active opacity-60",
         withheld && !dragged && "opacity-50",
       )}
@@ -207,25 +211,86 @@ function useQueueLines(scrollRef: RefObject<HTMLDivElement | null>, heights: rea
   return { virtualizer: v, items: v.getVirtualItems(), totalSize: v.getTotalSize() };
 }
 
-/**
- * The queue beside the page: the current song, then what plays next, the
- * user's songs first and then, under their own heading, what the station
- * or AutoPlay adds (AutoPlay songs set back: they keep their place, and
- * playing one jumps there). The lists are one Tab stop: ↑/↓/Home/End move
- * between songs, drag or Alt+↑/↓ reorders the user's songs, Delete
- * removes, Enter or double-click jumps, Escape closes the panel. Songs,
- * albums and playlists dragged from a page drop into the gap under the
- * pointer (or after the user's songs).
- */
-export function QueuePanel() {
+/** The queue's parts, as the list and its tools both read them. */
+function useQueueParts() {
   const items = usePlayback((s) => s.queue.items);
   // The state's index moves with every track; the queue's only when the queue changes.
   const index = usePlayback((s) => s.index);
   const station = usePlayback((s) => s.queue.station);
   const autoPlay = usePlayback((s) => s.autoPlay);
   const repeat = usePlayback((s) => s.repeat);
+  // The current song first, then the rest of the queue; earlier songs are played.
+  const start = Math.max(0, index);
+  // AutoPlay needs a song to continue from; radio streams ("ra.…") are not songs.
+  const continues =
+    autoPlay && !station && repeat === "off" && items.some((i) => !i.id.startsWith("ra."));
+  return {
+    items,
+    index,
+    station,
+    autoPlay,
+    start,
+    ...queueLines(items, start, station, continues),
+  };
+}
+
+/** The queue's own controls: Clear (while the user has songs queued) and the AutoPlay toggle. */
+export function QueueTools() {
+  const { mine, autoPlay } = useQueueParts();
+  const { t } = useLingui();
+  return (
+    <div className="flex items-center gap-1">
+      {mine > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => void run(t`Couldn't clear the queue`, PlaybackService.Clear())}
+        >
+          <Trans>Clear</Trans>
+        </Button>
+      )}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t`AutoPlay`}
+            aria-pressed={autoPlay}
+            onClick={() => {
+              usePlayback.getState().patch({ autoPlay: !autoPlay });
+              void run(t`Couldn't change AutoPlay`, PlaybackService.SetAutoPlay(!autoPlay));
+            }}
+            className={cn(
+              "relative text-ink-muted hover:text-ink",
+              autoPlay &&
+                "text-ink after:absolute after:bottom-0.5 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-ink",
+            )}
+          >
+            <InfinityIcon strokeWidth={1.75} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {autoPlay ? t`AutoPlay on: similar music plays when the queue ends` : t`AutoPlay off`}
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
+/**
+ * The queue's lists: the current song, then what plays next, the user's
+ * songs first and then, under their own heading, what the station or
+ * AutoPlay adds (AutoPlay songs set back: they keep their place, and
+ * playing one jumps there). The lists are one Tab stop: ↑/↓/Home/End move
+ * between songs, drag or Alt+↑/↓ reorders the user's songs, Delete
+ * removes, Enter or double-click jumps. Songs, albums and playlists
+ * dragged from a page drop into the gap under the pointer (or after the
+ * user's songs); the element around the list carries `data-drop={QUEUE}`.
+ * Shown beside the page (QueuePanel) and as the now-playing view's Up next.
+ */
+export function QueueList({ inView = false }: { inView?: boolean }) {
+  const { items, index, station, start, lines, userEnd, head } = useQueueParts();
   const playing = usePlayback((s) => s.state === "playing" || s.state === "loading");
-  const close = useUI((s) => s.setQueueOpen);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const dragFrom = useDrag((s) =>
@@ -235,12 +300,6 @@ export function QueuePanel() {
   const [slot, setSlot] = useState<number | null>(null);
   const { t } = useLingui();
 
-  // The current song first, then the rest of the queue; earlier songs are played.
-  const start = Math.max(0, index);
-  // AutoPlay needs a song to continue from; radio streams ("ra.…") are not songs.
-  const continues =
-    autoPlay && !station && repeat === "off" && items.some((i) => !i.id.startsWith("ra."));
-  const { lines, mine, auto, userEnd, head } = queueLines(items, start, station, continues);
   const heights = lines.map((l) => (l.kind === "row" ? ROW : l.kind === "head" ? HEAD : NOTE));
   const stationName = station?.name;
   const headTitle = station?.autoPlay
@@ -257,7 +316,6 @@ export function QueuePanel() {
           "Under the AutoPlay heading in the queue. Apple: ASE.Web.Music.UpNext.Autoplay.Description",
       })
     : t`The station continues after your songs`;
-
   const { virtualizer, items: rows, totalSize } = useQueueLines(scrollRef, heights);
 
   // Roving focus: one row is the list's Tab stop and the arrows move it. The
@@ -334,13 +392,6 @@ export function QueuePanel() {
     if (to === null) return;
     e.preventDefault();
     showRow(to);
-  };
-  // Escape anywhere in the panel closes it, back on the bar's queue toggle.
-  const onPanelKeyDown = (e: KeyboardEvent<HTMLElement>) => {
-    if (e.key !== "Escape" || e.defaultPrevented) return;
-    e.preventDefault();
-    close(false);
-    document.getElementById(QUEUE_TOGGLE_ID)?.focus();
   };
 
   // Nothing goes before the current song (with none, anywhere); drops land
@@ -421,32 +472,6 @@ export function QueuePanel() {
     }));
   };
 
-  const playingFrom = station?.name;
-  const autoPlayRows = auto > 0 && !!station?.autoPlay;
-  const summary = !items.length ? (
-    ""
-  ) : items[start]?.live && !mine ? (
-    t`Live radio`
-  ) : mine && autoPlayRows ? (
-    <Plural
-      value={mine}
-      one="# song after this one, then AutoPlay"
-      other="# songs after this one, then AutoPlay"
-    />
-  ) : mine ? (
-    <Plural value={mine} one="# song after this one" other="# songs after this one" />
-  ) : autoPlayRows ? (
-    t({
-      message: "AutoPlay is on",
-      comment:
-        "Queue summary when only AutoPlay's songs follow. Apple's ASE.Web.Music.UpNext.Heading.AutoplayActive ('autoplay is on') is lower case, for a subline, so it is not mapped.",
-    })
-  ) : auto ? (
-    t`Nothing queued after this song`
-  ) : (
-    t`Nothing after this song`
-  );
-
   /** The song row of `qi`, placed at `top`. */
   const queueRow = (qi: number, top: number) => {
     const item: QueueItem = items[qi];
@@ -466,72 +491,19 @@ export function QueuePanel() {
           focused={qi === tabQi}
           autoPlay={qi !== index && item.auto && !!station?.autoPlay}
           userEnd={userEnd}
+          wash={inView}
         />
       </div>
     );
   };
 
   return (
-    <aside
-      aria-label={t`Queue`}
-      data-drop={QUEUE}
-      className="flex h-full w-[320px] shrink-0 flex-col border-l border-line bg-ground"
-      onKeyDown={onPanelKeyDown}
-    >
-      <div className="flex h-12 shrink-0 items-center justify-between gap-2 pr-2 pl-4">
-        <div className="min-w-0">
-          <h2 className="text-heading text-ink">
-            <Trans>Queue</Trans>
-          </h2>
-        </div>
-        <div className="flex items-center gap-1">
-          {mine > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void run(t`Couldn't clear the queue`, PlaybackService.Clear())}
-            >
-              <Trans>Clear</Trans>
-            </Button>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t`AutoPlay`}
-                aria-pressed={autoPlay}
-                onClick={() => {
-                  usePlayback.getState().patch({ autoPlay: !autoPlay });
-                  void run(t`Couldn't change AutoPlay`, PlaybackService.SetAutoPlay(!autoPlay));
-                }}
-                className={cn(
-                  "relative text-ink-muted hover:text-ink",
-                  autoPlay &&
-                    "text-ink after:absolute after:bottom-0.5 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-ink",
-                )}
-              >
-                <InfinityIcon strokeWidth={1.75} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {autoPlay ? t`AutoPlay on: similar music plays when the queue ends` : t`AutoPlay off`}
-            </TooltipContent>
-          </Tooltip>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t`Close queue`}
-            onClick={() => close(false)}
-          >
-            <X strokeWidth={1.75} />
-          </Button>
-        </div>
-      </div>
+    <div className="flex min-h-0 flex-1 flex-col">
       {items.length === 0 ? (
         <div
           className={cn(
-            "mx-4 mt-2 rounded-lg border border-dashed border-control-line px-4 py-5 transition-colors duration-100",
+            "mt-2 rounded-lg border border-dashed border-control-line px-4 py-5 transition-colors duration-100",
+            !inView && "mx-4",
             over && "border-ink/40 bg-hover",
           )}
         >
@@ -546,38 +518,34 @@ export function QueuePanel() {
         </div>
       ) : (
         <>
-          {/* Proportional figures: tabular ones widen the comma in this sentence. */}
-          <p className="shrink-0 truncate px-4 pb-2 text-meta text-ink-muted">
-            {station && !station.autoPlay ? (
+          {!inView && <QueueSummary className="px-4 pb-2" />}
+          <p id={KEYS_HELP} className="sr-only">
+            {inView ? (
               <Trans>
-                Playing from{" "}
-                <Link
-                  to="/station/$id"
-                  params={{ id: station.id }}
-                  className="text-ink underline decoration-ink/40 underline-offset-2 hover:decoration-ink"
-                >
-                  {playingFrom}
-                </Link>
+                Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes
+                now playing.
               </Trans>
             ) : (
-              summary
+              <Trans>
+                Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes
+                the queue.
+              </Trans>
             )}
           </p>
-          <p id={KEYS_HELP} className="sr-only">
-            <Trans>
-              Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes
-              the queue.
-            </Trans>
-          </p>
           <p id={AUTO_KEYS_HELP} className="sr-only">
-            <Trans>Enter plays the song, Delete removes it, Escape closes the queue.</Trans>
+            {inView ? (
+              <Trans>Enter plays the song, Delete removes it, Escape closes now playing.</Trans>
+            ) : (
+              <Trans>Enter plays the song, Delete removes it, Escape closes the queue.</Trans>
+            )}
           </p>
           {/* One scroller, two lists: the user's songs, then the station's or
               AutoPlay's part named by its heading. The lines are positioned
-              in the body, so the lists themselves take no space. */}
+              in the body, so the lists themselves take no space. In the
+              view the covers start 12px in, on the column's text edge. */}
           <div
             ref={scrollRef}
-            className="min-h-0 flex-1 overflow-y-auto px-2 pb-3"
+            className={cn("min-h-0 flex-1 overflow-y-auto pb-3", inView ? "px-1" : "px-2")}
             onPointerDown={grab}
             onFocus={onListFocus}
             onBlur={onListBlur}
@@ -643,6 +611,102 @@ export function QueuePanel() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * The queue beside the page: its heading and tools over the list. Escape
+ * anywhere in it closes it, back on the bar's queue toggle.
+ */
+export function QueuePanel() {
+  const close = useUI((s) => s.setQueueOpen);
+  const { t } = useLingui();
+  const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
+    if (e.key !== "Escape" || e.defaultPrevented) return;
+    e.preventDefault();
+    close(false);
+    document.getElementById(QUEUE_TOGGLE_ID)?.focus();
+  };
+  return (
+    <aside
+      aria-label={t`Queue`}
+      data-drop={QUEUE}
+      className="flex h-full w-[320px] shrink-0 flex-col border-l border-line bg-ground"
+      onKeyDown={onKeyDown}
+    >
+      <div className="flex h-12 shrink-0 items-center justify-between gap-2 pr-2 pl-4">
+        <h2 className="min-w-0 text-heading text-ink">
+          <Trans>Queue</Trans>
+        </h2>
+        <div className="flex items-center gap-1">
+          <QueueTools />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t`Close queue`}
+            onClick={() => close(false)}
+          >
+            <X strokeWidth={1.75} />
+          </Button>
+        </div>
+      </div>
+      <QueueList />
     </aside>
+  );
+}
+
+/**
+ * One line on what follows the current song ("9 songs after this one"),
+ * or the station it plays from, as a link (`onLeave` runs as it is
+ * followed: the now-playing view closes).
+ */
+export function QueueSummary({ className, onLeave }: { className?: string; onLeave?: () => void }) {
+  const { items, station, start, mine, auto } = useQueueParts();
+  const { t } = useLingui();
+  const playingFrom = station?.name;
+  const autoPlayRows = auto > 0 && !!station?.autoPlay;
+  const summary = !items.length ? (
+    ""
+  ) : items[start]?.live && !mine ? (
+    t`Live radio`
+  ) : mine && autoPlayRows ? (
+    <Plural
+      value={mine}
+      one="# song after this one, then AutoPlay"
+      other="# songs after this one, then AutoPlay"
+    />
+  ) : mine ? (
+    <Plural value={mine} one="# song after this one" other="# songs after this one" />
+  ) : autoPlayRows ? (
+    t({
+      message: "AutoPlay is on",
+      comment:
+        "Queue summary when only AutoPlay's songs follow. Apple's ASE.Web.Music.UpNext.Heading.AutoplayActive ('autoplay is on') is lower case, for a subline, so it is not mapped.",
+    })
+  ) : auto ? (
+    t`Nothing queued after this song`
+  ) : (
+    t`Nothing after this song`
+  );
+  return (
+    // Proportional figures: tabular ones widen the comma in this sentence.
+    <p className={cn("shrink-0 truncate text-meta text-ink-muted", className)}>
+      {station && !station.autoPlay ? (
+        <Trans>
+          Playing from{" "}
+          <Link
+            to="/station/$id"
+            params={{ id: station.id }}
+            onClick={onLeave}
+            className="text-ink underline decoration-ink/40 underline-offset-2 hover:decoration-ink"
+          >
+            {playingFrom}
+          </Link>
+        </Trans>
+      ) : (
+        summary
+      )}
+    </p>
   );
 }

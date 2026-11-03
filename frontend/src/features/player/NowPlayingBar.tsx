@@ -42,7 +42,7 @@ import { IconButton, Volume } from "./controls";
 import { useLivePosition, usePlayback } from "./playback";
 import { SleepTimer } from "./SleepTimer";
 import { TrackAnnouncer } from "./TrackAnnouncer";
-import { QUEUE_TOGGLE_ID, useUI } from "./ui";
+import { QUEUE_TOGGLE_ID, queueShown, shownPane, toggleQueueView, useUI } from "./ui";
 
 /** The seek bar: the only part of the bar that re-renders while playing. */
 function Seek({ disabled }: { disabled: boolean }) {
@@ -137,15 +137,15 @@ export function NowPlayingBar() {
   const noCdm = usePlayback((s) => s.noCdm);
   const preview = usePlayback((s) => s.preview);
   const onAir = usePlayback((s) => s.onAir);
-  const { queueOpen, toggleQueue, overlay, openNowPlaying, openVideo, closeOverlay, showLyrics } =
-    useUI();
+  const ui = useUI();
+  const { overlay, openNowPlaying, openVideo, closeOverlay } = ui;
   const toggleKeys = useBinding("player.toggle");
   const { t } = useLingui();
 
   const idle = !current;
   const playing = state === "playing";
   const loading = state === "loading";
-  const lyricsOpen = overlay === "now-playing" && showLyrics;
+  const lyricsOpen = overlay === "now-playing" && shownPane(ui.pane, current) === "lyrics";
   const video = !!current?.video;
   const videoOpen = overlay === "video";
   const nextRepeat = repeat === "off" ? "all" : repeat === "all" ? "one" : "off";
@@ -224,9 +224,17 @@ export function NowPlayingBar() {
                 if (videoOpen) closeOverlay();
                 else openVideo();
               } else if (overlay === "now-playing") closeOverlay();
-              else openNowPlaying(false);
+              else openNowPlaying();
             }}
-            aria-label={idle ? t`Nothing playing` : video ? t`Show video` : t`Open now playing`}
+            aria-label={
+              idle
+                ? t`Nothing playing`
+                : video
+                  ? t`Show video`
+                  : overlay === "now-playing"
+                    ? t`Close now playing`
+                    : t`Open now playing`
+            }
             className="shrink-0 rounded-sm"
           >
             <Artwork src={onAir?.art.small || current?.art.small} size={48} alt="" eager />
@@ -383,7 +391,7 @@ export function NowPlayingBar() {
               label={t`Lyrics`}
               pressed={lyricsOpen}
               disabled={idle}
-              onClick={() => (lyricsOpen ? closeOverlay() : openNowPlaying(true))}
+              onClick={() => (lyricsOpen ? closeOverlay() : openNowPlaying("lyrics"))}
             >
               <MicVocal strokeWidth={1.75} />
             </IconButton>
@@ -391,8 +399,8 @@ export function NowPlayingBar() {
           <IconButton
             id={QUEUE_TOGGLE_ID}
             label={t`Queue`}
-            pressed={queueOpen}
-            onClick={toggleQueue}
+            pressed={queueShown(ui, current)}
+            onClick={toggleQueueView}
           >
             <ListMusic strokeWidth={1.75} />
           </IconButton>

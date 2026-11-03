@@ -1,17 +1,36 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { I18nRoot } from "@/shared/i18n";
 import { Equaliser } from "@/shared/tracks/Equaliser";
 
 import { emptyState, usePlayback } from "./playback";
-import { NowPlayingProvider } from "./slots";
+import { NowPlayingProvider, QueueAside } from "./slots";
 import { useUI } from "./ui";
+
+// The queue's own behaviour is not under test here, only whether the aside is drawn.
+vi.mock("./QueuePanel", () => ({ QueuePanel: () => <aside aria-label="Queue" /> }));
 
 afterEach(() => {
   cleanup();
-  useUI.setState({ overlay: "none" });
+  useUI.setState({ overlay: "none", queueOpen: false });
   usePlayback.setState({ ...emptyState });
+});
+
+describe("QueueAside", () => {
+  it("steps out while the now-playing view (which has Up next) covers the page", () => {
+    useUI.setState({ queueOpen: true });
+    render(<QueueAside />);
+    expect(screen.queryByRole("complementary", { name: "Queue" })).not.toBeNull();
+
+    act(() => useUI.setState({ overlay: "now-playing" }));
+    expect(screen.queryByRole("complementary", { name: "Queue" })).toBeNull();
+    // Still open: it comes back when the view closes.
+    expect(useUI.getState().queueOpen).toBe(true);
+
+    act(() => useUI.setState({ overlay: "none" }));
+    expect(screen.queryByRole("complementary", { name: "Queue" })).not.toBeNull();
+  });
 });
 
 describe("NowPlayingProvider", () => {

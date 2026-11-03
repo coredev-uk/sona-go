@@ -39,15 +39,15 @@ import {
 } from "./commands";
 import { useLyricsOffset } from "./lyrics";
 import { lyricsSongId, usePlayback } from "./playback";
-import { useUI } from "./ui";
+import { toggleQueueView, useUI } from "./ui";
 
 const SEEK_MS = 10_000;
 const VOLUME_STEP = 0.05;
 
-/** The playing song's lyrics are on screen (now playing with lyrics, or full screen). */
+/** The playing song's lyrics are on screen (now playing's lyric sheet, or full screen). */
 function lyricsShown(): boolean {
   const ui = useUI.getState();
-  const shown = ui.overlay === "room" || (ui.overlay === "now-playing" && ui.showLyrics);
+  const shown = ui.overlay === "room" || (ui.overlay === "now-playing" && ui.pane === "lyrics");
   return shown && !!lyricsSongId(usePlayback.getState().current);
 }
 
@@ -186,7 +186,7 @@ export const playerShortcuts: Shortcut[] = [
     keys: ["Q"],
     keywords: () => t`up next`,
     icon: ListMusic,
-    run: () => useUI.getState().toggleQueue(),
+    run: toggleQueueView,
   },
   {
     id: "player.lyrics",
@@ -198,8 +198,8 @@ export const playerShortcuts: Shortcut[] = [
     when: () => !videoPlaying(),
     run: () => {
       const ui = useUI.getState();
-      if (ui.overlay === "now-playing" && ui.showLyrics) ui.closeOverlay();
-      else if (usePlayback.getState().current) ui.openNowPlaying(true);
+      if (ui.overlay === "now-playing" && ui.pane === "lyrics") ui.closeOverlay();
+      else if (usePlayback.getState().current) ui.openNowPlaying("lyrics");
     },
   },
   {
@@ -211,8 +211,8 @@ export const playerShortcuts: Shortcut[] = [
     icon: Disc3,
     run: () => {
       const ui = useUI.getState();
-      if (ui.overlay === "now-playing" && !ui.showLyrics) ui.closeOverlay();
-      else if (usePlayback.getState().current) ui.openNowPlaying(false);
+      if (ui.overlay === "now-playing") ui.closeOverlay();
+      else if (usePlayback.getState().current) ui.openNowPlaying();
     },
   },
   {

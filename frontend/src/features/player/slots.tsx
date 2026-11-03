@@ -26,11 +26,16 @@ export function NowPlayingProvider({ children }: { children: ReactNode }) {
   return <NowPlayingContext.Provider value={value}>{children}</NowPlayingContext.Provider>;
 }
 
-/** The queue beside the page, while open. Closing it returns focus to its opener. */
+/**
+ * The queue beside the page, while open. The now-playing view has its own
+ * (Up next), so the aside steps out while the view covers the page and
+ * comes back when it closes. Closing it returns focus to its opener.
+ */
 export function QueueAside() {
   const queueOpen = useUI((s) => s.queueOpen);
+  const covered = useUI((s) => s.overlay !== "none");
   useReturnFocus(queueOpen);
-  return queueOpen ? <QueuePanel /> : null;
+  return queueOpen && !covered ? <QueuePanel /> : null;
 }
 
 /**
