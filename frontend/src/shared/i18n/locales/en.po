@@ -2566,6 +2566,10 @@ msgstr "Featured"
 msgid "Featured artists"
 msgstr "Featured artists"
 
+#: src/features/discover/FrontPage.tsx
+msgid "Featured cards"
+msgstr "Featured cards"
+
 #: src/features/album/AlbumPage.tsx
 msgid "Featured in playlists"
 msgstr "Featured in playlists"
@@ -3338,10 +3342,6 @@ msgstr "Minimise"
 #: src/features/video/VideoPage.tsx
 msgid "More by {artistName}"
 msgstr "More by {artistName}"
-
-#: src/features/discover/FrontPage.tsx
-msgid "More featured"
-msgstr "More featured"
 
 #: src/shared/actions/ActionMenu.tsx
 msgid "More for {name}"
@@ -4175,6 +4175,10 @@ msgstr "Paste your user token first."
 msgid "Pause"
 msgstr "Pause"
 
+#: src/features/discover/FrontPage.tsx
+msgid "Pause featured rotation"
+msgstr "Pause featured rotation"
+
 #: src/shared/tracks/Equaliser.tsx
 msgid "Paused"
 msgstr "Paused"
@@ -4282,6 +4286,10 @@ msgstr "Play {songName}"
 #: src/features/player/QueuePanel.tsx
 msgid "Play an album, playlist or station, choose Play next on any song, or drag songs here."
 msgstr "Play an album, playlist or station, choose Play next on any song, or drag songs here."
+
+#: src/features/discover/FrontPage.tsx
+msgid "Play featured rotation"
+msgstr "Play featured rotation"
 
 #: src/features/player/actions.ts
 msgid "Play next"
@@ -4937,6 +4945,14 @@ msgstr "Right Arrow"
 #: src/features/equalizer/curve.ts
 msgid "Rock"
 msgstr "Rock"
+
+#: src/features/discover/FrontPage.tsx
+msgid "Rotation paused"
+msgstr "Rotation paused"
+
+#: src/features/discover/FrontPage.tsx
+msgid "Rotation playing"
+msgstr "Rotation playing"
 
 #: src/features/commands/CommandPalette.tsx
 msgid "Run"

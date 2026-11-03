@@ -293,6 +293,30 @@
   }
 }
 
+/* Discover's lead changing (features/discover/FrontPage): the new card
+   fades in sliding a short way, the old one fades out the other way.
+   Opacity and transform only, so the compositor runs it with no repaint:
+   no filter, blur or layout property. Reduce effects and reduced motion
+   drop it (the rules below, and the lead never rotates then). */
+.lead-in {
+  animation: lead-in 400ms ease-in-out backwards;
+}
+.lead-out {
+  animation: lead-out 400ms ease-in-out forwards;
+}
+@keyframes lead-in {
+  from {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+}
+@keyframes lead-out {
+  to {
+    opacity: 0;
+    transform: translateX(-1rem);
+  }
+}
+
 /* Word-timed lyrics (features/player/useWordSync). A sung word is amber;
    a held note being sung is filled with amber from its start to --p (0–1,
    stepped by the word loop's timer, about 12 times a second) over its own

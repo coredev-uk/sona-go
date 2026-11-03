@@ -78,7 +78,8 @@ src/
                           in full, the index of the rest; Section.source marks Recently
                           Played), ItemRows (compact item rows, one Tab stop), local
                           fallback shelves
-    discover              Discover (New: the featured cards as a front page, the contents,
+    discover              Discover (New: the featured cards as a front page whose lead rotates
+                          (`useLeadRotation`), the contents,
                           the shelves in bands by what they hold), rooms, multirooms,
                           groupings, curators, Charts; registers the song/album/playlist
                           and music video item players
