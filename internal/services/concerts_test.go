@@ -80,7 +80,7 @@ func newConcertsEnv(t *testing.T, signedIn bool) concertsEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() { _ = d.Close() })
 	amp := &fakeConcerts{t: t}
 	srv := httptest.NewServer(amp)
 	t.Cleanup(srv.Close)

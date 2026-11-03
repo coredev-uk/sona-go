@@ -16,6 +16,7 @@ vi.mock("@tanstack/react-router", () => ({
   ),
 }));
 vi.mock("@/features/player", () => ({ playSongs: vi.fn(), shuffleSongs: vi.fn() }));
+vi.mock("@/features/concerts", () => ({ ArtistConcerts: () => null }));
 vi.mock("@/shared/actions/ActionMenu", () => ({
   ActionMenu: () => null,
   ItemActionMenu: () => null,
