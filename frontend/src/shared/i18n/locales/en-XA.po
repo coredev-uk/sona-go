@@ -71,6 +71,11 @@ msgid "{0, plural, one {# playlist} other {# playlists}}"
 msgstr ""
 
 #. placeholder {0}: list.total
+#: src/features/library/pages.tsx
+msgid "{0, plural, one {# single or EP} other {# singles & EPs}}"
+msgstr ""
+
+#. placeholder {0}: list.total
 #. placeholder {0}: p.trackCount
 #: src/features/home/LocalShelves.tsx
 #: src/features/library/pages.tsx
@@ -640,6 +645,10 @@ msgstr ""
 msgid "Album"
 msgstr ""
 
+#: src/features/library/pages.tsx
+msgid "Album type"
+msgstr ""
+
 #: src/features/artist/views.ts
 #: src/features/library/index.ts
 #: src/features/library/pages.tsx
@@ -664,6 +673,10 @@ msgstr ""
 
 #: src/features/library/pages.tsx
 msgid "Albums you add in Apple Music appear here after the next sync, newest first."
+msgstr ""
+
+#: src/features/library/pages.tsx
+msgid "All"
 msgstr ""
 
 #: src/features/discover/ChartPage.tsx
@@ -2465,6 +2478,10 @@ msgstr ""
 msgid "Every artist with a song or album in your library is listed here, A to Z."
 msgstr ""
 
+#: src/features/library/pages.tsx
+msgid "Everything in your library is a single or an EP."
+msgstr ""
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Everything Sona needs is working"
 msgstr ""
@@ -3558,6 +3575,10 @@ msgstr ""
 msgid "Next track"
 msgstr ""
 
+#: src/features/library/pages.tsx
+msgid "No albums besides singles and EPs"
+msgstr ""
+
 #: src/features/search/groups.ts
 msgid "No albums for “{q}”"
 msgstr ""
@@ -3680,6 +3701,10 @@ msgstr ""
 
 #: src/features/settings/Shortcuts.tsx
 msgid "No shortcut matches “{query}”."
+msgstr ""
+
+#: src/features/library/pages.tsx
+msgid "No singles or EPs in your library"
 msgstr ""
 
 #: src/features/search/groups.ts
@@ -5128,6 +5153,10 @@ msgstr ""
 msgid "Show all {songCount}"
 msgstr ""
 
+#: src/features/library/pages.tsx
+msgid "Show all albums"
+msgstr ""
+
 #: src/features/song/SongPage.tsx
 msgid "Show all lyrics"
 msgstr ""
@@ -5421,12 +5450,21 @@ msgstr ""
 msgid "Single"
 msgstr ""
 
+#: src/features/library/pages.tsx
+msgid "Singles & EPs"
+msgstr ""
+
 #: src/features/artist/views.ts
 msgid "Singles and EPs"
 msgstr ""
 
 #: src/features/artist/ArtistPage.tsx
+#: src/features/library/pages.tsx
 msgid "Singles and EPs in your library"
+msgstr ""
+
+#: src/features/library/pages.tsx
+msgid "Singles and EPs you add in Apple Music appear here after the next sync."
 msgstr ""
 
 #: src/features/settings/Diagnostics.tsx

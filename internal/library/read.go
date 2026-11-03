@@ -44,13 +44,37 @@ const (
 	SortLastModified Sort = "lastModified" // playlists
 )
 
+// AlbumType narrows the album list: all albums, standard albums, or
+// singles and EPs (see IsSingleRelease).
+type AlbumType string
+
+// Album types. An unknown type lists every album.
+const (
+	AlbumTypeAll    AlbumType = ""
+	AlbumTypeAlbum  AlbumType = "albums"
+	AlbumTypeSingle AlbumType = "singles"
+)
+
+// where is the SQL WHERE clause that keeps the albums of type t (none for
+// all).
+func (t AlbumType) where() string {
+	switch t {
+	case AlbumTypeAlbum:
+		return "WHERE a.is_single = 0"
+	case AlbumTypeSingle:
+		return "WHERE a.is_single = 1"
+	}
+	return ""
+}
+
 // ListOptions pages and orders a list. Limit 0 means 100; it is capped at
-// 1000.
+// 1000. Type applies to albums only.
 type ListOptions struct {
-	Sort   Sort `json:"sort"`
-	Desc   bool `json:"desc"`
-	Offset int  `json:"offset"`
-	Limit  int  `json:"limit"`
+	Sort   Sort      `json:"sort"`
+	Desc   bool      `json:"desc"`
+	Type   AlbumType `json:"type"`
+	Offset int       `json:"offset"`
+	Limit  int       `json:"limit"`
 }
 
 func (o ListOptions) page() (limit, offset int) {
@@ -92,6 +116,7 @@ type Album struct {
 	Genre           string    `json:"genre"`
 	TrackCount      int       `json:"trackCount"`
 	Explicit        bool      `json:"explicit"`
+	Single          bool      `json:"single"` // a single or an EP (IsSingleRelease)
 	DateAdded       time.Time `json:"dateAdded"`
 }
 
@@ -228,7 +253,7 @@ func (l *Library) Songs(ctx context.Context, o ListOptions) ([]Song, error) {
 }
 
 const albumColumns = `a.library_id, a.catalog_id, a.name, a.artist_name, a.artist_library_id,
-	a.artwork_template, a.release_date, a.genre, a.track_count, a.content_rating, li.date_added`
+	a.artwork_template, a.release_date, a.genre, a.track_count, a.content_rating, a.is_single, li.date_added`
 
 func scanAlbum(sc interface{ Scan(...any) error }) (Album, error) {
 	var a Album
@@ -236,7 +261,7 @@ func scanAlbum(sc interface{ Scan(...any) error }) (Album, error) {
 	var rating string
 	var added sql.NullInt64
 	err := sc.Scan(&lib, &cat, &a.Name, &a.ArtistName, &art, &a.ArtworkTemplate, &a.ReleaseDate, &a.Genre,
-		&a.TrackCount, &rating, &added)
+		&a.TrackCount, &rating, &a.Single, &added)
 	a.LibraryID, a.CatalogID, a.ArtistLibraryID = lib.String, cat.String, art.String
 	a.Explicit = rating == "explicit"
 	if added.Valid {
@@ -245,7 +270,7 @@ func scanAlbum(sc interface{ Scan(...any) error }) (Album, error) {
 	return a, err
 }
 
-// Albums lists library albums.
+// Albums lists library albums (o.Type narrows them).
 func (l *Library) Albums(ctx context.Context, o ListOptions) ([]Album, error) {
 	d := dir(o.Desc)
 	var order string
@@ -262,7 +287,20 @@ func (l *Library) Albums(ctx context.Context, o ListOptions) ([]Album, error) {
 	limit, offset := o.page()
 	return query(ctx, l, `SELECT `+albumColumns+` FROM albums a
 		JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
+		`+o.Type.where()+`
 		ORDER BY `+order+` LIMIT ? OFFSET ?`, scanAlbum, limit, offset)
+}
+
+// AlbumCount returns the number of library albums of type t.
+func (l *Library) AlbumCount(ctx context.Context, t AlbumType) (int, error) {
+	var n int
+	err := l.db.R.QueryRowContext(ctx, `SELECT count(*) FROM albums a
+		JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
+		`+t.where()).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("library: album count: %w", err)
+	}
+	return n, nil
 }
 
 func scanArtist(sc interface{ Scan(...any) error }) (Artist, error) {

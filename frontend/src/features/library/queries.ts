@@ -103,19 +103,29 @@ const fetchers: {
     desc: boolean,
     offset: number,
     limit: number,
+    type: string,
   ) => Promise<{ items: ListItem[K][]; total: number }>;
 } = {
   songs: LibraryService.Songs,
-  albums: LibraryService.Albums,
+  albums: (sort, desc, offset, limit, type) =>
+    LibraryService.Albums(sort, desc, type, offset, limit),
   artists: LibraryService.Artists,
   playlists: LibraryService.Playlists,
 };
 
-/** A library list (songs, albums, artists, playlists) in an order. */
-export function useLibraryList<K extends LibraryKind>(kind: K, sort: string, desc: boolean) {
+/**
+ * A library list (songs, albums, artists, playlists) in an order. `type`
+ * narrows albums to standard albums or singles and EPs ("" is all).
+ */
+export function useLibraryList<K extends LibraryKind>(
+  kind: K,
+  sort: string,
+  desc: boolean,
+  type = "",
+) {
   return usePagedList<ListItem[K]>(
-    (page) => keys.libraryPage(kind, sort, desc, page),
-    (offset, limit) => fetchers[kind](sort, desc, offset, limit),
+    (page) => keys.libraryPage(kind, sort, desc, page, type),
+    (offset, limit) => fetchers[kind](sort, desc, offset, limit, type),
   );
 }
 

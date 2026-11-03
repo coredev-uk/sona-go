@@ -28,8 +28,11 @@ export const keys = {
   libraryHistory: (days: number) => ["library", "recent", "history", days] as const,
   libraryList: (kind: LibraryKind, sort: string, desc: boolean) =>
     ["library", kind, sort, desc] as const,
-  libraryPage: (kind: LibraryKind, sort: string, desc: boolean, page: number) =>
-    ["library", kind, sort, desc, page] as const,
+  /** `type` narrows albums (library/search-params.ts); "" is every album. */
+  libraryPage: (kind: LibraryKind, sort: string, desc: boolean, page: number, type = "") =>
+    type
+      ? (["library", kind, sort, desc, page, type] as const)
+      : (["library", kind, sort, desc, page] as const),
   libraryAlbum: (id: string) => ["library", "album", id] as const,
   libraryArtist: (id: string) => ["library", "artist", id] as const,
   libraryPlaylist: (id: string) => ["library", "playlist", id] as const,

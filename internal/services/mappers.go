@@ -182,6 +182,7 @@ func (m mapper) libAlbum(a library.Album) Album {
 		Genre:       a.Genre,
 		TrackCount:  a.TrackCount,
 		Explicit:    a.Explicit,
+		Single:      a.Single,
 		DateAdded:   unixMs(a.DateAdded),
 		Art:         m.artOf(a.ArtworkTemplate),
 	}

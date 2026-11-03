@@ -80,17 +80,20 @@ func (s *LibraryService) Songs(ctx context.Context, sort string, desc bool, offs
 }
 
 // Albums lists library albums. sort is "title", "artist", "dateAdded" or
-// "releaseDate".
-func (s *LibraryService) Albums(ctx context.Context, sort string, desc bool, offset, limit int) (AlbumPage, error) {
-	albums, err := s.o.Library.Albums(ctx, listOpts(sort, desc, offset, limit))
+// "releaseDate"; albumType is "albums" (standard albums), "singles"
+// (singles and EPs) or "" (all). Total counts the albums of that type.
+func (s *LibraryService) Albums(ctx context.Context, sort string, desc bool, albumType string, offset, limit int) (AlbumPage, error) {
+	o := listOpts(sort, desc, offset, limit)
+	o.Type = library.AlbumType(albumType)
+	albums, err := s.o.Library.Albums(ctx, o)
 	if err != nil {
 		return AlbumPage{}, err
 	}
-	c, err := s.o.Library.Counts(ctx)
+	total, err := s.o.Library.AlbumCount(ctx, o.Type)
 	if err != nil {
 		return AlbumPage{}, err
 	}
-	return AlbumPage{Items: s.m.libAlbums(albums), Total: c.Albums}, nil
+	return AlbumPage{Items: s.m.libAlbums(albums), Total: total}, nil
 }
 
 // Artists lists library artists by name (sort "title").
