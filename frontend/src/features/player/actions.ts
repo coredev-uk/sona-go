@@ -3,7 +3,11 @@ import { ListEnd, ListStart } from "lucide-react";
 
 import type { ActionItem, ItemActionDef } from "@/shared/actions/registry";
 
+import { unavailableNow } from "./availability";
 import { queueItems } from "./commands";
+
+/** A live station has no queue to add to. */
+const noQueue = () => unavailableNow("queue");
 
 /** Selected songs can be queued when one of them plays; collections are checked when loaded. */
 const somePlayable = (items: readonly ActionItem[]) =>
@@ -23,6 +27,7 @@ export const playerActions: ItemActionDef[] = [
     icon: ListStart,
     group: "queue",
     order: 10,
+    disabledReason: noQueue,
     isEnabled: (song) => song.playable,
     run: (song) => void queueItems([{ kind: "song", target: song }], "next"),
   },
@@ -33,6 +38,7 @@ export const playerActions: ItemActionDef[] = [
     icon: ListEnd,
     group: "queue",
     order: 20,
+    disabledReason: noQueue,
     isEnabled: (song) => song.playable,
     run: (song) => void queueItems([{ kind: "song", target: song }], "last"),
   },
@@ -43,6 +49,7 @@ export const playerActions: ItemActionDef[] = [
     icon: ListStart,
     group: "queue",
     order: 10,
+    disabledReason: noQueue,
     run: (video) => void queueItems([{ kind: "music-video", target: video }], "next"),
   },
   {
@@ -52,6 +59,7 @@ export const playerActions: ItemActionDef[] = [
     icon: ListEnd,
     group: "queue",
     order: 20,
+    disabledReason: noQueue,
     run: (video) => void queueItems([{ kind: "music-video", target: video }], "last"),
   },
   {
@@ -62,6 +70,7 @@ export const playerActions: ItemActionDef[] = [
     icon: ListStart,
     group: "queue",
     order: 10,
+    disabledReason: noQueue,
     isEnabled: somePlayable,
     run: (items) => void queueItems(items, "next"),
   },
@@ -73,6 +82,7 @@ export const playerActions: ItemActionDef[] = [
     icon: ListEnd,
     group: "queue",
     order: 20,
+    disabledReason: noQueue,
     isEnabled: somePlayable,
     run: (items) => void queueItems(items, "last"),
   },

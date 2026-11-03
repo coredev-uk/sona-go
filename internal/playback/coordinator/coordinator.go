@@ -320,7 +320,13 @@ func (c *Coordinator) Snapshot() Snapshot {
 	} else if c.st.State == playback.StateError {
 		s.Error = c.st.Err
 	}
+	s.Controls = s.controls()
 	return s
+}
+
+// liveLocked reports whether the current item is a live radio stream.
+func (c *Coordinator) liveLocked() bool {
+	return c.index >= 0 && c.queue[c.index].item.Live()
 }
 
 // onAirLocked is what the current item's stream says is on air.
@@ -637,6 +643,10 @@ func (c *Coordinator) Next(ctx context.Context) error {
 	c.cmd.Lock()
 	defer c.cmd.Unlock()
 	c.mu.Lock()
+	if c.liveLocked() {
+		c.mu.Unlock()
+		return ErrLiveStation
+	}
 	next, ok := c.nextIndexLocked(false)
 	if len(c.queue) == 0 {
 		c.mu.Unlock()
@@ -673,6 +683,19 @@ func (c *Coordinator) Previous(ctx context.Context) error {
 	if c.index < 0 {
 		c.mu.Unlock()
 		return nil
+	}
+	if c.liveLocked() {
+		c.mu.Unlock()
+		return ErrLiveStation
+	}
+	if c.station != nil && !c.station.AutoPlay {
+		// A station has nothing before the song: Previous restarts it,
+		// and does nothing in its first moments.
+		if c.positionLocked(time.Now()) <= RestartThreshold {
+			c.mu.Unlock()
+			return nil
+		}
+		return c.restartLocked(ctx)
 	}
 	prev := c.index - 1
 	if prev < 0 && c.repeat != RepeatOff {
@@ -794,6 +817,10 @@ func (c *Coordinator) Seek(ctx context.Context, pos time.Duration) error {
 	if c.index < 0 {
 		c.mu.Unlock()
 		return nil
+	}
+	if c.liveLocked() {
+		c.mu.Unlock()
+		return ErrLiveStation
 	}
 	pos = max(pos, 0)
 	if c.st.Duration > 0 {

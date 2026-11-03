@@ -15,6 +15,8 @@ export { playSongs, playVideos, queueItems, shuffleSongs, type PlaySource } from
 export { replaceQueue } from "./replace";
 /** The playback mirror, the sung line and track announcements, for a second window (the mini player). */
 export { livePosition, lyricsSongId, useLivePosition, usePlayback } from "./playback";
+/** Why a control doesn't apply to what plays (a live station), for a second window. */
+export { useUnavailable } from "./availability";
 export { SungLine } from "./SungLine";
 export { TrackAnnouncer } from "./TrackAnnouncer";
 

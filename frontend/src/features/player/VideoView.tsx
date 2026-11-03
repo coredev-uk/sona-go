@@ -267,8 +267,8 @@ function VideoProblem({
 function VideoScreen({ current }: { current: QueueItem }) {
   const state = usePlayback((s) => s.state);
   const error = usePlayback((s) => s.error);
-  const canNext = usePlayback((s) => s.canNext);
-  const canPrevious = usePlayback((s) => s.canPrevious);
+  const canNext = usePlayback((s) => s.controls.next);
+  const canPrevious = usePlayback((s) => s.controls.previous);
   const closeOverlay = useUI((s) => s.closeOverlay);
   const caps = useCapabilities();
   const [full, setFull] = useFullscreen();

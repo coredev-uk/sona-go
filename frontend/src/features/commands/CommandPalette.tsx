@@ -168,7 +168,9 @@ function PaletteBody() {
     ? [...cards.artists, ...cards.albums, ...cards.playlists, ...cards.songs].slice(0, MAX_LIBRARY)
     : [];
 
-  const commands = registeredShortcuts().filter((s) => s.palette !== false && (s.when?.() ?? true));
+  const commands = registeredShortcuts().filter(
+    (s) => s.palette !== false && (s.when?.() ?? true) && !s.unavailable?.(),
+  );
   const list = sections(query, commands, items);
   const entries = list.flatMap((s) => s.entries);
   // Each section's first option index, for the options' ids.

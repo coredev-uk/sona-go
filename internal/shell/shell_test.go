@@ -37,9 +37,16 @@ func TestTrayModel(t *testing.T) {
 		t.Fatalf("idle: %+v", got)
 	}
 	cur := &coordinator.Entry{Item: coordinator.Item{Title: "Song", Artist: "Artist"}}
-	got := trayModel(coordinator.Snapshot{State: playback.StateLoading, Current: cur})
-	if got != (trayState{NowPlaying: "Song – Artist", Playing: true, HasItem: true}) {
+	skips := coordinator.Controls{Previous: true, Next: true}
+	got := trayModel(coordinator.Snapshot{State: playback.StateLoading, Current: cur, Controls: skips})
+	if got != (trayState{NowPlaying: "Song – Artist", Playing: true, HasItem: true, CanNext: true, CanPrevious: true}) {
 		t.Fatalf("loading: %+v", got)
+	}
+	// A live station can't be skipped: Previous and Next stay off (the
+	// controls, from the snapshot, decide).
+	got = trayModel(coordinator.Snapshot{State: playback.StatePlaying, Current: &coordinator.Entry{Item: coordinator.Item{Title: "KISS"}}})
+	if got != (trayState{NowPlaying: "KISS", Playing: true, HasItem: true}) {
+		t.Fatalf("live station: %+v", got)
 	}
 	got = trayModel(coordinator.Snapshot{State: playback.StatePaused, Current: &coordinator.Entry{Item: coordinator.Item{Title: "Song"}}})
 	if got != (trayState{NowPlaying: "Song", HasItem: true}) {
@@ -64,12 +71,12 @@ func TestTrayView(t *testing.T) {
 	if v := tr.view(fr); v != want {
 		t.Errorf("idle:\n%+v\nwant\n%+v", v, want)
 	}
-	tr.state = trayState{NowPlaying: "Song – Artist", Playing: true, HasItem: true}
+	tr.state = trayState{NowPlaying: "Song – Artist", Playing: true, HasItem: true, CanNext: true}
 	tr.miniOpen = true
 	tr.privateNow = privatemode.State{On: true, Source: privatemode.SourceEnvironment}
 	want = trayView{
 		now: "Song – Artist", play: "Pause", next: "Next", prev: "Previous", private: "Écoute privée (" + privatemode.EnvVar + "=1)",
-		show: "Show Sona", mini: "Fermer le mini lecteur", quit: "Quit Sona", hasItem: true, privateOn: true,
+		show: "Show Sona", mini: "Fermer le mini lecteur", quit: "Quit Sona", hasItem: true, canNext: true, privateOn: true,
 	}
 	if v := tr.view(fr); v != want {
 		t.Errorf("playing:\n%+v\nwant\n%+v", v, want)

@@ -11,7 +11,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useId, useState, type CSSProperties } from "react";
 
 import {
   lyricsSongId,
@@ -19,6 +19,7 @@ import {
   TrackAnnouncer,
   useLivePosition,
   usePlayback,
+  useUnavailable,
 } from "@/features/player";
 import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
@@ -86,28 +87,46 @@ function ChromeButton({
   );
 }
 
+/**
+ * A transport button. `unavailable` is why the control doesn't apply to
+ * what plays (a live station): the button stays focusable (aria-disabled)
+ * with the reason as its title and description, and a press does nothing.
+ */
 function TransportButton({
   label,
   icon: Icon,
   disabled,
+  unavailable,
   onClick,
 }: {
   label: string;
   icon: LucideIcon;
   disabled: boolean;
+  unavailable?: string;
   onClick: () => void;
 }) {
+  const reasonId = useId();
   return (
     <button
       type="button"
       aria-label={label}
-      title={label}
+      title={unavailable ? `${label}: ${unavailable}` : label}
+      aria-disabled={unavailable ? true : undefined}
+      aria-describedby={unavailable ? reasonId : undefined}
       disabled={disabled}
-      onClick={onClick}
+      onClick={unavailable ? undefined : onClick}
       style={noDrag}
-      className="grid size-7 place-items-center rounded-md text-ink-muted transition-colors duration-100 hover:bg-ink/8 hover:text-ink focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-40"
+      className={cn(
+        "grid size-7 place-items-center rounded-md text-ink-muted transition-colors duration-100 hover:bg-ink/8 hover:text-ink focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-40",
+        unavailable && "opacity-40 hover:bg-transparent hover:text-ink-muted",
+      )}
     >
       <Icon className="size-4" strokeWidth={1.75} fill="currentColor" />
+      {unavailable && (
+        <span id={reasonId} hidden>
+          {unavailable}
+        </span>
+      )}
     </button>
   );
 }
@@ -155,8 +174,10 @@ function Seek({ disabled, onSeek }: { disabled: boolean; onSeek: (ms: number) =>
 export function MiniPlayer() {
   const current = usePlayback((s) => s.current);
   const state = usePlayback((s) => s.state);
-  const canNext = usePlayback((s) => s.canNext);
-  const canPrevious = usePlayback((s) => s.canPrevious);
+  const canNext = usePlayback((s) => s.controls.next);
+  const canPrevious = usePlayback((s) => s.controls.previous);
+  const noNext = useUnavailable("next");
+  const noPrevious = useUnavailable("previous");
   const error = usePlayback((s) => s.error);
   const authRequired = usePlayback((s) => s.authRequired);
   const noCdm = usePlayback((s) => s.noCdm);
@@ -249,7 +270,8 @@ export function MiniPlayer() {
             <TransportButton
               label={t`Previous`}
               icon={SkipBack}
-              disabled={idle || !canPrevious}
+              disabled={idle || (!canPrevious && !noPrevious)}
+              unavailable={noPrevious}
               onClick={() => command(t`Couldn't go back`, PlaybackService.Prev())}
             />
             <button
@@ -272,7 +294,8 @@ export function MiniPlayer() {
             <TransportButton
               label={t`Next`}
               icon={SkipForward}
-              disabled={idle || !canNext}
+              disabled={idle || (!canNext && !noNext)}
+              unavailable={noNext}
               onClick={() => command(t`Couldn't skip`, PlaybackService.Next())}
             />
           </div>

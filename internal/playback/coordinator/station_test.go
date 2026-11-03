@@ -128,9 +128,9 @@ func TestStationRefill(t *testing.T) {
 		if h.current() != "ra.1-9" || len(h.ids()) != 12 {
 			t.Fatalf("current %s queue %v", h.current(), h.ids())
 		}
-		// Previous goes back through played station slots.
+		// A station has nothing before the song: Previous stays on it.
 		must(t, h.c.Previous(ctx))
-		if h.current() != "ra.1-8" {
+		if h.current() != "ra.1-9" {
 			t.Fatalf("previous: %s", h.current())
 		}
 	})

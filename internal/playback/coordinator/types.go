@@ -2,6 +2,8 @@ package coordinator
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/playback"
@@ -25,6 +27,11 @@ type Item struct {
 	// queued from (zero when none), reported with its plays.
 	Container Container `json:"container,omitzero"`
 }
+
+// Live reports whether the item is a live radio stream: a station
+// ("ra.…") with no duration, so no timeline to seek and nothing after it.
+// Station episodes have a duration and play like any other item.
+func (it Item) Live() bool { return strings.HasPrefix(it.ID, "ra.") && it.Duration <= 0 }
 
 // ContainerKind is the kind of collection an item was queued from.
 type ContainerKind string
@@ -149,6 +156,76 @@ type Snapshot struct {
 	// CanUndoReplace: UndoReplace can bring back the queue the last
 	// SetQueue or PlayStation replaced.
 	CanUndoReplace bool `json:"canUndoReplace"`
+	// Controls is what the playback controls can do now: the one place
+	// that says so, for every surface.
+	Controls Controls `json:"controls"`
+}
+
+// Controls says which playback controls apply to what is playing. Every
+// surface (the player bar, Now Playing, the mini player, shortcuts, the
+// tray, media keys, MPRIS) reads it from the snapshot instead of working
+// it out again.
+//
+// A live radio stream (Item.Live) has no timeline, no previous or next
+// item, nothing to shuffle, repeat or continue with AutoPlay, and no queue
+// to add to: only pause and the volume apply. A station that plays songs
+// (PlayStation, not AutoPlay) is endless: Next and the seek bar stay (the
+// songs are real tracks), Previous only restarts the song, and shuffle,
+// repeat, AutoPlay and queueing don't apply.
+type Controls struct {
+	Previous bool `json:"previous"` // Previous restarts the item or plays the one before (a station: restarts it only)
+	Next     bool `json:"next"`     // Next has an item to play
+	Seek     bool `json:"seek"`     // the item has a timeline
+	Shuffle  bool `json:"shuffle"`
+	Repeat   bool `json:"repeat"`
+	AutoPlay bool `json:"autoPlay"`
+	// Queue: Play Next and Add to Queue take effect.
+	Queue bool `json:"queue"`
+}
+
+// controls derives Controls from the snapshot's other fields.
+func (s Snapshot) controls() Controls {
+	if s.Current != nil && s.Current.Item.Live() {
+		return Controls{}
+	}
+	c := Controls{Shuffle: true, Repeat: true, AutoPlay: true, Queue: true}
+	if s.Station != nil && !s.Station.AutoPlay {
+		c.Shuffle, c.Repeat, c.AutoPlay, c.Queue = false, false, false, false
+	}
+	if s.Current == nil || len(s.Queue) == 0 {
+		return c
+	}
+	c.Previous, c.Seek = true, true
+	// A station (or AutoPlay, which only runs with repeat off) continues
+	// past the end of the queue.
+	c.Next = s.Index < len(s.Queue)-1 || s.Repeat == RepeatAll ||
+		s.Station != nil || (s.AutoPlay && s.Repeat == RepeatOff)
+	return c
+}
+
+// ErrLiveStation reports a control that does not apply while a live radio
+// station plays (see Controls).
+var ErrLiveStation = errors.New("coordinator: not available while listening to a live station")
+
+// ErrStation reports a control that does not apply while a station of songs
+// plays (see Controls).
+var ErrStation = errors.New("coordinator: not available while listening to a station")
+
+// Refusal is why a control is off for what plays now: ErrLiveStation or
+// ErrStation, or nil when it applies. Station and live snapshots only; a
+// control that is off for another reason (Next at the end of a queue) has
+// no refusal.
+func (s Snapshot) Refusal(on func(Controls) bool) error {
+	if on(s.Controls) {
+		return nil
+	}
+	switch {
+	case s.Current != nil && s.Current.Item.Live():
+		return ErrLiveStation
+	case s.Station != nil && !s.Station.AutoPlay:
+		return ErrStation
+	}
+	return nil
 }
 
 // SleepMode is when the sleep timer stops playback.

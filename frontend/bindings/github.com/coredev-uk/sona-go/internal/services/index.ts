@@ -134,6 +134,7 @@ export {
     Pin,
     PlayFrom,
     PlaybackCapabilities,
+    PlaybackControls,
     PlaybackState,
     Playlist,
     PlaylistCollaboration,

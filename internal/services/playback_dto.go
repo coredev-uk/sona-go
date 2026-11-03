@@ -100,6 +100,23 @@ type BroadcasterInfo struct {
 	Website     string `json:"website"` // an http(s) page, opened in the browser
 }
 
+// PlaybackControls is which playback controls apply to the current item.
+// While a live radio station plays, only pause and the volume do: it has
+// no timeline, nothing before or after it, and no queue to shuffle,
+// repeat, continue with AutoPlay or add to. A station that plays songs
+// keeps its skips. With nothing playing, Previous, Next and Seek are off
+// and the modes (Shuffle, Repeat, AutoPlay) and Queue stay on.
+type PlaybackControls struct {
+	Previous bool `json:"previous"`
+	Next     bool `json:"next"`
+	Seek     bool `json:"seek"`
+	Shuffle  bool `json:"shuffle"`
+	Repeat   bool `json:"repeat"`
+	AutoPlay bool `json:"autoPlay"`
+	// Queue: Play Next and Add to Queue take effect.
+	Queue bool `json:"queue"`
+}
+
 // PlaybackState is the now-playing state ("playback:state", latest wins).
 // PositionMs is exact at At (Unix ms); while State is "playing" the UI
 // extrapolates PositionMs + (now - At). Events are sent on changes only.
@@ -119,8 +136,9 @@ type PlaybackState struct {
 	Context      string `json:"context"`
 	QueueLength  int    `json:"queueLength"`
 	QueueVersion uint64 `json:"queueVersion"`
-	CanNext      bool   `json:"canNext"`
-	CanPrevious  bool   `json:"canPrevious"`
+	// Controls says which controls apply to what plays: every surface
+	// reads it, none works it out again.
+	Controls PlaybackControls `json:"controls"`
 	// Error is the latest playback failure (clears once an item plays).
 	Error ErrorCode `json:"error"`
 	// AuthRequired: Apple rejected the credentials; playback is paused

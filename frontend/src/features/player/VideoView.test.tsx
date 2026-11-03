@@ -105,8 +105,7 @@ beforeEach(() => {
     durationMs: 300_000,
     at: Date.now(),
     volume: 0.8,
-    canNext: true,
-    canPrevious: true,
+    controls: { ...emptyState.controls, next: true, previous: true, seek: true },
   });
   useUI.setState({ overlay: "video" });
 });

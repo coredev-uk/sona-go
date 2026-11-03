@@ -147,8 +147,7 @@ func (s *PlaybackService) state(snap coordinator.Snapshot) PlaybackState {
 		Context:        snap.Context,
 		QueueLength:    len(snap.Queue),
 		QueueVersion:   snap.QueueVersion,
-		CanNext:        canNext(snap),
-		CanPrevious:    snap.Current != nil,
+		Controls:       PlaybackControls(snap.Controls),
 		Error:          playbackError(snap),
 		AuthRequired:   snap.AuthRequired,
 		NoCDM:          snap.NoCDM,
@@ -200,16 +199,6 @@ func broadcaster(i playback.StationInfo) *BroadcasterInfo {
 		return nil
 	}
 	return &BroadcasterInfo{Description: i.Description, Genre: i.Genre, Location: i.Location, Website: i.Website}
-}
-
-func canNext(snap coordinator.Snapshot) bool {
-	if snap.Current == nil || len(snap.Queue) == 0 {
-		return false
-	}
-	// A station (or AutoPlay, which only runs with repeat off) continues
-	// past the end of the queue.
-	return snap.Index < len(snap.Queue)-1 || snap.Repeat == coordinator.RepeatAll ||
-		snap.Station != nil || (snap.AutoPlay && snap.Repeat == coordinator.RepeatOff)
 }
 
 // sleepTimer maps the coordinator's sleep timer for the UI.
@@ -270,7 +259,7 @@ func (s *PlaybackService) item(uid uint64, it coordinator.Item) QueueItem {
 		UID: uid, ID: m.id, Source: m.source, CatalogID: m.catalogID, LibraryID: m.libraryID,
 		Name: it.Title, Artist: it.Artist, Album: it.Album, AlbumID: m.albumID, ArtistID: m.artistID,
 		DurationMs: it.Duration.Milliseconds(), Art: s.m.artOf(it.Artwork),
-		Live:      isStationID(it.ID) && it.Duration <= 0,
+		Live:      it.Live(),
 		Broadcast: it.Broadcast,
 		Explicit:  it.Explicit,
 		Video:     playback.IsVideo(it.ID),
@@ -637,10 +626,15 @@ func (s *PlaybackService) libraryUnreleased(ctx context.Context, songs []library
 	return out
 }
 
-// PlayNext inserts refs after the current item.
+// PlayNext inserts refs after the current item. Like Append and Insert it
+// fails with coordinator.ErrLiveStation or ErrStation while a station
+// plays: the queue is the station.
 func (s *PlaybackService) PlayNext(ctx context.Context, refs []TrackRef) error {
 	if len(refs) == 0 {
 		return nil
+	}
+	if err := s.o.Coord.Snapshot().Refusal(func(c coordinator.Controls) bool { return c.Queue }); err != nil {
+		return err
 	}
 	items, _, err := s.resolve(ctx, refs, 0)
 	if err != nil {
@@ -655,6 +649,9 @@ func (s *PlaybackService) Append(ctx context.Context, refs []TrackRef) error {
 	if len(refs) == 0 {
 		return nil
 	}
+	if err := s.o.Coord.Snapshot().Refusal(func(c coordinator.Controls) bool { return c.Queue }); err != nil {
+		return err
+	}
 	items, _, err := s.resolve(ctx, refs, 0)
 	if err != nil {
 		return err
@@ -668,6 +665,9 @@ func (s *PlaybackService) Append(ctx context.Context, refs []TrackRef) error {
 func (s *PlaybackService) Insert(ctx context.Context, at int, refs []TrackRef) error {
 	if len(refs) == 0 {
 		return nil
+	}
+	if err := s.o.Coord.Snapshot().Refusal(func(c coordinator.Controls) bool { return c.Queue }); err != nil {
+		return err
 	}
 	items, _, err := s.resolve(ctx, refs, 0)
 	if err != nil {

@@ -23,8 +23,10 @@ type trayState struct {
 	NowPlaying string
 	// Playing: the play item reads Pause.
 	Playing bool
-	// HasItem: there is something to play, pause or skip.
+	// HasItem: there is something to play or pause.
 	HasItem bool
+	// CanNext and CanPrevious: skipping applies (not to a live station).
+	CanNext, CanPrevious bool
 }
 
 func trayModel(snap coordinator.Snapshot) trayState {
@@ -37,9 +39,11 @@ func trayModel(snap coordinator.Snapshot) trayState {
 		now += " – " + cur.Item.Artist
 	}
 	return trayState{
-		NowPlaying: now,
-		Playing:    snap.State == playback.StatePlaying || snap.State == playback.StateLoading,
-		HasItem:    true,
+		NowPlaying:  now,
+		Playing:     snap.State == playback.StatePlaying || snap.State == playback.StateLoading,
+		HasItem:     true,
+		CanNext:     snap.Controls.Next,
+		CanPrevious: snap.Controls.Previous,
 	}
 }
 
@@ -103,7 +107,8 @@ type tray struct {
 // trayView is the menu's text and states as written.
 type trayView struct {
 	now, play, next, prev, private, show, mini, quit string
-	hasItem, privateEnabled, privateOn               bool
+	hasItem, canNext, canPrevious                    bool
+	privateEnabled, privateOn                        bool
 }
 
 func newTray(s *Shell, icon []byte) *tray {
@@ -145,7 +150,7 @@ func (t *tray) view(p *l10n.Printer) trayView {
 	v := trayView{
 		now: st.NowPlaying, play: p.T(msgPlay), next: p.T(msgNext), prev: p.T(msgPrevious),
 		show: p.T(msgShowSona), mini: p.T(msgMiniPlayer), quit: p.T(msgQuitSona),
-		hasItem: st.HasItem, privateOn: priv.On,
+		hasItem: st.HasItem, canNext: st.CanNext, canPrevious: st.CanPrevious, privateOn: priv.On,
 	}
 	if v.now == "" {
 		v.now = p.T(msgNotPlaying)
@@ -181,8 +186,12 @@ func (t *tray) render() {
 	label(t.quit, v.quit, w.quit)
 	if all || v.hasItem != w.hasItem {
 		t.play.SetEnabled(v.hasItem)
-		t.next.SetEnabled(v.hasItem)
-		t.prev.SetEnabled(v.hasItem)
+	}
+	if all || v.canNext != w.canNext {
+		t.next.SetEnabled(v.canNext)
+	}
+	if all || v.canPrevious != w.canPrevious {
+		t.prev.SetEnabled(v.canPrevious)
 	}
 	if t.private != nil {
 		label(t.private, v.private, w.private)

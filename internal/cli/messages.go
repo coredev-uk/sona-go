@@ -137,6 +137,8 @@ const (
 	msgNotFound         l10n.Message = "it couldn't be found; it may have been removed"
 	msgNotPlayable      l10n.Message = "this song isn't available to stream in your storefront"
 	msgNotReleased      l10n.Message = "this song isn't out yet; it plays from its release date"
+	msgLiveStation      l10n.Message = "that isn't available while listening to a live station"
+	msgStation          l10n.Message = "that isn't available while listening to a station"
 	msgNoSubscription   l10n.Message = "this Apple Account doesn't have an active Apple Music subscription"
 	msgNoCDM            l10n.Message = "Sona needs Google's Widevine to play songs, and it isn't ready yet (Settings → Playback shows its progress)"
 	msgKeyring          l10n.Message = "your keyring didn't answer or refused; unlock it, then try again"

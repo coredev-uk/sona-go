@@ -284,6 +284,8 @@ var serviceErrors = map[string]l10n.Message{
 	"not_found":       msgNotFound,
 	"not_playable":    msgNotPlayable,
 	"not_released":    msgNotReleased,
+	"live_station":    msgLiveStation,
+	"station":         msgStation,
 	"no_subscription": msgNoSubscription,
 	"no_cdm":          msgNoCDM,
 	"keyring":         msgKeyring,

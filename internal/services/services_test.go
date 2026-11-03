@@ -15,7 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/godbus/dbus/v5"
+
 	"github.com/coredev-uk/sona-go/internal/app"
+	"github.com/coredev-uk/sona-go/internal/app/dbustest"
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/artwork"
 	"github.com/coredev-uk/sona-go/internal/auth"
@@ -327,20 +330,41 @@ func TestActivationEvents(t *testing.T) {
 	}
 }
 
+// queuedCoordinator is a coordinator that has started items[start] on an
+// engine that plays instantly, for the snapshots the media controls map.
+func queuedCoordinator(t *testing.T, items []coordinator.Item, start int) *coordinator.Coordinator {
+	t.Helper()
+	coord, err := coordinator.New(coordinator.Options{Engine: &playEngine{events: make(chan playback.Event)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = coord.Close() })
+	if err := coord.SetQueue(t.Context(), items, start, ""); err != nil {
+		t.Fatal(err)
+	}
+	return coord
+}
+
 func TestMPRISSnapshot(t *testing.T) {
 	item := coordinator.Item{ID: "1440", Title: "T", Duration: 3 * time.Minute}
-	snap := coordinator.Snapshot{
-		State: playback.StateLoading, Current: &coordinator.Entry{Item: item}, Index: 1,
-		Queue: []coordinator.Entry{{Item: item}, {Item: item}}, Repeat: coordinator.RepeatOne,
+	coord := queuedCoordinator(t, []coordinator.Item{item, item}, 1)
+	if err := coord.SetRepeat(coordinator.RepeatOne); err != nil {
+		t.Fatal(err)
 	}
+	snap := coord.Snapshot()
+	snap.State = playback.StateLoading
 	m := mprisSnapshot(snap, "file:///a.jpg")
-	if m.Status != mpris.StatusPlaying || m.Loop != mpris.LoopTrack || m.Track == nil || m.Track.Length != 3*time.Minute || m.Track.ArtURL != "file:///a.jpg" {
+	if m.Status != mpris.StatusPlaying || m.Loop != mpris.LoopTrack || m.Track == nil || m.Track.Length != time.Minute || m.Track.ArtURL != "file:///a.jpg" {
 		t.Errorf("loading snapshot = %+v", m)
 	}
-	if m.CanGoNext {
-		t.Error("CanGoNext on the last item without repeat all")
+	if m.CanGoNext || !m.CanGoPrevious || !m.CanSeek {
+		t.Errorf("last item without repeat all: next %v previous %v seek %v", m.CanGoNext, m.CanGoPrevious, m.CanSeek)
 	}
-	snap.Repeat, snap.State = coordinator.RepeatAll, playback.StateEnded
+	if err := coord.SetRepeat(coordinator.RepeatAll); err != nil {
+		t.Fatal(err)
+	}
+	snap = coord.Snapshot()
+	snap.State = playback.StateEnded
 	m = mprisSnapshot(snap, "")
 	if !m.CanGoNext || m.Status != mpris.StatusPaused || m.Loop != mpris.LoopPlaylist {
 		t.Errorf("ended snapshot = %+v", m)
@@ -350,12 +374,73 @@ func TestMPRISSnapshot(t *testing.T) {
 	}
 }
 
-func TestMPRISSnapshotOnAir(t *testing.T) {
-	item := coordinator.Item{ID: "ra.1445918457", Title: "KISS"}
-	snap := coordinator.Snapshot{
-		State: playback.StatePlaying, Current: &coordinator.Entry{Item: item}, Index: 0,
-		Queue: []coordinator.Entry{{Item: item}},
+// A live station has nothing to skip to, seek in, shuffle or repeat: MPRIS
+// reports it, and clients that write the modes anyway are refused.
+func TestMPRISLiveStation(t *testing.T) {
+	live := coordinator.Item{ID: "ra.1445918457", Title: "KISS"}
+	coord := queuedCoordinator(t, []coordinator.Item{live}, 0)
+	coord.SetShuffle(true)
+	if err := coord.SetRepeat(coordinator.RepeatAll); err != nil {
+		t.Fatal(err)
 	}
+	snap := coord.Snapshot()
+	m := mprisSnapshot(snap, "")
+	if m.CanGoNext || m.CanGoPrevious || m.CanSeek || !m.CanPause || !m.CanPlay || !m.CanControl {
+		t.Errorf("live station: next %v previous %v seek %v pause %v play %v control %v", m.CanGoNext, m.CanGoPrevious, m.CanSeek, m.CanPause, m.CanPlay, m.CanControl)
+	}
+	if m.Shuffle || m.Loop != mpris.LoopNone {
+		t.Errorf("live station reports shuffle %v, loop %q", m.Shuffle, m.Loop)
+	}
+
+	p := NewMPRISPlayer(coord, func() {}, func() {}, discard())
+	if err := p.SetShuffle(t.Context(), false); !errors.Is(err, coordinator.ErrLiveStation) {
+		t.Errorf("SetShuffle on a live station = %v", err)
+	}
+	if err := p.SetLoopStatus(t.Context(), mpris.LoopNone); !errors.Is(err, coordinator.ErrLiveStation) {
+		t.Errorf("SetLoopStatus on a live station = %v", err)
+	}
+	if got := coord.Snapshot(); !got.Shuffle || got.Repeat != coordinator.RepeatAll {
+		t.Errorf("a refused write changed the modes: shuffle %v, repeat %q", got.Shuffle, got.Repeat)
+	}
+	if err := p.Stop(t.Context()); err != nil {
+		t.Errorf("Stop on a live station = %v", err)
+	}
+
+	// Songs bring the modes back.
+	song := coordinator.Item{ID: "1440", Title: "T", Duration: time.Minute}
+	if err := coord.SetQueue(t.Context(), []coordinator.Item{song, song}, 0, ""); err != nil {
+		t.Fatal(err)
+	}
+	m = mprisSnapshot(coord.Snapshot(), "")
+	if !m.Shuffle || m.Loop != mpris.LoopPlaylist || !m.CanGoNext || !m.CanSeek {
+		t.Errorf("after the station: shuffle %v, loop %q, next %v, seek %v", m.Shuffle, m.Loop, m.CanGoNext, m.CanSeek)
+	}
+	if err := p.SetShuffle(t.Context(), false); err != nil {
+		t.Errorf("SetShuffle on songs = %v", err)
+	}
+}
+
+// A station of songs keeps Next and the timeline, restarts on Previous, and
+// refuses what makes no sense on an endless station like a live one does.
+func TestMPRISSongStation(t *testing.T) {
+	song := coordinator.Item{ID: "1440", Title: "T", Duration: time.Minute}
+	coord := queuedCoordinator(t, []coordinator.Item{song, song}, 0)
+	coord.SetShuffle(true)
+	snap := coord.Snapshot()
+	snap.Station = &coordinator.Station{ID: "ra.1", Name: "Hits"}
+	snap.Controls = coordinator.Controls{Previous: true, Next: true, Seek: true}
+	m := mprisSnapshot(snap, "")
+	if !m.CanGoNext || !m.CanGoPrevious || !m.CanSeek || m.Shuffle || m.Loop != mpris.LoopNone {
+		t.Errorf("station of songs: next %v previous %v seek %v shuffle %v loop %q", m.CanGoNext, m.CanGoPrevious, m.CanSeek, m.Shuffle, m.Loop)
+	}
+	if err := snap.Refusal(func(c coordinator.Controls) bool { return c.Repeat }); !errors.Is(err, coordinator.ErrStation) {
+		t.Errorf("repeat refusal = %v", err)
+	}
+}
+
+func TestMPRISSnapshotOnAir(t *testing.T) {
+	coord := queuedCoordinator(t, []coordinator.Item{{ID: "ra.1445918457", Title: "KISS"}}, 0)
+	snap := coord.Snapshot()
 	if m := mprisSnapshot(snap, ""); m.Track.Title != "KISS" || m.Track.Artist != "" || m.CanSeek {
 		t.Errorf("silent broadcaster = %+v", m.Track)
 	}
@@ -393,3 +478,56 @@ func TestMPRISArtTemplate(t *testing.T) {
 }
 
 func discard() *slog.Logger { return slog.New(slog.DiscardHandler) }
+
+// A desktop shell or playerctl reads a live station off the bus: nothing to
+// skip to or seek, shuffle and loop off, and writes to either are refused
+// without touching the queue.
+func TestMPRISLiveStationOverTheBus(t *testing.T) {
+	live := coordinator.Item{ID: "ra.1445918457", Title: "KISS"}
+	coord := queuedCoordinator(t, []coordinator.Item{live}, 0)
+	addr := dbustest.Start(t)
+	player := NewMPRISPlayer(coord, func() {}, func() {}, discard())
+	srv, err := mpris.New(dbustest.Conn(t, addr), player, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+	obj := dbustest.Conn(t, addr).Object(mpris.BusName, mpris.ObjectPath)
+	const iface = "org.mpris.MediaPlayer2.Player"
+	prop := func(name string) any {
+		t.Helper()
+		v, err := obj.GetProperty(iface + "." + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v.Value()
+	}
+
+	for _, name := range []string{"CanGoNext", "CanGoPrevious", "CanSeek", "Shuffle"} {
+		if prop(name) != false {
+			t.Errorf("%s = %v on a live station, want false", name, prop(name))
+		}
+	}
+	for _, name := range []string{"CanPlay", "CanPause", "CanControl"} {
+		if prop(name) != true {
+			t.Errorf("%s = %v on a live station, want true", name, prop(name))
+		}
+	}
+	if prop("LoopStatus") != "None" {
+		t.Errorf("LoopStatus = %v", prop("LoopStatus"))
+	}
+	if err := obj.SetProperty(iface+".Shuffle", dbus.MakeVariant(true)); err == nil {
+		t.Error("a live station accepted Shuffle")
+	}
+	if err := obj.SetProperty(iface+".LoopStatus", dbus.MakeVariant("Playlist")); err == nil {
+		t.Error("a live station accepted LoopStatus")
+	}
+	for _, m := range []string{"Next", "Previous"} {
+		if err := obj.Call(iface+"."+m, 0).Err; err != nil {
+			t.Errorf("%s: %v", m, err)
+		}
+	}
+	if s := coord.Snapshot(); s.Shuffle || s.Repeat != coordinator.RepeatOff || s.Current == nil || s.Current.Item.ID != live.ID {
+		t.Errorf("the bus changed the station's queue: shuffle %v, repeat %q, current %+v", s.Shuffle, s.Repeat, s.Current)
+	}
+}

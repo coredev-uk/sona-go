@@ -379,15 +379,11 @@ func trackNotification(p *l10n.Printer, item coordinator.Item, image string) not
 		}
 		body += item.Album
 	}
-	return notify.Notification{
-		Summary: item.Title,
-		Body:    body,
-		Image:   image,
-		Actions: []notify.Action{
-			{Key: notify.DefaultAction, Label: p.T(msgShowSona)},
-			{Key: actionNext, Label: p.T(msgNextSong)},
-		},
+	actions := []notify.Action{{Key: notify.DefaultAction, Label: p.T(msgShowSona)}}
+	if !item.Live() { // a live station has no next song
+		actions = append(actions, notify.Action{Key: actionNext, Label: p.T(msgNextSong)})
 	}
+	return notify.Notification{Summary: item.Title, Body: body, Image: image, Actions: actions}
 }
 
 // presenceFor is the Discord activity for snap: the current track while it

@@ -3966,6 +3966,14 @@ msgstr "Not available on {platform} yet."
 msgid "Not available on this platform yet"
 msgstr "Not available on this platform yet"
 
+#: src/features/player/availability.ts
+msgid "Not available while listening to a live station"
+msgstr "Not available while listening to a live station"
+
+#: src/features/player/availability.ts
+msgid "Not available while listening to a station"
+msgstr "Not available while listening to a station"
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Not checked yet"
 msgstr "Not checked yet"
@@ -6601,6 +6609,14 @@ msgstr "This development build of Sona starts with private listening on. Switchi
 #: src/features/auth/Account.tsx
 msgid "This happens after a password change or when the token expires. Your library on this computer is still here; sign in again to keep syncing and playing."
 msgstr "This happens after a password change or when the token expires. Your library on this computer is still here; sign in again to keep syncing and playing."
+
+#: src/shared/lib/errors.ts
+msgid "This isn't available while listening to a live station."
+msgstr "This isn't available while listening to a live station."
+
+#: src/shared/lib/errors.ts
+msgid "This isn't available while listening to a station."
+msgstr "This isn't available while listening to a station."
 
 #: src/shared/components/DetailStates.tsx
 msgid "This music video isn't available"

@@ -111,6 +111,14 @@ change keeps and how to check them.
   `features/player/announce.ts`, `TrackAnnouncer.tsx`), once the engine
   reports the track as playing. The track restored paused at launch,
   play/pause, seeking and repeating the same track stay quiet.
+- A control that doesn't apply to what plays (Previous, Next, Shuffle, Repeat
+  and the AutoPlay toggle on a live station; Shuffle, Repeat and AutoPlay on a
+  station of songs) is `aria-disabled`, not
+  `disabled`, so it keeps focus; its reason ("Not available while listening
+  to a live station" or "…to a station") is its `aria-describedby` and its tooltip's second
+  line. A shortcut for one (Ctrl+←/→, Shift+←/→, S, R) does nothing and says
+  the same reason once through the notifications region (`Notifications`
+  toast region, polite) however long the key is held.
 - Errors are `role=alert` with the field `aria-invalid`; filter results
   with no match are announced in a `role=status`.
 - Lyrics are not a live region. Each synced line in Now Playing is one

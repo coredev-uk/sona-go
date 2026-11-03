@@ -15,6 +15,7 @@ import { fetchItemState } from "@/shared/lib/item-state";
 import { rateItem } from "@/shared/lib/library-actions";
 import { run } from "@/shared/lib/run";
 
+import { refuse } from "./availability";
 import { livePosition, usePlayback, type Repeat } from "./playback";
 import { replaceQueue } from "./replace";
 import { useUI } from "./ui";
@@ -97,6 +98,7 @@ export function setSleep(mode: "" | "after" | "track" | "queue", minutes = 0) {
  * queue, or at queue position `at` (a drop on the queue panel).
  */
 export async function queueItems(items: readonly ActionItem[], where: "next" | "last" | number) {
+  if (refuse("queue")) return;
   let refs: TrackRef[];
   try {
     const lists = await Promise.all(
@@ -131,10 +133,10 @@ export async function queueItems(items: readonly ActionItem[], where: "next" | "
   );
 }
 
-/** Seeks `deltaMs` from the live position, within the track (not on live radio). */
+/** Seeks `deltaMs` from the live position, within the track (a live station says it can't). */
 export function seekBy(deltaMs: number) {
   const s = usePlayback.getState();
-  if (!s.current || s.current.live || s.durationMs <= 0) return;
+  if (!s.current || refuse("seek") || s.durationMs <= 0) return;
   const to = Math.min(Math.max(livePosition(s, Date.now()) + deltaMs, 0), s.durationMs);
   s.patch({ positionMs: to, at: Date.now() });
   void run(t`Couldn't seek`, PlaybackService.Seek(to));
@@ -157,7 +159,7 @@ export function toggleMute() {
 
 export function toggleShuffle() {
   const s = usePlayback.getState();
-  if (!s.current) return;
+  if (!s.current || refuse("shuffle")) return;
   void run(t`Couldn't change shuffle`, PlaybackService.SetShuffle(!s.shuffle));
 }
 
@@ -165,7 +167,7 @@ export const nextRepeat: Record<Repeat, Repeat> = { off: "all", all: "one", one:
 
 export function cycleRepeat() {
   const s = usePlayback.getState();
-  if (!s.current) return;
+  if (!s.current || refuse("repeat")) return;
   void run(t`Couldn't change repeat`, PlaybackService.SetRepeat(nextRepeat[s.repeat as Repeat]));
 }
 
