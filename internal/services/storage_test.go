@@ -26,6 +26,9 @@ func TestSignOutRemovesUserArtwork(t *testing.T) {
 		return "https://is1-ssl.mzstatic.com/image/thumb/" + name + "/{w}x{h}bb.jpg"
 	}
 	cover, played, shared, catalog := tmpl("user-cover"), tmpl("played"), tmpl("shared"), tmpl("catalog")
+	// A playlist's mosaic is composed from catalogue albums, yet it is the
+	// user's own cover.
+	mosaic := artwork.Mosaic([]string{catalog, shared, tmpl("m3"), tmpl("m4")})
 	q := d.Q
 	for _, err := range []error{
 		func() error {
@@ -62,7 +65,7 @@ func TestSignOutRemovesUserArtwork(t *testing.T) {
 		t.Fatal(err)
 	}
 	keyOf := map[string]string{}
-	for _, tp := range []string{cover, played, shared, catalog} {
+	for _, tp := range []string{cover, played, shared, catalog, mosaic} {
 		key := strings.Split(strings.TrimPrefix(probe.URL(tp, 128, 128), "/art/"), "/")[0]
 		keyOf[tp] = key
 		if err := os.MkdirAll(filepath.Join(dir, key), 0o755); err != nil {
@@ -86,7 +89,7 @@ func TestSignOutRemovesUserArtwork(t *testing.T) {
 	if err := d.WipeUserData(ctx); err != nil {
 		t.Fatal(err)
 	}
-	for tp, wantKept := range map[string]bool{cover: false, played: false, shared: true, catalog: true} {
+	for tp, wantKept := range map[string]bool{cover: false, played: false, shared: true, catalog: true, mosaic: false} {
 		_, err := os.Stat(filepath.Join(dir, keyOf[tp]))
 		if kept := err == nil; kept != wantKept {
 			t.Errorf("%s: on disk %v, want %v", tp, kept, wantKept)

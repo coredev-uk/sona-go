@@ -202,14 +202,15 @@ func (s *StorageService) prune(ctx context.Context) (int64, error) {
 
 // wipeUserArtwork removes from the artwork cache what only the signed-in
 // user's data references (library playlist covers, personal mixes,
-// history, …; see db.UserArtwork) before sign-out wipes that data.
-// Catalogue artwork stays.
+// history, …; see db.UserArtwork) and the mosaic covers composed for their
+// playlists before sign-out wipes that data. Catalogue artwork stays.
 func wipeUserArtwork(ctx context.Context, d *db.DB, art *artwork.Cache, log *slog.Logger) error {
 	refs, err := d.UserArtwork(ctx)
 	if err != nil {
 		return err
 	}
 	freed, err := art.Remove(refs)
-	log.Info("storage: user artwork removed", "items", len(refs), "bytes", freed)
-	return err
+	mosaics, errMosaics := art.RemoveMosaics()
+	log.Info("storage: user artwork removed", "items", len(refs), "bytes", freed+mosaics)
+	return errors.Join(err, errMosaics)
 }

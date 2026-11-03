@@ -55,6 +55,9 @@ func (l *Library) RecentlyAdded(ctx context.Context, o ListOptions) ([]Added, in
 	}
 	pls, err := query(ctx, l, `SELECT `+playlistColumns+` FROM playlists p
 		JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id WHERE p.library_id IN (`+placeholders(len(playlistIDs))+`)`, scanPlaylist, playlistIDs...)
+	if err == nil {
+		err = l.FillCovers(ctx, pls)
+	}
 	if err != nil {
 		return nil, 0, err
 	}

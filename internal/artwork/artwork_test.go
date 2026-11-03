@@ -88,12 +88,22 @@ func (s *imageServer) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	rng := rand.New(rand.NewPCG(uint64(iw*ih), uint64(len(r.URL.Path))))
 	img := image.NewRGBA(image.Rect(0, 0, iw, ih))
+	// An image whose path holds "/solid-rrggbb/" is that one colour.
+	var solid color.RGBA
+	if i := strings.Index(r.URL.Path, "/solid-"); i >= 0 {
+		var rgb uint32
+		_, _ = fmt.Sscanf(r.URL.Path[i+len("/solid-"):i+len("/solid-")+6], "%06x", &rgb)
+		solid = color.RGBA{uint8(rgb >> 16), uint8(rgb >> 8), uint8(rgb), 255}
+	}
 	for y := range ih {
 		for x := range iw {
 			j := uint8(rng.IntN(40))
-			if x < iw/2 {
+			switch {
+			case solid.A != 0:
+				img.Set(x, y, solid)
+			case x < iw/2:
 				img.Set(x, y, color.RGBA{200 + j/2, 20 + j, 20 + j, 255})
-			} else {
+			default:
 				img.Set(x, y, color.RGBA{20 + j, 50 + j, 200 + j/2, 255})
 			}
 		}

@@ -311,9 +311,13 @@ func (l *Library) Playlists(ctx context.Context, o ListOptions) ([]Playlist, err
 		order = "p.name COLLATE NOCASE " + d + ", p.id"
 	}
 	limit, offset := o.page()
-	return query(ctx, l, `SELECT `+playlistColumns+` FROM playlists p
+	pls, err := query(ctx, l, `SELECT `+playlistColumns+` FROM playlists p
 		JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
 		ORDER BY `+order+` LIMIT ? OFFSET ?`, scanPlaylist, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	return pls, l.FillCovers(ctx, pls)
 }
 
 func one[T any](items []T, err error) (T, error) {
@@ -373,6 +377,11 @@ func (l *Library) Playlist(ctx context.Context, id string, o ListOptions) (Playl
 	if err != nil {
 		return Playlist{}, nil, err
 	}
+	pls := []Playlist{p}
+	if err := l.FillCovers(ctx, pls); err != nil {
+		return Playlist{}, nil, err
+	}
+	p = pls[0]
 	limit, offset := o.page()
 	songs, err := query(ctx, l, `SELECT `+trackColumns+` FROM playlist_tracks pt
 		JOIN playlists p ON p.id = pt.playlist_id
