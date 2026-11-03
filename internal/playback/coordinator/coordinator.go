@@ -295,6 +295,7 @@ func (c *Coordinator) Snapshot() Snapshot {
 		NoCDM:          c.noCDM,
 		Preview:        c.index >= 0 && c.st.Preview,
 		OnAir:          c.onAirLocked(),
+		Info:           c.infoLocked(),
 		AutoPlay:       c.autoplay,
 		Restricted:     c.restricted,
 		CanUndoReplace: c.undo != nil,
@@ -328,6 +329,14 @@ func (c *Coordinator) onAirLocked() playback.OnAir {
 		return playback.OnAir{}
 	}
 	return c.st.OnAir
+}
+
+// infoLocked is what is known about the current item's broadcaster.
+func (c *Coordinator) infoLocked() playback.StationInfo {
+	if c.index < 0 {
+		return playback.StationInfo{}
+	}
+	return c.st.Info
 }
 
 // SetQueue replaces the queue with items and plays items[start]. label
@@ -1652,7 +1661,9 @@ func (c *Coordinator) startFillLocked() *fillCall {
 func (c *Coordinator) seedsLocked() []Item {
 	// Stations and music videos seed no AutoPlay station (Apple makes one
 	// from a song).
-	seed := func(e entry) bool { return !e.auto && !strings.HasPrefix(e.item.ID, "ra.") && !playback.IsVideo(e.item.ID) }
+	seed := func(e entry) bool {
+		return !e.auto && !strings.HasPrefix(e.item.ID, "ra.") && !playback.IsVideo(e.item.ID)
+	}
 	if c.shuffle {
 		for i := len(c.original) - 1; i >= 0; i-- {
 			if j := c.indexOfLocked(c.original[i]); j >= 0 && seed(c.queue[j]) {

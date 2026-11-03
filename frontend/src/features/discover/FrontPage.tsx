@@ -12,7 +12,7 @@ import {
 } from "react";
 
 import { ContextActionMenu } from "@/shared/actions/ActionMenu";
-import { openExternal } from "@/shared/items/cover";
+import { openWithoutPage } from "@/shared/items/cover";
 import { ItemMenu } from "@/shared/items/ItemMenu";
 import { actionItemOf, itemLink, itemSubtitle } from "@/shared/items/links";
 import { canPlay, playItem } from "@/shared/items/play";
@@ -271,7 +271,7 @@ function Opener({ item, className }: { item: Item; className: string }) {
     <button
       type="button"
       className={`${openerClassName} ${className}`}
-      onClick={() => openExternal(item)}
+      onClick={() => openWithoutPage(item)}
     >
       {item.name}
     </button>

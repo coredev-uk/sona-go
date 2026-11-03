@@ -4040,6 +4040,7 @@ msgstr "OK"
 msgid "On"
 msgstr "On"
 
+#: src/features/player/NowPlayingView.tsx
 #: src/features/radio/StationPage.tsx
 msgid "On air"
 msgstr "On air"
@@ -4136,6 +4137,10 @@ msgstr "Open the page again"
 msgid "Open the web inspector"
 msgstr "Open the web inspector"
 
+#: src/features/player/NowPlayingView.tsx
+msgid "Open website"
+msgstr "Open website"
+
 #: src/shared/items/LinkList.tsx
 msgid "Opens in your browser"
 msgstr "Opens in your browser"
@@ -4220,6 +4225,8 @@ msgstr "Paste your user token first."
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
 #: src/features/player/VideoView.tsx
+#: src/features/radio/OnAir.tsx
+#: src/shared/items/StationList.tsx
 msgid "Pause"
 msgstr "Pause"
 
@@ -4294,13 +4301,18 @@ msgstr "Pinned “{name}”"
 msgid "Platform"
 msgstr "Platform"
 
+#: src/features/home/ItemRows.tsx
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
 #: src/features/player/VideoView.tsx
 #: src/features/playlist/PlaylistSidebar.tsx
 #: src/features/radio/index.ts
+#: src/features/radio/OnAir.tsx
 #: src/features/search/ItemRow.tsx
+#: src/shared/components/CoverGrid.tsx
 #: src/shared/components/PlayButtons.tsx
+#: src/shared/items/LinkList.tsx
+#: src/shared/items/StationList.tsx
 msgid "Play"
 msgstr "Play"
 
@@ -4350,6 +4362,10 @@ msgstr "Play or pause"
 #: src/features/video/VideoPage.tsx
 msgid "Play the song"
 msgstr "Play the song"
+
+#: src/features/radio/StationPage.tsx
+msgid "Play the station to see what is on air."
+msgstr "Play the station to see what is on air."
 
 #: src/features/library/views.tsx
 msgid "Play your favourite songs"
@@ -6457,6 +6473,10 @@ msgstr "This song isn't available to stream in your storefront."
 #: src/shared/lib/errors.ts
 msgid "This song isn't out yet. It plays from its release date."
 msgstr "This song isn't out yet. It plays from its release date."
+
+#: src/features/radio/StationPage.tsx
+msgid "This station isn't naming what it is playing."
+msgstr "This station isn't naming what it is playing."
 
 #: src/shared/items/station.ts
 msgid "This stream isn't offered with Widevine, the only protection Sona can play."

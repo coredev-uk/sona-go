@@ -8,8 +8,10 @@ import { canPlayVideo } from "./play";
 export type ItemLinkProps = Pick<LinkProps, "to" | "params" | "search">;
 
 /**
- * The Sona page an item opens, by kind; `undefined` for items that exist
- * only on the web (kind "link", opened with `openExternal`).
+ * The Sona page an item opens, by kind; `undefined` for items that have
+ * none: those that exist only on the web (kind "link", opened with
+ * `openWithoutPage`) and stations with nothing to show on a page (a local
+ * broadcaster has no schedule), which play when they are opened.
  */
 export function itemLink(item: Item): ItemLinkProps | undefined {
   const params = { id: item.id };
@@ -23,7 +25,7 @@ export function itemLink(item: Item): ItemLinkProps | undefined {
     case "song":
       return { to: "/song/$id", params };
     case "station":
-      return { to: "/station/$id", params };
+      return item.station && !item.station.hasPage ? undefined : { to: "/station/$id", params };
     case "music-video":
       return { to: "/music-video/$id", params };
     case "curator":

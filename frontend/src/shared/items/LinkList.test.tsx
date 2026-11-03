@@ -5,7 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { I18nRoot } from "@/shared/i18n";
 
-import { openExternal } from "./cover";
+import { openWithoutPage } from "./cover";
 import { LinkList } from "./LinkList";
 
 vi.mock("@tanstack/react-router", () => ({
@@ -30,7 +30,10 @@ vi.mock("@tanstack/react-router", () => ({
     </a>
   ),
 }));
-vi.mock("./cover", () => ({ openExternal: vi.fn() }));
+vi.mock("./cover", () => ({
+  openWithoutPage: vi.fn(),
+  playsWhenOpened: (i: Item) => i.kind === "station",
+}));
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -82,7 +85,16 @@ describe("LinkList", () => {
       "Opens in your browser",
     );
     fireEvent.click(concerts);
-    expect(openExternal).toHaveBeenCalledWith(items[0]);
+    expect(openWithoutPage).toHaveBeenCalledWith(items[0]);
+  });
+
+  it("plays a station with no page: a button named by its text with Play after it, no arrow", () => {
+    const station = { ...link("station", "ra.1", "Local FM"), station: { hasPage: false } } as Item;
+    render(<LinkList title="Stations" items={[station]} />, { wrapper: I18nRoot });
+    const tile = screen.getByRole("button", { name: "Local FM Play" });
+    expect(tile.querySelector("[aria-label]")).toBeNull();
+    fireEvent.click(tile);
+    expect(openWithoutPage).toHaveBeenCalledWith(station);
   });
 
   it("names the region by its heading, and a continuation without one 'More links'", () => {

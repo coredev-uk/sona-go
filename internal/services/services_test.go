@@ -369,4 +369,27 @@ func TestMPRISSnapshotOnAir(t *testing.T) {
 	}
 }
 
+// MPRIS shows the cover of the song on air when the catalog has it, else
+// the station's.
+func TestMPRISArtTemplate(t *testing.T) {
+	item := coordinator.Item{ID: "ra.1", Title: "KISS", Artwork: "https://is1-ssl.mzstatic.com/station/{w}x{h}.jpg"}
+	snap := coordinator.Snapshot{State: playback.StatePlaying, Current: &coordinator.Entry{Item: item}}
+	if got := mprisArtTemplate(snap); got != item.Artwork {
+		t.Errorf("nothing on air: %q", got)
+	}
+	song := "https://is1-ssl.mzstatic.com/song/{w}x{h}.jpg"
+	snap.OnAir = playback.OnAir{Title: "Song", Artist: "Artist", Art: song}
+	if got := mprisArtTemplate(snap); got != song {
+		t.Errorf("song on air: %q", got)
+	}
+	// A cover left over from a song the stream no longer names.
+	snap.OnAir = playback.OnAir{Art: song}
+	if got := mprisArtTemplate(snap); got != item.Artwork {
+		t.Errorf("nothing named on air: %q", got)
+	}
+	if got := mprisArtTemplate(coordinator.Snapshot{}); got != "" {
+		t.Errorf("nothing playing: %q", got)
+	}
+}
+
 func discard() *slog.Logger { return slog.New(slog.DiscardHandler) }

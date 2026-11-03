@@ -125,3 +125,40 @@ func TestStreamStations(t *testing.T) {
 		t.Error("a mixed or empty shelf is a station list")
 	}
 }
+
+// Which stations have a page to open: only those with something to show
+// there. A broadcaster has no schedule, and nothing else is known of it
+// before it plays, so it plays when it is opened; a live station is
+// judged by its schedule once that is known.
+func TestStationHasPage(t *testing.T) {
+	st := func(p applemusic.StationPlayParams, live bool) applemusic.Station {
+		var s applemusic.Station
+		s.Attributes.IsLive, s.Attributes.PlayParams = live, &p
+		return s
+	}
+	stream := applemusic.StationFormatStream
+	for _, tc := range []struct {
+		name      string
+		st        applemusic.Station
+		scheduled int
+		want      bool
+	}{
+		{"Apple's live station, in a list", st(applemusic.StationPlayParams{Format: stream, HasDRM: true}, true), -1, true},
+		{"Apple's live station with its schedule", st(applemusic.StationPlayParams{Format: stream, HasDRM: true}, true), 12, true},
+		{"Apple's live station without one", st(applemusic.StationPlayParams{Format: stream, HasDRM: true}, true), 0, false},
+		{"Global's broadcaster", st(applemusic.StationPlayParams{Format: stream}, true), -1, false},
+		{"TuneIn's broadcaster", st(applemusic.StationPlayParams{Format: stream, StreamingKind: 2}, true), -1, false},
+		{"a broadcaster with a schedule Apple did list", st(applemusic.StationPlayParams{Format: stream}, true), 5, false},
+		{"a radio episode", st(applemusic.StationPlayParams{Format: stream, HasDRM: true, StreamingKind: 1}, false), 0, true},
+		{"a track station", st(applemusic.StationPlayParams{Format: applemusic.StationFormatTracks}, false), 0, true},
+	} {
+		if got := stationHasPage(stationKind(tc.st), tc.scheduled); got != tc.want {
+			t.Errorf("%s: has page %v, want %v", tc.name, got, tc.want)
+		}
+		// The listing's flag is the kind's: no schedule is known there.
+		var m mapper
+		if got := m.amStation(tc.st).HasPage; got != stationHasPage(stationKind(tc.st), -1) {
+			t.Errorf("%s: listed with hasPage %v", tc.name, got)
+		}
+	}
+}

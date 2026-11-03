@@ -17,8 +17,12 @@ import { VideoView } from "./VideoView";
 export function NowPlayingProvider({ children }: { children: ReactNode }) {
   const current = usePlayback((s) => s.current);
   const playing = usePlayback((s) => s.state === "playing" || s.state === "loading");
+  const onAir = usePlayback((s) => s.onAir);
   const covered = useUI((s) => s.overlay !== "none");
-  const value = useMemo(() => ({ current, playing, covered }), [current, playing, covered]);
+  const value = useMemo(
+    () => ({ current, playing, onAir, covered }),
+    [current, playing, onAir, covered],
+  );
   return <NowPlayingContext.Provider value={value}>{children}</NowPlayingContext.Provider>;
 }
 

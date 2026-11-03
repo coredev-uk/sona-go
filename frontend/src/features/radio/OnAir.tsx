@@ -1,8 +1,9 @@
-import type { Station, StationDetail } from "@bindings/services";
+import { PlaybackService, type Station, type StationDetail } from "@bindings/services";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Link } from "@tanstack/react-router";
 import { CircleSlash, Play } from "lucide-react";
 
+import { ItemActionMenu } from "@/shared/actions/ActionMenu";
 import { Artwork } from "@/shared/components/Artwork";
 import { stationUnavailable } from "@/shared/items/station";
 import { formatRunningTime } from "@/shared/lib/format";
@@ -62,6 +63,8 @@ function OnAirRow({
   const { t } = useLingui();
   const { current, playing } = useNowPlaying();
   const tuned = current?.id === s.id;
+  // A live station with no schedule has nothing to open: it plays.
+  const page = detail ? detail.station.hasPage : s.hasPage;
   const schedule = detail?.schedule ?? [];
   const programme = onAir(schedule, now);
   const what = programme ? programmeName(s, programme) || s.tagline : s.tagline;
@@ -75,25 +78,33 @@ function OnAirRow({
   // "1 hr, 18 mins": to the minute, never under one.
   const left = span ? formatRunningTime(Math.max(60_000, span.endMs - now)) : "";
   const progress = span ? progressOf(span, now) : 0;
+  const nameClass = cn(
+    "truncate text-ui font-medium after:absolute after:inset-0",
+    tuned ? "text-play-ink" : "text-ink",
+  );
   return (
     <li
       className={cn(
         ROW,
-        "group/live relative transition-colors duration-100 focus-within:bg-hover hover:bg-hover",
+        "group/live group/row relative transition-colors duration-100 focus-within:bg-hover hover:bg-hover",
       )}
     >
       <Artwork src={programme?.art.medium || s.art.medium} size={ART} alt="" />
       <div className="min-w-0">
-        <Link
-          to="/station/$id"
-          params={{ id: s.id }}
-          className={cn(
-            "truncate text-ui font-medium after:absolute after:inset-0",
-            tuned ? "text-play-ink" : "text-ink",
-          )}
-        >
-          {s.name}
-        </Link>
+        {page ? (
+          <Link to="/station/$id" params={{ id: s.id }} className={nameClass}>
+            {s.name}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            disabled={!s.playable}
+            onClick={() => (tuned ? void PlaybackService.Toggle() : void playStation(s.id))}
+            className={cn(nameClass, "block max-w-full rounded-sm text-left")}
+          >
+            {s.name} <span className="sr-only">{tuned && playing ? t`Pause` : t`Play`}</span>
+          </button>
+        )}
         <p className="truncate text-sub text-ink">{what}</p>
         {!s.playable ? (
           <p className="mt-2 flex min-w-0 items-center gap-1.5 text-meta text-ink-muted">
@@ -146,6 +157,8 @@ function OnAirRow({
       <div className="relative z-10 grid h-8 place-items-center">
         {tuned ? (
           <Equaliser playing={playing} />
+        ) : !page ? (
+          <ItemActionMenu item={{ kind: "station", target: s }} name={s.name} />
         ) : (
           s.playable && (
             <Button

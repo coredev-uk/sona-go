@@ -64,6 +64,7 @@ export {
     ArtistViewPage,
     ArtworkColors,
     AuthStatus,
+    BroadcasterInfo,
     CDMStatus,
     Capabilities,
     CatalogAlbum,

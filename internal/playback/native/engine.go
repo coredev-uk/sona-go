@@ -28,6 +28,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
 	"github.com/coredev-uk/sona-go/internal/playback/video"
+	"github.com/coredev-uk/sona-go/internal/tunein"
 )
 
 // CDMSource names the Widevine CDM library each new playback host loads,
@@ -133,13 +134,20 @@ type Engine struct {
 	// streamHTTP fetches broadcasters' streams: http's transport without
 	// its overall timeout (a stream lasts for hours).
 	streamHTTP *http.Client
-	log        *slog.Logger
-	idle       time.Duration
-	readAhead  int
-	spawn      func(ctx context.Context, lib string) (host, error)
-	cdm        CDMSource
-	preview    bool          // Options.Preview
-	sf         func() string // Options.Storefront
+	// tuneIn reads TuneIn's station profiles; tuneInID names the station
+	// an asset URL plays there ("" for a station TuneIn does not serve).
+	// Tests replace both.
+	tuneIn   *tunein.Client
+	tuneInID func(assetURL string) string
+	// arts remembers the catalog artwork found for on-air songs.
+	arts      onAirArts
+	log       *slog.Logger
+	idle      time.Duration
+	readAhead int
+	spawn     func(ctx context.Context, lib string) (host, error)
+	cdm       CDMSource
+	preview   bool          // Options.Preview
+	sf        func() string // Options.Storefront
 	// probe is cdmhost.Probe (Diagnose).
 	probe func(ctx context.Context, o cdmhost.Options) (cdmhost.Info, error)
 	// surface shows music video pictures; vtok is the track whose
@@ -207,6 +215,8 @@ func New(o Options) *Engine {
 		api:        o.Client,
 		http:       hc,
 		streamHTTP: &http.Client{Transport: hc.Transport, CheckRedirect: hc.CheckRedirect},
+		tuneIn:     &tunein.Client{HTTP: hc, UserAgent: "Sona"},
+		tuneInID:   tunein.StationID,
 		log:        log.With("component", "playback"),
 		idle:       idle,
 		readAhead:  ra,

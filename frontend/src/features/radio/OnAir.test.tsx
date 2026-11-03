@@ -27,6 +27,13 @@ vi.mock("./queries", () => ({
   useStations: (ids: string[]) => ids.map((id) => ({ data: h.details.get(id) })),
 }));
 vi.mock("./commands", () => ({ playStation: vi.fn() }));
+vi.mock("@/shared/actions/ActionMenu", () => ({
+  ItemActionMenu: ({ name }: { name: string }) => <button type="button">More for {name}</button>,
+}));
+vi.mock("@bindings/services", async (orig) => ({
+  ...(await orig<typeof import("@bindings/services")>()),
+  PlaybackService: { Toggle: vi.fn() },
+}));
 vi.mock("@/shared/lib/now-playing", () => ({
   useNowPlaying: () => ({ current: h.current, playing: h.playing }),
 }));
@@ -39,6 +46,7 @@ function station(id: string, name: string, extra: Partial<Station> = {}): Statio
     id,
     name,
     kind: "live",
+    hasPage: true,
     playable: true,
     unavailable: "",
     tagline: `${name} tagline`,
@@ -155,5 +163,26 @@ describe("OnAirBoard", () => {
     const hitsRow = screen.getAllByRole("listitem")[1];
     expect(within(hitsRow).queryByRole("button")).toBeNull();
     expect(within(hitsRow).getByRole("img", { name: "Now playing" })).toBeTruthy();
+  });
+
+  it("plays a live station that has no schedule instead of opening a page for it", () => {
+    const quiet = station("ra.2", "Quiet FM", { hasPage: false });
+    h.details.set("ra.2", { station: quiet, schedule: [] } as unknown as StationDetail);
+    renderBoard([quiet]);
+    expect(screen.queryByRole("link")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Quiet FM Play" }));
+    expect(playStation).toHaveBeenCalledWith("ra.2");
+    expect(screen.getByRole("button", { name: "More for Quiet FM" })).toBeTruthy();
+  });
+
+  it("keeps a page for a live station once its schedule says it has one", () => {
+    // The list says no page; the station's own page (its schedule) wins.
+    const listed = station("ra.3", "Show FM", { hasPage: false });
+    h.details.set("ra.3", {
+      station: { ...listed, hasPage: true },
+      schedule: [ev("Morning", t0, t0 + hour)],
+    } as unknown as StationDetail);
+    renderBoard([listed]);
+    expect(screen.getByRole("link", { name: "Show FM" })).toBeTruthy();
   });
 });

@@ -1,15 +1,22 @@
-import type { Song, StationDetail, StationEvent, StationSeed } from "@bindings/services";
+import type {
+  Song,
+  Station as StationModel,
+  StationDetail,
+  StationEvent,
+  StationSeed,
+} from "@bindings/services";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { CircleSlash } from "lucide-react";
 
+import { usePlayback } from "@/features/player";
 import { ActionMenu } from "@/shared/actions/ActionMenu";
 import { Artwork } from "@/shared/components/Artwork";
 import { CollectionHeader } from "@/shared/components/CollectionHeader";
 import { ErrorBlock } from "@/shared/components/ErrorBlock";
 import { PlayButtons } from "@/shared/components/PlayButtons";
-import { stationUnavailable } from "@/shared/items/station";
+import { onAirLine, stationUnavailable } from "@/shared/items/station";
 import { formatTime } from "@/shared/lib/format";
 import { useNowPlaying } from "@/shared/lib/now-playing";
 import { useNow } from "@/shared/lib/useNow";
@@ -163,9 +170,46 @@ function Station({ detail }: { detail: StationDetail }) {
           </div>
         </div>
       )}
+      {s.kind === "broadcast" && s.playable && <Broadcaster station={s} />}
       {detail.schedule.length > 0 && <Schedule stationId={s.id} events={detail.schedule} />}
       {detail.upcoming.length > 0 && <Upcoming songs={detail.upcoming} />}
     </>
+  );
+}
+
+/**
+ * A local broadcaster has no schedule: the page (reached by a link; the
+ * station's tile plays it instead) says what it has on air while it plays,
+ * and what is known of it.
+ */
+function Broadcaster({ station }: { station: StationModel }) {
+  const { current, onAir } = useNowPlaying();
+  const broadcaster = usePlayback((s) => s.broadcaster);
+  const tuned = current?.id === station.id;
+  const info = tuned ? broadcaster : null;
+  return (
+    <section aria-labelledby="station-on-air" className="mb-8 max-w-[72ch]">
+      <h2 id="station-on-air" className="mb-2 text-heading text-ink">
+        <Trans>On air</Trans>
+      </h2>
+      {tuned && onAir ? (
+        <p className="text-ui text-ink">{onAirLine(onAir)}</p>
+      ) : (
+        <p className="text-sub text-ink-muted">
+          {tuned ? (
+            <Trans>This station isn't naming what it is playing.</Trans>
+          ) : (
+            <Trans>Play the station to see what is on air.</Trans>
+          )}
+        </p>
+      )}
+      {info && (info.genre || info.location) && (
+        <p className="mt-1 text-sub text-ink-muted">
+          {[info.genre, info.location].filter(Boolean).join(" · ")}
+        </p>
+      )}
+      {info?.description && <p className="mt-2 text-sub text-ink-muted">{info.description}</p>}
+    </section>
   );
 }
 

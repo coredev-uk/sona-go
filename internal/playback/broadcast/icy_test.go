@@ -7,6 +7,8 @@ import (
 	"slices"
 	"testing"
 	"testing/iotest"
+
+	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
 type icyTitle struct {
@@ -120,6 +122,26 @@ func TestStreamTitle(t *testing.T) {
 		got, ok := streamTitle(c.block)
 		if got != c.want || ok != c.ok {
 			t.Errorf("streamTitle(%q) = %q, %v; want %q, %v", c.block, got, ok, c.want, c.ok)
+		}
+	}
+}
+
+func TestOnAirOfTitle(t *testing.T) {
+	for _, c := range []struct {
+		line string
+		want playback.OnAir
+	}{
+		{"Artist - Song", playback.OnAir{Artist: "Artist", Title: "Song"}},
+		{"Artist  -  Song", playback.OnAir{Artist: "Artist", Title: "Song"}},
+		{"Artist - Song - Live", playback.OnAir{Artist: "Artist", Title: "Song - Live"}},
+		{"AC-DC", playback.OnAir{Title: "AC-DC"}},
+		{"Song", playback.OnAir{Title: "Song"}},
+		{" - Song", playback.OnAir{Title: " - Song"}},
+		{"Artist - ", playback.OnAir{Title: "Artist - "}},
+		{"", playback.OnAir{}},
+	} {
+		if got := onAirOfTitle(c.line); got != c.want {
+			t.Errorf("onAirOfTitle(%q) = %+v, want %+v", c.line, got, c.want)
 		}
 	}
 }

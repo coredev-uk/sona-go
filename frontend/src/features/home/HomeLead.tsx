@@ -9,7 +9,7 @@ import { Artwork } from "@/shared/components/Artwork";
 import { Backdrop } from "@/shared/components/Backdrop";
 import { PlayButtons } from "@/shared/components/PlayButtons";
 import { ShelfToggle } from "@/shared/components/Shelf";
-import { openExternal } from "@/shared/items/cover";
+import { openWithoutPage } from "@/shared/items/cover";
 import { actionItemOf, itemLink, itemShape } from "@/shared/items/links";
 import { canPlay, playItem } from "@/shared/items/play";
 import { openAccountDialog } from "@/shared/lib/account";
@@ -159,7 +159,7 @@ function LeadPick({ item, cover }: { item: Item; cover: number }) {
               <button
                 type="button"
                 data-opener
-                onClick={() => openExternal(item)}
+                onClick={() => openWithoutPage(item)}
                 className={cn(opener, "text-left")}
               >
                 {name}

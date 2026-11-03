@@ -313,7 +313,7 @@ func TestPlayPLSIcecast(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec.check(t, slices.Concat(mp3Frames(3, 0x01), mp3Frames(2, 0x02), mp3Frames(2, 0x03), mp3Frames(2, 0x04), mp3Frames(1, 0x05)), []metaAt{
-		{5 * mp3Dur, playback.OnAir{Title: "Artist - Song"}},
+		{5 * mp3Dur, playback.OnAir{Title: "Song", Artist: "Artist"}},
 		{9 * mp3Dur, playback.OnAir{}},
 	})
 }

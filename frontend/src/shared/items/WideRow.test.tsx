@@ -12,7 +12,7 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 vi.mock("./ItemMenu", () => ({ ItemMenu: () => null }));
 vi.mock("./play", () => ({ canPlay: () => false, playItem: vi.fn() }));
-vi.mock("./cover", () => ({ openExternal: vi.fn() }));
+vi.mock("./cover", () => ({ openWithoutPage: vi.fn() }));
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {

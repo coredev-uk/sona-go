@@ -75,6 +75,7 @@ func (s *RadioService) Station(ctx context.Context, id string) (StationDetail, e
 		Schedule: s.schedule(st, s.e.Now()),
 		Upcoming: []Song{},
 	}
+	out.Station.HasPage = stationHasPage(out.Station.Kind, len(out.Schedule))
 	var wg sync.WaitGroup
 	wg.Go(func() { out.Header = s.e.m.header(ctx, st.Attributes.Artwork.Template()) })
 	if out.Station.Kind == StationTracks {
@@ -255,6 +256,8 @@ func (s *RadioService) play(ctx context.Context, st applemusic.Station) error {
 		Artist:   stationSubtitle(st),
 		Duration: time.Duration(a.DurationInMillis) * time.Millisecond,
 		Artwork:  a.Artwork.Template(),
+		// A broadcaster's own line is what its stream has on air.
+		Broadcast: stationKind(st) == StationBroadcast,
 	}
 	return s.fail(s.e.Coord.SetQueue(ctx, []coordinator.Item{item}, 0, st.ID))
 }
@@ -293,6 +296,25 @@ func stationKind(st applemusic.Station) string {
 	default:
 		return StationEpisode
 	}
+}
+
+// stationHasPage says whether a station has anything to show on a page of
+// its own (Station.HasPage). scheduled is the number of programmes a live
+// station lists, or -1 when that is not known (a station in a list: Apple
+// lists none there, and its own live stations do have a schedule).
+//
+// A local broadcaster has none: its page would be a header and a play
+// button, and nothing else is known of it before it plays. Track stations
+// have their seed and the songs they play first, episodes their show,
+// air time and notes.
+func stationHasPage(kind string, scheduled int) bool {
+	switch kind {
+	case StationBroadcast:
+		return false
+	case StationLive:
+		return scheduled != 0
+	}
+	return true
 }
 
 // stationPlayability says whether Sona can play st, and why not. Track

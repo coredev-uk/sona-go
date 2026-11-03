@@ -1,4 +1,4 @@
-import type { Item } from "@bindings/services";
+import type { Item, Station } from "@bindings/services";
 import { describe, expect, it } from "vitest";
 
 import { itemLink, itemShape, itemSubtitle, roomLink } from "./links";
@@ -30,6 +30,16 @@ describe("itemLink", () => {
     });
     expect(itemLink(item({ kind: "multiroom", id: "5" }))?.to).toBe("/multiroom/$id");
     expect(itemLink(item({ kind: "station", id: "ra.1" }))?.to).toBe("/station/$id");
+  });
+  it("opens a station's page only when it has one", () => {
+    const station = (hasPage: boolean) => ({ kind: "broadcast", hasPage }) as Station;
+    expect(itemLink(item({ kind: "station", id: "ra.1", station: station(true) }))?.to).toBe(
+      "/station/$id",
+    );
+    // A local broadcaster has no schedule: it plays instead of opening.
+    expect(
+      itemLink(item({ kind: "station", id: "ra.1", station: station(false) })),
+    ).toBeUndefined();
   });
   it("sends charts links to the genre's charts", () => {
     expect(itemLink(item({ kind: "charts", id: "" }))).toEqual({ to: "/charts", search: {} });

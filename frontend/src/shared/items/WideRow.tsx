@@ -8,7 +8,7 @@ import { GAP_X, useCoverColumns } from "@/shared/lib/useCoverColumns";
 import { artAspect, artUrl } from "@/shared/lib/art";
 import { Button } from "@/shared/ui/button";
 
-import { openExternal } from "./cover";
+import { openWithoutPage } from "./cover";
 import { ItemMenu } from "./ItemMenu";
 import { itemLink, itemSubtitle } from "./links";
 import { canPlay, playItem } from "./play";
@@ -177,7 +177,7 @@ function WideCard({
             className={openerClassName}
             onClick={() => {
               onOpen?.(item);
-              openExternal(item);
+              openWithoutPage(item);
             }}
           >
             {item.name}

@@ -7,9 +7,19 @@ import { releaseBadge } from "@/shared/lib/release";
 import { actionItemOf, itemAspect, itemLink, itemShape, itemSubtitle } from "./links";
 import { canPlay, playItem } from "./play";
 
-/** Opens a web-only item (an interview, a concert listing) in the browser. */
-export function openExternal(item: Item) {
-  if (item.url) void Browser.OpenURL(item.url);
+/**
+ * Opens an item that has no Sona page (`itemLink` is undefined): a station
+ * with nothing to show on a page plays; a web-only item (an interview, a
+ * concert listing) opens in the browser.
+ */
+export function openWithoutPage(item: Item) {
+  if (playsWhenOpened(item)) playItem(item);
+  else if (item.url) void Browser.OpenURL(item.url);
+}
+
+/** True for an item that plays when it is opened: a station with no page. */
+export function playsWhenOpened(item: Item): boolean {
+  return !itemLink(item) && !!item.station && canPlay(item);
 }
 
 /**
@@ -33,9 +43,15 @@ export function toCoverItem(item: Item, index: number, onOpen?: (item: Item) => 
       ? onOpen && (() => onOpen(item))
       : () => {
           onOpen?.(item);
-          openExternal(item);
+          openWithoutPage(item);
         },
-    play: canPlay(item) ? { label: item.name, run: () => playItem(item) } : undefined,
+    // A station with no page plays when opened: its tile names that and
+    // shows the play mark, but has no second play control.
+    playsOnOpen: playsWhenOpened(item) || undefined,
+    play:
+      canPlay(item) && !playsWhenOpened(item)
+        ? { label: item.name, run: () => playItem(item) }
+        : undefined,
     badge: item.album ? releaseBadge(item.album) : undefined,
     target: actionItemOf(item),
   };

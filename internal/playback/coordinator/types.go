@@ -18,6 +18,9 @@ type Item struct {
 	// Explicit: Apple rates the song explicit; it is skipped while the
 	// account restricts explicit content (SetRestricted).
 	Explicit bool `json:"explicit,omitempty"`
+	// Broadcast: a local broadcaster (a station with no schedule or page
+	// of its own); what it has on air comes from its stream.
+	Broadcast bool `json:"broadcast,omitempty"`
 	// Container is the album, playlist, artist or station the item was
 	// queued from (zero when none), reported with its plays.
 	Container Container `json:"container,omitzero"`
@@ -131,6 +134,9 @@ type Snapshot struct {
 	// OnAir is what the current live broadcaster's stream says is on air,
 	// as heard (playback.Status.OnAir); zero when it says nothing.
 	OnAir playback.OnAir `json:"onAir"`
+	// Info is what is known about the current live broadcaster beyond
+	// what it has on air (playback.Status.Info).
+	Info playback.StationInfo `json:"info"`
 	// Station is the station feeding the queue (nil when none).
 	Station *Station `json:"station"`
 	// AutoPlay: when the user's queue ends, similar music keeps playing.

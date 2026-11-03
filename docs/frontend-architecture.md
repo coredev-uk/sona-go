@@ -87,7 +87,9 @@ src/
                           schedules, the local broadcasters, then Apple's radio page in
                           bands: stations with your own first, shows and episodes, browse),
                           station pages (/station/$id: schedule, unavailable state; a track
-                          station's seed as its byline and the songs it plays first);
+                          station's seed as its byline and the songs it plays first; only
+                          for stations with Station.hasPage: a local broadcaster plays
+                          when opened, see shared/items openWithoutPage);
                           playStation, useOnAirProgramme; Create station on songs/albums/
                           artists; the station item player
     search                the top bar's search field (suggestions, recent searches), Search page
@@ -128,7 +130,9 @@ src/
                           AutoPlay toggle and the station/AutoPlay part of the queue
                           (its own list under its heading, queue-lines.ts; AutoPlay rows
                           set back in grey and never moved, but removable and playable),
-                          live radio line in place of the seek bar; mini player button;
+                          live radio line in place of the seek bar (the song a local
+                          broadcaster has on air, its cover in the bar and Now Playing,
+                          snapshot onAir/broadcaster); mini player button;
                           exports the playback mirror and the sung line (SungLine) for the mini player;
                           CdmNotice: the bar's line while a song waits for the Widevine
                           CDM (snapshot noCdm: downloading with its progress, failed, or
