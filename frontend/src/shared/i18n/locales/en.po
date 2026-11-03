@@ -251,6 +251,10 @@ msgstr "{mine, plural, one {# song after this one} other {# songs after this one
 msgid "{minutes}m"
 msgstr "{minutes}m"
 
+#: src/features/player/QueuePanel.tsx
+msgid "{movedName}: moved to position {movedPosition} of {movedOf}"
+msgstr "{movedName}: moved to position {movedPosition} of {movedOf}"
+
 #: src/features/home/ShelfIndex.tsx
 #: src/shared/actions/registry.ts
 msgid "{n, plural, one {# album} other {# albums}}"
@@ -2512,20 +2516,20 @@ msgid "Enter opens, Space plays, Shift+F10 shows more actions."
 msgstr "Enter opens, Space plays, Shift+F10 shows more actions."
 
 #: src/features/player/QueuePanel.tsx
-msgid "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes now playing."
-msgstr "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes now playing."
+msgid "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Shift+F10 opens its menu, Escape closes now playing."
+msgstr "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Shift+F10 opens its menu, Escape closes now playing."
 
 #: src/features/player/QueuePanel.tsx
-msgid "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes the queue."
-msgstr "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Escape closes the queue."
+msgid "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Shift+F10 opens its menu, Escape closes the queue."
+msgstr "Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Shift+F10 opens its menu, Escape closes the queue."
 
 #: src/features/player/QueuePanel.tsx
-msgid "Enter plays the song, Delete removes it, Escape closes now playing."
-msgstr "Enter plays the song, Delete removes it, Escape closes now playing."
+msgid "Enter plays the song, Delete removes it, Shift+F10 opens its menu, Escape closes now playing."
+msgstr "Enter plays the song, Delete removes it, Shift+F10 opens its menu, Escape closes now playing."
 
 #: src/features/player/QueuePanel.tsx
-msgid "Enter plays the song, Delete removes it, Escape closes the queue."
-msgstr "Enter plays the song, Delete removes it, Escape closes the queue."
+msgid "Enter plays the song, Delete removes it, Shift+F10 opens its menu, Escape closes the queue."
+msgstr "Enter plays the song, Delete removes it, Shift+F10 opens its menu, Escape closes the queue."
 
 #: src/features/auth/signin.ts
 msgid "Enter the latest code you received. Older codes stop working once a new one is sent."
@@ -3490,6 +3494,7 @@ msgstr "More by {artistName}"
 msgid "More concerts near {city}"
 msgstr "More concerts near {city}"
 
+#: src/features/player/QueuePanel.tsx
 #: src/shared/actions/ActionMenu.tsx
 msgid "More for {name}"
 msgstr "More for {name}"
@@ -3559,6 +3564,11 @@ msgstr "Move {name} up"
 #: src/features/playlist/PlaylistEditor.tsx
 msgid "Move here"
 msgstr "Move here"
+
+#. Queue row menu: moves the song to the end of the songs the user queued, before AutoPlay's. Apple has no such item.
+#: src/features/player/QueueRowMenu.tsx
+msgid "Move to end"
+msgstr "Move to end"
 
 #: src/features/playlist/PlaylistDialogs.tsx
 msgid "Move to folder"
@@ -4445,6 +4455,7 @@ msgstr "Platform"
 #: src/features/home/ItemRows.tsx
 #: src/features/miniplayer/MiniPlayer.tsx
 #: src/features/player/NowPlayingBar.tsx
+#: src/features/player/QueueRowMenu.tsx
 #: src/features/player/VideoView.tsx
 #: src/features/playlist/PlaylistSidebar.tsx
 #: src/features/radio/index.ts
@@ -4493,6 +4504,7 @@ msgid "Play featured rotation"
 msgstr "Play featured rotation"
 
 #: src/features/player/actions.ts
+#: src/features/player/QueueRowMenu.tsx
 msgid "Play next"
 msgstr "Play next"
 
@@ -4982,6 +4994,7 @@ msgstr "Released {releaseDate}"
 msgid "Remind me"
 msgstr "Remind me"
 
+#: src/features/player/QueueRowMenu.tsx
 #: src/shared/lib/library-actions.ts
 msgid "Remove"
 msgstr "Remove"

@@ -614,13 +614,13 @@ export function QueueList({ inView = false }: { inView?: boolean }) {
           <p id={KEYS_HELP} className="sr-only">
             {inView ? (
               <Trans>
-                Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Shift+F10 opens
-                its menu, Escape closes now playing.
+                Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Shift+F10
+                opens its menu, Escape closes now playing.
               </Trans>
             ) : (
               <Trans>
-                Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Shift+F10 opens
-                its menu, Escape closes the queue.
+                Enter plays the song, Delete removes it, Alt+Up and Alt+Down move it, Shift+F10
+                opens its menu, Escape closes the queue.
               </Trans>
             )}
           </p>
