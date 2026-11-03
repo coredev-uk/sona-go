@@ -56,7 +56,7 @@ export function LibraryButton({
         <Button
           variant="outline"
           size="sm"
-          aria-label={t`In library. Remove “${name}” from your library`}
+          aria-label={t`In library. Delete “${name}” from your library`}
           onClick={() => void removeFromLibrary(kind, item, name)}
         >
           <Check strokeWidth={1.75} />
@@ -64,7 +64,7 @@ export function LibraryButton({
         </Button>
       </TooltipTrigger>
       <TooltipContent>
-        <Trans>Remove from library</Trans>
+        <Trans>Delete from library</Trans>
       </TooltipContent>
     </Tooltip>
   );

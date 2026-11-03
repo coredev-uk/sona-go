@@ -1,11 +1,11 @@
 import { create } from "zustand";
 
 export interface ConfirmOptions {
-  /** A question naming the item: "Remove “OK Computer” from your library?" */
+  /** A question naming the item: "Delete “OK Computer” from your library?" */
   title: string;
   /** One sentence on what else happens. */
   body: string;
-  /** The verb on the confirming button: "Remove". */
+  /** The verb on the confirming button: "Delete". */
   confirmLabel: string;
   /** Styles the confirming button as destructive. */
   destructive?: boolean;

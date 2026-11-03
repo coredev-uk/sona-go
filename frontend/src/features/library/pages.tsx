@@ -29,7 +29,7 @@ function SortSelect<S extends string>({
   const { t } = useLingui();
   return (
     <Select value={value} onValueChange={(v) => onChange(v as S)}>
-      <SelectTrigger aria-label={t`Sort by`} className="h-8 w-40 text-ui">
+      <SelectTrigger aria-label={t`Sort`} className="h-8 w-40 text-ui">
         <SelectValue />
       </SelectTrigger>
       <SelectContent align="end">

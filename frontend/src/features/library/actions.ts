@@ -125,7 +125,7 @@ function itemActions<K extends Exclude<ActionTargetKind, "station">>(
     defs.push({
       id: `library.remove.${target}`,
       target,
-      label: () => t`Remove from library`,
+      label: () => t`Delete from library`,
       icon: Trash2,
       group: "item",
       order: 35,
@@ -228,7 +228,7 @@ function bulkActions(): BulkActionDef[] {
       id: "library.remove.many",
       target: "selection",
       kinds: ["song", "album", "artist"],
-      label: () => t`Remove from library`,
+      label: () => t`Delete from library`,
       icon: Trash2,
       group: "item",
       order: 35,

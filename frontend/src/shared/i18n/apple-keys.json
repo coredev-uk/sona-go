@@ -35,6 +35,20 @@
     "key": "ASE.Web.Music.SideBar.Album"
   },
   {
+    "message": "Albums by {artist}",
+    "key": "FUSE.Artist.Section.Albums",
+    "placeholders": {
+      "artistName": "artist"
+    }
+  },
+  {
+    "message": "Albums featuring {artist}",
+    "key": "FUSE.Artist.Section.AppearsOn",
+    "placeholders": {
+      "artistName": "artist"
+    }
+  },
+  {
     "message": "All",
     "key": "ASE.Web.Music.Genre.All"
   },
@@ -83,8 +97,22 @@
     "key": "ASE.Web.Music.Shared.AX.Close"
   },
   {
+    "message": "Compilations featuring {artist}",
+    "key": "FUSE.Artist.Section.Compilations",
+    "placeholders": {
+      "artistName": "artist"
+    }
+  },
+  {
     "message": "Concerts",
     "key": "MusicUI.ConcertsHub.Page.Title"
+  },
+  {
+    "message": "Concerts in {city}",
+    "key": "MusicUI.ConcertsHub.GlobalHub.CityHeader",
+    "placeholders": {
+      "cityName": "city"
+    }
   },
   {
     "message": "Connect",
@@ -111,6 +139,10 @@
     "key": "ASE.Web.Music.ActionModal.Title.Dates"
   },
   {
+    "message": "Delete from library",
+    "key": "ASE.Web.Music.Shared.ContextualMenu.DeleteFromLibrary"
+  },
+  {
     "message": "Description",
     "key": "ASE.Web.Music.Library.PlaylistCreation.DescriptionLabel"
   },
@@ -132,6 +164,13 @@
   {
     "message": "Edit playlist",
     "key": "ASE.Web.Music.Library.PlaylistEdition.Header"
+  },
+  {
+    "message": "Essential albums by {artist}",
+    "key": "FUSE.Artist.Section.Essentials",
+    "placeholders": {
+      "artistName": "artist"
+    }
   },
   {
     "message": "Explicit",
@@ -172,6 +211,13 @@
   {
     "message": "Link copied",
     "key": "ASE.Web.Music.Shared.ContextualSharing.CopyLink.SuccessMessage"
+  },
+  {
+    "message": "Live albums by {artist}",
+    "key": "FUSE.Artist.Section.LiveAlbums",
+    "placeholders": {
+      "artistName": "artist"
+    }
   },
   {
     "message": "Loading",
@@ -216,6 +262,13 @@
     "key": "ASE.Web.Music.SideBar.MusicVideos"
   },
   {
+    "message": "Music videos by {artist}",
+    "key": "FUSE.Artist.Section.MusicVideos",
+    "placeholders": {
+      "artistName": "artist"
+    }
+  },
+  {
     "message": "Mute",
     "key": "ASE.Web.Platform.Shared.MediaComponents.Volume.Mute"
   },
@@ -256,8 +309,28 @@
     "key": "ASE.Web.Music.Pause"
   },
   {
+    "message": "Pin album",
+    "key": "ASE.Web.Music.Pins.ContextMenu.Pin.album"
+  },
+  {
+    "message": "Pin artist",
+    "key": "ASE.Web.Music.Pins.ContextMenu.Pin.artist"
+  },
+  {
+    "message": "Pin playlist",
+    "key": "ASE.Web.Music.Pins.ContextMenu.Pin.playlist"
+  },
+  {
+    "message": "Pin song",
+    "key": "ASE.Web.Music.Pins.ContextMenu.Pin.song"
+  },
+  {
     "message": "Play",
     "key": "ASE.Web.Music.Play"
+  },
+  {
+    "message": "Play last",
+    "key": "ASE.Web.Music.Shared.ContextualMenu.PlayLast"
   },
   {
     "message": "Play next",
@@ -328,6 +401,10 @@
     "key": "ASE.Web.Music.Sorts.RecentlyAdded"
   },
   {
+    "message": "Recently searched",
+    "key": "FUSE.Search.RecentlySearched"
+  },
+  {
     "message": "Refresh",
     "key": "ASE.Web.Music.Library.Playlists.Suggested.Refresh"
   },
@@ -358,6 +435,14 @@
   {
     "message": "Search",
     "key": "ASE.Web.Music.Search.Pageheader"
+  },
+  {
+    "message": "Search in Apple Music",
+    "key": "ASE.Web.Music.Search.In.Apple.Music"
+  },
+  {
+    "message": "Search in library",
+    "key": "ASE.Web.Music.Search.In.Library"
   },
   {
     "message": "Searching",
@@ -396,8 +481,26 @@
     "key": "ASE.Web.Platform.Shared.AccountMenu.SignOut"
   },
   {
+    "message": "Similar artists to {artist}",
+    "key": "FUSE.Artist.Section.SimilarArtists",
+    "placeholders": {
+      "artistName": "artist"
+    }
+  },
+  {
     "message": "Similar music will keep playing",
     "key": "ASE.Web.Music.UpNext.Autoplay.Description"
+  },
+  {
+    "message": "Singles and EPs featuring {artist}",
+    "key": "FUSE.Artist.Section.Singles",
+    "placeholders": {
+      "artistName": "artist"
+    }
+  },
+  {
+    "message": "Something went wrong.",
+    "key": "ASE.Web.Music.TransferMusic.Alert.Error.Generic"
   },
   {
     "message": "Song",
@@ -406,6 +509,10 @@
   {
     "message": "Songs",
     "key": "ASE.Web.Music.SideBar.Songs"
+  },
+  {
+    "message": "Sort",
+    "key": "ASE.Web.Music.Sort"
   },
   {
     "message": "Suggest less",
@@ -432,10 +539,25 @@
     "key": "ASE.Web.Music.DatePicker.Preset.Today"
   },
   {
+    "message": "Top 100 songs by country",
+    "key": "FUSE.TopCharts.SectionTitle.Country"
+  },
+  {
+    "message": "Top 25 songs by city",
+    "key": "FUSE.TopCharts.SectionTitle.City"
+  },
+  {
     "message": "Top songs by {artistName}",
     "key": "FUSE.Artist.Section.TopSongs",
     "placeholders": {
       "artistName": "artistName"
+    }
+  },
+  {
+    "message": "Top songs by {artist}",
+    "key": "FUSE.Artist.Section.TopSongs",
+    "placeholders": {
+      "artistName": "artist"
     }
   },
   {
@@ -455,6 +577,22 @@
     "key": "ASE.Web.Platform.Shared.MediaComponents.Volume.Unmute"
   },
   {
+    "message": "Unpin album",
+    "key": "ASE.Web.Music.Pins.ContextMenu.Unpin.album"
+  },
+  {
+    "message": "Unpin artist",
+    "key": "ASE.Web.Music.Pins.ContextMenu.Unpin.artist"
+  },
+  {
+    "message": "Unpin playlist",
+    "key": "ASE.Web.Music.Pins.ContextMenu.Unpin.playlist"
+  },
+  {
+    "message": "Unpin song",
+    "key": "ASE.Web.Music.Pins.ContextMenu.Unpin.song"
+  },
+  {
     "message": "Up next",
     "key": "ASE.Web.Music.UpNext.Heading"
   },
@@ -471,6 +609,10 @@
     "key": "ASE.Web.Music.ContextualMenu.ViewCredits"
   },
   {
+    "message": "View full lyrics",
+    "key": "ASE.Web.Music.View.Full.Lyrics"
+  },
+  {
     "message": "View playlist collaborators",
     "key": "ASE.Web.Music.Library.PlaylistCollaborators.View"
   },
@@ -479,8 +621,20 @@
     "key": "ASE.Web.Platform.Shared.MediaComponents.Volume.Label"
   },
   {
+    "message": "You need to sign in to see your favourite songs",
+    "key": "ASE.Web.Music.Library.FavoriteMix.Unavailable.SignIn"
+  },
+  {
     "message": "{0, plural, one {# song} other {# songs}}",
     "key": "ASE.Web.Music.NoOfSongs",
+    "plural": true,
+    "placeholders": {
+      "count": "0"
+    }
+  },
+  {
+    "message": "{0, plural, one {# video} other {# videos}}",
+    "key": "FUSE.NoOfVideos",
     "plural": true,
     "placeholders": {
       "count": "0"

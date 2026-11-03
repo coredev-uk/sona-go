@@ -73,14 +73,14 @@ export async function removeFromLibrary(
   name: string,
 ): Promise<boolean> {
   const ok = await confirm({
-    title: t`Remove “${name}” from your library?`,
+    title: t`Delete “${name}” from your library?`,
     body: removeNote(kind),
-    confirmLabel: t`Remove`,
+    confirmLabel: t`Delete`,
     destructive: true,
   });
   if (!ok) return false;
-  const done = await run(t`Couldn't remove “${name}”`, changeItemState(kind, item, "remove"));
-  if (done) toast(t`Removed “${name}” from your library`);
+  const done = await run(t`Couldn't delete “${name}”`, changeItemState(kind, item, "remove"));
+  if (done) toast(t`Deleted “${name}” from your library`);
   return done;
 }
 
@@ -124,16 +124,16 @@ export async function removeManyFromLibrary(
   what: string,
 ): Promise<boolean> {
   const ok = await confirm({
-    title: t`Remove ${what} from your library?`,
+    title: t`Delete ${what} from your library?`,
     body: t`They also leave any playlists they're in.`,
-    confirmLabel: t`Remove`,
+    confirmLabel: t`Delete`,
     destructive: true,
   });
   if (!ok) return false;
   const done = await run(
-    t`Couldn't remove ${what}`,
+    t`Couldn't delete ${what}`,
     Promise.all(items.map((i) => changeItemState(i.kind, i.item, "remove"))),
   );
-  if (done) toast(t`Removed ${what} from your library`);
+  if (done) toast(t`Deleted ${what} from your library`);
   return done;
 }

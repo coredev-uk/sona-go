@@ -1,18 +1,8 @@
 [
   {
-    "message": "Add to playlist…",
-    "key": "ASE.Web.Music.ContextualMenu.AddToPlaylist",
-    "reason": "Sona's ellipsis says a dialog follows; Apple's key has none"
-  },
-  {
     "message": "AutoPlay is on",
     "key": "ASE.Web.Music.UpNext.Heading.AutoplayActive",
     "reason": "Apple's text is lower case for a subline after its Up Next heading; Sona shows it as a sentence on its own"
-  },
-  {
-    "message": "Delete from library…",
-    "key": "ASE.Web.Music.Shared.ContextualMenu.DeleteFromLibrary",
-    "reason": "Sona's ellipsis says a confirmation follows; Apple's key has none"
   },
   {
     "message": "Forward",
@@ -47,16 +37,6 @@
     "reason": "Apple's text is upper case for a badge"
   },
   {
-    "message": "New playlist…",
-    "key": "ASE.Web.Music.ContextualMenu.NewPlaylist",
-    "reason": "Sona's ellipsis says a dialog follows; Apple's key has none"
-  },
-  {
-    "message": "New playlist…",
-    "key": "ASE.Web.Music.Library.PlaylistCreation.Heading",
-    "reason": "Sona's ellipsis says a dialog follows; Apple's key has none"
-  },
-  {
     "message": "Previous",
     "key": "ASE.Web.Platform.Shared.MediaComponents.Playback.Previous",
     "reason": "Apple's text is upper case"
@@ -65,11 +45,6 @@
     "message": "Private",
     "key": "FUSE.Social.Onboarding.FindandFollow.Explanation.Private",
     "reason": "Sona's is private listening; Apple's is a private profile"
-  },
-  {
-    "message": "Something went wrong.",
-    "key": "ASE.Web.Music.TransferMusic.Alert.Error.Generic",
-    "reason": "Apple's casing (title case) does not match Sona's sentence case"
   },
   {
     "message": "Videos",
@@ -85,11 +60,6 @@
     "message": "up next",
     "key": "ASE.Web.Music.UpNext.Heading",
     "reason": "Sona's is lower case inside a sentence; Apple's is a heading"
-  },
-  {
-    "message": "{0, plural, one {# video} other {# videos}}",
-    "key": "FUSE.NoOfVideos",
-    "reason": "Apple's casing (title case) does not match Sona's sentence case"
   },
   {
     "message": "{at} of {total}",

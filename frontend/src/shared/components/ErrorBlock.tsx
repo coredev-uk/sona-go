@@ -41,7 +41,7 @@ export function ErrorBlock({ title, error, onRetry, retrying, className }: Error
           disabled={retrying}
           className="-my-1 shrink-0"
         >
-          {retrying ? <Trans>Retrying…</Trans> : <Trans>Retry</Trans>}
+          {retrying ? <Trans>Retrying…</Trans> : <Trans>Try again</Trans>}
         </Button>
       )}
     </div>

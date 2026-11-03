@@ -85,7 +85,7 @@ export function RecentSearches({ scope }: { scope: SearchScope }) {
   if (!entries.length) return null;
   return (
     <Shelf
-      title={t`Recent searches`}
+      title={t`Recently searched`}
       actions={
         <button
           type="button"
@@ -97,7 +97,7 @@ export function RecentSearches({ scope }: { scope: SearchScope }) {
       }
     >
       <ul
-        aria-label={t`Recent searches`}
+        aria-label={t`Recently searched`}
         className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-x-6 gap-y-1"
       >
         {entries.map((e) => (

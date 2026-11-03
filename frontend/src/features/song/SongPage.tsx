@@ -37,7 +37,7 @@ function LyricsBlock({ page }: { page: CatalogSong }) {
       title={t`Lyrics`}
       actions={
         <ShelfToggle open={full} onToggle={() => setFull(!full)}>
-          {full ? <Trans>Show less</Trans> : <Trans>Show all lyrics</Trans>}
+          {full ? <Trans>Show less</Trans> : <Trans>View full lyrics</Trans>}
         </ShelfToggle>
       }
     >

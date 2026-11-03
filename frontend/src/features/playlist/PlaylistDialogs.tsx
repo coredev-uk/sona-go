@@ -189,7 +189,7 @@ function AddToPlaylist({ d }: { d: Of<"add"> }) {
       <div role="group" onKeyDown={listKeys} className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         <Option
           icon={<Plus className="size-4" strokeWidth={1.75} />}
-          title={t`New playlist…`}
+          title={t`New playlist`}
           onSelect={() =>
             showDialog({ kind: "create", items: d.items, label: d.label, folderId: "" })
           }

@@ -13,9 +13,9 @@ export function chartTitle(c: Pick<Chart, "key" | "title">): string {
     case "music-videos":
       return t`Top music videos`;
     case "cityCharts":
-      return t`Top 25 by city`;
+      return t`Top 25 songs by city`;
     case "dailyGlobalTopCharts":
-      return t`Daily top 100 by country`;
+      return t`Top 100 songs by country`;
     default:
       return c.title;
   }

@@ -111,19 +111,25 @@ describe("ArtistPage", () => {
     expect(discography.compareDocumentPosition(related) & after).toBe(after);
     expect(related.compareDocumentPosition(about) & after).toBe(after);
 
-    expect(within(discography).getByRole("region", { name: "Albums" })).toBeTruthy();
+    expect(within(discography).getByRole("region", { name: "Albums by Radiohead" })).toBeTruthy();
     // Singles, live albums and compilations are the back catalogue's lists.
-    const singles = within(discography).getByRole("grid", { name: "Singles and EPs" });
+    const singles = within(discography).getByRole("grid", {
+      name: "Singles and EPs featuring Radiohead",
+    });
     expect(within(singles).getByText("Daydreaming")).toBeTruthy();
     expect(within(singles).getByText("2016 · Single")).toBeTruthy();
-    expect(within(discography).getByRole("grid", { name: "Compilations" })).toBeTruthy();
+    expect(
+      within(discography).getByRole("grid", { name: "Compilations featuring Radiohead" }),
+    ).toBeTruthy();
 
-    const appears = within(related).getByRole("grid", { name: "Appears on" });
+    const appears = within(related).getByRole("grid", { name: "Albums featuring Radiohead" });
     expect(within(appears).getByText("Radiohead · 2016")).toBeTruthy();
-    expect(within(related).getByRole("region", { name: "Similar artists" })).toBeTruthy();
+    expect(
+      within(related).getByRole("region", { name: "Similar artists to Radiohead" }),
+    ).toBeTruthy();
 
     // The essential albums lead beside the top songs, outside the bands.
-    const essentials = screen.getByRole("grid", { name: "Essential albums" });
+    const essentials = screen.getByRole("grid", { name: "Essential albums by Radiohead" });
     expect(discography.contains(essentials)).toBe(false);
   });
 

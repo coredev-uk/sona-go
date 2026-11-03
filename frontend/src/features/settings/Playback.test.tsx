@@ -185,7 +185,7 @@ describe("Widevine row", () => {
     const output = await show(cdm());
     expect(output.textContent).toBe("Version 4.10.3112.0");
     expect(shown("Checked for updates 2 hr. ago")).toBe(true);
-    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
 
@@ -209,7 +209,7 @@ describe("Widevine row", () => {
     const problem =
       "Sona couldn't reach Google's download server. Check your internet connection. Sona also tries again by itself later.";
     expect(screen.getByText(problem)).toBeTruthy();
-    const button = screen.getByRole("button", { name: "Retry" });
+    const button = screen.getByRole("button", { name: "Try again" });
     expect(button.getAttribute("aria-describedby")).toBe("cdm-problem");
     expect(output.getAttribute("aria-describedby")).toBe("cdm-desc cdm-problem");
     fireEvent.click(button);
@@ -226,13 +226,13 @@ describe("Widevine row", () => {
     const problem =
       "Sona couldn't finish checking the downloaded Widevine. Try again. Sona also tries again by itself later.";
     expect(screen.getByText(problem)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 
   it("offers Retry when the last update check failed", async () => {
     await show(cdm({ code: "hash_mismatch" }));
     expect(shown("Couldn't check for updates")).toBe(true);
-    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 
   it("has no Retry where trying again can't help", async () => {
@@ -240,7 +240,7 @@ describe("Widevine row", () => {
     expect(shown("Google doesn't make Widevine for this computer, so songs can't play here.")).toBe(
       true,
     );
-    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 });
 

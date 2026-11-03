@@ -107,7 +107,7 @@ export function SyncIndicator() {
             onClick={() => void run(t`Couldn't start a library sync`, LibraryService.Sync())}
             className="shrink-0 rounded-sm text-ink-muted underline-offset-2 hover:text-ink hover:underline"
           >
-            {failed ? <Trans>Retry</Trans> : <Trans>Sync now</Trans>}
+            {failed ? <Trans>Try again</Trans> : <Trans>Sync now</Trans>}
           </button>
         </div>
       )}
