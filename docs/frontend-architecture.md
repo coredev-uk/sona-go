@@ -1072,6 +1072,17 @@ through its suggestions (an ARIA combobox), Enter opens the active one or
 searches, Esc closes the list, and ↓ with the list closed moves into the
 results.
 
+The mouse's back and forward buttons (mouse 4 and 5) go back and forward
+through the same history. WebKitGTK delivers neither to the page: it makes a
+button-0 `mousedown`/`mouseup`/`auxclick` of each, which cannot tell them
+apart and does not navigate. So on Linux Go takes them with a GTK click
+gesture on the window, in the capture phase and before the web view
+(`internal/shell/mousenav_linux.c`, buttons 8 and 9, claimed so the page
+never sees the press), and sends `window:navigate` (`"back"` or
+`"forward"`); `app/shell/useMouseNavigation.ts` calls `history.back()` or
+`history.forward()`. They are not shortcuts: a mouse button has no chord,
+so they are not in the help sheet or Settings → Shortcuts.
+
 ## Settings
 
 Settings is a page, `/settings?section=<id>` (`features/settings`), not a

@@ -138,6 +138,7 @@ func TestSetLastRouteOnlyWhileResuming(t *testing.T) {
 type fakeWindows struct {
 	state   windowchrome.WindowState
 	watch   func(windowchrome.WindowState)
+	nav     func(forward bool)
 	menuErr error
 }
 
@@ -151,6 +152,8 @@ func (*fakeWindows) CloseMain()                                    {}
 func (f *fakeWindows) ShowWindowMenu() error                       { return f.menuErr }
 func (f *fakeWindows) MainState() windowchrome.WindowState         { return f.state }
 func (f *fakeWindows) WatchMain(fn func(windowchrome.WindowState)) { f.watch = fn }
+
+func (f *fakeWindows) WatchNavigate(fn func(bool)) { f.nav = fn }
 
 func windowsEnv(t *testing.T, w *fakeWindows) (*DesktopService, *recorder) {
 	t.Helper()
@@ -184,6 +187,26 @@ func TestWindowStateReachesThePage(t *testing.T) {
 	}
 	if len(sent) != 1 || sent[0] != (WindowState{Maximised: true}) {
 		t.Fatalf("window:state events = %+v, want one maximised", sent)
+	}
+}
+
+// The mouse's back and forward buttons, which the web view does not hand
+// to the page, reach it as "window:navigate" with the direction to go.
+func TestMouseButtonsReachThePage(t *testing.T) {
+	w := &fakeWindows{}
+	_, rec := windowsEnv(t, w)
+	w.nav(false)
+	w.nav(true)
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	var sent []any
+	for i, name := range rec.events {
+		if name == EventNavigate {
+			sent = append(sent, rec.data[i])
+		}
+	}
+	if len(sent) != 2 || sent[0] != NavigateBack || sent[1] != NavigateForward {
+		t.Fatalf("window:navigate events = %v, want back then forward", sent)
 	}
 }
 

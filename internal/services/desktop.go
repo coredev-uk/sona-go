@@ -33,6 +33,10 @@ type Windows interface {
 	// WatchMain follows its changes.
 	MainState() windowchrome.WindowState
 	WatchMain(func(windowchrome.WindowState))
+	// WatchNavigate follows presses of the mouse's back (false) and
+	// forward (true) buttons on the main window, which the web view does
+	// not deliver to the page (Linux).
+	WatchNavigate(func(forward bool))
 }
 
 // DesktopService is Sona as a desktop app: its windows, the autostart
@@ -51,6 +55,13 @@ func newDesktopService(e *Env) *DesktopService {
 	d := &DesktopService{o: e}
 	e.Settings.OnChange(d.settingsChanged)
 	e.Windows.WatchMain(func(st windowchrome.WindowState) { e.Emit.Emit(EventWindowState, windowState(st)) })
+	e.Windows.WatchNavigate(func(forward bool) {
+		dir := NavigateBack
+		if forward {
+			dir = NavigateForward
+		}
+		e.Emit.Emit(EventNavigate, dir)
+	})
 	// The autostart file may have been removed or disabled from the
 	// desktop's own settings since the last run: the file wins. Local
 	// file work, off the start-up path.

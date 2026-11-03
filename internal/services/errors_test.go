@@ -235,6 +235,7 @@ func eventPayloads(t *testing.T) []reflect.Type {
 		"AuthStatus":         reflect.TypeFor[AuthStatus](),
 		"CDMStatus":          reflect.TypeFor[CDMStatus](),
 		"WindowState":        reflect.TypeFor[WindowState](),
+		"string":             reflect.TypeFor[string](),
 		"HomePage":           reflect.TypeFor[HomePage](),
 		"OpenTarget":         reflect.TypeFor[OpenTarget](),
 		"IntegrationsStatus": reflect.TypeFor[IntegrationsStatus](),

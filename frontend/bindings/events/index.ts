@@ -104,6 +104,11 @@ export const TranslationsLanguages = "translations:languages";
 export const UpdatesAvailable = "updates:available";
 
 /**
+ * Name of the custom event "window:navigate".
+ */
+export const WindowNavigate = "window:navigate";
+
+/**
  * Name of the custom event "window:state".
  */
 export const WindowState = "window:state";

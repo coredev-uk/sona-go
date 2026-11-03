@@ -34,6 +34,7 @@ declare module "@wailsio/runtime" {
             "translations:apple": services$0.AppleTranslations;
             "translations:languages": services$0.AppleLanguages;
             "updates:available": services$0.UpdateStatus;
+            "window:navigate": string;
             "window:state": services$0.WindowState;
         }
     }

@@ -94,6 +94,7 @@ type Shell struct {
 	stateMu  sync.Mutex
 	state    windowchrome.WindowState         // the main window's, as last observed
 	watchers []func(windowchrome.WindowState) // WatchMain's
+	navWatch []func(forward bool)             // WatchNavigate's
 }
 
 // New creates the main window (shown when the app runs, unless
@@ -157,6 +158,7 @@ func New(o Options) *Shell {
 	o.App.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		guardKeyboard(s.main)
 		trackSecondaryPresses(s.main)
+		trackMouseNav(s.main, s.navigated)
 		if kind == windowchrome.KindDrawn {
 			setFramelessTitle(s.main, windowTitle)
 		}

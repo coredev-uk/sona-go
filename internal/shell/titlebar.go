@@ -66,6 +66,23 @@ func (s *Shell) WatchMain(fn func(windowchrome.WindowState)) {
 	s.watchers = append(s.watchers, fn)
 }
 
+// WatchNavigate calls fn when the mouse's back (false) or forward (true)
+// button is pressed on the main window.
+func (s *Shell) WatchNavigate(fn func(forward bool)) {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+	s.navWatch = append(s.navWatch, fn)
+}
+
+func (s *Shell) navigated(forward bool) {
+	s.stateMu.Lock()
+	watchers := s.navWatch
+	s.stateMu.Unlock()
+	for _, fn := range watchers {
+		fn(forward)
+	}
+}
+
 func (s *Shell) setState(st windowchrome.WindowState) {
 	s.stateMu.Lock()
 	if st == s.state {
