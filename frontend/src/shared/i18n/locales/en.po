@@ -71,6 +71,11 @@ msgid "{0, plural, one {# playlist} other {# playlists}}"
 msgstr "{0, plural, one {# playlist} other {# playlists}}"
 
 #. placeholder {0}: list.total
+#: src/features/library/pages.tsx
+msgid "{0, plural, one {# single or EP} other {# singles & EPs}}"
+msgstr "{0, plural, one {# single or EP} other {# singles & EPs}}"
+
+#. placeholder {0}: list.total
 #. placeholder {0}: p.trackCount
 #: src/features/home/LocalShelves.tsx
 #: src/features/library/pages.tsx
@@ -640,6 +645,10 @@ msgstr "After {m, plural, one {# minute} other {# minutes}}"
 msgid "Album"
 msgstr "Album"
 
+#: src/features/library/pages.tsx
+msgid "Album type"
+msgstr "Album type"
+
 #: src/features/artist/views.ts
 #: src/features/library/index.ts
 #: src/features/library/pages.tsx
@@ -665,6 +674,10 @@ msgstr "Albums recently added to your library"
 #: src/features/library/pages.tsx
 msgid "Albums you add in Apple Music appear here after the next sync, newest first."
 msgstr "Albums you add in Apple Music appear here after the next sync, newest first."
+
+#: src/features/library/pages.tsx
+msgid "All"
+msgstr "All"
 
 #: src/features/discover/ChartPage.tsx
 msgid "All charts"
@@ -2465,6 +2478,10 @@ msgstr "Essential albums"
 msgid "Every artist with a song or album in your library is listed here, A to Z."
 msgstr "Every artist with a song or album in your library is listed here, A to Z."
 
+#: src/features/library/pages.tsx
+msgid "Everything in your library is a single or an EP."
+msgstr "Everything in your library is a single or an EP."
+
 #: src/features/settings/Diagnostics.tsx
 msgid "Everything Sona needs is working"
 msgstr "Everything Sona needs is working"
@@ -3558,6 +3575,10 @@ msgstr "Next step"
 msgid "Next track"
 msgstr "Next track"
 
+#: src/features/library/pages.tsx
+msgid "No albums besides singles and EPs"
+msgstr "No albums besides singles and EPs"
+
 #: src/features/search/groups.ts
 msgid "No albums for “{q}”"
 msgstr "No albums for “{q}”"
@@ -3681,6 +3702,10 @@ msgstr "No setting matches “{q}”."
 #: src/features/settings/Shortcuts.tsx
 msgid "No shortcut matches “{query}”."
 msgstr "No shortcut matches “{query}”."
+
+#: src/features/library/pages.tsx
+msgid "No singles or EPs in your library"
+msgstr "No singles or EPs in your library"
 
 #: src/features/search/groups.ts
 msgid "No songs for “{q}”"
@@ -5128,6 +5153,10 @@ msgstr "Show all {count}"
 msgid "Show all {songCount}"
 msgstr "Show all {songCount}"
 
+#: src/features/library/pages.tsx
+msgid "Show all albums"
+msgstr "Show all albums"
+
 #: src/features/song/SongPage.tsx
 msgid "Show all lyrics"
 msgstr "Show all lyrics"
@@ -5421,13 +5450,22 @@ msgstr "Similar music will keep playing"
 msgid "Single"
 msgstr "Single"
 
+#: src/features/library/pages.tsx
+msgid "Singles & EPs"
+msgstr "Singles & EPs"
+
 #: src/features/artist/views.ts
 msgid "Singles and EPs"
 msgstr "Singles and EPs"
 
 #: src/features/artist/ArtistPage.tsx
+#: src/features/library/pages.tsx
 msgid "Singles and EPs in your library"
 msgstr "Singles and EPs in your library"
+
+#: src/features/library/pages.tsx
+msgid "Singles and EPs you add in Apple Music appear here after the next sync."
+msgstr "Singles and EPs you add in Apple Music appear here after the next sync."
 
 #: src/features/settings/Diagnostics.tsx
 msgid "Size"

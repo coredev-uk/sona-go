@@ -28,8 +28,11 @@ var (
 	// so the position is the only "date added" order Apple exposes).
 	librarySongsQuery = url.Values{"relate": {"albums,artists"}, "sort": {"-dateAdded"}}
 	// Albums newest-added first, like songs, so an incremental sync can
-	// stop at the first album it already has.
-	libraryAlbumsQuery    = url.Values{"relate": {"catalog,artists"}, "sort": {"-dateAdded"}}
+	// stop at the first album it already has. Library albums carry no
+	// isSingle, so the catalog album is included with that one attribute.
+	libraryAlbumsQuery = url.Values{
+		"relate": {"catalog,artists"}, "include": {"catalog"}, "fields[albums]": {"isSingle"}, "sort": {"-dateAdded"},
+	}
 	libraryArtistsQuery   = url.Values{"include": {"catalog"}, "fields[artists]": {"name,artwork,url"}}
 	libraryPlaylistsQuery = url.Values{"relate": {"catalog"}}
 )

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
 )
@@ -324,5 +325,119 @@ func BenchmarkSearch(b *testing.B) {
 		if _, err := e.lib.Search(ctx, "son 12", 50); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+// flagged returns library album a with isSingle on its included catalog album.
+func flagged(a map[string]any, isSingle bool) map[string]any {
+	c := a["relationships"].(map[string]any)["catalog"].(map[string]any)["data"].([]any)[0].(map[string]any)
+	c["attributes"] = map[string]any{"isSingle": isSingle}
+	return a
+}
+
+func TestIsSingleRelease(t *testing.T) {
+	named := func(name string) applemusic.Album {
+		var a applemusic.Album
+		a.Attributes.Name = name
+		return a
+	}
+	withCatalog := func(name string, isSingle bool) applemusic.Album {
+		a := named(name)
+		var c applemusic.Album
+		c.Attributes.IsSingle = isSingle
+		a.Relationships.Catalog.Data = []applemusic.Album{c}
+		return a
+	}
+	for _, tc := range []struct {
+		why  string
+		in   applemusic.Album
+		want bool
+	}{
+		{"single suffix", named("Night Drive - Single"), true},
+		{"EP suffix", named("Night Drive - EP"), true},
+		{"catalog flag, other language", withCatalog("Night Drive - シングル", true), true},
+		{"catalog flag without suffix", withCatalog("Night Drive", true), true},
+		{"suffix wins over an unflagged catalog album", withCatalog("Night Drive - EP", false), true},
+		{"standard album", withCatalog("Night Drive", false), false},
+		{"no catalog album, no suffix", named("Night Drive"), false},
+		{"title that merely contains the words", named("Single - Ladies"), false},
+		{"lower-case suffix is not Apple's", named("night drive - ep"), false},
+	} {
+		if got := IsSingleRelease(tc.in); got != tc.want {
+			t.Errorf("%s: IsSingleRelease = %v, want %v", tc.why, got, tc.want)
+		}
+	}
+}
+
+// TestAlbumTypeFilter syncs albums of every kind through the real path and
+// checks the type filter with each sort, paging and the count.
+func TestAlbumTypeFilter(t *testing.T) {
+	e := newEnv(t)
+	f := e.fake
+	f.artists = []map[string]any{artist("r.a", "Zed"), artist("r.b", "abba")}
+	f.albums = []map[string]any{ // newest first
+		album("l.1", "Dawn - Single", "Zed", "r.a", "2024-05-01T00:00:00Z"),
+		flagged(album("l.2", "Dusk", "abba", "r.b", "2024-04-01T00:00:00Z"), true), // flag only
+		album("l.3", "Cargo", "Zed", "r.a", "2024-03-01T00:00:00Z"),
+		album("l.4", "Atlas - EP", "abba", "r.b", "2024-02-01T00:00:00Z"),
+		flagged(album("l.5", "Beacon", "Zed", "r.a", "2024-01-01T00:00:00Z"), false),
+	}
+	f.albums[0]["attributes"].(map[string]any)["releaseDate"] = "2024-04-30"
+	f.albums[2]["attributes"].(map[string]any)["releaseDate"] = "2019-03-01"
+	if err := e.run(t); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	names := func(o ListOptions) string {
+		t.Helper()
+		as, err := e.lib.Albums(ctx, o)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, a := range as {
+			out = append(out, a.Name)
+		}
+		return strings.Join(out, ", ")
+	}
+	for _, tc := range []struct {
+		o    ListOptions
+		want string
+	}{
+		{ListOptions{}, "Atlas - EP, Beacon, Cargo, Dawn - Single, Dusk"},
+		{ListOptions{Type: AlbumTypeAlbum}, "Beacon, Cargo"},
+		{ListOptions{Type: AlbumTypeSingle}, "Atlas - EP, Dawn - Single, Dusk"},
+		{ListOptions{Type: AlbumTypeSingle, Desc: true}, "Dusk, Dawn - Single, Atlas - EP"},
+		{ListOptions{Type: AlbumTypeSingle, Sort: SortArtist}, "Atlas - EP, Dusk, Dawn - Single"},
+		{ListOptions{Type: AlbumTypeSingle, Sort: SortDateAdded, Desc: true}, "Dawn - Single, Dusk, Atlas - EP"},
+		{ListOptions{Type: AlbumTypeAlbum, Sort: SortReleaseDate}, "Cargo, Beacon"},
+		{ListOptions{Type: AlbumTypeSingle, Limit: 2, Offset: 1}, "Dawn - Single, Dusk"},
+		{ListOptions{Type: AlbumTypeAlbum, Limit: 5, Offset: 2}, ""},
+		{ListOptions{Type: "nonsense"}, "Atlas - EP, Beacon, Cargo, Dawn - Single, Dusk"},
+	} {
+		if got := names(tc.o); got != tc.want {
+			t.Errorf("Albums(%+v) = %q, want %q", tc.o, got, tc.want)
+		}
+	}
+	for typ, want := range map[AlbumType]int{AlbumTypeAll: 5, AlbumTypeAlbum: 2, AlbumTypeSingle: 3} {
+		if n, err := e.lib.AlbumCount(ctx, typ); err != nil || n != want {
+			t.Errorf("AlbumCount(%q) = %d, %v; want %d", typ, n, err, want)
+		}
+	}
+
+	// Every album read (here a library album's page) carries the flag too.
+	for id, want := range map[string]bool{"l.1": true, "l.2": true, "l.3": false, "l.4": true, "l.5": false} {
+		if a, _, err := e.lib.Album(ctx, id); err != nil || a.Single != want {
+			t.Errorf("Album(%s).Single = %v, %v; want %v", id, a.Single, err, want)
+		}
+	}
+
+	// A catalog flag Apple changes later is picked up by the next full run.
+	f.albums[2] = flagged(album("l.3", "Cargo", "Zed", "r.a", "2024-03-01T00:00:00Z"), true)
+	if err := e.runFull(t); err != nil {
+		t.Fatal(err)
+	}
+	if got := names(ListOptions{Type: AlbumTypeAlbum}); got != "Beacon" {
+		t.Errorf("after the flag changed, albums = %q", got)
 	}
 }

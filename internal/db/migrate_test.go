@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -115,5 +116,53 @@ func TestMigrateMarksEarlierSyncsFull(t *testing.T) {
 	}
 	if songs.Int64 != 1234 || albums.Valid {
 		t.Fatalf("last_full = %v, %v", songs, albums)
+	}
+}
+
+// TestMigrateFlagsLibrarySingles checks 00009 on data: library albums named
+// like Apple's singles and EPs get the flag, catalog rows and standard
+// albums keep theirs, and the albums domain's next sync is a full one.
+func TestMigrateFlagsLibrarySingles(t *testing.T) {
+	ctx := context.Background()
+	w := openRaw(t, "singles.db")
+	p, err := provider(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.UpTo(ctx, 8); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Exec(`INSERT INTO albums (library_id, catalog_id, name, updated_at) VALUES
+		('l.1', '1', 'Dawn - Single', 1), ('l.2', '2', 'Atlas - EP', 1), ('l.3', '3', 'Dusk', 1), ('l.4', '4', 'dawn - single', 1);
+		INSERT INTO albums (catalog_id, name, updated_at) VALUES ('5', 'Cargo - Single', 1);
+		INSERT INTO sync_state (domain, last_success, last_full) VALUES ('albums', 9, 9), ('songs', 9, 9)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrate(ctx, w); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := w.Query(`SELECT name, is_single FROM albums ORDER BY id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = rows.Close() })
+	var got []string
+	for rows.Next() {
+		var name string
+		var single int
+		if err := rows.Scan(&name, &single); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, fmt.Sprintf("%s=%d", name, single))
+	}
+	if want := "Dawn - Single=1 Atlas - EP=1 Dusk=0 dawn - single=0 Cargo - Single=0"; strings.Join(got, " ") != want {
+		t.Fatalf("is_single = %v, want %s", got, want)
+	}
+	var albums, songs sql.NullInt64
+	if err := w.QueryRow(`SELECT (SELECT last_full FROM sync_state WHERE domain = 'albums'), (SELECT last_full FROM sync_state WHERE domain = 'songs')`).Scan(&albums, &songs); err != nil {
+		t.Fatal(err)
+	}
+	if albums.Valid || songs.Int64 != 9 {
+		t.Fatalf("last_full = %v (albums), %v (songs)", albums, songs)
 	}
 }

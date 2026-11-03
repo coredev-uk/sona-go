@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -480,6 +481,25 @@ func storeLibraryPlaylist(ctx context.Context, q *dbq.Queries, it applemusic.Pla
 	return q.MarkLibraryItem(ctx, dbq.MarkLibraryItemParams{Kind: "playlist", Ref: id, DateAdded: parseDate(a.DateAdded), Generation: gen})
 }
 
+// IsSingleRelease reports whether library album it is a single or an EP
+// (Apple's "Singles & EPs"). A library album has no isSingle of its own, so
+// the rule reads, in order: the isSingle of its catalog album (fetched with
+// the library walk), then the name Apple gives singles and EPs, which ends
+// in " - Single" or " - EP". The suffix is English only, so for other
+// storefront languages the catalog flag decides; an album with no catalog
+// album and no suffix is a standard album. The track count is not used: a
+// library album's trackCount is the number of its tracks in the library.
+func IsSingleRelease(it applemusic.Album) bool {
+	if it.Attributes.IsSingle {
+		return true
+	}
+	if c := it.Relationships.Catalog.Data; len(c) > 0 && c[0].Attributes.IsSingle {
+		return true
+	}
+	n := it.Attributes.Name
+	return strings.HasSuffix(n, " - Single") || strings.HasSuffix(n, " - EP")
+}
+
 func storeLibraryAlbum(ctx context.Context, q *dbq.Queries, it applemusic.Album, gen, now int64) error {
 	a := it.Attributes
 	id, err := q.UpsertLibraryAlbum(ctx, dbq.UpsertLibraryAlbumParams{
@@ -487,7 +507,7 @@ func storeLibraryAlbum(ctx context.Context, q *dbq.Queries, it applemusic.Album,
 		Name: a.Name, ArtistName: a.ArtistName,
 		ArtistLibraryID: db.NullString(firstID(it.Relationships.Artists.Data, func(r applemusic.Artist) string { return r.ID })),
 		ArtworkTemplate: a.Artwork.Template(), ReleaseDate: a.ReleaseDate, Genre: firstString(a.GenreNames),
-		TrackCount: int64(a.TrackCount), ContentRating: a.ContentRating, UpdatedAt: now,
+		TrackCount: int64(a.TrackCount), ContentRating: a.ContentRating, IsSingle: db.Bool(IsSingleRelease(it)), UpdatedAt: now,
 	})
 	if err != nil {
 		return fmt.Errorf("album %s: %w", it.ID, err)

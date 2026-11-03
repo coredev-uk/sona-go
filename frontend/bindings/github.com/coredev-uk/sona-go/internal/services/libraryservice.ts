@@ -36,10 +36,11 @@ export function Album(id: string): $CancellablePromise<$models.AlbumDetail> {
 
 /**
  * Albums lists library albums. sort is "title", "artist", "dateAdded" or
- * "releaseDate".
+ * "releaseDate"; albumType is "albums" (standard albums), "singles"
+ * (singles and EPs) or "" (all). Total counts the albums of that type.
  */
-export function Albums(sort: string, desc: boolean, offset: number, limit: number): $CancellablePromise<$models.AlbumPage> {
-    return $Call.ByID(3857559067, sort, desc, offset, limit).then(($result: any) => {
+export function Albums(sort: string, desc: boolean, albumType: string, offset: number, limit: number): $CancellablePromise<$models.AlbumPage> {
+    return $Call.ByID(3857559067, sort, desc, albumType, offset, limit).then(($result: any) => {
         return $$createType1($result);
     });
 }

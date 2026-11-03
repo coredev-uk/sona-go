@@ -9,14 +9,17 @@ import { ActionMenu } from "@/shared/actions/ActionMenu";
 import { CoverGrid, type CoverItem } from "@/shared/components/CoverGrid";
 import { Artwork } from "@/shared/components/Artwork";
 import { PageHeader } from "@/shared/components/PageHeader";
+import { EmptyState } from "@/shared/components/EmptyState";
 import { PlayButtons } from "@/shared/components/PlayButtons";
+import { Segmented } from "@/shared/components/Segmented";
 import { TrackList, type SongSort } from "@/shared/tracks/TrackList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { run } from "@/shared/lib/run";
 import { useContentVirtualizer } from "@/shared/lib/useContentVirtualizer";
 
 import { skeletonRows, skeletonTiles, useLibraryGate } from "./gate";
-import { useLibraryList } from "./queries";
+import { useCounts, useLibraryList } from "./queries";
+import type { AlbumType } from "./search-params";
 
 function SortSelect<S extends string>({
   value,
@@ -126,15 +129,21 @@ export function LibrarySongsPage() {
 
 const albumsRoute = getRouteApi("/library/albums");
 
+/** The album type control's choices: a type, or all (no type in the URL). */
+type AlbumFilter = AlbumType | "all";
+
 export function LibraryAlbumsPage() {
   const { t } = useLingui();
   const search = albumsRoute.useSearch();
   const navigate = albumsRoute.useNavigate();
   const sort = search.sort ?? "dateAdded";
   const desc = search.desc ?? startsDesc(sort);
-  const list = useLibraryList("albums", sort, desc);
+  const type = search.type;
+  const list = useLibraryList("albums", sort, desc, type);
+  const counts = useCounts();
   const gate = useLibraryGate({
-    total: list.total,
+    // A type with no albums must not read as an empty library.
+    total: type ? Math.max(list.total, counts.data?.albums ?? 0) : list.total,
     pending: list.isPending,
     error: list.error,
     retry: () => void list.refetch(),
@@ -143,6 +152,11 @@ export function LibraryAlbumsPage() {
     empty: t`Albums you add in Apple Music appear here after the next sync, newest first.`,
     frame: "covers",
   });
+  const setType = (next: AlbumFilter) =>
+    void navigate({
+      search: (prev) => ({ ...prev, type: next === "all" ? undefined : next }),
+      replace: true,
+    });
   const items: (CoverItem | undefined)[] = list.isPending
     ? skeletonTiles
     : list.rows.map(
@@ -157,27 +171,78 @@ export function LibraryAlbumsPage() {
             target: { kind: "album", target: a },
           },
       );
+  // A type with nothing in it still says so, so the header does not jump when the filter changes.
+  const subline =
+    list.isPending || (!list.total && !type)
+      ? undefined
+      : type === "singles"
+        ? plural(list.total, { one: "# single or EP", other: "# singles & EPs" })
+        : plural(list.total, { one: "# album", other: "# albums" });
+  const noneTitle =
+    type === "singles"
+      ? t`No singles or EPs in your library`
+      : t`No albums besides singles and EPs`;
+  const filteredNone = !!type && !list.isPending && !list.total;
+  // What a chosen type shows, read out when it changes (a filter's result is not otherwise announced).
+  const announcement = !type || list.isPending ? "" : filteredNone ? noneTitle : subline;
   return (
     <>
       <PageHeader
         title={t`Albums`}
-        subline={list.total ? plural(list.total, { one: "# album", other: "# albums" }) : undefined}
+        subline={subline}
         actions={
-          <SortSelect
-            value={sort}
-            onChange={(v) =>
-              void navigate({ search: { sort: v, desc: startsDesc(v) }, replace: true })
-            }
-            options={[
-              { value: "dateAdded", label: t`Recently added` },
-              { value: "title", label: t`Title` },
-              { value: "artist", label: t`Artist` },
-              { value: "releaseDate", label: t`Release date` },
-            ]}
-          />
+          <>
+            <Segmented
+              value={type ?? "all"}
+              label={t`Album type`}
+              onChange={setType}
+              options={[
+                { value: "all", label: t`All` },
+                { value: "albums", label: t`Albums` },
+                { value: "singles", label: t`Singles & EPs` },
+              ]}
+            />
+            <SortSelect
+              value={sort}
+              onChange={(v) =>
+                void navigate({
+                  search: (prev) => ({ ...prev, sort: v, desc: startsDesc(v) }),
+                  replace: true,
+                })
+              }
+              options={[
+                { value: "dateAdded", label: t`Recently added` },
+                { value: "title", label: t`Title` },
+                { value: "artist", label: t`Artist` },
+                { value: "releaseDate", label: t`Release date` },
+              ]}
+            />
+          </>
         }
       />
-      {gate ?? <CoverGrid items={items} label={t`Albums in your library`} onRange={list.onRange} />}
+      <div role="status" className="sr-only">
+        <p key={announcement}>{announcement}</p>
+      </div>
+      {gate ??
+        (filteredNone ? (
+          <EmptyState
+            frame="covers"
+            title={noneTitle}
+            action={{ label: t`Show all albums`, onClick: () => setType("all") }}
+          >
+            {type === "singles"
+              ? t`Singles and EPs you add in Apple Music appear here after the next sync.`
+              : t`Everything in your library is a single or an EP.`}
+          </EmptyState>
+        ) : (
+          <CoverGrid
+            items={items}
+            label={
+              type === "singles" ? t`Singles and EPs in your library` : t`Albums in your library`
+            }
+            onRange={list.onRange}
+          />
+        ))}
     </>
   );
 }

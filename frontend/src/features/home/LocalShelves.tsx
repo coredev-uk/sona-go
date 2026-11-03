@@ -93,7 +93,7 @@ function RecentlyAdded() {
   const { t } = useLingui();
   const q = useQuery({
     queryKey: keys.libraryPage("albums", "dateAdded", true, -1),
-    queryFn: () => LibraryService.Albums("dateAdded", true, 0, 12),
+    queryFn: () => LibraryService.Albums("dateAdded", true, "", 0, 12),
   });
   if (q.error) {
     return (

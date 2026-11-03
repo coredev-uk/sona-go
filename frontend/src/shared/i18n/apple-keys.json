@@ -35,6 +35,10 @@
     "key": "ASE.Web.Music.SideBar.Album"
   },
   {
+    "message": "All",
+    "key": "ASE.Web.Music.Genre.All"
+  },
+  {
     "message": "All genres",
     "key": "FUSE.New.AllGenres"
   },

@@ -25,7 +25,7 @@ import {
   LibrarySongsPage,
 } from "./pages";
 import { LibraryProvider } from "./provider";
-import { albumSorts, listSearch, playlistSorts, songSorts } from "./search-params";
+import { albumsSearch, listSearch, playlistSorts, songSorts } from "./search-params";
 import { useSync } from "./sync";
 import { SyncIndicator } from "./SyncIndicator";
 import { FavoriteSongsPage, MusicVideosPage, RecentlyAddedPage } from "./views";
@@ -43,7 +43,7 @@ const artistsRoute = createRoute({
 });
 const albumsRoute = createRoute({
   ...childRoute("/library/albums"),
-  validateSearch: listSearch(albumSorts),
+  validateSearch: albumsSearch,
   component: LibraryAlbumsPage,
 });
 const songsRoute = createRoute({

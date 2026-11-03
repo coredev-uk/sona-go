@@ -32,8 +32,8 @@ RETURNING id;
 -- name: UpsertLibraryAlbum :one
 INSERT INTO albums (
     library_id, catalog_id, name, artist_name, artist_library_id, artist_catalog_id,
-    artwork_template, release_date, genre, track_count, content_rating, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    artwork_template, release_date, genre, track_count, content_rating, is_single, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (library_id) DO UPDATE SET
     catalog_id = excluded.catalog_id,
     name = excluded.name,
@@ -45,6 +45,7 @@ ON CONFLICT (library_id) DO UPDATE SET
     genre = excluded.genre,
     track_count = excluded.track_count,
     content_rating = excluded.content_rating,
+    is_single = excluded.is_single,
     updated_at = excluded.updated_at
 RETURNING id;
 
