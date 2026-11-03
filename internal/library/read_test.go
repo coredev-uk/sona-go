@@ -12,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mattn/go-sqlite3"
-
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
 )
@@ -178,34 +176,43 @@ func recordReads(t *testing.T, e *env) (*Library, *readLog) {
 	t.Helper()
 	log := &readLog{}
 	dsn := "file:" + (&url.URL{Path: e.path}).EscapedPath() + "?_busy_timeout=5000&_query_only=1"
-	r := sql.OpenDB(recordingConnector{dsn: dsn, log: log})
-	t.Cleanup(func() { r.Close() })
+	r := sql.OpenDB(recordingConnector{drv: e.db.R.Driver(), dsn: dsn, log: log})
+	t.Cleanup(func() { _ = r.Close() })
 	return New(&db.DB{W: e.db.W, Q: e.db.Q, R: r, RQ: dbq.New(r)}, nil), log
 }
 
 type recordingConnector struct {
+	drv driver.Driver
 	dsn string
 	log *readLog
 }
 
 func (c recordingConnector) Connect(context.Context) (driver.Conn, error) {
-	conn, err := c.Driver().Open(c.dsn)
+	conn, err := c.drv.Open(c.dsn)
 	if err != nil {
 		return nil, err
 	}
-	return recordingConn{conn.(*sqlite3.SQLiteConn), c.log}, nil
+	q, ok := conn.(driver.QueryerContext)
+	if !ok {
+		_ = conn.Close()
+		return nil, fmt.Errorf("%T runs no queries without preparing them", conn)
+	}
+	return recordingConn{Conn: conn, q: q, log: c.log}, nil
 }
 
-func (recordingConnector) Driver() driver.Driver { return &sqlite3.SQLiteDriver{} }
+func (c recordingConnector) Driver() driver.Driver { return c.drv }
 
+// recordingConn is a read connection that records its queries. Library
+// only queries on its read pool, so the rest is the plain driver.Conn.
 type recordingConn struct {
-	*sqlite3.SQLiteConn
+	driver.Conn
+	q   driver.QueryerContext
 	log *readLog
 }
 
 func (c recordingConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	s := &readStmt{query: query}
-	plan, err := c.SQLiteConn.QueryContext(ctx, "EXPLAIN QUERY PLAN "+query, args)
+	plan, err := c.q.QueryContext(ctx, "EXPLAIN QUERY PLAN "+query, args)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +225,7 @@ func (c recordingConn) QueryContext(ctx context.Context, query string, args []dr
 	if err := plan.Close(); err != nil {
 		return nil, err
 	}
-	rows, err := c.SQLiteConn.QueryContext(ctx, query, args)
+	rows, err := c.q.QueryContext(ctx, query, args)
 	if err != nil {
 		return nil, err
 	}

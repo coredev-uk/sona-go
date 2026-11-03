@@ -832,13 +832,13 @@ const (
 func (s *server) tick() (Event, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	now := time.Now()
 	o := s.outLocked()
 	if !s.playing || o == nil {
 		return Event{}, false
 	}
 	if s.file == nil && s.next.gen != 0 {
 		if gen, pos, ok := s.pipe.Position(); ok && gen == s.next.gen {
+			now := time.Now()
 			// The queued track is heard: it is current from here on.
 			n := s.next
 			s.track, s.init, s.start, s.duration, s.gain, s.ended = n.gen, n.init, n.start, n.dur, n.gain, n.ended
@@ -848,6 +848,7 @@ func (s *server) tick() (Event, bool) {
 		}
 	}
 	pos, ok := s.positionLocked()
+	now := time.Now()
 	if !s.started {
 		if !ok {
 			return Event{}, false
