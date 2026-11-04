@@ -108,8 +108,8 @@ func controlsCompare(t *testing.T, file string, got *image.RGBA) {
 	}
 	if limit := b.Dx() * b.Dy() / 500; off > limit {
 		t.Errorf("%s: %d pixels differ (allowed %d); run with -update-controls and look at it if the change is meant", file, off, limit)
-		// Leave the picture beside the golden for a look.
-		if out, err := os.Create(filepath.Join(os.TempDir(), file)); err == nil {
+		// Leave the picture in the test's artifacts (-artifacts) for a look.
+		if out, err := os.Create(filepath.Join(t.ArtifactDir(), file)); err == nil {
 			_ = png.Encode(out, got)
 			_ = out.Close()
 			t.Logf("got: %s", out.Name())
