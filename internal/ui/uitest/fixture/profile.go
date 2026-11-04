@@ -24,6 +24,8 @@ func WriteProfile(ctx context.Context, paths config.Paths) error {
 		s.Theme = config.ThemeLight
 		s.Language = "en"
 		s.AutoPlay = false
+		// Opens on Albums, the page the smoke reads, not the sidebar's first link.
+		s.Desktop.StartPage = "/library/albums"
 	}); err != nil {
 		return err
 	}

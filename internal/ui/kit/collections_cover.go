@@ -2,9 +2,11 @@ package kit
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
@@ -269,11 +271,30 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i int, si
 				w.Opacity(0.5).Tooltip(i18n.T("Explicit content is restricted on this account"))
 			}
 		},
+		After: func(w, s ui.Element) {
+			// The play control and the more button are elements of their own,
+			// beside the opener: a button or a link is a leaf for assistive
+			// technology, so inside it they would not be on its tree.
+			hot := w.Hovered() || w.FocusWithin()
+			st.playControl(c, it, artH, hot, withheld)
+			if it.Item != nil && o.Menus != nil {
+				o.Menus.Trigger(c.Key("more"), ActionTarget{Item: *it.Item, Name: it.Title, Container: o.Container, Key: it.Key},
+					TriggerOpts{Visible: hot}).Absolute().Right(0).Top(artH + 6)
+			}
+		},
 		Source: func(s ui.Element) {
 			s.Column().Label(opener).Radius(tk.Radius["sm"])
-			if it.PlaysOnOpen || it.Open == nil {
+			if it.Subtitle != "" {
+				// A button or link is a leaf on the accessibility tree, so the
+				// subtitle drawn inside it is read as its description.
+				s.Description(it.Subtitle)
+			}
+			switch {
+			case it.PlaysOnOpen:
 				s.Role(ui.RoleButton)
-			} else {
+			case it.Open == nil:
+				s.Role(ui.RoleGroup) // nothing to open: not a control that does nothing
+			default:
 				s.Role(ui.RoleLink)
 			}
 		},
@@ -327,11 +348,7 @@ func (st *CoverState) cover(c *ui.Context, o *CoverOpts, it *CoverItem, size, ar
 		}
 		switch {
 		case it.Play != nil && !withheld:
-			play := PlayButton(c.Key("play"), i18n.T("Play {playLabel}", "playLabel", it.Play.Label), 36).Absolute().Left(8).Bottom(8)
-			collectionsFade(play, hot || play.Focused())
-			if play.Clicked() {
-				it.Play.Run()
-			}
+			// The play control is built beside the tile (playControl).
 		case it.PlaysOnOpen && !withheld:
 			mark := ui.Row(c.Key("mark")).Absolute().Left(8).Bottom(8).Size(36, 36).Center().
 				Radius(tk.Radius["full"]).Background(theme.C("play")).IgnoreInput(true)
@@ -373,10 +390,25 @@ func (st *CoverState) titleRow(c *ui.Context, o *CoverOpts, it *CoverItem, hover
 			ui.Box(c).Grow(1)
 		}
 		if it.Item != nil && o.Menus != nil {
-			o.Menus.Trigger(c.Key("more"), ActionTarget{Item: *it.Item, Name: it.Title, Container: o.Container, Key: it.Key},
-				TriggerOpts{Visible: hot})
+			ui.Box(c.Key("more-room")).Size(24, 24).Shrink(0).IgnoreInput(true) // where the more button sits (tile)
 		}
 	})
+}
+
+// playControl is a tile's play button over the cover's bottom left, shown
+// while the tile is hovered or has the focus within, and always on the
+// accessibility tree and a stop of Tab. It sits beside the opener, not inside
+// it.
+func (st *CoverState) playControl(c *ui.Context, it *CoverItem, artH float32, hot, withheld bool) {
+	if it.Play == nil || withheld {
+		return
+	}
+	const size = 36
+	play := PlayButton(c.Key("play"), i18n.T("Play {playLabel}", "playLabel", it.Play.Label), size).Absolute().Left(8).Top(artH - 8 - size)
+	collectionsFade(play, hot || play.Focused())
+	if play.Clicked() {
+		it.Play.Run()
+	}
 }
 
 // loadingTile is a tile whose page is still loading: flat bars at the real
@@ -423,3 +455,8 @@ func collectionsMenu(sel *Selection, menus *ActionMenus, s ui.Element, t ActionT
 		menus.OpenAt(t, b.X+16, b.Y+b.H, true)
 	}
 }
+
+// ReleaseBadge is the badge on an upcoming album's cover ("Out 19 Nov", with
+// the year when it is not this one's); "" for an album that is out or has no
+// full date (v0.2.0's releaseBadge).
+func ReleaseBadge(a services.Album, now time.Time) string { return itemsReleaseBadge(a, now) }

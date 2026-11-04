@@ -7456,5 +7456,12 @@ msgid "{hours, plural, one {# hr. ago} other {# hr. ago}}"
 msgstr "{hours, plural, one {# hr. ago} other {# hr. ago}}"
 
 #: internal/ui/i18n/relative.go
+#: internal/ui/features/library/artists.go
+msgid "Nothing by {name} is in your library yet."
+msgstr "Nothing by {name} is in your library yet."
+#: internal/ui/features/library/sync.go
+#: internal/ui/features/library/sync.go
+#: internal/ui/features/library/sync.go
+#: internal/ui/features/library/sync.go
 msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
 msgstr "{minutes, plural, one {# min. ago} other {# min. ago}}"
