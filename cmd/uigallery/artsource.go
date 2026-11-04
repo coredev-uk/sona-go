@@ -70,6 +70,12 @@ func (coverSource) Get(ctx context.Context, src string, w, h int) ([]byte, error
 	return buf.Bytes(), nil
 }
 
+// Backdrop makes the pre-blurred backdrop of src: a small soft picture the
+// backdrop scales up. It honours delay and fail like Get.
+func (c coverSource) Backdrop(ctx context.Context, src string) ([]byte, error) {
+	return c.Get(ctx, src, 64, 64)
+}
+
 // cover paints the picture of a path: a diagonal gradient between two hues,
 // with concentric rings off the middle.
 func cover(path string, w, h int) image.Image {

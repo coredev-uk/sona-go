@@ -20,12 +20,7 @@ func (a *App) view(c *ui.Context) {
 	theme.Apply(c)
 	a.keys.dispatch(c)
 
-	layerOpen := false
-	for _, m := range a.mods {
-		if m.Slots.Layer != nil && m.Slots.LayerOpen != nil && m.Slots.LayerOpen() {
-			layerOpen = true
-		}
-	}
+	layerOpen, overlayOpen := a.layerOpen(), a.overlayOpen()
 
 	root := ui.Column(c).Fill().Background(theme.C("ground")).IgnoreInput(layerOpen)
 	root.Draw(func(*ui.Painter, ui.Rect) { a.paintOnce.Do(a.painted) })
@@ -49,6 +44,7 @@ func (a *App) view(c *ui.Context) {
 		}
 	}
 	kit.OverlayLayer(c)
+	a.afterFrame(c, layerOpen, overlayOpen)
 }
 
 // painted is the first frame drawn: the network opens (SystemService
@@ -64,12 +60,7 @@ func (a *App) mainColumn(c *ui.Context) {
 	ui.Column(c).Grow(1).Basis(0).MinWidth(0).FillHeight().Children(func() {
 		a.topBar(c)
 		ui.Box(c).Height(1).FillWidth().Background(theme.C("line"))
-		overlayOpen := false
-		for _, m := range a.mods {
-			if o := m.Slots.Overlay; o != nil && o.Open != nil && o.Open() {
-				overlayOpen = true
-			}
-		}
+		overlayOpen := a.overlayOpen()
 		ui.Row(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 			// An open overlay covers the page, which keeps its place (and
 			// its scroll) while it is hidden.

@@ -1,5 +1,3 @@
-//go:build gallery_pending
-
 package main
 
 import (
@@ -18,9 +16,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// Media components: persons, avatars, backdrops, covers that move, the
-// equaliser and gradient text. This file waits for PR 0.3's cmd/uigallery
-// (register, section, gallery): the lead removes the build tag at rebase.
 // galleryFile is the motion policy of the sections that play. Motion needs a
 // decoder and a file: SONA_GALLERY_MOTION names an MP4 (a generated clip:
 // gst-launch-1.0 videotestsrc num-buffers=90 pattern=smpte ! x264enc ! mp4mux

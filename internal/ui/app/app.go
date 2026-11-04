@@ -21,6 +21,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/media"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
@@ -45,6 +46,9 @@ type Options struct {
 	Windows *Windows
 	// Art is the artwork cache the covers are decoded from.
 	Art *artwork.Cache
+	// Motion serves the motion artwork files (the motion cache); nil: no
+	// motion plays.
+	Motion media.MotionFiles
 	// Poster, when set, replaces Window.Update as how work gets to the
 	// main thread (tests).
 	Poster store.Poster
@@ -75,6 +79,16 @@ type App struct {
 	playback *services.PlaybackService
 	// firstPaint runs once, on the first frame drawn.
 	firstPaint func()
+
+	// Motion artwork: the Motion artwork setting as last seen, the release
+	// of the policy's Cover while something covers the page, and what has
+	// been sent to MotionService.Report (nil without services). Main thread.
+	motionOn   bool
+	uncover    func()
+	sendReport func(services.MotionReport)
+	reportAt   time.Time
+	reported   bool
+	lastReport services.MotionReport
 
 	mods   []module.Module
 	routes []module.Route
@@ -138,6 +152,8 @@ func newApp(opts Options, factories []module.Factory) *App {
 		Version: opts.Version,
 		Dev:     opts.Dev,
 	}
+	a.env.Motion = a.newMotion(post)
+	a.env.HasRoute = a.hasRoute
 	for _, f := range factories {
 		m := f(a.env)
 		a.mods = append(a.mods, m)
@@ -244,6 +260,7 @@ func (a *App) openWindow() {
 	if a.opts.Windows != nil {
 		a.opts.Windows.attach(win, a.mem)
 	}
+	a.followVisibility(win)
 	a.connect()
 	a.devHook(win)
 	if a.opts.Dev && inspectorRequested() {
@@ -296,6 +313,7 @@ func (a *App) Window() *mygo.Window {
 
 // Close releases what the UI holds; call it after MyGo's Run returns.
 func (a *App) Close() {
+	a.env.Motion.Close()
 	a.env.Art.Close()
 	if a.mem != nil {
 		a.mem.flush()
@@ -311,6 +329,7 @@ func (a *App) followSettings() {
 	apply := func(s config.Settings) {
 		theme.SetMode(themeMode(s.Theme))
 		theme.SetReduceEffects(s.ReduceEffects)
+		a.motionOn = s.MotionArtwork.Enabled
 	}
 	apply(a.opts.Settings.Get())
 	store.On(a.opts.Bus, services.EventSettingsChanged, func(s config.Settings) {

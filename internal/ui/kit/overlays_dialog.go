@@ -56,6 +56,7 @@ func Dialog(c *ui.Context, open *bool, o DialogOpts, build func()) ui.Element {
 	if !*open {
 		return ui.Element{}
 	}
+	dialogsBuilt++
 	tk := theme.Current()
 	scrim := ui.RGBA(0, 0, 0, 0.5)
 	if theme.Dark() {
@@ -110,6 +111,20 @@ func Dialog(c *ui.Context, open *bool, o DialogOpts, build func()) ui.Element {
 		})
 	})
 	return panel
+}
+
+// dialogsBuilt counts the dialogs built since TakeDialogsBuilt. Main thread
+// only, like every view.
+var dialogsBuilt int
+
+// TakeDialogsBuilt returns how many dialogs (Dialog, ConfirmHost, the
+// palette) were built since it was last called, and resets the count. The
+// shell calls it once at the end of each frame: a modal open in the frame
+// that just ended is a modal covering the page.
+func TakeDialogsBuilt() int {
+	n := dialogsBuilt
+	dialogsBuilt = 0
+	return n
 }
 
 // closeButton is the dialog's top-right X, named "Close", with the focus
