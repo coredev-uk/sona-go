@@ -3,6 +3,8 @@ package i18n
 import (
 	"slices"
 	"strings"
+
+	mygoi18n "github.com/egoist/mygo/i18n"
 )
 
 // SourceLocale is the tag of the source catalogue: message IDs come from
@@ -117,8 +119,14 @@ func ChooseTranslation(preferred []string, load func(tag string) (Translation, b
 // FormatLocales are the locales numbers and dates are written for while
 // locale's catalogue is shown: the system's and then the account's tags of
 // the same language, so an English UI on an en-GB system keeps 24-hour
-// clocks and day-month dates, then the catalogue's own tag.
+// clocks and day-month dates, then the catalogue's own tag. A pseudo
+// locale writes its own tag alone: MyGo transforms a message only when it
+// is formatted for the pseudo locale, so a regional tag first would show
+// the English untouched.
 func FormatLocales(locale string, preferred []string) []string {
+	if mygoi18n.IsPseudo(locale) {
+		return []string{locale}
+	}
 	lang := langOf(strings.ToLower(locale))
 	var out []string
 	for _, tag := range preferred {

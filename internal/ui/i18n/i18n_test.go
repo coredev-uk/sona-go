@@ -235,6 +235,20 @@ func TestPseudoLocale(t *testing.T) {
 	}
 }
 
+// The app always sets the system's languages (SetRegional): the pseudo
+// locale must still transform, as on an en-US or en-GB machine.
+func TestPseudoLocaleShowsOnAnEnglishSystem(t *testing.T) {
+	reset(t)
+	SetRegional("en-GB", "en-US")
+	SetLocale(PseudoLocale)
+	if got := T("Albums"); got == "Albums" || !strings.HasPrefix(got, "[") {
+		t.Errorf("pseudo-locale on an en-GB system shows %q", got)
+	}
+	if got := T("{0, plural, one {# album} other {# albums}}", 0, 3); got == "3 albums" || !strings.Contains(got, "3") {
+		t.Errorf("pseudo-locale plural shows %q", got)
+	}
+}
+
 func TestSetLocaleRedrawsThroughThePoster(t *testing.T) {
 	reset(t)
 	posts := 0
