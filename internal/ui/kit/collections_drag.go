@@ -42,8 +42,9 @@ type DragOrigin struct {
 
 // DragPayload is what is being dragged.
 type DragPayload struct {
-	// Items are the items, in order; empty for a queue row, which only
-	// reorders.
+	// Items are the items, in order. A queue row carries its song too (with
+	// Origin set), so a sidebar playlist takes it while the queue's own drop
+	// only reorders.
 	Items []Item
 	// Origin is set for a reorder inside one list.
 	Origin *DragOrigin

@@ -2,6 +2,7 @@ package player
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -14,22 +15,29 @@ import (
 )
 
 // bar is NowPlayingBar: the song across the left, the transport and the
-// seek bar in the middle, the volume at the right, 72 high with a line
-// above it.
+// seek bar in the middle, the sleep timer, lyrics, queue and volume at the
+// right, 72 high with a line above it, over a wash of the cover.
 //
-//	[cover] Title                 shuffle prev PLAY next repeat                 [mute] ──o──
+//	[cover] Title ☆               shuffle prev PLAY next repeat          [moon][mic][queue][mute] ──o──
 //	        Artist · Album        0:42 ━━━━━━o────────────── 3:58
 func (p *player) bar(c *ui.Context) {
 	p.toasts(c)
 	s := p.env.Play.State()
+	p.announceTrack(c, s)
 	tk := theme.Current()
+	backdrop := ""
+	if s.Current != nil {
+		backdrop = s.Current.Backdrop
+	}
 	ui.Column(c).Height(tk.Metric["player-bar"]).FillWidth().Background(theme.C("surface")).Label(i18n.T("Player")).Role(ui.RoleGroup).Children(func() {
 		ui.Box(c).Height(1).FillWidth().Background(theme.C("line"))
-		ui.Row(c).Grow(1).Basis(0).MinHeight(0).Padding(0, 16).Gap(24).AlignItems(ui.Center).Children(func() {
-			p.song(c, s)
-			p.transport(c, s)
-			p.volumeControls(c, s)
-		})
+		kit.Backdrop(c, p.env.Art, kit.BackdropOpts{Src: backdrop}, func() {
+			ui.Row(c).Fill().Padding(0, 16).Gap(24).AlignItems(ui.Center).Children(func() {
+				p.song(c, s)
+				p.transport(c, s)
+				p.volumeControls(c, s)
+			})
+		}).Grow(1).Basis(0).MinHeight(0).FillWidth()
 	})
 }
 
@@ -37,21 +45,14 @@ func (p *player) bar(c *ui.Context) {
 func (p *player) song(c *ui.Context, s services.PlaybackState) {
 	cur := s.Current
 	ui.Row(c).Grow(1).Basis(0).MinWidth(0).Gap(12).AlignItems(ui.Center).Children(func() {
-		src := ""
-		if cur != nil {
-			src = cur.Art.Small
-			if s.OnAir != nil && s.OnAir.Art.Small != "" {
-				src = s.OnAir.Art.Small
-			}
-		}
-		kit.Artwork(c, p.env.Art, src, 48, kit.ArtOpts{}).Shrink(0) // a long line beside it never squashes the cover
+		p.cover(c, s)
 		ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).MinWidth(0).Children(func() {
 				if cur == nil {
 					label(c, i18n.T("Not playing"), "label").TextColor(theme.C("ink-muted"))
 					return
 				}
-				label(c, cur.Name, "label").TextColor(theme.C("ink"))
+				p.link(c, "title", cur.Name, p.titlePath(cur), "label", theme.C("ink"))
 				if s.Preview {
 					// Apple's 30-second clip instead of the song (SONA_PREVIEW=1).
 					tag(c, i18n.TC("a song playing as its 30-second preview", "Preview"), i18n.T("Apple Music's 30-second preview, not the full song"))
@@ -59,7 +60,87 @@ func (p *player) song(c *ui.Context, s services.PlaybackState) {
 			})
 			p.subline(c, s)
 		})
+		p.ratingButtons(c, cur, true)
 	})
+}
+
+// cover is the cover in a button that opens or closes Now Playing; what a
+// local broadcaster says is on air wins over the station's art.
+func (p *player) cover(c *ui.Context, s services.PlaybackState) {
+	cur := s.Current
+	src := ""
+	if cur != nil {
+		src = cur.Art.Small
+		if s.OnAir != nil && s.OnAir.Art.Small != "" {
+			src = s.OnAir.Art.Small
+		}
+	}
+	if !p.nowPlayingSurface() {
+		// Nothing to open: the cover is a picture.
+		kit.Artwork(c, p.env.Art, src, 48, kit.ArtOpts{}).Shrink(0)
+		return
+	}
+	open := p.ui.overlay != overlayNone
+	name := i18n.T("Open now playing")
+	switch {
+	case cur == nil:
+		name = i18n.T("Nothing playing")
+	case open:
+		name = i18n.T("Close now playing")
+	}
+	b := ui.ButtonBase(c.Key("cover")).Label(name).Shrink(0).Radius(theme.Current().Radius["sm"]).Padding(0)
+	b.Background(ui.Transparent)
+	if cur == nil {
+		b.Disabled(true)
+	}
+	b.Children(func() { kit.Artwork(c, p.env.Art, src, 48, kit.ArtOpts{}).Shrink(0) })
+	if b.Clicked() && cur != nil {
+		if open {
+			p.ui.closeOverlay()
+		} else {
+			p.ui.openNowPlaying("")
+		}
+	}
+}
+
+// titlePath is the page the playing item's name links to ("" for none): a
+// live station its page (a local broadcaster has none), a music video its
+// page, a song its album with the song marked.
+func (p *player) titlePath(cur *services.QueueItem) string {
+	switch {
+	case cur.Live && cur.Broadcast:
+		return ""
+	case cur.Live:
+		return "/station/" + url.PathEscape(cur.ID)
+	case cur.Video:
+		id := cur.CatalogID
+		if id == "" {
+			id = cur.ID
+		}
+		return "/music-video/" + url.PathEscape(id)
+	case cur.AlbumID != "":
+		return "/album/" + url.PathEscape(cur.AlbumID) + "?song=" + url.QueryEscape(cur.ID)
+	}
+	return ""
+}
+
+// link is text that goes to path in the router when that page is ported;
+// else plain text. Outside a page ui.Link would hand its URL to the
+// browser, so it has an empty URL and the click pushes the path.
+func (p *player) link(c *ui.Context, key, text, path, style string, color ui.Color) {
+	if path == "" || p.env.HasRoute == nil || !p.env.HasRoute(path) {
+		label(c, text, style).TextColor(color)
+		return
+	}
+	t := theme.Current().Type[style]
+	l := ui.Link(c.Key(key), text, "").FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).
+		LetterSpacing(t.Tracking).SingleLine().MinWidth(0).Shrink(1).TextColor(color).Cursor(ui.CursorPointer)
+	if l.Hovered() {
+		l.Underline()
+	}
+	if l.Clicked() {
+		p.env.Nav.Push(path)
+	}
 }
 
 // subline is the line under the title: what needs the user, what failed,
@@ -70,7 +151,16 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 	case cur == nil:
 		label(c, i18n.T("Choose a song, album or playlist to start"), "sub").TextColor(theme.C("ink-faint"))
 	case s.AuthRequired:
-		label(c, i18n.T("Sign in again to keep playing"), "sub").TextColor(theme.C("ink"))
+		msg := i18n.T("Sign in again to keep playing")
+		if p.env.Surfaces == nil {
+			label(c, msg, "sub").TextColor(theme.C("ink"))
+			break
+		}
+		// An underlined button that opens the account dialog.
+		b := label(c.Key("sign-in"), msg, "sub").TextColor(theme.C("ink")).Underline().Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		if b.Clicked() {
+			p.env.Surfaces.OpenAccount()
+		}
 	case s.NoCDM:
 		p.env.PlayerNotice.Build(c) // features/cdm's notice
 	case s.State == "error" && s.Error != "":
@@ -85,6 +175,13 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 		})
 	case cur.Artist == "" && cur.Album == "":
 		// A broadcaster names no provider: its name stands alone.
+	case cur.ArtistID != "" && p.env.HasRoute != nil && p.env.HasRoute("/artist/"+url.PathEscape(cur.ArtistID)):
+		ui.Row(c).MinWidth(0).Shrink(1).AlignItems(ui.Center).Children(func() {
+			p.link(c, "artist", cur.Artist, "/artist/"+url.PathEscape(cur.ArtistID), "sub", theme.C("ink-muted"))
+			if cur.Album != "" {
+				label(c, " · "+cur.Album, "sub").TextColor(theme.C("ink-muted"))
+			}
+		})
 	default:
 		line := cur.Artist
 		if cur.Album != "" {
@@ -161,9 +258,13 @@ func (p *player) iconButton(c *ui.Context, key, icon, name string, disabled bool
 		a11y = name + " · " + reason
 		disabled = true
 	}
-	return kit.Button(c.Key(key), "", kit.ButtonOpts{
+	btn := kit.Button(c.Key(key), "", kit.ButtonOpts{
 		Variant: kit.Ghost, Size: kit.SizeSM, Icon: icon, Pressed: pressed, Disabled: disabled, A11yLabel: a11y,
-	}).Clicked()
+	})
+	if key == "queue-toggle" {
+		btn.Bind(&p.queue.toggle) // the queue's Escape returns the focus here
+	}
+	return btn.Clicked()
 }
 
 // live is a live station's line in place of the seek bar: a marker, and
@@ -214,7 +315,7 @@ func (p *player) seekBar(c *ui.Context, s services.PlaybackState, idle bool) {
 		if sl.Changed() {
 			p.seek.active, p.seek.secs = true, v
 		}
-		if p.seek.active && !sl.Pressed() {
+		if kit.SliderCommitted(sl) && p.seek.active {
 			p.seek.active = false
 			p.seekTo(time.Duration(p.seek.secs * float64(time.Second)))
 		}
@@ -230,11 +331,23 @@ func (p *player) seekBar(c *ui.Context, s services.PlaybackState, idle bool) {
 	}
 }
 
-// volumeControls is the right column: mute and the volume slider, where
-// Sona sets the playback volume.
+// volumeControls is the right column: the sleep timer, lyrics, the queue,
+// then mute and the volume slider, where Sona sets the playback volume.
 func (p *player) volumeControls(c *ui.Context, s services.PlaybackState) {
+	idle := s.Current == nil
 	ui.Row(c).Grow(1).Basis(0).Justify(ui.End).AlignItems(ui.Center).Gap(4).Children(func() {
 		p.env.PlayerControls.Build(c) // the other features' controls: private listening…
+		p.sleepButton(c)
+		if p.lyricsSurface() {
+			on := p.ui.overlay == overlayNowPlaying && shownPane(p.ui.pane, s.Current) == paneLyrics
+			if p.iconButton(c, "lyrics", "mic-vocal", i18n.T("Lyrics"), idle, "", &on) {
+				p.toggleLyrics()
+			}
+		}
+		queue := p.queueShown()
+		if p.iconButton(c, "queue-toggle", "list-music", i18n.T("Queue"), false, "", &queue) {
+			p.toggleQueueView()
+		}
 		if !p.volume() {
 			return
 		}
