@@ -66,11 +66,6 @@ func commandEntry(s module.BoundShortcut) kit.PaletteEntry {
 // items from the local index, then a search of Apple Music for the text.
 func (m *commands) sections(c *ui.Context) kit.PaletteSource {
 	return func(query string) []kit.PaletteSection {
-		// The palette's own chord closes it again; the window's shortcut
-		// handler cannot see it while the dialog is open.
-		if kit.ChordPressed(c, keysOf(m.env, "commands.palette")...) {
-			m.pal.Close()
-		}
 		cmds := m.available()
 		q := strings.TrimSpace(query)
 		if q == "" {

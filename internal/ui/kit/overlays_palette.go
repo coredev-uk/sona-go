@@ -168,6 +168,12 @@ type Palette struct {
 	active  string
 	pending func()
 	settle  int
+	// Chords are the palette's own keys (the shortcut that opens it): they
+	// close it again. The window's shortcut handler cannot see a key while
+	// the dialog is open, and on macOS the search field keeps Control+K (kill
+	// the line) and the other Control letters for editing, so the field hands
+	// them to the palette itself (OnTextKey).
+	Chords []string
 	// moved: the pointer moved since the last frame (only a real move may
 	// make a row active; a pointer resting under a re-laid-out list must
 	// not take the choice from the keys).
@@ -217,7 +223,22 @@ func (p *Palette) Show(c *ui.Context, src PaletteSource) {
 	}, func() { p.body(c, src, h) })
 }
 
+// takesChord is the field's OnTextKey: the palette's own chord closes it
+// even where the text field would keep the key (macOS's Control+K).
+func (p *Palette) takesChord(k ui.TextKey) bool {
+	for _, s := range p.Chords {
+		if mods, key, ok := ParseChord(s); ok && mods == k.Mods && key == k.Key {
+			p.open = false
+			return true
+		}
+	}
+	return false
+}
+
 func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
+	if ChordPressed(c, p.Chords...) {
+		p.open = false
+	}
 	sections := src(p.query)
 	var flat []PaletteEntry
 	for _, s := range sections {
@@ -247,7 +268,8 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 		field = ui.TextInputBase(c.Key("palette:input"), &p.query).Role(ui.RoleComboBox).Grow(1).MinWidth(0).Height(48).
 			Label(i18n.T("Find a page, action or music in your library")).
 			Placeholder(i18n.T("Go to a page, run an action, find music in your library")).
-			PlaceholderColor(theme.C("ink-faint")).TextColor(theme.C("ink")).FontSize(theme.Current().Type["body"].Size)
+			PlaceholderColor(theme.C("ink-faint")).TextColor(theme.C("ink")).FontSize(theme.Current().Type["body"].Size).
+			OnTextKey(p.takesChord)
 		n := len(flat)
 		switch {
 		case n > 0 && field.Shortcut(0, ui.KeyDown):
