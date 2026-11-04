@@ -142,12 +142,15 @@ type fakeWindows struct {
 	menuErr error
 	// devtoolsErr is OpenDeveloperTools' answer.
 	devtoolsErr error
+	// tray is HasTray's answer.
+	tray bool
 }
 
 func (*fakeWindows) ShowMain()                                     {}
 func (*fakeWindows) ToggleMini()                                   {}
 func (*fakeWindows) CloseMini()                                    {}
 func (*fakeWindows) ResetWindowSize()                              {}
+func (f *fakeWindows) HasTray() bool                                { return f.tray }
 func (*fakeWindows) MinimiseMain()                                 {}
 func (*fakeWindows) ToggleMaximiseMain()                           {}
 func (*fakeWindows) CloseMain()                                    {}

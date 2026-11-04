@@ -72,22 +72,22 @@ func (p *player) roomLayer(c *ui.Context) {
 // roomFullscreen puts the window in full screen while the lyrics are open,
 // and back on leaving if the window was not full screen before.
 func (p *player) roomFullscreen(open bool) {
-	v := p.env.Video
-	if v == nil {
+	w := p.env.Window
+	if w == nil {
 		return
 	}
 	switch {
 	case open && !p.np.roomEntered:
 		p.np.roomEntered = true
-		if !v.Fullscreen() {
-			v.SetFullscreen(true)
+		if !w.FullScreen() {
+			w.SetFullScreen(true)
 			p.np.roomFull = true
 		}
 	case !open && p.np.roomEntered:
 		p.np.roomEntered = false
 		if p.np.roomFull {
 			p.np.roomFull = false
-			v.SetFullscreen(false)
+			w.SetFullScreen(false)
 		}
 	}
 }

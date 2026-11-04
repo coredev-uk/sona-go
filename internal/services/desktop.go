@@ -20,6 +20,11 @@ type Windows interface {
 	CloseMini()
 	// ResetWindowSize returns the main window to its default size.
 	ResetWindowSize()
+	// HasTray reports whether Sona's tray icon is up, so closing a window
+	// can keep Sona running in the background (Capabilities.Tray). It is
+	// decided when the UI starts (the desktop may have no tray host, or
+	// Linux no libayatana-appindicator3) and holds for the process.
+	HasTray() bool
 	// MinimiseMain, ToggleMaximiseMain and CloseMain are Sona's title
 	// bar's buttons; CloseMain does what closing the window does
 	// (Settings → General).

@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 
 	"github.com/egoist/mygo"
 
@@ -23,6 +24,8 @@ var _ services.Windows = (*Windows)(nil)
 // are no-ops here, and no control of the interface reaches them.
 type Windows struct {
 	dev bool
+	// tray: Sona's tray icon is up (HasTray); set once, before the window.
+	tray atomic.Bool
 
 	mu      sync.Mutex
 	win     *mygo.Window
@@ -97,6 +100,9 @@ func (*Windows) ToggleMini() {}
 
 // CloseMini is the mini player's, phase 3.
 func (*Windows) CloseMini() {}
+
+// HasTray reports whether Sona's tray icon is up.
+func (w *Windows) HasTray() bool { return w.tray.Load() }
 
 // ResetWindowSize returns the main window to its default size, now and for
 // the next start.

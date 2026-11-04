@@ -49,6 +49,11 @@ type Env struct {
 	// Features that start or show a music video call Video.Open and read
 	// Video.IsOpen; the video feature draws the view. Never nil.
 	Video *store.VideoView
+	// Window is the main window: its keyboard focus (a view that animates
+	// on its own, as browse's lead rotation, holds while the window is
+	// unfocused) and its full screen (the music video, full-screen lyrics).
+	// The shell binds it and redraws on each change. Never nil.
+	Window *store.Window
 	Nav   Navigator // the main window's router
 	// Queue starts, shuffles and queues songs and videos through the
 	// playback service: every feature that plays a collection or adds to the
@@ -219,6 +224,14 @@ type Slots struct {
 	SidebarSection func(c *ui.Context) // stacks in module order
 	TopBarSearch   func(c *ui.Context) // the first one wins
 	TopBarAccount  func(c *ui.Context) // the top bar's trailing end (the account menu); the first one wins
+	// Mini is the mini player window's whole content (the first one wins).
+	// The shell owns the window (fixed size, frameless, above other
+	// windows) and builds Mini in it while it is shown; the content drags
+	// the window by its background (DragWindow) and reaches the windows
+	// through services.DesktopService (ShowMainWindow, CloseMiniPlayer).
+	// The module that sets Mini offers the controls that open it; without
+	// one, DesktopService.ToggleMiniPlayer keeps the main window.
+	Mini func(c *ui.Context)
 }
 
 // Overlay covers the page column while Open.

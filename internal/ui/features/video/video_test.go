@@ -205,8 +205,10 @@ func newRigWith(t *testing.T, opts []uitest.Option, mount func(r *rig) func(c *u
 		Label: func(*kit.ActionContext) string { return "Play next" }, Icon: "list-start",
 		Run: func(*kit.ActionContext) {},
 	})
-	r.env.Video = store.NewVideoView(r.surface)
-	r.env.Video.BindWindow(func() bool { return r.win.full }, func(on bool) { r.win.full = on })
+	win := store.NewWindow()
+	win.Bind(func() bool { return r.win.full }, func(on bool) { r.win.full = on })
+	r.env.Window = win
+	r.env.Video = store.NewVideoView(r.surface, win)
 	r.env.Nav = r.nav
 	r.env.HasRoute = func(path string) bool {
 		for _, p := range []string{"/music-video/", "/artist/", "/song/", "/search"} {

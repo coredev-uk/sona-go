@@ -37,11 +37,10 @@ func TestCapabilitiesFollowThePlatformAndEngine(t *testing.T) {
 		MediaControls: func(mpris.Player) (MediaControls, error) { return nil, nil },
 		Autostart:     app.XDGAutostart{},
 		Files:         app.Portal{},
-		Tray:          true,
 		MotionArtwork: true,
 	}
 	eng := &playEngine{}
-	got := newPlatformService(&Env{Deps: Deps{Engine: eng, Platform: plat, Settings: testSettings(t)}}).Capabilities()
+	got := newPlatformService(&Env{Deps: Deps{Engine: eng, Platform: plat, Windows: &fakeWindows{tray: true}, Settings: testSettings(t)}}).Capabilities()
 	if !got.Playback.Available || got.Playback.Engine != playback.KindCDM || !got.Playback.Volume || got.Playback.Equalizer {
 		t.Errorf("playback = %+v, want the engine's capabilities", got.Playback)
 	}

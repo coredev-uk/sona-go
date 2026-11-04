@@ -39,8 +39,6 @@ type Platform struct {
 	Autostart Autostart
 	// Files is the native file chooser.
 	Files FileChooser
-	// Tray: the shell shows a tray icon (close to the tray is possible).
-	Tray bool
 	// Commands: `sona <command>` (Core.Commands) reaches the running
 	// instance and a second launch forwards its links to it (internal/app:
 	// D-Bus on Linux, a local socket elsewhere).
@@ -121,13 +119,14 @@ func unsupported(what string) error {
 type PlatformService struct {
 	caps     Capabilities
 	titleBar windowchrome.Platform
+	windows  Windows // nil without a window control (tests)
 	layout   sync.Once
 }
 
 func newPlatformService(e *Env) *PlatformService {
 	p := e.Platform
 	pc := e.Engine.Capabilities()
-	return &PlatformService{titleBar: p.TitleBar, caps: Capabilities{
+	return &PlatformService{titleBar: p.TitleBar, windows: e.Windows, caps: Capabilities{
 		OS: runtime.GOOS,
 		Playback: PlaybackCapabilities{
 			Available:        pc.Kind != "",
@@ -142,7 +141,6 @@ func newPlatformService(e *Env) *PlatformService {
 		},
 		MediaControls:   p.MediaControls != nil,
 		Notifications:   p.Notifications != nil,
-		Tray:            p.Tray,
 		Autostart:       p.Autostart != nil,
 		SleepInhibit:    p.Inhibitor != nil,
 		PowerState:      p.Power != nil,
@@ -167,7 +165,8 @@ func newPlatformService(e *Env) *PlatformService {
 // for the process; whether a supported service is reachable right now
 // (the notification server, the inhibitor) is in "integrations:status".
 // The desktop's window button layout is read on the first call, which
-// comes from the page, once the GUI toolkit runs.
+// comes from the UI, once the GUI toolkit runs; the tray is the shell's,
+// up from before the first window.
 func (s *PlatformService) Capabilities() Capabilities {
 	s.layout.Do(func() {
 		if s.titleBar.Layout == nil {
@@ -177,5 +176,7 @@ func (s *PlatformService) Capabilities() Capabilities {
 		s.caps.WindowControls.Start = append([]string{}, l.Start...)
 		s.caps.WindowControls.End = append([]string{}, l.End...)
 	})
-	return s.caps
+	caps := s.caps
+	caps.Tray = s.windows != nil && s.windows.HasTray()
+	return caps
 }

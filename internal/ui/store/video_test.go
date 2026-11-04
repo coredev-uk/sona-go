@@ -3,7 +3,7 @@ package store
 import "testing"
 
 func TestVideoViewOpensAndCloses(t *testing.T) {
-	v := NewVideoView(nil)
+	v := NewVideoView(nil, nil)
 	if v.IsOpen() {
 		t.Fatal("a new view is open")
 	}
@@ -35,14 +35,16 @@ type fakeWindow struct {
 	calls []bool
 }
 
-func (w *fakeWindow) bind(v *VideoView) {
-	v.BindWindow(func() bool { return w.full }, func(on bool) { w.full = on; w.calls = append(w.calls, on) })
+// view is a VideoView going full screen in w.
+func (w *fakeWindow) view() *VideoView {
+	win := NewWindow()
+	win.Bind(func() bool { return w.full }, func(on bool) { w.full = on; w.calls = append(w.calls, on) })
+	return NewVideoView(nil, win)
 }
 
 func TestVideoViewLeavesFullScreenItEntered(t *testing.T) {
-	v := NewVideoView(nil)
 	w := &fakeWindow{}
-	w.bind(v)
+	v := w.view()
 	v.Open()
 	v.SetFullscreen(true)
 	if !v.Fullscreen() {
@@ -55,9 +57,8 @@ func TestVideoViewLeavesFullScreenItEntered(t *testing.T) {
 }
 
 func TestVideoViewLeavesAFullScreenOfTheUsersAlone(t *testing.T) {
-	v := NewVideoView(nil)
 	w := &fakeWindow{full: true} // the user pressed F11 before
-	w.bind(v)
+	v := w.view()
 	v.Open()
 	if !v.Fullscreen() {
 		t.Fatal("the view does not see the window's full screen")
@@ -69,9 +70,8 @@ func TestVideoViewLeavesAFullScreenOfTheUsersAlone(t *testing.T) {
 }
 
 func TestVideoViewDoesNotLeaveAFullScreenItLeftItself(t *testing.T) {
-	v := NewVideoView(nil)
 	w := &fakeWindow{}
-	w.bind(v)
+	v := w.view()
 	v.Open()
 	v.SetFullscreen(true)
 	v.SetFullscreen(false) // the button again
@@ -83,7 +83,7 @@ func TestVideoViewDoesNotLeaveAFullScreenItLeftItself(t *testing.T) {
 }
 
 func TestVideoViewWithoutAWindowHasNoFullScreen(t *testing.T) {
-	v := NewVideoView(nil)
+	v := NewVideoView(nil, nil)
 	v.SetFullscreen(true)
 	if v.Fullscreen() {
 		t.Error("a view with no window is full screen")

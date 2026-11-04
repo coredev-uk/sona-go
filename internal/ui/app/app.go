@@ -71,6 +71,11 @@ type Options struct {
 	// (services.OnboardingRoute) when a module registered it: a first start
 	// (services.StartRoute). Unmatched paths still land on the start page.
 	FirstRun bool
+	// Hidden starts with no window shown (--hidden, a login autostart):
+	// playback, MPRIS and the tray only, until something asks for a
+	// window (the tray, a second launch, MPRIS Raise). Without a tray the
+	// window shows anyway: nothing could bring it back.
+	Hidden bool
 	// Icon is the window icon, a PNG.
 	Icon []byte
 	// OpenURL opens a web page in the system browser (Env.OpenURL); nil
@@ -159,6 +164,7 @@ func newApp(opts Options, factories []module.Factory) *App {
 		opts.Copy = func(string) bool { return false }
 	}
 	post := a.postFunc()
+	win := store.NewWindow()
 	a.env = &module.Env{
 		Core:     opts.Core,
 		Bus:      opts.Bus,
@@ -167,7 +173,8 @@ func newApp(opts Options, factories []module.Factory) *App {
 		Art:      kit.NewArtLoader(opts.Art, post),
 		Actions:  kit.NewActionRegistry(),
 		Players:  module.NewPlayers(opts.Core, opts.Now),
-		Video:    store.NewVideoView(opts.Video),
+		Window:   win,
+		Video:    store.NewVideoView(opts.Video, win),
 		Post:     post,
 		Surfaces: store.NewSurfaces(),
 		OpenURL:  opts.OpenURL,
@@ -305,12 +312,27 @@ func (a *App) openWindow() {
 		a.opts.Windows.attach(win, a.mem)
 	}
 	a.followVisibility(win)
-	a.env.Video.BindWindow(win.IsFullScreen, win.SetFullScreen)
+	a.followWindow(win)
 	a.connect()
 	a.devHook(win)
 	if a.opts.Dev && inspectorRequested() {
 		win.OnReadyToShow(func() { win.Page().ToggleDevTools() })
 	}
+}
+
+// followWindow binds Env.Window to the main window: its full screen, and its
+// keyboard focus from the focus and blur events, with a redraw on each, so
+// views that hold while the window is unfocused build again.
+func (a *App) followWindow(win *mygo.Window) {
+	a.env.Window.Bind(win.IsFullScreen, win.SetFullScreen)
+	set := func(on bool) func() {
+		return func() {
+			a.env.Window.SetFocused(on)
+			a.post(func() {})
+		}
+	}
+	win.OnFocus(set(true))
+	win.OnBlur(set(false))
 }
 
 // connect is the shell connecting to Go: the settings the window follows,

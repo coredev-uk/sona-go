@@ -29,18 +29,23 @@ type VideoFrames interface {
 // user did (a click, a key), never from a goroutine.
 type VideoView struct {
 	frames VideoFrames
+	win    *Window
 	open   bool
 
-	isFull  func() bool
-	setFull func(bool)
 	// ours: the view put the window in full screen, so closing it leaves
 	// again; a full screen the user entered elsewhere is left alone.
 	ours bool
 }
 
 // NewVideoView is a VideoView, closed, whose pictures come from frames (nil:
-// none, which a build without video playback has).
-func NewVideoView(frames VideoFrames) *VideoView { return &VideoView{frames: frames} }
+// none, which a build without video playback has) and which goes full screen
+// in win (the Env's Window; nil: a window of its own that is never bound).
+func NewVideoView(frames VideoFrames, win *Window) *VideoView {
+	if win == nil {
+		win = NewWindow()
+	}
+	return &VideoView{frames: frames, win: win}
+}
 
 // Frames is the source of the playing music video's pictures; nil when none.
 func (v *VideoView) Frames() VideoFrames { return v.frames }
@@ -71,22 +76,13 @@ func (v *VideoView) Toggle() {
 // IsOpen reports whether the video view is open.
 func (v *VideoView) IsOpen() bool { return v.open }
 
-// BindWindow connects the view to the window it goes full screen in: full
-// reports whether the window is, set puts it in or takes it out. The app
-// calls it once the window exists.
-func (v *VideoView) BindWindow(full func() bool, set func(on bool)) {
-	v.isFull, v.setFull = full, set
-}
-
 // Fullscreen reports whether the window is full screen now, whoever put it
 // there (the window manager's F11, a double click on the title bar).
-func (v *VideoView) Fullscreen() bool { return v.isFull != nil && v.isFull() }
+func (v *VideoView) Fullscreen() bool { return v.win.FullScreen() }
 
 // SetFullscreen puts the window in full screen, or takes it out. Entering is
 // the view's own: closing the view leaves it again.
 func (v *VideoView) SetFullscreen(on bool) {
 	v.ours = on
-	if v.setFull != nil {
-		v.setFull(on)
-	}
+	v.win.SetFullScreen(on)
 }
