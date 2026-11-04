@@ -1,7 +1,11 @@
 # actionlint config (run `nix run nixpkgs#actionlint`).
+# Runner images newer than this actionlint knows.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
 paths:
   .github/workflows/release.yml:
     ignore:
-      # The build job's `release` environment provides these secrets in the
+      # The release environment provides these secrets in the
       # called workflow; actionlint only knows the workflow_call secrets.
-      - 'property "sona_(lastfm_key|lastfm_secret|discord_client_id)" is not defined in object type'
+      - 'property "sona_(lastfm_key|lastfm_secret|discord_client_id|update_key)" is not defined in object type'

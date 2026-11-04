@@ -443,14 +443,17 @@ under Reverts in `CHANGELOG.md`; `refactor`, `docs`, `test`, `ci`, `build`
 and `chore` stay out of the changelog. Mark a breaking change with `!`
 (`feat!: …`) or a `BREAKING CHANGE:` footer. release-please keeps one
 release PR open that bumps `VERSION` and `CHANGELOG.md`; a maintainer merges
-it, which tags `v<VERSION>` and runs `release.yml` to build the Linux
-packages (.deb, .rpm, Arch; the AppImage and the container build return with the phase 4 packaging PR; no macOS or Windows build yet), attest
-and publish them with `SHA256SUMS`. release-please and the publish step act
+it, which tags `v<VERSION>` and runs `release.yml`: the Linux packages
+(.deb, .rpm, Arch, AppImage), the macOS app for Apple silicon (`.dmg`,
+GStreamer bundled, ad-hoc signed; `build/darwin`) and the Windows x64
+installer and portable zip (`build/windows`), each smoke-tested, then the
+signed update manifests, one `SHA256SUMS` and build attestations, published
+with the release. release-please and the publish step act
 as the bot-cecil GitHub App, so its release PR gets the same checks as yours.
 Never edit `VERSION` or `CHANGELOG.md` by hand. Changing the packaging or
 `release.yml`? Dispatch `release.yml` on your branch (`gh workflow run
-release.yml --ref <branch>`): it builds and smoke-tests the packages and
-publishes nothing. Steps, dry run and the App's permissions:
+release.yml --ref <branch>`): it builds and smoke-tests every platform and
+publishes nothing (`-f prerelease=rc.1` publishes a test prerelease instead). Steps, dry run and the App's permissions:
 `docs/release-checklist.md`, "Releasing".
 
 ### Self-updates (macOS and Windows)

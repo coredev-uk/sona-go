@@ -13,9 +13,10 @@ on:
     inputs:
       linux-only:
         description: >-
-          Skip the macOS and Windows jobs. release.yml sets it: Sona's
-          releases are Linux packages, and a platform job that is not
-          required must not hold one up.
+          Skip the macOS and Windows jobs. release.yml sets it: it builds
+          and smoke-tests those platforms itself (build/darwin,
+          build/windows), and a development build job that is not required
+          must not hold a release up.
         type: boolean
         default: false
   workflow_dispatch:
@@ -270,7 +271,8 @@ jobs:
     name: macOS build and test
     # Not on pull requests: these jobs take several minutes and are not
     # required checks. They run after each merge to main and on demand
-    # (workflow_dispatch), never from release.yml (linux-only).
+    # (workflow_dispatch), never from release.yml (linux-only; it builds the
+    # release artefacts of each platform itself).
     if: ${{ !inputs.linux-only && (github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && !github.event.repository.private)) }}
     runs-on: macos-26
     timeout-minutes: 60
@@ -358,7 +360,8 @@ jobs:
     name: Windows build
     # Not on pull requests: these jobs take several minutes and are not
     # required checks. They run after each merge to main and on demand
-    # (workflow_dispatch), never from release.yml (linux-only).
+    # (workflow_dispatch), never from release.yml (linux-only; it builds the
+    # release artefacts of each platform itself).
     if: ${{ !inputs.linux-only && (github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && !github.event.repository.private)) }}
     runs-on: windows-2025
     timeout-minutes: 45
