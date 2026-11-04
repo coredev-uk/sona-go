@@ -39,9 +39,13 @@ func (a *App) view(c *ui.Context) {
 		}
 	})
 	for _, m := range a.mods {
-		if m.Slots.Layer != nil {
-			ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Children(func() { m.Slots.Layer(c) })
+		if m.Slots.Layer == nil {
+			continue
 		}
+		// A closed layer's wrapper takes no input: an input-taking box over
+		// the page would swallow every pointer press.
+		open := m.Slots.LayerOpen != nil && m.Slots.LayerOpen()
+		ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).IgnoreInput(!open).Children(func() { m.Slots.Layer(c) })
 	}
 	kit.OverlayLayer(c)
 	a.afterFrame(c, layerOpen, overlayOpen)
@@ -102,13 +106,20 @@ func (a *App) page(c *ui.Context) {
 	})
 }
 
-// topBar is the top bar: history, the search a module provides, and room
-// to grab the window by.
+// topBar is the top bar: history, the search a module provides, room
+// to grab the window by, and the account menu a module provides.
 func (a *App) topBar(c *ui.Context) {
 	var search func(*ui.Context)
 	for _, m := range a.mods {
 		if m.Slots.TopBarSearch != nil {
 			search = m.Slots.TopBarSearch
+			break
+		}
+	}
+	var account func(*ui.Context)
+	for _, m := range a.mods {
+		if m.Slots.TopBarAccount != nil {
+			account = m.Slots.TopBarAccount
 			break
 		}
 	}
@@ -123,6 +134,9 @@ func (a *App) topBar(c *ui.Context) {
 			ui.Row(c).MinWidth(240).Basis(520).Shrink(1).Grow(0).Children(func() { search(c) })
 		}
 		ui.Box(c).Grow(1).MinWidth(64).Height(1)
+		if account != nil {
+			account(c)
+		}
 	})
 }
 

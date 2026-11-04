@@ -343,11 +343,20 @@ func run(started time.Time) error {
 	setApplicationID(log)
 	mygo.App.SetName("Sona")
 	mygo.App.SetVersion(version)
+	// A first start (no account, setup neither finished nor skipped) opens
+	// on the first-run setup; the other start routes are the shell's.
+	firstRun := false
+	if route, err := services.StartRoute(ctx, d, settings.Get()); err != nil {
+		log.Warn("start route", "err", err)
+	} else {
+		firstRun = route == services.OnboardingRoute
+	}
 	var ui *uiapp.App
 	mygo.App.WhenReady(func() {
 		ui = uiapp.New(uiapp.Options{
 			Core: core, Settings: settings, Bus: bus, Windows: windows, Art: art, Motion: mot, Log: log.With("component", "ui"),
-			Version: version, Dev: devMode, Icon: build.AppIcon,
+			Version: version, Dev: devMode, Icon: build.AppIcon, OpenURL: mygo.Shell.OpenExternal, Copy: clipboardText,
+			FirstRun: firstRun,
 		})
 		log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "hidden", act.Hidden())
 	})

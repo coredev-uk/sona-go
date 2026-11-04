@@ -7,6 +7,7 @@ package app
 
 import (
 	"cmp"
+	"errors"
 	"log/slog"
 	"os"
 	"slices"
@@ -63,8 +64,17 @@ type Options struct {
 	// StartPath overrides the page the window opens on (the settings'
 	// start page, else the first sidebar link).
 	StartPath string
+	// FirstRun opens the window on the first-run setup's route
+	// (services.OnboardingRoute) when a module registered it: a first start
+	// (services.StartRoute). Unmatched paths still land on the start page.
+	FirstRun bool
 	// Icon is the window icon, a PNG.
 	Icon []byte
+	// OpenURL opens a web page in the system browser (Env.OpenURL); nil
+	// reports an error.
+	OpenURL func(url string) error
+	// Copy puts text on the system clipboard (Env.Copy); nil reports failure.
+	Copy func(text string) bool
 }
 
 // App is the native UI: the main window and what it shows.
@@ -139,18 +149,27 @@ func newApp(opts Options, factories []module.Factory) *App {
 		a.mem = newWindowMemory(opts.Settings, a.log)
 	}
 
+	if opts.OpenURL == nil {
+		opts.OpenURL = func(string) error { return errors.New("no way to open a web page") }
+	}
+	if opts.Copy == nil {
+		opts.Copy = func(string) bool { return false }
+	}
 	post := a.postFunc()
 	a.env = &module.Env{
-		Core:    opts.Core,
-		Bus:     opts.Bus,
-		Queries: store.NewClient(post),
-		Play:    store.NewPlayback(opts.Bus, opts.Now),
-		Art:     kit.NewArtLoader(opts.Art, post),
-		Actions: kit.NewActionRegistry(),
-		Post:    post,
-		Log:     a.log,
-		Version: opts.Version,
-		Dev:     opts.Dev,
+		Core:     opts.Core,
+		Bus:      opts.Bus,
+		Queries:  store.NewClient(post),
+		Play:     store.NewPlayback(opts.Bus, opts.Now),
+		Art:      kit.NewArtLoader(opts.Art, post),
+		Actions:  kit.NewActionRegistry(),
+		Post:     post,
+		Surfaces: store.NewSurfaces(),
+		OpenURL:  opts.OpenURL,
+		Copy:     opts.Copy,
+		Log:      a.log,
+		Version:  opts.Version,
+		Dev:      opts.Dev,
 	}
 	a.env.Motion = a.newMotion(post)
 	a.env.HasRoute = a.hasRoute
@@ -167,7 +186,11 @@ func newApp(opts Options, factories []module.Factory) *App {
 		slices.SortStableFunc(a.nav[i], func(x, y module.NavItem) int { return cmp.Compare(x.Order, y.Order) })
 	}
 	a.start = a.startPath()
-	a.router = ui.NewRouter(a.start)
+	initial := a.start
+	if opts.FirstRun && slices.ContainsFunc(a.routes, func(r module.Route) bool { return r.Pattern == services.OnboardingRoute }) {
+		initial = services.OnboardingRoute
+	}
+	a.router = ui.NewRouter(initial)
 	a.env.Nav = a.router
 	a.env.Actions.SetNavigator(a.router.Push)
 	a.env.Actions.SetPoster(post)
@@ -333,6 +356,9 @@ func (a *App) followSettings() {
 	}
 	apply(a.opts.Settings.Get())
 	store.On(a.opts.Bus, services.EventSettingsChanged, func(s config.Settings) {
+		// Every feature's copy of the settings (store.UseSettings) follows Go:
+		// a save builds the whole settings from it.
+		store.Set(a.env.Queries, store.KeySettings, s)
 		apply(s)
 		a.locale.apply()
 	})

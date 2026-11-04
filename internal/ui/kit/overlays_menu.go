@@ -52,8 +52,12 @@ type MenuItem struct {
 	Inset bool
 	// Sub holds a MenuSub's rows.
 	Sub []MenuItem
-	// Run runs after the menu has closed and given the focus back.
+	// Run runs after the menu has closed and given the focus back, or at
+	// once while the menu stays open when KeepOpen is set.
 	Run func()
+	// KeepOpen keeps the menu open when the row is chosen (a checkbox whose
+	// tick is the confirmation: shadcn's onSelect with preventDefault).
+	KeepOpen bool
 }
 
 func (it *MenuItem) choosable() bool {
@@ -561,6 +565,12 @@ func firstChoice(items []MenuItem) string {
 }
 
 func (m *Menu) choose(it *MenuItem) {
+	if it.KeepOpen {
+		if it.Run != nil {
+			it.Run()
+		}
+		return
+	}
 	m.pending, m.settle = it.Run, 1
 	m.open, m.levels = false, nil
 }
