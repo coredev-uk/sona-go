@@ -157,6 +157,7 @@ func newDiagRig(t *testing.T, caps services.Capabilities, d services.Diagnostics
 		setup(g)
 	}
 	r.s.init()
+	followShell(hn)
 	store.Set(hn.Env.Queries, store.KeyCDM, g.cdm.st) // the cdm module's mirror
 	store.Set(hn.Env.Queries, store.KeyCapabilities, caps)
 	r.tt = hn.Tester(t, func(c *ui.Context) {

@@ -77,6 +77,7 @@ func newPBRig(t *testing.T, caps services.Capabilities, cdm services.CDMStatus, 
 		fakeScrobbler{}, services.Service[services.IntegrationsService](hn.Core),
 		p.cdm, services.Service[services.UpdatesService](hn.Core))
 	r.s.init()
+	followShell(hn)
 	store.Set(hn.Env.Queries, store.KeyCapabilities, caps)
 	store.Set(hn.Env.Queries, store.KeyCDM, cdm)
 	*stateOf[func() ([]services.OutputDevice, error)](r.s, "seam:outputs") = func() ([]services.OutputDevice, error) {
@@ -356,15 +357,19 @@ func TestIdleMinutesAreSavedAndAnUnlistedValueIsAdded(t *testing.T) {
 	p := newPBRig(t, pbCaps(), pbReadyCDM())
 	p.tt.SetSize(1132, 1100) // the open list needs room under the last row
 	p.shows("After 10 minutes")
+	// The save lands on disk before Go announces it; wait for that
+	// announcement (handlers run in subscription order, so the feature has
+	// taken it in) so it can't arrive after the change below.
+	var echoed atomic.Bool
+	store.On(p.h.Bus, services.EventSettingsChanged, func(config.Settings) { echoed.Store(true) })
 	p.choose("Free memory when idle", ui.KeyDown, ui.KeyDown)
 	p.saved("idle", func(s config.Settings) bool { return s.EngineIdleMinutes == 30 })
+	p.tt.Until("the save's announcement", echoed.Load)
 
 	if _, err := p.h.Settings.Update(func(s *config.Settings) { s.EngineIdleMinutes = 7 }); err != nil {
 		t.Fatal(err)
 	}
-	// As Go tells the UI of a change it made itself (after the save above
-	// has come back, so its echo can't overwrite this one).
-	p.tt.Drain()
+	// As Go tells the UI of a change it made itself.
 	p.h.Bus.Emit(services.EventSettingsChanged, p.h.Settings.Get())
 	p.shows("After 7 minutes")
 	// Open the list from its trigger, which now reads the unlisted value.

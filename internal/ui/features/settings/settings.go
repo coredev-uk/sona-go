@@ -105,7 +105,7 @@ func (s *settings) init() {
 		s.lyrics = lyricsOf(s.sys.Settings())
 	}
 	store.On(s.env.Bus, services.EventSettingsChanged, func(v config.Settings) {
-		store.Set(q, store.KeySettings, v)
+		// The shell keeps the shared settings current (app.followSettings).
 		// Another source, order or language can pick other lyrics.
 		if l := lyricsOf(v); s.lyrics != "" && l != s.lyrics {
 			q.Invalidate(store.Key{"catalog", "lyrics"})

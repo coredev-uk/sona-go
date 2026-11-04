@@ -34,6 +34,8 @@ func custom() Settings {
 	s.Storage.ArtCacheMiB = 2048
 	s.Onboarding.Completed = true
 	s.Concerts.City = "gb-manchester"
+	s.Sidebar = Sidebar{OpenFolders: []string{"f.1"}, FoldedSections: []string{"apple"}}
+	s.LyricsView = LyricsView{Translation: true, Pronunciation: true}
 	return s.Normalized()
 }
 
@@ -45,6 +47,8 @@ func local(dst, src Settings) Settings {
 	dst.Audio.OutputDevice = src.Audio.OutputDevice
 	dst.Onboarding = src.Onboarding
 	dst.Concerts = src.Concerts
+	dst.Sidebar = src.Sidebar
+	dst.LyricsView = src.LyricsView
 	return dst
 }
 
