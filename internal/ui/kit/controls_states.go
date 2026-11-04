@@ -284,10 +284,10 @@ type CollectionHeaderOpts struct {
 	// Cover replaces the still cover (a motion cover where motion is
 	// allowed): it builds a picture size DIPs wide.
 	Cover func(c *ui.Context, size float32)
-	// Backdrop builds the wash behind the header, as absolutely placed
-	// children of a box that fills it: the pre-blurred cover under its
-	// ground scrim.
-	Backdrop func()
+	// Wash is the cover's backdrop behind the header: the header sits inside
+	// it (an Absolute child would be drawn over the title and swallow the
+	// buttons' clicks), and it bleeds to the content edges with it.
+	Wash *BackdropOpts
 	// Byline is the line under the title (artist links, a curator).
 	Byline func()
 	// Meta is the catalogue line: "Album · 2008 · 10 songs, 42 min".
@@ -327,11 +327,7 @@ func CollectionHeader(c *ui.Context, o CollectionHeaderOpts) ui.Element {
 			art = 240
 		}
 	}
-	e := ui.Column(c).AlignSelf(ui.Stretch).Padding(32, gutter, 28, gutter).Margin(-28, -gutter, 24, -gutter).Shrink(0)
-	e.Children(func() {
-		if o.Backdrop != nil {
-			ui.Box(c.Key("backdrop")).Absolute().Top(0).Left(0).Right(0).Bottom(0).PassThrough().Children(o.Backdrop)
-		}
+	body := func() {
 		ui.Row(c.Key("row")).FillWidth().AlignItems(ui.End).Gap(28).Children(func() {
 			switch {
 			case o.Cover != nil:
@@ -368,8 +364,13 @@ func CollectionHeader(c *ui.Context, o CollectionHeaderOpts) ui.Element {
 				}
 			})
 		})
-	})
-	return e
+	}
+	if o.Wash == nil {
+		return ui.Column(c).AlignSelf(ui.Stretch).Padding(32, gutter, 28, gutter).Margin(-28, -gutter, 24, -gutter).Shrink(0).Children(body)
+	}
+	return Backdrop(c.Key("wash"), o.Loader, *o.Wash, func() {
+		ui.Column(c).FillWidth().Padding(32, gutter, 28, gutter).Children(body)
+	}).AlignSelf(ui.Stretch).Shrink(0).Margin(-28, -gutter, 24, -gutter)
 }
 
 // Notes shows editorial notes and biographies at a reading measure: plain

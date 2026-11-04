@@ -47,3 +47,12 @@ func TestGoldenNarrowAlbumPage(t *testing.T) {
 	r.tt.Settle()
 	uitest.Golden(t, r.tt.Image(), "album-narrow-light")
 }
+
+func TestGoldenAlbumPageMinimumWindow(t *testing.T) {
+	r := newRig(t, "/album/100", 940, 600)
+	r.addCatalog(saltFlats(goldenAlbum))
+	r.shows("Salt Flats", "Notes")
+	r.tt.Art = append(r.tt.Art, r.h.Env.Art)
+	r.tt.Settle()
+	uitest.Golden(t, r.tt.Image(), "album-940x600-light")
+}

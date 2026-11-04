@@ -392,8 +392,10 @@ func (a *artist) catalogBody(c *ui.Context, pg *pageState, page *services.Catalo
 		})
 	}
 
-	// Concerts of the artist (features/concerts' ArtistConcerts) sit here
-	// once that page is ported.
+	// The artist's concerts (features/concerts' ArtistConcerts) follow the lead.
+	if a.env.ArtistConcerts != nil {
+		a.env.ArtistConcerts(c, art.ID, !top && !essential)
+	}
 
 	albums := shelvesFor(page, viewsAlbums)
 	catalogue := shelvesFor(page, viewsCatalogue)

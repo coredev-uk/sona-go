@@ -174,34 +174,25 @@ func (s *song) header(c *ui.Context, page services.CatalogSong) {
 	if len(page.Header.Colors) > 0 {
 		color = page.Header.Colors[0]
 	}
-	// The wash is the parent of the header, not a child of it: MyGo draws an
-	// Absolute child above its siblings, so CollectionHeader's Backdrop slot
-	// would cover the title. The header's own bleed margins move to the wash.
-	tk := theme.Current()
-	gutter := tk.Metric["gutter"]
-	if ww, _ := c.Size(); ww < narrow {
-		gutter = tk.Metric["gutter-narrow"]
-	}
-	kit.Backdrop(c.Key("wash"), s.env.Art, kit.BackdropOpts{Src: page.Header.Backdrop, Color: color, Tone: kit.ToneGround}, func() {
-		kit.CollectionHeader(c, kit.CollectionHeaderOpts{
-			Title:  sg.Name,
-			Art:    sg.Art.Large,
-			Loader: s.env.Art,
-			Byline: func() { s.byline(c, page) },
-			Meta:   strings.Join(meta, " · "),
-			Badges: func() { kit.Badges(c, kit.BadgesOpts{Explicit: sg.Explicit, Traits: sg.Traits}) },
-			Actions: func() {
-				if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: sg.Name, Disabled: !sg.Playable}); play {
-					s.play.PlaySongs([]services.Song{sg}, 0, services.PlayFrom{ID: sg.ID})
-				}
-				s.states.LibraryButton(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name, "")
-				s.states.RatingButtons(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name)
-				if s.menus != nil {
-					s.menus.Trigger(c, kit.ActionTarget{Item: kit.SongItem(sg), Name: sg.Name}, kit.TriggerOpts{Header: true})
-				}
-			},
-		}).Margin(0, 0, 0, 0)
-	}).AlignSelf(ui.Stretch).Shrink(0).Margin(-padTop, -gutter, 24, -gutter)
+	kit.CollectionHeader(c, kit.CollectionHeaderOpts{
+		Title:  sg.Name,
+		Art:    sg.Art.Large,
+		Loader: s.env.Art,
+		Wash:   &kit.BackdropOpts{Src: page.Header.Backdrop, Color: color, Tone: kit.ToneGround},
+		Byline: func() { s.byline(c, page) },
+		Meta:   strings.Join(meta, " · "),
+		Badges: func() { kit.Badges(c, kit.BadgesOpts{Explicit: sg.Explicit, Traits: sg.Traits}) },
+		Actions: func() {
+			if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: sg.Name, Disabled: !sg.Playable}); play {
+				s.play.PlaySongs([]services.Song{sg}, 0, services.PlayFrom{ID: sg.ID})
+			}
+			s.states.LibraryButton(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name, "")
+			s.states.RatingButtons(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name)
+			if s.menus != nil {
+				s.menus.Trigger(c, kit.ActionTarget{Item: kit.SongItem(sg), Name: sg.Name}, kit.TriggerOpts{Header: true})
+			}
+		},
+	})
 }
 
 // byline is the artists as links (their names when Apple credits none) and

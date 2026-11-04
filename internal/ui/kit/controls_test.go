@@ -1226,13 +1226,13 @@ func TestCollectionHeaderBuildsItsParts(t *testing.T) {
 			Description: "A long description.",
 			Status:      func() { ui.Text(c, "Out in 3 days") },
 			Actions:     func() { PlayButtons(c, PlayButtonsOpts{Label: "OK Computer"}) },
-			Backdrop:    func() { built = append(built, "backdrop") },
+			Wash:        &BackdropOpts{Color: "#ff0000", Tone: ToneGround},
 		})
 	})
 	for _, want := range []string{"OK Computer", "Radiohead", "Album · 1997", "Explicit", "A long description.", "Out in 3 days", "Play OK Computer"} {
 		controlsFind(t, tt, want)
 	}
-	if len(built) < 2 {
+	if len(built) < 1 {
 		t.Errorf("built %q", built)
 	}
 	// 1100 wide: the 200px cover; narrow windows get the smaller one.
@@ -1573,21 +1573,48 @@ func TestCollectionHeaderBleedsToBothEdges(t *testing.T) {
 		ui.Column(c).Fill().Padding(0, 32).Children(func() {
 			CollectionHeader(c, CollectionHeaderOpts{
 				Title: "T", Loader: l,
-				Backdrop: func() { ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Background(ui.RGB(255, 0, 0)) },
+				Wash: &BackdropOpts{Color: "#ff0000", Tone: ToneGround},
 			})
 		})
 	})
 	// The tester pads the page by 20: the header's wash covers the page's
-	// 32px gutters on both sides, to the outer padding's edge.
+	// 32px gutters on both sides, to the outer padding's edge. A red wash
+	// under the ground scrim leaves a pink-ish ground (green well under it).
 	img := tt.Image()
 	for _, x := range []int{22, 1109} {
-		if p := img.RGBAAt(x, 100); p.R != 255 || p.G != 0 {
+		if p := img.RGBAAt(x, 100); p.G > 235 {
 			t.Errorf("the wash does not reach x=%d: %v", x, p)
 		}
 	}
 	for _, x := range []int{17, 1114} {
-		if p := img.RGBAAt(x, 100); p.R == 255 && p.G == 0 {
-			t.Errorf("the wash goes past the content edge at x=%d", x)
+		if p := img.RGBAAt(x, 100); p.G < 240 {
+			t.Errorf("the wash goes past the content edge at x=%d: %v", x, p)
 		}
+	}
+}
+
+// The wash sits behind the header: its title is visible over it and its
+// buttons take clicks (an Absolute backdrop child was drawn above and
+// swallowed both).
+func TestCollectionHeaderWashLetsClicksThrough(t *testing.T) {
+	l := newArtLoader(&fakeArt{}, nil, 1)
+	t.Cleanup(l.Close)
+	clicks := 0
+	tt := controlsTester(t, 1132, 330, func(c *ui.Context) {
+		CollectionHeader(c, CollectionHeaderOpts{
+			Title: "T", Loader: l,
+			Wash: &BackdropOpts{Color: "#ff0000", Tone: ToneGround},
+			Actions: func() {
+				if Button(c.Key("go"), "Go", ButtonOpts{}).Clicked() {
+					clicks++
+				}
+			},
+		})
+	})
+	if err := tt.Click("Go"); err != nil {
+		t.Fatal(err)
+	}
+	if clicks != 1 {
+		t.Errorf("the button under the wash was clicked %d times", clicks)
 	}
 }

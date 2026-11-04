@@ -18,9 +18,19 @@ type fakeStateAPI struct {
 	batches []int
 	calls   []string
 	failID  string
+	// gate holds States answers until closed; entered says one has arrived.
+	gate    chan struct{}
+	entered chan struct{}
 }
 
 func (f *fakeStateAPI) States(_ context.Context, refs []services.ItemRef) ([]services.ItemState, error) {
+	if f.gate != nil {
+		select {
+		case f.entered <- struct{}{}:
+		default:
+		}
+		<-f.gate
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.batches = append(f.batches, len(refs))
@@ -135,6 +145,37 @@ func TestChangeShowsAtOnceAndRestoresOnFailure(t *testing.T) {
 	got, _ := s.base(StateSongs, bad)
 	if !got.InLibrary {
 		t.Errorf("no state was learnt, so the base is the item's own (a library item): %+v", got)
+	}
+}
+
+// A refetch in flight when a rating is written answers late and must not put
+// the older state back (v0.2.0's cancelQueries before setQueryData).
+func TestLateRefetchDoesNotOverwriteAnOptimisticRating(t *testing.T) {
+	s, api, q := newStates()
+	api.gate, api.entered = make(chan struct{}), make(chan struct{}, 1)
+	item := StateItem{ID: "late"}
+	fetch := func() store.Result[services.ItemState] { return s.Use(StateSongs, item) }
+	fetch()
+	select {
+	case <-api.entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the refetch never started")
+	}
+	go func() {
+		if _, err := s.Change(context.Background(), StateSongs, item, StateChange(RateFavorite)); err != nil {
+			t.Error(err)
+		}
+	}()
+	waitFor(t, "the rating", func() bool {
+		r := store.Use(q, StateKey(StateSongs, "late"), func(context.Context) (services.ItemState, error) {
+			return services.ItemState{}, errors.New("not cached")
+		})
+		return r.HasData && r.Data.Rating == 1
+	})
+	close(api.gate)
+	time.Sleep(100 * time.Millisecond)
+	if r := fetch(); !r.HasData || r.Data.Rating != 1 {
+		t.Errorf("the late answer overwrote the rating: %+v", r)
 	}
 }
 

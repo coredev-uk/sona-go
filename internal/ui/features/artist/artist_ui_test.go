@@ -1137,3 +1137,29 @@ func TestGoldenArtistDark(t *testing.T) {
 	r.tt.Settle()
 	uitest.Golden(t, r.tt.Image(), "artist_dark")
 }
+
+func TestGoldenArtistMinimumWindow(t *testing.T) {
+	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
+	r := newRig(t, "/artist/657515", 940, 600, func(r *rig) { r.cat.page = radiohead() })
+	theme.SetMode(theme.ModeLight)
+	r.shows("Discography")
+	r.tt.Settle()
+	uitest.Golden(t, r.tt.Image(), "artist_940x600_light")
+}
+
+// The concerts feature's section sits in the page, with the artist's ID, once
+// the feature has set its hook; without the hook there is nothing.
+func TestArtistConcertsHookBuildsAfterTheLead(t *testing.T) {
+	var gotID string
+	r := newRig(t, "/artist/657515", 1132, 1253, func(r *rig) {
+		r.cat.page = radiohead()
+		r.h.Env.ArtistConcerts = func(c *ui.Context, id string, first bool) {
+			gotID = id
+			ui.Text(c, "Upcoming concerts test")
+		}
+	})
+	r.shows("Discography", "Upcoming concerts test")
+	if gotID != "657515" {
+		t.Errorf("hook asked for artist %q", gotID)
+	}
+}
