@@ -30,6 +30,14 @@ type Env struct {
 	// Actions is the item action registry (every module's Module.Actions),
 	// read by kit.ActionMenus.
 	Actions *kit.ActionRegistry
+	// Surfaces is the open state of the account dialog and the first-run
+	// setup: any "Sign in" action calls Surfaces.OpenAccount, Settings'
+	// "Set up Sona again" Surfaces.OpenSetup.
+	Surfaces *store.Surfaces
+	// OpenURL opens a web page in the system browser.
+	OpenURL func(url string) error
+	// Copy puts text on the system clipboard and reports success.
+	Copy func(text string) bool
 	// Motion decides whether motion artwork plays and owns the decoders
 	// (kit.MotionCover, kit.TileMotion take it); the shell tells it when the
 	// window hides and when a layer, an overlay or a dialog covers the page.
@@ -166,6 +174,7 @@ type Slots struct {
 	SidebarFooter  func(c *ui.Context)
 	SidebarSection func(c *ui.Context) // stacks in module order
 	TopBarSearch   func(c *ui.Context) // the first one wins
+	TopBarAccount  func(c *ui.Context) // the top bar's trailing end (the account menu); the first one wins
 }
 
 // Overlay covers the page column while Open.

@@ -99,6 +99,38 @@ type Harness struct {
 	// Keyring is the Core's secret store, empty: the machine's is not reachable.
 	Keyring *Keyring
 	Dir     string
+
+	linkMu sync.Mutex
+	opened []string
+	copied []string
+}
+
+func (h *Harness) open(u string) error {
+	h.linkMu.Lock()
+	defer h.linkMu.Unlock()
+	h.opened = append(h.opened, u)
+	return nil
+}
+
+func (h *Harness) copy(text string) bool {
+	h.linkMu.Lock()
+	defer h.linkMu.Unlock()
+	h.copied = append(h.copied, text)
+	return true
+}
+
+// Opened is every URL the UI asked the system browser to open (Env.OpenURL).
+func (h *Harness) Opened() []string {
+	h.linkMu.Lock()
+	defer h.linkMu.Unlock()
+	return append([]string(nil), h.opened...)
+}
+
+// Copied is every text the UI put on the clipboard (Env.Copy).
+func (h *Harness) Copied() []string {
+	h.linkMu.Lock()
+	defer h.linkMu.Unlock()
+	return append([]string(nil), h.copied...)
 }
 
 var (
@@ -150,7 +182,7 @@ func New(t testing.TB, opts ...Option) *Harness {
 	t.Cleanup(func() { loader.Close(); loader.Wait() })
 	h.Env = &module.Env{
 		Core: h.Core, Bus: h.Bus, Queries: store.NewClient(h.Main.Post), Play: store.NewPlayback(h.Bus, h.Clock.Now),
-		Art: loader, Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: o.version,
+		Art: loader, Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: o.version, Surfaces: store.NewSurfaces(), OpenURL: h.open, Copy: h.copy,
 	}
 	mu.Lock()
 	harnesses[h.Env] = h
@@ -220,7 +252,7 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 		Settings: settings, DB: d, Auth: authm, Library: ilib.New(d, nil), Art: art, Engine: h.Engine, Coord: h.Coord,
 		Private: privatemode.New(privatemode.Options{}), Gate: services.NewGate(time.Hour, nil),
 		Keyring: h.Keyring, Transport: h.Network,
-		Emit: h.Bus, Windows: noWindows{}, Logger: slog.New(slog.DiscardHandler), Version: o.version, Started: Epoch,
+		Emit: h.Bus, OpenURL: h.open, Clipboard: h.copy, Windows: noWindows{}, Logger: slog.New(slog.DiscardHandler), Version: o.version, Started: Epoch,
 	})
 	t.Cleanup(core.Close)
 	authm.Start()
