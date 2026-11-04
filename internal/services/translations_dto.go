@@ -10,7 +10,7 @@ const EventAppleTranslations = "translations:apple"
 
 // AppleTranslations is Apple Music's own translation of Sona's mapped
 // messages for one locale, fetched from Apple at run time and cached
-// (internal/i18n/applestrings). The frontend layers it over the community
+// (internal/i18n/applestrings). The UI layers it over the community
 // catalogue and English and decides whether to show the locale.
 type AppleTranslations struct {
 	// Locale is Apple's locale in BCP 47 ("fr-FR"); "" when none is cached

@@ -248,8 +248,8 @@ fixed upstream. Re-check each one on every release.
   gets its size. labwc behaves like sway; weston zooms as above. Headless
   Hyprland 0.56 did not start here, so the earlier "Hyprland works" result
   (a session with the portal) has no headless control.
-- **Workaround in Sona:** before creating the mini player, Sona sets
-  `gtk-xft-dpi` to 96 dpi when GTK has none (`internal/shell/fontdpi_linux.go`).
+- **Workaround in Sona:** before creating the mini player, the removed Wails shell set
+  `gtk-xft-dpi` to 96 dpi when GTK has none (`internal/shell/fontdpi_linux.go`, deleted with the Wails shell; MyGo draws its own text).
   GTK renders at 96 dpi in that case anyway, so only WebKit's fallback
   changes. Checked with Sona under `GDK_DEBUG=no-portals` on headless sway:
   the mini player reports 420×132 at `devicePixelRatio` 1 and renders

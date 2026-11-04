@@ -18,7 +18,7 @@ func TestLoadMissingReturnsDefaults(t *testing.T) {
 	}
 	d := Defaults()
 	if d.Theme != ThemeSystem || d.AudioQuality != Quality256 || d.Volume <= 0 || d.EngineIdleMinutes <= 0 ||
-		d.ReduceEffects || d.Diagnostics != (Diagnostics{}) {
+		d.ReduceEffects {
 		t.Fatalf("unexpected defaults %+v", d)
 	}
 }
@@ -32,7 +32,6 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	in.Volume = 0.35
 	in.AudioQuality = Quality64
 	in.EngineIdleMinutes = 3
-	in.Diagnostics = Diagnostics{DisableDMABufRenderer: true, DisableCompositingMode: true}
 	in.Shortcuts = Shortcuts{"player.toggle": "K"}
 	in.Desktop = Desktop{CloseAction: CloseQuits, Autostart: true, StartPage: "/radio", ResumeLastRoute: true, LastRoute: "/album/1?song=2"}
 	in.Window = Window{Width: 1600, Height: 1000, Maximised: true}
@@ -193,61 +192,6 @@ func TestEngineIdleMinutesBounds(t *testing.T) {
 		s.EngineIdleMinutes = in
 		if got := s.Normalized().EngineIdleMinutes; got != want {
 			t.Errorf("Normalized(%d) = %d, want %d", in, got, want)
-		}
-	}
-}
-
-func TestDiagnosticsApplyEnv(t *testing.T) {
-	const dmabuf, compositing = "WEBKIT_DISABLE_DMABUF_RENDERER", "WEBKIT_DISABLE_COMPOSITING_MODE"
-	t.Setenv(dmabuf, "")
-	t.Setenv(compositing, "0") // explicit user value wins
-	os.Unsetenv(dmabuf)
-
-	if err := (Diagnostics{DisableDMABufRenderer: true, DisableCompositingMode: true}).ApplyEnv(); err != nil {
-		t.Fatal(err)
-	}
-	if v := os.Getenv(dmabuf); v != "1" {
-		t.Errorf("%s = %q, want 1", dmabuf, v)
-	}
-	if v := os.Getenv(compositing); v != "0" {
-		t.Errorf("%s = %q, want user's 0 kept", compositing, v)
-	}
-
-	os.Unsetenv(dmabuf)
-	if err := (Diagnostics{}).ApplyEnv(); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := os.LookupEnv(dmabuf); ok {
-		t.Errorf("%s set although the toggle is off", dmabuf)
-	}
-}
-
-// The inspector is on by the setting or by SONA_DEVTOOLS=1, and only 1
-// counts (so a stray "0" or "false" keeps it off).
-func TestDeveloperToolsOn(t *testing.T) {
-	env := func(v string) func(string) string {
-		return func(k string) string {
-			if k != EnvDeveloperTools {
-				t.Errorf("read %q", k)
-			}
-			return v
-		}
-	}
-	for _, tc := range []struct {
-		name string
-		d    Diagnostics
-		env  string
-		want bool
-	}{
-		{"default", Diagnostics{}, "", false},
-		{"setting", Diagnostics{DeveloperTools: true}, "", true},
-		{"environment", Diagnostics{}, "1", true},
-		{"environment off", Diagnostics{}, "0", false},
-		{"environment words", Diagnostics{}, "true", false},
-		{"setting wins over a 0", Diagnostics{DeveloperTools: true}, "0", true},
-	} {
-		if got := tc.d.DeveloperToolsOn(env(tc.env)); got != tc.want {
-			t.Errorf("%s: DeveloperToolsOn = %v, want %v", tc.name, got, tc.want)
 		}
 	}
 }

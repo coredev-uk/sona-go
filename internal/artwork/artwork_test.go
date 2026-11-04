@@ -804,3 +804,43 @@ func TestLegacyFilesRemoved(t *testing.T) {
 		t.Fatalf("legacy URL did not refetch; hits %v", s.hits)
 	}
 }
+
+func TestTemplateOfServedPath(t *testing.T) {
+	s := newImageServer(t)
+	dir := t.TempDir()
+	c := newCache(t, s, dir, 0)
+	tmpl := tmplFor("t")
+	u := c.URL(tmpl, 300, 300)
+	for _, p := range []string{u, u + "?x=1", u + "#f", c.BackdropURL(tmpl)} {
+		if got, ok := c.Template(p); !ok || got != tmpl {
+			t.Errorf("Template(%q) = %q, %v", p, got, ok)
+		}
+	}
+	// What it returns is what Get needs, at any box.
+	b, err := c.Get(context.Background(), mustTemplate(t, c, u), 96, 96)
+	if err != nil || bounds(t, b).Dx() != 96 {
+		t.Fatalf("Get by template: %v, %v", bounds(t, b), err)
+	}
+	for _, p := range []string{
+		"", "/art/", "/art/nokey/200x200.jpg", "/other/" + strings.Split(u, "/")[2] + "/1x1.jpg",
+		"/art/" + strings.Repeat("0", 32) + "/200x200.jpg", "https://example.com/x.jpg",
+	} {
+		if got, ok := c.Template(p); ok {
+			t.Errorf("Template(%q) = %q", p, got)
+		}
+	}
+	// After a restart the key resolves from disk.
+	c2 := newCache(t, s, dir, 0)
+	if got, ok := c2.Template(u); !ok || got != tmpl {
+		t.Errorf("after restart: %q, %v", got, ok)
+	}
+}
+
+func mustTemplate(t *testing.T, c *Cache, u string) string {
+	t.Helper()
+	tmpl, ok := c.Template(u)
+	if !ok {
+		t.Fatalf("no template for %s", u)
+	}
+	return tmpl
+}

@@ -13,33 +13,20 @@
   prConcurrentLimit: 10,
   // The dashboard issue, in Clarence's voice: Renovate finds updates, Clarence merges
   dependencyDashboardTitle: "📦 Renovate Dashboard",
-  dependencyDashboardHeader: "## 📦 Renovate Dashboard\n\n> 📻 **Reporting in.** Every update Renovate found in Sona is below. Renovate only opens the pull requests: Clarence, the repository's merge bot, rules on each one, and a merge counts once CI passes on `main`. Tick a box to make Renovate act on the next run.\n\n| | |\n|---|---|\n| **Merged by** | Clarence, see its card on each pull request |\n| **Verified by** | `Go vet and test (-race)` and the frontend build on `main` |\n| **Release age** | npm releases wait 3 days before Renovate opens them |\n",
+  dependencyDashboardHeader: "## 📦 Renovate Dashboard\n\n> 📻 **Reporting in.** Every update Renovate found in Sona is below. Renovate only opens the pull requests: Clarence, the repository's merge bot, rules on each one, and a merge counts once CI passes on `main`. Tick a box to make Renovate act on the next run.\n\n| | |\n|---|---|\n| **Merged by** | Clarence, see its card on each pull request |\n| **Verified by** | `Go vet and test (-race)` on `main` |\n",
   dependencyDashboardFooter: "<sub>📻 Renovate · runs every two hours from `.github/workflows/renovate.yaml` · merges go through Clarence</sub>",
-  // Covers go.mod, frontend/ (pnpm) and .github/workflows. devenv.lock is not
-  // a Renovate manager file; bump nixpkgs by hand (CONTRIBUTING.md)
-  enabledManagers: ["gomod", "npm", "github-actions"],
+  // Covers go.mod and .github/workflows. devenv.lock is not a Renovate
+  // manager file; bump nixpkgs by hand (CONTRIBUTING.md)
+  enabledManagers: ["gomod", "github-actions"],
   postUpdateOptions: ["gomodTidy", "gomodUpdateImportPaths"],
   packageRules: [
     {
-      // Move the range in package.json with the lockfile: an update inside
-      // the range would otherwise change only pnpm-lock.yaml, which Clarence
-      // always sends to review. Wails, below, still pins.
-      description: "Let npm releases settle, and bump their ranges",
-      matchDatasources: ["npm"],
-      minimumReleaseAge: "3 days",
-      rangeStrategy: "bump",
-    },
-    {
-      // The Go module and the npm runtime must move together. Wails v3 is
-      // pinned to exact versions; prereleases are only offered for Wails
-      // while the pinned version is itself a prerelease (Renovate's default)
-      description: "Wails v3 Group",
-      groupName: "wails",
-      matchPackageNames: ["github.com/wailsapp/wails/v3", "@wailsio/runtime"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group",
-      },
-      rangeStrategy: "pin",
+      // MyGo is young and pre-1.0: every bump is read by hand (it needs a
+      // matching Go release too), so it never automerges.
+      description: "MyGo: review every update",
+      matchPackageNames: ["github.com/egoist/mygo"],
+      automerge: false,
+      addLabels: ["verdict/review"],
     },
     // Labeling rules
     {

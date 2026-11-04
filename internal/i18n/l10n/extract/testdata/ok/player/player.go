@@ -9,12 +9,12 @@ import (
 // Messages, grouped.
 const (
 	// msgPlay is the play button.
-	msgPlay l10n.Message = "Play"
-	msgPause l10n.Message = "Pause" // the pause button
-	notAMessage          = "Untyped strings are not messages"
-	msgCount  l10n.Message = "%d songs"
-	msgRaw   l10n.Message = `A raw "quoted" string`
-	msgJoined l10n.Message = "Joined " + "from " + ("parts")
+	msgPlay     l10n.Message = "Play"
+	msgPause    l10n.Message = "Pause" // the pause button
+	notAMessage              = "Untyped strings are not messages"
+	msgCount    l10n.Message = "%d songs"
+	msgRaw      l10n.Message = `A raw "quoted" string`
+	msgJoined   l10n.Message = "Joined " + "from " + "parts"
 )
 
 // MsgPublic is used from another package.

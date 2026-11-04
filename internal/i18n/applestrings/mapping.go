@@ -11,8 +11,8 @@ import (
 	"slices"
 	"sync"
 
-	sonai18n "github.com/coredev-uk/sona-go/frontend/src/shared/i18n"
 	"github.com/coredev-uk/sona-go/internal/i18n/po"
+	"github.com/coredev-uk/sona-go/internal/ui/i18n/locales"
 )
 
 // Mapping is one reviewed pair: a Sona message (its English msgid and
@@ -157,11 +157,11 @@ type Catalogue struct {
 	Version string
 }
 
-// Embedded is the catalogue built into Sona (frontend/src/shared/i18n). A
+// Embedded is the catalogue built into Sona (internal/ui/i18n/locales). A
 // mapped message that is not in en.po is left out (a Go test keeps the
 // committed files consistent).
 var Embedded = sync.OnceValues(func() (Catalogue, error) {
-	return NewCatalogue(sonai18n.AppleKeys, sonai18n.SourceCatalogue)
+	return NewCatalogue(locales.AppleKeys, locales.SourceCatalogue)
 })
 
 // NewCatalogue reads a mapping and Sona's English catalogue.

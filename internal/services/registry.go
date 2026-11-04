@@ -15,8 +15,7 @@ func svc[T any](build func(*Env) *T) func(*Env) any {
 
 // features are the bound services, built in this order (which is also the
 // order of their sign-out steps). Adding a feature: its files (feature.go,
-// feature_dto.go) plus one line here (and, while Wails remains, its binding
-// and event lines in cmd/sona: see doc.go).
+// feature_dto.go) plus one line here (doc.go).
 var features = []feature{
 	{"auth", svc(newAuthService)},
 	{"catalog", svc(newCatalogService)},

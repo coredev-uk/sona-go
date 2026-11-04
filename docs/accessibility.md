@@ -92,12 +92,7 @@ change keeps and how to check them.
   tab. Opening the view focuses the shown tab (Close when a station or a
   song outside the catalogue leaves one pane, under a plain heading).
 - Tab wraps inside each window (`shared/lib/focus-wrap.ts`: Tab on the last
-  element goes to the skip link, Shift+Tab on the first to the last). On
-  Linux, GTK focus must never land on WebKitGTK's hidden key-binding text
-  widget, which would swallow every later key: `internal/shell/contextkey_linux.c`
-  sends focus straight back to the web view, and consumes Shift+F10 and the
-  Menu key before WebKit sees them, re-sending them to the page as a
-  `keydown` so Sona's own row and tile menus open.
+  element goes to the skip link, Shift+Tab on the first to the last).
 
 ### Live regions
 
@@ -168,20 +163,19 @@ everything to WebKit; WebKit's sandbox stays on.
 Run the app in isolation (`dbus-run-session`, private XDG dirs, private
 mode, audio on your own null sink: CONTRIBUTING.md), in both themes.
 
-- **axe-core**: build with `-tags mcp,sqlite_fts5` and inject axe through
-  the Wails MCP server's `js_eval` on each route you touched, light and dark
-  (`.dark` on `<html>`). Serious and critical violations must be 0. Text
-  over a cover backdrop is "incomplete" for axe; work it out from the
-  tokens and the scrim instead.
+- **MyGo automation**: build with MyGo's automation plugin (the `probe`
+  build tag, details come with the probe) and read each touched route's
+  element tree, roles and labels, light and dark. Text over a cover backdrop
+  is worked out from the tokens and the scrim.
 - **Keyboard**: send real keys (`wtype` on wlroots compositors; in a
   headless seat keep one `wtype -s 86400000` alive or the seat loses
-  keyboard focus) and log each Tab stop with a `focusin` listener: the
-  indicator it draws, whether it is on screen, and that nothing is skipped
-  or trapped. Check Escape and focus return for every overlay you touched.
+  keyboard focus) and log each Tab stop (the automation plugin's focus
+  events, or `ui.Tester` in a test): the indicator it draws, whether it is
+  on screen, and that nothing is skipped or trapped. Check Escape and focus
+  return for every overlay you touched.
 - **AT-SPI**: read the tree with python3 `gi.repository.Atspi` on the a11y
-  bus. WebKitGTK emits events only for listeners registered before the app
-  starts, and only after an AT has read the tree once, so register an
-  `Atspi.EventListener` first when checking live regions.
+  bus; MyGo exposes its elements through it on Linux. Register an
+  `Atspi.EventListener` before the app starts when checking live regions.
 - **Orca**: speech needs a desktop session with audio output; headless runs
   can only check what Orca consumes (names, roles, live-region events).
 

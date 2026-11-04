@@ -109,10 +109,12 @@ func tsPSI(pid int, section []byte) []byte {
 // patSection returns a PAT naming a network PID (program 0) and program
 // 1's PMT at pidPMT.
 func patSection() []byte {
-	s := []byte{0x00, 0xb0, 0, 0, 1, 0xc1, 0, 0,
+	s := []byte{
+		0x00, 0xb0, 0, 0, 1, 0xc1, 0, 0,
 		0, 0, 0xe0, 0x10, // program 0: network PID
 		0, 1, 0xe0 | pidPMT>>8, pidPMT & 0xff,
-		0, 0, 0, 0} // CRC (not checked)
+		0, 0, 0, 0,
+	} // CRC (not checked)
 	s[2] = byte(len(s) - 3)
 	return s
 }

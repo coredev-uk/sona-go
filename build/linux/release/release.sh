@@ -24,6 +24,11 @@
 # Needs podman or docker; falls back to `nix run nixpkgs#podman`.
 set -euo pipefail
 
+# Phase 4 of the MyGo migration brings release packages back: this script
+# still drives the Wails build and the Containerfile's old Go toolchain.
+echo "release: release packages return with the phase 4 packaging PR (MyGo's GTK3 build); 'task package' builds .deb/.rpm/Arch packages meanwhile" >&2
+exit 1
+
 root=$(cd "$(dirname "$0")/../../.." && pwd)
 out=$(realpath -m "${1:-$root/bin/release}")
 here="$root/build/linux/release"

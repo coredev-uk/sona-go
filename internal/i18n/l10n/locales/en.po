@@ -101,11 +101,6 @@ msgstr ""
 msgid "Albums"
 msgstr ""
 
-#. Sona's description in the About panel (macOS's application menu), in the language at startup.
-#: cmd/sona/main.go
-msgid "Apple Music for the Linux desktop"
-msgstr ""
-
 #: internal/cli/messages.go
 msgid "Apple Music needs you signed in to Sona for this"
 msgstr ""
@@ -120,10 +115,6 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "Artists"
-msgstr ""
-
-#: internal/shell/tray.go
-msgid "Close mini player"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -189,10 +180,6 @@ msgstr ""
 msgid "Lists the queue in play order, marking the playing song."
 msgstr ""
 
-#: internal/shell/tray.go
-msgid "Mini player"
-msgstr ""
-
 #: internal/cli/messages.go
 msgid "Music videos"
 msgstr ""
@@ -203,14 +190,8 @@ msgid "Name"
 msgstr ""
 
 #. a track notification's button: plays the next song
-#. plays the next song
 #: internal/services/integrations.go
-#: internal/shell/tray.go
 msgid "Next"
-msgstr ""
-
-#: internal/shell/tray.go
-msgid "Not playing"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -230,10 +211,6 @@ msgstr ""
 msgid "Options"
 msgstr ""
 
-#: internal/shell/tray.go
-msgid "Pause"
-msgstr ""
-
 #: internal/cli/messages.go
 msgid "Pause playback"
 msgstr ""
@@ -248,10 +225,6 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "Pauses when music plays and resumes otherwise, like the play/pause key. Prints the status line."
-msgstr ""
-
-#: internal/shell/tray.go
-msgid "Play"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -275,35 +248,12 @@ msgstr ""
 msgid "Plays the next song in the queue. Prints the status line."
 msgstr ""
 
-#. plays the previous song
-#: internal/shell/tray.go
-msgid "Previous"
-msgstr ""
-
 #: internal/cli/messages.go
 msgid "Print a shell completion script"
 msgstr ""
 
 #: internal/cli/messages.go
 msgid "Prints the completion script for bash, zsh or fish. Packages install them; to load one by hand: `source <(sona completion bash)`, `sona completion zsh > \"${fpath[1]}/_sona\"` or `sona completion fish | source`."
-msgstr ""
-
-#: internal/shell/tray.go
-msgid "Private listening"
-msgstr ""
-
-#. the environment variable that forces it on, as NAME=1
-#: internal/shell/tray.go
-#, go-format
-msgid "Private listening (%s)"
-msgstr ""
-
-#: internal/shell/tray.go
-msgid "Private listening (development build)"
-msgstr ""
-
-#: internal/shell/tray.go
-msgid "Quit Sona"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -332,7 +282,6 @@ msgstr ""
 
 #. a track notification's button: brings the window back
 #: internal/services/integrations.go
-#: internal/shell/tray.go
 msgid "Show Sona"
 msgstr ""
 
@@ -400,11 +349,6 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "Sona isn't running; start it first"
-msgstr ""
-
-#. The mini player window's title, shown in task switchers.
-#: internal/shell/shell.go
-msgid "Sona mini player"
 msgstr ""
 
 #: internal/cli/messages.go

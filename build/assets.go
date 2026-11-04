@@ -1,4 +1,4 @@
-// Package build embeds the app icons cmd/sona hands to Wails.
+// Package build embeds the app icons cmd/sona hands to the UI.
 package build
 
 import _ "embed" // for go:embed

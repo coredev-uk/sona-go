@@ -13,8 +13,8 @@ agreed first.
 ## Environment
 
 Everything runs through [devenv](https://devenv.sh) 2.4 or newer
-(`devenv.yaml` refuses an older CLI). It pins Go 1.26, Node 24 + pnpm and
-GStreamer, plus GTK4/WebKitGTK 6 on Linux:
+(`devenv.yaml` refuses an older CLI). It pins Go 1.27 and
+GStreamer, plus GTK3, Pango and the GL libraries MyGo loads on Linux:
 
 ```sh
 devenv shell                     # interactive shell
@@ -26,17 +26,18 @@ nix run github:NixOS/nixpkgs/nixpkgs-unstable#devenv -- shell
 
 It sets `CGO_ENABLED=1`, `GOFLAGS=-tags=sqlite_fts5`, the GStreamer plugin
 path (core, base, good, bad, libav and, on Linux, PipeWire; never the host's
-plugins) and, on Linux, glib-networking's GIO module path, and loads `.env`.
+plugins) and, on Linux, `LD_LIBRARY_PATH` for GTK3 and friends (MyGo loads
+them by soname, so they must come from the same nixpkgs pin as GStreamer:
+one GLib per process), and loads `.env`.
 
-- `go tool wails3 build` builds the frontend, regenerates the TypeScript
-  bindings and writes `bin/sona` (production; `DEV=true` for a debug build).
-  `go tool wails3 dev` runs with Vite hot reload.
-- `go tool wails3 generate bindings -clean=true -ts` regenerates
-  `frontend/bindings` after changing an exported service method or DTO.
-  Commit the result.
+- `build` writes `bin/sona` (production: no inspector, MyGo in production
+  mode); `dev` builds the `dev` tag into `bin/sona-dev` and runs it. A plain
+  `go build ./cmd/sona` is not a dev build: only `-tags dev` is (dev builds
+  start private, show the inspector with `SONA_INSPECTOR=1`, panic on a
+  message that doesn't parse). `-tags` replaces devenv's `GOFLAGS`, so a build with its own `-tags`
+  names `sqlite_fts5` too.
 - `sqlc generate -f internal/db/sqlc.yaml` after changing queries; migrations
   live in `internal/db/migrations` (goose).
-- `go build ./cmd/sona` needs `frontend/dist` (build the frontend first).
 - The version is the `VERSION` file; the build injects it with
   `-ldflags -X main.version` (`bin/sona --version`).
 
@@ -46,15 +47,13 @@ hold `SONA_LASTFM_KEY`, `SONA_LASTFM_SECRET` and `SONA_DISCORD_CLIENT_ID`:
 production builds compile them in (`-X`, with `-trimpath` so the flags stay
 out of the binary's build info), development builds read them from the
 environment at runtime. Never pass them in `-ldflags` of a build without
-`-trimpath`: Go records the flags in the build info and Wails' development
-builds log them as `Build Info:` (the log handler and the diagnostics bundle
-redact `-ldflags` values, but don't rely on that).
+`-trimpath`: Go records the flags in the build info (the log handler and the
+diagnostics bundle redact `-ldflags` values, but don't rely on that).
 
 ### Private mode
 
 Private mode for development and testing: a development build (any build
-without the `production` tag: `wails3 dev`, `go run ./cmd/sona`, plain `go build`)
-starts with private listening on, whatever the saved setting says. Toggling it
+with the `dev` tag, as the `dev` script builds it) starts with private listening on, whatever the saved setting says. Toggling it
 then lasts for the session only and never writes the setting; the toggle reads
 "Private (development build)". `SONA_PRIVATE=1` forces private mode in any
 build (it cannot be turned off for that run); `SONA_PRIVATE=0` makes a
@@ -68,22 +67,19 @@ private mode.
 
 | Script       | What it runs                                                                                                                                                                                                                                                                                                                                |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dev`        | `go tool wails3 dev -config ./build/config.yml -port $WAILS_VITE_PORT` (port 9245 when unset), as Taskfile's `dev`: Vite hot reload, rebuild and restart on Go changes. Extra arguments go to `wails3 dev`.                                                                                                                                 |
-| `build`      | `go tool wails3 build`: frontend, bindings, `bin/sona` (production; `build DEV=true` for a debug build).                                                                                                                                                                                                                                    |
-| `gen`        | `sqlc generate` and `wails3 generate bindings -clean=true -ts`. Commit the result.                                                                                                                                                                                                                                                          |
-| `fmt`        | gofumpt on every tracked Go file except `internal/db/dbq`, then `prettier --write src`. Installs the frontend dependencies first when `package.json` or the lockfile changed.                                                                                                                                                               |
-| `check`      | The static half of the checks below: installs the frontend dependencies and builds `frontend/dist` (development build) when their sources changed, since Go embeds it; then `go vet`, the Windows and macOS type-checks, `golangci-lint --new-from-rev=origin/main`, Go's catalogue (`i18ntool extract -check`), the path-case check, tsc, eslint, `prettier --check` and `i18n:check`. |
-| `tests`      | The same frontend step, then `go test -race ./...` (inside `dbus-run-session` on Linux, so no test reaches your session bus; extra arguments go to `go test`) and vitest. Not named `test`: the shell's `test` builtin would shadow it.                                                                                                     |
-| `release`    | `build/linux/release/release.sh`, the same as `go tool wails3 task release`: release packages built on Ubuntu 24.04 in podman or docker (falling back to `nix run nixpkgs#podman`) and smoke-tested, into `bin/release`.                                                                                                                    |
+| `dev`        | `go build -tags dev,sqlite_fts5 -o bin/sona-dev ./cmd/sona`, then runs it with your arguments (the inspector and dev restore are in dev builds). A watcher replaces it with the devloop PR. |
+| `build`      | `go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona`: no inspector in the binary, MyGo in production mode. |
+| `gen`        | `sqlc generate`. Commit the result. |
+| `fmt`        | gofumpt on every tracked Go file except `internal/db/dbq`. |
+| `check`      | The static half of the checks below: `go vet`, the Windows and macOS type-checks, `golangci-lint --new-from-rev=origin/main`, `go tool mygo vet internal/ui` (build values kept past their frame), the catalogue check (`i18ntool extract -check`) and the path-case check (`cmd/pathcase`). |
+| `tests`      | `go test -race ./...` (inside `dbus-run-session` on Linux, so no test reaches your session bus; extra arguments go to `go test`), including the `ui.Tester` tests. Not named `test`: the shell's `test` builtin would shadow it. |
+| `release`    | `build/linux/release/release.sh`, the same as Taskfile's `release`: unavailable until the phase 4 packaging PR (release packages return with it), it fails fast with that message. |
 | `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`); `play-spike -preview` needs none.                                                                                                                                                                                                                             |
 | `auth-spike` | `go run ./cmd/authspike`: the Apple sign-in flow from the terminal.                                                                                                                                                                                                                                                                         |
 
-The frontend step in `check` and `tests` is Taskfile's
-(`common:install:frontend:deps`, `common:build:frontend`), which also
-regenerates `frontend/bindings` when Go sources changed, as `build` does.
-`package` is only Taskfile's (`go tool wails3 package`): it packages a build
-of the machine it runs on, which is what `release` runs inside its Ubuntu
-container. A package built on NixOS would link against `/nix/store`.
+`package` is only Taskfile's (`task package`, nfpm: .deb, .rpm and Arch; the AppImage
+returns in phase 4): it packages a build of the machine it runs on. A package built
+on NixOS would link against `/nix/store`.
 
 ### Widevine CDM
 
@@ -134,8 +130,8 @@ and the app, and commit `devenv.yaml` and `devenv.lock` together.
 ### macOS
 
 `devenv shell` works on Apple Silicon (`aarch64-darwin`): the Linux-only
-packages (GTK4, WebKitGTK, libsoup, glib-networking, PipeWire, playerctl,
-gcc, dbus) and the GIO module path are left out, and GStreamer keeps core,
+packages (GTK3 and the GL libraries, PipeWire, playerctl, gcc, dbus) and
+`LD_LIBRARY_PATH` are left out; MyGo draws through AppKit there, and GStreamer keeps core,
 base, good (`osxaudiosink`), bad and libav, on the same plugin path as on
 Linux. Intel Macs (`x86_64-darwin`) are not supported: the pinned nixpkgs
 (26.11) and devenv 2.4 dropped them.
@@ -143,7 +139,7 @@ Linux. Intel Macs (`x86_64-darwin`) are not supported: the pinned nixpkgs
 devenv sets one macOS deployment target on macOS: `MACOSX_DEPLOYMENT_TARGET`
 = nixpkgs' (14.0), and `GOFLAGS` adds
 `-ldflags=-extldflags=-mmacosx-version-min=14.0`, which overrides the 10.13
-that Wails' cgo directives pass to the linker; without it ld warns "object
+that some cgo directives pass to the linker; without it ld warns "object
 file … was built for newer macOS version (14.0) than being linked (11.0)" for
 every cgo object. A `go build -ldflags=…` of your own replaces GOFLAGS'
 `-ldflags`; add `-extldflags=-mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET`
@@ -177,14 +173,12 @@ devenv version                       # 2.4.0 or newer
 devenv shell                         # the first run downloads the toolchain
 # inside the shell:
 gst-inspect-1.0 osxaudiosink avdec_aac | grep -E '^  (Name|Long-name)'
-pnpm -C frontend install --frozen-lockfile
 go vet ./... && go test ./...
-SONA_PRIVATE=1 dev                   # the app with Vite hot reload
+SONA_PRIVATE=1 dev                   # a development build, started
 ```
 
-`dev` (and `build`) build `bin/sona` for macOS through
-`build/darwin/Taskfile.yml`; `build DEV=true && SONA_PRIVATE=1 ./bin/sona`
-runs it without hot reload. Expect the window with every page; Settings
+`build` writes `bin/sona` for macOS (Taskfile's `build` does the same through
+`build/darwin/Taskfile.yml`); `SONA_PRIVATE=1 ./bin/sona` runs it. Expect the window with every page; Settings
 without the controls macOS can't support yet (the output device, start at
 login, notifications, keeping the Mac awake); the keyring backend
 "Keychain"; data under `~/Library/Application Support/Sona` and
@@ -252,7 +246,7 @@ passed` with its `took` (the CDM alone), `installed`, and separately
 
 Run before sending a change (the devenv `check` and `tests` scripts run all
 of it; CI, `.github/workflows/ci.yml`, runs the same on every push and pull
-request except `golangci-lint` and `i18n:check`, so run those yourself):
+request except `golangci-lint`, `go tool mygo vet internal/ui` and the catalogue check, so run those yourself):
 
 ```sh
 go vet ./...
@@ -260,14 +254,9 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...   # see "Platforms"
 go run ./cmd/typecheck -os darwin -arch arm64 ./...
 go test -race ./...
 golangci-lint run --new-from-rev=origin/main ./...   # must be clean
-go run ./cmd/i18ntool extract -check   # Go's catalogue; go test checks it too
-cd frontend
-node scripts/check-path-case.mjs   # no paths or module names differing only by case
-pnpm exec tsc --noEmit
-pnpm exec eslint src
-pnpm exec prettier --check src     # --write to fix
-pnpm i18n:check
-pnpm exec vitest run
+go tool mygo vet internal/ui   # build values kept past their frame
+go run ./cmd/i18ntool extract -check   # the catalogue; go test checks it too
+go run ./cmd/pathcase                  # no paths differing only by case
 ```
 
 Real-CDM tests (`internal/playback/widevine`, `internal/playback/cdmhost`,
@@ -329,17 +318,18 @@ restriction for the session with
 `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`. CI does, and
 sets `SONA_CDMHOST_REQUIRE_NAMESPACES=1`, which turns a skip into a failure.
 
-Packaging changes: `bash build/linux/release/release.sh` builds every package
-on Ubuntu 24.04 and smoke-tests it on clean Ubuntu, Fedora and Arch
-containers. Before a release, work through `docs/release-checklist.md`.
+Packaging changes: `bash build/linux/release/release.sh` (build every package
+on Ubuntu 24.04 and smoke-test it on clean Ubuntu, Fedora and Arch
+containers) is unavailable until the phase 4 packaging PR; `task package`
+builds the nfpm packages meanwhile. Before a release, work through
+`docs/release-checklist.md`.
 
 ### CI and workflows
 
 `.github/workflows/`: `ci.yml` (every push to main and pull request: the
-Linux Go job "Go vet and test (-race)" and "Frontend typecheck, lint,
-format, test, build"; plus "macOS build and test" (devenv on macos-15:
+Linux Go job "Go vet and test (-race)"; plus "macOS build and test" (devenv on macos-15:
 production build, go vet, real-CDM and sandbox tests, `go test -race`) and
-"Windows build" (windows-2025: frontend, `go vet` with cgo, `sona.exe`),
+"Windows build" (windows-2025: `go vet` with cgo, `sona.exe`),
 which take several minutes and so never run on pull requests or for a
 release: they run after each merge to main and when dispatched),
 `pr-title.yml` (Conventional Commits title),
@@ -374,60 +364,21 @@ Screenshots land in `result/`. `tests/vm/README.md` lists each check, the checkl
 
 ### Measuring UI performance
 
-`cmd/uiprobe` measures a running Sona built with `-tags mcp` (the Wails MCP server; never in release builds): `go build -tags production,sqlite_fts5,mcp -o bin/sona-mcp ./cmd/sona`, then start it as for the accessibility checks (`docs/accessibility.md`: a headless sway, `dbus-run-session`, private XDG dirs, `SONA_PRIVATE=1`, `WAILS_MCP_PORT`). Home needs a signed-in account; the library pages need a synced library (about 650 albums makes a useful grid).
+MyGo draws every frame itself, so frame cost is measured in the process, not in a browser:
 
-```sh
-go run ./cmd/uiprobe -addr 127.0.0.1:$WAILS_MCP_PORT -pid <sona pid> -log <state>/sona/sona.log
-go run ./cmd/uiprobe -firstpaint run*/sona.log   # startup to first paint over several starts
-```
+- `MYGO_FRAME_STATS=8` logs every frame slower than 8 ms (`MYGO_FRAME_STATS=all` logs each one) with where the time went. A scroll through Albums or Home should log none on a desktop GPU.
+- `SONA_INSPECTOR=1` opens MyGo's inspector beside the content: element boxes, styles and the frame times.
+- `startup: first paint` in `<state>/sona.log` is the time from process start to the first presented frame; compare several starts, not one.
+- Compare before and after on the same machine, with the same library (about 650 albums makes a useful grid), and confirm on a desktop session: the headless harness (docs/accessibility.md) draws on the CPU (llvmpipe), so its frame times only show relative change.
 
-For each page (`-pages`, default the empty control page, Home, New and library Albums) it waits for the images, then scrolls `main#content` from top to bottom and back at `-speed` CSS px/s, one step per frame, and prints a Markdown table: rAF frame time p50/p95, dropped frames, frames over 50 ms, the web process's main-thread and total CPU and the UI process's CPU (`-pid`, from `/proc`: unlike frame times, they barely move with the rest of the computer's load, which it prints), images decoded and decoded megapixels against the pixels shown. `-log` places the page's load (navigation, HTML, scripts run, first contentful paint) after the process start; `-css` adds a style sheet first, to try a change without a build. WebKitGTK has no `longtask` entries, so frames over 50 ms stand in for long tasks.
+`cmd/uiprobe` still drives the old Wails app and does not work until PR 0.3 moves it, with the scripted scroll and motion probes, onto MyGo's automation plugin; this section grows with them.
 
-For a breakdown (paint, style, layout, script), a development build (no `production` tag) started with `WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:<port>` serves WebKit's remote inspector at `ws://<port>/socket/1/1/WebPage`; its Timeline domain records with timestamps only after `Debugger.enable`.
+### Debugging the UI
 
-What the headless harness cannot show: sway's headless output has no display, so the UI process composites every frame in its own process (about 80% of a core while scrolling an empty page at 2560×1600), and GPU, driver and compositor behaviour differ from a desktop session. Compare before and after on the same machine and configuration, and confirm on a desktop.
-
-#### Motion artwork's cost
-
-`uiprobe -motion` measures what motion artwork costs, motion on against off (it flips Settings → Appearance → Motion artwork with the switch, and leaves it as it found it). Quit your own Sona first (one instance at a time), then on your desktop:
-
-```sh
-go build -tags production,sqlite_fts5,mcp -o bin/sona-mcp ./cmd/sona
-SONA_PRIVATE=1 SONA_PREVIEW=1 WAILS_MCP_PORT=9322 ./bin/sona-mcp & sona=$!
-sleep 15; go run ./cmd/uiprobe -motion -addr 127.0.0.1:9322 -pid $sona | tee motion.md
-kill $sona
-```
-
-It needs a signed-in account (Discover and the album come from the catalog). Now Playing shows the player's song; with nothing in the player it plays `-album`'s first song and pauses it (`SONA_PREVIEW=1`: the preview, no CDM). With private XDG dirs (as for the headless harness) none of that touches your own profile. Each scenario (`-scenarios`) runs `-runs` times (3) with motion on, then off; the table gives the median and the range of the CPU over `-window` (10 s), as % of one core, of the web process, its main thread (script, style, layout, paint) and its GStreamer threads (demuxing and decoding, threads named `<element>:<pad>`), and of the UI process; then the videos playing, their decoded and drawn size in device pixels, the video frames decoded per second (`getVideoPlaybackQuality`) and the page's rAF frame times over 3 s. It prints how each process draws (a GPU device open or not) and, on stderr, each run with its busiest web threads. The scenarios: `idle` (Discover at rest), `tile` (one Discover tile hovered), `album` (`-album`'s header, Graduation by default), `nowplaying` (Now Playing over an empty page), `nowplaying-album` (Now Playing over the album page) and `scroll` (Discover scrolled down and back at `-speed` with a pointer resting over it, measured over the scroll).
-
-Measured (WebKitGTK 2.54.1, GStreamer 1.28.7, H.264; on a 2560×1440 Hyprland desktop with an NVIDIA RTX 3080 and a 1132×1253 window, and in the headless harness at 2560×1440; motion on, medians of 3; off is 0% everywhere but `scroll`). In both the web process paints in software: it loads NVIDIA's GL libraries but has no GPU device open (`/dev/nvidia*`, `/dev/dri`), so it hands the UI process shared-memory buffers to composite, and headless the UI process composites in software too, about twice the desktop's cost:
-
-| scenario | desktop: web process | desktop: UI process | headless: web process | headless: UI process |
-| --- | --- | --- | --- | --- |
-| idle | 0% | 0% | 0% | 0% |
-| tile (360 px rendition drawn at 212 px) | 10% | 23% | 12% | 41% |
-| album header (360 px at 225) | 11% | 23% | 10% | 41% |
-| Now Playing (486 px at 473) | 23% | 23% | 20% | 42% |
-| Now Playing over the album page, before | 97% | 45% | 87% | 83% |
-| Now Playing over the album page, now | 24% | 23% | 21% | 41% |
-| scroll, motion on / off | 100% / 99% | 39% / 38% | 98% / 99% | 46% / 46% |
-
-- One video costs about a tenth of a core in the web process (a quarter for the larger Now Playing cover): two thirds on its main thread painting each frame, the rest in GStreamer (the libav H.264 threads about 1–3%, `appsrc`, which feeds the `data:` URL, about 2%). The UI process's share is compositing. Every video plays at 30 frames/s without dropping a frame, and the page drops none either.
-- Under the Now Playing view the album header kept decoding unseen (IntersectionObserver ignores occlusion), and the web process used four times what Now Playing uses alone (97% against 23%: its main thread at 71%, `appsrc` at 19%). Videos now pause while their page is inert (under an overlay or a modal) as well as while the window is hidden; a window moved to another Hyprland workspace reports `hidden`, and its videos drop to 0%.
-- WebKit also paints a page that an overlay covers. With the Now Playing cover over the album page's own header (a paused video's frame and its text), each frame of the cover repainted the header beneath it, and the web process used more the more of the cover lay over the header (headless, medians of 3: 34% with the cover at 273 px from the window's edge, 26% with it at 627 px, clear of the header). The page under an overlay is now `invisible` (layout and scroll position kept) as well as `inert`: 24% with the cover at 273 px.
-- Tiles already decode Apple's smallest rendition (360 px; the next are 408, 456 and 486), and Now Playing the smallest above its size, so a smaller cap saves nothing. Scrolling plays nothing (tiles wait 400 ms on hover) and costs the same either way. A lower frame rate for tiles or stopping after a number of loops would need the video re-encoded, or would change what the user sees; at a tenth of a core per video, they are not done.
-
-### Debugging with the web inspector
-
-WebKit's web inspector (console, elements, network, storage) is how you debug Sona's page and try a plugin's code against it:
-
-- **Development builds** (a build without the `production` tag) have it on: right-click an empty part of the page → **Inspect Element**.
-- **Release builds** (Linux builds carry the `devtools` tag) keep it off until you turn it on: **Settings → Diagnostics → Developer tools → Web inspector**, then restart Sona (the window is created with the inspector on or off), or start one run with `SONA_DEVTOOLS=1`. Right-click → **Inspect Element** works as in a development build, and **Settings → Diagnostics → Developer tools → Open** shows the inspector without the mouse. It docks at the bottom of the main window; the mini player has none.
-- To build the release flavour yourself: `go build -tags production,sqlite_fts5,devtools ./cmd/sona`. macOS and Windows builds don't have the setting yet: add `devtools` to their `-tags` to get the system's inspector (not tested).
-
-The inspector is its own web view docked inside the window, so Sona's page scripts (shortcuts, type-to-search) never see what you type in it, and typing in its console works. If keys ever reach the page instead while the inspector has focus, look at `internal/shell/contextkey_linux.c`: its GTK focus guard sends focus back to the page's web view whenever focus lands inside a web view but not on it (WebKitGTK's hidden text widget), and must leave the inspector's own web view alone (it sits inside the page's web view, so a guard that only asks "is there a web view above?" steals the console's focus on every click).
-
-To check it in the headless harness (docs/accessibility.md): right-click the page, choose Inspect Element, open the Console tab, click its input and type with `wtype` (keep a `wtype -s 86400000` alive for the seat's keyboard); log `keydown`s in the page with an MCP `js_eval` listener: none must arrive there while you type in the console, and `document.title` must evaluate to `"Sona"`.
+- Development builds (`-tags dev`, as the `dev` script makes) start private; `SONA_INSPECTOR=1 dev` opens MyGo's inspector (F12 or Ctrl+Shift+I toggles it). Other builds never show it.
+- `bin/sona` (or `go run ./cmd/sona`) starts the app from a checkout: `SONA_PRIVATE=1 SONA_PREVIEW=1 bin/sona` plays 30-second previews without an account. MyGo loads GTK3 and the GL libraries by soname: inside devenv `LD_LIBRARY_PATH` carries them; elsewhere install GTK 3, Pango, libepoxy and a GL driver.
+- `go tool mygo vet internal/ui` finds build values kept past their frame, the usual cause of a view that updates one frame late.
+- UI behaviour is tested headless with `ui.Tester` (`go test ./internal/ui/...`): it renders views without a window, drives keys and clicks, and takes image snapshots.
 
 ### Secret scanning
 
@@ -437,9 +388,7 @@ CI runs [gitleaks](https://github.com/gitleaks/gitleaks) on every pull request a
 
 - One change per branch and pull request. Parallel work is easiest in
   separate worktrees (`git worktree add ../sona-go-<slug> -b <type>/<slug>`);
-  a new worktree needs `pnpm install` in `frontend/` and a frontend build
-  before `go build ./cmd/sona`. Give each concurrently running worktree its own
-  `WAILS_VITE_PORT`.
+  give each concurrently running worktree private XDG dirs.
 - Commit messages and PR titles follow
   [Conventional Commits](https://www.conventionalcommits.org): `feat`, `fix`,
   `perf`, `refactor`, `docs`, `test`, `ci`, `build`, `chore` or `revert`,
@@ -450,7 +399,7 @@ CI runs [gitleaks](https://github.com/gitleaks/gitleaks) on every pull request a
   through the project's review bot once CI passes; don't merge them yourself.
 - `main` is protected by a ruleset: changes land only through a pull request,
   squash-merged (linear history), with these checks green: "Go vet and test
-  (-race)", "Frontend typecheck, lint, format, test, build", "Conventional
+  (-race)", "Conventional
   Commits title" and "gitleaks". Nobody bypasses it but the review bot, and
   only through a pull request. Force pushes and deleting `main` are
   blocked. Release tags (`v*`) can't be moved or deleted. A first pull
@@ -461,9 +410,8 @@ CI runs [gitleaks](https://github.com/gitleaks/gitleaks) on every pull request a
   personal account data), tests, docs, and anything left.
 - Update the docs describing what you change in the same PR.
 - Generated files are never edited or merged by hand. After rebasing onto
-  `main`, regenerate `frontend/bindings`, the Lingui catalogues
-  (`pnpm i18n:extract` in `frontend/`) and `internal/db/dbq` (`gen`), then
-  commit them.
+  `main`, regenerate the catalogue (`go run ./cmd/i18ntool extract`) and
+  `internal/db/dbq` (`gen`), then commit them.
 
 ## Releases
 
@@ -477,7 +425,7 @@ and `chore` stay out of the changelog. Mark a breaking change with `!`
 (`feat!: …`) or a `BREAKING CHANGE:` footer. release-please keeps one
 release PR open that bumps `VERSION` and `CHANGELOG.md`; a maintainer merges
 it, which tags `v<VERSION>` and runs `release.yml` to build the Linux
-packages (.deb, .rpm, Arch, AppImage; no macOS or Windows build yet), attest
+packages (.deb, .rpm, Arch; the AppImage and the container build return with the phase 4 packaging PR; no macOS or Windows build yet), attest
 and publish them with `SHA256SUMS`. release-please and the publish step act
 as the bot-cecil GitHub App, so its release PR gets the same checks as yours.
 Never edit `VERSION` or `CHANGELOG.md` by hand. Changing the packaging or
@@ -488,26 +436,23 @@ publishes nothing. Steps, dry run and the App's permissions:
 
 ## Dependency updates
 
-Renovate opens pull requests for Go modules, pnpm packages and GitHub
-Actions, and a review bot checks and merges them; the pinned devenv inputs
+Renovate opens pull requests for Go modules and GitHub
+Actions (MyGo's are always left for review), and a review bot checks and merges them; the pinned devenv inputs
 are bumped by hand (see "Pinned inputs"). You
 don't need to update dependencies yourself; a change that needs a newer
 dependency bumps it in the same PR.
 
 ## Module contract
 
-A feature is a Go service plus a frontend module, each self-contained:
+A feature is a Go service plus a UI package, each self-contained:
 
-- Go: `internal/services/<feature>.go` (the service; exported methods are the
-  bindings) + `<feature>_dto.go` (its DTOs and events) + one line in
-  `internal/services/registry.go`; while Wails remains, also one
-  `RegisterService` line in `cmd/sona/main.go` and one `RegisterEvent` line
-  per event in `cmd/sona/events_wails.go`. Features never call each other's
+- Go: `internal/services/<feature>.go` (the service; the UI calls its
+  exported methods) + `<feature>_dto.go` (its DTOs and events) + one line in
+  `internal/services/registry.go`. Features never call each other's
   services. Full contract: `internal/services/doc.go`.
-- Frontend: `frontend/src/features/<name>/index.ts` exporting the module
-  (routes, nav items, Go event handlers) + one line in
-  `frontend/src/app/modules.ts`. Full contract:
-  `docs/frontend-architecture.md`.
+- UI: `internal/ui/features/<name>` exporting the module (routes, sidebar
+  entries, shortcuts, event handlers) + one line in
+  `internal/ui/app/modules.go`. Full contract: `docs/ui-architecture.md`.
 - Settings: one nested struct in `internal/config/settings.go` with its
   defaults and `normalized()`; apply changes live through
   `Settings.OnChange`.
@@ -522,7 +467,7 @@ host. Windows has no playback yet.
 - In `cmd/sona`, `main.go` is portable; `platform_linux.go` and `platform_other.go` build
   what differs per OS: the `sona <command>` transport and single instance
   (`internal/app`: D-Bus on Linux, a socket in the state folder on macOS
-  and Windows; docs/cli.md), the Wails options, and `services.Platform`:
+  and Windows; docs/cli.md), the app options, and `services.Platform`:
   media controls (MPRIS), notifications, the sleep inhibitor, the
   on-battery monitor, the autostart entry, the file chooser, the tray. The
   playback engine and the CDM host child hook (`newEngine`, `childMain`,
@@ -531,9 +476,9 @@ host. Windows has no playback yet.
   (`playback.Unsupported`, and no download). A nil seam is
   unsupported; the service using it does nothing or returns an error
   wrapping `errors.ErrUnsupported` (error code `unsupported`), and
-  `PlatformService.Capabilities` tells the frontend, which hides or
+  `PlatformService.Capabilities` tells the UI, which hides or
   explains the control (`internal/services/doc.go`,
-  `docs/frontend-architecture.md`).
+  `docs/ui-architecture.md`).
 - Build tags: a file for one OS is named `_linux.go`, `_darwin.go` or
   `_windows.go` (Go applies the constraint from the name); the fallback for
   the rest is `_other.go` with the complementary `//go:build` line
@@ -546,14 +491,12 @@ host. Windows has no playback yet.
 - Code that only compiles on some systems is tagged. The CDM host engine
   (`internal/playback/gst`, `widevine`, `cdmhost`, `native`) and
   `cmd/playspike` carry `//go:build linux || (darwin && cgo)`: cgo against
-  GStreamer and the C++ shim, which a macOS build has anyway (Wails needs
-  cgo there). Inside them, what differs is in `_linux.go`/`_darwin.go`
+  GStreamer and the C++ shim, which a macOS build has anyway. Inside them, what differs is in `_linux.go`/`_darwin.go`
   files: the sink and the output device (`gst/output_<os>.go`; PipeWire's
   device provider in `devices_linux.c`, its relink detection in
   `relink_linux.c`), the sandbox (`cdmhost/sandbox_linux.go`,
   `sandbox_fs_linux.go`; `sandbox_darwin.go` and the portable
-  `seatbelt.go`). WebKitGTK (`webkit_linux.go`) and GTK
-  (`internal/shell/*_linux.go`) are Linux-only. Portable Go implementations
+  `seatbelt.go`). MyGo itself is pure Go on every OS (it loads GTK by soname on Linux), so the UI packages need no tags. Portable Go implementations
   of Linux protocols (the D-Bus clients in `internal/mpris`,
   `internal/desktop/*`, `internal/power`, `internal/app`; the XDG autostart
   entry) stay untagged, so they type-check and their tests run everywhere;
@@ -566,13 +509,10 @@ host. Windows has no playback yet.
   (`libwidevinecdm.so`; `libwidevinecdm.dylib`).
 - Type-checking: every package, tests included, must type-check for
   `windows/amd64` and `darwin/arm64` with cgo off (CI and `check`). Windows
-  uses `go vet`. On macOS Wails' `pkg/application` is Objective-C behind
-  cgo, so `go vet` stops there; `go run ./cmd/typecheck -os darwin -arch
-arm64 ./...` type-checks Sona's packages from source and only names the
-  third-party packages that need cgo. Real builds need cgo on both:
-  `mattn/go-sqlite3` everywhere, and Wails on macOS (Cocoa and WebKit from
-  Apple's SDK, so macOS builds happen on a Mac). Wails on Windows is pure Go
-  (its own WebView2 loader).
+  uses `go vet`. macOS uses `go run ./cmd/typecheck -os darwin -arch
+arm64 ./...`, which type-checks Sona's packages from source and only names
+  any third-party package that needs cgo. Real builds need cgo for
+  `mattn/go-sqlite3` everywhere; MyGo is pure Go on macOS and Windows.
 - The macOS CDM host engine builds only with cgo, so the cgo-off
   type-check skips it. After touching it, type-check it with cgo on from
   Linux, with zig as a macOS C compiler. Linux's GStreamer headers lack
@@ -589,21 +529,20 @@ arm64 ./...` type-checks Sona's packages from source and only names the
   ```
 
   It compiles the C and C++ (shim, GStreamer glue) for macOS and
-  type-checks every Sona package, `main` included; only Wails' Objective-C
-  fails, without Apple's SDK.
+  type-checks every Sona package, `main` included; third-party Objective-C
+  would still fail without Apple's SDK.
 
 - A real Windows build cross-compiles from Linux with zig as the C
-  compiler (`nix shell nixpkgs#zig`; Wails' own cross image uses it too):
+  compiler (`nix shell nixpkgs#zig`):
   `GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC='zig cc -target
-x86_64-windows-gnu' go build -tags production,sqlite_fts5 -ldflags '-H
-windowsgui' ./cmd/sona` after a production frontend build, with `go tool
-wails3 generate syso` (its `.syso` in `cmd/sona`) for the icon and
-  manifest. zig ignores the `-mwindows` Go
+x86_64-windows-gnu' go build -tags mygo_noinspector,sqlite_fts5 -ldflags '-H
+windowsgui -X github.com/egoist/mygo.production=1' ./cmd/sona`. zig ignores the `-mwindows` Go
   passes for `-H windowsgui`, so wrap it to pass
-  `-Wl,--subsystem,windows` instead, or the exe opens a console. It needs
-  the WebView2 runtime to show its window.
+  `-Wl,--subsystem,windows` instead, or the exe opens a console.
 
 ### Title bar and window controls
+
+> **Phase 3.** Sona's own title bar, the buttons and the Title bar setting are not ported to MyGo yet: the window opens with the desktop's decorations (`cmd/sona/platform_linux.go`). What follows describes the design, from v0.2.0's Wails shell, and its checks apply again once phase 3 lands.
 
 `internal/windowchrome` decides who draws the main window's title bar
 (`docs/design.md`, "Title bar"): macOS keeps its traffic lights inset into
@@ -611,7 +550,7 @@ Sona's top bar (`MacTitleBarHiddenInset`); Windows and the stacking Linux
 desktops (`XDG_CURRENT_DESKTOP` and friends) get a frameless window with
 Sona's own buttons in the desktop's layout (KWin's `kwinrc` on KDE
 Plasma, GTK's `gtk-decoration-layout` elsewhere, read through
-`internal/shell`); tiling compositors (their `SWAYSOCK`,
+`internal/windowchrome`); tiling compositors (their `SWAYSOCK`,
 `HYPRLAND_INSTANCE_SIGNATURE`, `I3SOCK`, `NIRI_SOCKET`, or their desktop
 name) and unknown desktops keep the desktop's. Settings → General → Title
 bar overrides it from the next start. To check it:
@@ -625,7 +564,7 @@ WLR_LIBINPUT_NO_DEVICES=1 sway`, then the app with `WAYLAND_DISPLAY`,
 --wayland --no-x11 --virtual-monitor 1600x1000 --wayland-display=gnome-0`
   (`nix build nixpkgs#gnome-shell`), then the app on `WAYLAND_DISPLAY=gnome-0`
   with `XDG_CURRENT_DESKTOP=GNOME` and the tiling variables unset. Set
-  `gtk-decoration-layout` in the app's `$XDG_CONFIG_HOME/gtk-4.0/settings.ini`
+  `gtk-decoration-layout` in the app's `$XDG_CONFIG_HOME/gtk-3.0/settings.ini`
   to try layouts (`appmenu:close`, GNOME's default; `close,minimize,maximize:`).
   The `OverviewActive` property of `org.gnome.Shell` leaves the overview,
   and `org.gnome.Shell.Screenshot` takes screenshots from a caller owning
@@ -634,7 +573,7 @@ WLR_LIBINPUT_NO_DEVICES=1 sway`, then the app with `WAYLAND_DISPLAY`,
   click, dragging, resizing from the edges and corners, and Close against
   the close action.
 - Windows: the zig cross-build below under wine 11 with a Windows 7 prefix
-  and the WebView2 runtime, in a wine virtual desktop (`wine explorer
+  in a wine virtual desktop (`wine explorer
 /desktop=sona,1600x1000 sona.exe`): the caption buttons at the top right,
   flush with the edges.
 - macOS: on a Mac only:
@@ -645,14 +584,15 @@ WLR_LIBINPUT_NO_DEVICES=1 sway`, then the app with `WAYLAND_DISPLAY`,
 ## Architecture rules
 
 - Go owns all Apple Music traffic, tokens, sync, caching, MPRIS and artwork.
-  The frontend never holds tokens and never calls `*.apple.com`.
+  The UI never holds tokens and never calls `*.apple.com`.
 - Cold start reads SQLite only; the network and the playback host start
   after the first paint.
 - Secrets go to the system keyring (Secret Service, Keychain, Credential
   Manager through go-keyring) or the explicit 0600 file fallback, never to
   the database, logs, settings or committed files.
-- Linux performance: no `backdrop-filter` or large CSS blurs on scrolling
-  content; backdrops are pre-blurred in Go.
+- Linux performance: MyGo draws on the GPU, so no layout, text shaping or
+  image work per frame; artwork is decoded at the exact size shown, and
+  backdrops are pre-blurred in Go.
 
 ## DRM rules (absolute)
 
@@ -676,13 +616,13 @@ WLR_LIBINPUT_NO_DEVICES=1 sway`, then the app with `WAYLAND_DISPLAY`,
   verified, and stored in Sona's data dir. Browser, system and
   user-supplied copies are never used.
 - Never extract keys or use reimplemented CDMs (`openwv`, extracted device
-  keys). Do not try to make Widevine work in WebKitGTK.
+  keys). Do not try to make Widevine work inside the UI process.
 
 ## Strings and translations
 
 Sona takes Apple Music's own translations for every message that means
-the same as one of Apple's web strings (docs/frontend-architecture.md,
-"Strings and locales"). `frontend/src/shared/i18n/apple-keys.json` maps
+the same as one of Apple's web strings (docs/ui-architecture.md,
+"Strings and locales"). `internal/ui/i18n/locales/apple-keys.json` maps
 those messages (English msgid and context) to Apple's string keys, with
 placeholder renames; `apple-keys-rejected.json` lists reviewed matches that
 do not hold in Sona's context, with the reason. Neither file holds Apple's
@@ -695,13 +635,13 @@ run. The mapping is built into the app, and
 
 Before writing new English copy, check Apple's wording (its en-GB strings,
 keys like `ASE.Web.Music.*`) and use it where the meaning matches. After
-`pnpm i18n:extract`, from the repository root:
+`go run ./cmd/i18ntool extract`, from the repository root:
 
 ```sh
 go run ./cmd/i18ntool match     # counts; proposals for unmapped messages
 ```
 
-The proposals land in `frontend/src/shared/i18n/apple/proposals.json`
+The proposals land in `internal/ui/i18n/locales/apple/proposals.json`
 (gitignored; it shows Apple's en-GB text next to each message). Review each
 one in context (where the message is shown, `#:` in `en.po`): set
 `"decision"` to `"accept"`, or to `"reject"` with a `"reason"`, change
@@ -709,7 +649,7 @@ one in context (where the message is shown, `#:` in `en.po`): set
 better, then:
 
 ```sh
-go run ./cmd/i18ntool match -apply frontend/src/shared/i18n/apple/proposals.json
+go run ./cmd/i18ntool match -apply internal/ui/i18n/locales/apple/proposals.json
 ```
 
 This copies only the message, key and placeholders into the mapping (or the
@@ -749,27 +689,27 @@ go run ./cmd/i18ntool import    # what the app would get, every locale
 script and runs the app's conversion and checks: `@@name@@` placeholders
 become Sona's `{name}`, Apple's `.one`/`.other`/… keys ICU plurals, and a
 message whose placeholders do not agree with Sona's is refused. It writes
-`frontend/src/shared/i18n/apple/<locale>.po` (gitignored, each entry tagged
+`internal/ui/i18n/locales/apple/<locale>.po` (gitignored, each entry tagged
 `#. apple-key: …`) for review in context, with a per-locale summary (mapped
 keys found, missing or refused, coverage of Sona's messages) and each
 refusal's reason. It fails when a mapped key has gone from en-GB. The app
 never reads these files.
 
 To see Apple's strings in the app while a locale is below the 90% it needs
-(`selectableShare` in `frontend/src/shared/i18n/locale.ts`), lower that
+(`selectableShare` in `internal/ui/i18n`), lower that
 value in a local build only; the cache is `$XDG_CACHE_HOME/sona/strings`.
 
 ### Go's own text
 
-Text Go shows itself, outside the web view (the tray menu, the mini
+Text Go shows itself, outside the UI packages (the tray menu, the mini
 player's title, desktop notification buttons, file chooser titles and
 filters, the sleep inhibitor's reason, and the command line's help, manual
 page, completions, output and errors), lives in Go's catalogue,
-`internal/i18n/l10n`, never in Lingui's. Go never sends text to the web
-view: it sends codes the frontend words (`internal/services/errors.go`).
+`internal/i18n/l10n`, never in the UI's. Services never send text to the
+UI: they send codes the UI words (`internal/services/errors.go`).
 Mark a message by its type, `l10n.Message`, and show it through the user's
 `*l10n.Printer` (`Deps.Language.Printer()` in services,
-`Options.Language` in the shell, `Env.Printer` in the command line):
+`Options.Language` in the app shell, `Env.Printer` in the command line):
 
 ```go
 const msgQuit l10n.Message = "Quit Sona" // a translator note
@@ -801,7 +741,7 @@ an empty `msgstr`); `go test ./internal/i18n/l10n/extract` and the devenv
 `check` script fail when it is out of date. A translation is
 `internal/i18n/l10n/locales/<tag>.po`: the same msgids with `msgstr`
 filled in (fuzzy entries are skipped), embedded in the binary and picked
-for the Language setting, else the system's languages, as the frontend
+for the Language setting, else the system's languages, as the UI
 picks its catalogue.
 
 ## Design rules

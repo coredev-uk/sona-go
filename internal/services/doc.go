@@ -1,4 +1,4 @@
-// Package services is Sona's service surface: frontend-shaped
+// Package services is Sona's service surface: UI-shaped
 // wrappers over the core packages (auth, catalog, library, playback
 // coordinator, artwork, settings), and the start-up policy that keeps cold
 // start local until the first paint.
@@ -7,20 +7,18 @@
 //
 // One feature = one service, in its own files:
 //
-//   - <feature>.go: the service type (exported methods are the bindings;
-//     everything else unexported), and its constructor
+//   - <feature>.go: the service type (exported methods are what the UI
+//     calls; everything else unexported), and its constructor
 //     func new<Feature>Service(e *Env) *<Feature>Service.
 //   - <feature>_dto.go: the feature's own DTOs, its event name constants
 //     (plain declarations, no registration here).
 //   - One line in registry.go: {"<feature>", svc(new<Feature>Service)}
 //     (the registry returns the typed instances; Core.Services lists them,
 //     Service[T] finds one).
-//   - While Wails remains, cmd/sona binds a fixed list: one
-//     wapp.RegisterService(application.NewServiceWithOptions(
-//     services.Service[services.<Feature>Service](core), opts)) line in
-//     main.go, and one application.RegisterEvent[<Payload>](services.Event<X>)
-//     line per event in cmd/sona/events_wails.go (so bindings carry the
-//     types). Features never call each other's services.
+//   - The UI calls the typed service directly (services.Service[T](core))
+//     from its feature package under internal/ui/features, and follows an
+//     event with store.On over Deps.Emit, so there is nothing else to
+//     register. Features never call each other's services.
 //
 // Shared pieces every feature uses:
 //
@@ -48,16 +46,16 @@
 //     wipe), OnClose (shutdown steps), Go (start a background goroutine:
 //     a panic is recovered and logged with its stack; never a bare `go`),
 //     and members (catalog item → in the library).
-//   - errors.go: every returned error reaches JS as err.cause =
-//     {code, message}; the frontend words the code (an ErrorCode, bound
-//     as a TypeScript enum) and keeps message, Go's English, for logs.
+//   - errors.go: every returned error is worded by the UI from its
+//     code (CodeOf, an ErrorCode; i18n.ErrorText); the error's own
+//     message, Go's English, is for logs.
 //     Go's text never reaches the UI: a DTO field that explains a failure
 //     carries an ErrorCode, or its own string enum for a non-error reason
 //     (StationUnavailable, playback.SandboxGap), never free text
 //     (errors_test.go walks the bound types). New classes of failure the
 //     user needs to tell apart get a sentinel error, a Code constant and
-//     a CodeOf case, plus wording in frontend/src/shared/lib/errors.ts.
-//   - Text Go shows itself, outside the web view (notification buttons,
+//     a CodeOf case, plus wording in internal/ui/i18n/errors.go.
+//   - Text Go shows itself, outside the UI (notification buttons,
 //     file chooser titles and filters, the sleep inhibitor's reason), is
 //     an l10n.Message shown through Deps.Language.Printer() when it is
 //     shown, so it follows the Language setting (CONTRIBUTING.md, "Go's
@@ -100,15 +98,14 @@
 // qualitySetter).
 //
 // PlatformService.Capabilities (platform_dto.go) is the capability list
-// the frontend reads once at start: the engine's kind and what it supports
+// the UI reads once at start: the engine's kind and what it supports
 // (volume, equaliser, Sound Check, crossfade, output device, private
-// listening), which Platform seams exist, whether the web view is
-// WebKitGTK (its rendering workarounds apply), and the main window's title
+// listening), which Platform seams exist, and the main window's title
 // bar (WindowControls, from Platform.TitleBar: internal/windowchrome). It is fixed for the process;
 // whether a supported service is reachable right now stays in
 // "integrations:status". A new seam is a Platform field, its use in the
-// feature, and a Capabilities field the frontend gates its control on
-// (docs/frontend-architecture.md, "Platform capabilities").
+// feature, and a Capabilities field the UI gates its control on
+// (docs/ui-architecture.md).
 //
 // CDM (cdm.go) is the Widevine CDM the CDM engine loads, which Sona
 // downloads and updates by itself (Deps.CDM, internal/playback/cdm): the

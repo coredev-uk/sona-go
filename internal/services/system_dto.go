@@ -11,7 +11,6 @@ const EventSettingsChanged = "settings:changed"
 // Diagnostics describes the running app for the Diagnostics page.
 type Diagnostics struct {
 	App      DiagApp      `json:"app"`
-	WebKit   DiagWebKit   `json:"webkit"`
 	Playback DiagPlayback `json:"playback"`
 	Database DiagDatabase `json:"database"`
 	Keyring  DiagKeyring  `json:"keyring"`
@@ -30,10 +29,6 @@ type DiagApp struct {
 	PID       int    `json:"pid"`
 	// StartupMs is process start → first paint ("" until painted: 0).
 	StartupMs int64 `json:"startupMs"`
-}
-
-type DiagWebKit struct {
-	Version string `json:"version"` // runtime WebKitGTK version, "" if unknown
 }
 
 // DiagPlayback is the playback stack as the CDM host child reports it.

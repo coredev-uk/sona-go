@@ -1,4 +1,4 @@
-# nfpm config for `go tool wails3 task linux:package` (.deb, .rpm, Arch).
+# nfpm config for `task linux:package` (.deb, .rpm, Arch).
 # https://nfpm.goreleaser.com
 #
 # Build release packages on the Ubuntu 24.04 baseline
@@ -15,7 +15,7 @@ priority: "optional"
 maintainer: "Core <core@coredev.uk>"
 description: |
   Apple Music for the Linux desktop.
-  A native GTK4/WebKitGTK client with full-track playback through the
+  A native MyGo (GTK3) client with full-track playback through the
   Widevine CDM, which Sona downloads from Google at runtime (never
   bundled), GStreamer decoding and PipeWire/PulseAudio output, MPRIS
   media controls and music:// link handling.
@@ -68,16 +68,16 @@ contents:
   - src: "./bin/cli/sona.1.gz"
     dst: "/usr/share/man/man1/sona.1.gz"
 
-# Runtime: GTK4 + WebKitGTK 6.0 for the window; GStreamer core + base
-# (appsrc, audioconvert, audioresample, volume) + good (autoaudiosink) + an
-# AAC decoder (avdec_aac from libav) + a PipeWire or PulseAudio sink for the
-# playback host; bad for WebKit's media players (its WebVTT encoder,
-# webvttenc, and the video parsers motion artwork and music videos use).
+# Runtime: GTK3 for the window (MyGo loads it, with its tray's appindicator,
+# at run time); GStreamer core + base (appsrc, audioconvert, audioresample,
+# volume) + good (autoaudiosink) + an AAC decoder (avdec_aac from libav) + a
+# PipeWire or PulseAudio sink for the playback host; bad for the video
+# parsers motion artwork and music videos use.
 # The Widevine CDM is no dependency: Sona downloads it from Google at
 # runtime and never ships it.
 depends:
-  - libgtk-4-1
-  - libwebkitgtk-6.0-4
+  - libgtk-3-0
+  - libayatana-appindicator3-1
   - libgstreamer1.0-0
   - libgstreamer-plugins-base1.0-0
   - gstreamer1.0-plugins-base
@@ -92,10 +92,10 @@ overrides:
   rpm:
     # Fedora; pulsesink ships in gstreamer1-plugins-good there.
     # gstreamer1-plugin-libav is in Fedora proper since 41 (RPM Fusion before).
-    # gstreamer1-plugins-bad-free carries webvttenc (subenc).
+    # gstreamer1-plugins-bad-free carries the video parsers.
     depends:
-      - gtk4
-      - webkitgtk6.0
+      - gtk3
+      - libayatana-appindicator-gtk3
       - gstreamer1
       - gstreamer1-plugins-base
       - gstreamer1-plugins-good
@@ -107,8 +107,8 @@ overrides:
     # nfpm's Arch packager writes depends only (no optdepends), so the
     # gst-plugin-pipewire recommendation does not carry over.
     depends:
-      - gtk4
-      - webkitgtk-6.0
+      - gtk3
+      - libayatana-appindicator
       - gstreamer
       - gst-plugins-base
       - gst-plugins-good

@@ -101,7 +101,6 @@ func (s *SystemService) Diagnostics(ctx context.Context) (Diagnostics, error) {
 			Session:   os.Getenv("XDG_SESSION_TYPE"),
 			PID:       os.Getpid(),
 		},
-		WebKit:            DiagWebKit{Version: s.o.WebKit},
 		ArtworkCacheBytes: s.o.Art.Size(),
 		Paths: DiagPaths{
 			Config: s.o.Paths.Config, Data: s.o.Paths.Data, Cache: s.o.Paths.Cache, Art: s.o.Paths.Art,

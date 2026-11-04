@@ -2,20 +2,19 @@
 // another OS from source with cgo off, so a macOS or Windows break shows
 // up on Linux (CI runs it; see CONTRIBUTING.md, "Platforms").
 //
-// `GOOS=windows CGO_ENABLED=0 go vet ./...` covers Windows, but not macOS:
-// Wails' macOS backend is Objective-C behind cgo, so its application
-// package doesn't compile without cgo and go vet stops at every package
-// importing it. typecheck reports the type errors in this module's
-// packages and only names the third-party packages that failed, which
-// need cgo on that OS.
+// `GOOS=windows CGO_ENABLED=0 go vet ./...` covers Windows; typecheck does
+// the same for macOS, where go vet would stop at the first dependency that
+// needs cgo there. MyGo is pure Go on macOS, so only cgo-bound third-party
+// code can fail: typecheck reports the type errors in this module's
+// packages and only names the third-party packages that failed.
 //
 //	go run ./cmd/typecheck -os darwin -arch arm64 ./...
 //
 // With -cgo it type-checks with cgo on, through the C compiler in $CC and
 // $CXX, which must target that OS: this covers the code that builds only
 // with cgo there (the macOS CDM host engine; CONTRIBUTING.md has the zig
-// recipe). Wails' Objective-C still fails without Apple's SDK and is named
-// as third-party.
+// recipe). Third-party Objective-C that needs Apple's SDK still fails and is
+// named as third-party.
 package main
 
 import (

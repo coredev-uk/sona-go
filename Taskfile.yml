@@ -1,10 +1,10 @@
 version: '3'
 
-# Sona build tasks. `go tool wails3 build|package|dev` run these through
-# Wails' embedded Task runner. Linux is the only release target
-# (docs/architecture.md §9); on macOS `build`, `run` and so `dev` make an
-# unsigned development build (build/darwin/Taskfile.yml), and packaging
-# stays Linux-only.
+# Sona packaging tasks. Day-to-day building, testing and checking are devenv
+# scripts (devenv.nix: build, dev, tests, check); this Taskfile only packages
+# a release build. Linux is the only release target (docs/architecture.md §9);
+# on macOS `build` makes an unsigned development build
+# (build/darwin/Taskfile.yml).
 #
 # Never add `go mod tidy` here: other packages are developed in parallel and
 # tidy would drop their dependencies.
@@ -12,26 +12,23 @@ version: '3'
 vars:
   APP_NAME: "sona"
   BIN_DIR: "bin"
-  PACKAGE_MANAGER: "pnpm"
   # The single version source: VERSION. build/linux/Taskfile.yml injects it
   # into the binary (-X main.version) and the packages (nfpm SONA_VERSION).
   VERSION:
     sh: cat "{{.ROOT_DIR}}/VERSION"
-  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
 
 includes:
-  common: ./build/Taskfile.yml
   linux: ./build/linux/Taskfile.yml
   darwin: ./build/darwin/Taskfile.yml
 
 tasks:
   build:
-    summary: Builds the application (production unless DEV=true)
+    summary: Builds the production application into bin/sona
     cmds:
       - task: '{{if eq OS "darwin"}}darwin{{else}}linux{{end}}:build'
 
   package:
-    summary: Packages a production build as .deb, .rpm, Arch package and AppImage
+    summary: Packages a production build as .deb, .rpm and Arch package (the AppImage returns in phase 4)
     cmds:
       - task: linux:package
 
@@ -44,8 +41,3 @@ tasks:
     summary: Runs the built application
     cmds:
       - task: '{{if eq OS "darwin"}}darwin{{else}}linux{{end}}:run'
-
-  dev:
-    summary: Runs the application in development mode with Vite hot reload
-    cmds:
-      - go tool wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
