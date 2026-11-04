@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -131,8 +132,8 @@ func TestFrontLeadsWithTheFirstCardAtTheLeadsWidthAndListsThemAPageAtATime(t *te
 	if got := src.requested(bannerOf(1)); !slices.Contains(got, [2]int{784, 450}) {
 		t.Errorf("the lead's art was asked for at %v, want 784×450", got)
 	}
-	if r.d.front.at != 0 || r.d.front.fading {
-		t.Errorf("the lead is %d (fading %v), want the first card", r.d.front.at, r.d.front.fading)
+	if r.d.front.at != 0 {
+		t.Errorf("the lead is %d, want the first card", r.d.front.at)
 	}
 }
 
@@ -172,26 +173,42 @@ func TestFrontBringsTheListToThePageTheLeadIsOn(t *testing.T) {
 }
 
 func TestFrontCrossFadesTheOldLeadOutAndKeepsItInertOnlyUntilTheFadeEnds(t *testing.T) {
-	r := newFront(t, 8)
-	r.tick(rotateEvery)
-	if !r.d.front.fading || r.d.front.from != 0 || r.lead() != 1 {
-		t.Fatalf("after a tick: fading %v from %d lead %d", r.d.front.fading, r.d.front.from, r.lead())
+	r := newFront(t, 8, withAnimations())
+	r.tick(rotateEvery - time.Millisecond)
+	r.tick(time.Millisecond)
+	if r.lead() != 1 {
+		t.Fatalf("after a tick: lead %d", r.lead())
 	}
-	// Both leads are on screen while it fades: the card going and the one coming.
-	r.tt.Frame()
-	during := countText(r.tt.Session, "Card 1")
+	named := func() int {
+		n := 0
+		for _, nd := range access.Read(t, r.tt.Tester).Nodes {
+			if nd.Label == "Card 1" {
+				n++
+			}
+		}
+		return n
+	}
+	// The card going is MyGo's copy of it: drawn while it fades (the picture
+	// changes frame by frame), but not on the accessibility tree.
+	start := bytes.Clone(r.tt.Image().Pix)
+	onTree := named()
 	r.tick(leadFade / 2)
-	if !r.d.front.fading {
-		t.Error("the fade ended at half its time")
+	mid := bytes.Clone(r.tt.Image().Pix)
+	if bytes.Equal(start, mid) {
+		t.Error("the picture did not change in the first half of the fade")
 	}
 	r.tick(leadFade)
 	r.tt.Drain()
-	if r.d.front.fading {
-		t.Error("the outgoing lead stays after its fade ended")
+	end := bytes.Clone(r.tt.Image().Pix)
+	if bytes.Equal(mid, end) {
+		t.Error("the picture did not change in the second half of the fade")
 	}
-	// Only its row is left of the old lead.
-	if after := countText(r.tt.Session, "Card 1"); after >= during {
-		t.Errorf("%d texts of Card 1 while it fades and %d after: the outgoing lead was not drawn, or stays", during, after)
+	r.tick(time.Second)
+	if later := r.tt.Image().Pix; !bytes.Equal(end, later) {
+		t.Error("the picture still changes after the fade ended")
+	}
+	if after := named(); after != onTree {
+		t.Errorf("%d nodes named Card 1 while it fades and %d after: the outgoing lead was on the accessibility tree", onTree, after)
 	}
 }
 
@@ -498,8 +515,8 @@ func TestFrontReducedMotionKeepsTheLeadStillWithTheListToChangeIt(t *testing.T) 
 			x, y := r.rowCentre(3)
 			r.tt.ClickAt(x, y)
 			r.tt.Drain()
-			if r.lead() != 3 || r.d.front.fading {
-				t.Errorf("lead %d (fading %v) after choosing Card 4: the list must still change it, without a fade", r.lead(), r.d.front.fading)
+			if r.lead() != 3 {
+				t.Errorf("lead %d after choosing Card 4: the list must still change it", r.lead())
 			}
 			r.away()
 			r.tick(rotateEvery * 3)

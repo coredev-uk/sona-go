@@ -14,6 +14,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 // fakeUpdates is the update check without GitHub.
@@ -583,4 +584,20 @@ func TestViewReleaseOpensThePageAndAFailureToasts(t *testing.T) {
 	g.toEnd()
 	g.click("View release")
 	g.until("toast", g.tt.Shows("Couldn't open the release"))
+}
+
+// MyGo has no label-for: a click on a row's title takes the focus to its control.
+func TestClickingARowsTitleFocusesItsControl(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), nil)
+	g.tt.Until("rows", g.tt.Shows("Start Sona when you log in", "Open on"))
+	for _, title := range []string{"Start Sona when you log in", "Open on"} {
+		if err := g.tt.Click(title); err != nil {
+			t.Fatal(err)
+		}
+		g.tt.Drain()
+		f := access.Read(t, g.tt.Tester).Focus
+		if f == nil || f.Label != title {
+			t.Errorf("after clicking %q the focus is %v, want its control", title, f)
+		}
+	}
 }

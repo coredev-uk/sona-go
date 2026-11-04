@@ -10,6 +10,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 // collTrackApp is a page with a track list in its scroll container.
@@ -418,5 +419,26 @@ func TestTrackListCentresTheHighlightedSongBelowDiscHeadings(t *testing.T) {
 	}
 	if mid := r.Y + r.H/2; mid < 270 || mid > 330 {
 		t.Errorf("the highlighted row's middle is at %v in a 600 DIP window, want the centre (300): the disc headings were ignored", mid)
+	}
+}
+
+// MyGo has no aria-disabled: a withheld song says why as the row's description.
+func TestTrackListWithheldRowIsDescribedWithTheReason(t *testing.T) {
+	a, tt := newCollTrackApp(t, 6, 1000, 500)
+	a.songs[3].Explicit = true
+	a.opts.Restricted = true
+	tt.Frame()
+	tr := access.Read(t, tt)
+	for _, c := range []struct{ name, want string }{
+		{"Song 3", "Explicit content is restricted on this account"},
+		{"Song 4", ""},
+	} {
+		n, ok := tr.Find(ui.RoleRow, c.name)
+		if !ok {
+			t.Fatalf("no row %q", c.name)
+		}
+		if n.Description != c.want {
+			t.Errorf("%q is described %q, want %q", c.name, n.Description, c.want)
+		}
 	}
 }

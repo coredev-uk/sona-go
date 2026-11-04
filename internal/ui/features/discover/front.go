@@ -2,7 +2,6 @@ package discover
 
 import (
 	"strconv"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -13,20 +12,15 @@ import (
 )
 
 // front is the front page's state (v0.2.0's FrontPage): which card leads,
-// the lead on its way out, the page of the list the user turned to, the
+// the page of the list the user turned to, the
 // user's pause and the rotation's timer.
 type front struct {
 	// openers are the lead's and the list's play buttons, which a music
 	// video's view returns the focus to when it closes.
 	openers kit.Openers
-	width measure
+	width   measure
 	// at is the lead's place in the items.
 	at int
-	// fading: the lead from is on its way out, since fadeAt, while the new
-	// one fades in.
-	fading bool
-	from   int
-	fadeAt time.Time
 	// turned: the user turned the list to page turnPage while the lead was
 	// turnAt; the list shows the lead's page otherwise.
 	turned           bool
@@ -38,18 +32,8 @@ type front struct {
 	menus  *kit.ActionMenus
 }
 
-// choose makes card to the lead; the old lead fades out while it fades in,
-// unless motion is reduced.
-func (f *front) choose(c *ui.Context, to int) {
-	if to == f.at {
-		return
-	}
-	if theme.ReducedMotion() {
-		f.at, f.fading = to, false
-		return
-	}
-	f.from, f.at, f.fading, f.fadeAt = f.at, to, true, c.Now()
-}
+// choose makes card to the lead; leadMotion cross-fades the cards.
+func (f *front) choose(to int) { f.at = to }
 
 // frontPage is Discover's front page: Apple's featured cards, one of them the
 // lead, large, and all of them as a list beside it (under it in a narrow
@@ -75,7 +59,7 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item) {
 	// unmount). An element's state lives only while it is built.
 	if mounted := ui.Local(sec, "mounted", func() bool { return false }); !*mounted {
 		*mounted = true
-		f.at, f.fading, f.paused, f.turned, f.rot = 0, false, false, false, rotation{}
+		f.at, f.paused, f.turned, f.rot = 0, false, false, rotation{}
 	}
 	f.at = min(f.at, count-1)
 
@@ -86,25 +70,13 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item) {
 	advance, wait := f.rot.step(c.Now(), running, f.at, d.occupied)
 	switch {
 	case advance:
-		f.choose(c, (f.at+1)%count)
+		f.choose((f.at + 1) % count)
 		f.rot.restart(c.Now(), f.at)
 		c.Invalidate()
 	case wait > 0:
 		c.After(wait)
 	}
 	at := f.at
-
-	// The cross-fade: the new lead in as the old one goes out.
-	ease := float32(1)
-	if f.fading {
-		p := float32(c.Now().Sub(f.fadeAt)) / float32(leadFade)
-		if p >= 1 || theme.ReducedMotion() {
-			f.fading = false
-		} else {
-			ease = ui.EaseInOut(max(p, 0))
-			c.AnimationFrame()
-		}
-	}
 
 	pages := max(1, (count+lay.perPage-1)/lay.perPage)
 	// The list shows the lead's page until the user turns it, and returns to
@@ -128,17 +100,17 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item) {
 		}
 		grid.Children(func() {
 			ui.Box(c.Key("lead")).Width(lay.lead).Shrink(0).Children(func() {
-				if f.fading && f.from < count {
-					ui.Column(c.Key("out:"+leadKey(items[f.from], f.from))).Absolute().Top(0).Left(0).Width(lay.lead).
-						IgnoreInput(true).Opacity(1-ease).Translate(-leadSlide*ease, 0).Children(func() {
-						d.leadCard(c, items[f.from], lay, ctx, false)
+				// The cross-fade: the new lead comes in as the old one goes out.
+				// MyGo leaves the old card as an inert copy, off the
+				// accessibility tree, and takes it away when the fade ends.
+				in := ui.Column(c.Key("in:" + leadKey(items[at], at))).Width(lay.lead)
+				if !theme.ReducedMotion() {
+					in.Transition(ui.ElementTransition{
+						Duration: leadFade, Ease: ui.EaseInOut,
+						Enter: &ui.Motion{X: leadSlide}, Exit: &ui.Motion{X: -leadSlide},
 					})
 				}
-				in := ui.Column(c.Key("in:" + leadKey(items[at], at))).Width(lay.lead)
-				if ease < 1 {
-					in.Opacity(ease).Translate(leadSlide*(1-ease), 0)
-				}
-				in.Children(func() { d.leadCard(c, items[at], lay, ctx, true) })
+				in.Children(func() { d.leadCard(c, items[at], lay, ctx) })
 			})
 			if count > 1 {
 				d.featureList(c, items, shown, page, pages, available, lay, ctx, label)
@@ -244,26 +216,25 @@ func (d *discover) opener(it services.Item, ctx kit.ItemsCtx) (open func(), link
 
 // leadCard is the lead: the picture (the wide banner cropped to the card, else
 // the cover contained on its colour), the title opening the item's page, the
-// subtitle, a play button on hover or focus and the item's menu. live false is
-// the copy on its way out: it takes no input.
+// subtitle, a play button on hover or focus and the item's menu.
 //
 // The card is one opener; the play button and the more button are elements of
 // their own beside it (a button or a link is one piece for assistive
 // technology, so inside it they would not be on its tree).
-func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ctx kit.ItemsCtx, live bool) {
+func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ctx kit.ItemsCtx) {
 	tk := theme.Current()
 	name := it.Name
 	open, link := d.opener(it, ctx)
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
 	menu := kit.ActionTarget{Item: target, Name: name, Key: "lead"}
-	hasMenu := live && hasTarget && ctx.Menus != nil && d.hasMenu(target)
+	hasMenu := hasTarget && ctx.Menus != nil && d.hasMenu(target)
 	artH := lay.artHeight()
 
 	wrap := ui.Column(c.Key("wrap")).AlignItems(ui.Start).Width(lay.lead)
-	hot := live && (wrap.Hovered() || wrap.FocusWithin())
+	hot := wrap.Hovered() || wrap.FocusWithin()
 	wrap.Children(func() {
 		var card ui.Element
-		if live && open != nil {
+		if open != nil {
 			card = ui.ButtonBase(c.Key("card")).Column().AlignItems(ui.Start).Radius(tk.Radius["sm"]).Label(name)
 			if link {
 				card.Role(ui.RoleLink)
@@ -272,10 +243,7 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 				card.Description(sub) // inside the opener, the line is its description
 			}
 		} else {
-			card = ui.Column(c.Key("card")).AlignItems(ui.Start)
-			if live {
-				card.Label(name)
-			}
+			card = ui.Column(c.Key("card")).AlignItems(ui.Start).Label(name)
 		}
 		card.Width(lay.lead)
 		card.Children(func() {
@@ -295,7 +263,7 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			})
 			ui.Row(c.Key("title")).Height(22).Margin(8, 0, 0, 0).Gap(4).AlignItems(ui.Center).MinWidth(0).Children(func() {
 				t := text(c, name, "heading").TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).TextAlign(ui.Start)
-				if live && wrap.Hovered() && open != nil {
+				if wrap.Hovered() && open != nil {
 					t.Underline()
 				}
 				if hasMenu {
@@ -304,9 +272,6 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			})
 			text(c, kit.ItemSubtitle(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine().Height(18).TextAlign(ui.Start)
 		})
-		if !live {
-			return
-		}
 		if ctx.Players.CanPlay(it) {
 			play := kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 48).Absolute().Left(16).Top(artH - 16 - 48)
 			fade(play, hot || play.Focused())
@@ -523,7 +488,7 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 		}
 	})
 	if row.Clicked() {
-		f.choose(c, index)
+		f.choose(index)
 	}
 	if hasTarget && ctx.Menus != nil {
 		ctx.Menus.Row(row, menu)

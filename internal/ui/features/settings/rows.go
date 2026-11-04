@@ -64,8 +64,9 @@ func (s *settings) row(c *ui.Context, o rowOpts, control func() ui.Element) {
 		}
 		s.wash(in, o.ID)
 		in.Children(func() {
+			var title ui.Element
 			ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).MaxWidth(rowTextWidth).Children(func() {
-				text(c, o.Title, "label").TextColor(theme.C("ink"))
+				title = text(c, o.Title, "label").TextColor(theme.C("ink"))
 				if o.Desc != "" {
 					text(c, o.Desc, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 				}
@@ -81,6 +82,11 @@ func (s *settings) row(c *ui.Context, o rowOpts, control func() ui.Element) {
 			}
 			if !isNone(first) && o.Desc != "" {
 				first.Description(o.Desc)
+			}
+			// A click on the title goes to the control, as a label's does
+			// (MyGo has no label-for): the control takes the focus.
+			if !isNone(first) && title.Clicked() {
+				first.Focus()
 			}
 			s.land(c, o.ID, in, first)
 		})

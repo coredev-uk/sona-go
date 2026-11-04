@@ -87,7 +87,7 @@ func (s *settings) languagePanel(c *ui.Context, cfg config.Settings) {
 	}
 	items := []kit.SelectItem{kit.SelectOption(automaticLanguage, i18n.T("Automatic"))}
 	for _, o := range opts {
-		items = append(items, kit.SelectOption(o.Tag, o.Name))
+		items = append(items, kit.SelectOptionLang(o.Tag, o.Name, o.Tag))
 	}
 	value := cfg.Language
 	if value == "" {

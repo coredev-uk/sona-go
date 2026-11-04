@@ -290,7 +290,9 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i int, si
 			}
 		},
 		Source: func(s ui.Element) {
-			s.Column().Label(opener).Radius(tk.Radius["sm"])
+			// The keyboard ring goes round the title, as v0.2.0's link had it,
+			// not round the whole tile (titleRow draws it).
+			s.Column().Label(opener).Radius(tk.Radius["sm"]).FocusRing(false)
 			if it.Subtitle != "" {
 				// A button or link is a leaf on the accessibility tree, so the
 				// subtitle drawn inside it is read as its description.
@@ -308,7 +310,7 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i int, si
 	}, func(w, s ui.Element) {
 		hot := w.Hovered() || s.FocusWithin()
 		st.cover(c, o, it, size, artH, hot, !w.Hovered() && s.FocusWithin(), withheld)
-		st.titleRow(c, o, it, w.Hovered(), hot, withheld)
+		st.titleRow(c, o, it, w.Hovered(), hot, withheld, s.FocusVisible())
 		if it.Subtitle == "" {
 			ui.Box(c).Height(18)
 			return
@@ -375,7 +377,7 @@ func (st *CoverState) cover(c *ui.Context, o *CoverOpts, it *CoverItem, size, ar
 
 // titleRow builds the title (underlined while the tile is hovered), the
 // explicit mark and the item's more button.
-func (st *CoverState) titleRow(c *ui.Context, o *CoverOpts, it *CoverItem, hovered, hot, withheld bool) {
+func (st *CoverState) titleRow(c *ui.Context, o *CoverOpts, it *CoverItem, hovered, hot, withheld, ring bool) {
 	tk := theme.Current()
 	label := tk.Type["label"]
 	ui.Row(c.Key("title")).Height(20).Margin(8, 0, 0, 0).Gap(4).AlignItems(ui.Center).MinWidth(0).Children(func() {
@@ -391,6 +393,10 @@ func (st *CoverState) titleRow(c *ui.Context, o *CoverOpts, it *CoverItem, hover
 		}
 		if hovered {
 			t.Underline()
+		}
+		if ring {
+			radius := tk.Radius["sm"]
+			t.DrawOver(func(p *ui.Painter, r ui.Rect) { p.FocusRing(r, [4]float32{radius, radius, radius, radius}) })
 		}
 		if it.Explicit {
 			ExplicitMark(c.Key("explicit"))

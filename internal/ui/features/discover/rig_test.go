@@ -313,8 +313,13 @@ type rigConfig struct {
 	tracks  tracksAPI
 	noRoute []string
 	dark    bool
+	animate bool
 	w, h    int
 }
+
+// withAnimations lets the transitions run (they cost frames on the tester's
+// clock, so only a test of a transition asks for them).
+func withAnimations() rigOption { return func(c *rigConfig) { c.animate = true } }
 
 // withApple serves the pages from the fake Apple Music API through the real
 // service.
@@ -377,7 +382,9 @@ func newRig(t *testing.T, start string, opts ...rigOption) *rig {
 		r.d.tracks = cfg.tracks
 	}
 	r.tt = &session{r: r, Session: h.Tester(t, func(c *ui.Context) {
-		c.DisableAnimations() // transitions never finish on the frozen clock: each would cost frames
+		if !cfg.animate {
+			c.DisableAnimations() // transitions never finish on the frozen clock: each would cost frames
+		}
 		ui.Column(c).Fill().Children(func() {
 			r.router.View(c, func(rt *ui.Route) {
 				for _, route := range r.mod.Routes {

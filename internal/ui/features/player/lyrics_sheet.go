@@ -164,6 +164,16 @@ func (sh *lyricsSheet) bind(l *services.Lyrics) {
 	sh.sweeps = map[sweepKey]*kit.SweepText{}
 }
 
+// partLang is the language of one part of a line: the lyrics' own for the
+// lead and background vocals, the romanisation's for the pronunciation. ""
+// leaves it to the app's.
+func (sh *lyricsSheet) partLang(part uint8) string {
+	if part == 2 {
+		return sh.lyr.TransliterationLanguage
+	}
+	return sh.lyr.Language
+}
+
 // sweep is the shaped text of one part of line i for width, shaped again
 // only for a new width.
 func (sh *lyricsSheet) sweep(k sweepKey, words []services.LyricWord, look lyricLook, bg bool, w float32) *kit.SweepText {
@@ -420,7 +430,11 @@ func (p *player) lyricLine(c *ui.Context, sh *lyricsSheet, ln *services.LyricLin
 		row.PaddingStart(startPad)
 	}
 	if clickable {
-		row.Role(ui.RoleButton).Label(ln.Text).Cursor(ui.CursorPointer).Radius(theme.Current().Radius["md"])
+		row.Role(ui.RoleButton).Label(ln.Text).Lang(sh.lyr.Language).Cursor(ui.CursorPointer).Radius(theme.Current().Radius["md"])
+		// No aria-current in MyGo: the sung line says so as its description.
+		if in.state == stActive {
+			row.Description(i18n.T("Current"))
+		}
 		if in.tabbable {
 			row.Focusable()
 		}
@@ -452,7 +466,7 @@ func (p *player) lyricLine(c *ui.Context, sh *lyricsSheet, ln *services.LyricLin
 			p.lyricPart(c.Key("pron"), sh, i, 2, *shown.Pronunciation, sub, look, width, other, in.reduced, false)
 		}
 		if shown.Translation != "" {
-			t := lineText(c.Key("tr"), shown.Translation, look.subSize, look.subLineH, 400, sub).Margin(look.subGap, 0, 0, 0)
+			t := lineText(c.Key("tr"), shown.Translation, look.subSize, look.subLineH, 400, sub).Margin(look.subGap, 0, 0, 0).Lang(sh.lyr.TranslationLanguage)
 			if other {
 				t.Italic()
 			}
@@ -504,7 +518,7 @@ func (p *player) lyricPart(c *ui.Context, sh *lyricsSheet, i int, part uint8, t 
 	}
 	w := float32(math.Floor(float64(width/sweepStep))) * sweepStep
 	if len(t.Words) == 0 || !sh.wordTimed || w <= 0 {
-		e := lineText(c, t.Text, size, lineH, weight, base).Margin(margin, 0, 0, 0)
+		e := lineText(c, t.Text, size, lineH, weight, base).Margin(margin, 0, 0, 0).Lang(sh.partLang(part))
 		if italic {
 			e.Italic()
 		}
@@ -515,7 +529,7 @@ func (p *player) lyricPart(c *ui.Context, sh *lyricsSheet, i int, part uint8, t 
 	right := rtl(t.Text)
 	fill := theme.C("amber-ink")
 	songID, spans, words := sh.songID, sh.spans, t.Words
-	ui.Box(c).FillWidth().Height(sw.Height()).Margin(margin, 0, 0, 0).Role(ui.RoleText).Label(t.Text).Draw(func(pt *ui.Painter, r ui.Rect) {
+	ui.Box(c).FillWidth().Height(sw.Height()).Margin(margin, 0, 0, 0).Role(ui.RoleText).Label(t.Text).Lang(sh.partLang(part)).Draw(func(pt *ui.Painter, r ui.Rect) {
 		ms := lyricsync.WordClock(p.env.Play.Position().Milliseconds(), lyricsync.Session().Get(songID))
 		var f float32
 		if lyricsync.IsSinging(spans, ms, i) {

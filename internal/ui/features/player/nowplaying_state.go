@@ -45,6 +45,16 @@ type nowPlayingState struct {
 
 	root, closeBtn, roomToggle, roomExit ui.Handle
 	tabs                                 [2]ui.Handle
+
+	// lastPane is the pane the last build showed and tabHad whether one of
+	// the tabs had the focus then: a pane changed from outside (the Queue
+	// button) takes the focus along to its tab. paneSeen: lastPane is set.
+	lastPane paneKind
+	tabHad   bool
+	paneSeen bool
+	// said is the timing words last announced for timingSong (timingSaid: set).
+	timingSong, timingWords string
+	timingSaid              bool
 }
 
 // nowPlayingLayout is how the view is laid out in its box.
