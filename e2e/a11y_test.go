@@ -66,13 +66,14 @@ func TestAccessibility(t *testing.T) {
 	}
 }
 
-// TestAccessibilityPages walks the sidebar and reads each page the way a
-// screen reader does: the sidebar link that opens it, the level-1 heading
-// that names it, and what the page offers beside it (the library pages' lists
-// and their rows' controls, Settings' section list). The pages that need an
-// account (For you, Discover, Radio, Concerts, Search) have their trees
-// checked by the UI tests (internal/ui/features/*/a11y_test.go): their
-// network answers are not in the fixture profile.
+// TestAccessibilityPages walks the sidebar and reads each library page and
+// Settings the way a screen reader does: the sidebar link that opens it, the
+// page's heading (found outside the sidebar, whose own headings repeat the
+// names of its sections) and the shell's landmarks, which every page leaves in
+// place. The pages that need an account (For you, Discover, Radio, Concerts,
+// Search) have their trees checked by the UI tests
+// (internal/ui/features/*/a11y_test.go): their network answers are not in the
+// fixture profile.
 func TestAccessibilityPages(t *testing.T) {
 	a := startApp(t)
 	c := a.client
@@ -112,16 +113,15 @@ func TestAccessibilityPages(t *testing.T) {
 				t.Fatal(err)
 			}
 			if _, err := c.Wait(startTimeout, "the "+page.link+" page", func(tr *automation.Tree) bool {
-				_, ok := tr.Find("heading", page.heading)
-				return ok
+				return pageHeading(tr, page.heading)
 			}); err != nil {
 				t.Fatal(err)
 			}
 			app := read(t)
-			want := append([]struct{ role, name string }{
-				{"link", page.link},       // the sidebar
-				{"heading", page.heading}, // the page's title
-			}, page.also...)
+			want := append([]struct{ role, name string }{{"link", page.link}}, page.also...) // the sidebar's link
+			if !atspiPageHas(app, "heading", page.heading) {
+				t.Errorf("no heading %q in the page, outside the sidebar", page.heading)
+			}
 			for _, w := range want {
 				if app.Find(w.role, w.name) == nil {
 					t.Errorf("no %s named %q on the accessibility bus", w.role, w.name)
@@ -138,4 +138,45 @@ func TestAccessibilityPages(t *testing.T) {
 			}
 		})
 	}
+}
+
+// pageHeading reports whether the tree has a heading named name that is not
+// inside the sidebar (the panel "Main"): the page's own title.
+func pageHeading(tr *automation.Tree, name string) bool {
+	byID := map[string]automation.Node{}
+	for _, n := range tr.Nodes {
+		byID[n.ID] = n
+	}
+	for _, n := range tr.Nodes {
+		if n.Role != "heading" || n.Label != name {
+			continue
+		}
+		inSidebar := false
+		for p, ok := byID[n.Parent]; ok; p, ok = byID[p.Parent] {
+			if p.Label == "Main" {
+				inSidebar = true
+			}
+		}
+		if !inSidebar {
+			return true
+		}
+	}
+	return false
+}
+
+// atspiPageHas reports whether a node of role and name is on the bus outside
+// the sidebar (the panel "Main").
+func atspiPageHas(n *atspi.Node, role, name string) bool {
+	if n.Name == "Main" {
+		return false
+	}
+	if n.Role == role && n.Name == name {
+		return true
+	}
+	for _, ch := range n.Children {
+		if atspiPageHas(ch, role, name) {
+			return true
+		}
+	}
+	return false
 }

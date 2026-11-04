@@ -150,8 +150,15 @@ func TestWideCardsMoreButtonAndSubtitleAreReadBesideTheLink(t *testing.T) {
 	if !ok {
 		t.Fatalf("no link:\n%s", tr.Dump())
 	}
-	if link.Description == "" && ItemSubtitle(it) != "" {
-		t.Errorf("the card's subtitle is not read with the link:\n%s", tr.Dump())
+	if link.Description != "Artist One" {
+		t.Errorf("the link is described %q, want its subtitle:\n%s", link.Description, tr.Dump())
+	}
+	more, ok := tr.Find(ui.RoleMenuButton, "More for Item 1")
+	if !ok {
+		t.Fatalf("no more button:\n%s", tr.Dump())
+	}
+	if tr.Within(more, ui.RoleLink) {
+		t.Errorf("the more button is inside the link")
 	}
 }
 
@@ -283,14 +290,14 @@ func TestInvalidFieldsReadTheirMessage(t *testing.T) {
 	tt := controlsTester(t, 400, 200, func(c *ui.Context) {
 		Input(c.Key("in"), &val, InputOpts{A11yLabel: "Code", Invalid: true, Error: "That code is not right"})
 		choice := "a"
-		Select(c.Key("sel"), &choice, []SelectItem{SelectOption("a", "A")}, SelectOpts{A11yLabel: "Kind", Invalid: true})
+		Select(c.Key("sel"), &choice, []SelectItem{SelectOption("a", "A")}, SelectOpts{A11yLabel: "Kind", Invalid: true, Error: "Pick another kind"})
 	})
 	tt.Frame()
 	tr := access.Read(t, tt)
 	if n, ok := tr.Find(ui.RoleTextField, "Code"); !ok || n.Description != "That code is not right" || !n.Has(access.Invalid) {
 		t.Errorf("Code: %+v\n%s", n, tr.Dump())
 	}
-	if n, ok := tr.Find(ui.RolePopUpButton, "Kind"); !ok || !n.Has(access.Invalid) {
+	if n, ok := tr.Find(ui.RolePopUpButton, "Kind"); !ok || !n.Has(access.Invalid) || n.Description != "Pick another kind" {
 		t.Errorf("Kind: %+v\n%s", n, tr.Dump())
 	}
 }

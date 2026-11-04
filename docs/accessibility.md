@@ -26,12 +26,13 @@ shapes the rules below.
   elements inside it are not on the tree, although the pointer and Tab still
   reach them, so a "more" button drawn inside a row that is a button is
   invisible to a screen reader. Only group, list, scroll area, dialog, popup,
-  status, tab list, table, row, cell, tree, list item, toolbar, radio group
+  status, tab list, table, row, cell, tree, list item, toolbar, radio group, alert dialog, menu bar
   and menu hold other elements. Every control is a sibling of the thing it
   sits beside:
   - `kit.DragItem` builds the item's source (the opener) and its `After`
-    controls as siblings in one wrapper (cover tiles, wide cards, track rows
-    of the queue);
+    controls as siblings in one wrapper (cover tiles, Home rows, artist
+    releases); wide cards and queue rows build the same shape in a wrapper or
+    a list item of their own;
   - a row's controls are cells of the row, which is a row, not a button;
   - a sortable column header is its own sort button (the header cell has no
     role), named by the title with the direction as its value.
@@ -61,7 +62,7 @@ shapes the rules below.
 | `aria-valuetext` | the slider's description (`kit.SliderOpts.ValueText`) |
 | `aria-disabled` (a control that keeps focus and says why) | `kit.ButtonOpts.Reason`: enabled, drawn at half strength, the press ignored by the caller, the reason as its description and the tooltip's second line |
 | `disabled` (really unavailable) | `Disabled`: no focus, no press |
-| `aria-current` (current page, current step) | no state; the control's description is "Current page" |
+| `aria-current` (current page, step or item) | no state; the control's description is "Current page" (navigation), "Current step" (the setup strip) or "Current" (a chosen city, the lead of a Discover list) |
 | `aria-busy`, `role="status"` loading | a `RoleStatus` named "Loading" (skeletons), and `c.Announce` for the result |
 | `role="alert"` | a `RoleStatus` carrying the text, and `c.Announce` as it appears |
 | `aria-live` | `c.Announce(text)` (read once, politely), and toasts, which announce their title and description |
@@ -98,7 +99,7 @@ code by the state it replaces.
 - Modal overlays hold Tab inside and take the page behind them off the
   tree.
 - Menus opened from the keyboard start on their first item; row menu
-  buttons answer Enter, Space and an assistive-technology press.
+  buttons are not Tab stops (a list is one stop): they open from a screen reader's press, and the row's menu from Shift+F10 or the Menu key.
 - Long lists are one Tab stop with arrow keys inside. The queue: ↑/↓ one
   row, Home/End the current and the last song, Alt+↑/↓ moves a song, Delete
   removes it, Enter plays it. Escape in the queue closes it and returns the
@@ -120,22 +121,24 @@ MyGo announces through `c.Announce` (VoiceOver and Orca announcements, a
 live region on Windows) and every toast.
 
 - Track changes are announced politely ("Now playing: {song} by {artist}",
-  or "Now playing a preview: …", `features/player/announcer.go`) once the
+  or "Now playing a preview: …", `kit/playerqueue_announce.go`) once the
   engine reports the track as playing. The track restored paused at launch,
   play/pause, seeking and repeating the same track stay quiet.
-- Queue edits say the song's new place (move up/down, Play next, Play last,
-  Remove). A playlist editor's Alt+↑/↓ does the same.
+- Moving a queue song says its new place; Remove says nothing, and Play next
+  and Play last from an item's menu raise a toast. A playlist editor's
+  Alt+↑/↓ says the new place too.
 - A control that does not apply to what plays (Previous, Next, Shuffle,
   Repeat and the AutoPlay toggle on a live station; Shuffle, Repeat and
   AutoPlay on a station of songs) uses `ButtonOpts.Reason`; a shortcut for
   one does nothing and says the same reason once in a toast
-  (`kit.Unavailable`), however long the key is held.
+  (`kit.Unavailable`): the toast stays about 4 s and the reason is not raised
+  again while it shows, so a key held longer is read again about every 4 s.
 - Errors, warnings, update and diagnostics verdicts, the scrobbler account
   line, busy steps of sign-in and setup, and filter results with no match are
   announced as they appear or change; what is on screen when a page opens is
   read with the page, not announced again.
 - Lyrics are not a live region. Each synced line is one button named by
-  its whole text; the sung line is the chosen one.
+  its text; nothing marks the sung line to assistive technology.
 
 ### Keyboard alternatives for drag and drop
 
@@ -159,14 +162,14 @@ artwork says which input stops it); covers show their still.
 
 | Check | Where | What it covers |
 | --- | --- | --- |
-| `uitest/access` | `go test`, every platform | The tree MyGo describes for assistive technology, read from a `ui.Tester`: roles, names, descriptions, states and actions of a page; `NoNestedControls` fails for every clickable or focusable element inside a button, link or other leaf role; `TabWalk` presses Tab round the window and fails for a stop that is not on the tree or a walk that never comes back (a trap) |
+| `uitest/access` | `go test` (Linux on every pull request, macOS after merges; Windows builds and vets only) | The tree MyGo describes for assistive technology, read from a `ui.Tester`: roles, names, descriptions, states and actions of a page; `NoNestedControls` fails for every clickable or focusable element inside a button, link or other leaf role; `TabWalk` presses Tab round the window and fails for a stop that is not on the tree or a walk that never comes back (a trap) |
 | `internal/ui/kit/a11y_test.go` | `go test` | Each list and item component (cover grid, shelf, item grid, track list, track shelf, stations, link list, wide row), form controls and their states, dialogs, confirmations, toasts, menus |
 | `internal/ui/**/a11y_test.go` | `go test` | Per feature package: its pages' trees and Tab walk in reading order, Escape and focus return for the overlays it owns, announcements, the states table above |
 | `e2e` `TestAccessibility`, `TestAccessibilityPages` | CI "E2E (headless sway)" job only | The real app's tree on the AT-SPI bus: the shell's landmarks, sidebar links and each library page's heading, with the roles and names a screen reader gets (`headless -- go test -tags e2e ./e2e/...`) |
-| Contrast | the theme tokens | Computed from the tokens and the scrim, light and dark |
+| Contrast | `TestContrastFloors` | The text tokens' ratios, computed; the scrim, the focus ring and selected rows are checked as values |
 
-The `ui.Tester` checks run on macOS, Linux and Windows; the e2e check runs
-on Linux only (headless sway, AT-SPI).
+The `ui.Tester` checks are `go test`s, so they run wherever CI runs the Go
+tests; the e2e check runs on Linux only (headless sway, AT-SPI).
 
 ### What a person checks (phase 5)
 
@@ -187,6 +190,8 @@ session with audio:
 
 ## Known gaps
 
+- A confirmation opened over the first-run setup returns the focus to the
+  setup's first control, not to what opened it.
 - No one has yet listened to Orca, VoiceOver or Narrator speak Sona's
   announcements in a desktop session (phase 5).
 - No current-page, disabled-but-focusable, busy or alert state exists in
