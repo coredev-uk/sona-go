@@ -106,15 +106,31 @@ func TestSmoke(t *testing.T) {
 		if first.SongCount() < 3 {
 			t.Fatalf("%q has %d songs: the fixture's last album has three", first.Name, first.SongCount())
 		}
-		if err := c.Press(startTimeout, "Queue"); err != nil {
+		// A toggle's role is not "button": find it by its label, before the panel
+		// (which is labelled "Queue" too) exists.
+		toggle, err := c.Wait(startTimeout, "the Queue toggle", func(tr *automation.Tree) bool {
+			_, ok := tr.Find("", "Queue")
+			return ok
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		qn, _ := toggle.Find("", "Queue")
+		qx, qy := qn.Bounds.Centre()
+		// As Client.Press does: onto the toggle, settle, click.
+		if err := c.Input(automation.PointerMove(qx, qy)); err != nil {
+			t.Fatal(err)
+		}
+		_ = c.Idle(2 * time.Second)
+		if err := c.Input(automation.Click(qx, qy)); err != nil {
 			t.Fatal(err)
 		}
 		a1, a2 := first.Song(1)+", "+first.Artist, first.Song(2)+", "+first.Artist
 		row := func(tr *automation.Tree, label string) (automation.Node, bool) {
-			if n, ok := tr.Find("listitem", label); ok {
+			if n, ok := tr.Find("listItem", label); ok {
 				return n, true
 			}
-			return tr.Find("listitem", "Up next: "+label)
+			return tr.Find("listItem", "Up next: "+label)
 		}
 		tree, err := c.Wait(startTimeout, "the queue's rows", func(tr *automation.Tree) bool {
 			_, ok1 := row(tr, a1)
@@ -133,8 +149,12 @@ func TestSmoke(t *testing.T) {
 		for i := 1; i <= 10; i++ {
 			events = append(events, automation.PointerMove(fx, fy+(ty-fy)*float64(i)/10))
 		}
-		if err := c.Input(append(events, automation.PointerUp(fx, ty))...); err != nil {
-			t.Fatal(err)
+		// One event per frame: the drag engine watches the pointer between frames.
+		for _, ev := range append(events, automation.PointerUp(fx, ty)) {
+			if err := c.Input(ev); err != nil {
+				t.Fatal(err)
+			}
+			_ = c.Idle(2 * time.Second)
 		}
 		if _, err := c.Wait(10*time.Second, "the dragged song after the other", func(tr *automation.Tree) bool {
 			n1, ok1 := row(tr, a1)

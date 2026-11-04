@@ -85,7 +85,43 @@ func songs(n int) []services.Song {
 	return out
 }
 
-func newCommands(t *testing.T, added int, mode string) (*QueueCommands, *fakeQueueSvc, *store.Playback) {
+// queueMain runs what the commands post, on the test goroutine as the app
+// runs it on the main thread.
+type queueMain struct {
+	mu sync.Mutex
+	q  []func()
+}
+
+func (m *queueMain) post(fn func()) {
+	m.mu.Lock()
+	m.q = append(m.q, fn)
+	m.mu.Unlock()
+}
+
+func (m *queueMain) drain() {
+	m.mu.Lock()
+	q := m.q
+	m.q = nil
+	m.mu.Unlock()
+	for _, fn := range q {
+		fn()
+	}
+}
+
+// until drains the posted funcs until ok holds.
+func (m *queueMain) until(t *testing.T, what string, ok func() bool) {
+	t.Helper()
+	for i := 0; i < 1000; i++ {
+		m.drain()
+		if ok() {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", what)
+}
+
+func newCommands(t *testing.T, added int, mode string) (*QueueCommands, *fakeQueueSvc, *queueMain) {
 	t.Helper()
 	b := store.NewBus(nil)
 	play := store.NewPlayback(b, nil)
@@ -95,15 +131,16 @@ func newCommands(t *testing.T, added int, mode string) (*QueueCommands, *fakeQue
 	}
 	play.Seed(store.EmptyState(), q)
 	svc := newFakeQueueSvc()
+	mt := &queueMain{}
 	queueToasts()
 	t.Cleanup(func() { pendingConfirm = nil; queueToasts() })
 	return NewQueueCommands(QueueDeps{
-		Svc: svc, Play: play, Post: func(fn func()) { fn() },
+		Svc: svc, Play: play, Post: mt.post,
 		ReplaceMode: func() string { return mode },
 		Tracks: func(context.Context, Item) ([]services.Song, error) {
 			return songs(3), nil
 		},
-	}), svc, play
+	}), svc, mt
 }
 
 func TestPlayableRefsKeepsPlayableSongsAndMapsTheStart(t *testing.T) {
@@ -114,9 +151,10 @@ func TestPlayableRefsKeepsPlayableSongsAndMapsTheStart(t *testing.T) {
 }
 
 func TestPlaySongsWithAShortUserQueueJustStarts(t *testing.T) {
-	c, svc, _ := newCommands(t, 3, "undo")
+	c, svc, mt := newCommands(t, 3, "undo")
 	c.PlaySongs(songs(3), 0, services.PlayFrom{Kind: "album", ID: "x"})
 	svc.wait(t)
+	mt.drain()
 	if got := svc.names(); len(got) != 1 || got[0] != "playitems" {
 		t.Errorf("calls %v", got)
 	}
@@ -137,21 +175,23 @@ func TestPlaySongsWithNothingPlayableSaysSo(t *testing.T) {
 }
 
 func TestReplacingALongUserQueueOffersUndo(t *testing.T) {
-	c, svc, _ := newCommands(t, 4, "undo")
+	c, svc, mt := newCommands(t, 4, "undo")
 	c.PlaySongs(songs(3), 0, services.PlayFrom{})
+	mt.until(t, "the start", func() bool { return len(svc.names()) > 0 })
 	svc.wait(t)
 	var spec ToastSpec
-	for i := 0; i < 200 && spec.Title == ""; i++ {
+	// The setting is read on a goroutine and the toast follows the start.
+	mt.until(t, "the Undo toast", func() bool {
 		toasts.mu.Lock()
+		defer toasts.mu.Unlock()
 		for _, q := range toasts.queue {
 			if q.Title == "Queue replaced" {
 				spec = ToastSpec{Title: q.Title, Action: q.Action, OnAction: q.OnAction}
 			}
 		}
-		toasts.mu.Unlock()
-		time.Sleep(5 * time.Millisecond)
-	}
-	if spec.Title == "" || spec.Action != "Undo" {
+		return spec.Title != ""
+	})
+	if spec.Action != "Undo" {
 		t.Fatalf("no Undo toast: %+v", spec)
 	}
 	spec.OnAction()
@@ -162,25 +202,27 @@ func TestReplacingALongUserQueueOffersUndo(t *testing.T) {
 }
 
 func TestReplacingALongUserQueueCanAskFirst(t *testing.T) {
-	c, svc, _ := newCommands(t, 4, config.ReplaceConfirm)
+	c, svc, mt := newCommands(t, 4, config.ReplaceConfirm)
 	var started []bool
-	c.Replace("x", func(context.Context) error { svc.rec("start", nil); return nil }, func(ok bool) { started = append(started, ok) })
-	for i := 0; i < 100 && pendingConfirm == nil; i++ {
-		time.Sleep(10 * time.Millisecond)
+	ask := func() {
+		c.Replace("x", func(context.Context) error { svc.rec("start", nil); return nil }, func(ok bool) { started = append(started, ok) })
+		mt.until(t, "the question", ConfirmPending)
 	}
-	if pendingConfirm == nil || pendingConfirm.Title != "Replace your queue?" || pendingConfirm.ConfirmLabel != "Replace queue" {
-		t.Fatalf("no question: %+v", pendingConfirm)
+	ask()
+	if pendingConfirm.Title != "Replace your queue?" || pendingConfirm.ConfirmLabel != "Replace queue" {
+		t.Fatalf("the question: %+v", pendingConfirm)
 	}
 	settleConfirm(false)
 	if len(started) != 1 || started[0] || len(svc.names()) != 0 {
 		t.Errorf("cancel: started %v calls %v", started, svc.names())
 	}
-	c.Replace("x", func(context.Context) error { svc.rec("start", nil); return nil }, func(ok bool) { started = append(started, ok) })
-	for i := 0; i < 100 && pendingConfirm == nil; i++ {
-		time.Sleep(10 * time.Millisecond)
-	}
+	ask()
 	settleConfirm(true)
 	svc.wait(t)
+	mt.until(t, "the start's outcome", func() bool { return len(started) == 2 })
+	if !started[1] {
+		t.Errorf("started %v", started)
+	}
 	if got := queueToasts(); len(got) != 0 {
 		t.Errorf("a confirmed replace offers no Undo: %v", got)
 	}
