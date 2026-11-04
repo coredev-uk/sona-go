@@ -1,0 +1,5 @@
+# The official GStreamer macOS packages bundle.sh links and ships
+# (install-gstreamer.sh). Hashes are the upstream .sha256sum files'.
+version 1.28.8
+d371ab04a7632713626836c2fc234e863cc98484c74c473eba99b0fbd9b3a3fe gstreamer-1.0-1.28.8-universal.pkg
+e6d380bc17be7eccf13e0154567d4718fc9321da822408c7ca0cd808b3d4a3f7 gstreamer-1.0-devel-1.28.8-universal.pkg

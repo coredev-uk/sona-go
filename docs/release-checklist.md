@@ -8,9 +8,10 @@ version, distro/session, result, and notes for anything not passed.
 
 ## Releasing
 
-Sona 0.2 ships as Linux packages only (.deb, .rpm, Arch, AppImage); the
-release workflow builds no macOS or Windows artifact (see "Platforms in a
-release" below).
+A release has Linux packages (.deb, .rpm, Arch, AppImage), a macOS app for
+Apple silicon (`.dmg`) and Windows x64 builds (a per-user installer and a
+portable `.zip`), plus the signed update manifests that macOS and Windows
+installs update from ("Platforms in a release" below).
 
 `.github/workflows/release-please.yml` runs on every push to `main` while
 the repository is public (it skips itself while private). release-please
@@ -103,13 +104,86 @@ credentials compiled in. `release-secrets.yml` checks those secrets.
 
 ### Platforms in a release
 
-`release.yml` calls `ci.yml` with `linux-only`, so the "macOS build and
-test" and "Windows build" jobs never run for, or hold up, a release; they
-run after each merge to `main` (once the repository is public) and when
-`ci.yml` is dispatched, and macOS and Windows packages are not built or
-attached. To ship them, add build and attestation jobs to `release.yml` and
-list their files in the `publish` job's upload; until then the cross-platform
-type-checks in "Go vet and test (-race)" only keep those ports compiling.
+`release.yml` runs `plan`, then `checks` (ci.yml with `linux-only`: the macOS
+and Windows development builds in ci.yml never hold a release up), then the
+`linux`, `macos` and `windows` jobs in parallel, then `publish`.
+
+| Job       | Runner        | Builds                                                             | Smoke test in the job                                                                 |
+| --------- | ------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `linux`   | ubuntu-26.04  | the Linux packages (`build/linux/release/release.sh`)              | each package on clean Ubuntu, Fedora and Arch containers                              |
+| `macos`   | macos-15      | `Sona-<v>-macos-arm64.dmg`, `sona-<v>-darwin-arm64.tar.gz` (`build/darwin/bundle.sh`) | `build/darwin/smoke.sh`: `--version`, first paint, motion artwork decode and a preview played from the bundle's GStreamer, no `/nix`, `/opt/homebrew` or `/Library/Frameworks` paths, `codesign --verify` |
+| `windows` | windows-2025  | `Sona-<v>-windows-x64.zip`, `Sona-<v>-windows-x64-setup.exe`, `sona-<v>-windows-amd64.tar.gz` (`build/windows/package.sh`) | `build/windows/smoke.sh`: the zip's `--version` and first paint; silent install, files and `music:`/`itms:` keys; silent uninstall |
+| `publish` | ubuntu-26.04  | `update-darwin-arm64.json`, `update-windows-amd64.json`, `SHA256SUMS` | checks the Linux checksums; attests the manifests and the combined `SHA256SUMS`       |
+
+- **macOS app:** plain Go and Xcode's clang against the official GStreamer
+  framework (the version and package hashes are pinned in
+  `build/darwin/gstreamer.sha256`; change both together, in the same 1.28
+  minor as devenv's). `bundle.sh` copies the framework's libraries and the plugins Sona
+  uses into `Sona.app/Contents/Frameworks/GStreamer` (a plain folder: codesign
+  takes a `.framework` without an Info.plist, or a folder named like
+  `gstreamer-1.0`, for a malformed bundle), thins them to arm64, rewrites
+  install names to relative paths, signs ad hoc (`codesign --force --deep -s -`,
+  no hardened runtime: the Widevine library must load) and checks nothing
+  points at the build machine. The app sets `GST_PLUGIN_SYSTEM_PATH_1_0`,
+  `GST_PLUGIN_SCANNER` and `GST_REGISTRY_1_0` at start (`cmd/sona/bundle_darwin.go`).
+  The minimum macOS is `build/darwin/MIN_MACOS`, devenv's `darwinMinVersion`
+  (keep them equal). To build one on a Mac:
+  `build/darwin/install-gstreamer.sh` (sudo, installs under `/Library/Frameworks`;
+  or `--extract DIR` for no install and `GSTREAMER_ROOT` pointing into DIR),
+  then `build/darwin/bundle.sh bin/macos`, then `build/darwin/smoke.sh bin/macos`
+  (build with `SONA_SMOKE_TOOLS=1` for the motion and preview checks). On a Mac
+  whose Xcode tools cannot link, build inside devenv with `SONA_DEVENV_BUILD=1`
+  (it points devenv's copies of macOS's own libraries back at `/usr/lib`;
+  CI never sets it).
+- **Windows:** Go and the runner's MinGW-w64 gcc (for `go-sqlite3`) and
+  NSIS from Chocolatey; MyGo is pure Go there. Playback is unsupported on
+  Windows and so is motion artwork: the Media Foundation decoder is not
+  written (it needs a COM H.264 transform driven from syscalls, which cannot
+  be tested without a Windows machine), `internal/ui/media` reports no codec,
+  and covers show their stills.
+- **Update archives:** `sona-<v>-darwin-arm64.tar.gz` holds `Sona.app/` alone;
+  `sona-<v>-windows-amd64.tar.gz` holds the install folder's files at the top
+  level. Both are what MyGo's updater installs; the `.dmg`, `.zip` and
+  installer are for people.
+- **Signing the manifests:** `go run ./cmd/releasesign` signs each archive's
+  SHA-256 with the Ed25519 key in the `release` environment's secret
+  `SONA_UPDATE_KEY` (the file `go tool mygo keygen` wrote; the public key is
+  `internal/update/update.pub`, linked into the macOS and Windows builds).
+  Manifests are signed last, after the archives are uploaded. **Without the
+  secret** (a fork, a run outside the environment) the step is skipped, says so
+  in the run summary, and the release has no `update-<target>.json`, so those
+  installs do not self-update.
+- **Release notes:** a release's draft holds release-please's changelog entry;
+  `publish` appends `.github/release-notes/install.md` (first-run steps for
+  macOS and Windows, verifying downloads).
+- **Dry run and prereleases:** dispatch `release.yml` (`gh workflow run
+  release.yml --ref <branch>`). With `prerelease` empty it builds and
+  smoke-tests all three platforms and publishes nothing (the files are the
+  `linux-release`, `macos-release` and `windows-release` artifacts). With
+  `prerelease=rc.1` it builds `v<VERSION>-rc.1` from the branch in the
+  `release` environment, signs the manifests and publishes a GitHub
+  prerelease, which updates only builds with Settings → Updates → Test
+  versions on. The environment's deployment branch rules must allow the
+  branch.
+
+### Platform checks on real machines
+
+Before merging a release PR, install the release candidate's files:
+
+- **macOS 14+ on Apple silicon:** the `.dmg` opens; Sona drags to
+  Applications; the first open is blocked, then works through "Open Anyway" or
+  `xattr -dr com.apple.quarantine /Applications/Sona.app`; `music://` and
+  `itms://` links open Sona; sign-in works; a preview plays; motion artwork
+  moves; Settings, sign-in and the queue survive a restart.
+- **Windows 11 x64:** the installer runs without administrator rights and
+  makes a Start-menu entry; SmartScreen's "More info" → "Run anyway" works;
+  `music:` and `itms:` links open Sona; the portable zip runs from a folder
+  the user can write; the uninstaller removes the app and the URL handlers and
+  keeps the user's data.
+- **Updates (macOS and Windows):** install rc.N, publish rc.N+1 (dispatch with
+  `prerelease=rc.N+1`), turn Test versions on, see the notice, "Install and
+  restart", and check settings, sign-in and the queue survive. A deliberately
+  broken build rolls back.
 
 ### bot-cecil App permissions
 
