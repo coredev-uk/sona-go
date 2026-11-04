@@ -7524,3 +7524,23 @@ msgstr ""
 #: internal/ui/app/tray.go
 msgid "Mini Player"
 msgstr ""
+
+#: internal/ui/features/concerts/page.go
+msgid "Enter a day as {form}"
+msgstr ""
+
+#: internal/ui/kit/controls_input.go
+msgid "Invalid"
+msgstr ""
+
+#: internal/ui/features/settings/shortcuts.go
+msgid "No shortcut has been changed."
+msgstr ""
+
+#: internal/ui/features/search/page.go
+msgid "Results for “{q}”"
+msgstr ""
+
+#: internal/ui/features/concerts/page.go
+msgid "{count, plural, one {# concert} other {# concerts}}"
+msgstr ""
