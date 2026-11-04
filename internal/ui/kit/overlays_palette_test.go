@@ -257,3 +257,37 @@ func TestPaletteKeysScrollTheActiveRowIntoView(t *testing.T) {
 		t.Errorf("the active row %v is outside the results %v", row, list)
 	}
 }
+
+func TestPaletteTypingScrollsTheResetActiveRowIntoView(t *testing.T) {
+	a, tt := newPaletteApp(t)
+	a.extra = 40
+	tt.Key(0, ui.KeyTab)
+	tt.Key(0, ui.KeyEnter)
+	tt.Key(0, ui.KeyUp) // the list scrolls to the end
+	tt.Type("Entry")    // the active row resets to the first result
+	tt.Frame()
+	tt.Frame()
+	row, ok := tt.Find("Entry Aa")
+	if !ok {
+		t.Fatal("no first result")
+	}
+	list, _ := tt.Find("Results")
+	if row.Y < list.Y || row.Y+row.H > list.Y+list.H+1 {
+		t.Errorf("the active row %v is outside the results %v", row, list)
+	}
+}
+
+func TestPaletteAnyPointerMoveOverARowMakesItActive(t *testing.T) {
+	a, tt := newPaletteApp(t)
+	tt.Key(0, ui.KeyTab)
+	tt.Key(0, ui.KeyEnter)
+	r, _ := tt.Find("Next track")
+	tt.Move(r.X+r.W/2, r.Y+r.H/2)
+	tt.Key(0, ui.KeyDown) // the keys take it to Library · Albums
+	tt.Move(r.X+r.W/2+1, r.Y+r.H/2)
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(300 * time.Millisecond)
+	if !slices.Equal(a.ran, []string{"next"}) {
+		t.Errorf("ran %v: a move within the row under the pointer should make it active again", a.ran)
+	}
+}

@@ -242,14 +242,28 @@ func (m *Menu) panel(c *ui.Context, o MenuOpts, tk *theme.Tokens, lv int, items 
 		panel.Transition(ui.ElementTransition{Enter: &ui.Motion{Y: 4}, Duration: mo.Duration, Ease: mo.Ease})
 	}
 	panel.HandleInput(func(ev ui.InputEvent) bool {
-		if ev.Kind == ui.InputPointerMove {
+		switch ev.Kind {
+		case ui.InputPointerMove:
+			// Taken, so a move builds a frame: the row under the pointer
+			// takes the highlight there, not on the next key.
 			m.moved = true
-			return false
+			return true
+		case ui.InputKeyDown:
+			// Type-ahead reads the keys: GTK and AppKit send no text to an
+			// element that takes none.
+			r, ok := overlaysTypedRune(ev.Mods, ev.Key)
+			if !ok {
+				return false
+			}
+			if ev.Time.Sub(m.typedAt) > time.Second {
+				m.typed = ""
+			}
+			if r == ' ' && m.typed == "" {
+				return false // Space chooses
+			}
+			return m.typeAhead(lv, items, string(r), ev.Time)
 		}
-		if ev.Kind != ui.InputText || ev.Text == "" || strings.TrimSpace(ev.Text) == "" && m.typed == "" {
-			return false
-		}
-		return m.typeAhead(lv, items, ev.Text, ev.Time)
+		return false
 	})
 
 	marks := slices.ContainsFunc(items, func(it MenuItem) bool { return it.Kind == MenuCheckbox || it.Kind == MenuRadio })
@@ -554,6 +568,23 @@ func (m *Menu) choose(it *MenuItem) {
 func (m *Menu) dismiss() {
 	m.open, m.levels = false, nil
 	m.dismissed = true
+}
+
+// overlaysTypedRune is the character a key types for type-ahead: letters and
+// digits as the layout types them, and Space; none with Ctrl, Alt or Super.
+func overlaysTypedRune(mods ui.Modifiers, key ui.Key) (rune, bool) {
+	if mods&^ui.Shift != 0 {
+		return 0, false
+	}
+	switch {
+	case key >= ui.KeyA && key <= ui.KeyZ:
+		return 'a' + rune(key-ui.KeyA), true
+	case key >= ui.Key0 && key <= ui.Key9:
+		return '0' + rune(key-ui.Key0), true
+	case key == ui.KeySpace:
+		return ' ', true
+	}
+	return 0, false
 }
 
 // overlaysText is a Text in one of the theme's type styles.

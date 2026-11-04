@@ -166,7 +166,6 @@ type Palette struct {
 	query   string
 	last    string
 	active  string
-	hover   string
 	pending func()
 	settle  int
 	// moved: the pointer moved since the last frame (only a real move may
@@ -182,7 +181,7 @@ func (p *Palette) IsOpen() bool { return p.open }
 
 // Open shows the palette with an empty query.
 func (p *Palette) Open() {
-	p.open, p.query, p.last, p.active, p.hover, p.moved, p.reveal = true, "", "", "", "", false, false
+	p.open, p.query, p.last, p.active, p.moved, p.reveal = true, "", "", "", false, false
 }
 
 // Close hides it.
@@ -234,7 +233,7 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 		}
 	}
 	if at < 0 && len(flat) > 0 {
-		at, p.active = 0, flat[0].Key
+		at, p.active, p.reveal = 0, flat[0].Key, true
 	}
 	pick := func(e PaletteEntry) {
 		p.pending, p.settle = e.Run, 1
@@ -267,8 +266,9 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 	list.HandleInput(func(ev ui.InputEvent) bool {
 		if ev.Kind == ui.InputPointerMove {
 			p.moved = true
+			return true // a frame follows, which reads the row under the pointer
 		}
-		return false // the scroll container still takes it
+		return false
 	})
 	hovered := ""
 	var activeRow ui.Element
@@ -295,10 +295,10 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 		}
 	})
 	p.reveal = false
-	if p.moved && hovered != "" && hovered != p.hover {
-		p.active = hovered
+	if p.moved && hovered != "" {
+		p.active = hovered // any real move over a row, as onMouseMove
 	}
-	p.hover, p.moved = hovered, false
+	p.moved = false
 	if flat != nil {
 		field.ActiveDescendant(activeRow)
 	}

@@ -60,9 +60,9 @@ func SetToastPoster(p store.Poster) {
 	toasts.mu.Unlock()
 }
 
-// wake asks for a frame, so a toast raised from a goroutine shows without
+// overlaysWake asks for a frame, so a toast raised from a goroutine shows without
 // waiting for an unrelated redraw.
-func wake() {
+func overlaysWake() {
 	toasts.mu.Lock()
 	p := toasts.post
 	toasts.mu.Unlock()
@@ -75,7 +75,7 @@ func wake() {
 // Toaster shows it on the next frame (SetToastPoster makes it ask for one).
 func ShowToast(t ToastSpec) string {
 	toasts.mu.Lock()
-	defer wake()
+	defer overlaysWake()
 	defer toasts.mu.Unlock()
 	if t.ID == "" {
 		toasts.next++
@@ -104,7 +104,7 @@ func CloseToast(id string) {
 	toasts.mu.Lock()
 	toasts.closed = append(toasts.closed, id)
 	toasts.mu.Unlock()
-	wake()
+	overlaysWake()
 }
 
 // Unavailable says why a command that does not apply right now did nothing

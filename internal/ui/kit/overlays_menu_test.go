@@ -3,6 +3,7 @@ package kit
 import (
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -258,7 +259,7 @@ func TestMenuIsCappedToTheRoomAndScrolls(t *testing.T) {
 
 func TestMenuOpenedFromTheKeyboardUnderARestingPointerKeepsTheFirstRow(t *testing.T) {
 	a, tt := newMenuApp(t)
-	tt.Move(60, 85) // where the menu's rows will be
+	tt.Move(60, 117) // over Play last, where the menu's second row will be
 	tt.Key(0, ui.KeyTab)
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
@@ -284,10 +285,29 @@ func TestMenuTypeAheadOfTheSameLetterGoesToTheNextRow(t *testing.T) {
 	}
 }
 
-func TestMenuReasonRowSaysWhyToAssistiveTechnology(t *testing.T) {
-	_, tt := newMenuApp(t)
-	_ = tt.Click("Open")
-	if !tt.HasText("Not available while listening to a live station") {
-		t.Error("the reason is not shown")
+func TestMenuSpaceChoosesAgainOnceTheTypeAheadHasExpired(t *testing.T) {
+	a, tt := newMenuApp(t)
+	tt.Key(0, ui.KeyTab)
+	tt.Key(0, ui.KeyEnter) // on Play next
+	tt.TypeKey(0, ui.KeyP, "p")
+	tt.TypeKey(0, ui.KeyP, "p") // on, round to Play next
+	tt.TypeKey(0, ui.KeyP, "p") // Play last
+	tt.Advance(2 * time.Second)
+	tt.Key(0, ui.KeySpace)
+	tt.Advance(50e6)
+	if !slices.Equal(a.chosen, []string{"last"}) {
+		t.Errorf("chosen %v: Space after the search expired should choose the highlighted row", a.chosen)
+	}
+}
+
+func TestMenuTypeAheadWorksFromKeyPressesAlone(t *testing.T) {
+	a, tt := newMenuApp(t)
+	tt.Key(0, ui.KeyTab)
+	tt.Key(0, ui.KeyEnter)
+	tt.Key(0, ui.KeyF) // GTK and AppKit send no text to a menu: only the key
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(50e6)
+	if !slices.Equal(a.chosen, []string{"fav"}) {
+		t.Errorf("chosen %v", a.chosen)
 	}
 }

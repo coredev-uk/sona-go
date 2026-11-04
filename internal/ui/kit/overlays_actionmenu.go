@@ -63,7 +63,7 @@ type ActionMenus struct {
 	epoch int // frames, counted by Popup
 }
 
-type loadedData struct {
+type overlaysLoaded struct {
 	id string
 	v  any
 }
@@ -79,7 +79,7 @@ type openMenu struct {
 	// results carries loaded menu data from the goroutines; the main thread
 	// alone writes loaded, from it (the Poster only asks for a frame, so a
 	// synchronous test Poster cannot race the map).
-	results chan loadedData
+	results chan overlaysLoaded
 	cancel  context.CancelFunc
 	// anchored: opened from its trigger rather than at a point.
 	anchored bool
@@ -177,7 +177,7 @@ func (a *ActionMenus) loadData() {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cur.cancel = cancel
-	results := make(chan loadedData, len(datas))
+	results := make(chan overlaysLoaded, len(datas))
 	a.cur.results = results
 	items := a.cur.items
 	post := a.reg.poster()
@@ -187,7 +187,7 @@ func (a *ActionMenus) loadData() {
 			if ctx.Err() != nil {
 				return
 			}
-			results <- loadedData{md.ID, v}
+			results <- overlaysLoaded{md.ID, v}
 			post(func() {}) // a frame, which reads the result
 		}()
 	}
