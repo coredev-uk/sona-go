@@ -92,6 +92,7 @@ func Version(v string) Option { return func(o *options) { o.version = v } }
 func AuthConfig(f func(*auth.Config)) Option {
 	return func(o *options) { o.auth = append(o.auth, f) }
 }
+
 // Equalizer makes the fake engine report an equaliser, as a platform with one
 // does (Capabilities().Playback.Equalizer); Harness.Engine.Curves are what
 // the audio service gave it.

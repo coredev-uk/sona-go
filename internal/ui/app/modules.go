@@ -6,17 +6,17 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/auth"
 	"github.com/coredev-uk/sona-go/internal/ui/features/cdm"
 	"github.com/coredev-uk/sona-go/internal/ui/features/commands"
-	"github.com/coredev-uk/sona-go/internal/ui/features/equalizer"
 	"github.com/coredev-uk/sona-go/internal/ui/features/concerts"
+	"github.com/coredev-uk/sona-go/internal/ui/features/equalizer"
 	"github.com/coredev-uk/sona-go/internal/ui/features/library"
 	"github.com/coredev-uk/sona-go/internal/ui/features/onboarding"
 	"github.com/coredev-uk/sona-go/internal/ui/features/player"
 	"github.com/coredev-uk/sona-go/internal/ui/features/playlist"
 	"github.com/coredev-uk/sona-go/internal/ui/features/private"
 	"github.com/coredev-uk/sona-go/internal/ui/features/reminders"
+	"github.com/coredev-uk/sona-go/internal/ui/features/search"
 	"github.com/coredev-uk/sona-go/internal/ui/features/settings"
 	"github.com/coredev-uk/sona-go/internal/ui/features/song"
-	"github.com/coredev-uk/sona-go/internal/ui/features/search"
 	"github.com/coredev-uk/sona-go/internal/ui/features/updates"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
@@ -31,9 +31,9 @@ var factories = []module.Factory{
 	artist.New,  // the artist page and its see-all views
 	song.New,    // the song page
 	library.New,
-	player.New,  // the player bar only
-	auth.New,    // sign-in state, the account menu and dialog
-	updates.New, // the sidebar's update notice
+	player.New,   // the player bar only
+	auth.New,     // sign-in state, the account menu and dialog
+	updates.New,  // the sidebar's update notice
 	library.New,  // Albums only
 	playlist.New, // the playlist page, the sidebar tree and pins, the dialogs
 	player.New,   // the player bar only
