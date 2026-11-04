@@ -142,3 +142,7 @@ func (p *player) lyricsShown() bool {
 	}
 	return false
 }
+
+// nowPlayingSurface reports whether the Now Playing view exists: the bar's
+// cover opens it.
+func (p *player) nowPlayingSurface() bool { return true }

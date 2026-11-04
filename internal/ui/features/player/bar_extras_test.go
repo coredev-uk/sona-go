@@ -89,19 +89,8 @@ func TestTitleLinksOfStationsAndVideos(t *testing.T) {
 	}
 }
 
-func TestCoverIsPlainArtworkWhileThereIsNoNowPlayingView(t *testing.T) {
-	r := newRig(t, true)
-	r.seed()
-	for _, name := range []string{"Open now playing", "Nothing playing", "Close now playing"} {
-		if r.tt.HasText(name) {
-			t.Errorf("a cover button %q with no view to open", name)
-		}
-	}
-}
-
 func TestCoverButtonOpensAndClosesNowPlaying(t *testing.T) {
 	r := newRig(t, true)
-	r.p.np.surface = true
 	r.tt.Frame()
 	if _, ok := r.tt.Find("Nothing playing"); !ok {
 		t.Fatalf("no disabled cover button while idle: %q", r.tt.Texts())

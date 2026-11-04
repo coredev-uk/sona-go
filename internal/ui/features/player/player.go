@@ -74,10 +74,6 @@ type player struct {
 	// extras is the bar's other state (bar_extras.go).
 	extras barExtras
 
-	// ui is the panels' state (view.go); np is Now Playing's (nowplaying_state.go).
-	ui *view
-	np nowPlayingState
-
 	mu     sync.Mutex
 	failed []failure // command failures waiting to be shown (the view shows them)
 }
