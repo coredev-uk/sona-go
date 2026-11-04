@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/playback"
+	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
 )
 
 // DefaultLength is how long an item plays.
@@ -26,12 +27,17 @@ type Engine struct {
 	Now func() time.Time
 	// Length is how long each item plays; zero is DefaultLength.
 	Length time.Duration
+	// Equalizer makes the engine report an equaliser (Capabilities) and
+	// record the curves it is given (Curves). Set it before the services
+	// are built.
+	Equalizer bool
 
 	mu     sync.Mutex
 	st     playback.Status
 	events chan playback.Event
 	calls  []string
 	plays  []string
+	curves []equalizer.Curve
 }
 
 var _ playback.Engine = (*Engine)(nil)
@@ -168,9 +174,32 @@ func (e *Engine) Status() playback.Status {
 func (e *Engine) Events() <-chan playback.Event { return e.events }
 
 // Capabilities are those of an engine with a volume.
-func (*Engine) Capabilities() playback.Capabilities {
-	return playback.Capabilities{Kind: playback.KindCDM, Volume: true}
+func (e *Engine) Capabilities() playback.Capabilities {
+	return playback.Capabilities{Kind: playback.KindCDM, Volume: true, Equalizer: e.Equalizer}
 }
+
+// SetEqualizer records the curve (the engine's output processing the
+// services' AudioService drives).
+func (e *Engine) SetEqualizer(_ context.Context, c equalizer.Curve) error {
+	e.mu.Lock()
+	e.curves = append(e.curves, c)
+	e.mu.Unlock()
+	return nil
+}
+
+// Curves are the equaliser curves set so far, in order.
+func (e *Engine) Curves() []equalizer.Curve {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Clone(e.curves)
+}
+
+// SetOutputDevice, SetSoundCheck and SetCrossfade do nothing; OutputDevices
+// lists none.
+func (*Engine) SetOutputDevice(context.Context, string) error   { return nil }
+func (*Engine) SetSoundCheck(context.Context, bool) error       { return nil }
+func (*Engine) SetCrossfade(time.Duration)                      {}
+func (*Engine) OutputDevices() ([]playback.OutputDevice, error) { return nil, nil }
 
 // Close does nothing.
 func (*Engine) Close() error { return nil }
