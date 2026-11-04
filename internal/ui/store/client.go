@@ -155,11 +155,20 @@ func Use[T any](cl *Client, key Key, fetch func(ctx context.Context) (T, error),
 }
 
 // Set writes a query's data: an optimistic update, or an event's payload.
-// The data counts as fetched now; a view using the key redraws with it.
+// The data counts as fetched now; a view using the key redraws with it. A
+// fetch in flight is cancelled and its answer dropped: it predates the write.
 func Set[T any](cl *Client, key Key, v T) {
 	now := cl.now()
 	cl.mu.Lock()
 	e := cl.entryLocked(key, now)
+	if e.cancelFetch != nil {
+		// What a fetch in flight finds was true before this write: its answer
+		// must not replace it (v0.2.0's setQueryData after cancelQueries).
+		e.cancelFetch()
+		e.cancelFetch = nil
+		e.fetching = false
+		e.gen++
+	}
 	e.data, e.has, e.err = v, true, nil
 	e.updated, e.invalid = now, false
 	if e.used.IsZero() {

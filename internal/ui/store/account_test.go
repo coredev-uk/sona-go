@@ -1,7 +1,9 @@
 package store
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 )
@@ -108,5 +110,25 @@ func TestSharedMirrorsAreEmptyWithoutServices(t *testing.T) {
 	}
 	if r := UseReminders(cl, nil); r.HasData {
 		t.Error("reminders without services")
+	}
+}
+
+func TestSetSupersedesAFetchInFlight(t *testing.T) {
+	cl, _ := newTestClient()
+	release := make(chan struct{})
+	started := make(chan struct{}, 1)
+	fetch := func(ctx context.Context) (int, error) {
+		started <- struct{}{}
+		<-release
+		return 1, nil // what was true before the write
+	}
+	Use(cl, Key{"n"}, fetch)
+	<-started
+	Set(cl, Key{"n"}, 2)
+	close(release)
+	time.Sleep(20 * time.Millisecond) // the fetch's answer has been posted (the client's poster runs at once)
+	r := Use(cl, Key{"n"}, fetch)
+	if !r.HasData || r.Data != 2 || r.Fetching {
+		t.Errorf("after the write and the late answer: %+v, want 2 and no fetch", r)
 	}
 }
