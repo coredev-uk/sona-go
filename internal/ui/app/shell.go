@@ -49,7 +49,7 @@ func (a *App) rememberRoute(c *ui.Context) {
 		return
 	}
 	a.lastRoute = loc
-	if a.opts.Core == nil || a.opts.Settings == nil || !a.opts.Settings.Get().Desktop.ResumeLastRoute {
+	if a.opts.Core == nil || !a.resume {
 		return
 	}
 	if u, err := url.Parse(loc); err == nil && u.Path == services.OnboardingRoute {
@@ -173,10 +173,10 @@ func (a *App) newMiniWindow() native {
 	return m
 }
 
-// miniView is the mini player window's content: the theme, the dialogs and
-// toasts layer, and the module's view.
+// miniView is the mini player window's content: the theme and the module's
+// view.
 func (a *App) miniView(c *ui.Context) {
-	c.Root().Direction(direction())
+	c.Root().Direction(a.direction())
 	theme.Apply(c)
 	ui.Column(c).Fill().Background(theme.C("surface")).Children(func() {
 		if a.mini != nil {

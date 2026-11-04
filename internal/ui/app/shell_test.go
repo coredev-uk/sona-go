@@ -1,6 +1,8 @@
 package app
 
 import (
+	"github.com/egoist/mygo/ui"
+
 	"sync/atomic"
 	"testing"
 	"time"
@@ -58,13 +60,9 @@ func newWindowsRig(tray, withMini bool) *windowsRig {
 	return r
 }
 
-// quitWait waits for Quit's goroutine.
-func (r *windowsRig) quitWait(t *testing.T, want int) {
+// quitCount checks the quits so far: Quit calls the quit itself.
+func (r *windowsRig) quitCount(t *testing.T, want int) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for r.quits.Load() < int32(want) && time.Now().Before(deadline) {
-		time.Sleep(time.Millisecond)
-	}
 	if got := r.quits.Load(); got != int32(want) {
 		t.Fatalf("quits = %d, want %d", got, want)
 	}
@@ -84,7 +82,7 @@ func TestClosingTheWindowKeepsPlayingInTheBackgroundOrQuits(t *testing.T) {
 
 	r.quitsSet = true
 	r.w.closeWindow(r.main)
-	r.quitWait(t, 1)
+	r.quitCount(t, 1)
 	if !r.main.shown {
 		t.Error("a quitting close hid the window first")
 	}
@@ -93,7 +91,7 @@ func TestClosingTheWindowKeepsPlayingInTheBackgroundOrQuits(t *testing.T) {
 func TestWithoutATrayClosingTheWindowQuits(t *testing.T) {
 	r := newWindowsRig(false, false)
 	r.w.closeWindow(r.main)
-	r.quitWait(t, 1)
+	r.quitCount(t, 1)
 	r.w.Quit() // a second quit is the same quit
 	if got := r.quits.Load(); got != 1 {
 		t.Errorf("quits = %d after a second Quit", got)
@@ -328,4 +326,55 @@ func TestThePseudoLocaleSettingIsShown(t *testing.T) {
 	if got := i18n.Locale(); got != "en-XA" {
 		t.Fatalf("locale %q, want en-XA", got)
 	}
+}
+
+// A hidden title bar's buttons keep the room they take at the start or the
+// end of the window, whichever edge that is in the language shown: right to
+// left, the sidebar's brand is at the right edge, clear of buttons there.
+func TestTheBrandKeepsClearOfWindowButtonsInEitherDirection(t *testing.T) {
+	_, tt := newShell(t, Options{}, pageModule("a", pageDef{"/albums", "Albums", module.NavLibrary, 1}))
+	t.Cleanup(func() { i18n.SetLocale("") })
+	bar := ui.TitleBar{Height: 48, Right: 138}
+	tt.SetTitleBar(bar)
+	tt.Frame()
+	ltr, _ := tt.Find("Sona")
+	i18n.SetLocale("ar")
+	tt.Frame()
+	rtl, ok := tt.Find("Sona")
+	if !ok {
+		t.Fatal("no brand")
+	}
+	if ltr.X > bar.Right {
+		t.Errorf("left to right the brand is at x %v, pushed by buttons on the right", ltr.X)
+	}
+	if edge := rtl.X + rtl.W; edge > 1132-bar.Right {
+		t.Errorf("right to left the brand ends at x %v, under the buttons from x %v", edge, 1132-bar.Right)
+	}
+}
+
+// Choosing "The page you were last on" saves the page on screen, not only
+// the pages visited afterwards.
+func TestChoosingResumeSavesThePageOnScreen(t *testing.T) {
+	h := uitest.New(t)
+	pages := pageModule("p", pageDef{"/a", "A", module.NavPrimary, 1}, pageDef{"/b", "B", module.NavPrimary, 2})
+	a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Now: h.Clock.Now}, []module.Factory{pages})
+	t.Cleanup(a.env.Art.Close)
+	a.connect()
+	tt := h.Tester(t, a.view, 1132, 800)
+	tt.Frame()
+	a.router.Push("/b")
+	tt.Frame()
+	tt.Advance(routeSaveDelay)
+	tt.Frame()
+	if got := h.Settings.Get().Desktop.LastRoute; got == "/b" {
+		t.Fatalf("saved %q while resuming was off", got)
+	}
+	next, err := h.Settings.Update(func(s *config.Settings) { s.Desktop.ResumeLastRoute = true })
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.Bus.Emit(services.EventSettingsChanged, next)
+	h.Main.Drain()
+	tt.Frame()
+	tt.Until("the page on screen saved", func() bool { return h.Settings.Get().Desktop.LastRoute == "/b" })
 }

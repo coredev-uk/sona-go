@@ -18,7 +18,7 @@ import (
 // over the whole window. Only the page area scrolls (each page owns its
 // scroll container, which its virtualised lists need).
 func (a *App) view(c *ui.Context) {
-	c.Root().Direction(direction())
+	c.Root().Direction(a.direction())
 	theme.Apply(c)
 	a.keys.dispatch(c)
 	a.rememberRoute(c)
@@ -58,11 +58,16 @@ func (a *App) view(c *ui.Context) {
 // so (Arabic, Hebrew…, as the language shown, i18n.Locale, says), else left
 // to right. Set on the root before anything is built, so every element, the
 // layers and the popups inherit it.
-func direction() ui.Direction {
-	if mygoi18n.Direction(i18n.Locale()) == mygoi18n.RightToLeft {
-		return ui.RightToLeft
+// The answer is kept per language: parsing the tag every frame, for both
+// windows, is work a frame can skip.
+func (a *App) direction() ui.Direction {
+	if loc := i18n.Locale(); a.dirLocale != loc {
+		a.dirLocale, a.dir = loc, ui.LeftToRight
+		if mygoi18n.Direction(loc) == mygoi18n.RightToLeft {
+			a.dir = ui.RightToLeft
+		}
 	}
-	return ui.LeftToRight
+	return a.dir
 }
 
 // painted is the first frame drawn: the network opens (SystemService
@@ -141,13 +146,13 @@ func (a *App) topBar(c *ui.Context) {
 	// A hidden title bar: the top bar is the window's, dragging it, and
 	// keeps clear of the window buttons; the sidebar's header takes the
 	// leading ones while the sidebar shows (macOS's, Linux's on the left).
-	bar := c.TitleBar()
+	lead, trail := titleBarRoom(c)
 	start := float32(12)
 	if !a.sidebar {
-		start = max(start, bar.Left+8)
+		start = max(start, lead+8)
 	}
 	row := ui.Row(c).Height(theme.Current().Metric["top-bar"]).FillWidth().Background(theme.C("surface")).
-		Padding(0, max(16, bar.Right+8), 0, start).Gap(12).AlignItems(ui.Center)
+		PaddingStart(start).PaddingEnd(max(16, trail+8)).Gap(12).AlignItems(ui.Center)
 	if a.drawnTitleBar {
 		row.DragWindow()
 	}
@@ -211,11 +216,22 @@ func (a *App) sidebarView(c *ui.Context) {
 	})
 }
 
+// titleBarRoom is the room the window buttons take at the start and at the
+// end of the window's top edge: the title bar's physical left and right,
+// swapped in a right-to-left window.
+func titleBarRoom(c *ui.Context) (lead, trail float32) {
+	bar := c.TitleBar()
+	if c.Direction() == ui.RightToLeft {
+		return bar.Right, bar.Left
+	}
+	return bar.Left, bar.Right
+}
+
 // brand is the sidebar's header: the mark (a record label seen from above,
 // amber with a spindle hole) and the wordmark.
 func (a *App) brand(c *ui.Context) {
-	bar := c.TitleBar()
-	row := ui.Row(c).Height(theme.Current().Metric["top-bar"]).Padding(0, 10, 0, max(10, bar.Left-4)).Gap(8).AlignItems(ui.Center)
+	lead, _ := titleBarRoom(c)
+	row := ui.Row(c).Height(theme.Current().Metric["top-bar"]).PaddingStart(max(10, lead-4)).PaddingEnd(10).Gap(8).AlignItems(ui.Center)
 	if a.drawnTitleBar {
 		row.DragWindow()
 	}

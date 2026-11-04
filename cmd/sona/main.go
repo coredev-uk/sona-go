@@ -332,9 +332,9 @@ func run(started time.Time) error {
 	// After the services subscribed to auth changes, so none misses the
 	// restored sign-in.
 	authm.Start()
-	// MPRIS' Quit comes from a bus call: Windows.Quit runs the quit on its
-	// own goroutine, since shutdown closes the media controls, which must
-	// not wait on the call that asked for it.
+	// MPRIS' Quit comes from a bus call: Windows.Quit only posts the quit
+	// to the main loop (mygo.App.Quit), since shutdown closes the media
+	// controls, which must not wait on the call that asked for it.
 	core.StartMediaControls(services.NewMPRISPlayer(coord, windows.ShowMain, windows.Quit, log.With("component", "mpris")))
 
 	core.Activate(act, false)

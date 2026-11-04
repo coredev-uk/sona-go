@@ -145,14 +145,14 @@ func (w *Windows) closeWindow(win native) {
 	}
 }
 
-// Quit quits Sona: every window closes for real. It returns at once; the
-// quit runs on the main thread, off what asked for it (a tray item, a D-Bus
-// call), which quitting tears down.
+// Quit quits Sona: every window closes for real. It returns at once:
+// mygo.App.Quit only posts the quit to the main loop, so what asked for it (a
+// tray item, a D-Bus call) is not waited on by the shutdown.
 func (w *Windows) Quit() {
 	if w.quitting.Swap(true) {
 		return
 	}
-	go w.quit()
+	w.quit()
 }
 
 func (w *Windows) setState(st windowchrome.WindowState) {

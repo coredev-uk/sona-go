@@ -135,6 +135,13 @@ type App struct {
 	lastRoute string
 	routeSeen string
 	routeAt   time.Time
+	// resume is Settings → General → Open on being "The page you were
+	// last on", kept current by followSettings (main thread).
+	resume bool
+	// dirLocale and dir cache the window direction of the language shown
+	// (main thread).
+	dirLocale string
+	dir       ui.Direction
 	// banner is the status banner's (main thread).
 	banner banner
 
@@ -499,9 +506,15 @@ func (a *App) followSettings() {
 		theme.SetReduceEffects(s.ReduceEffects)
 		a.keys.rebind(s.Shortcuts)
 		a.motionOn = s.MotionArtwork.Enabled
+		a.resume = s.Desktop.ResumeLastRoute
 	}
 	apply(a.opts.Settings.Get())
 	store.On(a.opts.Bus, services.EventSettingsChanged, func(s config.Settings) {
+		if s.Desktop.ResumeLastRoute && !a.resume {
+			// The page on screen when the option is chosen is the one to
+			// save, not only the pages visited after it.
+			a.lastRoute = ""
+		}
 		// Every feature's copy of the settings (store.UseSettings) follows Go:
 		// a save builds the whole settings from it.
 		store.Set(a.env.Queries, store.KeySettings, s)
