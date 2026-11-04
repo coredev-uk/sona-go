@@ -63,6 +63,10 @@ type Options struct {
 	// StartPath overrides the page the window opens on (the settings'
 	// start page, else the first sidebar link).
 	StartPath string
+	// FirstRun opens the window on the first-run setup's route
+	// (services.OnboardingRoute) when a module registered it: a first start
+	// (services.StartRoute). Unmatched paths still land on the start page.
+	FirstRun bool
 	// Icon is the window icon, a PNG.
 	Icon []byte
 	// OpenURL opens a web page in the system browser (Env.OpenURL); nil
@@ -175,7 +179,11 @@ func newApp(opts Options, factories []module.Factory) *App {
 		slices.SortStableFunc(a.nav[i], func(x, y module.NavItem) int { return cmp.Compare(x.Order, y.Order) })
 	}
 	a.start = a.startPath()
-	a.router = ui.NewRouter(a.start)
+	initial := a.start
+	if opts.FirstRun && slices.ContainsFunc(a.routes, func(r module.Route) bool { return r.Pattern == services.OnboardingRoute }) {
+		initial = services.OnboardingRoute
+	}
+	a.router = ui.NewRouter(initial)
 	a.env.Nav = a.router
 	a.env.Actions.SetNavigator(a.router.Push)
 	a.env.Actions.SetPoster(post)

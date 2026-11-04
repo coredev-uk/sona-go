@@ -39,7 +39,9 @@ func (a *App) view(c *ui.Context) {
 		}
 	})
 	for _, m := range a.mods {
-		if m.Slots.Layer != nil {
+		// A closed layer builds no wrapper: an empty full-window box over
+		// the page would take every pointer press.
+		if m.Slots.Layer != nil && (m.Slots.LayerOpen == nil || m.Slots.LayerOpen()) {
 			ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Children(func() { m.Slots.Layer(c) })
 		}
 	}

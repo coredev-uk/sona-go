@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
@@ -323,4 +324,60 @@ func TestNewAppRegistersTheInterfaceFont(t *testing.T) {
 		}
 	}
 	t.Errorf("%q is not a registered font family", theme.FontFamily)
+}
+
+// A closed layer takes no pointer press: a click on the page reaches it
+// (an empty full-window wrapper over the page took every one).
+func TestAClosedLayerDoesNotCoverThePage(t *testing.T) {
+	open := false
+	clicks := 0
+	f := func(*module.Env) module.Module {
+		return module.Module{
+			ID:    "layered",
+			Slots: module.Slots{Layer: func(c *ui.Context) { ui.Text(c, "layer") }, LayerOpen: func() bool { return open }},
+			Routes: []module.Route{{Pattern: "/p", Build: func(c *ui.Context, _ *ui.Route) {
+				if ui.Button(c, "Press me").Clicked() {
+					clicks++
+				}
+			}}},
+			Nav: []module.NavItem{{Section: module.NavPrimary, Label: func() string { return "P" }, To: "/p"}},
+		}
+	}
+	_, tt := newShell(t, Options{}, f)
+	tt.Frame()
+	if err := tt.Click("Press me"); err != nil {
+		t.Fatal(err)
+	}
+	if clicks != 1 {
+		t.Fatalf("clicks = %d with the layer closed, want 1", clicks)
+	}
+	open = true
+	tt.Frame()
+	if !tt.HasText("layer") {
+		t.Error("the open layer is not built")
+	}
+}
+
+// A first start opens the window on the first-run setup's route; every other
+// unmatched path still lands on the start page.
+func TestFirstRunOpensTheSetupRoute(t *testing.T) {
+	var opened int
+	f := func(*module.Env) module.Module {
+		return module.Module{
+			ID: "setup",
+			Routes: []module.Route{
+				{Pattern: services.OnboardingRoute, Build: func(c *ui.Context, _ *ui.Route) { opened++ }},
+				{Pattern: "/p", Build: func(c *ui.Context, _ *ui.Route) { ui.Text(c, "page") }},
+			},
+			Nav: []module.NavItem{{Section: module.NavPrimary, Label: func() string { return "P" }, To: "/p"}},
+		}
+	}
+	a, tt := newShell(t, Options{FirstRun: true}, f)
+	tt.Frame()
+	if opened == 0 || a.start != "/p" {
+		t.Fatalf("setup route built %d times, start page %q", opened, a.start)
+	}
+	if got := a.router.Path(); got != services.OnboardingRoute {
+		t.Fatalf("path %q, want the setup route (the module redirects)", got)
+	}
 }

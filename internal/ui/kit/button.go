@@ -51,6 +51,9 @@ type ButtonOpts struct {
 	Size    ButtonSize
 	// Icon is a Lucide name (theme.Icon), shown before the label.
 	Icon string
+	// IconAfter puts the icon after the label (the external-link mark of a
+	// button that leaves the app).
+	IconAfter bool
 	// Pressed makes a toggle button: it shows the active tone while true
 	// and tells assistive technology its state. The caller flips it on
 	// Clicked.
@@ -152,7 +155,10 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 	}
 
 	e.Children(func() {
-		if o.Icon != "" {
+		icon := func() {
+			if o.Icon == "" {
+				return
+			}
 			size := sz.icon
 			if o.Variant == Play && o.Size == SizeLG {
 				size = playGlyph
@@ -162,11 +168,17 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 				ic.Margin(0, 0, 0, 1) // the triangle's weight sits left of its box
 			}
 		}
+		if !o.IconAfter {
+			icon()
+		}
 		if !iconOnly {
 			t := controlsText(c, label, "label").FontSize(sz.font).SingleLine()
 			if o.Variant == Link && hovered {
 				t.Underline()
 			}
+		}
+		if o.IconAfter {
+			icon()
 		}
 	})
 	Tooltip(c, e, tip)

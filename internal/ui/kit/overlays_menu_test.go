@@ -311,3 +311,24 @@ func TestMenuTypeAheadWorksFromKeyPressesAlone(t *testing.T) {
 		t.Errorf("chosen %v", a.chosen)
 	}
 }
+
+func TestMenuKeepOpenRunsAtOnceAndLeavesTheMenuOpen(t *testing.T) {
+	a, tt := newMenuApp(t)
+	on := false
+	a.items = []MenuItem{{Key: "priv", Kind: MenuCheckbox, Label: "Private listening", KeepOpen: true, Run: func() { on = !on }}}
+	if err := tt.Click("Open"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("Private listening"); err != nil {
+		t.Fatal(err)
+	}
+	if !on || !a.menu.IsOpen() {
+		t.Fatalf("after one choice: on %v, open %v", on, a.menu.IsOpen())
+	}
+	if err := tt.Click("Private listening"); err != nil {
+		t.Fatal(err)
+	}
+	if on || !a.menu.IsOpen() {
+		t.Fatalf("after two choices: on %v, open %v", on, a.menu.IsOpen())
+	}
+}
