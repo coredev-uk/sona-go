@@ -3,9 +3,11 @@ package player
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"slices"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
@@ -258,21 +260,33 @@ func TestRatingButtonsUndoAFavourite(t *testing.T) {
 	r.until(t, "Favourite Song Title")
 }
 
+// inBubble runs a test body in a synctest bubble on one core: MyGo's rasteriser
+// shares helper goroutines between frames, and a helper (or the WaitGroup it
+// signals) that belongs to a bubble breaks the next frame drawn outside it. One
+// core draws without helpers.
+func inBubble(t *testing.T, body func(*testing.T)) {
+	t.Helper()
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
+	synctest.Test(t, body)
+}
+
 func TestNoRatingButtonsForLiveVideoOrUnknownSongs(t *testing.T) {
 	for name, mut := range map[string]func(*services.QueueItem){
 		"live":  func(q *services.QueueItem) { q.CatalogID, q.Live = "100", true },
 		"video": func(q *services.QueueItem) { q.CatalogID, q.Video = "100", true },
 		"none":  func(q *services.QueueItem) {},
 	} {
-		r := newRig(t, true)
-		r.env.ItemStates = kit.NewItemStates(r.env.Queries, r.env.Post, &fakeRatings{done: make(chan struct{}, 8)})
-		r.seed(func(s *services.PlaybackState) { mut(s.Current) })
-		time.Sleep(20 * time.Millisecond)
-		r.h.Main.Drain()
-		r.tt.Frame()
-		if _, ok := r.tt.Find("Favourite Song Title"); ok {
-			t.Errorf("%s: Favourite shown", name)
-		}
+		t.Run(name, func(t *testing.T) {
+			inBubble(t, func(t *testing.T) {
+				r := newRig(t, true)
+				r.env.ItemStates = kit.NewItemStates(r.env.Queries, r.env.Post, &fakeRatings{done: make(chan struct{}, 8)})
+				r.seed(func(s *services.PlaybackState) { mut(s.Current) })
+				r.tt.Quiesce() // the state load, if one was started, has answered
+				if _, ok := r.tt.Find("Favourite Song Title"); ok {
+					t.Errorf("%s: Favourite shown", name)
+				}
+			})
+		})
 	}
 }
 
@@ -296,10 +310,14 @@ func TestFavouriteShortcutTogglesTheRating(t *testing.T) {
 }
 
 func TestFavouriteShortcutIgnoresWhatCannotBeRated(t *testing.T) {
+	inBubble(t, favouriteShortcutIgnoresWhatCannotBeRated)
+}
+
+func favouriteShortcutIgnoresWhatCannotBeRated(t *testing.T) {
 	r, f := ratedRig(t, services.ItemState{})
 	r.seed(func(s *services.PlaybackState) { s.Current.Live = true })
 	r.p.toggleFavourite()
-	time.Sleep(30 * time.Millisecond)
+	r.tt.Quiesce() // a call that got through has run by now
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if len(f.calls) != 0 {

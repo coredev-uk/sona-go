@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -240,6 +239,10 @@ func TestASyncRefreshesTheGrid(t *testing.T) {
 }
 
 func TestAnUnfinishedSyncTickRefetchesNothing(t *testing.T) {
+	inBubble(t, anUnfinishedSyncTickRefetchesNothing)
+}
+
+func anUnfinishedSyncTickRefetchesNothing(t *testing.T) {
 	r := newRig(t, sevenAlbums[:2], 1132, 1000)
 	r.tt.Until("the albums", r.tt.Shows("2 albums"))
 	res, err := r.h.DB.W.ExecContext(t.Context(), `INSERT INTO albums (library_id, catalog_id, name, artist_name, updated_at) VALUES ('l.new', '999', 'Brand New', '', 0)`)
@@ -251,12 +254,9 @@ func TestAnUnfinishedSyncTickRefetchesNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.h.Env.Bus.Emit(services.EventSyncProgress, services.SyncProgress{Domain: "albums", Done: 1, Total: 3})
-	for end := time.Now().Add(300 * time.Millisecond); time.Now().Before(end); time.Sleep(5 * time.Millisecond) {
-		r.h.Main.Drain()
-		r.tt.Frame()
-		if r.tt.HasText("Brand New") {
-			t.Fatal("a tick inside a domain refetched the albums")
-		}
+	r.tt.Quiesce() // a refetch the tick started has run and posted by now
+	if r.tt.HasText("Brand New") {
+		t.Fatal("a tick inside a domain refetched the albums")
 	}
 	r.h.Env.Bus.Emit(services.EventSyncProgress, services.SyncProgress{Domain: "albums", Done: 3, Total: 3, Finished: true})
 	r.tt.Until("the new album", r.tt.Shows("Brand New"))

@@ -13,6 +13,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/catalog"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
@@ -265,6 +266,8 @@ func newPageRig(t *testing.T, start string, ro rigOpts, opts ...uitest.Option) *
 		api = ro.wrap(api)
 	}
 	useQueue(r.h.Env, r.play)
+	kit.SetToastPoster(r.h.Main.Post)
+	t.Cleanup(func() { kit.CloseToast("") })
 	r.s = newSearch(r.h.Env, api)
 	w, h := ro.width, ro.height
 	if w == 0 {
@@ -284,6 +287,7 @@ func newPageRig(t *testing.T, start string, ro rigOpts, opts ...uitest.Option) *
 				}
 			})
 		})
+		kit.Toaster(c)
 	}, w, h)
 	return r
 }

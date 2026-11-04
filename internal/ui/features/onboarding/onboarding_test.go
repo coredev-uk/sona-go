@@ -130,6 +130,8 @@ type rig struct {
 	tr  *fakeTranslations
 	cdm *fakeCDM
 
+	behind func(*ui.Context) // more of the app behind the setup, when a test wants it
+
 	saved  int               // settings:changed events seen: every save makes one
 	events []config.Settings // the settings those events carried
 }
@@ -151,6 +153,9 @@ func newRig(t *testing.T, w, h int, opts ...uitest.Option) *rig {
 	r.tt = hn.Tester(t, func(c *ui.Context) {
 		ui.Column(c).Fill().Background(theme.C("ground")).Children(func() {
 			ui.Text(c, "The app behind the setup")
+			if r.behind != nil {
+				r.behind(c)
+			}
 		})
 		r.o.layer(c)
 		kit.OverlayLayer(c)
@@ -1026,5 +1031,62 @@ func TestDoneWithoutPlaybackSaysSo(t *testing.T) {
 	r.open("done")
 	if !r.tt.HasText("Playback isn't available here yet") {
 		t.Errorf("texts %q", r.tt.Texts())
+	}
+}
+
+// The setup's two settings-backed steps show a failed read as the block with
+// its retry, never the controls; the settings arriving replace it.
+func TestStepsShowAFailedSettingsReadWithTryAgainAndRecover(t *testing.T) {
+	for _, c := range []struct {
+		step     string
+		controls []string
+	}{
+		{"playback", []string{"Audio quality", "High quality", "Sound Check"}},
+		{"desktop", []string{"When you close the window", "Keep playing", "Quit Sona"}},
+	} {
+		t.Run(c.step, func(t *testing.T) {
+			r := newRig(t, 900, 1100)
+			r.h.Env.Core = nil // the settings read fails
+			r.open(c.step)
+			r.tt.Until("the error block", r.tt.Shows("Couldn't read Sona's settings", "Try again"))
+			for _, w := range c.controls {
+				if r.tt.HasText(w) {
+					t.Errorf("the failed read still shows %q: %q", w, r.tt.Texts())
+				}
+			}
+			r.click("Try again") // asks again; the service is still not there
+			r.tt.Until("the error block again", r.tt.Shows("Couldn't read Sona's settings", "Try again"))
+
+			store.Set(r.h.Env.Queries, store.KeySettings, r.h.Settings.Get()) // the settings arrive
+			r.tt.Until("the controls", r.tt.Shows(c.controls...))
+			if r.tt.HasText("Couldn't read Sona's settings") {
+				t.Errorf("the error stayed after the settings arrived: %q", r.tt.Texts())
+			}
+		})
+	}
+}
+
+// Whatever opened the setup gets the focus back when it closes.
+func TestFocusReturnsToWhatOpenedTheSetupWhenItCloses(t *testing.T) {
+	r := newRig(t, 900, 800)
+	r.behind = func(c *ui.Context) {
+		if kit.Button(c.Key("opener"), "Set up Sona again", kit.ButtonOpts{}).Clicked() {
+			r.h.Env.Surfaces.OpenSetup("")
+		}
+	}
+	r.tt.Drain()
+	r.click("Set up Sona again")
+	if !r.h.Env.Surfaces.SetupOpen() || !r.tt.HasText("Skip setup") {
+		t.Fatalf("the button did not open the setup: %q", r.tt.Texts())
+	}
+	if r.tt.Focused("Set up Sona again") {
+		t.Fatal("the focus stayed behind the modal setup")
+	}
+	r.click("Skip setup")
+	if r.h.Env.Surfaces.SetupOpen() {
+		t.Fatal("Skip setup left the setup open")
+	}
+	if !r.tt.Focused("Set up Sona again") {
+		t.Errorf("the focus did not return to the opener; texts %q", r.tt.Texts())
 	}
 }

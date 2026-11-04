@@ -10,6 +10,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -208,6 +209,21 @@ func TestFailedLoadCanBeRetried(t *testing.T) {
 	}
 }
 
+// A signed-out account is told so, and the button opens the account dialog.
+func TestSignedOutErrorOffersSignIn(t *testing.T) {
+	r := newRig(t, "/album/100", 899, 900)
+	r.addCatalog(saltFlats())
+	r.cat.fail(auth.ErrNotSignedIn)
+	r.shows("Sign in to see this", "Apple Music needs a signed-in account to show this album.")
+	if r.h.Env.Surfaces.AccountOpen() {
+		t.Fatal("the account dialog is open before anyone asked")
+	}
+	r.click("Sign in")
+	if !r.h.Env.Surfaces.AccountOpen() {
+		t.Error("Sign in did not open the account dialog")
+	}
+}
+
 func TestPlayButtonsPlayTheAlbum(t *testing.T) {
 	r := newRig(t, "/album/100", 1132, 1000)
 	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
@@ -286,16 +302,21 @@ func TestLibraryAndRatingButtonsAskTheLibrary(t *testing.T) {
 	r := newRig(t, "/album/100", 1132, 1000)
 	r.addCatalog(saltFlats())
 	r.shows("Add")
-	r.tt.Until("the item state", r.states.loaded)
-	r.tt.Drain()
+	// Both buttons are disabled until the item's state has reached the page.
+	r.enabled("Add")
+	r.enabled("Favourite Salt Flats")
 	r.click("Add")
-	r.tt.Until("the add", func() bool { return len(r.states.added) > 0 })
-	if r.states.added[0] != "100" {
-		t.Errorf("added %q", r.states.added)
+	r.tt.Until("the add", func() bool { return len(r.states.addedIDs()) > 0 })
+	if got := r.states.addedIDs(); !slices.Equal(got, []string{"100"}) {
+		t.Errorf("added %q", got)
 	}
 	r.tt.Until("the library button to flip", r.tt.Shows("In library"))
+	r.enabled("Favourite Salt Flats")
 	r.click("Favourite Salt Flats")
-	r.tt.Until("the favourite", func() bool { return len(r.states.favored) > 0 })
+	r.tt.Until("the favourite", func() bool { return len(r.states.favoredIDs()) > 0 })
+	if got := r.states.favoredIDs(); !slices.Equal(got, []string{"100"}) {
+		t.Errorf("favourited %q", got)
+	}
 	r.tt.Until("the button to flip", r.tt.Shows("Undo favourite for Salt Flats"))
 }
 

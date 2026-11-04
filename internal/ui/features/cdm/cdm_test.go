@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 	"testing"
-	"time"
+	"testing/synctest"
 
 	"github.com/egoist/mygo/ui"
 
@@ -74,6 +74,10 @@ func TestNoticeWordsEachState(t *testing.T) {
 }
 
 func TestOnlyAStateVersionOrCodeChangeRefreshesDiagnostics(t *testing.T) {
+	synctest.Test(t, onlyAStateVersionOrCodeChangeRefreshesDiagnostics)
+}
+
+func onlyAStateVersionOrCodeChangeRefreshesDiagnostics(t *testing.T) {
 	r := newRig(t, true, uitest.Bare())
 	var fetches atomic.Int32
 	diag := func() {
@@ -91,9 +95,9 @@ func TestOnlyAStateVersionOrCodeChangeRefreshesDiagnostics(t *testing.T) {
 	for i := range 5 {
 		r.emit(services.CDMStatus{State: "downloading", Version: "1", Received: int64(10 + i), Total: 100})
 	}
-	time.Sleep(50 * time.Millisecond)
+	r.tt.Quiesce() // a refresh the steps started has run and posted by now
 	diag()
-	r.tt.Drain()
+	r.tt.Quiesce()
 	if n := fetches.Load(); n != 2 {
 		t.Errorf("progress steps refreshed the diagnostics: %d fetches", n)
 	}
@@ -106,11 +110,15 @@ func TestOnlyAStateVersionOrCodeChangeRefreshesDiagnostics(t *testing.T) {
 }
 
 func TestSnapshotFillsTheMirrorOnlyWhileEmpty(t *testing.T) {
+	synctest.Test(t, snapshotFillsTheMirrorOnlyWhileEmpty)
+}
+
+func snapshotFillsTheMirrorOnlyWhileEmpty(t *testing.T) {
 	h := uitest.New(t) // a real CDMService: no CDM engine, it reports nothing ("")
 	New(h.Env).Init()
 	want := services.CDMStatus{State: "failed", Code: "network"}
 	h.Bus.Emit(services.EventCDMStatus, want)
-	time.Sleep(50 * time.Millisecond) // the snapshot has long been posted behind it
+	synctest.Wait() // the snapshot is posted behind it
 	h.Main.Drain()
 	if got, ok := store.Peek[services.CDMStatus](h.Env.Queries, store.KeyCDM); !ok || got != want {
 		t.Errorf("mirror = %+v, %v; want the event's %+v", got, ok, want)

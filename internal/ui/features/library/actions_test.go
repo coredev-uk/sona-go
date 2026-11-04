@@ -563,6 +563,10 @@ func TestAddToLibraryCallsAddWithTheCatalogueIDAndRefreshesTheLists(t *testing.T
 }
 
 func TestDeleteAsksFirstAndCancelDoesNothing(t *testing.T) {
+	inBubble(t, deleteAsksFirstAndCancelDoesNothing)
+}
+
+func deleteAsksFirstAndCancelDoesNothing(t *testing.T) {
 	r, f := newActRig(t)
 	counts := actWatch(r, keyCounts)
 	item := kit.SongItem(actLibrarySong)
@@ -580,10 +584,7 @@ func TestDeleteAsksFirstAndCancelDoesNothing(t *testing.T) {
 	if err := r.tt.Click("Cancel"); err != nil {
 		t.Fatal(err)
 	}
-	for range 5 {
-		r.tt.Drain()
-		time.Sleep(5 * time.Millisecond)
-	}
+	r.tt.Quiesce()
 	if kit.ConfirmPending() || len(f.removals()) != 0 {
 		t.Errorf("cancel: pending %v, removals %v", kit.ConfirmPending(), f.removals())
 	}
@@ -645,6 +646,10 @@ func actSongs(n int, source services.Source) []kit.Item {
 }
 
 func TestBulkFavouriteSkipsWhatAlreadyIs(t *testing.T) {
+	inBubble(t, bulkFavouriteSkipsWhatAlreadyIs)
+}
+
+func bulkFavouriteSkipsWhatAlreadyIs(t *testing.T) {
 	r, f := newActRig(t)
 	items := actSongs(3, services.SourceCatalog)
 	f.setState("songs", services.ItemState{Kind: "songs", ID: "c-b", Rating: 1})
@@ -666,7 +671,7 @@ func TestBulkFavouriteSkipsWhatAlreadyIs(t *testing.T) {
 	if !slices.Equal(ids, []string{"c-a", "c-c"}) {
 		t.Errorf("favourited %v, want the two not yet favourite", ids)
 	}
-	time.Sleep(30 * time.Millisecond)
+	r.tt.Quiesce()
 	if n := len(f.favourited()); n != 2 {
 		t.Errorf("%d calls", n)
 	}
@@ -694,6 +699,10 @@ func TestBulkFavouriteSkipsWhatAlreadyIs(t *testing.T) {
 }
 
 func TestBulkFavouriteFailureNamesHowManyFailed(t *testing.T) {
+	inBubble(t, bulkFavouriteFailureNamesHowManyFailed)
+}
+
+func bulkFavouriteFailureNamesHowManyFailed(t *testing.T) {
 	r, f := newActRig(t)
 	items := actSongs(3, services.SourceCatalog)
 	f.failRate = map[string]error{"c-b": services.ErrNotReleased}
@@ -708,7 +717,7 @@ func TestBulkFavouriteFailureNamesHowManyFailed(t *testing.T) {
 	}
 
 	// The failed one is not retried.
-	time.Sleep(30 * time.Millisecond)
+	r.tt.Quiesce()
 	if n := len(f.favourited()); n != 3 {
 		t.Errorf("%d Favorite calls, want 3", n)
 	}
@@ -827,6 +836,10 @@ func TestItemStateEventWritesTheStateAndRefreshesFavourites(t *testing.T) {
 }
 
 func TestRowMenuOfASongOffersFavouriteAndRunsIt(t *testing.T) {
+	inBubble(t, rowMenuOfASongOffersFavouriteAndRunsIt)
+}
+
+func rowMenuOfASongOffersFavouriteAndRunsIt(t *testing.T) {
 	f := &actLib{}
 	r := newSongsRig(t, songsPath, func(l *library) {
 		f.libraryAPI = l.lib
@@ -840,10 +853,7 @@ func TestRowMenuOfASongOffersFavouriteAndRunsIt(t *testing.T) {
 	// The menu's data is one States call for the row, then the rating rows
 	// are enabled.
 	r.tt.Until("the state asked", func() bool { return len(f.stateCalls()) > 0 })
-	for range 5 { // the answer comes back through the Poster
-		r.tt.Drain()
-		time.Sleep(10 * time.Millisecond)
-	}
+	r.tt.Quiesce() // the answer comes back through the Poster
 	if err := r.tt.Click("Favourite"); err != nil {
 		t.Fatal(err)
 	}

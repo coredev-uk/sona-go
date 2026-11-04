@@ -126,12 +126,11 @@ func syncRig(t *testing.T, state string, api *syncAPI) *pageRig {
 	})
 }
 
-func TestSyncIndicatorNeedsAnAccount(t *testing.T) {
+func TestSyncIndicatorNeedsAnAccount(t *testing.T) { inBubble(t, syncIndicatorNeedsAnAccount) }
+
+func syncIndicatorNeedsAnAccount(t *testing.T) {
 	r := syncRig(t, "signed_out", &syncAPI{})
-	for i := 0; i < 20; i++ {
-		r.tt.Drain()
-		time.Sleep(5 * time.Millisecond)
-	}
+	r.tt.Quiesce()
 	for _, w := range []string{"Library not synced yet", "Sync now", "Synced"} {
 		if r.tt.HasText(w) {
 			t.Errorf("a signed-out sidebar shows %q", w)
@@ -185,6 +184,10 @@ func TestSyncIndicatorShowsTheLastSuccessFromGo(t *testing.T) {
 }
 
 func TestAStatusAnswerOvertakenByAnEventIsDropped(t *testing.T) {
+	inBubble(t, aStatusAnswerOvertakenByAnEventIsDropped)
+}
+
+func aStatusAnswerOvertakenByAnEventIsDropped(t *testing.T) {
 	api := &syncAPI{status: services.SyncStatus{Running: true}, release: make(chan struct{})}
 	r := syncRig(t, "signed_in", api)
 	// The first SyncStatus is in flight (blocked): the sync ends meanwhile.
@@ -196,10 +199,7 @@ func TestAStatusAnswerOvertakenByAnEventIsDropped(t *testing.T) {
 	r.h.Env.Bus.Emit(services.EventSyncDone, services.SyncDone{OK: true, FinishedAt: time.Now().UnixMilli()})
 	r.tt.Drain()
 	close(api.release)
-	for i := 0; i < 30; i++ {
-		r.tt.Drain()
-		time.Sleep(5 * time.Millisecond)
-	}
+	r.tt.Quiesce()
 	if running, _, _, _ := r.l.sync.state(); running {
 		t.Error("the answer sync:done overtook restarted the indicator")
 	}

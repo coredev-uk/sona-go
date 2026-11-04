@@ -194,26 +194,30 @@ var (
 // decoder for it, "hevc" where it has one for HEVC only, "" where it has
 // neither or lacks the MP4 demuxer or the parsers (no motion artwork).
 func Codec() string {
-	codecOnce.Do(func() {
-		for _, need := range []string{"qtdemux", "appsink", "decodebin", "videoconvert"} {
-			if !has(need) {
-				return
-			}
-		}
-		for _, codec := range []string{"avc", "hevc"} {
-			parser := map[string]string{"avc": "h264parse", "hevc": "h265parse"}[codec]
-			if !has(parser) {
-				continue
-			}
-			for _, name := range decoders[codec] {
-				if has(name) {
-					codecName = codec
-					return
-				}
-			}
-		}
-	})
+	codecOnce.Do(func() { codecName = pickCodec(has) })
 	return codecName
+}
+
+// pickCodec is Codec over has, the question "does GStreamer have this
+// element factory" (a test's answers, or the real one).
+func pickCodec(has func(factory string) bool) string {
+	for _, need := range []string{"qtdemux", "appsink", "decodebin", "videoconvert"} {
+		if !has(need) {
+			return ""
+		}
+	}
+	for _, codec := range []string{"avc", "hevc"} {
+		parser := map[string]string{"avc": "h264parse", "hevc": "h265parse"}[codec]
+		if !has(parser) {
+			continue
+		}
+		for _, name := range decoders[codec] {
+			if has(name) {
+				return codec
+			}
+		}
+	}
+	return ""
 }
 
 func has(factory string) bool {
