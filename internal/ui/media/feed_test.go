@@ -79,10 +79,16 @@ func TestFeedShowsPicturesFromTheSurface(t *testing.T) {
 		t.Errorf("black luma converted to %v", px)
 	}
 
-	// A new size gets a new image.
+	// A new size gets a new image. A picture of the old size may still be
+	// queued from the two shown above (CI saw one arrive here), so skip
+	// those.
 	s.Show(32, 24, 0, planes(32, 24, 128))
-	if p := wait(); p.Image.Bounds().Dx() != 32 {
-		t.Errorf("picture is %v", p.Image.Bounds())
+	p := wait()
+	for p.Image.Bounds().Dx() == 64 {
+		p = wait()
+	}
+	if b := p.Image.Bounds(); b.Dx() != 32 || b.Dy() != 24 {
+		t.Errorf("picture is %v", b)
 	}
 
 	// Cleared: the video ended.
