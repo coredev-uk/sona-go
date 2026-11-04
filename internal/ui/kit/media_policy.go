@@ -99,6 +99,19 @@ func NewMotionPolicy(bus *store.Bus, post store.Poster, o MotionOptions) *Motion
 	return p
 }
 
+// NewTestMotionPolicy is a policy for the tests of the features that build
+// motion covers: motion is allowed (the setting on, an "avc" decoder known, no
+// battery) and every motion file is opened by open instead of the motion
+// cache and GStreamer, so a test sees which URL and size a cover asked for.
+// post is the test's main thread (uitest's Main.Post); the caller closes the
+// policy.
+func NewTestMotionPolicy(post store.Poster, open func(ctx context.Context, urlPath string, px int) (*ui.VideoPlayer, error)) *MotionPolicy {
+	p := NewMotionPolicy(nil, post, MotionOptions{})
+	p.open = open
+	p.setCodec("avc")
+	return p
+}
+
 // Close stops following the power source and closes every decoder.
 func (p *MotionPolicy) Close() {
 	if p == nil {
