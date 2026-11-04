@@ -184,6 +184,7 @@ func newApp(opts Options, factories []module.Factory) *App {
 		overrides = opts.Settings.Get().Shortcuts
 	}
 	a.keys = newDispatcher(list, overrides)
+	a.env.Shortcuts = a.keys.bindings
 
 	i18n.SetPoster(post)
 	i18n.SetLogger(a.log)
@@ -329,6 +330,7 @@ func (a *App) followSettings() {
 	apply := func(s config.Settings) {
 		theme.SetMode(themeMode(s.Theme))
 		theme.SetReduceEffects(s.ReduceEffects)
+		a.keys.rebind(s.Shortcuts)
 		a.motionOn = s.MotionArtwork.Enabled
 	}
 	apply(a.opts.Settings.Get())
