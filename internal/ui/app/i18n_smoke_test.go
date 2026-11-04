@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/i18n/po"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
@@ -25,23 +26,18 @@ var smokePages = []string{
 }
 
 // smokeShell builds the shell with every real module over the synthetic
-// library at path, showing language, and draws it until it is quiet.
-//
-// The shell chooses its language from the settings and Apple's translations,
-// and neither reaches a pseudo locale or a language Sona has no text for: its
-// pending choice is made stale so that it cannot overwrite the one the test
-// sets.
+// library at path, with the Language setting at language (a pseudo locale
+// the shell shows as it is), and draws it until it is quiet.
 func smokeShell(t *testing.T, language, path string) *uitest.Session {
 	t.Helper()
 	h := uitest.New(t)
+	if _, err := h.Settings.Update(func(s *config.Settings) { s.Language = language }); err != nil {
+		t.Fatal(err)
+	}
 	a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Art: h.Art, Now: h.Clock.Now, StartPath: path}, factories)
 	t.Cleanup(func() { a.env.Art.Close(); a.env.Art.Wait() })
 	a.firstPaint = nil // the network stays closed
 	a.connect()
-	a.locale.mu.Lock()
-	a.locale.seq++
-	a.locale.mu.Unlock()
-	i18n.SetLocale(language)
 	tt := h.Tester(t, a.view, 1132, 800)
 	tt.Art = append(tt.Art, a.env.Art)
 	tt.Drain()

@@ -87,6 +87,7 @@ func (m *mini) head(c *ui.Context, s services.PlaybackState) {
 		ui.Column(c.Key("song")).Grow(1).Basis(0).MinWidth(0).Children(func() {
 			if cur == nil {
 				text(c.Key("title"), i18n.T("Not playing"), "body").FontWeight(600).TextColor(theme.C("ink-muted"))
+				// translators: Line of the small player when nothing is playing.
 				text(c.Key("artist"), i18n.T("Choose music in the main window"), "sub").TextColor(theme.C("ink-faint"))
 				return
 			}
@@ -104,6 +105,7 @@ func (m *mini) chrome(c *ui.Context, leading bool) {
 	ui.Row(c.Key("window")).Gap(2).Shrink(0).Margin(-2, 0, 0, 0).AlignItems(ui.Center).Role(ui.RoleGroup).Label(i18n.T("Window")).Children(func() {
 		open := func() {
 			if kit.Button(c.Key("expand"), "", kit.ButtonOpts{
+				// translators: Button of the small player: brings the main window back.
 				Variant: kit.Ghost, Size: kit.SizeXS, Icon: "app-window", Muted: true, A11yLabel: i18n.T("Open Sona"),
 			}).Clicked() {
 				m.expand()
@@ -111,6 +113,7 @@ func (m *mini) chrome(c *ui.Context, leading bool) {
 		}
 		closeBtn := func() {
 			if kit.Button(c.Key("close"), "", kit.ButtonOpts{
+				// translators: Button of the small player: closes it. Sentence case, unlike the tray's "Close Mini Player".
 				Variant: kit.Ghost, Size: kit.SizeXS, Icon: "x", Muted: true, A11yLabel: i18n.T("Close mini player"),
 			}).Clicked() {
 				m.close()
@@ -141,8 +144,10 @@ func (m *mini) third(c *ui.Context, s services.PlaybackState) {
 	}
 	switch {
 	case s.AuthRequired:
+		// translators: Line under the title of the small player when playback stopped because Apple Music needs a new sign-in.
 		line = i18n.T("Sign in again in Sona to keep playing")
 	case s.NoCDM:
+		// translators: Line under the title of the small player while the Widevine decryption module (needed to play Apple Music) downloads.
 		line = i18n.T("Waiting for Widevine: see Settings → Playback in Sona")
 	case s.State == store.StateError && s.Error != "" && cur != nil && cur.Video:
 		line = i18n.T("Couldn't play this video.")

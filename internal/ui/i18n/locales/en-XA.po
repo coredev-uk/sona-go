@@ -328,6 +328,10 @@ msgstr ""
 msgid "Apple Music"
 msgstr ""
 
+#: internal/ui/app/banner.go
+msgid "Apple Music asked Sona to sign in again. Your library is still here."
+msgstr ""
+
 #: internal/ui/features/song/page.go
 msgid "Apple Music has no credits or lyrics for this song."
 msgstr ""
@@ -359,6 +363,11 @@ msgstr ""
 #: internal/ui/account/section.go
 #: internal/ui/features/auth/menu.go
 msgid "Apple Music isn't accepting Sona's requests"
+msgstr ""
+
+#. Banner: Apple Music rejected Sona's requests (its developer token is not accepted); not the user's fault.
+#: internal/ui/app/banner.go
+msgid "Apple Music isn't accepting Sona's requests."
 msgstr ""
 
 #: internal/ui/account/signin.go
@@ -487,6 +496,10 @@ msgstr ""
 msgid "Apple's sign-in page is open in your browser. Sona continues by itself when you're done."
 msgstr ""
 
+#: internal/ui/features/settings/desktop.go
+msgid "Applies the next time Sona starts."
+msgstr ""
+
 #: internal/ui/features/artist/artist.go
 #: internal/ui/features/artist/artist_module.go
 #: internal/ui/features/artist/viewpage.go
@@ -588,6 +601,7 @@ msgid "AutoPlay on: similar music plays when the queue ends"
 msgstr ""
 
 #: internal/ui/features/onboarding/welcome.go
+#: internal/ui/features/settings/desktop.go
 #: internal/ui/features/settings/language.go
 msgid "Automatic"
 msgstr ""
@@ -598,6 +612,22 @@ msgstr ""
 
 #: internal/ui/features/settings/language.go
 msgid "Automatic follows your Apple Music account and your system. Apple Music's own text, such as album notes, follows too where your country or region offers the language."
+msgstr ""
+
+#: internal/ui/features/settings/desktop.go
+msgid "Automatic leaves the title bar to your desktop, which Sona doesn't recognise."
+msgstr ""
+
+#: internal/ui/features/settings/desktop.go
+msgid "Automatic leaves the title bar to {desktop}."
+msgstr ""
+
+#: internal/ui/features/settings/desktop.go
+msgid "Automatic uses Sona's title bar on {desktop}, with the window buttons where your desktop puts them."
+msgstr ""
+
+#: internal/ui/features/settings/desktop.go
+msgid "Automatic uses Sona's title bar, with the window buttons where your system puts them."
 msgstr ""
 
 #: internal/ui/features/settings/devtools.go
@@ -806,6 +836,11 @@ msgstr ""
 msgid "Choose dates…"
 msgstr ""
 
+#. Line of the small player when nothing is playing.
+#: internal/ui/features/miniplayer/view.go
+msgid "Choose music in the main window"
+msgstr ""
+
 #: internal/ui/account/code.go
 msgid "Choose one of the trusted phone numbers on this Apple Account."
 msgstr ""
@@ -852,6 +887,16 @@ msgstr ""
 #: internal/ui/kit/overlays_dialog.go
 #: internal/ui/kit/overlays_palette.go
 msgid "Close"
+msgstr ""
+
+#. Tray menu item, shown instead of "Mini Player" while the small always-on-top player is open. Menu items are in title case.
+#: internal/ui/app/tray.go
+msgid "Close Mini Player"
+msgstr ""
+
+#. Button of the small player: closes it. Sentence case, unlike the tray's "Close Mini Player".
+#: internal/ui/features/miniplayer/view.go
+msgid "Close mini player"
 msgstr ""
 
 #: internal/ui/features/player/bar.go
@@ -1123,6 +1168,7 @@ msgstr ""
 msgid "Couldn't get a sign-in link"
 msgstr ""
 
+#: internal/ui/features/miniplayer/commands.go
 #: internal/ui/features/player/player.go
 #: internal/ui/features/video/video.go
 msgid "Couldn't go back"
@@ -1350,6 +1396,7 @@ msgstr ""
 msgid "Couldn't pin “{name}”"
 msgstr ""
 
+#: internal/ui/features/miniplayer/commands.go
 #: internal/ui/features/player/player.go
 #: internal/ui/features/video/video.go
 msgid "Couldn't play or pause"
@@ -1359,6 +1406,7 @@ msgstr ""
 msgid "Couldn't play that song"
 msgstr ""
 
+#: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
 msgid "Couldn't play this song. Press play to try again."
 msgstr ""
@@ -1372,6 +1420,7 @@ msgstr ""
 msgid "Couldn't play this video"
 msgstr ""
 
+#: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
 msgid "Couldn't play this video."
 msgstr ""
@@ -1524,6 +1573,7 @@ msgstr ""
 msgid "Couldn't search your library"
 msgstr ""
 
+#: internal/ui/features/miniplayer/commands.go
 #: internal/ui/features/player/player.go
 #: internal/ui/features/video/video.go
 msgid "Couldn't seek"
@@ -1541,6 +1591,7 @@ msgstr ""
 msgid "Couldn't sign out"
 msgstr ""
 
+#: internal/ui/features/miniplayer/commands.go
 #: internal/ui/features/player/player.go
 #: internal/ui/features/video/video.go
 msgid "Couldn't skip"
@@ -1648,6 +1699,11 @@ msgstr ""
 
 #: internal/ui/features/playlist/dialogs.go
 msgid "Current"
+msgstr ""
+
+#. Read by screen readers after the name of the sidebar link of the page that is open (the equivalent of aria-current).
+#: internal/ui/app/view.go
+msgid "Current page"
 msgstr ""
 
 #: internal/ui/features/equalizer/page.go
@@ -1768,6 +1824,7 @@ msgstr ""
 msgid "Development build ({current}): not checked for updates"
 msgstr ""
 
+#: internal/ui/app/banner.go
 #: internal/ui/features/settings/find.go
 msgid "Diagnostics"
 msgstr ""
@@ -2656,6 +2713,7 @@ msgstr ""
 msgid "Listening"
 msgstr ""
 
+#: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/player/nowplaying_view.go
 msgid "Live"
@@ -2674,6 +2732,7 @@ msgstr ""
 msgid "Live now"
 msgstr ""
 
+#: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/queue_summary.go
 #: internal/ui/features/radio/schedule.go
 #: internal/ui/features/search/groups.go
@@ -2813,6 +2872,15 @@ msgstr ""
 msgid "Mains power (no battery powers this computer)"
 msgstr ""
 
+#. Tray menu items: "Show Sona" brings the main window back, "Mini Player" opens the small always-on-top player, "Quit Sona" exits. Menu items are in title case.
+#: internal/ui/app/tray.go
+msgid "Mini Player"
+msgstr ""
+
+#: internal/ui/features/miniplayer/miniplayer.go
+msgid "Mini player"
+msgstr ""
+
 #: internal/ui/features/album/sections.go
 #: internal/ui/features/song/page.go
 #: internal/ui/features/video/page.go
@@ -2929,6 +2997,7 @@ msgid "Music User Token"
 msgstr ""
 
 #: internal/ui/features/home/catalogue.go
+#: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/queue_row.go
 #: internal/ui/features/search/groups.go
 #: internal/ui/features/video/page.go
@@ -3039,6 +3108,8 @@ msgstr ""
 msgid "Newest first"
 msgstr ""
 
+#: internal/ui/app/tray.go
+#: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/video/view.go
 msgid "Next"
@@ -3284,12 +3355,10 @@ msgstr ""
 msgid "Not available on {platform} yet."
 msgstr ""
 
-#: internal/ui/features/player/availability.go
 #: internal/ui/kit/playerqueue_commands.go
 msgid "Not available while listening to a live station"
 msgstr ""
 
-#: internal/ui/features/player/availability.go
 #: internal/ui/kit/playerqueue_commands.go
 msgid "Not available while listening to a station"
 msgstr ""
@@ -3324,6 +3393,8 @@ msgstr ""
 msgid "Not on this platform yet: {missingList}."
 msgstr ""
 
+#: internal/ui/app/tray.go
+#: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
 msgid "Not playing"
 msgstr ""
@@ -3438,20 +3509,20 @@ msgid "Now playing"
 msgstr ""
 
 #. Said by screen readers when a song starts. A preview is Apple Music's 30-second clip of the song, not the full song.
-#: internal/ui/features/player/announcer.go
+#: internal/ui/kit/playerqueue_announce.go
 msgid "Now playing a preview: {name}"
 msgstr ""
 
 #. Said by screen readers when a song starts. A preview is Apple Music's 30-second clip of the song, not the full song.
-#: internal/ui/features/player/announcer.go
+#: internal/ui/kit/playerqueue_announce.go
 msgid "Now playing a preview: {name} by {artist}"
 msgstr ""
 
-#: internal/ui/features/player/announcer.go
+#: internal/ui/kit/playerqueue_announce.go
 msgid "Now playing: {name}"
 msgstr ""
 
-#: internal/ui/features/player/announcer.go
+#: internal/ui/kit/playerqueue_announce.go
 msgid "Now playing: {name} by {artist}"
 msgstr ""
 
@@ -3487,6 +3558,11 @@ msgstr ""
 
 #: internal/ui/features/settings/motiondiag.go
 msgid "Off: your system asks apps to reduce motion"
+msgstr ""
+
+#. Banner while Apple Music cannot be reached: the library shown is the copy kept on this computer.
+#: internal/ui/app/banner.go
+msgid "Offline. Showing your library from this computer; Sona reconnects by itself."
 msgstr ""
 
 #. In the account menu while Apple can't be reached
@@ -3556,6 +3632,11 @@ msgstr ""
 msgid "Open"
 msgstr ""
 
+#. Button of the small player: brings the main window back.
+#: internal/ui/features/miniplayer/view.go
+msgid "Open Sona"
+msgstr ""
+
 #: internal/ui/features/settings/audio.go
 msgid "Open equaliser"
 msgstr ""
@@ -3602,6 +3683,10 @@ msgstr ""
 
 #: internal/ui/features/settings/summaries.go
 msgid "Opens on {page}"
+msgstr ""
+
+#: internal/ui/features/settings/summaries.go
+msgid "Opens where you left off"
 msgstr ""
 
 #: internal/ui/features/playlist/dialogs.go
@@ -3671,6 +3756,8 @@ msgstr ""
 msgid "Paste your user token first."
 msgstr ""
 
+#: internal/ui/app/tray.go
+#: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/radio/onair.go
 #: internal/ui/features/video/view.go
@@ -3764,7 +3851,9 @@ msgstr ""
 msgid "Platform"
 msgstr ""
 
+#: internal/ui/app/tray.go
 #: internal/ui/features/home/rows.go
+#: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/player/queue_menu.go
 #: internal/ui/features/playlist/sidebar.go
@@ -4027,6 +4116,8 @@ msgctxt "a song playing as its 30-second preview"
 msgid "Preview"
 msgstr ""
 
+#: internal/ui/app/tray.go
+#: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/video/view.go
 msgid "Previous"
@@ -4054,6 +4145,7 @@ msgstr ""
 #. Apple Music's own name for the mode: plays aren't reported to Apple, so they don't shape recommendations or Replay.
 #. Setting name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
 #. Switch name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
+#: internal/ui/app/tray.go
 #: internal/ui/features/auth/menu.go
 #: internal/ui/features/onboarding/playback.go
 #: internal/ui/features/private/private.go
@@ -4064,11 +4156,13 @@ msgid "Private listening"
 msgstr ""
 
 #. A development build of Sona, not a release
+#: internal/ui/app/tray.go
 #: internal/ui/features/private/private.go
 msgid "Private listening (development build)"
 msgstr ""
 
 #. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'. SONA_PRIVATE=1 is an environment variable, keep as is.
+#: internal/ui/app/tray.go
 #: internal/ui/features/private/private.go
 msgid "Private listening (forced by SONA_PRIVATE=1)"
 msgstr ""
@@ -4134,6 +4228,8 @@ msgstr ""
 msgid "Queue replaced"
 msgstr ""
 
+#. Tray menu items: "Show Sona" brings the main window back, "Mini Player" opens the small always-on-top player, "Quit Sona" exits. Menu items are in title case.
+#: internal/ui/app/tray.go
 #: internal/ui/features/onboarding/desktop.go
 #: internal/ui/features/settings/desktop.go
 msgid "Quit Sona"
@@ -4457,6 +4553,7 @@ msgid "Saved as {file}."
 msgstr ""
 
 #: internal/ui/account/signedin.go
+#: internal/ui/app/banner.go
 #: internal/ui/features/auth/menu.go
 msgid "Saving your sign-in in your keyring; unlock it if it asks."
 msgstr ""
@@ -4540,6 +4637,7 @@ msgstr ""
 msgid "See all"
 msgstr ""
 
+#: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/video/view.go
 msgid "Seek"
@@ -4622,6 +4720,11 @@ msgstr ""
 
 #: internal/ui/features/settings/bugreport.go
 msgid "Show"
+msgstr ""
+
+#. Tray menu items: "Show Sona" brings the main window back, "Mini Player" opens the small always-on-top player, "Quit Sona" exits. Menu items are in title case.
+#: internal/ui/app/tray.go
+msgid "Show Sona"
 msgstr ""
 
 #: internal/ui/kit/collections_shelf.go
@@ -4709,6 +4812,11 @@ msgstr ""
 msgid "Show or hide the video"
 msgstr ""
 
+#. Command in the command palette and the shortcut help.
+#: internal/ui/features/miniplayer/miniplayer.go
+msgid "Show the mini player"
+msgstr ""
+
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/player/nowplaying_view.go
 msgid "Show video"
@@ -4772,6 +4880,7 @@ msgid "Shuffle on or off"
 msgstr ""
 
 #: internal/ui/account/credentials.go
+#: internal/ui/app/banner.go
 #: internal/ui/features/auth/menu.go
 #: internal/ui/features/home/lead.go
 #: internal/ui/features/library/gate.go
@@ -4780,6 +4889,11 @@ msgstr ""
 #: internal/ui/features/search/page.go
 #: internal/ui/kit/controls_states.go
 msgid "Sign in"
+msgstr ""
+
+#. Line under the title of the small player when playback stopped because Apple Music needs a new sign-in.
+#: internal/ui/features/miniplayer/view.go
+msgid "Sign in again in Sona to keep playing"
 msgstr ""
 
 #: internal/ui/features/player/bar.go
@@ -4892,6 +5006,11 @@ msgstr ""
 #: internal/ui/account/keyring.go
 #: internal/ui/features/auth/menu.go
 msgid "Signing in…"
+msgstr ""
+
+#. Banner above the pages while the sign-in is read from the system keyring (GNOME Keyring, KWallet or the macOS keychain).
+#: internal/ui/app/banner.go
+msgid "Signing in… Sona is waiting for your keyring; unlock it if it asks."
 msgstr ""
 
 #: internal/ui/account/signedin.go
@@ -5056,6 +5175,11 @@ msgstr ""
 msgid "Sona couldn't read your sign-in from your keyring"
 msgstr ""
 
+#. Banner: the system keyring could not be read, so the user has to sign in to Apple Music again.
+#: internal/ui/app/banner.go
+msgid "Sona couldn't read your sign-in from your keyring, so you're signed out."
+msgstr ""
+
 #: internal/ui/i18n/cdm.go
 msgid "Sona couldn't save Widevine on this computer. Make sure there's free disk space, then try again."
 msgstr ""
@@ -5094,6 +5218,13 @@ msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "Sona loads the CDM only inside its sandbox, which keeps it off the network, and the sandbox could not be set up. Only 30-second previews play."
+msgstr ""
+
+#. Title of the small always-on-top player window, read by window lists and screen readers.
+#: internal/ui/app/app.go
+#: internal/ui/app/shell.go
+#: internal/ui/features/miniplayer/view.go
+msgid "Sona mini player"
 msgstr ""
 
 #: internal/ui/i18n/errors.go
@@ -5162,7 +5293,11 @@ msgid "Sona {latest} is available"
 msgstr ""
 
 #: internal/ui/features/settings/desktop.go
-msgid "Sona's own title bar comes with a later version: the desktop draws it."
+msgid "Sona's, with window buttons"
+msgstr ""
+
+#: internal/ui/features/settings/desktop.go
+msgid "Sona's, without window buttons"
 msgstr ""
 
 #: internal/ui/features/commands/palette.go
@@ -5564,6 +5699,10 @@ msgstr ""
 msgid "The database was already compact"
 msgstr ""
 
+#: internal/ui/features/settings/desktop.go
+msgid "The desktop's"
+msgstr ""
+
 #: internal/ui/i18n/cdm.go
 msgid "The download isn't signed by Google, so Sona deleted it. Try again later."
 msgstr ""
@@ -5618,6 +5757,10 @@ msgstr ""
 
 #: internal/ui/features/settings/general.go
 msgid "The page Sona shows when it starts. Your queue is always kept."
+msgstr ""
+
+#: internal/ui/features/settings/general.go
+msgid "The page you were last on"
 msgstr ""
 
 #: internal/ui/features/player/queue_list.go
@@ -6174,6 +6317,11 @@ msgstr ""
 msgid "Waiting for Widevine to download · {percent}"
 msgstr ""
 
+#. Line under the title of the small player while the Widevine decryption module (needed to play Apple Music) downloads.
+#: internal/ui/features/miniplayer/view.go
+msgid "Waiting for Widevine: see Settings → Playback in Sona"
+msgstr ""
+
 #: internal/ui/features/settings/diagnostics.go
 msgid "Warning"
 msgstr ""
@@ -6278,6 +6426,7 @@ msgstr ""
 msgid "Widevine {version} is ready"
 msgstr ""
 
+#: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/general.go
 #: internal/ui/features/settings/motiondiag.go
@@ -6522,6 +6671,10 @@ msgstr ""
 msgid "bug report"
 msgstr ""
 
+#: internal/ui/features/miniplayer/miniplayer.go
+msgid "compact small window"
+msgstr ""
+
 #: internal/ui/features/player/nowplaying_shortcuts.go
 msgid "cover artwork full"
 msgstr ""
@@ -6660,6 +6813,10 @@ msgstr ""
 
 #: internal/ui/features/player/shortcuts.go
 msgid "seek rewind"
+msgstr ""
+
+#: internal/ui/features/miniplayer/commands.go
+msgid "sign in to Apple Music in Sona"
 msgstr ""
 
 #: internal/ui/features/player/shortcuts.go
@@ -6821,6 +6978,7 @@ msgstr ""
 msgid "{artworkUsed} of {artworkLimit}"
 msgstr ""
 
+#: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/video/view.go
 msgid "{at} of {total}"
 msgstr ""
