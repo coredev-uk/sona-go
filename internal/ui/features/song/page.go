@@ -51,7 +51,7 @@ func (s *song) songPage(c *ui.Context, r *ui.Route) {
 	}
 	q := store.Use(s.env.Queries, keySongPage(id), func(ctx context.Context) (services.CatalogSong, error) {
 		return s.catalog.SongPage(ctx, id)
-	})
+	}, store.Options{Stale: store.Forever})
 
 	tk := theme.Current()
 	ww, _ := c.Size()
@@ -276,7 +276,7 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 	if pg.full && (pg.lyricsErr == nil || pg.retrying) {
 		full = store.Use(s.env.Queries, keyLyrics(id), func(ctx context.Context) (services.Lyrics, error) {
 			return s.lyrics.Lyrics(ctx, id)
-		})
+		}, store.Options{Stale: store.Forever})
 		switch {
 		case full.HasData:
 			pg.lyricsErr, pg.retrying = nil, false

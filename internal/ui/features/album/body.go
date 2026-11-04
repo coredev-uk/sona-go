@@ -255,13 +255,14 @@ func (a *album) actions(c *ui.Context, m *model, account bool) {
 	item := kit.StateOfAlbum(al)
 	from := services.PlayFrom{Kind: "album", ID: al.ID}
 	if m.upcoming {
-		// Not out yet: Play takes the songs already out; Apple's pre-add
-		// while signed in. (The reminder is the reminders module's.)
+		// Not out yet: Play takes the songs already out, then Remind me, then
+		// Apple's pre-add while signed in.
 		if m.songsOut > 0 {
 			if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{PlayLabel: m.playOutLabel()}); play {
 				a.queue.PlaySongs(m.list, 0, from)
 			}
 		}
+		kit.RemindButton(c, a.env.Queries, a.env.Core, al)
 		if account {
 			a.states.LibraryButton(c, kit.StateAlbums, item, al.Name, i18n.T("Pre-add"))
 		}
