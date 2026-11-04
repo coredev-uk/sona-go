@@ -70,6 +70,12 @@ type Env struct {
 	Log            *slog.Logger
 	Version        string
 	Dev            bool // a -tags dev build
+	// Shortcuts lists every registered shortcut (every module's, the
+	// navigation ones and the shell's) with the keys it answers to now:
+	// the user's rebinding (config.Settings.Shortcuts, by ID) or its
+	// defaults. Settings → Shortcuts and the help list them. Set by the
+	// app before any module's Init; nil without a shell (tests).
+	Shortcuts func() []BoundShortcut
 }
 
 // Point is a place in one feature's view other modules build into, the
@@ -167,6 +173,13 @@ type Shortcut struct {
 	Repeat      bool
 	NoPalette   bool
 	Run         func()
+}
+
+// BoundShortcut is a registered shortcut with the keys it answers to now
+// (Shortcut.Keys is its default).
+type BoundShortcut struct {
+	Shortcut
+	Keys []string // effective: the user's binding, else the defaults; nil for none
 }
 
 // Slots are places in the shell a module builds into. Every func builds

@@ -7401,3 +7401,60 @@ msgstr ""
 #: src/features/auth/AccountMenu.tsx
 msgid "Your token is stored unencrypted"
 msgstr ""
+
+#: internal/ui/features/settings/devtools.go
+msgid "Available in development builds started with SONA_INSPECTOR=1."
+msgstr ""
+
+#: internal/ui/features/settings/devtools.go
+msgid "Couldn't open the inspector"
+msgstr ""
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Install gst-libav (avdec_h264) and gst-plugins-bad (h264parse) for GStreamer, then restart Sona."
+msgstr ""
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Off: Sona can't decode Apple's videos"
+msgstr ""
+
+#: internal/ui/features/settings/devtools.go
+#: internal/ui/features/settings/find.go
+msgid "Open the inspector"
+msgstr ""
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Played"
+msgstr ""
+
+#: internal/ui/features/settings/devtools.go
+msgid "Shows the inspector of Sona's window: its elements and what each one draws, for debugging and for writing plugins."
+msgstr ""
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Sona couldn't play it"
+msgstr ""
+
+#: internal/ui/features/settings/find.go
+msgid "devtools, console, inspect element, debug"
+msgstr ""
+
+#: internal/ui/features/settings/updates.go
+msgid "yesterday"
+msgstr ""
+
+#: internal/ui/features/settings/cdm.go
+msgid "{days, plural, one {# day ago} other {# days ago}}"
+msgstr ""
+
+#: internal/ui/features/settings/desktop.go
+msgid "Sona's own title bar comes with a later version: the desktop draws it."
+msgstr ""
+
+#: internal/ui/i18n/relative.go
+msgid "{hours, plural, one {# hr. ago} other {# hr. ago}}"
+msgstr ""
+
+#: internal/ui/i18n/relative.go
+msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
+msgstr ""

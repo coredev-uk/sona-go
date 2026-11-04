@@ -8,6 +8,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/player"
 	"github.com/coredev-uk/sona-go/internal/ui/features/private"
 	"github.com/coredev-uk/sona-go/internal/ui/features/reminders"
+	"github.com/coredev-uk/sona-go/internal/ui/features/settings"
 	"github.com/coredev-uk/sona-go/internal/ui/features/updates"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
@@ -26,4 +27,5 @@ var factories = []module.Factory{
 	cdm.New,        // the Widevine mirror and the player bar's notice
 	reminders.New,  // release reminders' album action
 	onboarding.New, // the first-run setup layer
+	settings.New,   // the settings page
 }

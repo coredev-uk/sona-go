@@ -192,6 +192,62 @@ func TestSidebarToggleAndCustomChord(t *testing.T) {
 	}
 }
 
+// A rebinding saved while the app runs applies at once, and Env.Shortcuts
+// lists every registered shortcut with the keys it answers to now.
+func TestRebindingAppliesLiveAndEnvListsEffectiveKeys(t *testing.T) {
+	s, err := config.OpenStore(filepath.Join(t.TempDir(), "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, tt := newShell(t, Options{Settings: s}, pageModule("a",
+		pageDef{"/albums", "Albums", module.NavPrimary, 1},
+		pageDef{"/songs", "Songs", module.NavPrimary, 2},
+	))
+	tt.Frame()
+	keysOfID := func(id string) ([]string, bool) {
+		for _, b := range a.env.Shortcuts() {
+			if b.ID == id {
+				return b.Keys, true
+			}
+		}
+		return nil, false
+	}
+	if k, ok := keysOfID("nav.songs"); !ok || !slices.Equal(k, []string{"Ctrl+2"}) {
+		t.Fatalf("default keys of nav.songs = %v, %v", k, ok)
+	}
+	if _, ok := keysOfID("shell.sidebar"); !ok {
+		t.Error("the shell's own shortcut is not listed")
+	}
+	next := s.Get()
+	next.Shortcuts = config.Shortcuts{"nav.songs": "Ctrl+K", "shell.sidebar": "none"}
+	a.env.Bus.Emit(services.EventSettingsChanged, next)
+	if k, _ := keysOfID("nav.songs"); !slices.Equal(k, []string{"Ctrl+K"}) {
+		t.Errorf("rebound keys = %v", k)
+	}
+	if k, _ := keysOfID("shell.sidebar"); k != nil {
+		t.Errorf(`"none" keys = %v`, k)
+	}
+	tt.Key(ui.Ctrl, ui.Key2)
+	if a.router.Path() == "/songs" {
+		t.Error("the replaced default chord still navigates")
+	}
+	tt.Key(ui.Ctrl, ui.KeyK)
+	if a.router.Path() != "/songs" {
+		t.Errorf("the new chord does not navigate: %q", a.router.Path())
+	}
+	tt.Key(ui.Ctrl, ui.KeyB)
+	if !tt.HasText("Sona") {
+		t.Error("an unbound Ctrl+B hid the sidebar")
+	}
+	// Back to defaults.
+	next.Shortcuts = config.Shortcuts{}
+	a.env.Bus.Emit(services.EventSettingsChanged, next)
+	tt.Key(ui.Ctrl, ui.KeyB)
+	if tt.HasText("Sona") {
+		t.Error("the default Ctrl+B did not come back")
+	}
+}
+
 func TestSlotsBuildWhenModulesHaveThem(t *testing.T) {
 	open := false
 	f := func(*module.Env) module.Module {
@@ -237,6 +293,7 @@ func TestParseChord(t *testing.T) {
 		{"Alt+1", chord{ui.Alt, ui.Key1}, true},
 		{"[", chord{0, ui.KeyBracketLeft}, true},
 		{"Ctrl+Shift+L", chord{ui.Ctrl | ui.Shift, ui.KeyL}, true},
+		{"?", chord{ui.Shift, ui.KeySlash}, true},
 		{"Ctrl+Ctrl+K", chord{}, false},
 		{"Hyper+K", chord{}, false},
 		{"", chord{}, false},

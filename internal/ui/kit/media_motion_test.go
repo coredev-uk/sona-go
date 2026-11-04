@@ -645,6 +645,26 @@ func TestMotionPolicyProbesTheDecoderOffTheMainThread(t *testing.T) {
 	}
 }
 
+func TestMotionPolicyProbedIsFalseUntilTheProbeAnswers(t *testing.T) {
+	mt := newMainThread()
+	gate := make(chan struct{})
+	p := NewMotionPolicy(nil, mt.post, MotionOptions{Files: mediaMotionFiles{}})
+	p.probe = func() string { <-gate; return "" }
+	defer p.Close()
+	if p.Probed() {
+		t.Error("probed before the probe answered")
+	}
+	close(gate)
+	mt.run(t, 1)
+	if !p.Probed() {
+		t.Error("not probed after the answer, even a negative one")
+	}
+	var n *MotionPolicy
+	if n.Probed() {
+		t.Error("a nil policy is probed")
+	}
+}
+
 func TestMotionPolicySweepEndsWithTheLastSlotAndSleepsWhileHidden(t *testing.T) {
 	sweeping := func(p *MotionPolicy) bool {
 		p.mu.Lock()

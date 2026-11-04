@@ -190,6 +190,8 @@ type ConfirmOptions struct {
 	// Destructive styles the confirming button as destructive (outline in
 	// --danger).
 	Destructive bool
+	// CancelLabel words the cancelling button; "" is "Cancel".
+	CancelLabel string
 }
 
 type confirmRequest struct {
@@ -245,7 +247,11 @@ func ConfirmHost(c *ui.Context) {
 		Title: p.Title, Description: p.Body, MaxWidth: 420, Padding: 20, Gap: 20, HideClose: true, Alert: true, Compact: true,
 	}, func() {
 		ui.Row(c.Key("confirm:buttons")).Gap(8).Justify(ui.End).FillWidth().Children(func() {
-			if Button(c.Key("confirm:cancel"), i18n.T("Cancel"), ButtonOpts{Variant: Outline, Size: SizeSM}).Clicked() {
+			cancel := p.CancelLabel
+			if cancel == "" {
+				cancel = i18n.T("Cancel")
+			}
+			if Button(c.Key("confirm:cancel"), cancel, ButtonOpts{Variant: Outline, Size: SizeSM}).Clicked() {
 				settleConfirm(false)
 			}
 			v := Default
