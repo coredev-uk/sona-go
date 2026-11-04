@@ -66,8 +66,10 @@ func TestSmoke(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if want := first.Artist + " · " + first.Name; !bar.HasText(want) {
-			t.Errorf("the bar does not show %q: %v", want, bar.Labels(""))
+		// Artist and album are separate links once their pages exist.
+		shown := strings.Join(bar.Labels(""), " ")
+		if !strings.Contains(shown, first.Artist) || !strings.Contains(shown, first.Name) {
+			t.Errorf("the bar does not show %q and %q: %v", first.Artist, first.Name, bar.Labels(""))
 		}
 	})
 

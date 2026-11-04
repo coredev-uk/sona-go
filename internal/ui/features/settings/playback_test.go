@@ -362,10 +362,15 @@ func TestIdleMinutesAreSavedAndAnUnlistedValueIsAdded(t *testing.T) {
 	if _, err := p.h.Settings.Update(func(s *config.Settings) { s.EngineIdleMinutes = 7 }); err != nil {
 		t.Fatal(err)
 	}
-	store.Set(p.h.Env.Queries, store.KeySettings, p.h.Settings.Get())
+	// As Go tells the UI of a change it made itself (after the save above
+	// has come back, so its echo can't overwrite this one).
+	p.tt.Drain()
+	p.h.Bus.Emit(services.EventSettingsChanged, p.h.Settings.Get())
 	p.shows("After 7 minutes")
-	p.focus("Free memory when idle")
-	p.tt.Key(0, ui.KeyEnter)
+	// Open the list from its trigger, which now reads the unlisted value.
+	if err := p.tt.Click("After 7 minutes"); err != nil {
+		t.Fatal(err)
+	}
 	p.shows("After 5 minutes", "After 15 minutes")
 }
 
