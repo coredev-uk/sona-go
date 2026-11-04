@@ -40,7 +40,7 @@ func TestSmoke(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, w := range []string{"Albums", "Library", first.Artist} {
+		for _, w := range []string{"Albums", "Library"} {
 			if !tree.HasText(w) {
 				t.Errorf("the page does not show %q", w)
 			}

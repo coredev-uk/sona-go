@@ -7401,3 +7401,23 @@ msgstr ""
 #: src/features/auth/AccountMenu.tsx
 msgid "Your token is stored unencrypted"
 msgstr ""
+
+#: internal/ui/features/library/artists.go
+msgid "Nothing by {name} is in your library yet."
+msgstr ""
+
+#: internal/ui/features/library/sync.go
+msgid "yesterday"
+msgstr ""
+
+#: internal/ui/features/library/sync.go
+msgid "{days, plural, one {# day ago} other {# days ago}}"
+msgstr ""
+
+#: internal/ui/features/library/sync.go
+msgid "{hours, plural, one {# hr. ago} other {# hr. ago}}"
+msgstr ""
+
+#: internal/ui/features/library/sync.go
+msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
+msgstr ""

@@ -269,6 +269,17 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i int, si
 				w.Opacity(0.5).Tooltip(i18n.T("Explicit content is restricted on this account"))
 			}
 		},
+		After: func(w, s ui.Element) {
+			// The play control and the more button are elements of their own,
+			// beside the opener: a button or a link is a leaf for assistive
+			// technology, so inside it they would not be on its tree.
+			hot := w.Hovered() || w.FocusWithin()
+			st.playControl(c, it, artH, hot, withheld)
+			if it.Item != nil && o.Menus != nil {
+				o.Menus.Trigger(c.Key("more"), ActionTarget{Item: *it.Item, Name: it.Title, Container: o.Container, Key: it.Key},
+					TriggerOpts{Visible: hot}).Absolute().Right(0).Top(artH + 6)
+			}
+		},
 		Source: func(s ui.Element) {
 			s.Column().Label(opener).Radius(tk.Radius["sm"])
 			if it.PlaysOnOpen || it.Open == nil {
@@ -327,11 +338,7 @@ func (st *CoverState) cover(c *ui.Context, o *CoverOpts, it *CoverItem, size, ar
 		}
 		switch {
 		case it.Play != nil && !withheld:
-			play := PlayButton(c.Key("play"), i18n.T("Play {playLabel}", "playLabel", it.Play.Label), 36).Absolute().Left(8).Bottom(8)
-			collectionsFade(play, hot || play.Focused())
-			if play.Clicked() {
-				it.Play.Run()
-			}
+			// The play control is built beside the tile (playControl).
 		case it.PlaysOnOpen && !withheld:
 			mark := ui.Row(c.Key("mark")).Absolute().Left(8).Bottom(8).Size(36, 36).Center().
 				Radius(tk.Radius["full"]).Background(theme.C("play")).IgnoreInput(true)
@@ -373,10 +380,25 @@ func (st *CoverState) titleRow(c *ui.Context, o *CoverOpts, it *CoverItem, hover
 			ui.Box(c).Grow(1)
 		}
 		if it.Item != nil && o.Menus != nil {
-			o.Menus.Trigger(c.Key("more"), ActionTarget{Item: *it.Item, Name: it.Title, Container: o.Container, Key: it.Key},
-				TriggerOpts{Visible: hot})
+			ui.Box(c.Key("more-room")).Size(24, 24).Shrink(0).IgnoreInput(true) // where the more button sits (tile)
 		}
 	})
+}
+
+// playControl is a tile's play button over the cover's bottom left, shown
+// while the tile is hovered or has the focus within, and always on the
+// accessibility tree and a stop of Tab. It sits beside the opener, not inside
+// it.
+func (st *CoverState) playControl(c *ui.Context, it *CoverItem, artH float32, hot, withheld bool) {
+	if it.Play == nil || withheld {
+		return
+	}
+	const size = 36
+	play := PlayButton(c.Key("play"), i18n.T("Play {playLabel}", "playLabel", it.Play.Label), size).Absolute().Left(8).Top(artH - 8 - size)
+	collectionsFade(play, hot || play.Focused())
+	if play.Clicked() {
+		it.Play.Run()
+	}
 }
 
 // loadingTile is a tile whose page is still loading: flat bars at the real

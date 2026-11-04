@@ -71,6 +71,9 @@ func newRig(t *testing.T, albums []fixture.Album, width, height int) *rig {
 	r.l.lib = r.asked
 	r.l.play = services.Service[services.PlaybackService](h.Core)
 	r.l.auth = services.Service[services.AuthService](h.Core)
+	r.l.queue.svc = r.l.play
+	r.l.queue.post = h.Env.Post
+	r.l.queue.play = h.Env.Play
 	r.l.init()
 	r.tt = h.Tester(t, func(c *ui.Context) {
 		ui.Column(c).Fill().Children(func() {
@@ -88,7 +91,8 @@ func newRig(t *testing.T, albums []fixture.Album, width, height int) *rig {
 func (r *rig) order(names []string) []string {
 	var got []string
 	for _, w := range r.tt.Texts() {
-		if slices.Contains(names, w) {
+		// A tile names itself twice: its opener's label and its title.
+		if slices.Contains(names, w) && (len(got) == 0 || got[len(got)-1] != w) {
 			got = append(got, w)
 		}
 	}
