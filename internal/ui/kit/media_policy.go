@@ -132,6 +132,11 @@ func (p *MotionPolicy) Allowed() bool {
 	return !theme.ReduceEffects() && !theme.ReducedMotion() && !p.onBattery
 }
 
+// Probed reports whether the decoder probe has answered, starting it the
+// first time (Allowed does too). Until then Report's codec fields are blank
+// because nothing is known, not because nothing decodes.
+func (p *MotionPolicy) Probed() bool { return p != nil && p.codecKnown() }
+
 // codecKnown reports whether the decoder probe has answered, starting it the
 // first time: GStreamer's start-up (its plugin registry may be scanned) must
 // not run on the main thread.

@@ -18,7 +18,9 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 // transport is what the bar asks of the playback service
@@ -31,6 +33,15 @@ type transport interface {
 	SetVolume(ctx context.Context, volume float64) error
 	SetShuffle(on bool)
 	SetRepeat(mode string) error
+	SetAutoPlay(on bool) error
+	SetSleep(mode string, minutes int) error
+	Jump(ctx context.Context, index int) error
+	Remove(ctx context.Context, index int) error
+	Move(from, to int) error
+	MoveNext(from int) error
+	MoveToEnd(from int) error
+	Clear()
+	kit.QueueService
 }
 
 // player is the feature's state.
@@ -48,8 +59,20 @@ type player struct {
 		active bool
 		secs   float64
 	}
-	// unmuted is the volume to return to on unmute (v0.2.0's `unmuted`).
-	unmuted float64
+
+	// ui is the panels' state (view.go); np is Now Playing's (nowplaying_state.go).
+	ui *view
+	np nowPlayingState
+	// cmds are the queue commands (playing, replacing and queueing).
+	cmds *kit.QueueCommands
+	// queue is the queue panel's own state (queue_*.go).
+	queue queueUI
+	// sleepUI is the sleep timer's state (sleep_*.go).
+	sleep sleepUI
+	// announce is the track announcer's state (announcer.go).
+	announce announcer
+	// extras is the bar's other state (bar_extras.go).
+	extras barExtras
 
 	mu     sync.Mutex
 	failed []failure // command failures waiting to be shown (the view shows them)
@@ -66,15 +89,31 @@ func New(env *module.Env) module.Module {
 	pb := services.Service[services.PlaybackService](env.Core)
 	plat := services.Service[services.PlatformService](env.Core)
 	p := newPlayer(env, pb, func() bool { return plat.Capabilities().Playback.Volume })
+	if env.Queue != nil {
+		p.cmds = env.Queue
+	}
+	p.np.queueView = p.upNext
+	p.np.rating = func(c *ui.Context, cur *services.QueueItem) { p.ratingButtons(c, cur, false) }
+	auth := services.Service[services.AuthService](env.Core)
 	return module.Module{
 		ID:        "player",
-		Shortcuts: p.shortcuts(),
-		Slots:     module.Slots{Bottom: p.bar},
+		Shortcuts: append(p.shortcuts(), p.nowPlayingShortcuts()...),
+		Actions:   p.actions(),
+		Slots: module.Slots{
+			Bottom: p.bar, Aside: p.queueAside, Overlay: p.overlaySlot(),
+			Layer: p.roomLayer, LayerOpen: p.roomOpen,
+		},
+		Init: func() { p.init(); p.followAccount(auth) },
 	}
 }
 
 func newPlayer(env *module.Env, svc transport, volume func() bool) *player {
-	return &player{env: env, svc: svc, volume: volume, now: time.Now, unmuted: 0.8}
+	p := &player{env: env, svc: svc, volume: volume, now: time.Now, ui: newView()}
+	p.cmds = kit.NewQueueCommands(kit.QueueDeps{
+		Svc: svc, Play: env.Play, Post: env.Post,
+		Unavailable: func() string { return unavailable(env.Play.State(), ctlQueue) },
+	})
+	return p
 }
 
 // run starts a command off the main thread; its failure is shown as a toast
@@ -138,7 +177,7 @@ func (p *player) seekTo(pos time.Duration) {
 // that cannot seek (a live station) or has no length is left alone.
 func (p *player) seekBy(delta time.Duration) {
 	s := p.env.Play.State()
-	if s.Current == nil || s.DurationMs <= 0 || unavailable(s, ctlSeek) != "" {
+	if s.Current == nil || p.refuse(ctlSeek) || s.DurationMs <= 0 {
 		return
 	}
 	to := min(max(p.env.Play.Position()+delta, 0), time.Duration(s.DurationMs)*time.Millisecond)
@@ -156,16 +195,16 @@ func (p *player) setVolume(v float64) {
 func (p *player) toggleMute() {
 	v := p.env.Play.State().Volume
 	if v > 0 {
-		p.unmuted = v
+		p.env.Play.SetUnmuted(v)
 		p.setVolume(0)
 		return
 	}
-	p.setVolume(p.unmuted)
+	p.setVolume(p.env.Play.Unmuted())
 }
 
 func (p *player) toggleShuffle() {
 	s := p.env.Play.State()
-	if s.Current == nil || unavailable(s, ctlShuffle) != "" {
+	if s.Current == nil || p.refuse(ctlShuffle) {
 		return
 	}
 	on := !s.Shuffle
@@ -189,10 +228,40 @@ func nextRepeat(mode string) string {
 
 func (p *player) cycleRepeat() {
 	s := p.env.Play.State()
-	if s.Current == nil || unavailable(s, ctlRepeat) != "" {
+	if s.Current == nil || p.refuse(ctlRepeat) {
 		return
 	}
 	mode := nextRepeat(s.Repeat)
 	p.env.Play.Patch(func(s *services.PlaybackState) { s.Repeat = mode })
 	p.run(func() string { return i18n.T("Couldn't change repeat") }, func(context.Context) error { return p.svc.SetRepeat(mode) })
+}
+
+// init subscribes (v0.2.0's index.ts eventHandlers): a new track on
+// playback:state invalidates the library's "recent" queries.
+func (p *player) init() {
+	var last string
+	store.On(p.env.Bus, services.EventPlaybackState, func(s services.PlaybackState) {
+		id := ""
+		if s.Current != nil {
+			id = s.Current.ID
+		}
+		if id != "" && id != last {
+			p.env.Queries.Invalidate(store.Key{"library", "recent"})
+		}
+		last = id
+	})
+	p.initBar()
+}
+
+// upNext is the Now Playing view's Up next pane: the list, then its foot,
+// the summary (leave closes the view as a station link is followed) and the
+// queue's tools.
+func (p *player) upNext(c *ui.Context, leave func()) {
+	ui.Column(c).Grow(1).Basis(0).MinHeight(0).Children(func() {
+		p.queueList(c, true)
+		ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Row(c).Grow(1).Basis(0).MinWidth(0).Children(func() { p.queueSummary(c, leave) })
+			p.queueTools(c)
+		})
+	})
 }

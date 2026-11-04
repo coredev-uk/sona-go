@@ -16,7 +16,8 @@ import (
 
 // TestSmoke is the app end to end: it paints, Albums lists the fixture's
 // albums, an album's play button starts it, the player bar shows it
-// playing, Space pauses and resumes it, and a frame can be captured.
+// playing, Space pauses and resumes it, the queue panel lists it and a drag
+// reorders it, and a frame can be captured.
 func TestSmoke(t *testing.T) {
 	a := startApp(t)
 	c := a.client
@@ -96,6 +97,102 @@ func TestSmoke(t *testing.T) {
 			}); err != nil {
 				t.Fatal(err)
 			}
+		}
+	})
+
+	t.Run("reorder the queue", func(t *testing.T) {
+		// The queue lists the album from the playing song on: drag its first
+		// upcoming song below the second and the order follows.
+		if first.SongCount() < 3 {
+			t.Fatalf("%q has %d songs: the fixture's last album has three", first.Name, first.SongCount())
+		}
+		// A toggle's role is not "button": find it by its label, before the panel
+		// (which is labelled "Queue" too) exists.
+		toggle, err := c.Wait(startTimeout, "the Queue toggle", func(tr *automation.Tree) bool {
+			_, ok := tr.Find("", "Queue")
+			return ok
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		qn, _ := toggle.Find("", "Queue")
+		qx, qy := qn.Bounds.Centre()
+		// As Client.Press does: onto the toggle, settle, click.
+		if err := c.Input(automation.PointerMove(qx, qy)); err != nil {
+			t.Fatal(err)
+		}
+		_ = c.Idle(2 * time.Second)
+		if err := c.Input(automation.Click(qx, qy)); err != nil {
+			t.Fatal(err)
+		}
+		a1, a2 := first.Song(1)+", "+first.Artist, first.Song(2)+", "+first.Artist
+		row := func(tr *automation.Tree, label string) (automation.Node, bool) {
+			if n, ok := tr.Find("listItem", label); ok {
+				return n, true
+			}
+			return tr.Find("listItem", "Up next: "+label)
+		}
+		tree, err := c.Wait(startTimeout, "the queue's rows", func(tr *automation.Tree) bool {
+			_, ok1 := row(tr, a1)
+			_, ok2 := row(tr, a2)
+			return ok1 && ok2
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		from, _ := row(tree, a1)
+		to, _ := row(tree, a2)
+		fx, fy := from.Bounds.Centre()
+		_, ty := to.Bounds.Centre()
+		ty += to.Bounds.Height / 3 // the lower half of the row below: the gap after it
+		events := []automation.Event{automation.PointerMove(fx, fy), automation.PointerDown(fx, fy)}
+		for i := 1; i <= 10; i++ {
+			events = append(events, automation.PointerMove(fx, fy+(ty-fy)*float64(i)/10))
+		}
+		// One event per frame: the drag engine watches the pointer between frames.
+		for _, ev := range append(events, automation.PointerUp(fx, ty)) {
+			if err := c.Input(ev); err != nil {
+				t.Fatal(err)
+			}
+			_ = c.Idle(2 * time.Second)
+		}
+		if _, err := c.Wait(10*time.Second, "the dragged song after the other", func(tr *automation.Tree) bool {
+			n1, ok1 := row(tr, a1)
+			n2, ok2 := row(tr, a2)
+			return ok1 && ok2 && n2.Bounds.Y < n1.Bounds.Y
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("open Now Playing", func(t *testing.T) {
+		// N shows Now Playing over the page: the song, its pane tabs and Close.
+		if err := c.Input(automation.Key("N")); err != nil {
+			t.Fatal(err)
+		}
+		tree, err := c.Wait(startTimeout, "Now Playing", func(tr *automation.Tree) bool {
+			np := tr.Under("", "Now playing")
+			_, closable := np.Find("button", "Close now playing (Escape)")
+			return closable && np.HasText(first.Song(0))
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		np := tree.Under("", "Now playing")
+		for _, tab := range []string{"Lyrics", "Up next"} {
+			if !np.HasText(tab) {
+				t.Errorf("Now Playing has no %q tab: %v", tab, np.Labels(""))
+			}
+		}
+		// Escape steps back to the page.
+		if err := c.Input(automation.Key("Escape")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := c.Wait(10*time.Second, "the page after Escape", func(tr *automation.Tree) bool {
+			_, open := tr.Find("button", "Close now playing (Escape)")
+			return !open && tr.HasText("24 albums")
+		}); err != nil {
+			t.Fatal(err)
 		}
 	})
 

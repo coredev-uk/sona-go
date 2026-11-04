@@ -105,3 +105,18 @@ func TestLyricsSongID(t *testing.T) {
 		t.Error("a song's lyrics go with its catalogue ID")
 	}
 }
+
+func TestUnmutedStartsAtV020sDefaultAndRemembersTheLastNonZeroVolume(t *testing.T) {
+	p := NewPlayback(NewBus(nil), nil)
+	if got := p.Unmuted(); got != 0.8 {
+		t.Errorf("default %v, want 0.8", got)
+	}
+	p.SetUnmuted(0.35)
+	if got := p.Unmuted(); got != 0.35 {
+		t.Errorf("got %v after SetUnmuted(0.35)", got)
+	}
+	p.SetUnmuted(0) // a mute at zero remembers nothing
+	if got := p.Unmuted(); got != 0.35 {
+		t.Errorf("a zero volume replaced it: %v", got)
+	}
+}

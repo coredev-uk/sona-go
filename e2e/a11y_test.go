@@ -37,21 +37,22 @@ func TestAccessibility(t *testing.T) {
 	}
 	for _, want := range []struct{ role, name string }{
 		{"frame", "Sona"},
-		{"panel", "Main"},                // the sidebar
-		{"link", "Albums"},               // its page link
-		{"button", "Back"},               // history
-		{"button", "Forward"},            //
-		{"panel", "Albums"},              // the page
-		{"label", "24 albums"},           //
-		{"panel", "Album type"},          // the filter
-		{"radio button", "All"},          //
-		{"combo box", "Sort"},            //
-		{"button", "Play " + first.Name}, // a tile's play button
-		{"label", first.Name},            //
-		{"panel", "Player"},              // the player bar
-		{"button", "Previous"},           //
-		{"button", "Play"},               //
-		{"button", "Next"},               //
+		{"panel", "Main"},                              // the sidebar
+		{"link", "Albums"},                             // its page link
+		{"button", "Back"},                             // history
+		{"button", "Forward"},                          //
+		{"panel", "Albums"},                            // the page
+		{"label", "24 albums"},                         //
+		{"panel", "Album type"},                        // the filter
+		{"toggle button", "All"},                       //
+		{"combo box", "Sort"},                          //
+		{"table", "Albums in your library"},            // the grid
+		{"button", "Play " + first.Name},               // its play button, beside the opener
+		{"push button menu", "More for " + first.Name}, // and its more button
+		{"panel", "Player"},                            // the player bar
+		{"button", "Previous"},                         //
+		{"button", "Play"},                             //
+		{"button", "Next"},                             //
 		{"toggle button", "Shuffle off"},
 		{"slider", "Seek"},
 		{"slider", "Volume"},

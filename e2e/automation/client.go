@@ -36,15 +36,18 @@ func (r Rect) Centre() (x, y float64) { return r.X + r.Width/2, r.Y + r.Height/2
 
 // Node is an element of a window's tree, what a screen reader reads.
 type Node struct {
-	ID      string   `json:"id"`
-	Parent  string   `json:"parent"`
-	Role    string   `json:"role"`
-	Key     any      `json:"key"` // the element's Key: a string, a number or a bool
-	Label   string   `json:"label"`
-	Value   string   `json:"value"`
-	Bounds  Rect     `json:"bounds"`
-	States  []string `json:"states"`
-	Actions []string `json:"actions"`
+	ID     string `json:"id"`
+	Parent string `json:"parent"`
+	Role   string `json:"role"`
+	Key    any    `json:"key"` // the element's Key: a string, a number or a bool
+	Label  string `json:"label"`
+	// Description is the accessible description: the text under a tile's
+	// title, which a button or link cannot hold as children.
+	Description string   `json:"description"`
+	Value       string   `json:"value"`
+	Bounds      Rect     `json:"bounds"`
+	States      []string `json:"states"`
+	Actions     []string `json:"actions"`
 }
 
 // Has reports whether the node has the state.
@@ -98,9 +101,9 @@ func (t *Tree) Labels(role string) []string {
 	return out
 }
 
-// HasText reports whether a node has this label or value.
+// HasText reports whether a node has this label, value or description.
 func (t *Tree) HasText(s string) bool {
-	return slices.ContainsFunc(t.Nodes, func(n Node) bool { return n.Label == s || n.Value == s })
+	return slices.ContainsFunc(t.Nodes, func(n Node) bool { return n.Label == s || n.Value == s || n.Description == s })
 }
 
 // Window is an open window.
@@ -120,6 +123,16 @@ type Event map[string]any
 
 // Click is a left click at x, y.
 func Click(x, y float64) Event { return Event{"type": "click", "x": x, "y": y} }
+
+// PointerMove moves the pointer to x, y (with the left button down after a
+// PointerDown: a drag).
+func PointerMove(x, y float64) Event { return Event{"type": "pointerMove", "x": x, "y": y} }
+
+// PointerDown presses the left button at x, y.
+func PointerDown(x, y float64) Event { return Event{"type": "pointerDown", "x": x, "y": y} }
+
+// PointerUp releases the left button at x, y.
+func PointerUp(x, y float64) Event { return Event{"type": "pointerUp", "x": x, "y": y} }
 
 // Key presses and releases a key and its modifiers as accelerators write
 // them ("Space", "Shift+Tab", "Ctrl+B").

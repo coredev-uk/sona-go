@@ -11,6 +11,7 @@ package module
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -30,12 +31,31 @@ type Env struct {
 	// Actions is the item action registry (every module's Module.Actions),
 	// read by kit.ActionMenus.
 	Actions *kit.ActionRegistry
+	// Surfaces is the open state of the account dialog and the first-run
+	// setup: any "Sign in" action calls Surfaces.OpenAccount, Settings'
+	// "Set up Sona again" Surfaces.OpenSetup.
+	Surfaces *store.Surfaces
+	// OpenURL opens a web page in the system browser.
+	OpenURL func(url string) error
+	// Copy puts text on the system clipboard and reports success.
+	Copy func(text string) bool
 	// Motion decides whether motion artwork plays and owns the decoders
 	// (kit.MotionCover, kit.TileMotion take it); the shell tells it when the
 	// window hides and when a layer, an overlay or a dialog covers the page.
 	// Nil only in tests that build an Env by hand: a nil policy allows nothing.
 	Motion *kit.MotionPolicy
-	Nav    Navigator // the main window's router
+	// Video is the music video view's shared state: whether it is open, the
+	// window's full screen it toggles and the source of its pictures.
+	// Features that start or show a music video call Video.Open and read
+	// Video.IsOpen; the video feature draws the view. Never nil.
+	Video *store.VideoView
+	Nav   Navigator // the main window's router
+	// Queue starts, shuffles and queues songs and videos through the
+	// playback service: every feature that plays a collection or adds to the
+	// queue goes through it, so replacing a long queue of the user's asks
+	// first or offers Undo (v0.2.0's playSongs, queueItems and replaceQueue).
+	// Nil in an Env built by hand without services.
+	Queue *kit.QueueCommands
 	// HasRoute reports whether a registered module's route pattern matches
 	// path (a query or fragment is ignored), so a feature links only to pages
 	// that are ported: Pattern "/album/{id}" matches "/album/42". Call it
@@ -43,6 +63,15 @@ type Env struct {
 	// are not known yet in its factory. Nil in a hand-built Env: treat as
 	// false.
 	HasRoute func(path string) bool
+	// Players is the shared item-play registry (kit.ItemPlayers): the
+	// features that own playback register how each kind plays (discover:
+	// songs, albums, playlists, videos; radio: stations) and the shared item
+	// components play through it. Built by NewPlayers; never nil.
+	Players *kit.ItemPlayers
+	// ConcertsShelf builds Home's concerts shelf (the next shows near the
+	// chosen city); the concerts module sets it in its factory, so it is nil
+	// until then and a page that wants it builds nothing without it.
+	ConcertsShelf func(c *ui.Context, first bool)
 	// Post runs fn on the main thread and redraws the windows: how a
 	// goroutine (a service call) hands its outcome to the view.
 	Post store.Poster
@@ -53,9 +82,19 @@ type Env struct {
 	// (the factories run in modules.go's order, a Point sorts by its own).
 	PlayerControls Point
 	PlayerNotice   Point
+	// ArtistConcerts builds an artist page's "Upcoming concerts" (owned by
+	// features/concerts, which sets it in its factory; nil while that feature
+	// is not registered: build nothing). first marks the page's first shelf.
+	ArtistConcerts func(c *ui.Context, artistID string, first bool)
 	Log            *slog.Logger
 	Version        string
 	Dev            bool // a -tags dev build
+	// Shortcuts lists every registered shortcut (every module's, the
+	// navigation ones and the shell's) with the keys it answers to now:
+	// the user's rebinding (config.Settings.Shortcuts, by ID) or its
+	// defaults. Settings → Shortcuts and the help list them. Set by the
+	// app before any module's Init; nil without a shell (tests).
+	Shortcuts func() []BoundShortcut
 }
 
 // Point is a place in one feature's view other modules build into, the
@@ -155,6 +194,13 @@ type Shortcut struct {
 	Run         func()
 }
 
+// BoundShortcut is a registered shortcut with the keys it answers to now
+// (Shortcut.Keys is its default).
+type BoundShortcut struct {
+	Shortcut
+	Keys []string // effective: the user's binding, else the defaults; nil for none
+}
+
 // Slots are places in the shell a module builds into. Every func builds
 // nothing when it has nothing to show.
 type Slots struct {
@@ -166,6 +212,7 @@ type Slots struct {
 	SidebarFooter  func(c *ui.Context)
 	SidebarSection func(c *ui.Context) // stacks in module order
 	TopBarSearch   func(c *ui.Context) // the first one wins
+	TopBarAccount  func(c *ui.Context) // the top bar's trailing end (the account menu); the first one wins
 }
 
 // Overlay covers the page column while Open.
@@ -193,3 +240,23 @@ type Module struct {
 // Factory builds a feature's module over the shared Env; the feature
 // keeps its state in its own struct.
 type Factory func(env *Env) Module
+
+// NewPlayers is the Env's item-play registry: music videos play only where
+// PlatformService says the platform plays video (read once, on first use; nil
+// before it answers and without a Core). now is the clock a release is
+// compared with (nil: time.Now).
+func NewPlayers(core *services.Core, now func() time.Time) *kit.ItemPlayers {
+	p := &kit.ItemPlayers{Now: now}
+	if core != nil {
+		plat := services.Service[services.PlatformService](core)
+		var caps *services.Capabilities
+		p.Capabilities = func() *services.Capabilities {
+			if caps == nil {
+				c := plat.Capabilities()
+				caps = &c
+			}
+			return caps
+		}
+	}
+	return p
+}

@@ -42,8 +42,9 @@ type DragOrigin struct {
 
 // DragPayload is what is being dragged.
 type DragPayload struct {
-	// Items are the items, in order; empty for a queue row, which only
-	// reorders.
+	// Items are the items, in order. A queue row carries its song too (with
+	// Origin set), so a sidebar playlist takes it while the queue's own drop
+	// only reorders.
 	Items []Item
 	// Origin is set for a reorder inside one list.
 	Origin *DragOrigin
@@ -248,6 +249,11 @@ type DragOpts struct {
 	// Source styles the element that takes the press and holds the content:
 	// padding, gap, focus, label.
 	Source func(s ui.Element)
+	// After builds more children of the wrapper, after the source: controls
+	// that must be elements of their own for assistive technology (a button
+	// or a link is a leaf on its tree, so a control inside the source is
+	// unreachable there). Typically absolute, over the source.
+	After func(w, s ui.Element)
 }
 
 // DragItem builds one draggable item: a wrapper (Outer) holding the source
@@ -283,6 +289,9 @@ func DragItem(c *ui.Context, o DragOpts, content func(w, s ui.Element)) (w, s ui
 		dragging := d.watch(c, s, o)
 		if !dragging {
 			s.Children(func() { content(w, s) })
+			if o.After != nil {
+				o.After(w, s)
+			}
 			return
 		}
 		s.Children(func() {})
@@ -297,6 +306,9 @@ func DragItem(c *ui.Context, o DragOpts, content func(w, s ui.Element)) (w, s ui
 		}
 		twin.Role(ui.RoleNone)
 		twin.Children(func() { content(w, s) })
+		if o.After != nil {
+			o.After(w, s)
+		}
 		d.ghost(c, s, o)
 	})
 	return w, s

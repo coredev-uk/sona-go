@@ -136,7 +136,11 @@ func outDir(t *testing.T) string {
 
 // startApp writes a fixture profile in private directories, starts the app
 // on it and connects to its automation socket.
-func startApp(t *testing.T) *app {
+func startApp(t *testing.T) *app { return startAppWith(t) }
+
+// startAppWith is startApp with arguments for the profile writer
+// (e2e/profile: -first-run leaves the first-run setup undone).
+func startAppWith(t *testing.T, profileArgs ...string) *app {
 	t.Helper()
 	if os.Getenv("WAYLAND_DISPLAY") == "" {
 		t.Skip("no Wayland display: run through `headless -- go test -tags e2e ./e2e/...`")
@@ -159,7 +163,7 @@ func startApp(t *testing.T) *app {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prof := exec.Command(profile)
+	prof := exec.Command(profile, profileArgs...)
 	prof.Env = append(os.Environ(),
 		"XDG_CONFIG_HOME="+env["XDG_CONFIG_HOME"], "XDG_DATA_HOME="+env["XDG_DATA_HOME"],
 		"XDG_STATE_HOME="+env["XDG_STATE_HOME"], "XDG_CACHE_HOME="+env["XDG_CACHE_HOME"])

@@ -28,6 +28,7 @@ type Session struct {
 // in theme.Apply as the shell's is.
 func (h *Harness) Tester(t testing.TB, view func(*ui.Context), w, hgt int) *Session {
 	t.Helper()
+	registerFonts(t)
 	tt := &Session{T: t, H: h}
 	tt.Tester = ui.NewTester(func(c *ui.Context) {
 		theme.Apply(c)
@@ -111,4 +112,14 @@ func (tt *Session) Settle() {
 		last = append(last[:0], img.Pix...)
 	}
 	tt.T.Fatal("the picture never settled")
+}
+
+// registerFonts registers the interface font (Schibsted Grotesk; once per
+// process) before the first frame a test draws: a golden drawn in the
+// system's sans matches only the machine that drew it.
+func registerFonts(t testing.TB) {
+	t.Helper()
+	if err := theme.RegisterFonts(); err != nil {
+		t.Fatal(err)
+	}
 }

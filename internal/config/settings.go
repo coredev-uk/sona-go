@@ -82,6 +82,11 @@ type Settings struct {
 	Lyrics Lyrics `json:"lyrics"`
 	// Concerts is where the Concerts page looks (concerts.go).
 	Concerts Concerts `json:"concerts"`
+	// Sidebar is the playlist tree's open folders and folded sections (sidebar.go).
+	Sidebar Sidebar `json:"sidebar"`
+	// LyricsView is the lyrics view's Translation and Pronunciation choices
+	// (lyricsview.go).
+	LyricsView LyricsView `json:"lyricsView"`
 }
 
 // Scrobbling holds the non-secret part of the scrobbler connections.
@@ -165,6 +170,7 @@ func (s Settings) Normalized() Settings {
 	s.TitleBar = s.TitleBar.normalized()
 	s.Lyrics = s.Lyrics.normalized()
 	s.Concerts = s.Concerts.normalized()
+	s.Sidebar = s.Sidebar.normalized()
 	s.Language = normalizedLanguage(s.Language)
 	return s
 }

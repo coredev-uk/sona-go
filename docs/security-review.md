@@ -238,7 +238,7 @@ Music videos play through the same CDM host child as songs: the CDM decrypts and
 
 **Memory only** (`internal/playback/video`): the surface keeps only the latest picture, never a backlog, and never writes one to disk, a cache or a log. When the current item stops being a video, the engine clears it.
 
-**Serving** (`cmd/sona/main.go`): `/video/frame` is answered only by the app's own Wails asset handler, the same one that serves the embedded frontend, so only the app's web view can reach it. No loopback or network listener serves pictures. The answer is the raw planes as `application/octet-stream`, not an image or media format a browser would offer to save.
+**Serving:** there is none. The UI draws in the same process: its video feed (`internal/ui/media`, `kit.VideoFeed`) waits on the surface in memory and converts the latest picture to RGBA for one bitmap. No HTTP handler, loopback or network listener serves pictures.
 
 **Quality:** SD only. Apple licenses HD and 4K only to hardware-backed CDMs (HDCP), and Sona never works around that (docs/apple-music-reference.md §4.5).
 

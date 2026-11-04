@@ -1,35 +1,65 @@
-// Package library is the library feature. Phase 0 ports its Albums page:
-// the grid of the library's albums, sorted and filtered by type, whose
-// tiles play the album. The other library pages, the item actions and the
-// sync indicator are ported with their features.
+// Package library is the library feature: the Library pages (Recently
+// added, Artists, Albums, Songs, Music videos, Favourite songs, History,
+// Playlists), the sync mirror and its sidebar indicator, the item-state
+// layer and the item actions every list and header uses (add to and remove
+// from the library, Favourite, Suggest less, Copy link).
 package library
 
 import (
 	"context"
-	"sync"
 
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
-// albumsPath is the Albums page's route.
-const albumsPath = "/library/albums"
+// The library's routes.
+const (
+	recentPath    = "/library/recently-added"
+	artistsPath   = "/library/artists"
+	albumsPath    = "/library/albums"
+	songsPath     = "/library/songs"
+	videosPath    = "/library/music-videos"
+	favouritePath = "/library/favourites"
+	historyPath   = "/library/history"
+	playlistsPath = "/library/playlists"
+	madeForYou    = "/library/made-for-you"
+)
 
-// libraryAPI is what the page asks of LibraryService.
+// libraryAPI is what the pages and actions ask of LibraryService.
 type libraryAPI interface {
+	Songs(ctx context.Context, sort string, desc bool, offset, limit int) (services.SongPage, error)
 	Albums(ctx context.Context, sort string, desc bool, albumType string, offset, limit int) (services.AlbumPage, error)
+	Playlists(ctx context.Context, sort string, desc bool, offset, limit int) (services.PlaylistPage, error)
+	ArtistIndex(ctx context.Context) ([]services.ArtistEntry, error)
+	ArtistAlbums(ctx context.Context, id string) (services.ArtistAlbums, error)
+	Artist(ctx context.Context, id string) (services.ArtistDetail, error)
 	Album(ctx context.Context, id string) (services.AlbumDetail, error)
 	Counts(ctx context.Context) (services.Counts, error)
+	RecentlyAdded(ctx context.Context, offset, limit int) (services.LibraryEntryPage, error)
+	FavoriteSongs(ctx context.Context, offset, limit int) (services.SongPage, error)
+	MusicVideos(ctx context.Context, offset, limit int) (services.MusicVideoPage, error)
+	History(ctx context.Context, days int) (services.ListeningHistory, error)
+	Add(ctx context.Context, typ string, ids []string) error
+	Sync() error
 	SyncStatus(ctx context.Context) (services.SyncStatus, error)
+	States(ctx context.Context, refs []services.ItemRef) ([]services.ItemState, error)
+	Favorite(ctx context.Context, r services.ItemRef, on bool) (services.ItemState, error)
+	SuggestLess(ctx context.Context, r services.ItemRef, on bool) (services.ItemState, error)
+	Remove(ctx context.Context, r services.ItemRef) (services.ItemState, error)
+	CopyLink(r services.ItemRef) (string, error)
 }
 
-// playbackAPI is what a tile's play button asks of PlaybackService.
+// playbackAPI is what the pages ask of PlaybackService.
 type playbackAPI interface {
 	PlayItems(ctx context.Context, refs []services.TrackRef, start int, from services.PlayFrom) error
+	PlayLibrary(ctx context.Context, sort string, desc bool, start int) error
+	UndoReplace(ctx context.Context) (bool, error)
+	SetShuffle(on bool)
 }
 
 // authAPI is the sign-in state the empty library's text depends on.
@@ -44,23 +74,26 @@ type library struct {
 	play playbackAPI
 	auth authAPI
 
-	// syncing follows sync:progress and sync:done; events counts them, so
-	// a SyncStatus answer older than an event does not override it
-	// (v0.2.0's useSync).
-	syncing bool
-	events  int
+	// openAccount opens the account dialog (the Sign in action of an empty
+	// library); nil without Env.Surfaces, which hides the action.
+	openAccount func()
 
-	albums albumsPage
+	// queue starts queues (stand-in for env.Queue, see queue.go).
+	queue *queueCommands
 
-	mu      sync.Mutex
-	failed  []failure // play failures waiting to be shown
-	nothing int       // "nothing here can be played" notices waiting
-}
+	// states is the item-state layer the actions use (see itemstate.go).
+	states *itemStates
 
-// failure is a command that failed.
-type failure struct {
-	what string
-	code services.ErrorCode
+	sync syncStore
+
+	albums    albumsPage
+	songs     songsPage
+	playlists playlistsPage
+	recent    recentPage
+	favourite favouritePage
+	history   historyPage
+	videos    videosPage
+	artists   artistsPage
 }
 
 // New is the library's module.
@@ -69,56 +102,108 @@ func New(env *module.Env) module.Module {
 		services.Service[services.LibraryService](env.Core),
 		services.Service[services.PlaybackService](env.Core),
 		services.Service[services.AuthService](env.Core))
-	return module.Module{
-		ID: "library",
-		Routes: []module.Route{{
-			Pattern: albumsPath,
-			Title:   func(*ui.Route) string { return i18n.T("Albums") },
-			Build:   l.albumsPage,
-		}},
-		Nav: []module.NavItem{{
-			Section: module.NavLibrary,
-			Label:   func() string { return i18n.T("Albums") },
-			Icon:    "disc-3",
-			To:      albumsPath,
-			Order:   20,
-		}},
-		Init: l.init,
-	}
+	return l.module()
 }
 
 func newLibrary(env *module.Env, lib libraryAPI, play playbackAPI, auth authAPI) *library {
-	return &library{env: env, lib: lib, play: play, auth: auth}
+	l := &library{env: env, lib: lib, play: play, auth: auth}
+	if env.Surfaces != nil {
+		l.openAccount = env.Surfaces.OpenAccount
+	}
+	l.queue = &queueCommands{svc: play, play: env.Play, post: env.Post, replaceMode: l.replaceMode}
+	return l
+}
+
+// replaceMode is the queue.replaceConfirm setting; off the main thread.
+func (l *library) replaceMode() string {
+	if l.env.Core == nil {
+		return ""
+	}
+	return services.Service[services.SystemService](l.env.Core).Settings().Queue.ReplaceConfirm
+}
+
+// module is the Module of this library state.
+func (l *library) module() module.Module {
+	title := func(msg func() string) func(*ui.Route) string {
+		return func(*ui.Route) string { return msg() }
+	}
+	route := func(pattern string, msg func() string, build func(*ui.Context, *ui.Route)) module.Route {
+		return module.Route{Pattern: pattern, Title: title(msg), Build: build}
+	}
+	nav := func(msg func() string, icon, to string, order int) module.NavItem {
+		return module.NavItem{Section: module.NavLibrary, Label: msg, Icon: icon, To: to, Order: order}
+	}
+	recently := func() string { return i18n.T("Recently added") }
+	artists := func() string { return i18n.T("Artists") }
+	albums := func() string { return i18n.T("Albums") }
+	songs := func() string { return i18n.T("Songs") }
+	videos := func() string { return i18n.T("Music videos") }
+	favourite := func() string { return i18n.T("Favourite songs") }
+	history := func() string { return i18n.T("History") }
+	playlists := func() string { return i18n.T("Playlists") }
+	return module.Module{
+		ID: "library",
+		Routes: []module.Route{
+			route(recentPath, recently, l.recentPage),
+			route(artistsPath, artists, l.artistsPage),
+			route(albumsPath, albums, l.albumsPage),
+			route(songsPath, songs, l.songsPage),
+			route(videosPath, videos, l.videosPage),
+			// Made for You is a sidebar section now; an old link (or a saved
+			// last page) opens Home.
+			{Pattern: madeForYou, Title: title(func() string { return "" }), Build: func(*ui.Context, *ui.Route) {
+				l.env.Nav.Replace("/")
+			}},
+			route(favouritePath, favourite, l.favouritePage),
+			route(historyPath, history, l.historyPage),
+			route(playlistsPath, playlists, l.playlistsPage),
+		},
+		Nav: []module.NavItem{
+			nav(recently, "clock-3", recentPath, 5),
+			nav(artists, "mic-vocal", artistsPath, 10),
+			nav(albums, "disc-3", albumsPath, 20),
+			nav(songs, "music", songsPath, 30),
+			nav(videos, "clapperboard", videosPath, 40),
+			nav(favourite, "star", favouritePath, 60),
+			nav(history, "history", historyPath, 65),
+			nav(playlists, "list-music", playlistsPath, 70),
+		},
+		Actions: l.actions(),
+		Slots:   module.Slots{SidebarFooter: l.syncIndicator},
+		Init:    l.init,
+	}
 }
 
 // Query keys, as v0.2.0's shared/lib/keys.ts: ["library", …].
 var (
-	keyLibrary = store.Key{"library"}
-	keyCounts  = store.Key{"library", "counts"}
-	keySync    = store.Key{"library", "sync-status"}
-	keyAuth    = store.Key{"auth"}
+	keyLibrary    = store.Key{"library"}
+	keyCounts     = store.Key{"library", "counts"}
+	keySync       = store.Key{"library", "sync-status"}
+	keyAuth       = store.Key{"auth"}
+	keyFavourites = store.Key{"library", "favorite-songs"}
+	keyRecent     = store.Key{"library", "recent"}
 )
 
 // init follows what changes the library: a sync finishing a domain, a
-// whole sync, a rating changed outside the UI (`sona like`), and the
-// account.
+// whole sync, a rating changed outside the UI (`sona like`) and the account.
 func (l *library) init() {
 	q := l.env.Queries
 	store.On(l.env.Bus, services.EventSyncProgress, func(p services.SyncProgress) {
-		l.syncing = true
-		l.events++
+		l.sync.progress(p)
 		if keys := syncInvalidations(p); len(keys) > 0 {
 			q.Invalidate(keys...)
 		}
 	})
-	store.On(l.env.Bus, services.EventSyncDone, func(services.SyncDone) {
-		l.syncing = false
-		l.events++
+	store.On(l.env.Bus, services.EventSyncDone, func(d services.SyncDone) {
+		l.sync.done(d)
 		q.Invalidate(keyLibrary)
 	})
 	store.On(l.env.Bus, services.EventItemState, func(s services.ItemState) {
-		store.Set(q, store.Key{"library", "state", s.Kind, s.ID}, s)
-		q.Invalidate(store.Key{"library", "favorite-songs"})
+		store.Set(q, itemStateKey(s.Kind, s.ID), s)
+		if l.states != nil {
+			l.states.remember(s.Kind, s) // menus read it too
+		}
+		q.Invalidate(keyFavourites)
 	})
 	store.On(l.env.Bus, services.EventAuthChanged, func(s services.AuthStatus) {
 		store.Set(q, keyAuth, s)
@@ -151,63 +236,7 @@ func syncInvalidations(p services.SyncProgress) []store.Key {
 	return append(append([]store.Key(nil), lists...), keyCounts, keySync)
 }
 
-// fail queues a failure for the view to toast, and redraws.
-func (l *library) fail(what string, err error) {
-	f := failure{what: what, code: services.CodeOf(err)}
-	l.env.Post(func() {
-		l.mu.Lock()
-		l.failed = append(l.failed, f)
-		l.mu.Unlock()
-	})
-}
-
-// toasts shows what failed since the last frame.
-func (l *library) toasts(c *ui.Context) {
-	l.mu.Lock()
-	failed, nothing := l.failed, l.nothing
-	l.failed, l.nothing = nil, 0
-	l.mu.Unlock()
-	for _, f := range failed {
-		c.AddToast(ui.Toast{ID: f.what, Title: f.what, Description: i18n.ErrorText(f.code), Type: "error"})
-	}
-	if nothing > 0 {
-		c.AddToast(ui.Toast{
-			ID:          "nothing-to-play",
-			Title:       i18n.T("Nothing here can be played"),
-			Description: i18n.T("None of these songs is available to stream."),
-			Type:        "error",
-		})
-	}
-}
-
-// playAlbum replaces the queue with the album's songs and plays it from
-// the first one (v0.2.0's playSongs over the album's tracks): the songs
-// are read from the library, then PlaybackService starts the queue, both
-// off the main thread.
-func (l *library) playAlbum(a services.Album) {
-	go func() {
-		ctx := context.Background()
-		detail, err := l.lib.Album(ctx, a.ID)
-		if err != nil {
-			l.fail(i18n.T("Couldn't load the album"), err)
-			return
-		}
-		var refs []services.TrackRef
-		for _, s := range detail.Tracks {
-			if s.Playable {
-				refs = append(refs, services.TrackRef{ID: s.ID, Source: s.Source})
-			}
-		}
-		if len(refs) == 0 {
-			l.env.Post(func() {
-				l.mu.Lock()
-				l.nothing++
-				l.mu.Unlock()
-			})
-			return
-		}
-		if err := l.play.PlayItems(ctx, refs, 0, services.PlayFrom{Kind: "album", ID: a.ID}); err != nil {
-			l.fail(i18n.T("Couldn't start playback"), err)
-		}
-	}()
+// failToast toasts what failed and why (shared/lib/run.ts).
+func failToast(what string, err error) {
+	kit.ToastErrorf(what, i18n.ErrorText(services.CodeOf(err)))
 }

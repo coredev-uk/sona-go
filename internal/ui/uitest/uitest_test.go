@@ -193,3 +193,23 @@ func TestFixtureCDNServesTemplatesAndNothingElse(t *testing.T) {
 		t.Errorf("the handler: %v %v", r, err)
 	}
 }
+
+func TestEnvCoreAnswersTheSyncStatus(t *testing.T) {
+	// The seeded library reads as synced, an empty one as never synced; nothing runs.
+	for _, c := range []struct {
+		name   string
+		opts   []Option
+		synced bool
+	}{{"seeded", nil, true}, {"empty", []Option{Empty()}, false}} {
+		t.Run(c.name, func(t *testing.T) {
+			h := New(t, c.opts...)
+			st, err := services.Service[services.LibraryService](h.Core).SyncStatus(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if st.Running || (st.LastSuccess != 0) != c.synced {
+				t.Errorf("status running=%v lastSuccess=%d, want idle and synced=%v", st.Running, st.LastSuccess, c.synced)
+			}
+		})
+	}
+}

@@ -4,8 +4,6 @@ import (
 	"strconv"
 	"time"
 
-	mygoi18n "github.com/egoist/mygo/i18n"
-
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 )
@@ -18,6 +16,10 @@ import (
 type ItemsCtx struct {
 	// Nav opens a Sona page by its route path ("/album/{id}").
 	Nav func(path string)
+	// HasRoute reports whether a Sona page is registered (Env.HasRoute): a
+	// tile whose page is not, builds without Open instead of sending the
+	// user to the start page. Nil: every page is taken to exist.
+	HasRoute func(path string) bool
 	// OpenURL opens a web page in the system browser (a web-only item).
 	OpenURL func(url string)
 	// Players plays items, song lists and videos.
@@ -112,9 +114,11 @@ func CoverItemOf(it services.Item, ctx ItemsCtx, index int) CoverItem {
 		Video:    ItemVideo(it),
 	}
 	if link != "" {
-		tile.Open = func() {
-			ctx.opened(it)
-			ctx.nav(link)
+		if ctx.HasRoute == nil || ctx.HasRoute(link) {
+			tile.Open = func() {
+				ctx.opened(it)
+				ctx.nav(link)
+			}
 		}
 	} else {
 		tile.Open = func() {
@@ -167,11 +171,6 @@ func itemsReleaseBadge(a services.Album, now time.Time) string {
 	if !itemsUpcoming(a, now) || a.ReleaseAt == 0 {
 		return ""
 	}
-	at := time.UnixMilli(a.ReleaseAt)
-	skeleton := "MMMd"
-	if at.Year() != now.Year() {
-		skeleton = "yMMMd"
-	}
-	date := mygoi18n.FormatDate(i18n.Locale(), at, mygoi18n.DateOptions{Skeleton: skeleton})
+	date := i18n.ShortReleaseDate(time.UnixMilli(a.ReleaseAt), now)
 	return i18n.T("Out {releaseDate}", "releaseDate", date)
 }

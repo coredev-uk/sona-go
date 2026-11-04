@@ -7401,3 +7401,118 @@ msgstr "Your synced library, history and the catalogue cache. Sona optimises it 
 #: src/features/auth/AccountMenu.tsx
 msgid "Your token is stored unencrypted"
 msgstr "Your token is stored unencrypted"
+
+#: internal/ui/features/settings/devtools.go
+msgid "Available in development builds started with SONA_INSPECTOR=1."
+msgstr "Available in development builds started with SONA_INSPECTOR=1."
+
+#: internal/ui/features/settings/devtools.go
+msgid "Couldn't open the inspector"
+msgstr "Couldn't open the inspector"
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Install gst-libav (avdec_h264) and gst-plugins-bad (h264parse) for GStreamer, then restart Sona."
+msgstr "Install gst-libav (avdec_h264) and gst-plugins-bad (h264parse) for GStreamer, then restart Sona."
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Off: Sona can't decode Apple's videos"
+msgstr "Off: Sona can't decode Apple's videos"
+
+#: internal/ui/features/settings/devtools.go
+#: internal/ui/features/settings/find.go
+msgid "Open the inspector"
+msgstr "Open the inspector"
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Played"
+msgstr "Played"
+
+#: internal/ui/features/settings/devtools.go
+msgid "Shows the inspector of Sona's window: its elements and what each one draws, for debugging and for writing plugins."
+msgstr "Shows the inspector of Sona's window: its elements and what each one draws, for debugging and for writing plugins."
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Sona couldn't play it"
+msgstr "Sona couldn't play it"
+
+#: internal/ui/features/settings/find.go
+msgid "devtools, console, inspect element, debug"
+msgstr "devtools, console, inspect element, debug"
+
+#: internal/ui/features/settings/updates.go
+msgid "yesterday"
+msgstr "yesterday"
+
+#: internal/ui/features/settings/cdm.go
+msgid "{days, plural, one {# day ago} other {# days ago}}"
+msgstr "{days, plural, one {# day ago} other {# days ago}}"
+
+#: internal/ui/features/settings/desktop.go
+msgid "Sona's own title bar comes with a later version: the desktop draws it."
+msgstr "Sona's own title bar comes with a later version: the desktop draws it."
+
+#: internal/ui/i18n/relative.go
+msgid "{hours, plural, one {# hr. ago} other {# hr. ago}}"
+msgstr "{hours, plural, one {# hr. ago} other {# hr. ago}}"
+
+#: internal/ui/i18n/relative.go
+#: internal/ui/features/library/artists.go
+msgid "Nothing by {name} is in your library yet."
+msgstr "Nothing by {name} is in your library yet."
+#: internal/ui/features/library/sync.go
+#: internal/ui/features/library/sync.go
+#: internal/ui/features/library/sync.go
+#: internal/ui/features/library/sync.go
+#: internal/ui/features/playlist/format.go
+#: internal/ui/features/playlist/format.go
+#: internal/ui/features/playlist/format.go
+#: internal/ui/features/playlist/format.go
+#: internal/ui/features/concerts/upcoming.go
+msgid "Apple Music lists no upcoming concerts in this area."
+msgstr "Apple Music lists no upcoming concerts in this area."
+#: internal/ui/features/concerts/page.go
+msgid "Apple Music lists no upcoming concerts in this area. A larger city nearby may have some."
+msgstr "Apple Music lists no upcoming concerts in this area. A larger city nearby may have some."
+#: internal/ui/features/concerts/page.go
+#: internal/ui/features/concerts/upcoming.go
+msgid "Choose another city"
+msgstr "Choose another city"
+#: internal/ui/features/concerts/location.go
+msgid "Find a city"
+msgstr "Find a city"
+#: internal/ui/features/concerts/location.go
+msgid "No cities match “{term}”."
+msgstr "No cities match “{term}”."
+#: internal/ui/features/concerts/location.go
+msgid "No cities match “{term}”. Try the name of a bigger city nearby."
+msgstr "No cities match “{term}”. Try the name of a bigger city nearby."
+#: internal/ui/features/concerts/page.go
+msgid "No concerts match"
+msgstr "No concerts match"
+#: internal/ui/features/concerts/page.go
+#: internal/ui/features/concerts/upcoming.go
+msgid "No concerts near {city}"
+msgstr "No concerts near {city}"
+#: internal/ui/features/concerts/location.go
+msgid "Suggested cities"
+msgstr "Suggested cities"
+#: internal/ui/features/concerts/location.go
+msgid "Where are you?"
+msgstr "Where are you?"
+#: internal/ui/features/concerts/concerts.go
+#: internal/ui/features/concerts/concerts.go
+#: internal/ui/features/concerts/concerts.go
+#: internal/ui/features/concerts/concerts.go
+#: internal/ui/features/discover/front.go
+msgid "Featured cards"
+msgstr "Featured cards"
+#: internal/ui/features/discover/titles.go
+#: internal/ui/features/home/util.go
+#: internal/ui/features/discover/titles.go
+#: internal/ui/features/home/util.go
+#: internal/ui/features/discover/titles.go
+#: internal/ui/features/home/util.go
+#: internal/ui/features/discover/titles.go
+#: internal/ui/features/home/util.go
+msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
+msgstr "{minutes, plural, one {# min. ago} other {# min. ago}}"
