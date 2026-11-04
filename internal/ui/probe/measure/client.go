@@ -177,20 +177,24 @@ func (c *Client) Capture() ([]byte, error) {
 	return res.PNG, nil
 }
 
-// Tiles are the album tiles of the page in the tree: the buttons keyed
-// "play" inside a scroll container (the player bar's is outside one), and
-// that container, the page.
+// Tiles are the album tiles of the page in the tree: the cells taller than
+// they are wide (a cover and its text under it, not a list row) below a
+// scroll container, and that container, the page. A tile has no play button
+// of its own on the tree (the Albums tiles have none, as v0.2.0's), so the
+// cell is the tile and its top is the cover's.
 func Tiles(nodes []Node) (tiles []Node, page Node) {
-	scrolls := map[string]Node{}
+	byID := make(map[string]Node, len(nodes))
 	for _, n := range nodes {
-		if n.Role == "scroll" {
-			scrolls[n.ID] = n
-		}
+		byID[n.ID] = n
 	}
 	for _, n := range nodes {
-		if n.Role == "button" && n.HasKey("play") {
-			if p, ok := scrolls[n.Parent]; ok {
+		if n.Role != "cell" || n.Bounds.Width < 100 || n.Bounds.Width > 400 || n.Bounds.Height <= n.Bounds.Width {
+			continue
+		}
+		for p, hops := byID[n.Parent], 0; p.ID != "" && hops < 64; p, hops = byID[p.Parent], hops+1 {
+			if p.Role == "scroll" {
 				tiles, page = append(tiles, n), p
+				break
 			}
 		}
 	}

@@ -10,7 +10,7 @@ import (
 
 // A tile's cover, until it has decoded, is a flat square with a glyph on
 // it; a loaded cover is a picture. coversLoaded looks at the pixels of a
-// frame the window captured: above each fully visible tile's play button,
+// frame the window captured: at the top left of each fully visible tile,
 // inside its cover, a picture has far more distinct colours than the
 // placeholder's glyph and its antialiasing.
 const (
@@ -43,13 +43,13 @@ func (s *scenario) coversLoaded() (bool, error) {
 	seen, loaded := 0, 0
 	for _, t := range tiles {
 		b := t.Bounds
-		// The play button sits 8 DIPs in from the cover's bottom left; the
-		// sample is above it, a clear 30 DIPs inside the cover.
+		// The tile's top left is the cover's: the sample is the 80 DIPs
+		// from 8 DIPs in, clear of the cover's rounded corner.
 		if b.Y < page.Bounds.Y || b.Y+b.Height > page.Bounds.Y+page.Bounds.Height {
 			continue
 		}
 		seen++
-		r := image.Rect(int(b.X*scale), int((b.Y-30-probeH)*scale), int((b.X+probeW)*scale), int((b.Y-30)*scale)).Intersect(img.Bounds())
+		r := image.Rect(int((b.X+8)*scale), int((b.Y+8)*scale), int((b.X+8+probeW)*scale), int((b.Y+8+probeH)*scale)).Intersect(img.Bounds())
 		if distinctColours(img, r, probeColours) >= probeColours {
 			loaded++
 		}

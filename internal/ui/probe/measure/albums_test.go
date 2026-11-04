@@ -52,13 +52,13 @@ func (a *fakeApp) tree() []map[string]any {
 	nodes := []map[string]any{
 		{"id": "1", "role": "scroll", "bounds": map[string]any{"x": 233, "y": 49, "width": 900, "height": 1000}},
 		{"id": "2", "parent": "1", "role": "text", "label": "40 albums", "bounds": map[string]any{"x": 265, "y": 112, "width": 100, "height": 18}},
-		// The player bar's play button is not in a scroll container.
+		// The player bar's play button is not a tile.
 		{"id": "3", "role": "button", "key": "play", "label": "Play", "bounds": map[string]any{"x": 500, "y": 1200, "width": 36, "height": 36}},
 	}
 	for i := range 40 {
 		nodes = append(nodes, map[string]any{
-			"id": fmt.Sprint(10 + i), "parent": "1", "role": "button", "key": "play", "label": fmt.Sprint("Play ", i),
-			"bounds": map[string]any{"x": 265 + 216*(i%4), "y": fakeTop + fakeRowH*float64(i/4) - a.offset, "width": 36, "height": 36},
+			"id": fmt.Sprint(10 + i), "parent": "1", "role": "cell", "label": fmt.Sprint("Album ", i),
+			"bounds": map[string]any{"x": 265 + 216*(i%4), "y": fakeTop + fakeRowH*float64(i/4) - a.offset, "width": 200, "height": 238},
 		})
 	}
 	return nodes
@@ -199,23 +199,20 @@ func TestAlbumsScenarioScrollsThePageAndPrintsTheTable(t *testing.T) {
 	}
 }
 
-func TestTilesAreThePlayButtonsOfAScrollContainer(t *testing.T) {
+func TestTilesAreTheTallCellsOfAScrollContainer(t *testing.T) {
 	var nodes []Node
 	raw := `[
 	  {"id":"1","role":"scroll"},
-	  {"id":"2","parent":"1","role":"button","key":"play","label":"Play 1989"},
-	  {"id":"3","parent":"1","role":"button","key":"other","label":"Sort"},
-	  {"id":"4","role":"button","key":"play","label":"Play"}]`
+	  {"id":"5","parent":"1","role":"group"},
+	  {"id":"2","parent":"5","role":"cell","bounds":{"x":0,"y":0,"width":200,"height":238}},
+	  {"id":"3","parent":"1","role":"cell","bounds":{"x":0,"y":0,"width":800,"height":40}},
+	  {"id":"4","role":"cell","bounds":{"x":0,"y":0,"width":200,"height":238}}]`
 	if err := json.Unmarshal([]byte(raw), &nodes); err != nil {
 		t.Fatal(err)
 	}
 	tiles, page := Tiles(nodes)
 	if len(tiles) != 1 || tiles[0].ID != "2" || page.ID != "1" {
-		t.Errorf("tiles %+v page %+v: want the one inside the scroll container", tiles, page)
-	}
-	// The player bar's play button, outside one, is not a tile.
-	if tiles, _ := Tiles(nodes[3:]); len(tiles) != 0 {
-		t.Errorf("a button outside a scroll container is a tile: %+v", tiles)
+		t.Errorf("tiles %+v page %+v: want the one tall cell inside the scroll container", tiles, page)
 	}
 }
 
