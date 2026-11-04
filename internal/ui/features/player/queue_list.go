@@ -127,8 +127,10 @@ type queueList struct {
 	// focusedNow is the entry whose row has the focus in this frame's build,
 	// focusedWas the last frame's.
 	focusedNow, focusedWas uint64
-	menuWas                bool
-	last                   int64
+	// focusedStation: the focused row was in the station's list last frame.
+	focusedStation bool
+	menuWas        bool
+	last           int64
 }
 
 // focusRow asks for the focus to go to queue row qi: scrolled into view
@@ -215,10 +217,10 @@ func (p *player) queueTarget(c *ui.Context, st *queueList) kit.DropTarget {
 				return
 			}
 			if on {
-				p.cmds.QueueItems(pl.Items, false, false, slot)
+				p.cmds.QueueItems(pl.Items, kit.QueueAt(slot))
 				return
 			}
-			p.cmds.QueueItems(pl.Items, false, true, 0)
+			p.cmds.QueueItems(pl.Items, kit.QueueLast)
 		},
 	}
 }
@@ -244,7 +246,7 @@ func (p *player) queueList(c *ui.Context, inView bool) {
 	s := p.env.Play.State()
 	q := p.env.Play.Queue()
 	items := q.Items
-	parts, start := partsOf(s, q)
+	parts, start := p.queueParts(s, q)
 	px := float32(8)
 	if inView {
 		px = 4
@@ -429,14 +431,26 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 	// to the row that takes its place; one that moved to the other list (an
 	// AutoPlay song that plays now) keeps it.
 	if st.focusedWas != 0 && st.focusedNow == 0 && st.want == 0 {
-		if at := indexOfUID(items, st.focusedWas); at < start {
+		at := indexOfUID(items, st.focusedWas)
+		switch {
+		case at < start:
 			if qi := focusedRow(items, start, p.queue.focus); qi >= 0 {
 				p.focusRow(st, items, qi)
 				c.Invalidate()
 			}
+		case (g.head >= 0 && at >= g.userEnd) != st.focusedStation:
+			// The row moved between the two lists (an AutoPlay song that plays
+			// now): it is built under another parent, a new element, so it
+			// takes the focus again.
+			p.focusRow(st, items, at)
+			c.Invalidate()
 		}
 	}
 	st.focusedWas = st.focusedNow
+	st.focusedStation = false
+	if st.focusedNow != 0 {
+		st.focusedStation = g.head >= 0 && indexOfUID(items, st.focusedNow) >= g.userEnd
+	}
 	if st.want > 0 {
 		st.tries++
 		if st.tries > queueRetries {

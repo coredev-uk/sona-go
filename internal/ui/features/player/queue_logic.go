@@ -157,3 +157,37 @@ func menuMoves(qi, index, userEnd int, auto bool) (next, end bool) {
 	}
 	return qi > index+1, qi < userEnd-1
 }
+
+// partsKey is what partsOf reads: the cached parts are valid while it holds.
+type partsKey struct {
+	version    uint64
+	n, index   int
+	autoPlay   bool
+	repeat     string
+	station    services.QueueStation
+	hasStation bool
+}
+
+// partsCache is partsOf's last answer: the summary, the tools and the list
+// each ask every frame, and the queue changes far less often.
+type partsCache struct {
+	key   partsKey
+	parts queueParts
+	start int
+	valid bool
+}
+
+// queueParts is partsOf, computed once per change of the queue and of what
+// it reads. The result is shared: callers don't change it.
+func (p *player) queueParts(s services.PlaybackState, q services.QueueState) (queueParts, int) {
+	k := partsKey{version: q.Version, n: len(q.Items), index: s.Index, autoPlay: s.AutoPlay, repeat: s.Repeat}
+	if q.Station != nil {
+		k.station, k.hasStation = *q.Station, true
+	}
+	c := &p.queue.parts
+	if !c.valid || c.key != k {
+		c.parts, c.start = partsOf(s, q)
+		c.key, c.valid = k, true
+	}
+	return c.parts, c.start
+}

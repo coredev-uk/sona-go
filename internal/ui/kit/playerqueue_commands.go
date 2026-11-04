@@ -221,11 +221,16 @@ func (c *QueueCommands) ShuffleSongs(songs []services.Song, from services.PlayFr
 		return
 	}
 	c.d.Play.Patch(func(s *services.PlaybackState) { s.Shuffle = true })
-	c.d.Svc.SetShuffle(true)
 	start := rand.IntN(len(refs))
-	c.Replace(i18n.T("Couldn't start playback"), func(ctx context.Context) error {
-		return c.d.Svc.PlayItems(ctx, refs, start, from)
-	}, nil)
+	// Shuffle first, then the start (the service is never called on the main thread).
+	go func() {
+		c.d.Svc.SetShuffle(true)
+		c.d.Post(func() {
+			c.Replace(i18n.T("Couldn't start playback"), func(ctx context.Context) error {
+				return c.d.Svc.PlayItems(ctx, refs, start, from)
+			}, nil)
+		})
+	}()
 }
 
 // PlayVideos plays music videos from start as the queue (videos are never
@@ -248,11 +253,34 @@ func (c *QueueCommands) PlayVideos(videos []services.MusicVideo, start int, open
 	})
 }
 
+// QueuePlace is where QueueItems puts songs (v0.2.0's "next" | "last" |
+// number): QueueNext, QueueLast or QueueAt(slot).
+type QueuePlace struct {
+	kind queuePlaceKind
+	slot int
+}
+
+type queuePlaceKind int
+
+const (
+	placeNext queuePlaceKind = iota
+	placeLast
+	placeAt
+)
+
+// QueueNext is right after the current item.
+var QueueNext = QueuePlace{kind: placeNext}
+
+// QueueLast is after the songs the user queued.
+var QueueLast = QueuePlace{kind: placeLast}
+
+// QueueAt is before queue position slot (a drop on the queue panel's gap).
+func QueueAt(slot int) QueuePlace { return QueuePlace{kind: placeAt, slot: slot} }
+
 // QueueItems queues songs, music videos, albums and playlists (their tracks),
-// in order: where is "next" (after the current item), "last" (after the
-// user's queue) or an index (a drop on the queue panel: before that slot). On
-// a live station it says why and does nothing. Main thread only.
-func (c *QueueCommands) QueueItems(items []Item, next, last bool, at int) {
+// in order, at where. On a live station it says why and does nothing. Main
+// thread only; the service calls run on a goroutine.
+func (c *QueueCommands) QueueItems(items []Item, where QueuePlace) {
 	if c.d.Unavailable != nil {
 		if reason := c.d.Unavailable(); reason != "" {
 			Unavailable(reason)
@@ -270,20 +298,20 @@ func (c *QueueCommands) QueueItems(items []Item, next, last bool, at int) {
 			return
 		}
 		ctx := context.Background()
-		switch {
-		case next:
+		switch where.kind {
+		case placeNext:
 			err = c.d.Svc.PlayNext(ctx, refs)
-		case last:
+		case placeLast:
 			err = c.d.Svc.Append(ctx, refs)
 		default:
-			err = c.d.Svc.Insert(ctx, at, refs)
+			err = c.d.Svc.Insert(ctx, where.slot, refs)
 		}
 		if err != nil {
 			fail(i18n.T("Couldn't add to the queue"), err)
 			return
 		}
 		what := DescribeItems(items)
-		if next {
+		if where.kind == placeNext {
 			ShowToast(ToastSpec{Title: i18n.T("{count, plural, one {{what} plays next} other {{what} play next}}", "count", len(items), "what", what)})
 			return
 		}
@@ -344,30 +372,12 @@ func QueueUnavailable(s services.PlaybackState) string {
 func NewQueueCommandsFor(core *services.Core, play *store.Playback, post store.Poster) *QueueCommands {
 	pb := services.Service[services.PlaybackService](core)
 	sys := services.Service[services.SystemService](core)
-	cat := services.Service[services.CatalogService](core)
-	lib := services.Service[services.LibraryService](core)
-	pls := services.Service[services.PlaylistsService](core)
 	return NewQueueCommands(QueueDeps{
 		Svc:         pb,
 		Play:        play,
 		Post:        post,
 		ReplaceMode: func() string { return sys.Settings().Queue.ReplaceConfirm },
-		Tracks: func(ctx context.Context, it Item) ([]services.Song, error) {
-			switch it.Kind {
-			case KindAlbum:
-				a := it.Album()
-				if a.Source == services.SourceLibrary {
-					d, err := lib.Album(ctx, a.ID)
-					return d.Tracks, err
-				}
-				d, err := cat.Album(ctx, a.ID)
-				return d.Tracks, err
-			case KindPlaylist:
-				d, err := pls.Playlist(ctx, it.Playlist().ID)
-				return d.Tracks, err
-			}
-			return nil, nil
-		},
+		Tracks:      func(ctx context.Context, it Item) ([]services.Song, error) { return TracksOf(ctx, core, it) },
 		Unavailable: func() string { return QueueUnavailable(play.State()) },
 	})
 }

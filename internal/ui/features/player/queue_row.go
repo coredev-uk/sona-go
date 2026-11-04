@@ -221,18 +221,10 @@ func (p *player) rowContent(c *ui.Context, r *queueRowIn, hot, movable bool) {
 	case r.current:
 		kit.EqualiserBars(c.Key("eq"), r.playing, p.env.Motion).Margin(0, 6, 0, 0)
 	case hot:
-		more := kit.Button(c.Key("more"), "", kit.ButtonOpts{
-			Variant: kit.Ghost, Size: kit.SizeXS, Icon: "ellipsis", Muted: true,
-			A11yLabel: i18n.T("More for {name}", "name", it.Name),
-		})
-		if more.Clicked() {
-			b := more.Bounds()
-			p.openRowMenu(it.UID, b.X, b.Y+b.H, false)
+		if clicked, b := p.rowButton(c, "more", "ellipsis", i18n.T("More for {name}", "name", it.Name), ui.RoleMenuButton); clicked {
+			p.openRowMenu(it.UID, b.X, b.Y+b.H, false) // below the button
 		}
-		if kit.Button(c.Key("remove"), "", kit.ButtonOpts{
-			Variant: kit.Ghost, Size: kit.SizeXS, Icon: "x", Muted: true,
-			A11yLabel: i18n.T("Remove {name} from the queue", "name", it.Name),
-		}).Clicked() {
+		if clicked, _ := p.rowButton(c, "remove", "x", i18n.T("Remove {name} from the queue", "name", it.Name), ui.RoleButton); clicked {
 			p.removeAt(r.qi)
 		}
 	default:
@@ -314,4 +306,19 @@ func (p *player) keyMove(key string, it *services.QueueItem, r *queueRowIn) {
 	}
 	from := r.qi
 	p.askMove(*it, from, true, func() error { return p.svc.Move(from, to) })
+}
+
+// rowButton is a row's quiet 24 DIP icon button. It is not a tab stop (the
+// list is one stop: Enter, Delete and Shift+F10 on the row do the same);
+// it reports a click and where the button is.
+func (p *player) rowButton(c *ui.Context, key, icon, name string, role ui.Role) (clicked bool, at ui.Rect) {
+	btn := ui.Row(c.Key(key)).Size(24, 24).Shrink(0).Center().Radius(theme.Current().Radius["md"]).Role(role).
+		Label(name).Cursor(ui.CursorPointer)
+	fg := theme.C("ink-muted")
+	if btn.Hovered() {
+		fg = theme.C("ink")
+		btn.Background(theme.C("hover"))
+	}
+	btn.TextColor(fg).Children(func() { ui.Icon(c, theme.Icon(icon)).FontSize(16) })
+	return btn.Clicked(), btn.Bounds()
 }

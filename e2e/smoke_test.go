@@ -101,8 +101,8 @@ func TestSmoke(t *testing.T) {
 	})
 
 	t.Run("reorder the queue", func(t *testing.T) {
-		// The queue lists the album from the playing song on: drag its second
-		// upcoming song below the third and the order follows.
+		// The queue lists the album from the playing song on: drag its first
+		// upcoming song below the second and the order follows.
 		if first.SongCount() < 3 {
 			t.Fatalf("%q has %d songs: the fixture's last album has three", first.Name, first.SongCount())
 		}

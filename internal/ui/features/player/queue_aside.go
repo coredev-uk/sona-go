@@ -20,6 +20,12 @@ func (p *player) queueAside(c *ui.Context) {
 			p.queue.menu.Close()
 		}
 		p.queue.over = false
+		if p.queue.hadFocus && !p.ui.queueOpen {
+			// Closed (Close, or the toggle's keys) with the focus inside: it goes
+			// back to the bar's Queue button (v0.2.0's useReturnFocus).
+			p.queue.toggle.Focus(c)
+		}
+		p.queue.hadFocus = false
 		return
 	}
 	aside := ui.Row(c.Key("queue-aside")).Width(320).FillHeight().Shrink(0).Background(theme.C("ground")).
@@ -40,6 +46,7 @@ func (p *player) queueAside(c *ui.Context) {
 			p.queueList(c, false)
 		})
 	})
+	p.queue.hadFocus = aside.FocusWithin()
 	if aside.Shortcut(0, ui.KeyEscape) {
 		p.ui.queueOpen = false
 		p.queue.toggle.Focus(c)

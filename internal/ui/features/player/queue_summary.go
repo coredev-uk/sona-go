@@ -14,6 +14,11 @@ import (
 // this one"), "" for an empty queue.
 func summaryOf(s services.PlaybackState, q services.QueueState) string {
 	parts, start := partsOf(s, q)
+	return summaryFor(parts, start, q)
+}
+
+// summaryFor is summaryOf over parts already worked out.
+func summaryFor(parts queueParts, start int, q services.QueueState) string {
 	autoRows := parts.auto > 0 && q.Station != nil && q.Station.AutoPlay
 	switch {
 	case len(q.Items) == 0:
@@ -43,7 +48,8 @@ func (p *player) queueSummary(c *ui.Context, leave func()) {
 		p.playingFrom(c, st, leave)
 		return
 	}
-	text := summaryOf(p.env.Play.State(), q)
+	parts, start := p.queueParts(p.env.Play.State(), q)
+	text := summaryFor(parts, start, q)
 	if text == "" {
 		return
 	}

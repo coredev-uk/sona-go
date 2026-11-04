@@ -94,7 +94,9 @@ func (p *player) shortcuts() []module.Shortcut {
 			ID: "player.favourite", Group: "playback", Keys: []string{"F"}, Icon: "star",
 			Label:    func() string { return i18n.T("Favourite the playing song") },
 			Keywords: func() string { return i18n.T("like love star favorite") },
-			Run:      p.toggleFavourite,
+			// Not while a music video plays (v0.2.0's !videoPlaying()).
+			When: func() bool { cur := p.env.Play.State().Current; return cur == nil || !cur.Video },
+			Run:  p.toggleFavourite,
 		},
 		{
 			ID: "player.queue", Group: "view", Keys: []string{"Q"}, Icon: "list-music",

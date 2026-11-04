@@ -29,6 +29,10 @@ type queueUI struct {
 	// toggle is the bar's Queue button: the bar binds it (Bind), and Escape
 	// in the panel returns the focus to it.
 	toggle ui.Handle
+	// parts caches the queue's lines (queueParts).
+	parts partsCache
+	// hadFocus: the panel had the focus within last frame.
+	hadFocus bool
 	// over says a drag that the panel would take is over it (the aside's
 	// own drop target; Now Playing's list is its own).
 	over bool

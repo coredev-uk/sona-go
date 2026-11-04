@@ -88,8 +88,20 @@ func TestTitleLinksOfStationsAndVideos(t *testing.T) {
 	}
 }
 
+func TestCoverIsPlainArtworkWhileThereIsNoNowPlayingView(t *testing.T) {
+	r := newRig(t, true)
+	r.seed()
+	for _, name := range []string{"Open now playing", "Nothing playing", "Close now playing"} {
+		if r.tt.HasText(name) {
+			t.Errorf("a cover button %q with no view to open", name)
+		}
+	}
+}
+
 func TestCoverButtonOpensAndClosesNowPlaying(t *testing.T) {
 	r := newRig(t, true)
+	r.p.np.surface = true
+	r.tt.Frame()
 	if _, ok := r.tt.Find("Nothing playing"); !ok {
 		t.Fatalf("no disabled cover button while idle: %q", r.tt.Texts())
 	}
@@ -142,6 +154,16 @@ func TestLyricsButtonFollowsTheLyricsSurface(t *testing.T) {
 }
 
 // fakeRatings is the library service behind the rating buttons.
+// wait blocks until a call was made (the test fails after 5 s).
+func (f *fakeRatings) wait(t *testing.T) {
+	t.Helper()
+	select {
+	case <-f.done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the rating call never came")
+	}
+}
+
 type fakeRatings struct {
 	mu     sync.Mutex
 	state  services.ItemState
@@ -213,7 +235,7 @@ func TestRatingButtonsFavouriteTheSong(t *testing.T) {
 	if err := r.tt.Click("Favourite Song Title"); err != nil {
 		t.Fatal(err)
 	}
-	<-f.done
+	f.wait(t)
 	r.until(t, "Undo favourite for Song Title")
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -226,7 +248,7 @@ func TestRatingButtonsUndoAFavourite(t *testing.T) {
 	r, f := ratedRig(t, services.ItemState{Kind: "songs", ID: "i.1", Rating: 1})
 	r.until(t, "Undo favourite for Song Title")
 	_ = r.tt.Click("Undo favourite for Song Title")
-	<-f.done
+	f.wait(t)
 	r.until(t, "Favourite Song Title")
 }
 

@@ -157,7 +157,7 @@ func TestTheQueuePanelListsEditsAndReorders(t *testing.T) {
 		return len(q.Items) == 3 && q.Items[1].Name == f.album.Song(2) && q.Items[2].Name == f.album.Song(1)
 	})
 
-	// Remove the last one with the keyboard.
+	// Remove the last one with its button.
 	f.tt.Until("the moved row last", f.tt.Shows(f.queueRow(1)))
 	f.click(t, "Remove "+f.album.Song(1)+" from the queue")
 	f.tt.Until("two songs left", func() bool { return len(f.env.Play.Queue().Items) == 2 })

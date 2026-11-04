@@ -25,7 +25,11 @@ func (p *player) actions() []kit.ActionDef {
 		return false
 	}
 	run := func(next bool) func(*kit.ActionContext) {
-		return func(a *kit.ActionContext) { p.cmds.QueueItems(a.Items, next, !next, 0) }
+		where := kit.QueueLast
+		if next {
+			where = kit.QueueNext
+		}
+		return func(a *kit.ActionContext) { p.cmds.QueueItems(a.Items, where) }
 	}
 	def := func(id string, target kit.ItemKind, label func(*kit.ActionContext) string, icon string, order int, next bool, enabled func(*kit.ActionContext) bool) kit.ActionDef {
 		return kit.ActionDef{

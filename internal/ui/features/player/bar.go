@@ -75,6 +75,11 @@ func (p *player) cover(c *ui.Context, s services.PlaybackState) {
 			src = s.OnAir.Art.Small
 		}
 	}
+	if !p.nowPlayingSurface() {
+		// Nothing to open: the cover is a picture.
+		kit.Artwork(c, p.env.Art, src, 48, kit.ArtOpts{}).Shrink(0)
+		return
+	}
 	open := p.ui.overlay != overlayNone
 	name := i18n.T("Open now playing")
 	switch {

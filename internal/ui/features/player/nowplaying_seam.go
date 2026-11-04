@@ -18,7 +18,13 @@ type nowPlayingState struct {
 	queueView func(c *ui.Context, leave func())
 	// rating builds the Favourite and Suggest less buttons for the song.
 	rating func(c *ui.Context, cur *services.QueueItem)
+	// surface says the view exists (tests of the bar's cover button set it).
+	surface bool
 }
+
+// nowPlayingSurface reports whether the Now Playing view exists: the bar's
+// cover opens it, and is plain artwork while there is none.
+func (p *player) nowPlayingSurface() bool { return p.np.surface }
 
 // lyricsSurface reports whether the surface the bar's Lyrics button opens
 // exists; toggleLyrics opens or closes it.

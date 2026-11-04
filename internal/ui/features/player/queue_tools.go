@@ -15,7 +15,7 @@ import (
 // has songs queued, and the AutoPlay toggle.
 func (p *player) queueTools(c *ui.Context) {
 	s := p.env.Play.State()
-	parts, _ := partsOf(s, p.env.Play.Queue())
+	parts, _ := p.queueParts(s, p.env.Play.Queue())
 	ui.Row(c.Key("queue-tools")).Gap(4).AlignItems(ui.Center).Children(func() {
 		if parts.mine > 0 && kit.Button(c.Key("clear"), i18n.T("Clear"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}).Clicked() {
 			p.clearQueue()

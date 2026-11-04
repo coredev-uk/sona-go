@@ -709,3 +709,52 @@ func TestInViewListUsesTheViewsTexts(t *testing.T) {
 		t.Errorf("calls %v", got)
 	}
 }
+
+func TestAnAutoPlayRowThatStartsPlayingKeepsTheFocus(t *testing.T) {
+	r := newQueueRig(t, false)
+	r.seed(6, 0, autoPlayFrom(3))
+	r.focusRow(t, "Song 4, Artist 4")
+	// It plays now: the entry is the current song, in the first list.
+	r.seed(6, 3, autoPlayFrom(3))
+	for range 3 {
+		r.tt.Frame()
+	}
+	if !r.tt.Focused("Song 4, Artist 4") {
+		t.Error("the focus was lost when the AutoPlay row became the current song")
+	}
+}
+
+func TestTheRowsButtonsAreNotTabStops(t *testing.T) {
+	r := newQueueRig(t, false)
+	r.seed(4, 0)
+	r.focusRow(t, "Up next: Song 2, Artist 2")
+	b, _ := r.tt.Find("Up next: Song 2, Artist 2")
+	r.tt.Move(b.X+60, b.Y+b.H/2)
+	r.tt.Frame()
+	if !r.has("More for Song 2") || !r.has("Remove Song 2 from the queue") {
+		t.Fatalf("a hovered row shows no buttons: %q", r.tt.Texts())
+	}
+	for range 4 {
+		r.tt.Key(0, ui.KeyTab)
+		if r.tt.Focused("More for Song 2") || r.tt.Focused("Remove Song 2 from the queue") {
+			t.Fatal("a row's button took a Tab stop")
+		}
+	}
+}
+
+func TestCloseQueueReturnsTheFocusToTheToggle(t *testing.T) {
+	r := newQueueRig(t, false)
+	r.seed(4, 0)
+	r.focusRow(t, "Up next: Song 2, Artist 2")
+	if err := r.tt.Click("Close queue"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Frame()
+	r.tt.Frame()
+	if r.p.ui.queueOpen {
+		t.Fatal("Close left the queue open")
+	}
+	if !r.tt.Focused("Toggle queue") {
+		t.Error("the focus did not return to the queue toggle")
+	}
+}
