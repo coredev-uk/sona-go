@@ -426,7 +426,7 @@ func TestA11yFieldIsACombobox(t *testing.T) {
 	r.key(ui.KeyDown)
 	r.key(ui.KeyDown)
 	tr = access.Read(t, r.tt.Tester)
-	if n, ok := tr.Find(ui.RoleListItem, "blue band"); !ok || !(n.Has(access.Selected) || n.Has(access.Checked)) {
+	if n, ok := tr.Find(ui.RoleListItem, "blue band"); !ok || (!n.Has(access.Selected) && !n.Has(access.Checked)) {
 		t.Errorf("the second row is not the active one:\n%s", tr.Dump())
 	}
 	if tr.Focus == nil || tr.Focus.Label != "blue band" {
