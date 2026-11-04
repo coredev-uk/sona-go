@@ -122,15 +122,15 @@ fwpath() {
 }
 queue=("$fw"/lib/plugins/*.dylib "$fw/libexec/gst-plugin-scanner" "$work/sona")
 [[ -n ${SONA_SMOKE_TOOLS:-} ]] && queue+=("$work/playspike" "$work/media.test")
-declare -A seen
+seen=" "
 for ((i = 0; i < ${#queue[@]}; i++)); do
   f=${queue[i]}
   while read -r d; do
     s=$(fwpath "$d" "$f") || exit 1
     [[ -n $s ]] || continue
     n=${s##*/}
-    [[ -n ${seen[$n]:-} ]] && continue
-    seen[$n]=1
+    [[ $seen == *" $n "* ]] && continue
+    seen+="$n "
     [[ -e $fw/lib/$n ]] || cp "$s" "$fw/lib/$n"
     queue+=("$fw/lib/$n")
   done < <(deps "$f")
