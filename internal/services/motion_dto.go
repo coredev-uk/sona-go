@@ -49,8 +49,8 @@ type MotionFetch struct {
 	Error     ErrorCode `json:"error"` // "" when it worked
 }
 
-// MotionReport is the web view's side of motion artwork, which only
-// WebKit knows: what decides whether motion plays, which codecs it can
+// MotionReport is the UI's side of motion artwork, which only the UI
+// process knows: what decides whether motion plays, which codecs it can
 // decode and how the newest video went. Diagnostics sends it before
 // building a bug-report bundle, which then carries it.
 type MotionReport struct {

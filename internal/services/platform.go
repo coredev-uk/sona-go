@@ -19,7 +19,7 @@ import (
 // built by main's platform_<os>.go. A nil field means this platform (or
 // this session: Linux without a session bus) has no implementation: the
 // feature using it does nothing or fails with an errors.ErrUnsupported
-// error, and Capabilities reports it absent so the frontend hides or
+// error, and Capabilities reports it absent so the UI hides or
 // explains the control.
 type Platform struct {
 	// MediaControls publishes now-playing and takes transport commands
@@ -114,7 +114,7 @@ func unsupported(what string) error {
 }
 
 // PlatformService reports what this platform and build support, so the
-// frontend hides or explains what can't work here instead of showing it
+// UI hides or explains what can't work here instead of showing it
 // broken.
 type PlatformService struct {
 	caps     Capabilities

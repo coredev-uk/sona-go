@@ -27,7 +27,7 @@ var (
 	// Music User Tokens are long base64 strings with no fixed prefix; any
 	// unbroken base64 run of 100+ characters is treated as one.
 	longB64Re = regexp.MustCompile(`[A-Za-z0-9+/_-]{100,}={0,2}`)
-	// The -ldflags build setting, as Wails' development "Build Info:"
+	// The -ldflags build setting, as a Go program's "Build Info:"
 	// record logs it (JSON `"-ldflags":"…"`, text `-ldflags="…"`): the whole
 	// value goes, quoted or bare.
 	ldflagsRe = regexp.MustCompile(`(-ldflags["']?\s*[:=]\s*)(?:"(?:[^"\\]|\\.)*"|'[^']*'|[^\s"',;&}\])]+)`)
@@ -62,7 +62,7 @@ func Redact(s string) string {
 
 // sensitiveKey reports whether an attribute key names a secret. Matching
 // ignores case, '-' and '_' and accepts any key ending in "token".
-// "ldflags" is Wails' Build Info setting: the linker flags inject Sona's
+// "ldflags" is a Build Info setting: the linker flags inject Sona's
 // Last.fm and Discord credentials (-X), and nothing else in them is worth
 // a log line (the version is logged at startup).
 func sensitiveKey(key string) bool {

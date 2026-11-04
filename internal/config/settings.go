@@ -29,8 +29,8 @@ const (
 )
 
 // Settings is the user-editable configuration stored in settings.json. The
-// JSON field names are the frontend's names, so the struct can be bound to
-// Wails as-is. It never holds tokens.
+// JSON field names are the UI's names too (it reads the same struct). It
+// never holds tokens.
 type Settings struct {
 	// Language is the interface language: "" (Automatic) or a BCP 47 tag
 	// (language.go). Go's own text (tray, notifications, the command line,

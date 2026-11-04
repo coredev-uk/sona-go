@@ -8,14 +8,14 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth/store"
 )
 
-// AuthService is the frontend's sign-in surface over auth.Manager.
+// AuthService is the UI's sign-in surface over auth.Manager.
 type AuthService struct {
 	m      *auth.Manager
 	emit   Emitter
 	openFn func(url string) error
 }
 
-// newAuthService wires the auth manager to the frontend: every transition
+// newAuthService wires the auth manager to the UI: every transition
 // is logged and emitted as "auth:changed".
 func newAuthService(e *Env) *AuthService {
 	s := &AuthService{m: e.Auth, emit: e.Emit, openFn: e.OpenURL}

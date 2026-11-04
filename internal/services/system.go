@@ -48,7 +48,7 @@ func newSystemService(e *Env) *SystemService {
 	return &SystemService{o: e}
 }
 
-// FirstPaint is called by the frontend once the shell has painted. Network
+// FirstPaint is called by the UI once the shell has painted. Network
 // work (token validation, stale library sync, cache pruning) starts then.
 func (s *SystemService) FirstPaint() {
 	s.paintOnce.Do(func() {
@@ -66,7 +66,7 @@ func (s *SystemService) Settings() config.Settings { return s.o.Settings.Get() }
 
 // UpdateSettings saves next and applies it: theme and reduce-effects
 // through "settings:changed", the audio quality from the next item; the
-// idle timeout and WebKit toggles on the next start. The volume is the
+// idle timeout on the next start. The volume is the
 // player's (the player bar, MPRIS, `sona volume`; PlaybackService saves
 // it), so the saved one is kept whatever next carries: a page holding an
 // older copy of the settings can't turn the music back up or down.

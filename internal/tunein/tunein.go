@@ -8,7 +8,7 @@
 // URL's ad parameters (StationID), so no search or guess is involved: a
 // station Apple does not serve through TuneIn is never looked up there.
 // The parent process makes every request; the playback host and the
-// frontend never contact TuneIn.
+// UI never contact TuneIn.
 package tunein
 
 import (

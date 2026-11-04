@@ -38,7 +38,7 @@ type Windows interface {
 // entry and the remembered route. The close action, start page and window
 // size are settings (config.Desktop, config.Window) that the shell reads;
 // this service applies the autostart toggle when settings change and keeps
-// the frontend's copy of the settings Go writes itself current.
+// the UI's copy of the settings Go writes itself current.
 type DesktopService struct {
 	o *Env
 	// undoing is set while an autostart change that failed is reverted, so
@@ -96,7 +96,7 @@ func (d *DesktopService) SetLastRoute(route string) error {
 // settingsChanged writes or removes the autostart entry when its settings
 // change, and re-sends the settings when Go changed a field the user does
 // not edit (window size, last route, autostart from reconcile): the
-// frontend saves whole Settings objects, so a stale copy would put old
+// UI saves whole Settings objects, so a stale copy would put old
 // values back.
 func (d *DesktopService) settingsChanged(prev, next config.Settings) {
 	p, n := prev.Desktop, next.Desktop

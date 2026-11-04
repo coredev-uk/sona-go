@@ -3,8 +3,9 @@
 //   - macOS keeps the system's own buttons (the traffic lights), inset into
 //     Sona's top bar;
 //   - Windows and the stacking Linux desktops (GNOME, KDE Plasma, Cinnamon,
-//     Xfce, …) get Sona's own title bar, a frameless window with Sona-drawn
-//     buttons laid out as the desktop lays out its own;
+//     Xfce, …) get Sona's own title bar, a window with a hidden title bar under
+//     Sona's top bar and MyGo's window buttons laid out as the desktop lays
+//     out its own;
 //   - tiling compositors (sway, Hyprland, i3, niri, …) and desktops Sona
 //     does not recognise keep the desktop's: its own title bar and frame,
 //     or none at all on a tiling compositor.
@@ -12,7 +13,7 @@
 // Settings → General → Title bar (config.TitleBar) overrides the automatic
 // choice on Windows and Linux. The package is portable: the detection reads
 // environment variables and files, and the GTK setting is read by
-// internal/shell on Linux.
+// MyGo on Linux.
 package windowchrome
 
 import (

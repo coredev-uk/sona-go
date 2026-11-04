@@ -6,7 +6,7 @@
 // the codec the web view plays), fetches its files once, remuxes them into
 // a plain MP4 whose timeline starts at 0 (WebKitGTK does not play Apple's
 // fragments, see flatten), and serves it to the web view (with Range
-// support) at /motion/<key>/<size>.mp4, so the frontend never contacts
+// support) at /motion/<key>/<size>.mp4, so the UI never contacts
 // Apple and a looping video plays from disk. Least-recently-used files are
 // evicted over a size cap.
 package motion
@@ -42,7 +42,7 @@ const (
 	// touchEvery bounds how often a hit refreshes a file's mtime, which
 	// orders eviction.
 	touchEvery = time.Hour
-	// DefaultSize is the size in a URL handed out by URL; the frontend
+	// DefaultSize is the size in a URL handed out by URL; the UI
 	// replaces it with the size it draws.
 	DefaultSize = 720
 )

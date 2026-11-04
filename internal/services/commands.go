@@ -230,7 +230,7 @@ func (s *commandServer) searchCatalog(ctx context.Context, req cli.Request) (any
 }
 
 // openLink opens an Apple Music link as a forwarded launch would: the
-// window comes to the front and the frontend opens the link's page.
+// window comes to the front and the UI opens the link's page.
 func (s *commandServer) openLink(args []string) (any, error) {
 	t, err := app.ParseURL(args[0])
 	if err != nil {
@@ -265,7 +265,7 @@ func (s *commandServer) volume(ctx context.Context, args []string) (any, error) 
 
 // like favourites the playing song (on), un-favourites it (off), switches
 // it (toggle) or reports it (status), through the library service the
-// player bar's Favourite uses. The frontend hears of changes
+// player bar's Favourite uses. The UI hears of changes
 // (EventItemState).
 func (s *commandServer) like(ctx context.Context, args []string) (any, error) {
 	verb := "on"

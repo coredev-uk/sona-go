@@ -1,5 +1,5 @@
 // Package equalizer holds the equaliser's bands and presets, shared by the
-// settings, the service the frontend talks to, and the playback host child
+// settings, the service the UI talks to, and the playback host child
 // (GStreamer's equalizer-10bands, one peaking filter per band).
 package equalizer
 

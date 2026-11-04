@@ -6,10 +6,10 @@ import (
 )
 
 // PrivateService is private listening (internal/privatemode) for the
-// frontend: the state that applies now and where it comes from, and the
+// UI: the state that applies now and where it comes from, and the
 // switch the Settings row, the player bar and the command palette share.
 // The tray and `sona private` act on the same Mode, so every change reaches
-// the frontend as "private:changed".
+// the UI as "private:changed".
 type PrivateService struct {
 	e *Env
 }
@@ -27,7 +27,7 @@ func newPrivateService(e *Env) *PrivateService {
 		}
 		e.Private.SavedChanged(next.Private.Enabled)
 		// The tray and `sona private` save the setting without
-		// UpdateSettings: keep the frontend's copy current, so its next
+		// UpdateSettings: keep the UI's copy current, so its next
 		// save does not write the old value back.
 		if e.Emit != nil {
 			e.Emit.Emit(EventSettingsChanged, next)

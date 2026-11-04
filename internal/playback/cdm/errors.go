@@ -11,7 +11,7 @@ import (
 )
 
 // Failure codes, in Error.Code and Status.Code: stable strings the
-// frontend words.
+// UI words.
 const (
 	// CodeNetwork: Mozilla's manifest or Google's package could not be
 	// fetched (offline, DNS, TLS, an HTTP error, a stalled download).

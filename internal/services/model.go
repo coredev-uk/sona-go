@@ -1,6 +1,6 @@
 package services
 
-// DTOs are shaped for the frontend: durations and timestamps in integer
+// DTOs are shaped for the UI: durations and timestamps in integer
 // milliseconds (timestamps as Unix ms, 0 when unknown), artwork as
 // Go-served /art/ URLs (never Apple templates), IDs as strings.
 
@@ -328,11 +328,11 @@ const (
 	SectionLive     = "live"     // live radio stations
 	SectionStations = "stations" // local broadcasters, as a dense station list
 	SectionText     = "text"     // a paragraph (Text)
-	// SectionConcerts is Home's concerts shelf: no Items, the frontend
+	// SectionConcerts is Home's concerts shelf: no Items, the UI
 	// shows the concerts near the user (ConcertsService) in its place.
 	SectionConcerts = "concerts"
 	// SectionPlaylists is a curator's playlists as a row of cover cards,
-	// untitled: the frontend words its heading.
+	// untitled: the UI words its heading.
 	SectionPlaylists = "playlists"
 )
 

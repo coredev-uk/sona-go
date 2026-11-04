@@ -165,7 +165,7 @@ artwork says which input stops it); covers show their still.
 | `uitest/access` | `go test` (Linux on every pull request, macOS after merges; Windows builds and vets only) | The tree MyGo describes for assistive technology, read from a `ui.Tester`: roles, names, descriptions, states and actions of a page; `NoNestedControls` fails for every clickable or focusable element inside a button, link or other leaf role; `TabWalk` presses Tab round the window and fails for a stop that is not on the tree or a walk that never comes back (a trap) |
 | `internal/ui/kit/a11y_test.go` | `go test` | Each list and item component (cover grid, shelf, item grid, track list, track shelf, stations, link list, wide row), form controls and their states, dialogs, confirmations, toasts, menus |
 | `internal/ui/**/a11y_test.go` | `go test` | Per feature package: its pages' trees and Tab walk in reading order, Escape and focus return for the overlays it owns, announcements, the states table above |
-| `e2e` `TestAccessibility`, `TestAccessibilityPages` | CI "E2E (headless sway)" job only | The real app's tree on the AT-SPI bus: the shell's landmarks, sidebar links and each library page's heading, with the roles and names a screen reader gets (`headless -- go test -tags e2e ./e2e/...`) |
+| `e2e` `TestAccessibility`, `TestAccessibilityPages` | CI "E2E (headless sway)" job only | The real app's tree on the AT-SPI bus: the window's landmarks, sidebar links and each library page's heading, with the roles and names a screen reader gets (`headless -- go test -tags e2e ./e2e/...`) |
 | Contrast | `TestContrastFloors` | The text tokens' ratios, computed; the scrim, the focus ring and selected rows are checked as values |
 
 The `ui.Tester` checks are `go test`s, so they run wherever CI runs the Go
@@ -198,8 +198,9 @@ session with audio:
   MyGo; the stand-ins above read well but are not those states. The setup
   strip's one Tab stop is the segment last focused, not the current step,
   because MyGo's focus group enters on a checked element only.
-- A control that takes the focus without being a Tab stop (v0.2.0's
-  `tabindex=-1`: the video view, the setup step title) is also a Tab stop.
+- A control that takes the focus without being a Tab stop (the web
+  `tabindex=-1` pattern: the video view, the setup step title) is also a Tab
+  stop.
 - A heading cannot hold a link (the video title is not a heading).
 - The hidden buttons of a row cannot be pressed by a test the way a screen
   reader presses them: `access.Node.Can(access.Press)` is what the tests

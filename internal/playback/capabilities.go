@@ -10,7 +10,7 @@ import (
 const KindCDM = "cdm"
 
 // Capabilities is what an engine supports beyond playing, for the
-// frontend's capability list.
+// UI's capability list.
 type Capabilities struct {
 	Kind         string // KindCDM, or "" for no engine (Unsupported)
 	Volume       bool   // SetVolume changes the level

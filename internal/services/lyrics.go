@@ -91,7 +91,7 @@ func (s *LyricsService) track(ctx context.Context, songID string) lyrics.Track {
 	return t
 }
 
-// lyricsDTO maps lyrics for the frontend (empty lists as []).
+// lyricsDTO maps lyrics for the UI (empty lists as []).
 func lyricsDTO(l lyrics.Lyrics) Lyrics {
 	out := Lyrics{
 		Provider: l.Provider, Timing: l.Timing, Language: l.Language, Songwriters: nonNil(l.Songwriters),

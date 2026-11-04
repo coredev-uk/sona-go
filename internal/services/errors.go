@@ -24,12 +24,11 @@ import (
 	"github.com/coredev-uk/sona-go/internal/update"
 )
 
-// ErrorCode is a stable error code the frontend words through its own
-// catalogue (frontend/src/shared/lib/errors.ts): a rejected call carries
-// one in err.cause.code (see MarshalError), and DTOs carry one where Go
-// would otherwise send English (AuthStatus.LastErrorCode, sync events…).
-// Wails binds it as the TypeScript enum ErrorCode, so the frontend can't
-// miss a code. Go's error text never reaches the UI; it is for logs.
+// ErrorCode is a stable error code the UI words through its own
+// catalogue (internal/ui/i18n, ErrorText): a failed call carries one
+// (see MarshalError), and DTOs carry one where Go would otherwise send
+// English (AuthStatus.LastErrorCode, sync events…). Go's error text never
+// reaches the UI's words; it is for logs.
 type ErrorCode string
 
 // The error codes. TestEveryCodeIsClassified needs an example error for
@@ -82,7 +81,7 @@ const (
 	CodeUpdateSignature     ErrorCode = "update_signature"      // the update isn't signed with Sona's key (update.ErrSignature)
 	CodeUpdateFailed        ErrorCode = "update_failed"         // the update couldn't be installed (update.ErrInstall)
 	CodeKeyring             ErrorCode = "keyring"               // the token store failed or didn't answer in time
-	CodeUnknown             ErrorCode = "unknown"               // none of the above; the frontend shows a generic message
+	CodeUnknown             ErrorCode = "unknown"               // none of the above; the UI shows a generic message
 )
 
 // Errors of the services themselves that carry their own code.

@@ -20,7 +20,7 @@ type OpenTarget struct {
 }
 
 // opener turns activations into "app:open" events. Targets that arrive
-// before the frontend is listening (first paint) are held and delivered
+// before the UI is listening (first paint) are held and delivered
 // then.
 type opener struct {
 	emit  Emitter

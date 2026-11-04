@@ -9,7 +9,7 @@ import (
 
 // Gate holds back network work until the UI has painted its first frame
 // (SystemService.FirstPaint), so cold start reads only local stores. It
-// opens on its own after a fallback delay in case the frontend never
+// opens on its own after a fallback delay in case the UI never
 // reports a paint.
 type Gate struct {
 	log      *slog.Logger
