@@ -1,6 +1,8 @@
 package player
 
 import (
+	"github.com/egoist/mygo/ui"
+
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
 )
@@ -37,6 +39,12 @@ type view struct {
 	// fromRoom: now playing was reopened by leaving full-screen lyrics, so
 	// focus goes back to its Full screen button.
 	fromRoom bool
+	// opening is the bar control (its handle) whose click is opening a panel
+	// now; opener the one that opened the panel showing, which the focus goes
+	// back to when the panel closes (v0.2.0's useReturnFocus). nil: a key
+	// opened it, so the focus is left with the page. restoring is the opener
+	// a return was asked of and that is not answered yet.
+	opening, opener, restoring *ui.Handle
 }
 
 func newView() *view { return &view{pane: paneLyrics} }
@@ -46,6 +54,9 @@ func (v *view) toggleQueue() { v.queueOpen = !v.queueOpen }
 // openNowPlaying opens the view on pane, or on the one it showed last when
 // pane is "".
 func (v *view) openNowPlaying(pane paneKind) {
+	if v.overlay == overlayNone {
+		v.opener = v.opening
+	}
 	v.overlay, v.fromRoom = overlayNowPlaying, false
 	if pane != "" {
 		v.pane = pane
@@ -53,7 +64,12 @@ func (v *view) openNowPlaying(pane paneKind) {
 }
 
 // openRoom is full-screen lyrics.
-func (v *view) openRoom() { v.overlay, v.pane = overlayRoom, paneLyrics }
+func (v *view) openRoom() {
+	if v.overlay == overlayNone {
+		v.opener = v.opening
+	}
+	v.overlay, v.pane = overlayRoom, paneLyrics
+}
 
 // closeOverlay steps back one level: full-screen lyrics → now playing → the
 // page.

@@ -29,6 +29,9 @@ type nowPlayingState struct {
 	// shown: the view has been built since it opened (focus goes to its first
 	// stop once); roomShown is the same for full-screen lyrics.
 	shown, roomShown bool
+	// hadFocus: the focus was inside the view when it was last built, so
+	// closing it returns the focus to the control that opened it.
+	hadFocus bool
 	// roomFull: full-screen lyrics put the window in full screen, so leaving
 	// takes it out again.
 	roomFull, roomEntered bool
@@ -100,7 +103,8 @@ func (p *player) toggleNowPlaying() {
 	}
 }
 
-// toggleVideo shows the music video view, or hides it.
+// toggleVideo is the V key: the music video view, or hides it (the bar's
+// button opens it from itself, so the focus returns to it).
 func (p *player) toggleVideo() { p.env.Video.Toggle() }
 
 // toggleRoom is Shift+L: full-screen lyrics, or back out of them.
