@@ -18,6 +18,7 @@ package uitest
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -28,6 +29,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/auth/devtoken"
 	authstore "github.com/coredev-uk/sona-go/internal/auth/store"
+	"github.com/coredev-uk/sona-go/internal/catalog"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/db"
 	ilib "github.com/coredev-uk/sona-go/internal/library"
@@ -55,6 +57,7 @@ type options struct {
 	seed      bool
 	core      bool
 	dark      bool
+	apple     http.Handler
 	version   string
 	auth      []func(*auth.Config)
 	equalizer bool
@@ -89,6 +92,7 @@ func Version(v string) Option { return func(o *options) { o.version = v } }
 func AuthConfig(f func(*auth.Config)) Option {
 	return func(o *options) { o.auth = append(o.auth, f) }
 }
+
 // Equalizer makes the fake engine report an equaliser, as a platform with one
 // does (Capabilities().Playback.Equalizer); Harness.Engine.Curves are what
 // the audio service gave it.
@@ -197,7 +201,7 @@ func New(t testing.TB, opts ...Option) *Harness {
 	t.Cleanup(func() { loader.Close(); loader.Wait() })
 	h.Env = &module.Env{
 		Core: h.Core, Bus: h.Bus, Queries: store.NewClient(h.Main.Post), Play: store.NewPlayback(h.Bus, h.Clock.Now),
-		Art: loader, Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: o.version, Surfaces: store.NewSurfaces(), OpenURL: h.open, Copy: h.copy,
+		Art: loader, Actions: kit.NewActionRegistry(), Players: module.NewPlayers(h.Core, h.Clock.Now), Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: o.version, Surfaces: store.NewSurfaces(), OpenURL: h.open, Copy: h.copy,
 	}
 	if o.core {
 		h.Env.Queue = kit.NewQueueCommandsFor(h.Core, h.Env.Play, h.Main.Post)
@@ -257,11 +261,29 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	for _, f := range o.auth {
 		f(&acfg)
 	}
+	if o.apple != nil {
+		h.serveApple(o.apple)
+		acfg.APIBase = applemusic.BaseURL
+		acfg.Open = func() (authstore.Store, error) { return signedIn{}, nil }
+	}
 	authm, err := auth.NewManager(acfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(authm.Close)
+	var (
+		api *applemusic.Client
+		cat *catalog.Catalog
+	)
+	if o.apple != nil {
+		api = applemusic.New(h.Network.Client(), staticDev{}, authm.UserToken)
+		cat = catalog.New(d, api, appleStorefront(true), slog.New(slog.DiscardHandler))
+	}
+	if api == nil {
+		// A real client over the fixture network: a request to a host nothing
+		// serves fails with an error (AutoPlay asks Apple for a station).
+		api = applemusic.New(h.Network.Client(), staticDev{}, func() string { return "" })
+	}
 	h.Engine = fakeengine.New()
 	h.Engine.Now = h.Clock.Now
 	h.Engine.Equalizer = o.equalizer
@@ -272,16 +294,24 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	t.Cleanup(func() { _ = h.Coord.Close() })
 	core := services.New(services.Deps{
 		Paths:    config.Paths{Config: h.Dir, Data: h.Dir, Cache: h.Dir, Art: h.Dir, State: h.Dir},
-		Settings: settings, DB: d, Auth: authm, Library: ilib.New(d, nil), Syncer: ilib.NewSyncer(d, nil, nil, 0), Art: art, Engine: h.Engine, Coord: h.Coord,
+		Settings: settings, DB: d, Auth: authm, API: api, Catalog: cat, Storefront: appleStorefront(o.apple != nil), Library: ilib.New(d, nil), Syncer: ilib.NewSyncer(d, nil, nil, 0), Art: art, Engine: h.Engine, Coord: h.Coord,
 		Private: privatemode.New(privatemode.Options{}), Gate: services.NewGate(time.Hour, nil),
 		Keyring: h.Keyring, Transport: h.Network,
-		// A real client over the fixture network: a request to a host nothing
-		// serves fails with an error (AutoPlay asks Apple for a station).
-		API:  applemusic.New(h.Network.Client(), staticDev{}, func() string { return "" }),
 		Emit: h.Bus, OpenURL: h.open, Clipboard: h.copy, Windows: noWindows{}, Logger: slog.New(slog.DiscardHandler), Version: o.version, Started: Epoch,
 	})
 	t.Cleanup(core.Close)
 	authm.Start()
+	if o.apple != nil {
+		// Start restores the account on a goroutine: the first request must
+		// carry the Music User Token, as a signed-in session's does.
+		deadline := time.Now().Add(10 * time.Second)
+		for authm.Status().State != auth.StateSignedIn {
+			if time.Now().After(deadline) {
+				t.Fatalf("uitest: the fake Apple account did not sign in: %+v", authm.Status())
+			}
+			time.Sleep(2 * time.Millisecond)
+		}
+	}
 	h.Core, h.DB, h.Settings, h.Art = core, d, settings, art
 	return art
 }
