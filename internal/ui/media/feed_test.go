@@ -83,7 +83,7 @@ func TestFeedShowsPicturesFromTheSurface(t *testing.T) {
 	// queued from the two shown above (CI saw one arrive here), so skip
 	// those.
 	s.Show(32, 24, 0, planes(32, 24, 128))
-	p := wait()
+	p = wait()
 	for p.Image.Bounds().Dx() == 64 {
 		p = wait()
 	}
