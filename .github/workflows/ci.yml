@@ -87,23 +87,14 @@ jobs:
           echo "heavy: $heavy"
 
   # go vet for the host, the development build (-tags dev) and the probe build
-  # (-tags probe): one job each, they share nothing but the source.
+  # (-tags probe). The vets share compiled dependencies, so one job beats
+  # three that each compile them.
   vet:
-    name: Vet (${{ matrix.name }})
+    name: Vet (host, dev, probe)
     needs: changes
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: host
-            flags: ""
-          - name: dev
-            flags: -tags dev,sqlite_fts5
-          - name: probe
-            flags: -tags probe,sqlite_fts5
     env:
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
@@ -112,18 +103,22 @@ jobs:
         with:
           persist-credentials: false
 
+      # MyGo loads GTK, libepoxy and the tray by soname at run time (purego):
+      # building and vetting need only GStreamer's headers.
       - uses: ./.github/actions/setup-linux
         id: setup
         with:
           packages: vet
-          flavor: vet-${{ matrix.name }}
+          flavor: vet
 
       - name: go vet
-        env:
-          FLAGS: ${{ matrix.flags }}
-        run: |
-          # shellcheck disable=SC2086
-          go vet $FLAGS ./...
+        run: go vet ./...
+
+      - name: go vet (development build)
+        run: go vet -tags dev,sqlite_fts5 ./...
+
+      - name: go vet (probe build)
+        run: go vet -tags probe,sqlite_fts5 ./...
 
       - name: Save Go's caches
         if: ${{ always() && steps.setup.outputs.save == 'true' }}
@@ -175,7 +170,7 @@ jobs:
           key: ${{ steps.setup.outputs.cache-key }}
 
   # The tests under -race, split into shards of packages (shard.sh). SHARDS in
-  # the three jobs below must equal the length of the job's `index` list.
+  # the two jobs below must equal the length of the job's `index` list.
   #
   # The native UI's tests: the ui.Tester tests of internal/ui, which include the
   # golden images (the shell and Albums, light and dark;
@@ -184,7 +179,7 @@ jobs:
   # golden's failure leaves the picture and a diff in the ui-golden-diffs
   # artifact. These shards are the "UI tests (goldens)" check.
   test-ui:
-    name: Race tests, UI (${{ matrix.index }}/6)
+    name: Race tests, UI (${{ matrix.index }}/10)
     needs: changes
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
@@ -192,12 +187,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        index: [1, 2, 3, 4, 5, 6]
+        index: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     env:
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
       MYGO_GPU: "0"
-      SHARDS: "6"
+      SHARDS: "10"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -206,6 +201,7 @@ jobs:
       - uses: ./.github/actions/setup-linux
         id: setup
         with:
+          packages: lite
           flavor: race-ui-${{ matrix.index }}
 
       - name: go test -race (UI shard)
@@ -242,7 +238,7 @@ jobs:
   # authentication, the dev-only tests of internal/app, internal/mpris and
   # internal/devinstance.
   test-core:
-    name: Race tests, core (${{ matrix.index }}/2)
+    name: Race tests, core
     needs: changes
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
@@ -250,11 +246,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        index: [1, 2]
+        index: [1]
     env:
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
-      SHARDS: "2"
+      SHARDS: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -263,6 +259,7 @@ jobs:
       - uses: ./.github/actions/setup-linux
         id: setup
         with:
+          packages: lite
           flavor: race-core-${{ matrix.index }}
 
       - name: go test -race (core shard)
@@ -317,18 +314,18 @@ jobs:
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       # The real-CDM tests use Google's Widevine CDM, downloaded and verified
-      # the way Sona does it (cmd/cdmfetch, internal/playback/cdm) and cached
-      # per version: Mozilla's manifest names the version, so a new CDM
-      # release fills a new cache entry.
-      - name: Resolve the Widevine CDM version
-        id: cdm
-        run: echo "version=$(go run ./cmd/cdmfetch -version)" >> "$GITHUB_OUTPUT"
+      # the way Sona does it (cmd/cdmfetch, internal/playback/cdm). The cache
+      # is renewed weekly; cdmfetch asks Mozilla's manifest for the version
+      # every run and downloads a newer CDM over the cached one.
+      - name: Week of the CDM cache
+        id: week
+        run: echo "week=$(date +%G-%V)" >> "$GITHUB_OUTPUT"
 
       - name: Cache the Widevine CDM
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/sona-ci/widevine
-          key: widevine-${{ runner.os }}-${{ runner.arch }}-${{ steps.cdm.outputs.version }}
+          key: widevine-${{ runner.os }}-${{ runner.arch }}-${{ steps.week.outputs.week }}
 
       - name: Install the Widevine CDM
         run: |

@@ -1,9 +1,4 @@
 build-essential
 pkg-config
-libgtk-3-dev
-libayatana-appindicator3-dev
-libsecret-1-dev
-libepoxy-dev
-libgl-dev
 libgstreamer1.0-dev
 libgstreamer-plugins-base1.0-dev

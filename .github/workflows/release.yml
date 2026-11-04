@@ -74,7 +74,11 @@ jobs:
     name: Plan the run
     runs-on: ubuntu-26.04
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read # find the CI run of the tagged commit
     outputs:
+      ci-passed: ${{ steps.ci.outputs.passed }}
       version: ${{ steps.plan.outputs.version }}
       tag: ${{ steps.plan.outputs.tag }}
       publish: ${{ steps.plan.outputs.publish }}
@@ -119,17 +123,39 @@ jobs:
           } >>"$GITHUB_OUTPUT"
           echo "### Release plan: $version (publish: $publish, prerelease: $prerelease)" >>"$GITHUB_STEP_SUMMARY"
 
+      # A release is the commit of a merged release PR, which CI has run (or
+      # is running) on main: when a CI run of this commit has passed, the
+      # checks job below does not run it again.
+      - name: Has CI passed on this commit?
+        id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          passed=false
+          if [ "$EVENT" != workflow_dispatch ]; then
+            sha=$(git rev-parse HEAD)
+            n=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$sha&event=push&status=success" --jq .total_count || echo 0)
+            if [ "${n:-0}" -gt 0 ]; then passed=true; fi
+          fi
+          echo "passed=$passed" >>"$GITHUB_OUTPUT"
+          echo "CI passed on this commit: $passed"
+
+  # The Linux CI jobs, in parallel with the builds below; publish waits for
+  # them. A release whose commit already passed CI on main skips them; a dry
+  # run runs them only when asked.
   checks:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.checks }}
+    needs: plan
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.checks || github.event_name != 'workflow_dispatch' && needs.plan.outputs.ci-passed != 'true' }}
     uses: ./.github/workflows/ci.yml
     with:
       linux-only: true
 
   linux:
     name: Build and smoke-test Linux packages
-    needs: [plan, checks]
-    # A dry run may skip the checks; a release may not.
-    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.checks.result == 'success' || needs.checks.result == 'skipped') }}
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 60
     # The Last.fm key and secret and the Discord application ID are secrets
@@ -138,6 +164,7 @@ jobs:
     environment: ${{ needs.plan.outputs.publish == 'true' && 'release' || '' }}
     permissions:
       contents: read
+      packages: read # pull the build image (images.yml)
       id-token: write # sign the build provenance
       attestations: write # store it
     steps:
@@ -145,6 +172,14 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
+
+      # release.sh pulls the build image published by images.yml; without the
+      # login (or the image) it builds the image itself, three minutes slower.
+      - name: Log in to GHCR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$GH_TOKEN" | podman login ghcr.io -u "$GITHUB_ACTOR" --password-stdin || echo "::warning::no GHCR login, so the build image will be built here"
 
       # A prerelease's version is VERSION-<rc>; the packages read VERSION.
       - name: Set the version
@@ -210,8 +245,8 @@ jobs:
 
   macos:
     name: Build and smoke-test macOS
-    needs: [plan, checks]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.checks.result == 'success' || needs.checks.result == 'skipped') }}
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
     runs-on: macos-15
     timeout-minutes: 60
     environment: ${{ needs.plan.outputs.publish == 'true' && 'release' || '' }}
@@ -301,8 +336,8 @@ jobs:
 
   windows:
     name: Build and smoke-test Windows
-    needs: [plan, checks]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.checks.result == 'success' || needs.checks.result == 'skipped') }}
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
     runs-on: windows-2025
     timeout-minutes: 45
     environment: ${{ needs.plan.outputs.publish == 'true' && 'release' || '' }}
@@ -384,8 +419,10 @@ jobs:
 
   publish:
     name: Sign the update manifests and publish the GitHub release
-    needs: [plan, linux, macos, windows]
-    if: ${{ needs.plan.outputs.publish == 'true' }}
+    needs: [plan, checks, linux, macos, windows]
+    # Nothing is published unless every build passed and the checks passed or
+    # were not needed.
+    if: ${{ !cancelled() && needs.plan.outputs.publish == 'true' && needs.linux.result == 'success' && needs.macos.result == 'success' && needs.windows.result == 'success' && (needs.checks.result == 'success' || needs.checks.result == 'skipped') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 20
     # SONA_UPDATE_KEY (the Ed25519 key `go tool mygo keygen` wrote) is a
