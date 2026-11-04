@@ -1,26 +1,11 @@
 package video
 
 import (
-	"sync"
 	"testing"
 
 	"github.com/coredev-uk/sona-go/internal/ui/store"
-	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
-
-var fontOnce sync.Once
-
-// fonts registers the interface font before a golden renders: text built
-// earlier would use the system's sans, and the golden would differ in CI.
-func fonts(t *testing.T) {
-	t.Helper()
-	fontOnce.Do(func() {
-		if err := theme.RegisterFonts(); err != nil {
-			t.Fatal(err)
-		}
-	})
-}
 
 func TestGoldenPage(t *testing.T) {
 	for _, mode := range []struct {
@@ -28,7 +13,6 @@ func TestGoldenPage(t *testing.T) {
 		dark bool
 	}{{"light", false}, {"dark", true}} {
 		t.Run(mode.name, func(t *testing.T) {
-			fonts(t)
 			p := newPageRig(t, mode.dark, 1132, 1253)
 			p.loaded()
 			p.tt.Settle()
@@ -38,7 +22,6 @@ func TestGoldenPage(t *testing.T) {
 }
 
 func TestGoldenPageNarrow(t *testing.T) {
-	fonts(t)
 	p := newPageRig(t, false, 940, 600)
 	p.loaded()
 	p.tt.Settle()
@@ -51,7 +34,6 @@ func TestGoldenView(t *testing.T) {
 		dark bool
 	}{{"light", false}, {"dark", true}} {
 		t.Run(mode.name, func(t *testing.T) {
-			fonts(t)
 			r := newRig(t, mode.dark, viewMount, 1132, 1253)
 			// Paused: the controls stay and nothing ticks. A 4:3 picture
 			// shows the letterbox.

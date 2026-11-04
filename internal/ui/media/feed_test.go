@@ -243,3 +243,30 @@ func TestFeedRestartTakesOnlyPicturesShownFromNow(t *testing.T) {
 		t.Fatal("Start did not take the picture on show")
 	}
 }
+
+func TestFeedDropsAPictureThatWasConvertingAcrossARestart(t *testing.T) {
+	s := video.NewSurface()
+	s.Show(64, 48, 0, planes(64, 48, 235)) // the item before's last picture, Seq 1
+	shown := make(chan Picture, 4)
+	f := NewFeed(s, func(fn func()) { fn() }, func(p Picture) { shown <- p }, func() {}, nil)
+	defer f.Stop()
+	f.Restart()
+	// A conversion of the old picture that began before the restart ends
+	// now, with the feed running again.
+	f.publish(video.Frame{Seq: 1, Width: 64, Height: 48, Data: planes(64, 48, 235)})
+	select {
+	case p := <-shown:
+		t.Fatalf("the picture of before the restart was shown (seq %d)", p.Seq)
+	case <-time.After(30 * time.Millisecond):
+	}
+	// A picture shown after it is taken.
+	f.publish(video.Frame{Seq: 2, Width: 64, Height: 48, Data: planes(64, 48, 16)})
+	select {
+	case p := <-shown:
+		if p.Seq != 2 {
+			t.Errorf("shown seq %d, want 2", p.Seq)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("the new picture was not shown")
+	}
+}

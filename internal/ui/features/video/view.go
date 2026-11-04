@@ -71,9 +71,9 @@ type viewState struct {
 	picAt time.Time
 
 	stage ui.Rect // the picture area as laid out this frame's predecessor
+	in    float32 // how far the view has faded in (0 to 1)
 
-	// own: a link or a slider has the focus this frame, and keeps Space and
-	// the arrows.
+	// own: a slider has the focus this frame, and keeps the arrows.
 	own bool
 
 	status string // what the status region said last, announced once
@@ -181,12 +181,12 @@ func (v *video) screen(c *ui.Context, s services.PlaybackState, fresh bool) {
 		v.startFeed(cur.UID, true)
 	}
 
-	caps := v.caps()
+	caps, known := v.caps()
 	playing, loading := s.State == store.StatePlaying, s.State == store.StateLoading
 
 	var pr *problem
 	switch {
-	case !caps.Video:
+	case known && !caps.Video:
 		pr = &problem{
 			title:  i18n.T("Music videos don't play here"),
 			detail: i18n.T("This platform or build of Sona can't play music videos. You can watch it in Apple Music."),
@@ -250,8 +250,10 @@ func (v *video) screen(c *ui.Context, s services.PlaybackState, fresh bool) {
 		root.Cursor(ui.CursorNone)
 	}
 	// The view fades in over 200 ms.
+	st.in = 1
 	if d := now.Sub(st.shownAt); !theme.ReducedMotion() && d < fadeIn {
-		root.Opacity(float32(d) / float32(fadeIn))
+		st.in = float32(d) / float32(fadeIn)
+		root.Opacity(st.in)
 		c.After(16 * time.Millisecond)
 	}
 	// Any pointer move or press, and any key that reaches the view, brings
@@ -323,9 +325,11 @@ func (v *video) keys(c *ui.Context, root ui.Element, volume bool) {
 		st.wake = now
 		return true
 	}
-	// A button, link or slider with the focus keeps Space (the view only asks
-	// for it while the focus is on the view itself), and a slider its arrows.
-	if (root.Focused() || !root.FocusWithin()) && !st.own && pressed(0, ui.KeySpace) {
+	// A button or link with the focus keeps Space (the view only asks for it
+	// while the focus is on the view itself); a slider does nothing with it
+	// and keeps its arrows, so the view takes Space there and lets it go.
+	onView := root.Focused() || !root.FocusWithin()
+	if (onView || st.own) && pressed(0, ui.KeySpace) && onView {
 		v.toggle()
 	}
 	if pressed(0, ui.KeyK) || pressed(ui.Shift, ui.KeyK) {
@@ -370,8 +374,8 @@ func control(e ui.Element, focusVisible *bool) ui.Element {
 	return e
 }
 
-// owns notes that a link or a slider has the focus, which keeps Space (and
-// the arrows) from the view.
+// owns notes that a slider has the focus, which keeps the arrows from the
+// view.
 func (v *video) owns(e ui.Element) ui.Element {
 	if e.Focused() {
 		v.view.own = true
@@ -398,7 +402,7 @@ func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, stat
 						ui.Text(c, cur.Name).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
 							TextColor(theme.C("ink")).SingleLine()
 					})
-					control(v.owns(l), focusVisible)
+					control(l, focusVisible)
 					if l.Clicked() {
 						v.env.Video.Close()
 						v.env.Nav.Push(path)
@@ -423,7 +427,7 @@ func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, stat
 			if path := "/artist/" + cur.ArtistID; cur.ArtistID != "" && v.hasRoute(path) {
 				l := ui.Link(c.Key("artist"), "", "").MinWidth(0)
 				l.Children(func() { text(c, cur.Artist, "sub").TextColor(theme.C("ink-muted")) })
-				control(v.owns(l), focusVisible)
+				control(l, focusVisible)
 				if l.Clicked() {
 					v.env.Video.Close()
 					v.env.Nav.Push(path)
@@ -609,8 +613,7 @@ func (v *video) seekBar(c *ui.Context, s services.PlaybackState, playing bool, f
 		if sl.Changed() {
 			st.seek.active, st.seek.secs = true, secs
 		}
-		if st.seek.active && !sl.Pressed() {
-			st.seek.active = false
+		if kit.SliderCommitted(sl, &st.seek.active) {
 			v.seekTo(time.Duration(st.seek.secs*float64(time.Second)), c.Now())
 		}
 		left := clockOf(max(dur-pos, 0))

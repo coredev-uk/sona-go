@@ -58,8 +58,9 @@ type video struct {
 	svc transport
 	q   videoQueue
 	// caps says what this platform plays: music videos (Video) and whether
-	// Sona sets the volume (Volume).
-	caps func() services.PlaybackCapabilities
+	// Sona sets the volume (Volume); known is false until it has answered
+	// (store.UseCapabilities): nothing that depends on it shows before.
+	caps func() (playback services.PlaybackCapabilities, known bool)
 	feed *kit.VideoFeed
 
 	// The page: the header's action menu and the two shelves' state.
@@ -79,14 +80,16 @@ type video struct {
 func New(env *module.Env) module.Module {
 	cat := services.Service[services.CatalogService](env.Core)
 	pb := services.Service[services.PlaybackService](env.Core)
-	plat := services.Service[services.PlatformService](env.Core)
 	sys := services.Service[services.SystemService](env.Core)
-	v := newVideo(env, cat, pb, func() services.PlaybackCapabilities { return plat.Capabilities().Playback })
+	v := newVideo(env, cat, pb, func() (services.PlaybackCapabilities, bool) {
+		r := store.UseCapabilities(env.Queries, env.Core)
+		return r.Data.Playback, r.HasData
+	})
 	v.q = &queueCommands{svc: pb, play: env.Play, post: env.Post, mode: func() string { return sys.Settings().Queue.ReplaceConfirm }}
 	return v.module()
 }
 
-func newVideo(env *module.Env, cat catalogAPI, svc transport, caps func() services.PlaybackCapabilities) *video {
+func newVideo(env *module.Env, cat catalogAPI, svc transport, caps func() (services.PlaybackCapabilities, bool)) *video {
 	v := &video{env: env, cat: cat, svc: svc, caps: caps, unmuted: 0.8}
 	if env.Video != nil && env.Video.Frames() != nil {
 		v.feed = kit.NewVideoFeed(env.Video.Frames(), env.Post)

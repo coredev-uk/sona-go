@@ -3,6 +3,7 @@ package video
 import (
 	"context"
 	"image/color"
+	"runtime"
 	"slices"
 	"sync"
 	"testing"
@@ -174,6 +175,7 @@ type rig struct {
 	win     *fakeWindow
 	surface *pvideo.Surface
 	caps    services.PlaybackCapabilities
+	unknown bool // Go has not answered what the platform supports
 	tt      *uitest.Session
 }
 
@@ -195,6 +197,12 @@ func newRigWith(t *testing.T, opts []uitest.Option, mount func(r *rig) func(c *u
 	hn := uitest.New(t, opts...)
 	r := &rig{t: t, h: hn, env: hn.Env, svc: newFakeSvc(), cat: &fakeCat{}, queue: &fakeQueue{}, nav: &fakeNav{}, win: &fakeWindow{}, surface: pvideo.NewSurface()}
 	r.caps = services.PlaybackCapabilities{Available: true, Video: true, Volume: true}
+	r.env.Actions = kit.NewActionRegistry()
+	r.env.Actions.Register(kit.ActionDef{
+		ID: "test.play-next.video", Target: kit.KindMusicVideo, Group: kit.GroupQueue, Order: 10,
+		Label: func(*kit.ActionContext) string { return "Play next" }, Icon: "list-start",
+		Run: func(*kit.ActionContext) {},
+	})
 	r.env.Video = store.NewVideoView(r.surface)
 	r.env.Video.BindWindow(func() bool { return r.win.full }, func(on bool) { r.win.full = on })
 	r.env.Nav = r.nav
@@ -206,7 +214,7 @@ func newRigWith(t *testing.T, opts []uitest.Option, mount func(r *rig) func(c *u
 		}
 		return false
 	}
-	r.v = newVideo(r.env, r.cat, r.svc, func() services.PlaybackCapabilities { return r.caps })
+	r.v = newVideo(r.env, r.cat, r.svc, func() (services.PlaybackCapabilities, bool) { return r.caps, !r.unknown })
 	r.v.q = r.queue
 	t.Cleanup(func() {
 		r.env.Video.Close()
@@ -216,11 +224,17 @@ func newRigWith(t *testing.T, opts []uitest.Option, mount func(r *rig) func(c *u
 	return r
 }
 
-// viewMount is the layer over an empty window, as the shell builds it.
+// viewMount is the layer over a page with a button, as the shell builds it:
+// the page takes no input while the layer is open, and a closed layer's
+// wrapper takes none.
 func viewMount(r *rig) func(c *ui.Context) {
 	return func(c *ui.Context) {
-		ui.Column(c).Fill().Children(func() { ui.Box(c).Grow(1) })
-		ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Children(func() { r.v.layer(c) })
+		open := r.v.layerOpen()
+		ui.Column(c).Fill().IgnoreInput(open).Children(func() {
+			kit.Button(c.Key("behind"), "Page behind", kit.ButtonOpts{})
+			ui.Box(c).Grow(1)
+		})
+		ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).IgnoreInput(!open).Children(func() { r.v.layer(c) })
 		kit.OverlayLayer(c)
 	}
 }
@@ -273,6 +287,34 @@ func grey(w, h int, luma byte) []byte {
 	return b
 }
 
+// onLinux: pixels are read on Linux only (Pango and the CPU renderer shape
+// the text and edges there; other systems' output differs).
+var onLinux = runtime.GOOS == "linux"
+
+// shows reports whether the middle of the picture area has that colour; off
+// Linux, where pixels are not read, whether a picture is on show.
+// quiet drains what goroutines post until nothing has come for a while: the
+// Core's start-up events and the like have reached the mirror.
+func (r *rig) quiet() {
+	r.t.Helper()
+	for still, deadline := 0, time.Now().Add(5*time.Second); still < 10 && time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		pending := r.h.Main.Pending()
+		r.tt.Drain()
+		if pending {
+			still = 0
+		} else {
+			still++
+		}
+	}
+}
+
+func (r *rig) shows(want color.RGBA) bool {
+	if !onLinux {
+		return r.v.feed.HasPicture()
+	}
+	return near(pixel(r.tt, centreX, centreY), want)
+}
+
 func pixel(tt *uitest.Session, x, y int) color.RGBA {
 	r, g, b, _ := tt.Image().At(x, y).RGBA()
 	return color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), 255}
@@ -302,13 +344,18 @@ func TestSurfaceShowsTheLatestPictureAndDropsItOnStop(t *testing.T) {
 	r.open()
 
 	// Before the first picture the stage is a black 16:9 box (no cover here).
-	if got := pixel(r.tt, centreX, centreY); got == white {
-		t.Fatalf("a picture before any came: %v", got)
+	if r.v.feed.HasPicture() {
+		t.Fatal("a picture before any came")
+	}
+	if onLinux {
+		if got := pixel(r.tt, centreX, centreY); got == white {
+			t.Fatalf("a picture before any came: %v", got)
+		}
 	}
 	r.surface.Show(64, 36, 0, grey(64, 36, 235))
 	r.surface.Show(64, 36, time.Second, grey(64, 36, 16))
 	r.surface.Show(64, 36, 2*time.Second, grey(64, 36, 235)) // the latest
-	r.tt.Until("the latest picture", func() bool { return near(pixel(r.tt, centreX, centreY), white) })
+	r.tt.Until("the latest picture", func() bool { return r.shows(white) })
 	if !r.v.feed.HasPicture() {
 		t.Error("the feed has no picture")
 	}
@@ -318,7 +365,7 @@ func TestSurfaceShowsTheLatestPictureAndDropsItOnStop(t *testing.T) {
 
 	// The next picture replaces it in place.
 	r.surface.Show(64, 36, 3*time.Second, grey(64, 36, 16))
-	r.tt.Until("the next picture", func() bool { return near(pixel(r.tt, centreX, centreY), black) })
+	r.tt.Until("the next picture", func() bool { return r.shows(black) })
 
 	// The engine takes the picture off (the item has no video): it goes.
 	r.surface.Clear()
@@ -346,7 +393,16 @@ func TestPictureIsLetterboxedAtItsOwnShape(t *testing.T) {
 	r := viewRig(t)
 	r.open()
 	r.surface.Show(64, 48, 0, grey(64, 48, 235)) // 4:3 in a wide stage
-	r.tt.Until("the picture", func() bool { return near(pixel(r.tt, centreX, centreY), white) })
+	r.tt.Until("the picture", func() bool { return r.shows(white) })
+	if w, h := r.v.feed.PictureSize(); w != 64 || h != 48 {
+		t.Errorf("picture size %d×%d", w, h)
+	}
+	if fw, fh := fitPicture(64, 48, r.v.view.stage.W, r.v.view.stage.H); fw >= r.v.view.stage.W-2 || fh < r.v.view.stage.H-2 {
+		t.Errorf("the 4:3 box %v×%v in a stage %v×%v: not pillarboxed", fw, fh, r.v.view.stage.W, r.v.view.stage.H)
+	}
+	if !onLinux {
+		return
+	}
 	ground := theme.C("ground")
 	if got := pixel(r.tt, 60, centreY); !near(got, color.RGBA{ground.R, ground.G, ground.B, 255}) {
 		t.Errorf("beside the picture: %v, want the ground", got)
@@ -375,7 +431,28 @@ func TestPictureOfAnEarlierEntryIsNeverShown(t *testing.T) {
 		t.Errorf("no loading status: %q", r.tt.Texts())
 	}
 	r.surface.Show(64, 36, 0, grey(64, 36, 16))
-	r.tt.Until("the new picture", func() bool { return near(pixel(r.tt, centreX, centreY), black) && r.v.feed.HasPicture() })
+	r.tt.Until("the new picture", func() bool { return r.shows(black) && r.v.feed.HasPicture() })
+}
+
+func TestPictureOnShowBeforeTheVideoNamedItselfIsNotShown(t *testing.T) {
+	r := viewRig(t)
+	// The item before was a video: its last picture is still on the surface
+	// when a play opens the view and Go's state names the new video.
+	r.surface.Show(64, 36, 0, grey(64, 36, 235))
+	r.play(store.StatePaused, func(s *services.PlaybackState) { s.Current = &services.QueueItem{UID: 9, ID: "s.1", Name: "A Song"} })
+	r.env.Video.Open()
+	r.tt.Frame()
+	r.tt.Advance(time.Second)
+	r.play(store.StateLoading)
+	r.tt.Until("the view", r.tt.Shows("Sky Video", "Loading the video…"))
+	time.Sleep(30 * time.Millisecond)
+	r.tt.Drain()
+	if r.v.feed.HasPicture() {
+		t.Fatal("the picture of the item before was shown")
+	}
+	r.tt.Advance(fadeIn) // faded in: drawn, so pictures are converted
+	r.surface.Show(64, 36, 0, grey(64, 36, 16))
+	r.tt.Until("the new picture", r.v.feed.HasPicture)
 }
 
 func TestViewWaitsForTheVideoThatOpenedItThenShowsIt(t *testing.T) {
@@ -657,7 +734,7 @@ func TestTabStaysInsideTheView(t *testing.T) {
 	seen := map[string]bool{}
 	for range 40 {
 		r.tt.Key(0, ui.KeyTab)
-		for _, l := range []string{"Full screen", "Close video", "Seek", "Previous", "Pause", "Next", "Mute", "Volume"} {
+		for _, l := range []string{"Full screen", "Close video", "Seek", "Previous", "Pause", "Next", "Mute", "Volume", "Page behind"} {
 			if r.tt.Focused(l) {
 				seen[l] = true
 			}
@@ -667,6 +744,9 @@ func TestTabStaysInsideTheView(t *testing.T) {
 		if !seen[l] {
 			t.Errorf("Tab never reached %q", l)
 		}
+	}
+	if seen["Page behind"] {
+		t.Error("Tab reached the page behind the view")
 	}
 }
 
@@ -930,11 +1010,7 @@ func TestPosterShowsTheCoverUntilThePictureComes(t *testing.T) {
 	if cover == "" {
 		t.Fatal("the fixture album has no art")
 	}
-	// The Core's own start-up events reach the mirror first.
-	for range 30 {
-		r.tt.Drain()
-		time.Sleep(5 * time.Millisecond)
-	}
+	r.quiet() // the Core's own start-up events reach the mirror first
 	r.play(store.StatePlaying, func(s *services.PlaybackState) { s.Current.Art.Large = cover })
 	r.env.Video.Open()
 	r.tt.Frame()
@@ -942,11 +1018,17 @@ func TestPosterShowsTheCoverUntilThePictureComes(t *testing.T) {
 	// The cover, a generated gradient, fills the 16:9 box before the first
 	// picture (not black, not the ground).
 	r.tt.Until("the poster", func() bool {
+		if r.h.Covers.Hits() == 0 {
+			return false
+		}
+		if !onLinux {
+			return true
+		}
 		c := pixel(r.tt, centreX, centreY)
-		return r.h.Covers.Hits() > 0 && !near(c, black) && !near(c, white)
+		return !near(c, black) && !near(c, white)
 	})
 	r.surface.Show(64, 36, 0, grey(64, 36, 235))
-	r.tt.Until("the picture over it", func() bool { return near(pixel(r.tt, centreX, centreY), white) })
+	r.tt.Until("the picture over it", func() bool { return r.shows(white) })
 	// Gone for good: the poster does not come back under the picture.
 	if r.v.feed.HasPicture() != true {
 		t.Error("no picture")
@@ -961,19 +1043,28 @@ func TestViewFadesInOverTwoHundredMilliseconds(t *testing.T) {
 	if r.v.view.shownAt.IsZero() {
 		t.Fatal("the view was not built")
 	}
-	if got := pixel(r.tt, 566, 30); near(got, color.RGBA{255, 255, 255, 255}) {
-		t.Errorf("white before the fade-in began: %v", got)
+	if got := r.v.view.in; got != 0 {
+		t.Errorf("opacity %v as the view opens, want 0", got)
 	}
 	r.tt.Advance(100 * time.Millisecond)
-	half := pixel(r.tt, 5, 5)
-	r.tt.Advance(150 * time.Millisecond)
-	full := pixel(r.tt, 5, 5)
-	ground := theme.C("ground")
-	if !near(full, color.RGBA{ground.R, ground.G, ground.B, 255}) {
-		t.Errorf("the view's ground after the fade-in: %v, want %v", full, ground)
+	if got := r.v.view.in; got < 0.3 || got > 0.7 {
+		t.Errorf("opacity %v half way through the fade-in, want about 0.5", got)
 	}
-	if half == full {
-		t.Log("the view's ground looked the same at the half way point (the page behind has the same ground)")
+	r.tt.Advance(150 * time.Millisecond)
+	if got := r.v.view.in; got != 1 {
+		t.Errorf("opacity %v after the fade-in, want 1", got)
+	}
+}
+
+func TestViewAppearsAtOnceWhenMotionIsReduced(t *testing.T) {
+	theme.SetReducedMotion(true)
+	t.Cleanup(func() { theme.SetReducedMotion(false) })
+	r := viewRig(t)
+	r.play(store.StatePlaying)
+	r.env.Video.Open()
+	r.tt.Frame()
+	if got := r.v.view.in; got != 1 {
+		t.Errorf("opacity %v with reduced motion, want 1", got)
 	}
 }
 
@@ -983,5 +1074,29 @@ func TestProblemKeepsThePictureBoxBuilt(t *testing.T) {
 	r.open()
 	if !r.v.view.started {
 		t.Error("the picture feed stopped under a problem")
+	}
+}
+
+func TestSeekDragThatLeavesTheSliderSeeksOnceOnRelease(t *testing.T) {
+	r := viewRig(t)
+	r.open()
+	box, ok := r.tt.Find("Seek")
+	if !ok {
+		t.Fatal("no Seek slider")
+	}
+	y := box.Y + box.H/2
+	r.tt.Press(box.X+box.W*0.2, y)
+	for i := range 10 {
+		r.tt.Move(box.X+box.W*(0.2+0.05*float32(i)), y+80) // well off the slider, button still down
+	}
+	r.svc.quiet(t, "a drag off the slider")
+	r.tt.Release(box.X+box.W*0.7, y+80)
+	r.svc.wait(t, 1)
+	r.svc.quiet(t, "after the release")
+	r.svc.mu.Lock()
+	n := len(r.svc.seeks)
+	r.svc.mu.Unlock()
+	if n != 1 {
+		t.Errorf("a drag made %d seeks, want one on release", n)
 	}
 }

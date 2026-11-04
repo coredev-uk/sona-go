@@ -56,19 +56,24 @@ func newShim(t *testing.T) *shimRig {
 	return r
 }
 
-// drain runs what the goroutines posted until n plays were made and settled.
+// settle runs what the goroutines posted until n plays were made.
 func (r *shimRig) settle(t *testing.T, plays int) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
+	r.until(t, "the plays", func() bool { return r.api.played() >= plays })
+}
+
+// until drains what the goroutines post until ok holds: a service call's
+// result comes back through the poster after the call returns, so one drain
+// after the call is not enough.
+func (r *shimRig) until(t *testing.T, what string, ok func() bool) {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(2 * time.Millisecond) {
 		r.h.Main.Drain()
-		if r.api.played() >= plays {
-			r.h.Main.Drain()
+		if ok() {
 			return
 		}
-		time.Sleep(2 * time.Millisecond)
 	}
-	t.Fatalf("expected %d plays, got %d", plays, r.api.played())
+	t.Fatalf("timed out waiting for %s", what)
 }
 
 func twoVideos() []services.MusicVideo {
@@ -82,7 +87,7 @@ func TestPlayVideosQueuesVideoRefsWithNoCollectionThenOpens(t *testing.T) {
 	r := newShim(t)
 	opened := 0
 	r.q.PlayVideos(twoVideos(), 1, func() { opened++ })
-	r.settle(t, 1)
+	r.until(t, "the view to open", func() bool { return opened > 0 })
 	want := []services.TrackRef{
 		{ID: "a", Source: "library", Kind: services.TrackKindVideo},
 		{ID: "b", Source: "catalog", Kind: services.TrackKindVideo},
@@ -101,12 +106,12 @@ func TestPlayVideosFailureToastsAndLeavesTheViewClosed(t *testing.T) {
 	opened := false
 	r.q.PlayVideos(twoVideos(), 0, func() { opened = true })
 	r.settle(t, 1)
+	// The failure's toast comes back through the poster: show it.
+	tt0 := r.h.Tester(t, func(c *ui.Context) { kit.OverlayLayer(c) }, 600, 300)
+	tt0.Until("the toast", tt0.Shows("Couldn't start playback"))
 	if opened {
 		t.Error("the view opened for a play that failed")
 	}
-	// The toast is queued for the Toaster.
-	tt := r.h.Tester(t, func(c *ui.Context) { kit.OverlayLayer(c) }, 600, 300)
-	tt.Until("the toast", tt.Shows("Couldn't start playback"))
 }
 
 func TestPlayVideosWithNothingDoesNothing(t *testing.T) {
@@ -130,8 +135,9 @@ func longQueue(n int) services.QueueState {
 func TestReplacingALongUserQueueOffersUndoByDefault(t *testing.T) {
 	r := newShim(t)
 	r.h.Env.Play.Seed(store.EmptyState(), longQueue(4))
-	r.q.PlayVideos(twoVideos(), 0, nil)
-	r.settle(t, 1)
+	done := false
+	r.q.PlayVideos(twoVideos(), 0, func() { done = true })
+	r.until(t, "the play to finish", func() bool { return done })
 	tt := r.h.Tester(t, func(c *ui.Context) { kit.OverlayLayer(c) }, 600, 300)
 	tt.Until("the offer", tt.Shows("Queue replaced", "4 songs you added were removed.", "Undo"))
 	if err := tt.Click("Undo"); err != nil {
@@ -147,8 +153,9 @@ func TestReplacingALongUserQueueOffersUndoByDefault(t *testing.T) {
 func TestReplacingAShortUserQueueSaysNothing(t *testing.T) {
 	r := newShim(t)
 	r.h.Env.Play.Seed(store.EmptyState(), longQueue(3))
-	r.q.PlayVideos(twoVideos(), 0, nil)
-	r.settle(t, 1)
+	done := false
+	r.q.PlayVideos(twoVideos(), 0, func() { done = true })
+	r.until(t, "the play to finish", func() bool { return done })
 	tt := r.h.Tester(t, func(c *ui.Context) { kit.OverlayLayer(c) }, 600, 300)
 	tt.Drain()
 	if tt.HasText("Queue replaced") {
@@ -160,8 +167,8 @@ func TestReplaceConfirmAsksFirst(t *testing.T) {
 	r := newShim(t)
 	r.mode = config.ReplaceConfirm
 	r.h.Env.Play.Seed(store.EmptyState(), longQueue(5))
-	opened := make(chan struct{}, 1)
-	r.q.PlayVideos(twoVideos(), 0, func() { opened <- struct{}{} })
+	opened := false
+	r.q.PlayVideos(twoVideos(), 0, func() { opened = true })
 	tt := r.h.Tester(t, func(c *ui.Context) { kit.OverlayLayer(c) }, 800, 400)
 	tt.Until("the question", tt.Shows("Replace your queue?", "The 5 songs you added to the queue will be removed.", "Replace queue"))
 	if r.api.played() != 0 {
@@ -170,12 +177,7 @@ func TestReplaceConfirmAsksFirst(t *testing.T) {
 	if err := tt.Click("Replace queue"); err != nil {
 		t.Fatal(err)
 	}
-	r.settle(t, 1)
-	select {
-	case <-opened:
-	case <-time.After(time.Second):
-		t.Error("the view did not open after the answer")
-	}
+	r.until(t, "the view to open after the answer", func() bool { return opened })
 
 	// Cancelling plays nothing.
 	r2 := newShim(t)

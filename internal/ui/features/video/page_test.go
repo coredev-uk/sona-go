@@ -1,6 +1,7 @@
 package video
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -62,6 +63,15 @@ func catalogVideo() services.CatalogVideo {
 	}
 }
 
+func hasTextWith(texts []string, sub string) bool {
+	for _, x := range texts {
+		if strings.Contains(x, sub) {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *pageRig) loaded() {
 	p.t.Helper()
 	p.tt.Until("the page", p.tt.Shows("Sky Video", "Notes"))
@@ -91,10 +101,8 @@ func TestPageShowsASkeletonWhileLoadingThenTheVideo(t *testing.T) {
 		t.Error("both notes shown")
 	}
 	// The song line: a link and the album.
-	for _, w := range []string{"The song is ", "Sky", " from Clouds."} {
-		if !p.tt.HasText(w) && !p.tt.HasText(w[:len(w)-1]) {
-			t.Logf("song line part %q not found as one text: %q", w, p.tt.Texts())
-		}
+	if !hasTextWith(p.tt.Texts(), "The song is") || !hasTextWith(p.tt.Texts(), "from Clouds.") {
+		t.Errorf("no song line with the album: %q", p.tt.Texts())
 	}
 }
 
@@ -150,6 +158,12 @@ func TestWhereVideosDoNotPlayThePageSaysSoAndOffersAppleMusic(t *testing.T) {
 	}
 	if _, ok := p.tt.Find("More for Sky Video"); ok {
 		t.Error("the item menu where videos cannot play")
+	}
+	// Where they play, the same page has the menu (the action registry has one).
+	q := newPageRig(t, false, 1132, 1253)
+	q.loaded()
+	if _, ok := q.tt.Find("More for Sky Video"); !ok {
+		t.Errorf("no item menu where videos play: %q", q.tt.Texts())
 	}
 	if !p.tt.HasText("Watch in Apple Music") {
 		t.Error("no way to watch")
@@ -297,5 +311,28 @@ func TestPageIsReachableAsAModule(t *testing.T) {
 	}
 	if m.Slots.LayerOpen() {
 		t.Error("the layer is open with the view closed")
+	}
+}
+
+func TestPageShowsNoPlayControlOrNoteBeforeCapabilitiesAnswer(t *testing.T) {
+	p := newPageRig(t, false, 1132, 1253)
+	p.unknown = true
+	p.loaded()
+	for _, w := range []string{
+		"Play Sky Video", "Play Rain Video",
+		"Sona plays music videos in standard definition: Apple allows HD only on players with hardware protection.",
+		"Sona can't play music videos here: the video opens in Apple Music in your browser.",
+	} {
+		if p.tt.HasText(w) {
+			t.Errorf("page shows %q before capabilities are known", w)
+		}
+	}
+	if _, ok := p.tt.Find("More for Sky Video"); ok {
+		t.Error("the item menu before capabilities are known")
+	}
+	p.unknown = false
+	p.tt.Frame()
+	if !p.tt.HasText("Play Sky Video") {
+		t.Errorf("no Play once capabilities answered: %q", p.tt.Texts())
 	}
 }

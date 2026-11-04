@@ -48,6 +48,7 @@ type Feed struct {
 	active func() bool
 
 	mu        sync.Mutex
+	floor     uint64      // pictures up to this Seq are of before the last Restart
 	pending   *Picture    // converted, not yet shown
 	shown     *image.RGBA // on screen
 	spare     *image.RGBA // a buffer to convert into
@@ -89,6 +90,7 @@ func (f *Feed) start(fresh bool) {
 	if fresh {
 		after = f.src.Seq()
 	}
+	f.floor = after
 	var ctx context.Context
 	ctx, f.cancel = context.WithCancel(context.Background())
 	f.done = make(chan struct{})
@@ -171,7 +173,7 @@ func (f *Feed) publish(fr video.Frame) {
 		return // a malformed picture: the one before stays
 	}
 	f.mu.Lock()
-	if f.cancel == nil { // stopped while it converted
+	if f.cancel == nil || fr.Seq <= f.floor { // stopped while it converted, or of before a restart
 		f.mu.Unlock()
 		return
 	}

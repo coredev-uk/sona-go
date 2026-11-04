@@ -94,16 +94,19 @@ func (v *video) hasRoute(path string) bool { return v.env.HasRoute != nil && v.e
 // the release date.
 func (v *video) body(c *ui.Context, d services.CatalogVideo) {
 	vid := d.Video
-	videoPlays := v.caps().Video
+	caps, known := v.caps()
+	videoPlays := known && caps.Video
 	v.pageHeader(c, d, videoPlays)
 
 	note := ui.RichText(c).MaxWidth(68*8).Margin(-8, 0, 8, 0).TextColor(theme.C("ink-muted"))
 	sub := theme.Current().Type["sub"]
 	note.FontSize(sub.Size).FixedLineHeight(sub.LineHeight)
 	note.Children(func() {
-		if videoPlays {
+		switch {
+		case !known: // neither the note nor the play control before Go has answered
+		case videoPlays:
 			ui.Text(c.Key("plays"), i18n.T("Sona plays music videos in standard definition: Apple allows HD only on players with hardware protection."))
-		} else {
+		default:
 			ui.Text(c.Key("cannot"), i18n.T("Sona can't play music videos here: the video opens in Apple Music in your browser."))
 		}
 		if d.Song != nil {
@@ -224,7 +227,8 @@ func (v *video) shelf(c *ui.Context, st *kit.CoverShelfState, title string, vide
 	if len(videos) == 0 {
 		return
 	}
-	plays := v.caps().Video
+	caps, known := v.caps()
+	plays := known && caps.Video
 	items := make([]kit.CoverItem, len(videos))
 	for i, m := range videos {
 		items[i] = v.tile(m, byYear, plays)
