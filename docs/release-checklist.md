@@ -35,8 +35,7 @@ release-please-action v5.0.0):
 
 Hidden types never open a release PR by themselves: Renovate's `chore(deps)`
 updates (Actions, development dependencies) wait for the next release, while
-`fix(deps)` (direct Go modules and frontend runtime dependencies, which ship in the
-binary) open or update a patch release PR. 1.0.0 is a choice, not a bump: set
+`fix(deps)` (direct Go modules, which ship in the binary) open or update a patch release PR. 1.0.0 is a choice, not a bump: set
 `"release-as": "1.0.0"` in the package entry of `release-please-config.json`
 for that release and remove it afterwards. To reword a merged PR's changelog
 line, put `BEGIN_COMMIT_OVERRIDE`, the new Conventional Commits line(s) and
@@ -47,9 +46,9 @@ Merging a release:
 1. Run §1 and §2 against the release PR's head.
 2. release-please pushes the release PR as the bot-cecil GitHub App, so CI
    and the PR title check start on it like on any other PR, and re-run on
-   every push to its branch. Wait for the four required checks ("Go vet and
-   test (-race)", "Frontend typecheck, lint, format, test, build",
-   "Conventional Commits title", "gitleaks"). If a push changed nothing in
+   every push to its branch. Wait for the three required checks ("Go vet and
+   test (-race)", "Conventional Commits title", "gitleaks"; CONTRIBUTING.md,
+   "Pull requests"). If a push changed nothing in
    the PR and the checks are missing (the release PR opened before the App
    token was in use), close and reopen it to start them.
 3. Merge it through Clarence (`@bot-clarence merge`, AGENTS.md) with its title
@@ -59,18 +58,24 @@ Merging a release:
    creates a draft GitHub release holding the changelog entry (the PR's
    label becomes `autorelease: tagged`), as bot-cecil, and calls
    `release.yml`:
-   - `checks`: the Linux CI jobs (`ci.yml` with `linux-only`).
-   - `build` (job "Build and smoke-test Linux packages", environment
-     `release`): `Tag matches VERSION`, then `release.sh` builds the
-     packages with `VERSION` in `main.version` and the file names, writes
-     `SHA256SUMS` and smoke-tests every package; the build provenance of
-     every file listed in `SHA256SUMS` is attested; the files are kept as
-     the `linux-release` run artifact.
-   - `publish` (as bot-cecil): the packages, the AppImage `.zsync`, the AUR
+   - `plan`: the tag must equal `VERSION`.
+   - `checks`: the Linux CI jobs (`ci.yml` with `linux-only`: Go vet and
+     test, UI tests, E2E).
+   - `linux`, `macos` and `windows` (environment `release`, in parallel):
+     each builds the platform's files with `VERSION` in `main.version` and
+     the file names and smoke-tests them ("Platforms in a release"); the
+     build provenance of each job's checksummed files is attested; the files
+     are kept as the `linux-release`, `macos-release` and `windows-release`
+     run artifacts. `linux` also writes its `SHA256SUMS`.
+   - `publish` (environment `release`, as bot-cecil): checks the Linux
+     checksums, signs the update manifests, writes one `SHA256SUMS` over
+     everything and attests it; the packages, the `.dmg`, the Windows files,
+     the update archives and manifests, the AppImage `.zsync`, the AUR
      `sona-bin` files and `SHA256SUMS` are uploaded to the draft
      (`--clobber`) and it is published as `Sona X.Y.Z`, marked latest.
-     `releases/latest` never returns a draft, so the update notice and
-     AppImageUpdate only see a release once its packages are on it.
+     `releases/latest` never returns a draft, so the update notice,
+     AppImageUpdate and the self-updaters only see a release once its files
+     are on it.
 5. Check a download: `sha256sum -c SHA256SUMS` and
    `gh attestation verify sona_X.Y.Z_amd64.deb --repo coredev-uk/sona-go`
    (any of the files; the attestation is the build's signed provenance, from
@@ -90,16 +95,18 @@ fix ships as the next patch release. Never revert the merged release PR:
 ### Dry run
 
 Before merging a release (and after any change to `release.yml`,
-`release.sh` or the packaging), build the Linux packages without publishing:
+`release.sh`, `build/darwin`, `build/windows` or the packaging), build the
+packages without publishing:
 
     gh workflow run release.yml --ref <branch>            # add -f checks=true to run the CI jobs first
     gh run watch                                          # then:
-    gh run download <run-id> -n linux-release             # packages and SHA256SUMS
+    gh run download <run-id> -n linux-release             # also -n macos-release, -n windows-release
 
-Dispatching `release.yml` builds and smoke-tests the same packages, uploads
-them as the `linux-release` run artifact (kept 7 days) and neither attests
-nor publishes. It runs without the `release` environment, which only
-deploys from `main`, so these packages have no Last.fm or Discord
+Dispatching `release.yml` with `prerelease` empty builds and smoke-tests the
+same files on all three platforms, uploads them as the `linux-release`,
+`macos-release` and `windows-release` run artifacts (kept 7 days) and neither
+attests, signs nor publishes. It runs without the `release` environment, which only
+deploys from `main`, so these builds have no Last.fm or Discord
 credentials compiled in. `release-secrets.yml` checks those secrets.
 
 ### Platforms in a release
@@ -219,12 +226,16 @@ tag builds nothing; the `release tags` ruleset keeps `v*` tags immutable.
 ## 1. Automated gates
 
 - [ ] `VERSION` holds the new version (the release PR writes it); nothing
-      else carries it (`build/linux/Taskfile.yml` injects it into the binary
-      and nfpm).
-- [ ] CI is green on the release PR's head (`.github/workflows/ci.yml`: Go vet +
-      `go test -race` on Ubuntu 24.04 with apt GStreamer and user namespaces
-      allowed, so the CDM host sandbox tests run; frontend tsc, eslint,
-      prettier, vitest, build).
+      else carries it (the build scripts read it: `build/linux/Taskfile.yml`
+      injects it into the binary and nfpm, `build/darwin` and
+      `build/windows` take it for the app, the file names and the
+      installer).
+- [ ] CI is green on the release PR's head (`.github/workflows/ci.yml`: "Go vet
+      and test (-race)" on Ubuntu with apt GStreamer and user namespaces
+      allowed, so the CDM host sandbox tests run, plus the Windows and macOS
+      type-checks; "UI tests (goldens)"; "E2E (headless sway)"; and, where
+      they run (on dispatch, or on every push once the repository is
+      public), "macOS build and test" and "Windows build").
 - [ ] Locally in devenv: `go test -race ./internal/playback/...` with the real
       CDM (found by `cdmtest`; `SONA_CDM_REQUIRE=1` so none skip) and `go run ./cmd/playspike -seek 90`.
 - [ ] `bash build/linux/release/release.sh` (devenv `release`) passes: builds
@@ -232,8 +243,9 @@ tag builds nothing; the `release tags` ruleset keeps `v*` tags immutable.
       SHA256SUMS, and smoke-tests the .deb (Ubuntu 24.04), .rpm and AppImage
       (Fedora 45) and the Arch package through the AUR PKGBUILD (Arch Linux):
       `sona --version` prints the version, every library resolves, the
-      GStreamer elements exist (WebKit's `webvttenc` from gst-plugins-bad
-      included), and the app paints its first frame under Xvfb.
+      GStreamer elements exist (appsrc, avdec_aac, playbin3, h264parse and
+      the rest of `smoke.sh`'s list), and the app paints its first frame
+      under Xvfb.
 - [ ] The dry run ("Dry run") on the release PR's branch passes.
 - [ ] After the merge, the release workflow (`release.yml`, called by
       `release-please.yml`) re-runs the same, attests the files and
@@ -286,9 +298,17 @@ run, with the evidence for anything not obvious from the check itself.
 ## 4. Known issues
 
 Upstream bugs Sona ships with, tracked here until they are reported and
-fixed upstream. Re-check each one on every release.
+fixed upstream. Re-check each one on every release. None is open today: the
+only entry is historical.
 
-### Blank mini player without a font DPI (WebKitGTK second web view)
+### Blank mini player without a font DPI (WebKitGTK second web view) — historical
+
+> Historical: found in the Wails/WebKitGTK app that preceded the native UI.
+> The native app has no web view and draws its mini player itself
+> (`features/miniplayer`), so nothing of Sona's is affected any more. The
+> record is kept for the upstream report; the entries below describe that
+> old app, not a current bug. Drop the section once WebKitGTK is fixed or
+> the report is filed.
 
 - **Symptom:** the mini player window opens at its size with its title, but
   shows only the background colour. Its page loads (the buttons are in the
@@ -322,12 +342,12 @@ fixed upstream. Re-check each one on every release.
   gets its size. labwc behaves like sway; weston zooms as above. Headless
   Hyprland 0.56 did not start here, so the earlier "Hyprland works" result
   (a session with the portal) has no headless control.
-- **Workaround in Sona:** before creating the mini player, the removed Wails shell set
-  `gtk-xft-dpi` to 96 dpi when GTK has none (`internal/shell/fontdpi_linux.go`, deleted with the Wails shell; MyGo draws its own text).
+- **Workaround (gone):** before creating the mini player, the Wails shell set
+  `gtk-xft-dpi` to 96 dpi when GTK has none (`internal/shell/fontdpi_linux.go`, deleted with the shell; MyGo draws its own text, so the native app needs none).
   GTK renders at 96 dpi in that case anyway, so only WebKit's fallback
-  changes. Checked with Sona under `GDK_DEBUG=no-portals` on headless sway:
+  changes. Checked with the Wails app under `GDK_DEBUG=no-portals` on headless sway:
   the mini player reports 420×132 at `devicePixelRatio` 1 and renders
   (before: 0×0, `Infinity`, blank).
 - **Upstream:** not reported yet; the report text is in the pull request
-  that added the repro. Remove the workaround once a fixed WebKitGTK ships,
-  after re-running `two.c` under `GDK_DEBUG=no-portals` on headless sway.
+  that added the repro (`docs/upstream/webkitgtk-second-view/two.c`, build and
+  run commands in its header).

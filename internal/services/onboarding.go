@@ -11,8 +11,8 @@ import (
 	"github.com/coredev-uk/sona-go/internal/db"
 )
 
-// OnboardingRoute is the first-run setup's page (frontend
-// features/onboarding). It marks config.Onboarding.Completed through
+// OnboardingRoute is the first-run setup's page
+// (internal/ui/features/onboarding). It marks config.Onboarding.Completed through
 // SystemService.UpdateSettings when it is finished or skipped.
 const OnboardingRoute = "/welcome"
 

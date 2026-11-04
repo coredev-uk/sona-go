@@ -153,22 +153,21 @@ jobs:
           VERSION: ${{ needs.plan.outputs.version }}
         run: echo "$VERSION" >VERSION
 
-      # release.sh's output directory and the directory it keeps the Go and
-      # pnpm caches in; both outside the checkout, which release.sh snapshots.
+      # release.sh's output directory and the directory it keeps the Go
+      # caches in; both outside the checkout, which release.sh snapshots.
       - name: Choose the output and cache directories
         run: |
           echo "RELEASE_DIR=$RUNNER_TEMP/release" >>"$GITHUB_ENV"
           echo "CACHE_DIR=$RUNNER_TEMP/release-cache" >>"$GITHUB_ENV"
 
-      # release.sh builds in a container whose Go module and build caches and
-      # pnpm store sit in CACHE_DIR; a run restores the last run's and a new
-      # go.sum or pnpm lockfile refills it. Only runs on main save a cache
-      # every run can restore.
-      - name: Cache Go modules, Go build and pnpm store
+      # release.sh builds in a container whose Go module and build caches sit in
+      # CACHE_DIR; a run restores the last run's and a new go.sum refills it.
+      # Only runs on main save a cache every run can restore.
+      - name: Cache Go modules and Go build
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CACHE_DIR }}
-          key: release-${{ runner.os }}-${{ hashFiles('go.sum', 'frontend/pnpm-lock.yaml') }}
+          key: release-${{ runner.os }}-${{ hashFiles('go.sum') }}
           restore-keys: release-${{ runner.os }}-
 
       # Podman is preinstalled on the runner image.

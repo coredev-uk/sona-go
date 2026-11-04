@@ -15,7 +15,7 @@ const (
 )
 
 // StartPages are the routes [Desktop.StartPage] may name: the sidebar's top
-// level pages. The frontend labels them.
+// level pages. The UI labels them.
 var StartPages = []string{
 	"/",
 	"/new",
@@ -52,7 +52,7 @@ type Desktop struct {
 	// ResumeLastRoute opens the main window on LastRoute instead.
 	ResumeLastRoute bool `json:"resumeLastRoute"`
 	// LastRoute is the main window's route ("/album/123?song=4"), saved
-	// by the frontend as it navigates.
+	// by the UI as it navigates.
 	LastRoute string `json:"lastRoute"`
 }
 

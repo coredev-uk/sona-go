@@ -81,9 +81,11 @@ private mode.
 | `e2e`        | `headless -- go test -tags e2e -count=1 ./e2e/...`: the end-to-end smoke and the accessibility check (see "UI tests and the end-to-end smoke"). Extra arguments go to `go test`. |
 | `probe`      | Builds the probe build (`-tags probe,sqlite_fts5`) into `bin/sona-probe` and runs `sona -probe` with your arguments: the Albums scroll probe in the app's own process (see "Measuring UI performance"). It needs a profile with albums whose covers are cached or reachable: the fixture library (`go run ./e2e/profile`) has covers only behind the e2e harness's local server (`SONA_E2E_CDN`), so outside the e2e tests the probe waits 60 s, prints "the covers were not all drawn", measures nothing and exits 1. On empty private directories it fails the same way with "showed no tiles". Run it as `headless -- probe` on a profile you copied into the private directories, or on your desktop session's own (keep that run short). |
 
-`package` is only Taskfile's (`task package`, nfpm: .deb, .rpm and Arch; the AppImage
-returns in phase 4): it packages a build of the machine it runs on. A package built
-on NixOS would link against `/nix/store`.
+`package` is only Taskfile's (`task package`: .deb, .rpm and Arch with nfpm, and
+the AppImage): it packages a build of the machine it runs on. A package built
+on NixOS would link against `/nix/store`, so release packages come from `release`.
+The macOS and Windows release builds are `build/darwin/bundle.sh` and
+`build/windows/package.sh`, run by `release.yml` (see "Releases").
 
 ### Widevine CDM
 
@@ -149,8 +151,9 @@ every cgo object. A `go build -ldflags=…` of your own replaces GOFLAGS'
 `-ldflags`; add `-extldflags=-mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET`
 to it (`build/darwin/Taskfile.yml` does).
 
-The app builds and runs on macOS as an unsigned development build (no
-Apple Developer account, no `.app` bundle, no packaging): its UI,
+The app builds and runs on macOS from source as an unsigned `bin/sona` (no
+Apple Developer account, no `.app` bundle; the release's `Sona.app` and `.dmg`
+come from `build/darwin/bundle.sh`, with GStreamer bundled): its UI,
 everything Go does (sign-in, library, sync, catalog) and playback through
 the same CDM host as Linux, with the CDM Sona downloads from Google for
 macOS (`mac_arm64`, see "Widevine CDM") and Core Audio output
@@ -341,7 +344,7 @@ and is not a release). Before a release, work through
 `.github/workflows/`: `ci.yml` (every push to main and pull request: the
 Linux Go job "Go vet and test (-race)"; the UI tests with the golden images,
 "UI tests (goldens)"; the end-to-end smoke in headless sway, "E2E (headless
-sway)"; plus "macOS build and test" (devenv on macos-15:
+sway)"; plus "macOS build and test" (devenv on macos-26:
 production build, go vet, real-CDM and sandbox tests, `go test -race`) and
 "Windows build" (windows-2025: `go vet` with cgo, `sona.exe`),
 which take several minutes and so never run on pull requests or for a
@@ -349,7 +352,8 @@ release: they run after each merge to main and when dispatched),
 `pr-title.yml` (Conventional Commits title),
 `live.yml` (weekly Apple Music contract tests, private mode),
 `release-please.yml` (the release PR and tag, as bot-cecil), `release.yml`
-(builds, attests and publishes the Linux packages; dispatch = dry run),
+(builds, smoke-tests, attests and publishes the Linux, macOS and Windows
+releases; dispatch = dry run, or a prerelease with `-f prerelease=rc.1`),
 `release-secrets.yml` (dispatch: checks the `release`
 environment's secrets are set, publishes nothing), `renovate.yaml`
 (dependency updates; maintained with Renovate).

@@ -22,7 +22,7 @@ const (
 	remindersRetry   = 5 * time.Minute
 	remindersIdle    = 24 * time.Hour
 	remindersTimeout = 15 * time.Second
-	// maxReminderMessage bounds the notification body the frontend sends.
+	// maxReminderMessage bounds the notification body the UI sends.
 	maxReminderMessage = 200
 )
 

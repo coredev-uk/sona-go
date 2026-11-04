@@ -24,7 +24,7 @@ import (
 // (app.AcquireSocket), but without the other desktop integrations. Sona
 // has no notifications, sleep inhibitor, power monitor, file chooser or
 // autostart entry here yet; each is absent from
-// services.Platform, so Capabilities reports it and the frontend hides or
+// services.Platform, so Capabilities reports it and the UI hides or
 // explains it. Media keys and Now Playing are MyGo's NowPlaying on macOS and
 // Windows (nowplaying_desktop.go; internal/nowplaying). The tray is the UI's (internal/ui/app): on macOS a menu bar
 // item with a template icon. The playback engine is engine_cdm.go's on

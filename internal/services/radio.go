@@ -331,7 +331,7 @@ func stationPlayability(st applemusic.Station) (bool, StationUnavailable) {
 	return true, ""
 }
 
-// StationUnavailable is why Sona can't play a station; the frontend words
+// StationUnavailable is why Sona can't play a station; the UI words
 // it.
 type StationUnavailable string
 

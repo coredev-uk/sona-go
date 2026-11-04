@@ -4,7 +4,7 @@ import "regexp"
 
 // LanguageAutomatic is [Settings.Language]'s default: the interface follows
 // the account's storefront language and the system's languages
-// (docs/frontend-architecture.md, "Strings and locales").
+// (docs/ui-architecture.md, "Strings and locales").
 const LanguageAutomatic = ""
 
 // bcp47Tag is the shape of a BCP 47 tag Sona stores: a language, then

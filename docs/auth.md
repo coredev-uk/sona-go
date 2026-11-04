@@ -21,7 +21,7 @@ Clients built on MusicKit JS inside a browser shell (Electron, for example) usua
 - The shell explicitly allows that popup and rewrites `Origin`/`Referer` on every `*.apple.com` request.
 - Persistence is MusicKit's own `localStorage` (`music.ampwebplay.media-user-token`), with no keychain.
 
-That model depends on three things an embedded WebKitGTK shell does not reliably give us:
+That model depends on three things an embedded web view (WebKitGTK, the shell Sona first considered) does not reliably give. Sona has no web view at all: its UI is native (`internal/ui`) and all Apple traffic is Go's:
 
 1. `window.open` producing a related webview with a working `window.opener`.
 2. Request header rewriting (WebKitGTK has no UI-process API for this).
@@ -63,10 +63,10 @@ Implementation: `internal/auth/devtoken/webplayer.go` (`WebPlayer.Token`, `Inval
 
 ```mermaid
 sequenceDiagram
-  participant UI as React UI
+  participant UI as Native UI
   participant Go as Go AuthService
   participant LB as Loopback server (127.0.0.1:random)
-  participant B as Browser surface (system browser or Wails window)
+  participant B as System browser
   participant AZ as authorize.music.apple.com
   participant ID as idmsa.apple.com
   participant API as api.music.apple.com
@@ -89,14 +89,14 @@ sequenceDiagram
   API-->>Go: 200 {data:[{id:"<storefront>"}]}
   Go->>Go: store MUT (keyring), storefront (DB)
   Go-->>UI: event auth:changed {state: signed_in}
-  LB-->>B: "You can close this window" (Wails window closes itself)
+  LB-->>B: "You can close this window"
 ```
 
 ### 4.3 Surfaces
 
 1. **Native form (primary)**: Sona's own account/password/code form; Go speaks Apple's sign-in protocol directly. See §4.7.
-2. **System browser (fallback)**: Wails `Browser.OpenURL`, i.e. the XDG portal / `xdg-open`. The user gets their real browser's password manager, passkeys, existing Apple session, and 2FA UX. WebKitGTK quirks are irrelevant here. Use it for accounts the native form cannot serve (security keys only, account repair prompts).
-3. **In-app Wails window** (superseded by the native form, not planned): the same start URL loaded in a dedicated window. If Apple's page rejects the WebKitGTK UA, set a Safari-like UA on that window only **[unverified]**.
+2. **System browser (fallback)**: `AuthService` opens the start URL through `Deps.OpenURL`, which `cmd/sona` sets to `mygo.Shell.OpenExternal` (the XDG portal / `xdg-open` on Linux, `open` on macOS, the shell on Windows). The user gets their real browser's password manager, passkeys, existing Apple session, and 2FA UX. Use it for accounts the native form cannot serve (security keys only, account repair prompts).
+3. **Embedded web view** (never built; the native form replaced it): the same start URL in a dedicated web view window. Sona has no web view, so this stays a rejected option.
 4. **Manual token paste (escape hatch)**: the user copies the `media-user-token` cookie from `music.apple.com` in any signed-in browser. `SignInWithToken` validates it with `/v1/me/storefront` before storing. **[verified]** with the token in `.env`.
 
 ### 4.4 Referrer Robustness

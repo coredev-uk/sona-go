@@ -52,7 +52,7 @@ type ConcertVenue struct {
 }
 
 // ConcertTicket is one seller of tickets; URL is an https link the
-// frontend opens in the browser.
+// UI opens in the browser.
 type ConcertTicket struct {
 	Vendor string `json:"vendor"`
 	URL    string `json:"url"`

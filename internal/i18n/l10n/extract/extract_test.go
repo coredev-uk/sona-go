@@ -14,7 +14,7 @@ import (
 // (grouped or not, l10n imported under another name or the package
 // itself), conversions, maps and slices of messages, raw strings and
 // joined literals, comments as notes, every OS's files; never tests,
-// generated code, testdata, the frontend or dependencies.
+// generated code, testdata or dependencies.
 func TestExtractRules(t *testing.T) {
 	f, err := Extract("testdata/ok")
 	if err != nil {

@@ -68,12 +68,12 @@ jobs:
           extra_nix_config: |
             system-features = nixos-test benchmark big-parallel kvm
 
-      # Sona's own builds (Go modules, pnpm store, the package); the desktops
+      # Sona's own builds (Go modules, the package); the desktops
       # come from cache.nixos.org.
       - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
         if: steps.want.outputs.run == 'true'
         with:
-          primary-key: vm-tests-${{ matrix.test }}-${{ hashFiles('devenv.lock', 'go.sum', 'frontend/pnpm-lock.yaml', 'tests/vm/**') }}
+          primary-key: vm-tests-${{ matrix.test }}-${{ hashFiles('devenv.lock', 'go.sum', 'tests/vm/**') }}
           restore-prefixes-first-match: vm-tests-${{ matrix.test }}-
           gc-max-store-size-linux: 8G
 

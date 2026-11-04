@@ -125,7 +125,7 @@
 // and Retry fails with CodeUnsupported.
 //
 // Private (private.go) is private listening (internal/privatemode) for the
-// frontend: State, Set and "private:changed". Deps.Private is the one Mode
+// UI: State, Set and "private:changed". Deps.Private is the one Mode
 // every play reporter asks with the start of the listen (Mode.Since): the
 // play-activity reporter, History, the scrobbler and the Discord presence;
 // a toggle applies from the next event and a listen private at any point
@@ -138,7 +138,7 @@
 // first route before it is created, from the settings and SQLite only
 // (config.Onboarding.Completed, the cached account): the setup
 // (OnboardingRoute) on a first start, else Settings → General's page. The
-// frontend saves the completed flag through SystemService.UpdateSettings.
+// UI saves the completed flag through SystemService.UpdateSettings.
 //
 // Pre-release albums (release.go): Album.Prerelease and Album.ReleaseAt
 // (local midnight on the release date) mark an album not out yet; its
@@ -146,7 +146,7 @@
 // code "not_released". Reminders (reminders.go, table release_reminders)
 // give one desktop notification when such an album comes out, or after
 // the first paint of the next start when Sona wasn't running then; the
-// notification's words come from the frontend, and without
+// notification's words come from the UI, and without
 // Platform.Notifications Set fails with "unsupported". Pre-add is
 // LibraryService.Add: Apple's web player pre-adds with the same call.
 //
@@ -172,7 +172,7 @@
 // geohash and is told that and nothing else of the place; lists are cached
 // with discover_cache's rules, keyed by area, filters and day. Ticket links
 // are https only. Home's concerts shelf is a Section of kind "concerts"
-// with no items, filled by the frontend from Concerts.
+// with no items, filled by the UI from Concerts.
 //
 // DTO rules: durations and timestamps in integer milliseconds (timestamps
 // as Unix ms, 0 when unknown); artwork and motion artwork only as
@@ -180,7 +180,7 @@
 // as strings with an explicit Source where an item can be either; empty
 // lists as [] not null.
 //
-// main builds Deps, calls New and binds each service through Service[T];
-// Core then exposes Activate (launch links → "app:open"), StartMediaControls
-// and Close.
+// main builds Deps and calls New; the UI reaches each service through
+// Service[T]. Core also exposes Activate (launch links → "app:open"),
+// StartMediaControls and Close.
 package services

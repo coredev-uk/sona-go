@@ -2,7 +2,7 @@ package services
 
 // Capabilities is what this platform and build support
 // (PlatformService.Capabilities). A false field means the feature can't
-// work here: the frontend hides its control or says why, never shows it
+// work here: the UI hides its control or says why, never shows it
 // broken. On Linux every field is true when its desktop service exists
 // (a session bus for the D-Bus ones).
 type Capabilities struct {
@@ -38,7 +38,7 @@ type Capabilities struct {
 	// shows it.
 	DeveloperTools bool `json:"developerTools"`
 	// WindowControls is how the main window's title bar works here; the
-	// frontend lays out its top bar from it and the title bar setting.
+	// UI lays out its top bar from it and the title bar setting.
 	WindowControls WindowControls `json:"windowControls"`
 }
 

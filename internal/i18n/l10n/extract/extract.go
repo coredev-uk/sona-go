@@ -45,8 +45,7 @@ const SourcePath = PackageDir + "/" + l10n.SourceFile
 // Command is how to bring SourcePath up to date, for error messages.
 const Command = "go run ./cmd/i18ntool extract"
 
-// header is the catalogue's header: Lingui's fields (the frontend's en.po)
-// without the creation date, so extracting twice writes the same bytes.
+// header is the catalogue's header, without the creation date, so extracting twice writes the same bytes.
 var header = po.Header(
 	[2]string{"MIME-Version", "1.0"},
 	[2]string{"Content-Type", "text/plain; charset=utf-8"},
@@ -55,9 +54,8 @@ var header = po.Header(
 	[2]string{"Language", l10n.SourceLocale},
 )
 
-// skipDirs are directories never walked: test fixtures, the frontend (its
-// text is Lingui's), dependencies and the development environment.
-var skipDirs = []string{"testdata", "frontend", "node_modules", "vendor"}
+// skipDirs are directories never walked: test fixtures, dependencies and the development environment.
+var skipDirs = []string{"testdata", "node_modules", "vendor"}
 
 // message is one msgid's occurrences.
 type message struct {

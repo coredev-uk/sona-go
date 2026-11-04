@@ -8,7 +8,7 @@
 // result so far. Every provider's answer, lyrics or "none", is cached in
 // SQLite (lyrics_cache) per song, so changing the providers' order or
 // switches costs no requests. All requests are made from Go; lyrics text
-// is plain data to the frontend, never markup.
+// is plain data to the UI, never markup.
 package lyrics
 
 import "time"

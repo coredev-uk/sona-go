@@ -181,18 +181,17 @@ func assertNoBuildCredentials(t *testing.T, out string) {
 	}
 }
 
-// Wails' development builds log "Build Info:" with every debug.BuildInfo
-// setting as an attribute, -ldflags included (application_debug.go,
-// logStartup). Neither the file nor the dev stderr text may carry the
+// A "Build Info:" record carries every debug.BuildInfo setting as an
+// attribute, -ldflags included. Neither the file nor the dev stderr text may carry the
 // credentials the linker flags inject; the other settings stay.
-func TestNewKeepsBuildCredentialsOutOfWailsBuildInfo(t *testing.T) {
+func TestNewKeepsBuildCredentialsOutOfBuildInfoRecord(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sona.log")
 	var stderr bytes.Buffer
 	log, closeFn, err := New(Options{File: path, Dev: true, Stderr: &stderr})
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Info("Build Info:", "Wails", "v3.0.0", "Compiler", "go1.26.10", "-buildmode", "exe",
+	log.Info("Build Info:", "Framework", "v1.0.0", "Compiler", "go1.26.10", "-buildmode", "exe",
 		"-tags", "sqlite_fts5", "-gcflags", "all=-l", "-ldflags", fakeLdflags, "GOOS", "linux", "CGO_ENABLED", "1")
 	if err := closeFn(); err != nil {
 		t.Fatal(err)

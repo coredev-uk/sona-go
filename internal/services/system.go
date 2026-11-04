@@ -48,7 +48,7 @@ func newSystemService(e *Env) *SystemService {
 	return &SystemService{o: e}
 }
 
-// FirstPaint is called by the frontend once the shell has painted. Network
+// FirstPaint is called by the UI once the shell has painted. Network
 // work (token validation, stale library sync, cache pruning) starts then.
 func (s *SystemService) FirstPaint() {
 	s.paintOnce.Do(func() {
@@ -66,7 +66,7 @@ func (s *SystemService) Settings() config.Settings { return s.o.Settings.Get() }
 
 // UpdateSettings saves next and applies it: theme and reduce-effects
 // through "settings:changed", the audio quality from the next item; the
-// idle timeout and WebKit toggles on the next start. The volume is the
+// idle timeout on the next start. The volume is the
 // player's (the player bar, MPRIS, `sona volume`; PlaybackService saves
 // it), so the saved one is kept whatever next carries: a page holding an
 // older copy of the settings can't turn the music back up or down.
@@ -143,7 +143,6 @@ func (s *SystemService) Diagnostics(ctx context.Context) (Diagnostics, error) {
 	d.Keyring = DiagKeyring{Backend: string(st.Backend), Unencrypted: st.Backend == store.BackendFile}
 
 	for _, name := range []string{
-		"WEBKIT_DISABLE_DMABUF_RENDERER", "WEBKIT_DISABLE_COMPOSITING_MODE",
 		"GST_PLUGIN_SYSTEM_PATH_1_0", "GST_PLUGIN_PATH_1_0", "WAYLAND_DISPLAY", "GDK_BACKEND",
 	} {
 		v, ok := os.LookupEnv(name)

@@ -303,7 +303,7 @@ func (s *DiscoverService) homePage(r applemusic.MapResponse, fetched int64) Home
 
 // homeSections maps Home shelves; web-only cards are left out, and
 // Apple's concerts shelf (a prompt to set a location on the web) becomes a
-// SectionConcerts the frontend fills from ConcertsService.
+// SectionConcerts the UI fills from ConcertsService.
 func (s *DiscoverService) homeSections(r applemusic.MapResponse) []Section {
 	out := []Section{}
 	for _, shelf := range r.Primary() {

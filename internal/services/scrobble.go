@@ -221,7 +221,7 @@ func (s *ScrobbleService) connect(provider, cred, user string) error {
 	return err
 }
 
-// saveAccount writes provider's settings entry and tells the frontend,
+// saveAccount writes provider's settings entry and tells the UI,
 // whose settings cache other sections save from.
 func (s *ScrobbleService) saveAccount(provider string, a config.ScrobbleAccount) error {
 	saved, err := s.e.Settings.Update(func(st *config.Settings) {

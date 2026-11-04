@@ -164,13 +164,15 @@ Summary; the full design is `docs/auth.md`.
 ## 6. Module layout
 
 ```text
-Taskfile.yml build/          Linux packaging (nfpm; the AppImage returns in phase 4; desktop file dev.coredev.Sona), macOS dev build; package build embeds the app icons
+Taskfile.yml build/          packaging per OS: Linux (nfpm, AppImage, Flatpak, the release container; desktop file dev.coredev.Sona), macOS (`bundle.sh`: Sona.app, .dmg), Windows (`package.sh`: .zip, installer); embeds the app icons
 cmd/
   sona/                      the app (bin/sona)
     main.go                  app entry (cdmhost.ChildMain first): start-up steps, the core, then mygo.App.WhenReady -> ui/app.New and App.Run; version injected from VERSION
     build_dev.go build_production.go devMode: the `dev` build tag (development builds start private, offer the inspector with SONA_INSPECTOR=1)
     platform_<os>.go         per-OS integrations behind services.Platform (§9)
     engine_cdm.go engine_other.go the playback engine per OS
+  devloop/ uigallery/        the `dev` script's rebuild-and-restart loop; the component gallery it can run
+  uiprobe/ releasesign/      UI performance tables from outside (automation socket); signs the update manifests
   playspike/                 DRM path regression check (licence, full track, seek, gap, crash, PSS, probes)
   authspike/                 native (-native) or loopback sign-in + MUT validation
   cdmfetch/                  downloads and verifies the CDM by hand
@@ -192,7 +194,7 @@ internal/
     fmp4/ hls/ gst/          fMP4 + CENC parsing; HLS playlists; GStreamer lanes, mixer and output
     coordinator/ activity/   queue and state machine; Apple play-activity reports
     equalizer/ soundcheck/   EQ bands and presets; Sound Check gain
-  mpris/ app/                MPRIS server; single instance, `sona <command>`, Apple Music URLs, autostart, file chooser
+  mpris/ nowplaying/ app/    MPRIS server; macOS and Windows media keys and Now Playing (MyGo's NowPlaying); single instance, `sona <command>`, Apple Music URLs, autostart, file chooser
   windowchrome/              title bar policy
   desktop/{notify,inhibit}/ power/   notifications, suspend inhibitor; on-battery monitor
   discord/ scrobble/         Discord presence; Last.fm and ListenBrainz
@@ -201,10 +203,10 @@ internal/
   i18n/l10n/{,extract/}      Go's own message catalogue and Printer; its extractor (go/parser, tools only)
   services/                  services, DTOs, events, start-up gate (contract: doc.go)
   ui/                        MyGo UI (docs/ui-architecture.md)
-    app/                     New(Options): the Env, the main window (sidebar, top bar, page column, slots), router, shortcut dispatcher, window-state memory, services.Windows; modules.go lists the features
+    app/                     New(Options): the Env, the main window (sidebar, top bar, page column, slots), router, shortcut dispatcher, window-state memory, tray, services.Windows; modules.go lists the features
     module/ store/ theme/    the feature contract; event bus, cached queries, playback mirror; tokens, icons, fonts
     kit/ i18n/               components; T/TC/ErrorText over locales/
-    features/<name>/         one package per feature (player: the player bar, library: Albums so far)
+    features/<name>/         one package per feature (album, artist, library, player, miniplayer, settings, onboarding, updates…)
 docs/                        contributor docs (see the top of this file)
 devenv.nix devenv.yaml devenv.lock   development environment
 ```
@@ -247,9 +249,9 @@ Storage maintenance (`StorageService`): after first paint it prunes the catalogu
 
 Linux is the full platform. macOS and Windows build and run the UI, with every OS-specific part behind a seam (`cmd/sona/platform_<os>.go`, `services.Platform`, `engine_cdm.go`/`engine_other.go`) that reports itself unsupported where a platform lacks it (`errors.ErrUnsupported`, `PlatformService.Capabilities`); the UI hides or explains the control. Build-tag conventions and how to type-check and cross-build: `CONTRIBUTING.md`, "Platforms".
 
-- **Linux**: everything above. Packages (`task package`: `.deb`, `.rpm`, Arch; release builds, the AppImage and the AUR `sona-bin` package return with the phase 4 packaging PR); Flatpak is documented in `docs/flatpak.md`.
-- **macOS**: unsigned development builds play through the same CDM host with the macOS CDM Google ships (`mac_arm64`, `mac_x64`) and Core Audio output, sandboxed with `sandbox-exec`. Media keys and Now Playing work (`internal/nowplaying` over MyGo's `NowPlaying`: MPNowPlayingInfoCenter; Windows' SystemMediaTransportControls likewise); notifications, sleep inhibit and autostart are not there yet.
-- **Windows**: builds and runs the UI; playback reports unsupported (`playback.Unsupported`).
+- **Linux**: everything above. Release packages are the `.deb`, `.rpm`, Arch package and AppImage (`release`, `build/linux/release`; `task package` packages the local build), plus the AUR `sona-bin` PKGBUILD (`build/linux/arch/update.sh`); Flatpak is documented in `docs/flatpak.md`.
+- **macOS**: releases are an unsigned (ad-hoc signed, not notarised) `Sona.app` for Apple silicon with GStreamer bundled, in a `.dmg` (`build/darwin/bundle.sh`); source builds are a plain `bin/sona`. Both play through the same CDM host with the macOS CDM Google ships (`mac_arm64`, `mac_x64`) and Core Audio output, sandboxed with `sandbox-exec`. The app updates itself in place ("Updates", §3). Media keys and Now Playing work (`internal/nowplaying` over MyGo's `NowPlaying`: MPNowPlayingInfoCenter; Windows' SystemMediaTransportControls likewise); notifications, sleep inhibit and autostart are not there yet.
+- **Windows**: releases are a portable `.zip` and a per-user installer for x64 (`build/windows/package.sh`), updating themselves like the Mac app. The UI, media keys and Now Playing run; playback reports unsupported (`playback.Unsupported`) and motion artwork shows stills.
 
 Per-OS conventions: configuration paths (XDG; `~/Library/...`; `%APPDATA%`/`%LOCALAPPDATA%`), the keyring backend (Secret Service, Keychain, Credential Manager), the Discord IPC socket, the audio sink (`pipewiresink`, `osxaudiosink`) and the CDM library (`libwidevinecdm.so`, `.dylib`).
 
@@ -261,6 +263,6 @@ Per-OS conventions: configuration paths (XDG; `~/Library/...`; `%APPDATA%`/`%LOC
 - **Live contract tests** (`internal/applemusic/live_test.go`, opt-in: `SONA_LIVE=1` with `MUSIC_USER_TOKEN`): one real call per endpoint family asserting the decoded shapes Sona relies on; nothing is played. `.github/workflows/live.yml` runs them on a schedule and opens an issue on failure.
 - **UI**: `ui.Tester` renders views headless (no window): behaviour (focus, keys, selection, drag slots) is asserted, and image snapshots land in `testdata/` for review; query and event logic is plain Go tests. Accessibility rules and how to check them: `docs/accessibility.md`.
 - **Cross-platform**: every package, tests included, type-checks for `windows/amd64` and `darwin/arm64` (`go vet`, `go run ./cmd/typecheck`).
-- **Packaging**: `task package` builds the `.deb`, `.rpm` and Arch packages with nfpm (GTK3 dependencies). `build/linux/release/release.sh`, which built the packages on Ubuntu 24.04 and smoke-tested them (`.deb` on Ubuntu, `.rpm` on Fedora, Arch package on Arch), is unavailable until the phase 4 packaging PR and fails fast; so are the AppImage and its smoke test.
+- **Packaging**: `task package` builds the `.deb`, `.rpm`, Arch package (nfpm; GTK3, the tray's `libayatana-appindicator3` and GStreamer as dependencies) and the AppImage of the local build. `build/linux/release/release.sh` builds them on Ubuntu 24.04 and smoke-tests them (`.deb` on Ubuntu, `.rpm` and the AppImage on Fedora, Arch package on Arch: `sona --version`, first paint under Xvfb, the GStreamer plugins, and no WebKitGTK or GTK4 linked). `build/darwin/smoke.sh` and `build/windows/smoke.sh` do the same for the macOS app and the Windows zip and installer.
 - **Manual release checks**: `docs/release-checklist.md` (desktop matrix and results).
-- **CI** (`.github/workflows/ci.yml`): Go vet and `go test -race` with real-CDM tests, the cross-platform type-checks and the path-case check; "UI tests (goldens)" (`go test ./internal/ui/...` on the CPU renderer, the golden images included, diffs uploaded on failure) and "E2E (headless sway)" (the probe build driven through MyGo's automation plugin on a synthetic fixture profile in a headless sway session, plus the AT-SPI landmark check; `e2e/`); releases come from release-please (`release-please.yml`): merging its release PR (opened by the bot-cecil App, so CI runs on it) bumps `VERSION` and `CHANGELOG.md`, tags `vX.Y.Z` and calls `release.yml`, which builds the Linux packages, attests their provenance and publishes them with `SHA256SUMS` (no macOS or Windows release build) (`docs/release-checklist.md`, "Releasing").
+- **CI** (`.github/workflows/ci.yml`): Go vet and `go test -race` with real-CDM tests, the cross-platform type-checks and the path-case check; "UI tests (goldens)" (`go test ./internal/ui/...` on the CPU renderer, the golden images included, diffs uploaded on failure) and "E2E (headless sway)" (the probe build driven through MyGo's automation plugin on a synthetic fixture profile in a headless sway session, plus the AT-SPI landmark check; `e2e/`); releases come from release-please (`release-please.yml`): merging its release PR (opened by the bot-cecil App, so CI runs on it) bumps `VERSION` and `CHANGELOG.md`, tags `vX.Y.Z` and calls `release.yml`, which builds and smoke-tests the Linux packages, the macOS `.dmg` and the Windows installer and zip, signs the update manifests, attests provenance and publishes everything with one `SHA256SUMS` (`docs/release-checklist.md`, "Releasing").
