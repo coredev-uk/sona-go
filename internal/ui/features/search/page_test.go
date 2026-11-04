@@ -235,6 +235,8 @@ type rigOpts struct {
 	height   int
 	// setup shapes the fake API before the first frame asks it.
 	setup func(*pageApple)
+	// wrap replaces the service the feature asks, before the first frame.
+	wrap func(searchAPI) searchAPI
 }
 
 func newPageRig(t *testing.T, start string, ro rigOpts, opts ...uitest.Option) *pageRig {
@@ -257,7 +259,11 @@ func newPageRig(t *testing.T, start string, ro rigOpts, opts ...uitest.Option) *
 		r.h.Env.HasRoute = func(string) bool { return true }
 	}
 	r.api = services.Service[services.SearchService](r.h.Core)
-	r.s = newSearch(r.h.Env, r.api, r.play, services.Service[services.AuthService](r.h.Core))
+	var api searchAPI = r.api
+	if ro.wrap != nil {
+		api = ro.wrap(api)
+	}
+	r.s = newSearch(r.h.Env, api, r.play, services.Service[services.AuthService](r.h.Core))
 	w, h := ro.width, ro.height
 	if w == 0 {
 		w, h = 1132, 1300
@@ -547,8 +553,7 @@ func (noStorefront) Catalog(context.Context, string) (services.SearchResults, er
 }
 
 func TestCatalogSignedOutOffersSignIn(t *testing.T) {
-	r := newPageRig(t, "/search?q=blue", rigOpts{})
-	r.s.api = noStorefront{r.api}
+	r := newPageRig(t, "/search?q=blue", rigOpts{wrap: func(a searchAPI) searchAPI { return noStorefront{a} }})
 	r.tt.Until("the sign-in state", r.tt.Shows("Sign in to search Apple Music", "Sign in"))
 	if r.h.Env.Surfaces.AccountOpen() {
 		t.Fatal("the account dialog is open before the click")
