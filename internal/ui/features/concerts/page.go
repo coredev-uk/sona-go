@@ -1,7 +1,6 @@
 package concerts
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -104,7 +103,7 @@ func (s *concerts) concertsPage(c *ui.Context, r *ui.Route) {
 	}
 	filtered := hasRange || p.genre != "" || onlyYours
 	if q.HasData {
-		s.announce(c, filterKey+"|"+strconv.FormatBool(onlyYours), len(shown), page.Location.Name, filtered)
+		s.announce(c, filterKey, onlyYours, len(shown), page.Location.Name, filtered)
 	}
 
 	tk := theme.Current()
@@ -152,13 +151,13 @@ func (s *concerts) concertsPage(c *ui.Context, r *ui.Route) {
 // (v0.2.0 only marked the old one busy): how many concerts, or that there
 // are none. key names the filters; the listing the page opens with is only
 // noted, as opening the page announces itself.
-func (s *concerts) announce(c *ui.Context, key string, n int, city string, filtered bool) {
+func (s *concerts) announce(c *ui.Context, key string, onlyYours bool, n int, city string, filtered bool) {
 	pg := &s.page
-	if pg.heardSet && pg.heard == key {
+	if pg.heardSet && pg.heard == key && pg.heardYours == onlyYours {
 		return
 	}
 	first := !pg.heardSet
-	pg.heard, pg.heardSet = key, true
+	pg.heard, pg.heardYours, pg.heardSet = key, onlyYours, true
 	if first {
 		return
 	}

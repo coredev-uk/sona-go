@@ -455,7 +455,7 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 		if current {
 			// v0.2.0's aria-current: MyGo has no such state, so the lead's
 			// row says it in the description, ahead of the line under it.
-			desc = i18n.T("Current page")
+			desc = i18n.T("Current")
 			if sub != "" {
 				desc += ". " + sub
 			}

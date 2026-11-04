@@ -145,10 +145,10 @@ func TestA11yFrontKeepsThePlayAndMoreButtonsBesideTheLeadAndEveryRow(t *testing.
 		}
 		return ""
 	}
-	if d := current(items[0]); !strings.HasPrefix(d, i18n.T("Current page")) || !strings.Contains(d, "Curator 1") {
-		t.Errorf("the lead's row says %q, want its line and %q", d, i18n.T("Current page"))
+	if d := current(items[0]); !strings.HasPrefix(d, i18n.T("Current")) || !strings.Contains(d, "Curator 1") {
+		t.Errorf("the lead's row says %q, want its line and %q", d, i18n.T("Current"))
 	}
-	if d := current(items[1]); strings.Contains(d, i18n.T("Current page")) || !strings.Contains(d, "Curator 2") {
+	if d := current(items[1]); strings.Contains(d, i18n.T("Current")) || !strings.Contains(d, "Curator 2") {
 		t.Errorf("another row says %q", d)
 	}
 	// Choosing a row moves the mark, and the row keeps its name.
@@ -158,10 +158,10 @@ func TestA11yFrontKeepsThePlayAndMoreButtonsBesideTheLeadAndEveryRow(t *testing.
 	tr = access.Read(t, r.tt.Tester)
 	list, _ = tr.Find(ui.RoleList, "Featured cards")
 	items = listItems(t, tr, list)
-	if d := current(items[2]); !strings.Contains(d, i18n.T("Current page")) {
+	if d := current(items[2]); !strings.Contains(d, i18n.T("Current")) {
 		t.Errorf("the chosen row says %q", d)
 	}
-	if d := current(items[0]); strings.Contains(d, i18n.T("Current page")) {
+	if d := current(items[0]); strings.Contains(d, i18n.T("Current")) {
 		t.Errorf("the old lead's row still says %q", d)
 	}
 	if _, ok := tr.Find(ui.RoleLink, "List 3"); !ok {

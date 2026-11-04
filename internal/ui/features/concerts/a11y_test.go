@@ -359,7 +359,7 @@ func TestA11yLocationDialogMarksTheChosenCity(t *testing.T) {
 	tr := access.Read(t, r.tt.Tester)
 	var current []string
 	for _, n := range tr.Roles(ui.RoleButton) {
-		if strings.HasPrefix(n.Description, "Current page") {
+		if strings.HasPrefix(n.Description, "Current") {
 			current = append(current, n.Label)
 		}
 	}

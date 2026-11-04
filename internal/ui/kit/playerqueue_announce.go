@@ -15,9 +15,10 @@ import (
 type TrackAnnouncer struct {
 	// seen is the ID of the last track announced.
 	seen string
-	// failed is what the last failure announced said it was (the track and
-	// Go's error code): "" while nothing fails.
-	failed string
+	// failedID and failedErr are the track and Go's error code of the last
+	// failure announced: empty while nothing fails.
+	failedID  string
+	failedErr string
 }
 
 // AnnouncedTrack is the track a track change should announce, or nil. seen is
@@ -73,13 +74,12 @@ func FailureLine(cur *services.QueueItem) string {
 // builds, after Announce.
 func (a *TrackAnnouncer) AnnounceFailure(c *ui.Context, s services.PlaybackState) {
 	if s.Current == nil || s.State != store.StateError || s.Error == "" || s.AuthRequired || s.NoCDM {
-		a.failed = ""
+		a.failedID, a.failedErr = "", ""
 		return
 	}
-	key := s.Current.ID + " " + string(s.Error)
-	if a.failed == key {
+	if a.failedID == s.Current.ID && a.failedErr == string(s.Error) {
 		return
 	}
-	a.failed = key
+	a.failedID, a.failedErr = s.Current.ID, string(s.Error)
 	c.Announce(FailureLine(s.Current))
 }

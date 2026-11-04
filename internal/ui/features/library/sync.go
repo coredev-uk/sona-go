@@ -135,18 +135,26 @@ const (
 // inside a domain is not read out. The first frame only records the phase.
 func (l *library) announceSync(c *ui.Context, running, failed bool, lastSuccess int64) {
 	phase := syncIdle
-	text := ""
 	switch {
 	case running:
-		phase, text = syncRunning, i18n.T("Syncing your library")
+		phase = syncRunning
 	case failed:
-		phase, text = syncFailed, i18n.T("Library sync failed")
-	case lastSuccess > 0:
-		text = i18n.T("Synced {synced}", "synced", i18n.RelativeTime(time.UnixMilli(lastSuccess), time.Now()))
+		phase = syncFailed
 	}
 	s := &l.sync
-	if s.phaseSeen && s.phase != phase && text != "" {
-		c.Announce(text)
+	if s.phaseSeen && s.phase != phase {
+		text := ""
+		switch {
+		case running:
+			text = i18n.T("Syncing your library")
+		case failed:
+			text = i18n.T("Library sync failed")
+		case lastSuccess > 0:
+			text = i18n.T("Synced {synced}", "synced", i18n.RelativeTime(time.UnixMilli(lastSuccess), time.Now()))
+		}
+		if text != "" {
+			c.Announce(text)
+		}
 	}
 	s.phase, s.phaseSeen = phase, true
 }

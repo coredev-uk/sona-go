@@ -166,7 +166,7 @@ func TestStepStripIsAListWithTheCurrentStepDescribed(t *testing.T) {
 		}
 		want := ""
 		if names[i] == "Connections" {
-			want = "Current page"
+			want = "Current step"
 		}
 		if kids[0].Description != want {
 			t.Errorf("the %q segment's description %q, want %q", names[i], kids[0].Description, want)
@@ -177,7 +177,7 @@ func TestStepStripIsAListWithTheCurrentStepDescribed(t *testing.T) {
 	r.tt.Frame()
 	tr = access.Read(t, r.tt.Tester)
 	for _, n := range tr.Nodes {
-		if n.Role == ui.RoleButton && (n.Description == "Current page") != (n.Label == "Desktop") && slices.Contains(names, n.Label) {
+		if n.Role == ui.RoleButton && (n.Description == "Current step") != (n.Label == "Desktop") && slices.Contains(names, n.Label) {
 			t.Errorf("after Desktop, %q has the description %q", n.Label, n.Description)
 		}
 	}

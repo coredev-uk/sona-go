@@ -283,7 +283,7 @@ func (o *onboarding) listenBrainzForm(c *ui.Context) {
 	form.Children(func() {
 		text(c, i18n.T("User token"), "sub").FontWeight(500).TextColor(theme.C("ink"))
 		ui.Row(c.Key("fields")).FillWidth().Gap(8).Children(func() {
-			in := kit.Input(c.Key("token"), &f.token, kit.InputOpts{A11yLabel: i18n.T("User token"), Password: true, Invalid: f.err != ""})
+			in := kit.Input(c.Key("token"), &f.token, kit.InputOpts{A11yLabel: i18n.T("User token"), Password: true, Invalid: f.err != "", Error: f.err})
 			in.Grow(1).Shrink(1).MinWidth(0).Height(32).AutoFocus()
 			ready := !f.busy && strings.TrimSpace(f.token) != ""
 			label := i18n.T("Connect")

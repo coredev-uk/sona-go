@@ -150,7 +150,10 @@ func Toaster(c *ui.Context) {
 	tk := theme.Current()
 	ui.ToastViewportBase(c.Key("toaster"), func(viewport ui.Element, list []ui.Toast) {
 		toasts.mu.Lock()
-		toasts.shown = map[string]string{}
+		if toasts.shown == nil {
+			toasts.shown = map[string]string{}
+		}
+		clear(toasts.shown)
 		for _, t := range list {
 			toasts.shown[t.ID] = t.Title
 		}

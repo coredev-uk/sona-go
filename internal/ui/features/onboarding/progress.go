@@ -21,7 +21,7 @@ const stripHeight = 32
 // on a checked element, which a button must not claim to be). It is a list
 // named "Setup steps" of one item per step (the nav and ol of v0.2.0), and
 // the current step's button says so in its description: MyGo has no
-// aria-current, and "Current page" is what stands in for it.
+// aria-current, and "Current step" is what stands in for it.
 func (o *onboarding) stepStrip(c *ui.Context, step string) {
 	at := stepIndex(step)
 	ui.Row(c.Key("strip")).FillWidth().Height(stripHeight).Shrink(0).Gap(4).AlignItems(ui.Stretch).
@@ -47,7 +47,7 @@ func (o *onboarding) stepButton(c *ui.Context, s string, i, at int, step string)
 		Padding(4, 0, 2, 0).AlignItems(ui.Stretch).Radius(theme.Current().Radius["sm"]).
 		Cursor(ui.CursorPointer).Label(name)
 	if s == step {
-		b.Description(i18n.T("Current page"))
+		b.Description(i18n.T("Current step"))
 	}
 	hover := b.Hovered()
 	bar := theme.C("ink").Alpha(0.15)

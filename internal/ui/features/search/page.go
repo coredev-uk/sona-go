@@ -198,7 +198,7 @@ type searchView struct {
 	prevLib services.LibrarySearch
 	hasLib  bool
 	// announced is the outcome of the search last read out.
-	announced string
+	announced outcome
 }
 
 func (v *searchView) shelf(key string) *kit.CoverShelfState {
@@ -211,15 +211,27 @@ func (v *searchView) shelf(key string) *kit.CoverShelfState {
 	return v.shelves[key]
 }
 
+// outcome names what a search found: the term and scope searched, and
+// whether anything came back.
+type outcome struct {
+	scope, q string
+	none     bool
+}
+
 // announce reads out what a search found, once, when its results arrive
-// (what v0.2.0's aria-busy left to the reader): key names the term, scope
-// and outcome.
-func (v *searchView) announce(c *ui.Context, key, text string) {
-	if v.announced == key {
+// (what v0.2.0's aria-busy left to the reader). The text is made only when
+// it is said.
+func (v *searchView) announce(c *ui.Context, o outcome, text func() string) {
+	if v.announced == o {
 		return
 	}
-	v.announced = key
-	c.Announce(text)
+	v.announced = o
+	c.Announce(text())
+}
+
+// resultsFor is what is said when a search found something.
+func resultsFor(q string) func() string {
+	return func() string { return i18n.T("Results for “{q}”", "q", q) }
 }
 
 // searching is the busy mark of a page whose next results are loading while
@@ -242,7 +254,7 @@ func (s *search) searchPage(c *ui.Context, r *ui.Route) {
 		kit.PageHeader(c, title, "", func() { s.scopeSwitch(c, q, scope) })
 		switch {
 		case q == "":
-			v.announced = ""
+			v.announced = outcome{}
 			shown := s.recentShelf(c, &v.pageView, scope)
 			if scope == scopeLibrary {
 				if shown {
@@ -347,7 +359,7 @@ func (s *search) catalogResults(c *ui.Context, pane *kit.Pane, q string) {
 	case len(data.Sections) == 0:
 		empty := i18n.T("Nothing on Apple Music for “{q}”", "q", q)
 		if res.HasData {
-			v.announce(c, scopeCatalog+"\x00"+q+"\x00none", empty)
+			v.announce(c, outcome{scopeCatalog, q, true}, func() string { return empty })
 		} else {
 			searching(c)
 		}
@@ -357,7 +369,7 @@ func (s *search) catalogResults(c *ui.Context, pane *kit.Pane, q string) {
 	}
 
 	if res.HasData {
-		v.announce(c, scopeCatalog+"\x00"+q+"\x00found", i18n.T("Results for “{q}”", "q", q))
+		v.announce(c, outcome{scopeCatalog, q, false}, resultsFor(q))
 	} else {
 		searching(c) // the last term's results stay on screen meanwhile
 	}
@@ -455,7 +467,7 @@ func (s *search) libraryResults(c *ui.Context, pane *kit.Pane, q string) {
 	if len(r.Songs) == 0 && len(r.Albums) == 0 && len(r.Artists) == 0 && len(r.Playlists) == 0 {
 		empty := i18n.T("Nothing in your library for “{q}”", "q", q)
 		if res.HasData {
-			v.announce(c, scopeLibrary+"\x00"+q+"\x00none", empty)
+			v.announce(c, outcome{scopeLibrary, q, true}, func() string { return empty })
 		} else {
 			searching(c)
 		}
@@ -464,7 +476,7 @@ func (s *search) libraryResults(c *ui.Context, pane *kit.Pane, q string) {
 		return
 	}
 	if res.HasData {
-		v.announce(c, scopeLibrary+"\x00"+q+"\x00found", i18n.T("Results for “{q}”", "q", q))
+		v.announce(c, outcome{scopeLibrary, q, false}, resultsFor(q))
 	} else {
 		searching(c) // the last term's results stay on screen meanwhile
 	}

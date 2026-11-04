@@ -410,7 +410,9 @@ func NestedControls(t testing.TB, tt *ui.Tester) []Nested {
 		t.Fatal("the engine has no root element any more")
 	}
 	var out []Nested
+	visited = 0
 	walkElements(root, &out)
+	t.Logf("nested-control check read %d elements", visited)
 	return out
 }
 
@@ -479,7 +481,11 @@ func children(v reflect.Value) []reflect.Value {
 	return out
 }
 
+// visited counts the elements the last check read.
+var visited int
+
 func walkElements(ptr reflect.Value, out *[]Nested) {
+	visited++
 	v := ptr.Elem()
 	e := readElement(v)
 	if e.flags&(flagInvisible|flagInert) != 0 || e.hidden {
