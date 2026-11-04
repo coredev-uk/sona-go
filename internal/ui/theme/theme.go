@@ -150,6 +150,9 @@ func currentLocked() *Tokens {
 // it panics in tests and development builds, and in production is magenta
 // so it shows.
 func C(name string) ui.Color {
+	if c, ok := scoped(name); ok {
+		return c
+	}
 	if c, ok := Current().Color[name]; ok {
 		return c
 	}

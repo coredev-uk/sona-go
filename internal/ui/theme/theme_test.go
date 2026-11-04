@@ -331,3 +331,36 @@ func TestReducedMotionAndEffects(t *testing.T) {
 		t.Errorf("reduce effects stops motion too: effects %v motion %v", ReduceEffects(), ReducedMotion())
 	}
 }
+
+func TestScopeReplacesTokensOnlyWhileItsChildrenBuild(t *testing.T) {
+	outer := map[string]ui.Color{"ink": ui.RGB(1, 2, 3), "amber": ui.RGB(4, 5, 6)}
+	inner := map[string]ui.Color{"ink": ui.RGB(7, 8, 9)}
+	base, ground := C("ink"), C("ground")
+	Scope(outer, func() {
+		if got := C("ink"); got != outer["ink"] {
+			t.Errorf("ink in scope %v", got)
+		}
+		if got := C("ground"); got != ground {
+			t.Errorf("a token the scope does not name changed: %v", got)
+		}
+		Scope(inner, func() {
+			if got := C("ink"); got != inner["ink"] {
+				t.Errorf("ink in the inner scope %v", got)
+			}
+			if got := C("amber"); got != outer["amber"] {
+				t.Errorf("amber from the outer scope: %v", got)
+			}
+		})
+		if got := C("ink"); got != outer["ink"] {
+			t.Errorf("ink after the inner scope %v", got)
+		}
+	})
+	if got := C("ink"); got != base {
+		t.Errorf("ink after the scope %v, want %v", got, base)
+	}
+	Scope(nil, func() {
+		if got := C("ink"); got != base {
+			t.Errorf("an empty scope changed ink: %v", got)
+		}
+	})
+}
