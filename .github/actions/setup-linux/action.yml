@@ -40,7 +40,10 @@ runs:
           echo "key=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-$GO_HASH-$RUN_ID"
           echo "restore=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-$GO_HASH-"
           echo "fallback=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-"
-          echo "path=$HOME/.cache/go-build"$'\n'"$HOME/go/pkg/mod"
+          echo "path<<EOF"
+          echo "$HOME/.cache/go-build"
+          echo "$HOME/go/pkg/mod"
+          echo "EOF"
           echo "apt=apt-$PACKAGES-$RUNNER_OS-$RUNNER_ARCH-${ImageVersion:-unknown}-$PKG_HASH"
           if [ "$REF" = refs/heads/main ] || [ "$EVENT" = workflow_dispatch ]; then echo save=true; else echo save=false; fi
         } >>"$GITHUB_OUTPUT"

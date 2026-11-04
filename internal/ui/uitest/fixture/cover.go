@@ -13,11 +13,29 @@ import (
 	"sync"
 )
 
+// coverKey names a generated cover.
+type coverKey struct{ seed, w, h int }
+
+// covers keeps each generated cover for the process: a test binary serves the
+// same few dozen covers to every test, and drawing and PNG-encoding one is
+// the costliest part of serving it (under -race, seconds per package).
+var covers sync.Map // coverKey → []byte
+
 // Cover is the generated cover of seed as a PNG of w×h pixels: a diagonal
 // gradient between two hues that follow the seed, with one shape on it. It
-// is a pure function of its arguments.
+// is a pure function of its arguments; the bytes are shared, so a caller
+// must not change them.
 func Cover(seed, w, h int) []byte {
 	w, h = max(w, 1), max(h, 1)
+	k := coverKey{seed, w, h}
+	if b, ok := covers.Load(k); ok {
+		return b.([]byte)
+	}
+	b, _ := covers.LoadOrStore(k, drawCover(seed, w, h))
+	return b.([]byte)
+}
+
+func drawCover(seed, w, h int) []byte {
 	c0, c1, ink := CoverColors(seed)
 	img := image.NewNRGBA(image.Rect(0, 0, w, h))
 	cx, cy := float64(w)*(0.3+0.4*float64((seed*7)%5)/4), float64(h)*(0.3+0.4*float64((seed*3)%5)/4)

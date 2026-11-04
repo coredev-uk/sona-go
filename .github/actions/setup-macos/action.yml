@@ -31,7 +31,10 @@ runs:
           echo "key=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-$GO_HASH-$RUN_ID"
           echo "restore=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-$GO_HASH-"
           echo "fallback=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-"
-          echo "path=$HOME/Library/Caches/go-build"$'\n'"$HOME/go/pkg/mod"
+          echo "path<<EOF"
+          echo "$HOME/Library/Caches/go-build"
+          echo "$HOME/go/pkg/mod"
+          echo "EOF"
         } >>"$GITHUB_OUTPUT"
         echo "GSTREAMER_PKG_CACHE=$RUNNER_TEMP/gstreamer-pkg" >>"$GITHUB_ENV"
 
