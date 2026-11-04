@@ -11,6 +11,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
 // pageModule is a module with one page per path, a nav item each, and a
@@ -40,21 +41,21 @@ type pageDef struct {
 	order       int
 }
 
-func newShell(t *testing.T, o Options, f ...module.Factory) (*App, *ui.Tester) {
+func newShell(t *testing.T, o Options, f ...module.Factory) (*App, *uitest.Session) {
 	t.Helper()
 	return newShellPaints(t, o, new(int), f...)
 }
 
 // newShellPaints is newShell counting first-paint reports in paints.
-func newShellPaints(t *testing.T, o Options, paints *int, f ...module.Factory) (*App, *ui.Tester) {
+func newShellPaints(t *testing.T, o Options, paints *int, f ...module.Factory) (*App, *uitest.Session) {
 	t.Helper()
-	theme.SetMode(theme.ModeLight)
-	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
+	h := uitest.New(t, uitest.Bare()) // the light theme, restored afterwards
+	o.Now = h.Clock.Now
 	a := newApp(o, f)
 	a.firstPaint = func() { *paints++ }
 	t.Cleanup(a.env.Art.Close)
 	a.connect()
-	return a, ui.NewTester(a.view, 1132, 800)
+	return a, h.Tester(t, a.view, 1132, 800)
 }
 
 func TestShellShowsTheRegisteredNavEntriesAndNothingElse(t *testing.T) {

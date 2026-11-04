@@ -62,6 +62,7 @@ type ArtLoader struct {
 		once   sync.Once
 	}
 	workers int
+	running sync.WaitGroup // the workers
 	ctx     context.Context
 	cancel  context.CancelFunc
 }
@@ -137,6 +138,11 @@ func (l *ArtLoader) Close() {
 	l.jobs.Unlock()
 }
 
+// Wait blocks until the workers have exited; call it after Close, from a
+// goroutine that is not the main thread's if the Poster can block (tests'
+// does not). The app does not need it: its process ends.
+func (l *ArtLoader) Wait() { l.running.Wait() }
+
 // cover is the cover of src at a box of w×h DIPs, asking for it the first
 // time. nil when src names nothing.
 func (l *ArtLoader) cover(src string, w, h float32) *cover {
@@ -191,7 +197,7 @@ func (l *ArtLoader) enqueue(cv *cover) {
 	cv.state = coverQueued
 	l.jobs.once.Do(func() {
 		for range l.workers {
-			go l.work()
+			l.running.Go(l.work)
 		}
 	})
 	l.jobs.Lock()

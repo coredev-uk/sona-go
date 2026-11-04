@@ -164,7 +164,7 @@ Run the app in isolation (`dbus-run-session`, private XDG dirs, private
 mode, audio on your own null sink: CONTRIBUTING.md), in both themes.
 
 - **MyGo automation**: build with MyGo's automation plugin (the `probe`
-  build tag, details come with the probe) and read each touched route's
+  build tag: CONTRIBUTING.md, "Measuring UI performance") and read each touched route's
   element tree, roles and labels, light and dark. Text over a cover backdrop
   is worked out from the tokens and the scrim.
 - **Keyboard**: send real keys (`wtype` on wlroots compositors; in a

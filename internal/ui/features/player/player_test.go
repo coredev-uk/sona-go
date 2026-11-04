@@ -12,10 +12,9 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
-	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
-	"github.com/coredev-uk/sona-go/internal/ui/theme"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
 // fakeTransport records what the bar asked of PlaybackService.
@@ -76,47 +75,21 @@ func (f *fakeTransport) snapshot() []string {
 	return slices.Clone(f.calls)
 }
 
-// mainThread is a Poster run where the test says, as the app's runs on the
-// main thread.
-type mainThread struct{ q chan func() }
-
-func (m *mainThread) post(fn func()) { m.q <- fn }
-
-func (m *mainThread) drain() {
-	for {
-		select {
-		case fn := <-m.q:
-			fn()
-		default:
-			return
-		}
-	}
-}
-
 type rig struct {
 	p    *player
-	tt   *ui.Tester
+	tt   *uitest.Session
 	fake *fakeTransport
-	mt   *mainThread
+	h    *uitest.Harness
 	env  *module.Env
-	now  time.Time
 }
 
 func newRig(t *testing.T, volume bool) *rig {
 	t.Helper()
-	theme.SetMode(theme.ModeLight)
-	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
-	mt := &mainThread{q: make(chan func(), 64)}
-	bus := store.NewBus(nil)
-	bus.SetPoster(mt.post)
-	r := &rig{fake: newFake(), mt: mt, now: time.UnixMilli(1_000_000)}
-	art := kit.NewArtLoader(nil, mt.post) // no cover has a source here
-	t.Cleanup(art.Close)
-	r.env = &module.Env{Bus: bus, Post: mt.post, Art: art, Play: store.NewPlayback(bus, func() time.Time { return r.now })}
+	h := uitest.New(t, uitest.Bare()) // the bar reads the mirror and calls the fake transport
+	r := &rig{fake: newFake(), h: h, env: h.Env}
 	r.p = newPlayer(r.env, r.fake, func() bool { return volume })
-	r.p.now = func() time.Time { return r.now }
-	r.tt = ui.NewTester(func(c *ui.Context) {
-		theme.Apply(c)
+	r.p.now = h.Clock.Now
+	r.tt = h.Tester(t, func(c *ui.Context) {
 		ui.Column(c).Fill().Children(func() {
 			ui.Box(c).Grow(1)
 			r.p.bar(c)
@@ -130,7 +103,7 @@ func (r *rig) seed(mutate ...func(*services.PlaybackState)) {
 	s := store.EmptyState()
 	s.State = store.StatePlaying
 	s.Current = &services.QueueItem{ID: "i.1", Name: "Song Title", Artist: "The Artist", Album: "The Album"}
-	s.DurationMs, s.PositionMs, s.At = 180_000, 30_000, r.now.UnixMilli()
+	s.DurationMs, s.PositionMs, s.At = 180_000, 30_000, r.h.Clock.Now().UnixMilli()
 	s.Controls = services.PlaybackControls{Previous: true, Next: true, Seek: true, Shuffle: true, Repeat: true}
 	for _, m := range mutate {
 		m(&s)
@@ -167,7 +140,7 @@ func TestBarFollowsThePlaybackMirror(t *testing.T) {
 	s.State = store.StatePaused
 	s.Current = &services.QueueItem{ID: "i.2", Name: "Another", Artist: "Someone"}
 	r.env.Bus.Emit(services.EventPlaybackState, s)
-	r.mt.drain()
+	r.h.Main.Drain()
 	r.tt.Frame()
 	for _, w := range []string{"Another", "Someone", "Play"} {
 		if !r.tt.HasText(w) {
@@ -182,7 +155,7 @@ func TestBarFollowsThePlaybackMirror(t *testing.T) {
 func TestTheTimeTicksWhilePlaying(t *testing.T) {
 	r := newRig(t, true)
 	r.seed()
-	r.now = r.now.Add(12 * time.Second)
+	r.h.Clock.Advance(12 * time.Second)
 	r.tt.Advance(time.Second)
 	if !r.tt.HasText("0:42") {
 		t.Errorf("30 s + 12 s did not show 0:42: %q", r.tt.Texts())
@@ -206,7 +179,7 @@ func TestTransportButtonsCallThePlaybackService(t *testing.T) {
 		if last := got[len(got)-1]; last != c.call {
 			t.Errorf("%s sent %q, want %q", c.button, last, c.call)
 		}
-		r.mt.drain()
+		r.h.Main.Drain()
 		r.seed() // the mirror as Go reports it
 	}
 }
@@ -287,7 +260,7 @@ func TestACommandThatFailsToastsItsCodeWorded(t *testing.T) {
 	r.fake.fail = services.ErrNotReleased
 	_ = r.tt.Click("Pause")
 	r.fake.wait(t, 1)
-	r.mt.drain()
+	r.h.Main.Drain()
 	r.tt.Frame()
 	for _, w := range []string{"Couldn't play or pause", i18n.ErrorText(services.CodeNotReleased)} {
 		if !r.tt.HasText(w) {

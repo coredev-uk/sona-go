@@ -48,7 +48,8 @@ jobs:
       # through epoxy; loaded at run time, the -dev packages give the tests
       # and the vet pass what they link), GStreamer for the playback host
       # and its tests (appsrc, avdec_aac, audioconvert, audioresample,
-      # volume, fakesink), dbus for the session-bus tests.
+      # volume, fakesink), dbus for the session-bus tests, a font for the
+      # UI's golden images (internal/ui, as in the "UI tests" job).
       - name: Install system packages
         run: |
           sudo apt-get update
@@ -58,7 +59,7 @@ jobs:
             libepoxy-dev libgl-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
-            dbus
+            fonts-dejavu-core dbus
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -141,6 +142,109 @@ jobs:
           SONA_CDMHOST_REQUIRE_NAMESPACES: "1"
           SONA_PREVIEW_REQUIRE: "1"
         run: dbus-run-session -- go test -race ./...
+
+  # The native UI's tests on their own, so a broken picture fails a check of
+  # its own: the ui.Tester tests of internal/ui, which include the golden
+  # images (the shell and Albums, light and dark; internal/ui/app/testdata).
+  # They draw on MyGo's CPU renderer (MYGO_GPU=0) with no display. The golden
+  # job's failure leaves the picture and a diff in the artifact.
+  ui:
+    name: UI tests (goldens)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+      MYGO_GPU: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libgtk-3-dev libayatana-appindicator3-dev libsecret-1-dev \
+            libepoxy-dev libgl-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            fonts-dejavu-core dbus
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: go test ./internal/ui/... (goldens)
+        run: |
+          mkdir -p "$RUNNER_TEMP/ui-artifacts"
+          dbus-run-session -- go test -count=1 -artifacts -outputdir "$RUNNER_TEMP/ui-artifacts" ./internal/ui/...
+
+      - name: Development and probe builds (vet, dev-only tests)
+        run: |
+          go vet -tags dev,sqlite_fts5 ./...
+          go vet -tags probe,sqlite_fts5 ./...
+          dbus-run-session -- go test -count=1 -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/app ./internal/mpris
+
+      - name: Keep the pictures of a failed golden
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-golden-diffs
+          path: ${{ runner.temp }}/ui-artifacts
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # The built app from outside (e2e/): a probe build (MyGo's automation
+  # plugin, a fake playback engine, a local server for the covers) on the
+  # synthetic fixture profile, in a headless sway with private session and
+  # AT-SPI buses (e2e/headless.sh), no network. It checks first paint, the
+  # Albums page, playing an album, Space, a capture, and the shell's
+  # landmarks on the accessibility bus.
+  e2e-headless:
+    name: E2E (headless sway)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+      E2E_OUT: ${{ github.workspace }}/e2e-out
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The app's own libraries as in the go job, plus the session e2e/headless.sh
+      # builds: sway and wtype, the D-Bus daemon, AT-SPI (the bus launcher and
+      # the registry, libatk-bridge for GTK), and software GL (llvmpipe) and a
+      # font for MyGo to draw with.
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libgtk-3-dev libayatana-appindicator3-dev libsecret-1-dev \
+            libepoxy-dev libgl-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
+            sway wtype dbus dbus-daemon dbus-bin at-spi2-core libatk-bridge2.0-0t64 \
+            libegl1 libegl-mesa0 libgl1-mesa-dri fonts-dejavu-core
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: E2E smoke and AT-SPI check
+        run: e2e/headless.sh -- go test -tags e2e -count=1 -v ./e2e/...
+
+      - name: Keep the capture and the app's log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-out
+          path: ${{ github.workspace }}/e2e-out
+          if-no-files-found: ignore
+          retention-days: 7
 
   # The macOS and Windows builds (CONTRIBUTING.md, "Platforms"). Hosted macOS
   # minutes cost ten times Linux's (Windows twice) while the repository is

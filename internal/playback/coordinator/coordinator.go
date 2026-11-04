@@ -74,6 +74,10 @@ type Options struct {
 	// AutoPlayDelay debounces fetching AutoPlay ahead after the user's
 	// queue changes; 0 means 2 s.
 	AutoPlayDelay time.Duration
+	// Now is the clock the coordinator reads for positions, the sleep timer
+	// and refill retries; nil is time.Now. Tests give a fake one. It does
+	// not move timers: those still run on real time.
+	Now func() time.Time
 }
 
 type entry struct {
@@ -109,6 +113,7 @@ type Coordinator struct {
 	stations  StationSource
 	refillAt  int
 	retry     time.Duration
+	now       func() time.Time
 	fillWait  time.Duration
 	aheadWait time.Duration
 
@@ -185,11 +190,15 @@ func New(opts Options) (*Coordinator, error) {
 		stations:  opts.Stations,
 		refillAt:  cmp.Or(opts.RefillAt, 2),
 		retry:     cmp.Or(opts.RefillRetry, 30*time.Second),
+		now:       opts.Now,
 		fillWait:  cmp.Or(opts.FillWait, 20*time.Second),
 		aheadWait: cmp.Or(opts.AutoPlayDelay, 2*time.Second),
 		subs:      map[chan Snapshot]struct{}{},
 		index:     -1,
 		repeat:    RepeatOff,
+	}
+	if c.now == nil {
+		c.now = time.Now
 	}
 	if c.log == nil {
 		c.log = slog.New(slog.DiscardHandler)
@@ -202,7 +211,7 @@ func New(opts Options) (*Coordinator, error) {
 	}
 	st := c.eng.Status()
 	c.volume = st.Volume
-	c.st = playback.Status{State: playback.StateIdle, Volume: st.Volume, UpdatedAt: time.Now()}
+	c.st = playback.Status{State: playback.StateIdle, Volume: st.Volume, UpdatedAt: c.now()}
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 	c.wg.Add(1)
 	go c.loop()
@@ -220,7 +229,7 @@ func (c *Coordinator) Close() error {
 	}
 	c.closed = true
 	if c.index >= 0 {
-		now := time.Now()
+		now := c.now()
 		c.endActLocked(EndExited, c.positionLocked(now), now)
 	}
 	if c.preloadTimer != nil {
@@ -276,7 +285,7 @@ func (c *Coordinator) Subscribe() (snapshots <-chan Snapshot, cancel func()) {
 func (c *Coordinator) Snapshot() Snapshot {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	now := time.Now()
+	now := c.now()
 	s := Snapshot{
 		State:          c.st.State,
 		Index:          c.index,
@@ -691,7 +700,7 @@ func (c *Coordinator) Previous(ctx context.Context) error {
 	if c.station != nil && !c.station.AutoPlay {
 		// A station has nothing before the song: Previous restarts it,
 		// and does nothing in its first moments.
-		if c.positionLocked(time.Now()) <= RestartThreshold {
+		if c.positionLocked(c.now()) <= RestartThreshold {
 			c.mu.Unlock()
 			return nil
 		}
@@ -701,7 +710,7 @@ func (c *Coordinator) Previous(ctx context.Context) error {
 	if prev < 0 && c.repeat != RepeatOff {
 		prev = len(c.queue) - 1
 	}
-	if c.positionLocked(time.Now()) <= RestartThreshold && prev >= 0 && prev != c.index {
+	if c.positionLocked(c.now()) <= RestartThreshold && prev >= 0 && prev != c.index {
 		fx := c.finalizeLocked(false, EndSkipBackward)
 		c.failures, c.lastErr = 0, nil
 		c.mu.Unlock()
@@ -725,7 +734,7 @@ func (c *Coordinator) restartLocked(ctx context.Context) error {
 		c.refresh(uid)
 		return nil
 	case c.st.State == playback.StatePaused:
-		c.st.Position, c.st.UpdatedAt = 0, time.Now()
+		c.st.Position, c.st.UpdatedAt = 0, c.now()
 		c.mu.Unlock()
 		c.notify()
 		return nil
@@ -832,7 +841,7 @@ func (c *Coordinator) Seek(ctx context.Context, pos time.Duration) error {
 		if st != playback.StatePaused {
 			c.setStateLocked(playback.StatePaused)
 		}
-		c.st.Position, c.st.UpdatedAt = pos, time.Now()
+		c.st.Position, c.st.UpdatedAt = pos, c.now()
 		c.mu.Unlock()
 		c.notify()
 		return nil
@@ -1089,7 +1098,7 @@ func (c *Coordinator) handle(ev playback.Event) {
 // current item ended naturally and st is the new one's status. Called with
 // cmd and mu held; returns with mu released.
 func (c *Coordinator) advanceLocked(st playback.Status) {
-	now := time.Now()
+	now := c.now()
 	c.endActLocked(EndNatural, cmp.Or(c.st.Duration, c.positionLocked(now)), now)
 	fx := c.finalizeLocked(true, EndNatural)
 	ai := c.indexOfLocked(c.armedUID)
@@ -1248,7 +1257,7 @@ func (c *Coordinator) selectLocked(i int, pos time.Duration, fresh bool, s playb
 	}
 	c.playingSince = time.Time{}
 	// The engine's preview mode carries over until it reports on this item.
-	c.st = playback.Status{State: s, ItemID: e.item.ID, Position: pos, Duration: e.item.Duration, Volume: c.volume, UpdatedAt: time.Now(), Preview: c.st.Preview}
+	c.st = playback.Status{State: s, ItemID: e.item.ID, Position: pos, Duration: e.item.Duration, Volume: c.volume, UpdatedAt: c.now(), Preview: c.st.Preview}
 	c.loaded, c.auth, c.noCDM, c.preloaded = false, false, false, 0
 	c.aheadLocked()
 	c.schedulePreloadLocked()
@@ -1257,7 +1266,7 @@ func (c *Coordinator) selectLocked(i int, pos time.Duration, fresh bool, s playb
 // resetLocked deselects everything (the queue itself is kept).
 func (c *Coordinator) resetLocked() {
 	c.index = -1
-	c.st = playback.Status{State: playback.StateIdle, Volume: c.volume, UpdatedAt: time.Now()}
+	c.st = playback.Status{State: playback.StateIdle, Volume: c.volume, UpdatedAt: c.now()}
 	c.loaded, c.auth, c.noCDM, c.preloaded = false, false, false, 0
 	c.playedFor, c.playingSince = 0, time.Time{}
 	c.failures, c.lastErr = 0, nil
@@ -1267,7 +1276,7 @@ func (c *Coordinator) resetLocked() {
 
 // applyLocked adopts an engine status for the current item.
 func (c *Coordinator) applyLocked(s playback.Status) {
-	now := time.Now()
+	now := c.now()
 	was := c.st.State == playback.StatePlaying
 	if s.Duration <= 0 {
 		s.Duration = c.st.Duration
@@ -1345,7 +1354,7 @@ func (c *Coordinator) seekActLocked(pos time.Duration) {
 	if !c.actOpen {
 		return
 	}
-	now := time.Now()
+	now := c.now()
 	c.addActLocked(Activity{Kind: ActivitySeek, Item: c.actItem, From: c.positionLocked(now), Position: pos, Duration: c.st.Duration, At: now})
 }
 
@@ -1382,7 +1391,7 @@ func (c *Coordinator) deliverActivity() {
 // setStateLocked moves the current status to s at the extrapolated position.
 func (c *Coordinator) setStateLocked(s playback.State) {
 	st := c.st
-	now := time.Now()
+	now := c.now()
 	st.Position, st.UpdatedAt, st.State = c.positionLocked(now), now, s
 	c.applyLocked(st)
 }
@@ -1414,7 +1423,7 @@ func (c *Coordinator) finalizeLocked(completed bool, reason EndReason) func() {
 	if c.index < 0 {
 		return nil
 	}
-	now := time.Now()
+	now := c.now()
 	c.endActLocked(reason, c.positionLocked(now), now)
 	played := c.listenedLocked(now)
 	c.playedFor = 0
@@ -1637,7 +1646,7 @@ func (c *Coordinator) aheadSeedLocked() string {
 	if c.station != nil && !c.staleAutoPlayLocked() {
 		return ""
 	}
-	if !c.fillFailed.IsZero() && time.Since(c.fillFailed) < c.retry {
+	if !c.fillFailed.IsZero() && c.now().Sub(c.fillFailed) < c.retry {
 		return ""
 	}
 	return seedKey(c.seedsLocked())
@@ -1682,7 +1691,7 @@ func (c *Coordinator) refillLocked() {
 	if c.index < 0 || len(c.queue)-1-c.index > c.refillAt {
 		return
 	}
-	if !c.fillFailed.IsZero() && time.Since(c.fillFailed) < c.retry {
+	if !c.fillFailed.IsZero() && c.now().Sub(c.fillFailed) < c.retry {
 		return
 	}
 	c.startFillLocked()
@@ -1799,7 +1808,7 @@ func (c *Coordinator) runFill(src StationSource, f *fillCall, st *Station, seeds
 		return
 	}
 	if err != nil {
-		c.fillFailed = time.Now()
+		c.fillFailed = c.now()
 		c.mu.Unlock()
 		if c.ctx.Err() == nil {
 			c.log.Warn("coordinator: station refill", "station", station.ID, "err", err)
@@ -1892,7 +1901,7 @@ func (c *Coordinator) schedulePreloadLocked() {
 	if next.uid == c.preloaded || next.item.ID == cur.item.ID {
 		return
 	}
-	if delay := c.st.Duration - c.positionLocked(time.Now()) - c.lead; delay > 0 {
+	if delay := c.st.Duration - c.positionLocked(c.now()) - c.lead; delay > 0 {
 		c.preloadTimer = time.AfterFunc(delay, func() {
 			c.mu.Lock()
 			c.schedulePreloadLocked()
@@ -2028,7 +2037,7 @@ func (c *Coordinator) save() error {
 }
 
 func (c *Coordinator) savedLocked() Saved {
-	now := time.Now()
+	now := c.now()
 	s := Saved{
 		Items:     make([]Item, len(c.queue)),
 		Index:     c.index,
