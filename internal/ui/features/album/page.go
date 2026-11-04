@@ -85,6 +85,7 @@ type listView struct {
 // init follows the account: the sign-in state decides who may pre-add and
 // the explicit policy (v0.2.0's auth module kept the query current).
 func (a *album) init() {
+	a.states.Follow(a.env.Bus)
 	store.On(a.env.Bus, services.EventAuthChanged, func(s services.AuthStatus) {
 		store.Set(a.env.Queries, keyAuth, s)
 	})

@@ -322,3 +322,35 @@ func TestAddToastsUseTheSingleItemWords(t *testing.T) {
 		t.Errorf("toasts %q", got)
 	}
 }
+
+// A state Go announces (`sona like`) shows at once and outdates a load begun
+// before it.
+func TestRememberShowsAGoSideChange(t *testing.T) {
+	s, _, q := newStates()
+	s.Remember(services.ItemState{Kind: StateSongs, ID: "x", InLibrary: true, Rating: 1})
+	r := store.Use(q, StateKey(StateSongs, "x"), func(context.Context) (services.ItemState, error) {
+		return services.ItemState{}, errors.New("not cached")
+	})
+	if !r.HasData || r.Data.Rating != 1 || !r.Data.InLibrary {
+		t.Fatalf("cache %+v", r)
+	}
+	if got, ok := s.known(StateSongs, "x"); !ok || got.Rating != 1 {
+		t.Errorf("not remembered: %+v %v", got, ok)
+	}
+	s.Remember(services.ItemState{}) // no ID: nothing to write
+}
+
+// Follow takes the event from the bus.
+func TestFollowRemembersTheItemStateEvent(t *testing.T) {
+	s, _, q := newStates()
+	bus := store.NewBus(nil)
+	bus.SetPoster(func(fn func()) { fn() })
+	s.Follow(bus)
+	bus.Emit(services.EventItemState, services.ItemState{Kind: StateAlbums, ID: "a", Rating: -1})
+	r := store.Use(q, StateKey(StateAlbums, "a"), func(context.Context) (services.ItemState, error) {
+		return services.ItemState{}, errors.New("not cached")
+	})
+	if !r.HasData || r.Data.Rating != -1 {
+		t.Errorf("cache %+v", r)
+	}
+}

@@ -51,15 +51,17 @@ type song struct {
 // New is the song module.
 func New(env *module.Env) module.Module {
 	pb := services.Service[services.PlaybackService](env.Core)
+	states := kit.NewItemStates(env.Queries, env.Post, services.Service[services.LibraryService](env.Core))
 	s := newSong(env,
 		services.Service[services.CatalogService](env.Core),
 		services.Service[services.LyricsService](env.Core),
 		&queueCommands{svc: pb, play: env.Play, post: env.Post, mode: func() string {
 			return services.Service[services.SystemService](env.Core).Settings().Queue.ReplaceConfirm
 		}},
-		kit.NewItemStates(env.Queries, env.Post, services.Service[services.LibraryService](env.Core)))
+		states)
 	return module.Module{
-		ID: "song",
+		ID:   "song",
+		Init: func() { states.Follow(env.Bus) },
 		Routes: []module.Route{{
 			Pattern: songPattern,
 			Title:   func(*ui.Route) string { return i18n.T("Song") },

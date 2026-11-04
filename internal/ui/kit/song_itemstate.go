@@ -195,6 +195,22 @@ func (s *ItemStates) write(kind, id string, st services.ItemState) {
 	store.Set(s.q, StateKey(kind, id), st)
 }
 
+// Remember writes a state Go announced (the "library:item-state" event after
+// a change made outside the UI, `sona like`): menus and headers show it at
+// once, and a load begun before it is outdated. Main thread.
+func (s *ItemStates) Remember(st services.ItemState) {
+	if st.ID == "" {
+		return
+	}
+	s.write(st.Kind, st.ID, st)
+}
+
+// Follow subscribes the states to "library:item-state": call it from a
+// module's Init.
+func (s *ItemStates) Follow(bus *store.Bus) {
+	store.On(bus, services.EventItemState, s.Remember)
+}
+
 // learn records what Go answered to a load begun when the item had gen
 // writes, and writes it to the query cache, unless the item was written
 // since: then the newer state stays, and learn returns it (ok false).

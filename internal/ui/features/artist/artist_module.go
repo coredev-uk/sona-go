@@ -75,12 +75,13 @@ type artist struct {
 func New(env *module.Env) module.Module {
 	system := services.Service[services.SystemService](env.Core)
 	svc := services.Service[services.PlaybackService](env.Core)
+	states := kit.NewItemStates(env.Queries, env.Post, services.Service[services.LibraryService](env.Core))
 	a := newArtist(env,
 		services.Service[services.LibraryService](env.Core),
 		services.Service[services.CatalogService](env.Core),
 		services.Service[services.AuthService](env.Core),
 		&queueCommands{svc: svc, play: env.Play, post: env.Post, mode: func() string { return system.Settings().Queue.ReplaceConfirm }},
-		kit.NewItemStates(env.Queries, env.Post, services.Service[services.LibraryService](env.Core)))
+		states)
 	return module.Module{
 		ID: "artist",
 		Routes: []module.Route{
@@ -88,7 +89,7 @@ func New(env *module.Env) module.Module {
 			{Pattern: viewPattern, Title: a.viewRouteTitle, Build: a.viewPage},
 		},
 		Actions: []kit.ActionDef{goToArtist(env)},
-		Init:    a.init,
+		Init:    func() { a.init(); states.Follow(env.Bus) },
 	}
 }
 
