@@ -143,6 +143,7 @@ func TestEqualiserBarsStopWhenCoveredOrMotionIsReduced(t *testing.T) {
 		t.Error("the bars did not resume")
 	}
 	theme.SetReducedMotion(true)
+	defer theme.SetReducedMotion(false)
 	if moves() {
 		t.Error("the bars move under reduced motion")
 	}

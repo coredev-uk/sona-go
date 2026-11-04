@@ -22,6 +22,9 @@ import (
 func controlsTester(t *testing.T, w, h int, view func(c *ui.Context)) *ui.Tester {
 	t.Helper()
 	theme.SetMode(theme.ModeLight)
+	// The theme's switches are process-wide: start from a known state.
+	theme.SetReducedMotion(false)
+	theme.SetReduceEffects(false)
 	t.Cleanup(func() {
 		theme.SetMode(theme.ModeSystem)
 		theme.SetReducedMotion(false)
@@ -235,6 +238,9 @@ func TestSeparatorIsAHairline(t *testing.T) {
 
 func TestSkeletonPulsesUnlessMotionIsReduced(t *testing.T) {
 	tt := controlsTester(t, 200, 100, func(c *ui.Context) { Skeleton(c, 100, 20) })
+	if theme.ReducedMotion() {
+		t.Fatal("motion is reduced before the test (a desktop preference or another test's switch)")
+	}
 	px := func() [4]uint8 { p := tt.Image().RGBAAt(60, 30); return [4]uint8{p.R, p.G, p.B, p.A} }
 	tt.Advance(time.Second) // half way through the 2 s pulse
 	mid := px()
