@@ -6,6 +6,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -196,6 +197,9 @@ var collectionsScenes = []struct {
 }
 
 func TestCollectionsGolden(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("golden images are compared on Linux only: macOS and Windows draw text differently")
+	}
 	for _, sc := range collectionsScenes {
 		for _, dark := range []bool{false, true} {
 			mode := "light"
