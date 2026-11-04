@@ -1,8 +1,8 @@
 package kit
 
 import (
-	"slices"
 	"hash/maphash"
+	"slices"
 	"strconv"
 	"time"
 
@@ -135,11 +135,11 @@ type TrackListState struct {
 	hash   uint64
 	hashed bool
 
-	top      float32 // the body's offset in its pane's content
+	top float32 // the body's offset in its pane's content
 	// drawTop is that offset as the last paint saw it (one frame's position
 	// and scroll offset together); drawn: there was a paint.
-	drawTop float32
-	drawn   bool
+	drawTop  float32
+	drawn    bool
 	reported [2]int
 	// The highlighted song: its row once found, and whether the list has
 	// been scrolled to it.
@@ -276,7 +276,7 @@ func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *ser
 				built = append(built, i)
 				slices.Sort(built)
 			}
-			st.highlight(c, &o, count, at)
+			st.highlight(c, &o, count, at, st.drawn || root.Bounds().H > 0)
 			multiDisc := o.Discs && !virtual && st.multiDisc(count, at)
 			prev := -1
 			for _, i := range built {
@@ -353,7 +353,7 @@ func (st *TrackListState) scrollTo(p *Pane, i int, center bool) {
 
 // highlight finds the highlighted song once it has loaded, gives it the
 // initial focus and scrolls it to the centre.
-func (st *TrackListState) highlight(c *ui.Context, o *TrackListOpts, count int, at func(i int) *services.Song) {
+func (st *TrackListState) highlight(c *ui.Context, o *TrackListOpts, count int, at func(i int) *services.Song, laidOut bool) {
 	if o.Highlight == "" {
 		st.hlFor, st.hlIndex, st.hlScrolled = "", -1, false
 		return
@@ -371,7 +371,7 @@ func (st *TrackListState) highlight(c *ui.Context, o *TrackListOpts, count int, 
 		}
 	}
 	if st.hlIndex >= 0 && !st.hlScrolled {
-		if o.Pane != nil && (!st.drawn || o.Pane.Bounds().H <= 0) {
+		if o.Pane != nil && !laidOut {
 			c.Invalidate() // the list is not laid out yet: its offset is unknown
 			return
 		}

@@ -277,3 +277,25 @@ func TestTheHighlightedSongIsScrolledToAfterTheListIsLaidOut(t *testing.T) {
 		t.Errorf("the highlighted row is at %v in a 400 DIP window, want about the centre", r.Y)
 	}
 }
+
+func TestTheHighlightedSongIsScrolledToWhenTheListStartsBelowThePane(t *testing.T) {
+	// A header taller than the pane: the list is clipped out on the first
+	// frames, so it is never painted until the scroll brings it in.
+	a, tt := newCollTrackApp(t, 2000, 1000, 400, func(a *collTrackApp) {
+		a.header = 900
+		a.opts.Highlight = "s900"
+	})
+	for range 6 {
+		tt.Frame()
+	}
+	r, ok := tt.Find("Song 900")
+	if !ok {
+		t.Fatalf("the highlighted song was not built (scroll %v)", a.pos.Y)
+	}
+	if r.Y < 100 || r.Y+r.H > 300 {
+		t.Errorf("the highlighted row is at %v in a 400 DIP window, want about the centre", r.Y)
+	}
+	if tt.FramePending() {
+		t.Error("the list still asks for frames: the highlight wait never settled")
+	}
+}
