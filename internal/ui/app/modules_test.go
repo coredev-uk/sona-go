@@ -20,7 +20,7 @@ func TestRegisteredModulesAreEachOnceInV020sOrder(t *testing.T) {
 	}
 	want := []string{
 		"home", "discover", "search", "concerts", "library", "album", "artist", "song", "video", "playlist",
-		"radio", "player", "equalizer", "settings", "auth", "commands", "updates", "private", "cdm", "reminders", "onboarding",
+		"radio", "player", "miniplayer", "equalizer", "settings", "auth", "commands", "updates", "private", "cdm", "reminders", "onboarding",
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("modules %v, want %v", got, want)

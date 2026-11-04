@@ -147,18 +147,19 @@ func (a *App) hidden() bool {
 // close button does what closing the main window does.
 func (a *App) newMiniWindow() native {
 	m := mygo.NewWindow(mygo.WindowOptions{
-		Title:         i18n.T("Sona mini player"),
-		Width:         miniWidth,
-		Height:        miniHeight,
-		MinWidth:      miniWidth,
-		MinHeight:     miniHeight,
-		MaxWidth:      miniWidth,
-		MaxHeight:     miniHeight,
-		DisableResize: true,
-		Frameless:     true,
-		AlwaysOnTop:   true,
-		Hidden:        true,
-		Content:       ui.View(a.miniView),
+		Title:           i18n.T("Sona mini player"),
+		Width:           miniWidth,
+		Height:          miniHeight,
+		MinWidth:        miniWidth,
+		MinHeight:       miniHeight,
+		MaxWidth:        miniWidth,
+		MaxHeight:       miniHeight,
+		DisableResize:   true,
+		DisableMaximize: true,
+		Frameless:       true,
+		AlwaysOnTop:     true,
+		Hidden:          true,
+		Content:         ui.View(a.miniView),
 	})
 	if len(a.opts.Icon) > 0 {
 		if err := m.SetIcon(a.opts.Icon); err != nil {

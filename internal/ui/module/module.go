@@ -54,7 +54,7 @@ type Env struct {
 	// unfocused) and its full screen (the music video, full-screen lyrics).
 	// The shell binds it and redraws on each change. Never nil.
 	Window *store.Window
-	Nav   Navigator // the main window's router
+	Nav    Navigator // the main window's router
 	// Queue starts, shuffles and queues songs and videos through the
 	// playback service: every feature that plays a collection or adds to the
 	// queue goes through it, so replacing a long queue of the user's asks

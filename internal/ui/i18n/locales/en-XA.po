@@ -7508,3 +7508,7 @@ msgstr ""
 #: internal/ui/i18n/relative.go
 msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
 msgstr ""
+
+#: internal/ui/app/tray.go
+msgid "Show Sona"
+msgstr ""
