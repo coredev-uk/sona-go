@@ -129,9 +129,6 @@ type TrackListState struct {
 	// they survive re-sorting; a repeated song gets "#n").
 	Sel Selection
 	nav GridNav
-	// loadingNamed is set once a frame's first loading row took the list's
-	// "Loading" name (the others are not read).
-	loadingNamed bool
 
 	rows   trackRows
 	seed   maphash.Seed
@@ -231,7 +228,6 @@ func (st *TrackListState) sync(count int, at func(i int) *services.Song) {
 // with more than VirtualFrom rows only the rows in view and twelve beyond are
 // built, and no disc or work headings are shown.
 func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *services.Song, o TrackListOpts) {
-	st.loadingNamed = false
 	tk := theme.Current()
 	st.sync(count, at)
 	st.Sel.Hold = collectionsHold(o.Menus, o.Hold)
@@ -842,15 +838,8 @@ func trackLink(c *ui.Context, row ui.Element, text, id string, col ui.Color, ope
 func (st *TrackListState) skeletonRow(c *ui.Context, o *TrackListOpts, i int, hover ui.Color) {
 	tk := theme.Current()
 	r := tk.Radius["sm"]
-	row := ui.Row(c.Key("loading-" + strconv.Itoa(i))).Height(TrackRowHeight).Shrink(0).PaddingX(trackPadX).Gap(trackGap).
-		AlignItems(ui.Center)
-	if !st.loadingNamed {
-		st.loadingNamed = true
-		row.Role(ui.RoleRow).Label(i18n.T("Loading")) // one for the list: the others are not read one by one
-	} else {
-		row.Role(ui.RoleNone)
-	}
-	row.Children(func() {
+	ui.Row(c.Key("loading-" + strconv.Itoa(i))).Height(TrackRowHeight).Shrink(0).PaddingX(trackPadX).Gap(trackGap).
+		AlignItems(ui.Center).Role(ui.RoleRow).Label(i18n.T("Loading")).Children(func() {
 		o.cell(ui.Box(c), cellNumber).Height(1)
 		o.cell(ui.Row(c).Gap(12).AlignItems(ui.Center), cellTitle).Children(func() {
 			if o.Columns.Artwork {
