@@ -7,6 +7,7 @@ package kit
 import (
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -24,6 +25,10 @@ const (
 	Play
 	// Destructive is an outline in --danger, never a red fill.
 	Destructive
+	// Secondary is a --secondary (hover-toned) fill.
+	Secondary
+	// Link is ink text that underlines under the pointer, with no face.
+	Link
 )
 
 // ButtonSize is a button's size; one with no label is a square.
@@ -36,6 +41,8 @@ const (
 	SizeSM
 	// SizeXS is 24 high with small type.
 	SizeXS
+	// SizeLG is 40 high (button.tsx's lg and icon-lg).
+	SizeLG
 )
 
 // ButtonOpts are the options of Button.
@@ -51,8 +58,23 @@ type ButtonOpts struct {
 	// Disabled grays the button out: it takes no click and no focus.
 	Disabled bool
 	// A11yLabel names an icon-only button (no label) for assistive
-	// technology and tests; it is also its tooltip.
+	// technology and tests; it is also its tooltip unless Tip says another.
 	A11yLabel string
+	// Tip is the tooltip when it should differ from A11yLabel ("Play" for a
+	// button named "Play OK Computer"). A button with a label has none
+	// unless it is given one.
+	Tip string
+	// Filled draws the icon solid, as the play glyph of the amber disc and
+	// a favourite star are: only icons with a solid form (play, pause,
+	// star, thumbs-down) change.
+	Filled bool
+	// Muted makes a ghost button's ink --ink-muted until the pointer is on
+	// it (the rating buttons of a header).
+	Muted bool
+	// Quiet keeps a pressed toggle's colours: Pressed only tells assistive
+	// technology and the Filled icon says it (the Favourite star), with no
+	// active fill.
+	Quiet bool
 }
 
 // sizing is a ButtonSize's metrics, in DIPs (button.tsx's h-9, h-8, h-6).
@@ -64,7 +86,12 @@ var sizes = [...]sizing{
 	SizeMD: {height: 36, padX: 16, padXIcon: 12, gap: 8, font: 14, icon: 16},
 	SizeSM: {height: 32, padX: 12, padXIcon: 10, gap: 6, font: 14, icon: 16},
 	SizeXS: {height: 24, padX: 8, padXIcon: 6, gap: 4, font: 12, icon: 12},
+	SizeLG: {height: 40, padX: 24, padXIcon: 16, gap: 8, font: 14, icon: 16},
 }
+
+// playGlyph is the size of the solid play glyph of a Play button at SizeLG
+// (PlayButtons.tsx's size-[18px]).
+const playGlyph = 18
 
 // Button is a push button in Sona's look. Click it as MyGo's: the returned
 // element's Clicked reports a click, or Enter or Space while it has the
@@ -74,40 +101,36 @@ var sizes = [...]sizing{
 //
 // The face changes over 120 ms (the theme's "feedback" motion) unless motion
 // is reduced. With no label the button is a square showing only its icon:
-// give it an A11yLabel.
+// give it an A11yLabel. IconButton and PlayButton are the common cases.
 func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 	sz := sizes[o.Size]
 	e := ui.ButtonBase(c)
 	hovered := e.Hovered() && !o.Disabled
 	pressed := o.Pressed != nil && *o.Pressed
 
-	bg, border, fg := variantColors(o.Variant, hovered, pressed)
+	bg, border, fg := variantColors(o, hovered, pressed)
 	iconOnly := label == ""
-	width := float32(0)
 	padX := sz.padX
 	if o.Icon != "" {
 		padX = sz.padXIcon
 	}
 	if iconOnly {
-		width, padX = sz.height, 0
+		padX = 0
 	}
 
 	e.Height(sz.height).Gap(sz.gap).PaddingX(padX).Radius(theme.Current().Radius["md"]).
 		Background(bg).TextColor(fg)
 	if iconOnly {
-		e.Width(width)
+		e.Size(sz.height, sz.height)
 	}
 	if o.Variant == Play {
 		e.Radius(theme.Current().Radius["full"])
-		if iconOnly {
-			e.Size(sz.height, sz.height)
-		}
 	}
 	if border.A > 0 {
 		e.Border(1, border)
 	}
 	if o.Disabled {
-		e.Disabled(true).Opacity(0.5)
+		e.Disabled(true) // MyGo paints a disabled element at 50%
 	}
 	if !theme.ReducedMotion() {
 		m := theme.Current().Motion["feedback"]
@@ -120,30 +143,47 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 	if name == "" {
 		name = label
 	}
-	if iconOnly && name != "" {
-		e.Label(name).Tooltip(name)
+	tip := o.Tip
+	if tip == "" && iconOnly {
+		tip = name
+	}
+	if o.A11yLabel != "" || iconOnly && name != "" {
+		e.Label(name)
 	}
 
 	e.Children(func() {
 		if o.Icon != "" {
-			ui.Icon(c, theme.Icon(o.Icon)).FontSize(sz.icon)
+			size := sz.icon
+			if o.Variant == Play && o.Size == SizeLG {
+				size = playGlyph
+			}
+			ic := ui.Icon(c, controlsIcon(o.Icon, o.Filled)).FontSize(size)
+			if o.Variant == Play && o.Icon == "play" {
+				ic.Margin(0, 0, 0, 1) // the triangle's weight sits left of its box
+			}
 		}
 		if !iconOnly {
-			ui.Text(c, label).FontSize(sz.font).FixedLineHeight(theme.Current().Type["label"].LineHeight).
-				FontWeight(int(theme.Current().Type["label"].Weight)).SingleLine()
+			t := controlsText(c, label, "label").FontSize(sz.font).SingleLine()
+			if o.Variant == Link && hovered {
+				t.Underline()
+			}
 		}
 	})
+	Tooltip(c, e, tip)
 	return e
 }
 
-// variantColors are a variant's face: its fill, its border (transparent for
+// variantColors are a button's face: its fill, its border (transparent for
 // none) and the colour of its text and icon, given the pointer and a toggle.
-func variantColors(v ButtonVariant, hovered, pressed bool) (bg, border, fg ui.Color) {
+func variantColors(o ButtonOpts, hovered, pressed bool) (bg, border, fg ui.Color) {
 	clear := ui.Transparent
 	c := theme.C
-	switch v {
+	switch o.Variant {
 	case Ghost:
 		bg, border, fg = clear, clear, c("ink")
+		if o.Muted && !pressed && !hovered {
+			fg = c("ink-muted")
+		}
 		if hovered {
 			bg = c("accent-soft")
 		}
@@ -157,22 +197,97 @@ func variantColors(v ButtonVariant, hovered, pressed bool) (bg, border, fg ui.Co
 		if hovered {
 			bg = c("play").Alpha(0.9)
 		}
+		if o.Disabled {
+			// button.tsx keeps the disc at full opacity: --hover with faint
+			// ink. MyGo paints every disabled element at 50% over what is
+			// behind it, so the colours are chosen to come out as those over
+			// the page's ground.
+			bg, fg = controlsUndim(c("hover")), controlsUndim(c("ink-faint"))
+		}
 	case Destructive:
 		bg, border, fg = clear, c("danger-line"), c("danger")
 		if hovered {
 			bg = c("danger-wash")
 		}
+	case Secondary:
+		bg, border, fg = c("secondary"), clear, c("secondary-foreground")
+		if hovered {
+			bg = c("secondary").Alpha(0.8)
+		}
+	case Link:
+		bg, border, fg = clear, clear, c("primary")
 	default:
 		bg, border, fg = c("primary"), clear, c("primary-foreground")
 		if hovered {
 			bg = c("primary").Alpha(0.9)
 		}
 	}
-	if pressed {
+	if pressed && !o.Quiet {
 		bg = c("active")
-		if v == Default || v == Play {
+		if o.Variant == Default || o.Variant == Play {
 			fg = c("ink")
 		}
 	}
 	return bg, border, fg
+}
+
+// IconButton is an icon-only Button: icon is a Lucide name, label names it
+// for assistive technology and is its tooltip. The size is o.Size's square
+// (SizeXS 24, SizeSM 32, SizeMD 36, SizeLG 40).
+func IconButton(c *ui.Context, icon, label string, o ButtonOpts) ui.Element {
+	o.Icon, o.A11yLabel = icon, label
+	return Button(c, "", o)
+}
+
+// PlayButton is the round amber disc that starts playback ("amber means
+// playing"): size DIPs across with a solid play triangle, named by label
+// ("Play OK Computer"). Click it as MyGo's: Clicked. The caller decides when
+// it shows (a tile reveals it on hover or focus).
+func PlayButton(c *ui.Context, label string, size float32) ui.Element {
+	e := ui.ButtonBase(c).Size(size, size).Radius(controlsRadius("full")).Label(label)
+	bg := theme.C("play")
+	if e.Hovered() {
+		bg = bg.Alpha(0.9)
+	}
+	e.Background(bg).TextColor(theme.C("on-play"))
+	if !theme.ReducedMotion() {
+		m := theme.Current().Motion["feedback"]
+		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
+	}
+	e.Children(func() {
+		ui.Icon(c, controlsIcon("play", true)).FontSize(max(size*0.45, 12)).Margin(0, 0, 0, 1)
+	})
+	return e
+}
+
+// PlayButtonsOpts are the options of PlayButtons.
+type PlayButtonsOpts struct {
+	// Label is what plays, by name: the Play button reads "Play {label}".
+	Label string
+	// PlayLabel is the Play button's whole accessible name when what plays
+	// is not a name ("Play your songs"); it wins over Label.
+	PlayLabel string
+	// Shuffle offers the Shuffle button; leave it off for a single item
+	// (a song).
+	Shuffle  bool
+	Disabled bool
+}
+
+// PlayButtons is a collection's play control: the 40px amber Play disc
+// (tooltip "Play") and, when offered, an outline Shuffle button beside it,
+// built into the current parent. It reports which was clicked. Disabled, the
+// disc turns --hover with faint ink. (shared/components/PlayButtons.tsx)
+func PlayButtons(c *ui.Context, o PlayButtonsOpts) (play, shuffle bool) {
+	name := o.PlayLabel
+	if name == "" {
+		name = i18n.T("Play {label}", "label", o.Label)
+	}
+	play = Button(c.Key("play"), "", ButtonOpts{
+		Variant: Play, Size: SizeLG, Icon: "play", Filled: true, Disabled: o.Disabled,
+		A11yLabel: name, Tip: i18n.T("Play"),
+	}).Clicked()
+	if o.Shuffle {
+		shuffle = Button(c.Key("shuffle"), i18n.T("Shuffle"), ButtonOpts{Variant: Outline, Size: SizeSM, Icon: "shuffle", Disabled: o.Disabled}).Clicked()
+	}
+	return play, shuffle
 }

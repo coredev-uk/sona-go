@@ -260,13 +260,8 @@ func TestACommandThatFailsToastsItsCodeWorded(t *testing.T) {
 	r.fake.fail = services.ErrNotReleased
 	_ = r.tt.Click("Pause")
 	r.fake.wait(t, 1)
-	r.h.Main.Drain()
-	r.tt.Frame()
-	for _, w := range []string{"Couldn't play or pause", i18n.ErrorText(services.CodeNotReleased)} {
-		if !r.tt.HasText(w) {
-			t.Errorf("no toast saying %q: %q", w, r.tt.Texts())
-		}
-	}
+	// The failure comes back through the Poster after the call returns.
+	r.tt.Until("the failure's toast", r.tt.Shows("Couldn't play or pause", i18n.ErrorText(services.CodeNotReleased)))
 	if services.CodeOf(errors.New("boom")) == services.CodeNotReleased {
 		t.Fatal("test premise")
 	}
