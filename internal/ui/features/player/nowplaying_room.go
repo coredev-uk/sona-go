@@ -55,7 +55,9 @@ func (p *player) roomLayer(c *ui.Context) {
 				lineText(c.Key("artist"), cur.Artist, 13, 18, 400, theme.C("ink-muted")).SingleLine()
 			})
 			p.lyricsTiming(c, songID)
-			if kit.Button(c.Key("exit"), i18n.T("Exit full screen"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "minimize-2"}).
+			if kit.Button(c.Key("exit"), i18n.T("Exit full screen"), kit.ButtonOpts{
+				Variant: kit.Ghost, Size: kit.SizeSM, Icon: "minimize-2", Tip: i18n.T("Exit full screen"), Keys: p.env.KeysOf("player.close-overlay"),
+			}).
 				Bind(&p.np.roomExit).Clicked() {
 				p.ui.closeOverlay()
 			}

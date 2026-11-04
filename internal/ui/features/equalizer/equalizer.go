@@ -87,6 +87,7 @@ func New(env *module.Env) module.Module {
 	e := newEqualizer(env,
 		host{audio: services.Service[services.AudioService](env.Core), system: services.Service[services.SystemService](env.Core)},
 		func() bool { return plat.Capabilities().Playback.Equalizer })
+	env.PlayerControls.Add(controlOrder, e.button)
 	return module.Module{
 		ID: "equalizer",
 		Routes: []module.Route{{

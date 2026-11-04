@@ -75,6 +75,9 @@ type ButtonOpts struct {
 	// button named "Play OK Computer"). A button with a label has none
 	// unless it is given one.
 	Tip string
+	// Keys are the chords the control answers to (Env.KeysOf): the first
+	// is drawn in the tooltip as keycaps and read in the description.
+	Keys []string
 	// Filled draws the icon solid, as the play glyph of the amber disc and
 	// a favourite star are: only icons with a solid form (play, pause,
 	// star, thumbs-down) change.
@@ -200,7 +203,7 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 		controlsTooltip(c, e, name+"\n"+o.Reason, false)
 		return e
 	}
-	controlsTooltip(c, e, tip, tip != name)
+	controlsTooltipKeys(c, e, tip, tip != name, o.Keys)
 	return e
 }
 

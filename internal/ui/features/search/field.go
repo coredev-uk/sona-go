@@ -26,9 +26,6 @@ const (
 	maxLibraryHints = 6
 	// fieldMaxWidth is the field's widest (max-w-[520px]).
 	fieldMaxWidth = 520
-	// fieldChord is the search.focus chord the empty field hints at when no
-	// binding says another (Env.Shortcuts is the settings feature's).
-	fieldChord = "/"
 )
 
 // keyHints is the catalog suggestions of a partial term (v0.2.0's
@@ -280,9 +277,15 @@ func (f *field) trailing(c *ui.Context, in ui.Element) {
 		}
 		return
 	}
+	// The first key search.focus answers to now; none (the user unbound it)
+	// hints at nothing.
+	keys := f.s.env.KeysOf("search.focus")
+	if len(keys) == 0 {
+		return
+	}
 	// The chord is for the eye only: it takes no pointer and no focus.
 	ui.Row(c.Key("chord")).Shrink(0).Gap(2).AlignItems(ui.Center).Role(ui.RoleNone).IgnoreInput(true).Margin(0, 2, 0, 0).Children(func() {
-		for i, part := range kit.ChordParts(fieldChord) {
+		for i, part := range kit.ChordParts(keys[0]) {
 			ui.Row(c.Key("cap:"+string(rune('0'+i)))).Height(20).MinWidth(20).PaddingX(4).Center().Role(ui.RoleNone).
 				Radius(theme.Current().Radius["sm"]).Border(1, theme.C("control-line")).Children(func() {
 				fieldText(c, part, "meta").FontWeight(500).TextColor(theme.C("ink-muted")).Role(ui.RoleNone)

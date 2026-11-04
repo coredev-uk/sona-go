@@ -73,12 +73,25 @@ func TestParseChordFoldsShiftOnlyIntoQuestionMarkAndPlus(t *testing.T) {
 func TestParseChordRejectsWhatIsNotOneChord(t *testing.T) {
 	for _, bad := range []string{
 		"", " ", "Ctrl+", "Hyper+K", "Ctrl+Ctrl+K", "Ctrl+Nope", "K+Ctrl", "Ctrl+K+J", "Ctrl K",
-		// v0.2.0 read these lower-case spellings in a hand-edited file; the
-		// dispatcher does not, so they are not chords here either.
-		"esc", "Ctrl+Right", "return", "Ctrl+comma", "pgup", "F13", "Ä", "!",
+		// MyGo has no F13 to F24.
+		"F13", "F24", "Ä", "!",
 	} {
 		if got, ok := parseChord(bad); ok {
 			t.Errorf("parseChord(%q) = %q, want none", bad, got)
+		}
+	}
+}
+
+// v0.2.0 read these lower-case spellings in a hand-edited file; so do the
+// page and the dispatcher (both through kit.ParseChord), as canonical chords.
+func TestParseChordReadsV020Aliases(t *testing.T) {
+	for in, want := range map[string]string{
+		"esc": "Escape", "Ctrl+Right": "Ctrl+ArrowRight", "return": "Enter", "Ctrl+comma": "Ctrl+,", "pgup": "PageUp",
+		"shift+up": "Shift+ArrowUp", "del": "Delete", "Alt+period": "Alt+.", "slash": "/", "spacebar": "Space",
+		"pgdn": "PageDown", "ins": "Insert", "Down": "ArrowDown", "left": "ArrowLeft",
+	} {
+		if got, ok := parseChord(in); !ok || got != want {
+			t.Errorf("parseChord(%q) = %q, %v, want %q", in, got, ok, want)
 		}
 	}
 }

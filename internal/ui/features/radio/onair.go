@@ -92,7 +92,7 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 	if detail != nil {
 		page, schedule = detail.Station.HasPage, detail.Schedule
 	}
-	programme, hasProgramme := onAir(schedule, now)
+	programme, hasProgramme := kit.OnAirProgramme(schedule, now)
 	what := s.Tagline
 	artSrc := artOf(s, programme, hasProgramme)
 	if hasProgramme {

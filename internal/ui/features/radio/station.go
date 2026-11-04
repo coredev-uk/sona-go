@@ -44,7 +44,7 @@ func (r *radio) stationView(c *ui.Context, rt *ui.Route) {
 		switch {
 		case res.Err != nil && !res.HasData:
 			kit.ErrorBlock(c, i18n.T("Couldn't load this station"), res.Err, kit.ErrorBlockOpts{
-				OnRetry: func() { r.env.Queries.Invalidate(keyStation(id)) }, Retrying: res.Fetching,
+				OnRetry: func() { r.env.Queries.Invalidate(kit.StationKey(id)) }, Retrying: res.Fetching,
 			})
 		case !res.HasData:
 			stationSkeleton(c)
@@ -113,7 +113,7 @@ func (r *radio) stationBody(c *ui.Context, d services.StationDetail, gutter floa
 			if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: s.Name, Disabled: !s.Playable}); play {
 				r.playStation(s.ID, func(started bool) {
 					if started {
-						r.env.Queries.Invalidate(keyStation(s.ID))
+						r.env.Queries.Invalidate(kit.StationKey(s.ID))
 					}
 				})
 			}
@@ -256,7 +256,7 @@ func (r *radio) schedule(c *ui.Context, stationID string, events []services.Stat
 	st := r.env.Play.State()
 	playing := st.State == "playing" || st.State == "loading"
 	tuned := st.Current != nil && st.Current.ID == stationID && playing
-	on, hasOn := onAir(events, now)
+	on, hasOn := kit.OnAirProgramme(events, now)
 	title := i18n.T("Schedule")
 	ui.Column(c.Key("schedule")).MaxWidth(listMax).Role(ui.RoleGroup).Label(title).Children(func() {
 		heading(c, title)

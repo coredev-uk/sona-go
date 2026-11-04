@@ -8,6 +8,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
 // This file is v0.2.0's features/radio/schedule.ts: what is on air on a live
@@ -20,16 +21,6 @@ import (
 type span struct{ startMs, endMs int64 }
 
 func spanOf(e services.StationEvent) span { return span{e.StartMs, e.EndMs} }
-
-// onAir is the programme on air at now, if the schedule covers it.
-func onAir(schedule []services.StationEvent, now int64) (services.StationEvent, bool) {
-	for _, e := range schedule {
-		if e.StartMs <= now && now < e.EndMs {
-			return e, true
-		}
-	}
-	return services.StationEvent{}, false
-}
 
 // progressOf is how far through its slot a programme is at now, 0..1 (0 for
 // an empty span).
@@ -94,7 +85,7 @@ func programmeName(name, tagline string, e services.StationEvent) string {
 // after the one on air that is called neither after the station nor like the
 // programme on air, so a run of the station's own hours is skipped.
 func nextProgramme(name string, schedule []services.StationEvent, now int64) (services.StationEvent, bool) {
-	current, has := onAir(schedule, now)
+	current, has := kit.OnAirProgramme(schedule, now)
 	from := now
 	if has {
 		from = current.EndMs

@@ -11,6 +11,7 @@ package player
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -52,6 +53,9 @@ type player struct {
 	// (PlatformService capabilities).
 	volume func() bool
 	now    func() time.Time
+	// station reads a station's page (RadioService.Station): the bar and
+	// Now Playing take a live station's programme from its schedule.
+	station func(ctx context.Context, id string) (services.StationDetail, error)
 
 	// seek is the seek bar while the user drags it: the position shown,
 	// committed when the pointer lets go.
@@ -105,6 +109,12 @@ func New(env *module.Env) module.Module {
 
 func newPlayer(env *module.Env, svc transport, volume func() bool) *player {
 	p := &player{env: env, svc: svc, volume: volume, now: time.Now, ui: newView()}
+	p.station = func(ctx context.Context, id string) (services.StationDetail, error) {
+		if env.Core == nil {
+			return services.StationDetail{}, errors.ErrUnsupported
+		}
+		return services.Service[services.RadioService](env.Core).Station(ctx, id)
+	}
 	return p
 }
 
@@ -247,7 +257,10 @@ func (p *player) init() {
 			lastUID = 0
 			return
 		}
-		if s.Current.Video && s.Current.UID != lastUID && p.env.Video != nil {
+		// A music video that starts (the queue reaching one) shows its picture;
+		// one that is paused, failed or restored does not (v0.2.0's index.ts).
+		starting := s.State == store.StateLoading || s.State == store.StatePlaying
+		if s.Current.Video && s.Current.UID != lastUID && starting && p.env.Video != nil {
 			p.env.Video.Open()
 		}
 		lastUID = s.Current.UID

@@ -137,14 +137,26 @@ func (p *Point) Add(order int, build func(c *ui.Context)) {
 
 // Build builds every piece, in order, each one building nothing when it has
 // nothing to show.
-func (p *Point) Build(c *ui.Context) {
+func (p *Point) Build(c *ui.Context) { p.BuildRange(c, 0, 1<<30) }
+
+// BuildRange builds the pieces whose order is from or more, and below to: a
+// feature that builds its own controls among the added ones (the player
+// bar's queue button, which Mini player and Equaliser follow).
+func (p *Point) BuildRange(c *ui.Context, from, to int) {
 	for _, it := range p.items {
-		it.build(c)
+		if it.order >= from && it.order < to {
+			it.build(c)
+		}
 	}
 }
 
 // Empty reports whether nothing was added.
 func (p *Point) Empty() bool { return len(p.items) == 0 }
+
+// ControlsAfterQueue is the order from which PlayerControls pieces follow
+// the bar's own sleep timer, lyrics and queue buttons (Mini player, then
+// Equaliser); lower orders come before them (private listening).
+const ControlsAfterQueue = 50
 
 // Navigator is the main window's router.
 type Navigator interface {
@@ -210,6 +222,21 @@ type Shortcut struct {
 type BoundShortcut struct {
 	Shortcut
 	Keys []string // effective: the user's binding, else the defaults; nil for none
+}
+
+// KeysOf are the keys the shortcut with the given ID answers to now (the
+// user's binding, else its defaults); nil for none, an unknown ID, or an Env
+// with no shortcuts (a test's).
+func (e *Env) KeysOf(id string) []string {
+	if e.Shortcuts == nil {
+		return nil
+	}
+	for _, s := range e.Shortcuts() {
+		if s.ID == id {
+			return s.Keys
+		}
+	}
+	return nil
 }
 
 // Slots are places in the shell a module builds into. Every func builds

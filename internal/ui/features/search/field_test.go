@@ -12,6 +12,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
 )
@@ -112,6 +113,7 @@ func newFieldRig(t *testing.T, start string, opts ...uitest.Option) *fieldRig {
 		return strings.HasPrefix(p, "/album/") || strings.HasPrefix(p, "/artist/") || strings.HasPrefix(p, "/playlist/") || strings.HasPrefix(p, "/song/")
 	}
 	r.api = services.Service[services.SearchService](r.h.Core)
+	r.bindFocus("/", "Ctrl+F")
 	useQueue(r.h.Env, r.play)
 	r.s = newSearch(r.h.Env, r.api)
 	r.tt = r.h.Tester(t, func(c *ui.Context) {
@@ -213,6 +215,27 @@ func TestFieldPlaceholderFollowsTheScope(t *testing.T) {
 	r.tt.Frame()
 	if lib := r.tt.Image(); lib.Bounds() != empty.Bounds() || string(lib.Pix) == string(empty.Pix) {
 		t.Error("the library scope draws the same field as the catalog's: the placeholder did not change")
+	}
+}
+
+// bindFocus sets the keys search.focus answers to (Env.Shortcuts' answer).
+func (r *fieldRig) bindFocus(keys ...string) {
+	r.h.Env.Shortcuts = func() []module.BoundShortcut {
+		return []module.BoundShortcut{{Shortcut: module.Shortcut{ID: "search.focus"}, Keys: keys}}
+	}
+}
+
+func TestFieldHintFollowsTheBoundKey(t *testing.T) {
+	r := newFieldRig(t, "/search")
+	r.bindFocus("Ctrl+K", "/")
+	r.tt.Frame()
+	if !r.tt.HasText("Ctrl") || !r.tt.HasText("K") {
+		t.Errorf("the hint did not follow the rebinding: %q", r.tt.Texts())
+	}
+	r.bindFocus()
+	r.tt.Frame()
+	if r.tt.HasText("Ctrl") || r.tt.HasText("K") || r.tt.HasText("/") {
+		t.Errorf("an unbound search.focus still has a hint: %q", r.tt.Texts())
 	}
 }
 

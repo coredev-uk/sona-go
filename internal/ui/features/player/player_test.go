@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -353,6 +354,9 @@ func TestShortcutsKeepV020IDsAndKeys(t *testing.T) {
 	got := map[string]module.Shortcut{}
 	for _, s := range r.p.shortcuts() {
 		got[s.ID] = s
+		if strings.HasPrefix(s.ID, "player.sleep-") {
+			continue // the sleep timer's commands have no keys (TestSleepTimerShortcutsAreCommandsForThePalette)
+		}
 		if len(s.Keys) != 1 || s.Keys[0] != want[s.ID] {
 			t.Errorf("%s has keys %v, want %q", s.ID, s.Keys, want[s.ID])
 		}
@@ -364,8 +368,8 @@ func TestShortcutsKeepV020IDsAndKeys(t *testing.T) {
 			t.Errorf("%s: group %q, label %q", s.ID, s.Group, s.Label())
 		}
 	}
-	if len(got) != len(want) {
-		t.Errorf("%d shortcuts, want %d", len(got), len(want))
+	if len(got) != len(want)+5 {
+		t.Errorf("%d shortcuts, want %d and the five sleep commands", len(got), len(want))
 	}
 
 	r.seed()

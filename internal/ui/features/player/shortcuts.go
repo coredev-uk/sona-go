@@ -20,7 +20,7 @@ func (p *player) shortcuts() []module.Shortcut {
 	cur := func(ctl control) func() string {
 		return func() string { return unavailable(p.env.Play.State(), ctl) }
 	}
-	return []module.Shortcut{
+	list := []module.Shortcut{
 		{
 			ID: "player.toggle", Group: "playback", Keys: []string{"Space"}, Icon: "pause",
 			Label:    func() string { return i18n.T("Play or pause") },
@@ -103,6 +103,34 @@ func (p *player) shortcuts() []module.Shortcut {
 			Label:    func() string { return i18n.T("Show or hide the queue") },
 			Keywords: func() string { return i18n.T("up next") },
 			Run:      p.toggleQueueView,
+		},
+	}
+	return append(list, p.sleepShortcuts()...)
+}
+
+// sleepShortcuts are the sleep timer's commands for the palette (v0.2.0's
+// player.sleep-*, no default keys): each one while something plays, and the
+// one that turns it off while a timer runs.
+func (p *player) sleepShortcuts() []module.Shortcut {
+	playing := func() bool { return p.env.Play.State().Current != nil }
+	timer := func(id string, label func() string, mode string, minutes int) module.Shortcut {
+		return module.Shortcut{
+			ID: id, Group: "playback", Icon: "moon", Label: label, When: playing,
+			Keywords: func() string { return i18n.T("sleep timer bedtime fade") },
+			Run:      func() { p.setSleep(mode, minutes) },
+		}
+	}
+	return []module.Shortcut{
+		timer("player.sleep-30", func() string { return i18n.T("Sleep timer: stop in 30 minutes") }, "after", 30),
+		timer("player.sleep-60", func() string { return i18n.T("Sleep timer: stop in 1 hour") }, "after", 60),
+		timer("player.sleep-track", func() string { return i18n.T("Sleep timer: stop after this song") }, "track", 0),
+		timer("player.sleep-queue", func() string { return i18n.T("Sleep timer: stop after the queue") }, "queue", 0),
+		{
+			ID: "player.sleep-off", Group: "playback", Icon: "moon",
+			Label:    func() string { return i18n.T("Turn off the sleep timer") },
+			Keywords: func() string { return i18n.T("sleep timer cancel") },
+			When:     func() bool { return p.env.Play.State().Sleep != nil },
+			Run:      func() { p.setSleep("", 0) },
 		},
 	}
 }

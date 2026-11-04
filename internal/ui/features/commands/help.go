@@ -38,7 +38,7 @@ func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 	}
 	w, wh := c.Size()
 	closeOwn := func() {
-		if kit.ChordPressed(c, keysOf(env, "commands.help")...) {
+		if kit.ChordPressed(c, env.KeysOf("commands.help")...) {
 			h.open = false
 		}
 	}
@@ -59,19 +59,6 @@ func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 			c.AnimationFrame()
 		}
 	})
-}
-
-// keysOf are the keys a shortcut answers to now.
-func keysOf(env *module.Env, id string) []string {
-	if env.Shortcuts == nil {
-		return nil
-	}
-	for _, s := range env.Shortcuts() {
-		if s.ID == id {
-			return s.Keys
-		}
-	}
-	return nil
 }
 
 // about is the line under the title: "Change any of them in Settings.", the

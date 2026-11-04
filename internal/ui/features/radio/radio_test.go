@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
 // The Radio page's tests: v0.2.0's RadioPage.test.tsx and OnAir.test.tsx, and
@@ -247,14 +248,14 @@ func TestRadioQueriesUseV020Keys(t *testing.T) {
 		{keyGrouping, []any{"radio", "grouping"}},
 		{keyLive, []any{"radio", "live"}},
 		{keyRecent, []any{"radio", "recent"}},
-		{keyStation("ra.1"), []any{"radio", "station", "ra.1"}},
+		{kit.StationKey("ra.1"), []any{"radio", "station", "ra.1"}},
 	} {
 		if !slices.Equal(c.got, c.want) {
 			t.Errorf("key %v, want %v", c.got, c.want)
 		}
 	}
 	// Each lives as long as v0.2.0 kept it.
-	if editorialStale != 10*time.Minute || recentStale != time.Minute || stationStale != 5*time.Minute {
-		t.Errorf("stale times %v %v %v", editorialStale, recentStale, stationStale)
+	if editorialStale != 10*time.Minute || recentStale != time.Minute || kit.StationStale != 5*time.Minute {
+		t.Errorf("stale times %v %v %v", editorialStale, recentStale, kit.StationStale)
 	}
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
 // The cases of v0.2.0's schedule.test.ts.
@@ -30,12 +31,12 @@ func TestOnAirFindsTheProgramme(t *testing.T) {
 		now  int64
 		want string
 	}{{t0 + 10, "a"}, {t0 + hourMs, "b"}, {t0 + 3*hourMs, ""}, {t0 - 1, ""}} {
-		got, ok := onAir(sched, c.now)
+		got, ok := kit.OnAirProgramme(sched, c.now)
 		if ok != (c.want != "") || got.ID != c.want {
 			t.Errorf("onAir at %d = %q %v, want %q", c.now-t0, got.ID, ok, c.want)
 		}
 	}
-	if _, ok := onAir(nil, t0); ok {
+	if _, ok := kit.OnAirProgramme(nil, t0); ok {
 		t.Error("an empty schedule has nothing on air")
 	}
 }
