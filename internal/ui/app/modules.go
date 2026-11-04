@@ -1,6 +1,8 @@
 package app
 
 import (
+	"github.com/coredev-uk/sona-go/internal/ui/features/commands"
+	"github.com/coredev-uk/sona-go/internal/ui/features/equalizer"
 	"github.com/coredev-uk/sona-go/internal/ui/features/library"
 	"github.com/coredev-uk/sona-go/internal/ui/features/player"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
@@ -13,4 +15,6 @@ import (
 var factories = []module.Factory{
 	library.New, // Albums only
 	player.New,  // the player bar only
+	equalizer.New,
+	commands.New, // last: its palette and help draw over every module's layer
 }
