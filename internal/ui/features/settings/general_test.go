@@ -3,6 +3,7 @@ package settings
 import (
 	"context"
 	"errors"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
@@ -397,6 +399,40 @@ func TestResetSizeCallsTheServiceAndNeverToastsOnSuccess(t *testing.T) {
 	g.until("reset", func() bool { return g.dt.count() == 1 })
 	if g.tt.HasText("Couldn't reset the window") {
 		t.Error("toast after a successful reset")
+	}
+}
+
+// The figures of the window size are in ink, the rest of the line muted
+// (SettingRow's <b>).
+func TestWindowSizeFigureIsInInk(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), func(s *config.Settings) { s.Window = config.Window{Width: 1280, Height: 800} })
+	g.tt.Until("size", g.tt.Shows("Sona opens at the size you left it: 1280 × 800."))
+	g.reveal("window-size")
+	ink, muted := theme.C("ink"), theme.C("ink-muted")
+	closest := func(r ui.Rect, c ui.Color) float64 {
+		img := g.tt.Image()
+		s := float64(img.Bounds().Dx()) / 1132 // the rig's width
+		best := 1e9
+		for y := int(float64(r.Y) * s); y < int(float64(r.Y+r.H)*s); y++ {
+			for x := int(float64(r.X) * s); x < int(float64(r.X+r.W)*s); x++ {
+				p := img.RGBAAt(x, y)
+				d := math.Abs(float64(p.R)-float64(c.R)) + math.Abs(float64(p.G)-float64(c.G)) + math.Abs(float64(p.B)-float64(c.B))
+				best = min(best, d)
+			}
+		}
+		return best
+	}
+	line, ok := g.tt.Find("Sona opens at the size you left it: 1280 × 800.")
+	if !ok {
+		t.Fatalf("no description among %q", g.tt.Texts())
+	}
+	gap := math.Abs(float64(ink.R)-float64(muted.R)) + math.Abs(float64(ink.G)-float64(muted.G)) + math.Abs(float64(ink.B)-float64(muted.B))
+	// Both inks are on the line: the muted sentence and the figures in ink.
+	if d := closest(line, ink); d > gap/2 {
+		t.Errorf("no ink on the line (closest %v of %v apart): the figure is muted", d, gap)
+	}
+	if d := closest(line, muted); d > gap/2 {
+		t.Errorf("no muted text on the line (closest %v of %v apart)", d, gap)
 	}
 }
 

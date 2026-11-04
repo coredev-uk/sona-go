@@ -124,7 +124,7 @@ func tickets(c *ui.Context, env *module.Env, con services.Concert, o rowOpts) {
 	items := make([]kit.MenuItem, len(sellers))
 	for i, s := range sellers {
 		items[i] = kit.MenuItem{
-			Key: s.URL, Label: s.Vendor, Icon: "arrow-up-right",
+			Key: s.URL, Label: s.Vendor, Icon: "arrow-up-right", Description: i18n.T("Opens in your browser"),
 			Run: func() { open(env, s.URL) },
 		}
 	}

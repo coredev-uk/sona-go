@@ -113,8 +113,9 @@ func (s *settings) windowSizeRow(c *ui.Context, cfg config.Settings) {
 	} else {
 		desc = i18n.T("Sona opens at the size you left it: <0>{width} × {height}</0>.", "width", strconv.Itoa(w.Width), "height", strconv.Itoa(w.Height))
 	}
+	figure := strconv.Itoa(w.Width) + " × " + strconv.Itoa(w.Height)
 	desc = stripTags(desc)
-	s.row(c, rowOpts{ID: "window-size", Title: i18n.T("Window size"), Desc: desc}, func() ui.Element {
+	s.row(c, rowOpts{ID: "window-size", Title: i18n.T("Window size"), Desc: desc, Ink: figure}, func() ui.Element {
 		b := kit.Button(c.Key("reset"), i18n.T("Reset size"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM})
 		if b.Clicked() {
 			d := s.desktop()

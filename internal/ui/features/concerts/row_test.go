@@ -10,6 +10,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 const (
@@ -39,6 +40,22 @@ func TestSeveralSellersAreAMenu(t *testing.T) {
 		t.Error("the other seller was opened too")
 	}
 	r.tt.Until("the menu to close", func() bool { return !r.tt.HasText("Second Seller") })
+}
+
+// The arrow that ends each seller's row is an image named "Opens in your
+// browser" in v0.2.0: here the row carries it as its description.
+func TestSellerRowsSayTheyOpenInTheBrowser(t *testing.T) {
+	r := newRig(t, "/concerts", 1132, 800, exampleBand, sampleSinger, anotherAct)
+	r.shows(singerTickets)
+	r.click(singerTickets)
+	r.shows("First Seller", "Second Seller")
+	tr := access.Read(t, r.tt.Tester)
+	for _, vendor := range []string{"First Seller", "Second Seller"} {
+		n, ok := tr.Find(ui.RoleMenuItem, vendor)
+		if !ok || n.Description != "Opens in your browser" {
+			t.Errorf("the %s row is %+v (found %v), want the description %q", vendor, n, ok, "Opens in your browser")
+		}
+	}
 }
 
 func TestSeveralSellersMenuOpensFromTheKeyboard(t *testing.T) {

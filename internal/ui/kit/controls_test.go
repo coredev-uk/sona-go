@@ -638,6 +638,32 @@ func TestSelectLongListScrollsWithinTheWindow(t *testing.T) {
 	}
 }
 
+// The popup is shadcn's item-aligned one: the chosen option sits over the
+// trigger, so that the list reaches above it and below.
+func TestSelectPopupSeatsTheChosenOptionOverTheTrigger(t *testing.T) {
+	var items []SelectItem
+	for i := 1; i <= 7; i++ {
+		items = append(items, SelectOption(fmt.Sprint(i), fmt.Sprintf("Language %d", i)))
+	}
+	v := "4"
+	tt := controlsTester(t, 300, 500, func(c *ui.Context) {
+		ui.Box(c.Key("above")).Height(180)
+		Select(c, &v, items, SelectOpts{A11yLabel: "Language"})
+	})
+	trigger := controlsFind(t, tt, "Language")
+	controlsClick(t, tt, "Language")
+	for range 4 {
+		tt.Frame()
+	}
+	chosen := controlsFind(t, tt, "Language 4")
+	if got, want := chosen.Y+chosen.H/2, trigger.Y+trigger.H/2; got < want-1 || got > want+1 {
+		t.Errorf("the chosen option's middle is at %v, the trigger's at %v", got, want)
+	}
+	if first := controlsFind(t, tt, "Language 1"); first.Y >= trigger.Y {
+		t.Errorf("the first option at %v is not above the trigger at %v", first.Y, trigger.Y)
+	}
+}
+
 // --- Segmented -------------------------------------------------------------
 
 func controlsSegments() []SegmentOption[string] {

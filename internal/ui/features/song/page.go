@@ -34,10 +34,12 @@ type pageState struct {
 	pos ui.ScrollState
 	// full shows the whole lyrics instead of Apple's excerpt.
 	full bool
-	// lyricsErr is why the full lyrics failed: they are not asked again
-	// until Try again (the query has no retry, as v0.2.0's retry: false).
-	lyricsErr error
-	retrying  bool
+	// failed is the full lyrics' last answer being an error: opening them
+	// again asks again.
+	failed bool
+	// retrying is Try again's ask in flight: the failure stays up, saying so.
+	// Opening the lyrics again asks too, but shows them loading.
+	retrying bool
 
 	videos, albums kit.CoverShelfState
 }
@@ -242,16 +244,13 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 	pg := &s.page
 	id := firstOf(page.Song.CatalogID, page.Song.ID)
 	var full store.Result[services.Lyrics]
-	if pg.full && (pg.lyricsErr == nil || pg.retrying) {
+	if pg.full {
+		// The query keeps a failure until Try again (NoRetry).
 		full = store.UseLyricsFrom(s.env.Queries, id, func(ctx context.Context) (services.Lyrics, error) {
 			return s.lyrics.Lyrics(ctx, id)
 		})
-		switch {
-		case full.HasData:
-			pg.lyricsErr, pg.retrying = nil, false
-		case full.Err != nil && !full.Fetching:
-			pg.lyricsErr, pg.retrying = full.Err, false
-		}
+		pg.failed = full.Err != nil && !full.HasData
+		pg.retrying = pg.retrying && full.Fetching
 	}
 	lines := strings.Split(page.LyricsExcerpt, "\n")
 	if pg.full && full.HasData && len(full.Data.Lines) > 0 {
@@ -267,9 +266,8 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Lyrics"), First: true, Actions: func() {
 		if kit.ShelfToggle(c, toggle, pg.full).Clicked() {
 			pg.full = !pg.full
-			if pg.full && pg.lyricsErr != nil {
-				// Opening again after a failure asks again.
-				pg.lyricsErr, pg.retrying = nil, false
+			if pg.full && pg.failed {
+				pg.failed = false
 				s.env.Queries.Invalidate(store.KeyLyrics(id))
 			}
 		}
@@ -292,8 +290,8 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 		}
 		sub := theme.Current().Type["secondary"]
 		switch {
-		case pg.lyricsErr != nil:
-			kit.ErrorBlock(c, i18n.T("Couldn't load the lyrics"), pg.lyricsErr, kit.ErrorBlockOpts{
+		case full.Err != nil && !full.HasData && (!full.Fetching || pg.retrying):
+			kit.ErrorBlock(c, i18n.T("Couldn't load the lyrics"), full.Err, kit.ErrorBlockOpts{
 				OnRetry: func() {
 					pg.retrying = true
 					s.env.Queries.Invalidate(store.KeyLyrics(id))

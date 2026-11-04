@@ -199,23 +199,12 @@ func TestSortAndTypeChangeTheQuery(t *testing.T) {
 	r.tt.Until("all albums", r.tt.Shows("Zebra Crossing", "7 albums"))
 }
 
-func TestAnAlbumsPlayButtonPlaysTheAlbum(t *testing.T) {
+func TestAnAlbumTileHasNoPlayButton(t *testing.T) {
 	r := newRig(t, sevenAlbums, 1132, 1000)
 	r.tt.Until("the albums", r.tt.Shows("Mango Season"))
-	if err := r.tt.Click("Play Mango Season"); err != nil {
-		t.Fatal(err)
-	}
-	r.tt.Until("the engine to play", func() bool { return len(r.h.Engine.Played()) > 0 })
-	// Mango Season is album 3: its first song, catalogue ID 10030.
-	if got := r.h.Engine.Played(); got[0] != "10030" {
-		t.Errorf("played %v, want the album's first song 10030", got)
-	}
-	q := services.Service[services.PlaybackService](r.h.Core).Queue()
-	if len(q.Items) != 2 || q.Items[0].Name != "Mango Season song 1" {
-		t.Errorf("queue %+v", q.Items)
-	}
-	if st := services.Service[services.PlaybackService](r.h.Core).State(); st.Container == nil || st.Container.Kind != "album" || st.Container.ID != "l.a3" {
-		t.Errorf("the queue's container is %+v, want album l.a3", st.Container)
+	// v0.2.0's library albums are CoverTiles with no play control.
+	if _, ok := r.tt.Find("Play Mango Season"); ok {
+		t.Error("an album tile has a play button")
 	}
 	// Tapping the tile itself goes nowhere: there is no album page yet.
 	before := r.router.Location()

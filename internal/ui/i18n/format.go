@@ -66,16 +66,19 @@ func FormatDuration(d time.Duration) string {
 	return fmt.Sprintf("%d:%02d", m, s)
 }
 
-// FormatBytes writes a size as "12.4 MB" in the shown language's numbers
-// (v0.2.0's formatBytes): whole bytes below a kilobyte, then one digit under
-// ten of a unit and none from there; units are B, kB, MB, GB.
+// FormatBytes writes a size as "12.4 MB" in the shown language's numbers and
+// unit names (v0.2.0's formatBytes, Intl's short byte units): whole bytes
+// below a kilobyte, then one digit under ten of a unit and none from there;
+// units are byte, kB, MB, GB and TB.
 func FormatBytes(n int64) string {
+	tag := current.Load().format
+	w, pluralTag := langRow(units, tag)
 	if n < 1024 {
-		return FormatNumber(float64(max(n, 0))) + " B"
+		return writeUnit(w.byteU, tag, pluralTag, float64(max(n, 0)))
 	}
 	v, i := float64(n)/1024, 0
-	units := [...]string{"kB", "MB", "GB"}
-	for v >= 1024 && i < len(units)-1 {
+	steps := [...]unitForms{w.kilobyte, w.megabyte, w.gigabyte, w.terabyte}
+	for v >= 1024 && i < len(steps)-1 {
 		v /= 1024
 		i++
 	}
@@ -84,7 +87,7 @@ func FormatBytes(n int64) string {
 	} else {
 		v = math.Round(v)
 	}
-	return FormatNumber(v) + " " + units[i]
+	return writeUnit(steps[i], tag, pluralTag, v)
 }
 
 // listWords are the words and punctuation that join a list in a language,

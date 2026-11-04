@@ -99,12 +99,11 @@ func TestA11yPages(t *testing.T) {
 			present: []a11yNode{
 				{ui.RoleTable, "Recently added"},
 				{ui.RoleLink, "Fieldnotes"},
-				{ui.RoleButton, "Play Fieldnotes"},
 				{ui.RoleMenuButton, "More for Fieldnotes"},
 				{ui.RoleLink, "Sunday morning"},
 				{ui.RoleMenuButton, "More for Sunday morning"},
 			},
-			tab: []string{"Fieldnotes", "Play Fieldnotes", "Low Tide", "Play Low Tide"},
+			tab: []string{"Fieldnotes", "Low Tide"},
 		},
 		{
 			name: "albums", build: grid(albumsPath),
@@ -118,9 +117,8 @@ func TestA11yPages(t *testing.T) {
 				{ui.RolePopUpButton, "Sort"},
 				{ui.RoleTable, "Albums in your library"},
 				{ui.RoleLink, "Fieldnotes"},
-				{ui.RoleButton, "Play Fieldnotes"},
 			},
-			tab: []string{"All", "Albums", "Singles & EPs", "Sort", "Fieldnotes", "Play Fieldnotes", "Low Tide", "Play Low Tide"},
+			tab: []string{"All", "Albums", "Singles & EPs", "Sort", "Fieldnotes", "Low Tide"},
 		},
 		{
 			name: "playlists", build: grid(playlistsPath),
@@ -228,11 +226,10 @@ func TestA11yPages(t *testing.T) {
 				{ui.RoleLink, "Full artist page"},
 				{ui.RoleTable, "Albums by Dara Finch in your library"},
 				{ui.RoleLink, "Low Tide"},
-				{ui.RoleButton, "Play Low Tide"},
 			},
 			// The filter and the list keep the focus themselves: the tree
 			// reports the row each has marked.
-			tab: []string{"Dara Finch, 2 albums, 4 songs", "Dara Finch, 2 albums, 4 songs", "Play Dara Finch", "Shuffle", "Full artist page", "More for Dara Finch", "Low Tide", "Play Low Tide", "Cold Brew"},
+			tab: []string{"Dara Finch, 2 albums, 4 songs", "Dara Finch, 2 albums, 4 songs", "Play Dara Finch", "Shuffle", "Full artist page", "More for Dara Finch", "Low Tide", "Cold Brew"},
 		},
 		{
 			name: "artist alone in a narrow window", build: func(t *testing.T) *uitest.Session {
@@ -308,8 +305,8 @@ func TestA11yPages(t *testing.T) {
 	}
 }
 
-// TestA11yPlayButtonsSitBesideTheirTiles: the play and more controls of a
-// tile or row are siblings of the link that opens it, never inside it, and
+// TestA11yPlayButtonsSitBesideTheirTiles: the more control of a
+// tile or row (and the play control of those that have one) is a sibling of the link that opens it, never inside it, and
 // each has a name that contains its item's.
 func TestA11yPlayButtonsSitBesideTheirTiles(t *testing.T) {
 	r := newGridRig(t, albumsPath, func(l *library, _ *gridStub) { a11yRoutes(l) })
@@ -319,7 +316,7 @@ func TestA11yPlayButtonsSitBesideTheirTiles(t *testing.T) {
 	if !ok {
 		t.Fatalf("no link Fieldnotes:\n%s", tr.Dump())
 	}
-	for _, label := range []string{"Play Fieldnotes", "More for Fieldnotes"} {
+	for _, label := range []string{"More for Fieldnotes"} {
 		var found bool
 		for _, n := range tr.Nodes {
 			if n.Label == label && (n.Role == ui.RoleButton || n.Role == ui.RoleMenuButton) {

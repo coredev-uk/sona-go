@@ -636,7 +636,7 @@ func TestPlaybackShowsTheDownloadsProgressOnItsBar(t *testing.T) {
 	}))
 	r.open("playback")
 	if !r.hasAll("Downloading Widevine…", "Songs play once it's ready. The download carries on if you continue.",
-		"42% · 42 B of 100 B") {
+		"42% · 42 byte of 100 byte") {
 		t.Fatalf("texts %q", r.tt.Texts())
 	}
 	// Its size not known yet: starting.

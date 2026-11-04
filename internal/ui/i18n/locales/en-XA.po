@@ -851,6 +851,10 @@ msgstr ""
 msgid "Choose one of the trusted phone numbers on this Apple Account."
 msgstr ""
 
+#: internal/ui/features/concerts/page.go
+msgid "Choose the {field} day"
+msgstr ""
+
 #: internal/ui/features/concerts/location.go
 msgid "Cities that match"
 msgstr ""
@@ -1270,7 +1274,6 @@ msgid "Couldn't load stations"
 msgstr ""
 
 #: internal/ui/features/discover/players.go
-#: internal/ui/features/library/albums.go
 msgid "Couldn't load the album"
 msgstr ""
 
@@ -3761,6 +3764,7 @@ msgstr ""
 msgid "Open website"
 msgstr ""
 
+#: internal/ui/features/concerts/row.go
 #: internal/ui/kit/collections_items_linklist.go
 msgid "Opens in your browser"
 msgstr ""

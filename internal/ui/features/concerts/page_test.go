@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
@@ -19,7 +20,7 @@ func TestPageListsTheAgendaByMonthAndDay(t *testing.T) {
 	r.shows("Concerts", "April 2027", "June 2027", "Example Hall · London", "Another Act")
 	for _, w := range []string{
 		"Near London, the main city of your Apple Music storefront", "Updated just now", "Set location", "Filter concerts",
-		"Placeholder Arena · Watford", "Nowhere Club · Reading", "6:00 PM · 6\u00a0mi away", "Your artist",
+		"Placeholder Arena · Watford", "Nowhere Club · Reading", "6:00 PM · 6 mi away", "Your artist",
 		"Wed, Apr 14", "Tue, Jun 1", "Wed", "14", "Tue", "1",
 	} {
 		if !r.tt.HasText(w) {
@@ -305,4 +306,37 @@ func TestModuleDeclaresItsRouteAndNavigation(t *testing.T) {
 	if m.Init == nil {
 		t.Error("no Init: auth:changed is not followed")
 	}
+}
+
+// The calendar beside each field chooses a day the way typing does: one in
+// range is applied and closes it, one outside shows the field invalid and
+// leaves it open.
+func TestCalendarChoosesADayWithinTheFieldsRange(t *testing.T) {
+	r := newRig(t, "/concerts?when=dates&from=2027-04-10", 1132, 1000, exampleBand, sampleSinger, anotherAct)
+	r.shows("Choose both dates", "Choose the To day")
+	r.click("Choose the To day")
+	// It opens on From's day, the first To takes.
+	r.tt.Settle()
+	if _, ok := access.Read(t, r.tt.Tester).Find(ui.RoleButton, "April 10, 2027"); !ok {
+		t.Fatalf("the calendar did not open on From's day:\n%s", access.Read(t, r.tt.Tester).Dump())
+	}
+	// A day before From is not taken: the field is invalid, the calendar stays.
+	r.click("April 5, 2027")
+	if got := r.router.Location(); got != "/concerts?when=dates&from=2027-04-10" {
+		t.Errorf("a To before From was applied: %q", got)
+	}
+	if _, ok := access.Read(t, r.tt.Tester).Find(ui.RoleButton, "April 20, 2027"); !ok {
+		t.Error("the calendar closed on a day outside the range")
+	}
+	if tr := access.Read(t, r.tt.Tester); !func() bool { n, _ := tr.Find(ui.RoleTextField, "To"); return n.Has(access.Invalid) }() {
+		t.Error("the To field does not show the day outside its range as invalid")
+	}
+	r.click("April 20, 2027")
+	if got := r.router.Location(); got != "/concerts?from=2027-04-10&to=2027-04-20&when=dates" {
+		t.Errorf("location %q", got)
+	}
+	r.tt.Until("the calendar to close", func() bool {
+		_, open := access.Read(t, r.tt.Tester).Find(ui.RoleButton, "April 20, 2027")
+		return !open
+	})
 }

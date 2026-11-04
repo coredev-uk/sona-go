@@ -31,5 +31,5 @@ func UseLyricsFrom(cl *Client, id string, fetch func(ctx context.Context) (servi
 			return services.Lyrics{}, nil
 		}
 		return l, err
-	}, Options{Stale: Forever})
+	}, Options{Stale: Forever, NoRetry: true}) // TanStack's retry: false: a failure is an answer, asked again on Try again
 }

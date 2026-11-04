@@ -44,8 +44,15 @@ type MenuItem struct {
 	Disabled bool
 	// Reason greys the row out and prints this faint line under its label.
 	Reason string
-	// Destructive colours the row --danger.
+	// Description is read to assistive technology as the row's description,
+	// never shown ("Opens in your browser" on a seller's row).
+	Description string
+	// Destructive colours the row --danger (a MenuLabel: its Icon).
 	Destructive bool
+	// Note styles a MenuLabel: the default is the faint heading line;
+	// LabelHeader is a medium ink line (the account menu's "Apple Music"),
+	// LabelNote a muted one that may lead with Icon.
+	Note MenuLabelNote
 	// Hint is a muted right-aligned shortcut ("Ctrl+K").
 	Hint string
 	// Inset indents the row to line up with rows that have an icon or mark.
@@ -59,6 +66,19 @@ type MenuItem struct {
 	// tick is the confirmation: shadcn's onSelect with preventDefault).
 	KeepOpen bool
 }
+
+// MenuLabelNote is how a MenuLabel reads.
+type MenuLabelNote uint8
+
+const (
+	// LabelFaint is a faint meta heading above a group.
+	LabelFaint MenuLabelNote = iota
+	// LabelHeader is a 14 medium ink line heading the menu.
+	LabelHeader
+	// LabelNote is a 12 muted line of explanation, with a leading Icon when
+	// set.
+	LabelNote
+)
 
 func (it *MenuItem) choosable() bool {
 	if it.Disabled || it.Reason != "" {
@@ -316,7 +336,7 @@ func (m *Menu) panel(c *ui.Context, o MenuOpts, tk *theme.Tokens, lv int, items 
 				ui.Box(c.Key(id+":sep:"+strconv.Itoa(i))).Height(1).Margin(4, 0).Background(theme.C("line")).Shrink(0)
 				continue
 			case MenuLabel:
-				overlaysText(c.Key(id+":lbl:"+strconv.Itoa(i)), it.Label, "meta").TextColor(theme.C("ink-faint")).Padding(6, 8).Shrink(0)
+				menuLabel(c.Key(id+":lbl:"+strconv.Itoa(i)), *it)
 				continue
 			}
 			row := m.row(c.Key(id+":"+it.Key), it, marks, level().hi == it.Key, level().byKey, lv)
@@ -416,6 +436,8 @@ func (m *Menu) row(c *ui.Context, it *MenuItem, marks, hi, byKey bool, lv int) u
 	case it.Reason != "":
 		// Menu items are leaves for assistive technology: say why it is dimmed.
 		row.Description(it.Reason)
+	case it.Description != "":
+		row.Description(it.Description)
 	case it.Hint != "":
 		row.Description(it.Hint)
 	}
@@ -625,4 +647,25 @@ func overlaysTypedRune(mods ui.Modifiers, key ui.Key) (rune, bool) {
 func overlaysText(c *ui.Context, s, style string) ui.Element {
 	t := theme.Current().Type[style]
 	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
+}
+
+// menuLabel builds a MenuLabel row by its Note.
+func menuLabel(c *ui.Context, it MenuItem) {
+	switch it.Note {
+	case LabelHeader:
+		overlaysText(c, it.Label, "label").TextColor(theme.C("ink")).Padding(6, 8).Shrink(0)
+	case LabelNote:
+		ui.Row(c).AlignItems(ui.Start).Gap(6).Padding(2, 8).Shrink(0).Children(func() {
+			if it.Icon != "" {
+				fg := theme.C("ink-muted")
+				if it.Destructive {
+					fg = theme.C("danger")
+				}
+				ui.Icon(c.Key("icon"), theme.Icon(it.Icon)).FontSize(14).TextColor(fg).Shrink(0).Margin(1, 0, 0, 0)
+			}
+			overlaysText(c.Key("text"), it.Label, "meta").TextColor(theme.C("ink-muted"))
+		})
+	default:
+		overlaysText(c, it.Label, "meta").TextColor(theme.C("ink-faint")).Padding(6, 8).Shrink(0)
+	}
 }

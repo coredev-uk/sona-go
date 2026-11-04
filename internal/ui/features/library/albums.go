@@ -124,8 +124,8 @@ func (l *library) albumList(q listQuery) *listView[services.Album] {
 	})
 }
 
-// albumTile is CoverTile of a library album: its page when one exists, the
-// play control, and the album as the tile's menu target.
+// albumTile is CoverTile of a library album: its page when one exists and the
+// album as the tile's menu target. v0.2.0's tiles have no play control.
 func (l *library) albumTile() func(a *services.Album) kit.CoverItem {
 	return func(a *services.Album) kit.CoverItem {
 		it := *a
@@ -136,7 +136,6 @@ func (l *library) albumTile() func(a *services.Album) kit.CoverItem {
 			Art:      a.Art.Medium,
 			Explicit: a.Explicit,
 			Item:     &kit.Item{Kind: kit.KindAlbum, Target: it},
-			Play:     &kit.CoverPlay{Label: a.Name, Run: func() { l.playAlbum(it) }},
 		}
 		l.openTo(&tile, "/album/"+a.ID)
 		return tile
@@ -149,19 +148,4 @@ func (l *library) openTo(t *kit.CoverItem, path string) {
 	if l.env.HasRoute != nil && l.env.HasRoute(path) {
 		t.Open = func() { l.env.Nav.Push(path) }
 	}
-}
-
-// playAlbum replaces the queue with the album's songs and plays it from the
-// first one (v0.2.0's playSongs over the album's tracks): the songs are
-// read from the library, then PlaybackService starts the queue, both off
-// the main thread.
-func (l *library) playAlbum(a services.Album) {
-	go func() {
-		detail, err := l.lib.Album(context.Background(), a.ID)
-		if err != nil {
-			failToast(i18n.T("Couldn't load the album"), err)
-			return
-		}
-		l.env.Post(func() { l.env.Queue.PlaySongs(detail.Tracks, 0, services.PlayFrom{Kind: "album", ID: a.ID}) })
-	}()
 }

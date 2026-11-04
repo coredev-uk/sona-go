@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -32,4 +34,26 @@ func TestNoLyricsIsCachedAsAnAnswer(t *testing.T) {
 	if asks != 1 {
 		t.Errorf("asked %d times", asks)
 	}
+}
+
+// A lyrics failure is an answer (v0.2.0's retry: false): a view drawing it for
+// a minute never asks again, and Invalidate (Try again) does.
+func TestALyricsFailureIsNotAskedAgainWhileShown(t *testing.T) {
+	cl, clk := newTestClient()
+	var runs atomic.Int32
+	fetch := func(context.Context) (services.Lyrics, error) {
+		runs.Add(1)
+		return services.Lyrics{}, errors.New("down")
+	}
+	UseLyricsFrom(cl, "1", fetch)
+	eventually(t, "the failure", func() bool { return UseLyricsFrom(cl, "1", fetch).Err != nil })
+	for range 300 {
+		clk.advance(200 * time.Millisecond)
+		UseLyricsFrom(cl, "1", fetch)
+	}
+	if runs.Load() != 1 {
+		t.Fatalf("the failed lyrics were asked %d times while on screen", runs.Load())
+	}
+	cl.Invalidate(KeyLyrics("1"))
+	eventually(t, "the retry", func() bool { return runs.Load() == 2 })
 }

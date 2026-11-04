@@ -1,8 +1,6 @@
 package concerts
 
 import (
-	"fmt"
-	"math"
 	"strings"
 	"sync"
 	"time"
@@ -199,11 +197,7 @@ func distanceLabel(km int) string {
 	if km <= 0 {
 		return ""
 	}
-	value, unit := float64(km), "km"
-	if mileRegions[regionOfLocale()] {
-		value, unit = math.Max(1, math.Round(float64(km)*0.621371)), "mi"
-	}
-	text := fmt.Sprintf("%s\u00a0%s", i18n.FormatNumber(value), unit)
+	text := i18n.FormatDistance(float64(km), mileRegions[regionOfLocale()])
 	return i18n.T("{text} away", "text", text)
 }
 

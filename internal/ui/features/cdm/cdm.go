@@ -4,7 +4,7 @@
 // NoCDM). Settings → Playback and Diagnostics, the first-run setup and the
 // player read the mirror through store.UseCDM and word it with
 // store.CDMProgress, store.CDMCanRetry, i18n.CDMProblem, i18n.CDMFailedState
-// and i18n.FormatPercent; kit.RetryCDM asks Go to try again.
+// and i18n.FormatPercent; kit.RetryCDMWith asks Go to try again.
 package cdm
 
 import (

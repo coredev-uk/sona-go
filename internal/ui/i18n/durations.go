@@ -139,24 +139,29 @@ var durations = map[string]durationLang{
 }
 
 // durationFor finds a locale's words and the tag whose plural rules count
-// them: Traditional Chinese by its script (Hong Kong and Macao write 日),
-// else the locale and its CLDR parents ("en-AU" reads as "en-001"); a locale
-// with no row reads in English, counted by English's rules.
-func durationFor(tag string) (durationLang, string) {
+// them (see langRow).
+func durationFor(tag string) (durationLang, string) { return langRow(durations, tag) }
+
+// langRow finds a locale's row of a per-language table and the tag whose
+// plural rules count its words: Traditional Chinese by its script (Hong Kong
+// and Macao write differently), else the locale and its CLDR parents
+// ("en-AU" reads as "en-001"); a locale with no row reads the English one,
+// counted by English's rules.
+func langRow[T any](table map[string]T, tag string) (T, string) {
 	if langOf(tag) == "zh" {
 		if script, _ := language.Make(tag).Script(); script.String() == "Hant" {
 			if region, _ := language.Make(tag).Region(); region.String() == "HK" || region.String() == "MO" {
-				return durations["zh-HK"], tag
+				return table["zh-HK"], tag
 			}
-			return durations["zh-Hant"], tag
+			return table["zh-Hant"], tag
 		}
 	}
 	for t := tag; t != ""; t = mygoi18n.Parent(t) {
-		if d, ok := durations[t]; ok {
+		if d, ok := table[t]; ok {
 			return d, tag
 		}
 	}
-	return durations["en"], "en"
+	return table["en"], "en"
 }
 
 // pick is the form for n in a language's plural rules.

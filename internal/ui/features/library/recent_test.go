@@ -38,13 +38,10 @@ func TestRecentlyAddedMixesAlbumsAndPlaylists(t *testing.T) {
 			t.Errorf("playlist %q is missing", p)
 		}
 	}
-	// Albums keep their play control; a playlist has none (v0.2.0).
-	if _, ok := r.tt.Find("Play Fieldnotes"); !ok {
-		t.Error("an album tile has no play control")
-	}
-	for _, p := range playlistNames {
+	// Neither kind of tile has a play control (v0.2.0's CoverTile sets none).
+	for _, p := range append([]string{"Fieldnotes"}, playlistNames...) {
 		if _, ok := r.tt.Find("Play " + p); ok {
-			t.Errorf("playlist %q has a play control", p)
+			t.Errorf("%q has a play control", p)
 		}
 	}
 }
@@ -54,15 +51,11 @@ func TestRecentlyAddedSingularHeader(t *testing.T) {
 	r.tt.Until("the entry", r.tt.Shows("Only Album", "1 album or playlist"))
 }
 
-func TestRecentlyAddedPlayAndOpen(t *testing.T) {
+func TestRecentlyAddedOpensAnAlbumAndHasNoPlayButton(t *testing.T) {
 	r := newGridRig(t, recentPath, nil, uitest.Albums(sevenAlbums...))
 	r.tt.Until("the entries", r.tt.Shows("Mango Season"))
-	if err := r.tt.Click("Play Mango Season"); err != nil {
-		t.Fatal(err)
-	}
-	r.tt.Until("the engine to play", func() bool { return len(r.h.Engine.Played()) > 0 })
-	if got := r.h.Engine.Played(); got[0] != "10030" {
-		t.Errorf("played %v, want the album's first song 10030", got)
+	if _, ok := r.tt.Find("Play Mango Season"); ok {
+		t.Error("an album tile has a play button")
 	}
 	if err := r.tt.Click("Blue Hour"); err != nil {
 		t.Fatal(err)
