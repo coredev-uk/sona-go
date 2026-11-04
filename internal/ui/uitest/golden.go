@@ -9,6 +9,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -35,9 +36,15 @@ const (
 // but not a moved edge, a changed colour or a missing cover. With -update it
 // writes the file instead. On a mismatch it saves the picture and a diff
 // (differing blocks in red over the golden dimmed) beside the test's other
-// artifacts and fails.
+// artifacts and fails. On other systems than Linux it skips the test.
 func Golden(t testing.TB, img image.Image, name string) {
 	t.Helper()
+	// The goldens are Linux's: Pango shapes the text there, Core Text and
+	// DirectWrite place the glyphs elsewhere, which no tolerance should hide.
+	// What the test asserted before the picture (the texts, the clicks) ran.
+	if runtime.GOOS != "linux" {
+		t.Skipf("golden images are compared on Linux only (text is shaped by Pango there; %s's text engine lays glyphs out differently)", runtime.GOOS)
+	}
 	path := filepath.Join("testdata", "golden", name+".png")
 	got := toNRGBA(img)
 	if *update {
