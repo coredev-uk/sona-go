@@ -172,6 +172,9 @@ func newApp(opts Options, factories []module.Factory) *App {
 		Dev:      opts.Dev,
 	}
 	a.env.Motion = a.newMotion(post)
+	if opts.Core != nil {
+		a.env.Queue = kit.NewQueueCommandsFor(opts.Core, a.env.Play, post)
+	}
 	a.env.HasRoute = a.hasRoute
 	for _, f := range factories {
 		m := f(a.env)

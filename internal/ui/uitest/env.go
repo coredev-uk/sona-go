@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/artwork"
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/auth/devtoken"
@@ -193,6 +194,9 @@ func New(t testing.TB, opts ...Option) *Harness {
 		Core: h.Core, Bus: h.Bus, Queries: store.NewClient(h.Main.Post), Play: store.NewPlayback(h.Bus, h.Clock.Now),
 		Art: loader, Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: o.version, Surfaces: store.NewSurfaces(), OpenURL: h.open, Copy: h.copy,
 	}
+	if o.core {
+		h.Env.Queue = kit.NewQueueCommandsFor(h.Core, h.Env.Play, h.Main.Post)
+	}
 	mu.Lock()
 	harnesses[h.Env] = h
 	mu.Unlock()
@@ -265,6 +269,9 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 		Settings: settings, DB: d, Auth: authm, Library: ilib.New(d, nil), Art: art, Engine: h.Engine, Coord: h.Coord,
 		Private: privatemode.New(privatemode.Options{}), Gate: services.NewGate(time.Hour, nil),
 		Keyring: h.Keyring, Transport: h.Network,
+		// A real client over the fixture network: a request to a host nothing
+		// serves fails with an error (AutoPlay asks Apple for a station).
+		API:  applemusic.New(h.Network.Client(), staticDev{}, func() string { return "" }),
 		Emit: h.Bus, OpenURL: h.open, Clipboard: h.copy, Windows: noWindows{}, Logger: slog.New(slog.DiscardHandler), Version: o.version, Started: Epoch,
 	})
 	t.Cleanup(core.Close)

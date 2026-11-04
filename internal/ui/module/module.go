@@ -44,6 +44,12 @@ type Env struct {
 	// Nil only in tests that build an Env by hand: a nil policy allows nothing.
 	Motion *kit.MotionPolicy
 	Nav    Navigator // the main window's router
+	// Queue starts, shuffles and queues songs and videos through the
+	// playback service: every feature that plays a collection or adds to the
+	// queue goes through it, so replacing a long queue of the user's asks
+	// first or offers Undo (v0.2.0's playSongs, queueItems and replaceQueue).
+	// Nil in an Env built by hand without services.
+	Queue *kit.QueueCommands
 	// HasRoute reports whether a registered module's route pattern matches
 	// path (a query or fragment is ignored), so a feature links only to pages
 	// that are ported: Pattern "/album/{id}" matches "/album/42". Call it
