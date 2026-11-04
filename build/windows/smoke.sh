@@ -21,7 +21,8 @@ mkdir -p "$profile/Roaming" "$profile/Local"
 export SONA_PRIVATE=1 APPDATA="$profile/Roaming" LOCALAPPDATA="$profile/Local"
 
 # 1. The portable zip.
-7z x -bso0 -bsp0 -o"$work/zip" "$out/Sona-$version-windows-x64.zip"
+# 7z is a native program: it wants Windows paths.
+7z x -bso0 -bsp0 -o"$(cygpath -w "$work/zip")" "$(cygpath -w "$out/Sona-$version-windows-x64.zip")"
 exe=$work/zip/Sona/sona.exe
 got=$("$exe" --version) || fail "sona.exe --version failed"
 [[ $got == "sona $version" ]] || fail "sona.exe --version printed '$got', want 'sona $version'"

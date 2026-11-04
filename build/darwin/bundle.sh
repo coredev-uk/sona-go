@@ -12,7 +12,7 @@
 #
 # Environment:
 #   GSTREAMER_ROOT  the framework's Versions/1.0 directory
-#                   (default /Library/Frameworks/GStreamer)
+#                   (default /Library/Frameworks/GStreamer.framework/Versions/1.0)
 #   VERSION         default: the VERSION file
 #   SONA_SMOKE_TOOLS=1   also build OUTDIR/smoke-tools (playspike, media.test) for smoke.sh
 #   UPDATE_FEED, UPDATE_KEY   linked into the binary for self-updates (the
@@ -26,7 +26,7 @@ out=${1:?usage: bundle.sh OUTDIR}
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
 version=${VERSION:-$(cat "$repo/VERSION")}
-gst=${GSTREAMER_ROOT:-/Library/Frameworks/GStreamer}
+gst=${GSTREAMER_ROOT:-/Library/Frameworks/GStreamer.framework/Versions/1.0}
 minos=$(tr -d '[:space:]' <"$here/MIN_MACOS")
 [[ -d $gst/lib/gstreamer-1.0 ]] || { echo "bundle: no GStreamer framework at $gst (build/darwin/install-gstreamer.sh)" >&2; exit 1; }
 
@@ -45,7 +45,7 @@ trap 'rm -rf "$work"' EXIT
 # default prefix, so point both at gst.
 mkdir "$work/pc"
 for f in "$gst"/lib/pkgconfig/*.pc; do
-  sed -e "s|/Library/Frameworks/GStreamer|$gst|g" -e "s|\${pcfiledir}/../..|$gst|g" "$f" >"$work/pc/$(basename "$f")"
+  sed -e "s|/Library/Frameworks/GStreamer.framework/Versions/1.0|$gst|g" -e "s|\${pcfiledir}/../..|$gst|g" "$f" >"$work/pc/$(basename "$f")"
 done
 ldflags="-w -s -X main.version=$version -X github.com/egoist/mygo.production=1 -extldflags=-mmacosx-version-min=$minos"
 [[ -n ${UPDATE_FEED:-} ]] && ldflags+=" -X github.com/egoist/mygo.packageUpdateFeed=$UPDATE_FEED"
@@ -109,7 +109,7 @@ deps() {
 fwpath() {
   case $1 in
   "$gst"/*) echo "$1" ;;
-  /Library/Frameworks/GStreamer/*) echo "$gst/${1#/Library/Frameworks/GStreamer/}" ;;
+  /Library/Frameworks/GStreamer.framework/Versions/1.0/*) echo "$gst/${1#/Library/Frameworks/GStreamer.framework/Versions/1.0/}" ;;
   @rpath/*) echo "$gst/lib/${1##*/}" ;;
   /usr/lib/* | /System/*) ;;
   # A devenv build (SONA_DEVENV_BUILD=1, for trying this script on a Mac that
