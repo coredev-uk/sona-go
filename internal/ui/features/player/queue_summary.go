@@ -30,6 +30,7 @@ func summaryFor(parts queueParts, start int, q services.QueueState) string {
 	case parts.mine > 0:
 		return i18n.T("{mine, plural, one {# song after this one} other {# songs after this one}}", "mine", parts.mine)
 	case autoRows:
+		// translators: Queue summary when only AutoPlay's songs follow. Apple's ASE.Web.Music.UpNext.Heading.AutoplayActive ('autoplay is on') is lower case, for a subline, so it is not mapped.
 		return i18n.T("AutoPlay is on")
 	case parts.auto > 0:
 		return i18n.T("Nothing queued after this song")

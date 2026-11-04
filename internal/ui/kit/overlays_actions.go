@@ -382,6 +382,7 @@ func DescribeItems(items []Item) string {
 	kind := items[0].Kind
 	for _, i := range items {
 		if i.Kind != kind {
+			// translators: {0} is the number of items.
 			return i18n.T("{0, plural, one {# item} other {# items}}", "0", len(items))
 		}
 	}

@@ -46,6 +46,7 @@ func listedRow(key string) string {
 	case "engineIdleMinutes":
 		return i18n.T("Free memory when idle")
 	case "autoPlay":
+		// translators: Apple's name for the feature: the queue's heading over the songs it adds, and its toggle. Apple: ASE.Web.Music.UpNext.Autoplay.Heading
 		return i18n.T("AutoPlay")
 	case "audio.soundCheck":
 		return i18n.T("Sound Check")

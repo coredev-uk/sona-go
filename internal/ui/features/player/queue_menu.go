@@ -58,6 +58,7 @@ func (p *player) rowMenu(c *ui.Context, st *queueList, items []services.QueueIte
 			}})
 		}
 		if end {
+			// translators: Queue row menu: moves the song to the end of the songs the user queued, before AutoPlay's. Apple has no such item.
 			rows = append(rows, kit.MenuItem{Key: "end", Label: i18n.T("Move to end"), Icon: "list-end", Run: func() {
 				if i, cur, ok := at(); ok {
 					p.askMove(cur, i, true, func() error { return p.svc.MoveToEnd(i) })

@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n/extract"
 	"github.com/coredev-uk/sona-go/internal/i18n/po"
 )
 
@@ -27,6 +28,50 @@ type uiMessage struct {
 	po.Key
 	HasContext bool
 	refs       []string // files, slash paths relative to the root
+	notes      []string // translators' notes, sorted and without repeats
+}
+
+// noteMarker starts a translator's note in a comment: the comment group
+// directly above a call, or one that ends on the line the call ends on,
+// holds a note for each line that starts with it (the lines after it, up to
+// the next marker, continue the note).
+const noteMarker = "translators:"
+
+// noteGroup is one comment group's notes and the lines it covers.
+type noteGroup struct {
+	first, last int
+	notes       []string
+}
+
+// noteGroups reads the translators' notes of a file's comments.
+func noteGroups(fset *token.FileSet, f *ast.File) []noteGroup {
+	var out []noteGroup
+	for _, g := range f.Comments {
+		var notes []string
+		for _, line := range strings.Split(g.Text(), "\n") {
+			line = strings.TrimSpace(line)
+			if rest, ok := strings.CutPrefix(line, noteMarker); ok {
+				notes = append(notes, strings.TrimSpace(rest))
+			} else if line != "" && len(notes) > 0 {
+				notes[len(notes)-1] += " " + line
+			}
+		}
+		if len(notes) > 0 {
+			out = append(out, noteGroup{fset.Position(g.Pos()).Line, fset.Position(g.End()).Line, notes})
+		}
+	}
+	return out
+}
+
+// noteFor is the notes that belong to a call spanning lines first to last.
+func noteFor(groups []noteGroup, first, last int) []string {
+	var out []string
+	for _, g := range groups {
+		if g.last == first-1 || g.first == last {
+			out = append(out, g.notes...)
+		}
+	}
+	return out
 }
 
 // scanUI reads the Go files under internal/ui as syntax only (go/parser,
@@ -56,7 +101,7 @@ func scanUI(root string) ([]*uiMessage, error) {
 		if !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
 			return nil
 		}
-		f, err := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution)
+		f, err := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution|parser.ParseComments)
 		if err != nil {
 			return err
 		}
@@ -65,7 +110,8 @@ func scanUI(root string) ([]*uiMessage, error) {
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		add := func(key po.Key, hasCtx bool) {
+		groups := noteGroups(fset, f)
+		add := func(key po.Key, hasCtx bool, notes []string) {
 			m := byKey[key]
 			if m == nil {
 				m = &uiMessage{Key: key, HasContext: hasCtx}
@@ -74,6 +120,11 @@ func scanUI(root string) ([]*uiMessage, error) {
 			}
 			if !slices.Contains(m.refs, rel) {
 				m.refs = append(m.refs, rel)
+			}
+			for _, n := range notes {
+				if !slices.Contains(m.notes, n) {
+					m.notes = append(m.notes, n)
+				}
 			}
 		}
 		pkg := i18nName(f)
@@ -108,10 +159,11 @@ func scanUI(root string) ([]*uiMessage, error) {
 				}
 				lits = append(lits, s)
 			}
+			notes := noteFor(groups, at.Line, fset.Position(call.End()).Line)
 			if name == "TC" {
-				add(po.Key{ID: lits[1], Context: lits[0]}, true)
+				add(po.Key{ID: lits[1], Context: lits[0]}, true, notes)
 			} else {
-				add(po.Key{ID: lits[0]}, false)
+				add(po.Key{ID: lits[0]}, false, notes)
 			}
 			return true
 		}
@@ -128,6 +180,7 @@ func scanUI(root string) ([]*uiMessage, error) {
 	}
 	for _, m := range msgs {
 		slices.Sort(m.refs)
+		slices.Sort(m.notes)
 	}
 	slices.SortFunc(msgs, func(a, b *uiMessage) int {
 		if c := strings.Compare(a.ID, b.ID); c != 0 {
@@ -237,6 +290,7 @@ func (c *uiCatalogue) file(msgs []*uiMessage) *po.File {
 	f := &po.File{Header: uiHeader(c.language)}
 	for _, m := range msgs {
 		f.Entries = append(f.Entries, &po.Entry{
+			Extracted:  m.notes,
 			References: m.refs,
 			Context:    m.Context,
 			HasContext: m.HasContext,
@@ -245,36 +299,6 @@ func (c *uiCatalogue) file(msgs []*uiMessage) *po.File {
 		})
 	}
 	return f
-}
-
-// diffUI summarises how the catalogue on disk differs from want, one line per
-// message: "+" missing, "-" no longer asked for, "~" changed.
-func diffUI(got, want *po.File) []string {
-	have := map[po.Key]*po.Entry{}
-	for _, e := range got.Entries {
-		if !e.Obsolete {
-			have[e.Key()] = e
-		}
-	}
-	var out []string
-	seen := map[po.Key]bool{}
-	for _, w := range want.Entries {
-		seen[w.Key()] = true
-		g, ok := have[w.Key()]
-		switch {
-		case !ok:
-			out = append(out, "+ "+describeKey(w.Key()))
-		case !slices.Equal(g.References, w.References) || !slices.Equal(g.Extracted, w.Extracted) ||
-			!slices.Equal(g.Flags, w.Flags) || !slices.Equal(g.Translator, w.Translator) || g.Str != w.Str:
-			out = append(out, "~ "+describeKey(w.Key()))
-		}
-	}
-	for _, e := range got.Entries {
-		if !e.Obsolete && !seen[e.Key()] {
-			out = append(out, "- "+describeKey(e.Key()))
-		}
-	}
-	return out
 }
 
 // runExtractUI writes the UI's catalogues from the calls in internal/ui:
@@ -302,7 +326,7 @@ func runExtractUI(r repo, check bool) error {
 		if check {
 			diff := []string{"~ formatting"}
 			if old, err := po.Parse(got); err == nil {
-				if d := diffUI(old, c.file(msgs)); len(d) > 0 {
+				if d := extract.Diff(old, c.file(msgs)); len(d) > 0 {
 					diff = d
 				}
 			}
@@ -328,11 +352,4 @@ func runExtractUI(r repo, check bool) error {
 	}
 	_, err = r.loadMappings(sona)
 	return err
-}
-
-func describeKey(k po.Key) string {
-	if k.Context != "" {
-		return strconv.Quote(k.Context) + "/" + strconv.Quote(k.ID)
-	}
-	return strconv.Quote(k.ID)
 }

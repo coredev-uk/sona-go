@@ -316,6 +316,7 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 	if station != nil {
 		if station.AutoPlay {
 			headTitle = i18n.T("AutoPlay")
+			// translators: Under the AutoPlay heading in the queue. Apple: ASE.Web.Music.UpNext.Autoplay.Description
 			headDetail = i18n.T("Similar music will keep playing")
 		} else {
 			headTitle = i18n.T("Then {stationName}", "stationName", station.Name)

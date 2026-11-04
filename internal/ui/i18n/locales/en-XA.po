@@ -38,6 +38,10 @@ msgstr ""
 msgid "<0>Only songs by </0>{name}<1> by </1>{by}"
 msgstr ""
 
+#: internal/ui/features/concerts/page.go
+msgid "A larger city nearby may have some."
+msgstr ""
+
 #: internal/ui/i18n/errors.go
 msgid "A library sync is already running."
 msgstr ""
@@ -96,6 +100,7 @@ msgstr ""
 msgid "Account settings"
 msgstr ""
 
+#. Equaliser preset
 #: internal/ui/features/equalizer/curve.go
 msgid "Acoustic"
 msgstr ""
@@ -107,6 +112,10 @@ msgstr ""
 #: internal/ui/features/playlist/suggestions.go
 #: internal/ui/kit/controls_actions.go
 msgid "Add"
+msgstr ""
+
+#: internal/ui/features/library/artists.go
+msgid "Add music by {name} to collect it here."
 msgstr ""
 
 #: internal/ui/features/playlist/dialogs.go
@@ -364,14 +373,6 @@ msgstr ""
 msgid "Apple Music lists no live radio for your storefront right now."
 msgstr ""
 
-#: internal/ui/features/concerts/upcoming.go
-msgid "Apple Music lists no upcoming concerts in this area."
-msgstr ""
-
-#: internal/ui/features/concerts/page.go
-msgid "Apple Music lists no upcoming concerts in this area. A larger city nearby may have some."
-msgstr ""
-
 #: internal/ui/features/concerts/page.go
 msgid "Apple Music lists nothing near {city} for these filters. Widen the dates or choose another genre."
 msgstr ""
@@ -566,12 +567,14 @@ msgstr ""
 msgid "Audio quality"
 msgstr ""
 
+#. Apple's name for the feature: the queue's heading over the songs it adds, and its toggle. Apple: ASE.Web.Music.UpNext.Autoplay.Heading
 #: internal/ui/features/player/queue_list.go
 #: internal/ui/features/player/queue_tools.go
 #: internal/ui/features/settings/settingsfile.go
 msgid "AutoPlay"
 msgstr ""
 
+#. Queue summary when only AutoPlay's songs follow. Apple's ASE.Web.Music.UpNext.Heading.AutoplayActive ('autoplay is on') is lower case, for a subline, so it is not mapped.
 #: internal/ui/features/player/queue_summary.go
 msgid "AutoPlay is on"
 msgstr ""
@@ -796,11 +799,6 @@ msgid "Choose a song, album or playlist to start"
 msgstr ""
 
 #: internal/ui/features/concerts/page.go
-#: internal/ui/features/concerts/upcoming.go
-msgid "Choose another city"
-msgstr ""
-
-#: internal/ui/features/concerts/page.go
 msgid "Choose both dates"
 msgstr ""
 
@@ -816,6 +814,7 @@ msgstr ""
 msgid "Cities that match"
 msgstr ""
 
+#. Equaliser preset
 #: internal/ui/features/equalizer/curve.go
 msgid "Classical"
 msgstr ""
@@ -1924,6 +1923,7 @@ msgstr ""
 msgid "Editors' order"
 msgstr ""
 
+#. Equaliser preset
 #: internal/ui/features/equalizer/curve.go
 msgid "Electronic"
 msgstr ""
@@ -2092,10 +2092,6 @@ msgstr ""
 msgid "Featured artists"
 msgstr ""
 
-#: internal/ui/features/discover/front.go
-msgid "Featured cards"
-msgstr ""
-
 #: internal/ui/features/album/sections.go
 msgid "Featured in playlists"
 msgstr ""
@@ -2124,10 +2120,6 @@ msgstr ""
 msgid "Filter shortcuts"
 msgstr ""
 
-#: internal/ui/features/concerts/location.go
-msgid "Find a city"
-msgstr ""
-
 #: internal/ui/kit/overlays_palette.go
 msgid "Find a page, action or music in your library"
 msgstr ""
@@ -2153,6 +2145,7 @@ msgstr ""
 msgid "First-run setup"
 msgstr ""
 
+#. Equaliser preset
 #: internal/ui/features/equalizer/curve.go
 msgid "Flat"
 msgstr ""
@@ -2343,6 +2336,7 @@ msgstr ""
 msgid "High · 256 kbps"
 msgstr ""
 
+#. Equaliser preset
 #: internal/ui/features/equalizer/curve.go
 msgid "Hip-Hop"
 msgstr ""
@@ -2504,6 +2498,7 @@ msgstr ""
 msgid "Its two-factor method (such as a security key) can't be completed inside Sona. Sign in with your browser instead."
 msgstr ""
 
+#. Equaliser preset
 #: internal/ui/features/equalizer/curve.go
 msgid "Jazz"
 msgstr ""
@@ -2734,6 +2729,7 @@ msgstr ""
 msgid "Loading…"
 msgstr ""
 
+#: internal/ui/features/concerts/location.go
 #: internal/ui/features/concerts/page.go
 msgid "Location"
 msgstr ""
@@ -2746,6 +2742,7 @@ msgstr ""
 msgid "Lossless"
 msgstr ""
 
+#. Equaliser preset
 #: internal/ui/features/equalizer/curve.go
 msgid "Loudness"
 msgstr ""
@@ -2890,6 +2887,7 @@ msgstr ""
 msgid "Move here"
 msgstr ""
 
+#. Queue row menu: moves the song to the end of the songs the user queued, before AutoPlay's. Apple has no such item.
 #: internal/ui/features/player/queue_menu.go
 msgid "Move to end"
 msgstr ""
@@ -3120,11 +3118,7 @@ msgid "No chart here"
 msgstr ""
 
 #: internal/ui/features/concerts/location.go
-msgid "No cities match “{term}”."
-msgstr ""
-
-#: internal/ui/features/concerts/location.go
-msgid "No cities match “{term}”. Try the name of a bigger city nearby."
+msgid "No cities found"
 msgstr ""
 
 #: internal/ui/account/signin.go
@@ -3132,12 +3126,8 @@ msgid "No code was entered in time, so Apple closed the attempt. Start again."
 msgstr ""
 
 #: internal/ui/features/concerts/page.go
-msgid "No concerts match"
-msgstr ""
-
-#: internal/ui/features/concerts/page.go
 #: internal/ui/features/concerts/upcoming.go
-msgid "No concerts near {city}"
+msgid "No concerts"
 msgstr ""
 
 #: internal/ui/features/search/groups.go
@@ -3238,6 +3228,11 @@ msgstr ""
 
 #: internal/ui/features/search/groups.go
 msgid "No top results for “{q}”"
+msgstr ""
+
+#: internal/ui/features/concerts/page.go
+#: internal/ui/features/concerts/upcoming.go
+msgid "No upcoming concerts. Please check back later."
 msgstr ""
 
 #: internal/ui/account/signin.go
@@ -3350,6 +3345,7 @@ msgstr ""
 msgid "Not set"
 msgstr ""
 
+#. The account menu's status line
 #: internal/ui/features/auth/menu.go
 msgid "Not signed in"
 msgstr ""
@@ -3369,10 +3365,6 @@ msgstr ""
 
 #: internal/ui/features/player/queue_summary.go
 msgid "Nothing after this song"
-msgstr ""
-
-#: internal/ui/features/library/artists.go
-msgid "Nothing by {name} is in your library yet."
 msgstr ""
 
 #: internal/ui/features/settings/summaries.go
@@ -3445,10 +3437,12 @@ msgstr ""
 msgid "Now playing"
 msgstr ""
 
+#. Said by screen readers when a song starts. A preview is Apple Music's 30-second clip of the song, not the full song.
 #: internal/ui/features/player/announcer.go
 msgid "Now playing a preview: {name}"
 msgstr ""
 
+#. Said by screen readers when a song starts. A preview is Apple Music's 30-second clip of the song, not the full song.
 #: internal/ui/features/player/announcer.go
 msgid "Now playing a preview: {name} by {artist}"
 msgstr ""
@@ -3495,6 +3489,7 @@ msgstr ""
 msgid "Off: your system asks apps to reduce motion"
 msgstr ""
 
+#. In the account menu while Apple can't be reached
 #: internal/ui/features/auth/menu.go
 msgid "Offline. Sona keeps using your saved sign-in."
 msgstr ""
@@ -3724,6 +3719,7 @@ msgstr ""
 msgid "Phone call"
 msgstr ""
 
+#. Equaliser preset
 #: internal/ui/features/equalizer/curve.go
 msgid "Piano"
 msgstr ""
@@ -3958,6 +3954,7 @@ msgstr ""
 msgid "Plays stay out of your Apple Music listening history and recommendations, and aren't scrobbled to Last.fm or ListenBrainz, shown on Discord or added to History. The same as the button in the player bar."
 msgstr ""
 
+#. Under the account menu's Private listening switch
 #: internal/ui/features/auth/menu.go
 msgid "Plays stay out of your listening history, scrobbles and Discord."
 msgstr ""
@@ -4044,14 +4041,19 @@ msgstr ""
 msgid "Previous track"
 msgstr ""
 
+#. Short label of the private listening switch while it is on
 #: internal/ui/features/private/private.go
 msgid "Private"
 msgstr ""
 
+#. Label of the private listening switch while a development build of Sona keeps it on
 #: internal/ui/features/private/private.go
 msgid "Private (development build)"
 msgstr ""
 
+#. Apple Music's own name for the mode: plays aren't reported to Apple, so they don't shape recommendations or Replay.
+#. Setting name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
+#. Switch name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
 #: internal/ui/features/auth/menu.go
 #: internal/ui/features/onboarding/playback.go
 #: internal/ui/features/private/private.go
@@ -4061,10 +4063,12 @@ msgstr ""
 msgid "Private listening"
 msgstr ""
 
+#. A development build of Sona, not a release
 #: internal/ui/features/private/private.go
 msgid "Private listening (development build)"
 msgstr ""
 
+#. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'. SONA_PRIVATE=1 is an environment variable, keep as is.
 #: internal/ui/features/private/private.go
 msgid "Private listening (forced by SONA_PRIVATE=1)"
 msgstr ""
@@ -4406,6 +4410,7 @@ msgctxt "keyboard key"
 msgid "Right Arrow"
 msgstr ""
 
+#. Equaliser preset
 #: internal/ui/features/equalizer/curve.go
 msgid "Rock"
 msgstr ""
@@ -4497,6 +4502,10 @@ msgstr ""
 msgid "Search Apple Music for “{term}”"
 msgstr ""
 
+#: internal/ui/features/concerts/location.go
+msgid "Search cities"
+msgstr ""
+
 #: internal/ui/features/search/scope.go
 msgid "Search in"
 msgstr ""
@@ -4545,6 +4554,7 @@ msgid "Sending…"
 msgstr ""
 
 #: internal/ui/features/concerts/page.go
+#: internal/ui/features/concerts/upcoming.go
 msgid "Set location"
 msgstr ""
 
@@ -4864,6 +4874,7 @@ msgstr ""
 msgid "Signed in to Apple Music"
 msgstr ""
 
+#. The account menu's status line: signed in, then the storefront's country
 #: internal/ui/features/auth/menu.go
 msgid "Signed in · {store}"
 msgstr ""
@@ -4891,6 +4902,7 @@ msgstr ""
 msgid "Similar artists to {artist}"
 msgstr ""
 
+#. Under the AutoPlay heading in the queue. Apple: ASE.Web.Music.UpNext.Autoplay.Description
 #: internal/ui/features/player/queue_list.go
 msgid "Similar music will keep playing"
 msgstr ""
@@ -5383,14 +5395,11 @@ msgstr ""
 msgid "Suggest less like {name}"
 msgstr ""
 
-#: internal/ui/features/concerts/location.go
-msgid "Suggested cities"
-msgstr ""
-
 #: internal/ui/features/playlist/suggestions.go
 msgid "Suggested songs"
 msgstr ""
 
+#: internal/ui/features/concerts/location.go
 #: internal/ui/features/search/field.go
 msgid "Suggestions"
 msgstr ""
@@ -5912,6 +5921,7 @@ msgstr ""
 msgid "Trusted phone number"
 msgstr ""
 
+#. Reads the sign-in from the system keyring again. Apple's wording: ASE.Web.Music.Error.TryAgain
 #: internal/ui/account/keyring.go
 #: internal/ui/features/auth/menu.go
 #: internal/ui/features/library/sync.go
@@ -5920,6 +5930,10 @@ msgstr ""
 #: internal/ui/features/video/view.go
 #: internal/ui/kit/controls_states.go
 msgid "Try again"
+msgstr ""
+
+#: internal/ui/features/concerts/location.go
+msgid "Try the name of a bigger city nearby."
 msgstr ""
 
 #: internal/ui/account/keyring.go
@@ -6134,6 +6148,7 @@ msgstr ""
 msgid "Visible"
 msgstr ""
 
+#. Equaliser preset
 #: internal/ui/features/equalizer/curve.go
 msgid "Vocal"
 msgstr ""
@@ -6208,10 +6223,6 @@ msgstr ""
 
 #: internal/ui/features/settings/audio.go
 msgid "Where Sona plays. Switching moves the music that's playing without a pause."
-msgstr ""
-
-#: internal/ui/features/concerts/location.go
-msgid "Where are you?"
 msgstr ""
 
 #: internal/ui/account/signedin.go
@@ -6715,42 +6726,52 @@ msgstr ""
 msgid "your phone"
 msgstr ""
 
+#. {0} is the number of albums and playlists listed.
 #: internal/ui/features/library/recent.go
 msgid "{0, plural, one {# album or playlist} other {# albums and playlists}}"
 msgstr ""
 
+#. {0} is the number of albums listed.
 #: internal/ui/features/library/albums.go
 msgid "{0, plural, one {# album} other {# albums}}"
 msgstr ""
 
+#. {0} is the number of the artist's albums and {1} the number of their songs.
 #: internal/ui/features/artist/page.go
 msgid "{0, plural, one {# album} other {# albums}}, {1, plural, one {# song} other {# songs}} in your library"
 msgstr ""
 
+#. {0} is the number of items.
 #: internal/ui/kit/overlays_actions.go
 msgid "{0, plural, one {# item} other {# items}}"
 msgstr ""
 
+#. {0} is the number of music videos.
 #: internal/ui/features/library/videos.go
 msgid "{0, plural, one {# music video} other {# music videos}}"
 msgstr ""
 
+#. {0} is the number of peripheral batteries the motion report left out.
 #: internal/ui/features/settings/motiondiag.go
 msgid "{0, plural, one {# peripheral battery (a mouse, keyboard or headset) is ignored.} other {# peripheral batteries (mice, keyboards, headsets) are ignored.}}"
 msgstr ""
 
+#. {0} is the number of collaborators.
 #: internal/ui/features/playlist/collaborators.go
 msgid "{0, plural, one {# person can add songs to this playlist.} other {# people can add songs to this playlist.}}"
 msgstr ""
 
+#. {0} is the number of playlists listed.
 #: internal/ui/features/library/playlists.go
 msgid "{0, plural, one {# playlist} other {# playlists}}"
 msgstr ""
 
+#. {0} is the number of singles and EPs listed.
 #: internal/ui/features/library/albums.go
 msgid "{0, plural, one {# single or EP} other {# singles & EPs}}"
 msgstr ""
 
+#. {0} is the number of songs: a list's total, or a playlist's track count.
 #: internal/ui/features/album/format.go
 #: internal/ui/features/home/local.go
 #: internal/ui/features/library/favourites.go
@@ -6760,14 +6781,17 @@ msgstr ""
 msgid "{0, plural, one {# song} other {# songs}}"
 msgstr ""
 
+#. {0} is the number of videos in the cache.
 #: internal/ui/features/settings/motiondiag.go
 msgid "{0, plural, one {# video} other {# videos}}"
 msgstr ""
 
+#. {0} is the number of composers.
 #: internal/ui/features/album/model.go
 msgid "{0, plural, one {Composer} other {Composers}}"
 msgstr ""
 
+#. {0} is the number of genres.
 #: internal/ui/features/album/model.go
 msgid "{0, plural, one {Genre} other {Genres}}"
 msgstr ""

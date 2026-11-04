@@ -56,6 +56,9 @@ func (s *settings) playback(c *ui.Context) {
 			if pb.PrivateListening {
 				s.privateRow(c)
 			} else {
+				// translators: Apple Music's own name for the mode: plays aren't reported to Apple, so they don't shape recommendations or Replay.
+				// translators: Setting name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
+				// translators: Switch name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
 				s.unavailableRow(c, "private-listening", i18n.T("Private listening"),
 					i18n.T("This platform's player reports plays to Apple itself, so Sona can't hold them back."))
 			}

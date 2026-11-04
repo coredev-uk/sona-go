@@ -128,6 +128,86 @@ func view(s string) {
 	}
 }
 
+const notesSource = `package page
+
+import "github.com/coredev-uk/sona-go/internal/ui/i18n"
+
+func view(n int) {
+	// translators: a preset of the equaliser
+	_ = i18n.T("Flat")
+	_ = i18n.T("Rock") // translators: also a preset
+	// An ordinary comment is no note.
+	_ = i18n.T("Plain")
+	// translators: {0} is the number
+	// of songs.
+	// translators: said by screen readers
+	_ = i18n.T("{0, plural, one {# song} other {# songs}}", 0, n)
+	// translators: the same message from a second place
+	_ = i18n.TC("verb", "Play")
+
+	// translators: too far above to belong
+
+	_ = i18n.T("Far")
+}
+
+func more() {
+	// translators: a preset of the equaliser
+	_ = i18n.T("Flat") // translators: said again
+}
+`
+
+func TestScanUICollectsTranslatorNotes(t *testing.T) {
+	r := writeTree(t, map[string]string{"internal/ui/features/page/page.go": notesSource})
+	msgs, err := scanUI(string(r))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string][]string{}
+	for _, m := range msgs {
+		got[m.ID] = m.notes
+	}
+	for id, want := range map[string][]string{
+		"Flat":  {"a preset of the equaliser", "said again"},
+		"Rock":  {"also a preset"},
+		"Plain": nil,
+		"Far":   nil,
+		"Play":  {"the same message from a second place"},
+		"{0, plural, one {# song} other {# songs}}": {"said by screen readers", "{0} is the number of songs."},
+	} {
+		if !slices.Equal(got[id], want) {
+			t.Errorf("notes of %q = %q, want %q", id, got[id], want)
+		}
+	}
+}
+
+func TestExtractUIWritesNotesAsExtractedComments(t *testing.T) {
+	r := writeTree(t, map[string]string{
+		"internal/ui/features/page/page.go": notesSource,
+		sourcePOPath:                        "",
+		pseudoPOPath:                        "",
+	})
+	if err := runExtractUI(r, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{sourcePOPath, pseudoPOPath} {
+		b, err := os.ReadFile(r.path(path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(b), "#. a preset of the equaliser\n#. said again\n#: internal/ui/features/page/page.go\nmsgid \"Flat\"\n") {
+			t.Errorf("%s lacks Flat's notes:\n%s", path, b)
+		}
+	}
+	// A changed note makes the catalogue stale.
+	src := strings.Replace(notesSource, "also a preset", "a preset too", 1)
+	if err := os.WriteFile(r.path("internal/ui/features/page/page.go"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runExtractUI(r, true); err == nil || !strings.Contains(err.Error(), `~ "Rock"`) {
+		t.Errorf("a changed note passed the check: %v", err)
+	}
+}
+
 func TestExtractUIWritesExactCatalogues(t *testing.T) {
 	stale := "msgid \"\"\nmsgstr \"\"\n\"Language: en\\n\"\n\n#: src/x.tsx\nmsgid \"Albums\"\nmsgstr \"Albums\"\n\n#: src/old.tsx\nmsgid \"Only in Lingui\"\nmsgstr \"Only in Lingui\"\n"
 	r := writeTree(t, map[string]string{
@@ -214,7 +294,7 @@ func entryKeys(f *po.File) []string {
 func TestExtractUIFailsOnMappingOfADroppedMessage(t *testing.T) {
 	r := writeTree(t, map[string]string{
 		"internal/ui/features/page/page.go": testSource,
-		mappingPath: `[{"message":"Albums","key":"A"},{"message":"Gone","key":"G"}]`,
+		mappingPath:                         `[{"message":"Albums","key":"A"},{"message":"Gone","key":"G"}]`,
 	})
 	if err := runExtractUI(r, false); err == nil || !strings.Contains(err.Error(), "Gone") {
 		t.Fatalf("mapping of a dropped message accepted: %v", err)

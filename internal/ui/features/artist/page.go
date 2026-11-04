@@ -255,6 +255,7 @@ func (a *artist) libraryArtist(c *ui.Context, pg *pageState, d *services.ArtistD
 			full = append(full, al)
 		}
 	}
+	// translators: {0} is the number of the artist's albums and {1} the number of their songs.
 	libraryLine := i18n.T("{0, plural, one {# album} other {# albums}}, {1, plural, one {# song} other {# songs}} in your library",
 		"0", len(d.Albums), "1", len(d.Songs))
 	genre, lead := "", ""

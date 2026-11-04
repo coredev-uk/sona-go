@@ -102,13 +102,17 @@ func TestEmbeddedMappingFitsCatalogue(t *testing.T) {
 	}
 }
 
-// Moving the UI from Lingui to Go keeps every mapping v0.2.0 shipped: its
-// 147 messages are all still mapped to the same keys and placeholders, so
-// Apple's translations reach every message they did before. A message
-// dropped from the UI drops its mapping with it (the test above), so the
-// list here only shrinks when a v0.2.0 feature is retired on purpose.
+// retiredV020 are v0.2.0's mapped messages the native UI no longer asks
+// for, with why; none today. A retired feature's message is listed here
+// and left in the verbatim copy of v0.2.0's mapping.
+var retiredV020 = map[po.Key]string{}
+
+// Moving the UI from Lingui to Go keeps every mapping v0.2.0 shipped: each of
+// its 147 messages still reaches the app mapped to the same key and
+// placeholders, so Apple's translations apply to every message they did
+// before, unless it is listed as retired.
 func TestV020MappingsStillHold(t *testing.T) {
-	const v020 = 147
+	const v020 = 147 // the verbatim copy's size
 	old, err := os.ReadFile("testdata/v0.2.0-apple-keys.json")
 	if err != nil {
 		t.Fatal(err)
@@ -120,30 +124,22 @@ func TestV020MappingsStillHold(t *testing.T) {
 	if len(was) != v020 {
 		t.Fatalf("testdata holds %d mappings, v0.2.0 had %d", len(was), v020)
 	}
-	b, err := os.ReadFile("../../ui/i18n/locales/apple-keys.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	now, err := DecodeMappings(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	have := map[po.Key]Mapping{}
-	for _, m := range now {
-		have[m.MsgKey()] = m
-	}
-	for _, m := range was {
-		got, ok := have[m.MsgKey()]
-		if !ok || got.Key != m.Key || got.Plural != m.Plural || !maps.Equal(got.Placeholders, m.Placeholders) {
-			t.Errorf("v0.2.0 mapped %q to %s (%v); now %+v", m.Message, m.Key, m.Placeholders, got)
-		}
-	}
 	cat, err := Embedded()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cat.Mappings) < v020 {
-		t.Errorf("%d mapped messages reach the app, v0.2.0 had %d", len(cat.Mappings), v020)
+	have := map[po.Key]Mapping{}
+	for _, m := range cat.Mappings {
+		have[m.MsgKey()] = m
+	}
+	for _, m := range was {
+		if _, ok := retiredV020[m.MsgKey()]; ok {
+			continue
+		}
+		got, ok := have[m.MsgKey()]
+		if !ok || got.Key != m.Key || got.Plural != m.Plural || !maps.Equal(got.Placeholders, m.Placeholders) {
+			t.Errorf("v0.2.0 mapped %q to %s (%v); the app has %+v", m.Message, m.Key, m.Placeholders, got)
+		}
 	}
 }
 

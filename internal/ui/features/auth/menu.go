@@ -32,6 +32,7 @@ func stateLine(s services.AuthStatus) string {
 			name = strings.ToUpper(s.StorefrontID)
 		}
 		if name != "" {
+			// translators: The account menu's status line: signed in, then the storefront's country
 			return i18n.T("Signed in · {store}", "store", name)
 		}
 		return i18n.T("Signed in to Apple Music")
@@ -47,6 +48,7 @@ func stateLine(s services.AuthStatus) string {
 	if s.Keyring == "unavailable" {
 		return i18n.T("Sona couldn't read your sign-in from your keyring")
 	}
+	// translators: The account menu's status line
 	return i18n.T("Not signed in")
 }
 
@@ -136,6 +138,7 @@ func (f *feature) menuItems(s services.AuthStatus, known bool, line string, priv
 		note(line)
 	}
 	if signedIn && s.Offline {
+		// translators: In the account menu while Apple can't be reached
 		note(i18n.T("Offline. Sona keeps using your saved sign-in."))
 	}
 	if signedIn && s.Restricted {
@@ -190,6 +193,7 @@ func (f *feature) privateItems(priv store.Result[services.PrivateState]) []kit.M
 		row.Reason = i18n.T("On because Sona was started with SONA_PRIVATE=1")
 		return []kit.MenuItem{row}
 	}
+	// translators: Under the account menu's Private listening switch
 	text := i18n.T("Plays stay out of your listening history, scrobbles and Discord.")
 	if priv.HasData && st.Source == "development" && st.On {
 		text = i18n.T("Private listening is on for this development build. Turning it off lasts until Sona quits.")

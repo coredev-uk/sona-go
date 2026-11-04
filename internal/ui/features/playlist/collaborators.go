@@ -111,6 +111,7 @@ func (p *playlists) collaboratorsByline(c *ui.Context, collab services.PlaylistC
 // collaboratorsDialog lists everyone who works on the playlist.
 func (p *playlists) collaboratorsDialog(c *ui.Context, collab services.PlaylistCollaboration) {
 	st := &p.page.collab
+	// translators: {0} is the number of collaborators.
 	desc := i18n.T("{0, plural, one {# person can add songs to this playlist.} other {# people can add songs to this playlist.}}", "0", len(collab.Collaborators))
 	if role := roleLine(collab.Viewer); role != "" {
 		desc += " " + role

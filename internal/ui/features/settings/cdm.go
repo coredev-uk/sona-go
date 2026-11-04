@@ -95,6 +95,7 @@ func (s *settings) cdmRow(c *ui.Context) {
 					cdmProgressBar(c, status)
 				}
 				if retry {
+					// translators: Reads the sign-in from the system keyring again. Apple's wording: ASE.Web.Music.Error.TryAgain
 					b := kit.Button(c.Key("retry"), i18n.T("Try again"), kit.ButtonOpts{
 						Variant: kit.Outline, Size: kit.SizeSM, Icon: "rotate-cw",
 					}).Margin(4, 0, 0, 0)

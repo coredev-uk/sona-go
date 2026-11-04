@@ -150,6 +150,7 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 	}
 	if len(genres) > 0 {
 		m.facts = append(m.facts, fact{
+			// translators: {0} is the number of genres.
 			i18n.T("{0, plural, one {Genre} other {Genres}}", "0", len(genres)),
 			strings.Join(genres, ", "),
 		})
@@ -157,6 +158,7 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 	if len(m.writers) > 0 {
 		people := joinNames(m.writers)
 		if m.classical {
+			// translators: {0} is the number of composers.
 			m.facts = append(m.facts, fact{i18n.T("{0, plural, one {Composer} other {Composers}}", "0", len(m.writers)), people})
 		} else {
 			m.facts = append(m.facts, fact{i18n.T("Written by"), people})

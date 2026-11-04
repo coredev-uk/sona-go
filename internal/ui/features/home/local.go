@@ -185,6 +185,7 @@ func (h *home) recentPlaylists(c *ui.Context, ctx kit.ItemsCtx) {
 	for _, p := range res.Data.Items {
 		sub := p.Curator
 		if p.TrackCount > 0 {
+			// translators: {0} is the number of songs: a list's total, or a playlist's track count.
 			sub = i18n.T("{0, plural, one {# song} other {# songs}}", "0", p.TrackCount)
 		}
 		t := kit.CoverItem{Key: p.ID, Title: p.Name, Subtitle: sub, Art: p.Art.Medium}
