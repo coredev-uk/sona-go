@@ -166,3 +166,18 @@ func TestTheQueuePanelListsEditsAndReorders(t *testing.T) {
 	f.click(t, "Clear")
 	f.tt.Until("one song left", func() bool { return len(f.env.Play.Queue().Items) == 1 })
 }
+
+func TestTheAutoPlayToggleFollowsTheCoordinator(t *testing.T) {
+	f := newFlow(t)
+	f.click(t, "Queue")
+	f.tt.Until("the queue", f.tt.Shows("AutoPlay"))
+	if f.env.Play.State().AutoPlay {
+		t.Fatal("AutoPlay starts on")
+	}
+	// Turning it on asks Apple for a station: the fixture network refuses it, and
+	// the coordinator reports that rather than crashing.
+	f.click(t, "AutoPlay")
+	f.tt.Until("AutoPlay on", func() bool { return f.env.Play.State().AutoPlay })
+	f.click(t, "AutoPlay")
+	f.tt.Until("AutoPlay off", func() bool { return !f.env.Play.State().AutoPlay })
+}
