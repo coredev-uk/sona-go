@@ -71,6 +71,7 @@ func (s *settings) findPanel(c *ui.Context, narrow bool, list func()) {
 		f.query = ""
 		f.focus = focusNone
 		if e.Section != s.last {
+			s.pos = ui.ScrollState{}
 			s.last = e.Section
 			s.env.Nav.Replace(settingsPath + "?section=" + e.Section)
 		}

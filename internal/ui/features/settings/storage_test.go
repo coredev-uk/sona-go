@@ -151,15 +151,28 @@ type fileSys struct {
 	imp      services.SettingsImport
 	err      error
 	calls    []string
+	mu       sync.Mutex
+}
+
+func (f *fileSys) note(s string) {
+	f.mu.Lock()
+	f.calls = append(f.calls, s)
+	f.mu.Unlock()
+}
+
+func (f *fileSys) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.calls)
 }
 
 func (f *fileSys) ExportSettings(context.Context) (string, error) {
-	f.calls = append(f.calls, "export")
+	f.note("export")
 	return f.exported, f.err
 }
 
 func (f *fileSys) ImportSettings(context.Context) (services.SettingsImport, error) {
-	f.calls = append(f.calls, "import")
+	f.note("import")
 	return f.imp, f.err
 }
 
@@ -176,6 +189,7 @@ func fileRig(t *testing.T, fs *fileSys) *rig {
 func TestSettingsFileExport(t *testing.T) {
 	fs := &fileSys{exported: filepath.Join("/tmp", "sona-settings.json")}
 	r := fileRig(t, fs)
+	r.reveal("settings-file")
 	if err := r.tt.Click("Export…"); err != nil {
 		t.Fatal(err)
 	}
@@ -183,15 +197,17 @@ func TestSettingsFileExport(t *testing.T) {
 	// A cancelled chooser says nothing.
 	fs.exported = ""
 	r.tt.Until("buttons back", r.tt.Shows("Export…"))
+	r.reveal("settings-file")
 	if err := r.tt.Click("Export…"); err != nil {
 		t.Fatal(err)
 	}
-	r.tt.Until("export asked again", func() bool { return len(fs.calls) == 2 })
+	r.tt.Until("export asked again", func() bool { return fs.count() == 2 })
 }
 
 func TestSettingsFileExportFailureToasts(t *testing.T) {
 	fs := &fileSys{err: errors.New("disk full")}
 	r := fileRig(t, fs)
+	r.reveal("settings-file")
 	if err := r.tt.Click("Export…"); err != nil {
 		t.Fatal(err)
 	}
@@ -201,12 +217,14 @@ func TestSettingsFileExportFailureToasts(t *testing.T) {
 func TestSettingsFileImportNamesRows(t *testing.T) {
 	fs := &fileSys{imp: services.SettingsImport{Path: "/tmp/a.json", Changed: []string{"theme", "audio.equalizer.preset", "audio.equalizer.custom"}}}
 	r := fileRig(t, fs)
+	r.reveal("settings-file")
 	if err := r.tt.Click("Import…"); err != nil {
 		t.Fatal(err)
 	}
 	r.tt.Until("toast", r.tt.Shows("Imported 2 settings", "Theme, Equaliser"))
 	fs.imp = services.SettingsImport{Path: "/tmp/a.json"}
 	r.tt.Until("buttons back", r.tt.Shows("Import…"))
+	r.reveal("settings-file")
 	if err := r.tt.Click("Import…"); err != nil {
 		t.Fatal(err)
 	}

@@ -86,6 +86,7 @@ func newPBRig(t *testing.T, caps services.Capabilities, cdm services.CDMStatus, 
 		}, nil
 	}
 	r.tt = hn.Tester(t, func(c *ui.Context) {
+		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Column(c).Fill().Children(func() {
 			r.router.View(c, func(rt *ui.Route) {
 				if rt.Match(settingsPath) {
@@ -98,7 +99,7 @@ func newPBRig(t *testing.T, caps services.Capabilities, cdm services.CDMStatus, 
 		store.Use(hn.Env.Queries, store.Key{"catalog", "lyrics", "song"}, func(context.Context) (int, error) {
 			return int(p.lyricsQs.Add(1)), nil
 		}, store.Options{Stale: store.Forever})
-	}, 1132, 1500)
+	}, 1132, 700)
 	r.router.Replace(settingsPath + "?section=playback")
 	return p
 }
@@ -115,6 +116,15 @@ func (p *pbRig) click(label string) {
 // text, so a click by name would land on the title).
 func (p *pbRig) focus(label string) {
 	p.t.Helper()
+	// Find's landing: one or two frames, not a walk of Tab stops (each a frame).
+	for _, e := range settingIndex(nil) {
+		if e.Title == label {
+			p.s.focusSetting(e.ID)
+			p.tt.Drain()
+			p.tt.Drain()
+			break
+		}
+	}
 	for range 300 {
 		if p.tt.Focused(label) {
 			return

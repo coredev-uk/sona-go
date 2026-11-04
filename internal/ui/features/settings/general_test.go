@@ -81,6 +81,7 @@ type generalRig struct {
 func newGeneralRig(t *testing.T, caps services.Capabilities, prepare func(*config.Settings)) *generalRig {
 	t.Helper()
 	hn := uitest.New(t)
+	hn.Env.HasRoute = func(p string) bool { return p == "/library/albums" }
 	if prepare != nil {
 		cur := hn.Settings.Get()
 		prepare(&cur)
@@ -101,6 +102,7 @@ func newGeneralRig(t *testing.T, caps services.Capabilities, prepare func(*confi
 	r.s.init()
 	store.Set(hn.Env.Queries, store.KeyCapabilities, caps)
 	r.tt = hn.Tester(t, func(c *ui.Context) {
+		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Column(c).Fill().Children(func() {
 			r.router.View(c, func(rt *ui.Route) {
 				if rt.Match(settingsPath) {
@@ -109,7 +111,7 @@ func newGeneralRig(t *testing.T, caps services.Capabilities, prepare func(*confi
 			})
 			kit.Toaster(c)
 		})
-	}, 1132, 2400)
+	}, 1132, 800)
 	g := &generalRig{rig: r, up: up, dt: dt}
 	// Every first fetch has landed (a later Set would be overwritten).
 	r.tt.Until("General", r.tt.Shows("Starting Sona", "Updates", "Check now"))
@@ -214,15 +216,28 @@ func TestChangingLanguageSavesAndRefetchesEveryQuery(t *testing.T) {
 	g.until("automatic", func() bool { return g.saved().Language == "" })
 }
 
-func TestOpenOnSavesTheStartPageOrResumes(t *testing.T) {
-	g := newGeneralRig(t, linuxCaps(), func(s *config.Settings) { s.Desktop.LastRoute = "/charts" })
+func TestOpenOnOffersTheRegisteredPagesAndTheChoiceIsWhereSonaOpens(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), func(s *config.Settings) { s.Desktop.LastRoute = "/charts"; s.Desktop.ResumeLastRoute = true })
 	g.choose("start-page", "Albums")
 	g.until("start page", func() bool {
 		d := g.saved().Desktop
 		return d.StartPage == "/library/albums" && !d.ResumeLastRoute && d.LastRoute == ""
 	})
-	g.choose("start-page", "The page you were last on")
-	g.until("resume", func() bool { return g.saved().Desktop.ResumeLastRoute })
+	// What Sona opens on at the next start (the shell reads StartPage; the
+	// shell's own test covers that it opens there).
+	if got := g.saved().Desktop.StartRoute(); got != "/library/albums" {
+		t.Errorf("the next start opens %q", got)
+	}
+	// A page no module registered is not offered; the last page waits for route memory.
+	for _, no := range []string{"Charts", "The page you were last on"} {
+		g.tt.Key(0, ui.KeyEnter)
+		g.tt.Drain()
+		if g.tt.HasText(no) {
+			t.Errorf("%q is offered", no)
+		}
+		g.tt.Key(0, ui.KeyEscape)
+		g.tt.Drain()
+	}
 }
 
 func TestCloseActionSavesAndTheServiceReadsIt(t *testing.T) {
@@ -269,30 +284,21 @@ func TestAutostartIsAnUnavailableRowWithoutTheCapability(t *testing.T) {
 		"Not available on Linux yet."))
 }
 
-func TestTitleBarSavesAndSaysItAppliesNextStart(t *testing.T) {
-	caps := linuxCaps()
-	caps.WindowControls.Style = config.TitleBarAuto // as the window was created
-	g := newGeneralRig(t, caps, nil)
-	if g.tt.HasText("Applies the next time Sona starts.") {
-		t.Fatal("pending before a change")
-	}
-	g.choose("title-bar", "The desktop's")
-	g.until("saved", func() bool { return g.saved().TitleBar.Style == config.TitleBarDesktop })
-	g.until("hint", g.tt.Shows("Applies the next time Sona starts."))
-}
-
-func TestTitleBarIsHiddenOnMacOS(t *testing.T) {
+func TestTitleBarIsAnUnavailableRowUntilTheShellDrawsOne(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), nil)
+	g.tt.Until("reason", g.tt.Shows("Title bar", "Sona's own title bar comes with a later version: the desktop draws it."))
 	caps := linuxCaps()
 	caps.OS, caps.WindowControls.Native = "darwin", "inset"
-	g := newGeneralRig(t, caps, nil)
-	if g.tt.HasText("Automatic leaves the title bar") {
+	g2 := newGeneralRig(t, caps, nil)
+	if g2.tt.HasText("Sona's own title bar comes with a later version: the desktop draws it.") {
 		t.Error("the Title bar row shows on macOS")
 	}
 }
 
 func TestResetSizeCallsTheServiceAndNeverToastsOnSuccess(t *testing.T) {
 	g := newGeneralRig(t, linuxCaps(), func(s *config.Settings) { s.Window = config.Window{Width: 1280, Height: 800, Maximised: true} })
-	g.tt.Until("size", g.tt.Shows("Sona opens at the size you left it, maximised: 1,280 × 800."))
+	g.tt.Until("size", g.tt.Shows("Sona opens at the size you left it, maximised: 1280 × 800."))
+	g.reveal("window-size")
 	g.click("Reset size")
 	g.until("reset", func() bool { return g.dt.count() == 1 })
 	if g.tt.HasText("Couldn't reset the window") {
@@ -393,6 +399,7 @@ func TestCheckNowRunsTheCheckAndReplacesTheStatus(t *testing.T) {
 	g := newGeneralRig(t, linuxCaps(), nil)
 	g.up.status = services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.2.0", Available: true}
 	g.until("button", g.tt.Shows("Check now"))
+	g.toEnd()
 	g.click("Check now")
 	g.until("new verdict", g.tt.Shows("Sona 1.2.0 is available"))
 	if c, _ := g.up.count(); c != 1 {
@@ -407,6 +414,7 @@ func TestFailedCheckSaysWhy(t *testing.T) {
 	g := newGeneralRig(t, linuxCaps(), nil)
 	g.up.checkErr = errors.New("boom")
 	g.until("button", g.tt.Shows("Check now"))
+	g.toEnd()
 	g.click("Check now")
 	g.until("failure", g.tt.Shows("Couldn't check: "))
 }
@@ -416,10 +424,12 @@ func TestViewReleaseOpensThePageAndAFailureToasts(t *testing.T) {
 	g.up.onOpen = func() { _ = g.h.Env.OpenURL("https://github.com/coredev-uk/sona/releases/latest") }
 	store.Set(g.h.Env.Queries, keyUpdates, services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.1.0", Available: true})
 	g.until("button", g.tt.Shows("View release"))
+	g.toEnd()
 	g.click("View release")
 	g.until("opened", func() bool { return len(g.h.Opened()) == 1 })
 
 	g.up.openErr = errors.New("no browser")
+	g.toEnd()
 	g.click("View release")
 	g.until("toast", g.tt.Shows("Couldn't open the release"))
 }

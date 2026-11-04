@@ -110,6 +110,7 @@ func newConnRig(t *testing.T, fake *connFake, integ services.IntegrationsStatus,
 	store.Set(hn.Env.Queries, keyIntegrations, integ)
 	store.Set(hn.Env.Queries, store.KeyPrivate, services.PrivateState{Source: "setting"})
 	r.tt = hn.Tester(t, func(c *ui.Context) {
+		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Column(c).Fill().Children(func() {
 			r.router.View(c, func(rt *ui.Route) {
 				if rt.Match(settingsPath) {
@@ -118,7 +119,7 @@ func newConnRig(t *testing.T, fake *connFake, integ services.IntegrationsStatus,
 			})
 		})
 		kit.ConfirmHost(c)
-	}, 1132, 1100)
+	}, 1132, 700)
 	t.Cleanup(kit.CancelConfirm)
 	return &connRig{rig: r, fake: fake, core: hn.Core}
 }

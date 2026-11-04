@@ -39,6 +39,7 @@ func sectionRigWith(t *testing.T, section string, setup func(*settings), opts ..
 		setup(r.s)
 	}
 	r.tt = hn.Tester(t, func(c *ui.Context) {
+		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Column(c).Fill().Children(func() {
 			r.router.View(c, func(rt *ui.Route) {
 				if rt.Match(settingsPath) {

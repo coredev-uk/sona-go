@@ -82,6 +82,7 @@ func newScRig(t *testing.T, w, h int, before func(*scRig), opts ...uitest.Option
 		before(r)
 	}
 	r.tt = hn.Tester(t, func(c *ui.Context) {
+		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		r.dispatch(c)
 		ui.Column(c).Fill().Children(func() {
 			r.router.View(c, func(rt *ui.Route) {

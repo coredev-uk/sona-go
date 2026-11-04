@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -66,35 +67,10 @@ func (s *settings) closeActionRow(c *ui.Context, cfg config.Settings, caps servi
 	})
 }
 
-// titleBarRow says who draws the title bar (Windows and Linux).
-func (s *settings) titleBarRow(c *ui.Context, cfg config.Settings, caps services.Capabilities) {
-	controls := caps.WindowControls
-	desktop := controls.Desktop
-	var hint string
-	switch {
-	case controls.Automatic == "sona" && desktop != "":
-		hint = i18n.T("Automatic uses Sona's title bar on {desktop}, with the window buttons where your desktop puts them.", "desktop", desktop)
-	case controls.Automatic == "sona":
-		hint = i18n.T("Automatic uses Sona's title bar, with the window buttons where your system puts them.")
-	case desktop != "":
-		hint = i18n.T("Automatic leaves the title bar to {desktop}.", "desktop", desktop)
-	default:
-		hint = i18n.T("Automatic leaves the title bar to your desktop, which Sona doesn't recognise.")
-	}
-	value := cfg.TitleBar.Style
-	// The window keeps the title bar it was created with until Sona restarts.
-	if value != controls.Style {
-		hint += " " + i18n.T("Applies the next time Sona starts.")
-	}
-	items := []kit.SelectItem{
-		kit.SelectOption(config.TitleBarAuto, i18n.T("Automatic")),
-		kit.SelectOption("sona", i18n.T("Sona's, with window buttons")),
-		kit.SelectOption("sona-no-buttons", i18n.T("Sona's, without window buttons")),
-		kit.SelectOption("desktop", i18n.T("The desktop's")),
-	}
-	s.selectRow(c, rowOpts{ID: "title-bar", Title: i18n.T("Title bar"), Desc: hint}, value, items, false, func(v string) {
-		s.save(func(st *config.Settings) { st.TitleBar.Style = v })
-	})
+// titleBarRow is an unavailable row: the native window has no title bar of
+// Sona's own yet (the shell draws none until phase 3), so no style applies.
+func (s *settings) titleBarRow(c *ui.Context) {
+	s.unavailableRow(c, "title-bar", i18n.T("Title bar"), i18n.T("Sona's own title bar comes with a later version: the desktop draws it."))
 }
 
 // windowSizeRow shows the saved size and resets it.
@@ -102,9 +78,9 @@ func (s *settings) windowSizeRow(c *ui.Context, cfg config.Settings) {
 	w := cfg.Window
 	var desc string
 	if w.Maximised {
-		desc = i18n.T("Sona opens at the size you left it, maximised: <0>{width} × {height}</0>.", "width", w.Width, "height", w.Height)
+		desc = i18n.T("Sona opens at the size you left it, maximised: <0>{width} × {height}</0>.", "width", strconv.Itoa(w.Width), "height", strconv.Itoa(w.Height))
 	} else {
-		desc = i18n.T("Sona opens at the size you left it: <0>{width} × {height}</0>.", "width", w.Width, "height", w.Height)
+		desc = i18n.T("Sona opens at the size you left it: <0>{width} × {height}</0>.", "width", strconv.Itoa(w.Width), "height", strconv.Itoa(w.Height))
 	}
 	desc = stripTags(desc)
 	s.row(c, rowOpts{ID: "window-size", Title: i18n.T("Window size"), Desc: desc}, func() ui.Element {

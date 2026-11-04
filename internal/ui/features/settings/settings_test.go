@@ -2,6 +2,7 @@ package settings
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -46,6 +47,7 @@ func newRigCaps(t *testing.T, w, h int, shortcuts []module.BoundShortcut, caps *
 		services.Service[services.CDMService](hn.Core), services.Service[services.UpdatesService](hn.Core))
 	r.s.init()
 	r.tt = hn.Tester(t, func(c *ui.Context) {
+		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Column(c).Fill().Children(func() {
 			r.router.View(c, func(rt *ui.Route) {
 				if rt.Match(settingsPath) {
@@ -81,4 +83,21 @@ func (fakeScrobbler) ConnectListenBrainz(context.Context, string) (services.Scro
 
 func (fakeScrobbler) Disconnect(string) (services.ScrobbleStatus, error) {
 	return services.ScrobbleStatus{}, nil
+}
+
+// reveal scrolls a row into view and focuses its control (Find's landing),
+// so a click finds it in a short window: a tall one costs every frame.
+func (r *rig) reveal(id string) {
+	r.t.Helper()
+	r.s.focusSetting(id)
+	r.tt.Drain()
+	r.tt.Drain()
+}
+
+// toEnd scrolls the section to its end.
+func (r *rig) toEnd() {
+	r.t.Helper()
+	r.s.pos.Y = math.MaxFloat32
+	r.tt.Drain()
+	r.tt.Drain()
 }

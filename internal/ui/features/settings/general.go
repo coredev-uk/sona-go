@@ -9,9 +9,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
-// lastPage is the "Open on" value standing for the page Sona was last on.
-const lastPage = "last-page"
-
 // general is Settings → General: the language (once there is a choice),
 // starting Sona, its window, what it does while music plays, and updates.
 // Rows the platform can't back keep their place and say so.
@@ -38,7 +35,7 @@ func (s *settings) general(c *ui.Context) {
 		s.group(c, "general-window", i18n.T("Window"), "", func() {
 			s.closeActionRow(c, cfg, cp)
 			if cp.WindowControls.Native == "frame" {
-				s.titleBarRow(c, cfg, cp)
+				s.titleBarRow(c)
 			}
 			s.windowSizeRow(c, cfg)
 		})
@@ -64,25 +61,20 @@ func (s *settings) saveDesktop(change func(*config.Desktop)) {
 	s.save(func(st *config.Settings) { change(&st.Desktop) })
 }
 
-// startPageRow is "Open on".
+// startPageRow is "Open on": the pages Sona can open on that exist in this
+// build. "The page you were last on" waits for the shell's route memory
+// (phase 3): until then nothing would remember the page, so it isn't offered.
 func (s *settings) startPageRow(c *ui.Context, cfg config.Settings) {
-	d := cfg.Desktop
-	items := []kit.SelectItem{kit.SelectOption(lastPage, i18n.T("The page you were last on"))}
+	var items []kit.SelectItem
 	for _, p := range startPages() {
-		items = append(items, kit.SelectOption(p.Route, p.Label))
-	}
-	value := d.StartPage
-	if d.ResumeLastRoute {
-		value = lastPage
+		if s.env.HasRoute != nil && s.env.HasRoute(p.Route) {
+			items = append(items, kit.SelectOption(p.Route, p.Label))
+		}
 	}
 	s.selectRow(c, rowOpts{
 		ID: "start-page", Title: i18n.T("Open on"),
 		Desc: i18n.T("The page Sona shows when it starts. Your queue is always kept."),
-	}, value, items, false, func(v string) {
-		if v == lastPage {
-			s.saveDesktop(func(d *config.Desktop) { d.ResumeLastRoute = true })
-			return
-		}
+	}, cfg.Desktop.StartPage, items, false, func(v string) {
 		s.saveDesktop(func(d *config.Desktop) { d.StartPage, d.ResumeLastRoute, d.LastRoute = v, false, "" })
 	})
 }

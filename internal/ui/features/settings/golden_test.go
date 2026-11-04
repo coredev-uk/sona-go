@@ -3,6 +3,7 @@ package settings
 import (
 	"testing"
 
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -11,6 +12,9 @@ import (
 // `go test ./internal/ui/features/settings -update` accepts a change on
 // purpose.
 func TestSettingsGolden(t *testing.T) {
+	if err := theme.RegisterFonts(); err != nil {
+		t.Fatal(err)
+	}
 	for _, tc := range []struct {
 		name    string
 		section string

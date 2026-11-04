@@ -147,7 +147,8 @@ type dispatcher struct {
 	shortcuts []module.Shortcut
 	overrides config.Shortcuts
 	list      []bound
-	chords    []chord // distinct, in registration order
+	listed    []module.BoundShortcut // what Env.Shortcuts returns, built on rebind
+	chords    []chord                // distinct, in registration order
 }
 
 func newDispatcher(list []module.Shortcut, overrides config.Shortcuts) *dispatcher {
@@ -160,7 +161,9 @@ func newDispatcher(list []module.Shortcut, overrides config.Shortcuts) *dispatch
 func (d *dispatcher) rebind(overrides config.Shortcuts) {
 	d.overrides = overrides
 	d.list, d.chords = d.list[:0], d.chords[:0]
+	d.listed = make([]module.BoundShortcut, 0, len(d.shortcuts))
 	for _, s := range d.shortcuts {
+		d.listed = append(d.listed, module.BoundShortcut{Shortcut: s, Keys: keysOf(s, overrides)})
 		b := bound{Shortcut: s, chords: chordsOf(s, overrides)}
 		d.list = append(d.list, b)
 		for _, c := range b.chords {
@@ -173,13 +176,7 @@ func (d *dispatcher) rebind(overrides config.Shortcuts) {
 
 // bindings is every registered shortcut with the keys it answers to now
 // (Env.Shortcuts).
-func (d *dispatcher) bindings() []module.BoundShortcut {
-	out := make([]module.BoundShortcut, len(d.shortcuts))
-	for i, s := range d.shortcuts {
-		out[i] = module.BoundShortcut{Shortcut: s, Keys: keysOf(s, d.overrides)}
-	}
-	return out
-}
+func (d *dispatcher) bindings() []module.BoundShortcut { return d.listed }
 
 // dispatch asks MyGo, each frame, for every chord, and runs the first
 // shortcut allowed for one that was pressed. A shortcut that is

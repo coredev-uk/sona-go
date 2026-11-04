@@ -159,6 +159,7 @@ func newDiagRig(t *testing.T, caps services.Capabilities, d services.Diagnostics
 	r.s.init()
 	store.Set(hn.Env.Queries, store.KeyCapabilities, caps)
 	r.tt = hn.Tester(t, func(c *ui.Context) {
+		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Column(c).Fill().Children(func() {
 			r.router.View(c, func(rt *ui.Route) {
 				if rt.Match(settingsPath) {
@@ -167,7 +168,7 @@ func newDiagRig(t *testing.T, caps services.Capabilities, d services.Diagnostics
 			})
 			kit.Toaster(c)
 		})
-	}, 1132, 2600)
+	}, 1132, 700)
 	return g
 }
 
@@ -341,11 +342,13 @@ func TestOpenLogFolder(t *testing.T) {
 func TestDeveloperToolsOpensTheInspectorWhereItIsOn(t *testing.T) {
 	g := newDiagRig(t, linuxCaps(), engineReport(), nil)
 	g.tt.Until("row", g.tt.Shows("Developer tools", "Open the inspector"))
+	g.reveal("developer-tools")
 	g.click("Open")
 	g.tt.Until("opened", func() bool { return g.dev.count() == 1 })
 	g.dev.mu.Lock()
 	g.dev.err = errors.New("gone")
 	g.dev.mu.Unlock()
+	g.reveal("developer-tools")
 	g.click("Open")
 	g.tt.Until("failure toast", g.tt.Shows("Couldn't open the inspector"))
 	for _, id := range []string{"diagnostics-copy", "diagnostics-logs", "developer-tools"} {
@@ -360,6 +363,7 @@ func TestDeveloperToolsIsUnavailableOutsideDevelopmentBuilds(t *testing.T) {
 	caps.DeveloperTools = false
 	g := newDiagRig(t, caps, engineReport(), nil)
 	g.tt.Until("row", g.tt.Shows("Open the inspector", "Available in development builds started with SONA_INSPECTOR=1."))
+	g.reveal("developer-tools")
 	if err := g.tt.Click("Open the inspector"); err == nil && g.dev.count() != 0 {
 		t.Error("the unavailable row opened the inspector")
 	}
