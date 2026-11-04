@@ -32,14 +32,14 @@ tasks:
       - task: build
     cmds:
       - task: package:cli
-      # nfpm names the file <-t target>, so FILE carries each format's
-      # conventional file name.
+      # nfpm names the file <-t target>, so FILE and EXT carry each format's
+      # conventional file name (Arch's is .pkg.tar.zst, not nfpm's format name).
       - task: package:format
-        vars: { FORMAT: deb, FILE: 'sona_{{.VERSION}}_amd64' }
+        vars: { FORMAT: deb, EXT: deb, FILE: 'sona_{{.VERSION}}_amd64' }
       - task: package:format
-        vars: { FORMAT: rpm, FILE: 'sona-{{.VERSION}}-1.x86_64' }
+        vars: { FORMAT: rpm, EXT: rpm, FILE: 'sona-{{.VERSION}}-1.x86_64' }
       - task: package:format
-        vars: { FORMAT: archlinux, FILE: 'sona-{{.VERSION}}-1-x86_64' }
+        vars: { FORMAT: archlinux, EXT: pkg.tar.zst, FILE: 'sona-{{.VERSION}}-1-x86_64' }
       - task: create:appimage
 
   package:cli:
@@ -54,7 +54,7 @@ tasks:
   package:format:
     internal: true
     cmds:
-      - go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.44.1 package -p {{.FORMAT}} -f ./build/linux/nfpm/nfpm.yaml -t {{.ROOT_DIR}}/{{.BIN_DIR}}/{{.FILE}}.{{.FORMAT}}
+      - go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.44.1 package -p {{.FORMAT}} -f ./build/linux/nfpm/nfpm.yaml -t {{.ROOT_DIR}}/{{.BIN_DIR}}/{{.FILE}}.{{.EXT}}
     env:
       GOARCH: amd64 # nfpm.yaml's arch
       SONA_VERSION: '{{.VERSION}}' # nfpm.yaml's version
