@@ -3,6 +3,7 @@ package kit
 import (
 	"errors"
 	"fmt"
+	"image/color"
 	"net"
 	"strings"
 	"testing"
@@ -130,12 +131,17 @@ func TestTooltipShowsOnHoverAndFocusAndEscapeHidesIt(t *testing.T) {
 	}
 }
 
-func TestTooltipDescribesItsAnchor(t *testing.T) {
+func TestTooltipWithoutTextBuildsNoTip(t *testing.T) {
 	tt := controlsTester(t, 200, 100, func(c *ui.Context) {
-		Tooltip(c, ui.Box(c).Size(30, 30).Focusable().Label("Thing"), "What the thing does")
+		Tooltip(c, ui.Box(c).Size(30, 30).Focusable().Label("Thing"), "")
 	})
-	if _, ok := tt.Find("Thing"); !ok {
-		t.Fatal("no Thing")
+	r := controlsFind(t, tt, "Thing")
+	tt.Move(r.X+5, r.Y+5)
+	tt.Advance(time.Second)
+	for _, text := range tt.Texts() {
+		if text != "Thing" {
+			t.Errorf("an empty tip showed %q", text)
+		}
 	}
 }
 
@@ -170,7 +176,7 @@ func TestExplicitMarkIsAnImageNamedExplicit(t *testing.T) {
 	}
 }
 
-func TestTagsCarryTheirTitleAsDescription(t *testing.T) {
+func TestTagsShowTheirTitleAsTooltip(t *testing.T) {
 	tt := controlsTester(t, 400, 100, func(c *ui.Context) {
 		ui.Row(c).Gap(6).Children(func() {
 			PreviewMark(c.Key("p"))
@@ -322,7 +328,7 @@ func TestSearchFieldTypesClearsAndSubmits(t *testing.T) {
 	if !tt.HasText("Search your library") {
 		t.Error("no placeholder")
 	}
-	if _, ok := tt.Find("Clear"); ok {
+	if _, ok := tt.Find("Clear search"); ok {
 		t.Error("a Clear button on an empty field")
 	}
 	controlsClick(t, tt, "Search your library")
@@ -334,7 +340,7 @@ func TestSearchFieldTypesClearsAndSubmits(t *testing.T) {
 	if submitted == 0 {
 		t.Error("Enter was not reported as Submitted")
 	}
-	controlsClick(t, tt, "Clear")
+	controlsClick(t, tt, "Clear search")
 	if q != "" {
 		t.Errorf("Clear left %q", q)
 	}
@@ -649,10 +655,28 @@ func TestSegmentedChoosesAndReportsEveryClick(t *testing.T) {
 	if v != "grid" || changed == 0 {
 		t.Errorf("clicking the chosen segment reported nothing (changed %d)", changed)
 	}
+}
+
+func TestSegmentedSegmentsAreToggleButtonsWithTheirOwnTabStop(t *testing.T) {
+	v := "list"
+	tt := controlsTester(t, 360, 100, func(c *ui.Context) { Segmented(c, &v, controlsSegments(), "View") })
 	tt.Key(0, ui.KeyTab)
+	if !tt.Focused("List") {
+		t.Fatal("Tab did not reach the first segment")
+	}
 	tt.Key(0, ui.KeyRight)
+	if v != "list" || tt.Focused("Grid") {
+		t.Errorf("an arrow moved the choice (%q) or the focus: v0.2.0's segments were plain buttons", v)
+	}
+	tt.Key(0, ui.KeyTab)
+	tt.Key(0, ui.KeySpace)
+	if v != "grid" {
+		t.Errorf("Space on the second segment chose %q", v)
+	}
+	tt.Key(0, ui.KeyTab)
+	tt.Key(0, ui.KeyEnter)
 	if v != "table" {
-		t.Errorf("the arrow chose %q, want table", v)
+		t.Errorf("Enter on the third segment chose %q, want table", v)
 	}
 }
 
@@ -662,7 +686,7 @@ func TestSegmentedRaisesTheChosen(t *testing.T) {
 	tt.Advance(time.Second)
 	on, off := controlsFind(t, tt, "Grid"), controlsFind(t, tt, "List")
 	img := tt.Image()
-	px := func(r ui.Rect) [3]uint8 { p := img.RGBAAt(int(r.X)-6, int(r.Y+r.H/2)); return [3]uint8{p.R, p.G, p.B} }
+	px := func(r ui.Rect) [3]uint8 { p := img.RGBAAt(int(r.X)+3, int(r.Y+r.H/2)); return [3]uint8{p.R, p.G, p.B} }
 	if got, want := px(on), ([3]uint8{255, 255, 255}); got != want {
 		t.Errorf("chosen segment face %v, want raised %v", got, want)
 	}
@@ -1354,20 +1378,23 @@ func TestFocusRingShowsForTheKeyboardOnly(t *testing.T) {
 func TestSliderThumbRingShowsOnKeyboardFocus(t *testing.T) {
 	v := 50.0
 	tt := controlsTester(t, 300, 100, func(c *ui.Context) {
-		Slider(c, &v, 0, 100, SliderOpts{A11yLabel: "Volume", Width: 200})
+		ui.Column(c).Fill().Background(theme.C("ground")).Padding(20).Children(func() {
+			Slider(c, &v, 0, 100, SliderOpts{A11yLabel: "Volume", Width: 200})
+		})
 	})
 	r := controlsFind(t, tt, "Volume")
-	x, y := int(r.X+6+(r.W-12)*0.5), int(r.Y+r.H/2)
-	probe := func() [3]uint8 { tt.Frame(); p := tt.Image().RGBAAt(x+8, y); return [3]uint8{p.R, p.G, p.B} } // 2px past the thumb: inside the 4px ring
-	rest := probe()
-	tt.Key(0, ui.KeyTab)
-	focused := probe()
-	if rest == focused {
-		t.Errorf("no ring beside the thumb after Tab: %v", rest)
+	// One row above the thumb's top edge: inside the 4px ring, off the track.
+	x, y := int(r.X+6+(r.W-12)*0.5), int(r.Y+r.H/2)-7
+	probe := func() color.RGBA { tt.Frame(); return tt.Image().RGBAAt(x, y) }
+	if got, want := probe(), rgb(theme.C("ground")); got != want {
+		t.Fatalf("a ring before the keyboard came: %v", got)
 	}
-	ring := theme.C("ring").Over(theme.C("ground"))
-	if got := (rgb(ring)); focused != [3]uint8{got.R, got.G, got.B} && focused == rest {
-		t.Errorf("ring colour %v, want %v", focused, got)
+	tt.Key(0, ui.KeyTab)
+	want := rgb(theme.C("ring").Over(theme.C("ground")))
+	got := probe()
+	d := func(a, b uint8) int { return max(int(a)-int(b), int(b)-int(a)) }
+	if d(got.R, want.R) > 3 || d(got.G, want.G) > 3 || d(got.B, want.B) > 3 {
+		t.Errorf("ring pixel %v, want the ring colour over the ground %v", got, want)
 	}
 }
 
@@ -1439,5 +1466,122 @@ func TestScrollAreaTakesTheKeyboard(t *testing.T) {
 	// A row scrolled out of the viewport is laid out with no box.
 	if r, ok := tt.Find("Row 0"); ok && r.W != 0 && r.Y >= first.Y {
 		t.Errorf("Page Down did not scroll: Row 0 still at %v", r)
+	}
+}
+
+// --- Review fixes -----------------------------------------------------------
+
+func TestComboboxChevronIsNoTabStopAndOpensTheList(t *testing.T) {
+	choice := "France"
+	tt := controlsTester(t, 360, 300, func(c *ui.Context) {
+		Combobox(c.Key("a"), &choice, []string{"France", "Spain"}, ComboboxOpts{A11yLabel: "Place", Width: 240})
+		Button(c.Key("b"), "After", ButtonOpts{})
+	})
+	tt.Key(0, ui.KeyTab)
+	if !tt.Focused("Place") {
+		t.Fatal("Tab did not focus the field")
+	}
+	tt.Key(0, ui.KeyTab)
+	if !tt.Focused("After") {
+		t.Error("the chevron took a Tab stop")
+	}
+	r := controlsFind(t, tt, "Place")
+	tt.ClickAt(r.X+r.W-14, r.Y+r.H/2)
+	if !tt.HasText("Spain") {
+		t.Errorf("a click on the chevron did not open the list: %q", tt.Texts())
+	}
+}
+
+func TestSelectHighlightDrawsAnInsetRing(t *testing.T) {
+	v := "free"
+	tt := controlsTester(t, 360, 360, func(c *ui.Context) {
+		Select(c, &v, controlsPlanItems(), SelectOpts{A11yLabel: "Plan"})
+	})
+	controlsClick(t, tt, "Plan")
+	tt.Key(0, ui.KeyDown)
+	tt.Frame()
+	r := controlsFind(t, tt, "Pro")
+	ring := rgb(theme.C("ring").Over(theme.C("accent")))
+	img := tt.Image()
+	// The row's left edge, a little above its middle: the 2px ring's inner side.
+	row := controlsFind(t, tt, "Pro")
+	_ = r
+	found := false
+	for x := int(row.X) - 12; x < int(row.X); x++ {
+		p := img.RGBAAt(x, int(row.Y+row.H/2))
+		if p == ring || p != rgb(theme.C("popover")) && p != rgb(theme.C("accent")) && p != rgb(theme.C("border")) {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("no ring on the highlighted option")
+	}
+}
+
+func TestEmptyStateWithoutAnActionRunsBuildsNoButton(t *testing.T) {
+	tt := controlsTester(t, 500, 300, func(c *ui.Context) {
+		EmptyState(c, "Nothing", "Text.", EmptyOpts{Action: &EmptyAction{Label: "Go"}})
+	})
+	if _, ok := tt.Find("Go"); ok {
+		t.Error("a button that does nothing")
+	}
+	tt = controlsTester(t, 700, 300, func(c *ui.Context) {
+		DetailError(c, NounSong, errors.New("x"), DetailErrorOpts{})
+		DetailError(c.Key("nf"), NounSong, applemusic.ErrNotFound, DetailErrorOpts{})
+		DetailError(c.Key("si"), NounSong, auth.ErrNotSignedIn, DetailErrorOpts{})
+	})
+	if _, ok := tt.Find("Sign in"); ok {
+		t.Error("a Sign in button without SignIn")
+	}
+}
+
+func TestSearchFieldIsThirtyTwoHighAndClearIsNamedClearSearch(t *testing.T) {
+	q := "x"
+	tt := controlsTester(t, 320, 100, func(c *ui.Context) {
+		SearchField(c, &q, SearchFieldOpts{Placeholder: "Find"})
+	})
+	controlsFind(t, tt, "Clear search")
+	if r := controlsFind(t, tt, "Find"); r.H > 32 {
+		t.Errorf("field is %v high", r.H)
+	}
+}
+
+func TestSolidPlayGlyphHasNoStroke(t *testing.T) {
+	tt := controlsTester(t, 120, 120, func(c *ui.Context) {
+		ui.Column(c).Fill().Background(theme.C("ground")).Padding(20).Children(func() {
+			ui.Icon(c, controlsIcon("play", true)).FontSize(48).TextColor(theme.C("ink"))
+		})
+	})
+	img := tt.Image()
+	// The triangle spans 5..20 of 24 units: its left edge at 48/24*5 = 10 DIPs
+	// in. A 2-unit (4 DIP) stroke would put ink 4 DIPs to its left.
+	if p := img.RGBAAt(20+10-3, 20+24); p != rgb(theme.C("ground")) {
+		t.Errorf("ink %v beyond the solid triangle's edge: the glyph is stroked", p)
+	}
+}
+
+func TestCollectionHeaderBleedsToBothEdges(t *testing.T) {
+	l := newArtLoader(&fakeArt{}, nil, 1)
+	t.Cleanup(l.Close)
+	tt := controlsTester(t, 1132, 330, func(c *ui.Context) {
+		ui.Column(c).Fill().Padding(0, 32).Children(func() {
+			CollectionHeader(c, CollectionHeaderOpts{
+				Title: "T", Loader: l,
+				Backdrop: func() { ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Background(ui.RGB(255, 0, 0)) },
+			})
+		})
+	})
+	// The tester pads the page by 20: the header's wash covers the page's
+	// 32px gutters on both sides, to the outer padding's edge.
+	img := tt.Image()
+	for _, x := range []int{22, 1109} {
+		if p := img.RGBAAt(x, 100); p.R != 255 || p.G != 0 {
+			t.Errorf("the wash does not reach x=%d: %v", x, p)
+		}
+	}
+	for _, x := range []int{17, 1114} {
+		if p := img.RGBAAt(x, 100); p.R == 255 && p.G == 0 {
+			t.Errorf("the wash goes past the content edge at x=%d", x)
+		}
 	}
 }

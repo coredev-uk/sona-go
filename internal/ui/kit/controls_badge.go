@@ -51,7 +51,7 @@ func Badge(c *ui.Context, label string, o BadgeOpts) ui.Element {
 			bg = bg.Alpha(0.9)
 		}
 	case BadgeDestructive:
-		bg, fg = theme.C("destructive"), ui.RGB(255, 255, 255)
+		bg, fg = theme.C("destructive"), theme.C("white")
 		if theme.Dark() {
 			bg = bg.Alpha(0.6)
 		}
@@ -109,9 +109,14 @@ func ExplicitMark(c *ui.Context) ui.Element {
 func Tag(c *ui.Context, text, title string) ui.Element {
 	e := ui.Row(c).Height(20).PaddingX(6).Shrink(0).AlignItems(ui.Center).Radius(4).Border(1, theme.C("control-line"))
 	e.Children(func() {
-		ui.Text(c, text).FontSize(11).FixedLineHeight(11).FontWeight(500).TextColor(theme.C("ink-muted")).SingleLine()
+		t := ui.Text(c, text).FontSize(11).FixedLineHeight(11).FontWeight(500).TextColor(theme.C("ink-muted")).SingleLine()
+		if title != "" {
+			// The text is what assistive technology reads; the box around it
+			// is no element to it, so the description sits here.
+			t.Description(title)
+		}
 	})
-	return Tooltip(c, e, title)
+	return controlsTooltip(c, e, title, false)
 }
 
 // PreviewMark reads "Preview" beside a song that plays as Apple Music's

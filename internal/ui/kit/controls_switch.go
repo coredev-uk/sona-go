@@ -267,7 +267,8 @@ func Tabs(c *ui.Context, selected *int, labels []string, o TabsOpts) ui.Element 
 						tab.Border(1, theme.C("input"))
 					}
 					tab.Background(bg)
-					tab.Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.08))
+					sh := theme.Current().Shadow["sm"]
+					tab.Shadow(sh.X, sh.Y, sh.Blur, sh.Spread, sh.Color)
 				}
 			case tab.Hovered():
 				fg = theme.C("foreground")

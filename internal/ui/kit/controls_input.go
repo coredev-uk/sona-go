@@ -94,7 +94,7 @@ func SearchField(c *ui.Context, query *string, o SearchFieldOpts) ui.Element {
 	if placeholder == "" {
 		placeholder = i18n.T("Search")
 	}
-	box := ui.Row(c).Height(controlsFieldHeight).PaddingX(10).Gap(8).AlignItems(ui.Center).Cursor(ui.CursorText)
+	box := ui.Row(c).Height(32).PaddingX(12).Gap(8).AlignItems(ui.Center).Cursor(ui.CursorText)
 	if o.Width > 0 {
 		box.Width(o.Width).Shrink(0)
 	} else {
@@ -102,7 +102,7 @@ func SearchField(c *ui.Context, query *string, o SearchFieldOpts) ui.Element {
 	}
 	var in ui.Element
 	box.Children(func() {
-		ui.Icon(c, theme.Icon("search")).FontSize(16).TextColor(theme.C("muted-foreground"))
+		ui.Icon(c, theme.Icon("search")).FontSize(16).TextColor(theme.C("ink-faint"))
 		t := theme.Current().Type["body"]
 		in = ui.TextInputBase(c.Key("text"), query).Grow(1).MinWidth(0).FontSize(t.Size).FixedLineHeight(t.LineHeight).
 			Placeholder(placeholder).PlaceholderColor(theme.C("muted-foreground")).TextColor(theme.C("foreground"))
@@ -112,7 +112,7 @@ func SearchField(c *ui.Context, query *string, o SearchFieldOpts) ui.Element {
 		}
 		in.Label(name)
 		if *query != "" {
-			clear := ui.ButtonBase(c.Key("clear")).Size(20, 20).Radius(controlsRadius("full")).KeepFocus().Label(i18n.T("Clear"))
+			clear := ui.ButtonBase(c.Key("clear")).Size(20, 20).Radius(controlsRadius("full")).KeepFocus().Label(i18n.T("Clear search"))
 			if clear.Hovered() {
 				clear.Background(theme.C("hover"))
 			}
@@ -170,11 +170,12 @@ func Combobox(c *ui.Context, selected *string, options []string, o ComboboxOpts)
 		if o.A11yLabel != "" {
 			in.Label(o.A11yLabel)
 		}
-		toggle := ui.ButtonBase(c.Key("toggle")).Size(20, 20).KeepFocus().IgnoreInput(false)
+		// Not a button: it is no stop of Tab and no element to assistive
+		// technology (the field is the combo box); the pointer still opens it.
+		toggle := ui.Row(c.Key("toggle")).Size(20, 20).Center().Shrink(0).KeepFocus()
 		toggle.Children(func() {
 			ui.Icon(c, theme.Icon("chevron-down")).FontSize(16).Opacity(0.5)
 		})
-		toggle.Role(ui.RoleNone)
 		if toggle.Clicked() && !o.Disabled {
 			cb.SetOpen(!cb.Open())
 			in.Focus()

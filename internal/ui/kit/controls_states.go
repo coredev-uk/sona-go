@@ -42,8 +42,8 @@ func EmptyState(c *ui.Context, title, text string, o EmptyOpts) ui.Element {
 	body := func() {
 		controlsText(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
 		controlsText(c, text, "body").TextColor(theme.C("ink-muted")).MaxWidth(480)
-		if o.Action != nil {
-			if Button(c.Key("action"), o.Action.Label, ButtonOpts{Variant: Outline, Size: SizeSM}).Margin(16, 0, 0, 0).Clicked() && o.Action.Run != nil {
+		if o.Action != nil && o.Action.Run != nil {
+			if Button(c.Key("action"), o.Action.Label, ButtonOpts{Variant: Outline, Size: SizeSM}).Margin(16, 0, 0, 0).Clicked() {
 				o.Action.Run()
 			}
 		}
@@ -327,7 +327,7 @@ func CollectionHeader(c *ui.Context, o CollectionHeaderOpts) ui.Element {
 			art = 240
 		}
 	}
-	e := ui.Column(c).FillWidth().Padding(32, gutter, 28, gutter).Margin(-28, -gutter, 24, -gutter).Shrink(0)
+	e := ui.Column(c).AlignSelf(ui.Stretch).Padding(32, gutter, 28, gutter).Margin(-28, -gutter, 24, -gutter).Shrink(0)
 	e.Children(func() {
 		if o.Backdrop != nil {
 			ui.Box(c.Key("backdrop")).Absolute().Top(0).Left(0).Right(0).Bottom(0).PassThrough().Children(o.Backdrop)
@@ -337,7 +337,7 @@ func CollectionHeader(c *ui.Context, o CollectionHeaderOpts) ui.Element {
 			case o.Cover != nil:
 				o.Cover(c, art)
 			default:
-				ao := ArtOpts{Round: o.Round}
+				ao := ArtOpts{Round: o.Round, Edge: true}
 				if o.Video {
 					ao.Aspect = 16.0 / 9
 				}

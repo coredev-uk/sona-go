@@ -46,7 +46,7 @@ type Tokens struct {
 	// Scalar holds unitless tokens ("backdrop-scrim": the scrim's opacity
 	// over a backdrop, 0.92 in light).
 	Scalar map[string]float32
-	// Shadow holds the shadows of what floats ("float").
+	// Shadow holds the shadows: what floats ("float") and the raised active tab ("sm").
 	Shadow map[string]Shadow
 	// Motion holds durations and easings ("feedback": 120 ms, "float",
 	// "route", "backdrop"…).

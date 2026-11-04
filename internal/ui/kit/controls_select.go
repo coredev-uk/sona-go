@@ -34,7 +34,11 @@ func controlsPopupHeight(c *ui.Context, anchor ui.Element) float32 {
 func controlsOption(c *ui.Context, item ui.Element, label string, highlighted, chosen, disabled bool) {
 	item.Padding(6, 8, 6, 8).Gap(8).Radius(controlsRadius("sm")).AlignItems(ui.Center).FillWidth()
 	if highlighted && !disabled {
-		item.Background(theme.C("accent")).TextColor(theme.C("accent-foreground"))
+		// The tint alone is about 1.1:1 on the popover: the inset ring is the
+		// keyboard highlight (docs/accessibility.md, "Focus").
+		ring, radius := theme.C("ring"), controlsRadius("sm")
+		item.Background(theme.C("accent")).TextColor(theme.C("accent-foreground")).
+			DrawOver(func(p *ui.Painter, r ui.Rect) { p.Stroke(r, ring, radius, 2) })
 	}
 	if disabled {
 		item.Disabled(true)
@@ -163,25 +167,19 @@ type SegmentOption[V comparable] struct {
 
 // Segmented is a short row of exclusive choices shown together (two to
 // four): the chosen one is raised, the others muted. For longer lists use
-// Select. label names the group for assistive technology. It is one stop of
-// Tab, which goes to the segment chosen; the arrows move the choice.
-// Changed reports a click on any segment, the chosen one too, as v0.2.0's
-// onChange did. (shared/components/Segmented.tsx)
+// Select. label names the group for assistive technology. As in v0.2.0 it is
+// a group of toggle buttons, each its own stop of Tab and pressed while
+// chosen; Enter or Space or a click chooses, the arrows do not move the
+// choice. Changed reports a click on any segment, the chosen one too, as
+// v0.2.0's onChange did. (shared/components/Segmented.tsx)
 func Segmented[V comparable](c *ui.Context, value *V, options []SegmentOption[V], label string) ui.Element {
-	idx := 0
-	for i, o := range options {
-		if o.Value == *value {
-			idx = i
-		}
-	}
-	sel := idx
-	seg := ui.SegmentedBase(c, &sel, len(options))
-	seg.Track.Height(32).Padding(2).Radius(controlsRadius("md")).Background(theme.C("hover")).AlignItems(ui.Center).Label(label)
+	track := ui.Row(c).Height(32).Padding(2).Radius(controlsRadius("md")).Background(theme.C("hover")).
+		AlignItems(ui.Center).Shrink(0).Role(ui.RoleGroup).Label(label)
 	clicked := false
-	seg.Track.Children(func() {
+	track.Children(func() {
 		for i, o := range options {
-			s := seg.Segment(i).Height(28).PaddingX(12).Radius(5)
-			on := i == sel
+			on := o.Value == *value
+			s := ui.ButtonBase(c.Key(i)).Height(28).PaddingX(12).Radius(5).Role(ui.RoleToggleButton).Checked(on).Label(o.Label)
 			fg := theme.C("ink-muted")
 			switch {
 			case on:
@@ -192,20 +190,18 @@ func Segmented[V comparable](c *ui.Context, value *V, options []SegmentOption[V]
 			}
 			s.TextColor(fg)
 			if !theme.ReducedMotion() {
-				s.Transition(ui.ElementTransition{Colors: true, Duration: theme.Current().Motion["press"].Duration, Ease: theme.Current().Motion["press"].Ease})
+				m := theme.Current().Motion["press"]
+				s.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
 			}
 			s.Children(func() { controlsText(c, o.Label, "secondary").FontWeight(500).SingleLine() })
 			if s.Clicked() {
 				clicked = true
+				*value = o.Value
 			}
 		}
 	})
-	changed := seg.Track.Changed()
-	if sel != idx && sel >= 0 && sel < len(options) {
-		*value = options[sel].Value
+	if clicked {
+		track.SetChanged()
 	}
-	if clicked || changed {
-		seg.Track.SetChanged()
-	}
-	return seg.Track
+	return track
 }
