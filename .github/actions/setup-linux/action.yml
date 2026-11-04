@@ -1,0 +1,93 @@
+name: Set up Linux
+description: >-
+  The system packages (their .debs cached, so a run unpacks them instead of
+  downloading), Go from go.mod, and Go's module and build caches restored from
+  the last run on main. The caller saves the Go caches last, with
+  actions/cache/save, key and path from this action's outputs.
+inputs:
+  packages:
+    description: Package list to install (packages-<this>.txt beside this file; "none" installs nothing)
+    default: test
+  flavor:
+    description: Name of the Go build cache (one per kind of build, so a restore never carries another's objects)
+    required: true
+outputs:
+  cache-key:
+    description: Key to save the Go caches under
+    value: ${{ steps.keys.outputs.key }}
+  cache-path:
+    description: Paths the Go caches live in
+    value: ${{ steps.keys.outputs.path }}
+  save:
+    description: "true where a run may save caches: pushes to main and dispatches (pull requests only restore)"
+    value: ${{ steps.keys.outputs.save }}
+runs:
+  using: composite
+  steps:
+    - name: Work out the cache keys
+      id: keys
+      shell: bash
+      env:
+        FLAVOR: ${{ inputs.flavor }}
+        PACKAGES: ${{ inputs.packages }}
+        EVENT: ${{ github.event_name }}
+        REF: ${{ github.ref }}
+        RUN_ID: ${{ github.run_id }}
+        GO_HASH: ${{ hashFiles('go.mod', 'go.sum') }}
+        PKG_HASH: ${{ hashFiles('.github/actions/setup-linux/packages-*.txt') }}
+      run: |
+        {
+          echo "key=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-$GO_HASH-$RUN_ID"
+          echo "restore=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-$GO_HASH-"
+          echo "fallback=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-"
+          echo "path=$HOME/.cache/go-build"$'\n'"$HOME/go/pkg/mod"
+          echo "apt=apt-$PACKAGES-$RUNNER_OS-$RUNNER_ARCH-${ImageVersion:-unknown}-$PKG_HASH"
+          if [ "$REF" = refs/heads/main ] || [ "$EVENT" = workflow_dispatch ]; then echo save=true; else echo save=false; fi
+        } >>"$GITHUB_OUTPUT"
+
+    - name: Restore the .debs
+      id: apt
+      if: ${{ inputs.packages != 'none' }}
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/apt-archives
+        key: ${{ steps.keys.outputs.apt }}
+
+    - name: Restore Go's caches
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ steps.keys.outputs.key }}
+        restore-keys: |
+          ${{ steps.keys.outputs.restore }}
+          ${{ steps.keys.outputs.fallback }}
+
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version-file: go.mod
+        cache: false
+
+    # dpkg's fsync on every file and the documentation it unpacks are most of
+    # the install time on a runner.
+    - name: Install system packages
+      if: ${{ inputs.packages != 'none' }}
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        printf 'force-unsafe-io\npath-exclude=/usr/share/doc/*\npath-exclude=/usr/share/man/*\npath-exclude=/usr/share/info/*\n' | sudo tee /etc/dpkg/dpkg.cfg.d/90-ci >/dev/null
+        mkdir -p ~/apt-archives/partial
+        sudo apt-get update -qq
+        sudo apt-get -o Dir::Cache::archives="$HOME/apt-archives" install -y -qq --no-install-recommends \
+          $(cat "${GITHUB_ACTION_PATH}/packages-$PACKAGES.txt")
+        sudo rm -rf ~/apt-archives/lock ~/apt-archives/partial
+        sudo chown -R "$USER" ~/apt-archives
+
+    - name: Save the .debs
+      if: ${{ inputs.packages != 'none' && steps.apt.outputs.cache-hit != 'true' && steps.keys.outputs.save == 'true' }}
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/apt-archives
+        key: ${{ steps.keys.outputs.apt }}

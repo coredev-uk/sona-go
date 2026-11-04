@@ -32,11 +32,64 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# How the work is spread (CONTRIBUTING.md, "CI and workflows"): every check
+# still runs, including -race and the golden images, but each test runs once
+# and the jobs run side by side. The test jobs take their packages from
+# .github/ci/shard.sh (packed by measured time, .github/ci/timings.txt); Go's
+# build and test caches come from the last run on main; the system packages'
+# .debs are cached. The five required checks keep their names: where a job is
+# a matrix, a small job of the required name gathers its results.
 jobs:
-  go:
-    name: Go vet and test (-race)
+  # What changed. A documentation-only pull request skips the heavy jobs; the
+  # required checks still report, because a job skipped by `if` counts as
+  # passed (a workflow-level `paths-ignore` would leave them pending).
+  changes:
+    name: Changed files
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      heavy: ${{ steps.files.outputs.heavy }}
+    steps:
+      - name: Does the change reach the code?
+        id: files
+        env:
+          EVENT: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          heavy=true
+          if [ "$EVENT" = pull_request ]; then
+            if files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[] | .filename, (.previous_filename // empty)'); then
+              if ! grep -qvE '^(docs/.*|[^ ]*\.md)$' <<<"$files"; then
+                heavy=false
+              fi
+            fi
+          fi
+          echo "heavy=$heavy" >>"$GITHUB_OUTPUT"
+          echo "heavy: $heavy"
+
+  # go vet for the host, the development build (-tags dev) and the probe build
+  # (-tags probe): one job each, they share nothing but the source.
+  vet:
+    name: Vet (${{ matrix.name }})
+    needs: changes
+    if: ${{ needs.changes.outputs.heavy == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: host
+            flags: ""
+          - name: dev
+            flags: -tags dev,sqlite_fts5
+          - name: probe
+            flags: -tags probe,sqlite_fts5
     env:
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
@@ -45,39 +98,49 @@ jobs:
         with:
           persist-credentials: false
 
-      # MyGo's native UI (GTK3, the tray's appindicator, libsecret, EGL/GL
-      # through epoxy; loaded at run time, the -dev packages give the tests
-      # and the vet pass what they link), GStreamer for the playback host
-      # and its tests (appsrc, avdec_aac, audioconvert, audioresample,
-      # volume, fakesink), dbus for the session-bus tests, a font for the
-      # UI's golden images (internal/ui, as in the "UI tests" job).
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config \
-            libgtk-3-dev libayatana-appindicator3-dev libsecret-1-dev \
-            libepoxy-dev libgl-dev \
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
-            gstreamer1.0-plugins-bad gstreamer1.0-tools \
-            fonts-dejavu-core dbus
-
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: ./.github/actions/setup-linux
+        id: setup
         with:
-          go-version-file: go.mod
+          packages: vet
+          flavor: vet-${{ matrix.name }}
 
       - name: go vet
-        run: go vet ./...
+        env:
+          FLAGS: ${{ matrix.flags }}
+        run: |
+          # shellcheck disable=SC2086
+          go vet $FLAGS ./...
 
-      # Paths that differ only by case break macOS and Windows checkouts.
+      - name: Save Go's caches
+        if: ${{ always() && steps.setup.outputs.save == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.cache-path }}
+          key: ${{ steps.setup.outputs.cache-key }}
+
+  # The macOS and Windows seams (CONTRIBUTING.md, "Platforms"): every package
+  # must type-check there with cgo off, which needs no system packages. Paths
+  # that differ only by case break macOS and Windows checkouts.
+  portability:
+    name: Type-check macOS and Windows
+    needs: changes
+    if: ${{ needs.changes.outputs.heavy == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-linux
+        id: setup
+        with:
+          packages: none
+          flavor: portability
+
       - name: Check path case
         run: go run ./cmd/pathcase
 
-      # The macOS and Windows seams (CONTRIBUTING.md, "Platforms"): every
-      # package must type-check there with cgo off until real macOS and
-      # Windows runners build the app. cmd/typecheck checks Sona's packages
-      # from source for macOS, where cgo is off (MyGo is pure Go there).
       - name: Type-check Windows (go vet, cgo off)
         env:
           GOOS: windows
@@ -85,13 +148,156 @@ jobs:
           CGO_ENABLED: "0"
         run: go vet ./...
 
+      # cmd/typecheck checks Sona's packages from source for macOS, where cgo
+      # is off (MyGo is pure Go there).
       - name: Type-check macOS (cgo off)
         run: go run ./cmd/typecheck -os darwin -arch arm64 ./...
 
+      - name: Save Go's caches
+        if: ${{ always() && steps.setup.outputs.save == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.cache-path }}
+          key: ${{ steps.setup.outputs.cache-key }}
+
+  # The tests under -race, split into shards of packages (shard.sh). SHARDS in
+  # the three jobs below must equal the length of the job's `index` list.
+  #
+  # The native UI's tests: the ui.Tester tests of internal/ui, which include the
+  # golden images (the shell and Albums, light and dark;
+  # internal/ui/app/testdata), and the dev-only tests of its packages (-tags
+  # dev). They draw on MyGo's CPU renderer (MYGO_GPU=0) with no display. A
+  # golden's failure leaves the picture and a diff in the ui-golden-diffs
+  # artifact. These shards are the "UI tests (goldens)" check.
+  test-ui:
+    name: Race tests, UI (${{ matrix.index }}/6)
+    needs: changes
+    if: ${{ needs.changes.outputs.heavy == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [1, 2, 3, 4, 5, 6]
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+      MYGO_GPU: "0"
+      SHARDS: "6"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-linux
+        id: setup
+        with:
+          flavor: race-ui-${{ matrix.index }}
+
+      - name: go test -race (UI shard)
+        env:
+          INDEX: ${{ matrix.index }}
+        run: dbus-run-session -- .github/ci/test.sh ui "$INDEX" "$SHARDS"
+
+      - name: Keep the test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results-ui-${{ matrix.index }}
+          path: ${{ runner.temp }}/test-results
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep the pictures of a failed golden
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-golden-diffs-${{ matrix.index }}
+          path: ${{ runner.temp }}/ui-artifacts
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Save Go's caches
+        if: ${{ always() && steps.setup.outputs.save == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.cache-path }}
+          key: ${{ steps.setup.outputs.cache-key }}
+
+  # Everything that is neither UI nor playback: services, the database,
+  # authentication, the dev-only tests of internal/app, internal/mpris and
+  # internal/devinstance.
+  test-core:
+    name: Race tests, core (${{ matrix.index }}/2)
+    needs: changes
+    if: ${{ needs.changes.outputs.heavy == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [1, 2]
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+      SHARDS: "2"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-linux
+        id: setup
+        with:
+          flavor: race-core-${{ matrix.index }}
+
+      - name: go test -race (core shard)
+        env:
+          INDEX: ${{ matrix.index }}
+        run: dbus-run-session -- .github/ci/test.sh core "$INDEX" "$SHARDS"
+
+      - name: Keep the test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results-core-${{ matrix.index }}
+          path: ${{ runner.temp }}/test-results
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Save Go's caches
+        if: ${{ always() && steps.setup.outputs.save == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.cache-path }}
+          key: ${{ steps.setup.outputs.cache-key }}
+
+  # The playback packages, which need the real Widevine CDM, user namespaces,
+  # Apple's previews and GStreamer's H.264 codecs. They always run (-count=1)
+  # and mustpass.sh fails the job if any of the named tests skipped: a skip
+  # here is a missing prerequisite, not a pass.
+  test-playback:
+    name: Race tests, playback
+    needs: changes
+    if: ${{ needs.changes.outputs.heavy == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 25
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-linux
+        id: setup
+        with:
+          flavor: race-playback
+
       # Ubuntu 24.04's AppArmor creates unprivileged user namespaces without
       # capabilities, so the CDM host sandbox would get no mount namespace and
-      # its tests would skip (they skip, with the reason, wherever namespaces
-      # are refused). Lift the restriction so they run here; with
+      # its tests would skip. Lift the restriction so they run here; with
       # SONA_CDMHOST_REQUIRE_NAMESPACES set, a refusal fails them instead.
       - name: Allow unprivileged user namespaces
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
@@ -99,8 +305,7 @@ jobs:
       # The real-CDM tests use Google's Widevine CDM, downloaded and verified
       # the way Sona does it (cmd/cdmfetch, internal/playback/cdm) and cached
       # per version: Mozilla's manifest names the version, so a new CDM
-      # release fills a new cache entry. SONA_CDM_REQUIRE makes a test that
-      # would skip for want of the CDM fail instead.
+      # release fills a new cache entry.
       - name: Resolve the Widevine CDM version
         id: cdm
         run: echo "version=$(go run ./cmd/cdmfetch -version)" >> "$GITHUB_OUTPUT"
@@ -115,113 +320,77 @@ jobs:
         run: |
           go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine
           echo "SONA_CDM_CACHE=$HOME/.cache/sona-ci/widevine" >> "$GITHUB_ENV"
-          echo "SONA_CDM_REQUIRE=1" >> "$GITHUB_ENV"
 
-      - name: CDM host sandbox tests (verbose, must not skip)
+      - name: go test -race (playback packages)
         env:
-          SONA_CDMHOST_REQUIRE_NAMESPACES: "1"
-        run: go test -race -count=1 -v -run 'TestChildCannotOpenInetSockets|TestSandbox' ./internal/playback/cdmhost
-
-      - name: Real Widevine CDM tests (verbose, must not skip)
-        env:
-          SONA_CDMHOST_REQUIRE_NAMESPACES: "1"
-        run: >-
-          dbus-run-session -- go test -race -count=1 -v
-          -run '^(TestCDM|TestProbe|TestSessionChallenge|TestPlayClearTrack|TestNextTrackAdvances|TestChildExit|TestChildCrashInBundle)$'
-          ./internal/playback/widevine ./internal/playback/cdmhost ./internal/diag
-
-      # Apple's 30-second previews through a host child with no CDM:
-      # needs no MUSIC_USER_TOKEN, so it runs on every pull
-      # request. SONA_PREVIEW_REQUIRE fails it instead of skipping when
-      # Apple is unreachable.
-      - name: Preview playback, no MUSIC_USER_TOKEN (verbose, must not skip)
-        env:
-          SONA_PREVIEW_REQUIRE: "1"
-        run: dbus-run-session -- go test -race -count=1 -v -run '^TestPreviewPlaysLive$' ./internal/playback/native
-
-      # The motion tests' clip needs GStreamer's H.264 encoder (openh264enc, in
-      # -bad: the devenv's encoder too, so the motion goldens agree), parser
-      # (h264parse) and decoder (avdec_h264): without those packages they skip,
-      # and a skip is not a pass.
-      - name: Motion decoder tests (verbose, must not skip)
-        run: |
-          go test -race -count=1 -v -run '^TestMotionDecoder' ./internal/ui/media | tee "$RUNNER_TEMP/motion.log"
-          grep -q -- '--- PASS: TestMotionDecoderPlaysAndLoops' "$RUNNER_TEMP/motion.log"
-          if grep -q -- '--- SKIP' "$RUNNER_TEMP/motion.log"; then
-            echo "::error::a motion decoder test skipped: GStreamer lacks the H.264 encoder, parser or decoder"
-            exit 1
-          fi
-
-      - name: go test -race
-        env:
+          SONA_CDM_REQUIRE: "1"
           SONA_CDMHOST_REQUIRE_NAMESPACES: "1"
           SONA_PREVIEW_REQUIRE: "1"
-        run: dbus-run-session -- go test -race ./...
+          TEST_FLAGS: -count=1
+        run: dbus-run-session -- .github/ci/test.sh playback 1 1
 
-  # The native UI's tests on their own, so a broken picture fails a check of
-  # its own: the ui.Tester tests of internal/ui, which include the golden
-  # images (the shell and Albums, light and dark; internal/ui/app/testdata).
-  # They draw on MyGo's CPU renderer (MYGO_GPU=0) with no display. The golden
-  # job's failure leaves the picture and a diff in the artifact.
-  ui:
-    name: UI tests (goldens)
-    runs-on: ubuntu-26.04
-    timeout-minutes: 20
-    env:
-      CGO_ENABLED: "1"
-      GOFLAGS: -tags=sqlite_fts5
-      MYGO_GPU: "0"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+      - name: The tests that must not skip
+        run: .github/ci/mustpass.sh "$RUNNER_TEMP/test-results"
 
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config \
-            libgtk-3-dev libayatana-appindicator3-dev libsecret-1-dev \
-            libepoxy-dev libgl-dev \
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
-            gstreamer1.0-plugins-bad gstreamer1.0-tools \
-            fonts-dejavu-core dbus
-
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-
-      - name: go test ./internal/ui/... (goldens)
-        run: |
-          mkdir -p "$RUNNER_TEMP/ui-artifacts"
-          dbus-run-session -- go test -count=1 -artifacts -outputdir "$RUNNER_TEMP/ui-artifacts" ./internal/ui/...
-
-      - name: Development and probe builds (vet, dev-only tests)
-        run: |
-          go vet -tags dev,sqlite_fts5 ./...
-          go vet -tags probe,sqlite_fts5 ./...
-          dbus-run-session -- go test -count=1 -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/app ./internal/mpris
-
-      - name: Keep the pictures of a failed golden
-        if: ${{ failure() }}
+      - name: Keep the test results
+        if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ui-golden-diffs
-          path: ${{ runner.temp }}/ui-artifacts
+          name: test-results-playback
+          path: ${{ runner.temp }}/test-results
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 3
+
+      - name: Save Go's caches
+        if: ${{ always() && steps.setup.outputs.save == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.cache-path }}
+          key: ${{ steps.setup.outputs.cache-key }}
+
+  # The required check of this name: vet, the type-checks and every test shard
+  # but the UI's. Skipped jobs (a documentation-only change) pass.
+  go:
+    name: Go vet and test (-race)
+    needs: [changes, vet, portability, test-core, test-playback]
+    if: ${{ always() }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS"
+          jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<<"$NEEDS" >/dev/null
+
+  # The required check of this name: the UI shards, goldens included.
+  ui:
+    name: UI tests (goldens)
+    needs: [changes, test-ui]
+    if: ${{ always() }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Every shard passed or was skipped
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS"
+          jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<<"$NEEDS" >/dev/null
 
   # The built app from outside (e2e/): a probe build (MyGo's automation
   # plugin, a fake playback engine, a local server for the covers) on the
   # synthetic fixture profile, in a headless sway with private session and
   # AT-SPI buses (e2e/headless.sh), no network. It checks first paint, the
   # Albums page, playing an album, Space, a capture, and the shell's
-  # landmarks on the accessibility bus.
+  # landmarks on the accessibility bus. Only this job builds the probe binary.
   e2e-headless:
     name: E2E (headless sway)
+    needs: changes
+    if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 25
     env:
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
@@ -231,25 +400,15 @@ jobs:
         with:
           persist-credentials: false
 
-      # The app's own libraries as in the go job, plus the session e2e/headless.sh
-      # builds: sway and wtype, the D-Bus daemon, AT-SPI (the bus launcher and
-      # the registry, libatk-bridge for GTK), and software GL (llvmpipe) and a
+      # The app's own libraries, plus the session e2e/headless.sh builds: sway
+      # and wtype, the D-Bus daemon, AT-SPI (the bus launcher and the
+      # registry, libatk-bridge for GTK), and software GL (llvmpipe) and a
       # font for MyGo to draw with.
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config \
-            libgtk-3-dev libayatana-appindicator3-dev libsecret-1-dev \
-            libepoxy-dev libgl-dev \
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
-            sway wtype dbus dbus-daemon dbus-bin at-spi2-core libatk-bridge2.0-0t64 \
-            libegl1 libegl-mesa0 libgl1-mesa-dri fonts-dejavu-core
-
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: ./.github/actions/setup-linux
+        id: setup
         with:
-          go-version-file: go.mod
+          packages: e2e
+          flavor: e2e
 
       - name: E2E smoke and AT-SPI check
         run: e2e/headless.sh -- go test -tags e2e -count=1 -v ./e2e/...
@@ -262,6 +421,13 @@ jobs:
           path: ${{ github.workspace }}/e2e-out
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Save Go's caches
+        if: ${{ always() && steps.setup.outputs.save == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.cache-path }}
+          key: ${{ steps.setup.outputs.cache-key }}
 
   # The native UI's numbers after a merge (plan §15): the Albums scroll table,
   # first paint over 5 starts, PSS and idle CPU, from cmd/uiprobe against the
@@ -285,21 +451,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config \
-            libgtk-3-dev libayatana-appindicator3-dev libsecret-1-dev \
-            libepoxy-dev libgl-dev \
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
-            sway wtype dbus dbus-daemon dbus-bin at-spi2-core libatk-bridge2.0-0t64 \
-            libegl1 libegl-mesa0 libgl1-mesa-dri fonts-dejavu-core
-
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: ./.github/actions/setup-linux
+        id: setup
         with:
-          go-version-file: go.mod
+          packages: e2e
+          flavor: uiprobe
 
       - name: Measure
         run: e2e/headless.sh -- go test -tags e2e -count=1 -v -run '^TestUIProbe$' -timeout 20m ./e2e/...
@@ -336,62 +492,44 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  # The macOS and Windows builds (CONTRIBUTING.md, "Platforms"). Hosted macOS
-  # minutes cost ten times Linux's (Windows twice) while the repository is
-  # private, so until it is public these run only when dispatched (Actions →
-  # CI → Run workflow); once it is public, on every push and pull request.
-  macos:
-    name: macOS build and test
-    # Not on pull requests: these jobs take several minutes and are not
-    # required checks. They run after each merge to main and on demand
-    # (workflow_dispatch), never from release.yml (linux-only; it builds the
-    # release artefacts of each platform itself).
+      - name: Save Go's caches
+        if: ${{ always() && steps.setup.outputs.save == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.cache-path }}
+          key: ${{ steps.setup.outputs.cache-key }}
+
+  # The macOS and Windows builds (CONTRIBUTING.md, "Platforms"). They run only
+  # after a merge to main and when dispatched (Actions → CI → Run workflow),
+  # never on a pull request and never from release.yml (linux-only: it builds
+  # the release artefacts of each platform itself). macOS uses the official
+  # GStreamer packages release.yml's build uses, not devenv: entering the
+  # devenv shell took twelve minutes of the job.
+  macos-build:
+    name: macOS build and vet
     if: ${{ !inputs.linux-only && (github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && !github.event.repository.private)) }}
     runs-on: macos-26
-    timeout-minutes: 60
-    defaults:
-      run:
-        shell: devenv shell -- bash -eo pipefail {0}
+    timeout-minutes: 30
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      # The toolchain a contributor's Mac gets (CONTRIBUTING.md, "macOS"):
-      # devenv from the nixpkgs revision devenv.yaml pins. The token only
-      # lifts GitHub's API rate limit for fetching the inputs (read-only).
-      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+      - uses: ./.github/actions/setup-macos
+        id: setup
         with:
-          github_access_token: ${{ github.token }}
+          flavor: mac-build
 
-      - name: Install devenv
-        shell: bash
-        run: |
-          rev=$(sed -n 's|.*github:NixOS/nixpkgs/||p' devenv.yaml)
-          devenv=$(nix build --no-link --print-out-paths "github:NixOS/nixpkgs/$rev#devenv")
-          echo "$devenv/bin" >> "$GITHUB_PATH"
-
-      - name: Enter the devenv shell
-        run: go version && gst-inspect-1.0 --version && echo "MACOSX_DEPLOYMENT_TARGET=$MACOSX_DEPLOYMENT_TARGET"
-
-      # Every cgo object, nixpkgs library and the link itself must target the
-      # same macOS (devenv.nix, MACOSX_DEPLOYMENT_TARGET); ld warns otherwise.
-      # Go's module and build caches (devenv puts GOPATH under .devenv/state/go;
-      # GOCACHE stays at macOS's default), so a run rebuilds only what changed.
-      - name: Cache Go modules and builds
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            .devenv/state/go/pkg/mod
-            ~/Library/Caches/go-build
-          key: go-macos-${{ runner.arch }}-${{ hashFiles('go.sum') }}
-          restore-keys: go-macos-${{ runner.arch }}-
-
+      # Every cgo object and the link itself must target the same macOS
+      # (build/darwin/MIN_MACOS, exported by setup-macos); ld warns otherwise.
       - name: Build bin/sona (production, no deployment-target warnings)
         run: |
           go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona 2>&1 | tee "$RUNNER_TEMP/build.log"
           if grep 'built for newer macOS version' "$RUNNER_TEMP/build.log"; then
-            echo "::error::objects or libraries target a newer macOS than the link (devenv.nix, MACOSX_DEPLOYMENT_TARGET)"
+            echo "::error::objects or libraries target a newer macOS than the link (build/darwin/MIN_MACOS)"
             exit 1
           fi
           otool -l bin/sona | grep -A4 LC_BUILD_VERSION
@@ -399,45 +537,118 @@ jobs:
       - name: go vet
         run: go vet ./...
 
-      # The real-CDM tests, with the macOS CDM (mac_arm64) downloaded and
-      # cached the way the Linux job does it.
+      - name: Save Go's caches
+        if: ${{ always() && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.cache-path }}
+          key: ${{ steps.setup.outputs.cache-key }}
+
+  # `go test -race` of every package, in shards (shard.sh) on macOS runners
+  # side by side. The playback shard runs the real-CDM and sandbox tests with
+  # the macOS CDM (mac_arm64), which the job downloads and caches as Linux's does.
+  macos-test:
+    name: macOS tests (${{ matrix.pool }} ${{ matrix.index }}/${{ matrix.count }})
+    if: ${{ !inputs.linux-only && (github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && !github.event.repository.private)) }}
+    runs-on: macos-26
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { pool: ui, index: 1, count: 2 }
+          - { pool: ui, index: 2, count: 2 }
+          - { pool: core, index: 1, count: 1 }
+          - { pool: playback, index: 1, count: 1 }
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-macos
+        id: setup
+        with:
+          flavor: mac-race-${{ matrix.pool }}-${{ matrix.index }}
+
       - name: Resolve the Widevine CDM version
+        if: ${{ matrix.pool == 'playback' }}
         id: cdm
         run: echo "version=$(go run ./cmd/cdmfetch -version)" >> "$GITHUB_OUTPUT"
 
       - name: Cache the Widevine CDM
+        if: ${{ matrix.pool == 'playback' }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/sona-ci/widevine
           key: widevine-${{ runner.os }}-${{ runner.arch }}-${{ steps.cdm.outputs.version }}
 
       - name: Install the Widevine CDM
+        if: ${{ matrix.pool == 'playback' }}
         run: |
           go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine
-          echo "SONA_CDM_CACHE=$HOME/.cache/sona-ci/widevine" >> "$GITHUB_ENV"
-
-      - name: Real Widevine CDM and sandbox tests (verbose, must not skip)
-        env:
-          SONA_CDM_REQUIRE: "1"
-        run: go test -count=1 -v -run '^(TestCDM|TestProbe|TestSessionChallenge|TestSeatbeltConfinesChild)$' ./internal/playback/widevine ./internal/playback/cdmhost
+          {
+            echo "SONA_CDM_CACHE=$HOME/.cache/sona-ci/widevine"
+            echo "SONA_CDM_REQUIRE=1"
+            echo "TEST_FLAGS=-count=1"
+          } >> "$GITHUB_ENV"
 
       - name: go test -race (no deployment-target warnings)
+        env:
+          POOL: ${{ matrix.pool }}
+          INDEX: ${{ matrix.index }}
+          COUNT: ${{ matrix.count }}
         run: |
-          go test -race ./... 2>&1 | tee "$RUNNER_TEMP/test.log"
+          .github/ci/test.sh "$POOL" "$INDEX" "$COUNT" 2>&1 | tee "$RUNNER_TEMP/test.log"
           if grep 'built for newer macOS version' "$RUNNER_TEMP/test.log"; then
-            echo "::error::objects or libraries target a newer macOS than the link (devenv.nix, MACOSX_DEPLOYMENT_TARGET)"
+            echo "::error::objects or libraries target a newer macOS than the link (build/darwin/MIN_MACOS)"
             exit 1
           fi
 
+      - name: The CDM tests that must not skip
+        if: ${{ matrix.pool == 'playback' }}
+        env:
+          MUSTPASS_FILE: .github/ci/mustpass-darwin.txt
+        run: .github/ci/mustpass.sh "$RUNNER_TEMP/test-results"
+
+      - name: Keep the test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results-macos-${{ matrix.pool }}-${{ matrix.index }}
+          path: ${{ runner.temp }}/test-results
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Save Go's caches
+        if: ${{ always() && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.cache-path }}
+          key: ${{ steps.setup.outputs.cache-key }}
+
+  macos:
+    name: macOS build and test
+    needs: [macos-build, macos-test]
+    if: ${{ always() && !inputs.linux-only && (github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && !github.event.repository.private)) }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS"
+          jq -e 'all(.[]; .result == "success")' <<<"$NEEDS" >/dev/null
+
   windows:
     name: Windows build
-    # Not on pull requests: these jobs take several minutes and are not
-    # required checks. They run after each merge to main and on demand
-    # (workflow_dispatch), never from release.yml (linux-only; it builds the
-    # release artefacts of each platform itself).
+    # As the macOS jobs: after a merge to main and on demand only.
     if: ${{ !inputs.linux-only && (github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && !github.event.repository.private)) }}
     runs-on: windows-2025
-    timeout-minutes: 45
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
@@ -454,6 +665,22 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          cache: false
+
+      - name: Where Go's caches are
+        id: dirs
+        run: |
+          echo "build=$(go env GOCACHE)" >>"$GITHUB_OUTPUT"
+          echo "mod=$(go env GOMODCACHE)" >>"$GITHUB_OUTPUT"
+
+      - name: Cache Go modules and builds
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ steps.dirs.outputs.build }}
+            ${{ steps.dirs.outputs.mod }}
+          key: go-windows-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.run_id }}
+          restore-keys: go-windows-${{ hashFiles('go.mod', 'go.sum') }}-
 
       - name: go vet (cgo on)
         run: gcc --version && go vet ./...

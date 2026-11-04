@@ -1,0 +1,81 @@
+name: Set up macOS
+description: >-
+  Go from go.mod, the official GStreamer framework (the .pkg downloads cached)
+  and Go's module and build caches restored from the last run on main. The
+  caller saves the Go caches last, with actions/cache/save, key and path from
+  this action's outputs. The GStreamer environment for cgo is exported to later
+  steps.
+inputs:
+  flavor:
+    description: Name of the Go build cache
+    required: true
+outputs:
+  cache-key:
+    description: Key to save the Go caches under
+    value: ${{ steps.keys.outputs.key }}
+  cache-path:
+    description: Paths the Go caches live in
+    value: ${{ steps.keys.outputs.path }}
+runs:
+  using: composite
+  steps:
+    - name: Work out the cache keys
+      id: keys
+      shell: bash
+      env:
+        FLAVOR: ${{ inputs.flavor }}
+        RUN_ID: ${{ github.run_id }}
+        GO_HASH: ${{ hashFiles('go.mod', 'go.sum') }}
+      run: |
+        {
+          echo "key=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-$GO_HASH-$RUN_ID"
+          echo "restore=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-$GO_HASH-"
+          echo "fallback=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-"
+          echo "path=$HOME/Library/Caches/go-build"$'\n'"$HOME/go/pkg/mod"
+        } >>"$GITHUB_OUTPUT"
+        echo "GSTREAMER_PKG_CACHE=$RUNNER_TEMP/gstreamer-pkg" >>"$GITHUB_ENV"
+
+    - name: Restore Go's caches
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/Library/Caches/go-build
+          ~/go/pkg/mod
+        key: ${{ steps.keys.outputs.key }}
+        restore-keys: |
+          ${{ steps.keys.outputs.restore }}
+          ${{ steps.keys.outputs.fallback }}
+
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version-file: go.mod
+        cache: false
+
+    # The pinned packages, checked by build/darwin/gstreamer.sha256.
+    - name: Restore the GStreamer packages
+      id: pkg
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/gstreamer-pkg
+        key: gstreamer-pkg-${{ hashFiles('build/darwin/gstreamer.sha256') }}
+
+    - name: Install GStreamer and pkg-config
+      shell: bash
+      run: |
+        command -v pkg-config >/dev/null || brew install pkgconf
+        build/darwin/install-gstreamer.sh
+        fw=/Library/Frameworks/GStreamer.framework/Versions/1.0
+        minos=$(cat build/darwin/MIN_MACOS)
+        {
+          echo "PKG_CONFIG_PATH=$fw/lib/pkgconfig"
+          echo "MACOSX_DEPLOYMENT_TARGET=$minos"
+          echo "CGO_CFLAGS=-mmacosx-version-min=$minos"
+          echo "CGO_LDFLAGS=-mmacosx-version-min=$minos"
+        } >>"$GITHUB_ENV"
+
+    - name: Save the GStreamer packages
+      if: ${{ steps.pkg.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/gstreamer-pkg
+        key: gstreamer-pkg-${{ hashFiles('build/darwin/gstreamer.sha256') }}
