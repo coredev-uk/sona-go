@@ -1,6 +1,8 @@
 package app
 
 import (
+	"github.com/coredev-uk/sona-go/internal/ui/features/album"
+	"github.com/coredev-uk/sona-go/internal/ui/features/artist"
 	"github.com/coredev-uk/sona-go/internal/ui/features/auth"
 	"github.com/coredev-uk/sona-go/internal/ui/features/cdm"
 	"github.com/coredev-uk/sona-go/internal/ui/features/commands"
@@ -11,6 +13,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/private"
 	"github.com/coredev-uk/sona-go/internal/ui/features/reminders"
 	"github.com/coredev-uk/sona-go/internal/ui/features/settings"
+	"github.com/coredev-uk/sona-go/internal/ui/features/song"
 	"github.com/coredev-uk/sona-go/internal/ui/features/updates"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
@@ -21,6 +24,9 @@ import (
 // absent: there are no placeholders.
 var factories = []module.Factory{
 	library.New, // Albums only
+	album.New,   // the album page
+	artist.New,  // the artist page and its see-all views
+	song.New,    // the song page
 	player.New,  // the player bar only
 	auth.New,    // sign-in state, the account menu and dialog
 	updates.New, // the sidebar's update notice

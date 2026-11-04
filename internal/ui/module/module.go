@@ -67,6 +67,10 @@ type Env struct {
 	// (the factories run in modules.go's order, a Point sorts by its own).
 	PlayerControls Point
 	PlayerNotice   Point
+	// ArtistConcerts builds an artist page's "Upcoming concerts" (owned by
+	// features/concerts, which sets it in its factory; nil while that feature
+	// is not registered: build nothing). first marks the page's first shelf.
+	ArtistConcerts func(c *ui.Context, artistID string, first bool)
 	Log            *slog.Logger
 	Version        string
 	Dev            bool // a -tags dev build

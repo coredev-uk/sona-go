@@ -136,6 +136,9 @@ type TrackListState struct {
 	hashed bool
 
 	top float32 // the body's offset in its pane's content
+	// workH is the laid-out height of each work heading, by the row it
+	// precedes, as of the last frame.
+	workH map[int]float32
 	// drawTop is that offset as the last paint saw it (one frame's position
 	// and scroll offset together); drawn: there was a paint.
 	drawTop  float32
@@ -446,9 +449,17 @@ func (st *TrackListState) headings(c *ui.Context, o *TrackListOpts, i int, s *se
 		if multiDisc {
 			level = 4
 		}
-		ui.Text(c.Key("work-"+strconv.Itoa(i)), h).
+		e := ui.Text(c.Key("work-"+strconv.Itoa(i)), h).
 			FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).FontWeight(500).
 			TextColor(theme.C("ink")).Padding(top, trackPadX, 6).Role(ui.RoleHeading).Level(level)
+		// A work heading may wrap: its laid-out height (last frame's) is what
+		// BlockTop sums.
+		if b := e.Bounds(); b.H > 0 {
+			if st.workH == nil {
+				st.workH = map[int]float32{}
+			}
+			st.workH[i] = b.H
+		}
 	}
 }
 
