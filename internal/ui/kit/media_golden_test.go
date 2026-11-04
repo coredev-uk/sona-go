@@ -87,7 +87,7 @@ func mediaGoldenWithin(t *testing.T, name string, img *image.RGBA, frac int) {
 		}
 	}
 	if limit := img.Bounds().Dx() * img.Bounds().Dy() / frac; diff > limit {
-		out := filepath.Join(os.TempDir(), "media-"+name+"-got.png")
+		out := filepath.Join(t.ArtifactDir(), "media-"+name+"-got.png")
 		if f, err := os.Create(out); err == nil {
 			_ = png.Encode(f, img)
 			_ = f.Close()
