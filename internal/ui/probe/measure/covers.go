@@ -81,14 +81,14 @@ func distinctColours(img image.Image, r image.Rectangle, limit int) int {
 // timeout, or when the window cannot be captured (the covers then count as
 // on screen when the frames stop).
 func (s *scenario) waitCovers(timeout time.Duration) (first, last time.Time, ok bool) {
-	deadline := time.Now().Add(timeout)
+	deadline := s.Now().Add(timeout)
 	for {
 		loaded, err := s.coversLoaded()
 		if err != nil {
 			s.logf("warning: cannot tell when the covers are drawn (%v): taking the end of the frames", err)
 			return s.waitQuiet(s.Quiet, timeout)
 		}
-		now := time.Now()
+		now := s.Now()
 		if loaded {
 			if n := s.Frames.Count(); n > 0 {
 				fs := s.Frames.Since(0)
@@ -104,6 +104,6 @@ func (s *scenario) waitCovers(timeout time.Duration) (first, last time.Time, ok 
 		if now.After(deadline) {
 			return first, last, false
 		}
-		time.Sleep(50 * time.Millisecond)
+		s.Sleep(50 * time.Millisecond)
 	}
 }

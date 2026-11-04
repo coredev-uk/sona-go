@@ -1445,7 +1445,7 @@ func TestVideoTilesPlayThroughTheItemPlayers(t *testing.T) {
 		t.Error("a play control where videos do not play")
 	}
 	var played []string
-	r.h.Env.Players.RegisterVideo(func(v services.MusicVideo) { played = append(played, v.ID) })
+	r.h.Env.Players.RegisterVideo(func(v services.MusicVideo, _ *ui.Handle) { played = append(played, v.ID) })
 	r.h.Env.Players.Capabilities = func() *services.Capabilities {
 		return &services.Capabilities{Playback: services.PlaybackCapabilities{Available: true, Video: true}}
 	}

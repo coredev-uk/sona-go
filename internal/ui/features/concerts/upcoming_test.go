@@ -6,7 +6,9 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -77,11 +79,11 @@ func TestArtistConcertsNamesTheLineupOnlyWhenOthersPlay(t *testing.T) {
 
 func TestArtistConcertsDrawsNothingWithNoShowsOrOnFailure(t *testing.T) {
 	r := shelfRig(t, 1132, false, func(c *ui.Context, r *rig) { ArtistConcerts(c, r.h.Env, "900099", true) }, artistShows...)
-	r.answered()
+	answered(r, func() store.Result[services.ArtistConcerts] { return dataOf(r.h.Env).artist("900099") })
 	r.lacks("Upcoming concerts")
 
 	r = shelfRig(t, 1132, true, func(c *ui.Context, r *rig) { ArtistConcerts(c, r.h.Env, "900001", true) }, artistShows...)
-	r.answered()
+	answered(r, func() store.Result[services.ArtistConcerts] { return dataOf(r.h.Env).artist("900001") })
 	r.lacks("Upcoming concerts")
 }
 
@@ -120,6 +122,8 @@ func TestConcertsShelfSaysWhenNothingIsListedAndLeavesOutOnFailure(t *testing.T)
 	}
 
 	r = shelfRig(t, 1132, true, func(c *ui.Context, r *rig) { ConcertsShelf(c, r.h.Env, true) }, bulk(2)...)
-	r.answered()
+	answered(r, func() store.Result[services.ConcertsPage] {
+		return dataOf(r.h.Env).concerts(requestOf(dayRange{}, false, "", pageSize))
+	})
 	r.lacks("Concerts", "Band 0")
 }

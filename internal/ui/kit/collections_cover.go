@@ -61,6 +61,11 @@ func CoverRowHeight(tile float32, video bool) float32 {
 type CoverPlay struct {
 	Label string
 	Run   func()
+	// RunFrom, when set, runs instead of Run with the handle of the play
+	// button (bound by the tile): what opens a view over the page passes it
+	// on (store.VideoView.OpenFrom), so closing the view puts the focus back
+	// on this button.
+	RunFrom func(opener *ui.Handle)
 }
 
 // CoverItem is one cover tile (v0.2.0's CoverItem).
@@ -161,6 +166,8 @@ type CoverState struct {
 	menus *ActionMenus
 	// reported is the tile range OnRange was last told.
 	reported [2]int
+	// openers are the play buttons' handles, by tile key.
+	openers Openers
 }
 
 // menusOver is the item menu of a list that shares a page's ActionMenus with
@@ -406,8 +413,14 @@ func (st *CoverState) playControl(c *ui.Context, it *CoverItem, artH float32, ho
 	const size = 36
 	play := PlayButton(c.Key("play"), i18n.T("Play {playLabel}", "playLabel", it.Play.Label), size).Absolute().Left(8).Top(artH - 8 - size)
 	collectionsFade(play, hot || play.Focused())
+	opener := st.openers.For(it.Key)
+	play.Bind(opener)
 	if play.Clicked() {
-		it.Play.Run()
+		if it.Play.RunFrom != nil {
+			it.Play.RunFrom(opener)
+		} else {
+			it.Play.Run()
+		}
 	}
 }
 

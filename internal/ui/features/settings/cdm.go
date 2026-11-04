@@ -120,7 +120,7 @@ func (s *settings) cdmRow(c *ui.Context) {
 // focus moves to the state (the button goes away while the download runs).
 func (s *settings) retryCDM(st *cdmState) {
 	st.focus = true
-	kit.RetryCDMWith(s.cdm.Retry)
+	kit.RetryCDMWith(s.cdm.Retry, nil)
 }
 
 // cdmNote is the line under the state: what happens to an installed copy.

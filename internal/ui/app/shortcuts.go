@@ -163,6 +163,54 @@ func (d *dispatcher) dispatch(c *ui.Context) {
 // v0.2.0's dispatcher did not match it against anything else.)
 func allowed(s module.Shortcut) bool { return s.When == nil || s.When() }
 
+// platformKeys writes a shortcut's default Ctrl chords for the platform's
+// command key: on macOS (cmd is ui.Super) "Ctrl+K" is "Meta+K", because a
+// focused AppKit text field takes Ctrl+B/F/P/N/H/D/A/E/K as emacs editing
+// keys and a Ctrl chord would never reach the shell from one. A user's saved
+// binding is never rewritten (keysOf and chordsOf read it as written), and
+// elsewhere (cmd is ui.Ctrl) the defaults stay as they are.
+func platformKeys(list []module.Shortcut, cmd ui.Modifiers) []module.Shortcut {
+	if cmd != ui.Super {
+		return list
+	}
+	out := make([]module.Shortcut, len(list))
+	for i, s := range list {
+		out[i] = s
+		if len(s.Keys) == 0 {
+			continue
+		}
+		out[i].Keys = make([]string, len(s.Keys))
+		for j, k := range s.Keys {
+			out[i].Keys[j] = macChord(k)
+		}
+	}
+	return out
+}
+
+// macChord is chord with a Ctrl modifier written Meta.
+func macChord(chord string) string {
+	key := ""
+	switch {
+	case strings.HasSuffix(chord, "++"): // the plus key: "Ctrl++"
+		chord, key = strings.TrimSuffix(chord, "++"), "+"
+	case chord == "+":
+		return chord
+	default:
+		i := strings.LastIndex(chord, "+")
+		if i < 0 {
+			return chord
+		}
+		chord, key = chord[:i], chord[i+1:]
+	}
+	mods := strings.Split(chord, "+")
+	for i, m := range mods {
+		if strings.EqualFold(m, "ctrl") || strings.EqualFold(m, "control") {
+			mods[i] = "Meta"
+		}
+	}
+	return strings.Join(mods, "+") + "+" + key
+}
+
 // navShortcuts is the "go to" shortcut of each sidebar link: "nav.<path>",
 // Ctrl+1…9 for the primary section and Alt+1…9 for the library's, by
 // position, unless the item names its own keys (v0.2.0's compose.ts).

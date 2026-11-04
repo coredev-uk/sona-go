@@ -29,7 +29,7 @@ func TestCtrlKOpensThePaletteWithEveryModulesShortcutAndRunsOne(t *testing.T) {
 	ran := 0
 	_, tt := newShell(t, Options{}, pageModule("a", pageDef{"/albums", "Albums", module.NavLibrary, 1}), shortcutModule(&ran), commands.New)
 	tt.Frame()
-	tt.Key(ui.Ctrl, ui.KeyK)
+	tt.Key(ui.Cmd, ui.KeyK)
 	for _, s := range []string{"Ping the server", "Library · Albums", "Show or hide the sidebar", "Keyboard shortcuts"} {
 		if !tt.HasText(s) {
 			t.Errorf("the palette does not list %q; texts %q", s, tt.Texts())
@@ -44,8 +44,8 @@ func TestCtrlKOpensThePaletteWithEveryModulesShortcutAndRunsOne(t *testing.T) {
 	if ran != 1 {
 		t.Errorf("the command ran %d times", ran)
 	}
-	tt.Key(ui.Ctrl, ui.KeyK)
-	tt.Key(ui.Ctrl, ui.KeyK) // its own chord closes it
+	tt.Key(ui.Cmd, ui.KeyK)
+	tt.Key(ui.Cmd, ui.KeyK) // its own chord closes it
 	tt.Advance(400 * time.Millisecond)
 	if tt.HasText("Go to a page, run an action, find music in your library") {
 		t.Error("Ctrl+K did not close the palette")

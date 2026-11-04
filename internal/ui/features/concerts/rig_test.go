@@ -16,6 +16,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -337,18 +338,20 @@ func bulk(n int) []spec {
 }
 
 // answered waits for the fake Apple to have been asked and for the answer
-// (or its failure) to reach the view: what a test about a shelf that draws
-// nothing must do before it may say nothing is drawn.
-func (r *rig) answered() {
+// (or its failure) to reach the view, the query's fetch finished on the main
+// thread (query reads it as the shelf does): what a test about a shelf that
+// draws nothing must do before it may say nothing is drawn.
+func answered[T any](r *rig, query func() store.Result[T]) {
 	r.t.Helper()
 	r.tt.Until("a request to Apple", func() bool {
 		r.amp.mu.Lock()
 		defer r.amp.mu.Unlock()
 		return len(r.amp.seen) > 0
 	})
-	time.Sleep(100 * time.Millisecond) // the fetch goroutine's post
-	r.tt.Drain()
-	r.tt.Drain()
+	r.tt.Until("the answer", func() bool {
+		q := query()
+		return !q.Fetching && (q.HasData || q.Err != nil)
+	})
 }
 
 // openedURLs is the URLs the system browser was asked to open (the

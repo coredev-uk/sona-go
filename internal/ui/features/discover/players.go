@@ -3,6 +3,8 @@ package discover
 import (
 	"context"
 
+	"github.com/egoist/mygo/ui"
+
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
@@ -21,9 +23,10 @@ func (d *discover) registerPlayers() {
 	p.RegisterSongs(func(songs []services.Song, start int, label string) {
 		d.env.Queue.PlaySongs(songs, start, services.PlayFrom{ID: label})
 	})
-	// A video plays alone as the queue, then the video view opens.
-	p.RegisterVideo(func(v services.MusicVideo) {
-		d.env.Queue.PlayVideos([]services.MusicVideo{v}, 0, d.env.Video.Open)
+	// A video plays alone as the queue, then the video view opens, from the
+	// control that asked, which gets the focus back when it closes.
+	p.RegisterVideo(func(v services.MusicVideo, opener *ui.Handle) {
+		d.env.Queue.PlayVideos([]services.MusicVideo{v}, 0, func() { d.env.Video.OpenFrom(opener) })
 	})
 	p.Register(services.ItemSong, func(it services.Item) {
 		if it.Song != nil {

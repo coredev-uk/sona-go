@@ -106,7 +106,7 @@ func TestNavClickAndChordsNavigate(t *testing.T) {
 		t.Errorf("click: at %q, want /songs", got)
 	}
 	// Ctrl+N is the Nth primary link, Alt+N the Nth library link.
-	tt.Key(ui.Ctrl, ui.Key2)
+	tt.Key(ui.Cmd, ui.Key2)
 	if got := a.router.Path(); got != "/search" {
 		t.Errorf("Ctrl+2: at %q, want /search", got)
 	}
@@ -114,7 +114,7 @@ func TestNavClickAndChordsNavigate(t *testing.T) {
 	if got := a.router.Path(); got != "/albums" {
 		t.Errorf("Alt+1: at %q, want /albums", got)
 	}
-	tt.Key(ui.Ctrl, ui.Key9) // no ninth link: nothing happens
+	tt.Key(ui.Cmd, ui.Key9) // no ninth link: nothing happens
 	if got := a.router.Path(); got != "/albums" {
 		t.Errorf("Ctrl+9: at %q", got)
 	}
@@ -174,19 +174,19 @@ func TestSidebarToggleAndCustomChord(t *testing.T) {
 		pageDef{"/songs", "Songs", module.NavPrimary, 2},
 	))
 	tt.Frame()
-	tt.Key(ui.Ctrl, ui.Key2)
+	tt.Key(ui.Cmd, ui.Key2)
 	if a.router.Path() != "/albums" {
 		t.Errorf("the replaced default chord still navigates: %q", a.router.Path())
 	}
-	tt.Key(ui.Ctrl, ui.KeyK)
+	tt.Key(ui.Ctrl, ui.KeyK) // saved as written
 	if a.router.Path() != "/songs" {
 		t.Errorf("the user's chord does not navigate: %q", a.router.Path())
 	}
-	tt.Key(ui.Ctrl, ui.KeyB)
+	tt.Key(ui.Cmd, ui.KeyB)
 	if tt.HasText("Sona") {
 		t.Error("Ctrl+B left the sidebar shown")
 	}
-	tt.Key(ui.Ctrl, ui.KeyB)
+	tt.Key(ui.Cmd, ui.KeyB)
 	if !tt.HasText("Sona") {
 		t.Error("Ctrl+B again did not bring the sidebar back")
 	}
@@ -212,7 +212,7 @@ func TestRebindingAppliesLiveAndEnvListsEffectiveKeys(t *testing.T) {
 		}
 		return nil, false
 	}
-	if k, ok := keysOfID("nav.songs"); !ok || !slices.Equal(k, []string{"Ctrl+2"}) {
+	if k, ok := keysOfID("nav.songs"); !ok || !slices.Equal(k, []string{defaultChord("Ctrl+2")}) {
 		t.Fatalf("default keys of nav.songs = %v, %v", k, ok)
 	}
 	if _, ok := keysOfID("shell.sidebar"); !ok {
@@ -227,7 +227,7 @@ func TestRebindingAppliesLiveAndEnvListsEffectiveKeys(t *testing.T) {
 	if k, _ := keysOfID("shell.sidebar"); k != nil {
 		t.Errorf(`"none" keys = %v`, k)
 	}
-	tt.Key(ui.Ctrl, ui.Key2)
+	tt.Key(ui.Cmd, ui.Key2)
 	if a.router.Path() == "/songs" {
 		t.Error("the replaced default chord still navigates")
 	}
@@ -235,14 +235,14 @@ func TestRebindingAppliesLiveAndEnvListsEffectiveKeys(t *testing.T) {
 	if a.router.Path() != "/songs" {
 		t.Errorf("the new chord does not navigate: %q", a.router.Path())
 	}
-	tt.Key(ui.Ctrl, ui.KeyB)
+	tt.Key(ui.Cmd, ui.KeyB)
 	if !tt.HasText("Sona") {
 		t.Error("an unbound Ctrl+B hid the sidebar")
 	}
 	// Back to defaults.
 	next.Shortcuts = config.Shortcuts{}
 	a.env.Bus.Emit(services.EventSettingsChanged, next)
-	tt.Key(ui.Ctrl, ui.KeyB)
+	tt.Key(ui.Cmd, ui.KeyB)
 	if tt.HasText("Sona") {
 		t.Error("the default Ctrl+B did not come back")
 	}
@@ -369,7 +369,7 @@ func TestShortcutsLeaveTextFieldsTheirKeys(t *testing.T) {
 	if plain != 1 || text != "s" {
 		t.Errorf("typing S in a text field: shortcut ran %d times, text %q", plain, text)
 	}
-	tt.Key(ui.Ctrl, ui.KeyJ)
+	tt.Key(ui.Cmd, ui.KeyJ)
 	if chorded != 1 {
 		t.Errorf("Ctrl+J from a text field ran the global shortcut %d times", chorded)
 	}
@@ -480,4 +480,13 @@ func TestSettingsChangedKeepsTheSharedSettingsCurrent(t *testing.T) {
 	if got.Scrobbling.LastFM.Username != "listener" || !got.Scrobbling.LastFM.Enabled {
 		t.Fatalf("the save put the old scrobbler back: %+v", got.Scrobbling)
 	}
+}
+
+// defaultChord is how a default written Ctrl+X is bound here: Meta+X where the
+// command key is Super (macOS), as written elsewhere.
+func defaultChord(chord string) string {
+	if ui.Cmd == ui.Super {
+		return macChord(chord)
+	}
+	return chord
 }

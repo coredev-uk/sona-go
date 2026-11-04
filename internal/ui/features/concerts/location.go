@@ -61,8 +61,11 @@ func (l *locationDialog) show(c *ui.Context, d *data, loc *services.ConcertLocat
 			switch {
 			case in.Shortcut(0, ui.KeyDown) && len(items) > 0:
 				l.cur, l.want, l.wanting = 0, 0, true
-			case in.Submitted() && term != "" && len(items) > 0:
-				l.pick(d, items[0].ID)
+			case in.Submitted() && term != "" && res.HasData && len(res.Data) > 0:
+				// Only the answer to the whole term: while it loads, the
+				// list still shows an earlier term's cities (fast typing),
+				// and Enter waits for the right ones.
+				l.pick(d, res.Data[0].ID)
 			}
 			none := term != "" && len(items) == 0
 			if none && !res.Fetching && l.announced != term {

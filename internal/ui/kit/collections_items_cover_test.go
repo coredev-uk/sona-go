@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/ui"
+
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 )
@@ -43,7 +45,7 @@ func newItemsRec() *itemsRec {
 		}
 		r.songs = append(r.songs, label+"@"+songs[start].Name+"/"+names[0]+".."+names[len(names)-1])
 	})
-	p.RegisterVideo(func(v services.MusicVideo) { r.videos = append(r.videos, v.ID) })
+	p.RegisterVideo(func(v services.MusicVideo, _ *ui.Handle) { r.videos = append(r.videos, v.ID) })
 	r.players = p
 	return r
 }
@@ -266,7 +268,7 @@ func TestCanPlayVideoNeedsAVideoPlayerAndTheCapability(t *testing.T) {
 	if p.CanPlayVideo() {
 		t.Error("videos play with nothing registered")
 	}
-	p.RegisterVideo(func(services.MusicVideo) {})
+	p.RegisterVideo(func(services.MusicVideo, *ui.Handle) {})
 	if p.CanPlayVideo() {
 		t.Error("videos play before Go has answered")
 	}

@@ -3,6 +3,8 @@ package kit
 import (
 	"time"
 
+	"github.com/egoist/mygo/ui"
+
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 )
@@ -23,7 +25,7 @@ type ItemPlayers struct {
 
 	kinds map[string]func(services.Item)
 	songs func(songs []services.Song, start int, label string)
-	video func(services.MusicVideo)
+	video func(services.MusicVideo, *ui.Handle)
 }
 
 // Register sets how items of kind play; a later registration replaces it.
@@ -40,7 +42,9 @@ func (p *ItemPlayers) RegisterSongs(play func(songs []services.Song, start int, 
 }
 
 // RegisterVideo sets how a music video (a MusicVideo, not an Item) plays.
-func (p *ItemPlayers) RegisterVideo(play func(services.MusicVideo)) { p.video = play }
+// opener is the control that asked (nil when none did): the video view opened
+// from it gives the focus back to it when it closes.
+func (p *ItemPlayers) RegisterVideo(play func(v services.MusicVideo, opener *ui.Handle)) { p.video = play }
 
 // CanPlayVideo reports whether music videos have a play control: a video
 // player is registered and this platform and build play them
@@ -54,9 +58,12 @@ func (p *ItemPlayers) CanPlayVideo() bool {
 }
 
 // PlayVideo plays a music video alone, as the queue.
-func (p *ItemPlayers) PlayVideo(v services.MusicVideo) {
+func (p *ItemPlayers) PlayVideo(v services.MusicVideo) { p.PlayVideoFrom(v, nil) }
+
+// PlayVideoFrom is PlayVideo asked for by the control bound to opener.
+func (p *ItemPlayers) PlayVideoFrom(v services.MusicVideo, opener *ui.Handle) {
 	if p != nil && p.video != nil {
-		p.video(v)
+		p.video(v, opener)
 	}
 }
 
@@ -86,13 +93,17 @@ func (p *ItemPlayers) CanPlay(item services.Item) bool {
 
 // PlayItem plays an item through its kind's player; a music video plays
 // alone through the video player.
-func (p *ItemPlayers) PlayItem(item services.Item) {
+func (p *ItemPlayers) PlayItem(item services.Item) { p.PlayItemFrom(item, nil) }
+
+// PlayItemFrom is PlayItem asked for by the control bound to opener, which a
+// music video's view returns the focus to when it closes.
+func (p *ItemPlayers) PlayItemFrom(item services.Item, opener *ui.Handle) {
 	if p == nil {
 		return
 	}
 	if item.Kind == services.ItemMusicVideo {
 		if item.MusicVideo != nil {
-			p.PlayVideo(*item.MusicVideo)
+			p.PlayVideoFrom(*item.MusicVideo, opener)
 		}
 		return
 	}

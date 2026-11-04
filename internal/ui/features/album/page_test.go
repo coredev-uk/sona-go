@@ -568,7 +568,7 @@ func TestSectionTilesOpenPagesAndPlay(t *testing.T) {
 	// cards do), and playing opens the video view.
 	r.wantNoTexts("Play Low Tide (Video)")
 	var played []string
-	r.h.Env.Players.RegisterVideo(func(v services.MusicVideo) { played = append(played, v.ID) })
+	r.h.Env.Players.RegisterVideo(func(v services.MusicVideo, _ *ui.Handle) { played = append(played, v.ID) })
 	r.h.Env.Players.Capabilities = func() *services.Capabilities {
 		return &services.Capabilities{Playback: services.PlaybackCapabilities{Available: true, Video: true}}
 	}

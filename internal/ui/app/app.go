@@ -273,7 +273,7 @@ func newApp(opts Options, factories []module.Factory) *App {
 	if opts.Settings != nil {
 		overrides = opts.Settings.Get().Shortcuts
 	}
-	a.keys = newDispatcher(list, overrides)
+	a.keys = newDispatcher(platformKeys(list, ui.Cmd), overrides)
 	a.env.Shortcuts = a.keys.bindings
 
 	i18n.SetPoster(post)

@@ -221,15 +221,40 @@ func TestTilesAreThePlayButtonsOfAScrollContainer(t *testing.T) {
 
 // flatApp is a fakeApp whose capture is one flat colour: the covers never
 // come, as with no network.
-type flatApp struct{ fakeApp }
+type flatApp struct {
+	fakeApp
+	flat     []byte // the capture, encoded once
+	captures int    // how many were asked for
+}
 
 func (a *flatApp) handle(line []byte) any {
 	if bytes.Contains(line, []byte(`"capture"`)) {
-		var buf bytes.Buffer
-		_ = png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 1132, 1253)))
-		return map[string]any{"id": 1, "result": map[string]any{"png": buf.Bytes(), "width": 1132, "height": 1253}}
+		if a.flat == nil {
+			var buf bytes.Buffer
+			_ = png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 1132, 1253)))
+			a.flat = buf.Bytes()
+		}
+		a.captures++
+		return map[string]any{"id": 1, "result": map[string]any{"png": a.flat, "width": 1132, "height": 1253}}
 	}
 	return a.fakeApp.handle(line)
+}
+
+// stepClock is a clock that stands still until a wait sleeps: Sleep moves it
+// on by the time asked and counts it, so what a timeout allows is the same
+// on a busy machine as on a fast one.
+type stepClock struct {
+	t      time.Time
+	slept  time.Duration
+	sleeps int
+}
+
+func (c *stepClock) Now() time.Time { return c.t }
+
+func (c *stepClock) Sleep(d time.Duration) {
+	c.t = c.t.Add(d)
+	c.slept += d
+	c.sleeps++
 }
 
 func TestAlbumsGivesUpWhenTheCoversNeverCome(t *testing.T) {
@@ -241,13 +266,19 @@ func TestAlbumsGivesUpWhenTheCoversNeverCome(t *testing.T) {
 	}
 	defer func() { _ = c.Close() }()
 	var out, log bytes.Buffer
-	start := time.Now()
-	err = Albums(Config{Client: c, Frames: &app.fakeApp, Runs: 1, Interval: 16.67, CoversTimeout: 300 * time.Millisecond, Out: &out, Log: &log})
+	clock := &stepClock{t: time.Now()}
+	const timeout = 300 * time.Millisecond
+	err = Albums(Config{Client: c, Frames: &app.fakeApp, Runs: 1, Interval: 16.67, CoversTimeout: timeout, Now: clock.Now, Sleep: clock.Sleep, Out: &out, Log: &log})
 	if !errors.Is(err, ErrCovers) {
 		t.Fatalf("err = %v, want ErrCovers", err)
 	}
-	if time.Since(start) > 5*time.Second {
-		t.Errorf("took %v to give up", time.Since(start))
+	// It gives up once the timeout has passed, not before and not long
+	// after: a poll is 50 ms.
+	if clock.slept < timeout || clock.slept > timeout+100*time.Millisecond {
+		t.Errorf("gave up after waiting %v, want about %v", clock.slept, timeout)
+	}
+	if app.captures == 0 {
+		t.Error("the covers were never looked at")
 	}
 	if bytes.Contains(out.Bytes(), []byte(TableHeader)) {
 		t.Errorf("a table for a page with no covers:\n%s", &out)

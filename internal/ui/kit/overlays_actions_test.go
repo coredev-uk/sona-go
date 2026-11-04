@@ -244,3 +244,20 @@ func TestTracksOfSongIsItselfAndOtherKindsHaveNone(t *testing.T) {
 		}
 	}
 }
+
+// On macOS the Meta modifier is the Command key: ⌘ on the cap, "Command" to
+// assistive technology; elsewhere it is Super.
+func TestMetaIsCommandOnMacOnly(t *testing.T) {
+	defer func(was bool) { metaIsCommand = was }(metaIsCommand)
+	metaIsCommand = true
+	if got := strings.Join(ChordParts("Meta+K"), "|"); got != "⌘|K" {
+		t.Errorf("ChordParts on macOS = %q", got)
+	}
+	if got := ChordText("Meta+K"); got != "Command+K" {
+		t.Errorf("ChordText on macOS = %q", got)
+	}
+	metaIsCommand = false
+	if got := strings.Join(ChordParts("Meta+K"), "|"); got != "Super|K" {
+		t.Errorf("ChordParts elsewhere = %q", got)
+	}
+}
