@@ -21,6 +21,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/settings"
 	"github.com/coredev-uk/sona-go/internal/ui/features/song"
 	"github.com/coredev-uk/sona-go/internal/ui/features/updates"
+	"github.com/coredev-uk/sona-go/internal/ui/features/video"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
 
@@ -46,6 +47,10 @@ var factories = []module.Factory{
 	home.New,     // For you, and one shelf in full
 	discover.New, // Discover, Charts, rooms, curators, groupings; the item players
 	radio.New,    // Radio, stations, and the station actions
+	updates.New,  // the sidebar's update notice
+	video.New,    // the music video page and view
+	player.New,   // the player bar only
+	auth.New,     // sign-in state, the account menu and dialog
 	updates.New,  // the sidebar's update notice
 	// motion has no module: the policy is kit.MotionPolicy (Env.Motion), kept by the shell
 	private.New,    // the player bar's private listening pill and its command
