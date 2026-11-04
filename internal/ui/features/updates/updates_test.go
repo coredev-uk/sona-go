@@ -13,11 +13,12 @@ import (
 )
 
 type rig struct {
-	h     *uitest.Harness
-	tt    *uitest.Session
-	u     *updates
-	opens atomic.Int32
-	fail  atomic.Bool
+	h        *uitest.Harness
+	tt       *uitest.Session
+	u        *updates
+	opens    atomic.Int32
+	installs atomic.Int32
+	fail     atomic.Bool
 }
 
 func newRig(t *testing.T) *rig {
@@ -30,7 +31,7 @@ func newRig(t *testing.T) *rig {
 			return errors.New("no browser")
 		}
 		return nil
-	})
+	}, func() error { r.installs.Add(1); return nil })
 	m := r.u.module()
 	m.Init()
 	r.tt = h.Tester(t, func(c *ui.Context) {
@@ -69,6 +70,34 @@ func TestNoticeShowsOnlyWhileANewerReleaseExists(t *testing.T) {
 	r.emit(services.UpdateStatus{Current: "0.3.0", Checkable: true, Latest: "0.3.0"})
 	if r.tt.HasText("is available") {
 		t.Errorf("notice stays after the update: %q", r.tt.Texts())
+	}
+}
+
+func TestSelfUpdatingInstallsInPlaceWithProgress(t *testing.T) {
+	r := newRig(t)
+	r.emit(services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, SelfUpdate: true})
+	if !r.tt.HasText("Install and restart") || r.tt.HasText("View") {
+		t.Fatalf("notice = %q", r.tt.Texts())
+	}
+	if err := r.tt.Click("Install and restart"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("the install to start", func() bool { return r.installs.Load() == 1 })
+	// The events carry the download; the button gives way to the bar.
+	r.h.Bus.Emit(services.EventUpdateInstall, services.UpdateStatus{Latest: "0.3.0", Available: true, SelfUpdate: true, Installing: true, Downloaded: 1, Total: 2})
+	r.tt.Drain()
+	if !r.tt.HasText("Downloading Sona 0.3.0…") || r.tt.HasText("Install and restart") {
+		t.Fatalf("installing = %q", r.tt.Texts())
+	}
+	r.h.Bus.Emit(services.EventUpdateInstall, services.UpdateStatus{Latest: "0.3.0", Available: true, SelfUpdate: true, Installed: true})
+	r.tt.Drain()
+	if !r.tt.HasText("Restarting into Sona 0.3.0…") {
+		t.Fatalf("installed = %q", r.tt.Texts())
+	}
+	r.h.Bus.Emit(services.EventUpdateInstall, services.UpdateStatus{Latest: "0.3.0", Available: true, SelfUpdate: true, InstallError: services.CodeUpdateFailed})
+	r.tt.Drain()
+	if !r.tt.HasText("Couldn't install Sona 0.3.0") || !r.tt.HasText("Install and restart") {
+		t.Fatalf("failed = %q", r.tt.Texts())
 	}
 }
 

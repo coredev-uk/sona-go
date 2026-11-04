@@ -27,6 +27,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/scrobble"
+	"github.com/coredev-uk/sona-go/internal/update"
 )
 
 // codeConstants reads every ErrorCode constant declared in errors.go,
@@ -109,6 +110,8 @@ func TestEveryCodeIsClassified(t *testing.T) {
 		CodePrivateForced:       privatemode.ErrForced,
 		CodeUnsupported:         errors.ErrUnsupported,
 		CodeNoCDM:               playback.ErrNoCDM,
+		CodeUpdateSignature:     update.ErrSignature,
+		CodeUpdateFailed:        update.ErrInstall,
 		CodeKeyring:             auth.ErrKeyring,
 		CodeVideoHDOnly:         playback.ErrVideoHDOnly,
 		CodeVideoLicence:        playback.ErrVideoLicence,
@@ -253,6 +256,7 @@ func eventPayloads(t *testing.T) []reflect.Type {
 		"EventAppleTranslations":  reflect.TypeFor[AppleTranslations](),
 		"EventAppleLanguages":     reflect.TypeFor[AppleLanguages](),
 		"EventUpdateAvailable":    reflect.TypeFor[UpdateStatus](),
+		"EventUpdateInstall":      reflect.TypeFor[UpdateStatus](),
 	}
 	files, err := filepath.Glob("*.go")
 	if err != nil {

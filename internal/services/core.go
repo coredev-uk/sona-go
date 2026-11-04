@@ -85,8 +85,11 @@ type Deps struct {
 	// fields are unsupported here.
 	Platform Platform
 
-	Version string    // app version
-	Started time.Time // process start
+	// SelfUpdater installs updates in place on macOS and Windows (MyGo's
+	// updater, wired by main); nil where Sona doesn't update itself.
+	SelfUpdater SelfUpdater
+	Version     string    // app version
+	Started     time.Time // process start
 }
 
 // Core holds the bound services and the hooks main drives.

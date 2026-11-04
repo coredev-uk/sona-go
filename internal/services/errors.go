@@ -21,6 +21,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/scrobble"
+	"github.com/coredev-uk/sona-go/internal/update"
 )
 
 // ErrorCode is a stable error code the frontend words through its own
@@ -78,6 +79,8 @@ const (
 	CodeNoCDM               ErrorCode = "no_cdm"                // the Widevine CDM isn't ready yet (CDMService says why)
 	CodeVideoHDOnly         ErrorCode = "video_hd_only"         // Apple offers the music video only in HD, which a software CDM may not play (playback.ErrVideoHDOnly)
 	CodeVideoLicence        ErrorCode = "video_licence_refused" // Apple refused the music video's licence, or its key is unusable here (playback.ErrVideoLicence)
+	CodeUpdateSignature     ErrorCode = "update_signature"      // the update isn't signed with Sona's key (update.ErrSignature)
+	CodeUpdateFailed        ErrorCode = "update_failed"         // the update couldn't be installed (update.ErrInstall)
 	CodeKeyring             ErrorCode = "keyring"               // the token store failed or didn't answer in time
 	CodeUnknown             ErrorCode = "unknown"               // none of the above; the frontend shows a generic message
 )
@@ -140,6 +143,10 @@ func CodeOf(err error) ErrorCode {
 		return CodeStoredUnreadable
 	case errors.Is(err, auth.ErrBrowserOpen), errors.Is(err, ErrOpenBrowser):
 		return CodeBrowserOpen
+	case errors.Is(err, update.ErrSignature):
+		return CodeUpdateSignature
+	case errors.Is(err, update.ErrInstall):
+		return CodeUpdateFailed
 	case errors.Is(err, auth.ErrKeyring):
 		return CodeKeyring
 	case errors.Is(err, mut.ErrTimeout), errors.Is(err, context.DeadlineExceeded):
