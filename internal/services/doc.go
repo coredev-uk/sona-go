@@ -102,7 +102,8 @@
 // the system keyring; Env.openSecret opens a secret over it), and
 // Deps.Transport carries the HTTP of Go's own services (lyrics, scrobbling,
 // the update check; nil: http.DefaultTransport; Env.gated adds the
-// first-paint gate). A service that reaches outside the process goes
+// first-paint gate, which the update check, started only from OnNetwork or
+// on request, does without). A service that reaches outside the process goes
 // through them (internal/ui/uitest gives both fakes), never through
 // http.DefaultClient or store.OpenSecret.
 //

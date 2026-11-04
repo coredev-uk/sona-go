@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -141,10 +142,11 @@ func TestEnvironmentIsPrivate(t *testing.T) {
 				t.Errorf("%s = %q is outside the test's directory", k, v)
 			}
 		}
-		// The cache is shared by the process (MyGo's font cache), under the
-		// temporary directory: never the real one.
-		if c, err := os.UserCacheDir(); err != nil || !strings.HasPrefix(c, os.TempDir()+string(filepath.Separator)) {
-			t.Errorf("the cache directory %q (%v) is not under the temporary directory", c, err)
+		// The cache is the per-user test cache (MyGo's font cache), beside
+		// Sona's own: never the real cache directory itself.
+		c, err := os.UserCacheDir()
+		if err != nil || filepath.Base(c) != "uitest" || filepath.Base(filepath.Dir(c)) != "sona-tests" {
+			t.Errorf("the cache directory %q (%v) is not the uitest test cache", c, err)
 		}
 		if id := discord.ClientID(); id != "" {
 			t.Errorf("a Discord application %q is configured", id)
@@ -164,5 +166,34 @@ func TestEnvironmentIsPrivate(t *testing.T) {
 		if _, err := net.Dial("unix", filepath.Join(os.Getenv("XDG_RUNTIME_DIR"), "discord-ipc-0")); err == nil {
 			t.Error("a Discord socket answers")
 		}
+	}
+}
+
+// Code that reaches for http.DefaultClient (or a client with no transport) is
+// held to the same Network for the length of the test, loopback servers of the
+// test's own excepted; the default transport comes back afterwards.
+func TestDefaultClientFailsFast(t *testing.T) {
+	before := http.DefaultTransport
+	t.Run("test", func(t *testing.T) {
+		h := New(t, Bare())
+		start := time.Now()
+		_, err := http.DefaultClient.Get("https://example.com/")
+		assertOffline(t, err, "example.com", start)
+		_, err = (&http.Client{}).Get("https://api.github.com/")
+		assertOffline(t, err, "api.github.com", start)
+		if got := h.Network.Blocked(); len(got) != 2 {
+			t.Errorf("Blocked lists %v", got)
+		}
+
+		srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+		defer srv.Close()
+		resp, err := http.Get(srv.URL)
+		if err != nil {
+			t.Fatalf("a loopback server of the test: %v", err)
+		}
+		_ = resp.Body.Close()
+	})
+	if http.DefaultTransport != before {
+		t.Error("http.DefaultTransport was not restored")
 	}
 }

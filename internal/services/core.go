@@ -63,9 +63,10 @@ type Deps struct {
 	// Keyring is the secret store behind the scrobblers' and Musixmatch's
 	// credentials (nil: the system keyring). Tests give an in-memory one.
 	Keyring store.Keyring
-	// Transport carries the HTTP of Go's own network services (lyrics,
-	// scrobbling, the update check), under the first-paint gate (nil:
-	// http.DefaultTransport). Tests give one that serves fixtures only.
+	// Transport carries the HTTP of Go's own network services (nil:
+	// http.DefaultTransport): lyrics and scrobbling under the first-paint
+	// gate (Env.gated), the update check ungated (it runs only from
+	// OnNetwork or on request). Tests give one that serves fixtures only.
 	Transport http.RoundTripper
 	Emit Emitter
 	// Clipboard puts text on the system clipboard and reports success (nil:

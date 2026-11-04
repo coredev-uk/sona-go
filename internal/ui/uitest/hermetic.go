@@ -3,6 +3,7 @@ package uitest
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,13 +18,16 @@ import (
 
 // A uitest Core is hermetic: whatever the machine running the tests has (a
 // signed-in keyring, a network, a session bus, Sona's own settings), the
-// services see none of it. Three seams carry that:
+// services see none of it. Four seams carry that:
 //
 //   - Keyring, an in-memory store handed to the services (Deps.Keyring), so
 //     the Secret Service is never asked;
 //   - Network, the transport of every HTTP client the services and the
 //     artwork cache use (Deps.Transport, artwork.Options.HTTP), which serves
 //     the fixtures' hosts and fails any other request at once;
+//   - http.DefaultTransport, which for the length of the test is the same
+//     Network (loopback excepted, for httptest servers), so code that
+//     reaches for http.DefaultClient fails as well;
 //   - the process environment (isolate): home and XDG directories under the
 //     test's temporary directory, the buses unreachable, and the build
 //     settings of the integrations (Last.fm account, Discord application)
@@ -161,14 +165,44 @@ func (k *Keyring) Delete(service, user string) error {
 	return nil
 }
 
-// processCache is the XDG cache directory of every test of the process. It
-// outlives the tests on purpose: MyGo registers the interface font once per
-// process, from a file it writes under the user cache directory, and a
-// directory removed with the first test would take the font from the rest.
-// It is under the temporary directory (never the real cache), holds nothing
-// but that content-addressed font, and is left behind: Go tests have no
-// process-end hook to remove it from.
-var processCache = sync.OnceValues(func() (string, error) { return os.MkdirTemp("", "sona-uitest-cache-") })
+// processCache is the XDG cache directory of every uitest test: one per
+// user, kept between runs, beside (never inside) Sona's own cache, as
+// cdmtest keeps its CDM. It outlives the tests on purpose: MyGo registers
+// the interface font once per process from a file it writes under the user
+// cache directory, and fontconfig keeps its cache there; both write
+// atomically, so test processes share it and nothing piles up.
+var processCache = sync.OnceValues(func() (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(base, "sona-tests", "uitest")
+	return dir, os.MkdirAll(dir, 0o700)
+})
+
+// denyDefaultTransport makes n the http.DefaultTransport until the test
+// ends, loopback aside (httptest servers are the test's own), so a client
+// built on http.DefaultClient or a nil transport fails like the Core's.
+// The tests that call it cannot run in parallel (they set the environment).
+func denyDefaultTransport(t testing.TB, n *Network) {
+	t.Helper()
+	orig := http.DefaultTransport
+	http.DefaultTransport = defaultGuard{n: n, real: orig}
+	t.Cleanup(func() { http.DefaultTransport = orig })
+}
+
+// defaultGuard is what denyDefaultTransport installs.
+type defaultGuard struct {
+	n    *Network
+	real http.RoundTripper
+}
+
+func (g defaultGuard) RoundTrip(req *http.Request) (*http.Response, error) {
+	if h := req.URL.Hostname(); h == "localhost" || net.ParseIP(h).IsLoopback() {
+		return g.real.RoundTrip(req)
+	}
+	return g.n.RoundTrip(req)
+}
 
 // isolate points everything the process reads from its environment at dir,
 // for the length of the test: HOME and the XDG directories (config, data,

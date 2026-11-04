@@ -139,6 +139,7 @@ func New(t testing.TB, opts ...Option) *Harness {
 	isolate(t, filepath.Join(h.Dir, "env"))
 	h.Network, h.Keyring = NewNetwork(), NewKeyring()
 	h.Network.Serve(fixture.CDNHost, h.Covers)
+	denyDefaultTransport(t, h.Network)
 	h.Bus = store.NewBus(nil)
 	h.Bus.SetPoster(h.Main.Post)
 	var art *artwork.Cache
