@@ -185,7 +185,7 @@ func TestModifiedClicksOnATrackLinkSelectTheRowAndPlainOnesOpenIt(t *testing.T) 
 	a, tt := newCollTrackApp(t, 6, 1000, 500)
 	tt.Frame()
 	ax, ay := collPos(t, tt, "Artist 4")
-	tt.ClickAtWith(ui.Ctrl, ax, ay)
+	tt.ClickAtWith(ui.Cmd, ax, ay)
 	if len(a.artists) != 0 {
 		t.Errorf("Ctrl+click on the artist link opened %v", a.artists)
 	}
@@ -243,8 +243,8 @@ func TestEachShelfOfASectionsPageHasItsOwnBulkMenu(t *testing.T) {
 	a.load(t, tt, 0)
 	x1, y1 := collPos(t, tt, "Album 11")
 	x2, y2 := collPos(t, tt, "Album 12")
-	tt.ClickAtWith(ui.Ctrl, x1, y1-100)
-	tt.ClickAtWith(ui.Ctrl, x2, y2-100)
+	tt.ClickAtWith(ui.Cmd, x1, y1-100)
+	tt.ClickAtWith(ui.Cmd, x2, y2-100)
 	tt.RightClickAt(x2, y2-100)
 	tt.Frame()
 	if !tt.HasText("Queue all") {

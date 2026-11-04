@@ -79,15 +79,15 @@ func withKeys(anchor int, keys ...string) SelectionState {
 type ClickMods struct {
 	// Range is Shift: select the range from the anchor.
 	Range bool
-	// Toggle is Ctrl (or Cmd): toggle one row, or add a range to what is
+	// Toggle is the command key (Ctrl, Cmd on macOS): toggle one row, or add a range to what is
 	// selected.
 	Toggle bool
 }
 
-// ModsOf reads a click's modifier keys: Shift is Range, Ctrl or Super is
-// Toggle.
+// ModsOf reads a click's modifier keys: Shift is Range, the platform command
+// key (ui.Cmd: Ctrl, Cmd on macOS) is Toggle.
 func ModsOf(m ui.Modifiers) ClickMods {
-	return ClickMods{Range: m&ui.Shift != 0, Toggle: m&(ui.Ctrl|ui.Super) != 0}
+	return ClickMods{Range: m&ui.Shift != 0, Toggle: m&ui.Cmd != 0}
 }
 
 // rangeKeys are the keys of rows a…b inclusive (either order), skipping
@@ -156,7 +156,7 @@ func (s SelectionState) MoveAnchor(index int) SelectionState {
 	return SelectionState{keys: s.keys, anchor: index + 1}
 }
 
-// SelectAll is Ctrl+A: every selectable row, the anchor where it was.
+// SelectAll is Ctrl+A (Cmd+A on macOS): every selectable row, the anchor where it was.
 func (s SelectionState) SelectAll(keys Rows) SelectionState {
 	next := make([]string, 0, keys.Len())
 	for i := range keys.Len() {

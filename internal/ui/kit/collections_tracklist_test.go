@@ -111,7 +111,7 @@ func TestTrackListSelectsPlaysAndSorts(t *testing.T) {
 	if a.st.Sel.Len() != 3 {
 		t.Errorf("shift+click selected %v", a.st.Sel.State().Keys())
 	}
-	tt.ClickAtWith(ui.Ctrl, x, y)
+	tt.ClickAtWith(ui.Cmd, x, y)
 	if a.st.Sel.Selected("s2") || a.st.Sel.Len() != 2 {
 		t.Errorf("ctrl+click selected %v", a.st.Sel.State().Keys())
 	}
@@ -169,7 +169,7 @@ func TestTrackListKeysMoveTheFocusAndSelect(t *testing.T) {
 	if !tt.Focused("Song 13") {
 		t.Errorf("Page Down: focus not 13 rows down")
 	}
-	tt.Key(ui.Ctrl, ui.KeyA)
+	tt.Key(ui.Cmd, ui.KeyA)
 	if a.st.Sel.Len() != 40 {
 		t.Errorf("Ctrl+A selected %d", a.st.Sel.Len())
 	}
@@ -335,7 +335,7 @@ func TestTrackListDragsTheSelection(t *testing.T) {
 	tt.Frame()
 	for _, n := range []string{"Song 1", "Song 2", "Song 3"} {
 		x, y := collRowPos(t, tt, n)
-		tt.ClickAtWith(ui.Ctrl, x, y)
+		tt.ClickAtWith(ui.Cmd, x, y)
 	}
 	x, y := collRowPos(t, tt, "Song 2")
 	tx, ty := collPos(t, tt, "Queue target")

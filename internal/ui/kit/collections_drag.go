@@ -328,7 +328,7 @@ func (d *dragEngine) watch(c *ui.Context, s ui.Element, o DragOpts) bool {
 			break
 		}
 		if c.Modifiers() != 0 && !mine {
-			break // Ctrl/Shift+press selects; it never drags
+			break // Cmd/Shift+press selects; it never drags
 		}
 		if d.gate.key != id || !d.gate.on {
 			d.gate.key, d.gate.dx, d.gate.dy, d.gate.on = id, 0, 0, true

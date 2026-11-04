@@ -143,7 +143,7 @@ func TestCoverGridClicksOpenAndModifiedClicksSelect(t *testing.T) {
 	if len(a.opened) != 1 || a.opened[0] != "3" {
 		t.Fatalf("opened %v", a.opened)
 	}
-	tt.ClickAtWith(ui.Ctrl, x, y-100)
+	tt.ClickAtWith(ui.Cmd, x, y-100)
 	if len(a.opened) != 1 || !a.st.Sel.Selected("a3") {
 		t.Errorf("ctrl+click: opened %v, selected %v", a.opened, a.st.Sel.State().Keys())
 	}
@@ -189,7 +189,7 @@ func TestCoverGridArrowsMoveFocusAndShiftExtendsTheSelection(t *testing.T) {
 	if got := a.st.Sel.State().Keys(); len(got) != 2 || !a.st.Sel.Selected("a5") || !a.st.Sel.Selected("a6") {
 		t.Errorf("Shift+Right back past the anchor selected %v", got)
 	}
-	tt.Key(ui.Ctrl, ui.KeyA)
+	tt.Key(ui.Cmd, ui.KeyA)
 	if got := a.st.Sel.Len(); got != 12 {
 		t.Errorf("Ctrl+A selected %d", got)
 	}
@@ -474,8 +474,8 @@ func TestMenuOnASelectedTileKeepsTheSelectionAndIsHeldOpen(t *testing.T) {
 	tt.Frame()
 	x2, y2 := collPos(t, tt, "Artist 2")
 	x3, y3 := collPos(t, tt, "Artist 3")
-	tt.ClickAtWith(ui.Ctrl, x2, y2-100)
-	tt.ClickAtWith(ui.Ctrl, x3, y3-100)
+	tt.ClickAtWith(ui.Cmd, x2, y2-100)
+	tt.ClickAtWith(ui.Cmd, x3, y3-100)
 	tt.RightClickAt(x3, y3-100)
 	tt.Frame()
 	if a.st.Sel.Len() != 2 {

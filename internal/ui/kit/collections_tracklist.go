@@ -676,7 +676,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 			}
 		},
 	}, func(w, src ui.Element) {
-		// A Ctrl/Shift+click on a link selects the row, as anywhere on it.
+		// A Cmd/Shift+click on a link selects the row, as anywhere on it.
 		selectRow := func(m ClickMods) {
 			st.nav.SetFocus(i)
 			st.nav.Want(i)
