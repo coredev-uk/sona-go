@@ -517,3 +517,32 @@ func TestKeyPrefixSemantics(t *testing.T) {
 		t.Error("1 and \"1\" are one key")
 	}
 }
+
+func TestNoRetryKeepsTheErrorUntilInvalidateOrRemount(t *testing.T) {
+	cl, clk := newTestClient()
+	boom := errors.New("boom")
+	var runs atomic.Int32
+	fetch := func(context.Context) (int, error) { runs.Add(1); return 0, boom }
+	o := Options{NoRetry: true}
+	Use(cl, Key{"q"}, fetch, o)
+	eventually(t, "the failure", func() bool { return Use(cl, Key{"q"}, fetch, o).Err != nil })
+	// A view that keeps drawing it (a frame every 200 ms for a minute) is
+	// never asked again: the 5 s retry of a plain query does not apply.
+	for range 300 {
+		clk.advance(200 * time.Millisecond)
+		Use(cl, Key{"q"}, fetch, o)
+	}
+	if runs.Load() != 1 {
+		t.Fatalf("a NoRetry query was asked %d times while on screen", runs.Load())
+	}
+	if r := Use(cl, Key{"q"}, fetch, o); !errors.Is(r.Err, boom) || r.HasData {
+		t.Errorf("error not kept: %+v", r)
+	}
+	// Invalidate asks again.
+	cl.Invalidate(Key{"q"})
+	eventually(t, "the refetch after Invalidate", func() bool { return runs.Load() == 2 })
+	// So does a view that mounts it again after a gap.
+	clk.advance(10 * time.Second)
+	Use(cl, Key{"q"}, fetch, o)
+	eventually(t, "the refetch on a new mount", func() bool { return runs.Load() == 3 })
+}

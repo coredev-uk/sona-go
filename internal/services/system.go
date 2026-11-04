@@ -84,6 +84,19 @@ func (s *SystemService) UpdateSettings(next config.Settings) (config.Settings, e
 	return saved, nil
 }
 
+// SetSidebar saves the sidebar's open folders and folded sections, leaving
+// every other setting as it is (UpdateSettings replaces them all, so a
+// caller's stale copy would undo another control's change).
+func (s *SystemService) SetSidebar(sb config.Sidebar) (config.Settings, error) {
+	prev := s.o.Settings.Get()
+	saved, err := s.o.Settings.Update(func(st *config.Settings) { st.Sidebar = sb })
+	if err != nil {
+		return prev, err
+	}
+	s.o.Emit.Emit(EventSettingsChanged, saved)
+	return saved, nil
+}
+
 // OpenLogFolder opens the log directory in the file manager.
 func (s *SystemService) OpenLogFolder() error {
 	return s.o.OpenURL("file://" + s.o.Paths.State)

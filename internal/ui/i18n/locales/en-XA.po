@@ -7401,3 +7401,19 @@ msgstr ""
 #: src/features/auth/AccountMenu.tsx
 msgid "Your token is stored unencrypted"
 msgstr ""
+
+#: internal/ui/features/playlist/format.go
+msgid "yesterday"
+msgstr ""
+
+#: internal/ui/features/playlist/format.go
+msgid "{days, plural, one {# day ago} other {# days ago}}"
+msgstr ""
+
+#: internal/ui/features/playlist/format.go
+msgid "{hours, plural, one {# hr. ago} other {# hr. ago}}"
+msgstr ""
+
+#: internal/ui/features/playlist/format.go
+msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
+msgstr ""
