@@ -7463,5 +7463,9 @@ msgstr "Nothing by {name} is in your library yet."
 #: internal/ui/features/library/sync.go
 #: internal/ui/features/library/sync.go
 #: internal/ui/features/library/sync.go
+#: internal/ui/features/playlist/format.go
+#: internal/ui/features/playlist/format.go
+#: internal/ui/features/playlist/format.go
+#: internal/ui/features/playlist/format.go
 msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
 msgstr "{minutes, plural, one {# min. ago} other {# min. ago}}"

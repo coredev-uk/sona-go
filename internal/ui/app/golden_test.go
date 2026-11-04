@@ -28,7 +28,7 @@ func TestShellAlbumsGolden(t *testing.T) {
 			a.connect()
 			tt := h.Tester(t, a.view, 1132, 1253)
 			tt.Art = append(tt.Art, a.env.Art) // the shell's own loader
-			tt.Until("the albums", tt.Shows("Glass Harbour", "24 albums"))
+			tt.Until("the albums and the sidebar's playlists", tt.Shows("Glass Harbour", "24 albums", "Sunday morning"))
 			tt.Until("the covers", func() bool { return h.Covers.Hits() > 0 })
 			tt.Settle()
 			uitest.Golden(t, tt.Image(), tc.name)
@@ -63,7 +63,7 @@ func TestAccountStatesGolden(t *testing.T) {
 			a.connect()
 			tt := h.Tester(t, a.view, tc.w, tc.h)
 			tt.Art = append(tt.Art, a.env.Art)
-			tt.Until("the albums", tt.Shows("24 albums"))
+			tt.Until("the albums and the sidebar's playlists", tt.Shows("24 albums", "Sunday morning"))
 			h.Bus.Emit(services.EventPrivateChanged, services.PrivateState{On: true, Source: "setting", Saved: true})
 			h.Bus.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true})
 			h.Bus.Emit(services.EventCDMStatus, services.CDMStatus{State: "downloading", Received: 42, Total: 100})

@@ -10,6 +10,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/library"
 	"github.com/coredev-uk/sona-go/internal/ui/features/onboarding"
 	"github.com/coredev-uk/sona-go/internal/ui/features/player"
+	"github.com/coredev-uk/sona-go/internal/ui/features/playlist"
 	"github.com/coredev-uk/sona-go/internal/ui/features/private"
 	"github.com/coredev-uk/sona-go/internal/ui/features/reminders"
 	"github.com/coredev-uk/sona-go/internal/ui/features/settings"
@@ -31,6 +32,11 @@ var factories = []module.Factory{
 	player.New,  // the player bar only
 	auth.New,    // sign-in state, the account menu and dialog
 	updates.New, // the sidebar's update notice
+	library.New,  // Albums only
+	playlist.New, // the playlist page, the sidebar tree and pins, the dialogs
+	player.New,   // the player bar only
+	auth.New,     // sign-in state, the account menu and dialog
+	updates.New,  // the sidebar's update notice
 	// motion has no module: the policy is kit.MotionPolicy (Env.Motion), kept by the shell
 	private.New,    // the player bar's private listening pill and its command
 	cdm.New,        // the Widevine mirror and the player bar's notice
