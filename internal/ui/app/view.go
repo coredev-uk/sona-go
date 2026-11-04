@@ -40,7 +40,9 @@ func (a *App) view(c *ui.Context) {
 	})
 	for _, m := range a.mods {
 		if m.Slots.Layer != nil {
-			ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Children(func() { m.Slots.Layer(c) })
+			// A layer with no LayerOpen builds dialogs (overlays) only: its own
+			// box must not take the window's clicks.
+			ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).IgnoreInput(m.Slots.LayerOpen == nil).Children(func() { m.Slots.Layer(c) })
 		}
 	}
 	kit.OverlayLayer(c)
