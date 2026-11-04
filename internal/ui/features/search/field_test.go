@@ -378,14 +378,18 @@ func TestFieldListsAtMostSixRecentEntries(t *testing.T) {
 		r.rememberTerm("term "+string(rune('a'+i)), scopeCatalog)
 	}
 	r.focusField()
-	r.tt.Until("the recent entries", r.tt.Shows("Recently searched", "term i"))
-	// Nine are remembered; six are listed.
+	// Nine are remembered; six are listed. Which six depends on the stored
+	// times, which a fast loop can make equal: count, don't name them.
 	shown := map[string]bool{}
-	for _, w := range r.tt.Texts() {
-		if strings.HasPrefix(w, "term ") {
-			shown[w] = true
+	r.tt.Until("the recent entries", func() bool {
+		clear(shown)
+		for _, w := range r.tt.Texts() {
+			if strings.HasPrefix(w, "term ") {
+				shown[w] = true
+			}
 		}
-	}
+		return r.tt.HasText("Recently searched") && len(shown) > 0
+	})
 	if len(shown) != maxRecent {
 		t.Fatalf("recent terms shown %v, want %d", shown, maxRecent)
 	}

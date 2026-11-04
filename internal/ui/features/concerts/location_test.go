@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 // refusingSave is the service with a city that cannot be saved.
@@ -43,7 +44,15 @@ func TestLocationDialogSearchesAndPicksTheFirstMatchOnEnter(t *testing.T) {
 	r.shows("Where are you?")
 	r.tt.Type("manch")
 	r.shows("Manchester")
-	r.tt.Until("the matches", func() bool { return r.tt.HasText("Manchester") && !r.tt.HasText("Suggested cities") })
+	// The list shows the last answer while a new search loads, so Enter picks
+	// from the answer to the whole term only once it is in and drawn: the
+	// typed letters are searched one by one, and an earlier answer starts
+	// with another city.
+	r.tt.Until("the matches of the whole term", func() bool {
+		_, ok := store.Peek[[]services.ConcertPlace](r.h.Env.Queries, store.Key{"concerts", "places", "manch"})
+		return ok
+	})
+	r.tt.Drain()
 	r.tt.Key(0, ui.KeyEnter)
 	r.tt.Until("the dialog to close", func() bool { return !r.tt.HasText("Where are you?") })
 	if got := r.h.Settings.Get().Concerts.City; got == "" {
