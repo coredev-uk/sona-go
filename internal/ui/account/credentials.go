@@ -2,6 +2,7 @@ package account
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/egoist/mygo/ui"
 
@@ -32,7 +33,7 @@ func (s *Section) credentialsForm(c *ui.Context, f *flow, hosted bool) {
 			}
 		})
 		field(c.Key("password-field"), i18n.T("Password"), "", func() {
-			if kit.Input(c.Key("password"), &f.password, kit.InputOpts{Invalid: invalid, Password: true}).Submitted() {
+			if kit.Input(c.Key("password-"+strconv.Itoa(f.attempt)), &f.password, kit.InputOpts{Invalid: invalid, Password: true}).Submitted() {
 				submitted = true
 			}
 		})
@@ -75,6 +76,7 @@ func (s *Section) submitCredentials(f *flow) {
 		return
 	}
 	f.password = ""
+	f.attempt++
 	f.apply(SignInAction{Type: ActSubmit})
 	api := s.d.API
 	go func() {

@@ -510,6 +510,23 @@ func TestDialogFollowsSurfaces(t *testing.T) {
 	}
 }
 
+// Closing the dialog drops what was typed in it, as React unmounted it: the
+// form is empty when it opens again.
+func TestClosingTheDialogForgetsWhatWasTyped(t *testing.T) {
+	r := newRig(t, signedOut)
+	r.h.Env.Surfaces.OpenAccount()
+	r.settle()
+	r.tt.Type("someone@example.com")
+	r.settle()
+	r.tt.Key(0, ui.KeyEscape)
+	r.settle()
+	r.h.Env.Surfaces.OpenAccount()
+	r.settle()
+	if r.tt.HasText("someone@example.com") {
+		t.Error("the account name typed before closing is still in the form")
+	}
+}
+
 func TestDialogShowsTheReauthNotice(t *testing.T) {
 	r := newRig(t, services.AuthStatus{State: "needs_reauth"})
 	r.h.Env.Surfaces.OpenAccount()

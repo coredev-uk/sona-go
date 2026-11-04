@@ -44,6 +44,7 @@ type flow struct {
 	view viewKind
 
 	account, password string // credentials
+	attempt           int    // password submissions so far: keys the field, so its undo history starts afresh
 	code              string // code
 	phoneID           int    // phone choice
 
@@ -95,6 +96,12 @@ type Section struct {
 
 // New is a Section over d.
 func New(d Deps) *Section { return &Section{d: d, retry: NewKeyringRetry(d)} }
+
+// Reset forgets the sign-in form: what was typed (a password, a code, a
+// pasted token) and the step. The host calls it when it stops showing the
+// section (the dialog closing), as React unmounted it; a pending challenge
+// comes back from Go's status when the section is built again.
+func (s *Section) Reset() { s.flow, s.focusAccount = nil, false }
 
 // FocusAccount asks the next Build to focus the Apple Account field once.
 func (s *Section) FocusAccount() { s.focusAccount = true }

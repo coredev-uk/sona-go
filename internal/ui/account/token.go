@@ -82,7 +82,7 @@ func (s *Section) tokenPaste(c *ui.Context, f *flow) {
 				submitted = true
 			}
 			if kit.Button(c.Key("cancel"), i18n.T("Cancel"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}).Clicked() {
-				f.tokenOpen = false
+				f.tokenOpen, f.token, f.tokenError = false, "", ""
 			}
 		})
 	})

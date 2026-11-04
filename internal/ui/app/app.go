@@ -7,6 +7,7 @@ package app
 
 import (
 	"cmp"
+	"errors"
 	"log/slog"
 	"os"
 	"slices"
@@ -70,9 +71,9 @@ type Options struct {
 	// Icon is the window icon, a PNG.
 	Icon []byte
 	// OpenURL opens a web page in the system browser (Env.OpenURL); nil
-	// opens nothing and reports an error.
+	// reports an error.
 	OpenURL func(url string) error
-	// Copy puts text on the system clipboard (Env.Copy); nil copies nothing.
+	// Copy puts text on the system clipboard (Env.Copy); nil reports failure.
 	Copy func(text string) bool
 }
 
@@ -148,6 +149,12 @@ func newApp(opts Options, factories []module.Factory) *App {
 		a.mem = newWindowMemory(opts.Settings, a.log)
 	}
 
+	if opts.OpenURL == nil {
+		opts.OpenURL = func(string) error { return errors.New("no way to open a web page") }
+	}
+	if opts.Copy == nil {
+		opts.Copy = func(string) bool { return false }
+	}
 	post := a.postFunc()
 	a.env = &module.Env{
 		Core:     opts.Core,
@@ -349,6 +356,9 @@ func (a *App) followSettings() {
 	}
 	apply(a.opts.Settings.Get())
 	store.On(a.opts.Bus, services.EventSettingsChanged, func(s config.Settings) {
+		// Every feature's copy of the settings (store.UseSettings) follows Go:
+		// a save builds the whole settings from it.
+		store.Set(a.env.Queries, store.KeySettings, s)
 		apply(s)
 		a.locale.apply()
 	})

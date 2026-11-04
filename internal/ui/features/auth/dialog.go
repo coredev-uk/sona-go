@@ -41,6 +41,7 @@ func (f *feature) dialog(c *ui.Context) {
 	})
 	if !open && f.shown {
 		f.shown = false
+		f.section.Reset()
 		f.env.Surfaces.CloseAccount()
 	}
 }

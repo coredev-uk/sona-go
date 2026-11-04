@@ -674,6 +674,37 @@ func TestTokenFormGoesAwayWithTheCredentialsForm(t *testing.T) {
 	}
 }
 
+func TestTokenCancelForgetsTheToken(t *testing.T) {
+	r := newRig(t, signedOut)
+	r.click("Paste a Music User Token")
+	r.typeInto("Music User Token", strings.Repeat("x", 30))
+	r.click("Cancel")
+	r.click("Paste a Music User Token")
+	if r.sec.flow.token != "" || r.sec.flow.tokenError != "" {
+		t.Errorf("Cancel kept the token %q / error %q", r.sec.flow.token, r.sec.flow.tokenError)
+	}
+}
+
+func TestResetForgetsWhatWasTyped(t *testing.T) {
+	r := newRig(t, signedOut)
+	r.typeInto("Password", "hunter2")
+	r.sec.Reset()
+	r.tt.Frame()
+	if r.sec.flow.password != "" || r.sec.flow.account != "" {
+		t.Error("Reset kept the credentials")
+	}
+}
+
+func TestPasswordFieldIsANewFieldAfterEachAttempt(t *testing.T) {
+	r := newRig(t, signedOut)
+	r.api.onPassword = func(string, string) (*services.SecondFactor, error) { return nil, appleid.ErrInvalidCredentials }
+	r.signIn("a@example.com", "pw")
+	r.tt.Until("the error", r.tt.Shows("That Apple Account or password isn't right"))
+	if r.sec.flow.attempt != 1 || r.sec.flow.password != "" {
+		t.Errorf("attempt %d, password %q", r.sec.flow.attempt, r.sec.flow.password)
+	}
+}
+
 func TestLockedAccountOffersTheBrowserAndTheUnlockPage(t *testing.T) {
 	r := newRig(t, signedOut)
 	r.api.onPassword = func(string, string) (*services.SecondFactor, error) { return nil, appleid.ErrLocked }

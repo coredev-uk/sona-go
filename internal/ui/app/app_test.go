@@ -5,12 +5,15 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
@@ -379,5 +382,45 @@ func TestFirstRunOpensTheSetupRoute(t *testing.T) {
 	}
 	if got := a.router.Path(); got != services.OnboardingRoute {
 		t.Fatalf("path %q, want the setup route (the module redirects)", got)
+	}
+}
+
+// Every feature's copy of the settings follows Go: a setting Go changes
+// behind the cache (a scrobbler connected, private listening from the tray)
+// reaches the cache on settings:changed, so the next save, which writes the
+// whole settings, does not put the old value back.
+func TestSettingsChangedKeepsTheSharedSettingsCurrent(t *testing.T) {
+	h := uitest.New(t)
+	a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Now: h.Clock.Now}, nil)
+	t.Cleanup(a.env.Art.Close)
+	a.connect()
+	if r := store.UseSettings(a.env.Queries, h.Core); !r.HasData {
+		h.Main.Drain()
+	}
+	store.Set(a.env.Queries, store.KeySettings, h.Settings.Get()) // the cache holds the settings as they were
+
+	if _, err := h.Settings.Update(func(s *config.Settings) {
+		s.Scrobbling.LastFM = config.ScrobbleAccount{Enabled: true, Username: "listener"}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	h.Bus.Emit(services.EventSettingsChanged, h.Settings.Get())
+	h.Main.Drain()
+	if got, _ := store.Peek[config.Settings](a.env.Queries, store.KeySettings); got.Scrobbling.LastFM.Username != "listener" {
+		t.Fatalf("the cached settings did not follow: %+v", got.Scrobbling)
+	}
+
+	kit.UpdateSettings(a.env.Queries, h.Core, func(s *config.Settings) { s.ReduceEffects = true })
+	deadline := time.Now().Add(10 * time.Second)
+	for !h.Settings.Get().ReduceEffects && time.Now().Before(deadline) {
+		h.Main.Drain()
+		time.Sleep(5 * time.Millisecond)
+	}
+	got := h.Settings.Get()
+	if !got.ReduceEffects {
+		t.Fatal("the save never landed")
+	}
+	if got.Scrobbling.LastFM.Username != "listener" || !got.Scrobbling.LastFM.Enabled {
+		t.Fatalf("the save put the old scrobbler back: %+v", got.Scrobbling)
 	}
 }

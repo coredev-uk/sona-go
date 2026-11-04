@@ -39,11 +39,13 @@ func (a *App) view(c *ui.Context) {
 		}
 	})
 	for _, m := range a.mods {
-		// A closed layer builds no wrapper: an empty full-window box over
-		// the page would take every pointer press.
-		if m.Slots.Layer != nil && (m.Slots.LayerOpen == nil || m.Slots.LayerOpen()) {
-			ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Children(func() { m.Slots.Layer(c) })
+		if m.Slots.Layer == nil {
+			continue
 		}
+		// A closed layer's wrapper takes no input: an input-taking box over
+		// the page would swallow every pointer press.
+		open := m.Slots.LayerOpen != nil && m.Slots.LayerOpen()
+		ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).IgnoreInput(!open).Children(func() { m.Slots.Layer(c) })
 	}
 	kit.OverlayLayer(c)
 	a.afterFrame(c, layerOpen, overlayOpen)
