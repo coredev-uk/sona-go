@@ -70,6 +70,7 @@ func newRig(t *testing.T, albums []fixture.Album, width, height int) *rig {
 	r.asked = &recordingAPI{libraryAPI: services.Service[services.LibraryService](h.Core)}
 	r.l.lib = r.asked
 	r.l.play = services.Service[services.PlaybackService](h.Core)
+	seedAuth(h)
 	r.l.init()
 	r.tt = h.Tester(t, func(c *ui.Context) {
 		ui.Column(c).Fill().Children(func() {

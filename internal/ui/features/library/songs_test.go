@@ -184,13 +184,16 @@ func TestSongsHeaderClickTogglesTheSort(t *testing.T) {
 	if !ok {
 		t.Fatal("no Album header")
 	}
-	x, y := rect.X+rect.W/2, rect.Y+rect.H/2
+	// The active header gains a sort arrow after its text, which moves the
+	// text's centre but not its left edge: click near the left edge, and at
+	// another height the second time so the two are never one double click.
+	x, y := rect.X+2, rect.Y+rect.H/2
 	r.tt.ClickAt(x, y)
 	if got := r.router.Location(); got != songsPath+"?desc=false&sort=album" {
 		t.Fatalf("Album header: URL %q", got)
 	}
 	r.tt.Drain()
-	r.tt.ClickAt(x, y)
+	r.tt.ClickAt(x, y-2)
 	if got := r.router.Location(); got != songsPath+"?desc=true&sort=album" {
 		t.Fatalf("Album header again: URL %q", got)
 	}

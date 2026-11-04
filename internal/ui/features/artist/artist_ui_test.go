@@ -1087,7 +1087,9 @@ func TestViewPageAsksForNoPageWhileOneIsBeingFetched(t *testing.T) {
 	for range 20 {
 		r.tt.Drain()
 	}
-	if got := r.cat.asked(); len(got) != 2 || got[1] != "view 657515 top-songs 0/50" { // the artist's name, then the first page
+	// The artist's name and the first page are asked by two fetches that start
+	// together: in either order, and no other page.
+	if got := r.cat.asked(); len(got) != 2 || !slices.Contains(got, "view 657515 top-songs 0/50") || !slices.Contains(got, "artist 657515") {
 		t.Errorf("asked %q while the first page was fetched", got)
 	}
 	close(r.cat.viewGate)

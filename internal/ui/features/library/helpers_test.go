@@ -3,6 +3,7 @@ package library
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -47,6 +48,7 @@ func newPageRig(t *testing.T, start string, w, h int, before func(l *library), o
 		hn.Env.ItemStates = kit.NewItemStates(hn.Env.Queries, hn.Env.Post, r.l.lib)
 		hn.Env.ItemStates.Follow(hn.Env.Bus)
 	}
+	seedAuth(hn)
 	mod.Init()
 	r.tt = hn.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // a frozen clock never finishes a transition: each input would cost 20 frames
@@ -105,4 +107,17 @@ func viaPlay(h *uitest.Harness, play playbackAPI) *kit.QueueCommands {
 // would have written it.
 func fakeAuth(l *library, a interface{ Status() services.AuthStatus }) {
 	store.Set(l.env.Queries, store.KeyAuth, a.Status())
+}
+
+// seedAuth is what the auth module does for the pages: the real account's
+// status, once Go has read the keyring, unless a test wrote a fake one. It
+// is written before any page reads it, so no fetch decides the status.
+func seedAuth(h *uitest.Harness) {
+	if _, ok := store.Peek[services.AuthStatus](h.Env.Queries, store.KeyAuth); ok {
+		return
+	}
+	real := services.Service[services.AuthService](h.Core)
+	for end := time.Now().Add(5 * time.Second); real.Status().State == "restoring" && time.Now().Before(end); time.Sleep(time.Millisecond) {
+	}
+	store.Set(h.Env.Queries, store.KeyAuth, real.Status())
 }
