@@ -22,8 +22,11 @@ import (
 // headless window kept of the last frame.
 //
 // It reaches the Tester's unexported fields by name (rt, h, access): MyGo is
-// pinned exactly, and TestReadSeesTheTree fails at once if a bump moves
-// them.
+// pinned exactly, and TestPinnedMyGo fails at once on a bump so that the
+// constants below (the flag bits of ui/element.go, the element kinds, the
+// order of internal/platform's states and actions, the leaf roles of
+// ui/access.go) are re-checked; the canaries in access_test.go check them
+// against what the engine builds.
 
 // State is a bit of a node's states.
 type State uint32
@@ -383,7 +386,7 @@ const (
 	flagScrollX   uint32 = 1 << 4
 	flagScrollY   uint32 = 1 << 5
 	flagInvisible uint32 = 1 << 18
-	flagInert     uint32 = 1 << 28
+	flagInert     uint32 = 1 << 27
 )
 
 const (
@@ -483,6 +486,9 @@ func walkElements(ptr reflect.Value, out *[]Nested) {
 		return
 	}
 	if _, leaf := e.leafOf(); leaf {
+		if e.kind == kindText {
+			return // MyGo puts a text's inline links on the tree (accessInline)
+		}
 		opener := fmt.Sprintf("%s %q", roleName(leafRole(e)), nameOf(v))
 		for _, ch := range children(v) {
 			findControls(ch, opener, out)
