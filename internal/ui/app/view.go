@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
@@ -47,6 +48,7 @@ func (a *App) view(c *ui.Context) {
 			ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Children(func() { m.Slots.Layer(c) })
 		}
 	}
+	kit.OverlayLayer(c)
 }
 
 // painted is the first frame drawn: the network opens (SystemService
