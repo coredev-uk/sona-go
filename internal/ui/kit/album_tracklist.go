@@ -44,7 +44,11 @@ func (st *TrackListState) headingHeight(o *TrackListOpts, i int, at func(i int) 
 		if i == 0 || disc {
 			top = 8
 		}
-		h += top + tk.Type["ui"].LineHeight + 6
+		if m, ok := st.workH[i]; ok {
+			h += m
+		} else {
+			h += top + tk.Type["ui"].LineHeight + 6
+		}
 	}
 	return h
 }

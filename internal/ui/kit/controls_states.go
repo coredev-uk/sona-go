@@ -470,12 +470,24 @@ func notesLines(c *ui.Context, p string, width float32, t theme.TypeStyle) int {
 	return max(1, int(h/one+0.5))
 }
 
+// ArtistLinksOpts are ArtistLinks' options.
+type ArtistLinksOpts struct {
+	// HasRoute says whether a registered page matches a path (Env.HasRoute);
+	// nil links every artist.
+	HasRoute func(path string) bool
+}
+
 // ArtistLinks is every credited artist as a link to their page, "A, B & C",
 // in the colour given (--ink when zero). Without artists it shows fallback
 // (Apple's combined artist name) as plain text. Links push "/artist/{id}"
-// into the page's router.
+// into the page's router; with ArtistLinksOpts.HasRoute a name is a link only
+// where that page exists, else plain text.
 // (shared/components/ArtistLinks.tsx)
-func ArtistLinks(c *ui.Context, artists []services.Artist, fallback string, color ui.Color) ui.Element {
+func ArtistLinks(c *ui.Context, artists []services.Artist, fallback string, color ui.Color, opts ...ArtistLinksOpts) ui.Element {
+	var o ArtistLinksOpts
+	if len(opts) > 0 {
+		o = opts[0]
+	}
 	if color == (ui.Color{}) {
 		color = theme.C("ink")
 	}
@@ -490,6 +502,10 @@ func ArtistLinks(c *ui.Context, artists []services.Artist, fallback string, colo
 					sep = " & "
 				}
 				ui.Text(c.Key(sep+a.ID), sep)
+			}
+			if o.HasRoute != nil && !o.HasRoute("/artist/"+a.ID) {
+				ui.Text(c.Key(a.ID), a.Name).TextColor(color)
+				continue
 			}
 			ui.Link(c.Key(a.ID), a.Name, "/artist/"+a.ID).TextColor(color)
 		}
