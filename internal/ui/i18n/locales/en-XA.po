@@ -7492,5 +7492,15 @@ msgid "Where are you?"
 #: internal/ui/features/concerts/concerts.go
 #: internal/ui/features/concerts/concerts.go
 #: internal/ui/features/concerts/concerts.go
+#: internal/ui/features/discover/front.go
+msgid "Featured cards"
+#: internal/ui/features/discover/titles.go
+#: internal/ui/features/home/util.go
+#: internal/ui/features/discover/titles.go
+#: internal/ui/features/home/util.go
+#: internal/ui/features/discover/titles.go
+#: internal/ui/features/home/util.go
+#: internal/ui/features/discover/titles.go
+#: internal/ui/features/home/util.go
 msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
 msgstr ""

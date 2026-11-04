@@ -7,12 +7,15 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/cdm"
 	"github.com/coredev-uk/sona-go/internal/ui/features/commands"
 	"github.com/coredev-uk/sona-go/internal/ui/features/concerts"
+	"github.com/coredev-uk/sona-go/internal/ui/features/discover"
 	"github.com/coredev-uk/sona-go/internal/ui/features/equalizer"
+	"github.com/coredev-uk/sona-go/internal/ui/features/home"
 	"github.com/coredev-uk/sona-go/internal/ui/features/library"
 	"github.com/coredev-uk/sona-go/internal/ui/features/onboarding"
 	"github.com/coredev-uk/sona-go/internal/ui/features/player"
 	"github.com/coredev-uk/sona-go/internal/ui/features/playlist"
 	"github.com/coredev-uk/sona-go/internal/ui/features/private"
+	"github.com/coredev-uk/sona-go/internal/ui/features/radio"
 	"github.com/coredev-uk/sona-go/internal/ui/features/reminders"
 	"github.com/coredev-uk/sona-go/internal/ui/features/search"
 	"github.com/coredev-uk/sona-go/internal/ui/features/settings"
@@ -40,6 +43,9 @@ var factories = []module.Factory{
 	auth.New,     // sign-in state, the account menu and dialog
 	search.New,   // search field, results, group and profile pages
 	concerts.New, // concerts page and location dialog
+	home.New,     // For you, and one shelf in full
+	discover.New, // Discover, Charts, rooms, curators, groupings; the item players
+	radio.New,    // Radio, stations, and the station actions
 	updates.New,  // the sidebar's update notice
 	// motion has no module: the policy is kit.MotionPolicy (Env.Motion), kept by the shell
 	private.New,    // the player bar's private listening pill and its command
