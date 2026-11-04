@@ -57,6 +57,9 @@ func TestUIProbe(t *testing.T) {
 
 	t.Run("albums", func(t *testing.T) {
 		a := startApp(t)
+		// The app serves one automation client: startApp's connection
+		// has proved it is up, and uiprobe takes the socket over.
+		_ = a.client.Close()
 		sock := ""
 		for _, e := range a.cmd.Env {
 			if v, ok := strings.CutPrefix(e, "MYGO_AUTOMATION="); ok {
