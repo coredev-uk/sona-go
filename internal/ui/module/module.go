@@ -30,7 +30,19 @@ type Env struct {
 	// Actions is the item action registry (every module's Module.Actions),
 	// read by kit.ActionMenus.
 	Actions *kit.ActionRegistry
-	Nav     Navigator // the main window's router
+	// Motion decides whether motion artwork plays and owns the decoders
+	// (kit.MotionCover, kit.TileMotion take it); the shell tells it when the
+	// window hides and when a layer, an overlay or a dialog covers the page.
+	// Nil only in tests that build an Env by hand: a nil policy allows nothing.
+	Motion *kit.MotionPolicy
+	Nav    Navigator // the main window's router
+	// HasRoute reports whether a registered module's route pattern matches
+	// path (a query or fragment is ignored), so a feature links only to pages
+	// that are ported: Pattern "/album/{id}" matches "/album/42". Call it
+	// while building a view: the routes of modules built after the caller
+	// are not known yet in its factory. Nil in a hand-built Env: treat as
+	// false.
+	HasRoute func(path string) bool
 	// Post runs fn on the main thread and redraws the windows: how a
 	// goroutine (a service call) hands its outcome to the view.
 	Post    store.Poster

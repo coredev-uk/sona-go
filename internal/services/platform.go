@@ -45,6 +45,9 @@ type Platform struct {
 	// instance and a second launch forwards its links to it (internal/app:
 	// D-Bus on Linux, a local socket elsewhere).
 	Commands bool
+	// MotionArtwork: the build decodes motion artwork (internal/ui/media
+	// has a decoder: GStreamer on Linux and macOS, none on Windows).
+	MotionArtwork bool
 	// TitleBar is how the main window's title bar works here: the system's
 	// buttons inset into Sona's top bar (macOS), or Sona's own title bar
 	// or the desktop's (Windows, Linux), and the desktop's button layout
@@ -143,6 +146,7 @@ func newPlatformService(e *Env) *PlatformService {
 		Autostart:       p.Autostart != nil,
 		SleepInhibit:    p.Inhibitor != nil,
 		PowerState:      p.Power != nil,
+		MotionArtwork:   p.MotionArtwork,
 		FileChooser:     p.Files != nil,
 		CLI:             p.Commands,
 		DiscordPresence: discord.Supported,

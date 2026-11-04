@@ -209,45 +209,17 @@ func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	size := bucket(px)
-	path := c.path(key, size, codec)
-	if _, err := os.Stat(path); err != nil {
-		c.mu.Lock()
-		master := c.masters[key]
-		c.mu.Unlock()
-		if master == "" {
-			http.NotFound(w, r)
-			return
-		}
-		// Detached: the download completes for the next view even if
-		// this one navigates away.
-		ch := c.flight.DoChan(filepath.Base(path), func() (any, error) {
-			ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), fetchTimeout)
-			defer cancel()
-			start := time.Now()
-			rendition, err := c.fetch(ctx, master, size, codec, path)
-			f := Fetch{At: time.Now(), Key: key, Size: size, Codec: codec, Rendition: rendition}
-			if err != nil {
-				f.Err = err
-				c.log.Warn("motion: fetch", "key", key, "size", size, "codec", codec, "rendition", rendition, "err", err)
-			} else {
-				c.log.Info("motion: fetched", "key", key, "size", size, "rendition", rendition, "took_ms", time.Since(start).Milliseconds())
-			}
-			c.mu.Lock()
-			c.last = f
-			c.mu.Unlock()
-			return nil, err
-		})
-		select {
-		case <-r.Context().Done():
-			return
-		case res := <-ch:
-			if res.Err != nil {
-				w.Header().Set("Cache-Control", "no-store")
-				http.Error(w, "motion artwork unavailable: "+res.Err.Error(), http.StatusBadGateway)
-				return
-			}
-		}
+	path, err := c.ensure(r.Context(), key, bucket(px), codec)
+	switch {
+	case errors.Is(err, ErrUnknown):
+		http.NotFound(w, r)
+		return
+	case r.Context().Err() != nil:
+		return
+	case err != nil:
+		w.Header().Set("Cache-Control", "no-store")
+		http.Error(w, "motion artwork unavailable: "+err.Error(), http.StatusBadGateway)
+		return
 	}
 	f, err := os.Open(path)
 	if err != nil {
@@ -262,6 +234,75 @@ func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.Set("Cache-Control", "public, max-age=31536000, immutable")
 	h.Set("X-Content-Type-Options", "nosniff")
 	http.ServeContent(w, r, "", time.Time{}, f)
+}
+
+// ErrUnknown is a motion artwork this cache did not hand out (a key URL
+// never returned, and no file of it on disk).
+var ErrUnknown = errors.New("motion: unknown artwork")
+
+// Local returns the file of the motion artwork urlPath names
+// ("<prefix><key>/<n>.mp4" as URL returns it, a query ignored) at px device
+// pixels (16–2048) in codec (CodecH264 when ""), downloading it first when
+// it is not cached: the file ServeHTTP serves, for a caller in this process
+// (the native UI's decoder) that reads it without HTTP. The download is
+// shared with ServeHTTP's and completes even if ctx ends. The file may be
+// evicted later; ask again rather than keeping paths. A path this cache did
+// not hand out is ErrUnknown.
+func (c *Cache) Local(ctx context.Context, urlPath string, px int, codec string) (string, error) {
+	p, _, _ := strings.Cut(urlPath, "?")
+	rest, ok := strings.CutPrefix(p, c.prefix)
+	key, _, ok2 := strings.Cut(rest, "/")
+	codec = cmp.Or(codec, CodecH264)
+	if !ok || !ok2 || !validKey(key) || px < 16 || px > 2048 || (codec != CodecH264 && codec != CodecHEVC) {
+		return "", ErrUnknown
+	}
+	return c.ensure(ctx, key, bucket(px), codec)
+}
+
+// ensure returns the file of key's rendition at the bucket size in codec,
+// downloading it when it is not on disk. ErrUnknown when key was never
+// handed out and has no file.
+func (c *Cache) ensure(ctx context.Context, key string, size int, codec string) (string, error) {
+	path := c.path(key, size, codec)
+	if _, err := os.Stat(path); err == nil {
+		c.touch(path) // a file in use stays out of the way of eviction
+		return path, nil
+	}
+	c.mu.Lock()
+	master := c.masters[key]
+	c.mu.Unlock()
+	if master == "" {
+		return "", ErrUnknown
+	}
+	// Detached: the download completes for the next view even if this one
+	// navigates away.
+	ch := c.flight.DoChan(filepath.Base(path), func() (any, error) {
+		fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), fetchTimeout)
+		defer cancel()
+		start := time.Now()
+		rendition, err := c.fetch(fctx, master, size, codec, path)
+		f := Fetch{At: time.Now(), Key: key, Size: size, Codec: codec, Rendition: rendition}
+		if err != nil {
+			f.Err = err
+			c.log.Warn("motion: fetch", "key", key, "size", size, "codec", codec, "rendition", rendition, "err", err)
+		} else {
+			c.log.Info("motion: fetched", "key", key, "size", size, "rendition", rendition, "took_ms", time.Since(start).Milliseconds())
+		}
+		c.mu.Lock()
+		c.last = f
+		c.mu.Unlock()
+		return nil, err
+	})
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case res := <-ch:
+		if res.Err != nil {
+			return "", res.Err
+		}
+	}
+	c.touch(path)
+	return path, nil
 }
 
 // Stats counts the renditions on disk and reports the newest download.

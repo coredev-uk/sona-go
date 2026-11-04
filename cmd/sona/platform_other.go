@@ -14,6 +14,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/media"
 	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
@@ -68,7 +69,7 @@ func openPlatform(paths config.Paths, act app.Activation, log *slog.Logger) (*pl
 
 // Services offers the title bar and, with the socket, commands.
 func (p *platform) Services() services.Platform {
-	return services.Platform{TitleBar: p.TitleBar(), Commands: p.instance != nil}
+	return services.Platform{TitleBar: p.TitleBar(), Commands: p.instance != nil, MotionArtwork: media.Supported}
 }
 
 // TitleBar: on macOS the system's buttons inset into Sona's top bar; on

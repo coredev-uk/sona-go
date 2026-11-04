@@ -63,6 +63,23 @@ func TestDialogOpensAndEscapeClosesReturningFocus(t *testing.T) {
 	}
 }
 
+func TestTakeDialogsBuiltCountsOpenDialogsPerFrame(t *testing.T) {
+	a, tt := newDialogApp(t, DialogOpts{Title: "Rename"})
+	TakeDialogsBuilt()
+	tt.Frame()
+	if n := TakeDialogsBuilt(); n != 0 {
+		t.Errorf("a closed dialog counted %d", n)
+	}
+	a.open = true
+	tt.Frame()
+	if n := TakeDialogsBuilt(); n != 1 {
+		t.Errorf("an open dialog counted %d, want 1", n)
+	}
+	if n := TakeDialogsBuilt(); n != 0 {
+		t.Errorf("the count was not reset: %d", n)
+	}
+}
+
 func TestDialogCloseButtonCloses(t *testing.T) {
 	a, tt := newDialogApp(t, DialogOpts{Title: "Rename"})
 	a.open = true
