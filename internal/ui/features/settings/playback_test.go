@@ -537,3 +537,29 @@ func TestWidevineFollowsTheSharedMirror(t *testing.T) {
 	store.Set(p.h.Env.Queries, store.KeyCDM, services.CDMStatus{State: "ready", Version: "9.9"})
 	p.tt.Until("ready", p.tt.Shows("Version 9.9"))
 }
+
+func TestOutputDevicesAreRefetchedWhenTheWindowGetsTheFocusBack(t *testing.T) {
+	p := newPBRig(t, pbCaps(), pbReadyCDM())
+	var fetches atomic.Int32
+	devices := []services.OutputDevice{{Name: "alsa_output.speakers", Description: "Speakers", Default: true}}
+	*stateOf[func() ([]services.OutputDevice, error)](p.s, "seam:outputs") = func() ([]services.OutputDevice, error) {
+		fetches.Add(1)
+		return devices, nil
+	}
+	p.shows("Output")
+	p.tt.Drain()
+	p.h.Env.Window.SetFocused(false)
+	p.tt.Frame() // built while another app has the focus
+	seen := fetches.Load()
+	devices = append(devices, services.OutputDevice{Name: "usb_dac", Description: "USB DAC"})
+	p.tt.Frame()
+	if fetches.Load() != seen {
+		t.Fatal("the list was fetched again while the window lacked the focus")
+	}
+	p.h.Env.Window.SetFocused(true)
+	p.tt.Frame()
+	p.tt.Until("refetched", func() bool { return fetches.Load() > seen })
+	p.tt.Drain()
+	p.choose("Output", ui.KeyDown, ui.KeyDown)
+	p.saved("the new device", func(s config.Settings) bool { return s.Audio.OutputDevice == "usb_dac" })
+}

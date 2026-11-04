@@ -66,6 +66,7 @@ type MotionPolicy struct {
 	offPower  func()
 	owner     *motionSlot // the tile whose motion plays
 	last      string      // the newest video's outcome, for Diagnostics
+	lastAt    int64       // when it was recorded, Unix milliseconds
 
 	hidden atomic.Bool // the window is hidden (the sweep reads it)
 	quit   chan struct{}
@@ -198,7 +199,7 @@ func (p *MotionPolicy) Report() services.MotionReport {
 		}
 	}
 	p.mu.Unlock()
-	r.Last = p.last
+	r.Last, r.LastAt = p.last, p.lastAt
 	switch p.codec {
 	case "avc":
 		r.H264 = "probably"
@@ -210,7 +211,7 @@ func (p *MotionPolicy) Report() services.MotionReport {
 
 // outcome records how a video went: the newest one is what Diagnostics shows.
 func (p *MotionPolicy) outcome(kind string, err error) {
-	p.last = kind
+	p.last, p.lastAt = kind, p.clock().UnixMilli()
 	if err != nil {
 		p.last = fmt.Sprintf("%s: %v", kind, err)
 	}

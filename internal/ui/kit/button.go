@@ -5,6 +5,8 @@
 package kit
 
 import (
+	"time"
+
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
@@ -84,6 +86,9 @@ type ButtonOpts struct {
 	// technology and the Filled icon says it (the Favourite star), with no
 	// active fill.
 	Quiet bool
+	// Spin turns the icon once a second while the button is busy (a
+	// "loader-circle"); reduced motion leaves it still.
+	Spin bool
 }
 
 // sizing is a ButtonSize's metrics, in DIPs (button.tsx's h-9, h-8, h-6).
@@ -170,6 +175,9 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 				size = playGlyph
 			}
 			ic := ui.Icon(c, controlsIcon(o.Icon, o.Filled)).FontSize(size)
+			if o.Spin && !theme.ReducedMotion() {
+				ic.Rotate(ic.Loop("spin", time.Second, ui.Linear) * 360)
+			}
 			if o.Variant == Play && o.Icon == "play" {
 				ic.Margin(0, 0, 0, 1) // the triangle's weight sits left of its box
 			}

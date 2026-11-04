@@ -125,7 +125,9 @@ func (s *settings) askDisconnect(st *scrobbleUI, p provider, pending int) {
 		Body:         pendingLine(pending) + " " + i18n.T("Sona discards them and removes its sign-in from your keyring."),
 		ConfirmLabel: i18n.T("Disconnect"),
 		CancelLabel:  i18n.T("Keep connected"),
+		BusyLabel:    i18n.T("Disconnecting…"),
 		Destructive:  true,
+		Hold:         true,
 	}, func(ok bool) {
 		if ok {
 			s.disconnect(&st.removing, p)

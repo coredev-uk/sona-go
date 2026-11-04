@@ -166,7 +166,7 @@ func (s *settings) updateStatusRow(c *ui.Context, st services.UpdateStatus) {
 				if us.checking {
 					label = i18n.T("Checking…")
 				}
-				if kit.Button(c.Key("check"), label, kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Icon: "rotate-cw", Disabled: us.checking}).Clicked() {
+				if kit.Button(c.Key("check"), label, kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Icon: "rotate-cw", Spin: us.checking, Disabled: us.checking}).Clicked() {
 					s.checkNow(us)
 				}
 			}

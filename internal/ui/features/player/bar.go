@@ -230,7 +230,7 @@ func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 			case playing:
 				icon, name = "pause", i18n.T("Pause")
 			}
-			if kit.Button(c.Key("play"), "", kit.ButtonOpts{Variant: kit.Play, Icon: icon, Disabled: idle, A11yLabel: name}).Clicked() {
+			if kit.Button(c.Key("play"), "", kit.ButtonOpts{Variant: kit.Play, Icon: icon, Spin: loading, Disabled: idle, A11yLabel: name}).Clicked() {
 				p.toggle()
 			}
 			if loading {

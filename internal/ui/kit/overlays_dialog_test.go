@@ -226,6 +226,44 @@ func TestConfirmAskingAgainSettlesThePendingOneFalse(t *testing.T) {
 	}
 }
 
+func TestConfirmHoldStaysUpBusyUntilTheCallerEndsIt(t *testing.T) {
+	a, tt := newConfirmApp(t)
+	a.o.Hold, a.o.BusyLabel = true, "Deleting…"
+	_ = tt.Click("Delete…")
+	tt.Key(0, ui.KeyEnter)
+	if len(a.answers) != 1 || !a.answers[0] {
+		t.Fatalf("answers %v, want [true]", a.answers)
+	}
+	tt.Frame()
+	if !ConfirmPending() || !tt.HasText("Deleting…") || tt.HasText("Cancel") && tt.Focused("Cancel") {
+		t.Fatal("the question did not stay up as Deleting…")
+	}
+	// Busy: Escape, Cancel and the busy button do nothing.
+	tt.Key(0, ui.KeyEscape)
+	_ = tt.Click("Cancel")
+	_ = tt.Click("Deleting…")
+	tt.Frame()
+	if len(a.answers) != 1 || !ConfirmPending() {
+		t.Fatalf("a busy question answered again: %v (pending %v)", a.answers, ConfirmPending())
+	}
+	// It failed: the same question again, enabled, and it answers again.
+	ConfirmRelease()
+	tt.Frame()
+	if !tt.HasText("Delete") || tt.HasText("Deleting…") {
+		t.Fatal("the released question is not asked as Delete again")
+	}
+	_ = tt.Click("Delete")
+	if len(a.answers) != 2 || !a.answers[1] {
+		t.Fatalf("answers %v, want a second true", a.answers)
+	}
+	// It worked: the dialog closes with no further answer.
+	ConfirmClose()
+	tt.Frame()
+	if ConfirmPending() || tt.HasText("Deleting…") || len(a.answers) != 2 {
+		t.Errorf("pending %v, answers %v after ConfirmClose", ConfirmPending(), a.answers)
+	}
+}
+
 // toastApp mounts the toaster.
 type toastApp struct{ show func() }
 

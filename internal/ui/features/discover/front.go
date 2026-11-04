@@ -176,11 +176,12 @@ func (d *discover) seen(hero ui.Element) bool {
 	return hero.InView() || hero.Bounds().W == 0 // not laid out yet: on screen
 }
 
-// occupied is what only the tick can say: a menu is open, or the page is
+// occupied is what only the tick can say: a menu is open (any, the sidebar's
+// and the account's too), or the page is
 // covered (under Now Playing, lyrics or a modal dialog). The lead waits a
 // whole interval more.
 func (d *discover) occupied() bool {
-	if d.front.menus.IsOpen() || d.newPg.menus.IsOpen() || kit.ConfirmPending() {
+	if d.front.menus.IsOpen() || d.newPg.menus.IsOpen() || kit.MenusOpen() || kit.ConfirmPending() {
 		return true
 	}
 	return d.env.Motion.Covered()

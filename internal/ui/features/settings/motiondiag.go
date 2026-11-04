@@ -107,22 +107,24 @@ func powerRow(p *services.PowerState) diagRow {
 }
 
 // lastVideo is the newest motion video, from the policy's outcome string
-// ("playing", "media-error: <err>", "download-failed: <err>"; "" before any).
-func lastVideo(last string) diagRow {
+// ("playing", "media-error: <err>", "download-failed: <err>"; "" before any)
+// and when it was recorded (Unix milliseconds).
+func lastVideo(last string, at int64, now time.Time) diagRow {
 	label := i18n.T("Last video")
 	if last == "" {
 		return diagRow{label: label, value: i18n.T("None since Sona started")}
 	}
+	when := i18n.RelativeTime(stampTime(at), now)
 	kind, detail, _ := strings.Cut(last, ": ")
 	switch kind {
 	case "loading":
-		return diagRow{label: label, value: i18n.T("Loading")}
+		return diagRow{label: label, value: i18n.T("Loading · {when}", "when", when)}
 	case "playing":
-		return diagRow{label: label, value: i18n.T("Played"), status: statusOK}
+		return diagRow{label: label, value: i18n.T("Played · {when}", "when", when), status: statusOK}
 	case "download-failed":
-		return diagRow{label: label, value: i18n.T("Couldn't download"), status: statusWarning, detail: detail}
+		return diagRow{label: label, value: i18n.T("Couldn't download · {when}", "when", when), status: statusWarning, detail: detail}
 	case "media-error":
-		return diagRow{label: label, value: i18n.T("Sona couldn't play it"), status: statusWarning, detail: detail}
+		return diagRow{label: label, value: i18n.T("Sona couldn't play it · {when}", "when", when), status: statusWarning, detail: detail}
 	}
 	return diagRow{label: label, value: last, status: statusWarning}
 }
@@ -185,7 +187,7 @@ func motionGroup(r services.MotionReport, st *services.MotionStatus, now time.Ti
 		h264,
 		{label: i18n.T("HEVC decoding"), value: hevc},
 		{label: i18n.T("Window"), value: window},
-		lastVideo(r.Last),
+		lastVideo(r.Last, r.LastAt, now),
 		lastDownload(st, now),
 	}
 	if st != nil {

@@ -135,6 +135,27 @@ type menuLevel struct {
 // IsOpen reports whether the menu shows.
 func (m *Menu) IsOpen() bool { return m.open }
 
+// openMenus counts the menus that are open, whoever owns them (main thread
+// only, like every view).
+var openMenus int
+
+// MenusOpen reports whether any menu is open anywhere: a page's, the
+// sidebar's, the account's. What rotates by itself waits while one is.
+func MenusOpen() bool { return openMenus > 0 }
+
+// setOpen opens or closes the menu, keeping the count of open ones.
+func (m *Menu) setOpen(on bool) {
+	if m.open == on {
+		return
+	}
+	m.open = on
+	if on {
+		openMenus++
+	} else {
+		openMenus--
+	}
+}
+
 // OpenAt opens the menu at a point in window DIPs (a right-click, the
 // focused row's corner for Shift+F10). keyboard starts it on its first row.
 func (m *Menu) OpenAt(x, y float32, keyboard bool) {
@@ -147,13 +168,14 @@ func (m *Menu) OpenAt(x, y float32, keyboard bool) {
 func (m *Menu) OpenFrom(keyboard bool) { m.start(true, keyboard) }
 
 func (m *Menu) start(anchored, keyboard bool) {
-	m.open, m.anchored, m.keyboard = true, anchored, keyboard
+	m.setOpen(true)
+	m.anchored, m.keyboard = anchored, keyboard
 	m.levels = []menuLevel{{}}
 	m.focus, m.age, m.typed, m.dismissed = 0, 0, "", false
 }
 
 // Close closes the menu (a trigger pressed again).
-func (m *Menu) Close() { m.open = false; m.levels = nil }
+func (m *Menu) Close() { m.setOpen(false); m.levels = nil }
 
 // Dismissed reports, once, that the user closed the menu without choosing.
 func (m *Menu) Dismissed() bool { d := m.dismissed; m.dismissed = false; return d }
@@ -572,11 +594,13 @@ func (m *Menu) choose(it *MenuItem) {
 		return
 	}
 	m.pending, m.settle = it.Run, 1
-	m.open, m.levels = false, nil
+	m.setOpen(false)
+	m.levels = nil
 }
 
 func (m *Menu) dismiss() {
-	m.open, m.levels = false, nil
+	m.setOpen(false)
+	m.levels = nil
 	m.dismissed = true
 }
 

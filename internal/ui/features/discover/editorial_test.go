@@ -90,3 +90,27 @@ func TestEditorialPagesLoadingAndErrorTitlesByKind(t *testing.T) {
 		rr.tt.Until("the error of "+path, rr.tt.Shows(title, i18n.ErrorText(services.CodeNotFound), "Try again"))
 	}
 }
+
+func TestEditorialBannerThatCannotLoadLeavesNoBoxBehind(t *testing.T) {
+	shelfAt := func(wide string) float32 {
+		p := editorial("9", "A Campaign", shelfOf("s", "Shelf", albumItem("1", "An Album")))
+		p.Wide = services.Art{Large: wide}
+		api := &fakeAPI{pages: map[string]services.EditorialPage{"multiroom/9": p}}
+		r := newRig(t, "/multiroom/9", withAPI(api))
+		r.tt.Until("the page", r.tt.Shows("A Campaign", "Shelf"))
+		r.tt.Drain()
+		at, ok := r.tt.Find("Shelf")
+		if !ok {
+			t.Fatal("no shelf")
+		}
+		return at.Y
+	}
+	// The test rig's loader has no cache: an art path of Sona's is refused at
+	// once (failed), a remote URL is still on its way, so its banner holds
+	// its place.
+	failed := shelfAt("/art/0123456789abcdef0123456789ab0009/2400x600.jpg")
+	loading := shelfAt("https://example.test/banner/2400x600.jpg")
+	if failed >= loading-100 {
+		t.Errorf("the shelf is at %v under a banner that failed and %v under one still loading: a box is left", failed, loading)
+	}
+}

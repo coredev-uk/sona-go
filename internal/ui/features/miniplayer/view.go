@@ -191,7 +191,7 @@ func (m *mini) controls(c *ui.Context, s services.PlaybackState) {
 			case playing:
 				icon, name = "pause", i18n.T("Pause")
 			}
-			if kit.Button(c.Key("play"), "", kit.ButtonOpts{Variant: kit.Play, Size: kit.SizeSM, Icon: icon, Disabled: idle, A11yLabel: name}).Clicked() {
+			if kit.Button(c.Key("play"), "", kit.ButtonOpts{Variant: kit.Play, Size: kit.SizeSM, Icon: icon, Spin: loading, Disabled: idle, A11yLabel: name}).Clicked() {
 				m.toggleCmd()
 			}
 

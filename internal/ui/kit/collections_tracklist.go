@@ -264,7 +264,7 @@ func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *ser
 			}
 			if virtual {
 				built = st.window(o.Pane, count)
-				st.nav.ScrollTo = func(i int) { st.scrollTo(o.Pane, i, false) }
+				st.nav.ScrollTo = func(i int) { st.scrollTo(o.Pane, i, false, 0) }
 			} else {
 				built = make([]int, count)
 				for i := range built {
@@ -339,10 +339,11 @@ func (st *TrackListState) window(p *Pane, count int) []int {
 	return out
 }
 
-// scrollTo scrolls the pane as little as shows row i, or centres it.
-func (st *TrackListState) scrollTo(p *Pane, i int, center bool) {
+// scrollTo scrolls the pane as little as shows row i, or centres it; above is
+// the height of the disc and work headings over the row.
+func (st *TrackListState) scrollTo(p *Pane, i int, center bool, above float32) {
 	pane := p.Bounds()
-	top := st.top + float32(i)*TrackRowHeight
+	top := st.top + float32(i)*TrackRowHeight + above
 	bottom := top + TrackRowHeight
 	switch {
 	case center && pane.H > 0:
@@ -380,7 +381,14 @@ func (st *TrackListState) highlight(c *ui.Context, o *TrackListOpts, count int, 
 		}
 		st.hlScrolled = true
 		if o.Pane != nil {
-			st.scrollTo(o.Pane, st.hlIndex, true)
+			var above float32 // headings are built only in a list that is not virtual
+			if o.Discs && !(count > VirtualFrom) {
+				multiDisc := st.multiDisc(count, at)
+				for j := 0; j <= st.hlIndex; j++ {
+					above += st.headingHeight(o, j, at, multiDisc)
+				}
+			}
+			st.scrollTo(o.Pane, st.hlIndex, true, above)
 		}
 		c.Invalidate()
 	}

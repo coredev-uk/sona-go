@@ -209,3 +209,23 @@ func TestHoverEasesOver120ms(t *testing.T) {
 		t.Errorf("reduced motion still eases: %v, want %v", got, hover)
 	}
 }
+
+func TestSpinningButtonKeepsAskingForFramesUnlessMotionIsReduced(t *testing.T) {
+	t.Cleanup(func() { theme.SetReducedMotion(false) })
+	for _, reduced := range []bool{false, true} {
+		theme.SetReducedMotion(reduced)
+		_, tt := newButtonApp(t, "Signing in…", ButtonOpts{Icon: "loader-circle", Spin: true})
+		tt.Frame()
+		tt.Advance(300 * time.Millisecond)
+		if got := tt.FramePending(); got == reduced {
+			t.Errorf("reduced motion %v: frames pending %v", reduced, got)
+		}
+	}
+	theme.SetReducedMotion(false)
+	_, tt := newButtonApp(t, "Sign in", ButtonOpts{Icon: "loader-circle"})
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if tt.FramePending() {
+		t.Error("a button without Spin asks for frames")
+	}
+}

@@ -188,7 +188,7 @@ func (s *Section) codeForm(c *ui.Context, f *flow) {
 			if step.Busy {
 				label, icon = i18n.T("Checking…"), "loader-circle"
 			}
-			if kit.Button(c.Key("verify"), label, kit.ButtonOpts{Icon: icon, Disabled: step.Busy || len(f.code) != n}).Clicked() {
+			if kit.Button(c.Key("verify"), label, kit.ButtonOpts{Icon: icon, Spin: step.Busy, Disabled: step.Busy || len(f.code) != n}).Clicked() {
 				submitted = true
 			}
 			again := i18n.T("Send a new code")
@@ -260,7 +260,7 @@ func (s *Section) phoneChoice(c *ui.Context, f *flow) {
 			if step.Busy {
 				label, icon = i18n.T("Sending…"), "loader-circle"
 			}
-			if kit.Button(c.Key("send"), label, kit.ButtonOpts{Icon: icon, Disabled: step.Busy || f.phoneID == 0}).Clicked() {
+			if kit.Button(c.Key("send"), label, kit.ButtonOpts{Icon: icon, Spin: step.Busy, Disabled: step.Busy || f.phoneID == 0}).Clicked() {
 				s.sendCode(f, f.phoneID, mode)
 			}
 			if kit.Button(c.Key("cancel"), i18n.T("Cancel"), kit.ButtonOpts{Variant: kit.Ghost}).Clicked() {

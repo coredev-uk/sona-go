@@ -123,6 +123,12 @@ func (d *discover) banner(c *ui.Context, m *measure, src, colour string) {
 		// Rounded up to 40 DIPs, so resizing the window reuses cached sizes.
 		w := min(width, maxBanner*aspect)
 		size := float32(math.Ceil(float64(w)/40) * 40)
+		if d.env.Art.Failed(src, size, size/aspect) {
+			// A banner that will not load leaves nothing: no grey box.
+			root.Margin(0).Background(ui.Color{})
+			ui.Box(c).Height(0)
+			return
+		}
 		ui.Box(c.Key("art")).Width(w).Shrink(0).Children(func() {
 			kit.FluidArtwork(c, d.env.Art, src, size, kit.ArtOpts{Aspect: aspect})
 		})

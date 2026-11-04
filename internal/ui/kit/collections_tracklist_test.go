@@ -400,3 +400,23 @@ func TestTrackListScrollsTheHighlightedSongToTheCentre(t *testing.T) {
 		t.Errorf("the highlighted row is at %v in a 600 DIP window, want about the centre", r.Y)
 	}
 }
+
+func TestTrackListCentresTheHighlightedSongBelowDiscHeadings(t *testing.T) {
+	a, tt := newCollTrackApp(t, 60, 1000, 600, func(a *collTrackApp) {
+		for i := 30; i < 60; i++ {
+			a.songs[i].DiscNumber = 2
+		}
+		a.opts.Discs = true
+		a.opts.Highlight = "s50"
+	})
+	tt.Frame()
+	tt.Frame()
+	tt.Frame()
+	r, ok := tt.Find("Song 50")
+	if !ok {
+		t.Fatalf("the highlighted song was not built (scroll %v)", a.pos.Y)
+	}
+	if mid := r.Y + r.H/2; mid < 270 || mid > 330 {
+		t.Errorf("the highlighted row's middle is at %v in a 600 DIP window, want the centre (300): the disc headings were ignored", mid)
+	}
+}

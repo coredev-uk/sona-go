@@ -170,6 +170,15 @@ func (l *ArtLoader) cover(src string, w, h float32) *cover {
 	return l.ask(artKey{src, devicePx(w, l.scale), devicePx(h, l.scale)})
 }
 
+// Failed reports whether the cover of src at a box of w×h DIPs will never
+// come: it could not be loaded after every retry, or src is not one of Sona's
+// art URLs. It asks for the cover like Artwork does, so a picture that is
+// still on its way is not failed. Main thread only.
+func (l *ArtLoader) Failed(src string, w, h float32) bool {
+	cv := l.cover(src, w, h)
+	return cv != nil && cv.state == coverFailed
+}
+
 // backdrop is the pre-blurred backdrop of src (a DTO's
 // "/art/<key>/backdrop.jpg" or a template: a few kilobytes of JPEG, decoded
 // at its own size), asking for it the first time. nil when src names nothing.

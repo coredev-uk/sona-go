@@ -142,8 +142,10 @@ func (s *settings) disconnect(busy *provider, p provider) {
 			*busy = ""
 			if err != nil {
 				kit.ToastErrorf(i18n.T("Couldn't disconnect {name}", "name", providerName(p)), i18n.ErrorMessage(err))
+				kit.ConfirmRelease() // a held "Disconnecting…" question asks again
 				return
 			}
+			kit.ConfirmClose()
 			store.Set(s.env.Queries, keyScrobble, next)
 		})
 	}()
