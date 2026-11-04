@@ -45,6 +45,7 @@ func Golden(t testing.TB, img image.Image, name string) {
 	if runtime.GOOS != "linux" {
 		t.Skipf("golden images are compared on Linux only (text is shaped by Pango there; %s's text engine lays glyphs out differently)", runtime.GOOS)
 	}
+	registerFonts(t)
 	path := filepath.Join("testdata", "golden", name+".png")
 	got := toNRGBA(img)
 	if *update {

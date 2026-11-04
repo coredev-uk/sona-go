@@ -55,6 +55,7 @@ type options struct {
 	core      bool
 	dark      bool
 	version   string
+	auth      []func(*auth.Config)
 }
 
 // Albums seeds the library with these albums instead of the fixture's
@@ -78,6 +79,14 @@ func Dark() Option { return func(o *options) { o.dark = true } }
 // Version sets the app version the Core and the Env report ("test" by
 // default, which the update check skips as unreleased).
 func Version(v string) Option { return func(o *options) { o.version = v } }
+
+// AuthConfig changes the auth.Manager's configuration before it is built:
+// a test points the sign-in at fake Apple endpoints (appleidtest, an
+// httptest server for the Music API), gives it a token store, or shortens a
+// timeout. The services' AuthService runs over that manager.
+func AuthConfig(f func(*auth.Config)) Option {
+	return func(o *options) { o.auth = append(o.auth, f) }
+}
 
 // Harness is everything Env wired, for what a test must reach: the
 // database to change, the engine to ask what it played, the clock.
@@ -231,11 +240,15 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	authm, err := auth.NewManager(auth.Config{
+	acfg := auth.Config{
 		HTTP: h.Network.Client(), Dev: staticDev{}, APIBase: "http://127.0.0.1:1",
 		Open:     func() (authstore.Store, error) { return noAccount{}, nil },
 		Accounts: services.AccountStore{DB: d},
-	})
+	}
+	for _, f := range o.auth {
+		f(&acfg)
+	}
+	authm, err := auth.NewManager(acfg)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -44,6 +44,7 @@ type flow struct {
 	view viewKind
 
 	account, password string // credentials
+	refocusPassword   bool   // the next password field takes the focus (it was just re-keyed)
 	attempt           int    // password submissions so far: keys the field, so its undo history starts afresh
 	code              string // code
 	phoneID           int    // phone choice

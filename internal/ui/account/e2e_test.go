@@ -179,6 +179,7 @@ func newE2E(t *testing.T, cfg appleidtest.Config, mem *memStore) *e2e {
 	logs := &recordingHandler{}
 	h := uitest.New(t, uitest.AuthConfig(func(c *auth.Config) {
 		c.APIBase = music.URL
+		c.HTTP = music.Client() // the harness's Network serves no loopback server
 		c.AppleID = idms.Options()
 		c.Open = func() (authstore.Store, error) { return mem, nil }
 		c.Logger = newLogger(logs)

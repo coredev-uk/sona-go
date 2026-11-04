@@ -33,8 +33,15 @@ func (s *Section) credentialsForm(c *ui.Context, f *flow, hosted bool) {
 			}
 		})
 		field(c.Key("password-field"), i18n.T("Password"), "", func() {
-			if kit.Input(c.Key("password-"+strconv.Itoa(f.attempt)), &f.password, kit.InputOpts{Invalid: invalid, Password: true}).Submitted() {
-				submitted = true
+			in := kit.Input(c.Key("password-"+strconv.Itoa(f.attempt)), &f.password, kit.InputOpts{Invalid: invalid, Password: true})
+			// A submitted attempt keys the field anew (so MyGo drops its
+			// undo history): the focus goes to the new one.
+			if f.refocusPassword {
+				f.refocusPassword = false
+				in.Focus()
+			}
+			if in.Submitted() {
+				submitted, f.refocusPassword = true, true
 			}
 		})
 		ui.Row(c.Key("submit")).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -692,6 +693,25 @@ func TestResetForgetsWhatWasTyped(t *testing.T) {
 	r.tt.Frame()
 	if r.sec.flow.password != "" || r.sec.flow.account != "" {
 		t.Error("Reset kept the credentials")
+	}
+}
+
+// Enter in the password field submits; the field is keyed anew, and the
+// focus stays in it so the retyped password does not land elsewhere.
+func TestEnterInPasswordKeepsTheFocusThereAfterAFailedAttempt(t *testing.T) {
+	r := newRig(t, signedOut)
+	r.api.onPassword = func(string, string) (*services.SecondFactor, error) { return nil, appleid.ErrInvalidCredentials }
+	r.typeInto("Apple Account", "a@example.com")
+	r.typeInto("Password", "pw")
+	r.tt.Key(0, ui.KeyEnter)
+	r.waitCalls("password", 1)
+	r.tt.Until("the error", r.tt.Shows("That Apple Account or password isn't right"))
+	for range 3 {
+		r.tt.Advance(60 * time.Millisecond)
+		r.tt.Drain()
+	}
+	if !r.tt.Focused("Password") {
+		t.Errorf("the focus left the password field; texts %q", r.tt.Texts())
 	}
 }
 

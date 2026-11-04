@@ -28,14 +28,12 @@ func UpdateSettings(cl *store.Client, core *services.Core, change func(*config.S
 	store.Set(cl, store.KeySettings, next)
 	applyAppearance(next)
 	go func() {
-		saved, err := svc.UpdateSettings(next)
-		if err != nil {
+		// On success "settings:changed" brings the saved settings into the cache.
+		if _, err := svc.UpdateSettings(next); err != nil {
 			store.Set(cl, store.KeySettings, prev)
 			applyAppearance(prev)
 			ToastErrorf(i18n.T("Couldn't save the setting"), i18n.ErrorMessage(err))
-			return
 		}
-		store.Set(cl, store.KeySettings, saved)
 	}()
 }
 
