@@ -1,6 +1,7 @@
 package reminders
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"testing"
@@ -10,27 +11,47 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 func announced(ann []string, prefix string) bool {
 	return slices.ContainsFunc(ann, func(s string) bool { return strings.HasPrefix(s, prefix) })
 }
 
-// The album menu's action says its state in its name (the page's button
-// carries it as a pressed state, which a menu item has no equivalent of),
-// stays listed but unavailable until the list has loaded, and what setting
-// or removing a reminder did is announced by its toast.
+// The album menu lists the action named for its state, disabled until the
+// list has loaded, and what setting or removing a reminder did is announced
+// by its toast.
 func TestA11yReminderActionNamesItsStateAndOutcomesAreAnnounced(t *testing.T) {
-	g := newRig(t)
 	album := upcomingAlbum()
-	if got := g.def.Label(g.ctx(album, []services.Reminder{})); got != "Remind me" {
-		t.Errorf("label %q", got)
+	open := func(t *testing.T, list func(context.Context) ([]services.Reminder, error)) access.Tree {
+		t.Helper()
+		g := newRig(t)
+		g.r.list = list
+		h := uitest.New(t, uitest.Bare())
+		reg := kit.NewActionRegistry(g.def)
+		reg.SetPoster(h.Env.Post)
+		menus := kit.NewActionMenus(reg, nil)
+		tt := h.Tester(t, func(c *ui.Context) {
+			ui.Column(c).Fill().Padding(20).AlignItems(ui.Start).Children(func() {
+				menus.Trigger(c, kit.ActionTarget{Item: kit.AlbumItem(album), Name: album.Name, Key: "a"}, kit.TriggerOpts{Visible: true})
+			})
+			menus.Popup(c)
+		}, 400, 400)
+		if err := tt.Click("More for Out Soon"); err != nil {
+			t.Fatal(err)
+		}
+		tt.Drain()
+		return access.Read(t, tt.Tester)
 	}
-	if got := g.def.Label(g.ctx(album, []services.Reminder{{AlbumID: album.CatalogID}})); got != "Turn off reminder" {
-		t.Errorf("label when set %q", got)
+	tr := open(t, func(context.Context) ([]services.Reminder, error) { return nil, nil })
+	if n, ok := tr.Find(ui.RoleMenuItem, "Remind me"); !ok || n.Has(access.Disabled) {
+		t.Errorf("menu with the list loaded:\n%s", tr.Dump())
 	}
-	if g.def.Enabled(g.ctx(album, nil)) {
-		t.Error("the action is enabled before the list loaded")
+	tr = open(t, func(context.Context) ([]services.Reminder, error) {
+		return []services.Reminder{{AlbumID: album.CatalogID}}, nil
+	})
+	if _, ok := tr.Find(ui.RoleMenuItem, "Turn off reminder"); !ok {
+		t.Errorf("menu with a reminder set:\n%s", tr.Dump())
 	}
 
 	h := uitest.New(t)

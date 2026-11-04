@@ -76,7 +76,6 @@ func TestA11yHomeHasNoControlInsideAnotherAndEverySectionIsNamed(t *testing.T) {
 	r.until("the page", "Top Picks for You", "Because You Like Rock")
 	access.NoNestedControls(t, r.tt.Tester)
 	tr := access.Read(t, r.tt.Tester)
-	t.Log("\n" + tr.Dump())
 
 	// Headings by level: the page title, then the sections.
 	for label, level := range map[string]int{

@@ -1,6 +1,7 @@
 package album
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
@@ -189,7 +191,10 @@ func TestA11yDiscIndexIsAListOfItems(t *testing.T) {
 // An album not out yet: its countdown is read, the actions follow it, and
 // the songs not out are named by what their rows say.
 func TestA11yUnreleasedAlbum(t *testing.T) {
-	r := newRig(t, "/album/100", 1132, 1000)
+	// A platform with notifications, so the page offers Remind me.
+	r := newRig(t, "/album/100", 1132, 1000, uitest.Platform(func(p *services.Platform) {
+		p.Notifications = func(context.Context, func(string)) (services.Notifier, error) { return nil, errors.ErrUnsupported }
+	}))
 	release := r.now.Add(5*time.Hour + 12*time.Minute)
 	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
 		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, release.UnixMilli(), release.Format("2006-01-02")
@@ -206,8 +211,11 @@ func TestA11yUnreleasedAlbum(t *testing.T) {
 		t.Error("an unreleased album offers Shuffle")
 	}
 	// The Remind me button is one control, not two.
-	if n := len(tr.FindAll(ui.RoleToggleButton, "Remind me")) + len(tr.FindAll(ui.RoleButton, "Remind me")); n > 1 {
-		t.Errorf("%d Remind me buttons", n)
+	if !kit.RemindAvailable(r.h.Env.Core, services.Album{CatalogID: "100", ReleaseAt: release.UnixMilli()}) {
+		t.Fatal("the rig's platform has no notifications: Remind me is not built")
+	}
+	if n := len(tr.FindAll(ui.RoleToggleButton, "Remind me")) + len(tr.FindAll(ui.RoleButton, "Remind me")); n != 1 {
+		t.Errorf("%d Remind me buttons, want one:\n%s", n, tr.Dump())
 	}
 }
 

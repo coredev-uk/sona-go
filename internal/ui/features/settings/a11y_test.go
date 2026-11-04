@@ -140,7 +140,10 @@ func TestA11yShortcutRecordersAndResetAll(t *testing.T) {
 	r.press(ui.Ctrl, ui.KeyJ)
 	r.tt.Until("a binding saved", func() bool { return len(r.saved()) == 1 })
 	r.tt.Drain()
-	reset, _ = access.Read(t, tt).Find(ui.RoleButton, "Reset all")
+	reset, ok = access.Read(t, tt).Find(ui.RoleButton, "Reset all")
+	if !ok {
+		t.Fatal("no Reset all button after a binding was saved")
+	}
 	if reset.Description != "" {
 		t.Errorf("Reset all still explains itself: %q", reset.Description)
 	}

@@ -7544,3 +7544,7 @@ msgstr ""
 #: internal/ui/features/concerts/page.go
 msgid "{count, plural, one {# concert} other {# concerts}}"
 msgstr ""
+
+#: internal/ui/features/onboarding/progress.go
+msgid "Current step"
+msgstr ""

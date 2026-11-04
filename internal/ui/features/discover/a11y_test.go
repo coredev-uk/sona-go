@@ -104,7 +104,6 @@ func TestA11yFrontKeepsThePlayAndMoreButtonsBesideTheLeadAndEveryRow(t *testing.
 	r := frontRig(t)
 	access.NoNestedControls(t, r.tt.Tester)
 	tr := access.Read(t, r.tt.Tester)
-	t.Log("\n" + tr.Dump())
 
 	if _, ok := tr.Find(ui.RoleGroup, "Featured"); !ok {
 		t.Error("the front page is not a group named Featured")
@@ -231,7 +230,6 @@ func TestA11yDiscoverReadsAsHeadingsGroupsAndListsOfItems(t *testing.T) {
 	r.tt.Until("the page", r.tt.Shows("On this page", "Best New Songs", "New This Week"))
 	access.NoNestedControls(t, r.tt.Tester)
 	tr := access.Read(t, r.tt.Tester)
-	t.Log("\n" + tr.Dump())
 
 	for label, level := range map[string]int{
 		"Discover": 1, "On this page": 2, "Songs and albums": 2, "Best New Songs": 2, "New This Week": 2, "Radio": 2, "Browse": 2,

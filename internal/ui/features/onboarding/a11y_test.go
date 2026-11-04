@@ -183,10 +183,10 @@ func TestStepStripIsAListWithTheCurrentStepDescribed(t *testing.T) {
 	}
 }
 
-// TestSkipConfirmTakesTheFocusAndGivesItBack: Escape asks in an alert dialog
+// TestSkipConfirmKeepsTheFocusInsideTheSetupDialog: Escape asks in an alert dialog
 // whose two buttons are the only Tab stops; Cancel and Escape close it and
 // the focus stays in the setup.
-func TestSkipConfirmTakesTheFocusAndGivesItBack(t *testing.T) {
+func TestSkipConfirmKeepsTheFocusInsideTheSetupDialog(t *testing.T) {
 	for _, how := range []string{"Cancel", "Escape"} {
 		t.Run(how, func(t *testing.T) {
 			r := newRig(t, 900, 1000)

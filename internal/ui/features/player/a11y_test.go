@@ -2,6 +2,7 @@ package player
 
 import (
 	"errors"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -621,16 +622,37 @@ func TestQueueEditsAreAnnouncedWithTheSongsNewPlace(t *testing.T) {
 	if !slices.Equal(heard, []string{"Song 4: moved to position 1 of 5"}) {
 		t.Errorf("Play next announced %q", heard)
 	}
-	// A move that fails is not announced, and neither is one that never lands.
+	// A move that fails is forgotten: Go's refusal comes back to the main
+	// thread (Drain runs it), so a later snapshot that happens to put the
+	// song elsewhere is not announced as that move.
 	r.fake.fail = errors.New("boom")
 	r.focusRow(t, "Song 3, Artist 3")
+	r.tt.Announcements()
 	r.tt.Key(ui.Alt, ui.KeyDown)
 	r.fake.wait(t, 1)
-	for range 3 {
+	if r.p.queue.moved == nil {
+		t.Fatal("the move was not pending before Go answered")
+	}
+	// The failure is posted to the main thread after the call returns.
+	for i := 0; r.p.queue.moved != nil; i++ {
+		if i > 1_000_000 {
+			t.Fatal("a move that failed is still waiting to be announced")
+		}
+		r.h.Main.Drain()
+		runtime.Gosched()
+	}
+	r.tt.Frame()
+	items = slices.Clone(r.h.Env.Play.Queue().Items)
+	i3 := slices.IndexFunc(items, func(it services.QueueItem) bool { return it.Name == "Song 3" })
+	items[i3], items[i3+1] = items[i3+1], items[i3] // as if another window moved it
+	r.h.Env.Play.Seed(r.h.Env.Play.State(), services.QueueState{Index: 0, Items: items})
+	for range 4 {
 		r.tt.Frame()
 	}
-	if got := r.tt.Announcements(); len(got) != 0 {
-		t.Errorf("a failed move announced %q", got)
+	for _, a := range r.tt.Announcements() {
+		if strings.Contains(a, "moved to position") {
+			t.Errorf("a failed move was announced: %q", a)
+		}
 	}
 }
 

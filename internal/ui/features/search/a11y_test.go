@@ -1,12 +1,14 @@
 package search
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
@@ -350,23 +352,43 @@ func TestA11ySearchingIsAStatusAndResultsAreAnnounced(t *testing.T) {
 	}
 }
 
+// holdLibrary is the search service whose library search waits for gate.
+type holdLibrary struct {
+	searchAPI
+	gate chan struct{}
+}
+
+func (h holdLibrary) Library(ctx context.Context, term string, perKind int) (services.LibrarySearch, error) {
+	select {
+	case <-h.gate:
+	case <-ctx.Done():
+		return services.LibrarySearch{}, ctx.Err()
+	}
+	return h.searchAPI.Library(ctx, term, perKind)
+}
+
 // TestA11yLoadingPagesAreStatuses: every page that is still reading has a
 // labelled status.
 func TestA11yLoadingPagesAreStatuses(t *testing.T) {
 	for _, tc := range []struct {
 		name, loc, label string
 		signedIn         bool
+		holdLibrary      bool
 	}{
-		{"results", "/search?q=slowblue", "Searching", true},
-		{"library results", "/search?q=blue&scope=library", "Searching", false},
-		{"profile", "/profile/sp.1", "Loading", true},
+		{"results", "/search?q=slowblue", "Searching", true, false},
+		{"library results", "/search?q=blue&scope=library", "Searching", false, true},
+		{"profile", "/profile/sp.1", "Loading", true, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			gate := make(chan struct{})
-			r := newPageRig(t, tc.loc, rigOpts{signedIn: tc.signedIn, setup: func(a *pageApple) { a.gate = gate }})
+			ro := rigOpts{signedIn: tc.signedIn, setup: func(a *pageApple) { a.gate = gate }}
+			if tc.holdLibrary {
+				ro.wrap = func(api searchAPI) searchAPI { return holdLibrary{api, gate} }
+			}
+			r := newPageRig(t, tc.loc, ro)
 			t.Cleanup(func() { close(gate) })
 			tr := access.Read(t, r.tt.Tester)
-			if _, ok := tr.Find(ui.RoleStatus, tc.label); !ok && tc.name != "library results" {
+			if _, ok := tr.Find(ui.RoleStatus, tc.label); !ok {
 				t.Errorf("no %q status on the first frames:\n%s", tc.label, tr.Dump())
 			}
 		})

@@ -60,6 +60,7 @@ type options struct {
 	version   string
 	auth      []func(*auth.Config)
 	equalizer bool
+	platform  []func(*services.Platform)
 }
 
 // Albums seeds the library with these albums instead of the fixture's
@@ -96,6 +97,13 @@ func AuthConfig(f func(*auth.Config)) Option {
 // does (Capabilities().Playback.Equalizer); Harness.Engine.Curves are what
 // the audio service gave it.
 func Equalizer() Option { return func(o *options) { o.equalizer = true } }
+
+// Platform changes the OS integrations the Core is built over (none by
+// default): a test gives it a notification server to see what a platform with
+// one shows (Capabilities().Notifications, the reminders).
+func Platform(f func(*services.Platform)) Option {
+	return func(o *options) { o.platform = append(o.platform, f) }
+}
 
 // Harness is everything Env wired, for what a test must reach: the
 // database to change, the engine to ask what it played, the clock.
@@ -303,12 +311,16 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = h.Coord.Close() })
+	var plat services.Platform
+	for _, f := range o.platform {
+		f(&plat)
+	}
 	core := services.New(services.Deps{
 		Paths:    config.Paths{Config: h.Dir, Data: h.Dir, Cache: h.Dir, Art: h.Dir, State: h.Dir},
 		Settings: settings, DB: d, Auth: authm, API: api, Catalog: cat, Storefront: appleStorefront(o.apple != nil), Library: ilib.New(d, nil), Syncer: ilib.NewSyncer(d, nil, nil, 0), Art: art, Engine: h.Engine, Coord: h.Coord,
 		Private: privatemode.New(privatemode.Options{}), Gate: services.NewGate(time.Hour, nil),
 		Keyring: h.Keyring, Transport: h.Network,
-		Emit: h.Bus, OpenURL: h.open, Clipboard: h.copy, Windows: noWindows{}, Logger: slog.New(slog.DiscardHandler), Version: o.version, Started: Epoch,
+		Emit: h.Bus, OpenURL: h.open, Clipboard: h.copy, Windows: noWindows{}, Logger: slog.New(slog.DiscardHandler), Version: o.version, Started: Epoch, Platform: plat,
 	})
 	t.Cleanup(core.Close)
 	authm.Start()

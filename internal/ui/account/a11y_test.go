@@ -292,8 +292,8 @@ func TestSignOutDialogTakesTheFocusAndEscapeGivesItBack(t *testing.T) {
 			t.Errorf("button %q is not inside the dialog %v", name, d)
 		}
 	}
-	if !r.tt.Focused("Sign out") {
-		t.Error("the focus is not in the dialog")
+	if tr.Focus == nil || !tr.Within(*tr.Focus, ui.RoleAlertDialog) {
+		t.Errorf("the focus is not inside the dialog: %+v", tr.Focus)
 	}
 	access.NoNestedControls(t, r.tt.Tester)
 	if stops := access.TabWalk(t, r.tt.Tester, 10); len(stops) != 2 {
@@ -303,12 +303,9 @@ func TestSignOutDialogTakesTheFocusAndEscapeGivesItBack(t *testing.T) {
 	r.tt.Advance(300 * time.Millisecond)
 	r.tt.Drain()
 	r.hides("Sign out of Apple Music?")
-	if !r.tt.Focused("Sign out") {
-		t.Errorf("the focus did not return to the Sign out button; texts %q", r.tt.Texts())
-	}
 	tr = access.Read(t, r.tt.Tester)
-	if tr.Focus == nil || tr.Focus.Role != ui.RoleButton || tr.Focus.Label != "Sign out" {
-		t.Errorf("focused node %+v", tr.Focus)
+	if tr.Focus == nil || tr.Focus.Role != ui.RoleButton || tr.Focus.Label != "Sign out" || tr.Within(*tr.Focus, ui.RoleAlertDialog) {
+		t.Errorf("the focus did not return to the page's Sign out button: %+v", tr.Focus)
 	}
 	kit.CancelConfirm()
 }

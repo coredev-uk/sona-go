@@ -266,7 +266,6 @@ func TestA11yPlaylistPage(t *testing.T) {
 	if !r.tt.Focused("Play Sugg One") {
 		t.Error("the focus did not stay in the suggestion's row")
 	}
-	r.api.gate = nil
 	r.tt.Until("the edits done", func() bool { return !r.p.edits.editing("p.1") })
 }
 

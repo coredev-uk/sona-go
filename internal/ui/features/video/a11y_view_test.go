@@ -82,12 +82,19 @@ func TestViewKeyboardWalkAndTree(t *testing.T) {
 	}
 }
 
-func TestFadedControlsStayOnTheTree(t *testing.T) {
+func TestFadedControlsStayOnTheTreeAndFocusBringsThemBack(t *testing.T) {
 	r := viewRig(t)
 	r.open()
-	r.pictures(500 * time.Millisecond)
-	r.tt.Advance(idleAfter + 2*fadeFor)
-	r.pictures(500 * time.Millisecond)
+	r.tt.Move(200, 200)
+	r.pictures(500 * time.Millisecond) // the first picture: no loading status
+	if r.v.view.alpha != 1 {
+		t.Fatalf("controls not shown at first: %v", r.v.view.alpha)
+	}
+	r.pictures(4 * time.Second)
+	if r.v.view.alpha != 0 {
+		t.Fatalf("the controls did not fade after 4 s of nothing: %v", r.v.view.alpha)
+	}
+	// Unseen, they are still on the tree and can be pressed from there.
 	tr := access.Read(t, r.tt.Tester)
 	for _, l := range []string{"Pause", "Close video", "Full screen"} {
 		if n := mustFind(t, tr, ui.RoleButton, l); !n.Can(access.Press) {
@@ -95,6 +102,16 @@ func TestFadedControlsStayOnTheTree(t *testing.T) {
 		}
 	}
 	mustFind(t, tr, ui.RoleSlider, "Seek")
+	// Tab never lands on an unseen control: the focus brings them back.
+	r.tt.SetFocused(true)
+	r.tt.Key(0, ui.KeyTab)
+	r.tt.Advance(2 * fadeFor)
+	if r.v.view.alpha != 1 {
+		t.Errorf("a control took the focus and the controls stayed faded: %v", r.v.view.alpha)
+	}
+	if f := access.Read(t, r.tt.Tester).Focus; f == nil {
+		t.Error("the focused control is not on the tree")
+	}
 }
 
 func TestViewTellsScreenReadersLoadingBufferingAndFailureOnce(t *testing.T) {

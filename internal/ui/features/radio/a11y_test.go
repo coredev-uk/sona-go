@@ -78,7 +78,6 @@ func TestA11yRadioPageHasNoControlInsideAnotherAndItsListsHoldOnlyItems(t *testi
 	rg := radioWithSchedule(t)
 	access.NoNestedControls(t, rg.tt.Tester)
 	tr := access.Read(t, rg.tt.Tester)
-	t.Log("\n" + tr.Dump())
 
 	for label, level := range map[string]int{
 		"Radio": 1, "Live now": 2, "Local Broadcasters": 2, "Stations": 2, "Your stations": 2, "Stations by Genre": 2,
@@ -255,7 +254,6 @@ func TestA11yStationPageReadsAsAHeadingAPlayButtonAndItsSections(t *testing.T) {
 	rg.tt.Until("the schedule", rg.tt.Shows("Schedule", "The Zane Lowe Show", "The Matt Wilkinson Show"))
 	access.NoNestedControls(t, rg.tt.Tester)
 	tr := access.Read(t, rg.tt.Tester)
-	t.Log("\n" + tr.Dump())
 
 	if h, ok := tr.Find(ui.RoleHeading, "Apple Music 1"); !ok || h.Level != 1 {
 		t.Errorf("no level 1 heading of the station: %v", h)
