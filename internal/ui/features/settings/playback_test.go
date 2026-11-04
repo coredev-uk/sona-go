@@ -86,7 +86,6 @@ func newPBRig(t *testing.T, caps services.Capabilities, cdm services.CDMStatus, 
 		}, nil
 	}
 	r.tt = hn.Tester(t, func(c *ui.Context) {
-		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Column(c).Fill().Children(func() {
 			r.router.View(c, func(rt *ui.Route) {
 				if rt.Match(settingsPath) {
@@ -362,6 +361,7 @@ func TestReplaceQueueModeIsSaved(t *testing.T) {
 
 func TestIdleMinutesAreSavedAndAnUnlistedValueIsAdded(t *testing.T) {
 	p := newPBRig(t, pbCaps(), pbReadyCDM())
+	p.tt.SetSize(1132, 1100) // the open list needs room under the last row
 	p.shows("After 10 minutes")
 	p.choose("Free memory when idle", ui.KeyDown, ui.KeyDown)
 	p.saved("idle", func(s config.Settings) bool { return s.EngineIdleMinutes == 30 })
