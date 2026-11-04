@@ -1,6 +1,7 @@
 package kit
 
 import (
+	"runtime"
 	"testing"
 	"time"
 
@@ -81,7 +82,9 @@ func TestEqualiserBarsAreStillWhenPaused(t *testing.T) {
 	}
 	// 60%, 100% and 40% of 12 DIPs.
 	h := mediaBarHeights(tt)
-	if h != [3]int{7, 12, 5} && h != [3]int{8, 12, 5} && h != [3]int{7, 12, 4} {
+	// Exact pixel heights are Linux's rasteriser (as the goldens are); the
+	// stillness below holds everywhere.
+	if runtime.GOOS == "linux" && h != [3]int{7, 12, 5} && h != [3]int{8, 12, 5} && h != [3]int{7, 12, 4} {
 		t.Errorf("bar heights %v, want about 7, 12, 5", h)
 	}
 	tt.Advance(time.Second)
