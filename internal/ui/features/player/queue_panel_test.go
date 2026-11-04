@@ -314,9 +314,13 @@ func TestRowsDoubleClickPlayAndKeysAct(t *testing.T) {
 	r.tt.Key(0, ui.KeyDelete)
 	r.tt.Key(ui.Alt, ui.KeyDown)
 	r.tt.Key(ui.Alt, ui.KeyUp)
-	want := []string{"jump 2", "remove 2", "move 2 3", "move 2 1"}
-	if got := r.fake.wait(t, len(want)); !slices.Equal(got, want) {
-		t.Errorf("keys called %v, want %v", got, want)
+	// Each key's call runs on its own goroutine, so they reach the fake in
+	// any order.
+	want := []string{"jump 2", "move 2 1", "move 2 3", "remove 2"}
+	got := slices.Clone(r.fake.wait(t, len(want)))
+	slices.Sort(got)
+	if !slices.Equal(got, want) {
+		t.Errorf("keys called %v, want %v (in any order)", got, want)
 	}
 }
 
