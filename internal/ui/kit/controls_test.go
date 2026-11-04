@@ -664,6 +664,27 @@ func TestSelectPopupSeatsTheChosenOptionOverTheTrigger(t *testing.T) {
 	}
 }
 
+// A trigger near the window's top has no room above it for the options before
+// the chosen one: the window's edge moves the popup back in, whole.
+func TestSelectPopupStaysInTheWindowAtTheTop(t *testing.T) {
+	var items []SelectItem
+	for i := 1; i <= 7; i++ {
+		items = append(items, SelectOption(fmt.Sprint(i), fmt.Sprintf("Language %d", i)))
+	}
+	v := "6"
+	tt := controlsTester(t, 300, 500, func(c *ui.Context) {
+		Select(c, &v, items, SelectOpts{A11yLabel: "Language"})
+	})
+	controlsClick(t, tt, "Language")
+	for range 6 {
+		tt.Frame()
+	}
+	// An element outside the window reads as an empty rectangle.
+	if first := controlsFind(t, tt, "Language 1"); first.H == 0 || first.Y < 0 {
+		t.Errorf("the first option is outside the window: %v", first)
+	}
+}
+
 // --- Segmented -------------------------------------------------------------
 
 func controlsSegments() []SegmentOption[string] {

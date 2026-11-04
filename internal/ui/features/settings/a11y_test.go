@@ -48,6 +48,19 @@ func TestA11ySectionsAreOnTheTreeAndOnTheTabWalk(t *testing.T) {
 			*stateOf[storageAPI](r.s, "seam:storage") = &fakeStorage{}
 			r.router.Replace(settingsPath + "?section=" + section)
 			r.tt.Until("the section", r.tt.Shows(sectionTitle(section)))
+			// A section's controls may wait on a service's answer (Connections
+			// on the ListenBrainz status): wait for the first control the walk
+			// is to reach, not just the title.
+			if f := first[section]; f != "" {
+				r.tt.Until("the section's first control", func() bool {
+					for _, n := range access.Read(t, r.tt.Tester).Nodes {
+						if n.Label == f && n.Has(access.Focusable) {
+							return true
+						}
+					}
+					return false
+				})
+			}
 			r.tt.Drain()
 			tt := r.tt.Tester
 
