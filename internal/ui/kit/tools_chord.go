@@ -88,6 +88,15 @@ func ChordKeyName(key ui.Key) (string, bool) {
 	return name, ok
 }
 
+// chordAliases are the lower-case spellings people write by hand, to the
+// canonical key they mean (v0.2.0's chord.ts keyAliases). F13 to F24 are not
+// among them: MyGo has no such keys.
+var chordAliases = map[string]string{
+	"esc": "Escape", "return": "Enter", "del": "Delete", "ins": "Insert", "pgup": "PageUp", "pgdn": "PageDown",
+	"up": "ArrowUp", "down": "ArrowDown", "left": "ArrowLeft", "right": "ArrowRight", "spacebar": "Space",
+	"comma": ",", "period": ".", "slash": "/",
+}
+
 var chordMods = map[string]ui.Modifiers{
 	"ctrl": ui.Ctrl, "control": ui.Ctrl, "alt": ui.Alt, "option": ui.Alt, "shift": ui.Shift,
 	"meta": ui.Super, "super": ui.Super, "cmd": ui.Super, "win": ui.Super,
@@ -95,7 +104,8 @@ var chordMods = map[string]ui.Modifiers{
 
 // ParseChord reads one chord in v0.2.0's spelling: modifiers and a key
 // joined by "+". "?" is Shift+/ and "Plus" (a lone "+" or a trailing "++")
-// Shift+=; a chord ending in a single "+" is not one.
+// Shift+=; a chord ending in a single "+" is not one. Keys may be written
+// as v0.2.0 allowed ("esc", "Ctrl+Right", "return", "comma"…: chordAliases).
 func ParseChord(s string) (mods ui.Modifiers, key ui.Key, ok bool) {
 	parts := strings.Split(s, "+")
 	switch {
@@ -118,7 +128,11 @@ func ParseChord(s string) (mods ui.Modifiers, key ui.Key, ok bool) {
 	case strings.EqualFold(last, "plus"):
 		return mods | ui.Shift, ui.KeyEqual, true
 	}
-	key, ok = chordKeys[strings.ToLower(last)]
+	name := strings.ToLower(last)
+	if canon, aliased := chordAliases[name]; aliased {
+		name = strings.ToLower(canon)
+	}
+	key, ok = chordKeys[name]
 	return mods, key, ok
 }
 

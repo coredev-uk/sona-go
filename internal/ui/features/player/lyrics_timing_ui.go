@@ -42,19 +42,19 @@ func (p *player) lyricsTiming(c *ui.Context, songID string) {
 	p.np.timingSong, p.np.timingWords, p.np.timingSaid = songID, text, true
 	ui.Row(c.Key("lyrics-timing")).AlignItems(ui.Center).Role(ui.RoleGroup).Label(i18n.T("Lyrics timing")).Children(func() {
 		earlier := i18n.T("Show lyrics {step} s earlier", "step", step)
-		if kit.Button(c.Key("earlier"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Icon: "minus", Muted: true, A11yLabel: earlier}).Clicked() {
+		if kit.Button(c.Key("earlier"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Icon: "minus", Muted: true, A11yLabel: earlier, Keys: p.env.KeysOf("player.lyrics-earlier")}).Clicked() {
 			lyricsync.Session().Nudge(songID, -1)
 		}
 		label, tip := text, ""
 		if words != "" {
 			tip = i18n.T("Back to the original timing")
 		}
-		if kit.Button(c.Key("offset"), label, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Muted: true, Disabled: words == "", Tip: tip}).
+		if kit.Button(c.Key("offset"), label, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Muted: true, Disabled: words == "", Tip: tip, Keys: p.env.KeysOf("player.lyrics-reset")}).
 			Role(ui.RoleStatus).MinWidth(120).Clicked() {
 			lyricsync.Session().Reset(songID)
 		}
 		later := i18n.T("Show lyrics {step} s later", "step", step)
-		if kit.Button(c.Key("later"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Icon: "plus", Muted: true, A11yLabel: later}).Clicked() {
+		if kit.Button(c.Key("later"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Icon: "plus", Muted: true, A11yLabel: later, Keys: p.env.KeysOf("player.lyrics-later")}).Clicked() {
 			lyricsync.Session().Nudge(songID, 1)
 		}
 	})

@@ -2088,6 +2088,7 @@ msgstr "Enter the verification code"
 msgid "Episode"
 msgstr "Episode"
 
+#: internal/ui/features/equalizer/button.go
 #: internal/ui/features/equalizer/equalizer.go
 #: internal/ui/features/equalizer/page.go
 #: internal/ui/features/settings/audio.go
@@ -2095,6 +2096,10 @@ msgstr "Episode"
 #: internal/ui/features/settings/settingsfile.go
 msgid "Equaliser"
 msgstr "Equaliser"
+
+#: internal/ui/features/equalizer/button.go
+msgid "Equaliser (on)"
+msgstr "Equaliser (on)"
 
 #: internal/ui/kit/overlays_palette.go
 msgctxt "keyboard key"
@@ -5182,6 +5187,22 @@ msgstr "Sleep timer: pauses after the queue"
 msgid "Sleep timer: pauses after this song"
 msgstr "Sleep timer: pauses after this song"
 
+#: internal/ui/features/player/shortcuts.go
+msgid "Sleep timer: stop after the queue"
+msgstr "Sleep timer: stop after the queue"
+
+#: internal/ui/features/player/shortcuts.go
+msgid "Sleep timer: stop after this song"
+msgstr "Sleep timer: stop after this song"
+
+#: internal/ui/features/player/shortcuts.go
+msgid "Sleep timer: stop in 1 hour"
+msgstr "Sleep timer: stop in 1 hour"
+
+#: internal/ui/features/player/shortcuts.go
+msgid "Sleep timer: stop in 30 minutes"
+msgstr "Sleep timer: stop in 30 minutes"
+
 #: internal/ui/features/player/sleep_timer.go
 msgid "Sleep timer: {minutes}m left, pauses at {until}"
 msgstr "Sleep timer: {minutes}m left, pauses at {until}"
@@ -6209,6 +6230,10 @@ msgstr "Turn off reminder"
 msgid "Turn off sleep timer"
 msgstr "Turn off sleep timer"
 
+#: internal/ui/features/player/shortcuts.go
+msgid "Turn off the sleep timer"
+msgstr "Turn off the sleep timer"
+
 #: internal/ui/features/private/private.go
 msgid "Turn on private listening"
 msgstr "Turn on private listening"
@@ -6950,6 +6975,14 @@ msgstr "silence sound"
 #: internal/ui/features/player/shortcuts.go
 msgid "skip forward"
 msgstr "skip forward"
+
+#: internal/ui/features/player/shortcuts.go
+msgid "sleep timer bedtime fade"
+msgstr "sleep timer bedtime fade"
+
+#: internal/ui/features/player/shortcuts.go
+msgid "sleep timer cancel"
+msgstr "sleep timer cancel"
 
 #: internal/ui/features/settings/find.go
 msgid "sleep, suspend"

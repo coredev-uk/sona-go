@@ -1,6 +1,8 @@
 package kit
 
 import (
+	"strings"
+
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
@@ -25,11 +27,34 @@ func Tooltip(c *ui.Context, anchor ui.Element, text string) ui.Element {
 // assistive technology reads as the anchor's description (not when it only
 // repeats the anchor's name).
 func controlsTooltip(c *ui.Context, anchor ui.Element, text string, describe bool) ui.Element {
+	return controlsTooltipKeys(c, anchor, text, describe, nil)
+}
+
+// TooltipKeys is Tooltip with the keys the control answers to after the text,
+// as keycaps (v0.2.0's ChordKeys in a tooltip): only the first of chords is
+// drawn, and assistive technology reads it as part of the description. No
+// chords (a shortcut the user unbound) is a plain Tooltip.
+func TooltipKeys(c *ui.Context, anchor ui.Element, text string, chords []string) ui.Element {
+	return controlsTooltipKeys(c, anchor, text, true, chords)
+}
+
+func controlsTooltipKeys(c *ui.Context, anchor ui.Element, text string, describe bool, chords []string) ui.Element {
 	if text == "" {
 		return anchor
 	}
+	var chord string
+	if len(chords) > 0 {
+		chord = chords[0]
+	}
+	var spoken []string
 	if describe {
-		anchor.Description(text)
+		spoken = append(spoken, text)
+	}
+	if chord != "" {
+		spoken = append(spoken, ChordText(chord))
+	}
+	if len(spoken) > 0 {
+		anchor.Description(strings.Join(spoken, ", "))
 	}
 	// Where the anchor was in the last frame places the arrow.
 	at := anchor.Bounds()
@@ -51,7 +76,23 @@ func controlsTooltip(c *ui.Context, anchor ui.Element, text string, describe boo
 			}
 			p.FillPath(&path, fill)
 		})
-		tip.Children(func() { controlsText(c, text, "meta").TextAlign(ui.Center) })
+		tip.Children(func() {
+			if chord == "" {
+				controlsText(c, text, "meta").TextAlign(ui.Center)
+				return
+			}
+			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+				controlsText(c, text, "meta").TextAlign(ui.Center)
+				ui.Row(c.Key("keys")).Gap(2).AlignItems(ui.Center).Role(ui.RoleNone).Children(func() {
+					for j, part := range ChordParts(chord) {
+						ui.Row(c.Key("cap:"+string(rune('0'+j)))).Height(20).MinWidth(20).PaddingX(4).Center().Role(ui.RoleNone).
+							Radius(tk.Radius["sm"]).Border(1, theme.C("ink-faint")).Children(func() {
+							controlsText(c, part, "meta").FontWeight(500).FontFeatures("tnum").Role(ui.RoleNone)
+						})
+					}
+				})
+			})
+		})
 	})
 	return anchor
 }

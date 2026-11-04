@@ -122,7 +122,7 @@ func (m *commands) layer(c *ui.Context) {
 	if m.pal.IsOpen() {
 		m.follow(c)
 	}
-	m.pal.Chords = keysOf(m.env, "commands.palette") // its own chord closes it again
+	m.pal.Chords = m.env.KeysOf("commands.palette") // its own chord closes it again
 	m.pal.Show(c, m.sections(c))
 	m.help.show(c, m.env)
 }

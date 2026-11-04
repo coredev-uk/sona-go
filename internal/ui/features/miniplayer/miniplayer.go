@@ -25,8 +25,9 @@ import (
 )
 
 // controlOrder is the Mini player button's place among the player bar's
-// other modules' controls (private listening is 10).
-const controlOrder = 30
+// other modules' controls: the first after the queue button (private
+// listening is 10, before the sleep timer).
+const controlOrder = module.ControlsAfterQueue + 10
 
 // transport is what the mini player asks of the playback service
 // (*services.PlaybackService).
@@ -109,7 +110,7 @@ func (m *mini) init() {
 // button is the player bar's Mini player button, among its controls.
 func (m *mini) button(c *ui.Context) {
 	if kit.Button(c.Key("mini"), "", kit.ButtonOpts{
-		Variant: kit.Ghost, Size: kit.SizeSM, Icon: "picture-in-picture-2", A11yLabel: i18n.T("Mini player"),
+		Variant: kit.Ghost, Size: kit.SizeSM, Icon: "picture-in-picture-2", A11yLabel: i18n.T("Mini player"), Keys: m.env.KeysOf("miniplayer.toggle"),
 	}).Clicked() {
 		m.toggle()
 	}

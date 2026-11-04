@@ -23,13 +23,12 @@ import (
 //
 // The vocabulary is kit's (kit.ParseChord and ChordKeys), the shell's
 // dispatcher's too, not v0.2.0's browser one: the same keys, the same
-// spellings, and no others, so what the page shows bound is what the
-// dispatcher runs. Two differences follow from the keys being MyGo's:
+// spellings, so what the page shows bound is what the dispatcher runs. Two differences follow from the keys being MyGo's:
 // Shift is a modifier of every key but the two the dispatcher folds into a
 // spelling ("?" is Shift+/ and "Plus" is Shift+=: "Ctrl+Shift+/" is
-// "Ctrl+?"), and the lower-case aliases v0.2.0 read in a hand-edited file
-// ("esc", "Right", "return") are not chords here, as they are not to the
-// dispatcher.
+// "Ctrl+?"), and F13 to F24, which MyGo has no keys for, are not chords. The
+// lower-case aliases v0.2.0 read in a hand-edited file ("esc", "Right",
+// "return") are read here and by the dispatcher alike, as canonical chords.
 
 // noKeys is the binding that means "no key" (chord.ts NO_KEYS).
 const noKeys = "none"

@@ -1,7 +1,6 @@
 package player
 
 import (
-	"context"
 	"strings"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
-	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -371,34 +369,35 @@ func (p *player) liveLines(c *ui.Context, cur *services.QueueItem, s services.Pl
 		return
 	}
 	if ev := p.onAirProgramme(c, cur.ID); ev != nil {
-		until := i18n.FormatClock(time.UnixMilli(ev.EndMs))
-		lineText(c.Key("programme"), ev.Title+" · "+i18n.T("until {until}", "until", until), 13, 18, 400, theme.C("ink-muted")).
-			Margin(4, 0, 0, 0).MaxLines(2)
+		lineText(c.Key("programme"), programmeLine(ev), 13, 18, 400, theme.C("ink-muted")).Margin(4, 0, 0, 0).MaxLines(2)
 	}
 }
 
 // onAirProgramme is the programme on air on live station id (nil when the
 // station has no schedule): the station's page query, shared with the radio
-// pages, and a wake-up when the slot ends.
+// pages, and a wake-up when the slot ends. The bar's live line and Now
+// Playing both read it.
 func (p *player) onAirProgramme(c *ui.Context, id string) *services.StationEvent {
 	if id == "" {
 		return nil
 	}
-	svc := services.Service[services.RadioService](p.env.Core)
-	r := store.Use(p.env.Queries, store.Key{"radio", "station", id}, func(ctx context.Context) (services.StationDetail, error) {
-		return svc.Station(ctx, id)
-	}, store.Options{Stale: 5 * time.Minute})
+	r := kit.UseStation(p.env.Queries, id, p.station)
 	if !r.HasData {
 		return nil
 	}
 	now := p.now().UnixMilli()
-	for i := range r.Data.Schedule {
-		if e := &r.Data.Schedule[i]; e.StartMs <= now && now < e.EndMs {
-			c.After(time.Duration(max(e.EndMs-now, 1000)) * time.Millisecond)
-			return e
-		}
+	e, ok := kit.OnAirProgramme(r.Data.Schedule, now)
+	if !ok {
+		return nil
 	}
-	return nil
+	c.After(time.Duration(max(e.EndMs-now, 1000)) * time.Millisecond)
+	return &e
+}
+
+// programmeLine is a programme as the live line says it: "Title · until
+// 14:00".
+func programmeLine(e *services.StationEvent) string {
+	return e.Title + " · " + i18n.T("until {until}", "until", i18n.FormatClock(time.UnixMilli(e.EndMs)))
 }
 
 // broadcasterBlock is what the view says about a local broadcaster under the
@@ -555,7 +554,8 @@ func (p *player) lyricsTools(c *ui.Context, songID string) {
 				p.lyricsTiming(c, songID)
 				if kit.Button(c.Key("room"), i18n.T("Full screen"), kit.ButtonOpts{
 					Variant: kit.Ghost, Size: kit.SizeSM, Icon: "maximize-2",
-					Tip: i18n.T("Lyrics across the whole screen, large enough to read across a room"),
+					Tip:  i18n.T("Lyrics across the whole screen, large enough to read across a room"),
+					Keys: p.env.KeysOf("player.lyrics-room"),
 				}).Bind(&p.np.roomToggle).Clicked() {
 					p.ui.openRoom()
 				}

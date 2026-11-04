@@ -370,3 +370,28 @@ func TestANewVideoItemOpensTheVideoView(t *testing.T) {
 		t.Error("the same item reopened the view")
 	}
 }
+
+// A video that is paused (a restored queue's first state) or failed does not
+// pop the view open; the next one that starts loading does.
+func TestAPausedOrRestoredVideoDoesNotOpenTheVideoView(t *testing.T) {
+	r := newRig(t, true)
+	r.p.init()
+	for _, state := range []string{store.StatePaused, store.StateError} {
+		st := store.EmptyState()
+		st.State = state
+		st.Current = &services.QueueItem{UID: 7, ID: "mv.1", Name: "Clip", Video: true}
+		r.env.Bus.Emit(services.EventPlaybackState, st)
+		r.h.Main.Drain()
+		if r.env.Video.IsOpen() {
+			t.Fatalf("a %v video opened the view", state)
+		}
+	}
+	st := store.EmptyState()
+	st.State = store.StateLoading
+	st.Current = &services.QueueItem{UID: 8, ID: "mv.2", Name: "Clip 2", Video: true}
+	r.env.Bus.Emit(services.EventPlaybackState, st)
+	r.h.Main.Drain()
+	if !r.env.Video.IsOpen() {
+		t.Error("a loading video did not open the view")
+	}
+}

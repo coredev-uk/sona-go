@@ -709,3 +709,11 @@ func TestTheMiniPlayerPlaysPausesAndSkipsThroughTheCoordinator(t *testing.T) {
 	}
 	tt.Until("the second song played", func() bool { return len(h.Engine.Played()) > before })
 }
+
+// The button follows the player bar's queue button (v0.2.0's order: Private,
+// Sleep, Lyrics, Queue, Mini player, Equaliser).
+func TestTheButtonComesAfterTheQueueButton(t *testing.T) {
+	if controlOrder < module.ControlsAfterQueue {
+		t.Errorf("order %d puts the Mini player button before the queue's", controlOrder)
+	}
+}

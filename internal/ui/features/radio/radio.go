@@ -109,14 +109,11 @@ var (
 	keyRecent = store.Key{"radio", "recent"}
 )
 
-func keyStation(id string) store.Key { return store.Key{"radio", "station", id} }
-
 const (
 	// editorialStale: editorial radio changes hourly at most; Go caches it
 	// and serves it offline.
 	editorialStale = 10 * time.Minute
 	recentStale    = time.Minute
-	stationStale   = 5 * time.Minute
 )
 
 func (r *radio) grouping() store.Result[services.EditorialPage] {
@@ -136,9 +133,7 @@ func (r *radio) recent() store.Result[[]services.Station] {
 // when it is stale, and the Radio page's board shares it with each station's
 // own page.
 func (r *radio) station(id string) store.Result[services.StationDetail] {
-	return store.Use(r.env.Queries, keyStation(id), func(ctx context.Context) (services.StationDetail, error) {
-		return r.svc.Station(ctx, id)
-	}, store.Options{Stale: stationStale})
+	return kit.UseStation(r.env.Queries, id, r.svc.Station)
 }
 
 // accountState is the sign-in state ("signed_in", "signed_out"…); "" until Go

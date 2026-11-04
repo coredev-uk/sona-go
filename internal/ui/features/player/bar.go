@@ -10,6 +10,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
@@ -230,7 +231,7 @@ func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 			case playing:
 				icon, name = "pause", i18n.T("Pause")
 			}
-			if kit.Button(c.Key("play"), "", kit.ButtonOpts{Variant: kit.Play, Icon: icon, Spin: loading, Disabled: idle, A11yLabel: name}).Clicked() {
+			if kit.Button(c.Key("play"), "", kit.ButtonOpts{Variant: kit.Play, Icon: icon, Spin: loading, Disabled: idle, A11yLabel: name, Keys: p.env.KeysOf("player.toggle")}).Clicked() {
 				p.toggle()
 			}
 			if loading {
@@ -264,6 +265,13 @@ func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 	})
 }
 
+// barShortcuts is the shortcut each of the bar's icon buttons stands for,
+// whose keys its tooltip shows.
+var barShortcuts = map[string]string{
+	"shuffle": "player.shuffle", "prev": "player.previous", "next": "player.next", "repeat": "player.repeat",
+	"mute": "player.mute", "queue-toggle": "player.queue", "lyrics": "player.lyrics", "video": "player.video",
+}
+
 // iconButton is a quiet icon button of the bar. disabled is for what can't
 // be pressed now (nothing playing, the end of the queue); reason is for a
 // control that doesn't apply to what plays (a live station): as v0.2.0's
@@ -276,6 +284,7 @@ func (p *player) iconButton(c *ui.Context, key, icon, name string, disabled bool
 	}
 	btn := kit.Button(c.Key(key), "", kit.ButtonOpts{
 		Variant: kit.Ghost, Size: kit.SizeSM, Icon: icon, Pressed: pressed, Disabled: disabled, A11yLabel: name, Reason: reason,
+		Keys: p.env.KeysOf(barShortcuts[key]),
 	})
 	switch key {
 	case "queue-toggle":
@@ -306,6 +315,9 @@ func (p *player) live(c *ui.Context, s services.PlaybackState) {
 				line = on.Artist + " – " + on.Title
 			}
 			label(c, line, "meta").TextColor(theme.C("ink-muted"))
+		} else if ev := p.onAirProgramme(c, s.Current.ID); ev != nil {
+			// What the station's schedule says is on air, while it names no song.
+			label(c, programmeLine(ev), "meta").TextColor(theme.C("ink-muted"))
 		}
 	})
 }
@@ -361,7 +373,7 @@ func (p *player) seekBar(c *ui.Context, s services.PlaybackState, idle bool) {
 func (p *player) volumeControls(c *ui.Context, s services.PlaybackState) {
 	idle := s.Current == nil
 	ui.Row(c).Grow(1).Basis(0).Justify(ui.End).AlignItems(ui.Center).Gap(4).Children(func() {
-		p.env.PlayerControls.Build(c) // the other features' controls: private listening…
+		p.env.PlayerControls.BuildRange(c, 0, module.ControlsAfterQueue) // the other features' controls: private listening…
 		p.sleepButton(c)
 		if p.videoSurface() {
 			on := p.env.Video.IsOpen()
@@ -379,6 +391,7 @@ func (p *player) volumeControls(c *ui.Context, s services.PlaybackState) {
 		if p.iconButton(c, "queue-toggle", "list-music", i18n.T("Queue"), false, "", &queue) {
 			p.toggleQueueView()
 		}
+		p.env.PlayerControls.BuildRange(c, module.ControlsAfterQueue, 1<<30) // …and after the queue: Mini player, Equaliser
 		if !p.volume() {
 			return
 		}

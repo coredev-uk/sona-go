@@ -2088,12 +2088,17 @@ msgstr ""
 msgid "Episode"
 msgstr ""
 
+#: internal/ui/features/equalizer/button.go
 #: internal/ui/features/equalizer/equalizer.go
 #: internal/ui/features/equalizer/page.go
 #: internal/ui/features/settings/audio.go
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/settingsfile.go
 msgid "Equaliser"
+msgstr ""
+
+#: internal/ui/features/equalizer/button.go
+msgid "Equaliser (on)"
 msgstr ""
 
 #: internal/ui/kit/overlays_palette.go
@@ -5182,6 +5187,22 @@ msgstr ""
 msgid "Sleep timer: pauses after this song"
 msgstr ""
 
+#: internal/ui/features/player/shortcuts.go
+msgid "Sleep timer: stop after the queue"
+msgstr ""
+
+#: internal/ui/features/player/shortcuts.go
+msgid "Sleep timer: stop after this song"
+msgstr ""
+
+#: internal/ui/features/player/shortcuts.go
+msgid "Sleep timer: stop in 1 hour"
+msgstr ""
+
+#: internal/ui/features/player/shortcuts.go
+msgid "Sleep timer: stop in 30 minutes"
+msgstr ""
+
 #: internal/ui/features/player/sleep_timer.go
 msgid "Sleep timer: {minutes}m left, pauses at {until}"
 msgstr ""
@@ -6209,6 +6230,10 @@ msgstr ""
 msgid "Turn off sleep timer"
 msgstr ""
 
+#: internal/ui/features/player/shortcuts.go
+msgid "Turn off the sleep timer"
+msgstr ""
+
 #: internal/ui/features/private/private.go
 msgid "Turn on private listening"
 msgstr ""
@@ -6949,6 +6974,14 @@ msgstr ""
 
 #: internal/ui/features/player/shortcuts.go
 msgid "skip forward"
+msgstr ""
+
+#: internal/ui/features/player/shortcuts.go
+msgid "sleep timer bedtime fade"
+msgstr ""
+
+#: internal/ui/features/player/shortcuts.go
+msgid "sleep timer cancel"
 msgstr ""
 
 #: internal/ui/features/settings/find.go
