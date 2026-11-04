@@ -1,5 +1,3 @@
-//go:build gallery_pending
-
 package main
 
 // The kit-controls sections of the gallery. The build tag stays until
@@ -48,11 +46,6 @@ func controlsNote(c *ui.Context, s string) {
 
 func controlsRow(c *ui.Context, key string, fn func()) {
 	ui.Row(c.Key(key)).Gap(12).AlignItems(ui.Center).Wrap().Children(fn)
-}
-
-func controlsCaption(c *ui.Context, s string) ui.Element {
-	t := theme.Current().Type["meta"]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).TextColor(theme.C("ink-faint"))
 }
 
 func init() {
