@@ -4,8 +4,6 @@ import (
 	"strconv"
 	"time"
 
-	mygoi18n "github.com/egoist/mygo/i18n"
-
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 )
@@ -167,11 +165,6 @@ func itemsReleaseBadge(a services.Album, now time.Time) string {
 	if !itemsUpcoming(a, now) || a.ReleaseAt == 0 {
 		return ""
 	}
-	at := time.UnixMilli(a.ReleaseAt)
-	skeleton := "MMMd"
-	if at.Year() != now.Year() {
-		skeleton = "yMMMd"
-	}
-	date := mygoi18n.FormatDate(i18n.Locale(), at, mygoi18n.DateOptions{Skeleton: skeleton})
+	date := i18n.ShortReleaseDate(time.UnixMilli(a.ReleaseAt), now)
 	return i18n.T("Out {releaseDate}", "releaseDate", date)
 }
