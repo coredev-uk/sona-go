@@ -44,7 +44,7 @@ func (p *player) song(c *ui.Context, s services.PlaybackState) {
 				src = s.OnAir.Art.Small
 			}
 		}
-		kit.Artwork(c, p.env.Art, src, 48, kit.ArtOpts{})
+		kit.Artwork(c, p.env.Art, src, 48, kit.ArtOpts{}).Shrink(0) // a long line beside it never squashes the cover
 		ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).MinWidth(0).Children(func() {
 				if cur == nil {
@@ -72,7 +72,7 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 	case s.AuthRequired:
 		label(c, i18n.T("Sign in again to keep playing"), "sub").TextColor(theme.C("ink"))
 	case s.NoCDM:
-		label(c, i18n.T("Waiting for Widevine to download"), "sub").TextColor(theme.C("ink"))
+		p.env.PlayerNotice.Build(c) // features/cdm's notice
 	case s.State == "error" && s.Error != "":
 		// The line says what happened, the tooltip why (Go's error code, worded).
 		ui.Row(c).Gap(6).AlignItems(ui.Center).MinWidth(0).Tooltip(i18n.ErrorText(s.Error)).Children(func() {
@@ -234,6 +234,7 @@ func (p *player) seekBar(c *ui.Context, s services.PlaybackState, idle bool) {
 // Sona sets the playback volume.
 func (p *player) volumeControls(c *ui.Context, s services.PlaybackState) {
 	ui.Row(c).Grow(1).Basis(0).Justify(ui.End).AlignItems(ui.Center).Gap(4).Children(func() {
+		p.env.PlayerControls.Build(c) // the other features' controls: private listening…
 		if !p.volume() {
 			return
 		}

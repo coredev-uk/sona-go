@@ -45,11 +45,56 @@ type Env struct {
 	HasRoute func(path string) bool
 	// Post runs fn on the main thread and redraws the windows: how a
 	// goroutine (a service call) hands its outcome to the view.
-	Post    store.Poster
-	Log     *slog.Logger
-	Version string
-	Dev     bool // a -tags dev build
+	Post store.Poster
+	// PlayerControls are the small controls of the player bar's right group
+	// (private listening, the sleep timer, lyrics, the queue…), before mute
+	// and the volume; PlayerNotice is the line under the song's title while
+	// it waits for the Widevine CDM. A module adds to them as it is built
+	// (the factories run in modules.go's order, a Point sorts by its own).
+	PlayerControls Point
+	PlayerNotice   Point
+	Log            *slog.Logger
+	Version        string
+	Dev            bool // a -tags dev build
 }
+
+// Point is a place in one feature's view other modules build into, the
+// way the shell's Slots are places in the shell: a module Adds its piece
+// when it is built, the owning feature Builds them in order. The zero
+// value is ready; an Env is shared by pointer, so what a module adds is
+// seen by the feature that builds the point.
+type Point struct {
+	items []pointItem
+}
+
+type pointItem struct {
+	order int
+	build func(c *ui.Context)
+}
+
+// Add puts build in the point, after the pieces of a lower or equal order
+// (equal ones keep the order they were added in). Call it from a Factory,
+// on the main thread: nothing locks.
+func (p *Point) Add(order int, build func(c *ui.Context)) {
+	i := len(p.items)
+	for i > 0 && p.items[i-1].order > order {
+		i--
+	}
+	p.items = append(p.items, pointItem{})
+	copy(p.items[i+1:], p.items[i:])
+	p.items[i] = pointItem{order, build}
+}
+
+// Build builds every piece, in order, each one building nothing when it has
+// nothing to show.
+func (p *Point) Build(c *ui.Context) {
+	for _, it := range p.items {
+		it.build(c)
+	}
+}
+
+// Empty reports whether nothing was added.
+func (p *Point) Empty() bool { return len(p.items) == 0 }
 
 // Navigator is the main window's router.
 type Navigator interface {

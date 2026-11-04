@@ -1,0 +1,98 @@
+package updates
+
+import (
+	"errors"
+	"sync/atomic"
+	"testing"
+
+	"github.com/egoist/mygo/ui"
+
+	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+)
+
+type rig struct {
+	h     *uitest.Harness
+	tt    *uitest.Session
+	u     *updates
+	opens atomic.Int32
+	fail  atomic.Bool
+}
+
+func newRig(t *testing.T) *rig {
+	t.Helper()
+	h := uitest.New(t)
+	r := &rig{h: h}
+	r.u = newUpdates(h.Env, func() error {
+		r.opens.Add(1)
+		if r.fail.Load() {
+			return errors.New("no browser")
+		}
+		return nil
+	})
+	m := r.u.module()
+	m.Init()
+	r.tt = h.Tester(t, func(c *ui.Context) {
+		ui.Column(c).Fill().Children(func() {
+			ui.Box(c).Grow(1)
+			ui.Column(c).Width(232).Children(func() { m.Slots.SidebarFooter(c) })
+			kit.Toaster(c)
+		})
+	}, 232, 300)
+	return r
+}
+
+func (r *rig) emit(s services.UpdateStatus) {
+	r.h.Bus.Emit(services.EventUpdateAvailable, s)
+	r.tt.Drain()
+}
+
+func TestNoticeShowsOnlyWhileANewerReleaseExists(t *testing.T) {
+	r := newRig(t)
+	r.tt.Drain()
+	// Nothing published, or already the newest: no notice.
+	if r.tt.HasText("is available") || r.tt.HasText("View") {
+		t.Fatalf("a notice with no update: %q", r.tt.Texts())
+	}
+	r.emit(services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.2.0", Available: false})
+	if r.tt.HasText("is available") {
+		t.Errorf("notice for the current release: %q", r.tt.Texts())
+	}
+	r.emit(services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, URL: "https://example.test/r"})
+	for _, w := range []string{"Sona 0.3.0 is available", "View"} {
+		if !r.tt.HasText(w) {
+			t.Errorf("notice lacks %q: %q", w, r.tt.Texts())
+		}
+	}
+	// A later result that finds nothing newer hides it again.
+	r.emit(services.UpdateStatus{Current: "0.3.0", Checkable: true, Latest: "0.3.0"})
+	if r.tt.HasText("is available") {
+		t.Errorf("notice stays after the update: %q", r.tt.Texts())
+	}
+}
+
+func TestViewOpensTheReleaseAndAFailureToasts(t *testing.T) {
+	r := newRig(t)
+	r.emit(services.UpdateStatus{Latest: "0.3.0", Available: true})
+	if err := r.tt.Click("View"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("the release to open", func() bool { return r.opens.Load() == 1 })
+	if r.tt.HasText("Couldn't open the release") {
+		t.Error("a toast for a release that opened")
+	}
+	r.fail.Store(true)
+	if err := r.tt.Click("View"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("the failure toast", r.tt.Shows("Couldn't open the release"))
+}
+
+func TestModuleFillsTheSidebarFooterAndFollowsTheEvent(t *testing.T) {
+	h := uitest.New(t)
+	m := New(h.Env)
+	if m.ID != "updates" || m.Slots.SidebarFooter == nil || len(m.Routes) != 0 {
+		t.Fatalf("module = %+v", m)
+	}
+}
