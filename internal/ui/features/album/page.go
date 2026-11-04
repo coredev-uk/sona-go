@@ -69,6 +69,8 @@ type pageState struct {
 	gridH    float32
 	sleeveH  float32
 	paneRect func() ui.Rect
+	// pal is the cover's colours, built once per cover, theme and layout.
+	pal palCache
 }
 
 // listView is what the disc index needs of the track list.

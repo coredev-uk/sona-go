@@ -15,20 +15,27 @@ import (
 
 // body is AlbumBody: the head, the sleeve, the songs and the notes in the
 // layout of the content's width, then Apple's sections.
+//
+// The cover's colours (colours.go) are the page's: its accent takes amber's
+// place on the whole page, and the sleeve is printed in the cover's own
+// colour with its tokens redeclared.
 func (a *album) body(c *ui.Context, m *model, lay layout, highlight string, now time.Time, auth services.AuthStatus) {
-	head := func() { a.head(c, m, now, account.HasAccount(auth.State)) }
-	tracks := func() { a.songs(c, m, highlight, now, auth.Restricted) }
-	notes := m.notes != "" && m.notes != m.lede
-	if lay.wide {
-		a.wide(c, m, lay, head, tracks, notes)
-	} else {
-		a.narrow(c, m, lay, head, tracks, notes)
-	}
-	if m.page != nil {
-		ui.Column(c.Key("sections")).Margin(48, 0, 0, 0).FillWidth().Children(func() {
-			a.sections(c, m, now, auth.Restricted)
-		})
-	}
+	k := a.colours(m, lay)
+	k.accentScope(func() {
+		head := func() { a.head(c, m, k, now, account.HasAccount(auth.State)) }
+		tracks := func() { a.songs(c, m, highlight, now, auth.Restricted) }
+		notes := m.notes != "" && m.notes != m.lede
+		if lay.wide {
+			a.wide(c, m, k, lay, head, tracks, notes)
+		} else {
+			a.narrow(c, m, k, lay, head, tracks, notes)
+		}
+		if m.page != nil {
+			ui.Column(c.Key("sections")).Margin(48, 0, 0, 0).FillWidth().Children(func() {
+				a.sections(c, m, now, auth.Restricted)
+			})
+		}
+	})
 }
 
 // notesShelf is the full notes, after the songs.
@@ -42,14 +49,14 @@ func (a *album) notesShelf(c *ui.Context, m *model, first bool) {
 // head, the songs and the notes in the right; reading order head, sleeve,
 // songs, notes. The sleeve stays beside the songs while they scroll when the
 // pane is tall enough to show all of it.
-func (a *album) wide(c *ui.Context, m *model, lay layout, head, tracks func(), notes bool) {
+func (a *album) wide(c *ui.Context, m *model, k *colours, lay layout, head, tracks func(), notes bool) {
 	grid := ui.Grid(c.Key("wide")).FillWidth().
 		ColumnTracks(ui.Fixed(lay.cover+32), ui.Fr(1)).
 		RowTracks(ui.FitContent(), ui.FitContent(), ui.FitContent(), ui.Fr(1)).
 		GapX(40).AlignItems(ui.Start)
 	grid.Children(func() {
 		ui.Column(c.Key("head")).ColumnStart(2).RowStart(1).MinWidth(0).Padding(16, 0, 0, 0).Children(head)
-		sleeve := a.sleeve(c, m, func() {
+		sleeve := a.sleeve(c, m, k, func() {
 			ui.Column(c).Padding(16).Children(func() {
 				a.cover(c, m, lay.cover)
 				if len(m.discs) > 0 {
@@ -100,8 +107,8 @@ func (a *album) stick(sleeve, grid ui.Element) {
 // narrow: the sleeve with the cover and the head side by side, then the
 // songs, the fine print and the notes (no disc index: the tracks carry their
 // disc headings).
-func (a *album) narrow(c *ui.Context, m *model, lay layout, head, tracks func(), notes bool) {
-	a.sleeve(c, m, func() {
+func (a *album) narrow(c *ui.Context, m *model, k *colours, lay layout, head, tracks func(), notes bool) {
+	a.sleeve(c, m, k, func() {
 		ui.Row(c).Padding(20).Gap(20).AlignItems(ui.Start).Children(func() {
 			ui.Column(c).Shrink(0).Children(func() { a.cover(c, m, lay.cover) })
 			ui.Column(c).Grow(1).Basis(0).MinWidth(0).Children(head)
@@ -117,10 +124,22 @@ func (a *album) narrow(c *ui.Context, m *model, lay layout, head, tracks func(),
 }
 
 // sleeve is the page's one surface behind the cover and the record's fine
-// print: the wash of Go's pre-blurred backdrop under the ground scrim with a
-// 4% ink layer to hold it one tone step off the ground. (The cover's own
-// background colour, with its contrast maths, is the palette's, phase 3.)
-func (a *album) sleeve(c *ui.Context, m *model, content func()) ui.Element {
+// print. It is printed in the cover's own background colour, one tone step off
+// the ground, with its colour tokens redeclared so everything inside follows
+// it (text 4.5:1 on it: theme/palette). A cover with no colour known (a
+// library-only album) keeps the wash of Go's pre-blurred backdrop under the
+// ground scrim, with a 4% ink layer to hold it one tone step off the ground.
+func (a *album) sleeve(c *ui.Context, m *model, k *colours, content func()) ui.Element {
+	radius := theme.Current().Radius["lg"]
+	if k != nil {
+		e := ui.Box(c.Key("sleeve")).Background(k.surface).Radius(radius)
+		e.Children(func() {
+			theme.Scope(k.sleeveTok, func() {
+				ui.Column(c.Key("sleeve-body")).FillWidth().Children(content)
+			})
+		})
+		return e
+	}
 	colour := ""
 	if len(m.header.Colors) > 0 {
 		colour = m.header.Colors[0]
@@ -129,7 +148,7 @@ func (a *album) sleeve(c *ui.Context, m *model, content func()) ui.Element {
 		ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).PassThrough().Background(theme.C("ink").Alpha(0.04))
 		ui.Column(c.Key("sleeve-body")).FillWidth().Children(content)
 	})
-	return e.Radius(theme.Current().Radius["lg"])
+	return e.Radius(radius)
 }
 
 // cover is the cover at its station: Apple's motion artwork where there is
@@ -146,12 +165,12 @@ func (a *album) cover(c *ui.Context, m *model, size float32) {
 // head is AlbumHead: the title (wrapping as far as it needs, never moving
 // the cover), the artist, the catalogue line, the badges, Apple's one-line
 // note, the album's state, then its actions.
-func (a *album) head(c *ui.Context, m *model, now time.Time, account bool) {
+func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account bool) {
 	tk := theme.Current()
 	ui.Column(c.Key("head-body")).MinWidth(0).Children(func() {
 		typed(c, m.album.Name, "display").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(1)
 		ui.Row(c.Key("byline")).Margin(6, 0, 0, 0).MinWidth(0).TextColor(theme.C("ink")).
-			FontSize(tk.Type["heading"].Size).FontWeight(500).Children(func() { a.byline(c, m) })
+			FontSize(tk.Type["heading"].Size).FontWeight(500).Children(func() { a.byline(c, m, k) })
 		typed(c, m.meta, "meta").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 		if m.album.Explicit || len(kit.TraitLabels(m.album.Traits)) > 0 {
 			ui.Row(c.Key("badges")).Margin(8, 0, 0, 0).Children(func() {
@@ -173,8 +192,12 @@ func (a *album) head(c *ui.Context, m *model, now time.Time, account bool) {
 // byline is the artist: links from the catalogue page, else a link to the
 // artist when the album knows one, else the name. Links go only where the
 // artist page exists.
-func (a *album) byline(c *ui.Context, m *model) {
+func (a *album) byline(c *ui.Context, m *model, k *colours) {
 	ink := theme.C("ink")
+	if k != nil && k.accent {
+		// The artist is the record's link out, in the cover's accent.
+		ink = theme.C("play-ink")
+	}
 	opts := kit.ArtistLinksOpts{HasRoute: a.env.HasRoute}
 	if opts.HasRoute == nil {
 		opts.HasRoute = func(string) bool { return false }
