@@ -74,7 +74,7 @@ private mode.
 | `fmt`        | gofumpt on every tracked Go file except `internal/db/dbq`. |
 | `check`      | The static half of the checks below: `go vet`, `go vet -tags dev,sqlite_fts5` and `-tags probe,sqlite_fts5` (development and probe builds type-check too), the Windows and macOS type-checks, `golangci-lint --new-from-rev=origin/main`, `go tool mygo vet internal/ui` (build values kept past their frame), the catalogue check (`i18ntool extract -check`) and the path-case check (`cmd/pathcase`). |
 | `tests`      | `go test -race ./...` (inside `dbus-run-session` on Linux, so no test reaches your session bus; extra arguments go to `go test`), including the `ui.Tester` tests, then `go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/app ./internal/mpris` (the tests of dev-only code). Not named `test`: the shell's `test` builtin would shadow it. |
-| `release`    | `build/linux/release/release.sh`, the same as Taskfile's `release`: unavailable until the phase 4 packaging PR (release packages return with it), it fails fast with that message. |
+| `release`    | `build/linux/release/release.sh`, the same as Taskfile's `release`: builds every Linux package (.deb, .rpm, Arch, AppImage) on Ubuntu 24.04 in podman/docker and smoke-tests each on a clean distro container (Xvfb, `MYGO_GPU=0`). |
 | `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`); `play-spike -preview` needs none.                                                                                                                                                                                                                             |
 | `auth-spike` | `go run ./cmd/authspike`: the Apple sign-in flow from the terminal.                                                                                                                                                                                                                                                                         |
 | `headless`   | `bash e2e/headless.sh "$@"`: runs a command (`headless -- <cmd>`) in a private headless session: sway (headless backend, pixman), private XDG directories (empty: write the fixture library into them first, `headless -- sh -c 'go run ./e2e/profile && <cmd>'`), its own session bus with the AT-SPI bus, the desktop portals stubbed (no 12 s wait for a portal that never starts) and a `wtype` keep-alive that gives the seat a keyboard. `WAYLAND_DISPLAY` is set for the command; the session and its files are removed afterwards. |
@@ -324,8 +324,10 @@ sets `SONA_CDMHOST_REQUIRE_NAMESPACES=1`, which turns a skip into a failure.
 
 Packaging changes: `bash build/linux/release/release.sh` (build every package
 on Ubuntu 24.04 and smoke-test it on clean Ubuntu, Fedora and Arch
-containers) is unavailable until the phase 4 packaging PR; `task package`
-builds the nfpm packages meanwhile. Before a release, work through
+containers, plus the AppImage on Fedora) is the packaging check; it needs
+podman or docker and takes a while, so CI runs it. `task package` packages
+your local build for a look at the files (a devenv build links `/nix/store`
+and is not a release). Before a release, work through
 `docs/release-checklist.md`.
 
 ### UI tests and the end-to-end smoke

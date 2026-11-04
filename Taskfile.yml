@@ -28,7 +28,7 @@ tasks:
       - task: '{{if eq OS "darwin"}}darwin{{else}}linux{{end}}:build'
 
   package:
-    summary: Packages a production build as .deb, .rpm and Arch package (the AppImage returns in phase 4)
+    summary: Packages a production build as .deb, .rpm, Arch package and AppImage
     cmds:
       - task: linux:package
 

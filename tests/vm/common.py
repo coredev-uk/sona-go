@@ -159,23 +159,31 @@ def sona_bus_names():
 
 
 def check_tray():
-    """Sona exports its StatusNotifierItem (Title "Sona", its menu) and the
-    shell's watcher lists an item; returns (Sona's item names, the watcher's
-    list) for the desktop's own check that the shell took Sona's."""
+    """Sona's tray item (libayatana-appindicator3's StatusNotifierItem: Title
+    "Sona", its dbusmenu) is in the shell's watcher; returns (Sona's bus
+    names, the watcher's items) for the desktop's own check that the shell
+    took it. The watcher lists "<bus name><object path>"; the library's path
+    is /org/ayatana/NotificationItem/<id>, not /StatusNotifierItem."""
     machine.wait_until_succeeds(as_alice("busctl --user status org.kde.StatusNotifierWatcher"), timeout=60)
     deadline = time.monotonic() + 60
     while True:
         names = sona_bus_names()
         items = tray_items()
-        for name in names:
+        for item in items:
+            service, slash, rest = item.partition("/")
+            path = slash + rest
+            if not path:
+                path = "/StatusNotifierItem"
+            if service not in names:
+                continue
             try:
-                title = busctl_json(f"get-property {name} /StatusNotifierItem org.kde.StatusNotifierItem Title")["data"]
+                title = busctl_json(f"get-property {service} {path} org.kde.StatusNotifierItem Title")["data"]
+                menu = busctl_json(f"get-property {service} {path} org.kde.StatusNotifierItem Menu")["data"]
             except Exception:
                 continue
-            if title == "Sona" and items:
-                menu = busctl_json(f"get-property {name} /StatusNotifierItem org.kde.StatusNotifierItem Menu")["data"]
+            if title == "Sona":
                 # Depth 8 rather than -1 (all), which busctl would read as an option.
-                layout = user(f"busctl --user call {name} {menu} com.canonical.dbusmenu GetLayout iias 0 8 0")
+                layout = user(f"busctl --user call {service} {menu} com.canonical.dbusmenu GetLayout iias 0 8 0")
                 for label in ["Show Sona", "Mini Player", "Quit Sona"]:
                     assert label in layout, layout
                 machine.log(f"tray: Sona's names {names}, watcher's items {items}; menu {layout.strip()}")

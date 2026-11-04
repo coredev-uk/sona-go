@@ -121,8 +121,8 @@ in
     '';
     # Production: no inspector (mygo_noinspector) and MyGo's production mode.
     build.exec = ''go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona "$@"'';
-    # Release packages (.deb/.rpm/Arch/AppImage) in podman/docker on Ubuntu
-    # 24.04. Unavailable until the phase 4 packaging PR: release.sh says so.
+    # Release packages (.deb/.rpm/Arch/AppImage) built and smoke-tested in
+    # podman/docker on Ubuntu 24.04 (build/linux/release/release.sh).
     release.exec = ''bash build/linux/release/release.sh "$@"'';
     gen.exec = ''sqlc generate -f internal/db/sqlc.yaml'';
     fmt.exec = ''gofumpt -w $(git ls-files '*.go' | grep -v '^internal/db/dbq/')'';

@@ -8,7 +8,7 @@
 #   $(nix-build tests/vm -A gnome.driverInteractive)/bin/nixos-test-driver   # interactive
 #
 # nixpkgs is the revision devenv pins (devenv.lock), so the VMs run the
-# GTK, WebKitGTK and GStreamer Sona is developed against.
+# GTK3 and GStreamer Sona is developed against.
 {
   pkgs ?
     let
