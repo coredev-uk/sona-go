@@ -148,10 +148,12 @@ func (s *settings) shortcutTools(c *ui.Context, ss *shortcutsState, nothingToRes
 				Placeholder: i18n.T("Filter by action or key"), A11yLabel: i18n.T("Filter shortcuts"),
 			})
 		})
-		b := kit.Button(c.Key("reset-all"), i18n.T("Reset all"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM})
+		// aria-disabled: with nothing to reset it keeps the focus and says so.
+		reason := ""
 		if nothingToReset {
-			b.Opacity(0.5)
+			reason = i18n.T("No shortcut has been changed.")
 		}
+		b := kit.Button(c.Key("reset-all"), i18n.T("Reset all"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Reason: reason})
 		if b.Clicked() && !nothingToReset {
 			kit.Confirm(kit.ConfirmOptions{
 				Title:        i18n.T("Reset every shortcut?"),

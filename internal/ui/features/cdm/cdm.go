@@ -76,7 +76,7 @@ func (c *cdm) notice(ctx *ui.Context) {
 			if st.Code == "unsupported_platform" {
 				text = i18n.T("Songs can't play on this computer")
 			}
-			c.link(ctx, text)
+			c.link(ctx, text, i18n.CDMProblem(st.Code))
 		})
 	default:
 		text := i18n.T("Waiting for Widevine to download")
@@ -85,13 +85,14 @@ func (c *cdm) notice(ctx *ui.Context) {
 				text = i18n.T("Waiting for Widevine to download · {percent}", "percent", i18n.FormatPercent(f))
 			}
 		}
-		c.link(ctx, text)
+		c.link(ctx, text, "")
 	}
 }
 
 // link is text that opens Settings → Playback; plain text while that page is
 // not ported.
-func (c *cdm) link(ctx *ui.Context, text string) {
+// desc is what the tooltip says, for assistive technology too.
+func (c *cdm) link(ctx *ui.Context, text, desc string) {
 	if c.env.HasRoute == nil || !c.env.HasRoute("/settings") {
 		line(ctx, text)
 		return
@@ -101,6 +102,9 @@ func (c *cdm) link(ctx *ui.Context, text string) {
 	// its URL to the browser: the link has none and the click goes to the router.
 	l := ui.Link(ctx.Key("cdm-link"), text, "").FontSize(t.Size).FixedLineHeight(t.LineHeight).
 		TextColor(theme.C("ink")).Underline().SingleLine().MinWidth(0).Shrink(1)
+	if desc != "" {
+		l.Description(desc)
+	}
 	if l.Clicked() && c.env.Nav != nil {
 		c.env.Nav.Push(settingsPlayback)
 	}

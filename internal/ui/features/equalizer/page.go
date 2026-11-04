@@ -109,7 +109,9 @@ func (e *equalizer) content(c *ui.Context) {
 				e.save(s, next)
 			}
 			// The word is part of the switch's label: a click on it toggles too.
-			word := ui.ButtonBase(c.Key("switch:word")).Role(ui.RoleNone).Cursor(ui.CursorPointer)
+			// A plain row, not a button: the switch is the one control (and
+			// the one Tab stop) assistive technology finds.
+			word := ui.Row(c.Key("switch:word")).Cursor(ui.CursorPointer)
 			word.Children(func() { text(c, name, "body").TextColor(theme.C("ink")) })
 			if word.Clicked() {
 				next := eq
