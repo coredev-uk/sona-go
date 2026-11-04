@@ -44,6 +44,11 @@ type Env struct {
 	// window hides and when a layer, an overlay or a dialog covers the page.
 	// Nil only in tests that build an Env by hand: a nil policy allows nothing.
 	Motion *kit.MotionPolicy
+	// Video is the music video view's shared state: whether it is open, the
+	// window's full screen it toggles and the source of its pictures.
+	// Features that start or show a music video call Video.Open and read
+	// Video.IsOpen; the video feature draws the view. Never nil.
+	Video *store.VideoView
 	Nav    Navigator // the main window's router
 	// Queue starts, shuffles and queues songs and videos through the
 	// playback service: every feature that plays a collection or adds to the

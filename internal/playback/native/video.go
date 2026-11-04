@@ -20,7 +20,7 @@ import (
 // the video's audio rendition, fetched, licensed, fed and timed exactly
 // like a song's, plus its video rendition: the child decodes it with the
 // CDM's own decoder and sends each picture when the audio reaches it,
-// which the engine puts on its video.Surface for the web view. Apple
+// which the engine puts on its video.Surface for the UI's video view. Apple
 // licenses a software CDM for SD video only (hls.SelectVideo). Videos are
 // never joined gaplessly to their neighbours (armLocked).
 
