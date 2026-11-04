@@ -49,12 +49,7 @@ func (p *player) lyricsTiming(c *ui.Context, songID string) {
 		if words != "" {
 			tip = i18n.T("Back to the original timing")
 		}
-<<<<<<< HEAD
-		if kit.Button(c.Key("offset"), label, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Muted: true, Disabled: words == "", Tip: tip}).
-=======
-		// Announced as it changes, so a nudge from the keyboard is heard.
 		if kit.Button(c.Key("offset"), label, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Muted: true, Disabled: words == "", Tip: tip, Keys: p.env.KeysOf("player.lyrics-reset")}).
->>>>>>> cf42bbc (fix(player): bar parity and shortcut hints)
 			Role(ui.RoleStatus).MinWidth(120).Clicked() {
 			lyricsync.Session().Reset(songID)
 		}
