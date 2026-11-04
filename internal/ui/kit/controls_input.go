@@ -14,11 +14,27 @@ type InputOpts struct {
 	Placeholder string
 	// A11yLabel names the field for assistive technology and tests.
 	A11yLabel string
-	// Invalid draws the destructive border and ring (aria-invalid).
-	Invalid  bool
+	// Invalid draws the destructive border and ring and tells assistive
+	// technology the value is not valid (aria-invalid).
+	Invalid bool
+	// Error is the message assistive technology reads with an invalid value
+	// (aria-describedby on the error text): the one the page shows. "Invalid"
+	// when empty.
+	Error    string
 	Disabled bool
 	// Password hides what is typed.
 	Password bool
+}
+
+// invalidFor marks e as not valid for assistive technology, reading msg.
+func invalidFor(e ui.Element, invalid bool, msg string) {
+	if !invalid {
+		return
+	}
+	if msg == "" {
+		msg = i18n.T("Invalid")
+	}
+	e.Error(msg)
 }
 
 // controlsFieldHeight is the height of Input, Select and the like
@@ -71,6 +87,7 @@ func Input(c *ui.Context, value *string, o InputOpts) ui.Element {
 		e.Label(o.A11yLabel)
 	}
 	controlsFieldFace(e, e.Focused(), o.Invalid, o.Disabled)
+	invalidFor(e, o.Invalid, o.Error)
 	return e
 }
 

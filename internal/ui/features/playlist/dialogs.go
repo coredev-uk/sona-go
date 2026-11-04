@@ -226,7 +226,14 @@ func (p *playlists) optionRow(c *ui.Context, i int, o option) {
 	tk := theme.Current()
 	s := ui.ButtonBase(c.Key(o.key)).Row().AlignItems(ui.Center).FillWidth().Height(44).Padding(0, 8).Gap(12).
 		Radius(tk.Radius["md"]).Cursor(ui.CursorPointer).Label(o.title)
-	if o.meta != "" {
+	// The row is one piece for assistive technology: the line under the
+	// title and the check of the current choice ride in its description.
+	switch {
+	case o.meta != "" && o.current:
+		s.Description(o.meta + " · " + i18n.T("Current"))
+	case o.current:
+		s.Description(i18n.T("Current"))
+	case o.meta != "":
 		s.Description(o.meta)
 	}
 	if o.focus && d.age == 2 {
@@ -250,6 +257,8 @@ func (p *playlists) optionRow(c *ui.Context, i int, o option) {
 			}
 		})
 		if o.current {
+			// Inside the row, which is one piece for assistive technology:
+			// the description above says it; the label finds the mark.
 			ui.Icon(c.Key("current"), theme.Icon("check")).FontSize(16).TextColor(theme.C("ink-muted")).Shrink(0).Label(i18n.T("Current"))
 		}
 	})
@@ -363,7 +372,13 @@ func (p *playlists) addDialog(c *ui.Context) {
 					default:
 						msg = i18n.T("You have no playlists you can edit yet.")
 					}
-					dialogText(c.Key("empty"), msg, "secondary").TextColor(theme.C("ink-muted")).Padding(16, 8, 0, 8)
+					// A status, read as the filter or the load leaves nothing
+					// to pick: the focus stays in the field.
+					note := dialogText(c.Key("empty"), msg, "secondary").TextColor(theme.C("ink-muted")).Padding(16, 8, 0, 8).Role(ui.RoleStatus)
+					if said := ui.Local(note, "said", func() string { return "" }); *said != msg {
+						*said = msg
+						c.Announce(msg)
+					}
 				}
 			})
 		})

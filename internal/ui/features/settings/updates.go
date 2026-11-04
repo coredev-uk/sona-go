@@ -73,6 +73,13 @@ func (s *settings) updateStatusRow(c *ui.Context, st services.UpdateStatus) {
 	us := stateOf[updateState](s, "updates")
 	v := s.updateVerdict(st)
 	c = c.Key("update-status")
+	spoken := v.text
+	if us.failure != "" {
+		spoken = i18n.T("Couldn't check: {failure}", "failure", us.failure)
+	} else if v.detail != "" {
+		spoken += ". " + v.detail
+	}
+	s.tell(c, "updates", spoken) // aria-live="polite" on the verdict
 	s.line(c)
 	ui.Row(c).FillWidth().Padding(rowPadY, 0).AlignItems(ui.Start).Justify(ui.SpaceBetween).Gap(rowGap).
 		Role(ui.RoleStatus).Label(i18n.T("Updates")).Children(func() {

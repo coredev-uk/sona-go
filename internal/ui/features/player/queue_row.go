@@ -217,19 +217,29 @@ func (p *player) rowContent(c *ui.Context, r *queueRowIn, hot, movable bool) {
 		})
 		label(c.Key("artist"), it.Artist, "sub").TextColor(artistColor)
 	})
-	switch {
-	case r.current:
+	if r.current {
 		kit.EqualiserBars(c.Key("eq"), r.playing, p.env.Motion).Margin(0, 6, 0, 0)
-	case hot:
-		if clicked, b := p.rowButton(c, "more", "ellipsis", i18n.T("More for {name}", "name", it.Name), ui.RoleMenuButton); clicked {
-			p.openRowMenu(it.UID, b.X, b.Y+b.H, false) // below the button
-		}
-		if clicked, _ := p.rowButton(c, "remove", "x", i18n.T("Remove {name} from the queue", "name", it.Name), ui.RoleButton); clicked {
-			p.removeAt(r.qi)
-		}
-	default:
+		return
+	}
+	if !hot {
 		label(c.Key("dur"), i18n.FormatDuration(time.Duration(it.DurationMs)*time.Millisecond), "meta").TextColor(faint).FontFeatures("tnum").Shrink(0)
 	}
+	// More and Remove show while the row is hot. At rest they are built all
+	// the same, over the duration and unseen (the pointer goes through them,
+	// Tab skips them), so that a screen reader finds and presses them.
+	actions := ui.Row(c.Key("actions")).Gap(12).AlignItems(ui.Center).Shrink(0)
+	if !hot {
+		actions.Absolute().Right(8).Top((queueRowH - 24) / 2).IgnoreInput(true).Opacity(0)
+	}
+	menuOpen := p.queue.menu.IsOpen() && p.queue.menuUID == it.UID
+	actions.Children(func() {
+		if clicked, b := p.rowButton(c, "more", "ellipsis", i18n.T("More for {name}", "name", it.Name), ui.RoleMenuButton, menuOpen); clicked {
+			p.openRowMenu(it.UID, b.X, b.Y+b.H, false) // below the button
+		}
+		if clicked, _ := p.rowButton(c, "remove", "x", i18n.T("Remove {name} from the queue", "name", it.Name), ui.RoleButton, false); clicked {
+			p.removeAt(r.qi)
+		}
+	})
 }
 
 // videoName is a music video's title: a link to its page when that page is
@@ -310,10 +320,14 @@ func (p *player) keyMove(key string, it *services.QueueItem, r *queueRowIn) {
 
 // rowButton is a row's quiet 24 DIP icon button. It is not a tab stop (the
 // list is one stop: Enter, Delete and Shift+F10 on the row do the same);
-// it reports a click and where the button is.
-func (p *player) rowButton(c *ui.Context, key, icon, name string, role ui.Role) (clicked bool, at ui.Rect) {
+// it reports a click and where the button is. A menu button says whether
+// its menu is open (expanded).
+func (p *player) rowButton(c *ui.Context, key, icon, name string, role ui.Role, expanded bool) (clicked bool, at ui.Rect) {
 	btn := ui.Row(c.Key(key)).Size(24, 24).Shrink(0).Center().Radius(theme.Current().Radius["md"]).Role(role).
 		Label(name).Cursor(ui.CursorPointer)
+	if role == ui.RoleMenuButton {
+		btn.Expanded(expanded)
+	}
 	fg := theme.C("ink-muted")
 	if btn.Hovered() {
 		fg = theme.C("ink")

@@ -89,6 +89,7 @@ func (s *settings) providerRow(c *ui.Context, st *scrobbleUI, p provider, acct c
 		desc = accountLine(p, ss, acct)
 	}
 	busy := st.removing == p
+	s.tell(c, id, desc) // the account line is a polite live region
 	s.row(c, rowOpts{ID: id, Title: name, Desc: desc}, func() ui.Element {
 		var first ui.Element
 		if ss.Connected {
@@ -203,9 +204,11 @@ func (s *settings) listenBrainzRow(c *ui.Context, st *scrobbleUI, acct config.Sc
 // unencryptedNote warns that no keyring holds the scrobbler sign-ins.
 func (s *settings) unencryptedNote(c *ui.Context) {
 	c = c.Key("unencrypted")
-	ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Start).Padding(12, 16).Radius(theme.Current().Radius["lg"]).
-		Background(theme.C("raised")).Border(1, theme.C("control-line")).Role(ui.RoleStatus).
-		Label(i18n.T("Your scrobbler sign-ins are stored unencrypted")).Children(func() {
+	msg := i18n.T("Your scrobbler sign-ins are stored unencrypted")
+	row := ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Start).Padding(12, 16).Radius(theme.Current().Radius["lg"]).
+		Background(theme.C("raised")).Border(1, theme.C("control-line")).Role(ui.RoleStatus).Label(msg)
+	announceOnce(c, row, msg)
+	row.Children(func() {
 		ui.Icon(c.Key("i"), theme.Icon("shield-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
 		ui.Column(c.Key("t")).Shrink(1).MinWidth(0).Children(func() {
 			text(c, i18n.T("Your scrobbler sign-ins are stored unencrypted"), "label").TextColor(theme.C("ink"))

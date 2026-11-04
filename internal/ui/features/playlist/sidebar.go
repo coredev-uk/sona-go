@@ -253,7 +253,7 @@ func (p *playlists) pinsSection(c *ui.Context, pins []services.Pin, editable map
 	over := p.dropOnPins(sec, pins)
 	sec.Children(func() {
 		sideHeading(c, i18n.T("Pinned"), nil)
-		ui.Column(c.Key("pins")).FillWidth().Gap(2).Children(func() {
+		ui.Column(c.Key("pins")).FillWidth().Gap(2).Role(ui.RoleList).Label(i18n.T("Pinned")).Children(func() {
 			for i, pin := range pins {
 				// Moving up one place puts the pin after the one two above it.
 				upAfter, canUp := "", i > 0
@@ -274,7 +274,7 @@ func (p *playlists) pinsSection(c *ui.Context, pins []services.Pin, editable map
 // a drop target, reports).
 func (p *playlists) dropZone(c *ui.Context, key, icon, label string, over bool, on func(ui.Element) bool) {
 	z := ui.Row(c.Key(key)).FillWidth().Height(theme.Current().Metric["nav-row"]).PaddingX(10).Gap(10).AlignItems(ui.Center).
-		Radius(theme.Current().Radius["md"])
+		Radius(theme.Current().Radius["md"]).Role(ui.RoleListItem)
 	fg := theme.C("ink-muted")
 	if on != nil {
 		over = on(z)
@@ -296,7 +296,7 @@ func (p *playlists) dropZone(c *ui.Context, key, icon, label string, over bool, 
 func (p *playlists) pinRow(c *ui.Context, pin services.Pin, upAfter string, canUp, editable bool) {
 	path := p.pinPath(pin)
 	opens := path != "" && (pin.Action == "drillIn" || pin.Kind == "artist")
-	wrap := ui.Row(c.Key("pin:" + pin.ID)).FillWidth()
+	wrap := ui.Row(c.Key("pin:" + pin.ID)).FillWidth().Role(ui.RoleListItem)
 	over := p.dropOnPlaylist(wrap, "pin:"+pin.ID, pin.ID, pin.Name, editable)
 	hot := wrap.Hovered() || wrap.FocusWithin()
 	wrap.Children(func() {
@@ -315,6 +315,9 @@ func (p *playlists) pinRow(c *ui.Context, pin services.Pin, upAfter string, canU
 		}
 		row.Grow(1).MinWidth(0).Padding(0, 32, 0, 10)
 		fg := rowFace(row, hot, active, over)
+		if active {
+			row.Description(i18n.T("Current page"))
+		}
 		switch {
 		case !row.Clicked():
 		case opens:
@@ -375,7 +378,7 @@ func (p *playlists) pinMenu(pin services.Pin, path string, opens bool, upAfter s
 func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth int) {
 	pl := item.Playlist
 	path := "/playlist/" + pl.ID
-	wrap := ui.Row(c.Key("playlist:" + pl.ID)).FillWidth()
+	wrap := ui.Row(c.Key("playlist:" + pl.ID)).FillWidth().Role(ui.RoleListItem)
 	over := p.dropOnPlaylist(wrap, "playlist:"+pl.ID, pl.ID, pl.Name, pl.CanEdit)
 	hot := wrap.Hovered() || wrap.FocusWithin()
 	wrap.Children(func() {
@@ -383,6 +386,9 @@ func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth
 		row := ui.ButtonBase(c.Key("open")).Role(ui.RoleLink).Label(pl.Name).Grow(1).MinWidth(0).
 			Padding(0, 32, 0, 10+float32(depth)*folderIndent)
 		fg := rowFace(row, hot, active, over)
+		if active {
+			row.Description(i18n.T("Current page"))
+		}
 		if row.Clicked() {
 			p.env.Nav.Push(path)
 		}
@@ -406,10 +412,12 @@ func (p *playlists) readOnlySection(c *ui.Context, id, title string, items []ser
 	}
 	folded := p.prefs.Collapsed(id)
 	ui.Column(c.Key("section:" + id)).FillWidth().Children(func() {
-		// The button sits in a heading, as v0.2.0's did: screen readers
-		// still find the section by heading.
-		ui.Row(c.Key("head")).FillWidth().Margin(24, 0, 6, 0).Role(ui.RoleHeading).Level(2).Children(func() {
-			fold := ui.ButtonBase(c.Key("fold")).Label(title).Expanded(!folded).FillWidth().Height(20).
+		// The heading and the button that folds the list are siblings: MyGo
+		// reads a heading as one piece, so a button inside it would be out
+		// of reach of a screen reader. The title is drawn over the button
+		// (the pointer goes through it) and is the section's heading.
+		ui.Row(c.Key("head")).FillWidth().Height(20).Margin(24, 0, 6, 0).Children(func() {
+			fold := ui.ButtonBase(c.Key("fold")).Role(ui.RoleDisclosure).Label(title).Expanded(!folded).FillWidth().Height(20).
 				Padding(0, 10).AlignItems(ui.Center).Radius(theme.Current().Radius["md"]).Cursor(ui.CursorPointer)
 			fg := theme.C("ink-faint")
 			if fold.Hovered() {
@@ -419,8 +427,11 @@ func (p *playlists) readOnlySection(c *ui.Context, id, title string, items []ser
 				folded = !folded
 				p.prefs.SetCollapsed(id, folded)
 			}
+			ui.Row(c.Key("title")).Absolute().Left(10).Right(34).Top(0).Bottom(0).AlignItems(ui.Center).IgnoreInput(true).Children(func() {
+				sideText(c, title, "meta").TextColor(fg).SingleLine().MinWidth(0).Role(ui.RoleHeading).Level(2)
+			})
 			fold.Children(func() {
-				sideText(c, title, "meta").TextColor(fg).SingleLine().Grow(1).MinWidth(0)
+				ui.Box(c).Grow(1)
 				chevron := "chevron-down"
 				if folded {
 					chevron = "chevron-right"
@@ -431,7 +442,7 @@ func (p *playlists) readOnlySection(c *ui.Context, id, title string, items []ser
 		if folded {
 			return
 		}
-		ui.Column(c.Key("list")).FillWidth().Gap(2).Children(func() {
+		ui.Column(c.Key("list")).FillWidth().Gap(2).Role(ui.RoleList).Label(title).Children(func() {
 			for _, it := range items {
 				p.playlistRow(c, it, 0)
 			}
@@ -492,7 +503,11 @@ func (p *playlists) newMenu(c *ui.Context) func() {
 
 // treeLevel builds a level of the folder tree.
 func (p *playlists) treeLevel(c *ui.Context, nodes []*treeNode, depth int) {
-	ui.Column(c).FillWidth().Gap(2).Children(func() {
+	list := ui.Column(c).FillWidth().Gap(2).Role(ui.RoleList)
+	if depth == 0 {
+		list.Label(i18n.T("Playlists"))
+	}
+	list.Children(func() {
 		for _, n := range nodes {
 			if n.Folder != nil {
 				p.folderRow(c, n, depth)
@@ -535,11 +550,11 @@ func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth int) {
 	f := *n.Folder
 	open := p.prefs.FolderOpen(f.ID)
 	pad := float32(depth) * folderIndent
-	ui.Column(c.Key("folder:" + f.ID)).FillWidth().Gap(2).Children(func() {
+	ui.Column(c.Key("folder:" + f.ID)).FillWidth().Gap(2).Role(ui.RoleListItem).Children(func() {
 		wrap := ui.Row(c.Key("row")).FillWidth()
 		hot := wrap.Hovered() || wrap.FocusWithin()
 		wrap.Children(func() {
-			row := ui.ButtonBase(c.Key("toggle")).Label(f.Name).Expanded(open).Grow(1).MinWidth(0).Padding(0, 32, 0, 10+pad)
+			row := ui.ButtonBase(c.Key("toggle")).Role(ui.RoleDisclosure).Label(f.Name).Expanded(open).Grow(1).MinWidth(0).Padding(0, 32, 0, 10+pad)
 			fg := rowFace(row, hot, false, false)
 			if row.Clicked() || p.springOpen(c, row, f.ID, open) {
 				open = !open

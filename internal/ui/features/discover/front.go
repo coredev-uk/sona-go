@@ -242,68 +242,91 @@ func (d *discover) opener(it services.Item, ctx kit.ItemsCtx) (open func(), link
 // the cover contained on its colour), the title opening the item's page, the
 // subtitle, a play button on hover or focus and the item's menu. live false is
 // the copy on its way out: it takes no input.
+//
+// The card is one opener; the play button and the more button are elements of
+// their own beside it (a button or a link is one piece for assistive
+// technology, so inside it they would not be on its tree).
 func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ctx kit.ItemsCtx, live bool) {
 	tk := theme.Current()
 	name := it.Name
 	open, link := d.opener(it, ctx)
-	var card ui.Element
-	if live && open != nil {
-		card = ui.ButtonBase(c.Key("card")).Column().AlignItems(ui.Start).Radius(tk.Radius["sm"]).Label(name)
-		if link {
-			card.Role(ui.RoleLink)
-		}
-	} else {
-		card = ui.Column(c.Key("card")).AlignItems(ui.Start)
-		if live {
-			card.Label(name)
-		}
-	}
-	card.Width(lay.lead)
-	hot := live && (card.Hovered() || card.FocusWithin())
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
 	menu := kit.ActionTarget{Item: target, Name: name, Key: "lead"}
+	hasMenu := live && hasTarget && ctx.Menus != nil && d.hasMenu(target)
+	artH := lay.artHeight()
 
-	card.Children(func() {
-		colour, hasColour := itemColour(it)
-		art := ui.Box(c.Key("art")).Size(lay.lead, lay.artHeight()).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
-		if hasColour {
-			art.Background(colour)
+	wrap := ui.Column(c.Key("wrap")).AlignItems(ui.Start).Width(lay.lead)
+	hot := live && (wrap.Hovered() || wrap.FocusWithin())
+	wrap.Children(func() {
+		var card ui.Element
+		if live && open != nil {
+			card = ui.ButtonBase(c.Key("card")).Column().AlignItems(ui.Start).Radius(tk.Radius["sm"]).Label(name)
+			if link {
+				card.Role(ui.RoleLink)
+			}
+			if sub := kit.ItemSubtitle(it); sub != "" {
+				card.Description(sub) // inside the opener, the line is its description
+			}
+		} else {
+			card = ui.Column(c.Key("card")).AlignItems(ui.Start)
+			if live {
+				card.Label(name)
+			}
 		}
-		art.Children(func() {
-			if src, contain := leadArt(it); src != "" {
-				// The item's colour shows where the picture does not, and
-				// stays when it fails to load.
-				kit.Artwork(c, ctx.Art, src, lay.lead, kit.ArtOpts{
-					Aspect: heroRatio, Edge: true, Contain: contain, Fallback: func(*ui.Context) {},
-				})
+		card.Width(lay.lead)
+		card.Children(func() {
+			colour, hasColour := itemColour(it)
+			art := ui.Box(c.Key("art")).Size(lay.lead, artH).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
+			if hasColour {
+				art.Background(colour)
 			}
-			if live && ctx.Players.CanPlay(it) {
-				play := kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 48).Absolute().Left(16).Bottom(16)
-				fade(play, hot || play.Focused())
-				if play.Clicked() {
-					ctx.Players.PlayItem(it)
+			art.Children(func() {
+				if src, contain := leadArt(it); src != "" {
+					// The item's colour shows where the picture does not, and
+					// stays when it fails to load.
+					kit.Artwork(c, ctx.Art, src, lay.lead, kit.ArtOpts{
+						Aspect: heroRatio, Edge: true, Contain: contain, Fallback: func(*ui.Context) {},
+					})
 				}
-			}
+			})
+			ui.Row(c.Key("title")).Height(22).Margin(8, 0, 0, 0).Gap(4).AlignItems(ui.Center).MinWidth(0).Children(func() {
+				t := text(c, name, "heading").TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).TextAlign(ui.Start)
+				if live && wrap.Hovered() && open != nil {
+					t.Underline()
+				}
+				if hasMenu {
+					ui.Box(c.Key("more-room")).Size(24, 24).Shrink(0).IgnoreInput(true) // where the more button sits
+				}
+			})
+			text(c, kit.ItemSubtitle(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine().Height(18).TextAlign(ui.Start)
 		})
-		ui.Row(c.Key("title")).Height(22).Margin(8, 0, 0, 0).Gap(4).AlignItems(ui.Center).MinWidth(0).Children(func() {
-			t := text(c, name, "heading").TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).TextAlign(ui.Start)
-			if live && card.Hovered() && open != nil {
-				t.Underline()
+		if !live {
+			return
+		}
+		if ctx.Players.CanPlay(it) {
+			play := kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 48).Absolute().Left(16).Top(artH - 16 - 48)
+			fade(play, hot || play.Focused())
+			if play.Clicked() {
+				ctx.Players.PlayItem(it)
 			}
-			if live && hasTarget && ctx.Menus != nil {
-				ctx.Menus.Trigger(c.Key("more"), menu, kit.TriggerOpts{Visible: hot})
-			}
-		})
-		text(c, kit.ItemSubtitle(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine().Height(18).TextAlign(ui.Start)
-	})
-	if live {
+		}
+		if hasMenu {
+			ctx.Menus.Trigger(c.Key("more"), menu, kit.TriggerOpts{Visible: hot}).Absolute().Right(0).Top(artH + 7)
+		}
 		if card.Clicked() && open != nil {
 			open()
 		}
 		if hasTarget && ctx.Menus != nil {
 			ctx.Menus.Row(card, menu)
 		}
-	}
+	})
+}
+
+// hasMenu says whether the item has a more menu (a kind with actions, or one
+// the bulk actions take): the more button is built, and its room kept, only
+// then.
+func (d *discover) hasMenu(it kit.Item) bool {
+	return d.env.Actions.Has(it.Kind) || len(d.env.Actions.BulkFor([]kit.Item{it})) > 0
 }
 
 // itemColour is the item's own colour, "#rrggbb" from Apple, for the block
@@ -411,58 +434,84 @@ func (d *discover) pager(c *ui.Context, page, pages int, available bool, label s
 
 // featureRow is a list row: choosing it makes its card the lead (the lead's
 // own title opens the card). current: the row is the lead now.
+//
+// The row is a list item holding the choosing button and, beside it, the play
+// button and the more button: controls inside a button are not on the tree
+// assistive technology reads.
 func (d *discover) featureRow(c *ui.Context, it services.Item, index int, current bool, lay frontLayout, ctx kit.ItemsCtx) {
 	tk := theme.Current()
 	f := &d.front
 	name := it.Name
-	row := ui.ButtonBase(c.Key(strconv.Itoa(index) + ":" + it.Kind + ":" + it.ID)).Height(lay.rowHeight).Shrink(0).PaddingX(8).Gap(12).
-		AlignItems(ui.Center).Radius(tk.Radius["md"]).Label(name).Selected(current)
-	hovered := row.Hovered()
-	hot := hovered || row.FocusWithin()
-	switch {
-	case current:
-		row.Background(theme.C("active"))
-	case hovered:
-		row.Background(theme.C("hover"))
-	}
-	if !theme.ReducedMotion() {
-		m := tk.Motion["press"]
-		row.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	item := ui.Row(c.Key(strconv.Itoa(index) + ":" + it.Kind + ":" + it.ID)).Height(lay.rowHeight).Shrink(0).Role(ui.RoleListItem)
+	hovered := item.Hovered()
+	hot := hovered || item.FocusWithin()
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
 	menu := kit.ActionTarget{Item: target, Name: name, Key: "row:" + strconv.Itoa(index)}
-	row.Children(func() {
-		src := it.Art.Medium
-		if src == "" {
-			src = it.Art.Large
+	hasMenu := hasTarget && ctx.Menus != nil && d.hasMenu(target)
+	var row ui.Element
+	item.Children(func() {
+		sub := kit.ItemSubtitle(it)
+		desc := sub
+		if current {
+			// v0.2.0's aria-current: MyGo has no such state, so the lead's
+			// row says it in the description, ahead of the line under it.
+			desc = i18n.T("Current")
+			if sub != "" {
+				desc += ". " + sub
+			}
 		}
-		if src == "" {
-			src = it.Wide.Medium
+		row = ui.ButtonBase(c.Key("row")).Grow(1).MinWidth(0).Height(lay.rowHeight).PaddingX(8).Gap(12).
+			AlignItems(ui.Center).Radius(tk.Radius["md"]).Label(name)
+		if desc != "" {
+			row.Description(desc)
 		}
-		thumb := ui.Box(c.Key("thumb")).Size(listThumb, listThumb).Shrink(0).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
-		if colour, ok := itemColour(it); ok {
-			thumb.Background(colour)
+		switch {
+		case current:
+			row.Background(theme.C("active"))
+		case hovered:
+			row.Background(theme.C("hover"))
 		}
-		thumb.Children(func() {
-			kit.Artwork(c, ctx.Art, src, listThumb, kit.ArtOpts{Edge: true, Fallback: func(*ui.Context) {}})
-			if ctx.Players.CanPlay(it) {
-				play := kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 32).Absolute().Left(16).Top(16)
-				fade(play, hot || play.Focused())
-				if play.Clicked() {
-					ctx.Players.PlayItem(it)
+		if !theme.ReducedMotion() {
+			m := tk.Motion["press"]
+			row.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
+		}
+		row.Children(func() {
+			src := it.Art.Medium
+			if src == "" {
+				src = it.Art.Large
+			}
+			if src == "" {
+				src = it.Wide.Medium
+			}
+			thumb := ui.Box(c.Key("thumb")).Size(listThumb, listThumb).Shrink(0).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
+			if colour, ok := itemColour(it); ok {
+				thumb.Background(colour)
+			}
+			thumb.Children(func() {
+				kit.Artwork(c, ctx.Art, src, listThumb, kit.ArtOpts{Edge: true, Fallback: func(*ui.Context) {}})
+			})
+			ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
+				label := tk.Type["label"]
+				ui.Text(c, name).FontSize(label.Size).FixedLineHeight(label.LineHeight).FontWeight(int(label.Weight)).
+					TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
+				if sub != "" {
+					text(c, sub, "secondary").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
 				}
+			})
+			if hasMenu {
+				ui.Box(c.Key("more-room")).Size(24, 24).Shrink(0).IgnoreInput(true) // where the more button sits
 			}
 		})
-		ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
-			label := tk.Type["label"]
-			ui.Text(c, name).FontSize(label.Size).FixedLineHeight(label.LineHeight).FontWeight(int(label.Weight)).
-				TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
-			if sub := kit.ItemSubtitle(it); sub != "" {
-				text(c, sub, "secondary").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
+		if ctx.Players.CanPlay(it) {
+			play := kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 32).Absolute().
+				Left(8 + (listThumb-32)/2).Top((lay.rowHeight - 32) / 2)
+			fade(play, hot || play.Focused())
+			if play.Clicked() {
+				ctx.Players.PlayItem(it)
 			}
-		})
-		if hasTarget && ctx.Menus != nil {
-			ctx.Menus.Trigger(c.Key("more"), menu, kit.TriggerOpts{Visible: hot})
+		}
+		if hasMenu {
+			ctx.Menus.Trigger(c.Key("more"), menu, kit.TriggerOpts{Visible: hot}).Absolute().Right(8).Top((lay.rowHeight - 24) / 2)
 		}
 	})
 	if row.Clicked() {

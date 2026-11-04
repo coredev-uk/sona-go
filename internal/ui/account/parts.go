@@ -58,7 +58,7 @@ func notice(c *ui.Context, o noticeOpts, body func(), action func()) {
 	}
 	e.Children(func() {
 		if o.Spin {
-			ui.Spinner(c).Size(16, 16).Margin(2, 0, 0, 0).Shrink(0)
+			ui.Spinner(c).Size(16, 16).Margin(2, 0, 0, 0).Shrink(0).Role(ui.RoleNone) // the notice's text says what is busy
 		} else {
 			ui.Icon(c, theme.Icon(o.Icon)).FontSize(16).TextColor(theme.C(o.IconColor)).Margin(2, 0, 0, 0).Shrink(0)
 		}

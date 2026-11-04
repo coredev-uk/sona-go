@@ -46,7 +46,7 @@ func (s *search) recentShelf(c *ui.Context, pg *pageView, scope string) bool {
 		}
 	}}, func() {
 		cols := pg.columns(260, 24)
-		grid(c, "recent", cols, 24, 4, len(entries), func(i int) {
+		grid(c, "recent", title, cols, 24, 4, len(entries), func(i int) {
 			s.recentEntry(c, pg, entries[i], scope)
 		})
 	})

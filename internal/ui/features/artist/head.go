@@ -46,7 +46,11 @@ func (a *artist) latestRelease(c *ui.Context, al services.Album, size float32) {
 		whenLine += " · " + when
 	}
 	path := albumPath(al.ID)
-	slip := ui.ButtonBase(c.Key("slip")).Row().AlignItems(ui.End).Gap(12).MinWidth(0).Radius(tk.Radius["sm"]).Label(title)
+	kindLine := catalogueLine(kind, "", al.TrackCount)
+	// The link is named by the title; the lines under it ride in its
+	// description, as the one piece MyGo reads the link as holds no more.
+	slip := ui.ButtonBase(c.Key("slip")).Row().AlignItems(ui.End).Gap(12).MinWidth(0).Radius(tk.Radius["sm"]).Label(title).
+		Description(whenLine + " · " + kindLine)
 	if a.has(path) {
 		slip.Role(ui.RoleLink)
 	}
@@ -63,7 +67,7 @@ func (a *artist) latestRelease(c *ui.Context, al services.Album, size float32) {
 					TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
 			}
 			meta(whenLine)
-			meta(catalogueLine(kind, "", al.TrackCount))
+			meta(kindLine)
 		})
 	})
 	if slip.Clicked() && a.has(path) {
@@ -114,7 +118,7 @@ func (a *artist) head(c *ui.Context, pg *pageState, p headProps) {
 							}
 						})
 						if more.Clicked() {
-							pg.readMore = true
+							pg.readMore, pg.aboutStop = true, true
 							c.Invalidate()
 						}
 					})

@@ -7524,3 +7524,27 @@ msgstr "Current page"
 #: internal/ui/app/tray.go
 msgid "Mini Player"
 msgstr "Mini Player"
+
+#: internal/ui/features/concerts/page.go
+msgid "Enter a day as {form}"
+msgstr "Enter a day as {form}"
+
+#: internal/ui/kit/controls_input.go
+msgid "Invalid"
+msgstr "Invalid"
+
+#: internal/ui/features/settings/shortcuts.go
+msgid "No shortcut has been changed."
+msgstr "No shortcut has been changed."
+
+#: internal/ui/features/search/page.go
+msgid "Results for “{q}”"
+msgstr "Results for “{q}”"
+
+#: internal/ui/features/concerts/page.go
+msgid "{count, plural, one {# concert} other {# concerts}}"
+msgstr "{count, plural, one {# concert} other {# concerts}}"
+
+#: internal/ui/features/onboarding/progress.go
+msgid "Current step"
+msgstr "Current step"

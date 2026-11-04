@@ -71,9 +71,9 @@ func (s *Section) signedIn(c *ui.Context, st services.AuthStatus) {
 				ui.Column(c.Key("text")).Grow(1).MinWidth(0).Children(func() {
 					switch {
 					case st.Keyring == "waiting":
-						text(c, i18n.T("Saving your sign-in in your keyring; unlock it if it asks."), "label", "ink")
+						text(c, i18n.T("Saving your sign-in in your keyring; unlock it if it asks."), "label", "ink").Role(ui.RoleStatus)
 					case st.State == "validating":
-						text(c, i18n.T("Checking your sign-in…"), "label", "ink")
+						text(c, i18n.T("Checking your sign-in…"), "label", "ink").Role(ui.RoleStatus)
 					default:
 						text(c, i18n.T("Signed in to Apple Music"), "label", "ink")
 					}

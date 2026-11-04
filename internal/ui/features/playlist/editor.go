@@ -226,7 +226,7 @@ func (p *playlists) editorRow(c *ui.Context, ed *editor, playlist string, i int,
 				ed.nav.SetFocus(i)
 				return &kit.DragPayload{Origin: &kit.DragOrigin{List: listID, Index: i}, Label: song.Name, Art: song.Art.Small}
 			},
-			Outer: func(w ui.Element) { w.Size(editorHandleW, 32).Shrink(0).Role(ui.RoleNone) },
+			Outer: func(w ui.Element) { w.Size(editorHandleW, 32).Shrink(0).Role(ui.RoleCell) },
 			Source: func(s ui.Element) {
 				s.Role(ui.RoleButton).Label(i18n.T("Drag {songName} to reorder", "songName", song.Name)).Center().
 					Radius(tk.Radius["sm"]).Cursor(ui.CursorGrab)

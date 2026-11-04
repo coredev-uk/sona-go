@@ -27,6 +27,10 @@ type syncStore struct {
 	last    *services.SyncDone
 	// events counts the sync:progress and sync:done events that arrived.
 	events int
+	// phase is the phase the sidebar line showed last frame (the view's
+	// alone: only the main thread builds it).
+	phase     syncPhase
+	phaseSeen bool
 }
 
 func (s *syncStore) progress(p services.SyncProgress) {
@@ -117,6 +121,44 @@ func syncingText(domain string) string {
 	return i18n.T("Syncing {domain}", "domain", domain)
 }
 
+// syncPhase is what the sidebar's sync line shows, for the announcements.
+type syncPhase int
+
+const (
+	syncIdle syncPhase = iota
+	syncRunning
+	syncFailed
+)
+
+// announceSync reads out a change of the sync's phase (v0.2.0's indicator was
+// a polite live region): it starts, it ends, it fails. The count moving
+// inside a domain is not read out. The first frame only records the phase.
+func (l *library) announceSync(c *ui.Context, running, failed bool, lastSuccess int64) {
+	phase := syncIdle
+	switch {
+	case running:
+		phase = syncRunning
+	case failed:
+		phase = syncFailed
+	}
+	s := &l.sync
+	if s.phaseSeen && s.phase != phase {
+		text := ""
+		switch {
+		case running:
+			text = i18n.T("Syncing your library")
+		case failed:
+			text = i18n.T("Library sync failed")
+		case lastSuccess > 0:
+			text = i18n.T("Synced {synced}", "synced", i18n.RelativeTime(time.UnixMilli(lastSuccess), time.Now()))
+		}
+		if text != "" {
+			c.Announce(text)
+		}
+	}
+	s.phase, s.phaseSeen = phase, true
+}
+
 // syncIndicator is the library sync line at the foot of the sidebar: what
 // is syncing and how far, or when the library was last synced, with a Sync
 // now action. Nothing here moves on its own: the count and the bar move
@@ -139,6 +181,8 @@ func (l *library) syncIndicator(c *ui.Context) {
 	if last != nil && last.OK {
 		lastSuccess = last.FinishedAt
 	}
+
+	l.announceSync(c, running, failed, lastSuccess)
 
 	ui.Column(c.Key("sync")).Padding(0, 10).Margin(0, 0, 8, 0).Role(ui.RoleStatus).Label(i18n.T("Library sync")).Children(func() {
 		if running {

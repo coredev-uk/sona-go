@@ -152,9 +152,29 @@ func (s *settings) diagnostics(c *ui.Context) {
 	})
 }
 
+// diagVerdict is the header's sentence, as it is read out.
+func diagVerdict(q store.Result[services.Diagnostics], problems, warnings int) string {
+	var out string
+	switch {
+	case q.Fetching:
+		return i18n.T("Checking the playback host, database and keyring…")
+	case q.HasData && problems > 0:
+		out = i18n.T("{problems, plural, one {# problem found} other {# problems found}}", "problems", problems)
+	case q.HasData:
+		out = i18n.T("Everything Sona needs is working")
+	default:
+		return ""
+	}
+	if warnings > 0 {
+		out += ". " + i18n.T("{warnings, plural, one {# warning to look at below} other {# warnings to look at below}}", "warnings", warnings)
+	}
+	return out
+}
+
 // diagHeader is the verdict (announced politely) and the three buttons.
 func (s *settings) diagHeader(c *ui.Context, q store.Result[services.Diagnostics], problems, warnings int) {
 	c = c.Key("head")
+	s.tell(c, "diag-verdict", diagVerdict(q, problems, warnings)) // aria-live="polite"
 	ui.Box(c.Key("line")).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
 	ui.Row(c).FillWidth().Wrap().GapX(24).GapY(12).Padding(16, 0, 0, 0).Margin(0, 0, 32, 0).Children(func() {
 		ui.Row(c.Key("verdict")).Grow(1).MinHeight(32).AlignItems(ui.Start).Gap(10).Role(ui.RoleStatus).Children(func() {

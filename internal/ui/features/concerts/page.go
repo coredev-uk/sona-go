@@ -102,6 +102,9 @@ func (s *concerts) concertsPage(c *ui.Context, r *ui.Route) {
 		}
 	}
 	filtered := hasRange || p.genre != "" || onlyYours
+	if q.HasData {
+		s.announce(c, filterKey, onlyYours, len(shown), page.Location.Name, filtered)
+	}
 
 	tk := theme.Current()
 	gutter := tk.Metric["gutter"]
@@ -122,6 +125,9 @@ func (s *concerts) concertsPage(c *ui.Context, r *ui.Route) {
 			case len(shown) == 0:
 				s.nothing(c, page.Location.Name, filtered)
 			default:
+				if placeholder {
+					busy(c) // the last filters' list stays meanwhile
+				}
 				s.agenda(c, shown)
 				if page.More && !onlyYours {
 					busy := q.Fetching || placeholder
@@ -139,6 +145,36 @@ func (s *concerts) concertsPage(c *ui.Context, r *ui.Route) {
 		})
 	})
 	s.where.show(c, s.data, loc)
+}
+
+// announce reads out what a changed filter lists, when its listing arrives
+// (v0.2.0 only marked the old one busy): how many concerts, or that there
+// are none. key names the filters; the listing the page opens with is only
+// noted, as opening the page announces itself.
+func (s *concerts) announce(c *ui.Context, key string, onlyYours bool, n int, city string, filtered bool) {
+	pg := &s.page
+	if pg.heardSet && pg.heard == key && pg.heardYours == onlyYours {
+		return
+	}
+	first := !pg.heardSet
+	pg.heard, pg.heardYours, pg.heardSet = key, onlyYours, true
+	if first {
+		return
+	}
+	switch {
+	case n > 0:
+		c.Announce(i18n.T("{count, plural, one {# concert} other {# concerts}}", "count", n))
+	case filtered:
+		c.Announce(i18n.T("No concerts match"))
+	default:
+		c.Announce(i18n.T("No concerts near {city}", "city", city))
+	}
+}
+
+// busy marks the agenda while the next listing loads and the last one stays
+// on screen (v0.2.0's aria-busy): a status of no size, read as "Loading".
+func busy(c *ui.Context) {
+	ui.Box(c.Key("busy")).Size(0, 0).Role(ui.RoleStatus).Label(i18n.T("Loading"))
 }
 
 // header is PageHeader: the title, what the list is about, and the location
@@ -271,6 +307,7 @@ func (s *concerts) dateInput(c *ui.Context, label string, f *dateField, lo, hi s
 		text(c, label, "secondary", "ink-muted")
 		in := kit.Input(c.Key("in"), &f.text, kit.InputOpts{
 			Placeholder: dayHint, A11yLabel: label, Invalid: f.text != "" && !validDay(f.text, lo, hi),
+			Error: i18n.T("Enter a day as {form}", "form", dayHint),
 		}).Width(160).Height(32)
 		if in.Changed() {
 			switch {

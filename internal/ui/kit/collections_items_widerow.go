@@ -161,54 +161,68 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, crop b
 	}
 	cover := crop && banner != ""
 
-	card := ui.ButtonBase(c.Key("card")).Column().AlignItems(ui.Stretch).Justify(ui.Start).Width(width).Shrink(0).Label(it.Name)
-	if link != "" {
-		card.Role(ui.RoleLink)
-	}
-	hot := card.Hovered() || card.FocusWithin()
+	fh := width / ratio
+	// The card is a wrapper holding the opener and, beside it, the play
+	// control and the more button: a button or a link is a leaf on the
+	// accessibility tree, so controls inside it would not be on it.
+	w := ui.Box(c.Key("card")).Column().Width(width).Shrink(0)
+	hot := w.Hovered() || w.FocusWithin()
 	target, hasTarget := ActionItemOf(it, ctx.Players)
+	more := hasTarget && ctx.Menus != nil
+	canPlay := ctx.Players.CanPlay(it)
 
-	card.Children(func() {
-		fh := width / ratio
-		bg := theme.C("hover")
-		if col, ok := itemsColor(it.Color); ok {
-			bg = col
+	var card ui.Element
+	w.Children(func() {
+		card = ui.ButtonBase(c.Key("open")).Column().AlignItems(ui.Stretch).Justify(ui.Start).Label(it.Name)
+		if link != "" {
+			card.Role(ui.RoleLink)
 		}
-		fr := ui.Row(c.Key("frame")).Size(width, fh).Center().Radius(tk.Radius["sm"]).ClipX().ClipY().Background(bg)
-		if ctx.Art != nil {
-			l := ctx.Art
-			fr.Draw(func(p *ui.Painter, _ ui.Rect) { l.noteScale(p.Scale()) })
-		}
-		fr.Children(func() {
-			itemsBanner(c, ctx.Art, src, width, fh, cover, tk.Radius["sm"])
-			if ctx.Players.CanPlay(it) {
-				play := PlayButton(c.Key("play"), i18n.T("Play {name}", "name", it.Name), 40).Absolute().Left(12).Bottom(12)
-				if !hot && !play.Focused() {
-					play.Opacity(0)
+		card.Children(func() {
+			bg := theme.C("hover")
+			if col, ok := itemsColor(it.Color); ok {
+				bg = col
+			}
+			fr := ui.Row(c.Key("frame")).Size(width, fh).Center().Radius(tk.Radius["sm"]).ClipX().ClipY().Background(bg)
+			if ctx.Art != nil {
+				l := ctx.Art
+				fr.Draw(func(p *ui.Painter, _ ui.Rect) { l.noteScale(p.Scale()) })
+			}
+			fr.Children(func() { itemsBanner(c, ctx.Art, src, width, fh, cover, tk.Radius["sm"]) })
+
+			label := tk.Type["label"]
+			ui.Row(c.Key("title")).Height(20).Margin(8, 0, 0, 0).Gap(4).AlignItems(ui.Center).MinWidth(0).Children(func() {
+				name := ui.Text(c, it.Name).FontSize(label.Size).FixedLineHeight(label.LineHeight).FontWeight(int(label.Weight)).
+					TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).TextAlign(ui.Start)
+				if card.Hovered() {
+					name.Underline()
 				}
-				if play.Clicked() {
-					ctx.Players.PlayItem(it)
+				if more {
+					ui.Box(c.Key("more-room")).Size(24, 1).Shrink(0) // where the more button sits
 				}
+			})
+			if sub := ItemSubtitle(it); sub != "" {
+				sec := tk.Type["sub"]
+				ui.Text(c, sub).FontSize(sec.Size).FixedLineHeight(sec.LineHeight).TextColor(theme.C("ink-muted")).
+					MaxLines(2).TextAlign(ui.Start)
+				// The subtitle is drawn inside the opener, which is read as
+				// one piece named by its label: it is its description.
+				card.Description(sub)
+			} else {
+				ui.Box(c).Height(18)
 			}
 		})
-
-		label := tk.Type["label"]
-		ui.Row(c.Key("title")).Height(20).Margin(8, 0, 0, 0).Gap(4).AlignItems(ui.Center).MinWidth(0).Children(func() {
-			name := ui.Text(c, it.Name).FontSize(label.Size).FixedLineHeight(label.LineHeight).FontWeight(int(label.Weight)).
-				TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).TextAlign(ui.Start)
-			if card.Hovered() {
-				name.Underline()
+		if canPlay {
+			play := PlayButton(c.Key("play"), i18n.T("Play {name}", "name", it.Name), 40).Absolute().Left(12).Top(fh - 12 - 40)
+			if !hot && !play.Focused() {
+				play.Opacity(0)
 			}
-			if hasTarget && ctx.Menus != nil {
-				ctx.Menus.Trigger(c.Key("more"), ActionTarget{Item: target, Name: it.Name}, TriggerOpts{Visible: hot})
+			if play.Clicked() {
+				ctx.Players.PlayItem(it)
 			}
-		})
-		if sub := ItemSubtitle(it); sub != "" {
-			sec := tk.Type["sub"]
-			ui.Text(c, sub).FontSize(sec.Size).FixedLineHeight(sec.LineHeight).TextColor(theme.C("ink-muted")).
-				MaxLines(2).TextAlign(ui.Start)
-		} else {
-			ui.Box(c).Height(18)
+		}
+		if more {
+			ctx.Menus.Trigger(c.Key("more"), ActionTarget{Item: target, Name: it.Name}, TriggerOpts{Visible: hot}).
+				Absolute().Right(0).Top(fh + 6)
 		}
 	})
 	if card.Clicked() {

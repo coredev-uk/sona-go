@@ -27,6 +27,8 @@ type locationDialog struct {
 	// cur is the city button that had the focus last; want one a key asked for.
 	cur, want int
 	wanting   bool
+	// focus gives the field the focus once the dialog is up.
+	focus kit.FocusStep
 }
 
 // Show opens the dialog.
@@ -36,7 +38,7 @@ func (l *locationDialog) Show() { l.open = true }
 // looked for now (nil until known).
 func (l *locationDialog) show(c *ui.Context, d *data, loc *services.ConcertLocation) {
 	if !l.open {
-		l.query, l.announced, l.wanting = "", "", false
+		l.query, l.announced, l.wanting, l.focus = "", "", false, 0
 		return
 	}
 	term := strings.TrimSpace(l.query)
@@ -54,7 +56,8 @@ func (l *locationDialog) show(c *ui.Context, d *data, loc *services.ConcertLocat
 		ui.Column(c.Key("find")).Children(func() {
 			in := kit.Input(c.Key("query"), &l.query, kit.InputOpts{
 				Placeholder: i18n.T("Find a city"), A11yLabel: i18n.T("Find a city"),
-			}).AutoFocus()
+			})
+			kit.FocusWhenShown(c, in, &l.focus)
 			switch {
 			case in.Shortcut(0, ui.KeyDown) && len(items) > 0:
 				l.cur, l.want, l.wanting = 0, 0, true
@@ -145,7 +148,7 @@ func (l *locationDialog) place(c *ui.Context, d *data, p services.ConcertPlace, 
 		AlignItems(ui.Center).Label(p.Name + ", " + country).Disabled(l.saving)
 	switch {
 	case p.Selected:
-		row.Background(theme.C("active"))
+		row.Background(theme.C("active")).Description(i18n.T("Current"))
 	case row.Hovered() || row.Focused():
 		row.Background(theme.C("hover"))
 	}

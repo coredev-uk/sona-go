@@ -18,6 +18,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
 )
 
@@ -291,10 +292,13 @@ func TestALiveStationKeepsPreviousAndNextOffSayingWhyAndPauseWorking(t *testing.
 	r := newRig(t)
 	r.show(0, station)
 	reason := "Not available while listening to a live station"
+	tr := access.Read(t, r.tt.Tester)
 	for _, name := range []string{"Previous", "Next"} {
-		full := name + " · " + reason
-		r.want(t, full)
-		_ = r.tt.Click(full)
+		n, ok := tr.Find(ui.RoleButton, name)
+		if !ok || n.Description != reason || n.Has(access.Disabled) || !n.Has(access.Focusable) {
+			t.Errorf("%s: %+v, want an enabled, focusable button described by the reason", name, n)
+		}
+		_ = r.tt.Click(name)
 	}
 	if got := r.svc.snapshot(); len(got) != 0 {
 		t.Fatalf("a live station's Previous/Next sent %v", got)

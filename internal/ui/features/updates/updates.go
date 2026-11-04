@@ -59,11 +59,19 @@ func (u *updates) notice(c *ui.Context) {
 	}
 	latest := r.Data.Latest
 	meta := theme.Current().Type["meta"]
-	ui.Row(c.Key("update-notice")).FillWidth().Gap(8).PaddingX(10).Margin(0, 0, 8, 0).AlignItems(ui.Center).Justify(ui.SpaceBetween).
-		Role(ui.RoleStatus).Children(func() {
+	msg := i18n.T("Sona {latest} is available", "latest", latest)
+	row := ui.Row(c.Key("update-notice")).FillWidth().Gap(8).PaddingX(10).Margin(0, 0, 8, 0).AlignItems(ui.Center).Justify(ui.SpaceBetween).
+		Role(ui.RoleStatus).Label(msg)
+	// role="status" is a live region on the web: the notice is read as it
+	// appears. MyGo's status is not, so it is announced.
+	if told := ui.Local(row, "told", func() string { return "" }); *told != msg {
+		*told = msg
+		c.Announce(msg)
+	}
+	row.Children(func() {
 		ui.Row(c).Gap(6).AlignItems(ui.Center).MinWidth(0).Shrink(1).Children(func() {
 			ui.Icon(c, theme.Icon("circle-arrow-up")).FontSize(12).TextColor(theme.C("ink")).Shrink(0)
-			ui.Text(c, i18n.T("Sona {latest} is available", "latest", latest)).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).
+			ui.Text(c, msg).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).
 				TextColor(theme.C("ink")).SingleLine().MinWidth(0).Shrink(1)
 		})
 		view := ui.ButtonBase(c.Key("update-view")).Radius(theme.Current().Radius["sm"]).Shrink(0).Label(i18n.T("View"))

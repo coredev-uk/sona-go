@@ -237,7 +237,10 @@ func (h *home) refreshButton(c *ui.Context) {
 		}
 		text(c, label, "label").SingleLine()
 	})
-	if b.Clicked() {
+	if b.Clicked() && !h.refreshing {
 		h.refresh()
+		// The button keeps the focus while it is disabled and its name
+		// changes: say so once, for what the name change may not carry.
+		c.Announce(i18n.T("Refreshing…"))
 	}
 }

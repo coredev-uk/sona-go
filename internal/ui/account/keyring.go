@@ -31,7 +31,14 @@ func (r *KeyringRetry) Build(c *ui.Context, status services.AuthStatus) {
 	if trying {
 		label = i18n.T("Trying…")
 	}
-	if kit.Button(c.Key("keyring-retry"), label, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}).Clicked() && !trying {
+	opts := kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}
+	if trying {
+		// aria-disabled: MyGo has no focusable-but-disabled state, so the
+		// button stays enabled (the focus stays on it), ignores the press and
+		// says why.
+		opts.Reason = i18n.T("Sona is waiting for your keyring to hand over your sign-in. If GNOME Keyring or KWallet asks you to unlock it, do that now.")
+	}
+	if kit.Button(c.Key("keyring-retry"), label, opts).Clicked() && !trying {
 		r.asked = true
 		api := r.d.API
 		go api.RetryKeyring()

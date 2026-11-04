@@ -53,6 +53,12 @@ func controlsOption(c *ui.Context, item ui.Element, label string, highlighted, c
 	})
 }
 
+// selectRadio makes an option of a select a radio item, checked while chosen
+// (a screen reader reads "Pro, radio item, checked" and presses it).
+func selectRadio(item ui.Element, label string, chosen bool) ui.Element {
+	return item.Role(ui.RoleMenuItemRadio).Label(label).Checked(chosen)
+}
+
 // SelectItem is one row of a Select's list: an option, a group label or a
 // separator.
 type SelectItem struct {
@@ -88,7 +94,10 @@ type SelectOpts struct {
 	// A11yLabel names the select for assistive technology and tests.
 	A11yLabel string
 	Disabled  bool
-	Invalid   bool
+	// Invalid draws the destructive border and tells assistive technology
+	// the choice is not valid, reading Error ("Invalid" when empty).
+	Invalid bool
+	Error   string
 	// Width fixes the trigger's width; 0 fits its text.
 	Width float32
 }
@@ -124,6 +133,7 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 	}
 	trigger.Value(shown)
 	controlsFieldFace(trigger, trigger.Focused(), o.Invalid, o.Disabled)
+	invalidFor(trigger, o.Invalid, o.Error)
 	if trigger.Hovered() && !o.Disabled && theme.Dark() {
 		trigger.Background(theme.C("input").Alpha(0.5))
 	}
@@ -136,7 +146,7 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 	})
 	width := trigger.Bounds().W
 	sel.Popup(func(panel ui.Element) {
-		controlsPopupPanel(panel).MinWidth(max(width, 128)).Modal()
+		controlsPopupPanel(panel).MinWidth(max(width, 128)).Modal().Label(o.A11yLabel)
 		ui.Scroll(c).MaxHeight(controlsPopupHeight(c, trigger)).Role(ui.RoleGroup).Children(func() {
 			for i, it := range items {
 				switch it.kind {
@@ -147,11 +157,11 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 				case selectOption:
 					if it.Disabled {
 						// Not an Item: the arrows and Enter pass it by.
-						controlsOption(c, ui.Row(c.Key(i)).Role(ui.RoleListItem), it.Label, false, false, true)
+						controlsOption(c, selectRadio(ui.Row(c.Key(i)), it.Label, false), it.Label, false, false, true)
 						continue
 					}
 					item := sel.Item(it.Value)
-					controlsOption(c, item, it.Label, item.Highlighted(), it.Value == *value, false)
+					controlsOption(c, selectRadio(item, it.Label, it.Value == *value), it.Label, item.Highlighted(), it.Value == *value, false)
 				}
 			}
 		})

@@ -239,7 +239,7 @@ func (r *radio) bandsSkeleton(c *ui.Context) {
 	bar := func(w, h float32) ui.Element {
 		return ui.Box(c).Width(w).Height(h).Radius(sm).Background(hover)
 	}
-	ui.Column(c.Key("bands-skeleton")).Role(ui.RoleGroup).Label(i18n.T("Loading")).Children(func() {
+	ui.Column(c.Key("bands-skeleton")).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
 		ui.Column(c.Key("broadcasters")).Margin(40, 0, 0, 0).Children(func() {
 			ui.Row(c).Height(28).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { bar(160, 16) })
 			root := ui.Grid(c.Key("stations")).GapX(16).GapY(4).MarginX(-8)

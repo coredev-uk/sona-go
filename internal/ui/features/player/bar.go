@@ -24,6 +24,7 @@ func (p *player) bar(c *ui.Context) {
 	p.toasts(c)
 	s := p.env.Play.State()
 	p.announce.Announce(c, s)
+	p.announce.AnnounceFailure(c, s)
 	p.returnFocus(c)
 	tk := theme.Current()
 	backdrop := ""
@@ -164,8 +165,12 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 			label(c, msg, "sub").TextColor(theme.C("ink"))
 			break
 		}
-		// An underlined button that opens the account dialog.
-		b := label(c.Key("sign-in"), msg, "sub").TextColor(theme.C("ink")).Underline().Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		// A button that opens the account dialog: it looks as the plain line
+		// does (ink, underlined, the line's own height), is a Tab stop and is
+		// on the accessibility tree under the line's words.
+		b := ui.ButtonBase(c.Key("sign-in")).Padding(0).MinWidth(0).Shrink(1).Background(ui.Transparent).
+			Radius(theme.Current().Radius["sm"]).Cursor(ui.CursorPointer)
+		b.Children(func() { label(c, msg, "sub").TextColor(theme.C("ink")).Underline() })
 		if b.Clicked() {
 			p.env.Surfaces.OpenAccount()
 		}
@@ -173,12 +178,10 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 		p.env.PlayerNotice.Build(c) // features/cdm's notice
 	case s.State == "error" && s.Error != "":
 		// The line says what happened, the tooltip why (Go's error code, worded).
-		ui.Row(c).Gap(6).AlignItems(ui.Center).MinWidth(0).Tooltip(i18n.ErrorText(s.Error)).Children(func() {
+		// It is a status, and said once (TrackAnnouncer.AnnounceFailure).
+		msg := kit.FailureLine(cur)
+		ui.Row(c).Gap(6).AlignItems(ui.Center).MinWidth(0).Role(ui.RoleStatus).Label(msg).Tooltip(i18n.ErrorText(s.Error)).Children(func() {
 			ui.Icon(c, theme.Icon("circle-alert")).FontSize(14).TextColor(theme.C("danger"))
-			msg := i18n.T("Couldn't play this song. Press play to try again.")
-			if cur.Video {
-				msg = i18n.T("Couldn't play this video.")
-			}
 			label(c, msg, "sub").TextColor(theme.C("ink"))
 		})
 	case cur.Artist == "" && cur.Album == "":
@@ -230,6 +233,11 @@ func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 			if kit.Button(c.Key("play"), "", kit.ButtonOpts{Variant: kit.Play, Icon: icon, Disabled: idle, A11yLabel: name}).Clicked() {
 				p.toggle()
 			}
+			if loading {
+				// The spinner is only seen: this is what a screen reader finds of
+				// it, beside the button (no size, so the row does not move).
+				ui.Box(c.Key("loading")).Absolute().Size(0, 0).Role(ui.RoleStatus).Label(i18n.T("Loading"))
+			}
 
 			if p.iconButton(c, "next", "skip-forward", i18n.T("Next"), idle || (!s.Controls.Next && unavailable(s, ctlNext) == ""), unavailable(s, ctlNext), nil) {
 				p.next()
@@ -258,16 +266,16 @@ func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 
 // iconButton is a quiet icon button of the bar. disabled is for what can't
 // be pressed now (nothing playing, the end of the queue); reason is for a
-// control that doesn't apply to what plays (a live station) and says why in
-// its tooltip. It reports a click.
+// control that doesn't apply to what plays (a live station): as v0.2.0's
+// aria-disabled button it stays enabled (focus reaches it, and the tooltip
+// and the description say why) while a press does nothing. It reports a
+// click.
 func (p *player) iconButton(c *ui.Context, key, icon, name string, disabled bool, reason string, pressed *bool) bool {
-	a11y := name
-	if reason != "" {
-		a11y = name + " · " + reason
-		disabled = true
+	if disabled {
+		reason = ""
 	}
 	btn := kit.Button(c.Key(key), "", kit.ButtonOpts{
-		Variant: kit.Ghost, Size: kit.SizeSM, Icon: icon, Pressed: pressed, Disabled: disabled, A11yLabel: a11y,
+		Variant: kit.Ghost, Size: kit.SizeSM, Icon: icon, Pressed: pressed, Disabled: disabled, A11yLabel: name, Reason: reason,
 	})
 	switch key {
 	case "queue-toggle":
@@ -277,7 +285,7 @@ func (p *player) iconButton(c *ui.Context, key, icon, name string, disabled bool
 	case "video":
 		btn.Bind(&p.videoBtn) // so does the video view's
 	}
-	return btn.Clicked()
+	return btn.Clicked() && reason == ""
 }
 
 // live is a live station's line in place of the seek bar: a marker, and
@@ -324,7 +332,11 @@ func (p *player) seekBar(c *ui.Context, s services.PlaybackState, idle bool) {
 
 		v := pos.Seconds()
 		sl := slider(c.Key("seek"), &v, 0, max(dur.Seconds(), 1), theme.C("amber"), !can)
-		sl.Label(i18n.T("Seek")).Description(i18n.FormatDuration(pos) + " / " + i18n.FormatDuration(dur))
+		sl.Label(i18n.T("Seek"))
+		if can {
+			// v0.2.0's aria-valuetext, there only while the slider is on.
+			sl.Description(i18n.T("{at} of {total}", "at", i18n.FormatDuration(pos), "total", i18n.FormatDuration(dur)))
+		}
 		if sl.Changed() {
 			p.seek.active, p.seek.secs = true, v
 		}

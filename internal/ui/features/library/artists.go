@@ -452,6 +452,8 @@ func (v *artistsView) list(c *ui.Context, loading bool) {
 		default:
 			active, hasActive = v.rowsView(c, tk)
 		}
+		// The list shows beside the filter while there are artists in it.
+		in.Expanded(!loading && len(pg.matches) > 0)
 		if hasActive {
 			in.ActiveDescendant(active)
 		}
@@ -715,7 +717,9 @@ func (v *artistsView) detail(c *ui.Context, e services.ArtistEntry) {
 							if id == "" {
 								id = e.ID
 							}
-							if kit.Button(c.Key("page"), i18n.T("Full artist page"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM}).Clicked() {
+							// It goes to another page: a link, as v0.2.0's was.
+							page := kit.Button(c.Key("page"), i18n.T("Full artist page"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM}).Role(ui.RoleLink)
+							if page.Clicked() {
 								l.env.Nav.Push("/artist/" + id)
 							}
 						}
