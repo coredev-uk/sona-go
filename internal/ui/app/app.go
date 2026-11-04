@@ -236,6 +236,7 @@ func (a *App) openWindow() {
 		a.opts.Windows.attach(win, a.mem)
 	}
 	a.connect()
+	a.devHook(win)
 	if a.opts.Dev && inspectorRequested() {
 		win.OnReadyToShow(func() { win.Page().ToggleDevTools() })
 	}

@@ -67,7 +67,8 @@ private mode.
 
 | Script       | What it runs                                                                                                                                                                                                                                                                                                                                |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dev`        | `go build -tags dev,sqlite_fts5 -o bin/sona-dev ./cmd/sona`, then runs it with your arguments (the inspector and dev restore are in dev builds). A watcher replaces it with the devloop PR. |
+| `dev`        | Builds `cmd/devloop` into `bin/devloop` and runs it on `./cmd/sona` with your arguments after `--`: it builds the app with `-tags dev,sqlite_fts5` into `bin/sona-dev`, runs it, and rebuilds and restarts it when a Go file of the app changes (the old app keeps running during the build; a failed build prints its errors and leaves it; the restart lands on the same screen, scroll and window). Keys: `r` rebuilds, `q` quits. Design tokens and `.po` files reload in the running app without a build. See docs/ui-architecture.md, "The development loop". |
+| `gallery`    | The same loop on `./cmd/uigallery`: the component gallery (every kit component, light and dark, with knobs), restarting like `dev`. |
 | `build`      | `go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona`: no inspector in the binary, MyGo in production mode. |
 | `gen`        | `sqlc generate`. Commit the result. |
 | `fmt`        | gofumpt on every tracked Go file except `internal/db/dbq`. |
@@ -76,6 +77,8 @@ private mode.
 | `release`    | `build/linux/release/release.sh`, the same as Taskfile's `release`: unavailable until the phase 4 packaging PR (release packages return with it), it fails fast with that message. |
 | `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`); `play-spike -preview` needs none.                                                                                                                                                                                                                             |
 | `auth-spike` | `go run ./cmd/authspike`: the Apple sign-in flow from the terminal.                                                                                                                                                                                                                                                                         |
+| `headless`   | `bash e2e/headless.sh "$@"`: runs a command (`headless -- <cmd>`) in a private headless session: sway (headless backend, pixman), private XDG directories, its own session bus with the AT-SPI bus, the desktop portals stubbed (no 12 s wait for a portal that never starts) and a `wtype` keep-alive that gives the seat a keyboard. `WAYLAND_DISPLAY` is set for the command; the session and its files are removed afterwards. |
+| `e2e`        | `headless -- go test -tags e2e -count=1 ./e2e/...`: the end-to-end smoke and the accessibility check (see "UI tests and the end-to-end smoke"). Extra arguments go to `go test`. |
 
 `package` is only Taskfile's (`task package`, nfpm: .deb, .rpm and Arch; the AppImage
 returns in phase 4): it packages a build of the machine it runs on. A package built
@@ -324,10 +327,18 @@ containers) is unavailable until the phase 4 packaging PR; `task package`
 builds the nfpm packages meanwhile. Before a release, work through
 `docs/release-checklist.md`.
 
+### UI tests and the end-to-end smoke
+
+- **`ui.Tester` tests** (`go test ./internal/ui/...`, no display) run over `internal/ui/uitest`: `uitest.Env(t)` is a `module.Env` over real services on a temporary SQLite library seeded with a synthetic fixture (`internal/ui/uitest/fixture`: invented artists, albums, songs and playlists, generated covers; never Apple's data), a fake playback engine, a fake artwork CDN, a Poster the test drains and a fake clock. `docs/ui-architecture.md` ("Testing with `ui.Tester`", "Tests") has the API.
+- **Golden images** are few: the shell with Albums, light and dark, at 1132×1253 (`internal/ui/app/testdata/golden/`). `uitest.Golden` compares by the mean colour of 8×8-pixel blocks (another machine's text antialiasing passes; a moved edge, a changed colour or a missing cover does not). When a change moves the picture on purpose, review it and run `go test ./internal/ui/app -run Golden -update`; commit the new PNGs and say in the PR why. A failing run keeps the picture and a diff in the test's artifacts (`go test -artifacts -outputdir DIR`; the CI `ui` job uploads them).
+- **The end-to-end smoke** (`e2e/`, build tag `e2e`) drives the built app from outside: `e2e` script, or `headless -- go test -tags e2e ./e2e/...`. It builds `bin/sona-e2e` with `-tags probe,sqlite_fts5` (MyGo's automation plugin and a seam that exists only in probe builds: `SONA_E2E=1` swaps in the fake playback engine and `SONA_E2E_CDN=host:port` sends all the app's HTTP to a local server of the fixture's covers, so nothing reaches Apple), starts it on the fixture profile (`go run ./e2e/profile` writes the same profile into private XDG directories), and checks first paint, Albums, playing an album, Space, a capture and, from the AT-SPI bus, the shell's landmarks by role and name. `E2E_OUT=<dir>` keeps the capture (`smoke.png`) and the app's stderr; `E2E_BIN=<path>` runs an existing binary. `headless` needs `sway`, `wtype` and `at-spi2-core` (devenv has them; elsewhere install them with your package manager). Never run a probe build outside tests: it can be driven by anything that opens its socket.
+
 ### CI and workflows
 
 `.github/workflows/`: `ci.yml` (every push to main and pull request: the
-Linux Go job "Go vet and test (-race)"; plus "macOS build and test" (devenv on macos-15:
+Linux Go job "Go vet and test (-race)"; the UI tests with the golden images,
+"UI tests (goldens)"; the end-to-end smoke in headless sway, "E2E (headless
+sway)"; plus "macOS build and test" (devenv on macos-15:
 production build, go vet, real-CDM and sandbox tests, `go test -race`) and
 "Windows build" (windows-2025: `go vet` with cgo, `sona.exe`),
 which take several minutes and so never run on pull requests or for a
@@ -364,14 +375,19 @@ Screenshots land in `result/`. `tests/vm/README.md` lists each check, the checkl
 
 ### Measuring UI performance
 
-MyGo draws every frame itself, so frame cost is measured in the process, not in a browser:
+MyGo draws every frame itself, so frame cost is measured in the process, not in a browser. `MYGO_FRAME_STATS=all` makes MyGo log one line per presented frame (`mygo: frame N took … ms: build …, layout …, paint …, present …`); `MYGO_FRAME_STATS=8` only the frames slower than 8 ms, which a scroll through Albums or Home should not log on a desktop GPU. `SONA_INSPECTOR=1` opens MyGo's inspector beside the content (element boxes, styles, frame times). `startup: first paint` in `<state>/sona.log` is the time from process start to the first presented frame; compare several starts, not one.
 
-- `MYGO_FRAME_STATS=8` logs every frame slower than 8 ms (`MYGO_FRAME_STATS=all` logs each one) with where the time went. A scroll through Albums or Home should log none on a desktop GPU.
-- `SONA_INSPECTOR=1` opens MyGo's inspector beside the content: element boxes, styles and the frame times.
-- `startup: first paint` in `<state>/sona.log` is the time from process start to the first presented frame; compare several starts, not one.
-- Compare before and after on the same machine, with the same library (about 650 albums makes a useful grid), and confirm on a desktop session: the headless harness (docs/accessibility.md) draws on the CPU (llvmpipe), so its frame times only show relative change.
+**The probe build.** `go build -tags probe,sqlite_fts5 -o bin/sona-probe ./cmd/sona` links MyGo's automation plugin (`cmd/sona/automation_probe.go`; never a release build, and never with `mygo_noinspector`, which drops it). It listens only when `MYGO_AUTOMATION=<socket path>` is set, and drives the app through its accessibility tree and input events, as a touchpad or a screen reader would. Two tools use it and print the same table:
 
-`cmd/uiprobe` still drives the old Wails app and does not work until PR 0.3 moves it, with the scripted scroll and motion probes, onto MyGo's automation plugin; this section grows with them.
+- `bin/sona-probe -probe [-speed 2000] [-max 20000] [-runs 3] [-idle 10s] [-interval ms]` measures the Albums scroll in the app's own process and quits; `-startup` quits once the covers are on screen. The probe starts the app again with `MYGO_FRAME_STATS=all` and a private automation socket (MyGo reads both while its packages initialise), takes the frame lines off the log, and scrolls through wheel events over that socket.
+- `go run ./cmd/uiprobe -socket $MYGO_AUTOMATION -log $XDG_STATE_HOME/sona/sona.log` does the same from outside against a probe build you started with `MYGO_AUTOMATION=… MYGO_FRAME_STATS=all` (the frame lines are then in `sona.log`; the pid and the process start come from the log's `startup: process start` line). `uiprobe -firstpaint run1/sona.log run2/sona.log …` summarises `startup: first paint` over several starts (min, median, max). Home, New and the motion artwork scenarios of v0.2.0's uiprobe come back once those pages exist.
+
+What the scroll does (`internal/ui/probe/measure`): wait until the tiles in view show pictures (the probe samples the window's capture above each tile's play button: a decoded cover has far more colours than the placeholder; that is the start-up line's "covers on screen"), wait until no frame has been drawn for 500 ms and the process tree is idle, measure the display's frame interval (a DIP of wheel back and forth for a second draws one frame per refresh; `-interval 16.67` fixes it, which a loaded machine needs: a measured interval includes the compositor's delays and hides dropped frames), scroll down and back up at `-speed` DIPs per second over `-max` DIPs (the page's end if nearer), `-runs` times, then watch the process at rest for `-idle`. A frame exists only when something changed, so a gap of more than 1.5 intervals between two frames counts the intervals it spans as dropped frames, as v0.2.0's probe did for `requestAnimationFrame`. The table has the gap p50 and p95, dropped frames, frames over 50 ms, the CPU of the process and its children while scrolling and at rest, MyGo's CPU time per frame (build, layout and paint) and present time, and RSS and PSS at rest. The first row is a control: the same wheel stream over the top bar, where nothing scrolls, which is what the input path costs. Per-pass lines go to stderr; the median of the passes is the table.
+
+Run it headless, as every automated run (private XDG dirs, `dbus-run-session`, `SONA_PRIVATE=1`; the `headless` script wraps the compositor), on a sway headless output with the window floated at the size the baseline used, `swaymsg '[app_id="dev.coredev.Sona"] floating enable, resize set 1132 1253, move position 0 0'` (or a `for_window` rule in the sway config). A library of the size you compare against matters: the scroll covers `min(-max, the page)` DIPs, and the frames per pass follow from it.
+
+- Compare before and after on the same machine, with the same library (about 650 albums makes a useful grid), the same window size and the same `-speed`, and confirm on a desktop session: the headless session draws on the CPU (llvmpipe, `frames: drawn in memory` in the output), so its CPU figures are not a desktop GPU's and its frame times only show relative change. `MYGO_FRAME_STATS=all` itself costs a log line and a few counters per frame.
+- `-probe` counts its own wheel driver in the CPU figures; `uiprobe` does not (its driver is another process).
 
 ### Debugging the UI
 

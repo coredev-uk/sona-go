@@ -7,6 +7,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -129,6 +130,7 @@ func (l *library) albumsPage(c *ui.Context, r *ui.Route) {
 	if pg.width > 0 && pg.width < narrow {
 		gutter = tk.Metric["gutter-narrow"]
 	}
+	devstate.Scroll(c, &pg.pos) // dev builds: the offset survives a restart
 	sc := ui.Scroll(c).TrackScroll(&pg.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
 	sc.Children(func() {
 		scrollbar := tk.Metric["scrollbar"]

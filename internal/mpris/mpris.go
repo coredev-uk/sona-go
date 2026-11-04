@@ -16,11 +16,17 @@ import (
 	"time"
 
 	"github.com/godbus/dbus/v5"
+
+	"github.com/coredev-uk/sona-go/internal/devinstance"
 )
 
+// BusName is the well-known name Sona owns while the Server is running. A
+// development build run with SONA_DEV_INSTANCE=<name> appends
+// ".instance_<name>" (internal/devinstance; MPRIS allows an instance suffix),
+// so two worktrees each have their own player.
+var BusName = "org.mpris.MediaPlayer2.sona" + devinstance.Suffix()
+
 const (
-	// BusName is the well-known name Sona owns while the Server is running.
-	BusName = "org.mpris.MediaPlayer2.sona"
 	// ObjectPath is where the MPRIS interfaces are exported.
 	ObjectPath dbus.ObjectPath = "/org/mpris/MediaPlayer2"
 	// Identity is the human-readable player name.

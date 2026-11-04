@@ -17,13 +17,12 @@ import (
 	"github.com/godbus/dbus/v5/introspect"
 
 	"github.com/coredev-uk/sona-go/internal/cli"
+	"github.com/coredev-uk/sona-go/internal/devinstance"
 )
 
 const (
-	// BusName is owned by the running (primary) instance. It matches the
-	// application ID; Wails' GtkApplication runs non-unique and never
-	// requests it.
-	BusName = "dev.coredev.Sona"
+	// appID is the application ID, the base of BusName.
+	appID = "dev.coredev.Sona"
 	// ObjectPath exports Interface on the primary instance.
 	ObjectPath dbus.ObjectPath = "/dev/coredev/Sona"
 	// Interface carries Activate(as args, a{sv} platform_data),
@@ -38,6 +37,13 @@ const (
 	// activationBuffer is how many activations queue before new ones drop.
 	activationBuffer = 16
 )
+
+// BusName is owned by the running (primary) instance. It matches the
+// application ID; a development build run with SONA_DEV_INSTANCE=<name>
+// appends ".instance_<name>" (internal/devinstance), so two worktrees each
+// have their own primary instance and `sona status` reaches the one the
+// same variable names. A production build never has a suffix.
+var BusName = appID + devinstance.Suffix()
 
 // ErrForwarded is returned by Acquire when another instance owns BusName and
 // accepted the activation. The caller should exit successfully.

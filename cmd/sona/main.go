@@ -236,6 +236,7 @@ func run(started time.Time) error {
 	// (memory only); the video view that draws them is not ported yet.
 	vid := video.NewSurface()
 	engine := newEngine(api, cur, log, cdmMgr, storefront, vid)
+	engine = e2eEngine(engine, log) // the e2e smoke's probe build only
 	defer engine.Close()
 
 	// GStreamer's plugin registry is readied in a child after the first
@@ -363,7 +364,7 @@ func clipboardText(text string) bool {
 
 // newTransport is the HTTP/2 keep-alive transport behind every client.
 func newTransport() *http.Transport {
-	return &http.Transport{
+	return e2eTransport(&http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
 		DialContext:           (&net.Dialer{Timeout: 15 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
 		ForceAttemptHTTP2:     true,
@@ -372,7 +373,7 @@ func newTransport() *http.Transport {
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: time.Second,
-	}
+	})
 }
 
 // localeStorefront guesses the catalog storefront for browsing while

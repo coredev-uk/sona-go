@@ -19,7 +19,7 @@ func (a Activation) Hidden() bool { return slices.Contains(a.Args, HiddenFlag) }
 
 // autostartFile is the entry's name in the autostart directory: the
 // application ID, like the installed desktop file.
-const autostartFile = BusName + ".desktop"
+const autostartFile = appID + ".desktop"
 
 // AutostartPath is where Sona's XDG autostart entry lives:
 // $XDG_CONFIG_HOME/autostart/dev.coredev.Sona.desktop, with

@@ -64,12 +64,15 @@ in
       gst.gst-plugins-base
     ]
     # MyGo's Linux toolkit (GTK3, loaded with purego: uiLibs), MPRIS checks,
-    # and a private D-Bus for `tests`.
+    # a private D-Bus for `tests`, and the headless session for `headless`
+    # and `e2e` (sway, wtype).
     ++ lib.optionals isLinux (
       [
         gcc
         playerctl
         dbus
+        sway
+        wtype
       ]
       ++ uiLibs
     );
@@ -102,12 +105,19 @@ in
 
   # Each script is described in CONTRIBUTING.md ("devenv scripts").
   scripts = {
-    # The app with the dev build tag (inspector, dev-restore). PR 0.3's
-    # devloop replaces this with a watcher.
+    # The development loop (cmd/devloop): rebuilds the app with the dev tag
+    # on every save, restarts it where it was, reloads tokens and catalogues
+    # without a rebuild. `r` rebuilds, `q` quits.
     dev.exec = ''
       set -e
-      go build -tags dev,sqlite_fts5 -o bin/sona-dev ./cmd/sona
-      exec bin/sona-dev "$@"
+      go build -o bin/devloop ./cmd/devloop
+      exec bin/devloop -- "$@"
+    '';
+    # Every kit component in light and dark, under the same loop.
+    gallery.exec = ''
+      set -e
+      go build -o bin/devloop ./cmd/devloop
+      exec bin/devloop -target ./cmd/uigallery -- "$@"
     '';
     # Production: no inspector (mygo_noinspector) and MyGo's production mode.
     build.exec = ''go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona "$@"'';
@@ -138,6 +148,18 @@ in
     '';
     auth-spike.exec = ''go run ./cmd/authspike "$@"'';
     play-spike.exec = ''go run ./cmd/playspike "$@"'';
+    # A headless sway session with private XDG dirs, D-Bus, AT-SPI and stub
+    # portals around a command (CONTRIBUTING.md, "UI tests and the
+    # end-to-end smoke"); `e2e` runs the end-to-end smoke in it.
+    headless.exec = ''bash e2e/headless.sh "$@"'';
+    e2e.exec = ''headless -- go test -tags e2e -count=1 ./e2e/... "$@"'';
+    # The Albums scroll probe in the app's own process (CONTRIBUTING.md,
+    # "Measuring UI performance"); run it as `headless -- probe`.
+    probe.exec = ''
+      set -e
+      go build -tags probe,sqlite_fts5 -o bin/sona-probe ./cmd/sona
+      SONA_PRIVATE=1 exec bin/sona-probe -probe "$@"
+    '';
   };
 
   # .githooks refuse commits and pushes on main (AGENTS.md, "Worktrees and Branches"). The
