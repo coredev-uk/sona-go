@@ -32,6 +32,11 @@ func (paletteArt) Template(p string) (string, bool) {
 	return "", false
 }
 
+// Backdrop is a small cover of the same hue: the items layer draws none.
+func (a paletteArt) Backdrop(ctx context.Context, tpl string) ([]byte, error) {
+	return a.Get(ctx, tpl, 64, 64)
+}
+
 func (paletteArt) Get(_ context.Context, tpl string, w, h int) ([]byte, error) {
 	f := fnv.New32a()
 	f.Write([]byte(tpl))

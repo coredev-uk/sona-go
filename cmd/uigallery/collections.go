@@ -1,9 +1,3 @@
-//go:build gallery_pending
-
-// PR 0.3 adds cmd/uigallery (register, section, gallery, heading, note, panel,
-// knob); until it lands this file is built only with -tags gallery_pending and
-// the lead removes the tag at rebase.
-
 package main
 
 import (
