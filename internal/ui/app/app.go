@@ -132,6 +132,7 @@ func newApp(opts Options, factories []module.Factory) *App {
 		Queries: store.NewClient(post),
 		Play:    store.NewPlayback(opts.Bus, opts.Now),
 		Art:     kit.NewArtLoader(opts.Art, post),
+		Actions: kit.NewActionRegistry(),
 		Post:    post,
 		Log:     a.log,
 		Version: opts.Version,
@@ -140,6 +141,7 @@ func newApp(opts Options, factories []module.Factory) *App {
 	for _, f := range factories {
 		m := f(a.env)
 		a.mods = append(a.mods, m)
+		a.env.Actions.Register(m.Actions...)
 		a.routes = append(a.routes, m.Routes...)
 		for _, n := range m.Nav {
 			a.nav[n.Section] = append(a.nav[n.Section], n)
@@ -151,6 +153,9 @@ func newApp(opts Options, factories []module.Factory) *App {
 	a.start = a.startPath()
 	a.router = ui.NewRouter(a.start)
 	a.env.Nav = a.router
+	a.env.Actions.SetNavigator(a.router.Push)
+	a.env.Actions.SetPoster(post)
+	kit.SetToastPoster(post)
 
 	var list []module.Shortcut
 	list = append(list, navShortcuts(a.nav, a.router.Push)...)

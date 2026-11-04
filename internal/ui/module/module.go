@@ -27,7 +27,10 @@ type Env struct {
 	Queries *store.Client  // cached queries; Invalidate(prefixes...)
 	Play    *store.Playback
 	Art     *kit.ArtLoader // exact-size artwork decode off the main thread
-	Nav     Navigator      // the main window's router
+	// Actions is the item action registry (every module's Module.Actions),
+	// read by kit.ActionMenus.
+	Actions *kit.ActionRegistry
+	Nav     Navigator // the main window's router
 	// Post runs fn on the main thread and redraws the windows: how a
 	// goroutine (a service call) hands its outcome to the view.
 	Post    store.Poster
@@ -120,7 +123,11 @@ type Module struct {
 	Routes    []Route
 	Nav       []NavItem
 	Shortcuts []Shortcut
-	Slots     Slots
+	// Actions are the module's item actions (single and bulk): the app
+	// collects every module's into Env.Actions, which menus list and
+	// shortcuts and the palette share by ID.
+	Actions []kit.ActionDef
+	Slots   Slots
 	// Init runs once after the shell connects, on the main thread:
 	// subscriptions and the first snapshots.
 	Init func()
