@@ -147,7 +147,7 @@ func newRig(t *testing.T, w, h int, opts ...uitest.Option) *rig {
 	store.Set(q, store.KeyCapabilities, linuxCaps())
 	store.Set(q, store.KeyCDM, cdmStatus(nil))
 	store.Set(q, store.KeyPrivate, services.PrivateState{Source: "setting"})
-	store.Set(q, account.StatusKey, services.AuthStatus{State: "signed_out"})
+	store.Set(q, store.KeyAuth, services.AuthStatus{State: "signed_out"})
 	r.tt = hn.Tester(t, func(c *ui.Context) {
 		ui.Column(c).Fill().Background(theme.C("ground")).Children(func() {
 			ui.Text(c, "The app behind the setup")
@@ -382,14 +382,6 @@ func TestWidevineShortStates(t *testing.T) {
 	}
 }
 
-func TestFormatBytes(t *testing.T) {
-	for n, want := range map[int64]string{0: "0 B", 42: "42 B", 1023: "1,023 B", 1024: "1 kB", 1536: "1.5 kB", 12 * 1024: "12 kB", 12_700_000: "12 MB", 3 << 30: "3 GB"} {
-		if got := formatBytes(n); got != want {
-			t.Errorf("formatBytes(%d) = %q, want %q", n, got, want)
-		}
-	}
-}
-
 func TestLayerIsAModalNamedByItsStepWithItsTitleFocused(t *testing.T) {
 	r := newRig(t, 900, 800)
 	r.open("playback")
@@ -581,7 +573,7 @@ func TestWelcomeSaysWhatWholeSongsNeedAndWhereEachStands(t *testing.T) {
 		t.Error("the language is offered with English alone")
 	}
 
-	store.Set(r.h.Env.Queries, account.StatusKey, services.AuthStatus{State: "signed_in"})
+	store.Set(r.h.Env.Queries, store.KeyAuth, services.AuthStatus{State: "signed_in"})
 	store.Set(r.h.Env.Queries, store.KeyCDM, cdmStatus(nil))
 	r.tt.Drain()
 	if !r.hasAll("Signed in", "Ready, version 4.10.3112.0") || r.tt.HasText("Next step") {
@@ -622,7 +614,7 @@ func TestAppleMusicStepOffersTheSignInAndLetsYouCarryOnWithoutIt(t *testing.T) {
 
 func TestAppleMusicStepSaysYoureSignedInInsteadOfTheForm(t *testing.T) {
 	r := newRig(t, 900, 800)
-	store.Set(r.h.Env.Queries, account.StatusKey, services.AuthStatus{State: "signed_in"})
+	store.Set(r.h.Env.Queries, store.KeyAuth, services.AuthStatus{State: "signed_in"})
 	r.open("account")
 	if !r.hasAll("Signed in to Apple Music", "Your library syncs in the background while you carry on.", "Continue") {
 		t.Fatalf("texts %q", r.tt.Texts())
@@ -630,7 +622,7 @@ func TestAppleMusicStepSaysYoureSignedInInsteadOfTheForm(t *testing.T) {
 	if r.tt.HasText("Not now") {
 		t.Error("Not now beside a signed-in account")
 	}
-	store.Set(r.h.Env.Queries, account.StatusKey, services.AuthStatus{State: "validating"})
+	store.Set(r.h.Env.Queries, store.KeyAuth, services.AuthStatus{State: "validating"})
 	r.tt.Drain()
 	if !r.tt.HasText("Checking your sign-in…") {
 		t.Error("validating does not say it is checking")
@@ -1015,7 +1007,7 @@ func TestDoneButtonLeavesAndMarksTheSetupDoneExactlyOnce(t *testing.T) {
 func TestDoneSaysSonaIsReadyWhenNothingIsLeftAndDoesNotSaveAgain(t *testing.T) {
 	r := newRig(t, 900, 800)
 	update(r, func(s *config.Settings) { s.Onboarding.Completed = true })
-	store.Set(r.h.Env.Queries, account.StatusKey, services.AuthStatus{State: "signed_in"})
+	store.Set(r.h.Env.Queries, store.KeyAuth, services.AuthStatus{State: "signed_in"})
 	r.open("done")
 	if !r.hasAll("You're all set", "Ready to play", "Your library syncs in the background.") || r.tt.HasText("Still to do") {
 		t.Fatalf("texts %q", r.tt.Texts())
@@ -1029,7 +1021,7 @@ func TestDoneSaysSonaIsReadyWhenNothingIsLeftAndDoesNotSaveAgain(t *testing.T) {
 
 func TestDoneWithoutPlaybackSaysSo(t *testing.T) {
 	r := newRig(t, 900, 800)
-	store.Set(r.h.Env.Queries, account.StatusKey, services.AuthStatus{State: "signed_in"})
+	store.Set(r.h.Env.Queries, store.KeyAuth, services.AuthStatus{State: "signed_in"})
 	store.Set(r.h.Env.Queries, store.KeyCapabilities, bareCaps())
 	r.open("done")
 	if !r.tt.HasText("Playback isn't available here yet") {

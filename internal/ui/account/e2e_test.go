@@ -192,7 +192,7 @@ func newE2E(t *testing.T, cfg appleidtest.Config, mem *memStore) *e2e {
 	// What features/auth does on auth:changed.
 	off := store.On(h.Env.Bus, services.EventAuthChanged, func(st services.AuthStatus) {
 		e.seen = append(e.seen, st.State)
-		store.Set(h.Env.Queries, StatusKey, st)
+		store.Set(h.Env.Queries, store.KeyAuth, st)
 	})
 	t.Cleanup(off)
 	kit.SetToastPoster(h.Main.Post)

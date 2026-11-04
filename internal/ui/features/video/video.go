@@ -80,12 +80,13 @@ type video struct {
 func New(env *module.Env) module.Module {
 	cat := services.Service[services.CatalogService](env.Core)
 	pb := services.Service[services.PlaybackService](env.Core)
-	sys := services.Service[services.SystemService](env.Core)
 	v := newVideo(env, cat, pb, func() (services.PlaybackCapabilities, bool) {
 		r := store.UseCapabilities(env.Queries, env.Core)
 		return r.Data.Playback, r.HasData
 	})
-	v.q = &queueCommands{svc: pb, play: env.Play, post: env.Post, mode: func() string { return sys.Settings().Queue.ReplaceConfirm }}
+	if env.Queue != nil {
+		v.q = env.Queue
+	}
 	return v.module()
 }
 

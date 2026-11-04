@@ -72,7 +72,6 @@ type discover struct {
 	env    *module.Env
 	api    discoverAPI
 	tracks tracksAPI
-	queue  *queueCommands
 	// now is the clock the freshness line is read against.
 	now func() time.Time
 
@@ -89,18 +88,12 @@ func New(env *module.Env) module.Module { return newFor(env).module() }
 
 // newFor is the feature over the services of the Env's Core.
 func newFor(env *module.Env) *discover {
-	pb := services.Service[services.PlaybackService](env.Core)
-	sys := services.Service[services.SystemService](env.Core)
 	d := newDiscover(env,
 		services.Service[services.DiscoverService](env.Core),
 		serviceTracks{
 			lib: services.Service[services.LibraryService](env.Core),
 			cat: services.Service[services.CatalogService](env.Core),
 			pls: services.Service[services.PlaylistsService](env.Core),
-		},
-		&queueCommands{
-			svc: pb, play: env.Play, post: env.Post,
-			replaceMode: func() string { return sys.Settings().Queue.ReplaceConfirm },
 		})
 	d.registerPlayers()
 	return d
@@ -128,8 +121,8 @@ func (d *discover) module() module.Module {
 	}
 }
 
-func newDiscover(env *module.Env, api discoverAPI, tracks tracksAPI, queue *queueCommands) *discover {
-	d := &discover{env: env, api: api, tracks: tracks, queue: queue, now: time.Now}
+func newDiscover(env *module.Env, api discoverAPI, tracks tracksAPI) *discover {
+	d := &discover{env: env, api: api, tracks: tracks, now: time.Now}
 	d.front.menus = kit.NewActionMenus(env.Actions, nil)
 	d.newPg.menus = kit.NewActionMenus(env.Actions, nil)
 	d.edit.menus = kit.NewActionMenus(env.Actions, nil)

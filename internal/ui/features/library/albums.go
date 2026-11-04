@@ -160,6 +160,6 @@ func (l *library) playAlbum(a services.Album) {
 			failToast(i18n.T("Couldn't load the album"), err)
 			return
 		}
-		l.env.Post(func() { l.queue.PlaySongs(detail.Tracks, 0, services.PlayFrom{Kind: "album", ID: a.ID}) })
+		l.env.Post(func() { l.env.Queue.PlaySongs(detail.Tracks, 0, services.PlayFrom{Kind: "album", ID: a.ID}) })
 	}()
 }

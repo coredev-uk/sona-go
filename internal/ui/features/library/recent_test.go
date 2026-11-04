@@ -149,13 +149,13 @@ func TestRecentlyAddedGateStates(t *testing.T) {
 	})
 	t.Run("syncing", func(t *testing.T) {
 		r := newGridRig(t, recentPath, func(l *library, s *gridStub) {
-			l.auth = gridAuth{"signed_in"}
+			fakeAuth(l, gridAuth{"signed_in"})
 		}, uitest.Empty())
 		r.tt.Until("the syncing text", r.tt.Shows("Your library is syncing",
 			"Your recent additions appear here as Sona copies them from Apple Music. Large libraries take a minute or two the first time."))
 	})
 	t.Run("empty", func(t *testing.T) {
-		r := newGridRig(t, recentPath, func(l *library, _ *gridStub) { l.auth = gridAuth{"signed_in"} })
+		r := newGridRig(t, recentPath, func(l *library, _ *gridStub) { fakeAuth(l, gridAuth{"signed_in"}) })
 		// A synced library that holds no album or playlist.
 		if _, err := r.h.DB.W.ExecContext(t.Context(), `DELETE FROM library_items WHERE kind IN ('album', 'playlist')`); err != nil {
 			t.Fatal(err)

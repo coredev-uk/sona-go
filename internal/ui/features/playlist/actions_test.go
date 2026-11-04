@@ -37,6 +37,7 @@ func (f *actionsFixture) def(t *testing.T, id string) *kit.ActionDef {
 func available(d *kit.ActionDef, a *kit.ActionContext) bool {
 	return d.Available == nil || d.Available(a)
 }
+
 func enabled(d *kit.ActionContext, def *kit.ActionDef) bool {
 	return def.Enabled == nil || def.Enabled(d)
 }
@@ -154,16 +155,26 @@ func TestPinActionFollowsTheLoadedPins(t *testing.T) {
 		{"song not pinned (nothing loaded yet)", "playlists.pin.song", libSong("s.1"), nil, true, "Pin song"},
 		{"song pinned", "playlists.pin.song", libSong("s.1"), pinned, true, "Unpin song"},
 		{"another song", "playlists.pin.song", libSong("s.2"), pinned, true, "Pin song"},
-		{"catalogue song is not in the library", "playlists.pin.song",
-			kit.SongItem(services.Song{ID: "1234", Source: services.SourceCatalog}), pinned, false, "Pin song"},
-		{"catalogue song with a library copy", "playlists.pin.song",
-			kit.SongItem(services.Song{ID: "1234", Source: services.SourceCatalog, LibraryID: "s.1"}), pinned, true, "Unpin song"},
+		{
+			"catalogue song is not in the library", "playlists.pin.song",
+			kit.SongItem(services.Song{ID: "1234", Source: services.SourceCatalog}), pinned, false, "Pin song",
+		},
+		{
+			"catalogue song with a library copy", "playlists.pin.song",
+			kit.SongItem(services.Song{ID: "1234", Source: services.SourceCatalog, LibraryID: "s.1"}), pinned, true, "Unpin song",
+		},
 		{"album", "playlists.pin.album", kit.AlbumItem(services.Album{ID: "l.1", Source: services.SourceLibrary}), nil, true, "Pin album"},
-		{"artist pinned", "playlists.pin.artist", kit.ArtistItem(services.Artist{ID: "r.1", Source: services.SourceLibrary}),
-			map[string]any{"playlists.pinned": map[string]bool{"r.1": true}}, true, "Unpin artist"},
+		{
+			"artist pinned", "playlists.pin.artist", kit.ArtistItem(services.Artist{ID: "r.1", Source: services.SourceLibrary}),
+			map[string]any{"playlists.pinned": map[string]bool{"r.1": true}},
+			true, "Unpin artist",
+		},
 		{"playlist", "playlists.pin.playlist", libPlaylist("p.1", true, ""), nil, true, "Pin playlist"},
-		{"playlist pinned", "playlists.pin.playlist", libPlaylist("p.1", true, ""),
-			map[string]any{"playlists.pinned": map[string]bool{"p.1": true}}, true, "Unpin playlist"},
+		{
+			"playlist pinned", "playlists.pin.playlist", libPlaylist("p.1", true, ""),
+			map[string]any{"playlists.pinned": map[string]bool{"p.1": true}},
+			true, "Unpin playlist",
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			d := f.def(t, c.id)

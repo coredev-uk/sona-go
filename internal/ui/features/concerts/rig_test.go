@@ -257,7 +257,7 @@ func newRigOver(t *testing.T, hn *uitest.Harness, amp *fakeApple, at string, w, 
 	hn.Env.Nav = r.router
 	// The artists' pages are another PR's: only their route is faked.
 	hn.Env.HasRoute = func(p string) bool { return strings.HasPrefix(p, "/artist/") || p == concertsPath }
-	r.s = newConcerts(hn.Env, services.Service[services.ConcertsService](hn.Core), services.Service[services.AuthService](hn.Core))
+	r.s = newConcerts(hn.Env, services.Service[services.ConcertsService](hn.Core))
 	if wrap != nil {
 		r.s.api = wrap(r.s.api)
 	}

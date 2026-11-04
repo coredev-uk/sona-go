@@ -163,7 +163,7 @@ func (v *video) songLine(c *ui.Context, s services.Song) {
 func (v *video) pageHeader(c *ui.Context, d services.CatalogVideo, videoPlays bool) {
 	vid := d.Video
 	parts := []string{i18n.T("Music video")}
-	for _, p := range []string{yearOf(vid.ReleaseDate), clock(vid.DurationMs), vid.Genre} {
+	for _, p := range []string{yearOf(vid.ReleaseDate), i18n.FormatDuration(time.Duration(vid.DurationMs) * time.Millisecond), vid.Genre} {
 		if p != "" {
 			parts = append(parts, p)
 		}
@@ -254,24 +254,4 @@ func (v *video) tile(m services.MusicVideo, byYear, plays bool) kit.CoverItem {
 		t.Item = &item
 	}
 	return t
-}
-
-// clock is a duration in milliseconds as m:ss, or h:mm:ss from an hour
-// (v0.2.0's formatTime).
-func clock(ms int64) string { return clockOf(time.Duration(ms) * time.Millisecond) }
-
-// clockOf is a time as m:ss, or h:mm:ss from an hour.
-func clockOf(d time.Duration) string {
-	total := int(max(d, 0) / time.Second)
-	h, m, s := total/3600, total%3600/60, total%60
-	pad := func(n int) string {
-		if n < 10 {
-			return "0" + strconv.Itoa(n)
-		}
-		return strconv.Itoa(n)
-	}
-	if h > 0 {
-		return strconv.Itoa(h) + ":" + pad(m) + ":" + pad(s)
-	}
-	return strconv.Itoa(m) + ":" + pad(s)
 }

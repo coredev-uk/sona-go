@@ -5,7 +5,7 @@
 //
 // Every service call runs off the main thread (store.Use fetches, goroutines
 // handing back through Env.Post); a station that plays replaces the queue
-// through queueCommands, which asks or offers Undo over a long queue the user
+// through Env.Queue, which asks or offers Undo over a long queue the user
 // built.
 package radio
 
@@ -16,6 +16,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/account"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
@@ -41,24 +42,16 @@ type radioAPI interface {
 
 // transport is what the board asks of PlaybackService
 // (*services.PlaybackService): a station that plays is paused and resumed
-// from its row, and a replaced queue comes back.
+// from its row.
 type transport interface {
 	Toggle(ctx context.Context) error
-	UndoReplace(ctx context.Context) (bool, error)
-}
-
-// authAPI is the sign-in state the page's "Your stations" depend on.
-type authAPI interface {
-	Status() services.AuthStatus
 }
 
 // radio is the feature's state.
 type radio struct {
-	env   *module.Env
-	svc   radioAPI
-	pb    transport
-	auth  authAPI
-	queue *queueCommands
+	env *module.Env
+	svc radioAPI
+	pb  transport
 	// now is the wall clock a schedule is read against; the pages read it
 	// every 30 seconds (tests move it).
 	now func() time.Time
@@ -75,11 +68,7 @@ type radio struct {
 func New(env *module.Env) module.Module {
 	core := env.Core
 	pb := services.Service[services.PlaybackService](core)
-	sys := services.Service[services.SystemService](core)
-	r := newRadio(env,
-		services.Service[services.RadioService](core), pb,
-		services.Service[services.AuthService](core),
-		func() string { return sys.Settings().Queue.ReplaceConfirm })
+	r := newRadio(env, services.Service[services.RadioService](core), pb)
 	// A station anywhere (a tile, a shelf, an album's "More to hear") plays
 	// through the shared item players.
 	env.Players.Register(services.ItemStation, func(it services.Item) {
@@ -107,10 +96,8 @@ func New(env *module.Env) module.Module {
 	}
 }
 
-func newRadio(env *module.Env, svc radioAPI, pb transport, auth authAPI, replaceMode func() string) *radio {
-	r := &radio{env: env, svc: svc, pb: pb, auth: auth, now: time.Now}
-	r.queue = &queueCommands{play: env.Play, post: env.Post, svc: pb, mode: replaceMode, fail: stationFailed}
-	return r
+func newRadio(env *module.Env, svc radioAPI, pb transport) *radio {
+	return &radio{env: env, svc: svc, pb: pb, now: time.Now}
 }
 
 // Query keys, as v0.2.0's features/radio/queries.ts: every key starts with
@@ -120,7 +107,6 @@ var (
 	keyLive     = store.Key{"radio", "live"}
 	// keyRecent is Apple's history of the user's stations: user data.
 	keyRecent = store.Key{"radio", "recent"}
-	keyAuth   = store.Key{"auth"}
 )
 
 func keyStation(id string) store.Key { return store.Key{"radio", "station", id} }
@@ -158,23 +144,18 @@ func (r *radio) station(id string) store.Result[services.StationDetail] {
 // accountState is the sign-in state ("signed_in", "signed_out"…); "" until Go
 // has answered.
 func (r *radio) accountState() string {
-	res := store.Use(r.env.Queries, keyAuth, func(context.Context) (services.AuthStatus, error) {
-		return r.auth.Status(), nil
-	}, store.Options{Stale: store.Forever})
+	res := store.UseAuth(r.env.Queries, r.env.Core)
 	if !res.HasData {
 		return ""
 	}
 	return res.Data.State
 }
 
-// hasAccount: the account states in which the personal endpoints are usable.
-func hasAccount(state string) bool { return state == "signed_in" || state == "validating" }
-
 // isSignedOut: known to be signed out; not while Go still reads the stored
 // sign-in from the keyring (restoring), and not when Apple only asked to sign
 // in again (needs_reauth: the library is still here).
 func isSignedOut(state string) bool {
-	return state != "" && state != "restoring" && state != "needs_reauth" && !hasAccount(state)
+	return state != "" && state != "restoring" && state != "needs_reauth" && !account.HasAccount(state)
 }
 
 // init follows the station Go plays: Apple's history of the user's stations

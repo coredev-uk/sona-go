@@ -122,7 +122,7 @@ func syncRig(t *testing.T, state string, api *syncAPI) *pageRig {
 	return newPageRig(t, albumsPath, 1132, 800, func(l *library) {
 		api.libraryAPI = l.lib
 		l.lib = api
-		l.auth = accountAPI{state}
+		fakeAuth(l, accountAPI{state})
 	})
 }
 
@@ -205,27 +205,6 @@ func TestAStatusAnswerOvertakenByAnEventIsDropped(t *testing.T) {
 	}
 }
 
-func TestRelativeTime(t *testing.T) {
-	now := time.Date(2026, 1, 10, 12, 0, 0, 0, time.UTC)
-	for _, c := range []struct {
-		ago  time.Duration
-		want string
-	}{
-		{10 * time.Second, "just now"},
-		{5 * time.Minute, "5 min. ago"},
-		{3 * time.Hour, "3 hr. ago"},
-		{24 * time.Hour, "yesterday"},
-		{72 * time.Hour, "3 days ago"},
-	} {
-		if got := relativeTime(now.Add(-c.ago).UnixMilli(), now); got != c.want {
-			t.Errorf("%v ago: %q, want %q", c.ago, got, c.want)
-		}
-	}
-	if got := relativeTime(0, now); got != "never" {
-		t.Errorf("no stamp: %q", got)
-	}
-}
-
 // The domain table of v0.2.0's invalidations.test.ts.
 func TestSyncInvalidationsPerDomain(t *testing.T) {
 	of := func(domain string) string {
@@ -254,7 +233,7 @@ func TestSyncInvalidationsPerDomain(t *testing.T) {
 // The module's routes and sidebar (index.ts, made-for-you-redirect.test.ts).
 func TestModuleRoutesAndNav(t *testing.T) {
 	env := uitest.Env(t, uitest.Bare())
-	l := newLibrary(env, nil, nil, nil)
+	l := newLibrary(env, nil, nil)
 	m := l.module()
 	var paths []string
 	for _, n := range m.Nav {
@@ -292,7 +271,7 @@ func TestMadeForYouRedirectsHome(t *testing.T) {
 	env := uitest.Env(t, uitest.Bare())
 	router := ui.NewRouter(madeForYou)
 	env.Nav = router
-	l := newLibrary(env, nil, nil, nil)
+	l := newLibrary(env, nil, nil)
 	m := l.module()
 	tt := uitest.Tester(t, env, func(c *ui.Context) {
 		router.View(c, func(rt *ui.Route) {

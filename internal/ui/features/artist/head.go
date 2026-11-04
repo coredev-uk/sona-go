@@ -39,7 +39,7 @@ func (a *artist) latestRelease(c *ui.Context, al services.Album, size float32) {
 	}
 	when := releaseBadge(al, a.now())
 	if when == "" {
-		when = longDate(al.ReleaseDate)
+		when = i18n.FormatISODate(al.ReleaseDate, i18n.DateMedium)
 	}
 	whenLine := i18n.T("Latest release")
 	if when != "" {

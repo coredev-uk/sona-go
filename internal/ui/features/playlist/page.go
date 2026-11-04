@@ -1,7 +1,6 @@
 package playlist
 
 import (
-	"context"
 	"strings"
 	"time"
 
@@ -39,8 +38,6 @@ type page struct {
 	// added caches addedByRows for the tracks and attributions it was made
 	// from (the rows are rebuilt only when either is another list).
 	added addedCache
-	// states is the header's library state and rating, built on first use.
-	states *headerState
 }
 
 // addedCache is addedByRows' last answer and what it came from.
@@ -87,7 +84,7 @@ func (pg *page) enter(id string) {
 	if pg.id == id {
 		return
 	}
-	*pg = page{id: id, states: pg.states}
+	*pg = page{id: id}
 }
 
 // hasRoute reports whether a page of Sona answers path, so a link is drawn
@@ -103,15 +100,6 @@ func (p *playlists) itemMenus() *kit.ActionMenus {
 		pg.menus = kit.NewActionMenus(p.env.Actions, &pg.list.Sel)
 	}
 	return pg.menus
-}
-
-// headerStates are the header's library state and rating.
-func (p *playlists) headerStates() *headerState {
-	pg := &p.page
-	if pg.states == nil && p.env.Core != nil {
-		pg.states = newHeaderState(p.env.Queries, p.env.Post, services.Service[services.LibraryService](p.env.Core))
-	}
-	return pg.states
 }
 
 // playlistPage is PlaylistPage: a catalogue or library playlist by the
@@ -175,11 +163,10 @@ func (p *playlists) collabOf(id string, pl services.Playlist) *services.Playlist
 	return nil
 }
 
-// playList plays the playlist from song start, or shuffled, off the main
-// thread.
+// playList plays the playlist from song start, or shuffled. Main thread.
 func (p *playlists) playList(id string, songs []services.Song, start int, shuffle bool) {
 	from := services.PlayFrom{Kind: "playlist", ID: id}
-	go p.playSongs(context.Background(), songs, start, from, shuffle)
+	p.playSongs(songs, start, from, shuffle)
 }
 
 // setEditing enters or leaves the edit mode; the focus moves to the button
@@ -218,14 +205,16 @@ func (p *playlists) playlistBody(c *ui.Context, id string, d services.PlaylistDe
 	if hd.Motion == "" {
 		cover = nil
 	}
-	// The header's wash (kit.Backdrop) is left out until CollectionHeader's
-	// Wash slot lands (kit.ItemStates' PR): its Backdrop slot draws over the
-	// title and the actions.
+	var colour string
+	if len(hd.Colors) > 0 {
+		colour = hd.Colors[0]
+	}
 	kit.CollectionHeader(c, kit.CollectionHeaderOpts{
 		Title:       pl.Name,
 		Art:         pl.Art.Large,
 		Loader:      p.env.Art,
 		Cover:       cover,
+		Wash:        &kit.BackdropOpts{Src: hd.Backdrop, Color: colour, Tone: kit.ToneGround},
 		Byline:      byline,
 		Meta:        p.metaLine(d, collab),
 		Description: pl.Description,
@@ -304,7 +293,7 @@ func (p *playlists) metaLine(d services.PlaylistDetail, collab *services.Playlis
 	}
 	line := catalogueLine(kind, len(d.Tracks), d.DurationMs)
 	if d.Playlist.LastModified > 0 {
-		line += " · " + i18n.T("Updated {when}", "when", relativeTime(d.Playlist.LastModified, time.Now()))
+		line += " · " + i18n.T("Updated {when}", "when", i18n.RelativeTime(time.UnixMilli(d.Playlist.LastModified), time.Now()))
 	}
 	return line
 }
@@ -343,11 +332,12 @@ func (p *playlists) headerActions(c *ui.Context, id string, d services.PlaylistD
 	if shuffle {
 		p.playList(id, d.Tracks, 0, true)
 	}
-	if st := p.headerStates(); st != nil {
+	if st := p.env.ItemStates; st != nil {
+		item := kit.StateOfPlaylist(pl)
 		if pl.Source == services.SourceCatalog {
-			st.libraryButton(c, pl)
+			st.LibraryButton(c, kit.StatePlaylists, item, pl.Name, "")
 		}
-		st.ratingButtons(c, pl)
+		st.RatingButtons(c, kit.StatePlaylists, item, pl.Name)
 	}
 	if editable {
 		edit := kit.Button(c.Key("edit"), i18n.T("Edit"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Icon: "pencil"})

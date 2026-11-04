@@ -90,28 +90,6 @@ func (f *fakeDiscover) calls() (home, refresh, shelf int) {
 	return f.homeCalls, f.refreshes, f.shelfCalls
 }
 
-// fakeAuth is the sign-in state; gate (when set) holds Status until closed.
-type fakeAuth struct {
-	mu   sync.Mutex
-	st   services.AuthStatus
-	gate chan struct{}
-}
-
-func (a *fakeAuth) Status() services.AuthStatus {
-	if a.gate != nil {
-		<-a.gate
-	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.st
-}
-
-func (a *fakeAuth) set(st services.AuthStatus) {
-	a.mu.Lock()
-	a.st = st
-	a.mu.Unlock()
-}
-
 // fakeLib is the library the local shelves read: every answer is what a test
 // sets.
 type fakeLib struct {
@@ -208,7 +186,10 @@ type rig struct {
 	router *ui.Router
 	tt     *uitest.Session
 	disc   *fakeDiscover
-	auth   *fakeAuth
+	// auth is the sign-in state in the cache; noAuth leaves it unknown (the
+	// reply of Go has not come).
+	auth   services.AuthStatus
+	noAuth bool
 	lib    *fakeLib
 	rec    *recorder
 	bus    *store.Bus
@@ -229,7 +210,7 @@ type rigOpt func(*rig)
 func withHome(p services.HomePage) rigOpt    { return func(r *rig) { r.disc.page = p } }
 func withDisc(f func(*fakeDiscover)) rigOpt  { return func(r *rig) { f(r.disc) } }
 func withLib(f func(*fakeLib)) rigOpt        { return func(r *rig) { f(r.lib) } }
-func withAuth(st services.AuthStatus) rigOpt { return func(r *rig) { r.auth.st = st } }
+func withAuth(st services.AuthStatus) rigOpt { return func(r *rig) { r.auth = st } }
 
 // withUI gives the harness these options (the real Core, for the covers).
 func withUI(o ...uitest.Option) rigOpt { return func(r *rig) { r.ui = o } }
@@ -237,19 +218,19 @@ func withUI(o ...uitest.Option) rigOpt { return func(r *rig) { r.ui = o } }
 // withRoutes sets which pages a module serves.
 func withRoutes(f func(string) bool) rigOpt { return func(r *rig) { r.routes = f } }
 
-// withGatedAuth holds the sign-in state back until the test closes r.auth.gate.
 func withConcerts(f func(c *ui.Context, first bool)) rigOpt {
 	return func(r *rig) { r.concerts = f }
 }
 
-func withGatedAuth() rigOpt { return func(r *rig) { r.auth.gate = make(chan struct{}) } }
+// withUnknownAuth leaves the sign-in state unknown: Go has not answered.
+func withUnknownAuth() rigOpt { return func(r *rig) { r.noAuth = true } }
 
 // newRig builds Home over the harness (its fixture library is not used: the
 // local shelves read the rig's fake). The page is the route's at path, in a
 // window of w by h.
 func newRig(t *testing.T, path string, w, hgt int, opts ...rigOpt) *rig {
 	t.Helper()
-	r := &rig{t: t, router: ui.NewRouter(path), disc: &fakeDiscover{}, auth: &fakeAuth{st: signedIn}, lib: &fakeLib{}, rec: &recorder{}}
+	r := &rig{t: t, router: ui.NewRouter(path), disc: &fakeDiscover{}, auth: signedIn, lib: &fakeLib{}, rec: &recorder{}}
 	for _, o := range opts {
 		o(r)
 	}
@@ -290,7 +271,14 @@ func newRig(t *testing.T, path string, w, hgt int, opts ...rigOpt) *rig {
 		o(r)
 	}
 	env.ConcertsShelf = r.concerts
-	r.home = newHome(env, r.disc, r.lib, r.auth)
+	// What the auth module does: the cache follows auth:changed.
+	store.On(env.Bus, services.EventAuthChanged, func(s services.AuthStatus) { store.Set(env.Queries, store.KeyAuth, s) })
+	if r.noAuth {
+		env.Core = nil // no answer from Go: the status stays unknown
+	} else {
+		store.Set(env.Queries, store.KeyAuth, r.auth)
+	}
+	r.home = newHome(env, r.disc, r.lib)
 	r.home.init()
 	r.tt = h.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // frames settle at once; motion is not what these tests check

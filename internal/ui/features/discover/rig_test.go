@@ -139,12 +139,15 @@ func (f *fakeAPI) New(context.Context) (services.EditorialPage, error) { return 
 func (f *fakeAPI) Curator(_ context.Context, id string) (services.EditorialPage, error) {
 	return f.page("curator/" + id)
 }
+
 func (f *fakeAPI) Multiroom(_ context.Context, id string) (services.EditorialPage, error) {
 	return f.page("multiroom/" + id)
 }
+
 func (f *fakeAPI) Grouping(_ context.Context, id string) (services.EditorialPage, error) {
 	return f.page("grouping/" + id)
 }
+
 func (f *fakeAPI) Room(_ context.Context, id, sort string) (services.RoomPage, error) {
 	if err := f.note("room/" + id + "?" + sort); err != nil {
 		return services.RoomPage{}, err
@@ -156,6 +159,7 @@ func (f *fakeAPI) Room(_ context.Context, id, sort string) (services.RoomPage, e
 	}
 	return room, nil
 }
+
 func (f *fakeAPI) RoomItems(_ context.Context, id, sort string, offset int) (services.ItemPage, error) {
 	if err := f.note(fmt.Sprintf("room-items/%s?%s@%d", id, sort, offset)); err != nil {
 		return services.ItemPage{}, err
@@ -163,6 +167,7 @@ func (f *fakeAPI) RoomItems(_ context.Context, id, sort string, offset int) (ser
 	f.waitItems()
 	return f.roomItems(offset), nil
 }
+
 func (f *fakeAPI) Charts(_ context.Context, genre string) (services.ChartsPage, error) {
 	if err := f.note("charts?" + genre); err != nil {
 		return services.ChartsPage{}, err
@@ -171,6 +176,7 @@ func (f *fakeAPI) Charts(_ context.Context, genre string) (services.ChartsPage, 
 	p.Genre = genre
 	return p, nil
 }
+
 func (f *fakeAPI) ChartItems(_ context.Context, key, chartID, genre string, offset int) (services.ItemPage, error) {
 	if err := f.note(fmt.Sprintf("chart-items/%s/%s?%s@%d", key, chartID, genre, offset)); err != nil {
 		return services.ItemPage{}, err
@@ -203,6 +209,12 @@ func (f *fakePlayback) PlayItems(_ context.Context, refs []services.TrackRef, st
 	f.played = append(f.played, played{refs, start, from})
 	return nil
 }
+
+func (f *fakePlayback) PlayNext(context.Context, []services.TrackRef) error { return nil }
+
+func (f *fakePlayback) Append(context.Context, []services.TrackRef) error { return nil }
+
+func (f *fakePlayback) Insert(context.Context, int, []services.TrackRef) error { return nil }
 
 func (f *fakePlayback) UndoReplace(context.Context) (bool, error) {
 	f.mu.Lock()
@@ -265,9 +277,11 @@ type rig struct {
 	mod    module.Module
 	api    *fakeAPI
 	play   *fakePlayback
-	tt     *session
-	start  string
-	opened bool
+	// replaceMode is the queue.replaceConfirm setting the queue commands read.
+	replaceMode string
+	tt          *session
+	start       string
+	opened      bool
 }
 
 // session is the tester of the rig. The page opens when the test first draws
@@ -354,7 +368,7 @@ func newRig(t *testing.T, start string, opts ...rigOption) *rig {
 		return slices.ContainsFunc(patterns, func(p string) bool { return matches(p, path) })
 	}
 	r.d.now = h.Clock.Now
-	r.d.queue.svc = r.play
+	env.Queue = kit.NewQueueCommands(kit.QueueDeps{Svc: r.play, Play: env.Play, Post: env.Post, ReplaceMode: func() string { return r.replaceMode }})
 	if cfg.api != nil {
 		r.api = cfg.api
 		r.d.api = cfg.api

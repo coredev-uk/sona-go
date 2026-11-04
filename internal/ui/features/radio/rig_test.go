@@ -12,6 +12,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -120,10 +121,9 @@ func (f *fakeRadio) count(what string) int {
 	return f.asked[what]
 }
 
-// fakeAuth is the sign-in state of a test.
+// fakeAuth is the sign-in state of a test, put in the cache the auth
+// module keeps before the first frame.
 type fakeAuth struct{ state string }
-
-func (a *fakeAuth) Status() services.AuthStatus { return services.AuthStatus{State: a.state} }
 
 // fakePlayback is the PlaybackService of a test.
 type fakePlayback struct {
@@ -138,6 +138,18 @@ func (p *fakePlayback) Toggle(context.Context) error {
 	p.toggled++
 	return nil
 }
+
+func (p *fakePlayback) PlayItems(context.Context, []services.TrackRef, int, services.PlayFrom) error {
+	return nil
+}
+
+func (p *fakePlayback) PlayNext(context.Context, []services.TrackRef) error { return nil }
+
+func (p *fakePlayback) Append(context.Context, []services.TrackRef) error { return nil }
+
+func (p *fakePlayback) Insert(context.Context, int, []services.TrackRef) error { return nil }
+
+func (p *fakePlayback) SetShuffle(bool) {}
 
 func (p *fakePlayback) UndoReplace(context.Context) (bool, error) {
 	p.mu.Lock()
@@ -154,14 +166,16 @@ func (p *fakePlayback) counts() (toggled, undone int) {
 
 // rig is the Radio and Station pages over a test Env, with fake services.
 type rig struct {
-	t      *testing.T
-	h      *uitest.Harness
-	r      *radio
-	api    *fakeRadio
-	pb     *fakePlayback
-	auth   *fakeAuth
-	router *ui.Router
-	tt     *uitest.Session
+	t    *testing.T
+	h    *uitest.Harness
+	r    *radio
+	api  *fakeRadio
+	pb   *fakePlayback
+	auth *fakeAuth
+	// replaceMode is the queue.replaceConfirm setting the queue commands read.
+	replaceMode string
+	router      *ui.Router
+	tt          *uitest.Session
 	// now is the moment the pages read schedules against.
 	now time.Time
 }
@@ -188,13 +202,15 @@ func newRig(t *testing.T, path string, width, height int, setup ...func(*rig)) *
 	env := h.Env
 	env.Nav = rg.router
 	env.HasRoute = func(p string) bool { return true }
-	rg.r = newRadio(env, rg.api, rg.pb, rg.auth, nil)
+	env.Queue = kit.NewQueueCommands(kit.QueueDeps{Svc: rg.pb, Play: env.Play, Post: env.Post, ReplaceMode: func() string { return rg.replaceMode }})
+	rg.r = newRadio(env, rg.api, rg.pb)
 	rg.r.now = func() time.Time { return rg.now }
 	env.Actions.Register(rg.r.actions()...)
 	rg.r.init()
 	for _, f := range setup {
 		f(rg)
 	}
+	store.Set(env.Queries, store.KeyAuth, services.AuthStatus{State: rg.auth.state})
 	rg.tt = h.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // a frozen clock never finishes a transition: every input would cost 20 frames
 		ui.Column(c).Fill().Children(func() {

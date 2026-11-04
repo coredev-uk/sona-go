@@ -101,7 +101,7 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 			}
 			s.songList(c, &v.songs, &v.listMenus, pane, ctx, songs, pending, label, func(i int) {
 				ctx.OnOpen(from[i])
-				s.playSongs(songs, i, searchFrom)
+				s.env.Queue.PlaySongs(songs, i, searchFrom)
 			})
 		} else {
 			count := len(items) + pending

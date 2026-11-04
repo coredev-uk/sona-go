@@ -56,6 +56,12 @@ type Env struct {
 	// first or offers Undo (v0.2.0's playSongs, queueItems and replaceQueue).
 	// Nil in an Env built by hand without services.
 	Queue *kit.QueueCommands
+	// ItemStates is the one library state and rating layer of every item
+	// (v0.2.0's shared item-state): menus, headers and the player's rating
+	// buttons all read and change items through it, so a change shows
+	// everywhere at once. It follows "library:item-state" itself. Main
+	// thread. Nil in an Env built by hand without services.
+	ItemStates *kit.ItemStates
 	// HasRoute reports whether a registered module's route pattern matches
 	// path (a query or fragment is ignored), so a feature links only to pages
 	// that are ported: Pattern "/album/{id}" matches "/album/42". Call it

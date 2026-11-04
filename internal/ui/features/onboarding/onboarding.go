@@ -92,8 +92,7 @@ func newOnboarding(env *module.Env, deps account.Deps, sc scrobbleAPI, in integr
 // welcome is /welcome?step=…: it opens the setup over the start page at that
 // step and redirects (replace) there; the route itself is never shown. A
 // missing or unknown step starts at the beginning. Go opens the main window
-// on it on a first start (services.StartRoute). "/" has no route of its own
-// natively: the shell sends an unmatched path to the start page.
+// on it on a first start (services.StartRoute). "/" is Home's route.
 func (o *onboarding) welcome(c *ui.Context, r *ui.Route) {
 	o.env.Surfaces.OpenSetup(parseStep(r.Query("step")))
 	o.env.Nav.Replace("/")

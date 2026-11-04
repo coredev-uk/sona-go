@@ -771,9 +771,9 @@ func (v *artistsView) play(e services.ArtistEntry, shuffle bool) {
 		}
 		l.env.Post(func() {
 			if shuffle {
-				l.queue.ShuffleSongs(d.Songs, from)
+				l.env.Queue.ShuffleSongs(d.Songs, from)
 			} else {
-				l.queue.PlaySongs(d.Songs, 0, from)
+				l.env.Queue.PlaySongs(d.Songs, 0, from)
 			}
 		})
 	}()
@@ -871,7 +871,7 @@ func (v *artistsView) songsOnly(c *ui.Context, e services.ArtistEntry, group int
 	opts := kit.TrackListOpts{
 		Label:      i18n.T("Songs by {name} in your library", "name", e.Name),
 		Columns:    kit.TrackColumns{RowNumbers: true, Artwork: true, Album: true},
-		OnPlay:     func(i int) { l.queue.PlaySongs(songs, i, from) },
+		OnPlay:     func(i int) { l.env.Queue.PlaySongs(songs, i, from) },
 		Pane:       &kit.Pane{Pos: &pg.detailPos, Bounds: sc.Bounds},
 		Current:    func(s *services.Song) bool { return kit.SongIsCurrent(s, curID, curCatalog) },
 		Playing:    playing,

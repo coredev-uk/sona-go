@@ -34,6 +34,7 @@ const suggestionsJSON = `{"results":{"suggestions":[
 
 // fieldPlay records what the field plays.
 type fieldPlay struct {
+	queueStub
 	mu   sync.Mutex
 	refs [][]services.TrackRef
 }
@@ -111,7 +112,8 @@ func newFieldRig(t *testing.T, start string, opts ...uitest.Option) *fieldRig {
 		return strings.HasPrefix(p, "/album/") || strings.HasPrefix(p, "/artist/") || strings.HasPrefix(p, "/playlist/") || strings.HasPrefix(p, "/song/")
 	}
 	r.api = services.Service[services.SearchService](r.h.Core)
-	r.s = newSearch(r.h.Env, r.api, r.play, services.Service[services.AuthService](r.h.Core))
+	useQueue(r.h.Env, r.play)
+	r.s = newSearch(r.h.Env, r.api)
 	r.tt = r.h.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Column(c).Fill().Children(func() {

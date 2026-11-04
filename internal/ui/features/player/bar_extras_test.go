@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
@@ -184,6 +185,12 @@ func (f *fakeRatings) record(call string, on bool, value int) (services.ItemStat
 	return st, f.failed
 }
 
+func (f *fakeRatings) Remove(context.Context, services.ItemRef) (services.ItemState, error) {
+	return services.ItemState{}, nil
+}
+
+func (f *fakeRatings) Add(context.Context, string, []string) error { return nil }
+
 func (f *fakeRatings) Favorite(_ context.Context, r services.ItemRef, on bool) (services.ItemState, error) {
 	return f.record("favorite "+r.ID, on, 1)
 }
@@ -196,8 +203,17 @@ func ratedRig(t *testing.T, state services.ItemState) (*rig, *fakeRatings) {
 	t.Helper()
 	r := newRig(t, true)
 	f := &fakeRatings{state: state, done: make(chan struct{}, 8)}
-	r.p.extras.rate = f
+	r.env.ItemStates = kit.NewItemStates(r.env.Queries, r.env.Post, f)
 	r.seed(func(s *services.PlaybackState) { s.Current.CatalogID = "100" })
+	// The buttons are disabled until Go has answered the (batched) state load.
+	for range 400 {
+		r.h.Main.Drain()
+		r.tt.Frame()
+		if r.env.ItemStates.Use(kit.StateSongs, kit.StateItem{ID: "i.1", CatalogID: "100"}).HasData {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 	return r, f
 }
 
@@ -249,7 +265,7 @@ func TestNoRatingButtonsForLiveVideoOrUnknownSongs(t *testing.T) {
 		"none":  func(q *services.QueueItem) {},
 	} {
 		r := newRig(t, true)
-		r.p.extras.rate = &fakeRatings{done: make(chan struct{}, 8)}
+		r.env.ItemStates = kit.NewItemStates(r.env.Queries, r.env.Post, &fakeRatings{done: make(chan struct{}, 8)})
 		r.seed(func(s *services.PlaybackState) { mut(s.Current) })
 		time.Sleep(20 * time.Millisecond)
 		r.h.Main.Drain()
@@ -311,5 +327,46 @@ func TestSignInAgainOpensTheAccountDialog(t *testing.T) {
 	}
 	if !r.env.Surfaces.AccountOpen() {
 		t.Error("the sign-in line did not open the account dialog")
+	}
+}
+
+func TestVideoItemShowsTheVideoButtonInsteadOfLyricsAndTheCoverOpensIt(t *testing.T) {
+	r := newRig(t, true)
+	r.seed(func(s *services.PlaybackState) { s.Current.Video = true })
+	if _, ok := r.tt.Find("Lyrics"); ok {
+		t.Error("a music video still shows Lyrics")
+	}
+	if _, ok := r.tt.Find("Show video"); !ok {
+		t.Fatalf("no Show video: %q", r.tt.Texts())
+	}
+	if err := r.tt.Click("Show video"); err != nil {
+		t.Fatal(err)
+	}
+	if !r.env.Video.IsOpen() {
+		t.Error("Show video did not open the video")
+	}
+	r.env.Video.Close()
+	r.tt.Frame()
+	if err := r.tt.Click("Show video"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestANewVideoItemOpensTheVideoView(t *testing.T) {
+	r := newRig(t, true)
+	r.p.init()
+	st := store.EmptyState()
+	st.State = store.StatePlaying
+	st.Current = &services.QueueItem{UID: 7, ID: "mv.1", Name: "Clip", Video: true}
+	r.env.Bus.Emit(services.EventPlaybackState, st)
+	r.h.Main.Drain()
+	if !r.env.Video.IsOpen() {
+		t.Fatal("a new video item did not open the view")
+	}
+	r.env.Video.Close()
+	r.env.Bus.Emit(services.EventPlaybackState, st)
+	r.h.Main.Drain()
+	if r.env.Video.IsOpen() {
+		t.Error("the same item reopened the view")
 	}
 }

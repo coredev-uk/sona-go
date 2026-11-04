@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/account"
 	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
@@ -90,7 +91,7 @@ func (s *concerts) concertsPage(c *ui.Context, r *ui.Route) {
 		loc = &fallback.Data
 	}
 
-	yoursAvailable := hasAccount(s.authState()) && page != nil && page.YourArtists > 0
+	yoursAvailable := account.HasAccount(s.authState()) && page != nil && page.YourArtists > 0
 	onlyYours := p.yours && yoursAvailable
 	var shown []services.Concert
 	if page != nil {
@@ -150,7 +151,7 @@ func (s *concerts) header(c *ui.Context, page *services.ConcertsPage, loc *servi
 			subline = i18n.T("Near {city}, the main city of your Apple Music storefront", "city", loc.Name)
 		}
 		if page != nil && page.FetchedAt > 0 {
-			when := relativeTime(page.FetchedAt, time.Now())
+			when := i18n.RelativeTime(time.UnixMilli(page.FetchedAt), time.Now())
 			if page.Stale {
 				subline += " · " + i18n.T("Couldn't reach Apple Music · showing the copy from {when}", "when", when)
 			} else {

@@ -35,8 +35,10 @@ func newCollShelfApp(t *testing.T, n int, w int) (*collShelfApp, *ui.Tester) {
 	for i := range n {
 		id := strconv.Itoa(i)
 		it := AlbumItem(services.Album{ID: id, Name: "Album " + id})
-		a.items = append(a.items, CoverItem{Key: "a" + id, Title: "Album " + id, Subtitle: "Artist " + id, Art: "/art/k" + id + "/x.jpg",
-			Item: &it, Open: func() { a.opened = append(a.opened, id) }})
+		a.items = append(a.items, CoverItem{
+			Key: "a" + id, Title: "Album " + id, Subtitle: "Artist " + id, Art: "/art/k" + id + "/x.jpg",
+			Item: &it, Open: func() { a.opened = append(a.opened, id) },
+		})
 	}
 	return a, ui.NewTester(a.view, w, 700)
 }

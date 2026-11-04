@@ -2,6 +2,7 @@ package artist
 
 import (
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
@@ -13,7 +14,7 @@ import (
 func albumItem(al services.Album, by string) services.Item {
 	sub := al.Artist
 	if by == "year" {
-		sub = yearOf(al.ReleaseDate)
+		sub = i18n.YearOf(al.ReleaseDate)
 	}
 	return services.Item{Kind: services.ItemAlbum, ID: al.ID, Name: al.Name, Subtitle: sub, Art: al.Art, Album: &al}
 }
@@ -31,7 +32,7 @@ func artistItem(ar services.Artist) services.Item {
 func videoItem(v services.MusicVideo, by string) services.Item {
 	sub := v.Artist
 	if by == "year" {
-		sub = yearOf(v.ReleaseDate)
+		sub = i18n.YearOf(v.ReleaseDate)
 	}
 	id := v.CatalogID
 	if id == "" {
@@ -43,7 +44,7 @@ func videoItem(v services.MusicVideo, by string) services.Item {
 // tile is an item as a cover tile; one whose page the app does not have is
 // not a link.
 func (a *artist) tile(it services.Item, i int) kit.CoverItem {
-	ctx := kit.ItemsCtx{Nav: a.open, Art: a.env.Art, Motion: a.env.Motion, Restricted: a.restricted()}
+	ctx := a.itemsCtx(nil)
 	t := kit.CoverItemOf(it, ctx, i)
 	t.Explicit = it.Explicit
 	if !a.has(kit.ItemLink(it)) {
@@ -95,4 +96,13 @@ func (a *artist) tiles(items []services.Item) []kit.CoverItem {
 		out[i] = a.tile(it, i)
 	}
 	return out
+}
+
+// itemsCtx is the shared item context over the Env, navigating as the page
+// does and restricted as the account says.
+func (a *artist) itemsCtx(menus *kit.ActionMenus) kit.ItemsCtx {
+	ctx := a.env.ItemsCtx(menus)
+	ctx.Nav = a.open
+	ctx.Restricted = a.restricted()
+	return ctx
 }

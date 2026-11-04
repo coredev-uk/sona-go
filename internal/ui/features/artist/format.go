@@ -1,7 +1,6 @@
 package artist
 
 import (
-	"regexp"
 	"strings"
 	"time"
 
@@ -10,28 +9,6 @@ import (
 )
 
 // What the page borrows of v0.2.0's shared/lib/format.ts and release.ts.
-
-var yearRe = regexp.MustCompile(`^(\d{4})`)
-
-// yearOf is the year of an ISO date ("2008-06-02" or "2008"), or "".
-func yearOf(date string) string { return yearRe.FindString(date) }
-
-var fullDate = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
-
-// longDate is a release date in words, "10 Oct 2007", for a full ISO date,
-// the year for a partial one, "" for none.
-func longDate(date string) string {
-	if !fullDate.MatchString(date) {
-		return yearOf(date)
-	}
-	// Midday local time, so no time zone moves it to another day.
-	at, err := time.ParseInLocation("2006-01-02", date, time.Local)
-	if err != nil {
-		return yearOf(date)
-	}
-	at = at.Add(12 * time.Hour)
-	return i18n.FormatDate(at, i18n.DateMedium)
-}
 
 // catalogueLine is the catalogue line (docs/design.md): "Single · 1 song".
 // Empty parts are dropped; kind is already translated.

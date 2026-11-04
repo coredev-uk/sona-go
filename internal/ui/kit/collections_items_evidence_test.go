@@ -139,8 +139,10 @@ func TestItemsEvidence(t *testing.T) {
 	})
 
 	// LinkList: Apple's genre wall, in even columns read down.
-	genres := []string{"Alternative", "Blues", "Classical", "Country", "Dance", "Electronic", "Folk", "Hip-Hop/Rap", "Jazz",
-		"K-Pop", "Latin", "Metal", "Pop", "R&B/Soul", "Reggae", "Rock", "Singer/Songwriter", "Soundtrack", "World", "Wellbeing", "Moods and Activities"}
+	genres := []string{
+		"Alternative", "Blues", "Classical", "Country", "Dance", "Electronic", "Folk", "Hip-Hop/Rap", "Jazz",
+		"K-Pop", "Latin", "Metal", "Pop", "R&B/Soul", "Reggae", "Rock", "Singer/Songwriter", "Soundtrack", "World", "Wellbeing", "Moods and Activities",
+	}
 	var links []services.Item
 	for i, g := range genres {
 		links = append(links, linkItem(services.ItemCharts, strconv.Itoa(i+10), g, ""))
@@ -229,13 +231,17 @@ func namedItem(it services.Item, name, artist string) services.Item {
 }
 
 func namedArtist(name string) services.Item {
-	return services.Item{Kind: services.ItemArtist, ID: "a1", Name: name, Subtitle: "Artist",
-		Art: services.Art{Medium: "/art/kar1/400x400.jpg"}, Artist: &services.Artist{ID: "a1", Name: name}}
+	return services.Item{
+		Kind: services.ItemArtist, ID: "a1", Name: name, Subtitle: "Artist",
+		Art: services.Art{Medium: "/art/kar1/400x400.jpg"}, Artist: &services.Artist{ID: "a1", Name: name},
+	}
 }
 
 func namedPlaylist(name, curator string) services.Item {
-	return services.Item{Kind: services.ItemPlaylist, ID: "p1", Name: name, Subtitle: curator,
-		Art: services.Art{Medium: "/art/kp1/400x400.jpg"}, Playlist: &services.Playlist{ID: "p1", Name: name}}
+	return services.Item{
+		Kind: services.ItemPlaylist, ID: "p1", Name: name, Subtitle: curator,
+		Art: services.Art{Medium: "/art/kp1/400x400.jpg"}, Playlist: &services.Playlist{ID: "p1", Name: name},
+	}
 }
 
 func upcomingAlbum(i int, name, artist string) services.Item {

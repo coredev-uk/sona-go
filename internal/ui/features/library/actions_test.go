@@ -247,7 +247,7 @@ func actContext(r *pageRig, items ...kit.Item) *kit.ActionContext {
 
 // actCached is the state in the store, ok when there is one.
 func actCached(r *pageRig, kind, id string) (services.ItemState, bool) {
-	res := store.Use(r.h.Env.Queries, itemStateKey(kind, id), func(context.Context) (services.ItemState, error) {
+	res := store.Use(r.h.Env.Queries, kit.StateKey(kind, id), func(context.Context) (services.ItemState, error) {
 		return services.ItemState{}, errors.New("not cached")
 	}, store.Options{Stale: store.Forever})
 	return res.Data, res.HasData

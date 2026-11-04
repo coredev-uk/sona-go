@@ -10,6 +10,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -134,7 +135,7 @@ func (s *Section) Build(c *ui.Context, hosted bool) {
 	if res.Err != nil {
 		s.flow = nil
 		kit.ErrorBlock(c, i18n.T("Couldn't read the sign-in state"), res.Err, kit.ErrorBlockOpts{
-			OnRetry:  func() { s.d.Queries.Invalidate(StatusKey) },
+			OnRetry:  func() { s.d.Queries.Invalidate(store.KeyAuth) },
 			Retrying: res.Fetching,
 		})
 		return

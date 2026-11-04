@@ -45,17 +45,10 @@ type library interface {
 	Library(ctx context.Context, term string, perKind int) (services.LibrarySearch, error)
 }
 
-// player is what picking a song asks of the playback service
-// (*services.PlaybackService).
-type player interface {
-	PlayItems(ctx context.Context, refs []services.TrackRef, start int, from services.PlayFrom) error
-}
-
 // commands is the feature's state.
 type commands struct {
-	env  *module.Env
-	lib  library // nil without services
-	play player  // nil without services
+	env *module.Env
+	lib library // nil without services
 
 	pal  kit.Palette
 	help helpSheet
@@ -74,7 +67,6 @@ func New(env *module.Env) module.Module {
 	m := newCommands(env)
 	if env.Core != nil {
 		m.lib = services.Service[services.SearchService](env.Core)
-		m.play = services.Service[services.PlaybackService](env.Core)
 	}
 	return module.Module{
 		ID: "commands",
@@ -95,6 +87,8 @@ func New(env *module.Env) module.Module {
 				Run:      m.toggleHelp,
 			},
 		},
+		// Layer only: no LayerOpen on purpose, the palette and help render in
+		// MyGo's own overlay above everything, so the layer takes no input itself.
 		Slots: module.Slots{Layer: m.layer},
 	}
 }

@@ -159,8 +159,10 @@ func TestItemVideoAndRowAspect(t *testing.T) {
 	for name, c := range map[string]struct {
 		it   services.Item
 		want bool
-	}{"music video": {video, true}, "post": {post, true}, "music movie": {movie, true}, "post without art": {noArt, false},
-		"other link": {page, false}, "album": {itemT(nil), false}} {
+	}{
+		"music video": {video, true}, "post": {post, true}, "music movie": {movie, true}, "post without art": {noArt, false},
+		"other link": {page, false}, "album": {itemT(nil), false},
+	} {
 		if got := ItemVideo(c.it); got != c.want {
 			t.Errorf("ItemVideo(%s) = %v", name, got)
 		}
@@ -279,7 +281,7 @@ func TestReleaseBadge(t *testing.T) {
 	if got := itemsReleaseBadge(services.Album{Prerelease: true}, now); got != "" {
 		t.Errorf("no full date: %q", got)
 	}
-	if !itemsUpcoming(services.Album{Prerelease: true}, now) {
+	if !IsUpcoming(services.Album{Prerelease: true}, now) {
 		t.Error("a prerelease album with no full date is upcoming")
 	}
 }

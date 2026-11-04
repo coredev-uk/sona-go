@@ -21,12 +21,10 @@ func WriteProfile(ctx context.Context, paths config.Paths) error {
 	}
 	if _, err := s.Update(func(s *config.Settings) {
 		s.Onboarding.Completed = true
-		s.Desktop.StartPage = "/library/albums" // the smoke starts on Albums, not on Home
+		s.Desktop.StartPage = "/library/albums" // the smoke reads Albums: open there, not on Home
 		s.Theme = config.ThemeLight
 		s.Language = "en"
 		s.AutoPlay = false
-		// Opens on Albums, the page the smoke reads, not the sidebar's first link.
-		s.Desktop.StartPage = "/library/albums"
 	}); err != nil {
 		return err
 	}

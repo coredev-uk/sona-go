@@ -15,6 +15,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
@@ -134,12 +135,18 @@ func (f *fakePlayback) PlayItems(_ context.Context, refs []services.TrackRef, st
 	f.plays = append(f.plays, playCall{refs, start, from})
 	return nil
 }
+func (f *fakePlayback) PlayNext(context.Context, []services.TrackRef) error { return nil }
+func (f *fakePlayback) Append(context.Context, []services.TrackRef) error   { return nil }
+func (f *fakePlayback) Insert(context.Context, int, []services.TrackRef) error {
+	return nil
+}
 func (f *fakePlayback) UndoReplace(context.Context) (bool, error) { return true, nil }
 func (f *fakePlayback) SetShuffle(on bool) {
 	f.mu.Lock()
 	f.shuffle = on
 	f.mu.Unlock()
 }
+
 func (f *fakePlayback) played() []playCall {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -164,6 +171,7 @@ func (f *fakeStates) States(_ context.Context, refs []services.ItemRef) ([]servi
 	}
 	return out, nil
 }
+
 func (f *fakeStates) Favorite(_ context.Context, r services.ItemRef, on bool) (services.ItemState, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -171,17 +179,17 @@ func (f *fakeStates) Favorite(_ context.Context, r services.ItemRef, on bool) (s
 	f.rating = map[bool]int{true: 1, false: 0}[on]
 	return services.ItemState{Kind: r.Kind, ID: r.ID, Rating: f.rating}, nil
 }
+
 func (f *fakeStates) SuggestLess(context.Context, services.ItemRef, bool) (services.ItemState, error) {
 	return services.ItemState{}, nil
 }
+
 func (f *fakeStates) Remove(context.Context, services.ItemRef) (services.ItemState, error) {
 	return services.ItemState{}, nil
 }
 func (f *fakeStates) Add(context.Context, string, []string) error { return nil }
 
 type fakeAuth struct{ restricted bool }
-
-func (f fakeAuth) Status() services.AuthStatus { return services.AuthStatus{Restricted: f.restricted} }
 
 // rig is the artist module over fakes, in a router, behind a tester.
 type rig struct {
@@ -241,10 +249,10 @@ func newRig(t *testing.T, path string, w, h int, setup func(*rig)) *rig {
 	})
 	env.Actions.SetNavigator(r.router.Push)
 	env.Actions.SetPoster(r.h.Main.Post)
-	states := kit.NewItemStates(env.Queries, env.Post, r.states)
-	queue := &queueCommands{svc: r.play, play: env.Play, post: env.Post}
-	r.a = newArtist(env, r.lib, r.cat, r.auth, queue, states)
-	r.a.init()
+	env.ItemStates = kit.NewItemStates(env.Queries, env.Post, r.states)
+	env.Queue = kit.NewQueueCommands(kit.QueueDeps{Svc: r.play, Play: env.Play, Post: env.Post})
+	store.Set(env.Queries, store.KeyAuth, services.AuthStatus{Restricted: r.auth.restricted})
+	r.a = newArtist(env, r.lib, r.cat)
 	r.tt = r.h.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations()
 		// A drop target in the corner, for what the page's rows drag.
@@ -282,8 +290,10 @@ func shelfOf(view string, more bool, albums ...services.Album) services.ArtistSh
 
 func song(i int) services.Song {
 	id := fmt.Sprint(900 + i)
-	return services.Song{ID: id, CatalogID: id, Source: services.SourceCatalog, Name: fmt.Sprintf("Song %d", i), Artist: "Radiohead", ArtistID: "657515",
-		Album: "Pablo Honey", AlbumID: "ph", DurationMs: 240000, Playable: true, Art: art}
+	return services.Song{
+		ID: id, CatalogID: id, Source: services.SourceCatalog, Name: fmt.Sprintf("Song %d", i), Artist: "Radiohead", ArtistID: "657515",
+		Album: "Pablo Honey", AlbumID: "ph", DurationMs: 240000, Playable: true, Art: art,
+	}
 }
 
 func songs(n int) []services.Song {
@@ -1220,8 +1230,10 @@ func TestViewPageFailureOffersRetry(t *testing.T) {
 func TestViewPageTitlesNameTheArtistOrSayThisArtist(t *testing.T) {
 	r := viewRig(t, "playlists", func(r *rig) {
 		r.cat.views["playlists"] = func(int) services.ArtistViewPage {
-			return services.ArtistViewPage{View: "playlists", Kind: services.ShelfPlaylists, Next: -1,
-				Playlists: []services.Playlist{{ID: "pl.1", Name: "Mix One", Curator: "Apple", Art: art}}}
+			return services.ArtistViewPage{
+				View: "playlists", Kind: services.ShelfPlaylists, Next: -1,
+				Playlists: []services.Playlist{{ID: "pl.1", Name: "Mix One", Curator: "Apple", Art: art}},
+			}
 		}
 	})
 	r.shows("Playlists featuring Radiohead", "Mix One", "Apple")
@@ -1294,16 +1306,16 @@ func TestCatalogueListsShareARowWhenTheyFitAndStackWhenTheyDoNot(t *testing.T) {
 	}
 }
 
-func TestRestrictedAccountFollowsTheAuthEvent(t *testing.T) {
+func TestRestrictedAccountFollowsTheAuthStatus(t *testing.T) {
 	r := catalogRig(t, nil)
 	r.shows("Discography")
 	if r.a.restricted() {
 		t.Fatal("restricted before the account said so")
 	}
-	r.h.Bus.Emit(services.EventAuthChanged, services.AuthStatus{Restricted: true})
+	store.Set(r.h.Env.Queries, store.KeyAuth, services.AuthStatus{Restricted: true})
 	r.tt.Drain()
 	if !r.a.restricted() {
-		t.Error("the event did not restrict the page")
+		t.Error("the new status did not restrict the page")
 	}
 }
 
@@ -1419,5 +1431,27 @@ func TestAboutKeepsTheBiographyCellWhenThereIsNoBiography(t *testing.T) {
 	}
 	if without.tt.HasText("Formed in 1985.") {
 		t.Error("a biography that is empty is shown")
+	}
+}
+
+// v0.2.0's videoTile played: where music videos play, a video tile has a play
+// control that plays it through the shared item players.
+func TestVideoTilesPlayThroughTheItemPlayers(t *testing.T) {
+	r := viewRig(t, "music-videos", func(r *rig) { r.cat.views["music-videos"] = videoPages(3) })
+	r.shows("Clip 0")
+	if r.tt.HasText("Play Clip 0") {
+		t.Error("a play control where videos do not play")
+	}
+	var played []string
+	r.h.Env.Players.RegisterVideo(func(v services.MusicVideo) { played = append(played, v.ID) })
+	r.h.Env.Players.Capabilities = func() *services.Capabilities {
+		return &services.Capabilities{Playback: services.PlaybackCapabilities{Available: true, Video: true}}
+	}
+	r.tt.Until("the play control", r.tt.Shows("Play Clip 0"))
+	if err := r.tt.Click("Play Clip 0"); err != nil {
+		t.Fatal(err)
+	}
+	if len(played) != 1 || played[0] != "mv0" {
+		t.Errorf("played %v", played)
 	}
 }

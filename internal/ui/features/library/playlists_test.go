@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -131,14 +130,6 @@ func newGridRigH(t *testing.T, start string, height int, tweak func(l *library, 
 			tweak(l, stub)
 		}
 	}, opts...)
-	// The real account manager announces its own state (signed out) as it
-	// starts; a fake account announces itself after that.
-	if a, ok := r.l.auth.(gridAuth); ok {
-		real := services.Service[services.AuthService](r.h.Core)
-		for end := time.Now().Add(5 * time.Second); real.Status().State == "restoring" && time.Now().Before(end); time.Sleep(time.Millisecond) {
-		}
-		r.h.Env.Bus.Emit(services.EventAuthChanged, services.AuthStatus{State: a.state})
-	}
 	return &gridRig{pageRig: r, stub: stub}
 }
 
@@ -316,13 +307,13 @@ func TestPlaylistsGateStates(t *testing.T) {
 	})
 	t.Run("syncing", func(t *testing.T) {
 		r := newGridRig(t, playlistsPath, func(l *library, s *gridStub) {
-			l.auth = gridAuth{"signed_in"}
+			fakeAuth(l, gridAuth{"signed_in"})
 		}, uitest.Empty())
 		r.tt.Until("the syncing text", r.tt.Shows("Your library is syncing",
 			"Your playlists appear here as Sona copies them from Apple Music. Large libraries take a minute or two the first time."))
 	})
 	t.Run("empty", func(t *testing.T) {
-		r := newGridRig(t, playlistsPath, func(l *library, _ *gridStub) { l.auth = gridAuth{"signed_in"} })
+		r := newGridRig(t, playlistsPath, func(l *library, _ *gridStub) { fakeAuth(l, gridAuth{"signed_in"}) })
 		// A synced library that holds no playlist.
 		emptyTheSyncedLibrary(r.pageRig)
 		r.tt.Until("the empty text", r.tt.Shows("No playlists in your library yet",

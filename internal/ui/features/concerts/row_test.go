@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 const (
@@ -128,7 +129,9 @@ func TestAuthChangeRefetchesOnlyWhenTheStateChanges(t *testing.T) {
 	asked := func() int { return counted.asked() }
 	n := asked()
 	emit := func(state string) {
-		r.h.Bus.Emit(services.EventAuthChanged, services.AuthStatus{State: state})
+		st := services.AuthStatus{State: state}
+		store.Set(r.h.Env.Queries, store.KeyAuth, st) // the auth module keeps the cache
+		r.h.Bus.Emit(services.EventAuthChanged, st)
 		r.tt.Drain()
 	}
 	emit("signed_in") // the first event is not news

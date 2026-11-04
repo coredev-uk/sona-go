@@ -74,7 +74,7 @@ func TestSettingsPrefsSaveIntoTheSettings(t *testing.T) {
 	h := uitest.New(t)
 	sys := services.Service[services.SystemService](h.Core)
 	before := sys.Settings()
-	p := settingsPrefs(sys)
+	p := settingsPrefs(h.Env.Queries, h.Core)
 	p.SetFolderOpen("f.a", true)
 	p.SetCollapsed("apple", true)
 	deadline := time.Now().Add(5 * time.Second)
@@ -89,7 +89,7 @@ func TestSettingsPrefsSaveIntoTheSettings(t *testing.T) {
 	if got := sys.Settings(); !reflect.DeepEqual(got, want) {
 		t.Errorf("another setting changed: %+v vs %+v", got, want)
 	}
-	q := settingsPrefs(sys)
+	q := settingsPrefs(h.Env.Queries, h.Core)
 	if !q.FolderOpen("f.a") || !q.Collapsed("apple") {
 		t.Error("a new prefs did not read the saved state")
 	}

@@ -90,7 +90,7 @@ func (l *library) songsPage(c *ui.Context, r *ui.Route) {
 // playSongsFrom replaces the queue with the library in q's order, starting
 // at index start; shuffle turns shuffle on first.
 func (l *library) playSongsFrom(q listQuery, start int, shuffle bool) {
-	l.queue.Replace(i18n.T("Couldn't start playback"), func(ctx context.Context) error {
+	l.env.Queue.Replace(i18n.T("Couldn't start playback"), func(ctx context.Context) error {
 		if shuffle {
 			l.play.SetShuffle(true)
 		}

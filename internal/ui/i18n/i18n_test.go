@@ -308,6 +308,14 @@ func TestFormatters(t *testing.T) {
 	}
 }
 
+func TestFormatBytes(t *testing.T) {
+	for n, want := range map[int64]string{-5: "0 B", 0: "0 B", 42: "42 B", 1023: "1,023 B", 1024: "1 kB", 1536: "1.5 kB", 12 * 1024: "12 kB", 12_700_000: "12 MB", 3 << 30: "3 GB"} {
+		if got := FormatBytes(n); got != want {
+			t.Errorf("FormatBytes(%d) = %q, want %q", n, got, want)
+		}
+	}
+}
+
 func TestFormatDuration(t *testing.T) {
 	for d, want := range map[time.Duration]string{
 		-time.Second:                    "0:00",

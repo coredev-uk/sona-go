@@ -74,7 +74,7 @@ func (f *feature) init() {
 }
 
 func (f *feature) changed(next services.AuthStatus) {
-	store.Set(f.env.Queries, account.StatusKey, next)
+	store.Set(f.env.Queries, store.KeyAuth, next)
 	prev := f.last
 	f.last = &next
 	// Invalidate with no keys would make every query stale.

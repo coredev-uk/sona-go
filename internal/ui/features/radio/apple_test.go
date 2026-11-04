@@ -165,9 +165,7 @@ func appleRig(t *testing.T, path string, width, height int) (*rig, *appleFake) {
 	env.Nav = rg.router
 	env.HasRoute = func(string) bool { return true }
 	core := env.Core
-	sys := services.Service[services.SystemService](core)
-	rg.r = newRadio(env, services.Service[services.RadioService](core), services.Service[services.PlaybackService](core),
-		services.Service[services.AuthService](core), func() string { return sys.Settings().Queue.ReplaceConfirm })
+	rg.r = newRadio(env, services.Service[services.RadioService](core), services.Service[services.PlaybackService](core))
 	rg.r.now = func() time.Time { return rg.now }
 	env.Actions.Register(rg.r.actions()...)
 	rg.r.init()
@@ -180,7 +178,7 @@ func appleRig(t *testing.T, path string, width, height int) (*rig, *appleFake) {
 		}
 	}
 	// The account's feature keeps the shared ["auth"] query current.
-	store.On(h.Bus, services.EventAuthChanged, func(s services.AuthStatus) { store.Set(env.Queries, keyAuth, s) })
+	store.On(h.Bus, services.EventAuthChanged, func(s services.AuthStatus) { store.Set(env.Queries, store.KeyAuth, s) })
 	rg.tt = h.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations()
 		ui.Column(c).Fill().Children(func() {

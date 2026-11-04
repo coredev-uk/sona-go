@@ -170,10 +170,10 @@ func (d *discover) playButtons(c *ui.Context, title string, songs []services.Son
 	}
 	play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: title, Shuffle: true, Disabled: disabled})
 	if play {
-		d.queue.PlaySongs(songs, 0, services.PlayFrom{ID: title})
+		d.env.Queue.PlaySongs(songs, 0, services.PlayFrom{ID: title})
 	}
 	if shuffle {
-		d.queue.ShuffleSongs(songs, services.PlayFrom{ID: title})
+		d.env.Queue.ShuffleSongs(songs, services.PlayFrom{ID: title})
 	}
 }
 
@@ -230,7 +230,7 @@ func (d *discover) itemList(c *ui.Context, st *listState, pane *kit.Pane, pages 
 	}, kit.TrackListOpts{
 		Label:   o.title,
 		Columns: kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true},
-		OnPlay:  func(i int) { d.queue.PlaySongs(songs, i, services.PlayFrom{ID: o.title}) },
+		OnPlay:  func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: o.title}) },
 		OnRange: songRange,
 		Pane:    pane, Menus: o.menus, Art: ctx.Art, Motion: ctx.Motion,
 		Current: currentSong(ctx), Playing: ctx.Playing, Restricted: ctx.Restricted,

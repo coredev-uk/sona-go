@@ -34,8 +34,10 @@ func TestGroupPageLoadsPagesAsTheEndComesNear(t *testing.T) {
 
 func TestGroupPageWaitsForTheEndToComeWithinAScreen(t *testing.T) {
 	// 300 songs, 40 to a page, in a short window: the end is far away.
-	r := newPageRig(t, "/search/song?q=blue", rigOpts{signedIn: true, width: 1132, height: 360,
-		setup: func(a *pageApple) { a.songsTotal, a.songsPage = 300, 40 }})
+	r := newPageRig(t, "/search/song?q=blue", rigOpts{
+		signedIn: true, width: 1132, height: 360,
+		setup: func(a *pageApple) { a.songsTotal, a.songsPage = 300, 40 },
+	})
 	r.tt.Until("the first page", r.tt.Shows("Blue Song 1"))
 	for range 6 {
 		r.tt.Drain()

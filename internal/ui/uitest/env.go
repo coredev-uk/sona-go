@@ -203,8 +203,19 @@ func New(t testing.TB, opts ...Option) *Harness {
 		Core: h.Core, Bus: h.Bus, Queries: store.NewClient(h.Main.Post), Play: store.NewPlayback(h.Bus, h.Clock.Now),
 		Art: loader, Video: store.NewVideoView(nil), Actions: kit.NewActionRegistry(), Players: module.NewPlayers(h.Core, h.Clock.Now), Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: o.version, Surfaces: store.NewSurfaces(), OpenURL: h.open, Copy: h.copy,
 	}
+	// As in app.New: menus load on goroutines and answer through the main
+	// thread, and an action's Navigate goes to the test's router (Env.Nav,
+	// set by the test that has one).
+	h.Env.Actions.SetPoster(h.Main.Post)
+	h.Env.Actions.SetNavigator(func(path string) {
+		if h.Env.Nav != nil {
+			h.Env.Nav.Push(path)
+		}
+	})
 	if o.core {
 		h.Env.Queue = kit.NewQueueCommandsFor(h.Core, h.Env.Play, h.Main.Post)
+		h.Env.ItemStates = kit.NewItemStates(h.Env.Queries, h.Main.Post, services.Service[services.LibraryService](h.Core))
+		h.Env.ItemStates.Follow(h.Bus)
 	}
 	mu.Lock()
 	harnesses[h.Env] = h

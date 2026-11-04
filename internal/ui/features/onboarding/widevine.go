@@ -122,7 +122,7 @@ func (o *onboarding) widevineBlock(c *ui.Context) {
 func (o *onboarding) downloadBar(c *ui.Context, s services.CDMStatus) {
 	fraction, known := store.CDMProgress(s)
 	percent := cdmPercent(s)
-	received, total := formatBytes(s.Received), formatBytes(s.Total)
+	received, total := i18n.FormatBytes(s.Received), i18n.FormatBytes(s.Total)
 	value, valueText, figures := -1.0, "", i18n.T("Starting…")
 	if known {
 		value = fraction

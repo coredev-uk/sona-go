@@ -49,7 +49,7 @@ type model struct {
 func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogue bool, now time.Time) model {
 	album := detail.Album
 	m := model{album: album, header: detail.Header, page: page, catalogue: catalogue}
-	m.upcoming = isUpcoming(album, now)
+	m.upcoming = kit.IsUpcoming(album, now)
 	m.list = withoutPlaceholderCredits(detail.Tracks, m.upcoming)
 
 	// "Popular" marks a song to play: never one that can't be.
@@ -121,7 +121,7 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 	if album.Single {
 		kind = i18n.T("Single")
 	}
-	meta := catalogueLine(kind, yearOf(album.ReleaseDate), songs, running)
+	meta := catalogueLine(kind, i18n.YearOf(album.ReleaseDate), songs, running)
 	if album.Genre != "" {
 		meta += " · " + album.Genre
 	}
@@ -143,7 +143,7 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 	}
 	if !m.upcoming && album.ReleaseDate != "" {
 		// An album not out yet says its day in the countdown.
-		m.facts = append(m.facts, fact{i18n.T("Released"), longDate(album.ReleaseDate)})
+		m.facts = append(m.facts, fact{i18n.T("Released"), i18n.FormatISODate(album.ReleaseDate, i18n.DateLong)})
 	}
 	if firstYear != "" {
 		m.facts = append(m.facts, fact{i18n.T("First released"), firstYear})
@@ -225,10 +225,10 @@ func (m *model) songsOutText() string {
 // piece outside any work on a classical album of several composers, then why
 // the song doesn't play, so a greyed row is never left unexplained.
 func (m *model) subline(now time.Time, restricted bool) func(services.Song) string {
-	releaseDate := longDate(m.album.ReleaseDate)
+	releaseDate := i18n.FormatISODate(m.album.ReleaseDate, i18n.DateLong)
 	out := ""
 	if m.upcoming {
-		out = releaseBadge(m.album, now)
+		out = kit.ReleaseBadge(m.album, now)
 	}
 	if out == "" {
 		out = i18n.T("Out {releaseDate}", "releaseDate", releaseDate)

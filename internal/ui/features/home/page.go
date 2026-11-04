@@ -7,6 +7,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/account"
 	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
@@ -93,7 +94,7 @@ func (h *home) homeBody(c *ui.Context) {
 		state = auth.State
 	}
 	offline := known && auth.Offline
-	signedIn := hasAccount(state)
+	signedIn := account.HasAccount(state)
 
 	var res store.Result[services.HomePage]
 	if signedIn {
@@ -104,7 +105,7 @@ func (h *home) homeBody(c *ui.Context) {
 	if signedIn && res.HasData {
 		plan = planHome(res.Data.Sections)
 		if res.Data.FetchedAt > 0 {
-			fetched := relativeTime(res.Data.FetchedAt, h.now())
+			fetched := i18n.RelativeTime(time.UnixMilli(res.Data.FetchedAt), h.now())
 			if res.Data.Stale {
 				subline = i18n.T("Couldn't refresh · from {fetched}", "fetched", fetched)
 			} else {

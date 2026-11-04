@@ -37,9 +37,11 @@ func stationFailed(what string, err error) {
 // done, when not nil, gets whether it started, on the main thread. Main
 // thread only.
 func (r *radio) playStation(id string, done func(started bool)) {
-	r.queue.Replace(i18n.T("Couldn't play this station"), func(ctx context.Context) error {
+	r.env.Queue.Replace(i18n.T("Couldn't play this station"), func(ctx context.Context) error {
 		return r.svc.Play(ctx, id)
-	}, done)
+	}, done, kit.WithFailure(func(err error) (string, string) {
+		return i18n.T("Couldn't play this station"), stationFailure(err)
+	}))
 }
 
 // Create Station seeds, as RadioService.CreateStation takes them.

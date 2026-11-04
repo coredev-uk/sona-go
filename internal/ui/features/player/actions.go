@@ -29,7 +29,7 @@ func (p *player) actions() []kit.ActionDef {
 		if next {
 			where = kit.QueueNext
 		}
-		return func(a *kit.ActionContext) { p.cmds.QueueItems(a.Items, where) }
+		return func(a *kit.ActionContext) { p.env.Queue.QueueItems(a.Items, where) }
 	}
 	def := func(id string, target kit.ItemKind, label func(*kit.ActionContext) string, icon string, order int, next bool, enabled func(*kit.ActionContext) bool) kit.ActionDef {
 		return kit.ActionDef{

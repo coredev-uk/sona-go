@@ -510,7 +510,9 @@ func TestDisabledSwitchIsInert(t *testing.T) {
 func controlsPlanItems() []SelectItem {
 	return []SelectItem{
 		SelectLabel("Plans"), SelectOption("free", "Free"), SelectOption("pro", "Pro"), SelectSeparator(),
-		SelectLabel("Teams"), {Value: "ent", Label: "Enterprise", Disabled: true}, SelectOption("team", "Team"),
+		SelectLabel("Teams"),
+		{Value: "ent", Label: "Enterprise", Disabled: true},
+		SelectOption("team", "Team"),
 	}
 }
 

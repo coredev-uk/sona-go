@@ -89,7 +89,7 @@ func historyRigAuth(t *testing.T, answer func(days, call int) (services.Listenin
 		rec.playbackAPI = l.play
 		l.play = rec
 		if state != "" {
-			l.auth = historyAccount(state)
+			fakeAuth(l, historyAccount(state))
 		}
 	})
 	return r, stub, rec
@@ -183,8 +183,10 @@ func TestHistoryShowEarlierDaysAsksSixtyAndKeepsTheListShowing(t *testing.T) {
 		h.More = days == 30
 		if days == 60 {
 			<-release
-			h.Days = append(h.Days, services.HistoryDay{Day: localMidnight(40).UnixMilli(),
-				Entries: []services.HistoryEntry{historyEntry(1, historySong("3", "Gamma"))}})
+			h.Days = append(h.Days, services.HistoryDay{
+				Day:     localMidnight(40).UnixMilli(),
+				Entries: []services.HistoryEntry{historyEntry(1, historySong("3", "Gamma"))},
+			})
 		}
 		return h, nil
 	})

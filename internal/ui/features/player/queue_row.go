@@ -228,7 +228,7 @@ func (p *player) rowContent(c *ui.Context, r *queueRowIn, hot, movable bool) {
 			p.removeAt(r.qi)
 		}
 	default:
-		label(c.Key("dur"), clock(time.Duration(it.DurationMs)*time.Millisecond), "meta").TextColor(faint).FontFeatures("tnum").Shrink(0)
+		label(c.Key("dur"), i18n.FormatDuration(time.Duration(it.DurationMs)*time.Millisecond), "meta").TextColor(faint).FontFeatures("tnum").Shrink(0)
 	}
 }
 

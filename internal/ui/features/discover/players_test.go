@@ -64,6 +64,7 @@ func TestPlayersPlayAMusicVideoCardAloneAsTheQueue(t *testing.T) {
 	if len(got) != 1 || got[0].start != 0 || got[0].from != want.from || len(got[0].refs) != 1 || got[0].refs[0] != want.refs[0] {
 		t.Errorf("played %+v, want %+v", got, want)
 	}
+	r.tt.Until("the video view opens", func() bool { return r.env.Video.IsOpen() })
 }
 
 func TestPlayersGiveVideoTilesAPlayControlThatPlaysTheVideoAndQueueActions(t *testing.T) {
@@ -225,7 +226,7 @@ func TestReplacingALongQueueOffersUndoByDefault(t *testing.T) {
 
 func TestReplacingALongQueueAsksFirstWhenSettingsSayConfirm(t *testing.T) {
 	r := playersRig(t)
-	r.d.queue.replaceMode = func() string { return config.ReplaceConfirm }
+	r.replaceMode = config.ReplaceConfirm
 	seedQueue(r, 4)
 	r.env.Players.PlaySongList(songs(2), 0, "Charts")
 	r.tt.Until("the question", r.tt.Shows("Replace your queue?", "The 4 songs you added to the queue will be removed.", "Replace queue"))
@@ -262,7 +263,7 @@ func TestAShortQueueIsReplacedWithoutAsking(t *testing.T) {
 
 func TestShuffleTurnsShuffleOnAndStartsFromARandomPlayableSong(t *testing.T) {
 	r := playersRig(t)
-	r.d.queue.ShuffleSongs(songs(6, 0), services.PlayFrom{ID: "Top songs"})
+	r.env.Queue.ShuffleSongs(songs(6, 0), services.PlayFrom{ID: "Top songs"})
 	// Shuffle shows on at once, while the command is in flight.
 	if !r.env.Play.State().Shuffle {
 		t.Error("the mirror does not show shuffle on while the command is in flight")

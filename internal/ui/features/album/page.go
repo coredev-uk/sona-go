@@ -38,10 +38,6 @@ type album struct {
 	lib   libraryAPI
 	cat   catalogAPI
 	radio radioAPI
-	auth  authAPI
-	queue *queueCommands
-	// states is the library state, rating and the commands that change it.
-	states *kit.ItemStates
 	// signIn opens the account dialog (the "not signed in" error's button);
 	// nil leaves the button out.
 	signIn func()
@@ -80,15 +76,6 @@ type listView struct {
 	opts  kit.TrackListOpts
 	count int
 	at    func(i int) *services.Song
-}
-
-// init follows the account: the sign-in state decides who may pre-add and
-// the explicit policy (v0.2.0's auth module kept the query current).
-func (a *album) init() {
-	a.states.Follow(a.env.Bus)
-	store.On(a.env.Bus, services.EventAuthChanged, func(s services.AuthStatus) {
-		store.Set(a.env.Queries, keyAuth, s)
-	})
 }
 
 // has reports whether a registered page matches path: the page links only
@@ -215,7 +202,7 @@ func (a *album) content(c *ui.Context, id, highlight string, lay layout, now tim
 	}
 	// An album not out yet counts down to the minute; at its release the
 	// page reloads it so its songs become playable.
-	if al := l.detail.Album; al.Prerelease && !isUpcoming(al, now) {
+	if al := l.detail.Album; al.Prerelease && !kit.IsUpcoming(al, now) {
 		if a.reloaded != id {
 			a.reloaded = id
 			a.env.Queries.Invalidate(l.key)
@@ -223,7 +210,7 @@ func (a *album) content(c *ui.Context, id, highlight string, lay layout, now tim
 	} else if a.reloaded == id {
 		a.reloaded = ""
 	}
-	auth := store.Use(a.env.Queries, keyAuth, func(context.Context) (services.AuthStatus, error) { return a.auth.Status(), nil }, forever)
+	auth := store.UseAuth(a.env.Queries, a.env.Core)
 	m := newModel(l.detail, l.page, l.cat, now)
 	a.body(c, &m, lay, highlight, now, auth.Data)
 }

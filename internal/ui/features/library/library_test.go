@@ -66,14 +66,10 @@ func newRig(t *testing.T, albums []fixture.Album, width, height int) *rig {
 	h := uitest.New(t, opts...)
 	r := &rig{t: t, h: h, router: ui.NewRouter(albumsPath)}
 	h.Env.Nav = r.router
-	r.l = newLibrary(h.Env, nil, nil, nil)
+	r.l = newLibrary(h.Env, nil, nil)
 	r.asked = &recordingAPI{libraryAPI: services.Service[services.LibraryService](h.Core)}
 	r.l.lib = r.asked
 	r.l.play = services.Service[services.PlaybackService](h.Core)
-	r.l.auth = services.Service[services.AuthService](h.Core)
-	r.l.queue.svc = r.l.play
-	r.l.queue.post = h.Env.Post
-	r.l.queue.play = h.Env.Play
 	r.l.init()
 	r.tt = h.Tester(t, func(c *ui.Context) {
 		ui.Column(c).Fill().Children(func() {

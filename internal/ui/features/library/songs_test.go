@@ -337,12 +337,12 @@ func TestSongsGateStates(t *testing.T) {
 
 	// Signed in, never synced: the first sync is on its way.
 	r = newSongsRig(t, songsPath, func(l *library) {
-		l.auth = songsAccount{"signed_in"}
+		fakeAuth(l, songsAccount{"signed_in"})
 	}, uitest.Empty())
 	r.tt.Until("the syncing text", r.tt.Shows("Your library is syncing"))
 
 	// Signed in, synced: an empty library.
-	r = newSongsRig(t, songsPath, func(l *library) { l.auth = songsAccount{"signed_in"} })
+	r = newSongsRig(t, songsPath, func(l *library) { fakeAuth(l, songsAccount{"signed_in"}) })
 	emptyTheSyncedLibrary(r)
 	r.tt.Until("the empty text", r.tt.Shows("No songs in your library yet",
 		"Songs you add in Apple Music on any device appear here after the next sync."))

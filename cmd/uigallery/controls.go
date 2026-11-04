@@ -112,7 +112,8 @@ func init() {
 		controlsNote(c, "kit.Select: groups with labels and separators, a check on the chosen row, a long list scrolls.")
 		plans := []kit.SelectItem{
 			kit.SelectLabel("Plans"), kit.SelectOption("free", "Free"), kit.SelectOption("pro", "Pro"), kit.SelectSeparator(),
-			kit.SelectLabel("Teams"), kit.SelectOption("team", "Team"), {Value: "ent", Label: "Enterprise", Disabled: true},
+			kit.SelectLabel("Teams"), kit.SelectOption("team", "Team"),
+			{Value: "ent", Label: "Enterprise", Disabled: true},
 		}
 		var long []kit.SelectItem
 		for i := 1; i <= 40; i++ {

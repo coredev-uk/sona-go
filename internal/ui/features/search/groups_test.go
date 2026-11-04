@@ -36,8 +36,10 @@ func TestGroupErrorAndEmptyTitles(t *testing.T) {
 	if got := groupEmpty("mystery", "blue"); got != "Nothing for “blue”" {
 		t.Errorf("default empty %q", got)
 	}
-	for _, g := range []string{"top", "artist", "album", "song", "playlist", "radio_show", "radio_episode", "station",
-		"music_video", "category", "curator", "record_label", "profile", "shared_playlist"} {
+	for _, g := range []string{
+		"top", "artist", "album", "song", "playlist", "radio_show", "radio_episode", "station",
+		"music_video", "category", "curator", "record_label", "profile", "shared_playlist",
+	} {
 		if groupLoadError(g) == groupLoadError("mystery") || groupEmpty(g, "x") == groupEmpty("mystery", "x") {
 			t.Errorf("group %q has no title of its own", g)
 		}

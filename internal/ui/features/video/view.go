@@ -599,9 +599,9 @@ func (v *video) seekBar(c *ui.Context, s services.PlaybackState, playing bool, f
 		pos = 0
 	}
 	ui.Row(c.Key("seek")).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
-		text(c, clockOf(pos), "meta").Width(48).TextAlign(ui.End).Shrink(0).TextColor(theme.C("ink-muted")).FontFeatures("tnum")
+		text(c, i18n.FormatDuration(pos), "meta").Width(48).TextAlign(ui.End).Shrink(0).TextColor(theme.C("ink-muted")).FontFeatures("tnum")
 		secs := pos.Seconds()
-		at, total := clockOf(pos), clockOf(dur)
+		at, total := i18n.FormatDuration(pos), i18n.FormatDuration(dur)
 		sl := kit.Slider(c.Key("seek-slider"), &secs, 0, max(dur.Seconds(), 1), kit.SliderOpts{
 			A11yLabel: i18n.T("Seek"),
 			ValueText: i18n.T("{at} of {total}", "at", at, "total", total),
@@ -617,7 +617,7 @@ func (v *video) seekBar(c *ui.Context, s services.PlaybackState, playing bool, f
 			st.seek.active = false
 			v.seekTo(time.Duration(st.seek.secs*float64(time.Second)), c.Now())
 		}
-		left := clockOf(max(dur-pos, 0))
+		left := i18n.FormatDuration(max(dur-pos, 0))
 		text(c, "−"+left, "meta").Width(48).Shrink(0).TextColor(theme.C("ink-muted")).FontFeatures("tnum").
 			Label(i18n.T("{left} left", "left", left))
 	})

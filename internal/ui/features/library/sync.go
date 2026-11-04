@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/account"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -86,20 +87,9 @@ func (l *library) syncStatus() store.Result[services.SyncStatus] {
 	})
 }
 
-// hasAccount: the account states in which the library and personal
-// endpoints are usable.
-func hasAccount(state string) bool { return state == "signed_in" || state == "validating" }
-
-// signedOut is isSignedOut: no account, or a sign-in still running; not
-// while Go reads the sign-in from the keyring, nor when Apple only asks to
-// sign in again (the library is still here).
-func signedOut(state string) bool {
-	return state != "" && state != "restoring" && state != "needs_reauth" && !hasAccount(state)
-}
-
 // authStatus is the account query the library's states read.
 func (l *library) authStatus() store.Result[services.AuthStatus] {
-	return store.Use(l.env.Queries, keyAuth, func(context.Context) (services.AuthStatus, error) { return l.auth.Status(), nil })
+	return store.UseAuth(l.env.Queries, l.env.Core)
 }
 
 // syncNow starts a library sync (the indicator's Sync now).
@@ -134,7 +124,7 @@ func syncingText(domain string) string {
 func (l *library) syncIndicator(c *ui.Context) {
 	auth := l.authStatus()
 	status := l.syncStatus()
-	if !auth.HasData || !hasAccount(auth.Data.State) {
+	if !auth.HasData || !account.HasAccount(auth.Data.State) {
 		return
 	}
 	running, current, last, _ := l.sync.state()
@@ -188,7 +178,7 @@ func (l *library) syncIndicator(c *ui.Context) {
 				case failed:
 					text(i18n.T("Library sync failed"), colour).Shrink(1).MinWidth(0).Tooltip(i18n.ErrorText(last.ErrorCode))
 				case lastSuccess > 0:
-					text(i18n.T("Synced {synced}", "synced", relativeTime(lastSuccess, time.Now())), colour).Shrink(1).MinWidth(0)
+					text(i18n.T("Synced {synced}", "synced", i18n.RelativeTime(time.UnixMilli(lastSuccess), time.Now())), colour).Shrink(1).MinWidth(0)
 				default:
 					text(i18n.T("Library not synced yet"), colour).Shrink(1).MinWidth(0)
 				}
@@ -209,29 +199,4 @@ func (l *library) syncIndicator(c *ui.Context) {
 			}
 		})
 	})
-}
-
-// relativeTime is v0.2.0's relativeTime: "just now", then minutes, hours
-// and days ago in short form; stamp is Unix milliseconds.
-func relativeTime(stamp int64, now time.Time) string {
-	if stamp <= 0 {
-		return i18n.T("never")
-	}
-	s := int64(now.Sub(time.UnixMilli(stamp)).Round(time.Second) / time.Second)
-	if s < 45 {
-		return i18n.T("just now")
-	}
-	m := (s + 30) / 60
-	if m < 60 {
-		return i18n.T("{minutes, plural, one {# min. ago} other {# min. ago}}", "minutes", m)
-	}
-	h := (m + 30) / 60
-	if h < 24 {
-		return i18n.T("{hours, plural, one {# hr. ago} other {# hr. ago}}", "hours", h)
-	}
-	d := (h + 12) / 24
-	if d == 1 {
-		return i18n.T("yesterday")
-	}
-	return i18n.T("{days, plural, one {# day ago} other {# days ago}}", "days", d)
 }

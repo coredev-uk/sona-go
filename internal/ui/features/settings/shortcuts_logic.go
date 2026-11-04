@@ -3,12 +3,12 @@ package settings
 import (
 	"maps"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
 
@@ -21,8 +21,8 @@ import (
 // "Shift+ArrowRight", "Alt+1", "Space", "?", "Plus". Letters are upper case.
 // A binding is chords separated by spaces, or "none" (config.Shortcuts).
 //
-// The vocabulary is the shell's dispatcher's (app/shortcuts.go parseChord
-// and namedKeys), not v0.2.0's browser one: the same keys, the same
+// The vocabulary is kit's (kit.ParseChord and ChordKeys), the shell's
+// dispatcher's too, not v0.2.0's browser one: the same keys, the same
 // spellings, and no others, so what the page shows bound is what the
 // dispatcher runs. Two differences follow from the keys being MyGo's:
 // Shift is a modifier of every key but the two the dispatcher folds into a
@@ -34,83 +34,15 @@ import (
 // noKeys is the binding that means "no key" (chord.ts NO_KEYS).
 const noKeys = "none"
 
-// keySpec is a key a chord can name and the MyGo key it is.
-type keySpec struct {
-	name string
-	key  ui.Key
-}
-
-// keySpecs are the keys the dispatcher's namedKeys has, by their canonical
-// names, in the order the recorder asks for them.
-var keySpecs = func() []keySpec {
-	k := []keySpec{
-		{"Space", ui.KeySpace},
-		{"Enter", ui.KeyEnter},
-		{"Escape", ui.KeyEscape},
-		{"Tab", ui.KeyTab},
-		{"Backspace", ui.KeyBackspace},
-		{"Delete", ui.KeyDelete},
-		{"Insert", ui.KeyInsert},
-		{"Home", ui.KeyHome},
-		{"End", ui.KeyEnd},
-		{"PageUp", ui.KeyPageUp},
-		{"PageDown", ui.KeyPageDown},
-		{"ArrowUp", ui.KeyUp},
-		{"ArrowDown", ui.KeyDown},
-		{"ArrowLeft", ui.KeyLeft},
-		{"ArrowRight", ui.KeyRight},
-		{"-", ui.KeyMinus},
-		{"=", ui.KeyEqual},
-		{",", ui.KeyComma},
-		{".", ui.KeyPeriod},
-		{"/", ui.KeySlash},
-		{";", ui.KeySemicolon},
-		{"'", ui.KeyQuote},
-		{"[", ui.KeyBracketLeft},
-		{"]", ui.KeyBracketRight},
-		{`\`, ui.KeyBackslash},
-		{"`", ui.KeyBackquote},
-	}
-	for i := range 10 {
-		k = append(k, keySpec{string(rune('0' + i)), ui.Key0 + ui.Key(i)})
-	}
-	for i := range 26 {
-		k = append(k, keySpec{string(rune('A' + i)), ui.KeyA + ui.Key(i)})
-	}
-	for i := range 12 {
-		k = append(k, keySpec{"F" + strconv.Itoa(i+1), ui.KeyF1 + ui.Key(i)})
-	}
-	return k
-}()
-
-var (
-	// keyNames are the canonical names by key; keysByName the keys by
-	// lower-cased name.
-	keyNames   = map[ui.Key]string{}
-	keysByName = map[string]ui.Key{}
-	// recordable are the keys a recorder listens for.
-	recordable []ui.Key
-)
-
-func init() {
-	for _, k := range keySpecs {
-		keyNames[k.key] = k.name
-		keysByName[strings.ToLower(k.name)] = k.key
-		recordable = append(recordable, k.key)
-	}
-}
+// recordable are the keys a recorder listens for: every key a chord can
+// name (kit's table, which the shell's dispatcher parses with too).
+var recordable = kit.ChordKeys()
 
 // modifierOrder is how a chord names its modifiers.
 var modifierOrder = []struct {
 	name string
 	mod  ui.Modifiers
 }{{"Ctrl", ui.Ctrl}, {"Alt", ui.Alt}, {"Shift", ui.Shift}, {"Meta", ui.Super}}
-
-// modifierAliases are the spellings of a modifier the dispatcher reads.
-var modifierAliases = map[string]ui.Modifiers{
-	"ctrl": ui.Ctrl, "control": ui.Ctrl, "alt": ui.Alt, "option": ui.Alt, "shift": ui.Shift,
-	"meta": ui.Super, "super": ui.Super, "cmd": ui.Super, "win": ui.Super,
-}
 
 // modifierCombos are the sixteen sets of modifiers a key can be pressed
 // with.
@@ -130,7 +62,7 @@ var modifierCombos = func() (out [16]ui.Modifiers) {
 // false for a key no chord can name. The dispatcher spells Shift+/ "?" and
 // Shift+= "Plus", so the Shift goes into the spelling.
 func spell(mods ui.Modifiers, key ui.Key) (string, bool) {
-	name, ok := keyNames[key]
+	name, ok := kit.ChordKeyName(key)
 	if !ok {
 		return "", false
 	}
@@ -153,49 +85,9 @@ func spell(mods ui.Modifiers, key ui.Key) (string, bool) {
 
 // splitChord reads a written chord ("ctrl+k", "Shift+ArrowRight",
 // "Ctrl++") into the modifiers held and the key, which is false when the
-// text is not exactly one chord.
+// text is not exactly one chord (kit.ParseChord's spelling).
 func splitChord(text string) (mods ui.Modifiers, key ui.Key, ok bool) {
-	t := strings.TrimSpace(text)
-	if t == "" {
-		return 0, 0, false
-	}
-	var keyText, modText string
-	switch {
-	case t == "+":
-		keyText = "+"
-	case strings.HasSuffix(t, "++"):
-		keyText, modText = "+", t[:len(t)-2]
-	default:
-		at := strings.LastIndex(t, "+")
-		keyText = t[at+1:]
-		if at >= 0 {
-			modText = t[:at]
-		}
-	}
-	switch name := strings.ToLower(strings.TrimSpace(keyText)); name {
-	case "?":
-		key, mods = ui.KeySlash, ui.Shift
-	case "plus", "+":
-		key, mods = ui.KeyEqual, ui.Shift
-	default:
-		k, known := keysByName[name]
-		if !known {
-			return 0, 0, false
-		}
-		key = k
-	}
-	if modText != "" {
-		var held ui.Modifiers
-		for part := range strings.SplitSeq(modText, "+") {
-			m, known := modifierAliases[strings.ToLower(strings.TrimSpace(part))]
-			if !known || held&m != 0 {
-				return 0, 0, false
-			}
-			held |= m
-		}
-		mods |= held
-	}
-	return mods, key, true
+	return kit.ParseChord(strings.TrimSpace(text))
 }
 
 // parseChord reads a written chord into its canonical form (chord.ts

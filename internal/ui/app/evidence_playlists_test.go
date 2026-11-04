@@ -1,15 +1,15 @@
 package app
 
 import (
-	"strconv"
-
-	"github.com/egoist/mygo/ui"
 	"image"
 	"image/png"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
+
+	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )

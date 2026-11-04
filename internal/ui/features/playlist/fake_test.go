@@ -14,6 +14,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/library"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -299,6 +300,12 @@ func (f *fakePlay) SetShuffle(on bool) {
 	f.mu.Unlock()
 }
 
+// The rest of the queue service: no test here queues or undoes.
+func (f *fakePlay) PlayNext(context.Context, []services.TrackRef) error    { return nil }
+func (f *fakePlay) Append(context.Context, []services.TrackRef) error      { return nil }
+func (f *fakePlay) Insert(context.Context, int, []services.TrackRef) error { return nil }
+func (f *fakePlay) UndoReplace(context.Context) (bool, error)              { return false, nil }
+
 func (f *fakePlay) played() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -313,7 +320,8 @@ func testPlaylists(t *testing.T, start string) (*playlists, *fakeAPI, *fakePlay,
 	router := ui.NewRouter(start)
 	h.Env.Nav = router
 	api, play := newFakeAPI(), &fakePlay{}
-	p := newPlaylists(h.Env, api, play, newPrefs(config.Sidebar{}, nil))
+	h.Env.Queue = kit.NewQueueCommands(kit.QueueDeps{Svc: play, Play: h.Env.Play, Post: h.Env.Post})
+	p := newPlaylists(h.Env, api, newPrefs(config.Sidebar{}, nil))
 	p.init()
 	return p, api, play, h, router
 }

@@ -169,7 +169,7 @@ func (m *commands) itemEntry(c *ui.Context, kind, id, name, subtitle string, art
 		},
 	}
 	switch {
-	case song != nil && m.play != nil:
+	case song != nil && m.env.Queue != nil:
 		s := *song
 		e.Run = func() { m.playSong(s) }
 	case path != "" && m.env.HasRoute != nil && m.env.HasRoute(path):
@@ -194,19 +194,9 @@ func itemMeta(kind, subtitle string) string {
 	return strings.Join(slices.DeleteFunc([]string{label, subtitle}, func(s string) bool { return s == "" }), " · ")
 }
 
-// playSong plays one song alone as the queue (v0.2.0's playSongs): one that
-// cannot be streamed says so and asks Go for nothing; a failure is a toast.
+// playSong plays one song alone as the queue (v0.2.0's playSongs) through
+// the shared queue commands: they say when it cannot be streamed, and ask
+// before replacing a long queue the user built.
 func (m *commands) playSong(s services.Song) {
-	if !s.Playable {
-		kit.ShowToast(kit.ToastSpec{Title: i18n.T("Nothing here can be played"), Description: i18n.T("None of these songs is available to stream."), Kind: kit.ToastError})
-		return
-	}
-	title := i18n.T("Couldn't start playback")
-	ref := services.TrackRef{ID: s.ID, Source: s.Source}
-	go func() {
-		if err := m.play.PlayItems(context.Background(), []services.TrackRef{ref}, 0, services.PlayFrom{ID: s.Name}); err != nil {
-			code := services.CodeOf(err)
-			m.env.Post(func() { kit.ToastErrorf(title, i18n.ErrorText(code)) })
-		}
-	}()
+	m.env.Queue.PlaySongs([]services.Song{s}, 0, services.PlayFrom{ID: s.Name})
 }

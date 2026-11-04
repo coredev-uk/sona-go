@@ -217,10 +217,10 @@ func (p *player) queueTarget(c *ui.Context, st *queueList) kit.DropTarget {
 				return
 			}
 			if on {
-				p.cmds.QueueItems(pl.Items, kit.QueueAt(slot))
+				p.env.Queue.QueueItems(pl.Items, kit.QueueAt(slot))
 				return
 			}
-			p.cmds.QueueItems(pl.Items, kit.QueueLast)
+			p.env.Queue.QueueItems(pl.Items, kit.QueueLast)
 		},
 	}
 }

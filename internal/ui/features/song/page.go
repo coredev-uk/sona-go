@@ -110,13 +110,13 @@ func (s *song) content(c *ui.Context, page services.CatalogSong) {
 			TextColor(theme.C("ink-muted"))
 	}
 
-	ictx := s.itemsCtx()
+	ictx := s.env.ItemsCtx(s.menus)
 	if len(page.Videos) > 0 && s.has("/music-video/x") {
 		items := make([]services.Item, len(page.Videos))
 		for i, v := range page.Videos {
 			items[i] = services.Item{
 				Kind: services.ItemMusicVideo, ID: firstOf(v.CatalogID, v.ID), Name: v.Name,
-				Subtitle: yearOf(v.ReleaseDate), Art: v.Art, Explicit: v.Explicit, MusicVideo: &v,
+				Subtitle: i18n.YearOf(v.ReleaseDate), Art: v.Art, Explicit: v.Explicit, MusicVideo: &v,
 			}
 		}
 		kit.ItemShelf(c, &pg.videos, i18n.T("Music videos"), items, ictx, kit.ItemShelfOpts{})
@@ -125,7 +125,7 @@ func (s *song) content(c *ui.Context, page services.CatalogSong) {
 		items := make([]services.Item, len(page.MoreByArtist))
 		for i, a := range page.MoreByArtist {
 			items[i] = services.Item{
-				Kind: services.ItemAlbum, ID: a.ID, Name: a.Name, Subtitle: yearOf(a.ReleaseDate), Art: a.Art, Album: &a,
+				Kind: services.ItemAlbum, ID: a.ID, Name: a.Name, Subtitle: i18n.YearOf(a.ReleaseDate), Art: a.Art, Album: &a,
 			}
 		}
 		o := kit.ItemShelfOpts{}
@@ -148,26 +148,11 @@ func firstOf(a, b string) string {
 	return b
 }
 
-// itemsCtx is what the shared item shelves need from the app.
-func (s *song) itemsCtx() kit.ItemsCtx {
-	return kit.ItemsCtx{
-		Nav: func(path string) {
-			if s.has(path) {
-				s.env.Nav.Push(path)
-			}
-		},
-		Players: s.players,
-		Art:     s.env.Art,
-		Menus:   s.menus,
-		Motion:  s.env.Motion,
-	}
-}
-
 // header is the CollectionHeader of the song.
 func (s *song) header(c *ui.Context, page services.CatalogSong) {
 	sg := page.Song
 	meta := make([]string, 0, 4)
-	for _, p := range []string{i18n.T("Song"), yearOf(sg.ReleaseDate), i18n.FormatDuration(time.Duration(sg.DurationMs) * time.Millisecond), sg.Genre} {
+	for _, p := range []string{i18n.T("Song"), i18n.YearOf(sg.ReleaseDate), i18n.FormatDuration(time.Duration(sg.DurationMs) * time.Millisecond), sg.Genre} {
 		if p != "" {
 			meta = append(meta, p)
 		}
@@ -186,10 +171,10 @@ func (s *song) header(c *ui.Context, page services.CatalogSong) {
 		Badges: func() { kit.Badges(c, kit.BadgesOpts{Explicit: sg.Explicit, Traits: sg.Traits}) },
 		Actions: func() {
 			if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: sg.Name, Disabled: !sg.Playable}); play {
-				s.play.PlaySongs([]services.Song{sg}, 0, services.PlayFrom{ID: sg.ID})
+				s.env.Queue.PlaySongs([]services.Song{sg}, 0, services.PlayFrom{ID: sg.ID})
 			}
-			s.states.LibraryButton(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name, "")
-			s.states.RatingButtons(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name)
+			s.env.ItemStates.LibraryButton(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name, "")
+			s.env.ItemStates.RatingButtons(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name)
 			if s.menus != nil {
 				s.menus.Trigger(c, kit.ActionTarget{Item: kit.SongItem(sg), Name: sg.Name}, kit.TriggerOpts{Header: true})
 			}
@@ -384,7 +369,7 @@ func (s *song) footer(c *ui.Context, page services.CatalogSong) {
 	}
 	var lines [][2]string
 	if page.Song.ReleaseDate != "" {
-		lines = append(lines, [2]string{"released", i18n.T("Released {releaseDate}", "releaseDate", longDate(page.Song.ReleaseDate))})
+		lines = append(lines, [2]string{"released", i18n.T("Released {releaseDate}", "releaseDate", i18n.FormatISODate(page.Song.ReleaseDate, i18n.DateLong))})
 	}
 	if page.Composer != "" {
 		lines = append(lines, [2]string{"composer", i18n.T("Composed by {composer}", "composer", page.Composer)})

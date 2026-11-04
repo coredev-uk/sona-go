@@ -92,16 +92,8 @@ func startOf(c services.Concert) time.Time {
 	return time.UnixMilli(c.StartsAt).In(zoneOf(c.Timezone))
 }
 
-// formatLocale is the locale numbers and dates are written for.
-func formatLocale() string {
-	if l := i18n.Locales(); len(l) > 0 {
-		return l[0]
-	}
-	return i18n.SourceLocale
-}
-
 func formatSkeleton(t time.Time, skeleton string) string {
-	return mygoi18n.FormatDate(formatLocale(), t, mygoi18n.DateOptions{Skeleton: skeleton})
+	return mygoi18n.FormatDate(i18n.Locales()[0], t, mygoi18n.DateOptions{Skeleton: skeleton})
 }
 
 // showDay is the show's calendar day at the venue, "2026-11-14".
@@ -197,7 +189,7 @@ func groupShows(shows []services.Concert) []monthGroup {
 var mileRegions = map[string]bool{"US": true, "GB": true, "LR": true, "MM": true}
 
 func regionOfLocale() string {
-	r, _ := language.Make(formatLocale()).Region()
+	r, _ := language.Make(i18n.Locales()[0]).Region()
 	return r.String()
 }
 

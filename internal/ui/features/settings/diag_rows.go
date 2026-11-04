@@ -350,11 +350,11 @@ func diagnosticsGroups(d services.Diagnostics, live *services.CDMStatus, now tim
 		{id: "credentials", title: i18n.T("Credentials"), rows: []diagRow{token}},
 		{id: "database", title: i18n.T("Library database"), rows: []diagRow{
 			{label: i18n.T("File"), value: d.Database.Path},
-			{label: i18n.T("Size"), value: formatBytes(d.Database.SizeBytes)},
+			{label: i18n.T("Size"), value: i18n.FormatBytes(d.Database.SizeBytes)},
 			{label: i18n.T("Schema version"), value: strconv.FormatInt(d.Database.SchemaVersion, 10)},
 			{label: i18n.T("Contents"), value: contents},
 			{label: i18n.T("Last full sync"), value: lastSync},
-			{label: i18n.T("Artwork cache"), value: formatBytes(d.ArtworkCacheBytes)},
+			{label: i18n.T("Artwork cache"), value: i18n.FormatBytes(d.ArtworkCacheBytes)},
 		}},
 		{id: "sona", title: i18n.T("Sona"), rows: []diagRow{
 			{label: i18n.T("Version"), value: orDash(d.App.Version)},

@@ -190,7 +190,7 @@ func buildRig(t *testing.T, o rigOpts) *rig {
 	fake := &fakeAPI{status: o.fetch, statusGate: o.gate}
 	if o.status != nil {
 		fake.status = *o.status
-		store.Set(h.Env.Queries, StatusKey, *o.status)
+		store.Set(h.Env.Queries, store.KeyAuth, *o.status)
 	}
 	r := &rig{t: t, h: h, api: fake}
 	d := Deps{API: fake, Queries: h.Env.Queries, Post: h.Env.Post, OpenURL: h.Env.OpenURL, Copy: h.Env.Copy, Log: h.Env.Log}
@@ -236,7 +236,7 @@ func (r *rig) status(st services.AuthStatus) {
 	r.api.mu.Lock()
 	r.api.status = st
 	r.api.mu.Unlock()
-	store.Set(r.h.Env.Queries, StatusKey, st)
+	store.Set(r.h.Env.Queries, store.KeyAuth, st)
 	r.tt.Drain()
 }
 
@@ -945,7 +945,7 @@ func TestSignOutAsksThenSignsOut(t *testing.T) {
 		r.api.mu.Lock()
 		r.api.status = signedOut
 		r.api.mu.Unlock()
-		store.Set(r.h.Env.Queries, StatusKey, signedOut)
+		store.Set(r.h.Env.Queries, store.KeyAuth, signedOut)
 		return nil
 	}
 	r.click("Sign out")

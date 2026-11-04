@@ -20,10 +20,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
-// StatusKey is the auth status query (v0.2.0's keys.auth); the auth module's
-// auth:changed handler writes every status into it.
-var StatusKey = store.Key{"auth"}
-
 // API is what the views use of *services.AuthService (tests fake it).
 type API interface {
 	Status() services.AuthStatus
@@ -68,7 +64,7 @@ var errNoAuth = errors.New("account: no auth service")
 // UseStatus is useAuth(): the cached status, fetched with API.Status and
 // kept current by the auth:changed handler (so it is never stale by age).
 func UseStatus(d Deps) store.Result[services.AuthStatus] {
-	return store.Use(d.Queries, StatusKey, func(context.Context) (services.AuthStatus, error) {
+	return store.Use(d.Queries, store.KeyAuth, func(context.Context) (services.AuthStatus, error) {
 		if d.API == nil {
 			return services.AuthStatus{}, errNoAuth
 		}

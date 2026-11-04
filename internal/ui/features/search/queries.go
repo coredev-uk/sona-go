@@ -16,7 +16,6 @@ var (
 	keyRecent = store.Key{"library", "recent-searches"}
 	// keyBrowse is the browse categories of the empty search page.
 	keyBrowse = store.Key{"catalog", "search-browse"}
-	keyAuth   = store.Key{"auth"}
 )
 
 func keyCatalogSearch(term string) store.Key { return store.Key{"catalog", "search", term} }
@@ -80,15 +79,9 @@ func (s *search) recent() store.Result[[]services.RecentSearch] {
 // authStatus is the account state (v0.2.0's useAuth) and whether it is
 // known yet.
 func (s *search) authStatus() (state string, known bool) {
-	r := store.Use(s.env.Queries, keyAuth, func(context.Context) (services.AuthStatus, error) {
-		return s.auth.Status(), nil
-	})
+	r := store.UseAuth(s.env.Queries, s.env.Core)
 	return r.Data.State, r.HasData
 }
-
-// hasAccount is the states in which the library and personal endpoints are
-// usable (v0.2.0's hasAccount).
-func hasAccount(state string) bool { return state == "signed_in" || state == "validating" }
 
 // libraryCards is the library search results as items, per kind
 // (v0.2.0's libraryCards).
@@ -192,36 +185,9 @@ func (s *search) playSong(it services.Item) {
 	if it.Song == nil {
 		return
 	}
-	s.playSongs([]services.Song{*it.Song}, 0, services.PlayFrom{ID: it.Name})
+	s.env.Queue.PlaySongs([]services.Song{*it.Song}, 0, services.PlayFrom{ID: it.Name})
 }
 
 // searchFrom is where songs played from search say they come from (v0.2.0's
 // playSongs(songs, i, "search")).
 var searchFrom = services.PlayFrom{ID: "search"}
-
-// playSongs plays songs from start as the queue, from where they came: the
-// playable ones are queued and start lands among them. Nothing playable
-// toasts; a failed start toasts. It is the one seam to the queue commands:
-// drop for env.Queue.PlaySongs when player-bar-queue merges.
-func (s *search) playSongs(songs []services.Song, start int, from services.PlayFrom) {
-	var refs []services.TrackRef
-	index := 0
-	for i, so := range songs {
-		if !so.Playable {
-			continue
-		}
-		if i == start {
-			index = len(refs)
-		}
-		refs = append(refs, services.TrackRef{ID: so.ID, Source: so.Source})
-	}
-	if len(refs) == 0 {
-		kit.ToastErrorf(i18n.T("Nothing here can be played"), i18n.T("None of these songs is available to stream."))
-		return
-	}
-	go func() {
-		if err := s.play.PlayItems(context.Background(), refs, index, from); err != nil {
-			kit.ToastErrorf(i18n.T("Couldn't start playback"), i18n.ErrorText(services.CodeOf(err)))
-		}
-	}()
-}

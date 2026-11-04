@@ -43,12 +43,21 @@ func TestAddedByRows(t *testing.T) {
 		tracks []services.Song
 		want   []string
 	}{
-		{"playlist order, a repeated song to each adder",
-			[]services.Song{track("1"), track("2"), track("3"), track("1")}, []string{"ada", "-", "jules", "robin"}},
-		{"library songs match by catalogue ID, whatever their order",
-			[]services.Song{track("i.c", "3"), track("i.a", "1"), track("i.b", "1")}, []string{"jules", "ada", "robin"}},
-		{"rows Apple did not attribute stay empty",
-			[]services.Song{track("1"), track("1"), track("1"), track("9"), track("i.up", "")}, []string{"ada", "robin", "-", "-", "-"}},
+		{
+			"playlist order, a repeated song to each adder",
+			[]services.Song{track("1"), track("2"), track("3"), track("1")},
+			[]string{"ada", "-", "jules", "robin"},
+		},
+		{
+			"library songs match by catalogue ID, whatever their order",
+			[]services.Song{track("i.c", "3"), track("i.a", "1"), track("i.b", "1")},
+			[]string{"jules", "ada", "robin"},
+		},
+		{
+			"rows Apple did not attribute stay empty",
+			[]services.Song{track("1"), track("1"), track("1"), track("9"), track("i.up", "")},
+			[]string{"ada", "robin", "-", "-", "-"},
+		},
 		{"no tracks", nil, []string{}},
 	} {
 		t.Run(c.name, func(t *testing.T) {

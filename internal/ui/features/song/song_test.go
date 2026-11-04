@@ -138,6 +138,14 @@ func (f *fakeQueue) PlayItems(_ context.Context, refs []services.TrackRef, start
 	return nil
 }
 
+func (f *fakeQueue) PlayNext(context.Context, []services.TrackRef) error { return nil }
+
+func (f *fakeQueue) Append(context.Context, []services.TrackRef) error { return nil }
+
+func (f *fakeQueue) Insert(context.Context, int, []services.TrackRef) error { return nil }
+
+func (f *fakeQueue) SetShuffle(bool) {}
+
 func (f *fakeQueue) UndoReplace(context.Context) (bool, error) { return false, nil }
 
 func (f *fakeQueue) played() []play {
@@ -319,8 +327,12 @@ func newRigOpts(t *testing.T, w, h int, setup func(*rig), opts []uitest.Option, 
 		lyrics: &fakeLyrics{l: services.Lyrics{
 			Songwriters: []string{"Thom Yorke", "Jonny Greenwood"},
 			Lines: []services.LyricLine{
-				{Text: "In the next world war"}, {Text: "In a jackknifed juggernaut"}, {Text: ""},
-				{Text: "I am born again"}, {Text: "In a blaze of light"}, {Text: "In an interstellar burst"},
+				{Text: "In the next world war"},
+				{Text: "In a jackknifed juggernaut"},
+				{Text: ""},
+				{Text: "I am born again"},
+				{Text: "In a blaze of light"},
+				{Text: "In an interstellar burst"},
 			},
 		}},
 		queue:   &fakeQueue{},
@@ -345,9 +357,9 @@ func newRigOpts(t *testing.T, w, h int, setup func(*rig), opts []uitest.Option, 
 	env.Actions = kit.NewActionRegistry(viewCredits)
 	env.Actions.SetNavigator(r.router.Push)
 	r.rows = kit.NewActionMenus(env.Actions, nil)
-	r.s = newSong(env, r.catalog, r.lyrics,
-		&queueCommands{svc: r.queue, play: env.Play, post: env.Post},
-		kit.NewItemStates(env.Queries, env.Post, r.library))
+	env.Queue = kit.NewQueueCommands(kit.QueueDeps{Svc: r.queue, Play: env.Play, Post: env.Post})
+	env.ItemStates = kit.NewItemStates(env.Queries, env.Post, r.library)
+	r.s = newSong(env, r.catalog, r.lyrics)
 	kit.SetToastPoster(env.Post)
 	if setup != nil {
 		setup(r)

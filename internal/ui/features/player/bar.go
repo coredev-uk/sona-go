@@ -85,6 +85,8 @@ func (p *player) cover(c *ui.Context, s services.PlaybackState) {
 	switch {
 	case cur == nil:
 		name = i18n.T("Nothing playing")
+	case p.videoSurface():
+		name = i18n.T("Show video")
 	case open:
 		name = i18n.T("Close now playing")
 	}
@@ -95,7 +97,9 @@ func (p *player) cover(c *ui.Context, s services.PlaybackState) {
 	}
 	b.Children(func() { kit.Artwork(c, p.env.Art, src, 48, kit.ArtOpts{}).Shrink(0) })
 	if b.Clicked() && cur != nil {
-		if open {
+		if p.videoSurface() && p.env.Video != nil {
+			p.env.Video.Open()
+		} else if open {
 			p.ui.closeOverlay()
 		} else {
 			p.ui.openNowPlaying("")
@@ -305,13 +309,13 @@ func (p *player) seekBar(c *ui.Context, s services.PlaybackState, idle bool) {
 	ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
 		elapsed := "–:––"
 		if !idle {
-			elapsed = clock(pos)
+			elapsed = i18n.FormatDuration(pos)
 		}
 		label(c, elapsed, "meta").Width(40).TextAlign(ui.End).TextColor(theme.C("ink-faint")).FontFeatures("tnum")
 
 		v := pos.Seconds()
 		sl := slider(c.Key("seek"), &v, 0, max(dur.Seconds(), 1), theme.C("amber"), !can)
-		sl.Label(i18n.T("Seek")).Description(clock(pos) + " / " + clock(dur))
+		sl.Label(i18n.T("Seek")).Description(i18n.FormatDuration(pos) + " / " + i18n.FormatDuration(dur))
 		if sl.Changed() {
 			p.seek.active, p.seek.secs = true, v
 		}
@@ -322,7 +326,7 @@ func (p *player) seekBar(c *ui.Context, s services.PlaybackState, idle bool) {
 
 		total := "–:––"
 		if !idle {
-			total = clock(dur)
+			total = i18n.FormatDuration(dur)
 		}
 		label(c, total, "meta").Width(40).TextColor(theme.C("ink-faint")).FontFeatures("tnum")
 	})
@@ -338,6 +342,12 @@ func (p *player) volumeControls(c *ui.Context, s services.PlaybackState) {
 	ui.Row(c).Grow(1).Basis(0).Justify(ui.End).AlignItems(ui.Center).Gap(4).Children(func() {
 		p.env.PlayerControls.Build(c) // the other features' controls: private listening…
 		p.sleepButton(c)
+		if p.videoSurface() {
+			on := p.env.Video.IsOpen()
+			if p.iconButton(c, "video", "clapperboard", i18n.T("Show video"), idle, "", &on) {
+				p.toggleVideo()
+			}
+		}
 		if p.lyricsSurface() {
 			on := p.ui.overlay == overlayNowPlaying && shownPane(p.ui.pane, s.Current) == paneLyrics
 			if p.iconButton(c, "lyrics", "mic-vocal", i18n.T("Lyrics"), idle, "", &on) {
@@ -408,14 +418,4 @@ func label(c *ui.Context, s, style string) ui.Element {
 	t := theme.Current().Type[style]
 	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).
 		LetterSpacing(t.Tracking).SingleLine().MinWidth(0).Shrink(1)
-}
-
-// clock is a time as m:ss, or h:mm:ss from an hour (v0.2.0's formatTime).
-func clock(d time.Duration) string {
-	total := int(max(d, 0) / time.Second)
-	h, m, s := total/3600, total%3600/60, total%60
-	if h > 0 {
-		return fmt.Sprintf("%d:%02d:%02d", h, m, s)
-	}
-	return fmt.Sprintf("%d:%02d", m, s)
 }

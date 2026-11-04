@@ -12,6 +12,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 func (r *rig) wantTexts(texts ...string) {
@@ -227,10 +228,9 @@ func TestShufflePlaysFromARandomSongWithShuffleOn(t *testing.T) {
 	r := newRig(t, "/album/100", 1132, 1000)
 	r.addCatalog(saltFlats())
 	r.shows("Shuffle")
-	r.a.queue.pick = func(n int) int { return n - 1 }
 	r.click("Shuffle")
 	got := r.played()
-	if got.start != 4 || len(got.ids) != 5 {
+	if got.start < 0 || got.start >= 5 || len(got.ids) != 5 {
 		t.Errorf("played %v from %d", got.ids, got.start)
 	}
 	if !r.queue.shuffle {
@@ -331,7 +331,7 @@ func TestUnreleasedAlbumCountsDownToTheMinute(t *testing.T) {
 	r.wantTexts(day+" · 2 of 5 songs out now", "Play the 2 songs out now", "Pre-add")
 	r.wantNoTexts("Shuffle", "Released", "unknown")
 	// Songs still to come say when.
-	r.wantTexts(releaseBadge(services.Album{Prerelease: true, ReleaseAt: release.UnixMilli()}, r.now))
+	r.wantTexts(kit.ReleaseBadge(services.Album{Prerelease: true, ReleaseAt: release.UnixMilli()}, r.now))
 	// The running time of unpublished songs is not guessed.
 	r.wantTexts("Album · 2026 · 5 songs · Indie Pop")
 
@@ -379,11 +379,10 @@ func TestSongSublineSaysWhyARowIsGreyed(t *testing.T) {
 		p.Tracks[0].Playable = false
 		p.Tracks[1].Explicit = true
 	}))
-	r.a.init()
 	r.shows("Unavailable")
 	r.wantNoTexts("Explicit content is restricted on this account")
-	// The account's policy arrives as an event (auth:changed).
-	r.h.Bus.Emit(services.EventAuthChanged, services.AuthStatus{State: "signed_in", Restricted: true})
+	// The account's policy arrives as the auth module's update of the cache.
+	store.Set(r.h.Env.Queries, store.KeyAuth, services.AuthStatus{State: "signed_in", Restricted: true})
 	r.tt.Until("the policy", r.tt.Shows("Explicit content is restricted on this account"))
 }
 
@@ -565,8 +564,19 @@ func TestSectionTilesOpenPagesAndPlay(t *testing.T) {
 	if got := r.radio.got(); got[0] != "ra.1" {
 		t.Errorf("played station %q", got)
 	}
-	// A music video's tile is a link; its play control is the video module's.
+	// Where videos play, a video's tile has a play control (as discover's
+	// cards do), and playing opens the video view.
 	r.wantNoTexts("Play Low Tide (Video)")
+	var played []string
+	r.h.Env.Players.RegisterVideo(func(v services.MusicVideo) { played = append(played, v.ID) })
+	r.h.Env.Players.Capabilities = func() *services.Capabilities {
+		return &services.Capabilities{Playback: services.PlaybackCapabilities{Available: true, Video: true}}
+	}
+	r.tt.Until("the video's play control", r.tt.Shows("Play Low Tide (Video)"))
+	r.click("Play Low Tide (Video)")
+	if len(played) != 1 || played[0] != "v1" {
+		t.Errorf("played videos %v", played)
+	}
 	// A tile opens its album.
 	r.click("Blue Hour")
 	if got := r.path(); got != "/album/200" {

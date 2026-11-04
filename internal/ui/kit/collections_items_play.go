@@ -119,7 +119,7 @@ func (p *ItemPlayers) now() time.Time {
 // upcoming is v0.2.0's isUpcoming: an album not out yet is prerelease with no
 // full release date, or one still to come.
 func (p *ItemPlayers) upcoming(a services.Album) bool {
-	return itemsUpcoming(a, p.now())
+	return IsUpcoming(a, p.now())
 }
 
 // StationUnavailableText says why Sona can't play a station

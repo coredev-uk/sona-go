@@ -19,16 +19,15 @@ func (d *discover) registerPlayers() {
 		return
 	}
 	p.RegisterSongs(func(songs []services.Song, start int, label string) {
-		d.queue.PlaySongs(songs, start, services.PlayFrom{ID: label})
+		d.env.Queue.PlaySongs(songs, start, services.PlayFrom{ID: label})
 	})
-	// A video plays alone as the queue. Opening the video view once playback
-	// started is Env.Video's, which this base does not have yet.
+	// A video plays alone as the queue, then the video view opens.
 	p.RegisterVideo(func(v services.MusicVideo) {
-		d.queue.PlayVideos([]services.MusicVideo{v}, 0, nil)
+		d.env.Queue.PlayVideos([]services.MusicVideo{v}, 0, d.env.Video.Open)
 	})
 	p.Register(services.ItemSong, func(it services.Item) {
 		if it.Song != nil {
-			d.queue.PlaySongs([]services.Song{*it.Song}, 0, services.PlayFrom{ID: it.Name})
+			d.env.Queue.PlaySongs([]services.Song{*it.Song}, 0, services.PlayFrom{ID: it.Name})
 		}
 	})
 	p.Register(services.ItemAlbum, d.playCollection)
@@ -56,7 +55,7 @@ func (d *discover) playCollection(it services.Item) {
 				kit.ToastErrorf(what, i18n.ErrorText(services.CodeOf(err)))
 				return
 			}
-			d.queue.PlaySongs(songs, 0, from)
+			d.env.Queue.PlaySongs(songs, 0, from)
 		})
 	}()
 }

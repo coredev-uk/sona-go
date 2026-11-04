@@ -38,32 +38,11 @@ type catalogAPI interface {
 	ArtistView(ctx context.Context, id, view string, offset, limit int) (services.ArtistViewPage, error)
 }
 
-// authAPI is the account state the explicit-content rule depends on.
-type authAPI interface {
-	Status() services.AuthStatus
-}
-
-// commands is what plays collections: kit.QueueCommands, Env.Queue once it
-// lands (queue.go is its stand-in).
-type commands interface {
-	PlaySongs(songs []services.Song, start int, from services.PlayFrom)
-	ShuffleSongs(songs []services.Song, from services.PlayFrom)
-}
-
-// ratings draws an item's Favourite and Suggest Less buttons over its state
-// (*kit.ItemStates).
-type ratings interface {
-	RatingButtons(c *ui.Context, kind string, it kit.StateItem, name string)
-}
-
 // artist is the feature's state.
 type artist struct {
-	env    *module.Env
-	lib    libraryAPI
-	cat    catalogAPI
-	auth   authAPI
-	queue  commands
-	states ratings
+	env *module.Env
+	lib libraryAPI
+	cat catalogAPI
 	// now is the clock an upcoming release is compared with.
 	now func() time.Time
 
@@ -73,15 +52,9 @@ type artist struct {
 
 // New is the artist module.
 func New(env *module.Env) module.Module {
-	system := services.Service[services.SystemService](env.Core)
-	svc := services.Service[services.PlaybackService](env.Core)
-	states := kit.NewItemStates(env.Queries, env.Post, services.Service[services.LibraryService](env.Core))
 	a := newArtist(env,
 		services.Service[services.LibraryService](env.Core),
-		services.Service[services.CatalogService](env.Core),
-		services.Service[services.AuthService](env.Core),
-		&queueCommands{svc: svc, play: env.Play, post: env.Post, mode: func() string { return system.Settings().Queue.ReplaceConfirm }},
-		states)
+		services.Service[services.CatalogService](env.Core))
 	return module.Module{
 		ID: "artist",
 		Routes: []module.Route{
@@ -89,12 +62,11 @@ func New(env *module.Env) module.Module {
 			{Pattern: viewPattern, Title: a.viewRouteTitle, Build: a.viewPage},
 		},
 		Actions: []kit.ActionDef{goToArtist(env)},
-		Init:    func() { a.init(); states.Follow(env.Bus) },
 	}
 }
 
-func newArtist(env *module.Env, lib libraryAPI, cat catalogAPI, auth authAPI, queue commands, states ratings) *artist {
-	return &artist{env: env, lib: lib, cat: cat, auth: auth, queue: queue, states: states, now: time.Now}
+func newArtist(env *module.Env, lib libraryAPI, cat catalogAPI) *artist {
+	return &artist{env: env, lib: lib, cat: cat, now: time.Now}
 }
 
 // goToArtist is the song row's "Go to artist" (id artist.go-to, group item,
@@ -129,25 +101,12 @@ func keyArtistView(id, view string) store.Key {
 	return store.Key{"catalog", "artist", id, "view", view}
 }
 
-var keyAuth = store.Key{"auth"}
-
 // isLibraryID: library artist IDs start "r."; anything else is catalogue.
 func isLibraryID(id string) bool { return strings.HasPrefix(id, "r.") }
 
-// init follows the account: a restricted one cannot play explicit releases.
-// (v0.2.0's artist module has no event handlers of its own: the library's
-// sync invalidations reach ["library","artist"].)
-func (a *artist) init() {
-	store.On(a.env.Bus, services.EventAuthChanged, func(s services.AuthStatus) {
-		store.Set(a.env.Queries, keyAuth, s)
-	})
-}
-
 // restricted reports whether the account may not play explicit items.
 func (a *artist) restricted() bool {
-	r := store.Use(a.env.Queries, keyAuth, func(context.Context) (services.AuthStatus, error) {
-		return a.auth.Status(), nil
-	}, store.Options{Stale: store.Forever})
+	r := store.UseAuth(a.env.Queries, a.env.Core)
 	return r.HasData && r.Data.Restricted
 }
 

@@ -29,9 +29,11 @@ type collTrackApp struct {
 
 func collSong(i int) *services.Song {
 	id := strconv.Itoa(i)
-	return &services.Song{ID: "s" + id, CatalogID: "c" + id, Name: "Song " + id, Artist: "Artist " + id, Album: "Album " + id,
+	return &services.Song{
+		ID: "s" + id, CatalogID: "c" + id, Name: "Song " + id, Artist: "Artist " + id, Album: "Album " + id,
 		ArtistID: "ar" + id, AlbumID: "al" + id, DurationMs: 195000 + int64(i)*1000, Playable: true, TrackNumber: i + 1, DiscNumber: 1,
-		Art: services.Art{Small: "/art/k" + id + "/s.jpg"}}
+		Art: services.Art{Small: "/art/k" + id + "/s.jpg"},
+	}
 }
 
 func newCollTrackApp(t *testing.T, n int, w, h int, setup ...func(*collTrackApp)) (*collTrackApp, *ui.Tester) {

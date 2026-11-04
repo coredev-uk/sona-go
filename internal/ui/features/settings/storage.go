@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"strconv"
-	"strings"
 
 	"github.com/egoist/mygo/ui"
 
@@ -86,7 +85,7 @@ func (s *settings) storage(c *ui.Context) {
 	for i, n := range choices {
 		items[i] = kit.SelectOption(strconv.Itoa(n), i18n.T("Up to {size}", "size", mibText(n)))
 	}
-	artUsed, artLimit := bytesText(u.ArtworkBytes), mibText(limit)
+	artUsed, artLimit := i18n.FormatBytes(u.ArtworkBytes), mibText(limit)
 	share := math.Min(1, float64(u.ArtworkBytes)/float64(int64(limit)<<20))
 
 	s.stack(c, func() {
@@ -99,13 +98,13 @@ func (s *settings) storage(c *ui.Context) {
 						ValueText: i18n.T("{artworkUsed} of {artworkLimit}", "artworkUsed", artUsed, "artworkLimit", artLimit),
 					}).Margin(6, 0, 0, 0)
 				})
-				s.figure(c, "catalog", i18n.T("Catalogue cache"), bytesText(u.CatalogBytes), "", func() {
+				s.figure(c, "catalog", i18n.T("Catalogue cache"), i18n.FormatBytes(u.CatalogBytes), "", func() {
 					text(c, i18n.T("{catalogEntries, plural, one {# page} other {# pages}}", "catalogEntries", u.CatalogEntries), "meta").
 						TextColor(theme.C("ink-muted")).FontFeatures("tnum")
 				})
-				s.figure(c, "db", i18n.T("Library database"), bytesText(u.DatabaseBytes), "", func() {
+				s.figure(c, "db", i18n.T("Library database"), i18n.FormatBytes(u.DatabaseBytes), "", func() {
 					if u.DatabaseFreeBytes > 0 {
-						text(c, i18n.T("{databaseFree} of it free space", "databaseFree", bytesText(u.DatabaseFreeBytes)), "meta").
+						text(c, i18n.T("{databaseFree} of it free space", "databaseFree", i18n.FormatBytes(u.DatabaseFreeBytes)), "meta").
 							TextColor(theme.C("ink-muted")).FontFeatures("tnum")
 					}
 				})
@@ -166,7 +165,7 @@ func (s *settings) clearRow(c *ui.Context, st *storageState) {
 					}
 					kit.ShowToast(kit.ToastSpec{Title: i18n.T(
 						"Cleared {artwork} of artwork and {pages, plural, one {# cached page} other {# cached pages}}",
-						"artwork", bytesText(r.ArtworkBytes), "pages", r.CatalogEntries)})
+						"artwork", i18n.FormatBytes(r.ArtworkBytes), "pages", r.CatalogEntries)})
 				})
 			}()
 		}
@@ -198,7 +197,7 @@ func (s *settings) compactRow(c *ui.Context, st *storageState, u services.Storag
 					case err != nil:
 						kit.ToastErrorf(i18n.T("Couldn't compact the database"), i18n.ErrorMessage(err))
 					case freed > 0:
-						kit.ShowToast(kit.ToastSpec{Title: i18n.T("Gave back {size} to the disk", "size", bytesText(freed))})
+						kit.ShowToast(kit.ToastSpec{Title: i18n.T("Gave back {size} to the disk", "size", i18n.FormatBytes(freed))})
 					default:
 						kit.ShowToast(kit.ToastSpec{Title: i18n.T("The database was already compact")})
 					}
@@ -215,33 +214,6 @@ func mibText(n int) string {
 		return i18n.T("{gb} GB", "gb", float64(n)/1024)
 	}
 	return i18n.T("{n} MB", "n", n)
-}
-
-// bytesText is bytes as "12.4 MB" (formatBytes): one digit under 10, none
-// above; the unit symbols are the same in every language the app has.
-func bytesText(n int64) string {
-	if n < 1024 {
-		return i18n.FormatNumber(float64(n)) + " B"
-	}
-	v, i := float64(n)/1024, 0
-	units := [...]string{"KB", "MB", "GB", "TB"}
-	for v >= 1024 && i < len(units)-1 {
-		v /= 1024
-		i++
-	}
-	digits := 0.0
-	if v < 10 {
-		digits = 1
-	}
-	p := math.Pow(10, digits)
-	v = math.Round(v*p) / p
-	num := i18n.FormatNumber(v)
-	if digits == 1 && v == math.Trunc(v) {
-		// A whole number keeps its one digit ("3.0"): the locale's own
-		// separator is what 1.5 is written with, between its digits.
-		num += strings.Trim(i18n.FormatNumber(1.5), "15") + "0"
-	}
-	return num + " " + units[i]
 }
 
 func storageErr(errs ...error) error {
