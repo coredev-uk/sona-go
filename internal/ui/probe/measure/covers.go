@@ -10,7 +10,7 @@ import (
 
 // A tile's cover, until it has decoded, is a flat square with a glyph on
 // it; a loaded cover is a picture. coversLoaded looks at the pixels of a
-// frame the window captured: above each fully visible tile's play button,
+// frame the window captured: at the top left of each fully visible tile,
 // inside its cover, a picture has far more distinct colours than the
 // placeholder's glyph and its antialiasing.
 const (
@@ -18,6 +18,9 @@ const (
 	// many distinct colours in it make a picture.
 	probeW, probeH = 80, 80
 	probeColours   = 100
+	// gradientColours and flatShare: the lower bar a gradient cover passes.
+	gradientColours = 20
+	flatShare       = 0.6
 	// loadedShare is how many of the visible covers must be pictures: a
 	// cover that is itself a flat colour does not hold the probe back.
 	loadedShare = 0.8
@@ -43,14 +46,14 @@ func (s *scenario) coversLoaded() (bool, error) {
 	seen, loaded := 0, 0
 	for _, t := range tiles {
 		b := t.Bounds
-		// The play button sits 8 DIPs in from the cover's bottom left; the
-		// sample is above it, a clear 30 DIPs inside the cover.
+		// The tile's top left is the cover's: the sample is the 80 DIPs
+		// from 8 DIPs in, clear of the cover's rounded corner.
 		if b.Y < page.Bounds.Y || b.Y+b.Height > page.Bounds.Y+page.Bounds.Height {
 			continue
 		}
 		seen++
-		r := image.Rect(int(b.X*scale), int((b.Y-30-probeH)*scale), int((b.X+probeW)*scale), int((b.Y-30)*scale)).Intersect(img.Bounds())
-		if distinctColours(img, r, probeColours) >= probeColours {
+		r := image.Rect(int((b.X+8)*scale), int((b.Y+8)*scale), int((b.X+8+probeW)*scale), int((b.Y+8+probeH)*scale)).Intersect(img.Bounds())
+		if isPicture(img, r) {
 			loaded++
 		}
 	}
@@ -60,19 +63,27 @@ func (s *scenario) coversLoaded() (bool, error) {
 	return float64(loaded) >= loadedShare*float64(seen), nil
 }
 
-// distinctColours counts the colours in r of img, stopping at limit.
-func distinctColours(img image.Image, r image.Rectangle, limit int) int {
-	seen := map[[3]uint32]struct{}{}
+// isPicture tells whether r of img holds a picture rather than the
+// placeholder: far more than probeColours distinct colours, or (a smooth
+// gradient has few steps in 80 DIPs) some colours and no one colour over
+// flatShare of the area, which a flat square with a small glyph on it has.
+func isPicture(img image.Image, r image.Rectangle) bool {
+	count := map[[3]uint32]int{}
 	for y := r.Min.Y; y < r.Max.Y; y++ {
 		for x := r.Min.X; x < r.Max.X; x++ {
 			cr, cg, cb, _ := img.At(x, y).RGBA()
-			seen[[3]uint32{cr >> 8, cg >> 8, cb >> 8}] = struct{}{}
-			if len(seen) >= limit {
-				return limit
-			}
+			count[[3]uint32{cr >> 8, cg >> 8, cb >> 8}]++
 		}
 	}
-	return len(seen)
+	if len(count) >= probeColours {
+		return true
+	}
+	most := 0
+	for _, n := range count {
+		most = max(most, n)
+	}
+	area := r.Dx() * r.Dy()
+	return len(count) >= gradientColours && area > 0 && float64(most) < flatShare*float64(area)
 }
 
 // waitCovers waits until the covers in view are drawn and returns the first

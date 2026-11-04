@@ -263,6 +263,79 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # The native UI's numbers after a merge (plan §15): the Albums scroll table,
+  # first paint over 5 starts, PSS and idle CPU, from cmd/uiprobe against the
+  # probe build in the same headless sway as the e2e job, on the fixture
+  # profile. Posted as the job summary. Not on pull requests. The probe has no
+  # motion-artwork scenario yet, so motion CPU is not reported. The headless
+  # session draws on the CPU (llvmpipe/pixman): compare runs with each other,
+  # not with a desktop GPU.
+  uiprobe:
+    name: UI probe (headless sway)
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+      E2E_OUT: ${{ github.workspace }}/uiprobe-out
+      E2E_UIPROBE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libgtk-3-dev libayatana-appindicator3-dev libsecret-1-dev \
+            libepoxy-dev libgl-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
+            sway wtype dbus dbus-daemon dbus-bin at-spi2-core libatk-bridge2.0-0t64 \
+            libegl1 libegl-mesa0 libgl1-mesa-dri fonts-dejavu-core
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Measure
+        run: e2e/headless.sh -- go test -tags e2e -count=1 -v -run '^TestUIProbe$' -timeout 20m ./e2e/...
+
+      - name: Job summary
+        if: ${{ always() }}
+        run: |
+          {
+            echo "## UI probe (headless sway, software rendering)"
+            echo
+            echo "### First paint"
+            cat "$E2E_OUT/uiprobe-firstpaint.md" 2>/dev/null || echo "not measured"
+            echo
+            echo "### Albums scroll, PSS and idle CPU"
+            echo
+            cat "$E2E_OUT/uiprobe-albums.md" 2>/dev/null || echo "not measured"
+            echo
+            echo "Motion artwork CPU: not measured (uiprobe has no motion scenario yet)."
+            echo
+            echo '<details><summary>uiprobe stderr</summary>'
+            echo
+            echo '```'
+            cat "$E2E_OUT/uiprobe-albums-stderr.txt" 2>/dev/null || true
+            echo '```'
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the tables and logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: uiprobe-out
+          path: ${{ github.workspace }}/uiprobe-out
+          if-no-files-found: ignore
+          retention-days: 14
+
   # The macOS and Windows builds (CONTRIBUTING.md, "Platforms"). Hosted macOS
   # minutes cost ten times Linux's (Windows twice) while the repository is
   # private, so until it is public these run only when dispatched (Actions →
