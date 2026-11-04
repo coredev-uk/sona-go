@@ -52,9 +52,15 @@ func (f *fakeStorage) get(n *int) int {
 
 const mebi = 1 << 20
 
+// storageRig opens Storage on a Linux desktop with no file chooser, whatever
+// the machine the test runs on (the words of "Not available on … yet." name
+// the platform).
 func storageRig(t *testing.T, f *fakeStorage) *rig {
 	t.Helper()
-	return sectionRigWith(t, "storage", func(s *settings) { *stateOf[storageAPI](s, "seam:storage") = f })
+	return sectionRigWith(t, "storage", func(s *settings) {
+		*stateOf[storageAPI](s, "seam:storage") = f
+		store.Set(s.env.Queries, store.KeyCapabilities, services.Capabilities{OS: "linux"})
+	})
 }
 
 func TestStorageShowsUsageAndRows(t *testing.T) {

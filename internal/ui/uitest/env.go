@@ -350,3 +350,4 @@ type noWindows struct{ services.Windows }
 func (noWindows) WatchMain(func(windowchrome.WindowState)) {}
 func (noWindows) WatchNavigate(func(bool))                 {}
 func (noWindows) DeveloperTools() bool                     { return false }
+func (noWindows) HasTray() bool                            { return false }
