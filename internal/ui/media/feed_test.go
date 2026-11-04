@@ -155,3 +155,56 @@ func TestFeedStopEndsTheGoroutine(t *testing.T) {
 	f.Start()
 	f.Stop()
 }
+
+func TestFeedKeepsNothingAfterStop(t *testing.T) {
+	s := video.NewSurface()
+	var mu sync.Mutex
+	var queue []func()
+	post := func(fn func()) { mu.Lock(); queue = append(queue, fn); mu.Unlock() }
+	shown := 0
+	f := NewFeed(s, post, func(Picture) { shown++ }, func() {}, nil)
+	f.Start()
+	s.Show(16, 16, 0, planes(16, 16, 128))
+	deadline := time.After(5 * time.Second)
+	for {
+		mu.Lock()
+		n := len(queue)
+		mu.Unlock()
+		if n > 0 {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("no picture posted")
+		case <-time.After(time.Millisecond):
+		}
+	}
+	// Stopped with a picture posted and not yet shown: it is never shown, and
+	// nothing is held.
+	f.Stop()
+	mu.Lock()
+	q := queue
+	queue = nil
+	mu.Unlock()
+	for _, fn := range q {
+		fn()
+	}
+	if shown != 0 {
+		t.Errorf("%d pictures shown after Stop", shown)
+	}
+	f.mu.Lock()
+	held := f.pending != nil || f.shown != nil || f.spare != nil || f.skipped != nil
+	f.mu.Unlock()
+	if held {
+		t.Error("the feed still holds decoded pictures after Stop")
+	}
+	// A restart does not flash the old picture, and a Refresh after Stop does nothing.
+	f.Refresh()
+	time.Sleep(20 * time.Millisecond)
+	mu.Lock()
+	n := len(queue)
+	mu.Unlock()
+	if n != 0 || shown != 0 {
+		t.Errorf("a stopped feed posted %d funcs, showed %d", n, shown)
+	}
+}

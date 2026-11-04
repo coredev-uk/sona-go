@@ -42,20 +42,20 @@ func TestEqLevelStepsThroughThreeValuesAndBack(t *testing.T) {
 	}
 }
 
-type eqApp struct {
+type mediaEqApp struct {
 	playing bool
 	p       *MotionPolicy
 }
 
-func (a *eqApp) view(c *ui.Context) {
+func (a *mediaEqApp) view(c *ui.Context) {
 	theme.Apply(c)
 	ui.Box(c).Padding(10).Children(func() {
 		EqualiserBars(c.Key("eq"), a.playing, a.p)
 	})
 }
 
-// barHeights are the amber pixels in each bar's column, from the bottom.
-func barHeights(tt *ui.Tester) [3]int {
+// mediaBarHeights are the amber pixels in each bar's column, from the bottom.
+func mediaBarHeights(tt *ui.Tester) [3]int {
 	amber := theme.C("amber")
 	var h [3]int
 	img := tt.Image()
@@ -74,19 +74,19 @@ func barHeights(tt *ui.Tester) [3]int {
 func TestEqualiserBarsAreStillWhenPaused(t *testing.T) {
 	theme.SetMode(theme.ModeLight)
 	defer theme.SetMode(theme.ModeSystem)
-	tt := ui.NewTester((&eqApp{}).view, 60, 40)
+	tt := ui.NewTester((&mediaEqApp{}).view, 60, 40)
 	tt.Frame()
 	if _, ok := tt.Find("Paused"); !ok {
 		t.Error("not named Paused")
 	}
 	// 60%, 100% and 40% of 12 DIPs.
-	h := barHeights(tt)
+	h := mediaBarHeights(tt)
 	if h != [3]int{7, 12, 5} && h != [3]int{8, 12, 5} && h != [3]int{7, 12, 4} {
 		t.Errorf("bar heights %v, want about 7, 12, 5", h)
 	}
 	tt.Advance(time.Second)
 	tt.Frame()
-	if got := barHeights(tt); got != h {
+	if got := mediaBarHeights(tt); got != h {
 		t.Errorf("a paused equaliser moved: %v then %v", h, got)
 	}
 }
@@ -94,7 +94,7 @@ func TestEqualiserBarsAreStillWhenPaused(t *testing.T) {
 func TestEqualiserBarsMoveInStepsWhilePlaying(t *testing.T) {
 	theme.SetMode(theme.ModeLight)
 	defer theme.SetMode(theme.ModeSystem)
-	a := &eqApp{playing: true}
+	a := &mediaEqApp{playing: true}
 	tt := ui.NewTester(a.view, 60, 40)
 	tt.Frame()
 	if _, ok := tt.Find("Now playing"); !ok {
@@ -102,7 +102,7 @@ func TestEqualiserBarsMoveInStepsWhilePlaying(t *testing.T) {
 	}
 	seen := map[[3]int]bool{}
 	for range 40 {
-		seen[barHeights(tt)] = true
+		seen[mediaBarHeights(tt)] = true
 		tt.Advance(100 * time.Millisecond)
 		tt.Frame()
 	}
@@ -113,16 +113,16 @@ func TestEqualiserBarsMoveInStepsWhilePlaying(t *testing.T) {
 }
 
 func TestEqualiserBarsStopWhenCoveredOrMotionIsReduced(t *testing.T) {
-	e := newMotionEnv(t)
-	a := &eqApp{playing: true, p: e.p}
+	e := newMediaMotionEnv(t)
+	a := &mediaEqApp{playing: true, p: e.p}
 	tt := ui.NewTester(a.view, 60, 40)
 	moves := func() bool {
 		tt.Frame()
-		first := barHeights(tt)
+		first := mediaBarHeights(tt)
 		for range 20 {
 			tt.Advance(100 * time.Millisecond)
 			tt.Frame()
-			if barHeights(tt) != first {
+			if mediaBarHeights(tt) != first {
 				return true
 			}
 		}

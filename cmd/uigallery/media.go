@@ -3,19 +3,98 @@
 package main
 
 import (
+	"context"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/lyrics"
+	"github.com/coredev-uk/sona-go/internal/playback/video"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/media"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
 // Media components: persons, avatars, backdrops, covers that move, the
 // equaliser and gradient text. This file waits for PR 0.3's cmd/uigallery
 // (register, section, gallery): the lead removes the build tag at rebase.
+// galleryFile is the motion policy of the sections that play. Motion needs a
+// decoder and a file: SONA_GALLERY_MOTION names an MP4 (a generated clip:
+// gst-launch-1.0 videotestsrc num-buffers=90 pattern=smpte ! x264enc ! mp4mux
+// ! filesink location=clip.mp4); without it covers show their stills, as where
+// motion is off.
+type galleryFile string
+
+func (f galleryFile) Local(context.Context, string, int, string) (string, error) {
+	return string(f), nil
+}
+
+var (
+	galleryOnce   sync.Once
+	galleryPolicy *kit.MotionPolicy
+	galleryFeed   *kit.VideoFeed
+)
+
+// galleryMedia is the motion policy and the music video feed (one grey-ramp
+// picture) of the sections that play.
+func galleryMedia(g *gallery) (*kit.MotionPolicy, *kit.VideoFeed) {
+	galleryOnce.Do(func() {
+		var files media.MotionFiles
+		if f := os.Getenv("SONA_GALLERY_MOTION"); f != "" {
+			files = galleryFile(f)
+		}
+		galleryPolicy = kit.NewMotionPolicy(nil, nil, kit.MotionOptions{Files: files, Art: g.art})
+		surface := video.NewSurface()
+		w, h := 160, 90
+		pic := make([]byte, media.I420Len(w, h))
+		for y := range h {
+			for x := range w {
+				pic[y*w+x] = byte(40 + 180*x/w)
+			}
+		}
+		for i := w * h; i < len(pic); i++ {
+			pic[i] = 128
+		}
+		surface.Show(w, h, 0, pic)
+		galleryFeed = kit.NewVideoFeed(surface, nil)
+		galleryFeed.Start()
+	})
+	return galleryPolicy, galleryFeed
+}
+
 func init() {
+	register(section{name: "Media / MotionCover, TileMotion", build: func(c *ui.Context, g *gallery) {
+		p, _ := galleryMedia(g)
+		ui.Row(c).Gap(16).Children(func() {
+			kit.MotionCover(c.Key("square"), p, g.art, "/art/gallery-1/300x300.jpg", "/motion/gallery-1/720.mp4", 120, kit.MotionOpts{})
+			kit.MotionCover(c.Key("round"), p, g.art, "/art/gallery-1/300x300.jpg", "/motion/gallery-1/720.mp4", 120, kit.MotionOpts{Round: true})
+			// A tile whose motion plays while it is hovered or focused, after 400 ms.
+			tile := ui.Box(c.Key("tile")).Size(120, 120)
+			hot := tile.Hovered() || tile.FocusWithin()
+			tile.Children(func() {
+				kit.Artwork(c.Key("art"), g.art, "/art/gallery-1/300x300.jpg", 120, kit.ArtOpts{Edge: true})
+				kit.TileMotion(c.Key("motion"), p, "/motion/gallery-1/720.mp4", 120, kit.TileMotionOpts{Hot: hot})
+			})
+		})
+	}})
+
+	register(section{name: "Media / VideoSurface, FluidArtwork", build: func(c *ui.Context, g *gallery) {
+		_, feed := galleryMedia(g)
+		ui.Row(c).Gap(16).Children(func() {
+			ui.Box(c.Key("surface")).Size(240, 135).Background(theme.C("surface")).Children(func() {
+				kit.VideoSurface(c.Key("v"), feed, kit.VideoOpts{A11yLabel: "Music video"})
+			})
+			ui.Box(c.Key("fluid")).Width(160).Children(func() {
+				kit.FluidArtwork(c.Key("f"), g.art, "/art/gallery-1/300x300.jpg", 160, kit.ArtOpts{Aspect: 16.0 / 9, Edge: true})
+			})
+			ui.Box(c.Key("round")).Width(100).Children(func() {
+				kit.FluidArtwork(c.Key("r"), g.art, "/art/gallery-1/300x300.jpg", 100, kit.ArtOpts{Round: true})
+			})
+		})
+	}})
+
 	register(section{name: "Media / PersonAvatar and Avatar", build: func(c *ui.Context, g *gallery) {
 		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
 			for i, n := range []string{"Thom Yorke", "Nigel Godrich", "The Bad Plus", "米津玄師", "Madonna", "50 Cent", "$$$", ""} {

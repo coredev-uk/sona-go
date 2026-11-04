@@ -102,7 +102,7 @@ func TestAvatarTone(t *testing.T) {
 }
 
 // lum is the WCAG relative luminance of a colour.
-func lum(c ui.Color) float64 {
+func mediaLum(c ui.Color) float64 {
 	f := func(v uint8) float64 {
 		x := float64(v) / 255
 		if x <= 0.04045 {
@@ -113,8 +113,8 @@ func lum(c ui.Color) float64 {
 	return 0.2126*f(c.R) + 0.7152*f(c.G) + 0.0722*f(c.B)
 }
 
-func contrast(a, b ui.Color) float64 {
-	hi, lo := lum(a), lum(b)
+func mediaContrast(a, b ui.Color) float64 {
+	hi, lo := mediaLum(a), mediaLum(b)
 	if lo > hi {
 		hi, lo = lo, hi
 	}
@@ -128,7 +128,7 @@ func TestAvatarTintsAreLegibleAndDistinct(t *testing.T) {
 		bgs := map[ui.Color]bool{}
 		for n := range AvatarTones {
 			bg, fg := theme.C(fmt.Sprintf("avatar-%d-bg", n)), theme.C(fmt.Sprintf("avatar-%d-fg", n))
-			if r := contrast(bg, fg); r < 4.5 {
+			if r := mediaContrast(bg, fg); r < 4.5 {
 				t.Errorf("mode %v tint %d: text contrast %.2f:1, want at least 4.5", mode, n, r)
 			}
 			bgs[bg] = true
@@ -139,21 +139,21 @@ func TestAvatarTintsAreLegibleAndDistinct(t *testing.T) {
 	}
 }
 
-type avatarApp struct {
+type mediaAvatarApp struct {
 	l    *ArtLoader
 	name string
 	src  string
 	size float32
 }
 
-func (a *avatarApp) view(c *ui.Context) {
+func (a *mediaAvatarApp) view(c *ui.Context) {
 	theme.Apply(c)
 	ui.Column(c).Padding(10).Children(func() {
 		PersonAvatar(c.Key("p"), a.l, a.name, a.src, a.size)
 	})
 }
 
-func newAvatarApp(t *testing.T, src *fakeArt, a *avatarApp) (*ui.Tester, *mainThread) {
+func newMediaAvatarApp(t *testing.T, src *fakeArt, a *mediaAvatarApp) (*ui.Tester, *mainThread) {
 	t.Helper()
 	theme.SetMode(theme.ModeLight)
 	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
@@ -164,8 +164,8 @@ func newAvatarApp(t *testing.T, src *fakeArt, a *avatarApp) (*ui.Tester, *mainTh
 }
 
 func TestPersonAvatarDrawsInitialsOnItsTint(t *testing.T) {
-	a := &avatarApp{name: "Thom Yorke", size: 80}
-	tt, _ := newAvatarApp(t, &fakeArt{}, a)
+	a := &mediaAvatarApp{name: "Thom Yorke", size: 80}
+	tt, _ := newMediaAvatarApp(t, &fakeArt{}, a)
 	tt.Frame()
 	tone := AvatarTone("Thom Yorke")
 	bg := theme.C(fmt.Sprintf("avatar-%d-bg", tone))
@@ -194,8 +194,8 @@ func TestPersonAvatarDrawsInitialsOnItsTint(t *testing.T) {
 
 func TestPersonAvatarShowsThePictureAndFallsBackWhenItFails(t *testing.T) {
 	src := &fakeArt{}
-	a := &avatarApp{name: "Thom Yorke", src: "/art/k1/300x300.jpg", size: 80}
-	tt, mt := newAvatarApp(t, src, a)
+	a := &mediaAvatarApp{name: "Thom Yorke", src: "/art/k1/300x300.jpg", size: 80}
+	tt, mt := newMediaAvatarApp(t, src, a)
 	tt.Frame()
 	mt.run(t, 1)
 	tt.Frame()
@@ -208,8 +208,8 @@ func TestPersonAvatarShowsThePictureAndFallsBackWhenItFails(t *testing.T) {
 
 	// A picture that fails keeps the initials.
 	failing := &fakeArt{fail: 100}
-	b := &avatarApp{name: "Thom Yorke", src: "/art/k1/300x300.jpg", size: 80}
-	tt, mt = newAvatarApp(t, failing, b)
+	b := &mediaAvatarApp{name: "Thom Yorke", src: "/art/k1/300x300.jpg", size: 80}
+	tt, mt = newMediaAvatarApp(t, failing, b)
 	tt.Frame()
 	mt.run(t, 1)
 	tt.Frame()

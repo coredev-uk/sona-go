@@ -161,6 +161,31 @@ func TestOpenMotion(t *testing.T) {
 	}
 }
 
+func TestOpenMotionSaysWhetherTheFileDidNotDecode(t *testing.T) {
+	if Codec() == "" {
+		t.Skip("nothing decodes motion artwork here")
+	}
+	junk := filepath.Join(t.TempDir(), "junk.mp4")
+	if err := os.WriteFile(junk, []byte("this is not a video"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := OpenMotion(context.Background(), &files{path: junk}, "/motion/abc/720.mp4", 360)
+	if !errors.Is(err, ErrDecode) {
+		t.Errorf("a junk file: %v, want ErrDecode", err)
+	}
+	// A failure to get the file is not a decode failure.
+	_, err = OpenMotion(context.Background(), failing{}, "/motion/abc/720.mp4", 360)
+	if err == nil || errors.Is(err, ErrDecode) {
+		t.Errorf("a failed download: %v", err)
+	}
+}
+
+type failing struct{}
+
+func (failing) Local(context.Context, string, int, string) (string, error) {
+	return "", errors.New("offline")
+}
+
 func TestOpenMotionWithoutDecoder(t *testing.T) {
 	if Codec() != "" {
 		t.Skip("this platform decodes motion artwork")

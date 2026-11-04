@@ -13,6 +13,9 @@ package media
 typedef struct {
 	GstElement *pipe;
 	GstElement *sink;
+	GstSample *sample; // pulled by motion_next, copied out and released by motion_copy
+	gsize stride;
+	int w, h;
 } sona_motion;
 
 static void motion_init(void) {
@@ -78,10 +81,15 @@ static char *motion_bus_error(sona_motion *m) {
 	return out;
 }
 
-// motion_next copies the next frame into dst (grown with realloc as
-// needed) and returns its duration in ns; 0 at the end, -1 on an error whose
-// words are in *err (a new string).
-static gint64 motion_next(sona_motion *m, void **dst, size_t *cap, int *w, int *h, char **err) {
+// motion_next pulls the next frame and keeps it for motion_copy. It returns
+// the frame's duration in ns (the default when the buffer has none) and its
+// size in *w and *h; 0 at the end, -1 on an error whose words are in *err (a
+// new string).
+static gint64 motion_next(sona_motion *m, int *w, int *h, char **err) {
+	if (m->sample != NULL) { // the last one was never copied
+		gst_sample_unref(m->sample);
+		m->sample = NULL;
+	}
 	// Wait in slices, so a pipeline error (a missing or damaged file) shows at
 	// once, not after the whole wait.
 	GstSample *s = NULL;
@@ -102,32 +110,34 @@ static gint64 motion_next(sona_motion *m, void **dst, size_t *cap, int *w, int *
 		*err = g_strdup("unreadable picture format");
 		return -1;
 	}
+	m->sample = s;
+	m->w = GST_VIDEO_INFO_WIDTH(&info);
+	m->h = GST_VIDEO_INFO_HEIGHT(&info);
+	m->stride = GST_VIDEO_INFO_PLANE_STRIDE(&info, 0);
+	*w = m->w;
+	*h = m->h;
 	GstBuffer *b = gst_sample_get_buffer(s);
+	gint64 d = GST_BUFFER_DURATION_IS_VALID(b) ? (gint64)GST_BUFFER_DURATION(b) : 0;
+	return d > 0 ? d : 33333333; // 0 would read as the end
+}
+
+// motion_copy writes the pulled frame's rows, tightly packed (4*w bytes
+// each), into dst, which holds 4*w*h bytes, and releases the frame.
+static int motion_copy(sona_motion *m, void *dst) {
+	if (m->sample == NULL) return 0;
+	GstBuffer *b = gst_sample_get_buffer(m->sample);
 	GstMapInfo mi;
 	if (!gst_buffer_map(b, &mi, GST_MAP_READ)) {
-		gst_sample_unref(s);
-		*err = g_strdup("unreadable picture");
-		return -1;
+		gst_sample_unref(m->sample);
+		m->sample = NULL;
+		return 0;
 	}
-	*w = GST_VIDEO_INFO_WIDTH(&info);
-	*h = GST_VIDEO_INFO_HEIGHT(&info);
-	gsize row = (gsize)(*w) * 4, stride = GST_VIDEO_INFO_PLANE_STRIDE(&info, 0), need = row * (gsize)(*h);
-	if (*cap < need) {
-		void *grown = realloc(*dst, need);
-		if (grown == NULL) {
-			gst_buffer_unmap(b, &mi);
-			gst_sample_unref(s);
-			*err = g_strdup("out of memory");
-			return -1;
-		}
-		*dst = grown;
-		*cap = need;
-	}
-	for (int y = 0; y < *h; y++) memcpy((guint8 *)*dst + y * row, mi.data + y * stride, row);
-	gint64 d = GST_BUFFER_DURATION_IS_VALID(b) ? (gint64)GST_BUFFER_DURATION(b) : 33333333;
+	gsize row = (gsize)m->w * 4;
+	for (int y = 0; y < m->h; y++) memcpy((guint8 *)dst + y * row, mi.data + y * m->stride, row);
 	gst_buffer_unmap(b, &mi);
-	gst_sample_unref(s);
-	return d;
+	gst_sample_unref(m->sample);
+	m->sample = NULL;
+	return 1;
 }
 
 static gboolean motion_rewind(sona_motion *m) {
@@ -136,6 +146,7 @@ static gboolean motion_rewind(sona_motion *m) {
 
 static void motion_close(sona_motion *m) {
 	gst_element_set_state(m->pipe, GST_STATE_NULL);
+	if (m->sample != NULL) gst_sample_unref(m->sample);
 	gst_object_unref(m->sink);
 	gst_object_unref(m->pipe);
 	g_free(m);
@@ -216,8 +227,6 @@ func has(factory string) bool {
 type gstDecoder struct {
 	mu     sync.Mutex // Close against a Next on another goroutine
 	m      *C.sona_motion
-	buf    unsafe.Pointer // malloc'd, grown by motion_next
-	cap    C.size_t
 	img    *image.RGBA
 	closed bool
 }
@@ -246,7 +255,7 @@ func (d *gstDecoder) Next() (ui.VideoFrame, error) {
 	}
 	var w, h C.int
 	var cerr *C.char
-	dur := C.motion_next(d.m, &d.buf, &d.cap, &w, &h, &cerr)
+	dur := C.motion_next(d.m, &w, &h, &cerr)
 	switch {
 	case dur == 0:
 		return ui.VideoFrame{}, io.EOF
@@ -257,7 +266,10 @@ func (d *gstDecoder) Next() (ui.VideoFrame, error) {
 	if d.img == nil || d.img.Rect.Dx() != int(w) || d.img.Rect.Dy() != int(h) {
 		d.img = image.NewRGBA(image.Rect(0, 0, int(w), int(h)))
 	}
-	copy(d.img.Pix, unsafe.Slice((*byte)(d.buf), int(w)*int(h)*4))
+	// Straight from GStreamer's buffer into the image: one copy.
+	if C.motion_copy(d.m, unsafe.Pointer(&d.img.Pix[0])) == 0 {
+		return ui.VideoFrame{}, errors.New("motion: unreadable picture")
+	}
 	return ui.VideoFrame{Image: d.img, Duration: time.Duration(dur)}, nil
 }
 
@@ -281,7 +293,5 @@ func (d *gstDecoder) Close() error {
 	}
 	d.closed = true
 	C.motion_close(d.m)
-	C.free(d.buf)
-	d.buf = nil
 	return nil
 }

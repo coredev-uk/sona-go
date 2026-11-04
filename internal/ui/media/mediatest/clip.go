@@ -19,6 +19,13 @@ var encoders = []string{"x264enc", "openh264enc", "vah264enc", "vtenc_h264"}
 // decodes the clip is the caller's to check (media.Codec).
 func Clip(t testing.TB, frames int) string {
 	t.Helper()
+	return ClipPattern(t, frames, "ball")
+}
+
+// ClipPattern is Clip with another videotestsrc pattern: "smpte" is colour
+// bars that never move, so any frame of the clip is the same picture.
+func ClipPattern(t testing.TB, frames int, pattern string) string {
+	t.Helper()
 	launch, err := exec.LookPath("gst-launch-1.0")
 	if err != nil {
 		t.Skip("gst-launch-1.0 is not installed")
@@ -38,7 +45,7 @@ func Clip(t testing.TB, frames int) string {
 		t.Skip("no H.264 encoder in this GStreamer")
 	}
 	path := filepath.Join(t.TempDir(), "clip.mp4")
-	out, err := exec.Command(launch, "-q", "videotestsrc", "num-buffers="+strconv.Itoa(frames), "pattern=ball", "!",
+	out, err := exec.Command(launch, "-q", "videotestsrc", "num-buffers="+strconv.Itoa(frames), "pattern="+pattern, "!",
 		"video/x-raw,width=96,height=64,framerate=30/1", "!", "videoconvert", "!", enc, "!", "h264parse", "!",
 		"mp4mux", "!", "filesink", "location="+path).CombinedOutput()
 	if err != nil {

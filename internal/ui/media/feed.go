@@ -88,6 +88,10 @@ func (f *Feed) Stop() {
 	}
 	cancel()
 	<-done
+	// Nothing of the video stays: no picture waiting, none held for reuse.
+	f.mu.Lock()
+	f.pending, f.skipped, f.shown, f.spare = nil, nil, nil, nil
+	f.mu.Unlock()
 }
 
 // Refresh converts and shows the newest picture the feed skipped while it was
@@ -97,8 +101,9 @@ func (f *Feed) Refresh() {
 	f.mu.Lock()
 	fr := f.skipped
 	f.skipped = nil
+	running := f.cancel != nil
 	f.mu.Unlock()
-	if fr != nil {
+	if fr != nil && running {
 		go f.publish(*fr) // off the main thread: the conversion is the cost
 	}
 }
@@ -116,7 +121,7 @@ func (f *Feed) run(ctx context.Context, done chan<- struct{}) {
 			// sequence the surface named.
 			after = fr.Seq
 			f.mu.Lock()
-			f.pending, f.skipped = nil, nil
+			f.pending, f.skipped, f.shown, f.spare = nil, nil, nil, nil
 			f.mu.Unlock()
 			f.post(f.clear)
 			continue
@@ -135,6 +140,10 @@ func (f *Feed) run(ctx context.Context, done chan<- struct{}) {
 // publish converts fr and makes it the picture to show next.
 func (f *Feed) publish(fr video.Frame) {
 	f.mu.Lock()
+	if f.cancel == nil {
+		f.mu.Unlock()
+		return // stopped
+	}
 	dst := f.spare
 	f.spare = nil
 	f.skipped = nil
@@ -144,6 +153,10 @@ func (f *Feed) publish(fr video.Frame) {
 		return // a malformed picture: the one before stays
 	}
 	f.mu.Lock()
+	if f.cancel == nil { // stopped while it converted
+		f.mu.Unlock()
+		return
+	}
 	if f.pending != nil && f.pending.Seq > fr.Seq {
 		// A newer picture was published while this one converted.
 		f.spare = img

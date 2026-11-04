@@ -82,7 +82,7 @@ func Backdrop(c *ui.Context, l *ArtLoader, o BackdropOpts, children func()) ui.E
 			st.prev = nil
 		}
 	}
-	colour, hasColour := hexColour(o.Color)
+	colour, hasColour := mediaHexColour(o.Color)
 	if st.cur == nil && !hasColour {
 		return finish()
 	}
@@ -141,9 +141,9 @@ func drawBackdropImage(p *ui.Painter, r ui.Rect, cv *cover, a float32) {
 	p.ImageRegion(bmp, src, dst, ui.ImageOptions{Tint: tint})
 }
 
-// hexColour parses "#rrggbb" (as the services send colours), reporting false
+// mediaHexColour parses "#rrggbb" (as the services send colours), reporting false
 // for anything else rather than panicking as ui.Hex does.
-func hexColour(s string) (c ui.Color, ok bool) {
+func mediaHexColour(s string) (c ui.Color, ok bool) {
 	if s == "" {
 		return c, false
 	}

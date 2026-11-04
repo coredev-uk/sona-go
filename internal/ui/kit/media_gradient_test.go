@@ -11,13 +11,13 @@ import (
 )
 
 var (
-	gradBase = ui.RGB(255, 0, 0) // the text
-	gradFill = ui.RGB(0, 0, 255) // the fill
+	mediaGradBase = ui.RGB(255, 0, 0) // the text
+	mediaGradFill = ui.RGB(0, 0, 255) // the fill
 )
 
 // glyphs counts the pixels of the window's x range that are mostly red (the
 // base) and mostly blue (the fill).
-func glyphs(tt *ui.Tester, x0, x1 int) (base, fill int) {
+func mediaGlyphs(tt *ui.Tester, x0, x1 int) (base, fill int) {
 	img := tt.Image()
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := x0; x < x1; x++ {
@@ -33,7 +33,7 @@ func glyphs(tt *ui.Tester, x0, x1 int) (base, fill int) {
 	return base, fill
 }
 
-func gradientView(o GradientOpts, text string) func(*ui.Context) {
+func mediaGradientView(o GradientOpts, text string) func(*ui.Context) {
 	return func(c *ui.Context) {
 		theme.Apply(c)
 		ui.Box(c).Padding(10).Children(func() {
@@ -45,15 +45,15 @@ func gradientView(o GradientOpts, text string) func(*ui.Context) {
 func TestGradientTextFillsFromTheStartOverTheBase(t *testing.T) {
 	theme.SetMode(theme.ModeLight)
 	defer theme.SetMode(theme.ModeSystem)
-	o := GradientOpts{Size: 40, Weight: 700, Base: gradBase, Fill: gradFill}
+	o := GradientOpts{Size: 40, Weight: 700, Base: mediaGradBase, Fill: mediaGradFill}
 	text := "HHHHHHHH"
 	img := func(p float32, rtl bool) (left, right [2]int) {
 		o := o
 		o.Progress, o.RTL = p, rtl
-		tt := ui.NewTester(gradientView(o, text), 300, 70)
+		tt := ui.NewTester(mediaGradientView(o, text), 300, 70)
 		tt.Frame()
-		l0, l1 := glyphs(tt, 0, 150)
-		r0, r1 := glyphs(tt, 150, 300)
+		l0, l1 := mediaGlyphs(tt, 0, 150)
+		r0, r1 := mediaGlyphs(tt, 150, 300)
 		return [2]int{l0, l1}, [2]int{r0, r1}
 	}
 	// Nothing reached: all base.
@@ -81,8 +81,8 @@ func TestGradientTextFillsFromTheStartOverTheBase(t *testing.T) {
 func TestGradientTextHasASoftEdge(t *testing.T) {
 	theme.SetMode(theme.ModeLight)
 	defer theme.SetMode(theme.ModeSystem)
-	o := GradientOpts{Size: 60, Weight: 900, Base: gradBase, Fill: gradFill, Progress: 0.4, Edge: 60}
-	tt := ui.NewTester(gradientView(o, "IIIIIIIIIIII"), 600, 90)
+	o := GradientOpts{Size: 60, Weight: 900, Base: mediaGradBase, Fill: mediaGradFill, Progress: 0.4, Edge: 60}
+	tt := ui.NewTester(mediaGradientView(o, "IIIIIIIIIIII"), 600, 90)
 	tt.Frame()
 	// Along the glyphs' row, the fill's strength falls off through the edge:
 	// blue in the first part, then purples (the fill's alpha over red), then red.
@@ -120,8 +120,8 @@ func TestGradientTextWrapsAtItsWidth(t *testing.T) {
 	}
 	// A wrapped text fills line after line: half the progress is the first
 	// lines, not half of each.
-	o := GradientOpts{Size: 20, Weight: 700, Base: gradBase, Fill: gradFill, Width: 100, Progress: 0.5}
-	tt := ui.NewTester(gradientView(o, "HHHHHHHHHHHHHHHHHHHHHHHH HHHHHHHHHHHHHHHHHHHHHHHH"), 140, 140)
+	o := GradientOpts{Size: 20, Weight: 700, Base: mediaGradBase, Fill: mediaGradFill, Width: 100, Progress: 0.5}
+	tt := ui.NewTester(mediaGradientView(o, "HHHHHHHHHHHHHHHHHHHHHHHH HHHHHHHHHHHHHHHHHHHHHHHH"), 140, 140)
 	tt.Frame()
 	img := tt.Image()
 	topFill, bottomBase := 0, 0
@@ -158,14 +158,14 @@ func TestSweepTextFillsEachWordAsItIsSung(t *testing.T) {
 		theme.Apply(c)
 		ui.Box(c).Padding(10).Children(func() {
 			ui.Box(c.Key("s")).Size(s.Width(), s.Height()).Draw(func(p *ui.Painter, r ui.Rect) {
-				moving = s.Paint(p, r.X, r.Y, gradBase, gradFill, 1, at, false)
+				moving = s.Paint(p, r.X, r.Y, mediaGradBase, mediaGradFill, 1, at, false)
 			})
 		})
 	}, 420, 70)
 	count := func(t0 time.Duration) (base, fill int, mv bool) {
 		at = t0
 		tt.Frame()
-		b, f := glyphs(tt, 0, 420)
+		b, f := mediaGlyphs(tt, 0, 420)
 		return b, f, moving
 	}
 	if b, f, mv := count(-time.Second); f != 0 || b < 50 || mv {
@@ -180,10 +180,10 @@ func TestSweepTextFillsEachWordAsItIsSung(t *testing.T) {
 }
 
 func TestWithAlphaScalesTheAlpha(t *testing.T) {
-	if got := withAlpha(ui.RGB(1, 2, 3), 0.5); got.A != 128 || got.R != 1 {
-		t.Errorf("withAlpha = %v", got)
+	if got := mediaAlpha(ui.RGB(1, 2, 3), 0.5); got.A != 128 || got.R != 1 {
+		t.Errorf("mediaAlpha = %v", got)
 	}
-	if got := withAlpha(ui.RGB(1, 2, 3), 2); got.A != 255 {
+	if got := mediaAlpha(ui.RGB(1, 2, 3), 2); got.A != 255 {
 		t.Errorf("alpha above 1: %v", got)
 	}
 }

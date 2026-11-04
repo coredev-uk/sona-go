@@ -317,6 +317,20 @@ func TestLocal(t *testing.T) {
 	if q, err := c.Local(ctx, u, 300, CodecH264); err != nil || q != p || hits.Load() != before {
 		t.Errorf("cached: %q, %v, %d requests", q, err, hits.Load()-before)
 	}
+	// A hit refreshes the file's place in the eviction order (mtime).
+	old := time.Now().Add(-48 * time.Hour)
+	if err := os.Chtimes(p, old, old); err != nil {
+		t.Fatal(err)
+	}
+	c.mu.Lock()
+	delete(c.touched, p)
+	c.mu.Unlock()
+	if _, err := c.Local(ctx, u, 300, CodecH264); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Stat(p); err != nil || time.Since(fi.ModTime()) > time.Hour {
+		t.Errorf("a Local hit did not touch the file: %v, %v", fi, err)
+	}
 	if q, err := c.Local(ctx, u, 700, CodecHEVC); err != nil || q != c.path(key, 720, CodecHEVC) {
 		t.Errorf("hevc: %q, %v", q, err)
 	}

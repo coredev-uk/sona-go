@@ -2,11 +2,13 @@ package kit
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/ui/media"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -57,6 +59,7 @@ type motionSlot struct {
 	err     error
 
 	hotSince time.Time // tiles: when the dwell began
+	rank     int       // tiles: 2 while hovered, 1 with only the focus (see claim)
 }
 
 func newMotionSlot(p *MotionPolicy) *motionSlot { return &motionSlot{p: p} }
@@ -64,7 +67,7 @@ func newMotionSlot(p *MotionPolicy) *motionSlot { return &motionSlot{p: p} }
 // touch marks the slot as built now.
 func (s *motionSlot) touch() {
 	first := s.built.Load() == 0
-	s.built.Store(s.p.now().UnixNano())
+	s.built.Store(s.p.clock().UnixNano())
 	if first {
 		s.p.register(s)
 	}
@@ -86,6 +89,8 @@ func (s *motionSlot) release() {
 	s.hotSince = time.Time{}
 	if s.p.owner == s {
 		s.p.owner = nil
+		// Tiles that waited for it build again and may play.
+		s.p.post(func() {})
 	}
 	s.p.unregister(s)
 	s.built.Store(0)
@@ -142,10 +147,16 @@ func (s *motionSlot) arrived(attempt int, player *ui.VideoPlayer, err error) {
 	s.cancel = nil
 	if err != nil {
 		s.state, s.err = slotFailed, err
-		s.p.outcome("download-failed", err)
+		if errors.Is(err, media.ErrDecode) {
+			s.p.outcome("media-error", err) // the file came, the decoder did not take it
+		} else {
+			s.p.outcome("download-failed", err)
+		}
 		return
 	}
-	s.player, s.state = player, slotReady
+	// A new player plays at once, whatever the view says: play pauses it
+	// when the cover is covered or out of view.
+	s.player, s.state, s.live = player, slotReady, true
 	s.gen++
 	s.p.outcome("playing", nil)
 }
@@ -220,7 +231,7 @@ func MotionCover(c *ui.Context, p *MotionPolicy, l *ArtLoader, art, motion strin
 		// Not before the window's scale is known: a first request at the
 		// wrong size would be dropped and the video opened again.
 		want := p.Allowed() && motion != "" && l.scaleKnown()
-		px := motionPx(cmpOr(o.VideoSize, size), l.scale)
+		px := motionPx(mediaOr(o.VideoSize, size), l.scale)
 		slot.sync(motion, px, want)
 		on := want && p.Visible() && (o.Overlay || !p.Covered()) && root.InView()
 		slot.play(on)
@@ -229,7 +240,7 @@ func MotionCover(c *ui.Context, p *MotionPolicy, l *ArtLoader, art, motion strin
 	return root
 }
 
-func cmpOr(v, fallback float32) float32 {
+func mediaOr(v, fallback float32) float32 {
 	if v != 0 {
 		return v
 	}
@@ -243,27 +254,35 @@ type TileMotionOpts struct {
 	// Hot is whether the tile is hovered or has keyboard focus (read it from
 	// the tile's own element: Hovered() || FocusWithin()).
 	Hot bool
+	// Focus says the tile is hot only by keyboard focus, not hovered: a hovered
+	// tile's motion plays before a focused one's, as in the reference.
+	Focus bool
 }
 
 // TileMotion is a cover tile's motion artwork, played only after the tile
-// has been hot (hovered or focused) for 400 ms and only one tile at a time:
-// the video loads then, at the 180 DIP rendition, and is dropped as the tile
-// goes cold, so a page of tiles at rest decodes nothing. Build it inside
-// the tile's art box (size × size DIPs): it draws over the cover, takes no
-// input and draws nothing at rest. motion is the DTO's motion URL; "" (Apple
-// has none), a nil policy or motion that is not allowed make it do nothing at
-// all.
-func TileMotion(c *ui.Context, p *MotionPolicy, l *ArtLoader, motion string, size float32, o TileMotionOpts) ui.Element {
+// has been hot (hovered or focused) for 400 ms and only one tile at a time
+// (the hovered one before one that only has the focus): the video loads then,
+// at the 180 DIP rendition for the window's scale (MotionOptions.Art), and is
+// dropped as the tile goes cold, so a page of tiles at rest decodes nothing.
+// Build it inside the tile's art box (size × size DIPs): it draws over the
+// cover, takes no input and draws nothing at rest. motion is the DTO's motion
+// URL; "" (Apple has none), a nil policy or motion that is not allowed make it
+// do nothing at all.
+func TileMotion(c *ui.Context, p *MotionPolicy, motion string, size float32, o TileMotionOpts) ui.Element {
 	host := ui.Box(c).Absolute().Top(0).Left(0).Size(size, size).IgnoreInput(true)
 	slot := *ui.Local(host, "tile-motion", func() *motionSlot { return newMotionSlot(p) })
-	host.Draw(func(pt *ui.Painter, _ ui.Rect) { l.noteScale(pt.Scale()) })
+	if p != nil && p.opts.Art != nil {
+		art := p.opts.Art
+		host.Draw(func(pt *ui.Painter, _ ui.Rect) { art.noteScale(pt.Scale()) })
+	}
 	hot := p.Allowed() && motion != "" && o.Hot
 	if !hot {
 		slot.hotSince = time.Time{}
 		slot.sync("", 0, false) // cold: the decoder goes
 		return host
 	}
-	if !l.scaleKnown() {
+	scale, known := p.scale()
+	if !known {
 		return host
 	}
 	now := c.Now()
@@ -274,12 +293,19 @@ func TileMotion(c *ui.Context, p *MotionPolicy, l *ArtLoader, motion string, siz
 		c.After(wait)
 		return host
 	}
-	if p.owner != nil && p.owner != slot {
-		c.After(50 * time.Millisecond) // another tile's motion is still playing
-		return host
+	if !p.claim(slot, !o.Focus) {
+		return host // the owner's release wakes this tile
 	}
-	p.owner = slot
-	slot.sync(motion, motionPx(tileCSS, l.scale), true)
+	slot.sync(motion, motionPx(tileCSS, scale), true)
 	slot.play(p.Visible() && !p.Covered() && host.InView())
 	return slot.fill(c, host, size, o.Round)
+}
+
+// scale is the window's device pixels per DIP and whether it is known yet
+// (MotionOptions.Art; without a loader, 1).
+func (p *MotionPolicy) scale() (float32, bool) {
+	if p.opts.Art == nil {
+		return 1, true
+	}
+	return p.opts.Art.scale, p.opts.Art.scaleKnown()
 }

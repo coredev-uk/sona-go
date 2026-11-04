@@ -103,17 +103,17 @@ func GradientText(c *ui.Context, text string, o GradientOpts) ui.Element {
 	}
 	box.Size(w, s.h).Draw(func(p *ui.Painter, r ui.Rect) {
 		p.TextLayout(s.layout, r.X, r.Y, o.Base)
-		paintFill(p, s.layout, r.X, r.Y, s.rects, o.Progress, edge, o.RTL, o.Fill)
+		mediaPaintFill(p, s.layout, r.X, r.Y, s.rects, o.Progress, edge, o.RTL, o.Fill)
 	})
 	return box
 }
 
-// paintFill draws layout again over itself in col, clipped to the part of
+// mediaPaintFill draws layout again over itself in col, clipped to the part of
 // rects (the boxes of one run of text, in reading order, laid out at x, y)
 // that progress, 0 to 1, has reached: solid up to p·(length + edge) − edge,
 // then edge DIPs fading out over gradientSteps slices. It reports nothing;
 // callers know whether progress moves.
-func paintFill(p *ui.Painter, layout *ui.TextLayout, x, y float32, rects []ui.Rect, progress, edge float32, rtl bool, col ui.Color) {
+func mediaPaintFill(p *ui.Painter, layout *ui.TextLayout, x, y float32, rects []ui.Rect, progress, edge float32, rtl bool, col ui.Color) {
 	if progress <= 0 || col.A == 0 {
 		return
 	}
@@ -151,15 +151,15 @@ func paintFill(p *ui.Painter, layout *ui.TextLayout, x, y float32, rects []ui.Re
 			for j := range gradientSteps {
 				from := solid + edge*float32(j)/gradientSteps
 				to := solid + edge*float32(j+1)/gradientSteps
-				fill(span(max(0, from), to), withAlpha(col, 1-(float32(j)+0.5)/gradientSteps))
+				fill(span(max(0, from), to), mediaAlpha(col, 1-(float32(j)+0.5)/gradientSteps))
 			}
 		}
 		offset += r.W
 	}
 }
 
-// withAlpha is c with its alpha scaled by a (0 to 1).
-func withAlpha(c ui.Color, a float32) ui.Color {
+// mediaAlpha is c with its alpha scaled by a (0 to 1).
+func mediaAlpha(c ui.Color, a float32) ui.Color {
 	c.A = uint8(float32(c.A)*min(max(a, 0), 1) + 0.5)
 	return c
 }
@@ -220,7 +220,7 @@ func (s *SweepText) Paint(p *ui.Painter, x, y float32, base, fill ui.Color, sung
 	if sung <= 0 {
 		return false
 	}
-	hi := withAlpha(fill, sung)
+	hi := mediaAlpha(fill, sung)
 	edge := s.size * 0.5
 	for k, w := range s.words {
 		if t < w.Begin {
@@ -230,7 +230,7 @@ func (s *SweepText) Paint(p *ui.Painter, x, y float32, base, fill ui.Color, sung
 		if t < w.End && w.End > w.Begin {
 			prog, moving = float32(t-w.Begin)/float32(w.End-w.Begin), true
 		}
-		paintFill(p, s.layout, x, y, s.rects[k], prog, edge, rtl, hi)
+		mediaPaintFill(p, s.layout, x, y, s.rects[k], prog, edge, rtl, hi)
 	}
 	return moving
 }

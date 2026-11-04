@@ -265,6 +265,7 @@ func (c *Cache) Local(ctx context.Context, urlPath string, px int, codec string)
 func (c *Cache) ensure(ctx context.Context, key string, size int, codec string) (string, error) {
 	path := c.path(key, size, codec)
 	if _, err := os.Stat(path); err == nil {
+		c.touch(path) // a file in use stays out of the way of eviction
 		return path, nil
 	}
 	c.mu.Lock()

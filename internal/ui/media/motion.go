@@ -14,6 +14,12 @@ import (
 // H.264 and HEVC.
 var ErrNoDecoder = fmt.Errorf("media: no motion artwork decoder: %w", errors.ErrUnsupported)
 
+// ErrDecode wraps what OpenMotion fails with after it has the file: the
+// decoder did not open (a plugin is missing) or the first frame did not
+// decode (the file is damaged). A failure before that, the file's download, is
+// not one.
+var ErrDecode = errors.New("media: motion artwork did not decode")
+
 // OpenMotion makes a looping player of the motion artwork urlPath names (a
 // DTO's "/motion/<key>/<n>.mp4"), the rendition for px device pixels.
 // It fetches the file from the motion cache (downloading it when it is not
@@ -31,14 +37,14 @@ func OpenMotion(ctx context.Context, files MotionFiles, urlPath string, px int) 
 	}
 	dec, err := NewMotionDecoder(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrDecode, err)
 	}
 	p, err := ui.NewVideoPlayer(dec)
 	if err != nil {
 		if c, ok := dec.(io.Closer); ok {
 			_ = c.Close() // a no-op if the player did
 		}
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrDecode, err)
 	}
 	return p.SetLoop(true), nil
 }

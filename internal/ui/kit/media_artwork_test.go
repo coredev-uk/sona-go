@@ -76,14 +76,14 @@ func TestArtworkFallbackReplacesTheGlyphAndTheSquare(t *testing.T) {
 	}
 }
 
-type fluidApp struct {
+type mediaFluidApp struct {
 	l      *ArtLoader
 	width  float32
 	size   float32
 	aspect float32
 }
 
-func (a *fluidApp) view(c *ui.Context) {
+func (a *mediaFluidApp) view(c *ui.Context) {
 	theme.Apply(c)
 	ui.Column(c).Padding(10).Children(func() {
 		ui.Box(c.Key("cell")).Width(a.width).Children(func() {
@@ -97,7 +97,7 @@ func TestFluidArtworkFillsItsContainerAtItsAspectAndRequestsAtSize(t *testing.T)
 	defer theme.SetMode(theme.ModeSystem)
 	src := &fakeArt{}
 	mt := newMainThread()
-	a := &fluidApp{width: 80, size: 160, aspect: 16.0 / 9}
+	a := &mediaFluidApp{width: 80, size: 160, aspect: 16.0 / 9}
 	a.l = newArtLoader(src, mt.post, 2)
 	defer a.l.Close()
 	tt := ui.NewTester(a.view, 200, 200)
@@ -123,7 +123,7 @@ func TestFluidArtworkFillsItsContainerAtItsAspectAndRequestsAtSize(t *testing.T)
 func TestFluidArtworkPlaceholderIsFortyPercentOfSize(t *testing.T) {
 	theme.SetMode(theme.ModeLight)
 	defer theme.SetMode(theme.ModeSystem)
-	a := &fluidApp{width: 100, size: 100, aspect: 0}
+	a := &mediaFluidApp{width: 100, size: 100, aspect: 0}
 	a.l = newArtLoader(&fakeArt{gate: make(chan struct{})}, newMainThread().post, 1)
 	defer a.l.Close()
 	tt := ui.NewTester(a.view, 200, 200)
