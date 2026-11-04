@@ -248,6 +248,11 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 		Open:     func() (authstore.Store, error) { return noAccount{}, nil },
 		Accounts: services.AccountStore{DB: d},
 	}
+	if o.apple != nil {
+		h.serveApple(o.apple)
+		acfg.APIBase = applemusic.BaseURL
+		acfg.Open = func() (authstore.Store, error) { return signedIn{}, nil }
+	}
 	for _, f := range o.auth {
 		f(&acfg)
 	}

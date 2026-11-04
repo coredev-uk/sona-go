@@ -626,7 +626,7 @@ func TestFrontCardMenuOpensOnRightClickAndShiftF10(t *testing.T) {
 // the rotation runs.
 func TestFrontStartsOverWhenThePageIsBuiltAgain(t *testing.T) {
 	r := newFront(t, 8)
-	r.tt.Click("Pause featured rotation")
+	_ = r.tt.Click("Pause featured rotation")
 	r.away()
 	r.tick(rotateEvery)
 	x, y := r.rowCentre(3)
