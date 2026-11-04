@@ -325,3 +325,29 @@ func TestClock(t *testing.T) {
 		}
 	}
 }
+
+func TestOtherModulesBuildIntoTheBarsRightGroupAndNoticeLine(t *testing.T) {
+	r := newRig(t, true)
+	r.env.PlayerControls.Add(20, func(c *ui.Context) { ui.Button(c, "Second control") })
+	r.env.PlayerControls.Add(10, func(c *ui.Context) { ui.Button(c, "First control") })
+	r.env.PlayerNotice.Add(0, func(c *ui.Context) { ui.Text(c, "A notice") })
+	r.seed()
+	for _, w := range []string{"First control", "Second control", "Mute"} {
+		if !r.tt.HasText(w) {
+			t.Errorf("bar lacks %q: %q", w, r.tt.Texts())
+		}
+	}
+	first, _ := r.tt.Find("First control")
+	second, _ := r.tt.Find("Second control")
+	mute, _ := r.tt.Find("Mute")
+	if !(first.X < second.X && second.X < mute.X) {
+		t.Errorf("controls out of order: %v %v then mute %v", first.X, second.X, mute.X)
+	}
+	if r.tt.HasText("A notice") {
+		t.Error("the CDM notice shows while the song plays")
+	}
+	r.seed(func(s *services.PlaybackState) { s.NoCDM = true })
+	if !r.tt.HasText("A notice") {
+		t.Errorf("a song waiting for the CDM shows no notice: %q", r.tt.Texts())
+	}
+}

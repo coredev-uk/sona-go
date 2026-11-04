@@ -31,7 +31,12 @@ func RemindButton(c *ui.Context, cl *store.Client, core *services.Core, album se
 	if !RemindAvailable(core, album) {
 		return
 	}
-	r := store.UseReminders(cl, core)
+	remindButton(c, store.UseReminders(cl, core), album, func(on bool) { SetReminder(core, album, on) })
+}
+
+// remindButton is RemindButton over what it reads (the reminders) and does
+// (set).
+func remindButton(c *ui.Context, r store.Result[[]services.Reminder], album services.Album, set func(on bool)) {
 	_, on := store.ReminderFor(r.Data, album.CatalogID)
 	icon := "bell"
 	tip := i18n.T("Get a notification when it's out")
@@ -43,6 +48,6 @@ func RemindButton(c *ui.Context, cl *store.Client, core *services.Core, album se
 	if Button(c.Key("remind"), i18n.T("Remind me"), ButtonOpts{
 		Variant: Outline, Size: SizeSM, Icon: icon, Pressed: &on, Disabled: pending, Tip: tip,
 	}).Clicked() {
-		SetReminder(core, album, !on)
+		set(!on)
 	}
 }
