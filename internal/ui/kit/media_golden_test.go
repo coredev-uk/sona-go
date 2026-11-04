@@ -108,7 +108,7 @@ func mediaGalleryView(l *ArtLoader) func(*ui.Context) {
 				for i, n := range []struct {
 					name string
 					size float32
-				}{{"Thom Yorke", 24}, {"Nigel Godrich", 32}, {"The Bad Plus", 40}, {"米津玄師", 56}, {"j-hope", 56}} {
+				}{{"Thom Yorke", 24}, {"Nigel Godrich", 32}, {"The Bad Plus", 40}, {"Ólafur Arnalds", 56}, {"j-hope", 56}} {
 					PersonAvatar(c.Key(i), l, n.name, "", n.size)
 				}
 			})
