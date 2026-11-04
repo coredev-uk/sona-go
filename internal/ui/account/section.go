@@ -106,7 +106,6 @@ type Section struct {
 	checking bool // Revalidate runs
 
 	signingOut bool // SignOut runs
-	busyAsked  bool // the "Signing out…" question is the pending confirm
 }
 
 // New is a Section over d.

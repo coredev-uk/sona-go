@@ -125,47 +125,31 @@ func (s *Section) ConfirmSignOut() {
 	if s.signingOut {
 		return
 	}
-	s.askSignOut(false)
-}
-
-func (s *Section) askSignOut(busy bool) {
-	label := i18n.T("Sign out")
-	if busy {
-		label = i18n.T("Signing out…")
-	}
-	s.busyAsked = busy
 	kit.Confirm(kit.ConfirmOptions{
 		Title:        i18n.T("Sign out of Apple Music?"),
 		Body:         i18n.T("Sona removes your token from the keyring, stops playback and deletes the copy of your library on this computer. Your Apple Music library itself isn't changed."),
-		ConfirmLabel: label,
+		ConfirmLabel: i18n.T("Sign out"),
+		BusyLabel:    i18n.T("Signing out…"),
 		Destructive:  true,
+		Hold:         true,
 	}, func(ok bool) {
-		if busy {
-			s.busyAsked = false
-		}
 		if ok && !s.signingOut {
 			s.signOut()
 		}
 	})
 }
 
-// signOut signs out; while it runs the question stays up as "Signing out…".
+// signOut signs out; while it runs the held question shows "Signing out…".
 func (s *Section) signOut() {
 	s.signingOut = true
-	s.askSignOut(true)
 	api := s.d.API
 	s.call(func() error { return api.SignOut(context.Background()) }, func(err error) {
 		s.signingOut = false
 		if err == nil {
-			if s.busyAsked {
-				kit.CancelConfirm()
-			}
+			kit.ConfirmClose()
 			return
 		}
 		kit.ToastErrorf(i18n.T("Couldn't sign out"), i18n.ErrorMessage(err))
-		// The dialog stays open: the "Signing out…" question becomes Sign out again.
-		if s.busyAsked || !kit.ConfirmPending() {
-			s.askSignOut(false)
-		}
+		kit.ConfirmRelease() // the question asks again
 	})
 }

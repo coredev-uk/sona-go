@@ -583,7 +583,7 @@ func (v *video) footer(c *ui.Context, s services.PlaybackState, caps services.Pl
 				case playing:
 					icon, name = "pause", i18n.T("Pause")
 				}
-				disc := kit.Button(c.Key("play"), "", kit.ButtonOpts{Variant: kit.Play, Size: kit.SizeLG, Icon: icon, Filled: !loading, A11yLabel: name}).Size(44, 44)
+				disc := kit.Button(c.Key("play"), "", kit.ButtonOpts{Variant: kit.Play, Size: kit.SizeLG, Icon: icon, Spin: loading, Filled: !loading, A11yLabel: name}).Size(44, 44)
 				if control(disc, focusVisible).Clicked() {
 					v.toggle()
 				}

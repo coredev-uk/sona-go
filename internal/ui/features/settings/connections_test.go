@@ -20,14 +20,16 @@ import (
 
 // connFake is a scripted scrobbler: nothing touches the keyring or network.
 type connFake struct {
-	mu      sync.Mutex
-	status  services.ScrobbleStatus
-	calls   []string
-	lfmErr  error
-	lbErr   error
-	lfmNext services.ScrobbleStatus
-	lbNext  services.ScrobbleStatus
-	hold    chan struct{} // ConnectLastFM waits for it when set
+	mu       sync.Mutex
+	status   services.ScrobbleStatus
+	calls    []string
+	lfmErr   error
+	lbErr    error
+	lfmNext  services.ScrobbleStatus
+	lbNext   services.ScrobbleStatus
+	hold     chan struct{} // ConnectLastFM waits for it when set
+	discHold chan struct{} // Disconnect waits for it when set
+	discErr  error
 }
 
 func (f *connFake) Status() services.ScrobbleStatus {
@@ -79,7 +81,10 @@ func (f *connFake) ConnectListenBrainz(_ context.Context, token string) (service
 
 func (f *connFake) Disconnect(p string) (services.ScrobbleStatus, error) {
 	f.note("disconnect:" + p)
-	return services.ScrobbleStatus{Unencrypted: false}, nil
+	if f.discHold != nil {
+		<-f.discHold
+	}
+	return services.ScrobbleStatus{Unencrypted: false}, f.discErr
 }
 
 type connInteg struct{ st services.IntegrationsStatus }
@@ -337,6 +342,34 @@ func TestDisconnectWithPendingAsksFirst(t *testing.T) {
 	r.tt.Until("called", func() bool { return len(f.did()) == 1 })
 	if f.did()[0] != "disconnect:lastfm" {
 		t.Fatalf("calls %v", f.did())
+	}
+}
+
+func TestDisconnectQuestionStaysUpBusyThenClosesOrAsksAgain(t *testing.T) {
+	f := connectedFake(2)
+	f.discHold = make(chan struct{})
+	f.discErr = errors.New("keyring locked")
+	r := newConnRig(t, f, services.IntegrationsStatus{}, allCaps)
+	r.tt.Until("page", r.tt.Shows("Disconnect"))
+	r.click("Disconnect Last.fm")
+	r.tt.Until("dialog", r.tt.Shows("Disconnect Last.fm?"))
+	r.confirm()
+	r.tt.Until("called", func() bool { return len(f.did()) == 1 })
+	r.tt.Until("busy", r.tt.Shows("Disconnect Last.fm?", "Disconnecting…"))
+	if !kit.ConfirmPending() {
+		t.Fatal("the question closed while it runs")
+	}
+	f.discHold <- struct{}{} // it fails
+	r.tt.Until("asked again", func() bool { return !r.tt.HasText("Disconnecting…") && r.tt.HasText("Disconnect Last.fm?") })
+	f.mu.Lock()
+	f.discErr = nil
+	f.mu.Unlock()
+	r.confirm()
+	r.tt.Until("busy again", r.tt.Shows("Disconnecting…"))
+	f.discHold <- struct{}{}
+	r.tt.Until("closed", func() bool { return !r.tt.HasText("Disconnect Last.fm?") })
+	if kit.ConfirmPending() {
+		t.Error("the question is still pending")
 	}
 }
 

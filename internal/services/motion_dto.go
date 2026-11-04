@@ -70,4 +70,6 @@ type MotionReport struct {
 	// Last is the newest video's outcome as Diagnostics shows it, for the
 	// bundle (maintainer-facing, never shown in the UI).
 	Last string `json:"last"`
+	// LastAt is when it happened, in Unix milliseconds (0: no video yet).
+	LastAt int64 `json:"lastAt"`
 }

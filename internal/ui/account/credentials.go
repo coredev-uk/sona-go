@@ -75,7 +75,7 @@ func (s *Section) signInButton(c *ui.Context, f *flow, small bool) {
 		size = kit.SizeSM
 	}
 	disabled := f.step.Busy || trimmed(f.account) == "" || f.password == ""
-	if kit.Button(c.Key("sign-in"), label, kit.ButtonOpts{Size: size, Icon: icon, Disabled: disabled}).Clicked() {
+	if kit.Button(c.Key("sign-in"), label, kit.ButtonOpts{Size: size, Icon: icon, Spin: f.step.Busy, Disabled: disabled}).Clicked() {
 		s.submitCredentials(f)
 	}
 }

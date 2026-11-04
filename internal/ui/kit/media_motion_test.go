@@ -1002,3 +1002,15 @@ func mediaOnlySlot(p *MotionPolicy) *motionSlot {
 	}
 	return nil
 }
+
+func TestMotionReportSaysWhenTheLastVideoWent(t *testing.T) {
+	at := time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)
+	p := &MotionPolicy{now: func() time.Time { return at }}
+	if r := p.Report(); r.LastAt != 0 {
+		t.Errorf("LastAt %d before any video", r.LastAt)
+	}
+	p.outcome("playing", nil)
+	if r := p.Report(); r.Last != "playing" || r.LastAt != at.UnixMilli() {
+		t.Errorf("report %+v, want playing at %d", r, at.UnixMilli())
+	}
+}

@@ -353,6 +353,26 @@ func TestFrontWaitsAWholeIntervalMoreAtATickThatFindsAMenuOpen(t *testing.T) {
 	}
 }
 
+func TestFrontWaitsWhileAMenuOfAnotherOwnerIsOpen(t *testing.T) {
+	r := newFront(t, 8)
+	var sidebar kit.Menu // the shell's, not the page's
+	sidebar.OpenAt(100, 100, true)
+	t.Cleanup(sidebar.Close)
+	r.tick(rotateEvery)
+	if r.lead() != 0 {
+		t.Fatalf("lead %d at a tick that found another menu open", r.lead())
+	}
+	r.tick(rotateEvery)
+	if r.lead() != 0 {
+		t.Fatalf("lead %d at the next tick, the menu still open", r.lead())
+	}
+	sidebar.Close()
+	r.tick(rotateEvery)
+	if r.lead() != 1 {
+		t.Errorf("lead %d once it closed, want 1", r.lead())
+	}
+}
+
 func TestFrontDoesNotRunUnderAPageMadeInert(t *testing.T) {
 	r := newFront(t, 8)
 	uncover := r.env.Motion.Cover() // Now Playing, lyrics, a modal

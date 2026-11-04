@@ -37,10 +37,14 @@ func (s *settings) hasRoute(path string) bool {
 
 // focusState remembers whether the output select had the focus, to refetch
 // the list when it gets it.
-type outputState struct{ focused bool }
+type outputState struct {
+	focused bool
+	blurred bool // the window lost the keyboard focus: coming back refetches the devices
+}
 
 // outputRow is the Output select: system default, then each device; the
-// list is refetched when the select is used.
+// list is refetched when the select is used and when the window
+// gets the keyboard focus back (a device plugged in meanwhile).
 func (s *settings) outputRow(c *ui.Context, st config.Settings) {
 	title := i18n.T("Output")
 	r := store.Use(s.env.Queries, keyOutputs, func(context.Context) ([]services.OutputDevice, error) {
@@ -78,6 +82,14 @@ func (s *settings) outputRow(c *ui.Context, st config.Settings) {
 		value = systemDefault
 	}
 	os := stateOf[outputState](s, "output")
+	if win := s.env.Window; win != nil {
+		if !win.Focused() {
+			os.blurred = true
+		} else if os.blurred {
+			os.blurred = false
+			s.env.Queries.Invalidate(keyOutputs)
+		}
+	}
 	s.row(c, rowOpts{ID: "output", Title: title, Desc: desc}, func() ui.Element {
 		v := value
 		sel := kit.Select(c, &v, items, kit.SelectOpts{Small: true, A11yLabel: title, Width: selectWidthFor(items, value)})

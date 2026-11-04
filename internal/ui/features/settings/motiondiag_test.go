@@ -139,12 +139,12 @@ func TestLastDownloadWordsGosFailure(t *testing.T) {
 func TestLastVideoFromThePolicysOutcome(t *testing.T) {
 	cases := map[string]diagRow{
 		"":                           {value: "None since Sona started"},
-		"playing":                    {value: "Played", status: statusOK},
-		"media-error: no frames":     {value: "Sona couldn't play it", status: statusWarning, detail: "no frames"},
-		"download-failed: not found": {value: "Couldn't download", status: statusWarning, detail: "not found"},
+		"playing":                    {value: "Played · 5 min. ago", status: statusOK},
+		"media-error: no frames":     {value: "Sona couldn't play it · 5 min. ago", status: statusWarning, detail: "no frames"},
+		"download-failed: not found": {value: "Couldn't download · 5 min. ago", status: statusWarning, detail: "not found"},
 	}
 	for in, want := range cases {
-		got := lastVideo(in)
+		got := lastVideo(in, diagNow.Add(-5*time.Minute).UnixMilli(), diagNow)
 		if got.value != want.value || got.status != want.status || got.detail != want.detail {
 			t.Errorf("%q: %+v", in, got)
 		}

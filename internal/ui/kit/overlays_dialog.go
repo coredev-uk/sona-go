@@ -192,12 +192,21 @@ type ConfirmOptions struct {
 	Destructive bool
 	// CancelLabel words the cancelling button; "" is "Cancel".
 	CancelLabel string
+	// Hold keeps the question up once it is confirmed, busy: done(true) runs,
+	// the confirming button shows BusyLabel with a spinner and takes no
+	// click, Cancel is disabled and Escape does nothing, until the caller
+	// ends it with ConfirmClose (it worked) or ConfirmRelease (it failed:
+	// the same question is asked again).
+	Hold bool
+	// BusyLabel is the confirming button's label while held: "Signing out…".
+	BusyLabel string
 }
 
 type confirmRequest struct {
 	ConfirmOptions
 	done  func(bool)
 	focus FocusStep
+	busy  bool // confirmed and held: done has been told
 }
 
 // FocusStep counts the frames of a FocusWhenShown: the zero value is a focus
@@ -233,25 +242,61 @@ var pendingConfirm *confirmRequest
 func Confirm(o ConfirmOptions, done func(ok bool)) {
 	if p := pendingConfirm; p != nil {
 		pendingConfirm = nil
-		if p.done != nil {
+		if p.done != nil && !p.busy {
 			p.done(false)
 		}
 	}
 	pendingConfirm = &confirmRequest{ConfirmOptions: o, done: done}
 }
 
-// settleConfirm answers the pending question.
+// settleConfirm answers the pending question. A confirmed Hold question
+// stays up, busy.
 func settleConfirm(ok bool) {
 	p := pendingConfirm
+	if p == nil {
+		return
+	}
+	if p.busy {
+		return
+	}
+	if ok && p.Hold {
+		p.busy = true
+		if p.done != nil {
+			p.done(true)
+		}
+		return
+	}
 	pendingConfirm = nil
-	if p != nil && p.done != nil {
+	if p.done != nil {
 		p.done(ok)
 	}
 }
 
 // CancelConfirm settles the pending question false (the window it was asked
-// in is going away).
-func CancelConfirm() { settleConfirm(false) }
+// in is going away). A held question is dropped; it was answered already.
+func CancelConfirm() {
+	if p := pendingConfirm; p != nil && p.busy {
+		pendingConfirm = nil
+		return
+	}
+	settleConfirm(false)
+}
+
+// ConfirmClose ends a held question that worked: the dialog closes.
+func ConfirmClose() {
+	if p := pendingConfirm; p != nil && p.busy {
+		pendingConfirm = nil
+	}
+}
+
+// ConfirmRelease ends the busy state of a held question that failed: the
+// question is asked again, enabled, and answers through the same callback.
+func ConfirmRelease() {
+	if p := pendingConfirm; p != nil && p.busy {
+		p.busy = false
+		p.focus = 0
+	}
+}
 
 // ConfirmPending reports whether a question is waiting for an answer.
 func ConfirmPending() bool { return pendingConfirm != nil }
@@ -273,22 +318,31 @@ func ConfirmHost(c *ui.Context) {
 			if cancel == "" {
 				cancel = i18n.T("Cancel")
 			}
-			if Button(c.Key("confirm:cancel"), cancel, ButtonOpts{Variant: Outline, Size: SizeSM}).Clicked() {
+			if Button(c.Key("confirm:cancel"), cancel, ButtonOpts{Variant: Outline, Size: SizeSM, Disabled: p.busy}).Clicked() {
 				settleConfirm(false)
 			}
 			v := Default
 			if p.Destructive {
 				v = Destructive
 			}
-			ok := Button(c.Key("confirm:ok"), p.ConfirmLabel, ButtonOpts{Variant: v, Size: SizeSM})
-			FocusWhenShown(c, ok, &p.focus)
+			label, icon := p.ConfirmLabel, ""
+			if p.busy {
+				label, icon = p.BusyLabel, "loader-circle"
+				if label == "" {
+					label = p.ConfirmLabel
+				}
+			}
+			ok := Button(c.Key("confirm:ok"), label, ButtonOpts{Variant: v, Size: SizeSM, Icon: icon, Spin: p.busy, Disabled: p.busy})
+			if !p.busy {
+				FocusWhenShown(c, ok, &p.focus)
+			}
 			if ok.Clicked() {
 				settleConfirm(true)
 			}
 		})
 	})
 	if !open && pendingConfirm == p {
-		settleConfirm(false)
+		settleConfirm(false) // a busy question ignores it
 	}
 }
 
