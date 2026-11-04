@@ -17,6 +17,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/mpris"
 	"github.com/coredev-uk/sona-go/internal/power"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/media"
 	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
@@ -71,7 +72,7 @@ func openPlatform(_ config.Paths, act app.Activation, log *slog.Logger) (*platfo
 // Services are the integrations for services.Deps.Platform. Without a
 // session bus only the autostart entry remains.
 func (p *platform) Services() services.Platform {
-	out := services.Platform{Autostart: app.XDGAutostart{}, TitleBar: p.TitleBar()}
+	out := services.Platform{Autostart: app.XDGAutostart{}, TitleBar: p.TitleBar(), MotionArtwork: media.Supported}
 	conn := p.conn
 	if conn == nil {
 		return out

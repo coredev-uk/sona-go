@@ -60,6 +60,34 @@ func (f *fakeArt) Get(ctx context.Context, _ string, w, h int) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
+// Backdrop answers with a 16×16 blue JPEG, and counts as a request of 0×0.
+func (f *fakeArt) Backdrop(ctx context.Context, _ string) ([]byte, error) {
+	if f.gate != nil {
+		select {
+		case <-f.gate:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	f.mu.Lock()
+	f.gets = append(f.gets, [2]int{0, 0})
+	failing := f.fail > 0
+	f.fail--
+	f.mu.Unlock()
+	if failing {
+		return nil, errors.New("backdrop unavailable")
+	}
+	img := image.NewRGBA(image.Rect(0, 0, 16, 16))
+	for i := 0; i < len(img.Pix); i += 4 {
+		img.Pix[i], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = 30, 60, 200, 255
+	}
+	var b bytes.Buffer
+	if err := jpeg.Encode(&b, img, &jpeg.Options{Quality: 95}); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
 func (f *fakeArt) requests() [][2]int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -210,6 +238,11 @@ func TestArtworkLearnsTheScaleFromPainting(t *testing.T) {
 	tt.Frame()
 	mt.run(t, 1)
 	tt.Frame()
+	// The workers fetch off the test's goroutine: wait for the second request.
+	deadline := time.Now().Add(5 * time.Second)
+	for len(src.requests()) < 2 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
 	reqs := src.requests()
 	if len(reqs) != 2 || reqs[len(reqs)-1] != [2]int{150, 150} {
 		t.Errorf("requests %v: want the exact 150×150 at the end", reqs)

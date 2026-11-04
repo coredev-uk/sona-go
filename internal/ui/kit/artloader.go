@@ -22,6 +22,8 @@ type artSource interface {
 	Template(urlPath string) (template string, ok bool)
 	// Get is the JPEG of a template at an exact box in pixels.
 	Get(ctx context.Context, template string, w, h int) ([]byte, error)
+	// Backdrop is the pre-blurred backdrop JPEG of a template.
+	Backdrop(ctx context.Context, template string) ([]byte, error)
 }
 
 var _ artSource = (*artwork.Cache)(nil)
@@ -51,6 +53,8 @@ type ArtLoader struct {
 
 	// The main thread only.
 	scale  float32
+	known  bool // the scale is the window's, told or painted
+	await  bool // something is waiting for known (a frame is due once it is)
 	covers map[artKey]*cover
 	clock  uint64 // advances with every ask, for dropping the oldest
 
@@ -114,18 +118,32 @@ func newArtLoader(src artSource, post store.Poster, workers int) *ArtLoader {
 // a scaled screen asks for covers at scale 1, then again at the right
 // size).
 func (l *ArtLoader) SetScale(s float32) {
-	if s > 0 && s != l.scale {
-		l.scale = s
+	if s > 0 {
+		l.scale, l.known = s, true
 	}
 }
 
 // noteScale is Artwork's paint callback: the window's scale is only known
 // to a painter.
 func (l *ArtLoader) noteScale(s float32) {
-	if s > 0 && s != l.scale {
-		l.scale = s
+	if s <= 0 {
+		return
+	}
+	changed := s != l.scale || (!l.known && l.await)
+	l.scale, l.known, l.await = s, true, false
+	if changed {
 		l.post(func() {}) // a frame, which asks for the covers at the new size
 	}
+}
+
+// scaleKnown reports whether the window's scale is known, and if not has the
+// next paint that learns it ask for a frame: motion waits for it, as a request
+// at the wrong size would be dropped and the video opened again.
+func (l *ArtLoader) scaleKnown() bool {
+	if !l.known {
+		l.await = true
+	}
+	return l.known
 }
 
 // Close stops the workers; covers still queued are dropped.
@@ -149,7 +167,25 @@ func (l *ArtLoader) cover(src string, w, h float32) *cover {
 	if src == "" {
 		return nil
 	}
-	key := artKey{src, devicePx(w, l.scale), devicePx(h, l.scale)}
+	return l.ask(artKey{src, devicePx(w, l.scale), devicePx(h, l.scale)})
+}
+
+// backdrop is the pre-blurred backdrop of src (a DTO's
+// "/art/<key>/backdrop.jpg" or a template: a few kilobytes of JPEG, decoded
+// at its own size), asking for it the first time. nil when src names nothing.
+func (l *ArtLoader) backdrop(src string) *cover {
+	if src == "" {
+		return nil
+	}
+	return l.ask(artKey{src: src}) // no pixel size: a backdrop's own
+}
+
+// isBackdrop reports whether the key names a backdrop.
+func (k artKey) isBackdrop() bool { return k.pw == 0 }
+
+// ask is the cover of key, started when it is new (or waiting to be asked
+// again).
+func (l *ArtLoader) ask(key artKey) *cover {
 	cv := l.covers[key]
 	if cv == nil {
 		if len(l.covers) >= maxArt {
@@ -162,7 +198,7 @@ func (l *ArtLoader) cover(src string, w, h float32) *cover {
 	cv.used = l.clock
 	switch cv.state {
 	case coverIdle:
-		cv.template = l.templateOf(src)
+		cv.template = l.templateOf(key.src)
 		if cv.template == "" {
 			cv.state = coverFailed // not one of ours: the placeholder stays
 			return cv
@@ -228,7 +264,13 @@ func (l *ArtLoader) work() {
 }
 
 func (l *ArtLoader) load(key artKey, template string) (*ui.Bitmap, error) {
-	data, err := l.src.Get(l.ctx, template, key.pw, key.ph)
+	var data []byte
+	var err error
+	if key.isBackdrop() {
+		data, err = l.src.Backdrop(l.ctx, template)
+	} else {
+		data, err = l.src.Get(l.ctx, template, key.pw, key.ph)
+	}
 	if err != nil {
 		return nil, err
 	}

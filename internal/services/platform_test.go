@@ -38,13 +38,14 @@ func TestCapabilitiesFollowThePlatformAndEngine(t *testing.T) {
 		Autostart:     app.XDGAutostart{},
 		Files:         app.Portal{},
 		Tray:          true,
+		MotionArtwork: true,
 	}
 	eng := &playEngine{}
 	got := newPlatformService(&Env{Deps: Deps{Engine: eng, Platform: plat, Settings: testSettings(t)}}).Capabilities()
 	if !got.Playback.Available || got.Playback.Engine != playback.KindCDM || !got.Playback.Volume || got.Playback.Equalizer {
 		t.Errorf("playback = %+v, want the engine's capabilities", got.Playback)
 	}
-	if !got.MediaControls || !got.Autostart || !got.FileChooser || !got.Tray || got.Notifications || got.SleepInhibit || got.PowerState || got.CLI {
+	if !got.MediaControls || !got.Autostart || !got.FileChooser || !got.Tray || !got.MotionArtwork || got.Notifications || got.SleepInhibit || got.PowerState || got.CLI {
 		t.Errorf("capabilities = %+v, want exactly the platform's seams", got)
 	}
 }

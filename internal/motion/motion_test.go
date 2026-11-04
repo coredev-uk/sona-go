@@ -2,6 +2,7 @@ package motion
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -289,6 +290,55 @@ func TestServe(t *testing.T) {
 	}
 	if s := c.Stats(); s.Files != 4 || !errors.Is(s.Last.Err, ErrNoRendition) || s.Last.Rendition != "" {
 		t.Errorf("stats after a failure = %+v", s)
+	}
+}
+
+func TestLocal(t *testing.T) {
+	srv, hits, files := fakeCDN(t)
+	c := newTestCache(t, srv, 0)
+	u := c.URL(srv.URL + "/v/master.m3u8")
+	key := strings.Split(u, "/")[2]
+	ctx := context.Background()
+
+	// The file ServeHTTP serves, downloaded on first ask: a 360 px tile
+	// (device pixels) gets the 360 bucket whatever size the URL names.
+	p, err := c.Local(ctx, u+"?x=1", 300, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p != c.path(key, 360, CodecH264) {
+		t.Errorf("path = %s", p)
+	}
+	b, err := os.ReadFile(p)
+	if err != nil || !bytes.Equal(b, flattened(t, files["v360"])) {
+		t.Errorf("file: %v (%d bytes)", err, len(b))
+	}
+	before := hits.Load()
+	if q, err := c.Local(ctx, u, 300, CodecH264); err != nil || q != p || hits.Load() != before {
+		t.Errorf("cached: %q, %v, %d requests", q, err, hits.Load()-before)
+	}
+	if q, err := c.Local(ctx, u, 700, CodecHEVC); err != nil || q != c.path(key, 720, CodecHEVC) {
+		t.Errorf("hevc: %q, %v", q, err)
+	}
+
+	for _, bad := range []struct {
+		path  string
+		px    int
+		codec string
+	}{
+		{"/motion/0123456789abcdef01234567/400.mp4", 400, ""},
+		{"/art/" + key + "/400.mp4", 400, ""},
+		{u, 8, ""},
+		{u, 4000, ""},
+		{u, 400, "vp9"},
+	} {
+		if _, err := c.Local(ctx, bad.path, bad.px, bad.codec); !errors.Is(err, ErrUnknown) {
+			t.Errorf("Local(%q, %d, %q) = %v, want ErrUnknown", bad.path, bad.px, bad.codec, err)
+		}
+	}
+	hdr := c.URL(srv.URL + "/hdr/master.m3u8")
+	if _, err := c.Local(ctx, hdr, 400, ""); !errors.Is(err, ErrNoRendition) {
+		t.Errorf("HDR only: %v", err)
 	}
 }
 

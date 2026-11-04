@@ -1,6 +1,9 @@
 package kit
 
 import (
+	"regexp"
+	"strconv"
+
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
@@ -20,12 +23,51 @@ type ArtOpts struct {
 	// Placeholder is the Lucide glyph shown while there is no picture: "music"
 	// (and "user" for Round) by default.
 	Placeholder string
+	// Fallback replaces the glyph and its --hover square while there is no
+	// picture: it builds elements that fill the cover's box (PersonAvatar's
+	// initials). The picture still shows when it arrives.
+	Fallback func(c *ui.Context)
 	// A11yLabel names a cover that matters for assistive technology; covers
 	// are decorations without it.
 	A11yLabel string
 	// Aspect is the box's width over its height (16.0/9 for a video frame);
 	// 0 is square. size is the width.
 	Aspect float32
+	// Contain shows the whole picture inside the box at its own shape, read
+	// from the "<w>x<h>.jpg" of the URL (a banner stays wide), where the
+	// default fills the box (Apple crops artwork to the box asked for). The
+	// picture is decoded at the contained size.
+	Contain bool
+}
+
+// sizePart is the "<w>x<h>.jpg" (or "<n>.jpg", n×n) a Go-served art URL
+// ends in: the shape Apple serves the artwork in (lib/art.ts).
+var sizePart = regexp.MustCompile(`/(\d+)(?:x(\d+))?\.jpg(?:$|\?)`)
+
+// artAspect is the width over the height of the artwork behind a Go URL; 1
+// when it names no size.
+func artAspect(src string) float32 {
+	m := sizePart.FindStringSubmatch(src)
+	if m == nil {
+		return 1
+	}
+	w, _ := strconv.Atoi(m[1])
+	h := w
+	if m[2] != "" {
+		h, _ = strconv.Atoi(m[2])
+	}
+	if w <= 0 || h <= 0 {
+		return 1
+	}
+	return float32(w) / float32(h)
+}
+
+// containBox is the largest box of the given aspect that fits w×h.
+func containBox(w, h, aspect float32) (float32, float32) {
+	if aspect >= w/h {
+		return w, w / aspect
+	}
+	return h * aspect, h
 }
 
 // Artwork shows a cover at an exact size: src is the artwork's Go-served
@@ -41,6 +83,23 @@ func Artwork(c *ui.Context, l *ArtLoader, src string, size float32, o ArtOpts) u
 	if o.Aspect > 0 {
 		h = size / o.Aspect
 	}
+	return artFrame(c, l, src, w, h, o, false)
+}
+
+// FluidArtwork is a cover that fills its container's width (grid tiles) at
+// the aspect of o (square, or 16:9 for a music video's frame). size is the
+// largest width it renders at: the picture is decoded for it, so the request
+// stays exact, and the box scales it down to the width it gets. The
+// placeholder glyph is 40% of size.
+func FluidArtwork(c *ui.Context, l *ArtLoader, src string, size float32, o ArtOpts) ui.Element {
+	w, h := size, size
+	if o.Aspect > 0 {
+		h = size / o.Aspect
+	}
+	return artFrame(c, l, src, w, h, o, true)
+}
+
+func artFrame(c *ui.Context, l *ArtLoader, src string, w, h float32, o ArtOpts, fluid bool) ui.Element {
 	tk := theme.Current()
 	radius := o.Radius
 	if radius == 0 {
@@ -50,29 +109,51 @@ func Artwork(c *ui.Context, l *ArtLoader, src string, size float32, o ArtOpts) u
 		radius = tk.Radius["full"]
 	}
 
-	cv := l.cover(src, w, h)
-	box := ui.Box(c).Size(w, h).Radius(radius).ClipX().ClipY()
+	// The picture is asked for at the box, or for Contain at the artwork's
+	// own shape inside it.
+	pw, ph := w, h
+	if o.Contain {
+		pw, ph = containBox(w, h, artAspect(src))
+	}
+	cv := l.cover(src, pw, ph)
+	box := ui.Box(c).Radius(radius).ClipX().ClipY()
+	if fluid {
+		box.FillWidth().AspectRatio(w / h)
+	} else {
+		box.Size(w, h)
+	}
 	box.Draw(func(p *ui.Painter, _ ui.Rect) { l.noteScale(p.Scale()) })
 	if o.A11yLabel != "" {
 		box.Label(o.A11yLabel)
 	}
 	bmp := cv.bitmap()
 	box.Children(func() {
-		if bmp == nil {
-			placeholder(c, w, h, o)
-			return
+		switch {
+		case bmp != nil:
+			img := ui.Image(c, bmp).Radius(radius).Draw(func(*ui.Painter, ui.Rect) { cv.drawn() })
+			fit := ui.Cover
+			if o.Contain {
+				fit = ui.Contain
+			}
+			if fluid {
+				img.Fill().Fit(fit)
+			} else {
+				img.Size(w, h).Fit(fit)
+			}
+		case o.Fallback != nil:
+			o.Fallback(c)
+		default:
+			placeholder(c, w, h, o, fluid)
 		}
-		ui.Image(c, bmp).Size(w, h).Fit(ui.Cover).Radius(radius).
-			Draw(func(*ui.Painter, ui.Rect) { cv.drawn() })
 	})
-	if o.Edge && bmp != nil {
-		// Over the picture, inside its edge, as an outline with a -1px
-		// offset (a border would take room from it, and the picture is
-		// decoded for the whole box).
+	if o.Edge && (bmp != nil || o.Fallback != nil) {
+		// Over the picture (or the fallback), inside its edge, as an
+		// outline with a -1px offset (a border would take room from it,
+		// and the picture is decoded for the whole box).
 		edge := theme.C("edge")
 		box.DrawOver(func(p *ui.Painter, r ui.Rect) { p.Stroke(r, edge, radius, 1) })
 	}
-	if bmp == nil {
+	if bmp == nil && o.Fallback == nil {
 		box.Background(theme.C("hover"))
 	}
 	return box
@@ -80,7 +161,7 @@ func Artwork(c *ui.Context, l *ArtLoader, src string, size float32, o ArtOpts) u
 
 // placeholder is the missing-art glyph, centred: 40% ink, 1.5 stroke, 40%
 // of the box (at least 12) on a --hover square.
-func placeholder(c *ui.Context, w, h float32, o ArtOpts) {
+func placeholder(c *ui.Context, w, h float32, o ArtOpts, fluid bool) {
 	name := o.Placeholder
 	if name == "" {
 		name = "music"
@@ -89,7 +170,13 @@ func placeholder(c *ui.Context, w, h float32, o ArtOpts) {
 		}
 	}
 	glyph := max(12, min(w, h)*0.4)
-	ui.Row(c).Size(w, h).Center().Children(func() {
+	row := ui.Row(c).Center()
+	if fluid {
+		row.Fill()
+	} else {
+		row.Size(w, h)
+	}
+	row.Children(func() {
 		ui.Icon(c, theme.Icon(name)).FontSize(glyph).TextColor(theme.C("ink").Alpha(0.4))
 	})
 }
