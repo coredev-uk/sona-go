@@ -11,6 +11,7 @@ package module
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -67,6 +68,13 @@ type Env struct {
 	// (the factories run in modules.go's order, a Point sorts by its own).
 	PlayerControls Point
 	PlayerNotice   Point
+	// Players is the shared item-play registry (kit.ItemPlayers): the
+	// features that own playback register how each kind plays and the shared
+	// item components play through it. Built by NewPlayers; never nil.
+	Players *kit.ItemPlayers
+	// ConcertsShelf builds Home's "Concerts in <city>" shelf (features/concerts
+	// sets it in its factory; nil while that feature is not registered).
+	ConcertsShelf func(c *ui.Context, first bool)
 	// ArtistConcerts builds an artist page's "Upcoming concerts" (owned by
 	// features/concerts, which sets it in its factory; nil while that feature
 	// is not registered: build nothing). first marks the page's first shelf.
@@ -225,3 +233,23 @@ type Module struct {
 // Factory builds a feature's module over the shared Env; the feature
 // keeps its state in its own struct.
 type Factory func(env *Env) Module
+
+// NewPlayers is the Env's item-play registry: music videos play only where
+// PlatformService says the platform plays video (read once, on first use; nil
+// before it answers and without a Core). now is the clock a release is
+// compared with (nil: time.Now).
+func NewPlayers(core *services.Core, now func() time.Time) *kit.ItemPlayers {
+	p := &kit.ItemPlayers{Now: now}
+	if core != nil {
+		plat := services.Service[services.PlatformService](core)
+		var caps *services.Capabilities
+		p.Capabilities = func() *services.Capabilities {
+			if caps == nil {
+				c := plat.Capabilities()
+				caps = &c
+			}
+			return caps
+		}
+	}
+	return p
+}

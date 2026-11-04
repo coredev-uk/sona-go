@@ -7,6 +7,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/cdm"
 	"github.com/coredev-uk/sona-go/internal/ui/features/commands"
 	"github.com/coredev-uk/sona-go/internal/ui/features/equalizer"
+	"github.com/coredev-uk/sona-go/internal/ui/features/concerts"
 	"github.com/coredev-uk/sona-go/internal/ui/features/library"
 	"github.com/coredev-uk/sona-go/internal/ui/features/onboarding"
 	"github.com/coredev-uk/sona-go/internal/ui/features/player"
@@ -15,6 +16,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/reminders"
 	"github.com/coredev-uk/sona-go/internal/ui/features/settings"
 	"github.com/coredev-uk/sona-go/internal/ui/features/song"
+	"github.com/coredev-uk/sona-go/internal/ui/features/search"
 	"github.com/coredev-uk/sona-go/internal/ui/features/updates"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
@@ -36,6 +38,8 @@ var factories = []module.Factory{
 	playlist.New, // the playlist page, the sidebar tree and pins, the dialogs
 	player.New,   // the player bar only
 	auth.New,     // sign-in state, the account menu and dialog
+	search.New,   // search field, results, group and profile pages
+	concerts.New, // concerts page and location dialog
 	updates.New,  // the sidebar's update notice
 	// motion has no module: the policy is kit.MotionPolicy (Env.Motion), kept by the shell
 	private.New,    // the player bar's private listening pill and its command
