@@ -22,18 +22,18 @@ func TestLocationDialogListsSuggestedCities(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 800, exampleBand)
 	r.shows("Set location", "Example Band with Opener Duo")
 	r.click("Set location")
-	r.shows("Where are you?",
+	r.shows("Location",
 		"Concerts are listed near the city you choose. Sona keeps your choice on this computer and tells Apple Music only the area it covers.",
-		"Find a city", "London", ", United Kingdom", "Manchester")
+		"Search cities", "London", ", United Kingdom", "Manchester")
 	// The storefront's own city is the chosen one; none is a custom city yet.
 	r.lacks("Use my storefront’s main city")
-	if !r.tt.Focused("Find a city") {
+	if !r.tt.Focused("Search cities") {
 		t.Errorf("the field has no focus; texts %q", r.tt.Texts())
 	}
 	// Escape closes it, with the field's text forgotten.
 	r.tt.Key(0, ui.KeyEscape)
 	r.tt.Drain()
-	r.lacks("Where are you?")
+	r.lacks("Search cities")
 }
 
 func TestLocationDialogSearchesAndPicksTheFirstMatchOnEnter(t *testing.T) {
@@ -41,7 +41,7 @@ func TestLocationDialogSearchesAndPicksTheFirstMatchOnEnter(t *testing.T) {
 	r.shows("Example Band with Opener Duo")
 	before := r.amp.last().Get("geoHashLocation")
 	r.click("Set location")
-	r.shows("Where are you?")
+	r.shows("Search cities")
 	r.tt.Type("manch")
 	r.shows("Manchester")
 	// The list shows the last answer while a new search loads, so Enter picks
@@ -54,7 +54,7 @@ func TestLocationDialogSearchesAndPicksTheFirstMatchOnEnter(t *testing.T) {
 	})
 	r.tt.Drain()
 	r.tt.Key(0, ui.KeyEnter)
-	r.tt.Until("the dialog to close", func() bool { return !r.tt.HasText("Where are you?") })
+	r.tt.Until("the dialog to close", func() bool { return !r.tt.HasText("Search cities") })
 	if got := r.h.Settings.Get().Concerts.City; got == "" {
 		t.Error("the city was not saved")
 	}
@@ -68,11 +68,11 @@ func TestLocationDialogSaysWhenNoCityMatches(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 800, exampleBand)
 	r.shows("Set location")
 	r.click("Set location")
-	r.shows("Where are you?")
+	r.shows("Search cities")
 	r.tt.Type("zzqqx")
-	r.shows("No cities match “zzqqx”. Try the name of a bigger city nearby.")
+	r.shows("No cities found. Try the name of a bigger city nearby.")
 	r.tt.Until("the announcement", func() bool {
-		return slices.Contains(r.tt.Announcements(), "No cities match “zzqqx”.")
+		return slices.Contains(r.tt.Announcements(), "No cities found")
 	})
 	r.lacks("Cities that match")
 	// Enter with nothing to pick changes nothing.
@@ -87,7 +87,7 @@ func TestLocationDialogKeysMoveAmongTheCities(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 800, exampleBand)
 	r.shows("Set location")
 	r.click("Set location")
-	r.shows("Suggested cities", "Manchester")
+	r.shows("Suggestions", "Manchester")
 	cities := r.cityLabels()
 	if len(cities) < 3 {
 		t.Fatalf("only %d cities listed: %q", len(cities), r.tt.Texts())
@@ -110,7 +110,7 @@ func TestLocationDialogKeysMoveAmongTheCities(t *testing.T) {
 	key(ui.KeyHome)
 	focused(cities[0])
 	key(ui.KeyUp) // from the first, back to the field
-	focused("Find a city")
+	focused("Search cities")
 	if r.h.Settings.Get().Concerts.City != "" {
 		t.Error("moving saved a city")
 	}
@@ -133,7 +133,7 @@ func TestLocationDialogPickingSavesAndResetGoesBack(t *testing.T) {
 	r.click("Set location")
 	r.shows("Manchester")
 	r.click("Manchester, United Kingdom")
-	r.tt.Until("the dialog to close", func() bool { return !r.tt.HasText("Where are you?") })
+	r.tt.Until("the dialog to close", func() bool { return !r.tt.HasText("Search cities") })
 	if got := r.h.Settings.Get().Concerts.City; got == "" {
 		t.Fatal("the city was not saved")
 	}
@@ -142,9 +142,9 @@ func TestLocationDialogPickingSavesAndResetGoesBack(t *testing.T) {
 
 	// With a city of its own the dialog offers the way back, and marks the chosen one.
 	r.click("Manchester")
-	r.shows("Where are you?", "Use my storefront’s main city")
+	r.shows("Search cities", "Use my storefront’s main city")
 	r.click("Use my storefront’s main city")
-	r.tt.Until("the dialog to close", func() bool { return !r.tt.HasText("Where are you?") })
+	r.tt.Until("the dialog to close", func() bool { return !r.tt.HasText("Search cities") })
 	if got := r.h.Settings.Get().Concerts.City; got != "" {
 		t.Errorf("the city is %q after the reset", got)
 	}
@@ -161,7 +161,7 @@ func TestLocationDialogToastsWhenTheCityCannotBeSaved(t *testing.T) {
 	r.click("Manchester, United Kingdom")
 	r.tt.Until("the toast", r.tt.Shows("Couldn't save your city"))
 	// The dialog stays, with the cities still pickable.
-	r.shows("Where are you?", "Manchester")
+	r.shows("Search cities", "Manchester")
 	if r.h.Settings.Get().Concerts.City != "" {
 		t.Error("a refused city was kept")
 	}

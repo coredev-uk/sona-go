@@ -113,8 +113,8 @@ func TestConcertsShelfIsOneColumnWhenNarrow(t *testing.T) {
 
 func TestConcertsShelfSaysWhenNothingIsListedAndLeavesOutOnFailure(t *testing.T) {
 	r := shelfRig(t, 1132, false, func(c *ui.Context, r *rig) { ConcertsShelf(c, r.h.Env, true) })
-	r.shows("Concerts in London", "No concerts near London", "Apple Music lists no upcoming concerts in this area.", "Choose another city")
-	r.click("Choose another city")
+	r.shows("Concerts in London", "No concerts", "No upcoming concerts. Please check back later.", "Set location")
+	r.click("Set location")
 	if got := r.router.Path(); got != "/concerts" {
 		t.Errorf("the action went to %q", got)
 	}

@@ -60,7 +60,7 @@ func TestNewPageShowsTheHeaderTheFrontPageTheContentsAndTheShelvesInBands(t *tes
 	r.tt.Until("the page", r.tt.Shows("On this page", "Best New Songs", "New This Week"))
 	r.d.front.paused = true
 	r.tt.Drain()
-	for _, w := range []string{"Discover", "Updated just now", "Featured", "Featured cards", "A-List Pop", "Songs and albums", "Radio", "Browse", "Listen to Live Radio Now"} {
+	for _, w := range []string{"Discover", "Updated just now", "Featured", "A-List Pop", "Songs and albums", "Radio", "Browse", "Listen to Live Radio Now"} {
 		if !r.tt.HasText(w) {
 			t.Errorf("the page lacks %q", w)
 		}

@@ -41,6 +41,7 @@ func (l *library) videosPage(c *ui.Context, r *ui.Route) {
 
 	subline := ""
 	if q.HasData && len(q.Data) > 0 {
+		// translators: {0} is the number of music videos.
 		subline = i18n.T("{0, plural, one {# music video} other {# music videos}}", "0", len(q.Data))
 	}
 	l.scrollPage(c, &pg.pageView, "videos", func(pane *kit.Pane) {

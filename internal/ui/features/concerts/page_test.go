@@ -74,7 +74,7 @@ func TestDatesPresetGoesToTheURLAndToApple(t *testing.T) {
 		return r.amp.last().Get("filter[date]") == want.from+".."+want.to
 	})
 	// Nothing on the fixture's dates is this week.
-	r.shows("No concerts match", "Clear filters")
+	r.shows("No concerts", "Clear filters")
 
 	// Any date clears it.
 	r.click("Dates")
@@ -197,14 +197,14 @@ func TestShowMoreConcertsAsksForAnotherHundred(t *testing.T) {
 
 func TestPageSaysWhenNothingIsListed(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 800)
-	r.shows("No concerts near London", "Apple Music lists no upcoming concerts in this area. A larger city nearby may have some.", "Choose another city")
-	r.click("Choose another city")
-	r.shows("Where are you?")
+	r.shows("No concerts", "No upcoming concerts. Please check back later. A larger city nearby may have some.", "Set location")
+	r.click("Set location")
+	r.shows("Search cities")
 }
 
 func TestPageSaysWhenNothingMatchesTheFilters(t *testing.T) {
 	r := newRig(t, "/concerts?genre=20", 1132, 800, anotherAct)
-	r.shows("No concerts match", "Apple Music lists nothing near London for these filters. Widen the dates or choose another genre.")
+	r.shows("No concerts", "Apple Music lists nothing near London for these filters. Widen the dates or choose another genre.")
 	r.click("Clear filters")
 	if got := r.router.Location(); got != "/concerts" {
 		t.Errorf("location %q", got)

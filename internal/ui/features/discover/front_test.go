@@ -85,13 +85,24 @@ func (r *rig) away() {
 }
 
 // rowCentre is the centre of the nth list row (0-based) on the page showing.
+// The section and the list are both labelled "Featured" (as v0.2.0's are),
+// so the list is found by a row of it: a card other than the lead, whose
+// title only a row shows, in the page the lead is on.
 func (r *rig) rowCentre(n int) (float32, float32) {
-	list, ok := r.tt.Find("Featured cards")
-	if !ok {
-		r.t.Fatal("no list of featured cards")
+	lay := layoutFor(r.d.front.width.w, 24)
+	base := r.lead() / lay.perPage * lay.perPage
+	for k := base; k < base+lay.perPage; k++ {
+		if k == r.lead() {
+			continue
+		}
+		for _, name := range []string{"Card %d", "List %d"} { // the names these tests give their cards
+			if row, ok := r.tt.Find(fmt.Sprintf(name, k+1)); ok {
+				return row.X + row.W/2, row.Y + (float32(n-(k-base))+0.5)*lay.rowHeight
+			}
+		}
 	}
-	h := layoutFor(r.d.front.width.w, 24).rowHeight
-	return list.X + list.W/2, list.Y + (float32(n)+0.5)*h
+	r.t.Fatal("no list of featured cards")
+	return 0, 0
 }
 
 func (r *rig) heroCentre() (float32, float32) {
@@ -105,7 +116,7 @@ func (r *rig) heroCentre() (float32, float32) {
 func TestFrontLeadsWithTheFirstCardAtTheLeadsWidthAndListsThemAPageAtATime(t *testing.T) {
 	src := newCoverSource()
 	r := newFrontWith(t, 16, src)
-	for _, w := range []string{"Featured", "Featured cards", "Card 1", "Card 6", "1 of 3", "Previous in Featured", "Next in Featured"} {
+	for _, w := range []string{"Featured", "Card 1", "Card 6", "1 of 3", "Previous in Featured", "Next in Featured"} {
 		if !r.tt.HasText(w) {
 			t.Errorf("the front page lacks %q: %q", w, r.tt.Texts())
 		}
@@ -435,7 +446,13 @@ func TestFrontAnOnlyCardHasNoRotationControlAndNeverRotates(t *testing.T) {
 	if r.lead() != 0 {
 		t.Errorf("lead %d", r.lead())
 	}
-	if r.tt.HasText("rotation") || r.tt.HasText("Featured cards") {
+	featured := 0
+	for _, text := range r.tt.Texts() {
+		if text == "Featured" {
+			featured++
+		}
+	}
+	if r.tt.HasText("rotation") || featured != 1 { // the section's own name; a list would be a second
 		t.Errorf("a single card has a list or a rotation control: %q", r.tt.Texts())
 	}
 	if !r.tt.HasText("Card 1") {
@@ -622,7 +639,7 @@ func TestFrontCardMenuOpensOnRightClickAndShiftF10(t *testing.T) {
 	r := newRig(t, "/new", withAPI(api), wideWindow())
 	r.registerPlaylistAction()
 	newPageWith(api, r.h.Clock.Now(), heroSection(cards))
-	r.tt.Until("the front page", r.tt.Shows("Featured cards"))
+	r.tt.Until("the front page", r.tt.Shows("Featured"))
 	r.d.front.paused = true
 	x, y := r.rowCentre(1)
 	r.tt.RightClickAt(x, y)

@@ -29,7 +29,7 @@ func TestLocationDialogGolden(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 900, exampleBand, sampleSinger, anotherAct)
 	r.shows("Set location", "April 2027")
 	r.click("Set location")
-	r.shows("Where are you?", "Manchester")
+	r.shows("Search cities", "Manchester")
 	r.tt.Settle()
 	uitest.Golden(t, r.tt.Image(), "concerts-location-light")
 }

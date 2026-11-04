@@ -376,7 +376,7 @@ func TestArtistsWithSongsOnlyShowTheirSongs(t *testing.T) {
 
 func TestArtistsWithNothingInTheLibrarySaySo(t *testing.T) {
 	r := artistsStubRig(t, artistsSolo(), artistsAt("r.ghost"), 1132, 900)
-	r.tt.Until("the line", r.tt.Shows("Nothing by Ghost is in your library yet.", "Artist"))
+	r.tt.Until("the line", r.tt.Shows("Add music by Ghost to collect it here.", "Artist"))
 	if _, ok := r.tt.Find("Songs in your library"); ok {
 		t.Error("a songs list for no songs")
 	}

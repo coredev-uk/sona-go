@@ -327,14 +327,14 @@ const dayHint = "YYYY-MM-DD"
 // listed near the city.
 func (s *concerts) nothing(c *ui.Context, city string, filtered bool) {
 	if filtered {
-		kit.EmptyState(c, i18n.T("No concerts match"),
+		kit.EmptyState(c, i18n.T("No concerts"),
 			i18n.T("Apple Music lists nothing near {city} for these filters. Widen the dates or choose another genre.", "city", city),
 			kit.EmptyOpts{Action: &kit.EmptyAction{Label: i18n.T("Clear filters"), Run: func() { s.set(params{}) }}})
 		return
 	}
-	kit.EmptyState(c, i18n.T("No concerts near {city}", "city", city),
-		i18n.T("Apple Music lists no upcoming concerts in this area. A larger city nearby may have some."),
-		kit.EmptyOpts{Action: &kit.EmptyAction{Label: i18n.T("Choose another city"), Run: s.where.Show}})
+	kit.EmptyState(c, i18n.T("No concerts"),
+		i18n.T("No upcoming concerts. Please check back later.")+" "+i18n.T("A larger city nearby may have some."),
+		kit.EmptyOpts{Action: &kit.EmptyAction{Label: i18n.T("Set location"), Run: s.where.Show}})
 }
 
 // agenda is the shows by month, then by the venue's day: a date column and

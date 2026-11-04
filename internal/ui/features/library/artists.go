@@ -844,7 +844,7 @@ func (v *artistsView) tilesSkeleton(c *ui.Context) {
 func (v *artistsView) songsOnly(c *ui.Context, e services.ArtistEntry, group int, sc ui.Element) {
 	pg, l := v.pg, v.l
 	if e.Songs == 0 {
-		artistsText(c, i18n.T("Nothing by {name} is in your library yet.", "name", e.Name), "ui").
+		artistsText(c, i18n.T("Add music by {name} to collect it here.", "name", e.Name), "ui").
 			TextColor(theme.C("ink-muted")).MaxWidth(480)
 		return
 	}

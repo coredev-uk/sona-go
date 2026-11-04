@@ -48,14 +48,14 @@ func (l *locationDialog) show(c *ui.Context, d *data, loc *services.ConcertLocat
 	}
 	items := l.last
 	kit.Dialog(c, &l.open, kit.DialogOpts{
-		Title:       i18n.T("Where are you?"),
+		Title:       i18n.T("Location"),
 		Description: i18n.T("Concerts are listed near the city you choose. Sona keeps your choice on this computer and tells Apple Music only the area it covers."),
 		MaxWidth:    448,
 		Gap:         16,
 	}, func() {
 		ui.Column(c.Key("find")).Children(func() {
 			in := kit.Input(c.Key("query"), &l.query, kit.InputOpts{
-				Placeholder: i18n.T("Find a city"), A11yLabel: i18n.T("Find a city"),
+				Placeholder: i18n.T("Search cities"), A11yLabel: i18n.T("Search cities"),
 			})
 			kit.FocusWhenShown(c, in, &l.focus)
 			switch {
@@ -67,7 +67,7 @@ func (l *locationDialog) show(c *ui.Context, d *data, loc *services.ConcertLocat
 			none := term != "" && len(items) == 0
 			if none && !res.Fetching && l.announced != term {
 				l.announced = term
-				c.Announce(i18n.T("No cities match “{term}”.", "term", term))
+				c.Announce(i18n.T("No cities found"))
 			} else if !none {
 				l.announced = ""
 			}
@@ -75,7 +75,7 @@ func (l *locationDialog) show(c *ui.Context, d *data, loc *services.ConcertLocat
 			case len(items) > 0:
 				l.list(c, d, in, items, term)
 			case none:
-				text(c.Key("none"), i18n.T("No cities match “{term}”. Try the name of a bigger city nearby.", "term", term), "secondary", "ink-muted").
+				text(c.Key("none"), i18n.T("No cities found")+". "+i18n.T("Try the name of a bigger city nearby."), "secondary", "ink-muted").
 					Margin(12, 0, 0, 0).Wrap()
 			}
 		})
@@ -109,7 +109,7 @@ func (l *locationDialog) pick(d *data, id string) {
 // list is the cities: Up and Down, Home and End move among them, Up from
 // the first returns to the field.
 func (l *locationDialog) list(c *ui.Context, d *data, in ui.Element, items []services.ConcertPlace, term string) {
-	label := i18n.T("Suggested cities")
+	label := i18n.T("Suggestions")
 	if term != "" {
 		label = i18n.T("Cities that match")
 	}
