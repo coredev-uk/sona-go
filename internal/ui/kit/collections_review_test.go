@@ -42,13 +42,12 @@ func TestKeyboardFocusScrollsANonVirtualTrackListIntoView(t *testing.T) {
 }
 
 func TestOneBigScrollJumpBuildsTheRowsThereWithoutAHover(t *testing.T) {
-	a, tt := newCollTrackApp(t, 2000, 1000, 600)
+	_, tt := newCollTrackApp(t, 2000, 1000, 600)
 	tt.Frame()
 	tt.Frame()
-	tt.Move(5, 5) // the pointer is nowhere near a row: no hover change rebuilds
-	tt.Frame()
-	a.pos.Y = 20000
-	tt.Frame()
+	// The pointer is in the page's margin, over no row: no hover change
+	// rebuilds after the wheel moves the pane.
+	tt.Scroll(5, 300, 0, 20000)
 	got := builtIndices(tt, "Artist ")
 	if len(got) == 0 {
 		t.Fatalf("nothing built after the jump: %q", tt.Texts())
@@ -64,13 +63,10 @@ func TestOneBigScrollJumpBuildsTheRowsThereWithoutAHover(t *testing.T) {
 }
 
 func TestOneBigScrollJumpBuildsTheTilesThereWithoutAHover(t *testing.T) {
-	a, tt := newCoverApp(t, 5000, 1000, 700)
+	_, tt := newCoverApp(t, 5000, 1000, 700)
 	tt.Frame()
 	tt.Frame()
-	tt.Move(5, 5)
-	tt.Frame()
-	a.pos.Y = 9000
-	tt.Frame()
+	tt.Scroll(5, 300, 0, 9000)
 	got := builtIndices(tt, "Album ")
 	if len(got) == 0 {
 		t.Fatalf("nothing built after the jump: %q", tt.Texts())
@@ -278,6 +274,6 @@ func TestTheHighlightedSongIsScrolledToAfterTheListIsLaidOut(t *testing.T) {
 		t.Fatalf("the highlighted song was not built (scroll %v)", a.pos.Y)
 	}
 	if r.Y < 100 || r.Y+r.H > 300 {
-		t.Errorf("the highlighted row is at %v in a 400 DIP window, want about the centre (pos %v top %v/%v)", r.Y, a.pos.Y, a.st.top, a.st.drawTop)
+		t.Errorf("the highlighted row is at %v in a 400 DIP window, want about the centre", r.Y)
 	}
 }
