@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -54,6 +55,20 @@ var reg struct {
 // the D-Bus names, internal/devinstance).
 func Instance() string { return devinstance.Name() }
 
+// programName is the program whose state this is ("" for the app).
+var programName string
+
+// SetName gives the program its own state file, dev-restore-<name>.json, so
+// that two programs built with the dev tag (the app and the gallery) do not
+// overwrite each other's. Call it before Load.
+func SetName(name string) {
+	reg.mu.Lock()
+	programName = unsafeProgram.ReplaceAllString(name, "-")
+	reg.mu.Unlock()
+}
+
+var unsafeProgram = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
+
 // file is the state file: dev-restore.json in Sona's state directory
 // (sona-<instance> with SONA_DEV_INSTANCE).
 func file() (string, error) {
@@ -65,7 +80,13 @@ func file() (string, error) {
 	if n := Instance(); n != "" {
 		dir = filepath.Join(filepath.Dir(dir), filepath.Base(dir)+"-"+n)
 	}
-	return filepath.Join(dir, "dev-restore.json"), nil
+	reg.mu.Lock()
+	name := "dev-restore.json"
+	if programName != "" {
+		name = "dev-restore-" + programName + ".json"
+	}
+	reg.mu.Unlock()
+	return filepath.Join(dir, name), nil
 }
 
 // Load reads the state the last run left. SONA_DEV_FRESH=1 ignores it: a

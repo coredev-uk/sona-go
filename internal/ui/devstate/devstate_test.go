@@ -141,3 +141,28 @@ func TestScrollSettlesAtTheEnd(t *testing.T) {
 		t.Fatal("still waiting for a page that cannot grow to the offset")
 	}
 }
+
+// The app and the gallery keep separate files.
+func TestSetNameSeparatesPrograms(t *testing.T) {
+	isolate(t)
+	defer SetName("")
+	SetLocation(func() string { return "/library/albums" })
+	Save("/library/albums", nil)
+
+	SetName("uigallery")
+	if _, ok := Load(); ok {
+		t.Fatal("the gallery must not read the app's state")
+	}
+	SetLocation(func() string { return "/Button" })
+	Save("/Button", nil)
+
+	SetName("")
+	st, ok := Load()
+	if !ok || st.Route != "/library/albums" {
+		t.Fatalf("the app's state was overwritten: %+v %v", st, ok)
+	}
+	SetName("uigallery")
+	if st, ok := Load(); !ok || st.Route != "/Button" {
+		t.Fatalf("the gallery's state: %+v %v", st, ok)
+	}
+}

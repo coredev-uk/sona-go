@@ -21,10 +21,11 @@ func TestShellAlbumsGolden(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			h := uitest.New(t, tc.opts...)
 			a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Art: h.Art}, factories)
-			t.Cleanup(a.env.Art.Close)
+			t.Cleanup(func() { a.env.Art.Close(); a.env.Art.Wait() })
 			a.firstPaint = nil // the network stays closed
 			a.connect()
 			tt := h.Tester(t, a.view, 1132, 1253)
+			tt.Art = append(tt.Art, a.env.Art) // the shell's own loader
 			tt.Until("the albums", tt.Shows("Glass Harbour", "24 albums"))
 			tt.Until("the covers", func() bool { return h.Covers.Hits() > 0 })
 			tt.Settle()

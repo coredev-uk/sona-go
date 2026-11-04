@@ -95,6 +95,9 @@ type Cache struct {
 	fetchSem chan struct{} // bounds downloads
 	workSem  chan struct{} // bounds decode/resize/encode
 	flight   singleflight.Group
+	// abandoned counts the flights a caller stopped waiting for (its context
+	// ended) that are still running: Wait.
+	abandoned sync.WaitGroup
 
 	mu        sync.Mutex
 	templates map[string]string // key → template, registered by URL and Get
@@ -631,6 +634,7 @@ func (c *Cache) source(ctx context.Context, key, tmpl string, want dims) (string
 	})
 	select {
 	case <-ctx.Done():
+		c.abandon(ch)
 		return "", dims{}, ctx.Err()
 	case r := <-ch:
 		if r.Err != nil {
@@ -740,6 +744,20 @@ func (c *Cache) backdropPath(ctx context.Context, key, tmpl string) (string, err
 	})
 }
 
+// abandon notes a flight the caller no longer waits for, until it ends.
+func (c *Cache) abandon(ch <-chan singleflight.Result) {
+	c.abandoned.Add(1)
+	go func() {
+		<-ch
+		c.abandoned.Done()
+	}()
+}
+
+// Wait blocks until the flights callers gave up on (a cancelled context)
+// have finished writing to the cache. Tests call it before removing the
+// cache's directory; nothing may ask for artwork meanwhile.
+func (c *Cache) Wait() { c.abandoned.Wait() }
+
 // derive renders key/name once across concurrent callers.
 func (c *Cache) derive(ctx context.Context, key, tmpl, name string, render func() ([]byte, error)) (string, error) {
 	ch := c.flight.DoChan("out/"+key+"/"+name, func() (any, error) {
@@ -758,6 +776,7 @@ func (c *Cache) derive(ctx context.Context, key, tmpl, name string, render func(
 	})
 	select {
 	case <-ctx.Done():
+		c.abandon(ch)
 		return "", ctx.Err()
 	case r := <-ch:
 		if r.Err != nil {

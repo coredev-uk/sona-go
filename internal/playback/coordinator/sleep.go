@@ -28,7 +28,7 @@ func (c *Coordinator) SetSleep(mode SleepMode, d time.Duration) error {
 	c.mu.Lock()
 	c.sleep = Sleep{Mode: mode}
 	if mode == SleepAfter {
-		c.sleep.At = time.Now().Add(d)
+		c.sleep.At = c.now().Add(d)
 	}
 	// Preload and the engine's armed next depend on where playback stops.
 	c.schedulePreloadLocked()
@@ -98,7 +98,7 @@ func (c *Coordinator) scheduleSleepLocked() {
 	if c.closed {
 		return
 	}
-	now := time.Now()
+	now := c.now()
 	delay := time.Duration(-1)
 	if end, ok := c.sleepEndLocked(now); ok {
 		_, fading := c.sleepVolumeLocked(now)
@@ -139,7 +139,7 @@ func (c *Coordinator) sleepTick() {
 		c.mu.Unlock()
 		return
 	}
-	now := time.Now()
+	now := c.now()
 	if c.sleep.Mode == SleepAfter && !now.Before(c.sleep.At) {
 		c.sleep = Sleep{}
 		pause := c.index >= 0 && c.loaded && (c.st.State == playback.StatePlaying || c.st.State == playback.StateLoading)

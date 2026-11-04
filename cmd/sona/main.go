@@ -86,6 +86,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "sona:", err)
 		os.Exit(1)
 	}
+	probeExit() // a failed `sona -probe` exits non-zero (probe builds only)
 }
 
 // cliPrinter is the command line's language: the Language setting

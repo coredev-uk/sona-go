@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
 )
 
@@ -47,6 +49,37 @@ func TestEnvSeedsTheFixtureLibrary(t *testing.T) {
 	}
 	if Of(h.Env) != h {
 		t.Error("Of does not find the Harness of its Env")
+	}
+}
+
+// The services, the engine and the playback mirror share one clock: a song
+// starts at 0:00 and Clock.Advance moves its position.
+func TestAdvancingTheClockMovesAPlayingSongsPosition(t *testing.T) {
+	h := New(t)
+	ref := services.TrackRef{ID: fixture.SongLibraryID(0, 0), Source: services.SourceLibrary}
+	if err := services.Service[services.PlaybackService](h.Core).PlayItems(t.Context(), []services.TrackRef{ref}, 0, services.PlayFrom{Kind: "album", ID: fixture.AlbumLibraryID(0)}); err != nil {
+		t.Fatal(err)
+	}
+	// Wait for the song to play and the events of starting it to be over (the
+	// coordinator publishes a snapshot per engine event), so none lands after
+	// the clock moved.
+	quiet := 0
+	for deadline := time.Now().Add(5 * time.Second); quiet < 20; time.Sleep(5 * time.Millisecond) {
+		if h.Main.Drain() == 0 && h.Env.Play.State().State == store.StatePlaying {
+			quiet++
+		} else {
+			quiet = 0
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the mirror never settled on a playing song: %+v", h.Env.Play.State().State)
+		}
+	}
+	if got := h.Env.Play.Position(); got != 0 {
+		t.Errorf("a song just started is at %v", got)
+	}
+	h.Clock.Advance(30 * time.Second)
+	if got := h.Env.Play.Position(); got != 30*time.Second {
+		t.Errorf("30 s later the song is at %v", got)
 	}
 }
 

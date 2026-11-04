@@ -11,7 +11,7 @@
 // bus (e2e/atspi).
 //
 // Environment: E2E_BIN skips the build and runs that binary; E2E_OUT is a
-// directory the test keeps its screenshots and the app's log in (default:
+// directory the test keeps its screenshots, the app's stderr and its sona.log in (default:
 // the test's temporary directory, removed afterwards).
 package e2e
 
@@ -168,6 +168,9 @@ func startApp(t *testing.T) *app {
 	}
 
 	a := &app{t: t, paths: paths, out: outDir(t), covers: newCoverServer(), done: make(chan struct{})}
+	// Registered before quit, so it runs after the app has ended and before the
+	// profile directory (with the log) is removed.
+	t.Cleanup(a.keepLog)
 	t.Cleanup(a.covers.srv.Close)
 	sock := filepath.Join(root, "automation.sock")
 	a.stderr = filepath.Join(a.out, strings.ReplaceAll(t.Name(), "/", "_")+"-stderr.log")
@@ -225,6 +228,20 @@ func (a *app) quit() {
 func (a *app) log() string {
 	b, _ := os.ReadFile(a.paths.LogFile())
 	return string(b)
+}
+
+// keepLog copies the app's own log into the output directory: it lives in the
+// profile's state directory, which is removed with the test.
+func (a *app) keepLog() {
+	b, err := os.ReadFile(a.paths.LogFile())
+	if err != nil {
+		a.t.Logf("the app's log: %v", err)
+		return
+	}
+	name := strings.ReplaceAll(a.t.Name(), "/", "_") + "-sona.log"
+	if err := os.WriteFile(filepath.Join(a.out, name), b, 0o644); err != nil {
+		a.t.Logf("keeping the app's log: %v", err)
+	}
 }
 
 func (a *app) dumpLogs() {

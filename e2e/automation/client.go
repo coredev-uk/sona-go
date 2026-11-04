@@ -68,6 +68,25 @@ func (t *Tree) Find(role, label string) (Node, bool) {
 	return Node{}, false
 }
 
+// Under is the part of the tree below the first node with this role ("" for
+// any) and label: its descendants, found by their Parent chain, in tree
+// order. It is empty when there is no such node.
+func (t *Tree) Under(role, label string) *Tree {
+	root, ok := t.Find(role, label)
+	out := &Tree{Window: t.Window, Focus: t.Focus}
+	if !ok {
+		return out
+	}
+	in := map[string]bool{root.ID: true}
+	for _, n := range t.Nodes {
+		if in[n.Parent] {
+			in[n.ID] = true
+			out.Nodes = append(out.Nodes, n)
+		}
+	}
+	return out
+}
+
 // Labels are the labels of the nodes with the role ("" for all).
 func (t *Tree) Labels(role string) []string {
 	var out []string

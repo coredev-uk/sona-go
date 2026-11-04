@@ -19,6 +19,10 @@ func Restore(State) {}
 // Save writes the state: route is the router's location.
 func Save(string, *Window) {}
 
+// SetName gives the program its own state file: nothing in a production
+// build.
+func SetName(string) {}
+
 // SetLocation tells Scroll how to name the page: the router's location.
 func SetLocation(func() string) {}
 

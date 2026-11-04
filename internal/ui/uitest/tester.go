@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
@@ -18,6 +19,9 @@ type Session struct {
 	*ui.Tester
 	T testing.TB
 	H *Harness
+	// Art are the artwork loaders Settle waits for besides the Harness's: a
+	// view that builds its own (the app shell does) adds it here.
+	Art []*kit.ArtLoader
 }
 
 // Tester runs view in a w×h window over this Harness; the view is wrapped
@@ -75,9 +79,18 @@ func (tt *Session) Drain() {
 	tt.Frame()
 }
 
+// artPending is how many covers the loaders in play still have in flight.
+func (tt *Session) artPending() int {
+	n := tt.H.Env.Art.Pending()
+	for _, l := range tt.Art {
+		n += l.Pending()
+	}
+	return n
+}
+
 // Settle draws frames, running what is posted, until the picture no longer
-// changes (a run of quiet frames with nothing queued): the covers decoded
-// and drawn, the animations done. For a golden image.
+// changes (a run of quiet frames with nothing queued and no cover still
+// being decoded): the covers drawn, the animations done. For a golden image.
 func (tt *Session) Settle() {
 	tt.T.Helper()
 	const quiet = 8
@@ -88,7 +101,7 @@ func (tt *Session) Settle() {
 		tt.Frame()
 		tt.Advance(time.Second) // animations and toasts
 		img := tt.Image()
-		if last != nil && bytes.Equal(last, img.Pix) && !tt.H.Main.Pending() {
+		if last != nil && bytes.Equal(last, img.Pix) && !tt.H.Main.Pending() && tt.artPending() == 0 {
 			if same++; same >= quiet {
 				return
 			}

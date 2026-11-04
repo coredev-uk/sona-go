@@ -28,6 +28,7 @@ func startProcess(cfg config, onReady func(time.Time)) (*process, error) {
 	if os.Getenv("SONA_SOURCE") == "" {
 		cmd.Env = append(cmd.Env, "SONA_SOURCE="+cfg.root)
 	}
+	ownGroup(cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = &tap{w: os.Stderr, needle: []byte(cfg.ready), hit: onReady}
 	if err := cmd.Start(); err != nil {

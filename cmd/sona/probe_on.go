@@ -39,3 +39,11 @@ func init() {
 	os.Args = append(os.Args[:1:1], rest...)
 	mygo.App.WhenReady(func() { probe.Begin(o, started) })
 }
+
+// probeExit ends the process with the probe's status when it failed; call
+// it once the app's run has returned.
+func probeExit() {
+	if code := probe.Status(); code != 0 {
+		os.Exit(code)
+	}
+}

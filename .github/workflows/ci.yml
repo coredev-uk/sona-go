@@ -180,6 +180,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ui-artifacts"
           dbus-run-session -- go test -count=1 -artifacts -outputdir "$RUNNER_TEMP/ui-artifacts" ./internal/ui/...
 
+      - name: Development and probe builds (vet, dev-only tests)
+        run: |
+          go vet -tags dev,sqlite_fts5 ./...
+          go vet -tags probe,sqlite_fts5 ./...
+          dbus-run-session -- go test -count=1 -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/app ./internal/mpris
+
       - name: Keep the pictures of a failed golden
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

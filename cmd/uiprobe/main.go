@@ -39,7 +39,7 @@ func main() {
 	speed := flag.Float64("speed", 2000, "scroll speed in DIPs per second")
 	maxPx := flag.Float64("max", 20000, "scroll at most this far down (DIPs); the page's end if nearer")
 	idle := flag.Duration("idle", 10*time.Second, "how long the process is watched at rest after the passes")
-	interval := flag.Float64("interval", 0, "the display's frame interval in ms (default: measured; set it, e.g. 16.67, when the machine is loaded)")
+	interval := flag.Float64("interval", 0, "the display's frame interval in ms (default: the refresh of the output the window is on, from sway's IPC when SWAYSOCK is set, else measured from idle frames)")
 	startup := flag.Bool("startup", false, "only report when the first frame and the covers were on screen, since the process start")
 	firstPaintOnly := flag.Bool("firstpaint", false, "summarise `startup: first paint` from the sona.log files given as arguments")
 	flag.Usage = func() {

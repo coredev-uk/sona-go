@@ -129,7 +129,7 @@ func New(t testing.TB, opts ...Option) *Harness {
 		art = h.buildCore(t, &o)
 	}
 	loader := kit.NewArtLoader(art, h.Main.Post) // a nil cache has no cover: every one fails
-	t.Cleanup(loader.Close)
+	t.Cleanup(func() { loader.Close(); loader.Wait() })
 	h.Env = &module.Env{
 		Core: h.Core, Bus: h.Bus, Queries: store.NewClient(h.Main.Post), Play: store.NewPlayback(h.Bus, h.Clock.Now),
 		Art: loader, Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: "test",
@@ -163,6 +163,10 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Runs after everything registered later (the loader's workers are gone
+	// by then) and before the temporary directory is removed: a cover fetch
+	// whose caller was cancelled may still be writing into it.
+	t.Cleanup(art.Wait)
 	settings, err := config.OpenStore(filepath.Join(h.Dir, "settings.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -188,7 +192,7 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	t.Cleanup(authm.Close)
 	h.Engine = fakeengine.New()
 	h.Engine.Now = h.Clock.Now
-	h.Coord, err = coordinator.New(coordinator.Options{Engine: h.Engine})
+	h.Coord, err = coordinator.New(coordinator.Options{Engine: h.Engine, Now: h.Clock.Now})
 	if err != nil {
 		t.Fatal(err)
 	}

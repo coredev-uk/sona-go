@@ -101,6 +101,7 @@ func (g *gallery) open() {
 // dev is what a development build does with the window: land where the last
 // run was, and reload the tokens as their file changes (devstate).
 func (g *gallery) dev() {
+	devstate.SetName("uigallery") // its own restore file, not the app's
 	devstate.SetLocation(func() string { return "/" + g.selected })
 	devstate.Flag("gallery.dark", &g.dark)
 	devstate.Live(g.win.Update, g.log)

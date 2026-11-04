@@ -53,15 +53,20 @@ func TestSmoke(t *testing.T) {
 		if err := c.Press(startTimeout, "Play "+first.Name); err != nil {
 			t.Fatal(err)
 		}
-		tree, err := c.Wait(startTimeout, "the player bar playing", func(tr *automation.Tree) bool {
-			_, pausable := tr.Find("button", "Pause")
-			return pausable && tr.HasText(first.Song(0))
+		// Only the "Player" landmark counts: the album's tile, with the same
+		// artist and a song title that is another album's name, is in the
+		// window too.
+		var bar *automation.Tree
+		_, err := c.Wait(startTimeout, "the player bar playing", func(tr *automation.Tree) bool {
+			bar = tr.Under("", "Player")
+			_, pausable := bar.Find("button", "Pause")
+			return pausable && bar.HasText(first.Song(0))
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !tree.HasText(first.Artist+" · "+first.Name) && !tree.HasText(first.Artist) {
-			t.Errorf("the bar does not name the artist: %v", tree.Labels(""))
+		if want := first.Artist + " · " + first.Name; !bar.HasText(want) {
+			t.Errorf("the bar does not show %q: %v", want, bar.Labels(""))
 		}
 	})
 

@@ -37,7 +37,7 @@ func (c *Coordinator) replacedLocked() *replaced {
 		original: slices.Clone(c.original),
 		shuffle:  c.shuffle,
 		index:    c.index,
-		pos:      c.positionLocked(time.Now()),
+		pos:      c.positionLocked(c.now()),
 		playing:  c.loaded && (c.st.State == playback.StatePlaying || c.st.State == playback.StateLoading),
 		label:    c.label,
 	}

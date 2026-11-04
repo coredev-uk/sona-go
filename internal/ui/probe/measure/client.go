@@ -14,6 +14,10 @@ import (
 // Unix socket, plugins/automation): the app's accessibility tree, wheel
 // and key input, idle waits and captures. One request at a time.
 type Client struct {
+	// Timeout is how long a request may wait for its answer (a minute
+	// when zero): an app that never answers ends the probe with an error.
+	Timeout time.Duration
+
 	mu   sync.Mutex
 	conn net.Conn
 	r    *bufio.Reader
@@ -50,6 +54,13 @@ func (c *Client) Call(method string, params, out any) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.id++
+	timeout := c.Timeout
+	if timeout == 0 {
+		timeout = time.Minute
+	}
+	if err := c.conn.SetDeadline(time.Now().Add(timeout)); err != nil {
+		return err
+	}
 	line, err := json.Marshal(map[string]any{"id": c.id, "method": method, "params": params})
 	if err != nil {
 		return err
@@ -59,7 +70,7 @@ func (c *Client) Call(method string, params, out any) error {
 	}
 	answer, err := c.r.ReadBytes('\n')
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", method, err)
 	}
 	var res struct {
 		Result json.RawMessage
@@ -142,6 +153,13 @@ func (c *Client) WaitWindow(timeout time.Duration) (Rect, error) {
 func (c *Client) Wheel(x, y, dy float64) error {
 	return c.Call("input", map[string]any{"events": []map[string]any{
 		{"type": "wheel", "x": x, "y": y, "dx": 0, "dy": dy, "precise": true},
+	}}, nil)
+}
+
+// PointerMove moves the pointer to x, y of the window.
+func (c *Client) PointerMove(x, y float64) error {
+	return c.Call("input", map[string]any{"events": []map[string]any{
+		{"type": "pointerMove", "x": x, "y": y},
 	}}, nil)
 }
 

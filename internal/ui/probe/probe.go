@@ -18,7 +18,6 @@ package probe
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -28,6 +27,13 @@ import (
 	"github.com/egoist/mygo"
 
 	"github.com/coredev-uk/sona-go/internal/ui/probe/measure"
+)
+
+const (
+	// coversTimeout is how long the covers may take to be drawn.
+	coversTimeout = 60 * time.Second
+	// shutdownGrace is how long the app has to quit after the probe.
+	shutdownGrace = 15 * time.Second
 )
 
 // environment the probe needs in the process that runs the app.
@@ -85,15 +91,8 @@ func Begin(o Options, started time.Time) {
 	log.SetFlags(0)
 	log.SetOutput(rec)
 	go func() {
-		err := run(o, rec, started)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "sona -probe:", err)
-		}
-		mygo.App.Quit()
-		if err != nil {
-			time.Sleep(5 * time.Second)
-			os.Exit(1)
-		}
+		err := within(o.Limit(coversTimeout), func() error { return run(o, rec, started) })
+		finish(err, os.Stderr, mygo.App.Quit, os.Exit, shutdownGrace)
 	}()
 }
 
@@ -106,7 +105,7 @@ func run(o Options, rec *measure.Recorder, started time.Time) error {
 	return measure.Albums(measure.Config{
 		Client: c, Frames: rec, PID: os.Getpid(),
 		Speed: o.Speed, Max: o.Max, Runs: o.Runs, Idle: o.Idle, Interval: o.Interval,
-		Started: started, StartupOnly: o.Startup && !o.Probe,
+		Started: started, StartupOnly: o.Startup && !o.Probe, CoversTimeout: coversTimeout,
 		Out: os.Stdout, Log: os.Stderr,
 	})
 }

@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
+	"io"
 	"math/rand/v2"
 	"net"
 	"path/filepath"
@@ -121,6 +123,11 @@ func (a *fakeApp) handle(line []byte) any {
 
 func (a *fakeApp) serve(t *testing.T) string {
 	t.Helper()
+	return a.serveWith(t, a.handle)
+}
+
+func (a *fakeApp) serveWith(t *testing.T, handle func([]byte) any) string {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "a.sock")
 	l, err := net.Listen("unix", path)
 	if err != nil {
@@ -138,7 +145,7 @@ func (a *fakeApp) serve(t *testing.T) string {
 				sc := bufio.NewScanner(c)
 				enc := json.NewEncoder(c)
 				for sc.Scan() {
-					if enc.Encode(a.handle(sc.Bytes())) != nil {
+					if enc.Encode(handle(sc.Bytes())) != nil {
 						return
 					}
 				}
@@ -209,5 +216,71 @@ func TestTilesAreThePlayButtonsOfAScrollContainer(t *testing.T) {
 	// The player bar's play button, outside one, is not a tile.
 	if tiles, _ := Tiles(nodes[3:]); len(tiles) != 0 {
 		t.Errorf("a button outside a scroll container is a tile: %+v", tiles)
+	}
+}
+
+// flatApp is a fakeApp whose capture is one flat colour: the covers never
+// come, as with no network.
+type flatApp struct{ fakeApp }
+
+func (a *flatApp) handle(line []byte) any {
+	if bytes.Contains(line, []byte(`"capture"`)) {
+		var buf bytes.Buffer
+		_ = png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 1132, 1253)))
+		return map[string]any{"id": 1, "result": map[string]any{"png": buf.Bytes(), "width": 1132, "height": 1253}}
+	}
+	return a.fakeApp.handle(line)
+}
+
+func TestAlbumsGivesUpWhenTheCoversNeverCome(t *testing.T) {
+	app := &flatApp{}
+	app.frames = append(app.frames, Frame{At: time.Now(), Path: "drawn in memory"})
+	c, err := Dial(app.serveWith(t, app.handle), 2*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	var out, log bytes.Buffer
+	start := time.Now()
+	err = Albums(Config{Client: c, Frames: &app.fakeApp, Runs: 1, Interval: 16.67, CoversTimeout: 300 * time.Millisecond, Out: &out, Log: &log})
+	if !errors.Is(err, ErrCovers) {
+		t.Fatalf("err = %v, want ErrCovers", err)
+	}
+	if time.Since(start) > 5*time.Second {
+		t.Errorf("took %v to give up", time.Since(start))
+	}
+	if bytes.Contains(out.Bytes(), []byte(TableHeader)) {
+		t.Errorf("a table for a page with no covers:\n%s", &out)
+	}
+	if app.wheels != 0 {
+		t.Errorf("scrolled %d times before giving up", app.wheels)
+	}
+}
+
+func TestACallThatIsNeverAnsweredTimesOut(t *testing.T) {
+	l, err := net.Listen("unix", filepath.Join(t.TempDir(), "mute.sock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = l.Close() }()
+	go func() {
+		c, err := l.Accept()
+		if err == nil {
+			defer func() { _ = c.Close() }()
+			_, _ = io.Copy(io.Discard, c) // reads requests, never answers
+		}
+	}()
+	c, err := Dial(l.Addr().String(), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	c.Timeout = 100 * time.Millisecond
+	start := time.Now()
+	if err := c.Idle(time.Second); err == nil {
+		t.Fatal("an unanswered request succeeded")
+	}
+	if time.Since(start) > 3*time.Second {
+		t.Errorf("took %v", time.Since(start))
 	}
 }

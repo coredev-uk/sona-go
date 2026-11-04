@@ -155,7 +155,7 @@ default_floating_border none
 titlebar_border_thickness 0
 titlebar_padding 0
 font pango:monospace 1
-output HEADLESS-1 resolution 1920x1440 position 0 0
+output HEADLESS-1 mode --custom 1920x1440@60Hz position 0 0
 seat * hide_cursor 0
 # The baseline's window: v0.2.0 was measured floating at 1132x1253.
 for_window [app_id="dev.coredev.Sona"] floating enable, resize set 1132 1253, move position 0 0

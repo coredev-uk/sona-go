@@ -28,11 +28,14 @@ type Config struct {
 	Runs       int
 	// Idle is how long the process is watched at rest after the passes.
 	Idle time.Duration
-	// Interval is the display's frame interval in milliseconds; zero
-	// measures it. Set it when the machine is loaded: the measured one
-	// then includes the compositor's delays, and fewer frames count as
-	// dropped.
+	// Interval is the display's frame interval in milliseconds. Zero takes
+	// the refresh rate of the output the window is on from sway (when
+	// SWAYSOCK is set), else measures it from idle frames; a value that is
+	// not 60 Hz ±10% is warned about.
 	Interval float64
+	// CoversTimeout is how long the covers may take to be drawn (60 s when
+	// zero) before the probe gives up with ErrCovers.
+	CoversTimeout time.Duration
 	// Quiet is how long without a frame means the page has settled (500
 	// ms when zero).
 	Quiet time.Duration
@@ -44,6 +47,10 @@ type Config struct {
 	// Out receives the tables, Log the per-pass lines and progress.
 	Out, Log io.Writer
 }
+
+// ErrCovers is the error of a start-up whose covers were not all drawn in
+// time: the page is showing placeholders, so there is nothing to measure.
+var ErrCovers = errors.New("the covers were not all drawn")
 
 // tick is how often the scroll is advanced: each step is one wheel event
 // of the distance the speed covers since the last (a touchpad's stream).
@@ -59,6 +66,9 @@ func Albums(cfg Config) error {
 	}
 	if cfg.Log == nil {
 		cfg.Log = io.Discard
+	}
+	if cfg.CoversTimeout == 0 {
+		cfg.CoversTimeout = 60 * time.Second
 	}
 	if cfg.Quiet == 0 {
 		cfg.Quiet = 500 * time.Millisecond
@@ -96,11 +106,11 @@ func (s *scenario) run() error {
 
 	// The covers are on screen once the tiles in view show pictures; then
 	// the page settles (no frame for Quiet) before anything is measured.
-	first, last, ok := s.waitCovers(60 * time.Second)
-	if !ok {
-		s.logf("warning: the covers were not all drawn after 60 s (offline? the artwork cache empty?)")
-	}
+	first, last, ok := s.waitCovers(s.CoversTimeout)
 	s.printStartup(first, last)
+	if !ok {
+		return fmt.Errorf("%w after %s (offline? the artwork cache empty?): nothing measured", ErrCovers, s.CoversTimeout)
+	}
 	if s.StartupOnly {
 		return nil
 	}
@@ -130,13 +140,14 @@ func (s *scenario) run() error {
 	if s.Max > 0 {
 		px = math.Min(px, s.Max)
 	}
-	interval := s.Interval
-	if interval == 0 {
-		if interval, err = s.displayInterval(); err != nil {
-			return err
-		}
+	interval, source, err := s.resolveInterval()
+	if err != nil {
+		return err
 	}
-	s.logf("display interval %.2f ms; the page scrolls %.0f px, %.0f px each way here at %.0f px/s", interval, dist, px, s.Speed)
+	if w := IntervalWarning(interval, source); w != "" {
+		s.logf("%s", w)
+	}
+	s.logf("display interval %.2f ms (%s); the page scrolls %.0f px, %.0f px each way here at %.0f px/s", interval, source, dist, px, s.Speed)
 
 	var rows []Row
 	// The control: the same wheel stream where nothing scrolls (over the
@@ -352,21 +363,55 @@ func rowYs(tiles []Node) []float64 {
 	return ys
 }
 
-// displayInterval is the frame interval: the median gap between frames
-// while the page moves a DIP back and forth, which draws one frame per
-// display refresh.
-func (s *scenario) displayInterval() (float64, error) {
-	if err := s.toTop(); err != nil {
+// resolveInterval is the display's frame interval and where it came from:
+// the Interval given, else the refresh rate of the output the window is on
+// (sway's IPC, when SWAYSOCK is set), else measured from frames that
+// redraw almost nothing. It is never taken from frames that redraw the
+// grid: a frame that costs more than a refresh would stretch it and hide
+// the frames it drops.
+func (s *scenario) resolveInterval() (float64, string, error) {
+	if s.Interval > 0 {
+		return s.Interval, "given", nil
+	}
+	if sock := os.Getenv("SWAYSOCK"); sock != "" {
+		ms, err := swayInterval(sock, s.PID)
+		if err == nil {
+			return ms, "the output's refresh rate, from sway", nil
+		}
+		s.logf("warning: sway's refresh rate: %v; measuring the interval", err)
+	}
+	ms, err := s.idleInterval()
+	return ms, "measured from idle frames", err
+}
+
+// idleInterval measures the frame interval from frames that redraw almost
+// nothing, as v0.2.0's idle requestAnimationFrame did: the pointer moves
+// between a sidebar link and the top bar for a second, and each change of
+// hover draws one small frame per display refresh.
+func (s *scenario) idleInterval() (float64, error) {
+	nodes, err := s.Client.Tree()
+	if err != nil {
 		return 0, err
 	}
+	var link *Node
+	for i := range nodes {
+		if nodes[i].Role == "link" {
+			link = &nodes[i]
+			break
+		}
+	}
+	if link == nil {
+		return 0, errors.New("no link to hover to measure the display interval; give -interval")
+	}
+	lx, ly := link.Bounds.X+link.Bounds.Width/2, link.Bounds.Y+link.Bounds.Height/2
 	mark := s.Frames.Count()
 	start := time.Now()
 	for i := 0; time.Since(start) < time.Second; i++ {
-		d := 1.0
+		x, y := lx, ly
 		if i%2 == 1 {
-			d = -1
+			x, y = s.x, 24
 		}
-		if err := s.Client.Wheel(s.x, s.y, d); err != nil {
+		if err := s.Client.PointerMove(x, y); err != nil {
 			return 0, err
 		}
 		time.Sleep(tick / 2)
@@ -376,7 +421,7 @@ func (s *scenario) displayInterval() (float64, error) {
 	}
 	gaps := Gaps(s.Frames.Since(mark))
 	if len(gaps) < 5 {
-		return 0, fmt.Errorf("only %d frames while measuring the display interval", len(gaps)+1)
+		return 0, fmt.Errorf("only %d frames while measuring the display interval; give -interval", len(gaps)+1)
 	}
 	return Median(gaps), nil
 }

@@ -129,6 +129,10 @@ in
     check.exec = ''
       set -e
       go vet ./...
+      # Development builds (devloop's restore, the instance names, probe
+      # builds) type-check too.
+      go vet -tags dev,sqlite_fts5 ./...
+      go vet -tags probe,sqlite_fts5 ./...
       # Every package must still type-check on the other platforms
       # (CONTRIBUTING.md, "Platforms").
       GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
@@ -145,6 +149,8 @@ in
     tests.exec = ''
       set -e
       ${lib.optionalString isLinux "dbus-run-session -- "}go test -race ./... "$@"
+      # The packages with dev-only code, in a development build.
+      ${lib.optionalString isLinux "dbus-run-session -- "}go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/app ./internal/mpris
     '';
     auth-spike.exec = ''go run ./cmd/authspike "$@"'';
     play-spike.exec = ''go run ./cmd/playspike "$@"'';

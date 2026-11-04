@@ -117,7 +117,7 @@ func (l *loop) run() int {
 	defer cancel()
 
 	sigs := make(chan os.Signal, 2)
-	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 
 	changes := make(chan []string, 4)
 	go devwatch.Watch(ctx, l.watchOptions(), func(paths []string) { changes <- paths })
@@ -136,11 +136,11 @@ func (l *loop) run() int {
 		go func() {
 			b := l.build()
 			results <- b
-			if b.err == nil {
-				// After the result, off the restart's way.
-				if d := l.packages(); d != nil {
-					deps <- d
-				}
+			// After the result, off the restart's way, and after a failed
+			// build too: a package the failing change added must be
+			// watched for the fix.
+			if d := l.packages(); d != nil {
+				deps <- d
 			}
 		}()
 	}
@@ -283,9 +283,10 @@ func (l *loop) build() built {
 }
 
 // packages are the directories under the module root of the packages the
-// target imports, itself included; nil when go list fails.
+// target imports, itself included (-e: a package that does not build is
+// listed too); nil when go list fails.
 func (l *loop) packages() map[string]bool {
-	cmd := exec.Command("go", "list", "-deps", "-tags", l.cfg.tags, "-f", "{{if not .Standard}}{{.Dir}}{{end}}", l.cfg.target)
+	cmd := exec.Command("go", "list", "-e", "-deps", "-tags", l.cfg.tags, "-f", "{{if not .Standard}}{{.Dir}}{{end}}", l.cfg.target)
 	cmd.Dir = l.cfg.root
 	out, err := cmd.Output()
 	if err != nil {

@@ -5,7 +5,6 @@ import (
 	"context"
 	"image/jpeg"
 	"log/slog"
-	"sync"
 	"testing"
 	"time"
 
@@ -32,27 +31,13 @@ func TestSectionsBuild(t *testing.T) {
 				t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
 				g := &gallery{dark: dark, selected: s.name, scale: 1, scrolls: map[string]*ui.ScrollState{}}
 				// Covers load on worker goroutines and come back through the
-				// Poster: queued here and run on the test's goroutine, as the
-				// window runs them on the main thread.
-				var mu sync.Mutex
-				var queued []func()
-				g.art = kit.NewArtLoaderFrom(coverSource{}, func(fn func()) {
-					mu.Lock()
-					queued = append(queued, fn)
-					mu.Unlock()
-				})
+				// Poster. The window runs what they post on its main thread;
+				// here nothing runs it, so a section is built with its covers
+				// not yet loaded.
+				g.art = kit.NewArtLoaderFrom(coverSource{}, func(func()) {})
 				t.Cleanup(g.art.Close)
 				g.log = slog.New(slog.DiscardHandler)
 				tt := ui.NewTester(g.view, 1100, 800)
-				tt.Frame()
-				time.Sleep(50 * time.Millisecond) // the covers' workers
-				mu.Lock()
-				run := queued
-				queued = nil
-				mu.Unlock()
-				for _, fn := range run {
-					fn()
-				}
 				tt.Frame()
 				if !tt.HasText(s.name) {
 					t.Fatalf("the section's title %q is not on screen: %v", s.name, tt.Texts())

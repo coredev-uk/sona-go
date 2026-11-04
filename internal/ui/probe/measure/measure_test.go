@@ -1,6 +1,10 @@
 package measure
 
 import (
+	"encoding/binary"
+	"encoding/json"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -179,5 +183,105 @@ func TestTreeUsageOfThisProcess(t *testing.T) {
 	}
 	if TreeUsage(0).OK {
 		t.Error("pid 0 reported usage")
+	}
+}
+
+func TestIntervalWarning(t *testing.T) {
+	for _, c := range []struct {
+		ms   float64
+		warn bool
+	}{{16.67, false}, {16.0, false}, {15.1, false}, {18.3, false}, {14.9, true}, {18.4, true}, {33.3, true}, {6.94, true}, {0, true}} {
+		if got := IntervalWarning(c.ms, "test") != ""; got != c.warn {
+			t.Errorf("IntervalWarning(%v) warns = %v, want %v", c.ms, got, c.warn)
+		}
+	}
+}
+
+const swayTreeJSON = `{"type":"root","nodes":[
+ {"type":"output","name":"__i3","nodes":[{"type":"workspace","name":"__i3_scratch","nodes":[]}]},
+ {"type":"output","name":"HEADLESS-1","nodes":[{"type":"workspace","name":"1","nodes":[{"type":"con","pid":111,"app_id":"other"}],
+   "floating_nodes":[{"type":"floating_con","pid":222,"app_id":"dev.coredev.Sona"}]}]},
+ {"type":"output","name":"HEADLESS-2","nodes":[{"type":"workspace","name":"2","nodes":[{"type":"con","pid":333,"app_id":"dev.coredev.Sona"}]}]}]}`
+
+const swayOutputsJSON = `[
+ {"name":"__i3","active":true,"current_mode":{"refresh":0}},
+ {"name":"HEADLESS-1","active":true,"current_mode":{"width":2560,"height":1440,"refresh":60000}},
+ {"name":"HEADLESS-2","active":true,"current_mode":{"width":1920,"height":1080,"refresh":144000}},
+ {"name":"OFF","active":false,"current_mode":{"refresh":30000}}]`
+
+func TestTheIntervalIsTheRefreshOfTheOutputTheWindowIsOn(t *testing.T) {
+	var tree swayNode
+	if err := json.Unmarshal([]byte(swayTreeJSON), &tree); err != nil {
+		t.Fatal(err)
+	}
+	var outputs []swayOutput
+	if err := json.Unmarshal([]byte(swayOutputsJSON), &outputs); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		pid  int
+		out  string
+		want float64
+	}{{222, "HEADLESS-1", 16.667}, {333, "HEADLESS-2", 6.944}} {
+		out := windowOutput(tree, c.pid, AppID)
+		if out != c.out {
+			t.Fatalf("pid %d is on %q, want %q", c.pid, out, c.out)
+		}
+		ms, err := outputInterval(outputs, out)
+		if err != nil || ms < c.want-0.001 || ms > c.want+0.001 {
+			t.Errorf("%s: interval %v, %v; want %v", out, ms, err, c.want)
+		}
+	}
+	// With no pid the app id finds the first window; an unknown pid finds none.
+	if out := windowOutput(tree, 0, AppID); out != "HEADLESS-1" {
+		t.Errorf("by app id: %q", out)
+	}
+	if out := windowOutput(tree, 999, AppID); out != "" {
+		t.Errorf("unknown pid: %q", out)
+	}
+	// Without a window to place, several outputs are ambiguous; one is not.
+	if _, err := outputInterval(outputs, ""); err == nil {
+		t.Error("three active outputs and no window gave an interval")
+	}
+	if ms, err := outputInterval(outputs[1:2], ""); err != nil || ms < 16.66 || ms > 16.67 {
+		t.Errorf("the only output: %v, %v", ms, err)
+	}
+	if _, err := outputInterval(outputs[:1], ""); err == nil {
+		t.Error("an output with no refresh gave an interval")
+	}
+}
+
+func TestSwayIntervalOverIPC(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sway.sock")
+	l, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = l.Close() }()
+	go func() {
+		for {
+			c, err := l.Accept()
+			if err != nil {
+				return
+			}
+			hdr := make([]byte, 14)
+			if _, err := io.ReadFull(c, hdr); err == nil {
+				body := swayOutputsJSON
+				if binary.NativeEndian.Uint32(hdr[10:]) == 4 {
+					body = swayTreeJSON
+				}
+				out := append([]byte("i3-ipc"), make([]byte, 8)...)
+				binary.NativeEndian.PutUint32(out[6:], uint32(len(body)))
+				_, _ = c.Write(append(out, body...))
+			}
+			_ = c.Close()
+		}
+	}()
+	ms, err := swayInterval(path, 333)
+	if err != nil || ms < 6.94 || ms > 6.95 {
+		t.Errorf("interval = %v, %v; want 144 Hz's 6.944 ms", ms, err)
+	}
+	if _, err := swayInterval(filepath.Join(t.TempDir(), "none"), 1); err == nil {
+		t.Error("a missing socket gave an interval")
 	}
 }
