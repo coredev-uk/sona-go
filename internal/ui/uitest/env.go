@@ -193,6 +193,9 @@ func New(t testing.TB, opts ...Option) *Harness {
 		Core: h.Core, Bus: h.Bus, Queries: store.NewClient(h.Main.Post), Play: store.NewPlayback(h.Bus, h.Clock.Now),
 		Art: loader, Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: o.version, Surfaces: store.NewSurfaces(), OpenURL: h.open, Copy: h.copy,
 	}
+	if o.core {
+		h.Env.Queue = kit.NewQueueCommandsFor(h.Core, h.Env.Play, h.Main.Post)
+	}
 	mu.Lock()
 	harnesses[h.Env] = h
 	mu.Unlock()

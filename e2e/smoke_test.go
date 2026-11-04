@@ -16,7 +16,8 @@ import (
 
 // TestSmoke is the app end to end: it paints, Albums lists the fixture's
 // albums, an album's play button starts it, the player bar shows it
-// playing, Space pauses and resumes it, and a frame can be captured.
+// playing, Space pauses and resumes it, the queue panel lists it and a drag
+// reorders it, and a frame can be captured.
 func TestSmoke(t *testing.T) {
 	a := startApp(t)
 	c := a.client
@@ -96,6 +97,51 @@ func TestSmoke(t *testing.T) {
 			}); err != nil {
 				t.Fatal(err)
 			}
+		}
+	})
+
+	t.Run("reorder the queue", func(t *testing.T) {
+		// The queue lists the album from the playing song on: drag its second
+		// upcoming song below the third and the order follows.
+		if first.SongCount() < 3 {
+			t.Fatalf("%q has %d songs: the fixture's last album has three", first.Name, first.SongCount())
+		}
+		if err := c.Press(startTimeout, "Queue"); err != nil {
+			t.Fatal(err)
+		}
+		a1, a2 := first.Song(1)+", "+first.Artist, first.Song(2)+", "+first.Artist
+		row := func(tr *automation.Tree, label string) (automation.Node, bool) {
+			if n, ok := tr.Find("listitem", label); ok {
+				return n, true
+			}
+			return tr.Find("listitem", "Up next: "+label)
+		}
+		tree, err := c.Wait(startTimeout, "the queue's rows", func(tr *automation.Tree) bool {
+			_, ok1 := row(tr, a1)
+			_, ok2 := row(tr, a2)
+			return ok1 && ok2
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		from, _ := row(tree, a1)
+		to, _ := row(tree, a2)
+		fx, fy := from.Bounds.Centre()
+		_, ty := to.Bounds.Centre()
+		ty += to.Bounds.Height / 3 // the lower half of the row below: the gap after it
+		events := []automation.Event{automation.PointerMove(fx, fy), automation.PointerDown(fx, fy)}
+		for i := 1; i <= 10; i++ {
+			events = append(events, automation.PointerMove(fx, fy+(ty-fy)*float64(i)/10))
+		}
+		if err := c.Input(append(events, automation.PointerUp(fx, ty))...); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := c.Wait(10*time.Second, "the dragged song after the other", func(tr *automation.Tree) bool {
+			n1, ok1 := row(tr, a1)
+			n2, ok2 := row(tr, a2)
+			return ok1 && ok2 && n2.Bounds.Y < n1.Bounds.Y
+		}); err != nil {
+			t.Fatal(err)
 		}
 	})
 

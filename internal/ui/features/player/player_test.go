@@ -3,6 +3,7 @@ package player
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"sync"
 	"testing"
@@ -22,6 +23,7 @@ type fakeTransport struct {
 	mu    sync.Mutex
 	calls []string
 	seeks []int64
+	refs  []services.TrackRef
 	fail  error
 	done  chan struct{}
 }
@@ -55,6 +57,50 @@ func (f *fakeTransport) SetShuffle(on bool) {
 	}
 }
 func (f *fakeTransport) SetRepeat(mode string) error { return f.record("repeat " + mode) }
+func (f *fakeTransport) SetAutoPlay(on bool) error {
+	if on {
+		return f.record("autoplay on")
+	}
+	return f.record("autoplay off")
+}
+func (f *fakeTransport) SetSleep(mode string, minutes int) error {
+	return f.record(fmt.Sprintf("sleep %s %d", mode, minutes))
+}
+func (f *fakeTransport) Jump(_ context.Context, i int) error { return f.record(fmt.Sprint("jump ", i)) }
+func (f *fakeTransport) Remove(_ context.Context, i int) error {
+	return f.record(fmt.Sprint("remove ", i))
+}
+func (f *fakeTransport) Move(from, to int) error { return f.record(fmt.Sprint("move ", from, " ", to)) }
+func (f *fakeTransport) MoveNext(i int) error    { return f.record(fmt.Sprint("movenext ", i)) }
+func (f *fakeTransport) MoveToEnd(i int) error   { return f.record(fmt.Sprint("movetoend ", i)) }
+func (f *fakeTransport) Clear()                  { _ = f.record("clear") }
+func (f *fakeTransport) PlayItems(_ context.Context, refs []services.TrackRef, start int, from services.PlayFrom) error {
+	f.mu.Lock()
+	f.refs = append(f.refs, refs...)
+	f.mu.Unlock()
+	return f.record(fmt.Sprintf("playitems %d %d %s:%s", len(refs), start, from.Kind, from.ID))
+}
+func (f *fakeTransport) PlayNext(_ context.Context, refs []services.TrackRef) error {
+	f.mu.Lock()
+	f.refs = append(f.refs, refs...)
+	f.mu.Unlock()
+	return f.record("playnext")
+}
+func (f *fakeTransport) Append(_ context.Context, refs []services.TrackRef) error {
+	f.mu.Lock()
+	f.refs = append(f.refs, refs...)
+	f.mu.Unlock()
+	return f.record("append")
+}
+func (f *fakeTransport) Insert(_ context.Context, at int, refs []services.TrackRef) error {
+	f.mu.Lock()
+	f.refs = append(f.refs, refs...)
+	f.mu.Unlock()
+	return f.record(fmt.Sprint("insert ", at))
+}
+func (f *fakeTransport) UndoReplace(context.Context) (bool, error) {
+	return true, f.record("undoreplace")
+}
 
 // wait blocks until n calls have been recorded (they run on goroutines).
 func (f *fakeTransport) wait(t *testing.T, n int) []string {
@@ -274,6 +320,7 @@ func TestShortcutsKeepV020IDsAndKeys(t *testing.T) {
 		"player.seek-forward": "Shift+ArrowRight", "player.seek-back": "Shift+ArrowLeft",
 		"player.volume-up": "Ctrl+ArrowUp", "player.volume-down": "Ctrl+ArrowDown",
 		"player.mute": "M", "player.shuffle": "S", "player.repeat": "R",
+		"player.favourite": "F", "player.queue": "Q",
 	}
 	got := map[string]module.Shortcut{}
 	for _, s := range r.p.shortcuts() {
@@ -281,7 +328,11 @@ func TestShortcutsKeepV020IDsAndKeys(t *testing.T) {
 		if len(s.Keys) != 1 || s.Keys[0] != want[s.ID] {
 			t.Errorf("%s has keys %v, want %q", s.ID, s.Keys, want[s.ID])
 		}
-		if s.Group != "playback" || s.Label() == "" || s.Run == nil {
+		group := module.ShortcutGroup("playback")
+		if s.ID == "player.queue" {
+			group = "view"
+		}
+		if s.Group != group || s.Label() == "" || s.Run == nil {
 			t.Errorf("%s: group %q, label %q", s.ID, s.Group, s.Label())
 		}
 	}

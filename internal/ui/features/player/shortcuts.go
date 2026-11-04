@@ -90,5 +90,17 @@ func (p *player) shortcuts() []module.Shortcut {
 			Unavailable: cur(ctlRepeat),
 			Run:         p.cycleRepeat,
 		},
+		{
+			ID: "player.favourite", Group: "playback", Keys: []string{"F"}, Icon: "star",
+			Label:    func() string { return i18n.T("Favourite the playing song") },
+			Keywords: func() string { return i18n.T("like love star favorite") },
+			Run:      p.toggleFavourite,
+		},
+		{
+			ID: "player.queue", Group: "view", Keys: []string{"Q"}, Icon: "list-music",
+			Label:    func() string { return i18n.T("Show or hide the queue") },
+			Keywords: func() string { return i18n.T("up next") },
+			Run:      p.toggleQueueView,
+		},
 	}
 }
