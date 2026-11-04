@@ -96,6 +96,14 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 			if o.focus {
 				main.Focus()
 			}
+			if o.menus != nil && main.RightClicked() {
+				// The open button takes the press, so the row never sees it.
+				if ai, ok := kit.ActionItemOf(it, s.env.Players); ok {
+					x, y, _ := main.PointerPosition()
+					wx, wy := main.LocalToWindow(x, y)
+					o.menus.OpenAt(kit.ActionTarget{Item: ai, Name: it.Name, Key: o.key}, wx, wy, false)
+				}
+			}
 			if main.Clicked() {
 				if o.onOpen != nil {
 					o.onOpen(it)
