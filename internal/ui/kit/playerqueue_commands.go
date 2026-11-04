@@ -99,13 +99,33 @@ func AddedUpcoming(q services.QueueState) int {
 	return n
 }
 
+// ReplaceOption changes how Replace behaves.
+type ReplaceOption func(*replaceOptions)
+
+type replaceOptions struct {
+	failure func(err error) (title, description string)
+}
+
+// WithFailure words a failed start: the toast's title and description for err
+// (instead of Replace's failTitle and the error code's text).
+func WithFailure(f func(err error) (title, description string)) ReplaceOption {
+	return func(o *replaceOptions) { o.failure = f }
+}
+
 // Replace starts a new queue with start, which runs off the main thread and
 // returns its failure (nil: playback started; the failure is shown here
 // titled failTitle). When that would discard a long queue the user built it
 // asks first, or by default replaces it and offers Undo, which brings back
 // the old queue at the same song and position. done (may be nil) gets whether
 // playback started, on the main thread. Main thread only.
-func (c *QueueCommands) Replace(failTitle string, start func(ctx context.Context) error, done func(started bool)) {
+//
+// A failure is worded by default as failTitle over the words of its error
+// code; WithFailure replaces that (a station with its own wording).
+func (c *QueueCommands) Replace(failTitle string, start func(ctx context.Context) error, done func(started bool), opts ...ReplaceOption) {
+	var o replaceOptions
+	for _, f := range opts {
+		f(&o)
+	}
 	finish := func(ok bool) {
 		if done != nil {
 			done(ok)
@@ -117,7 +137,12 @@ func (c *QueueCommands) Replace(failTitle string, start func(ctx context.Context
 			err := start(context.Background())
 			c.d.Post(func() {
 				if err != nil {
-					fail(failTitle, err)
+					if o.failure != nil {
+						title, text := o.failure(err)
+						ToastErrorf(title, text)
+					} else {
+						fail(failTitle, err)
+					}
 					finish(false)
 					return
 				}

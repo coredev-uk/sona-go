@@ -257,3 +257,17 @@ func TestQueueItemsRefusesOnALiveStation(t *testing.T) {
 		t.Errorf("toasts %v", got)
 	}
 }
+
+func TestReplaceWordsAFailureWithTheCallersHook(t *testing.T) {
+	c, _, mt := newCommands(t, 0, "undo")
+	var started []bool
+	c.Replace("Couldn't start playback", func(context.Context) error { return services.ErrNotReleased }, func(ok bool) { started = append(started, ok) },
+		WithFailure(func(error) (string, string) { return "Couldn't play the station", "Try later" }))
+	mt.until(t, "the failure", func() bool { return len(started) == 1 })
+	if started[0] {
+		t.Error("a failed start reported started")
+	}
+	if got := queueToasts(); len(got) != 1 || got[0] != "Couldn't play the station" {
+		t.Errorf("toasts %v", got)
+	}
+}
