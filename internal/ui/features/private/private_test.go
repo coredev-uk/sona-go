@@ -230,3 +230,31 @@ func contains(ss []string, s string) bool {
 	}
 	return false
 }
+
+func TestPillTooltipExplainsTheState(t *testing.T) {
+	r := newRig(t, 1200)
+	r.settle(t)
+	for _, c := range []struct {
+		state services.PrivateState
+		name  string
+		tip   string
+	}{
+		{services.PrivateState{Source: "setting"}, "Private listening", "Turn on private listening"},
+		{services.PrivateState{On: true, Source: "setting", Saved: true}, "Private listening", "Private listening is on: plays stay out of your listening history and recommendations, and aren't scrobbled, shown on Discord or added to History."},
+		{services.PrivateState{On: true, Source: "development"}, "Private listening (development build)", "Private listening is on for this development build. Turning it off lasts until Sona quits."},
+		{services.PrivateState{On: true, Source: "environment"}, "Private listening (forced by SONA_PRIVATE=1)", "On because Sona was started with SONA_PRIVATE=1"},
+	} {
+		r.emit(c.state)
+		r.tt.Move(10, 190)
+		r.tt.Advance(time.Second)
+		pill, ok := r.tt.Find(c.name)
+		if !ok {
+			t.Fatalf("no %q: %q", c.name, r.tt.Texts())
+		}
+		r.tt.Move(pill.X+pill.W/2, pill.Y+pill.H/2)
+		r.tt.Advance(time.Second)
+		if !r.tt.HasText(c.tip) {
+			t.Errorf("state %+v: no tooltip %q in %q", c.state, c.tip, r.tt.Texts())
+		}
+	}
+}

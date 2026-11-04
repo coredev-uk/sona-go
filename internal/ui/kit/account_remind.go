@@ -15,10 +15,15 @@ import (
 // release date (shared/lib/release.ts and reminders/index.ts's isAvailable;
 // the caller decides the album is upcoming).
 func RemindAvailable(core *services.Core, album services.Album) bool {
-	if core == nil || album.CatalogID == "" || album.ReleaseAt == 0 {
+	if core == nil {
 		return false
 	}
-	return services.Service[services.PlatformService](core).Capabilities().Notifications
+	return remindable(services.Service[services.PlatformService](core).Capabilities().Notifications, album)
+}
+
+// remindable is RemindAvailable given whether the platform has notifications.
+func remindable(notifications bool, album services.Album) bool {
+	return notifications && album.CatalogID != "" && album.ReleaseAt != 0
 }
 
 // RemindButton is "Remind me" on an upcoming album's page: an outline toggle

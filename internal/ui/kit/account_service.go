@@ -20,8 +20,13 @@ import (
 // "private:changed" updates the mirror; the answer is also written to it, as
 // v0.2.0 did, so the switch follows at once.
 func SetPrivate(cl *store.Client, core *services.Core, on bool) {
+	setPrivate(cl, services.Service[services.PrivateService](core).Set, on)
+}
+
+// setPrivate is SetPrivate over the call it makes (tests replace it).
+func setPrivate(cl *store.Client, set func(on bool) (services.PrivateState, error), on bool) {
 	go func() {
-		st, err := services.Service[services.PrivateService](core).Set(on)
+		st, err := set(on)
 		if err != nil {
 			title := i18n.T("Couldn't turn off private listening")
 			if on {
@@ -37,9 +42,11 @@ func SetPrivate(cl *store.Client, core *services.Core, on bool) {
 // RetryCDM asks Go to download the Widevine CDM, or check for an update, now
 // (CDMService.Retry); "cdm:status" follows. A failure toasts "Couldn't start
 // the Widevine download".
-func RetryCDM(core *services.Core) {
+func RetryCDM(core *services.Core) { retryCDM(services.Service[services.CDMService](core).Retry) }
+
+func retryCDM(retry func() error) {
 	go func() {
-		if err := services.Service[services.CDMService](core).Retry(); err != nil {
+		if err := retry(); err != nil {
 			ToastErrorf(i18n.T("Couldn't start the Widevine download"), i18n.ErrorText(services.CodeOf(err)))
 		}
 	}()
@@ -50,8 +57,17 @@ func RetryCDM(core *services.Core) {
 // interface's (Go has none of its own): the album's name as its title, "Out
 // now · {artist}" as its body. Go's "reminders:changed" updates the mirror.
 func SetReminder(core *services.Core, album services.Album, on bool) {
+	setReminder(services.Service[services.RemindersService](core), album, on)
+}
+
+// reminderAPI is what SetReminder asks of RemindersService.
+type reminderAPI interface {
+	Set(ctx context.Context, id, message string) (services.Reminder, error)
+	Remove(ctx context.Context, id string) error
+}
+
+func setReminder(svc reminderAPI, album services.Album, on bool) {
 	go func() {
-		svc := services.Service[services.RemindersService](core)
 		ctx := context.Background()
 		name := album.Name
 		if !on {
