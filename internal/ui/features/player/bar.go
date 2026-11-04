@@ -45,7 +45,10 @@ func (p *player) bar(c *ui.Context) {
 // song is the left column: the cover, the title and the line under it.
 func (p *player) song(c *ui.Context, s services.PlaybackState) {
 	cur := s.Current
-	ui.Row(c).Grow(1).Basis(0).MinWidth(0).Gap(12).AlignItems(ui.Center).Children(func() {
+	// The song keeps room for its title at the window's minimum width: the
+	// transport shrinks towards its 280 first (v0.2.0's grid let it fall to
+	// nothing once the right group grew).
+	ui.Row(c).Grow(1).Basis(0).MinWidth(160).Gap(12).AlignItems(ui.Center).Children(func() {
 		p.cover(c, s)
 		ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).MinWidth(0).Children(func() {

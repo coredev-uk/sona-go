@@ -122,10 +122,16 @@ func TestAgendaIsOneTabStopWithArrowsAlongAndDown(t *testing.T) {
 }
 
 func TestAuthChangeRefetchesOnlyWhenTheStateChanges(t *testing.T) {
-	r := newRig(t, "/concerts", 1132, 800, exampleBand, sampleSinger, anotherAct)
+	amp := &fakeApple{}
+	amp.set(exampleBand, sampleSinger, anotherAct)
+	// The count stands in front of the service before the first frame:
+	// swapping it later races the page's own fetches.
+	var counted *countingAPI
+	r := newRigAmp(t, amp, "/concerts", 1132, 800, nil, func(api concertsAPI) concertsAPI {
+		counted = &countingAPI{concertsAPI: api}
+		return counted
+	})
 	r.shows("Your artists (2)")
-	counted := &countingAPI{concertsAPI: r.s.api}
-	r.s.api = counted
 	asked := func() int { return counted.asked() }
 	n := asked()
 	emit := func(state string) {
