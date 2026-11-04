@@ -7,6 +7,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -29,6 +30,9 @@ var controlsFont sync.Once
 // the tester (open a popup, move the pointer) before the picture is taken.
 func controlsSheet(t *testing.T, name string, w, h int, build func(c *ui.Context), setup func(tt *ui.Tester)) {
 	t.Helper()
+	if runtime.GOOS != "linux" {
+		t.Skip("golden images are compared on Linux only: macOS draws text with Core Text")
+	}
 	controlsFont.Do(func() {
 		if err := theme.RegisterFonts(); err != nil {
 			t.Fatal(err)
