@@ -42,13 +42,14 @@ func TestShellAlbumsGolden(t *testing.T) {
 // pill's word, 940 does not.
 func TestAccountStatesGolden(t *testing.T) {
 	for _, tc := range []struct {
-		name          string
-		w, h          int
+		name string
+		w, h int
 		dark bool
 	}{
 		{"shell-account-light", 1132, 1253, false},
 		{"shell-account-dark", 1132, 1253, true},
 		{"shell-account-narrow-light", 940, 600, false},
+		{"shell-account-narrow-dark", 940, 600, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var opts []uitest.Option

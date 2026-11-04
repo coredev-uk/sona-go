@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
@@ -123,4 +124,39 @@ func TestSnapshotFillsTheMirrorOnlyWhileEmpty(t *testing.T) {
 		_, ok := store.Peek[services.CDMStatus](h2.Env.Queries, store.KeyCDM)
 		return ok
 	})
+}
+
+// navigator records what the notice asked of the router.
+type navigator struct {
+	module.Navigator
+	pushed []string
+}
+
+func (n *navigator) Push(p string) { n.pushed = append(n.pushed, p) }
+
+func TestNoticeLinkOpensSettingsPlaybackThroughTheRouter(t *testing.T) {
+	h := uitest.New(t, uitest.Bare())
+	h.Env.HasRoute = func(p string) bool { return p == "/settings" }
+	nav := &navigator{}
+	h.Env.Nav = nav
+	New(h.Env).Init()
+	tt := h.Tester(t, func(c *ui.Context) {
+		ui.Row(c).Fill().Padding(8).Children(func() { h.Env.PlayerNotice.Build(c) })
+	}, 600, 100)
+	h.Bus.Emit(services.EventCDMStatus, services.CDMStatus{State: "failed", Code: "network"})
+	tt.Drain()
+	if err := tt.Click("Couldn't get Widevine · Retry in Settings"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Drain()
+	if len(nav.pushed) != 1 || nav.pushed[0] != "/settings?section=playback" {
+		t.Errorf("router got %v, want one push of /settings?section=playback", nav.pushed)
+	}
+	// Without the page the line is text: nothing to click through to.
+	h.Env.HasRoute = func(string) bool { return false }
+	tt.Drain()
+	_ = tt.Click("Couldn't get Widevine · Retry in Settings")
+	if len(nav.pushed) != 1 {
+		t.Errorf("plain text pushed %v", nav.pushed)
+	}
 }

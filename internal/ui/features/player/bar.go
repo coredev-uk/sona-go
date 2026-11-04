@@ -44,7 +44,7 @@ func (p *player) song(c *ui.Context, s services.PlaybackState) {
 				src = s.OnAir.Art.Small
 			}
 		}
-		kit.Artwork(c, p.env.Art, src, 48, kit.ArtOpts{})
+		kit.Artwork(c, p.env.Art, src, 48, kit.ArtOpts{}).Shrink(0) // a long line beside it never squashes the cover
 		ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).MinWidth(0).Children(func() {
 				if cur == nil {

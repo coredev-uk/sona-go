@@ -118,9 +118,15 @@ func Peek[T any](cl *Client, key Key) (T, bool) {
 // snapshot that arrives after an event never replaces the newer data; it
 // reports whether it wrote.
 func SetIfEmpty[T any](cl *Client, key Key, v T) bool {
-	if _, ok := Peek[T](cl, key); ok {
-		return false
+	cl.mu.Lock()
+	if e := cl.entries[key.id()]; e != nil && e.has {
+		if _, ok := e.data.(T); ok {
+			cl.mu.Unlock()
+			return false
+		}
 	}
-	Set(cl, key, v)
+	cl.setLocked(key, v)
+	cl.mu.Unlock()
+	cl.post(func() {})
 	return true
 }

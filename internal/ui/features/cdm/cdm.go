@@ -97,8 +97,13 @@ func (c *cdm) link(ctx *ui.Context, text string) {
 		return
 	}
 	t := theme.Current().Type["sub"]
-	ui.Link(ctx.Key("cdm-link"), text, settingsPlayback).FontSize(t.Size).FixedLineHeight(t.LineHeight).
+	// The bar is built outside the routed pages, where a ui.Link would hand
+	// its URL to the browser: the link has none and the click goes to the router.
+	l := ui.Link(ctx.Key("cdm-link"), text, "").FontSize(t.Size).FixedLineHeight(t.LineHeight).
 		TextColor(theme.C("ink")).Underline().SingleLine().MinWidth(0).Shrink(1)
+	if l.Clicked() && c.env.Nav != nil {
+		c.env.Nav.Push(settingsPlayback)
+	}
 }
 
 // line is a plain line in the bar's sub style.
