@@ -119,10 +119,10 @@ func ConcertsShelf(c *ui.Context, env *module.Env, first bool) {
 		case len(q.Data.Concerts) == 0:
 			empty := kit.EmptyOpts{}
 			if linkToConcerts(env) {
-				empty.Action = &kit.EmptyAction{Label: i18n.T("Choose another city"), Run: func() { env.Nav.Push(concertsPath) }}
+				empty.Action = &kit.EmptyAction{Label: i18n.T("Set location"), Run: func() { env.Nav.Push(concertsPath) }}
 			}
-			kit.EmptyState(c, i18n.T("No concerts near {city}", "city", city),
-				i18n.T("Apple Music lists no upcoming concerts in this area."), empty)
+			kit.EmptyState(c, i18n.T("No concerts"),
+				i18n.T("No upcoming concerts. Please check back later."), empty)
 		default:
 			shows := q.Data.Concerts
 			rows(c, env, shows[:min(len(shows), homeShows)], 2, false, title)

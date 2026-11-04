@@ -68,7 +68,7 @@ func ValidateMappings(ms []Mapping, sona map[po.Key]Message) error {
 		seen[k] = true
 		msg, ok := sona[k]
 		if !ok {
-			errs = append(errs, fmt.Errorf("mapped message is not in en.po (changed or removed? re-run match): %q", m.Message))
+			errs = append(errs, fmt.Errorf("mapped message is not in en.po (changed or removed): remove its entry from apple-keys.json or bring the message back: %q", m.Message))
 			continue
 		}
 		if msg.IsPlural() != m.Plural {

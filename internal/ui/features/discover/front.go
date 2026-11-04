@@ -361,7 +361,7 @@ func (d *discover) featureList(c *ui.Context, items, shown []services.Item, page
 		list.FillWidth()
 	}
 	list.Children(func() {
-		cols := ui.Row(c.Key("cards")).AlignSelf(ui.Stretch).Margin(0, -8, 0, -8).Gap(gapX - 16).Role(ui.RoleList).Label(i18n.T("Featured cards"))
+		cols := ui.Row(c.Key("cards")).AlignSelf(ui.Stretch).Margin(0, -8, 0, -8).Gap(gapX - 16).Role(ui.RoleList).Label(i18n.T("Featured"))
 		cols.Children(func() {
 			for col := range lay.columns {
 				ui.Column(c.Key(col)).Grow(1).Basis(0).MinWidth(0).Children(func() {

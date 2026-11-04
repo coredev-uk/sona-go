@@ -419,30 +419,36 @@ func (x *extractor) catalogue() *po.File {
 
 // Diff summarises how catalogue got differs from want, one line per
 // message: "+" added, "-" removed, "~" changed (files, notes or flags).
-// It is empty when they are the same.
+// A message is its msgid and context. It is empty when they are the same.
 func Diff(got, want *po.File) []string {
-	have := map[string]*po.Entry{}
+	have := map[po.Key]*po.Entry{}
 	for _, e := range got.Entries {
 		if !e.Obsolete {
-			have[e.ID] = e
+			have[e.Key()] = e
 		}
 	}
+	name := func(k po.Key) string {
+		if k.Context != "" {
+			return strconv.Quote(k.Context) + "/" + strconv.Quote(k.ID)
+		}
+		return strconv.Quote(k.ID)
+	}
 	var out []string
-	seen := map[string]bool{}
+	seen := map[po.Key]bool{}
 	for _, e := range want.Entries {
-		seen[e.ID] = true
-		g, ok := have[e.ID]
+		seen[e.Key()] = true
+		g, ok := have[e.Key()]
 		switch {
 		case !ok:
-			out = append(out, "+ "+strconv.Quote(e.ID))
+			out = append(out, "+ "+name(e.Key()))
 		case !slices.Equal(g.References, e.References) || !slices.Equal(g.Extracted, e.Extracted) ||
-			!slices.Equal(g.Flags, e.Flags) || g.Str != e.Str:
-			out = append(out, "~ "+strconv.Quote(e.ID))
+			!slices.Equal(g.Translator, e.Translator) || !slices.Equal(g.Flags, e.Flags) || g.Str != e.Str:
+			out = append(out, "~ "+name(e.Key()))
 		}
 	}
 	for _, e := range got.Entries {
-		if !e.Obsolete && !seen[e.ID] {
-			out = append(out, "- "+strconv.Quote(e.ID))
+		if !e.Obsolete && !seen[e.Key()] {
+			out = append(out, "- "+name(e.Key()))
 		}
 	}
 	if len(out) == 0 && got.Header != want.Header {

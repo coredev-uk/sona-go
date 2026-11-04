@@ -51,8 +51,10 @@ func (a *TrackAnnouncer) Announce(c *ui.Context, s services.PlaybackState) {
 func TrackAnnouncement(name, artist string, preview bool) string {
 	switch {
 	case preview && artist != "":
+		// translators: Said by screen readers when a song starts. A preview is Apple Music's 30-second clip of the song, not the full song.
 		return i18n.T("Now playing a preview: {name} by {artist}", "name", name, "artist", artist)
 	case preview:
+		// translators: Said by screen readers when a song starts. A preview is Apple Music's 30-second clip of the song, not the full song.
 		return i18n.T("Now playing a preview: {name}", "name", name)
 	case artist != "":
 		return i18n.T("Now playing: {name} by {artist}", "name", name, "artist", artist)

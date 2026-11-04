@@ -45,8 +45,10 @@ func (l *library) albumsPage(c *ui.Context, r *ui.Route) {
 	switch {
 	case list.Pending() || (list.Total == 0 && q.kind == ""):
 	case q.kind == "singles":
+		// translators: {0} is the number of singles and EPs listed.
 		subline = i18n.T("{0, plural, one {# single or EP} other {# singles & EPs}}", "0", list.Total)
 	default:
+		// translators: {0} is the number of albums listed.
 		subline = i18n.T("{0, plural, one {# album} other {# albums}}", "0", list.Total)
 	}
 	// What a chosen type shows, read out when it changes (a filter's result

@@ -656,7 +656,71 @@ Apple's bundles from music.apple.com at run time and caches them
 (`internal/i18n/applestrings`), and `cmd/i18ntool` fetches them on every
 run. The mapping is built into the app, and
 `go test ./internal/i18n/applestrings` fails when it no longer fits `en.po`
-(a mapped message changed or removed: re-run `match`).
+(a mapped message changed or removed: remove its entry from
+`apple-keys.json`, or bring the message back, then re-run `match`).
+
+### Adding or changing a string
+
+The UI's text is written where it is shown, with a string literal:
+
+```go
+i18n.T("Add to library")
+i18n.T("{count, plural, one {# song} other {# songs}}", "count", n)
+i18n.TC("keyboard key", "Home") // context: the same word, another meaning
+```
+
+The English text is the message's identity (its msgid), so the message and
+the context must be literals (or literals joined with `+`): a variable or a
+`fmt.Sprintf` result cannot reach the catalogue, and `extract` rejects it.
+Put the whole sentence in one message, with `{name}` arguments and ICU
+plurals, never a sentence built from pieces: translators cannot reorder
+words they never see together. Changing an English message's wording makes
+it a new message, and drops its Apple mapping and its translations.
+
+After adding, changing or removing a call, from the repository root:
+
+```sh
+go run ./cmd/i18ntool extract          # writes en.po and en-XA.po
+go run ./cmd/i18ntool extract -check   # fails, with the changes, when they are stale
+```
+
+`extract` reads every `i18n.T` and `i18n.TC` call under `internal/ui` (test
+files and `testdata` excepted) and writes `internal/ui/i18n/locales/en.po`
+and `en-XA.po` whole: one entry for each message the code asks for, sorted,
+with the Go files that ask (`#: internal/ui/features/…/page.go`) and the
+translators' notes (below); a message no call asks for is dropped. The
+files are generated, so never edit them. The devenv `check` script and
+`go test ./cmd/i18ntool` run the check. It also fails when
+`apple-keys.json` maps a message the UI no longer asks for: remove its
+entry (or bring the message back). v0.2.0's messages keep their text
+byte for byte, so Apple's mapping and any translation of them go on
+working; `go test ./internal/i18n/applestrings` pins the 147 mappings
+v0.2.0 had.
+
+**Translators' notes.** A comment that starts with `translators:`, directly
+above the call or ending on the line the call ends on, becomes the message's
+`#.` note in the catalogue, which translators read:
+
+```go
+// translators: Equaliser preset
+return i18n.T("Flat")
+
+// translators: {0} is the number of songs.
+// translators: Said by screen readers when a song starts.
+label := i18n.T("{0, plural, one {# song} other {# songs}}", 0, n)
+```
+
+Each line starting with `translators:` is one note (the lines after it, up
+to the next marker, continue it). Say what the message means where it is
+not clear from the text: a word that is a preset, a name or an environment
+variable to keep as is, who reads it (screen readers) and what each
+argument is. A message asked for in several places gets the notes of all of
+them, sorted. Other comments are not notes.
+
+The pseudo-locale finds text that skipped `i18n.T`, is cut or is built from
+pieces: `en-XA` shows each message accented, longer and in brackets
+(`[Ĥöɱé one]`). `go test ./internal/ui/app` builds the main pages in it and
+fails when a message of the catalogue is shown in plain English.
 
 Before writing new English copy, check Apple's wording (its en-GB strings,
 keys like `ASE.Web.Music.*`) and use it where the meaning matches. After

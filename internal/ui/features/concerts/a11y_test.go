@@ -111,8 +111,8 @@ func TestA11yPages(t *testing.T) {
 			build: func(t *testing.T) *rig {
 				return newRig(t, "/concerts?when=week", 1132, 1000, exampleBand, sampleSinger, anotherAct)
 			},
-			ready:    []string{"No concerts match", "Clear filters"},
-			headings: []a11yHeading{{"Concerts", 1}, {"No concerts match", 2}},
+			ready:    []string{"No concerts", "Clear filters"},
+			headings: []a11yHeading{{"Concerts", 1}, {"No concerts", 2}},
 			present:  []a11yNode{{ui.RoleButton, "Clear filters"}},
 			tab:      []string{"Set location", "Dates", "Clear filters"},
 		},
@@ -121,10 +121,10 @@ func TestA11yPages(t *testing.T) {
 			build: func(t *testing.T) *rig {
 				return newRig(t, "/concerts", 1132, 1000)
 			},
-			ready:    []string{"No concerts near London", "Choose another city"},
-			headings: []a11yHeading{{"No concerts near London", 2}},
-			present:  []a11yNode{{ui.RoleButton, "Choose another city"}},
-			tab:      []string{"Set location", "Choose another city"},
+			ready:    []string{"No concerts", "No upcoming concerts. Please check back later. A larger city nearby may have some."},
+			headings: []a11yHeading{{"No concerts", 2}},
+			present:  []a11yNode{{ui.RoleButton, "Set location"}},
+			tab:      []string{"Set location", "Set location"}, // the header's, then the empty state's
 		},
 		{
 			name: "error",
@@ -286,26 +286,26 @@ func TestA11yLocationDialog(t *testing.T) {
 	r.tt.Settle()
 	tabTo(t, r.tt, "Set location", 5)
 	r.tt.Key(0, ui.KeyEnter)
-	r.shows("Where are you?", "Find a city", "Manchester")
+	r.shows("Location", "Search cities", "Manchester")
 	r.tt.Settle()
 	access.NoNestedControls(t, r.tt.Tester)
 	tr := access.Read(t, r.tt.Tester)
-	dlg, ok := tr.Find(ui.RoleDialog, "Where are you?")
+	dlg, ok := tr.Find(ui.RoleDialog, "Location")
 	if !ok {
 		t.Fatalf("no dialog:\n%s", tr.Dump())
 	}
 	if !strings.Contains(dlg.Description, "Concerts are listed near the city you choose") {
 		t.Errorf("the dialog's description is %q", dlg.Description)
 	}
-	if _, ok := tr.Find(ui.RoleHeading, "Where are you?"); !ok {
+	if _, ok := tr.Find(ui.RoleHeading, "Location"); !ok {
 		t.Error("the dialog has no heading")
 	}
-	if tr.Focus == nil || tr.Focus.Role != ui.RoleTextField || tr.Focus.Label != "Find a city" {
+	if tr.Focus == nil || tr.Focus.Role != ui.RoleTextField || tr.Focus.Label != "Search cities" {
 		t.Errorf("the dialog did not open on its field: focus %v", tr.Focus)
 	}
-	list, ok := tr.Find(ui.RoleList, "Suggested cities")
+	list, ok := tr.Find(ui.RoleList, "Suggestions")
 	if !ok {
-		t.Fatalf("no Suggested cities list:\n%s", tr.Dump())
+		t.Fatalf("no Suggestions list:\n%s", tr.Dump())
 	}
 	for _, c := range tr.Children(list) {
 		if c.Role != ui.RoleButton || !strings.Contains(c.Label, ", United Kingdom") {
@@ -316,7 +316,7 @@ func TestA11yLocationDialog(t *testing.T) {
 
 	// Typing narrows the list under its other name; a term nothing matches
 	// is announced once.
-	tabTo(t, r.tt, "Find a city", 30)
+	tabTo(t, r.tt, "Search cities", 30)
 	r.tt.Announcements()
 	r.tt.Type("manch")
 	r.tt.Until("the matches", func() bool {
@@ -330,10 +330,10 @@ func TestA11yLocationDialog(t *testing.T) {
 	var heard []string
 	r.tt.Until("no match", func() bool {
 		heard = append(heard, r.tt.Announcements()...)
-		return r.tt.HasText("No cities match “manchzzzz”. Try the name of a bigger city nearby.")
+		return r.tt.HasText("No cities found. Try the name of a bigger city nearby.")
 	})
 	heard = append(heard, r.tt.Announcements()...)
-	if n := slices.Index(heard, "No cities match “manchzzzz”."); n < 0 {
+	if n := slices.Index(heard, "No cities found"); n < 0 {
 		t.Errorf("announced %q, want the empty search read out", heard)
 	}
 
@@ -341,7 +341,7 @@ func TestA11yLocationDialog(t *testing.T) {
 	r.tt.Key(0, ui.KeyEscape)
 	r.tt.Drain()
 	r.tt.Settle()
-	if r.tt.HasText("Where are you?") {
+	if r.tt.HasText("Search cities") {
 		t.Fatal("Escape left the dialog open")
 	}
 	if !r.tt.Focused("Set location") {
@@ -355,7 +355,7 @@ func TestA11yLocationDialogMarksTheChosenCity(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 900, exampleBand)
 	r.shows("Set location", "Example Band with Opener Duo")
 	r.click("Set location")
-	r.shows("Where are you?", "Manchester")
+	r.shows("Search cities", "Manchester")
 	tr := access.Read(t, r.tt.Tester)
 	var current []string
 	for _, n := range tr.Roles(ui.RoleButton) {
@@ -416,7 +416,7 @@ func TestA11yFilterChangeIsBusyThenAnnounced(t *testing.T) {
 	r.router.Replace("/concerts?when=week")
 	r.tt.Until("nothing", func() bool {
 		heard = append(heard, r.tt.Announcements()...)
-		return r.tt.HasText("No concerts match")
+		return r.tt.HasText("Clear filters")
 	})
 	heard = append(heard, r.tt.Announcements()...)
 	if len(heard) != 1 || heard[0] != "No concerts match" {

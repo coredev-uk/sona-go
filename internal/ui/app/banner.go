@@ -45,12 +45,14 @@ func (a *App) statusBanner(c *ui.Context) {
 	case st.Keyring == "waiting":
 		icon, color, spin = "loader-circle", "ink-muted", true
 		if st.State == "restoring" {
+			// translators: Banner above the pages while the sign-in is read from the system keyring (GNOME Keyring, KWallet or the macOS keychain).
 			msg = i18n.T("Signing in… Sona is waiting for your keyring; unlock it if it asks.")
 			action = func() { b.retry.Build(c, st) }
 		} else {
 			msg = i18n.T("Saving your sign-in in your keyring; unlock it if it asks.")
 		}
 	case st.Keyring == "unavailable":
+		// translators: Banner: the system keyring could not be read, so the user has to sign in to Apple Music again.
 		msg = i18n.T("Sona couldn't read your sign-in from your keyring, so you're signed out.")
 		action = func() { b.retry.Build(c, st) }
 	case st.State == "needs_reauth":
@@ -61,6 +63,7 @@ func (a *App) statusBanner(c *ui.Context) {
 			}
 		}
 	case st.State == "error":
+		// translators: Banner: Apple Music rejected Sona's requests (its developer token is not accepted); not the user's fault.
 		msg = i18n.T("Apple Music isn't accepting Sona's requests.")
 		action = func() {
 			if kit.Button(c.Key("diagnostics"), i18n.T("Diagnostics"), kit.ButtonOpts{Variant: kit.Link, Size: kit.SizeSM}).Clicked() {
@@ -69,6 +72,7 @@ func (a *App) statusBanner(c *ui.Context) {
 		}
 	case st.Offline:
 		icon, color = "wifi-off", "ink-muted"
+		// translators: Banner while Apple Music cannot be reached: the library shown is the copy kept on this computer.
 		msg = i18n.T("Offline. Showing your library from this computer; Sona reconnects by itself.")
 	default:
 		return

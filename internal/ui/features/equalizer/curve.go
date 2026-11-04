@@ -89,6 +89,7 @@ func presetName(id, goName string) string {
 	case custom:
 		return i18n.T("Your curve")
 	case "flat":
+		// translators: Equaliser preset
 		return i18n.T("Flat")
 	case "bass-boost":
 		return i18n.T("Bass Boost")
@@ -99,22 +100,31 @@ func presetName(id, goName string) string {
 	case "treble-reducer":
 		return i18n.T("Treble Reducer")
 	case "vocal":
+		// translators: Equaliser preset
 		return i18n.T("Vocal")
 	case "loudness":
+		// translators: Equaliser preset
 		return i18n.T("Loudness")
 	case "acoustic":
+		// translators: Equaliser preset
 		return i18n.T("Acoustic")
 	case "electronic":
+		// translators: Equaliser preset
 		return i18n.T("Electronic")
 	case "hip-hop":
+		// translators: Equaliser preset
 		return i18n.T("Hip-Hop")
 	case "rock":
+		// translators: Equaliser preset
 		return i18n.T("Rock")
 	case "classical":
+		// translators: Equaliser preset
 		return i18n.T("Classical")
 	case "jazz":
+		// translators: Equaliser preset
 		return i18n.T("Jazz")
 	case "piano":
+		// translators: Equaliser preset
 		return i18n.T("Piano")
 	case "spoken-word":
 		return i18n.T("Spoken Word")

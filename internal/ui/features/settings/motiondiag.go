@@ -84,6 +84,7 @@ func powerRow(p *services.PowerState) diagRow {
 	}
 	var notes []string
 	if p.Ignored > 0 {
+		// translators: {0} is the number of peripheral batteries the motion report left out.
 		notes = append(notes, i18n.T("{0, plural, one {# peripheral battery (a mouse, keyboard or headset) is ignored.} other {# peripheral batteries (mice, keyboards, headsets) are ignored.}}", "0", p.Ignored))
 	}
 	if p.UPower != p.OnBattery {
@@ -188,6 +189,7 @@ func motionGroup(r services.MotionReport, st *services.MotionStatus, now time.Ti
 		lastDownload(st, now),
 	}
 	if st != nil {
+		// translators: {0} is the number of videos in the cache.
 		videos := i18n.T("{0, plural, one {# video} other {# videos}}", "0", st.CacheFiles)
 		rows = append(rows, diagRow{label: i18n.T("Motion cache"), value: videos + " · " + i18n.FormatBytes(st.CacheBytes)})
 	}

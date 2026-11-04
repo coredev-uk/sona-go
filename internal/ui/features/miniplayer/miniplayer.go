@@ -82,7 +82,8 @@ func New(env *module.Env) module.Module {
 	return module.Module{
 		ID: "miniplayer",
 		Shortcuts: []module.Shortcut{{
-			ID:       "miniplayer.toggle",
+			ID: "miniplayer.toggle",
+			// translators: Command in the command palette and the shortcut help.
 			Label:    func() string { return i18n.T("Show the mini player") },
 			Group:    "view",
 			Keys:     []string{"Ctrl+Shift+M"},

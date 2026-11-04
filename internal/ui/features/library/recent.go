@@ -25,6 +25,7 @@ func (l *library) recentPage(c *ui.Context, r *ui.Route) {
 
 	subline := ""
 	if list.Total > 0 && !list.Pending() {
+		// translators: {0} is the number of albums and playlists listed.
 		subline = i18n.T("{0, plural, one {# album or playlist} other {# albums and playlists}}", "0", list.Total)
 	}
 	l.scrollPage(c, &pg.pageView, "recent", func(pane *kit.Pane) {

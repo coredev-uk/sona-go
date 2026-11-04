@@ -93,7 +93,7 @@ func frontRig(t *testing.T) *rig {
 	r := newRig(t, "/new", withAPI(api), wideWindow(), withTracks(fakeTracks{songs: songsOf}))
 	r.registerItemActions()
 	newPageWith(api, r.h.Clock.Now(), heroSection(cards))
-	r.tt.Until("the front page", r.tt.Shows("Featured cards", "Play List 1"))
+	r.tt.Until("the front page", r.tt.Shows("Featured", "Play List 1"))
 	r.d.front.paused = true // the rotation does not change the page under the test
 	r.tt.Drain()
 	r.tt.Drain()
@@ -128,7 +128,7 @@ func TestA11yFrontKeepsThePlayAndMoreButtonsBesideTheLeadAndEveryRow(t *testing.
 	}
 
 	// The list holds items only, and the lead's row is the current one.
-	list, ok := tr.Find(ui.RoleList, "Featured cards")
+	list, ok := tr.Find(ui.RoleList, "Featured")
 	if !ok {
 		t.Fatal("no list of the featured cards")
 	}
@@ -155,7 +155,7 @@ func TestA11yFrontKeepsThePlayAndMoreButtonsBesideTheLeadAndEveryRow(t *testing.
 	r.tt.ClickAt(x, y)
 	r.tt.Drain()
 	tr = access.Read(t, r.tt.Tester)
-	list, _ = tr.Find(ui.RoleList, "Featured cards")
+	list, _ = tr.Find(ui.RoleList, "Featured")
 	items = listItems(t, tr, list)
 	if d := current(items[2]); !strings.Contains(d, i18n.T("Current")) {
 		t.Errorf("the chosen row says %q", d)

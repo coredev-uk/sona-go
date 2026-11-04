@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n/extract"
 	"github.com/coredev-uk/sona-go/internal/i18n/po"
 )
 
@@ -27,6 +28,50 @@ type uiMessage struct {
 	po.Key
 	HasContext bool
 	refs       []string // files, slash paths relative to the root
+	notes      []string // translators' notes, sorted and without repeats
+}
+
+// noteMarker starts a translator's note in a comment: the comment group
+// directly above a call, or one that ends on the line the call ends on,
+// holds a note for each line that starts with it (the lines after it, up to
+// the next marker, continue the note).
+const noteMarker = "translators:"
+
+// noteGroup is one comment group's notes and the lines it covers.
+type noteGroup struct {
+	first, last int
+	notes       []string
+}
+
+// noteGroups reads the translators' notes of a file's comments.
+func noteGroups(fset *token.FileSet, f *ast.File) []noteGroup {
+	var out []noteGroup
+	for _, g := range f.Comments {
+		var notes []string
+		for _, line := range strings.Split(g.Text(), "\n") {
+			line = strings.TrimSpace(line)
+			if rest, ok := strings.CutPrefix(line, noteMarker); ok {
+				notes = append(notes, strings.TrimSpace(rest))
+			} else if line != "" && len(notes) > 0 {
+				notes[len(notes)-1] += " " + line
+			}
+		}
+		if len(notes) > 0 {
+			out = append(out, noteGroup{fset.Position(g.Pos()).Line, fset.Position(g.End()).Line, notes})
+		}
+	}
+	return out
+}
+
+// noteFor is the notes that belong to a call spanning lines first to last.
+func noteFor(groups []noteGroup, first, last int) []string {
+	var out []string
+	for _, g := range groups {
+		if g.last == first-1 || g.first == last {
+			out = append(out, g.notes...)
+		}
+	}
+	return out
 }
 
 // scanUI reads the Go files under internal/ui as syntax only (go/parser,
@@ -56,7 +101,7 @@ func scanUI(root string) ([]*uiMessage, error) {
 		if !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
 			return nil
 		}
-		f, err := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution)
+		f, err := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution|parser.ParseComments)
 		if err != nil {
 			return err
 		}
@@ -65,7 +110,8 @@ func scanUI(root string) ([]*uiMessage, error) {
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		add := func(key po.Key, hasCtx bool) {
+		groups := noteGroups(fset, f)
+		add := func(key po.Key, hasCtx bool, notes []string) {
 			m := byKey[key]
 			if m == nil {
 				m = &uiMessage{Key: key, HasContext: hasCtx}
@@ -74,6 +120,11 @@ func scanUI(root string) ([]*uiMessage, error) {
 			}
 			if !slices.Contains(m.refs, rel) {
 				m.refs = append(m.refs, rel)
+			}
+			for _, n := range notes {
+				if !slices.Contains(m.notes, n) {
+					m.notes = append(m.notes, n)
+				}
 			}
 		}
 		pkg := i18nName(f)
@@ -108,10 +159,11 @@ func scanUI(root string) ([]*uiMessage, error) {
 				}
 				lits = append(lits, s)
 			}
+			notes := noteFor(groups, at.Line, fset.Position(call.End()).Line)
 			if name == "TC" {
-				add(po.Key{ID: lits[1], Context: lits[0]}, true)
+				add(po.Key{ID: lits[1], Context: lits[0]}, true, notes)
 			} else {
-				add(po.Key{ID: lits[0]}, false)
+				add(po.Key{ID: lits[0]}, false, notes)
 			}
 			return true
 		}
@@ -128,6 +180,7 @@ func scanUI(root string) ([]*uiMessage, error) {
 	}
 	for _, m := range msgs {
 		slices.Sort(m.refs)
+		slices.Sort(m.notes)
 	}
 	slices.SortFunc(msgs, func(a, b *uiMessage) int {
 		if c := strings.Compare(a.ID, b.ID); c != 0 {
@@ -204,35 +257,40 @@ func literalString(e ast.Expr) (string, bool) {
 	return "", false
 }
 
-// uiCatalogue is one of the UI's catalogue files on disk.
+// uiHeader is the header of the UI's catalogues: no creation date, so
+// extracting twice writes the same bytes. language is the file's tag.
+func uiHeader(language string) string {
+	return po.Header(
+		[2]string{"MIME-Version", "1.0"},
+		[2]string{"Content-Type", "text/plain; charset=utf-8"},
+		[2]string{"Content-Transfer-Encoding", "8bit"},
+		[2]string{"X-Generator", "sona i18ntool"},
+		[2]string{"Language", language},
+	)
+}
+
+// uiCatalogue is one of the UI's catalogue files, as extraction writes it.
 type uiCatalogue struct {
-	path string // repository-relative
-	raw  []byte
-	file *po.File
-	str  func(*uiMessage) string // the new entry's msgstr
+	path     string // repository-relative
+	language string
+	str      func(*uiMessage) string // an entry's msgstr
 }
 
-// missing is the messages of msgs the catalogue lacks, in msgs' order.
-func (c *uiCatalogue) missing(msgs []*uiMessage) []*uiMessage {
-	have := map[po.Key]bool{}
-	for _, e := range c.file.Entries {
-		have[e.Key()] = true
-	}
-	var out []*uiMessage
+// uiCatalogues are the files extraction writes: the English source, whose
+// msgstr is its msgid, and the pseudo locale's, whose msgstr is empty (MyGo
+// transforms the English).
+var uiCatalogues = []uiCatalogue{
+	{sourcePOPath, "en", func(m *uiMessage) string { return m.ID }},
+	{pseudoPOPath, "en-XA", func(*uiMessage) string { return "" }},
+}
+
+// file is the catalogue extraction writes for msgs: every message once,
+// sorted, with the Go files that ask for it.
+func (c *uiCatalogue) file(msgs []*uiMessage) *po.File {
+	f := &po.File{Header: uiHeader(c.language)}
 	for _, m := range msgs {
-		if !have[m.Key] {
-			out = append(out, m)
-		}
-	}
-	return out
-}
-
-// appended is the catalogue's bytes with the messages added at its end:
-// what is there stays byte for byte, as Lingui wrote it.
-func (c *uiCatalogue) appended(add []*uiMessage) []byte {
-	f := &po.File{}
-	for _, m := range add {
 		f.Entries = append(f.Entries, &po.Entry{
+			Extracted:  m.notes,
 			References: m.refs,
 			Context:    m.Context,
 			HasContext: m.HasContext,
@@ -240,80 +298,58 @@ func (c *uiCatalogue) appended(add []*uiMessage) []byte {
 			Str:        c.str(m),
 		})
 	}
-	// po.Format starts with the empty header's two lines; the entries
-	// follow, each after a blank line.
-	entries := bytes.TrimPrefix(po.Format(f), []byte("msgid \"\"\nmsgstr \"\"\n"))
-	out := bytes.Clone(c.raw)
-	if len(out) > 0 && out[len(out)-1] != '\n' {
-		out = append(out, '\n')
-	}
-	return append(out, entries...)
+	return f
 }
 
-func (r repo) loadUICatalogue(rel string, str func(*uiMessage) string) (*uiCatalogue, error) {
-	raw, err := os.ReadFile(r.path(rel))
-	if err != nil {
-		return nil, err
-	}
-	f, err := po.Parse(raw)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", rel, err)
-	}
-	return &uiCatalogue{path: rel, raw: raw, file: f, str: str}, nil
-}
-
-// runExtractUI keeps the UI's catalogues in step with the calls in
-// internal/ui: it adds the messages the code asks for and the catalogue
-// lacks, never removing one (the Lingui messages stay until the catalogue
-// is made exact). With check it writes nothing and fails when a message is
-// missing or a call's text is not a literal.
+// runExtractUI writes the UI's catalogues from the calls in internal/ui:
+// each holds exactly the messages the code asks for. With check it writes
+// nothing and fails when a file is out of date or a call's text is not a
+// literal.
 func runExtractUI(r repo, check bool) error {
 	msgs, scanErr := scanUI(string(r))
-	cats := make([]*uiCatalogue, 0, 2)
-	for _, c := range []struct {
-		path string
-		str  func(*uiMessage) string
-	}{
-		{sourcePOPath, func(m *uiMessage) string { return m.ID }}, // English is its own translation
-		{pseudoPOPath, func(*uiMessage) string { return "" }},     // MyGo's pseudo locale transforms the English
-	} {
-		cat, err := r.loadUICatalogue(c.path, c.str)
-		if err != nil {
-			return err
-		}
-		cats = append(cats, cat)
+	if scanErr != nil {
+		return scanErr
 	}
 	var problems []string
-	for _, cat := range cats {
-		add := cat.missing(msgs)
-		if len(add) == 0 {
-			continue
+	for _, c := range uiCatalogues {
+		want := po.Format(c.file(msgs))
+		got, err := os.ReadFile(r.path(c.path))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
 		}
-		if check {
-			for _, m := range add {
-				problems = append(problems, fmt.Sprintf("%s lacks %s (%s)", cat.path, describe(m), strings.Join(m.refs, ", ")))
+		if bytes.Equal(got, want) {
+			if check {
+				fmt.Printf("%s is up to date: %d messages\n", c.path, len(msgs))
 			}
 			continue
 		}
-		if err := os.WriteFile(r.path(cat.path), cat.appended(add), 0o644); err != nil {
+		if check {
+			diff := []string{"~ formatting"}
+			if old, err := po.Parse(got); err == nil {
+				if d := extract.Diff(old, c.file(msgs)); len(d) > 0 {
+					diff = d
+				}
+			}
+			problems = append(problems, fmt.Sprintf("%s is out of date:\n  %s", c.path, strings.Join(diff, "\n  ")))
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(r.path(c.path)), 0o755); err != nil {
 			return err
 		}
-		fmt.Printf("%s: added %d messages\n", cat.path, len(add))
+		if err := os.WriteFile(r.path(c.path), want, 0o644); err != nil {
+			return err
+		}
+		fmt.Printf("wrote %s: %d messages\n", c.path, len(msgs))
 	}
-	switch {
-	case scanErr != nil:
-		return scanErr
-	case len(problems) > 0:
-		return fmt.Errorf("the UI's catalogue is out of date (run `%s`):\n  %s", "go run ./cmd/i18ntool extract", strings.Join(problems, "\n  "))
-	case check:
-		fmt.Printf("%s is up to date: %d messages in use\n", sourcePOPath, len(msgs))
+	if len(problems) > 0 {
+		return fmt.Errorf("the UI's catalogue is out of date (run `go run ./cmd/i18ntool extract`):\n%s", strings.Join(problems, "\n"))
 	}
-	return nil
-}
-
-func describe(m *uiMessage) string {
-	if m.HasContext {
-		return strconv.Quote(m.Context) + "/" + strconv.Quote(m.ID)
+	// The Apple mapping names English messages: one the UI stopped asking
+	// for is a mapping to remove (or the message to bring back).
+	sona, err := r.loadSona()
+	if err != nil {
+		return err
 	}
-	return strconv.Quote(m.ID)
+	_, err = r.loadMappings(sona)
+	return err
 }

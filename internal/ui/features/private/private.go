@@ -115,8 +115,10 @@ func (p *private) pill(c *ui.Context) {
 	name := i18n.T("Private listening")
 	switch {
 	case forced:
+		// translators: No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'. SONA_PRIVATE=1 is an environment variable, keep as is.
 		name = i18n.T("Private listening (forced by SONA_PRIVATE=1)")
 	case dev:
+		// translators: A development build of Sona, not a release
 		name = i18n.T("Private listening (development build)")
 	}
 	tip := i18n.T("Turn on private listening")
@@ -130,8 +132,10 @@ func (p *private) pill(c *ui.Context) {
 	}
 	var word string
 	if w, _ := c.Size(); on && w >= wordFrom {
+		// translators: Short label of the private listening switch while it is on
 		word = i18n.T("Private")
 		if dev && w >= noteFrom {
+			// translators: Label of the private listening switch while a development build of Sona keeps it on
 			word = i18n.T("Private (development build)")
 		}
 	}

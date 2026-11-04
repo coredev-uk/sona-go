@@ -37,6 +37,7 @@ type trayView struct {
 func (s trayState) view() trayView {
 	v := trayView{
 		now: i18n.T("Not playing"), play: i18n.T("Play"), next: i18n.T("Next"), prev: i18n.T("Previous"),
+		// translators: Tray menu items: "Show Sona" brings the main window back, "Mini Player" opens the small always-on-top player, "Quit Sona" exits. Menu items are in title case.
 		show: i18n.T("Show Sona"), mini: i18n.T("Mini Player"), quit: i18n.T("Quit Sona"),
 	}
 	if cur := s.play.Current; cur != nil {
@@ -51,6 +52,7 @@ func (s trayState) view() trayView {
 		v.play = i18n.T("Pause")
 	}
 	if s.mini {
+		// translators: Tray menu item, shown instead of "Mini Player" while the small always-on-top player is open. Menu items are in title case.
 		v.mini = i18n.T("Close Mini Player")
 	}
 	if p := s.private; p != nil {

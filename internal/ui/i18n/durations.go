@@ -10,12 +10,18 @@ import (
 
 // MyGo carries no CLDR unit names, so the words of Intl.DurationFormat
 // (v0.2.0's formatRunningTime and formatTimeLeft) live in a table keyed by
-// language, with CLDR 48's wording, its "short" and "long" widths and its
-// plural categories. It covers English (with en-001's "hrs" and "mins" for
-// the regions that inherit from it), German, French, Spanish, Italian,
+// language, with CLDR's wording, its "short" and "long" widths and its
+// plural categories. The version is CLDR 48.2.0, the one MyGo v0.7.4's
+// tables are generated from (i18n/internal/gen); the words are those of
+// unicode-org/cldr-json tag 48.2.0, cldr-units-full (units.json,
+// duration-day/hour/minute, unitPattern-count-*) and cldr-misc-full
+// (listPatterns.json, listPattern-type-unit and unit-short, the "2"
+// pattern), checked against every regional locale of the table's languages.
+// The table covers English (with en-001's "hrs" and "mins" for the regions
+// that inherit from it, and en-CA's own), German, French, Spanish, Italian,
 // Portuguese, Dutch, Swedish, Polish, Russian, Turkish, Japanese, Chinese
-// (Simplified, Traditional, Hong Kong) and Korean: 14 languages and 3
-// further rows. Any other locale reads in English, pluralised by English's
+// (Simplified, Traditional, Hong Kong) and Korean: 14 languages and 5
+// further rows (en-001, en-CA, fr-CA and the two Chinese variants). Any other locale reads in English, pluralised by English's
 // rules. A language is added by adding its row; each row's expected strings
 // in durations_test.go come from Node's Intl.DurationFormat, not from this
 // table. Digits and grouping follow the format locale (FormatNumber's).
@@ -50,6 +56,12 @@ var durations = map[string]durationLang{
 		short: words(nil, forms("{0} hr", "{0} hrs"), forms("{0} min", "{0} mins"), ", "),
 		long:  words(forms("{0} day", "{0} days"), forms("{0} hour", "{0} hours"), forms("{0} minute", "{0} minutes"), ", "),
 	},
+	// en-CA is CLDR's own row, equal to en-001's; MyGo's parent table does
+	// not chain en-CA through en-001.
+	"en-CA": {
+		short: words(nil, forms("{0} hr", "{0} hrs"), forms("{0} min", "{0} mins"), ", "),
+		long:  words(forms("{0} day", "{0} days"), forms("{0} hour", "{0} hours"), forms("{0} minute", "{0} minutes"), ", "),
+	},
 	"de": {
 		short: words(nil, forms("{0} Std."), forms("{0} Min."), ", "),
 		long:  words(forms("{0} Tag", "{0} Tage"), forms("{0} Stunde", "{0} Stunden"), forms("{0} Minute", "{0} Minuten"), ", "),
@@ -59,6 +71,12 @@ var durations = map[string]durationLang{
 	"fr": {
 		short: words(nil, forms("{0}\u202fh"), forms("{0}\u00a0min"), " et "),
 		long:  words(forms("{0}\u00a0jour", "{0}\u00a0jours"), forms("{0}\u00a0heure", "{0}\u00a0heures"), forms("{0} minute", "{0} minutes"), " et "),
+	},
+	// Canadian French writes only no-break spaces (U+00A0): its hours are
+	// "1 h", not France's "1" U+202F "h", and its long minutes take one too.
+	"fr-CA": {
+		short: words(nil, forms("{0}\u00a0h"), forms("{0}\u00a0min"), " et "),
+		long:  words(forms("{0}\u00a0jour", "{0}\u00a0jours"), forms("{0}\u00a0heure", "{0}\u00a0heures"), forms("{0}\u00a0minute", "{0}\u00a0minutes"), " et "),
 	},
 	"es": {
 		short: words(nil, forms("{0} h"), forms("{0} min"), " y "),

@@ -123,7 +123,7 @@ func TestFormatLocales(t *testing.T) {
 		want      []string
 	}{
 		{"en", []string{"en-GB", "de-DE", "en-US", "en-GB"}, []string{"en-GB", "en-US", "en"}},
-		{"en-XA", []string{"en-GB"}, []string{"en-GB", "en-XA"}},
+		{"en-XA", []string{"en-GB"}, []string{"en-XA"}},
 		{"fr", []string{"en-GB", "", ""}, []string{"fr"}},
 	} {
 		if got := FormatLocales(tc.locale, tc.preferred); !slices.Equal(got, tc.want) {

@@ -147,6 +147,7 @@ func (a *App) hidden() bool {
 // close button does what closing the main window does.
 func (a *App) newMiniWindow() native {
 	m := mygo.NewWindow(mygo.WindowOptions{
+		// translators: Title of the small always-on-top player window, read by window lists and screen readers.
 		Title:           i18n.T("Sona mini player"),
 		Width:           miniWidth,
 		Height:          miniHeight,

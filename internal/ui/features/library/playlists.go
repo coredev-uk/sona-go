@@ -27,6 +27,7 @@ func (l *library) playlistsPage(c *ui.Context, r *ui.Route) {
 
 	subline := ""
 	if list.Total > 0 && !list.Pending() {
+		// translators: {0} is the number of playlists listed.
 		subline = i18n.T("{0, plural, one {# playlist} other {# playlists}}", "0", list.Total)
 	}
 	l.scrollPage(c, &pg.pageView, q.key(), func(pane *kit.Pane) {

@@ -44,7 +44,8 @@ func TestFormatRunningTime(t *testing.T) {
 
 // durationRows are what Intl.DurationFormat (Node 24, CLDR 48) wrote for
 // each locale: 1 h 12 min and 42 min short; 18 d 6 h, 21 h 1 min and 1 min
-// long. The strings are Intl's, not this table's.
+// long. The strings are Intl's, not this table's; the en-CA and fr-CA rows,
+// which Node's build may not carry, are CLDR 48.2.0's own (units.json).
 var durationRows = []struct {
 	tag                                  string
 	short72, short42, long18d, long21h1m string
@@ -56,8 +57,11 @@ var durationRows = []struct {
 	{"en-AU", "1 hr, 12 mins", "42 mins", "18 days, 6 hours", "21 hours, 1 minute", "1 minute"},
 	{"en-IN", "1 hr, 12 mins", "42 mins", "18 days, 6 hours", "21 hours, 1 minute", "1 minute"},
 	{"en-PR", "1 hr, 12 min", "42 min", "18 days, 6 hours", "21 hours, 1 minute", "1 minute"},
+	{"en-CA", "1 hr, 12 mins", "42 mins", "18 days, 6 hours", "21 hours, 1 minute", "1 minute"},
 	{"de", "1 Std., 12 Min.", "42 Min.", "18 Tage, 6 Stunden", "21 Stunden, 1 Minute", "1 Minute"},
 	{"fr", "1 h et 12 min", "42 min", "18 jours et 6 heures", "21 heures et 1 minute", "1 minute"},
+	// Canadian French: U+00A0 throughout, where France writes U+202F before h.
+	{"fr-CA", "1\u00a0h et 12\u00a0min", "42\u00a0min", "18\u00a0jours et 6\u00a0heures", "21\u00a0heures et 1\u00a0minute", "1\u00a0minute"},
 	{"es", "1 h y 12 min", "42 min", "18 días y 6 horas", "21 horas y 1 minuto", "1 minuto"},
 	{"it", "1 h e 12 min", "42 min", "18 giorni e 6 ore", "21 ore e 1 minuto", "1 minuto"},
 	{"pt", "1 h e 12 min", "42 min", "18 dias e 6 horas", "21 horas e 1 minuto", "1 minuto"},
