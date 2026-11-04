@@ -61,6 +61,12 @@ type Env struct {
 	// Surfaces is the open state of the account dialog and the first-run
 	// setup: any "Sign in" action calls Surfaces.OpenAccount.
 	Surfaces *store.Surfaces
+	// ConcertsShelf builds Home's "Concerts in <city>" shelf and ArtistConcerts
+	// an artist page's "Upcoming concerts" (features/concerts sets them in its
+	// factory; nil while that feature is not registered: build nothing).
+	// first marks the first shelf of the page (its top margin).
+	ConcertsShelf  func(c *ui.Context, first bool)
+	ArtistConcerts func(c *ui.Context, artistID string, first bool)
 	// OpenURL opens a web page in the system browser.
 	OpenURL func(url string) error
 	Log     *slog.Logger

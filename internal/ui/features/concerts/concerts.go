@@ -57,6 +57,8 @@ type concerts struct {
 
 // New is the Concerts module.
 func New(env *module.Env) module.Module {
+	env.ConcertsShelf = func(c *ui.Context, first bool) { ConcertsShelf(c, env, first) }
+	env.ArtistConcerts = func(c *ui.Context, artistID string, first bool) { ArtistConcerts(c, env, artistID, first) }
 	return newConcerts(env,
 		services.Service[services.ConcertsService](env.Core),
 		services.Service[services.AuthService](env.Core)).module()
