@@ -151,9 +151,16 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 	case cur == nil:
 		label(c, i18n.T("Choose a song, album or playlist to start"), "sub").TextColor(theme.C("ink-faint"))
 	case s.AuthRequired:
-		// The account dialog belongs to the account module: until the bar can
-		// open it (module.Env.Surfaces), the line is plain text.
-		label(c, i18n.T("Sign in again to keep playing"), "sub").TextColor(theme.C("ink"))
+		msg := i18n.T("Sign in again to keep playing")
+		if p.env.Surfaces == nil {
+			label(c, msg, "sub").TextColor(theme.C("ink"))
+			break
+		}
+		// An underlined button that opens the account dialog.
+		b := label(c.Key("sign-in"), msg, "sub").TextColor(theme.C("ink")).Underline().Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		if b.Clicked() {
+			p.env.Surfaces.OpenAccount()
+		}
 	case s.NoCDM:
 		p.env.PlayerNotice.Build(c) // features/cdm's notice
 	case s.State == "error" && s.Error != "":
@@ -308,7 +315,7 @@ func (p *player) seekBar(c *ui.Context, s services.PlaybackState, idle bool) {
 		if sl.Changed() {
 			p.seek.active, p.seek.secs = true, v
 		}
-		if p.seek.active && !sl.Pressed() {
+		if kit.SliderCommitted(sl) && p.seek.active {
 			p.seek.active = false
 			p.seekTo(time.Duration(p.seek.secs * float64(time.Second)))
 		}

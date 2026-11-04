@@ -59,8 +59,6 @@ type player struct {
 		active bool
 		secs   float64
 	}
-	// unmuted is the volume to return to on unmute (v0.2.0's `unmuted`).
-	unmuted float64
 
 	// ui is the panels' state (view.go); np is Now Playing's (nowplaying_state.go).
 	ui *view
@@ -107,7 +105,7 @@ func New(env *module.Env) module.Module {
 }
 
 func newPlayer(env *module.Env, svc transport, volume func() bool) *player {
-	p := &player{env: env, svc: svc, volume: volume, now: time.Now, unmuted: 0.8, ui: newView()}
+	p := &player{env: env, svc: svc, volume: volume, now: time.Now, ui: newView()}
 	p.cmds = kit.NewQueueCommands(kit.QueueDeps{
 		Svc: svc, Play: env.Play, Post: env.Post,
 		Unavailable: func() string { return unavailable(env.Play.State(), ctlQueue) },
@@ -194,11 +192,11 @@ func (p *player) setVolume(v float64) {
 func (p *player) toggleMute() {
 	v := p.env.Play.State().Volume
 	if v > 0 {
-		p.unmuted = v
+		p.env.Play.SetUnmuted(v)
 		p.setVolume(0)
 		return
 	}
-	p.setVolume(p.unmuted)
+	p.setVolume(p.env.Play.Unmuted())
 }
 
 func (p *player) toggleShuffle() {

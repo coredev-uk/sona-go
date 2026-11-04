@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 // navRecorder is the router the bar pushes pages to.
@@ -309,5 +310,17 @@ func TestFavouriteAndQueueShortcutsExist(t *testing.T) {
 	}
 	if got["player.favourite"] != "playback[F]" || got["player.queue"] != "view[Q]" {
 		t.Errorf("shortcuts %v", got)
+	}
+}
+
+func TestSignInAgainOpensTheAccountDialog(t *testing.T) {
+	r := newRig(t, true)
+	r.env.Surfaces = store.NewSurfaces()
+	r.seed(func(s *services.PlaybackState) { s.AuthRequired = true })
+	if err := r.tt.Click("Sign in again to keep playing"); err != nil {
+		t.Fatal(err)
+	}
+	if !r.env.Surfaces.AccountOpen() {
+		t.Error("the sign-in line did not open the account dialog")
 	}
 }

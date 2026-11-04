@@ -46,6 +46,8 @@ type Playback struct {
 	mu    sync.Mutex
 	state services.PlaybackState
 	queue services.QueueState
+	// unmuted is the volume to return to on unmute.
+	unmuted float64
 }
 
 // NewPlayback mirrors b's playback events. now is the clock Position
@@ -54,7 +56,7 @@ func NewPlayback(b *Bus, now func() time.Time) *Playback {
 	if now == nil {
 		now = time.Now
 	}
-	p := &Playback{now: now, state: EmptyState(), queue: services.QueueState{Index: -1}}
+	p := &Playback{now: now, state: EmptyState(), queue: services.QueueState{Index: -1}, unmuted: DefaultUnmuted}
 	On(b, services.EventPlaybackState, p.applyState)
 	On(b, services.EventPlaybackQueue, p.applyQueue)
 	return p
@@ -84,6 +86,30 @@ func (p *Playback) Queue() services.QueueState {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.queue
+}
+
+// DefaultUnmuted is the volume an unmute returns to before the user has
+// muted anything (v0.2.0's 0.8).
+const DefaultUnmuted = 0.8
+
+// Unmuted is the volume to return to on unmute: the last non-zero volume a
+// mute left. The bar's button, the M key and the video view share it
+// (v0.2.0's one `unmuted`).
+func (p *Playback) Unmuted() float64 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.unmuted
+}
+
+// SetUnmuted remembers v as the volume to return to on unmute; a zero or
+// negative v (a mute remembered nothing) leaves it as it was.
+func (p *Playback) SetUnmuted(v float64) {
+	if v <= 0 {
+		return
+	}
+	p.mu.Lock()
+	p.unmuted = min(v, 1)
+	p.mu.Unlock()
 }
 
 // Seed replaces the mirror with snapshots read from the services.

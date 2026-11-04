@@ -402,3 +402,49 @@ func TestOtherModulesBuildIntoTheBarsRightGroupAndNoticeLine(t *testing.T) {
 		t.Errorf("a song waiting for the CDM shows no notice: %q", r.tt.Texts())
 	}
 }
+
+func TestMuteSharesTheMirrorsUnmutedVolumeWithEveryOtherSurface(t *testing.T) {
+	r := newRig(t, true)
+	r.seed(func(s *services.PlaybackState) { s.Volume = 0.4 })
+	r.p.toggleMute()
+	r.fake.wait(t, 1)
+	if got := r.env.Play.Unmuted(); got != 0.4 {
+		t.Errorf("muting left %v to return to, want 0.4", got)
+	}
+	// Another surface (the video view) changed it meanwhile: unmuting returns there.
+	r.env.Play.SetUnmuted(0.9)
+	r.p.toggleMute()
+	r.fake.wait(t, 1)
+	if v := r.env.Play.State().Volume; v != 0.9 {
+		t.Errorf("unmuting returned to %v, want 0.9", v)
+	}
+}
+
+func TestSeekCommitsOnceOnReleaseEvenWhenTheDragLeavesTheSlider(t *testing.T) {
+	r := newRig(t, true)
+	r.seed()
+	b, ok := r.tt.Find("Seek")
+	if !ok {
+		t.Fatal("no seek slider")
+	}
+	x, y := b.X+b.W/4, b.Y+b.H/2
+	r.tt.Press(x, y)
+	r.tt.Move(x+30, y)
+	r.tt.Frame()
+	// Far above the 16 DIP slider, the button still held.
+	for i := 1; i <= 5; i++ {
+		r.tt.Move(x+30+float32(i)*20, y-float32(i)*40)
+		r.tt.Frame()
+	}
+	if got := r.fake.snapshot(); len(got) != 0 {
+		t.Fatalf("seeks while the pointer is still held: %v", got)
+	}
+	r.tt.Release(x+130, y-200)
+	r.tt.Frame()
+	r.tt.Frame()
+	got := r.fake.wait(t, 1)
+	r.tt.Frame()
+	if len(r.fake.seeks) != 1 || len(got) != 1 {
+		t.Errorf("seeks %v calls %v, want one seek", r.fake.seeks, got)
+	}
+}
