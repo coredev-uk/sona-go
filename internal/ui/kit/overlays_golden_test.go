@@ -75,7 +75,7 @@ func overlaysGolden(t *testing.T, name string, img *image.RGBA) {
 		for x := b.Min.X; x < b.Max.X; x++ {
 			g := img.RGBAAt(x, y)
 			w0, w1, w2, w3 := want.At(x, y).RGBA()
-			if absDiff(uint32(g.R), w0>>8) > 6 || absDiff(uint32(g.G), w1>>8) > 6 || absDiff(uint32(g.B), w2>>8) > 6 || absDiff(uint32(g.A), w3>>8) > 6 {
+			if overlaysAbsDiff(uint32(g.R), w0>>8) > 6 || overlaysAbsDiff(uint32(g.G), w1>>8) > 6 || overlaysAbsDiff(uint32(g.B), w2>>8) > 6 || overlaysAbsDiff(uint32(g.A), w3>>8) > 6 {
 				bad++
 			}
 		}
@@ -85,7 +85,7 @@ func overlaysGolden(t *testing.T, name string, img *image.RGBA) {
 	}
 }
 
-func absDiff(a, b uint32) uint32 {
+func overlaysAbsDiff(a, b uint32) uint32 {
 	if a > b {
 		return a - b
 	}
