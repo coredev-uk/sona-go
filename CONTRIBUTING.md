@@ -486,7 +486,10 @@ host. Windows has no playback yet.
   (`internal/app`: D-Bus on Linux, a socket in the state folder on macOS
   and Windows; docs/cli.md), the app options, and `services.Platform`:
   media controls (MPRIS), notifications, the sleep inhibitor, the
-  on-battery monitor, the autostart entry, the file chooser, the tray. The
+  on-battery monitor, the autostart entry, the file chooser, and the
+  title bar facts; the tray icon (and its template on macOS). The tray
+  itself is the UI's (`internal/ui/app`, `mygo.NewTray`), reported through
+  `services.Windows.HasTray`. The
   playback engine and the CDM host child hook (`newEngine`, `childMain`,
   `cdmLoadCheck`) are `engine_cdm.go`'s on Linux and macOS (the CDM host
   engine, loading the downloaded CDM) and `engine_other.go`'s elsewhere
@@ -559,23 +562,27 @@ windowsgui -X github.com/egoist/mygo.production=1' ./cmd/sona`. zig ignores the 
 
 ### Title bar and window controls
 
-> **Phase 3.** Sona's own title bar, the buttons and the Title bar setting are not ported to MyGo yet: the window opens with the desktop's decorations (`cmd/sona/platform_linux.go`). What follows describes the design, from v0.2.0's Wails shell, and its checks apply again once phase 3 lands.
-
 `internal/windowchrome` decides who draws the main window's title bar
-(`docs/design.md`, "Title bar"): macOS keeps its traffic lights inset into
-Sona's top bar (`MacTitleBarHiddenInset`); Windows and the stacking Linux
-desktops (`XDG_CURRENT_DESKTOP` and friends) get a frameless window with
-Sona's own buttons in the desktop's layout (KWin's `kwinrc` on KDE
-Plasma, GTK's `gtk-decoration-layout` elsewhere, read through
-`internal/windowchrome`); tiling compositors (their `SWAYSOCK`,
+(`docs/design.md`, "Title bar"), and the shell (`internal/ui/app/shell.go`,
+`chrome`) sets MyGo's window options from it as the window is created:
+macOS keeps its traffic lights inset into Sona's top bar (a hidden title
+bar with `TrafficLightPosition`); Windows and the stacking Linux desktops
+(`XDG_CURRENT_DESKTOP` and friends) get a hidden title bar under Sona's top
+bar, with MyGo's window buttons in the desktop's layout (GTK's
+`gtk-decoration-layout`, which MyGo reads and follows; Windows' caption
+buttons); tiling compositors (their `SWAYSOCK`,
 `HYPRLAND_INSTANCE_SIGNATURE`, `I3SOCK`, `NIRI_SOCKET`, or their desktop
-name) and unknown desktops keep the desktop's. Settings → General → Title
-bar overrides it from the next start. To check it:
+name) and unknown desktops keep the desktop's, and so does KDE Plasma
+under Wayland (`WAYLAND_DISPLAY` set, `GDK_BACKEND` not `x11`): KWin
+decorates a window whose title bar is hidden, so a hidden one would sit
+under KWin's own; Plasma on X11 gets the hidden title bar. Settings → General → Title
+bar overrides it from the next start ("sona-no-buttons" hides MyGo's
+buttons too). Sona opens no window menu on a right click. To check it:
 
 - Linux, tiling: run Sona in sway (headless: `WLR_BACKENDS=headless
 WLR_LIBINPUT_NO_DEVICES=1 sway`, then the app with `WAYLAND_DISPLAY`,
-  `dbus-run-session` and private XDG dirs): no buttons, and the window is
-  not frameless.
+  `dbus-run-session` and private XDG dirs): the desktop's frame, no
+  hidden title bar.
 - Linux, stacking: a headless GNOME Shell needs no system changes:
   `dbus-run-session -- env GSETTINGS_BACKEND=keyfile gnome-shell --headless
 --wayland --no-x11 --virtual-monitor 1600x1000 --wayland-display=gnome-0`
@@ -586,17 +593,18 @@ WLR_LIBINPUT_NO_DEVICES=1 sway`, then the app with `WAYLAND_DISPLAY`,
   The `OverviewActive` property of `org.gnome.Shell` leaves the overview,
   and `org.gnome.Shell.Screenshot` takes screenshots from a caller owning
   `org.freedesktop.impl.portal.desktop.gnome`. Check the buttons, a double
-  click on the top bar (maximise and restore), the window menu on a right
-  click, dragging, resizing from the edges and corners, and Close against
-  the close action.
+  click on the top bar (maximise and restore), dragging, resizing from the
+  edges and corners, and Close against the close action.
 - Windows: the zig cross-build below under wine 11 with a Windows 7 prefix
   in a wine virtual desktop (`wine explorer
 /desktop=sona,1600x1000 sona.exe`): the caption buttons at the top right,
   flush with the edges.
 - macOS: on a Mac only:
-  the traffic lights centred on the top bar's controls, the top bar
-  dragging the window, a double click zooming, full screen, and the mini
-  player.
+  the traffic lights centred on the top bar's height beside the sidebar's
+  mark, the top bar and the sidebar's header dragging the window, a double
+  click zooming, full screen, the menu bar item and its menu, closing to
+  the background (the Dock icon or the menu bar item brings it back), and
+  the mini player.
 
 ## Architecture rules
 

@@ -7508,3 +7508,19 @@ msgstr ""
 #: internal/ui/i18n/relative.go
 msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
 msgstr ""
+
+#: internal/ui/app/tray.go
+msgid "Show Sona"
+msgstr ""
+
+#: internal/ui/app/tray.go
+msgid "Close Mini Player"
+msgstr ""
+
+#: internal/ui/app/view.go
+msgid "Current page"
+msgstr ""
+
+#: internal/ui/app/tray.go
+msgid "Mini Player"
+msgstr ""

@@ -37,11 +37,10 @@ func TestCapabilitiesFollowThePlatformAndEngine(t *testing.T) {
 		MediaControls: func(mpris.Player) (MediaControls, error) { return nil, nil },
 		Autostart:     app.XDGAutostart{},
 		Files:         app.Portal{},
-		Tray:          true,
 		MotionArtwork: true,
 	}
 	eng := &playEngine{}
-	got := newPlatformService(&Env{Deps: Deps{Engine: eng, Platform: plat, Settings: testSettings(t)}}).Capabilities()
+	got := newPlatformService(&Env{Deps: Deps{Engine: eng, Platform: plat, Windows: &fakeWindows{tray: true}, Settings: testSettings(t)}}).Capabilities()
 	if !got.Playback.Available || got.Playback.Engine != playback.KindCDM || !got.Playback.Volume || got.Playback.Equalizer {
 		t.Errorf("playback = %+v, want the engine's capabilities", got.Playback)
 	}
@@ -56,10 +55,9 @@ func TestCapabilitiesFollowThePlatformAndEngine(t *testing.T) {
 func TestCapabilitiesWindowControls(t *testing.T) {
 	reads := 0
 	plat := Platform{TitleBar: windowchrome.Platform{
-		Native:     windowchrome.NativeFrame,
-		Automatic:  config.TitleBarSona,
-		Desktop:    "GNOME",
-		WindowMenu: true,
+		Native:    windowchrome.NativeFrame,
+		Automatic: config.TitleBarSona,
+		Desktop:   "GNOME",
 		Layout: func() windowchrome.Layout {
 			reads++
 			return windowchrome.ParseGTK("close:minimize,maximize")
@@ -72,7 +70,7 @@ func TestCapabilitiesWindowControls(t *testing.T) {
 		t.Fatalf("layout read %d times before Capabilities", reads)
 	}
 	want := WindowControls{
-		Native: "frame", Automatic: "sona", Desktop: "GNOME", Style: "auto", WindowMenu: true,
+		Native: "frame", Automatic: "sona", Desktop: "GNOME", Style: "auto",
 		Start: []string{"close"}, End: []string{"minimize", "maximize"},
 	}
 	for range 2 {

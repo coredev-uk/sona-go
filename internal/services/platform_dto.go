@@ -72,9 +72,6 @@ type WindowControls struct {
 	// Style is the title bar style (config.TitleBar.Style) the main window
 	// was created with: a change in Settings applies from the next start.
 	Style string `json:"style"`
-	// WindowMenu: DesktopService.ShowWindowMenu opens the desktop's window
-	// menu, for a right click on Sona's title bar (Linux).
-	WindowMenu bool `json:"windowMenu"`
 }
 
 // PlaybackCapabilities is what the playback engine supports.

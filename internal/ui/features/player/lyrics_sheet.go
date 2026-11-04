@@ -590,7 +590,7 @@ func lyricsSourceName(provider string) string {
 // seekLine seeks to where the line is the one sung under the song's offset;
 // a failure toasts "Couldn't seek".
 func (p *player) seekLine(ln *services.LyricLine) {
-	songID := lyricsSongID(p.env.Play.State().Current)
+	songID := lyricsync.SongID(p.env.Play.State().Current)
 	off := lyricsync.Session().Get(songID)
 	p.seekTo(msDur(lyricsync.SeekTarget(ln.BeginMs, off)))
 }

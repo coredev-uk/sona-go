@@ -3,8 +3,9 @@
     vmcheck [--wait SECONDS]
 
 Prints one JSON object: Sona's top-level windows ("frames", with their
-size), the title bar's window buttons (Sona's own: Close, Minimise,
-Maximise or Restore, with their position in the window) and the page's
+size), the title bar's window buttons (GTK's own, which MyGo shows on a
+hidden title bar: Close, Minimize, Maximize or Restore, with their position
+in the window; none where the compositor decorates the window) and the page's
 headings. It waits until the main window's page has rendered (a heading or
 a window button), or fails after --wait seconds.
 """
@@ -20,7 +21,7 @@ gi.require_version("Atspi", "2.0")
 from gi.repository import Atspi, GLib  # noqa: E402
 
 APP_NAMES = {"dev.coredev.Sona", "Sona", "sona"}
-WINDOW_BUTTONS = {"Close", "Minimise", "Maximise", "Restore"}
+WINDOW_BUTTONS = {"Close", "Minimize", "Maximize", "Restore"}
 
 
 def sona_apps():

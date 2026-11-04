@@ -231,25 +231,52 @@ func TestOpenOnOffersTheRegisteredPagesAndTheChoiceIsWhereSonaOpens(t *testing.T
 	if got := g.saved().Desktop.StartRoute(); got != "/library/songs" {
 		t.Errorf("the next start opens %q", got)
 	}
-	// A page no module registered is not offered; the last page waits for route memory.
-	for _, no := range []string{"Charts", "The page you were last on"} {
-		g.tt.Key(0, ui.KeyEnter)
-		g.tt.Drain()
-		if g.tt.HasText(no) {
-			t.Errorf("%q is offered", no)
-		}
-		g.tt.Key(0, ui.KeyEscape)
-		g.tt.Drain()
+	// A page no module registered is not offered; the last page always is.
+	g.tt.Key(0, ui.KeyEnter)
+	g.tt.Drain()
+	if g.tt.HasText("Charts") {
+		t.Error("an unregistered page is offered")
 	}
+	if !g.tt.HasText("The page you were last on") {
+		t.Error("the last page is not offered")
+	}
+	g.tt.Key(0, ui.KeyEscape)
+	g.tt.Drain()
+}
+
+func TestOpenOnOffersThePageYouWereLastOnAndSavesItAsResume(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), func(s *config.Settings) {
+		s.Desktop.StartPage = "/library/songs"
+		s.Desktop.LastRoute = "/library/songs"
+	})
+	*stateOf[func(string) bool](g.s, "seam:hasRoute") = func(p string) bool { return p == "/library/albums" || p == "/library/songs" }
+	g.tt.Drain()
+	g.until("page and summary", g.tt.Shows("Songs", "Opens on Songs"))
+	g.choose("start-page", "The page you were last on")
+	g.until("resume saved", func() bool {
+		d := g.saved().Desktop
+		return d.ResumeLastRoute && d.StartPage == "/library/songs"
+	})
+	g.until("trigger and summary", g.tt.Shows("The page you were last on", "Opens where you left off"))
+	if g.tt.HasText("Opens on Songs") {
+		t.Error("the summary still names a page")
+	}
+	// Choosing a page again turns the memory off.
+	g.choose("start-page", "Albums")
+	g.until("page saved", func() bool {
+		d := g.saved().Desktop
+		return !d.ResumeLastRoute && d.StartPage == "/library/albums" && d.LastRoute == ""
+	})
+	g.until("summary", g.tt.Shows("Opens on Albums"))
 }
 
 func TestOpenOnShowsThePageTheShellOpens(t *testing.T) {
 	// The saved "/" is registered by no module here: the shell opens the
 	// first registered page, and the select and the summary say so.
-	g := newGeneralRig(t, linuxCaps(), func(s *config.Settings) { s.Desktop.ResumeLastRoute = true })
+	g := newGeneralRig(t, linuxCaps(), nil)
 	g.until("trigger and summary", g.tt.Shows("Albums", "Opens on Albums"))
 	if g.tt.HasText("Opens where you left off") {
-		t.Error("the summary names route memory, which the shell does not have")
+		t.Error("the summary names route memory with it off")
 	}
 	*stateOf[func(string) bool](g.s, "seam:hasRoute") = func(p string) bool { return p == "/charts" || p == "/library/songs" }
 	if route, label := g.s.openOn(config.Desktop{StartPage: "/library/songs"}); route != "/library/songs" || label != "Songs" {
@@ -308,14 +335,46 @@ func TestAutostartIsAnUnavailableRowWithoutTheCapability(t *testing.T) {
 		"Not available on Linux yet."))
 }
 
-func TestTitleBarIsAnUnavailableRowUntilTheShellDrawsOne(t *testing.T) {
+func TestTitleBarSelectSavesTheStyleAndSaysItAppliesFromTheNextStart(t *testing.T) {
 	g := newGeneralRig(t, linuxCaps(), nil)
-	g.tt.Until("reason", g.tt.Shows("Title bar", "Sona's own title bar comes with a later version: the desktop draws it."))
+	g.tt.Until("row", g.tt.Shows("Title bar", "Automatic leaves the title bar to your desktop, which Sona doesn't recognise."))
+	if g.tt.HasText("Applies the next time Sona starts.") {
+		t.Error("the hint shows before a change")
+	}
+	g.choose("title-bar", "The desktop's")
+	g.until("saved", func() bool { return g.saved().TitleBar.Style == config.TitleBarDesktop })
+	g.until("next-start hint", g.tt.Shows("The desktop's", "Applies the next time Sona starts."))
+	g.choose("title-bar", "Sona's, without window buttons")
+	g.until("saved again", func() bool { return g.saved().TitleBar.Style == config.TitleBarSonaNoButtons })
+	// Back to the style the window was created with: nothing pending.
+	g.choose("title-bar", "Automatic")
+	g.until("auto", func() bool {
+		return g.saved().TitleBar.Style == config.TitleBarAuto && !g.tt.HasText("Applies the next time Sona starts.")
+	})
+}
+
+func TestTitleBarHintSaysWhatAutomaticPicksHere(t *testing.T) {
 	caps := linuxCaps()
-	caps.OS, caps.WindowControls.Native = "darwin", "inset"
+	caps.WindowControls.Automatic, caps.WindowControls.Desktop = "sona", "GNOME"
+	g := newGeneralRig(t, caps, nil)
+	g.tt.Until("hint", g.tt.Shows("Automatic uses Sona's title bar on GNOME, with the window buttons where your desktop puts them."))
+	caps.WindowControls.Desktop = ""
 	g2 := newGeneralRig(t, caps, nil)
-	if g2.tt.HasText("Sona's own title bar comes with a later version: the desktop draws it.") {
-		t.Error("the Title bar row shows on macOS")
+	g2.tt.Until("hint", g2.tt.Shows("Automatic uses Sona's title bar, with the window buttons where your system puts them."))
+	caps.WindowControls.Automatic, caps.WindowControls.Desktop = "desktop", "sway"
+	g3 := newGeneralRig(t, caps, nil)
+	g3.tt.Until("hint", g3.tt.Shows("Automatic leaves the title bar to sway."))
+}
+
+func TestTitleBarIsOnlyShownWhereTheWindowHasAFrame(t *testing.T) {
+	for _, native := range []string{"inset", "none"} {
+		caps := linuxCaps()
+		caps.WindowControls.Native = native
+		g := newGeneralRig(t, caps, nil)
+		g.tt.Until("window group", g.tt.Shows("Window size"))
+		if g.tt.HasText("Title bar") {
+			t.Errorf("the Title bar row shows with Native %q", native)
+		}
 	}
 }
 

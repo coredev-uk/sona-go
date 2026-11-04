@@ -11,6 +11,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/equalizer"
 	"github.com/coredev-uk/sona-go/internal/ui/features/home"
 	"github.com/coredev-uk/sona-go/internal/ui/features/library"
+	"github.com/coredev-uk/sona-go/internal/ui/features/miniplayer"
 	"github.com/coredev-uk/sona-go/internal/ui/features/onboarding"
 	"github.com/coredev-uk/sona-go/internal/ui/features/player"
 	"github.com/coredev-uk/sona-go/internal/ui/features/playlist"
@@ -30,23 +31,24 @@ import (
 // it; nav items sort by their own Order). Features not ported yet are
 // absent: there are no placeholders.
 var factories = []module.Factory{
-	home.New,      // For you, and one shelf in full
-	discover.New,  // Discover, Charts, rooms, curators, groupings; the item players
-	search.New,    // search field, results, group and profile pages
-	concerts.New,  // concerts page and location dialog
-	library.New,   // the library pages, the sync indicator and the item actions
-	album.New,     // the album page
-	artist.New,    // the artist page and its see-all views
-	song.New,      // the song page
-	video.New,     // the music video page and view
-	playlist.New,  // the playlist page, the sidebar tree and pins, the dialogs
-	radio.New,     // Radio, stations, and the station actions
-	player.New,    // the player bar, the queue, Now Playing and lyrics
-	equalizer.New, // the equaliser page
-	settings.New,  // the settings page
-	auth.New,      // sign-in state, the account menu and dialog
-	commands.New,  // the command palette and the shortcut help
-	updates.New,   // the sidebar's update notice
+	home.New,       // For you, and one shelf in full
+	discover.New,   // Discover, Charts, rooms, curators, groupings; the item players
+	search.New,     // search field, results, group and profile pages
+	concerts.New,   // concerts page and location dialog
+	library.New,    // the library pages, the sync indicator and the item actions
+	album.New,      // the album page
+	artist.New,     // the artist page and its see-all views
+	song.New,       // the song page
+	video.New,      // the music video page and view
+	playlist.New,   // the playlist page, the sidebar tree and pins, the dialogs
+	radio.New,      // Radio, stations, and the station actions
+	player.New,     // the player bar, the queue, Now Playing and lyrics
+	miniplayer.New, // the mini player window, its bar button and Ctrl+Shift+M
+	equalizer.New,  // the equaliser page
+	settings.New,   // the settings page
+	auth.New,       // sign-in state, the account menu and dialog
+	commands.New,   // the command palette and the shortcut help
+	updates.New,    // the sidebar's update notice
 	// motion has no module: the policy is kit.MotionPolicy (Env.Motion), kept by the shell
 	private.New,    // the player bar's private listening pill and its command
 	cdm.New,        // the Widevine mirror and the player bar's notice

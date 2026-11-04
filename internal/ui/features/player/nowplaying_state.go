@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
 
@@ -28,6 +29,9 @@ type nowPlayingState struct {
 	// shown: the view has been built since it opened (focus goes to its first
 	// stop once); roomShown is the same for full-screen lyrics.
 	shown, roomShown bool
+	// hadFocus: the focus was inside the view when it was last built, so
+	// closing it returns the focus to the control that opened it.
+	hadFocus bool
 	// roomFull: full-screen lyrics put the window in full screen, so leaving
 	// takes it out again.
 	roomFull, roomEntered bool
@@ -99,7 +103,8 @@ func (p *player) toggleNowPlaying() {
 	}
 }
 
-// toggleVideo shows the music video view, or hides it.
+// toggleVideo is the V key: the music video view, or hides it (the bar's
+// button opens it from itself, so the focus returns to it).
 func (p *player) toggleVideo() { p.env.Video.Toggle() }
 
 // toggleRoom is Shift+L: full-screen lyrics, or back out of them.
@@ -127,7 +132,7 @@ func (p *player) videoSurface() bool { return p.videoPlaying() }
 // lyricsShown reports lyrics on screen: Now Playing's lyrics pane or
 // full-screen lyrics, for a song that has some.
 func (p *player) lyricsShown() bool {
-	if lyricsSongID(p.env.Play.State().Current) == "" {
+	if lyricsync.SongID(p.env.Play.State().Current) == "" {
 		return false
 	}
 	switch p.ui.overlay {

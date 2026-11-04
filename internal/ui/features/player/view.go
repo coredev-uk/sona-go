@@ -1,6 +1,11 @@
 package player
 
-import "github.com/coredev-uk/sona-go/internal/services"
+import (
+	"github.com/egoist/mygo/ui"
+
+	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
+)
 
 // overlayKind is the panel the player has open over the page (v0.2.0's
 // ui.ts Overlay): the now-playing view or its full-screen lyrics ("room").
@@ -34,6 +39,12 @@ type view struct {
 	// fromRoom: now playing was reopened by leaving full-screen lyrics, so
 	// focus goes back to its Full screen button.
 	fromRoom bool
+	// opening is the bar control (its handle) whose click is opening a panel
+	// now; opener the one that opened the panel showing, which the focus goes
+	// back to when the panel closes (v0.2.0's useReturnFocus). nil: a key
+	// opened it, so the focus is left with the page. restoring is the opener
+	// a return was asked of and that is not answered yet.
+	opening, opener, restoring *ui.Handle
 }
 
 func newView() *view { return &view{pane: paneLyrics} }
@@ -43,6 +54,9 @@ func (v *view) toggleQueue() { v.queueOpen = !v.queueOpen }
 // openNowPlaying opens the view on pane, or on the one it showed last when
 // pane is "".
 func (v *view) openNowPlaying(pane paneKind) {
+	if v.overlay == overlayNone {
+		v.opener = v.opening
+	}
 	v.overlay, v.fromRoom = overlayNowPlaying, false
 	if pane != "" {
 		v.pane = pane
@@ -50,7 +64,12 @@ func (v *view) openNowPlaying(pane paneKind) {
 }
 
 // openRoom is full-screen lyrics.
-func (v *view) openRoom() { v.overlay, v.pane = overlayRoom, paneLyrics }
+func (v *view) openRoom() {
+	if v.overlay == overlayNone {
+		v.opener = v.opening
+	}
+	v.overlay, v.pane = overlayRoom, paneLyrics
+}
 
 // closeOverlay steps back one level: full-screen lyrics → now playing → the
 // page.
@@ -65,20 +84,11 @@ func (v *view) closeOverlay() {
 
 func (v *view) setPane(pane paneKind) { v.pane = pane }
 
-// lyricsSongID is the catalogue ID of what plays when it has lyrics: "" for
-// nothing, live radio or a music video (v0.2.0's lyricsSongId).
-func lyricsSongID(cur *services.QueueItem) string {
-	if cur == nil || cur.Live || cur.Video {
-		return ""
-	}
-	return cur.CatalogID
-}
-
 // shownPane is the pane the view shows for pane and the playing item: a
 // station, a music video or a song outside the catalogue has no lyrics, so
 // it shows Up next.
 func shownPane(pane paneKind, cur *services.QueueItem) paneKind {
-	if lyricsSongID(cur) != "" && !cur.Live {
+	if lyricsync.SongID(cur) != "" && !cur.Live {
 		return pane
 	}
 	return paneQueue

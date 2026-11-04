@@ -201,9 +201,8 @@ The sidebar header and the top bar are the window's title bar. Who draws it come
   - Linux: Sona's own compact buttons, not Adwaita's or Breeze's: 28px, radius 6, the top bar's 16px outline glyphs at 1.75 stroke (`Minus`, `Square`, `Copy` for Restore, `X`) in `--ink-muted`, 4px apart, `--hover` on hover, `--active` pressed, 8px from the window edge. Close stays neutral.
 - **Tiling compositors** (sway, Hyprland, i3, niri, river, bspwm, …) and desktops Sona doesn't recognise: the desktop's own title bar or none; Sona draws no buttons and the band is not a drag region.
 - Settings → General → **Title bar** (Windows, Linux): Automatic (the hint names the desktop and what Automatic picks there), Sona's with window buttons, Sona's without window buttons, The desktop's. It applies from the next start (GTK doesn't give a window that ran without its title bar its own back).
-- Where Sona draws it, the band's empty parts drag the window, a double click maximises or restores, and a right click opens the desktop's window menu (Linux); every control in the band stays a control. On macOS a double click does what the system's title bar setting says.
-- The buttons are real buttons in a group named "Window", labelled Minimise, Maximise or Restore (by the window's state) and Close, and reachable with Tab. Close does what closing the window does (Settings → General: keep playing in the background, or quit).
-- While the window is inactive, the wordmark and the button glyphs drop to `--ink-faint`.
+- Where Sona's top bar is the title bar, the band's empty parts drag the window and a double click maximises or restores; every control in the band stays a control. On macOS a double click does what the system's title bar setting says.
+- The window buttons are the toolkit's (MyGo's: GTK's in the desktop's layout on Linux, Windows' caption buttons), so they read, look and behave as the desktop's own; the band keeps their room clear. Close does what closing the window does (Settings → General: keep playing in the background, or quit).
 - The mini player keeps its own Open Sona and Close buttons, on the side where the platform puts Close (leading on macOS and leading desktop layouts), Close outermost, 4px apart.
 
 ### First-run setup

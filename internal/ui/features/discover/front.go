@@ -157,12 +157,17 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item) {
 	})
 }
 
-// seen reports whether the user can see the hero: the window is shown (the
-// shell tells the motion policy when it hides or minimises) and the hero is
-// on screen. A window that is shown but unfocused still rotates: MyGo does not
-// tell a view the window's focus.
+// seen reports whether the user is looking at the hero: the window is shown
+// (the shell tells the motion policy when it hides or minimises) and has the
+// keyboard focus (Env.Window: another app or the mini player in front means
+// nobody is reading the lead), and the hero is on screen. The shell redraws
+// the window when the focus changes, so the rotation sets off again from a
+// whole interval.
 func (d *discover) seen(hero ui.Element) bool {
 	if m := d.env.Motion; m != nil && !m.Visible() {
+		return false
+	}
+	if !d.env.Window.Focused() {
 		return false
 	}
 	return hero.InView() || hero.Bounds().W == 0 // not laid out yet: on screen

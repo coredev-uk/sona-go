@@ -10,7 +10,6 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/config"
-	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
 // desktopEnv builds a DesktopService over a fresh settings store with the
@@ -134,30 +133,21 @@ func TestSetLastRouteOnlyWhileResuming(t *testing.T) {
 }
 
 // fakeWindows is the shell's window control: it records nothing but the
-// main window's state and the window menu's answer.
+// developer tools' answer and the tray.
 type fakeWindows struct {
-	state   windowchrome.WindowState
-	watch   func(windowchrome.WindowState)
-	nav     func(forward bool)
-	menuErr error
 	// devtoolsErr is OpenDeveloperTools' answer.
 	devtoolsErr error
+	// tray is HasTray's answer.
+	tray bool
 }
 
-func (*fakeWindows) ShowMain()                                     {}
-func (*fakeWindows) ToggleMini()                                   {}
-func (*fakeWindows) CloseMini()                                    {}
-func (*fakeWindows) ResetWindowSize()                              {}
-func (*fakeWindows) MinimiseMain()                                 {}
-func (*fakeWindows) ToggleMaximiseMain()                           {}
-func (*fakeWindows) CloseMain()                                    {}
-func (f *fakeWindows) ShowWindowMenu() error                       { return f.menuErr }
-func (f *fakeWindows) MainState() windowchrome.WindowState         { return f.state }
-func (*fakeWindows) DeveloperTools() bool                          { return false }
-func (f *fakeWindows) OpenDeveloperTools() error                   { return f.devtoolsErr }
-func (f *fakeWindows) WatchMain(fn func(windowchrome.WindowState)) { f.watch = fn }
-
-func (f *fakeWindows) WatchNavigate(fn func(bool)) { f.nav = fn }
+func (*fakeWindows) ShowMain()                   {}
+func (*fakeWindows) ToggleMini()                 {}
+func (*fakeWindows) CloseMini()                  {}
+func (*fakeWindows) ResetWindowSize()            {}
+func (f *fakeWindows) HasTray() bool             { return f.tray }
+func (*fakeWindows) DeveloperTools() bool        { return false }
+func (f *fakeWindows) OpenDeveloperTools() error { return f.devtoolsErr }
 
 func windowsEnv(t *testing.T, w *fakeWindows) (*DesktopService, *recorder) {
 	t.Helper()
@@ -170,61 +160,6 @@ func windowsEnv(t *testing.T, w *fakeWindows) (*DesktopService, *recorder) {
 	e := &Env{Deps: Deps{Settings: st, Emit: rec, Logger: discard(), Windows: w}}
 	t.Cleanup(e.close)
 	return newDesktopService(e), rec
-}
-
-// The title bar follows the main window: each change of its state reaches
-// the page as "window:state", and the page can read the current one.
-func TestWindowStateReachesThePage(t *testing.T) {
-	w := &fakeWindows{state: windowchrome.WindowState{Fullscreen: true}}
-	d, rec := windowsEnv(t, w)
-	if got := d.WindowState(); got != (WindowState{Fullscreen: true}) {
-		t.Fatalf("WindowState = %+v", got)
-	}
-	w.watch(windowchrome.WindowState{Maximised: true})
-	rec.mu.Lock()
-	defer rec.mu.Unlock()
-	var sent []WindowState
-	for i, name := range rec.events {
-		if name == EventWindowState {
-			sent = append(sent, rec.data[i].(WindowState))
-		}
-	}
-	if len(sent) != 1 || sent[0] != (WindowState{Maximised: true}) {
-		t.Fatalf("window:state events = %+v, want one maximised", sent)
-	}
-}
-
-// The mouse's back and forward buttons, which the web view does not hand
-// to the page, reach it as "window:navigate" with the direction to go.
-func TestMouseButtonsReachThePage(t *testing.T) {
-	w := &fakeWindows{}
-	_, rec := windowsEnv(t, w)
-	w.nav(false)
-	w.nav(true)
-	rec.mu.Lock()
-	defer rec.mu.Unlock()
-	var sent []any
-	for i, name := range rec.events {
-		if name == EventNavigate {
-			sent = append(sent, rec.data[i])
-		}
-	}
-	if len(sent) != 2 || sent[0] != NavigateBack || sent[1] != NavigateForward {
-		t.Fatalf("window:navigate events = %v, want back then forward", sent)
-	}
-}
-
-// Where Sona can't open the desktop's window menu the call says so with
-// the unsupported code, which the page words as not available here.
-func TestWindowMenuUnsupported(t *testing.T) {
-	d, _ := windowsEnv(t, &fakeWindows{menuErr: errors.ErrUnsupported})
-	if err := d.ShowWindowMenu(); CodeOf(err) != CodeUnsupported {
-		t.Fatalf("ShowWindowMenu = %v (code %q), want code %q", err, CodeOf(err), CodeUnsupported)
-	}
-	d, _ = windowsEnv(t, &fakeWindows{})
-	if err := d.ShowWindowMenu(); err != nil {
-		t.Fatalf("ShowWindowMenu = %v", err)
-	}
 }
 
 // The inspector opens when the window has it on; otherwise the call says

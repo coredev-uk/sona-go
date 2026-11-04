@@ -110,6 +110,9 @@ func (v *video) layer(c *ui.Context) {
 	st := &v.view
 	if !v.env.Video.IsOpen() {
 		v.closed()
+		// However it closed (Escape, Close video, the toggle key, the bar's
+		// Show video), the focus goes back to what opened it.
+		v.env.Video.ReturnFocus(c)
 		return
 	}
 	now := c.Now()
@@ -392,7 +395,20 @@ func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, stat
 	if id == "" {
 		id = cur.ID
 	}
-	ui.Row(c.Key("header")).Height(64).Shrink(0).PaddingX(32).Gap(16).AlignItems(ui.Center).Opacity(st.alpha).Children(func() {
+	// Over a hidden title bar (zero in full screen) the picture's top strip
+	// is the window's: the buttons it has stay clear of the window's, and the
+	// strip drags the window.
+	bar := c.TitleBar()
+	lead, trail := bar.Left, bar.Right
+	if c.Direction() == ui.RightToLeft {
+		lead, trail = trail, lead
+	}
+	head := ui.Row(c.Key("header")).Height(64).Shrink(0).PaddingStart(max(32, lead+8)).PaddingEnd(max(32, trail+8)).
+		Gap(16).AlignItems(ui.Center).Opacity(st.alpha)
+	if bar.Height > 0 {
+		head.DragWindow()
+	}
+	head.Children(func() {
 		ui.Column(c).Grow(1).Basis(0).MinWidth(0).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).MinWidth(0).Children(func() {
 				h := theme.Current().Type["heading"]

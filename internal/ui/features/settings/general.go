@@ -35,7 +35,7 @@ func (s *settings) general(c *ui.Context) {
 		s.group(c, "general-window", i18n.T("Window"), "", func() {
 			s.closeActionRow(c, cfg, cp)
 			if cp.WindowControls.Native == "frame" {
-				s.titleBarRow(c)
+				s.titleBarRow(c, cfg, cp)
 			}
 			s.windowSizeRow(c, cfg)
 		})
@@ -61,10 +61,14 @@ func (s *settings) saveDesktop(change func(*config.Desktop)) {
 	s.save(func(st *config.Settings) { change(&st.Desktop) })
 }
 
+// lastPage is the "Open on" value standing for the page Sona was last on
+// (a select needs a non-empty value; no route is spelled so).
+const lastPage = "last-page"
+
 // openOn is the page Sona opens on, as the shell resolves it: the saved
 // start page if it is registered in this build, else the first registered
-// one (App.startPath's fallback). "The page you were last on" waits for the
-// shell's route memory (phase 3), so it is neither offered nor shown.
+// one (App.startPath's fallback). Callers check d.ResumeLastRoute first:
+// then the shell opens on the remembered route, no fixed page.
 func (s *settings) openOn(d config.Desktop) (route, label string) {
 	for _, p := range startPages() {
 		if !s.hasRoute(p.Route) {
@@ -83,17 +87,24 @@ func (s *settings) openOn(d config.Desktop) (route, label string) {
 // startPageRow is "Open on": the pages Sona can open on that exist in this
 // build.
 func (s *settings) startPageRow(c *ui.Context, cfg config.Settings) {
-	var items []kit.SelectItem
+	items := []kit.SelectItem{kit.SelectOption(lastPage, i18n.T("The page you were last on"))}
 	for _, p := range startPages() {
 		if s.hasRoute(p.Route) {
 			items = append(items, kit.SelectOption(p.Route, p.Label))
 		}
 	}
-	current, _ := s.openOn(cfg.Desktop)
+	current := lastPage
+	if !cfg.Desktop.ResumeLastRoute {
+		current, _ = s.openOn(cfg.Desktop)
+	}
 	s.selectRow(c, rowOpts{
 		ID: "start-page", Title: i18n.T("Open on"),
 		Desc: i18n.T("The page Sona shows when it starts. Your queue is always kept."),
 	}, current, items, false, func(v string) {
+		if v == lastPage {
+			s.saveDesktop(func(d *config.Desktop) { d.ResumeLastRoute = true })
+			return
+		}
 		s.saveDesktop(func(d *config.Desktop) { d.StartPage, d.ResumeLastRoute, d.LastRoute = v, false, "" })
 	})
 }

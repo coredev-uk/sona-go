@@ -67,8 +67,11 @@ type player struct {
 	queue queueUI
 	// sleepUI is the sleep timer's state (sleep_*.go).
 	sleep sleepUI
-	// announce is the track announcer's state (announcer.go).
-	announce announcer
+	// coverBtn, lyricsBtn and videoBtn are the bar's controls that open Now
+	// Playing, its lyrics and the video view: the focus returns to them on close.
+	coverBtn, lyricsBtn, videoBtn ui.Handle
+	// announce is the track announcer (kit.TrackAnnouncer).
+	announce kit.TrackAnnouncer
 
 	mu     sync.Mutex
 	failed []failure // command failures waiting to be shown (the view shows them)

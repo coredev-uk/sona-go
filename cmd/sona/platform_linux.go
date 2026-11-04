@@ -118,23 +118,27 @@ func (p *platform) Services() services.Platform {
 }
 
 // TitleBar is how the main window's title bar works here, for
-// PlatformService: the desktop's own frame (MyGo draws no title bar of its
-// own yet; Sona's own is phase 3), with no window menu to open.
+// PlatformService: a hidden title bar under Sona's top bar, with MyGo's
+// window buttons in the desktop's layout (GTK's gtk-decoration-layout), on
+// stacking desktops; the desktop's own on tiling ones and on Plasma under
+// Wayland.
 func (p *platform) TitleBar() windowchrome.Platform {
 	d := windowchrome.Detect(os.Getenv)
 	return windowchrome.Platform{
-		Native:     windowchrome.NativeFrame,
-		Automatic:  d.Automatic(),
-		Desktop:    d.Name,
-		WindowMenu: false,
-		Layout:     func() windowchrome.Layout { return buttonLayout(d, p.log) },
+		Native:    windowchrome.NativeFrame,
+		Automatic: d.Automatic(),
+		Desktop:   d.Name,
+		Layout:    func() windowchrome.Layout { return buttonLayout(d, p.log) },
 	}
 }
 
-// buttonLayout reads the desktop's title bar buttons: KWin's on KDE
-// Plasma, else the defaults. GTK's own setting (gtk-decoration-layout) was
-// read through GTK4 by the Wails shell; MyGo has no call for it, so reading
-// it again comes with the title bar in phase 3.
+// trayTemplate is nil on Linux: AppIndicator shows the colour icon.
+func trayTemplate() []byte { return nil }
+
+// buttonLayout reads the desktop's title bar buttons: KWin's on KDE Plasma,
+// else GTK's gtk-decoration-layout (which MyGo's window buttons follow, so
+// the mini player's Close goes on the same side), else the defaults. It calls
+// GTK: it runs on the main thread, from the first Capabilities.
 func buttonLayout(d windowchrome.Desktop, log *slog.Logger) windowchrome.Layout {
 	if d.KDE {
 		if path := windowchrome.KWinRC(os.Getenv); path != "" {
@@ -147,7 +151,14 @@ func buttonLayout(d windowchrome.Desktop, log *slog.Logger) windowchrome.Layout 
 			}
 		}
 	}
-	return windowchrome.DefaultLayout()
+	layout, err := gtkDecorationLayout()
+	if err != nil || layout == "" {
+		if err != nil {
+			log.Warn("title bar: read GTK's buttons", "err", err)
+		}
+		return windowchrome.DefaultLayout()
+	}
+	return windowchrome.ParseGTK(layout)
 }
 
 // Serve hands later launches' links to activate and runs commands sent by

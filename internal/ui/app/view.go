@@ -3,6 +3,7 @@ package app
 import (
 	"strings"
 
+	mygoi18n "github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
@@ -17,8 +18,10 @@ import (
 // over the whole window. Only the page area scrolls (each page owns its
 // scroll container, which its virtualised lists need).
 func (a *App) view(c *ui.Context) {
+	c.Root().Direction(a.direction())
 	theme.Apply(c)
 	a.keys.dispatch(c)
+	a.rememberRoute(c)
 
 	layerOpen, overlayOpen := a.layerOpen(), a.overlayOpen()
 
@@ -51,6 +54,22 @@ func (a *App) view(c *ui.Context) {
 	a.afterFrame(c, layerOpen, overlayOpen)
 }
 
+// direction is the window's direction: right to left for a language written
+// so (Arabic, Hebrew…, as the language shown, i18n.Locale, says), else left
+// to right. Set on the root before anything is built, so every element, the
+// layers and the popups inherit it.
+// The answer is kept per language: parsing the tag every frame, for both
+// windows, is work a frame can skip.
+func (a *App) direction() ui.Direction {
+	if loc := i18n.Locale(); a.dirLocale != loc {
+		a.dirLocale, a.dir = loc, ui.LeftToRight
+		if mygoi18n.Direction(loc) == mygoi18n.RightToLeft {
+			a.dir = ui.RightToLeft
+		}
+	}
+	return a.dir
+}
+
 // painted is the first frame drawn: the network opens (SystemService
 // logs "startup: first paint").
 func (a *App) painted() {
@@ -64,6 +83,7 @@ func (a *App) mainColumn(c *ui.Context) {
 	ui.Column(c).Grow(1).Basis(0).MinWidth(0).FillHeight().Children(func() {
 		a.topBar(c)
 		ui.Box(c).Height(1).FillWidth().Background(theme.C("line"))
+		a.statusBanner(c)
 		overlayOpen := a.overlayOpen()
 		ui.Row(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 			// An open overlay covers the page, which keeps its place (and
@@ -123,8 +143,20 @@ func (a *App) topBar(c *ui.Context) {
 			break
 		}
 	}
-	ui.Row(c).Height(theme.Current().Metric["top-bar"]).FillWidth().Background(theme.C("surface")).
-		Padding(0, 16, 0, 12).Gap(12).AlignItems(ui.Center).Children(func() {
+	// A hidden title bar: the top bar is the window's, dragging it, and
+	// keeps clear of the window buttons; the sidebar's header takes the
+	// leading ones while the sidebar shows (macOS's, Linux's on the left).
+	lead, trail := titleBarRoom(c)
+	start := float32(12)
+	if !a.sidebar {
+		start = max(start, lead+8)
+	}
+	row := ui.Row(c).Height(theme.Current().Metric["top-bar"]).FillWidth().Background(theme.C("surface")).
+		PaddingStart(start).PaddingEnd(max(16, trail+8)).Gap(12).AlignItems(ui.Center)
+	if a.drawnTitleBar {
+		row.DragWindow()
+	}
+	row.Children(func() {
 		ui.Row(c).Gap(2).AlignItems(ui.Center).Children(func() {
 			// MyGo's labels are English only.
 			ui.BackButton(c, a.router).Label(i18n.T("Back")).Tooltip(i18n.T("Back"))
@@ -184,10 +216,26 @@ func (a *App) sidebarView(c *ui.Context) {
 	})
 }
 
+// titleBarRoom is the room the window buttons take at the start and at the
+// end of the window's top edge: the title bar's physical left and right,
+// swapped in a right-to-left window.
+func titleBarRoom(c *ui.Context) (lead, trail float32) {
+	bar := c.TitleBar()
+	if c.Direction() == ui.RightToLeft {
+		return bar.Right, bar.Left
+	}
+	return bar.Left, bar.Right
+}
+
 // brand is the sidebar's header: the mark (a record label seen from above,
 // amber with a spindle hole) and the wordmark.
 func (a *App) brand(c *ui.Context) {
-	ui.Row(c).Height(theme.Current().Metric["top-bar"]).Padding(0, 10).Gap(8).AlignItems(ui.Center).Children(func() {
+	lead, _ := titleBarRoom(c)
+	row := ui.Row(c).Height(theme.Current().Metric["top-bar"]).PaddingStart(max(10, lead-4)).PaddingEnd(10).Gap(8).AlignItems(ui.Center)
+	if a.drawnTitleBar {
+		row.DragWindow()
+	}
+	row.Children(func() {
 		ui.Row(c).Size(20, 20).Radius(10).Background(theme.C("amber")).Center().Children(func() {
 			ui.Box(c).Size(4, 4).Radius(2).Background(theme.C("surface"))
 		})
@@ -206,6 +254,9 @@ func (a *App) navLink(c *ui.Context, n module.NavItem) {
 	switch {
 	case on:
 		row.Background(theme.C("active"))
+		// MyGo has no aria-current: assistive technology hears it as the
+		// link's description, as the playlist sidebar's links say it.
+		row.Description(i18n.T("Current page"))
 		fg = theme.C("ink")
 	case row.Hovered():
 		row.Background(theme.C("hover"))

@@ -58,7 +58,7 @@ func (p *player) measureLayout(c *ui.Context) nowPlayingLayout {
 // panes are the panes the view offers: a station, a music video or a song
 // outside the catalogue has only Up next.
 func panesFor(cur *services.QueueItem) []paneKind {
-	if lyricsSongID(cur) != "" && !cur.Live {
+	if lyricsync.SongID(cur) != "" && !cur.Live {
 		return []paneKind{paneLyrics, paneQueue}
 	}
 	return []paneKind{paneQueue}
@@ -94,7 +94,7 @@ func (p *player) nowPlaying(c *ui.Context) {
 	lay := p.measureLayout(c)
 	panes := panesFor(cur)
 	shown := shownPane(p.ui.pane, cur)
-	songID := lyricsSongID(cur)
+	songID := lyricsync.SongID(cur)
 
 	root := ui.Column(c.Key("now-playing")).FillWidth().FillHeight().Grow(1).Basis(0).MinHeight(0)
 	root.Children(func() {
@@ -145,6 +145,7 @@ func (p *player) nowPlaying(c *ui.Context) {
 		})
 	})
 	root.Role(ui.RoleGroup).Label(i18n.T("Now playing")).Bind(&p.np.root)
+	p.np.hadFocus = root.FocusWithin()
 	if !theme.ReducedMotion() {
 		root.Transition(ui.ElementTransition{Enter: &ui.Motion{}, Duration: 150 * time.Millisecond})
 	}

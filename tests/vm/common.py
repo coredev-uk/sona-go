@@ -176,7 +176,7 @@ def check_tray():
                 menu = busctl_json(f"get-property {name} /StatusNotifierItem org.kde.StatusNotifierItem Menu")["data"]
                 # Depth 8 rather than -1 (all), which busctl would read as an option.
                 layout = user(f"busctl --user call {name} {menu} com.canonical.dbusmenu GetLayout iias 0 8 0")
-                for label in ["Show Sona", "Mini player", "Quit Sona"]:
+                for label in ["Show Sona", "Mini Player", "Quit Sona"]:
                     assert label in layout, layout
                 machine.log(f"tray: Sona's names {names}, watcher's items {items}; menu {layout.strip()}")
                 return names, items

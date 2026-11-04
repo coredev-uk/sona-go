@@ -23,7 +23,8 @@ import (
 func (p *player) bar(c *ui.Context) {
 	p.toasts(c)
 	s := p.env.Play.State()
-	p.announceTrack(c, s)
+	p.announce.Announce(c, s)
+	p.returnFocus(c)
 	tk := theme.Current()
 	backdrop := ""
 	if s.Current != nil {
@@ -44,7 +45,10 @@ func (p *player) bar(c *ui.Context) {
 // song is the left column: the cover, the title and the line under it.
 func (p *player) song(c *ui.Context, s services.PlaybackState) {
 	cur := s.Current
-	ui.Row(c).Grow(1).Basis(0).MinWidth(0).Gap(12).AlignItems(ui.Center).Children(func() {
+	// The song keeps room for its title at the window's minimum width: the
+	// transport shrinks towards its 280 first (v0.2.0's grid let it fall to
+	// nothing once the right group grew).
+	ui.Row(c).Grow(1).Basis(0).MinWidth(160).Gap(12).AlignItems(ui.Center).Children(func() {
 		p.cover(c, s)
 		ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).MinWidth(0).Children(func() {
@@ -90,7 +94,7 @@ func (p *player) cover(c *ui.Context, s services.PlaybackState) {
 	case open:
 		name = i18n.T("Close now playing")
 	}
-	b := ui.ButtonBase(c.Key("cover")).Label(name).Shrink(0).Radius(theme.Current().Radius["sm"]).Padding(0)
+	b := ui.ButtonBase(c.Key("cover")).Label(name).Shrink(0).Radius(theme.Current().Radius["sm"]).Padding(0).Bind(&p.coverBtn)
 	b.Background(ui.Transparent)
 	if cur == nil {
 		b.Disabled(true)
@@ -98,11 +102,11 @@ func (p *player) cover(c *ui.Context, s services.PlaybackState) {
 	b.Children(func() { kit.Artwork(c, p.env.Art, src, 48, kit.ArtOpts{}).Shrink(0) })
 	if b.Clicked() && cur != nil {
 		if p.videoSurface() && p.env.Video != nil {
-			p.env.Video.Open()
+			p.env.Video.OpenFrom(&p.coverBtn)
 		} else if open {
 			p.ui.closeOverlay()
 		} else {
-			p.ui.openNowPlaying("")
+			p.opened(&p.coverBtn, func() { p.ui.openNowPlaying("") })
 		}
 	}
 }
@@ -265,8 +269,13 @@ func (p *player) iconButton(c *ui.Context, key, icon, name string, disabled bool
 	btn := kit.Button(c.Key(key), "", kit.ButtonOpts{
 		Variant: kit.Ghost, Size: kit.SizeSM, Icon: icon, Pressed: pressed, Disabled: disabled, A11yLabel: a11y,
 	})
-	if key == "queue-toggle" {
+	switch key {
+	case "queue-toggle":
 		btn.Bind(&p.queue.toggle) // the queue's Escape returns the focus here
+	case "lyrics":
+		btn.Bind(&p.lyricsBtn) // Now Playing's close returns it here
+	case "video":
+		btn.Bind(&p.videoBtn) // so does the video view's
 	}
 	return btn.Clicked()
 }
@@ -345,13 +354,13 @@ func (p *player) volumeControls(c *ui.Context, s services.PlaybackState) {
 		if p.videoSurface() {
 			on := p.env.Video.IsOpen()
 			if p.iconButton(c, "video", "clapperboard", i18n.T("Show video"), idle, "", &on) {
-				p.toggleVideo()
+				p.env.Video.ToggleFrom(&p.videoBtn)
 			}
 		}
 		if p.lyricsSurface() {
 			on := p.ui.overlay == overlayNowPlaying && shownPane(p.ui.pane, s.Current) == paneLyrics
 			if p.iconButton(c, "lyrics", "mic-vocal", i18n.T("Lyrics"), idle, "", &on) {
-				p.toggleLyrics()
+				p.opened(&p.lyricsBtn, p.toggleLyrics)
 			}
 		}
 		queue := p.queueShown()

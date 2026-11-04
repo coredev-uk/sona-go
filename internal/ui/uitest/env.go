@@ -42,7 +42,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
-	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
 // Epoch is where a Clock starts.
@@ -199,9 +198,10 @@ func New(t testing.TB, opts ...Option) *Harness {
 	}
 	loader := kit.NewArtLoader(art, h.Main.Post) // a nil cache has no cover: every one fails
 	t.Cleanup(func() { loader.Close(); loader.Wait() })
+	win := store.NewWindow()
 	h.Env = &module.Env{
 		Core: h.Core, Bus: h.Bus, Queries: store.NewClient(h.Main.Post), Play: store.NewPlayback(h.Bus, h.Clock.Now),
-		Art: loader, Video: store.NewVideoView(nil), Actions: kit.NewActionRegistry(), Players: module.NewPlayers(h.Core, h.Clock.Now), Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: o.version, Surfaces: store.NewSurfaces(), OpenURL: h.open, Copy: h.copy,
+		Art: loader, Window: win, Video: store.NewVideoView(nil, win), Actions: kit.NewActionRegistry(), Players: module.NewPlayers(h.Core, h.Clock.Now), Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: o.version, Surfaces: store.NewSurfaces(), OpenURL: h.open, Copy: h.copy,
 	}
 	// As in app.New: menus load on goroutines and answer through the main
 	// thread, and an action's Navigate goes to the test's router (Env.Nav,
@@ -346,6 +346,5 @@ func (noAccount) Backend() authstore.Backend     { return authstore.BackendFile 
 // noWindows is a window control with no window: the services only follow it.
 type noWindows struct{ services.Windows }
 
-func (noWindows) WatchMain(func(windowchrome.WindowState)) {}
-func (noWindows) WatchNavigate(func(bool))                 {}
-func (noWindows) DeveloperTools() bool                     { return false }
+func (noWindows) DeveloperTools() bool { return false }
+func (noWindows) HasTray() bool        { return false }

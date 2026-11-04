@@ -48,7 +48,7 @@
         assert len(sona_windows) == 1, windows
         assert sona_windows[0][2] == "dev.coredev.Sona.desktop", windows
 
-    with subtest("Title bar: GNOME's layout (appmenu:close)"):
+    with subtest("Title bar: GTK's own buttons in GNOME's layout (appmenu:close)"):
         buttons = [b["name"] for b in w["buttons"]]
         assert buttons == ["Close"], w["buttons"]
         assert w["buttons"][0]["x"] > frame["w"] / 2, (w["buttons"], frame)
@@ -106,8 +106,8 @@
         )
         assert kinds == [1], f"not one X11 client (Meta.WindowClientType.X11 = 1): {kinds}"
         check_x11_window()
-        buttons = [b["name"] for b in w["buttons"]]
-        assert buttons == ["Close", "Minimise", "Maximise"], w["buttons"]
+        buttons = sorted(w["buttons"], key=lambda b: b["x"])
+        assert [b["name"] for b in buttons] == ["Close", "Minimize", "Maximize"], w["buttons"]
         assert all(b["x"] < frame["w"] / 2 for b in w["buttons"]), (w["buttons"], frame)
         check_mpris_bus()
         check_tray()

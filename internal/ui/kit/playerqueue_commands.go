@@ -355,7 +355,16 @@ func (c *QueueCommands) refs(items []Item) ([]services.TrackRef, error) {
 // QueueUnavailable is why the queue takes nothing in state s (a live station
 // has no queue to add to; neither has a station of songs), "" when it does.
 func QueueUnavailable(s services.PlaybackState) string {
-	if s.Controls.Queue {
+	return ControlUnavailable(s, s.Controls.Queue)
+}
+
+// ControlUnavailable is why a playback control doesn't apply to what plays
+// in state s, "" when it does (applies is what Go's Controls say of it): Go
+// decides, the reason is only worded here, and only for a live station or a
+// station of songs (one the user started, not AutoPlay's). The player bar,
+// its shortcuts and the mini player share it (v0.2.0's availability.ts).
+func ControlUnavailable(s services.PlaybackState, applies bool) string {
+	if applies {
 		return ""
 	}
 	if s.Current != nil && s.Current.Live {

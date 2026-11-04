@@ -332,13 +332,14 @@ func run(started time.Time) error {
 	// After the services subscribed to auth changes, so none misses the
 	// restored sign-in.
 	authm.Start()
-	// MPRIS' Quit comes from a bus call: the quit runs on its own goroutine
-	// since shutdown closes the media controls, which must not wait on the
-	// call that asked for it.
-	core.StartMediaControls(services.NewMPRISPlayer(coord, windows.ShowMain, func() { go mygo.App.Quit() }, log.With("component", "mpris")))
+	// MPRIS' Quit comes from a bus call: Windows.Quit only posts the quit
+	// to the main loop (mygo.App.Quit), since shutdown closes the media
+	// controls, which must not wait on the call that asked for it.
+	core.StartMediaControls(services.NewMPRISPlayer(coord, windows.ShowMain, windows.Quit, log.With("component", "mpris")))
 
 	core.Activate(act, false)
 	plat.Serve(core.Activate, core.Commands())
+	openURLs(core.Activate)
 
 	setApplicationID(log)
 	mygo.App.SetName("Sona")
@@ -355,8 +356,9 @@ func run(started time.Time) error {
 	mygo.App.WhenReady(func() {
 		ui = uiapp.New(uiapp.Options{
 			Core: core, Settings: settings, Bus: bus, Windows: windows, Art: art, Motion: mot, Video: vid, Log: log.With("component", "ui"),
-			Version: version, Dev: devMode, Icon: build.AppIcon, OpenURL: mygo.Shell.OpenExternal, Copy: clipboardText,
-			FirstRun: firstRun,
+			Version: version, Dev: devMode, Icon: build.AppIcon, TrayIcon: build.TrayIcon, TrayTemplate: trayTemplate(),
+			OpenURL: mygo.Shell.OpenExternal, Copy: clipboardText,
+			FirstRun: firstRun, Hidden: act.Hidden(),
 		})
 		log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "hidden", act.Hidden())
 	})
