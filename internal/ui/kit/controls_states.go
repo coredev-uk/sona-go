@@ -260,7 +260,10 @@ func PageHeader(c *ui.Context, title, subline string, actions func()) ui.Element
 	e := ui.Row(c).FillWidth().AlignItems(ui.End).Justify(ui.SpaceBetween).Gap(24).Margin(0, 0, 24, 0).Shrink(0)
 	e.Children(func() {
 		ui.Column(c).MinWidth(0).Shrink(1).Children(func() {
-			controlsText(c, title, "title").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
+			head := controlsText(c, title, "title").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
+			if title == "" {
+				head.Role(ui.RoleNone) // a page still loading has no title to read
+			}
 			if subline != "" {
 				controlsText(c, subline, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 			}
