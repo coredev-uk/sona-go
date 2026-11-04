@@ -15,13 +15,6 @@
     "key": "ASE.Web.Music.Shared.Add"
   },
   {
-    "message": "Add music by {name} to collect it here.",
-    "key": "ASE.Web.Music.Library.Artists.Detail.Empty.NoStation",
-    "placeholders": {
-      "artistName": "name"
-    }
-  },
-  {
     "message": "Add to library",
     "key": "ASE.Web.Music.VO.AddToLibraryLabel"
   },
@@ -292,18 +285,6 @@
     "key": "ASE.Web.Platform.Shared.MediaComponents.Playback.Next"
   },
   {
-    "message": "No cities found",
-    "key": "ASE.Web.Music.CityPicker.NoCitiesFound"
-  },
-  {
-    "message": "No concerts",
-    "key": "MusicUI.ConcertsHub.NoConcerts.Title"
-  },
-  {
-    "message": "No upcoming concerts. Please check back later.",
-    "key": "MusicUI.ConcertsHub.NoConcerts.Description"
-  },
-  {
     "message": "Not now",
     "key": "FUSE.NotNow"
   },
@@ -454,10 +435,6 @@
   {
     "message": "Search",
     "key": "ASE.Web.Music.Search.Pageheader"
-  },
-  {
-    "message": "Search cities",
-    "key": "ASE.Web.Music.CityPicker.Placeholder"
   },
   {
     "message": "Search in Apple Music",

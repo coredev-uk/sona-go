@@ -658,6 +658,50 @@ run. The mapping is built into the app, and
 `go test ./internal/i18n/applestrings` fails when it no longer fits `en.po`
 (a mapped message changed or removed: re-run `match`).
 
+### Adding or changing a string
+
+The UI's text is written where it is shown, with a string literal:
+
+```go
+i18n.T("Add to library")
+i18n.T("{count, plural, one {# song} other {# songs}}", "count", n)
+i18n.TC("keyboard key", "Home") // context: the same word, another meaning
+```
+
+The English text is the message's identity (its msgid), so the message and
+the context must be literals (or literals joined with `+`): a variable or a
+`fmt.Sprintf` result cannot reach the catalogue, and `extract` rejects it.
+Put the whole sentence in one message, with `{name}` arguments and ICU
+plurals, never a sentence built from pieces: translators cannot reorder
+words they never see together. Changing an English message's wording makes
+it a new message, and drops its Apple mapping and its translations.
+
+After adding, changing or removing a call, from the repository root:
+
+```sh
+go run ./cmd/i18ntool extract          # writes en.po and en-XA.po
+go run ./cmd/i18ntool extract -check   # fails, with the changes, when they are stale
+```
+
+`extract` reads every `i18n.T` and `i18n.TC` call under `internal/ui` (test
+files and `testdata` excepted) and writes `internal/ui/i18n/locales/en.po`
+and `en-XA.po` whole: one entry for each message the code asks for, sorted,
+with the Go files that ask (`#: internal/ui/features/…/page.go`) and no
+other text; a message no call asks for is dropped. The files are generated,
+so never edit them. The devenv `check` script and
+`go test ./cmd/i18ntool` run the check. It also fails when
+`apple-keys.json` maps a message the UI no longer asks for: remove its
+mapping (or bring the message back). v0.2.0's messages keep their text
+byte for byte, so Apple's mapping and any translation of them go on
+working; `go test ./internal/i18n/applestrings` pins the 147 mappings
+v0.2.0 had.
+
+The pseudo-locale finds text that skipped `i18n.T`, is cut or is built from
+pieces: `en-XA` shows each message accented, a third longer and in brackets
+(`[Ĥöɱé ~~]`). The shell does not offer it; `go test ./internal/ui/app`
+builds the main pages in it and in Arabic (mirrored, right to left) and
+fails when a message of the catalogue is shown in plain English.
+
 Before writing new English copy, check Apple's wording (its en-GB strings,
 keys like `ASE.Web.Music.*`) and use it where the meaning matches. After
 `go run ./cmd/i18ntool extract`, from the repository root:

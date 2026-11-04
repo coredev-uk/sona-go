@@ -204,34 +204,38 @@ func literalString(e ast.Expr) (string, bool) {
 	return "", false
 }
 
-// uiCatalogue is one of the UI's catalogue files on disk.
+// uiHeader is the header of the UI's catalogues: no creation date, so
+// extracting twice writes the same bytes. language is the file's tag.
+func uiHeader(language string) string {
+	return po.Header(
+		[2]string{"MIME-Version", "1.0"},
+		[2]string{"Content-Type", "text/plain; charset=utf-8"},
+		[2]string{"Content-Transfer-Encoding", "8bit"},
+		[2]string{"X-Generator", "sona i18ntool"},
+		[2]string{"Language", language},
+	)
+}
+
+// uiCatalogue is one of the UI's catalogue files, as extraction writes it.
 type uiCatalogue struct {
-	path string // repository-relative
-	raw  []byte
-	file *po.File
-	str  func(*uiMessage) string // the new entry's msgstr
+	path     string // repository-relative
+	language string
+	str      func(*uiMessage) string // an entry's msgstr
 }
 
-// missing is the messages of msgs the catalogue lacks, in msgs' order.
-func (c *uiCatalogue) missing(msgs []*uiMessage) []*uiMessage {
-	have := map[po.Key]bool{}
-	for _, e := range c.file.Entries {
-		have[e.Key()] = true
-	}
-	var out []*uiMessage
+// uiCatalogues are the files extraction writes: the English source, whose
+// msgstr is its msgid, and the pseudo locale's, whose msgstr is empty (MyGo
+// transforms the English).
+var uiCatalogues = []uiCatalogue{
+	{sourcePOPath, "en", func(m *uiMessage) string { return m.ID }},
+	{pseudoPOPath, "en-XA", func(*uiMessage) string { return "" }},
+}
+
+// file is the catalogue extraction writes for msgs: every message once,
+// sorted, with the Go files that ask for it.
+func (c *uiCatalogue) file(msgs []*uiMessage) *po.File {
+	f := &po.File{Header: uiHeader(c.language)}
 	for _, m := range msgs {
-		if !have[m.Key] {
-			out = append(out, m)
-		}
-	}
-	return out
-}
-
-// appended is the catalogue's bytes with the messages added at its end:
-// what is there stays byte for byte, as Lingui wrote it.
-func (c *uiCatalogue) appended(add []*uiMessage) []byte {
-	f := &po.File{}
-	for _, m := range add {
 		f.Entries = append(f.Entries, &po.Entry{
 			References: m.refs,
 			Context:    m.Context,
@@ -240,80 +244,95 @@ func (c *uiCatalogue) appended(add []*uiMessage) []byte {
 			Str:        c.str(m),
 		})
 	}
-	// po.Format starts with the empty header's two lines; the entries
-	// follow, each after a blank line.
-	entries := bytes.TrimPrefix(po.Format(f), []byte("msgid \"\"\nmsgstr \"\"\n"))
-	out := bytes.Clone(c.raw)
-	if len(out) > 0 && out[len(out)-1] != '\n' {
-		out = append(out, '\n')
-	}
-	return append(out, entries...)
+	return f
 }
 
-func (r repo) loadUICatalogue(rel string, str func(*uiMessage) string) (*uiCatalogue, error) {
-	raw, err := os.ReadFile(r.path(rel))
-	if err != nil {
-		return nil, err
+// diffUI summarises how the catalogue on disk differs from want, one line per
+// message: "+" missing, "-" no longer asked for, "~" changed.
+func diffUI(got, want *po.File) []string {
+	have := map[po.Key]*po.Entry{}
+	for _, e := range got.Entries {
+		if !e.Obsolete {
+			have[e.Key()] = e
+		}
 	}
-	f, err := po.Parse(raw)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", rel, err)
+	var out []string
+	seen := map[po.Key]bool{}
+	for _, w := range want.Entries {
+		seen[w.Key()] = true
+		g, ok := have[w.Key()]
+		switch {
+		case !ok:
+			out = append(out, "+ "+describeKey(w.Key()))
+		case !slices.Equal(g.References, w.References) || !slices.Equal(g.Extracted, w.Extracted) ||
+			!slices.Equal(g.Flags, w.Flags) || !slices.Equal(g.Translator, w.Translator) || g.Str != w.Str:
+			out = append(out, "~ "+describeKey(w.Key()))
+		}
 	}
-	return &uiCatalogue{path: rel, raw: raw, file: f, str: str}, nil
+	for _, e := range got.Entries {
+		if !e.Obsolete && !seen[e.Key()] {
+			out = append(out, "- "+describeKey(e.Key()))
+		}
+	}
+	return out
 }
 
-// runExtractUI keeps the UI's catalogues in step with the calls in
-// internal/ui: it adds the messages the code asks for and the catalogue
-// lacks, never removing one (the Lingui messages stay until the catalogue
-// is made exact). With check it writes nothing and fails when a message is
-// missing or a call's text is not a literal.
+// runExtractUI writes the UI's catalogues from the calls in internal/ui:
+// each holds exactly the messages the code asks for. With check it writes
+// nothing and fails when a file is out of date or a call's text is not a
+// literal.
 func runExtractUI(r repo, check bool) error {
 	msgs, scanErr := scanUI(string(r))
-	cats := make([]*uiCatalogue, 0, 2)
-	for _, c := range []struct {
-		path string
-		str  func(*uiMessage) string
-	}{
-		{sourcePOPath, func(m *uiMessage) string { return m.ID }}, // English is its own translation
-		{pseudoPOPath, func(*uiMessage) string { return "" }},     // MyGo's pseudo locale transforms the English
-	} {
-		cat, err := r.loadUICatalogue(c.path, c.str)
-		if err != nil {
-			return err
-		}
-		cats = append(cats, cat)
+	if scanErr != nil {
+		return scanErr
 	}
 	var problems []string
-	for _, cat := range cats {
-		add := cat.missing(msgs)
-		if len(add) == 0 {
-			continue
+	for _, c := range uiCatalogues {
+		want := po.Format(c.file(msgs))
+		got, err := os.ReadFile(r.path(c.path))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
 		}
-		if check {
-			for _, m := range add {
-				problems = append(problems, fmt.Sprintf("%s lacks %s (%s)", cat.path, describe(m), strings.Join(m.refs, ", ")))
+		if bytes.Equal(got, want) {
+			if check {
+				fmt.Printf("%s is up to date: %d messages\n", c.path, len(msgs))
 			}
 			continue
 		}
-		if err := os.WriteFile(r.path(cat.path), cat.appended(add), 0o644); err != nil {
+		if check {
+			diff := []string{"~ formatting"}
+			if old, err := po.Parse(got); err == nil {
+				if d := diffUI(old, c.file(msgs)); len(d) > 0 {
+					diff = d
+				}
+			}
+			problems = append(problems, fmt.Sprintf("%s is out of date:\n  %s", c.path, strings.Join(diff, "\n  ")))
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(r.path(c.path)), 0o755); err != nil {
 			return err
 		}
-		fmt.Printf("%s: added %d messages\n", cat.path, len(add))
+		if err := os.WriteFile(r.path(c.path), want, 0o644); err != nil {
+			return err
+		}
+		fmt.Printf("wrote %s: %d messages\n", c.path, len(msgs))
 	}
-	switch {
-	case scanErr != nil:
-		return scanErr
-	case len(problems) > 0:
-		return fmt.Errorf("the UI's catalogue is out of date (run `%s`):\n  %s", "go run ./cmd/i18ntool extract", strings.Join(problems, "\n  "))
-	case check:
-		fmt.Printf("%s is up to date: %d messages in use\n", sourcePOPath, len(msgs))
+	if len(problems) > 0 {
+		return fmt.Errorf("the UI's catalogue is out of date (run `go run ./cmd/i18ntool extract`):\n%s", strings.Join(problems, "\n"))
 	}
-	return nil
+	// The Apple mapping names English messages: one the UI stopped asking
+	// for is a mapping to remove (or the message to bring back).
+	sona, err := r.loadSona()
+	if err != nil {
+		return err
+	}
+	_, err = r.loadMappings(sona)
+	return err
 }
 
-func describe(m *uiMessage) string {
-	if m.HasContext {
-		return strconv.Quote(m.Context) + "/" + strconv.Quote(m.ID)
+func describeKey(k po.Key) string {
+	if k.Context != "" {
+		return strconv.Quote(k.Context) + "/" + strconv.Quote(k.ID)
 	}
-	return strconv.Quote(m.ID)
+	return strconv.Quote(k.ID)
 }

@@ -8,10 +8,10 @@
 //	i18ntool extract          write both English catalogues: Go's
 //	                          (internal/i18n/l10n/locales/en.po) and the UI's
 //	                          (internal/ui/i18n/locales/en.po, en-XA.po),
-//	                          which only gain messages
-//	i18ntool extract -check   fail when Go's catalogue is out of date, a
-//	                          UI message is missing from the UI's, or a
-//	                          call's text is not a string literal
+//	                          each exactly the messages the code asks for
+//	i18ntool extract -check   fail when either is out of date, a mapped
+//	                          message is gone from the UI, or a call's text
+//	                          is not a string literal
 //	i18ntool match            propose Apple keys for unmapped messages
 //	i18ntool match -apply F   move reviewed proposals into the mapping
 //	i18ntool import           convert Apple's translations for review (gitignored)

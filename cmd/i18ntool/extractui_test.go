@@ -128,64 +128,67 @@ func view(s string) {
 	}
 }
 
-func TestExtractUIAddsMissingAndKeepsTheRest(t *testing.T) {
-	const header = "msgid \"\"\nmsgstr \"\"\n\"Language: en\\n\"\n"
-	existing := header + "\n#: src/x.tsx\nmsgid \"Albums\"\nmsgstr \"Albums\"\n\n#: src/old.tsx\nmsgid \"Only in Lingui\"\nmsgstr \"Only in Lingui\"\n"
-	pseudo := header + "\n#: src/x.tsx\nmsgid \"Albums\"\nmsgstr \"\"\n"
+func TestExtractUIWritesExactCatalogues(t *testing.T) {
+	stale := "msgid \"\"\nmsgstr \"\"\n\"Language: en\\n\"\n\n#: src/x.tsx\nmsgid \"Albums\"\nmsgstr \"Albums\"\n\n#: src/old.tsx\nmsgid \"Only in Lingui\"\nmsgstr \"Only in Lingui\"\n"
 	r := writeTree(t, map[string]string{
 		"internal/ui/features/page/page.go": testSource,
-		sourcePOPath:                        existing,
-		pseudoPOPath:                        pseudo,
+		sourcePOPath:                        stale,
+		pseudoPOPath:                        stale,
 	})
 
-	if err := runExtractUI(r, true); err == nil || !strings.Contains(err.Error(), `"Play"`) {
-		t.Fatalf("check passed or says nothing useful: %v", err)
+	err := runExtractUI(r, true)
+	if err == nil {
+		t.Fatal("check passed on a stale catalogue")
 	}
-	if b, _ := os.ReadFile(r.path(sourcePOPath)); string(b) != existing {
+	for _, want := range []string{`+ "verb"/"Play"`, `- "Only in Lingui"`, `~ "Albums"`, sourcePOPath, pseudoPOPath} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("check says nothing of %s: %v", want, err)
+		}
+	}
+	if b, _ := os.ReadFile(r.path(sourcePOPath)); string(b) != stale {
 		t.Fatal("check wrote the catalogue")
 	}
 
 	if err := runExtractUI(r, false); err != nil {
 		t.Fatal(err)
 	}
-	en, err := os.ReadFile(r.path(sourcePOPath))
+	en, err := po.Read(r.path(sourcePOPath))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(string(en), existing) {
-		t.Errorf("what was there changed:\n%s", en)
-	}
-	f, err := po.Parse(en)
-	if err != nil {
-		t.Fatal(err)
+	if got, want := entryKeys(en), []string{"Add music to collect it here.", "Albums", "Play", "{0, plural, one {# album} other {# albums}}"}; !slices.Equal(got, want) {
+		t.Errorf("en.po holds %q, want %q", got, want)
 	}
 	have := map[po.Key]*po.Entry{}
-	for _, e := range f.Entries {
+	for _, e := range en.Entries {
 		have[e.Key()] = e
 	}
-	for _, k := range []po.Key{{ID: "Only in Lingui"}, {ID: "Albums"}, {ID: "Play", Context: "verb"}, {ID: "Add music to collect it here."}} {
-		if have[k] == nil {
-			t.Errorf("en.po lacks %v", k)
-		}
+	if have[po.Key{ID: "Only in Lingui"}] != nil {
+		t.Error("en.po keeps a message no call asks for")
 	}
-	if e := have[po.Key{ID: "Play", Context: "verb"}]; e != nil && (e.Str != "Play" || !e.HasContext) {
+	if e := have[po.Key{ID: "Play", Context: "verb"}]; e == nil || e.Str != "Play" || !e.HasContext {
 		t.Errorf("Play entry %+v", e)
 	}
-	xa, _ := os.ReadFile(r.path(pseudoPOPath))
-	if !strings.HasPrefix(string(xa), pseudo) || !strings.Contains(string(xa), "msgid \"Albums\"") {
-		t.Errorf("en-XA.po:\n%s", xa)
+	if e := have[po.Key{ID: "Albums"}]; e == nil || strings.Join(e.References, ",") != "internal/ui/features/page/page.go" {
+		t.Errorf("Albums entry %+v", e)
 	}
-	if fx, err := po.Parse(xa); err != nil {
+	if got := po.HeaderField(en.Header, "Language"); got != "en" {
+		t.Errorf("en.po language %q", got)
+	}
+	xa, err := po.Read(r.path(pseudoPOPath))
+	if err != nil {
 		t.Fatal(err)
-	} else {
-		for _, e := range fx.Entries {
-			if e.ID == "Play" && e.Str != "" {
-				t.Errorf("pseudo translation %q", e.Str)
-			}
+	}
+	if got := po.HeaderField(xa.Header, "Language"); got != "en-XA" || len(xa.Entries) != len(en.Entries) {
+		t.Errorf("en-XA.po language %q, %d entries", got, len(xa.Entries))
+	}
+	for _, e := range xa.Entries {
+		if e.Str != "" {
+			t.Errorf("pseudo translation %q of %q", e.Str, e.ID)
 		}
 	}
 
-	// Now nothing is missing: check passes and a second run writes nothing.
+	// Now both are exact: check passes and a second run writes the same bytes.
 	if err := runExtractUI(r, true); err != nil {
 		t.Fatalf("check after extract: %v", err)
 	}
@@ -198,26 +201,30 @@ func TestExtractUIAddsMissingAndKeepsTheRest(t *testing.T) {
 	}
 }
 
-// The repository's own calls are all in the catalogue: what CI's
-// `extract -check` asserts, here for `go test`.
-func TestRepositoryCatalogueHoldsEveryCall(t *testing.T) {
-	if err := runExtractUI(repo("../.."), true); err != nil {
-		t.Fatal(err)
+func entryKeys(f *po.File) []string {
+	var out []string
+	for _, e := range f.Entries {
+		out = append(out, e.ID)
+	}
+	return out
+}
+
+// A mapping whose message no call asks for any more fails extraction: the
+// app would carry a mapping that never applies.
+func TestExtractUIFailsOnMappingOfADroppedMessage(t *testing.T) {
+	r := writeTree(t, map[string]string{
+		"internal/ui/features/page/page.go": testSource,
+		mappingPath: `[{"message":"Albums","key":"A"},{"message":"Gone","key":"G"}]`,
+	})
+	if err := runExtractUI(r, false); err == nil || !strings.Contains(err.Error(), "Gone") {
+		t.Fatalf("mapping of a dropped message accepted: %v", err)
 	}
 }
 
-// Appending must not disturb a single byte of the catalogue Lingui wrote.
-func TestAppendedKeepsBytes(t *testing.T) {
-	raw, err := os.ReadFile("../../internal/ui/i18n/locales/en.po")
-	if err != nil {
+// The repository's catalogues are exactly what the calls ask for: what
+// CI's `extract -check` asserts, here for `go test`.
+func TestRepositoryCatalogueIsExact(t *testing.T) {
+	if err := runExtractUI(repo("../.."), true); err != nil {
 		t.Fatal(err)
-	}
-	c := &uiCatalogue{raw: raw, str: func(m *uiMessage) string { return m.ID }}
-	out := c.appended([]*uiMessage{{Key: po.Key{ID: "Brand new"}, refs: []string{"internal/ui/x.go"}}})
-	if !strings.HasPrefix(string(out), string(raw)) {
-		t.Fatal("prefix changed")
-	}
-	if !strings.HasSuffix(string(out), "\n#: internal/ui/x.go\nmsgid \"Brand new\"\nmsgstr \"Brand new\"\n") {
-		t.Errorf("appended entry:\n%s", out[len(raw):])
 	}
 }
