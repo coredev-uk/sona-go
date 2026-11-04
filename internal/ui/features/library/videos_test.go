@@ -71,7 +71,7 @@ func newVideosRig(t *testing.T, videos []services.MusicVideo, canPlay bool, opts
 		plays.playbackAPI = l.play
 		l.play = plays
 		if canPlay {
-			l.env.Players.RegisterVideo(func(services.MusicVideo) {})
+			l.env.Players.RegisterVideo(func(services.MusicVideo, *ui.Handle) {})
 			l.env.Players.Capabilities = func() *services.Capabilities {
 				return &services.Capabilities{Playback: services.PlaybackCapabilities{Video: true}}
 			}
@@ -172,6 +172,24 @@ func TestMusicVideosPlayOnlyWhereVideosPlay(t *testing.T) {
 	if n := p.l.videos.cover.Sel.Len(); n != 1 {
 		t.Errorf("Ctrl+click selected %d tiles", n)
 	}
+}
+
+// Closing the video view gives the focus back to the tile's Play control that
+// opened it.
+func TestClosingTheVideoViewReturnsTheFocusToTheTilesPlay(t *testing.T) {
+	r, plays := newVideosRig(t, videoFixtures(3), true)
+	r.tt.Until("the videos", r.tt.Shows("Video 0", "Video 2"))
+	if err := r.tt.Click("Play Video 1"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("the queue started", func() bool { return plays.played() > 0 })
+	r.tt.Until("the video view opened", r.h.Env.Video.IsOpen)
+	r.tt.Key(0, ui.KeyTab) // the focus moves into the view
+	if r.tt.Focused("Play Video 1") {
+		t.Fatal("the focus did not leave the tile's Play")
+	}
+	r.h.Env.Video.Close()
+	r.tt.Until("the focus back on the tile's Play", func() bool { return r.tt.Focused("Play Video 1") })
 }
 
 func TestMusicVideoTilesOpenTheirPage(t *testing.T) {

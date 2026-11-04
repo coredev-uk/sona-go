@@ -952,6 +952,11 @@ msgid "Comma"
 msgstr "Comma"
 
 #: internal/ui/kit/overlays_palette.go
+msgctxt "keyboard key"
+msgid "Command"
+msgstr "Command"
+
+#: internal/ui/kit/overlays_palette.go
 msgid "Command palette"
 msgstr "Command palette"
 
@@ -1625,7 +1630,6 @@ msgstr "Couldn't start a station from {name}"
 msgid "Couldn't start playback"
 msgstr "Couldn't start playback"
 
-#: internal/ui/features/onboarding/widevine.go
 #: internal/ui/kit/account_service.go
 msgid "Couldn't start the Widevine download"
 msgstr "Couldn't start the Widevine download"

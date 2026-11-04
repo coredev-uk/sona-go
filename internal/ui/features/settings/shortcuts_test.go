@@ -282,6 +282,15 @@ func TestShortcutsRunInTwoColumnsWhereTheSectionIsWideEnough(t *testing.T) {
 // Home, Insert, Page Down, "?" ("Shift+/"), "+", punctuation, Super, a bare
 // letter. The binding is saved (and nothing the keys mean to the shell
 // runs), then reset to no key.
+// superCap is the Meta key's cap: Command (⌘) where that is the platform's
+// command key, Super elsewhere.
+var superCap = func() string {
+	if ui.Cmd == ui.Super {
+		return "⌘"
+	}
+	return "Super"
+}()
+
 func TestShortcutsRecordingEachKeyClass(t *testing.T) {
 	r := tallRig(t)
 	for _, tc := range []struct {
@@ -305,7 +314,7 @@ func TestShortcutsRecordingEachKeyClass(t *testing.T) {
 		{"Ctrl+plus", ui.Ctrl | ui.Shift, ui.KeyEqual, "Ctrl+Plus", "Ctrl +"},
 		{"punctuation", 0, ui.KeyComma, ",", ","},
 		{"backquote", 0, ui.KeyBackquote, "`", "`"},
-		{"Super", ui.Super, ui.KeyK, "Meta+K", "Super K"},
+		{"Super", ui.Super, ui.KeyK, "Meta+K", superCap + " K"},
 		{"bare letter", 0, ui.KeyJ, "J", "J"},
 	} {
 		r.record("test.free", "not set")

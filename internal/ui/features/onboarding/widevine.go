@@ -136,23 +136,14 @@ func (o *onboarding) downloadBar(c *ui.Context, s services.CDMStatus) {
 	})
 }
 
-// retryCDM asks Go to download Widevine (or look for an update) now: Try again
-// reads "Retrying…" and is disabled while the call runs, and the focus moves
-// to the state, so it stays put when the button goes. A failure toasts
-// (features/cdm's retryCdm).
+// retryCDM asks Go to download Widevine (or look for an update) now, through
+// the shared kit.RetryCDMWith (which toasts a failure): Try again reads
+// "Retrying…" and is disabled while the call runs, and the focus moves to the
+// state, so it stays put when the button goes.
 func (o *onboarding) retryCDM() {
 	if o.retrying {
 		return
 	}
 	o.retrying, o.focusState = true, true
-	api := o.cdmSvc
-	go func() {
-		err := api.Retry()
-		o.env.Post(func() {
-			o.retrying = false
-			if err != nil {
-				kit.ToastErrorf(i18n.T("Couldn't start the Widevine download"), i18n.ErrorText(services.CodeOf(err)))
-			}
-		})
-	}()
+	kit.RetryCDMWith(o.cdmSvc.Retry, func() { o.env.Post(func() { o.retrying = false }) })
 }

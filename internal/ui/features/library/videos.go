@@ -138,8 +138,8 @@ func (l *library) videoTile(videos []services.MusicVideo, i int, canPlay bool) k
 	if canPlay {
 		item := kit.MusicVideoItem(v)
 		tile.Item = &item
-		tile.Play = &kit.CoverPlay{Label: v.Name, Run: func() {
-			l.env.Queue.PlayVideos([]services.MusicVideo{v}, 0, l.env.Video.Open)
+		tile.Play = &kit.CoverPlay{Label: v.Name, RunFrom: func(opener *ui.Handle) {
+			l.env.Queue.PlayVideos([]services.MusicVideo{v}, 0, func() { l.env.Video.OpenFrom(opener) })
 		}}
 	}
 	return tile

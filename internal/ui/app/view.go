@@ -20,10 +20,12 @@ import (
 func (a *App) view(c *ui.Context) {
 	c.Root().Direction(a.direction())
 	theme.Apply(c)
-	a.keys.dispatch(c)
 	a.rememberRoute(c)
 
 	layerOpen, overlayOpen := a.layerOpen(), a.overlayOpen()
+	if !layerOpen {
+		a.keys.dispatch(c)
+	}
 
 	root := ui.Column(c).Fill().Background(theme.C("ground")).IgnoreInput(layerOpen)
 	root.Draw(func(*ui.Painter, ui.Rect) { a.paintOnce.Do(a.painted) })
@@ -41,14 +43,32 @@ func (a *App) view(c *ui.Context) {
 			}
 		}
 	})
+	dispatched := !layerOpen
 	for _, m := range a.mods {
 		if m.Slots.Layer == nil {
 			continue
 		}
-		// A closed layer's wrapper takes no input: an input-taking box over
-		// the page would swallow every pointer press.
-		open := m.Slots.LayerOpen != nil && m.Slots.LayerOpen()
-		ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).IgnoreInput(!open).Children(func() { m.Slots.Layer(c) })
+		if m.Slots.LayerOpen == nil || !m.Slots.LayerOpen() {
+			// A closed layer's wrapper takes no input: an input-taking box
+			// over the page would swallow every pointer press.
+			ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).IgnoreInput(true).Children(func() { m.Slots.Layer(c) })
+			continue
+		}
+		// An open layer is a modal overlay: assistive technology sees it and
+		// what is above it alone (the page behind is inert to it), and the
+		// focus stays in it. The window's shortcuts wait outside a modal, so
+		// they are read from inside it, before the layer's own keys. The
+		// page is still built and drawn behind it, so the first paint is
+		// reported as for any frame.
+		ui.Overlay(c, func() {
+			ui.Column(c.Key("layer:"+m.ID)).Absolute().Top(0).Left(0).Right(0).Bottom(0).Modal().Children(func() {
+				if !dispatched {
+					dispatched = true
+					a.keys.dispatch(c)
+				}
+				m.Slots.Layer(c)
+			})
+		})
 	}
 	kit.OverlayLayer(c)
 	a.afterFrame(c, layerOpen, overlayOpen)

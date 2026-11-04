@@ -63,9 +63,13 @@ func ChordText(chord string) string {
 	return strings.Join(parts, "+")
 }
 
+// metaIsCommand is whether Meta is the Command key (macOS), drawn ⌘ and
+// spoken "Command".
+var metaIsCommand = ui.Cmd == ui.Super
+
 // keyName is the translated name of a modifier or named key; other keys are
 // themselves.
-func keyName(p string, _ bool) string {
+func keyName(p string, spoken bool) string {
 	switch p {
 	case "Ctrl":
 		return i18n.TC("keyboard key", "Ctrl")
@@ -74,6 +78,12 @@ func keyName(p string, _ bool) string {
 	case "Shift":
 		return i18n.TC("keyboard key", "Shift")
 	case "Meta":
+		if metaIsCommand {
+			if spoken {
+				return i18n.TC("keyboard key", "Command")
+			}
+			return "⌘"
+		}
 		return i18n.TC("keyboard key", "Super")
 	case "Space":
 		return i18n.TC("keyboard key", "Space")

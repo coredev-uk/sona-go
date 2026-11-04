@@ -294,6 +294,10 @@ type PlayButtonsOpts struct {
 	// (a song).
 	Shuffle  bool
 	Disabled bool
+	// Bind, when set, is bound to the Play button (Element.Bind), for what
+	// opens a view over the page from it to give the focus back on closing
+	// (store.VideoView.OpenFrom).
+	Bind *ui.Handle
 }
 
 // PlayButtons is a collection's play control: the 40px amber Play disc
@@ -305,10 +309,14 @@ func PlayButtons(c *ui.Context, o PlayButtonsOpts) (play, shuffle bool) {
 	if name == "" {
 		name = i18n.T("Play {label}", "label", o.Label)
 	}
-	play = Button(c.Key("play"), "", ButtonOpts{
+	btn := Button(c.Key("play"), "", ButtonOpts{
 		Variant: Play, Size: SizeLG, Icon: "play", Filled: true, Disabled: o.Disabled,
 		A11yLabel: name, Tip: i18n.T("Play"),
-	}).Clicked()
+	})
+	if o.Bind != nil {
+		btn.Bind(o.Bind)
+	}
+	play = btn.Clicked()
 	if o.Shuffle {
 		shuffle = Button(c.Key("shuffle"), i18n.T("Shuffle"), ButtonOpts{Variant: Outline, Size: SizeSM, Icon: "shuffle", Disabled: o.Disabled}).Clicked()
 	}

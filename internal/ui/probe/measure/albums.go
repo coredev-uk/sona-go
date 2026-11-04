@@ -36,6 +36,11 @@ type Config struct {
 	// CoversTimeout is how long the covers may take to be drawn (60 s when
 	// zero) before the probe gives up with ErrCovers.
 	CoversTimeout time.Duration
+	// Now and Sleep are the clock the waits read and pass time by (the real
+	// one when nil): a test gives a clock that Sleep advances, so a wait's
+	// timeout runs out after the polls it allows, however slow the machine.
+	Now   func() time.Time
+	Sleep func(time.Duration)
 	// Quiet is how long without a frame means the page has settled (500
 	// ms when zero).
 	Quiet time.Duration
@@ -69,6 +74,12 @@ func Albums(cfg Config) error {
 	}
 	if cfg.CoversTimeout == 0 {
 		cfg.CoversTimeout = 60 * time.Second
+	}
+	if cfg.Now == nil {
+		cfg.Now = time.Now
+	}
+	if cfg.Sleep == nil {
+		cfg.Sleep = time.Sleep
 	}
 	if cfg.Quiet == 0 {
 		cfg.Quiet = 500 * time.Millisecond
@@ -211,7 +222,7 @@ func (s *scenario) printStartup(first, last time.Time) {
 
 // waitTiles waits until the page has album tiles.
 func (s *scenario) waitTiles(timeout time.Duration) (Node, error) {
-	deadline := time.Now().Add(timeout)
+	deadline := s.Now().Add(timeout)
 	for {
 		nodes, err := s.Client.Tree()
 		if err != nil {
@@ -220,10 +231,10 @@ func (s *scenario) waitTiles(timeout time.Duration) (Node, error) {
 		if tiles, page := Tiles(nodes); len(tiles) > 0 {
 			return page, nil
 		}
-		if time.Now().After(deadline) {
+		if s.Now().After(deadline) {
 			return Node{}, errors.New("the Albums page showed no tiles: is the library empty, or another page open?")
 		}
-		time.Sleep(100 * time.Millisecond)
+		s.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -231,21 +242,21 @@ func (s *scenario) waitTiles(timeout time.Duration) (Node, error) {
 // time of the first frame ever and of the last one. ok is false after
 // timeout.
 func (s *scenario) waitQuiet(d, timeout time.Duration) (first, last time.Time, ok bool) {
-	deadline := time.Now().Add(timeout)
+	deadline := s.Now().Add(timeout)
 	for {
 		if n := s.Frames.Count(); n > 0 {
 			last = s.Frames.Since(n - 1)[0].At
-			if time.Since(last) >= d {
+			if s.Now().Sub(last) >= d {
 				if first.IsZero() {
 					first = s.Frames.Since(0)[0].At
 				}
 				return first, last, true
 			}
 		}
-		if time.Now().After(deadline) {
+		if s.Now().After(deadline) {
 			return first, last, false
 		}
-		time.Sleep(25 * time.Millisecond)
+		s.Sleep(25 * time.Millisecond)
 	}
 }
 

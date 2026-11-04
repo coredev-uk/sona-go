@@ -62,6 +62,9 @@ type video struct {
 	// (store.UseCapabilities): nothing that depends on it shows before.
 	caps func() (playback services.PlaybackCapabilities, known bool)
 	feed *kit.VideoFeed
+	// playBtn is the page's Play button, which the video view returns the
+	// focus to.
+	playBtn ui.Handle
 
 	// The page: the header's action menu and the two shelves' state.
 	menus  *kit.ActionMenus
@@ -203,7 +206,8 @@ func (v *video) toggleMute() {
 }
 
 // playVideos plays music videos from start as the queue and opens the video
-// view once playback started.
-func (v *video) playVideos(videos []services.MusicVideo, start int) {
-	v.q.PlayVideos(videos, start, v.env.Video.Open)
+// view once playback started, from the control bound to opener (nil: none),
+// which gets the focus back when the view closes.
+func (v *video) playVideos(videos []services.MusicVideo, start int, opener *ui.Handle) {
+	v.q.PlayVideos(videos, start, func() { v.env.Video.OpenFrom(opener) })
 }

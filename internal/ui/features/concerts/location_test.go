@@ -64,6 +64,55 @@ func TestLocationDialogSearchesAndPicksTheFirstMatchOnEnter(t *testing.T) {
 	r.lacks("Set location")
 }
 
+// holdingPlaces is the service with the answer for one search term held back
+// until release is closed.
+type holdingPlaces struct {
+	concertsAPI
+	term    string
+	release chan struct{}
+}
+
+func (h holdingPlaces) Places(query string) []services.ConcertPlace {
+	if query == h.term {
+		<-h.release
+	}
+	return h.concertsAPI.Places(query)
+}
+
+// Fast typing leaves the list showing an earlier term's cities while the
+// whole term's answer loads: Enter in that time picks nothing.
+func TestLocationDialogEnterWaitsForTheWholeTermsAnswer(t *testing.T) {
+	release := make(chan struct{})
+	r := newRigAmp(t, func() *fakeApple { a := &fakeApple{}; a.set(exampleBand); return a }(), "/concerts", 1132, 800, nil, func(api concertsAPI) concertsAPI {
+		return holdingPlaces{concertsAPI: api, term: "manch", release: release}
+	})
+	r.shows("Example Band with Opener Duo")
+	r.click("Set location")
+	r.shows("Search cities")
+	r.tt.Type("manch")
+	r.shows("Manchester") // the suggestions, shown while "manch" loads
+	r.tt.Drain()
+	r.tt.Key(0, ui.KeyEnter)
+	r.tt.Drain()
+	if !r.tt.HasText("Search cities") {
+		t.Fatal("Enter picked a city from an earlier term's answer")
+	}
+	if got := r.h.Settings.Get().Concerts.City; got != "" {
+		t.Fatalf("a city %q was saved from an earlier term's answer", got)
+	}
+	close(release)
+	r.tt.Until("the matches of the whole term", func() bool {
+		_, ok := store.Peek[[]services.ConcertPlace](r.h.Env.Queries, store.Key{"concerts", "places", "manch"})
+		return ok
+	})
+	r.tt.Drain()
+	r.tt.Key(0, ui.KeyEnter)
+	r.tt.Until("the dialog to close", func() bool { return !r.tt.HasText("Search cities") })
+	if got := r.h.Settings.Get().Concerts.City; got == "" {
+		t.Error("the city was not saved once the answer was in")
+	}
+}
+
 func TestLocationDialogSaysWhenNoCityMatches(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 800, exampleBand)
 	r.shows("Set location")

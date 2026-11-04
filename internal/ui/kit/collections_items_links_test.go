@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/ui"
+
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 )
@@ -223,7 +225,7 @@ func videoPlayers(video bool) *ItemPlayers {
 	p := &ItemPlayers{Capabilities: func() *services.Capabilities {
 		return &services.Capabilities{Playback: services.PlaybackCapabilities{Video: video}}
 	}}
-	p.RegisterVideo(func(services.MusicVideo) {})
+	p.RegisterVideo(func(services.MusicVideo, *ui.Handle) {})
 	return p
 }
 

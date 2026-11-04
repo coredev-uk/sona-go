@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/egoist/mygo/ui"
+
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 )
@@ -131,7 +133,7 @@ func CoverItemOf(it services.Item, ctx ItemsCtx, index int) CoverItem {
 	opens := PlaysWhenOpened(it, ctx.Players)
 	tile.PlaysOnOpen = opens
 	if !opens && ctx.Players.CanPlay(it) {
-		tile.Play = &CoverPlay{Label: it.Name, Run: func() { ctx.Players.PlayItem(it) }}
+		tile.Play = &CoverPlay{Label: it.Name, Run: func() { ctx.Players.PlayItem(it) }, RunFrom: func(h *ui.Handle) { ctx.Players.PlayItemFrom(it, h) }}
 	}
 	if it.Album != nil {
 		tile.Badge = itemsReleaseBadge(*it.Album, ctx.Players.now())

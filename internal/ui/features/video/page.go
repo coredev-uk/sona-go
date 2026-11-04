@@ -188,8 +188,8 @@ func (v *video) pageHeader(c *ui.Context, d services.CatalogVideo, videoPlays bo
 		Badges: func() { kit.Badges(c, kit.BadgesOpts{Explicit: vid.Explicit, Extra: formats}) },
 		Actions: func() {
 			if videoPlays {
-				if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: vid.Name}); play {
-					v.playVideos([]services.MusicVideo{vid}, 0)
+				if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: vid.Name, Bind: &v.playBtn}); play {
+					v.playVideos([]services.MusicVideo{vid}, 0, &v.playBtn)
 				}
 			}
 			if vid.URL != "" {
@@ -249,7 +249,7 @@ func (v *video) tile(m services.MusicVideo, byYear, plays bool) kit.CoverItem {
 		Open: func() { v.env.Nav.Push("/music-video/" + id) },
 	}
 	if plays {
-		t.Play = &kit.CoverPlay{Label: m.Name, Run: func() { v.playVideos([]services.MusicVideo{m}, 0) }}
+		t.Play = &kit.CoverPlay{Label: m.Name, RunFrom: func(opener *ui.Handle) { v.playVideos([]services.MusicVideo{m}, 0, opener) }}
 		item := kit.MusicVideoItem(m)
 		t.Item = &item
 	}

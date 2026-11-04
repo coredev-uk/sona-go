@@ -16,6 +16,9 @@ import (
 // the lead on its way out, the page of the list the user turned to, the
 // user's pause and the rotation's timer.
 type front struct {
+	// openers are the lead's and the list's play buttons, which a music
+	// video's view returns the focus to when it closes.
+	openers kit.Openers
 	width measure
 	// at is the lead's place in the items.
 	at int
@@ -306,8 +309,10 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 		if ctx.Players.CanPlay(it) {
 			play := kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 48).Absolute().Left(16).Top(artH - 16 - 48)
 			fade(play, hot || play.Focused())
+			opener := d.front.openers.For("lead:" + leadKey(it, 0))
+			play.Bind(opener)
 			if play.Clicked() {
-				ctx.Players.PlayItem(it)
+				ctx.Players.PlayItemFrom(it, opener)
 			}
 		}
 		if hasMenu {
@@ -506,8 +511,10 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 			play := kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 32).Absolute().
 				Left(8 + (listThumb-32)/2).Top((lay.rowHeight - 32) / 2)
 			fade(play, hot || play.Focused())
+			opener := d.front.openers.For("row:" + leadKey(it, index))
+			play.Bind(opener)
 			if play.Clicked() {
-				ctx.Players.PlayItem(it)
+				ctx.Players.PlayItemFrom(it, opener)
 			}
 		}
 		if hasMenu {
