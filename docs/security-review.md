@@ -181,7 +181,7 @@ Other paths checked: Sona itself never calls `debug.ReadBuildInfo`; crash files 
 - **Diagnostics bundle** (`internal/diag/bundle.go`): `Scrub` runs `logging.Redact` over the log tail as read from disk, so a log written by an older build still loses the values.
 - **Build** (`build/linux/Taskfile.yml`, `build/darwin/Taskfile.yml`, `cmd/devloop`): development builds (what `dev` builds through `cmd/devloop`, whose `-ldflags` are only `-w`) do not compile the credentials in; Sona reads the same variables from the environment at runtime (`internal/scrobble/lastfm.go`, `internal/discord/discord.go`; devenv loads `.env`). The Taskfiles' production and release builds keep the injection, with `-trimpath`, so `go version -m bin/sona` shows no `-ldflags`.
 
-**Tests:** `TestNewKeepsBuildCredentialsOutOfWailsBuildInfo` (the name keeps the removed shell's: a record shaped like Wails' Build Info, through `logging.New`'s JSON file and dev text handlers), `TestRedactBuildFlagsInText` (JSON and text records, bare, quoted and `-X=` forms, a command line; redacting twice changes nothing), `TestBundleScrubsBuildCredentialsFromOldLogs` (JSON and text Build Info lines in `sona.log` and `sona.log.1`).
+**Tests:** `TestNewKeepsBuildCredentialsOutOfBuildInfoRecord` (a record shaped like the removed shell's Build Info, through `logging.New`'s JSON file and dev text handlers), `TestRedactBuildFlagsInText` (JSON and text records, bare, quoted and `-X=` forms, a command line; redacting twice changes nothing), `TestBundleScrubsBuildCredentialsFromOldLogs` (JSON and text Build Info lines in `sona.log` and `sona.log.1`).
 
 ## Widevine CDM downloader
 

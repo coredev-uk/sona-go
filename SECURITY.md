@@ -24,7 +24,7 @@ in a new release, not as a patch to older ones. Development builds from
 ## Scope
 
 In scope: Sona's own code and its release packages. For example, leaking the
-Apple Music token or other credentials (to logs, files, the frontend or the
+Apple Music token or other credentials (to logs, files, the UI or the
 network), the loopback sign-in server, the CDM download and its verification
 (Mozilla's manifest, SHA-512, CRX3 signatures), the CDM host process and its
 sandbox, `music://` link and `sona` command handling, settings import, and
@@ -32,7 +32,7 @@ the update check. [docs/security-review.md](docs/security-review.md) lists
 the known findings and the threat model.
 
 Out of scope: vulnerabilities in Apple's services, in Google's Widevine CDM,
-or in GTK, WebKitGTK, GStreamer or other dependencies (report those
+or in MyGo, GTK3, GStreamer or other dependencies (report those
 upstream; tell us if Sona needs to update or work around them), and attacks
 that need an already compromised user account.
 

@@ -135,7 +135,7 @@ func TestBundleRedactsSecrets(t *testing.T) {
 }
 
 // A log written before the log handler redacted build flags still holds
-// Wails' "Build Info:" record with the -ldflags the build used, which
+// a "Build Info:" record (a Go runtime's startup record) with the -ldflags the build used, which
 // inject the Last.fm and Discord credentials; the bundle drops them.
 func TestBundleScrubsBuildCredentialsFromOldLogs(t *testing.T) {
 	const (
@@ -150,7 +150,7 @@ func TestBundleScrubsBuildCredentialsFromOldLogs(t *testing.T) {
 	logFile := filepath.Join(dir, "sona.log")
 	lines := []string{
 		`{"level":"INFO","msg":"startup: process start","version":"0.1.0"}`,
-		`{"level":"INFO","msg":"Build Info:","Wails":"v3.0.0","-tags":"sqlite_fts5","-ldflags":"` + ldflags + `","CGO_ENABLED":"1"}`,
+		`{"level":"INFO","msg":"Build Info:","Framework":"v1.0.0","-tags":"sqlite_fts5","-ldflags":"` + ldflags + `","CGO_ENABLED":"1"}`,
 		`{"level":"INFO","msg":"Platform Info:","Name":"MacOS","Version":"27.2"}`,
 	}
 	if err := os.WriteFile(logFile+".1", []byte(strings.Join(lines, "\n")+"\n"), 0o600); err != nil {

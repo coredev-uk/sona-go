@@ -143,7 +143,6 @@ func (s *SystemService) Diagnostics(ctx context.Context) (Diagnostics, error) {
 	d.Keyring = DiagKeyring{Backend: string(st.Backend), Unencrypted: st.Backend == store.BackendFile}
 
 	for _, name := range []string{
-		"WEBKIT_DISABLE_DMABUF_RENDERER", "WEBKIT_DISABLE_COMPOSITING_MODE",
 		"GST_PLUGIN_SYSTEM_PATH_1_0", "GST_PLUGIN_PATH_1_0", "WAYLAND_DISPLAY", "GDK_BACKEND",
 	} {
 		v, ok := os.LookupEnv(name)
