@@ -121,6 +121,16 @@ type Event map[string]any
 // Click is a left click at x, y.
 func Click(x, y float64) Event { return Event{"type": "click", "x": x, "y": y} }
 
+// PointerMove moves the pointer to x, y (with the left button down after a
+// PointerDown: a drag).
+func PointerMove(x, y float64) Event { return Event{"type": "pointerMove", "x": x, "y": y} }
+
+// PointerDown presses the left button at x, y.
+func PointerDown(x, y float64) Event { return Event{"type": "pointerDown", "x": x, "y": y} }
+
+// PointerUp releases the left button at x, y.
+func PointerUp(x, y float64) Event { return Event{"type": "pointerUp", "x": x, "y": y} }
+
 // Key presses and releases a key and its modifiers as accelerators write
 // them ("Space", "Shift+Tab", "Ctrl+B").
 func Key(key string) Event { return Event{"type": "key", "key": key} }
