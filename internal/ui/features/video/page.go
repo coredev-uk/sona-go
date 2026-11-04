@@ -176,16 +176,13 @@ func (v *video) pageHeader(c *ui.Context, d services.CatalogVideo, videoPlays bo
 		formats = append(formats, formatHDR)
 	}
 	h := d.Header
+	color := ""
+	if len(h.Colors) > 0 {
+		color = h.Colors[0]
+	}
 	kit.CollectionHeader(c, kit.CollectionHeaderOpts{
 		Title: vid.Name, Art: vid.Art.Large, Loader: v.env.Art, Video: true,
-		Backdrop: func() {
-			color := ""
-			if len(h.Colors) > 0 {
-				color = h.Colors[0]
-			}
-			kit.Backdrop(c, v.env.Art, kit.BackdropOpts{Src: h.Backdrop, Color: color, Tone: kit.ToneGround}, nil).
-				Absolute().Top(0).Left(0).Right(0).Bottom(0).PassThrough()
-		},
+		Wash:   &kit.BackdropOpts{Src: h.Backdrop, Color: color, Tone: kit.ToneGround},
 		Byline: func() { kit.ArtistLinks(c, d.Artists, vid.Artist, ui.Color{}) },
 		Meta:   strings.Join(parts, " · "),
 		Badges: func() { kit.Badges(c, kit.BadgesOpts{Explicit: vid.Explicit, Extra: formats}) },

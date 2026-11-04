@@ -613,7 +613,8 @@ func (v *video) seekBar(c *ui.Context, s services.PlaybackState, playing bool, f
 		if sl.Changed() {
 			st.seek.active, st.seek.secs = true, secs
 		}
-		if kit.SliderCommitted(sl, &st.seek.active) {
+		if kit.SliderCommitted(sl) && st.seek.active {
+			st.seek.active = false
 			v.seekTo(time.Duration(st.seek.secs*float64(time.Second)), c.Now())
 		}
 		left := clockOf(max(dur-pos, 0))

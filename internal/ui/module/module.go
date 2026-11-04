@@ -49,7 +49,7 @@ type Env struct {
 	// Features that start or show a music video call Video.Open and read
 	// Video.IsOpen; the video feature draws the view. Never nil.
 	Video *store.VideoView
-	Nav    Navigator // the main window's router
+	Nav   Navigator // the main window's router
 	// Queue starts, shuffles and queues songs and videos through the
 	// playback service: every feature that plays a collection or adds to the
 	// queue goes through it, so replacing a long queue of the user's asks
