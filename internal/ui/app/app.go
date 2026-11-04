@@ -163,6 +163,7 @@ func newApp(opts Options, factories []module.Factory) *App {
 		Play:     store.NewPlayback(opts.Bus, opts.Now),
 		Art:      kit.NewArtLoader(opts.Art, post),
 		Actions:  kit.NewActionRegistry(),
+		Players:  module.NewPlayers(opts.Core, opts.Now),
 		Post:     post,
 		Surfaces: store.NewSurfaces(),
 		OpenURL:  opts.OpenURL,

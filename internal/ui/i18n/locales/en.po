@@ -7401,3 +7401,27 @@ msgstr "Your synced library, history and the catalogue cache. Sona optimises it 
 #: src/features/auth/AccountMenu.tsx
 msgid "Your token is stored unencrypted"
 msgstr "Your token is stored unencrypted"
+
+#: internal/ui/features/discover/front.go
+msgid "Featured cards"
+msgstr "Featured cards"
+
+#: internal/ui/features/discover/titles.go
+#: internal/ui/features/home/util.go
+msgid "yesterday"
+msgstr "yesterday"
+
+#: internal/ui/features/discover/titles.go
+#: internal/ui/features/home/util.go
+msgid "{days, plural, one {# day ago} other {# days ago}}"
+msgstr "{days, plural, one {# day ago} other {# days ago}}"
+
+#: internal/ui/features/discover/titles.go
+#: internal/ui/features/home/util.go
+msgid "{hours, plural, one {# hr. ago} other {# hr. ago}}"
+msgstr "{hours, plural, one {# hr. ago} other {# hr. ago}}"
+
+#: internal/ui/features/discover/titles.go
+#: internal/ui/features/home/util.go
+msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
+msgstr "{minutes, plural, one {# min. ago} other {# min. ago}}"

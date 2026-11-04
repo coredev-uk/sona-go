@@ -11,6 +11,7 @@ package module
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -51,6 +52,15 @@ type Env struct {
 	// are not known yet in its factory. Nil in a hand-built Env: treat as
 	// false.
 	HasRoute func(path string) bool
+	// Players is the shared item-play registry (kit.ItemPlayers): the
+	// features that own playback register how each kind plays (discover:
+	// songs, albums, playlists, videos; radio: stations) and the shared item
+	// components play through it. Built by NewPlayers; never nil.
+	Players *kit.ItemPlayers
+	// ConcertsShelf builds Home's concerts shelf (the next shows near the
+	// chosen city); the concerts module sets it in its factory, so it is nil
+	// until then and a page that wants it builds nothing without it.
+	ConcertsShelf func(c *ui.Context, first bool)
 	// Post runs fn on the main thread and redraws the windows: how a
 	// goroutine (a service call) hands its outcome to the view.
 	Post store.Poster
@@ -202,3 +212,23 @@ type Module struct {
 // Factory builds a feature's module over the shared Env; the feature
 // keeps its state in its own struct.
 type Factory func(env *Env) Module
+
+// NewPlayers is the Env's item-play registry: music videos play only where
+// PlatformService says the platform plays video (read once, on first use; nil
+// before it answers and without a Core). now is the clock a release is
+// compared with (nil: time.Now).
+func NewPlayers(core *services.Core, now func() time.Time) *kit.ItemPlayers {
+	p := &kit.ItemPlayers{Now: now}
+	if core != nil {
+		plat := services.Service[services.PlatformService](core)
+		var caps *services.Capabilities
+		p.Capabilities = func() *services.Capabilities {
+			if caps == nil {
+				c := plat.Capabilities()
+				caps = &c
+			}
+			return caps
+		}
+	}
+	return p
+}

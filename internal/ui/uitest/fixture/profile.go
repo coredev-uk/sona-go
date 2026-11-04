@@ -8,8 +8,8 @@ import (
 )
 
 // WriteProfile creates the profile of a signed-out user with the fixture
-// library under paths: settings.json (the first-run setup marked done, so
-// the app opens on Albums) and a migrated sona.db seeded with Albums and
+// library under paths: settings.json (the first-run setup marked done, the
+// start page Albums) and a migrated sona.db seeded with Albums and
 // Playlists. It writes no credentials.
 func WriteProfile(ctx context.Context, paths config.Paths) error {
 	if err := paths.Ensure(); err != nil {
@@ -21,6 +21,7 @@ func WriteProfile(ctx context.Context, paths config.Paths) error {
 	}
 	if _, err := s.Update(func(s *config.Settings) {
 		s.Onboarding.Completed = true
+		s.Desktop.StartPage = "/library/albums" // the smoke starts on Albums, not on Home
 		s.Theme = config.ThemeLight
 		s.Language = "en"
 		s.AutoPlay = false

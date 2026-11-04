@@ -18,11 +18,13 @@ package uitest
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/artwork"
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/auth/devtoken"
@@ -54,6 +56,7 @@ type options struct {
 	seed      bool
 	core      bool
 	dark      bool
+	apple     http.Handler
 	version   string
 	auth      []func(*auth.Config)
 }
@@ -191,7 +194,7 @@ func New(t testing.TB, opts ...Option) *Harness {
 	t.Cleanup(func() { loader.Close(); loader.Wait() })
 	h.Env = &module.Env{
 		Core: h.Core, Bus: h.Bus, Queries: store.NewClient(h.Main.Post), Play: store.NewPlayback(h.Bus, h.Clock.Now),
-		Art: loader, Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: o.version, Surfaces: store.NewSurfaces(), OpenURL: h.open, Copy: h.copy,
+		Art: loader, Actions: kit.NewActionRegistry(), Players: module.NewPlayers(h.Core, h.Clock.Now), Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: o.version, Surfaces: store.NewSurfaces(), OpenURL: h.open, Copy: h.copy,
 	}
 	mu.Lock()
 	harnesses[h.Env] = h
@@ -253,6 +256,10 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 		t.Fatal(err)
 	}
 	t.Cleanup(authm.Close)
+	var api *applemusic.Client
+	if o.apple != nil {
+		api = applemusic.New(h.Network.Client(), staticDev{}, authm.UserToken)
+	}
 	h.Engine = fakeengine.New()
 	h.Engine.Now = h.Clock.Now
 	h.Coord, err = coordinator.New(coordinator.Options{Engine: h.Engine, Now: h.Clock.Now})
@@ -262,7 +269,7 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	t.Cleanup(func() { _ = h.Coord.Close() })
 	core := services.New(services.Deps{
 		Paths:    config.Paths{Config: h.Dir, Data: h.Dir, Cache: h.Dir, Art: h.Dir, State: h.Dir},
-		Settings: settings, DB: d, Auth: authm, Library: ilib.New(d, nil), Art: art, Engine: h.Engine, Coord: h.Coord,
+		Settings: settings, DB: d, Auth: authm, API: api, Storefront: appleStorefront(o.apple != nil), Library: ilib.New(d, nil), Art: art, Engine: h.Engine, Coord: h.Coord,
 		Private: privatemode.New(privatemode.Options{}), Gate: services.NewGate(time.Hour, nil),
 		Keyring: h.Keyring, Transport: h.Network,
 		Emit: h.Bus, OpenURL: h.open, Clipboard: h.copy, Windows: noWindows{}, Logger: slog.New(slog.DiscardHandler), Version: o.version, Started: Epoch,
