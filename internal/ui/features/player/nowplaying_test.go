@@ -840,3 +840,38 @@ func TestUnderReducedMotionThePageJumpsInsteadOfScrollingSmoothly(t *testing.T) 
 		_ = s
 	}
 }
+
+func TestSweepFramesFollowTheRenderer(t *testing.T) {
+	none := func(string) string { return "" }
+	env := func(kv ...string) func(string) string {
+		return func(k string) string {
+			for i := 0; i+1 < len(kv); i += 2 {
+				if kv[i] == k {
+					return kv[i+1]
+				}
+			}
+			return ""
+		}
+	}
+	gpu := func(string) []string { return []string{"/dev/dri/renderD128"} }
+	noGPU := func(string) []string { return nil }
+	for name, c := range map[string]struct {
+		goos string
+		env  func(string) string
+		glob func(string) []string
+		want bool
+	}{
+		"linux with a render node":      {"linux", none, gpu, false},
+		"linux without one (a VM)":      {"linux", none, noGPU, true},
+		"MYGO_GPU=0":                    {"linux", env("MYGO_GPU", "0"), gpu, true},
+		"Mesa software on request":      {"linux", env("LIBGL_ALWAYS_SOFTWARE", "1"), gpu, true},
+		"llvmpipe asked for":            {"linux", env("GALLIUM_DRIVER", "llvmpipe"), gpu, true},
+		"another Gallium driver":        {"linux", env("GALLIUM_DRIVER", "radeonsi"), gpu, false},
+		"windows always has a renderer": {"windows", env("MYGO_GPU", "0"), noGPU, false},
+		"macOS always has a renderer":   {"darwin", none, noGPU, false},
+	} {
+		if got := softwareDrawIn(c.goos, c.env, c.glob); got != c.want {
+			t.Errorf("%s: %v, want %v", name, got, c.want)
+		}
+	}
+}

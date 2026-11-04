@@ -24,12 +24,6 @@ const (
 	// sweepStep: a line's shaped text is kept per width rounded down to this,
 	// so a window drag reshapes rarely.
 	sweepStep = 8
-	// sweepFPS is how often a sung word's fill is painted again. The window is
-	// presented in full each time, and on a CPU rasteriser (llvmpipe, a VM) that
-	// is what the sweep costs: 30 a second halves the 60 of AnimationFrame and
-	// looks the same on a fill that moves in a few hundred milliseconds. MyGo
-	// rounds it up to a rate the display shows evenly.
-	sweepFPS = 30
 )
 
 // lineState is where a line stands against the voice; stPlain is for lyrics
@@ -539,7 +533,7 @@ func (p *player) lyricPart(c *ui.Context, sh *lyricsSheet, i int, part uint8, t 
 		// view is built at the line, the first word comes a lead later.
 		near := ms >= sp.BeginMs-2*lyricsync.LeadMs && ms < sp.EndMs
 		if p.env.Play.State().State == "playing" && !reduced && (moving || singing || near) {
-			pt.AnimationFrameRate(sweepFPS)
+			sweepFrames(pt)
 		}
 	})
 }
