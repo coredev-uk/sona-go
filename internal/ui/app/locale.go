@@ -3,6 +3,8 @@ package app
 import (
 	"sync"
 
+	mygoi18n "github.com/egoist/mygo/i18n"
+
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 	"github.com/coredev-uk/sona-go/internal/services"
@@ -100,6 +102,14 @@ func (l *localizer) choose(force bool) {
 	n := l.seq
 	l.mu.Unlock()
 
+	// A pseudo locale (en-XA, ar-XB: a development setting) has no Apple
+	// translations to look up: it is shown as it is.
+	if mygoi18n.IsPseudo(lang) {
+		i18n.SetApple(services.AppleTranslations{})
+		i18n.SetLocale(lang)
+		l.notify()
+		return
+	}
 	preferred, minShare := l.preferred(), i18n.SelectableShare
 	if lang != config.LanguageAutomatic {
 		preferred, minShare = []string{lang}, 0

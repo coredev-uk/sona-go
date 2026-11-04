@@ -7,6 +7,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
@@ -230,7 +231,7 @@ func TestResumeOpensTheLastPageAndRemembersTheNextOne(t *testing.T) {
 func TestTrayMenuFollowsPlaybackPrivateListeningAndTheMiniPlayer(t *testing.T) {
 	var s trayState
 	v := s.view()
-	if v.now != "Not playing" || v.play != "Play" || v.hasItem || v.canNext || v.private != "" || v.mini != "Mini player" {
+	if v.now != "Not playing" || v.play != "Play" || v.hasItem || v.canNext || v.private != "" || v.mini != "Mini Player" {
 		t.Fatalf("idle: %+v", v)
 	}
 	s.play = services.PlaybackState{State: "playing", Current: &services.QueueItem{Name: "Song", Artist: "Band"}, Controls: services.PlaybackControls{Next: true}}
@@ -243,7 +244,7 @@ func TestTrayMenuFollowsPlaybackPrivateListeningAndTheMiniPlayer(t *testing.T) {
 	if v.private != "Private listening (forced by SONA_PRIVATE=1)" || v.privateEnabled || !v.privateOn {
 		t.Errorf("forced private listening: %q enabled %v on %v", v.private, v.privateEnabled, v.privateOn)
 	}
-	if v.mini != "Close mini player" {
+	if v.mini != "Close Mini Player" {
 		t.Errorf("mini item %q while it shows", v.mini)
 	}
 	s.private = &services.PrivateState{On: true, Source: "development"}
@@ -289,5 +290,42 @@ func TestStatusBannerSaysWhatHoldsTheAccountUp(t *testing.T) {
 	tt.Frame()
 	if tt.HasText("Apple Music asked Sona to sign in again. Your library is still here.") {
 		t.Error("the banner stays once the account is fine")
+	}
+}
+
+// A language written right to left (the language shown, as Settings →
+// General → Language chooses it) lays the whole window out from the right:
+// the sidebar moves to the right edge.
+func TestARightToLeftLanguageMirrorsTheWindow(t *testing.T) {
+	_, tt := newShell(t, Options{}, pageModule("a", pageDef{"/albums", "Albums", module.NavLibrary, 1}))
+	tt.Frame()
+	ltr, ok := tt.Find("Albums")
+	if !ok {
+		t.Fatal("no Albums link")
+	}
+	i18n.SetLocale("ar")
+	t.Cleanup(func() { i18n.SetLocale("") })
+	tt.Frame()
+	rtl, _ := tt.Find("Albums")
+	if ltr.X > 300 || rtl.X < 800 {
+		t.Errorf("the sidebar link at x %v left to right and x %v right to left, want it moved to the right edge", ltr.X, rtl.X)
+	}
+}
+
+// The pseudo locale (a development setting) shows as chosen: there are no
+// Apple translations to look it up in.
+func TestThePseudoLocaleSettingIsShown(t *testing.T) {
+	h := uitest.New(t)
+	if _, err := h.Settings.Update(func(s *config.Settings) { s.Language = "en-XA" }); err != nil {
+		t.Fatal(err)
+	}
+	a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Now: h.Clock.Now},
+		[]module.Factory{pageModule("p", pageDef{"/a", "Albums", module.NavLibrary, 1})})
+	t.Cleanup(a.env.Art.Close)
+	t.Cleanup(func() { i18n.SetLocale("") })
+	a.connect()
+	h.Main.Drain()
+	if got := i18n.Locale(); got != "en-XA" {
+		t.Fatalf("locale %q, want en-XA", got)
 	}
 }

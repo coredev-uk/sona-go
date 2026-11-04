@@ -3,6 +3,7 @@ package app
 import (
 	"strings"
 
+	mygoi18n "github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
@@ -17,6 +18,7 @@ import (
 // over the whole window. Only the page area scrolls (each page owns its
 // scroll container, which its virtualised lists need).
 func (a *App) view(c *ui.Context) {
+	c.Root().Direction(direction())
 	theme.Apply(c)
 	a.keys.dispatch(c)
 	a.rememberRoute(c)
@@ -50,6 +52,17 @@ func (a *App) view(c *ui.Context) {
 	}
 	kit.OverlayLayer(c)
 	a.afterFrame(c, layerOpen, overlayOpen)
+}
+
+// direction is the window's direction: right to left for a language written
+// so (Arabic, Hebrew…, as the language shown, i18n.Locale, says), else left
+// to right. Set on the root before anything is built, so every element, the
+// layers and the popups inherit it.
+func direction() ui.Direction {
+	if mygoi18n.Direction(i18n.Locale()) == mygoi18n.RightToLeft {
+		return ui.RightToLeft
+	}
+	return ui.LeftToRight
 }
 
 // painted is the first frame drawn: the network opens (SystemService
@@ -225,6 +238,9 @@ func (a *App) navLink(c *ui.Context, n module.NavItem) {
 	switch {
 	case on:
 		row.Background(theme.C("active"))
+		// MyGo has no aria-current: assistive technology hears it as the
+		// link's description, as the playlist sidebar's links say it.
+		row.Description(i18n.T("Current page"))
 		fg = theme.C("ink")
 	case row.Hovered():
 		row.Background(theme.C("hover"))

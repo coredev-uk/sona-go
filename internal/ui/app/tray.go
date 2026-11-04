@@ -37,7 +37,7 @@ type trayView struct {
 func (s trayState) view() trayView {
 	v := trayView{
 		now: i18n.T("Not playing"), play: i18n.T("Play"), next: i18n.T("Next"), prev: i18n.T("Previous"),
-		show: i18n.T("Show Sona"), mini: i18n.T("Mini player"), quit: i18n.T("Quit Sona"),
+		show: i18n.T("Show Sona"), mini: i18n.T("Mini Player"), quit: i18n.T("Quit Sona"),
 	}
 	if cur := s.play.Current; cur != nil {
 		v.now = cur.Name
@@ -51,7 +51,7 @@ func (s trayState) view() trayView {
 		v.play = i18n.T("Pause")
 	}
 	if s.mini {
-		v.mini = i18n.T("Close mini player")
+		v.mini = i18n.T("Close Mini Player")
 	}
 	if p := s.private; p != nil {
 		v.privateOn, v.privateEnabled = p.On, true

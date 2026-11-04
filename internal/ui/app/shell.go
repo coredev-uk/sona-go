@@ -176,6 +176,7 @@ func (a *App) newMiniWindow() native {
 // miniView is the mini player window's content: the theme, the dialogs and
 // toasts layer, and the module's view.
 func (a *App) miniView(c *ui.Context) {
+	c.Root().Direction(direction())
 	theme.Apply(c)
 	ui.Column(c).Fill().Background(theme.C("surface")).Children(func() {
 		if a.mini != nil {
