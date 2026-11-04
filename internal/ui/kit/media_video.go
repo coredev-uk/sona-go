@@ -30,6 +30,8 @@ type VideoFeed struct {
 	bmp     *ui.Bitmap
 	picture bool // bmp shows a picture (false before the first and after a clear)
 	seq     uint64
+	w, h    int    // the picture's size
+	shown   uint64 // how many pictures were shown since Start
 
 	drawn atomic.Int64 // when VideoSurface last painted (unix ns)
 }
@@ -56,6 +58,31 @@ func (v *VideoFeed) Stop() {
 	v.clear()
 }
 
+// Restart forgets the picture and takes only the pictures shown from now on:
+// the one on show now belongs to the item before when the item just changed.
+// Main thread.
+func (v *VideoFeed) Restart() {
+	v.clear()
+	v.feed.Restart()
+}
+
+// HasPicture reports whether a picture is on show (false before the first
+// and after the video ended). Main thread.
+func (v *VideoFeed) HasPicture() bool { return v.picture }
+
+// PictureSize is the size in pixels of the picture on show, 0×0 when there
+// is none. Main thread.
+func (v *VideoFeed) PictureSize() (w, h int) {
+	if !v.picture {
+		return 0, 0
+	}
+	return v.w, v.h
+}
+
+// Pictures counts the pictures shown since the feed was made: a playing video
+// whose count stops moving has stalled. Main thread.
+func (v *VideoFeed) Pictures() uint64 { return v.shown }
+
 func (v *VideoFeed) active() bool {
 	return time.Since(time.Unix(0, v.drawn.Load())) < drawnFor
 }
@@ -68,10 +95,12 @@ func (v *VideoFeed) show(p media.Picture) {
 		v.bmp.Update(p.Image)
 	}
 	v.picture, v.seq = true, p.Seq
+	v.w, v.h = p.Image.Rect.Dx(), p.Image.Rect.Dy()
+	v.shown++
 }
 
 // clear is the main thread's: the video ended, the picture comes down.
-func (v *VideoFeed) clear() { v.picture, v.bmp = false, nil }
+func (v *VideoFeed) clear() { v.picture, v.bmp, v.w, v.h = false, nil, 0, 0 }
 
 // VideoOpts are the options of VideoSurface.
 type VideoOpts struct {

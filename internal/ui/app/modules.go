@@ -9,6 +9,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/private"
 	"github.com/coredev-uk/sona-go/internal/ui/features/reminders"
 	"github.com/coredev-uk/sona-go/internal/ui/features/updates"
+	"github.com/coredev-uk/sona-go/internal/ui/features/video"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
 
@@ -18,6 +19,7 @@ import (
 // absent: there are no placeholders.
 var factories = []module.Factory{
 	library.New, // Albums only
+	video.New,   // the music video page and view
 	player.New,  // the player bar only
 	auth.New,    // sign-in state, the account menu and dialog
 	updates.New, // the sidebar's update notice

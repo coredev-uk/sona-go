@@ -43,7 +43,12 @@ type Env struct {
 	// window hides and when a layer, an overlay or a dialog covers the page.
 	// Nil only in tests that build an Env by hand: a nil policy allows nothing.
 	Motion *kit.MotionPolicy
-	Nav    Navigator // the main window's router
+	// Video is the music video view's shared state: whether it is open, the
+	// window's full screen it toggles and the source of its pictures.
+	// Features that start or show a music video call Video.Open and read
+	// Video.IsOpen; the video feature draws the view. Never nil.
+	Video *store.VideoView
+	Nav   Navigator // the main window's router
 	// HasRoute reports whether a registered module's route pattern matches
 	// path (a query or fragment is ignored), so a feature links only to pages
 	// that are ported: Pattern "/album/{id}" matches "/album/42". Call it

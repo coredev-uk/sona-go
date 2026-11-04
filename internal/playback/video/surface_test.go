@@ -186,3 +186,22 @@ func TestEncodeHeader(t *testing.T) {
 		})
 	}
 }
+
+func TestSurfaceSeq(t *testing.T) {
+	s := NewSurface()
+	if got := s.Seq(); got != 0 {
+		t.Fatalf("empty surface Seq %d, want 0", got)
+	}
+	s.Show(2, 2, 0, make([]byte, 6))
+	if got := s.Seq(); got != 1 {
+		t.Errorf("after a picture Seq %d, want 1", got)
+	}
+	s.Clear()
+	if got := s.Seq(); got != 2 {
+		t.Errorf("after the clear Seq %d, want 2", got)
+	}
+	s.Clear() // nothing on show: no change
+	if got := s.Seq(); got != 2 {
+		t.Errorf("a clear of nothing moved Seq to %d", got)
+	}
+}

@@ -208,3 +208,38 @@ func TestFeedKeepsNothingAfterStop(t *testing.T) {
 		t.Errorf("a stopped feed posted %d funcs, showed %d", n, shown)
 	}
 }
+
+func TestFeedRestartTakesOnlyPicturesShownFromNow(t *testing.T) {
+	s := video.NewSurface()
+	s.Show(64, 48, 0, planes(64, 48, 235)) // the item before's last picture
+	shown := make(chan Picture, 8)
+	f := NewFeed(s, func(fn func()) { fn() }, func(p Picture) { shown <- p }, func() {}, nil)
+	defer f.Stop()
+
+	f.Restart()
+	select {
+	case p := <-shown:
+		t.Fatalf("the picture on show before the restart was taken (seq %d)", p.Seq)
+	case <-time.After(50 * time.Millisecond):
+	}
+	s.Show(64, 48, time.Second, planes(64, 48, 16))
+	select {
+	case p := <-shown:
+		if p.Seq != 2 {
+			t.Errorf("picture seq %d, want the new one (2)", p.Seq)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("no picture after the restart")
+	}
+	// A Start after a Start-less Stop begins with the picture on show.
+	f.Stop()
+	f.Start()
+	select {
+	case p := <-shown:
+		if p.Seq != 2 {
+			t.Errorf("Start took seq %d, want the picture on show (2)", p.Seq)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Start did not take the picture on show")
+	}
+}

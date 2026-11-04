@@ -14,6 +14,10 @@ import (
 // (the Frame's Seq is then the one to wait from).
 type FrameSource interface {
 	Next(ctx context.Context, after uint64) (video.Frame, bool)
+	// Seq is the sequence number of the latest change of the picture on
+	// show: what a feed that wants only pictures shown from now on waits
+	// after (Feed.Restart).
+	Seq() uint64
 }
 
 var _ FrameSource = (*video.Surface)(nil)
@@ -63,17 +67,32 @@ func NewFeed(src FrameSource, post func(func()), show func(Picture), clear func(
 	return &Feed{src: src, post: post, show: show, clear: clear, active: active}
 }
 
-// Start begins taking pictures; it does nothing when it already has.
-func (f *Feed) Start() {
+// Start begins taking pictures, the one on show first; it does nothing when
+// it already has.
+func (f *Feed) Start() { f.start(false) }
+
+// Restart forgets the picture and begins again with the pictures shown from
+// now on: the one on show now (of the item before, when the item changed) is
+// never taken. A feed that is running stops first.
+func (f *Feed) Restart() {
+	f.Stop()
+	f.start(true)
+}
+
+func (f *Feed) start(fresh bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.cancel != nil {
 		return
 	}
+	var after uint64
+	if fresh {
+		after = f.src.Seq()
+	}
 	var ctx context.Context
 	ctx, f.cancel = context.WithCancel(context.Background())
 	f.done = make(chan struct{})
-	go f.run(ctx, f.done)
+	go f.run(ctx, f.done, after)
 }
 
 // Stop ends the goroutine and waits for it. A picture posted before is shown
@@ -108,9 +127,8 @@ func (f *Feed) Refresh() {
 	}
 }
 
-func (f *Feed) run(ctx context.Context, done chan<- struct{}) {
+func (f *Feed) run(ctx context.Context, done chan<- struct{}, after uint64) {
 	defer close(done)
-	var after uint64
 	for ctx.Err() == nil {
 		fr, ok := f.src.Next(ctx, after)
 		if !ok {

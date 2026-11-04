@@ -50,6 +50,9 @@ type Options struct {
 	// Motion serves the motion artwork files (the motion cache); nil: no
 	// motion plays.
 	Motion media.MotionFiles
+	// Video is where the playing music video's pictures come from (the
+	// engine's *video.Surface); nil: no video plays.
+	Video store.VideoFrames
 	// Poster, when set, replaces Window.Update as how work gets to the
 	// main thread (tests).
 	Poster store.Poster
@@ -163,6 +166,7 @@ func newApp(opts Options, factories []module.Factory) *App {
 		Play:     store.NewPlayback(opts.Bus, opts.Now),
 		Art:      kit.NewArtLoader(opts.Art, post),
 		Actions:  kit.NewActionRegistry(),
+		Video:    store.NewVideoView(opts.Video),
 		Post:     post,
 		Surfaces: store.NewSurfaces(),
 		OpenURL:  opts.OpenURL,
@@ -284,6 +288,7 @@ func (a *App) openWindow() {
 		a.opts.Windows.attach(win, a.mem)
 	}
 	a.followVisibility(win)
+	a.env.Video.BindWindow(win.IsFullScreen, win.SetFullScreen)
 	a.connect()
 	a.devHook(win)
 	if a.opts.Dev && inspectorRequested() {

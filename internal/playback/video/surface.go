@@ -66,6 +66,15 @@ func (s *Surface) Clear() {
 	s.changedLocked()
 }
 
+// Seq is the sequence number of the latest change of the picture on show (a
+// picture shown or taken off): a reader that wants only pictures shown from
+// now on waits after it (Next).
+func (s *Surface) Seq() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.seq
+}
+
 // Next returns the picture on show once it is newer than after (a Seq
 // the caller has), waiting until one is or ctx ends. It reports false when
 // ctx ended first, or when the surface was cleared.
