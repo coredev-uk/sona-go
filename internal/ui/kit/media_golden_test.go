@@ -68,14 +68,21 @@ func mediaGoldenWithin(t *testing.T, name string, img *image.RGBA, frac int) {
 	if want.Bounds() != img.Bounds() {
 		t.Fatalf("%s: image is %v, golden %v", name, img.Bounds(), want.Bounds())
 	}
-	diff := 0
+	diff, worst := 0, 0
+	var box image.Rectangle
+	var worstAt image.Point
 	for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
 		for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
 			r, g, b, _ := want.At(x, y).RGBA()
 			c := img.RGBAAt(x, y)
 			d := func(a uint8, w uint32) int { return max(int(a)-int(w>>8), int(w>>8)-int(a)) }
-			if d(c.R, r) > 12 || d(c.G, g) > 12 || d(c.B, b) > 12 {
+			m := max(d(c.R, r), d(c.G, g), d(c.B, b))
+			if m > 12 {
 				diff++
+				box = box.Union(image.Rect(x, y, x+1, y+1))
+			}
+			if m > worst {
+				worst, worstAt = m, image.Pt(x, y)
 			}
 		}
 	}
@@ -85,7 +92,8 @@ func mediaGoldenWithin(t *testing.T, name string, img *image.RGBA, frac int) {
 			_ = png.Encode(f, img)
 			_ = f.Close()
 		}
-		t.Errorf("%s: %d pixels differ from the golden (limit %d); the frame is at %s", name, diff, limit, out)
+		t.Errorf("%s: %d pixels differ from the golden (limit %d), within %v; the worst, %d off, is at %v (got %v, want %v); the frame is at %s",
+			name, diff, limit, box, worst, worstAt, img.RGBAAt(worstAt.X, worstAt.Y), want.At(worstAt.X, worstAt.Y), out)
 	}
 }
 
