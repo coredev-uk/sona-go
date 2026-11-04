@@ -59,6 +59,7 @@ jobs:
             libepoxy-dev libgl-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
+            gstreamer1.0-plugins-bad gstreamer1.0-tools \
             fonts-dejavu-core dbus
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -137,6 +138,19 @@ jobs:
           SONA_PREVIEW_REQUIRE: "1"
         run: dbus-run-session -- go test -race -count=1 -v -run '^TestPreviewPlaysLive$' ./internal/playback/native
 
+      # The motion tests' clip needs GStreamer's H.264 encoder (openh264enc, in
+      # -bad: the devenv's encoder too, so the motion goldens agree), parser
+      # (h264parse) and decoder (avdec_h264): without those packages they skip,
+      # and a skip is not a pass.
+      - name: Motion decoder tests (verbose, must not skip)
+        run: |
+          go test -race -count=1 -v -run '^TestMotionDecoder' ./internal/ui/media | tee "$RUNNER_TEMP/motion.log"
+          grep -q -- '--- PASS: TestMotionDecoderPlaysAndLoops' "$RUNNER_TEMP/motion.log"
+          if grep -q -- '--- SKIP' "$RUNNER_TEMP/motion.log"; then
+            echo "::error::a motion decoder test skipped: GStreamer lacks the H.264 encoder, parser or decoder"
+            exit 1
+          fi
+
       - name: go test -race
         env:
           SONA_CDMHOST_REQUIRE_NAMESPACES: "1"
@@ -169,6 +183,8 @@ jobs:
             libgtk-3-dev libayatana-appindicator3-dev libsecret-1-dev \
             libepoxy-dev libgl-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
+            gstreamer1.0-plugins-bad gstreamer1.0-tools \
             fonts-dejavu-core dbus
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0

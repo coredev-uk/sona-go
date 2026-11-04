@@ -228,6 +228,11 @@ func TestArtworkDecodesAtTheExactDevicePixels(t *testing.T) {
 	}
 }
 
+// TestArtworkLearnsTheScaleFromPainting checks what the user sees, not the
+// order the workers fetched in: they take jobs last in, first out and race
+// each other, so the scale-1 request may finish before or after the exact
+// one. What matters is that the cover painted at the end is the exact
+// 150×150 one, and that the stale 100×100 one is never drawn.
 func TestArtworkLearnsTheScaleFromPainting(t *testing.T) {
 	src := &fakeArt{}
 	a := &artApp{src: "/art/k1/300x300.jpg", size: 100}
@@ -235,17 +240,42 @@ func TestArtworkLearnsTheScaleFromPainting(t *testing.T) {
 	tt.SetScale(1.5)
 	tt.Frame() // asks at scale 1, learns 1.5 from the painter and posts a redraw
 	mt.run(t, 1)
-	tt.Frame()
-	mt.run(t, 1)
-	tt.Frame()
-	// The workers fetch off the test's goroutine: wait for the second request.
-	deadline := time.Now().Add(5 * time.Second)
-	for len(src.requests()) < 2 && time.Now().Before(deadline) {
-		time.Sleep(time.Millisecond)
+	tt.Frame() // asks at 1.5
+	stale := a.l.covers[artKey{"/art/k1/300x300.jpg", 100, 100}]
+	exact := a.l.covers[artKey{"/art/k1/300x300.jpg", 150, 150}]
+	if stale == nil || exact == nil {
+		t.Fatalf("covers %v: want one asked at scale 1 (100×100) and one at 1.5 (150×150)", a.l.covers)
 	}
-	reqs := src.requests()
-	if len(reqs) != 2 || reqs[len(reqs)-1] != [2]int{150, 150} {
-		t.Errorf("requests %v: want the exact 150×150 at the end", reqs)
+	// Both decodes post once: wait for them, whichever finishes first.
+	for stale.bitmap() == nil || exact.bitmap() == nil {
+		mt.run(t, 1)
+	}
+	tt.Frame()
+
+	if w, h := exact.bitmap().Size(); w != 150 || h != 150 {
+		t.Errorf("the cover at the learned scale is %d×%d, want 150×150", w, h)
+	}
+	if exact.shown == 0 {
+		t.Error("the exact 150×150 cover was not painted")
+	}
+	if stale.shown != 0 {
+		t.Errorf("the stale 100×100 cover was painted %d times", stale.shown)
+	}
+	// The window is 300×300 device pixels: the cover fills its 150 from the
+	// 10 DIP padding on.
+	if got := tt.Image().RGBAAt(15+75, 15+75); !near(got, color.RGBA{220, 30, 30, 255}) {
+		t.Errorf("centre of the cover %v: the picture is not shown", got)
+	}
+	if got := tt.Image().RGBAAt(15+20, 15+20); !near(got, color.RGBA{220, 30, 30, 255}) {
+		t.Errorf("near the cover's corner %v: the picture does not fill the box", got)
+	}
+	// Two requests, one per size, in whichever order the workers got to them.
+	got := map[[2]int]bool{}
+	for _, r := range src.requests() {
+		got[r] = true
+	}
+	if len(src.requests()) != 2 || !got[[2]int{100, 100}] || !got[[2]int{150, 150}] {
+		t.Errorf("requests %v, want one of 100×100 and one of 150×150", src.requests())
 	}
 }
 
