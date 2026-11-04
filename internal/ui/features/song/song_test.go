@@ -12,6 +12,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
+	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
@@ -876,5 +877,15 @@ func TestGoldenSongPage(t *testing.T) {
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), tc.name)
 		})
+	}
+}
+
+// A signed-out account is told so, and the button opens the account dialog.
+func TestSignedOutErrorOffersSignIn(t *testing.T) {
+	r := newRigOpts(t, 899, 900, func(r *rig) { r.catalog.set(auth.ErrNotSignedIn) }, nil, airbag())
+	r.tt.Until("the sign-in prompt", r.tt.Shows("Sign in to see this"))
+	r.click("Sign in")
+	if !r.h.Env.Surfaces.AccountOpen() {
+		t.Error("Sign in did not open the account dialog")
 	}
 }

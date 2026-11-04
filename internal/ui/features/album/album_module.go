@@ -65,6 +65,9 @@ func newAlbum(env *module.Env) *album {
 	a := &album{env: env, now: time.Now}
 	a.menus = kit.NewActionMenus(env.Actions, nil)
 	a.pageState = &pageState{}
+	if env.Surfaces != nil {
+		a.signIn = env.Surfaces.OpenAccount
+	}
 	return a
 }
 

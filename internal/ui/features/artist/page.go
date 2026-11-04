@@ -137,6 +137,7 @@ func (a *artist) artistPage(c *ui.Context, r *ui.Route) {
 				Retry:    func() { a.env.Queries.Invalidate(key) },
 				Retrying: fetching,
 				Back:     a.backToArtists(),
+				SignIn:   a.signIn(),
 			})
 		case !hasData:
 			a.skeleton(c, pg.width)
@@ -610,4 +611,13 @@ func (a *artist) about(c *ui.Context, pg *pageState, page *services.CatalogArtis
 		pg.focusAbout = false
 		sec.Focus()
 	}
+}
+
+// signIn opens the account dialog from the "not signed in" error; nil (no
+// button) without the shell's surfaces.
+func (a *artist) signIn() func() {
+	if a.env.Surfaces == nil {
+		return nil
+	}
+	return a.env.Surfaces.OpenAccount
 }

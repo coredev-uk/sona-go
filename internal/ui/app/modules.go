@@ -1,9 +1,9 @@
 package app
 
 import (
-	"github.com/coredev-uk/sona-go/internal/ui/features/auth"
 	"github.com/coredev-uk/sona-go/internal/ui/features/album"
 	"github.com/coredev-uk/sona-go/internal/ui/features/artist"
+	"github.com/coredev-uk/sona-go/internal/ui/features/auth"
 	"github.com/coredev-uk/sona-go/internal/ui/features/cdm"
 	"github.com/coredev-uk/sona-go/internal/ui/features/library"
 	"github.com/coredev-uk/sona-go/internal/ui/features/onboarding"

@@ -85,6 +85,7 @@ func (s *song) failed(c *ui.Context, id string, q store.Result[services.CatalogS
 		Retry:    func() { s.env.Queries.Invalidate(keySongPage(id)) },
 		Retrying: q.Fetching,
 		Back:     back,
+		SignIn:   s.signIn(),
 	})
 }
 
@@ -399,4 +400,13 @@ func (s *song) footer(c *ui.Context, page services.CatalogSong) {
 			line(l[0], l[1], i == 0)
 		}
 	})
+}
+
+// signIn opens the account dialog from the "not signed in" error; nil (no
+// button) without the shell's surfaces.
+func (s *song) signIn() func() {
+	if s.env.Surfaces == nil {
+		return nil
+	}
+	return s.env.Surfaces.OpenAccount
 }
