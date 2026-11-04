@@ -54,20 +54,18 @@ func (h *home) shelfPage(c *ui.Context, r *ui.Route) {
 			})
 			return
 		}
-		title := ""
-		count := shelfLoading
-		at := func(int) *services.Item { return nil }
+		kit.PageHeader(c, res.Data.Title, "", nil)
+		items := res.Data.Items
 		if res.HasData {
-			title, count = res.Data.Title, len(res.Data.Items)
-			h.titles[id] = title
-			items := res.Data.Items
-			at = func(i int) *services.Item { return &items[i] }
+			h.titles[id] = res.Data.Title
+			at := func(i int) *services.Item { return &items[i] }
+			kit.ItemGrid(c, &g.grid, len(items), at, h.env.ItemsCtx(g.menus), kit.ItemGridOpts{Label: res.Data.Title, Pane: pane})
+			return
 		}
-		kit.PageHeader(c, title, "", nil)
-		label := title
-		if label == "" {
-			label = i18n.T("Loading")
-		}
-		kit.ItemGrid(c, &g.grid, count, at, h.env.ItemsCtx(g.menus), kit.ItemGridOpts{Label: label, Pane: pane})
+		// The placeholder tiles say nothing of their own: the status says the
+		// shelf is loading.
+		ui.Column(c.Key("loading")).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
+			kit.ItemGrid(c, &g.grid, shelfLoading, func(int) *services.Item { return nil }, h.env.ItemsCtx(g.menus), kit.ItemGridOpts{Pane: pane})
+		})
 	})
 }

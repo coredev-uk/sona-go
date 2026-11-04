@@ -131,8 +131,10 @@ func (d *discover) issueOf(sections []services.Section) {
 // anchorOf marks e as a place the contents jump to: its place in the page's
 // content is kept for the jump, and it takes the keyboard focus after one
 // (sections take it programmatically and by a click, but are not a stop of
-// Tab).
-func (d *discover) anchorOf(e ui.Element, id string) ui.Element {
+// Tab). While it has the focus it is a group named label (the shelf's title),
+// so that what the focus lands on is read; label "" leaves a place that is
+// named already.
+func (d *discover) anchorOf(e ui.Element, id, label string) ui.Element {
 	st := &d.newPg
 	if b := e.Bounds(); b.H > 0 {
 		// The last layout's place, whether or not it is on screen (a Draw
@@ -144,6 +146,9 @@ func (d *discover) anchorOf(e ui.Element, id string) ui.Element {
 	}
 	if st.focus == id {
 		e.Focusable().FocusRing(false)
+		if label != "" {
+			e.Role(ui.RoleGroup).Label(label)
+		}
 		switch {
 		case st.focusNow:
 			e.Focus()
@@ -183,7 +188,7 @@ func (d *discover) issueView(c *ui.Context) {
 			if bi > 0 {
 				sec.Margin(56, 0, 0, 0)
 			}
-			d.anchorOf(sec, b.anchor)
+			d.anchorOf(sec, b.anchor, "")
 			sec.Children(func() {
 				ui.Box(c.Key("rule")).FillWidth().Height(1).Background(theme.C("line")).Margin(0, 0, 24, 0)
 				text(c, b.title, "page").TextColor(theme.C("ink")).Margin(0, 0, 20, 0).Role(ui.RoleHeading).Level(2)
@@ -193,7 +198,7 @@ func (d *discover) issueView(c *ui.Context) {
 					if i > 0 && (s.Kind != services.SectionLinks || s.Title != "") {
 						w.Margin(40, 0, 0, 0)
 					}
-					d.anchorOf(w, b.anchor+"-"+strconv.Itoa(i))
+					d.anchorOf(w, b.anchor+"-"+strconv.Itoa(i), s.Title)
 					w.Children(func() {
 						kit.EditorialSections(c, &st.ed, []services.Section{s}, ctx, kit.EditorialOpts{First: true})
 					})
@@ -225,7 +230,7 @@ func (d *discover) contents(c *ui.Context, bands []issueBand) {
 						}
 					}
 					for n, i := range titled {
-						ui.Row(c.Key(i)).Gap(8).AlignItems(ui.Center).MinWidth(0).Children(func() {
+						ui.Row(c.Key(i)).Gap(8).AlignItems(ui.Center).MinWidth(0).Role(ui.RoleListItem).Label(b.sections[i].Title).Children(func() {
 							d.jumpButton(c, b.anchor+"-"+strconv.Itoa(i), b.sections[i].Title, "secondary", theme.C("ink-muted"))
 							if n < len(titled)-1 {
 								text(c, "·", "secondary").TextColor(theme.C("ink-faint")).Role(ui.RoleNone)

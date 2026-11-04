@@ -214,6 +214,11 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 				r.playStation(s.ID, nil)
 			}
 		}
+		if !page && menus != nil {
+			// The more button is not a Tab stop: Shift+F10 or the Menu key on
+			// the row's button open the same menu, as on every list row.
+			menus.Row(hit, kit.ActionTarget{Item: kit.StationItem(s), Name: s.Name})
+		}
 	})
 }
 

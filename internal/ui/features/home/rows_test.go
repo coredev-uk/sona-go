@@ -12,6 +12,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 // rowsRig is the item rows alone in a window: what v0.2.0's ItemRows.test.tsx
@@ -247,8 +248,14 @@ func TestRowsPageLessStationsPlayWhenOpened(t *testing.T) {
 
 func TestRowsHoverRevealsAPlayButtonNamedForTheRow(t *testing.T) {
 	r := newRowsRig(t, []services.Item{albumItem("a1", "Some Album", "Some Artist", 1)}, rowsOpts{Label: "Albums", Rows: 2}, oneColumn, 400)
-	if _, ok := r.tt.Find("Play Some Album"); ok {
-		t.Fatal("the play button shows at rest")
+	// At rest the button is built, for assistive technology, but takes
+	// neither the pointer nor the Tab key.
+	rest, ok := access.Read(t, r.tt.Tester).Find(ui.RoleButton, "Play Some Album")
+	if !ok {
+		t.Fatal("the play button is not on the accessibility tree at rest")
+	}
+	if rest.Has(access.Focusable) {
+		t.Error("the play button is a Tab stop at rest")
 	}
 	name, _ := r.tt.Find("Some Album")
 	r.tt.Move(name.X+4, name.Y+4)

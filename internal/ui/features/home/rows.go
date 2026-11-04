@@ -106,7 +106,7 @@ func (h *home) itemRows(c *ui.Context, st *rowsState, items []services.Item, ctx
 		o.Min = rowMin
 	}
 	hint := i18n.T("Enter opens, Space plays, Shift+F10 shows more actions.")
-	root := ui.Grid(c.Key("rows." + o.Label)).GapX(rowGapX).Role(ui.RoleTable).Label(o.Label).Description(hint)
+	root := ui.Grid(c.Key("rows." + o.Label)).GapX(rowGapX).Role(ui.RoleList).Label(o.Label).Description(hint)
 	width := st.width.track(c, root)
 	cols := 1
 	if width > 0 {
@@ -165,9 +165,14 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 		art = it.Art.Medium
 	}
 	target := kit.ActionTarget{Item: st.targets[i], Name: name, Key: key}
+	menu := selectable && h.hasMenu(st.targets[i])
 	hoverBg := theme.C("hover")
 	if o.OnBackdrop {
 		hoverBg = theme.C("ink").Alpha(0.06)
+	}
+	radius := tk.Radius["sm"]
+	if round {
+		radius = tk.Radius["full"]
 	}
 
 	_, src := kit.DragItem(c, kit.DragOpts{
@@ -186,7 +191,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			return &kit.DragPayload{Items: items, Label: label, Art: it.Art.Small}
 		},
 		Outer: func(w ui.Element) {
-			w.Height(rowH).Shrink(0).MinWidth(0).Role(ui.RoleCell)
+			w.Height(rowH).Shrink(0).MinWidth(0).Role(ui.RoleListItem)
 			if selectable {
 				w.Checked(selected)
 			}
@@ -213,13 +218,18 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 		},
 		Source: func(e ui.Element) {
 			e.PaddingX(rowPadX).Gap(rowGap).Radius(tk.Radius["md"]).Label(name)
+			if subtitle != "" {
+				// A button or a link is read as one piece: the line under
+				// the name is its description.
+				e.Description(subtitle)
+			}
 			switch {
 			case direct:
 				e.Role(ui.RoleButton).Label(name + " " + i18n.T("Play"))
 			case link != "" && canOpen:
 				e.Role(ui.RoleLink)
 			case link != "":
-				e.Role(ui.RoleListItem) // its page is not served: plain text
+				e.Role(ui.RoleGroup) // its page is not served: nothing to press
 			default:
 				e.Role(ui.RoleButton)
 			}
@@ -227,30 +237,39 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				e.Focusable()
 			}
 		},
-	}, func(w, src ui.Element) {
-		hot := w.Hovered() || src.FocusWithin()
-		ui.Box(c.Key("art")).Size(rowArt, rowArt).Shrink(0).Children(func() {
-			kit.Artwork(c, h.env.Art, art, rowArt, kit.ArtOpts{Round: round})
-			radius := tk.Radius["sm"]
-			if round {
-				radius = tk.Radius["full"]
-			}
-			switch {
-			case direct:
-				mark := ui.Row(c.Key("mark")).Absolute().Left(0).Top(0).Size(rowArt, rowArt).Center().Radius(radius).
-					Background(theme.C("ground").Alpha(rowMarkA)).IgnoreInput(true)
-				fade(mark, hot)
-				mark.Children(func() { ui.Icon(c, playGlyph()).FontSize(16).TextColor(theme.C("ink")).Margin(0, 0, 0, 1) })
-			case playable && w.Hovered():
-				// Not a Tab stop (the row is the list's one): it exists
-				// while the pointer is on the row; Space plays from the keyboard.
-				play := ui.ButtonBase(c.Key("play")).Absolute().Left(0).Top(0).Size(rowArt, rowArt).Center().Radius(radius).
-					Background(theme.C("ground").Alpha(rowMarkA)).Label(i18n.T("Play {name}", "name", name))
-				fade(play, true)
+		After: func(w, src ui.Element) {
+			// The play control and the more button are elements of their own,
+			// beside the opener: a button or a link is a leaf for assistive
+			// technology, so inside it they would not be on its tree. Both
+			// are built at rest, hidden: the pointer and Tab ignore them (the
+			// row is the list's one stop; Space plays, Shift+F10 opens the
+			// menu), assistive technology finds and presses them.
+			hover := w.Hovered()
+			if playable && !direct {
+				play := ui.ButtonBase(c.Key("play")).Absolute().Left(rowPadX).Top((rowH-rowArt)/2).Size(rowArt, rowArt).Center().Radius(radius).
+					Background(theme.C("ground").Alpha(rowMarkA)).Label(i18n.T("Play {name}", "name", name)).IgnoreInput(!hover)
+				fade(play, hover)
 				play.Children(func() { ui.Icon(c, playGlyph()).FontSize(16).TextColor(theme.C("ink")).Margin(0, 0, 0, 1) })
 				if play.Clicked() {
 					ctx.Players.PlayItem(it)
 				}
+			}
+			if menu {
+				st.menus.Trigger(c.Key("more"), target, kit.TriggerOpts{Visible: hover || src.FocusWithin()}).
+					Absolute().Right(rowPadX).Top((rowH - 24) / 2)
+			}
+		},
+	}, func(w, src ui.Element) {
+		hot := w.Hovered() || src.FocusWithin()
+		ui.Box(c.Key("art")).Size(rowArt, rowArt).Shrink(0).Children(func() {
+			kit.Artwork(c, h.env.Art, art, rowArt, kit.ArtOpts{Round: round})
+			if direct {
+				// A station with no page plays when it is opened: the mark is
+				// the name's button, not a second control.
+				mark := ui.Row(c.Key("mark")).Absolute().Left(0).Top(0).Size(rowArt, rowArt).Center().Radius(radius).
+					Background(theme.C("ground").Alpha(rowMarkA)).IgnoreInput(true)
+				fade(mark, hot)
+				mark.Children(func() { ui.Icon(c, playGlyph()).FontSize(16).TextColor(theme.C("ink")).Margin(0, 0, 0, 1) })
 			}
 		})
 		ui.Column(c.Key("text")).Grow(1).MinWidth(0).Children(func() {
@@ -269,8 +288,8 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				text(c, subtitle, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
 			}
 		})
-		if selectable {
-			st.menus.Trigger(c.Key("more"), target, kit.TriggerOpts{Visible: hot})
+		if menu {
+			ui.Box(c.Key("more-room")).Size(24, 24).Shrink(0).IgnoreInput(true) // where the more button sits
 		}
 	})
 
@@ -307,6 +326,13 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 		rightClickMenu(&st.sel, st.menus, src, target, i)
 		keyMenu(&st.sel, st.menus, src, target, i)
 	}
+}
+
+// hasMenu says whether the item has a more menu (a kind with actions, or one
+// the bulk actions take): the more button is built, and its room kept, only
+// then.
+func (h *home) hasMenu(it kit.Item) bool {
+	return h.env.Actions.Has(it.Kind) || len(h.env.Actions.BulkFor([]kit.Item{it})) > 0
 }
 
 // rowSideways moves the focus with Left and Right in a list of one column,
