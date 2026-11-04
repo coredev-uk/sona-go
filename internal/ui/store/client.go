@@ -40,6 +40,12 @@ type Options struct {
 	// Keep is how long an unused query is kept before it is dropped (and
 	// its fetch cancelled). 0 is five minutes.
 	Keep time.Duration
+	// NoRetry is TanStack's `retry: false`: a query that failed with no data
+	// keeps its error, and is not asked again while a view keeps it on
+	// screen, until Invalidate or until a view mounts it again (errorRetry
+	// would ask every 5 s for as long as it shows). For network reads whose
+	// failure is an answer (Apple said no), not a hiccup.
+	NoRetry bool
 }
 
 // Result is a query as a view reads it.
@@ -94,6 +100,8 @@ type entry struct {
 	usedAt time.Duration // Client.active when last used or made
 	stale  time.Duration
 	keep   time.Duration
+	// noRetry is Options.NoRetry as the last Use set it.
+	noRetry bool
 }
 
 // NewClient returns a Client publishing through post (nil: at once, on the
@@ -127,7 +135,7 @@ func Use[T any](cl *Client, key Key, fetch func(ctx context.Context) (T, error),
 	e := cl.entryLocked(key, now)
 	mounting := e.used.IsZero() || now.Sub(e.used) > mountGap
 	e.used, e.usedAt = now, cl.active
-	e.stale, e.keep = opt.Stale, keepOf(opt)
+	e.stale, e.keep, e.noRetry = opt.Stale, keepOf(opt), opt.NoRetry
 	if e.fetch == nil || mounting {
 		e.fetch = func(ctx context.Context) (any, error) { return fetch(ctx) }
 	}
@@ -137,7 +145,12 @@ func Use[T any](cl *Client, key Key, fetch func(ctx context.Context) (T, error),
 	switch {
 	case e.fetching:
 	case !has:
-		need = e.failed.IsZero() || now.Sub(e.failed) >= errorRetry
+		switch {
+		case e.failed.IsZero() || mounting:
+			need = true
+		case !opt.NoRetry:
+			need = now.Sub(e.failed) >= errorRetry
+		}
 	case e.invalid:
 		need = true
 	case mounting:
@@ -196,6 +209,7 @@ func (cl *Client) Invalidate(prefixes ...Key) {
 			continue
 		}
 		e.invalid = true
+		e.failed = time.Time{} // a failure is asked again, even with NoRetry
 		if e.fetch != nil && now.Sub(e.used) < activeFor {
 			cl.fetchLocked(e, now)
 		}
