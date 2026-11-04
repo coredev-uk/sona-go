@@ -31,13 +31,6 @@ var mediaFonts sync.Once
 // edges differ a little between CPUs), or writes it with -update-media.
 func mediaGolden(t *testing.T, name string, img *image.RGBA) {
 	t.Helper()
-	mediaGoldenWithin(t, name, img, 200)
-}
-
-// mediaGoldenWithin is mediaGolden allowing 1/frac of the pixels to differ
-// (the colour bars' corner patch is noise, different on each decode).
-func mediaGoldenWithin(t *testing.T, name string, img *image.RGBA, frac int) {
-	t.Helper()
 	if runtime.GOOS != "linux" {
 		t.Skip("golden images are compared on Linux only: other platforms draw text with their own rasteriser")
 	}
@@ -86,7 +79,7 @@ func mediaGoldenWithin(t *testing.T, name string, img *image.RGBA, frac int) {
 			}
 		}
 	}
-	if limit := img.Bounds().Dx() * img.Bounds().Dy() / frac; diff > limit {
+	if limit := img.Bounds().Dx() * img.Bounds().Dy() / 200; diff > limit {
 		out := filepath.Join(t.ArtifactDir(), "media-"+name+"-got.png")
 		if f, err := os.Create(out); err == nil {
 			_ = png.Encode(f, img)
@@ -200,13 +193,14 @@ func mediaMotionView(p *MotionPolicy, l *ArtLoader, feed *VideoFeed) func(*ui.Co
 }
 
 // TestMediaMotionGoldens draws the components that play with a real decoder
-// and a generated static H.264 clip (colour bars: any frame is the same
-// picture); it skips where GStreamer cannot decode or encode one.
+// and a generated static H.264 clip (smpte100 colour bars, without the noise
+// patch of "smpte": any frame is the same picture, and the same on every
+// decoder build); it skips where GStreamer cannot decode or encode one.
 func TestMediaMotionGoldens(t *testing.T) {
 	if media.Codec() != "avc" {
 		t.Skip("no H.264 decoder in this GStreamer: motion goldens need one")
 	}
-	clip := mediatest.ClipPattern(t, 90, "smpte")
+	clip := mediatest.ClipPattern(t, 90, "smpte100")
 	mediaFonts.Do(func() {
 		if err := theme.RegisterFonts(); err != nil {
 			t.Fatal(err)
@@ -266,7 +260,7 @@ func TestMediaMotionGoldens(t *testing.T) {
 				}
 			}
 			tt.Frame()
-			mediaGoldenWithin(t, "motion-"+mode.name, tt.Image(), 50)
+			mediaGolden(t, "motion-"+mode.name, tt.Image())
 		})
 	}
 }
