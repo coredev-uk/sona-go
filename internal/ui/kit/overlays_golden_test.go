@@ -6,6 +6,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -202,6 +203,9 @@ var overlaysScenes = []struct {
 }
 
 func TestOverlaysGoldens(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("golden images are drawn and compared on Linux only: macOS renders text with Core Text")
+	}
 	// The interface font, whatever test ran before: a golden drawn in the
 	// system's sans when this test runs alone and in Schibsted Grotesk after
 	// another registered it would depend on the order.
