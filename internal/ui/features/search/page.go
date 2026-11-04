@@ -281,6 +281,9 @@ func (s *search) browseShelf(c *ui.Context, pane *kit.Pane, first bool) {
 			ctx.OnOpen = func(it services.Item) { s.rememberItem(it, itemSource(it)) }
 			kit.ItemGrid(c, &v.browse, len(items), func(i int) *services.Item { return &items[i] }, ctx,
 				kit.ItemGridOpts{Label: title, Pane: pane})
+			if len(items) > 0 && v.claim() {
+				v.browse.Nav().Want(0)
+			}
 		}
 	})
 }
@@ -378,7 +381,11 @@ func (s *search) catalogSection(c *ui.Context, pane *kit.Pane, ctx kit.ItemsCtx,
 			}
 		})
 	default:
-		kit.ItemShelf(c, v.shelf(sec.Group), title, sec.Items, ctx, kit.ItemShelfOpts{First: first, More: more})
+		st := v.shelf(sec.Group)
+		kit.ItemShelf(c, st, title, sec.Items, ctx, kit.ItemShelfOpts{First: first, More: more})
+		if len(sec.Items) > 0 && v.claim() {
+			st.Row.Nav().Want(0)
+		}
 	}
 }
 
@@ -441,7 +448,7 @@ func (s *search) libraryResults(c *ui.Context, pane *kit.Pane, q string) {
 		}}, func() {
 			s.songList(c, &v.libSongs, &v.libSongMenus, pane, ctx, shown, 0, i18n.T("Library songs matching {q}", "q", q), func(i int) {
 				s.rememberTerm(q, scopeLibrary)
-				s.playSongs(shown, i, searchFrom)
+				s.playSongs(r.Songs, i, searchFrom)
 			})
 			if v.claim() {
 				v.libSongs.Nav().Want(0)
@@ -456,7 +463,11 @@ func (s *search) libraryResults(c *ui.Context, pane *kit.Pane, q string) {
 		if len(sec.items) == 0 {
 			continue
 		}
-		kit.ItemShelf(c, v.shelf("lib:"+sec.key), groupTitle(sec.key), sec.items, ctx, kit.ItemShelfOpts{First: first})
+		st := v.shelf("lib:" + sec.key)
+		kit.ItemShelf(c, st, groupTitle(sec.key), sec.items, ctx, kit.ItemShelfOpts{First: first})
+		if v.claim() {
+			st.Row.Nav().Want(0)
+		}
 		first = false
 	}
 }

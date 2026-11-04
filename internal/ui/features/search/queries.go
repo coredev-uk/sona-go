@@ -186,12 +186,13 @@ func (s *search) runRecent(what string, call func(context.Context) error) {
 }
 
 // playSong plays a song result as a queue of one (the field's suggestions
-// have no list to play from). Failures toast.
+// have no list to play from) named after the song, as v0.2.0's playItem
+// does. Failures toast.
 func (s *search) playSong(it services.Item) {
 	if it.Song == nil {
 		return
 	}
-	s.playSongs([]services.Song{*it.Song}, 0, searchFrom)
+	s.playSongs([]services.Song{*it.Song}, 0, services.PlayFrom{ID: it.Name})
 }
 
 // searchFrom is where songs played from search say they come from (v0.2.0's

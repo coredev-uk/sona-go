@@ -69,7 +69,7 @@ func TestDatesPresetGoesToTheURLAndToApple(t *testing.T) {
 	if got := r.router.Location(); got != "/concerts?when=week" {
 		t.Errorf("location %q", got)
 	}
-	want, _ := presetRange(whenWeek, time.Now())
+	want, _ := presetRange(whenWeek, today)
 	r.tt.Until("a listing for the week", func() bool {
 		return r.amp.last().Get("filter[date]") == want.from+".."+want.to
 	})
@@ -213,8 +213,10 @@ func TestPageSaysWhenNothingMatchesTheFilters(t *testing.T) {
 }
 
 func TestPageShowsTheErrorAndRetries(t *testing.T) {
-	r := newRig(t, "/concerts", 1132, 800, exampleBand)
-	r.amp.fail.Store(true)
+	amp := &fakeApple{}
+	amp.set(exampleBand)
+	amp.fail.Store(true) // before the first frame asks
+	r := newRigAmp(t, amp, "/concerts", 1132, 800, nil, nil)
 	r.shows("Couldn't load the concerts", "Try again")
 	r.amp.fail.Store(false)
 	r.click("Try again")

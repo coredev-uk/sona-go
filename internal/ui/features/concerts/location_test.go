@@ -143,8 +143,9 @@ func TestLocationDialogPickingSavesAndResetGoesBack(t *testing.T) {
 }
 
 func TestLocationDialogToastsWhenTheCityCannotBeSaved(t *testing.T) {
-	r := newRig(t, "/concerts", 1132, 800, exampleBand)
-	r.s.api = refusingSave{r.s.api}
+	amp := &fakeApple{}
+	amp.set(exampleBand)
+	r := newRigAmp(t, amp, "/concerts", 1132, 800, nil, func(a concertsAPI) concertsAPI { return refusingSave{a} })
 	r.shows("Example Band with Opener Duo")
 	r.click("Set location")
 	r.shows("Manchester")

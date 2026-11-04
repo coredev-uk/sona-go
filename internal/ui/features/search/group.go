@@ -21,6 +21,8 @@ type groupView struct {
 	songs kit.TrackListState
 	grid  kit.ItemGridState
 	menus *kit.ActionMenus
+	// listMenus is the song list's own menu: its selection is its scope.
+	listMenus *kit.ActionMenus
 	// want is how many pages the list asks for: more as its end comes
 	// within a screen (v0.2.0's fetchNextPage on the IntersectionObserver).
 	want int
@@ -97,7 +99,7 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 					from = append(from, it)
 				}
 			}
-			s.songList(c, &v.songs, &v.menus, pane, ctx, songs, pending, label, func(i int) {
+			s.songList(c, &v.songs, &v.listMenus, pane, ctx, songs, pending, label, func(i int) {
 				ctx.OnOpen(from[i])
 				s.playSongs(songs, i, searchFrom)
 			})

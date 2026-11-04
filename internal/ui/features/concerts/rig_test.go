@@ -211,8 +211,6 @@ var (
 )
 
 type rig struct {
-	mu     sync.Mutex
-	urls   []string // what the system browser was asked to open
 	t      *testing.T
 	h      *uitest.Harness
 	router *ui.Router
@@ -233,10 +231,22 @@ func newRigOpts(t *testing.T, at string, w, h int, opts []uitest.Option, specs .
 	t.Helper()
 	amp := &fakeApple{}
 	amp.set(specs...)
+	return newRigAmp(t, amp, at, w, h, opts, nil)
+}
+
+// newRigAmp is newRigOpts over a fake Apple the caller shaped (a failure
+// is on before the first frame asks) and, when wrap is set, a stand-in in
+// front of the service.
+func newRigAmp(t *testing.T, amp *fakeApple, at string, w, h int, opts []uitest.Option, wrap func(concertsAPI) concertsAPI) *rig {
+	t.Helper()
 	hn := uitest.New(t, append([]uitest.Option{uitest.Apple(http.NotFoundHandler())}, opts...)...)
 	hn.Network.ServeHandler(ampHost, amp)
-	return newRigOver(t, hn, amp, at, w, h, nil)
+	return newRigOver(t, hn, amp, at, w, h, wrap)
 }
+
+// today is the day the page believes it is: tests do not read the wall
+// clock (the fixtures' shows are in 2027).
+var today = time.Date(2027, 2, 10, 12, 0, 0, 0, time.UTC)
 
 // newRigOver is newRig over a harness of the caller's; wrap, when set,
 // puts a stand-in in front of the service before the first frame.
@@ -247,11 +257,11 @@ func newRigOver(t *testing.T, hn *uitest.Harness, amp *fakeApple, at string, w, 
 	hn.Env.Nav = r.router
 	// The artists' pages are another PR's: only their route is faked.
 	hn.Env.HasRoute = func(p string) bool { return strings.HasPrefix(p, "/artist/") || p == concertsPath }
-	hn.Env.OpenURL = r.open
 	r.s = newConcerts(hn.Env, services.Service[services.ConcertsService](hn.Core), services.Service[services.AuthService](hn.Core))
 	if wrap != nil {
 		r.s.api = wrap(r.s.api)
 	}
+	r.s.today = func() time.Time { return today }
 	r.s.init()
 	r.tt = hn.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
@@ -313,20 +323,24 @@ func bulk(n int) []spec {
 	return out
 }
 
-// open is the Env's OpenURL: the system browser.
-func (r *rig) open(url string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.urls = append(r.urls, url)
-	return nil
+// answered waits for the fake Apple to have been asked and for the answer
+// (or its failure) to reach the view: what a test about a shelf that draws
+// nothing must do before it may say nothing is drawn.
+func (r *rig) answered() {
+	r.t.Helper()
+	r.tt.Until("a request to Apple", func() bool {
+		r.amp.mu.Lock()
+		defer r.amp.mu.Unlock()
+		return len(r.amp.seen) > 0
+	})
+	time.Sleep(100 * time.Millisecond) // the fetch goroutine's post
+	r.tt.Drain()
+	r.tt.Drain()
 }
 
-// opened is the URLs the system browser was asked to open.
-func (r *rig) openedURLs() []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return slices.Clone(r.urls)
-}
+// openedURLs is the URLs the system browser was asked to open (the
+// harness records Env.OpenURL).
+func (r *rig) openedURLs() []string { return r.h.Opened() }
 
 // lacksExactly fails when some text on the page is exactly one of texts.
 func (r *rig) lacksExactly(texts ...string) {

@@ -16,11 +16,12 @@ import (
 // none).
 func (e *Env) ItemsCtx(menus *kit.ActionMenus) kit.ItemsCtx {
 	ctx := kit.ItemsCtx{
-		Nav:     func(path string) { e.Nav.Push(path) },
-		Players: e.Players,
-		Art:     e.Art,
-		Menus:   menus,
-		Motion:  e.Motion,
+		Nav:      func(path string) { e.Nav.Push(path) },
+		HasRoute: e.HasRoute,
+		Players:  e.Players,
+		Art:      e.Art,
+		Menus:    menus,
+		Motion:   e.Motion,
 	}
 	if e.Core != nil {
 		ctx.Restricted = services.Service[services.AuthService](e.Core).Status().Restricted
@@ -50,7 +51,7 @@ func (e *Env) ItemsCtx(menus *kit.ActionMenus) kit.ItemsCtx {
 			return cur != nil && (cur.ID == s.ID || (s.CatalogID != "" && cur.CatalogID == s.CatalogID))
 		}
 		ctx.CurrentStation = func(s services.Station) bool {
-			return cur != nil && (cur.Live || cur.Broadcast) && (cur.ID == s.ID || cur.CatalogID == s.ID)
+			return cur != nil && cur.ID == s.ID
 		}
 	}
 	return ctx

@@ -66,7 +66,7 @@ type Options struct {
 	// Icon is the window icon, a PNG.
 	Icon []byte
 	// OpenURL opens a web page in the system browser (Env.OpenURL); nil
-	// opens nothing and reports an error.
+	// leaves Env.OpenURL nil, which a feature checks before opening.
 	OpenURL func(url string) error
 }
 
@@ -196,14 +196,21 @@ func newApp(opts Options, factories []module.Factory) *App {
 	return a
 }
 
-// startPath is where the window opens: the start page of the settings
-// when a module registered it, else the first sidebar link.
+// startPath is where the window opens: the start page of the settings when
+// a module registered it, else the first of the pages a start page may be
+// (config.StartPages, v0.2.0's choices, Home first) that one did, else the
+// first sidebar link.
 func (a *App) startPath() string {
 	if a.opts.StartPath != "" {
 		return a.opts.StartPath
 	}
 	if a.opts.Settings != nil {
 		page := a.opts.Settings.Get().Desktop.StartPage
+		if slices.ContainsFunc(a.routes, func(r module.Route) bool { return r.Pattern == page }) {
+			return page
+		}
+	}
+	for _, page := range config.StartPages {
 		if slices.ContainsFunc(a.routes, func(r module.Route) bool { return r.Pattern == page }) {
 			return page
 		}

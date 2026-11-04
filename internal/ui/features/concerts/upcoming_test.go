@@ -22,7 +22,6 @@ func shelfRig(t *testing.T, w int, fail bool, draw func(c *ui.Context, r *rig), 
 	computerIn(t, "Europe/London")
 	hn.Env.Nav = r.router
 	hn.Env.HasRoute = func(p string) bool { return p == concertsPath }
-	hn.Env.OpenURL = r.open
 	r.tt = hn.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Scroll(c).Fill().Children(func() {
@@ -78,15 +77,11 @@ func TestArtistConcertsNamesTheLineupOnlyWhenOthersPlay(t *testing.T) {
 
 func TestArtistConcertsDrawsNothingWithNoShowsOrOnFailure(t *testing.T) {
 	r := shelfRig(t, 1132, false, func(c *ui.Context, r *rig) { ArtistConcerts(c, r.h.Env, "900099", true) }, artistShows...)
-	r.tt.Drain()
-	for i := 0; i < 3; i++ {
-		r.tt.Drain()
-	}
+	r.answered()
 	r.lacks("Upcoming concerts")
 
 	r = shelfRig(t, 1132, true, func(c *ui.Context, r *rig) { ArtistConcerts(c, r.h.Env, "900001", true) }, artistShows...)
-	r.tt.Drain()
-	r.tt.Drain()
+	r.answered()
 	r.lacks("Upcoming concerts")
 }
 
@@ -125,7 +120,6 @@ func TestConcertsShelfSaysWhenNothingIsListedAndLeavesOutOnFailure(t *testing.T)
 	}
 
 	r = shelfRig(t, 1132, true, func(c *ui.Context, r *rig) { ConcertsShelf(c, r.h.Env, true) }, bulk(2)...)
-	r.tt.Drain()
-	r.tt.Drain()
+	r.answered()
 	r.lacks("Concerts", "Band 0")
 }

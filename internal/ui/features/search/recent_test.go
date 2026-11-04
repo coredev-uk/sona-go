@@ -147,15 +147,20 @@ func TestRecentShelfShowsAtMostTwelve(t *testing.T) {
 		}
 	}
 	r.s.refreshRecent()
-	r.tt.Until("the entries", r.tt.Shows("term 14"))
-	shown := 0
-	for _, w := range r.tt.Texts() {
-		var n int
-		if _, err := fmt.Sscanf(w, "term %d", &n); err == nil {
-			shown++
+	count := func() int {
+		shown := 0
+		for _, w := range r.tt.Texts() {
+			var n int
+			if _, err := fmt.Sscanf(w, "term %d", &n); err == nil {
+				shown++
+			}
 		}
+		return shown
 	}
-	if shown != maxShelf {
+	// Writes in one millisecond tie: which twelve show is the service's
+	// business, how many is the shelf's.
+	r.tt.Until("the entries", func() bool { return count() >= maxShelf })
+	if shown := count(); shown != maxShelf {
 		t.Errorf("%d entries shown, want %d", shown, maxShelf)
 	}
 }

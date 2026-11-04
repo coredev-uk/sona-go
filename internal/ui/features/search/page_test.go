@@ -458,6 +458,7 @@ func TestCatalogSongsShowEightAndPlayFromTheRow(t *testing.T) {
 	r.tt.Move(rect.X+rect.W/2, rect.Y+rect.H/2)
 	r.tt.Frame()
 	r.click("Play Blue Song 3")
+	r.tt.Until("the song to play", func() bool { return r.play.plays() >= 1 })
 	if r.play.plays() != 1 {
 		t.Fatalf("played %d times", r.play.plays())
 	}
@@ -499,6 +500,7 @@ func TestTopResultSongRowPlaysInPlace(t *testing.T) {
 	if got := r.loc(); got != "/search?q=blue" {
 		t.Errorf("a song row navigated to %q", got)
 	}
+	r.tt.Until("the song to play", func() bool { return r.play.plays() >= 1 })
 	if r.play.plays() != 1 {
 		t.Fatalf("played %d times, want 1", r.play.plays())
 	}
@@ -620,6 +622,7 @@ func TestLibrarySongsPlayRememberOnlyTheTerm(t *testing.T) {
 	r.tt.Move(rect.X+rect.W/2, rect.Y+rect.H/2)
 	r.tt.Frame()
 	r.click("Play Blue Hour song 1")
+	r.tt.Until("the song to play", func() bool { return r.play.plays() >= 1 })
 	if r.play.plays() != 1 {
 		t.Fatalf("played %d times", r.play.plays())
 	}

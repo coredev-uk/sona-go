@@ -244,7 +244,14 @@ func (s *concerts) filters(c *ui.Context, p params, page *services.ConcertsPage,
 			label := i18n.T("Your artists ({yours})", "yours", i18n.FormatNumber(float64(page.YourArtists)))
 			ui.Row(c.Key("yours")).Gap(8).AlignItems(ui.Center).Margin(0, 0, 0, 4).Children(func() {
 				sw := kit.Switch(c, &yours, kit.SwitchOpts{Small: true, A11yLabel: label})
-				text(c, label, "body", "ink").SingleLine()
+				// v0.2.0 wraps the switch and its text in a <label>: the text toggles it.
+				txt := text(c, label, "body", "ink").SingleLine()
+				if txt.Clicked() {
+					yours = !yours
+					next := p
+					next.yours = yours
+					s.set(next)
+				}
 				if sw.Changed() {
 					next := p
 					next.yours = yours

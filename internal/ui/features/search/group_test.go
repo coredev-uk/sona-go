@@ -58,6 +58,7 @@ func TestGroupPageSongsPlayFromTheRowAndRemember(t *testing.T) {
 	r.tt.Move(rect.X+rect.W/2, rect.Y+rect.H/2)
 	r.tt.Frame()
 	r.click("Play Blue Song 2")
+	r.tt.Until("the song to play", func() bool { return r.play.plays() >= 1 })
 	if r.play.plays() != 1 {
 		t.Fatalf("played %d times", r.play.plays())
 	}
