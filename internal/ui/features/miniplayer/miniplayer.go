@@ -115,23 +115,5 @@ func (m *mini) button(c *ui.Context) {
 }
 
 // toggle opens the mini player in place of the main window, or returns from
-// it. The main window is the one asking, and the one a failure is shown in:
-// a toast.
-func (m *mini) toggle() {
-	title := i18n.T("Couldn't open the mini player")
-	m.callDesktop(m.desk.ToggleMiniPlayer, func() { kit.ToastErrorf(title, "") })
-}
-
-// callDesktop runs one of the desktop service's window calls off the main
-// thread; they have no error to return, so a call that panics is the failure,
-// which fail then says on the main thread.
-func (m *mini) callDesktop(call func(), fail func()) {
-	go func() {
-		defer func() {
-			if recover() != nil {
-				m.env.Post(fail)
-			}
-		}()
-		call()
-	}()
-}
+// it.
+func (m *mini) toggle() { go m.desk.ToggleMiniPlayer() }

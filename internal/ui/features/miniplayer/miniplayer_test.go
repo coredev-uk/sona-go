@@ -70,26 +70,20 @@ func (f *fakeSvc) snapshot() []string {
 	return slices.Clone(f.calls)
 }
 
-// fakeDesk records the window calls; a call listed in panics panics, as a
-// service that could not do it would.
+// fakeDesk records the window calls.
 type fakeDesk struct {
-	mu     sync.Mutex
-	calls  []string
-	panics map[string]bool
-	done   chan struct{}
+	mu    sync.Mutex
+	calls []string
+	done  chan struct{}
 }
 
-func newDesk() *fakeDesk { return &fakeDesk{done: make(chan struct{}, 16), panics: map[string]bool{}} }
+func newDesk() *fakeDesk { return &fakeDesk{done: make(chan struct{}, 16)} }
 
 func (d *fakeDesk) record(name string) {
 	d.mu.Lock()
 	d.calls = append(d.calls, name)
-	boom := d.panics[name]
 	d.mu.Unlock()
 	d.done <- struct{}{}
-	if boom {
-		panic(name + " failed")
-	}
 }
 
 func (d *fakeDesk) ShowMainWindow()   { d.record("show main") }
@@ -445,15 +439,6 @@ func TestASignInFailureSaysToSignInInSona(t *testing.T) {
 	r.tt.Until("the notice", r.tt.Shows("Couldn't skip: sign in to Apple Music in Sona"))
 }
 
-func TestAFailedWindowCallIsSaidToo(t *testing.T) {
-	r := newRig(t)
-	r.show(30_000)
-	r.desk.panics["show main"] = true
-	_ = r.tt.Click("Open Sona")
-	r.desk.wait(t)
-	r.tt.Until("the notice", r.tt.Shows("Couldn't open Sona: "+i18n.ErrorText("")))
-}
-
 func TestARepeatedFailureStartsItsFourSecondsAgain(t *testing.T) {
 	r := newRig(t)
 	r.show(30_000)
@@ -679,16 +664,6 @@ func TestTheBarsMiniPlayerButtonTogglesTheMiniPlayer(t *testing.T) {
 	if got := b.desk.wait(t); len(got) != 2 || got[1] != "toggle mini" {
 		t.Errorf("the shortcut called %v", got)
 	}
-}
-
-func TestTheBarsButtonToastsWhenTheMiniPlayerCannotOpen(t *testing.T) {
-	b := newBarRig(t)
-	b.desk.panics["toggle mini"] = true
-	if err := b.tt.Click("Mini player"); err != nil {
-		t.Fatal(err)
-	}
-	b.desk.wait(t)
-	b.tt.Until("the toast", b.tt.Shows("Couldn't open the mini player"))
 }
 
 // The mini player over the real playback coordinator, as the bar's flow test.

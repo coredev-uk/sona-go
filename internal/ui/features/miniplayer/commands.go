@@ -86,15 +86,14 @@ func (m *mini) seekTo(pos time.Duration) {
 	m.run(i18n.T("Couldn't seek"), func(ctx context.Context) error { return m.svc.Seek(ctx, ms) })
 }
 
-// expand brings the main window back (and closes the mini player).
+// expand brings the main window back (and closes the mini player). The
+// window calls run off the main thread: the service waits for the main one.
 func (m *mini) expand() {
-	what := i18n.T("Couldn't open Sona")
-	m.callDesktop(m.desk.ShowMainWindow, func() { m.fail(what, "") })
+	go m.desk.ShowMainWindow()
 }
 
 // close is the window's own close button: Sona keeps playing in the
 // background or quits, as closing the main window does.
 func (m *mini) close() {
-	what := i18n.T("Couldn't close")
-	m.callDesktop(m.desk.CloseMiniPlayer, func() { m.fail(what, "") })
+	go m.desk.CloseMiniPlayer()
 }
