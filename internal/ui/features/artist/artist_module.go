@@ -159,14 +159,3 @@ func (a *artist) open(path string) {
 		a.env.Nav.Push(path)
 	}
 }
-
-// itemsCtx is what the shared item components need: pages open only when
-// they exist. Players stay nil: Env.Players belongs to the browse PR, and an
-// artist's shelves have no play controls but a music video's.
-func (a *artist) itemsCtx(menus *kit.ActionMenus) kit.ItemsCtx {
-	cur := a.env.Play.State()
-	return kit.ItemsCtx{
-		Nav: a.open, Art: a.env.Art, Menus: menus, Motion: a.env.Motion, Restricted: a.restricted(),
-		Playing: cur.State == "playing",
-	}
-}

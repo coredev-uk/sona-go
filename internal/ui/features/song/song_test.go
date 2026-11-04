@@ -139,12 +139,6 @@ func (f *fakeLibrary) States(_ context.Context, refs []services.ItemRef) ([]serv
 	return out, nil
 }
 
-func (f *fakeLibrary) note(s string) {
-	f.mu.Lock()
-	f.calls = append(f.calls, s)
-	f.mu.Unlock()
-}
-
 // change applies fn to the stored state and returns the result for r: the
 // service's memory of what was changed.
 func (f *fakeLibrary) change(r services.ItemRef, call string, fn func(*services.ItemState)) (services.ItemState, error) {

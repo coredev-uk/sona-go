@@ -62,7 +62,7 @@ func (a *artist) viewRouteTitle(r *ui.Route) string {
 // deep as depth. err is the first page's or a further one's failure;
 // fetching: a request is in flight; more: Apple has a page after the last
 // loaded.
-func (a *artist) viewPages(id, view string, depth int) (pages []services.ArtistViewPage, err error, fetching, more bool) {
+func (a *artist) viewPages(id, view string, depth int) (pages []services.ArtistViewPage, fetching, more bool, err error) {
 	offset := 0
 	for range max(1, depth) {
 		key := append(slices.Clone(keyArtistView(id, view)), offset)
@@ -71,15 +71,15 @@ func (a *artist) viewPages(id, view string, depth int) (pages []services.ArtistV
 			return a.cat.ArtistView(ctx, id, view, off, viewPage)
 		}, store.Options{Stale: store.Forever})
 		if !res.HasData {
-			return pages, res.Err, res.Fetching || res.Loading, false
+			return pages, res.Fetching || res.Loading, false, res.Err
 		}
 		pages = append(pages, res.Data)
 		if res.Data.Next < 0 {
-			return pages, nil, false, false
+			return pages, false, false, nil
 		}
 		offset, more = res.Data.Next, true
 	}
-	return pages, nil, false, more
+	return pages, false, more, nil
 }
 
 // pageItems are a fetched page's tiles as items.
@@ -171,7 +171,7 @@ func (a *artist) viewHeader(c *ui.Context, id, name, title string) {
 // viewBody is the list under the header: loading, failed, the songs or the
 // tiles, and the empty state.
 func (a *artist) viewBody(c *ui.Context, vs *viewState, id, view, name, title string, pane *kit.Pane) {
-	pages, err, fetching, more := a.viewPages(id, view, max(1, vs.depth))
+	pages, fetching, more, err := a.viewPages(id, view, max(1, vs.depth))
 	vs.depth = max(vs.depth, 1)
 	if err != nil {
 		kit.ErrorBlock(c, i18n.T("Couldn't load this list"), err, kit.ErrorBlockOpts{
@@ -243,7 +243,7 @@ func (a *artist) viewBody(c *ui.Context, vs *viewState, id, view, name, title st
 			vs.loaded = len(pages)
 		}
 		if vs.menus == nil {
-			vs.menus = kit.NewActionMenus(a.env.Actions, &vs.grid.CoverState.Sel)
+			vs.menus = kit.NewActionMenus(a.env.Actions, &vs.grid.Sel)
 		}
 		tileMin := float32(160)
 		if view == services.ViewMusicVideos || view == services.ViewTopMusicVideos {

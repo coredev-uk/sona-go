@@ -166,8 +166,6 @@ type rig struct {
 	play   *fakePlayback
 	states *fakeStates
 	auth   fakeAuth
-	// pushed are the paths the router was sent to.
-	routes []string
 }
 
 func hasPage(path string) bool {
