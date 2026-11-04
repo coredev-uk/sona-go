@@ -5,7 +5,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
-	"time"
+	"testing/synctest"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 )
@@ -71,6 +71,10 @@ type serialOutcome struct {
 }
 
 func TestSerialRunsEditsInOrder(t *testing.T) {
+	synctest.Test(t, serialRunsEditsInOrder)
+}
+
+func serialRunsEditsInOrder(t *testing.T) {
 	var e edits
 	var mu sync.Mutex
 	var order []string
@@ -95,7 +99,7 @@ func TestSerialRunsEditsInOrder(t *testing.T) {
 	if !e.editing("p.s") {
 		t.Fatal("not editing with two queued")
 	}
-	time.Sleep(20 * time.Millisecond)
+	synctest.Wait() // the first is parked on the gate; a second that overtook it has run by now
 	mu.Lock()
 	if len(order) != 0 {
 		t.Errorf("ran %v before the first was released", order)

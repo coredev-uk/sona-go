@@ -16,6 +16,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 // fakes: the services the page asks of, answering from the test's data and
@@ -160,19 +161,25 @@ type fakeStates struct {
 	rating  map[string]int
 	added   []string
 	favored []string
-	loads   int
 }
 
-func (f *fakeStates) loaded() bool {
+// addedIDs are the ids the page asked to add, in order.
+func (f *fakeStates) addedIDs() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.loads > 0
+	return slices.Clone(f.added)
+}
+
+// favoredIDs are the ids the page asked to favourite, in order.
+func (f *fakeStates) favoredIDs() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.favored)
 }
 
 func (f *fakeStates) States(_ context.Context, refs []services.ItemRef) ([]services.ItemState, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.loads++
 	out := make([]services.ItemState, len(refs))
 	for i, r := range refs {
 		out[i] = services.ItemState{Kind: r.Kind, ID: r.ID, InLibrary: f.inLib[r.ID], Rating: f.rating[r.ID]}
@@ -320,6 +327,25 @@ func (r *rig) click(text string) {
 		r.t.Fatalf("click %q: %v (texts %q)", text, err, r.tt.Texts())
 	}
 	r.tt.Drain()
+}
+
+// enabled waits until the control labelled label can be pressed: the library
+// and rating buttons stay disabled until the item's state has reached the
+// page, and a click before is lost.
+func (r *rig) enabled(label string) {
+	r.t.Helper()
+	r.tt.Until(fmt.Sprintf("%q to be enabled", label), func() bool {
+		found := false
+		for _, n := range access.Read(r.t, r.tt.Tester).Nodes {
+			if n.Label == label {
+				if n.Has(access.Disabled) {
+					return false
+				}
+				found = true
+			}
+		}
+		return found
+	})
 }
 
 // Fixture data: invented, as the uitest fixture's.

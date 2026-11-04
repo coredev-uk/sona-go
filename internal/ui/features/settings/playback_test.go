@@ -67,6 +67,13 @@ type pbRig struct {
 // state, a tall window (every row visible) and the toaster.
 func newPBRig(t *testing.T, caps services.Capabilities, cdm services.CDMStatus, opts ...uitest.Option) *pbRig {
 	t.Helper()
+	return newPBRigBefore(t, caps, cdm, nil, opts...)
+}
+
+// newPBRigBefore is newPBRig with before run on the Env ahead of the first
+// frame, which is the first thing to ask Go for the settings.
+func newPBRigBefore(t *testing.T, caps services.Capabilities, cdm services.CDMStatus, before func(*module.Env), opts ...uitest.Option) *pbRig {
+	t.Helper()
 	hn := uitest.New(t, opts...)
 	r := &rig{t: t, h: hn, router: ui.NewRouter(settingsPath)}
 	hn.Env.Nav = r.router
@@ -78,6 +85,9 @@ func newPBRig(t *testing.T, caps services.Capabilities, cdm services.CDMStatus, 
 		p.cdm, services.Service[services.UpdatesService](hn.Core))
 	r.s.init()
 	followShell(hn)
+	if before != nil {
+		before(hn.Env)
+	}
 	store.Set(hn.Env.Queries, store.KeyCapabilities, caps)
 	store.Set(hn.Env.Queries, store.KeyCDM, cdm)
 	*stateOf[func() ([]services.OutputDevice, error)](r.s, "seam:outputs") = func() ([]services.OutputDevice, error) {
@@ -171,6 +181,27 @@ func (p *pbRig) lacks(texts ...string) {
 		if p.tt.HasText(s) {
 			p.t.Errorf("shows %q: %q", s, p.tt.Texts())
 		}
+	}
+}
+
+// A settings read that fails shows the error block and its Try again, no row
+// and no skeleton; the settings arriving replace it.
+func TestPlaybackReadErrorShowsTheBlockWithTryAgainAndRecovers(t *testing.T) {
+	p := newPBRigBefore(t, pbCaps(), pbReadyCDM(), func(env *module.Env) { env.Core = nil }) // the settings read fails
+	hn := p.h
+	p.tt.Until("the error block", p.tt.Shows("Couldn't read Sona's settings", "Try again"))
+	for _, w := range []string{"Sound", "Listening", "Lyrics", "Loading"} {
+		if p.tt.HasText(w) {
+			t.Errorf("the failed read still shows %q: %q", w, p.tt.Texts())
+		}
+	}
+	p.click("Try again") // asks again; the service is still not there
+	p.tt.Until("the error block again", p.tt.Shows("Couldn't read Sona's settings", "Try again"))
+
+	store.Set(hn.Env.Queries, store.KeySettings, hn.Settings.Get()) // the settings arrive
+	p.tt.Until("the groups", p.tt.Shows("Sound", "Listening", "Lyrics"))
+	if p.tt.HasText("Couldn't read Sona's settings") {
+		t.Errorf("the error stayed after the settings arrived: %q", p.tt.Texts())
 	}
 }
 

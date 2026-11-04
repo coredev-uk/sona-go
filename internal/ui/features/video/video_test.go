@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -348,7 +349,21 @@ var (
 // transport.
 const centreX, centreY = 566, 380
 
+// inBubble runs a test body in a synctest bubble on one core: MyGo's rasteriser
+// shares helper goroutines between frames, and a helper (or the WaitGroup it
+// signals) that belongs to a bubble breaks the next frame drawn outside it. One
+// core draws without helpers.
+func inBubble(t *testing.T, body func(*testing.T)) {
+	t.Helper()
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
+	synctest.Test(t, body)
+}
+
 func TestSurfaceShowsTheLatestPictureAndDropsItOnStop(t *testing.T) {
+	inBubble(t, surfaceShowsTheLatestPictureAndDropsItOnStop)
+}
+
+func surfaceShowsTheLatestPictureAndDropsItOnStop(t *testing.T) {
 	r := viewRig(t)
 	r.open()
 
@@ -391,8 +406,7 @@ func TestSurfaceShowsTheLatestPictureAndDropsItOnStop(t *testing.T) {
 	}
 	before := r.v.feed.Pictures()
 	r.surface.Show(64, 36, 5*time.Second, grey(64, 36, 235))
-	time.Sleep(20 * time.Millisecond)
-	r.tt.Drain()
+	r.tt.Quiesce() // a conversion that got through has run by now
 	if r.v.feed.HasPicture() || r.v.feed.Pictures() != before {
 		t.Error("a closed view took a picture")
 	}
@@ -422,6 +436,10 @@ func TestPictureIsLetterboxedAtItsOwnShape(t *testing.T) {
 }
 
 func TestPictureOfAnEarlierEntryIsNeverShown(t *testing.T) {
+	inBubble(t, pictureOfAnEarlierEntryIsNeverShown)
+}
+
+func pictureOfAnEarlierEntryIsNeverShown(t *testing.T) {
 	r := viewRig(t)
 	r.open()
 	r.surface.Show(64, 36, 0, grey(64, 36, 235))
@@ -431,8 +449,7 @@ func TestPictureOfAnEarlierEntryIsNeverShown(t *testing.T) {
 	// one's last picture until the engine has the next ready.
 	r.play(store.StatePlaying, func(s *services.PlaybackState) { s.Current = videoItem(2) })
 	r.tt.Until("the old picture to go", func() bool { return !r.v.feed.HasPicture() })
-	time.Sleep(20 * time.Millisecond)
-	r.tt.Drain()
+	r.tt.Quiesce()
 	if r.v.feed.HasPicture() {
 		t.Fatal("the earlier entry's picture came back")
 	}
@@ -444,6 +461,10 @@ func TestPictureOfAnEarlierEntryIsNeverShown(t *testing.T) {
 }
 
 func TestPictureOnShowBeforeTheVideoNamedItselfIsNotShown(t *testing.T) {
+	inBubble(t, pictureOnShowBeforeTheVideoNamedItselfIsNotShown)
+}
+
+func pictureOnShowBeforeTheVideoNamedItselfIsNotShown(t *testing.T) {
 	r := viewRig(t)
 	// The item before was a video: its last picture is still on the surface
 	// when a play opens the view and Go's state names the new video.
@@ -454,8 +475,7 @@ func TestPictureOnShowBeforeTheVideoNamedItselfIsNotShown(t *testing.T) {
 	r.tt.Advance(time.Second)
 	r.play(store.StateLoading)
 	r.tt.Until("the view", r.tt.Shows("Sky Video", "Loading the video…"))
-	time.Sleep(30 * time.Millisecond)
-	r.tt.Drain()
+	r.tt.Quiesce()
 	if r.v.feed.HasPicture() {
 		t.Fatal("the picture of the item before was shown")
 	}
@@ -935,13 +955,16 @@ func TestProblemWhenVideosDoNotPlayHere(t *testing.T) {
 }
 
 func TestWatchInAppleMusicHasNoButtonUntilTheUrlIsKnown(t *testing.T) {
+	inBubble(t, watchInAppleMusicHasNoButtonUntilTheUrlIsKnown)
+}
+
+func watchInAppleMusicHasNoButtonUntilTheUrlIsKnown(t *testing.T) {
 	r := viewRig(t)
 	r.caps.Video = false
 	r.cat.err = services.ErrNotReleased
 	r.open()
 	r.tt.Frame()
-	time.Sleep(20 * time.Millisecond)
-	r.tt.Drain()
+	r.tt.Quiesce() // the page lookup has answered (and failed)
 	if r.tt.HasText("Watch in Apple Music") {
 		t.Error("a Watch in Apple Music button without a link")
 	}

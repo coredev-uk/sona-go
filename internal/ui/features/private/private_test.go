@@ -2,6 +2,7 @@ package private
 
 import (
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -141,6 +142,10 @@ func TestPillNameSaysWhereTheStateComesFrom(t *testing.T) {
 }
 
 func TestPillDoesNothingWhileForcedOrUnknown(t *testing.T) {
+	synctest.Test(t, doesNothingWhileForcedOrUnknown)
+}
+
+func doesNothingWhileForcedOrUnknown(t *testing.T) {
 	// Forced: the mirror says SONA_PRIVATE=1 keeps it on (here Go's real state is off, so
 	// a click that got through would turn it on).
 	r := newRig(t, 1200)
@@ -149,8 +154,7 @@ func TestPillDoesNothingWhileForcedOrUnknown(t *testing.T) {
 	if err := r.tt.Click("Private listening (forced by SONA_PRIVATE=1)"); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(100 * time.Millisecond) // a call that got through has run by now
-	r.tt.Drain()
+	r.tt.Quiesce() // a call that got through has run and posted by now
 	if r.svc.State().On {
 		t.Error("a click turned private listening on while it is forced")
 	}
@@ -164,19 +168,20 @@ func TestPillDoesNothingWhileForcedOrUnknown(t *testing.T) {
 	if err := tt.Click("Private listening"); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(100 * time.Millisecond)
-	tt.Drain()
+	tt.Quiesce()
 	if _, ok := store.Peek[services.PrivateState](h.Env.Queries, store.KeyPrivate); ok {
 		t.Error("a click made up a state")
 	}
 }
 
-func TestSnapshotNeverReplacesANewerEvent(t *testing.T) {
+func TestSnapshotNeverReplacesANewerEvent(t *testing.T) { synctest.Test(t, snapshotNeverReplacesANewerEvent) }
+
+func snapshotNeverReplacesANewerEvent(t *testing.T) {
 	h := uitest.New(t)
 	New(h.Env).Init() // the snapshot runs on a goroutine and says off
 	want := services.PrivateState{On: true, Source: "environment"}
 	h.Bus.Emit(services.EventPrivateChanged, want)
-	time.Sleep(50 * time.Millisecond) // the snapshot has long been posted behind it
+	synctest.Wait() // the snapshot is posted behind it
 	h.Main.Drain()
 	if got, ok := store.Peek[services.PrivateState](h.Env.Queries, store.KeyPrivate); !ok || got != want {
 		t.Errorf("mirror = %+v, %v; want the event's %+v", got, ok, want)

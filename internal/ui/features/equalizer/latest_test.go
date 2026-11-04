@@ -4,12 +4,17 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/config"
 )
 
 func TestLatestSendsOneAtATimeAndCollapsesToTheNewest(t *testing.T) {
+	synctest.Test(t, latestSendsOneAtATimeAndCollapsesToTheNewest)
+}
+
+func latestSendsOneAtATimeAndCollapsesToTheNewest(t *testing.T) {
 	var (
 		mu       sync.Mutex
 		sent     []float64
@@ -47,8 +52,8 @@ func TestLatestSendsOneAtATimeAndCollapsesToTheNewest(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("the newest value never went out")
 	}
-	// Nothing else follows.
-	time.Sleep(20 * time.Millisecond)
+	// Nothing else follows: once the sender has finished, no goroutine is left to send.
+	synctest.Wait()
 	mu.Lock()
 	defer mu.Unlock()
 	if want := []float64{1, -5}; !slices.Equal(sent, want) {
@@ -60,6 +65,10 @@ func TestLatestSendsOneAtATimeAndCollapsesToTheNewest(t *testing.T) {
 }
 
 func TestLatestSendsAgainAfterGoingIdle(t *testing.T) {
+	synctest.Test(t, latestSendsAgainAfterGoingIdle)
+}
+
+func latestSendsAgainAfterGoingIdle(t *testing.T) {
 	got := make(chan float64, 4)
 	l := &latest[config.Equalizer]{send: func(eq config.Equalizer) { got <- eq.Preamp }}
 	for _, v := range []float64{-1, -2} {
@@ -72,17 +81,13 @@ func TestLatestSendsAgainAfterGoingIdle(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			t.Fatalf("%v never went out", v)
 		}
-		// Wait for the sender to go idle before the next one.
-		for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(time.Millisecond) {
-			l.mu.Lock()
-			idle := !l.sending
-			l.mu.Unlock()
-			if idle {
-				break
-			}
-			if time.Now().After(deadline) {
-				t.Fatal("the sender never went idle")
-			}
+		// The sender goes idle before the next one.
+		synctest.Wait()
+		l.mu.Lock()
+		idle := !l.sending
+		l.mu.Unlock()
+		if !idle {
+			t.Fatal("the sender never went idle")
 		}
 	}
 }

@@ -8,8 +8,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -17,6 +20,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/lyrics"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -186,20 +190,71 @@ func TestNowPlayingLayoutFollowsItsBoxNotTheWindow(t *testing.T) {
 }
 
 func TestMotionCoverIsAskedForOnlyWhileMotionMayPlay(t *testing.T) {
+	inBubble(t, motionCoverIsAskedForOnlyWhileMotionMayPlay)
+}
+
+func motionCoverIsAskedForOnlyWhileMotionMayPlay(t *testing.T) {
 	asked := make(chan string, 4)
 	r := newNPRig(t, func(r *npRig) { r.p.np.motion = motionFunc(func(id string) { asked <- id }) })
 	// No policy (a hand-built Env): motion never plays and nothing is asked.
 	if got := r.p.albumMotion("al1"); got != "" {
 		t.Errorf("motion %q without a policy", got)
 	}
+	synctest.Wait() // a goroutine that was going to ask has asked by now
 	select {
 	case id := <-asked:
 		t.Errorf("the motion service was asked for %q while motion is not allowed", id)
-	case <-time.After(50 * time.Millisecond):
+	default:
 	}
 	// No album, no ask either way.
 	if got := r.p.albumMotion(""); got != "" {
 		t.Errorf("motion %q for no album", got)
+	}
+}
+
+// motionOpens records the motion files the policy was asked to open; every open
+// fails, so the still stays.
+type motionOpens struct {
+	mu    sync.Mutex
+	calls []string
+}
+
+func (m *motionOpens) open(_ context.Context, url string, px int) (*ui.VideoPlayer, error) {
+	m.mu.Lock()
+	m.calls = append(m.calls, fmt.Sprintf("%s@%d", url, px))
+	m.mu.Unlock()
+	return nil, errors.New("no decoder in a test")
+}
+
+func (m *motionOpens) opened() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return slices.Clone(m.calls)
+}
+
+func TestNowPlayingCoverAsksForTheAlbumMotionWhenMotionIsAllowed(t *testing.T) {
+	asked := make(chan string, 4)
+	fake := &motionOpens{}
+	r := newNPRig(t, func(r *npRig) {
+		r.p.np.motion = motionFunc(func(id string) { asked <- id })
+		pol := kit.NewTestMotionPolicy(r.h.Main.Post, fake.open)
+		t.Cleanup(pol.Close)
+		r.h.Env.Motion = pol
+	})
+	r.play(2000)
+	r.open("")
+	r.tt.Until("the cover asks for the album's motion file", func() bool { return len(fake.opened()) > 0 })
+	select {
+	case id := <-asked:
+		if id != "al1" {
+			t.Errorf("the motion service was asked for album %q", id)
+		}
+	default:
+		t.Error("the motion service was never asked")
+	}
+	got := fake.opened()
+	if !strings.HasPrefix(got[0], "/motion/x/1.mp4@") {
+		t.Errorf("the cover opened %q, want the album's motion file", got[0])
 	}
 }
 
@@ -400,7 +455,9 @@ func TestClickingALineSeeksToItsBeginPlusTheOffset(t *testing.T) {
 	}
 }
 
-func TestPlainLyricsAreNotButtons(t *testing.T) {
+func TestPlainLyricsAreNotButtons(t *testing.T) { inBubble(t, plainLyricsAreNotButtons) }
+
+func plainLyricsAreNotButtons(t *testing.T) {
 	r := newNPRig(t)
 	lines := timedLines(5, false)
 	r.lyr.set(services.Lyrics{Timing: "None", Lines: lines}, nil)
@@ -408,10 +465,11 @@ func TestPlainLyricsAreNotButtons(t *testing.T) {
 	r.open("")
 	r.tt.Until("lyrics", r.tt.Shows("Line 3 sung words"))
 	_ = r.tt.Click("Line 3 sung words")
+	r.tt.Quiesce() // a seek that got through has run by now
 	select {
 	case ms := <-r.seek.seeks:
 		t.Errorf("a plain line seeked to %d", ms)
-	case <-time.After(100 * time.Millisecond):
+	default:
 	}
 	if r.tt.HasText("Full screen") || r.tt.HasText("Lyrics on time") {
 		t.Error("plain lyrics have timing and full-screen tools")

@@ -282,6 +282,69 @@ func TestShiftF10OpensFromKeyboardOnFirstRowAndEscapeReturnsFocusToRow(t *testin
 	}
 }
 
+// headerView is one item's always-visible header trigger, the way a
+// collection page draws its "More for <name>" button.
+func (a *listApp) headerView(c *ui.Context) {
+	theme.Apply(c)
+	it := a.rows[0]
+	tgt := ActionTarget{Item: it, Name: it.Name(), Key: it.ID()}
+	ui.Column(c).Padding(20).Gap(4).Children(func() {
+		a.am.Trigger(c, tgt, TriggerOpts{Header: true})
+	})
+	a.am.Popup(c)
+}
+
+// The header trigger is a tab stop: the keyboard reaches it, Enter or Space
+// opens its menu with the first row ready (a pointer press does not), and
+// Escape closes it with the focus back on the button.
+func TestHeaderTriggerOpensFromTheKeyboardOnTheFirstRow(t *testing.T) {
+	for _, k := range []ui.Key{ui.KeyEnter, ui.KeySpace} {
+		a, _ := newListApp(t)
+		tt := ui.NewTester(a.headerView, 560, 420)
+		tt.Frame()
+		tt.Key(0, ui.KeyTab)
+		if !tt.Focused("More for Airbag") {
+			t.Fatalf("Tab did not reach the header trigger")
+		}
+		tt.Key(0, k)
+		if !a.am.IsOpen() {
+			t.Fatalf("key %v did not open the header menu", k)
+		}
+		a.drain(t, tt, 1)
+		tt.Key(0, ui.KeyEnter) // the keyboard open starts on the first row
+		tt.Frame()
+		tt.Frame()
+		if !slices.Equal(a.ran, []string{"next:Airbag"}) {
+			t.Errorf("key %v: a keyboard open did not start on the first row: %v", k, a.ran)
+		}
+
+		tt.Key(0, k)
+		a.drain(t, tt, 1)
+		tt.Key(0, ui.KeyEscape)
+		tt.Frame()
+		if a.am.IsOpen() || !tt.Focused("More for Airbag") {
+			t.Errorf("key %v: Escape left the menu open (%v) or the focus off the trigger", k, a.am.IsOpen())
+		}
+	}
+
+	// A press opens it too, but starts on no row: Enter runs nothing.
+	a, _ := newListApp(t)
+	tt := ui.NewTester(a.headerView, 560, 420)
+	tt.Frame()
+	if err := tt.Click("More for Airbag"); err != nil {
+		t.Fatal(err)
+	}
+	a.drain(t, tt, 1)
+	if !a.am.IsOpen() {
+		t.Fatal("a press did not open the header menu")
+	}
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	if len(a.ran) != 0 {
+		t.Errorf("Enter after a press ran %v: the pointer open started on a row", a.ran)
+	}
+}
+
 func TestMenuKeyOpensToo(t *testing.T) {
 	a, tt := newListApp(t)
 	_ = tt.Click("Airbag")

@@ -292,6 +292,31 @@ func TestListenBrainzFormErrorBlankAndEscape(t *testing.T) {
 	}
 }
 
+// Closing the token form (Cancel or Escape) takes its buttons away: the focus
+// goes back to the row's Connect button, not to the page.
+func TestListenBrainzFormClosingReturnsTheFocusToConnect(t *testing.T) {
+	f := &connFake{status: services.ScrobbleStatus{ListenBrainz: services.ScrobblerStatus{Available: true}}}
+	r := newConnRig(t, f, services.IntegrationsStatus{}, allCaps)
+	r.tt.Until("page", r.tt.Shows("ListenBrainz"))
+	for _, closeBy := range []string{"Cancel", "Escape"} {
+		r.click("Connect ListenBrainz")
+		r.tt.Until("form", r.tt.Shows("User token"))
+		if r.tt.Focused("Connect ListenBrainz") {
+			t.Fatalf("%s: the focus stayed on the button the form replaced", closeBy)
+		}
+		if closeBy == "Cancel" {
+			r.click("Cancel")
+		} else {
+			r.tt.Key(0, ui.KeyEscape)
+		}
+		r.tt.Until("closed", func() bool { return !r.tt.HasText("User token") })
+		r.tt.Drain()
+		if !r.tt.Focused("Connect ListenBrainz") {
+			t.Errorf("%s: the focus did not return to Connect ListenBrainz; texts %q", closeBy, r.tt.Texts())
+		}
+	}
+}
+
 func TestListenBrainzHintOpensTheTokenPage(t *testing.T) {
 	f := &connFake{status: services.ScrobbleStatus{ListenBrainz: services.ScrobblerStatus{Available: true}}}
 	r := newConnRig(t, f, services.IntegrationsStatus{}, allCaps)

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -573,8 +574,16 @@ func TestLyricsExcerptThenFullLyrics(t *testing.T) {
 	}
 }
 
-func TestLyricsShowLoadingThenFail(t *testing.T) {
-	r := newRig(t, 1132, 1000, airbag())
+// The window of a test inside a synctest bubble. MyGo rasterises a frame of
+// 2 × 128k pixels or more on helper goroutines it shares between windows,
+// which a bubble must not meet (sync.WaitGroup would be used from both
+// sides), so it stays below that.
+const bubbleW, bubbleH = 500, 520
+
+func TestLyricsShowLoadingThenFail(t *testing.T) { synctest.Test(t, lyricsShowLoadingThenFail) }
+
+func lyricsShowLoadingThenFail(t *testing.T) {
+	r := newRig(t, bubbleW, bubbleH, airbag())
 	r.lyrics.fail(errors.New("down"))
 	release := r.lyrics.hold()
 	r.open()
@@ -592,11 +601,16 @@ func TestLyricsShowLoadingThenFail(t *testing.T) {
 		t.Errorf("the excerpt went away with the failure")
 	}
 	asks := r.lyrics.asks()
-	// No retry on its own while the failure is shown (v0.2.0's retry: false).
-	time.Sleep(50 * time.Millisecond)
-	r.tt.Drain()
+	// No retry on its own while the failure is shown (v0.2.0's retry: false):
+	// a query that failed is asked again after 5 s when it is on screen, so
+	// the bubble's clock runs a minute with the page drawn after it.
+	time.Sleep(time.Minute)
+	r.tt.Quiesce()
 	if r.lyrics.asks() != asks {
 		t.Errorf("lyrics asked again by themselves: %d → %d", asks, r.lyrics.asks())
+	}
+	if !r.tt.HasText("Couldn't load the lyrics") {
+		t.Errorf("the failure went away by itself: %q", r.tt.Texts())
 	}
 	r.lyrics.fail(nil)
 	r.click("Try again")
@@ -742,6 +756,31 @@ func TestMusicVideoTileOpensItsPage(t *testing.T) {
 	r.tt.Until("the video", r.tt.Shows("Airbag (Live)"))
 	r.click("Airbag (Live)")
 	r.tt.Until("the video page", r.tt.Shows("VIDEO PAGE v1"))
+}
+
+// v0.2.0's videoTile played: where music videos play, a video tile has a play
+// control that plays it through the shared item players, and the tile itself
+// still opens its page.
+func TestMusicVideoTilePlaysThroughTheItemPlayers(t *testing.T) {
+	r := newRig(t, 1132, 1600, airbag())
+	r.open()
+	r.tt.Until("the video", r.tt.Shows("Airbag (Live)"))
+	if r.tt.HasText("Play Airbag (Live)") {
+		t.Error("a play control where videos do not play")
+	}
+	var played []services.MusicVideo
+	r.h.Env.Players.RegisterVideo(func(v services.MusicVideo, _ *ui.Handle) { played = append(played, v) })
+	r.h.Env.Players.Capabilities = func() *services.Capabilities {
+		return &services.Capabilities{Playback: services.PlaybackCapabilities{Available: true, Video: true}}
+	}
+	r.tt.Until("the play control", r.tt.Shows("Play Airbag (Live)"))
+	r.click("Play Airbag (Live)")
+	if len(played) != 1 || played[0].ID != "v1" || played[0].Name != "Airbag (Live)" {
+		t.Fatalf("played %+v", played)
+	}
+	if got := r.route(); got != "/song/1440" {
+		t.Errorf("the play control also navigated, to %q", got)
+	}
 }
 
 func TestMoreByHasNoSeeAllWithoutAnArtistID(t *testing.T) {

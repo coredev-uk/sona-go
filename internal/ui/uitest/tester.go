@@ -3,6 +3,7 @@ package uitest
 import (
 	"bytes"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -78,6 +79,15 @@ func (tt *Session) Shows(texts ...string) func() bool {
 func (tt *Session) Drain() {
 	tt.H.Main.Drain()
 	tt.Frame()
+}
+
+// Quiesce is Drain for a test inside a synctest bubble: it waits until every
+// goroutine of the bubble (the service calls a click started) has finished or
+// blocked for good, then runs what they posted. A test of "nothing happened"
+// ends with it instead of a sleep.
+func (tt *Session) Quiesce() {
+	synctest.Wait()
+	tt.Drain()
 }
 
 // artPending is how many covers the loaders in play still have in flight.

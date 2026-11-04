@@ -212,6 +212,35 @@ func TestTrackListCurrentSongTakesTheNumberAndDisabledRowsDoNothing(t *testing.T
 	}
 }
 
+// The playing row's number gives way to the equaliser, which is how the row
+// says it is the one playing (or, with playback paused, that it is paused).
+func TestTrackListCurrentRowSaysNowPlayingOrPaused(t *testing.T) {
+	for _, c := range []struct {
+		playing bool
+		want    string
+		not     string
+	}{{true, "Now playing", "Paused"}, {false, "Paused", "Now playing"}} {
+		a, tt := newCollTrackApp(t, 4, 1000, 400)
+		a.current = "s1"
+		a.opts.Playing = c.playing
+		tt.Frame()
+		if _, ok := tt.Find(c.want); !ok {
+			t.Errorf("playing=%v: the current row lacks %q: %q", c.playing, c.want, tt.Texts())
+		}
+		if _, ok := tt.Find(c.not); ok {
+			t.Errorf("playing=%v: shows %q", c.playing, c.not)
+		}
+	}
+	// No song is current: no stand-in anywhere.
+	_, tt := newCollTrackApp(t, 4, 1000, 400)
+	tt.Frame()
+	for _, l := range []string{"Now playing", "Paused"} {
+		if _, ok := tt.Find(l); ok {
+			t.Errorf("a list with no current song shows %q", l)
+		}
+	}
+}
+
 func TestTrackListPlayButtonAndLinks(t *testing.T) {
 	a, tt := newCollTrackApp(t, 6, 1000, 500)
 	tt.Frame()

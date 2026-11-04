@@ -345,6 +345,48 @@ func TestFrontStopsWhileTheWindowLacksTheFocusAndGoesOnWhenItIsBack(t *testing.T
 	}
 }
 
+func TestFrontStopsWhileScrolledOffScreenAndGoesOnWhenBackInView(t *testing.T) {
+	api := &fakeAPI{}
+	r := newRig(t, "/new", withAPI(api), wideWindow())
+	sections := []services.Section{heroSection(heroCards(8))}
+	for i := range 8 { // enough shelves below the hero to scroll it away
+		sections = append(sections, services.Section{ID: fmt.Sprint("shelf", i), Title: fmt.Sprint("Shelf ", i), Kind: services.SectionShelf, Items: albumItems(i*10, 6)})
+	}
+	newPageWith(api, r.h.Clock.Now(), sections...)
+	r.tt.Until("the front page", r.tt.Shows("Featured"))
+	r.tt.Drain()
+	r.tt.Drain()
+
+	r.tick(rotateEvery - time.Millisecond)
+	// Scroll the page until the hero is out of the window (the pointer stays off it).
+	for range 12 {
+		r.tt.Scroll(5, 500, 0, 400)
+		r.tt.Drain()
+	}
+	if hero, ok := r.tt.Find("Featured"); ok && hero.Y+hero.H > 0 {
+		t.Fatalf("the hero is still on screen after scrolling: %+v", hero)
+	}
+	r.tick(rotateEvery * 3)
+	if r.lead() != 0 {
+		t.Fatalf("lead %d while the hero is scrolled off screen", r.lead())
+	}
+	for range 12 {
+		r.tt.Scroll(5, 500, 0, -400)
+		r.tt.Drain()
+	}
+	if _, ok := r.tt.Find("Featured"); !ok {
+		t.Fatal("the hero is not back after scrolling up")
+	}
+	r.tick(rotateEvery - time.Millisecond)
+	if r.lead() != 0 {
+		t.Fatalf("lead %d before a whole interval after the hero came back", r.lead())
+	}
+	r.tick(time.Millisecond)
+	if r.lead() != 1 {
+		t.Errorf("lead %d after it, want 1", r.lead())
+	}
+}
+
 func TestFrontWaitsAWholeIntervalMoreAtATickThatFindsAMenuOpen(t *testing.T) {
 	r := newFront(t, 8)
 	r.registerPlaylistAction()
