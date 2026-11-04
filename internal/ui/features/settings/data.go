@@ -86,38 +86,26 @@ func (s *settings) integrationsStatus() store.Result[services.IntegrationsStatus
 	})
 }
 
-// Query keys of the CDM and the update check (shared/lib/keys.ts); Go's
-// cdm:status and updates:available replace them.
-var (
-	keyCDM     = store.Key{"cdm"}
-	keyUpdates = store.Key{"updates"}
-)
-
 // cdmAPI and updatesAPI are what the sections ask of CDMService and
 // UpdatesService.
 type cdmAPI interface {
-	Status() services.CDMStatus
 	Retry() error
 }
 
 type updatesAPI interface {
-	Status() services.UpdateStatus
 	Check(ctx context.Context) (services.UpdateStatus, error)
 	OpenRelease() error
 }
 
-// cdmStatus is the Widevine CDM's state (never stale: cdm:status keeps it
-// current).
+// cdmStatus is the Widevine CDM's state: the shared mirror (store.KeyCDM)
+// the cdm module keeps current from Go's cdm:status.
 func (s *settings) cdmStatus() store.Result[services.CDMStatus] {
-	return store.Use(s.env.Queries, keyCDM, func(context.Context) (services.CDMStatus, error) {
-		return s.cdm.Status(), nil
-	}, store.Options{Stale: store.Forever})
+	return store.UseCDM(s.env.Queries, s.env.Core)
 }
 
-// updateStatus is the update check's latest result (updates:available and a
-// manual check keep it current).
+// updateStatus is the update check's latest result: the shared mirror
+// (store.KeyUpdates) the updates module keeps current; a manual check writes
+// its answer to it too.
 func (s *settings) updateStatus() store.Result[services.UpdateStatus] {
-	return store.Use(s.env.Queries, keyUpdates, func(context.Context) (services.UpdateStatus, error) {
-		return s.updates.Status(), nil
-	}, store.Options{Stale: store.Forever})
+	return store.UseUpdates(s.env.Queries, s.env.Core)
 }

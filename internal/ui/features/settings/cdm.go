@@ -2,7 +2,6 @@ package settings
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -61,26 +60,6 @@ func fmtFixed(v float64, digits int) string {
 		return i18n.FormatNumber(float64(int64(v + 0.5)))
 	}
 	return i18n.FormatNumber(float64(int64(v*10+0.5)) / 10)
-}
-
-// relativeTime is a past time as "2 hr. ago" (shared/lib/format.ts).
-func relativeTime(stamp int64, now time.Time) string {
-	if stamp <= 0 {
-		return i18n.T("never")
-	}
-	sec := int(now.Sub(time.UnixMilli(stamp)).Seconds())
-	if sec < 45 {
-		return i18n.T("just now")
-	}
-	m := (sec + 30) / 60
-	if m < 60 {
-		return i18n.T("{minutes} min. ago", "minutes", m)
-	}
-	h := (m + 30) / 60
-	if h < 24 {
-		return i18n.T("{hours} hr. ago", "hours", h)
-	}
-	return i18n.T("{days, plural, one {# day ago} other {# days ago}}", "days", (h+12)/24)
 }
 
 // cdmRow is Settings → Playback's Widevine row (CdmRow.tsx): the state in
@@ -205,7 +184,7 @@ func (s *settings) cdmNote(st services.CDMStatus, ready bool) string {
 	case ready && st.Code != "":
 		return i18n.T("Couldn't check for updates")
 	case ready && st.CheckedAt > 0:
-		return i18n.T("Checked for updates {checked}", "checked", relativeTime(st.CheckedAt, s.now()))
+		return i18n.T("Checked for updates {checked}", "checked", i18n.RelativeTime(stampTime(st.CheckedAt), s.now()))
 	}
 	return ""
 }

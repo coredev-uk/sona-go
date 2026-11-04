@@ -78,7 +78,7 @@ func newPBRig(t *testing.T, caps services.Capabilities, cdm services.CDMStatus, 
 		p.cdm, services.Service[services.UpdatesService](hn.Core))
 	r.s.init()
 	store.Set(hn.Env.Queries, store.KeyCapabilities, caps)
-	store.Set(hn.Env.Queries, keyCDM, cdm)
+	store.Set(hn.Env.Queries, store.KeyCDM, cdm)
 	*stateOf[func() ([]services.OutputDevice, error)](r.s, "seam:outputs") = func() ([]services.OutputDevice, error) {
 		return []services.OutputDevice{
 			{Name: "alsa_output.speakers", Description: "Speakers", Default: true},
@@ -86,6 +86,7 @@ func newPBRig(t *testing.T, caps services.Capabilities, cdm services.CDMStatus, 
 		}, nil
 	}
 	r.tt = hn.Tester(t, func(c *ui.Context) {
+		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Column(c).Fill().Children(func() {
 			r.router.View(c, func(rt *ui.Route) {
 				if rt.Match(settingsPath) {
@@ -310,7 +311,7 @@ func TestEqualizerRowSaysOnWhenEnabled(t *testing.T) {
 	p.shows("Ten bands, presets and a preamp, heard as you move them. On now.")
 }
 
-func TestPrivateListeningSwitchesTheServiceAndFollowsTheEvent(t *testing.T) {
+func TestPrivateListeningSwitchesTheService(t *testing.T) {
 	p := newPBRig(t, pbCaps(), pbReadyCDM())
 	svc := services.Service[services.PrivateService](p.h.Core)
 	p.shows("Private listening")
@@ -323,17 +324,9 @@ func TestPrivateListeningSwitchesTheServiceAndFollowsTheEvent(t *testing.T) {
 	})
 	p.toggle("Private listening")
 	p.tt.Until("private on", func() bool { return svc.State().On })
-	p.tt.Until("the row follows", func() bool {
+	p.tt.Until("the row follows the mirror", func() bool {
 		v, ok := store.Peek[services.PrivateState](p.h.Env.Queries, store.KeyPrivate)
 		return ok && v.On
-	})
-	// Another place (the player bar, the tray) turns it off: an event.
-	if _, err := svc.Set(false); err != nil {
-		t.Fatal(err)
-	}
-	p.tt.Until("the event reaches the row", func() bool {
-		v, ok := store.Peek[services.PrivateState](p.h.Env.Queries, store.KeyPrivate)
-		return ok && !v.On
 	})
 }
 
@@ -528,21 +521,14 @@ func TestWidevineRetryFailureToasts(t *testing.T) {
 	p.tt.Until("toast", p.tt.Shows("Couldn't start the Widevine download"))
 }
 
-func TestWidevineFollowsTheCDMEvent(t *testing.T) {
+func TestWidevineFollowsTheSharedMirror(t *testing.T) {
 	p := newPBRig(t, pbCaps(), services.CDMStatus{State: "downloading", Received: 10, Total: 100})
 	p.shows("Downloading…")
-	p.h.Env.Bus.Emit(services.EventCDMStatus, services.CDMStatus{State: "ready", Version: "9.9"})
+	store.Set(p.h.Env.Queries, store.KeyCDM, services.CDMStatus{State: "ready", Version: "9.9"})
 	p.tt.Until("ready", p.tt.Shows("Version 9.9"))
 }
 
-func TestRelativeTimeAndBytes(t *testing.T) {
-	now := uitest.Epoch
-	if got := relativeTime(0, now); got != "never" {
-		t.Errorf("never: %q", got)
-	}
-	if got := relativeTime(now.UnixMilli()-10_000, now); got != "just now" {
-		t.Errorf("just now: %q", got)
-	}
+func TestBytesAndProgress(t *testing.T) {
 	if got := formatBytes(42); got != "42 B" {
 		t.Errorf("bytes: %q", got)
 	}

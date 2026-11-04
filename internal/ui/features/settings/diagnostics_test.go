@@ -157,6 +157,7 @@ func newDiagRig(t *testing.T, caps services.Capabilities, d services.Diagnostics
 		setup(g)
 	}
 	r.s.init()
+	store.Set(hn.Env.Queries, store.KeyCDM, g.cdm.st) // the cdm module's mirror
 	store.Set(hn.Env.Queries, store.KeyCapabilities, caps)
 	r.tt = hn.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
@@ -254,7 +255,7 @@ func TestDiagnosticsFollowsTheLiveCDMStatus(t *testing.T) {
 	d.Playback.CDM = services.CDMStatus{State: "downloading"}
 	g := newDiagRig(t, linuxCaps(), d, nil)
 	g.tt.Until("downloading", g.tt.Shows("Downloading…", "Checked once Widevine is ready"))
-	store.Set(g.h.Env.Queries, store.Key{"cdm"}, services.CDMStatus{State: "downloading", Received: 3, Total: 4})
+	store.Set(g.h.Env.Queries, store.KeyCDM, services.CDMStatus{State: "downloading", Received: 3, Total: 4})
 	g.tt.Until("live percent", g.tt.Shows("Downloading · 75%"))
 }
 

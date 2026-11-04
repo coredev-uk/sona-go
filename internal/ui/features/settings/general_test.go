@@ -100,6 +100,7 @@ func newGeneralRig(t *testing.T, caps services.Capabilities, prepare func(*confi
 	stateOf[desktopSeam](r.s, "seam:desktop").api = dt
 	stateOf[languagesSeam](r.s, "seam:translations").api = fakeLanguages{}
 	r.s.init()
+	store.Set(hn.Env.Queries, store.KeyUpdates, up.status) // the updates module's mirror
 	store.Set(hn.Env.Queries, store.KeyCapabilities, caps)
 	r.tt = hn.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
@@ -367,7 +368,7 @@ func TestUpdateVerdicts(t *testing.T) {
 		{
 			"up to date",
 			services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.0.0", Checked: now.Add(-5 * time.Minute).UnixMilli()},
-			[]string{"Sona 1.0.0 is up to date", "Checked 5 minutes ago."},
+			[]string{"Sona 1.0.0 is up to date", "Checked 5 min. ago."},
 			[]string{"View release"},
 		},
 		{
@@ -381,7 +382,7 @@ func TestUpdateVerdicts(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			g := newGeneralRig(t, linuxCaps(), nil)
 			g.s.clock = func() time.Time { return now }
-			store.Set(g.h.Env.Queries, keyUpdates, tc.st)
+			store.Set(g.h.Env.Queries, store.KeyUpdates, tc.st)
 			g.until("verdict", g.tt.Shows(tc.want...))
 			for _, n := range tc.not {
 				if g.tt.HasText(n) {
@@ -405,7 +406,7 @@ func TestCheckNowRunsTheCheckAndReplacesTheStatus(t *testing.T) {
 	if c, _ := g.up.count(); c != 1 {
 		t.Errorf("checks %d", c)
 	}
-	if got, _ := store.Peek[services.UpdateStatus](g.h.Env.Queries, keyUpdates); got.Latest != "1.2.0" {
+	if got, _ := store.Peek[services.UpdateStatus](g.h.Env.Queries, store.KeyUpdates); got.Latest != "1.2.0" {
 		t.Errorf("cache %+v", got)
 	}
 }
@@ -422,13 +423,15 @@ func TestFailedCheckSaysWhy(t *testing.T) {
 func TestViewReleaseOpensThePageAndAFailureToasts(t *testing.T) {
 	g := newGeneralRig(t, linuxCaps(), nil)
 	g.up.onOpen = func() { _ = g.h.Env.OpenURL("https://github.com/coredev-uk/sona/releases/latest") }
-	store.Set(g.h.Env.Queries, keyUpdates, services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.1.0", Available: true})
+	store.Set(g.h.Env.Queries, store.KeyUpdates, services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.1.0", Available: true})
 	g.until("button", g.tt.Shows("View release"))
 	g.toEnd()
 	g.click("View release")
 	g.until("opened", func() bool { return len(g.h.Opened()) == 1 })
 
+	g.up.mu.Lock()
 	g.up.openErr = errors.New("no browser")
+	g.up.mu.Unlock()
 	g.toEnd()
 	g.click("View release")
 	g.until("toast", g.tt.Shows("Couldn't open the release"))

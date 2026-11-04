@@ -7475,3 +7475,7 @@ msgstr "{hours} hr. ago"
 #: internal/ui/features/settings/cdm.go
 msgid "{minutes} min. ago"
 msgstr "{minutes} min. ago"
+
+#: internal/ui/features/settings/desktop.go
+msgid "Sona's own title bar comes with a later version: the desktop draws it."
+msgstr "Sona's own title bar comes with a later version: the desktop draws it."

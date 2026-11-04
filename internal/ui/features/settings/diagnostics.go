@@ -81,7 +81,9 @@ func (v *diagSeamsView) nativeMotion(s *settings) (services.MotionReport, bool) 
 	if v.native != nil {
 		return v.native()
 	}
-	if s.env.Motion == nil {
+	// No motion group until the codec probe has answered: Report's blank
+	// codec fields would read as "nothing decodes".
+	if s.env.Motion == nil || !s.env.Motion.Probed() {
 		return services.MotionReport{}, false
 	}
 	return s.env.Motion.Report(), true

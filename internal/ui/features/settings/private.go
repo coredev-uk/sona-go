@@ -3,23 +3,10 @@ package settings
 import (
 	"github.com/egoist/mygo/ui"
 
-	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
-
-// followPrivate keeps the shared private-listening mirror current from Go's
-// "private:changed" (once per settings page).
-func (s *settings) followPrivate() {
-	if *stateOf[bool](s, "private-events") {
-		return
-	}
-	*stateOf[bool](s, "private-events") = true
-	store.On(s.env.Bus, services.EventPrivateChanged, func(v services.PrivateState) {
-		store.Set(s.env.Queries, store.KeyPrivate, v)
-	})
-}
 
 // setPrivate is the switch's action; tests override it (seam:private).
 func (s *settings) setPrivate(on bool) {
@@ -34,7 +21,6 @@ func (s *settings) setPrivate(on bool) {
 // as the player bar's: the description says where a state the user did
 // not choose comes from.
 func (s *settings) privateRow(c *ui.Context) {
-	s.followPrivate()
 	r := store.UsePrivate(s.env.Queries, s.env.Core)
 	st := r.Data
 	forced := r.HasData && store.PrivateForced(st)

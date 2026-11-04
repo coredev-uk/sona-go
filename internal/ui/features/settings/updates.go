@@ -2,7 +2,6 @@ package settings
 
 import (
 	"context"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -46,36 +45,12 @@ func (s *settings) updateVerdict(st services.UpdateStatus) verdict {
 	case st.Checked == 0:
 		return verdict{text: i18n.T("Sona {current} · not checked yet", "current", st.Current)}
 	}
-	checked := s.agoText(st.Checked)
+	checked := i18n.RelativeTime(stampTime(st.Checked), s.now())
 	text := i18n.T("Sona {current} is up to date", "current", st.Current)
 	if st.Latest == "" {
 		text = i18n.T("Sona {current} · no release published yet", "current", st.Current)
 	}
 	return verdict{text: text, detail: i18n.T("Checked {checked}.", "checked", checked), ok: 1}
-}
-
-// agoText is "3 minutes ago" for a Unix-ms stamp (format.ts relativeTime).
-func (s *settings) agoText(stamp int64) string {
-	if stamp <= 0 {
-		return i18n.T("never")
-	}
-	sec := int(s.now().Sub(time.UnixMilli(stamp)).Round(time.Second) / time.Second)
-	if sec < 45 {
-		return i18n.T("just now")
-	}
-	m := (sec + 30) / 60
-	if m < 60 {
-		return i18n.T("{count, plural, one {# minute ago} other {# minutes ago}}", "count", m)
-	}
-	h := (m + 30) / 60
-	if h < 24 {
-		return i18n.T("{count, plural, one {# hour ago} other {# hours ago}}", "count", h)
-	}
-	d := (h + 12) / 24
-	if d == 1 {
-		return i18n.T("yesterday")
-	}
-	return i18n.T("{count, plural, one {# day ago} other {# days ago}}", "count", d)
 }
 
 // updatesGroup is the start-up update check and its latest result.
@@ -161,10 +136,10 @@ func (s *settings) checkNow(us *updateState) {
 			us.checking = false
 			if err != nil {
 				us.failure = i18n.ErrorMessage(err)
-				s.env.Queries.Invalidate(keyUpdates)
+				s.env.Queries.Invalidate(store.KeyUpdates)
 				return
 			}
-			store.Set(s.env.Queries, keyUpdates, st)
+			store.Set(s.env.Queries, store.KeyUpdates, st)
 		})
 	}()
 }

@@ -5,7 +5,6 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -179,7 +178,7 @@ func (s *settings) compactRow(c *ui.Context, st *storageState, u services.Storag
 	desc := i18n.T("Your synced library, history and the catalogue cache. Sona optimises it when it is idle and nothing is playing.")
 	if u.LastMaintenance > 0 {
 		desc = i18n.T("Your synced library, history and the catalogue cache. Sona optimises it when it is idle and nothing is playing (last {lastMaintenance}).",
-			"lastMaintenance", s.relativeText(u.LastMaintenance))
+			"lastMaintenance", i18n.RelativeTime(stampTime(u.LastMaintenance), s.now()))
 	}
 	s.row(c, rowOpts{ID: "compact", Title: i18n.T("Library database"), Desc: desc}, func() ui.Element {
 		label := i18n.T("Compact now")
@@ -243,27 +242,6 @@ func bytesText(n int64) string {
 		num += strings.Trim(i18n.FormatNumber(1.5), "15") + "0"
 	}
 	return num + " " + units[i]
-}
-
-// relativeText is "3 minutes ago" for a Unix-ms stamp (relativeTime).
-func (s *settings) relativeText(stamp int64) string {
-	if stamp <= 0 {
-		return i18n.T("never")
-	}
-	sec := int(s.now().Sub(time.UnixMilli(stamp)).Round(time.Second) / time.Second)
-	if sec < 45 {
-		return i18n.T("just now")
-	}
-	m := (sec + 30) / 60
-	if m < 60 {
-		return i18n.T("{count} min. ago", "count", m)
-	}
-	h := (m + 30) / 60
-	if h < 24 {
-		return i18n.T("{count} hr. ago", "count", h)
-	}
-	d := (h + 12) / 24
-	return i18n.T("{count, plural, one {# day ago} other {# days ago}}", "count", d)
 }
 
 func storageErr(errs ...error) error {

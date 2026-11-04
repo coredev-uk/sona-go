@@ -237,7 +237,7 @@ func cdmSourceRows(cdm services.CDMStatus, now time.Time) []diagRow {
 	case cdm.State == "ready" && cdm.Code != "":
 		updates = diagRow{label: i18n.T("Updates"), value: i18n.T("Couldn't check for updates"), status: statusWarning, detail: i18n.CDMProblem(cdm.Code)}
 	case cdm.CheckedAt > 0:
-		updates = diagRow{label: i18n.T("Updates"), value: i18n.T("Checked {checked}", "checked", relativeTime(cdm.CheckedAt, now))}
+		updates = diagRow{label: i18n.T("Updates"), value: i18n.T("Checked {checked}", "checked", i18n.RelativeTime(stampTime(cdm.CheckedAt), now))}
 	default:
 		updates = diagRow{label: i18n.T("Updates"), value: i18n.T("Not checked yet")}
 	}
@@ -339,7 +339,7 @@ func diagnosticsGroups(d services.Diagnostics, live *services.CDMStatus, now tim
 	}, ", ")
 	lastSync := i18n.T("Never")
 	if d.Database.LastSync > 0 {
-		lastSync = relativeTime(d.Database.LastSync, now)
+		lastSync = i18n.RelativeTime(stampTime(d.Database.LastSync), now)
 	}
 	startup := dash
 	if d.App.StartupMs > 0 {

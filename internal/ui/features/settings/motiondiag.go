@@ -136,7 +136,7 @@ func lastDownload(st *services.MotionStatus, now time.Time) diagRow {
 	if l.At == 0 {
 		return diagRow{label: label, value: i18n.T("None since Sona started")}
 	}
-	when := relativeTime(l.At, now)
+	when := i18n.RelativeTime(stampTime(l.At), now)
 	if l.Error != "" {
 		detail := i18n.ErrorText(l.Error)
 		if l.Rendition != "" {

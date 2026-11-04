@@ -74,7 +74,11 @@ func (s *settings) page(c *ui.Context, r *ui.Route) {
 	switch {
 	case sticky:
 		ui.Row(c).Grow(1).Basis(0).MinHeight(0).MinWidth(0).Padding(padTop, 0, 0, gutter).Gap(indexGap).Children(func() {
-			ui.Column(c.Key("index")).Width(indexWidth).Shrink(0).AlignSelf(ui.Start).Children(index)
+			// The index scrolls on its own: Find's results are longer than
+			// the column at 700-810 DIP of height.
+			ui.Scroll(c.Key("index")).Width(indexWidth).Shrink(0).MinHeight(0).FillHeight().Children(func() {
+				ui.Column(c).FillWidth().Padding(0, 0, padBottom, 0).Children(index)
+			})
 			ui.Scroll(c.Key("section")).TrackScroll(&s.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0).FillHeight().Children(func() {
 				ui.Column(c).FillWidth().MaxWidth(contentWidth+gutter+scrollbar).Padding(0, gutter+scrollbar, padBottom, 0).Children(content)
 			})

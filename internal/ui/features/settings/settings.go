@@ -117,9 +117,6 @@ func (s *settings) init() {
 	store.On(s.env.Bus, services.EventIntegrationsStatus, func(v services.IntegrationsStatus) {
 		store.Set(q, keyIntegrations, v)
 	})
-	s.followPrivate()
-	store.On(s.env.Bus, services.EventCDMStatus, func(v services.CDMStatus) { store.Set(q, keyCDM, v) })
-	store.On(s.env.Bus, services.EventUpdateAvailable, func(v services.UpdateStatus) { store.Set(q, keyUpdates, v) })
 	store.On(s.env.Bus, services.EventScrobbleChanged, func(v services.ScrobbleStatus) {
 		store.Set(q, keyScrobble, v)
 	})
