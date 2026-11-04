@@ -6,6 +6,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -37,6 +38,9 @@ func mediaGolden(t *testing.T, name string, img *image.RGBA) {
 // (the colour bars' corner patch is noise, different on each decode).
 func mediaGoldenWithin(t *testing.T, name string, img *image.RGBA, frac int) {
 	t.Helper()
+	if runtime.GOOS != "linux" {
+		t.Skip("golden images are compared on Linux only: other platforms draw text with their own rasteriser")
+	}
 	path := filepath.Join("testdata", "golden", "media-"+name+".png")
 	if *updateMediaGolden {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
