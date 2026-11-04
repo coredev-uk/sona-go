@@ -113,7 +113,7 @@ func (p *playlists) suggestionRow(c *ui.Context, id, playlist string, s services
 			kit.Artwork(c, p.env.Art, s.Art.Small, suggestionArt, kit.ArtOpts{})
 		})
 		if play.Clicked() {
-			go p.playSongs(context.Background(), []services.Song{s}, 0, services.PlayFrom{ID: id}, false)
+			p.playSongs([]services.Song{s}, 0, services.PlayFrom{ID: id}, false)
 		}
 
 		ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {

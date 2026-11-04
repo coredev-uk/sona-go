@@ -14,6 +14,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/library"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -117,6 +118,12 @@ func (f *fakeQueue) SetShuffle(on bool) {
 	f.mu.Unlock()
 }
 
+func (f *fakeQueue) PlayNext(context.Context, []services.TrackRef) error { return nil }
+
+func (f *fakeQueue) Append(context.Context, []services.TrackRef) error { return nil }
+
+func (f *fakeQueue) Insert(context.Context, int, []services.TrackRef) error { return nil }
+
 func (f *fakeQueue) UndoReplace(context.Context) (bool, error) { return true, nil }
 
 func (f *fakeQueue) last() (played, bool) {
@@ -145,10 +152,6 @@ func (f *fakeRadio) got() []string {
 	defer f.mu.Unlock()
 	return slices.Clone(f.played)
 }
-
-type fakeAuth struct{ status services.AuthStatus }
-
-func (f fakeAuth) Status() services.AuthStatus { return f.status }
 
 // fakeStates is LibraryService's item state side.
 type fakeStates struct {
@@ -261,9 +264,10 @@ func (r *rig) start(path string, w, h int) *rig {
 	env.Actions = kit.NewActionRegistry(r.a.module().Actions...)
 	r.a.menus = kit.NewActionMenus(env.Actions, nil)
 	r.a.lib, r.a.cat, r.a.radio = r.lib, r.cat, r.radio
-	r.a.auth = fakeAuth{services.AuthStatus{State: "signed_in"}}
-	r.a.queue = newQueueCommands(r.queue, env.Play, env.Post, nil)
-	r.a.states = kit.NewItemStates(env.Queries, env.Post, r.states)
+	// The sign-in state the auth module keeps in the cache.
+	store.Set(env.Queries, store.KeyAuth, services.AuthStatus{State: "signed_in"})
+	env.Queue = kit.NewQueueCommands(kit.QueueDeps{Svc: r.queue, Play: env.Play, Post: env.Post})
+	env.ItemStates = kit.NewItemStates(env.Queries, env.Post, r.states)
 	r.a.now = func() time.Time { return r.now }
 	r.tt = r.h.Tester(r.t, func(c *ui.Context) {
 		if !r.animate {

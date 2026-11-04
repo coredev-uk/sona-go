@@ -158,9 +158,9 @@ func itemMotion(it services.Item) string {
 	return ""
 }
 
-// itemsUpcoming is v0.2.0's isUpcoming: an album is still to come when it is
+// IsUpcoming is v0.2.0's isUpcoming: an album is still to come when it is
 // prerelease and has no full release date, or that date is ahead.
-func itemsUpcoming(a services.Album, now time.Time) bool {
+func IsUpcoming(a services.Album, now time.Time) bool {
 	return a.Prerelease && (a.ReleaseAt == 0 || now.UnixMilli() < a.ReleaseAt)
 }
 
@@ -168,7 +168,7 @@ func itemsUpcoming(a services.Album, now time.Time) bool {
 // with the year when it is not this one's); "" for an album that is out or
 // has no full date (v0.2.0's releaseBadge).
 func itemsReleaseBadge(a services.Album, now time.Time) string {
-	if !itemsUpcoming(a, now) || a.ReleaseAt == 0 {
+	if !IsUpcoming(a, now) || a.ReleaseAt == 0 {
 		return ""
 	}
 	date := i18n.ShortReleaseDate(time.UnixMilli(a.ReleaseAt), now)

@@ -14,13 +14,17 @@ import (
 )
 
 func playlistItem(id, name string) services.Item {
-	return services.Item{Kind: services.ItemPlaylist, ID: id, Name: name, Playlist: &services.Playlist{ID: id, Name: name},
-		Art: services.Art{Medium: fmt.Sprintf("/art/0123456789abcdef0123456789ab%04s/300x300.jpg", id)}}
+	return services.Item{
+		Kind: services.ItemPlaylist, ID: id, Name: name, Playlist: &services.Playlist{ID: id, Name: name},
+		Art: services.Art{Medium: fmt.Sprintf("/art/0123456789abcdef0123456789ab%04s/300x300.jpg", id)},
+	}
 }
 
 func albumItem(id, name string) services.Item {
-	return services.Item{Kind: services.ItemAlbum, ID: id, Name: name, Album: &services.Album{ID: id, Name: name},
-		Art: services.Art{Medium: fmt.Sprintf("/art/0123456789abcdef0123456789ab%04s/300x300.jpg", id)}}
+	return services.Item{
+		Kind: services.ItemAlbum, ID: id, Name: name, Album: &services.Album{ID: id, Name: name},
+		Art: services.Art{Medium: fmt.Sprintf("/art/0123456789abcdef0123456789ab%04s/300x300.jpg", id)},
+	}
 }
 
 func stationItem(id, name string) services.Item {

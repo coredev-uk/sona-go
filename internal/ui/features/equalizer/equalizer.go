@@ -26,11 +26,9 @@ import (
 const path = "/equalizer"
 
 // Query keys, as v0.2.0's: the equaliser's bands, limits and presets
-// (fixed for the app's lifetime) and the settings the page edits.
-var (
-	keyInfo     = store.Key{"audio", "equalizer"}
-	keySettings = store.Key{"settings"}
-)
+// (fixed for the app's lifetime). The settings the page edits are the shared
+// store.KeySettings, which the shell keeps as Go's on "settings:changed".
+var keyInfo = store.Key{"audio", "equalizer"}
 
 // backend is what the page asks of Go: AudioService for the bands and the
 // live preview, SystemService for the settings.
@@ -48,10 +46,13 @@ type host struct {
 }
 
 func (h host) Info(context.Context) (services.EqualizerInfo, error) { return h.audio.Equalizer(), nil }
-func (h host) Settings(context.Context) (config.Settings, error)    { return h.system.Settings(), nil }
+
+func (h host) Settings(context.Context) (config.Settings, error) { return h.system.Settings(), nil }
+
 func (h host) Preview(ctx context.Context, eq config.Equalizer) error {
 	return h.audio.PreviewEqualizer(ctx, eq)
 }
+
 func (h host) Save(_ context.Context, s config.Settings) (config.Settings, error) {
 	return h.system.UpdateSettings(s)
 }
@@ -94,7 +95,6 @@ func New(env *module.Env) module.Module {
 			Build:   e.page,
 		}},
 		Shortcuts: e.shortcuts(),
-		Init:      e.init,
 	}
 }
 
@@ -103,16 +103,6 @@ func newEqualizer(env *module.Env, svc backend, supported func() bool) *equalize
 	e.preview.send = func(eq config.Equalizer) { _ = svc.Preview(context.Background(), eq) } // errors are ignored
 	e.saves.send = e.send
 	return e
-}
-
-// init keeps the cached settings as Go's: every save of the settings sends
-// EventSettingsChanged (v0.2.0's settings module did the same), so a
-// whole-object save made from this cache never writes old values back over a
-// change made elsewhere (the window's size, private mode).
-func (e *equalizer) init() {
-	store.On(e.env.Bus, services.EventSettingsChanged, func(s config.Settings) {
-		store.Set(e.env.Queries, keySettings, s)
-	})
 }
 
 // shortcuts is Ctrl+Shift+E, with v0.2.0's ID and keys (index.ts): only
@@ -135,12 +125,12 @@ func (e *equalizer) info() store.Result[services.EqualizerInfo] {
 
 // settings is Go's settings, as v0.2.0's useSettings.
 func (e *equalizer) settings() store.Result[config.Settings] {
-	return store.Use(e.env.Queries, keySettings, e.svc.Settings)
+	return store.Use(e.env.Queries, store.KeySettings, e.svc.Settings, store.Options{Stale: store.Forever})
 }
 
 // refetch asks again for what failed (the Retry button).
 func (e *equalizer) refetch() {
-	e.env.Queries.Invalidate(keyInfo, keySettings)
+	e.env.Queries.Invalidate(keyInfo, store.KeySettings)
 }
 
 // live shows eq at once and sends it to the playing audio: a fader is
@@ -156,7 +146,7 @@ func (e *equalizer) live(eq config.Equalizer) {
 func (e *equalizer) save(s config.Settings, eq config.Equalizer) {
 	e.draft = nil
 	s.Audio.Equalizer = eq
-	store.Set(e.env.Queries, keySettings, s)
+	store.Set(e.env.Queries, store.KeySettings, s)
 	e.saves.Put(s)
 }
 
@@ -167,9 +157,9 @@ func (e *equalizer) send(s config.Settings) {
 	e.env.Post(func() {
 		if err != nil {
 			kit.ToastErrorf(i18n.T("Couldn't save the setting"), i18n.ErrorText(services.CodeOf(err)))
-			e.env.Queries.Invalidate(keySettings)
+			e.env.Queries.Invalidate(store.KeySettings)
 			return
 		}
-		store.Set(e.env.Queries, keySettings, saved)
+		store.Set(e.env.Queries, store.KeySettings, saved)
 	})
 }

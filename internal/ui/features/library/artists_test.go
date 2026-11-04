@@ -52,7 +52,7 @@ func (s *artistsStub) Artist(_ context.Context, id string) (services.ArtistDetai
 
 func artistsStubRig(t *testing.T, s *artistsStub, start string, w, h int) *pageRig {
 	t.Helper()
-	return newPageRig(t, start, w, h, func(l *library) { s.libraryAPI = l.lib; l.lib = s; l.auth = accountAPI{"signed_in"} })
+	return newPageRig(t, start, w, h, func(l *library) { s.libraryAPI = l.lib; l.lib = s; fakeAuth(l, accountAPI{"signed_in"}) })
 }
 
 // artistsFilter clicks the filter field, so the keys and the text go there.
@@ -421,14 +421,14 @@ func TestArtistsGateSignedOut(t *testing.T) {
 }
 
 func TestArtistsGateSyncing(t *testing.T) {
-	r := newPageRig(t, artistsPath, 1132, 800, func(l *library) { l.auth = accountAPI{"signed_in"} }, uitest.Empty())
+	r := newPageRig(t, artistsPath, 1132, 800, func(l *library) { fakeAuth(l, accountAPI{"signed_in"}) }, uitest.Empty())
 	shows := r.tt.Shows("Artists", "Your library is syncing",
 		"Your artists appear here as Sona copies them from Apple Music. Large libraries take a minute or two the first time.")
 	r.tt.Until("syncing", artistsSignedIn(r, shows))
 }
 
 func TestArtistsGateEmptyOnceSynced(t *testing.T) {
-	r := newPageRig(t, artistsPath, 1132, 800, func(l *library) { l.auth = accountAPI{"signed_in"} })
+	r := newPageRig(t, artistsPath, 1132, 800, func(l *library) { fakeAuth(l, accountAPI{"signed_in"}) })
 	emptyTheSyncedLibrary(r)
 	r.tt.Until("empty", artistsSignedIn(r, r.tt.Shows("Artists", "No artists in your library yet",
 		"Every artist with a song or album in your library is listed here, A to Z.")))

@@ -31,3 +31,21 @@ func TestRelativeTime(t *testing.T) {
 		}
 	}
 }
+
+func TestRelativeTimeRoundsLikeV020(t *testing.T) {
+	now := time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		ago  time.Duration
+		want string
+	}{
+		{89 * time.Second, "1 min. ago"},
+		{90 * time.Second, "2 min. ago"},
+		{59 * time.Minute, "59 min. ago"},
+		{89 * time.Minute, "1 hr. ago"},
+		{36 * time.Hour, "2 days ago"},
+	} {
+		if got := RelativeTime(now.Add(-c.ago), now); got != c.want {
+			t.Errorf("%v ago = %q, want %q", c.ago, got, c.want)
+		}
+	}
+}

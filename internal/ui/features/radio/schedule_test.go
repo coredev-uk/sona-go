@@ -196,36 +196,11 @@ func TestStationLineAddsAnEpisodesAirDate(t *testing.T) {
 	}
 }
 
-func TestRunningTimeIsToTheMinuteInShortUnits(t *testing.T) {
-	for ms, want := range map[int64]string{
-		0:                         "0 min",
-		60_000:                    "1 min",
-		45 * 60_000:               "45 min",
-		78 * 60_000:               "1 hr, 18 min",
-		120 * 60_000:              "2 hr",
-		45*60_000 + 29_000:        "45 min",
-		45*60_000 + 31_000:        "46 min",
-		(26*60 + 5) * 60_000:      "26 hr, 5 min",
-		(3*60+59)*60_000 + 600:    "3 hr, 59 min",
-		(3*60+59)*60_000 + 30_000: "4 hr",
-	} {
-		if got := runningTime(ms); got != want {
-			t.Errorf("runningTime(%d) = %q, want %q", ms, got, want)
-		}
-	}
-}
-
-func TestRunningTimeFollowsTheRegionalFormatLocale(t *testing.T) {
+func TestStationLineFollowsTheRegionalFormatLocale(t *testing.T) {
 	// An English UI on an en-GB system writes "mins" and "hrs".
 	i18n.SetLocale("en")
 	i18n.SetRegional("en-GB")
 	t.Cleanup(func() { i18n.SetRegional(); i18n.SetLocale("en") })
-	if got := runningTime(135 * 60_000); got != "2 hrs, 15 mins" {
-		t.Errorf("runningTime = %q, want \"2 hrs, 15 mins\"", got)
-	}
-	if got := runningTime(60 * 60_000); got != "1 hr" {
-		t.Errorf("runningTime = %q, want \"1 hr\"", got)
-	}
 	if got := stationLine(services.Station{Kind: services.StationEpisode, DurationMs: 3_420_000}); got != "Episode · 57 mins" {
 		t.Errorf("stationLine = %q", got)
 	}

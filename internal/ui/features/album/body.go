@@ -7,19 +7,16 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/account"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// signedIn: the account states in which the library and personal endpoints
-// are usable (v0.2.0's hasAccount).
-func signedIn(state string) bool { return state == "signed_in" || state == "validating" }
-
 // body is AlbumBody: the head, the sleeve, the songs and the notes in the
 // layout of the content's width, then Apple's sections.
 func (a *album) body(c *ui.Context, m *model, lay layout, highlight string, now time.Time, auth services.AuthStatus) {
-	head := func() { a.head(c, m, now, signedIn(auth.State)) }
+	head := func() { a.head(c, m, now, account.HasAccount(auth.State)) }
 	tracks := func() { a.songs(c, m, highlight, now, auth.Restricted) }
 	notes := m.notes != "" && m.notes != m.lede
 	if lay.wide {
@@ -210,7 +207,7 @@ func (a *album) status(c *ui.Context, m *model, now time.Time) func() {
 func (a *album) releaseStatus(c *ui.Context, m *model, now time.Time) {
 	if m.album.ReleaseAt == 0 {
 		// Apple gave only a year: no countdown to give.
-		typed(c, i18n.T("Out {releaseDate}", "releaseDate", longDate(m.album.ReleaseDate)), "heading").TextColor(theme.C("ink"))
+		typed(c, i18n.T("Out {releaseDate}", "releaseDate", i18n.FormatISODate(m.album.ReleaseDate, i18n.DateLong)), "heading").TextColor(theme.C("ink"))
 		return
 	}
 	left := time.UnixMilli(m.album.ReleaseAt).Sub(now)
@@ -243,25 +240,25 @@ func (a *album) actions(c *ui.Context, m *model, account bool) {
 		// Apple's pre-add while signed in.
 		if m.songsOut > 0 {
 			if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{PlayLabel: m.playOutLabel()}); play {
-				a.queue.PlaySongs(m.list, 0, from)
+				a.env.Queue.PlaySongs(m.list, 0, from)
 			}
 		}
 		kit.RemindButton(c, a.env.Queries, a.env.Core, al)
 		kit.RemindButton(c, a.env.Queries, a.env.Core, al)
 		if account {
-			a.states.LibraryButton(c, kit.StateAlbums, item, al.Name, i18n.T("Pre-add"))
+			a.env.ItemStates.LibraryButton(c, kit.StateAlbums, item, al.Name, i18n.T("Pre-add"))
 		}
 	} else {
 		play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: al.Name, Shuffle: true, Disabled: m.songsOut == 0})
 		if play {
-			a.queue.PlaySongs(m.list, 0, from)
+			a.env.Queue.PlaySongs(m.list, 0, from)
 		}
 		if shuffle {
-			a.queue.ShuffleSongs(m.list, from)
+			a.env.Queue.ShuffleSongs(m.list, from)
 		}
-		a.states.LibraryButton(c, kit.StateAlbums, item, al.Name, "")
+		a.env.ItemStates.LibraryButton(c, kit.StateAlbums, item, al.Name, "")
 	}
-	a.states.RatingButtons(c, kit.StateAlbums, item, al.Name)
+	a.env.ItemStates.RatingButtons(c, kit.StateAlbums, item, al.Name)
 	a.menus.Trigger(c.Key("menu"), kit.ActionTarget{Item: kit.AlbumItem(al), Name: al.Name}, kit.TriggerOpts{Header: true})
 }
 
@@ -291,7 +288,7 @@ func (a *album) songs(c *ui.Context, m *model, highlight string, now time.Time, 
 		Menus:   a.trackMenus,
 		Motion:  a.env.Motion,
 		Pane:    &kit.Pane{Pos: &a.pos, Bounds: a.paneRect},
-		OnPlay:  func(i int) { a.queue.PlaySongs(list, i, services.PlayFrom{Kind: "album", ID: m.album.ID}) },
+		OnPlay:  func(i int) { a.env.Queue.PlaySongs(list, i, services.PlayFrom{Kind: "album", ID: m.album.ID}) },
 	}
 	if m.classical {
 		composers := m.composers

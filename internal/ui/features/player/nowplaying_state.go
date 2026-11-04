@@ -118,14 +118,10 @@ func (p *player) videoPlaying() bool {
 }
 
 // lyricsSurface reports whether the bar offers Lyrics: always, as the view
-// shows Up next for what has none.
-//
-//nolint:unused // the bar's Lyrics button (player-bar-queue PR) asks it
-func (p *player) lyricsSurface() bool { return true }
+// shows Up next for what has none (a music video has its video button instead).
+func (p *player) lyricsSurface() bool { return !p.videoSurface() }
 
 // videoSurface reports whether the bar offers the video: a music video plays.
-//
-//nolint:unused // the bar's Show video button (player-bar-queue PR) asks it
 func (p *player) videoSurface() bool { return p.videoPlaying() }
 
 // lyricsShown reports lyrics on screen: Now Playing's lyrics pane or

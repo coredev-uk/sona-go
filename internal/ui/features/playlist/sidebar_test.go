@@ -302,7 +302,7 @@ func TestSidebarFoldsAReadOnlySectionAndRemembersIt(t *testing.T) {
 	}
 
 	// A new run: the same file, a new feature state.
-	again := newPlaylists(e.h.Env, e.api, e.play, newPrefs(e.p.prefs.snapshot(), nil))
+	again := newPlaylists(e.h.Env, e.api, newPrefs(e.p.prefs.snapshot(), nil))
 	e2 := &sbEnv{t: t, p: again, api: e.api, play: e.play, h: e.h, router: e.router}
 	e2.tt = e.h.Tester(t, e2.view, 520, 900)
 	e2.shows("Apple Music", "Morning Mix")

@@ -13,6 +13,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
@@ -63,13 +64,17 @@ func (f *fakeTransport) SetAutoPlay(on bool) error {
 	}
 	return f.record("autoplay off")
 }
+
 func (f *fakeTransport) SetSleep(mode string, minutes int) error {
 	return f.record(fmt.Sprintf("sleep %s %d", mode, minutes))
 }
+
 func (f *fakeTransport) Jump(_ context.Context, i int) error { return f.record(fmt.Sprint("jump ", i)) }
+
 func (f *fakeTransport) Remove(_ context.Context, i int) error {
 	return f.record(fmt.Sprint("remove ", i))
 }
+
 func (f *fakeTransport) Move(from, to int) error { return f.record(fmt.Sprint("move ", from, " ", to)) }
 func (f *fakeTransport) MoveNext(i int) error    { return f.record(fmt.Sprint("movenext ", i)) }
 func (f *fakeTransport) MoveToEnd(i int) error   { return f.record(fmt.Sprint("movetoend ", i)) }
@@ -80,24 +85,28 @@ func (f *fakeTransport) PlayItems(_ context.Context, refs []services.TrackRef, s
 	f.mu.Unlock()
 	return f.record(fmt.Sprintf("playitems %d %d %s:%s", len(refs), start, from.Kind, from.ID))
 }
+
 func (f *fakeTransport) PlayNext(_ context.Context, refs []services.TrackRef) error {
 	f.mu.Lock()
 	f.refs = append(f.refs, refs...)
 	f.mu.Unlock()
 	return f.record("playnext")
 }
+
 func (f *fakeTransport) Append(_ context.Context, refs []services.TrackRef) error {
 	f.mu.Lock()
 	f.refs = append(f.refs, refs...)
 	f.mu.Unlock()
 	return f.record("append")
 }
+
 func (f *fakeTransport) Insert(_ context.Context, at int, refs []services.TrackRef) error {
 	f.mu.Lock()
 	f.refs = append(f.refs, refs...)
 	f.mu.Unlock()
 	return f.record(fmt.Sprint("insert ", at))
 }
+
 func (f *fakeTransport) UndoReplace(context.Context) (bool, error) {
 	return true, f.record("undoreplace")
 }
@@ -129,10 +138,20 @@ type rig struct {
 	env  *module.Env
 }
 
+// queueOver gives a Core-less Env the queue commands of app.New (Env.Queue),
+// over the fake transport instead of the Core's playback service.
+func queueOver(env *module.Env, svc kit.QueueService) {
+	env.Queue = kit.NewQueueCommands(kit.QueueDeps{
+		Svc: svc, Play: env.Play, Post: env.Post,
+		Unavailable: func() string { return kit.QueueUnavailable(env.Play.State()) },
+	})
+}
+
 func newRig(t *testing.T, volume bool) *rig {
 	t.Helper()
 	h := uitest.New(t, uitest.Bare()) // the bar reads the mirror and calls the fake transport
 	r := &rig{fake: newFake(), h: h, env: h.Env}
+	queueOver(r.env, r.fake)
 	r.p = newPlayer(r.env, r.fake, func() bool { return volume })
 	r.p.now = h.Clock.Now
 	r.tt = h.Tester(t, func(c *ui.Context) {
@@ -366,14 +385,6 @@ func TestShortcutsKeepV020IDsAndKeys(t *testing.T) {
 	}
 	if why := got["player.seek-forward"].Unavailable(); why == "" {
 		t.Error("seeking a live station is not unavailable")
-	}
-}
-
-func TestClock(t *testing.T) {
-	for in, want := range map[time.Duration]string{0: "0:00", 59 * time.Second: "0:59", 61 * time.Second: "1:01", 3725 * time.Second: "1:02:05", -time.Second: "0:00"} {
-		if got := clock(in); got != want {
-			t.Errorf("clock(%v) = %q, want %q", in, got, want)
-		}
 	}
 }
 

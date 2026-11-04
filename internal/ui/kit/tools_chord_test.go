@@ -31,3 +31,18 @@ func TestParseChordReadsV020Spelling(t *testing.T) {
 		}
 	}
 }
+
+func TestChordKeysNameEveryKeyTheParserReads(t *testing.T) {
+	for _, key := range ChordKeys() {
+		name, ok := ChordKeyName(key)
+		if !ok {
+			t.Fatalf("key %v has no name", key)
+		}
+		if _, got, ok := ParseChord(name); !ok || got != key {
+			t.Errorf("ParseChord(%q) = %v, %v, want %v", name, got, ok, key)
+		}
+	}
+	if _, _, ok := ParseChord("++"); !ok {
+		t.Error("++ is the plus key")
+	}
+}

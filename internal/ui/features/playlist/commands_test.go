@@ -23,16 +23,13 @@ func waitDid(t *testing.T, api *fakeAPI, call string) {
 	t.Fatalf("timed out waiting for %q; calls %q", call, api.asked())
 }
 
-// waitPlayed waits for n play calls.
-func waitPlayed(t *testing.T, play *fakePlay, n int) []string {
+// waitPlayed waits, with the frames running (the queue commands answer on
+// the main thread), for n play calls.
+func waitPlayed(t *testing.T, h *uitest.Harness, play *fakePlay, n int) []string {
 	t.Helper()
-	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
-		if got := play.played(); len(got) >= n {
-			return got
-		}
-	}
-	t.Fatalf("timed out waiting for %d play calls; got %q", n, play.played())
-	return nil
+	tt := overlayView(t, h)
+	tt.Until("play calls", func() bool { return len(play.played()) >= n })
+	return play.played()
 }
 
 // overlayView mounts what commands show: toasts and the confirm question.
@@ -113,9 +110,9 @@ func TestPlaySongsStartIndex(t *testing.T) {
 		{"out of range: from the top", 9, "[a c d] start=0 from=playlist:p.x"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			p, _, play, _, _ := testPlaylists(t, "/")
-			p.playSongs(t.Context(), songs, c.start, from, false)
-			if got := play.played(); !slices.Equal(got, []string{c.want}) {
+			p, _, play, h, _ := testPlaylists(t, "/")
+			p.playSongs(songs, c.start, from, false)
+			if got := waitPlayed(t, h, play, 1); !slices.Equal(got, []string{c.want}) {
 				t.Errorf("got %q, want %q", got, c.want)
 			}
 			if play.shuffle {
@@ -126,10 +123,10 @@ func TestPlaySongsStartIndex(t *testing.T) {
 }
 
 func TestPlaySongsShuffle(t *testing.T) {
-	p, _, play, _, _ := testPlaylists(t, "/")
+	p, _, play, h, _ := testPlaylists(t, "/")
 	songs := []services.Song{song("a", "A", "X"), unplayable("b"), song("c", "C", "X")}
-	p.playSongs(t.Context(), songs, 0, services.PlayFrom{Kind: "playlist", ID: "p.x"}, true)
-	got := play.played()
+	p.playSongs(songs, 0, services.PlayFrom{Kind: "playlist", ID: "p.x"}, true)
+	got := waitPlayed(t, h, play, 1)
 	if len(got) != 1 {
 		t.Fatalf("plays %q", got)
 	}
@@ -146,7 +143,7 @@ func TestPlaySongsNothingPlayable(t *testing.T) {
 	p, _, play, h, _ := testPlaylists(t, "/")
 	tt := overlayView(t, h)
 	songs := []services.Song{unplayable("a"), unplayable("b")}
-	p.playSongs(t.Context(), songs, 0, services.PlayFrom{}, true)
+	p.playSongs(songs, 0, services.PlayFrom{}, true)
 	tt.Drain()
 	if len(play.played()) != 0 || play.shuffle {
 		t.Errorf("played %q, shuffle %v", play.played(), play.shuffle)
@@ -154,7 +151,7 @@ func TestPlaySongsNothingPlayable(t *testing.T) {
 	if tt.HasText("Nothing here can be played") {
 		t.Error("a shuffle of nothing should be silent")
 	}
-	p.playSongs(t.Context(), songs, 0, services.PlayFrom{}, false)
+	p.playSongs(songs, 0, services.PlayFrom{}, false)
 	tt.Until("the toast", tt.Shows("Nothing here can be played", "None of these songs is available to stream."))
 	if len(play.played()) != 0 {
 		t.Errorf("played %q", play.played())
@@ -173,20 +170,20 @@ func TestPlayPin(t *testing.T) {
 		{"song pin has no collection", "i.4", false, "[s1 s2] start=0 from=:i.4"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			p, api, play, _, _ := testPlaylists(t, "/")
+			p, api, play, h, _ := testPlaylists(t, "/")
 			api.pinTracks[c.id] = []services.Song{song("s1", "One", "A"), song("s2", "Two", "A")}
 			p.playPin(c.id, "Mix", c.shuffle)
-			got := waitPlayed(t, play, 1)
+			got := waitPlayed(t, h, play, 1)
 			if got[0] != c.want {
 				t.Errorf("got %q, want %q", got[0], c.want)
 			}
 		})
 	}
 	t.Run("shuffle", func(t *testing.T) {
-		p, api, play, _, _ := testPlaylists(t, "/")
+		p, api, play, h, _ := testPlaylists(t, "/")
 		api.pinTracks["p.1"] = []services.Song{song("s1", "One", "A"), song("s2", "Two", "A")}
 		p.playPin("p.1", "Mix", true)
-		waitPlayed(t, play, 1)
+		waitPlayed(t, h, play, 1)
 		if !play.shuffle {
 			t.Error("shuffle was not turned on")
 		}

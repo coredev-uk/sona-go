@@ -67,7 +67,7 @@ func TestSetPrivateWritesTheAnswerAndToastsAFailure(t *testing.T) {
 }
 
 func TestRetryCDMToastsAFailure(t *testing.T) {
-	toasted(t, func() { retryCDM(func() error { return errors.New("x") }) }, "Couldn't start the Widevine download")
+	toasted(t, func() { RetryCDMWith(func() error { return errors.New("x") }) }, "Couldn't start the Widevine download")
 }
 
 type fakeReminders struct {

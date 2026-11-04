@@ -60,6 +60,11 @@ func (f *pageStates) SuggestLess(_ context.Context, r services.ItemRef, on bool)
 	return st, nil
 }
 
+func (f *pageStates) Remove(_ context.Context, r services.ItemRef) (services.ItemState, error) {
+	f.note("Remove " + r.ID)
+	return services.ItemState{Kind: r.Kind, ID: r.ID}, nil
+}
+
 func (f *pageStates) Add(_ context.Context, typ string, ids []string) error {
 	f.note("Add " + typ + " " + strings.Join(ids, ","))
 	return nil
@@ -97,7 +102,8 @@ func newPageRigWith(t *testing.T, id string, setup func(*fakeAPI), details ...se
 	r := &pageRig{t: t, p: p, api: api, play: play, states: &pageStates{}, router: router, linked: true}
 	h.Env.HasRoute = func(string) bool { return r.linked }
 	h.Env.Actions = kit.NewActionRegistry(p.actions()...)
-	p.page.states = newHeaderState(h.Env.Queries, h.Env.Post, r.states)
+	h.Env.ItemStates = kit.NewItemStates(h.Env.Queries, h.Env.Post, r.states)
+	h.Env.ItemStates.Follow(h.Bus)
 	for _, d := range details {
 		api.details[d.Playlist.ID] = d
 	}

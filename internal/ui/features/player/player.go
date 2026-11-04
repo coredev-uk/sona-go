@@ -63,16 +63,12 @@ type player struct {
 	// ui is the panels' state (view.go); np is Now Playing's (nowplaying_state.go).
 	ui *view
 	np nowPlayingState
-	// cmds are the queue commands (playing, replacing and queueing).
-	cmds *kit.QueueCommands
 	// queue is the queue panel's own state (queue_*.go).
 	queue queueUI
 	// sleepUI is the sleep timer's state (sleep_*.go).
 	sleep sleepUI
 	// announce is the track announcer's state (announcer.go).
 	announce announcer
-	// extras is the bar's other state (bar_extras.go).
-	extras barExtras
 
 	mu     sync.Mutex
 	failed []failure // command failures waiting to be shown (the view shows them)
@@ -89,9 +85,6 @@ func New(env *module.Env) module.Module {
 	pb := services.Service[services.PlaybackService](env.Core)
 	plat := services.Service[services.PlatformService](env.Core)
 	p := newPlayer(env, pb, func() bool { return plat.Capabilities().Playback.Volume })
-	if env.Queue != nil {
-		p.cmds = env.Queue
-	}
 	p.np.queueView = p.upNext
 	p.np.rating = func(c *ui.Context, cur *services.QueueItem) { p.ratingButtons(c, cur, false) }
 	auth := services.Service[services.AuthService](env.Core)
@@ -109,10 +102,6 @@ func New(env *module.Env) module.Module {
 
 func newPlayer(env *module.Env, svc transport, volume func() bool) *player {
 	p := &player{env: env, svc: svc, volume: volume, now: time.Now, ui: newView()}
-	p.cmds = kit.NewQueueCommands(kit.QueueDeps{
-		Svc: svc, Play: env.Play, Post: env.Post,
-		Unavailable: func() string { return unavailable(env.Play.State(), ctlQueue) },
-	})
 	return p
 }
 
@@ -237,9 +226,11 @@ func (p *player) cycleRepeat() {
 }
 
 // init subscribes (v0.2.0's index.ts eventHandlers): a new track on
-// playback:state invalidates the library's "recent" queries.
+// playback:state invalidates the library's "recent" queries, and a new music
+// video opens the video view.
 func (p *player) init() {
 	var last string
+	var lastUID uint64
 	store.On(p.env.Bus, services.EventPlaybackState, func(s services.PlaybackState) {
 		id := ""
 		if s.Current != nil {
@@ -249,8 +240,15 @@ func (p *player) init() {
 			p.env.Queries.Invalidate(store.Key{"library", "recent"})
 		}
 		last = id
+		if s.Current == nil {
+			lastUID = 0
+			return
+		}
+		if s.Current.Video && s.Current.UID != lastUID && p.env.Video != nil {
+			p.env.Video.Open()
+		}
+		lastUID = s.Current.UID
 	})
-	p.initBar()
 }
 
 // upNext is the Now Playing view's Up next pane: the list, then its foot,

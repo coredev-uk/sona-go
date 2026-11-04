@@ -111,8 +111,12 @@ func (r *roving) end(c *ui.Context, list ui.Element) {
 		key  ui.Key
 		move rovingKey
 	}{
-		{ui.KeyDown, keyDown}, {ui.KeyUp, keyUp}, {ui.KeyRight, keyRight},
-		{ui.KeyLeft, keyLeft}, {ui.KeyHome, keyHome}, {ui.KeyEnd, keyEnd},
+		{ui.KeyDown, keyDown},
+		{ui.KeyUp, keyUp},
+		{ui.KeyRight, keyRight},
+		{ui.KeyLeft, keyLeft},
+		{ui.KeyHome, keyHome},
+		{ui.KeyEnd, keyEnd},
 	} {
 		if !list.Shortcut(0, k.key) {
 			continue

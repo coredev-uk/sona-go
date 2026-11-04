@@ -2,7 +2,6 @@ package playlist
 
 import (
 	"context"
-	"math/rand/v2"
 	"strings"
 
 	"github.com/coredev-uk/sona-go/internal/services"
@@ -201,36 +200,17 @@ func (p *playlists) playPin(id, name string, shuffle bool) {
 		case strings.HasPrefix(id, "l."):
 			from.Kind = "album"
 		}
-		p.playSongs(ctx, songs, 0, from, shuffle)
+		p.env.Post(func() { p.playSongs(songs, 0, from, shuffle) })
 	}()
 }
 
-// playSongs plays songs from start as the queue, or shuffled from a random
-// playable song (player/commands.ts's playSongs and shuffleSongs). It
-// calls services: run it off the main thread.
-func (p *playlists) playSongs(ctx context.Context, songs []services.Song, start int, from services.PlayFrom, shuffle bool) {
-	var refs []services.TrackRef
-	index := 0
-	for i, s := range songs {
-		if !s.Playable {
-			continue
-		}
-		if i == start {
-			index = len(refs)
-		}
-		refs = append(refs, services.TrackRef{ID: s.ID, Source: s.Source})
-	}
-	if len(refs) == 0 {
-		if !shuffle {
-			kit.ToastErrorf(i18n.T("Nothing here can be played"), i18n.T("None of these songs is available to stream."))
-		}
+// playSongs plays songs from start as the queue, or shuffled (the shared
+// queue commands: a long queue the user built is asked about or offered an
+// Undo). Main thread.
+func (p *playlists) playSongs(songs []services.Song, start int, from services.PlayFrom, shuffle bool) {
+	if shuffle {
+		p.env.Queue.ShuffleSongs(songs, from)
 		return
 	}
-	if shuffle {
-		p.play.SetShuffle(true)
-		index = rand.IntN(len(refs))
-	}
-	if err := p.play.PlayItems(ctx, refs, index, from); err != nil {
-		p.fail(i18n.T("Couldn't start playback"), err)
-	}
+	p.env.Queue.PlaySongs(songs, start, from)
 }

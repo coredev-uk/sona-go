@@ -55,7 +55,7 @@ func dayPrefix(t, now int64) string {
 
 // weekdayShort is the abbreviated weekday in the language shown ("Tue").
 func weekdayShort(t time.Time) string {
-	return mygoi18n.FormatDate(formatLocale(), t, mygoi18n.DateOptions{Skeleton: "E"})
+	return mygoi18n.FormatDate(i18n.Locales()[0], t, mygoi18n.DateOptions{Skeleton: "E"})
 }
 
 func clockAt(ms int64) string { return i18n.FormatClock(time.UnixMilli(ms)) }
@@ -161,9 +161,9 @@ func stationLine(s services.Station) string {
 		parts = append(parts, i18n.FormatDate(time.UnixMilli(s.AirTimeMs), i18n.DateMedium))
 	}
 	if s.DurationMs > 0 {
-		parts = append(parts, minutesText(int(roundDiv(s.DurationMs, 60_000))))
+		if d := i18n.FormatRunningTime(time.Duration(s.DurationMs) * time.Millisecond); d != "" {
+			parts = append(parts, d)
+		}
 	}
 	return strings.Join(parts, " · ")
 }
-
-func roundDiv(a, b int64) int64 { return (a + b/2) / b }

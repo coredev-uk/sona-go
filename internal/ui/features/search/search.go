@@ -37,24 +37,12 @@ type searchAPI interface {
 	ClearRecent(ctx context.Context) error
 }
 
-// playbackAPI is what playing a song from a result asks of PlaybackService.
-type playbackAPI interface {
-	PlayItems(ctx context.Context, refs []services.TrackRef, start int, from services.PlayFrom) error
-}
-
-// authAPI is the sign-in state the results' empty and error states depend on.
-type authAPI interface {
-	Status() services.AuthStatus
-}
-
 // search is the feature's state. The field (field.go) and the pages
 // (page.go, group.go, profile.go) keep their own state in their own structs.
 type search struct {
-	env  *module.Env
-	api  searchAPI
-	play playbackAPI
-	auth authAPI
-	log  *slog.Logger
+	env *module.Env
+	api searchAPI
+	log *slog.Logger
 
 	field *field
 	pages pages
@@ -63,9 +51,7 @@ type search struct {
 // New is the search module.
 func New(env *module.Env) module.Module {
 	s := newSearch(env,
-		services.Service[services.SearchService](env.Core),
-		services.Service[services.PlaybackService](env.Core),
-		services.Service[services.AuthService](env.Core))
+		services.Service[services.SearchService](env.Core))
 	return module.Module{
 		ID: "search",
 		Routes: []module.Route{
@@ -86,8 +72,8 @@ func New(env *module.Env) module.Module {
 	}
 }
 
-func newSearch(env *module.Env, api searchAPI, play playbackAPI, auth authAPI) *search {
-	s := &search{env: env, api: api, play: play, auth: auth, log: env.Log}
+func newSearch(env *module.Env, api searchAPI) *search {
+	s := &search{env: env, api: api, log: env.Log}
 	s.field = newField(s)
 	return s
 }

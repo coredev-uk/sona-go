@@ -209,30 +209,6 @@ func TestFreshnessIsTheHonestLine(t *testing.T) {
 	}
 }
 
-func TestRelativeTimeRoundsLikeV020(t *testing.T) {
-	now := time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)
-	for _, tc := range []struct {
-		ago  time.Duration
-		want string
-	}{
-		{44 * time.Second, "just now"},
-		{45 * time.Second, "1 min. ago"},
-		{89 * time.Second, "1 min. ago"},
-		{90 * time.Second, "2 min. ago"},
-		{59 * time.Minute, "59 min. ago"},
-		{89 * time.Minute, "1 hr. ago"},
-		{23 * time.Hour, "23 hr. ago"},
-		{36 * time.Hour, "2 days ago"},
-	} {
-		if got := relativeTime(now.Add(-tc.ago).UnixMilli(), now); got != tc.want {
-			t.Errorf("%v ago = %q, want %q", tc.ago, got, tc.want)
-		}
-	}
-	if got := relativeTime(0, now); got != "never" {
-		t.Errorf("never = %q", got)
-	}
-}
-
 // search-params.ts: a value is kept or it is dropped, and a URL carries only
 // what is set.
 func TestRouteURLsCarryOnlyWhatIsSet(t *testing.T) {

@@ -50,18 +50,10 @@ type playlistsAPI interface {
 	PinTracks(ctx context.Context, id string) ([]services.Song, error)
 }
 
-// playbackAPI is what playing a playlist, a pin or a row asks of
-// PlaybackService.
-type playbackAPI interface {
-	PlayItems(ctx context.Context, refs []services.TrackRef, start int, from services.PlayFrom) error
-	SetShuffle(on bool)
-}
-
 // playlists is the feature's state.
 type playlists struct {
-	env  *module.Env
-	api  playlistsAPI
-	play playbackAPI
+	env *module.Env
+	api playlistsAPI
 
 	// prefs is the sidebar's remembered open folders and folded sections.
 	prefs *prefs
@@ -77,8 +69,7 @@ type playlists struct {
 func New(env *module.Env) module.Module {
 	p := newPlaylists(env,
 		services.Service[services.PlaylistsService](env.Core),
-		services.Service[services.PlaybackService](env.Core),
-		settingsPrefs(services.Service[services.SystemService](env.Core)))
+		settingsPrefs(env.Queries, env.Core))
 	return module.Module{
 		ID: "playlist",
 		Routes: []module.Route{{
@@ -95,8 +86,8 @@ func New(env *module.Env) module.Module {
 	}
 }
 
-func newPlaylists(env *module.Env, api playlistsAPI, play playbackAPI, pr *prefs) *playlists {
-	return &playlists{env: env, api: api, play: play, prefs: pr}
+func newPlaylists(env *module.Env, api playlistsAPI, pr *prefs) *playlists {
+	return &playlists{env: env, api: api, prefs: pr}
 }
 
 // Query keys: they sit under "library" so a library sync invalidates them

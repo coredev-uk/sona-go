@@ -94,7 +94,7 @@ func (a *artist) releaseList(c *ui.Context, st *releaseList, albums []*services.
 func releaseLine(al services.Album, kind string, byArtist bool, now time.Time) string {
 	when := releaseBadge(al, now)
 	if when == "" {
-		when = yearOf(al.ReleaseDate)
+		when = i18n.YearOf(al.ReleaseDate)
 	}
 	var parts []string
 	if byArtist {

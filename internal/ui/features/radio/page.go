@@ -4,6 +4,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/account"
 	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
@@ -91,7 +92,7 @@ func pending[T any](res store.Result[T]) bool { return res.Err == nil && !res.Ha
 func (r *radio) radioView(c *ui.Context, _ *ui.Route) {
 	pg := &r.radioPg
 	state := r.accountState()
-	signedIn := hasAccount(state)
+	signedIn := account.HasAccount(state)
 	live := r.live()
 	grouping := r.grouping()
 	var recent store.Result[[]services.Station]
@@ -209,7 +210,7 @@ func (r *radio) band(c *ui.Context, b band, lead bool, yours func(), ctx kit.Ite
 // signed out, an empty state with the way in.
 func (r *radio) yours(c *ui.Context, state string, recent store.Result[[]services.Station]) {
 	pg := &r.radioPg
-	if hasAccount(state) && recent.HasData && len(recent.Data) > 0 {
+	if account.HasAccount(state) && recent.HasData && len(recent.Data) > 0 {
 		tiles := make([]kit.CoverItem, len(recent.Data))
 		for i, s := range recent.Data {
 			tiles[i] = r.stationCover(s)

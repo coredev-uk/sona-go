@@ -1,10 +1,9 @@
 package equalizer
 
 import (
-	"time"
-
 	"math"
 	"slices"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 

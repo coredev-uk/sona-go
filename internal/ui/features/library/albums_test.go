@@ -41,13 +41,13 @@ func TestTheGateShowsAReadErrorAndRetries(t *testing.T) {
 
 func TestTheGateSaysTheLibraryIsSyncing(t *testing.T) {
 	// Signed in, nothing synced yet: "syncing", not "empty".
-	r := newPageRig(t, albumsPath, 1132, 800, func(l *library) { l.auth = accountAPI{"signed_in"} }, uitest.Empty())
+	r := newPageRig(t, albumsPath, 1132, 800, func(l *library) { fakeAuth(l, accountAPI{"signed_in"}) }, uitest.Empty())
 	r.tt.Until("syncing", r.tt.Shows("Your library is syncing",
 		"Your albums appear here as Sona copies them from Apple Music. Large libraries take a minute or two the first time."))
 }
 
 func TestTheGateSaysEmptyOnceSynced(t *testing.T) {
-	r := newPageRig(t, albumsPath, 1132, 800, func(l *library) { l.auth = accountAPI{"signed_in"} })
+	r := newPageRig(t, albumsPath, 1132, 800, func(l *library) { fakeAuth(l, accountAPI{"signed_in"}) })
 	emptyTheSyncedLibrary(r)
 	r.tt.Until("empty", r.tt.Shows("No albums in your library yet",
 		"Albums you add in Apple Music appear here after the next sync, newest first."))
@@ -57,7 +57,7 @@ func TestTheGateSaysEmptyOnceSynced(t *testing.T) {
 }
 
 func TestTheGateShowsNothingWhileRestoring(t *testing.T) {
-	r := newPageRig(t, albumsPath, 1132, 800, func(l *library) { l.auth = accountAPI{"restoring"} }, uitest.Empty())
+	r := newPageRig(t, albumsPath, 1132, 800, func(l *library) { fakeAuth(l, accountAPI{"restoring"}) }, uitest.Empty())
 	for i := 0; i < 20; i++ {
 		r.tt.Drain()
 	}

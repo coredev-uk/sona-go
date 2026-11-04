@@ -34,6 +34,7 @@ const suggestionsJSON = `{"results":{"suggestions":[
 
 // fieldPlay records what the field plays.
 type fieldPlay struct {
+	queueStub
 	mu   sync.Mutex
 	refs [][]services.TrackRef
 }
@@ -111,7 +112,8 @@ func newFieldRig(t *testing.T, start string, opts ...uitest.Option) *fieldRig {
 		return strings.HasPrefix(p, "/album/") || strings.HasPrefix(p, "/artist/") || strings.HasPrefix(p, "/playlist/") || strings.HasPrefix(p, "/song/")
 	}
 	r.api = services.Service[services.SearchService](r.h.Core)
-	r.s = newSearch(r.h.Env, r.api, r.play, services.Service[services.AuthService](r.h.Core))
+	useQueue(r.h.Env, r.play)
+	r.s = newSearch(r.h.Env, r.api)
 	r.tt = r.h.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Column(c).Fill().Children(func() {
@@ -376,14 +378,18 @@ func TestFieldListsAtMostSixRecentEntries(t *testing.T) {
 		r.rememberTerm("term "+string(rune('a'+i)), scopeCatalog)
 	}
 	r.focusField()
-	r.tt.Until("the recent entries", r.tt.Shows("Recently searched", "term i"))
-	// Nine are remembered; six are listed.
+	// Nine are remembered; six are listed. Which six depends on the stored
+	// times, which a fast loop can make equal: count, don't name them.
 	shown := map[string]bool{}
-	for _, w := range r.tt.Texts() {
-		if strings.HasPrefix(w, "term ") {
-			shown[w] = true
+	r.tt.Until("the recent entries", func() bool {
+		clear(shown)
+		for _, w := range r.tt.Texts() {
+			if strings.HasPrefix(w, "term ") {
+				shown[w] = true
+			}
 		}
-	}
+		return r.tt.HasText("Recently searched") && len(shown) > 0
+	})
 	if len(shown) != maxRecent {
 		t.Fatalf("recent terms shown %v, want %d", shown, maxRecent)
 	}

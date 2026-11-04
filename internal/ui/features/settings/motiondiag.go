@@ -189,7 +189,7 @@ func motionGroup(r services.MotionReport, st *services.MotionStatus, now time.Ti
 	}
 	if st != nil {
 		videos := i18n.T("{0, plural, one {# video} other {# videos}}", "0", st.CacheFiles)
-		rows = append(rows, diagRow{label: i18n.T("Motion cache"), value: videos + " · " + formatBytes(st.CacheBytes)})
+		rows = append(rows, diagRow{label: i18n.T("Motion cache"), value: videos + " · " + i18n.FormatBytes(st.CacheBytes)})
 	}
 	return diagGroup{id: "motion", title: i18n.T("Motion artwork"), rows: rows}
 }

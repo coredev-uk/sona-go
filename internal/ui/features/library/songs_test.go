@@ -184,13 +184,16 @@ func TestSongsHeaderClickTogglesTheSort(t *testing.T) {
 	if !ok {
 		t.Fatal("no Album header")
 	}
-	x, y := rect.X+rect.W/2, rect.Y+rect.H/2
+	// The active header gains a sort arrow after its text, which moves the
+	// text's centre but not its left edge: click near the left edge, and at
+	// another height the second time so the two are never one double click.
+	x, y := rect.X+2, rect.Y+rect.H/2
 	r.tt.ClickAt(x, y)
 	if got := r.router.Location(); got != songsPath+"?desc=false&sort=album" {
 		t.Fatalf("Album header: URL %q", got)
 	}
 	r.tt.Drain()
-	r.tt.ClickAt(x, y)
+	r.tt.ClickAt(x, y-2)
 	if got := r.router.Location(); got != songsPath+"?desc=true&sort=album" {
 		t.Fatalf("Album header again: URL %q", got)
 	}
@@ -337,12 +340,12 @@ func TestSongsGateStates(t *testing.T) {
 
 	// Signed in, never synced: the first sync is on its way.
 	r = newSongsRig(t, songsPath, func(l *library) {
-		l.auth = songsAccount{"signed_in"}
+		fakeAuth(l, songsAccount{"signed_in"})
 	}, uitest.Empty())
 	r.tt.Until("the syncing text", r.tt.Shows("Your library is syncing"))
 
 	// Signed in, synced: an empty library.
-	r = newSongsRig(t, songsPath, func(l *library) { l.auth = songsAccount{"signed_in"} })
+	r = newSongsRig(t, songsPath, func(l *library) { fakeAuth(l, songsAccount{"signed_in"}) })
 	emptyTheSyncedLibrary(r)
 	r.tt.Until("the empty text", r.tt.Shows("No songs in your library yet",
 		"Songs you add in Apple Music on any device appear here after the next sync."))

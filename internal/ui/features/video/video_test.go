@@ -50,12 +50,14 @@ func (f *fakeSvc) Seek(_ context.Context, ms int64) error {
 	f.mu.Unlock()
 	return f.record("seek")
 }
+
 func (f *fakeSvc) SetVolume(_ context.Context, v float64) error {
 	f.mu.Lock()
 	f.vols = append(f.vols, v)
 	f.mu.Unlock()
 	return f.record("volume")
 }
+
 func (f *fakeSvc) PlayItems(context.Context, []services.TrackRef, int, services.PlayFrom) error {
 	return f.record("play items")
 }
@@ -985,17 +987,6 @@ func TestFitPicture(t *testing.T) {
 		if w, h := fitPicture(c.pw, c.ph, c.bw, c.bh); w != c.w || h != c.h {
 			t.Errorf("fitPicture(%v×%v in %v×%v) = %v×%v, want %v×%v", c.pw, c.ph, c.bw, c.bh, w, h, c.w, c.h)
 		}
-	}
-}
-
-func TestClockFormats(t *testing.T) {
-	for ms, want := range map[int64]string{0: "0:00", 59_000: "0:59", 61_000: "1:01", 3_725_000: "1:02:05"} {
-		if got := clock(ms); got != want {
-			t.Errorf("clock(%d) = %q, want %q", ms, got, want)
-		}
-	}
-	if clockOf(-time.Second) != "0:00" {
-		t.Error("a negative time is not 0:00")
 	}
 }
 

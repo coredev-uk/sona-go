@@ -21,6 +21,7 @@ import (
 
 // pagePlay records what the pages play.
 type pagePlay struct {
+	queueStub
 	mu    sync.Mutex
 	refs  [][]services.TrackRef
 	start []int
@@ -263,7 +264,8 @@ func newPageRig(t *testing.T, start string, ro rigOpts, opts ...uitest.Option) *
 	if ro.wrap != nil {
 		api = ro.wrap(api)
 	}
-	r.s = newSearch(r.h.Env, api, r.play, services.Service[services.AuthService](r.h.Core))
+	useQueue(r.h.Env, r.play)
+	r.s = newSearch(r.h.Env, api)
 	w, h := ro.width, ro.height
 	if w == 0 {
 		w, h = 1132, 1300

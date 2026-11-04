@@ -116,9 +116,11 @@ func collectionsTracks(c *ui.Context, g *gallery) {
 	n := collectionSizes[k.size]
 	song := func(i int) *services.Song {
 		id := strconv.Itoa(i)
-		return &services.Song{ID: "s" + id, Name: "Song " + id, Artist: "Artist " + id, Album: "Album " + id, ArtistID: "a", AlbumID: "b",
+		return &services.Song{
+			ID: "s" + id, Name: "Song " + id, Artist: "Artist " + id, Album: "Album " + id, ArtistID: "a", AlbumID: "b",
 			DurationMs: 195000 + int64(i)*1000, Playable: i%11 != 4, Explicit: i%5 == 2, TrackNumber: i + 1, DiscNumber: 1,
-			Art: services.Art{Small: "/art/k" + id + "/s.jpg"}}
+			Art: services.Art{Small: "/art/k" + id + "/s.jpg"},
+		}
 	}
 	sc := ui.Scroll(c).TrackScroll(&k.trackPos).Height(520).FillWidth().Padding(12, 32, 24, 32)
 	sc.Children(func() {

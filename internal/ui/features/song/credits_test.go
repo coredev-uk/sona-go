@@ -27,20 +27,3 @@ func TestCreditTitle(t *testing.T) {
 		}
 	}
 }
-
-func TestFormatHelpers(t *testing.T) {
-	for in, want := range map[string]string{"2008-06-02": "2008", "2008": "2008", "": "", "x2008": ""} {
-		if got := yearOf(in); got != want {
-			t.Errorf("yearOf(%q) = %q, want %q", in, got, want)
-		}
-	}
-	if got := longDate("1997-05-21"); got != "May 21, 1997" {
-		t.Errorf("longDate = %q", got)
-	}
-	if got := longDate("1997"); got != "1997" {
-		t.Errorf("a year alone: %q", got)
-	}
-	if got := longDate(""); got != "" {
-		t.Errorf("no date: %q", got)
-	}
-}

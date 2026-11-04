@@ -1,42 +1,49 @@
 package playlist
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 // prefs is the sidebar's remembered state: which folders are open and which
 // sections are folded (v0.2.0 kept them in localStorage under
 // sona.playlist-folders.open and sona.sidebar.collapsed; here they are
-// config.Settings.Sidebar). The in-memory state is what the views read; each
-// change is handed to save, which writes it to the settings.
+// config.Settings.Sidebar). The views read the settings live (what another
+// surface or an import changed shows), and each change is written back.
 type prefs struct {
-	save func(config.Sidebar)
-
-	mu        sync.Mutex
-	open      map[string]bool
-	collapsed map[string]bool
+	// read is the current state; main thread.
+	read func() config.Sidebar
+	// write shows a change at once and saves it.
+	write func(config.Sidebar)
 }
 
-// newPrefs starts from what the settings hold; save (nil: none) is told the
-// new state after every change.
+// newPrefs keeps the state in memory, starting from what the settings hold;
+// save (nil: none) is told the new state after every change.
 func newPrefs(from config.Sidebar, save func(config.Sidebar)) *prefs {
-	p := &prefs{save: save, open: map[string]bool{}, collapsed: map[string]bool{}}
-	for _, id := range from.OpenFolders {
-		p.open[id] = true
+	cur := from
+	return &prefs{
+		read: func() config.Sidebar { return cur },
+		write: func(sb config.Sidebar) {
+			cur = sb
+			if save != nil {
+				save(sb)
+			}
+		},
 	}
-	for _, id := range from.FoldedSections {
-		p.collapsed[id] = true
-	}
-	return p
 }
 
-// settingsPrefs is the prefs of the app: read from the settings now, saved
+// settingsPrefs is the prefs of the app: read live from the settings cache
+// (store.UseSettings; Go's own copy until the cache holds one), saved
 // through SystemService.SetSidebar off the main thread, one save at a time and
 // the newest state last (a failed save keeps the state for this session).
-func settingsPrefs(sys *services.SystemService) *prefs {
+// A change shows at once: it is written into the cache before the save, and
+// "settings:changed" confirms it.
+func settingsPrefs(cl *store.Client, core *services.Core) *prefs {
+	sys := services.Service[services.SystemService](core)
 	var (
 		mu      sync.Mutex
 		pending *config.Sidebar
@@ -66,74 +73,67 @@ func settingsPrefs(sys *services.SystemService) *prefs {
 			}
 		}()
 	}
-	return newPrefs(sys.Settings().Sidebar, save)
+	return &prefs{
+		read: func() config.Sidebar {
+			if r := store.UseSettings(cl, core); r.HasData {
+				return r.Data.Sidebar
+			}
+			return sys.Settings().Sidebar
+		},
+		write: func(sb config.Sidebar) {
+			cur, ok := store.Peek[config.Settings](cl, store.KeySettings)
+			if !ok {
+				cur = sys.Settings()
+			}
+			cur.Sidebar = sb
+			store.Set(cl, store.KeySettings, cur)
+			save(sb)
+		},
+	}
 }
 
 // FolderOpen reports whether a folder is open (folders start closed).
-func (p *prefs) FolderOpen(id string) bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.open[id]
-}
+func (p *prefs) FolderOpen(id string) bool { return slices.Contains(p.read().OpenFolders, id) }
 
 // SetFolderOpen opens or closes a folder and remembers it.
 func (p *prefs) SetFolderOpen(id string, open bool) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.open[id] == open {
+	sb := p.read()
+	if on := slices.Contains(sb.OpenFolders, id); on == open {
 		return
 	}
-	setKey(p.open, id, open)
-	p.saveLocked()
+	sb.OpenFolders = with(sb.OpenFolders, id, open)
+	p.write(sb)
 }
 
 // Collapsed reports whether a section is folded (sections start open).
 func (p *prefs) Collapsed(section string) bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.collapsed[section]
+	return slices.Contains(p.read().FoldedSections, section)
 }
 
 // SetCollapsed folds or unfolds a section and remembers it.
 func (p *prefs) SetCollapsed(section string, folded bool) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.collapsed[section] == folded {
+	sb := p.read()
+	if on := slices.Contains(sb.FoldedSections, section); on == folded {
 		return
 	}
-	setKey(p.collapsed, section, folded)
-	p.saveLocked()
+	sb.FoldedSections = with(sb.FoldedSections, section, folded)
+	p.write(sb)
 }
 
 // snapshot is the state as settings hold it.
-func (p *prefs) snapshot() config.Sidebar {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.snapshotLocked()
-}
+func (p *prefs) snapshot() config.Sidebar { return p.read() }
 
-func (p *prefs) snapshotLocked() config.Sidebar {
-	return config.Sidebar{OpenFolders: keys(p.open), FoldedSections: keys(p.collapsed)}
-}
-
-func (p *prefs) saveLocked() {
-	if p.save != nil {
-		p.save(p.snapshotLocked())
+// with is list with id in it (on) or out of it, as a new sorted list.
+func with(list []string, id string, on bool) []string {
+	out := make([]string, 0, len(list)+1)
+	for _, v := range list {
+		if v != id {
+			out = append(out, v)
+		}
 	}
-}
-
-func setKey(m map[string]bool, k string, on bool) {
 	if on {
-		m[k] = true
-	} else {
-		delete(m, k)
+		out = append(out, id)
 	}
-}
-
-func keys(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
+	slices.Sort(out)
 	return out
 }

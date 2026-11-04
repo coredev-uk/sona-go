@@ -18,7 +18,7 @@ func TestRealServices(t *testing.T) {
 	h := uitest.New(t)
 	env := h.Env
 	mod := New(env)
-	if mod.ID != "album" || len(mod.Routes) != 1 || mod.Routes[0].Pattern != "/album/{id}" || mod.Init == nil {
+	if mod.ID != "album" || len(mod.Routes) != 1 || mod.Routes[0].Pattern != "/album/{id}" {
 		t.Fatalf("module %+v", mod)
 	}
 	env.Actions = kit.NewActionRegistry(mod.Actions...)
@@ -31,7 +31,6 @@ func TestRealServices(t *testing.T) {
 	env.Nav = router
 	env.HasRoute = func(string) bool { return true }
 	mod = New(env) // after the actions are in: its menus read them
-	mod.Init()
 	tt := h.Tester(t, func(c *ui.Context) {
 		ui.Column(c).Fill().Children(func() {
 			router.View(c, func(rt *ui.Route) {

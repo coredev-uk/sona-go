@@ -28,7 +28,7 @@ func favouriteSong(r *pageRig, i, j int, at int64) {
 func newFavouritesRig(t *testing.T, before func(l *library), opts ...uitest.Option) *pageRig {
 	t.Helper()
 	return newSongsRig(t, favouritePath, func(l *library) {
-		l.auth = songsAccount{"signed_in"}
+		fakeAuth(l, songsAccount{"signed_in"})
 		if before != nil {
 			before(l)
 		}

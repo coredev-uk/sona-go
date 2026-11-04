@@ -43,7 +43,7 @@ func newRowsRig(t *testing.T, items []services.Item, o rowsOpts, w, hgt int) *ro
 	for _, kind := range []string{"album", "playlist", "station", "song"} {
 		env.Players.Register(kind, func(it services.Item) { r.rec.add(it.Kind + ":" + it.ID) })
 	}
-	r.home = newHome(env, &fakeDiscover{}, &fakeLib{}, &fakeAuth{})
+	r.home = newHome(env, &fakeDiscover{}, &fakeLib{})
 	prev := r.o.OnColumns
 	r.o.OnColumns = func(n int) {
 		r.cols = n

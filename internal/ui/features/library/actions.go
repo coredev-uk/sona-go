@@ -8,18 +8,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
-	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
-
-// itemStateKey is the query key of an item's state (v0.2.0's
-// keys.itemState): ["library","state",kind,id].
-func itemStateKey(kind, id string) store.Key { return store.Key{"library", "state", kind, id} }
-
-// isUpcoming is v0.2.0's shared/lib/release.ts: an album is still to come
-// when it is prerelease and has no full release date, or that date is ahead.
-func isUpcoming(a services.Album, now time.Time) bool {
-	return a.Prerelease && (a.ReleaseAt == 0 || now.UnixMilli() < a.ReleaseAt)
-}
 
 // actions are the library's item actions (v0.2.0's features/library/
 // actions.ts): add to or remove from the library, Favourite, Suggest less
@@ -27,13 +16,11 @@ func isUpcoming(a services.Album, now time.Time) bool {
 // selection, and Copy link for stations. Their labels and availability read
 // the item's library state, loaded (batched) when the menu opens.
 func (l *library) actions() []kit.ActionDef {
-	st := newItemStates(l.env.Queries, func() itemStateService { return l.lib })
-	l.states = st
 	var defs []kit.ActionDef
-	defs = append(defs, l.itemActions(st, kit.KindSong, stateSongs, true, true)...)
-	defs = append(defs, l.itemActions(st, kit.KindAlbum, stateAlbums, true, true)...)
-	defs = append(defs, l.itemActions(st, kit.KindArtist, stateArtists, false, true)...)
-	defs = append(defs, l.itemActions(st, kit.KindPlaylist, statePlaylists, true, false)...)
+	defs = append(defs, l.itemActions(kit.KindSong, kit.StateSongs, true, true)...)
+	defs = append(defs, l.itemActions(kit.KindAlbum, kit.StateAlbums, true, true)...)
+	defs = append(defs, l.itemActions(kit.KindArtist, kit.StateArtists, false, true)...)
+	defs = append(defs, l.itemActions(kit.KindPlaylist, kit.StatePlaylists, true, false)...)
 	defs = append(defs, kit.ActionDef{
 		ID:     "library.copy-link.station",
 		Target: kit.KindStation,
@@ -43,10 +30,10 @@ func (l *library) actions() []kit.ActionDef {
 		Order:  90,
 		Run: func(a *kit.ActionContext) {
 			s := a.Item().Station()
-			l.copyLink("stations", stateItem{ID: s.ID, Source: services.SourceCatalog})
+			l.copyLink("stations", kit.StateItem{ID: s.ID, Source: services.SourceCatalog})
 		},
 	})
-	return append(defs, l.bulkActions(st)...)
+	return append(defs, l.bulkActions()...)
 }
 
 // loadedState is what a single action's menu data read: the item's state,
@@ -57,7 +44,7 @@ func loadedState(a *kit.ActionContext, d kit.MenuData) (services.ItemState, bool
 
 // itemActions are the actions of one target kind: add (catalogue items) and
 // remove (library items) are offered as given.
-func (l *library) itemActions(st *itemStates, target kit.ItemKind, kind string, add, remove bool) []kit.ActionDef {
+func (l *library) itemActions(target kit.ItemKind, kind string, add, remove bool) []kit.ActionDef {
 	state := kit.MenuData{
 		ID: "library.state." + string(target),
 		Load: func(ctx context.Context, items []kit.Item) any {
@@ -65,7 +52,7 @@ func (l *library) itemActions(st *itemStates, target kit.ItemKind, kind string, 
 			if !ok {
 				return nil
 			}
-			if s, ok := st.Load(ctx, kind, si); ok {
+			if s, ok := l.env.ItemStates.Load(ctx, kind, si); ok {
 				return s
 			}
 			return nil
@@ -88,7 +75,7 @@ func (l *library) itemActions(st *itemStates, target kit.ItemKind, kind string, 
 		_, si, _ := stateOfItem(a.Item())
 		return si.Source == services.SourceLibrary
 	}
-	item := func(a *kit.ActionContext) (stateItem, string) {
+	item := func(a *kit.ActionContext) (kit.StateItem, string) {
 		_, si, _ := stateOfItem(a.Item())
 		return si, a.Item().Name()
 	}
@@ -99,7 +86,7 @@ func (l *library) itemActions(st *itemStates, target kit.ItemKind, kind string, 
 			if ratingOf(a) == rating {
 				act = off
 			}
-			st.Rate(kind, si, name, act)
+			l.env.ItemStates.Rate(kind, si, name, act)
 		}
 	}
 	defs := []kit.ActionDef{
@@ -161,7 +148,7 @@ func (l *library) itemActions(st *itemStates, target kit.ItemKind, kind string, 
 			// An album not out yet is pre-added: the same call (Apple's web
 			// player's too).
 			Label: func(a *kit.ActionContext) string {
-				if target == kit.KindAlbum && isUpcoming(a.Item().Album(), time.Now()) {
+				if target == kit.KindAlbum && kit.IsUpcoming(a.Item().Album(), time.Now()) {
 					return i18n.T("Pre-add to library")
 				}
 				return i18n.T("Add to library")
@@ -177,7 +164,7 @@ func (l *library) itemActions(st *itemStates, target kit.ItemKind, kind string, 
 			Enabled: loaded,
 			Run: func(a *kit.ActionContext) {
 				si, name := item(a)
-				st.AddOne(kind, si, name)
+				l.env.ItemStates.Add(kind, si, name)
 			},
 		})
 	}
@@ -193,7 +180,7 @@ func (l *library) itemActions(st *itemStates, target kit.ItemKind, kind string, 
 			Available: inLibrary,
 			Run: func(a *kit.ActionContext) {
 				si, name := item(a)
-				st.RemoveOne(kind, si, name)
+				l.env.ItemStates.Remove(kind, si, name)
 			},
 		})
 	}
@@ -202,14 +189,14 @@ func (l *library) itemActions(st *itemStates, target kit.ItemKind, kind string, 
 
 // kinded is the selection with each item's state kind (stations and music
 // videos have none here).
-func kinded(items []kit.Item) []kindedItem {
-	var out []kindedItem
+func kinded(items []kit.Item) []kit.KindedItem {
+	var out []kit.KindedItem
 	for _, it := range items {
 		if it.Kind == kit.KindStation || it.Kind == kit.KindMusicVideo {
 			continue
 		}
 		if kind, si, ok := stateOfItem(it); ok {
-			out = append(out, kindedItem{kind, si})
+			out = append(out, kit.KindedItem{Kind: kind, Item: si})
 		}
 	}
 	return out
@@ -219,7 +206,7 @@ func kinded(items []kit.Item) []kindedItem {
 // add to and remove from the library for a selection. Their labels and
 // availability read every selected item's state (batched into one Go call
 // when the menu opens).
-func (l *library) bulkActions(st *itemStates) []kit.ActionDef {
+func (l *library) bulkActions() []kit.ActionDef {
 	states := kit.MenuData{
 		ID: "library.state.many",
 		Load: func(ctx context.Context, items []kit.Item) any {
@@ -230,7 +217,7 @@ func (l *library) bulkActions(st *itemStates) []kit.ActionDef {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if s, ok := st.Load(ctx, k.Kind, k.Item); ok {
+					if s, ok := l.env.ItemStates.Load(ctx, k.Kind, k.Item); ok {
 						out[i] = &s
 					}
 				}()
@@ -264,9 +251,9 @@ func (l *library) bulkActions(st *itemStates) []kit.ActionDef {
 		return true
 	}
 	// notInLibrary are the catalogue items not (yet) in the library.
-	notInLibrary := func(a *kit.ActionContext) []kindedItem {
+	notInLibrary := func(a *kit.ActionContext) []kit.KindedItem {
 		s, _ := data(a)
-		var out []kindedItem
+		var out []kit.KindedItem
 		for i, k := range kinded(a.Items) {
 			if x := stateAt(s, i); k.Item.Source == services.SourceCatalog && (x == nil || !x.InLibrary) {
 				out = append(out, k)
@@ -312,7 +299,7 @@ func (l *library) bulkActions(st *itemStates) []kit.ActionDef {
 				// Favouriting skips items that already are; undoing applies
 				// to all.
 				s, _ := data(a)
-				var targets []kindedItem
+				var targets []kit.KindedItem
 				for i, k := range kinded(a.Items) {
 					if x := stateAt(s, i); undo || x == nil || x.Rating != 1 {
 						targets = append(targets, k)
@@ -322,7 +309,7 @@ func (l *library) bulkActions(st *itemStates) []kit.ActionDef {
 				if undo {
 					act = kit.RateUnfavorite
 				}
-				st.RateMany(targets, act, kit.DescribeItems(a.Items))
+				l.env.ItemStates.RateMany(targets, act, kit.DescribeItems(a.Items))
 			},
 		},
 		{
@@ -339,7 +326,7 @@ func (l *library) bulkActions(st *itemStates) []kit.ActionDef {
 			},
 			Enabled: loaded,
 			Run: func(a *kit.ActionContext) {
-				st.AddMany(notInLibrary(a), kit.DescribeItems(a.Items))
+				l.env.ItemStates.AddMany(notInLibrary(a), kit.DescribeItems(a.Items))
 			},
 		},
 		{
@@ -353,7 +340,7 @@ func (l *library) bulkActions(st *itemStates) []kit.ActionDef {
 			Data:      []kit.MenuData{states},
 			Available: inLibrary,
 			Run: func(a *kit.ActionContext) {
-				st.RemoveMany(kinded(a.Items), kit.DescribeItems(a.Items))
+				l.env.ItemStates.RemoveMany(kinded(a.Items), kit.DescribeItems(a.Items))
 			},
 		},
 	}

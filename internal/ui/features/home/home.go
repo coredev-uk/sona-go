@@ -45,14 +45,8 @@ type libraryAPI interface {
 	Playlists(ctx context.Context, sort string, desc bool, offset, limit int) (services.PlaylistPage, error)
 }
 
-// authAPI is the sign-in state Home depends on.
-type authAPI interface {
-	Status() services.AuthStatus
-}
-
 // Query keys, as v0.2.0's discoverKeys and shared/lib/keys.ts.
 var (
-	keyAuth     = store.Key{"auth"}
 	keyDiscover = store.Key{"discover"}
 	keyHome     = store.Key{"discover", "home"}
 	// keyRecent holds Apple's recently played songs; this computer's
@@ -70,7 +64,6 @@ type home struct {
 	env  *module.Env
 	disc discoverAPI
 	lib  libraryAPI
-	auth authAPI
 
 	// refreshing and refreshErr are the Refresh button's mutation
 	// (useMutation's isPending and error).
@@ -91,8 +84,7 @@ type home struct {
 func New(env *module.Env) module.Module {
 	h := newHome(env,
 		services.Service[services.DiscoverService](env.Core),
-		services.Service[services.LibraryService](env.Core),
-		services.Service[services.AuthService](env.Core))
+		services.Service[services.LibraryService](env.Core))
 	return module.Module{
 		ID: "home",
 		Routes: []module.Route{
@@ -111,9 +103,9 @@ func New(env *module.Env) module.Module {
 	}
 }
 
-func newHome(env *module.Env, disc discoverAPI, lib libraryAPI, auth authAPI) *home {
+func newHome(env *module.Env, disc discoverAPI, lib libraryAPI) *home {
 	return &home{
-		env: env, disc: disc, lib: lib, auth: auth,
+		env: env, disc: disc, lib: lib,
 		sections: map[string]*sectionState{},
 		index:    map[string]*indexLine{},
 		titles:   map[string]string{},
@@ -122,28 +114,20 @@ func newHome(env *module.Env, disc discoverAPI, lib libraryAPI, auth authAPI) *h
 
 // init follows v0.2.0's eventHandlers: a renewed Home replaces the cached
 // page without a refetch, and a change of account drops every discover
-// query. The auth status is Home's own gate, kept current here as the
-// library's is (the same key, so one query).
+// query.
 func (h *home) init() {
 	q := h.env.Queries
 	store.On(h.env.Bus, services.EventHome, func(p services.HomePage) { store.Set(q, keyHome, p) })
-	store.On(h.env.Bus, services.EventAuthChanged, func(s services.AuthStatus) {
-		store.Set(q, keyAuth, s)
+	store.On(h.env.Bus, services.EventAuthChanged, func(services.AuthStatus) {
 		q.Invalidate(keyDiscover)
 	})
 }
 
 // authState is the sign-in state: known is false until Go has answered.
 func (h *home) authState() (st services.AuthStatus, known bool) {
-	r := store.Use(h.env.Queries, keyAuth, func(context.Context) (services.AuthStatus, error) {
-		return h.auth.Status(), nil
-	})
+	r := store.UseAuth(h.env.Queries, h.env.Core)
 	return r.Data, r.HasData
 }
-
-// hasAccount is v0.2.0's hasAccount: the states in which personal endpoints
-// are usable.
-func hasAccount(state string) bool { return state == "signed_in" || state == "validating" }
 
 // opens reports whether an item whose page is link can be opened: an item
 // with no page opens by its own means (a station plays, a web item opens in

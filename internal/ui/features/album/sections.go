@@ -27,12 +27,12 @@ func (a *album) open(path string) func() {
 func (a *album) albumTile(al services.Album, byYear bool, now time.Time) kit.CoverItem {
 	sub := al.Artist
 	if byYear {
-		sub = yearOf(al.ReleaseDate)
+		sub = i18n.YearOf(al.ReleaseDate)
 	}
 	item := kit.AlbumItem(al)
 	return kit.CoverItem{
 		Key: al.ID, Title: al.Name, Subtitle: sub, Art: al.Art.Medium, Motion: al.Motion,
-		Open: a.open("/album/" + al.ID), Item: &item, Badge: releaseBadge(al, now),
+		Open: a.open("/album/" + al.ID), Item: &item, Badge: kit.ReleaseBadge(al, now),
 	}
 }
 
@@ -44,16 +44,22 @@ func (a *album) playlistTile(p services.Playlist) kit.CoverItem {
 	}
 }
 
-// videoTile is a music video's tile: a link to its page. (Its play control and
-// queue actions come with the video module's Env hook.)
+// videoTile is a music video's tile: a link to its page, a play control and
+// the video's menu where music videos play.
 func (a *album) videoTile(v services.MusicVideo) kit.CoverItem {
 	id := v.CatalogID
 	if id == "" {
 		id = v.ID
 	}
 	t := kit.CoverItem{
-		Key: v.ID, Title: v.Name, Subtitle: yearOf(v.ReleaseDate), Art: v.Art.Medium, Video: true, Explicit: v.Explicit,
+		Key: v.ID, Title: v.Name, Subtitle: i18n.YearOf(v.ReleaseDate), Art: v.Art.Medium, Video: true, Explicit: v.Explicit,
 		Open: a.open("/music-video/" + id),
+	}
+	if players := a.env.Players; players.CanPlayVideo() {
+		t.Play = &kit.CoverPlay{Label: v.Name, Run: func() { players.PlayVideo(v) }}
+		if item, ok := kit.ActionItemOf(services.Item{Kind: services.ItemMusicVideo, ID: id, Name: v.Name, MusicVideo: &v}, players); ok {
+			t.Item = &item
+		}
 	}
 	return t
 }
@@ -73,7 +79,7 @@ func (a *album) episodeTile(s services.Station) kit.CoverItem {
 	if s.Playable {
 		id := s.ID
 		t.Play = &kit.CoverPlay{Label: s.Name, Run: func() {
-			a.queue.Replace(i18n.T("Couldn't play this station"), func(ctx context.Context) error {
+			a.env.Queue.Replace(i18n.T("Couldn't play this station"), func(ctx context.Context) error {
 				return a.radio.Play(ctx, id)
 			}, nil)
 		}}

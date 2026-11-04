@@ -103,14 +103,30 @@ func TestStationPageBylineSaysWhatTheStationWasMadeFrom(t *testing.T) {
 		want []string
 		path string
 	}{
-		{"song", services.StationSeed{Kind: services.SeedSong, ID: "11", Name: "Airbag", Subtitle: "Radiohead", ArtistID: "7"},
-			[]string{"Music like ", "Airbag", " by ", "Radiohead"}, "/song/11"},
-		{"album", services.StationSeed{Kind: services.SeedAlbum, ID: "12", Name: "OK Computer", Subtitle: "Radiohead", ArtistID: "7"},
-			[]string{"Music like ", "OK Computer", " by ", "Radiohead"}, "/album/12"},
-		{"artist", services.StationSeed{Kind: services.SeedArtist, ID: "7", Name: "Radiohead"},
-			[]string{"Music like ", "Radiohead"}, "/artist/7"},
-		{"only an artist", services.StationSeed{Kind: services.SeedArtist, ID: "7", Name: "Radiohead", Only: true},
-			[]string{"Only songs by ", "Radiohead"}, "/artist/7"},
+		{
+			"song",
+			services.StationSeed{Kind: services.SeedSong, ID: "11", Name: "Airbag", Subtitle: "Radiohead", ArtistID: "7"},
+			[]string{"Music like ", "Airbag", " by ", "Radiohead"},
+			"/song/11",
+		},
+		{
+			"album",
+			services.StationSeed{Kind: services.SeedAlbum, ID: "12", Name: "OK Computer", Subtitle: "Radiohead", ArtistID: "7"},
+			[]string{"Music like ", "OK Computer", " by ", "Radiohead"},
+			"/album/12",
+		},
+		{
+			"artist",
+			services.StationSeed{Kind: services.SeedArtist, ID: "7", Name: "Radiohead"},
+			[]string{"Music like ", "Radiohead"},
+			"/artist/7",
+		},
+		{
+			"only an artist",
+			services.StationSeed{Kind: services.SeedArtist, ID: "7", Name: "Radiohead", Only: true},
+			[]string{"Only songs by ", "Radiohead"},
+			"/artist/7",
+		},
 	} {
 		rg := stationRig(t, seedDetail(c.seed))
 		rg.tt.Until(c.name, rg.tt.Shows(c.want...))

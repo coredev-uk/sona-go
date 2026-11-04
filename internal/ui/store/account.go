@@ -16,11 +16,26 @@ import (
 // (features/private, cdm, updates, reminders) keeps it current from Go's
 // events. Every one is never stale: events replace the data.
 var (
+	// KeyAuth is the sign-in status (v0.2.0's keys.auth); the auth module
+	// writes every "auth:changed" status into it.
+	KeyAuth      = Key{"auth"}
 	KeyPrivate   = Key{"private"}
 	KeyCDM       = Key{"cdm"}
 	KeyUpdates   = Key{"updates"}
 	KeyReminders = Key{"reminders"}
 )
+
+// UseAuth is the account's sign-in status (AuthService.Status), never stale:
+// the auth module replaces it on every "auth:changed". No data until Go
+// answers.
+func UseAuth(cl *Client, core *services.Core) Result[services.AuthStatus] {
+	return Use(cl, KeyAuth, func(context.Context) (services.AuthStatus, error) {
+		if core == nil {
+			return services.AuthStatus{}, errNoCore
+		}
+		return services.Service[services.AuthService](core).Status(), nil
+	}, Options{Stale: Forever})
+}
 
 var errNoCore = errors.New("ui: no services")
 

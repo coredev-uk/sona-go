@@ -64,21 +64,11 @@ func dayLabel(day int64, now time.Time, loc *time.Location) string {
 	case ago == 1:
 		return i18n.T("Yesterday")
 	case ago > 1 && ago < 7:
-		return mygoi18n.FormatDate(formatLocale(), d, mygoi18n.DateOptions{Skeleton: "EEEE"})
+		return mygoi18n.FormatDate(i18n.Locales()[0], d, mygoi18n.DateOptions{Skeleton: "EEEE"})
 	}
 	skeleton := "MMMMEEEEd"
 	if d.Year() != today.Year() {
 		skeleton = "yMMMMEEEEd"
 	}
-	return mygoi18n.FormatDate(formatLocale(), d, mygoi18n.DateOptions{Skeleton: skeleton})
-}
-
-// formatLocale is the locale dates are written for: the regional one, which
-// is not always the language shown (an English UI on an en-GB system writes
-// day before month).
-func formatLocale() string {
-	if l := i18n.Locales(); len(l) > 0 {
-		return l[0]
-	}
-	return i18n.Locale()
+	return mygoi18n.FormatDate(i18n.Locales()[0], d, mygoi18n.DateOptions{Skeleton: skeleton})
 }

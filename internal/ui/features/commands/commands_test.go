@@ -1,10 +1,8 @@
 package commands
 
 import (
-	"context"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -18,25 +16,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
 )
 
-// fakePlayer records what a picked song asked the playback service for.
-type fakePlayer struct {
-	mu   sync.Mutex
-	refs []services.TrackRef
-}
-
-func (f *fakePlayer) PlayItems(_ context.Context, refs []services.TrackRef, _ int, _ services.PlayFrom) error {
-	f.mu.Lock()
-	f.refs = append(f.refs, refs...)
-	f.mu.Unlock()
-	return nil
-}
-
-func (f *fakePlayer) played() []services.TrackRef {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return slices.Clone(f.refs)
-}
-
 // rig is the feature over a full Env (the fixture library), a router and a
 // view that does what the shell's dispatcher does for its two chords.
 type rig struct {
@@ -45,7 +24,7 @@ type rig struct {
 	mod    module.Module
 	router *ui.Router
 	tt     *uitest.Session
-	play   *fakePlayer
+	h      *uitest.Harness
 	routes []string
 	ran    []string
 	extra  []module.BoundShortcut
@@ -60,30 +39,39 @@ func newRig(t *testing.T, opts ...uitest.Option) *rig {
 	opts = append(opts, uitest.Albums(fixture.Album{Name: "Zebra Crossing", Artist: "Mia", Titles: []string{"Quartz Lantern"}}))
 	h := uitest.New(t, opts...)
 	env := h.Env
-	r := &rig{t: t, play: &fakePlayer{}, routes: []string{"/library/albums", "/album/", "/artist/", "/playlist/", "/search", "/settings"}}
+	r := &rig{t: t, h: h, routes: []string{"/library/albums", "/album/", "/artist/", "/playlist/", "/search", "/settings"}}
 	r.router = ui.NewRouter("/library/albums")
 	env.Nav = r.router
 	env.HasRoute = r.hasRoute
 	r.mod = New(env)
 	r.m = newCommands(env)
 	r.m.lib = services.Service[services.SearchService](env.Core)
-	r.m.play = r.play
 	// The module's own shortcuts run on the rig's state, so the test view
 	// and the entries share it.
 	r.mod.Shortcuts[0].Run = r.m.togglePalette
 	r.mod.Shortcuts[1].Run = r.m.toggleHelp
 	run := func(id string) func() { return func() { r.ran = append(r.ran, id) } }
 	r.extra = []module.BoundShortcut{
-		{Shortcut: module.Shortcut{ID: "player.toggle", Label: func() string { return "Play or pause" }, Group: "playback", Icon: "pause",
-			Keywords: func() string { return "resume stop" }, Run: run("toggle")}, Keys: []string{"Space"}},
-		{Shortcut: module.Shortcut{ID: "player.next", Label: func() string { return "Next track" }, Group: "playback", Icon: "skip-forward",
-			Keywords: func() string { return "skip forward" }, Run: run("next")}, Keys: []string{"Ctrl+ArrowRight"}},
-		{Shortcut: module.Shortcut{ID: "player.mute", Label: func() string { return "Mute or unmute" }, Group: "playback",
-			When: func() bool { return false }, Run: run("mute")}, Keys: []string{"M"}},
-		{Shortcut: module.Shortcut{ID: "player.previous", Label: func() string { return "Previous track" }, Group: "playback",
-			Unavailable: func() string { return "Live" }, Run: run("previous")}, Keys: []string{"Ctrl+ArrowLeft"}},
-		{Shortcut: module.Shortcut{ID: "nav.library.albums", Label: func() string { return "Library · Albums" }, Group: "pages", Icon: "disc-3",
-			Run: func() { r.router.Push("/library/albums") }}, Keys: []string{"Alt+1"}},
+		{Shortcut: module.Shortcut{
+			ID: "player.toggle", Label: func() string { return "Play or pause" }, Group: "playback", Icon: "pause",
+			Keywords: func() string { return "resume stop" }, Run: run("toggle"),
+		}, Keys: []string{"Space"}},
+		{Shortcut: module.Shortcut{
+			ID: "player.next", Label: func() string { return "Next track" }, Group: "playback", Icon: "skip-forward",
+			Keywords: func() string { return "skip forward" }, Run: run("next"),
+		}, Keys: []string{"Ctrl+ArrowRight"}},
+		{Shortcut: module.Shortcut{
+			ID: "player.mute", Label: func() string { return "Mute or unmute" }, Group: "playback",
+			When: func() bool { return false }, Run: run("mute"),
+		}, Keys: []string{"M"}},
+		{Shortcut: module.Shortcut{
+			ID: "player.previous", Label: func() string { return "Previous track" }, Group: "playback",
+			Unavailable: func() string { return "Live" }, Run: run("previous"),
+		}, Keys: []string{"Ctrl+ArrowLeft"}},
+		{Shortcut: module.Shortcut{
+			ID: "nav.library.albums", Label: func() string { return "Library · Albums" }, Group: "pages", Icon: "disc-3",
+			Run: func() { r.router.Push("/library/albums") },
+		}, Keys: []string{"Alt+1"}},
 		{Shortcut: module.Shortcut{ID: "shell.sidebar", Label: func() string { return "Show or hide the sidebar" }, Group: "view", Run: run("sidebar")}},
 	}
 	env.Shortcuts = func() []module.BoundShortcut {
@@ -265,13 +253,11 @@ func TestPalettePlaysASongPickedFromTheLibrary(t *testing.T) {
 	r.tt.Until("the song", r.tt.Shows("Quartz Lantern", "Song · Mia"))
 	r.click("Quartz Lantern")
 	r.settle()
-	deadline := time.Now().Add(5 * time.Second)
-	for len(r.play.played()) == 0 && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
-	}
-	if got := r.play.played(); len(got) != 1 || got[0].ID == "" {
-		t.Errorf("the song was not played: %v", got)
-	}
+	r.tt.Until("the song queued through env.Queue", func() bool {
+		r.h.Main.Drain()
+		q := r.h.Env.Play.Queue()
+		return len(q.Items) == 1 && q.Items[0].Name == "Quartz Lantern"
+	})
 	if got := r.router.Path(); got != "/library/albums" {
 		t.Errorf("playing a song navigated to %q", got)
 	}

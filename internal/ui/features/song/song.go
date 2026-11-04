@@ -28,40 +28,23 @@ type lyricsAPI interface {
 	Lyrics(ctx context.Context, songID string) (services.Lyrics, error)
 }
 
-// playAPI is how the page plays: PlaySongs of the queue commands
-// (env.Queue once it lands).
-type playAPI interface {
-	PlaySongs(songs []services.Song, start int, from services.PlayFrom)
-}
-
 // song is the feature's state.
 type song struct {
 	env     *module.Env
 	catalog catalogAPI
 	lyrics  lyricsAPI
-	play    playAPI
-	states  *kit.ItemStates
 	menus   *kit.ActionMenus
-	// players plays the items of the shelves (env.Players once it lands).
-	players *kit.ItemPlayers
 
 	page pageState
 }
 
 // New is the song module.
 func New(env *module.Env) module.Module {
-	pb := services.Service[services.PlaybackService](env.Core)
-	states := kit.NewItemStates(env.Queries, env.Post, services.Service[services.LibraryService](env.Core))
 	s := newSong(env,
 		services.Service[services.CatalogService](env.Core),
-		services.Service[services.LyricsService](env.Core),
-		&queueCommands{svc: pb, play: env.Play, post: env.Post, mode: func() string {
-			return services.Service[services.SystemService](env.Core).Settings().Queue.ReplaceConfirm
-		}},
-		states)
+		services.Service[services.LyricsService](env.Core))
 	return module.Module{
-		ID:   "song",
-		Init: func() { states.Follow(env.Bus) },
+		ID: "song",
 		Routes: []module.Route{{
 			Pattern: songPattern,
 			Title:   func(*ui.Route) string { return i18n.T("Song") },
@@ -71,8 +54,8 @@ func New(env *module.Env) module.Module {
 	}
 }
 
-func newSong(env *module.Env, catalog catalogAPI, lyrics lyricsAPI, play playAPI, states *kit.ItemStates) *song {
-	s := &song{env: env, catalog: catalog, lyrics: lyrics, play: play, states: states, players: &kit.ItemPlayers{}}
+func newSong(env *module.Env, catalog catalogAPI, lyrics lyricsAPI) *song {
+	s := &song{env: env, catalog: catalog, lyrics: lyrics}
 	if env.Actions != nil {
 		s.menus = kit.NewActionMenus(env.Actions, nil)
 	}

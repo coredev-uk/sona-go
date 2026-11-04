@@ -179,10 +179,15 @@ func newApp(opts Options, factories []module.Factory) *App {
 	a.env.Motion = a.newMotion(post)
 	if opts.Core != nil {
 		a.env.Queue = kit.NewQueueCommandsFor(opts.Core, a.env.Play, post)
+		a.env.ItemStates = kit.NewItemStates(a.env.Queries, post, services.Service[services.LibraryService](opts.Core))
+		a.env.ItemStates.Follow(opts.Bus)
 	}
 	a.env.HasRoute = a.hasRoute
 	for _, f := range factories {
 		m := f(a.env)
+		if slices.ContainsFunc(a.mods, func(o module.Module) bool { return o.ID == m.ID }) {
+			panic("module " + m.ID + " registered twice")
+		}
 		a.mods = append(a.mods, m)
 		a.env.Actions.Register(m.Actions...)
 		a.routes = append(a.routes, m.Routes...)

@@ -379,7 +379,7 @@ func TestMotionStatusRefetchesEveryFiveSecondsWhileOpen(t *testing.T) {
 	g.mot.mu.Lock()
 	g.mot.st = services.MotionStatus{CacheFiles: 2, CacheBytes: 2048, Power: services.PowerState{Followed: true, Source: "ac"}}
 	g.mot.mu.Unlock()
-	g.tt.Until("motion group", g.tt.Shows("Mains power (AC adapter connected)", "2 videos · 2 KB"))
+	g.tt.Until("motion group", g.tt.Shows("Mains power (AC adapter connected)", "2 videos · 2 kB"))
 	count := func() int { g.mot.mu.Lock(); defer g.mot.mu.Unlock(); return g.mot.statuses }
 	n := count()
 	g.now = g.now.Add(6 * time.Second)

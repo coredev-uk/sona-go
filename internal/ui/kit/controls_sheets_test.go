@@ -46,16 +46,20 @@ func TestGoldenButtons(t *testing.T) {
 		row("play", func() { PlayButtons(c, PlayButtonsOpts{Label: "OK Computer", Shuffle: true}) })
 		row("rating", func() {
 			for i, o := range []RatingOpts{
-				{Name: "OK Computer"}, {Name: "OK Computer", Rating: 1},
-				{Name: "OK Computer", Rating: -1, Compact: true}, {Name: "OK Computer", Rating: 1, HideSuggestLess: true},
+				{Name: "OK Computer"},
+				{Name: "OK Computer", Rating: 1},
+				{Name: "OK Computer", Rating: -1, Compact: true},
+				{Name: "OK Computer", Rating: 1, HideSuggestLess: true},
 			} {
 				ui.Row(c.Key(i)).Gap(2).Children(func() { RatingButtons(c, o) })
 			}
 		})
 		row("library", func() {
 			for i, o := range []LibraryOpts{
-				{Name: "OK Computer"}, {Name: "OK Computer", InLibrary: true},
-				{Name: "Mix", InLibrary: true, Playlist: true}, {Name: "OK Computer", AddLabel: "Pre-add"},
+				{Name: "OK Computer"},
+				{Name: "OK Computer", InLibrary: true},
+				{Name: "Mix", InLibrary: true, Playlist: true},
+				{Name: "OK Computer", AddLabel: "Pre-add"},
 			} {
 				ui.Row(c.Key(i)).Children(func() { LibraryButton(c, o) })
 			}
@@ -109,7 +113,8 @@ func newControlsFields() *controlsFields {
 func (f *controlsFields) view(c *ui.Context) {
 	plans := []SelectItem{
 		SelectLabel("Plans"), SelectOption("Free", "Free"), SelectOption("Pro", "Pro"), SelectSeparator(),
-		SelectLabel("Teams"), SelectOption("Team", "Team"), {Value: "Ent", Label: "Enterprise", Disabled: true},
+		SelectLabel("Teams"), SelectOption("Team", "Team"),
+		{Value: "Ent", Label: "Enterprise", Disabled: true},
 	}
 	ui.Column(c.Key("a")).Gap(10).Width(360).Children(func() {
 		Input(c.Key("in1"), &f.text, InputOpts{A11yLabel: "Name"})
@@ -178,7 +183,8 @@ func TestGoldenOpen(t *testing.T) {
 		ui.Row(c.Key("row")).Gap(16).Children(func() {
 			Select(c.Key("plan"), &f.choice, []SelectItem{
 				SelectLabel("Plans"), SelectOption("Free", "Free"), SelectOption("Pro", "Pro"), SelectSeparator(),
-				SelectLabel("Teams"), SelectOption("Team", "Team"), {Value: "Ent", Label: "Enterprise", Disabled: true},
+				SelectLabel("Teams"), SelectOption("Team", "Team"),
+				{Value: "Ent", Label: "Enterprise", Disabled: true},
 			}, SelectOpts{A11yLabel: "Plan"})
 			Select(c.Key("lang"), &lang, long, SelectOpts{A11yLabel: "Language"})
 		})

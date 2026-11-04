@@ -273,7 +273,7 @@ func (a *artist) viewBody(c *ui.Context, vs *viewState, id, view, name, title st
 				for _, p := range pages {
 					songs = append(songs, p.Songs...)
 				}
-				a.queue.PlaySongs(songs, i, from(id))
+				a.env.Queue.PlaySongs(songs, i, from(id))
 			},
 			Playing:    cur.State == "playing",
 			Restricted: a.restricted(),
@@ -307,7 +307,7 @@ func (a *artist) viewBody(c *ui.Context, vs *viewState, id, view, name, title st
 		if view == services.ViewMusicVideos || view == services.ViewTopMusicVideos {
 			tileMin = 240
 		}
-		ctx := kit.ItemsCtx{Nav: a.open, Art: a.env.Art, Motion: a.env.Motion, Menus: vs.menus, Restricted: a.restricted()}
+		ctx := a.itemsCtx(vs.menus)
 		kit.ItemGrid(c, &vs.grid, total+loading, func(i int) *services.Item {
 			if k, j, ok := locate(lens, i); ok {
 				return &vs.items[k][j]

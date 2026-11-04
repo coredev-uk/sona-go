@@ -109,7 +109,8 @@ func (p *itemPages) at(i int) *services.Item {
 // the page at an offset. Call it every frame; a page is fetched by Use when
 // it is first asked for.
 func (d *discover) morePages(p *pager, base store.Key, first []services.Item, next int,
-	load func(ctx context.Context, offset int) (services.ItemPage, error)) itemPages {
+	load func(ctx context.Context, offset int) (services.ItemPage, error),
+) itemPages {
 	out := itemPages{first: first, count: len(first)}
 	off := next
 	for k := 0; k < p.want && off > 0; k++ {

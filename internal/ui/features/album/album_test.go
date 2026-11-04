@@ -162,8 +162,12 @@ func TestLayoutFollowsTheContentWidth(t *testing.T) {
 		width float32
 		want  layout
 	}{
-		{1600, layout{true, 320}}, {1280, layout{true, 320}}, {1279, layout{true, 256}},
-		{860, layout{true, 256}}, {859, layout{false, 168}}, {0, layout{false, 168}},
+		{1600, layout{true, 320}},
+		{1280, layout{true, 320}},
+		{1279, layout{true, 256}},
+		{860, layout{true, 256}},
+		{859, layout{false, 168}},
+		{0, layout{false, 168}},
 	} {
 		if got := albumLayout(c.width); got != c.want {
 			t.Errorf("albumLayout(%v) = %+v, want %+v", c.width, got, c.want)

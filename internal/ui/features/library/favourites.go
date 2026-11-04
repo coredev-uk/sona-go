@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/account"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -45,17 +46,17 @@ func (l *library) favouritePage(c *ui.Context, r *ui.Route) {
 				PlayLabel: i18n.T("Play your favourite songs"), Shuffle: true, Disabled: list.Total == 0,
 			})
 			if play {
-				l.queue.PlaySongs(loadedSongs(list.Loaded()), 0, from)
+				l.env.Queue.PlaySongs(loadedSongs(list.Loaded()), 0, from)
 			}
 			if shuffle {
-				l.queue.ShuffleSongs(loadedSongs(list.Loaded()), from)
+				l.env.Queue.ShuffleSongs(loadedSongs(list.Loaded()), from)
 			}
 		})
 		switch {
 		case list.Err() != nil:
 			kit.ErrorBlock(c, i18n.T("Couldn't read your favourite songs from this computer"), list.Err(),
 				kit.ErrorBlockOpts{OnRetry: list.Retry, Retrying: list.Retrying()})
-		case !list.Pending() && list.Total == 0 && auth.HasData && signedOut(auth.Data.State):
+		case !list.Pending() && list.Total == 0 && auth.HasData && account.IsSignedOut(auth.Data.State):
 			kit.EmptyState(c, i18n.T("You need to sign in to see your favourite songs"),
 				i18n.T("Songs you favourite in Sona or any Apple Music app are collected here."),
 				kit.EmptyOpts{Frame: kit.FrameBox, Action: l.signIn()})
@@ -67,7 +68,7 @@ func (l *library) favouritePage(c *ui.Context, r *ui.Route) {
 			l.songTable(c, &pg.list, pane, list, songTableOpts{
 				label: i18n.T("Favourite songs"),
 				onPlay: func(i int) {
-					l.queue.PlaySongs(loadedSongs(list.Loaded()), i, from)
+					l.env.Queue.PlaySongs(loadedSongs(list.Loaded()), i, from)
 				},
 			})
 		}

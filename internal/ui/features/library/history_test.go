@@ -89,7 +89,7 @@ func historyRigAuth(t *testing.T, answer func(days, call int) (services.Listenin
 		rec.playbackAPI = l.play
 		l.play = rec
 		if state != "" {
-			l.auth = historyAccount(state)
+			fakeAuth(l, historyAccount(state))
 		}
 	})
 	return r, stub, rec
@@ -183,8 +183,10 @@ func TestHistoryShowEarlierDaysAsksSixtyAndKeepsTheListShowing(t *testing.T) {
 		h.More = days == 30
 		if days == 60 {
 			<-release
-			h.Days = append(h.Days, services.HistoryDay{Day: localMidnight(40).UnixMilli(),
-				Entries: []services.HistoryEntry{historyEntry(1, historySong("3", "Gamma"))}})
+			h.Days = append(h.Days, services.HistoryDay{
+				Day:     localMidnight(40).UnixMilli(),
+				Entries: []services.HistoryEntry{historyEntry(1, historySong("3", "Gamma"))},
+			})
 		}
 		return h, nil
 	})
@@ -206,9 +208,8 @@ func TestHistoryShowEarlierDaysAsksSixtyAndKeepsTheListShowing(t *testing.T) {
 	if !r.tt.HasText("Alpha") {
 		t.Error("the list vanished while the earlier days load")
 	}
-	if got := stub.calls(); !slices.Equal(got, []int{30, 60}) {
-		t.Errorf("asked for days %v, want [30 60]", got)
-	}
+	// The fetch runs on a goroutine: the question may land after the frame.
+	r.tt.Until("the ask for sixty days", func() bool { return slices.Equal(stub.calls(), []int{30, 60}) })
 	close(release)
 	r.tt.Until("the earlier day", r.tt.Shows("Gamma", "Plays on this computer are kept for a year."))
 	if r.tt.HasText("Loading…") {

@@ -62,7 +62,7 @@ func TestStorageShowsUsageAndRows(t *testing.T) {
 		ArtworkBytes: 128 * mebi, CatalogBytes: 3 * mebi, CatalogEntries: 42, DatabaseBytes: 20 * mebi, DatabaseFreeBytes: 2 * mebi,
 	}}
 	r := storageRig(t, f)
-	r.tt.Until("usage", r.tt.Shows("128 MB", "of 512 MB", "3.0 MB", "42 pages", "20 MB", "2.0 MB of it free space",
+	r.tt.Until("usage", r.tt.Shows("128 MB", "of 512 MB", "3 MB", "42 pages", "20 MB", "2 MB of it free space",
 		"Up to 512 MB", "Clear caches", "Compact now"))
 	for _, id := range []string{"art-cache", "clear-cache", "compact"} {
 		if !r.s.seen[id] {
@@ -97,7 +97,7 @@ func TestClearCachesCallsTheServiceAndToasts(t *testing.T) {
 	if err := r.tt.Click("Clear caches"); err != nil {
 		t.Fatal(err)
 	}
-	r.tt.Until("toast", r.tt.Shows("Cleared 5.0 MB of artwork and 1 cached page"))
+	r.tt.Until("toast", r.tt.Shows("Cleared 5 MB of artwork and 1 cached page"))
 	if f.get(&f.clears) != 1 {
 		t.Errorf("Clear called %d times", f.clears)
 	}
@@ -110,7 +110,7 @@ func TestCompactNowCallsTheServiceAndToasts(t *testing.T) {
 	if err := r.tt.Click("Compact now"); err != nil {
 		t.Fatal(err)
 	}
-	r.tt.Until("toast", r.tt.Shows("Gave back 4.0 MB to the disk"))
+	r.tt.Until("toast", r.tt.Shows("Gave back 4 MB to the disk"))
 	f.freed = 0
 	r.tt.Until("button back", r.tt.Shows("Compact now"))
 	if err := r.tt.Click("Compact now"); err != nil {

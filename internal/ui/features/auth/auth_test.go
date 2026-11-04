@@ -104,7 +104,7 @@ func newRig(t *testing.T, st services.AuthStatus, opts ...uitest.Option) *rig {
 	r := &rig{t: t, h: h, api: api}
 	r.f = newFeature(h.Env, d)
 	r.mod = r.f.module()
-	store.Set(h.Env.Queries, account.StatusKey, st)
+	store.Set(h.Env.Queries, store.KeyAuth, st)
 	store.Set(h.Env.Queries, store.KeyPrivate, services.PrivateState{Source: "setting"})
 	r.mod.Init()
 	r.tt = h.Tester(t, r.view, 900, 700)
@@ -396,7 +396,7 @@ func TestPrivateListeningIsOffUntilTheStateIsKnown(t *testing.T) {
 	r := newRig(t, signedIn)
 	// No data and nothing to ask: Go's answer never comes.
 	r.h.Env.Queries.Reset()
-	store.Set(r.h.Env.Queries, account.StatusKey, signedIn)
+	store.Set(r.h.Env.Queries, store.KeyAuth, signedIn)
 	r.h.Env.Core = nil
 	r.openMenu()
 	if err := r.tt.Click("Private listening"); err != nil {
@@ -582,13 +582,13 @@ func TestAuthChangedWritesTheStatusAndInvalidates(t *testing.T) {
 	if got := staleKeys(t, r.h.Env.Queries, cached, &log, pump); len(got) != 0 {
 		t.Errorf("signing_in made %v stale", got)
 	}
-	if st, _ := store.Peek[services.AuthStatus](r.h.Env.Queries, account.StatusKey); st.State != "signing_in" {
+	if st, _ := store.Peek[services.AuthStatus](r.h.Env.Queries, store.KeyAuth); st.State != "signing_in" {
 		t.Errorf("the status is %q", st.State)
 	}
 
 	r.h.Env.Bus.Emit(services.EventAuthChanged, signedIn)
 	r.tt.Drain()
-	if st, _ := store.Peek[services.AuthStatus](r.h.Env.Queries, account.StatusKey); st.State != "signed_in" {
+	if st, _ := store.Peek[services.AuthStatus](r.h.Env.Queries, store.KeyAuth); st.State != "signed_in" {
 		t.Errorf("the status is %q after signing in", st.State)
 	}
 	got := staleKeys(t, r.h.Env.Queries, cached, &log, pump)
@@ -606,7 +606,7 @@ func TestInvalidationsCompareWithThePreviousEventNotTheCache(t *testing.T) {
 	r := newRig(t, signedOut)
 	// Another feature's handler of the same event writes the status first.
 	store.On(r.h.Env.Bus, services.EventAuthChanged, func(s services.AuthStatus) {
-		store.Set(r.h.Env.Queries, account.StatusKey, s)
+		store.Set(r.h.Env.Queries, store.KeyAuth, s)
 	})
 	store.Set(r.h.Env.Queries, store.Key{"library", "albums"}, 1)
 	r.h.Env.Bus.Emit(services.EventAuthChanged, signedIn)

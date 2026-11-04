@@ -124,7 +124,7 @@ func TestLastDownloadWordsGosFailure(t *testing.T) {
 	if r = rowOf(t, motionGroup(playingReport(), nil, diagNow), "Last download"); r.value != "Checking…" {
 		t.Errorf("checking: %+v", r)
 	}
-	if got := rowOf(t, motionGroup(playingReport(), st, diagNow), "Motion cache").value; got != "2 videos · 2 KB" {
+	if got := rowOf(t, motionGroup(playingReport(), st, diagNow), "Motion cache").value; got != "2 videos · 2 kB" {
 		t.Errorf("cache: %q", got)
 	}
 	for _, g := range []diagGroup{motionGroup(playingReport(), nil, diagNow)} {

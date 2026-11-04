@@ -93,8 +93,10 @@ func TestBuildTreeOrder(t *testing.T) {
 		tree services.PlaylistTree
 		want string
 	}{
-		{"folders before playlists, by position, unknown parents at the top", treeSample(),
-			"Mixes[Old[Deep],Inside],Orphan[],Alpha,Beta,Made for you"},
+		{
+			"folders before playlists, by position, unknown parents at the top", treeSample(),
+			"Mixes[Old[Deep],Inside],Orphan[],Alpha,Beta,Made for you",
+		},
 		{"nested folders first too, empty folders kept", nested, "Top[A[],B[Empty[],Two],One],Zero"},
 		{"ties by position fall back to the name", onlyFolders, "First[Xray,Yankee],Second[]"},
 		{"empty tree", services.PlaylistTree{}, ""},

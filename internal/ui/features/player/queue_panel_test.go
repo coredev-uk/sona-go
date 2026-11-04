@@ -30,6 +30,7 @@ func newQueueRig(t *testing.T, inView bool) *queueRig {
 	h := uitest.New(t, uitest.Bare())
 	r := &queueRig{fake: newFake(), h: h, nav: &navRecorder{}}
 	h.Env.Nav = r.nav
+	queueOver(h.Env, r.fake)
 	r.p = newPlayer(h.Env, r.fake, func() bool { return true })
 	r.p.now = h.Clock.Now
 	r.p.ui.queueOpen = true

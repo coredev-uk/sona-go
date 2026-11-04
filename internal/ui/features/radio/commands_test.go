@@ -176,28 +176,25 @@ func TestStationsPlayThroughTheSharedItemPlayers(t *testing.T) {
 	}
 }
 
-// replaceRig is a queueCommands over the Env's mirror, with a played queue of
-// n songs the user added.
-func replaceRig(t *testing.T, added int, mode string) (*rig, *queueCommands) {
+// replaceRig is the pages over a played queue of n songs the user added, with
+// the queue.replaceConfirm setting mode.
+func replaceRig(t *testing.T, added int, mode string) *rig {
 	t.Helper()
 	rg := newRig(t, radioPath, 800, 600)
+	rg.replaceMode = mode
 	items := []services.QueueItem{{ID: "now"}}
 	for i := range added {
 		items = append(items, services.QueueItem{ID: fmt.Sprint("add", i), Added: true})
 	}
 	rg.h.Bus.Emit(services.EventPlaybackQueue, services.QueueState{Index: 0, Items: items})
 	rg.tt.Drain()
-	q := &queueCommands{
-		play: rg.h.Env.Play, post: rg.h.Env.Post, svc: rg.pb,
-		mode: func() string { return mode }, fail: stationFailed,
-	}
-	return rg, q
+	return rg
 }
 
-func TestReplaceStartsAtOnceOverAShortQueue(t *testing.T) {
-	rg, q := replaceRig(t, longUserQueue, config.ReplaceConfirm)
+func TestPlayStationStartsAtOnceOverAShortQueue(t *testing.T) {
+	rg := replaceRig(t, kit.LongUserQueue, config.ReplaceConfirm)
 	started := make(chan bool, 1)
-	q.Replace("Couldn't play this station", func(context.Context) error { return nil }, func(ok bool) { started <- ok })
+	rg.r.playStation("ra.1", func(ok bool) { started <- ok })
 	rg.tt.Until("started", func() bool { return len(started) == 1 })
 	if !<-started {
 		t.Error("not started")
@@ -208,39 +205,36 @@ func TestReplaceStartsAtOnceOverAShortQueue(t *testing.T) {
 	}
 }
 
-func TestReplaceOffersUndoOverALongQueue(t *testing.T) {
-	rg, q := replaceRig(t, longUserQueue+1, config.ReplaceUndo)
-	q.Replace("Couldn't play this station", func(context.Context) error { return nil }, nil)
+func TestPlayStationOffersUndoOverALongQueue(t *testing.T) {
+	rg := replaceRig(t, kit.LongUserQueue+1, config.ReplaceUndo)
+	rg.r.playStation("ra.1", nil)
 	rg.toastShown("Queue replaced")
 	rg.tt.Until("the description", rg.tt.Shows("4 songs you added were removed.", "Undo"))
 	rg.click("Undo")
 	rg.tt.Until("the undo", func() bool { _, n := rg.pb.counts(); return n == 1 })
 }
 
-func TestReplaceAsksFirstWhenTheSettingSaysConfirm(t *testing.T) {
-	rg, q := replaceRig(t, longUserQueue+2, config.ReplaceConfirm)
+func TestPlayStationAsksFirstWhenTheSettingSaysConfirm(t *testing.T) {
+	rg := replaceRig(t, kit.LongUserQueue+2, config.ReplaceConfirm)
 	started := make(chan bool, 2)
-	ran := make(chan struct{}, 2)
-	replace := func() {
-		q.Replace("Couldn't play this station", func(context.Context) error { ran <- struct{}{}; return nil }, func(ok bool) { started <- ok })
-	}
-	replace()
+	play := func() { rg.r.playStation("ra.1", func(ok bool) { started <- ok }) }
+	play()
 	rg.tt.Until("the question", rg.tt.Shows("Replace your queue?", "The 5 songs you added to the queue will be removed."))
-	if len(ran) != 0 {
+	if n := len(rg.api.plays()); n != 0 {
 		t.Fatal("the queue was replaced before the answer")
 	}
 	// No: nothing starts and nothing is offered back.
 	rg.click("Cancel")
-	if ok := <-started; ok || len(ran) != 0 {
-		t.Errorf("a refused question started the station (started %v, ran %d)", ok, len(ran))
+	if ok := <-started; ok || len(rg.api.plays()) != 0 {
+		t.Errorf("a refused question started the station (started %v, plays %v)", ok, rg.api.plays())
 	}
 	// Yes: it starts, and with the question answered there is no Undo.
-	replace()
+	play()
 	rg.tt.Until("the question", rg.tt.Shows("Replace your queue?"))
 	rg.click("Replace queue")
 	rg.tt.Until("started", func() bool { return len(started) == 1 })
-	if ok := <-started; !ok || len(ran) != 1 {
-		t.Errorf("a confirmed question did not start the station (started %v, ran %d)", ok, len(ran))
+	if ok := <-started; !ok || len(rg.api.plays()) != 1 {
+		t.Errorf("a confirmed question did not start the station (started %v, plays %v)", ok, rg.api.plays())
 	}
 	rg.tt.Drain()
 	if rg.tt.HasText("Queue replaced") {
@@ -248,10 +242,11 @@ func TestReplaceAsksFirstWhenTheSettingSaysConfirm(t *testing.T) {
 	}
 }
 
-func TestReplaceThatFailsSaysWhyAndNotifiesNoUndo(t *testing.T) {
-	rg, q := replaceRig(t, longUserQueue+1, config.ReplaceUndo)
+func TestPlayStationThatFailsSaysWhyAndNotifiesNoUndo(t *testing.T) {
+	rg := replaceRig(t, kit.LongUserQueue+1, config.ReplaceUndo)
+	rg.api.set(func(f *fakeRadio) { f.playErr = fmt.Errorf("x: %w", applemusic.ErrNotFound) })
 	done := make(chan bool, 1)
-	q.Replace("Couldn't play this station", func(context.Context) error { return fmt.Errorf("x: %w", applemusic.ErrNotFound) }, func(ok bool) { done <- ok })
+	rg.r.playStation("ra.1", func(ok bool) { done <- ok })
 	rg.toastShown("Couldn't play this station")
 	rg.tt.Until("the reason", rg.tt.Shows("Apple Music has no station for this."))
 	if ok := <-done; ok {

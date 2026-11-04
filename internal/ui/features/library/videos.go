@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/account"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -28,9 +29,6 @@ type videosPage struct {
 	pageView
 	cover kit.CoverState
 	menus *kit.ActionMenus
-	// canPlay overrides what the platform says about playing videos
-	// (tests); nil asks PlatformService.
-	canPlay func() bool
 }
 
 // videosPage is MusicVideosPage: Apple's music videos of the library (they
@@ -39,7 +37,7 @@ func (l *library) videosPage(c *ui.Context, r *ui.Route) {
 	pg := &l.videos
 	q := store.Use(l.env.Queries, keyMusicVideos, l.musicVideos, store.Options{Stale: 10 * time.Minute})
 	auth := l.authStatus()
-	out := auth.HasData && signedOut(auth.Data.State)
+	out := auth.HasData && account.IsSignedOut(auth.Data.State)
 
 	subline := ""
 	if q.HasData && len(q.Data) > 0 {
@@ -107,16 +105,8 @@ func (l *library) musicVideos(ctx context.Context) ([]services.MusicVideo, error
 }
 
 // canPlayVideo: this platform and build play music videos
-// (Capabilities.Playback.Video).
-func (l *library) canPlayVideo() bool {
-	if l.videos.canPlay != nil {
-		return l.videos.canPlay()
-	}
-	if l.env.Core == nil {
-		return false
-	}
-	return services.Service[services.PlatformService](l.env.Core).Capabilities().Playback.Video
-}
+// (Env.Players.CanPlayVideo).
+func (l *library) canPlayVideo() bool { return l.env.Players.CanPlayVideo() }
 
 // videoTile is the tile of videos[i] (v0.2.0's videoTile): its page when one
 // exists, the artist and length under the title and, where videos play, a
@@ -147,9 +137,9 @@ func (l *library) videoTile(videos []services.MusicVideo, i int, canPlay bool) k
 	if canPlay {
 		item := kit.MusicVideoItem(v)
 		tile.Item = &item
-		// The video view opens after playback starts: it is the video
-		// PR's, so nothing opens here yet.
-		tile.Play = &kit.CoverPlay{Label: v.Name, Run: func() { l.queue.PlayVideos([]services.MusicVideo{v}, 0, nil) }}
+		tile.Play = &kit.CoverPlay{Label: v.Name, Run: func() {
+			l.env.Queue.PlayVideos([]services.MusicVideo{v}, 0, l.env.Video.Open)
+		}}
 	}
 	return tile
 }

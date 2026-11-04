@@ -144,7 +144,7 @@ func (d *discover) topSongs(c *ui.Context, ch services.Chart, more string, ctx k
 		kit.TrackList(c, &st.tracks, len(shown), func(i int) *services.Song { return &shown[i] }, kit.TrackListOpts{
 			Label:   title,
 			Columns: kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true},
-			OnPlay:  func(i int) { d.queue.PlaySongs(songs, i, services.PlayFrom{ID: title}) },
+			OnPlay:  func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: title}) },
 			Menus:   st.menus, Art: ctx.Art, Motion: ctx.Motion,
 			Current: currentSong(ctx), Playing: ctx.Playing, Restricted: ctx.Restricted,
 			OpenArtist: to("/artist/"), OpenAlbum: to("/album/"),

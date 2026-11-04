@@ -90,6 +90,9 @@ func (f *fakeApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-*g:
 		case <-r.Context().Done():
+			// A request given up on is an error, never an empty listing the
+			// service could cache under the key a refetch will ask for.
+			http.Error(w, `{"errors":[]}`, http.StatusServiceUnavailable)
 			return
 		}
 	}
@@ -257,7 +260,17 @@ func newRigOver(t *testing.T, hn *uitest.Harness, amp *fakeApple, at string, w, 
 	hn.Env.Nav = r.router
 	// The artists' pages are another PR's: only their route is faked.
 	hn.Env.HasRoute = func(p string) bool { return strings.HasPrefix(p, "/artist/") || p == concertsPath }
-	r.s = newConcerts(hn.Env, services.Service[services.ConcertsService](hn.Core), services.Service[services.AuthService](hn.Core))
+	// The fake account is signed in before the page is drawn: its sign-in
+	// events would otherwise reach the page's auth handler in the middle of
+	// a test (a change of account refetches the listing, dropping the one
+	// held or in flight).
+	acct := services.Service[services.AuthService](hn.Core)
+	for deadline := time.Now().Add(10 * time.Second); acct.Status().State != "signed_in"; time.Sleep(time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("the fake account never signed in: %q", acct.Status().State)
+		}
+	}
+	r.s = newConcerts(hn.Env, services.Service[services.ConcertsService](hn.Core))
 	if wrap != nil {
 		r.s.api = wrap(r.s.api)
 	}

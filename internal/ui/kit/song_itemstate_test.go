@@ -354,3 +354,21 @@ func TestFollowRemembersTheItemStateEvent(t *testing.T) {
 		t.Errorf("cache %+v", r)
 	}
 }
+
+// A state Go announced (`sona like`) changes the favourite songs list too.
+func TestRememberRefreshesTheFavouriteSongs(t *testing.T) {
+	s, _, q := newStates()
+	key := store.Key{"library", "favorite-songs"}
+	store.Set(q, key, 1)
+	s.Remember(services.ItemState{Kind: StateSongs, ID: "x", Rating: 1})
+	fetched := make(chan struct{}, 1)
+	store.Use(q, key, func(context.Context) (int, error) {
+		fetched <- struct{}{}
+		return 2, nil
+	}, store.Options{Stale: store.Forever})
+	select {
+	case <-fetched:
+	case <-time.After(2 * time.Second):
+		t.Error("the favourite songs were not refetched")
+	}
+}

@@ -69,6 +69,7 @@ func StateKey(kind, id string) store.Key { return store.Key{"library", "state", 
 var membershipLists = []store.Key{
 	{"library", "counts"},
 	{"library", "songs"},
+	{"library", "playlists"},
 	{"library", "albums"},
 	{"library", "artists"},
 	{"library", "album"},
@@ -203,6 +204,8 @@ func (s *ItemStates) Remember(st services.ItemState) {
 		return
 	}
 	s.write(st.Kind, st.ID, st)
+	// A like or dislike made outside the UI changes the favourites too.
+	s.q.Invalidate(store.Key{"library", "favorite-songs"})
 }
 
 // Follow subscribes the states to "library:item-state": call it from a

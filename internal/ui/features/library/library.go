@@ -62,27 +62,15 @@ type playbackAPI interface {
 	SetShuffle(on bool)
 }
 
-// authAPI is the sign-in state the empty library's text depends on.
-type authAPI interface {
-	Status() services.AuthStatus
-}
-
 // library is the feature's state.
 type library struct {
 	env  *module.Env
 	lib  libraryAPI
 	play playbackAPI
-	auth authAPI
 
 	// openAccount opens the account dialog (the Sign in action of an empty
 	// library); nil without Env.Surfaces, which hides the action.
 	openAccount func()
-
-	// queue starts queues (stand-in for env.Queue, see queue.go).
-	queue *queueCommands
-
-	// states is the item-state layer the actions use (see itemstate.go).
-	states *itemStates
 
 	sync syncStore
 
@@ -100,26 +88,16 @@ type library struct {
 func New(env *module.Env) module.Module {
 	l := newLibrary(env,
 		services.Service[services.LibraryService](env.Core),
-		services.Service[services.PlaybackService](env.Core),
-		services.Service[services.AuthService](env.Core))
+		services.Service[services.PlaybackService](env.Core))
 	return l.module()
 }
 
-func newLibrary(env *module.Env, lib libraryAPI, play playbackAPI, auth authAPI) *library {
-	l := &library{env: env, lib: lib, play: play, auth: auth}
+func newLibrary(env *module.Env, lib libraryAPI, play playbackAPI) *library {
+	l := &library{env: env, lib: lib, play: play}
 	if env.Surfaces != nil {
 		l.openAccount = env.Surfaces.OpenAccount
 	}
-	l.queue = &queueCommands{svc: play, play: env.Play, post: env.Post, replaceMode: l.replaceMode}
 	return l
-}
-
-// replaceMode is the queue.replaceConfirm setting; off the main thread.
-func (l *library) replaceMode() string {
-	if l.env.Core == nil {
-		return ""
-	}
-	return services.Service[services.SystemService](l.env.Core).Settings().Queue.ReplaceConfirm
 }
 
 // module is the Module of this library state.
@@ -179,13 +157,12 @@ var (
 	keyLibrary    = store.Key{"library"}
 	keyCounts     = store.Key{"library", "counts"}
 	keySync       = store.Key{"library", "sync-status"}
-	keyAuth       = store.Key{"auth"}
 	keyFavourites = store.Key{"library", "favorite-songs"}
 	keyRecent     = store.Key{"library", "recent"}
 )
 
 // init follows what changes the library: a sync finishing a domain, a
-// whole sync, a rating changed outside the UI (`sona like`) and the account.
+// whole sync, (a rating changed outside the UI is Env.ItemStates').
 func (l *library) init() {
 	q := l.env.Queries
 	store.On(l.env.Bus, services.EventSyncProgress, func(p services.SyncProgress) {
@@ -197,16 +174,6 @@ func (l *library) init() {
 	store.On(l.env.Bus, services.EventSyncDone, func(d services.SyncDone) {
 		l.sync.done(d)
 		q.Invalidate(keyLibrary)
-	})
-	store.On(l.env.Bus, services.EventItemState, func(s services.ItemState) {
-		store.Set(q, itemStateKey(s.Kind, s.ID), s)
-		if l.states != nil {
-			l.states.remember(s.Kind, s) // menus read it too
-		}
-		q.Invalidate(keyFavourites)
-	})
-	store.On(l.env.Bus, services.EventAuthChanged, func(s services.AuthStatus) {
-		store.Set(q, keyAuth, s)
 	})
 }
 

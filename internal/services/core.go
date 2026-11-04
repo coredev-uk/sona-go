@@ -68,7 +68,7 @@ type Deps struct {
 	// gate (Env.gated), the update check ungated (it runs only from
 	// OnNetwork or on request). Tests give one that serves fixtures only.
 	Transport http.RoundTripper
-	Emit Emitter
+	Emit      Emitter
 	// Clipboard puts text on the system clipboard and reports success (nil:
 	// copying fails).
 	Clipboard func(text string) bool

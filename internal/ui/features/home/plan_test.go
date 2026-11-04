@@ -3,7 +3,6 @@ package home
 import (
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 )
@@ -182,35 +181,5 @@ func TestHoldsSaysWhatAShelfHoldsInTheOrderItMeetsTheKinds(t *testing.T) {
 	}
 	if got := holds([]services.Item{planItem("artist", ""), planItem("song", "")}); got != "1 artist · 1 song" {
 		t.Errorf("holds %q", got)
-	}
-}
-
-func TestHasAccountIsSignedInOrValidating(t *testing.T) {
-	for state, want := range map[string]bool{"signed_in": true, "validating": true, "signed_out": false, "restoring": false, "needs_reauth": false, "": false} {
-		if got := hasAccount(state); got != want {
-			t.Errorf("hasAccount(%q) = %v, want %v", state, got, want)
-		}
-	}
-}
-
-func TestRelativeTime(t *testing.T) {
-	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
-	at := func(d time.Duration) int64 { return now.Add(-d).UnixMilli() }
-	cases := []struct {
-		stamp int64
-		want  string
-	}{
-		{0, "never"},
-		{at(10 * time.Second), "just now"},
-		{at(5 * time.Minute), "5 min. ago"},
-		{at(59 * time.Minute), "59 min. ago"},
-		{at(3 * time.Hour), "3 hr. ago"},
-		{at(26 * time.Hour), "yesterday"},
-		{at(3 * 24 * time.Hour), "3 days ago"},
-	}
-	for _, c := range cases {
-		if got := relativeTime(c.stamp, now); got != c.want {
-			t.Errorf("relativeTime(-%v) = %q, want %q", now.UnixMilli()-c.stamp, got, c.want)
-		}
 	}
 }

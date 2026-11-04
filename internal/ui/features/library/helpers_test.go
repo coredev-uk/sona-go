@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -32,29 +34,22 @@ func newPageRig(t *testing.T, start string, w, h int, before func(l *library), o
 	r := &pageRig{t: t, h: hn, router: ui.NewRouter(start)}
 	hn.Env.Nav = r.router
 	hn.Env.HasRoute = func(string) bool { return false }
-	real := services.Service[services.AuthService](hn.Core)
 	r.l = newLibrary(hn.Env,
 		services.Service[services.LibraryService](hn.Core),
-		services.Service[services.PlaybackService](hn.Core), real)
+		services.Service[services.PlaybackService](hn.Core))
 	mod := r.l.module()
 	hn.Env.Actions = kit.NewActionRegistry(mod.Actions...)
 	hn.Env.Actions.SetPoster(hn.Env.Post)
 	hn.Env.Actions.SetNavigator(r.router.Push)
 	if before != nil {
 		before(r.l)
-		r.l.queue.svc = r.l.play // a wrapped PlaybackService is the queue's too
+		// A wrapped service is the queue's and the item states' too.
+		hn.Env.Queue = viaPlay(hn, r.l.play)
+		hn.Env.ItemStates = kit.NewItemStates(hn.Env.Queries, hn.Env.Post, r.l.lib)
+		hn.Env.ItemStates.Follow(hn.Env.Bus)
 	}
+	seedAuth(hn)
 	mod.Init()
-	if r.l.auth != real {
-		// A fake account: the real manager announces its own state (signed
-		// out) once it has read the keyring; the fake announces itself after
-		// that, so it is the one the page reads.
-		manager := services.Service[services.AuthService](hn.Core)
-		for end := time.Now().Add(5 * time.Second); manager.Status().State == "restoring" && time.Now().Before(end); time.Sleep(time.Millisecond) {
-		}
-		time.Sleep(50 * time.Millisecond)
-		hn.Env.Bus.Emit(services.EventAuthChanged, r.l.auth.Status())
-	}
 	r.tt = hn.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // a frozen clock never finishes a transition: each input would cost 20 frames
 		ui.Column(c).Fill().Children(func() {
@@ -83,4 +78,46 @@ func emptyTheSyncedLibrary(r *pageRig) {
 		r.t.Fatal(err)
 	}
 	r.l.env.Queries.Invalidate(keyLibrary)
+}
+
+// queueVia is the queue's service with PlayItems, UndoReplace and SetShuffle
+// going to play, which a test may have wrapped.
+type queueVia struct {
+	kit.QueueService
+	play playbackAPI
+}
+
+func (q queueVia) PlayItems(ctx context.Context, refs []services.TrackRef, start int, from services.PlayFrom) error {
+	return q.play.PlayItems(ctx, refs, start, from)
+}
+
+func (q queueVia) UndoReplace(ctx context.Context) (bool, error) { return q.play.UndoReplace(ctx) }
+func (q queueVia) SetShuffle(on bool)                            { q.play.SetShuffle(on) }
+
+// viaPlay is the harness's Env.Queue with play behind its PlaybackService.
+func viaPlay(h *uitest.Harness, play playbackAPI) *kit.QueueCommands {
+	return kit.NewQueueCommands(kit.QueueDeps{
+		Svc:  queueVia{services.Service[services.PlaybackService](h.Core), play},
+		Play: h.Env.Play,
+		Post: h.Env.Post,
+	})
+}
+
+// fakeAuth is the account in the state a.Status() names, as the auth module
+// would have written it.
+func fakeAuth(l *library, a interface{ Status() services.AuthStatus }) {
+	store.Set(l.env.Queries, store.KeyAuth, a.Status())
+}
+
+// seedAuth is what the auth module does for the pages: the real account's
+// status, once Go has read the keyring, unless a test wrote a fake one. It
+// is written before any page reads it, so no fetch decides the status.
+func seedAuth(h *uitest.Harness) {
+	if _, ok := store.Peek[services.AuthStatus](h.Env.Queries, store.KeyAuth); ok {
+		return
+	}
+	real := services.Service[services.AuthService](h.Core)
+	for end := time.Now().Add(5 * time.Second); real.Status().State == "restoring" && time.Now().Before(end); time.Sleep(time.Millisecond) {
+	}
+	store.Set(h.Env.Queries, store.KeyAuth, real.Status())
 }

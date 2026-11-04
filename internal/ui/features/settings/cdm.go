@@ -1,66 +1,24 @@
 package settings
 
 import (
-	"fmt"
-
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// cdmState is the Widevine row's own state: a Retry in flight and the
-// request to put the focus on the state output.
+// cdmState is the Widevine row's own state: the request to put the focus on
+// the state output.
 type cdmState struct {
-	retrying bool
-	focus    bool
+	focus bool
 }
 
-// The Widevine helpers below are small local copies of v0.2.0's
-// features/cdm (state.ts) and shared/lib/format.ts, with its msgids; the
-// shared ones (store.CDMProgress, i18n.CDMProblem…) are used where they
-// exist.
-
-// cdmProgress is the running download's progress from 0 to 1; false while
-// its size is unknown.
-func cdmProgress(st services.CDMStatus) (float64, bool) {
-	if st.Total <= 0 {
-		return 0, false
-	}
-	return min(max(float64(st.Received)/float64(st.Total), 0), 1), true
-}
-
-// canRetryCDM reports whether trying again can help (canRetryCdm).
-func canRetryCDM(st services.CDMStatus) bool {
-	return st.Code != "" && st.Code != "unsupported_platform" &&
-		(st.State == "failed" || st.State == "ready") && !st.Updating
-}
-
-// formatBytes is bytes as "12.4 MB" in the shown language's numbers.
-func formatBytes(n int64) string {
-	if n < 1024 {
-		return i18n.FormatNumber(float64(n)) + " B"
-	}
-	v, i := float64(n)/1024, 0
-	units := []string{"KB", "MB", "GB", "TB"}
-	for v >= 1024 && i < len(units)-1 {
-		v /= 1024
-		i++
-	}
-	if v < 10 {
-		return fmt.Sprintf("%s %s", fmtFixed(v, 1), units[i])
-	}
-	return fmt.Sprintf("%s %s", fmtFixed(v, 0), units[i])
-}
-
-func fmtFixed(v float64, digits int) string {
-	if digits == 0 {
-		return i18n.FormatNumber(float64(int64(v + 0.5)))
-	}
-	return i18n.FormatNumber(float64(int64(v*10+0.5)) / 10)
-}
+// The Widevine helpers are v0.2.0's features/cdm (state.ts) with its msgids;
+// the shared ones (store.CDMProgress, store.CDMCanRetry, kit.RetryCDMWith,
+// i18n.CDMProblem, i18n.FormatBytes…) are used.
 
 // cdmRow is Settings → Playback's Widevine row (CdmRow.tsx): the state in
 // a status named by the row's label, a running download's bar, the notes,
@@ -76,7 +34,7 @@ func (s *settings) cdmRow(c *ui.Context) {
 
 	failed := known && status.State == "failed"
 	ready := known && status.State == "ready"
-	retry := known && canRetryCDM(status)
+	retry := known && store.CDMCanRetry(&status)
 	problem := ""
 	if known && status.Code != "" {
 		problem = i18n.CDMProblem(status.Code)
@@ -137,12 +95,8 @@ func (s *settings) cdmRow(c *ui.Context) {
 					cdmProgressBar(c, status)
 				}
 				if retry {
-					label := i18n.T("Try again")
-					if st.retrying {
-						label = i18n.T("Retrying…")
-					}
-					b := kit.Button(c.Key("retry"), label, kit.ButtonOpts{
-						Variant: kit.Outline, Size: kit.SizeSM, Icon: "rotate-cw", Disabled: st.retrying,
+					b := kit.Button(c.Key("retry"), i18n.T("Try again"), kit.ButtonOpts{
+						Variant: kit.Outline, Size: kit.SizeSM, Icon: "rotate-cw",
 					}).Margin(4, 0, 0, 0)
 					if problem != "" {
 						b.Description(problem)
@@ -161,19 +115,11 @@ func (s *settings) cdmRow(c *ui.Context) {
 	})
 }
 
-// retryCDM asks Go to download again; the focus moves to the state (the
-// button goes away while the download runs).
+// retryCDM asks Go to download again (kit.RetryCDMWith toasts a failure); the
+// focus moves to the state (the button goes away while the download runs).
 func (s *settings) retryCDM(st *cdmState) {
-	st.retrying, st.focus = true, true
-	go func() {
-		err := s.cdm.Retry()
-		s.env.Post(func() {
-			st.retrying = false
-			if err != nil {
-				kit.ToastErrorf(i18n.T("Couldn't start the Widevine download"), i18n.ErrorText(services.CodeOf(err)))
-			}
-		})
-	}()
+	st.focus = true
+	kit.RetryCDMWith(s.cdm.Retry)
 }
 
 // cdmNote is the line under the state: what happens to an installed copy.
@@ -196,14 +142,14 @@ func cdmProgressBar(c *ui.Context, st services.CDMStatus) {
 	if st.Updating {
 		label = i18n.T("Widevine update")
 	}
-	f, ok := cdmProgress(st)
+	f, ok := store.CDMProgress(st)
 	ui.Column(c.Key("progress")).Width(selectWidth).Gap(4).Children(func() {
 		if !ok {
 			kit.ProgressBar(c, -1, kit.ProgressOpts{A11yLabel: label})
 			return
 		}
 		percent := i18n.FormatPercent(f)
-		received, total := formatBytes(st.Received), formatBytes(st.Total)
+		received, total := i18n.FormatBytes(st.Received), i18n.FormatBytes(st.Total)
 		kit.ProgressBar(c, f, kit.ProgressOpts{
 			A11yLabel: label,
 			ValueText: i18n.T("{percent}, {received} of {total}", "percent", percent, "received", received, "total", total),

@@ -41,18 +41,22 @@ func (f *fakeQueueSvc) PlayItems(_ context.Context, refs []services.TrackRef, _ 
 	f.rec("playitems", refs)
 	return nil
 }
+
 func (f *fakeQueueSvc) PlayNext(_ context.Context, refs []services.TrackRef) error {
 	f.rec("playnext", refs)
 	return nil
 }
+
 func (f *fakeQueueSvc) Append(_ context.Context, refs []services.TrackRef) error {
 	f.rec("append", refs)
 	return nil
 }
+
 func (f *fakeQueueSvc) Insert(_ context.Context, _ int, refs []services.TrackRef) error {
 	f.rec("insert", refs)
 	return nil
 }
+
 func (f *fakeQueueSvc) UndoReplace(context.Context) (bool, error) {
 	f.rec("undo", nil)
 	return true, nil

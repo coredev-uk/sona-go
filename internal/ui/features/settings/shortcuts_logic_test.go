@@ -1,17 +1,14 @@
 package settings
 
 import (
-	"go/ast"
-	"go/parser"
-	"go/token"
 	"maps"
 	"slices"
-	"strconv"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
 
@@ -166,34 +163,32 @@ func TestSpellRefusesKeysNoChordCanName(t *testing.T) {
 // the same key and modifiers: the recorder never produces what the
 // dispatcher would read as another key press.
 func TestEveryKeyAndModifiersRoundTrip(t *testing.T) {
-	if len(keySpecs) != 26+10+12+15+11 {
-		t.Errorf("%d keys in the vocabulary", len(keySpecs))
+	if len(recordable) != 26+10+12+15+11 {
+		t.Errorf("%d keys in the vocabulary", len(recordable))
 	}
 	seen := map[string]ui.Key{}
-	for _, ks := range keySpecs {
+	for _, key := range recordable {
+		name, _ := kit.ChordKeyName(key)
 		for _, mods := range modifierCombos {
-			chord, ok := spell(mods, ks.key)
+			chord, ok := spell(mods, key)
 			if !ok {
-				t.Fatalf("no chord for %s with %v", ks.name, mods)
+				t.Fatalf("no chord for %s with %v", name, mods)
 			}
-			if other, dup := seen[chord]; dup && other != ks.key {
+			if other, dup := seen[chord]; dup && other != key {
 				t.Errorf("%q spells two keys", chord)
 			}
-			seen[chord] = ks.key
+			seen[chord] = key
 			m, k, ok := splitChord(chord)
-			if !ok || m != mods || k != ks.key {
-				t.Errorf("%q reads back as %v, %v, %v; want %v, %v", chord, m, k, ok, mods, ks.key)
+			if !ok || m != mods || k != key {
+				t.Errorf("%q reads back as %v, %v, %v; want %v, %v", chord, m, k, ok, mods, key)
 			}
 			if again, ok := parseChord(chord); !ok || again != chord {
 				t.Errorf("%q is not its own canonical form: %q", chord, again)
 			}
 		}
 	}
-	if len(seen) != len(keySpecs)*len(modifierCombos) {
-		t.Errorf("%d distinct chords, want %d", len(seen), len(keySpecs)*len(modifierCombos))
-	}
-	if len(recordable) != len(keySpecs) {
-		t.Errorf("%d recordable keys", len(recordable))
+	if len(seen) != len(recordable)*len(modifierCombos) {
+		t.Errorf("%d distinct chords, want %d", len(seen), len(recordable)*len(modifierCombos))
 	}
 }
 
@@ -382,51 +377,16 @@ func TestShortcutConflictsCountsTheShortcutsSharingAChord(t *testing.T) {
 	}
 }
 
-// The vocabulary is the dispatcher's (app/shortcuts.go): the page and the
-// shell must read one chord as one key press. app imports this package, so
-// the shell's tables are read from its source: the keys and the modifier
-// names must be the same sets, with "plus" and "?" the two spellings
-// the dispatcher gives Shift to.
-func TestVocabularyIsTheDispatchers(t *testing.T) {
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "../../app/shortcuts.go", nil, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tableKeys := func(name string) []string {
-		var keys []string
-		ast.Inspect(file, func(n ast.Node) bool {
-			spec, ok := n.(*ast.ValueSpec)
-			if !ok || len(spec.Names) != 1 || spec.Names[0].Name != name || len(spec.Values) != 1 {
-				return true
-			}
-			table, ok := spec.Values[0].(*ast.CompositeLit)
-			if !ok {
-				t.Fatalf("%s is not a table", name)
-			}
-			for _, e := range table.Elts {
-				lit, ok := e.(*ast.KeyValueExpr).Key.(*ast.BasicLit)
-				if !ok {
-					t.Fatalf("%s has a key that is not a string literal", name)
-				}
-				key, err := strconv.Unquote(lit.Value)
-				if err != nil {
-					t.Fatal(err)
-				}
-				keys = append(keys, key)
-			}
-			return false
-		})
-		slices.Sort(keys)
-		return keys
-	}
-	want := slices.Sorted(maps.Keys(keysByName))
-	want = append(want, "plus", "?")
-	slices.Sort(want)
-	if got := tableKeys("namedKeys"); !slices.Equal(got, want) {
-		t.Errorf("the dispatcher's keys differ from the recorder's:\n dispatcher %q\n recorder   %q", got, want)
-	}
-	if got, want := tableKeys("modifierNames"), slices.Sorted(maps.Keys(modifierAliases)); !slices.Equal(got, want) {
-		t.Errorf("the dispatcher's modifiers differ:\n dispatcher %q\n page       %q", got, want)
+// The vocabulary is kit's, the dispatcher's too: every key the recorder
+// listens for spells a chord that kit.ParseChord reads back as that key.
+func TestVocabularyIsKits(t *testing.T) {
+	for _, key := range recordable {
+		name, ok := kit.ChordKeyName(key)
+		if !ok {
+			t.Fatalf("key %v has no name", key)
+		}
+		if _, k, ok := kit.ParseChord(name); !ok || k != key {
+			t.Errorf("%q reads as %v, %v; want %v", name, k, ok, key)
+		}
 	}
 }

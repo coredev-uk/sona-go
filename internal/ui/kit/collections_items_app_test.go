@@ -122,7 +122,9 @@ func evidence(t *testing.T, tt *ui.Tester, name string) {
 
 // songItem is an Item holding a playable song.
 func songItem(id, name, artist string, explicit bool) services.Item {
-	s := &services.Song{ID: id, Name: name, Artist: artist, ArtistID: "ar" + id, Explicit: explicit, Playable: true,
-		Art: services.Art{Small: "/art/ks" + id + "/80x80.jpg"}}
+	s := &services.Song{
+		ID: id, Name: name, Artist: artist, ArtistID: "ar" + id, Explicit: explicit, Playable: true,
+		Art: services.Art{Small: "/art/ks" + id + "/80x80.jpg"},
+	}
 	return services.Item{Kind: services.ItemSong, ID: id, Name: name, Song: s}
 }

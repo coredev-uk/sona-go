@@ -362,10 +362,15 @@ func TestIdleMinutesAreSavedAndAnUnlistedValueIsAdded(t *testing.T) {
 	if _, err := p.h.Settings.Update(func(s *config.Settings) { s.EngineIdleMinutes = 7 }); err != nil {
 		t.Fatal(err)
 	}
-	store.Set(p.h.Env.Queries, store.KeySettings, p.h.Settings.Get())
+	// As Go tells the UI of a change it made itself (after the save above
+	// has come back, so its echo can't overwrite this one).
+	p.tt.Drain()
+	p.h.Bus.Emit(services.EventSettingsChanged, p.h.Settings.Get())
 	p.shows("After 7 minutes")
-	p.focus("Free memory when idle")
-	p.tt.Key(0, ui.KeyEnter)
+	// Open the list from its trigger, which now reads the unlisted value.
+	if err := p.tt.Click("After 7 minutes"); err != nil {
+		t.Fatal(err)
+	}
 	p.shows("After 5 minutes", "After 15 minutes")
 }
 
@@ -526,29 +531,4 @@ func TestWidevineFollowsTheSharedMirror(t *testing.T) {
 	p.shows("Downloading…")
 	store.Set(p.h.Env.Queries, store.KeyCDM, services.CDMStatus{State: "ready", Version: "9.9"})
 	p.tt.Until("ready", p.tt.Shows("Version 9.9"))
-}
-
-func TestBytesAndProgress(t *testing.T) {
-	if got := formatBytes(42); got != "42 B" {
-		t.Errorf("bytes: %q", got)
-	}
-	if got := formatBytes(5 * 1024 * 1024); got != "5 MB" && got != "5.0 MB" {
-		t.Errorf("MB: %q", got)
-	}
-	if f, ok := cdmProgress(services.CDMStatus{Received: 150, Total: 100}); !ok || f != 1 {
-		t.Errorf("progress %v %v", f, ok)
-	}
-	if _, ok := cdmProgress(services.CDMStatus{Received: 5}); ok {
-		t.Error("unknown size has progress")
-	}
-	for _, st := range []services.CDMStatus{{State: "failed", Code: "network"}, {State: "ready", Code: "disk"}} {
-		if !canRetryCDM(st) {
-			t.Errorf("%+v", st)
-		}
-	}
-	for _, st := range []services.CDMStatus{{}, {State: "downloading", Code: "network"}, {State: "failed", Code: "unsupported_platform"}, {State: "ready", Code: "network", Updating: true}} {
-		if canRetryCDM(st) {
-			t.Errorf("%+v", st)
-		}
-	}
 }

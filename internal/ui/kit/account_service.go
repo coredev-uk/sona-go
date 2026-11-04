@@ -42,9 +42,10 @@ func setPrivate(cl *store.Client, set func(on bool) (services.PrivateState, erro
 // RetryCDM asks Go to download the Widevine CDM, or check for an update, now
 // (CDMService.Retry); "cdm:status" follows. A failure toasts "Couldn't start
 // the Widevine download".
-func RetryCDM(core *services.Core) { retryCDM(services.Service[services.CDMService](core).Retry) }
+func RetryCDM(core *services.Core) { RetryCDMWith(services.Service[services.CDMService](core).Retry) }
 
-func retryCDM(retry func() error) {
+// RetryCDMWith is RetryCDM over retry (CDMService.Retry, or a test's).
+func RetryCDMWith(retry func() error) {
 	go func() {
 		if err := retry(); err != nil {
 			ToastErrorf(i18n.T("Couldn't start the Widevine download"), i18n.ErrorText(services.CodeOf(err)))

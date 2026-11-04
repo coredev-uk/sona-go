@@ -109,15 +109,13 @@ func TestHomeWhileRestoringIsALoadingLeadNotTheSignedOutState(t *testing.T) {
 	}
 	// Once the sign-in is read, Home loads.
 	r.disc.set(func(f *fakeDiscover) { f.page = samplePage() })
-	r.auth.set(signedIn)
 	r.emit(services.EventAuthChanged, signedIn)
 	r.until("the page", "Top Picks for You")
 	requireNoTexts(t, r, "Loading")
 }
 
 func TestHomeShowsOnlyItsHeaderUntilTheSignInStateIsKnown(t *testing.T) {
-	r := newRig(t, "/", 1132, 1000, withGatedAuth())
-	t.Cleanup(func() { close(r.auth.gate) })
+	r := newRig(t, "/", 1132, 1000, withUnknownAuth())
 	for range 4 {
 		r.tt.Drain()
 	}
@@ -255,7 +253,6 @@ func TestRefreshIsHiddenOfflineAndSignedOut(t *testing.T) {
 	// Going offline hides it (Go renews Home when it reconnects).
 	st := signedIn
 	st.Offline = true
-	r.auth.set(st)
 	r.emit(services.EventAuthChanged, st)
 	r.tt.Until("no refresh", r.gone("Refresh"))
 	requireTexts(t, r, "Top Picks for You")
@@ -293,7 +290,6 @@ func TestSigningOutShowsTheSignedOutHome(t *testing.T) {
 	r := newRig(t, "/", 1132, 1253, withHome(samplePage()))
 	r.until("the page", "Top Picks for You")
 	out := services.AuthStatus{State: "signed_out"}
-	r.auth.set(out)
 	r.emit(services.EventAuthChanged, out)
 	r.tt.Until("signed out", r.tt.Shows("Recommendations need Apple Music"))
 	requireNoTexts(t, r, "Top Picks for You", "Refresh")

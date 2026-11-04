@@ -7,6 +7,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/account"
 	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
@@ -307,7 +308,7 @@ func (s *search) catalogResults(c *ui.Context, pane *kit.Pane, q string) {
 	case res.Err != nil && !res.HasData:
 		code := services.CodeOf(res.Err)
 		state, _ := s.authStatus()
-		if !hasAccount(state) && (code == services.CodeNotFound || code == services.CodeUnauthorized) {
+		if !account.HasAccount(state) && (code == services.CodeNotFound || code == services.CodeUnauthorized) {
 			var action *kit.EmptyAction
 			if s.env.Surfaces != nil {
 				action = &kit.EmptyAction{Label: i18n.T("Sign in"), Run: s.env.Surfaces.OpenAccount}
@@ -374,7 +375,7 @@ func (s *search) catalogSection(c *ui.Context, pane *kit.Pane, ctx kit.ItemsCtx,
 		kit.Shelf(c, kit.ShelfOpts{Title: title, First: first, More: s.seeAll(more)}, func() {
 			s.songList(c, &v.songs, &v.songMenus, pane, ctx, songs, 0, i18n.T("Songs matching {q}", "q", q), func(i int) {
 				s.opened(q, scopeCatalog)(from[i])
-				s.playSongs(songs, i, searchFrom)
+				s.env.Queue.PlaySongs(songs, i, searchFrom)
 			})
 			if v.claim() {
 				v.songs.Nav().Want(0)
@@ -448,7 +449,7 @@ func (s *search) libraryResults(c *ui.Context, pane *kit.Pane, q string) {
 		}}, func() {
 			s.songList(c, &v.libSongs, &v.libSongMenus, pane, ctx, shown, 0, i18n.T("Library songs matching {q}", "q", q), func(i int) {
 				s.rememberTerm(q, scopeLibrary)
-				s.playSongs(r.Songs, i, searchFrom)
+				s.env.Queue.PlaySongs(r.Songs, i, searchFrom)
 			})
 			if v.claim() {
 				v.libSongs.Nav().Want(0)

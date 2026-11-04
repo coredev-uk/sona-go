@@ -66,12 +66,15 @@ func newVideosRig(t *testing.T, videos []services.MusicVideo, canPlay bool, opts
 	t.Helper()
 	plays := &videoPlays{}
 	r := newGridRig(t, videosPath, func(l *library, s *gridStub) {
-		l.auth = gridAuth{"signed_in"}
+		fakeAuth(l, gridAuth{"signed_in"})
 		s.videos = videos
 		plays.playbackAPI = l.play
 		l.play = plays
 		if canPlay {
-			l.videos.canPlay = func() bool { return true }
+			l.env.Players.RegisterVideo(func(services.MusicVideo) {})
+			l.env.Players.Capabilities = func() *services.Capabilities {
+				return &services.Capabilities{Playback: services.PlaybackCapabilities{Video: true}}
+			}
 		}
 	}, opts...)
 	return r, plays
@@ -107,7 +110,7 @@ func TestMusicVideosAreReadAHundredAtATime(t *testing.T) {
 
 func TestMusicVideosLoadingShowsNoStateYet(t *testing.T) {
 	r := newGridRig(t, videosPath, func(l *library, s *gridStub) {
-		l.auth = gridAuth{"signed_in"}
+		fakeAuth(l, gridAuth{"signed_in"})
 		s.videos = videoFixtures(2)
 		s.hold = make(chan struct{})
 	})
@@ -158,6 +161,7 @@ func TestMusicVideosPlayOnlyWhereVideosPlay(t *testing.T) {
 	if got := plays.refs[0][0]; got.ID != "v.1" || got.Kind != services.TrackKindVideo {
 		t.Errorf("the queue's item is %+v, want the video v.1", got)
 	}
+	p.tt.Until("the video view opened", p.h.Env.Video.IsOpen)
 	if got := p.router.Location(); got != videosPath {
 		t.Errorf("playing navigated to %q (the video view is the video page's)", got)
 	}
@@ -190,7 +194,7 @@ func TestMusicVideoTilesOpenTheirPage(t *testing.T) {
 	}
 
 	bare := newGridRig(t, videosPath, func(l *library, s *gridStub) {
-		l.auth = gridAuth{"signed_in"}
+		fakeAuth(l, gridAuth{"signed_in"})
 		s.videos = videoFixtures(2)
 		l.env.HasRoute = func(string) bool { return false }
 	})

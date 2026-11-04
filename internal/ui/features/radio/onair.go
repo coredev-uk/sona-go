@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -151,7 +152,7 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 				return
 			}
 			if hasRun {
-				left := runningTime(max(60_000, run.endMs-now))
+				left := i18n.FormatRunningTime(time.Duration(max(60_000, run.endMs-now)) * time.Millisecond)
 				fill := theme.C("ink-muted")
 				if tuned && ctx.Playing {
 					fill = theme.C("play")

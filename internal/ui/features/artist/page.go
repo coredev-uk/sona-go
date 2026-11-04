@@ -210,10 +210,10 @@ func (a *artist) catalogArtist(c *ui.Context, pg *pageState, page *services.Cata
 				Disabled:  !anyPlayable(page.TopSongs),
 			})
 			if play {
-				a.queue.PlaySongs(page.TopSongs, 0, from(art.ID))
+				a.env.Queue.PlaySongs(page.TopSongs, 0, from(art.ID))
 			}
 			if shuffle {
-				a.queue.ShuffleSongs(page.TopSongs, from(art.ID))
+				a.env.Queue.ShuffleSongs(page.TopSongs, from(art.ID))
 			}
 		}
 		a.headerActions(c, pg, page.Artist)
@@ -225,7 +225,7 @@ func (a *artist) catalogArtist(c *ui.Context, pg *pageState, page *services.Cata
 // headerActions are the rating buttons and the header's item menu of an
 // artist the catalogue knows.
 func (a *artist) headerActions(c *ui.Context, pg *pageState, art services.Artist) {
-	a.states.RatingButtons(c, kit.StateArtists, kit.StateItem{ID: art.ID, Source: art.Source, CatalogID: art.CatalogID, LibraryID: art.LibraryID}, art.Name)
+	a.env.ItemStates.RatingButtons(c, kit.StateArtists, kit.StateItem{ID: art.ID, Source: art.Source, CatalogID: art.CatalogID, LibraryID: art.LibraryID}, art.Name)
 	if pg.head == nil {
 		pg.head = kit.NewActionMenus(a.env.Actions, nil)
 	}
@@ -268,10 +268,10 @@ func (a *artist) libraryArtist(c *ui.Context, pg *pageState, d *services.ArtistD
 		if len(d.Songs) > 0 {
 			play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: art.Name, Shuffle: true, Disabled: !anyPlayable(d.Songs)})
 			if play {
-				a.queue.PlaySongs(d.Songs, 0, from(art.ID))
+				a.env.Queue.PlaySongs(d.Songs, 0, from(art.ID))
 			}
 			if shuffle {
-				a.queue.ShuffleSongs(d.Songs, from(art.ID))
+				a.env.Queue.ShuffleSongs(d.Songs, from(art.ID))
 			}
 		}
 		if page != nil {
@@ -310,7 +310,7 @@ func (a *artist) tracks(c *ui.Context, st *tracksState, songs []services.Song, s
 	o := kit.TrackListOpts{
 		Label:      label,
 		Columns:    kit.TrackColumns{RowNumbers: true, Artwork: true, Album: true},
-		OnPlay:     func(i int) { a.queue.PlaySongs(songs, i, src) },
+		OnPlay:     func(i int) { a.env.Queue.PlaySongs(songs, i, src) },
 		Current:    current,
 		Playing:    cur.State == "playing",
 		Restricted: a.restricted(),

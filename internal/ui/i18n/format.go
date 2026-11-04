@@ -2,6 +2,7 @@ package i18n
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -63,6 +64,27 @@ func FormatDuration(d time.Duration) string {
 		return fmt.Sprintf("%d:%02d:%02d", h, m, s)
 	}
 	return fmt.Sprintf("%d:%02d", m, s)
+}
+
+// FormatBytes writes a size as "12.4 MB" in the shown language's numbers
+// (v0.2.0's formatBytes): whole bytes below a kilobyte, then one digit under
+// ten of a unit and none from there; units are B, kB, MB, GB.
+func FormatBytes(n int64) string {
+	if n < 1024 {
+		return FormatNumber(float64(max(n, 0))) + " B"
+	}
+	v, i := float64(n)/1024, 0
+	units := [...]string{"kB", "MB", "GB"}
+	for v >= 1024 && i < len(units)-1 {
+		v /= 1024
+		i++
+	}
+	if v < 10 {
+		v = math.Round(v*10) / 10
+	} else {
+		v = math.Round(v)
+	}
+	return FormatNumber(v) + " " + units[i]
 }
 
 // listWords are the words and punctuation that join a list in a language,

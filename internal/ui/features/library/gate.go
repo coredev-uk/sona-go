@@ -3,6 +3,7 @@ package library
 import (
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/ui/account"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
@@ -118,7 +119,7 @@ func (l *library) gate(c *ui.Context, o gateOpts) bool {
 	}
 	running, _, _, _ := l.sync.state()
 	switch {
-	case signedOut(auth.Data.State):
+	case account.IsSignedOut(auth.Data.State):
 		kit.EmptyState(c, words.signIn,
 			i18n.T("Sona copies your Apple Music library to this computer after you sign in, so it opens instantly and works offline."),
 			kit.EmptyOpts{Frame: o.frame, Action: l.signIn()})

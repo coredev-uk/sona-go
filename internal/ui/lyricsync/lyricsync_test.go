@@ -181,10 +181,20 @@ func TestSingingLines(t *testing.T) {
 		at   int64
 		want []int
 	}{
-		{-1, nil}, {0, []int{0}}, {1999, []int{0}}, {2000, []int{1}},
-		{4000, []int{1, 2}}, {4499, []int{1, 2}}, {4500, []int{2}},
-		{7000, []int{2}}, {8000, []int{3}}, {9499, []int{3}}, {9500, nil},
-		{8500, []int{3}}, {500, []int{0}}, {4200, []int{1, 2}},
+		{-1, nil},
+		{0, []int{0}},
+		{1999, []int{0}},
+		{2000, []int{1}},
+		{4000, []int{1, 2}},
+		{4499, []int{1, 2}},
+		{4500, []int{2}},
+		{7000, []int{2}},
+		{8000, []int{3}},
+		{9499, []int{3}},
+		{9500, nil},
+		{8500, []int{3}},
+		{500, []int{0}},
+		{4200, []int{1, 2}},
 	} {
 		if got := SingingLines(spans, c.at); !reflect.DeepEqual(got, c.want) {
 			t.Errorf("SingingLines(%d) = %v, want %v", c.at, got, c.want)
