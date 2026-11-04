@@ -11,6 +11,7 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -52,6 +53,9 @@ type Options struct {
 	Version string
 	// Dev is a -tags dev build.
 	Dev bool
+	// Now is the clock the playback mirror extrapolates the position with;
+	// nil is time.Now. Tests over uitest pass its fake clock.
+	Now func() time.Time
 	// StartPath overrides the page the window opens on (the settings'
 	// start page, else the first sidebar link).
 	StartPath string
@@ -126,7 +130,7 @@ func newApp(opts Options, factories []module.Factory) *App {
 		Core:    opts.Core,
 		Bus:     opts.Bus,
 		Queries: store.NewClient(post),
-		Play:    store.NewPlayback(opts.Bus, nil),
+		Play:    store.NewPlayback(opts.Bus, opts.Now),
 		Art:     kit.NewArtLoader(opts.Art, post),
 		Post:    post,
 		Log:     a.log,

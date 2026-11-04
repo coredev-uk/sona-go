@@ -50,6 +50,7 @@ func newShell(t *testing.T, o Options, f ...module.Factory) (*App, *uitest.Sessi
 func newShellPaints(t *testing.T, o Options, paints *int, f ...module.Factory) (*App, *uitest.Session) {
 	t.Helper()
 	h := uitest.New(t, uitest.Bare()) // the light theme, restored afterwards
+	o.Now = h.Clock.Now
 	a := newApp(o, f)
 	a.firstPaint = func() { *paints++ }
 	t.Cleanup(a.env.Art.Close)

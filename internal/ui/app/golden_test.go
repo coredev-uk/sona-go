@@ -20,7 +20,7 @@ func TestShellAlbumsGolden(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := uitest.New(t, tc.opts...)
-			a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Art: h.Art}, factories)
+			a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Art: h.Art, Now: h.Clock.Now}, factories)
 			t.Cleanup(func() { a.env.Art.Close(); a.env.Art.Wait() })
 			a.firstPaint = nil // the network stays closed
 			a.connect()

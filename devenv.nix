@@ -160,7 +160,8 @@ in
     headless.exec = ''bash e2e/headless.sh "$@"'';
     e2e.exec = ''headless -- go test -tags e2e -count=1 ./e2e/... "$@"'';
     # The Albums scroll probe in the app's own process (CONTRIBUTING.md,
-    # "Measuring UI performance"); run it as `headless -- probe`.
+    # "Measuring UI performance"), in `headless` on a profile whose covers
+    # are cached or reachable (the e2e fixture's are not, outside e2e).
     probe.exec = ''
       set -e
       go build -tags probe,sqlite_fts5 -o bin/sona-probe ./cmd/sona

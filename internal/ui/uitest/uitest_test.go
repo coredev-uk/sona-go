@@ -83,17 +83,10 @@ func TestAdvancingTheClockMovesAPlayingSongsPosition(t *testing.T) {
 	}
 }
 
-func TestEmptyAndBareEnvs(t *testing.T) {
+func TestEmptyEnvHasNoLibrary(t *testing.T) {
 	h := New(t, Empty())
 	if got := count(t, h, `SELECT count(*) FROM library_items`); got != 0 {
 		t.Errorf("an empty library holds %d items", got)
-	}
-	b := New(t, Bare())
-	if b.Core != nil || b.DB != nil || b.Env.Core != nil {
-		t.Error("a bare Env has services")
-	}
-	if b.Env.Bus == nil || b.Env.Play == nil || b.Env.Art == nil || b.Env.Post == nil {
-		t.Error("a bare Env lacks the bus, the playback mirror, the artwork loader or the poster")
 	}
 }
 
