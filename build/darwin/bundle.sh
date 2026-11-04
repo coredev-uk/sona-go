@@ -89,20 +89,28 @@ iconutil -c icns "$iconset" -o "$app/Contents/Resources/Sona.icns"
 fw=$app/Contents/Frameworks/GStreamer
 # (no dots in folder names: codesign takes "gstreamer-1.0" for a bundle)
 mkdir -p "$fw/lib/plugins" "$fw/libexec"
-cp "$gst/libexec/gstreamer-1.0/gst-plugin-scanner" "$fw/libexec/"
+# put SRC DST copies a framework file and thins it to arm64 (the framework's
+# libraries are universal; Apple silicon only needs one slice).
+put() {
+  cp "$1" "$2"
+  case $(lipo -archs "$2" 2>/dev/null) in
+  *x86_64*arm64* | *arm64*x86_64*) lipo -thin arm64 "$2" -output "$2.thin" && mv "$2.thin" "$2" ;;
+  esac
+}
+put "$gst/libexec/gstreamer-1.0/gst-plugin-scanner" "$fw/libexec/gst-plugin-scanner"
 for p in "${required[@]}"; do
   [[ -f $gst/lib/gstreamer-1.0/libgst$p.dylib ]] || { echo "bundle: required plugin $p is missing from $gst" >&2; exit 1; }
-  cp "$gst/lib/gstreamer-1.0/libgst$p.dylib" "$fw/lib/plugins/"
+  put "$gst/lib/gstreamer-1.0/libgst$p.dylib" "$fw/lib/plugins/libgst$p.dylib"
 done
 for p in "${optional[@]}"; do
-  [[ -f $gst/lib/gstreamer-1.0/libgst$p.dylib ]] && cp "$gst/lib/gstreamer-1.0/libgst$p.dylib" "$fw/lib/plugins/"
+  if [[ -f $gst/lib/gstreamer-1.0/libgst$p.dylib ]]; then put "$gst/lib/gstreamer-1.0/libgst$p.dylib" "$fw/lib/plugins/libgst$p.dylib"; fi
 done
 
 # deps FILE prints each dependency's install name (not the file's own id).
 deps() {
   local id
   id=$(otool -D "$1" | tail -n +2)
-  otool -L "$1" | tail -n +2 | awk '{print $1}' | { grep -vxF -- "${id:-/nonexistent}" || true; }
+  otool -L "$1" | grep -E '^[[:space:]]' | awk '{print $1}' | { grep -vxF -- "${id:-/nonexistent}" || true; }
 }
 # fwpath resolves an install name to the file in the framework, or nothing
 # for a system library; a path outside the framework and the system fails.
@@ -131,17 +139,10 @@ for ((i = 0; i < ${#queue[@]}; i++)); do
     n=${s##*/}
     [[ $seen == *" $n "* ]] && continue
     seen+="$n "
-    [[ -e $fw/lib/$n ]] || cp "$s" "$fw/lib/$n"
+    [[ -e $fw/lib/$n ]] || put "$s" "$fw/lib/$n"
     queue+=("$fw/lib/$n")
   done < <(deps "$f")
 done
-
-# Apple silicon only: the framework's libraries are universal.
-while IFS= read -r -d '' f; do
-  if [[ $(lipo -archs "$f" 2>/dev/null) == *x86_64*arm64* || $(lipo -archs "$f" 2>/dev/null) == *arm64*x86_64* ]]; then
-    lipo -thin arm64 "$f" -output "$f.thin" && mv "$f.thin" "$f"
-  fi
-done < <(find "$fw" -type f \( -name '*.dylib' -o -name gst-plugin-scanner \) -print0)
 
 # 4. Relocate: every framework dependency becomes a path relative to the
 # file that loads it.
