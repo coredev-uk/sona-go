@@ -1,6 +1,8 @@
 package playlist
 
 import (
+	"strings"
+
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
@@ -76,8 +78,11 @@ func (p *playlists) collaboratorsByline(c *ui.Context, collab services.PlaylistC
 	st := &p.page.collab
 	tk := theme.Current()
 	label := collaboratorsLabel(collab)
-	btn := ui.ButtonBase(c.Key("collaborators")).Row().AlignItems(ui.Center).Gap(10).Margin(0, 0, 0, -4).Padding(2, 4).
-		Radius(tk.Radius["md"]).MinWidth(0).Tooltip(i18n.T("View playlist collaborators")).Description(i18n.T("View playlist collaborators"))
+	// A menu button, the nearest MyGo has to aria-haspopup="dialog"; named by
+	// the words alone (the faces' initials stay out of the name) and
+	// described once, by the tooltip.
+	btn := ui.ButtonBase(c.Key("collaborators")).Role(ui.RoleMenuButton).Label(label).Row().AlignItems(ui.Center).Gap(10).Margin(0, 0, 0, -4).Padding(2, 4).
+		Radius(tk.Radius["md"]).MinWidth(0).Tooltip(i18n.T("View playlist collaborators"))
 	hovered := btn.Hovered()
 	btn.Children(func() {
 		faces := ui.Row(c.Key("faces")).Shrink(0).Role(ui.RoleNone)
@@ -113,13 +118,13 @@ func (p *playlists) collaboratorsDialog(c *ui.Context, collab services.PlaylistC
 	kit.Dialog(c, &st.open, kit.DialogOpts{
 		Title: i18n.T("Collaborators"), Description: desc, MaxWidth: 420, Padding: 20, Gap: 20,
 	}, func() {
-		p.peopleList(c, "people", collab.Collaborators, collab.OwnerID)
+		p.peopleList(c, "people", i18n.T("Collaborators"), collab.Collaborators, collab.OwnerID)
 		if len(collab.Former) > 0 {
-			ui.Column(c.Key("former")).Gap(8).Role(ui.RoleGroup).Label(i18n.T("Former collaborators")).Children(func() {
+			ui.Column(c.Key("former")).Gap(8).Role(ui.RoleGroup).Children(func() {
 				tk := theme.Current()
 				ui.Text(c, i18n.T("Former collaborators")).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).
 					FontWeight(600).TextColor(theme.C("ink-muted")).SingleLine().Role(ui.RoleHeading).Level(3)
-				p.peopleList(c, "former-people", collab.Former, "")
+				p.peopleList(c, "former-people", i18n.T("Former collaborators"), collab.Former, "")
 			})
 		}
 	})
@@ -128,43 +133,61 @@ func (p *playlists) collaboratorsDialog(c *ui.Context, collab services.PlaylistC
 // peopleList is one scrollable list of people: round picture, name or
 // @handle with the @handle under it, an "Owner" tag on the owner, each a link
 // to the person's profile where Sona has the page.
-func (p *playlists) peopleList(c *ui.Context, key string, people []services.SocialProfile, ownerID string) {
+func (p *playlists) peopleList(c *ui.Context, key, label string, people []services.SocialProfile, ownerID string) {
 	tk := theme.Current()
 	_, wh := c.Size()
 	linked := p.hasRoute("/profile/x")
 	ui.Scroll(c.Key(key)).MaxHeight(min(wh*0.6, 420)).Margin(0, -8).Children(func() {
-		ui.Column(c).Children(func() {
+		ui.Column(c).Role(ui.RoleList).Label(label).Children(func() {
 			for _, pr := range people {
-				var row ui.Element
-				if linked {
-					row = ui.ButtonBase(c.Key(pr.ID)).Role(ui.RoleLink).Label(personName(pr)).Cursor(ui.CursorPointer)
-				} else {
-					row = ui.Row(c.Key(pr.ID)).Role(ui.RoleListItem)
-				}
-				row.Row().AlignItems(ui.Center).Gap(12).Padding(6, 8).Radius(tk.Radius["md"]).FillWidth()
-				if linked && row.Hovered() {
-					row.Background(theme.C("hover"))
-				}
-				row.Children(func() {
-					kit.PersonAvatar(c, p.env.Art, personName(pr), pr.Art.Small, 40)
-					ui.Column(c.Key("names")).Grow(1).Basis(0).MinWidth(0).Children(func() {
-						ui.Text(c, personName(pr)).FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).
-							TextColor(theme.C("ink")).SingleLine()
-						if pr.Name != "" && pr.Handle != "" {
-							ui.Text(c, "@"+pr.Handle).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).
-								TextColor(theme.C("ink-muted")).SingleLine()
+				// A person is a list item; a link to their profile is its
+				// only child, named by everything the row shows.
+				item := ui.Column(c.Key(pr.ID)).FillWidth().Role(ui.RoleListItem)
+				item.Children(func() {
+					var row ui.Element
+					if linked {
+						row = ui.ButtonBase(c.Key("link")).Role(ui.RoleLink).Label(personLabel(pr, pr.ID == ownerID)).Cursor(ui.CursorPointer)
+					} else {
+						row = ui.Row(c.Key("row"))
+					}
+					row.Row().AlignItems(ui.Center).Gap(12).Padding(6, 8).Radius(tk.Radius["md"]).FillWidth()
+					if linked && row.Hovered() {
+						row.Background(theme.C("hover"))
+					}
+					row.Children(func() {
+						kit.PersonAvatar(c, p.env.Art, personName(pr), pr.Art.Small, 40)
+						ui.Column(c.Key("names")).Grow(1).Basis(0).MinWidth(0).Children(func() {
+							ui.Text(c, personName(pr)).FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).
+								TextColor(theme.C("ink")).SingleLine()
+							if pr.Name != "" && pr.Handle != "" {
+								ui.Text(c, "@"+pr.Handle).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).
+									TextColor(theme.C("ink-muted")).SingleLine()
+							}
+						})
+						if pr.ID == ownerID {
+							ui.Text(c, i18n.T("Owner")).FontSize(tk.Type["meta"].Size).FixedLineHeight(tk.Type["meta"].LineHeight).
+								TextColor(theme.C("ink-faint")).SingleLine().Shrink(0)
 						}
 					})
-					if pr.ID == ownerID {
-						ui.Text(c, i18n.T("Owner")).FontSize(tk.Type["meta"].Size).FixedLineHeight(tk.Type["meta"].LineHeight).
-							TextColor(theme.C("ink-faint")).SingleLine().Shrink(0)
+					if linked && row.Clicked() {
+						p.page.collab.open = false
+						p.env.Nav.Push("/profile/" + pr.ID)
 					}
 				})
-				if linked && row.Clicked() {
-					p.page.collab.open = false
-					p.env.Nav.Push("/profile/" + pr.ID)
-				}
 			}
 		})
 	})
+}
+
+// personLabel is a person's name as a link reads it: the name, the @handle
+// under it and the Owner tag, all the row shows.
+func personLabel(pr services.SocialProfile, owner bool) string {
+	parts := []string{personName(pr)}
+	if pr.Name != "" && pr.Handle != "" {
+		parts = append(parts, "@"+pr.Handle)
+	}
+	if owner {
+		parts = append(parts, i18n.T("Owner"))
+	}
+	return strings.Join(parts, " ")
 }

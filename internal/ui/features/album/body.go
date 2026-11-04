@@ -244,7 +244,6 @@ func (a *album) actions(c *ui.Context, m *model, account bool) {
 			}
 		}
 		kit.RemindButton(c, a.env.Queries, a.env.Core, al)
-		kit.RemindButton(c, a.env.Queries, a.env.Core, al)
 		if account {
 			a.env.ItemStates.LibraryButton(c, kit.StateAlbums, item, al.Name, i18n.T("Pre-add"))
 		}
@@ -316,23 +315,26 @@ func (a *album) discIndex(c *ui.Context, m *model) {
 		for _, d := range m.discs {
 			count := catalogueLine("", "", d.songs, d.durationMs)
 			name := i18n.T("Disc {disc}", "disc", d.number)
-			btn := ui.ButtonBase(c.Key("disc-" + strconv.Itoa(d.number))).Height(32).FillWidth().PaddingX(8).
-				Radius(tk.Radius["md"]).Label(name + " · " + count)
-			bg := ui.Transparent
-			if btn.Hovered() {
-				bg = theme.C("ink").Alpha(0.06)
-			}
-			btn.Background(bg)
-			btn.Children(func() {
-				ui.Row(c).MinWidth(0).AlignItems(ui.Center).Children(func() {
-					typed(c, name, "sub").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Shrink(0)
-					typed(c, "\u00a0· "+count, "sub").TextColor(theme.C("ink-muted")).SingleLine().Shrink(1).MinWidth(0)
+			// A list holds items: the button is the item's only child.
+			ui.Column(c.Key("item-" + strconv.Itoa(d.number))).FillWidth().Role(ui.RoleListItem).Children(func() {
+				btn := ui.ButtonBase(c.Key("disc-" + strconv.Itoa(d.number))).Height(32).FillWidth().PaddingX(8).
+					Radius(tk.Radius["md"]).Label(name + " · " + count)
+				bg := ui.Transparent
+				if btn.Hovered() {
+					bg = theme.C("ink").Alpha(0.06)
+				}
+				btn.Background(bg)
+				btn.Children(func() {
+					ui.Row(c).MinWidth(0).AlignItems(ui.Center).Children(func() {
+						typed(c, name, "sub").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Shrink(0)
+						typed(c, "\u00a0· "+count, "sub").TextColor(theme.C("ink-muted")).SingleLine().Shrink(1).MinWidth(0)
+					})
 				})
+				if btn.Clicked() && a.list.at != nil {
+					// The disc's heading sits 16 DIPs from the pane's top.
+					a.tracks.ScrollToBlock(&kit.Pane{Pos: &a.pos, Bounds: a.paneRect}, &a.list.opts, a.list.count, a.list.at, d.first, 16)
+				}
 			})
-			if btn.Clicked() && a.list.at != nil {
-				// The disc's heading sits 16 DIPs from the pane's top.
-				a.tracks.ScrollToBlock(&kit.Pane{Pos: &a.pos, Bounds: a.paneRect}, &a.list.opts, a.list.count, a.list.at, d.first, 16)
-			}
 		}
 	})
 }

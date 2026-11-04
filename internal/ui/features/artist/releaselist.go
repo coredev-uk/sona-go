@@ -21,6 +21,8 @@ const (
 	releaseRowH  = releaseCover + 12
 	releasePadX  = 8
 	releaseGap   = 12
+	// releaseMore is the size of a row's More button.
+	releaseMore = 24
 	// releaseColGap is the gap between the list's columns.
 	releaseColGap = 24
 )
@@ -90,6 +92,18 @@ func (a *artist) releaseList(c *ui.Context, st *releaseList, albums []*services.
 	})
 }
 
+// releaseDescription is what the lines under a release's title say, read as
+// its description: the year and kind, and the explicit mark.
+func releaseDescription(line string, explicit bool) string {
+	if explicit {
+		if line == "" {
+			return i18n.T("Explicit")
+		}
+		return line + " · " + i18n.T("Explicit")
+	}
+	return line
+}
+
 // releaseLine is the line under a release's title.
 func releaseLine(al services.Album, kind string, byArtist bool, now time.Time) string {
 	when := releaseBadge(al, now)
@@ -124,7 +138,7 @@ func (a *artist) releaseRow(c *ui.Context, st *releaseList, i int, al *services.
 	hover := theme.C("hover")
 	if al == nil {
 		ui.Row(c.Key("loading-" + strconv.Itoa(i))).Height(releaseRowH).Shrink(0).PaddingX(releasePadX).Gap(releaseGap).
-			AlignItems(ui.Center).Role(ui.RoleRow).Label(i18n.T("Loading")).Children(func() {
+			AlignItems(ui.Center).Role(ui.RoleNone).Children(func() {
 			ui.Box(c).Size(releaseCover, releaseCover).Shrink(0).Radius(tk.Radius["sm"]).Background(hover)
 			ui.Column(c).Grow(1).Gap(6).Children(func() {
 				ui.Box(c).WidthPercent(60).Height(14).Radius(tk.Radius["sm"]).Background(hover)
@@ -141,73 +155,89 @@ func (a *artist) releaseRow(c *ui.Context, st *releaseList, i int, al *services.
 	opens := a.has(path)
 	target := kit.ActionTarget{Item: kit.AlbumItem(*al), Name: al.Name, Key: al.ID}
 
-	_, src := kit.DragItem(c, kit.DragOpts{
-		Key:    al.ID,
-		Scope:  st,
-		Index:  i,
-		Art:    a.env.Art,
-		Row:    true,
-		Button: true,
-		Payload: func() *kit.DragPayload {
-			if withheld {
-				return nil
-			}
-			items, _, group := st.sel.GroupWith(al.ID)
-			label := title
-			if group {
-				label = kit.DescribeItems(items)
-			} else {
-				items = []kit.Item{kit.AlbumItem(*al)}
-			}
-			return &kit.DragPayload{Items: items, Label: label, Art: al.Art.Medium}
-		},
-		Outer: func(w ui.Element) {
-			w.Height(releaseRowH).Shrink(0).Role(ui.RoleCell).Checked(selected)
-			if withheld {
-				w.Opacity(0.5).Tooltip(i18n.T("Explicit content is restricted on this account"))
-			}
-			bg := hover.Alpha(0)
-			switch {
-			case selected:
-				bg = theme.C("ink").Alpha(0.12)
-			case w.Hovered():
-				bg = hover
-			}
-			radius := tk.Radius["md"]
-			w.Draw(func(p *ui.Painter, r ui.Rect) {
-				if bg.A > 0 {
-					p.Fill(r, bg, radius)
+	// A release is a row of one cell (v0.2.0's grid): the cell is the opener
+	// and carries the selection, the more button beside it.
+	var src ui.Element
+	ui.Column(c.Key("row:" + al.ID)).Shrink(0).Role(ui.RoleRow).Children(func() {
+		_, src = kit.DragItem(c, kit.DragOpts{
+			Key:    al.ID,
+			Scope:  st,
+			Index:  i,
+			Art:    a.env.Art,
+			Row:    true,
+			Button: true,
+			Payload: func() *kit.DragPayload {
+				if withheld {
+					return nil
+				}
+				items, _, group := st.sel.GroupWith(al.ID)
+				label := title
+				if group {
+					label = kit.DescribeItems(items)
+				} else {
+					items = []kit.Item{kit.AlbumItem(*al)}
+				}
+				return &kit.DragPayload{Items: items, Label: label, Art: al.Art.Medium}
+			},
+			Outer: func(w ui.Element) {
+				w.Height(releaseRowH).Shrink(0).Role(ui.RoleCell).Checked(selected)
+				if withheld {
+					w.Opacity(0.5).Tooltip(i18n.T("Explicit content is restricted on this account"))
+				}
+				bg := hover.Alpha(0)
+				switch {
+				case selected:
+					bg = theme.C("ink").Alpha(0.12)
+				case w.Hovered():
+					bg = hover
+				}
+				radius := tk.Radius["md"]
+				w.Draw(func(p *ui.Painter, r ui.Rect) {
+					if bg.A > 0 {
+						p.Fill(r, bg, radius)
+					}
+				})
+			},
+			Source: func(s ui.Element) {
+				// The more button is beside the source (After), not in it: its
+				// room is the padding at the end.
+				s.Padding(0, releasePadX+releaseMore+releaseGap, 0, releasePadX).Gap(releaseGap).Radius(tk.Radius["md"]).Label(title)
+				// What the lines under the title say rides in the
+				// description: the source is one piece for assistive
+				// technology.
+				if desc := releaseDescription(line, al.Explicit); desc != "" {
+					s.Description(desc)
+				}
+				if opens {
+					s.Role(ui.RoleLink)
+				} else {
+					s.Role(ui.RoleButton)
+				}
+			},
+			After: func(w, s ui.Element) {
+				hot := w.Hovered() || w.FocusWithin()
+				st.menus.Trigger(c.Key("more"), target, kit.TriggerOpts{Visible: hot}).
+					Absolute().Right(releasePadX).Top((releaseRowH - releaseMore) / 2)
+			},
+		}, func(w, s ui.Element) {
+			kit.Artwork(c, a.env.Art, al.Art.Medium, releaseCover, kit.ArtOpts{Edge: true})
+			ui.Column(c.Key("text")).Grow(1).MinWidth(0).Justify(ui.Center).Children(func() {
+				ui.Row(c).MinWidth(0).Gap(6).AlignItems(ui.Center).Children(func() {
+					t := ui.Text(c, title).FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).FontWeight(500).
+						TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0)
+					if w.Hovered() {
+						t.Underline()
+					}
+					if al.Explicit {
+						kit.ExplicitMark(c.Key("explicit"))
+					}
+				})
+				if line != "" {
+					ui.Text(c, line).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).
+						TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
 				}
 			})
-		},
-		Source: func(s ui.Element) {
-			s.PaddingX(releasePadX).Gap(releaseGap).Radius(tk.Radius["md"]).Label(title)
-			if opens {
-				s.Role(ui.RoleLink)
-			} else {
-				s.Role(ui.RoleButton)
-			}
-		},
-	}, func(w, s ui.Element) {
-		hot := w.Hovered() || s.FocusWithin()
-		kit.Artwork(c, a.env.Art, al.Art.Medium, releaseCover, kit.ArtOpts{Edge: true})
-		ui.Column(c.Key("text")).Grow(1).MinWidth(0).Justify(ui.Center).Children(func() {
-			ui.Row(c).MinWidth(0).Gap(6).AlignItems(ui.Center).Children(func() {
-				t := ui.Text(c, title).FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).FontWeight(500).
-					TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0)
-				if w.Hovered() {
-					t.Underline()
-				}
-				if al.Explicit {
-					kit.ExplicitMark(c.Key("explicit"))
-				}
-			})
-			if line != "" {
-				ui.Text(c, line).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).
-					TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
-			}
 		})
-		st.menus.Trigger(c.Key("more"), target, kit.TriggerOpts{Visible: hot})
 	})
 
 	st.nav.Claim(src, i)

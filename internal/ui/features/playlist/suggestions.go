@@ -140,6 +140,10 @@ func (p *playlists) suggestionRow(c *ui.Context, id, playlist string, s services
 		})
 		if add.Clicked() {
 			p.addSuggestion(id, playlist, s)
+			// The button is replaced by "Added": say so, and keep the focus
+			// in the row, on the song's play button.
+			c.Announce(i18n.T("Added {label} to “{name}”", "label", "“"+s.Name+"”", "name", playlist))
+			play.Focus()
 		}
 	})
 }

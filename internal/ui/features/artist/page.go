@@ -41,7 +41,10 @@ type pageState struct {
 	// place in the scrolled content) scrolls to the top and focusAbout moves
 	// the focus onto it.
 	readMore, focusAbout bool
-	aboutTop             float32
+	// aboutStop makes the About band a focus stop, once "Read more" asked
+	// for the focus there.
+	aboutStop bool
+	aboutTop  float32
 
 	top, songs tracksState
 	head       *kit.ActionMenus
@@ -324,10 +327,15 @@ func (a *artist) tracks(c *ui.Context, st *tracksState, songs []services.Song, s
 
 // band is a band of the page: a 1 DIP line across the column and its heading
 // at the page-title size, then its shelves (docs/design.md, Artist).
-// Focusable so a jump to it moves the focus there.
-func (a *artist) band(c *ui.Context, id, title string, content func()) ui.Element {
+// focusable makes the band a focus stop, for a jump that moves the focus
+// there: MyGo has no focus target outside Tab (v0.2.0's tabIndex -1), so a
+// band is a stop only once a jump asked for it.
+func (a *artist) band(c *ui.Context, id, title string, focusable bool, content func()) ui.Element {
 	tk := theme.Current()
-	sec := ui.Column(c.Key(id)).Margin(56, 0, 0, 0).Focusable().Role(ui.RoleGroup).Label(title)
+	sec := ui.Column(c.Key(id)).Margin(56, 0, 0, 0).Role(ui.RoleGroup).Label(title)
+	if focusable {
+		sec.Focusable()
+	}
 	sec.Children(func() {
 		ui.Box(c.Key("line")).FillWidth().Height(1).Background(theme.C("line"))
 		t := tk.Type["page"]
@@ -410,7 +418,7 @@ func (a *artist) catalogBody(c *ui.Context, pg *pageState, page *services.Catalo
 	cols := catalogueColumns(pg.width, len(viewsCatalogue))
 
 	if len(albums) > 0 || len(catalogue) > 0 || hasVideos {
-		a.band(c, "artist-discography", i18n.T("Discography"), func() {
+		a.band(c, "artist-discography", i18n.T("Discography"), false, func() {
 			first := true
 			for _, sh := range albums {
 				a.viewShelf(c, pg, sh, art, first)
@@ -425,7 +433,7 @@ func (a *artist) catalogBody(c *ui.Context, pg *pageState, page *services.Catalo
 		})
 	}
 	if len(appears) > 0 || len(related) > 0 {
-		a.band(c, "artist-related", i18n.T("Related"), func() {
+		a.band(c, "artist-related", i18n.T("Related"), false, func() {
 			first := !a.catalogueLists(c, pg, appears, art, cols, true, true)
 			for _, sh := range related {
 				a.viewShelf(c, pg, sh, art, first)
@@ -548,7 +556,7 @@ func (a *artist) about(c *ui.Context, pg *pageState, page *services.CatalogArtis
 		return
 	}
 	tk := theme.Current()
-	sec := a.band(c, "artist-about", i18n.T("About {artistName}", "artistName", page.Artist.Name), func() {
+	sec := a.band(c, "artist-about", i18n.T("About {artistName}", "artistName", page.Artist.Name), pg.aboutStop, func() {
 		wide := layoutFor(pg.width).wide
 		// The grid keeps its bio cell when there is no biography: 32 rem
 		// wide beside the facts from 900 DIPs, an empty row above them

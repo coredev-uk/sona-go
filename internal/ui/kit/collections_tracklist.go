@@ -838,8 +838,14 @@ func trackLink(c *ui.Context, row ui.Element, text, id string, col ui.Color, ope
 func (st *TrackListState) skeletonRow(c *ui.Context, o *TrackListOpts, i int, hover ui.Color) {
 	tk := theme.Current()
 	r := tk.Radius["sm"]
-	ui.Row(c.Key("loading-" + strconv.Itoa(i))).Height(TrackRowHeight).Shrink(0).PaddingX(trackPadX).Gap(trackGap).
-		AlignItems(ui.Center).Role(ui.RoleRow).Label(i18n.T("Loading")).Children(func() {
+	row := ui.Row(c.Key("loading-" + strconv.Itoa(i))).Height(TrackRowHeight).Shrink(0).PaddingX(trackPadX).Gap(trackGap).
+		AlignItems(ui.Center)
+	if i == 0 {
+		row.Role(ui.RoleRow).Label(i18n.T("Loading")) // one for the page: the others are not read one by one
+	} else {
+		row.Role(ui.RoleNone)
+	}
+	row.Children(func() {
 		o.cell(ui.Box(c), cellNumber).Height(1)
 		o.cell(ui.Row(c).Gap(12).AlignItems(ui.Center), cellTitle).Children(func() {
 			if o.Columns.Artwork {

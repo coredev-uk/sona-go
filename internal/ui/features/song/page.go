@@ -301,8 +301,15 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 				Retrying: pg.retrying,
 			}).Margin(12, 0, 0, 0)
 		case !full.HasData:
-			ui.Text(c, i18n.T("Loading the lyrics…")).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).
-				TextColor(theme.C("ink-muted")).Margin(8, 0, 0, 0)
+			// A status, announced once as it appears: the focus stays on
+			// the toggle that asked.
+			msg := i18n.T("Loading the lyrics…")
+			wait := ui.Text(c, msg).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).
+				TextColor(theme.C("ink-muted")).Margin(8, 0, 0, 0).Role(ui.RoleStatus)
+			if announced := ui.Local(wait, "announced", func() bool { return false }); !*announced {
+				*announced = true
+				c.Announce(msg)
+			}
 		}
 		if w := strings.Join(full.Data.Songwriters, ", "); full.HasData && w != "" {
 			ui.Text(c, i18n.T("Written by {songwriters}", "songwriters", w)).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).
