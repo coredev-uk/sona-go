@@ -276,11 +276,17 @@ func (c *Client) Wait(timeout time.Duration, what string, ok func(*Tree) bool) (
 // hovered is there), lets the window settle and clicks. act/press would not
 // do: a control that is transparent until hovered does not take it.
 func (c *Client) Press(timeout time.Duration, label string) error {
-	t, err := c.Wait(timeout, "button "+label, func(t *Tree) bool { _, ok := t.Find("button", label); return ok })
+	return c.PressRole(timeout, "button", label)
+}
+
+// PressRole is Press for the first element of role (a "link" of the sidebar)
+// labelled label.
+func (c *Client) PressRole(timeout time.Duration, role, label string) error {
+	t, err := c.Wait(timeout, role+" "+label, func(t *Tree) bool { _, ok := t.Find(role, label); return ok })
 	if err != nil {
 		return err
 	}
-	n, _ := t.Find("button", label)
+	n, _ := t.Find(role, label)
 	x, y := n.Bounds.Centre()
 	if err := c.Input(Event{"type": "pointerMove", "x": x, "y": y}); err != nil {
 		return err
