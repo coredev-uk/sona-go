@@ -106,10 +106,7 @@ func (r *radio) stationBody(c *ui.Context, d services.StationDetail, gutter floa
 	opts := kit.CollectionHeaderOpts{
 		Title: s.Name, Art: s.Art.Large, Loader: r.env.Art,
 		Byline: byline, Meta: stationLine(s), Description: s.Notes,
-		Backdrop: func() {
-			kit.Backdrop(c, r.env.Art, kit.BackdropOpts{Src: d.Header.Backdrop, Color: colour, Tone: kit.ToneGround}, nil).
-				Absolute().Top(0).Left(0).Right(0).Bottom(0).PassThrough()
-		},
+		Wash: &kit.BackdropOpts{Src: d.Header.Backdrop, Color: colour, Tone: kit.ToneGround},
 		Actions: func() {
 			// Playing takes the listed songs; the page then lists the ones
 			// after them.

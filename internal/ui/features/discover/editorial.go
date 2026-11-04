@@ -78,10 +78,7 @@ func (d *discover) editorialHeader(c *ui.Context, p services.EditorialPage) {
 	if p.Art.Large != "" {
 		o := kit.CollectionHeaderOpts{
 			Title: p.Title, Art: p.Art.Large, Loader: d.env.Art, Description: p.Notes,
-			Backdrop: func() {
-				kit.Backdrop(c, d.env.Art, kit.BackdropOpts{Color: p.Color, Tone: kit.ToneGround}, nil).
-					Absolute().Top(0).Left(0).Right(0).Bottom(0).PassThrough()
-			},
+			Wash: &kit.BackdropOpts{Color: p.Color, Tone: kit.ToneGround},
 		}
 		if p.Subtitle != "" {
 			o.Byline = func() { ui.Text(c, p.Subtitle) }

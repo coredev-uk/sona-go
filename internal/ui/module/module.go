@@ -77,13 +77,6 @@ type Env struct {
 	// (the factories run in modules.go's order, a Point sorts by its own).
 	PlayerControls Point
 	PlayerNotice   Point
-	// Players is the shared item-play registry (kit.ItemPlayers): the
-	// features that own playback register how each kind plays and the shared
-	// item components play through it. Built by NewPlayers; never nil.
-	Players *kit.ItemPlayers
-	// ConcertsShelf builds Home's "Concerts in <city>" shelf (features/concerts
-	// sets it in its factory; nil while that feature is not registered).
-	ConcertsShelf func(c *ui.Context, first bool)
 	// ArtistConcerts builds an artist page's "Upcoming concerts" (owned by
 	// features/concerts, which sets it in its factory; nil while that feature
 	// is not registered: build nothing). first marks the page's first shelf.
