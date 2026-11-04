@@ -68,8 +68,10 @@ contents:
   - src: "./bin/cli/sona.1.gz"
     dst: "/usr/share/man/man1/sona.1.gz"
 
-# Runtime: GTK3 for the window (MyGo loads it, with its tray's appindicator,
-# at run time); GStreamer core + base (appsrc, audioconvert, audioresample,
+# Runtime: MyGo loads GTK3, libepoxy (GL), EGL (libglvnd), the tray's
+# appindicator, AT-SPI (accessibility), libsecret and X11's XTest by soname
+# with purego, so none of them shows up in ldd and each must be declared
+# here. No WebKitGTK, GTK4, libsoup or Node. GStreamer core + base (appsrc, audioconvert, audioresample,
 # volume) + good (autoaudiosink) + an AAC decoder (avdec_aac from libav) + a
 # PipeWire or PulseAudio sink for the playback host; bad for the video
 # parsers motion artwork and music videos use.
@@ -77,7 +79,12 @@ contents:
 # runtime and never ships it.
 depends:
   - libgtk-3-0
+  - libepoxy0
+  - libegl1
   - libayatana-appindicator3-1
+  - at-spi2-core
+  - libsecret-1-0
+  - libxtst6
   - libgstreamer1.0-0
   - libgstreamer-plugins-base1.0-0
   - gstreamer1.0-plugins-base
@@ -95,7 +102,12 @@ overrides:
     # gstreamer1-plugins-bad-free carries the video parsers.
     depends:
       - gtk3
+      - libepoxy
+      - libglvnd-egl
       - libayatana-appindicator-gtk3
+      - at-spi2-core
+      - libsecret
+      - libXtst
       - gstreamer1
       - gstreamer1-plugins-base
       - gstreamer1-plugins-good
@@ -108,7 +120,12 @@ overrides:
     # gst-plugin-pipewire recommendation does not carry over.
     depends:
       - gtk3
+      - libepoxy
+      - libglvnd
       - libayatana-appindicator
+      - at-spi2-core
+      - libsecret
+      - libxtst
       - gstreamer
       - gst-plugins-base
       - gst-plugins-good

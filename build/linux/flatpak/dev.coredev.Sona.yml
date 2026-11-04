@@ -2,8 +2,11 @@
 # permission: docs/flatpak.md.
 #
 # This manifest repackages the release .deb built on the Ubuntu 24.04
-# baseline (build/linux/release/release.sh); the binary only needs sonames
-# that org.gnome.Platform provides. It is for local builds: Flathub requires
+# baseline (build/linux/release/release.sh). MyGo loads GTK3, libepoxy,
+# AT-SPI, libsecret and EGL by soname, and org.gnome.Platform provides all of
+# them; the tray's libayatana-appindicator3 (and its libayatana-indicator,
+# ayatana-ido and libdbusmenu-gtk3) is not in the runtime and is built as
+# modules below. It is for local builds: Flathub requires
 # an offline build from source (docs/flatpak.md, "Build approach").
 #
 #   bash build/linux/release/release.sh   # bin/release/sona_$(cat VERSION)_amd64.deb
@@ -12,9 +15,8 @@
 # The Widevine CDM is never part of the Flatpak: Sona downloads it from
 # Google at runtime into its own data directory.
 #
-# GStreamer comes from the runtime, with the base, good, bad (WebKit's
-# webvttenc, plugin subenc) and libav plugin sets the deb, rpm and Arch
-# packages depend on (docs/flatpak.md, "Audio").
+# GStreamer comes from the runtime, with the base, good, bad and libav plugin
+# sets the deb, rpm and Arch packages depend on (docs/flatpak.md, "Audio").
 id: dev.coredev.Sona
 runtime: org.gnome.Platform
 runtime-version: '51'
@@ -23,7 +25,7 @@ command: sona
 rename-icon: sona
 
 finish-args:
-  # Window and rendering (GTK4 + WebKitGTK).
+  # Window and rendering (MyGo on GTK3 and EGL).
   - --socket=wayland
   - --socket=fallback-x11
   - --share=ipc
@@ -42,12 +44,64 @@ finish-args:
   # Track-change notifications (internal/desktop/notify) use the
   # notification server directly, not the portal.
   - --talk-name=org.freedesktop.Notifications
-  # Tray icon (Wails SystemTray, StatusNotifierItem).
+  # Tray icon (libayatana-appindicator3, StatusNotifierItem).
   - --talk-name=org.kde.StatusNotifierWatcher
   # The Widevine CDM needs no extra permission: Sona downloads it from
   # Google into its own data directory (internal/playback/cdm).
 
 modules:
+  - name: libdbusmenu
+    buildsystem: autotools
+    config-opts:
+      - --with-gtk=3
+      - --disable-gtk-doc
+      - --disable-tests
+      - --disable-dumper
+      - --disable-vala
+      - --enable-introspection=no
+    sources:
+      - type: archive
+        url: https://launchpad.net/libdbusmenu/16.04/16.04.0/+download/libdbusmenu-16.04.0.tar.gz
+        sha256: b9cc4a2acd74509435892823607d966d424bd9ad5d0b00938f27240a1bfa878a
+    cleanup: ['/include', '/lib/pkgconfig', '/libexec', '/share/doc']
+
+  - name: ayatana-ido
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DENABLE_TESTS=OFF
+      - -DENABLE_BINDINGS_MONO=OFF
+      - -DENABLE_INTROSPECTION=OFF
+      - -DENABLE_VALA_BINDINGS=OFF
+    sources:
+      - type: archive
+        url: https://github.com/AyatanaIndicators/ayatana-ido/archive/refs/tags/0.10.4.tar.gz
+        sha256: bd59abd5f1314e411d0d55ce3643e91cef633271f58126be529de5fb71c5ab38
+    cleanup: ['/include', '/lib/pkgconfig']
+
+  - name: libayatana-indicator
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DENABLE_TESTS=OFF
+      - -DENABLE_LOADER=OFF
+    sources:
+      - type: archive
+        url: https://github.com/AyatanaIndicators/libayatana-indicator/archive/refs/tags/0.9.4.tar.gz
+        sha256: a18d3c682e29afd77db24366f8475b26bda22b0e16ff569a2ec71cd6eb4eac95
+    cleanup: ['/include', '/lib/pkgconfig']
+
+  - name: libayatana-appindicator
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DENABLE_BINDINGS_MONO=OFF
+      - -DENABLE_BINDINGS_VALA=OFF
+      - -DENABLE_GTKDOC=OFF
+      - -DENABLE_TESTS=OFF
+    sources:
+      - type: archive
+        url: https://github.com/AyatanaIndicators/libayatana-appindicator/archive/refs/tags/0.5.94.tar.gz
+        sha256: 884a6bc77994c0b58c961613ca4c4b974dc91aa0f804e70e92f38a542d0d0f90
+    cleanup: ['/include', '/lib/pkgconfig']
+
   - name: sona
     buildsystem: simple
     sources:

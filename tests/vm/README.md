@@ -36,11 +36,12 @@ meant for major releases; run them locally for everything else.
 
 ### Updating the package
 
-`sona.nix` builds the frontend (pnpm, `fetchPnpmDeps`) and Sona
-(`buildGoModule`, tags `production,sqlite_fts5`, VERSION as `main.version`,
-the committed `frontend/bindings`) and installs the desktop entry, icons and
-licence notices as nfpm does. After a change to `go.sum` or
-`frontend/pnpm-lock.yaml`, set the hash it names to an empty string, run
+`sona.nix` builds Sona (`buildGoModule`, tags `mygo_noinspector,sqlite_fts5`,
+VERSION as `main.version`, MyGo's production mode) and installs the desktop
+entry, icons and licence notices as nfpm does. MyGo loads GTK3, epoxy, EGL
+and the other libraries by soname, so `makeWrapper` puts them on
+`LD_LIBRARY_PATH`. After a change to `go.sum`, set the hash it names to an
+empty string, run
 `nix-build tests/vm -A sona`, and copy the hash the error prints. Only
 tracked files are built: `git add` new files first.
 
@@ -95,6 +96,4 @@ have something to show without playback.
 - **Release packages.** The .deb, .rpm and Arch packages don't install on
   NixOS; `build/linux/release/release.sh` smoke-tests them on their
   distributions. The AppImage runs under `appimage-run`, which needs extra
-  host libraries (`appimage.nix`), and WebKit's own bubblewrap sandbox
-  can't start inside appimage-run's, so that test turns WebKit's sandbox
-  off.
+  host libraries (`appimage.nix`).

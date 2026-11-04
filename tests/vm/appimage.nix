@@ -18,7 +18,7 @@ in
       binfmt = true;
       # Libraries the AppImage expects from the host that appimage-run's
       # environment lacks (the AppImage bundles the rest): libgpg-error
-      # (libgcrypt, WebKitGTK), libcom_err (Kerberos), libgmp (GnuTLS),
+      # (libgcrypt), libcom_err (Kerberos), libgmp (GnuTLS),
       # FriBidi (Pango), and SVT-AV1 (Ubuntu's libavcodec).
       package = pkgs.appimage-run.override {
         extraPkgs = p: [
@@ -54,11 +54,7 @@ in
     seed_queue()
 
     with subtest("Start, title bar, offline and private"):
-        # WebKit's bubblewrap sandbox can't start inside appimage-run's own
-        # bubblewrap (WebKit aborts with SIGTRAP before the first frame), so
-        # this run turns WebKit's sandbox off. On a distribution the
-        # AppImage mounts through FUSE and keeps the sandbox.
-        offset = start_sona("sona-appimage", cmd=APPIMAGE, env={"WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS": "1"})
+        offset = start_sona("sona-appimage", cmd=APPIMAGE)
         w, frame = check_running(offset, cli=APPIMAGE)
         machine.log(json.dumps(w))
         assert [b["name"] for b in w["buttons"]] == ["Close"], w["buttons"]

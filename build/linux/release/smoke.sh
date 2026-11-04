@@ -4,7 +4,7 @@
 #
 #   smoke.sh deb        # Ubuntu/Debian: install the .deb with its declared deps
 #   smoke.sh rpm        # Fedora: install the .rpm with its declared deps
-#   smoke.sh appimage   # Fedora: run the AppImage with no GTK/WebKit installed
+#   smoke.sh appimage   # Fedora: run the AppImage with no GTK installed
 #   smoke.sh arch       # Arch Linux: install the .pkg.tar.zst with its declared deps
 #
 # Passes when `sona --version` prints SONA_VERSION (when set), `sona status`
@@ -12,7 +12,11 @@
 # command's completions and manual page, the binary
 # resolves every shared library, the GStreamer elements the playback host
 # needs exist, and the app, run headless under Xvfb, creates its window and
-# the frontend reports its first paint.
+# logs its first paint (MyGo's CPU renderer, MYGO_GPU=0).
+#
+# MyGo loads GTK3, libepoxy, EGL, the tray, AT-SPI, libsecret and XTest by
+# soname (purego), so ldd never lists them: the smoke test checks each one
+# resolves, from the package's declared dependencies or from the AppImage.
 set -euo pipefail
 kind=$1
 
@@ -40,8 +44,8 @@ rpm)
 appimage)
   # Only what any desktop has: X/Xvfb, D-Bus, fonts, and the libraries the
   # AppImage excludelist leaves to the host (fontconfig, EGL/GLES, the
-  # Wayland client, fribidi, ALSA). No GTK, WebKit or GStreamer from the
-  # distro; the AppImage must bring them.
+  # Wayland client, fribidi, ALSA). No GTK or GStreamer from the distro; the
+  # AppImage must bring them.
   dnf install -y -q --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon which findutils file \
     fontconfig dejavu-sans-fonts libwayland-client libglvnd-egl libglvnd-gles mesa-libEGL fribidi alsa-lib
   cp /pkg/sona-*.AppImage /tmp/sona.AppImage
@@ -111,21 +115,38 @@ else
 fi
 [[ -z $missing ]] || fail "unresolved libraries: $missing"
 
+# The libraries MyGo loads by soname: each must resolve on this clean
+# system (installed by the package's dependencies) or be bundled.
+sonames=(libgtk-3.so.0 libgdk-3.so.0 libepoxy.so.0 libayatana-appindicator3.so.1
+  libatk-1.0.so.0 libatk-bridge-2.0.so.0 libsecret-1.so.0 libXtst.so.6)
+if [[ $kind == appimage ]]; then
+  for so in "${sonames[@]}"; do
+    [[ -e $root/usr/lib/$so ]] || fail "$so not bundled"
+  done
+  find "$root" \( -iname 'libwebkit*' -o -iname 'libgtk-4*' -o -iname 'libsoup*' \) | grep -q . && fail "AppImage bundles WebKitGTK, GTK4 or libsoup"
+else
+  sonames+=(libEGL.so.1)
+  for so in "${sonames[@]}"; do
+    ldconfig -p | grep -qF "$so" || fail "$so not installed by the package's dependencies"
+  done
+  # The package has no GTK4, WebKitGTK or libsoup 3 dependency.
+  if ldd "$exe" | grep -qE 'libgtk-4|libwebkit|libsoup'; then fail "binary links GTK4, WebKitGTK or libsoup"; fi
+fi
+
 # GStreamer elements for appsrc ! avdec_aac ! audioconvert ! audioresample ! volume ! <sink>,
-# WebKit's WebVTT encoder (webvttenc, plugin subenc, from gst-plugins-bad), and
-# what WebKit's video player needs for motion artwork: playbin3/decodebin3
+# and what Sona's motion artwork pipeline needs: playbin3/decodebin3
 # (playback), typefind, qtdemux (isomp4), h264parse (videoparsersbad),
 # videoconvert (videoconvertscale), videoflip (videofilter), avdec_h264 (libav).
 if [[ $kind == appimage ]]; then
   # The bundled registry: scan the bundled plugin dir with the bundled scanner.
-  for p in app libav audioconvert audioresample volume pulseaudio subenc \
+  for p in app libav audioconvert audioresample volume pulseaudio \
     playback typefindfunctions isomp4 videoparsersbad videoconvertscale videofilter; do
     [[ -f $root/usr/lib/gstreamer-1.0/libgst$p.so ]] || fail "plugin $p not bundled"
   done
   missing=$(cd "$root/usr/lib" && for f in gstreamer-1.0/*.so; do LD_LIBRARY_PATH="$root/usr/lib" ldd "$f" | grep 'not found' || true; done)
   [[ -z $missing ]] || fail "plugin libraries unresolved: $missing"
 else
-  for e in appsrc avdec_aac audioconvert audioresample volume webvttenc \
+  for e in appsrc avdec_aac audioconvert audioresample volume \
     playbin3 decodebin3 qtdemux h264parse videoconvert videoflip; do
     gst-inspect-1.0 "$e" >/dev/null 2>&1 || fail "GStreamer element $e missing"
   done
@@ -141,12 +162,13 @@ else
   gst-inspect-1.0 pipewiresink >/dev/null 2>&1 || gst-inspect-1.0 pulsesink >/dev/null 2>&1 || fail "no PipeWire/Pulse sink"
 fi
 
-# Run it headless. WebKit's bubblewrap sandbox cannot start in an
-# unprivileged container, so it is disabled for this test only.
+# Run it headless under Xvfb: MyGo's CPU renderer (MYGO_GPU=0), as no GPU
+# is here, and private mode so nothing reaches Apple's servers or a
+# scrobbler. The log path is the same on every platform: ~/.local/state.
 export HOME=/tmp/home XDG_RUNTIME_DIR=/tmp/run
 mkdir -p "$HOME" "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
-export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 LIBGL_ALWAYS_SOFTWARE=1
+export MYGO_GPU=0 LIBGL_ALWAYS_SOFTWARE=1 SONA_PRIVATE=1
 log=$HOME/.local/state/sona/sona.log
 set +e
 timeout 40 dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" "$exe" >/tmp/sona.out 2>&1 &
@@ -161,7 +183,7 @@ set -e
 
 grep -q '"startup: process start"' "$log" 2>/dev/null || { cat /tmp/sona.out; fail "no startup log"; }
 grep -q '"startup: window created"' "$log" || { cat /tmp/sona.out "$log"; fail "window not created"; }
-grep -q '"startup: first paint"' "$log" || { cat /tmp/sona.out "$log"; fail "frontend never painted"; }
+grep -q '"startup: first paint"' "$log" || { cat /tmp/sona.out "$log"; fail "no first paint"; }
 echo "smoke($kind): log excerpt:"
 grep -o '"msg":"startup[^"]*"[^}]*' "$log" | head -8
 echo "smoke($kind): PASS"

@@ -9,7 +9,7 @@
 #   SONA_SKIP_SMOKE=1 build/linux/release/release.sh
 #   SONA_RELEASE_CACHE=~/.cache/sona-release build/linux/release/release.sh
 #
-# The Go module and build caches and the pnpm store live in the podman/docker
+# The Go module and build caches live in the podman/docker
 # volume sona-release-cache, or in the directory SONA_RELEASE_CACHE names
 # (CI keeps that one with actions/cache).
 #
@@ -17,17 +17,13 @@
 # SONA_DISCORD_CLIENT_ID, when set, are passed to the build
 # (build/linux/Taskfile.yml) and never printed.
 #
-# The build runs on a snapshot of the working tree, so the host's
-# node_modules, frontend/dist and bin/ are never touched. Secrets (.env,
+# The build is MyGo's production build (mygo_noinspector,sqlite_fts5, with
+# -X main.version from VERSION; build/linux/Taskfile.yml) on a snapshot of
+# the working tree, so the host's bin/ is never touched. Secrets (.env,
 # *.p8) and local databases are excluded from the snapshot.
 #
 # Needs podman or docker; falls back to `nix run nixpkgs#podman`.
 set -euo pipefail
-
-# Phase 4 of the MyGo migration brings release packages back: this script
-# still drives the Wails build and the Containerfile's old Go toolchain.
-echo "release: release packages return with the phase 4 packaging PR (MyGo's GTK3 build); 'task package' builds .deb/.rpm/Arch packages meanwhile" >&2
-exit 1
 
 root=$(cd "$(dirname "$0")/../../.." && pwd)
 out=$(realpath -m "${1:-$root/bin/release}")
@@ -71,19 +67,18 @@ echo "release: building $version packages in $image"
 tar -C "$root" \
   --exclude=./.git --exclude=./.devenv --exclude=./.direnv --exclude=./.task \
   --exclude=./bin --exclude=./build/bin --exclude=./build/linux/appimage \
-  --exclude=./frontend/node_modules --exclude=./frontend/dist \
   --exclude='./.env' --exclude='./.env.*' --exclude='*.p8' \
   --exclude='*.db' --exclude='*.db-wal' --exclude='*.db-shm' \
   -cf - . |
   "${engine[@]}" run --rm -i \
     -v "$out:/out" \
     -v "$cache:/cache" \
-    -e GOMODCACHE=/cache/gomod -e GOCACHE=/cache/gobuild -e npm_config_store_dir=/cache/pnpm \
+    -e GOMODCACHE=/cache/gomod -e GOCACHE=/cache/gobuild \
     -e SONA_LASTFM_KEY -e SONA_LASTFM_SECRET -e SONA_DISCORD_CLIENT_ID \
     -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
     "$image" bash -euo pipefail -c '
       mkdir -p /src && tar -xf - -C /src && cd /src
-      go tool wails3 package
+      task linux:package
       cp bin/sona_*.deb bin/sona-*.rpm bin/sona-*.pkg.tar.zst bin/sona-*.AppImage bin/sona-*.AppImage.zsync /out/
       ldd bin/sona >/out/sona.ldd.txt
       # docker writes as root; hand the files back (no-op under rootless podman).

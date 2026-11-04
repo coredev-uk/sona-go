@@ -5,7 +5,7 @@
 **Viable, with conditions.** On the GNOME 51 runtime, a Flatpak build of Sona loads the Widevine CDM, plays a full protected track (AAC decoded in the CDM host child and sent to a sink), owns `org.mpris.MediaPlayer2.sona`, keeps single-instance forwarding, and reaches the Secret Service. The conditions:
 
 1. **The CDM host's namespace layer.** Inside Flatpak the CDM host child never gets its own user and network namespace. Flatpak's seccomp filter refuses `clone(CLONE_NEWUSER)`. Sona then uses its documented fallback: the inet seccomp filter only, with Diagnostics showing the reason. To get the network namespace back, use the Flatpak portal (`flatpak-spawn --sandbox --no-network`). See [CDM host sandbox](#cdm-host-sandbox).
-2. **Flathub needs an offline build from source.** The manifest in `build/linux/flatpak/` repackages the release `.deb`. That is fine for local and self-hosted builds, but [Flathub does not accept it](https://docs.flathub.org/docs/for-app-authors/requirements#building-from-source). The Go side does build from source in `org.gnome.Sdk//51` (tested). The remaining work is the vendored module and pnpm source lists.
+2. **Flathub needs an offline build from source.** The manifest in `build/linux/flatpak/` repackages the release `.deb`. That is fine for local and self-hosted builds, but [Flathub does not accept it](https://docs.flathub.org/docs/for-app-authors/requirements#building-from-source). The Go side does build from source in `org.gnome.Sdk//51` (tested). The remaining work is the vendored module sources list. The native UI needs no Node or pnpm sources.
 3. **The CDM needs no host access.** Sona downloads the Widevine CDM from Google into its own data directory (`internal/playback/cdm`), which the Flatpak can always write, so the manifest grants no browser directories (see [CDM access](#cdm-access)).
 
 A manifest exists at `build/linux/flatpak/dev.coredev.Sona.yml`, and its build and install are tested.
@@ -14,23 +14,23 @@ A manifest exists at `build/linux/flatpak/dev.coredev.Sona.yml`, and its build a
 
 | Permission | Reason |
 | --- | --- |
-| `--socket=wayland`, `--socket=fallback-x11`, `--share=ipc`, `--device=dri` | GTK4 + WebKitGTK window and GL. [Recommended set](https://docs.flatpak.org/en/latest/sandbox-permissions.html#standard-permissions) for Wayland-capable apps. |
+| `--socket=wayland`, `--socket=fallback-x11`, `--share=ipc`, `--device=dri` | GTK3 window (MyGo) and GL. [Recommended set](https://docs.flatpak.org/en/latest/sandbox-permissions.html#standard-permissions) for Wayland-capable apps. |
 | `--share=network` | Apple Music API, licences and segments, the loopback sign-in redirect (`internal/auth/mut`). |
 | `--filesystem=xdg-run/pipewire-0` | `pipewiresink`, the first sink tried (`internal/playback/gst/gst.go`: `Sinks = pipewiresink, pulsesink, autoaudiosink`). |
 | `--socket=pulseaudio` | `pulsesink` fallback. Also the only audio socket a portal-spawned subsandbox can share (see below). |
 | `--own-name=org.mpris.MediaPlayer2.sona` | `internal/mpris/mpris.go` `BusName`. Flatpak only grants `org.mpris.MediaPlayer2.$FLATPAK_ID` by default ([docs](https://docs.flatpak.org/en/latest/sandbox-permissions.html#d-bus-access)), and that would be `org.mpris.MediaPlayer2.dev.coredev.Sona`. |
 | `--talk-name=org.freedesktop.secrets` | go-keyring calls the Secret Service directly (see [Secrets](#secrets)). |
 | `--talk-name=org.freedesktop.Notifications` | `internal/desktop/notify` calls the notification server directly, not `org.freedesktop.portal.Notification`. |
-| `--talk-name=org.kde.StatusNotifierWatcher` | Tray (the StatusNotifier tray of the removed Wails shell; not ported to MyGo yet). |
+| `--talk-name=org.kde.StatusNotifierWatcher` | Tray (MyGo's libayatana-appindicator3, a StatusNotifierItem). |
 
 **No permission needed:**
 - **Single-instance name `dev.coredev.Sona`** (`internal/app/instance.go`). It equals the app ID, which Flatpak grants by default. Verified: `RequestName` returns 1 (primary owner).
-- **Portals.** `org.freedesktop.portal.*` is always reachable. This covers the sleep inhibitor's portal fallback (`internal/desktop/inhibit`, used because logind is on the system bus), the settings import/export file chooser (`internal/app/portal.go`), the Realtime portal through which Sona raises the playback host's audio thread (`internal/playback/cdmhost/realtime_linux.go`: RTKit sits on the system bus, out of the Flatpak's reach), and opening URLs. Wails runs `xdg-open`, and in the runtime that is the [flatpak-xdg-utils](https://github.com/flatpak/flatpak-xdg-utils) binary that forwards to the OpenURI portal.
+- **Portals.** `org.freedesktop.portal.*` is always reachable. This covers the sleep inhibitor's portal fallback (`internal/desktop/inhibit`, used because logind is on the system bus), the settings import/export file chooser (`internal/app/portal.go`), the Realtime portal through which Sona raises the playback host's audio thread (`internal/playback/cdmhost/realtime_linux.go`: RTKit sits on the system bus, out of the Flatpak's reach), and opening URLs. MyGo runs `xdg-open`, and in the runtime that is the [flatpak-xdg-utils](https://github.com/flatpak/flatpak-xdg-utils) binary that forwards to the OpenURI portal.
 - **`org.freedesktop.Flatpak` / `--talk-name` for the Flatpak portal.** `flatpak-spawn --sandbox` from the app worked without either.
 
-**Tray name.** Wails also requests `org.kde.StatusNotifierItem-<pid>-1`. The sandbox denies it, and Wails treats that as non-critical: `systemtray_linux.go:338-342` logs it and continues, and registration with the watcher goes by object path. Inside the sandbox the PID is 2 (Sona's log shows `"pid":2`). If a tray host needs the well-known name, add `--own-name=org.kde.StatusNotifierItem-2-1`. Not tested on a real tray host.
+**Tray name.** The appindicator library may also request `org.kde.StatusNotifierItem-<pid>-1`. The sandbox denies it, and the library treats that as non-critical (registration with the watcher goes by object path). [INFERENCE: carried over from the Wails-era check; recheck with the native tray.] Inside the sandbox the PID is 2 (Sona's log shows `"pid":2`). If a tray host needs the well-known name, add `--own-name=org.kde.StatusNotifierItem-2-1`. Not tested on a real tray host.
 
-**Sleep/wake events.** Wails watches logind's `PrepareForSleep` on the system bus. In the sandbox it logs `Failed to connect to system bus; sleep/wake events will not fire`. Sona does not subscribe to those events (no match for `PowerEvent|SystemWillSleep|ApplicationDidWake` in `internal/`, `cmd/sona/`), so no `--system-talk-name` is needed.
+**Sleep/wake events.** The old Wails shell watched logind's `PrepareForSleep` on the system bus. In the sandbox it logs `Failed to connect to system bus; sleep/wake events will not fire`. Sona does not subscribe to those events (no match for `PowerEvent|SystemWillSleep|ApplicationDidWake` in `internal/`, `cmd/sona/`), so no `--system-talk-name` is needed.
 
 ## CDM access
 
@@ -92,7 +92,7 @@ The options:
 ## Audio
 
 - **Runtime:** `org.gnome.Platform//51` (GStreamer 1.28.6) contains every element Sona uses: `appsrc`, `appsink` (same plugin), `avdec_aac`, `audioconvert`, `audioresample`, `volume`, `pipewiresink`, `pulsesink`, `autoaudiosink`. `fdkaacdec` and `faad` are missing, but they are only fallbacks.
-- **WebKit's media players** (motion artwork) need `webvttenc` from gst-plugins-bad (plugin `subenc`); without it WebKit logs "WebKit wasn't able to find a WebVTT encoder" once per player. The runtime carries it: `libgstsubenc.so` and `libgstvideoparsersbad.so` are in its `/usr/lib/x86_64-linux-gnu/gstreamer-1.0` (229 plugins, checked in the installed `org.gnome.Platform//51`), so the manifest adds nothing for it.
+- **Motion artwork** decodes through Sona's own pipeline (`decodebin`, `avdec_h264`, `videoconvert`; parsers from gst-plugins-bad). The runtime carries `libgstvideoparsersbad.so` in its `/usr/lib/x86_64-linux-gnu/gstreamer-1.0` (checked in the installed `org.gnome.Platform//51` for the WebKit build), so the manifest adds nothing for it.
 - **AAC without extra extensions:**
   - With `org.freedesktop.Platform.codecs-extra` installed, `libgstlibav.so` links to `/usr/lib/x86_64-linux-gnu/codecs-extra/lib/libavcodec.so.62`.
   - With it uninstalled, `libgstlibav.so` links to the runtime's own `libavcodec.so.62`, and `avdec_aac` is still present.
@@ -101,12 +101,11 @@ The options:
 
 ## Runtime choice
 
-**Runtime:** `org.gnome.Platform//51` with `org.gnome.Sdk//51`, the newest GNOME branch on Flathub (branches 49, 50 and 51 are listed). SDK `pkg-config` versions: `gtk4 4.24.1`, `webkitgtk-6.0 2.54.1`, `libsoup-3.0 3.8.0`, `gstreamer-1.0 1.28.6`, `glib-2.0 2.90.1`; glibc 2.44. Both WebKitGTK 6.0 and GTK4 come from this runtime. The freedesktop runtime has no WebKitGTK.
+**Runtime:** `org.gnome.Platform//51` with `org.gnome.Sdk//51`, the newest GNOME branch on Flathub (branches 49, 50 and 51 are listed). SDK `pkg-config` versions: `gstreamer-1.0 1.28.6`, `glib-2.0 2.90.1`; glibc 2.44. MyGo's UI needs GTK3, libepoxy, AT-SPI, libsecret and EGL by soname, which the GNOME runtime provides [INFERENCE: GTK3's presence in `//51` is not yet checked on a machine with Flatpak; the CI release run and `flatpak run --command=sh` will show]. The tray's libayatana-appindicator3 is not in the runtime, so the manifest builds it (with libayatana-indicator, ayatana-ido and libdbusmenu-gtk3) as modules. No WebKitGTK, GTK4 or libsoup is needed.
 
 **Repackaged release binary:**
-- It needs `GLIBC_2.34` at most and `GLIBCXX_3.4.21`.
-- `ldd` inside the sandbox finds every library (0 "not found").
-- It starts and paints (`startup: first paint`).
+- It needs only glibc and sonames the runtime or the manifest's modules provide (each dlopened library is checked by `build/linux/release/smoke.sh`'s soname list).
+- It starts and paints (`startup: first paint`); re-measure with the native UI.
 
 **Built from source in the SDK:** links against these libraries directly.
 
@@ -121,22 +120,18 @@ The options:
 
 **1. Repackage the release `.deb`** (the current manifest). This is the local and self-hosted path.
 - `build/linux/release/release.sh` builds the `.deb` on Ubuntu 24.04. The manifest unpacks `/usr/bin/sona`, the desktop file and the icons into `/app`.
-- The release binary only uses sonames that the GNOME runtime provides (see Runtime).
+- The release binary only uses sonames that the GNOME runtime and the manifest's tray modules provide (see Runtime).
 - `build/linux/flatpak/build.sh [build-dir]` (default `/tmp/sona-flatpak/build`) copies `bin/release/sona_$(cat VERSION)_amd64.deb` (or `$SONA_DEB`) to `bin/flatpak/sona.deb`, the fixed name the manifest reads, so `VERSION` stays the only version source. It runs `flatpak-builder --user --install` with `--state-dir=<build-dir>.state`, outside the repo.
 
 **2. Build from source** (needed for [Flathub](https://docs.flathub.org/docs/for-app-authors/requirements#no-network-access-during-build): no network during the build, every dependency listed as a source).
-- **Go:** `org.freedesktop.Sdk.Extension.golang//26.08` (Go 1.27.3). `go.mod` asks for `go 1.26.10`.
+- **Go:** `org.freedesktop.Sdk.Extension.golang//26.08` (Go 1.27.3). `go.mod` asks for `go 1.27.3`.
   - Generate vendored module sources with [`flatpak-go-mod`](https://github.com/dennwc/flatpak-go-mod), the tool named in [flatpak-builder-tools/go-modules](https://github.com/flatpak/flatpak-builder-tools/tree/master/go-modules), and build with `-mod=vendor`.
-  - Tested: `go build -tags production,sqlite_fts5` of the full app inside `org.gnome.Sdk//51` with `GOPROXY=off` (local module cache) succeeds, and the binary prints `sona 0.1.0-flatpaksdk` inside the sandbox.
-  - cgo against the runtime's GTK 4.24 only produced deprecation warnings (`gdk_x11_*`).
-- **Frontend:** `org.freedesktop.Sdk.Extension.node24//26.08` plus [`flatpak-node-generator pnpm frontend/pnpm-lock.yaml`](https://github.com/flatpak/flatpak-builder-tools/tree/master/node).
-  - The lockfile is `lockfileVersion: '9.0'`, and the release container uses pnpm 12.9.0.
-  - The tool's README says: for pnpm v12, pass `--pnpm-store-version v11` and run `pnpm install --offline --frozen-lockfile --trust-lockfile`. Not tried here.
-- **Build steps:** `pnpm run build` → `frontend/dist`, then `go build` with `-ldflags "-X main.version=..."`, as in `build/linux/Taskfile.yml`. `wails3` binding generation is only needed if the generated bindings are not committed.
+  - Tested: `go build` of the Wails-era app inside `org.gnome.Sdk//51` with `GOPROXY=off` (local module cache) succeeds, and the binary prints `sona 0.1.0-flatpaksdk` inside the sandbox.
+- **Build steps:** `go build -tags mygo_noinspector,sqlite_fts5` with `-ldflags "-X main.version=..."`, as in `build/linux/Taskfile.yml`. There is no frontend step.
 
 ## What remains
 
 1. **cdmhost:** add the `flatpak-spawn --sandbox --no-network --watch-bus --sandbox-flag=share-sound --sandbox-expose-path-ro=<cdm dir>` path when `/.flatpak-info` exists, keeping today's fallback. Report the child's real PID. Test a full playback session through it.
-2. **Flathub source build:** `flatpak-go-mod` sources and `modules.txt`, `flatpak-node-generator pnpm` sources, a metainfo file, and a source-built manifest replacing the `.deb` module.
+2. **Flathub source build:** `flatpak-go-mod` sources and `modules.txt`, a metainfo file, and a source-built manifest replacing the `.deb` module.
 3. **Real-desktop checks:** tray (and whether `--own-name=org.kde.StatusNotifierItem-2-1` is needed), notifications, PipeWire sink on a live session, Wayland, Secret Service on GNOME and KDE, `org.freedesktop.portal.Secret`, music:// from a browser.
 4. **Diagnostics wording for Flatpak:** "no network namespace (Flatpak)" instead of the raw `fork/exec` error.

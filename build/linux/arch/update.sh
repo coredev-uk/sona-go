@@ -22,7 +22,7 @@ sha=$(sha256sum "$pkg" | cut -d' ' -f1)
 mkdir -p "$out"
 
 # Keep depends in step with the archlinux override in build/linux/nfpm/nfpm.yaml.
-depends=(gtk4 webkitgtk-6.0 gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav)
+depends=(gtk3 libepoxy libglvnd libayatana-appindicator at-spi2-core libsecret libxtst gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav)
 optdepends=(
   "gst-plugin-pipewire: native PipeWire audio output (pulsesink otherwise)"
 )
