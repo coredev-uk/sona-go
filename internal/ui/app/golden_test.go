@@ -57,7 +57,7 @@ func TestAccountStatesGolden(t *testing.T) {
 				opts = append(opts, uitest.Dark())
 			}
 			h := uitest.New(t, opts...)
-			a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Art: h.Art, Now: h.Clock.Now}, factories)
+			a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Art: h.Art, Now: h.Clock.Now, StartPath: "/library/albums"}, factories)
 			t.Cleanup(func() { a.env.Art.Close(); a.env.Art.Wait() })
 			a.firstPaint = nil
 			a.connect()
