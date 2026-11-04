@@ -2,10 +2,12 @@ package app
 
 import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/cdm"
+	"github.com/coredev-uk/sona-go/internal/ui/features/concerts"
 	"github.com/coredev-uk/sona-go/internal/ui/features/library"
 	"github.com/coredev-uk/sona-go/internal/ui/features/player"
 	"github.com/coredev-uk/sona-go/internal/ui/features/private"
 	"github.com/coredev-uk/sona-go/internal/ui/features/reminders"
+	"github.com/coredev-uk/sona-go/internal/ui/features/search"
 	"github.com/coredev-uk/sona-go/internal/ui/features/updates"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
@@ -15,9 +17,11 @@ import (
 // it; nav items sort by their own Order). Features not ported yet are
 // absent: there are no placeholders.
 var factories = []module.Factory{
-	library.New, // Albums only
-	player.New,  // the player bar only
-	updates.New, // the sidebar's update notice
+	search.New,   // search field, results, group and profile pages
+	concerts.New, // concerts page and location dialog
+	library.New,  // Albums only
+	player.New,   // the player bar only
+	updates.New,  // the sidebar's update notice
 	// motion has no module: the policy is kit.MotionPolicy (Env.Motion), kept by the shell
 	private.New,   // the player bar's private listening pill and its command
 	cdm.New,       // the Widevine mirror and the player bar's notice

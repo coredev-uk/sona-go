@@ -7401,3 +7401,61 @@ msgstr "Your synced library, history and the catalogue cache. Sona optimises it 
 #: src/features/auth/AccountMenu.tsx
 msgid "Your token is stored unencrypted"
 msgstr "Your token is stored unencrypted"
+
+#: internal/ui/features/concerts/upcoming.go
+msgid "Apple Music lists no upcoming concerts in this area."
+msgstr "Apple Music lists no upcoming concerts in this area."
+
+#: internal/ui/features/concerts/page.go
+msgid "Apple Music lists no upcoming concerts in this area. A larger city nearby may have some."
+msgstr "Apple Music lists no upcoming concerts in this area. A larger city nearby may have some."
+
+#: internal/ui/features/concerts/page.go
+#: internal/ui/features/concerts/upcoming.go
+msgid "Choose another city"
+msgstr "Choose another city"
+
+#: internal/ui/features/concerts/location.go
+msgid "Find a city"
+msgstr "Find a city"
+
+#: internal/ui/features/concerts/location.go
+msgid "No cities match “{term}”."
+msgstr "No cities match “{term}”."
+
+#: internal/ui/features/concerts/location.go
+msgid "No cities match “{term}”. Try the name of a bigger city nearby."
+msgstr "No cities match “{term}”. Try the name of a bigger city nearby."
+
+#: internal/ui/features/concerts/page.go
+msgid "No concerts match"
+msgstr "No concerts match"
+
+#: internal/ui/features/concerts/page.go
+#: internal/ui/features/concerts/upcoming.go
+msgid "No concerts near {city}"
+msgstr "No concerts near {city}"
+
+#: internal/ui/features/concerts/location.go
+msgid "Suggested cities"
+msgstr "Suggested cities"
+
+#: internal/ui/features/concerts/location.go
+msgid "Where are you?"
+msgstr "Where are you?"
+
+#: internal/ui/features/concerts/concerts.go
+msgid "yesterday"
+msgstr "yesterday"
+
+#: internal/ui/features/concerts/concerts.go
+msgid "{days, plural, one {# day ago} other {# days ago}}"
+msgstr "{days, plural, one {# day ago} other {# days ago}}"
+
+#: internal/ui/features/concerts/concerts.go
+msgid "{hours, plural, one {# hr. ago} other {# hr. ago}}"
+msgstr "{hours, plural, one {# hr. ago} other {# hr. ago}}"
+
+#: internal/ui/features/concerts/concerts.go
+msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
+msgstr "{minutes, plural, one {# min. ago} other {# min. ago}}"

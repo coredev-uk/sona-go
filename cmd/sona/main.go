@@ -347,7 +347,7 @@ func run(started time.Time) error {
 	mygo.App.WhenReady(func() {
 		ui = uiapp.New(uiapp.Options{
 			Core: core, Settings: settings, Bus: bus, Windows: windows, Art: art, Motion: mot, Log: log.With("component", "ui"),
-			Version: version, Dev: devMode, Icon: build.AppIcon,
+			Version: version, Dev: devMode, Icon: build.AppIcon, OpenURL: mygo.Shell.OpenExternal,
 		})
 		log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "hidden", act.Hidden())
 	})

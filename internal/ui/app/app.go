@@ -65,6 +65,9 @@ type Options struct {
 	StartPath string
 	// Icon is the window icon, a PNG.
 	Icon []byte
+	// OpenURL opens a web page in the system browser (Env.OpenURL); nil
+	// opens nothing and reports an error.
+	OpenURL func(url string) error
 }
 
 // App is the native UI: the main window and what it shows.
@@ -141,16 +144,19 @@ func newApp(opts Options, factories []module.Factory) *App {
 
 	post := a.postFunc()
 	a.env = &module.Env{
-		Core:    opts.Core,
-		Bus:     opts.Bus,
-		Queries: store.NewClient(post),
-		Play:    store.NewPlayback(opts.Bus, opts.Now),
-		Art:     kit.NewArtLoader(opts.Art, post),
-		Actions: kit.NewActionRegistry(),
-		Post:    post,
-		Log:     a.log,
-		Version: opts.Version,
-		Dev:     opts.Dev,
+		Core:     opts.Core,
+		Bus:      opts.Bus,
+		Queries:  store.NewClient(post),
+		Play:     store.NewPlayback(opts.Bus, opts.Now),
+		Art:      kit.NewArtLoader(opts.Art, post),
+		Actions:  kit.NewActionRegistry(),
+		Players:  module.NewPlayers(opts.Core, opts.Now),
+		Post:     post,
+		Surfaces: store.NewSurfaces(),
+		OpenURL:  opts.OpenURL,
+		Log:      a.log,
+		Version:  opts.Version,
+		Dev:      opts.Dev,
 	}
 	a.env.Motion = a.newMotion(post)
 	a.env.HasRoute = a.hasRoute

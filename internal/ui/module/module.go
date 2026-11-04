@@ -11,6 +11,7 @@ package module
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -53,9 +54,18 @@ type Env struct {
 	// (the factories run in modules.go's order, a Point sorts by its own).
 	PlayerControls Point
 	PlayerNotice   Point
-	Log            *slog.Logger
-	Version        string
-	Dev            bool // a -tags dev build
+	// Players is the shared item-play registry (kit.ItemPlayers): the
+	// features that own playback register how each kind plays and the shared
+	// item components play through it. Built by NewPlayers; never nil.
+	Players *kit.ItemPlayers
+	// Surfaces is the open state of the account dialog and the first-run
+	// setup: any "Sign in" action calls Surfaces.OpenAccount.
+	Surfaces *store.Surfaces
+	// OpenURL opens a web page in the system browser.
+	OpenURL func(url string) error
+	Log     *slog.Logger
+	Version string
+	Dev     bool // a -tags dev build
 }
 
 // Point is a place in one feature's view other modules build into, the
@@ -193,3 +203,23 @@ type Module struct {
 // Factory builds a feature's module over the shared Env; the feature
 // keeps its state in its own struct.
 type Factory func(env *Env) Module
+
+// NewPlayers is the Env's item-play registry: music videos play only where
+// PlatformService says the platform plays video (read once, on first use; nil
+// before it answers and without a Core). now is the clock a release is
+// compared with (nil: time.Now).
+func NewPlayers(core *services.Core, now func() time.Time) *kit.ItemPlayers {
+	p := &kit.ItemPlayers{Now: now}
+	if core != nil {
+		plat := services.Service[services.PlatformService](core)
+		var caps *services.Capabilities
+		p.Capabilities = func() *services.Capabilities {
+			if caps == nil {
+				c := plat.Capabilities()
+				caps = &c
+			}
+			return caps
+		}
+	}
+	return p
+}

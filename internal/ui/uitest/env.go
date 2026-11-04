@@ -18,15 +18,18 @@ package uitest
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/artwork"
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/auth/devtoken"
 	authstore "github.com/coredev-uk/sona-go/internal/auth/store"
+	"github.com/coredev-uk/sona-go/internal/catalog"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/db"
 	ilib "github.com/coredev-uk/sona-go/internal/library"
@@ -54,6 +57,7 @@ type options struct {
 	seed      bool
 	core      bool
 	dark      bool
+	apple     http.Handler
 	version   string
 }
 
@@ -99,6 +103,23 @@ type Harness struct {
 	// Keyring is the Core's secret store, empty: the machine's is not reachable.
 	Keyring *Keyring
 	Dir     string
+
+	linkMu sync.Mutex
+	opened []string
+}
+
+func (h *Harness) open(u string) error {
+	h.linkMu.Lock()
+	defer h.linkMu.Unlock()
+	h.opened = append(h.opened, u)
+	return nil
+}
+
+// Opened is every URL the UI asked the system browser to open (Env.OpenURL).
+func (h *Harness) Opened() []string {
+	h.linkMu.Lock()
+	defer h.linkMu.Unlock()
+	return append([]string(nil), h.opened...)
 }
 
 var (
@@ -150,7 +171,8 @@ func New(t testing.TB, opts ...Option) *Harness {
 	t.Cleanup(func() { loader.Close(); loader.Wait() })
 	h.Env = &module.Env{
 		Core: h.Core, Bus: h.Bus, Queries: store.NewClient(h.Main.Post), Play: store.NewPlayback(h.Bus, h.Clock.Now),
-		Art: loader, Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: o.version,
+		Art: loader, Actions: kit.NewActionRegistry(), Players: module.NewPlayers(h.Core, h.Clock.Now), Post: h.Main.Post,
+		Surfaces: store.NewSurfaces(), OpenURL: h.open, Log: slog.New(slog.DiscardHandler), Version: o.version,
 	}
 	mu.Lock()
 	harnesses[h.Env] = h
@@ -199,15 +221,29 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	authm, err := auth.NewManager(auth.Config{
+	acfg := auth.Config{
 		HTTP: h.Network.Client(), Dev: staticDev{}, APIBase: "http://127.0.0.1:1",
 		Open:     func() (authstore.Store, error) { return noAccount{}, nil },
 		Accounts: services.AccountStore{DB: d},
-	})
+	}
+	if o.apple != nil {
+		h.serveApple(o.apple)
+		acfg.APIBase = applemusic.BaseURL
+		acfg.Open = func() (authstore.Store, error) { return signedIn{}, nil }
+	}
+	authm, err := auth.NewManager(acfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(authm.Close)
+	var (
+		api *applemusic.Client
+		cat *catalog.Catalog
+	)
+	if o.apple != nil {
+		api = applemusic.New(h.Network.Client(), staticDev{}, authm.UserToken)
+		cat = catalog.New(d, api, appleStorefront(true), slog.New(slog.DiscardHandler))
+	}
 	h.Engine = fakeengine.New()
 	h.Engine.Now = h.Clock.Now
 	h.Coord, err = coordinator.New(coordinator.Options{Engine: h.Engine, Now: h.Clock.Now})
@@ -217,7 +253,7 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	t.Cleanup(func() { _ = h.Coord.Close() })
 	core := services.New(services.Deps{
 		Paths:    config.Paths{Config: h.Dir, Data: h.Dir, Cache: h.Dir, Art: h.Dir, State: h.Dir},
-		Settings: settings, DB: d, Auth: authm, Library: ilib.New(d, nil), Art: art, Engine: h.Engine, Coord: h.Coord,
+		Settings: settings, DB: d, Auth: authm, API: api, Catalog: cat, Storefront: appleStorefront(o.apple != nil), Library: ilib.New(d, nil), Art: art, Engine: h.Engine, Coord: h.Coord,
 		Private: privatemode.New(privatemode.Options{}), Gate: services.NewGate(time.Hour, nil),
 		Keyring: h.Keyring, Transport: h.Network,
 		Emit: h.Bus, Windows: noWindows{}, Logger: slog.New(slog.DiscardHandler), Version: o.version, Started: Epoch,
