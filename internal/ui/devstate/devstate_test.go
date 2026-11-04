@@ -5,6 +5,7 @@ package devstate
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -60,7 +61,9 @@ func TestInstance(t *testing.T) {
 	SetLocation(func() string { return "/a" })
 	Save("/a", nil)
 	path, _ := file()
-	if filepath.Base(filepath.Dir(path)) != "sona-feat_x_y" {
+	// The instance names the state folder: sona-feat_x_y under XDG,
+	// State-feat_x_y in macOS's Application Support.
+	if dir := filepath.Base(filepath.Dir(path)); !strings.HasSuffix(dir, "-feat_x_y") {
 		t.Fatalf("state dir %s", path)
 	}
 	if _, err := os.Stat(path); err != nil {
