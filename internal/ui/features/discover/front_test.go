@@ -295,6 +295,28 @@ func TestFrontStopsWhileTheWindowIsHiddenAndGoesOnWhenItIsBack(t *testing.T) {
 	}
 }
 
+func TestFrontStopsWhileTheWindowLacksTheFocusAndGoesOnWhenItIsBack(t *testing.T) {
+	r := newFront(t, 8)
+	r.tick(rotateEvery - time.Millisecond)
+	// Another app (or the mini player) takes the focus; the shell redraws.
+	r.env.Window.SetFocused(false)
+	r.tt.Frame()
+	r.tick(rotateEvery * 3)
+	if r.lead() != 0 {
+		t.Fatalf("lead %d while the window is unfocused", r.lead())
+	}
+	r.env.Window.SetFocused(true)
+	r.tt.Frame()
+	r.tick(rotateEvery - time.Millisecond)
+	if r.lead() != 0 {
+		t.Fatalf("lead %d before a whole interval after the focus came back", r.lead())
+	}
+	r.tick(time.Millisecond)
+	if r.lead() != 1 {
+		t.Errorf("lead %d after it, want 1", r.lead())
+	}
+}
+
 func TestFrontWaitsAWholeIntervalMoreAtATickThatFindsAMenuOpen(t *testing.T) {
 	r := newFront(t, 8)
 	r.registerPlaylistAction()

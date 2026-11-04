@@ -93,11 +93,11 @@ func (r *rotation) restart(now time.Time, at int) {
 
 // step is called every frame. running says the lead may move on now: rotation
 // on offer, not paused by the user, with no pointer or focus inside the
-// hero, the window visible and the hero on screen. At the deadline occupied
-// (a menu is open, the page is covered) is asked: a tick that finds the page
-// occupied waits a whole interval more. It reports whether the lead moves on
-// now and, when it does not, how long until the deadline (0: nothing is
-// waiting).
+// hero, the window visible and focused and the hero on screen. At the
+// deadline occupied (a menu is open, the page is covered) is asked: a tick
+// that finds the page occupied waits a whole interval more. It reports
+// whether the lead moves on now and, when it does not, how long until the
+// deadline (0: nothing is waiting).
 func (r *rotation) step(now time.Time, running bool, at int, occupied func() bool) (advance bool, wait time.Duration) {
 	last := r.last
 	r.last = now
