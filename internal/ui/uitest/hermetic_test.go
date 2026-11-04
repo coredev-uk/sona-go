@@ -142,11 +142,13 @@ func TestEnvironmentIsPrivate(t *testing.T) {
 				t.Errorf("%s = %q is outside the test's directory", k, v)
 			}
 		}
-		// The cache is the per-user test cache (MyGo's font cache), beside
-		// Sona's own: never the real cache directory itself.
+		// What the OS resolves as the cache directory is the shared test cache
+		// (on macOS through a link), beside Sona's own: never the real cache
+		// directory itself.
 		c, err := os.UserCacheDir()
-		if err != nil || filepath.Base(c) != "uitest" || filepath.Base(filepath.Dir(c)) != "sona-tests" {
-			t.Errorf("the cache directory %q (%v) is not the uitest test cache", c, err)
+		want, werr := processCache()
+		if err != nil || werr != nil || !sameDir(t, c, want) || filepath.Base(want) != "uitest" || filepath.Base(filepath.Dir(want)) != "sona-tests" {
+			t.Errorf("the cache directory %q (%v) is not the uitest test cache %q (%v)", c, err, want, werr)
 		}
 		if id := discord.ClientID(); id != "" {
 			t.Errorf("a Discord application %q is configured", id)
@@ -196,4 +198,15 @@ func TestDefaultClientFailsFast(t *testing.T) {
 	if http.DefaultTransport != before {
 		t.Error("http.DefaultTransport was not restored")
 	}
+}
+
+// sameDir reports whether a and b are the same directory, links followed.
+func sameDir(t *testing.T, a, b string) bool {
+	t.Helper()
+	ra, err := filepath.EvalSymlinks(a)
+	if err != nil {
+		return false
+	}
+	rb, err := filepath.EvalSymlinks(b)
+	return err == nil && ra == rb
 }

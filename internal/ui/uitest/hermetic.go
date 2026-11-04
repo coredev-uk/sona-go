@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -206,11 +207,15 @@ func (g defaultGuard) RoundTrip(req *http.Request) (*http.Response, error) {
 
 // isolate points everything the process reads from its environment at dir,
 // for the length of the test: HOME and the XDG directories (config, data,
-// state, runtime; the cache is processCache), both D-Bus buses (an address
-// nothing listens on: a connection fails at once instead of reaching the
-// real bus), and the variables that would give the integrations a real
-// account (the Discord application, the Last.fm API key; Last.fm gets a
-// made-up one so its section is available, its calls fail on the Network).
+// state, runtime), both D-Bus buses (an address nothing listens on: a
+// connection fails at once instead of reaching the real bus), and the
+// variables that would give the integrations a real account (the Discord
+// application, the Last.fm API key; Last.fm gets a made-up one so its
+// section is available, its calls fail on the Network). What os.UserHomeDir,
+// os.UserConfigDir and os.UserCacheDir answer follows on each OS: the XDG
+// variables on Linux; on macOS $HOME/Library, whose Caches is a link to the
+// shared test cache (processCache); on Windows %USERPROFILE%, %AppData% and
+// %LocalAppData%, which is the shared test cache itself.
 func isolate(t testing.TB, dir string) {
 	t.Helper()
 	home := filepath.Join(dir, "home")
@@ -224,22 +229,37 @@ func isolate(t testing.TB, dir string) {
 			t.Fatal(err)
 		}
 	}
-	bus := "unix:path=" + filepath.Join(run, "no-bus")
-	for k, v := range map[string]string{
+	env := map[string]string{
 		"HOME":                     home,
 		"XDG_CONFIG_HOME":          filepath.Join(home, ".config"),
 		"XDG_DATA_HOME":            filepath.Join(home, ".local", "share"),
 		"XDG_STATE_HOME":           filepath.Join(home, ".local", "state"),
 		"XDG_CACHE_HOME":           cache,
 		"XDG_RUNTIME_DIR":          run,
-		"DBUS_SESSION_BUS_ADDRESS": bus,
-		"DBUS_SYSTEM_BUS_ADDRESS":  bus,
+		"DBUS_SESSION_BUS_ADDRESS": "unix:path=" + filepath.Join(run, "no-bus"),
+		"DBUS_SYSTEM_BUS_ADDRESS":  "unix:path=" + filepath.Join(run, "no-bus"),
 		"SONA_DISCORD_CLIENT_ID":   "",
 		"SONA_LASTFM_KEY":          "uitest-key",
 		"SONA_LASTFM_SECRET":       "uitest-secret",
 		"SONA_DEV_INSTANCE":        "",
 		"APPIMAGE":                 "",
-	} {
+	}
+	switch runtime.GOOS {
+	case "darwin":
+		// os.UserCacheDir is $HOME/Library/Caches and ignores XDG_CACHE_HOME.
+		lib := filepath.Join(home, "Library")
+		if err := os.MkdirAll(lib, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(cache, filepath.Join(lib, "Caches")); err != nil && !errors.Is(err, os.ErrExist) {
+			t.Fatal(err)
+		}
+	case "windows":
+		env["USERPROFILE"] = home
+		env["AppData"] = filepath.Join(home, "AppData", "Roaming")
+		env["LocalAppData"] = cache // os.UserCacheDir is %LocalAppData% itself
+	}
+	for k, v := range env {
 		t.Setenv(k, v)
 	}
 }
