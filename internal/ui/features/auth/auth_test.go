@@ -279,6 +279,26 @@ func TestSignedOutUnencryptedTokenNote(t *testing.T) {
 	}
 }
 
+// The header is a 20 high line of medium ink (32 with its padding) and the
+// unencrypted note leads with its shield-alert icon: 14 and a 6 gap before the
+// text, which the other notes start without (AccountMenu's Note).
+func TestMenuHeaderAndNotesAreStyled(t *testing.T) {
+	r := newRig(t, services.AuthStatus{State: "signed_out", Unencrypted: true})
+	r.openMenu()
+	head, ok := r.tt.Find("Apple Music")
+	if !ok || head.H != 32 {
+		t.Errorf("the header is %v (found %v), want a 20 high line with 6 above and below", head, ok)
+	}
+	plain, ok := r.tt.Find("Plays stay out of your listening history, scrobbles and Discord.")
+	if !ok || plain.X != head.X+8 {
+		t.Errorf("a note without an icon is at %v (found %v), want the header's text start %v", plain.X, ok, head.X+8)
+	}
+	note, ok := r.tt.Find("Signing in now stores your token unencrypted")
+	if !ok || note.X != plain.X+14+6 {
+		t.Errorf("the unencrypted note starts at %v (found %v), want it after the icon (%v)", note.X, ok, plain.X+14+6)
+	}
+}
+
 func TestCheckNowFailureToasts(t *testing.T) {
 	st := signedIn
 	st.Offline = true
@@ -510,6 +530,26 @@ func TestDialogFollowsSurfaces(t *testing.T) {
 	r.settle()
 	if r.h.Env.Surfaces.AccountOpen() {
 		t.Error("a click on the scrim did not close the account dialog")
+	}
+}
+
+// The body scrolls inside a short window, as max-h-[calc(100%-2rem)]
+// overflow-y-auto does: the panel stays inside it, the X and the Apple Account
+// field in sight, and the end of the form below, reached by scrolling.
+func TestDialogBodyScrollsInAShortWindow(t *testing.T) {
+	r := newRig(t, signedOut)
+	r.tt.SetSize(900, 300)
+	r.h.Env.Surfaces.OpenAccount()
+	r.settle()
+	x, ok := r.tt.Find("Close")
+	if !ok || x.Y < 0 {
+		t.Fatalf("the dialog's X is at %v (found %v): the panel is taller than the window", x, ok)
+	}
+	if f, ok := r.tt.Find("Apple Account"); !ok || f.Y+f.H > 300 {
+		t.Errorf("the Apple Account field is at %v (found %v), not in sight", f, ok)
+	}
+	if b, ok := r.tt.Find("Sign in"); ok && b.Y+b.H <= 300 {
+		t.Errorf("the whole form fits a 300 high window: nothing is capped (Sign in at %v)", b)
 	}
 }
 

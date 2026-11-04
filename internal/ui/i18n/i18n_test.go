@@ -323,10 +323,51 @@ func TestFormatters(t *testing.T) {
 }
 
 func TestFormatBytes(t *testing.T) {
-	for n, want := range map[int64]string{-5: "0 B", 0: "0 B", 42: "42 B", 1023: "1,023 B", 1024: "1 kB", 1536: "1.5 kB", 12 * 1024: "12 kB", 12_700_000: "12 MB", 3 << 30: "3 GB"} {
+	for n, want := range map[int64]string{-5: "0 byte", 0: "0 byte", 42: "42 byte", 1023: "1,023 byte", 1024: "1 kB", 1536: "1.5 kB", 12 * 1024: "12 kB", 12_700_000: "12 MB", 3 << 30: "3 GB"} {
 		if got := FormatBytes(n); got != want {
 			t.Errorf("FormatBytes(%d) = %q, want %q", n, got, want)
 		}
+	}
+}
+
+// Sizes and distances take their unit words from CLDR's short patterns for the
+// shown language, as Intl.NumberFormat's unit style does.
+func TestUnitsFollowTheShownLanguage(t *testing.T) {
+	t.Cleanup(func() { SetLocale("en") })
+	for _, tc := range []struct {
+		tag, bytes, mb, km, mi string
+	}{
+		{"en", "42 byte", "12 MB", "16 km", "10 mi"},
+		{"en-CA", "42 bytes", "12 MB", "16 km", "10 mi"},
+		{"de", "42 Byte", "12 MB", "16 km", "10 mi"},
+		{"fr", "42\u202fo", "12\u202fMo", "16\u202fkm", "10\u202fmi"},
+		{"fr-CA", "42\u00a0o", "12\u00a0Mo", "16\u00a0km", "10\u00a0mi"},
+		{"pl", "42 B", "12 MB", "16 km", "10 mil"},
+		{"ru", "42 Б", "12 МБ", "16 км", "10 ми"},
+		{"zh", "42 B", "12 MB", "16公里", "10英里"},
+		{"zh-Hant-HK", "42 byte", "12 MB", "16 公里", "10 哩"},
+		{"ko", "42byte", "12MB", "16km", "10mi"},
+	} {
+		SetLocale(tc.tag)
+		if got := FormatBytes(42); got != tc.bytes {
+			t.Errorf("%s: 42 bytes is %q, want %q", tc.tag, got, tc.bytes)
+		}
+		if got := FormatBytes(12_700_000); got != tc.mb {
+			t.Errorf("%s: 12.7 MB is %q, want %q", tc.tag, got, tc.mb)
+		}
+		if got := FormatDistance(16, false); got != tc.km {
+			t.Errorf("%s: 16 km is %q, want %q", tc.tag, got, tc.km)
+		}
+		if got := FormatDistance(16, true); got != tc.mi {
+			t.Errorf("%s: 16 km in miles is %q, want %q", tc.tag, got, tc.mi)
+		}
+	}
+	SetLocale("en")
+	if got, want := FormatDistance(0.2, true), "1 mi"; got != want {
+		t.Errorf("a short distance in miles is %q, want %q", got, want)
+	}
+	if got, want := FormatBytes(2<<40), "2 TB"; got != want {
+		t.Errorf("2 TiB is %q, want %q", got, want)
 	}
 }
 

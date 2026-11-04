@@ -174,16 +174,16 @@ func TestGroupShowsByVenueMonthAndDay(t *testing.T) {
 
 func TestDistanceLabelSaysKilometresOrMiles(t *testing.T) {
 	regional(t, "en-GB")
-	if got := distanceLabel(16); got != "10\u00a0mi away" {
+	if got := distanceLabel(16); got != "10 mi away" {
 		t.Errorf("en-GB: %q", got)
 	}
 	// A distance under a mile still says one.
-	if got := distanceLabel(1); got != "1\u00a0mi away" {
+	if got := distanceLabel(1); got != "1 mi away" {
 		t.Errorf("en-GB, 1 km: %q", got)
 	}
 	i18n.SetLocale("de")
 	t.Cleanup(func() { i18n.SetLocale("en") })
-	if got := distanceLabel(16); got != "16\u00a0km away" {
+	if got := distanceLabel(16); got != "16 km away" {
 		t.Errorf("de: %q", got)
 	}
 	if got := distanceLabel(0); got != "" {

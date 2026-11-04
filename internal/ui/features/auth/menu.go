@@ -130,10 +130,12 @@ func (f *feature) avatar(c *ui.Context, signedIn, attention, open bool) ui.Eleme
 func (f *feature) menuItems(s services.AuthStatus, known bool, line string, priv store.Result[services.PrivateState]) []kit.MenuItem {
 	signedIn := account.HasAccount(s.State)
 	var items []kit.MenuItem
-	note := func(text string) { items = append(items, kit.MenuItem{Kind: kit.MenuLabel, Label: text}) }
+	note := func(text string) {
+		items = append(items, kit.MenuItem{Kind: kit.MenuLabel, Note: kit.LabelNote, Label: text})
+	}
 	sep := func() { items = append(items, kit.MenuItem{Kind: kit.MenuSeparator}) }
 
-	note(i18n.T("Apple Music"))
+	items = append(items, kit.MenuItem{Kind: kit.MenuLabel, Note: kit.LabelHeader, Label: i18n.T("Apple Music")})
 	if line != "" {
 		note(line)
 	}
@@ -145,11 +147,12 @@ func (f *feature) menuItems(s services.AuthStatus, known bool, line string, priv
 		note(i18n.T("Explicit content is restricted on this account; Sona hides it."))
 	}
 	if s.Unencrypted {
+		text := i18n.T("Signing in now stores your token unencrypted")
 		if signedIn {
-			note(i18n.T("Your token is stored unencrypted"))
-		} else {
-			note(i18n.T("Signing in now stores your token unencrypted"))
+			text = i18n.T("Your token is stored unencrypted")
 		}
+		// The shield-alert of v0.2.0's Note, in the danger colour.
+		items = append(items, kit.MenuItem{Kind: kit.MenuLabel, Note: kit.LabelNote, Label: text, Icon: "shield-alert", Destructive: true})
 	}
 	sep()
 
@@ -198,7 +201,7 @@ func (f *feature) privateItems(priv store.Result[services.PrivateState]) []kit.M
 	if priv.HasData && st.Source == "development" && st.On {
 		text = i18n.T("Private listening is on for this development build. Turning it off lasts until Sona quits.")
 	}
-	return []kit.MenuItem{row, {Kind: kit.MenuLabel, Label: text}}
+	return []kit.MenuItem{row, {Kind: kit.MenuLabel, Note: kit.LabelNote, Label: text}}
 }
 
 // setPrivate switches private listening; the row keeps the menu open, so

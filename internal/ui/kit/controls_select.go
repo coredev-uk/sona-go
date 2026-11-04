@@ -154,8 +154,12 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 		ui.Icon(c, theme.Icon("chevron-down")).FontSize(16).Opacity(0.5).Shrink(0)
 	})
 	width := trigger.Bounds().W
+	align := ui.Local(trigger, "align", func() selectAlign { return selectAlign{} })
+	open := false
 	sel.Popup(func(panel ui.Element) {
+		open = true
 		controlsPopupPanel(panel).MinWidth(max(width, 128)).Modal().Label(o.A11yLabel)
+		align.place(c, panel, trigger, placeholder)
 		ui.Scroll(c).MaxHeight(controlsPopupHeight(c, trigger)).Role(ui.RoleGroup).Children(func() {
 			for i, it := range items {
 				switch it.kind {
@@ -170,12 +174,62 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 						continue
 					}
 					item := sel.Item(it.Value).Lang(it.Lang)
+					if it.Value == *value {
+						align.measure(panel, item, trigger)
+					}
 					controlsOption(c, selectRadio(item, it.Label, it.Value == *value), it.Label, item.Highlighted(), it.Value == *value, false)
 				}
 			}
 		})
 	})
+	if !open {
+		*align = selectAlign{}
+	}
 	return trigger
+}
+
+// selectAlign seats a Select's popup as shadcn's item-aligned one: the
+// chosen option over the trigger, the list reaching above and below it (the
+// window's edge moves it back in). The offset is read from the layout of the
+// frames before: the chosen option's place in the panel once the list has
+// scrolled it into view, kept from the second frame that agrees, so that
+// scrolling the list afterwards does not move the panel. Until then, and for
+// a Select showing its placeholder, the popup stays below the trigger.
+type selectAlign struct {
+	dy      float32 // panel top minus trigger top
+	seen    bool    // dy was measured at least once
+	settled bool    // two frames agreed (or measuring took too long): dy stays
+	frames  int
+}
+
+// place seats the panel: hidden, and asking for frames, until the offset is
+// known, so that the list never shows (or takes a press) where it is not
+// going to stay.
+func (a *selectAlign) place(c *ui.Context, panel, trigger ui.Element, placeholder bool) {
+	if placeholder {
+		a.settled = true
+		return
+	}
+	if a.seen {
+		panel.AttachTo(trigger, ui.AnchorTopStart, ui.AnchorTopStart).Top(a.dy)
+	}
+	if a.frames++; a.frames > 8 {
+		a.settled = true // a layout that never agrees shows where it is
+	}
+	if !a.settled {
+		panel.Opacity(0)
+		c.Invalidate()
+	}
+}
+
+func (a *selectAlign) measure(panel, option, trigger ui.Element) {
+	pb, ob, tb := panel.Bounds(), option.Bounds(), trigger.Bounds()
+	if a.settled || pb.H == 0 || ob.H == 0 || tb.H == 0 {
+		return
+	}
+	dy := (tb.H-ob.H)/2 - (ob.Y - pb.Y)
+	a.settled = a.seen && dy == a.dy
+	a.dy, a.seen = dy, true
 }
 
 // SegmentOption is one segment of a Segmented control.

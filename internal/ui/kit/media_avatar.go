@@ -231,9 +231,15 @@ func Avatar(c *ui.Context, l *ArtLoader, o AvatarOpts) ui.Element {
 	})
 	if o.Ring {
 		bg := theme.C("background")
-		root.DrawOver(func(p *ui.Painter, r ui.Rect) { p.Stroke(r, bg, r.W/2, 2) })
+		root.DrawOver(func(p *ui.Painter, r ui.Rect) { avatarRing(p, r, bg) })
 	}
 	return root
+}
+
+// avatarRing paints the 2 DIP ring round the circle r, outside its edge, as
+// the box-shadow ring (ring-2 ring-background) of v0.2.0's avatars.
+func avatarRing(p *ui.Painter, r ui.Rect, c ui.Color) {
+	p.Stroke(ui.Rect{X: r.X - 2, Y: r.Y - 2, W: r.W + 4, H: r.H + 4}, c, r.W/2+2, 2)
 }
 
 // AvatarGroup lays avatars out overlapping by 8 DIPs, each with a ring in the
@@ -271,7 +277,7 @@ func AvatarGroupCount(c *ui.Context, n int, size AvatarSize) ui.Element {
 	}
 	bg := theme.C("background")
 	e := ui.Row(c).Size(d, d).Center().Radius(d / 2).Background(theme.C("muted"))
-	e.DrawOver(func(p *ui.Painter, r ui.Rect) { p.Stroke(r, bg, r.W/2, 2) })
+	e.DrawOver(func(p *ui.Painter, r ui.Rect) { avatarRing(p, r, bg) })
 	e.Children(func() {
 		ui.Text(c, fmt.Sprintf("+%d", n)).FontSize(font).TextColor(theme.C("muted-foreground")).SingleLine()
 	})

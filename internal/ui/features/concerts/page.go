@@ -299,9 +299,11 @@ func (s *concerts) filters(c *ui.Context, p params, page *services.ConcertsPage,
 	})
 }
 
-// dateInput is a labelled day field; lo and hi bound the days it takes
-// ("" for none). A day outside them, or half typed, shows invalid and
-// changes nothing; a valid one, or none, is handed to set.
+// dateInput is a labelled day field with a calendar beside it; lo and hi
+// bound the days it takes ("" for none). A day outside them, or half typed,
+// shows invalid and changes nothing; a valid one, or none, is handed to set.
+// The calendar (MyGo's has no min or max) answers a day outside them the same
+// way: the field shows it invalid and the calendar stays open.
 func (s *concerts) dateInput(c *ui.Context, label string, f *dateField, lo, hi string, set func(string)) {
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 		text(c, label, "secondary", "ink-muted")
@@ -315,6 +317,45 @@ func (s *concerts) dateInput(c *ui.Context, label string, f *dateField, lo, hi s
 				set("")
 			case validDay(f.text, lo, hi):
 				set(f.text)
+			}
+		}
+		s.dayPicker(c.Key("pick"), label, f, lo, hi, set)
+	})
+}
+
+// dayPicker is the calendar button of a day field: a popover with a month
+// that opens on the field's day (or the first day it takes, or today).
+func (s *concerts) dayPicker(c *ui.Context, label string, f *dateField, lo, hi string, set func(string)) {
+	btn := kit.Button(c.Key("btn"), "", kit.ButtonOpts{
+		Variant: kit.Ghost, Size: kit.SizeSM, Icon: "calendar",
+		A11yLabel: i18n.T("Choose the {field} day", "field", label),
+	})
+	open := ui.Local(btn, "open", func() bool { return false })
+	if btn.Clicked() {
+		*open = !*open
+	}
+	day := ui.Local(btn, "day", func() time.Time { return time.Time{} })
+	if !*open {
+		*day = time.Time{} // opens on the field's day again
+	}
+	kit.Popover(c, btn, open, kit.PopoverOpts{Width: 296, Padding: 8}, func() {
+		if day.IsZero() {
+			for _, v := range []string{f.text, lo, hi} {
+				if d, ok := parseDay(v); ok {
+					*day = d
+					break
+				}
+			}
+			if day.IsZero() {
+				*day = s.today()
+			}
+		}
+		if ui.Calendar(c.Key("cal"), day).Browse().Changed() {
+			picked := day.Format(dayFormat)
+			f.text = picked
+			if validDay(picked, lo, hi) {
+				set(picked)
+				*open = false
 			}
 		}
 	})

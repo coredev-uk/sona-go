@@ -239,7 +239,7 @@ func TestWidevineDownloadIsAProgressNode(t *testing.T) {
 	r.tt.Frame()
 	tr := access.Read(t, r.tt.Tester)
 	p, ok := tr.Find(ui.RoleProgress, "Widevine download")
-	if !ok || p.Value != "42%, 42 B of 100 B" {
+	if !ok || p.Value != "42%, 42 byte of 100 byte" {
 		t.Errorf("the progress node: %+v\n%s", p, tr.Dump())
 	}
 	if s, ok := tr.Find(ui.RoleStatus, "Downloading Widevine…"); !ok || s.Description == "" {

@@ -623,9 +623,7 @@ func TestOpeningTheLyricsAgainAfterAFailureAsksAgain(t *testing.T) {
 	if r.tt.HasText("Couldn't load the lyrics") {
 		t.Errorf("the old failure shows while asking again")
 	}
-	if r.lyrics.asks() != asks+1 {
-		t.Errorf("asked %d times, want %d", r.lyrics.asks(), asks+1)
-	}
+	r.tt.Until("the second ask", func() bool { return r.lyrics.asks() == asks+1 })
 	release()
 	r.tt.Until("the lyrics", r.tt.Shows("In a blaze of light", "Written by Thom Yorke, Jonny Greenwood"))
 	if r.tt.HasText("Couldn't load the lyrics") || r.tt.HasText("Loading the lyrics…") {

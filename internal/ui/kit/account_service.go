@@ -39,12 +39,9 @@ func setPrivate(cl *store.Client, set func(on bool) (services.PrivateState, erro
 	}()
 }
 
-// RetryCDM asks Go to download the Widevine CDM, or check for an update, now
-// (CDMService.Retry); "cdm:status" follows. A failure toasts "Couldn't start
-// the Widevine download".
-func RetryCDM(core *services.Core) { RetryCDMWith(services.Service[services.CDMService](core).Retry, nil) }
-
-// RetryCDMWith is RetryCDM over retry (CDMService.Retry, or a test's). done,
+// RetryCDMWith asks Go to download the Widevine CDM, or check for an update,
+// now (retry is CDMService.Retry, or a test's); "cdm:status" follows. A
+// failure toasts "Couldn't start the Widevine download". done,
 // when not nil, runs once retry returned and a failure has been toasted, on
 // the call's goroutine (post it to the UI's own for state): a button that
 // reads "Retrying…" while the call runs ends it there.

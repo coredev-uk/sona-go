@@ -357,3 +357,21 @@ func TestShowToastAsksForAFrame(t *testing.T) {
 	toasts.queue, toasts.closed = nil, nil
 	toasts.mu.Unlock()
 }
+
+// HeadingTitle is v0.2.0's `text-heading` DialogTitle: 16/22, so the
+// description starts 24 padding + 1 border + 22 title + 8 gap into the panel.
+func TestDialogHeadingTitleIs16Over22(t *testing.T) {
+	_, tt := newDialogApp(t, DialogOpts{Title: "Heading title", Description: "Pick a new name.", HeadingTitle: true})
+	tt.Key(0, ui.KeyTab)
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(time.Second) // past the opening scale
+	tt.Frame()
+	panel, ok := tt.Find("Heading title")
+	desc, ok2 := tt.Find("Pick a new name.")
+	if !ok || !ok2 {
+		t.Fatalf("no dialog among %q", tt.Texts())
+	}
+	if got := desc.Y - panel.Y; got != 24+1+22+8 {
+		t.Errorf("the description is %v into the panel, want 55", got)
+	}
+}

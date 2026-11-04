@@ -33,6 +33,9 @@ type DialogOpts struct {
 	Bare bool
 	// Raised paints the panel on the raised tone (the palette), not the ground.
 	Raised bool
+	// HeadingTitle sets the title in the page heading style (16/22
+	// semibold) instead of 18 (v0.2.0's `text-heading` DialogTitle).
+	HeadingTitle bool
 	// Compact is the confirm dialog's header: 16 semibold ink title, 14
 	// muted body, 6 apart.
 	Compact bool
@@ -100,7 +103,7 @@ func Dialog(c *ui.Context, open *bool, o DialogOpts, build func()) ui.Element {
 		}
 		p.Children(func() {
 			if !o.HideHeader && (o.Title != "" || o.Description != "") {
-				dialogHeader(c, o.Title, o.Description, o.Compact)
+				dialogHeader(c, o.Title, o.Description, o.Compact, o.HeadingTitle)
 			}
 			build()
 			if !o.HideClose {
@@ -144,10 +147,10 @@ func closeButton(c *ui.Context) ui.Element {
 // DialogHeader is a dialog's title and description: the title 18 semibold,
 // the description muted 14, 8 apart.
 func DialogHeader(c *ui.Context, title, description string) {
-	dialogHeader(c, title, description, false)
+	dialogHeader(c, title, description, false, false)
 }
 
-func dialogHeader(c *ui.Context, title, description string, compact bool) {
+func dialogHeader(c *ui.Context, title, description string, compact, heading bool) {
 	gap, fg := float32(8), theme.C("muted-foreground")
 	if compact {
 		gap, fg = 6, theme.C("ink-muted")
@@ -155,7 +158,7 @@ func dialogHeader(c *ui.Context, title, description string, compact bool) {
 	ui.Column(c.Key("dialog:header")).Gap(gap).Children(func() {
 		if title != "" {
 			t := overlaysText(c.Key("t"), title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
-			if !compact {
+			if !compact && !heading {
 				t.FontSize(18).FixedLineHeight(18).FontWeight(600)
 			}
 		}

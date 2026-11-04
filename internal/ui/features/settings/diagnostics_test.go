@@ -200,6 +200,25 @@ func TestDiagnosticsShowsLoadingThenTheVerdict(t *testing.T) {
 	}
 }
 
+// The label column is 200 DIPs wide, 160 from a window of 960 or less
+// (grid-cols-[200px…] max-[960px]:grid-cols-[160px…]).
+func TestDiagnosticsLabelColumnNarrowsBelow960(t *testing.T) {
+	g := newDiagRig(t, linuxCaps(), engineReport(), nil)
+	g.tt.Until("verdict", g.tt.Shows("Everything Sona needs is working", "Source"))
+	label, ok := g.tt.Find("Source")
+	if !ok {
+		t.Fatalf("no Source row among %q", g.tt.Texts())
+	}
+	if label.W != 200 {
+		t.Errorf("the label column is %v wide at 1132, want 200", label.W)
+	}
+	g.tt.SetSize(900, 700)
+	g.tt.Drain()
+	if label, _ = g.tt.Find("Source"); label.W != 160 {
+		t.Errorf("the label column is %v wide at 900, want 160", label.W)
+	}
+}
+
 func TestDiagnosticsGroupsInOrder(t *testing.T) {
 	g := newDiagRig(t, linuxCaps(), engineReport(), nil)
 	g.native(services.MotionReport{Allowed: true, Setting: true, H264: "probably", Visible: true})

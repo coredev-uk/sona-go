@@ -251,3 +251,36 @@ func TestAvatarSizesAndGroup(t *testing.T) {
 		t.Errorf("avatars are %v DIPs apart, want about 24", d)
 	}
 }
+
+// A group avatar's ring is drawn outside its edge, like the box-shadow ring
+// of v0.2.0, so the picture keeps its full diameter.
+func TestAvatarRingSitsOutsideTheEdge(t *testing.T) {
+	theme.SetMode(theme.ModeLight)
+	defer theme.SetMode(theme.ModeSystem)
+	l := newArtLoader(&fakeArt{}, newMainThread().post, 1)
+	defer l.Close()
+	red := ui.RGB(220, 30, 30)
+	tt := ui.NewTester(func(c *ui.Context) {
+		theme.Apply(c)
+		ui.Column(c).FillWidth().FillHeight().Padding(20).Background(red).AlignItems(ui.Start).Children(func() {
+			Avatar(c.Key("a"), l, AvatarOpts{Fallback: "AB", Ring: true, A11yLabel: "Ada"})
+		})
+	}, 100, 100)
+	tt.Frame()
+	r := controlsFind(t, tt, "Ada")
+	img := tt.Image()
+	s := float32(img.Bounds().Dx()) / 100
+	px := func(x, y float32) color.RGBA { return img.RGBAAt(int(x*s), int(y*s)) }
+	mid := r.Y + r.H/2
+	bgc := theme.C("background")
+	bg := color.RGBA{bgc.R, bgc.G, bgc.B, 255}
+	if got := px(r.X-1, mid); !near(got, bg) {
+		t.Errorf("1 DIP outside the edge is %v, want the background ring", got)
+	}
+	if got := px(r.X-3, mid); !near(got, color.RGBA{220, 30, 30, 255}) {
+		t.Errorf("3 DIPs outside the edge is %v, want the page behind", got)
+	}
+	if got := px(r.X+r.W/2, mid-r.H/2+1); near(got, bg) {
+		t.Errorf("the ring is drawn inside the avatar's edge: %v", got)
+	}
+}

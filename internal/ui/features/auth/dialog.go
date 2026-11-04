@@ -12,9 +12,9 @@ const (
 	dialogWidth = 576
 	// dialogChrome is what the panel holds besides the body, taken from the
 	// room the body may scroll in: the window's 2 rem margins (32), the
-	// panel's 24 padding top and bottom, the 18 high title and the 20 gap
+	// panel's 24 padding top and bottom, the 22 high title and the 20 gap
 	// below it.
-	dialogChrome = 32 + 2*24 + 18 + 20
+	dialogChrome = 32 + 2*24 + 22 + 20
 	// minBody keeps a body in sight in a very short window.
 	minBody = 120
 )
@@ -32,7 +32,7 @@ func (f *feature) dialog(c *ui.Context) {
 	}
 	f.shown = open
 	_, h := c.Size()
-	kit.Dialog(c, &open, kit.DialogOpts{Title: i18n.T("Account"), MaxWidth: dialogWidth, Gap: 20}, func() {
+	kit.Dialog(c, &open, kit.DialogOpts{Title: i18n.T("Account"), HeadingTitle: true, MaxWidth: dialogWidth, Gap: 20}, func() {
 		ui.Scroll(c.Key("auth:body")).FillWidth().MaxHeight(max(h-dialogChrome, minBody)).Children(func() {
 			ui.Column(c.Key("auth:section")).FillWidth().Children(func() {
 				f.section.Build(c, false)

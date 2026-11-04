@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -38,6 +39,9 @@ type rowOpts struct {
 	Title string
 	// Desc says what the setting does, under the title.
 	Desc string
+	// Ink is the part of Desc set in ink instead of muted (SettingRow's
+	// <b> in the window size row's figures).
+	Ink string
 	// Notes builds more of the text column under Desc (a live note, a
 	// link); it is built inside the column.
 	Notes func()
@@ -68,7 +72,7 @@ func (s *settings) row(c *ui.Context, o rowOpts, control func() ui.Element) {
 			ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).MaxWidth(rowTextWidth).Children(func() {
 				title = text(c, o.Title, "label").TextColor(theme.C("ink"))
 				if o.Desc != "" {
-					text(c, o.Desc, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+					descText(c, o.Desc, o.Ink)
 				}
 				if o.Notes != nil {
 					o.Notes()
@@ -90,6 +94,22 @@ func (s *settings) row(c *ui.Context, o rowOpts, control func() ui.Element) {
 			}
 			s.land(c, o.ID, in, first)
 		})
+	})
+}
+
+// descText is a row's description: muted, with ink (when it appears in desc)
+// in ink.
+func descText(c *ui.Context, desc, ink string) {
+	before, after, found := strings.Cut(desc, ink)
+	if ink == "" || !found {
+		text(c, desc, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+		return
+	}
+	t := theme.Current().Type["secondary"]
+	ui.RichText(c.Key("desc")).FontSize(t.Size).FixedLineHeight(t.LineHeight).TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0).Children(func() {
+		ui.Text(c.Key("before"), before)
+		ui.Text(c.Key("ink"), ink).TextColor(theme.C("ink"))
+		ui.Text(c.Key("after"), after)
 	})
 }
 

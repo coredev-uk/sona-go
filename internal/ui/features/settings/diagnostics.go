@@ -245,13 +245,18 @@ func statusIcon(c *ui.Context, st diagStatus) ui.Element {
 // diagGroup is an h3 and its label/value rows.
 func (s *settings) diagGroup(c *ui.Context, g diagGroup) {
 	c = c.Key("g:" + g.id)
+	// grid-cols-[200px_…] max-[960px]:grid-cols-[160px_…]
+	labelWidth := float32(200)
+	if w, _ := c.Size(); w <= narrowWidth {
+		labelWidth = 160
+	}
 	ui.Column(c).FillWidth().Role(ui.RoleGroup).Label(g.title).Children(func() {
 		text(c, g.title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3).Margin(0, 0, 12, 0)
 		for i, r := range g.rows {
 			k := c.Key("row" + strconv.Itoa(i))
 			ui.Box(c.Key("line" + strconv.Itoa(i))).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
 			ui.Row(k).FillWidth().Gap(24).Padding(10, 0).AlignItems(ui.Start).Children(func() {
-				text(k, r.label, "secondary").TextColor(theme.C("ink-muted")).Width(200).Shrink(0)
+				text(k, r.label, "secondary").TextColor(theme.C("ink-muted")).Width(labelWidth).Shrink(0)
 				ui.Column(k.Key("v")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
 					ui.Row(k.Key("val")).Gap(8).AlignItems(ui.Start).Children(func() {
 						statusIcon(k.Key("s"), r.status)
