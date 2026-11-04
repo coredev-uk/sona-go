@@ -24,6 +24,7 @@ func shelfRig(t *testing.T, w int, fail bool, draw func(c *ui.Context, r *rig), 
 	hn.Env.HasRoute = func(p string) bool { return p == concertsPath }
 	hn.Env.OpenURL = r.open
 	r.tt = hn.Tester(t, func(c *ui.Context) {
+		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Scroll(c).Fill().Children(func() {
 			ui.Column(c).Padding(24).Children(func() { draw(c, r) })
 		})

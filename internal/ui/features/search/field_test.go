@@ -113,6 +113,7 @@ func newFieldRig(t *testing.T, start string, opts ...uitest.Option) *fieldRig {
 	r.api = services.Service[services.SearchService](r.h.Core)
 	r.s = newSearch(r.h.Env, r.api, r.play, services.Service[services.AuthService](r.h.Core))
 	r.tt = r.h.Tester(t, func(c *ui.Context) {
+		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Column(c).Fill().Children(func() {
 			ui.Row(c).Height(48).FillWidth().Padding(0, 16).AlignItems(ui.Center).Children(func() {
 				ui.Row(c).MinWidth(240).Basis(520).Shrink(1).Grow(0).Children(func() { r.s.field.build(c) })

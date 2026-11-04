@@ -41,7 +41,7 @@ func TestProfilePrivateMarkAndEmptyPlaylists(t *testing.T) {
 }
 
 func TestProfileLoadingThenError(t *testing.T) {
-	r := newPageRig(t, "/profile/sp.1", rigOpts{signedIn: true, setup: func(a *pageApple) { a.fail["/v1/social/gb/social-profiles"] = 500 }})
+	r := newPageRig(t, "/profile/sp.1", rigOpts{signedIn: true, setup: func(a *pageApple) { a.fail["/v1/social/gb/social-profiles"] = 400 }})
 	if _, ok := r.tt.Find("Loading"); !ok && !r.tt.HasText("Couldn't load this profile") {
 		t.Error("neither a skeleton nor an error on the first frame")
 	}

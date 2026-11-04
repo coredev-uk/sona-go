@@ -81,7 +81,7 @@ func TestGroupPageItemsAreATileGrid(t *testing.T) {
 }
 
 func TestGroupPageFailureWithNothingLoadedHasItsOwnTitleAndRetry(t *testing.T) {
-	down := func(a *pageApple) { a.fail["/v1/catalog/gb/search"] = 500 }
+	down := func(a *pageApple) { a.fail["/v1/catalog/gb/search"] = 400 }
 	r := newPageRig(t, "/search/album?q=blue", rigOpts{signedIn: true, setup: down})
 	r.tt.Until("the error", r.tt.Shows("Couldn't load albums"))
 	r.apple.setFail("/v1/catalog/gb/search", 0)

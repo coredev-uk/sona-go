@@ -263,6 +263,7 @@ func newPageRig(t *testing.T, start string, ro rigOpts, opts ...uitest.Option) *
 		w, h = 1132, 1300
 	}
 	r.tt = r.h.Tester(t, func(c *ui.Context) {
+		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Column(c).Fill().Background(theme.C("ground")).Children(func() {
 			r.router.View(c, func(rt *ui.Route) {
 				switch {
@@ -353,7 +354,7 @@ func TestSearchPageBrowseOpensACategoryAndRemembersIt(t *testing.T) {
 }
 
 func TestSearchPageBrowseFailureOffersRetry(t *testing.T) {
-	r := newPageRig(t, "/search", rigOpts{signedIn: true, setup: func(a *pageApple) { a.fail["/v1/recommendations/gb"] = 500 }})
+	r := newPageRig(t, "/search", rigOpts{signedIn: true, setup: func(a *pageApple) { a.fail["/v1/recommendations/gb"] = 400 }})
 	r.tt.Until("the failure", r.tt.Shows("Browse categories", "Couldn't load the categories"))
 	r.apple.setFail("/v1/recommendations/gb", 0)
 	r.click("Try again")
@@ -559,7 +560,7 @@ func TestCatalogSignedOutOffersSignIn(t *testing.T) {
 }
 
 func TestCatalogFailureOffersRetry(t *testing.T) {
-	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, setup: func(a *pageApple) { a.fail["/v1/catalog/gb/search"] = 500 }})
+	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, setup: func(a *pageApple) { a.fail["/v1/catalog/gb/search"] = 400 }})
 	r.tt.Until("the error", r.tt.Shows("Couldn't search Apple Music"))
 	r.apple.setFail("/v1/catalog/gb/search", 0)
 	r.click("Try again")
