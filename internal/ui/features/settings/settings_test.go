@@ -35,6 +35,7 @@ func newRig(t *testing.T, w, h int, shortcuts []module.BoundShortcut, opts ...ui
 func newRigCaps(t *testing.T, w, h int, shortcuts []module.BoundShortcut, caps *services.Capabilities, opts ...uitest.Option) *rig {
 	t.Helper()
 	hn := uitest.New(t, opts...)
+	hn.Env.HasRoute = func(p string) bool { return p == "/library/albums" }
 	if caps != nil {
 		store.Set(hn.Env.Queries, store.KeyCapabilities, *caps)
 	}

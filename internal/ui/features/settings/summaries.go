@@ -52,16 +52,8 @@ func (s *settings) summaries() map[string]string {
 	}
 	d := st.Desktop
 
-	page := d.StartPage
-	for _, p := range startPages() {
-		if p.Route == d.StartPage {
-			page = p.Label
-		}
-	}
 	general := ""
-	if d.ResumeLastRoute {
-		general = i18n.T("Opens where you left off")
-	} else {
+	if _, page := s.openOn(d); page != "" {
 		general = i18n.T("Opens on {page}", "page", page)
 	}
 	closing := ""

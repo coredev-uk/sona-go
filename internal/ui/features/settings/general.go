@@ -61,20 +61,39 @@ func (s *settings) saveDesktop(change func(*config.Desktop)) {
 	s.save(func(st *config.Settings) { change(&st.Desktop) })
 }
 
+// openOn is the page Sona opens on, as the shell resolves it: the saved
+// start page if it is registered in this build, else the first registered
+// one (App.startPath's fallback). "The page you were last on" waits for the
+// shell's route memory (phase 3), so it is neither offered nor shown.
+func (s *settings) openOn(d config.Desktop) (route, label string) {
+	for _, p := range startPages() {
+		if !s.hasRoute(p.Route) {
+			continue
+		}
+		if route == "" || p.Route == d.StartPage {
+			route, label = p.Route, p.Label
+		}
+		if p.Route == d.StartPage {
+			break
+		}
+	}
+	return route, label
+}
+
 // startPageRow is "Open on": the pages Sona can open on that exist in this
-// build. "The page you were last on" waits for the shell's route memory
-// (phase 3): until then nothing would remember the page, so it isn't offered.
+// build.
 func (s *settings) startPageRow(c *ui.Context, cfg config.Settings) {
 	var items []kit.SelectItem
 	for _, p := range startPages() {
-		if s.env.HasRoute != nil && s.env.HasRoute(p.Route) {
+		if s.hasRoute(p.Route) {
 			items = append(items, kit.SelectOption(p.Route, p.Label))
 		}
 	}
+	current, _ := s.openOn(cfg.Desktop)
 	s.selectRow(c, rowOpts{
 		ID: "start-page", Title: i18n.T("Open on"),
 		Desc: i18n.T("The page Sona shows when it starts. Your queue is always kept."),
-	}, cfg.Desktop.StartPage, items, false, func(v string) {
+	}, current, items, false, func(v string) {
 		s.saveDesktop(func(d *config.Desktop) { d.StartPage, d.ResumeLastRoute, d.LastRoute = v, false, "" })
 	})
 }

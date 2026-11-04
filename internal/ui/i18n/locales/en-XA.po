@@ -7443,39 +7443,18 @@ msgstr ""
 msgid "yesterday"
 msgstr ""
 
-#: internal/ui/features/settings/storage.go
-#: internal/ui/features/settings/updates.go
-msgid "{count, plural, one {# day ago} other {# days ago}}"
-msgstr ""
-
-#: internal/ui/features/settings/updates.go
-msgid "{count, plural, one {# hour ago} other {# hours ago}}"
-msgstr ""
-
-#: internal/ui/features/settings/updates.go
-msgid "{count, plural, one {# minute ago} other {# minutes ago}}"
-msgstr ""
-
-#: internal/ui/features/settings/storage.go
-msgid "{count} hr. ago"
-msgstr ""
-
-#: internal/ui/features/settings/storage.go
-msgid "{count} min. ago"
-msgstr ""
-
 #: internal/ui/features/settings/cdm.go
 msgid "{days, plural, one {# day ago} other {# days ago}}"
 msgstr ""
 
-#: internal/ui/features/settings/cdm.go
-msgid "{hours} hr. ago"
-msgstr ""
-
-#: internal/ui/features/settings/cdm.go
-msgid "{minutes} min. ago"
-msgstr ""
-
 #: internal/ui/features/settings/desktop.go
 msgid "Sona's own title bar comes with a later version: the desktop draws it."
+msgstr ""
+
+#: internal/ui/i18n/relative.go
+msgid "{hours, plural, one {# hr. ago} other {# hr. ago}}"
+msgstr ""
+
+#: internal/ui/i18n/relative.go
+msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
 msgstr ""

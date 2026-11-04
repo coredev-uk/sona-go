@@ -7443,39 +7443,18 @@ msgstr "devtools, console, inspect element, debug"
 msgid "yesterday"
 msgstr "yesterday"
 
-#: internal/ui/features/settings/storage.go
-#: internal/ui/features/settings/updates.go
-msgid "{count, plural, one {# day ago} other {# days ago}}"
-msgstr "{count, plural, one {# day ago} other {# days ago}}"
-
-#: internal/ui/features/settings/updates.go
-msgid "{count, plural, one {# hour ago} other {# hours ago}}"
-msgstr "{count, plural, one {# hour ago} other {# hours ago}}"
-
-#: internal/ui/features/settings/updates.go
-msgid "{count, plural, one {# minute ago} other {# minutes ago}}"
-msgstr "{count, plural, one {# minute ago} other {# minutes ago}}"
-
-#: internal/ui/features/settings/storage.go
-msgid "{count} hr. ago"
-msgstr "{count} hr. ago"
-
-#: internal/ui/features/settings/storage.go
-msgid "{count} min. ago"
-msgstr "{count} min. ago"
-
 #: internal/ui/features/settings/cdm.go
 msgid "{days, plural, one {# day ago} other {# days ago}}"
 msgstr "{days, plural, one {# day ago} other {# days ago}}"
 
-#: internal/ui/features/settings/cdm.go
-msgid "{hours} hr. ago"
-msgstr "{hours} hr. ago"
-
-#: internal/ui/features/settings/cdm.go
-msgid "{minutes} min. ago"
-msgstr "{minutes} min. ago"
-
 #: internal/ui/features/settings/desktop.go
 msgid "Sona's own title bar comes with a later version: the desktop draws it."
 msgstr "Sona's own title bar comes with a later version: the desktop draws it."
+
+#: internal/ui/i18n/relative.go
+msgid "{hours, plural, one {# hr. ago} other {# hr. ago}}"
+msgstr "{hours, plural, one {# hr. ago} other {# hr. ago}}"
+
+#: internal/ui/i18n/relative.go
+msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
+msgstr "{minutes, plural, one {# min. ago} other {# min. ago}}"

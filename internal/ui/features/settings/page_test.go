@@ -50,7 +50,7 @@ func TestTheRetiredAccountSectionOpensTheAccountDialogAndRedirects(t *testing.T)
 
 func TestSectionListShowsEachSectionsStateInOneLine(t *testing.T) {
 	r := newRig(t, 1132, 900, nil)
-	r.tt.Until("summaries", r.tt.Shows("Opens on For you", "Default keys", "Light theme", "Nothing connected", "Checks, logs and bug reports"))
+	r.tt.Until("summaries", r.tt.Shows("Opens on Albums", "Default keys", "Light theme", "Nothing connected", "Checks, logs and bug reports"))
 }
 
 func TestBelow960TheSummariesAreForAssistiveTechnologyOnly(t *testing.T) {

@@ -21,15 +21,15 @@ func RelativeTime(t, now time.Time) string {
 	}
 	m := round(float64(s) / 60)
 	if m < 60 {
-		return T("{count} min. ago", "count", m)
+		return T("{minutes, plural, one {# min. ago} other {# min. ago}}", "minutes", m)
 	}
 	h := round(float64(m) / 60)
 	if h < 24 {
-		return T("{count} hr. ago", "count", h)
+		return T("{hours, plural, one {# hr. ago} other {# hr. ago}}", "hours", h)
 	}
 	d := round(float64(h) / 24)
 	if d == 1 {
 		return T("yesterday")
 	}
-	return T("{count, plural, one {# day ago} other {# days ago}}", "count", d)
+	return T("{days, plural, one {# day ago} other {# days ago}}", "days", d)
 }

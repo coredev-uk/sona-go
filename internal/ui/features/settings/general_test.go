@@ -219,14 +219,16 @@ func TestChangingLanguageSavesAndRefetchesEveryQuery(t *testing.T) {
 
 func TestOpenOnOffersTheRegisteredPagesAndTheChoiceIsWhereSonaOpens(t *testing.T) {
 	g := newGeneralRig(t, linuxCaps(), func(s *config.Settings) { s.Desktop.LastRoute = "/charts"; s.Desktop.ResumeLastRoute = true })
-	g.choose("start-page", "Albums")
+	*stateOf[func(string) bool](g.s, "seam:hasRoute") = func(p string) bool { return p == "/library/albums" || p == "/library/songs" }
+	g.tt.Drain()
+	g.choose("start-page", "Songs")
 	g.until("start page", func() bool {
 		d := g.saved().Desktop
-		return d.StartPage == "/library/albums" && !d.ResumeLastRoute && d.LastRoute == ""
+		return d.StartPage == "/library/songs" && !d.ResumeLastRoute && d.LastRoute == ""
 	})
 	// What Sona opens on at the next start (the shell reads StartPage; the
 	// shell's own test covers that it opens there).
-	if got := g.saved().Desktop.StartRoute(); got != "/library/albums" {
+	if got := g.saved().Desktop.StartRoute(); got != "/library/songs" {
 		t.Errorf("the next start opens %q", got)
 	}
 	// A page no module registered is not offered; the last page waits for route memory.
@@ -238,6 +240,27 @@ func TestOpenOnOffersTheRegisteredPagesAndTheChoiceIsWhereSonaOpens(t *testing.T
 		}
 		g.tt.Key(0, ui.KeyEscape)
 		g.tt.Drain()
+	}
+}
+
+func TestOpenOnShowsThePageTheShellOpens(t *testing.T) {
+	// The saved "/" is registered by no module here: the shell opens the
+	// first registered page, and the select and the summary say so.
+	g := newGeneralRig(t, linuxCaps(), func(s *config.Settings) { s.Desktop.ResumeLastRoute = true })
+	g.until("trigger and summary", g.tt.Shows("Albums", "Opens on Albums"))
+	if g.tt.HasText("Opens where you left off") {
+		t.Error("the summary names route memory, which the shell does not have")
+	}
+	*stateOf[func(string) bool](g.s, "seam:hasRoute") = func(p string) bool { return p == "/charts" || p == "/library/songs" }
+	if route, label := g.s.openOn(config.Desktop{StartPage: "/library/songs"}); route != "/library/songs" || label != "Songs" {
+		t.Errorf("saved page offered: %q %q", route, label)
+	}
+	if route, label := g.s.openOn(config.Desktop{StartPage: "/"}); route != "/charts" || label != "Charts" {
+		t.Errorf("fallback: %q %q", route, label)
+	}
+	*stateOf[func(string) bool](g.s, "seam:hasRoute") = func(string) bool { return false }
+	if route, _ := g.s.openOn(config.Desktop{StartPage: "/"}); route != "" {
+		t.Errorf("nothing registered: %q", route)
 	}
 }
 
