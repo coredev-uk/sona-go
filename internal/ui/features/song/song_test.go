@@ -646,27 +646,27 @@ func TestCreditsGroupsAndPeople(t *testing.T) {
 }
 
 func TestLyricsAndCreditsSitSideBySideFrom1100(t *testing.T) {
-	wide := newRig(t, 1200, 1200, airbag())
+	wide := newRig(t, 967, 1200, airbag())
 	wide.open()
 	wide.tt.Until("both shelves", wide.tt.Shows("Lyrics", "Credits"))
 	a, _ := wide.tt.Find("Lyrics")
 	b, _ := wide.tt.Find("Credits")
 	if a.Y != b.Y || !(a.X < b.X) {
-		t.Errorf("at 1200 the shelves are %v and %v: want one row", a, b)
+		t.Errorf("at a 1200 window the shelves are %v and %v: want one row", a, b)
 	}
-	// The window's width, not the column's, decides (a CSS viewport query).
-	narrow := newRig(t, 1000, 1200, airbag())
+	// The window's width (the page column plus the sidebar), not the column's, decides (a CSS viewport query).
+	narrow := newRig(t, 767, 1200, airbag())
 	narrow.open()
 	narrow.tt.Until("both shelves", narrow.tt.Shows("Lyrics", "Credits"))
 	a, _ = narrow.tt.Find("Lyrics")
 	b, _ = narrow.tt.Find("Credits")
 	if !(a.Y < b.Y) || a.X != b.X {
-		t.Errorf("at 1000 the shelves are %v and %v: want one above the other", a, b)
+		t.Errorf("at a 1000 window the shelves are %v and %v: want one above the other", a, b)
 	}
 }
 
 func TestCreditsHaveTwoColumnsFrom720(t *testing.T) {
-	wide := newRig(t, 800, 1400, airbag())
+	wide := newRig(t, 567, 1400, airbag())
 	wide.open()
 	wide.tt.Until("people", wide.tt.Shows("Radiohead", "Nigel Godrich", "Third Person"))
 	a, _ := wide.tt.Find("Performer, Vocals")
@@ -674,7 +674,7 @@ func TestCreditsHaveTwoColumnsFrom720(t *testing.T) {
 	if a.Y != b.Y || !(a.X < b.X) {
 		t.Errorf("at 800 the first two people are at %v and %v: want one row", a, b)
 	}
-	narrow := newRig(t, 700, 1600, airbag())
+	narrow := newRig(t, 467, 1600, airbag())
 	narrow.open()
 	narrow.tt.Until("people", narrow.tt.Shows("Nigel Godrich"))
 	a, _ = narrow.tt.Find("Performer, Vocals")
