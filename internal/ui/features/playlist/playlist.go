@@ -89,7 +89,7 @@ func New(env *module.Env) module.Module {
 		Actions: p.actions(),
 		Slots: module.Slots{
 			SidebarSection: p.sidebarSection,
-			Aside:          p.dialogHost,
+			Layer:          p.dialogHost, // dialogs only: no LayerOpen, so the layer takes no input itself
 		},
 		Init: p.init,
 	}

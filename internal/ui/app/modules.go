@@ -18,13 +18,10 @@ import (
 // it; nav items sort by their own Order). Features not ported yet are
 // absent: there are no placeholders.
 var factories = []module.Factory{
-	library.New, // Albums only
-	player.New,  // the player bar only
-	auth.New,    // sign-in state, the account menu and dialog
-	updates.New, // the sidebar's update notice
 	library.New,  // Albums only
 	playlist.New, // the playlist page, the sidebar tree and pins, the dialogs
 	player.New,   // the player bar only
+	auth.New,     // sign-in state, the account menu and dialog
 	updates.New,  // the sidebar's update notice
 	// motion has no module: the policy is kit.MotionPolicy (Env.Motion), kept by the shell
 	private.New,    // the player bar's private listening pill and its command
