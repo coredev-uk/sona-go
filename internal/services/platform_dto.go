@@ -97,6 +97,6 @@ type PlaybackCapabilities struct {
 	// listening withholds them all.
 	PrivateListening bool `json:"privateListening"`
 	// Video: music videos play (in SD, the only quality Apple licenses a
-	// software CDM), their pictures served at /video/frame.
+	// software CDM), their pictures shown by the UI's video view.
 	Video bool `json:"video"`
 }

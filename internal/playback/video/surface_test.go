@@ -3,9 +3,6 @@ package video
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -75,116 +72,6 @@ func TestSurfaceNext(t *testing.T) {
 			t.Fatalf("Next(3) on a cleared surface: %+v %v", f, ok)
 		}
 	})
-}
-
-func serve(s *Surface, method, target string) *httptest.ResponseRecorder {
-	rec := httptest.NewRecorder()
-	s.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), method, target, nil))
-	return rec
-}
-
-func TestSurfaceServeHTTP(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		s := NewSurface()
-		data := make([]byte, 3*3+2*2*2) // I420 3×3
-		for i := range data {
-			data[i] = byte(i)
-		}
-
-		// No picture within the poll: 204, no sequence.
-		start := time.Now()
-		rec := serve(s, http.MethodGet, Path)
-		if rec.Code != http.StatusNoContent || rec.Header().Get("X-Video-Seq") != "" || rec.Body.Len() != 0 {
-			t.Fatalf("empty: %d %q %x", rec.Code, rec.Header().Get("X-Video-Seq"), rec.Body.Bytes())
-		}
-		if d := time.Since(start); d != poll {
-			t.Fatalf("answered after %v, want %v", d, poll)
-		}
-		if got := rec.Header().Get("Cache-Control"); got != "no-store" {
-			t.Fatalf("Cache-Control %q", got)
-		}
-
-		s.Show(3, 3, 1234*time.Millisecond+500*time.Microsecond, data)
-		rec = serve(s, http.MethodGet, Path+"?after=0")
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status %d", rec.Code)
-		}
-		h := rec.Header()
-		if h.Get("Content-Type") != "application/octet-stream" || h.Get("X-Video-Seq") != "1" || h.Get("Cache-Control") != "no-store" {
-			t.Fatalf("headers %v", h)
-		}
-		body := rec.Body.Bytes()
-		want := []byte{'S', 'V', 'F', '1', 1, 0, 0, 0, 3, 0, 3, 0}
-		want = binary.LittleEndian.AppendUint32(want, 1234)
-		want = append(want, data...)
-		if !bytes.Equal(body, want) {
-			t.Fatalf("body %x\nwant %x", body, want)
-		}
-		if h.Get("Content-Length") != "33" {
-			t.Fatalf("Content-Length %q", h.Get("Content-Length"))
-		}
-
-		// The client has picture 1: it waits for the next one.
-		got := make(chan *httptest.ResponseRecorder, 1)
-		go func() { got <- serve(s, http.MethodGet, Path+"?after=1") }()
-		synctest.Wait()
-		s.Show(864, 486, 0, data)
-		rec = <-got
-		if rec.Code != http.StatusOK || rec.Header().Get("X-Video-Seq") != "2" {
-			t.Fatalf("second: %d %v", rec.Code, rec.Header())
-		}
-		if hdr := rec.Body.Bytes()[:headerSize]; binary.LittleEndian.Uint16(hdr[8:]) != 864 || binary.LittleEndian.Uint16(hdr[10:]) != 486 ||
-			binary.LittleEndian.Uint32(hdr[4:]) != 2 {
-			t.Fatalf("header %x", hdr)
-		}
-
-		// Nothing newer than 2 within the poll.
-		if rec := serve(s, http.MethodGet, Path+"?after=2"); rec.Code != http.StatusNoContent || rec.Header().Get("X-Video-Seq") != "" {
-			t.Fatalf("timeout: %d %v", rec.Code, rec.Header())
-		}
-
-		// Cleared: 204 with the sequence to wait from.
-		go func() { got <- serve(s, http.MethodGet, Path+"?after=2") }()
-		synctest.Wait()
-		s.Clear()
-		rec = <-got
-		if rec.Code != http.StatusNoContent || rec.Header().Get("X-Video-Seq") != "3" || rec.Header().Get("Cache-Control") != "no-store" {
-			t.Fatalf("cleared: %d %v", rec.Code, rec.Header())
-		}
-
-		if rec := serve(s, http.MethodPost, Path); rec.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("POST: %d", rec.Code)
-		}
-	})
-}
-
-func TestEncodeHeader(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		f    Frame
-		want []byte
-	}{
-		{
-			name: "plain", f: Frame{Seq: 7, Width: 864, Height: 486, Position: 90 * time.Second},
-			want: []byte{'S', 'V', 'F', '1', 7, 0, 0, 0, 0x60, 0x03, 0xe6, 0x01, 0x90, 0x5f, 0x01, 0x00},
-		},
-		{
-			name: "sequence wraps", f: Frame{Seq: 1<<32 + 5, Width: 2, Height: 2},
-			want: []byte{'S', 'V', 'F', '1', 5, 0, 0, 0, 2, 0, 2, 0, 0, 0, 0, 0},
-		},
-		{
-			name: "negative position", f: Frame{Seq: 1, Width: 2, Height: 2, Position: -time.Second},
-			want: []byte{'S', 'V', 'F', '1', 1, 0, 0, 0, 2, 0, 2, 0, 0, 0, 0, 0},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			b := make([]byte, headerSize)
-			encodeHeader(b, tc.f)
-			if !bytes.Equal(b, tc.want) {
-				t.Fatalf("header %x, want %x", b, tc.want)
-			}
-		})
-	}
 }
 
 func TestSurfaceSeq(t *testing.T) {
