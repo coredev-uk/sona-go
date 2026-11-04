@@ -106,6 +106,7 @@ func newConnRig(t *testing.T, fake *connFake, integ services.IntegrationsStatus,
 	r.s = newSettings(hn.Env, services.Service[services.SystemService](hn.Core), connPlat{caps}, fake, connInteg{integ},
 		services.Service[services.CDMService](hn.Core), services.Service[services.UpdatesService](hn.Core))
 	r.s.init()
+	followShell(hn)
 	store.Set(hn.Env.Queries, keyScrobble, fake.Status())
 	store.Set(hn.Env.Queries, keyIntegrations, integ)
 	store.Set(hn.Env.Queries, store.KeyPrivate, services.PrivateState{Source: "setting"})

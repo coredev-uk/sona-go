@@ -76,6 +76,7 @@ func newScRig(t *testing.T, w, h int, before func(*scRig), opts ...uitest.Option
 		fakeScrobbler{}, services.Service[services.IntegrationsService](hn.Core),
 		services.Service[services.CDMService](hn.Core), services.Service[services.UpdatesService](hn.Core))
 	r.s.init()
+	followShell(hn)
 	r.router.Replace(settingsPath + "?section=shortcuts")
 	t.Cleanup(kit.CancelConfirm)
 	if before != nil {
@@ -96,10 +97,10 @@ func newScRig(t *testing.T, w, h int, before func(*scRig), opts ...uitest.Option
 	return r
 }
 
-// tallRig is the section in a window tall enough to show every row.
+// tallRig is the section in a window the usual size.
 func tallRig(t *testing.T) *scRig {
 	t.Helper()
-	r := newScRig(t, 1132, 1500, nil)
+	r := newScRig(t, 1132, 900, nil)
 	r.show("test.free not set")
 	r.tt.Advance(10 * time.Millisecond) // the measured width settles
 	return r
@@ -231,7 +232,7 @@ func TestShortcutsRecordersAreNamedByTheirActionAndKeys(t *testing.T) {
 
 func TestShortcutsListGroupsInOrderInOneColumnWhereNarrow(t *testing.T) {
 	// A 1000 DIP window leaves the section 636 DIP: below 46 rem.
-	r := newScRig(t, 1000, 1800, nil)
+	r := newScRig(t, 1000, 900, nil)
 	r.show("test.free not set")
 	r.tt.Advance(10 * time.Millisecond) // the measured width settles
 	order := []string{
@@ -743,7 +744,7 @@ func TestShortcutsFindLandsOnTheRecorder(t *testing.T) {
 }
 
 func TestShortcutsLoadSkeletonThenRows(t *testing.T) {
-	r := newScRig(t, 1132, 1500, nil)
+	r := newScRig(t, 1132, 900, nil)
 	r.tt.Frame()
 	if _, ok := r.tt.Find("Loading"); !ok {
 		t.Fatalf("no loading state; texts %q", r.tt.Texts())
@@ -760,7 +761,7 @@ func TestShortcutsLoadSkeletonThenRows(t *testing.T) {
 // A settings read that fails shows the error with Try again, never the
 // rows; the settings arriving (here by event) replace it.
 func TestShortcutsReadErrorHasRetryAndRecovers(t *testing.T) {
-	r := newScRig(t, 1132, 1500, func(r *scRig) { r.h.Env.Core = nil })
+	r := newScRig(t, 1132, 900, func(r *scRig) { r.h.Env.Core = nil })
 	r.show("Couldn't read Sona's settings", "Try again")
 	if r.tt.HasText("player.toggle") || r.tt.HasText("Loading") {
 		t.Errorf("an error shows rows or a skeleton: %q", r.tt.Texts())
@@ -777,7 +778,7 @@ func TestShortcutsReadErrorHasRetryAndRecovers(t *testing.T) {
 // The settings come from Go's store: bindings saved earlier show at once,
 // and a changed one arriving by event (another window, the file) shows.
 func TestShortcutsShowSavedBindingsAndFollowSettingsChanged(t *testing.T) {
-	r := newScRig(t, 1132, 1500, func(r *scRig) {
+	r := newScRig(t, 1132, 900, func(r *scRig) {
 		if _, err := r.h.Settings.Update(func(s *config.Settings) {
 			s.Shortcuts = config.Shortcuts{"player.favourite": "Ctrl+Shift+J", "test.close": "none", "view.refresh": "Hyper+F"}
 		}); err != nil {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -47,6 +48,7 @@ func newRigCaps(t *testing.T, w, h int, shortcuts []module.BoundShortcut, caps *
 		fakeScrobbler{}, services.Service[services.IntegrationsService](hn.Core),
 		services.Service[services.CDMService](hn.Core), services.Service[services.UpdatesService](hn.Core))
 	r.s.init()
+	followShell(hn)
 	r.tt = hn.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		ui.Column(c).Fill().Children(func() {
@@ -101,4 +103,13 @@ func (r *rig) toEnd() {
 	r.s.pos.Y = math.MaxFloat32
 	r.tt.Drain()
 	r.tt.Drain()
+}
+
+// followShell does what the shell does on "settings:changed" (app.followSettings):
+// the shared settings the features read follow Go's. The feature itself no
+// longer writes them.
+func followShell(h *uitest.Harness) {
+	store.On(h.Bus, services.EventSettingsChanged, func(s config.Settings) {
+		store.Set(h.Env.Queries, store.KeySettings, s)
+	})
 }

@@ -100,6 +100,7 @@ func newGeneralRig(t *testing.T, caps services.Capabilities, prepare func(*confi
 	stateOf[desktopSeam](r.s, "seam:desktop").api = dt
 	stateOf[languagesSeam](r.s, "seam:translations").api = fakeLanguages{}
 	r.s.init()
+	followShell(hn)
 	store.Set(hn.Env.Queries, store.KeyUpdates, up.status) // the updates module's mirror
 	store.Set(hn.Env.Queries, store.KeyCapabilities, caps)
 	r.tt = hn.Tester(t, func(c *ui.Context) {

@@ -35,6 +35,7 @@ func sectionRigWith(t *testing.T, section string, setup func(*settings), opts ..
 		fakeScrobbler{}, services.Service[services.IntegrationsService](hn.Core),
 		services.Service[services.CDMService](hn.Core), services.Service[services.UpdatesService](hn.Core))
 	r.s.init()
+	followShell(hn)
 	if setup != nil {
 		setup(r.s)
 	}
