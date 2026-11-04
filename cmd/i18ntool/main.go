@@ -1,11 +1,17 @@
 // Command i18ntool keeps Sona's message catalogues: it extracts Go's own
-// messages (internal/i18n/l10n) into their English catalogue, and maps
-// the frontend's messages to Apple Music's string keys
-// (docs/frontend-architecture.md, "Strings and locales"; CONTRIBUTING.md,
+// messages (internal/i18n/l10n) into their English catalogue, collects the
+// interface's messages (internal/ui: i18n.T and i18n.TC calls) into the
+// UI's catalogue, and maps the UI's messages to Apple Music's string keys
+// (docs/ui-architecture.md, "Strings and locales"; CONTRIBUTING.md,
 // "Strings and translations").
 //
-//	i18ntool extract          write Go's catalogue, internal/i18n/l10n/locales/en.po
-//	i18ntool extract -check   fail when that catalogue is out of date
+//	i18ntool extract          write both English catalogues: Go's
+//	                          (internal/i18n/l10n/locales/en.po) and the UI's
+//	                          (internal/ui/i18n/locales/en.po, en-XA.po),
+//	                          which only gain messages
+//	i18ntool extract -check   fail when Go's catalogue is out of date, a
+//	                          UI message is missing from the UI's, or a
+//	                          call's text is not a string literal
 //	i18ntool match            propose Apple keys for unmapped messages
 //	i18ntool match -apply F   move reviewed proposals into the mapping
 //	i18ntool import           convert Apple's translations for review (gitignored)
@@ -35,11 +41,13 @@ import (
 
 // Paths under the repository root.
 const (
-	i18nDir      = "frontend/src/shared/i18n"
-	sourcePOPath = i18nDir + "/locales/en.po"
+	i18nDir      = "internal/ui/i18n/locales"
+	sourcePOPath = i18nDir + "/en.po"
+	pseudoPOPath = i18nDir + "/en-XA.po"
 	mappingPath  = i18nDir + "/apple-keys.json"
 	rejectedPath = i18nDir + "/apple-keys-rejected.json"
 	appleDir     = i18nDir + "/apple" // gitignored: Apple's text, for review
+	uiDir        = "internal/ui"      // the Go sources whose i18n.T calls extract collects
 )
 
 func usage() {

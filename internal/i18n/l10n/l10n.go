@@ -1,8 +1,8 @@
 // Package l10n is Go's own message catalogue: the text Sona's Go code shows
-// itself, outside the web view (the tray menu, desktop notifications, the
-// command line, file chooser titles and filters). The frontend's text is
-// Lingui's (frontend/src/shared/i18n); text Go sends to the frontend is a
-// code the frontend words (internal/services/errors.go), never English.
+// itself, outside the UI (the tray menu, desktop notifications, the
+// command line, file chooser titles and filters). The UI's text is
+// internal/ui/i18n's; text Go sends to the UI is a code the UI words
+// (internal/services/errors.go), never English.
 //
 // Messages are English source text typed [Message]: a typed constant or
 // variable (`const msgQuit l10n.Message = "Quit Sona"`), a conversion
@@ -182,7 +182,7 @@ func language(tag string) string {
 }
 
 // MatchLocale picks the catalogue for the first preferred tag that has one,
-// as the frontend does (matchLocale in frontend/src/shared/i18n/locale.ts):
+// as the UI does (MatchLocale in internal/ui/i18n/locale.go):
 // the tag itself, its bare language, or another region of its language.
 // An English tag ends the search: English answers it. "" when none.
 func MatchLocale(preferred, available []string) string {

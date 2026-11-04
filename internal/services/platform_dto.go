@@ -29,13 +29,9 @@ type Capabilities struct {
 	// DiscordPresence: Sona can reach the Discord app on this OS (the
 	// build also needs a client ID: integrations:status discord.configured).
 	DiscordPresence bool `json:"discordPresence"`
-	// WebKitGTK: the web view is WebKitGTK (Linux), so its rendering
-	// workarounds (Settings → Diagnostics) apply.
-	WebKitGTK bool `json:"webkitGtk"`
-	// DeveloperTools: the main window's web inspector is on for this run
-	// (a development build, Settings → Diagnostics → Developer tools from
-	// the start before, or SONA_DEVTOOLS=1); DesktopService.OpenDeveloperTools
-	// shows it. The setting itself only applies from the next start.
+	// DeveloperTools: MyGo's inspector is on for this run (a development
+	// build started with SONA_INSPECTOR=1); DesktopService.OpenDeveloperTools
+	// shows it.
 	DeveloperTools bool `json:"developerTools"`
 	// WindowControls is how the main window's title bar works here; the
 	// frontend lays out its top bar from it and the title bar setting.

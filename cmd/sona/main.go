@@ -1,8 +1,8 @@
-// Command sona is the Sona desktop app: a Wails v3 shell (GTK4 + WebKitGTK 6
-// on Linux) around a React frontend, with all Apple Music networking,
-// credentials, caching and playback in Go. What differs per OS (the
-// playback engine, desktop integrations, single instance, Wails options)
-// is built in platform_<os>.go.
+// Command sona is the Sona desktop app: MyGo's native UI (GTK3 on Linux,
+// AppKit, Win32) drawn by the same process that holds all Apple Music
+// networking, credentials, caching and playback. What differs per OS (the
+// playback engine, desktop integrations, single instance) is built in
+// platform_<os>.go.
 package main
 
 import (
@@ -17,10 +17,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/transfer"
 
 	"github.com/coredev-uk/sona-go/build"
-	"github.com/coredev-uk/sona-go/frontend"
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/artwork"
@@ -43,14 +43,14 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/video"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/services"
-	"github.com/coredev-uk/sona-go/internal/shell"
+	uiapp "github.com/coredev-uk/sona-go/internal/ui/app"
+	uistore "github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
-// AppID is the GTK application id. GTK4 also uses it as the Wayland app_id,
-// so the desktop file is dev.coredev.Sona.desktop and MPRIS DesktopEntry
-// must match it. Wails' GtkApplication runs non-unique; single-instance is
-// handled by internal/app over D-Bus (platform_linux.go), so Wails'
-// SingleInstance option must stay off.
+// AppID is the application id: the desktop file is dev.coredev.Sona.desktop
+// and MPRIS' DesktopEntry must match it; on Linux it is also GLib's program
+// name, the window's app_id (appid_linux.go). Single instance is
+// internal/app's over D-Bus (platform_linux.go), not MyGo's.
 const AppID = "dev.coredev.Sona"
 
 // version is the app version, set from the VERSION file at build time
@@ -58,13 +58,9 @@ const AppID = "dev.coredev.Sona"
 // and `go run` leave "dev".
 var version = "dev"
 
-// paintFallback opens the network even if the frontend never reports its
+// paintFallback opens the network even if the window never reports its
 // first paint.
 const paintFallback = 10 * time.Second
-
-// Sona's description in the About panel (macOS's application menu), in
-// the language at startup.
-const msgDescription l10n.Message = "Apple Music for the Linux desktop"
 
 func main() {
 	// The CDM host re-executes this binary as its child process; in the
@@ -127,10 +123,6 @@ func run(started time.Time) error {
 	settings, err := config.OpenStore(paths.SettingsFile())
 	if err != nil {
 		log.Warn("settings unreadable, using defaults", "path", paths.SettingsFile(), "err", err)
-	}
-	// WebKit reads these when the first web view is created.
-	if err := settings.Get().Diagnostics.ApplyEnv(); err != nil {
-		log.Warn("apply WebKit diagnostics", "err", err)
 	}
 
 	// Single instance: a second launch forwards its arguments and exits.
@@ -206,7 +198,7 @@ func run(started time.Time) error {
 		return err
 	}
 	// Motion artwork: unencrypted video from Apple's media CDN, fetched
-	// by Go and served at /motion/ like artwork.
+	// by Go.
 	mot, err := motion.New(motion.Options{Dir: filepath.Join(paths.Cache, "motion"), HTTP: &http.Client{Transport: gate.Transport(newTransport()), Timeout: 2 * time.Minute}, Logger: log})
 	if err != nil {
 		return err
@@ -240,8 +232,8 @@ func run(started time.Time) error {
 	defer appleStrings.Close()
 
 	cur := settings.Get()
-	// Music video pictures: the engine shows each on vid as it falls due,
-	// and the web view fetches it from /video/frame (memory only).
+	// Music video pictures: the engine shows each on vid as it falls due
+	// (memory only); the video view that draws them is not ported yet.
 	vid := video.NewSurface()
 	engine := newEngine(api, cur, log, cdmMgr, storefront, vid)
 	defer engine.Close()
@@ -321,85 +313,52 @@ func run(started time.Time) error {
 	}
 	log.Info("startup: core ready", "since_start_ms", time.Since(started).Milliseconds())
 
-	registerEvents()
-	wapp := application.New(application.Options{
-		Name:         "Sona",
-		Description:  lang.Printer().T(msgDescription),
-		Icon:         build.AppIcon,
-		Logger:       log,
-		MarshalError: services.MarshalError,
-		Assets: application.AssetOptions{
-			Handler:        application.AssetFileServerFS(frontend.Dist),
-			Middleware:     artMiddleware(art, mot, vid),
-			DisableLogging: !devMode,
-		},
-		Linux:   linuxOptions,
-		Mac:     macOptions,
-		Windows: windowsOptions,
-	})
-
-	// The windows and the tray. --hidden (the autostart entry's choice)
-	// starts with no window: playback, MPRIS and the tray only. A first
-	// start opens on the first-run setup.
-	startRoute, err := services.StartRoute(ctx, d, cur)
-	if err != nil {
-		log.Warn("startup: first-run setup", "err", err)
-	}
-	sh := shell.New(shell.Options{
-		App: wapp, Settings: settings, Coord: coord, Logger: log.With("component", "shell"),
-		WindowIcon: build.AppIcon, TrayIcon: build.TrayIcon, Background: windowBackground(cur.Theme),
-		Hidden: act.Hidden(), Private: private, Language: lang, TitleBar: plat.TitleBar(), StartRoute: startRoute,
-		DeveloperTools: devMode || cur.Diagnostics.DeveloperToolsOn(os.Getenv),
-	})
-	defer sh.Close() // after core.Close, before coord.Close
-	log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "webkitgtk", webkitVersion(), "hidden", act.Hidden())
+	// The event bus the services emit into and the window control they
+	// keep exist before the core; the UI connects them to the window when
+	// MyGo is ready.
+	bus := uistore.NewBus(log)
+	windows := uiapp.NewWindows(devMode)
 
 	core := services.New(services.Deps{
 		Paths: paths, QueueFile: queueFile, Settings: settings, DB: d, Auth: authm, API: api,
 		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, CDM: cdmMgr, AppleStrings: appleStrings, Language: lang, Coord: coord,
-		History: history, Private: private, Storefront: storefront, Gate: gate, Emit: wapp.Event, Clipboard: wapp.Clipboard.SetText, Logger: log,
-		OpenURL: wapp.Browser.OpenURL, Focus: sh.ShowMain, Focused: sh.MainFocused, Windows: sh, Platform: plat.Services(),
-		Version: version, WebKit: webkitVersion(), Started: started,
+		History: history, Private: private, Storefront: storefront, Gate: gate, Emit: bus, Clipboard: clipboardText, Logger: log,
+		OpenURL: mygo.Shell.OpenExternal, Focus: windows.ShowMain, Focused: windows.Focused, Windows: windows, Platform: plat.Services(),
+		Version: version, Started: started,
 	})
 	defer core.Close() // runs first: stops sync, events and MPRIS
 	// After the services subscribed to auth changes, so none misses the
 	// restored sign-in.
 	authm.Start()
-	// Wails v3 marshals a bound method's error with its service's
-	// MarshalError only. Typed calls (not a loop over core.Services()) let
-	// the bindings generator see each service's type.
-	opts := application.ServiceOptions{MarshalError: services.MarshalError}
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.AuthService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.CatalogService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.LibraryService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.PlaybackService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.CDMService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.SearchService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.DiscoverService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.PlaylistsService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.RadioService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.SystemService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.UpdatesService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.IntegrationsService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.MotionService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.DesktopService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.ScrobbleService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.AudioService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.StorageService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.PrivateService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.PlatformService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.RemindersService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.TranslationsService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.LyricsService](core), opts))
-	wapp.RegisterService(application.NewServiceWithOptions(services.Service[services.ConcertsService](core), opts))
-	// The shell quits asynchronously: shutdown closes the media controls,
-	// which must not wait on the call that asked for it.
-	core.StartMediaControls(services.NewMPRISPlayer(coord, sh.ShowMain, sh.Quit, log.With("component", "mpris")))
+	// MPRIS' Quit comes from a bus call: the quit runs on its own goroutine
+	// since shutdown closes the media controls, which must not wait on the
+	// call that asked for it.
+	core.StartMediaControls(services.NewMPRISPlayer(coord, windows.ShowMain, func() { go mygo.App.Quit() }, log.With("component", "mpris")))
 
 	core.Activate(act, false)
 	plat.Serve(core.Activate, core.Commands())
 
-	return wapp.Run()
+	setApplicationID(log)
+	mygo.App.SetName("Sona")
+	mygo.App.SetVersion(version)
+	var ui *uiapp.App
+	mygo.App.WhenReady(func() {
+		ui = uiapp.New(uiapp.Options{
+			Core: core, Settings: settings, Bus: bus, Windows: windows, Art: art, Log: log.With("component", "ui"),
+			Version: version, Dev: devMode, Icon: build.AppIcon,
+		})
+		log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "hidden", act.Hidden())
+	})
+	err = mygo.App.Run()
+	if ui != nil {
+		ui.Close() // before core.Close and coord.Close
+	}
+	return err
+}
+
+// clipboardText puts text on the system clipboard (services.Deps.Clipboard).
+func clipboardText(text string) bool {
+	return mygo.Clipboard.Write(transfer.TextData(text)) == nil
 }
 
 // newTransport is the HTTP/2 keep-alive transport behind every client.
@@ -413,26 +372,6 @@ func newTransport() *http.Transport {
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: time.Second,
-	}
-}
-
-// artMiddleware serves the artwork cache at /art/, motion artwork at
-// /motion/ and music video pictures at /video/frame ahead of the
-// frontend.
-func artMiddleware(art, mot, vid http.Handler) application.Middleware {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			switch {
-			case strings.HasPrefix(r.URL.Path, "/art/"):
-				art.ServeHTTP(w, r)
-			case strings.HasPrefix(r.URL.Path, "/motion/"):
-				mot.ServeHTTP(w, r)
-			case r.URL.Path == video.Path:
-				vid.ServeHTTP(w, r)
-			default:
-				next.ServeHTTP(w, r)
-			}
-		})
 	}
 }
 
@@ -452,14 +391,4 @@ func localeStorefront() string {
 		break
 	}
 	return "us"
-}
-
-// windowBackground is the colour GTK paints before the first frame: the
-// design's ground colour for the configured theme (dark for "system", the
-// common case on this desktop), so start-up does not flash white.
-func windowBackground(theme string) application.RGBA {
-	if theme == config.ThemeLight {
-		return application.NewRGB(0xf4, 0xf5, 0xf3)
-	}
-	return application.NewRGB(0x12, 0x15, 0x13)
 }

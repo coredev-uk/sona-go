@@ -21,7 +21,7 @@ A manifest exists at `build/linux/flatpak/dev.coredev.Sona.yml`, and its build a
 | `--own-name=org.mpris.MediaPlayer2.sona` | `internal/mpris/mpris.go` `BusName`. Flatpak only grants `org.mpris.MediaPlayer2.$FLATPAK_ID` by default ([docs](https://docs.flatpak.org/en/latest/sandbox-permissions.html#d-bus-access)), and that would be `org.mpris.MediaPlayer2.dev.coredev.Sona`. |
 | `--talk-name=org.freedesktop.secrets` | go-keyring calls the Secret Service directly (see [Secrets](#secrets)). |
 | `--talk-name=org.freedesktop.Notifications` | `internal/desktop/notify` calls the notification server directly, not `org.freedesktop.portal.Notification`. |
-| `--talk-name=org.kde.StatusNotifierWatcher` | Tray (`internal/shell/tray.go`, Wails `SystemTray`). |
+| `--talk-name=org.kde.StatusNotifierWatcher` | Tray (the StatusNotifier tray of the removed Wails shell; not ported to MyGo yet). |
 
 **No permission needed:**
 - **Single-instance name `dev.coredev.Sona`** (`internal/app/instance.go`). It equals the app ID, which Flatpak grants by default. Verified: `RequestName` returns 1 (primary owner).

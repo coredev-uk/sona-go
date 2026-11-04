@@ -68,7 +68,7 @@ func TestEmbeddedMappingFitsCatalogue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := os.ReadFile("../../../frontend/src/shared/i18n/apple-keys.json")
+	b, err := os.ReadFile("../../ui/i18n/locales/apple-keys.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestEmbeddedMappingFitsCatalogue(t *testing.T) {
 	if len(cat.Mappings) != len(ms) {
 		t.Fatalf("%d of %d mapped messages are in en.po", len(cat.Mappings), len(ms))
 	}
-	f, err := po.Read("../../../frontend/src/shared/i18n/locales/en.po")
+	f, err := po.Read("../../ui/i18n/locales/en.po")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -10,8 +10,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/wailsapp/wails/v3/pkg/application"
-
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
@@ -25,20 +23,8 @@ import (
 // has no media controls, notifications, sleep inhibitor, power monitor,
 // file chooser or autostart entry here yet; each is absent from
 // services.Platform, so Capabilities reports it and the frontend hides or
-// explains it. The tray is Wails' own on every OS. The playback engine is
+// explains it. The tray comes with phase 3. The playback engine is
 // engine_cdm.go's on macOS, engine_other.go's elsewhere.
-
-var (
-	linuxOptions application.LinuxOptions
-	macOptions   = application.MacOptions{
-		// The shell hides windows rather than closing them and quits
-		// itself (Settings → General); keep running with no window.
-		ApplicationShouldTerminateAfterLastWindowClosed: false,
-	}
-	windowsOptions = application.WindowsOptions{
-		DisableQuitOnLastWindowClosed: true,
-	}
-)
 
 // dialInstance reaches the running Sona for `sona <command>` through its
 // socket in the state folder.
@@ -80,9 +66,9 @@ func openPlatform(paths config.Paths, act app.Activation, log *slog.Logger) (*pl
 	return p, nil
 }
 
-// Services offers the tray, the title bar and, with the socket, commands.
+// Services offers the title bar and, with the socket, commands.
 func (p *platform) Services() services.Platform {
-	return services.Platform{Tray: true, TitleBar: p.TitleBar(), Commands: p.instance != nil}
+	return services.Platform{TitleBar: p.TitleBar(), Commands: p.instance != nil}
 }
 
 // TitleBar: on macOS the system's buttons inset into Sona's top bar; on

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -10,9 +11,15 @@ import (
 	"github.com/coredev-uk/sona-go/internal/i18n/po"
 )
 
-// runExtract writes Go's English catalogue from the source, or with check
-// only reports whether the committed one is up to date.
+// runExtract brings both English catalogues up to date, or with check only
+// reports whether they are: Go's (runExtractGo) and the UI's (runExtractUI).
 func runExtract(r repo, check bool) error {
+	return errors.Join(runExtractGo(r, check), runExtractUI(r, check))
+}
+
+// runExtractGo writes Go's English catalogue from the source, or with check
+// only reports whether the committed one is up to date.
+func runExtractGo(r repo, check bool) error {
 	f, err := extract.Extract(string(r))
 	if err != nil {
 		return err

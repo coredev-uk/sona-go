@@ -8,8 +8,8 @@ import (
 	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
-// Windows is the desktop shell's window control, provided by main
-// (internal/shell).
+// Windows is the main window's control, provided by main
+// (internal/ui/app).
 type Windows interface {
 	// ShowMain raises the main window and closes the mini player.
 	ShowMain()

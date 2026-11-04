@@ -29,7 +29,6 @@ const (
 // key ("volume") would let "Volume" through.
 var localKeys = []string{
 	"volume",             // the player's live level
-	"diagnostics",        // WebKit workarounds for this GPU and driver
 	"scrobbling",         // account connections; their keys stay in this keyring
 	"window",             // this screen's window size
 	"desktop.autostart",  // mirrors this computer's autostart entry
@@ -42,7 +41,7 @@ var localKeys = []string{
 // keepLocal copies the localKeys fields from src into dst.
 func keepLocal(dst *Settings, src Settings) {
 	dst.Volume = src.Volume
-	dst.Diagnostics, dst.Scrobbling, dst.Window = src.Diagnostics, src.Scrobbling, src.Window
+	dst.Scrobbling, dst.Window = src.Scrobbling, src.Window
 	dst.Desktop.Autostart, dst.Desktop.LastRoute = src.Desktop.Autostart, src.Desktop.LastRoute
 	dst.Audio.OutputDevice = src.Audio.OutputDevice
 	dst.Onboarding = src.Onboarding

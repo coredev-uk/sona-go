@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/godbus/dbus/v5"
-	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/cli"
@@ -18,7 +17,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/mpris"
 	"github.com/coredev-uk/sona-go/internal/power"
 	"github.com/coredev-uk/sona-go/internal/services"
-	"github.com/coredev-uk/sona-go/internal/shell"
 	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
@@ -26,15 +24,6 @@ import (
 // logind/portal inhibit, UPower, the file chooser portal, single instance
 // and commands) and the XDG autostart entry. The CDM host engine is
 // engine_cdm.go's.
-
-var (
-	linuxOptions = application.LinuxOptions{
-		// Also becomes the program name (g_set_prgname) and Wayland app_id.
-		ApplicationID: AppID,
-	}
-	macOptions     application.MacOptions
-	windowsOptions application.WindowsOptions
-)
 
 // dialInstance reaches the running Sona for `sona <command>` over the
 // session bus.
@@ -76,24 +65,13 @@ func openPlatform(_ config.Paths, act app.Activation, log *slog.Logger) (*platfo
 			p.instance = instance
 		}
 	}
-	// Without an accessibility bus, WebKit's sandboxed web process warns
-	// on every start; tell it there is none (app.HideMissingA11yBus).
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	noA11yBus, err := app.HideMissingA11yBus(ctx, p.conn)
-	cancel()
-	if err != nil {
-		log.Warn("accessibility bus lookup", "err", err)
-	}
-	if noA11yBus {
-		log.Info("startup: no accessibility bus; web content is not exposed to AT-SPI")
-	}
 	return p, nil
 }
 
 // Services are the integrations for services.Deps.Platform. Without a
-// session bus only the tray and the autostart entry remain.
+// session bus only the autostart entry remains.
 func (p *platform) Services() services.Platform {
-	out := services.Platform{Autostart: app.XDGAutostart{}, Tray: true, TitleBar: p.TitleBar()}
+	out := services.Platform{Autostart: app.XDGAutostart{}, TitleBar: p.TitleBar()}
 	conn := p.conn
 	if conn == nil {
 		return out
@@ -138,23 +116,24 @@ func (p *platform) Services() services.Platform {
 	return out
 }
 
-// TitleBar is Sona's own title bar on the stacking desktops it recognises
-// and the desktop's on tiling compositors and unknown desktops, with the
-// buttons laid out as the desktop lays out its own: KWin's (kwinrc) on KDE
-// Plasma, GTK's elsewhere.
+// TitleBar is how the main window's title bar works here, for
+// PlatformService: the desktop's own frame (MyGo draws no title bar of its
+// own yet; Sona's own is phase 3), with no window menu to open.
 func (p *platform) TitleBar() windowchrome.Platform {
 	d := windowchrome.Detect(os.Getenv)
 	return windowchrome.Platform{
 		Native:     windowchrome.NativeFrame,
 		Automatic:  d.Automatic(),
 		Desktop:    d.Name,
-		WindowMenu: true,
+		WindowMenu: false,
 		Layout:     func() windowchrome.Layout { return buttonLayout(d, p.log) },
 	}
 }
 
-// buttonLayout reads the desktop's title bar buttons; KWin's defaults
-// (and GTK's) when it can't.
+// buttonLayout reads the desktop's title bar buttons: KWin's on KDE
+// Plasma, else the defaults. GTK's own setting (gtk-decoration-layout) was
+// read through GTK4 by the Wails shell; MyGo has no call for it, so reading
+// it again comes with the title bar in phase 3.
 func buttonLayout(d windowchrome.Desktop, log *slog.Logger) windowchrome.Layout {
 	if d.KDE {
 		if path := windowchrome.KWinRC(os.Getenv); path != "" {
@@ -166,10 +145,6 @@ func buttonLayout(d windowchrome.Desktop, log *slog.Logger) windowchrome.Layout 
 				log.Warn("title bar: read KWin's buttons", "path", path, "err", err)
 			}
 		}
-		return windowchrome.DefaultLayout()
-	}
-	if layout := shell.DecorationLayout(); layout != "" {
-		return windowchrome.ParseGTK(layout)
 	}
 	return windowchrome.DefaultLayout()
 }

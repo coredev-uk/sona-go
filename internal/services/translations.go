@@ -7,7 +7,7 @@ import (
 )
 
 // TranslationsService serves Apple Music's own translations of Sona's
-// messages (docs/frontend-architecture.md, "Strings and locales"). Sona
+// messages (docs/ui-architecture.md, "Strings and locales"). Sona
 // fetches them from music.apple.com once the network opens after the
 // first paint, for the locales the UI asked for, and keeps them in its
 // cache directory, checking for a new Apple release at most daily; the
@@ -49,7 +49,7 @@ func (s *TranslationsService) Apple(tag string) AppleTranslations {
 
 // Languages lists Apple's locales for the Language setting (Settings →
 // General), when Sona's mapping could translate at least minShare of its
-// messages (the frontend's selectable share, less what the community
+// messages (the UI's selectable share, less what the community
 // catalogues add); below that it only reports the mapped share and fetches
 // nothing. Otherwise it serves the cached locale table and has Sona fetch
 // it after the first paint when it is missing or due; it then arrives as

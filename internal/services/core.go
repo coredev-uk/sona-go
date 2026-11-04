@@ -69,14 +69,13 @@ type Deps struct {
 	Focus   func()             // raise the main window
 	// Focused reports whether the main window is shown and focused.
 	Focused func() bool
-	// Windows is the desktop shell's window control (internal/shell).
+	// Windows is the main window's control (internal/ui/app.Windows).
 	Windows Windows
 	// Platform is the OS integrations (main's platform_<os>.go); nil
 	// fields are unsupported here.
 	Platform Platform
 
 	Version string    // app version
-	WebKit  string    // runtime WebKitGTK version
 	Started time.Time // process start
 }
 

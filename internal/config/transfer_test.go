@@ -20,7 +20,6 @@ func custom() Settings {
 	s.AudioQuality = Quality64
 	s.EngineIdleMinutes = 30
 	s.AutoPlay = false
-	s.Diagnostics = Diagnostics{DisableDMABufRenderer: true}
 	s.Scrobbling.LastFM = ScrobbleAccount{Enabled: true, Username: "listener"}
 	s.Desktop = Desktop{CloseAction: CloseQuits, Autostart: true, StartPage: "/charts", ResumeLastRoute: true, LastRoute: "/album/1"}
 	s.Window = Window{Width: 1600, Height: 1000, Maximised: true}
@@ -41,7 +40,7 @@ func custom() Settings {
 // local copies the computer- and session-specific settings from src.
 func local(dst, src Settings) Settings {
 	dst.Volume = src.Volume
-	dst.Diagnostics, dst.Scrobbling, dst.Window = src.Diagnostics, src.Scrobbling, src.Window
+	dst.Scrobbling, dst.Window = src.Scrobbling, src.Window
 	dst.Desktop.Autostart, dst.Desktop.LastRoute = src.Desktop.Autostart, src.Desktop.LastRoute
 	dst.Audio.OutputDevice = src.Audio.OutputDevice
 	dst.Onboarding = src.Onboarding

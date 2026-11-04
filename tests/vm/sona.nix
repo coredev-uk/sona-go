@@ -1,27 +1,33 @@
-# Sona as a Nix package, built from this checkout the way
-# `go tool wails3 build` builds bin/sona (build/linux/Taskfile.yml): the
-# frontend's production build embedded into a production Go build
-# (`-tags production,sqlite_fts5`, `-trimpath`, VERSION as main.version),
-# plus the desktop entry, icons and licence notices nfpm installs
-# (build/linux/nfpm/nfpm.yaml). No Last.fm or Discord keys are compiled in.
+# Sona as a Nix package, built from this checkout the way devenv's `build`
+# script builds bin/sona: `-tags mygo_noinspector,sqlite_fts5`, VERSION as
+# main.version and MyGo's production mode
+# (`-X github.com/egoist/mygo.production=1`), plus the desktop entry, icons
+# and licence notices nfpm installs (build/linux/nfpm/nfpm.yaml). MyGo loads
+# GTK3, Pango, EGL and epoxy by soname, so the wrapper puts them on
+# LD_LIBRARY_PATH. No Last.fm or Discord keys are compiled in.
 #
-# The TypeScript bindings are the committed ones in frontend/bindings.
-# After a change to go.sum or frontend/pnpm-lock.yaml, update the hash it
-# names (`nix-build tests/vm -A sona` prints the new one).
+# After a change to go.sum, update the hash it names
+# (`nix-build tests/vm -A sona` prints the new one).
 {
   lib,
   buildGoModule,
-  stdenvNoCC,
-  fetchPnpmDeps,
-  pnpmConfigHook,
-  pnpm,
-  nodejs_24,
+  go_1_27,
   pkg-config,
-  wrapGAppsHook4,
-  gtk4,
-  webkitgtk_6_0,
-  libsoup_3,
-  glib-networking,
+  makeWrapper,
+  gtk3,
+  glib,
+  pango,
+  cairo,
+  gdk-pixbuf,
+  harfbuzz,
+  fontconfig,
+  freetype,
+  libepoxy,
+  at-spi2-core,
+  libglvnd,
+  libx11,
+  libxtst,
+  libsecret,
   gst_all_1,
   pipewire,
 }:
@@ -41,88 +47,8 @@ let
     );
   };
 
-  # The frontend alone, so a Go change does not rebuild it.
-  frontendSrc = fileset.toSource {
-    inherit root;
-    fileset = fileset.intersection (fileset.gitTracked root) (root + "/frontend");
-  };
-
-  # Only the lockfile decides the dependency hash.
-  pnpmSrc = fileset.toSource {
-    root = root + "/frontend";
-    fileset = fileset.unions [
-      (root + "/frontend/package.json")
-      (root + "/frontend/pnpm-lock.yaml")
-      (root + "/frontend/.npmrc")
-    ];
-  };
-
-  frontend = stdenvNoCC.mkDerivation (finalAttrs: {
-    pname = "sona-frontend";
-    inherit version;
-    src = frontendSrc;
-
-    pnpmRoot = "frontend";
-    pnpmDeps = fetchPnpmDeps {
-      inherit (finalAttrs) pname version;
-      inherit pnpm;
-      src = pnpmSrc;
-      fetcherVersion = 5;
-      hash = "sha256-5lkDzkl7wQ20YURKgSvRdHWjmQ7UFvVKlK1lrcfEsFs=";
-    };
-
-    nativeBuildInputs = [
-      nodejs_24
-      pnpm
-      pnpmConfigHook
-    ];
-
-    buildPhase = ''
-      runHook preBuild
-      pnpm -C frontend run build
-      runHook postBuild
-    '';
-
-    installPhase = ''
-      runHook preInstall
-      cp -r frontend/dist $out
-      runHook postInstall
-    '';
-  });
-
   gst = gst_all_1;
-in
-buildGoModule {
-  pname = "sona";
-  inherit version src;
-
-  vendorHash = "sha256-BxyGnJ97X8CMFU4FokTY++D+5IHIGIAPuCYiEG17iWU=";
-
-  subPackages = [ "cmd/sona" ];
-  tags = [
-    "production"
-    "sqlite_fts5"
-  ];
-  ldflags = [
-    "-s"
-    "-w"
-    "-X main.version=${version}"
-  ];
-  env.CGO_ENABLED = 1;
-
-  nativeBuildInputs = [
-    pkg-config
-    wrapGAppsHook4
-  ];
-
-  # GTK4 + WebKitGTK 6 for the window, libsoup and glib-networking for
-  # WebKit's TLS, and the GStreamer set devenv.nix uses (the wrapper puts
-  # the plugins on GST_PLUGIN_SYSTEM_PATH_1_0).
-  buildInputs = [
-    gtk4
-    webkitgtk_6_0
-    libsoup_3
-    glib-networking
+  gstPlugins = [
     gst.gstreamer
     gst.gst-plugins-base
     gst.gst-plugins-good
@@ -130,13 +56,57 @@ buildGoModule {
     gst.gst-libav
     pipewire
   ];
+  uiLibs = [
+    gtk3
+    glib
+    pango
+    cairo
+    gdk-pixbuf
+    harfbuzz
+    fontconfig.lib
+    freetype
+    libepoxy
+    at-spi2-core
+    libglvnd
+    libx11
+    libxtst
+    libsecret
+  ];
+in
+(buildGoModule.override { go = go_1_27; }) {
+  pname = "sona";
+  inherit version src;
 
-  # The frontend package embeds frontend/dist.
-  preBuild = ''
-    cp -r ${frontend} frontend/dist
-    chmod -R u+w frontend/dist
-  '';
-  overrideModAttrs = _: _: { preBuild = ""; };
+  vendorHash = "sha256-XZFWknFXzbX3TXTuB1ySFo+d7u71eY7NvdMwpSXKt3M=";
+
+  subPackages = [ "cmd/sona" ];
+  tags = [
+    "mygo_noinspector"
+    "sqlite_fts5"
+  ];
+  ldflags = [
+    "-s"
+    "-w"
+    "-X main.version=${version}"
+    "-X github.com/egoist/mygo.production=1"
+  ];
+  env.CGO_ENABLED = 1;
+
+  nativeBuildInputs = [
+    pkg-config
+    makeWrapper
+  ];
+
+  # The GStreamer set devenv.nix uses, and the libraries MyGo loads by soname.
+  buildInputs = [
+    gtk3
+    gst.gstreamer
+    gst.gst-plugins-base
+    gst.gst-plugins-good
+    gst.gst-plugins-bad
+    gst.gst-libav
+    pipewire
+  ];
 
   # The Go tests run in CI (`go test -race` under dbus-run-session).
   doCheck = false;
@@ -146,10 +116,11 @@ buildGoModule {
     for icon in build/linux/icons/hicolor/*/apps/*; do
       install -Dm644 "$icon" "$out/share/icons/''${icon#build/linux/icons/}"
     done
+    wrapProgram $out/bin/sona \
+      --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath uiLibs}:/run/opengl-driver/lib \
+      --prefix GST_PLUGIN_SYSTEM_PATH_1_0 : ${lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstPlugins}
     install -Dm644 LICENSE internal/playback/widevine/LICENSE.chromium -t $out/share/doc/sona
   '';
-
-  passthru = { inherit frontend; };
 
   meta = {
     description = "Apple Music for the Linux desktop";

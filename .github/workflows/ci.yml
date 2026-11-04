@@ -44,15 +44,18 @@ jobs:
         with:
           persist-credentials: false
 
-      # GTK4/WebKitGTK headers for the main package (cgo), GStreamer for the
-      # playback host and its tests (appsrc, avdec_aac, audioconvert,
-      # audioresample, volume, fakesink), dbus for the session-bus tests.
+      # MyGo's native UI (GTK3, the tray's appindicator, libsecret, EGL/GL
+      # through epoxy; loaded at run time, the -dev packages give the tests
+      # and the vet pass what they link), GStreamer for the playback host
+      # and its tests (appsrc, avdec_aac, audioconvert, audioresample,
+      # volume, fakesink), dbus for the session-bus tests.
       - name: Install system packages
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config \
-            libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev \
+            libgtk-3-dev libayatana-appindicator3-dev libsecret-1-dev \
+            libepoxy-dev libgl-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
             dbus
@@ -61,18 +64,17 @@ jobs:
         with:
           go-version-file: go.mod
 
-      # The frontend package embeds frontend/dist; the frontend job builds the real one.
-      - name: Stub the embedded frontend
-        run: mkdir -p frontend/dist && touch frontend/dist/.ci
-
       - name: go vet
         run: go vet ./...
 
+      # Paths that differ only by case break macOS and Windows checkouts.
+      - name: Check path case
+        run: go run ./cmd/pathcase
+
       # The macOS and Windows seams (CONTRIBUTING.md, "Platforms"): every
       # package must type-check there with cgo off until real macOS and
-      # Windows runners build the app. Wails' macOS backend is Objective-C
-      # behind cgo, so go vet stops there; cmd/typecheck checks Sona's
-      # packages from source and only names Wails as needing cgo.
+      # Windows runners build the app. cmd/typecheck checks Sona's packages
+      # from source for macOS, where cgo is off (MyGo is pure Go there).
       - name: Type-check Windows (go vet, cgo off)
         env:
           GOOS: windows
@@ -140,37 +142,6 @@ jobs:
           SONA_PREVIEW_REQUIRE: "1"
         run: dbus-run-session -- go test -race ./...
 
-  frontend:
-    name: Frontend typecheck, lint, format, test, build
-    runs-on: ubuntu-26.04
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
-        with:
-          version: 12.16.1
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 26
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-
-      - run: pnpm install --frozen-lockfile
-      # Paths or module names that differ only by case break macOS checkouts.
-      - run: node scripts/check-path-case.mjs
-      - run: pnpm exec tsc --noEmit
-      - run: pnpm exec eslint src
-      - run: pnpm exec prettier --check src
-      - run: pnpm exec vitest run
-      - run: pnpm run build
-
   # The macOS and Windows builds (CONTRIBUTING.md, "Platforms"). Hosted macOS
   # minutes cost ten times Linux's (Windows twice) while the repository is
   # private, so until it is public these run only when dispatched (Actions →
@@ -223,7 +194,7 @@ jobs:
 
       - name: Build bin/sona (production, no deployment-target warnings)
         run: |
-          go tool wails3 build 2>&1 | tee "$RUNNER_TEMP/build.log"
+          go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona 2>&1 | tee "$RUNNER_TEMP/build.log"
           if grep 'built for newer macOS version' "$RUNNER_TEMP/build.log"; then
             echo "::error::objects or libraries target a newer macOS than the link (devenv.nix, MACOSX_DEPLOYMENT_TARGET)"
             exit 1
@@ -275,7 +246,7 @@ jobs:
       run:
         shell: bash
     env:
-      # mattn/go-sqlite3 needs cgo: the runner's MinGW-w64 gcc. Wails itself
+      # mattn/go-sqlite3 needs cgo: the runner's MinGW-w64 gcc. MyGo itself
       # is pure Go on Windows.
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
@@ -288,27 +259,11 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
-        with:
-          version: 12.16.1
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 26
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-
-      - name: Build the frontend (production)
-        working-directory: frontend
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run build
-
       - name: go vet (cgo on)
         run: gcc --version && go vet ./...
 
       - name: Build sona.exe
         run: |
-          go build -tags production,sqlite_fts5 -trimpath -buildvcs=false \
-            -ldflags "-w -s -H windowsgui -X main.version=$(cat VERSION)" -o bin/sona.exe ./cmd/sona
+          go build -tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false \
+            -ldflags "-w -s -H windowsgui -X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona.exe ./cmd/sona
           ls -l bin/sona.exe

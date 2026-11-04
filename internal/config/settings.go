@@ -49,8 +49,6 @@ type Settings struct {
 	EngineIdleMinutes int `json:"engineIdleMinutes"`
 	// AutoPlay continues with similar music when the queue ends.
 	AutoPlay bool `json:"autoPlay"`
-	// Diagnostics holds rendering workarounds; all off by default.
-	Diagnostics Diagnostics `json:"diagnostics"`
 	// Scrobbling is the Last.fm and ListenBrainz connection state shown in
 	// Settings; their session key and token live in the keyring.
 	Scrobbling Scrobbling `json:"scrobbling"`
@@ -84,31 +82,6 @@ type Settings struct {
 	Lyrics Lyrics `json:"lyrics"`
 	// Concerts is where the Concerts page looks (concerts.go).
 	Concerts Concerts `json:"concerts"`
-}
-
-// Diagnostics are WebKitGTK rendering workarounds and the developer tools,
-// exposed as toggles. They take effect on the next start because the
-// workarounds must be in the environment, and the inspector enabled, before
-// the web view is created.
-type Diagnostics struct {
-	// DisableDMABufRenderer sets WEBKIT_DISABLE_DMABUF_RENDERER=1.
-	DisableDMABufRenderer bool `json:"disableDmabufRenderer"`
-	// DisableCompositingMode sets WEBKIT_DISABLE_COMPOSITING_MODE=1.
-	DisableCompositingMode bool `json:"disableCompositingMode"`
-	// DeveloperTools turns the web inspector on in the main window (a
-	// right click → Inspect Element, or Settings → Diagnostics), for
-	// debugging and writing plugins. Development builds have it on anyway.
-	DeveloperTools bool `json:"developerTools"`
-}
-
-// EnvDeveloperTools turns the web inspector on for a run, whatever the
-// setting says: SONA_DEVTOOLS=1.
-const EnvDeveloperTools = "SONA_DEVTOOLS"
-
-// DeveloperToolsOn reports whether the main window's web inspector is on:
-// the setting, or EnvDeveloperTools=1 in the environment getenv reads.
-func (d Diagnostics) DeveloperToolsOn(getenv func(string) string) bool {
-	return d.DeveloperTools || getenv(EnvDeveloperTools) == "1"
 }
 
 // Scrobbling holds the non-secret part of the scrobbler connections.
@@ -267,26 +240,6 @@ func writeFileAtomic(path string, data []byte, perm fs.FileMode) (err error) {
 		_ = d.Close()
 	}
 	return nil
-}
-
-// ApplyEnv exports the enabled WebKit workarounds into the process
-// environment. It must run before the Wails application is created. A
-// variable the user already set in the environment is left untouched, so an
-// explicit WEBKIT_*=0 wins over the toggle.
-func (d Diagnostics) ApplyEnv() error {
-	set := func(key string, on bool) error {
-		if !on {
-			return nil
-		}
-		if _, ok := os.LookupEnv(key); ok {
-			return nil
-		}
-		return os.Setenv(key, "1")
-	}
-	return errors.Join(
-		set("WEBKIT_DISABLE_DMABUF_RENDERER", d.DisableDMABufRenderer),
-		set("WEBKIT_DISABLE_COMPOSITING_MODE", d.DisableCompositingMode),
-	)
 }
 
 // Store is a concurrency-safe handle on the settings file: it keeps the

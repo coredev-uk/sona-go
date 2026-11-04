@@ -4,14 +4,9 @@
 *.out
 coverage.*
 
-# Wails
-/build/bin/
-/frontend/dist/
+# Packaging scratch
 /build/linux/appimage/
 .task/
-
-# Node
-node_modules/
 
 # devenv
 .devenv/
@@ -41,4 +36,5 @@ node_modules/
 
 # Apple Music's strings, converted by `cmd/i18ntool import` for review only
 # (never committed: Sona fetches them at run time)
-/frontend/src/shared/i18n/apple/
+/internal/ui/i18n/locales/apple/
+/result

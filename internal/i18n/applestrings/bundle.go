@@ -1,5 +1,5 @@
 // Package applestrings brings Apple Music's own translations into Sona
-// (docs/frontend-architecture.md, "Strings and locales"): it reads Apple's
+// (docs/ui-architecture.md, "Strings and locales"): it reads Apple's
 // web string bundles, converts the strings mapped to Sona's messages
 // (apple-keys.json) into Lingui (ICU) messages, and, at run time, keeps
 // the converted messages for the user's locales in Sona's cache directory

@@ -74,3 +74,20 @@ func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.Set("X-Content-Type-Options", "nosniff")
 	http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(data))
 }
+
+// Template is the Apple artwork template behind a Go-served path
+// ("/art/<key>/<w>x<h>.jpg", as URL and BackdropURL return, a query or
+// fragment ignored), for a caller that wants the image without HTTP: it
+// passes the template to Get at the exact size it needs. ok is false for a
+// path that is not one this cache handed out.
+func (c *Cache) Template(urlPath string) (template string, ok bool) {
+	p, _, _ := strings.Cut(urlPath, "?")
+	p, _, _ = strings.Cut(p, "#")
+	rest, found := strings.CutPrefix(p, c.prefix)
+	key, _, slash := strings.Cut(rest, "/")
+	if !found || !slash || !validKey(key) {
+		return "", false
+	}
+	template = c.lookup(key)
+	return template, template != ""
+}

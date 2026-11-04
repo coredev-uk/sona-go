@@ -4,27 +4,17 @@ version: '3'
 # bundle, no signing, no packaging. The flags are build/linux/Taskfile.yml's;
 # keep them in step.
 
-includes:
-  common: ../Taskfile.yml
-
 tasks:
   build:
-    summary: Builds the application for macOS (Cocoa + WebKit from the SDK; unsigned, unbundled)
-    deps:
-      - task: common:build:frontend
-        vars:
-          BUILD_FLAGS:
-            ref: .BUILD_FLAGS
-          DEV:
-            ref: .DEV
+    summary: Builds the application for macOS (MyGo on AppKit; unsigned, unbundled)
     cmds:
       # Silent: LDFLAGS may carry the Last.fm API secret.
       - cmd: go build {{.BUILD_FLAGS}} -ldflags="{{.LDFLAGS}}" -o {{.OUTPUT}} ./cmd/sona
         silent: true
       - echo "built {{.OUTPUT}} ({{.VERSION}})"
     vars:
-      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production,sqlite_fts5{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false{{end}}'
-      LDFLAGS: '{{if ne .DEV "true"}}-w -s {{end}}-X main.version={{.VERSION}}{{if .MACOSX_DEPLOYMENT_TARGET}} -extldflags=-mmacosx-version-min={{.MACOSX_DEPLOYMENT_TARGET}}{{end}}{{if ne .DEV "true"}}{{if .SONA_LASTFM_KEY}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey={{.SONA_LASTFM_KEY}}{{end}}{{if .SONA_LASTFM_SECRET}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret={{.SONA_LASTFM_SECRET}}{{end}}{{if .SONA_DISCORD_CLIENT_ID}} -X github.com/coredev-uk/sona-go/internal/discord.clientID={{.SONA_DISCORD_CLIENT_ID}}{{end}}{{end}}'
+      BUILD_FLAGS: '-tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false'
+      LDFLAGS: '-w -s -X main.version={{.VERSION}} -X github.com/egoist/mygo.production=1{{if .MACOSX_DEPLOYMENT_TARGET}} -extldflags=-mmacosx-version-min={{.MACOSX_DEPLOYMENT_TARGET}}{{end}}{{if .SONA_LASTFM_KEY}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey={{.SONA_LASTFM_KEY}}{{end}}{{if .SONA_LASTFM_SECRET}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret={{.SONA_LASTFM_SECRET}}{{end}}{{if .SONA_DISCORD_CLIENT_ID}} -X github.com/coredev-uk/sona-go/internal/discord.clientID={{.SONA_DISCORD_CLIENT_ID}}{{end}}'
       DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
     env:

@@ -1,7 +1,7 @@
 # Sona
 
-An Apple Music client for the desktop, built first for Linux: a GTK4 /
-WebKitGTK app (Go, [Wails v3](https://v3.wails.io), React).
+An Apple Music client for the desktop, built first for Linux: a native
+Go app whose interface is drawn by [MyGo](https://github.com/egoist/mygo).
 
 Sona is in early development, not a finished product. There are no releases
 yet. You need an Apple Music subscription. Sona is not affiliated with Apple
@@ -9,7 +9,7 @@ or Google.
 
 | Platform             | Status                                     |
 | -------------------- | ------------------------------------------ |
-| Linux, x86_64        | Plays; media controls, notifications, tray |
+| Linux, x86_64        | Plays; media controls, notifications         |
 | macOS, Apple Silicon | Development builds from source; plays      |
 | Windows              | The UI builds; no playback yet             |
 
@@ -21,7 +21,7 @@ You need [Nix](https://nixos.org/download) and [devenv](https://devenv.sh)
 ```sh
 git clone https://github.com/coredev-uk/sona-go.git && cd sona-go
 devenv shell -- build    # builds bin/sona
-devenv shell -- dev      # or: run with hot reload
+devenv shell -- dev      # builds the development build and runs it
 ```
 
 Development builds start in private listening, so plays aren't reported to

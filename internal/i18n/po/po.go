@@ -1,6 +1,6 @@
 // Package po reads and writes the gettext PO catalogues Lingui keeps
-// Sona's messages in (frontend/src/shared/i18n): the subset Lingui and
-// translation tools write.
+// Sona's messages in (internal/ui/i18n/locales): the subset translation
+// tools write.
 package po
 
 import (

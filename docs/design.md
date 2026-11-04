@@ -1,6 +1,6 @@
 # Sona design direction
 
-This is the working visual direction. The tokens below live in `frontend/src/index.css`; change them there and here together.
+This is the working visual direction. The tokens below live in `internal/ui/theme/tokens.json`; change them there and here together.
 
 ## Thesis: the label's house style
 
