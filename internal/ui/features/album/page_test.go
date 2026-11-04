@@ -236,6 +236,9 @@ func TestShufflePlaysFromARandomSongWithShuffleOn(t *testing.T) {
 	if !r.queue.shuffle {
 		t.Error("shuffle was not turned on")
 	}
+	if !r.h.Env.Play.State().Shuffle {
+		t.Error("the mirror does not show shuffle at once")
+	}
 }
 
 func TestEnterOnARowPlaysFromThatSong(t *testing.T) {
@@ -433,10 +436,28 @@ func TestMultiDiscAlbumsIndexTheirDiscs(t *testing.T) {
 	r.shows("Discs", "Disc 2 · 20 songs, 1 hr, 7 min")
 	// The list carries its own headings too.
 	r.wantTexts("Disc 1")
+	r.tt.Settle()
+	first, _ := r.tt.Find("Song 01")
 	r.click("Disc 2 · 20 songs, 1 hr, 7 min")
 	r.tt.Until("the second disc", func() bool { return r.a.tracks.Nav().Focus() == 20 })
+	r.tt.Settle()
 	if r.a.pos.Y <= 0 {
-		t.Errorf("the page did not scroll to the disc: %v", r.a.pos.Y)
+		t.Fatalf("the page did not scroll to the disc: %v", r.a.pos.Y)
+	}
+	// The disc's heading sits 16 DIPs from the pane's top: the page has
+	// scrolled to its block's top less 16 (the heading block is the disc and
+	// its 46-high heading above the row).
+	o, count, at := &r.a.list.opts, r.a.list.count, r.a.list.at
+	if got, want := r.a.pos.Y+16, r.a.tracks.BlockTop(o, count, at, 20); got < want-1 || got > want+1 {
+		t.Errorf("scrolled to %v+16, the disc's block starts at %v", r.a.pos.Y, want)
+	}
+	// And on screen: row 21 sits under the heading (46 DIPs), which is 16
+	// below the top; row 1 was under the first disc's heading (34 DIPs) below
+	// the table's header at its content offset.
+	second, _ := r.tt.Find("Song 21")
+	wantY := first.Y - (r.a.tracks.BlockTop(o, count, at, 0) + 34) + 16 + 46
+	if second.Y < wantY-1.5 || second.Y > wantY+1.5 {
+		t.Errorf("row 21 at y=%v, want %v (heading 16 from the top)", second.Y, wantY)
 	}
 
 	// Below 860 the sleeve heads the page and has no index: the tracks
@@ -544,11 +565,8 @@ func TestSectionTilesOpenPagesAndPlay(t *testing.T) {
 	if got := r.radio.got(); got[0] != "ra.1" {
 		t.Errorf("played station %q", got)
 	}
-	// A music video plays from its tile where videos play.
-	r.click("Play Low Tide (Video)")
-	if got := r.played(); !slices.Equal(got.ids, []string{"v1"}) {
-		t.Errorf("played %v", got.ids)
-	}
+	// A music video's tile is a link; its play control is the video module's.
+	r.wantNoTexts("Play Low Tide (Video)")
 	// A tile opens its album.
 	r.click("Blue Hour")
 	if got := r.path(); got != "/album/200" {
@@ -640,4 +658,56 @@ func TestMotionAlbumStillShows(t *testing.T) {
 	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) { p.Header.Motion = "/motion/100/1.mp4" }))
 	// The motion policy is nil here (nothing moves): the cover is the still.
 	r.shows("Salt Flats", "Songs on Salt Flats")
+}
+
+func TestAnotherAlbumStartsAtItsTop(t *testing.T) {
+	long := func(id string) func(p *services.CatalogAlbum) {
+		return func(p *services.CatalogAlbum) {
+			p.Album.ID, p.Album.CatalogID, p.Album.Name = id, id, "Album "+id
+			p.Tracks = nil
+			for i := 1; i <= 60; i++ {
+				p.Tracks = append(p.Tracks, track(i, fmt.Sprintf("Song %02d", i)))
+			}
+		}
+	}
+	r := newRig(t, "/album/100", 1132, 500)
+	r.addCatalog(saltFlats(long("100")))
+	r.addCatalog(saltFlats(long("101")))
+	r.shows("Album 100")
+	r.tt.Settle()
+	r.tt.Scroll(600, 300, 0, 600)
+	r.tt.Settle()
+	if r.a.pos.Y <= 0 {
+		t.Fatalf("the first album did not scroll: %v", r.a.pos.Y)
+	}
+	r.router.Push("/album/101")
+	r.tt.Until("the other album", r.tt.Shows("Album 101"))
+	r.tt.Settle()
+	if r.a.pos.Y != 0 {
+		t.Errorf("the other album starts at %v, not at its top", r.a.pos.Y)
+	}
+	if r.a.tracks.Nav().Focus() != 0 {
+		t.Errorf("the other album's list kept the focus at %d", r.a.tracks.Nav().Focus())
+	}
+}
+
+func TestUnreleasedAlbumOffersARemindWhereTheyWork(t *testing.T) {
+	r := newRig(t, "/album/100", 1132, 1000)
+	release := r.now.Add(48 * time.Hour)
+	p := saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, release.UnixMilli(), release.Format("2006-01-02")
+	})
+	r.addCatalog(p)
+	r.shows("Out in 2 days")
+	// kit.RemindButton builds nothing on a platform without notifications.
+	if kit.RemindAvailable(r.h.Env.Core, p.Album) {
+		r.tt.Until("the reminder button", r.tt.Shows("Remind me"))
+	} else {
+		r.wantNoTexts("Remind me")
+	}
+	// An album that is out has none.
+	o := newRig(t, "/album/100", 1132, 1000)
+	o.addCatalog(saltFlats())
+	o.shows("Salt Flats")
+	o.wantNoTexts("Remind me")
 }

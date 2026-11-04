@@ -41,6 +41,12 @@ func (f *fakeStateAPI) States(_ context.Context, refs []services.ItemRef) ([]ser
 	return out, nil
 }
 
+func (f *fakeStateAPI) asked() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.batches)
+}
+
 func (f *fakeStateAPI) do(call, id string, st services.ItemState) (services.ItemState, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -211,5 +217,108 @@ func TestBulkRateAddRemove(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 	if len(api.log()) != 8 {
 		t.Errorf("a cancelled removal ran: %v", api.log())
+	}
+}
+
+func TestALateLoadDoesNotOverwriteAChange(t *testing.T) {
+	s, api, q := newStates()
+	api.gate, api.entered = make(chan struct{}), make(chan struct{}, 1)
+	it := StateItem{ID: "1"}
+	loaded := make(chan services.ItemState, 1)
+	go func() {
+		st, _ := s.Load(context.Background(), StateSongs, it)
+		loaded <- st
+	}()
+	select {
+	case <-api.entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the load never reached Go")
+	}
+	// The user favourites while Apple's answer (rating 0) is on its way.
+	if _, err := s.Change(context.Background(), StateSongs, it, StateChange(RateFavorite)); err != nil {
+		t.Fatal(err)
+	}
+	close(api.gate)
+	if st := <-loaded; st.Rating != 1 {
+		t.Errorf("Load answered %+v, want the change's rating 1", st)
+	}
+	r := store.Use(q, StateKey(StateSongs, "1"), func(context.Context) (services.ItemState, error) {
+		return services.ItemState{}, errors.New("not cached")
+	})
+	if !r.HasData || r.Data.Rating != 1 {
+		t.Errorf("the cache holds %+v after the late answer", r)
+	}
+	if st, ok := s.known(StateSongs, "1"); !ok || st.Rating != 1 {
+		t.Errorf("known %+v %v", st, ok)
+	}
+}
+
+func TestAStateIsAskedAgainAfterItsStaleTimeEvenOnScreen(t *testing.T) {
+	s, api, q := newStates()
+	now := time.Now()
+	s.now = func() time.Time { return now }
+	it := StateItem{ID: "1"}
+	use := func() store.Result[services.ItemState] { return s.Use(StateSongs, it) }
+	use()
+	waitFor(t, "the first answer", func() bool { return use().HasData })
+	if api.asked() != 1 {
+		t.Fatalf("asked %d times", api.asked())
+	}
+	// Frames inside the stale time ask nothing, however many.
+	now = now.Add(stateStale - time.Second)
+	for range 5 {
+		use()
+	}
+	time.Sleep(30 * time.Millisecond)
+	if api.asked() != 1 {
+		t.Fatalf("asked again inside the stale time: %d", api.asked())
+	}
+	// Past it, the next frame asks once; the per-frame call does not keep
+	// the state young.
+	now = now.Add(2 * time.Second)
+	use()
+	waitFor(t, "the refetch", func() bool { return api.asked() == 2 })
+	for range 5 {
+		use()
+	}
+	time.Sleep(30 * time.Millisecond)
+	if api.asked() != 2 {
+		t.Errorf("asked %d times, want 2", api.asked())
+	}
+	_ = q
+}
+
+// toastTitles drains the queued toasts' titles.
+func toastTitles() []string {
+	toasts.mu.Lock()
+	defer toasts.mu.Unlock()
+	var out []string
+	for _, t := range toasts.queue {
+		out = append(out, t.Title)
+	}
+	toasts.queue = nil
+	return out
+}
+
+func TestAddToastsUseTheSingleItemWords(t *testing.T) {
+	s, _, _ := newStates()
+	toastTitles()
+	s.Add(StateSongs, StateItem{ID: "1", CatalogID: "c1"}, "Airbag")
+	waitFor(t, "the toast", func() bool {
+		toasts.mu.Lock()
+		defer toasts.mu.Unlock()
+		return len(toasts.queue) > 0
+	})
+	if got := toastTitles(); !slices.Equal(got, []string{"Added “Airbag” to your library"}) {
+		t.Errorf("toasts %q", got)
+	}
+	s.AddMany([]KindedItem{{StateSongs, StateItem{ID: "1"}}}, "3 songs")
+	waitFor(t, "the toast", func() bool {
+		toasts.mu.Lock()
+		defer toasts.mu.Unlock()
+		return len(toasts.queue) > 0
+	})
+	if got := toastTitles(); !slices.Equal(got, []string{"Added 3 songs to your library"}) {
+		t.Errorf("toasts %q", got)
 	}
 }

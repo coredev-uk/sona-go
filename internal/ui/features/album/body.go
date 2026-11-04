@@ -174,38 +174,22 @@ func (a *album) head(c *ui.Context, m *model, now time.Time, account bool) {
 }
 
 // byline is the artist: links from the catalogue page, else a link to the
-// artist when the album knows one, else the name.
+// artist when the album knows one, else the name. Links go only where the
+// artist page exists.
 func (a *album) byline(c *ui.Context, m *model) {
 	ink := theme.C("ink")
+	opts := kit.ArtistLinksOpts{HasRoute: a.env.HasRoute}
+	if opts.HasRoute == nil {
+		opts.HasRoute = func(string) bool { return false }
+	}
 	switch {
-	case m.page != nil && len(m.page.Artists) > 0:
-		ui.RichText(c).Children(func() {
-			for i, ar := range m.page.Artists {
-				if i > 0 {
-					sep := ", "
-					if i == len(m.page.Artists)-1 {
-						sep = " & "
-					}
-					ui.Text(c.Key(sep+ar.ID), sep)
-				}
-				a.artistName(c.Key(ar.ID), ar.ID, ar.Name, ink)
-			}
-		})
-	case m.page == nil && m.album.ArtistID != "":
-		ui.RichText(c).Children(func() { a.artistName(c, m.album.ArtistID, m.album.Artist, ink) })
+	case m.page != nil:
+		kit.ArtistLinks(c, m.page.Artists, m.album.Artist, ink, opts)
+	case m.album.ArtistID != "":
+		kit.ArtistLinks(c, []services.Artist{{ID: m.album.ArtistID, Name: m.album.Artist}}, m.album.Artist, ink, opts)
 	default:
 		ui.Text(c, m.album.Artist).TextColor(ink).SingleLine()
 	}
-}
-
-// artistName is a link to the artist's page where that page exists, else the
-// name.
-func (a *album) artistName(c *ui.Context, id, name string, col ui.Color) {
-	if a.has("/artist/" + id) {
-		ui.Link(c, name, "/artist/"+id).TextColor(col)
-		return
-	}
-	ui.Text(c, name).TextColor(col)
 }
 
 // status is the countdown of an album not out yet, or how much of the record
@@ -230,7 +214,7 @@ func (a *album) releaseStatus(c *ui.Context, m *model, now time.Time) {
 		return
 	}
 	left := time.UnixMilli(m.album.ReleaseAt).Sub(now)
-	typed(c, i18n.T("Out in {timeLeft}", "timeLeft", timeLeft(left)), "heading").TextColor(theme.C("ink"))
+	typed(c, i18n.T("Out in {timeLeft}", "timeLeft", i18n.FormatTimeLeft(left)), "heading").TextColor(theme.C("ink"))
 	line := fullReleaseDate(m.album.ReleaseAt)
 	if m.songsOut > 0 {
 		line += " · " + m.songsOutText()
@@ -262,6 +246,7 @@ func (a *album) actions(c *ui.Context, m *model, account bool) {
 				a.queue.PlaySongs(m.list, 0, from)
 			}
 		}
+		kit.RemindButton(c, a.env.Queries, a.env.Core, al)
 		kit.RemindButton(c, a.env.Queries, a.env.Core, al)
 		if account {
 			a.states.LibraryButton(c, kit.StateAlbums, item, al.Name, i18n.T("Pre-add"))

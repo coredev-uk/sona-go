@@ -215,14 +215,15 @@ type rig struct {
 	a      *album
 	tt     *uitest.Session
 
-	cat    *fakeCatalog
-	lib    *fakeLibrary
-	queue  *fakeQueue
-	radio  *fakeRadio
-	states *fakeStates
-	now    time.Time
-	routes map[string]bool // what HasRoute says, by prefix
-	ready  bool            // the page is built once the test has set its data
+	cat     *fakeCatalog
+	lib     *fakeLibrary
+	queue   *fakeQueue
+	radio   *fakeRadio
+	states  *fakeStates
+	now     time.Time
+	routes  map[string]bool // what HasRoute says, by prefix
+	ready   bool            // the page is built once the test has set its data
+	animate bool            // a test that checks motion keeps the animations
 }
 
 // newRig shows /album/<path> in a w×h window. Every route is ported unless
@@ -259,14 +260,15 @@ func (r *rig) start(path string, w, h int) *rig {
 	r.a = newAlbum(env)
 	env.Actions = kit.NewActionRegistry(r.a.module().Actions...)
 	r.a.menus = kit.NewActionMenus(env.Actions, nil)
-	r.a.trackMenus = kit.NewActionMenus(env.Actions, &r.a.tracks.Sel)
 	r.a.lib, r.a.cat, r.a.radio = r.lib, r.cat, r.radio
 	r.a.auth = fakeAuth{services.AuthStatus{State: "signed_in"}}
-	r.a.queue = newQueueCommands(r.queue, env.Play, nil)
+	r.a.queue = newQueueCommands(r.queue, env.Play, env.Post, nil)
 	r.a.states = kit.NewItemStates(env.Queries, env.Post, r.states)
-	r.a.video = func() bool { return true }
 	r.a.now = func() time.Time { return r.now }
 	r.tt = r.h.Tester(r.t, func(c *ui.Context) {
+		if !r.animate {
+			c.DisableAnimations()
+		}
 		if !r.ready {
 			return // the test is still putting its data in place
 		}

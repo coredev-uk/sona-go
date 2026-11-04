@@ -94,7 +94,6 @@ var viewCredits = kit.ActionDef{
 	},
 }
 
-// Query keys, as v0.2.0's shared/lib/keys.ts: the page, and the lyrics
-// (shared with the now-playing lyrics view's cache).
+// Query key of the page, as v0.2.0's shared/lib/keys.ts; the lyrics' is
+// store.KeyLyrics.
 func keySongPage(id string) store.Key { return store.Key{"catalog", "song-page", id} }
-func keyLyrics(id string) store.Key   { return store.Key{"catalog", "lyrics", id} }

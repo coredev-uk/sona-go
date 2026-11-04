@@ -54,10 +54,8 @@ func New(env *module.Env) module.Module {
 	a.auth = services.Service[services.AuthService](env.Core)
 	play := services.Service[services.PlaybackService](env.Core)
 	system := services.Service[services.SystemService](env.Core)
-	plat := services.Service[services.PlatformService](env.Core)
-	a.queue = newQueueCommands(play, env.Play, func() string { return system.Settings().Queue.ReplaceConfirm })
+	a.queue = newQueueCommands(play, env.Play, env.Post, func() string { return system.Settings().Queue.ReplaceConfirm })
 	a.states = kit.NewItemStates(env.Queries, env.Post, services.Service[services.LibraryService](env.Core))
-	a.video = func() bool { return plat.Capabilities().Playback.Video }
 	return a.module()
 }
 
@@ -66,7 +64,7 @@ func New(env *module.Env) module.Module {
 func newAlbum(env *module.Env) *album {
 	a := &album{env: env, now: time.Now}
 	a.menus = kit.NewActionMenus(env.Actions, nil)
-	a.trackMenus = kit.NewActionMenus(env.Actions, &a.tracks.Sel)
+	a.pageState = &pageState{}
 	return a
 }
 

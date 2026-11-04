@@ -30,7 +30,9 @@ const (
 	clockStep = time.Minute
 )
 
-// album is the page's state.
+// album is the module's state: the services and what is shared by every
+// page of it. What belongs to one page (the scroll place, the track list, the
+// shelves) is its pageState.
 type album struct {
 	env   *module.Env
 	lib   libraryAPI
@@ -40,22 +42,28 @@ type album struct {
 	queue *queueCommands
 	// states is the library state, rating and the commands that change it.
 	states *kit.ItemStates
-	// video reports whether music videos play on this platform.
-	video func() bool
 	// signIn opens the account dialog (the "not signed in" error's button);
 	// nil leaves the button out.
 	signIn func()
 	now    func() time.Time
 
-	// menus are the item menus of the head and the shelves (no selection),
-	// trackMenus the songs' (over their selection).
-	menus      *kit.ActionMenus
-	trackMenus *kit.ActionMenus
+	// menus are the item menus of the head and the shelves (no selection).
+	menus *kit.ActionMenus
 
+	stamp    time.Time
+	reloaded string // the album whose release this page reloaded it for
+
+	// pageState is the page being built: another album is another state, so
+	// opening one from another starts at its top.
+	*pageState
+}
+
+// pageState is the state of one album's page, kept on the page's root.
+type pageState struct {
 	pos          ui.ScrollState
 	paneW, paneH float32 // the scroll container as last laid out
-	stamp        time.Time
-	reloaded     string // the album whose release this page reloaded it for
+	// trackMenus are the songs' item menus, over their selection.
+	trackMenus *kit.ActionMenus
 
 	tracks  kit.TrackListState
 	shelves [6]kit.CoverShelfState
@@ -150,19 +158,33 @@ func (a *album) query(id string) load {
 func (a *album) page(c *ui.Context, r *ui.Route) {
 	id, highlight := r.Param("id"), r.Query("song")
 	now := a.clock(c)
+	// One state per album: the root is keyed by it, so a page for another
+	// album (and the old one while the router changes) has its own.
+	root := ui.Column(c.Key("album:" + id)).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
+	st := *ui.Local(root, "page", func() *pageState { return &pageState{} })
+	a.pageState = st
+	if st.trackMenus == nil {
+		st.trackMenus = kit.NewActionMenus(a.env.Actions, &st.tracks.Sel)
+	}
+
 	tk := theme.Current()
 	gutter := tk.Metric["gutter"]
-	if a.paneW > 0 && a.paneW < 960 {
+	if st.paneW > 0 && st.paneW < 960 {
 		gutter = tk.Metric["gutter-narrow"]
 	}
 	scrollbar := tk.Metric["scrollbar"]
-	width := a.paneW
+	width := st.paneW
 	if width == 0 {
 		ww, _ := c.Size()
 		width = ww - sidebarGuess
 	}
 	lay := albumLayout(width - 2*gutter - scrollbar)
+	root.Children(func() { a.scroll(c, id, highlight, lay, now, gutter, scrollbar) })
+	a.menus.Popup(c)
+}
 
+// scroll is the page's scroll container.
+func (a *album) scroll(c *ui.Context, id, highlight string, lay layout, now time.Time, gutter, scrollbar float32) {
 	var sc ui.Element
 	devstate.Scroll(c, &a.pos) // dev builds: the offset survives a restart
 	sc = ui.Scroll(c).TrackScroll(&a.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
@@ -176,7 +198,6 @@ func (a *album) page(c *ui.Context, r *ui.Route) {
 		a.paneW, a.paneH = b.W, b.H
 		c.Invalidate() // the layout follows the pane's width
 	}
-	a.menus.Popup(c)
 }
 
 // content is the body for the album's state: its skeleton, the error, or the

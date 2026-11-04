@@ -13,6 +13,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
@@ -30,6 +31,10 @@ type fakeCatalog struct {
 	// gate, when set, holds Artist until it is closed; viewGate does the
 	// same for ArtistView.
 	gate, viewGate chan struct{}
+	// nextGate holds every page after the first.
+	nextGate chan struct{}
+	// inflight and maxInflight are the ArtistView calls running at once.
+	inflight, maxInflight int
 }
 
 func (f *fakeCatalog) Artist(ctx context.Context, id string) (services.CatalogArtist, error) {
@@ -49,19 +54,43 @@ func (f *fakeCatalog) Artist(ctx context.Context, id string) (services.CatalogAr
 }
 
 func (f *fakeCatalog) ArtistView(ctx context.Context, id, view string, offset, limit int) (services.ArtistViewPage, error) {
-	if f.viewGate != nil {
+	f.mu.Lock()
+	f.inflight++
+	f.maxInflight = max(f.maxInflight, f.inflight)
+	f.calls = append(f.calls, fmt.Sprintf("view %s %s %d/%d", id, view, offset, limit))
+	err, page, gate := f.err, f.views[view], f.viewGate
+	if offset > 0 && f.nextGate != nil {
+		gate = f.nextGate
+	}
+	f.mu.Unlock()
+	defer func() {
+		f.mu.Lock()
+		f.inflight--
+		f.mu.Unlock()
+	}()
+	if gate != nil {
 		select {
-		case <-f.viewGate:
+		case <-gate:
 		case <-ctx.Done():
 		}
 	}
+	if err != nil {
+		return services.ArtistViewPage{}, err
+	}
+	return page(offset), nil
+}
+
+// setView changes what a view answers from now on.
+func (f *fakeCatalog) setView(view string, page func(offset int) services.ArtistViewPage) {
+	f.mu.Lock()
+	f.views[view] = page
+	f.mu.Unlock()
+}
+
+func (f *fakeCatalog) peak() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.calls = append(f.calls, fmt.Sprintf("view %s %s %d/%d", id, view, offset, limit))
-	if f.err != nil {
-		return services.ArtistViewPage{}, f.err
-	}
-	return f.views[view](offset), nil
+	return f.maxInflight
 }
 
 func (f *fakeCatalog) asked() []string {
@@ -166,6 +195,9 @@ type rig struct {
 	play   *fakePlayback
 	states *fakeStates
 	auth   fakeAuth
+	// dropped is what was dropped on the corner target.
+	dropped []*kit.DragPayload
+	corner  bool // build the corner target
 }
 
 func hasPage(path string) bool {
@@ -214,6 +246,13 @@ func newRig(t *testing.T, path string, w, h int, setup func(*rig)) *rig {
 	r.a = newArtist(env, r.lib, r.cat, r.auth, queue, states)
 	r.a.init()
 	r.tt = r.h.Tester(t, func(c *ui.Context) {
+		c.DisableAnimations()
+		// A drop target in the corner, for what the page's rows drag.
+		if r.corner {
+			corner := ui.Box(c.Key("drop")).Absolute().Right(0).Bottom(0).Size(120, 60)
+			kit.DropOn(corner, "test", kit.DropTarget{Drop: func(p *kit.DragPayload, _ kit.DragPoint) { r.dropped = append(r.dropped, p) }})
+			corner.Children(func() { ui.Text(c, "Drop here") })
+		}
 		ui.Column(c).Fill().Children(func() {
 			r.router.View(c, func(rt *ui.Route) {
 				switch {
@@ -642,6 +681,42 @@ func TestReleaseRowArrowsMoveBetweenRows(t *testing.T) {
 	}
 }
 
+func TestReleaseRowDragsTheAlbumOntoATarget(t *testing.T) {
+	r := catalogRig(t, nil)
+	r.corner = true
+	r.shows("Kid A", "Drop here")
+	r.tt.Drain()
+	k, _ := r.tt.Find("Kid A")
+	d, _ := r.tt.Find("Drop here")
+	x, y := k.X+k.W/2, k.Y+k.H/2
+	r.tt.Press(x, y)
+	r.tt.Move(x+10, y)
+	r.tt.Move(d.X+d.W/2, d.Y+d.H/2)
+	r.tt.Move(d.X+d.W/2+1, d.Y+d.H/2+1)
+	r.tt.Release(d.X+d.W/2+1, d.Y+d.H/2+1)
+	if len(r.dropped) != 1 {
+		t.Fatalf("dropped %d times", len(r.dropped))
+	}
+	if p := r.dropped[0]; len(p.Items) != 1 || p.Items[0].Album().ID != "kida" || p.Label != "Kid A" {
+		t.Errorf("payload %+v", p)
+	}
+	if got := r.router.Path(); got != "/artist/657515" {
+		t.Errorf("the drag opened %q", got)
+	}
+}
+
+func TestReleaseRowShiftF10OpensTheAlbumMenu(t *testing.T) {
+	r := catalogRig(t, nil)
+	r.shows("Kid A")
+	r.tt.Drain()
+	r.clickWith(ui.Cmd, "Kid A") // focuses the row
+	r.tt.Key(ui.Shift, ui.KeyF10)
+	r.tt.Drain()
+	if !r.tt.HasText("Test album action") {
+		t.Errorf("no menu; texts %q", r.tt.Texts())
+	}
+}
+
 func TestReleaseRowContextMenuShowsAlbumActions(t *testing.T) {
 	r := catalogRig(t, nil)
 	r.shows("Kid A")
@@ -956,6 +1031,124 @@ func TestViewPageFetchesFiftyAtATimeAsItScrolls(t *testing.T) {
 		r.a.view.pos.Y = 1e9 // the user keeps scrolling down
 		return slices.Contains(r.cat.asked(), "view 657515 top-songs 400/50")
 	})
+	// One page at a time, in order, none asked for while another is fetched.
+	if r.cat.peak() != 1 {
+		t.Errorf("%d pages were fetched at once", r.cat.peak())
+	}
+	var offsets []string
+	for _, c := range r.cat.asked() {
+		if strings.HasPrefix(c, "view") {
+			offsets = append(offsets, c)
+		}
+	}
+	for i, c := range offsets {
+		if want := fmt.Sprintf("view 657515 top-songs %d/50", i*50); c != want {
+			t.Errorf("fetch %d was %q, want %q", i, c, want)
+		}
+	}
+}
+
+func TestViewPageShowsSixPlaceholdersWhileAFurtherPageLoads(t *testing.T) {
+	r := viewRig(t, "top-songs", func(r *rig) {
+		r.cat.views["top-songs"] = songPages(420)
+		r.cat.nextGate = make(chan struct{})
+	})
+	r.shows("Song 1")
+	loading := func() int {
+		n := 0
+		for _, x := range r.tt.Texts() {
+			if x == "Loading" {
+				n++
+			}
+		}
+		return n
+	}
+	r.tt.Until("the further page to be asked", func() bool { return len(r.cat.asked()) >= 3 })
+	r.tt.Until("six placeholders", func() bool { return loading() == loadingNext })
+	close(r.cat.nextGate)
+	r.tt.Until("the page to land", func() bool { return loading() == 0 && r.tt.HasText("Song 51") })
+}
+
+func TestViewPageAsksForNoPageWhileOneIsBeingFetched(t *testing.T) {
+	r := viewRig(t, "top-songs", func(r *rig) {
+		r.cat.views["top-songs"] = songPages(420)
+		r.cat.viewGate = make(chan struct{})
+	})
+	for range 20 {
+		r.tt.Drain()
+	}
+	if got := r.cat.asked(); len(got) != 2 || got[1] != "view 657515 top-songs 0/50" { // the artist's name, then the first page
+		t.Errorf("asked %q while the first page was fetched", got)
+	}
+	close(r.cat.viewGate)
+	r.shows("Song 1")
+}
+
+// A refetch that changes the sizes of the pages (with as many pages as
+// before) must not leave a row pointing past a page's end.
+func TestViewPageFollowsARefetchThatChangesThePageSizes(t *testing.T) {
+	r := viewRig(t, "top-songs", func(r *rig) { r.cat.views["top-songs"] = songPages(60) })
+	r.shows("Song 1")
+	r.tt.Until("both pages", func() bool { return len(r.cat.asked()) >= 3 })
+	r.tt.Drain()
+	// Fewer songs on the second page, and the first page's last changed.
+	r.cat.setView("top-songs", func(offset int) services.ArtistViewPage {
+		p := songPages(55)(offset)
+		if offset == 0 {
+			p.Songs[len(p.Songs)-1].Name = "Changed last"
+		}
+		return p
+	})
+	r.a.env.Queries.Invalidate(keyArtistView("657515", "top-songs"))
+	r.tt.Until("the refetched rows", func() bool { return r.tt.HasText("Changed last") })
+	r.tt.Until("the list to shrink", func() bool {
+		r.a.view.pos.Y = 1e9
+		return r.tt.HasText("Song 55") && !r.tt.HasText("Song 56")
+	})
+}
+
+func TestViewPageGridFollowsARefetchThatChangesThePageSizes(t *testing.T) {
+	r := viewRig(t, "full-albums", func(r *rig) { r.cat.views["full-albums"] = albumPages("full-albums", 5) })
+	r.shows("Record 4")
+	r.cat.setView("full-albums", albumPages("full-albums", 3))
+	r.a.env.Queries.Invalidate(keyArtistView("657515", "full-albums"))
+	r.tt.Until("the tiles to follow", func() bool { return !r.tt.HasText("Record 3") && r.tt.HasText("Record 2") })
+}
+
+func videoPages(total int) func(int) services.ArtistViewPage {
+	return func(offset int) services.ArtistViewPage {
+		p := services.ArtistViewPage{View: "music-videos", Kind: services.ShelfVideos, Next: -1}
+		for i := offset; i < min(offset+viewPage, total); i++ {
+			p.Videos = append(p.Videos, services.MusicVideo{ID: fmt.Sprint("mv", i), Name: fmt.Sprint("Clip ", i), Art: art})
+		}
+		return p
+	}
+}
+
+// How many tiles share the first row: 160 DIP tiles for albums, 240 for
+// videos.
+func TestViewPageGridTileMinimumsAreSquare160AndVideo240(t *testing.T) {
+	count := func(r *rig, prefix string, n int) int {
+		r.shows(fmt.Sprint(prefix, 0), fmt.Sprint(prefix, n-1))
+		r.tt.Drain()
+		first := r.y(fmt.Sprint(prefix, 0))
+		row := 0
+		for i := range n {
+			if r.y(fmt.Sprint(prefix, i)) == first {
+				row++
+			}
+		}
+		return row
+	}
+	albums := viewRig(t, "full-albums", func(r *rig) { r.cat.views["full-albums"] = albumPages("full-albums", 9) })
+	videos := viewRig(t, "music-videos", func(r *rig) { r.cat.views["music-videos"] = videoPages(9) })
+	// A 1132 DIP window leaves a 1056 DIP column: 5 tiles of 160, 4 of 240.
+	if got := count(albums, "Record ", 9); got != 5 {
+		t.Errorf("%d album tiles in the first row, want 5", got)
+	}
+	if got := count(videos, "Clip ", 9); got != 4 {
+		t.Errorf("%d video tiles in the first row, want 4", got)
+	}
 }
 
 func TestViewPageShowsPlaceholdersWhileLoading(t *testing.T) {
@@ -1118,7 +1311,11 @@ func TestRestrictedAccountFollowsTheAuthEvent(t *testing.T) {
 
 func goldenRig(t *testing.T, dark bool) *rig {
 	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
-	r := newRig(t, "/artist/657515", 1132, 1253, func(r *rig) { r.cat.page = radiohead() })
+	// The shell's page column at 1132×1253 (less sidebar, top bar, player
+	// bar), dated as an en-GB system, as the reference shots are.
+	i18n.SetRegional("en-GB")
+	t.Cleanup(func() { i18n.SetRegional() })
+	r := newRig(t, "/artist/657515", 899, 1133, func(r *rig) { r.cat.page = radiohead() })
 	theme.SetMode(map[bool]theme.Mode{true: theme.ModeDark, false: theme.ModeLight}[dark])
 	return r
 }
@@ -1140,7 +1337,10 @@ func TestGoldenArtistDark(t *testing.T) {
 
 func TestGoldenArtistMinimumWindow(t *testing.T) {
 	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
-	r := newRig(t, "/artist/657515", 940, 600, func(r *rig) { r.cat.page = radiohead() })
+	i18n.SetRegional("en-GB")
+	t.Cleanup(func() { i18n.SetRegional() })
+	// 940×600 less the shell's chrome.
+	r := newRig(t, "/artist/657515", 707, 480, func(r *rig) { r.cat.page = radiohead() })
 	theme.SetMode(theme.ModeLight)
 	r.shows("Discography")
 	r.tt.Settle()
@@ -1148,18 +1348,76 @@ func TestGoldenArtistMinimumWindow(t *testing.T) {
 }
 
 // The concerts feature's section sits in the page, with the artist's ID, once
-// the feature has set its hook; without the hook there is nothing.
+// the feature has set its hook; without the hook there is nothing. It is never
+// the first block on a catalogue artist's page, and is on a library artist's
+// only when the embedded catalogue body has no lead.
 func TestArtistConcertsHookBuildsAfterTheLead(t *testing.T) {
 	var gotID string
-	r := newRig(t, "/artist/657515", 1132, 1253, func(r *rig) {
-		r.cat.page = radiohead()
+	var firsts []bool
+	hook := func(r *rig) {
 		r.h.Env.ArtistConcerts = func(c *ui.Context, id string, first bool) {
 			gotID = id
+			firsts = append(firsts, first)
 			ui.Text(c, "Upcoming concerts test")
 		}
+	}
+	r := newRig(t, "/artist/657515", 1132, 1253, func(r *rig) {
+		r.cat.page = radiohead()
+		hook(r)
 	})
 	r.shows("Discography", "Upcoming concerts test")
 	if gotID != "657515" {
 		t.Errorf("hook asked for artist %q", gotID)
+	}
+	if slices.Contains(firsts, true) {
+		t.Error("concerts first on a catalogue artist's page")
+	}
+
+	// A catalogue page with no lead at all: still not first.
+	firsts = nil
+	bare := newRig(t, "/artist/657515", 1132, 900, func(r *rig) {
+		r.cat.page = radiohead()
+		r.cat.page.TopSongs, r.cat.page.TopSongsMore = nil, false
+		r.cat.page.Shelves = r.cat.page.Shelves[1:]
+		hook(r)
+	})
+	bare.shows("Upcoming concerts test")
+	if slices.Contains(firsts, true) {
+		t.Error("concerts first on a catalogue artist's page with no lead")
+	}
+
+	// A library artist's embedded body: first when nothing leads it.
+	firsts = nil
+	lib := newRig(t, "/artist/r.1", 1132, 1700, func(r *rig) {
+		r.lib = fakeLibrary{detail: libraryDetail()}
+		p := radiohead()
+		p.Artist = services.Artist{ID: "55", Name: "Mia", Source: services.SourceCatalog, CatalogID: "55", Art: art}
+		p.TopSongs, p.Shelves = nil, p.Shelves[1:]
+		r.cat.page = p
+		hook(r)
+	})
+	lib.shows("Upcoming concerts test")
+	if !slices.Contains(firsts, true) {
+		t.Errorf("concerts not first in the embedded body with no lead: %v", firsts)
+	}
+}
+
+// The About grid keeps its 32 rem biography cell empty when there is no
+// biography: the facts stay in their own column beside it.
+func TestAboutKeepsTheBiographyCellWhenThereIsNoBiography(t *testing.T) {
+	with := catalogRig(t, nil)
+	with.shows("About Radiohead", "Born or formed")
+	without := newRig(t, "/artist/657515", 1132, 1500, func(r *rig) {
+		r.cat.page = radiohead()
+		r.cat.page.Bio = ""
+	})
+	without.shows("About Radiohead", "Born or formed")
+	a, _ := with.tt.Find("Born or formed")
+	b, _ := without.tt.Find("Born or formed")
+	if a.X != b.X || b.X < 32+512 {
+		t.Errorf("facts at x=%v with a biography, %v without; want both after the 512 DIP cell", a.X, b.X)
+	}
+	if without.tt.HasText("Formed in 1985.") {
+		t.Error("a biography that is empty is shown")
 	}
 }

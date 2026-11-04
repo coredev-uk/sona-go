@@ -37,11 +37,67 @@ type viewState struct {
 	tracks tracksState
 	grid   kit.ItemGridState
 	menus  *kit.ActionMenus
-	// songs or items are the loaded pages flattened, rebuilt when a page
-	// arrives (loaded counts the pages they hold).
-	songs  []services.Song
-	items  []services.Item
-	loaded int
+	// items are each loaded page's tiles as items, kept while the page's
+	// size and ends stand (a refetch can change a page without changing how
+	// many there are).
+	items [][]services.Item
+}
+
+// syncItems brings the per-page items up to date with pages.
+func (vs *viewState) syncItems(pages []services.ArtistViewPage) {
+	vs.items = vs.items[:min(len(vs.items), len(pages))]
+	for k, p := range pages {
+		if k < len(vs.items) && sameEnds(vs.items[k], p) {
+			continue
+		}
+		if k < len(vs.items) {
+			vs.items[k] = pageItems(p)
+		} else {
+			vs.items = append(vs.items, pageItems(p))
+		}
+	}
+}
+
+// sameEnds reports whether items are still page p's: the same count, the
+// same first and last.
+func sameEnds(items []services.Item, p services.ArtistViewPage) bool {
+	n, first, last := pageEnds(p)
+	return len(items) == n && (n == 0 || (items[0].ID == first && items[n-1].ID == last))
+}
+
+// pageEnds is how many items a page holds and the IDs of its first and last.
+func pageEnds(p services.ArtistViewPage) (n int, first, last string) {
+	switch p.Kind {
+	case services.ShelfAlbums:
+		if n = len(p.Albums); n > 0 {
+			first, last = p.Albums[0].ID, p.Albums[n-1].ID
+		}
+	case services.ShelfPlaylists:
+		if n = len(p.Playlists); n > 0 {
+			first, last = p.Playlists[0].ID, p.Playlists[n-1].ID
+		}
+	case services.ShelfVideos:
+		if n = len(p.Videos); n > 0 {
+			first, last = videoItem(p.Videos[0], "").ID, videoItem(p.Videos[n-1], "").ID
+		}
+	case services.ShelfArtists:
+		if n = len(p.Artists); n > 0 {
+			first, last = p.Artists[0].ID, p.Artists[n-1].ID
+		}
+	}
+	return n, first, last
+}
+
+// locate finds row i of the pages' lists, whose lengths are lens: the page
+// and the place in it; ok is false past the end.
+func locate(lens []int, i int) (page, at int, ok bool) {
+	for k, n := range lens {
+		if i < n {
+			return k, i, true
+		}
+		i -= n
+	}
+	return 0, 0, false
 }
 
 // viewRouteTitle names the page for assistive technology and history.
@@ -201,22 +257,24 @@ func (a *artist) viewBody(c *ui.Context, vs *viewState, id, view, name, title st
 	onRange := func(_, end int) { vs.rangeEnd = end }
 
 	if view == services.ViewTopSongs {
-		if vs.loaded != len(pages) {
-			vs.songs = vs.songs[:0]
-			for _, p := range pages {
-				vs.songs = append(vs.songs, p.Songs...)
-			}
-			vs.loaded = len(pages)
+		lens := make([]int, len(pages))
+		for k, p := range pages {
+			lens[k] = len(p.Songs)
 		}
-		songs := vs.songs
 		if vs.tracks.menus == nil {
 			vs.tracks.menus = kit.NewActionMenus(a.env.Actions, &vs.tracks.Sel)
 		}
 		cur := a.env.Play.State()
 		o := kit.TrackListOpts{
-			Label:      title,
-			Columns:    kit.TrackColumns{RowNumbers: true, Artwork: true, Album: true},
-			OnPlay:     func(i int) { a.queue.PlaySongs(songs, i, from(id)) },
+			Label:   title,
+			Columns: kit.TrackColumns{RowNumbers: true, Artwork: true, Album: true},
+			OnPlay: func(i int) {
+				var songs []services.Song
+				for _, p := range pages {
+					songs = append(songs, p.Songs...)
+				}
+				a.queue.PlaySongs(songs, i, from(id))
+			},
 			Playing:    cur.State == "playing",
 			Restricted: a.restricted(),
 			Art:        a.env.Art, Menus: vs.tracks.menus, Motion: a.env.Motion, Pane: pane, OnRange: onRange,
@@ -228,19 +286,19 @@ func (a *artist) viewBody(c *ui.Context, vs *viewState, id, view, name, title st
 		if a.has(albumPath("_")) {
 			o.OpenAlbum = func(id string) { a.env.Nav.Push(albumPath(id)) }
 		}
+		// Rows index the pages as this frame has them: a refetch that
+		// changed their sizes cannot leave a row out of range.
 		kit.TrackList(c, &vs.tracks.TrackListState, total+loading, func(i int) *services.Song {
-			if i < total {
-				return &songs[i]
+			if k, j, ok := locate(lens, i); ok {
+				return &pages[k].Songs[j]
 			}
 			return nil
 		}, o)
 	} else {
-		if vs.loaded != len(pages) {
-			vs.items = vs.items[:0]
-			for _, p := range pages {
-				vs.items = append(vs.items, pageItems(p)...)
-			}
-			vs.loaded = len(pages)
+		vs.syncItems(pages)
+		lens := make([]int, len(vs.items))
+		for k, it := range vs.items {
+			lens[k] = len(it)
 		}
 		if vs.menus == nil {
 			vs.menus = kit.NewActionMenus(a.env.Actions, &vs.grid.Sel)
@@ -251,8 +309,8 @@ func (a *artist) viewBody(c *ui.Context, vs *viewState, id, view, name, title st
 		}
 		ctx := kit.ItemsCtx{Nav: a.open, Art: a.env.Art, Motion: a.env.Motion, Menus: vs.menus, Restricted: a.restricted()}
 		kit.ItemGrid(c, &vs.grid, total+loading, func(i int) *services.Item {
-			if i < total {
-				return &vs.items[i]
+			if k, j, ok := locate(lens, i); ok {
+				return &vs.items[k][j]
 			}
 			return nil
 		}, ctx, kit.ItemGridOpts{Label: title, Min: tileMin, Pane: pane, OnRange: onRange})

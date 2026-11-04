@@ -5,8 +5,6 @@ import (
 	"strings"
 	"time"
 
-	mygoi18n "github.com/egoist/mygo/i18n"
-
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 )
@@ -32,7 +30,7 @@ func longDate(date string) string {
 		return yearOf(date)
 	}
 	at = at.Add(12 * time.Hour)
-	return mygoi18n.FormatDate(i18n.Locale(), at, mygoi18n.DateOptions{Skeleton: "yMMMd"})
+	return i18n.FormatDate(at, i18n.DateMedium)
 }
 
 // catalogueLine is the catalogue line (docs/design.md): "Single · 1 song".
@@ -64,11 +62,5 @@ func releaseBadge(a services.Album, now time.Time) string {
 	if !upcoming(a, now) || a.ReleaseAt == 0 {
 		return ""
 	}
-	at := time.UnixMilli(a.ReleaseAt)
-	skeleton := "MMMd"
-	if at.Year() != now.Year() {
-		skeleton = "yMMMd"
-	}
-	date := mygoi18n.FormatDate(i18n.Locale(), at, mygoi18n.DateOptions{Skeleton: skeleton})
-	return i18n.T("Out {releaseDate}", "releaseDate", date)
+	return i18n.T("Out {releaseDate}", "releaseDate", i18n.ShortReleaseDate(time.UnixMilli(a.ReleaseAt), now))
 }

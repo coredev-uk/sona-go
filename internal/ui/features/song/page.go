@@ -3,6 +3,7 @@ package song
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -165,7 +166,7 @@ func (s *song) itemsCtx() kit.ItemsCtx {
 func (s *song) header(c *ui.Context, page services.CatalogSong) {
 	sg := page.Song
 	meta := make([]string, 0, 4)
-	for _, p := range []string{i18n.T("Song"), yearOf(sg.ReleaseDate), formatTime(sg.DurationMs), sg.Genre} {
+	for _, p := range []string{i18n.T("Song"), yearOf(sg.ReleaseDate), i18n.FormatDuration(time.Duration(sg.DurationMs) * time.Millisecond), sg.Genre} {
 		if p != "" {
 			meta = append(meta, p)
 		}
@@ -198,42 +199,33 @@ func (s *song) header(c *ui.Context, page services.CatalogSong) {
 // byline is the artists as links (their names when Apple credits none) and
 // " · album" linking to the album with this song marked.
 func (s *song) byline(c *ui.Context, page services.CatalogSong) {
-	ink, muted := theme.C("ink"), theme.C("ink-muted")
-	ui.RichText(c).Children(func() {
-		artists := page.Artists
-		if len(artists) == 0 {
-			ui.Text(c.Key("artist"), page.Song.Artist).TextColor(ink)
-		}
-		for i, a := range artists {
-			if i > 0 {
-				sep := ", "
-				if i == len(artists)-1 {
-					sep = " & "
-				}
-				ui.Text(c.Key("sep"+a.ID), sep).TextColor(ink)
-			}
-			if path := "/artist/" + a.ID; s.has(path) {
-				ui.Link(c.Key(a.ID), a.Name, path).TextColor(ink)
-			} else {
-				ui.Text(c.Key(a.ID), a.Name).TextColor(ink)
-			}
-		}
-		if al := page.Album; al != nil {
-			ui.Text(c.Key("dot"), " · ").TextColor(muted)
-			if path := "/album/" + al.ID; s.has(path) {
-				ui.Link(c.Key("album"), al.Name, path+"?song="+page.Song.ID).TextColor(muted)
-			} else {
-				ui.Text(c.Key("album"), al.Name).TextColor(muted)
-			}
+	kit.ArtistLinks(c.Key("artists"), page.Artists, page.Song.Artist, ui.Color{}, kit.ArtistLinksOpts{HasRoute: s.env.HasRoute})
+	al := page.Album
+	if al == nil {
+		return
+	}
+	ui.RichText(c.Key("album")).Children(func() {
+		muted := theme.C("ink-muted")
+		ui.Text(c.Key("dot"), " · ").TextColor(muted)
+		if path := "/album/" + al.ID; s.has(path) {
+			ui.Link(c.Key("link"), al.Name, path+"?song="+page.Song.ID).TextColor(muted)
+		} else {
+			ui.Text(c.Key("link"), al.Name).TextColor(muted)
 		}
 	})
+}
+
+// windowWidth is the viewport the CSS breakpoints compare with: the page's
+// column plus the sidebar and its line (the shell's chrome beside it).
+func windowWidth(c *ui.Context) float32 {
+	ww, _ := c.Size()
+	return ww + theme.Current().Metric["sidebar"] + 1
 }
 
 // lyricsAndCredits puts the two shelves side by side from 1100 DIPs, one
 // above the other below.
 func (s *song) lyricsAndCredits(c *ui.Context, page services.CatalogSong, lyrics, credits bool) {
-	ww, _ := c.Size()
-	if ww >= sideBySide {
+	if windowWidth(c) >= sideBySide {
 		ui.Row(c.Key("both")).FillWidth().AlignItems(ui.Start).Gap(64).Children(func() {
 			ui.Column(c.Key("lyrics")).Grow(1).Basis(0).MinWidth(0).Children(func() {
 				if lyrics {
@@ -265,9 +257,9 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 	id := firstOf(page.Song.CatalogID, page.Song.ID)
 	var full store.Result[services.Lyrics]
 	if pg.full && (pg.lyricsErr == nil || pg.retrying) {
-		full = store.Use(s.env.Queries, keyLyrics(id), func(ctx context.Context) (services.Lyrics, error) {
+		full = store.UseLyricsFrom(s.env.Queries, id, func(ctx context.Context) (services.Lyrics, error) {
 			return s.lyrics.Lyrics(ctx, id)
-		}, store.Options{Stale: store.Forever})
+		})
 		switch {
 		case full.HasData:
 			pg.lyricsErr, pg.retrying = nil, false
@@ -289,6 +281,11 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Lyrics"), First: true, Actions: func() {
 		if kit.ShelfToggle(c, toggle, pg.full).Clicked() {
 			pg.full = !pg.full
+			if pg.full && pg.lyricsErr != nil {
+				// Opening again after a failure asks again.
+				pg.lyricsErr, pg.retrying = nil, false
+				s.env.Queries.Invalidate(store.KeyLyrics(id))
+			}
 		}
 	}}, func() {
 		tk := theme.Current().Type["heading"]
@@ -313,7 +310,7 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 			kit.ErrorBlock(c, i18n.T("Couldn't load the lyrics"), pg.lyricsErr, kit.ErrorBlockOpts{
 				OnRetry: func() {
 					pg.retrying = true
-					s.env.Queries.Invalidate(keyLyrics(id))
+					s.env.Queries.Invalidate(store.KeyLyrics(id))
 				},
 				Retrying: pg.retrying,
 			}).Margin(12, 0, 0, 0)
@@ -331,9 +328,8 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 // creditsShelf is Credits: one labelled section per credit group, each
 // person with a picture or initials, their name and roles.
 func (s *song) creditsShelf(c *ui.Context, groups []services.CreditGroup) {
-	ww, _ := c.Size()
 	cols := 1
-	if ww >= twoColumns {
+	if windowWidth(c) >= twoColumns {
 		cols = 2
 	}
 	tk := theme.Current().Type

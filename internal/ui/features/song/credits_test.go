@@ -34,11 +34,6 @@ func TestFormatHelpers(t *testing.T) {
 			t.Errorf("yearOf(%q) = %q, want %q", in, got, want)
 		}
 	}
-	for ms, want := range map[int64]string{0: "0:00", 59_000: "0:59", 284_000: "4:44", 3_600_000: "1:00:00", 3_725_000: "1:02:05", -5: "0:00"} {
-		if got := formatTime(ms); got != want {
-			t.Errorf("formatTime(%d) = %q, want %q", ms, got, want)
-		}
-	}
 	if got := longDate("1997-05-21"); got != "May 21, 1997" {
 		t.Errorf("longDate = %q", got)
 	}

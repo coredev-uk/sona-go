@@ -13,6 +13,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -68,16 +69,41 @@ type fakeLyrics struct {
 	l     services.Lyrics
 	err   error
 	asked int
+	gate  chan struct{} // when set, an ask waits for it
 }
 
-func (f *fakeLyrics) Lyrics(_ context.Context, id string) (services.Lyrics, error) {
+func (f *fakeLyrics) Lyrics(ctx context.Context, id string) (services.Lyrics, error) {
+	f.mu.Lock()
+	f.asked++
+	gate := f.gate
+	f.mu.Unlock()
+	if gate != nil {
+		select {
+		case <-gate:
+		case <-ctx.Done():
+			return services.Lyrics{}, ctx.Err()
+		}
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.asked++
 	if f.err != nil {
 		return services.Lyrics{}, f.err
 	}
 	return f.l, nil
+}
+
+// hold makes asks wait until the returned func is called.
+func (f *fakeLyrics) hold() (release func()) {
+	gate := make(chan struct{})
+	f.mu.Lock()
+	f.gate = gate
+	f.mu.Unlock()
+	return func() {
+		f.mu.Lock()
+		f.gate = nil
+		f.mu.Unlock()
+		close(gate)
+	}
 }
 
 func (f *fakeLyrics) fail(err error) {
@@ -264,6 +290,7 @@ type rig struct {
 	queue   *fakeQueue
 	library *fakeLibrary
 	routes  map[string]bool
+	rows    *kit.ActionMenus // the menu of a song row on another page
 }
 
 const (
@@ -316,6 +343,7 @@ func newRigOpts(t *testing.T, w, h int, setup func(*rig), opts []uitest.Option, 
 	}
 	env.Actions = kit.NewActionRegistry(viewCredits)
 	env.Actions.SetNavigator(r.router.Push)
+	r.rows = kit.NewActionMenus(env.Actions, nil)
 	r.s = newSong(env, r.catalog, r.lyrics,
 		&queueCommands{svc: r.queue, play: env.Play, post: env.Post},
 		kit.NewItemStates(env.Queries, env.Post, r.library))
@@ -324,6 +352,7 @@ func newRigOpts(t *testing.T, w, h int, setup func(*rig), opts []uitest.Option, 
 		setup(r)
 	}
 	r.tt = hn.Tester(t, func(c *ui.Context) {
+		c.DisableAnimations()
 		ui.Column(c).Fill().Children(func() {
 			r.router.View(c, func(rt *ui.Route) {
 				switch {
@@ -331,6 +360,10 @@ func newRigOpts(t *testing.T, w, h int, setup func(*rig), opts []uitest.Option, 
 					r.s.songPage(c, rt)
 				case rt.Match("/album/{id}"):
 					ui.Text(c, "ALBUM PAGE "+rt.Param("id")+" song="+rt.Query("song"))
+					// A row of the album's songs, with its menu.
+					r.rows.Trigger(c, kit.ActionTarget{Item: kit.SongItem(services.Song{ID: "1441", CatalogID: "1441", Name: "Paranoid Android"}), Name: "Paranoid Android"},
+						kit.TriggerOpts{Header: true})
+					r.rows.Popup(c)
 				case rt.Match("/artist/{id}/view/{view}"):
 					ui.Text(c, "ARTIST VIEW "+rt.Param("id")+" "+rt.Param("view"))
 				case rt.Match("/artist/{id}"):
@@ -519,28 +552,34 @@ func TestLyricsExcerptThenFullLyrics(t *testing.T) {
 	if r.lyrics.asks() != 1 {
 		t.Errorf("lyrics asked %d times", r.lyrics.asks())
 	}
-	cached := store.Use(r.h.Env.Queries, keyLyrics("1440"), func(context.Context) (services.Lyrics, error) {
+	cached := store.Use(r.h.Env.Queries, store.KeyLyrics("1440"), func(context.Context) (services.Lyrics, error) {
 		return services.Lyrics{}, errors.New("not cached")
 	})
 	if !cached.HasData || len(cached.Data.Lines) != 6 {
-		t.Errorf("cache %+v under %v", cached, keyLyrics("1440"))
+		t.Errorf("cache %+v under %v", cached, store.KeyLyrics("1440"))
 	}
 }
 
 func TestLyricsShowLoadingThenFail(t *testing.T) {
 	r := newRig(t, 1132, 1000, airbag())
 	r.lyrics.fail(errors.New("down"))
+	release := r.lyrics.hold()
 	r.open()
 	r.click("View full lyrics")
+	r.tt.Until("the lyrics to load", r.tt.Shows("Loading the lyrics…"))
+	if !r.tt.HasText("In the next world war") || r.tt.HasText("Couldn't load the lyrics") {
+		t.Errorf("while pending: %q", r.tt.Texts())
+	}
+	release()
 	r.tt.Until("the failure", r.tt.Shows("Couldn't load the lyrics", "Try again"))
+	if r.tt.HasText("Loading the lyrics…") {
+		t.Errorf("still loading after the failure")
+	}
 	if !r.tt.HasText("In the next world war") {
 		t.Errorf("the excerpt went away with the failure")
 	}
 	asks := r.lyrics.asks()
-	// No retry on its own (v0.2.0's retry: false), even after the store's
-	// retry interval.
-	r.tt.Advance(time.Minute)
-	r.tt.Drain()
+	// No retry on its own while the failure is shown (v0.2.0's retry: false).
 	time.Sleep(50 * time.Millisecond)
 	r.tt.Drain()
 	if r.lyrics.asks() != asks {
@@ -551,6 +590,33 @@ func TestLyricsShowLoadingThenFail(t *testing.T) {
 	r.tt.Until("the lyrics", r.tt.Shows("In a blaze of light"))
 	if r.tt.HasText("Couldn't load the lyrics") {
 		t.Errorf("the failure stays after the retry worked")
+	}
+}
+
+func TestOpeningTheLyricsAgainAfterAFailureAsksAgain(t *testing.T) {
+	r := newRig(t, 1132, 1000, airbag())
+	r.lyrics.fail(errors.New("down"))
+	r.open()
+	r.click("View full lyrics")
+	r.tt.Until("the failure", r.tt.Shows("Couldn't load the lyrics"))
+	asks := r.lyrics.asks()
+	r.click("Show less")
+	r.tt.Until("the excerpt", r.tt.Shows("View full lyrics"))
+	// Apple answers this time; the second opening must ask, and show it pending.
+	r.lyrics.fail(nil)
+	release := r.lyrics.hold()
+	r.click("View full lyrics")
+	r.tt.Until("the second ask pending", r.tt.Shows("Loading the lyrics…"))
+	if r.tt.HasText("Couldn't load the lyrics") {
+		t.Errorf("the old failure shows while asking again")
+	}
+	if r.lyrics.asks() != asks+1 {
+		t.Errorf("asked %d times, want %d", r.lyrics.asks(), asks+1)
+	}
+	release()
+	r.tt.Until("the lyrics", r.tt.Shows("In a blaze of light", "Written by Thom Yorke, Jonny Greenwood"))
+	if r.tt.HasText("Couldn't load the lyrics") || r.tt.HasText("Loading the lyrics…") {
+		t.Errorf("stale state beside the lyrics: %q", r.tt.Texts())
 	}
 }
 
@@ -686,16 +752,30 @@ func TestNoShelvesWhenTheSongHasNone(t *testing.T) {
 	}
 }
 
-func TestHeaderMenuViewCreditsOpensTheSongPage(t *testing.T) {
-	p := airbag()
-	other := airbag()
-	other.Song.ID, other.Song.CatalogID, other.Song.Name = "1441", "1441", "Paranoid Android"
-	r := newRig(t, 1132, 1000, p, other)
+func TestHeaderMenuListsViewCredits(t *testing.T) {
+	r := newRig(t, 1132, 1000, airbag())
 	r.open()
 	r.click("More for Airbag")
 	r.tt.Until("the menu", r.tt.Shows("View credits"))
+}
+
+// A song row on another page offers View credits, which opens that song's
+// page: the route changes from the album to the song.
+func TestViewCreditsOnASongRowOpensTheSongPage(t *testing.T) {
+	other := airbag()
+	other.Song.ID, other.Song.CatalogID, other.Song.Name = "1441", "1441", "Paranoid Android"
+	r := newRigWith(t, 1132, 1000, func(r *rig) { r.router.Replace("/album/al1") }, airbag(), other)
+	r.tt.Until("the album page", r.tt.Shows("ALBUM PAGE al1 song="))
+	if r.route() != "/album/al1" {
+		t.Fatalf("starts at %q", r.route())
+	}
+	r.click("More for Paranoid Android")
+	r.tt.Until("the menu", r.tt.Shows("View credits"))
 	r.click("View credits")
-	r.tt.Until("the song's own page", func() bool { return r.route() == "/song/1440" })
+	r.tt.Until("the song's page", r.tt.Shows("Paranoid Android", "Credits"))
+	if r.route() != "/song/1441" {
+		t.Errorf("went to %q", r.route())
+	}
 }
 
 func TestViewCreditsAction(t *testing.T) {
@@ -782,11 +862,14 @@ func TestGoldenSongPage(t *testing.T) {
 		opts []uitest.Option
 		w, h int
 	}{
-		{"song-light", nil, 1132, 1253},
-		{"song-dark", []uitest.Option{uitest.Dark()}, 1132, 1253},
-		{"song-narrow-light", nil, 940, 600},
+		// The shell's page column: the window less sidebar, top bar, player bar.
+		{"song-light", nil, 899, 1133},
+		{"song-dark", []uitest.Option{uitest.Dark()}, 899, 1133},
+		{"song-narrow-light", nil, 707, 480},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			i18n.SetRegional("en-GB")
+			t.Cleanup(func() { i18n.SetRegional() })
 			r := newRigOpts(t, tc.w, tc.h, nil, tc.opts, airbag())
 			r.open()
 			r.tt.Until("the library state", func() bool { return r.library.has("states 1") })

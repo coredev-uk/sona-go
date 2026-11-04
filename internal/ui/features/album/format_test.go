@@ -27,26 +27,6 @@ func TestCatalogueLine(t *testing.T) {
 	}
 }
 
-func TestTimeLeftIsToTheMinute(t *testing.T) {
-	const day = 24 * time.Hour
-	for _, c := range []struct {
-		d    time.Duration
-		want string
-	}{
-		{18*day + 6*time.Hour + 20*time.Minute, "18 days, 6 hours"},
-		{day, "1 day"},
-		{5*time.Hour + 12*time.Minute, "5 hours, 12 minutes"},
-		{time.Hour, "1 hour"},
-		{90 * time.Second, "2 minutes"},
-		{time.Second, "1 minute"},
-		{-time.Hour, "1 minute"},
-	} {
-		if got := timeLeft(c.d); got != c.want {
-			t.Errorf("timeLeft(%v) = %q, want %q", c.d, got, c.want)
-		}
-	}
-}
-
 func TestDates(t *testing.T) {
 	if got := yearOf("2008-06-02"); got != "2008" {
 		t.Errorf("yearOf %q", got)

@@ -218,7 +218,7 @@ func (a *artist) catalogArtist(c *ui.Context, pg *pageState, page *services.Cata
 		a.headerActions(c, pg, page.Artist)
 	}
 	a.head(c, pg, h)
-	a.catalogBody(c, pg, page, pane)
+	a.catalogBody(c, pg, page, pane, false)
 }
 
 // headerActions are the rating buttons and the header's item menu of an
@@ -288,7 +288,7 @@ func (a *artist) libraryArtist(c *ui.Context, pg *pageState, d *services.ArtistD
 	}
 	if page != nil {
 		ui.Column(c.Key("catalogue")).Margin(56, 0, 0, 0).Children(func() {
-			a.catalogBody(c, pg, page, pane)
+			a.catalogBody(c, pg, page, pane, true)
 		})
 	}
 }
@@ -342,7 +342,7 @@ func (a *artist) band(c *ui.Context, id, title string, content func()) ui.Elemen
 // bands: Discography (albums as covers, singles, live albums and
 // compilations as the back catalogue's lists, music videos), Related
 // (appears on, playlists, similar artists) and About.
-func (a *artist) catalogBody(c *ui.Context, pg *pageState, page *services.CatalogArtist, pane *kit.Pane) {
+func (a *artist) catalogBody(c *ui.Context, pg *pageState, page *services.CatalogArtist, pane *kit.Pane, embedded bool) {
 	art := page.Artist
 	wide := layoutFor(pg.width).wide
 	top := len(page.TopSongs) > 0
@@ -392,9 +392,12 @@ func (a *artist) catalogBody(c *ui.Context, pg *pageState, page *services.Catalo
 		})
 	}
 
-	// The artist's concerts (features/concerts' ArtistConcerts) follow the lead.
+	// The artist's concerts (features/concerts' ArtistConcerts) follow the
+	// lead. They are never first on a catalogue artist's page (its header
+	// precedes them); on a library artist's page the body is a block of its
+	// own, so they are first when the lead is empty.
 	if a.env.ArtistConcerts != nil {
-		a.env.ArtistConcerts(c, art.ID, !top && !essential)
+		a.env.ArtistConcerts(c, art.ID, embedded && !top && !essential)
 	}
 
 	albums := shelvesFor(page, viewsAlbums)
@@ -546,30 +549,40 @@ func (a *artist) about(c *ui.Context, pg *pageState, page *services.CatalogArtis
 	tk := theme.Current()
 	sec := a.band(c, "artist-about", i18n.T("About {artistName}", "artistName", page.Artist.Name), func() {
 		wide := layoutFor(pg.width).wide
-		var bio, dl func()
-		if page.Bio != "" {
-			bio = func() {
-				ui.Column(c.Key("bio")).MaxWidth(512).Grow(1).Basis(0).MinWidth(0).Children(func() {
-					for i, p := range paragraphs(page.Bio) {
-						t := ui.Text(c.Key(i), p).FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).TextColor(theme.C("ink"))
-						if i > 0 {
-							t.Margin(12, 0, 0, 0)
-						}
-					}
-				})
+		// The grid keeps its bio cell when there is no biography: 32 rem
+		// wide beside the facts from 900 DIPs, an empty row above them
+		// under that.
+		bio := func() {
+			cell := ui.Column(c.Key("bio"))
+			if wide {
+				cell.Width(512).Shrink(1).MinWidth(0)
+			} else {
+				cell.MaxWidth(512)
 			}
+			cell.Children(func() {
+				if page.Bio == "" {
+					return
+				}
+				for i, p := range paragraphs(page.Bio) {
+					t := ui.Text(c.Key(i), p).FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).TextColor(theme.C("ink"))
+					if i > 0 {
+						t.Margin(12, 0, 0, 0)
+					}
+				}
+			})
 		}
-		if len(facts) > 0 {
-			dl = func() {
-				ui.Column(c.Key("facts")).Gap(12).Grow(1).Basis(0).MinWidth(180).Children(func() {
-					for _, f := range facts {
-						ui.Column(c.Key(f.term)).Children(func() {
-							ui.Text(c, f.term).FontSize(tk.Type["meta"].Size).FixedLineHeight(tk.Type["meta"].LineHeight).TextColor(theme.C("ink-muted"))
-							ui.Text(c, f.value).FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).TextColor(theme.C("ink"))
-						})
-					}
-				})
+		dl := func() {
+			if len(facts) == 0 {
+				return
 			}
+			ui.Column(c.Key("facts")).Gap(12).Grow(1).Basis(0).MinWidth(180).Children(func() {
+				for _, f := range facts {
+					ui.Column(c.Key(f.term)).Children(func() {
+						ui.Text(c, f.term).FontSize(tk.Type["meta"].Size).FixedLineHeight(tk.Type["meta"].LineHeight).TextColor(theme.C("ink-muted"))
+						ui.Text(c, f.value).FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).TextColor(theme.C("ink"))
+					})
+				}
+			})
 		}
 		var layout ui.Element
 		if wide {
@@ -578,12 +591,8 @@ func (a *artist) about(c *ui.Context, pg *pageState, page *services.CatalogArtis
 			layout = ui.Column(c.Key("about")).FillWidth().Gap(24)
 		}
 		layout.Children(func() {
-			if bio != nil {
-				bio()
-			}
-			if dl != nil {
-				dl()
-			}
+			bio()
+			dl()
 		})
 	})
 	// Where the band is in the scrolled content, as the last layout put it.

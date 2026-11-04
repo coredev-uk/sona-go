@@ -101,28 +101,35 @@ type statePending struct {
 // back when they fail, and a toast says what failed. One per feature
 // factory; Use, the buttons and the commands run on the main thread.
 type ItemStates struct {
-	q    *store.Client
-	api  ItemStateService
-	post store.Poster
+	q   *store.Client
+	api ItemStateService
+	now func() time.Time // the clock of staleness: tests set it
 
 	mu        sync.Mutex
 	queue     []statePending
 	scheduled bool
 
 	// last is the state each item was last known in (loaded or changed),
-	// under mu: the base of a change and what Load answers from.
+	// under mu: the base of a change and what Load answers from. Writes to
+	// the query cache (store.Set) happen under mu too, so a late answer can
+	// never land after a newer write.
 	last map[string]knownState
 }
 
-// knownState is a state and when it was learnt.
+// knownState is a state, when it was learnt from Go (or written by a change)
+// and how many writes (changes) the item has had: a load that began before a
+// write must not replace it.
 type knownState struct {
-	st services.ItemState
-	at time.Time
+	st  services.ItemState
+	at  time.Time
+	gen uint64
 }
 
 // NewItemStates is the item states over a query client and LibraryService.
-func NewItemStates(q *store.Client, post store.Poster, api ItemStateService) *ItemStates {
-	return &ItemStates{q: q, api: api, post: post, last: map[string]knownState{}}
+// The Poster is the caller's (Env.Post); store.Set asks for the frames
+// itself, so it is not kept.
+func NewItemStates(q *store.Client, _ store.Poster, api ItemStateService) *ItemStates {
+	return &ItemStates{q: q, api: api, now: time.Now, last: map[string]knownState{}}
 }
 
 // load asks for one state, batched with every other made soon.
@@ -169,17 +176,49 @@ func (s *ItemStates) flush() {
 
 func stateID(kind, id string) string { return kind + "/" + id }
 
-func (s *ItemStates) remember(kind string, st services.ItemState) {
+// genOf is how many writes the item has had.
+func (s *ItemStates) genOf(kind, id string) uint64 {
 	s.mu.Lock()
-	s.last[stateID(kind, st.ID)] = knownState{st, time.Now()}
-	s.mu.Unlock()
+	defer s.mu.Unlock()
+	return s.last[stateID(kind, id)].gen
 }
 
+// write is a change's write of the item's state: it shows at once, and any
+// load begun before it is outdated (a late answer is dropped, store.Set
+// cancels the query fetch in flight).
+func (s *ItemStates) write(kind, id string, st services.ItemState) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	st.Kind, st.ID = kind, id
+	k := s.last[stateID(kind, id)]
+	s.last[stateID(kind, id)] = knownState{st, s.now(), k.gen + 1}
+	store.Set(s.q, StateKey(kind, id), st)
+}
+
+// learn records what Go answered to a load begun when the item had gen
+// writes, and writes it to the query cache, unless the item was written
+// since: then the newer state stays, and learn returns it (ok false).
+func (s *ItemStates) learn(kind, id string, st services.ItemState, gen uint64, set bool) (cur services.ItemState, ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := stateID(kind, id)
+	k := s.last[key]
+	if k.gen != gen {
+		return k.st, false
+	}
+	s.last[key] = knownState{st, s.now(), gen}
+	if set {
+		store.Set(s.q, StateKey(kind, id), st)
+	}
+	return st, true
+}
+
+// known is the state learnt within the stale time.
 func (s *ItemStates) known(kind, id string) (services.ItemState, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	k, ok := s.last[stateID(kind, id)]
-	return k.st, ok && time.Since(k.at) < stateStale
+	return k.st, ok && s.now().Sub(k.at) < stateStale
 }
 
 // base is the state a change starts from: the last one learnt, however old,
@@ -187,16 +226,39 @@ func (s *ItemStates) known(kind, id string) (services.ItemState, bool) {
 func (s *ItemStates) base(kind string, it StateItem) (st services.ItemState, learnt bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if k, ok := s.last[stateID(kind, it.ID)]; ok {
+	if k, ok := s.last[stateID(kind, it.ID)]; ok && !k.at.IsZero() {
 		return k.st, true
 	}
 	return services.ItemState{Kind: kind, ID: it.ID, InLibrary: it.Source == services.SourceLibrary, LibraryID: it.LibraryID}, false
 }
 
+// forget drops what is known of an item (a change failed with nothing to go
+// back to); it counts as a write.
 func (s *ItemStates) forget(kind, id string) {
 	s.mu.Lock()
-	delete(s.last, stateID(kind, id))
-	s.mu.Unlock()
+	defer s.mu.Unlock()
+	k := s.last[stateID(kind, id)]
+	s.last[stateID(kind, id)] = knownState{gen: k.gen + 1}
+}
+
+// adopt notes a state the query cache holds that this layer did not fetch
+// (an event's payload, Set elsewhere): it is fresh now. It reports whether
+// the state we know is older than stateStale, which the caller refetches;
+// asking again waits another stateStale.
+func (s *ItemStates) adopt(kind, itemID string, st services.ItemState) (stale bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	id := stateID(kind, itemID)
+	k, ok := s.last[id]
+	if !ok || k.st != st || k.at.IsZero() {
+		s.last[id] = knownState{st, s.now(), k.gen}
+		return false
+	}
+	if s.now().Sub(k.at) >= stateStale {
+		s.last[id] = knownState{st, s.now(), k.gen} // one refetch per stale time
+		return true
+	}
+	return false
 }
 
 // StateOfArtist and StateOfPlaylist are the StateItem of those DTOs.
@@ -219,13 +281,15 @@ func (s *ItemStates) Load(ctx context.Context, kind string, it StateItem) (servi
 	if st, ok := s.known(kind, it.ID); ok {
 		return st, true
 	}
+	gen := s.genOf(kind, it.ID)
 	st, err := s.load(ctx, ItemRefOf(kind, it))
 	if err != nil {
 		return services.ItemState{}, false
 	}
-	s.remember(kind, st)
-	store.Set(s.q, StateKey(kind, it.ID), st)
-	return st, true
+	// An answer to a load begun before a change is outdated: the change's
+	// state stays (v0.2.0 cancels the queries before an optimistic write).
+	cur, _ := s.learn(kind, it.ID, st, gen, true)
+	return cur, true
 }
 
 // Use is an item's library state and rating; no data while it loads, and
@@ -235,11 +299,19 @@ func (s *ItemStates) Use(kind string, it StateItem) store.Result[services.ItemSt
 		return store.Result[services.ItemState]{}
 	}
 	ref := ItemRefOf(kind, it)
-	r := store.Use(s.q, StateKey(kind, it.ID), func(ctx context.Context) (services.ItemState, error) {
-		return s.load(ctx, ref)
+	key := StateKey(kind, it.ID)
+	r := store.Use(s.q, key, func(ctx context.Context) (services.ItemState, error) {
+		gen := s.genOf(kind, it.ID)
+		st, err := s.load(ctx, ref)
+		if err == nil {
+			s.learn(kind, it.ID, st, gen, false) // the query stores the answer itself
+		}
+		return st, err
 	}, store.Options{Stale: stateStale})
-	if r.HasData {
-		s.remember(kind, r.Data)
+	// A state stays fresh for stateStale (v0.2.0's STALE_MS) even while it is
+	// on screen: after that it is asked again, once.
+	if r.HasData && !r.Fetching && s.adopt(kind, it.ID, r.Data) {
+		s.q.Invalidate(key)
 	}
 	return r
 }
@@ -293,8 +365,7 @@ func (s *ItemStates) Change(ctx context.Context, kind string, it StateItem, ch S
 	default:
 		next.InLibrary, next.LibraryID = false, ""
 	}
-	s.remember(kind, next)
-	store.Set(s.q, key, next)
+	s.write(kind, it.ID, next)
 	ref := ItemRefOf(kind, it)
 	var got services.ItemState
 	var err error
@@ -308,16 +379,14 @@ func (s *ItemStates) Change(ctx context.Context, kind string, it StateItem, ch S
 	}
 	if err != nil {
 		if learnt {
-			s.remember(kind, prev)
-			store.Set(s.q, key, prev)
+			s.write(kind, it.ID, prev)
 		} else {
 			s.forget(kind, it.ID)
 			s.q.Invalidate(key)
 		}
 		return services.ItemState{}, err
 	}
-	s.remember(kind, got)
-	store.Set(s.q, key, got)
+	s.write(kind, it.ID, got)
 	switch {
 	case got.InLibrary != prev.InLibrary || ch == ChangeRemove:
 		s.q.Invalidate(membershipLists...)
@@ -387,12 +456,22 @@ func (s *ItemStates) RateMany(items []KindedItem, a RatingAction, what string) {
 
 // Add adds a catalogue item to the library, with a toast either way.
 func (s *ItemStates) Add(kind string, it StateItem, name string) {
-	s.AddMany([]KindedItem{{kind, it}}, i18n.T("“{name}”", "name", name))
+	s.add([]KindedItem{{kind, it}},
+		i18n.T("Couldn't add “{name}” to your library", "name", name),
+		i18n.T("Added “{name}” to your library", "name", name))
 }
 
 // AddMany adds catalogue items of several kinds to the library, one call
-// per kind, with one toast naming them (what: "“Airbag”", "3 songs").
+// per kind, with one toast naming them (what: "3 songs").
 func (s *ItemStates) AddMany(items []KindedItem, what string) {
+	s.add(items,
+		i18n.T("Couldn't add {what} to your library", "what", what),
+		i18n.T("Added {what} to your library", "what", what))
+}
+
+// add adds the items, one call per kind; failTitle and doneTitle are the
+// toasts.
+func (s *ItemStates) add(items []KindedItem, failTitle, doneTitle string) {
 	if len(items) == 0 {
 		return
 	}
@@ -412,20 +491,19 @@ func (s *ItemStates) AddMany(items []KindedItem, what string) {
 				ids[i] = firstID(it.CatalogID, it.ID)
 			}
 			if err := s.api.Add(context.Background(), kind, ids); err != nil {
-				failedToast(i18n.T("Couldn't add {what} to your library", "what", what), err)
+				failedToast(failTitle, err)
 				return
 			}
 			for _, it := range list {
-				if k, ok := s.known(kind, it.ID); ok {
-					k.InLibrary = true
-					s.remember(kind, k)
-					store.Set(s.q, StateKey(kind, it.ID), k)
+				if st, ok := s.known(kind, it.ID); ok {
+					st.InLibrary = true
+					s.write(kind, it.ID, st)
 				}
 				s.q.Invalidate(StateKey(kind, it.ID))
 			}
 		}
 		s.q.Invalidate(membershipLists...)
-		ToastSuccessf(i18n.T("Added {what} to your library", "what", what), "")
+		ShowToast(ToastSpec{Title: doneTitle})
 	}()
 }
 
@@ -465,7 +543,7 @@ func (s *ItemStates) Remove(kind string, it StateItem, name string) {
 				failedToast(i18n.T("Couldn't delete “{name}”", "name", name), err)
 				return
 			}
-			ToastSuccessf(i18n.T("Deleted “{name}” from your library", "name", name), "")
+			ShowToast(ToastSpec{Title: i18n.T("Deleted “{name}” from your library", "name", name)})
 		}()
 	})
 }
@@ -502,7 +580,7 @@ func (s *ItemStates) RemoveMany(items []KindedItem, what string) {
 					return
 				}
 			}
-			ToastSuccessf(i18n.T("Deleted {what} from your library", "what", what), "")
+			ShowToast(ToastSpec{Title: i18n.T("Deleted {what} from your library", "what", what)})
 		}()
 	})
 }

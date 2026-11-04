@@ -1,7 +1,6 @@
 package song
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
 	"time"
@@ -20,16 +19,6 @@ func yearOf(date string) string {
 		return m
 	}
 	return ""
-}
-
-// formatTime is milliseconds as m:ss or h:mm:ss.
-func formatTime(ms int64) string {
-	total := max(0, ms/1000)
-	h, m, s := total/3600, total%3600/60, total%60
-	if h > 0 {
-		return fmt.Sprintf("%d:%02d:%02d", h, m, s)
-	}
-	return fmt.Sprintf("%d:%02d", m, s)
 }
 
 // longDate is a release date in words: "10 October 2007" for a full ISO

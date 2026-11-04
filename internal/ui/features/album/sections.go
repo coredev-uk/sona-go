@@ -44,8 +44,8 @@ func (a *album) playlistTile(p services.Playlist) kit.CoverItem {
 	}
 }
 
-// videoTile is a music video's tile; where videos play it has a play control
-// and queue actions.
+// videoTile is a music video's tile: a link to its page. (Its play control and
+// queue actions come with the video module's Env hook.)
 func (a *album) videoTile(v services.MusicVideo) kit.CoverItem {
 	id := v.CatalogID
 	if id == "" {
@@ -54,11 +54,6 @@ func (a *album) videoTile(v services.MusicVideo) kit.CoverItem {
 	t := kit.CoverItem{
 		Key: v.ID, Title: v.Name, Subtitle: yearOf(v.ReleaseDate), Art: v.Art.Medium, Video: true, Explicit: v.Explicit,
 		Open: a.open("/music-video/" + id),
-	}
-	if a.video != nil && a.video() {
-		t.Play = &kit.CoverPlay{Label: v.Name, Run: func() { a.queue.PlayVideos([]services.MusicVideo{v}, 0, nil) }}
-		item := kit.MusicVideoItem(v)
-		t.Item = &item
 	}
 	return t
 }

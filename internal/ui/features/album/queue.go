@@ -12,35 +12,41 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
-// queueAPI is what queueCommands asks of PlaybackService.
-type queueAPI interface {
-	PlayItems(ctx context.Context, refs []services.TrackRef, start int, from services.PlayFrom) error
-	SetShuffle(on bool)
-	UndoReplace(ctx context.Context) (bool, error)
-}
+// This is a stand-in for kit.QueueCommands (the player-bar-queue PR, reached
+// through Env.Queue): the same names and behaviour (v0.2.0's
+// player/commands.ts playSongs and shuffleSongs over replace.ts's
+// replaceQueue). Drop it for env.Queue when that merges.
 
 // longUserQueue: more upcoming songs the user queued by hand than this, and
-// replacing the queue asks first (the "confirm" setting) or offers Undo.
+// replacing the queue asks first (setting "confirm") or offers Undo.
 const longUserQueue = 3
 
-// queueCommands is a stand-in for kit.QueueCommands (player-bar-queue PR):
-// drop it for env.Queue at rebase. It is v0.2.0's player/commands.ts
-// playSongs and shuffleSongs with replace.ts's replaceQueue; methods run on
-// the main thread, the service calls on a goroutine of their own.
+// queueService is what the commands ask of PlaybackService.
+type queueService interface {
+	PlayItems(ctx context.Context, refs []services.TrackRef, start int, from services.PlayFrom) error
+	UndoReplace(ctx context.Context) (bool, error)
+	SetShuffle(on bool)
+}
+
+// queueCommands starts queues from lists of songs.
 type queueCommands struct {
-	api  queueAPI
+	svc  queueService
 	play *store.Playback
-	mode func() string // the Replace queue setting; nil is "undo"
+	post store.Poster
+	// mode is the Replace queue setting ("undo" or "confirm"), read off the
+	// main thread; nil is "undo".
+	mode func() string
+	// pick is the random start of a shuffle (tests replace it).
 	pick func(n int) int
 }
 
-func newQueueCommands(api queueAPI, play *store.Playback, mode func() string) *queueCommands {
-	return &queueCommands{api: api, play: play, mode: mode, pick: rand.IntN}
+func newQueueCommands(svc queueService, play *store.Playback, post store.Poster, mode func() string) *queueCommands {
+	return &queueCommands{svc: svc, play: play, post: post, mode: mode, pick: rand.IntN}
 }
 
-// playable is the songs that can be queued as track refs, and where start
-// lands among them.
-func playable(songs []services.Song, start int) (refs []services.TrackRef, index int) {
+// playableRefs keeps the playable songs as track refs and maps start (an
+// index in songs) to its place among them.
+func playableRefs(songs []services.Song, start int) (refs []services.TrackRef, index int) {
 	for i, s := range songs {
 		if !s.Playable {
 			continue
@@ -53,127 +59,121 @@ func playable(songs []services.Song, start int) (refs []services.TrackRef, index
 	return refs, index
 }
 
-// PlaySongs plays songs from start as the queue, from the collection from.
-func (q *queueCommands) PlaySongs(songs []services.Song, start int, from services.PlayFrom) {
-	refs, index := playable(songs, start)
-	if len(refs) == 0 {
-		kit.ShowToast(kit.ToastSpec{
-			ID:          "nothing-to-play",
-			Title:       i18n.T("Nothing here can be played"),
-			Description: i18n.T("None of these songs is available to stream."),
-			Kind:        kit.ToastError,
-		})
-		return
-	}
-	q.Replace(i18n.T("Couldn't start playback"), func(ctx context.Context) error {
-		return q.api.PlayItems(ctx, refs, index, from)
-	}, nil)
-}
+func failed(what string, err error) { kit.ToastErrorf(what, i18n.ErrorText(services.CodeOf(err))) }
 
-// ShuffleSongs turns shuffle on and plays songs from a random playable one.
-func (q *queueCommands) ShuffleSongs(songs []services.Song, from services.PlayFrom) {
-	refs, _ := playable(songs, 0)
-	if len(refs) == 0 {
-		return
-	}
-	q.api.SetShuffle(true)
-	start := q.pick(len(refs))
-	q.Replace(i18n.T("Couldn't start playback"), func(ctx context.Context) error {
-		return q.api.PlayItems(ctx, refs, start, from)
-	}, nil)
-}
-
-// PlayVideos plays music videos from start as the queue; opened runs once
-// playback started (the video view opens).
-func (q *queueCommands) PlayVideos(videos []services.MusicVideo, start int, opened func()) {
-	if len(videos) == 0 {
-		return
-	}
-	refs := make([]services.TrackRef, len(videos))
-	for i, v := range videos {
-		refs[i] = services.TrackRef{ID: v.ID, Source: v.Source, Kind: services.TrackKindVideo}
-	}
-	q.Replace(i18n.T("Couldn't start playback"), func(ctx context.Context) error {
-		return q.api.PlayItems(ctx, refs, start, services.PlayFrom{})
-	}, func(started bool) {
-		if started && opened != nil {
-			opened()
-		}
-	})
-}
-
-// addedUpcoming is how many upcoming songs the user queued by hand.
-func (q *queueCommands) addedUpcoming() int {
-	if q.play == nil {
-		return 0
-	}
-	qs := q.play.Queue()
+func addedUpcoming(q services.QueueState) int {
 	n := 0
-	for i := qs.Index + 1; i < len(qs.Items); i++ {
-		if qs.Items[i].Added {
+	for i := q.Index + 1; i < len(q.Items); i++ {
+		if q.Items[i].Added {
 			n++
 		}
 	}
 	return n
 }
 
-// Replace starts a new queue with start, which reports its failure under the
-// title failTitle; done (may be nil) says whether it started. When that
-// would discard a long queue the user built it asks first or, by default,
-// replaces it and offers Undo.
+// Replace starts a new queue with start, which runs off the main thread and
+// returns its failure (shown titled failTitle). When that would discard a
+// long queue the user built it asks first, or by default replaces it and
+// offers Undo. done (may be nil) gets whether playback started, on the main
+// thread.
 func (q *queueCommands) Replace(failTitle string, start func(ctx context.Context) error, done func(started bool)) {
-	added := q.addedUpcoming()
+	finish := func(ok bool) {
+		if done != nil {
+			done(ok)
+		}
+	}
+	added := 0
+	if q.play != nil {
+		added = addedUpcoming(q.play.Queue())
+	}
+	run := func(mode string) {
+		go func() {
+			err := start(context.Background())
+			q.post(func() {
+				if err != nil {
+					failed(failTitle, err)
+					finish(false)
+					return
+				}
+				if added > longUserQueue && mode != config.ReplaceConfirm {
+					q.offerUndo(added)
+				}
+				finish(true)
+			})
+		}()
+	}
 	if added <= longUserQueue {
-		go q.run(failTitle, start, done, 0)
+		run("")
 		return
 	}
-	if q.mode != nil && q.mode() == config.ReplaceConfirm {
-		kit.Confirm(kit.ConfirmOptions{
-			Title: i18n.T("Replace your queue?"),
-			Body: i18n.T("{added, plural, one {The # song you added to the queue will be removed.} other {The # songs you added to the queue will be removed.}}",
-				"added", added),
-			ConfirmLabel: i18n.T("Replace queue"),
-		}, func(ok bool) {
-			if !ok {
-				if done != nil {
-					done(false)
-				}
+	go func() {
+		mode := config.ReplaceUndo
+		if q.mode != nil {
+			mode = q.mode()
+		}
+		q.post(func() {
+			if mode != config.ReplaceConfirm {
+				run(mode)
 				return
 			}
-			go q.run(failTitle, start, done, 0)
+			kit.Confirm(kit.ConfirmOptions{
+				Title:        i18n.T("Replace your queue?"),
+				Body:         i18n.T("{added, plural, one {The # song you added to the queue will be removed.} other {The # songs you added to the queue will be removed.}}", "added", added),
+				ConfirmLabel: i18n.T("Replace queue"),
+			}, func(ok bool) {
+				if !ok {
+					finish(false)
+					return
+				}
+				run(mode)
+			})
 		})
-		return
-	}
-	go q.run(failTitle, start, done, added)
+	}()
 }
 
-// run calls start off the main thread; undoable is how many songs the user
-// added that it removed, which the Undo toast says (0: no toast).
-func (q *queueCommands) run(failTitle string, start func(ctx context.Context) error, done func(bool), undoable int) {
-	err := start(context.Background())
-	if done != nil {
-		defer func() { done(err == nil) }()
-	}
-	if err != nil {
-		kit.ToastErrorf(failTitle, i18n.ErrorMessage(err))
-		return
-	}
-	if undoable == 0 {
-		return
-	}
+func (q *queueCommands) offerUndo(added int) {
 	kit.ShowToast(kit.ToastSpec{
 		ID:    "queue-replaced",
 		Title: i18n.T("Queue replaced"),
 		Description: i18n.T("{added, plural, one {# song you added was removed.} other {# songs you added were removed.}}",
-			"added", undoable),
+			"added", added),
 		Duration: 10 * time.Second,
 		Action:   i18n.T("Undo"),
 		OnAction: func() {
 			go func() {
-				if _, err := q.api.UndoReplace(context.Background()); err != nil {
-					kit.ToastErrorf(i18n.T("Couldn't bring back your queue"), i18n.ErrorMessage(err))
+				if _, err := q.svc.UndoReplace(context.Background()); err != nil {
+					failed(i18n.T("Couldn't bring back your queue"), err)
 				}
 			}()
 		},
 	})
+}
+
+// PlaySongs plays songs from start as the queue, from the collection from.
+// Unplayable songs are dropped; none playable is an error toast.
+func (q *queueCommands) PlaySongs(songs []services.Song, start int, from services.PlayFrom) {
+	refs, index := playableRefs(songs, start)
+	if len(refs) == 0 {
+		kit.ToastErrorf(i18n.T("Nothing here can be played"), i18n.T("None of these songs is available to stream."))
+		return
+	}
+	q.Replace(i18n.T("Couldn't start playback"), func(ctx context.Context) error {
+		return q.svc.PlayItems(ctx, refs, index, from)
+	}, nil)
+}
+
+// ShuffleSongs turns shuffle on, then starts from a random playable song.
+func (q *queueCommands) ShuffleSongs(songs []services.Song, from services.PlayFrom) {
+	refs, _ := playableRefs(songs, 0)
+	if len(refs) == 0 {
+		return
+	}
+	q.svc.SetShuffle(true)
+	if q.play != nil {
+		q.play.Patch(func(s *services.PlaybackState) { s.Shuffle = true })
+	}
+	start := q.pick(len(refs))
+	q.Replace(i18n.T("Couldn't start playback"), func(ctx context.Context) error {
+		return q.svc.PlayItems(ctx, refs, start, from)
+	}, nil)
 }

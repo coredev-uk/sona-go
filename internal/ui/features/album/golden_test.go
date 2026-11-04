@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -20,6 +21,16 @@ func goldenAlbum(p *services.CatalogAlbum) {
 	}
 }
 
+// goldenRegional writes dates and durations as an en-GB system does, as the
+// reference shots do.
+func goldenRegional(t *testing.T) {
+	i18n.SetRegional("en-GB")
+	t.Cleanup(func() { i18n.SetRegional() })
+}
+
+// The goldens are the shell's page column: 1132×1253 less the sidebar (233),
+// the top bar (48) and the player bar (72) is 899×1133; the smallest window,
+// 940×600, is 707×480.
 func TestGoldenAlbumPage(t *testing.T) {
 	for _, c := range []struct {
 		name string
@@ -29,7 +40,8 @@ func TestGoldenAlbumPage(t *testing.T) {
 		{"album-dark", []uitest.Option{uitest.Dark()}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			r := newRig(t, "/album/100", 1132, 1253, c.opts...)
+			goldenRegional(t)
+			r := newRig(t, "/album/100", 899, 1133, c.opts...)
 			r.addCatalog(saltFlats(goldenAlbum))
 			r.shows("Salt Flats", "Blue Hour", "Notes")
 			r.tt.Art = append(r.tt.Art, r.h.Env.Art)
@@ -39,17 +51,9 @@ func TestGoldenAlbumPage(t *testing.T) {
 	}
 }
 
-func TestGoldenNarrowAlbumPage(t *testing.T) {
-	r := newRig(t, "/album/100", 700, 900)
-	r.addCatalog(saltFlats(goldenAlbum))
-	r.shows("Salt Flats", "Notes")
-	r.tt.Art = append(r.tt.Art, r.h.Env.Art)
-	r.tt.Settle()
-	uitest.Golden(t, r.tt.Image(), "album-narrow-light")
-}
-
 func TestGoldenAlbumPageMinimumWindow(t *testing.T) {
-	r := newRig(t, "/album/100", 940, 600)
+	goldenRegional(t)
+	r := newRig(t, "/album/100", 707, 480)
 	r.addCatalog(saltFlats(goldenAlbum))
 	r.shows("Salt Flats", "Notes")
 	r.tt.Art = append(r.tt.Art, r.h.Env.Art)
