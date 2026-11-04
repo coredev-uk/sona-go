@@ -7504,3 +7504,53 @@ msgid "Featured cards"
 #: internal/ui/features/home/util.go
 msgid "{minutes, plural, one {# min. ago} other {# min. ago}}"
 msgstr ""
+
+#: internal/ui/features/concerts/upcoming.go
+msgid "Apple Music lists no upcoming concerts in this area."
+msgstr ""
+
+#: internal/ui/features/concerts/page.go
+msgid "Apple Music lists no upcoming concerts in this area. A larger city nearby may have some."
+msgstr ""
+
+#: internal/ui/features/concerts/page.go
+#: internal/ui/features/concerts/upcoming.go
+msgid "Choose another city"
+msgstr ""
+
+#: internal/ui/features/discover/front.go
+msgid "Featured cards"
+msgstr ""
+
+#: internal/ui/features/concerts/location.go
+msgid "Find a city"
+msgstr ""
+
+#: internal/ui/features/concerts/location.go
+msgid "No cities match “{term}”."
+msgstr ""
+
+#: internal/ui/features/concerts/location.go
+msgid "No cities match “{term}”. Try the name of a bigger city nearby."
+msgstr ""
+
+#: internal/ui/features/concerts/page.go
+msgid "No concerts match"
+msgstr ""
+
+#: internal/ui/features/concerts/page.go
+#: internal/ui/features/concerts/upcoming.go
+msgid "No concerts near {city}"
+msgstr ""
+
+#: internal/ui/features/library/artists.go
+msgid "Nothing by {name} is in your library yet."
+msgstr ""
+
+#: internal/ui/features/concerts/location.go
+msgid "Suggested cities"
+msgstr ""
+
+#: internal/ui/features/concerts/location.go
+msgid "Where are you?"
+msgstr ""

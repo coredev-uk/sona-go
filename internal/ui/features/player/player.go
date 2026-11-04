@@ -97,10 +97,13 @@ func New(env *module.Env) module.Module {
 	auth := services.Service[services.AuthService](env.Core)
 	return module.Module{
 		ID:        "player",
-		Shortcuts: p.shortcuts(),
+		Shortcuts: append(p.shortcuts(), p.nowPlayingShortcuts()...),
 		Actions:   p.actions(),
-		Slots:     module.Slots{Bottom: p.bar, Aside: p.queueAside},
-		Init:      func() { p.init(); p.followAccount(auth) },
+		Slots: module.Slots{
+			Bottom: p.bar, Aside: p.queueAside, Overlay: p.overlaySlot(),
+			Layer: p.roomLayer, LayerOpen: p.roomOpen,
+		},
+		Init: func() { p.init(); p.followAccount(auth) },
 	}
 }
 

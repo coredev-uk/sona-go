@@ -165,6 +165,37 @@ func TestSmoke(t *testing.T) {
 		}
 	})
 
+	t.Run("open Now Playing", func(t *testing.T) {
+		// N shows Now Playing over the page: the song, its pane tabs and Close.
+		if err := c.Input(automation.Key("N")); err != nil {
+			t.Fatal(err)
+		}
+		tree, err := c.Wait(startTimeout, "Now Playing", func(tr *automation.Tree) bool {
+			np := tr.Under("", "Now playing")
+			_, closable := np.Find("button", "Close now playing (Escape)")
+			return closable && np.HasText(first.Song(0))
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		np := tree.Under("", "Now playing")
+		for _, tab := range []string{"Lyrics", "Up next"} {
+			if !np.HasText(tab) {
+				t.Errorf("Now Playing has no %q tab: %v", tab, np.Labels(""))
+			}
+		}
+		// Escape steps back to the page.
+		if err := c.Input(automation.Key("Escape")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := c.Wait(10*time.Second, "the page after Escape", func(tr *automation.Tree) bool {
+			_, open := tr.Find("button", "Close now playing (Escape)")
+			return !open && tr.HasText("24 albums")
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+
 	t.Run("capture", func(t *testing.T) {
 		if err := c.Idle(5 * time.Second); err != nil {
 			t.Log("idle:", err)

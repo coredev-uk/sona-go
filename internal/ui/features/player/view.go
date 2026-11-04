@@ -49,9 +49,7 @@ func (v *view) openNowPlaying(pane paneKind) {
 	}
 }
 
-// openRoom is full-screen lyrics (opened by the Now Playing view).
-//
-//nolint:unused // used by feat/now-playing
+// openRoom is full-screen lyrics.
 func (v *view) openRoom() { v.overlay, v.pane = overlayRoom, paneLyrics }
 
 // closeOverlay steps back one level: full-screen lyrics → now playing → the

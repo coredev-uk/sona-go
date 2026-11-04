@@ -143,3 +143,37 @@ func TestUpdateSettingsKeepsThePlayersVolume(t *testing.T) {
 		t.Errorf("playing volume = %v", v)
 	}
 }
+
+func TestSetLyricsViewSavesOnlyItsChoices(t *testing.T) {
+	sys, st, rec := systemEnv(t, func(s *config.Settings) { s.Theme = config.ThemeDark })
+	saved, err := sys.SetLyricsView(config.LyricsView{Translation: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !saved.LyricsView.Translation || saved.LyricsView.Pronunciation || saved.Theme != config.ThemeDark {
+		t.Errorf("saved %+v, theme %q", saved.LyricsView, saved.Theme)
+	}
+	if got := st.Get().LyricsView; !got.Translation {
+		t.Errorf("the store holds %+v", got)
+	}
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if !slices.Contains(rec.events, EventSettingsChanged) {
+		t.Error("no settings:changed")
+	}
+}
+
+func TestLyricsViewIsLeftOutOfExports(t *testing.T) {
+	from, _, _ := systemEnv(t, func(s *config.Settings) { s.LyricsView = config.LyricsView{Translation: true, Pronunciation: true} })
+	file := filepath.Join(t.TempDir(), "sona-settings.json")
+	if err := from.exportSettings(file); err != nil {
+		t.Fatal(err)
+	}
+	to, st, _ := systemEnv(t, nil)
+	if _, err := to.importSettings(file); err != nil {
+		t.Fatal(err)
+	}
+	if got := st.Get().LyricsView; got != (config.LyricsView{}) {
+		t.Errorf("an import brought %+v", got)
+	}
+}
