@@ -15,7 +15,7 @@ import (
 )
 
 // TestSmoke is the app end to end: it paints, Albums lists the fixture's
-// albums, an album's play button starts it, the player bar shows it
+// albums, the album page's Play button starts it, the player bar shows it
 // playing, Space pauses and resumes it, the queue panel lists it and a drag
 // reorders it, and a frame can be captured.
 func TestSmoke(t *testing.T) {
@@ -51,6 +51,11 @@ func TestSmoke(t *testing.T) {
 	})
 
 	t.Run("play an album", func(t *testing.T) {
+		// The library's tiles have no play control: open the album's page and
+		// press its Play, then go Back to the Albums page.
+		if err := c.PressRole(startTimeout, "link", first.Name); err != nil {
+			t.Fatal(err)
+		}
 		if err := c.Press(startTimeout, "Play "+first.Name); err != nil {
 			t.Fatal(err)
 		}
@@ -64,6 +69,12 @@ func TestSmoke(t *testing.T) {
 			return pausable && bar.HasText(first.Song(0))
 		})
 		if err != nil {
+			t.Fatal(err)
+		}
+		if err := c.Press(startTimeout, "Back"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := c.Wait(startTimeout, "the Albums page after Back", func(tr *automation.Tree) bool { return tr.HasText("24 albums") }); err != nil {
 			t.Fatal(err)
 		}
 		// Artist and album are separate links once their pages exist.
