@@ -160,6 +160,7 @@ msgid "Added by"
 msgstr ""
 
 #: internal/ui/features/playlist/commands.go
+#: internal/ui/features/playlist/suggestions.go
 msgid "Added {label} to “{name}”"
 msgstr ""
 
@@ -807,6 +808,7 @@ msgid "Checking your sign-in…"
 msgstr ""
 
 #: internal/ui/account/code.go
+#: internal/ui/account/section.go
 #: internal/ui/account/signedin.go
 #: internal/ui/account/token.go
 #: internal/ui/features/onboarding/connections.go
@@ -1407,7 +1409,7 @@ msgid "Couldn't play that song"
 msgstr ""
 
 #: internal/ui/features/miniplayer/view.go
-#: internal/ui/features/player/bar.go
+#: internal/ui/kit/playerqueue_announce.go
 msgid "Couldn't play this song. Press play to try again."
 msgstr ""
 
@@ -1421,7 +1423,7 @@ msgid "Couldn't play this video"
 msgstr ""
 
 #: internal/ui/features/miniplayer/view.go
-#: internal/ui/features/player/bar.go
+#: internal/ui/kit/playerqueue_announce.go
 msgid "Couldn't play this video."
 msgstr ""
 
@@ -1697,13 +1699,21 @@ msgstr ""
 msgid "Curators"
 msgstr ""
 
+#: internal/ui/features/concerts/location.go
+#: internal/ui/features/discover/front.go
 #: internal/ui/features/playlist/dialogs.go
 msgid "Current"
 msgstr ""
 
 #. Read by screen readers after the name of the sidebar link of the page that is open (the equivalent of aria-current).
 #: internal/ui/app/view.go
+#: internal/ui/features/playlist/sidebar.go
+#: internal/ui/features/settings/page.go
 msgid "Current page"
+msgstr ""
+
+#: internal/ui/features/onboarding/progress.go
+msgid "Current step"
 msgstr ""
 
 #: internal/ui/features/equalizer/page.go
@@ -2003,6 +2013,10 @@ msgctxt "keyboard key"
 msgid "Enter"
 msgstr ""
 
+#: internal/ui/features/concerts/page.go
+msgid "Enter a day as {form}"
+msgstr ""
+
 #: internal/ui/i18n/errors.go
 msgid "Enter a name."
 msgstr ""
@@ -2078,6 +2092,7 @@ msgstr ""
 msgid "Exit full screen"
 msgstr ""
 
+#: internal/ui/features/artist/releaselist.go
 #: internal/ui/kit/controls_badge.go
 msgid "Explicit"
 msgstr ""
@@ -2490,6 +2505,10 @@ msgstr ""
 msgid "Install gst-libav or the fdkaac plugin to decode Apple Music's AAC."
 msgstr ""
 
+#: internal/ui/kit/controls_input.go
+msgid "Invalid"
+msgstr ""
+
 #: internal/ui/kit/song_itemstate.go
 msgid "It also leaves any playlists it's in."
 msgstr ""
@@ -2741,14 +2760,15 @@ msgstr ""
 
 #: internal/ui/account/section.go
 #: internal/ui/features/album/page.go
-#: internal/ui/features/artist/releaselist.go
 #: internal/ui/features/artist/skeleton.go
+#: internal/ui/features/concerts/page.go
 #: internal/ui/features/concerts/row.go
 #: internal/ui/features/discover/page.go
 #: internal/ui/features/home/lead.go
 #: internal/ui/features/home/local.go
 #: internal/ui/features/home/shelfpage.go
 #: internal/ui/features/onboarding/parts.go
+#: internal/ui/features/player/bar.go
 #: internal/ui/features/radio/onair.go
 #: internal/ui/features/radio/page.go
 #: internal/ui/features/radio/station.go
@@ -3201,6 +3221,14 @@ msgstr ""
 msgid "No concerts"
 msgstr ""
 
+#: internal/ui/features/concerts/page.go
+msgid "No concerts match"
+msgstr ""
+
+#: internal/ui/features/concerts/page.go
+msgid "No concerts near {city}"
+msgstr ""
+
 #: internal/ui/features/search/groups.go
 msgid "No curators for “{q}”"
 msgstr ""
@@ -3275,6 +3303,10 @@ msgstr ""
 
 #: internal/ui/features/settings/findui.go
 msgid "No setting matches “{q}”."
+msgstr ""
+
+#: internal/ui/features/settings/shortcuts.go
+msgid "No shortcut has been changed."
 msgstr ""
 
 #: internal/ui/features/settings/shortcuts.go
@@ -4496,6 +4528,10 @@ msgstr ""
 msgid "Results"
 msgstr ""
 
+#: internal/ui/features/search/page.go
+msgid "Results for “{q}”"
+msgstr ""
+
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/kit/controls_states.go
 msgid "Retrying…"
@@ -4648,6 +4684,7 @@ msgid "Send a new code"
 msgstr ""
 
 #: internal/ui/account/code.go
+#: internal/ui/account/section.go
 msgid "Sending…"
 msgstr ""
 
@@ -4998,12 +5035,14 @@ msgid "Signing in brings your library, playlists and recommendations, and plays 
 msgstr ""
 
 #: internal/ui/account/keyring.go
+#: internal/ui/account/section.go
 #: internal/ui/features/auth/menu.go
 msgid "Signing in now stores your token unencrypted"
 msgstr ""
 
 #: internal/ui/account/credentials.go
 #: internal/ui/account/keyring.go
+#: internal/ui/account/section.go
 #: internal/ui/features/auth/menu.go
 msgid "Signing in…"
 msgstr ""
@@ -5154,6 +5193,7 @@ msgstr ""
 msgid "Sona couldn't play it"
 msgstr ""
 
+#: internal/ui/account/section.go
 #: internal/ui/account/signedin.go
 msgid "Sona couldn't reach Apple to confirm your sign-in. It keeps using your saved token, and retries by itself."
 msgstr ""
@@ -5171,6 +5211,7 @@ msgid "Sona couldn't read that file."
 msgstr ""
 
 #: internal/ui/account/keyring.go
+#: internal/ui/account/section.go
 #: internal/ui/features/auth/menu.go
 msgid "Sona couldn't read your sign-in from your keyring"
 msgstr ""
@@ -6646,6 +6687,7 @@ msgstr ""
 msgid "Your synced library, history and the catalogue cache. Sona optimises it when it is idle and nothing is playing."
 msgstr ""
 
+#: internal/ui/account/section.go
 #: internal/ui/account/signedin.go
 #: internal/ui/features/auth/menu.go
 msgid "Your token is stored unencrypted"
@@ -6979,6 +7021,7 @@ msgid "{artworkUsed} of {artworkLimit}"
 msgstr ""
 
 #: internal/ui/features/miniplayer/view.go
+#: internal/ui/features/player/bar.go
 #: internal/ui/features/video/view.go
 msgid "{at} of {total}"
 msgstr ""
@@ -7005,6 +7048,10 @@ msgstr ""
 
 #: internal/ui/features/settings/summaries.go
 msgid "{conflicts, plural, one {# conflict} other {# conflicts}}"
+msgstr ""
+
+#: internal/ui/features/concerts/page.go
+msgid "{count, plural, one {# concert} other {# concerts}}"
 msgstr ""
 
 #: internal/ui/features/settings/findui.go
@@ -7340,28 +7387,4 @@ msgstr ""
 
 #: internal/ui/features/playlist/commands.go
 msgid "“{name}” has no songs to play"
-msgstr ""
-
-#: internal/ui/features/concerts/page.go
-msgid "Enter a day as {form}"
-msgstr ""
-
-#: internal/ui/kit/controls_input.go
-msgid "Invalid"
-msgstr ""
-
-#: internal/ui/features/settings/shortcuts.go
-msgid "No shortcut has been changed."
-msgstr ""
-
-#: internal/ui/features/search/page.go
-msgid "Results for “{q}”"
-msgstr ""
-
-#: internal/ui/features/concerts/page.go
-msgid "{count, plural, one {# concert} other {# concerts}}"
-msgstr ""
-
-#: internal/ui/features/onboarding/progress.go
-msgid "Current step"
 msgstr ""
