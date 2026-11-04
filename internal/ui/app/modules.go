@@ -3,6 +3,8 @@ package app
 import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/auth"
 	"github.com/coredev-uk/sona-go/internal/ui/features/cdm"
+	"github.com/coredev-uk/sona-go/internal/ui/features/commands"
+	"github.com/coredev-uk/sona-go/internal/ui/features/equalizer"
 	"github.com/coredev-uk/sona-go/internal/ui/features/library"
 	"github.com/coredev-uk/sona-go/internal/ui/features/onboarding"
 	"github.com/coredev-uk/sona-go/internal/ui/features/player"
@@ -28,4 +30,6 @@ var factories = []module.Factory{
 	reminders.New,  // release reminders' album action
 	onboarding.New, // the first-run setup layer
 	settings.New,   // the settings page
+	equalizer.New,
+	commands.New,
 }
