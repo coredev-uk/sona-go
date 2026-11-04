@@ -114,7 +114,7 @@ func (l *library) historyPage(c *ui.Context, r *ui.Route) {
 
 // historySkeleton is the loading placeholder: a day heading and 16 rows.
 func (l *library) historySkeleton(c *ui.Context) {
-	ui.Column(c.Key("history-loading")).Role(ui.RoleGroup).Label(i18n.T("Loading your listening history")).Children(func() {
+	ui.Column(c.Key("history-loading")).Role(ui.RoleStatus).Label(i18n.T("Loading your listening history")).Children(func() {
 		ui.Row(c).Height(22).AlignItems(ui.Center).Padding(0, 8).Margin(0, 0, 8, 0).Children(func() {
 			kit.Skeleton(c, 96, 16)
 		})

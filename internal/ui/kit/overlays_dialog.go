@@ -196,7 +196,29 @@ type ConfirmOptions struct {
 
 type confirmRequest struct {
 	ConfirmOptions
-	done func(bool)
+	done  func(bool)
+	focus FocusStep
+}
+
+// FocusStep counts the frames of a FocusWhenShown: the zero value is a focus
+// not yet given.
+type FocusStep uint8
+
+// FocusWhenShown focuses e once, in the second frame it is built, for the
+// control a dialog or overlay opens on. MyGo notes the element that had the
+// focus as an overlay appears, after the overlay's content is built, to give
+// it back as the overlay closes: a control that takes the focus (AutoFocus)
+// in that first frame is taken for the opener, and the focus is lost when
+// the overlay goes. Keep one FocusStep per opening of the overlay.
+func FocusWhenShown(c *ui.Context, e ui.Element, step *FocusStep) {
+	switch *step {
+	case 0:
+		*step = 1
+		c.Invalidate()
+	case 1:
+		*step = 2
+		e.Focus()
+	}
 }
 
 // pendingConfirm is the question ConfirmHost shows. Main thread only, like
@@ -215,7 +237,7 @@ func Confirm(o ConfirmOptions, done func(ok bool)) {
 			p.done(false)
 		}
 	}
-	pendingConfirm = &confirmRequest{o, done}
+	pendingConfirm = &confirmRequest{ConfirmOptions: o, done: done}
 }
 
 // settleConfirm answers the pending question.
@@ -258,7 +280,9 @@ func ConfirmHost(c *ui.Context) {
 			if p.Destructive {
 				v = Destructive
 			}
-			if Button(c.Key("confirm:ok"), p.ConfirmLabel, ButtonOpts{Variant: v, Size: SizeSM}).AutoFocus().Clicked() {
+			ok := Button(c.Key("confirm:ok"), p.ConfirmLabel, ButtonOpts{Variant: v, Size: SizeSM})
+			FocusWhenShown(c, ok, &p.focus)
+			if ok.Clicked() {
 				settleConfirm(true)
 			}
 		})

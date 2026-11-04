@@ -88,7 +88,10 @@ type SelectOpts struct {
 	// A11yLabel names the select for assistive technology and tests.
 	A11yLabel string
 	Disabled  bool
-	Invalid   bool
+	// Invalid draws the destructive border and tells assistive technology
+	// the choice is not valid, reading Error ("Invalid" when empty).
+	Invalid bool
+	Error   string
 	// Width fixes the trigger's width; 0 fits its text.
 	Width float32
 }
@@ -124,6 +127,7 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 	}
 	trigger.Value(shown)
 	controlsFieldFace(trigger, trigger.Focused(), o.Invalid, o.Disabled)
+	invalidFor(trigger, o.Invalid, o.Error)
 	if trigger.Hovered() && !o.Disabled && theme.Dark() {
 		trigger.Background(theme.C("input").Alpha(0.5))
 	}

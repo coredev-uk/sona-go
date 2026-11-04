@@ -452,6 +452,8 @@ func (v *artistsView) list(c *ui.Context, loading bool) {
 		default:
 			active, hasActive = v.rowsView(c, tk)
 		}
+		// The list shows beside the filter while there are artists in it.
+		in.Expanded(!loading && len(pg.matches) > 0)
 		if hasActive {
 			in.ActiveDescendant(active)
 		}

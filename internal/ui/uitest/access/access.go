@@ -51,6 +51,20 @@ const (
 	Vertical
 )
 
+// Action is an action assistive technology can ask of a node.
+type Action uint8
+
+// The actions of a node, in MyGo's order (internal/platform.AccessActions).
+const (
+	Press Action = 1 << iota
+	Focus
+	Increment
+	Decrement
+	SetValue
+	ScrollIntoView
+	Expand
+)
+
 // Node is an element of the tree assistive technology reads.
 type Node struct {
 	// Index is the node's place in Tree.Nodes; Parent its parent's, -1 at the top.
@@ -60,12 +74,16 @@ type Node struct {
 	Role                      ui.Role
 	Label, Value, Description string
 	States                    State
+	Actions                   Action
 	Level, PosInSet, SetSize  int
 	Min, Max, Now             float64
 }
 
 // Has reports whether every state in s is set.
 func (n Node) Has(s State) bool { return n.States&s == s }
+
+// Can reports whether assistive technology can ask the node for a.
+func (n Node) Can(a Action) bool { return n.Actions&a == a }
 
 func (n Node) String() string {
 	return fmt.Sprintf("%s %q", roleName(n.Role), n.Label)
@@ -129,6 +147,7 @@ func readTree(tt *ui.Tester) (Tree, error) {
 			Value:       v.FieldByName("Value").String(),
 			Description: v.FieldByName("Description").String(),
 			States:      State(v.FieldByName("States").Uint()),
+			Actions:     Action(v.FieldByName("Actions").Uint()),
 			Level:       int(v.FieldByName("Level").Int()),
 			PosInSet:    int(v.FieldByName("PosInSet").Int()),
 			SetSize:     int(v.FieldByName("SetSize").Int()),
@@ -240,6 +259,15 @@ func (tr Tree) Dump() string {
 		fmt.Fprintf(&b, "%s%s", strings.Repeat("  ", depth[i]), n)
 		if n.States != 0 {
 			fmt.Fprintf(&b, " %s", n.States)
+		}
+		if n.Value != "" {
+			fmt.Fprintf(&b, " value=%q", n.Value)
+		}
+		if n.Description != "" {
+			fmt.Fprintf(&b, " description=%q", n.Description)
+		}
+		if n.Level != 0 {
+			fmt.Fprintf(&b, " level=%d", n.Level)
 		}
 		b.WriteByte('\n')
 	}

@@ -525,7 +525,15 @@ func (st *TrackListState) header(c *ui.Context, o *TrackListOpts, tk *theme.Toke
 
 // headerCell is one column header: a sort button when the list sorts by key.
 func (st *TrackListState) headerCell(c *ui.Context, o *TrackListOpts, kind int, text, key string, meta theme.TypeStyle) {
-	cell := o.cell(ui.Row(c.Key("h-"+text)).Role(ui.RoleColumnHeader).AlignItems(ui.Center), kind)
+	cell := o.cell(ui.Row(c.Key("h-"+text)).AlignItems(ui.Center), kind)
+	if key == "" || o.Sort == nil {
+		cell.Role(ui.RoleColumnHeader)
+	} else {
+		// A column header is a leaf on the accessibility tree, so the sort
+		// button inside it would not be on it: the button stands for the
+		// column, named by its title with its direction as the value.
+		cell.Role(ui.RoleNone)
+	}
 	cell.Children(func() {
 		if key == "" || o.Sort == nil {
 			ui.Text(c, text).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).TextColor(theme.C("ink-faint")).SingleLine()
@@ -695,16 +703,25 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 		}
 		hot := w.Hovered() || src.FocusWithin()
 		o.cell(ui.Row(c.Key("num")).Role(ui.RoleCell).Justify(ui.End).AlignItems(ui.Center), cellNumber).Children(func() {
-			switch {
-			case current:
+			if current {
 				EqualiserBars(c, o.Playing, o.Motion)
-			case hot && !disabled && w.Hovered():
+				return
+			}
+			// The play button is built at rest too, over the number and
+			// invisible, so that assistive technology finds and presses it
+			// (the pointer and Tab ignore it until the row is hovered).
+			shown := w.Hovered() && !disabled
+			if !disabled {
 				play := ui.ButtonBase(c.Key("play")).Width(24).FillHeight().Label(i18n.T("Play {name}", "name", s.Name))
+				if !shown {
+					play.Absolute().Right(0).Top(0).Bottom(0).IgnoreInput(true).Opacity(0)
+				}
 				play.Children(func() { ui.Icon(c, theme.Icon("play")).FontSize(14).TextColor(ink) })
 				if play.Clicked() && o.OnPlay != nil {
 					o.OnPlay(i)
 				}
-			default:
+			}
+			if !shown {
 				ui.Text(c, strconv.Itoa(number)).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).
 					TextColor(faint).FontFeatures("tnum")
 			}
@@ -803,6 +820,7 @@ func trackLink(c *ui.Context, row ui.Element, text, id string, col ui.Color, ope
 	if id == "" || open == nil {
 		return
 	}
+	t.Role(ui.RoleLink)
 	if t.Hovered() {
 		t.Underline().TextColor(theme.C("ink")).Cursor(ui.CursorPointer)
 	}

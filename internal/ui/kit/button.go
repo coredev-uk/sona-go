@@ -63,6 +63,12 @@ type ButtonOpts struct {
 	// A11yLabel names an icon-only button (no label) for assistive
 	// technology and tests; it is also its tooltip unless Tip says another.
 	A11yLabel string
+	// Reason makes the button one that does not apply right now (v0.2.0's
+	// aria-disabled): it stays enabled, so that it keeps its place in the
+	// Tab order and can say why, drawn at half strength, with the reason as
+	// its description and the tooltip's second line. The caller ignores its
+	// click.
+	Reason string
 	// Tip is the tooltip when it should differ from A11yLabel ("Play" for a
 	// button named "Play OK Computer"). A button with a label has none
 	// unless it is given one.
@@ -181,7 +187,12 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 			icon()
 		}
 	})
-	Tooltip(c, e, tip)
+	if o.Reason != "" {
+		e.Opacity(0.5).Description(o.Reason)
+		controlsTooltip(c, e, name+"\n"+o.Reason, false)
+		return e
+	}
+	controlsTooltip(c, e, tip, tip != name)
 	return e
 }
 
