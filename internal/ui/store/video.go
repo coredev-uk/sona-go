@@ -1,22 +1,8 @@
 package store
 
 import (
-	"context"
-
-	"github.com/coredev-uk/sona-go/internal/playback/video"
+	"github.com/coredev-uk/sona-go/internal/ui/media"
 )
-
-// VideoFrames is where the pictures of the playing music video come from:
-// *video.Surface, which the playback engine shows each picture on as it falls
-// due. It is the same contract as media.FrameSource.
-type VideoFrames interface {
-	// Next returns the picture on show once it is newer than after,
-	// waiting until it is or ctx ends; false when ctx ended or the surface
-	// was cleared (the Frame's Seq is then the one to wait from).
-	Next(ctx context.Context, after uint64) (video.Frame, bool)
-	// Seq is the sequence number of the latest change of the picture on show.
-	Seq() uint64
-}
 
 // VideoView is the state the music video view shares with the features that
 // open it: v0.2.0's overlay "video" of player/ui.ts, with the window's full
@@ -28,7 +14,7 @@ type VideoFrames interface {
 // Main thread only: it is read while a view builds and written by what the
 // user did (a click, a key), never from a goroutine.
 type VideoView struct {
-	frames VideoFrames
+	frames media.FrameSource
 	win    *Window
 	open   bool
 
@@ -40,7 +26,7 @@ type VideoView struct {
 // NewVideoView is a VideoView, closed, whose pictures come from frames (nil:
 // none, which a build without video playback has) and which goes full screen
 // in win (the Env's Window; nil: a window of its own that is never bound).
-func NewVideoView(frames VideoFrames, win *Window) *VideoView {
+func NewVideoView(frames media.FrameSource, win *Window) *VideoView {
 	if win == nil {
 		win = NewWindow()
 	}
@@ -48,7 +34,7 @@ func NewVideoView(frames VideoFrames, win *Window) *VideoView {
 }
 
 // Frames is the source of the playing music video's pictures; nil when none.
-func (v *VideoView) Frames() VideoFrames { return v.frames }
+func (v *VideoView) Frames() media.FrameSource { return v.frames }
 
 // Open shows the video view.
 func (v *VideoView) Open() { v.open = true }
