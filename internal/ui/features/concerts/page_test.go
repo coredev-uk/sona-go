@@ -249,7 +249,8 @@ func TestPageShowsTheFrameWhileLoadingAndKeepsTheListWhileAFilterLoads(t *testin
 			t.Errorf("the list went while the filter loaded: no %q; texts %q", w, r.tt.Texts())
 		}
 	}
-	r.lacks("Loading")
+	// The list above stays rather than a frame of placeholders; it is marked
+	// busy for assistive technology only (a11y_test.go).
 	release()
 	r.tt.Until("the filtered list", func() bool { return !r.tt.HasText("Sample Singer") && r.tt.HasText("Example Band with Opener Duo") })
 }

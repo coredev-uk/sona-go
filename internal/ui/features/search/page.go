@@ -97,9 +97,10 @@ func (s *search) scrollPage(c *ui.Context, pv *pageView, identity string, body f
 }
 
 // grid lays n cells out in cols equal columns (auto-fill: the last row's
-// empty cells keep the others' width).
-func grid(c *ui.Context, key string, cols int, gapX, gapY float32, n int, cell func(i int)) {
-	ui.Column(c.Key(key)).FillWidth().Gap(gapY).Role(ui.RoleList).Children(func() {
+// empty cells keep the others' width). It is one list named label, whose
+// items are the cells.
+func grid(c *ui.Context, key, label string, cols int, gapX, gapY float32, n int, cell func(i int)) {
+	ui.Column(c.Key(key)).FillWidth().Gap(gapY).Role(ui.RoleList).Label(label).Children(func() {
 		for r := 0; r*cols < n; r++ {
 			ui.Row(c.Key(r)).FillWidth().Gap(gapX).AlignItems(ui.Start).Children(func() {
 				for i := r * cols; i < (r+1)*cols; i++ {
@@ -196,6 +197,8 @@ type searchView struct {
 	hasPrev bool
 	prevLib services.LibrarySearch
 	hasLib  bool
+	// announced is the outcome of the search last read out.
+	announced string
 }
 
 func (v *searchView) shelf(key string) *kit.CoverShelfState {
@@ -206,6 +209,23 @@ func (v *searchView) shelf(key string) *kit.CoverShelfState {
 		v.shelves[key] = &kit.CoverShelfState{}
 	}
 	return v.shelves[key]
+}
+
+// announce reads out what a search found, once, when its results arrive
+// (what v0.2.0's aria-busy left to the reader): key names the term, scope
+// and outcome.
+func (v *searchView) announce(c *ui.Context, key, text string) {
+	if v.announced == key {
+		return
+	}
+	v.announced = key
+	c.Announce(text)
+}
+
+// searching is the busy mark of a page whose next results are loading while
+// the last ones stay on screen: a status of no size, read as "Searching".
+func searching(c *ui.Context) {
+	ui.Box(c.Key("searching")).Size(0, 0).Role(ui.RoleStatus).Label(i18n.T("Searching"))
 }
 
 // searchPage is v0.2.0's SearchPage: the term as the title with the scope
@@ -222,6 +242,7 @@ func (s *search) searchPage(c *ui.Context, r *ui.Route) {
 		kit.PageHeader(c, title, "", func() { s.scopeSwitch(c, q, scope) })
 		switch {
 		case q == "":
+			v.announced = ""
 			shown := s.recentShelf(c, &v.pageView, scope)
 			if scope == scopeLibrary {
 				if shown {
@@ -324,11 +345,22 @@ func (s *search) catalogResults(c *ui.Context, pane *kit.Pane, q string) {
 		})
 		return
 	case len(data.Sections) == 0:
-		kit.EmptyState(c, i18n.T("Nothing on Apple Music for “{q}”", "q", q),
+		empty := i18n.T("Nothing on Apple Music for “{q}”", "q", q)
+		if res.HasData {
+			v.announce(c, scopeCatalog+"\x00"+q+"\x00none", empty)
+		} else {
+			searching(c)
+		}
+		kit.EmptyState(c, empty,
 			i18n.T("Check the spelling, try fewer words, or search your library instead."), kit.EmptyOpts{})
 		return
 	}
 
+	if res.HasData {
+		v.announce(c, scopeCatalog+"\x00"+q+"\x00found", i18n.T("Results for “{q}”", "q", q))
+	} else {
+		searching(c) // the last term's results stay on screen meanwhile
+	}
 	ctx := s.env.ItemsCtx(s.itemMenus(&v.menus, nil))
 	ctx.OnOpen = s.opened(q, scopeCatalog)
 	for i, sec := range data.Sections {
@@ -350,8 +382,8 @@ func (s *search) catalogSection(c *ui.Context, pane *kit.Pane, ctx kit.ItemsCtx,
 		items := sec.Items[:min(len(sec.Items), topRows)]
 		kit.Shelf(c, kit.ShelfOpts{Title: title, First: first}, func() {
 			cols := v.columns(280, 24)
-			ui.Column(c.Key("top")).FillWidth().Role(ui.RoleList).Label(i18n.T("{title} for {q}", "title", title, "q", q)).Children(func() {
-				grid(c, "top-grid", cols, 24, 4, len(items), func(i int) {
+			ui.Column(c.Key("top")).FillWidth().Children(func() {
+				grid(c, "top-grid", i18n.T("{title} for {q}", "title", title, "q", q), cols, 24, 4, len(items), func(i int) {
 					it := items[i]
 					s.itemRow(c, it, rowOpts{
 						key: strconv.Itoa(i) + ":" + it.Kind + ":" + it.ID, size: 48, onOpen: ctx.OnOpen,
@@ -421,9 +453,20 @@ func (s *search) libraryResults(c *ui.Context, pane *kit.Pane, q string) {
 		return
 	}
 	if len(r.Songs) == 0 && len(r.Albums) == 0 && len(r.Artists) == 0 && len(r.Playlists) == 0 {
-		kit.EmptyState(c, i18n.T("Nothing in your library for “{q}”", "q", q),
+		empty := i18n.T("Nothing in your library for “{q}”", "q", q)
+		if res.HasData {
+			v.announce(c, scopeLibrary+"\x00"+q+"\x00none", empty)
+		} else {
+			searching(c)
+		}
+		kit.EmptyState(c, empty,
 			i18n.T("Only what is synced to this computer is searched. Try Apple Music for everything else."), kit.EmptyOpts{})
 		return
+	}
+	if res.HasData {
+		v.announce(c, scopeLibrary+"\x00"+q+"\x00found", i18n.T("Results for “{q}”", "q", q))
+	} else {
+		searching(c) // the last term's results stay on screen meanwhile
 	}
 	artists, albums, playlists, _ := libraryCards(r)
 	ctx := s.env.ItemsCtx(s.itemMenus(&v.libMenus, nil))

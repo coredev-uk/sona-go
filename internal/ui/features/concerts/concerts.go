@@ -38,6 +38,11 @@ type concerts struct {
 		prev     *services.ConcertsPage
 		from, to dateField
 		rov      roving
+		// heard is the listing last read out (filters and whether it was
+		// the first): the first listing is the page opening, which
+		// announces itself, so it is only noted.
+		heard    string
+		heardSet bool
 	}
 	where locationDialog
 

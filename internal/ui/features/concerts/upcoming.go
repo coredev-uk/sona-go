@@ -25,8 +25,9 @@ func linkToConcerts(env *module.Env) bool {
 }
 
 // rows is the shows as rows with their date column: one column, or two
-// filled top to bottom (v0.2.0's grid-flow-col with three rows).
-func rows(c *ui.Context, env *module.Env, shows []services.Concert, columns int, artist bool) {
+// filled top to bottom (v0.2.0's grid-flow-col with three rows). The list
+// is named label.
+func rows(c *ui.Context, env *module.Env, shows []services.Concert, columns int, artist bool, label string) {
 	one := func(list []services.Concert) {
 		for _, con := range list {
 			concertRow(c, env, con, rowOpts{date: true, artist: artist})
@@ -34,11 +35,11 @@ func rows(c *ui.Context, env *module.Env, shows []services.Concert, columns int,
 	}
 	w, _ := c.Size()
 	if columns < 2 || w < twoColumns {
-		ui.Column(c.Key("rows")).Role(ui.RoleList).Children(func() { one(shows) })
+		ui.Column(c.Key("rows")).Role(ui.RoleList).Label(label).Children(func() { one(shows) })
 		return
 	}
 	half := min(homeShows/2, len(shows))
-	ui.Row(c.Key("rows")).Gap(32).AlignItems(ui.Start).Role(ui.RoleList).Children(func() {
+	ui.Row(c.Key("rows")).Gap(32).AlignItems(ui.Start).Role(ui.RoleList).Label(label).Children(func() {
 		ui.Column(c.Key("left")).Grow(1).Basis(0).MinWidth(0).Children(func() { one(shows[:half]) })
 		ui.Column(c.Key("right")).Grow(1).Basis(0).MinWidth(0).Children(func() { one(shows[half:]) })
 	})
@@ -79,7 +80,7 @@ func ArtistConcerts(c *ui.Context, env *module.Env, artistID string, first bool)
 			if !*all && len(list) > artistRows {
 				list = list[:artistRows]
 			}
-			rows(c, env, list, 1, true)
+			rows(c, env, list, 1, true, i18n.T("Upcoming concerts"))
 			if linkToConcerts(env) {
 				more := ui.Link(c.Key("more"), "", "").Margin(8, 0, 0, 8)
 				more.Children(func() {
@@ -124,7 +125,7 @@ func ConcertsShelf(c *ui.Context, env *module.Env, first bool) {
 				i18n.T("Apple Music lists no upcoming concerts in this area."), empty)
 		default:
 			shows := q.Data.Concerts
-			rows(c, env, shows[:min(len(shows), homeShows)], 2, false)
+			rows(c, env, shows[:min(len(shows), homeShows)], 2, false, title)
 		}
 	})
 }

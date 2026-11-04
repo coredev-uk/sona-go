@@ -420,3 +420,27 @@ func TestUnavailableIsAnnouncedOncePerHold(t *testing.T) {
 		t.Errorf("a new refusal after the toast expired is not announced: %v", got)
 	}
 }
+
+func TestSelectOptionsAreRadioItemsNamedByTheirSelect(t *testing.T) {
+	f := newControlsFields()
+	tt := controlsTester(t, 420, 900, f.view)
+	if err := tt.Click("Plan"); err != nil {
+		t.Fatal(err)
+	}
+	tr := access.Read(t, tt)
+	requireNodes(t, tr, []want{{ui.RolePopup, "Plan"}, {ui.RoleMenuItemRadio, "Free"}, {ui.RoleMenuItemRadio, "Pro"}, {ui.RoleMenuItemRadio, "Team"}})
+	if n, _ := tr.Find(ui.RoleMenuItemRadio, "Pro"); !n.Has(access.Checked) {
+		t.Errorf("the chosen option is not checked: %s", n.States)
+	}
+	if n, _ := tr.Find(ui.RoleMenuItemRadio, "Free"); n.Has(access.Checked) {
+		t.Errorf("an option that is not chosen is checked")
+	}
+	if n, ok := tr.Find(ui.RoleMenuItemRadio, "Enterprise"); !ok || !n.Has(access.Disabled) {
+		t.Errorf("a disabled option is not disabled: %+v", n)
+	}
+	// Escape closes it and the focus returns to the select.
+	tt.Key(0, ui.KeyEscape)
+	if !tt.Focused("Plan") {
+		t.Errorf("focus did not return to the Plan select")
+	}
+}

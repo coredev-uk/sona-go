@@ -33,6 +33,9 @@ func controlsPopupHeight(c *ui.Context, anchor ui.Element) float32 {
 // highlighted, 50% when disabled. It builds its label and the check.
 func controlsOption(c *ui.Context, item ui.Element, label string, highlighted, chosen, disabled bool) {
 	item.Padding(6, 8, 6, 8).Gap(8).Radius(controlsRadius("sm")).AlignItems(ui.Center).FillWidth()
+	// An option of a list the user chooses one of: a radio item, checked while
+	// chosen (a screen reader reads "Pro, radio item, checked" and presses it).
+	item.Role(ui.RoleMenuItemRadio).Label(label).Checked(chosen)
 	if highlighted && !disabled {
 		// The tint alone is about 1.1:1 on the popover: the inset ring is the
 		// keyboard highlight (docs/accessibility.md, "Focus").
@@ -140,7 +143,7 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 	})
 	width := trigger.Bounds().W
 	sel.Popup(func(panel ui.Element) {
-		controlsPopupPanel(panel).MinWidth(max(width, 128)).Modal()
+		controlsPopupPanel(panel).MinWidth(max(width, 128)).Modal().Label(o.A11yLabel)
 		ui.Scroll(c).MaxHeight(controlsPopupHeight(c, trigger)).Role(ui.RoleGroup).Children(func() {
 			for i, it := range items {
 				switch it.kind {
@@ -151,7 +154,7 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 				case selectOption:
 					if it.Disabled {
 						// Not an Item: the arrows and Enter pass it by.
-						controlsOption(c, ui.Row(c.Key(i)).Role(ui.RoleListItem), it.Label, false, false, true)
+						controlsOption(c, ui.Row(c.Key(i)), it.Label, false, false, true)
 						continue
 					}
 					item := sel.Item(it.Value)
