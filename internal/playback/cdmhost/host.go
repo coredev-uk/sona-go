@@ -117,11 +117,12 @@ const (
 
 // childEnvDropped matches environment variables the child must not get:
 // anything that names a credential, and the addresses of the session bus,
-// the display server, the agents and the session manager, which would let
-// code in the child act outside its sandbox (sandbox.go hides their sockets
-// too).
+// the display server, the agents, the session manager and MyGo's automation
+// socket (a probe build's child would replace the parent's socket), which
+// would let code in the child act outside its sandbox (sandbox.go hides their
+// sockets too).
 var childEnvDropped = regexp.MustCompile(`(?i)TOKEN|SECRET|PASSW|CREDENTIAL|COOKIE|API_?KEY|PRIVATE_?KEY|AUTH|` +
-	`^(DBUS_|SSH_|GPG_|GNOME_KEYRING|AT_SPI_|WAYLAND_|KRB5)|^(DISPLAY|XAUTHORITY|SESSION_MANAGER)$`)
+	`^(DBUS_|SSH_|GPG_|GNOME_KEYRING|AT_SPI_|WAYLAND_|KRB5)|^(DISPLAY|XAUTHORITY|SESSION_MANAGER|MYGO_AUTOMATION)$`)
 
 // childEnv is the parent environment minus credentials and session
 // addresses (childEnvDropped), plus the child marker.
