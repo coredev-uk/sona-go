@@ -7,13 +7,14 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
 // roomOpen reports full-screen lyrics showing: the shell's Layer is open, and
 // the window behind it inert.
 func (p *player) roomOpen() bool {
-	return p.ui.overlay == overlayRoom && lyricsSongID(p.env.Play.State().Current) != ""
+	return p.ui.overlay == overlayRoom && lyricsync.SongID(p.env.Play.State().Current) != ""
 }
 
 // roomLayer is RoomLyrics for the shell's Layer slot: the whole window given
@@ -23,7 +24,7 @@ func (p *player) roomOpen() bool {
 // was not already).
 func (p *player) roomLayer(c *ui.Context) {
 	cur := p.env.Play.State().Current
-	songID := lyricsSongID(cur)
+	songID := lyricsync.SongID(cur)
 	if p.ui.overlay == overlayRoom && songID == "" {
 		// Nothing to read once the queue is cleared or the song has no lyrics.
 		p.ui.closeOverlay()

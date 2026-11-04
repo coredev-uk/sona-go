@@ -11,7 +11,7 @@ import (
 func (p *player) nowPlayingShortcuts() []module.Shortcut {
 	nudge := func(dir int) func() {
 		return func() {
-			if id := lyricsSongID(p.env.Play.State().Current); id != "" {
+			if id := lyricsync.SongID(p.env.Play.State().Current); id != "" {
 				lyricsync.Session().Nudge(id, dir)
 			}
 		}
@@ -63,7 +63,7 @@ func (p *player) nowPlayingShortcuts() []module.Shortcut {
 			Keywords: func() string { return i18n.T("lyrics timing offset sync reset") },
 			When:     p.lyricsShown,
 			Run: func() {
-				if id := lyricsSongID(p.env.Play.State().Current); id != "" {
+				if id := lyricsync.SongID(p.env.Play.State().Current); id != "" {
 					lyricsync.Session().Reset(id)
 				}
 			},
@@ -72,7 +72,7 @@ func (p *player) nowPlayingShortcuts() []module.Shortcut {
 			ID: "player.lyrics-room", Group: "view", Keys: []string{"Shift+L"}, Icon: "maximize-2",
 			Label:    func() string { return i18n.T("Full-screen lyrics") },
 			Keywords: func() string { return i18n.T("lyrics room karaoke big large tv") },
-			When:     func() bool { return lyricsSongID(p.env.Play.State().Current) != "" },
+			When:     func() bool { return lyricsync.SongID(p.env.Play.State().Current) != "" },
 			Run:      p.toggleRoom,
 		},
 	}

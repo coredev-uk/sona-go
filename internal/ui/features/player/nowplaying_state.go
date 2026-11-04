@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
 
@@ -127,7 +128,7 @@ func (p *player) videoSurface() bool { return p.videoPlaying() }
 // lyricsShown reports lyrics on screen: Now Playing's lyrics pane or
 // full-screen lyrics, for a song that has some.
 func (p *player) lyricsShown() bool {
-	if lyricsSongID(p.env.Play.State().Current) == "" {
+	if lyricsync.SongID(p.env.Play.State().Current) == "" {
 		return false
 	}
 	switch p.ui.overlay {

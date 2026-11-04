@@ -67,8 +67,8 @@ type player struct {
 	queue queueUI
 	// sleepUI is the sleep timer's state (sleep_*.go).
 	sleep sleepUI
-	// announce is the track announcer's state (announcer.go).
-	announce announcer
+	// announce is the track announcer (kit.TrackAnnouncer).
+	announce kit.TrackAnnouncer
 
 	mu     sync.Mutex
 	failed []failure // command failures waiting to be shown (the view shows them)

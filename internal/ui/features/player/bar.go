@@ -23,7 +23,7 @@ import (
 func (p *player) bar(c *ui.Context) {
 	p.toasts(c)
 	s := p.env.Play.State()
-	p.announceTrack(c, s)
+	p.announce.Announce(c, s)
 	tk := theme.Current()
 	backdrop := ""
 	if s.Current != nil {

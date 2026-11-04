@@ -1,6 +1,9 @@
 package player
 
-import "github.com/coredev-uk/sona-go/internal/services"
+import (
+	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
+)
 
 // overlayKind is the panel the player has open over the page (v0.2.0's
 // ui.ts Overlay): the now-playing view or its full-screen lyrics ("room").
@@ -65,20 +68,11 @@ func (v *view) closeOverlay() {
 
 func (v *view) setPane(pane paneKind) { v.pane = pane }
 
-// lyricsSongID is the catalogue ID of what plays when it has lyrics: "" for
-// nothing, live radio or a music video (v0.2.0's lyricsSongId).
-func lyricsSongID(cur *services.QueueItem) string {
-	if cur == nil || cur.Live || cur.Video {
-		return ""
-	}
-	return cur.CatalogID
-}
-
 // shownPane is the pane the view shows for pane and the playing item: a
 // station, a music video or a song outside the catalogue has no lyrics, so
 // it shows Up next.
 func shownPane(pane paneKind, cur *services.QueueItem) paneKind {
-	if lyricsSongID(cur) != "" && !cur.Live {
+	if lyricsync.SongID(cur) != "" && !cur.Live {
 		return pane
 	}
 	return paneQueue
