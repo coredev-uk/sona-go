@@ -52,7 +52,7 @@ type Options struct {
 	Motion media.MotionFiles
 	// Video is where the playing music video's pictures come from (the
 	// engine's *video.Surface); nil: no video plays.
-	Video store.VideoFrames
+	Video media.FrameSource
 	// Poster, when set, replaces Window.Update as how work gets to the
 	// main thread (tests).
 	Poster store.Poster
@@ -78,6 +78,9 @@ type Options struct {
 	Hidden bool
 	// Icon is the window icon, a PNG.
 	Icon []byte
+	// TrayIcon is the tray's icon, a small PNG; TrayTemplate, when set
+	// (macOS), a template image the menu bar tints, used instead.
+	TrayIcon, TrayTemplate []byte
 	// OpenURL opens a web page in the system browser (Env.OpenURL); nil
 	// reports an error.
 	OpenURL func(url string) error
@@ -117,8 +120,28 @@ type App struct {
 
 	mem *windowMemory
 
-	mu  sync.Mutex
-	win *mygo.Window
+	// platform is PlatformService (the title bar, the tray capability);
+	// nil without services.
+	platform *services.PlatformService
+	// mini is the module's mini player content (module.Slots.Mini; nil:
+	// none), tray the tray icon (nil: none). Main thread.
+	mini func(c *ui.Context)
+	tray *tray
+	// drawnTitleBar: the main window has a hidden title bar, so the top
+	// bar and the sidebar's header drag it and keep room for its buttons.
+	drawnTitleBar bool
+	// lastRoute is the route last handed to DesktopService.SetLastRoute;
+	// routeSeen the route shown since routeAt (main thread).
+	lastRoute string
+	routeSeen string
+	routeAt   time.Time
+	// banner is the status banner's (main thread).
+	banner banner
+
+	mu        sync.Mutex
+	win       *mygo.Window
+	miniWin   *mygo.Window
+	miniShown bool
 
 	locale *localizer
 
@@ -126,10 +149,19 @@ type App struct {
 	sidebar   bool // shown; Ctrl+B
 }
 
-// New builds the UI and opens the main window. Call it in MyGo's
-// WhenReady, which is on the main thread.
+// New builds the UI, puts the tray icon up and opens the main window
+// (hidden with Options.Hidden and a tray). Call it in MyGo's WhenReady,
+// which is on the main thread.
 func New(opts Options) *App {
 	a := newApp(opts, factories)
+	if opts.Windows != nil {
+		icon, template := opts.TrayIcon, false
+		if len(opts.TrayTemplate) > 0 {
+			icon, template = opts.TrayTemplate, true
+		}
+		a.tray = a.newTray(icon, template)
+		opts.Windows.setTray(a.tray != nil)
+	}
 	a.openWindow()
 	return a
 }
@@ -152,6 +184,7 @@ func newApp(opts Options, factories []module.Factory) *App {
 		a.system = services.Service[services.SystemService](opts.Core)
 		a.firstPaint = func() { go a.system.FirstPaint() }
 		a.playback = services.Service[services.PlaybackService](opts.Core)
+		a.platform = services.Service[services.PlatformService](opts.Core)
 	}
 	if opts.Settings != nil {
 		a.mem = newWindowMemory(opts.Settings, a.log)
@@ -201,15 +234,22 @@ func newApp(opts Options, factories []module.Factory) *App {
 		for _, n := range m.Nav {
 			a.nav[n.Section] = append(a.nav[n.Section], n)
 		}
+		if a.mini == nil && m.Slots.Mini != nil {
+			a.mini = m.Slots.Mini
+		}
 	}
 	for i := range a.nav {
 		slices.SortStableFunc(a.nav[i], func(x, y module.NavItem) int { return cmp.Compare(x.Order, y.Order) })
 	}
 	a.start = a.startPath()
 	initial := a.start
+	if r := a.resumeRoute(); r != "" {
+		initial = r
+	}
 	if opts.FirstRun && slices.ContainsFunc(a.routes, func(r module.Route) bool { return r.Pattern == services.OnboardingRoute }) {
 		initial = services.OnboardingRoute
 	}
+	a.lastRoute = initial
 	a.router = ui.NewRouter(initial)
 	a.env.Nav = a.router
 	a.env.Actions.SetNavigator(a.router.Push)
@@ -261,6 +301,20 @@ func (a *App) startPath() string {
 	return "/"
 }
 
+// resumeRoute is the route the window was last on, when Settings → General →
+// Open on is "The page you were last on" and a module still shows that page;
+// "" otherwise.
+func (a *App) resumeRoute() string {
+	if a.opts.StartPath != "" || a.opts.Settings == nil {
+		return ""
+	}
+	d := a.opts.Settings.Get().Desktop
+	if !d.ResumeLastRoute || d.LastRoute == "" || !a.hasRoute(d.LastRoute) {
+		return ""
+	}
+	return d.LastRoute
+}
+
 // shellShortcuts are the shell's own: the sidebar. (Back and forward are
 // MyGo's router's: Alt+Left and Alt+Right, the mouse's side buttons.)
 func (a *App) shellShortcuts() []module.Shortcut {
@@ -290,16 +344,20 @@ func (a *App) openWindow() {
 	if a.opts.Dev && inspectorRequested() {
 		devtools = mygo.DevToolsEnabled
 	}
-	win := mygo.NewWindow(mygo.WindowOptions{
+	hidden := a.hidden()
+	opts := mygo.WindowOptions{
 		Title:     windowTitle,
 		Width:     w.Width,
 		Height:    w.Height,
 		Maximized: w.Maximised,
 		MinWidth:  config.MinWindowWidth,
 		MinHeight: config.MinWindowHeight,
+		Hidden:    hidden,
 		Content:   ui.View(a.view),
 		Page:      mygo.PageOptions{DevTools: devtools},
-	})
+	}
+	a.chrome(&opts)
+	win := mygo.NewWindow(opts)
 	if len(a.opts.Icon) > 0 {
 		if err := win.SetIcon(a.opts.Icon); err != nil {
 			a.log.Warn("window icon", "err", err)
@@ -309,10 +367,28 @@ func (a *App) openWindow() {
 	a.win = win
 	a.mu.Unlock()
 	if a.opts.Windows != nil {
-		a.opts.Windows.attach(win, a.mem)
+		hooks := windowHooks{
+			closeQuits: func() bool {
+				return a.opts.Settings != nil && a.opts.Settings.Get().Desktop.CloseAction == config.CloseQuits
+			},
+			miniShown: a.miniShownChanged,
+			devTools:  func() { win.Page().ToggleDevTools() },
+		}
+		if a.mini != nil {
+			hooks.newMini = a.newMiniWindow
+		}
+		a.opts.Windows.attach(win, a.mem, hooks)
 	}
 	a.followVisibility(win)
 	a.followWindow(win)
+	if hidden {
+		// No window shows, so no first frame comes: the network opens now,
+		// and the views that animate wait for the window.
+		a.env.Motion.SetVisible(false)
+		a.env.Window.SetFocused(false)
+		a.paintOnce.Do(a.painted)
+		a.log.Info("startup: hidden, in the tray")
+	}
 	a.connect()
 	a.devHook(win)
 	if a.opts.Dev && inspectorRequested() {
@@ -341,6 +417,10 @@ func (a *App) followWindow(win *mygo.Window) {
 func (a *App) connect() {
 	a.opts.Bus.SetPoster(a.postFunc())
 	a.followSettings()
+	a.followOpens()
+	if a.tray != nil {
+		a.tray.follow(a.opts.Bus)
+	}
 	if a.playback != nil {
 		a.env.Play.Seed(a.playback.State(), a.playback.Queue())
 	}
@@ -348,6 +428,20 @@ func (a *App) connect() {
 		if m.Init != nil {
 			m.Init()
 		}
+	}
+}
+
+// languageChanged writes the language shown into what no frame builds: the
+// tray's menu and the mini player's title.
+func (a *App) languageChanged() {
+	if a.tray != nil {
+		a.tray.render()
+	}
+	a.mu.Lock()
+	m := a.miniWin
+	a.mu.Unlock()
+	if m != nil {
+		m.SetTitle(i18n.T("Sona mini player"))
 	}
 }
 
@@ -359,16 +453,23 @@ func (a *App) postFunc() store.Poster {
 	return a.post
 }
 
-// post runs fn on the main thread and redraws the windows (store.Poster).
+// post runs fn on the main thread and redraws the windows (store.Poster):
+// the main window, and the mini player while it shows.
 func (a *App) post(fn func()) {
 	a.mu.Lock()
-	win := a.win
+	win, mini := a.win, a.miniWin
+	if !a.miniShown {
+		mini = nil
+	}
 	a.mu.Unlock()
 	if win == nil {
 		fn()
 		return
 	}
 	win.Update(fn)
+	if mini != nil {
+		mini.Update(func() {})
+	}
 }
 
 // Window is the main window (nil before New opened it).

@@ -22,6 +22,9 @@ type localizer struct {
 	settings *config.Store
 	tr       *services.TranslationsService // nil: English, or the chosen tag without Apple's text
 	post     store.Poster
+	// changed runs after the language shown changed (main thread); nil:
+	// nothing follows it.
+	changed func()
 
 	mu   sync.Mutex
 	seq  uint64 // the latest apply, so an older answer never overwrites a newer
@@ -33,7 +36,7 @@ type localizer struct {
 
 // initLocale starts following the language.
 func (a *App) initLocale() {
-	l := &localizer{settings: a.opts.Settings, post: a.postFunc()}
+	l := &localizer{settings: a.opts.Settings, post: a.postFunc(), changed: a.languageChanged}
 	if a.opts.Core != nil {
 		l.tr = services.Service[services.TranslationsService](a.opts.Core)
 	}
@@ -106,6 +109,7 @@ func (l *localizer) choose(force bool) {
 			lang = ""
 		}
 		i18n.SetLocale(lang)
+		l.notify()
 		return
 	}
 	go func() {
@@ -128,10 +132,19 @@ func (l *localizer) choose(force bool) {
 			if found {
 				i18n.SetApple(chosen)
 				i18n.SetLocale(chosen.Locale)
-				return
+			} else {
+				i18n.SetApple(services.AppleTranslations{})
+				i18n.SetLocale("")
 			}
-			i18n.SetApple(services.AppleTranslations{})
-			i18n.SetLocale("")
+			l.notify()
 		})
 	}()
+}
+
+// notify tells changed (the native menus and window titles, which no frame
+// builds) that the language shown changed. Main thread.
+func (l *localizer) notify() {
+	if l.changed != nil {
+		l.changed()
+	}
 }

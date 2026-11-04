@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/coredev-uk/sona-go/build"
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
@@ -24,8 +25,9 @@ import (
 // has no media controls, notifications, sleep inhibitor, power monitor,
 // file chooser or autostart entry here yet; each is absent from
 // services.Platform, so Capabilities reports it and the frontend hides or
-// explains it. The tray comes with phase 3. The playback engine is
-// engine_cdm.go's on macOS, engine_other.go's elsewhere.
+// explains it. The tray is the UI's (internal/ui/app): on macOS a menu bar
+// item with a template icon. The playback engine is engine_cdm.go's on
+// macOS, engine_other.go's elsewhere.
 
 // dialInstance reaches the running Sona for `sona <command>` through its
 // socket in the state folder.
@@ -83,6 +85,15 @@ func (*platform) TitleBar() windowchrome.Platform {
 		return windowchrome.Platform{Native: windowchrome.NativeFrame, Automatic: config.TitleBarSona, Layout: windowchrome.WindowsLayout}
 	}
 	return windowchrome.Platform{Native: windowchrome.NativeFrame, Automatic: config.TitleBarDesktop}
+}
+
+// trayTemplate is the tray's template icon: macOS tints it for the menu
+// bar; Windows shows the colour icon.
+func trayTemplate() []byte {
+	if runtime.GOOS == "darwin" {
+		return build.TrayTemplate
+	}
+	return nil
 }
 
 // Serve hands later launches' links to activate and runs commands sent by

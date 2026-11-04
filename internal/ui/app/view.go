@@ -19,6 +19,7 @@ import (
 func (a *App) view(c *ui.Context) {
 	theme.Apply(c)
 	a.keys.dispatch(c)
+	a.rememberRoute(c)
 
 	layerOpen, overlayOpen := a.layerOpen(), a.overlayOpen()
 
@@ -64,6 +65,7 @@ func (a *App) mainColumn(c *ui.Context) {
 	ui.Column(c).Grow(1).Basis(0).MinWidth(0).FillHeight().Children(func() {
 		a.topBar(c)
 		ui.Box(c).Height(1).FillWidth().Background(theme.C("line"))
+		a.statusBanner(c)
 		overlayOpen := a.overlayOpen()
 		ui.Row(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 			// An open overlay covers the page, which keeps its place (and
@@ -123,8 +125,20 @@ func (a *App) topBar(c *ui.Context) {
 			break
 		}
 	}
-	ui.Row(c).Height(theme.Current().Metric["top-bar"]).FillWidth().Background(theme.C("surface")).
-		Padding(0, 16, 0, 12).Gap(12).AlignItems(ui.Center).Children(func() {
+	// A hidden title bar: the top bar is the window's, dragging it, and
+	// keeps clear of the window buttons; the sidebar's header takes the
+	// leading ones while the sidebar shows (macOS's, Linux's on the left).
+	bar := c.TitleBar()
+	start := float32(12)
+	if !a.sidebar {
+		start = max(start, bar.Left+8)
+	}
+	row := ui.Row(c).Height(theme.Current().Metric["top-bar"]).FillWidth().Background(theme.C("surface")).
+		Padding(0, max(16, bar.Right+8), 0, start).Gap(12).AlignItems(ui.Center)
+	if a.drawnTitleBar {
+		row.DragWindow()
+	}
+	row.Children(func() {
 		ui.Row(c).Gap(2).AlignItems(ui.Center).Children(func() {
 			// MyGo's labels are English only.
 			ui.BackButton(c, a.router).Label(i18n.T("Back")).Tooltip(i18n.T("Back"))
@@ -187,7 +201,12 @@ func (a *App) sidebarView(c *ui.Context) {
 // brand is the sidebar's header: the mark (a record label seen from above,
 // amber with a spindle hole) and the wordmark.
 func (a *App) brand(c *ui.Context) {
-	ui.Row(c).Height(theme.Current().Metric["top-bar"]).Padding(0, 10).Gap(8).AlignItems(ui.Center).Children(func() {
+	bar := c.TitleBar()
+	row := ui.Row(c).Height(theme.Current().Metric["top-bar"]).Padding(0, 10, 0, max(10, bar.Left-4)).Gap(8).AlignItems(ui.Center)
+	if a.drawnTitleBar {
+		row.DragWindow()
+	}
+	row.Children(func() {
 		ui.Row(c).Size(20, 20).Radius(10).Background(theme.C("amber")).Center().Children(func() {
 			ui.Box(c).Size(4, 4).Radius(2).Background(theme.C("surface"))
 		})
