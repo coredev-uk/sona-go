@@ -31,14 +31,14 @@ func controlsTester(t *testing.T, w, h int, view func(c *ui.Context)) *ui.Tester
 	}, w, h)
 }
 
-func mustClick(t *testing.T, tt *ui.Tester, name string) {
+func controlsClick(t *testing.T, tt *ui.Tester, name string) {
 	t.Helper()
 	if err := tt.Click(name); err != nil {
 		t.Fatalf("click %q: %v", name, err)
 	}
 }
 
-func mustFind(t *testing.T, tt *ui.Tester, name string) ui.Rect {
+func controlsFind(t *testing.T, tt *ui.Tester, name string) ui.Rect {
 	t.Helper()
 	r, ok := tt.Find(name)
 	if !ok {
@@ -58,7 +58,7 @@ func TestButtonVariantsAndSizes(t *testing.T) {
 			tt := controlsTester(t, 200, 100, func(c *ui.Context) {
 				IconButton(c, "plus", "Go", ButtonOpts{Variant: v, Size: tc.size})
 			})
-			if r := mustFind(t, tt, "Go"); r.W != tc.want || r.H != tc.want {
+			if r := controlsFind(t, tt, "Go"); r.W != tc.want || r.H != tc.want {
 				t.Errorf("variant %d, size %d: icon button %v×%v, want %v square", v, tc.size, r.W, r.H, tc.want)
 			}
 		}
@@ -88,7 +88,7 @@ func TestDisabledPlayDiscIsHoverToned(t *testing.T) {
 	_, tt := newButtonApp(t, "", ButtonOpts{Variant: Play, Icon: "play", Filled: true, Disabled: true, A11yLabel: "Play"})
 	tt.Advance(time.Second)
 	tt.Frame()
-	r := mustFind(t, tt, "Play")
+	r := controlsFind(t, tt, "Play")
 	got := tt.Image().RGBAAt(int(r.X)+4, int(r.Y+r.H/2))
 	if want := rgb(theme.C("hover")); got != want {
 		t.Errorf("disabled disc is %v, want --hover %v (and fully opaque)", got, want)
@@ -106,7 +106,7 @@ func TestTooltipShowsOnHoverAndFocusAndEscapeHidesIt(t *testing.T) {
 	if tt.HasText("Open the menu") {
 		t.Fatal("the tip shows before anything points at it")
 	}
-	r := mustFind(t, tt, "More actions")
+	r := controlsFind(t, tt, "More actions")
 	tt.Move(r.X+r.W/2, r.Y+r.H/2)
 	tt.Advance(time.Second)
 	if !tt.HasText("Open the menu") {
@@ -149,7 +149,7 @@ func TestBadgeInteractive(t *testing.T) {
 			n++
 		}
 	})
-	mustClick(t, tt, "Jazz")
+	controlsClick(t, tt, "Jazz")
 	if n != 1 {
 		t.Errorf("clicked %d times", n)
 	}
@@ -157,14 +157,14 @@ func TestBadgeInteractive(t *testing.T) {
 	if !tt.Focused("Jazz") {
 		t.Error("an interactive badge does not take the focus")
 	}
-	if r := mustFind(t, tt, "Static"); r.H > 20 {
+	if r := controlsFind(t, tt, "Static"); r.H > 20 {
 		t.Errorf("badge is %v high", r.H)
 	}
 }
 
 func TestExplicitMarkIsAnImageNamedExplicit(t *testing.T) {
 	tt := controlsTester(t, 200, 100, func(c *ui.Context) { ExplicitMark(c) })
-	r := mustFind(t, tt, "Explicit")
+	r := controlsFind(t, tt, "Explicit")
 	if r.W != 14 || r.H != 14 {
 		t.Errorf("explicit mark is %v×%v, want 14×14", r.W, r.H)
 	}
@@ -178,9 +178,9 @@ func TestTagsCarryTheirTitleAsDescription(t *testing.T) {
 		})
 	})
 	for _, text := range []string{"Preview", "SD"} {
-		mustFind(t, tt, text)
+		controlsFind(t, tt, text)
 	}
-	r := mustFind(t, tt, "Preview")
+	r := controlsFind(t, tt, "Preview")
 	tt.Move(r.X+r.W/2, r.Y+r.H/2)
 	tt.Advance(time.Second)
 	if !tt.HasText("Apple Music's 30-second preview, not the full song") {
@@ -201,7 +201,7 @@ func TestBadgesBuildNothingWithoutLabels(t *testing.T) {
 		Badges(c, BadgesOpts{Explicit: true, Traits: services.Traits{Atmos: true, Spatial: true, HiResLossless: true, Lossless: true, AppleDigitalMaster: true}, Extra: []string{"4K"}})
 	})
 	for _, want := range []string{"Explicit", "Dolby Atmos", "Hi-Res Lossless", "Apple Digital Master", "4K"} {
-		mustFind(t, tt, want)
+		controlsFind(t, tt, want)
 	}
 	for _, text := range tt.Texts() {
 		if text == "Spatial Audio" || text == "Lossless" {
@@ -255,12 +255,12 @@ func TestInputTypesAndReportsChange(t *testing.T) {
 			changed++
 		}
 	})
-	mustClick(t, tt, "Name")
+	controlsClick(t, tt, "Name")
 	tt.Type("Thom")
 	if v != "Thom" || changed == 0 {
 		t.Errorf("value %q, changed %d", v, changed)
 	}
-	if r := mustFind(t, tt, "Name"); r.H != 36 {
+	if r := controlsFind(t, tt, "Name"); r.H != 36 {
 		t.Errorf("input is %v high, want 36", r.H)
 	}
 }
@@ -272,7 +272,7 @@ func TestInputBorderFollowsFocusAndInvalid(t *testing.T) {
 		Input(c, &v, InputOpts{A11yLabel: "Name", Invalid: invalid})
 	})
 	tt.Advance(time.Second)
-	r := mustFind(t, tt, "Name")
+	r := controlsFind(t, tt, "Name")
 	edge := func() [3]uint8 {
 		tt.Frame()
 		tt.Advance(time.Second)
@@ -283,7 +283,7 @@ func TestInputBorderFollowsFocusAndInvalid(t *testing.T) {
 	if want := rgb(theme.C("input")); rest != [3]uint8{want.R, want.G, want.B} {
 		t.Errorf("resting border %v, want --input %v", rest, want)
 	}
-	mustClick(t, tt, "Name")
+	controlsClick(t, tt, "Name")
 	focused := edge()
 	if want := rgb(theme.C("ring")); focused == rest {
 		t.Errorf("the focused border is still %v (ring is %v)", focused, want)
@@ -325,7 +325,7 @@ func TestSearchFieldTypesClearsAndSubmits(t *testing.T) {
 	if _, ok := tt.Find("Clear"); ok {
 		t.Error("a Clear button on an empty field")
 	}
-	mustClick(t, tt, "Search your library")
+	controlsClick(t, tt, "Search your library")
 	tt.Type("kid")
 	if q != "kid" || changed == 0 {
 		t.Fatalf("query %q, changed %d", q, changed)
@@ -334,7 +334,7 @@ func TestSearchFieldTypesClearsAndSubmits(t *testing.T) {
 	if submitted == 0 {
 		t.Error("Enter was not reported as Submitted")
 	}
-	mustClick(t, tt, "Clear")
+	controlsClick(t, tt, "Clear")
 	if q != "" {
 		t.Errorf("Clear left %q", q)
 	}
@@ -357,7 +357,7 @@ func TestComboboxFiltersAndChooses(t *testing.T) {
 			changed++
 		}
 	})
-	mustClick(t, tt, "Place")
+	controlsClick(t, tt, "Place")
 	tt.Key(ui.Cmd, ui.KeyA)
 	tt.Type("ge")
 	if !tt.HasText("Germany") || tt.HasText("Spain") {
@@ -401,11 +401,11 @@ func TestSwitchTogglesByClickAndSpace(t *testing.T) {
 			changed++
 		}
 	})
-	r := mustFind(t, tt, "Crossfade")
+	r := controlsFind(t, tt, "Crossfade")
 	if r.W != 32 || r.H < 18 || r.H > 19 {
 		t.Errorf("switch is %v×%v, want 32×18.4", r.W, r.H)
 	}
-	mustClick(t, tt, "Crossfade")
+	controlsClick(t, tt, "Crossfade")
 	if !on || changed != 1 {
 		t.Fatalf("click: on %v, changed %d", on, changed)
 	}
@@ -422,7 +422,7 @@ func TestSwitchColoursAndThumb(t *testing.T) {
 		Switch(c, &on, SwitchOpts{A11yLabel: "A"})
 	})
 	tt.Advance(time.Second)
-	r := mustFind(t, tt, "A")
+	r := controlsFind(t, tt, "A")
 	at := func(dx float32) [3]uint8 {
 		p := tt.Image().RGBAAt(int(r.X+dx), int(r.Y+r.H/2))
 		return [3]uint8{p.R, p.G, p.B}
@@ -451,7 +451,7 @@ func TestSwitchSlidesUnlessMotionIsReduced(t *testing.T) {
 	tt := controlsTester(t, 200, 100, func(c *ui.Context) {
 		Switch(c, &on, SwitchOpts{A11yLabel: "A"})
 	})
-	r := mustFind(t, tt, "A")
+	r := controlsFind(t, tt, "A")
 	thumbAt := func() int {
 		tt.Frame()
 		row := int(r.Y + r.H/2)
@@ -495,7 +495,7 @@ func TestDisabledSwitchIsInert(t *testing.T) {
 
 // --- Select ----------------------------------------------------------------
 
-func planItems() []SelectItem {
+func controlsPlanItems() []SelectItem {
 	return []SelectItem{
 		SelectLabel("Plans"), SelectOption("free", "Free"), SelectOption("pro", "Pro"), SelectSeparator(),
 		SelectLabel("Teams"), {Value: "ent", Label: "Enterprise", Disabled: true}, SelectOption("team", "Team"),
@@ -505,14 +505,14 @@ func planItems() []SelectItem {
 func TestSelectOpensChoosesAndReturnsTheFocus(t *testing.T) {
 	v, changed := "free", 0
 	tt := controlsTester(t, 360, 360, func(c *ui.Context) {
-		if Select(c, &v, planItems(), SelectOpts{A11yLabel: "Plan"}).Changed() {
+		if Select(c, &v, controlsPlanItems(), SelectOpts{A11yLabel: "Plan"}).Changed() {
 			changed++
 		}
 	})
 	if !tt.HasText("Free") || tt.HasText("Pro") {
 		t.Fatalf("closed select shows %q", tt.Texts())
 	}
-	mustClick(t, tt, "Plan")
+	controlsClick(t, tt, "Plan")
 	for _, want := range []string{"Plans", "Teams", "Pro", "Team"} {
 		if !tt.HasText(want) {
 			t.Errorf("open list lacks %q: %q", want, tt.Texts())
@@ -540,8 +540,8 @@ func TestSelectOpensChoosesAndReturnsTheFocus(t *testing.T) {
 		t.Errorf("Escape: choice %q, open %v, focus %v", v, tt.HasText("Teams"), tt.Focused("Plan"))
 	}
 	// A click on a row chooses it.
-	mustClick(t, tt, "Plan")
-	mustClick(t, tt, "Team")
+	controlsClick(t, tt, "Plan")
+	controlsClick(t, tt, "Team")
 	if v != "team" {
 		t.Errorf("a click chose %q", v)
 	}
@@ -550,7 +550,7 @@ func TestSelectOpensChoosesAndReturnsTheFocus(t *testing.T) {
 func TestSelectArrowsSkipDisabledOptions(t *testing.T) {
 	v := "pro"
 	tt := controlsTester(t, 360, 360, func(c *ui.Context) {
-		Select(c, &v, planItems(), SelectOpts{A11yLabel: "Plan"})
+		Select(c, &v, controlsPlanItems(), SelectOpts{A11yLabel: "Plan"})
 	})
 	tt.Key(0, ui.KeyTab)
 	tt.Key(0, ui.KeyEnter) // open, on Pro
@@ -564,10 +564,10 @@ func TestSelectArrowsSkipDisabledOptions(t *testing.T) {
 func TestSelectKeepsTheKeyboardInTheOpenList(t *testing.T) {
 	v := "free"
 	tt := controlsTester(t, 360, 360, func(c *ui.Context) {
-		Select(c.Key("a"), &v, planItems(), SelectOpts{A11yLabel: "Plan"})
+		Select(c.Key("a"), &v, controlsPlanItems(), SelectOpts{A11yLabel: "Plan"})
 		Button(c.Key("b"), "After", ButtonOpts{})
 	})
-	mustClick(t, tt, "Plan")
+	controlsClick(t, tt, "Plan")
 	tt.Key(0, ui.KeyTab)
 	if tt.Focused("After") || !tt.Focused("Plan") {
 		t.Error("Tab left the open list")
@@ -577,9 +577,9 @@ func TestSelectKeepsTheKeyboardInTheOpenList(t *testing.T) {
 func TestSelectDisabledOptionCannotBeChosen(t *testing.T) {
 	v := "free"
 	tt := controlsTester(t, 360, 360, func(c *ui.Context) {
-		Select(c, &v, planItems(), SelectOpts{A11yLabel: "Plan"})
+		Select(c, &v, controlsPlanItems(), SelectOpts{A11yLabel: "Plan"})
 	})
-	mustClick(t, tt, "Plan")
+	controlsClick(t, tt, "Plan")
 	_ = tt.Click("Enterprise")
 	if v == "ent" {
 		t.Error("a disabled option was chosen")
@@ -589,13 +589,13 @@ func TestSelectDisabledOptionCannotBeChosen(t *testing.T) {
 func TestSelectShowsAPlaceholderAndSizes(t *testing.T) {
 	v := ""
 	tt := controlsTester(t, 360, 200, func(c *ui.Context) {
-		Select(c.Key("a"), &v, planItems(), SelectOpts{A11yLabel: "Plan", Placeholder: "Pick one"})
-		Select(c.Key("b"), &v, planItems(), SelectOpts{A11yLabel: "Small", Small: true})
+		Select(c.Key("a"), &v, controlsPlanItems(), SelectOpts{A11yLabel: "Plan", Placeholder: "Pick one"})
+		Select(c.Key("b"), &v, controlsPlanItems(), SelectOpts{A11yLabel: "Small", Small: true})
 	})
 	if !tt.HasText("Pick one") {
 		t.Errorf("no placeholder: %q", tt.Texts())
 	}
-	if a, b := mustFind(t, tt, "Plan"), mustFind(t, tt, "Small"); a.H != 36 || b.H != 32 {
+	if a, b := controlsFind(t, tt, "Plan"), controlsFind(t, tt, "Small"); a.H != 36 || b.H != 32 {
 		t.Errorf("heights %v and %v, want 36 and 32", a.H, b.H)
 	}
 }
@@ -609,43 +609,43 @@ func TestSelectLongListScrollsWithinTheWindow(t *testing.T) {
 	tt := controlsTester(t, 300, 260, func(c *ui.Context) {
 		Select(c, &v, items, SelectOpts{A11yLabel: "Language"})
 	})
-	mustClick(t, tt, "Language")
+	controlsClick(t, tt, "Language")
 	if !tt.HasText("Language 3") {
 		t.Fatalf("no options: %q", tt.Texts())
 	}
-	if r := mustFind(t, tt, "Language 60"); r.Y < 260 {
+	if r := controlsFind(t, tt, "Language 60"); r.Y < 260 {
 		t.Errorf("the last option is at %v inside a window 260 high: the list is not capped", r.Y)
 	}
 	tt.Key(0, ui.KeyEnd)
 	tt.Frame()
 	tt.Advance(time.Second)
-	if r := mustFind(t, tt, "Language 60"); r.Y+r.H > 260 {
+	if r := controlsFind(t, tt, "Language 60"); r.Y+r.H > 260 {
 		t.Errorf("End did not scroll the last option into view: at %v", r)
 	}
 }
 
 // --- Segmented -------------------------------------------------------------
 
-func segmentOptions() []SegmentOption[string] {
+func controlsSegments() []SegmentOption[string] {
 	return []SegmentOption[string]{{"list", "List"}, {"grid", "Grid"}, {"table", "Table"}}
 }
 
 func TestSegmentedChoosesAndReportsEveryClick(t *testing.T) {
 	v, changed := "list", 0
 	tt := controlsTester(t, 360, 100, func(c *ui.Context) {
-		if Segmented(c, &v, segmentOptions(), "View").Changed() {
+		if Segmented(c, &v, controlsSegments(), "View").Changed() {
 			changed++
 		}
 	})
-	if r := mustFind(t, tt, "View"); r.H != 32 {
+	if r := controlsFind(t, tt, "View"); r.H != 32 {
 		t.Errorf("control is %v high, want 32", r.H)
 	}
-	mustClick(t, tt, "Grid")
+	controlsClick(t, tt, "Grid")
 	if v != "grid" || changed == 0 {
 		t.Fatalf("click: %q, changed %d", v, changed)
 	}
 	changed = 0
-	mustClick(t, tt, "Grid")
+	controlsClick(t, tt, "Grid")
 	if v != "grid" || changed == 0 {
 		t.Errorf("clicking the chosen segment reported nothing (changed %d)", changed)
 	}
@@ -658,9 +658,9 @@ func TestSegmentedChoosesAndReportsEveryClick(t *testing.T) {
 
 func TestSegmentedRaisesTheChosen(t *testing.T) {
 	v := "grid"
-	tt := controlsTester(t, 360, 100, func(c *ui.Context) { Segmented(c, &v, segmentOptions(), "View") })
+	tt := controlsTester(t, 360, 100, func(c *ui.Context) { Segmented(c, &v, controlsSegments(), "View") })
 	tt.Advance(time.Second)
-	on, off := mustFind(t, tt, "Grid"), mustFind(t, tt, "List")
+	on, off := controlsFind(t, tt, "Grid"), controlsFind(t, tt, "List")
 	img := tt.Image()
 	px := func(r ui.Rect) [3]uint8 { p := img.RGBAAt(int(r.X)-6, int(r.Y+r.H/2)); return [3]uint8{p.R, p.G, p.B} }
 	if got, want := px(on), ([3]uint8{255, 255, 255}); got != want {
@@ -681,7 +681,7 @@ func TestSliderKeysDragAndLabel(t *testing.T) {
 			changed++
 		}
 	})
-	r := mustFind(t, tt, "Volume")
+	r := controlsFind(t, tt, "Volume")
 	if r.H != 16 {
 		t.Errorf("slider is %v high, want 16", r.H)
 	}
@@ -714,7 +714,7 @@ func TestDisabledSliderIgnoresPointerAndKeys(t *testing.T) {
 	tt := controlsTester(t, 300, 100, func(c *ui.Context) {
 		Slider(c, &v, 0, 100, SliderOpts{A11yLabel: "Volume", Disabled: true, Width: 200})
 	})
-	r := mustFind(t, tt, "Volume")
+	r := controlsFind(t, tt, "Volume")
 	tt.ClickAt(r.X+r.W-4, r.Y+r.H/2)
 	tt.Key(0, ui.KeyTab)
 	tt.Key(0, ui.KeyRight)
@@ -728,7 +728,7 @@ func TestSliderThumbAndRange(t *testing.T) {
 	tt := controlsTester(t, 300, 100, func(c *ui.Context) {
 		Slider(c, &v, 0, 100, SliderOpts{A11yLabel: "Volume", Width: 200, Range: theme.C("amber")})
 	})
-	r := mustFind(t, tt, "Volume")
+	r := controlsFind(t, tt, "Volume")
 	img := tt.Image()
 	mid := int(r.Y + r.H/2)
 	ink := rgb(theme.C("ink"))
@@ -754,7 +754,7 @@ func TestVerticalSlider(t *testing.T) {
 	if v != 1 {
 		t.Errorf("Up on a vertical stepped slider: %v, want 1", v)
 	}
-	if r := mustFind(t, tt, "Gain"); r.H < 176 {
+	if r := controlsFind(t, tt, "Gain"); r.H < 176 {
 		t.Errorf("vertical slider is %v high, want at least 176", r.H)
 	}
 }
@@ -771,7 +771,7 @@ func TestTabsArrowsHomeEndAndPanel(t *testing.T) {
 		TabPanel(c, labels[sel])
 		ui.Text(c, "Page "+labels[sel])
 	})
-	mustClick(t, tt, "Playback")
+	controlsClick(t, tt, "Playback")
 	if sel != 1 || changed == 0 {
 		t.Fatalf("click: %d, changed %d", sel, changed)
 	}
@@ -791,7 +791,7 @@ func TestTabsArrowsHomeEndAndPanel(t *testing.T) {
 	if sel != 2 {
 		t.Errorf("End: tab %d", sel)
 	}
-	if r := mustFind(t, tt, "Settings"); r.H != 36 {
+	if r := controlsFind(t, tt, "Settings"); r.H != 36 {
 		t.Errorf("tab list is %v high, want 36", r.H)
 	}
 }
@@ -801,7 +801,7 @@ func TestTabsVerticalAndLine(t *testing.T) {
 	tt := controlsTester(t, 300, 300, func(c *ui.Context) {
 		Tabs(c, &sel, []string{"One", "Two", "Three"}, TabsOpts{Vertical: true, Line: true, A11yLabel: "Pages"})
 	})
-	one, two := mustFind(t, tt, "One"), mustFind(t, tt, "Two")
+	one, two := controlsFind(t, tt, "One"), controlsFind(t, tt, "Two")
 	if two.Y <= one.Y || two.X != one.X {
 		t.Errorf("vertical tabs are not stacked: %v then %v", one, two)
 	}
@@ -822,7 +822,7 @@ func TestProgressBarValueAndIndeterminate(t *testing.T) {
 		})
 	})
 	tt.Advance(time.Second)
-	a := mustFind(t, tt, "Download")
+	a := controlsFind(t, tt, "Download")
 	img := tt.Image()
 	muted, track := rgb(theme.C("ink-muted")), img.RGBAAt(int(a.X+a.W-4), int(a.Y+a.H/2))
 	if got := img.RGBAAt(int(a.X+a.W/4), int(a.Y+a.H/2)); got != muted {
@@ -834,7 +834,7 @@ func TestProgressBarValueAndIndeterminate(t *testing.T) {
 	if a.H != 4 {
 		t.Errorf("bar is %v high, want 4", a.H)
 	}
-	b := mustFind(t, tt, "Starting")
+	b := controlsFind(t, tt, "Starting")
 	if got := img.RGBAAt(int(b.X+b.W/4), int(b.Y+b.H/2)); got == muted {
 		t.Error("an indeterminate bar is filled")
 	}
@@ -853,27 +853,27 @@ func TestRatingButtons(t *testing.T) {
 			got = a
 		}
 	})
-	r := mustFind(t, tt, "Favourite OK Computer")
+	r := controlsFind(t, tt, "Favourite OK Computer")
 	if r.W != 32 {
 		t.Errorf("button is %v wide, want 32", r.W)
 	}
-	mustClick(t, tt, "Favourite OK Computer")
+	controlsClick(t, tt, "Favourite OK Computer")
 	if got != RateFavorite {
 		t.Errorf("click asked for %q", got)
 	}
-	mustClick(t, tt, "Suggest less like OK Computer")
+	controlsClick(t, tt, "Suggest less like OK Computer")
 	if got != RateSuggestLess {
 		t.Errorf("click asked for %q", got)
 	}
 	rating = 1
 	tt.Frame()
-	mustClick(t, tt, "Undo favourite for OK Computer")
+	controlsClick(t, tt, "Undo favourite for OK Computer")
 	if got != RateUnfavorite {
 		t.Errorf("click on a favourite asked for %q", got)
 	}
 	rating = -1
 	tt.Frame()
-	mustClick(t, tt, "Undo suggest less for OK Computer")
+	controlsClick(t, tt, "Undo suggest less for OK Computer")
 	if got != RateUndoSuggestLess {
 		t.Errorf("click on a suggested-less item asked for %q", got)
 	}
@@ -884,7 +884,7 @@ func TestRatingButtons(t *testing.T) {
 	if got != RateNone {
 		t.Errorf("a pending button reported %q", got)
 	}
-	if r := mustFind(t, tt, "Favourite OK Computer"); r.W != 24 {
+	if r := controlsFind(t, tt, "Favourite OK Computer"); r.W != 24 {
 		t.Errorf("compact button is %v wide, want 24", r.W)
 	}
 }
@@ -896,7 +896,7 @@ func TestRatingButtonsHideSuggestLess(t *testing.T) {
 	if _, ok := tt.Find("Suggest less like X"); ok {
 		t.Error("Suggest Less shows although hidden")
 	}
-	mustFind(t, tt, "Favourite X")
+	controlsFind(t, tt, "Favourite X")
 }
 
 func TestRatingButtonsPressedState(t *testing.T) {
@@ -905,7 +905,7 @@ func TestRatingButtonsPressedState(t *testing.T) {
 	})
 	tt.Advance(time.Second)
 	// The star is filled ink when it is a favourite.
-	r := mustFind(t, tt, "Undo favourite for X")
+	r := controlsFind(t, tt, "Undo favourite for X")
 	img := tt.Image()
 	ink := rgb(theme.C("ink"))
 	if got := img.RGBAAt(int(r.X+r.W/2), int(r.Y+r.H/2)); got != ink {
@@ -921,7 +921,7 @@ func TestLibraryButton(t *testing.T) {
 			got = a
 		}
 	})
-	mustClick(t, tt, "Add")
+	controlsClick(t, tt, "Add")
 	if got != LibraryAdd {
 		t.Errorf("Add asked for %v", got)
 	}
@@ -934,7 +934,7 @@ func TestLibraryButton(t *testing.T) {
 	}
 	pending, in = false, true
 	tt.Frame()
-	mustClick(t, tt, "In library. Delete “OK Computer” from your library")
+	controlsClick(t, tt, "In library. Delete “OK Computer” from your library")
 	if got != LibraryRemove {
 		t.Errorf("In library asked for %v", got)
 	}
@@ -954,7 +954,7 @@ func TestLibraryButtonAddLabel(t *testing.T) {
 	tt := controlsTester(t, 400, 100, func(c *ui.Context) {
 		LibraryButton(c, LibraryOpts{Name: "X", AddLabel: "Pre-add"})
 	})
-	mustFind(t, tt, "Pre-add")
+	controlsFind(t, tt, "Pre-add")
 }
 
 func TestPlayButtons(t *testing.T) {
@@ -969,16 +969,16 @@ func TestPlayButtons(t *testing.T) {
 			play, shuffle = play || p, shuffle || s
 		})
 	})
-	r := mustFind(t, tt, "Play OK Computer")
+	r := controlsFind(t, tt, "Play OK Computer")
 	if r.W != 40 || r.H != 40 {
 		t.Errorf("disc is %v×%v, want 40", r.W, r.H)
 	}
-	mustClick(t, tt, "Play OK Computer")
+	controlsClick(t, tt, "Play OK Computer")
 	if !play || shuffle {
 		t.Errorf("play %v, shuffle %v", play, shuffle)
 	}
 	play = false
-	mustClick(t, tt, "Shuffle")
+	controlsClick(t, tt, "Shuffle")
 	if play || !shuffle {
 		t.Errorf("play %v, shuffle %v", play, shuffle)
 	}
@@ -989,7 +989,7 @@ func TestPlayButtons(t *testing.T) {
 	}
 	opts = PlayButtonsOpts{PlayLabel: "Play your songs"}
 	tt.Frame()
-	mustFind(t, tt, "Play your songs")
+	controlsFind(t, tt, "Play your songs")
 	disabled = true
 	tt.Frame()
 	play = false
@@ -1006,7 +1006,7 @@ func TestPlayButtonIsAnAmberDisc(t *testing.T) {
 			n++
 		}
 	})
-	r := mustFind(t, tt, "Play Abbey Road")
+	r := controlsFind(t, tt, "Play Abbey Road")
 	if r.W != 48 || r.H != 48 {
 		t.Errorf("disc is %v", r)
 	}
@@ -1014,7 +1014,7 @@ func TestPlayButtonIsAnAmberDisc(t *testing.T) {
 	if got, want := tt.Image().RGBAAt(int(r.X)+6, int(r.Y)+24), rgb(theme.C("amber")); got != want {
 		t.Errorf("disc %v, want amber %v", got, want)
 	}
-	mustClick(t, tt, "Play Abbey Road")
+	controlsClick(t, tt, "Play Abbey Road")
 	if n != 1 {
 		t.Errorf("clicked %d times", n)
 	}
@@ -1027,14 +1027,14 @@ func TestEmptyStateActionRuns(t *testing.T) {
 	tt := controlsTester(t, 500, 300, func(c *ui.Context) {
 		EmptyState(c, "No albums yet", "Add music and it appears here.", EmptyOpts{Action: &EmptyAction{Label: "Browse", Run: func() { ran++ }}})
 	})
-	mustFind(t, tt, "No albums yet")
-	mustFind(t, tt, "Add music and it appears here.")
-	mustClick(t, tt, "Browse")
+	controlsFind(t, tt, "No albums yet")
+	controlsFind(t, tt, "Add music and it appears here.")
+	controlsClick(t, tt, "Browse")
 	if ran != 1 {
 		t.Errorf("action ran %d times", ran)
 	}
 	// A heading, for the page's outline.
-	if r := mustFind(t, tt, "Browse"); r.H > 32 {
+	if r := controlsFind(t, tt, "Browse"); r.H > 32 {
 		t.Errorf("action is %v high, want the small size", r.H)
 	}
 }
@@ -1075,7 +1075,7 @@ func TestErrorBlockWordsGoFailureAndRetries(t *testing.T) {
 	tt := controlsTester(t, 600, 200, func(c *ui.Context) {
 		ErrorBlock(c, "Couldn't load this album", &net.DNSError{Err: "no such host"}, ErrorBlockOpts{OnRetry: func() { retries++ }, Retrying: retrying})
 	})
-	mustFind(t, tt, "Couldn't load this album")
+	controlsFind(t, tt, "Couldn't load this album")
 	if !tt.HasText("Sona couldn't reach the network. Check your connection and try again.") {
 		t.Errorf("no reason: %q", tt.Texts())
 	}
@@ -1085,13 +1085,13 @@ func TestErrorBlockWordsGoFailureAndRetries(t *testing.T) {
 	if got := tt.Announcements(); len(got) != 1 || !strings.Contains(got[0], "Couldn't load this album") {
 		t.Errorf("announcements %q, want the failure once", got)
 	}
-	mustClick(t, tt, "Try again")
+	controlsClick(t, tt, "Try again")
 	if retries != 1 {
 		t.Errorf("retried %d times", retries)
 	}
 	retrying = true
 	tt.Frame()
-	mustFind(t, tt, "Retrying…")
+	controlsFind(t, tt, "Retrying…")
 	_ = tt.Click("Retrying…")
 	if retries != 1 {
 		t.Error("the retrying button took a click")
@@ -1114,7 +1114,7 @@ func TestDetailSkeletonIsABusyStatus(t *testing.T) {
 	tt := controlsTester(t, 900, 700, func(c *ui.Context) {
 		ui.Column(c).Width(800).Children(func() { DetailSkeleton(c, true) })
 	})
-	mustFind(t, tt, "Loading")
+	controlsFind(t, tt, "Loading")
 }
 
 func TestDetailErrorByCode(t *testing.T) {
@@ -1127,23 +1127,23 @@ func TestDetailErrorByCode(t *testing.T) {
 	})
 	err = fmt.Errorf("artist: %w", applemusic.ErrNotFound)
 	tt.Frame()
-	mustFind(t, tt, "This artist isn't available")
-	mustClick(t, tt, "Back to Artists")
+	controlsFind(t, tt, "This artist isn't available")
+	controlsClick(t, tt, "Back to Artists")
 	if back != 1 {
 		t.Errorf("back ran %d times", back)
 	}
 	err = auth.ErrNotSignedIn
 	tt.Frame()
-	mustFind(t, tt, "Sign in to see this")
-	mustFind(t, tt, "Apple Music needs a signed-in account to show this artist.")
-	mustClick(t, tt, "Sign in")
+	controlsFind(t, tt, "Sign in to see this")
+	controlsFind(t, tt, "Apple Music needs a signed-in account to show this artist.")
+	controlsClick(t, tt, "Sign in")
 	if signIn != 1 {
 		t.Errorf("sign in ran %d times", signIn)
 	}
 	err = &net.DNSError{Err: "x"}
 	tt.Frame()
-	mustFind(t, tt, "Couldn't load this artist")
-	mustClick(t, tt, "Try again")
+	controlsFind(t, tt, "Couldn't load this artist")
+	controlsClick(t, tt, "Try again")
 	if retry != 1 {
 		t.Errorf("retry ran %d times", retry)
 	}
@@ -1156,7 +1156,7 @@ func TestDetailErrorNouns(t *testing.T) {
 		tt := controlsTester(t, 700, 300, func(c *ui.Context) {
 			DetailError(c, noun, applemusic.ErrNotFound, DetailErrorOpts{Back: EmptyAction{Label: "Back"}})
 		})
-		mustFind(t, tt, "This "+want+" isn't available")
+		controlsFind(t, tt, "This "+want+" isn't available")
 	}
 }
 
@@ -1171,13 +1171,13 @@ func TestPageHeader(t *testing.T) {
 			}
 		})
 	})
-	mustFind(t, tt, "Albums")
-	mustFind(t, tt, "128 albums")
-	mustClick(t, tt, "Sort")
+	controlsFind(t, tt, "Albums")
+	controlsFind(t, tt, "128 albums")
+	controlsClick(t, tt, "Sort")
 	if n != 1 {
 		t.Error("the page's action did not run")
 	}
-	title, sort := mustFind(t, tt, "Albums"), mustFind(t, tt, "Sort")
+	title, sort := controlsFind(t, tt, "Albums"), controlsFind(t, tt, "Sort")
 	if sort.X < title.X+title.W {
 		t.Errorf("actions at %v are not at the end of the row (title %v)", sort, title)
 	}
@@ -1200,20 +1200,20 @@ func TestCollectionHeaderBuildsItsParts(t *testing.T) {
 		})
 	})
 	for _, want := range []string{"OK Computer", "Radiohead", "Album · 1997", "Explicit", "A long description.", "Out in 3 days", "Play OK Computer"} {
-		mustFind(t, tt, want)
+		controlsFind(t, tt, want)
 	}
 	if len(built) < 2 {
 		t.Errorf("built %q", built)
 	}
 	// 1100 wide: the 200px cover; narrow windows get the smaller one.
-	title, play := mustFind(t, tt, "OK Computer"), mustFind(t, tt, "Play OK Computer")
+	title, play := controlsFind(t, tt, "OK Computer"), controlsFind(t, tt, "Play OK Computer")
 	if title.X < 20+200+28-1 {
 		t.Errorf("title at %v: the cover is not 200 wide", title.X)
 	}
 	_ = play
 	tt.SetSize(900, 400)
 	tt.Frame()
-	if title := mustFind(t, tt, "OK Computer"); title.X > 20+136+28+1 {
+	if title := controlsFind(t, tt, "OK Computer"); title.X > 20+136+28+1 {
 		t.Errorf("narrow title at %v: the cover is not 136 wide", title.X)
 	}
 }
@@ -1232,12 +1232,12 @@ func TestNotesClampsAndExpands(t *testing.T) {
 		t.Error("the clamp shows the second paragraph")
 	}
 	_ = more
-	mustClick(t, tt, "Read more")
+	controlsClick(t, tt, "Read more")
 	tt.Advance(100 * time.Millisecond)
 	if !tt.HasText("Second paragraph.") || !tt.HasText("Show less") {
 		t.Errorf("not expanded: %q", tt.Texts())
 	}
-	mustClick(t, tt, "Show less")
+	controlsClick(t, tt, "Show less")
 	tt.Advance(100 * time.Millisecond)
 	if tt.HasText("Second paragraph.") || !tt.HasText("Read more") {
 		t.Errorf("not collapsed: %q", tt.Texts())
@@ -1262,14 +1262,14 @@ func TestArtistLinksJoinWithCommasAndAnAmpersand(t *testing.T) {
 	artists := []services.Artist{{ID: "1", Name: "Daft Punk"}, {ID: "2", Name: "Pharrell Williams"}, {ID: "3", Name: "Nile Rodgers"}}
 	tt := controlsTester(t, 700, 100, func(c *ui.Context) { ArtistLinks(c, artists, "x", ui.Color{}) })
 	for _, a := range artists {
-		mustFind(t, tt, a.Name)
+		controlsFind(t, tt, a.Name)
 	}
 	joined := strings.Join(tt.Texts(), "")
 	if !strings.Contains(joined, ", ") || !strings.Contains(joined, " & ") {
 		t.Errorf("texts %q: want \"A, B & C\"", tt.Texts())
 	}
 	tt = controlsTester(t, 700, 100, func(c *ui.Context) { ArtistLinks(c, nil, "Daft Punk & Friends", ui.Color{}) })
-	mustFind(t, tt, "Daft Punk & Friends")
+	controlsFind(t, tt, "Daft Punk & Friends")
 }
 
 func TestArtistLinksGoToTheArtistPage(t *testing.T) {
@@ -1287,7 +1287,7 @@ func TestArtistLinksGoToTheArtistPage(t *testing.T) {
 			ArtistLinks(c, artists, "x", ui.Color{})
 		})
 	}, 400, 200)
-	r := mustFind(t, tt, "Radiohead") // the paragraph's box: the link is at its start
+	r := controlsFind(t, tt, "Radiohead") // the paragraph's box: the link is at its start
 	tt.ClickAt(r.X+10, r.Y+r.H/2)
 	if path != "r.42" || !tt.HasText("Artist page") {
 		t.Errorf("went to %q (%q)", path, tt.Texts())
@@ -1296,9 +1296,9 @@ func TestArtistLinksGoToTheArtistPage(t *testing.T) {
 
 // --- Focus rings, more keys ------------------------------------------------
 
-// ringAround reports whether anything but the ground is drawn within off
+// controlsRingAround reports whether anything but the ground is drawn within off
 // DIPs above the top edge of r, in the middle.
-func ringAround(tt *ui.Tester, r ui.Rect, off int) bool {
+func controlsRingAround(tt *ui.Tester, r ui.Rect, off int) bool {
 	tt.Frame()
 	for d := 1; d <= off; d++ {
 		if tt.Image().RGBAAt(int(r.X+r.W/2), int(r.Y)-d) != rgb(theme.C("ground")) {
@@ -1328,11 +1328,11 @@ func TestFocusRingShowsForTheKeyboardOnly(t *testing.T) {
 				off = 12 // the label sits inside the tab's padding
 			}
 			tt := newTester()
-			r := mustFind(t, tt, "Target")
-			mustClick(t, tt, "Target")
+			r := controlsFind(t, tt, "Target")
+			controlsClick(t, tt, "Target")
 			tt.Move(250, 90)
 			tt.Advance(time.Second)
-			if ringAround(tt, r, off) {
+			if controlsRingAround(tt, r, off) {
 				t.Error("a ring after a mouse click")
 			}
 			tt = newTester()
@@ -1344,7 +1344,7 @@ func TestFocusRingShowsForTheKeyboardOnly(t *testing.T) {
 			if !tt.Focused("Target") {
 				t.Fatal("Tab never reached the control")
 			}
-			if !ringAround(tt, r, off) {
+			if !controlsRingAround(tt, r, off) {
 				t.Error("no ring while the keyboard has the focus")
 			}
 		})
@@ -1356,7 +1356,7 @@ func TestSliderThumbRingShowsOnKeyboardFocus(t *testing.T) {
 	tt := controlsTester(t, 300, 100, func(c *ui.Context) {
 		Slider(c, &v, 0, 100, SliderOpts{A11yLabel: "Volume", Width: 200})
 	})
-	r := mustFind(t, tt, "Volume")
+	r := controlsFind(t, tt, "Volume")
 	x, y := int(r.X+6+(r.W-12)*0.5), int(r.Y+r.H/2)
 	probe := func() [3]uint8 { tt.Frame(); p := tt.Image().RGBAAt(x+8, y); return [3]uint8{p.R, p.G, p.B} } // 2px past the thumb: inside the 4px ring
 	rest := probe()
@@ -1374,7 +1374,7 @@ func TestSliderThumbRingShowsOnKeyboardFocus(t *testing.T) {
 func TestSelectOpensWithSpaceAndArrow(t *testing.T) {
 	v := "free"
 	tt := controlsTester(t, 360, 360, func(c *ui.Context) {
-		Select(c, &v, planItems(), SelectOpts{A11yLabel: "Plan"})
+		Select(c, &v, controlsPlanItems(), SelectOpts{A11yLabel: "Plan"})
 	})
 	tt.Key(0, ui.KeyTab)
 	if !tt.Focused("Plan") {
@@ -1395,7 +1395,7 @@ func TestPlayButtonsTooltipIsPlay(t *testing.T) {
 	tt := controlsTester(t, 400, 100, func(c *ui.Context) {
 		ui.Row(c).Children(func() { PlayButtons(c, PlayButtonsOpts{Label: "OK Computer"}) })
 	})
-	r := mustFind(t, tt, "Play OK Computer")
+	r := controlsFind(t, tt, "Play OK Computer")
 	tt.Move(r.X+r.W/2, r.Y+r.H/2)
 	tt.Advance(time.Second)
 	found := false
@@ -1415,7 +1415,7 @@ func TestLabelledButtonHeights(t *testing.T) {
 		tt := controlsTester(t, 300, 100, func(c *ui.Context) {
 			Button(c, "Label", ButtonOpts{Variant: Outline, Size: tc.size, A11yLabel: "Box"})
 		})
-		if r := mustFind(t, tt, "Box"); r.H != tc.want || r.W < 40 {
+		if r := controlsFind(t, tt, "Box"); r.H != tc.want || r.W < 40 {
 			t.Errorf("size %d: labelled button %v, want %v high", tc.size, r, tc.want)
 		}
 	}
@@ -1429,7 +1429,7 @@ func TestScrollAreaTakesTheKeyboard(t *testing.T) {
 			}
 		})
 	})
-	first := mustFind(t, tt, "Row 0")
+	first := controlsFind(t, tt, "Row 0")
 	tt.Key(0, ui.KeyTab)
 	if !tt.Focused("List") {
 		t.Fatal("Tab did not focus the scroll area")

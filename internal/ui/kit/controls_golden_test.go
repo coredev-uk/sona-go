@@ -97,7 +97,7 @@ func controlsCompare(t *testing.T, file string, got *image.RGBA) {
 		for x := b.Min.X; x < b.Max.X; x++ {
 			wr, wg, wb, _ := want.At(x, y).RGBA()
 			g := got.RGBAAt(x, y)
-			if absDiff(int(wr>>8), int(g.R)) > 6 || absDiff(int(wg>>8), int(g.G)) > 6 || absDiff(int(wb>>8), int(g.B)) > 6 {
+			if controlsAbsDiff(int(wr>>8), int(g.R)) > 6 || controlsAbsDiff(int(wg>>8), int(g.G)) > 6 || controlsAbsDiff(int(wb>>8), int(g.B)) > 6 {
 				off++
 			}
 		}
@@ -113,7 +113,7 @@ func controlsCompare(t *testing.T, file string, got *image.RGBA) {
 	}
 }
 
-func absDiff(a, b int) int {
+func controlsAbsDiff(a, b int) int {
 	if a < b {
 		return b - a
 	}
