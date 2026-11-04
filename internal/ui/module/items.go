@@ -2,6 +2,7 @@ package module
 
 import (
 	"context"
+	"strings"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
@@ -25,19 +26,25 @@ func (e *Env) ItemsCtx(menus *kit.ActionMenus) kit.ItemsCtx {
 	}
 	if e.Core != nil {
 		ctx.Restricted = services.Service[services.AuthService](e.Core).Status().Restricted
-		catalog := services.Service[services.CatalogService](e.Core)
-		ctx.OpenURL = func(url string) {
-			go func() {
-				if err := catalog.OpenInAppleMusic(url); err != nil && e.Log != nil {
-					e.Log.Warn("open in Apple Music", "err", err)
-				}
-			}()
-		}
 		pb := services.Service[services.PlaybackService](e.Core)
 		ctx.Toggle = func() {
 			go func() {
 				if err := pb.Toggle(context.Background()); err != nil && e.Log != nil {
 					e.Log.Warn("toggle playback", "err", err)
+				}
+			}()
+		}
+	}
+	// A web-only item opens in the browser (v0.2.0's openWithoutPage: any
+	// item.url).
+	if e.OpenURL != nil {
+		ctx.OpenURL = func(url string) {
+			if !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "http://") {
+				return
+			}
+			go func() {
+				if err := e.OpenURL(url); err != nil && e.Log != nil {
+					e.Log.Warn("open in the browser", "err", err)
 				}
 			}()
 		}

@@ -77,7 +77,7 @@ func TestAccount(t *testing.T) {
 }
 
 // TestFirstRun is the first start end to end: a profile whose setup was
-// never finished opens on the setup layer over Albums; Continue walks the
+// never finished opens on the setup layer over Home; Continue walks the
 // steps, the Apple Music step offers the sign-in, and Skip setup leaves it
 // for good.
 func TestFirstRun(t *testing.T) {
@@ -113,8 +113,8 @@ func TestFirstRun(t *testing.T) {
 	if err := c.Press(10*time.Second, "Skip setup"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.Wait(10*time.Second, "the setup to close over Albums", func(tr *automation.Tree) bool {
-		return !tr.HasText("Set up Sona") && tr.HasText("24 albums")
+	if _, err := c.Wait(10*time.Second, "the setup to close over Home", func(tr *automation.Tree) bool {
+		return !tr.HasText("Set up Sona") && tr.HasText("Recommendations need Apple Music")
 	}); err != nil {
 		t.Fatal(err)
 	}

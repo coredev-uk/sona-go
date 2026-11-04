@@ -58,6 +58,15 @@ type Env struct {
 	// are not known yet in its factory. Nil in a hand-built Env: treat as
 	// false.
 	HasRoute func(path string) bool
+	// Players is the shared item-play registry (kit.ItemPlayers): the
+	// features that own playback register how each kind plays (discover:
+	// songs, albums, playlists, videos; radio: stations) and the shared item
+	// components play through it. Built by NewPlayers; never nil.
+	Players *kit.ItemPlayers
+	// ConcertsShelf builds Home's concerts shelf (the next shows near the
+	// chosen city); the concerts module sets it in its factory, so it is nil
+	// until then and a page that wants it builds nothing without it.
+	ConcertsShelf func(c *ui.Context, first bool)
 	// Post runs fn on the main thread and redraws the windows: how a
 	// goroutine (a service call) hands its outcome to the view.
 	Post store.Poster

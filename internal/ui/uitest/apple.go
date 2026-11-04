@@ -11,13 +11,13 @@ import (
 // AppleHost is the host the fake Apple Music API answers to.
 const AppleHost = "api.music.apple.com"
 
-// AppleAMPHost is the web player's API host (the concert hub, genres,
-// social profiles): it answers with the same handler.
+// AppleAMPHost is the web player's API host (editorial pages, Home, charts):
+// the same fake answers it.
 const AppleAMPHost = "amp-api.music.apple.com"
 
 // Apple signs the Core in to a fake Apple Music account (storefront "gb", a
 // Music User Token that is always valid) and serves every Apple Music API
-// request (api and amp-api hosts) with h, in process on the harness Network: the responses a test
+// request with h, in process on the harness Network: the responses a test
 // gives are JSON shaped like Apple's. Requests the handler does not know
 // should answer 404. Without it the Core is signed out and has no API.
 func Apple(h http.Handler) Option { return func(o *options) { o.apple = h } }
@@ -25,7 +25,7 @@ func Apple(h http.Handler) Option { return func(o *options) { o.apple = h } }
 // serveApple registers the fake API (wrapped with the two requests the
 // account's validation makes) on the Network.
 func (h *Harness) serveApple(next http.Handler) {
-	wrapped := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fake := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/v1/me/storefront":
 			w.Header().Set("Content-Type", "application/json")
@@ -37,8 +37,8 @@ func (h *Harness) serveApple(next http.Handler) {
 			next.ServeHTTP(w, r)
 		}
 	})
-	h.Network.ServeHandler(AppleHost, wrapped)
-	h.Network.ServeHandler(AppleAMPHost, wrapped)
+	h.Network.ServeHandler(AppleHost, fake)
+	h.Network.ServeHandler(AppleAMPHost, fake)
 }
 
 func appleStorefront(on bool) func() string {
