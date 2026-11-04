@@ -38,10 +38,16 @@ var overlaysState = struct {
 	sel             *gallerySelection
 }{}
 
-// gallerySelection selects every other row.
+// gallerySelection treats the first and last rows as a multi-selection, so
+// the menu of either shows the bulk actions.
 type gallerySelection struct{ rows []kit.Item }
 
-func (s *gallerySelection) GroupWith(key string) ([]kit.Item, []int, bool) { return nil, nil, false }
+func (s *gallerySelection) GroupWith(key string) ([]kit.Item, []int, bool) {
+	if len(s.rows) < 2 || (key != s.rows[0].ID() && key != s.rows[len(s.rows)-1].ID()) {
+		return nil, nil, false
+	}
+	return []kit.Item{s.rows[0], s.rows[len(s.rows)-1]}, []int{0, len(s.rows) - 1}, true
+}
 
 func overlaysDialogs(c *ui.Context, _ *gallery) {
 	s := &overlaysState
@@ -149,7 +155,18 @@ func overlaysActions(c *ui.Context, _ *gallery) {
 				Run:    func(*kit.ActionContext) {},
 			},
 		)
-		s.am = kit.NewActionMenus(s.reg, nil)
+		s.reg.SetPoster(func(fn func()) { fn() }) // the gallery has no window to post to: the loads are instant
+		s.sel = &gallerySelection{}
+		for _, name := range []string{"Airbag", "Paranoid Android", "Karma Police"} {
+			s.sel.rows = append(s.sel.rows, kit.SongItem(services.Song{ID: name, Name: name}))
+		}
+		s.reg.Register(kit.ActionDef{
+			ID: "player.play-next.many", Target: kit.KindSelection, Kinds: []kit.ItemKind{kit.KindSong},
+			Group: kit.GroupQueue, Order: 10, Icon: "list-start",
+			Label: func(*kit.ActionContext) string { return "Play next" },
+			Run:   func(a *kit.ActionContext) { s.ran = "Play next: " + kit.DescribeItems(a.Items) },
+		})
+		s.am = kit.NewActionMenus(s.reg, s.sel)
 	}
 	note(c, "kit.ActionMenus: the row's More button (hover), right-click and Shift+F10 open the registry's actions for the item, grouped, with menu data loaded when it opens.")
 	panel(c, func() {

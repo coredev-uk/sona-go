@@ -104,16 +104,21 @@ func keyName(p string, _ bool) string {
 }
 
 // Keycaps draws chords as keycaps side by side (a 20 DIP tall bordered cap
-// per key, tabular figures); assistive technology reads each as words
-// ("Ctrl+Left Arrow"). The shortcut help and the palette share it.
+// per key, tabular figures). Assistive technology reads each chord once, as
+// words ("Ctrl+Left Arrow"), with "or" between chords; the caps themselves
+// are left out of the tree. The shortcut help and the palette share it.
 func Keycaps(c *ui.Context, chords ...string) {
-	ui.Row(c).Gap(6).AlignItems(ui.Center).Shrink(0).Children(func() {
+	spoken := make([]string, len(chords))
+	for i, chord := range chords {
+		spoken[i] = ChordText(chord)
+	}
+	ui.Row(c).Gap(6).AlignItems(ui.Center).Shrink(0).Role(ui.RoleGroup).Label(strings.Join(spoken, " "+i18n.T("or")+" ")).Children(func() {
 		for _, chord := range chords {
-			ui.Row(c.Key("chord:" + chord)).Gap(2).AlignItems(ui.Center).Role(ui.RoleGroup).Label(ChordText(chord)).Children(func() {
+			ui.Row(c.Key("chord:" + chord)).Gap(2).AlignItems(ui.Center).Role(ui.RoleNone).Children(func() {
 				for j, part := range ChordParts(chord) {
-					ui.Row(c.Key("cap:"+string(rune('0'+j)))).Height(20).MinWidth(20).PaddingX(4).Center().
+					ui.Row(c.Key("cap:"+string(rune('0'+j)))).Height(20).MinWidth(20).PaddingX(4).Center().Role(ui.RoleNone).
 						Radius(theme.Current().Radius["sm"]).Border(1, theme.C("control-line")).Children(func() {
-						overlaysText(c, part, "meta").FontWeight(500).TextColor(theme.C("ink-muted")).FontFeatures("tnum")
+						overlaysText(c, part, "meta").FontWeight(500).TextColor(theme.C("ink-muted")).FontFeatures("tnum").Role(ui.RoleNone)
 					})
 				}
 			})
@@ -155,7 +160,7 @@ type PaletteSource func(query string) []PaletteSection
 // that is an ARIA combobox over a grouped list. Up and Down move (and wrap),
 // Enter runs the active row, Escape closes and the focus goes back where it
 // was; the chosen entry runs once the dialog has closed and the focus is
-// back, since it may move the focus itself. Hovering a row makes it active.
+// back, since it may move the focus itself. Moving the pointer onto a row makes it active.
 type Palette struct {
 	open    bool
 	query   string
@@ -163,13 +168,22 @@ type Palette struct {
 	active  string
 	hover   string
 	pending func()
+	settle  int
+	// moved: the pointer moved since the last frame (only a real move may
+	// make a row active; a pointer resting under a re-laid-out list must
+	// not take the choice from the keys).
+	moved bool
+	// reveal scrolls the active row into view, once, after the keys moved it.
+	reveal bool
 }
 
 // IsOpen reports whether the palette shows.
 func (p *Palette) IsOpen() bool { return p.open }
 
 // Open shows the palette with an empty query.
-func (p *Palette) Open() { p.open, p.query, p.last, p.active, p.hover = true, "", "", "", "" }
+func (p *Palette) Open() {
+	p.open, p.query, p.last, p.active, p.hover, p.moved, p.reveal = true, "", "", "", "", false, false
+}
 
 // Close hides it.
 func (p *Palette) Close() { p.open = false }
@@ -182,6 +196,15 @@ func (p *Palette) Query() string { return p.query }
 func (p *Palette) Show(c *ui.Context, src PaletteSource) {
 	if !p.open {
 		if fn := p.pending; fn != nil {
+			// One frame after the dialog is gone, so MyGo has given the
+			// focus back before the entry runs (as Menu.Show settles): an
+			// entry that opens a dialog notes the page's focus, not the
+			// palette's dying field.
+			if p.settle > 0 {
+				p.settle--
+				c.AnimationFrame()
+				return
+			}
 			p.pending = nil
 			fn()
 		}
@@ -190,7 +213,7 @@ func (p *Palette) Show(c *ui.Context, src PaletteSource) {
 	_, h := c.Size()
 	w, _ := c.Size()
 	Dialog(c.Key("palette"), &p.open, DialogOpts{
-		Title: i18n.T("Command palette"), HideHeader: true, HideClose: true, Bare: true,
+		Title: i18n.T("Command palette"), HideHeader: true, HideClose: true, Bare: true, Raised: true,
 		MaxWidth: min(600, max(w-32, 0)), Top: h * 0.14,
 	}, func() { p.body(c, src, h) })
 }
@@ -213,25 +236,25 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 	if at < 0 && len(flat) > 0 {
 		at, p.active = 0, flat[0].Key
 	}
-	// The row the pointer is on is active once it has moved onto it.
 	pick := func(e PaletteEntry) {
-		p.pending = e.Run
+		p.pending, p.settle = e.Run, 1
 		p.open = false
 	}
 
 	// The field.
+	var field ui.Element
 	ui.Row(c.Key("palette:field")).Height(48).FillWidth().Padding(0, 16).Gap(12).AlignItems(ui.Center).Children(func() {
 		ui.Icon(c.Key("search"), theme.Icon("search")).FontSize(16).TextColor(theme.C("ink-faint")).Shrink(0)
-		field := ui.TextInputBase(c.Key("palette:input"), &p.query).Role(ui.RoleComboBox).Grow(1).MinWidth(0).Height(48).
+		field = ui.TextInputBase(c.Key("palette:input"), &p.query).Role(ui.RoleComboBox).Grow(1).MinWidth(0).Height(48).
 			Label(i18n.T("Find a page, action or music in your library")).
 			Placeholder(i18n.T("Go to a page, run an action, find music in your library")).
 			PlaceholderColor(theme.C("ink-faint")).TextColor(theme.C("ink")).FontSize(theme.Current().Type["body"].Size)
 		n := len(flat)
 		switch {
 		case n > 0 && field.Shortcut(0, ui.KeyDown):
-			p.active = flat[(at+1)%n].Key
+			p.active, p.reveal = flat[(at+1)%n].Key, true
 		case n > 0 && field.Shortcut(0, ui.KeyUp):
-			p.active = flat[(at-1+n)%n].Key
+			p.active, p.reveal = flat[(at-1+n)%n].Key, true
 		case n > 0 && field.Submitted():
 			pick(flat[at])
 		}
@@ -241,7 +264,14 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 	// The results.
 	maxH := min(windowH*0.56, 440)
 	list := ui.Scroll(c.Key("palette:list")).Role(ui.RoleList).Label(i18n.T("Results")).FillWidth().MaxHeight(maxH).Padding(6)
+	list.HandleInput(func(ev ui.InputEvent) bool {
+		if ev.Kind == ui.InputPointerMove {
+			p.moved = true
+		}
+		return false // the scroll container still takes it
+	})
 	hovered := ""
+	var activeRow ui.Element
 	list.Children(func() {
 		for _, s := range sections {
 			ui.Column(c.Key("palette:g:" + s.Title)).Role(ui.RoleGroup).Label(s.Title).FillWidth().Children(func() {
@@ -254,17 +284,24 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 					if row.Clicked() {
 						pick(e)
 					}
-					if e.Key == p.active && p.hover != "" {
-						row.ScrollIntoView()
+					if e.Key == p.active {
+						activeRow = row
+						if p.reveal {
+							row.ScrollIntoView()
+						}
 					}
 				}
 			})
 		}
 	})
-	if hovered != p.hover && hovered != "" {
+	p.reveal = false
+	if p.moved && hovered != "" && hovered != p.hover {
 		p.active = hovered
 	}
-	p.hover = hovered
+	p.hover, p.moved = hovered, false
+	if flat != nil {
+		field.ActiveDescendant(activeRow)
+	}
 
 	// The hints.
 	ui.Box(c.Key("palette:sep2")).Height(1).FillWidth().Background(theme.C("line"))

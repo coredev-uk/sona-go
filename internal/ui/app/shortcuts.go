@@ -8,6 +8,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
 
@@ -160,8 +161,7 @@ func (d *dispatcher) dispatch(c *ui.Context) {
 			}
 			if s.Unavailable != nil {
 				if why := s.Unavailable(); why != "" {
-					c.Toast(why)
-					c.Announce(why)
+					kit.Unavailable(why)
 					break
 				}
 			}

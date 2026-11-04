@@ -107,6 +107,11 @@ type Menu struct {
 	typedAt  time.Time
 	pending  func()
 	settle   int
+	// moved: the pointer moved since the last frame. Only a real move lets
+	// a row under the pointer take the highlight; a menu appearing or
+	// scrolling under a resting pointer must not take it from the keys.
+	moved bool
+	now   time.Time
 	// dismissed is set the frame the user closed the menu (Escape, a
 	// press outside, Tab): Dismissed reports it once.
 	dismissed bool
@@ -121,9 +126,6 @@ type menuLevel struct {
 	hi     string
 	byKey  bool
 	reveal bool
-	// hover is the row the pointer was last seen on, so a menu resting
-	// under a still pointer does not take the highlight back from the keys.
-	hover string
 }
 
 // IsOpen reports whether the menu shows.
@@ -175,6 +177,7 @@ func (m *Menu) Show(c *ui.Context, o MenuOpts, anchor ui.Element, items []MenuIt
 		o.ID = "menu"
 	}
 	m.age++
+	m.now = c.Now()
 	tk := theme.Current()
 	var focusEl ui.Element
 	focusLv := -1
@@ -202,6 +205,7 @@ func (m *Menu) Show(c *ui.Context, o MenuOpts, anchor ui.Element, items []MenuIt
 			rows = rows[i].Sub
 		}
 	})
+	m.moved = false
 	if !m.open {
 		m.levels = nil
 		return
@@ -238,6 +242,10 @@ func (m *Menu) panel(c *ui.Context, o MenuOpts, tk *theme.Tokens, lv int, items 
 		panel.Transition(ui.ElementTransition{Enter: &ui.Motion{Y: 4}, Duration: mo.Duration, Ease: mo.Ease})
 	}
 	panel.HandleInput(func(ev ui.InputEvent) bool {
+		if ev.Kind == ui.InputPointerMove {
+			m.moved = true
+			return false
+		}
 		if ev.Kind != ui.InputText || ev.Text == "" || strings.TrimSpace(ev.Text) == "" && m.typed == "" {
 			return false
 		}
@@ -298,14 +306,18 @@ func (m *Menu) panel(c *ui.Context, o MenuOpts, tk *theme.Tokens, lv int, items 
 
 	// The pointer moving onto a row highlights it, opening its sub-menu and
 	// closing the others'; the keys go on from there.
-	if hovered != level().hover {
-		level().hover = hovered
-		if hovered != "" {
-			level().hi, level().byKey = hovered, false
+	if m.moved && hovered != "" {
+		changed := level().hi != hovered
+		level().hi, level().byKey = hovered, false
+		isSub := slices.ContainsFunc(items, func(it MenuItem) bool { return it.Key == hovered && it.Kind == MenuSub })
+		open := len(m.levels) > lv+1 && m.levels[lv+1].sub == hovered
+		switch {
+		case isSub && !open:
+			m.levels = append(m.levels[:lv+1], menuLevel{sub: hovered})
+		case !isSub && changed:
 			m.levels = m.levels[:lv+1]
-			if i := slices.IndexFunc(items, func(it MenuItem) bool { return it.Key == hovered }); i >= 0 && items[i].Kind == MenuSub {
-				m.levels = append(m.levels, menuLevel{sub: hovered})
-			}
+		}
+		if changed {
 			m.focus = lv
 		}
 	}
@@ -360,7 +372,11 @@ func (m *Menu) row(c *ui.Context, it *MenuItem, marks, hi, byKey bool, lv int) u
 		ring = theme.C("ring")
 	}
 	row.Border(2, ring)
-	if it.Hint != "" {
+	switch {
+	case it.Reason != "":
+		// Menu items are leaves for assistive technology: say why it is dimmed.
+		row.Description(it.Reason)
+	case it.Hint != "":
 		row.Description(it.Hint)
 	}
 	row.TextColor(fg)
@@ -415,6 +431,8 @@ func (m *Menu) keys(panel ui.Element, lv int, items []MenuItem, choices []string
 	level := func() *menuLevel { return &m.levels[lv] }
 	n := len(choices)
 	at := slices.Index(choices, level().hi)
+	// Space while typing ahead is part of the word, not a choice (Radix).
+	typing := m.typed != "" && m.now.Sub(m.typedAt) <= time.Second
 	move := func(i int) {
 		if n > 0 {
 			level().hi, level().byKey, level().reveal = choices[(i%n+n)%n], true, true
@@ -461,7 +479,7 @@ func (m *Menu) keys(panel ui.Element, lv int, items []MenuItem, choices []string
 			m.levels = m.levels[:lv]
 			m.focus = lv - 1
 		}
-	case panel.Shortcut(0, ui.KeyEnter), panel.Shortcut(0, ui.KeySpace):
+	case panel.Shortcut(0, ui.KeyEnter), !typing && panel.Shortcut(0, ui.KeySpace):
 		enter()
 	case panel.Shortcut(0, ui.KeyTab), panel.Shortcut(ui.Shift, ui.KeyTab):
 		m.dismiss()
@@ -499,13 +517,18 @@ func (m *Menu) typeAhead(lv int, items []MenuItem, text string, now time.Time) b
 	}
 	level := &m.levels[lv]
 	at := slices.IndexFunc(choices, func(it *MenuItem) bool { return it.Key == level.hi })
+	// The same letter again goes on to the next row starting with it.
+	q := m.typed
+	if r := []rune(q); len(r) > 1 && strings.Count(q, string(r[0])) == len(r) {
+		q = string(r[0])
+	}
 	start := at
-	if len([]rune(m.typed)) > 1 && at >= 0 {
+	if len([]rune(q)) > 1 && at >= 0 {
 		start = at - 1
 	}
 	for k := 1; k <= len(choices); k++ {
 		j := ((start+k)%len(choices) + len(choices)) % len(choices)
-		if strings.HasPrefix(strings.ToLower(choices[j].Label), m.typed) {
+		if strings.HasPrefix(strings.ToLower(choices[j].Label), q) {
 			level.hi, level.byKey, level.reveal = choices[j].Key, true, true
 			m.levels = m.levels[:lv+1]
 			break

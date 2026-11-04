@@ -50,6 +50,7 @@ type listApp struct {
 	dialog   bool
 	posted   chan func()
 	rated    int
+	gate     chan struct{} // when set, the rating loads wait for it
 }
 
 func newListApp(t *testing.T) (*listApp, *ui.Tester) {
@@ -58,7 +59,16 @@ func newListApp(t *testing.T) (*listApp, *ui.Tester) {
 	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
 	a := &listApp{posted: make(chan func(), 16)}
 	a.rows = []Item{song("Airbag"), song("Paranoid Android"), song("Karma Police")}
-	rd := MenuData{ID: "rating", Load: func(ctx context.Context, items []Item) any { a.loads.Add(1); return 1 }}
+	rd := MenuData{ID: "rating", Load: func(ctx context.Context, items []Item) any {
+		a.loads.Add(1)
+		if g := a.gate; g != nil {
+			select {
+			case <-g:
+			case <-ctx.Done():
+			}
+		}
+		return 1
+	}}
 	a.reg = NewActionRegistry(
 		ActionDef{
 			ID: "player.play-next", Target: KindSong, Group: GroupQueue, Order: 10, Icon: "list-start",
@@ -204,6 +214,7 @@ func TestRowsMenuDataLoadsOncePerIDWhenOpened(t *testing.T) {
 
 func TestFavouriteIsDisabledUntilItsDataLoads(t *testing.T) {
 	a, tt := newListApp(t)
+	a.gate = make(chan struct{})
 	_ = tt.Click("More for Airbag")
 	if !tt.HasText("Favourite") {
 		t.Fatal("no Favourite row")
@@ -213,7 +224,11 @@ func TestFavouriteIsDisabledUntilItsDataLoads(t *testing.T) {
 	if a.rated != 0 || !a.am.IsOpen() {
 		t.Errorf("a disabled row ran: rated %d, open %v", a.rated, a.am.IsOpen())
 	}
+	close(a.gate)
 	a.drain(t, tt, 1)
+	if !tt.HasText("Undo favourite") {
+		t.Error("the row did not follow its data")
+	}
 }
 
 func TestRowTriggerIsHiddenUntilHoverButStaysNamed(t *testing.T) {
@@ -355,7 +370,6 @@ func TestTriggerPressedAgainClosesItsMenu(t *testing.T) {
 	if a.am.IsOpen() {
 		t.Error("the second press did not close the menu")
 	}
-	a.drain(t, tt, 1)
 }
 
 func TestKindsWithoutActionsGetNoTrigger(t *testing.T) {
@@ -365,5 +379,19 @@ func TestKindsWithoutActionsGetNoTrigger(t *testing.T) {
 	tt.Frame()
 	if _, ok := tt.Find("More for Live"); ok {
 		t.Error("a trigger for a kind with no registered actions")
+	}
+}
+
+func TestMenuDataWithASynchronousPosterDoesNotRace(t *testing.T) {
+	a, tt := newListApp(t)
+	a.reg.SetPoster(func(fn func()) { fn() }) // as a test Poster does: on the load goroutine
+	_ = tt.Click("More for Airbag")
+	deadline := time.Now().Add(2 * time.Second)
+	for !tt.HasText("Undo favourite") {
+		if time.Now().After(deadline) {
+			t.Fatal("the data never arrived")
+		}
+		time.Sleep(2 * time.Millisecond)
+		tt.Frame()
 	}
 }

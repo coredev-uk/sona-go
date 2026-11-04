@@ -288,3 +288,17 @@ func TestToastActionRunsAndCloses(t *testing.T) {
 		t.Error("the toast stayed after its action")
 	}
 }
+
+func TestShowToastAsksForAFrame(t *testing.T) {
+	var posts int
+	SetToastPoster(func(fn func()) { posts++; fn() })
+	t.Cleanup(func() { SetToastPoster(nil) })
+	ShowToast(ToastSpec{ID: "p", Title: "x"})
+	CloseToast("p")
+	if posts != 2 {
+		t.Errorf("%d frames asked for, want 2", posts)
+	}
+	toasts.mu.Lock()
+	toasts.queue, toasts.closed = nil, nil
+	toasts.mu.Unlock()
+}

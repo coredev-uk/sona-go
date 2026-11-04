@@ -24,11 +24,18 @@ func TestEnvActionsCollectsEveryModulesActions(t *testing.T) {
 	if len(got) != 2 || got[0].ID != "a.one" || got[1].ID != "b.two" {
 		t.Errorf("registered %v", got)
 	}
-	var nav string
-	a.env.Actions.SetNavigator(func(p string) { nav = p })
-	a.env.Actions.Navigate("/album/x")
-	if nav != "/album/x" {
-		t.Errorf("navigate %q", nav)
+}
+
+func TestActionNavigateGoesThroughTheShellsRouter(t *testing.T) {
+	a, tt := newShell(t, Options{}, pageModule("a",
+		pageDef{"/albums", "Albums", module.NavLibrary, 1},
+		pageDef{"/songs", "Songs", module.NavLibrary, 2},
+	))
+	tt.Frame()
+	a.env.Actions.Navigate("/songs")
+	tt.Frame()
+	if got := a.env.Nav.Path(); got != "/songs" {
+		t.Errorf("the router is at %q after an action navigated", got)
 	}
 }
 

@@ -255,3 +255,39 @@ func TestMenuIsCappedToTheRoomAndScrolls(t *testing.T) {
 		t.Error("End then Enter did not choose the last row")
 	}
 }
+
+func TestMenuOpenedFromTheKeyboardUnderARestingPointerKeepsTheFirstRow(t *testing.T) {
+	a, tt := newMenuApp(t)
+	tt.Move(60, 85) // where the menu's rows will be
+	tt.Key(0, ui.KeyTab)
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	tt.Frame()
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(50e6)
+	if !slices.Equal(a.chosen, []string{"play"}) {
+		t.Errorf("chosen %v: the resting pointer took the highlight from the keys", a.chosen)
+	}
+}
+
+func TestMenuTypeAheadOfTheSameLetterGoesToTheNextRow(t *testing.T) {
+	a, tt := newMenuApp(t)
+	tt.Key(0, ui.KeyTab)
+	tt.Key(0, ui.KeyEnter) // on Play next
+	tt.TypeKey(0, ui.KeyP, "p")
+	tt.TypeKey(0, ui.KeyP, "p")
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(50e6)
+	// p -> Play last, p again -> on and round to Play next.
+	if !slices.Equal(a.chosen, []string{"play"}) {
+		t.Errorf("chosen %v, want Play next", a.chosen)
+	}
+}
+
+func TestMenuReasonRowSaysWhyToAssistiveTechnology(t *testing.T) {
+	_, tt := newMenuApp(t)
+	_ = tt.Click("Open")
+	if !tt.HasText("Not available while listening to a live station") {
+		t.Error("the reason is not shown")
+	}
+}

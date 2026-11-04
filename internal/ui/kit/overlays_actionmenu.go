@@ -63,6 +63,11 @@ type ActionMenus struct {
 	epoch int // frames, counted by Popup
 }
 
+type loadedData struct {
+	id string
+	v  any
+}
+
 // openMenu is what the menu captured when it opened: the selection is
 // taken then, not as it changes under an open menu.
 type openMenu struct {
@@ -71,6 +76,10 @@ type openMenu struct {
 	bulk    bool
 	indices []int
 	loaded  map[string]any
+	// results carries loaded menu data from the goroutines; the main thread
+	// alone writes loaded, from it (the Poster only asks for a frame, so a
+	// synchronous test Poster cannot race the map).
+	results chan loadedData
 	cancel  context.CancelFunc
 	// anchored: opened from its trigger rather than at a point.
 	anchored bool
@@ -138,6 +147,14 @@ func (a *ActionMenus) context() *ActionContext {
 		}
 		ct = &cp
 	}
+	for drained := false; !drained && a.cur.results != nil; {
+		select {
+		case r := <-a.cur.results:
+			a.cur.loaded[r.id] = r.v
+		default:
+			drained = true
+		}
+	}
 	return a.reg.Context(a.cur.items, ct, a.cur.loaded)
 }
 
@@ -160,7 +177,9 @@ func (a *ActionMenus) loadData() {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cur.cancel = cancel
-	loaded, items := a.cur.loaded, a.cur.items
+	results := make(chan loadedData, len(datas))
+	a.cur.results = results
+	items := a.cur.items
 	post := a.reg.poster()
 	for _, md := range datas {
 		go func() {
@@ -168,11 +187,8 @@ func (a *ActionMenus) loadData() {
 			if ctx.Err() != nil {
 				return
 			}
-			post(func() {
-				if ctx.Err() == nil {
-					loaded[md.ID] = v
-				}
-			})
+			results <- loadedData{md.ID, v}
+			post(func() {}) // a frame, which reads the result
 		}()
 	}
 }

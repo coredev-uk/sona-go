@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -48,13 +49,33 @@ var toasts struct {
 	queue  []ui.Toast
 	closed []string
 	next   int
+	post   store.Poster
+}
+
+// SetToastPoster sets how a toast raised off the main thread asks for a
+// frame (the shell's Poster, which redraws the windows).
+func SetToastPoster(p store.Poster) {
+	toasts.mu.Lock()
+	toasts.post = p
+	toasts.mu.Unlock()
+}
+
+// wake asks for a frame, so a toast raised from a goroutine shows without
+// waiting for an unrelated redraw.
+func wake() {
+	toasts.mu.Lock()
+	p := toasts.post
+	toasts.mu.Unlock()
+	if p != nil {
+		p(func() {})
+	}
 }
 
 // ShowToast queues a toast and returns its ID. Safe from any goroutine; the
-// Toaster shows it on the next frame (redraw through the Poster when called
-// off the main thread).
+// Toaster shows it on the next frame (SetToastPoster makes it ask for one).
 func ShowToast(t ToastSpec) string {
 	toasts.mu.Lock()
+	defer wake()
 	defer toasts.mu.Unlock()
 	if t.ID == "" {
 		toasts.next++
@@ -83,6 +104,7 @@ func CloseToast(id string) {
 	toasts.mu.Lock()
 	toasts.closed = append(toasts.closed, id)
 	toasts.mu.Unlock()
+	wake()
 }
 
 // Unavailable says why a command that does not apply right now did nothing

@@ -14,6 +14,8 @@ type paletteApp struct {
 	p       Palette
 	ran     []string
 	popOpen bool
+	dlg     bool // the "dialog" entry opened a Dialog
+	extra   int  // that many more entries, and the dialog entry
 }
 
 func (a *paletteApp) source(q string) []PaletteSection {
@@ -21,6 +23,12 @@ func (a *paletteApp) source(q string) []PaletteSection {
 		{Key: "c:queue", Label: "Show or hide the queue", Icon: "list-music", Keys: []string{"Ctrl+Q"}, Run: a.run("queue")},
 		{Key: "c:next", Label: "Next track", Icon: "fast-forward", Keys: []string{"Ctrl+ArrowRight", "N"}, Run: a.run("next")},
 		{Key: "c:albums", Label: "Library · Albums", Icon: "disc-3", Run: a.run("albums")},
+	}
+	if a.extra > 0 {
+		cmds = append(cmds, PaletteEntry{Key: "c:dialog", Label: "Open a dialog", Run: func() { a.dlg = true }})
+		for i := range a.extra {
+			cmds = append(cmds, PaletteEntry{Key: "c:x" + string(rune('A'+i%26)) + string(rune('a'+i/26)), Label: "Entry " + string(rune('A'+i%26)) + string(rune('a'+i/26)), Run: a.run("x")})
+		}
 	}
 	if q == "" {
 		return []PaletteSection{{Title: "Playback", Entries: cmds}}
@@ -54,6 +62,7 @@ func (a *paletteApp) view(c *ui.Context) {
 		})
 	})
 	a.p.Show(c, a.source)
+	Dialog(c, &a.dlg, DialogOpts{Title: "Opened by an entry"}, func() {})
 }
 
 func newPaletteApp(t *testing.T) (*paletteApp, *ui.Tester) {
@@ -188,5 +197,63 @@ func TestPopoverPressOutsideCloses(t *testing.T) {
 	tt.ClickAt(700, 500)
 	if a.popOpen {
 		t.Error("a press outside did not close the popover")
+	}
+}
+
+func TestPaletteRestingPointerDoesNotTakeTheActiveRow(t *testing.T) {
+	a, tt := newPaletteApp(t)
+	tt.Key(0, ui.KeyTab)
+	tt.Key(0, ui.KeyEnter)
+	r, ok := tt.Find("Library · Albums")
+	if !ok {
+		t.Fatal("no row")
+	}
+	tt.Move(r.X+r.W/2, r.Y+r.H/2) // a real move onto the third row makes it active
+	tt.Type("next")               // the list re-lays out under the resting pointer
+	tt.Frame()
+	tt.Frame()
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(300 * time.Millisecond)
+	if !slices.Equal(a.ran, []string{"next"}) {
+		t.Errorf("ran %v: the row under the resting pointer took the choice from the best match", a.ran)
+	}
+}
+
+func TestPaletteEntryThatOpensADialogReturnsFocusToTheOpener(t *testing.T) {
+	a, tt := newPaletteApp(t)
+	a.extra = 1
+	tt.Key(0, ui.KeyTab)
+	tt.Key(0, ui.KeyEnter)
+	tt.Type("dialog")
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(300 * time.Millisecond)
+	if !a.dlg || !tt.HasText("Opened by an entry") {
+		t.Fatalf("the entry did not open its dialog (dlg %v)", a.dlg)
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(300 * time.Millisecond)
+	if a.dlg {
+		t.Fatal("Escape did not close the dialog")
+	}
+	if !tt.Focused("Open palette") {
+		t.Error("focus did not return to the page")
+	}
+}
+
+func TestPaletteKeysScrollTheActiveRowIntoView(t *testing.T) {
+	a, tt := newPaletteApp(t)
+	a.extra = 40
+	tt.Key(0, ui.KeyTab)
+	tt.Key(0, ui.KeyEnter)
+	tt.Key(0, ui.KeyUp) // wraps to the last entry, far below the fold
+	tt.Frame()
+	tt.Frame()
+	row, ok := tt.Find("Entry Ma")
+	if !ok {
+		t.Fatal("no last row")
+	}
+	list, _ := tt.Find("Results")
+	if row.Y < list.Y || row.Y+row.H > list.Y+list.H+1 {
+		t.Errorf("the active row %v is outside the results %v", row, list)
 	}
 }

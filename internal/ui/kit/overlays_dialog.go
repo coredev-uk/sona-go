@@ -31,6 +31,8 @@ type DialogOpts struct {
 	// Bare drops the padding and the gap and clips the corners (the
 	// command palette lays out its own rows).
 	Bare bool
+	// Raised paints the panel on the raised tone (the palette), not the ground.
+	Raised bool
 	// Compact is the confirm dialog's header: 16 semibold ink title, 14
 	// muted body, 6 apart.
 	Compact bool
@@ -70,6 +72,10 @@ func Dialog(c *ui.Context, open *bool, o DialogOpts, build func()) ui.Element {
 	if gap == 0 && !o.Bare {
 		gap = 16
 	}
+	surface := theme.C("background")
+	if o.Raised {
+		surface = theme.C("raised")
+	}
 	var panel ui.Element
 	ui.DialogBase(c, open, func(back, p ui.Element) {
 		panel = p
@@ -79,7 +85,7 @@ func Dialog(c *ui.Context, open *bool, o DialogOpts, build func()) ui.Element {
 			back.AlignItems(ui.Center).Justify(ui.Start).Padding(o.Top, 0, 0, 0)
 		}
 		sh := tk.Shadow["float"]
-		p.Width(min(maxW, max(w-32, 0))).Padding(pad).Gap(gap).Radius(tk.Radius["lg"]).Background(theme.C("background")).
+		p.Width(min(maxW, max(w-32, 0))).Padding(pad).Gap(gap).Radius(tk.Radius["lg"]).Background(surface).
 			Border(1, theme.C("border")).Shadow(sh.X, sh.Y, sh.Blur, sh.Spread, sh.Color).Label(o.Title).Description(o.Description)
 		if o.Bare {
 			p.Clip()

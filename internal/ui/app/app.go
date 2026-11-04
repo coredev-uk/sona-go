@@ -155,6 +155,7 @@ func newApp(opts Options, factories []module.Factory) *App {
 	a.env.Nav = a.router
 	a.env.Actions.SetNavigator(a.router.Push)
 	a.env.Actions.SetPoster(post)
+	kit.SetToastPoster(post)
 
 	var list []module.Shortcut
 	list = append(list, navShortcuts(a.nav, a.router.Push)...)
