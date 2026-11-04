@@ -95,6 +95,7 @@ type cdmAPI interface {
 type updatesAPI interface {
 	Check(ctx context.Context) (services.UpdateStatus, error)
 	OpenRelease() error
+	Install(ctx context.Context) (services.UpdateStatus, error)
 }
 
 // cdmStatus is the Widevine CDM's state: the shared mirror (store.KeyCDM)

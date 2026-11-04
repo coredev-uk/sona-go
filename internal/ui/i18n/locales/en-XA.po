@@ -283,6 +283,10 @@ msgstr ""
 msgid "Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself."
 msgstr ""
 
+#: internal/ui/features/settings/updates.go
+msgid "Also offers release candidates and other test versions, so a test build updates to the next one."
+msgstr ""
+
 #: internal/ui/features/settings/shortcuts.go
 msgid "Also used by {otherNames}. Only the first one runs."
 msgstr ""
@@ -1184,6 +1188,15 @@ msgstr ""
 msgid "Couldn't install"
 msgstr ""
 
+#: internal/ui/features/updates/updates.go
+msgid "Couldn't install Sona {latest}"
+msgstr ""
+
+#: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/updates.go
+msgid "Couldn't install the update"
+msgstr ""
+
 #: internal/ui/features/radio/page.go
 msgid "Couldn't load Apple Music's radio"
 msgstr ""
@@ -1905,8 +1918,17 @@ msgstr ""
 msgid "Download the new package from the release page, or update it with your package manager."
 msgstr ""
 
+#: internal/ui/features/settings/updates.go
+msgid "Download the new version from the release page."
+msgstr ""
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "Downloaded from Google"
+msgstr ""
+
+#: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/updates.go
+msgid "Downloading Sona {latest}…"
 msgstr ""
 
 #: internal/ui/features/onboarding/widevine.go
@@ -1936,6 +1958,7 @@ msgstr ""
 #: internal/ui/features/onboarding/status.go
 #: internal/ui/features/settings/cdm.go
 #: internal/ui/features/settings/diag_rows.go
+#: internal/ui/features/settings/updates.go
 msgid "Downloading…"
 msgstr ""
 
@@ -2497,12 +2520,21 @@ msgstr ""
 msgid "Install GStreamer 1.x with the base and good plugins."
 msgstr ""
 
+#: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/updates.go
+msgid "Install and restart"
+msgstr ""
+
 #: internal/ui/features/settings/motiondiag.go
 msgid "Install gst-libav (avdec_h264) and gst-plugins-bad (h264parse) for GStreamer, then restart Sona."
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "Install gst-libav or the fdkaac plugin to decode Apple Music's AAC."
+msgstr ""
+
+#: internal/ui/features/settings/updates.go
+msgid "Install it now and Sona restarts into it. Your settings, sign-in and queue stay as they are."
 msgstr ""
 
 #: internal/ui/kit/controls_input.go
@@ -4522,6 +4554,11 @@ msgstr ""
 msgid "Reset {label} to {defaults}"
 msgstr ""
 
+#: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/updates.go
+msgid "Restarting into Sona {latest}…"
+msgstr ""
+
 #: internal/ui/features/search/field.go
 #: internal/ui/features/search/groups.go
 #: internal/ui/kit/overlays_palette.go
@@ -5169,6 +5206,10 @@ msgstr ""
 msgid "Sona can't play this station"
 msgstr ""
 
+#: internal/ui/features/settings/updates.go
+msgid "Sona can't write where it is installed, so it can't update itself. Move it to your Applications folder, or to a folder you own."
+msgstr ""
+
 #: internal/ui/features/library/gate.go
 msgid "Sona copies your Apple Music library to this computer after you sign in, so it opens instantly and works offline."
 msgstr ""
@@ -5667,6 +5708,11 @@ msgstr ""
 msgid "Ten bands, presets and a preamp, heard as you move them. On now."
 msgstr ""
 
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/updates.go
+msgid "Test versions"
+msgstr ""
+
 #: internal/ui/account/code.go
 msgid "Text again"
 msgstr ""
@@ -5836,6 +5882,14 @@ msgstr ""
 msgid "The token from a signed-in Apple Music web session. Sona checks it with Apple and keeps it in your keyring."
 msgstr ""
 
+#: internal/ui/i18n/errors.go
+msgid "The update couldn't be installed. Sona is unchanged."
+msgstr ""
+
+#: internal/ui/i18n/errors.go
+msgid "The update isn't signed with Sona's key, so it wasn't installed."
+msgstr ""
+
 #: internal/ui/features/player/nowplaying_view.go
 msgid "The words in Latin letters"
 msgstr ""
@@ -5901,6 +5955,10 @@ msgstr ""
 
 #: internal/ui/features/artist/viewpage.go
 msgid "This artist page doesn't have a list called “{view}”."
+msgstr ""
+
+#: internal/ui/features/settings/updates.go
+msgid "This build has no update signing key, so it can't update itself."
 msgstr ""
 
 #: internal/ui/features/onboarding/connections.go
@@ -6238,6 +6296,11 @@ msgstr ""
 
 #: internal/ui/features/concerts/upcoming.go
 msgid "Upcoming concerts"
+msgstr ""
+
+#: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/updates.go
+msgid "Update download"
 msgstr ""
 
 #: internal/ui/features/settings/updates.go
@@ -6703,6 +6766,10 @@ msgstr ""
 
 #: internal/ui/features/player/shortcuts.go
 msgid "back restart"
+msgstr ""
+
+#: internal/ui/features/settings/find.go
+msgid "beta, release candidate, prerelease"
 msgstr ""
 
 #: internal/ui/features/settings/find.go

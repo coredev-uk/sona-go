@@ -93,6 +93,12 @@ type settingEntry struct {
 }
 
 func playable(c findContext) bool { return c.caps != nil && c.caps.Playback.Available }
+
+// selfUpdating: the OS whose installs update themselves (macOS, Windows).
+func selfUpdating(c findContext) bool {
+	return c.caps != nil && (c.caps.OS == "darwin" || c.caps.OS == "windows")
+}
+
 func cdmEngine(c findContext) bool {
 	return playable(c) && c.caps.Playback.Engine == "cdm"
 }
@@ -157,6 +163,10 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 			Keywords: i18n.T("sleep, suspend"),
 		},
 		{ID: "updates-check", Section: secGeneral, Group: updates, Title: i18n.T("Check for updates when Sona starts")},
+		{
+			ID: "updates-prereleases", Section: secGeneral, Group: updates, Title: i18n.T("Test versions"),
+			Keywords: i18n.T("beta, release candidate, prerelease"), When: selfUpdating,
+		},
 
 		{ID: "cdm", Section: secPlayback, Group: sectionTitle(secPlayback), Title: i18n.T("Widevine"), When: cdmEngine},
 		{

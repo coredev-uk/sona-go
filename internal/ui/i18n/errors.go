@@ -96,6 +96,10 @@ func ErrorText(code services.ErrorCode) string {
 		return T("Apple offers this video only in HD, which needs a hardware-protected player. Sona plays videos in standard definition.")
 	case services.CodeVideoLicence:
 		return T("Apple refused the licence for this video, or it can't be used on this computer.")
+	case services.CodeUpdateSignature:
+		return T("The update isn't signed with Sona's key, so it wasn't installed.")
+	case services.CodeUpdateFailed:
+		return T("The update couldn't be installed. Sona is unchanged.")
 	case services.CodeKeyring:
 		return T("Your keyring didn't answer or refused. Unlock it, then try again.")
 	}

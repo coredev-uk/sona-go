@@ -18,13 +18,15 @@ import (
 
 // fakeUpdates is the update check without GitHub.
 type fakeUpdates struct {
-	mu       sync.Mutex
-	status   services.UpdateStatus
-	checkErr error
-	openErr  error
-	checks   int
-	opens    int
-	onOpen   func()
+	mu         sync.Mutex
+	status     services.UpdateStatus
+	checkErr   error
+	openErr    error
+	checks     int
+	opens      int
+	installs   int
+	installErr error
+	onOpen     func()
 }
 
 func (f *fakeUpdates) Status() services.UpdateStatus {
@@ -48,6 +50,13 @@ func (f *fakeUpdates) OpenRelease() error {
 		f.onOpen()
 	}
 	return f.openErr
+}
+
+func (f *fakeUpdates) Install(context.Context) (services.UpdateStatus, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.installs++
+	return f.status, f.installErr
 }
 
 func (f *fakeUpdates) count() (checks, opens int) {
@@ -442,6 +451,36 @@ func TestUpdateVerdicts(t *testing.T) {
 			nil,
 		},
 		{
+			"self-update",
+			services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.1.0", Available: true, SelfUpdate: true},
+			[]string{"Sona 1.1.0 is available", "Install it now and Sona restarts into it", "Install and restart"},
+			nil,
+		},
+		{
+			"installing",
+			services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.1.0", Available: true, SelfUpdate: true, Installing: true, Downloaded: 1, Total: 4},
+			[]string{"Downloading Sona 1.1.0…", "Downloading…"},
+			[]string{"Install it now"},
+		},
+		{
+			"install failed",
+			services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.1.0", Available: true, SelfUpdate: true, InstallError: services.CodeUpdateSignature},
+			[]string{"The update isn't signed with Sona's key"},
+			nil,
+		},
+		{
+			"no signing key",
+			services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.1.0", Available: true, Disabled: services.UpdatesUnsigned},
+			[]string{"This build has no update signing key", "View release"},
+			[]string{"Install and restart"},
+		},
+		{
+			"not writable",
+			services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.0.0", Checked: now.UnixMilli(), Disabled: services.UpdatesNotWritable},
+			[]string{"Sona can't write where it is installed"},
+			[]string{"Install and restart"},
+		},
+		{
 			"error",
 			services.UpdateStatus{Current: "1.0.0", Checkable: true, Error: services.CodeNetwork},
 			[]string{"Couldn't check GitHub for updates"},
@@ -492,6 +531,32 @@ func TestCheckNowRunsTheCheckAndReplacesTheStatus(t *testing.T) {
 	if got, _ := store.Peek[services.UpdateStatus](g.h.Env.Queries, store.KeyUpdates); got.Latest != "1.2.0" {
 		t.Errorf("cache %+v", got)
 	}
+}
+
+func TestInstallAndRestartInstallsAndAFailureToasts(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), nil)
+	store.Set(g.h.Env.Queries, store.KeyUpdates, services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.1.0", Available: true, SelfUpdate: true})
+	g.until("button", g.tt.Shows("Install and restart"))
+	g.toEnd()
+	g.click("Install and restart")
+	g.until("installed", func() bool { g.up.mu.Lock(); defer g.up.mu.Unlock(); return g.up.installs == 1 })
+
+	g.up.mu.Lock()
+	g.up.installErr = errors.New("disk full")
+	g.up.mu.Unlock()
+	g.toEnd()
+	g.click("Install and restart")
+	g.until("toast", g.tt.Shows("Couldn't install the update"))
+}
+
+func TestTestVersionsSwitchSaves(t *testing.T) {
+	caps := linuxCaps()
+	caps.OS = "darwin"
+	g := newGeneralRig(t, caps, nil)
+	store.Set(g.h.Env.Queries, store.KeyUpdates, services.UpdateStatus{Current: "1.0.0", Checkable: true, SelfUpdate: true})
+	g.until("row", g.tt.Shows("Test versions"))
+	g.toggle("updates-prereleases")
+	g.until("saved", func() bool { return g.saved().Updates.Prereleases })
 }
 
 func TestFailedCheckSaysWhy(t *testing.T) {

@@ -453,6 +453,32 @@ release.yml --ref <branch>`): it builds and smoke-tests the packages and
 publishes nothing. Steps, dry run and the App's permissions:
 `docs/release-checklist.md`, "Releasing".
 
+### Self-updates (macOS and Windows)
+
+`internal/update` and `UpdatesService` update a macOS `.app` or a Windows
+folder in place (design: `docs/architecture.md`, "Updates"). What a release
+needs:
+
+- The public key is `internal/update/update.pub` (embedded; empty means
+  updates are off). The private key is the `SONA_UPDATE_KEY` secret of the
+  `release` environment, from `go tool mygo keygen`; losing it strands the
+  installs that exist. Never print it or commit it.
+- Release builds link MyGo's updater with `-ldflags "-X
+  github.com/egoist/mygo.packageUpdateFeed=https://github.com/coredev-uk/sona-go/releases/latest/download/update-<target>.json
+  -X github.com/egoist/mygo.packageUpdateKey=$(cat internal/update/update.pub)"`.
+  Other builds leave both unset.
+- The update archive is a gzip tar (`sona-<version>-darwin-arm64.tar.gz` with
+  one top-level `Sona.app`; `sona-<version>-windows-amd64.tar.gz` with the
+  folder's files at top level). `go run ./cmd/releasesign -target T -archive
+  FILE -version V -url URL [-notes FILE] -out update-T.json` signs it
+  (key from `$SONA_UPDATE_KEY`); the publish job signs last, after the
+  archives are uploaded.
+- Tests run against an `httptest` fake release server (`internal/update`,
+  `internal/services/updates_self_test.go`): the check, a bad signature
+  refused, no key (off), a development build never checking, and the rollback
+  decision. The real run (install, relaunch, rollback) is the phase 5 update
+  and rollback runs on a Mac and a Windows machine.
+
 ## Dependency updates
 
 Renovate opens pull requests for Go modules and GitHub
