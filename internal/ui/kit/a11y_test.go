@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -63,47 +64,68 @@ func TestItemComponentsHaveEveryControlOnTheTree(t *testing.T) {
 		nodes []want
 		stops []string // Tab stops, in order (a subsequence)
 	}{
-		{"cover grid", func(t *testing.T) *ui.Tester {
-			_, tt := newCoverApp(t, 3, 700, 500)
-			return tt
-		}, []want{{ui.RoleTable, "Albums"}, {ui.RoleLink, "Album 0"}, {ui.RoleButton, "Play Album 0"}, {ui.RoleButton, "Play Album 2"}},
-			[]string{"Album 0", "Play Album 0", "Album 1"}},
+		{
+			"cover grid", func(t *testing.T) *ui.Tester {
+				_, tt := newCoverApp(t, 3, 700, 500)
+				return tt
+			},
+			[]want{{ui.RoleTable, "Albums"}, {ui.RoleLink, "Album 0"}, {ui.RoleButton, "Play Album 0"}, {ui.RoleButton, "Play Album 2"}},
+			[]string{"Album 0", "Play Album 0", "Album 1"},
+		},
 		{"cover shelf", func(t *testing.T) *ui.Tester {
 			_, tt := newCollShelfApp(t, 3, 700)
 			return tt
 		}, []want{{ui.RoleHeading, "Recently Added"}, {ui.RoleLink, "Album 0"}}, []string{"Album 0", "Album 1", "Album 2"}},
-		{"item shelf", func(t *testing.T) *ui.Tester {
-			_, tt, _ := shelfApp(t, "New Releases", albumItems(5), ItemShelfOpts{})
-			return tt
-		}, []want{{ui.RoleDisclosure, "Show all 5"}, {ui.RoleLink, "Album 1"}, {ui.RoleButton, "Play Album 1"}, {ui.RoleMenuButton, "More for Album 1"}},
-			[]string{"Show all 5", "Album 1", "Play Album 1", "Album 2"}},
-		{"item grid", func(t *testing.T) *ui.Tester {
-			_, tt := newGridApp(t, grid)
-			tt.Frame()
-			return tt
-		}, []want{{ui.RoleTable, "Albums"}, {ui.RoleLink, "Album 4"}, {ui.RoleButton, "Play Album 4"}, {ui.RoleMenuButton, "More for Album 4"}},
-			[]string{"Album 1", "Play Album 1", "Album 2"}},
-		{"track shelf", func(t *testing.T) *ui.Tester {
-			_, tt := trackApp(t, trackItems(3), "More", nil)
-			return tt
-		}, []want{{ui.RoleList, "Top Songs"}, {ui.RoleButton, "Play Song 1"}, {ui.RoleLink, "Artist 1"}, {ui.RoleMenuButton, "More for Song 1"}},
-			[]string{"Song 1", "Song 2", "Song 3"}},
-		{"station list", func(t *testing.T) *ui.Tester {
-			_, tt, _ := stationApp(t, stations, "", nil)
-			return tt
-		}, []want{{ui.RoleList, "Local Broadcasters"}, {ui.RoleButton, "Capital Play"}, {ui.RoleMenuButton, "More for Capital"}, {ui.RoleButton, "Heart UK Play"}},
-			[]string{"Capital Play", "Heart UK Play"}},
-		{"link list", func(t *testing.T) *ui.Tester {
-			_, tt := linkListApp(t, 500, "Explore", exploreItems())
-			return tt
-		}, []want{{ui.RoleHeading, "Explore"}, {ui.RoleList, "Explore"}, {ui.RoleLink, "Charts"}},
-			[]string{"Concerts Opens in your browser", "Browse by Genre", "Charts", "Music Videos"}},
-		{"wide row", func(t *testing.T) *ui.Tester {
-			_, tt, _ := wideApp(t, nil, []services.Item{wideItem("1", "", "")}, 4, false)
-			tt.Frame()
-			return tt
-		}, []want{{ui.RoleLink, "Item 1"}, {ui.RoleButton, "Play Item 1"}},
-			[]string{"Item 1", "Play Item 1"}},
+		{
+			"item shelf", func(t *testing.T) *ui.Tester {
+				_, tt, _ := shelfApp(t, "New Releases", albumItems(5), ItemShelfOpts{})
+				return tt
+			},
+			[]want{{ui.RoleDisclosure, "Show all 5"}, {ui.RoleLink, "Album 1"}, {ui.RoleButton, "Play Album 1"}, {ui.RoleMenuButton, "More for Album 1"}},
+			[]string{"Show all 5", "Album 1", "Play Album 1", "Album 2"},
+		},
+		{
+			"item grid", func(t *testing.T) *ui.Tester {
+				_, tt := newGridApp(t, grid)
+				tt.Frame()
+				return tt
+			},
+			[]want{{ui.RoleTable, "Albums"}, {ui.RoleLink, "Album 4"}, {ui.RoleButton, "Play Album 4"}, {ui.RoleMenuButton, "More for Album 4"}},
+			[]string{"Album 1", "Play Album 1", "Album 2"},
+		},
+		{
+			"track shelf", func(t *testing.T) *ui.Tester {
+				_, tt := trackApp(t, trackItems(3), "More", nil)
+				return tt
+			},
+			[]want{{ui.RoleList, "Top Songs"}, {ui.RoleButton, "Play Song 1"}, {ui.RoleLink, "Artist 1"}, {ui.RoleMenuButton, "More for Song 1"}},
+			[]string{"Song 1", "Song 2", "Song 3"},
+		},
+		{
+			"station list", func(t *testing.T) *ui.Tester {
+				_, tt, _ := stationApp(t, stations, "", nil)
+				return tt
+			},
+			[]want{{ui.RoleList, "Local Broadcasters"}, {ui.RoleButton, "Capital Play"}, {ui.RoleMenuButton, "More for Capital"}, {ui.RoleButton, "Heart UK Play"}},
+			[]string{"Capital Play", "Heart UK Play"},
+		},
+		{
+			"link list", func(t *testing.T) *ui.Tester {
+				_, tt := linkListApp(t, 500, "Explore", exploreItems())
+				return tt
+			},
+			[]want{{ui.RoleHeading, "Explore"}, {ui.RoleList, "Explore"}, {ui.RoleLink, "Charts"}},
+			[]string{"Concerts Opens in your browser", "Browse by Genre", "Charts", "Music Videos"},
+		},
+		{
+			"wide row", func(t *testing.T) *ui.Tester {
+				_, tt, _ := wideApp(t, nil, []services.Item{wideItem("1", "", "")}, 4, false)
+				tt.Frame()
+				return tt
+			},
+			[]want{{ui.RoleLink, "Item 1"}, {ui.RoleButton, "Play Item 1"}},
+			[]string{"Item 1", "Play Item 1"},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tt := tc.build(t)
@@ -145,11 +167,17 @@ func TestTrackListControlsAreOnTheTreeAtRest(t *testing.T) {
 	tr := access.Read(t, tt)
 	requireNodes(t, tr, []want{
 		{ui.RoleTable, "Songs in Test"},
-		{ui.RoleColumnHeader, "#"}, {ui.RoleColumnHeader, "Duration"}, {ui.RoleColumnHeader, "Actions"},
-		{ui.RoleButton, "Title"}, {ui.RoleButton, "Artist"}, {ui.RoleButton, "Album"},
+		{ui.RoleColumnHeader, "#"},
+		{ui.RoleColumnHeader, "Duration"},
+		{ui.RoleColumnHeader, "Actions"},
+		{ui.RoleButton, "Title"},
+		{ui.RoleButton, "Artist"},
+		{ui.RoleButton, "Album"},
 		{ui.RoleRow, "Song 0"},
-		{ui.RoleButton, "Play Song 0"}, {ui.RoleButton, "Play Song 3"},
-		{ui.RoleLink, "Artist 0"}, {ui.RoleLink, "Album 0"},
+		{ui.RoleButton, "Play Song 0"},
+		{ui.RoleButton, "Play Song 3"},
+		{ui.RoleLink, "Artist 0"},
+		{ui.RoleLink, "Album 0"},
 		{ui.RoleMenuButton, "More for Song 0"},
 	})
 	// The sort buttons say the direction they sort by; the play button is
@@ -366,5 +394,29 @@ func TestConfirmReturnsTheFocusToItsOpener(t *testing.T) {
 				t.Errorf("focus did not return to the button that asked: focus %v", access.Read(t, tt).Focus)
 			}
 		})
+	}
+}
+
+func TestUnavailableIsAnnouncedOncePerHold(t *testing.T) {
+	a, tt := newToastApp(t)
+	const reason = "Not available while listening to a live station"
+	a.show = func() { Unavailable(reason) }
+	for range 5 {
+		_ = tt.Click("Notify")
+	}
+	n := 0
+	for _, s := range tt.Announcements() {
+		if s == reason {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("announced %d times, want once for a held key", n)
+	}
+	// Once it has gone, the next refusal says it again.
+	tt.Advance(10 * time.Second)
+	_ = tt.Click("Notify")
+	if got := tt.Announcements(); !slices.Contains(got, reason) {
+		t.Errorf("a new refusal after the toast expired is not announced: %v", got)
 	}
 }

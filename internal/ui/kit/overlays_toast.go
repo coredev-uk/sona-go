@@ -50,6 +50,9 @@ var toasts struct {
 	closed []string
 	next   int
 	post   store.Poster
+	// shown are the titles of the toasts the window shows, by ID, as the
+	// last frame of the Toaster drew them.
+	shown map[string]string
 }
 
 // SetToastPoster sets how a toast raised off the main thread asks for a
@@ -110,8 +113,22 @@ func CloseToast(id string) {
 // Unavailable says why a command that does not apply right now did nothing
 // ("Not available while listening to a live station"): one polite toast
 // with a fixed ID, so a held key never stacks messages.
+//
+// A key held down asks again on every repeat, and MyGo announces each toast
+// it is given: the reason is raised again only once the message is gone (or
+// is another), so it is read once per hold.
 func Unavailable(reason string) {
-	ShowToast(ToastSpec{ID: "command-unavailable", Title: reason})
+	const id = "command-unavailable"
+	toasts.mu.Lock()
+	same := toasts.shown[id] == reason
+	for _, q := range toasts.queue {
+		same = same || q.ID == id && q.Title == reason
+	}
+	toasts.mu.Unlock()
+	if same {
+		return
+	}
+	ShowToast(ToastSpec{ID: id, Title: reason})
 }
 
 // Toaster draws the window's toasts: popover colours, the theme's radius
@@ -132,6 +149,12 @@ func Toaster(c *ui.Context) {
 	}
 	tk := theme.Current()
 	ui.ToastViewportBase(c.Key("toaster"), func(viewport ui.Element, list []ui.Toast) {
+		toasts.mu.Lock()
+		toasts.shown = map[string]string{}
+		for _, t := range list {
+			toasts.shown[t.ID] = t.Title
+		}
+		toasts.mu.Unlock()
 		viewport.Padding(0, 16, 88, 16).AlignItems(ui.End).Gap(8)
 		if len(list) > 0 {
 			// The region is named while it holds a toast; MyGo announces each
