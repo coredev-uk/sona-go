@@ -1,9 +1,3 @@
-//go:build gallery_pending
-
-// This file builds once PR 0.3's cmd/uigallery (register, section, gallery,
-// the text/heading/note/labelled/knob/panel helpers) is on the branch; the
-// lead removes the tag at rebase.
-
 package main
 
 import (
