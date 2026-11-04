@@ -30,6 +30,14 @@ type Env struct {
 	// Actions is the item action registry (every module's Module.Actions),
 	// read by kit.ActionMenus.
 	Actions *kit.ActionRegistry
+	// Surfaces is the open state of the account dialog and the first-run
+	// setup: any "Sign in" action calls Surfaces.OpenAccount, Settings'
+	// "Set up Sona again" Surfaces.OpenSetup.
+	Surfaces *store.Surfaces
+	// OpenURL opens a web page in the system browser.
+	OpenURL func(url string) error
+	// Copy puts text on the system clipboard and reports success.
+	Copy func(text string) bool
 	// Motion decides whether motion artwork plays and owns the decoders
 	// (kit.MotionCover, kit.TileMotion take it); the shell tells it when the
 	// window hides and when a layer, an overlay or a dialog covers the page.
@@ -56,6 +64,12 @@ type Env struct {
 	Log            *slog.Logger
 	Version        string
 	Dev            bool // a -tags dev build
+	// Shortcuts lists every registered shortcut (every module's, the
+	// navigation ones and the shell's) with the keys it answers to now:
+	// the user's rebinding (config.Settings.Shortcuts, by ID) or its
+	// defaults. Settings → Shortcuts and the help list them. Set by the
+	// app before any module's Init; nil without a shell (tests).
+	Shortcuts func() []BoundShortcut
 }
 
 // Point is a place in one feature's view other modules build into, the
@@ -155,6 +169,13 @@ type Shortcut struct {
 	Run         func()
 }
 
+// BoundShortcut is a registered shortcut with the keys it answers to now
+// (Shortcut.Keys is its default).
+type BoundShortcut struct {
+	Shortcut
+	Keys []string // effective: the user's binding, else the defaults; nil for none
+}
+
 // Slots are places in the shell a module builds into. Every func builds
 // nothing when it has nothing to show.
 type Slots struct {
@@ -166,6 +187,7 @@ type Slots struct {
 	SidebarFooter  func(c *ui.Context)
 	SidebarSection func(c *ui.Context) // stacks in module order
 	TopBarSearch   func(c *ui.Context) // the first one wins
+	TopBarAccount  func(c *ui.Context) // the top bar's trailing end (the account menu); the first one wins
 }
 
 // Overlay covers the page column while Open.

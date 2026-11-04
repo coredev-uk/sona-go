@@ -6,6 +6,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/player"
 	"github.com/coredev-uk/sona-go/internal/ui/features/private"
 	"github.com/coredev-uk/sona-go/internal/ui/features/reminders"
+	"github.com/coredev-uk/sona-go/internal/ui/features/settings"
 	"github.com/coredev-uk/sona-go/internal/ui/features/updates"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
@@ -17,9 +18,10 @@ import (
 var factories = []module.Factory{
 	library.New, // Albums only
 	player.New,  // the player bar only
-	updates.New, // the sidebar's update notice
 	// motion has no module: the policy is kit.MotionPolicy (Env.Motion), kept by the shell
 	private.New,   // the player bar's private listening pill and its command
 	cdm.New,       // the Widevine mirror and the player bar's notice
 	reminders.New, // release reminders' album action
+	settings.New,  // the settings page
+	updates.New,   // the sidebar's update notice
 }

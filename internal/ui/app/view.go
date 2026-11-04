@@ -102,13 +102,20 @@ func (a *App) page(c *ui.Context) {
 	})
 }
 
-// topBar is the top bar: history, the search a module provides, and room
-// to grab the window by.
+// topBar is the top bar: history, the search a module provides, room
+// to grab the window by, and the account menu a module provides.
 func (a *App) topBar(c *ui.Context) {
 	var search func(*ui.Context)
 	for _, m := range a.mods {
 		if m.Slots.TopBarSearch != nil {
 			search = m.Slots.TopBarSearch
+			break
+		}
+	}
+	var account func(*ui.Context)
+	for _, m := range a.mods {
+		if m.Slots.TopBarAccount != nil {
+			account = m.Slots.TopBarAccount
 			break
 		}
 	}
@@ -123,6 +130,9 @@ func (a *App) topBar(c *ui.Context) {
 			ui.Row(c).MinWidth(240).Basis(520).Shrink(1).Grow(0).Children(func() { search(c) })
 		}
 		ui.Box(c).Grow(1).MinWidth(64).Height(1)
+		if account != nil {
+			account(c)
+		}
 	})
 }
 

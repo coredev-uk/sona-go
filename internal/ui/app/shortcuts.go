@@ -37,6 +37,7 @@ var namedKeys = map[string]ui.Key{
 	"home": ui.KeyHome, "end": ui.KeyEnd, "pageup": ui.KeyPageUp, "pagedown": ui.KeyPageDown,
 	"arrowup": ui.KeyUp, "arrowdown": ui.KeyDown, "arrowleft": ui.KeyLeft, "arrowright": ui.KeyRight,
 	"plus": ui.KeyEqual, // Shift+= on a US keyboard
+	"?":    ui.KeySlash, // Shift+/
 	"-":    ui.KeyMinus, "=": ui.KeyEqual, ",": ui.KeyComma, ".": ui.KeyPeriod, "/": ui.KeySlash,
 	";": ui.KeySemicolon, "'": ui.KeyQuote, "[": ui.KeyBracketLeft, "]": ui.KeyBracketRight,
 	"\\": ui.KeyBackslash, "`": ui.KeyBackquote,
@@ -76,7 +77,8 @@ func parseChord(s string) (c chord, ok bool) {
 	if !known {
 		return chord{}, false
 	}
-	if strings.EqualFold(parts[len(parts)-1], "plus") {
+	// "Plus" and "?" are typed with Shift (on a US keyboard).
+	if last := parts[len(parts)-1]; strings.EqualFold(last, "plus") || last == "?" {
 		c.mods |= ui.Shift
 	}
 	c.key = key
@@ -120,6 +122,20 @@ func chordsOf(s module.Shortcut, overrides config.Shortcuts) []chord {
 	return out
 }
 
+// keysOf is a shortcut's keys as strings: the user's binding when it
+// parses ("none" is no keys), else its defaults.
+func keysOf(s module.Shortcut, overrides config.Shortcuts) []string {
+	if b, ok := overrides[s.ID]; ok {
+		if _, ok := parseBinding(b); ok {
+			if strings.EqualFold(strings.TrimSpace(b), "none") {
+				return nil
+			}
+			return strings.Fields(b)
+		}
+	}
+	return s.Keys
+}
+
 // bound is a shortcut with the chords it answers to.
 type bound struct {
 	module.Shortcut
@@ -128,13 +144,23 @@ type bound struct {
 
 // dispatcher is the window's one key handler.
 type dispatcher struct {
-	list   []bound
-	chords []chord // distinct, in registration order
+	shortcuts []module.Shortcut
+	overrides config.Shortcuts
+	list      []bound
+	chords    []chord // distinct, in registration order
 }
 
 func newDispatcher(list []module.Shortcut, overrides config.Shortcuts) *dispatcher {
-	d := &dispatcher{}
-	for _, s := range list {
+	d := &dispatcher{shortcuts: list}
+	d.rebind(overrides)
+	return d
+}
+
+// rebind applies the user's bindings (a settings change applies at once).
+func (d *dispatcher) rebind(overrides config.Shortcuts) {
+	d.overrides = overrides
+	d.list, d.chords = d.list[:0], d.chords[:0]
+	for _, s := range d.shortcuts {
 		b := bound{Shortcut: s, chords: chordsOf(s, overrides)}
 		d.list = append(d.list, b)
 		for _, c := range b.chords {
@@ -143,7 +169,16 @@ func newDispatcher(list []module.Shortcut, overrides config.Shortcuts) *dispatch
 			}
 		}
 	}
-	return d
+}
+
+// bindings is every registered shortcut with the keys it answers to now
+// (Env.Shortcuts).
+func (d *dispatcher) bindings() []module.BoundShortcut {
+	out := make([]module.BoundShortcut, len(d.shortcuts))
+	for i, s := range d.shortcuts {
+		out[i] = module.BoundShortcut{Shortcut: s, Keys: keysOf(s, d.overrides)}
+	}
+	return out
 }
 
 // dispatch asks MyGo, each frame, for every chord, and runs the first
