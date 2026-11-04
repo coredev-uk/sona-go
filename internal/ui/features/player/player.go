@@ -51,6 +51,10 @@ type player struct {
 	// unmuted is the volume to return to on unmute (v0.2.0's `unmuted`).
 	unmuted float64
 
+	// ui is the panels' state (view.go); np is Now Playing's (nowplaying_state.go).
+	ui *view
+	np nowPlayingState
+
 	mu     sync.Mutex
 	failed []failure // command failures waiting to be shown (the view shows them)
 }
@@ -68,13 +72,16 @@ func New(env *module.Env) module.Module {
 	p := newPlayer(env, pb, func() bool { return plat.Capabilities().Playback.Volume })
 	return module.Module{
 		ID:        "player",
-		Shortcuts: p.shortcuts(),
-		Slots:     module.Slots{Bottom: p.bar},
+		Shortcuts: append(p.shortcuts(), p.nowPlayingShortcuts()...),
+		Slots: module.Slots{
+			Bottom: p.bar, Overlay: p.overlaySlot(),
+			Layer: p.roomLayer, LayerOpen: p.roomOpen,
+		},
 	}
 }
 
 func newPlayer(env *module.Env, svc transport, volume func() bool) *player {
-	return &player{env: env, svc: svc, volume: volume, now: time.Now, unmuted: 0.8}
+	return &player{env: env, svc: svc, volume: volume, now: time.Now, unmuted: 0.8, ui: newView()}
 }
 
 // run starts a command off the main thread; its failure is shown as a toast

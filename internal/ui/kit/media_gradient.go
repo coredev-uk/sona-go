@@ -182,11 +182,20 @@ type SweepText struct {
 // NewSweepText shapes words as one text of the font's size, weight and line
 // height (DIPs) wrapped at width, in the theme's face.
 func NewSweepText(words []lyrics.Word, size float32, weight int, lineHeight, width float32) *SweepText {
+	return newSweepText(words, size, weight, false, lineHeight, width)
+}
+
+// NewSweepTextItalic is NewSweepText in italic: a duet's other voice.
+func NewSweepTextItalic(words []lyrics.Word, size float32, weight int, lineHeight, width float32) *SweepText {
+	return newSweepText(words, size, weight, true, lineHeight, width)
+}
+
+func newSweepText(words []lyrics.Word, size float32, weight int, italic bool, lineHeight, width float32) *SweepText {
 	spans := make([]ui.Span, len(words))
 	for i, w := range words {
 		spans[i] = ui.Span{Text: w.Text}
 	}
-	font := ui.Font{Family: theme.FontFamily, Size: size, Weight: weight, LineHeight: lineHeight / size}
+	font := ui.Font{Family: theme.FontFamily, Size: size, Weight: weight, Italic: italic, LineHeight: lineHeight / size}
 	s := &SweepText{words: words, width: width, size: size}
 	s.layout = ui.ShapeRichTextWith(spans, font, ui.TextShape{Width: width})
 	_, s.h = s.layout.Size()
