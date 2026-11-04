@@ -275,8 +275,8 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i int, si
 			it.Open()
 		}
 	}
-	if st.nav.Keys(s, i, &st.Sel) || st.Sel.Keys(s, i) {
-		// handled
+	if !st.nav.Keys(s, i, &st.Sel) {
+		st.Sel.Keys(s, i)
 	}
 	if selectable && o.Menus != nil {
 		collectionsMenu(&st.Sel, o.Menus, s, ActionTarget{Item: *it.Item, Name: it.Title, Container: o.Container, Key: it.Key}, i)

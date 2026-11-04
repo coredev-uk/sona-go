@@ -137,7 +137,7 @@ var collectionsScenes = []struct {
 		return tt
 	}},
 	{"shelf", func(t *testing.T) *ui.Tester {
-		a, tt := newShelfApp(t, 12, 820)
+		a, tt := newCollShelfApp(t, 12, 820)
 		a.items[0].Play = &CoverPlay{Label: "Album 0", Run: func() {}}
 		a.items[1].Round = true
 		a.items[2].Explicit = true
@@ -149,7 +149,7 @@ var collectionsScenes = []struct {
 		return tt
 	}},
 	{"tracks", func(t *testing.T) *ui.Tester {
-		a, tt := newTrackApp(t, 9, 820, 460)
+		a, tt := newCollTrackApp(t, 9, 820, 460)
 		a.current = "s1"
 		a.songs[2].Explicit = true
 		a.songs[4].Playable = false
@@ -163,7 +163,7 @@ var collectionsScenes = []struct {
 		return tt
 	}},
 	{"tracks-playlist", func(t *testing.T) *ui.Tester {
-		a, tt := newTrackApp(t, 7, 820, 420)
+		a, tt := newCollTrackApp(t, 7, 820, 420)
 		a.opts.Columns = TrackColumns{RowNumbers: true, Artwork: true, Album: true}
 		a.opts.Discs = true
 		for i := 4; i < 7; i++ {

@@ -11,8 +11,8 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// shelfApp is a page with one cover shelf.
-type shelfApp struct {
+// collShelfApp is a page with one cover shelf.
+type collShelfApp struct {
 	items  []CoverItem
 	st     CoverShelfState
 	opts   CoverShelfOpts
@@ -22,14 +22,14 @@ type shelfApp struct {
 	title  string
 }
 
-func newShelfApp(t *testing.T, n int, w int) (*shelfApp, *ui.Tester) {
+func newCollShelfApp(t *testing.T, n int, w int) (*collShelfApp, *ui.Tester) {
 	t.Helper()
 	theme.SetMode(theme.ModeLight)
 	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
 	resetDrag()
 	t.Cleanup(resetDrag)
 	mt := newMainThread()
-	a := &shelfApp{title: "Recently Added"}
+	a := &collShelfApp{title: "Recently Added"}
 	a.art = newArtLoader(&fakeArt{}, mt.post, 2)
 	t.Cleanup(a.art.Close)
 	for i := range n {
@@ -41,7 +41,7 @@ func newShelfApp(t *testing.T, n int, w int) (*shelfApp, *ui.Tester) {
 	return a, ui.NewTester(a.view, w, 700)
 }
 
-func (a *shelfApp) view(c *ui.Context) {
+func (a *collShelfApp) view(c *ui.Context) {
 	theme.Apply(c)
 	a.opts.Art = a.art
 	ui.Column(c).Padding(24, 32).Children(func() {
@@ -49,7 +49,7 @@ func (a *shelfApp) view(c *ui.Context) {
 	})
 }
 
-func artists(tt *ui.Tester) int {
+func collArtists(tt *ui.Tester) int {
 	n := 0
 	for _, s := range tt.Texts() {
 		if strings.HasPrefix(s, "Artist ") {
@@ -60,11 +60,11 @@ func artists(tt *ui.Tester) int {
 }
 
 func TestCoverShelfShowsOneRowAndTogglesInPlace(t *testing.T) {
-	_, tt := newShelfApp(t, 12, 1000)
+	_, tt := newCollShelfApp(t, 12, 1000)
 	tt.Frame()
 	tt.Frame()
 	// 1000-64 wide: 5 columns of 160+ fit.
-	if got := artists(tt); got != 5 {
+	if got := collArtists(tt); got != 5 {
 		t.Fatalf("shown %d tiles, want one row of 5", got)
 	}
 	if !tt.HasText("Recently Added") || !tt.HasText("Show all") || tt.HasText("See all") {
@@ -74,7 +74,7 @@ func TestCoverShelfShowsOneRowAndTogglesInPlace(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if got := artists(tt); got != 12 {
+	if got := collArtists(tt); got != 12 {
 		t.Errorf("Show all shows %d tiles, want 12", got)
 	}
 	if !tt.HasText("Show fewer") {
@@ -82,13 +82,13 @@ func TestCoverShelfShowsOneRowAndTogglesInPlace(t *testing.T) {
 	}
 	_ = tt.Click("Show fewer")
 	tt.Frame()
-	if got := artists(tt); got != 5 {
+	if got := collArtists(tt); got != 5 {
 		t.Errorf("Show fewer shows %d tiles", got)
 	}
 }
 
 func TestCoverShelfSeeAllReplacesShowAll(t *testing.T) {
-	a, tt := newShelfApp(t, 12, 1000)
+	a, tt := newCollShelfApp(t, 12, 1000)
 	a.opts.More = func() { a.more++ }
 	tt.Frame()
 	tt.Frame()
@@ -104,24 +104,24 @@ func TestCoverShelfSeeAllReplacesShowAll(t *testing.T) {
 }
 
 func TestCoverShelfShowsNothingForNoItemsAndNoToggleWhenAllFit(t *testing.T) {
-	_, tt := newShelfApp(t, 0, 1000)
+	_, tt := newCollShelfApp(t, 0, 1000)
 	tt.Frame()
 	if tt.HasText("Recently Added") {
 		t.Error("an empty shelf shows its title")
 	}
-	_, tt2 := newShelfApp(t, 4, 1000)
+	_, tt2 := newCollShelfApp(t, 4, 1000)
 	tt2.Frame()
 	tt2.Frame()
 	if tt2.HasText("Show all") {
 		t.Error("4 tiles in a row of 5 offer Show all")
 	}
-	if got := artists(tt2); got != 4 {
+	if got := collArtists(tt2); got != 4 {
 		t.Errorf("shown %d", got)
 	}
 }
 
 func TestCoverRowFitsTheWidthAndReportsColumns(t *testing.T) {
-	a, tt := newShelfApp(t, 12, 1000)
+	a, tt := newCollShelfApp(t, 12, 1000)
 	tt.Frame()
 	tt.Frame()
 	if a.st.cols != 5 {
@@ -131,13 +131,13 @@ func TestCoverRowFitsTheWidthAndReportsColumns(t *testing.T) {
 	tt.Frame()
 	tt.Frame()
 	// 520-64 = 456: 2 columns.
-	if a.st.cols != 2 || artists(tt) != 2 {
-		t.Errorf("columns %d, tiles %d, want 2", a.st.cols, artists(tt))
+	if a.st.cols != 2 || collArtists(tt) != 2 {
+		t.Errorf("columns %d, tiles %d, want 2", a.st.cols, collArtists(tt))
 	}
 }
 
 func TestCoverShelfVideoUsesWiderTiles(t *testing.T) {
-	a, tt := newShelfApp(t, 6, 1000)
+	a, tt := newCollShelfApp(t, 6, 1000)
 	a.opts.Video = true
 	tt.Frame()
 	tt.Frame()
@@ -148,7 +148,7 @@ func TestCoverShelfVideoUsesWiderTiles(t *testing.T) {
 }
 
 func TestCoverTilesNameTheirControls(t *testing.T) {
-	a, tt := newShelfApp(t, 3, 1000)
+	a, tt := newCollShelfApp(t, 3, 1000)
 	a.items[0].Badge = "Out 19 Nov"
 	a.items[1].PlaysOnOpen = true
 	a.items[1].Open = nil

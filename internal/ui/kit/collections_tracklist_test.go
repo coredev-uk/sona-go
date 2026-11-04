@@ -12,8 +12,8 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// trackApp is a page with a track list in its scroll container.
-type trackApp struct {
+// collTrackApp is a page with a track list in its scroll container.
+type collTrackApp struct {
 	songs   []*services.Song
 	st      TrackListState
 	pos     ui.ScrollState
@@ -33,14 +33,14 @@ func collSong(i int) *services.Song {
 		Art: services.Art{Small: "/art/k" + id + "/s.jpg"}}
 }
 
-func newTrackApp(t *testing.T, n int, w, h int) (*trackApp, *ui.Tester) {
+func newCollTrackApp(t *testing.T, n int, w, h int) (*collTrackApp, *ui.Tester) {
 	t.Helper()
 	theme.SetMode(theme.ModeLight)
 	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
 	resetDrag()
 	t.Cleanup(resetDrag)
 	mt := newMainThread()
-	a := &trackApp{}
+	a := &collTrackApp{}
 	for i := range n {
 		a.songs = append(a.songs, collSong(i))
 	}
@@ -57,7 +57,7 @@ func newTrackApp(t *testing.T, n int, w, h int) (*trackApp, *ui.Tester) {
 	return a, ui.NewTester(a.view, w, h)
 }
 
-func (a *trackApp) view(c *ui.Context) {
+func (a *collTrackApp) view(c *ui.Context) {
 	theme.Apply(c)
 	a.opts.Art = a.art
 	ui.Row(c).Fill().Children(func() {
@@ -75,7 +75,7 @@ func (a *trackApp) view(c *ui.Context) {
 }
 
 func TestTrackListShowsHeaderAndRows(t *testing.T) {
-	_, tt := newTrackApp(t, 5, 1000, 500)
+	_, tt := newCollTrackApp(t, 5, 1000, 500)
 	tt.Frame()
 	for _, want := range []string{"Songs in Test", "Title", "Artist", "Album", "Song 0", "Artist 0", "Album 4", "3:15", "3:16"} {
 		if !tt.HasText(want) {
@@ -94,7 +94,7 @@ func collRowPos(t *testing.T, tt *ui.Tester, label string) (x, y float32) {
 }
 
 func TestTrackListSelectsPlaysAndSorts(t *testing.T) {
-	a, tt := newTrackApp(t, 20, 1000, 700)
+	a, tt := newCollTrackApp(t, 20, 1000, 700)
 	tt.Frame()
 	x, y := collRowPos(t, tt, "Song 2")
 	tt.ClickAt(x, y)
@@ -133,7 +133,7 @@ func TestTrackListSelectsPlaysAndSorts(t *testing.T) {
 }
 
 func TestTrackListKeysMoveTheFocusAndSelect(t *testing.T) {
-	a, tt := newTrackApp(t, 40, 1000, 700)
+	a, tt := newCollTrackApp(t, 40, 1000, 700)
 	tt.Frame()
 	// The sort buttons come first in the Tab order, then the focused row.
 	for range 4 {
@@ -175,7 +175,7 @@ func TestTrackListKeysMoveTheFocusAndSelect(t *testing.T) {
 }
 
 func TestTrackListCurrentSongTakesTheNumberAndDisabledRowsDoNothing(t *testing.T) {
-	a, tt := newTrackApp(t, 6, 1000, 500)
+	a, tt := newCollTrackApp(t, 6, 1000, 500)
 	a.current = "s1"
 	a.songs[2].Playable = false
 	a.songs[3].Explicit = true
@@ -205,7 +205,7 @@ func TestTrackListCurrentSongTakesTheNumberAndDisabledRowsDoNothing(t *testing.T
 }
 
 func TestTrackListPlayButtonAndLinks(t *testing.T) {
-	a, tt := newTrackApp(t, 6, 1000, 500)
+	a, tt := newCollTrackApp(t, 6, 1000, 500)
 	tt.Frame()
 	x, y := collRowPos(t, tt, "Song 2")
 	tt.Move(x, y)
@@ -229,7 +229,7 @@ func TestTrackListPlayButtonAndLinks(t *testing.T) {
 }
 
 func TestTrackListExtras(t *testing.T) {
-	a, tt := newTrackApp(t, 6, 1000, 700)
+	a, tt := newCollTrackApp(t, 6, 1000, 700)
 	a.opts.Columns = TrackColumns{RowNumbers: true}
 	a.opts.Popular = map[string]bool{"c1": true}
 	a.opts.Discs = true
@@ -261,7 +261,7 @@ func TestTrackListExtras(t *testing.T) {
 }
 
 func TestTrackListLoadingRowsAndHighlight(t *testing.T) {
-	a, tt := newTrackApp(t, 6, 1000, 500)
+	a, tt := newCollTrackApp(t, 6, 1000, 500)
 	a.songs[1] = nil
 	a.opts.Highlight = "s3"
 	tt.Frame()
@@ -283,7 +283,7 @@ func TestTrackListLoadingRowsAndHighlight(t *testing.T) {
 }
 
 func TestTrackListBuildsOnlyTheRowsShowing(t *testing.T) {
-	a, tt := newTrackApp(t, 2000, 1000, 600)
+	a, tt := newCollTrackApp(t, 2000, 1000, 600)
 	var ranges [][2]int
 	a.opts.OnRange = func(s, e int) { ranges = append(ranges, [2]int{s, e}) }
 	tt.Frame()
@@ -317,7 +317,7 @@ func TestTrackListBuildsOnlyTheRowsShowing(t *testing.T) {
 }
 
 func TestTrackListDragsTheSelection(t *testing.T) {
-	a, tt := newTrackApp(t, 10, 1200, 600)
+	a, tt := newCollTrackApp(t, 10, 1200, 600)
 	var dropped []*DragPayload
 	a.target = func(c *ui.Context) {
 		box := ui.Box(c.Key("drop")).Width(200).FillHeight()
@@ -353,7 +353,7 @@ func TestTrackListDragsTheSelection(t *testing.T) {
 }
 
 func TestTrackRowMenuActsOnTheRowOrTheSelection(t *testing.T) {
-	a, tt := newTrackApp(t, 6, 1000, 500)
+	a, tt := newCollTrackApp(t, 6, 1000, 500)
 	var ran []string
 	reg := NewActionRegistry(ActionDef{
 		ID: "test.next", Target: KindSong, Group: GroupQueue, Order: 10,
@@ -380,7 +380,7 @@ func TestTrackRowMenuActsOnTheRowOrTheSelection(t *testing.T) {
 }
 
 func TestTrackListScrollsTheHighlightedSongToTheCentre(t *testing.T) {
-	a, tt := newTrackApp(t, 2000, 1000, 600)
+	a, tt := newCollTrackApp(t, 2000, 1000, 600)
 	a.opts.Highlight = "s900"
 	tt.Frame()
 	tt.Frame()

@@ -184,7 +184,6 @@ func TestSelectionGroupWithNeedsTwoRowsIncludingTheKey(t *testing.T) {
 type collOutsideApp struct {
 	sel   Selection
 	hold  bool
-	root  ui.Element
 	other int
 }
 
