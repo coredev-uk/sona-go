@@ -12,7 +12,7 @@
 #
 # Environment:
 #   GSTREAMER_ROOT  the framework's Versions/1.0 directory
-#                   (default /Library/Frameworks/GStreamer)
+#                   (default /Library/Frameworks/GStreamer.framework/Versions/1.0)
 #   VERSION         default: the VERSION file
 #   SONA_SMOKE_TOOLS=1   also build OUTDIR/smoke-tools (playspike, media.test) for smoke.sh
 #   UPDATE_FEED, UPDATE_KEY   linked into the binary for self-updates (the
@@ -26,7 +26,7 @@ out=${1:?usage: bundle.sh OUTDIR}
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
 version=${VERSION:-$(cat "$repo/VERSION")}
-gst=${GSTREAMER_ROOT:-/Library/Frameworks/GStreamer}
+gst=${GSTREAMER_ROOT:-/Library/Frameworks/GStreamer.framework/Versions/1.0}
 minos=$(tr -d '[:space:]' <"$here/MIN_MACOS")
 [[ -d $gst/lib/gstreamer-1.0 ]] || { echo "bundle: no GStreamer framework at $gst (build/darwin/install-gstreamer.sh)" >&2; exit 1; }
 
@@ -45,7 +45,7 @@ trap 'rm -rf "$work"' EXIT
 # default prefix, so point both at gst.
 mkdir "$work/pc"
 for f in "$gst"/lib/pkgconfig/*.pc; do
-  sed -e "s|/Library/Frameworks/GStreamer|$gst|g" -e "s|\${pcfiledir}/../..|$gst|g" "$f" >"$work/pc/$(basename "$f")"
+  sed -e "s|/Library/Frameworks/GStreamer.framework/Versions/1.0|$gst|g" -e "s|\${pcfiledir}/../..|$gst|g" "$f" >"$work/pc/$(basename "$f")"
 done
 ldflags="-w -s -X main.version=$version -X github.com/egoist/mygo.production=1 -extldflags=-mmacosx-version-min=$minos"
 [[ -n ${UPDATE_FEED:-} ]] && ldflags+=" -X github.com/egoist/mygo.packageUpdateFeed=$UPDATE_FEED"
@@ -57,7 +57,7 @@ gocmd() { # go ARGS...: with the framework and the deployment target
   (
     cd "$repo"
     export GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 MACOSX_DEPLOYMENT_TARGET=$minos
-    export PKG_CONFIG_PATH=$work/pc CGO_CFLAGS="-mmacosx-version-min=$minos" CGO_LDFLAGS="-mmacosx-version-min=$minos"
+    export PKG_CONFIG_PATH=$work/pc CGO_CFLAGS="-mmacosx-version-min=$minos" CGO_LDFLAGS="-mmacosx-version-min=$minos -Wl,-headerpad_max_install_names"
     go "$@"
   )
 }
@@ -89,27 +89,35 @@ iconutil -c icns "$iconset" -o "$app/Contents/Resources/Sona.icns"
 fw=$app/Contents/Frameworks/GStreamer
 # (no dots in folder names: codesign takes "gstreamer-1.0" for a bundle)
 mkdir -p "$fw/lib/plugins" "$fw/libexec"
-cp "$gst/libexec/gstreamer-1.0/gst-plugin-scanner" "$fw/libexec/"
+# put SRC DST copies a framework file and thins it to arm64 (the framework's
+# libraries are universal; Apple silicon only needs one slice).
+put() {
+  cp "$1" "$2"
+  case $(lipo -archs "$2" 2>/dev/null) in
+  *x86_64*arm64* | *arm64*x86_64*) lipo -thin arm64 "$2" -output "$2.thin" && mv "$2.thin" "$2" ;;
+  esac
+}
+put "$gst/libexec/gstreamer-1.0/gst-plugin-scanner" "$fw/libexec/gst-plugin-scanner"
 for p in "${required[@]}"; do
   [[ -f $gst/lib/gstreamer-1.0/libgst$p.dylib ]] || { echo "bundle: required plugin $p is missing from $gst" >&2; exit 1; }
-  cp "$gst/lib/gstreamer-1.0/libgst$p.dylib" "$fw/lib/plugins/"
+  put "$gst/lib/gstreamer-1.0/libgst$p.dylib" "$fw/lib/plugins/libgst$p.dylib"
 done
 for p in "${optional[@]}"; do
-  [[ -f $gst/lib/gstreamer-1.0/libgst$p.dylib ]] && cp "$gst/lib/gstreamer-1.0/libgst$p.dylib" "$fw/lib/plugins/"
+  if [[ -f $gst/lib/gstreamer-1.0/libgst$p.dylib ]]; then put "$gst/lib/gstreamer-1.0/libgst$p.dylib" "$fw/lib/plugins/libgst$p.dylib"; fi
 done
 
 # deps FILE prints each dependency's install name (not the file's own id).
 deps() {
   local id
   id=$(otool -D "$1" | tail -n +2)
-  otool -L "$1" | tail -n +2 | awk '{print $1}' | { grep -vxF -- "${id:-/nonexistent}" || true; }
+  otool -L "$1" | grep -E '^[[:space:]]' | awk '{print $1}' | { grep -vxF -- "${id:-/nonexistent}" || true; }
 }
 # fwpath resolves an install name to the file in the framework, or nothing
 # for a system library; a path outside the framework and the system fails.
 fwpath() {
   case $1 in
   "$gst"/*) echo "$1" ;;
-  /Library/Frameworks/GStreamer/*) echo "$gst/${1#/Library/Frameworks/GStreamer/}" ;;
+  /Library/Frameworks/GStreamer.framework/Versions/1.0/*) echo "$gst/${1#/Library/Frameworks/GStreamer.framework/Versions/1.0/}" ;;
   @rpath/*) echo "$gst/lib/${1##*/}" ;;
   /usr/lib/* | /System/*) ;;
   # A devenv build (SONA_DEVENV_BUILD=1, for trying this script on a Mac that
@@ -122,26 +130,19 @@ fwpath() {
 }
 queue=("$fw"/lib/plugins/*.dylib "$fw/libexec/gst-plugin-scanner" "$work/sona")
 [[ -n ${SONA_SMOKE_TOOLS:-} ]] && queue+=("$work/playspike" "$work/media.test")
-declare -A seen
+seen=" "
 for ((i = 0; i < ${#queue[@]}; i++)); do
   f=${queue[i]}
   while read -r d; do
     s=$(fwpath "$d" "$f") || exit 1
     [[ -n $s ]] || continue
     n=${s##*/}
-    [[ -n ${seen[$n]:-} ]] && continue
-    seen[$n]=1
-    [[ -e $fw/lib/$n ]] || cp "$s" "$fw/lib/$n"
+    [[ $seen == *" $n "* ]] && continue
+    seen+="$n "
+    [[ -e $fw/lib/$n ]] || put "$s" "$fw/lib/$n"
     queue+=("$fw/lib/$n")
   done < <(deps "$f")
 done
-
-# Apple silicon only: the framework's libraries are universal.
-while IFS= read -r -d '' f; do
-  if [[ $(lipo -archs "$f" 2>/dev/null) == *x86_64*arm64* || $(lipo -archs "$f" 2>/dev/null) == *arm64*x86_64* ]]; then
-    lipo -thin arm64 "$f" -output "$f.thin" && mv "$f.thin" "$f"
-  fi
-done < <(find "$fw" -type f \( -name '*.dylib' -o -name gst-plugin-scanner \) -print0)
 
 # 4. Relocate: every framework dependency becomes a path relative to the
 # file that loads it.

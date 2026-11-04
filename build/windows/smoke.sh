@@ -18,15 +18,19 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 profile=$work/profile
 mkdir -p "$profile/Roaming" "$profile/Local"
-export SONA_PRIVATE=1 APPDATA="$profile/Roaming" LOCALAPPDATA="$profile/Local"
+# Sona is a native program: it wants Windows paths in its environment.
+APPDATA=$(cygpath -w "$profile/Roaming")
+LOCALAPPDATA=$(cygpath -w "$profile/Local")
+export SONA_PRIVATE=1 APPDATA LOCALAPPDATA
 
 # 1. The portable zip.
-7z x -bso0 -bsp0 -o"$work/zip" "$out/Sona-$version-windows-x64.zip"
+# 7z is a native program: it wants Windows paths.
+7z x -bso0 -bsp0 -o"$(cygpath -w "$work/zip")" "$(cygpath -w "$out/Sona-$version-windows-x64.zip")"
 exe=$work/zip/Sona/sona.exe
 got=$("$exe" --version) || fail "sona.exe --version failed"
 [[ $got == "sona $version" ]] || fail "sona.exe --version printed '$got', want 'sona $version'"
 
-log=$LOCALAPPDATA/Sona/State/sona.log
+log=$profile/Local/Sona/State/sona.log
 "$exe" >"$work/sona.out" 2>&1 &
 pid=$!
 for _ in $(seq 1 60); do
