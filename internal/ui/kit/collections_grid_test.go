@@ -563,3 +563,35 @@ func TestTheGhostSitsRightAndBelowThePointerAndFlipsNearTheEdge(t *testing.T) {
 		}
 	}
 }
+
+// A tile's play button and more button are elements of their own beside the
+// opener (a button or a link is a leaf on the accessibility tree, so inside
+// it they would be unreachable there): they exist without hover and the keyboard
+// reaches the play button after the opener, Enter pressing it (the more button
+// opens with Shift+F10 on the tile, as before).
+func TestCoverTileControlsAreBesideTheOpenerAndTabbable(t *testing.T) {
+	a, tt, _ := newCoverMenuApp(t)
+	tt.Frame()
+	for _, label := range []string{"Play Album 0", "More for Album 0"} {
+		if _, ok := tt.Find(label); !ok {
+			t.Errorf("%q is not there while the tile is not hovered", label)
+		}
+	}
+	tt.Key(0, ui.KeyTab)
+	for _, want := range []string{"Album 0", "Play Album 0", "Album 1"} {
+		if !tt.Focused(want) {
+			t.Fatalf("Tab did not reach %q", want)
+		}
+		tt.Key(0, ui.KeyTab)
+	}
+	// Back on the play button: Enter presses it.
+	tt.Key(ui.Shift, ui.KeyTab)
+	tt.Key(ui.Shift, ui.KeyTab)
+	if !tt.Focused("Play Album 0") {
+		t.Fatalf("Shift+Tab did not return to the play button")
+	}
+	tt.Key(0, ui.KeyEnter)
+	if len(a.played) != 1 || a.played[0] != "0" || len(a.opened) != 0 {
+		t.Errorf("played %v opened %v", a.played, a.opened)
+	}
+}

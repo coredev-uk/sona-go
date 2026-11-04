@@ -27,6 +27,7 @@ var factories = []module.Factory{
 	album.New,   // the album page
 	artist.New,  // the artist page and its see-all views
 	song.New,    // the song page
+	library.New,
 	player.New,  // the player bar only
 	auth.New,    // sign-in state, the account menu and dialog
 	updates.New, // the sidebar's update notice

@@ -272,7 +272,7 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	t.Cleanup(func() { _ = h.Coord.Close() })
 	core := services.New(services.Deps{
 		Paths:    config.Paths{Config: h.Dir, Data: h.Dir, Cache: h.Dir, Art: h.Dir, State: h.Dir},
-		Settings: settings, DB: d, Auth: authm, Library: ilib.New(d, nil), Art: art, Engine: h.Engine, Coord: h.Coord,
+		Settings: settings, DB: d, Auth: authm, Library: ilib.New(d, nil), Syncer: ilib.NewSyncer(d, nil, nil, 0), Art: art, Engine: h.Engine, Coord: h.Coord,
 		Private: privatemode.New(privatemode.Options{}), Gate: services.NewGate(time.Hour, nil),
 		Keyring: h.Keyring, Transport: h.Network,
 		// A real client over the fixture network: a request to a host nothing
