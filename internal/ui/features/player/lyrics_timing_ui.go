@@ -30,16 +30,25 @@ func (p *player) lyricsTiming(c *ui.Context, songID string) {
 	offset := lyricsync.Session().Get(songID)
 	words := describeOffset(offset)
 	step := i18n.FormatNumber(float64(lyricsync.OffsetStepMs) / 1000)
+	// Said when it changes (not when the song's own is first shown), so a
+	// nudge from the keyboard is heard whoever has the focus.
+	text := i18n.T("Lyrics on time")
+	if words != "" {
+		text = i18n.T("Lyrics {words}", "words", words)
+	}
+	if np := &p.np; np.timingSaid && np.timingSong == songID && np.timingWords != text {
+		c.Announce(text)
+	}
+	p.np.timingSong, p.np.timingWords, p.np.timingSaid = songID, text, true
 	ui.Row(c.Key("lyrics-timing")).AlignItems(ui.Center).Role(ui.RoleGroup).Label(i18n.T("Lyrics timing")).Children(func() {
 		earlier := i18n.T("Show lyrics {step} s earlier", "step", step)
 		if kit.Button(c.Key("earlier"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Icon: "minus", Muted: true, A11yLabel: earlier}).Clicked() {
 			lyricsync.Session().Nudge(songID, -1)
 		}
-		label, tip := i18n.T("Lyrics on time"), ""
+		label, tip := text, ""
 		if words != "" {
-			label, tip = i18n.T("Lyrics {words}", "words", words), i18n.T("Back to the original timing")
+			tip = i18n.T("Back to the original timing")
 		}
-		// Announced as it changes, so a nudge from the keyboard is heard.
 		if kit.Button(c.Key("offset"), label, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Muted: true, Disabled: words == "", Tip: tip}).
 			Role(ui.RoleStatus).MinWidth(120).Clicked() {
 			lyricsync.Session().Reset(songID)

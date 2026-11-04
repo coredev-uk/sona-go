@@ -63,8 +63,11 @@ func selectRadio(item ui.Element, label string, chosen bool) ui.Element {
 // separator.
 type SelectItem struct {
 	Value, Label string
-	Disabled     bool
-	kind         selectKind
+	// Lang is the language of Label as a BCP 47 tag when it is not the
+	// app's (a language named in itself); "" is the app's.
+	Lang     string
+	Disabled bool
+	kind     selectKind
 }
 
 type selectKind int
@@ -78,6 +81,12 @@ const (
 // SelectOption is a choosable row: Value is what *value gets, Label what
 // shows.
 func SelectOption(value, label string) SelectItem { return SelectItem{Value: value, Label: label} }
+
+// SelectOptionLang is SelectOption whose label is in the language lang, so
+// that the text stack draws its glyphs and a screen reader speaks it so.
+func SelectOptionLang(value, label, lang string) SelectItem {
+	return SelectItem{Value: value, Label: label, Lang: lang}
+}
 
 // SelectLabel is a muted heading for the options after it.
 func SelectLabel(label string) SelectItem { return SelectItem{Label: label, kind: selectLabel} }
@@ -122,16 +131,16 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 	if o.A11yLabel != "" {
 		trigger.Label(o.A11yLabel)
 	}
-	shown, placeholder := "", true
+	shown, shownLang, placeholder := "", "", true
 	for _, it := range items {
 		if it.kind == selectOption && it.Value == *value {
-			shown, placeholder = it.Label, false
+			shown, shownLang, placeholder = it.Label, it.Lang, false
 		}
 	}
 	if placeholder {
 		shown = o.Placeholder
 	}
-	trigger.Value(shown)
+	trigger.Value(shown).Lang(shownLang)
 	controlsFieldFace(trigger, trigger.Focused(), o.Invalid, o.Disabled)
 	invalidFor(trigger, o.Invalid, o.Error)
 	if trigger.Hovered() && !o.Disabled && theme.Dark() {
@@ -160,7 +169,7 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 						controlsOption(c, selectRadio(ui.Row(c.Key(i)), it.Label, false), it.Label, false, false, true)
 						continue
 					}
-					item := sel.Item(it.Value)
+					item := sel.Item(it.Value).Lang(it.Lang)
 					controlsOption(c, selectRadio(item, it.Label, it.Value == *value), it.Label, item.Highlighted(), it.Value == *value, false)
 				}
 			}

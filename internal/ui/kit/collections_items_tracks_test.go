@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 func trackItems(n int) []services.Item {
@@ -195,5 +196,21 @@ func TestTrackShelfWithheldSongExplainsWhyOnHover(t *testing.T) {
 	tt.Advance(2 * time.Second)
 	if tt.HasText(reason) {
 		t.Error("a playable song shows the reason")
+	}
+}
+
+func TestTrackShelfWithheldSongIsDescribedWithTheReason(t *testing.T) {
+	items := trackItems(2)
+	items[1] = songItem("2", "Song 2", "Artist 2", true)
+	_, tt := trackApp(t, items, "", func(ctx *ItemsCtx) { ctx.Restricted = true })
+	tr := access.Read(t, tt)
+	for name, want := range map[string]string{"Song 2": "Explicit content is restricted on this account", "Song 1": ""} {
+		n, ok := tr.Find(ui.RoleListItem, name)
+		if !ok {
+			t.Fatalf("no list item %q", name)
+		}
+		if n.Description != want {
+			t.Errorf("%q is described %q, want %q", name, n.Description, want)
+		}
 	}
 }

@@ -210,6 +210,13 @@ func (p *player) paneTabs(c *ui.Context, panes []paneKind, shown paneKind) {
 	if sel != indexOfPane(panes, shown) {
 		p.ui.setPane(panes[sel])
 	}
+	// A pane changed from outside moves the focus to its tab when one of the
+	// tabs had it, so that the arrows go on from where the view now is.
+	if np := &p.np; np.paneSeen && np.lastPane != shown && np.tabHad {
+		np.tabs[indexOfPane(panes, shown)].Focus(c)
+	}
+	p.np.lastPane, p.np.paneSeen = shown, true
+	p.np.tabHad = p.np.tabs[0].Focused(c) || p.np.tabs[1].Focused(c)
 }
 
 func indexOfPane(panes []paneKind, k paneKind) int {

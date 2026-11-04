@@ -1721,6 +1721,7 @@ msgstr ""
 
 #: internal/ui/features/concerts/location.go
 #: internal/ui/features/discover/front.go
+#: internal/ui/features/player/lyrics_sheet.go
 #: internal/ui/features/playlist/dialogs.go
 msgid "Current"
 msgstr ""

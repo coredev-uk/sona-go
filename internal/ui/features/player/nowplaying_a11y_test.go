@@ -1,0 +1,95 @@
+package player
+
+import (
+	"slices"
+	"testing"
+
+	"github.com/egoist/mygo/ui"
+
+	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
+)
+
+// The sung line is the row's description "Current" (MyGo has no aria-current).
+func TestTheSungLyricLineIsDescribedAsCurrent(t *testing.T) {
+	r := newNPRig(t)
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(6, false)}, nil)
+	r.play(5000) // inside the second line
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 1 sung words"))
+	tr := access.Read(t, r.tt.Tester)
+	for i := range 6 {
+		label := "Line " + itoa(i) + " sung words"
+		n, ok := tr.Find(ui.RoleButton, label)
+		if !ok {
+			t.Fatalf("no button %q", label)
+		}
+		want := ""
+		if i == 1 {
+			want = "Current"
+		}
+		if n.Description != want {
+			t.Errorf("%q is described %q, want %q", label, n.Description, want)
+		}
+	}
+}
+
+// A nudge is said when it changes, whoever has the focus, and not when the
+// song's readout is first shown.
+func TestTheLyricsTimingOffsetIsAnnouncedWhenItChanges(t *testing.T) {
+	r := newNPRig(t)
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(10, false)}, nil)
+	r.play(2000)
+	r.open("")
+	r.tt.Until("tools", r.tt.Shows("Lyrics on time"))
+	r.tt.Announcements()
+	r.tt.Frame()
+	if got := r.tt.Announcements(); len(got) != 0 {
+		t.Fatalf("announced without a change: %q", got)
+	}
+	click := func(s string) {
+		t.Helper()
+		if err := r.tt.Click(s); err != nil {
+			t.Fatal(err)
+		}
+		r.tt.Drain()
+	}
+	click("Show lyrics 0.5 s later")
+	if got := r.tt.Announcements(); !slices.Equal(got, []string{"Lyrics 0.5 s later"}) {
+		t.Errorf("announced %q after a nudge", got)
+	}
+	click("Lyrics 0.5 s later")
+	if got := r.tt.Announcements(); !slices.Equal(got, []string{"Lyrics on time"}) {
+		t.Errorf("announced %q after the reset", got)
+	}
+}
+
+// With a tab focused, a pane changed from outside (the Queue button) takes
+// the focus to its tab.
+func TestTabFocusFollowsAPaneChangedFromOutside(t *testing.T) {
+	r := newNPRig(t)
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(6, false)}, nil)
+	r.play(2000)
+	r.open(paneLyrics)
+	r.tt.Until("tabs", r.tt.Shows("Up next"))
+	r.tt.SetFocused(true)
+	for range 60 {
+		if f := access.Read(t, r.tt.Tester).Focus; f != nil && f.Label == "Lyrics" {
+			break
+		}
+		r.tt.Key(0, ui.KeyTab)
+	}
+	if f := access.Read(t, r.tt.Tester).Focus; f == nil || f.Label != "Lyrics" {
+		t.Fatalf("focus %v, want the Lyrics tab", f)
+	}
+	r.p.toggleQueueView()
+	r.tt.Drain()
+	if f := access.Read(t, r.tt.Tester).Focus; f == nil || f.Label != "Up next" {
+		t.Errorf("focus %v after the pane changed to Up next, want its tab", f)
+	}
+	r.p.ui.setPane(paneLyrics)
+	r.tt.Drain()
+	if f := access.Read(t, r.tt.Tester).Focus; f == nil || f.Label != "Lyrics" {
+		t.Errorf("focus %v after the pane changed back, want the Lyrics tab", f)
+	}
+}
