@@ -11,13 +11,13 @@ package equalizer
 
 import (
 	"context"
-	"sync"
 
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
@@ -78,9 +78,6 @@ type equalizer struct {
 
 	graph graphCache
 	body  pageState
-
-	mu     sync.Mutex
-	failed []services.ErrorCode // saves that failed, waiting to be shown
 }
 
 // New is the equaliser's module.
@@ -97,6 +94,7 @@ func New(env *module.Env) module.Module {
 			Build:   e.page,
 		}},
 		Shortcuts: e.shortcuts(),
+		Init:      e.init,
 	}
 }
 
@@ -105,6 +103,16 @@ func newEqualizer(env *module.Env, svc backend, supported func() bool) *equalize
 	e.preview.send = func(eq config.Equalizer) { _ = svc.Preview(context.Background(), eq) } // errors are ignored
 	e.saves.send = e.send
 	return e
+}
+
+// init keeps the cached settings as Go's: every save of the settings sends
+// EventSettingsChanged (v0.2.0's settings module did the same), so a
+// whole-object save made from this cache never writes old values back over a
+// change made elsewhere (the window's size, private mode).
+func (e *equalizer) init() {
+	store.On(e.env.Bus, services.EventSettingsChanged, func(s config.Settings) {
+		store.Set(e.env.Queries, keySettings, s)
+	})
 }
 
 // shortcuts is Ctrl+Shift+E, with v0.2.0's ID and keys (index.ts): only
@@ -158,23 +166,10 @@ func (e *equalizer) send(s config.Settings) {
 	saved, err := e.svc.Save(context.Background(), s)
 	e.env.Post(func() {
 		if err != nil {
-			e.mu.Lock()
-			e.failed = append(e.failed, services.CodeOf(err))
-			e.mu.Unlock()
+			kit.ToastErrorf(i18n.T("Couldn't save the setting"), i18n.ErrorText(services.CodeOf(err)))
 			e.env.Queries.Invalidate(keySettings)
 			return
 		}
 		store.Set(e.env.Queries, keySettings, saved)
 	})
-}
-
-// toasts shows the saves that failed since the last frame.
-func (e *equalizer) toasts(c *ui.Context) {
-	e.mu.Lock()
-	failed := e.failed
-	e.failed = nil
-	e.mu.Unlock()
-	for _, code := range failed {
-		c.AddToast(ui.Toast{ID: "save", Title: i18n.T("Couldn't save the setting"), Description: i18n.ErrorText(code), Type: "error"})
-	}
 }

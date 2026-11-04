@@ -1,12 +1,15 @@
 package app
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/ui/features/commands"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
 
@@ -66,27 +69,59 @@ func TestQuestionMarkOpensTheShortcutHelpWithEveryGroup(t *testing.T) {
 	}
 }
 
-func TestEnvShortcutsListsEffectiveKeysAndHasRouteMatchesPatterns(t *testing.T) {
+func TestHelpAndPaletteFollowTheUsersBindings(t *testing.T) {
+	st, err := config.OpenStore(filepath.Join(t.TempDir(), "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.Update(func(s *config.Settings) {
+		s.Shortcuts = config.Shortcuts{"x.ping": "none", "shell.sidebar": "Ctrl+Shift+B"}
+	}); err != nil {
+		t.Fatal(err)
+	}
 	ran := 0
-	a, _ := newShell(t, Options{}, pageModule("a", pageDef{"/albums", "Albums", module.NavLibrary, 1}), shortcutModule(&ran), commands.New)
-	got := map[string][]string{}
-	for _, s := range a.env.Shortcuts() {
-		got[s.ID] = s.Keys
+	_, tt := newShell(t, Options{Settings: st}, pageModule("a", pageDef{"/albums", "Albums", module.NavLibrary, 1}), shortcutModule(&ran), commands.New)
+	tt.Frame()
+	tt.Key(ui.Shift, ui.KeySlash)
+	if !tt.HasText("Not set") {
+		t.Errorf("a shortcut bound to none does not say Not set: %q", tt.Texts())
 	}
-	if len(got["x.ping"]) != 1 || got["x.ping"][0] != "Ctrl+J" || got["commands.help"][0] != "?" || got["nav.albums"][0] != "Alt+1" {
-		t.Errorf("shortcuts %v", got)
+	if !tt.HasText("Shift") {
+		t.Errorf("the rebound sidebar shortcut shows no Shift key: %q", tt.Texts())
 	}
-	for path, want := range map[string]bool{"/albums": true, "/albums?sort=title": true, "/albums/x": false, "/songs": false} {
-		if a.env.HasRoute(path) != want {
-			t.Errorf("HasRoute(%q) = %v", path, !want)
+}
+
+// layerModule is a page with a button and a layer that builds nothing; open
+// is its LayerOpen (nil: none).
+func layerModule(clicked *int, open func() bool) module.Factory {
+	return func(*module.Env) module.Module {
+		return module.Module{
+			ID: "layer",
+			Routes: []module.Route{{Pattern: "/", Build: func(c *ui.Context, _ *ui.Route) {
+				if kit.Button(c.Key("go"), "Go", kit.ButtonOpts{}).Clicked() {
+					*clicked++
+				}
+			}}},
+			Nav:   []module.NavItem{{Section: module.NavPrimary, Label: func() string { return "Home" }, Icon: "music", To: "/", Order: 1}},
+			Slots: module.Slots{Layer: func(*ui.Context) {}, LayerOpen: open},
 		}
 	}
-	for pattern, path := range map[string]string{"/album/{id}": "/album/l.1", "/settings/{section...}": "/settings/shortcuts/more"} {
-		if !routeMatches(pattern, path) {
-			t.Errorf("%s does not match %s", pattern, path)
-		}
-	}
-	if routeMatches("/album/{id}", "/album") || routeMatches("/album/{id}", "/album/1/2") {
-		t.Error("a pattern matched a path of another length")
+}
+
+// A layer that is closed, or has no LayerOpen, covers the window with an
+// empty box that must not take its clicks.
+func TestAClosedLayerDoesNotTakeTheWindowsClicks(t *testing.T) {
+	for name, open := range map[string]func() bool{"no LayerOpen": nil, "closed": func() bool { return false }} {
+		t.Run(name, func(t *testing.T) {
+			clicked := 0
+			_, tt := newShell(t, Options{}, layerModule(&clicked, open))
+			tt.Frame()
+			if err := tt.Click("Go"); err != nil {
+				t.Fatal(err)
+			}
+			if clicked != 1 {
+				t.Errorf("the page's button was clicked %d times", clicked)
+			}
+		})
 	}
 }

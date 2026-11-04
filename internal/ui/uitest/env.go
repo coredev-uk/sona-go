@@ -50,6 +50,7 @@ type options struct {
 	seed      bool
 	core      bool
 	dark      bool
+	equalizer bool
 }
 
 // Albums seeds the library with these albums instead of the fixture's
@@ -69,6 +70,11 @@ func Bare() Option { return func(o *options) { o.core = false } }
 
 // Dark runs the theme dark (it is light otherwise).
 func Dark() Option { return func(o *options) { o.dark = true } }
+
+// Equalizer makes the fake engine report an equaliser, as a platform with one
+// does (Capabilities().Playback.Equalizer); Harness.Engine.Curves are what
+// the audio service gave it.
+func Equalizer() Option { return func(o *options) { o.equalizer = true } }
 
 // Harness is everything Env wired, for what a test must reach: the
 // database to change, the engine to ask what it played, the clock.
@@ -192,6 +198,7 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	t.Cleanup(authm.Close)
 	h.Engine = fakeengine.New()
 	h.Engine.Now = h.Clock.Now
+	h.Engine.Equalizer = o.equalizer
 	h.Coord, err = coordinator.New(coordinator.Options{Engine: h.Engine, Now: h.Clock.Now})
 	if err != nil {
 		t.Fatal(err)

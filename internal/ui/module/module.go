@@ -129,7 +129,7 @@ type Slots struct {
 	Aside          func(c *ui.Context) // right of the page (the queue)
 	Overlay        *Overlay            // covers the page column
 	Bottom         func(c *ui.Context) // across the bottom (the player bar)
-	Layer          func(c *ui.Context) // over the whole window (first-run setup); the window behind is inert while LayerOpen
+	Layer          func(c *ui.Context) // over the whole window (first-run setup); the window behind is inert while LayerOpen, and the layer takes clicks only then (a layer that builds dialogs only, which are overlays, needs no LayerOpen)
 	LayerOpen      func() bool
 	SidebarFooter  func(c *ui.Context)
 	SidebarSection func(c *ui.Context) // stacks in module order

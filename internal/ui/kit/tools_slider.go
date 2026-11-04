@@ -17,6 +17,10 @@ type OriginSliderOpts struct {
 	// and above 0 (a control that is off but still editable).
 	Length float32
 	Dim    float32
+	// Cap draws a vertical slider's thumb as a 20×10 cap with a soft shadow
+	// that grows a tenth under the pointer (an equaliser fader's), not the
+	// round 12 px dot.
+	Cap bool
 }
 
 // OriginSlider is Slider whose filled part starts at Origin instead of lo:
@@ -48,7 +52,8 @@ func OriginSlider(c *ui.Context, value *float64, lo, hi float64, o OriginSliderO
 	if rng == (ui.Color{}) {
 		rng = theme.C("primary")
 	}
-	focus, vertical := s.FocusVisible(), o.Vertical
+	focus, vertical, hover := s.FocusVisible(), o.Vertical, s.Hovered()
+	capped := o.Cap && o.Vertical
 	s.Draw(func(p *ui.Painter, r ui.Rect) {
 		a, b := min(at, from), max(at, from)
 		var tr, fill, k ui.Rect
@@ -68,6 +73,20 @@ func OriginSlider(c *ui.Context, value *float64, lo, hi float64, o OriginSliderO
 		p.Fill(tr, track, 2)
 		if fill.W > 0 && fill.H > 0 {
 			p.Fill(fill, rng, 2)
+		}
+		if capped {
+			w, h := float32(20), float32(10)
+			if hover {
+				w, h = w*1.1, h*1.1
+			}
+			cx, cy := k.X+k.W/2, k.Y+k.H/2
+			cap := ui.Rect{X: cx - w/2, Y: cy - h/2, W: w, H: h}
+			if focus {
+				p.Fill(ui.Rect{X: cap.X - 4, Y: cap.Y - 4, W: cap.W + 8, H: cap.H + 8}, ring, 7)
+			}
+			p.Fill(ui.Rect{X: cap.X - 1, Y: cap.Y, W: cap.W + 2, H: cap.H + 2}, ui.RGBA(0, 0, 0, 0.12), 4)
+			p.Fill(cap, ink, 3)
+			return
 		}
 		if focus {
 			p.Fill(ui.Rect{X: k.X - 4, Y: k.Y - 4, W: k.W + 8, H: k.H + 8}, ring, thumb/2+4)

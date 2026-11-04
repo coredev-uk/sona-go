@@ -32,11 +32,15 @@ var chordMods = map[string]ui.Modifiers{
 }
 
 // ParseChord reads one chord in v0.2.0's spelling: modifiers and a key
-// joined by "+". "?" is Shift+/ and "Plus" (or a trailing "+") Shift+=.
+// joined by "+". "?" is Shift+/ and "Plus" (a lone "+" or a trailing "++")
+// Shift+=; a chord ending in a single "+" is not one.
 func ParseChord(s string) (mods ui.Modifiers, key ui.Key, ok bool) {
 	parts := strings.Split(s, "+")
-	if n := len(parts); n >= 2 && parts[n-1] == "" {
-		parts = append(parts[:n-2], "Plus")
+	switch {
+	case s == "+":
+		parts = []string{"Plus"}
+	case strings.HasSuffix(s, "++"): // "Ctrl++": the plus key
+		parts = append(strings.Split(strings.TrimSuffix(s, "++"), "+"), "Plus")
 	}
 	last := parts[len(parts)-1]
 	for _, m := range parts[:len(parts)-1] {

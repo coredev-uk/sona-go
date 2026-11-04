@@ -19,6 +19,8 @@ func TestParseChordReadsV020Spelling(t *testing.T) {
 		{"?", ui.Shift, ui.KeySlash, true},
 		{"Space", 0, ui.KeySpace, true},
 		{"Ctrl++", ui.Ctrl | ui.Shift, ui.KeyEqual, true},
+		{"+", ui.Shift, ui.KeyEqual, true},
+		{"Ctrl+", 0, 0, false},
 		{"Ctrl+Ctrl+K", 0, 0, false},
 		{"Hyper+K", 0, 0, false},
 		{"Ctrl+Nope", 0, 0, false},

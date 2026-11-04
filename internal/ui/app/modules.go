@@ -16,5 +16,5 @@ var factories = []module.Factory{
 	library.New, // Albums only
 	player.New,  // the player bar only
 	equalizer.New,
-	commands.New, // last: its palette and help draw over every module's layer
+	commands.New,
 }

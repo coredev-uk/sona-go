@@ -12,6 +12,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/config"
 	eqp "github.com/coredev-uk/sona-go/internal/playback/equalizer"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -124,6 +125,7 @@ func newRig(t *testing.T, supported bool, setup func(*fake), opts ...uitest.Opti
 				}
 			})
 		})
+		kit.OverlayLayer(c) // the toasts
 	}, 900, 760)
 	return r
 }

@@ -1,6 +1,8 @@
 package equalizer
 
 import (
+	"time"
+
 	"math"
 	"slices"
 
@@ -39,7 +41,6 @@ type pageState struct {
 // page is EqualizerPage: the header, then the presets beside the bands.
 // Where the platform has no equaliser it says so instead.
 func (e *equalizer) page(c *ui.Context, _ *ui.Route) {
-	e.toasts(c)
 	tk := theme.Current()
 	pg := &e.body
 	gutter := tk.Metric["gutter"]
@@ -108,7 +109,14 @@ func (e *equalizer) content(c *ui.Context) {
 				next.Enabled = on
 				e.save(s, next)
 			}
-			text(c, name, "body").TextColor(theme.C("ink"))
+			// The word is part of the switch's label: a click on it toggles too.
+			word := ui.ButtonBase(c.Key("switch:word")).Role(ui.RoleNone).Cursor(ui.CursorPointer)
+			word.Children(func() { text(c, name, "body").TextColor(theme.C("ink")) })
+			if word.Clicked() {
+				next := eq
+				next.Enabled = !eq.Enabled
+				e.save(s, next)
+			}
 		})
 	})
 
@@ -280,7 +288,7 @@ func (e *equalizer) fader(c *ui.Context, f fader, change, commit func(db float64
 		v := f.value
 		opts := kit.OriginSliderOpts{
 			SliderOpts: kit.SliderOpts{A11yLabel: f.label, ValueText: i18n.T("{db} dB", "db", db), Step: 0.5, Vertical: true},
-			Origin:     0, Length: faderLength,
+			Origin:     0, Length: faderLength, Cap: true,
 		}
 		if f.dim {
 			opts.Dim = 0.55
@@ -339,12 +347,18 @@ func (g *graphCache) of(freqs, gains []float64, rng float64) []float32 {
 // decoration: assistive technology has the faders.
 func (e *equalizer) graphView(c *ui.Context, freqs, gains []float64, rng float64, dim bool) {
 	ys := e.graph.of(freqs, gains, rng)
-	line, ink, stroke := theme.C("line"), theme.C("ink"), theme.C("ink")
-	fillAlpha := float32(0.07)
+	line, ink, faint := theme.C("line"), theme.C("ink"), theme.C("ink-faint")
+	box := ui.Box(c).Grow(1).Basis(0).MinWidth(0).Height(graphHeight).Role(ui.RoleNone)
+	// Off and on cross-fade over 150 ms (unless motion is reduced).
+	off := float32(0)
 	if dim {
-		stroke, fillAlpha = theme.C("ink-faint"), 0.03
+		off = 1
 	}
-	ui.Box(c).Grow(1).Basis(0).MinWidth(0).Height(graphHeight).Role(ui.RoleNone).Draw(func(p *ui.Painter, r ui.Rect) {
+	if !theme.ReducedMotion() {
+		off = box.Animate("dim", off, 150*time.Millisecond)
+	}
+	fillAlpha := 0.07 - 0.04*off
+	box.Draw(func(p *ui.Painter, r ui.Rect) {
 		mid := r.Y + r.H/2
 		p.Line(r.X, mid, r.X+r.W, mid, 1, line)
 		var curve, area ui.Path
@@ -360,6 +374,7 @@ func (e *equalizer) graphView(c *ui.Context, freqs, gains []float64, rng float64
 		}
 		area.LineTo(r.X+r.W, mid).LineTo(r.X, mid).Close()
 		p.FillPath(&area, ink.Alpha(fillAlpha))
-		p.StrokePath(&curve, 2, stroke)
+		p.StrokePath(&curve, 2, faint)
+		p.StrokePath(&curve, 2, ink.Alpha(1-off))
 	})
 }

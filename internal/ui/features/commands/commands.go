@@ -109,6 +109,7 @@ func (m *commands) togglePalette() {
 		return
 	}
 	m.help.open = false
+	m.typed, m.term, m.shown = "", "", nil // nothing of the last search carries over
 	m.pal.Open()
 }
 

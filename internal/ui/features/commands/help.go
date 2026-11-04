@@ -43,7 +43,7 @@ func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 		}
 	}
 	kit.Dialog(c.Key("help"), &h.open, kit.DialogOpts{
-		Title: i18n.T("Keyboard shortcuts"), HideHeader: true, MaxWidth: 760, Padding: 0, Gap: 0, Bare: true, Raised: true,
+		Title: i18n.T("Keyboard shortcuts"), Description: plainAbout(), HideHeader: true, MaxWidth: 760, Padding: 0, Gap: 0, Bare: true, Raised: true,
 	}, func() {
 		closeOwn() // the sheet's own chord closes it again, which only the dialog sees
 		ui.Column(c.Key("help:head")).Gap(2).Padding(20, 56, 16, 24).FillWidth().Children(func() {
@@ -175,4 +175,10 @@ func (h *helpSheet) section(c *ui.Context, g module.ShortcutGroup, list []module
 			})
 		}
 	})
+}
+
+// plainAbout is the line under the title without its link markup, for the
+// dialog's description.
+func plainAbout() string {
+	return strings.NewReplacer("<0>", "", "</0>", "").Replace(i18n.T("Change any of them in <0>Settings</0>."))
 }

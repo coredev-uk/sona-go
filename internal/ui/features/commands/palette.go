@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 
@@ -120,12 +121,12 @@ func (m *commands) sections(c *ui.Context) kit.PaletteSource {
 // settled on: the first maxLibrary of artists, albums, playlists and songs.
 // The last answer stays until the next one arrives.
 func (m *commands) libraryEntries(c *ui.Context, q string) []kit.PaletteEntry {
-	if m.lib == nil || len(m.term) < minTerm || q == "" {
+	if m.lib == nil || utf8.RuneCountInString(m.term) < minTerm || q == "" {
 		m.shown = nil
 		return nil
 	}
 	term := m.term
-	r := store.Use(m.env.Queries, store.Key{"search", "library", term, libraryPerKind},
+	r := store.Use(m.env.Queries, store.Key{"library", "search", term, libraryPerKind},
 		func(ctx context.Context) (services.LibrarySearch, error) {
 			return m.lib.Library(ctx, term, libraryPerKind)
 		})
@@ -144,7 +145,7 @@ func (m *commands) libraryEntries(c *ui.Context, q string) []kit.PaletteEntry {
 		add(m.itemEntry(c, "playlist", p.ID, p.Name, p.Curator, p.Art, false, "/playlist/"+url.PathEscape(p.ID), nil))
 	}
 	for _, s := range r.Data.Songs {
-		add(m.itemEntry(c, "song", s.ID, s.Name, s.Artist, s.Art, false, "", &services.TrackRef{ID: s.ID, Source: s.Source}))
+		add(m.itemEntry(c, "song", s.ID, s.Name, s.Artist, s.Art, false, "", &s))
 	}
 	// A page another feature has not ported has no entry: nothing pretends.
 	out = slices.DeleteFunc(out, func(e kit.PaletteEntry) bool { return e.Run == nil })
@@ -158,7 +159,7 @@ func (m *commands) libraryEntries(c *ui.Context, q string) []kit.PaletteEntry {
 // itemEntry is one library item: cover, name and "Kind · subtitle". Picking
 // opens its page (when a module registered it), or, for a song, plays it. A
 // nil Run says there is nothing to do.
-func (m *commands) itemEntry(c *ui.Context, kind, id, name, subtitle string, art services.Art, round bool, path string, song *services.TrackRef) kit.PaletteEntry {
+func (m *commands) itemEntry(c *ui.Context, kind, id, name, subtitle string, art services.Art, round bool, path string, song *services.Song) kit.PaletteEntry {
 	e := kit.PaletteEntry{
 		Key:    "i:" + kind + ":" + id,
 		Label:  name,
@@ -169,8 +170,8 @@ func (m *commands) itemEntry(c *ui.Context, kind, id, name, subtitle string, art
 	}
 	switch {
 	case song != nil && m.play != nil:
-		ref := *song
-		e.Run = func() { m.playSong(ref) }
+		s := *song
+		e.Run = func() { m.playSong(s) }
 	case path != "" && m.env.HasRoute != nil && m.env.HasRoute(path):
 		e.Run = func() { m.env.Nav.Push(path) }
 	}
@@ -193,11 +194,17 @@ func itemMeta(kind, subtitle string) string {
 	return strings.Join(slices.DeleteFunc([]string{label, subtitle}, func(s string) bool { return s == "" }), " · ")
 }
 
-// playSong plays one song alone as the queue; a failure is a toast.
-func (m *commands) playSong(ref services.TrackRef) {
-	title := i18n.T("Couldn't play that song")
+// playSong plays one song alone as the queue (v0.2.0's playSongs): one that
+// cannot be streamed says so and asks Go for nothing; a failure is a toast.
+func (m *commands) playSong(s services.Song) {
+	if !s.Playable {
+		kit.ShowToast(kit.ToastSpec{Title: i18n.T("Nothing here can be played"), Description: i18n.T("None of these songs is available to stream."), Kind: kit.ToastError})
+		return
+	}
+	title := i18n.T("Couldn't start playback")
+	ref := services.TrackRef{ID: s.ID, Source: s.Source}
 	go func() {
-		if err := m.play.PlayItems(context.Background(), []services.TrackRef{ref}, 0, services.PlayFrom{}); err != nil {
+		if err := m.play.PlayItems(context.Background(), []services.TrackRef{ref}, 0, services.PlayFrom{ID: s.Name}); err != nil {
 			code := services.CodeOf(err)
 			m.env.Post(func() { kit.ToastErrorf(title, i18n.ErrorText(code)) })
 		}
