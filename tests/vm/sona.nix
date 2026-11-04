@@ -3,7 +3,7 @@
 # main.version and MyGo's production mode
 # (`-X github.com/egoist/mygo.production=1`), plus the desktop entry, icons
 # and licence notices nfpm installs (build/linux/nfpm/nfpm.yaml). MyGo loads
-# GTK3, Pango, EGL and epoxy by soname, so the wrapper puts them on
+# GTK3, Pango, EGL, epoxy and the tray's appindicator by soname, so the wrapper puts them on
 # LD_LIBRARY_PATH. No Last.fm or Discord keys are compiled in.
 #
 # After a change to go.sum, update the hash it names
@@ -25,6 +25,7 @@
   libepoxy,
   at-spi2-core,
   libglvnd,
+  libayatana-appindicator,
   libx11,
   libxtst,
   libsecret,
@@ -68,6 +69,7 @@ let
     libepoxy
     at-spi2-core
     libglvnd
+    libayatana-appindicator
     libx11
     libxtst
     libsecret
@@ -77,7 +79,7 @@ in
   pname = "sona";
   inherit version src;
 
-  vendorHash = "sha256-XZFWknFXzbX3TXTuB1ySFo+d7u71eY7NvdMwpSXKt3M=";
+  vendorHash = "sha256-OdP5HE0fo4NSYuvyw3ASmam/sG0tTCX5wnemR5be6Ng=";
 
   subPackages = [ "cmd/sona" ];
   tags = [

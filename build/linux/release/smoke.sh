@@ -126,6 +126,7 @@ if [[ $kind == appimage ]]; then
   find "$root" \( -iname 'libwebkit*' -o -iname 'libgtk-4*' -o -iname 'libsoup*' \) | grep -q . && fail "AppImage bundles WebKitGTK, GTK4 or libsoup"
 else
   sonames+=(libEGL.so.1)
+  ldconfig # a container may not have run the distro's cache hook after the install
   for so in "${sonames[@]}"; do
     ldconfig -p | grep -qF "$so" || fail "$so not installed by the package's dependencies"
   done
