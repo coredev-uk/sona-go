@@ -94,11 +94,8 @@ type App struct {
 	routes []module.Route
 	nav    [3][]module.NavItem
 	keys   *dispatcher
-	// shortcuts is every registered shortcut, in registration order (what
-	// Env.Shortcuts lists).
-	shortcuts []module.Shortcut
-	router    *ui.Router
-	start     string
+	router *ui.Router
+	start  string
 
 	mem *windowMemory
 
@@ -187,26 +184,10 @@ func newApp(opts Options, factories []module.Factory) *App {
 		overrides = opts.Settings.Get().Shortcuts
 	}
 	a.keys = newDispatcher(list, overrides)
-	a.shortcuts = list
-	a.env.Shortcuts = a.boundShortcuts
 
 	i18n.SetPoster(post)
 	i18n.SetLogger(a.log)
 	return a
-}
-
-// boundShortcuts is Env.Shortcuts: every shortcut with the keys it answers
-// to under the settings now.
-func (a *App) boundShortcuts() []module.BoundShortcut {
-	var overrides config.Shortcuts
-	if a.opts.Settings != nil {
-		overrides = a.opts.Settings.Get().Shortcuts
-	}
-	out := make([]module.BoundShortcut, len(a.shortcuts))
-	for i, s := range a.shortcuts {
-		out[i] = module.BoundShortcut{Shortcut: s, Keys: effectiveKeys(s, overrides)}
-	}
-	return out
 }
 
 // startPath is where the window opens: the start page of the settings

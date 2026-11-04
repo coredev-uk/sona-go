@@ -45,15 +45,10 @@ type Env struct {
 	HasRoute func(path string) bool
 	// Post runs fn on the main thread and redraws the windows: how a
 	// goroutine (a service call) hands its outcome to the view.
-	Post store.Poster
-	// Shortcuts lists every module's shortcuts (and the shell's own, and each
-	// sidebar link's go-to) with the keys they answer to now: the user's
-	// binding over the default. It is what the command palette and the
-	// shortcut help are made of; call it while building (bindings change).
-	Shortcuts func() []BoundShortcut
-	Log       *slog.Logger
-	Version   string
-	Dev       bool // a -tags dev build
+	Post    store.Poster
+	Log     *slog.Logger
+	Version string
+	Dev     bool // a -tags dev build
 }
 
 // Navigator is the main window's router.
@@ -113,14 +108,6 @@ type Shortcut struct {
 	Repeat      bool
 	NoPalette   bool
 	Run         func()
-}
-
-// BoundShortcut is a shortcut with the keys it answers to now (Keys of the
-// Shortcut are only its defaults): the user's binding when there is one, in
-// v0.2.0's spelling, empty when unbound.
-type BoundShortcut struct {
-	Shortcut
-	Keys []string
 }
 
 // Slots are places in the shell a module builds into. Every func builds

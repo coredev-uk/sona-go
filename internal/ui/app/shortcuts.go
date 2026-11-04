@@ -72,12 +72,6 @@ func parseChord(s string) (c chord, ok bool) {
 		}
 		c.mods |= mod
 	}
-	if parts[len(parts)-1] == "?" {
-		// A question mark is Shift+/ on the layouts v0.2.0 targeted.
-		c.mods |= ui.Shift
-		c.key = ui.KeySlash
-		return c, true
-	}
 	key, known := namedKeys[strings.ToLower(parts[len(parts)-1])]
 	if !known {
 		return chord{}, false
@@ -124,20 +118,6 @@ func chordsOf(s module.Shortcut, overrides config.Shortcuts) []chord {
 		}
 	}
 	return out
-}
-
-// effectiveKeys is a shortcut's keys as text: the user's binding when it
-// parses ("none" is no keys), else its defaults.
-func effectiveKeys(s module.Shortcut, overrides config.Shortcuts) []string {
-	if b, ok := overrides[s.ID]; ok {
-		if chords, ok := parseBinding(b); ok {
-			if len(chords) == 0 {
-				return nil
-			}
-			return strings.Fields(b)
-		}
-	}
-	return slices.Clone(s.Keys)
 }
 
 // bound is a shortcut with the chords it answers to.
