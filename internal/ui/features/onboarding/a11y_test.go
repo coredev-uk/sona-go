@@ -55,27 +55,48 @@ func TestKeyboardWalk(t *testing.T) {
 		marks []string
 		want  []string
 	}{
-		{"welcome", "welcome", nil, []string{"Get started"},
-			[]string{"Skip setup", "Welcome", "Get started"}},
-		{"account", "account", nil, []string{"Not now", "Sign in"},
-			[]string{"Skip setup", "Welcome", "Apple Account", "Password", "Sign in with your browser", "Paste a Music User Token", "Back", "Not now"}},
-		{"playback", "playback", func(r *rig) {
-			store.Set(r.h.Env.Queries, store.KeyCDM, cdmStatus(func(s *services.CDMStatus) {
-				s.State, s.Version, s.Received, s.Total = "downloading", "", 42, 100
-			}))
-		}, []string{"Audio quality", "Crossfade", "Private listening"},
-			[]string{"Skip setup", "Welcome", "High quality", "Sound Check", "Crossfade", "Private listening", "Back", "Continue"}},
-		{"connections", "connections", func(r *rig) {
-			r.sc.status = services.ScrobbleStatus{LastFM: services.ScrobblerStatus{Available: true}, ListenBrainz: services.ScrobblerStatus{Available: true}}
-			r.in.status = services.IntegrationsStatus{Discord: services.DiscordStatus{Configured: true}}
-		}, []string{"Last.fm", "Connect Last.fm", "Discord status"},
-			[]string{"Skip setup", "Welcome", "Connect Last.fm", "Connect ListenBrainz", "Discord status", "Back", "Continue"}},
-		{"appearance", "appearance", nil, []string{"Theme", "Reduce effects", "Motion artwork"},
-			[]string{"Skip setup", "Welcome", "Reduce effects", "Motion artwork", "Back", "Continue"}},
-		{"desktop", "desktop", nil, []string{"When you close the window", "Start Sona when you log in"},
-			[]string{"Skip setup", "Welcome", "Keep playing", "Start Sona when you log in", "Track notifications", "Back", "Continue"}},
-		{"done", "done", nil, []string{"Still to do", "Sign in"},
-			[]string{"Welcome", "Sign in", "Back", "Done"}},
+		{
+			"welcome", "welcome", nil,
+			[]string{"Get started"},
+			[]string{"Skip setup", "Welcome", "Get started"},
+		},
+		{
+			"account", "account", nil,
+			[]string{"Not now", "Sign in"},
+			[]string{"Skip setup", "Welcome", "Apple Account", "Password", "Sign in with your browser", "Paste a Music User Token", "Back", "Not now"},
+		},
+		{
+			"playback", "playback", func(r *rig) {
+				store.Set(r.h.Env.Queries, store.KeyCDM, cdmStatus(func(s *services.CDMStatus) {
+					s.State, s.Version, s.Received, s.Total = "downloading", "", 42, 100
+				}))
+			},
+			[]string{"Audio quality", "Crossfade", "Private listening"},
+			[]string{"Skip setup", "Welcome", "High quality", "Sound Check", "Crossfade", "Private listening", "Back", "Continue"},
+		},
+		{
+			"connections", "connections", func(r *rig) {
+				r.sc.status = services.ScrobbleStatus{LastFM: services.ScrobblerStatus{Available: true}, ListenBrainz: services.ScrobblerStatus{Available: true}}
+				r.in.status = services.IntegrationsStatus{Discord: services.DiscordStatus{Configured: true}}
+			},
+			[]string{"Last.fm", "Connect Last.fm", "Discord status"},
+			[]string{"Skip setup", "Welcome", "Connect Last.fm", "Connect ListenBrainz", "Discord status", "Back", "Continue"},
+		},
+		{
+			"appearance", "appearance", nil,
+			[]string{"Theme", "Reduce effects", "Motion artwork"},
+			[]string{"Skip setup", "Welcome", "Reduce effects", "Motion artwork", "Back", "Continue"},
+		},
+		{
+			"desktop", "desktop", nil,
+			[]string{"When you close the window", "Start Sona when you log in"},
+			[]string{"Skip setup", "Welcome", "Keep playing", "Start Sona when you log in", "Track notifications", "Back", "Continue"},
+		},
+		{
+			"done", "done", nil,
+			[]string{"Still to do", "Sign in"},
+			[]string{"Welcome", "Sign in", "Back", "Done"},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

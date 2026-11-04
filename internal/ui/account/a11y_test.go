@@ -56,8 +56,10 @@ func TestKeyboardWalk(t *testing.T) {
 		build func(t *testing.T) *rig
 		want  []string
 	}{
-		{"credentials", func(t *testing.T) *rig { return newRig(t, signedOut) },
-			[]string{"Apple Account", "Password", "Sign in with your browser", "Paste a Music User Token"}},
+		{
+			"credentials", func(t *testing.T) *rig { return newRig(t, signedOut) },
+			[]string{"Apple Account", "Password", "Sign in with your browser", "Paste a Music User Token"},
+		},
 		{"token paste", func(t *testing.T) *rig {
 			r := newRig(t, signedOut)
 			r.click("Paste a Music User Token")

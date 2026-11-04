@@ -89,8 +89,13 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 					role  ui.Role
 					label string
 				}{
-					{ui.RoleButton, "Nothing playing"}, {ui.RoleButton, "Previous"}, {ui.RoleButton, "Play"}, {ui.RoleButton, "Next"},
-					{ui.RoleToggleButton, "Shuffle off"}, {ui.RoleToggleButton, "Repeat off"}, {ui.RoleSlider, "Seek"},
+					{ui.RoleButton, "Nothing playing"},
+					{ui.RoleButton, "Previous"},
+					{ui.RoleButton, "Play"},
+					{ui.RoleButton, "Next"},
+					{ui.RoleToggleButton, "Shuffle off"},
+					{ui.RoleToggleButton, "Repeat off"},
+					{ui.RoleSlider, "Seek"},
 				} {
 					if !mustFind(t, tr, n.role, n.label).Has(access.Disabled) {
 						t.Errorf("%q is not disabled with nothing playing", n.label)
