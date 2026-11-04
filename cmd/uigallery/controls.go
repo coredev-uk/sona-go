@@ -193,8 +193,12 @@ func init() {
 			}
 		})
 		controlsRow(c, "play", func() {
-			kit.PlayButtons(c, kit.PlayButtonsOpts{Label: "OK Computer", Shuffle: true})
-			kit.PlayButtons(c.Key("dis"), kit.PlayButtonsOpts{Label: "OK Computer", Shuffle: true, Disabled: true})
+			ui.Row(c.Key("on")).Gap(8).AlignItems(ui.Center).Children(func() {
+				kit.PlayButtons(c, kit.PlayButtonsOpts{Label: "OK Computer", Shuffle: true})
+			})
+			ui.Row(c.Key("dis")).Gap(8).AlignItems(ui.Center).Children(func() {
+				kit.PlayButtons(c, kit.PlayButtonsOpts{Label: "OK Computer", Shuffle: true, Disabled: true})
+			})
 			kit.PlayButton(c, "Play OK Computer", 48)
 		})
 		ui.Checkbox(c, &s.pending, "Pending").Margin(8, 0)
