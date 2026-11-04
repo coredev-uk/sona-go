@@ -17,23 +17,29 @@ func (s *Section) credentialsForm(c *ui.Context, f *flow, hosted bool) {
 	s.credShown = true
 	step := f.step
 	invalid := step.Error != nil && step.Error.Code == services.CodeInvalidCredentials
+	invalidText := ""
+	if invalid {
+		invalidText = errorCopy(*step.Error).Title
+	}
 	submitted := false
 	ui.Column(c).FillWidth().Gap(16).Children(func() {
 		if step.Error != nil {
 			s.errorNotice(c.Key("error"), *step.Error, func() { s.browser(f) })
 		}
 		field(c.Key("account-field"), i18n.T("Apple Account"), i18n.T("The email address or phone number you use with Apple."), func() {
-			in := kit.Input(c.Key("account"), &f.account, kit.InputOpts{Invalid: invalid})
+			in := kit.Input(c.Key("account"), &f.account, kit.InputOpts{Invalid: invalid, Error: invalidText})
 			if s.focusAccount {
-				s.focusAccount = false
-				in.Focus()
+				// A frame after the form is shown: MyGo takes what has the
+				// focus as an overlay appears for the one to give it back to.
+				kit.FocusWhenShown(c, in, &s.focusStep)
+				s.focusAccount = s.focusStep < 2
 			}
 			if in.Submitted() {
 				submitted = true
 			}
 		})
 		field(c.Key("password-field"), i18n.T("Password"), "", func() {
-			in := kit.Input(c.Key("password-"+strconv.Itoa(f.attempt)), &f.password, kit.InputOpts{Invalid: invalid, Password: true})
+			in := kit.Input(c.Key("password-"+strconv.Itoa(f.attempt)), &f.password, kit.InputOpts{Invalid: invalid, Error: invalidText, Password: true})
 			// A submitted attempt keys the field anew (so MyGo drops its
 			// undo history): the focus goes to the new one.
 			if f.refocusPassword {

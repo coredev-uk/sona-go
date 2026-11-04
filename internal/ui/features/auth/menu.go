@@ -83,15 +83,18 @@ func (f *feature) accountMenu(c *ui.Context) {
 		}
 	}
 	// The state line is the avatar's description and, with its name, its
-	// tooltip (hidden while the menu, which says it too, is open).
+	// tooltip (hidden while the menu, which says it too, is open). The
+	// tooltip describes the avatar by itself, so the line is set only where
+	// there is none (a second Description would be read twice).
 	if !f.menu.IsOpen() {
 		tip := i18n.T("Account")
 		if line != "" {
 			tip += "\n" + line
 		}
 		kit.Tooltip(c, avatar, tip)
+	} else {
+		avatar.Description(line)
 	}
-	avatar.Description(line)
 	f.menu.Show(c, kit.MenuOpts{ID: "auth:menu", Label: i18n.T("Account"), Width: 288}, avatar, f.menuItems(status, known, line, priv))
 }
 

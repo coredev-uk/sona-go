@@ -16,6 +16,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/account"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
@@ -41,6 +42,8 @@ type onboarding struct {
 	// shown is the step the last frame built, "" while the layer is closed:
 	// a step the frame has not seen is arrived at.
 	shown string
+	// titleFocus gives the step's title the focus a frame after it is shown.
+	titleFocus kit.FocusStep
 	// sec is the Apple Music step's sign-in section.
 	sec *account.Section
 

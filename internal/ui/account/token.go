@@ -53,6 +53,10 @@ func (s *Section) tokenPaste(c *ui.Context, f *flow) {
 		return
 	}
 	submitted := false
+	if f.tokenBusy && !f.tokenAnnounced {
+		c.Announce(i18n.T("Checking…"))
+	}
+	f.tokenAnnounced = f.tokenBusy
 	ui.Column(c).FillWidth().Gap(12).Children(func() {
 		field(c.Key("field"), i18n.T("Music User Token"), i18n.T("The token from a signed-in Apple Music web session. Sona checks it with Apple and keeps it in your keyring."), func() {
 			t := theme.Current().Type["secondary"]

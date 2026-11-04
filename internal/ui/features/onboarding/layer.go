@@ -49,6 +49,7 @@ func stepText(step string, signedIn bool) (title, line string) {
 // element), and its body is a new scroll container, so it starts at its top.
 func (o *onboarding) arrive(step string) {
 	o.shown = step
+	o.titleFocus = 0
 	o.sec = nil // the sign-in form starts afresh
 	o.lb, o.lbForm = false, tokenForm{}
 	o.fadeHeld = false
@@ -166,8 +167,9 @@ func (o *onboarding) body(c *ui.Context, step, title, line string, maxHeight flo
 	ui.Scroll(c.Key("body:"+step)).FillWidth().Shrink(1).MinHeight(0).MaxHeight(maxHeight).
 		Padding(20, 24, 24, 24).Children(func() {
 		ui.Column(c.Key("content")).FillWidth().Children(func() {
-			text(c.Key("title"), title, "page").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2).
-				Focusable().FocusRing(false).AutoFocus()
+			heading := text(c.Key("title"), title, "page").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2).
+				Focusable().FocusRing(false)
+			kit.FocusWhenShown(c, heading, &o.titleFocus)
 			text(c.Key("line"), line, "ui").TextColor(theme.C("ink-muted")).MaxWidth(480).Margin(6, 0, 0, 0)
 			ui.Column(c.Key("step")).FillWidth().Margin(20, 0, 0, 0).Children(func() {
 				switch step {

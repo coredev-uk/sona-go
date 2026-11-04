@@ -155,12 +155,22 @@ func (s *Section) codeForm(c *ui.Context, f *flow) {
 			s.errorNotice(c.Key("error"), *step.Error, nil)
 		}
 		if step.Notice != "" && step.Error == nil {
-			text(c.Key("notice"), step.Notice, "secondary", "ink").Role(ui.RoleStatus)
+			n := text(c.Key("notice"), step.Notice, "secondary", "ink").Role(ui.RoleStatus)
+			if last := ui.Local(n, "announced", func() string { return "" }); *last != step.Notice {
+				*last = step.Notice
+				c.Announce(step.Notice)
+			}
 		}
 		field(c.Key("code-field"), i18n.T("Code"), i18n.T("{len, plural, one {# digit} other {# digits}}", "len", n), func() {
 			t := theme.Current().Type["heading"]
-			in := kit.Input(c.Key("code"), &f.code, kit.InputOpts{Invalid: step.Error != nil && step.Error.Code == services.CodeIncorrectCode, Disabled: step.Busy})
-			in.AutoFocus().TextAlign(ui.Center).FontSize(t.Size).FixedLineHeight(t.LineHeight).
+			wrong := step.Error != nil && step.Error.Code == services.CodeIncorrectCode
+			wrongText := ""
+			if wrong {
+				wrongText = errorCopy(*step.Error).Title
+			}
+			in := kit.Input(c.Key("code"), &f.code, kit.InputOpts{Invalid: wrong, Error: wrongText, Disabled: step.Busy})
+			kit.FocusWhenShown(c, in, &f.codeFocus)
+			in.TextAlign(ui.Center).FontSize(t.Size).FixedLineHeight(t.LineHeight).
 				LetterSpacing(0.4 * t.Size).FontFeatures("tnum").Width((float32(n)*1.6 + 2) * t.Size).Shrink(0)
 			if in.Changed() {
 				v := digits(f.code, n)

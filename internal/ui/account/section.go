@@ -44,12 +44,15 @@ type flow struct {
 	seen *statusSig
 	view viewKind
 
-	account, password string // credentials
-	refocusPassword   bool   // the next password field takes the focus (it was just re-keyed)
-	attempt           int    // password submissions so far: keys the field, so its undo history starts afresh
-	code              string // code
-	phoneID           int    // phone choice
+	account, password string        // credentials
+	refocusPassword   bool          // the next password field takes the focus (it was just re-keyed)
+	attempt           int           // password submissions so far: keys the field, so its undo history starts afresh
+	code              string        // code
+	codeFocus         kit.FocusStep // the code field takes the focus once its view is shown
+	phoneID           int           // phone choice
 
+	busyAnnounced        bool // this busy stretch was announced
+	tokenAnnounced       bool // the token check's busy stretch was announced
 	tokenOpen, tokenBusy bool
 	token, tokenError    string
 }
@@ -67,6 +70,9 @@ func (f *flow) enter(v viewKind) {
 		f.account, f.password = "", ""
 	case viewCode:
 		f.code = ""
+	}
+	if v == viewCode {
+		f.codeFocus = 0
 	}
 	if v == viewPhone {
 		f.phoneID = 0
@@ -88,7 +94,14 @@ type Section struct {
 	flow  *flow
 
 	focusAccount bool
-	credShown    bool // the credentials form was built this frame
+	focusStep    kit.FocusStep // FocusAccount's focus, given once the form has been shown a frame
+	credShown    bool          // the credentials form was built this frame
+
+	// statusLine is the status notice the last Build showed, "" for none, and
+	// statusKnown whether a Build has shown the section since Reset: a notice
+	// that appears after that is read out (React's role=status live region).
+	statusLine  string
+	statusKnown bool
 
 	checking bool // Revalidate runs
 
@@ -103,10 +116,13 @@ func New(d Deps) *Section { return &Section{d: d, retry: NewKeyringRetry(d)} }
 // pasted token) and the step. The host calls it when it stops showing the
 // section (the dialog closing), as React unmounted it; a pending challenge
 // comes back from Go's status when the section is built again.
-func (s *Section) Reset() { s.flow, s.focusAccount = nil, false }
+func (s *Section) Reset() {
+	s.flow, s.focusAccount = nil, false
+	s.statusLine, s.statusKnown = "", false
+}
 
 // FocusAccount asks the next Build to focus the Apple Account field once.
-func (s *Section) FocusAccount() { s.focusAccount = true }
+func (s *Section) FocusAccount() { s.focusAccount, s.focusStep = true, 0 }
 
 // call runs a service call off the main thread and hands its outcome back.
 func (s *Section) call(fn func() error, done func(err error)) {
@@ -146,6 +162,7 @@ func (s *Section) Build(c *ui.Context, hosted bool) {
 		return
 	}
 	st := res.Data
+	s.announceStatus(c, st)
 	if HasAccount(st.State) {
 		s.flow, s.focusAccount = nil, false
 		s.signedIn(c, st)
@@ -224,6 +241,13 @@ func (s *Section) signInFlow(c *ui.Context, st services.AuthStatus, hosted bool)
 		f.enter(viewCredentials)
 	}
 
+	// A busy step is what aria-busy was: the button's label says so, and
+	// MyGo has no busy state, so say it once as it starts.
+	if step.Busy && !f.busyAnnounced {
+		c.Announce(busyText(step))
+	}
+	f.busyAnnounced = step.Busy
+
 	ui.Column(c).FillWidth().Children(func() {
 		switch f.view {
 		case viewBrowser:
@@ -234,9 +258,9 @@ func (s *Section) signInFlow(c *ui.Context, st services.AuthStatus, hosted bool)
 			s.phoneChoice(c.Key("phone"), f)
 		case viewDone:
 			ui.Row(c.Key("done")).Gap(8).AlignItems(ui.Center).Children(func() {
-				ui.Spinner(c).Size(16, 16)
+				ui.Spinner(c).Size(16, 16).Role(ui.RoleNone)
 				text(c, i18n.T("Checking your account with Apple…"), "body", "ink-muted")
-			})
+			}).Role(ui.RoleStatus)
 		default:
 			// A host with its own foot (the setup) titles the form itself.
 			if !hosted {
@@ -331,3 +355,56 @@ func fieldFace(e ui.Element) {
 
 // trimmed is the account as the service gets it.
 func trimmed(s string) string { return strings.TrimSpace(s) }
+
+// busyText is what a busy step is doing, as its button words it.
+func busyText(step SignInStep) string {
+	switch step.Kind {
+	case StepCode:
+		return i18n.T("Checking…")
+	case StepChoosePhone:
+		return i18n.T("Sending…")
+	}
+	return i18n.T("Signing in…")
+}
+
+// statusNotice is the title of the status notice the account shows for st,
+// "" for none: the line that is read out when it appears.
+func statusNotice(st services.AuthStatus) string {
+	if HasAccount(st.State) {
+		switch {
+		case st.Offline:
+			return i18n.T("Sona couldn't reach Apple to confirm your sign-in. It keeps using your saved token, and retries by itself.")
+		case st.Unencrypted:
+			return i18n.T("Your token is stored unencrypted")
+		}
+		return ""
+	}
+	switch {
+	case st.State == "restoring" && st.Keyring == "waiting":
+		return i18n.T("Signing in…")
+	case st.State == "restoring":
+		return ""
+	case st.Keyring == "unavailable":
+		return i18n.T("Sona couldn't read your sign-in from your keyring")
+	case st.Unencrypted:
+		return i18n.T("Signing in now stores your token unencrypted")
+	case st.State == "needs_reauth":
+		return i18n.T("Apple stopped accepting Sona's sign-in")
+	case st.State == "error":
+		return i18n.T("Apple Music isn't accepting Sona's requests")
+	case st.Offline:
+		return i18n.T("You're offline. Signing in needs a connection to Apple.")
+	}
+	return ""
+}
+
+// announceStatus reads out a status notice that appears while the section is
+// shown, as v0.2.0's role=status (polite live) notices were; a notice that
+// was there when the section was first built is read with the dialog.
+func (s *Section) announceStatus(c *ui.Context, st services.AuthStatus) {
+	line := statusNotice(st)
+	if s.statusKnown && line != "" && line != s.statusLine {
+		c.Announce(line)
+	}
+	s.statusLine, s.statusKnown = line, true
+}
