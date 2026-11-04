@@ -61,20 +61,9 @@ func TestUIProbe(t *testing.T) {
 		a := startApp(t)
 		// The app serves one automation client: startApp's connection
 		// has proved it is up, and uiprobe takes the socket over.
-		tree, err := a.client.Wait(startTimeout, "the Albums page", func(tr *automation.Tree) bool { return tr.HasText("24 albums") })
-		var b strings.Builder
-		if err != nil {
-			fmt.Fprintf(&b, "waiting for the page: %v\n", err)
+		if _, err := a.client.Wait(startTimeout, "the Albums page", func(tr *automation.Tree) bool { return tr.HasText("24 albums") }); err != nil {
+			t.Fatal(err)
 		}
-		if tree != nil {
-			fmt.Fprintf(&b, "%d nodes\n", len(tree.Nodes))
-			for _, n := range tree.Nodes {
-				if n.Role == "scroll" || n.Role == "button" && strings.Contains(n.Label, "Play") {
-					fmt.Fprintf(&b, "%+v\n", n)
-				}
-			}
-		}
-		writeTable(t, filepath.Join(out, "uiprobe-tree.txt"), b.String())
 		_ = a.client.Close()
 		sock := ""
 		for _, e := range a.cmd.Env {
