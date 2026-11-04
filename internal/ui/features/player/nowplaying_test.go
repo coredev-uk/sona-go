@@ -112,6 +112,9 @@ func newNPRigWith(t *testing.T, opts []uitest.Option, mutate ...func(*npRig)) *n
 		r.width, r.height = 1132, 700
 	}
 	r.tt = h.Tester(t, func(c *ui.Context) {
+		// A frozen fake clock never finishes a transition: every input would
+		// draw twenty frames.
+		c.DisableAnimations()
 		ui.Column(c).Fill().Children(func() {
 			ui.Column(c).Grow(1).Basis(0).MinHeight(0).Children(func() {
 				if slot := r.p.overlaySlot(); slot.Open() {
