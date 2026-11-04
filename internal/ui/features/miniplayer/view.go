@@ -205,13 +205,15 @@ func (m *mini) controls(c *ui.Context, s services.PlaybackState) {
 
 // stepButton is Previous or Next. disabled is for what can't be pressed now
 // (nothing playing, the end of the queue); reason is for a control that
-// doesn't apply to what plays (a live station) and is said with its name.
+// doesn't apply to what plays (a live station): it stays enabled, keeps its
+// place in the Tab order and says why as its description, and the press does
+// nothing.
 func (m *mini) stepButton(c *ui.Context, key, icon, name string, disabled bool, reason string) bool {
-	if reason != "" {
-		name += " · " + reason
-		disabled = true
+	if disabled {
+		reason = ""
 	}
-	return kit.Button(c.Key(key), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: icon, Disabled: disabled, A11yLabel: name}).Clicked()
+	btn := kit.Button(c.Key(key), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: icon, Disabled: disabled, A11yLabel: name, Reason: reason})
+	return btn.Clicked() && reason == ""
 }
 
 // live is a live station's marker in place of the seek bar.
