@@ -60,7 +60,7 @@ func TestAutomatic(t *testing.T) {
 		// KWin keeps its title bar over a hidden one.
 		{Name: "KDE Plasma", Stacking: true, KDE: true, ServerDecorated: true}: config.TitleBarDesktop,
 		{Name: "KDE Plasma", Stacking: true, KDE: true}:                        config.TitleBarSona,
-		{}:                              config.TitleBarDesktop,
+		{}: config.TitleBarDesktop,
 	} {
 		if got := d.Automatic(); got != want {
 			t.Errorf("%+v.Automatic() = %q, want %q", d, got, want)

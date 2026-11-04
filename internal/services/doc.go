@@ -82,10 +82,9 @@
 // (MPRIS), notifications, the sleep inhibitor, the on-battery monitor, the
 // autostart entry, the file chooser, plus whether there is a tray and a
 // command transport (`sona <command>`, single instance), and how title bars
-// work (TitleBar: macOS's inset buttons, or Sona's or the desktop's title
-// bar and the desktop's button layout). DesktopService offers the title
-// bar's buttons (MinimiseWindow, ToggleMaximiseWindow, CloseWindow),
-// ShowWindowMenu and WindowState ("window:state"). A nil seam is
+// work (TitleBar: macOS's inset buttons, a hidden title bar under Sona's top
+// bar with MyGo's window buttons, or the desktop's own, and the desktop's
+// button layout, which the mini player follows). A nil seam is
 // unsupported on this platform (or, for the D-Bus ones, in a Linux
 // session without a bus): its feature does nothing or fails with an error
 // wrapping errors.ErrUnsupported (CodeUnsupported). Features never reach

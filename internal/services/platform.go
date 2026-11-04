@@ -150,13 +150,12 @@ func newPlatformService(e *Env) *PlatformService {
 		DiscordPresence: discord.Supported,
 		DeveloperTools:  e.Windows != nil && e.Windows.DeveloperTools(),
 		WindowControls: WindowControls{
-			Native:     p.TitleBar.Native,
-			Automatic:  p.TitleBar.Automatic,
-			Desktop:    p.TitleBar.Desktop,
-			Style:      e.Settings.Get().TitleBar.Style,
-			WindowMenu: p.TitleBar.WindowMenu,
-			Start:      []string{},
-			End:        []string{},
+			Native:    p.TitleBar.Native,
+			Automatic: p.TitleBar.Automatic,
+			Desktop:   p.TitleBar.Desktop,
+			Style:     e.Settings.Get().TitleBar.Style,
+			Start:     []string{},
+			End:       []string{},
 		},
 	}}
 }

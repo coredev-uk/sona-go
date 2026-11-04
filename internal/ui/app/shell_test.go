@@ -1,11 +1,11 @@
 package app
 
 import (
-	"github.com/egoist/mygo/ui"
-
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"

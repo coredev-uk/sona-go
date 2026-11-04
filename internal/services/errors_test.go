@@ -236,8 +236,6 @@ func eventPayloads(t *testing.T) []reflect.Type {
 	known := map[string]reflect.Type{
 		"EventAuthChanged":        reflect.TypeFor[AuthStatus](),
 		"EventCDMStatus":          reflect.TypeFor[CDMStatus](),
-		"EventWindowState":        reflect.TypeFor[WindowState](),
-		"EventNavigate":           reflect.TypeFor[string](),
 		"EventHome":               reflect.TypeFor[HomePage](),
 		"EventAppOpen":            reflect.TypeFor[OpenTarget](),
 		"EventIntegrationsStatus": reflect.TypeFor[IntegrationsStatus](),

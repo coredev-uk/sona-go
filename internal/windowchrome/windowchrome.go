@@ -62,14 +62,6 @@ type Layout struct {
 	End   []string
 }
 
-// WindowState is a window's maximised and full-screen state, which Sona's
-// title bar follows (the maximise button's glyph, the room it keeps for
-// macOS's buttons).
-type WindowState struct {
-	Maximised  bool
-	Fullscreen bool
-}
-
 // WindowsLayout is Windows' caption buttons.
 func WindowsLayout() Layout { return Layout{End: []string{Minimize, Maximize, Close}} }
 
@@ -92,9 +84,6 @@ type Platform struct {
 	// Desktop names the desktop or compositor Sona recognised ("GNOME",
 	// "KDE Plasma", "sway"); "" when it recognised none.
 	Desktop string
-	// WindowMenu: Sona can open the desktop's window menu (right-click on
-	// its title bar; GTK's gdk_toplevel_show_window_menu on Linux).
-	WindowMenu bool
 	// Layout returns the desktop's button layout. It may need the GUI
 	// toolkit (GTK on Linux), so it is called only after the app started.
 	Layout func() Layout

@@ -42,7 +42,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
-	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
 // Epoch is where a Clock starts.
@@ -347,7 +346,5 @@ func (noAccount) Backend() authstore.Backend     { return authstore.BackendFile 
 // noWindows is a window control with no window: the services only follow it.
 type noWindows struct{ services.Windows }
 
-func (noWindows) WatchMain(func(windowchrome.WindowState)) {}
-func (noWindows) WatchNavigate(func(bool))                 {}
-func (noWindows) DeveloperTools() bool                     { return false }
-func (noWindows) HasTray() bool                            { return false }
+func (noWindows) DeveloperTools() bool { return false }
+func (noWindows) HasTray() bool        { return false }

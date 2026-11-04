@@ -120,16 +120,15 @@ func (p *platform) Services() services.Platform {
 // TitleBar is how the main window's title bar works here, for
 // PlatformService: a hidden title bar under Sona's top bar, with MyGo's
 // window buttons in the desktop's layout (GTK's gtk-decoration-layout), on
-// stacking desktops; the desktop's own on tiling ones. Sona opens no window
-// menu.
+// stacking desktops; the desktop's own on tiling ones and on Plasma under
+// Wayland.
 func (p *platform) TitleBar() windowchrome.Platform {
 	d := windowchrome.Detect(os.Getenv)
 	return windowchrome.Platform{
-		Native:     windowchrome.NativeFrame,
-		Automatic:  d.Automatic(),
-		Desktop:    d.Name,
-		WindowMenu: false,
-		Layout:     func() windowchrome.Layout { return buttonLayout(d, p.log) },
+		Native:    windowchrome.NativeFrame,
+		Automatic: d.Automatic(),
+		Desktop:   d.Name,
+		Layout:    func() windowchrome.Layout { return buttonLayout(d, p.log) },
 	}
 }
 

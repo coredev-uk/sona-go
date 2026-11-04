@@ -55,10 +55,9 @@ func TestCapabilitiesFollowThePlatformAndEngine(t *testing.T) {
 func TestCapabilitiesWindowControls(t *testing.T) {
 	reads := 0
 	plat := Platform{TitleBar: windowchrome.Platform{
-		Native:     windowchrome.NativeFrame,
-		Automatic:  config.TitleBarSona,
-		Desktop:    "GNOME",
-		WindowMenu: true,
+		Native:    windowchrome.NativeFrame,
+		Automatic: config.TitleBarSona,
+		Desktop:   "GNOME",
 		Layout: func() windowchrome.Layout {
 			reads++
 			return windowchrome.ParseGTK("close:minimize,maximize")
@@ -71,7 +70,7 @@ func TestCapabilitiesWindowControls(t *testing.T) {
 		t.Fatalf("layout read %d times before Capabilities", reads)
 	}
 	want := WindowControls{
-		Native: "frame", Automatic: "sona", Desktop: "GNOME", Style: "auto", WindowMenu: true,
+		Native: "frame", Automatic: "sona", Desktop: "GNOME", Style: "auto",
 		Start: []string{"close"}, End: []string{"minimize", "maximize"},
 	}
 	for range 2 {

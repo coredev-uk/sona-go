@@ -9,7 +9,6 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
-	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
 var _ services.Windows = (*Windows)(nil)
@@ -69,13 +68,11 @@ type Windows struct {
 	// quit quits the app (mygo.App.Quit).
 	quit func()
 
-	mu      sync.Mutex
-	win     native
-	mini    native // nil until first opened
-	hooks   windowHooks
-	mem     *windowMemory
-	state   windowchrome.WindowState
-	watches []func(windowchrome.WindowState)
+	mu    sync.Mutex
+	win   native
+	mini  native // nil until first opened
+	hooks windowHooks
+	mem   *windowMemory
 }
 
 // NewWindows is the window control for services.Deps.Windows. dev tells
@@ -94,7 +91,6 @@ func (w *Windows) attach(win *mygo.Window, mem *windowMemory, hooks windowHooks)
 		width, height := win.Size()
 		maxed, full := win.IsMaximized(), win.IsFullScreen()
 		mem.observe(width, height, maxed, full)
-		w.setState(windowchrome.WindowState{Maximised: maxed, Fullscreen: full})
 	}
 	win.OnResize(observe)
 	win.OnMaximize(observe)
@@ -153,20 +149,6 @@ func (w *Windows) Quit() {
 		return
 	}
 	w.quit()
-}
-
-func (w *Windows) setState(st windowchrome.WindowState) {
-	w.mu.Lock()
-	changed := st != w.state
-	w.state = st
-	watches := append([]func(windowchrome.WindowState){}, w.watches...)
-	w.mu.Unlock()
-	if !changed {
-		return
-	}
-	for _, fn := range watches {
-		fn(st)
-	}
 }
 
 func (w *Windows) window() native {
@@ -276,32 +258,6 @@ func (w *Windows) ResetWindowSize() {
 	mem.reset()
 }
 
-// MinimiseMain minimises the main window.
-func (w *Windows) MinimiseMain() {
-	if win := w.window(); win != nil {
-		win.Minimize()
-	}
-}
-
-// ToggleMaximiseMain maximises the main window or restores it.
-func (w *Windows) ToggleMaximiseMain() {
-	if win := w.window(); win != nil {
-		win.ToggleMaximize()
-	}
-}
-
-// CloseMain closes the main window as its close button does (Settings →
-// General: to the background, or quitting).
-func (w *Windows) CloseMain() {
-	if win := w.window(); win != nil {
-		win.Close()
-	}
-}
-
-// ShowWindowMenu is unsupported: MyGo has no call for the desktop's window
-// menu.
-func (*Windows) ShowWindowMenu() error { return errors.ErrUnsupported }
-
 // DeveloperTools reports whether the inspector is on this run.
 func (w *Windows) DeveloperTools() bool { return w.dev && inspectorRequested() }
 
@@ -317,21 +273,3 @@ func (w *Windows) OpenDeveloperTools() error {
 	toggle()
 	return nil
 }
-
-// MainState is the main window's maximised and full-screen state.
-func (w *Windows) MainState() windowchrome.WindowState {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.state
-}
-
-// WatchMain follows changes of MainState.
-func (w *Windows) WatchMain(fn func(windowchrome.WindowState)) {
-	w.mu.Lock()
-	w.watches = append(w.watches, fn)
-	w.mu.Unlock()
-}
-
-// WatchNavigate follows the mouse's back and forward buttons. MyGo's
-// router takes them itself, so the services have nothing to follow.
-func (*Windows) WatchNavigate(func(bool)) {}
