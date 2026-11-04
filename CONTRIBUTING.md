@@ -154,8 +154,8 @@ Apple Developer account, no `.app` bundle, no packaging): its UI,
 everything Go does (sign-in, library, sync, catalog) and playback through
 the same CDM host as Linux, with the CDM Sona downloads from Google for
 macOS (`mac_arm64`, see "Widevine CDM") and Core Audio output
-(`osxaudiosink`, always the system's default output). There are no media
-controls, notifications, sleep inhibit, autostart or file chooser yet (see
+(`osxaudiosink`, always the system's default output). Media keys and Now
+Playing work (`internal/nowplaying`); there are no notifications, sleep inhibit, autostart or file chooser yet (see
 "Platforms"); `sona <command>` and single instance work over a socket in
 Sona's state folder (docs/cli.md). Apple's licence server grants licences to
 this unsigned host: full tracks play on Apple Silicon.
@@ -487,7 +487,8 @@ host. Windows has no playback yet.
   what differs per OS: the `sona <command>` transport and single instance
   (`internal/app`: D-Bus on Linux, a socket in the state folder on macOS
   and Windows; docs/cli.md), the app options, and `services.Platform`:
-  media controls (MPRIS), notifications, the sleep inhibitor, the
+  media controls (MPRIS on Linux; MyGo's NowPlaying on macOS and Windows through
+  `internal/nowplaying`, `nowplaying_desktop.go`, never linked on Linux), notifications, the sleep inhibitor, the
   on-battery monitor, the autostart entry, the file chooser, and the
   title bar facts; the tray icon (and its template on macOS). The tray
   itself is the UI's (`internal/ui/app`, `mygo.NewTray`), reported through
