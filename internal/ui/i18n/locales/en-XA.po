@@ -7512,3 +7512,15 @@ msgstr ""
 #: internal/ui/app/tray.go
 msgid "Show Sona"
 msgstr ""
+
+#: internal/ui/app/tray.go
+msgid "Close Mini Player"
+msgstr ""
+
+#: internal/ui/app/view.go
+msgid "Current page"
+msgstr ""
+
+#: internal/ui/app/tray.go
+msgid "Mini Player"
+msgstr ""

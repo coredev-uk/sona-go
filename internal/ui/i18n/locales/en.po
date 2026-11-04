@@ -7512,3 +7512,15 @@ msgstr "{minutes, plural, one {# min. ago} other {# min. ago}}"
 #: internal/ui/app/tray.go
 msgid "Show Sona"
 msgstr "Show Sona"
+
+#: internal/ui/app/tray.go
+msgid "Close Mini Player"
+msgstr "Close Mini Player"
+
+#: internal/ui/app/view.go
+msgid "Current page"
+msgstr "Current page"
+
+#: internal/ui/app/tray.go
+msgid "Mini Player"
+msgstr "Mini Player"
