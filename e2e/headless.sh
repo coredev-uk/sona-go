@@ -148,10 +148,6 @@ export XDG_SESSION_TYPE=wayland
 export NO_AT_BRIDGE=0
 export GTK_USE_PORTAL=0
 export SONA_PRIVATE=1
-# The session has no GPU: MyGo draws on llvmpipe here whatever render node the
-# host has. Saying so lets the app agree (the lyric sweep paints at 30 fps on
-# the CPU, the display's rate on a GPU).
-export LIBGL_ALWAYS_SOFTWARE=1
 
 cat >"$HEADLESS_ROOT/sway.conf" <<'EOF'
 default_border none

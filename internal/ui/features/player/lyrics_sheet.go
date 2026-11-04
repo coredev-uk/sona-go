@@ -96,7 +96,6 @@ func roomLook(winW, winH float32) lyricLook {
 type sweepKey struct {
 	line   int
 	part   uint8 // 0 lead, 1 background, 2 pronunciation
-	width  int
 	italic bool
 	whole  bool
 }
@@ -140,9 +139,12 @@ func newLyricsSheet(songID string) *lyricsSheet {
 	return &lyricsSheet{songID: songID, anchored: -1, focused: -1, want: -1}
 }
 
-// bind derives what the sheet needs from the lyrics, once per lyrics.
+// bind derives what the sheet needs from the lyrics, once per lyrics. The
+// query hands out a copy of the DTO each frame, so the lines' backing array
+// says whether they are the same lyrics.
 func (sh *lyricsSheet) bind(l *services.Lyrics) {
-	if sh.lyr == l {
+	if sh.lyr != nil && len(sh.lyr.Lines) == len(l.Lines) && len(l.Lines) > 0 && &sh.lyr.Lines[0] == &l.Lines[0] {
+		sh.lyr = l
 		return
 	}
 	sh.lyr = l
@@ -165,7 +167,7 @@ func (sh *lyricsSheet) bind(l *services.Lyrics) {
 // sweep is the shaped text of one part of line i for width, shaped again
 // only for a new width.
 func (sh *lyricsSheet) sweep(k sweepKey, words []services.LyricWord, look lyricLook, bg bool, w float32) *kit.SweepText {
-	if s := sh.sweeps[k]; s != nil {
+	if s := sh.sweeps[k]; s != nil && s.Width() == w {
 		return s
 	}
 	size, lineH, weight := look.size, look.lineH, look.weight
@@ -208,7 +210,7 @@ type sheetIn struct {
 func (p *player) lyricsScroller(c *ui.Context, sh *lyricsSheet, l *services.Lyrics, in sheetIn) ui.Element {
 	sh.bind(l)
 	look := in.look
-	prefs := p.np.prefs.get()
+	prefs := p.prefsFor().get()
 	reduced := theme.ReducedMotion()
 	now := p.now()
 	s := p.env.Play.State()
@@ -508,17 +510,15 @@ func (p *player) lyricPart(c *ui.Context, sh *lyricsSheet, i int, part uint8, t 
 		}
 		return
 	}
-	key := sweepKey{line: i, part: part, width: int(w), italic: italic, whole: reduced}
+	key := sweepKey{line: i, part: part, italic: italic, whole: reduced}
 	sw := sh.sweep(key, t.Words, look, bg, w)
 	right := rtl(t.Text)
 	fill := theme.C("amber-ink")
-	songID, spans := sh.songID, sh.spans
-	sp := spans[i]
+	songID, spans, words := sh.songID, sh.spans, t.Words
 	ui.Box(c).FillWidth().Height(sw.Height()).Margin(margin, 0, 0, 0).Role(ui.RoleText).Label(t.Text).Draw(func(pt *ui.Painter, r ui.Rect) {
 		ms := lyricsync.WordClock(p.env.Play.Position().Milliseconds(), lyricsync.Session().Get(songID))
-		singing := lyricsync.IsSinging(spans, ms, i)
 		var f float32
-		if singing {
+		if lyricsync.IsSinging(spans, ms, i) {
 			f = 1
 		}
 		x := r.X
@@ -526,14 +526,17 @@ func (p *player) lyricPart(c *ui.Context, sh *lyricsSheet, i int, part uint8, t 
 			x = r.X + r.W - sw.Width()
 		}
 		moving := sw.Paint(pt, x, r.Y, base, fill, f, msDur(ms), right)
-		// The sweep paints from the clock at the display's rate, without
-		// building the view: a frame is asked for only while a word is
-		// being sung (or a line is lit and a next word is due).
-		// A line is about to be sung from the lead before its first word: the
-		// view is built at the line, the first word comes a lead later.
-		near := ms >= sp.BeginMs-2*lyricsync.LeadMs && ms < sp.EndMs
-		if p.env.Play.State().State == "playing" && !reduced && (moving || singing || near) {
+		if reduced || p.env.Play.State().State != "playing" {
+			return
+		}
+		// The sweep paints from the clock without building the view, and asks
+		// for frames only while a word is filling. Between words, after the
+		// last one and before the first it sleeps until the next change: a
+		// word beginning or ending, the line ending or the voice resting.
+		if moving {
 			sweepFrames(pt)
+		} else if next := nextSweepEdge(spans, i, words, ms); next != lyricsync.Never {
+			pt.After(msDur(next - ms + 1))
 		}
 	})
 }
@@ -590,4 +593,23 @@ func (p *player) seekLine(ln *services.LyricLine) {
 	songID := lyricsSongID(p.env.Play.State().Current)
 	off := lyricsync.Session().Get(songID)
 	p.seekTo(msDur(lyricsync.SeekTarget(ln.BeginMs, off)))
+}
+
+// nextSweepEdge is the next time after t at which part of line i could change:
+// one of its words beginning or ending, the line ending, or the voice resting
+// after it (lyricsync.Never: none left).
+func nextSweepEdge(spans []lyricsync.Span, i int, words []services.LyricWord, t int64) int64 {
+	next := lyricsync.Never
+	consider := func(ms int64) {
+		if ms > t && ms < next {
+			next = ms
+		}
+	}
+	for _, w := range words {
+		consider(w.BeginMs)
+		consider(w.EndMs)
+	}
+	consider(spans[i].EndMs)
+	consider(lyricsync.RestFrom(spans, i))
+	return next
 }

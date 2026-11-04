@@ -1,73 +1,94 @@
 package player
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
+	"sync"
 
 	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
-// lyricsPrefsFile is where the lyrics view's choices live (v0.2.0 kept
-// them in localStorage under "sona.lyrics"): a small JSON file in the
-// config directory. Tests put it elsewhere.
-func lyricsPrefsFile() string {
-	paths, err := config.ResolvePaths(os.Getenv)
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(paths.Config, "lyrics-view.json")
-}
-
 // lyricsPrefs are the Translation and Pronunciation choices: kept across
-// songs and restarts, both off by default. Main thread only.
+// songs and restarts (v0.2.0 kept them in localStorage under "sona.lyrics";
+// here they are config.Settings.LyricsView), both off by default. read and
+// write are where they live; with neither (a test) they stay in memory. Main
+// thread only.
 type lyricsPrefs struct {
-	lyricsync.Prefs
-	// file is the path read on first use and written on a change ("" keeps
-	// them in memory).
-	file   string
-	loaded bool
-	// failed is called with a write error (logged by the owner).
-	failed func(error)
+	read  func() lyricsync.Prefs
+	write func(lyricsync.Prefs)
+	mem   lyricsync.Prefs
 }
 
-// get returns the choices, reading the file once.
+// get returns the choices.
 func (l *lyricsPrefs) get() lyricsync.Prefs {
-	if !l.loaded {
-		l.loaded = true
-		if l.file != "" {
-			var p struct {
-				Translation   bool `json:"translation"`
-				Pronunciation bool `json:"pronunciation"`
-			}
-			if b, err := os.ReadFile(l.file); err == nil && json.Unmarshal(b, &p) == nil {
-				l.Prefs = lyricsync.Prefs{Translation: p.Translation, Pronunciation: p.Pronunciation}
-			}
-		}
+	if l.read != nil {
+		return l.read()
 	}
-	return l.Prefs
+	return l.mem
 }
 
-// set changes the choices and writes them.
+// set changes the choices and saves them.
 func (l *lyricsPrefs) set(p lyricsync.Prefs) {
-	l.get()
-	l.Prefs = p
-	if l.file == "" {
+	if l.write != nil {
+		l.write(p)
 		return
 	}
-	b, _ := json.Marshal(struct {
-		Translation   bool `json:"translation"`
-		Pronunciation bool `json:"pronunciation"`
-	}{p.Translation, p.Pronunciation})
-	err := os.MkdirAll(filepath.Dir(l.file), 0o700)
-	if err == nil {
-		tmp := l.file + ".tmp"
-		if err = os.WriteFile(tmp, b, 0o600); err == nil {
-			err = os.Rename(tmp, l.file)
+	l.mem = p
+}
+
+// settingsPrefs is the choices of the app: read from the settings cache
+// (store.UseSettings: no file is read on the main thread), saved through
+// SystemService.SetLyricsView off the main thread, one save at a time and the
+// newest choices last. A choice shows at once: the cached settings are
+// updated before the save returns.
+func (p *player) settingsPrefs() (read func() lyricsync.Prefs, write func(lyricsync.Prefs)) {
+	read = func() lyricsync.Prefs {
+		v := store.UseSettings(p.env.Queries, p.env.Core).Data.LyricsView
+		return lyricsync.Prefs{Translation: v.Translation, Pronunciation: v.Pronunciation}
+	}
+	var (
+		mu      sync.Mutex
+		pending *config.LyricsView
+		running bool
+	)
+	save := func(v config.LyricsView) {
+		mu.Lock()
+		pending = &v
+		if running {
+			mu.Unlock()
+			return
+		}
+		running = true
+		mu.Unlock()
+		sys := services.Service[services.SystemService](p.env.Core)
+		go func() {
+			for {
+				mu.Lock()
+				next := pending
+				pending = nil
+				if next == nil {
+					running = false
+					mu.Unlock()
+					return
+				}
+				mu.Unlock()
+				if _, err := sys.SetLyricsView(*next); err != nil {
+					p.env.Log.Warn("lyrics view: saving the choices", "err", services.CodeOf(err))
+				}
+			}
+		}()
+	}
+	write = func(v lyricsync.Prefs) {
+		view := config.LyricsView{Translation: v.Translation, Pronunciation: v.Pronunciation}
+		if r := store.UseSettings(p.env.Queries, p.env.Core); r.HasData {
+			s := r.Data
+			s.LyricsView = view
+			store.Set(p.env.Queries, store.KeySettings, s)
+		}
+		if p.env.Core != nil {
+			save(view)
 		}
 	}
-	if err != nil && l.failed != nil {
-		l.failed(err)
-	}
+	return read, write
 }

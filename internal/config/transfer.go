@@ -36,6 +36,7 @@ var localKeys = []string{
 	"audio.outputDevice", // a PipeWire sink on this computer
 	"onboarding",         // whether this computer's first-run setup was done
 	"concerts",           // where this person is: not something to hand to another computer's file
+	"lyricsView",         // how this person reads lyrics on this computer
 }
 
 // keepLocal copies the localKeys fields from src into dst.
@@ -46,6 +47,7 @@ func keepLocal(dst *Settings, src Settings) {
 	dst.Audio.OutputDevice = src.Audio.OutputDevice
 	dst.Onboarding = src.Onboarding
 	dst.Concerts = src.Concerts
+	dst.LyricsView = src.LyricsView
 }
 
 // Import errors, worded for the person who picked the file.

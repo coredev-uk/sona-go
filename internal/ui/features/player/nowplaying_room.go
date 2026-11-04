@@ -37,7 +37,7 @@ func (p *player) roomLayer(c *ui.Context) {
 	}
 	first := !p.np.roomShown
 	p.np.roomShown = true
-	if p.np.room == nil || p.np.room.songID != songID {
+	if first || p.np.room == nil || p.np.room.songID != songID {
 		p.np.room = newLyricsSheet(songID)
 	}
 	w, h := c.Size()
@@ -99,17 +99,21 @@ func (p *player) roomLines(c *ui.Context, songID string, look lyricLook) {
 	switch {
 	case !r.HasData && r.Err == nil:
 		ui.Box(c.Key("loading")).Grow(1).Role(ui.RoleStatus).Label(i18n.T("Loading lyrics"))
+	case lyricsMissing(r):
+		ui.Row(c.Key("none")).Grow(1).Basis(0).Justify(ui.Center).AlignItems(ui.Center).Padding(0, look.sidePad).Children(func() {
+			lineText(c, i18n.T("No lyrics for this song."), look.size, look.lineH, look.weight, theme.C("ink-muted")).MaxWidth(look.columnMax)
+		})
 	case !r.HasData:
 		ui.Row(c.Key("error")).Grow(1).Basis(0).Justify(ui.Center).AlignItems(ui.Center).Padding(0, look.sidePad).Children(func() {
 			kit.ErrorBlock(c, i18n.T("Couldn't load the lyrics"), r.Err, kit.ErrorBlockOpts{
 				OnRetry: func() { p.retryLyrics(songID) }, Retrying: r.Fetching,
 			}).MaxWidth(576)
 		})
-	case r.Data.lyrics == nil || len(r.Data.lyrics.Lines) == 0:
-		ui.Row(c.Key("none")).Grow(1).Basis(0).Justify(ui.Center).AlignItems(ui.Center).Padding(0, look.sidePad).Children(func() {
-			lineText(c, i18n.T("No lyrics for this song."), look.size, look.lineH, look.weight, theme.C("ink-muted")).MaxWidth(look.columnMax)
-		})
 	default:
-		p.lyricsScroller(c, p.np.room, r.Data.lyrics, sheetIn{look: look, focusable: true})
+		// The sheet's fades are siblings of its scroller: a box of its own keeps
+		// them at the sheet's edges, above the footer.
+		ui.Column(c.Key("sheet-box")).Grow(1).Basis(0).MinHeight(0).FillWidth().FillHeight().Children(func() {
+			p.lyricsScroller(c, p.np.room, &r.Data, sheetIn{look: look, focusable: true})
+		})
 	}
 }

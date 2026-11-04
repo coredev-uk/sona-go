@@ -13,8 +13,8 @@ import (
 // panels' shared state, which the bar and the queue read too, is view.go's).
 // The zero value works. Main thread only.
 type nowPlayingState struct {
-	// prefs are the Translation and Pronunciation choices (read from their
-	// file on first use unless prefsInit says a test set them up).
+	// prefs are the Translation and Pronunciation choices (the settings', set
+	// up on first use unless prefsInit says a test did).
 	prefs     lyricsPrefs
 	prefsInit bool
 	// lyrics and motion stand in for the services (a test's); nil: the core's.
@@ -55,8 +55,7 @@ func itoa(i int) string { return strconv.Itoa(i) }
 func (p *player) prefsFor() *lyricsPrefs {
 	if !p.np.prefsInit {
 		p.np.prefsInit = true
-		p.np.prefs.file = lyricsPrefsFile()
-		p.np.prefs.failed = func(err error) { p.env.Log.Warn("lyrics view: saving the choices", "err", err) }
+		p.np.prefs.read, p.np.prefs.write = p.settingsPrefs()
 	}
 	return &p.np.prefs
 }

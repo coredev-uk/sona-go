@@ -82,6 +82,9 @@ type Settings struct {
 	Lyrics Lyrics `json:"lyrics"`
 	// Concerts is where the Concerts page looks (concerts.go).
 	Concerts Concerts `json:"concerts"`
+	// LyricsView is the lyrics view's Translation and Pronunciation choices
+	// (lyricsview.go).
+	LyricsView LyricsView `json:"lyricsView"`
 }
 
 // Scrobbling holds the non-secret part of the scrobbler connections.

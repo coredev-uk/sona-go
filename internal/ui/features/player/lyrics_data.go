@@ -15,13 +15,6 @@ type lyricsSource interface {
 	Lyrics(ctx context.Context, songID string) (services.Lyrics, error)
 }
 
-// lyricsResult is a song's lyrics as the query holds them: a song with none
-// (not_found) is an answer, not a failure, so it is asked once, not again
-// every few seconds.
-type lyricsResult struct {
-	lyrics *services.Lyrics // nil when the song has none
-}
-
 // lyricsSvc is the service the lyrics come from (a test's own, else the core's).
 func (p *player) lyricsSvc() lyricsSource {
 	if p.np.lyrics != nil {
@@ -30,27 +23,28 @@ func (p *player) lyricsSvc() lyricsSource {
 	return services.Service[services.LyricsService](p.env.Core)
 }
 
-// lyricsKey is v0.2.0's keys.lyrics.
-func lyricsKey(songID string) store.Key { return store.Key{"catalog", "lyrics", songID} }
-
-// lyricsFor is the lyrics query of a catalogue song: never stale (a lyrics
-// provider setting change invalidates ["catalog","lyrics"]), no retry.
-func (p *player) lyricsFor(songID string) store.Result[lyricsResult] {
+// lyricsFor is the lyrics query of a catalogue song: the one cache the song
+// page shares (store.KeyLyrics, always a services.Lyrics), never stale. A song
+// none of the sources has (not_found) is an answer the store caches as empty
+// lyrics, not a failure asked again every few seconds.
+func (p *player) lyricsFor(songID string) store.Result[services.Lyrics] {
 	svc := p.lyricsSvc()
-	return store.Use(p.env.Queries, lyricsKey(songID), func(ctx context.Context) (lyricsResult, error) {
-		l, err := svc.Lyrics(ctx, songID)
-		if err != nil {
-			if services.CodeOf(err) == services.CodeNotFound {
-				return lyricsResult{}, nil
-			}
-			return lyricsResult{}, err
-		}
-		return lyricsResult{lyrics: &l}, nil
-	}, store.Options{Stale: store.Forever})
+	return store.UseLyricsFrom(p.env.Queries, songID, func(ctx context.Context) (services.Lyrics, error) {
+		return svc.Lyrics(ctx, songID)
+	})
+}
+
+// lyricsMissing reports a song with no lyrics: not found, or an answer with no
+// lines.
+func lyricsMissing(r store.Result[services.Lyrics]) bool {
+	if r.HasData {
+		return len(r.Data.Lines) == 0
+	}
+	return r.Err != nil && services.CodeOf(r.Err) == services.CodeNotFound
 }
 
 // retryLyrics asks again after a failure.
-func (p *player) retryLyrics(songID string) { p.env.Queries.Invalidate(lyricsKey(songID)) }
+func (p *player) retryLyrics(songID string) { p.env.Queries.Invalidate(store.KeyLyrics(songID)) }
 
 // motionSource is what the view asks of the motion service.
 type motionSource interface {

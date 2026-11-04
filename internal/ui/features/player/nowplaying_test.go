@@ -14,6 +14,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/lyrics"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
@@ -475,7 +476,7 @@ func TestTranslationAndPronunciationTogglesAddTheirLines(t *testing.T) {
 	if !r.tt.HasText("Romanised 1") {
 		t.Errorf("no pronunciation: %q", r.tt.Texts())
 	}
-	if p := r.p.np.prefs.Prefs; !p.Translation || !p.Pronunciation {
+	if p := r.p.np.prefs.get(); !p.Translation || !p.Pronunciation {
 		t.Errorf("choices %+v", p)
 	}
 	_ = r.tt.Click("Translation")
@@ -485,17 +486,36 @@ func TestTranslationAndPronunciationTogglesAddTheirLines(t *testing.T) {
 	}
 }
 
-func TestLyricsChoicesAreKeptInTheirFile(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "sub", "lyrics-view.json")
-	a := lyricsPrefs{file: file}
-	if got := a.get(); got != (lyricsync.Prefs{}) {
+func TestLyricsChoicesAreKeptInTheSettings(t *testing.T) {
+	h := uitest.New(t)
+	until := func(what string, ok func() bool) {
+		t.Helper()
+		for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+			h.Main.Drain()
+			if ok() {
+				return
+			}
+		}
+		t.Fatalf("timed out waiting for %s", what)
+	}
+	a := newPlayer(h.Env, nil, func() bool { return false })
+	prefs := a.prefsFor()
+	if got := prefs.get(); got != (lyricsync.Prefs{}) {
 		t.Errorf("defaults %+v", got)
 	}
-	a.set(lyricsync.Prefs{Translation: true})
-	b := lyricsPrefs{file: file}
-	if got := b.get(); !got.Translation || got.Pronunciation {
-		t.Errorf("after a restart %+v", got)
+	// Saved through the settings, off the main thread; shown at once.
+	until("the settings", func() bool { return store.UseSettings(h.Env.Queries, h.Env.Core).HasData })
+	prefs.set(lyricsync.Prefs{Translation: true})
+	if got := prefs.get(); !got.Translation || got.Pronunciation {
+		t.Errorf("not shown at once: %+v", got)
 	}
+	sys := services.Service[services.SystemService](h.Core)
+	until("the save", func() bool { return sys.Settings().LyricsView.Translation })
+	// After a restart (a fresh cache over the same settings) they are still on.
+	env := *h.Env
+	env.Queries = store.NewClient(h.Main.Post)
+	b := newPlayer(&env, nil, func() bool { return false })
+	until("the choices after a restart", func() bool { return b.prefsFor().get().Translation })
 }
 
 func TestKeyboardMovesBetweenSyncedLines(t *testing.T) {
@@ -841,37 +861,67 @@ func TestUnderReducedMotionThePageJumpsInsteadOfScrollingSmoothly(t *testing.T) 
 	}
 }
 
-func TestSweepFramesFollowTheRenderer(t *testing.T) {
-	none := func(string) string { return "" }
-	env := func(kv ...string) func(string) string {
-		return func(k string) string {
-			for i := 0; i+1 < len(kv); i += 2 {
-				if kv[i] == k {
-					return kv[i+1]
-				}
-			}
-			return ""
-		}
+func TestSavedChoicesShowOnTheFirstOpening(t *testing.T) {
+	r := newNPRig(t, func(r *npRig) { r.p.np.prefsInit = false })
+	// The settings (as the cache holds them) have the translation on.
+	store.Set(r.h.Env.Queries, store.KeySettings, config.Settings{LyricsView: config.LyricsView{Translation: true}})
+	lines := timedLines(6, false)
+	for i := range lines {
+		lines[i].Translation = &services.LyricText{Text: fmt.Sprintf("Translated %d", i)}
 	}
-	gpu := func(string) []string { return []string{"/dev/dri/renderD128"} }
-	noGPU := func(string) []string { return nil }
-	for name, c := range map[string]struct {
-		goos string
-		env  func(string) string
-		glob func(string) []string
-		want bool
-	}{
-		"linux with a render node":      {"linux", none, gpu, false},
-		"linux without one (a VM)":      {"linux", none, noGPU, true},
-		"MYGO_GPU=0":                    {"linux", env("MYGO_GPU", "0"), gpu, true},
-		"Mesa software on request":      {"linux", env("LIBGL_ALWAYS_SOFTWARE", "1"), gpu, true},
-		"llvmpipe asked for":            {"linux", env("GALLIUM_DRIVER", "llvmpipe"), gpu, true},
-		"another Gallium driver":        {"linux", env("GALLIUM_DRIVER", "radeonsi"), gpu, false},
-		"windows always has a renderer": {"windows", env("MYGO_GPU", "0"), noGPU, false},
-		"macOS always has a renderer":   {"darwin", none, noGPU, false},
+	r.lyr.set(services.Lyrics{Timing: "Line", TranslationLanguage: "en-US", Lines: lines}, nil)
+	r.play(2000)
+	r.open("")
+	// The first build with lyrics reads the saved choices, not the defaults.
+	r.tt.Until("the saved translation", r.tt.Shows("Translated 1"))
+}
+
+func TestEachOpeningStartsAFreshSheet(t *testing.T) {
+	r := newNPRig(t)
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(60, false)}, nil)
+	r.play(2000)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 0 sung words"))
+	first := r.p.np.sheet
+	first.focused = 7
+	r.p.ui.closeOverlay()
+	r.settle()
+	r.play(2000)
+	r.p.ui.openNowPlaying("")
+	r.settle()
+	if r.p.np.sheet == first || r.p.np.sheet == nil || r.p.np.sheet.focused != -1 {
+		t.Errorf("the sheet was kept across openings: %p %p focused %v", first, r.p.np.sheet, r.p.np.sheet)
+	}
+}
+
+func TestResizingKeepsOneShapedTextPerPart(t *testing.T) {
+	r := newNPRig(t)
+	r.lyr.set(services.Lyrics{Timing: "Word", Lines: timedLines(6, true)}, nil)
+	r.play(2000)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 0 sung words"))
+	r.settle()
+	n := len(r.p.np.sheet.sweeps)
+	if n == 0 {
+		t.Fatal("no sweep was shaped")
+	}
+	for _, w := range []int{1000, 900, 1100, 960} {
+		r.tt.SetSize(w, 700)
+		r.settle()
+	}
+	if got := len(r.p.np.sheet.sweeps); got != n {
+		t.Errorf("%d shaped texts after resizing, was %d", got, n)
+	}
+}
+
+func TestNextSweepEdgeIsTheNextWordLineEndOrRest(t *testing.T) {
+	spans := []lyricsync.Span{{BeginMs: 1000, EndMs: 4000}, {BeginMs: 9000, EndMs: 12000}}
+	words := []services.LyricWord{{BeginMs: 1000, EndMs: 1500}, {BeginMs: 2000, EndMs: 2500}}
+	for _, c := range []struct{ at, want int64 }{
+		{0, 1000}, {1200, 1500}, {1500, 2000}, {2500, 4000}, {4000, 4500}, {4500, lyricsync.Never},
 	} {
-		if got := softwareDrawIn(c.goos, c.env, c.glob); got != c.want {
-			t.Errorf("%s: %v, want %v", name, got, c.want)
+		if got := nextSweepEdge(spans, 0, words, c.at); got != c.want {
+			t.Errorf("after %d: %d, want %d", c.at, got, c.want)
 		}
 	}
 }

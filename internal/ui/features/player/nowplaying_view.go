@@ -87,6 +87,10 @@ func (p *player) nowPlaying(c *ui.Context) {
 	}
 	first := !p.np.shown
 	p.np.shown = true
+	if first {
+		// Mounted again: scroll and focus start from the sung line.
+		p.np.sheet = nil
+	}
 	lay := p.measureLayout(c)
 	panes := panesFor(cur)
 	shown := shownPane(p.ui.pane, cur)
@@ -256,7 +260,7 @@ func (p *player) outLink(c *ui.Context, key, text, path string, size, lineH floa
 	if path == "" || p.env.HasRoute == nil || !p.env.HasRoute(path) {
 		return
 	}
-	t.Role(ui.RoleLink).Cursor(ui.CursorPointer)
+	t.Role(ui.RoleLink).Cursor(ui.CursorPointer).Focusable()
 	if t.Hovered() {
 		t.Underline().TextColor(theme.C("ink"))
 	}
@@ -456,14 +460,14 @@ func (p *player) lyricsBody(c *ui.Context, songID string) {
 				})
 			}
 		})
+	case lyricsMissing(r):
+		p.noLyrics(c)
 	case !r.HasData:
 		kit.ErrorBlock(c, i18n.T("Couldn't load the lyrics"), r.Err, kit.ErrorBlockOpts{
 			OnRetry: func() { p.retryLyrics(songID) }, Retrying: r.Fetching,
 		}).Margin(96, 0, 0, 0)
-	case r.Data.lyrics == nil || len(r.Data.lyrics.Lines) == 0:
-		p.noLyrics(c)
 	default:
-		p.lyricsScroller(c, p.np.sheet, r.Data.lyrics, sheetIn{look: sheetLook(), clickable: true})
+		p.lyricsScroller(c, p.np.sheet, &r.Data, sheetIn{look: sheetLook(), clickable: true})
 	}
 }
 
@@ -502,10 +506,10 @@ func languageName(tag string) string {
 // the timing nudge and full screen at the end.
 func (p *player) lyricsTools(c *ui.Context, songID string) {
 	r := p.lyricsFor(songID)
-	l := r.Data.lyrics
-	if l == nil {
+	if !r.HasData || len(r.Data.Lines) == 0 {
 		return
 	}
+	l := &r.Data
 	hasTr, hasPr := lyricsync.Extras(l)
 	synced := lyricsync.IsSynced(l) && len(l.Lines) > 0
 	if !hasTr && !hasPr && !synced {
