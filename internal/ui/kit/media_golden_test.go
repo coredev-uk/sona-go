@@ -31,6 +31,15 @@ var mediaFonts sync.Once
 // edges differ a little between CPUs), or writes it with -update-media.
 func mediaGolden(t *testing.T, name string, img *image.RGBA) {
 	t.Helper()
+	mediaGoldenTol(t, name, img, 12)
+}
+
+// mediaGoldenTol is mediaGolden with its own per-channel tolerance: a decoded
+// picture's colours depend on the decoder build (the YUV to RGB matrix and
+// range it assumes), up to about 50 per channel between Ubuntu's GStreamer
+// and nixpkgs'.
+func mediaGoldenTol(t *testing.T, name string, img *image.RGBA, tol int) {
+	t.Helper()
 	if runtime.GOOS != "linux" {
 		t.Skip("golden images are compared on Linux only: other platforms draw text with their own rasteriser")
 	}
@@ -70,7 +79,7 @@ func mediaGolden(t *testing.T, name string, img *image.RGBA) {
 			c := img.RGBAAt(x, y)
 			d := func(a uint8, w uint32) int { return max(int(a)-int(w>>8), int(w>>8)-int(a)) }
 			m := max(d(c.R, r), d(c.G, g), d(c.B, b))
-			if m > 12 {
+			if m > tol {
 				diff++
 				box = box.Union(image.Rect(x, y, x+1, y+1))
 			}
@@ -260,7 +269,10 @@ func TestMediaMotionGoldens(t *testing.T) {
 				}
 			}
 			tt.Frame()
-			mediaGolden(t, "motion-"+mode.name, tt.Image())
+			// 64 per channel: a missing, black or misplaced picture is
+			// off by far more (the bars are 100% colours on a light or
+			// dark ground), a decoder's colour matrix is not.
+			mediaGoldenTol(t, "motion-"+mode.name, tt.Image(), 64)
 		})
 	}
 }
