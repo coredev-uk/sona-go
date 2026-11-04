@@ -1,0 +1,153 @@
+package album
+
+import (
+	"fmt"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/coredev-uk/sona-go/internal/services"
+)
+
+var modelNow = time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)
+
+func factsOf(m model) map[string]string {
+	out := map[string]string{}
+	for _, f := range m.facts {
+		out[f.label] = f.value
+	}
+	return out
+}
+
+func TestFinePrintFacts(t *testing.T) {
+	p := saltFlats(func(p *services.CatalogAlbum) {
+		p.Tracks[0].ReleaseDate = "1998-01-01" // an older recording
+		p.Tracks[0].Composer = "Mia Vale & Zed"
+	})
+	m := newModel(p.AlbumDetail, &p, true, modelNow)
+	got := factsOf(m)
+	for label, want := range map[string]string{
+		"Released": "March 8, 2019", "First released": "1998", "Genres": "Indie Pop, Pop",
+		"Written by": "Mia Vale and Zed", "Label": "Quiet Records",
+	} {
+		if got[label] != want {
+			t.Errorf("%s = %q, want %q", label, got[label], want)
+		}
+	}
+	// The ℗ line carries the rights, and names the label when it does: then
+	// the Label fact is not repeated.
+	p.Copyright = "℗ 2019 Quiet Records"
+	m = newModel(p.AlbumDetail, &p, true, modelNow)
+	if _, ok := factsOf(m)["Label"]; ok {
+		t.Error("the label is repeated beside a copyright line that names it")
+	}
+	// One genre is singular.
+	p.Genres = nil
+	m = newModel(p.AlbumDetail, &p, true, modelNow)
+	if got := factsOf(m); got["Genre"] != "Indie Pop" {
+		t.Errorf("facts %v", got)
+	}
+}
+
+func TestUpcomingAlbumLeavesReleaseDayToTheCountdown(t *testing.T) {
+	p := saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Prerelease, p.Album.ReleaseAt = true, modelNow.Add(time.Hour).UnixMilli()
+	})
+	m := newModel(p.AlbumDetail, &p, true, modelNow)
+	if _, ok := factsOf(m)["Released"]; ok {
+		t.Error("Released shown for an album not out")
+	}
+}
+
+func TestPopularNeverMarksASongThatCannotPlay(t *testing.T) {
+	p := saltFlats(func(p *services.CatalogAlbum) {
+		p.PopularIDs = []string{"c1", "c2"}
+		p.Tracks[1].Playable = false
+	})
+	m := newModel(p.AlbumDetail, &p, true, modelNow)
+	if !m.popular["c1"] || m.popular["c2"] {
+		t.Errorf("popular %v", m.popular)
+	}
+	// A library album with no catalogue page marks none.
+	lib := newModel(p.AlbumDetail, nil, false, modelNow)
+	if len(lib.popular) != 0 {
+		t.Errorf("popular without a catalogue page: %v", lib.popular)
+	}
+}
+
+func TestPartialLibraryAlbumCountsTheWholeRecord(t *testing.T) {
+	page := saltFlats()
+	detail := page.AlbumDetail
+	detail.Tracks = detail.Tracks[:2]
+	detail.DurationMs = 400000
+	m := newModel(detail, &page, false, modelNow)
+	if m.share == nil || *m.share != (share{2, 5}) {
+		t.Fatalf("share %v", m.share)
+	}
+	if want := "Album · 2019 · 5 songs, 17 min · Indie Pop"; m.meta != want {
+		t.Errorf("meta %q, want %q", m.meta, want)
+	}
+	// The catalogue page itself is never a partial.
+	if full := newModel(page.AlbumDetail, &page, true, modelNow); full.share != nil {
+		t.Errorf("share on the catalogue page: %v", full.share)
+	}
+}
+
+func TestLibraryAlbumPlaysTheMotionOfItsCataloguePage(t *testing.T) {
+	page := saltFlats(func(p *services.CatalogAlbum) { p.Header.Motion = "/motion/1/2.mp4" })
+	detail := page.AlbumDetail
+	detail.Header.Motion = ""
+	if m := newModel(detail, &page, false, modelNow); m.motion != "/motion/1/2.mp4" {
+		t.Errorf("motion %q", m.motion)
+	}
+	detail.Header.Motion = "/motion/own.mp4"
+	if m := newModel(detail, &page, false, modelNow); m.motion != "/motion/own.mp4" {
+		t.Errorf("motion %q", m.motion)
+	}
+}
+
+func TestSinglesAreNamedSo(t *testing.T) {
+	p := saltFlats(func(p *services.CatalogAlbum) { p.Album.Single = true })
+	if m := newModel(p.AlbumDetail, &p, true, modelNow); !strings.HasPrefix(m.meta, "Single · 2019") {
+		t.Errorf("meta %q", m.meta)
+	}
+}
+
+func TestLongListsHaveNoDiscIndex(t *testing.T) {
+	var songs []services.Song
+	for i := 0; i < 250; i++ {
+		songs = append(songs, track(i+1, fmt.Sprint("S", i), func(s *services.Song) { s.DiscNumber = 1 + i/125 }))
+	}
+	p := saltFlats(func(p *services.CatalogAlbum) { p.Tracks = songs })
+	if m := newModel(p.AlbumDetail, &p, true, modelNow); len(m.discs) != 0 {
+		t.Errorf("a virtual list has %d discs", len(m.discs))
+	}
+	p.Tracks = songs[:150]
+	if m := newModel(p.AlbumDetail, &p, true, modelNow); len(m.discs) != 2 {
+		t.Errorf("a list of 150 has %d discs", len(m.discs))
+	}
+}
+
+func TestSublineJoinsCreditComposerAndReason(t *testing.T) {
+	p := saltFlats(func(p *services.CatalogAlbum) {
+		p.Tracks[0].Artist = "Zed"
+		p.Tracks[0].Work, p.Tracks[1].Composer = "A Work", "Cy"
+		p.Tracks[2].Playable = false
+	})
+	m := newModel(p.AlbumDetail, &p, true, modelNow)
+	m.composers = 2 // a classical album of several composers
+	sub := m.subline(modelNow, false)
+	if got := sub(m.list[0]); got != "Zed" { // a credit; the piece is in a work
+		t.Errorf("credit: %q", got)
+	}
+	if got := sub(m.list[1]); got != "Cy" { // the composer of a piece outside any work
+		t.Errorf("composer: %q", got)
+	}
+	if got := sub(m.list[2]); got != "Unavailable" {
+		t.Errorf("reason: %q", got)
+	}
+	m.list[1].Artist = "Zed"
+	if got := sub(m.list[1]); got != "Zed · Cy" {
+		t.Errorf("both: %q", got)
+	}
+}
