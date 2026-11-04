@@ -57,7 +57,7 @@ gocmd() { # go ARGS...: with the framework and the deployment target
   (
     cd "$repo"
     export GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 MACOSX_DEPLOYMENT_TARGET=$minos
-    export PKG_CONFIG_PATH=$work/pc CGO_CFLAGS="-mmacosx-version-min=$minos" CGO_LDFLAGS="-mmacosx-version-min=$minos"
+    export PKG_CONFIG_PATH=$work/pc CGO_CFLAGS="-mmacosx-version-min=$minos" CGO_LDFLAGS="-mmacosx-version-min=$minos -Wl,-headerpad_max_install_names"
     go "$@"
   )
 }
