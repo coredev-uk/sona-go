@@ -528,7 +528,8 @@ func TestThePlayingRowHasNoMenu(t *testing.T) {
 	x, y := r.at(t, "Song 1, Artist 1")
 	r.tt.RightClickAt(x, y)
 	r.tt.Frame()
-	if r.tt.HasText("Move to end") || r.tt.HasText("Remove") {
+	// (The other rows' buttons are built at rest, unseen, for screen readers.)
+	if r.tt.HasText("Move to end") || r.tt.HasText("Remove Song 1 from the queue") || r.tt.HasText("More for Song 1") {
 		t.Errorf("the playing song has a menu: %q", r.tt.Texts())
 	}
 }

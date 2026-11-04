@@ -435,7 +435,7 @@ func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, stat
 						return
 					}
 					ui.Row(c.Key(status)).Gap(6).AlignItems(ui.Center).Children(func() {
-						ui.Spinner(c).Size(14, 14)
+						ui.Spinner(c).Size(14, 14).Role(ui.RoleNone) // the status names it
 						text(c, status, "meta").TextColor(theme.C("ink-muted"))
 					})
 				})

@@ -149,6 +149,12 @@ func queueOver(env *module.Env, svc kit.QueueService) {
 
 func newRig(t *testing.T, volume bool) *rig {
 	t.Helper()
+	return newRigWith(t, volume, nil)
+}
+
+// newRigWith is newRig with extra built beside the bar (the window's toasts).
+func newRigWith(t *testing.T, volume bool, extra func(*ui.Context)) *rig {
+	t.Helper()
 	h := uitest.New(t, uitest.Bare()) // the bar reads the mirror and calls the fake transport
 	r := &rig{fake: newFake(), h: h, env: h.Env}
 	queueOver(r.env, r.fake)
@@ -159,6 +165,9 @@ func newRig(t *testing.T, volume bool) *rig {
 			ui.Box(c).Grow(1)
 			r.p.bar(c)
 		})
+		if extra != nil {
+			extra(c)
+		}
 	}, 1132, 400)
 	return r
 }

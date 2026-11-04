@@ -49,10 +49,10 @@ func (p *player) autoPlayToggle(c *ui.Context, s services.PlaybackState) {
 	ui.Box(c.Key("autoplay-box")).Size(32, 32).Shrink(0).Children(func() {
 		b := kit.Button(c.Key("autoplay"), "", kit.ButtonOpts{
 			Variant: kit.Ghost, Size: kit.SizeSM, Icon: "infinity", Pressed: &on, Quiet: true, Muted: true,
-			A11yLabel: i18n.T("AutoPlay"), Tip: tip,
+			A11yLabel: i18n.T("AutoPlay"), Tip: tip, Reason: reason,
 		})
 		if reason != "" {
-			b.Opacity(0.4)
+			b.Opacity(0.4) // v0.2.0's opacity-40
 		}
 		if on {
 			ui.Box(c.Key("dot")).Absolute().Left(14).Top(26).Size(4, 4).Radius(2).Background(theme.C("ink")).IgnoreInput(true)
