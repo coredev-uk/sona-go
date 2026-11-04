@@ -3,12 +3,14 @@ package services
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/artwork"
 	"github.com/coredev-uk/sona-go/internal/auth"
+	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/catalog"
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
@@ -58,6 +60,13 @@ type Deps struct {
 	Storefront func() string
 	// Gate holds network requests until the first paint.
 	Gate *Gate
+	// Keyring is the secret store behind the scrobblers' and Musixmatch's
+	// credentials (nil: the system keyring). Tests give an in-memory one.
+	Keyring store.Keyring
+	// Transport carries the HTTP of Go's own network services (lyrics,
+	// scrobbling, the update check), under the first-paint gate (nil:
+	// http.DefaultTransport). Tests give one that serves fixtures only.
+	Transport http.RoundTripper
 	Emit Emitter
 	// Clipboard puts text on the system clipboard and reports success (nil:
 	// copying fails).

@@ -6,6 +6,11 @@
 // test says, and a fake clock. Tester wraps ui.NewTester for a view over
 // it, and Golden compares a frame with an image kept in testdata.
 //
+// The Core it builds is hermetic (hermetic.go): an empty in-memory keyring,
+// an HTTP transport that serves only the fixtures' hosts and fails any other
+// request at once, and the home, XDG and D-Bus environment under the test's
+// temporary directory.
+//
 // The tests that use it run without a display, on MyGo's CPU renderer
 // (Env sets MYGO_GPU=0), with go test.
 package uitest
@@ -13,7 +18,6 @@ package uitest
 import (
 	"context"
 	"log/slog"
-	"net/http"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -50,6 +54,7 @@ type options struct {
 	seed      bool
 	core      bool
 	dark      bool
+	version   string
 }
 
 // Albums seeds the library with these albums instead of the fixture's
@@ -70,6 +75,10 @@ func Bare() Option { return func(o *options) { o.core = false } }
 // Dark runs the theme dark (it is light otherwise).
 func Dark() Option { return func(o *options) { o.dark = true } }
 
+// Version sets the app version the Core and the Env report ("test" by
+// default, which the update check skips as unreleased).
+func Version(v string) Option { return func(o *options) { o.version = v } }
+
 // Harness is everything Env wired, for what a test must reach: the
 // database to change, the engine to ask what it played, the clock.
 type Harness struct {
@@ -84,7 +93,12 @@ type Harness struct {
 	Covers   *fixture.CDN   // what the artwork cache's HTTP reaches
 	Clock    *Clock
 	Main     *MainThread
-	Dir      string
+	// Network is every HTTP client's transport: it serves the artwork CDN
+	// (Covers) and what a test adds with Serve, and fails any other request.
+	Network *Network
+	// Keyring is the Core's secret store, empty: the machine's is not reachable.
+	Keyring *Keyring
+	Dir     string
 }
 
 var (
@@ -110,7 +124,7 @@ func New(t testing.TB, opts ...Option) *Harness {
 	// English, whatever the machine says: text and numbers are asserted.
 	t.Setenv("LC_ALL", "en_US.UTF-8")
 	t.Setenv("LANGUAGE", "")
-	o := options{albums: fixture.Albums(), playlists: fixture.Playlists(), seed: true, core: true}
+	o := options{albums: fixture.Albums(), playlists: fixture.Playlists(), seed: true, core: true, version: "test"}
 	for _, f := range opts {
 		f(&o)
 	}
@@ -122,6 +136,9 @@ func New(t testing.TB, opts ...Option) *Harness {
 	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
 
 	h := &Harness{Clock: NewClock(), Main: &MainThread{}, Covers: &fixture.CDN{}, Dir: t.TempDir()}
+	isolate(t, filepath.Join(h.Dir, "env"))
+	h.Network, h.Keyring = NewNetwork(), NewKeyring()
+	h.Network.Serve(fixture.CDNHost, h.Covers)
 	h.Bus = store.NewBus(nil)
 	h.Bus.SetPoster(h.Main.Post)
 	var art *artwork.Cache
@@ -132,7 +149,7 @@ func New(t testing.TB, opts ...Option) *Harness {
 	t.Cleanup(func() { loader.Close(); loader.Wait() })
 	h.Env = &module.Env{
 		Core: h.Core, Bus: h.Bus, Queries: store.NewClient(h.Main.Post), Play: store.NewPlayback(h.Bus, h.Clock.Now),
-		Art: loader, Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: "test",
+		Art: loader, Post: h.Main.Post, Log: slog.New(slog.DiscardHandler), Version: o.version,
 	}
 	mu.Lock()
 	harnesses[h.Env] = h
@@ -159,7 +176,7 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 			t.Fatal(err)
 		}
 	}
-	art, err := artwork.New(artwork.Options{Dir: filepath.Join(h.Dir, "art"), HTTP: &http.Client{Transport: h.Covers}})
+	art, err := artwork.New(artwork.Options{Dir: filepath.Join(h.Dir, "art"), HTTP: h.Network.Client()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +199,7 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 		t.Fatal(err)
 	}
 	authm, err := auth.NewManager(auth.Config{
-		HTTP: http.DefaultClient, Dev: staticDev{}, APIBase: "http://127.0.0.1:1",
+		HTTP: h.Network.Client(), Dev: staticDev{}, APIBase: "http://127.0.0.1:1",
 		Open:     func() (authstore.Store, error) { return noAccount{}, nil },
 		Accounts: services.AccountStore{DB: d},
 	})
@@ -201,7 +218,8 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 		Paths:    config.Paths{Config: h.Dir, Data: h.Dir, Cache: h.Dir, Art: h.Dir, State: h.Dir},
 		Settings: settings, DB: d, Auth: authm, Library: ilib.New(d, nil), Art: art, Engine: h.Engine, Coord: h.Coord,
 		Private: privatemode.New(privatemode.Options{}), Gate: services.NewGate(time.Hour, nil),
-		Emit: h.Bus, Windows: noWindows{}, Logger: slog.New(slog.DiscardHandler), Version: "test", Started: Epoch,
+		Keyring: h.Keyring, Transport: h.Network,
+		Emit: h.Bus, Windows: noWindows{}, Logger: slog.New(slog.DiscardHandler), Version: o.version, Started: Epoch,
 	})
 	t.Cleanup(core.Close)
 	authm.Start()

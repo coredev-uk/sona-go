@@ -53,14 +53,13 @@ type ScrobbleService struct {
 }
 
 func newScrobbleService(e *Env) *ScrobbleService {
-	httpc := &http.Client{Transport: e.Gate.Transport(http.DefaultTransport), Timeout: 30 * time.Second}
+	httpc := &http.Client{Transport: e.gated(), Timeout: 30 * time.Second}
 	ua := "Sona/" + e.Version
 	var lastfm *scrobble.LastFM
 	if key, secret, ok := scrobble.LastFMAccount(); ok {
 		lastfm = &scrobble.LastFM{Key: key, Secret: secret, HTTP: httpc, UserAgent: ua}
 	}
-	s := newScrobble(e, lastfm, &scrobble.ListenBrainz{HTTP: httpc, UserAgent: ua, Version: e.Version},
-		func(key string) (store.Secret, error) { return store.OpenSecret(e.Paths.Config, key, e.Logger) })
+	s := newScrobble(e, lastfm, &scrobble.ListenBrainz{HTTP: httpc, UserAgent: ua, Version: e.Version}, e.openSecret)
 	e.Coord.ObserveActivity(s.sc.Observe)
 	e.OnNetwork(func() {
 		e.Go("scrobble start", func() {

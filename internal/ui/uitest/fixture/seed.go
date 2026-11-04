@@ -13,15 +13,18 @@ import (
 // day is a day in the milliseconds library_items.date_added counts.
 const day = 86_400_000
 
+// CDNHost is Apple's artwork CDN host, the one the fixture's covers are on.
+const CDNHost = "is1-ssl.mzstatic.com"
+
 // Template is the artwork template of album i's cover: Apple's artwork CDN
 // host (the artwork cache takes no other), a path of its own, served by CDN.
 func Template(i int) string {
-	return fmt.Sprintf("https://is1-ssl.mzstatic.com/image/thumb/Fixture/cover%d/{w}x{h}bb.png", i)
+	return fmt.Sprintf("https://"+CDNHost+"/image/thumb/Fixture/cover%d/{w}x{h}bb.png", i)
 }
 
 // PlaylistTemplate is the artwork template of playlist n's cover.
 func PlaylistTemplate(n int) string {
-	return fmt.Sprintf("https://is1-ssl.mzstatic.com/image/thumb/Fixture/playlist%d/{w}x{h}bb.png", n)
+	return fmt.Sprintf("https://"+CDNHost+"/image/thumb/Fixture/playlist%d/{w}x{h}bb.png", n)
 }
 
 // ReleaseDate is album i's release date: always in the past, so every song
