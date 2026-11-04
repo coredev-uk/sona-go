@@ -14,6 +14,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/video"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/media"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -37,6 +38,16 @@ var (
 	galleryFeed   *kit.VideoFeed
 )
 
+// galleryPost runs a func on the window's main thread and redraws it. The
+// gallery's test has no window and nothing to run it: it drops the func.
+func galleryPost(g *gallery) store.Poster {
+	return func(fn func()) {
+		if g.win != nil {
+			g.win.Update(fn)
+		}
+	}
+}
+
 // galleryMedia is the motion policy and the music video feed (one grey-ramp
 // picture) of the sections that play.
 func galleryMedia(g *gallery) (*kit.MotionPolicy, *kit.VideoFeed) {
@@ -45,7 +56,7 @@ func galleryMedia(g *gallery) (*kit.MotionPolicy, *kit.VideoFeed) {
 		if f := os.Getenv("SONA_GALLERY_MOTION"); f != "" {
 			files = galleryFile(f)
 		}
-		galleryPolicy = kit.NewMotionPolicy(nil, nil, kit.MotionOptions{Files: files, Art: g.art})
+		galleryPolicy = kit.NewMotionPolicy(nil, galleryPost(g), kit.MotionOptions{Files: files, Art: g.art})
 		surface := video.NewSurface()
 		w, h := 160, 90
 		pic := make([]byte, media.I420Len(w, h))
@@ -58,7 +69,7 @@ func galleryMedia(g *gallery) (*kit.MotionPolicy, *kit.VideoFeed) {
 			pic[i] = 128
 		}
 		surface.Show(w, h, 0, pic)
-		galleryFeed = kit.NewVideoFeed(surface, nil)
+		galleryFeed = kit.NewVideoFeed(surface, galleryPost(g))
 		galleryFeed.Start()
 	})
 	return galleryPolicy, galleryFeed

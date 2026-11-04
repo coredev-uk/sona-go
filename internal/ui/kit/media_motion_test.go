@@ -646,33 +646,48 @@ func TestMotionPolicyProbesTheDecoderOffTheMainThread(t *testing.T) {
 }
 
 func TestMotionPolicySweepEndsWithTheLastSlotAndSleepsWhileHidden(t *testing.T) {
-	e := newMediaMotionEnv(t)
-	if stale, empty := e.p.stale(); !empty || len(stale) != 0 {
-		t.Fatalf("an empty registry: %v, %v", stale, empty)
+	sweeping := func(p *MotionPolicy) bool {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		return p.sweeping
 	}
+	e := newMediaMotionEnv(t)
 	_, tt := newMediaCoverApp(t, e, "/motion/k1/720.mp4")
 	mediaSettle(t, tt, e, 1)
-	e.p.mu.Lock()
-	running := e.p.sweeping
-	e.p.mu.Unlock()
-	if !running {
+	if !sweeping(e.p) {
 		t.Fatal("no sweep while a slot is registered")
 	}
 	s := mediaSlotOf(t, e.p)
-	s.release()
-	if _, empty := e.p.stale(); !empty {
-		t.Error("the registry is not empty after the release")
+
+	// Hidden window: a slot nothing builds is not swept, and nothing is
+	// posted, however many ticks pass.
+	e.p.SetVisible(false)
+	later := time.Now().Add(idleAfter + time.Second)
+	mediaSetClock(e.p, func() time.Time { return later })
+	e.mt.run(t, 0) // what was already posted
+	time.Sleep(sweepEvery + 200*time.Millisecond)
+	if n := len(e.mt.q); n != 0 {
+		t.Errorf("%d funcs posted while the window was hidden", n)
 	}
-	e.p.mu.Lock()
-	running = e.p.sweeping
-	e.p.mu.Unlock()
-	if running {
+	if s.state != slotReady {
+		t.Error("a hidden window's decoder was swept")
+	}
+	// Shown again: the next tick finds the stale slot and posts its release.
+	e.p.SetVisible(true)
+	deadline := time.Now().Add(5 * time.Second)
+	for s.state == slotReady {
+		e.mt.run(t, 0)
+		if time.Now().After(deadline) {
+			t.Fatal("the stale slot was never swept")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// With no slot left the sweep ends by itself on a tick; no call of ours.
+	time.Sleep(sweepEvery + 200*time.Millisecond)
+	if sweeping(e.p) {
 		t.Error("the sweep goes on with no slots")
 	}
-	// A hidden window is not swept and not woken.
-	e.p.SetVisible(false)
-	tt.Frame()
-	e.p.SetVisible(true)
 }
 
 type mediaTilesApp struct {
@@ -681,13 +696,18 @@ type mediaTilesApp struct {
 	hot [2]bool
 	// focus marks a hot tile as having only the keyboard focus.
 	focus [2]bool
-	url   [2]string
+	// gone drops a tile's view altogether (it is not built).
+	gone [2]bool
+	url  [2]string
 }
 
 func (a *mediaTilesApp) view(c *ui.Context) {
 	theme.Apply(c)
 	ui.Row(c).Padding(10).Gap(10).Children(func() {
 		for i := range a.hot {
+			if a.gone[i] {
+				continue
+			}
 			ui.Box(c.Key(i)).Size(80, 80).Background(theme.C("hover")).Children(func() {
 				TileMotion(c.Key("tile"), a.e.p, a.url[i], 80, TileMotionOpts{Hot: a.hot[i], Focus: a.focus[i]})
 			})
@@ -819,6 +839,40 @@ func TestTileMotionOwnerThatFailedOrVanishedDoesNotBlockOthers(t *testing.T) {
 	mediaSettle(t, tt, e, 2)
 	if calls := e.f.opened(); len(calls) != 2 || calls[1].url != "/motion/k2/720.mp4" {
 		t.Errorf("a failed owner blocked the next tile: %v", calls)
+	}
+}
+
+func TestTileMotionOwnerThatVanishedIsReplacedAfterTheStaleTime(t *testing.T) {
+	e := newMediaMotionEnv(t)
+	a, tt := newMediaTilesApp(t, e)
+	mediaSetClock(e.p, tt.Now) // the policy ages owners by the window's clock
+	mediaFrames(t, tt, e.mt)
+	a.hot[0] = true
+	tt.Frame()
+	tt.Advance(450 * time.Millisecond)
+	mediaSettle(t, tt, e, 1)
+
+	// The first tile's view is dropped (a page change, a scrolled-away row):
+	// it is never built again and releases nothing. The second is hovered.
+	a.gone[0] = true
+	a.hot[1] = true
+	tt.Frame()
+	tt.Advance(450 * time.Millisecond) // its dwell: the owner is not stale yet
+	tt.Frame()
+	if n := len(e.f.opened()); n != 1 {
+		t.Fatalf("%d decoders open: the second tile took a live owner's place", n)
+	}
+	// It asked to be built again after the stale time, with no other event.
+	// (Advance builds the view only if something asked for it: no Frame here.)
+	tt.Advance(ownerStale + 50*time.Millisecond)
+	for deadline := time.Now().Add(5 * time.Second); len(e.f.opened()) < 2; time.Sleep(time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("the second tile never took over: nothing woke it after the stale time")
+		}
+	}
+	e.f.waitClosed(t, 1)
+	if calls := e.f.opened(); calls[1].url != "/motion/k2/720.mp4" {
+		t.Errorf("the second tile did not take over: %v", calls)
 	}
 }
 

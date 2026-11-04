@@ -294,7 +294,11 @@ func TileMotion(c *ui.Context, p *MotionPolicy, motion string, size float32, o T
 		return host
 	}
 	if !p.claim(slot, !o.Focus) {
-		return host // the owner's release wakes this tile
+		// The owner's release wakes this tile. An owner that vanished
+		// without one (its view was dropped) is gone once ownerStale has
+		// passed: look again then.
+		c.After(ownerStale)
+		return host
 	}
 	slot.sync(motion, motionPx(tileCSS, scale), true)
 	slot.play(p.Visible() && !p.Covered() && host.InView())
