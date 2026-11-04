@@ -87,12 +87,15 @@ func newRig(t *testing.T, st services.AuthStatus, opts ...uitest.Option) *rig {
 	// auth:changed as it goes: let that finish and be delivered (to nobody)
 	// before the feature subscribes, so only the test's events reach it.
 	real := services.Service[services.AuthService](h.Core)
-	for deadline := time.Now().Add(5 * time.Second); real.Status().State == "restoring"; time.Sleep(5 * time.Millisecond) {
+	delivered := false
+	off := store.On(h.Bus, services.EventAuthChanged, func(st services.AuthStatus) { delivered = delivered || st.State == "signed_out" })
+	for deadline := time.Now().Add(5 * time.Second); !delivered; time.Sleep(5 * time.Millisecond) {
+		h.Main.Drain()
 		if time.Now().After(deadline) {
-			t.Fatal("the harness's auth manager never left restoring")
+			t.Fatalf("the harness's auth manager never settled (%s)", real.Status().State)
 		}
 	}
-	h.Main.Drain()
+	off()
 	kit.SetToastPoster(h.Main.Post)
 	t.Cleanup(func() { kit.SetToastPoster(nil); kit.CancelConfirm() })
 	api := &fakeAPI{status: st, calls: map[string]int{}}
