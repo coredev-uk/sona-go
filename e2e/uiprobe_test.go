@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/coredev-uk/sona-go/e2e/automation"
 )
 
 // TestUIProbe is CI's post-merge measurement (the uiprobe job), not a check:
@@ -59,15 +61,20 @@ func TestUIProbe(t *testing.T) {
 		a := startApp(t)
 		// The app serves one automation client: startApp's connection
 		// has proved it is up, and uiprobe takes the socket over.
-		if tree, err := a.client.Tree(); err == nil {
-			var b strings.Builder
+		tree, err := a.client.Wait(startTimeout, "the Albums page", func(tr *automation.Tree) bool { return tr.HasText("24 albums") })
+		var b strings.Builder
+		if err != nil {
+			fmt.Fprintf(&b, "waiting for the page: %v\n", err)
+		}
+		if tree != nil {
+			fmt.Fprintf(&b, "%d nodes\n", len(tree.Nodes))
 			for _, n := range tree.Nodes {
-				if n.Role == "scroll" || n.Role == "button" && strings.HasPrefix(n.Label, "Play") {
+				if n.Role == "scroll" || n.Role == "button" && strings.Contains(n.Label, "Play") {
 					fmt.Fprintf(&b, "%+v\n", n)
 				}
 			}
-			writeTable(t, filepath.Join(out, "uiprobe-tree.txt"), b.String())
 		}
+		writeTable(t, filepath.Join(out, "uiprobe-tree.txt"), b.String())
 		_ = a.client.Close()
 		sock := ""
 		for _, e := range a.cmd.Env {
@@ -81,7 +88,7 @@ func TestUIProbe(t *testing.T) {
 		cmd.Stdout, cmd.Stderr = &stdout, &stderr
 		deadline := time.AfterFunc(5*time.Minute, func() { _ = cmd.Process.Kill() })
 		defer deadline.Stop()
-		err := cmd.Run()
+		err = cmd.Run()
 		writeTable(t, filepath.Join(out, "uiprobe-albums.md"), stdout.String())
 		writeTable(t, filepath.Join(out, "uiprobe-albums-stderr.txt"), stderr.String())
 		if err != nil {
