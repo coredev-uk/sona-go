@@ -100,10 +100,10 @@ func box(img *image.RGBA, match func(color.RGBA) bool) (r image.Rectangle) {
 }
 
 // evidence writes the frame as a PNG next to the plan's other evidence, when
-// SONA_EVIDENCE names the directory.
+// KIT_EVIDENCE_DIR names the directory.
 func evidence(t *testing.T, tt *ui.Tester, name string) {
 	t.Helper()
-	dir := os.Getenv("SONA_EVIDENCE")
+	dir := os.Getenv("KIT_EVIDENCE_DIR")
 	if dir == "" {
 		return
 	}

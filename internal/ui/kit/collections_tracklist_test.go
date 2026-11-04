@@ -24,6 +24,7 @@ type collTrackApp struct {
 	artists []string
 	current string
 	target  func(c *ui.Context)
+	header  float32
 }
 
 func collSong(i int) *services.Song {
@@ -33,7 +34,7 @@ func collSong(i int) *services.Song {
 		Art: services.Art{Small: "/art/k" + id + "/s.jpg"}}
 }
 
-func newCollTrackApp(t *testing.T, n int, w, h int) (*collTrackApp, *ui.Tester) {
+func newCollTrackApp(t *testing.T, n int, w, h int, setup ...func(*collTrackApp)) (*collTrackApp, *ui.Tester) {
 	t.Helper()
 	theme.SetMode(theme.ModeLight)
 	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
@@ -54,6 +55,9 @@ func newCollTrackApp(t *testing.T, n int, w, h int) (*collTrackApp, *ui.Tester) 
 		Current:    func(s *services.Song) bool { return SongIsCurrent(s, a.current, "") },
 		OpenArtist: func(id string) { a.artists = append(a.artists, id) },
 	}
+	for _, f := range setup {
+		f(a)
+	}
 	return a, ui.NewTester(a.view, w, h)
 }
 
@@ -64,6 +68,7 @@ func (a *collTrackApp) view(c *ui.Context) {
 		sc := ui.Scroll(c).TrackScroll(&a.pos).Grow(1).Basis(0).MinWidth(0).FillHeight().Padding(0, 44, 0, 32)
 		sc.Children(func() {
 			ui.Column(c).Padding(28, 0, 48, 0).Children(func() {
+				ui.Box(c.Key("header")).Height(a.header)
 				a.opts.Pane = &Pane{Pos: &a.pos, Bounds: func() ui.Rect { return sc.Bounds() }}
 				TrackList(c, &a.st, len(a.songs), func(i int) *services.Song { return a.songs[i] }, a.opts)
 			})

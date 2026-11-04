@@ -47,6 +47,15 @@ func CoverGrid(c *ui.Context, st *CoverState, count int, at func(i int) *CoverIt
 			st.width = r.W
 			c.Invalidate() // the columns follow the width
 		}
+		if o.Pane != nil {
+			// Paint runs after this frame's layout: the box and the scroll
+			// offset belong to the same frame.
+			top := r.Y - o.Pane.Bounds().Y + o.Pane.Pos.Y
+			if !st.drawn || top != st.drawTop {
+				st.drawTop, st.drawn = top, true
+				c.Invalidate()
+			}
+		}
 	})
 	if w := root.Bounds().W; w > 0 && st.width == 0 {
 		st.width = w
@@ -70,12 +79,16 @@ func CoverGrid(c *ui.Context, st *CoverState, count int, at func(i int) *CoverIt
 			}
 			st.cols, st.rowH = cols, rowH
 		}
-		st.setRows(count, at, cols, o.Menus)
+		st.setRows(count, at, cols, o.Menus, o.Hold)
 		st.nav.Page = 0
 		st.nav.Ends = false
 		st.nav.ScrollTo = nil
 		if virtual {
 			st.nav.ScrollTo = func(i int) { st.scrollTo(o.Pane, i/cols, rowH) }
+		}
+		winFirst, winLast := 0, rows-1
+		if len(built) > 0 {
+			winFirst, winLast = built[0], built[len(built)-1] // not the dragged row's
 		}
 		if i, ok := DragPinned(st); ok && i < count && !slices.Contains(built, i/cols) {
 			built = append(built, i/cols)
@@ -103,7 +116,7 @@ func CoverGrid(c *ui.Context, st *CoverState, count int, at func(i int) *CoverIt
 		}
 		st.nav.Tick(c)
 		st.Sel.OutsidePress(root)
-		st.report(built, cols, count, o.OnRange)
+		st.report(winFirst, winLast, cols, count, o.OnRange)
 		if o.Menus != nil && !o.NoPopup {
 			o.Menus.Popup(c)
 		}
@@ -115,7 +128,11 @@ func CoverGrid(c *ui.Context, st *CoverState, count int, at func(i int) *CoverIt
 // columns change.
 func (st *CoverState) window(root ui.Element, p *Pane, rows, cols int, rowH float32) []int {
 	pane := p.Bounds()
-	st.top = root.Bounds().Y - pane.Y + p.Pos.Y
+	if st.drawn {
+		st.top = st.drawTop
+	} else {
+		st.top = root.Bounds().Y - pane.Y + p.Pos.Y
+	}
 	if st.cols != cols && st.cols > 0 && p.Pos.Y > st.top && st.rowH > 0 {
 		item := int((p.Pos.Y-st.top)/st.rowH) * st.cols
 		p.Pos.Y = st.top + float32(item/cols)*rowH
@@ -152,11 +169,11 @@ func (st *CoverState) scrollTo(p *Pane, r int, rowH float32) {
 }
 
 // report tells OnRange which tiles are built, when that changed.
-func (st *CoverState) report(built []int, cols, count int, fn func(start, end int)) {
-	if fn == nil || len(built) == 0 || count == 0 {
+func (st *CoverState) report(firstRow, lastRow, cols, count int, fn func(start, end int)) {
+	if fn == nil || count == 0 {
 		return
 	}
-	first, last := built[0]*cols, min(count, (built[len(built)-1]+1)*cols)-1
+	first, last := firstRow*cols, min(count, (lastRow+1)*cols)-1
 	if st.reported == [2]int{first + 1, last + 1} {
 		return
 	}

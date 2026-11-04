@@ -75,6 +75,9 @@ func ItemShelf(c *ui.Context, st *CoverShelfState, title string, items []service
 			label = i18n.T("Items")
 		}
 		video := RowAspect(items) == AspectVideo
+		// The shelf's own menu over its own selection: the page's one menu
+		// cannot act on every shelf's selection. It draws its own popup.
+		ctx.Menus, ctx.NoPopup = st.Row.menusOver(ctx.Menus), false
 		ro := CoverRowOpts{CoverOpts: ctx.coverOpts(label, o.Min, video), Rows: rows, OnColumns: func(n int) {
 			st.cols = n
 			c.Invalidate() // the toggle depends on how many fit

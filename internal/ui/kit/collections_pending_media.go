@@ -15,7 +15,7 @@ func EqualiserBars(c *ui.Context, playing bool, p *MotionPolicy) ui.Element {
 }
 
 // TileMotionOpts are the options of TileMotion (kit-media's).
-type TileMotionOpts struct{ Round, Hot bool }
+type TileMotionOpts struct{ Round, Hot, Focus bool }
 
 // TileMotion plays a tile's motion cover (kit-media's).
 func TileMotion(c *ui.Context, p *MotionPolicy, motion string, size float32, o TileMotionOpts) ui.Element {

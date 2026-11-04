@@ -81,7 +81,7 @@ func (n *GridNav) Tick(c *ui.Context) {
 // when a move asked for it, and notes the item when the focus lands on it.
 func (n *GridNav) Claim(s ui.Element, at int) {
 	if n.want == at+1 {
-		s.Focus()
+		s.Focus().ScrollIntoView() // Focus alone leaves the item off screen
 		n.want = 0
 	}
 	if s.Focused() {

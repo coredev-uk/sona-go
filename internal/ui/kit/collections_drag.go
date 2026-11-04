@@ -88,7 +88,7 @@ type dragEngine struct {
 	payload *DragPayload
 	// owner is the key of the source dragging, scope the list it is in
 	// and index its position there.
-	owner any
+	owner dragID
 	scope any
 	index int
 	// tick counts the frames a source built while dragging: the clock of
@@ -108,11 +108,21 @@ type dragEngine struct {
 
 	// The press being watched for the threshold.
 	gate struct {
-		key    any
+		key    dragID
 		dx, dy float32
 		on     bool
+		// blocked is the source whose drag MyGo cancelled (Escape): it
+		// arms nothing until the pointer is released.
+		blocked *dragID
 	}
+	// saw is set once MyGo reported the owner dragging, so a payload set
+	// this frame is not taken for a cancelled drag.
+	saw bool
 }
+
+// dragID identifies a drag source: keys repeat across lists (the same album
+// in two shelves), so the list is part of it.
+type dragID struct{ scope, key any }
 
 var drag dragEngine
 
@@ -299,34 +309,54 @@ func (d *dragEngine) watch(c *ui.Context, s ui.Element, o DragOpts) bool {
 	if o.Payload == nil {
 		return false
 	}
+	id := dragID{o.Scope, o.Key}
 	dragging := s.Dragging()
 	dx, dy, pressing := s.Dragged()
+	mine := d.payload != nil && d.owner == id
 	switch {
 	case dragging:
+		if mine {
+			d.saw = true
+		}
+	case pressing && mine && d.saw:
+		// MyGo stopped the drag (Escape) with the pointer still down.
+		d.end()
+		blocked := id
+		d.gate.blocked = &blocked
 	case pressing:
-		if d.gate.key != o.Key || !d.gate.on {
-			d.gate.key, d.gate.dx, d.gate.dy, d.gate.on = o.Key, 0, 0, true
+		if d.gate.blocked != nil && *d.gate.blocked == id {
+			break
+		}
+		if c.Modifiers() != 0 && !mine {
+			break // Ctrl/Shift+press selects; it never drags
+		}
+		if d.gate.key != id || !d.gate.on {
+			d.gate.key, d.gate.dx, d.gate.dy, d.gate.on = id, 0, 0, true
 		}
 		d.gate.dx += dx
 		d.gate.dy += dy
 		if math.Hypot(float64(d.gate.dx), float64(d.gate.dy)) >= DragThreshold && d.payload == nil {
 			if p := o.Payload(); p != nil {
-				d.payload, d.owner, d.scope, d.index = p, o.Key, o.Scope, o.Index
+				d.payload, d.owner, d.scope, d.index, d.saw = p, id, o.Scope, o.Index, false
 				clear(d.targets) // only the targets that show while it drags
 			}
 		}
 	default:
-		if d.gate.key == o.Key {
+		if d.gate.key == id {
 			d.gate.on = false
 		}
-		if d.owner == o.Key && d.payload != nil {
+		if d.gate.blocked != nil && *d.gate.blocked == id {
+			d.gate.blocked = nil
+		}
+		if mine {
 			d.end()
 		}
 	}
-	if d.payload != nil && d.owner == o.Key && (dragging || pressing) {
+	mine = d.payload != nil && d.owner == id
+	if mine && (dragging || pressing) {
 		s.Drag(d.payload)
 	}
-	if dragging && d.payload != nil && d.owner == o.Key {
+	if dragging && mine {
 		s.Cursor(ui.CursorGrabbing)
 		d.step(s)
 		return true
@@ -372,7 +402,8 @@ func (d *dragEngine) end() {
 	if t := d.targets[d.hovered]; t != nil && t.t.Hover != nil && d.payload != nil {
 		t.t.Hover(d.payload, nil)
 	}
-	d.payload, d.owner, d.hovered, d.over, d.native, d.caption = nil, nil, "", "", "", ""
+	d.payload, d.owner, d.saw = nil, dragID{}, false
+	d.hovered, d.over, d.native, d.caption = "", "", "", ""
 	d.gate.on = false
 }
 

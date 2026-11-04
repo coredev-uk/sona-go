@@ -29,6 +29,19 @@ func init() {
 	}
 }
 
+// collectionsFonts registers Sona's interface font once, before any text is
+// laid out: otherwise the pictures use whatever sans the machine has, and
+// depend on the order the tests run in. It shares controlsFont's Once, as
+// the font registers once per process.
+func collectionsFonts(t *testing.T) {
+	t.Helper()
+	controlsFont.Do(func() {
+		if err := theme.RegisterFonts(); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 func collectionsUpdate() bool { return flag.Lookup("update").Value.String() == "true" }
 
 func collectionsAbsDiff(a, b uint32) uint32 {
@@ -200,6 +213,7 @@ func TestCollectionsGolden(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("golden images are compared on Linux only: macOS and Windows draw text differently")
 	}
+	collectionsFonts(t)
 	for _, sc := range collectionsScenes {
 		for _, dark := range []bool{false, true} {
 			mode := "light"

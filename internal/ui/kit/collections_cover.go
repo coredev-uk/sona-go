@@ -121,6 +121,18 @@ type CoverOpts struct {
 	// Restricted: the account may not play explicit items: they are dimmed
 	// and cannot be played.
 	Restricted bool
+	// Hold, when it reports true, keeps a press outside the list from
+	// clearing the selection (a feature's own dialog); open menus and a
+	// pending confirmation always hold it.
+	Hold func() bool
+}
+
+// collectionsHold is the Selection.Hold of a list: its menu open, a question
+// waiting for an answer, or the feature's own hold.
+func collectionsHold(menus *ActionMenus, extra func() bool) func() bool {
+	return func() bool {
+		return (menus != nil && menus.IsOpen()) || ConfirmPending() || (extra != nil && extra())
+	}
 }
 
 // CoverState is the state of one cover collection: its selection, its
@@ -138,8 +150,28 @@ type CoverState struct {
 	cols  int
 	rowH  float32
 	top   float32 // the grid's offset in its pane's content
+	// drawTop is that offset as the last paint saw it: the position and the
+	// scroll offset of one frame, never of two. drawn: there was a paint.
+	drawTop float32
+	drawn   bool
+	// menus is the item menu over this list's own selection, made by
+	// menusOver for lists that share one page's ActionMenus.
+	menus *ActionMenus
 	// reported is the tile range OnRange was last told.
 	reported [2]int
+}
+
+// menusOver is the item menu of a list that shares a page's ActionMenus with
+// others: same actions, but bulk runs follow this list's own selection (the
+// page's menu has one scope, fixed when it was made). nil for no menus.
+func (st *CoverState) menusOver(base *ActionMenus) *ActionMenus {
+	if base == nil {
+		return nil
+	}
+	if st.menus == nil || st.menus.reg != base.reg {
+		st.menus = NewActionMenus(base.reg, &st.Sel)
+	}
+	return st.menus
 }
 
 // Nav is the keyboard navigation, for a feature that wants to move the focus
@@ -175,12 +207,9 @@ func (r *coverRows) item(i int) (Item, bool) {
 }
 
 // setRows points the selection and the navigation at this frame's items.
-func (st *CoverState) setRows(count int, at func(i int) *CoverItem, cols int, menus *ActionMenus) {
+func (st *CoverState) setRows(count int, at func(i int) *CoverItem, cols int, menus *ActionMenus, hold func() bool) {
 	st.rows = coverRows{n: count, at: at}
-	st.Sel.Hold = nil
-	if menus != nil {
-		st.Sel.Hold = menus.IsOpen
-	}
+	st.Sel.Hold = collectionsHold(menus, hold)
 	st.Sel.Rows(&st.rows, st.rows.item)
 	st.nav.Count, st.nav.Columns = count, cols
 }
@@ -250,7 +279,7 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i int, si
 		},
 	}, func(w, s ui.Element) {
 		hot := w.Hovered() || s.FocusWithin()
-		st.cover(c, o, it, size, artH, hot, withheld)
+		st.cover(c, o, it, size, artH, hot, !w.Hovered() && s.FocusWithin(), withheld)
 		st.titleRow(c, o, it, w.Hovered(), hot, withheld)
 		if it.Subtitle == "" {
 			ui.Box(c).Height(18)
@@ -285,7 +314,7 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i int, si
 
 // cover builds the art box: the cover, the motion over it, and its corner
 // control (play, play mark or release badge).
-func (st *CoverState) cover(c *ui.Context, o *CoverOpts, it *CoverItem, size, artH float32, hot, withheld bool) {
+func (st *CoverState) cover(c *ui.Context, o *CoverOpts, it *CoverItem, size, artH float32, hot, focus, withheld bool) {
 	tk := theme.Current()
 	ui.Box(c.Key("cover")).Size(size, artH).Children(func() {
 		aspect := float32(0)
@@ -294,7 +323,7 @@ func (st *CoverState) cover(c *ui.Context, o *CoverOpts, it *CoverItem, size, ar
 		}
 		Artwork(c, o.Art, it.Art, size, ArtOpts{Edge: true, Round: it.Round, Aspect: aspect})
 		if it.Motion != "" && !withheld {
-			TileMotion(c, o.Motion, it.Motion, size, TileMotionOpts{Round: it.Round, Hot: hot}).Absolute().Left(0).Top(0)
+			TileMotion(c, o.Motion, it.Motion, size, TileMotionOpts{Round: it.Round, Hot: hot, Focus: focus}).Absolute().Left(0).Top(0)
 		}
 		switch {
 		case it.Play != nil && !withheld:

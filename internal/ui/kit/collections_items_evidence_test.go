@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"image/jpeg"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -86,9 +87,10 @@ func (a *itemsApp) settle(t *testing.T, tt *ui.Tester) {
 	tt.Frame()
 }
 
-// shoot builds a page in both modes and writes its pictures (SONA_EVIDENCE).
+// shoot builds a page in both modes and writes its pictures (KIT_EVIDENCE_DIR).
 func shoot(t *testing.T, name string, w, h int, build func(c *ui.Context, ctx ItemsCtx), tweak func(*itemsApp, *ui.Tester)) {
 	t.Helper()
+	collectionsFonts(t)
 	for _, mode := range []struct {
 		name string
 		dark bool
@@ -114,6 +116,9 @@ func shoot(t *testing.T, name string, w, h int, build func(c *ui.Context, ctx It
 func coloured(it services.Item, hex string) services.Item { it.Color = hex; return it }
 
 func TestItemsEvidence(t *testing.T) {
+	if os.Getenv("KIT_EVIDENCE_DIR") == "" {
+		t.Skip("set KIT_EVIDENCE_DIR to write the evidence pictures")
+	}
 	// WideRow: Apple's hero cards, cropped, with the pager; the first card is hovered.
 	heroes := []services.Item{
 		coloured(wideNamed("1", "Midnight Drive", "New Music Daily", services.ItemAlbum), "#2a3b5c"),

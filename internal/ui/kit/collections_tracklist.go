@@ -1,6 +1,7 @@
 package kit
 
 import (
+	"slices"
 	"hash/maphash"
 	"strconv"
 	"time"
@@ -67,6 +68,9 @@ type TrackListOpts struct {
 	// Label names the table: "Songs in OK Computer".
 	Label   string
 	Columns TrackColumns
+	// Hold keeps a press outside the list from clearing the selection (a
+	// feature's own dialog); open menus and a pending confirmation always do.
+	Hold func() bool
 	// OnPlay plays from row index with the whole list as the queue.
 	OnPlay func(index int)
 	// Sort makes Title, Artist and Album headers sortable.
@@ -132,6 +136,10 @@ type TrackListState struct {
 	hashed bool
 
 	top      float32 // the body's offset in its pane's content
+	// drawTop is that offset as the last paint saw it (one frame's position
+	// and scroll offset together); drawn: there was a paint.
+	drawTop float32
+	drawn   bool
 	reported [2]int
 	// The highlighted song: its row once found, and whether the list has
 	// been scrolled to it.
@@ -219,10 +227,7 @@ func (st *TrackListState) sync(count int, at func(i int) *services.Song) {
 func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *services.Song, o TrackListOpts) {
 	tk := theme.Current()
 	st.sync(count, at)
-	st.Sel.Hold = nil
-	if o.Menus != nil {
-		st.Sel.Hold = o.Menus.IsOpen
-	}
+	st.Sel.Hold = collectionsHold(o.Menus, o.Hold)
 	st.Sel.Rows(&st.rows, st.rows.item)
 	virtual := count > VirtualFrom && o.Pane != nil
 	st.nav.Count, st.nav.Columns = count, 1
@@ -231,13 +236,28 @@ func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *ser
 	st.nav.ScrollTo = nil
 
 	root := ui.Column(c.Key("kit.tracks")).FillWidth().Role(ui.RoleTable).Label(o.Label)
+	if o.Pane != nil {
+		root.Draw(func(_ *ui.Painter, r ui.Rect) {
+			// Paint runs after this frame's layout: the box and the scroll
+			// offset belong to the same frame.
+			top := r.Y - o.Pane.Bounds().Y + o.Pane.Pos.Y + trackHeaderHeight + 4
+			if !st.drawn || top != st.drawTop {
+				st.drawTop, st.drawn = top, true
+				c.Invalidate()
+			}
+		})
+	}
 	root.Children(func() {
 		st.header(c, &o, tk)
 		body := ui.Column(c.Key("body")).Padding(4, 0, 0, 0)
 		body.Children(func() {
 			var built []int
 			if o.Pane != nil {
-				st.top = root.Bounds().Y - o.Pane.Bounds().Y + o.Pane.Pos.Y + trackHeaderHeight + 4
+				if st.drawn {
+					st.top = st.drawTop
+				} else {
+					st.top = root.Bounds().Y - o.Pane.Bounds().Y + o.Pane.Pos.Y + trackHeaderHeight + 4
+				}
 			}
 			if virtual {
 				built = st.window(o.Pane, count)
@@ -248,8 +268,13 @@ func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *ser
 					built[i] = i
 				}
 			}
+			winFirst, winLast := 0, count-1
+			if len(built) > 0 {
+				winFirst, winLast = built[0], built[len(built)-1] // not the dragged row's
+			}
 			if i, ok := DragPinned(st); ok && i < count && !containsInt(built, i) {
 				built = append(built, i)
+				slices.Sort(built)
 			}
 			st.highlight(c, &o, count, at)
 			multiDisc := o.Discs && !virtual && st.multiDisc(count, at)
@@ -268,7 +293,7 @@ func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *ser
 			if gap := count - 1 - prev; virtual && gap > 0 {
 				ui.Box(c.Key(gapKey(count))).Height(float32(gap) * TrackRowHeight)
 			}
-			st.report(virtual, built, count, o.OnRange)
+			st.report(virtual, winFirst, winLast, count, o.OnRange)
 		})
 		st.nav.Tick(c)
 		st.Sel.OutsidePress(root)
@@ -346,6 +371,10 @@ func (st *TrackListState) highlight(c *ui.Context, o *TrackListOpts, count int, 
 		}
 	}
 	if st.hlIndex >= 0 && !st.hlScrolled {
+		if o.Pane != nil && (!st.drawn || o.Pane.Bounds().H <= 0) {
+			c.Invalidate() // the list is not laid out yet: its offset is unknown
+			return
+		}
 		st.hlScrolled = true
 		if o.Pane != nil {
 			st.scrollTo(o.Pane, st.hlIndex, true)
@@ -355,6 +384,9 @@ func (st *TrackListState) highlight(c *ui.Context, o *TrackListOpts, count int, 
 }
 
 func (st *TrackListState) multiDisc(count int, at func(i int) *services.Song) bool {
+	if count == 0 {
+		return false
+	}
 	first := at(0)
 	if first == nil {
 		return false
@@ -368,13 +400,13 @@ func (st *TrackListState) multiDisc(count int, at func(i int) *services.Song) bo
 }
 
 // report tells OnRange which rows are built, when that changed.
-func (st *TrackListState) report(virtual bool, built []int, count int, fn func(start, end int)) {
-	if fn == nil || count == 0 || len(built) == 0 {
+func (st *TrackListState) report(virtual bool, winFirst, winLast, count int, fn func(start, end int)) {
+	if fn == nil || count == 0 {
 		return
 	}
 	first, last := 0, count-1
 	if virtual {
-		first, last = built[0], built[len(built)-1]
+		first, last = winFirst, winLast
 	}
 	if st.reported == [2]int{first + 1, last + 1} {
 		return
@@ -644,6 +676,12 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 			}
 		},
 	}, func(w, src ui.Element) {
+		// A Ctrl/Shift+click on a link selects the row, as anywhere on it.
+		selectRow := func(m ClickMods) {
+			st.nav.SetFocus(i)
+			st.nav.Want(i)
+			st.Sel.Click(i, m)
+		}
 		hot := w.Hovered() || src.FocusWithin()
 		o.cell(ui.Row(c.Key("num")).Role(ui.RoleCell).Justify(ui.End).AlignItems(ui.Center), cellNumber).Children(func() {
 			switch {
@@ -687,12 +725,12 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 		})
 		if cols.Artist {
 			o.cell(ui.Row(c.Key("artist")).Role(ui.RoleCell).AlignItems(ui.Center), cellArtist).Children(func() {
-				trackLink(c, w, s.Artist, s.ArtistID, muted, o.OpenArtist)
+				trackLink(c, w, s.Artist, s.ArtistID, muted, o.OpenArtist, selectRow)
 			})
 		}
 		if cols.Album {
 			o.cell(ui.Row(c.Key("album")).Role(ui.RoleCell).AlignItems(ui.Center), cellAlbum).Children(func() {
-				trackLink(c, w, s.Album, s.AlbumID, muted, o.OpenAlbum)
+				trackLink(c, w, s.Album, s.AlbumID, muted, o.OpenAlbum, selectRow)
 			})
 		}
 		if o.AddedBy != nil {
@@ -703,7 +741,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 						name = "@" + p.Handle
 					}
 					Artwork(c, o.Art, p.Art.Small, 20, ArtOpts{Round: true})
-					trackLink(c, w, name, p.ID, muted, o.OpenProfile)
+					trackLink(c, w, name, p.ID, muted, o.OpenProfile, selectRow)
 				}
 			})
 		}
@@ -748,7 +786,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 // trackLink is an artist or album cell: a link to the page when the song
 // names one (underlined while hovered; a click opens it without selecting
 // the row), plain text otherwise.
-func trackLink(c *ui.Context, row ui.Element, text, id string, col ui.Color, open func(id string)) {
+func trackLink(c *ui.Context, row ui.Element, text, id string, col ui.Color, open func(id string), selectRow func(ClickMods)) {
 	tk := theme.Current()
 	t := ui.Text(c, text).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).TextColor(col).SingleLine().MinWidth(0)
 	if id == "" || open == nil {
@@ -758,6 +796,10 @@ func trackLink(c *ui.Context, row ui.Element, text, id string, col ui.Color, ope
 		t.Underline().TextColor(theme.C("ink")).Cursor(ui.CursorPointer)
 	}
 	if t.Clicked() {
+		if m := ModsOf(t.ClickModifiers()); m.Range || m.Toggle {
+			selectRow(m)
+			return
+		}
 		open(id)
 	}
 }

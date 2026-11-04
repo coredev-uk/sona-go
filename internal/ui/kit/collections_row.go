@@ -50,7 +50,7 @@ func CoverRow(c *ui.Context, st *CoverState, items []CoverItem, o CoverRowOpts) 
 			n = min(n, cols*rows)
 		}
 		at := func(i int) *CoverItem { return &items[i] }
-		st.setRows(n, at, cols, o.Menus)
+		st.setRows(n, at, cols, o.Menus, o.Hold)
 		st.nav.Page, st.nav.Ends, st.nav.ScrollTo = 0, false, nil
 		// One row for assistive technology per row of tiles.
 		for r := 0; r*cols < n; r++ {
