@@ -69,7 +69,8 @@ func (s trayState) view() trayView {
 
 // tray is Sona's icon in the menu bar (macOS) or the notification area
 // (libayatana-appindicator3 on Linux): transport, private listening, the
-// windows and Quit. A click on the icon opens its menu. It follows the
+// windows and Quit. A primary click shows Sona where the desktop has one
+// (KDE, GNOME's double click), else opens the menu. It follows the
 // playback mirror, private listening, the mini player and the language.
 // Main thread only.
 type tray struct {
@@ -127,6 +128,12 @@ func (a *App) newTray(icon []byte, template bool) *tray {
 		a.log.Warn("tray unavailable: closing the window quits", "err", err)
 		return nil
 	}
+	// A primary click shows Sona, as v0.2.0's did (KDE's click, GNOME's
+	// double click); macOS and Windows open the menu.
+	t.icon.OnClick(a.opts.Windows.ShowMain)
+	// MyGo removes nothing of the icon on quit: Linux's temporary icon file,
+	// Windows' notification area entry. Destroy needs the loop still running.
+	mygo.App.OnWillQuit(func(*mygo.QuitEvent) { t.icon.Destroy() })
 	return t
 }
 

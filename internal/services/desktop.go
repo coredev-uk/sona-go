@@ -21,8 +21,11 @@ type Windows interface {
 	ResetWindowSize()
 	// HasTray reports whether Sona's tray icon is up, so closing a window
 	// can keep Sona running in the background (Capabilities.Tray). It is
-	// decided when the UI starts (the desktop may have no tray host, or
-	// Linux no libayatana-appindicator3) and holds for the process.
+	// decided when the UI starts and holds for the process. MyGo reports a
+	// tray whenever libayatana-appindicator3 loads (Linux fails without
+	// it), not whether the desktop shows it: on GNOME without the
+	// AppIndicator extension it is true and no icon appears, so a hidden
+	// start stays invisible until a relaunch or MPRIS Raise.
 	HasTray() bool
 	// DeveloperTools reports whether the main window has its web inspector
 	// on this run, and OpenDeveloperTools shows it; errors.ErrUnsupported

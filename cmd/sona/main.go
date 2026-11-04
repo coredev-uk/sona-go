@@ -339,10 +339,7 @@ func run(started time.Time) error {
 
 	core.Activate(act, false)
 	plat.Serve(core.Activate, core.Commands())
-	// The system's URL handler (an installed app's music:// and itms://;
-	// macOS delivers them to the running app): the same as a launch with
-	// the link. Registered before Run, so the launch's own link comes too.
-	mygo.App.OnOpenURL(func(u string) { core.Activate(app.Activation{Args: []string{u}}, true) })
+	openURLs(core.Activate)
 
 	setApplicationID(log)
 	mygo.App.SetName("Sona")
