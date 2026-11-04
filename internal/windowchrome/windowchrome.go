@@ -130,12 +130,16 @@ type Desktop struct {
 	Tiling, Stacking bool
 	// KDE: KDE Plasma, whose buttons are KWin's (kwinrc).
 	KDE bool
+	// ServerDecorated: KDE Plasma on Wayland, where KWin decorates a window
+	// whose title bar is hidden, so Sona's own cannot replace it.
+	ServerDecorated bool
 }
 
 // Automatic is what config.TitleBarAuto stands for on this desktop: Sona's
-// own title bar on a stacking desktop it knows, else the desktop's.
+// own title bar on a stacking desktop it knows, else the desktop's (KWin's,
+// on Plasma under Wayland, which keeps its title bar over a hidden one).
 func (d Desktop) Automatic() string {
-	if d.Stacking {
+	if d.Stacking && !d.ServerDecorated {
 		return config.TitleBarSona
 	}
 	return config.TitleBarDesktop
@@ -204,7 +208,8 @@ var compositorSockets = []struct{ env, name string }{
 // Detect recognises the Linux desktop from the environment: a tiling
 // compositor's socket variable first, then the first known name in
 // XDG_CURRENT_DESKTOP (a colon-separated list, "ubuntu:GNOME"),
-// XDG_SESSION_DESKTOP and DESKTOP_SESSION. An unknown desktop is neither
+// XDG_SESSION_DESKTOP and DESKTOP_SESSION (KDE Plasma with WAYLAND_DISPLAY set and
+// GDK_BACKEND not x11 is ServerDecorated). An unknown desktop is neither
 // tiling nor stacking.
 func Detect(getenv func(string) string) Desktop {
 	for _, s := range compositorSockets {
@@ -217,6 +222,9 @@ func Detect(getenv func(string) string) Desktop {
 			// DESKTOP_SESSION may be a session file path.
 			name = strings.ToLower(strings.TrimSpace(filepath.Base(name)))
 			if d, ok := desktopNames[name]; ok {
+				// GDK_BACKEND may list backends; the first is tried first.
+				first, _, _ := strings.Cut(getenv("GDK_BACKEND"), ",")
+				d.ServerDecorated = d.KDE && getenv("WAYLAND_DISPLAY") != "" && strings.TrimSpace(first) != "x11"
 				return d
 			}
 		}

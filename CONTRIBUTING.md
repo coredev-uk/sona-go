@@ -572,7 +572,10 @@ bar, with MyGo's window buttons in the desktop's layout (GTK's
 `gtk-decoration-layout`, which MyGo reads and follows; Windows' caption
 buttons); tiling compositors (their `SWAYSOCK`,
 `HYPRLAND_INSTANCE_SIGNATURE`, `I3SOCK`, `NIRI_SOCKET`, or their desktop
-name) and unknown desktops keep the desktop's. Settings → General → Title
+name) and unknown desktops keep the desktop's, and so does KDE Plasma
+under Wayland (`WAYLAND_DISPLAY` set, `GDK_BACKEND` not `x11`): KWin
+decorates a window whose title bar is hidden, so a hidden one would sit
+under KWin's own; Plasma on X11 gets the hidden title bar. Settings → General → Title
 bar overrides it from the next start ("sona-no-buttons" hides MyGo's
 buttons too). Sona opens no window menu on a right click. To check it:
 

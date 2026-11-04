@@ -23,6 +23,9 @@ func TestDetect(t *testing.T) {
 		{"GNOME", map[string]string{"XDG_CURRENT_DESKTOP": "GNOME"}, Desktop{Name: "GNOME", Stacking: true}},
 		{"Ubuntu's GNOME", map[string]string{"XDG_CURRENT_DESKTOP": "ubuntu:GNOME"}, Desktop{Name: "GNOME", Stacking: true}},
 		{"KDE Plasma", map[string]string{"XDG_CURRENT_DESKTOP": "KDE"}, Desktop{Name: "KDE Plasma", Stacking: true, KDE: true}},
+		{"KDE Plasma on Wayland", map[string]string{"XDG_CURRENT_DESKTOP": "KDE", "WAYLAND_DISPLAY": "wayland-0"}, Desktop{Name: "KDE Plasma", Stacking: true, KDE: true, ServerDecorated: true}},
+		{"KDE Plasma on Wayland, GTK on X11", map[string]string{"XDG_CURRENT_DESKTOP": "KDE", "WAYLAND_DISPLAY": "wayland-0", "GDK_BACKEND": "x11"}, Desktop{Name: "KDE Plasma", Stacking: true, KDE: true}},
+		{"GNOME on Wayland", map[string]string{"XDG_CURRENT_DESKTOP": "GNOME", "WAYLAND_DISPLAY": "wayland-0"}, Desktop{Name: "GNOME", Stacking: true}},
 		{"Cinnamon", map[string]string{"XDG_CURRENT_DESKTOP": "X-Cinnamon"}, Desktop{Name: "Cinnamon", Stacking: true}},
 		{"Xfce", map[string]string{"XDG_CURRENT_DESKTOP": "XFCE"}, Desktop{Name: "Xfce", Stacking: true}},
 		{"Budgie from the session name", map[string]string{"XDG_SESSION_DESKTOP": "budgie-desktop"}, Desktop{Name: "Budgie", Stacking: true}},
@@ -54,6 +57,9 @@ func TestAutomatic(t *testing.T) {
 	for d, want := range map[Desktop]string{
 		{Name: "GNOME", Stacking: true}: config.TitleBarSona,
 		{Name: "sway", Tiling: true}:    config.TitleBarDesktop,
+		// KWin keeps its title bar over a hidden one.
+		{Name: "KDE Plasma", Stacking: true, KDE: true, ServerDecorated: true}: config.TitleBarDesktop,
+		{Name: "KDE Plasma", Stacking: true, KDE: true}:                        config.TitleBarSona,
 		{}:                              config.TitleBarDesktop,
 	} {
 		if got := d.Automatic(); got != want {
