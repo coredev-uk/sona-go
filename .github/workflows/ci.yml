@@ -20,6 +20,14 @@ on:
         type: boolean
         default: false
   workflow_dispatch:
+    inputs:
+      only:
+        description: >-
+          Which jobs to run: all, pr (what a pull request runs), macos,
+          windows or uiprobe
+        type: choice
+        options: [all, pr, macos, windows, uiprobe]
+        default: all
 
 permissions:
   contents: read
@@ -57,11 +65,17 @@ jobs:
         id: files
         env:
           EVENT: ${{ github.event_name }}
+          ONLY: ${{ inputs.only }}
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
         run: |
           heavy=true
+          # A dispatch that names only the macOS, Windows or probe jobs (release.yml's
+          # call has no `only`).
+          if [ "$EVENT" = workflow_dispatch ] && [ -n "$ONLY" ] && [ "$ONLY" != all ] && [ "$ONLY" != pr ]; then
+            heavy=false
+          fi
           if [ "$EVENT" = pull_request ]; then
             if files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[] | .filename, (.previous_filename // empty)'); then
               if ! grep -qvE '^(docs/.*|[^ ]*\.md)$' <<<"$files"; then
@@ -79,7 +93,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 20
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -126,7 +140,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -174,7 +188,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 25
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -232,7 +246,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 25
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -281,7 +295,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 25
+    timeout-minutes: 10
     env:
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
@@ -390,7 +404,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 25
+    timeout-minutes: 10
     env:
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
@@ -438,7 +452,7 @@ jobs:
   # not with a desktop GPU.
   uiprobe:
     name: UI probe (headless sway)
-    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'uiprobe')) }}
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     env:
@@ -507,7 +521,7 @@ jobs:
   # devenv shell took twelve minutes of the job.
   macos-build:
     name: macOS build and vet
-    if: ${{ !inputs.linux-only && (github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && !github.event.repository.private)) }}
+    if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'macos')) || (github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch' && !github.event.repository.private)) }}
     runs-on: macos-26
     timeout-minutes: 30
     env:
@@ -549,7 +563,7 @@ jobs:
   # the macOS CDM (mac_arm64), which the job downloads and caches as Linux's does.
   macos-test:
     name: macOS tests (${{ matrix.pool }} ${{ matrix.index }}/${{ matrix.count }})
-    if: ${{ !inputs.linux-only && (github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && !github.event.repository.private)) }}
+    if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'macos')) || (github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch' && !github.event.repository.private)) }}
     runs-on: macos-26
     timeout-minutes: 30
     strategy:
@@ -632,7 +646,7 @@ jobs:
   macos:
     name: macOS build and test
     needs: [macos-build, macos-test]
-    if: ${{ always() && !inputs.linux-only && (github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && !github.event.repository.private)) }}
+    if: ${{ always() && !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'macos')) || (github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch' && !github.event.repository.private)) }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
@@ -646,7 +660,7 @@ jobs:
   windows:
     name: Windows build
     # As the macOS jobs: after a merge to main and on demand only.
-    if: ${{ !inputs.linux-only && (github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && !github.event.repository.private)) }}
+    if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'windows')) || (github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch' && !github.event.repository.private)) }}
     runs-on: windows-2025
     timeout-minutes: 30
     defaults:

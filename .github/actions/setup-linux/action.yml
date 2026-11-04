@@ -82,9 +82,19 @@ runs:
       run: |
         printf 'force-unsafe-io\npath-exclude=/usr/share/doc/*\npath-exclude=/usr/share/man/*\npath-exclude=/usr/share/info/*\n' | sudo tee /etc/dpkg/dpkg.cfg.d/90-ci >/dev/null
         mkdir -p ~/apt-archives/partial
-        sudo apt-get update -qq
-        sudo apt-get -o Dir::Cache::archives="$HOME/apt-archives" install -y -qq --no-install-recommends \
-          $(cat "${GITHUB_ACTION_PATH}/packages-$PACKAGES.txt")
+        # A mirror that stalls once held a job for twenty minutes: every
+        # attempt has a deadline, and a stalled one is tried again.
+        apt() {
+          local i
+          for i in 1 2 3; do
+            sudo timeout 150 apt-get -o Acquire::http::Timeout=15 -o Acquire::Retries=3 -o Dir::Cache::archives="$HOME/apt-archives" "$@" && return 0
+            echo "apt-get $1 did not finish (attempt $i)"
+          done
+          return 1
+        }
+        apt update -qq
+        # shellcheck disable=SC2046
+        apt install -y --no-install-recommends $(cat "${GITHUB_ACTION_PATH}/packages-$PACKAGES.txt")
         sudo rm -rf ~/apt-archives/lock ~/apt-archives/partial
         sudo chown -R "$USER" ~/apt-archives
 
