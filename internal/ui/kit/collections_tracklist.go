@@ -382,7 +382,7 @@ func (st *TrackListState) highlight(c *ui.Context, o *TrackListOpts, count int, 
 		st.hlScrolled = true
 		if o.Pane != nil {
 			var above float32 // headings are built only in a list that is not virtual
-			if o.Discs && !(count > VirtualFrom) {
+			if o.Discs && count <= VirtualFrom {
 				multiDisc := st.multiDisc(count, at)
 				for j := 0; j <= st.hlIndex; j++ {
 					above += st.headingHeight(o, j, at, multiDisc)

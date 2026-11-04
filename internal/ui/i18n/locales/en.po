@@ -1157,10 +1157,13 @@ msgstr "Couldn't delete “{name}”"
 msgid "Couldn't disconnect {name}"
 msgstr "Couldn't disconnect {name}"
 
-#: internal/ui/features/settings/motiondiag.go
 #: internal/ui/i18n/cdm.go
 msgid "Couldn't download"
 msgstr "Couldn't download"
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Couldn't download · {when}"
+msgstr "Couldn't download · {when}"
 
 #: internal/ui/features/settings/settingsfile.go
 msgid "Couldn't export your settings"
@@ -1876,6 +1879,10 @@ msgstr "Disconnect"
 #: internal/ui/features/settings/connections.go
 msgid "Disconnect {confirmName}?"
 msgstr "Disconnect {confirmName}?"
+
+#: internal/ui/features/settings/connections.go
+msgid "Disconnecting…"
+msgstr "Disconnecting…"
 
 #: internal/ui/features/settings/connections.go
 #: internal/ui/features/settings/find.go
@@ -2811,7 +2818,6 @@ msgstr "Live radio"
 #: internal/ui/features/search/page.go
 #: internal/ui/features/search/profile.go
 #: internal/ui/features/settings/diagnostics.go
-#: internal/ui/features/settings/motiondiag.go
 #: internal/ui/features/settings/rows.go
 #: internal/ui/kit/collections_tracklist.go
 #: internal/ui/kit/controls_states.go
@@ -2838,6 +2844,10 @@ msgstr "Loading your listening history"
 #: internal/ui/features/playlist/dialogs.go
 msgid "Loading your playlists…"
 msgstr "Loading your playlists…"
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Loading · {when}"
+msgstr "Loading · {when}"
 
 #: internal/ui/features/concerts/page.go
 #: internal/ui/features/library/history.go
@@ -4023,10 +4033,6 @@ msgstr "Playback isn't available on this computer"
 msgid "Playback isn't available on this platform yet"
 msgstr "Playback isn't available on this platform yet"
 
-#: internal/ui/features/settings/motiondiag.go
-msgid "Played"
-msgstr "Played"
-
 #: internal/ui/features/home/local.go
 msgid "Played on this computer"
 msgstr "Played on this computer"
@@ -4034,6 +4040,10 @@ msgstr "Played on this computer"
 #: internal/ui/features/library/history.go
 msgid "Played {label}"
 msgstr "Played {label}"
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Played · {when}"
+msgstr "Played · {when}"
 
 #: internal/ui/features/player/bar.go
 msgid "Player"
@@ -5235,8 +5245,8 @@ msgid "Sona couldn't open your web browser. Open the link yourself."
 msgstr "Sona couldn't open your web browser. Open the link yourself."
 
 #: internal/ui/features/settings/motiondiag.go
-msgid "Sona couldn't play it"
-msgstr "Sona couldn't play it"
+msgid "Sona couldn't play it · {when}"
+msgstr "Sona couldn't play it · {when}"
 
 #: internal/ui/account/section.go
 #: internal/ui/account/signedin.go

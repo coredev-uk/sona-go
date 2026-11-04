@@ -1157,9 +1157,12 @@ msgstr ""
 msgid "Couldn't disconnect {name}"
 msgstr ""
 
-#: internal/ui/features/settings/motiondiag.go
 #: internal/ui/i18n/cdm.go
 msgid "Couldn't download"
+msgstr ""
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Couldn't download · {when}"
 msgstr ""
 
 #: internal/ui/features/settings/settingsfile.go
@@ -1875,6 +1878,10 @@ msgstr ""
 
 #: internal/ui/features/settings/connections.go
 msgid "Disconnect {confirmName}?"
+msgstr ""
+
+#: internal/ui/features/settings/connections.go
+msgid "Disconnecting…"
 msgstr ""
 
 #: internal/ui/features/settings/connections.go
@@ -2811,7 +2818,6 @@ msgstr ""
 #: internal/ui/features/search/page.go
 #: internal/ui/features/search/profile.go
 #: internal/ui/features/settings/diagnostics.go
-#: internal/ui/features/settings/motiondiag.go
 #: internal/ui/features/settings/rows.go
 #: internal/ui/kit/collections_tracklist.go
 #: internal/ui/kit/controls_states.go
@@ -2837,6 +2843,10 @@ msgstr ""
 
 #: internal/ui/features/playlist/dialogs.go
 msgid "Loading your playlists…"
+msgstr ""
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Loading · {when}"
 msgstr ""
 
 #: internal/ui/features/concerts/page.go
@@ -4023,16 +4033,16 @@ msgstr ""
 msgid "Playback isn't available on this platform yet"
 msgstr ""
 
-#: internal/ui/features/settings/motiondiag.go
-msgid "Played"
-msgstr ""
-
 #: internal/ui/features/home/local.go
 msgid "Played on this computer"
 msgstr ""
 
 #: internal/ui/features/library/history.go
 msgid "Played {label}"
+msgstr ""
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Played · {when}"
 msgstr ""
 
 #: internal/ui/features/player/bar.go
@@ -5235,7 +5245,7 @@ msgid "Sona couldn't open your web browser. Open the link yourself."
 msgstr ""
 
 #: internal/ui/features/settings/motiondiag.go
-msgid "Sona couldn't play it"
+msgid "Sona couldn't play it · {when}"
 msgstr ""
 
 #: internal/ui/account/section.go
