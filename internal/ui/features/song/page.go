@@ -269,7 +269,7 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 		}
 	}
 	lines := strings.Split(page.LyricsExcerpt, "\n")
-	if pg.full && full.HasData {
+	if pg.full && full.HasData && len(full.Data.Lines) > 0 {
 		lines = lines[:0]
 		for _, l := range full.Data.Lines {
 			lines = append(lines, l.Text)

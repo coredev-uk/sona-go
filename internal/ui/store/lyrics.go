@@ -23,5 +23,13 @@ func UseLyrics(cl *Client, core *services.Core, id string) Result[services.Lyric
 
 // UseLyricsFrom is UseLyrics over another fetch (a fake in tests).
 func UseLyricsFrom(cl *Client, id string, fetch func(ctx context.Context) (services.Lyrics, error)) Result[services.Lyrics] {
-	return Use(cl, KeyLyrics(id), fetch, Options{Stale: Forever})
+	// A song with no lyrics is an answer (empty lines), cached like any other,
+	// not a failure asked again every few seconds.
+	return Use(cl, KeyLyrics(id), func(ctx context.Context) (services.Lyrics, error) {
+		l, err := fetch(ctx)
+		if services.CodeOf(err) == services.CodeNotFound {
+			return services.Lyrics{}, nil
+		}
+		return l, err
+	}, Options{Stale: Forever})
 }
