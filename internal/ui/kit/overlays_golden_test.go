@@ -202,6 +202,12 @@ var overlaysScenes = []struct {
 }
 
 func TestOverlaysGoldens(t *testing.T) {
+	// The interface font, whatever test ran before: a golden drawn in the
+	// system's sans when this test runs alone and in Schibsted Grotesk after
+	// another registered it would depend on the order.
+	if err := theme.RegisterFonts(); err != nil {
+		t.Fatal(err)
+	}
 	for _, sc := range overlaysScenes {
 		for _, dark := range []bool{false, true} {
 			name := "overlays-" + sc.name + "-light"
