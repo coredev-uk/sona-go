@@ -27,7 +27,7 @@ type LyricsService struct {
 }
 
 func newLyricsService(e *Env) *LyricsService {
-	httpc := &http.Client{Transport: e.Gate.Transport(http.DefaultTransport), Timeout: 30 * time.Second, CheckRedirect: lyrics.HTTPSOnly}
+	httpc := &http.Client{Transport: e.gated(), Timeout: 30 * time.Second, CheckRedirect: lyrics.HTTPSOnly}
 	// LRCLIB and NetEase get Sona's name and home page; Musixmatch leaves
 	// word timing out of its answers for a User-Agent carrying a URL.
 	ua := "Sona/" + e.Version + " (+https://github.com/coredev-uk/sona-go)"
@@ -35,7 +35,7 @@ func newLyricsService(e *Env) *LyricsService {
 	return newLyrics(e,
 		&lyrics.Apple{API: e.API, Storefront: e.Storefront, Report: e.Report},
 		&lyrics.Musixmatch{HTTP: httpc, UserAgent: short, Secret: func() (store.Secret, error) {
-			return store.OpenSecret(e.Paths.Config, musixmatchSecret, e.Logger)
+			return e.openSecret(musixmatchSecret)
 		}},
 		&lyrics.LRCLIB{HTTP: httpc, UserAgent: ua},
 		&lyrics.NetEase{HTTP: httpc, UserAgent: ua},

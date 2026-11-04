@@ -3,7 +3,9 @@ package services
 import (
 	"context"
 	"errors"
+	"net/http"
 	"sync"
+	"time"
 
 	"github.com/coredev-uk/sona-go/internal/update"
 )
@@ -28,6 +30,7 @@ func newUpdatesService(e *Env) *UpdatesService {
 		Checkable: update.Valid(e.Version),
 		AppImage:  update.AppImage(),
 	}}
+	s.checker.HTTP = &http.Client{Transport: e.transport(), Timeout: 15 * time.Second}
 	ctx, cancel := context.WithCancel(context.Background())
 	e.OnClose(cancel)
 	e.OnNetwork(func() {

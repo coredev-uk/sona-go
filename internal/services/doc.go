@@ -97,6 +97,16 @@
 // it for optional abilities by interface (audioEngine, engineDiagnoser,
 // qualitySetter).
 //
+// Two more seams let tests keep a Core off the machine: Deps.Keyring is the
+// secret store behind the scrobblers' and Musixmatch's credentials (nil:
+// the system keyring; Env.openSecret opens a secret over it), and
+// Deps.Transport carries the HTTP of Go's own services (lyrics, scrobbling,
+// the update check; nil: http.DefaultTransport; Env.gated adds the
+// first-paint gate, which the update check, started only from OnNetwork or
+// on request, does without). A service that reaches outside the process goes
+// through them (internal/ui/uitest gives both fakes), never through
+// http.DefaultClient or store.OpenSecret.
+//
 // PlatformService.Capabilities (platform_dto.go) is the capability list
 // the UI reads once at start: the engine's kind and what it supports
 // (volume, equaliser, Sound Check, crossfade, output device, private

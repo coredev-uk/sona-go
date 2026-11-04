@@ -326,7 +326,7 @@ func run(started time.Time) error {
 		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, CDM: cdmMgr, AppleStrings: appleStrings, Language: lang, Coord: coord,
 		History: history, Private: private, Storefront: storefront, Gate: gate, Emit: bus, Clipboard: clipboardText, Logger: log,
 		OpenURL: mygo.Shell.OpenExternal, Focus: windows.ShowMain, Focused: windows.Focused, Windows: windows, Platform: plat.Services(),
-		Version: version, Started: started,
+		Transport: newTransport(), Version: version, Started: started,
 	})
 	defer core.Close() // runs first: stops sync, events and MPRIS
 	// After the services subscribed to auth changes, so none misses the

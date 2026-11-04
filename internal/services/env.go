@@ -2,9 +2,11 @@ package services
 
 import (
 	"context"
+	"net/http"
 	"slices"
 	"sync"
 
+	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/diag"
 )
 
@@ -54,6 +56,28 @@ func (e *Env) Fail(err error) error {
 // once if it is already open), on the goroutine that opened it: start a
 // goroutine for anything slow. Cold start must not do network work before.
 func (e *Env) OnNetwork(fn func()) { e.Gate.OnOpen(fn) }
+
+// transport is the HTTP transport of Go's own network services: Deps.Transport,
+// http.DefaultTransport when it is nil.
+func (e *Env) transport() http.RoundTripper {
+	if e.Transport != nil {
+		return e.Transport
+	}
+	return http.DefaultTransport
+}
+
+// gated is transport held back until the first paint.
+func (e *Env) gated() http.RoundTripper { return e.Gate.Transport(e.transport()) }
+
+// openSecret opens the keyring secret named key (Deps.Keyring, the system
+// keyring when it is nil), with its file fallback under the config directory.
+func (e *Env) openSecret(key string) (store.Secret, error) {
+	var kr store.Keyring = store.SystemKeyring{}
+	if e.Keyring != nil {
+		kr = e.Keyring
+	}
+	return store.OpenSecretWith(e.Paths.Config, key, kr, e.Logger)
+}
 
 // Go runs fn on a new goroutine; a panic in it is recovered and logged
 // with its stack (name labels it) instead of crashing the app. Start every
