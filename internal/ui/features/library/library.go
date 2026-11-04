@@ -75,7 +75,7 @@ type library struct {
 	auth authAPI
 
 	// openAccount opens the account dialog (the Sign in action of an empty
-	// library); nil until the shell offers one, which hides the action.
+	// library); nil without Env.Surfaces, which hides the action.
 	openAccount func()
 
 	// queue starts queues (stand-in for env.Queue, see queue.go).
@@ -85,9 +85,6 @@ type library struct {
 	states *itemStates
 
 	sync syncStore
-
-	// lastCurrent is the song that played at the last playback event.
-	lastCurrent string
 
 	albums    albumsPage
 	songs     songsPage
@@ -110,6 +107,9 @@ func New(env *module.Env) module.Module {
 
 func newLibrary(env *module.Env, lib libraryAPI, play playbackAPI, auth authAPI) *library {
 	l := &library{env: env, lib: lib, play: play, auth: auth}
+	if env.Surfaces != nil {
+		l.openAccount = env.Surfaces.OpenAccount
+	}
 	l.queue = &queueCommands{svc: play, play: env.Play, post: env.Post, replaceMode: l.replaceMode}
 	return l
 }
@@ -185,8 +185,7 @@ var (
 )
 
 // init follows what changes the library: a sync finishing a domain, a
-// whole sync, a rating changed outside the UI (`sona like`), the account,
-// and the song playing (Apple's recently played).
+// whole sync, a rating changed outside the UI (`sona like`) and the account.
 func (l *library) init() {
 	q := l.env.Queries
 	store.On(l.env.Bus, services.EventSyncProgress, func(p services.SyncProgress) {
@@ -209,8 +208,6 @@ func (l *library) init() {
 	store.On(l.env.Bus, services.EventAuthChanged, func(s services.AuthStatus) {
 		store.Set(q, keyAuth, s)
 	})
-	// A new song makes Apple's recently played list (History) stale.
-	l.watchCurrent()
 }
 
 // domainLists are the lists a sync domain's rows feed (v0.2.0's
@@ -237,21 +234,6 @@ func syncInvalidations(p services.SyncProgress) []store.Key {
 		lists = []store.Key{keyLibrary}
 	}
 	return append(append([]store.Key(nil), lists...), keyCounts, keySync)
-}
-
-// watchCurrent invalidates the history when the playing song changes
-// (v0.2.0's player module did it on playback:state).
-func (l *library) watchCurrent() {
-	store.On(l.env.Bus, services.EventPlaybackState, func(s services.PlaybackState) {
-		id := ""
-		if s.Current != nil {
-			id = s.Current.ID
-		}
-		if id != "" && id != l.lastCurrent {
-			l.env.Queries.Invalidate(keyRecent)
-		}
-		l.lastCurrent = id
-	})
 }
 
 // failToast toasts what failed and why (shared/lib/run.ts).

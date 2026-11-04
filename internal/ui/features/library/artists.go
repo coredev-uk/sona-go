@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -926,6 +927,10 @@ func artistsReleaseTile(t kit.CoverItem, a services.Album) kit.CoverItem {
 	title, kind := artistsReleaseTitle(a.Name)
 	year := artistsYear(a.ReleaseDate)
 	t.Subtitle = year
+	// As v0.2.0's albumTile: the album's motion artwork, and the release date
+	// of an album not out yet.
+	t.Motion = a.Motion
+	t.Badge = kit.ReleaseBadge(a, time.Now())
 	label := ""
 	switch {
 	case kind == "ep":

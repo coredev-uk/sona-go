@@ -46,7 +46,7 @@ type historyPage struct {
 // historyKey is `["library", "recent", "history", days]`: under the recent
 // prefix, so a new song refreshes it.
 func historyKey(days int) store.Key {
-	return store.Key{"library", "recent", "history", days}
+	return append(append(store.Key(nil), keyRecent...), "history", days)
 }
 
 // historyPage is HistoryPage: what the account played, newest first and
@@ -61,7 +61,7 @@ func (l *library) historyPage(c *ui.Context, r *ui.Route) {
 	days := pg.days
 	res := store.Use(l.env.Queries, key, func(ctx context.Context) (services.ListeningHistory, error) {
 		return l.lib.History(ctx, days)
-	})
+	}, store.Options{Stale: store.Forever}) // refreshed by ["library","recent"] when a new song plays
 	if res.HasData {
 		if id := reflect.ValueOf(res.Data.Days).Pointer(); !pg.has || id != pg.id || len(res.Data.Days) != len(pg.data.Days) {
 			pg.data, pg.has, pg.id, pg.arrived = res.Data, true, id, time.Now()
@@ -162,7 +162,7 @@ func (l *library) historySection(c *ui.Context, pg *historyPage, g *historyGroup
 		opts := kit.TrackListOpts{
 			Label:      i18n.T("Played {label}", "label", label),
 			Columns:    historyColumns,
-			OnPlay:     func(i int) { l.queue.PlaySongs(songs, i, services.PlayFrom{ID: "History"}) },
+			OnPlay:     func(i int) { l.queue.PlaySongs(songs, i, services.PlayFrom{ID: i18n.T("History")}) },
 			Art:        l.env.Art,
 			Motion:     l.env.Motion,
 			Restricted: l.restricted(),

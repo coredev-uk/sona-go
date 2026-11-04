@@ -2,9 +2,11 @@ package kit
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
@@ -282,9 +284,17 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i int, si
 		},
 		Source: func(s ui.Element) {
 			s.Column().Label(opener).Radius(tk.Radius["sm"])
-			if it.PlaysOnOpen || it.Open == nil {
+			if it.Subtitle != "" {
+				// A button or link is a leaf on the accessibility tree, so the
+				// subtitle drawn inside it is read as its description.
+				s.Description(it.Subtitle)
+			}
+			switch {
+			case it.PlaysOnOpen:
 				s.Role(ui.RoleButton)
-			} else {
+			case it.Open == nil:
+				s.Role(ui.RoleGroup) // nothing to open: not a control that does nothing
+			default:
 				s.Role(ui.RoleLink)
 			}
 		},
@@ -445,3 +455,8 @@ func collectionsMenu(sel *Selection, menus *ActionMenus, s ui.Element, t ActionT
 		menus.OpenAt(t, b.X+16, b.Y+b.H, true)
 	}
 }
+
+// ReleaseBadge is the badge on an upcoming album's cover ("Out 19 Nov", with
+// the year when it is not this one's); "" for an album that is out or has no
+// full date (v0.2.0's releaseBadge).
+func ReleaseBadge(a services.Album, now time.Time) string { return itemsReleaseBadge(a, now) }

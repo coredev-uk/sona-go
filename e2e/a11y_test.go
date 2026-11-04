@@ -47,7 +47,6 @@ func TestAccessibility(t *testing.T) {
 		{"toggle button", "All"},                       //
 		{"combo box", "Sort"},                          //
 		{"table", "Albums in your library"},            // the grid
-		{"button", first.Name},                         // a tile's opener
 		{"button", "Play " + first.Name},               // its play button, beside the opener
 		{"push button menu", "More for " + first.Name}, // and its more button
 		{"panel", "Player"},                            // the player bar

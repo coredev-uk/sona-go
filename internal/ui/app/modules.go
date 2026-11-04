@@ -17,7 +17,7 @@ import (
 // it; nav items sort by their own Order). Features not ported yet are
 // absent: there are no placeholders.
 var factories = []module.Factory{
-	library.New, // Albums only
+	library.New,
 	player.New,  // the player bar only
 	auth.New,    // sign-in state, the account menu and dialog
 	updates.New, // the sidebar's update notice

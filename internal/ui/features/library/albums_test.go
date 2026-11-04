@@ -68,6 +68,20 @@ func TestTheGateShowsNothingWhileRestoring(t *testing.T) {
 	}
 }
 
+func TestSignInOpensTheAccountDialogOfTheShell(t *testing.T) {
+	r := newPageRig(t, albumsPath, 1132, 800, nil, uitest.Empty())
+	r.tt.Until("sign in", r.tt.Shows("Sign in to see your albums", "Sign in"))
+	for i := 0; i < 6; i++ {
+		r.tt.Drain()
+	}
+	if err := r.tt.Click("Sign in"); err != nil {
+		t.Fatal(err)
+	}
+	if !r.h.Env.Surfaces.AccountOpen() {
+		t.Error("Sign in did not ask the shell for the account dialog")
+	}
+}
+
 func TestSignInOpensTheAccountDialog(t *testing.T) {
 	opened := 0
 	r := newPageRig(t, albumsPath, 1132, 800, func(l *library) { l.openAccount = func() { opened++ } }, uitest.Empty())
@@ -82,7 +96,7 @@ func TestSignInOpensTheAccountDialog(t *testing.T) {
 		t.Errorf("the account dialog opened %d times", opened)
 	}
 	// Without a dialog to open the action is not offered.
-	r2 := newPageRig(t, albumsPath, 1132, 800, nil, uitest.Empty())
+	r2 := newPageRig(t, albumsPath, 1132, 800, func(l *library) { l.openAccount = nil }, uitest.Empty())
 	r2.tt.Until("text", r2.tt.Shows("Sign in to see your albums"))
 	if _, ok := r2.tt.Find("Sign in"); ok {
 		t.Error("a Sign in button that does nothing")

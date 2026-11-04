@@ -267,7 +267,10 @@ func TestHistoryErrorOffersTryAgain(t *testing.T) {
 	}
 }
 
-func TestHistoryRefetchesWhenANewSongStartsPlaying(t *testing.T) {
+// The player invalidates ["library","recent"] when a new song starts; the
+// history is under that key and is read again then (and only then: its
+// queries are never stale).
+func TestHistoryRefetchesWhenTheRecentKeyIsInvalidated(t *testing.T) {
 	r, stub, _ := historyRig(t, func(_, call int) (services.ListeningHistory, error) {
 		h := twoDays()
 		if call > 1 {
@@ -280,7 +283,13 @@ func TestHistoryRefetchesWhenANewSongStartsPlaying(t *testing.T) {
 	if r.tt.HasText("Newcomer") {
 		t.Fatal("seeded early")
 	}
-	r.h.Env.Bus.Emit(services.EventPlaybackState, services.PlaybackState{Current: &services.QueueItem{ID: "7"}})
+	for i := 0; i < 20; i++ {
+		r.tt.Drain() // never stale: drawing again asks Go for nothing
+	}
+	if got := stub.calls(); len(got) != 1 {
+		t.Fatalf("asked %v before any invalidation", got)
+	}
+	r.l.env.Queries.Invalidate(keyRecent)
 	r.tt.Until("the new play", r.tt.Shows("Newcomer"))
 	if got := stub.calls(); len(got) != 2 || got[1] != 30 {
 		t.Errorf("asked %v, want a second read of 30 days", got)

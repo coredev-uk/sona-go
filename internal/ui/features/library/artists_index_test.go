@@ -2,9 +2,12 @@ package library
 
 import (
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
 func artistsTestEntry(name string) services.ArtistEntry {
@@ -170,5 +173,20 @@ func TestArtistsReleaseTitle(t *testing.T) {
 		if title, kind := artistsReleaseTitle(name); title != want[0] || kind != want[1] {
 			t.Errorf("%q → %q, %q; want %q", name, title, kind, want)
 		}
+	}
+}
+
+// A release tile has the album's motion artwork and, for an album not out
+// yet, its release badge (v0.2.0's albumTile).
+func TestArtistsReleaseTileHasMotionAndTheReleaseBadge(t *testing.T) {
+	soon := time.Now().Add(30 * 24 * time.Hour)
+	a := services.Album{Name: "Later", Motion: "motion.mp4", Prerelease: true, ReleaseAt: soon.UnixMilli(), ReleaseDate: soon.Format("2006-01-02")}
+	tile := artistsReleaseTile(kit.CoverItem{}, a)
+	if tile.Motion != "motion.mp4" || !strings.HasPrefix(tile.Badge, "Out ") {
+		t.Errorf("motion %q badge %q", tile.Motion, tile.Badge)
+	}
+	out := artistsReleaseTile(kit.CoverItem{}, services.Album{Name: "Now", ReleaseDate: "2020-01-01"})
+	if out.Badge != "" {
+		t.Errorf("an album that is out has the badge %q", out.Badge)
 	}
 }
