@@ -10,6 +10,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
 // desktopAPI is what General asks of DesktopService.
@@ -67,10 +68,40 @@ func (s *settings) closeActionRow(c *ui.Context, cfg config.Settings, caps servi
 	})
 }
 
-// titleBarRow is an unavailable row: the native window has no title bar of
-// Sona's own yet (the shell draws none until phase 3), so no style applies.
-func (s *settings) titleBarRow(c *ui.Context) {
-	s.unavailableRow(c, "title-bar", i18n.T("Title bar"), i18n.T("Sona's own title bar comes with a later version: the desktop draws it."))
+// titleBarRow is Title bar (Windows and Linux; macOS always keeps its own
+// buttons in Sona's top bar): who draws it. The hint says what Automatic
+// picks here, and a choice differing from the style the window was created
+// with says it applies from the next start.
+func (s *settings) titleBarRow(c *ui.Context, cfg config.Settings, caps services.Capabilities) {
+	wc := caps.WindowControls
+	var hint string
+	switch {
+	case wc.Automatic == "sona" && wc.Desktop != "":
+		hint = i18n.T("Automatic uses Sona's title bar on {desktop}, with the window buttons where your desktop puts them.", "desktop", wc.Desktop)
+	case wc.Automatic == "sona":
+		hint = i18n.T("Automatic uses Sona's title bar, with the window buttons where your system puts them.")
+	case wc.Desktop != "":
+		hint = i18n.T("Automatic leaves the title bar to {desktop}.", "desktop", wc.Desktop)
+	default:
+		hint = i18n.T("Automatic leaves the title bar to your desktop, which Sona doesn't recognise.")
+	}
+	style := cfg.TitleBar.Style
+	o := rowOpts{ID: "title-bar", Title: i18n.T("Title bar"), Desc: hint}
+	if style != wc.Style {
+		// The window keeps the title bar it was created with until Sona restarts.
+		o.Notes = func() {
+			text(c, i18n.T("Applies the next time Sona starts."), "secondary").TextColor(theme.C("ink")).Margin(2, 0, 0, 0)
+		}
+	}
+	items := []kit.SelectItem{
+		kit.SelectOption(config.TitleBarAuto, i18n.T("Automatic")),
+		kit.SelectOption(config.TitleBarSona, i18n.T("Sona's, with window buttons")),
+		kit.SelectOption(config.TitleBarSonaNoButtons, i18n.T("Sona's, without window buttons")),
+		kit.SelectOption(config.TitleBarDesktop, i18n.T("The desktop's")),
+	}
+	s.selectRow(c, o, style, items, false, func(v string) {
+		s.save(func(st *config.Settings) { st.TitleBar.Style = v })
+	})
 }
 
 // windowSizeRow shows the saved size and resets it.

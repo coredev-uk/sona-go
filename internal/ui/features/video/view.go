@@ -110,6 +110,9 @@ func (v *video) layer(c *ui.Context) {
 	st := &v.view
 	if !v.env.Video.IsOpen() {
 		v.closed()
+		// However it closed (Escape, Close video, the toggle key, the bar's
+		// Show video), the focus goes back to what opened it.
+		v.env.Video.ReturnFocus(c)
 		return
 	}
 	now := c.Now()

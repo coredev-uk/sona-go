@@ -1,6 +1,10 @@
 package store
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/egoist/mygo/ui"
+)
 
 func TestVideoViewOpensAndCloses(t *testing.T) {
 	v := NewVideoView(nil, nil)
@@ -89,4 +93,44 @@ func TestVideoViewWithoutAWindowHasNoFullScreen(t *testing.T) {
 		t.Error("a view with no window is full screen")
 	}
 	v.Close()
+}
+
+func TestVideoViewRemembersTheOpenerOfAClosedViewOnly(t *testing.T) {
+	var a, b ui.Handle
+	v := NewVideoView(nil, nil)
+	v.OpenFrom(&a)
+	if v.opener != &a {
+		t.Fatal("OpenFrom did not remember the opener")
+	}
+	v.OpenFrom(&b) // already open: the view keeps the control that opened it
+	v.Open()
+	if v.opener != &a {
+		t.Error("a view that was open changed its opener")
+	}
+	v.Close()
+	v.Open() // opened by something that is not a control: no opener
+	if v.opener != nil {
+		t.Error("Open kept the opener of the view before")
+	}
+	v.Toggle()
+	v.ToggleFrom(&b)
+	if !v.IsOpen() || v.opener != &b {
+		t.Errorf("ToggleFrom: open %v opener %v", v.IsOpen(), v.opener == &b)
+	}
+	v.ToggleFrom(&a)
+	if v.IsOpen() {
+		t.Error("ToggleFrom did not close an open view")
+	}
+}
+
+func TestVideoViewReturnsNoFocusWithoutAnOpenerOrWhileOpen(t *testing.T) {
+	var h ui.Handle
+	v := NewVideoView(nil, nil)
+	if v.ReturnFocus(nil) {
+		t.Error("a view nothing opened asked for a focus")
+	}
+	v.OpenFrom(&h)
+	if v.ReturnFocus(nil) {
+		t.Error("an open view asked for a focus")
+	}
 }

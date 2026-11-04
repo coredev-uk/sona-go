@@ -114,6 +114,39 @@ func TestFindLeavesOutRowsTheirSectionDoesNotShow(t *testing.T) {
 	}
 }
 
+func TestFindListsTitleBarOnlyWhereTheWindowHasAFrame(t *testing.T) {
+	ctx := testContext()
+	if got := findIDs("title bar", ctx); !slices.Contains(got, "title-bar") {
+		t.Errorf("frame: %v", got)
+	}
+	if got := findIDs("decorations", ctx); !slices.Equal(got, []string{"title-bar"}) {
+		t.Errorf("decorations: %v", got)
+	}
+	for _, native := range []string{"inset", "none"} {
+		caps := linuxCaps()
+		caps.WindowControls.Native = native
+		c := ctx
+		c.caps = &caps
+		if got := findIDs("title bar", c); slices.Contains(got, "title-bar") {
+			t.Errorf("Native %q: %v", native, got)
+		}
+	}
+	loading := ctx
+	loading.caps = nil
+	if got := findIDs("title bar", loading); slices.Contains(got, "title-bar") {
+		t.Errorf("capabilities loading: %v", got)
+	}
+}
+
+func TestFindOpenOnByItsKeywords(t *testing.T) {
+	ctx := testContext()
+	for _, q := range []string{"open on", "start page", "resume"} {
+		if got := findIDs(q, ctx); !slices.Contains(got, "start-page") {
+			t.Errorf("%q: %v", q, got)
+		}
+	}
+}
+
 func TestFindListsShortcutsByTheirAction(t *testing.T) {
 	if got := findIDs("sidebar", testContext()); !slices.Equal(got, []string{"shortcut-test.sidebar"}) {
 		t.Errorf("sidebar: %v", got)

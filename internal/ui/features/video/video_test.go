@@ -179,6 +179,11 @@ type rig struct {
 	caps    services.PlaybackCapabilities
 	unknown bool // Go has not answered what the platform supports
 	tt      *uitest.Session
+
+	// opener is the handle of the page's "Show video" button (openerMount);
+	// openerGone leaves the button unbuilt.
+	opener     ui.Handle
+	openerGone bool
 }
 
 // newRig builds the feature over the fakes. mount builds what the window
