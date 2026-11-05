@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -91,6 +92,8 @@ func newConcertsEnv(t *testing.T, signedIn bool) concertsEnv {
 		return ""
 	})
 	api.Base, api.AMPBase = srv.URL, srv.URL
+	// A failing fake is retried; the retries cost no backoff.
+	api.Sleep = func(ctx context.Context, _ time.Duration) error { return ctx.Err() }
 	art, err := artwork.New(artwork.Options{Dir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)

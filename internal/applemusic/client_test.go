@@ -37,7 +37,7 @@ func newTestClient(t *testing.T, h http.Handler) (*Client, *fakeDev, *[]time.Dur
 	c.Base = srv.URL
 	var mu sync.Mutex
 	waits := &[]time.Duration{}
-	c.sleep = func(_ context.Context, d time.Duration) error {
+	c.Sleep = func(_ context.Context, d time.Duration) error {
 		mu.Lock()
 		*waits = append(*waits, d)
 		mu.Unlock()
