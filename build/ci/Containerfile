@@ -37,6 +37,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       zsh \
     && rm -rf /var/lib/apt/lists/*
 
+# The workspace is the runner user's, the job runs as root: without this git
+# (and so go's VCS stamping and cmd/pathcase) refuses the checkout.
+RUN git config --system --add safe.directory '*'
+
 RUN arch=$(dpkg --print-architecture) \
  && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${arch}.tar.gz" | tar -C /usr/local -xz \
  && GOBIN=/usr/local/bin GOTOOLCHAIN=local /usr/local/go/bin/go install "gotest.tools/gotestsum@${GOTESTSUM_VERSION}" \
