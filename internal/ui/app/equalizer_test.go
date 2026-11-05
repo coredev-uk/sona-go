@@ -57,30 +57,22 @@ func TestEqualizerStacksUnderTheBreakpoint(t *testing.T) {
 	}
 }
 
-// The page in the shell, light and dark, at both window sizes.
-func TestEqualizerShellGolden(t *testing.T) {
-	for _, dark := range []bool{false, true} {
-		for _, sz := range [][2]int{{1132, 1253}, {940, 600}} {
-			name := "light"
-			var opts []uitest.Option
-			if dark {
-				name, opts = "dark", []uitest.Option{uitest.Dark()}
+// The page in the shell at both window sizes: choosing a preset (narrow, the
+// presets are below the fold, so it switches the equaliser on instead) saves
+// it and the page's subline says so. The page's look is the equalizer
+// package's goldens; the shell's, shell-albums'.
+func TestEqualizerShellSublineAtBothSizes(t *testing.T) {
+	for _, sz := range [][2]int{{1132, 1253}, {940, 600}} {
+		t.Run(strconv.Itoa(sz[0])+"x"+strconv.Itoa(sz[1]), func(t *testing.T) {
+			_, tt := equalizerShell(t, sz[0], sz[1])
+			pick, subline := "Rock", "Rock · shapes everything Sona plays"
+			if sz[1] < 800 {
+				pick, subline = "Off", "Flat · shapes everything Sona plays"
 			}
-			name = "shell-equalizer-" + name + "-" + strconv.Itoa(sz[0]) + "x" + strconv.Itoa(sz[1])
-			t.Run(name, func(t *testing.T) {
-				_, tt := equalizerShell(t, sz[0], sz[1], opts...)
-				// Narrow, the presets are below the fold: switch it on instead.
-				pick, subline := "Rock", "Rock · shapes everything Sona plays"
-				if sz[1] < 800 {
-					pick, subline = "Off", "Flat · shapes everything Sona plays"
-				}
-				if err := tt.Click(pick); err != nil {
-					t.Fatal(err)
-				}
-				tt.Until("the page", tt.Shows(subline))
-				tt.Settle()
-				uitest.Golden(t, tt.Image(), name)
-			})
-		}
+			if err := tt.Click(pick); err != nil {
+				t.Fatal(err)
+			}
+			tt.Until("the page", tt.Shows(subline))
+		})
 	}
 }

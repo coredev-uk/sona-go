@@ -203,12 +203,15 @@ of which Renovate's token (`renovate.yaml`) already requests:
 
 | Permission     | Level | Used by                                                            |
 | -------------- | ----- | ------------------------------------------------------------------ |
-| Contents       | write | release-please: release branch, tag, draft release; publish job: upload and publish |
+| Contents       | write | release-please: release branch, tag, draft release; publish job: upload and publish; golden-update.yml: push the regenerated golden images to a pull request's branch |
 | Pull requests  | write | release-please: open and update the release PR                     |
-| Issues         | write | release-please: the `autorelease:` labels on the release PR        |
+| Issues         | write | release-please: the `autorelease:` labels on the release PR; golden-update.yml: remove the `update-goldens` label |
 
 Each job requests only what it uses (`permission-*` inputs), so the token is
-narrower than the installation. The build provenance needs no App
+narrower than the installation. `golden-update.yml` reads the same two secrets
+in its own `golden-update` environment (create it under Settings →
+Environments and copy them there, so no other workflow's job reaches them
+through it; until then the repository-level secrets serve it). The build provenance needs no App
 permission: it uses the workflow's `id-token: write` and
 `attestations: write`.
 

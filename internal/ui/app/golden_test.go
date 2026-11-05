@@ -38,25 +38,21 @@ func TestShellAlbumsGolden(t *testing.T) {
 
 // The account side's pieces in the shell: the update notice in the sidebar's
 // foot, the player bar's Private pill (on, with its word) and the line under
-// the title while a song waits for Widevine. Two sizes: 1132 DIP shows the
-// pill's word, 940 does not.
-func TestAccountStatesGolden(t *testing.T) {
+// the title while a song waits for Widevine. They were full-window goldens;
+// what those pictures said that no page golden does is that each piece is
+// there at a wide and at a narrow window, and where the pill's word goes: it
+// shows at 1132 DIP and is dropped at 940 (the pill stays).
+func TestAccountStatesInTheShell(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		w, h int
-		dark bool
+		name     string
+		w, h     int
+		pillWord bool
 	}{
-		{"shell-account-light", 1132, 1253, false},
-		{"shell-account-dark", 1132, 1253, true},
-		{"shell-account-narrow-light", 940, 600, false},
-		{"shell-account-narrow-dark", 940, 600, true},
+		{"wide", 1132, 1253, true},
+		{"narrow", 940, 600, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			var opts []uitest.Option
-			if tc.dark {
-				opts = append(opts, uitest.Dark())
-			}
-			h := uitest.New(t, opts...)
+			h := uitest.New(t)
 			a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Art: h.Art, Now: h.Clock.Now, StartPath: "/library/albums"}, factories)
 			t.Cleanup(func() { a.env.Art.Close(); a.env.Art.Wait() })
 			a.firstPaint = nil
@@ -72,10 +68,16 @@ func TestAccountStatesGolden(t *testing.T) {
 			s.Current = &services.QueueItem{ID: "i.1", Name: "Glass Harbour", Artist: "Dara Finch", Album: "Low Tide"}
 			s.NoCDM = true
 			a.env.Play.Seed(s, services.QueueState{Index: -1})
-			tt.Until("the account pieces", tt.Shows("Sona 0.3.0 is available", "Waiting for Widevine to download · 42%", "Private listening"))
-			tt.Until("the covers", func() bool { return h.Covers.Hits() > 0 })
+			tt.Until("the account pieces", tt.Shows("Sona 0.3.0 is available", "Waiting for Widevine to download · 42%"))
 			tt.Settle()
-			uitest.Golden(t, tt.Image(), tc.name)
+			pill, ok := tt.Find("Private listening")
+			if !ok {
+				t.Fatalf("no Private pill; texts %q", tt.Texts())
+			}
+			// With its word the pill is wider than tall; without, a square button.
+			if got := pill.W > pill.H; got != tc.pillWord {
+				t.Errorf("the Private pill shows its word = %v (box %v), want %v", got, pill, tc.pillWord)
+			}
 		})
 	}
 }

@@ -138,24 +138,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
-        run: |
-          tag=$(build/ci/tag.sh)
-          image=ghcr.io/coredev-uk/sona-ci
-          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
-          # A tag no run has built yet is being built by the Images workflow
-          # (30 minutes at most); everything else is there at once.
-          for _ in $(seq 1 90); do
-            if digest=$(docker buildx imagetools inspect "$image:$tag" --format '{{.Manifest.Digest}}' 2>/dev/null) && [ -n "$digest" ]; then
-              echo "ref=$image@$digest" >>"$GITHUB_OUTPUT"
-              echo "id=${digest#sha256:}" >>"$GITHUB_OUTPUT"
-              echo "CI image $image:$tag is $digest"
-              exit 0
-            fi
-            echo "waiting for $image:$tag (Images workflow) …"
-            sleep 20
-          done
-          echo "::error::$image:$tag does not exist: run the Images workflow (Actions → Images → Run workflow); a fork's pull request that changes build/ci can't publish it"
-          exit 1
+        run: build/ci/find-image.sh
 
   # go vet for the host, the development build (-tags dev) and the probe build
   # (-tags probe), then the macOS and Windows seams (CONTRIBUTING.md,
