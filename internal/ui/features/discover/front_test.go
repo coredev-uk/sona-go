@@ -762,3 +762,88 @@ func TestFrontStartsOverWhenThePageIsBuiltAgain(t *testing.T) {
 		t.Errorf("after coming back: lead %d paused %v, want the first card and a running rotation", r.lead(), r.d.front.paused)
 	}
 }
+
+// artOf is a card's art path: its own key at the shape the DTO names.
+func artOf(n, w, h int) string {
+	return fmt.Sprintf("/art/0123456789abcdef0123456789ab%04d/%dx%d.jpg", n, w, h)
+}
+
+// thumbRect is where the picture of the card's list row is drawn: the slot's
+// top left (8 in from the row, centred in its height) and the part of the
+// slot that is the cover's colour (coverSource's), found by looking.
+func (r *rig) thumbRect(name string) (x0, y0, x1, y1 int) {
+	r.t.Helper()
+	row, ok := r.tt.Find(name)
+	if !ok {
+		r.t.Fatalf("no row %q: %q", name, r.tt.Texts())
+	}
+	sx, sy := int(row.X)+8, int(row.Y+(row.H-listThumb)/2)
+	img := r.tt.Image()
+	x0, y0, x1, y1 = sx+listThumb, sy+listThumb, sx-1, sy-1
+	for y := sy; y < sy+listThumb; y++ {
+		for x := sx; x < sx+listThumb; x++ {
+			if c := img.RGBAAt(x, y); c.R > 150 && c.G < 120 && c.B < 90 { // the cover's 200, 80, 40
+				x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
+			}
+		}
+	}
+	return x0 - sx, y0 - sy, x1 - sx + 1, y1 - sy + 1
+}
+
+// A list thumbnail shows its picture whole at the picture's own shape, never a
+// cut of it enlarged to fill the square: the cover that is square fills the
+// slot, and art that is wide (a card with only its banner, a station whose own
+// art is a 4:1 banner) is the lead's picture in miniature, at the hero card's
+// shape across the slot. The loader is asked for exactly the box that shows.
+func TestFrontThumbnailsShowTheirPictureWholeAtItsOwnShape(t *testing.T) {
+	src := newCoverSource()
+	cards := heroCards(5)
+	cards[1].Name, cards[1].Art = "Square", services.Art{Medium: artOf(102, 400, 400), Large: artOf(102, 1000, 1000)}
+	cards[2].Name, cards[2].Art = "Station", services.Art{Medium: artOf(103, 400, 100), Large: artOf(103, 1000, 250)}
+	cards[3].Name = "Banner only" // no cover: its row falls back to the banner
+	cards[4].Name, cards[4].Art = "Poster", services.Art{Medium: artOf(105, 300, 400), Large: artOf(105, 750, 1000)}
+	api := &fakeAPI{}
+	r := newRig(t, "/new", withAPI(api), wideWindow())
+	loader := kit.NewArtLoaderFrom(src, r.h.Main.Post)
+	t.Cleanup(func() { loader.Close(); loader.Wait() })
+	r.env.Art = loader
+	r.tt.Art = append(r.tt.Art, loader)
+	newPageWith(api, r.h.Clock.Now(), heroSection(cards))
+	r.tt.Until("the front page", r.tt.Shows("Featured", "Square", "Station", "Banner only", "Poster"))
+	r.d.front.paused = true
+	r.tt.Until("the thumbnails", func() bool {
+		return len(src.requested(artOf(102, 400, 400))) > 0 && len(src.requested(artOf(103, 400, 100))) > 0 &&
+			len(src.requested(bannerOf(4))) > 0 && len(src.requested(artOf(105, 300, 400))) > 0
+	})
+	r.settle()
+
+	for _, tc := range []struct {
+		name, src string
+		ask       [2]int // what the loader is asked for: the box
+		w, h      int    // what the picture covers of the 64×64 slot
+	}{
+		{"Square", artOf(102, 400, 400), [2]int{64, 64}, 64, 64},
+		{"Station", artOf(103, 400, 100), [2]int{64, 37}, 64, 37},
+		{"Banner only", bannerOf(4), [2]int{64, 37}, 64, 37},
+		{"Poster", artOf(105, 300, 400), [2]int{48, 64}, 48, 64},
+	} {
+		if got := src.requested(tc.src); !slices.Contains(got, tc.ask) {
+			t.Errorf("%s: the thumbnail was asked for at %v, want %d×%d", tc.name, got, tc.ask[0], tc.ask[1])
+		}
+		x0, y0, x1, y1 := r.thumbRect(tc.name)
+		if w, h := x1-x0, y1-y0; w != tc.w || h != tc.h {
+			t.Errorf("%s: the picture covers %d×%d of its slot, want %d×%d", tc.name, w, h, tc.w, tc.h)
+		}
+		// Centred in the slot.
+		if l, r, tp, b := x0, listThumb-x1, y0, listThumb-y1; abs(l-r) > 1 || abs(tp-b) > 1 {
+			t.Errorf("%s: the picture sits %d, %d, %d, %d from the slot's edges, want it centred", tc.name, l, tp, r, b)
+		}
+	}
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}

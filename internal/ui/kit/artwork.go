@@ -44,9 +44,10 @@ type ArtOpts struct {
 // ends in: the shape Apple serves the artwork in (lib/art.ts).
 var sizePart = regexp.MustCompile(`/(\d+)(?:x(\d+))?\.jpg(?:$|\?)`)
 
-// artAspect is the width over the height of the artwork behind a Go URL; 1
-// when it names no size.
-func artAspect(src string) float32 {
+// ArtAspect is the width over the height of the artwork behind a Go URL; 1
+// when it names no size. A caller that must place a picture it has not
+// decoded yet (a list's thumbnail) reads the shape from it.
+func ArtAspect(src string) float32 {
 	m := sizePart.FindStringSubmatch(src)
 	if m == nil {
 		return 1
@@ -122,7 +123,7 @@ func artBox(size float32, o ArtOpts) (w, h float32) {
 // box, or for Contain the artwork's own shape inside it.
 func artPicture(src string, w, h float32, o ArtOpts) (float32, float32) {
 	if o.Contain {
-		return containBox(w, h, artAspect(src))
+		return containBox(w, h, ArtAspect(src))
 	}
 	return w, h
 }
