@@ -163,6 +163,16 @@ in
     # end-to-end smoke"); `e2e` runs the end-to-end smoke in it.
     headless.exec = ''bash e2e/headless.sh "$@"'';
     e2e.exec = ''headless -- go test -tags e2e -count=1 ./e2e/... "$@"'';
+    # A real Orca walked through the app in `headless` (docs/accessibility.md,
+    # "Listening with Orca"). Orca comes from the pinned nixpkgs and is built
+    # on first use, so it is not part of everyone's dev shell; what it said
+    # is kept in bin/orca-out (E2E_OUT).
+    orca-walk.exec = ''
+      set -e
+      rev=$(sed -n 's|.*nixpkgs/\([0-9a-f]\{40\}\)$|\1|p' devenv.yaml)
+      orca=$(nix build --no-link --print-out-paths "github:NixOS/nixpkgs/$rev#orca")/bin/orca
+      E2E_ORCA=1 E2E_ORCA_BIN=$orca E2E_OUT=''${E2E_OUT:-$PWD/bin/orca-out} headless -- go test -tags e2e -count=1 -v -run '^TestOrca' ./e2e/ "$@"
+    '';
     # The Albums scroll probe in the app's own process (CONTRIBUTING.md,
     # "Measuring UI performance"), in `headless` on a profile whose covers
     # are cached or reachable (the e2e fixture's are not, outside e2e).
