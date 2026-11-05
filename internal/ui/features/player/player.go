@@ -53,6 +53,9 @@ type player struct {
 	// (PlatformService capabilities).
 	volume func() bool
 	now    func() time.Time
+	// rightW is the width of the bar's right group of controls as last laid
+	// out: the least its column keeps.
+	rightW float32
 	// station reads a station's page (RadioService.Station): the bar and
 	// Now Playing take a live station's programme from its schedule.
 	station func(ctx context.Context, id string) (services.StationDetail, error)

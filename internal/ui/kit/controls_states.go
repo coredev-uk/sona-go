@@ -257,6 +257,18 @@ func DetailError(c *ui.Context, noun DetailNoun, err error, o DetailErrorOpts) u
 // end, bottom-aligned (shared/components/PageHeader.tsx). actions builds
 // into a row; nil for none.
 func PageHeader(c *ui.Context, title, subline string, actions func()) ui.Element {
+	return pageHeader(c, title, subline, false, actions)
+}
+
+// PageHeaderCounted is PageHeader for a page whose subline counts its list:
+// the line is blank until the count is known (a sort or filter not read yet
+// loads its list), and its place is kept, so that the actions beside it do
+// not move when the count arrives.
+func PageHeaderCounted(c *ui.Context, title, subline string, actions func()) ui.Element {
+	return pageHeader(c, title, subline, true, actions)
+}
+
+func pageHeader(c *ui.Context, title, subline string, keepSubline bool, actions func()) ui.Element {
 	e := ui.Row(c).FillWidth().AlignItems(ui.End).Justify(ui.SpaceBetween).Gap(24).Margin(0, 0, 24, 0).Shrink(0)
 	e.Children(func() {
 		ui.Column(c).MinWidth(0).Shrink(1).Children(func() {
@@ -266,6 +278,8 @@ func PageHeader(c *ui.Context, title, subline string, actions func()) ui.Element
 			}
 			if subline != "" {
 				controlsText(c, subline, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
+			} else if keepSubline {
+				ui.Box(c).Height(4 + theme.Current().Type["secondary"].LineHeight).Shrink(0)
 			}
 		})
 		if actions != nil {
