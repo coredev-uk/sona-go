@@ -144,6 +144,8 @@ type App struct {
 	dir       ui.Direction
 	// banner is the status banner's (main thread).
 	banner banner
+	// menubar is the macOS menu bar (nil elsewhere). Main thread.
+	menubar *menuBar
 
 	mu        sync.Mutex
 	win       *mygo.Window
@@ -169,6 +171,7 @@ func New(opts Options) *App {
 		a.tray = a.newTray(icon, template)
 		opts.Windows.setTray(a.tray != nil)
 	}
+	a.menubar = a.newMenuBar()
 	a.openWindow()
 	return a
 }
@@ -436,6 +439,12 @@ func (a *App) connect() {
 			m.Init()
 		}
 	}
+	if a.menubar != nil {
+		// After the playback mirror followed the event: the labels and the
+		// check marks are the mirror's.
+		store.On(a.opts.Bus, services.EventPlaybackState, func(services.PlaybackState) { a.menubar.refresh() })
+		a.menubar.refresh()
+	}
 }
 
 // languageChanged writes the language shown into what no frame builds: the
@@ -444,6 +453,7 @@ func (a *App) languageChanged() {
 	if a.tray != nil {
 		a.tray.render()
 	}
+	a.refreshMenu()
 	a.mu.Lock()
 	m := a.miniWin
 	a.mu.Unlock()
@@ -519,6 +529,7 @@ func (a *App) followSettings() {
 		// a save builds the whole settings from it.
 		store.Set(a.env.Queries, store.KeySettings, s)
 		apply(s)
+		a.refreshMenu()
 		a.locale.apply()
 	})
 	a.initLocale()

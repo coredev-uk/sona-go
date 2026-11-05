@@ -78,6 +78,13 @@ func New(env *module.Env) module.Module {
 			Build:   p.playlistPage,
 		}},
 		Actions: p.actions(),
+		Shortcuts: []module.Shortcut{{
+			ID: "playlist.new", Group: "general", Keys: []string{"Ctrl+N"}, Icon: "list-plus",
+			// translators: Command in the command palette, the shortcut help and the File menu: opens the form that makes a playlist.
+			Label:    func() string { return i18n.T("New playlist") },
+			Keywords: func() string { return i18n.T("create playlist add") },
+			Run:      func() { p.dialogs.show(dialogState{kind: dialogCreate}) },
+		}},
 		Slots: module.Slots{
 			SidebarSection: p.sidebarSection,
 			Layer:          p.dialogHost, // dialogs only: no LayerOpen, so the layer takes no input itself

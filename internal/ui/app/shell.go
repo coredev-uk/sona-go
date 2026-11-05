@@ -99,14 +99,19 @@ func routeForOpen(t services.OpenTarget) string {
 // handler), when a module shows that page; others are ignored, as v0.2.0
 // did.
 func (a *App) followOpens() {
-	store.On(a.opts.Bus, services.EventAppOpen, func(t services.OpenTarget) {
-		to := routeForOpen(t)
-		if to == "" || !a.hasRoute(to) {
-			a.log.Info("open link: no page for it", "kind", t.Kind)
-			return
-		}
-		a.router.Push(to)
-	})
+	store.On(a.opts.Bus, services.EventAppOpen, func(t services.OpenTarget) { a.openTarget(t) })
+}
+
+// openTarget opens the page of a link when a module shows it; false (and
+// logged) when none does.
+func (a *App) openTarget(t services.OpenTarget) bool {
+	to := routeForOpen(t)
+	if to == "" || !a.hasRoute(to) {
+		a.log.Info("open link: no page for it", "kind", t.Kind)
+		return false
+	}
+	a.router.Push(to)
+	return true
 }
 
 // chrome is the main window's title bar, from the platform and Settings →
@@ -195,4 +200,5 @@ func (a *App) miniShownChanged(shown bool) {
 	if a.tray != nil {
 		a.tray.setMini(shown)
 	}
+	a.refreshMenu()
 }

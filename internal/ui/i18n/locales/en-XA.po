@@ -86,6 +86,10 @@ msgstr ""
 msgid "AAC {audioQuality} kbps"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "About Sona"
+msgstr ""
+
 #: internal/ui/features/artist/page.go
 msgid "About {artistName}"
 msgstr ""
@@ -198,6 +202,14 @@ msgstr ""
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/playback.go
 msgid "Advanced"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "After This Song"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "After the Queue"
 msgstr ""
 
 #: internal/ui/features/settings/playback.go
@@ -673,6 +685,10 @@ msgstr ""
 msgid "Born or formed"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Bring All to Front"
+msgstr ""
+
 #: internal/ui/features/discover/bands.go
 #: internal/ui/features/radio/bands.go
 msgid "Browse"
@@ -752,6 +768,10 @@ msgstr ""
 
 #: internal/ui/features/settings/diagnostics.go
 msgid "Check again"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Check for Updates…"
 msgstr ""
 
 #: internal/ui/features/settings/settingsfile.go
@@ -900,8 +920,13 @@ msgid "Close"
 msgstr ""
 
 #. Tray menu item, shown instead of "Mini Player" while the small always-on-top player is open. Menu items are in title case.
+#: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
 msgid "Close Mini Player"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Close Window"
 msgstr ""
 
 #. Button of the small player: closes it. Sentence case, unlike the tray's "Close Mini Player".
@@ -958,6 +983,10 @@ msgstr ""
 #: internal/ui/kit/overlays_palette.go
 msgctxt "keyboard key"
 msgid "Command"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Command Palette"
 msgstr ""
 
 #: internal/ui/kit/overlays_palette.go
@@ -1034,6 +1063,18 @@ msgstr ""
 msgid "Continue"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Controls"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Copy"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Copy an Apple Music link first."
+msgstr ""
+
 #: internal/ui/features/settings/diagnostics.go
 #: internal/ui/features/settings/find.go
 msgid "Copy diagnostics"
@@ -1094,6 +1135,7 @@ msgstr ""
 msgid "Couldn't change the volume"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/features/settings/updates.go
 msgid "Couldn't check GitHub for updates"
 msgstr ""
@@ -1403,6 +1445,10 @@ msgstr ""
 
 #: internal/ui/features/video/video.go
 msgid "Couldn't open Apple Music"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Couldn't open a link"
 msgstr ""
 
 #: internal/ui/features/settings/devtools.go
@@ -1740,6 +1786,10 @@ msgstr ""
 msgid "Current step"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Cut"
+msgstr ""
+
 #: internal/ui/features/equalizer/page.go
 msgid "Cuts only: the level stays as it is. Preamp lowers it further."
 msgstr ""
@@ -1774,6 +1824,7 @@ msgstr ""
 msgid "Default keys"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/kit/song_itemstate.go
 msgid "Delete"
 msgstr ""
@@ -2008,6 +2059,7 @@ msgstr ""
 msgid "Each choice applies at once, to the app behind."
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/features/playlist/page.go
 msgid "Edit"
 msgstr ""
@@ -2049,6 +2101,10 @@ msgstr ""
 #: internal/ui/kit/overlays_palette.go
 msgctxt "keyboard key"
 msgid "Enter"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Enter Full Screen"
 msgstr ""
 
 #: internal/ui/features/concerts/page.go
@@ -2128,6 +2184,10 @@ msgstr ""
 
 #: internal/ui/features/library/albums.go
 msgid "Everything in your library is a single or an EP."
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Exit Full Screen"
 msgstr ""
 
 #: internal/ui/features/player/nowplaying_room.go
@@ -2211,6 +2271,7 @@ msgstr ""
 msgid "Featured in playlists"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/features/settings/diag_rows.go
 msgid "File"
 msgstr ""
@@ -2430,6 +2491,10 @@ msgstr ""
 msgid "HEVC is used instead. {decoderHelp}"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Help"
+msgstr ""
+
 #: internal/ui/features/playlist/trackedits.go
 msgid "Here is its latest version. Make the change again."
 msgstr ""
@@ -2440,6 +2505,18 @@ msgstr ""
 
 #: internal/ui/features/settings/motiondiag.go
 msgid "Hidden: videos pause"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Hide Others"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Hide Sidebar"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Hide Sona"
 msgstr ""
 
 #: internal/ui/features/onboarding/playback.go
@@ -2494,6 +2571,10 @@ msgstr ""
 msgid "Import…"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "In 1 Hour"
+msgstr ""
+
 #: internal/ui/features/player/sleep_timer.go
 msgid "In 1 hour"
 msgstr ""
@@ -2504,6 +2585,10 @@ msgstr ""
 
 #: internal/ui/features/player/sleep_timer.go
 msgid "In 2 hours"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "In 30 Minutes"
 msgstr ""
 
 #: internal/ui/features/player/sleep_timer.go
@@ -2647,6 +2732,10 @@ msgstr ""
 msgid "Keeps playing when closed"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Keyboard Shortcuts"
+msgstr ""
+
 #: internal/ui/features/commands/commands.go
 #: internal/ui/features/commands/help.go
 #: internal/ui/features/settings/settingsfile.go
@@ -2714,6 +2803,7 @@ msgstr ""
 msgid "Length"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/app/view.go
 #: internal/ui/features/search/scope.go
 msgid "Library"
@@ -2881,6 +2971,7 @@ msgstr ""
 msgid "Loudness"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/player/lyrics_sheet.go
 #: internal/ui/features/player/nowplaying_view.go
@@ -2948,12 +3039,17 @@ msgid "Mains power (no battery powers this computer)"
 msgstr ""
 
 #. Tray menu items: "Show Sona" brings the main window back, "Mini Player" opens the small always-on-top player, "Quit Sona" exits. Menu items are in title case.
+#: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
 msgid "Mini Player"
 msgstr ""
 
 #: internal/ui/features/miniplayer/miniplayer.go
 msgid "Mini player"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Minimize"
 msgstr ""
 
 #: internal/ui/features/album/sections.go
@@ -3114,6 +3210,7 @@ msgstr ""
 msgid "Musixmatch"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/video/view.go
 msgid "Mute"
@@ -3157,6 +3254,10 @@ msgstr ""
 msgid "Never"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "New Playlist"
+msgstr ""
+
 #: internal/ui/features/playlist/dialogs.go
 msgid "New folder"
 msgstr ""
@@ -3165,8 +3266,10 @@ msgstr ""
 msgid "New folder…"
 msgstr ""
 
+#. Command in the command palette, the shortcut help and the File menu: opens the form that makes a playlist.
 #: internal/ui/features/playlist/dialogs.go
 #: internal/ui/features/playlist/drops.go
+#: internal/ui/features/playlist/playlist.go
 #: internal/ui/features/playlist/sidebar.go
 msgid "New playlist"
 msgstr ""
@@ -3183,6 +3286,7 @@ msgstr ""
 msgid "Newest first"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
 #: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
@@ -3590,6 +3694,10 @@ msgstr ""
 msgid "Notifications"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Now Playing"
+msgstr ""
+
 #: internal/ui/features/player/nowplaying_view.go
 #: internal/ui/kit/media_equaliser.go
 msgid "Now playing"
@@ -3719,6 +3827,10 @@ msgstr ""
 msgid "Open"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Open Link from Clipboard…"
+msgstr ""
+
 #. Button of the small player: brings the main window back.
 #: internal/ui/features/miniplayer/view.go
 msgid "Open Sona"
@@ -3836,6 +3948,10 @@ msgstr ""
 msgid "Password"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Paste"
+msgstr ""
+
 #: internal/ui/account/token.go
 msgid "Paste a Music User Token"
 msgstr ""
@@ -3844,6 +3960,7 @@ msgstr ""
 msgid "Paste your user token first."
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
 #: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
@@ -3939,6 +4056,7 @@ msgstr ""
 msgid "Platform"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
 #: internal/ui/features/home/rows.go
 #: internal/ui/features/miniplayer/view.go
@@ -4204,6 +4322,7 @@ msgctxt "a song playing as its 30-second preview"
 msgid "Preview"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
 #: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
@@ -4306,6 +4425,7 @@ msgctxt "keyboard key"
 msgid "Question mark"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/player/queue_aside.go
 #: internal/ui/features/player/queue_list.go
@@ -4317,6 +4437,7 @@ msgid "Queue replaced"
 msgstr ""
 
 #. Tray menu items: "Show Sona" brings the main window back, "Mini Player" opens the small always-on-top player, "Quit Sona" exits. Menu items are in title case.
+#: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
 #: internal/ui/features/onboarding/desktop.go
 #: internal/ui/features/settings/desktop.go
@@ -4430,6 +4551,10 @@ msgstr ""
 msgid "Reconnect"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Redo"
+msgstr ""
+
 #: internal/ui/features/onboarding/appearance.go
 #: internal/ui/features/settings/appearance.go
 #: internal/ui/features/settings/find.go
@@ -4508,6 +4633,18 @@ msgstr ""
 msgid "Rename…"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Repeat"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Repeat All"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Repeat One"
+msgstr ""
+
 #: internal/ui/features/player/bar.go
 msgid "Repeat all"
 msgstr ""
@@ -4540,6 +4677,10 @@ msgstr ""
 #: internal/ui/features/settings/queue.go
 #: internal/ui/features/settings/settingsfile.go
 msgid "Replacing your queue"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Report a Bug…"
 msgstr ""
 
 #: internal/ui/features/settings/motiondiag.go
@@ -4740,6 +4881,10 @@ msgstr ""
 msgid "Seek"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Select All"
+msgstr ""
+
 #: internal/ui/account/code.go
 msgid "Send a new code"
 msgstr ""
@@ -4747,6 +4892,10 @@ msgstr ""
 #: internal/ui/account/code.go
 #: internal/ui/account/section.go
 msgid "Sending…"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Services"
 msgstr ""
 
 #: internal/ui/features/concerts/page.go
@@ -4798,6 +4947,10 @@ msgstr ""
 msgid "Settings sections"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Settings…"
+msgstr ""
+
 #: internal/ui/features/onboarding/layer.go
 msgid "Setup is done"
 msgstr ""
@@ -4818,6 +4971,14 @@ msgstr ""
 
 #: internal/ui/features/settings/bugreport.go
 msgid "Show"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Show All"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Show Sidebar"
 msgstr ""
 
 #. Tray menu items: "Show Sona" brings the main window back, "Mini Player" opens the small always-on-top player, "Quit Sona" exits. Menu items are in title case.
@@ -4960,6 +5121,7 @@ msgstr ""
 msgid "Shows the song, artist and artwork when a new track starts, with a Next button. Not shown while Sona's window is in front. No notification service is running on this desktop."
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/features/playlist/sidebar.go
 #: internal/ui/kit/button.go
 msgid "Shuffle"
@@ -5179,6 +5341,10 @@ msgctxt "keyboard key"
 msgid "Slash"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Sleep Timer"
+msgstr ""
+
 #: internal/ui/features/player/sleep_timer.go
 msgid "Sleep timer"
 msgstr ""
@@ -5223,6 +5389,7 @@ msgstr ""
 msgid "Something went wrong."
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/app/view.go
 #: internal/ui/features/settings/diag_rows.go
 msgid "Sona"
@@ -5332,6 +5499,10 @@ msgstr ""
 
 #: internal/ui/features/home/lead.go
 msgid "Sona fetches them as soon as it reconnects."
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Sona has no page for that link."
 msgstr ""
 
 #: internal/ui/account/keyring.go
@@ -6222,6 +6393,10 @@ msgstr ""
 msgid "Trying…"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Turn Off"
+msgstr ""
+
 #: internal/ui/features/private/private.go
 msgid "Turn off private listening"
 msgstr ""
@@ -6258,6 +6433,7 @@ msgstr ""
 msgid "Unavailable"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/kit/playerqueue_commands.go
 msgid "Undo"
 msgstr ""
@@ -6412,6 +6588,7 @@ msgstr ""
 msgid "Videos"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/features/commands/commands.go
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/updates/updates.go
@@ -6447,6 +6624,14 @@ msgstr ""
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/video/view.go
 msgid "Volume"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Volume Down"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Volume Up"
 msgstr ""
 
 #: internal/ui/features/player/shortcuts.go
@@ -6574,6 +6759,7 @@ msgstr ""
 msgid "Widevine {version} is ready"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/general.go
@@ -6800,6 +6986,10 @@ msgstr ""
 msgid "Your token is stored unencrypted"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Zoom"
+msgstr ""
+
 #: internal/ui/features/auth/auth.go
 msgid "account apple music sign in sign out storefront keyring"
 msgstr ""
@@ -6830,6 +7020,10 @@ msgstr ""
 
 #: internal/ui/features/player/nowplaying_shortcuts.go
 msgid "cover artwork full"
+msgstr ""
+
+#: internal/ui/features/playlist/playlist.go
+msgid "create playlist add"
 msgstr ""
 
 #: internal/ui/features/settings/find.go
