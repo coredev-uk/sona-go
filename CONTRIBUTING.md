@@ -406,7 +406,7 @@ image is rebuilt. `images.yml` builds it when `build/ci/**` or `go.mod`
 changes (on a pull request of this repository too: the CI job named "CI image"
 waits for it), weekly and on dispatch; `build/ci/tag.sh` names the tag from the
 Containerfile and the Go and gotestsum versions. A run pins the digest it finds
-and keys Go's caches by it. Each kind of job (vet, e2e, one shard of a test pool with or without `-race`) has its own Go cache, saved only by a run on main, and `cache-prune.yml` keeps the newest of each, about 3 GB of the repository's 10 GB; the pull-request jobs restore them and save nothing. The playback job stays on the bare runner (it
+and keys Go's caches by it. Each kind of job (vet, e2e, one shard of a test pool with or without `-race`) has its own Go cache, saved only by a run on main, and `cache-prune.yml` keeps the newest of each: 7.5 GB of the repository's 10 GB in 34 entries after a main run (measured 2026-11-05: the macOS `-race` caches 1.7 GB, the UI shards' 1.8 GB, macOS's GStreamer installer 1.0 GB, the rest under 0.6 GB each); the pull-request jobs restore them and save nothing. The playback job stays on the bare runner (it
 lifts the user-namespace restriction of the host). To rebuild it by hand:
 `podman build $(build/ci/tag.sh args) -f build/ci/Containerfile build/ci`.
 
