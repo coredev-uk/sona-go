@@ -334,10 +334,17 @@ func TestFieldLimits(t *testing.T) {
 }
 
 // socketDir is a folder for a test's socket. Not t.TempDir: its long
-// names can exceed the 104 bytes macOS allows a socket path.
+// names can exceed the 104 bytes macOS allows a socket path. Not the default
+// temporary directory either on macOS: its /var/folders/… (49 bytes on a CI
+// runner) leaves too little for the nested Flatpak path of
+// TestFindsFlatpakSocket, so the folder is under /tmp where that exists.
 func socketDir(t *testing.T) string {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "sona")
+	base := ""
+	if st, err := os.Stat("/tmp"); err == nil && st.IsDir() {
+		base = "/tmp"
+	}
+	dir, err := os.MkdirTemp(base, "sona")
 	if err != nil {
 		t.Fatal(err)
 	}

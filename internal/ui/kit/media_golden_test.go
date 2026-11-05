@@ -207,6 +207,12 @@ func mediaMotionView(p *MotionPolicy, l *ArtLoader, feed *VideoFeed) func(*ui.Co
 // patch of "smpte": any frame is the same picture, and the same on every
 // decoder build); it skips where GStreamer cannot decode or encode one.
 func TestMediaMotionGoldens(t *testing.T) {
+	// Every assertion here is a golden, which is compared on Linux only; the
+	// macOS video surface needs a Metal device a CI runner doesn't have (its
+	// command queue creation aborts the test binary).
+	if runtime.GOOS != "linux" {
+		t.Skip("golden images are compared on Linux only: other platforms draw text with their own rasteriser")
+	}
 	if media.Codec() != "avc" {
 		t.Skip("no H.264 decoder in this GStreamer: motion goldens need one")
 	}
