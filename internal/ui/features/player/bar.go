@@ -50,7 +50,8 @@ func (p *player) song(c *ui.Context, s services.PlaybackState) {
 	// The song keeps room for its title at the window's minimum width: the
 	// transport shrinks towards its 280 first (v0.2.0's grid let it fall to
 	// nothing once the right group grew).
-	ui.Row(c).Grow(1).Basis(0).MinWidth(160).Gap(12).AlignItems(ui.Center).Children(func() {
+	row := ui.Row(c.Key("song")).Grow(1).Basis(0).MinWidth(160).Gap(12).AlignItems(ui.Center)
+	row.Children(func() {
 		p.cover(c, s)
 		ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).MinWidth(0).Children(func() {
@@ -68,6 +69,7 @@ func (p *player) song(c *ui.Context, s services.PlaybackState) {
 		})
 		p.ratingButtons(c, cur, true)
 	})
+	p.playingMenu(c, row, cur, &p.menus.bar)
 }
 
 // cover is the cover in a button that opens or closes Now Playing; what a
@@ -102,6 +104,8 @@ func (p *player) cover(c *ui.Context, s services.PlaybackState) {
 		b.Disabled(true)
 	}
 	b.Children(func() { kit.Artwork(c, p.env.Art, src, 48, kit.ArtOpts{}).Shrink(0) })
+	// The button takes the pointer from the row: it opens the menu itself.
+	p.playingRow(b, cur, &p.menus.bar)
 	if b.Clicked() && cur != nil {
 		if p.videoSurface() && p.env.Video != nil {
 			p.env.Video.OpenFrom(&p.coverBtn)
