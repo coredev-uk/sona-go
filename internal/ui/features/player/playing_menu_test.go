@@ -25,14 +25,28 @@ func withActions(r *rig) {
 func TestBarSongOpensTheSongMenuOnRightClick(t *testing.T) {
 	r := newRig(t, true)
 	withActions(r)
-	nav := routed(r, false)
+	nav := routed(r, true) // the title and the artist are links, as in the app
 	r.env.Actions.SetNavigator(nav.Push)
-	r.seed(func(s *services.PlaybackState) { s.Current.AlbumID = "al.9" })
+	r.seed(func(s *services.PlaybackState) { s.Current.AlbumID, s.Current.ArtistID = "al.9", "ar.7" })
 
-	b, ok := r.tt.Find("Song Title")
-	if !ok {
-		t.Fatalf("no title in %q", r.tt.Texts())
+	// A link takes the pointer from the song around it: it opens the menu itself.
+	for _, from := range []string{"The Artist", "Song Title"} {
+		b, ok := r.tt.Find(from)
+		if !ok {
+			t.Fatalf("no %q in %q", from, r.tt.Texts())
+		}
+		r.tt.RightClickAt(b.X+b.W/2, b.Y+b.H/2)
+		r.tt.Frame()
+		if !r.tt.HasText("Play next") {
+			t.Fatalf("right-click on the %s link opened no menu: %q", from, r.tt.Texts())
+		}
+		r.tt.Key(0, ui.KeyEscape)
+		r.tt.Frame()
+		if len(nav.pushed) != 0 {
+			t.Fatalf("right-click on the %s link followed it: %q", from, nav.pushed)
+		}
 	}
+	b, _ := r.tt.Find("Song Title")
 	r.tt.RightClickAt(b.X+b.W/2, b.Y+b.H/2)
 	r.tt.Frame()
 	for _, w := range []string{"Play next", "Play last", "Go to album"} {
@@ -150,5 +164,43 @@ func TestNowPlayingCoverTitleAndMoreOpenTheSongMenu(t *testing.T) {
 	r.tt.Frame()
 	if r.tt.HasText("Go to album") {
 		t.Error("the menu stayed open after a choice")
+	}
+}
+
+// Now Playing covers the page: a page a chosen action opens closes it first,
+// and its artist link opens the menu on a right-click too.
+func TestNowPlayingMenuNavigationClosesTheView(t *testing.T) {
+	r := newNPRig(t)
+	npActions(r)
+	nav := &navRecorder{}
+	r.h.Env.Nav = nav
+	r.h.Env.HasRoute = func(string) bool { return true }
+	r.h.Env.Actions.SetNavigator(nav.Push)
+	r.play(30_000)
+	r.open("")
+
+	b, ok := r.tt.Find("The Artist")
+	if !ok {
+		t.Fatalf("no artist link in %q", r.tt.Texts())
+	}
+	r.tt.RightClickAt(b.X+b.W/2, b.Y+b.H/2)
+	r.tt.Frame()
+	r.tt.Frame()
+	if !r.tt.HasText("Go to album") {
+		t.Fatalf("right-click on the artist link opened no menu: %q", r.tt.Texts())
+	}
+	if len(nav.pushed) != 0 {
+		t.Fatalf("right-click followed the link: %q", nav.pushed)
+	}
+	if err := r.tt.Click("Go to album"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Frame()
+	r.tt.Frame()
+	if len(nav.pushed) != 1 || nav.pushed[0] != "/album/al1" {
+		t.Errorf("pushed %q", nav.pushed)
+	}
+	if r.p.ui.overlay != overlayNone {
+		t.Error("Now Playing stayed open over the page the action opened")
 	}
 }

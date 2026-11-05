@@ -43,7 +43,14 @@ func (p *player) playingMenu(c *ui.Context, el ui.Element, cur *services.QueueIt
 // registry.
 func (p *player) menusIn(slot **kit.ActionMenus) *kit.ActionMenus {
 	if *slot == nil && p.env.Actions != nil {
-		*slot = kit.NewActionMenus(p.env.Actions, nil)
+		m := kit.NewActionMenus(p.env.Actions, nil)
+		// Now Playing covers the page: it gives way to the page a chosen
+		// action opens (the bar's menu while it is open as well).
+		m.Navigate = func(path string) {
+			p.ui.closeOverlay()
+			p.env.Actions.Navigate(path)
+		}
+		*slot = m
 	}
 	return *slot
 }

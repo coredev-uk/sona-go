@@ -155,6 +155,8 @@ func (p *player) link(c *ui.Context, key, text, path, style string, color ui.Col
 	if l.Clicked() {
 		p.env.Nav.Push(path)
 	}
+	// The link takes the pointer from the song around it: it opens the menu itself.
+	p.playingRow(l, p.env.Play.State().Current, &p.menus.bar)
 }
 
 // subline is the line under the title: what needs the user, what failed,

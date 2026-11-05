@@ -277,6 +277,8 @@ func (p *player) outLink(c *ui.Context, key, text, path string, size, lineH floa
 		p.ui.closeOverlay()
 		p.env.Nav.Push(path)
 	}
+	// The link takes the pointer from the song copy around it: it opens the menu itself.
+	p.playingRow(t, p.env.Play.State().Current, &p.menus.np)
 }
 
 // songCopy is the song's label copy under (or, narrow, beside) the cover: the

@@ -40,7 +40,7 @@ func (m *mini) content(c *ui.Context) {
 	if cur != nil {
 		backdrop = cur.Backdrop
 	}
-	kit.Backdrop(c.Key("mini"), m.env.Art, kit.BackdropOpts{Src: backdrop}, func() {
+	root := kit.Backdrop(c.Key("mini"), m.env.Art, kit.BackdropOpts{Src: backdrop}, func() {
 		ui.Row(c.Key("body")).Fill().Padding(pad).Gap(14).AlignItems(ui.Center).Children(func() {
 			src := ""
 			if cur != nil {
@@ -56,6 +56,7 @@ func (m *mini) content(c *ui.Context) {
 			m.playingPopup(c, cur)
 		})
 	}).Fill().Background(theme.C("surface")).DragWindow().Role(ui.RoleGroup).Label(i18n.T("Sona mini player"))
+	m.playingKeys(root, cur)
 }
 
 // leading reports the window's own buttons on the start side: macOS's inset

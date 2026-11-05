@@ -71,18 +71,7 @@ func rowHelp(inView, auto bool) string {
 // rowPayload is what a row drags: the song itself, so a sidebar playlist
 // takes it as well as the queue (which only moves its own row).
 func rowPayload(it *services.QueueItem, qi int) *kit.DragPayload {
-	item := kit.SongItem(services.Song{
-		ID: it.ID, Source: it.Source, CatalogID: it.CatalogID, LibraryID: it.LibraryID, Name: it.Name,
-		Artist: it.Artist, Album: it.Album, AlbumID: it.AlbumID, ArtistID: it.ArtistID,
-		DurationMs: it.DurationMs, Explicit: it.Explicit, Playable: true, Art: it.Art,
-	})
-	if it.Video {
-		item = kit.MusicVideoItem(services.MusicVideo{
-			ID: it.ID, Source: it.Source, CatalogID: it.CatalogID, LibraryID: it.LibraryID, Name: it.Name,
-			Artist: it.Artist, ArtistID: it.ArtistID, Album: it.Album, DurationMs: it.DurationMs,
-			Explicit: it.Explicit, Art: it.Art,
-		})
-	}
+	item := kit.PlayingItem(it)
 	return &kit.DragPayload{
 		Items:  []kit.Item{item},
 		Origin: &kit.DragOrigin{List: queueDropID, Index: qi},
