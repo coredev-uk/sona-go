@@ -27,6 +27,9 @@ type AuthStatus struct {
 	// read (signed_out; RetryKeyring tries again); "" otherwise.
 	Keyring string `json:"keyring"`
 	Offline bool   `json:"offline"`
+	// PasskeySignIn: SignInWithPasskey works here (macOS: Safari signs in
+	// with the account's passkey and Touch ID).
+	PasskeySignIn bool `json:"passkeySignIn"`
 	// LastErrorCode is the latest failure the sign-in state reports (a
 	// rejected sign-in, a keyring that didn't answer, an incomplete
 	// sign-out…); "" when there is none.

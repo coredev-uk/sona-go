@@ -154,6 +154,14 @@ func (f *fakeAPI) Revalidate(context.Context) error {
 
 func (f *fakeAPI) RetryKeyring() { f.rec("retry") }
 
+func (f *fakeAPI) SignInWithPasskey(context.Context) error {
+	f.rec("passkey")
+	if f.onSignIn != nil {
+		return f.onSignIn()
+	}
+	return nil
+}
+
 var signedOut = services.AuthStatus{State: "signed_out"}
 
 // rig is a Section on a fake API in a window.
@@ -1089,4 +1097,25 @@ func TestNoPasswordCodeOrTokenInLogsOrLinks(t *testing.T) {
 			t.Errorf("a secret reached %q", s)
 		}
 	}
+}
+
+func TestPasskeySignInIsOfferedWhereSafariCanDoIt(t *testing.T) {
+	r := newRig(t, services.AuthStatus{State: "signed_out", PasskeySignIn: true})
+	r.shows("Sign in with Touch ID")
+	r.click("Sign in with Touch ID")
+	r.waitCalls("passkey", 1)
+	if n := r.api.count("signin"); n != 0 {
+		t.Errorf("the default-browser sign-in ran %d times", n)
+	}
+
+	r = newRig(t, signedOut)
+	r.hides("Sign in with Touch ID")
+	r.shows("Sign in with your browser")
+}
+
+func TestPasskeyFailureShowsTheError(t *testing.T) {
+	r := newRig(t, services.AuthStatus{State: "signed_out", PasskeySignIn: true})
+	r.api.onSignIn = func() error { return mut.ErrTimeout }
+	r.click("Sign in with Touch ID")
+	r.tt.Until("timeout", r.tt.Shows("Sign-in timed out"))
 }

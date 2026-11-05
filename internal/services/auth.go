@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/coredev-uk/sona-go/internal/auth"
@@ -44,6 +46,7 @@ func (s *AuthService) status(st auth.Status) AuthStatus {
 		Backend:          string(st.Backend),
 		Unencrypted:      st.Backend == store.BackendFile,
 		Keyring:          string(st.Keyring),
+		PasskeySignIn:    passkeySupported,
 		Offline:          st.Offline,
 		LastErrorCode:    lastErrorCode(st),
 		LastAppleMessage: lastAppleMessage(st),
@@ -102,6 +105,17 @@ func (s *AuthService) SignIn(ctx context.Context) error {
 	// The attempt outlives a reload of the page that started it; it ends
 	// with CancelSignIn, SignOut, a newer attempt or the deadline.
 	return s.m.SignIn(context.WithoutCancel(ctx), s.openFn)
+}
+
+// SignInWithPasskey is SignIn in Safari, where the account's passkey signs in
+// with Touch ID (Apple's own page asks; Sona never sees the passkey). It
+// fails with an errors.ErrUnsupported error where
+// AuthStatus.PasskeySignIn is false.
+func (s *AuthService) SignInWithPasskey(ctx context.Context) error {
+	if !passkeySupported {
+		return fmt.Errorf("passkey sign-in isn't available on this system: %w", errors.ErrUnsupported)
+	}
+	return s.m.SignIn(context.WithoutCancel(ctx), openInPasskeyBrowser)
 }
 
 // SignInLink returns a new single-use link to the pending browser sign-in,
