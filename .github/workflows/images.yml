@@ -8,6 +8,16 @@
 # Runs when the Containerfile changes on main, weekly (the image holds Ubuntu
 # 24.04's packages as of its build, so a rebuild picks up their updates), and
 # when dispatched.
+#
+# The CI image (build/ci/Containerfile) is built the same way for amd64 and
+# arm64 on a runner of each, then published as one manifest under
+# ghcr.io/coredev-uk/sona-ci:<tag> (build/ci/tag.sh: the Containerfile's hash
+# with the Go and gotestsum versions of go.mod). A push, or a pull request of
+# this repository, builds it only when no image of that tag exists yet (CI
+# waits for it: ci.yml, "CI image"); the weekly run and a dispatch rebuild it
+# to pick up the distribution's updates, and CI pins the digest it finds, so a
+# rebuild never changes a run in progress. Storage in GHCR for a public
+# repository does not count against the Actions cache cap.
 name: Images
 
 on:
@@ -15,6 +25,13 @@ on:
     branches: [main]
     paths:
       - build/linux/release/Containerfile
+      - build/ci/**
+      - go.mod
+      - .github/workflows/images.yml
+  pull_request:
+    paths:
+      - build/ci/**
+      - go.mod
       - .github/workflows/images.yml
   schedule:
     - cron: "17 4 * * 1"
@@ -30,6 +47,8 @@ concurrency:
 jobs:
   release-image:
     name: Release build image
+    # Not for pull requests: only the CI image is built for them.
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 20
     permissions:
@@ -51,3 +70,103 @@ jobs:
           podman build --pull=always -t "$image" -f build/linux/release/Containerfile build/linux/release
           podman push "$image"
           echo "### Pushed $image" >>"$GITHUB_STEP_SUMMARY"
+
+  # Which tag the CI image has, and whether it must be built.
+  ci-image-plan:
+    name: CI image tag
+    # A fork's pull request can't push packages.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }}
+      args: ${{ steps.plan.outputs.args }}
+      build: ${{ steps.plan.outputs.build }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Name the image and look for it
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          tag=$(build/ci/tag.sh)
+          {
+            echo "tag=$tag"
+            echo "args=$(build/ci/tag.sh args)"
+          } >>"$GITHUB_OUTPUT"
+          printf '%s' "$GH_TOKEN" | podman login ghcr.io -u "$ACTOR" --password-stdin
+          if [ "$EVENT" = schedule ] || [ "$EVENT" = workflow_dispatch ]; then
+            echo "build=true" >>"$GITHUB_OUTPUT"
+          elif podman manifest inspect "ghcr.io/coredev-uk/sona-ci:$tag" >/dev/null 2>&1; then
+            echo "build=false" >>"$GITHUB_OUTPUT"
+            echo "sona-ci:$tag exists"
+          else
+            echo "build=true" >>"$GITHUB_OUTPUT"
+          fi
+
+  ci-image-build:
+    name: CI image (${{ matrix.arch }})
+    needs: ci-image-plan
+    if: ${{ needs.ci-image-plan.outputs.build == 'true' }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-26.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    permissions:
+      contents: read
+      packages: write # push the image
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build and push the image for one architecture
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          TAG: ${{ needs.ci-image-plan.outputs.tag }}
+          ARGS: ${{ needs.ci-image-plan.outputs.args }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          image=ghcr.io/coredev-uk/sona-ci:$TAG-$ARCH
+          printf '%s' "$GH_TOKEN" | podman login ghcr.io -u "$ACTOR" --password-stdin
+          # shellcheck disable=SC2086
+          podman build --pull=always $ARGS -t "$image" -f build/ci/Containerfile build/ci
+          podman push "$image"
+
+  ci-image:
+    name: CI image
+    needs: [ci-image-plan, ci-image-build]
+    if: ${{ needs.ci-image-plan.outputs.build == 'true' && !cancelled() && needs.ci-image-build.result == 'success' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write # push the manifest
+    steps:
+      - name: Publish one manifest for both architectures
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          TAG: ${{ needs.ci-image-plan.outputs.tag }}
+        run: |
+          image=ghcr.io/coredev-uk/sona-ci
+          printf '%s' "$GH_TOKEN" | podman login ghcr.io -u "$ACTOR" --password-stdin
+          podman manifest create "$image:$TAG"
+          for arch in amd64 arm64; do
+            podman manifest add "$image:$TAG" "docker://$image:$TAG-$arch"
+          done
+          podman manifest push --all "$image:$TAG" "docker://$image:$TAG"
+          echo "### Pushed $image:$TAG (amd64, arm64)" >>"$GITHUB_STEP_SUMMARY"

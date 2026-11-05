@@ -92,16 +92,72 @@ jobs:
           echo "heavy=$heavy" >>"$GITHUB_OUTPUT"
           echo "heavy: $heavy"
 
+  # The image the Linux jobs below run in (build/ci/Containerfile, published
+  # by images.yml). The tag follows the Containerfile and go.mod; a change to
+  # either on a branch of this repository is built by the Images workflow in
+  # parallel, and this job waits for it. The jobs pin the digest found here,
+  # so the weekly rebuild never changes a run in progress, and the digest
+  # keys Go's caches.
+  image:
+    name: CI image
+    needs: changes
+    if: ${{ needs.changes.outputs.heavy == 'true' || (github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'uiprobe')) }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: read # pull the image
+    outputs:
+      ref: ${{ steps.find.outputs.ref }}
+      id: ${{ steps.find.outputs.id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Find the image
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          tag=$(build/ci/tag.sh)
+          image=ghcr.io/coredev-uk/sona-ci
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          # A tag no run has built yet is being built by the Images workflow
+          # (30 minutes at most); everything else is there at once.
+          for _ in $(seq 1 90); do
+            if digest=$(docker buildx imagetools inspect "$image:$tag" --format '{{.Manifest.Digest}}' 2>/dev/null) && [ -n "$digest" ]; then
+              echo "ref=$image@$digest" >>"$GITHUB_OUTPUT"
+              echo "id=${digest#sha256:}" >>"$GITHUB_OUTPUT"
+              echo "CI image $image:$tag is $digest"
+              exit 0
+            fi
+            echo "waiting for $image:$tag (Images workflow) …"
+            sleep 20
+          done
+          echo "::error::$image:$tag does not exist: run the Images workflow (Actions → Images → Run workflow); a fork's pull request that changes build/ci can't publish it"
+          exit 1
+
   # go vet for the host, the development build (-tags dev) and the probe build
   # (-tags probe). The vets share compiled dependencies, so one job beats
   # three that each compile them.
   vet:
     name: Vet (host, dev, probe)
-    needs: changes
+    needs: [changes, image]
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read # pull the image
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
     env:
+      SONA_CI_IMAGE: ${{ needs.image.outputs.id }}
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
     steps:
@@ -114,7 +170,7 @@ jobs:
       - uses: ./.github/actions/setup-linux
         id: setup
         with:
-          packages: vet
+          packages: none
           flavor: vet
 
       - name: go vet
@@ -138,10 +194,20 @@ jobs:
   # that differ only by case break macOS and Windows checkouts.
   portability:
     name: Type-check macOS and Windows
-    needs: changes
+    needs: [changes, image]
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read # pull the image
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+    env:
+      SONA_CI_IMAGE: ${{ needs.image.outputs.id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -186,15 +252,24 @@ jobs:
   # artifact. These shards are the "UI tests (goldens)" check.
   test-ui:
     name: Race tests, UI (${{ matrix.index }}/10)
-    needs: changes
+    needs: [changes, image]
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read # pull the image
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
     strategy:
       fail-fast: false
       matrix:
         index: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     env:
+      SONA_CI_IMAGE: ${{ needs.image.outputs.id }}
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
       MYGO_GPU: "0"
@@ -207,7 +282,7 @@ jobs:
       - uses: ./.github/actions/setup-linux
         id: setup
         with:
-          packages: test
+          packages: none
           flavor: race-ui-${{ matrix.index }}
 
       - name: go test -race (UI shard)
@@ -248,15 +323,24 @@ jobs:
   # internal/devinstance.
   test-core:
     name: Race tests, core
-    needs: changes
+    needs: [changes, image]
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read # pull the image
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
     strategy:
       fail-fast: false
       matrix:
         index: [1]
     env:
+      SONA_CI_IMAGE: ${{ needs.image.outputs.id }}
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
       SHARDS: "1"
@@ -268,7 +352,7 @@ jobs:
       - uses: ./.github/actions/setup-linux
         id: setup
         with:
-          packages: test
+          packages: none
           flavor: race-core-${{ matrix.index }}
 
       - name: go test -race (core shard)
@@ -376,7 +460,7 @@ jobs:
   # but the UI's. Skipped jobs (a documentation-only change) pass.
   go:
     name: Go vet and test (-race)
-    needs: [changes, vet, portability, test-core, test-playback]
+    needs: [changes, image, vet, portability, test-core, test-playback]
     if: ${{ always() }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
@@ -391,7 +475,7 @@ jobs:
   # The required check of this name: the UI shards, goldens included.
   ui:
     name: UI tests (goldens)
-    needs: [changes, test-ui]
+    needs: [changes, image, test-ui]
     if: ${{ always() }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
@@ -411,11 +495,20 @@ jobs:
   # landmarks on the accessibility bus. Only this job builds the probe binary.
   e2e-headless:
     name: E2E (headless sway)
-    needs: changes
+    needs: [changes, image]
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read # pull the image
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
     env:
+      SONA_CI_IMAGE: ${{ needs.image.outputs.id }}
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
       E2E_OUT: ${{ github.workspace }}/e2e-out
@@ -431,7 +524,7 @@ jobs:
       - uses: ./.github/actions/setup-linux
         id: setup
         with:
-          packages: e2e
+          packages: none
           flavor: e2e
 
       - name: E2E smoke and AT-SPI check
@@ -462,10 +555,20 @@ jobs:
   # not with a desktop GPU.
   uiprobe:
     name: UI probe (headless sway)
+    needs: [changes, image]
     if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'uiprobe')) }}
     runs-on: ubuntu-26.04
     timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read # pull the image
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
     env:
+      SONA_CI_IMAGE: ${{ needs.image.outputs.id }}
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
       E2E_OUT: ${{ github.workspace }}/uiprobe-out
@@ -478,7 +581,7 @@ jobs:
       - uses: ./.github/actions/setup-linux
         id: setup
         with:
-          packages: e2e
+          packages: none
           flavor: uiprobe
 
       - name: Measure
