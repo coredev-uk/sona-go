@@ -54,6 +54,17 @@ shapes the rules below.
   open.
 - Inline links are underlined, never marked by colour alone.
 - A choice made among pictures (the playlist cover picker) is a `radio group` of `radio` tiles, each named by the label drawn under it (2.5.3), described in a line of its own ("No picture"), `Checked` while chosen, with arrow keys over the grid (`kit.GridNav`). The chosen tile says so with a ring, a check mark and a heavier name, never by colour alone. A choice that applies at once announces its result ("Cover: Dusk"), and a failure stays beside the control as a status, with the limits it broke in view.
+- A text with links in it is not itself on the tree (`kit.ArtistLinks` is a
+  `RoleNone` rich text, so its links sit beside its separators): Orca reads
+  the enclosing text before a focused link, so a link inside an artist's
+  text was read twice ("Ines Calder, Ines Calder, link").
+- A tooltip whose first line is the control's name (the account button's)
+  describes the control by the rest (`kit.TooltipDescribed`): by itself it
+  is the description, and the name is read twice.
+- What takes the focus without being a control is a group named by its text
+  (the setup step's title around its heading), not the heading: Orca reads a
+  focused heading's role and level ("heading 2") and takes its words from
+  the text, which MyGo gives to labels.
 
 ### States MyGo has, and what stands in for the rest
 
@@ -62,7 +73,7 @@ shapes the rules below.
 | `aria-checked`, `aria-pressed` | `Checked` on a switch, check box, toggle button, tab or menu item (`kit.ButtonOpts.Pressed`) |
 | `aria-expanded`, `aria-haspopup` | `Expanded` on the opener, with `RoleMenuButton` or `RolePopUpButton` for the popup |
 | `aria-invalid` and its message | `kit.InputOpts.Error` / `kit.SelectOpts.Error`: the invalid state, the message read with the value |
-| `aria-valuetext` | the slider's description (`kit.SliderOpts.ValueText`) |
+| `aria-valuetext` | the slider's description (`kit.SliderOpts.ValueText`), only where it says more than the value and the percentage a screen reader reads anyway: Seek's "0:42 of 3:00", not Volume's "80%" (Orca read "80, 80 percent, 80%") |
 | `aria-disabled` (a control that keeps focus and says why) | `kit.ButtonOpts.Reason`: enabled, drawn at half strength, the press ignored by the caller, the reason as its description and the tooltip's second line |
 | `disabled` (really unavailable) | `Disabled`: no focus, no press |
 | `aria-current` (current page, step or item) | no state; the control's description is "Current page" (navigation), "Current step" (the setup strip) or "Current" (a chosen city, the lead of a Discover list) |
@@ -117,6 +128,13 @@ code by the state it replaces.
   can help, "Try again".
 - The Now Playing view's panes are tabs (Lyrics, Up next): one Tab stop,
   ←/→ and Home/End move and show.
+- Escape on a control whose tooltip shows (Now Playing's Close, reached by
+  keyboard) hides the tooltip first, as WCAG 1.4.13 asks, and closes the
+  view or confirmation on the second press.
+- A slider that moves by itself (Seek, as the song plays) keeps, for
+  assistive technology, the value it had when the focus came and after each
+  key: a screen reader reads every change of the focused slider, and the
+  position ticks four times a second. The time and the bar go on moving.
 
 ### Live announcements
 
@@ -169,22 +187,75 @@ artwork says which input stops it); covers show their still.
 | `internal/ui/kit/a11y_test.go` | `go test` | Each list and item component (cover grid, shelf, item grid, track list, track shelf, stations, link list, wide row), form controls and their states, dialogs, confirmations, toasts, menus |
 | `internal/ui/**/a11y_test.go` | `go test` | Per feature package: its pages' trees and Tab walk in reading order, Escape and focus return for the overlays it owns, announcements, the states table above |
 | `e2e` `TestAccessibility`, `TestAccessibilityPages` | CI "E2E (headless sway)" job only | The real app's tree on the AT-SPI bus: the window's landmarks, sidebar links and each library page's heading, with the roles and names a screen reader gets (`headless -- go test -tags e2e ./e2e/...`) |
+| `e2e` `TestOrcaWalk`, `TestOrcaSetup` | CI "Orca walk" job, dispatch only (`only` = `orca` or `all`), and `orca-walk` | A real Orca walked through the app by keyboard, and what it said, from its debug log: see "Listening with Orca" |
 | Contrast | `TestContrastFloors` | The text tokens' ratios, computed; the scrim, the focus ring and selected rows are checked as values |
 
 The `ui.Tester` checks are `go test`s, so they run wherever CI runs the Go
 tests; the e2e check runs on Linux only (headless sway, AT-SPI).
+
+### Listening with Orca
+
+`TestOrcaWalk` and `TestOrcaSetup` (`e2e/orca_walk_test.go`) run a real Orca
+beside the app in the e2e harness's headless session, on the fixture profile,
+and press keys with `wtype`, as a keyboard does: Tab through the sidebar, the
+account button, menu and dialog, a library page (Albums: the filter, Sort, the
+tiles, arrows, Shift+F10), an album (artist link, buttons, song list, Enter),
+the queue (Q, a move, a removal, Escape), Now Playing (its tabs, Escape), the
+player bar's Volume and Seek sliders and a track change, and then the
+first-run setup. Orca writes every utterance it generates to its debug file
+(`--debug-file`) whether or not a speech server is there, so nothing is
+spoken and no audio is involved: the words checked are the words Orca would
+say. The run also writes `orca-walk.md` and `orca-setup.md` to `E2E_OUT` (each
+key, what Orca said for it, and where it put the focus), and Orca's log.
+
+```sh
+devenv shell -- orca-walk                  # Orca from the pinned nixpkgs; what it said: bin/orca-out
+E2E_ORCA=1 e2e/headless.sh -- go test -tags e2e -count=1 -v -run '^TestOrca' ./e2e/   # `orca` on the PATH, or E2E_ORCA_BIN
+```
+
+Without `E2E_ORCA=1` the tests skip. CI runs them only when the CI workflow is
+dispatched with `only` = `orca` or `all` (never on a pull request or a push,
+and not a required check: the words and the timing are Orca's, and a new Orca
+can move them). Orca's own English (`LC_ALL=C.UTF-8`) is the reference.
+
+On every key the test fails for a name or text said twice in a row (a link
+read with the text it is in) and for a flood of more than 16 utterances (a
+value read as often as it changes). Per surface it checks the roles, names and
+states of the table below, that a track change and a queue move are read
+once, that closing a menu, dialog or the queue gives the focus back to what
+opened it, and that the focused Seek slider is silent while the song plays.
+What it heard, with Orca 50.2:
+
+| Surface | Orca said |
+| --- | --- |
+| Sidebar, first Tab | "Main", "For you", "link."; then one link per Tab, the open page "Albums, link. Current page.", "New playlist or folder, push button menu. opens popup", "Playlists, List with 3 items", the pins as links |
+| Account button | "Account, button. Not signed in." (the name once); Enter: "Account, menu, Sign in."; Escape: the button again |
+| Account dialog | "Account, dialog, Apple Account, entry. The email address or phone number you use with Apple.", "Password, password text.", the browser and token buttons, "Close, button."; Escape returns to "Account, button." |
+| Albums page | "Albums, panel, Album type, panel, All, toggle button pressed.", "Sort, combo box.", a tile "Fieldnotes, link. Kofi Bellamy."; the arrows move between tiles; Shift+F10 "More for …, menu, Create station."; Escape returns to the tile |
+| An album | "Album" on arrival; "Ines Calder, link." (once); "Play …, button. Play."; "Favourite …, toggle button not pressed."; the song list one stop, "Dust on the Dial." per arrow; Enter: "Now playing: … by …" once |
+| The queue | "Queue 2 songs after this one, panel, Clear, button."; the list one stop "Queue, List with 3 items"; Alt+↓ "Dust on the Dial: moved to position 2 of 2"; Delete moves the focus to the next row; Escape: "Queue, toggle button not pressed." |
+| Now Playing | "Lyrics, page tab.", ←/→ "Up next, page tab.", "Close now playing (Escape), button." |
+| Player bar | "Volume, horizontal slider, 80, 80 percent."; "Seek, horizontal slider, 42, 23 percent. 0:42 of 3:00." and then nothing as the song plays; Ctrl+→ "Now playing: … by …" |
+| Setup | "Welcome to Sona, dialog, …, Language, combo box."; Enter on Get started: "Apple Music, Signing in brings your library…" (the title, then its line); Escape: "alert, Skip the rest of the setup?, …, Skip setup, button." |
+
+The same walk found, and the changes of the same pull request fixed, an
+account button read as "Account, button. Account Not signed in.", an artist
+link read twice, a focused setup title read as "heading 2" with no words, a
+Volume slider read as "80, 80 percent, 80%", and a focused Seek slider read
+four times a second as the song played on.
 
 ### What a person checks (phase 5)
 
 Nothing here replaces listening. With each release candidate, in a desktop
 session with audio:
 
-- **Orca (Linux)**: sign in; walk Home, a library page, an album, the queue,
-  Settings and the setup with Tab and the arrows; check that each control is
-  announced with its role, name and state, that a track change and a queue
-  edit are read once, that "Not available while listening to a live station"
-  is read once per key hold, and that closing a dialog or menu puts the focus
-  back.
+- **Orca (Linux)**: the walk above covers the keys, the words and the focus
+  headless. In a desktop session, with a synthesiser: sign in; walk Home, a
+  library page, an album, the queue, Settings and the setup with Tab and the
+  arrows; listen for speech that is cut off or runs over the next key, that a
+  track change and a queue edit are read once, that "Not available while
+  listening to a live station" is read once per key hold, and that closing a
+  dialog or menu puts the focus back.
 - **VoiceOver (macOS)**: the same walk; the rotor lists headings, links and
   controls, a cover tile's play and more buttons are reachable beside its
   link, a sortable column header reads its direction.
@@ -195,8 +266,22 @@ session with audio:
 
 - A confirmation opened over the first-run setup returns the focus to the
   setup's first control, not to what opened it.
-- No one has yet listened to Orca, VoiceOver or Narrator speak Sona's
-  announcements in a desktop session (phase 5).
+- Orca 50 has been listened to on Linux, through its log on the fixture profile
+  (the walk above): not with a speech synthesiser in a desktop session, nor
+  signed in, and nobody has yet listened to VoiceOver, Narrator or NVDA
+  speak Sona's announcements (phase 5).
+- Now Playing opened by a key (N, L) has no opener to return to: Escape
+  leaves the focus on nothing, Orca says nothing and the next Tab starts at the
+  sidebar. MyGo has no way to read which element has the focus, to remember it.
+- A shortcut that shows a panel says nothing: Q opens the queue silently (the
+  Queue toggle says "pressed" when it is pressed).
+- Opening a page reads the route's title, which is set before the data
+  arrives: "Album", not the album's name.
+- Orca reads a list item's children with it: each arrow in the queue says
+  the song, its artist again, the More and Remove buttons and the line of keys.
+- Leaving the Seek slider says its time once ("0:30 of 3:00"), as the held
+  value catches up. The player bar's group is read with the text beside the
+  song ("Player · Paper Moons, panel") on entering it.
 - No current-page, disabled-but-focusable, busy or alert state exists in
   MyGo; the stand-ins above read well but are not those states. The setup
   strip's one Tab stop is the segment last focused, not the current step,

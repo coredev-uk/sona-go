@@ -1,7 +1,7 @@
 package player
 
 import (
-	"fmt"
+	"math"
 	"net/url"
 	"time"
 
@@ -351,9 +351,19 @@ func (p *player) seekBar(c *ui.Context, s services.PlaybackState, idle bool) {
 		v := pos.Seconds()
 		sl := slider(c.Key("seek"), &v, 0, max(dur.Seconds(), 1), theme.C("amber"), !can)
 		sl.Label(i18n.T("Seek"))
+		told := pos // what assistive technology reads of the position
+		if can && sl.Focused() && !p.seek.active {
+			if !p.seek.holding {
+				p.seek.holding, p.seek.held = true, math.Floor(pos.Seconds())
+			}
+			told = time.Duration(p.seek.held * float64(time.Second))
+			sl.Range(0, max(dur.Seconds(), 1), p.seek.held)
+		} else {
+			p.seek.holding = false
+		}
 		if can {
 			// v0.2.0's aria-valuetext, there only while the slider is on.
-			sl.Description(i18n.T("{at} of {total}", "at", i18n.FormatDuration(pos), "total", i18n.FormatDuration(dur)))
+			sl.Description(i18n.T("{at} of {total}", "at", i18n.FormatDuration(told), "total", i18n.FormatDuration(dur)))
 		}
 		if sl.Changed() {
 			p.seek.active, p.seek.secs = true, v
@@ -425,7 +435,9 @@ func (p *player) volumeControls(c *ui.Context, s services.PlaybackState) {
 			// v0.2.0's w-24 shrink-0: the share of spare room slider() asks for
 			// is the seek bar's, not the volume's.
 			sl.Grow(0).Shrink(0).Width(volumeWidth)
-			sl.Description(fmt.Sprintf("%d%%", int(v+0.5)))
+			// No description: its range is 0 to 100, so a screen reader already
+			// says the value and the percentage ("80, 80 percent"); "80%" again
+			// would be a third time.
 			if sl.Changed() {
 				p.setVolume(v / 100)
 			}

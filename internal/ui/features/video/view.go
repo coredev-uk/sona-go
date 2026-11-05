@@ -1,7 +1,6 @@
 package video
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -656,7 +655,7 @@ func (v *video) volume(c *ui.Context, s services.PlaybackState, focusVisible *bo
 	}
 	pct := s.Volume * 100
 	sl := kit.Slider(c.Key("volume"), &pct, 0, 100, kit.SliderOpts{
-		A11yLabel: i18n.T("Volume"), ValueText: strconv.Itoa(int(pct+0.5)) + "%", Width: 96, Range: theme.C("ink-muted"),
+		A11yLabel: i18n.T("Volume"), Width: 96, Range: theme.C("ink-muted"), // 0 to 100: no value text, which would say the number a third time
 	})
 	control(v.owns(sl), focusVisible)
 	if sl.Changed() {

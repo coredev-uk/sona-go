@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -118,8 +119,10 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 				if got := mustFind(t, tr, ui.RoleSlider, "Seek").Description; got != "0:30 of 3:00" {
 					t.Errorf("Seek reads %q", got)
 				}
-				if got := mustFind(t, tr, ui.RoleSlider, "Volume").Description; got != "80%" {
-					t.Errorf("Volume reads %q", got)
+				// 0 to 100: the number and the percentage say it; a description would
+				// make a screen reader say it a third time.
+				if v := mustFind(t, tr, ui.RoleSlider, "Volume"); v.Description != "" || v.Now != 80 || v.Max != 100 {
+					t.Errorf("Volume reads %v of %v and %q", v.Now, v.Max, v.Description)
 				}
 				// The name of a toggle is its state, and Checked is the state.
 				for _, l := range []string{"Shuffle off", "Repeat off", "Lyrics", "Queue"} {
@@ -673,5 +676,35 @@ func TestAutoPlayWhereItDoesNotApplyKeepsTheFocusAndSaysWhy(t *testing.T) {
 	}
 	if !r.tt.Focused("AutoPlay") {
 		t.Error("AutoPlay lost the focus")
+	}
+}
+
+// A screen reader reads every change of the focused slider, and the position
+// of the song moves four times a second: while Seek has the focus and nobody
+// moves it, assistive technology keeps the position it had when the focus
+// came, and the keys still move it.
+func TestFocusedSeekHoldsTheValueAssistiveTechnologyReads(t *testing.T) {
+	r := newRig(t, true)
+	r.seed()
+	tabTo(t, r.tt.Tester, "Seek")
+	held := mustFind(t, access.Read(t, r.tt.Tester), ui.RoleSlider, "Seek")
+	if held.Now != 30 || held.Description != "0:30 of 3:00" {
+		t.Fatalf("Seek reads %v and %q on arrival", held.Now, held.Description)
+	}
+	for range 3 {
+		r.h.Clock.Advance(4 * time.Second)
+		r.tt.Advance(4 * time.Second)
+	}
+	if got := mustFind(t, access.Read(t, r.tt.Tester), ui.RoleSlider, "Seek"); got.Now != 30 || got.Description != "0:30 of 3:00" {
+		t.Errorf("a focused Seek reads %v and %q while the song plays on", got.Now, got.Description)
+	}
+	if !r.tt.HasText("0:42") {
+		t.Errorf("the time beside the bar does not move: %q", r.tt.Texts())
+	}
+	// Leaving it, Seek reads the position again.
+	r.tt.Key(0, ui.KeyTab)
+	r.tt.Advance(time.Second)
+	if got := mustFind(t, access.Read(t, r.tt.Tester), ui.RoleSlider, "Seek"); got.Now < 42 {
+		t.Errorf("Seek still reads %v once the focus is gone", got.Now)
 	}
 }

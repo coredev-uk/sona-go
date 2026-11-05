@@ -113,8 +113,9 @@ func TestKeyboardWalk(t *testing.T) {
 }
 
 // TestLayerIsANamedDialogWithTheTitleAsAHeading: the sheet is a dialog named
-// and described by its step, whose title is the level-2 heading that holds
-// the focus on arrival.
+// and described by its step, whose title is a level-2 heading; the focus
+// arrives on the group named by the title around it, which Orca can read (it
+// reads a focused heading's role and level, not its words).
 func TestLayerIsANamedDialogWithTheTitleAsAHeading(t *testing.T) {
 	r := newRig(t, 900, 1000)
 	r.open("playback")
@@ -127,13 +128,13 @@ func TestLayerIsANamedDialogWithTheTitleAsAHeading(t *testing.T) {
 	if h, ok := tr.Find(ui.RoleHeading, "Playback"); !ok || h.Level != 2 || !tr.Within(h, ui.RoleDialog) {
 		t.Errorf("the title: %+v", h)
 	}
-	if tr.Focus == nil || tr.Focus.Role != ui.RoleHeading || tr.Focus.Label != "Playback" {
+	if tr.Focus == nil || tr.Focus.Role != ui.RoleGroup || tr.Focus.Label != "Playback" {
 		t.Errorf("the title does not hold the focus: %+v", tr.Focus)
 	}
 	r.click("Continue")
 	r.tt.Frame()
 	tr = access.Read(t, r.tt.Tester)
-	if tr.Focus == nil || tr.Focus.Role != ui.RoleHeading || tr.Focus.Label != "Connections" {
+	if tr.Focus == nil || tr.Focus.Role != ui.RoleGroup || tr.Focus.Label != "Connections" {
 		t.Errorf("the next step's title does not take the focus: %+v", tr.Focus)
 	}
 }
