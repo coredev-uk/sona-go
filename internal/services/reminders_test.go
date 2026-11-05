@@ -21,14 +21,30 @@ import (
 
 // testClock is a settable clock safe to read from the reminder loop.
 type testClock struct {
-	mu sync.Mutex
-	t  time.Time
+	mu   sync.Mutex
+	t    time.Time
+	hook func() // runs once, in the next Now, before it answers
 }
 
 func (c *testClock) Now() time.Time {
 	c.mu.Lock()
+	hook := c.hook
+	c.hook = nil
+	c.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
+	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.t
+}
+
+// beforeNext has fn run in the next Now, before it answers: the test
+// decides what happens between a caller asking the time and being told.
+func (c *testClock) beforeNext(fn func()) {
+	c.mu.Lock()
+	c.hook = fn
+	c.mu.Unlock()
 }
 
 func (c *testClock) set(t time.Time) {
@@ -270,6 +286,35 @@ func TestReminderFollowsAMovedRelease(t *testing.T) {
 		t.Fatalf("notification = %+v", n)
 	}
 	h.noNote(t)
+}
+
+// A reminder removed before its release is not shown by a pass that is under
+// way when the release comes. The first paint never comes here, so the test
+// runs the pass itself, and has the removal and the release happen while the
+// pass is between reading the clock and reading the table: the order it
+// reads them in decides whether it still lists the reminder.
+func TestRemovedReminderIsNotShownByAPassUnderWayAtItsRelease(t *testing.T) {
+	ctx := t.Context()
+	h := newRemindersHarness(t, true)
+	h.apple.set("8", "2026-11-20")
+	if _, err := h.s.Set(ctx, "8", "Out now"); err != nil {
+		t.Fatal(err)
+	}
+	h.clock.beforeNext(func() {
+		if err := h.s.Remove(ctx, "8"); err != nil {
+			t.Error(err)
+		}
+		h.clock.set(localDay(t, "2026-11-21"))
+	})
+	h.s.fireDue()
+	select {
+	case n := <-h.notes.shown: // fireDue shows what it shows before it returns
+		t.Fatalf("shown after the removal: %+v", n)
+	default:
+	}
+	if list, _ := h.s.List(ctx); len(list) != 0 {
+		t.Fatalf("reminders = %+v after the removal", list)
+	}
 }
 
 func TestRemindersClearOnSignOut(t *testing.T) {
