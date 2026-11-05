@@ -1,7 +1,13 @@
 # CI rework plan
 
-Status: benched. Branch `ci/test-correctness` holds this plan and the test
-fixes already made (see "Done on this branch"). Measurements are from the CI
+Status: implemented as four stacked pull requests: #149 (correctness, PR 1),
+#150 (CI image, PR 2), #159 (`-race` scope and fewer jobs, PR 3) and #160
+(goldens, PR 4). What is left once they have merged: the measurements below
+("Cache budget" and the second-run cache hits) on a real `main` run, a
+re-measure of `timings.txt`, and the `golden-update` environment (needs the
+bot-cecil App secrets copied in by a maintainer). The lasting description of
+the result is CONTRIBUTING.md, "CI and workflows"; delete this file when the
+measurements are in. Measurements are from the CI
 runs of 2026-11-04/05 (`origin/main` at `63d0d40`…`c1276c7`).
 
 Goal: every test that should run does run, a red check blocks a merge, and a
@@ -153,6 +159,28 @@ pull request's CI finishes in about 3–4 minutes within the free plan's limits
 After PR 3 (check names final), enable the `main` ruleset requiring: "Go vet
 and test (-race)", "UI tests (goldens)", "E2E (headless sway)", "PR title",
 "Secret scan". Clarence still merges.
+
+## As built: where it differs from the plan
+
+- Cache pruning is `cache-prune.yml` (`workflow_run` after CI on main), not a
+  CI job: a job asking for `actions: write` fails `release.yml`'s call of
+  `ci.yml` at startup.
+- Go's test cache needs a stable environment: `dbus-run-session` set a random
+  `DBUS_SESSION_BUS_ADDRESS` every run and `go test` records the variables a
+  test reads, so UI results were never cached; `.github/ci/session-bus.sh` uses
+  a fixed address.
+- The image is pinned by digest (the weekly rebuild overwrites the tag) and
+  the job's `SONA_CI_IMAGE` is that digest, not a tag set in the Containerfile.
+- Caches: one per kind of job and shard (UI shards `ui`/`ui-race` with and
+  without `-race`, core, vet, e2e) instead of one per OS and build kind; a
+  cache shared by shards would hold only the saving shard's test results, and
+  the prune keeps the newest of each.
+- Vet and the type-checks are one job (`portability` folded into `vet`).
+- Pull requests run macOS in one job; `ui-race` is `ui/store`, `ui/kit`,
+  `ui/lyricsync` (`ui/media` stays in the playback pool, always `-race`).
+- `golden-update.yml` splits the work in two jobs so the branch's code never
+  runs next to the App token, and rewrites only the failing golden tests'
+  images.
 
 ## Cache budget (10 GB)
 

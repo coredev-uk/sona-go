@@ -1,0 +1,174 @@
+# Updates the UI golden images of a pull request: a maintainer adds the
+# `update-goldens` label, this workflow regenerates the images of the failing
+# golden tests in the CI image (the reference: the goldens depend on its Pango
+# and fonts, which a laptop's never match exactly), commits the changed PNGs to
+# the pull request's branch as bot-cecil and removes the label. The push is
+# made with the App's token, so CI runs on it (GITHUB_TOKEN pushes start no
+# workflow).
+#
+# Two jobs, so the branch's code never runs next to a secret:
+#   update  runs the pull request's code (go test -update) with a read-only
+#           token and no secrets, and hands the changed PNGs over as an
+#           artifact;
+#   push    in the `golden-update` environment (the App's secrets), runs no
+#           repository code: it checks each artifact path is a golden image,
+#           commits and pushes.
+# Only pull requests from this repository (a fork's is refused: the bot may not
+# push to a fork, and a fork's code must not get at the secrets) and only the
+# label's event run it.
+#
+# Maintainer setup (docs/release-checklist.md, "bot-cecil App permissions"):
+# the `golden-update` environment needs the secrets RENOVATE_APP_CLIENT_ID and
+# RENOVATE_APP_PRIVATE_KEY (bot-cecil's, as release-please.yml uses; the
+# repository-level secrets of the same names work until the environment has
+# its own), and the label `update-goldens` must exist.
+name: Update goldens
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions: {}
+
+concurrency:
+  group: golden-update-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    name: CI image
+    if: ${{ github.event.label.name == 'update-goldens' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: read # pull the image
+    outputs:
+      ref: ${{ steps.find.outputs.ref }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Find the image
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: build/ci/find-image.sh
+
+  update:
+    name: Regenerate the golden images
+    needs: image
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read # pull the image
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+    outputs:
+      changed: ${{ steps.collect.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Regenerate the images of the failing golden tests
+        run: dbus-run-session -- .github/ci/golden-update.sh
+
+      - name: Collect the changed images
+        id: collect
+        run: |
+          git status --porcelain -z -- 'internal/ui/**/testdata/golden/*.png' | tr '\0' '\n' | cut -c4- >"$RUNNER_TEMP/changed.txt"
+          if [ -s "$RUNNER_TEMP/changed.txt" ]; then
+            tar -cf "$RUNNER_TEMP/goldens.tar" -T "$RUNNER_TEMP/changed.txt"
+            echo "changed=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >>"$GITHUB_OUTPUT"
+          fi
+          cat "$RUNNER_TEMP/changed.txt"
+
+      - name: Hand the images over
+        if: ${{ steps.collect.outputs.changed == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: goldens
+          path: ${{ runner.temp }}/goldens.tar
+          retention-days: 1
+
+  push:
+    name: Commit the images to the pull request
+    needs: update
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    environment: golden-update
+    permissions: {}
+    steps:
+      # bot-cecil's installation permissions must include these two
+      # (docs/release-checklist.md, "bot-cecil App permissions").
+      - name: Generate bot-cecil token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          permission-contents: write # the push
+          permission-issues: write # the label
+
+      - name: Remove the label when nothing changed
+        if: ${{ needs.update.outputs.changed != 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh api -X DELETE "repos/$REPO/issues/$PR/labels/update-goldens"
+          echo "::notice::no golden image differs from the CI image's"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ needs.update.outputs.changed == 'true' }}
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: true
+
+      - name: Download the images
+        if: ${{ needs.update.outputs.changed == 'true' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: goldens
+          path: ${{ runner.temp }}
+
+      - name: Commit and push
+        if: ${{ needs.update.outputs.changed == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          # The branch must still be where the images were made from.
+          [ "$(git rev-parse HEAD)" = "$HEAD_SHA" ] || { echo "::error::the branch moved since the label was added; add the label again"; exit 1; }
+          # Only golden images, nothing else the artifact might hold.
+          tar -tf "$RUNNER_TEMP/goldens.tar" >"$RUNNER_TEMP/paths.txt"
+          if grep -qvE '^internal/ui/[A-Za-z0-9_./-]*testdata/golden/[A-Za-z0-9_.-]+\.png$' "$RUNNER_TEMP/paths.txt" || grep -q '\.\.' "$RUNNER_TEMP/paths.txt"; then
+            echo "::error::the artifact holds more than golden images"
+            exit 1
+          fi
+          tar -xf "$RUNNER_TEMP/goldens.tar"
+          git config user.name "bot-cecil[bot]"
+          git config user.email "bot-cecil[bot]@users.noreply.github.com"
+          xargs -a "$RUNNER_TEMP/paths.txt" git add --
+          git commit -m "test(ui): update golden images (rendered in the CI image)"
+          git push origin "HEAD:refs/heads/$HEAD_REF"
+          gh api -X DELETE "repos/$REPO/issues/$PR/labels/update-goldens"
