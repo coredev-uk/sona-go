@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -47,6 +48,7 @@ type coverRig struct {
 	lib    *library.Library
 	d      *db.DB
 	covers string
+	artDir string
 }
 
 func albumArt(n string) string {
@@ -64,7 +66,8 @@ func newCoverRig(t *testing.T, files FileChooser) *coverRig {
 	}
 	t.Cleanup(func() { _ = d.Close() })
 	covers := filepath.Join(t.TempDir(), "covers")
-	art, err := artwork.New(artwork.Options{Dir: t.TempDir(), CoverDir: covers})
+	artDir := t.TempDir()
+	art, err := artwork.New(artwork.Options{Dir: artDir, CoverDir: covers})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +81,7 @@ func newCoverRig(t *testing.T, files FileChooser) *coverRig {
 		pl:  &PlaylistsService{e: e, m: e.m, locks: map[string]*sync.Mutex{}},
 		ls:  &LibraryService{o: e, m: e.m},
 		e:   e,
-		rec: rec, lib: lib, d: d, covers: covers,
+		rec: rec, lib: lib, d: d, covers: covers, artDir: artDir,
 	}
 	r.store("p.mix", "", "a", "b", "c", "d", "e")
 	r.store("p.other", "", "a", "b", "c", "d")
@@ -228,7 +231,7 @@ func TestCoverOptionsListTheAutomaticCoverNoneAndSixPresets(t *testing.T) {
 	if got.Current != CoverAuto || got.CanUpload {
 		t.Errorf("Current = %q, CanUpload = %v; want the automatic cover and no upload without a file chooser", got.Current, got.CanUpload)
 	}
-	if got.Limits.MaxBytes != artwork.MaxCoverBytes || got.Limits.MinEdge != artwork.MinCoverEdge {
+	if got.Limits.MaxBytes != artwork.MaxCoverBytes || got.Limits.MinEdge != artwork.MinCoverEdge || got.Limits.MaxMpx != artwork.MaxCoverPixels/1_000_000 {
 		t.Errorf("limits = %+v", got.Limits)
 	}
 	if len(got.Options) != 3+len(artwork.PresetStyles) || got.Options[0].ID != CoverAuto || got.Options[1].ID != CoverNone {
@@ -540,8 +543,17 @@ func TestACoverGoesWithItsPlaylistAndSignOut(t *testing.T) {
 		t.Fatalf("%d files left for no playlist", len(stored))
 	}
 
-	// Sign-out removes every chosen image, whatever the database says.
+	// Sign-out removes every chosen image, whatever the database says, and
+	// the preset covers drawn with playlist names.
 	r.store("p.again", "", "a")
+	opts, err := r.pl.CoverOptions(ctx, "p.again")
+	if err != nil {
+		t.Fatal(err)
+	}
+	classic := opts.Options[2].ID
+	if _, err := r.e.Art.Get(ctx, classic, 64, 64); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := r.pl.UploadCover(ctx, "p.again"); err != nil {
 		t.Fatal(err)
 	}
@@ -556,6 +568,12 @@ func TestACoverGoesWithItsPlaylistAndSignOut(t *testing.T) {
 	}
 	if uploads, err := r.lib.CoverUploads(ctx); err != nil || len(uploads) != 0 {
 		t.Errorf("sign-out left choices %v, %v", uploads, err)
+	}
+	tmplFiles, _ := filepath.Glob(filepath.Join(r.artDir, "*", "template"))
+	for _, f := range tmplFiles {
+		if b, _ := os.ReadFile(f); strings.HasPrefix(string(b), "preset:") {
+			t.Errorf("sign-out left %s, with a playlist's name, in the artwork cache", b)
+		}
 	}
 }
 
@@ -629,12 +647,13 @@ func TestConcurrentUploadsAndTidyingKeepEveryChosenImage(t *testing.T) {
 
 // A playlist Apple generated a cover for keeps it as its automatic cover, at
 // the size shown, and the classic preset wears the colours Apple chose and
-// the playlist's name, which follows a rename.
-func TestClassicCoverFollowsAppleColoursAndRenames(t *testing.T) {
+// the playlist's name, whoever renamed the playlist and wherever.
+func TestClassicCoverFollowsAppleColoursAndTheCurrentName(t *testing.T) {
 	ctx := context.Background()
 	r := newCoverRig(t, nil)
 	const gen = "https://is1-ssl.mzstatic.com/image/thumb/gen/1200x1200AM.PDCXS11.jpg?c1=F2CC9D&c2=FFA940&c3=B36B00&c4=400000&signature=ff&t=eA%3D%3D&tc=000000&vkey=1"
 	r.store("p.gen", gen, "a")
+	r.pin(t, "p.gen")
 	opts, err := r.pl.CoverOptions(ctx, "p.gen")
 	if err != nil {
 		t.Fatal(err)
@@ -649,17 +668,61 @@ func TestClassicCoverFollowsAppleColoursAndRenames(t *testing.T) {
 	if _, err := r.pl.SetCover(ctx, "p.gen", classic.ID); err != nil {
 		t.Fatal(err)
 	}
-	r.pl.renameCover(ctx, "p.gen", "Gym")
-	c, _ := r.lib.PlaylistCover(ctx, "p.gen")
-	if c.Template != artwork.RenamePreset(classic.ID, "Gym") || c.Template == classic.ID {
-		t.Errorf("after a rename the cover is %q", c.Template)
-	}
-	// Another style is not a rename's business.
-	if _, err := r.pl.SetCover(ctx, "p.gen", "preset:glow:112233:ddeeff"); err != nil {
+	// Renamed elsewhere: the sync stores the new name (the id is the name here).
+	r.store("p.gen", gen, "a")
+	if _, err := r.d.W.ExecContext(ctx, `UPDATE playlists SET name = 'Gym' WHERE library_id = 'p.gen'`); err != nil {
 		t.Fatal(err)
 	}
-	r.pl.renameCover(ctx, "p.gen", "Run")
-	if c, _ := r.lib.PlaylistCover(ctx, "p.gen"); c.Template != "preset:glow:112233:ddeeff" {
-		t.Errorf("a glow cover became %q", c.Template)
+	want := artwork.RenamePreset(classic.ID, "Gym")
+	if want == classic.ID {
+		t.Fatal("test setup: the name is not in the template")
+	}
+	got := r.shown(t, "p.gen")
+	for _, surface := range []string{"tree", "list", "page", "pin"} { // search finds playlists by name: this one has a new one
+		if got[surface] != r.e.Art.URL(want, artLarge, artLarge) {
+			t.Errorf("%s still shows the old name's cover: %q", surface, got[surface])
+		}
+	}
+	opts, _ = r.pl.CoverOptions(ctx, "p.gen")
+	n := 0
+	for _, o := range opts.Options {
+		if o.Style == artwork.ClassicStyle {
+			n++
+		}
+	}
+	if opts.Current != want || n != 1 {
+		t.Errorf("picker: current %q (want %q), %d classic tiles", opts.Current, want, n)
+	}
+}
+
+func TestFileChooserGlobsMatchEveryCaseOfAnExtension(t *testing.T) {
+	for _, name := range []string{"a.jpg", "a.JPG", "a.Jpeg", "a.JPEG", "a.png", "a.PNG"} {
+		ok := false
+		for _, p := range coverPatterns {
+			if m, _ := path.Match(p, name); m {
+				ok = true
+			}
+		}
+		if !ok {
+			t.Errorf("%s is hidden by the chooser's filter", name)
+		}
+	}
+}
+
+// An image stored for a playlist that is gone by the time it is recorded
+// does not stay on disk.
+func TestUploadForAPlaylistThatWentLeavesNoFile(t *testing.T) {
+	ctx := context.Background()
+	files := &chooser{}
+	r := newCoverRig(t, files)
+	files.path = writePNG(t, 400, 400, color.RGBA{9, 9, 9, 255})
+	if err := r.lib.DropPlaylist(ctx, "p.mix"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.pl.UploadCover(ctx, "p.mix"); err == nil {
+		t.Fatal("an upload for a missing playlist succeeded")
+	}
+	if stored, _ := os.ReadDir(r.covers); len(stored) != 0 {
+		t.Errorf("%d files left behind", len(stored))
 	}
 }

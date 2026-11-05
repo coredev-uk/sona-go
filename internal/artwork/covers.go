@@ -31,14 +31,15 @@ const (
 	// CoverEdge is the edge of the stored square, in px: the largest size
 	// Sona draws a playlist cover at is below it.
 	CoverEdge = 1024
-	// maxCoverPixels bounds what is decoded, so a small file that claims a
+	// MaxCoverPixels bounds what is decoded, so a small file that claims a
 	// huge picture cannot take the memory of the machine.
-	maxCoverPixels = 40_000_000
+	MaxCoverPixels = 40_000_000
 	coverQuality   = 90
 )
 
 // ErrCoverImage reports an image that cannot be a cover: not a JPEG or
-// PNG, damaged, over MaxCoverBytes, or under MinCoverEdge on a side.
+// PNG, damaged, over MaxCoverBytes or MaxCoverPixels, or under MinCoverEdge
+// on a side.
 var ErrCoverImage = errors.New("artwork: unusable cover image")
 
 // ErrNoCoverDir reports a Cache built without Options.CoverDir.
@@ -120,7 +121,7 @@ func prepareCover(data []byte) ([]byte, error) {
 	if min(cfg.Width, cfg.Height) < MinCoverEdge {
 		return nil, fmt.Errorf("%w: %d×%d px is under %d px", ErrCoverImage, cfg.Width, cfg.Height, MinCoverEdge)
 	}
-	if cfg.Width*cfg.Height > maxCoverPixels {
+	if cfg.Width*cfg.Height > MaxCoverPixels {
 		return nil, fmt.Errorf("%w: %d×%d px is too large", ErrCoverImage, cfg.Width, cfg.Height)
 	}
 	img, err := decodeImage(data)

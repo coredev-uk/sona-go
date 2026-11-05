@@ -34,7 +34,8 @@ type fakeAPI struct {
 	pinTracks   map[string][]services.Song
 	// covers are the cover pickers by playlist; SetCover, UploadCover and
 	// RemoveCoverUpload change them as the service would.
-	covers map[string]services.PlaylistCovers
+	covers  map[string]services.PlaylistCovers
+	uploads int
 	// err is returned by every call that changes something while set; reads
 	// fail too when failReads is set.
 	err       error
@@ -210,6 +211,12 @@ func (f *fakeAPI) UploadCover(_ context.Context, id string) (services.PlaylistCo
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	c := testCovers(true, true)
+	f.uploads++
+	for i := range c.Options {
+		if c.Options[i].Kind == "upload" {
+			c.Options[i].Art.Large = fmt.Sprintf("upload-%d", f.uploads) // never drawn: tiles use Medium
+		}
+	}
 	c.Current = services.CoverUpload
 	f.covers[id] = c
 	return c, nil
@@ -233,7 +240,7 @@ func testCovers(canUpload, upload bool) services.PlaylistCovers {
 	c := services.PlaylistCovers{
 		Current:   services.CoverAuto,
 		CanUpload: canUpload,
-		Limits:    services.CoverLimits{MaxBytes: 20 << 20, MinEdge: 300},
+		Limits:    services.CoverLimits{MaxBytes: 20 << 20, MinEdge: 300, MaxMpx: 40},
 		Options: []services.CoverOption{
 			{ID: services.CoverAuto, Kind: "auto"},
 			{ID: services.CoverNone, Kind: "none"},

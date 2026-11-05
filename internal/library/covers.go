@@ -153,7 +153,9 @@ func (l *Library) FillCovers(ctx context.Context, pls []Playlist) error {
 			i := at[r[0]]
 			pls[i].ArtworkTemplate = ""
 			if CoverKind(r[1]) != CoverNone {
-				pls[i].ArtworkTemplate = r[2]
+				// A classic preset carries the playlist's name: its current one,
+				// wherever it was renamed.
+				pls[i].ArtworkTemplate = artwork.RenamePreset(r[2], pls[i].Name)
 			}
 			chosen[i] = true
 		}

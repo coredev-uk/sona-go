@@ -3,7 +3,9 @@ package artwork
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
+	"hash/crc32"
 	"image"
 	"image/color"
 	"image/draw"
@@ -13,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -195,11 +198,13 @@ func TestSaveCoverRefusesWhatCannotBeACover(t *testing.T) {
 			t.Errorf("%s: err = %v, want ErrCoverImage", name, err)
 		}
 	}
-	// A header that claims more pixels than are worth decoding.
+	// A header that claims more pixels than are worth decoding, its CRC
+	// fixed so that only the pixel cap can refuse it.
 	huge := encodePNG(t, quadrants(400, 400))
 	copy(huge[16:], []byte{0, 0, 0x4e, 0x20, 0, 0, 0x4e, 0x20}) // IHDR 20000×20000
-	if _, err := c.SaveCover(bytes.NewReader(huge)); !errorsIs(err, ErrCoverImage) {
-		t.Errorf("a 400 Mpx header: err = %v, want ErrCoverImage", err)
+	binary.BigEndian.PutUint32(huge[29:], crc32.ChecksumIEEE(huge[12:29]))
+	if _, err := c.SaveCover(bytes.NewReader(huge)); !errorsIs(err, ErrCoverImage) || !strings.Contains(err.Error(), "too large") {
+		t.Errorf("a 400 Mpx header: err = %v, want ErrCoverImage for its size", err)
 	}
 	if es, _ := os.ReadDir(dir); len(es) != 0 {
 		t.Errorf("a refused image left %d files in the covers directory", len(es))

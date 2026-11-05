@@ -172,6 +172,7 @@ type CoverOption struct {
 type CoverLimits struct {
 	MaxBytes int `json:"maxBytes"` // the file's size
 	MinEdge  int `json:"minEdge"`  // its width and height, in px
+	MaxMpx   int `json:"maxMpx"`   // its width times height, in millions of px
 }
 
 // PlaylistCovers is a library playlist's cover picker: the options in the

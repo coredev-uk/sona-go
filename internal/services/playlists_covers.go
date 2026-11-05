@@ -20,6 +20,13 @@ const (
 	msgCoverFilter l10n.Message = "Images (JPEG or PNG)" // the file chooser's file type
 )
 
+// coverPatterns are the file chooser's globs. The portal's and GTK's are
+// case-sensitive, so each extension is also given with brackets ("IMG.JPG").
+var coverPatterns = []string{
+	"*.jpg", "*.jpeg", "*.png",
+	"*.[jJ][pP][gG]", "*.[jJ][pP][eE][gG]", "*.[pP][nN][gG]",
+}
+
 // Playlist covers are Sona's own. Apple's web API cannot set a playlist's
 // artwork (docs/apple-music-reference.md, "Playlist artwork"), so the
 // choice lives in SQLite (library.CoverChoice) and an uploaded image in
@@ -40,6 +47,7 @@ func (s *PlaylistsService) CoverOptions(ctx context.Context, id string) (Playlis
 	if err != nil {
 		return PlaylistCovers{}, err
 	}
+	choice.Template = artwork.RenamePreset(choice.Template, name)
 	var palette []artwork.Color
 	if auto != "" && s.e.Art != nil {
 		cctx, cancel := context.WithTimeout(ctx, colorsTimeout)
@@ -51,7 +59,7 @@ func (s *PlaylistsService) CoverOptions(ctx context.Context, id string) (Playlis
 	out := PlaylistCovers{
 		Current:   CoverAuto,
 		CanUpload: s.e.Platform.Files != nil && s.e.Art != nil,
-		Limits:    CoverLimits{MaxBytes: artwork.MaxCoverBytes, MinEdge: artwork.MinCoverEdge},
+		Limits:    CoverLimits{MaxBytes: artwork.MaxCoverBytes, MinEdge: artwork.MinCoverEdge, MaxMpx: artwork.MaxCoverPixels / 1_000_000},
 	}
 	switch choice.Kind {
 	case library.CoverNone:
@@ -124,7 +132,7 @@ func (s *PlaylistsService) UploadCover(ctx context.Context, id string) (Playlist
 	path, err := s.e.Platform.Files.OpenFile(ctx, app.OpenFileOptions{
 		Title:       p.T(msgCoverTitle),
 		AcceptLabel: p.T(msgCoverAccept),
-		Filters:     []app.FileFilter{{Name: p.T(msgCoverFilter), Patterns: []string{"*.jpg", "*.jpeg", "*.png"}}},
+		Filters:     []app.FileFilter{{Name: p.T(msgCoverFilter), Patterns: coverPatterns}},
 	})
 	if err != nil {
 		return PlaylistCovers{}, err
@@ -145,6 +153,7 @@ func (s *PlaylistsService) UploadCover(ctx context.Context, id string) (Playlist
 		return PlaylistCovers{}, err
 	}
 	if err := s.storeCover(ctx, id, library.CoverChoice{Kind: library.CoverUpload, Template: tmpl, Upload: tmpl}); err != nil {
+		tidyCoverFiles(ctx, s.e) // the image just stored refers to nothing: it goes now
 		return PlaylistCovers{}, err
 	}
 	s.e.Logger.Info("playlist cover chosen", "playlist", id)
@@ -215,7 +224,7 @@ func tidyCoverFiles(ctx context.Context, e *Env) {
 
 // coverOfPin is the cover the user chose for a pinned playlist, "" when
 // the pin keeps the artwork Apple gave it.
-func (s *PlaylistsService) coverOfPin(ctx context.Context, libraryID string) (string, bool) {
+func (s *PlaylistsService) coverOfPin(ctx context.Context, libraryID, name string) (string, bool) {
 	choice, err := s.e.Library.PlaylistCover(ctx, libraryID)
 	if err != nil {
 		return "", false
@@ -224,23 +233,14 @@ func (s *PlaylistsService) coverOfPin(ctx context.Context, libraryID string) (st
 	case library.CoverNone:
 		return "", true
 	case library.CoverPreset, library.CoverUpload:
-		return choice.Template, true
+		if choice.Kind == library.CoverPreset && artwork.PresetStyle(choice.Template) == artwork.ClassicStyle {
+			// The pin's name is Apple's, as of the last pin refresh: the
+			// playlist's own is the library's.
+			if _, current, err := s.e.Library.AutoCover(ctx, libraryID); err == nil {
+				name = current
+			}
+		}
+		return artwork.RenamePreset(choice.Template, name), true
 	}
 	return "", false
-}
-
-// renameCover keeps a classic preset cover, which carries the playlist's
-// name, in step with a rename.
-func (s *PlaylistsService) renameCover(ctx context.Context, id, name string) {
-	defer s.e.lockCovers()()
-	c, err := s.e.Library.PlaylistCover(ctx, id)
-	if err != nil || c.Kind != library.CoverPreset {
-		return
-	}
-	if next := artwork.RenamePreset(c.Template, name); next != c.Template {
-		c.Template = next
-		if err := s.e.Library.SetPlaylistCover(ctx, id, c); err != nil {
-			s.e.Logger.Warn("playlist covers: rename", "err", err)
-		}
-	}
 }

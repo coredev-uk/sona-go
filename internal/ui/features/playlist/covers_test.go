@@ -49,7 +49,7 @@ func TestCoverDialogOffersEveryChoiceAndSaysWhereTheCoverLives(t *testing.T) {
 	r.shows(append([]string{
 		"Apple Music can't keep a playlist cover from here, so your choice stays on this computer and shows in Sona only.",
 		"Choose an image…",
-		"JPEG or PNG, up to 20 MB, at least 300 px wide and tall. Sona crops it to a square from the centre.",
+		"JPEG or PNG, up to 20 MB and 40 megapixels, at least 300 px wide and tall. Sona crops it to a square from the centre.",
 	}, coverStyles...)...)
 	if r.tt.HasText("Your image") || r.tt.HasText("Remove my image") {
 		t.Error("an image is offered before one was chosen")
@@ -203,7 +203,7 @@ func TestCoverDialogUnusableImageSaysWhyBesideTheButton(t *testing.T) {
 	}
 	r.did("UploadCover p.a")
 	r.shows("Sona can't use that image. It must be a JPEG or PNG within the size limits.",
-		"JPEG or PNG, up to 20 MB, at least 300 px wide and tall. Sona crops it to a square from the centre.")
+		"JPEG or PNG, up to 20 MB and 40 megapixels, at least 300 px wide and tall. Sona crops it to a square from the centre.")
 	tr := access.Read(t, r.tt.Tester)
 	if n, ok := tr.Find(ui.RoleStatus, "Sona can't use that image. It must be a JPEG or PNG within the size limits."); !ok || !tr.Within(n, ui.RoleDialog) {
 		t.Errorf("the failure is not a status in the dialog: %+v", n)
@@ -357,4 +357,22 @@ func TestA11yCoverDialog(t *testing.T) {
 	if !r.closed() {
 		t.Error("Escape left the dialog open")
 	}
+}
+
+// Replacing the kept image changes every surface and is said, though the
+// chosen option stays "Your image".
+func TestCoverDialogAnnouncesAReplacedImage(t *testing.T) {
+	r := newDialogsRig(t)
+	r.api.covers["p.a"] = func() services.PlaylistCovers {
+		c := testCovers(true, true)
+		c.Current = services.CoverUpload
+		return c
+	}()
+	r.showCover()
+	r.tt.Announcements()
+	if err := r.tt.Click("Choose an image…"); err != nil {
+		t.Fatal(err)
+	}
+	r.did("UploadCover p.a")
+	r.tt.Until("it is announced", func() bool { return slices.Contains(r.tt.Announcements(), "Your image is now the cover") })
 }

@@ -52,10 +52,10 @@ func coverLabel(o services.CoverOption) string {
 	switch o.Kind {
 	case "auto":
 		// translators: A choice of playlist cover: the one Sona picks by itself (Apple's artwork, or the playlist's albums as a mosaic).
-		return i18n.T("Automatic")
+		return i18n.TC("playlist cover", "Automatic")
 	case "none":
 		// translators: A choice of playlist cover: no picture, the plain placeholder.
-		return i18n.T("None")
+		return i18n.TC("playlist cover", "None")
 	case "upload":
 		// translators: A choice of playlist cover: the picture the user chose from a file.
 		return i18n.T("Your image")
@@ -217,8 +217,8 @@ func (p *playlists) coverUpload(c *ui.Context, data services.PlaylistCovers) {
 	for _, o := range data.Options {
 		hasUpload = hasUpload || o.Kind == "upload"
 	}
-	limits := i18n.T("JPEG or PNG, up to {maxMiB} MB, at least {minEdge} px wide and tall. Sona crops it to a square from the centre.",
-		"maxMiB", data.Limits.MaxBytes>>20, "minEdge", data.Limits.MinEdge)
+	limits := i18n.T("JPEG or PNG, up to {maxMiB} MB and {maxMpx} megapixels, at least {minEdge} px wide and tall. Sona crops it to a square from the centre.",
+		"maxMiB", data.Limits.MaxBytes>>20, "maxMpx", data.Limits.MaxMpx, "minEdge", data.Limits.MinEdge)
 	ui.Column(c.Key("upload")).FillWidth().Gap(10).AlignItems(ui.Start).Children(func() {
 		if !data.CanUpload {
 			dialogText(c.Key("unavailable"), i18n.T("Choosing an image needs a file chooser, and this system has none."), "secondary").
@@ -285,9 +285,9 @@ func (p *playlists) chooseCover(o services.CoverOption, label string) {
 func (p *playlists) uploadCover() {
 	d := &p.dialogs
 	id, gen := d.s.id, d.gen
-	prev := ""
+	prev, prevArt := "", ""
 	if q := p.covers(id); q.HasData {
-		prev = q.Data.Current
+		prev, prevArt = q.Data.Current, uploadArt(q.Data)
 	}
 	d.coverErr = ""
 	d.busy = true
@@ -295,12 +295,24 @@ func (p *playlists) uploadCover() {
 		got, err := p.api.UploadCover(context.Background(), id)
 		p.env.Post(func() {
 			said := ""
-			if err == nil && got.Current != prev {
+			// A cancelled chooser changes neither; a replaced image changes the
+			// picture of the same option.
+			if err == nil && (got.Current != prev || uploadArt(got) != prevArt) {
 				said = i18n.T("Your image is now the cover")
 			}
 			p.coverDone(gen, id, got, err, "", said)
 		})
 	}()
+}
+
+// uploadArt is the picture of the user's image in covers ("" without one).
+func uploadArt(c services.PlaylistCovers) string {
+	for _, o := range c.Options {
+		if o.Kind == "upload" {
+			return o.Art.Large
+		}
+	}
+	return ""
 }
 
 // removeCoverImage deletes the open dialog's playlist's kept image.

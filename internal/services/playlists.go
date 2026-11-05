@@ -377,8 +377,7 @@ func (s *PlaylistsService) Update(ctx context.Context, id string, in PlaylistInp
 	if err := s.e.Library.UpdatePlaylistDetails(ctx, id, attrs.Name, attrs.Description, attrs.IsPublic, modified); err != nil {
 		return err
 	}
-	s.renameCover(ctx, id, attrs.Name)
-	s.changed(PlaylistsChanged{IDs: []string{id}, Tree: true, Pins: true})
+	s.changed(PlaylistsChanged{IDs: []string{id}, Tree: true})
 	go s.refreshPinsQuietly() // a pinned playlist shows its new name
 	return nil
 }
@@ -651,7 +650,7 @@ func (s *PlaylistsService) Pins(ctx context.Context) ([]Pin, error) {
 	for i, r := range rows {
 		p := Pin{Kind: r.Kind, ID: r.AppleID, Name: r.Name, Subtitle: r.Subtitle, Action: r.Action, Art: s.m.artOf(r.ArtworkTemplate), AlbumID: r.SongAlbumID}
 		if r.Kind == kindPlaylist {
-			if tmpl, ok := s.coverOfPin(ctx, r.AppleID); ok {
+			if tmpl, ok := s.coverOfPin(ctx, r.AppleID, r.Name); ok {
 				p.Art = s.m.artOf(tmpl)
 			}
 		}

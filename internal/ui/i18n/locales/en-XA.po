@@ -639,11 +639,15 @@ msgstr ""
 msgid "AutoPlay on: similar music plays when the queue ends"
 msgstr ""
 
-#. A choice of playlist cover: the one Sona picks by itself (Apple's artwork, or the playlist's albums as a mosaic).
 #: internal/ui/features/onboarding/welcome.go
-#: internal/ui/features/playlist/covers.go
 #: internal/ui/features/settings/desktop.go
 #: internal/ui/features/settings/language.go
+msgid "Automatic"
+msgstr ""
+
+#. A choice of playlist cover: the one Sona picks by itself (Apple's artwork, or the playlist's albums as a mosaic).
+#: internal/ui/features/playlist/covers.go
+msgctxt "playlist cover"
 msgid "Automatic"
 msgstr ""
 
@@ -2791,7 +2795,7 @@ msgid "Its two-factor method (such as a security key) can't be completed inside 
 msgstr ""
 
 #: internal/ui/features/playlist/covers.go
-msgid "JPEG or PNG, up to {maxMiB} MB, at least {minEdge} px wide and tall. Sona crops it to a square from the centre."
+msgid "JPEG or PNG, up to {maxMiB} MB and {maxMpx} megapixels, at least {minEdge} px wide and tall. Sona crops it to a square from the centre."
 msgstr ""
 
 #. Equaliser preset
@@ -3601,9 +3605,13 @@ msgstr ""
 msgid "No way to receive a code."
 msgstr ""
 
+#: internal/ui/features/settings/diag_rows.go
+msgid "None"
+msgstr ""
+
 #. A choice of playlist cover: no picture, the plain placeholder.
 #: internal/ui/features/playlist/covers.go
-#: internal/ui/features/settings/diag_rows.go
+msgctxt "playlist cover"
 msgid "None"
 msgstr ""
 

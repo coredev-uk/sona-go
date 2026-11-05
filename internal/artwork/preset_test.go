@@ -6,6 +6,8 @@ import (
 	"image"
 	"image/color"
 	"image/jpeg"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -210,5 +212,29 @@ func TestClassicPresetUsesAppleColoursAndTheName(t *testing.T) {
 		if IsPreset(bad) {
 			t.Errorf("%q was accepted", bad)
 		}
+	}
+}
+
+// Sign-out removes the cached preset covers: a classic one carries a
+// playlist's name, in its template file and in its picture.
+func TestRemovePresetsDeletesTheirCacheAndNoOtherArtwork(t *testing.T) {
+	c := newCache(t, newImageServer(t), "", 0)
+	classic := Presets(nil, nil, "Therapy playlist")[0]
+	glow := Presets(nil, nil, "x")[5]
+	for _, tm := range []string{classic, glow, red} {
+		if _, err := c.Get(context.Background(), tm, 64, 64); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n, err := c.RemovePresets(); err != nil || n == 0 {
+		t.Fatalf("RemovePresets = %d, %v", n, err)
+	}
+	for _, tm := range []string{classic, glow} {
+		if _, err := os.Stat(filepath.Join(c.dir, keyOf(tm))); err == nil {
+			t.Errorf("%s is still cached", tm)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(c.dir, keyOf(red))); err != nil {
+		t.Errorf("an album's artwork went too: %v", err)
 	}
 }
