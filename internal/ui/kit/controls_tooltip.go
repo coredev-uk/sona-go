@@ -30,6 +30,18 @@ func controlsTooltip(c *ui.Context, anchor ui.Element, text string, describe boo
 	return controlsTooltipKeys(c, anchor, text, describe, nil)
 }
 
+// TooltipDescribed is Tooltip for an anchor whose tip starts with its own
+// name, as the account button's ("Account", then where the account stands):
+// assistive technology reads description after the name instead of the tip,
+// which would say the name twice (none when description is empty).
+func TooltipDescribed(c *ui.Context, anchor ui.Element, text, description string) ui.Element {
+	controlsTooltip(c, anchor, text, false)
+	if description != "" {
+		anchor.Description(description)
+	}
+	return anchor
+}
+
 // TooltipKeys is Tooltip with the keys the control answers to after the text,
 // as keycaps (v0.2.0's ChordKeys in a tooltip): only the first of chords is
 // drawn, and assistive technology reads it as part of the description. No

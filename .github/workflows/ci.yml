@@ -28,9 +28,9 @@ on:
       only:
         description: >-
           Which jobs to run: all (what a push to main runs), pr (what a pull
-          request runs), macos, windows or uiprobe
+          request runs), macos, windows, uiprobe or orca
         type: choice
-        options: [all, pr, macos, windows, uiprobe]
+        options: [all, pr, macos, windows, uiprobe, orca]
         default: all
 
 permissions:
@@ -526,6 +526,67 @@ jobs:
         with:
           name: e2e-out
           path: ${{ github.workspace }}/e2e-out
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Save Go's caches
+        if: ${{ always() && steps.setup.outputs.save == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.cache-path }}
+          key: ${{ steps.setup.outputs.cache-key }}
+
+  # A real Orca walked through the app (e2e/orca_walk_test.go) in the same
+  # headless sway as the e2e job: Tab and the arrows through the sidebar, a
+  # library page, an album, Now Playing, the queue, the account dialog and the
+  # first-run setup, and what Orca says for each, from its debug log (it logs
+  # every utterance, so no audio is needed), checked against
+  # docs/accessibility.md. Run by hand (workflow_dispatch, only=orca or all),
+  # never on a pull request or a push, and not a required check: it depends on
+  # Orca's own speech and timing, which change with its version.
+  orca-walk:
+    name: Orca walk (headless sway)
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'orca') }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+      E2E_OUT: ${{ github.workspace }}/orca-out
+      E2E_ORCA: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The e2e packages, and Orca.
+      - uses: ./.github/actions/setup-linux
+        id: setup
+        with:
+          packages: orca
+          flavor: orca
+
+      - name: Walk the app with Orca
+        run: e2e/headless.sh -- go test -tags e2e -count=1 -v -run '^TestOrca' -timeout 15m ./e2e/
+
+      - name: Job summary
+        if: ${{ always() }}
+        run: |
+          {
+            echo "## What Orca said (headless sway, fixture profile)"
+            for f in orca-walk orca-setup; do
+              echo
+              echo "### $f"
+              cat "$E2E_OUT/$f.md" 2>/dev/null || echo "not heard"
+            done
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Keep Orca's log and the app's
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: orca-out
+          path: ${{ github.workspace }}/orca-out
           if-no-files-found: ignore
           retention-days: 7
 

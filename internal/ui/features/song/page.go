@@ -192,7 +192,7 @@ func (s *song) byline(c *ui.Context, page services.CatalogSong) {
 	if al == nil {
 		return
 	}
-	ui.RichText(c.Key("album")).Children(func() {
+	ui.RichText(c.Key("album")).Role(ui.RoleNone).Children(func() {
 		muted := theme.C("ink-muted")
 		ui.Text(c.Key("dot"), " · ").TextColor(muted)
 		if path := "/album/" + al.ID; s.has(path) {

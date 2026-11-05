@@ -511,7 +511,7 @@ func ArtistLinks(c *ui.Context, artists []services.Artist, fallback string, colo
 	if len(artists) == 0 {
 		return ui.Text(c, fallback).TextColor(color).SingleLine()
 	}
-	return ui.RichText(c).Children(func() {
+	return ui.RichText(c).Role(ui.RoleNone).Children(func() {
 		for i, a := range artists {
 			if i > 0 {
 				sep := ", "

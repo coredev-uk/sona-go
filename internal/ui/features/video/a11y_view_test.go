@@ -70,8 +70,8 @@ func TestViewKeyboardWalkAndTree(t *testing.T) {
 	if got := mustFind(t, tr, ui.RoleSlider, "Seek").Description; got != "0:30 of 3:20" {
 		t.Errorf("Seek reads %q", got)
 	}
-	if got := mustFind(t, tr, ui.RoleSlider, "Volume").Description; got != "60%" {
-		t.Errorf("Volume reads %q", got)
+	if v := mustFind(t, tr, ui.RoleSlider, "Volume"); v.Description != "" || v.Now != 60 {
+		t.Errorf("Volume reads %v and %q", v.Now, v.Description)
 	}
 	if _, ok := tr.Find(ui.RoleText, "2:50 left"); !ok {
 		t.Errorf("the time left is not read as a duration:\n%s", tr.Dump())

@@ -167,9 +167,14 @@ func (o *onboarding) body(c *ui.Context, step, title, line string, maxHeight flo
 	ui.Scroll(c.Key("body:"+step)).FillWidth().Shrink(1).MinHeight(0).MaxHeight(maxHeight).
 		Padding(20, 24, 24, 24).Children(func() {
 		ui.Column(c.Key("content")).FillWidth().Children(func() {
-			heading := text(c.Key("title"), title, "page").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2).
-				Focusable().FocusRing(false)
-			kit.FocusWhenShown(c, heading, &o.titleFocus)
+			// The title takes the focus: a group named by it holds the heading,
+			// because Orca reads a focused heading's role and level only (it
+			// takes a heading's words from the text, which MyGo gives to labels).
+			focus := ui.Column(c.Key("title-focus")).FillWidth().Role(ui.RoleGroup).Label(title).Focusable().FocusRing(false)
+			focus.Children(func() {
+				text(c.Key("title"), title, "page").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+			})
+			kit.FocusWhenShown(c, focus, &o.titleFocus)
 			text(c.Key("line"), line, "ui").TextColor(theme.C("ink-muted")).MaxWidth(480).Margin(6, 0, 0, 0)
 			ui.Column(c.Key("step")).FillWidth().Margin(20, 0, 0, 0).Children(func() {
 				switch step {
