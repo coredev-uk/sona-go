@@ -29,6 +29,11 @@ done <<<"$units"
 echo "shard $pool $idx/$count: ${#prod[@]} packages, ${#parts[@]} part-packages, ${#dev[@]} with -tags dev"
 echo "$units" | sed 's/^/  /'
 
+# The CI image has gotestsum built at go.mod's version; elsewhere go.mod's tool
+# directive builds it.
+gotestsum=(go tool gotestsum)
+[[ -z ${SONA_CI_IMAGE:-} ]] || gotestsum=(gotestsum)
+
 # run NAME GO-TEST-ARGS... -- PACKAGES...: one gotestsum run. A failing test
 # is run again up to twice (gotestsum swaps its own -run in, so the parts below
 # still work); one that passes on a rerun passes the job and is reported as
@@ -47,7 +52,7 @@ run() {
 	local report="$results/$name.rerun" st=0
 	rm -f "$report"
 	# shellcheck disable=SC2086
-	go tool gotestsum --jsonfile "$results/$name.json" --format pkgname-and-test-fails \
+	"${gotestsum[@]}" --jsonfile "$results/$name.json" --format pkgname-and-test-fails \
 		--rerun-fails=2 --rerun-fails-report="$report" --packages "${pkgs[*]}" \
 		-- -race ${TEST_FLAGS:-} ${flags[@]+"${flags[@]}"} || st=$?
 	if [[ $st -eq 0 && -s $report ]]; then

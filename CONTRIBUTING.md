@@ -355,7 +355,7 @@ the dispatch-only `Flatpak` workflow builds it in CI.
 ### UI tests and the end-to-end smoke
 
 - **`ui.Tester` tests** (`go test ./internal/ui/...`, no display) run over `internal/ui/uitest`: `uitest.Env(t)` is a `module.Env` over real services on a temporary SQLite library seeded with a synthetic fixture (`internal/ui/uitest/fixture`: invented artists, albums, songs and playlists, generated covers; never Apple's data), a fake playback engine, a fake artwork CDN, a Poster the test drains and a fake clock. The Core is hermetic: an empty in-memory keyring, an HTTP transport that fails any host the test does not serve (`Harness.Network.Serve` adds one), and home, XDG and D-Bus environment under the test's temporary directory, so a test never sees your Last.fm session, GitHub or your session bus. `docs/ui-architecture.md` ("Testing with `ui.Tester`", "Tests") has the API.
-- **Golden images** are few: the shell with Albums, light and dark, at 1132×1253 (`internal/ui/app/testdata/golden/`). `uitest.Golden` compares by the mean colour of 8×8-pixel blocks (another machine's text antialiasing passes; a moved edge, a changed colour or a missing cover does not). When a change moves the picture on purpose, review it and run `go test ./internal/ui/app -run Golden -update`; commit the new PNGs and say in the PR why. A failing run keeps the picture and a diff in the test's artifact directory: `$SONA_TEST_ARTIFACTS/<test name>` when that variable is set (CI's `.github/ci/test.sh` sets it and uploads the directory), else the test's `t.ArtifactDir()` (`go test -artifacts -outputdir DIR`). Tests get the directory from `internal/ui/uitest/artifacts` and only when they fail, because `go test` never caches a run that uses `-artifacts`.
+- **Golden images** are few: the shell with Albums, light and dark, at 1132×1253 (`internal/ui/app/testdata/golden/`). `uitest.Golden` compares by the mean colour of 8×8-pixel blocks (another machine's text antialiasing passes; a moved edge, a changed colour or a missing cover does not). When a change moves the picture on purpose, review it and run `go test ./internal/ui/app -run Golden -update`; commit the new PNGs and say in the PR why. A failing run keeps the picture and a diff in the test's artifact directory: `$SONA_TEST_ARTIFACTS/<test name>` when that variable is set (CI's `.github/ci/test.sh` sets it and uploads the directory), else the test's `t.ArtifactDir()` (`go test -artifacts -outputdir DIR`). On a Mac (or any machine whose text differs from CI's), update goldens in the CI image: `podman run --rm -v "$PWD":/src -w /src -e MYGO_GPU=0 ghcr.io/coredev-uk/sona-ci:$(build/ci/tag.sh) go test ./internal/ui/... -update`. The image is amd64 and arm64: an arm64 machine (Apple silicon, through Podman's VM) may draw text a hair differently from CI's amd64 runners, and CI is the reference, so push and check the run. Tests get the directory from `internal/ui/uitest/artifacts` and only when they fail, because `go test` never caches a run that uses `-artifacts`.
 - **The end-to-end smoke** (`e2e/`, build tag `e2e`) drives the built app from outside: `e2e` script, or `headless -- go test -tags e2e ./e2e/...`. It builds `bin/sona-e2e` with `-tags probe,sqlite_fts5` (MyGo's automation plugin and a seam that exists only in probe builds: `SONA_E2E=1` swaps in the fake playback engine and `SONA_E2E_CDN=host:port` sends all the app's HTTP to a local server of the fixture's covers, so nothing reaches Apple), starts it on the fixture profile (`go run ./e2e/profile` writes the same profile into private XDG directories), and checks first paint, Albums, playing an album, Space, a capture and, from the AT-SPI bus, the shell's landmarks by role and name. `E2E_OUT=<dir>` keeps the capture (`smoke.png`) and the app's stderr; `E2E_BIN=<path>` runs an existing binary. `headless` needs `sway`, `wtype` and `at-spi2-core` (devenv has them; elsewhere install them with your package manager). Never run a probe build outside tests: it can be driven by anything that opens its socket.
 
 ### CI and workflows
@@ -368,6 +368,7 @@ production build, go vet, real-CDM and sandbox tests, `go test -race`) and
 "Windows build" (windows-2025: `go vet` with cgo, `sona.exe`),
 which take several minutes and so never run on pull requests or for a
 release: they run after each merge to main and when dispatched),
+`images.yml` (also builds the CI image, below),
 `cache-prune.yml` (after each CI run on main: keeps the newest Go cache of
 each kind and deletes the rest, so the 10 GB cap never evicts what matters; a
 `workflow_run` job that checks out and runs nothing from the repository),
@@ -379,6 +380,19 @@ releases; dispatch = dry run, or a prerelease with `-f prerelease=rc.1`),
 `release-secrets.yml` (dispatch: checks the `release`
 environment's secrets are set, publishes nothing), `renovate.yaml`
 (dependency updates; maintained with Renovate).
+
+**The CI image.** The Linux vet, type-check, core, UI and end-to-end jobs run
+in `ghcr.io/coredev-uk/sona-ci` (`build/ci/Containerfile`: Ubuntu 26.04, the
+GTK, GStreamer, sway, AT-SPI, PipeWire and font packages, Go and gotestsum at
+`go.mod`'s versions; amd64 and arm64), so they start with the toolchain ready
+and the system libraries, which the UI goldens depend on, change only when the
+image is rebuilt. `images.yml` builds it when `build/ci/**` or `go.mod`
+changes (on a pull request of this repository too: the CI job named "CI image"
+waits for it), weekly and on dispatch; `build/ci/tag.sh` names the tag from the
+Containerfile and the Go and gotestsum versions. A run pins the digest it finds
+and keys Go's caches by it. The playback job stays on the bare runner (it
+lifts the user-namespace restriction of the host). To rebuild it by hand:
+`podman build $(build/ci/tag.sh args) -f build/ci/Containerfile build/ci`.
 
 Rules for workflow changes: trigger pull requests with `pull_request`, never
 `pull_request_target` or `workflow_run` (`cache-prune.yml` is the one
@@ -397,8 +411,9 @@ any skipped test that `.github/ci/skips-linux.txt` (or `skips-darwin.txt`)
 does not name: a skip means a missing prerequisite or a test nobody runs, so a
 test that cannot run on a platform is added to the list with its reason, and
 anything else is fixed in the job's setup. Go's caches are restored by the key
-they were saved under (the runner image version is part of the Linux key, so
-an image update never serves a cached pass), and `test.sh` leaves out
+they were saved under (the CI image's digest, or the runner image's version on
+the bare runner, is part of the Linux key, so an image update never serves a
+cached pass), and `test.sh` leaves out
 `-artifacts` so unchanged packages report `(cached)`. Threat model: `docs/security-review.md`, "Workflows".
 
 ### Desktop VM tests

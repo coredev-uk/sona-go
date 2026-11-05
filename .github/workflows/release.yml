@@ -154,6 +154,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      packages: read # ci.yml's jobs run in the CI image
     with:
       linux-only: true
 

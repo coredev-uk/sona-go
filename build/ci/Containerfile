@@ -1,0 +1,51 @@
+# The image Sona's CI runs the Linux vet, type-check, core, UI and end-to-end
+# jobs in (.github/workflows/ci.yml, "container:"), published by images.yml as
+# ghcr.io/coredev-uk/sona-ci:<tag> for amd64 and arm64 (build/ci/tag.sh names
+# the tag). Everything the jobs install from the distribution is here, so a job
+# starts with the toolchain ready and the system libraries (Pango, fonts,
+# GStreamer) are the same on every run until the image is rebuilt: the UI
+# goldens depend on them.
+#
+# The playback job stays on the bare runner (it changes a host sysctl).
+#
+# To run what CI runs on a Mac (golden updates, CONTRIBUTING.md, "Golden
+# images"): podman run --rm -v "$PWD":/src -w /src ghcr.io/coredev-uk/sona-ci:<tag> go test ./internal/ui/... -update
+FROM docker.io/library/ubuntu:26.04
+
+# Links the published image to this repository, so its workflows may pull it.
+LABEL org.opencontainers.image.source="https://github.com/coredev-uk/sona-go"
+
+# The versions come from go.mod (build/ci/tag.sh): a bump there is a new image.
+ARG GO_VERSION
+ARG GOTESTSUM_VERSION
+
+ENV DEBIAN_FRONTEND=noninteractive
+# The packages of .github/actions/setup-linux (vet, test and e2e lists) plus
+# what a container job's actions need (git for checkout, tar and zstd for
+# actions/cache, jq for the scripts, curl for the Go download).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl git jq tar zstd xz-utils \
+      build-essential pkg-config \
+      libgtk-3-dev libayatana-appindicator3-dev libsecret-1-dev libepoxy-dev libgl-dev \
+      libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+      gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+      gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-pipewire \
+      pipewire pipewire-bin wireplumber \
+      sway wtype \
+      dbus dbus-daemon dbus-bin at-spi2-core libatk-bridge2.0-0t64 \
+      libegl1 libegl-mesa0 libgl1-mesa-dri fonts-dejavu-core \
+      zsh \
+    && rm -rf /var/lib/apt/lists/*
+
+# The workspace is the runner user's, the job runs as root: without this git
+# (and so go's VCS stamping and cmd/pathcase) refuses the checkout.
+RUN git config --system --add safe.directory '*'
+
+RUN arch=$(dpkg --print-architecture) \
+ && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${arch}.tar.gz" | tar -C /usr/local -xz \
+ && GOBIN=/usr/local/bin GOTOOLCHAIN=local /usr/local/go/bin/go install "gotest.tools/gotestsum@${GOTESTSUM_VERSION}" \
+ && rm -rf /root/go /root/.cache
+
+ENV PATH=/usr/local/go/bin:$PATH \
+    CGO_ENABLED=1 \
+    GOTOOLCHAIN=local
