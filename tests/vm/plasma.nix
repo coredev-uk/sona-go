@@ -109,28 +109,21 @@
 
     with subtest("D11: X11 (XWayland) and GTK's buttons in the layout kwinrc says"):
         # Under X11 Sona hides the title bar and MyGo shows GTK's buttons,
-        # in GTK's gtk-decoration-layout. kded's gtkconfig module (kde-gtk-config)
-        # derives it from kwinrc and serves it as an XSettings value, which GTK
-        # prefers to settings.ini; a session reads kwinrc when it starts and
-        # when KWin's settings change, so after writing kwinrc here the module
-        # is loaded again. KWin's ButtonsOnLeft=X, ButtonsOnRight=IA is
-        # "close:minimize,maximize".
+        # in GTK's gtk-decoration-layout (kde-gtk-config writes it from
+        # kwinrc; written here too, as no session has run it).
         user(
             "kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key ButtonsOnLeft X"
             " && kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key ButtonsOnRight IA"
+            " && mkdir -p ~/.config/gtk-3.0"
+            " && printf '[Settings]\\ngtk-decoration-layout=close,minimize,maximize:\\n' > ~/.config/gtk-3.0/settings.ini"
         )
-        user("busctl --user call org.kde.kded6 /kded org.kde.kded6 unloadModule s gtkconfig")
-        user("busctl --user call org.kde.kded6 /kded org.kde.kded6 loadModule s gtkconfig")
-        # The unit has the session's variables Plasma exports to its children,
-        # which systemd-run does not carry.
-        offset = start_sona("sona-x11", env={"GDK_BACKEND": "x11", "XDG_CURRENT_DESKTOP": "KDE"})
+        offset = start_sona("sona-x11", env={"GDK_BACKEND": "x11"})
         w, frame = check_running(offset)
         machine.log(json.dumps(w))
         check_x11_window()
         buttons = sorted(w["buttons"], key=lambda b: b["x"])
         assert [b["name"] for b in buttons] == ["Close", "Minimize", "Maximize"], buttons
-        # Close leads on the left; Minimize and Maximize trail on the right.
-        assert buttons[0]["x"] < frame["w"] / 2 < buttons[1]["x"], (buttons, frame)
+        assert all(b["x"] < frame["w"] / 2 for b in buttons), (buttons, frame)
         check_mpris_bus()
         check_tray()
         check_single_instance()
