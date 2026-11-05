@@ -124,9 +124,7 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item) {
 		if available {
 			next := items[(at+1)%count]
 			if src, contain := leadArt(next); src != "" {
-				ui.Box(c.Key("prefetch")).Hidden(true).Children(func() {
-					kit.Artwork(c, ctx.Art, src, lay.lead, kit.ArtOpts{Aspect: heroRatio, Contain: contain})
-				})
+				kit.PrefetchArtwork(c, ctx.Art, src, lay.lead, kit.ArtOpts{Aspect: heroRatio, Contain: contain})
 			}
 		}
 	})

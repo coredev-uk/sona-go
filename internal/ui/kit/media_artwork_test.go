@@ -150,10 +150,10 @@ func TestArtLoaderBackdropDecodesTheTinyImageOnce(t *testing.T) {
 	mt := newMainThread()
 	l := newArtLoader(src, mt.post, 2)
 	defer l.Close()
-	if l.backdrop("") != nil {
+	if l.backdrop(nil, "") != nil {
 		t.Error("a backdrop of nothing")
 	}
-	cv := l.backdrop("/art/k1/backdrop.jpg")
+	cv := l.backdrop(nil, "/art/k1/backdrop.jpg")
 	mt.run(t, 1)
 	if cv.bitmap() == nil {
 		t.Fatal("the backdrop did not decode")
@@ -161,17 +161,17 @@ func TestArtLoaderBackdropDecodesTheTinyImageOnce(t *testing.T) {
 	if w, h := cv.bitmap().Size(); w != 16 || h != 16 {
 		t.Errorf("backdrop is %d×%d, its own size is 16×16", w, h)
 	}
-	if again := l.backdrop("/art/k1/backdrop.jpg"); again != cv {
+	if again := l.backdrop(nil, "/art/k1/backdrop.jpg"); again != cv {
 		t.Error("a second ask made a new cover")
 	}
 	// A cover of the same artwork is another picture.
-	l.cover("/art/k1/300x300.jpg", 50, 50)
+	l.cover(nil, rankBuilt, "/art/k1/300x300.jpg", 50, 50)
 	mt.run(t, 1)
 	if got := src.requests(); len(got) != 2 || got[0] != [2]int{0, 0} || got[1] != [2]int{50, 50} {
 		t.Errorf("requests %v: one backdrop, one cover", got)
 	}
 	// Not one of ours: failed for good, nothing asked.
-	if bad := l.backdrop("/elsewhere/backdrop.jpg"); bad.state != coverFailed {
+	if bad := l.backdrop(nil, "/elsewhere/backdrop.jpg"); bad.state != coverFailed {
 		t.Errorf("a foreign backdrop is %v", bad.state)
 	}
 }

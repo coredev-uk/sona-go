@@ -102,10 +102,7 @@ func CoverItemOf(it services.Item, ctx ItemsCtx, index int) CoverItem {
 	if id == "" {
 		id = it.URL
 	}
-	art := it.Art.Medium
-	if art == "" {
-		art = it.Wide.Medium
-	}
+	art := itemCoverArt(it)
 	tile := CoverItem{
 		Key:      strconv.Itoa(index) + ":" + it.Kind + ":" + id,
 		Title:    it.Name,
@@ -142,6 +139,20 @@ func CoverItemOf(it services.Item, ctx ItemsCtx, index int) CoverItem {
 		tile.Item = &target
 	}
 	return tile
+}
+
+// itemCoverArt is the artwork URL of an item's cover tile.
+func itemCoverArt(it services.Item) string {
+	if it.Art.Medium != "" {
+		return it.Art.Medium
+	}
+	return it.Wide.Medium
+}
+
+// itemAheadTile is all of an item's tile that its cover needs, for the covers
+// a collection has the loader decode before it builds their tiles.
+func itemAheadTile(it services.Item) CoverItem {
+	return CoverItem{Art: itemCoverArt(it), Round: ItemRound(it), Video: ItemVideo(it)}
 }
 
 // itemMotion is the motion artwork of the album, playlist, artist or station

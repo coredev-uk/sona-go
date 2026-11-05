@@ -16,6 +16,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -35,6 +36,12 @@ type imageServer struct {
 	hits   map[string]int
 	agents map[string]string // path → User-Agent of the last request
 	delay  time.Duration
+	// entered, when set, gets a value as each request arrives; gate, when
+	// set, holds every request until a value is sent (or the gate closes) or
+	// the client gives up, which counts in cancelled.
+	entered   chan struct{}
+	gate      chan struct{}
+	cancelled chan struct{}
 	// notReady answers this many requests for "/gen/" covers with 406, as
 	// Apple's CDN does for a new playlist's cover while it renders.
 	notReady int
@@ -53,6 +60,19 @@ func (s *imageServer) serve(w http.ResponseWriter, r *http.Request) {
 	s.agents[r.URL.Path] = r.UserAgent()
 	s.mu.Unlock()
 	time.Sleep(s.delay)
+	if s.entered != nil {
+		s.entered <- struct{}{}
+	}
+	if s.gate != nil {
+		select {
+		case <-s.gate:
+		case <-r.Context().Done():
+			if s.cancelled != nil {
+				s.cancelled <- struct{}{}
+			}
+			return
+		}
+	}
 	if strings.Contains(r.URL.Path, "/gen/") {
 		s.mu.Lock()
 		wait := s.notReady > 0
@@ -843,4 +863,84 @@ func mustTemplate(t *testing.T, c *Cache, u string) string {
 		t.Fatalf("no template for %s", u)
 	}
 	return tmpl
+}
+
+func TestFetchesRunSideBySide(t *testing.T) {
+	s := newImageServer(t)
+	s.entered = make(chan struct{}, 32)
+	s.gate = make(chan struct{})
+	c := newCache(t, s, "", 0)
+	const n = 12
+	errs := make(chan error, n)
+	for i := range n {
+		go func() {
+			_, err := c.Get(t.Context(), tmplFor("side"+string(rune('a'+i))), 64, 64)
+			errs <- err
+		}()
+	}
+	// Every download is at the server together, before any is answered: more
+	// than the four the cache once allowed.
+	for range n {
+		within(t, "the downloads to arrive together", s.entered)
+	}
+	close(s.gate)
+	for range n {
+		if err := <-errs; err != nil {
+			t.Error(err)
+		}
+	}
+}
+
+func TestAbandonedRequestStopsItsDownload(t *testing.T) {
+	s := newImageServer(t)
+	s.entered = make(chan struct{}, 4)
+	s.gate = make(chan struct{})
+	s.cancelled = make(chan struct{}, 4)
+	c := newCache(t, s, "", 0)
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { _, err := c.Get(ctx, tmplFor("left"), 64, 64); done <- err }()
+	<-s.entered
+	cancel()
+	if err := <-done; !errors.Is(err, context.Canceled) {
+		t.Fatalf("Get after its context ended: %v", err)
+	}
+	within(t, "the server to see the download cancelled", s.cancelled)
+	c.Wait()
+	if sz := c.Size(); sz != 0 {
+		t.Errorf("%d bytes cached from a download nobody waited for", sz)
+	}
+}
+
+func TestAbandonedRequestKeepsTheDownloadAnotherCallerWaitsFor(t *testing.T) {
+	s := newImageServer(t)
+	s.entered = make(chan struct{}, 4)
+	s.gate = make(chan struct{})
+	s.cancelled = make(chan struct{}, 4)
+	c := newCache(t, s, "", 0)
+	ctx, cancel := context.WithCancel(t.Context())
+	left := make(chan error, 1)
+	go func() { _, err := c.Get(ctx, tmplFor("shared"), 64, 64); left <- err }()
+	<-s.entered
+	stays := make(chan error, 1)
+	go func() { _, err := c.Get(t.Context(), tmplFor("shared"), 64, 64); stays <- err }()
+	for !c.flight.waiting(2) { // both callers wait for the one download
+		runtime.Gosched()
+	}
+	cancel()
+	if err := <-left; !errors.Is(err, context.Canceled) {
+		t.Fatalf("the caller that left got %v", err)
+	}
+	close(s.gate)
+	if err := <-stays; err != nil {
+		t.Fatalf("the caller that stayed got %v", err)
+	}
+	select {
+	case <-s.cancelled:
+		t.Error("the download was cancelled while a caller waited for it")
+	default:
+	}
+	if n := s.total(); n != 1 {
+		t.Errorf("%d downloads, want the one both callers shared", n)
+	}
 }

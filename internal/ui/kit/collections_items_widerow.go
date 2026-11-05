@@ -183,11 +183,17 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, crop b
 				bg = col
 			}
 			fr := ui.Row(c.Key("frame")).Size(width, fh).Center().Radius(tk.Radius["sm"]).ClipX().ClipY().Background(bg)
+			var v *artWindow
 			if ctx.Art != nil {
 				l := ctx.Art
-				fr.Draw(func(p *ui.Painter, _ ui.Rect) { l.noteScale(p.Scale()) })
+				v = l.view(c)
+				fr.Draw(func(p *ui.Painter, _ ui.Rect) { l.painted(v, p.Scale()) })
 			}
-			fr.Children(func() { itemsBanner(c, ctx.Art, src, width, fh, cover, tk.Radius["sm"]) })
+			rk := rankBuilt
+			if fr.InView() {
+				rk = rankView
+			}
+			fr.Children(func() { itemsBanner(c, ctx.Art, v, rk, src, width, fh, cover, tk.Radius["sm"]) })
 
 			label := tk.Type["label"]
 			ui.Row(c.Key("title")).Height(20).Margin(8, 0, 0, 0).Gap(4).AlignItems(ui.Center).MinWidth(0).Children(func() {
@@ -239,7 +245,7 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, crop b
 // loads and when it failed, leaving the item colour: a banner is decoded at
 // the frame's own shape, centred whole (contain) at its own aspect, or
 // filling the frame when the row crops it.
-func itemsBanner(c *ui.Context, l *ArtLoader, src string, w, h float32, crop bool, radius float32) {
+func itemsBanner(c *ui.Context, l *ArtLoader, v *artWindow, r artRank, src string, w, h float32, crop bool, radius float32) {
 	if l == nil || src == "" {
 		return
 	}
@@ -251,7 +257,7 @@ func itemsBanner(c *ui.Context, l *ArtLoader, src string, w, h float32, crop boo
 			bw = h * a
 		}
 	}
-	cv := l.cover(src, bw, bh)
+	cv := l.cover(v, r, src, bw, bh)
 	bmp := cv.bitmap()
 	if bmp == nil {
 		return

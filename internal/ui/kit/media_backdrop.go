@@ -69,7 +69,7 @@ func Backdrop(c *ui.Context, l *ArtLoader, o BackdropOpts, children func()) ui.E
 		return finish()
 	}
 	st := ui.Local(box, "backdrop", func() backdropState { return backdropState{} })
-	cv := l.backdrop(o.Src)
+	cv := l.backdrop(c, o.Src)
 	switch {
 	case o.Src == "":
 		st.cur, st.prev = nil, nil
@@ -182,7 +182,7 @@ func (l *ArtLoader) WashOf(o BackdropOpts) Wash {
 	if c, ok := mediaHexColour(o.Color); ok {
 		w.under, w.hasCol = c, true
 	}
-	if cv := l.backdrop(o.Src); cv != nil && cv.state == coverReady {
+	if cv := l.backdrop(nil, o.Src); cv != nil && cv.state == coverReady {
 		w.tiny = cv.tiny
 	}
 	return w

@@ -288,3 +288,58 @@ func TestItemGridIsVirtualisedWhenLong(t *testing.T) {
 		t.Errorf("OnRange %v", g.ranges)
 	}
 }
+
+func askedCover(l *ArtLoader, src string) *cover {
+	for k, cv := range l.covers {
+		if k.src == src {
+			return cv
+		}
+	}
+	return nil
+}
+
+func TestItemShelfHasTheLoaderDecodeItsNextRowWithoutBuildingIt(t *testing.T) {
+	a, tt, _ := shelfApp(t, "New Releases", albumItems(10), ItemShelfOpts{})
+	tt.Frame()
+	tt.Frame()
+	// Three tiles a row: album 1..3 show, 4..6 are what Show all opens first.
+	for i := 1; i <= 6; i++ {
+		if askedCover(a.art, "/art/ka"+strconv.Itoa(i)+"/400x400.jpg") == nil {
+			t.Errorf("the cover of album %d was not asked for", i)
+		}
+	}
+	if askedCover(a.art, "/art/ka7/400x400.jpg") != nil {
+		t.Error("the cover of album 7, two rows on, was asked for")
+	}
+	if cv := askedCover(a.art, "/art/ka5/400x400.jpg"); cv == nil || cv.rank != rankAhead {
+		t.Errorf("album 5, in the next row, is not asked ahead: %v", cv)
+	}
+	if tt.HasText("Album 4") || !tt.HasText("Album 3") {
+		t.Errorf("the next row was built, or the first was not: %q", tt.Texts())
+	}
+}
+
+func TestItemGridHasTheLoaderDecodeTheRowsPastItsBuiltOnesFromTheItemsOnly(t *testing.T) {
+	var items []*services.Item
+	for i := 1; i <= VirtualFrom+100; i++ {
+		it := albumItem(i)
+		items = append(items, &it)
+	}
+	g, tt := newGridApp(t, items)
+	g.load(t, tt, 0)
+	tt.Frame()
+	built := 0
+	for i := 1; i <= len(items); i++ {
+		if tt.HasText("Artist " + strconv.Itoa(i)) {
+			built = i
+		}
+	}
+	// The rows after the last built one are asked ahead, by cover only.
+	ahead := askedCover(g.art, "/art/ka"+strconv.Itoa(built+1)+"/400x400.jpg")
+	if built == 0 || ahead == nil || ahead.rank != rankAhead {
+		t.Fatalf("built up to %d; the next tile's cover is %v", built, ahead)
+	}
+	if tt.HasText("Artist " + strconv.Itoa(built+1)) {
+		t.Error("the tile past the built rows was built")
+	}
+}

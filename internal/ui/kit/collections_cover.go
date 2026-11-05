@@ -25,6 +25,10 @@ const (
 	VirtualFrom = 200
 	// coverOverscan is how many rows beyond the ones showing are built.
 	coverOverscan = 3
+	// coverAhead is how many rows beyond those built a long grid has the
+	// loader fetch the covers of (PrefetchArtwork), so a scroll finds them
+	// decoded.
+	coverAhead = 2
 )
 
 // CoverColumns is how many tiles of at least min DIPs fit a row of the given
@@ -340,6 +344,20 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i int, si
 	if selectable && o.Menus != nil {
 		collectionsMenu(&st.Sel, o.Menus, s, ActionTarget{Item: *it.Item, Name: it.Title, Container: o.Container, Key: it.Key}, i)
 	}
+}
+
+// prefetch has the loader decode tile it's cover, which no row builds yet, at
+// the size cover will ask for.
+func (st *CoverState) prefetch(c *ui.Context, o *CoverOpts, it *CoverItem, size float32) {
+	if it == nil || o.Art == nil {
+		return
+	}
+	artH := coverArtHeight(size, it.Video || o.Video)
+	aspect := float32(0)
+	if artH != size {
+		aspect = size / artH
+	}
+	PrefetchArtwork(c, o.Art, it.Art, size, ArtOpts{Edge: true, Round: it.Round, Aspect: aspect})
 }
 
 // cover builds the art box: the cover, the motion over it, and its corner

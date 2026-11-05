@@ -20,10 +20,34 @@ import (
 // fakeArt stands in for the artwork cache: "/art/k…" paths name a template;
 // Get answers with a solid red JPEG at the box asked for.
 type fakeArt struct {
-	mu   sync.Mutex
-	gets [][2]int
-	fail int           // answer this many Gets with an error
-	gate chan struct{} // when set, Get waits for it
+	mu      sync.Mutex
+	gets    [][2]int
+	cancels int           // Gets that ended because their context did
+	fail    int           // answer this many Gets with an error
+	gate    chan struct{} // when set, Get waits for it (a send lets one through, a close all)
+	// entered, when set, gets a value as each Get begins to wait.
+	entered chan struct{}
+}
+
+// wait is what Get and Backdrop do before they answer: say a request has
+// begun, wait for the gate, and give up when the context ends.
+func (f *fakeArt) wait(ctx context.Context) error {
+	if f.entered != nil {
+		f.entered <- struct{}{}
+	}
+	if f.gate != nil {
+		select {
+		case <-f.gate:
+		case <-ctx.Done():
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		f.mu.Lock()
+		f.cancels++
+		f.mu.Unlock()
+		return err
+	}
+	return nil
 }
 
 func (f *fakeArt) Template(p string) (string, bool) {
@@ -34,12 +58,8 @@ func (f *fakeArt) Template(p string) (string, bool) {
 }
 
 func (f *fakeArt) Get(ctx context.Context, _ string, w, h int) ([]byte, error) {
-	if f.gate != nil {
-		select {
-		case <-f.gate:
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
+	if err := f.wait(ctx); err != nil {
+		return nil, err
 	}
 	f.mu.Lock()
 	f.gets = append(f.gets, [2]int{w, h})
@@ -62,12 +82,8 @@ func (f *fakeArt) Get(ctx context.Context, _ string, w, h int) ([]byte, error) {
 
 // Backdrop answers with a 16×16 blue JPEG, and counts as a request of 0×0.
 func (f *fakeArt) Backdrop(ctx context.Context, _ string) ([]byte, error) {
-	if f.gate != nil {
-		select {
-		case <-f.gate:
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
+	if err := f.wait(ctx); err != nil {
+		return nil, err
 	}
 	f.mu.Lock()
 	f.gets = append(f.gets, [2]int{0, 0})
@@ -228,26 +244,28 @@ func TestArtworkDecodesAtTheExactDevicePixels(t *testing.T) {
 	}
 }
 
-// TestArtworkLearnsTheScaleFromPainting checks what the user sees, not the
-// order the workers fetched in: they take jobs last in, first out and race
-// each other, so the scale-1 request may finish before or after the exact
-// one. What matters is that the cover painted at the end is the exact
-// 150×150 one, and that the stale 100×100 one is never drawn.
+// TestArtworkLearnsTheScaleFromPainting checks what the user sees: the first
+// frame asks at scale 1, learns the real scale from the painter and asks again
+// at it, and the scale-1 cover that nobody asks for any more is called off
+// before it is fetched: only the exact 150×150 one is requested and painted.
 func TestArtworkLearnsTheScaleFromPainting(t *testing.T) {
-	src := &fakeArt{}
+	src := &fakeArt{gate: make(chan struct{})}
 	a := &artApp{src: "/art/k1/300x300.jpg", size: 100}
 	tt, mt := newArtApp(t, src, a)
 	tt.SetScale(1.5)
 	tt.Frame() // asks at scale 1, learns 1.5 from the painter and posts a redraw
 	mt.run(t, 1)
-	tt.Frame() // asks at 1.5
+	tt.Frame() // asks at 1.5; its paint ends a pass that did not ask at scale 1
 	stale := a.l.covers[artKey{"/art/k1/300x300.jpg", 100, 100}]
 	exact := a.l.covers[artKey{"/art/k1/300x300.jpg", 150, 150}]
 	if stale == nil || exact == nil {
 		t.Fatalf("covers %v: want one asked at scale 1 (100×100) and one at 1.5 (150×150)", a.l.covers)
 	}
-	// Both decodes post once: wait for them, whichever finishes first.
-	for stale.bitmap() == nil || exact.bitmap() == nil {
+	if stale.state != coverIdle {
+		t.Errorf("the cover at scale 1 is %v after a pass that did not ask for it, want called off (idle)", stale.state)
+	}
+	close(src.gate) // the exact cover's worker finishes and posts
+	for exact.bitmap() == nil {
 		mt.run(t, 1)
 	}
 	tt.Frame()
@@ -258,8 +276,8 @@ func TestArtworkLearnsTheScaleFromPainting(t *testing.T) {
 	if exact.shown == 0 {
 		t.Error("the exact 150×150 cover was not painted")
 	}
-	if stale.shown != 0 {
-		t.Errorf("the stale 100×100 cover was painted %d times", stale.shown)
+	if stale.shown != 0 || stale.bitmap() != nil {
+		t.Errorf("the stale 100×100 cover was kept: painted %d times", stale.shown)
 	}
 	// The window is 300×300 device pixels: the cover fills its 150 from the
 	// 10 DIP padding on.
@@ -269,13 +287,8 @@ func TestArtworkLearnsTheScaleFromPainting(t *testing.T) {
 	if got := tt.Image().RGBAAt(15+20, 15+20); !near(got, color.RGBA{220, 30, 30, 255}) {
 		t.Errorf("near the cover's corner %v: the picture does not fill the box", got)
 	}
-	// Two requests, one per size, in whichever order the workers got to them.
-	got := map[[2]int]bool{}
-	for _, r := range src.requests() {
-		got[r] = true
-	}
-	if len(src.requests()) != 2 || !got[[2]int{100, 100}] || !got[[2]int{150, 150}] {
-		t.Errorf("requests %v, want one of 100×100 and one of 150×150", src.requests())
+	if got := src.requests(); len(got) != 1 || got[0] != [2]int{150, 150} {
+		t.Errorf("requests %v, want one of 150×150", got)
 	}
 }
 
@@ -511,13 +524,13 @@ func TestCoverKeepsItselfWhenTheLoaderIsFull(t *testing.T) {
 	}
 	// Full of covers in flight: nothing can go, and the new one stays.
 	fill(coverQueued)
-	cv := l.cover("new", 10, 10)
+	cv := l.cover(nil, rankBuilt, "new", 10, 10)
 	if l.covers[cv.key] != cv {
 		t.Fatal("a cover asked for was dropped as it was inserted")
 	}
 	// Full of idle covers: the oldest quarter goes, never the new one.
 	fill(coverFailed)
-	cv = l.cover("new", 10, 10)
+	cv = l.cover(nil, rankBuilt, "new", 10, 10)
 	if l.covers[cv.key] != cv {
 		t.Fatal("the new cover evicted itself")
 	}
