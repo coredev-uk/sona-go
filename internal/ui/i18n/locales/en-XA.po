@@ -186,6 +186,11 @@ msgstr ""
 
 #: internal/ui/features/onboarding/desktop.go
 #: internal/ui/features/settings/desktop.go
+msgid "Adds Sona to the login items in System Settings → General."
+msgstr ""
+
+#: internal/ui/features/onboarding/desktop.go
+#: internal/ui/features/settings/desktop.go
 msgid "Adds Sona to your desktop's startup applications."
 msgstr ""
 
@@ -3420,6 +3425,10 @@ msgstr ""
 msgid "No music videos in your library"
 msgstr ""
 
+#: internal/ui/features/settings/integrations_rows.go
+msgid "No notification service is running on this desktop."
+msgstr ""
+
 #: internal/ui/features/playlist/dialogs.go
 msgid "No playlist you can edit is called “{trimmed}”."
 msgstr ""
@@ -3818,6 +3827,14 @@ msgstr ""
 
 #: internal/ui/features/search/page.go
 msgid "Only what is synced to this computer is searched. Try Apple Music for everything else."
+msgstr ""
+
+#: internal/ui/features/settings/integrations_rows.go
+msgid "Only when Sona runs from Sona.app, not from a source build."
+msgstr ""
+
+#: internal/ui/features/onboarding/desktop.go
+msgid "Only when Sona runs from Sona.app: {needsList}."
 msgstr ""
 
 #: internal/ui/features/playlist/commands.go
@@ -5093,6 +5110,10 @@ msgstr ""
 msgid "Shows the inspector of Sona's window: its elements and what each one draws, for debugging and for writing plugins."
 msgstr ""
 
+#: internal/ui/features/settings/integrations_rows.go
+msgid "Shows the song and artist when a new track starts; click it to open Sona. Not shown while Sona's window is in front."
+msgstr ""
+
 #: internal/ui/features/onboarding/connections.go
 msgid "Shows the song you're playing as your Discord activity."
 msgstr ""
@@ -5115,10 +5136,6 @@ msgstr ""
 
 #: internal/ui/features/settings/integrations_rows.go
 msgid "Shows the song, artist and artwork when a new track starts, with a Next button. Not shown while Sona's window is in front."
-msgstr ""
-
-#: internal/ui/features/settings/integrations_rows.go
-msgid "Shows the song, artist and artwork when a new track starts, with a Next button. Not shown while Sona's window is in front. No notification service is running on this desktop."
 msgstr ""
 
 #: internal/ui/app/menubar.go
@@ -7585,6 +7602,10 @@ msgstr ""
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/features/settings/cdm.go
 msgid "{percent}, {received} of {total}"
+msgstr ""
+
+#: internal/ui/features/settings/integrations_rows.go
+msgid "{platform} isn't letting Sona show notifications: allow them in System Settings → Notifications."
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go

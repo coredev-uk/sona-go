@@ -359,13 +359,16 @@ func run(started time.Time) error {
 	}
 	var ui *uiapp.App
 	mygo.App.WhenReady(func() {
+		// --hidden (the XDG autostart entry's) or, on macOS, the login item
+		// the user asked to start in the tray (login_darwin.go).
+		hidden := act.Hidden() || loginStartsHidden(cur.Desktop)
 		ui = uiapp.New(uiapp.Options{
 			Core: core, Settings: settings, Bus: bus, Windows: windows, Art: art, Motion: mot, Video: vid, Log: log.With("component", "ui"),
 			Version: version, Dev: devMode, Icon: build.AppIcon, TrayIcon: build.TrayIcon, TrayTemplate: trayTemplate(),
 			OpenURL: mygo.Shell.OpenExternal, Copy: clipboardText,
-			FirstRun: firstRun, Hidden: act.Hidden(),
+			FirstRun: firstRun, Hidden: hidden,
 		})
-		log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "hidden", act.Hidden())
+		log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "hidden", hidden)
 	})
 	err = mygo.App.Run()
 	if ui != nil {

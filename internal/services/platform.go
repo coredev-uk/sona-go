@@ -43,6 +43,16 @@ type Platform struct {
 	// instance and a second launch forwards its links to it (internal/app:
 	// D-Bus on Linux, a local socket elsewhere).
 	Commands bool
+	// NeedsAppBundle: this is a macOS run outside Sona.app (a source build,
+	// bin/sona). macOS ties notifications and the login item to the app
+	// bundle, so Notifications and Autostart are nil for that reason;
+	// Capabilities says so and the UI explains it instead of saying the
+	// platform lacks them.
+	NeedsAppBundle bool
+	// PlainNotifications: the system's notifications show the title and
+	// text and a click that opens Sona, not the artwork nor the Next
+	// button (macOS: MyGo's notifications have neither).
+	PlainNotifications bool
 	// MotionArtwork: the build decodes motion artwork (internal/ui/media
 	// has a decoder: GStreamer on Linux and macOS, none on Windows).
 	MotionArtwork bool
@@ -63,13 +73,20 @@ type MediaControls interface {
 // Notifier shows one replaceable notification: the track notification, or
 // one release reminder (each reminder has its own).
 type Notifier interface {
-	// Show replaces the shown notification with n.
+	// Show replaces the shown notification with n. It fails with
+	// ErrNotificationsDenied where the system lets Sona show none.
 	Show(ctx context.Context, n notify.Notification) error
 	// Dismiss removes it.
 	Dismiss(ctx context.Context) error
 	// Close stops delivering actions.
 	Close()
 }
+
+// ErrNotificationsDenied is what a Notifier's Show fails with when the
+// system doesn't let Sona show notifications (macOS: the user said no at
+// the first one, or turned them off in System Settings). The integrations
+// report it as IntegrationDenied, so Settings can say where to turn them on.
+var ErrNotificationsDenied = errors.New("notifications are turned off for Sona")
 
 // SleepInhibitor keeps the system awake while held.
 type SleepInhibitor interface {
@@ -139,16 +156,18 @@ func newPlatformService(e *Env) *PlatformService {
 			PrivateListening: pc.PrivateListening,
 			Video:            pc.Video,
 		},
-		MediaControls:   p.MediaControls != nil,
-		Notifications:   p.Notifications != nil,
-		Autostart:       p.Autostart != nil,
-		SleepInhibit:    p.Inhibitor != nil,
-		PowerState:      p.Power != nil,
-		MotionArtwork:   p.MotionArtwork,
-		FileChooser:     p.Files != nil,
-		CLI:             p.Commands,
-		DiscordPresence: discord.Supported,
-		DeveloperTools:  e.Windows != nil && e.Windows.DeveloperTools(),
+		MediaControls:      p.MediaControls != nil,
+		Notifications:      p.Notifications != nil,
+		Autostart:          p.Autostart != nil,
+		SleepInhibit:       p.Inhibitor != nil,
+		PowerState:         p.Power != nil,
+		MotionArtwork:      p.MotionArtwork,
+		FileChooser:        p.Files != nil,
+		CLI:                p.Commands,
+		NeedsAppBundle:     p.NeedsAppBundle,
+		PlainNotifications: p.PlainNotifications,
+		DiscordPresence:    discord.Supported,
+		DeveloperTools:     e.Windows != nil && e.Windows.DeveloperTools(),
 		WindowControls: WindowControls{
 			Native:    p.TitleBar.Native,
 			Automatic: p.TitleBar.Automatic,

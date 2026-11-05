@@ -158,8 +158,20 @@ everything Go does (sign-in, library, sync, catalog) and playback through
 the same CDM host as Linux, with the CDM Sona downloads from Google for
 macOS (`mac_arm64`, see "Widevine CDM") and Core Audio output
 (`osxaudiosink`, always the system's default output). Media keys and Now
-Playing work (`internal/nowplaying`); there are no notifications, sleep inhibit, autostart or file chooser yet (see
-"Platforms"); `sona <command>` and single instance work over a socket in
+Playing work (`internal/nowplaying`), and so do the sleep inhibitor (MyGo's
+`Power.KeepAwake`: an IOPMAssertion `pmset -g assertions` lists), the power
+source for "on battery" (`Power.IsOnBattery`, polled) and the file chooser
+for the settings export and import (`Dialog`). Notifications
+(UNUserNotificationCenter: a title, a text and a click, no artwork or
+buttons) and Start Sona when you log in (SMAppService) need an app bundle in
+a folder macOS lists (`/Applications`, `~/Applications`; from `/tmp` it
+refuses the notifications): the release's `Sona.app`, or a development
+build wrapped by `build/darwin/devbundle.sh bin/sona-dev ~/Applications/SonaDev.app`
+(run `SonaDev.app/Contents/MacOS/sona` inside the devenv shell; it has its
+own identifier, and a login item you turn on is listed in System Settings →
+General → Login Items & Extensions until you turn it off again). A bare
+`bin/sona` has neither, and Settings says so ("Only when Sona runs from
+Sona.app"). `sona <command>` and single instance work over a socket in
 Sona's state folder (docs/cli.md). Apple's licence server grants licences to
 this unsigned host: full tracks play on Apple Silicon.
 
@@ -186,8 +198,8 @@ SONA_PRIVATE=1 dev                   # a development build, started
 
 `build` writes `bin/sona` for macOS (Taskfile's `build` does the same through
 `build/darwin/Taskfile.yml`); `SONA_PRIVATE=1 ./bin/sona` runs it. Expect the window with every page; Settings
-without the controls macOS can't support yet (the output device, start at
-login, notifications, keeping the Mac awake); the keyring backend
+without the controls macOS can't support from a bare binary (the output
+device; start at login and notifications, which need Sona.app); the keyring backend
 "Keychain"; data under `~/Library/Application Support/Sona` and
 `~/Library/Caches/Sona` (log: `State/sona.log`). The D-Bus tests skip (no
 `dbus-daemon`).

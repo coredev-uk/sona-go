@@ -7,13 +7,16 @@ const EventIntegrationsStatus = "integrations:status"
 const (
 	IntegrationReady       = "ready"       // notifications: the server answered
 	IntegrationUnavailable = "unavailable" // the desktop service could not be reached
+	IntegrationDenied      = "denied"      // notifications: the system lets Sona show none (macOS)
 )
 
 // IntegrationsStatus is what the desktop and Discord integrations are
 // doing ("integrations:status" payload). Empty strings mean not tried yet
 // (the feature is off, or nothing has needed it since start-up).
 type IntegrationsStatus struct {
-	// Notifications is "ready", "unavailable" (no notification server) or "".
+	// Notifications is "ready", "unavailable" (no notification server),
+	// "denied" (the system doesn't let Sona show notifications: macOS, in
+	// System Settings) or "".
 	Notifications string `json:"notifications"`
 	// Inhibit is the backend holding the suspend inhibitor ("logind" or
 	// "portal"), "unavailable" when taking it failed, or "" when none is
