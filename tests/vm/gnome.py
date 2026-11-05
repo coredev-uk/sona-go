@@ -9,6 +9,15 @@ def shell_eval(js):
     return json.loads(result) if result else None
 
 
+def date_menu_region():
+    """The calendar panel's box (x, y, w, h) while the menu is open, else None:
+    the media card and the notification list are in it."""
+    return shell_eval(
+        "(() => { const m = Main.panel.statusArea.dateMenu.menu; if (!m.isOpen) return null;"
+        " const r = m.box.get_transformed_extents(); return [r.origin.x, r.origin.y, r.size.width, r.size.height]; })()"
+    )
+
+
 def wait_for_gnome():
     """Waits for alice's GNOME session and leaves the overview."""
     machine.wait_for_unit("display-manager.service")
