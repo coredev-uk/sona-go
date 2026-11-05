@@ -452,12 +452,17 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 			if src == "" {
 				src = it.Wide.Medium
 			}
-			thumb := ui.Box(c.Key("thumb")).Size(listThumb, listThumb).Shrink(0).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
-			if colour, ok := itemColour(it); ok {
-				thumb.Background(colour)
-			}
-			thumb.Children(func() {
-				kit.Artwork(c, ctx.Art, src, listThumb, kit.ArtOpts{Edge: true, Fallback: func(*ui.Context) {}})
+			// The slot keeps the column and the play button where they are for
+			// every row; the picture sits in it at its own shape.
+			tw, th := thumbBox(src)
+			ui.Row(c.Key("slot")).Size(listThumb, listThumb).Shrink(0).Center().Children(func() {
+				thumb := ui.Box(c.Key("thumb")).Size(tw, th).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
+				if colour, ok := itemColour(it); ok {
+					thumb.Background(colour)
+				}
+				thumb.Children(func() {
+					kit.Artwork(c, ctx.Art, src, tw, kit.ArtOpts{Aspect: tw / th, Edge: true, Fallback: func(*ui.Context) {}})
+				})
 			})
 			ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
 				label := tk.Type["label"]

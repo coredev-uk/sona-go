@@ -3,6 +3,8 @@ package discover
 import (
 	"math"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
 // The front page's geometry (v0.2.0's FrontPage.tsx), in DIPs.
@@ -18,9 +20,14 @@ const (
 	pagerHeight = 36
 	// listRow is a list row's height under the lead, and the least beside it.
 	listRow = 72
-	// listThumb is the list's thumbnail: the item's square cover (Apple's
-	// banners lose their text cropped this small).
+	// listThumb is the list thumbnail's slot: the item's square cover fills
+	// it. A picture that is not square keeps its shape inside it (thumbBox).
 	listThumb = 64
+	// thumbSquare is how far a picture's shape may be from square (as a
+	// ratio of width to height) and still fill the slot: Apple crops a
+	// request to the box it is given, so a nearly square one loses nothing
+	// that matters.
+	thumbSquare = 1.15
 	// splitAt is the narrowest content width that sets the list beside the
 	// lead.
 	splitAt = 880
@@ -119,4 +126,21 @@ func (r *rotation) step(now time.Time, running bool, at int, occupied func() boo
 		return false, rotateEvery
 	}
 	return true, 0
+}
+
+// thumbBox is the box the picture at src fills in the list's listThumb slot,
+// from the shape its URL names. A square cover fills the slot. A wide picture
+// (a station's key art, a card that has only its banner) is shown as the lead
+// shows it (Apple's centre crop at the hero card's shape), across the slot's
+// width and centred, where filling the slot would cut a square out of the
+// middle of a 4:1 banner and show that, enlarged. A tall one fits the slot's
+// height.
+func thumbBox(src string) (w, h float32) {
+	switch a := kit.ArtAspect(src); {
+	case a > thumbSquare:
+		return listThumb, listThumb / heroRatio
+	case a < 1/thumbSquare:
+		return listThumb * a, listThumb
+	}
+	return listThumb, listThumb
 }

@@ -64,9 +64,7 @@ type ArtLoader struct {
 	now  func() time.Time
 
 	// The main thread only.
-	scale  float32
-	known  bool // the scale is the window's, told or painted
-	await  bool // something is waiting for known (a frame is due once it is)
+	scale  pixelScale // the scale a window is asked at until it paints: the last painted
 	covers map[artKey]*cover
 	clock  uint64              // advances with every ask, for dropping the oldest
 	live   map[*cover]struct{} // covers queued or in flight
@@ -144,7 +142,7 @@ func newArtLoader(src artSource, post store.Poster, workers int) *ArtLoader {
 		post = func(fn func()) { fn() }
 	}
 	l := &ArtLoader{
-		src: src, post: post, now: time.Now, scale: 1, covers: map[artKey]*cover{}, workers: workers,
+		src: src, post: post, now: time.Now, scale: pixelScale{px: 1}, covers: map[artKey]*cover{}, workers: workers,
 		live:   map[*cover]struct{}{},
 		decode: make(chan struct{}, runtime.GOMAXPROCS(0)),
 	}
@@ -153,37 +151,61 @@ func newArtLoader(src artSource, post store.Poster, workers int) *ArtLoader {
 	return l
 }
 
-// SetScale tells the loader the window's device pixels per DIP before the
-// first frame; Artwork learns it from painting otherwise (a first frame on
-// a scaled screen asks for covers at scale 1, then again at the right
-// size).
-func (l *ArtLoader) SetScale(s float32) {
-	if s > 0 {
-		l.scale, l.known = s, true
+// pixelScale is a window's device pixels per DIP, as far as the loader has
+// learned it.
+type pixelScale struct {
+	px    float32
+	known bool // a paint of the window told it
+	await bool // something is waiting for known (a frame is due once it is)
+}
+
+// windowScale is the scale kept for window v (the loader's own for nil).
+func (l *ArtLoader) windowScale(v *artWindow) *pixelScale {
+	if v == nil {
+		return &l.scale
 	}
+	return &v.scale
+}
+
+// scaleOf is the device pixels per DIP window v draws at: its own once a
+// paint of it has told it (Artwork learns it from painting: a first frame on
+// a scaled screen asks for covers at scale 1, then again at the right size),
+// and until then the scale painted last, the best guess for a window not seen
+// yet. Windows keep a scale of their own because the mini player may sit on a
+// screen of another density than the main window: with one scale for both,
+// every frame of one would ask for covers at the other's size and draw them at
+// its own. v is nil for no window.
+func (l *ArtLoader) scaleOf(v *artWindow) float32 {
+	if own := l.windowScale(v); own.known {
+		return own.px
+	}
+	return l.scale.px
 }
 
 // noteScale is Artwork's paint callback: the window's scale is only known
 // to a painter.
-func (l *ArtLoader) noteScale(s float32) {
+func (l *ArtLoader) noteScale(v *artWindow, s float32) {
 	if s <= 0 {
 		return
 	}
-	changed := s != l.scale || (!l.known && l.await)
-	l.scale, l.known, l.await = s, true, false
+	own := l.windowScale(v)
+	changed := s != l.scaleOf(v) || (!own.known && own.await)
+	own.px, own.known, own.await = s, true, false
+	l.scale.px, l.scale.known = s, true // the guess for a window not seen yet
 	if changed {
 		l.post(func() {}) // a frame, which asks for the covers at the new size
 	}
 }
 
-// scaleKnown reports whether the window's scale is known, and if not has the
-// next paint that learns it ask for a frame: motion waits for it, as a request
-// at the wrong size would be dropped and the video opened again.
-func (l *ArtLoader) scaleKnown() bool {
-	if !l.known {
-		l.await = true
+// scaleKnown reports whether the scale of window v is known, and if not has
+// the next paint that learns it ask for a frame: motion waits for it, as a
+// request at the wrong size would be dropped and the video opened again.
+func (l *ArtLoader) scaleKnown(v *artWindow) bool {
+	own := l.windowScale(v)
+	if !own.known {
+		own.await = true
 	}
-	return l.known
+	return own.known
 }
 
 // Close stops the workers; covers still queued are dropped.
@@ -208,15 +230,16 @@ func (l *ArtLoader) cover(v *artWindow, r artRank, src string, w, h float32) *co
 	if src == "" {
 		return nil
 	}
-	return l.ask(v, artKey{src, devicePx(w, l.scale), devicePx(h, l.scale)}, r)
+	s := l.scaleOf(v)
+	return l.ask(v, artKey{src, devicePx(w, s), devicePx(h, s)}, r)
 }
 
-// Failed reports whether the cover of src at a box of w×h DIPs will never
-// come: it could not be loaded after every retry, or src is not one of Sona's
-// art URLs. It asks for the cover like Artwork does, so a picture that is
-// still on its way is not failed. Main thread only.
-func (l *ArtLoader) Failed(src string, w, h float32) bool {
-	cv := l.cover(nil, rankBuilt, src, w, h)
+// Failed reports whether the cover of src at a box of w×h DIPs, in the window
+// c builds, will never come: it could not be loaded after every retry, or src is
+// not one of Sona's art URLs. It asks for the cover like Artwork does, so a
+// picture that is still on its way is not failed. Main thread only.
+func (l *ArtLoader) Failed(c *ui.Context, src string, w, h float32) bool {
+	cv := l.cover(l.view(c), rankBuilt, src, w, h)
 	return cv != nil && cv.state == coverFailed
 }
 

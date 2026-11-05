@@ -7,6 +7,8 @@ import (
 	"image"
 	"image/color"
 	"image/jpeg"
+	"image/png"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -145,11 +147,10 @@ func (m *mainThread) run(t *testing.T, n int) {
 }
 
 type artApp struct {
-	scale float32 // the loader's scale before the first frame (0: not told)
-	l     *ArtLoader
-	src   string
-	size  float32
-	opts  ArtOpts
+	l    *ArtLoader
+	src  string
+	size float32
+	opts ArtOpts
 }
 
 func (a *artApp) view(c *ui.Context) {
@@ -166,9 +167,6 @@ func newArtApp(t *testing.T, src *fakeArt, art *artApp) (*ui.Tester, *mainThread
 	mt := newMainThread()
 	art.l = newArtLoader(src, mt.post, 2)
 	t.Cleanup(art.l.Close)
-	if art.scale > 0 {
-		art.l.SetScale(art.scale)
-	}
 	return ui.NewTester(art.view, 200, 200), mt
 }
 
@@ -539,5 +537,101 @@ func TestCoverKeepsItselfWhenTheLoaderIsFull(t *testing.T) {
 	}
 	if _, old := l.covers[artKey{src: "old", pw: 0, ph: 1}]; old {
 		t.Error("the least recently used cover survived")
+	}
+}
+
+// ringArt answers with a PNG of the box asked for: red, with a one pixel white
+// ring round it, so a cover that was decoded for another size than it is
+// drawn at shows as a ring that is not one device pixel wide.
+type ringArt struct {
+	mu   sync.Mutex
+	gets [][2]int
+}
+
+func (r *ringArt) Template(p string) (string, bool) {
+	return "https://is1-ssl.mzstatic.com/image/thumb/Music/x/{w}x{h}bb.jpg", strings.HasPrefix(p, "/art/k")
+}
+
+func (r *ringArt) Get(_ context.Context, _ string, w, h int) ([]byte, error) {
+	r.mu.Lock()
+	r.gets = append(r.gets, [2]int{w, h})
+	r.mu.Unlock()
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := range h {
+		for x := range w {
+			c := color.RGBA{220, 30, 30, 255}
+			if x == 0 || y == 0 || x == w-1 || y == h-1 {
+				c = color.RGBA{255, 255, 255, 255}
+			}
+			img.SetRGBA(x, y, c)
+		}
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, img); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
+func (r *ringArt) Backdrop(context.Context, string) ([]byte, error) { return nil, errors.New("none") }
+
+// Two windows share the loader, as the main window and the mini player do, and
+// may be drawn at different densities (the mini player on an external screen).
+// Each is asked for, and shows, covers at its own scale: with one scale for
+// both, every frame of either window asked for the other's size and drew the
+// cover at its own, so one of them always showed a cover enlarged or shrunk.
+func TestArtworkIsDecodedForEachWindowsOwnScale(t *testing.T) {
+	theme.SetMode(theme.ModeLight)
+	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
+	src := &ringArt{}
+	mt := newMainThread()
+	l := newArtLoader(src, mt.post, 2)
+	t.Cleanup(l.Close)
+	view := func(c *ui.Context) {
+		theme.Apply(c)
+		ui.Column(c).Padding(10).Children(func() {
+			Artwork(c.Key("a"), l, "/art/k1/300x300.jpg", 100, ArtOpts{})
+		})
+	}
+	windows := []struct {
+		tt    *ui.Tester
+		scale int
+	}{{ui.NewTester(view, 200, 200), 1}, {ui.NewTester(view, 200, 200), 2}}
+	for _, w := range windows {
+		w.tt.SetScale(float32(w.scale))
+	}
+	draw := func() {
+		for _, w := range windows {
+			w.tt.Frame()
+			w.tt.Advance(time.Millisecond) // paints: the scale is learned from it
+			mt.run(t, 0)
+		}
+	}
+	for range 40 { // each window asks, learns its scale from painting, asks again, and the workers answer
+		draw()
+		time.Sleep(10 * time.Millisecond)
+	}
+	draw()
+	draw()
+
+	// One cover per window's own size, asked for once.
+	got := src.gets
+	slices.SortFunc(got, func(a, b [2]int) int { return a[0] - b[0] })
+	if len(got) != 2 || got[0] != [2]int{100, 100} || got[1] != [2]int{200, 200} {
+		t.Errorf("covers asked for %v, want one at 100×100 (scale 1) and one at 200×200 (scale 2)", got)
+	}
+	// And drawn at their own size: the ring is exactly one device pixel wide.
+	red, white := color.RGBA{220, 30, 30, 255}, color.RGBA{255, 255, 255, 255}
+	for _, w := range windows {
+		img := w.tt.Image()
+		left, right, mid := 10*w.scale, 110*w.scale-1, 60*w.scale
+		for _, p := range []struct {
+			x    int
+			want color.RGBA
+		}{{left, white}, {left + 1, red}, {right, white}, {right - 1, red}} {
+			if got := img.RGBAAt(p.x, mid); !near(got, p.want) {
+				t.Errorf("scale %d: pixel %d of the cover's row is %v, want %v: the cover is not drawn at the size it was decoded for", w.scale, p.x, got, p.want)
+			}
+		}
 	}
 }

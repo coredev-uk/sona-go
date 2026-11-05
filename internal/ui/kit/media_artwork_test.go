@@ -21,8 +21,8 @@ func TestArtAspectReadsTheShapeOfTheURL(t *testing.T) {
 		"/art/k1/0x0.jpg":              1,
 		"/art/k1/640x360.jpg":          640.0 / 360,
 	} {
-		if got := artAspect(url); got < want-0.01 || got > want+0.01 {
-			t.Errorf("artAspect(%q) = %v, want %v", url, got, want)
+		if got := ArtAspect(url); got < want-0.01 || got > want+0.01 {
+			t.Errorf("ArtAspect(%q) = %v, want %v", url, got, want)
 		}
 	}
 	for _, tc := range []struct {
@@ -180,23 +180,16 @@ func TestArtLoaderWaitsForTheScaleWhenAskedTo(t *testing.T) {
 	mt := newMainThread()
 	l := newArtLoader(&fakeArt{}, mt.post, 1)
 	defer l.Close()
-	if l.scaleKnown() {
+	if l.scaleKnown(nil) {
 		t.Fatal("the scale is known before anything painted")
 	}
 	// The painter learns it, even the same 1, and asks for the frame that was waiting.
-	l.noteScale(1)
+	l.noteScale(nil, 1)
 	mt.run(t, 1)
-	if !l.scaleKnown() {
+	if !l.scaleKnown(nil) {
 		t.Error("the scale is not known after painting")
 	}
 	// A second paint at the same scale asks for nothing.
-	l.noteScale(1)
+	l.noteScale(nil, 1)
 	mt.run(t, 0)
-
-	l2 := newArtLoader(&fakeArt{}, mt.post, 1)
-	defer l2.Close()
-	l2.SetScale(2)
-	if !l2.scaleKnown() || l2.scale != 2 {
-		t.Error("the scale the app told is not known")
-	}
 }

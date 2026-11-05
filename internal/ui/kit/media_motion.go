@@ -225,13 +225,14 @@ type MotionOpts struct {
 func MotionCover(c *ui.Context, p *MotionPolicy, l *ArtLoader, art, motion string, size float32, o MotionOpts) ui.Element {
 	root := ui.Box(c).Size(size, size)
 	slot := *ui.Local(root, "motion", func() *motionSlot { return newMotionSlot(p) })
-	root.Draw(func(pt *ui.Painter, _ ui.Rect) { l.noteScale(pt.Scale()) })
+	v := l.view(c)
+	root.Draw(func(pt *ui.Painter, _ ui.Rect) { l.noteScale(v, pt.Scale()) })
 	root.Children(func() {
 		Artwork(c.Key("still"), l, art, size, ArtOpts{Round: o.Round, Edge: true, A11yLabel: o.A11yLabel})
 		// Not before the window's scale is known: a first request at the
 		// wrong size would be dropped and the video opened again.
-		want := p.Allowed() && motion != "" && l.scaleKnown()
-		px := motionPx(mediaOr(o.VideoSize, size), l.scale)
+		want := p.Allowed() && motion != "" && l.scaleKnown(v)
+		px := motionPx(mediaOr(o.VideoSize, size), l.scaleOf(v))
 		slot.sync(motion, px, want)
 		on := want && p.Visible() && (o.Overlay || !p.Covered()) && root.InView()
 		slot.play(on)
@@ -273,7 +274,8 @@ func TileMotion(c *ui.Context, p *MotionPolicy, motion string, size float32, o T
 	slot := *ui.Local(host, "tile-motion", func() *motionSlot { return newMotionSlot(p) })
 	if p != nil && p.opts.Art != nil {
 		art := p.opts.Art
-		host.Draw(func(pt *ui.Painter, _ ui.Rect) { art.noteScale(pt.Scale()) })
+		v := art.view(c)
+		host.Draw(func(pt *ui.Painter, _ ui.Rect) { art.noteScale(v, pt.Scale()) })
 	}
 	hot := p.Allowed() && motion != "" && o.Hot
 	if !hot {
@@ -281,7 +283,7 @@ func TileMotion(c *ui.Context, p *MotionPolicy, motion string, size float32, o T
 		slot.sync("", 0, false) // cold: the decoder goes
 		return host
 	}
-	scale, known := p.scale()
+	scale, known := p.scale(c)
 	if !known {
 		return host
 	}
@@ -305,11 +307,13 @@ func TileMotion(c *ui.Context, p *MotionPolicy, motion string, size float32, o T
 	return slot.fill(c, host, size, o.Round)
 }
 
-// scale is the window's device pixels per DIP and whether it is known yet
-// (MotionOptions.Art; without a loader, 1).
-func (p *MotionPolicy) scale() (float32, bool) {
-	if p.opts.Art == nil {
+// scale is the device pixels per DIP of the window c builds and whether it is
+// known yet (MotionOptions.Art; without a loader, 1).
+func (p *MotionPolicy) scale(c *ui.Context) (float32, bool) {
+	art := p.opts.Art
+	if art == nil {
 		return 1, true
 	}
-	return p.opts.Art.scale, p.opts.Art.scaleKnown()
+	v := art.view(c)
+	return art.scaleOf(v), art.scaleKnown(v)
 }
