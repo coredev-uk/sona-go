@@ -225,7 +225,6 @@ func TestMediaMotionGoldens(t *testing.T) {
 			mt := newMainThread()
 			l := newArtLoader(&fakeArt{}, mt.post, 2)
 			defer l.Close()
-			l.SetScale(1)
 			p := NewMotionPolicy(nil, mt.post, MotionOptions{Files: &mediaLocalFile{path: clip}, Art: l})
 			p.setCodec("avc")
 			defer p.Close()

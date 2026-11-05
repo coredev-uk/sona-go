@@ -2,8 +2,6 @@ package discover
 
 import (
 	"math"
-	"regexp"
-	"strconv"
 
 	"github.com/egoist/mygo/ui"
 
@@ -108,7 +106,7 @@ func (d *discover) editorialHeader(c *ui.Context, p services.EditorialPage) {
 // letterboxed on its own colour when that cap bites; never cropped.
 func (d *discover) banner(c *ui.Context, m *measure, src, colour string) {
 	tk := theme.Current()
-	aspect := bannerAspect(src)
+	aspect := kit.ArtAspect(src)
 	root := ui.Row(c.Key("banner")).FillWidth().Justify(ui.Center).Margin(0, 0, 24, 0).Radius(tk.Radius["sm"]).ClipX().ClipY().Shrink(0).
 		Background(theme.C("hover"))
 	if col, ok := itemColour(services.Item{Color: colour}); ok {
@@ -133,26 +131,4 @@ func (d *discover) banner(c *ui.Context, m *measure, src, colour string) {
 			kit.FluidArtwork(c, d.env.Art, src, size, kit.ArtOpts{Aspect: aspect})
 		})
 	})
-}
-
-// sizePart is the "<w>x<h>.jpg" (or "<n>.jpg", n by n) a Go-served art URL
-// ends in: the shape Apple serves the artwork in (lib/art.ts).
-var sizePart = regexp.MustCompile(`/(\d+)(?:x(\d+))?\.jpg(?:$|\?)`)
-
-// bannerAspect is the width over the height of the artwork behind a Go art
-// path; 1 when it names no size.
-func bannerAspect(src string) float32 {
-	m := sizePart.FindStringSubmatch(src)
-	if m == nil {
-		return 1
-	}
-	w, _ := strconv.Atoi(m[1])
-	h := w
-	if m[2] != "" {
-		h, _ = strconv.Atoi(m[2])
-	}
-	if w <= 0 || h <= 0 {
-		return 1
-	}
-	return float32(w) / float32(h)
 }

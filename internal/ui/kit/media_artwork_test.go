@@ -192,11 +192,4 @@ func TestArtLoaderWaitsForTheScaleWhenAskedTo(t *testing.T) {
 	// A second paint at the same scale asks for nothing.
 	l.noteScale(nil, 1)
 	mt.run(t, 0)
-
-	l2 := newArtLoader(&fakeArt{}, mt.post, 1)
-	defer l2.Close()
-	l2.SetScale(2)
-	if !l2.scaleKnown(nil) || l2.scaleOf(nil) != 2 {
-		t.Error("the scale the app told is not known")
-	}
 }

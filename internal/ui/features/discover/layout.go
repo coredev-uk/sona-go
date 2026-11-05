@@ -131,9 +131,10 @@ func (r *rotation) step(now time.Time, running bool, at int, occupied func() boo
 // thumbBox is the box the picture at src fills in the list's listThumb slot,
 // from the shape its URL names. A square cover fills the slot. A wide picture
 // (a station's key art, a card that has only its banner) is shown as the lead
-// shows it, at the hero card's shape across the slot's width, whole and
-// centred, where filling the slot would cut its middle out of a 4:1 banner
-// and show that, enlarged. A tall one fits the slot's height.
+// shows it (Apple's centre crop at the hero card's shape), across the slot's
+// width and centred, where filling the slot would cut a square out of the
+// middle of a 4:1 banner and show that, enlarged. A tall one fits the slot's
+// height.
 func thumbBox(src string) (w, h float32) {
 	switch a := kit.ArtAspect(src); {
 	case a > thumbSquare:

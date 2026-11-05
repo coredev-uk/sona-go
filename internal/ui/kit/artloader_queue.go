@@ -37,9 +37,8 @@ const (
 type artWindow struct {
 	painted bool // the last pass has been painted: the next ask begins another
 	// scale is the window's own device pixels per DIP, learned from its paints
-	// (ArtLoader.scaleOf) after the SetScale numbered toldAt.
-	scale  pixelScale
-	toldAt uint64
+	// (ArtLoader.scaleOf).
+	scale pixelScale
 }
 
 // artWindowKey keys a loader's state of a window on the window's root element.

@@ -790,8 +790,8 @@ func (r *rig) thumbRect(name string) (x0, y0, x1, y1 int) {
 	return x0 - sx, y0 - sy, x1 - sx + 1, y1 - sy + 1
 }
 
-// A list thumbnail shows its picture whole at the picture's own shape, never a
-// cut of it enlarged to fill the square: the cover that is square fills the
+// A list thumbnail keeps the shape of its picture, never a square cut of it
+// enlarged to fill the slot: the cover that is square fills the
 // slot, and art that is wide (a card with only its banner, a station whose own
 // art is a 4:1 banner) is the lead's picture in miniature, at the hero card's
 // shape across the slot. The loader is asked for exactly the box that shows.

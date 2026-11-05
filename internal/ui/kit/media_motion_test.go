@@ -347,10 +347,11 @@ func mediaIsMoving(tt *ui.Tester) bool {
 
 func TestMotionCoverPlaysOverTheStillAtTheRequestedRendition(t *testing.T) {
 	e := newMediaMotionEnv(t)
-	a, tt := newMediaCoverApp(t, e, "/motion/k1/720.mp4")
+	a, tt := newMediaCoverApp(t, e, "") // nothing to play until the window has painted at its scale
 	a.opts.VideoSize = 0
-	a.l.SetScale(1.5) // the window's scale, as the app tells it before the first frame
 	tt.SetScale(1.5)
+	mediaFrames(t, tt, e.mt)
+	a.motion = "/motion/k1/720.mp4"
 	mediaSettle(t, tt, e, 1)
 	tt.Frame()
 	tt.Advance(motionFade + 50*time.Millisecond)
@@ -747,7 +748,6 @@ func newMediaTilesApp(t *testing.T, e *mediaMotionEnv) (*mediaTilesApp, *ui.Test
 func TestTileMotionPlaysAfterTheDwellOnly(t *testing.T) {
 	e := newMediaMotionEnv(t)
 	a, tt := newMediaTilesApp(t, e)
-	a.l.SetScale(2)
 	tt.SetScale(2)
 	mediaFrames(t, tt, e.mt)
 	if n := len(e.f.opened()); n != 0 {

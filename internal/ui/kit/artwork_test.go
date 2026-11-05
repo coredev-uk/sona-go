@@ -147,11 +147,10 @@ func (m *mainThread) run(t *testing.T, n int) {
 }
 
 type artApp struct {
-	scale float32 // the loader's scale before the first frame (0: not told)
-	l     *ArtLoader
-	src   string
-	size  float32
-	opts  ArtOpts
+	l    *ArtLoader
+	src  string
+	size float32
+	opts ArtOpts
 }
 
 func (a *artApp) view(c *ui.Context) {
@@ -168,9 +167,6 @@ func newArtApp(t *testing.T, src *fakeArt, art *artApp) (*ui.Tester, *mainThread
 	mt := newMainThread()
 	art.l = newArtLoader(src, mt.post, 2)
 	t.Cleanup(art.l.Close)
-	if art.scale > 0 {
-		art.l.SetScale(art.scale)
-	}
 	return ui.NewTester(art.view, 200, 200), mt
 }
 
