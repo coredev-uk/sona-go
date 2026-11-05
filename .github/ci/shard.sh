@@ -7,7 +7,10 @@
 #   playback  the packages that need the real CDM, GStreamer's plugins or user
 #             namespaces: the real-CDM, sandbox, preview, pipeline and
 #             motion-decoder tests (one job)
-#   ui        the native UI's packages (internal/ui/..., their dev-tag runs)
+#   ui-race   the native UI's packages that start goroutines (store, kit,
+#             lyricsync); a pull request runs them under -race
+#   ui        the other native UI packages (internal/ui/..., their dev-tag runs)
+#   ui-all    ui-race and ui together
 #   core      everything else
 # Units are packed greedily, the heaviest first onto the lightest shard, by the
 # seconds in timings.txt (a unit missing there weighs DEFAULT_WEIGHT). A package
@@ -20,6 +23,7 @@ pool=${1:?pool} idx=${2:?index} count=${3:?count}
 here=.github/ci
 playback=(./internal/playback/widevine ./internal/playback/cdmhost ./internal/diag ./internal/playback/native ./internal/playback/gst ./internal/ui/media)
 split=(./internal/ui/kit:2)
+uirace=(./internal/ui/store ./internal/ui/kit ./internal/ui/lyricsync)
 dev=(./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/app ./internal/mpris)
 
 units() {
@@ -52,7 +56,11 @@ select_pool() {
 		if member "$base" "${playback[@]}"; then
 			[[ $u != *@dev && $pool == playback ]] && echo "$u"
 		elif [[ $base == ./internal/ui/* ]]; then
-			[[ $pool == ui ]] && echo "$u"
+			case $pool in
+			ui-all) echo "$u" ;;
+			ui-race) member "$base" "${uirace[@]}" && echo "$u" ;;
+			ui) member "$base" "${uirace[@]}" || echo "$u" ;;
+			esac
 		else
 			[[ $pool == core ]] && echo "$u"
 		fi
