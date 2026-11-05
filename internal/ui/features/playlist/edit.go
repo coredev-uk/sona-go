@@ -55,7 +55,11 @@ type edits struct {
 // hands its outcome to done (also on that goroutine; the caller posts it to
 // the main thread) with later true when more edits of the playlist are
 // still queued. The count drops before done runs, so done sees whether
-// later edits are on their way.
+// later edits are on their way. Done returns before the next edit of the
+// playlist starts, including one made after the count dropped, so the
+// outcomes reach done, and the main thread, in the order the edits were
+// made: a later answer posted first would be overwritten by an earlier one,
+// leaving the page on a state Go has already left.
 func (e *edits) serial(id string, call func() (services.PlaylistDetail, error), done func(d services.PlaylistDetail, err error, later bool)) {
 	e.mu.Lock()
 	if e.pending == nil {
@@ -76,13 +80,15 @@ func (e *edits) serial(id string, call func() (services.PlaylistDetail, error), 
 		later := e.pending[id] > 0
 		if !later {
 			delete(e.pending, id)
-			if e.tail[id] == mine {
-				delete(e.tail, id)
-			}
+		}
+		e.mu.Unlock()
+		done(d, err, later)
+		e.mu.Lock()
+		if e.tail[id] == mine {
+			delete(e.tail, id)
 		}
 		e.mu.Unlock()
 		close(mine)
-		done(d, err, later)
 	}()
 }
 
