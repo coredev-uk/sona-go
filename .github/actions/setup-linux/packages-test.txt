@@ -11,3 +11,8 @@ fonts-dejavu-core
 dbus
 dbus-bin
 dbus-daemon
+zsh
+pipewire
+pipewire-bin
+wireplumber
+gstreamer1.0-pipewire

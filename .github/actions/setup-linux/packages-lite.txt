@@ -1,8 +1,0 @@
-build-essential
-pkg-config
-libgstreamer1.0-dev
-libgstreamer-plugins-base1.0-dev
-fonts-dejavu-core
-dbus
-dbus-bin
-dbus-daemon

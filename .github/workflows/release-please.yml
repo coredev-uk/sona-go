@@ -61,11 +61,18 @@ jobs:
   release:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
-    # What release.yml's jobs ask for (a called workflow can only narrow
-    # these): contents to read the code, id-token and attestations for the
-    # build provenance. Publishing uses the App token, not GITHUB_TOKEN.
+    # What release.yml's jobs and the ci.yml it calls ask for: a called
+    # workflow can only narrow what its caller grants, and a job asking for
+    # more fails the whole run at startup (startup_failure, no jobs). Here:
+    # contents to read the code, actions to find the CI run of the tagged
+    # commit (plan), packages to pull the build image (linux), pull-requests
+    # for ci.yml's changed-files job, id-token and attestations for the build
+    # provenance. Publishing uses the App token, not GITHUB_TOKEN.
     permissions:
       contents: read
+      actions: read
+      packages: read
+      pull-requests: read
       id-token: write
       attestations: write
     uses: ./.github/workflows/release.yml

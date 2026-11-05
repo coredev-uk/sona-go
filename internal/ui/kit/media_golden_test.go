@@ -17,6 +17,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/media"
 	"github.com/coredev-uk/sona-go/internal/ui/media/mediatest"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/artifacts"
 )
 
 // updateMediaGolden rewrites the media goldens instead of comparing:
@@ -89,7 +90,7 @@ func mediaGoldenTol(t *testing.T, name string, img *image.RGBA, tol int) {
 		}
 	}
 	if limit := img.Bounds().Dx() * img.Bounds().Dy() / 200; diff > limit {
-		out := filepath.Join(t.ArtifactDir(), "media-"+name+"-got.png")
+		out := filepath.Join(artifacts.Dir(t), "media-"+name+"-got.png")
 		if f, err := os.Create(out); err == nil {
 			_ = png.Encode(f, img)
 			_ = f.Close()

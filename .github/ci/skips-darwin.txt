@@ -1,0 +1,23 @@
+# Skipped tests that do not fail a macOS job (skips.sh): package suffix (or *),
+# a regexp over the top-level test's name, and optionally a substring of the
+# skip's reason. Anything else that skips is a missing prerequisite.
+#
+# Live tests: they need Apple's servers, an account or Google's CDM download.
+internal/applemusic TestLive.*
+internal/motion TestLiveRendition.*
+internal/playback/cdm TestLiveDownload.*
+# Evidence writers: they draw pictures for a pull request when asked.
+* .*Evidence
+# Motion artwork's decoder is there on macOS, so the tests of its absence
+# have nothing to run, and one reads a file the environment names.
+internal/ui/media TestOpenMotionWithoutDecoder
+internal/ui/media TestMotionFileOfTheCache
+# D-Bus is Linux's session bus.
+* .* dbus-daemon not available
+# Goldens and pixel readings are compared on Linux only: Pango shapes the text
+# there, Core Text draws it differently.
+* .* on Linux only
+# PipeWire and /proc are Linux's.
+internal/playback/native TestEqualizerAndDeviceFollowHosts
+internal/playback/gst TestFilePipelineMovesOutputInEveryState
+internal/ui/probe/measure TestTreeUsageOfThisProcess

@@ -289,10 +289,8 @@ a failure. CI ("Resolve the Widevine CDM version") runs
 `actions/cache` keyed `widevine-<os>-<arch>-<version>`, and ("Install the
 Widevine CDM") fills a miss with
 `go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine`, exporting
-`SONA_CDM_CACHE` and `SONA_CDM_REQUIRE=1`. "Real Widevine CDM tests (verbose,
-must not skip)" then runs `TestCDM`, `TestProbe`, `TestSessionChallenge`,
-`TestPlayClearTrack`, `TestNextTrackAdvances`, `TestChildExit` and
-`TestChildCrashInBundle` with `-v`.
+`SONA_CDM_CACHE` and `SONA_CDM_REQUIRE=1`. The playback shard then runs them like any test, and `skips.sh` fails the job
+if one of them skipped (the CDM tests are in no allow-list).
 
 ### Preview playback (tests without a Music User Token)
 
@@ -348,7 +346,7 @@ and is not a release). Before a release, work through
 ### UI tests and the end-to-end smoke
 
 - **`ui.Tester` tests** (`go test ./internal/ui/...`, no display) run over `internal/ui/uitest`: `uitest.Env(t)` is a `module.Env` over real services on a temporary SQLite library seeded with a synthetic fixture (`internal/ui/uitest/fixture`: invented artists, albums, songs and playlists, generated covers; never Apple's data), a fake playback engine, a fake artwork CDN, a Poster the test drains and a fake clock. The Core is hermetic: an empty in-memory keyring, an HTTP transport that fails any host the test does not serve (`Harness.Network.Serve` adds one), and home, XDG and D-Bus environment under the test's temporary directory, so a test never sees your Last.fm session, GitHub or your session bus. `docs/ui-architecture.md` ("Testing with `ui.Tester`", "Tests") has the API.
-- **Golden images** are few: the shell with Albums, light and dark, at 1132×1253 (`internal/ui/app/testdata/golden/`). `uitest.Golden` compares by the mean colour of 8×8-pixel blocks (another machine's text antialiasing passes; a moved edge, a changed colour or a missing cover does not). When a change moves the picture on purpose, review it and run `go test ./internal/ui/app -run Golden -update`; commit the new PNGs and say in the PR why. A failing run keeps the picture and a diff in the test's artifacts (`go test -artifacts -outputdir DIR`; the CI `ui` job uploads them).
+- **Golden images** are few: the shell with Albums, light and dark, at 1132×1253 (`internal/ui/app/testdata/golden/`). `uitest.Golden` compares by the mean colour of 8×8-pixel blocks (another machine's text antialiasing passes; a moved edge, a changed colour or a missing cover does not). When a change moves the picture on purpose, review it and run `go test ./internal/ui/app -run Golden -update`; commit the new PNGs and say in the PR why. A failing run keeps the picture and a diff in the test's artifact directory: `$SONA_TEST_ARTIFACTS/<test name>` when that variable is set (CI's `.github/ci/test.sh` sets it and uploads the directory), else the test's `t.ArtifactDir()` (`go test -artifacts -outputdir DIR`). Tests get the directory from `internal/ui/uitest/artifacts` and only when they fail, because `go test` never caches a run that uses `-artifacts`.
 - **The end-to-end smoke** (`e2e/`, build tag `e2e`) drives the built app from outside: `e2e` script, or `headless -- go test -tags e2e ./e2e/...`. It builds `bin/sona-e2e` with `-tags probe,sqlite_fts5` (MyGo's automation plugin and a seam that exists only in probe builds: `SONA_E2E=1` swaps in the fake playback engine and `SONA_E2E_CDN=host:port` sends all the app's HTTP to a local server of the fixture's covers, so nothing reaches Apple), starts it on the fixture profile (`go run ./e2e/profile` writes the same profile into private XDG directories), and checks first paint, Albums, playing an album, Space, a capture and, from the AT-SPI bus, the shell's landmarks by role and name. `E2E_OUT=<dir>` keeps the capture (`smoke.png`) and the app's stderr; `E2E_BIN=<path>` runs an existing binary. `headless` needs `sway`, `wtype` and `at-spi2-core` (devenv has them; elsewhere install them with your package manager). Never run a probe build outside tests: it can be driven by anything that opens its socket.
 
 ### CI and workflows
@@ -361,6 +359,9 @@ production build, go vet, real-CDM and sandbox tests, `go test -race`) and
 "Windows build" (windows-2025: `go vet` with cgo, `sona.exe`),
 which take several minutes and so never run on pull requests or for a
 release: they run after each merge to main and when dispatched),
+`cache-prune.yml` (after each CI run on main: keeps the newest Go cache of
+each kind and deletes the rest, so the 10 GB cap never evicts what matters; a
+`workflow_run` job that checks out and runs nothing from the repository),
 `pr-title.yml` (Conventional Commits title),
 `live.yml` (weekly Apple Music contract tests, private mode),
 `release-please.yml` (the release PR and tag, as bot-cecil), `release.yml`
@@ -371,7 +372,8 @@ environment's secrets are set, publishes nothing), `renovate.yaml`
 (dependency updates; maintained with Renovate).
 
 Rules for workflow changes: trigger pull requests with `pull_request`, never
-`pull_request_target` or `workflow_run`; start from `permissions: contents:
+`pull_request_target` or `workflow_run` (`cache-prune.yml` is the one
+`workflow_run`: it reacts to pushes to main only and runs no repository code); start from `permissions: contents:
 read` and widen per job only where needed; pin every action to a full commit
 SHA with the version in a comment (`uses: actions/checkout@<sha> # v7.0.1`;
 Renovate keeps pins current); `persist-credentials: false` on every checkout
@@ -379,7 +381,16 @@ that doesn't push; pass expressions to scripts through `env:`, never inline
 in `run:`; secrets live in environments (`release`: Last.fm key/secret,
 Discord ID, deploys from main and `v*` tags; `live`: `MUSIC_USER_TOKEN`, main
 only), so no pull request run can read them. Run `actionlint` on changed
-workflows. Threat model: `docs/security-review.md`, "Workflows".
+workflows. The test jobs run `.github/ci/test.sh` (gotestsum: a failing test
+is rerun twice; one that passes on a rerun passes the job and is listed in the
+job summary as flaky) and then `.github/ci/skips.sh`, which fails the job on
+any skipped test that `.github/ci/skips-linux.txt` (or `skips-darwin.txt`)
+does not name: a skip means a missing prerequisite or a test nobody runs, so a
+test that cannot run on a platform is added to the list with its reason, and
+anything else is fixed in the job's setup. Go's caches are restored by the key
+they were saved under (the runner image version is part of the Linux key, so
+an image update never serves a cached pass), and `test.sh` leaves out
+`-artifacts` so unchanged packages report `(cached)`. Threat model: `docs/security-review.md`, "Workflows".
 
 ### Desktop VM tests
 

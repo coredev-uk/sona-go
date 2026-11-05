@@ -1,0 +1,50 @@
+# Go's caches are saved under a new key on every run of CI on main (the run ID
+# ends the key), so without pruning the repository's 10 GB cache cap fills up
+# and evicts the entries that matter. When a run of CI on main has finished
+# (every job that saves is done), keep the newest entry of each Go cache (its
+# key without the run ID) and delete the rest. A workflow of its own, not a CI
+# job: release.yml calls ci.yml with only `contents: read`, and a called job
+# that asks for `actions: write` would fail that call at startup. It checks
+# out and runs nothing from the repository.
+name: Prune caches
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: prune-caches
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    name: Prune old Go caches
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'push' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      actions: write # delete caches
+    steps:
+      - name: Delete every Go cache but the newest of its key
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh cache list --repo "$REPO" --limit 1000 --json id,key,sizeInBytes >caches.json
+          # A Go cache's key is go-<flavor>-<OS>-<arch>[-<image version>]-<hash of
+          # go.mod and go.sum>-<run ID>. The newest of a flavor (highest ID) stays,
+          # whatever its image or dependencies: older ones can't be restored by
+          # a run that matters.
+          jq -r '[.[] | . + {flavor: (.key | capture("^(?<f>go-.+?-(Linux|macOS)-(X64|ARM64)|go-windows)(-[^-]+)?-[0-9a-f]{64}-[0-9]+$").f // empty)} | select(.flavor)]
+            | group_by(.flavor)[] | sort_by(-.id)[1:][] | "\(.id) \(.key)"' caches.json >stale.txt
+          echo "$(wc -l <stale.txt) stale Go caches of $(jq length caches.json) caches"
+          while read -r id key; do
+            echo "delete $key"
+            gh cache delete "$id" --repo "$REPO" || true
+          done <stale.txt
+          gh cache list --repo "$REPO" --limit 1000 --json sizeInBytes --jq '"now \(map(.sizeInBytes) | add / 1e9 | floor) GB in \(length) entries"'
