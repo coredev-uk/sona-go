@@ -43,10 +43,9 @@ func (p *player) roomLayer(c *ui.Context) {
 	}
 	w, h := c.Size()
 
-	root := ui.Column(c.Key("room")).FillWidth().FillHeight().Grow(1).Basis(0).MinHeight(0)
-	root.Children(func() {
-		kit.Backdrop(c.Key("wash"), p.env.Art, kit.BackdropOpts{Src: cur.Backdrop, Tone: kit.ToneGround}, nil).
-			Absolute().Top(0).Left(0).Right(0).Bottom(0).PassThrough()
+	// The wash is the root itself, so the lines draw over it (an Absolute
+	// sibling would paint above them).
+	root := kit.Backdrop(c.Key("room"), p.env.Art, kit.BackdropOpts{Src: cur.Backdrop, Tone: kit.ToneGround}, func() {
 		p.roomLines(c, songID, roomLook(w, h))
 		ui.Row(c.Key("room-footer")).FillWidth().Shrink(0).Gap(16).Padding(12, 0.07*w, 28).AlignItems(ui.Center).Children(func() {
 			kit.Artwork(c.Key("art"), p.env.Art, cur.Art.Small, 44, kit.ArtOpts{})
@@ -62,7 +61,7 @@ func (p *player) roomLayer(c *ui.Context) {
 				p.ui.closeOverlay()
 			}
 		})
-	})
+	}).FillWidth().FillHeight().Grow(1).Basis(0).MinHeight(0)
 	root.Background(theme.C("ground")).Role(ui.RoleGroup).Label(i18n.T("Lyrics, full screen"))
 	if !theme.ReducedMotion() {
 		root.Transition(ui.ElementTransition{Enter: &ui.Motion{}, Duration: 200 * time.Millisecond})

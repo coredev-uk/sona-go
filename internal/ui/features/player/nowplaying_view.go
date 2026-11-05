@@ -94,10 +94,10 @@ func (p *player) nowPlaying(c *ui.Context) {
 	shown := shownPane(p.ui.pane, cur)
 	songID := lyricsync.SongID(cur)
 
-	root := ui.Column(c.Key("now-playing")).FillWidth().FillHeight().Grow(1).Basis(0).MinHeight(0)
-	root.Children(func() {
-		kit.Backdrop(c.Key("wash"), p.env.Art, kit.BackdropOpts{Src: cur.Backdrop, Tone: kit.ToneGround}, nil).
-			Absolute().Top(0).Left(0).Right(0).Bottom(0).PassThrough()
+	// The wash is the root itself, so what the view holds draws over it: an
+	// Absolute sibling paints above the content, and its scrim covers the
+	// whole view once the cover's backdrop has loaded.
+	root := kit.Backdrop(c.Key("now-playing"), p.env.Art, kit.BackdropOpts{Src: cur.Backdrop, Tone: kit.ToneGround}, func() {
 		ui.Row(c.Key("center")).FillWidth().FillHeight().Grow(1).Basis(0).MinHeight(0).Justify(ui.Center).AlignItems(ui.Stretch).Children(func() {
 			var body ui.Element
 			if lay.stacked {
@@ -141,7 +141,7 @@ func (p *player) nowPlaying(c *ui.Context) {
 				})
 			})
 		})
-	})
+	}).FillWidth().FillHeight().Grow(1).Basis(0).MinHeight(0)
 	root.Role(ui.RoleGroup).Label(i18n.T("Now playing")).Bind(&p.np.root)
 	p.np.hadFocus = root.FocusWithin()
 	if !theme.ReducedMotion() {
