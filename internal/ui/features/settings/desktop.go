@@ -33,10 +33,18 @@ func (s *settings) startupRows(c *ui.Context, cfg config.Settings, caps services
 	d := cfg.Desktop
 	title := i18n.T("Start Sona when you log in")
 	if !caps.Autostart {
-		s.unavailableRow(c, "autostart", title, "")
+		reason := ""
+		if caps.NeedsAppBundle {
+			reason = needsAppBundle()
+		}
+		s.unavailableRow(c, "autostart", title, reason)
 		return
 	}
-	s.switchRow(c, rowOpts{ID: "autostart", Title: title, Desc: i18n.T("Adds Sona to your desktop's startup applications.")},
+	desc := i18n.T("Adds Sona to your desktop's startup applications.")
+	if caps.OS == "darwin" {
+		desc = i18n.T("Adds Sona to the login items in System Settings → General.")
+	}
+	s.switchRow(c, rowOpts{ID: "autostart", Title: title, Desc: desc},
 		d.Autostart, false, func(on bool) { s.saveDesktop(func(d *config.Desktop) { d.Autostart = on }) })
 	// Starting without a window needs the tray to open it from, and only
 	// applies at login.

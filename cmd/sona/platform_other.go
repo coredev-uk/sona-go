@@ -15,20 +15,21 @@ import (
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
+	uiapp "github.com/coredev-uk/sona-go/internal/ui/app"
 	"github.com/coredev-uk/sona-go/internal/ui/media"
 	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
 
 // macOS and Windows (and any other OS): the UI with single instance and
 // `sona <command>` over a local socket in the state folder
-// (app.AcquireSocket), but without the other desktop integrations. Sona
-// has no notifications, sleep inhibitor, power monitor, file chooser or
-// autostart entry here yet; each is absent from
-// services.Platform, so Capabilities reports it and the UI hides or
-// explains it. Media keys and Now Playing are MyGo's NowPlaying on macOS and
-// Windows (nowplaying_desktop.go; internal/nowplaying). The tray is the UI's (internal/ui/app): on macOS a menu bar
-// item with a template icon. The playback engine is engine_cdm.go's on
-// macOS, engine_other.go's elsewhere.
+// (app.AcquireSocket). Windows has no other desktop integration yet; each is
+// absent from services.Platform, so Capabilities reports it and the UI hides
+// or explains it. macOS has MyGo's (integrations_darwin.go): sleep inhibit,
+// the power source, the file chooser, and, from Sona.app, notifications and
+// the login item. Media keys and Now Playing are MyGo's NowPlaying on macOS
+// and Windows (nowplaying_desktop.go; internal/nowplaying). The tray is the
+// UI's (internal/ui/app): on macOS a menu bar item with a template icon. The
+// playback engine is engine_cdm.go's on macOS, engine_other.go's elsewhere.
 
 // dialInstance reaches the running Sona for `sona <command>` through its
 // socket in the state folder.
@@ -70,12 +71,15 @@ func openPlatform(paths config.Paths, act app.Activation, log *slog.Logger) (*pl
 	return p, nil
 }
 
-// Services offers the title bar and, with the socket, commands.
-func (p *platform) Services() services.Platform {
-	return services.Platform{
+// Services offers the title bar, commands and, per OS, the desktop
+// integrations (desktopIntegrations).
+func (p *platform) Services(windows *uiapp.Windows) services.Platform {
+	out := services.Platform{
 		TitleBar: p.TitleBar(), Commands: p.instance != nil, MotionArtwork: media.Supported,
 		MediaControls: mediaControls(p.log.With("component", "nowplaying")),
 	}
+	desktopIntegrations(&out, windows)
+	return out
 }
 
 // TitleBar: on macOS the system's buttons inset into Sona's top bar; on

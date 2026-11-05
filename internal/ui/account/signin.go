@@ -3,6 +3,7 @@ package account
 import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
 // The native sign-in flow (docs/auth.md §4.7) as a pure reducer: the form
@@ -93,8 +94,9 @@ func classifySignInError(err error, statusCode services.ErrorCode, statusAppleMe
 	return SignInError{Code: services.CodeUnknown, Message: message}
 }
 
-// errorCopy is the message and next step for each case in docs/auth.md §4.7.
-func errorCopy(e SignInError) ErrorCopy {
+// errorCopy is the message and next step for each case in docs/auth.md §4.7;
+// goos words the notices about the system keyring.
+func errorCopy(e SignInError, goos string) ErrorCopy {
 	switch e.Code {
 	case services.CodeInvalidCredentials:
 		return ErrorCopy{
@@ -159,7 +161,7 @@ func errorCopy(e SignInError) ErrorCopy {
 	case services.CodeKeyring:
 		return ErrorCopy{
 			Title:  i18n.T("Sona couldn't save your sign-in"),
-			Detail: i18n.T("Your keyring didn't answer or refused, so nothing was saved. Unlock GNOME Keyring or KWallet, then sign in again."),
+			Detail: kit.KeyringWords(goos).SaveRefused,
 			Next:   NextRetry,
 		}
 	}

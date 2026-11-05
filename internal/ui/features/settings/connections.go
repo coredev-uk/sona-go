@@ -214,7 +214,7 @@ func (s *settings) unencryptedNote(c *ui.Context) {
 		ui.Icon(c.Key("i"), theme.Icon("shield-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
 		ui.Column(c.Key("t")).Shrink(1).MinWidth(0).Children(func() {
 			text(c, i18n.T("Your scrobbler sign-ins are stored unencrypted"), "label").TextColor(theme.C("ink"))
-			text(c, i18n.T("No Secret Service keyring is running, so Sona keeps them in files only your user can read. Start GNOME Keyring or KWallet and Sona moves them into the keyring."), "secondary").
+			text(c, kit.KeyringWords(s.caps().Data.OS).ScrobblerInFile, "secondary").
 				TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 		})
 	})

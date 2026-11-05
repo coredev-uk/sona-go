@@ -27,6 +27,14 @@ type Capabilities struct {
 	MotionArtwork bool `json:"motionArtwork"`
 	// FileChooser: the native file dialog (settings import and export).
 	FileChooser bool `json:"fileChooser"`
+	// NeedsAppBundle: this is a macOS run outside Sona.app (a source
+	// build). Notifications and Autostart are false because macOS ties them
+	// to the app bundle, not because the platform lacks them; the UI says
+	// to run Sona.app. False everywhere else.
+	NeedsAppBundle bool `json:"needsAppBundle"`
+	// PlainNotifications: the track notification is the title and text and
+	// a click that opens Sona, with no artwork and no Next button (macOS).
+	PlainNotifications bool `json:"plainNotifications"`
 	// CLI: `sona <command>` reaches the running instance, and a second
 	// launch hands its links to it.
 	CLI bool `json:"cli"`

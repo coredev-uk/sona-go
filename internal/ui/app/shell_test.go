@@ -98,6 +98,19 @@ func TestWithoutATrayClosingTheWindowQuits(t *testing.T) {
 	}
 }
 
+// Main is MyGo's window for what attaches to it: none before the window is
+// made, and none for a window that isn't MyGo's (the tests' fakes).
+func TestMainIsNilWithoutAMyGoWindow(t *testing.T) {
+	var w Windows
+	if w.Main() != nil {
+		t.Error("Main before any window")
+	}
+	r := newWindowsRig(true, true)
+	if r.w.Main() != nil {
+		t.Error("Main of a fake window")
+	}
+}
+
 func TestMiniPlayerTakesTheMainWindowsPlaceAndGivesItBack(t *testing.T) {
 	r := newWindowsRig(true, true)
 	r.w.ToggleMini()

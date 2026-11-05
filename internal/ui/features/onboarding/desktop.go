@@ -32,12 +32,21 @@ func (o *onboarding) desktopStep(c *ui.Context) {
 	integrations := func(patch func(*config.Integrations)) {
 		o.save(func(s *config.Settings) { patch(&s.Integrations) })
 	}
-	var missing []string
+	// What the platform lacks, and what only a missing app bundle (a macOS
+	// source build) keeps from working.
+	var missing, needsBundle []string
+	lacking := func(what string) {
+		if cp.NeedsAppBundle {
+			needsBundle = append(needsBundle, what)
+		} else {
+			missing = append(missing, what)
+		}
+	}
 	if !cp.Autostart {
-		missing = append(missing, i18n.T("starting at login"))
+		lacking(i18n.T("starting at login"))
 	}
 	if !cp.Notifications {
-		missing = append(missing, i18n.T("track notifications"))
+		lacking(i18n.T("track notifications"))
 	}
 
 	ui.Column(c.Key("desktop")).FillWidth().Gap(20).Children(func() {
@@ -53,8 +62,12 @@ func (o *onboarding) desktopStep(c *ui.Context) {
 		}
 		var rows []func()
 		if cp.Autostart {
+			desc := i18n.T("Adds Sona to your desktop's startup applications.")
+			if cp.OS == "darwin" {
+				desc = i18n.T("Adds Sona to the login items in System Settings → General.")
+			}
 			rows = append(rows, func() {
-				switchRow(c, "autostart", i18n.T("Start Sona when you log in"), i18n.T("Adds Sona to your desktop's startup applications."),
+				switchRow(c, "autostart", i18n.T("Start Sona when you log in"), desc,
 					d.Autostart, false, func(on bool) { desktop(func(d *config.Desktop) { d.Autostart = on }) }, nil)
 			})
 		}
@@ -79,10 +92,13 @@ func (o *onboarding) desktopStep(c *ui.Context) {
 		}
 		list(c, "desktop", rows)
 
-		if len(missing) > 0 || !cp.Tray {
+		if len(missing) > 0 || len(needsBundle) > 0 || !cp.Tray {
 			var lines []string
 			if len(missing) > 0 {
 				lines = append(lines, i18n.T("Not on this platform yet: {missingList}.", "missingList", i18n.List(missing)))
+			}
+			if len(needsBundle) > 0 {
+				lines = append(lines, i18n.T("Only when Sona runs from Sona.app: {needsList}.", "needsList", i18n.List(needsBundle)))
 			}
 			if !cp.Tray {
 				lines = append(lines, i18n.T("Closing the window quits Sona: playing on in the background needs a system tray, which Sona can't use here yet."))

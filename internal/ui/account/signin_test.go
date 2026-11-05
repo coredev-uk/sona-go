@@ -79,7 +79,7 @@ func TestClassifyShowsApplesOwnMessageForACodeSonaDoesNotMap(t *testing.T) {
 	if fromCall != (SignInError{Code: services.CodeUnknown, Message: french}) {
 		t.Errorf("from a call: %+v", fromCall)
 	}
-	if d := errorCopy(fromCall).Detail; d != french {
+	if d := errorCopy(fromCall, "").Detail; d != french {
 		t.Errorf("detail %q", d)
 	}
 	if got := classifySignInError(nil, services.CodeUnknown, french); got.Message != french {
@@ -96,7 +96,7 @@ func TestClassifyShowsApplesOwnMessageForACodeSonaDoesNotMap(t *testing.T) {
 
 func TestEveryCodeHasATitleAndANextStep(t *testing.T) {
 	unknown := classifySignInError(errors.New("Too many codes requested."), "", "")
-	if c := errorCopy(unknown); c.Detail != "Something went wrong." || c.Next != NextRetry {
+	if c := errorCopy(unknown, ""); c.Detail != "Something went wrong." || c.Next != NextRetry {
 		t.Errorf("unknown: %+v", c)
 	}
 	want := map[services.ErrorCode]NextStep{
@@ -114,13 +114,34 @@ func TestEveryCodeHasATitleAndANextStep(t *testing.T) {
 		services.CodeKeyring:            NextRetry,
 	}
 	for code, next := range want {
-		c := errorCopy(SignInError{Code: code})
+		c := errorCopy(SignInError{Code: code}, "")
 		if c.Next != next || c.Title == "" || c.Detail == "" {
 			t.Errorf("%s: %+v, want next %d", code, c, next)
 		}
 	}
-	if got, again := errorCopy(SignInError{Code: services.CodeOutOfOrder}), errorCopy(SignInError{Code: services.CodeCancelled}); got != again {
+	if got, again := errorCopy(SignInError{Code: services.CodeOutOfOrder}, ""), errorCopy(SignInError{Code: services.CodeCancelled}, ""); got != again {
 		t.Errorf("out_of_order and cancelled differ: %+v %+v", got, again)
+	}
+}
+
+// A keyring that refuses a sign-in says which keyring to unlock on this OS,
+// never GNOME Keyring on a Mac or Windows.
+func TestKeyringSaveErrorIsWordedPerOS(t *testing.T) {
+	for goos, want := range map[string]string{
+		"linux":   "Unlock GNOME Keyring or KWallet, then sign in again.",
+		"":        "Unlock GNOME Keyring or KWallet, then sign in again.",
+		"darwin":  "Unlock your login keychain in Keychain Access, then sign in again.",
+		"windows": "Windows Credential Manager didn't answer or refused, so nothing was saved. Sign in again.",
+	} {
+		d := errorCopy(SignInError{Code: services.CodeKeyring}, goos).Detail
+		if !strings.Contains(d, want) {
+			t.Errorf("%q: detail %q, want it to contain %q", goos, d, want)
+		}
+		if goos == "darwin" || goos == "windows" {
+			if strings.Contains(d, "GNOME") || strings.Contains(d, "KWallet") {
+				t.Errorf("%q names a Linux keyring: %q", goos, d)
+			}
+		}
 	}
 }
 

@@ -459,6 +459,55 @@ func TestIntegrationsNotesSayWhenTheDesktopLacksTheService(t *testing.T) {
 		"Neither logind nor the desktop portal answered, so sleep can't be blocked."))
 }
 
+// macCaps is a Mac running from Sona.app: notifications, the login item,
+// the sleep inhibitor, the power source and the file chooser are there, and
+// the notifications are plain.
+func macCaps() services.Capabilities {
+	c := linuxCaps()
+	c.OS, c.PlainNotifications = "darwin", true
+	c.WindowControls = services.WindowControls{Native: "inset", Automatic: "desktop", Style: "auto"}
+	return c
+}
+
+// On macOS a notification is the song and a click, and the login item is in
+// System Settings: the rows don't promise artwork, a Next button or the
+// desktop's startup applications.
+func TestMacRowsDescribeMacOSNotificationsAndLoginItem(t *testing.T) {
+	g := newGeneralRig(t, macCaps(), nil)
+	g.until("rows", g.tt.Shows(
+		"Shows the song and artist when a new track starts; click it to open Sona. Not shown while Sona's window is in front.",
+		"Adds Sona to the login items in System Settings → General."))
+	if g.tt.HasText("Next button") || g.tt.HasText("startup applications") {
+		t.Errorf("a Linux promise on macOS: %q", g.tt.Texts())
+	}
+}
+
+// A system that lets Sona show no notifications says where to turn them on,
+// and says nothing once it lets them.
+func TestDeniedNotificationsSayWhereToAllowThem(t *testing.T) {
+	g := newGeneralRig(t, macCaps(), nil)
+	const note = "macOS isn't letting Sona show notifications: allow them in System Settings → Notifications."
+	store.Set(g.h.Env.Queries, keyIntegrations, services.IntegrationsStatus{Notifications: services.IntegrationDenied})
+	g.until("the note", g.tt.Shows(note))
+	store.Set(g.h.Env.Queries, keyIntegrations, services.IntegrationsStatus{Notifications: services.IntegrationReady})
+	g.until("the note gone", func() bool { return !g.tt.HasText(note) })
+}
+
+// A source build on a Mac says what it needs, not that macOS lacks it.
+func TestSourceBuildOnMacSaysItNeedsTheAppBundle(t *testing.T) {
+	caps := macCaps()
+	caps.Notifications, caps.Autostart, caps.PlainNotifications, caps.NeedsAppBundle = false, false, false, true
+	g := newGeneralRig(t, caps, nil)
+	g.until("the reason", g.tt.Shows("Only when Sona runs from Sona.app, not from a source build."))
+	if g.tt.HasText("Not available on macOS yet.") {
+		t.Errorf("a source build says macOS lacks them: %q", g.tt.Texts())
+	}
+	// The rows keep their place and title.
+	if !g.tt.Shows("Start Sona when you log in", "Track notifications")() {
+		t.Errorf("rows missing: %q", g.tt.Texts())
+	}
+}
+
 func TestUpdatesCheckSwitchSaves(t *testing.T) {
 	g := newGeneralRig(t, linuxCaps(), nil)
 	g.toggle("updates-check")

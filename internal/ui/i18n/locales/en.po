@@ -186,6 +186,11 @@ msgstr "Added “{name}” to your library"
 
 #: internal/ui/features/onboarding/desktop.go
 #: internal/ui/features/settings/desktop.go
+msgid "Adds Sona to the login items in System Settings → General."
+msgstr "Adds Sona to the login items in System Settings → General."
+
+#: internal/ui/features/onboarding/desktop.go
+#: internal/ui/features/settings/desktop.go
 msgid "Adds Sona to your desktop's startup applications."
 msgstr "Adds Sona to your desktop's startup applications."
 
@@ -3323,11 +3328,11 @@ msgstr "No Apple device is signed in to this account, so Apple sends codes by te
 msgid "No PipeWire or PulseAudio sink was found; GStreamer falls back to autoaudiosink."
 msgstr "No PipeWire or PulseAudio sink was found; GStreamer falls back to autoaudiosink."
 
-#: internal/ui/features/settings/connections.go
+#: internal/ui/kit/keyring_copy.go
 msgid "No Secret Service keyring is running, so Sona keeps them in files only your user can read. Start GNOME Keyring or KWallet and Sona moves them into the keyring."
 msgstr "No Secret Service keyring is running, so Sona keeps them in files only your user can read. Start GNOME Keyring or KWallet and Sona moves them into the keyring."
 
-#: internal/ui/account/signedin.go
+#: internal/ui/kit/keyring_copy.go
 msgid "No Secret Service keyring is running, so Sona keeps your Apple Music token in a file only your user can read. Start GNOME Keyring or KWallet and Sona moves it into the keyring."
 msgstr "No Secret Service keyring is running, so Sona keeps your Apple Music token in a file only your user can read. Start GNOME Keyring or KWallet and Sona moves it into the keyring."
 
@@ -3419,6 +3424,10 @@ msgstr "No music videos for “{q}”"
 #: internal/ui/features/library/videos.go
 msgid "No music videos in your library"
 msgstr "No music videos in your library"
+
+#: internal/ui/features/settings/integrations_rows.go
+msgid "No notification service is running on this desktop."
+msgstr "No notification service is running on this desktop."
 
 #: internal/ui/features/playlist/dialogs.go
 msgid "No playlist you can edit is called “{trimmed}”."
@@ -3819,6 +3828,14 @@ msgstr "On this page"
 #: internal/ui/features/search/page.go
 msgid "Only what is synced to this computer is searched. Try Apple Music for everything else."
 msgstr "Only what is synced to this computer is searched. Try Apple Music for everything else."
+
+#: internal/ui/features/settings/integrations_rows.go
+msgid "Only when Sona runs from Sona.app, not from a source build."
+msgstr "Only when Sona runs from Sona.app, not from a source build."
+
+#: internal/ui/features/onboarding/desktop.go
+msgid "Only when Sona runs from Sona.app: {needsList}."
+msgstr "Only when Sona runs from Sona.app: {needsList}."
 
 #: internal/ui/features/playlist/commands.go
 #: internal/ui/features/playlist/dialogs.go
@@ -5093,6 +5110,10 @@ msgstr "Shows and episodes"
 msgid "Shows the inspector of Sona's window: its elements and what each one draws, for debugging and for writing plugins."
 msgstr "Shows the inspector of Sona's window: its elements and what each one draws, for debugging and for writing plugins."
 
+#: internal/ui/features/settings/integrations_rows.go
+msgid "Shows the song and artist when a new track starts; click it to open Sona. Not shown while Sona's window is in front."
+msgstr "Shows the song and artist when a new track starts; click it to open Sona. Not shown while Sona's window is in front."
+
 #: internal/ui/features/onboarding/connections.go
 msgid "Shows the song you're playing as your Discord activity."
 msgstr "Shows the song you're playing as your Discord activity."
@@ -5116,10 +5137,6 @@ msgstr "Shows the song you're playing, with its artwork and time, as your Discor
 #: internal/ui/features/settings/integrations_rows.go
 msgid "Shows the song, artist and artwork when a new track starts, with a Next button. Not shown while Sona's window is in front."
 msgstr "Shows the song, artist and artwork when a new track starts, with a Next button. Not shown while Sona's window is in front."
-
-#: internal/ui/features/settings/integrations_rows.go
-msgid "Shows the song, artist and artwork when a new track starts, with a Next button. Not shown while Sona's window is in front. No notification service is running on this desktop."
-msgstr "Shows the song, artist and artwork when a new track starts, with a Next button. Not shown while Sona's window is in front. No notification service is running on this desktop."
 
 #: internal/ui/app/menubar.go
 #: internal/ui/features/playlist/sidebar.go
@@ -5429,9 +5446,17 @@ msgstr "Sona couldn't finish checking the downloaded Widevine. Try again."
 msgid "Sona couldn't limit the host's realtime CPU time, which {via} requires."
 msgstr "Sona couldn't limit the host's realtime CPU time, which {via} requires."
 
-#: internal/ui/account/keyring.go
+#: internal/ui/kit/keyring_copy.go
+msgid "Sona couldn't open Windows Credential Manager, so it would keep your Apple Music token in a file only your user can read. Try again."
+msgstr "Sona couldn't open Windows Credential Manager, so it would keep your Apple Music token in a file only your user can read. Try again."
+
+#: internal/ui/kit/keyring_copy.go
 msgid "Sona couldn't open a keyring, so it would keep your Apple Music token in a file only your user can read. Start or unlock GNOME Keyring or KWallet, then try again."
 msgstr "Sona couldn't open a keyring, so it would keep your Apple Music token in a file only your user can read. Start or unlock GNOME Keyring or KWallet, then try again."
+
+#: internal/ui/kit/keyring_copy.go
+msgid "Sona couldn't open your Keychain, so it would keep your Apple Music token in a file only your user can read. Unlock your login keychain in Keychain Access, then try again."
+msgstr "Sona couldn't open your Keychain, so it would keep your Apple Music token in a file only your user can read. Unlock your login keychain in Keychain Access, then try again."
 
 #: internal/ui/i18n/errors.go
 msgid "Sona couldn't open your web browser. Open the link yourself."
@@ -5485,9 +5510,25 @@ msgstr "Sona couldn't save your sign-in"
 msgid "Sona couldn't tell which version of Widevine to download. Try again later."
 msgstr "Sona couldn't tell which version of Widevine to download. Try again later."
 
+#: internal/ui/kit/keyring_copy.go
+msgid "Sona couldn't use Windows Credential Manager, so it keeps them in files only your user can read. Sona moves them into Credential Manager once that works."
+msgstr "Sona couldn't use Windows Credential Manager, so it keeps them in files only your user can read. Sona moves them into Credential Manager once that works."
+
+#: internal/ui/kit/keyring_copy.go
+msgid "Sona couldn't use Windows Credential Manager, so it keeps your Apple Music token in a file only your user can read. Sona moves it into Credential Manager once that works."
+msgstr "Sona couldn't use Windows Credential Manager, so it keeps your Apple Music token in a file only your user can read. Sona moves it into Credential Manager once that works."
+
 #: internal/ui/i18n/errors.go
 msgid "Sona couldn't use the clipboard."
 msgstr "Sona couldn't use the clipboard."
+
+#: internal/ui/kit/keyring_copy.go
+msgid "Sona couldn't use your Keychain, so it keeps them in files only your user can read. Unlock your login keychain in Keychain Access and Sona moves them into the Keychain."
+msgstr "Sona couldn't use your Keychain, so it keeps them in files only your user can read. Unlock your login keychain in Keychain Access and Sona moves them into the Keychain."
+
+#: internal/ui/kit/keyring_copy.go
+msgid "Sona couldn't use your Keychain, so it keeps your Apple Music token in a file only your user can read. Unlock your login keychain in Keychain Access and Sona moves it into the Keychain."
+msgstr "Sona couldn't use your Keychain, so it keeps your Apple Music token in a file only your user can read. Unlock your login keychain in Keychain Access and Sona moves it into the Keychain."
 
 #: internal/ui/features/settings/connections.go
 msgid "Sona discards them and removes its sign-in from your keyring."
@@ -5505,7 +5546,15 @@ msgstr "Sona fetches them as soon as it reconnects."
 msgid "Sona has no page for that link."
 msgstr "Sona has no page for that link."
 
-#: internal/ui/account/keyring.go
+#: internal/ui/kit/keyring_copy.go
+msgid "Sona is waiting for Windows Credential Manager to hand over your sign-in."
+msgstr "Sona is waiting for Windows Credential Manager to hand over your sign-in."
+
+#: internal/ui/kit/keyring_copy.go
+msgid "Sona is waiting for your Keychain to hand over your sign-in. If macOS asks you to unlock it, do that now."
+msgstr "Sona is waiting for your Keychain to hand over your sign-in. If macOS asks you to unlock it, do that now."
+
+#: internal/ui/kit/keyring_copy.go
 msgid "Sona is waiting for your keyring to hand over your sign-in. If GNOME Keyring or KWallet asks you to unlock it, do that now."
 msgstr "Sona is waiting for your keyring to hand over your sign-in. If GNOME Keyring or KWallet asks you to unlock it, do that now."
 
@@ -6780,6 +6829,14 @@ msgstr "Windows"
 msgid "Windows Credential Manager"
 msgstr "Windows Credential Manager"
 
+#: internal/ui/kit/keyring_copy.go
+msgid "Windows Credential Manager didn't answer or refused, so nothing was saved. Sign in again."
+msgstr "Windows Credential Manager didn't answer or refused, so nothing was saved. Sign in again."
+
+#: internal/ui/kit/keyring_copy.go
+msgid "Windows Credential Manager didn't answer or refused, so you're signed out. Try again."
+msgstr "Windows Credential Manager didn't answer or refused, so you're signed out. Try again."
+
 #: internal/ui/features/settings/playback.go
 msgid "With nothing queued, Sona stops its playback host (Widevine and the audio pipeline) after this long. The next song then takes a few seconds longer to start. Applies the next time the host starts."
 msgstr "With nothing queued, Sona stops its playback host (Widevine and the audio pipeline) after this long. The next song then takes a few seconds longer to start. Applies the next time the host starts."
@@ -6884,9 +6941,25 @@ msgstr "Your Apple Account needs attention at account.apple.com before it can si
 msgid "Your Apple Music language"
 msgstr "Your Apple Music language"
 
-#: internal/ui/features/settings/diag_rows.go
+#: internal/ui/kit/keyring_copy.go
+msgid "Your Apple Music token is in a file only your user can read, not in Windows Credential Manager. Sona moves it there once that works."
+msgstr "Your Apple Music token is in a file only your user can read, not in Windows Credential Manager. Sona moves it there once that works."
+
+#: internal/ui/kit/keyring_copy.go
 msgid "Your Apple Music token is in a file only your user can read, not in a keyring. Start GNOME Keyring or KWallet and Sona moves it there."
 msgstr "Your Apple Music token is in a file only your user can read, not in a keyring. Start GNOME Keyring or KWallet and Sona moves it there."
+
+#: internal/ui/kit/keyring_copy.go
+msgid "Your Apple Music token is in a file only your user can read, not in the Keychain. Unlock your login keychain in Keychain Access and Sona moves it there."
+msgstr "Your Apple Music token is in a file only your user can read, not in the Keychain. Unlock your login keychain in Keychain Access and Sona moves it there."
+
+#: internal/ui/kit/keyring_copy.go
+msgid "Your Keychain didn't answer or refused, so nothing was saved. Unlock your login keychain in Keychain Access, then sign in again."
+msgstr "Your Keychain didn't answer or refused, so nothing was saved. Unlock your login keychain in Keychain Access, then sign in again."
+
+#: internal/ui/kit/keyring_copy.go
+msgid "Your Keychain didn't answer or refused, so you're signed out. Unlock your login keychain in Keychain Access, then try again."
+msgstr "Your Keychain didn't answer or refused, so you're signed out. Unlock your login keychain in Keychain Access, then try again."
 
 #: internal/ui/features/library/gate.go
 msgid "Your albums appear here as Sona copies them from Apple Music. Large libraries take a minute or two the first time."
@@ -6916,11 +6989,11 @@ msgstr "Your desktop asks apps to reduce motion (GTK's gtk-enable-animations is 
 msgid "Your favourites"
 msgstr "Your favourites"
 
-#: internal/ui/account/signin.go
+#: internal/ui/kit/keyring_copy.go
 msgid "Your keyring didn't answer or refused, so nothing was saved. Unlock GNOME Keyring or KWallet, then sign in again."
 msgstr "Your keyring didn't answer or refused, so nothing was saved. Unlock GNOME Keyring or KWallet, then sign in again."
 
-#: internal/ui/account/keyring.go
+#: internal/ui/kit/keyring_copy.go
 msgid "Your keyring didn't answer or refused, so you're signed out. Unlock GNOME Keyring or KWallet, then try again."
 msgstr "Your keyring didn't answer or refused, so you're signed out. Unlock GNOME Keyring or KWallet, then try again."
 
@@ -7586,6 +7659,10 @@ msgstr "{percent} · {received} of {total}"
 #: internal/ui/features/settings/cdm.go
 msgid "{percent}, {received} of {total}"
 msgstr "{percent}, {received} of {total}"
+
+#: internal/ui/features/settings/integrations_rows.go
+msgid "{platform} isn't letting Sona show notifications: allow them in System Settings → Notifications."
+msgstr "{platform} isn't letting Sona show notifications: allow them in System Settings → Notifications."
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "{playlists, plural, one {# playlist} other {# playlists}}"

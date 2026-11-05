@@ -49,6 +49,27 @@ func TestCapabilitiesFollowThePlatformAndEngine(t *testing.T) {
 	}
 }
 
+// What macOS says about notifications and the login item: they are absent
+// because Sona doesn't run from Sona.app (not because the platform lacks
+// them), and where present they are plain.
+func TestCapabilitiesCarryTheAppBundleAndPlainNotifications(t *testing.T) {
+	eng := playback.NewUnsupported()
+	t.Cleanup(func() { _ = eng.Close() })
+	caps := func(p Platform) Capabilities {
+		return newPlatformService(&Env{Deps: Deps{Engine: eng, Platform: p, Settings: testSettings(t)}}).Capabilities()
+	}
+	if got := caps(Platform{NeedsAppBundle: true}); !got.NeedsAppBundle || got.Notifications || got.Autostart {
+		t.Errorf("outside the bundle: %+v", got)
+	}
+	if got := caps(Platform{}); got.NeedsAppBundle || got.PlainNotifications {
+		t.Errorf("a platform that says nothing: %+v", got)
+	}
+	plain := Platform{PlainNotifications: true, Notifications: func(context.Context, func(string)) (Notifier, error) { return nil, nil }}
+	if got := caps(plain); !got.Notifications || !got.PlainNotifications {
+		t.Errorf("plain notifications: %+v", got)
+	}
+}
+
 // The window controls carry the platform's title bar facts, and the
 // desktop's button layout is read once, on the first call (after the GUI
 // toolkit started), not when the service is built.

@@ -1,6 +1,8 @@
 package services
 
 import (
+	"context"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -190,5 +192,52 @@ func TestTrackNotificationActions(t *testing.T) {
 	}
 	if got := keys(coordinator.Item{ID: "ra.1", Title: "KISS"}); !slices.Equal(got, []string{notify.DefaultAction}) {
 		t.Errorf("live station actions = %v", got)
+	}
+}
+
+// scriptedNotifier answers each Show with the next error of its script.
+type scriptedNotifier struct{ results chan error }
+
+func (n scriptedNotifier) Show(context.Context, notify.Notification) error { return <-n.results }
+func (scriptedNotifier) Dismiss(context.Context) error                     { return nil }
+func (scriptedNotifier) Close()                                            {}
+
+// statusFeed hands over every IntegrationsStatus the service emits.
+type statusFeed chan IntegrationsStatus
+
+func (f statusFeed) Emit(name string, data ...any) bool {
+	if name == EventIntegrationsStatus {
+		f <- data[0].(IntegrationsStatus)
+	}
+	return true
+}
+
+// A system that lets Sona show no notifications (macOS, after "Don't
+// Allow") is a status of its own, not a warning per song and not "no
+// notification service"; once the user allows them again the next song's
+// notification clears it.
+func TestAnnounceReportsDeniedNotificationsAndRecovery(t *testing.T) {
+	feed := make(statusFeed, 8)
+	n := scriptedNotifier{results: make(chan error, 2)}
+	s := &IntegrationsService{e: &Env{Deps: Deps{
+		Logger: discard(), Language: l10n.NewLanguage(""), Emit: feed,
+		Platform: Platform{Notifications: func(context.Context, func(string)) (Notifier, error) { return n, nil }},
+	}}}
+	item := coordinator.Item{ID: "1440", Title: "Song", Duration: time.Minute}
+	next := func() string { return (<-feed).Notifications }
+
+	n.results <- fmt.Errorf("show: %w", ErrNotificationsDenied)
+	s.announce(item)
+	if got := next(); got != IntegrationReady {
+		t.Fatalf("after connecting: %q, want %q", got, IntegrationReady)
+	}
+	if got := next(); got != IntegrationDenied {
+		t.Fatalf("after a denied notification: %q, want %q", got, IntegrationDenied)
+	}
+
+	n.results <- nil
+	s.announce(item)
+	if got := next(); got != IntegrationReady {
+		t.Fatalf("after an allowed notification: %q, want %q", got, IntegrationReady)
 	}
 }

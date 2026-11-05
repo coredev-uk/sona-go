@@ -176,6 +176,8 @@ type rigOpts struct {
 	gate chan struct{}
 	// noAPI builds the Section without a service.
 	noAPI bool
+	// os is the GOOS the keyring notices are worded for ("" is Linux's).
+	os string
 }
 
 // newRig shows a Section whose status query already holds st.
@@ -193,7 +195,7 @@ func buildRig(t *testing.T, o rigOpts) *rig {
 		store.Set(h.Env.Queries, store.KeyAuth, *o.status)
 	}
 	r := &rig{t: t, h: h, api: fake}
-	d := Deps{API: fake, Queries: h.Env.Queries, Post: h.Env.Post, OpenURL: h.Env.OpenURL, Copy: h.Env.Copy, Log: h.Env.Log}
+	d := Deps{API: fake, Queries: h.Env.Queries, Post: h.Env.Post, OpenURL: h.Env.OpenURL, Copy: h.Env.Copy, Log: h.Env.Log, OS: o.os}
 	if o.noAPI {
 		d.API = nil
 	}
@@ -821,6 +823,38 @@ func TestStatusNotices(t *testing.T) {
 			r := newRig(t, tc.st)
 			r.shows(tc.shows...)
 			r.hides(tc.hides...)
+		})
+	}
+}
+
+// The notices about the keyring name this OS's: the Keychain on macOS,
+// Credential Manager on Windows, never GNOME Keyring or KWallet there.
+func TestKeyringNoticesAreWordedForTheOS(t *testing.T) {
+	waiting := services.AuthStatus{State: "restoring", Keyring: "waiting"}
+	refused := services.AuthStatus{State: "signed_out", Keyring: "unavailable"}
+	noKeyring := services.AuthStatus{State: "signed_out", Unencrypted: true, Backend: "file"}
+	inFile := services.AuthStatus{State: "signed_in", Unencrypted: true, Backend: "file", StorefrontID: "gb"}
+	for _, tc := range []struct {
+		goos string
+		st   services.AuthStatus
+		want string
+	}{
+		{"darwin", waiting, "If macOS asks you to unlock it, do that now."},
+		{"darwin", refused, "Unlock your login keychain in Keychain Access, then try again."},
+		{"darwin", noKeyring, "Sona couldn't open your Keychain, so it would keep your Apple Music token in a file only your user can read."},
+		{"darwin", inFile, "Sona couldn't use your Keychain, so it keeps your Apple Music token in a file only your user can read."},
+		{"windows", waiting, "Sona is waiting for Windows Credential Manager to hand over your sign-in."},
+		{"windows", refused, "Windows Credential Manager didn't answer or refused, so you're signed out. Try again."},
+		{"windows", noKeyring, "Sona couldn't open Windows Credential Manager, so it would keep your Apple Music token in a file only your user can read."},
+		{"windows", inFile, "Sona couldn't use Windows Credential Manager, so it keeps your Apple Music token in a file only your user can read."},
+		{"linux", refused, "Unlock GNOME Keyring or KWallet, then try again."},
+	} {
+		t.Run(tc.goos+"/"+tc.st.State+"/"+tc.st.Keyring, func(t *testing.T) {
+			r := buildRig(t, rigOpts{status: &tc.st, os: tc.goos})
+			r.shows(tc.want)
+			if tc.goos != "linux" && (r.tt.HasText("GNOME") || r.tt.HasText("KWallet") || r.tt.HasText("Secret Service")) {
+				t.Errorf("a Linux keyring on %s: %q", tc.goos, r.tt.Texts())
+			}
 		})
 	}
 }

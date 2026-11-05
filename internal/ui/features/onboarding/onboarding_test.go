@@ -961,6 +961,34 @@ func TestDesktopNamesWhatThePlatformCannotDo(t *testing.T) {
 	}
 }
 
+// A Mac source build has the tray, the sleep inhibitor and the rest, but
+// not Sona.app: the line says that, not that the platform lacks them.
+func TestDesktopSaysWhatOnlySonaAppCanDo(t *testing.T) {
+	r := newRig(t, 900, 800)
+	store.Set(r.h.Env.Queries, store.KeyCapabilities, services.Capabilities{
+		OS: "darwin", Tray: true, SleepInhibit: true, NeedsAppBundle: true,
+	})
+	r.open("desktop")
+	r.tt.Until("the line", r.tt.Shows("Only when Sona runs from Sona.app: starting at login and track notifications.",
+		"Stay awake while playing", "Keep playing"))
+	if !r.lacks("Not on this platform yet", "Start Sona when you log in", "Track notifications") {
+		t.Errorf("a source build offers or blames the platform: %q", r.tt.Texts())
+	}
+}
+
+// In Sona.app the login item is described as macOS has it.
+func TestDesktopDescribesTheMacLoginItem(t *testing.T) {
+	r := newRig(t, 900, 800)
+	store.Set(r.h.Env.Queries, store.KeyCapabilities, services.Capabilities{
+		OS: "darwin", Tray: true, Autostart: true, Notifications: true, PlainNotifications: true,
+	})
+	r.open("desktop")
+	r.tt.Until("the row", r.tt.Shows("Start Sona when you log in", "Adds Sona to the login items in System Settings → General."))
+	if r.tt.HasText("startup applications") || r.tt.HasText("Not on this platform yet") || r.tt.HasText("Only when Sona runs from Sona.app") {
+		t.Errorf("texts %q", r.tt.Texts())
+	}
+}
+
 func TestDoneMarksTheSetupDoneOnceAndListsWhatIsStillToDo(t *testing.T) {
 	r := newRig(t, 900, 800)
 	store.Set(r.h.Env.Queries, store.KeyCDM, cdmStatus(func(s *services.CDMStatus) {

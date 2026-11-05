@@ -330,7 +330,7 @@ func run(started time.Time) error {
 		Paths: paths, QueueFile: queueFile, Settings: settings, DB: d, Auth: authm, API: api,
 		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, CDM: cdmMgr, AppleStrings: appleStrings, Language: lang, Coord: coord,
 		History: history, Private: private, Storefront: storefront, Gate: gate, Emit: bus, Clipboard: clipboardText, Logger: log,
-		OpenURL: mygo.Shell.OpenExternal, Focus: windows.ShowMain, Focused: windows.Focused, Windows: windows, Platform: plat.Services(),
+		OpenURL: mygo.Shell.OpenExternal, Focus: windows.ShowMain, Focused: windows.Focused, Windows: windows, Platform: plat.Services(windows),
 		Transport: newTransport(), Version: version, Started: started, SelfUpdater: selfUpdaterDep(),
 	})
 	defer core.Close() // runs first: stops sync, events and MPRIS
@@ -359,13 +359,16 @@ func run(started time.Time) error {
 	}
 	var ui *uiapp.App
 	mygo.App.WhenReady(func() {
+		// --hidden (the XDG autostart entry's) or, on macOS, the login item
+		// the user asked to start in the tray (login_darwin.go).
+		hidden := act.Hidden() || loginStartsHidden(cur.Desktop)
 		ui = uiapp.New(uiapp.Options{
 			Core: core, Settings: settings, Bus: bus, Windows: windows, Art: art, Motion: mot, Video: vid, Log: log.With("component", "ui"),
 			Version: version, Dev: devMode, Icon: build.AppIcon, TrayIcon: build.TrayIcon, TrayTemplate: trayTemplate(),
 			OpenURL: mygo.Shell.OpenExternal, Copy: clipboardText,
-			FirstRun: firstRun, Hidden: act.Hidden(),
+			FirstRun: firstRun, Hidden: hidden,
 		})
-		log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "hidden", act.Hidden())
+		log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "hidden", hidden)
 	})
 	err = mygo.App.Run()
 	if ui != nil {

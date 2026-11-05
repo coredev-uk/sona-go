@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"strconv"
 	"strings"
@@ -313,8 +314,21 @@ func (s *IntegrationsService) announce(item coordinator.Item) {
 			s.setStatus(func(st *IntegrationsStatus) { st.Notifications = IntegrationUnavailable })
 			return
 		}
-		if err := n.Show(ctx, trackNotification(s.e.Language.Printer(), item, image)); err != nil {
+		switch err := n.Show(ctx, trackNotification(s.e.Language.Printer(), item, image)); {
+		case errors.Is(err, ErrNotificationsDenied):
+			if s.Status().Notifications != IntegrationDenied {
+				s.e.Logger.Info("notifications denied by the system", "err", err)
+			}
+			s.setStatus(func(st *IntegrationsStatus) { st.Notifications = IntegrationDenied })
+		case err != nil:
 			s.e.Logger.Warn("notification", "err", err)
+		default:
+			// Allowed again (System Settings): the status was "denied".
+			s.setStatus(func(st *IntegrationsStatus) {
+				if st.Notifications == IntegrationDenied {
+					st.Notifications = IntegrationReady
+				}
+			})
 		}
 	})
 }
