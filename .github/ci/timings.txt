@@ -9,7 +9,7 @@
 ./internal/ui/app 82
 ./internal/ui/account 79
 ./internal/ui/features/search 71
-./internal/ui/app@dev 64
+./internal/ui/app@dev 8
 ./internal/ui/features/onboarding 57
 ./internal/ui/features/auth 52
 ./internal/ui/features/artist 47

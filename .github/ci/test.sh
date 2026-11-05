@@ -5,6 +5,7 @@
 # timings.sh.
 #
 #   TEST_FLAGS  extra go test flags (e.g. -count=1)
+#   RACE        0 runs without -race (default 1; CI's UI pool on a pull request)
 #   ARTIFACT_DIR  where a failed golden leaves its picture and diff
 #               (exported as SONA_TEST_ARTIFACTS, read by uitest/artifacts)
 set -euo pipefail
@@ -31,6 +32,8 @@ echo "$units" | sed 's/^/  /'
 
 # The CI image has gotestsum built at go.mod's version; elsewhere go.mod's tool
 # directive builds it.
+race=(-race)
+[[ ${RACE:-1} != 0 ]] || race=()
 gotestsum=(go tool gotestsum)
 [[ -z ${SONA_CI_IMAGE:-} ]] || gotestsum=(gotestsum)
 
@@ -54,7 +57,7 @@ run() {
 	# shellcheck disable=SC2086
 	"${gotestsum[@]}" --jsonfile "$results/$name.json" --format pkgname-and-test-fails \
 		--rerun-fails=2 --rerun-fails-report="$report" --packages "${pkgs[*]}" \
-		-- -race ${TEST_FLAGS:-} ${flags[@]+"${flags[@]}"} || st=$?
+		-- ${race[@]+"${race[@]}"} ${TEST_FLAGS:-} ${flags[@]+"${flags[@]}"} || st=$?
 	if [[ $st -eq 0 && -s $report ]]; then
 		echo "::warning title=Flaky tests::$name: failed, then passed on a rerun: $(tr '\n' ';' <"$report")"
 		if [[ -n ${GITHUB_STEP_SUMMARY:-} ]]; then
@@ -73,7 +76,7 @@ run() {
 # part PKG I N: the -run pattern of part I of N of PKG's tests (every N-th
 # test, in the order go test -list prints them).
 part() {
-	go test -race -list . "$1" | awk -v i="$2" -v n="$3" '/^(Test|Example|Fuzz)[A-Za-z0-9_]*$/ { if (k++ % n == i - 1) names = names (names ? "|" : "") $0 } END { print "^(" names ")$" }'
+	go test -list . "$1" | awk -v i="$2" -v n="$3" '/^(Test|Example|Fuzz)[A-Za-z0-9_]*$/ { if (k++ % n == i - 1) names = names (names ? "|" : "") $0 } END { print "^(" names ")$" }'
 }
 
 status=0
@@ -86,6 +89,14 @@ for u in ${parts[@]+"${parts[@]}"}; do
 	bg+=($!)
 done
 [[ ${#prod[@]} -eq 0 ]] || run "$pool-$idx" -- "${prod[@]}" || status=1
-[[ ${#dev[@]} -eq 0 ]] || run "$pool-$idx-dev" -tags dev,sqlite_fts5 -- "${dev[@]}" || status=1
+# The development build changes little that tests see: ui/app keeps only the
+# tests of what the tag switches (the tray's private-listening item, the
+# window state restored on start), every other dev package runs whole.
+devapp=0 devrest=()
+for u in ${dev[@]+"${dev[@]}"}; do
+	if [[ $u == ./internal/ui/app ]]; then devapp=1; else devrest+=("$u"); fi
+done
+[[ ${#devrest[@]} -eq 0 ]] || run "$pool-$idx-dev" -tags dev,sqlite_fts5 -- "${devrest[@]}" || status=1
+[[ $devapp -eq 0 ]] || run "$pool-$idx-devapp" -tags dev,sqlite_fts5 -run 'Tray|Private|ObserveWindow' -- ./internal/ui/app || status=1
 for pid in ${bg[@]+"${bg[@]}"}; do wait "$pid" || status=1; done
 exit "$status"

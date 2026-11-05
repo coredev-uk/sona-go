@@ -271,7 +271,7 @@ request except `golangci-lint`, `go tool mygo vet internal/ui` and the catalogue
 go vet ./...
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...   # see "Platforms"
 go run ./cmd/typecheck -os darwin -arch arm64 ./...
-go test -race ./...
+go test -race ./...    # CI's pull requests skip -race for internal/ui's page and app packages (below)
 golangci-lint run --new-from-rev=origin/main ./...   # must be clean
 go tool mygo vet internal/ui   # build values kept past their frame
 go run ./cmd/i18ntool extract -check   # the catalogue; go test checks it too
@@ -360,14 +360,23 @@ the dispatch-only `Flatpak` workflow builds it in CI.
 
 ### CI and workflows
 
-`.github/workflows/`: `ci.yml` (every push to main and pull request: the
-Linux Go job "Go vet and test (-race)"; the UI tests with the golden images,
-"UI tests (goldens)"; the end-to-end smoke in headless sway, "E2E (headless
-sway)"; plus "macOS build and test" (devenv on macos-26:
-production build, go vet, real-CDM and sandbox tests, `go test -race`) and
-"Windows build" (windows-2025: `go vet` with cgo, `sona.exe`),
-which take several minutes and so never run on pull requests or for a
-release: they run after each merge to main and when dispatched),
+`.github/workflows/`: `ci.yml` (every push to main, every pull request and a
+nightly schedule: "Vet and type-check" (vet for the host, development and
+probe builds, and the macOS and Windows type-checks); the Linux tests, in
+pools that `.github/ci/shard.sh` packs by measured time (`timings.txt`):
+core, playback, and the native UI's, split into `ui-race` (`ui/store`,
+`ui/kit`, `ui/lyricsync`, which start goroutines) and `ui` (the page and app
+packages). A pull request runs `-race` on core, playback and `ui-race` and
+none on `ui`; main and the nightly run every pool under `-race` (the nightly
+with `-count=1`, so the test cache can't hide what changed outside the code)
+and `ui` without it too, which keeps the caches pull requests restore warm.
+The required checks keep their names: "Go vet and test (-race)" gathers vet,
+core and playback, "UI tests (goldens)" the UI shards; plus the end-to-end
+smoke in headless sway, "E2E (headless sway)". macOS: a pull request runs one
+job, "macOS build and test (pull request)" (production build, go vet, core and
+playback tests with the real CDM and Seatbelt); main, the nightly and a
+dispatch run the build, vet and every test shard on their own jobs, and
+"Windows build" (windows-2025: `go vet` with cgo, `sona.exe`)),
 `images.yml` (also builds the CI image, below),
 `cache-prune.yml` (after each CI run on main: keeps the newest Go cache of
 each kind and deletes the rest, so the 10 GB cap never evicts what matters; a
@@ -390,7 +399,7 @@ image is rebuilt. `images.yml` builds it when `build/ci/**` or `go.mod`
 changes (on a pull request of this repository too: the CI job named "CI image"
 waits for it), weekly and on dispatch; `build/ci/tag.sh` names the tag from the
 Containerfile and the Go and gotestsum versions. A run pins the digest it finds
-and keys Go's caches by it. The playback job stays on the bare runner (it
+and keys Go's caches by it. Each kind of job (vet, e2e, one shard of a test pool with or without `-race`) has its own Go cache, saved only by a run on main, and `cache-prune.yml` keeps the newest of each, about 3 GB of the repository's 10 GB; the pull-request jobs restore them and save nothing. The playback job stays on the bare runner (it
 lifts the user-namespace restriction of the host). To rebuild it by hand:
 `podman build $(build/ci/tag.sh args) -f build/ci/Containerfile build/ci`.
 
