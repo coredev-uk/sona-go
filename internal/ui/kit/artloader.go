@@ -42,9 +42,11 @@ const (
 	// are of very different sizes (a 44 px row cover, a 2x album tile), so
 	// the count alone let a library's whole Albums grid stay in memory once
 	// it had been scrolled through: 739 covers were 148 MB (at 1x; a 2x
-	// display's are four times as big). A screen of a large window at 2x
-	// holds about 60 tiles of 0.7 MB with the rows prefetched past it, so
-	// this is two screens of those, and a dozen of a small window's.
+	// display's are four times as big). The budget bounds only covers no
+	// window's current pass asks for (trim skips those), so a page that wants
+	// more than this at once, a large 2x window or a long grid built whole,
+	// keeps all of it rather than dropping what is on screen and decoding it
+	// again; what it frees is what the user scrolled past.
 	maxArtBytes = 96 << 20
 	// releaseAfter is how many frames a bitmap is drawn before its CPU
 	// pixels are dropped (Bitmap.ReleasePixels): it then draws from the GPU.
@@ -449,7 +451,10 @@ func (l *ArtLoader) trim(keep *cover) {
 	}
 	ready := make([]*cover, 0, len(l.covers))
 	for _, cv := range l.covers {
-		if cv.state == coverReady && cv != keep {
+		// A cover the window's current pass asked for is on screen or about
+		// to be: dropping it would show its placeholder and decode it again.
+		wanted := cv.view != nil && cv.used > cv.view.since
+		if cv.state == coverReady && cv != keep && !wanted {
 			ready = append(ready, cv)
 		}
 	}

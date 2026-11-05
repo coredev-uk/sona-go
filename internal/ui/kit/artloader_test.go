@@ -470,3 +470,51 @@ func TestLoaderDropsTheLeastRecentlyAskedCoversOverItsByteBudget(t *testing.T) {
 	// A dropped cover comes back when asked for again.
 	load(2)
 }
+
+// A page that asks for more than the budget at once (a large 2x window, a long
+// grid built whole) must keep every cover its pass asked for: dropping the
+// ones on screen would show their placeholders, decode them again and trim
+// again, for ever.
+func TestLoaderNeverTrimsWhatTheCurrentPassAsksFor(t *testing.T) {
+	src := &fakeArt{}
+	mt := newMainThread()
+	l := newArtLoader(src, mt.post, 2)
+	defer l.Close()
+	l.maxBytes = 3*40_000 + 3_000 // three of the six covers below
+	v := &artWindow{}
+	const n = 6
+	pass := func() {
+		for i := range n {
+			l.cover(v, rankView, "/art/k"+strconv.Itoa(i)+"/x.jpg", 100, 100)
+		}
+	}
+	allReady := func(when string) {
+		t.Helper()
+		for i := range n {
+			if cv := l.covers[artKey{"/art/k" + strconv.Itoa(i) + "/x.jpg", 100, 100}]; cv == nil || cv.state != coverReady {
+				t.Fatalf("%s: cover %d is not ready: a pass that asks for it must keep it", when, i)
+			}
+		}
+	}
+	pass()
+	mt.run(t, n)
+	allReady("first pass")
+	gets := len(src.requests())
+	for round := range 3 { // frames painted and built again, the main thread run to idle
+		l.painted(v, 1)
+		pass()
+		mt.run(t, 0)
+		allReady("later pass " + strconv.Itoa(round))
+	}
+	if got := len(src.requests()); got != gets || got != n {
+		t.Errorf("%d requests for %d covers: the loader fetched covers again", got, n)
+	}
+	// Once the page moves on, the covers nobody asks for any more are what the
+	// budget frees.
+	l.painted(v, 1)
+	l.cover(v, rankView, "/art/k9/x.jpg", 100, 100)
+	mt.run(t, 1)
+	if l.bytes > l.maxBytes {
+		t.Errorf("%d bytes held after the page moved on, budget %d", l.bytes, l.maxBytes)
+	}
+}
