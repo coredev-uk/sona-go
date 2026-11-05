@@ -111,7 +111,7 @@ func (s *Section) signedIn(c *ui.Context, st services.AuthStatus) {
 		if st.Unencrypted {
 			notice(c.Key("unencrypted"), noticeOpts{Icon: "shield-alert", IconColor: "danger", Problem: true}, func() {
 				noticeTitle(c, i18n.T("Your token is stored unencrypted"))
-				noticeDetail(c, i18n.T("No Secret Service keyring is running, so Sona keeps your Apple Music token in a file only your user can read. Start GNOME Keyring or KWallet and Sona moves it into the keyring."))
+				noticeDetail(c, kit.KeyringWords(s.d.OS).TokenInFile)
 			}, nil)
 		}
 	})

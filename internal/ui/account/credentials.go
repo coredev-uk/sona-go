@@ -19,7 +19,7 @@ func (s *Section) credentialsForm(c *ui.Context, f *flow, hosted bool) {
 	invalid := step.Error != nil && step.Error.Code == services.CodeInvalidCredentials
 	invalidText := ""
 	if invalid {
-		invalidText = errorCopy(*step.Error).Title
+		invalidText = errorCopy(*step.Error, s.d.OS).Title
 	}
 	submitted := false
 	ui.Column(c).FillWidth().Gap(16).Children(func() {

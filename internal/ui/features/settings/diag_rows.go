@@ -9,6 +9,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
 // diagStatus is the verdict of a diagnostics row.
@@ -324,10 +325,11 @@ func diagnosticsGroups(d services.Diagnostics, live *services.CDMStatus, now tim
 		playbackRows = cdmRows(p, cdm, now)
 	}
 	token := diagRow{label: i18n.T("Token storage"), value: keyringLabel(d.Keyring.Backend), status: statusOK}
+	goos, _, _ := strings.Cut(d.App.Platform, "/") // "darwin/arm64": the notice names this OS's keyring
 	if d.Keyring.Unencrypted {
 		token = diagRow{
 			label: i18n.T("Token storage"), value: i18n.T("File (unencrypted)"), status: statusWarning,
-			detail: i18n.T("Your Apple Music token is in a file only your user can read, not in a keyring. Start GNOME Keyring or KWallet and Sona moves it there."),
+			detail: kit.KeyringWords(goos).TokenInFileDiag,
 		}
 	}
 	c := d.Database.Counts

@@ -2,7 +2,10 @@
 
 package main
 
-import "github.com/coredev-uk/sona-go/internal/services"
+import (
+	"github.com/coredev-uk/sona-go/internal/services"
+	uiapp "github.com/coredev-uk/sona-go/internal/ui/app"
+)
 
 // desktopIntegrations fills in what macOS offers beyond the window
 // (services.Platform): all of it MyGo's.
@@ -13,10 +16,10 @@ import "github.com/coredev-uk/sona-go/internal/services"
 //   - Notifications (UNUserNotificationCenter) and the login item
 //     (SMAppService) are tied to the app bundle by macOS: outside Sona.app
 //     (a source build, bin/sona) they are absent and NeedsAppBundle says why.
-func desktopIntegrations(out *services.Platform) {
+func desktopIntegrations(out *services.Platform, windows *uiapp.Windows) {
 	out.Inhibitor = func(why func() string) services.SleepInhibitor { return newMacInhibitor(why) }
 	out.Power = openMacPower
-	out.Files = macFiles{}
+	out.Files = newMacFiles(windows.Main)
 	if !runsFromAppBundle() {
 		out.NeedsAppBundle = true
 		return

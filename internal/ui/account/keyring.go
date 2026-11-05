@@ -36,7 +36,7 @@ func (r *KeyringRetry) Build(c *ui.Context, status services.AuthStatus) {
 		// aria-disabled: MyGo has no focusable-but-disabled state, so the
 		// button stays enabled (the focus stays on it), ignores the press and
 		// says why.
-		opts.Reason = i18n.T("Sona is waiting for your keyring to hand over your sign-in. If GNOME Keyring or KWallet asks you to unlock it, do that now.")
+		opts.Reason = kit.KeyringWords(r.d.OS).Waiting
 	}
 	if kit.Button(c.Key("keyring-retry"), label, opts).Clicked() && !trying {
 		r.asked = true
@@ -62,7 +62,7 @@ func (s *Section) keyringNotice(c *ui.Context, st services.AuthStatus) {
 	if restoring {
 		notice(c, noticeOpts{Spin: true}, func() {
 			noticeTitle(c, i18n.T("Signing in…"))
-			noticeDetail(c, i18n.T("Sona is waiting for your keyring to hand over your sign-in. If GNOME Keyring or KWallet asks you to unlock it, do that now."))
+			noticeDetail(c, kit.KeyringWords(s.d.OS).Waiting)
 		}, retry)
 		return
 	}
@@ -70,10 +70,10 @@ func (s *Section) keyringNotice(c *ui.Context, st services.AuthStatus) {
 	notice(c, noticeOpts{Icon: "shield-alert", IconColor: "danger", Problem: true}, func() {
 		if st.Keyring == "unavailable" {
 			noticeTitle(c, i18n.T("Sona couldn't read your sign-in from your keyring"))
-			noticeDetail(c, i18n.T("Your keyring didn't answer or refused, so you're signed out. Unlock GNOME Keyring or KWallet, then try again."))
+			noticeDetail(c, kit.KeyringWords(s.d.OS).Refused)
 			return
 		}
 		noticeTitle(c, i18n.T("Signing in now stores your token unencrypted"))
-		noticeDetail(c, i18n.T("Sona couldn't open a keyring, so it would keep your Apple Music token in a file only your user can read. Start or unlock GNOME Keyring or KWallet, then try again."))
+		noticeDetail(c, kit.KeyringWords(s.d.OS).NotOpened)
 	}, retry)
 }

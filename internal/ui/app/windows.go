@@ -157,6 +157,14 @@ func (w *Windows) window() native {
 	return w.win
 }
 
+// Main is the main window as MyGo's window, for what attaches to it (the
+// file panels, which macOS shows as its sheets); nil before the window is
+// made and in tests with a fake. Callable from any goroutine.
+func (w *Windows) Main() *mygo.Window {
+	win, _ := w.window().(*mygo.Window)
+	return win
+}
+
 // ShowMain brings the main window to the front and closes the mini player:
 // the tray's Show Sona, MPRIS Raise, a second launch, the mini player's
 // expand button.

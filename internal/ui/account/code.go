@@ -166,7 +166,7 @@ func (s *Section) codeForm(c *ui.Context, f *flow) {
 			wrong := step.Error != nil && step.Error.Code == services.CodeIncorrectCode
 			wrongText := ""
 			if wrong {
-				wrongText = errorCopy(*step.Error).Title
+				wrongText = errorCopy(*step.Error, s.d.OS).Title
 			}
 			in := kit.Input(c.Key("code"), &f.code, kit.InputOpts{Invalid: wrong, Error: wrongText, Disabled: step.Busy})
 			kit.FocusWhenShown(c, in, &f.codeFocus)

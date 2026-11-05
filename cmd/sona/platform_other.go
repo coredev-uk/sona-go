@@ -15,6 +15,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
+	uiapp "github.com/coredev-uk/sona-go/internal/ui/app"
 	"github.com/coredev-uk/sona-go/internal/ui/media"
 	"github.com/coredev-uk/sona-go/internal/windowchrome"
 )
@@ -72,12 +73,12 @@ func openPlatform(paths config.Paths, act app.Activation, log *slog.Logger) (*pl
 
 // Services offers the title bar, commands and, per OS, the desktop
 // integrations (desktopIntegrations).
-func (p *platform) Services() services.Platform {
+func (p *platform) Services(windows *uiapp.Windows) services.Platform {
 	out := services.Platform{
 		TitleBar: p.TitleBar(), Commands: p.instance != nil, MotionArtwork: media.Supported,
 		MediaControls: mediaControls(p.log.With("component", "nowplaying")),
 	}
-	desktopIntegrations(&out)
+	desktopIntegrations(&out, windows)
 	return out
 }
 

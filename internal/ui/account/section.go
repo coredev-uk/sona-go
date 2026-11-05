@@ -311,7 +311,7 @@ func (s *Section) browser(f *flow) {
 // errorNotice is an error from the sign-in flow: what happened, and the
 // button for the next step. onBrowser is nil where the browser is no step.
 func (s *Section) errorNotice(c *ui.Context, e SignInError, onBrowser func()) {
-	cp := errorCopy(e)
+	cp := errorCopy(e, s.d.OS)
 	notice(c, noticeOpts{Icon: "circle-alert", IconColor: "danger", Problem: true, Announce: cp.Title + " " + cp.Detail}, func() {
 		noticeTitle(c, cp.Title)
 		noticeDetail(c, cp.Detail)

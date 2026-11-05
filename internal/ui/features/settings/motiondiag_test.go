@@ -222,6 +222,25 @@ func TestRealtimeRows(t *testing.T) {
 	}
 }
 
+// The Diagnostics row for a token kept in a file names this OS's keyring,
+// read from the report's platform ("darwin/arm64").
+func TestUnencryptedTokenDetailIsWordedForTheOS(t *testing.T) {
+	for platform, want := range map[string]string{
+		"linux/amd64":   "Start GNOME Keyring or KWallet and Sona moves it there.",
+		"darwin/arm64":  "not in the Keychain. Unlock your login keychain in Keychain Access and Sona moves it there.",
+		"windows/amd64": "not in Windows Credential Manager. Sona moves it there once that works.",
+		"":              "Start GNOME Keyring or KWallet and Sona moves it there.",
+	} {
+		d := noEngineReport()
+		d.App.Platform = platform
+		d.Keyring.Unencrypted = true
+		row := diagnosticsGroups(d, nil, diagNow)[1].rows[0]
+		if !strings.Contains(row.detail, want) {
+			t.Errorf("%q: detail %q, want it to contain %q", platform, row.detail, want)
+		}
+	}
+}
+
 func TestTokenStorageAndCDMRows(t *testing.T) {
 	for backend, want := range map[string]string{
 		"secret-service": "Secret Service keyring", "keychain": "macOS Keychain", "credential-manager": "Windows Credential Manager", "x": "x", "": "—",

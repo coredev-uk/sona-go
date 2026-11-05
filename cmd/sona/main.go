@@ -330,7 +330,7 @@ func run(started time.Time) error {
 		Paths: paths, QueueFile: queueFile, Settings: settings, DB: d, Auth: authm, API: api,
 		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, CDM: cdmMgr, AppleStrings: appleStrings, Language: lang, Coord: coord,
 		History: history, Private: private, Storefront: storefront, Gate: gate, Emit: bus, Clipboard: clipboardText, Logger: log,
-		OpenURL: mygo.Shell.OpenExternal, Focus: windows.ShowMain, Focused: windows.Focused, Windows: windows, Platform: plat.Services(),
+		OpenURL: mygo.Shell.OpenExternal, Focus: windows.ShowMain, Focused: windows.Focused, Windows: windows, Platform: plat.Services(windows),
 		Transport: newTransport(), Version: version, Started: started, SelfUpdater: selfUpdaterDep(),
 	})
 	defer core.Close() // runs first: stops sync, events and MPRIS

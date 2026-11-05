@@ -419,6 +419,28 @@ func TestDisconnectWithoutPendingGoesAtOnce(t *testing.T) {
 	}
 }
 
+// The note about unencrypted scrobbler sign-ins names this OS's keyring.
+func TestUnencryptedNoteIsWordedForTheOS(t *testing.T) {
+	for goos, want := range map[string]string{
+		"linux":   "Start GNOME Keyring or KWallet and Sona moves them into the keyring.",
+		"darwin":  "Sona couldn't use your Keychain, so it keeps them in files only your user can read.",
+		"windows": "Sona couldn't use Windows Credential Manager, so it keeps them in files only your user can read.",
+	} {
+		t.Run(goos, func(t *testing.T) {
+			f := &connFake{status: services.ScrobbleStatus{
+				LastFM:       services.ScrobblerStatus{Available: true, Connected: true},
+				ListenBrainz: services.ScrobblerStatus{Available: true},
+				Unencrypted:  true,
+			}}
+			r := newConnRig(t, f, services.IntegrationsStatus{}, services.Capabilities{OS: goos})
+			r.tt.Until("the note", r.tt.Shows("Your scrobbler sign-ins are stored unencrypted", want))
+			if goos != "linux" && (r.tt.HasText("GNOME") || r.tt.HasText("Secret Service")) {
+				t.Errorf("a Linux keyring on %s: %q", goos, r.tt.Texts())
+			}
+		})
+	}
+}
+
 func TestReconnectStateAndUnencryptedNote(t *testing.T) {
 	f := &connFake{status: services.ScrobbleStatus{
 		LastFM:       services.ScrobblerStatus{Available: true, Connected: true, NeedsReconnect: true},

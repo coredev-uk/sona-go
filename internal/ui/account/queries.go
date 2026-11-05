@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"runtime"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
@@ -46,13 +47,16 @@ type Deps struct {
 	OpenURL func(string) error
 	Copy    func(string) bool
 	Log     *slog.Logger
+	// OS is the GOOS the keyring notices are worded for (kit.KeyringWords);
+	// "" gets the Linux wording.
+	OS string
 }
 
 // NewDeps is the Deps over the app's AuthService. An Env without services
 // (uitest.Bare) has no API: the status query then fails and the views show
 // its error.
 func NewDeps(env *module.Env) Deps {
-	d := Deps{Queries: env.Queries, Post: env.Post, OpenURL: env.OpenURL, Copy: env.Copy, Log: env.Log}
+	d := Deps{Queries: env.Queries, Post: env.Post, OpenURL: env.OpenURL, Copy: env.Copy, Log: env.Log, OS: runtime.GOOS}
 	if env.Core != nil {
 		d.API = services.Service[services.AuthService](env.Core)
 	}

@@ -100,6 +100,59 @@ func TestSavePath(t *testing.T) {
 	}
 }
 
+// The panels attach to the window they are given as sheets, and with no
+// window they are the application's.
+func TestFilePanelsAttachToTheMainWindow(t *testing.T) {
+	win := &mygo.Window{}
+	var opened mygo.OpenDialogOptions
+	var saved mygo.SaveDialogOptions
+	files := macFiles{
+		parent: func() *mygo.Window { return win },
+		open:   func(o mygo.OpenDialogOptions) ([]string, error) { opened = o; return []string{"/tmp/a.json"}, nil },
+		save:   func(o mygo.SaveDialogOptions) (string, error) { saved = o; return "/tmp/b.json", nil },
+	}
+	filters := []app.FileFilter{{Name: "Sona settings (JSON)", Patterns: []string{"*.json"}}}
+	got, err := files.OpenFile(t.Context(), app.OpenFileOptions{Title: "Import Sona settings", AcceptLabel: "Import", Filters: filters})
+	if err != nil || got != "/tmp/a.json" {
+		t.Fatalf("OpenFile = %q, %v", got, err)
+	}
+	if opened.Parent != win || opened.Title != "Import Sona settings" || opened.ButtonLabel != "Import" || len(opened.Filters) != 1 {
+		t.Errorf("open panel %+v", opened)
+	}
+	got, err = files.SaveFile(t.Context(), app.SaveFileOptions{Title: "Export Sona settings", AcceptLabel: "Export", Name: "sona-settings.json", Folder: "/tmp", Filters: filters})
+	if err != nil || got != "/tmp/b.json" {
+		t.Fatalf("SaveFile = %q, %v", got, err)
+	}
+	if saved.Parent != win || saved.DefaultPath != "/tmp/sona-settings.json" || saved.ButtonLabel != "Export" {
+		t.Errorf("save panel %+v", saved)
+	}
+
+	// No main window (not made yet, hidden, or no parent given): unparented.
+	for _, parent := range []func() *mygo.Window{nil, func() *mygo.Window { return nil }} {
+		files.parent = parent
+		if _, err := files.OpenFile(t.Context(), app.OpenFileOptions{}); err != nil || opened.Parent != nil {
+			t.Errorf("with no window: parent %v, %v", opened.Parent, err)
+		}
+		if _, err := files.SaveFile(t.Context(), app.SaveFileOptions{}); err != nil || saved.Parent != nil {
+			t.Errorf("with no window: parent %v, %v", saved.Parent, err)
+		}
+	}
+}
+
+// A cancelled panel is no file and no error.
+func TestFilePanelCancelIsNoFile(t *testing.T) {
+	files := macFiles{
+		open: func(mygo.OpenDialogOptions) ([]string, error) { return nil, nil },
+		save: func(mygo.SaveDialogOptions) (string, error) { return "", nil },
+	}
+	if got, err := files.OpenFile(t.Context(), app.OpenFileOptions{}); got != "" || err != nil {
+		t.Errorf("OpenFile = %q, %v", got, err)
+	}
+	if got, err := files.SaveFile(t.Context(), app.SaveFileOptions{}); got != "" || err != nil {
+		t.Errorf("SaveFile = %q, %v", got, err)
+	}
+}
+
 func TestAskReturnsTheAnswerOrGivesUpWithItsContext(t *testing.T) {
 	got, err := ask(context.Background(), func() (string, error) { return "/tmp/x.json", nil })
 	if got != "/tmp/x.json" || err != nil {

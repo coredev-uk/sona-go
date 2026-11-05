@@ -15,15 +15,38 @@ import (
 
 // macFiles is the native file chooser (NSOpenPanel and NSSavePanel through
 // MyGo's Dialog) for the settings export and import. It is a
-// services.FileChooser. The panels are application modal: MyGo can't close
-// one from code, so a cancelled ctx returns at once and leaves the panel to
-// the user, whose answer is then dropped.
-type macFiles struct{}
+// services.FileChooser. A panel is a sheet of Sona's main window while that
+// is shown, so it drops from the window's title bar and moves with it; with
+// no main window shown (the mini player, a hidden window) it is application
+// modal. MyGo can't close a panel from code, so a cancelled ctx returns at
+// once and leaves the panel to the user, whose answer is then dropped.
+type macFiles struct {
+	// parent is the window the panel attaches to (nil: none).
+	parent func() *mygo.Window
+	open   func(mygo.OpenDialogOptions) ([]string, error)
+	save   func(mygo.SaveDialogOptions) (string, error)
+}
+
+// newMacFiles is macFiles over MyGo's dialogs, attached to the window parent
+// returns.
+func newMacFiles(parent func() *mygo.Window) macFiles {
+	return macFiles{parent: parent, open: mygo.Dialog.Open, save: mygo.Dialog.Save}
+}
+
+// window is the window a panel attaches to now, nil for none.
+func (f macFiles) window() *mygo.Window {
+	if f.parent == nil {
+		return nil
+	}
+	return f.parent()
+}
 
 // OpenFile asks for one file; "" and no error when the user cancels.
-func (macFiles) OpenFile(ctx context.Context, o app.OpenFileOptions) (string, error) {
+func (f macFiles) OpenFile(ctx context.Context, o app.OpenFileOptions) (string, error) {
+	parent := f.window()
 	paths, err := ask(ctx, func() ([]string, error) {
-		return mygo.Dialog.Open(mygo.OpenDialogOptions{
+		return f.open(mygo.OpenDialogOptions{
+			Parent:      parent,
 			Title:       o.Title,
 			ButtonLabel: o.AcceptLabel,
 			DefaultPath: o.Folder,
@@ -38,9 +61,11 @@ func (macFiles) OpenFile(ctx context.Context, o app.OpenFileOptions) (string, er
 
 // SaveFile asks where to save a file named o.Name; "" and no error when the
 // user cancels. The panel confirms replacing a file; it doesn't create one.
-func (macFiles) SaveFile(ctx context.Context, o app.SaveFileOptions) (string, error) {
+func (f macFiles) SaveFile(ctx context.Context, o app.SaveFileOptions) (string, error) {
+	parent := f.window()
 	return ask(ctx, func() (string, error) {
-		return mygo.Dialog.Save(mygo.SaveDialogOptions{
+		return f.save(mygo.SaveDialogOptions{
+			Parent:      parent,
 			Title:       o.Title,
 			ButtonLabel: o.AcceptLabel,
 			DefaultPath: savePath(o.Folder, o.Name),
