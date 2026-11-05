@@ -1,16 +1,15 @@
 # Flatpak manifest for Sona. Feasibility notes and the reason for every
 # permission: docs/flatpak.md.
 #
-# This manifest repackages the release .deb built on the Ubuntu 24.04
-# baseline (build/linux/release/release.sh). MyGo loads GTK3, libepoxy,
-# AT-SPI, libsecret and EGL by soname, and org.gnome.Platform provides all of
-# them; the tray's libayatana-appindicator3 (and its libayatana-indicator,
-# ayatana-ido and libdbusmenu-gtk3) is not in the runtime and is built as
-# modules below. It is for local builds: Flathub requires
-# an offline build from source (docs/flatpak.md, "Build approach").
+# This manifest builds Sona from the working tree in org.gnome.Sdk, with the Go
+# toolchain from org.freedesktop.Sdk.Extension.golang and every Go module
+# supplied as a checksummed source (go-sources.json), so the build needs no
+# network. MyGo loads GTK3, libepoxy, AT-SPI, libsecret and EGL by soname, and
+# org.gnome.Platform provides all of them; the tray's libayatana-appindicator3
+# (and its libayatana-indicator, ayatana-ido and libdbusmenu-gtk3) is not in
+# the runtime and is built as modules below.
 #
-#   bash build/linux/release/release.sh   # bin/release/sona_$(cat VERSION)_amd64.deb
-#   bash build/linux/flatpak/build.sh     # copies it to bin/flatpak/sona.deb, builds, installs --user
+#   build/linux/flatpak/build.sh    # builds and installs --user
 #
 # The Widevine CDM is never part of the Flatpak: Sona downloads it from
 # Google at runtime into its own data directory.
@@ -21,6 +20,8 @@ id: dev.coredev.Sona
 runtime: org.gnome.Platform
 runtime-version: '51'
 sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.golang
 command: sona
 rename-icon: sona
 
@@ -49,9 +50,45 @@ finish-args:
   # The Widevine CDM needs no extra permission: Sona downloads it from
   # Google into its own data directory (internal/playback/cdm).
 
+# The tray libraries' headers, docs, GObject introspection and static
+# archives are build-time only.
+cleanup:
+  - '*.a'
+  - '*.la'
+  - /share/gtk-doc
+  - /share/gir-1.0
+  - /share/vala
+  - /lib/girepository-1.0
+
 modules:
+  # Build-time only: libdbusmenu's configure wants intltool and dbus-glib, and
+  # the GNOME SDK has neither (the same modules as flathub/shared-modules).
+  - name: intltool
+    cleanup: ['*']
+    sources:
+      - type: archive
+        url: https://launchpad.net/intltool/trunk/0.51.0/+download/intltool-0.51.0.tar.gz
+        sha256: 67c74d94196b153b774ab9f89b2fa6c6ba79352407037c8c14d5aeb334e959cd
+      - type: patch
+        path: patches/intltool-perl5.26-regex-fixes.patch
+
+  - name: dbus-glib
+    config-opts: [--disable-static, --disable-gtk-doc]
+    sources:
+      - type: archive
+        url: https://dbus.freedesktop.org/releases/dbus-glib/dbus-glib-0.116.tar.gz
+        sha256: e3f3d4487e2883800770ed5899ed111bdc4ba7056af34a255c4c46ad8a2486f3
+    cleanup: ['*.la', '/bin', '/etc', '/include', '/lib/pkgconfig', '/libexec', '/share/gtk-doc', '/share/man']
+
   - name: libdbusmenu
     buildsystem: autotools
+    build-options:
+      # As flathub/shared-modules: the 2016 sources do not build with -Werror,
+      # and configure.ac leaves HAVE_VALGRIND undefined without valgrind.
+      cflags: -Wno-error
+      env:
+        HAVE_VALGRIND_FALSE: '#'
+        HAVE_VALGRIND_TRUE: ''
     config-opts:
       - --with-gtk=3
       - --disable-gtk-doc
@@ -104,13 +141,36 @@ modules:
 
   - name: sona
     buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/golang/bin
+      env:
+        CGO_ENABLED: '1'
+        GOTOOLCHAIN: local
+        GOSUMDB: 'off'
+        GOFLAGS: -modcacherw
+        GOMODCACHE: /run/build/sona/.gomodcache
+        GOCACHE: /run/build/sona/.gocache
     sources:
-      - type: file
-        # Staged by build.sh from bin/release/sona_$(cat VERSION)_amd64.deb.
-        path: ../../../bin/flatpak/sona.deb
+      # The working tree (a Flathub build would use a git source at a tag).
+      - type: dir
+        path: ../../..
+        skip: [.git, .devenv, .direnv, .task, bin, sona, build/linux/flatpak/.flatpak-builder]
+      # Every Go module as a file in a GOPROXY=file:// tree, so the build needs
+      # no network. Regenerate with gosources.go (docs/flatpak.md).
+      - go-sources.json
     build-commands:
-      - ar x sona.deb data.tar.gz
-      - tar -xzf data.tar.gz ./usr
-      - install -Dm755 usr/bin/sona -t /app/bin
-      - install -Dm644 usr/share/applications/dev.coredev.Sona.desktop -t /app/share/applications
-      - cp -a usr/share/icons /app/share/
+      # Same flags as build/linux/Taskfile.yml's build task.
+      - >-
+        GOPROXY=file://$PWD/go-proxy
+        go build -tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false
+        -ldflags "-w -s -X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1"
+        -o /app/bin/sona ./cmd/sona
+      - install -Dm644 build/linux/dev.coredev.Sona.desktop -t /app/share/applications
+      - cp -a build/linux/icons /app/share/
+      - install -Dm644 LICENSE internal/playback/widevine/LICENSE.chromium -t /app/share/doc/sona
+      # The `sona` command's completions and manual page, from the built binary
+      # (as build/linux/Taskfile.yml's package:cli task does).
+      - /app/bin/sona completion bash | install -Dm644 /dev/stdin /app/share/bash-completion/completions/sona
+      - /app/bin/sona completion zsh | install -Dm644 /dev/stdin /app/share/zsh/site-functions/_sona
+      - /app/bin/sona completion fish | install -Dm644 /dev/stdin /app/share/fish/vendor_completions.d/sona.fish
+      - /app/bin/sona help --man | gzip -9n | install -Dm644 /dev/stdin /app/share/man/man1/sona.1.gz
