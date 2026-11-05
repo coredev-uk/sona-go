@@ -271,47 +271,38 @@ func (s *Section) signInFlow(c *ui.Context, st services.AuthStatus, hosted bool)
 			s.credentialsForm(c.Key("credentials"), f, hosted)
 		}
 		if f.view == viewCredentials {
-			s.alternatives(c.Key("alternatives"), f, st.PasskeySignIn)
+			s.alternatives(c.Key("alternatives"), f)
 		}
 	})
 }
 
 // alternatives is the part under the credentials form: the browser
 // fallback and the token paste.
-func (s *Section) alternatives(c *ui.Context, f *flow, passkey bool) {
+func (s *Section) alternatives(c *ui.Context, f *flow) {
 	ui.Column(c).FillWidth().Margin(24, 0, 0, 0).Children(func() {
 		hairline(c.Key("rule"))
 		ui.Column(c.Key("body")).FillWidth().AlignItems(ui.Start).Gap(12).Padding(20, 0, 0, 0).Children(func() {
-			if passkey {
-				text(c.Key("passkey-about"), i18n.T("Sign in with the passkey in your iCloud Keychain: Safari asks for Touch ID, as music.apple.com does."), "secondary", "ink-muted")
-				if kit.Button(c.Key("passkey"), i18n.T("Sign in with Touch ID"), kit.ButtonOpts{
-					Variant: kit.Outline, Size: kit.SizeSM, Icon: "key-round", Disabled: f.step.Busy,
-				}).Clicked() {
-					s.browser(f, true)
-				}
+			about := i18n.T("Use a passkey, a security key or a browser you're already signed in to:")
+			if s.d.OS == "darwin" {
+				about = i18n.T("Use a passkey with Touch ID, a security key or a browser you're already signed in to:")
 			}
-			text(c, i18n.T("Use a passkey, a security key or a browser you're already signed in to:"), "secondary", "ink-muted")
+			text(c, about, "secondary", "ink-muted")
 			if kit.Button(c.Key("browser"), i18n.T("Sign in with your browser"), kit.ButtonOpts{
 				Variant: kit.Outline, Size: kit.SizeSM, Icon: "external-link", IconAfter: true, Disabled: f.step.Busy,
 			}).Clicked() {
-				s.browser(f, false)
+				s.browser(f)
 			}
 			s.tokenPaste(c.Key("token"), f)
 		})
 	})
 }
 
-// browser is the browser sign-in (passkey: in Safari, for Touch ID): it
-// resets the form, then waits in AuthService.SignIn or SignInWithPasskey; "cancelled" is ignored, other failures show as errors.
-func (s *Section) browser(f *flow, passkey bool) {
+// browser is the browser sign-in: it resets the form, then waits in
+// AuthService.SignIn; "cancelled" is ignored, other failures show as errors.
+func (s *Section) browser(f *flow) {
 	f.apply(SignInAction{Type: ActCancel})
 	api := s.d.API
-	s.call(func() error {
-		if passkey {
-			return api.SignInWithPasskey(context.Background())
-		}
-		return api.SignIn(context.Background())
-	}, func(err error) {
+	s.call(func() error { return api.SignIn(context.Background()) }, func(err error) {
 		if err == nil || s.flow != f {
 			return
 		}

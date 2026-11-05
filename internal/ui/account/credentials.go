@@ -24,7 +24,7 @@ func (s *Section) credentialsForm(c *ui.Context, f *flow, hosted bool) {
 	submitted := false
 	ui.Column(c).FillWidth().Gap(16).Children(func() {
 		if step.Error != nil {
-			s.errorNotice(c.Key("error"), *step.Error, func() { s.browser(f, false) })
+			s.errorNotice(c.Key("error"), *step.Error, func() { s.browser(f) })
 		}
 		field(c.Key("account-field"), i18n.T("Apple Account"), i18n.T("The email address or phone number you use with Apple."), func() {
 			in := kit.Input(c.Key("account"), &f.account, kit.InputOpts{Invalid: invalid, Error: invalidText})

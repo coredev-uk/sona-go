@@ -5227,14 +5227,6 @@ msgid "Sign in to see your songs"
 msgstr ""
 
 #: internal/ui/account/section.go
-msgid "Sign in with Touch ID"
-msgstr ""
-
-#: internal/ui/account/section.go
-msgid "Sign in with the passkey in your iCloud Keychain: Safari asks for Touch ID, as music.apple.com does."
-msgstr ""
-
-#: internal/ui/account/section.go
 msgid "Sign in with your browser"
 msgstr ""
 
@@ -6594,6 +6586,10 @@ msgstr ""
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/updates.go
 msgid "Updates"
+msgstr ""
+
+#: internal/ui/account/section.go
+msgid "Use a passkey with Touch ID, a security key or a browser you're already signed in to:"
 msgstr ""
 
 #: internal/ui/account/section.go

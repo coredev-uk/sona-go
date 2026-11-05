@@ -57,11 +57,10 @@ func (a *fakeAPI) count(name string) int {
 	return a.calls[name]
 }
 
-func (a *fakeAPI) Revalidate(context.Context) error        { a.call("Revalidate"); return a.revalidateErr }
-func (a *fakeAPI) SignInWithPasskey(context.Context) error { a.call("SignInWithPasskey"); return nil }
-func (a *fakeAPI) RetryKeyring()                           { a.call("RetryKeyring") }
-func (a *fakeAPI) SignOut(context.Context) error           { a.call("SignOut"); return nil }
-func (a *fakeAPI) CancelSignIn()                           { a.call("CancelSignIn") }
+func (a *fakeAPI) Revalidate(context.Context) error { a.call("Revalidate"); return a.revalidateErr }
+func (a *fakeAPI) RetryKeyring()                    { a.call("RetryKeyring") }
+func (a *fakeAPI) SignOut(context.Context) error    { a.call("SignOut"); return nil }
+func (a *fakeAPI) CancelSignIn()                    { a.call("CancelSignIn") }
 
 var (
 	signedOut = services.AuthStatus{State: "signed_out"}

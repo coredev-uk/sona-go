@@ -29,7 +29,6 @@ type API interface {
 	SendCodeToPhone(ctx context.Context, phoneID int, mode string) error
 	ResendSecurityCode(ctx context.Context) error
 	SignIn(ctx context.Context) error
-	SignInWithPasskey(ctx context.Context) error
 	SignInLink() (string, error)
 	CancelSignIn()
 	SignInWithToken(ctx context.Context, token string) error
