@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/coredev-uk/sona-go/internal/auth/store"
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/diag"
 )
 
@@ -56,6 +57,27 @@ func (e *Env) Report(err error) {
 func (e *Env) Fail(err error) error {
 	e.Report(err)
 	return err
+}
+
+// updateSettings saves fn's change and announces the saved settings as
+// EventSettingsChanged. The UI replaces its copy with the latest event, so
+// the events must follow the saves: the announcement is made inside the
+// store's update (Store.UpdateThen), not after it returns, where a later
+// save (an autostart undo, a tray toggle) could be announced first and the
+// UI would end on the older settings. Every save that announces goes through
+// it, never Settings.Update followed by Emit.
+func (e *Env) updateSettings(fn func(*config.Settings)) (config.Settings, error) {
+	return e.updateSettingsIf(fn, func(_, _ config.Settings) bool { return true })
+}
+
+// updateSettingsIf is updateSettings that announces only when announce
+// (given the settings before and after) says so.
+func (e *Env) updateSettingsIf(fn func(*config.Settings), announce func(prev, saved config.Settings) bool) (config.Settings, error) {
+	return e.Settings.UpdateThen(fn, func(prev, saved config.Settings) {
+		if e.Emit != nil && announce(prev, saved) {
+			e.Emit.Emit(EventSettingsChanged, saved)
+		}
+	})
 }
 
 // OnNetwork runs fn once the network opens after the first paint (at

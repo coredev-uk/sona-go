@@ -100,18 +100,15 @@ func (s *SystemService) importSettings(path string) (SettingsImport, error) {
 	if err != nil {
 		return SettingsImport{}, err
 	}
-	var prev config.Settings
-	saved, err := s.o.Settings.Update(func(st *config.Settings) {
-		prev = *st
-		im.Apply(st)
+	var changed []string
+	_, err = s.o.updateSettingsIf(im.Apply, func(prev, saved config.Settings) bool {
+		changed = config.Changes(prev, saved)
+		return len(changed) > 0
 	})
 	if err != nil {
 		return SettingsImport{}, err
 	}
-	out := SettingsImport{Path: path, Changed: config.Changes(prev, saved)}
-	if len(out.Changed) > 0 {
-		s.o.Emit.Emit(EventSettingsChanged, saved)
-	}
+	out := SettingsImport{Path: path, Changed: changed}
 	s.o.Logger.Info("settings imported", "path", path, "changed", out.Changed)
 	return out, nil
 }

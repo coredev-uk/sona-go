@@ -224,20 +224,14 @@ func (s *ScrobbleService) connect(provider, cred, user string) error {
 // saveAccount writes provider's settings entry and tells the UI,
 // whose settings cache other sections save from.
 func (s *ScrobbleService) saveAccount(provider string, a config.ScrobbleAccount) error {
-	saved, err := s.e.Settings.Update(func(st *config.Settings) {
+	_, err := s.e.updateSettings(func(st *config.Settings) {
 		if provider == ScrobblerLastFM {
 			st.Scrobbling.LastFM = a
 		} else {
 			st.Scrobbling.ListenBrainz = a
 		}
 	})
-	if err != nil {
-		return err
-	}
-	if s.e.Emit != nil {
-		s.e.Emit.Emit(EventSettingsChanged, saved)
-	}
-	return nil
+	return err
 }
 
 // apply passes the settings' on/off switches to the scrobbler.

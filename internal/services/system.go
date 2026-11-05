@@ -72,7 +72,7 @@ func (s *SystemService) Settings() config.Settings { return s.o.Settings.Get() }
 // older copy of the settings can't turn the music back up or down.
 func (s *SystemService) UpdateSettings(next config.Settings) (config.Settings, error) {
 	prev := s.o.Settings.Get()
-	saved, err := s.o.Settings.Update(func(st *config.Settings) {
+	saved, err := s.o.updateSettings(func(st *config.Settings) {
 		volume := st.Volume
 		*st = next
 		st.Volume = volume
@@ -80,7 +80,6 @@ func (s *SystemService) UpdateSettings(next config.Settings) (config.Settings, e
 	if err != nil {
 		return prev, err
 	}
-	s.o.Emit.Emit(EventSettingsChanged, saved)
 	return saved, nil
 }
 
@@ -89,11 +88,10 @@ func (s *SystemService) UpdateSettings(next config.Settings) (config.Settings, e
 // caller's stale copy would undo another control's change).
 func (s *SystemService) SetSidebar(sb config.Sidebar) (config.Settings, error) {
 	prev := s.o.Settings.Get()
-	saved, err := s.o.Settings.Update(func(st *config.Settings) { st.Sidebar = sb })
+	saved, err := s.o.updateSettings(func(st *config.Settings) { st.Sidebar = sb })
 	if err != nil {
 		return prev, err
 	}
-	s.o.Emit.Emit(EventSettingsChanged, saved)
 	return saved, nil
 }
 
@@ -102,11 +100,10 @@ func (s *SystemService) SetSidebar(sb config.Sidebar) (config.Settings, error) {
 // caller's stale copy would undo another control's change).
 func (s *SystemService) SetLyricsView(v config.LyricsView) (config.Settings, error) {
 	prev := s.o.Settings.Get()
-	saved, err := s.o.Settings.Update(func(st *config.Settings) { st.LyricsView = v })
+	saved, err := s.o.updateSettings(func(st *config.Settings) { st.LyricsView = v })
 	if err != nil {
 		return prev, err
 	}
-	s.o.Emit.Emit(EventSettingsChanged, saved)
 	return saved, nil
 }
 

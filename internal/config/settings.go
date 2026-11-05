@@ -298,6 +298,16 @@ func (st *Store) OnChange(fn func(prev, next Settings)) {
 // the result, notifies the OnChange observers and returns it. On a save
 // error the in-memory settings are unchanged and no observer runs.
 func (st *Store) Update(fn func(*Settings)) (Settings, error) {
+	return st.UpdateThen(fn, nil)
+}
+
+// UpdateThen is [Store.Update] that also runs then(prev, saved) after the
+// observers, before any other Update can start: what it announces is
+// delivered in save order, like the observers' own announcements. A
+// concurrent Update that an observer starts (on another goroutine) saves
+// after then returns. then runs only on success, and like an observer it
+// must not call Update.
+func (st *Store) UpdateThen(fn func(*Settings), then func(prev, saved Settings)) (Settings, error) {
 	st.obsMu.Lock()
 	defer st.obsMu.Unlock()
 	st.mu.Lock()
@@ -313,6 +323,9 @@ func (st *Store) Update(fn func(*Settings)) (Settings, error) {
 	st.mu.Unlock()
 	for _, o := range st.obs {
 		o(prev, next)
+	}
+	if then != nil {
+		then(prev, next)
 	}
 	return next, nil
 }
