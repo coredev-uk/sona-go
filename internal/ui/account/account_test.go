@@ -1090,3 +1090,12 @@ func TestNoPasswordCodeOrTokenInLogsOrLinks(t *testing.T) {
 		}
 	}
 }
+
+func TestBrowserSignInNamesTouchIDOnAMac(t *testing.T) {
+	r := buildRig(t, rigOpts{status: &signedOut, os: "darwin"})
+	r.shows("Use a passkey (Touch ID or your Mac's password), a security key or a browser you're already signed in to:", "Sign in with your browser")
+
+	r = newRig(t, signedOut)
+	r.shows("Use a passkey, a security key or a browser you're already signed in to:")
+	r.hides("Use a passkey (Touch ID or your Mac's password), a security key or a browser you're already signed in to:")
+}

@@ -282,7 +282,11 @@ func (s *Section) alternatives(c *ui.Context, f *flow) {
 	ui.Column(c).FillWidth().Margin(24, 0, 0, 0).Children(func() {
 		hairline(c.Key("rule"))
 		ui.Column(c.Key("body")).FillWidth().AlignItems(ui.Start).Gap(12).Padding(20, 0, 0, 0).Children(func() {
-			text(c, i18n.T("Use a passkey, a security key or a browser you're already signed in to:"), "secondary", "ink-muted")
+			about := i18n.T("Use a passkey, a security key or a browser you're already signed in to:")
+			if s.d.OS == "darwin" {
+				about = i18n.T("Use a passkey (Touch ID or your Mac's password), a security key or a browser you're already signed in to:")
+			}
+			text(c, about, "secondary", "ink-muted")
 			if kit.Button(c.Key("browser"), i18n.T("Sign in with your browser"), kit.ButtonOpts{
 				Variant: kit.Outline, Size: kit.SizeSM, Icon: "external-link", IconAfter: true, Disabled: f.step.Busy,
 			}).Clicked() {

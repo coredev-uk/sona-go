@@ -6758,6 +6758,10 @@ msgid "Updates"
 msgstr "Updates"
 
 #: internal/ui/account/section.go
+msgid "Use a passkey (Touch ID or your Mac's password), a security key or a browser you're already signed in to:"
+msgstr "Use a passkey (Touch ID or your Mac's password), a security key or a browser you're already signed in to:"
+
+#: internal/ui/account/section.go
 msgid "Use a passkey, a security key or a browser you're already signed in to:"
 msgstr "Use a passkey, a security key or a browser you're already signed in to:"
 
