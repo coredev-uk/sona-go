@@ -497,6 +497,7 @@ func (s *LibraryService) startSync(mode library.Mode, domains ...library.Domain)
 			s.o.Report(err)
 		} else {
 			s.o.members.synced(start)
+			pruneCoverFiles(context.Background(), s.o) // playlists removed elsewhere
 		}
 		c, cerr := s.o.Library.Counts(context.Background())
 		if cerr != nil {

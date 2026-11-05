@@ -31,6 +31,8 @@ const (
 	// dialogMove moves library playlist id (named name) from folder folderID
 	// to another.
 	dialogMove
+	// dialogCover picks the cover of library playlist id (named name).
+	dialogCover
 )
 
 // dialogState is the dialog to show and what it was opened with.
@@ -68,6 +70,12 @@ type dialogs struct {
 	busy              bool
 	// query filters the add picker's playlists.
 	query string
+
+	// The cover picker: the option chosen and not yet confirmed ("" none),
+	// what a failed upload says, what to announce when a change is done, and
+	// whether the first stop took the focus.
+	coverPick, coverErr, coverSaid string
+	focused                        bool
 	// nav is the keyboard navigation of a picker's options.
 	nav kit.GridNav
 
@@ -163,6 +171,8 @@ func (p *playlists) dialogHost(c *ui.Context) {
 		p.folderDialog(c)
 	case dialogMove:
 		p.moveDialog(c)
+	case dialogCover:
+		p.coverDialog(c)
 	}
 }
 

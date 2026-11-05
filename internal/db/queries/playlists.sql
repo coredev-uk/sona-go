@@ -102,3 +102,27 @@ ON CONFLICT (kind, ref) DO NOTHING;
 
 -- name: DropPlaylistItem :exec
 DELETE FROM library_items WHERE kind = 'playlist' AND ref = ?;
+
+-- name: GetPlaylistCover :one
+SELECT pc.kind, pc.template, pc.upload
+FROM playlist_covers pc JOIN playlists p ON p.id = pc.playlist_id
+WHERE p.library_id = ?;
+
+-- name: SetPlaylistCover :execrows
+INSERT INTO playlist_covers (playlist_id, kind, template, upload, updated_at)
+SELECT p.id, sqlc.arg(kind), sqlc.arg(template), sqlc.arg(upload), sqlc.arg(updated_at)
+FROM playlists p WHERE p.library_id = sqlc.arg(library_id)
+ON CONFLICT (playlist_id) DO UPDATE SET
+    kind = excluded.kind,
+    template = excluded.template,
+    upload = excluded.upload,
+    updated_at = excluded.updated_at;
+
+-- name: DeletePlaylistCover :exec
+DELETE FROM playlist_covers
+WHERE playlist_id IN (SELECT id FROM playlists WHERE library_id = ?);
+
+-- name: ListPlaylistCoverUploads :many
+SELECT DISTINCT template AS ref FROM playlist_covers WHERE kind = 'upload'
+UNION
+SELECT DISTINCT upload AS ref FROM playlist_covers WHERE upload <> '';

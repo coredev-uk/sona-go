@@ -62,6 +62,12 @@ func Mosaic(templates []string) string {
 
 func isMosaic(tmpl string) bool { return strings.HasPrefix(tmpl, mosaicPrefix) }
 
+// synthetic reports a template Sona makes itself, always square: a
+// mosaic, a preset or a stored cover. Nothing is fetched for one.
+func synthetic(tmpl string) bool {
+	return isMosaic(tmpl) || strings.HasPrefix(tmpl, presetPrefix) || strings.HasPrefix(tmpl, coverPrefix)
+}
+
 // mosaicTiles returns the tile templates of a normalised mosaic template.
 func mosaicTiles(tmpl string) []string {
 	return strings.Fields(strings.TrimPrefix(tmpl, mosaicPrefix))
@@ -139,7 +145,17 @@ func (c *Cache) tile(ctx context.Context, part string, size int) (*image.RGBA, e
 // RemoveMosaics deletes every cached mosaic. Mosaics are the covers of the
 // signed-in user's own playlists, so sign-out removes them with the
 // artwork only that user's data references. It returns the bytes freed.
-func (c *Cache) RemoveMosaics() (int64, error) {
+func (c *Cache) RemoveMosaics() (int64, error) { return c.removeCached(isMosaic) }
+
+// RemovePresets deletes every cached preset cover: a classic one carries a
+// playlist's name, so sign-out removes them like the mosaics. It returns the
+// bytes freed.
+func (c *Cache) RemovePresets() (int64, error) {
+	return c.removeCached(func(t string) bool { return strings.HasPrefix(t, presetPrefix) })
+}
+
+// removeCached deletes the cached artwork whose template satisfies match.
+func (c *Cache) removeCached(match func(template string) bool) (int64, error) {
 	c.mu.Lock()
 	keys := make([]string, 0, len(c.keys))
 	for k := range c.keys {
@@ -148,7 +164,7 @@ func (c *Cache) RemoveMosaics() (int64, error) {
 	c.mu.Unlock()
 	var refs []string
 	for _, k := range keys {
-		if b, err := os.ReadFile(filepath.Join(c.dir, k, templateFile)); err == nil && isMosaic(strings.TrimSpace(string(b))) {
+		if b, err := os.ReadFile(filepath.Join(c.dir, k, templateFile)); err == nil && match(strings.TrimSpace(string(b))) {
 			refs = append(refs, string(b))
 		}
 	}

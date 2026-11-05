@@ -119,8 +119,8 @@ func inEditablePlaylist(a *kit.ActionContext) bool {
 }
 
 // actions are the item actions: add songs, albums and playlists to a
-// playlist; pin library items to the sidebar; edit, move and delete library
-// playlists. A selection can be added to a playlist, or removed from the
+// playlist; pin library items to the sidebar; edit, change the cover of,
+// move and delete library playlists. A selection can be added to a playlist, or removed from the
 // playlist it is listed in, at once.
 func (p *playlists) actions() []kit.ActionDef {
 	tree := p.treeData()
@@ -185,6 +185,21 @@ func (p *playlists) actions() []kit.ActionDef {
 				return isLibraryPlaylist(pl) && pl.CanEdit
 			},
 			Run: func(a *kit.ActionContext) { p.editDetails(a.Item().Playlist()) },
+		},
+		{
+			ID:     "playlists.cover",
+			Target: kit.KindPlaylist,
+			Label:  func(*kit.ActionContext) string { return i18n.T("Change cover…") },
+			Icon:   "image",
+			Group:  kit.GroupItem,
+			Order:  72,
+			// The cover is Sona's own, not Apple's: any playlist of the library
+			// has one to choose, even one Apple keeps up to date.
+			Available: func(a *kit.ActionContext) bool { return isLibraryPlaylist(a.Item().Playlist()) },
+			Run: func(a *kit.ActionContext) {
+				pl := a.Item().Playlist()
+				p.changeCover(pl.ID, pl.Name)
+			},
 		},
 		{
 			ID:     "playlists.move",

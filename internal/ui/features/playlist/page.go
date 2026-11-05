@@ -316,6 +316,9 @@ func (p *playlists) headerActions(c *ui.Context, id string, d services.PlaylistD
 		if kit.Button(c.Key("details"), i18n.T("Name and description"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM}).Clicked() {
 			p.dialogs.show(dialogState{kind: dialogDetails, id: id, name: pl.Name, description: pl.Description, isPublic: d.IsPublic})
 		}
+		if kit.Button(c.Key("cover"), i18n.T("Cover"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Icon: "image"}).Clicked() {
+			p.changeCover(id, pl.Name)
+		}
 		return
 	}
 	playable := false

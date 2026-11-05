@@ -69,3 +69,8 @@ func (p Paths) LogFile() string { return filepath.Join(p.State, "sona.log") }
 // the rest of Sona's data from the playback host (the macOS Seatbelt
 // profile) can allow reading just this one.
 func (p Paths) WidevineDir() string { return filepath.Join(p.Data, "widevine") }
+
+// CoversDir holds the images the user chose as playlist covers
+// (artwork.SaveCover). It is user data, kept apart from the artwork cache,
+// which Sona may empty at any time.
+func (p Paths) CoversDir() string { return filepath.Join(p.Data, "covers") }

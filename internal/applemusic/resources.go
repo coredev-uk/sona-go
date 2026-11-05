@@ -2,6 +2,7 @@ package applemusic
 
 import (
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -22,13 +23,22 @@ type Artwork struct {
 	TextColor4 string `json:"textColor4"`
 }
 
-// Template returns the raw URL template, "" for a nil artwork.
+// Template returns the artwork's URL template, "" for a nil artwork. Apple's
+// generated artwork (a new playlist's gradient with its name) comes as one
+// fixed 1200×1200 URL; its CDN fills any size of the same URL, signature
+// intact (checked 2026-11-05: 300, 600 and 1200 all 200), so the box is made a
+// placeholder and Sona asks for the size it shows, like any artwork.
 func (a *Artwork) Template() string {
 	if a == nil {
 		return ""
 	}
+	if a.Generated() {
+		return genSize.ReplaceAllString(a.URL, "/gen/{w}x{h}AM.")
+	}
 	return a.URL
 }
+
+var genSize = regexp.MustCompile(`/gen/\d+x\d+AM\.`)
 
 // generatedPath is where Apple's CDN serves the initials images it
 // generates for people it has no picture of (checked against credits,

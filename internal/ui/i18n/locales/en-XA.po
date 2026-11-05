@@ -38,6 +38,10 @@ msgstr ""
 msgid "<0>Only songs by </0>{name}<1> by </1>{by}"
 msgstr ""
 
+#: internal/ui/features/playlist/covers.go
+msgid "A cover drawn from the playlist's colours"
+msgstr ""
+
 #: internal/ui/features/concerts/page.go
 msgid "A larger city nearby may have some."
 msgstr ""
@@ -358,6 +362,10 @@ msgstr ""
 msgid "Apple Music asked Sona to sign in again. Your library is still here."
 msgstr ""
 
+#: internal/ui/features/playlist/covers.go
+msgid "Apple Music can't keep a playlist cover from here, so your choice stays on this computer and shows in Sona only."
+msgstr ""
+
 #: internal/ui/features/song/page.go
 msgid "Apple Music has no credits or lyrics for this song."
 msgstr ""
@@ -459,6 +467,10 @@ msgstr ""
 #: internal/ui/features/player/bar.go
 #: internal/ui/kit/controls_badge.go
 msgid "Apple Music's 30-second preview, not the full song"
+msgstr ""
+
+#: internal/ui/features/playlist/covers.go
+msgid "Apple Music's cover, or the playlist's albums as a mosaic"
 msgstr ""
 
 #: internal/ui/features/settings/find.go
@@ -606,6 +618,11 @@ msgstr ""
 msgid "Audio quality"
 msgstr ""
 
+#. Name of a generated playlist cover: soft glows of the playlist's colours on a dark ground.
+#: internal/ui/features/playlist/covers.go
+msgid "Aurora"
+msgstr ""
+
 #. Apple's name for the feature: the queue's heading over the songs it adds, and its toggle. Apple: ASE.Web.Music.UpNext.Autoplay.Heading
 #: internal/ui/features/player/queue_list.go
 #: internal/ui/features/player/queue_tools.go
@@ -629,6 +646,12 @@ msgstr ""
 #: internal/ui/features/onboarding/welcome.go
 #: internal/ui/features/settings/desktop.go
 #: internal/ui/features/settings/language.go
+msgid "Automatic"
+msgstr ""
+
+#. A choice of playlist cover: the one Sona picks by itself (Apple's artwork, or the playlist's albums as a mosaic).
+#: internal/ui/features/playlist/covers.go
+msgctxt "playlist cover"
 msgid "Automatic"
 msgstr ""
 
@@ -761,6 +784,10 @@ msgstr ""
 msgid "Change any of them in <0>Settings</0>."
 msgstr ""
 
+#: internal/ui/features/playlist/actions.go
+msgid "Change cover…"
+msgstr ""
+
 #: internal/ui/features/playlist/dialogs.go
 msgid "Changes appear in Apple Music on all your devices."
 msgstr ""
@@ -864,6 +891,10 @@ msgstr ""
 msgid "Choose a song, album or playlist to start"
 msgstr ""
 
+#: internal/ui/features/playlist/covers.go
+msgid "Choose an image…"
+msgstr ""
+
 #: internal/ui/features/concerts/page.go
 msgid "Choose both dates"
 msgstr ""
@@ -885,8 +916,17 @@ msgstr ""
 msgid "Choose the {field} day"
 msgstr ""
 
+#: internal/ui/features/playlist/covers.go
+msgid "Choosing an image needs a file chooser, and this system has none."
+msgstr ""
+
 #: internal/ui/features/concerts/location.go
 msgid "Cities that match"
+msgstr ""
+
+#. Name of a generated playlist cover: a diagonal gradient with the playlist's name, like the cover Apple Music makes for a new playlist.
+#: internal/ui/features/playlist/covers.go
+msgid "Classic"
 msgstr ""
 
 #. Equaliser preset
@@ -1136,6 +1176,10 @@ msgstr ""
 msgid "Couldn't change shuffle"
 msgstr ""
 
+#: internal/ui/features/playlist/covers.go
+msgid "Couldn't change the cover"
+msgstr ""
+
 #: internal/ui/features/playlist/sidebar.go
 msgid "Couldn't change the pin"
 msgstr ""
@@ -1339,6 +1383,10 @@ msgstr ""
 
 #: internal/ui/features/concerts/page.go
 msgid "Couldn't load the concerts"
+msgstr ""
+
+#: internal/ui/features/playlist/covers.go
+msgid "Couldn't load the covers. {reason}"
 msgstr ""
 
 #: internal/ui/features/equalizer/page.go
@@ -1720,6 +1768,15 @@ msgstr ""
 msgid "Couldn't unpin “{name}”"
 msgstr ""
 
+#: internal/ui/features/playlist/covers.go
+#: internal/ui/features/playlist/page.go
+msgid "Cover"
+msgstr ""
+
+#: internal/ui/features/playlist/covers.go
+msgid "Cover: {name}"
+msgstr ""
+
 #: internal/ui/features/settings/storage.go
 msgid "Covers and backdrops kept on this computer so pages open without downloading them again. Above the limit, the artwork shown least recently is removed first."
 msgstr ""
@@ -1981,6 +2038,7 @@ msgstr ""
 
 #: internal/ui/features/onboarding/layer.go
 #: internal/ui/features/onboarding/steps.go
+#: internal/ui/features/playlist/covers.go
 #: internal/ui/features/playlist/page.go
 msgid "Done"
 msgstr ""
@@ -2050,8 +2108,18 @@ msgstr ""
 msgid "Drop to start a queue"
 msgstr ""
 
+#. Name of a generated playlist cover: two tones cut by a diagonal.
+#: internal/ui/features/playlist/covers.go
+msgid "Duo"
+msgstr ""
+
 #: internal/ui/kit/collections_tracklist.go
 msgid "Duration"
+msgstr ""
+
+#. Name of a generated playlist cover: a slanted gradient from light to dark.
+#: internal/ui/features/playlist/covers.go
+msgid "Dusk"
 msgstr ""
 
 #: internal/ui/kit/controls_badge.go
@@ -2435,6 +2503,11 @@ msgstr ""
 msgid "Get tickets for {lineup} from {seller}, opens in your browser"
 msgstr ""
 
+#. Name of a generated playlist cover: a bright centre fading to a dark edge.
+#: internal/ui/features/playlist/covers.go
+msgid "Glow"
+msgstr ""
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "Go"
 msgstr ""
@@ -2568,6 +2641,11 @@ msgstr ""
 #: internal/ui/kit/overlays_palette.go
 msgctxt "keyboard key"
 msgid "Home"
+msgstr ""
+
+#. Name of a generated playlist cover: a sky over three ridges of hills.
+#: internal/ui/features/playlist/covers.go
+msgid "Horizon"
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
@@ -2736,6 +2814,10 @@ msgstr ""
 
 #: internal/ui/account/signin.go
 msgid "Its two-factor method (such as a security key) can't be completed inside Sona. Sign in with your browser instead."
+msgstr ""
+
+#: internal/ui/features/playlist/covers.go
+msgid "JPEG or PNG, up to {maxMiB} MB and {maxMpx} megapixels, at least {minEdge} px wide and tall. Sona crops it to a square from the centre."
 msgstr ""
 
 #. Equaliser preset
@@ -2950,6 +3032,10 @@ msgstr ""
 msgid "Loading"
 msgstr ""
 
+#: internal/ui/features/playlist/covers.go
+msgid "Loading covers…"
+msgstr ""
+
 #: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/player/nowplaying_view.go
 msgid "Loading lyrics"
@@ -3077,6 +3163,11 @@ msgstr ""
 
 #: internal/ui/app/menubar.go
 msgid "Minimize"
+msgstr ""
+
+#. Name of a generated playlist cover: a large disc over a night sky.
+#: internal/ui/features/playlist/covers.go
+msgid "Moon"
 msgstr ""
 
 #: internal/ui/features/album/sections.go
@@ -3451,6 +3542,10 @@ msgstr ""
 msgid "No notification service is running on this desktop."
 msgstr ""
 
+#: internal/ui/features/playlist/covers.go
+msgid "No picture"
+msgstr ""
+
 #: internal/ui/features/playlist/dialogs.go
 msgid "No playlist you can edit is called “{trimmed}”."
 msgstr ""
@@ -3533,6 +3628,12 @@ msgid "No way to receive a code."
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
+msgid "None"
+msgstr ""
+
+#. A choice of playlist cover: no picture, the plain placeholder.
+#: internal/ui/features/playlist/covers.go
+msgctxt "playlist cover"
 msgid "None"
 msgstr ""
 
@@ -4238,6 +4339,10 @@ msgstr ""
 msgid "Playlist"
 msgstr ""
 
+#: internal/ui/features/playlist/covers.go
+msgid "Playlist cover"
+msgstr ""
+
 #: internal/ui/features/discover/bands.go
 #: internal/ui/features/library/library.go
 #: internal/ui/features/library/playlists.go
@@ -4346,6 +4451,10 @@ msgstr ""
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/lyrics.go
 msgid "Prefer word-by-word lyrics"
+msgstr ""
+
+#: internal/ui/features/playlist/covers.go
+msgid "Preparing your image…"
 msgstr ""
 
 #: internal/ui/features/equalizer/page.go
@@ -4663,6 +4772,10 @@ msgstr ""
 
 #: internal/ui/features/playlist/actions.go
 msgid "Remove from playlist"
+msgstr ""
+
+#: internal/ui/features/playlist/covers.go
+msgid "Remove my image"
 msgstr ""
 
 #: internal/ui/features/search/recentshelf.go
@@ -5477,6 +5590,10 @@ msgstr ""
 msgid "Sona can't play this station"
 msgstr ""
 
+#: internal/ui/i18n/errors.go
+msgid "Sona can't use that image. It must be a JPEG or PNG within the size limits."
+msgstr ""
+
 #: internal/ui/features/settings/updates.go
 msgid "Sona can't write where it is installed, so it can't update itself. Move it to your Applications folder, or to a folder you own."
 msgstr ""
@@ -6133,6 +6250,10 @@ msgstr ""
 msgid "The folder isn't empty. Move or delete what's in it first."
 msgstr ""
 
+#: internal/ui/features/playlist/covers.go
+msgid "The image you chose"
+msgstr ""
+
 #: internal/ui/features/equalizer/page.go
 msgid "The level drops {drop} dB ahead of the bands, so the largest boost cannot clip. Preamp lowers it further."
 msgstr ""
@@ -6475,6 +6596,7 @@ msgstr ""
 #: internal/ui/features/auth/menu.go
 #: internal/ui/features/library/sync.go
 #: internal/ui/features/onboarding/widevine.go
+#: internal/ui/features/playlist/covers.go
 #: internal/ui/features/settings/cdm.go
 #: internal/ui/features/video/view.go
 #: internal/ui/kit/controls_states.go
@@ -7038,6 +7160,19 @@ msgstr ""
 
 #: internal/ui/features/playlist/page.go
 msgid "Your favourites"
+msgstr ""
+
+#. A choice of playlist cover: the picture the user chose from a file.
+#: internal/ui/features/playlist/covers.go
+msgid "Your image"
+msgstr ""
+
+#: internal/ui/features/playlist/covers.go
+msgid "Your image is now the cover"
+msgstr ""
+
+#: internal/ui/features/playlist/covers.go
+msgid "Your image was removed"
 msgstr ""
 
 #: internal/ui/kit/keyring_copy.go

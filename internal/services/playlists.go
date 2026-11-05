@@ -394,6 +394,7 @@ func (s *PlaylistsService) Delete(ctx context.Context, id string) error {
 	if err := s.e.Library.DropPlaylist(ctx, id); err != nil {
 		return err
 	}
+	pruneCoverFiles(ctx, s.e) // the playlist's chosen image goes with it
 	s.changed(PlaylistsChanged{IDs: []string{id}, Tree: true})
 	go s.refreshPinsQuietly() // a pinned playlist's pin goes with it
 	return nil
@@ -648,6 +649,11 @@ func (s *PlaylistsService) Pins(ctx context.Context) ([]Pin, error) {
 	out := make([]Pin, len(rows))
 	for i, r := range rows {
 		p := Pin{Kind: r.Kind, ID: r.AppleID, Name: r.Name, Subtitle: r.Subtitle, Action: r.Action, Art: s.m.artOf(r.ArtworkTemplate), AlbumID: r.SongAlbumID}
+		if r.Kind == kindPlaylist {
+			if tmpl, ok := s.coverOfPin(ctx, r.AppleID, r.Name); ok {
+				p.Art = s.m.artOf(tmpl)
+			}
+		}
 		if r.Kind == kindSong {
 			if so, err := s.e.Library.Song(ctx, r.AppleID); err == nil {
 				p.Song = s.m.libSong(so)

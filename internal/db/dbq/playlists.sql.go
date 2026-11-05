@@ -53,6 +53,16 @@ func (q *Queries) CountFolderChildren(ctx context.Context, folderID string) (int
 	return column_1, err
 }
 
+const deletePlaylistCover = `-- name: DeletePlaylistCover :exec
+DELETE FROM playlist_covers
+WHERE playlist_id IN (SELECT id FROM playlists WHERE library_id = ?)
+`
+
+func (q *Queries) DeletePlaylistCover(ctx context.Context, libraryID sql.NullString) error {
+	_, err := q.db.ExecContext(ctx, deletePlaylistCover, libraryID)
+	return err
+}
+
 const deletePlaylistFolderRow = `-- name: DeletePlaylistFolderRow :exec
 DELETE FROM playlist_folders WHERE library_id = ?
 `
@@ -81,6 +91,25 @@ DELETE FROM library_items WHERE kind = 'playlist' AND ref = ?
 func (q *Queries) DropPlaylistItem(ctx context.Context, ref int64) error {
 	_, err := q.db.ExecContext(ctx, dropPlaylistItem, ref)
 	return err
+}
+
+const getPlaylistCover = `-- name: GetPlaylistCover :one
+SELECT pc.kind, pc.template, pc.upload
+FROM playlist_covers pc JOIN playlists p ON p.id = pc.playlist_id
+WHERE p.library_id = ?
+`
+
+type GetPlaylistCoverRow struct {
+	Kind     string
+	Template string
+	Upload   string
+}
+
+func (q *Queries) GetPlaylistCover(ctx context.Context, libraryID sql.NullString) (GetPlaylistCoverRow, error) {
+	row := q.db.QueryRowContext(ctx, getPlaylistCover, libraryID)
+	var i GetPlaylistCoverRow
+	err := row.Scan(&i.Kind, &i.Template, &i.Upload)
+	return i, err
 }
 
 const getPlaylistFolder = `-- name: GetPlaylistFolder :one
@@ -188,6 +217,35 @@ func (q *Queries) LibraryPlaylistTree(ctx context.Context) ([]LibraryPlaylistTre
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlaylistCoverUploads = `-- name: ListPlaylistCoverUploads :many
+SELECT DISTINCT template AS ref FROM playlist_covers WHERE kind = 'upload'
+UNION
+SELECT DISTINCT upload AS ref FROM playlist_covers WHERE upload <> ''
+`
+
+func (q *Queries) ListPlaylistCoverUploads(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listPlaylistCoverUploads)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var ref string
+		if err := rows.Scan(&ref); err != nil {
+			return nil, err
+		}
+		items = append(items, ref)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -423,6 +481,39 @@ type SetPlaylistCanDeleteParams struct {
 func (q *Queries) SetPlaylistCanDelete(ctx context.Context, arg SetPlaylistCanDeleteParams) error {
 	_, err := q.db.ExecContext(ctx, setPlaylistCanDelete, arg.CanDelete, arg.LibraryID)
 	return err
+}
+
+const setPlaylistCover = `-- name: SetPlaylistCover :execrows
+INSERT INTO playlist_covers (playlist_id, kind, template, upload, updated_at)
+SELECT p.id, ?1, ?2, ?3, ?4
+FROM playlists p WHERE p.library_id = ?5
+ON CONFLICT (playlist_id) DO UPDATE SET
+    kind = excluded.kind,
+    template = excluded.template,
+    upload = excluded.upload,
+    updated_at = excluded.updated_at
+`
+
+type SetPlaylistCoverParams struct {
+	Kind      string
+	Template  string
+	Upload    string
+	UpdatedAt int64
+	LibraryID sql.NullString
+}
+
+func (q *Queries) SetPlaylistCover(ctx context.Context, arg SetPlaylistCoverParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setPlaylistCover,
+		arg.Kind,
+		arg.Template,
+		arg.Upload,
+		arg.UpdatedAt,
+		arg.LibraryID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const setPlaylistFolder = `-- name: SetPlaylistFolder :exec

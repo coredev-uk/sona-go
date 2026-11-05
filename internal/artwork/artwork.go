@@ -62,7 +62,10 @@ type Options struct {
 	Logger   *slog.Logger // nil discards
 	MaxBytes int64        // disk cap; 0 means 512 MiB
 	Prefix   string       // URL path the Handler is mounted at; "" means "/art/"
-	Fetches  int          // concurrent downloads; 0 means 16
+	// CoverDir holds the covers the user chose from files (SaveCover); it
+	// is user data, not cache, so it sits outside Dir. "" stores none.
+	CoverDir string
+	Fetches  int // concurrent downloads; 0 means 16
 	// UserAgent overrides DefaultUserAgent.
 	UserAgent string
 	Backdrop  BackdropStyle
@@ -93,6 +96,7 @@ type Cache struct {
 	log      *slog.Logger
 	max      int64
 	prefix   string
+	covers   string
 	backdrop BackdropStyle
 	fetchSem chan struct{} // bounds downloads
 	workSem  chan struct{} // bounds decode/resize/encode
@@ -146,6 +150,7 @@ func New(opts Options) (*Cache, error) {
 		log:       opts.Logger,
 		max:       opts.MaxBytes,
 		prefix:    opts.Prefix,
+		covers:    opts.CoverDir,
 		backdrop:  opts.Backdrop,
 		fetchSem:  make(chan struct{}, cmp.Or(max(opts.Fetches, 0), defaultFetches)),
 		workSem:   make(chan struct{}, runtime.GOMAXPROCS(0)),
@@ -585,14 +590,15 @@ func (c *Cache) cachedSource(key string, want dims, fixedSize bool) (path string
 }
 
 // source returns a source image covering want, fetching it if needed. A
-// mosaic's source is composed from its tiles' sources instead, always
-// square: a request for another shape is served by fitting that square.
+// synthetic template's source (a mosaic composed from its tiles' sources, a
+// preset drawn, a stored cover) is always square: a request for another
+// shape is served by fitting that square.
 func (c *Cache) source(ctx context.Context, key, tmpl string, want dims) (string, dims, error) {
-	mosaic := isMosaic(tmpl)
-	if mosaic {
+	synth := synthetic(tmpl)
+	if synth {
 		want = dims{want.long(), want.long()}
 	}
-	fx := !mosaic && fixed(tmpl)
+	fx := !synth && fixed(tmpl)
 	sd := sourceDims(want)
 	if fx {
 		sd = dims{}
@@ -615,8 +621,8 @@ func (c *Cache) source(ctx context.Context, key, tmpl string, want dims) (string
 			cfg  image.Config
 			err  error
 		)
-		if mosaic {
-			data, err = c.compose(fctx, tmpl, sd.w)
+		if synth {
+			data, err = c.synthesise(fctx, tmpl, sd.w)
 			cfg = image.Config{Width: sd.w, Height: sd.h}
 		} else {
 			u := tmpl
@@ -636,6 +642,23 @@ func (c *Cache) source(ctx context.Context, key, tmpl string, want dims) (string
 	}
 	s := v.(src)
 	return s.path, s.d, nil
+}
+
+// synthesise makes the side×side JPEG of a synthetic template.
+func (c *Cache) synthesise(ctx context.Context, tmpl string, side int) ([]byte, error) {
+	switch {
+	case isMosaic(tmpl):
+		return c.compose(ctx, tmpl, side)
+	case strings.HasPrefix(tmpl, coverPrefix):
+		return c.renderCover(ctx, tmpl, side)
+	}
+	select {
+	case c.workSem <- struct{}{}:
+		defer func() { <-c.workSem }()
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	return renderPreset(ctx, tmpl, side)
 }
 
 // fetch downloads one artwork URL and reads its image header. ctx is the

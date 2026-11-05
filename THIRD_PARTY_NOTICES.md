@@ -27,6 +27,12 @@ it from Google at runtime ([README](README.md#playback-and-the-widevine-cdm)).
 - Embedded in: `internal/ui/theme/icons/*.svg`
 - Licence text (ISC, plus the Feather MIT notice): [internal/ui/theme/icons/LICENSE](internal/ui/theme/icons/LICENSE)
 
+## Go Bold font (BSD-3-Clause)
+
+- Source: `golang.org/x/image/font/gofont/gobold`, © The Go Authors (Bigelow & Holmes' Go fonts)
+- Used for: the playlist's name on the generated "Classic" cover (`internal/artwork/classic.go`)
+- Embedded in: the binary, through the Go module; its licence is the module's own
+
 ## Schibsted Grotesk (SIL OFL 1.1)
 
 - Version: google/fonts commit `8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5` (variable TTF, upright and italic)

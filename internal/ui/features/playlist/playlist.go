@@ -34,6 +34,10 @@ type playlistsAPI interface {
 	RecentTargets(ctx context.Context) ([]string, error)
 	Create(ctx context.Context, in services.PlaylistInput, items []services.PlaylistItem, folderID string) (services.Playlist, error)
 	Update(ctx context.Context, id string, in services.PlaylistInput) error
+	CoverOptions(ctx context.Context, id string) (services.PlaylistCovers, error)
+	SetCover(ctx context.Context, id, option string) (services.PlaylistCovers, error)
+	UploadCover(ctx context.Context, id string) (services.PlaylistCovers, error)
+	RemoveCoverUpload(ctx context.Context, id string) (services.PlaylistCovers, error)
 	Delete(ctx context.Context, id string) error
 	Add(ctx context.Context, id string, items []services.PlaylistItem) (services.PlaylistDetail, error)
 	MoveTrack(ctx context.Context, id string, from, to int, trackID string) (services.PlaylistDetail, error)
@@ -136,6 +140,8 @@ func (p *playlists) init() {
 			if !p.edits.editing(id) {
 				stale = append(stale, keyDetail(id))
 			}
+			// The covers follow the playlist's tracks, edit or not.
+			stale = append(stale, keyCovers(id))
 		}
 		if ev.Tree {
 			stale = append(stale, keyTree, keyCounts, keyPlaylists)
