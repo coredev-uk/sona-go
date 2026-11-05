@@ -264,6 +264,40 @@ func TestTrayMenuFollowsPlaybackPrivateListeningAndTheMiniPlayer(t *testing.T) {
 	}
 }
 
+// On macOS the tray's items are in title case, as menu bar items are; on
+// Linux and Windows they stay in sentence case. The words that are one in
+// both ("Play", "Show Sona", "Mini Player") are the same.
+func TestTrayMenuIsTitleCaseOnMacOSOnly(t *testing.T) {
+	type items struct{ now, private string }
+	for _, tc := range []struct {
+		name       string
+		titleCase  bool
+		private    *services.PrivateState
+		want       items
+		wantMini   string
+		wantPlay   string
+		wantEnable bool
+	}{
+		{"macOS, off", true, &services.PrivateState{}, items{"Not Playing", "Private Listening"}, "Mini Player", "Play", true},
+		{"other, off", false, &services.PrivateState{}, items{"Not playing", "Private listening"}, "Mini Player", "Play", true},
+		{"macOS, development", true, &services.PrivateState{On: true, Source: "development"}, items{"Not Playing", "Private Listening (Development Build)"}, "Mini Player", "Play", true},
+		{"other, development", false, &services.PrivateState{On: true, Source: "development"}, items{"Not playing", "Private listening (development build)"}, "Mini Player", "Play", true},
+		{"macOS, forced", true, &services.PrivateState{On: true, Source: "environment"}, items{"Not Playing", "Private Listening (Forced by SONA_PRIVATE=1)"}, "Mini Player", "Play", false},
+		{"other, forced", false, &services.PrivateState{On: true, Source: "environment"}, items{"Not playing", "Private listening (forced by SONA_PRIVATE=1)"}, "Mini Player", "Play", false},
+	} {
+		v := trayState{titleCase: tc.titleCase, private: tc.private}.view()
+		if got := (items{v.now, v.private}); got != tc.want || v.mini != tc.wantMini || v.play != tc.wantPlay || v.privateEnabled != tc.wantEnable {
+			t.Errorf("%s: %+v, mini %q, play %q, private enabled %v; want %+v, %q, %q, %v",
+				tc.name, got, v.mini, v.play, v.privateEnabled, tc.want, tc.wantMini, tc.wantPlay, tc.wantEnable)
+		}
+	}
+	// A song playing replaces "Not playing" in either case.
+	playing := trayState{titleCase: true, play: services.PlaybackState{State: "playing", Current: &services.QueueItem{Name: "Song", Artist: "Band"}}}
+	if v := playing.view(); v.now != "Song – Band" {
+		t.Errorf("title case with a song: %q", v.now)
+	}
+}
+
 func TestStatusBannerSaysWhatHoldsTheAccountUp(t *testing.T) {
 	h := uitest.New(t)
 	a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Now: h.Clock.Now},

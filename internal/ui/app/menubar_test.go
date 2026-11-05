@@ -79,29 +79,33 @@ func menuNav() [3][]module.NavItem {
 // macOS by default.
 func menuCommands() []module.BoundShortcut {
 	return []module.BoundShortcut{
-		bind("nav.settings", "Meta+,"),
+		bind("nav.settings", "Meta+,"), bind("auth.account"),
 		bind("nav.home", "Meta+1"), bind("nav.new", "Meta+2"), bind("nav.radio", "Meta+3"), bind("nav.search", "Meta+4"),
 		bind("nav.library.songs", "Alt+1"), bind("nav.library.albums", "Alt+2"),
+		bind("search.focus", "/", "Meta+F"),
 		bind("shell.sidebar", "Meta+B"),
 		bind("playlist.new", "Meta+N"),
 		bind("player.toggle", "Space"), bind("player.next", "Meta+ArrowRight"), bind("player.previous", "Meta+ArrowLeft"),
-		bind("player.shuffle", "S"), bind("player.repeat", "R"),
+		bind("player.seek-forward", "Shift+ArrowRight"), bind("player.seek-back", "Shift+ArrowLeft"),
+		bind("player.favourite", "F"),
+		bind("player.shuffle", "S", "Meta+Alt+S"), bind("player.repeat", "R", "Meta+Alt+R"),
 		bind("player.volume-up", "Meta+ArrowUp"), bind("player.volume-down", "Meta+ArrowDown"), bind("player.mute", "M"),
+		bind("private.toggle"),
 		bind("player.sleep-30"), bind("player.sleep-60"), bind("player.sleep-track"), bind("player.sleep-queue"), bind("player.sleep-off"),
-		bind("player.now-playing", "N"), bind("player.lyrics", "L"), bind("player.queue", "Q"),
-		bind("miniplayer.toggle", "Meta+Shift+M"),
+		bind("player.now-playing", "N", "Meta+L"), bind("player.lyrics", "L", "Meta+Alt+L"), bind("player.queue", "Q", "Meta+Alt+U"), bind("player.video", "V"),
+		bind("miniplayer.toggle", "Meta+Shift+M"), bind("equalizer.open", "Meta+Shift+E"),
 		bind("commands.help", "?"), bind("commands.palette", "Meta+K"),
 	}
 }
 
 func allActions() menuActions {
 	noop := func() {}
-	return menuActions{checkUpdates: noop, openLink: noop, reportBug: noop, showMain: noop}
+	return menuActions{checkUpdates: noop, openLink: noop, reportBug: noop, showMain: noop, back: noop, forward: noop}
 }
 
 func TestMenuBarModel(t *testing.T) {
 	got := describeMenu(buildMenuBar(menuInput{
-		commands: menuCommands(), nav: menuNav(), sidebar: true, actions: allActions(),
+		commands: menuCommands(), nav: menuNav(), sidebar: true, actions: allActions(), canBack: true,
 		play: menuPlayback{repeat: "off"},
 	}), "")
 	want := []string{
@@ -110,6 +114,7 @@ func TestMenuBarModel(t *testing.T) {
 		"Sona > Check for Updates…",
 		"Sona > ---",
 		"Sona > Settings… [Cmd+,]",
+		"Sona > Account Settings…",
 		"Sona > ---",
 		"Sona > Services role=services",
 		"Sona > ---",
@@ -132,33 +137,45 @@ func TestMenuBarModel(t *testing.T) {
 		"Edit > Paste role=paste",
 		"Edit > Delete role=delete",
 		"Edit > Select All role=selectAll",
+		"Edit > ---",
+		"Edit > Find… [Cmd+F]",
 		"View",
 		"View > Hide Sidebar [Cmd+B]",
 		"View > ---",
-		"View > For you [Cmd+1]",
-		"View > Discover [Cmd+2]",
-		"View > Radio [Cmd+3]",
-		"View > Search [Cmd+4]",
-		"View > Library",
-		"View > Library > Songs",
-		"View > Library > Albums",
-		"View > ---",
-		"View > Now Playing",
-		"View > Lyrics",
-		"View > Queue",
+		"View > Now Playing [Cmd+L]",
+		"View > Lyrics [Cmd+Alt+L]",
+		"View > Queue [Cmd+Alt+U]",
+		"View > Video",
 		"View > ---",
 		"View > Enter Full Screen role=togglefullscreen",
+		"Go",
+		"Go > Back [Cmd+[]",
+		"Go > Forward [Cmd+]] disabled",
+		"Go > ---",
+		"Go > For you [Cmd+1]",
+		"Go > Discover [Cmd+2]",
+		"Go > Radio [Cmd+3]",
+		"Go > Search [Cmd+4]",
+		"Go > ---",
+		"Go > Library",
+		"Go > Library > Songs",
+		"Go > Library > Albums",
 		"Controls",
 		"Controls > Play",
 		"Controls > Next",
 		"Controls > Previous",
+		"Controls > Skip Ahead 10 Seconds",
+		"Controls > Go Back 10 Seconds",
 		"Controls > ---",
-		"Controls > Shuffle",
-		"Controls > Repeat",
+		"Controls > Favourite",
+		"Controls > Shuffle [Cmd+Alt+S]",
+		"Controls > Repeat [Cmd+Alt+R]",
 		"Controls > ---",
 		"Controls > Volume Up",
 		"Controls > Volume Down",
 		"Controls > Mute",
+		"Controls > ---",
+		"Controls > Private Listening",
 		"Controls > ---",
 		"Controls > Sleep Timer",
 		"Controls > Sleep Timer > In 30 Minutes",
@@ -171,6 +188,7 @@ func TestMenuBarModel(t *testing.T) {
 		"Window > Zoom role=zoom",
 		"Window > ---",
 		"Window > Mini Player [Cmd+Shift+M]",
+		"Window > Equaliser [Cmd+Shift+E]",
 		"Window > Sona",
 		"Window > ---",
 		"Window > Bring All to Front role=front",
@@ -337,20 +355,20 @@ func TestControlsShowWhatPlays(t *testing.T) {
 	if got := at(idle, "Play"); got != "Play" {
 		t.Errorf("idle: %q", got)
 	}
-	for _, c := range []struct{ prefix, want string }{{"Shuffle", "Shuffle"}, {"Repeat", "Repeat"}, {"Mute", "Mute"}} {
+	for _, c := range []struct{ prefix, want string }{{"Shuffle", "Shuffle [Cmd+Alt+S]"}, {"Repeat", "Repeat [Cmd+Alt+R]"}, {"Mute", "Mute"}} {
 		if got := at(idle, c.prefix); got != c.want {
 			t.Errorf("idle: %q, want %q", got, c.want)
 		}
 	}
 	busy := describe(menuPlayback{playing: true, shuffle: true, muted: true, repeat: "one"})
 	for _, c := range []struct{ prefix, want string }{
-		{"Pause", "Pause"}, {"Shuffle", "Shuffle checked"}, {"Repeat", "Repeat One checked"}, {"Mute", "Mute checked"},
+		{"Pause", "Pause"}, {"Shuffle", "Shuffle [Cmd+Alt+S] checked"}, {"Repeat", "Repeat One [Cmd+Alt+R] checked"}, {"Mute", "Mute checked"},
 	} {
 		if got := at(busy, c.prefix); got != c.want {
 			t.Errorf("playing: %q, want %q", got, c.want)
 		}
 	}
-	if got := at(describe(menuPlayback{repeat: "all"}), "Repeat"); got != "Repeat All checked" {
+	if got := at(describe(menuPlayback{repeat: "all"}), "Repeat"); got != "Repeat All [Cmd+Alt+R] checked" {
 		t.Errorf("repeat all: %q", got)
 	}
 
@@ -383,11 +401,11 @@ func TestMenuBarLeavesOutWhatIsNotThere(t *testing.T) {
 	for _, m := range bar {
 		labels = append(labels, m.Label)
 	}
-	if want := []string{"Sona", "File", "Edit", "View", "Controls", "Window", "Help"}; !slices.Equal(labels, want) {
+	if want := []string{"Sona", "File", "Edit", "View", "Go", "Controls", "Window", "Help"}; !slices.Equal(labels, want) {
 		t.Errorf("menus %q, want %q", labels, want)
 	}
 	for _, line := range describeMenu(bar, "") {
-		for _, gone := range []string{"Settings…", "New Playlist", "Play", "Pause", "Sleep Timer", "Mini Player", "Command Palette", "Report a Bug", "Check for Updates", "Open Link"} {
+		for _, gone := range []string{"Settings…", "Account Settings…", "New Playlist", "Find…", "Back", "Forward", "Play", "Pause", "Private Listening", "Sleep Timer", "Mini Player", "Equaliser", "Command Palette", "Report a Bug", "Check for Updates", "Open Link"} {
 			if strings.HasSuffix(line, "> "+gone) || strings.Contains(line, "> "+gone+" ") {
 				t.Errorf("%q is in the menus without a command behind it", line)
 			}
@@ -449,12 +467,13 @@ func TestMenuBarOverTheRealModules(t *testing.T) {
 	// Every item that runs a shortcut is there: none was left out for want
 	// of a registered command.
 	for _, id := range []string{
-		"nav.settings", "playlist.new", "shell.sidebar", "nav.home", "nav.new", "nav.radio", "nav.search", "nav.library.songs", "nav.library.albums",
-		"player.now-playing", "player.lyrics", "player.queue",
-		"player.toggle", "player.next", "player.previous", "player.shuffle", "player.repeat",
-		"player.volume-up", "player.volume-down", "player.mute", "menu:sleep",
+		"nav.settings", "auth.account", "playlist.new", "search.focus", "shell.sidebar", "nav.home", "nav.new", "nav.radio", "nav.search", "nav.library.songs", "nav.library.albums",
+		"player.now-playing", "player.lyrics", "player.queue", "player.video",
+		"player.toggle", "player.next", "player.previous", "player.seek-forward", "player.seek-back", "player.favourite", "player.shuffle", "player.repeat",
+		"player.volume-up", "player.volume-down", "player.mute", "private.toggle", "menu:sleep",
 		"player.sleep-30", "player.sleep-60", "player.sleep-track", "player.sleep-queue", "player.sleep-off",
-		"miniplayer.toggle", "commands.help", "commands.palette", "shell:show-main", "shell:report-bug", "shell:check-updates", "shell:open-link",
+		"miniplayer.toggle", "equalizer.open", "commands.help", "commands.palette", "shell:show-main", "shell:report-bug", "shell:check-updates", "shell:open-link",
+		"shell:back", "shell:forward",
 	} {
 		if _, ok := findEntry(bar, id); !ok && id != "shell:show-main" { // no Windows in tests
 			t.Errorf("no item for %s", id)
@@ -463,9 +482,12 @@ func TestMenuBarOverTheRealModules(t *testing.T) {
 	accel := func(id string) string { e, _ := findEntry(bar, id); return e.Accel }
 	for id, want := range map[string]string{
 		"nav.settings": "Cmd+,", "playlist.new": "Cmd+N", "shell.sidebar": "Cmd+B", "nav.home": "Cmd+1", "nav.search": "Cmd+5",
-		"commands.palette": "Cmd+K", "miniplayer.toggle": "Cmd+Shift+M",
+		"commands.palette": "Cmd+K", "miniplayer.toggle": "Cmd+Shift+M", "equalizer.open": "Cmd+Shift+E", "search.focus": "Cmd+F",
+		"shell:back": "Cmd+[", "shell:forward": "Cmd+]",
+		// The commands whose keys elsewhere are lone letters have a Command chord on macOS.
+		"player.shuffle": "Cmd+Alt+S", "player.repeat": "Cmd+Alt+R", "player.now-playing": "Cmd+L", "player.lyrics": "Cmd+Alt+L", "player.queue": "Cmd+Alt+U",
 		// Keys a menu may not own show none.
-		"player.toggle": "", "player.next": "", "player.volume-up": "", "player.mute": "", "nav.library.songs": "",
+		"player.toggle": "", "player.next": "", "player.volume-up": "", "player.mute": "", "player.favourite": "", "nav.library.songs": "",
 	} {
 		if got := accel(id); got != want {
 			t.Errorf("%s: %q, want %q", id, got, want)
@@ -494,5 +516,134 @@ func TestMenuBarOverTheRealModules(t *testing.T) {
 	e, _ := findEntry(bar, "playlist.new")
 	if e.run == nil {
 		t.Fatal("New Playlist runs nothing")
+	}
+}
+
+// Every shortcut the modules register is in a menu, or is left out for a
+// reason: a page of the sidebar, a command the menus have no place for, or
+// one that only means something inside a page.
+func TestEveryShortcutIsInTheMenuBarOrLeftOutOnPurpose(t *testing.T) {
+	h := uitest.New(t)
+	a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Art: h.Art, Now: h.Clock.Now}, factories)
+	t.Cleanup(func() { a.env.Art.Close(); a.env.Art.Wait() })
+	a.firstPaint = nil
+	a.connect()
+
+	in := a.menuInput()
+	in.commands = newDispatcher(platformKeys(a.keys.shortcuts, ui.Super), a.keys.overrides).bindings()
+	bar := buildMenuBar(in)
+	leftOut := map[string]string{
+		"player.close-overlay":  "Escape closes whatever covers the page",
+		"player.lyrics-earlier": "lyrics timing, a key of the lyrics view",
+		"player.lyrics-later":   "lyrics timing, a key of the lyrics view",
+		"player.lyrics-reset":   "lyrics timing, a key of the lyrics view",
+		"player.lyrics-room":    "the lyrics view's layout",
+	}
+	for _, s := range a.keys.shortcuts {
+		if _, ok := findEntry(bar, s.ID); ok {
+			continue
+		}
+		if why, ok := leftOut[s.ID]; ok {
+			t.Logf("%s is not in the menu bar: %s", s.ID, why)
+			continue
+		}
+		t.Errorf("%s (%q) is in no menu and not left out on purpose", s.ID, s.Keys)
+	}
+	for id := range leftOut {
+		if _, ok := findEntry(bar, id); ok {
+			t.Errorf("%s is in a menu and also listed as left out", id)
+		}
+	}
+}
+
+// No two commands answer to the same default chord on macOS: the menu bar
+// would then own the chord for one and the other would never run.
+func TestMacDefaultChordsAreUnique(t *testing.T) {
+	h := uitest.New(t)
+	a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Art: h.Art, Now: h.Clock.Now}, factories)
+	t.Cleanup(func() { a.env.Art.Close(); a.env.Art.Wait() })
+	owner := map[chord]string{}
+	for _, s := range platformKeys(a.keys.shortcuts, ui.Super) {
+		for _, k := range s.Keys {
+			c, ok := parseChord(k)
+			if !ok {
+				t.Errorf("%s: %q is not a chord", s.ID, k)
+				continue
+			}
+			if prev, dup := owner[c]; dup && prev != s.ID {
+				t.Errorf("%q is the default of %s and of %s", k, prev, s.ID)
+			}
+			owner[c] = s.ID
+		}
+	}
+}
+
+// Back and Forward are the history's: they follow what it can do, run the
+// router's own, and a shell without them leaves them out.
+func TestGoMenuHistoryFollowsTheRouter(t *testing.T) {
+	var ran []string
+	actions := menuActions{back: func() { ran = append(ran, "back") }, forward: func() { ran = append(ran, "forward") }}
+	history := func(in menuInput) (back, forward menuEntry) {
+		in.actions = actions
+		bar := buildMenuBar(in)
+		back, _ = findEntry(bar, "shell:back")
+		forward, _ = findEntry(bar, "shell:forward")
+		return back, forward
+	}
+	back, forward := history(menuInput{})
+	if !back.Disabled || !forward.Disabled {
+		t.Errorf("a new history: back disabled %v, forward disabled %v", back.Disabled, forward.Disabled)
+	}
+	back, forward = history(menuInput{canBack: true, canForward: true})
+	if back.Disabled || forward.Disabled || back.Accel != "Cmd+[" || forward.Accel != "Cmd+]" {
+		t.Errorf("a history to move in: %+v, %+v", back, forward)
+	}
+	back.run()
+	forward.run()
+	if !slices.Equal(ran, []string{"back", "forward"}) {
+		t.Errorf("ran %q", ran)
+	}
+	if _, ok := findEntry(buildMenuBar(menuInput{}), "shell:back"); ok {
+		t.Error("Back is in the menus of a shell with no router")
+	}
+}
+
+// The pages of the Go menu are the sidebar's, in its order, each with the
+// key it answers to now: a rebinding in Settings → Shortcuts changes the
+// item, "none" takes the key off, and the item still opens the page.
+func TestGoMenuPagesFollowTheirBindings(t *testing.T) {
+	var pushed []string
+	nav := menuNav()
+	list := platformKeys(navShortcuts(nav, func(to string) { pushed = append(pushed, to) }), ui.Super)
+	d := newDispatcher(list, nil)
+	bar := func() []menuEntry {
+		for _, m := range buildMenuBar(menuInput{commands: d.bindings(), nav: nav}) {
+			if m.ID == "menu:go" {
+				return m.Sub
+			}
+		}
+		t.Fatal("no Go menu")
+		return nil
+	}
+	if got, want := describeMenu(bar(), ""), []string{
+		"For you [Cmd+1]", "Discover [Cmd+2]", "Radio [Cmd+3]", "Search [Cmd+4]", "---", "Library", "Library > Songs", "Library > Albums",
+	}; !slices.Equal(got, want) {
+		t.Fatalf("Go menu:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	d.rebind(config.Shortcuts{"nav.radio": "Meta+Shift+R", "nav.new": "none", "nav.search": "Meta+Alt+F"})
+	e, _ := findEntry(bar(), "nav.radio")
+	if e.Accel != "Cmd+Shift+R" {
+		t.Errorf("rebound Radio: %q", e.Accel)
+	}
+	if e, _ := findEntry(bar(), "nav.new"); e.Accel != "" {
+		t.Errorf("unbound Discover: %q", e.Accel)
+	}
+	if e, _ := findEntry(bar(), "nav.search"); e.Accel != "Cmd+Alt+F" {
+		t.Errorf("rebound Search: %q", e.Accel)
+	}
+	e, _ = findEntry(bar(), "nav.search")
+	e.run()
+	if !slices.Equal(pushed, []string{"/search"}) {
+		t.Errorf("opened %q", pushed)
 	}
 }

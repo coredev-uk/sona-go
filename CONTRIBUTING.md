@@ -650,7 +650,10 @@ WLR_LIBINPUT_NO_DEVICES=1 sway`, then the app with `WAYLAND_DISPLAY`,
 - macOS: on a Mac only:
   the traffic lights centred on the top bar's height beside the sidebar's
   mark, the top bar and the sidebar's header dragging the window, a double
-  click zooming, full screen, the menu bar item and its menu, closing to
+  click zooming, full screen, the menu bar item and its menu (title case:
+  "Not Playing", "Private Listening"), the menu bar (Go lists the pages and
+  Back and Forward, every item shows its key, a rebinding in Settings →
+  Shortcuts changes it, and a key shown in a menu runs once), closing to
   the background (the Dock icon or the menu bar item brings it back), and
   the mini player.
 

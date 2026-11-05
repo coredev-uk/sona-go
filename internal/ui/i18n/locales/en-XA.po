@@ -99,6 +99,10 @@ msgstr ""
 msgid "Account"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Account Settings…"
+msgstr ""
+
 #: internal/ui/features/auth/auth.go
 #: internal/ui/features/auth/menu.go
 msgid "Account settings"
@@ -656,6 +660,7 @@ msgstr ""
 msgid "Available in development builds started with SONA_INSPECTOR=1."
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/app/view.go
 #: internal/ui/features/onboarding/layer.go
 msgid "Back"
@@ -2152,6 +2157,7 @@ msgstr ""
 msgid "Episode"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/features/equalizer/button.go
 #: internal/ui/features/equalizer/equalizer.go
 #: internal/ui/features/equalizer/page.go
@@ -2244,6 +2250,7 @@ msgstr ""
 msgid "Failed · {when}"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/features/library/actions.go
 #: internal/ui/kit/controls_actions.go
 msgid "Favourite"
@@ -2313,6 +2320,10 @@ msgstr ""
 msgid "Find a setting"
 msgstr ""
 
+#: internal/ui/app/menubar.go
+msgid "Find…"
+msgstr ""
+
 #: internal/ui/account/browser.go
 msgid "Finish signing in in your browser"
 msgstr ""
@@ -2354,6 +2365,7 @@ msgstr ""
 msgid "Former collaborators"
 msgstr ""
 
+#: internal/ui/app/menubar.go
 #: internal/ui/app/view.go
 msgid "Forward"
 msgstr ""
@@ -2425,6 +2437,16 @@ msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "Go"
+msgstr ""
+
+#. A menu of the macOS menu bar, between View and Controls, that goes to Sona's pages (Back, Forward, Home, Library…). The same word is a button in Diagnostics.
+#: internal/ui/app/menubar.go
+msgctxt "menu bar"
+msgid "Go"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Go Back 10 Seconds"
 msgstr ""
 
 #: internal/ui/features/player/shortcuts.go
@@ -3530,6 +3552,11 @@ msgstr ""
 msgid "Normal"
 msgstr ""
 
+#. Tray menu item on macOS, where menu items are in title case, shown while nothing plays. Same meaning as the sentence-case "Not playing" of Linux and Windows.
+#: internal/ui/app/tray.go
+msgid "Not Playing"
+msgstr ""
+
 #: internal/ui/features/onboarding/status.go
 msgid "Not available here"
 msgstr ""
@@ -4364,6 +4391,22 @@ msgstr ""
 #. Label of the private listening switch while a development build of Sona keeps it on
 #: internal/ui/features/private/private.go
 msgid "Private (development build)"
+msgstr ""
+
+#. Tray menu item on macOS, where menu items are in title case. Same meaning as the sentence-case "Private listening" of Linux and Windows.
+#: internal/ui/app/menubar.go
+#: internal/ui/app/tray.go
+msgid "Private Listening"
+msgstr ""
+
+#. Tray menu item on macOS, where menu items are in title case. A development build of Sona, not a release. Same meaning as the sentence-case "Private listening (development build)" of Linux and Windows.
+#: internal/ui/app/tray.go
+msgid "Private Listening (Development Build)"
+msgstr ""
+
+#. Tray menu item on macOS, where menu items are in title case. SONA_PRIVATE=1 is an environment variable, keep as is. Same meaning as the sentence-case "Private listening (forced by SONA_PRIVATE=1)" of Linux and Windows.
+#: internal/ui/app/tray.go
+msgid "Private Listening (Forced by SONA_PRIVATE=1)"
 msgstr ""
 
 #. Apple Music's own name for the mode: plays aren't reported to Apple, so they don't shape recommendations or Replay.
@@ -5339,6 +5382,10 @@ msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "Size"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Skip Ahead 10 Seconds"
 msgstr ""
 
 #: internal/ui/features/player/shortcuts.go
@@ -6631,6 +6678,10 @@ msgstr ""
 
 #: internal/ui/features/settings/cdm.go
 msgid "Version {version}"
+msgstr ""
+
+#: internal/ui/app/menubar.go
+msgid "Video"
 msgstr ""
 
 #: internal/ui/features/discover/bands.go

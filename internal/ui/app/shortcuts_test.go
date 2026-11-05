@@ -51,3 +51,29 @@ func TestSavedBindingsAreNotMappedToCommand(t *testing.T) {
 		t.Error("the saved Ctrl chord is not bound")
 	}
 }
+
+// The macOS extras come after the default keys, on macOS only, and neither
+// rewrite the registered shortcut nor touch one that has none listed.
+func TestMacKeysComeAfterTheDefaultsOnMacOnly(t *testing.T) {
+	list := []module.Shortcut{{ID: "player.shuffle", Keys: []string{"S"}}, {ID: "player.mute", Keys: []string{"M"}}, {ID: "none"}}
+	mac := platformKeys(list, ui.Super)
+	if !slices.Equal(mac[0].Keys, []string{"S", "Meta+Alt+S"}) {
+		t.Errorf("shuffle on macOS = %q", mac[0].Keys)
+	}
+	if !slices.Equal(mac[1].Keys, []string{"M"}) || mac[2].Keys != nil {
+		t.Errorf("others on macOS = %q, %q", mac[1].Keys, mac[2].Keys)
+	}
+	if !slices.Equal(list[0].Keys, []string{"S"}) {
+		t.Error("the registered shortcut was rewritten in place")
+	}
+	if other := platformKeys(list, ui.Ctrl); !slices.Equal(other[0].Keys, []string{"S"}) {
+		t.Errorf("shuffle elsewhere = %q", other[0].Keys)
+	}
+	for id, keys := range macKeys {
+		for _, k := range keys {
+			if _, ok := macAccelerator(k); !ok {
+				t.Errorf("%s: %q is a key the menu may not own", id, k)
+			}
+		}
+	}
+}

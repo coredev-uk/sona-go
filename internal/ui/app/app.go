@@ -443,6 +443,7 @@ func (a *App) connect() {
 		// After the playback mirror followed the event: the labels and the
 		// check marks are the mirror's.
 		store.On(a.opts.Bus, services.EventPlaybackState, func(services.PlaybackState) { a.menubar.refresh() })
+		store.On(a.opts.Bus, services.EventPrivateChanged, func(services.PrivateState) { a.menubar.refresh() })
 		a.menubar.refresh()
 	}
 }
