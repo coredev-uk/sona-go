@@ -217,24 +217,30 @@ func TestStoreUpdateThenRunsAfterObserversBeforeTheNextUpdate(t *testing.T) {
 	}
 }
 
+// The save fails whoever runs the test (root writes into a read-only
+// directory, so the CI image's root would pass a chmod): the directory the
+// settings live in is replaced by a file, and the temporary file can't be
+// created.
 func TestStoreUpdateThenSkipsThenOnASaveError(t *testing.T) {
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "sona")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	st, err := OpenStore(filepath.Join(dir, "settings.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chmod(dir, 0o500); err != nil {
+	if err := os.RemoveAll(dir); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
-	if os.Getuid() == 0 {
-		t.Skip("root writes into a read-only directory")
+	if err := os.WriteFile(dir, nil, 0o600); err != nil {
+		t.Fatal(err)
 	}
 	_, err = st.UpdateThen(func(s *Settings) { s.Theme = ThemeDark }, func(Settings, Settings) {
 		t.Error("then ran after a failed save")
 	})
 	if err == nil {
-		t.Fatal("UpdateThen saved into a read-only directory")
+		t.Fatal("UpdateThen saved into a directory that is a file")
 	}
 }
 
