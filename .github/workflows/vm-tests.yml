@@ -73,7 +73,7 @@ jobs:
       - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
         if: steps.want.outputs.run == 'true'
         with:
-          primary-key: vm-tests-${{ matrix.test }}-${{ hashFiles('devenv.lock', 'go.sum', 'tests/vm/**') }}
+          primary-key: vm-tests-${{ matrix.test }}-${{ hashFiles('devenv.lock', 'go.sum', 'tests/vm/**', 'build/linux/nix/**') }}
           restore-prefixes-first-match: vm-tests-${{ matrix.test }}-
           gc-max-store-size-linux: 8G
 
