@@ -405,3 +405,116 @@ func TestLoaderStartsPrefetchingOnceTheLastCoverOnScreenIsDone(t *testing.T) {
 		t.Errorf("requests %v, want the cover on screen then the prefetch", got)
 	}
 }
+
+// The loader's memory is bounded by what the covers weigh, not by how many
+// there are: a library's Albums grid scrolled to its end (739 covers) used to
+// stay decoded, texture and JPEG, until the 800th cover.
+func TestLoaderDropsTheLeastRecentlyAskedCoversOverItsByteBudget(t *testing.T) {
+	src := &fakeArt{}
+	mt := newMainThread()
+	l := newArtLoader(src, mt.post, 1)
+	defer l.Close()
+	// Each 100×100 cover weighs its 40 000 pixel bytes and its JPEG: three of
+	// them fit, four do not.
+	l.maxBytes = 3*40_000 + 3_000
+	key := func(i int) artKey { return artKey{"/art/k" + strconv.Itoa(i) + "/x.jpg", 100, 100} }
+	ask := func(i int) {
+		t.Helper()
+		l.cover(nil, rankBuilt, "/art/k"+strconv.Itoa(i)+"/x.jpg", 100, 100)
+	}
+	ready := func() (n int) {
+		for _, cv := range l.covers {
+			if cv.state == coverReady {
+				n++
+			}
+		}
+		return n
+	}
+	load := func(i int) {
+		t.Helper()
+		ask(i)
+		mt.run(t, 1)
+		if cv := l.covers[key(i)]; cv == nil || cv.state != coverReady {
+			t.Fatalf("cover %d is not ready after its answer", i)
+		}
+	}
+	for i := range 3 {
+		load(i)
+	}
+	if l.bytes > l.maxBytes || ready() != 3 {
+		t.Fatalf("%d covers ready weighing %d, budget %d: three fit", ready(), l.bytes, l.maxBytes)
+	}
+	// Cover 0 is asked for again, so cover 1 is the least recently asked for
+	// when cover 3 comes over the budget.
+	ask(0)
+	load(3)
+	if l.covers[key(1)] != nil || l.covers[key(0)] == nil || l.covers[key(3)] == nil {
+		t.Errorf("covers kept: 0 %v, 1 %v, 2 %v, 3 %v; want 1 dropped (the oldest ask) and the rest kept down to 3/4 of the budget",
+			l.covers[key(0)] != nil, l.covers[key(1)] != nil, l.covers[key(2)] != nil, l.covers[key(3)] != nil)
+	}
+	for i := 4; i < 12; i++ {
+		load(i)
+		var sum int64
+		for _, cv := range l.covers {
+			if cv.state == coverReady {
+				sum += cv.cost
+			}
+		}
+		if l.bytes != sum || l.bytes > l.maxBytes {
+			t.Fatalf("after cover %d the loader counts %d bytes, the ready covers weigh %d, budget %d", i, l.bytes, sum, l.maxBytes)
+		}
+	}
+	if l.covers[key(11)] == nil || l.covers[key(2)] != nil {
+		t.Error("the newest cover must be kept and an old one dropped")
+	}
+	// A dropped cover comes back when asked for again.
+	load(2)
+}
+
+// A page that asks for more than the budget at once (a large 2x window, a long
+// grid built whole) must keep every cover its pass asked for: dropping the
+// ones on screen would show their placeholders, decode them again and trim
+// again, for ever.
+func TestLoaderNeverTrimsWhatTheCurrentPassAsksFor(t *testing.T) {
+	src := &fakeArt{}
+	mt := newMainThread()
+	l := newArtLoader(src, mt.post, 2)
+	defer l.Close()
+	l.maxBytes = 3*40_000 + 3_000 // three of the six covers below
+	v := &artWindow{}
+	const n = 6
+	pass := func() {
+		for i := range n {
+			l.cover(v, rankView, "/art/k"+strconv.Itoa(i)+"/x.jpg", 100, 100)
+		}
+	}
+	allReady := func(when string) {
+		t.Helper()
+		for i := range n {
+			if cv := l.covers[artKey{"/art/k" + strconv.Itoa(i) + "/x.jpg", 100, 100}]; cv == nil || cv.state != coverReady {
+				t.Fatalf("%s: cover %d is not ready: a pass that asks for it must keep it", when, i)
+			}
+		}
+	}
+	pass()
+	mt.run(t, n)
+	allReady("first pass")
+	gets := len(src.requests())
+	for round := range 3 { // frames painted and built again, the main thread run to idle
+		l.painted(v, 1)
+		pass()
+		mt.run(t, 0)
+		allReady("later pass " + strconv.Itoa(round))
+	}
+	if got := len(src.requests()); got != gets || got != n {
+		t.Errorf("%d requests for %d covers: the loader fetched covers again", got, n)
+	}
+	// Once the page moves on, the covers nobody asks for any more are what the
+	// budget frees.
+	l.painted(v, 1)
+	l.cover(v, rankView, "/art/k9/x.jpg", 100, 100)
+	mt.run(t, 1)
+	if l.bytes > l.maxBytes {
+		t.Errorf("%d bytes held after the page moved on, budget %d", l.bytes, l.maxBytes)
+	}
+}

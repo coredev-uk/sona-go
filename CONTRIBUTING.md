@@ -428,6 +428,25 @@ Run it headless, as every automated run (private XDG dirs, `dbus-run-session`, `
 - Compare before and after on the same machine, with the same library (about 650 albums makes a useful grid), the same window size and the same `-speed`, and confirm on a desktop session: the headless session draws on the CPU (llvmpipe, `frames: drawn in memory` in the output), so its CPU figures are not a desktop GPU's and its frame times only show relative change. `MYGO_FRAME_STATS=all` itself costs a log line and a few counters per frame.
 - `-probe` counts its own wheel driver in the CPU figures; `uiprobe` does not (its driver is another process).
 
+### Measuring memory
+
+Memory is measured per process, never as one figure: the app and the playback host child (the Widevine CDM, GStreamer) are two rows in Activity Monitor and in `top`, and "400 MB" means different fixes depending on which holds it. Settings → Diagnostics → Copy diagnostics has a **Memory** section for exactly this (`internal/services/system_memory.go`, `internal/procmem`): for the app and the running host, the resident size and the footprint the platform's own tools show (macOS: `proc_pid_rusage`'s physical footprint, Activity Monitor's Memory column; Linux: the proportional set size), and the Go runtime's account of the app (heap in use, idle and returned to the OS). A report from a Mac that pastes this section tells which process holds the memory, and whether it is Go's heap (Sona can shrink it) or native memory (the GPU's buffers, GStreamer, the CDM).
+
+`cmd/memprobe` measures the same on Linux, with a scripted run against a probe build. The probe build writes the Go heap profile and the runtime's figures into `SONA_MEMPROFILE_DIR` on `SIGUSR1` (`internal/memprobe`; the host child, which cannot write files, logs its figures into `sona.log`), and memprobe signals the whole process tree, reads each process's `/proc/<pid>/smaps` (RSS, PSS, anonymous memory, the mappings that hold the most) and prints one JSON line per process:
+
+```
+SONA_MEMPROFILE_DIR=$PWD/prof MYGO_AUTOMATION=$PWD/a.sock SONA_PREVIEW=1 SONA_PRIVATE=1 bin/sona-probe &
+go run ./cmd/memprobe -pid $! -socket $PWD/a.sock -dir $PWD/prof -o $PWD/keep \
+    link:Discover wait:20s press:"Play Perfecth" wait:15s press:"Open now playing" wait:15s measure:now-playing
+go tool pprof -sample_index=inuse_space -top bin/sona-probe keep/now-playing/<pid>.heap.pb.gz
+```
+
+Steps are `wait:<duration>`, `link:`/`button:`/`toggle:`/`tab:`/`press:<label>` (through the accessibility tree), `wheel:<dy>`, `scroll:<n>x<dy>`, `measure:<name>`, `dump` (the tree's labels) and `shot:<file>`. Run it as every automated run: `headless -- …`, private XDG dirs, `SONA_PRIVATE=1`, audio to your own PipeWire null sink (`PIPEWIRE_REMOTE`/`PULSE_SERVER` as absolute paths to the real sockets reach it from the sandboxed child: a symlink in the private runtime directory does not), a copy of a real library for the Albums scrolls. Three things decide whether two runs compare:
+
+- **The GL driver.** libglvnd picks NVIDIA's EGL on some runs and Mesa's on others (NVIDIA's mapped 60 to 70 MB more); pin Mesa's with `__EGL_VENDOR_LIBRARY_FILENAMES=…/50_mesa.json GALLIUM_DRIVER=llvmpipe MYGO_GPU=1` (the headless session draws on llvmpipe, whose textures are ordinary process memory, a stand-in for a unified-memory GPU), and run each scenario three times: PSS moves by ±15 MB from run to run with what Mesa touched.
+- **The scale.** The headless output is 1x; `swaymsg output HEADLESS-1 scale 2` before starting the app gives the 2x of a Retina Mac, where a cover is four times the bytes.
+- **Linux is not macOS.** Mesa's libraries (50 MB), GTK and the GL texture cache are Linux-only costs; on macOS MyGo draws with Metal, drops every image texture once the window has been idle for 2 s and keeps up to three window-sized frames while it animates. What carries over to macOS is Go's heap, the artwork and bitmap caches, the GStreamer pipelines and the CDM host; the rest needs a Mac, and the Diagnostics section above is how to get its numbers.
+
 ### Debugging the UI
 
 - Development builds (`-tags dev`, as the `dev` script makes) start private; `SONA_INSPECTOR=1 dev` opens MyGo's inspector (F12 or Ctrl+Shift+I toggles it). Other builds never show it.

@@ -108,7 +108,9 @@ func (p *WebPlayer) fetch(ctx context.Context) (Token, error) {
 		if err != nil || c.Issuer != "AMPWebPlay" {
 			continue
 		}
-		return Token{JWT: cand[1], Expires: time.Unix(c.ExpiresAt, 0)}, nil
+		// cand[1] is a slice of the bundle (megabytes of script); the token
+		// is cached for days, so it must not keep the bundle alive.
+		return Token{JWT: strings.Clone(cand[1]), Expires: time.Unix(c.ExpiresAt, 0)}, nil
 	}
 	return Token{}, errors.New("webplayer: no AMPWebPlay token in bundle")
 }

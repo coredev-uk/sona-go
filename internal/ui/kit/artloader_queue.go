@@ -39,6 +39,9 @@ type artWindow struct {
 	// scale is the window's own device pixels per DIP, learned from its paints
 	// (ArtLoader.scaleOf).
 	scale pixelScale
+	// since is the loader's clock when the current pass began: a cover asked
+	// for after it is wanted by the pass, and trim never drops it.
+	since uint64
 }
 
 // artWindowKey keys a loader's state of a window on the window's root element.
@@ -75,6 +78,7 @@ func (l *ArtLoader) begin(v *artWindow) {
 		return
 	}
 	v.painted = false
+	v.since = l.clock
 	if len(l.live) == 0 {
 		return
 	}
@@ -209,8 +213,8 @@ func (l *ArtLoader) work() {
 		if !ok {
 			return
 		}
-		bmp, tiny, err := l.load(j.ctx, j.key, j.template)
+		d, err := l.load(j.ctx, j.key, j.template)
 		l.done(j)
-		l.post(func() { l.finish(j.cv, j.gen, bmp, tiny, err) })
+		l.post(func() { l.finish(j.cv, j.gen, d, err) })
 	}
 }

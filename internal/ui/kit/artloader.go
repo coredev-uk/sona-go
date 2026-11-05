@@ -35,6 +35,19 @@ const (
 	// maxArt is how many decoded covers the loader keeps before it drops
 	// the least recently asked for (a few hundred tiles of a long grid).
 	maxArt = 800
+	// maxArtBytes is how much the kept covers may weigh before the loader
+	// drops the least recently asked for: each one's decoded pixels (what
+	// the GPU's texture and a CPU renderer's copy are made of) and the JPEG
+	// its bitmap keeps to decode them again after ReleasePixels. Covers
+	// are of very different sizes (a 44 px row cover, a 2x album tile), so
+	// the count alone let a library's whole Albums grid stay in memory once
+	// it had been scrolled through: 739 covers were 148 MB (at 1x; a 2x
+	// display's are four times as big). The budget bounds only covers no
+	// window's current pass asks for (trim skips those), so a page that wants
+	// more than this at once, a large 2x window or a long grid built whole,
+	// keeps all of it rather than dropping what is on screen and decoding it
+	// again; what it frees is what the user scrolled past.
+	maxArtBytes = 96 << 20
 	// releaseAfter is how many frames a bitmap is drawn before its CPU
 	// pixels are dropped (Bitmap.ReleasePixels): it then draws from the GPU.
 	releaseAfter = 2
@@ -64,10 +77,12 @@ type ArtLoader struct {
 	now  func() time.Time
 
 	// The main thread only.
-	scale  pixelScale // the scale a window is asked at until it paints: the last painted
-	covers map[artKey]*cover
-	clock  uint64              // advances with every ask, for dropping the oldest
-	live   map[*cover]struct{} // covers queued or in flight
+	maxBytes int64      // maxArtBytes; tests set a smaller one
+	bytes    int64      // what the ready covers weigh (cover.cost)
+	scale    pixelScale // the scale a window is asked at until it paints: the last painted
+	covers   map[artKey]*cover
+	clock    uint64              // advances with every ask, for dropping the oldest
+	live     map[*cover]struct{} // covers queued or in flight
 
 	jobs struct {
 		sync.Mutex
@@ -109,7 +124,9 @@ type cover struct {
 	bmp      *ui.Bitmap
 	// tiny is a backdrop's pixels, kept (64 px square) for WashAt: the
 	// bitmap lets go of its own once the GPU has them.
-	tiny    image.Image
+	tiny image.Image
+	// cost is what the cover weighs while ready, counted in ArtLoader.bytes.
+	cost    int64
 	fails   int
 	retryAt time.Time
 	shown   int // frames drawn, for ReleasePixels
@@ -142,7 +159,7 @@ func newArtLoader(src artSource, post store.Poster, workers int) *ArtLoader {
 		post = func(fn func()) { fn() }
 	}
 	l := &ArtLoader{
-		src: src, post: post, now: time.Now, scale: pixelScale{px: 1}, covers: map[artKey]*cover{}, workers: workers,
+		src: src, post: post, now: time.Now, scale: pixelScale{px: 1}, covers: map[artKey]*cover{}, workers: workers, maxBytes: maxArtBytes,
 		live:   map[*cover]struct{}{},
 		decode: make(chan struct{}, runtime.GOMAXPROCS(0)),
 	}
@@ -330,7 +347,7 @@ func (l *ArtLoader) enqueue(cv *cover, r artRank) {
 
 // load fetches a cover's JPEG and decodes it, a decode at a time per CPU. A
 // backdrop's pixels are kept too (tiny).
-func (l *ArtLoader) load(ctx context.Context, key artKey, template string) (*ui.Bitmap, image.Image, error) {
+func (l *ArtLoader) load(ctx context.Context, key artKey, template string) (*decoded, error) {
 	var data []byte
 	var err error
 	if key.isBackdrop() {
@@ -339,31 +356,59 @@ func (l *ArtLoader) load(ctx context.Context, key artKey, template string) (*ui.
 		data, err = l.src.Get(ctx, template, key.pw, key.ph)
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	select {
 	case l.decode <- struct{}{}:
 	case <-ctx.Done():
-		return nil, nil, ctx.Err()
+		return nil, ctx.Err()
 	}
 	defer func() { <-l.decode }()
 	bmp, err := ui.DecodeBitmap(data)
-	if err != nil || !key.isBackdrop() {
-		return bmp, nil, err
+	if err != nil {
+		return nil, err
 	}
-	tiny, _, _ := image.Decode(bytes.NewReader(data)) // nil on failure: the wash is then not sampled
-	return bmp, tiny, nil
+	d := &decoded{bmp: bmp, jpeg: len(data)}
+	if key.isBackdrop() {
+		d.tiny, _, _ = image.Decode(bytes.NewReader(data)) // nil on failure: the wash is then not sampled
+	}
+	return d, nil
+}
+
+// decoded is what a worker made of a cover: its bitmap, a backdrop's 64 px
+// pixels, and the length of the JPEG the bitmap keeps to decode again.
+type decoded struct {
+	bmp  *ui.Bitmap
+	tiny image.Image
+	jpeg int
+}
+
+// cost is what the cover weighs in memory: its pixels (4 bytes each, which a
+// GPU renderer holds as a texture and a CPU renderer as its copy), the JPEG
+// and a backdrop's kept pixels.
+func (d *decoded) cost() int64 {
+	w, h := d.bmp.Size()
+	n := int64(w)*int64(h)*4 + int64(d.jpeg)
+	if d.tiny != nil {
+		b := d.tiny.Bounds()
+		n += int64(b.Dx()) * int64(b.Dy()) * 4
+	}
+	return n
 }
 
 // finish publishes a decoded cover, on the main thread. gen is the request it
 // answers: a cover called off, or asked for again, since is not its business.
-func (l *ArtLoader) finish(cv *cover, gen uint64, bmp *ui.Bitmap, tiny image.Image, err error) {
+func (l *ArtLoader) finish(cv *cover, gen uint64, d *decoded, err error) {
 	if gen != cv.gen {
 		return
 	}
 	delete(l.live, cv)
 	if err == nil {
-		cv.bmp, cv.tiny, cv.state = bmp, tiny, coverReady
+		l.uncount(cv)
+		cv.bmp, cv.tiny, cv.state = d.bmp, d.tiny, coverReady
+		cv.cost = d.cost()
+		l.bytes += cv.cost
+		l.trim(cv)
 		return
 	}
 	if l.ctx.Err() != nil {
@@ -392,8 +437,47 @@ func (l *ArtLoader) evict() {
 	}
 	slices.SortFunc(idle, func(a, b *cover) int { return cmp.Compare(a.used, b.used) })
 	for _, cv := range idle[:max(1, len(idle)/4)] {
-		delete(l.covers, cv.key)
+		l.drop(cv)
 	}
+}
+
+// trim drops the least recently asked-for covers that are ready, down to
+// three quarters of the byte budget, once the ready ones weigh more than it.
+// keep is the cover just published, which stays however long ago it was asked
+// for.
+func (l *ArtLoader) trim(keep *cover) {
+	if l.bytes <= l.maxBytes {
+		return
+	}
+	ready := make([]*cover, 0, len(l.covers))
+	for _, cv := range l.covers {
+		// A cover the window's current pass asked for is on screen or about
+		// to be: dropping it would show its placeholder and decode it again.
+		wanted := cv.view != nil && cv.used > cv.view.since
+		if cv.state == coverReady && cv != keep && !wanted {
+			ready = append(ready, cv)
+		}
+	}
+	slices.SortFunc(ready, func(a, b *cover) int { return cmp.Compare(a.used, b.used) })
+	for _, cv := range ready {
+		if l.bytes <= l.maxBytes/4*3 {
+			break
+		}
+		l.drop(cv)
+	}
+}
+
+// drop forgets a cover: its bitmap, and the JPEG it keeps, go with the next
+// collection (and its texture with the renderer's next sweep).
+func (l *ArtLoader) drop(cv *cover) {
+	l.uncount(cv)
+	delete(l.covers, cv.key)
+}
+
+// uncount takes what a ready cover weighed off the loader's total.
+func (l *ArtLoader) uncount(cv *cover) {
+	l.bytes -= cv.cost
+	cv.cost = 0
 }
 
 // drawn counts a frame a cover's bitmap was painted in, and drops its CPU
