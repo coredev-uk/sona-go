@@ -117,6 +117,16 @@ msgstr ""
 msgid "Artists"
 msgstr ""
 
+#. the file chooser's open button
+#: internal/services/playlists_covers.go
+msgid "Choose"
+msgstr ""
+
+#. the file chooser's title
+#: internal/services/playlists_covers.go
+msgid "Choose a cover"
+msgstr ""
+
 #: internal/cli/messages.go
 msgid "Commands"
 msgstr ""
@@ -157,6 +167,11 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "Files"
+msgstr ""
+
+#. the file chooser's file type
+#: internal/services/playlists_covers.go
+msgid "Images (JPEG or PNG)"
 msgstr ""
 
 #. the file chooser's open button

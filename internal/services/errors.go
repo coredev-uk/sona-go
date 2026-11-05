@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
+	"github.com/coredev-uk/sona-go/internal/artwork"
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/auth/appleid"
 	"github.com/coredev-uk/sona-go/internal/auth/mut"
@@ -81,6 +82,7 @@ const (
 	CodeUpdateSignature     ErrorCode = "update_signature"      // the update isn't signed with Sona's key (update.ErrSignature)
 	CodeUpdateFailed        ErrorCode = "update_failed"         // the update couldn't be installed (update.ErrInstall)
 	CodeKeyring             ErrorCode = "keyring"               // the token store failed or didn't answer in time
+	CodeImageUnusable       ErrorCode = "image_unusable"        // a chosen image can't be a cover (artwork.ErrCoverImage)
 	CodeUnknown             ErrorCode = "unknown"               // none of the above; the UI shows a generic message
 )
 
@@ -148,6 +150,8 @@ func CodeOf(err error) ErrorCode {
 		return CodeUpdateFailed
 	case errors.Is(err, auth.ErrKeyring):
 		return CodeKeyring
+	case errors.Is(err, artwork.ErrCoverImage):
+		return CodeImageUnusable
 	case errors.Is(err, mut.ErrTimeout), errors.Is(err, context.DeadlineExceeded):
 		return CodeTimeout
 	case errors.Is(err, mut.ErrCanceled), errors.Is(err, context.Canceled):

@@ -148,3 +148,43 @@ type Pin struct {
 	Song     Song   `json:"song"`
 	AlbumID  string `json:"albumId"`
 }
+
+// Cover option IDs. A preset's ID is its artwork template instead.
+const (
+	CoverAuto   = "auto"   // Apple's artwork, or a mosaic of the playlist's albums
+	CoverNone   = "none"   // the plain placeholder
+	CoverUpload = "upload" // the image the user chose from a file
+)
+
+// CoverOption is one choice in a playlist's cover picker. Kind is "auto",
+// "none", "upload" or "preset"; Style names a preset's style ("aurora",
+// "dusk", "horizon", "moon", "glow", "duo"). Art is the cover as it would
+// show (empty for "none").
+type CoverOption struct {
+	ID    string `json:"id"`
+	Kind  string `json:"kind"`
+	Style string `json:"style"`
+	Art   Art    `json:"art"`
+}
+
+// CoverLimits are what an uploaded image must meet; the UI states them
+// beside the chooser.
+type CoverLimits struct {
+	MaxBytes int `json:"maxBytes"` // the file's size
+	MinEdge  int `json:"minEdge"`  // its width and height, in px
+}
+
+// PlaylistCovers is a library playlist's cover picker: the options in the
+// order shown, which one is in use, and whether an image can be chosen
+// from a file here. The cover is Sona's own: Apple's web API has no way to
+// set a playlist's artwork, so it stays on this computer.
+type PlaylistCovers struct {
+	// Current is the ID of the option in use.
+	Current string `json:"current"`
+	// Options are "auto", "none", the user's image when there is one
+	// ("upload"), then the presets drawn from the playlist's colours.
+	Options []CoverOption `json:"options"`
+	// CanUpload: this platform has a file chooser.
+	CanUpload bool        `json:"canUpload"`
+	Limits    CoverLimits `json:"limits"`
+}

@@ -250,7 +250,7 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 			t.Fatal(err)
 		}
 	}
-	art, err := artwork.New(artwork.Options{Dir: filepath.Join(h.Dir, "art"), HTTP: h.Network.Client()})
+	art, err := artwork.New(artwork.Options{Dir: filepath.Join(h.Dir, "art"), CoverDir: filepath.Join(h.Dir, "covers"), HTTP: h.Network.Client()})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -23,6 +23,12 @@ type Env struct {
 	// (station_preview.go).
 	previews stationPreviews
 
+	// coverFiles is held from the moment a chosen image is stored until the
+	// playlist that chose it has recorded it, and while the covers directory
+	// is tidied, so that the tidying never takes an image nothing refers to
+	// yet (playlists_covers.go).
+	coverFiles sync.Mutex
+
 	// firstPaint is set by Core; SystemService.FirstPaint calls it.
 	firstPaint func()
 

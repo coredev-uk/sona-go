@@ -32,6 +32,9 @@ type fakeAPI struct {
 	suggestions map[string][]services.Song
 	recents     []string
 	pinTracks   map[string][]services.Song
+	// covers are the cover pickers by playlist; SetCover, UploadCover and
+	// RemoveCoverUpload change them as the service would.
+	covers map[string]services.PlaylistCovers
 	// err is returned by every call that changes something while set; reads
 	// fail too when failReads is set.
 	err       error
@@ -48,6 +51,7 @@ func newFakeAPI() *fakeAPI {
 		collab:      map[string]services.PlaylistCollaboration{},
 		suggestions: map[string][]services.Song{},
 		pinTracks:   map[string][]services.Song{},
+		covers:      map[string]services.PlaylistCovers{},
 	}
 }
 
@@ -165,6 +169,83 @@ func (f *fakeAPI) Create(_ context.Context, in services.PlaylistInput, items []s
 func (f *fakeAPI) Update(_ context.Context, id string, in services.PlaylistInput) error {
 	f.note("Update %s %q desc=%q public=%v", id, in.Name, in.Description, in.IsPublic)
 	return f.err
+}
+
+func (f *fakeAPI) CoverOptions(_ context.Context, id string) (services.PlaylistCovers, error) {
+	f.note("CoverOptions %s", id)
+	if err := f.readErr(); err != nil {
+		return services.PlaylistCovers{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if c, ok := f.covers[id]; ok {
+		return c, nil
+	}
+	return testCovers(true, false), nil
+}
+
+func (f *fakeAPI) SetCover(_ context.Context, id, option string) (services.PlaylistCovers, error) {
+	f.note("SetCover %s %s", id, option)
+	f.wait()
+	if f.err != nil {
+		return services.PlaylistCovers{}, f.err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c, ok := f.covers[id]
+	if !ok {
+		c = testCovers(true, false)
+	}
+	c.Current = option
+	f.covers[id] = c
+	return c, nil
+}
+
+func (f *fakeAPI) UploadCover(_ context.Context, id string) (services.PlaylistCovers, error) {
+	f.note("UploadCover %s", id)
+	f.wait()
+	if f.err != nil {
+		return services.PlaylistCovers{}, f.err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c := testCovers(true, true)
+	c.Current = services.CoverUpload
+	f.covers[id] = c
+	return c, nil
+}
+
+func (f *fakeAPI) RemoveCoverUpload(_ context.Context, id string) (services.PlaylistCovers, error) {
+	f.note("RemoveCoverUpload %s", id)
+	if f.err != nil {
+		return services.PlaylistCovers{}, f.err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c := testCovers(true, false)
+	f.covers[id] = c
+	return c, nil
+}
+
+// testCovers is a cover picker as the service builds one: automatic, none,
+// the user's image when upload, and the six presets.
+func testCovers(canUpload, upload bool) services.PlaylistCovers {
+	c := services.PlaylistCovers{
+		Current:   services.CoverAuto,
+		CanUpload: canUpload,
+		Limits:    services.CoverLimits{MaxBytes: 20 << 20, MinEdge: 300},
+		Options: []services.CoverOption{
+			{ID: services.CoverAuto, Kind: "auto"},
+			{ID: services.CoverNone, Kind: "none"},
+		},
+	}
+	if upload {
+		c.Options = append(c.Options, services.CoverOption{ID: services.CoverUpload, Kind: "upload"})
+	}
+	for _, style := range []string{"aurora", "dusk", "horizon", "moon", "glow", "duo"} {
+		c.Options = append(c.Options, services.CoverOption{ID: "preset:" + style + ":3a7bd5:d5b43a", Kind: "preset", Style: style})
+	}
+	return c
 }
 
 func (f *fakeAPI) Delete(_ context.Context, id string) error {

@@ -199,7 +199,7 @@ func run(started time.Time) error {
 
 	// Artwork comes from Apple's public CDN without credentials: a separate
 	// client, held by the same gate (cached artwork still serves at once).
-	art, err := artwork.New(artwork.Options{Dir: paths.Art, HTTP: &http.Client{Transport: gate.Transport(newTransport()), Timeout: 60 * time.Second}, Logger: log, MaxBytes: int64(settings.Get().Storage.ArtCacheMiB) << 20})
+	art, err := artwork.New(artwork.Options{Dir: paths.Art, CoverDir: paths.CoversDir(), HTTP: &http.Client{Transport: gate.Transport(newTransport()), Timeout: 60 * time.Second}, Logger: log, MaxBytes: int64(settings.Get().Storage.ArtCacheMiB) << 20})
 	if err != nil {
 		return err
 	}

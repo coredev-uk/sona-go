@@ -102,6 +102,8 @@ func ErrorText(code services.ErrorCode) string {
 		return T("The update couldn't be installed. Sona is unchanged.")
 	case services.CodeKeyring:
 		return T("Your keyring didn't answer or refused. Unlock it, then try again.")
+	case services.CodeImageUnusable:
+		return T("Sona can't use that image. It must be a JPEG or PNG within the size limits.")
 	}
 	return T("Something went wrong.")
 }

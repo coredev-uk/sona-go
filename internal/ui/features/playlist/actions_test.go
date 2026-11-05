@@ -67,7 +67,7 @@ func TestActionsRegisterByKind(t *testing.T) {
 		{kit.KindSong, []string{"playlists.add-to.song", "playlists.remove-from", "playlists.pin.song"}},
 		{kit.KindAlbum, []string{"playlists.add-to.album", "playlists.pin.album"}},
 		{kit.KindArtist, []string{"playlists.pin.artist"}},
-		{kit.KindPlaylist, []string{"playlists.add-to.playlist", "playlists.pin.playlist", "playlists.edit", "playlists.move", "playlists.delete"}},
+		{kit.KindPlaylist, []string{"playlists.add-to.playlist", "playlists.pin.playlist", "playlists.edit", "playlists.cover", "playlists.move", "playlists.delete"}},
 	} {
 		got := listIDs(f.r.For(c.kind))
 		slices.Sort(got)

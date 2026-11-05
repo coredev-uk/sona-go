@@ -108,7 +108,8 @@ func checkURL(u *url.URL) error {
 
 // parseTemplate normalises and validates an Apple artwork template such as
 // https://is1-ssl.mzstatic.com/image/thumb/…/{w}x{h}bb.jpg, or a mosaic
-// template (Mosaic), and returns it with its cache key.
+// (Mosaic), preset (Presets) or stored cover (SaveCover) template, and
+// returns it with its cache key.
 func parseTemplate(tmpl string) (string, string, error) {
 	tmpl = strings.TrimSpace(tmpl)
 	if tmpl == "" {
@@ -116,6 +117,12 @@ func parseTemplate(tmpl string) (string, string, error) {
 	}
 	if rest, ok := strings.CutPrefix(tmpl, mosaicPrefix); ok {
 		return parseMosaic(rest)
+	}
+	if rest, ok := strings.CutPrefix(tmpl, presetPrefix); ok {
+		return parsePresetTemplate(rest)
+	}
+	if rest, ok := strings.CutPrefix(tmpl, coverPrefix); ok {
+		return parseCover(rest)
 	}
 	u, err := url.Parse(fill(tmpl, dims{1, 1}))
 	if err != nil {

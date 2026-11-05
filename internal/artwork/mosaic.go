@@ -62,6 +62,12 @@ func Mosaic(templates []string) string {
 
 func isMosaic(tmpl string) bool { return strings.HasPrefix(tmpl, mosaicPrefix) }
 
+// synthetic reports a template Sona makes itself, always square: a
+// mosaic, a preset or a stored cover. Nothing is fetched for one.
+func synthetic(tmpl string) bool {
+	return isMosaic(tmpl) || strings.HasPrefix(tmpl, presetPrefix) || strings.HasPrefix(tmpl, coverPrefix)
+}
+
 // mosaicTiles returns the tile templates of a normalised mosaic template.
 func mosaicTiles(tmpl string) []string {
 	return strings.Fields(strings.TrimPrefix(tmpl, mosaicPrefix))

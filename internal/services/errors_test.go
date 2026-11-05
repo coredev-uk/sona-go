@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
+	"github.com/coredev-uk/sona-go/internal/artwork"
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/auth/appleid"
 	"github.com/coredev-uk/sona-go/internal/auth/mut"
@@ -113,6 +114,7 @@ func TestEveryCodeIsClassified(t *testing.T) {
 		CodeUpdateSignature:     update.ErrSignature,
 		CodeUpdateFailed:        update.ErrInstall,
 		CodeKeyring:             auth.ErrKeyring,
+		CodeImageUnusable:       artwork.ErrCoverImage,
 		CodeVideoHDOnly:         playback.ErrVideoHDOnly,
 		CodeVideoLicence:        playback.ErrVideoLicence,
 		CodeUnknown:             errors.New("boom"),

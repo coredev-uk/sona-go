@@ -417,9 +417,24 @@ All on `amp-api` with the MUT required. Each was verified on a temporary playlis
 | Reorder / replace | `PUT /v1/me/library/playlists/{id}/tracks` with body `{"data":[{"id":"i.…","type":"library-songs"},…]}` (full ordered list) | 2xx. Verified the new order. |
 | Remove a track | `DELETE /v1/me/library/playlists/{id}/tracks?ids[library-songs]={i.id}&mode=all` | 2xx. Verified. (`mode=all` removes every occurrence.) |
 | Move to folder | `PUT /v1/me/library/playlists/{id}/parent` with body `{"data":[{"id":"<folderId>","type":"library-playlist-folders"}]}` | 2xx. The folder listing did not show the playlist within a few seconds (eventual consistency or the folder's paging; `[INFERENCE]`). |
+| Cover (artwork) | **None.** Apple's web API cannot set or upload a library playlist's artwork; see "Playlist artwork" below. | Sona keeps the cover itself (`internal/library/covers.go`). |
 | Delete | `DELETE /v1/me/library/playlists/{id}` | 2xx. Afterwards `GET` still returns a **tombstone** (`canDelete:false`, no `name`, `lastModifiedDate: 1970-01-01`). Sync must drop these. |
 | Create / rename / delete folder | Not in the web bundle (the web only lists folders and moves playlists into them). | **Unverified**, to avoid leaving artefacts in a real library. Folders show `canEdit`/`canDelete`. |
 | Collaboration | Playlist `views=collaborators,contributors,subscribers` and `extend=hasCollaboration,isCollaborativeHost`; the web shows them read-only. A library copy of someone else's collaborative playlist has `hasCollaboration: true`, `isCollaborativeHost: false`, `canEdit: false`. Who the viewer is: their profile ID from `GET /v1/me/social/profile?include=social-profile` against the collaborators (Sona: owner, collaborator or listener). | Read verified (200). Join/approve endpoints were not seen in the web UI. |
+
+#### Playlist artwork: not settable through the web API (checked 2026-11-05)
+
+Question: can a client choose or upload a library playlist's cover, as the Apple Music apps do? Answer: not with the web player's token and API, so Sona stores a user's choice itself (`docs/architecture.md`, "Artwork", and `docs/design.md`, "Artwork").
+
+- **The web player has no such feature.** The playlist editor's update intent (`UpdateLibraryPlaylistIntent` in `index~….js`, the entry script, and its 40 lazily loaded chunks, all read in full) sends only `PATCH /v1/me/library/playlists/{id}` with `{"attributes":{"name","description","isPublic"}}`, and no chunk has a file input or an image reader for playlists. A playlist that has no artwork gets a cover the player makes from its tracks' artwork in the browser (its bundle logs "Failed to load tracks for playlist to populate artwork").
+- **Live check on a temporary library playlist** (created, probed and deleted; `platform=web`, MUT, nothing logged):
+  - A new playlist carries no `artwork` attribute at all (`canDelete`, `canEdit`, `dateAdded`, `description`, `hasCatalog`, `isPublic`, `lastModifiedDate`, `name`, `playParams`).
+  - `PATCH /v1/me/library/playlists/{id}` with `attributes.artwork` as `{"url":"data:image/png;base64,…"}`, as a bare base64 string, as `attributes.artworkData`, and as `{"url":"https://is1-ssl.mzstatic.com/…/{w}x{h}bb.jpg","width":600,"height":600}` each answered **2xx and changed nothing**: Apple ignores the unknown attributes (a later `GET` has no `artwork`; a `description` sent beside them was stored).
+  - `PATCH` with `relationships.artwork` → **400** `Invalid playlist data` (`40007`).
+  - `PUT`, `POST`, `PATCH` and `DELETE` on `/v1/me/library/playlists/{id}/artwork` → **405**; `GET` there → **400** `No relationship found matching 'artwork'` (`40008`).
+- The Mac and iOS apps set a cover through the iCloud Music Library's own protocol, not `amp-api`; it is out of reach of a web-token client and is not attempted.
+
+Sona's covers are therefore local (`playlist_covers`, migration 00010): the choice is shown on every Sona surface on this computer and is not synced to Apple or to Sona on another device. The picker says so.
 
 ### 5.9 Badges and explicit content
 

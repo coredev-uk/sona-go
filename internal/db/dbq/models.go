@@ -141,6 +141,14 @@ type Playlist struct {
 	Favorited       int64
 }
 
+type PlaylistCover struct {
+	PlaylistID int64
+	Kind       string
+	Template   string
+	Upload     string
+	UpdatedAt  int64
+}
+
 type PlaylistFolder struct {
 	LibraryID  string
 	ParentID   string
