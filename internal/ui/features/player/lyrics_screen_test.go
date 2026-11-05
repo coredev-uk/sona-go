@@ -1,0 +1,104 @@
+package player
+
+import (
+	"bytes"
+	"context"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
+)
+
+// backdropArt stands in for the artwork cache: every "/art/…" path has a
+// template, every cover and backdrop is a solid JPEG.
+type backdropArt struct{}
+
+func (backdropArt) Template(p string) (string, bool) {
+	return "https://is1-ssl.mzstatic.com/image/thumb/Music/x/{w}x{h}bb.jpg", strings.HasPrefix(p, "/art/")
+}
+
+func solidJPEG(w, h int, c color.RGBA) ([]byte, error) {
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for i := 0; i < len(img.Pix); i += 4 {
+		img.Pix[i], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = c.R, c.G, c.B, c.A
+	}
+	var b bytes.Buffer
+	err := jpeg.Encode(&b, img, &jpeg.Options{Quality: 95})
+	return b.Bytes(), err
+}
+
+func (backdropArt) Get(_ context.Context, _ string, w, h int) ([]byte, error) {
+	return solidJPEG(w, h, color.RGBA{220, 30, 30, 255})
+}
+
+func (backdropArt) Backdrop(context.Context, string) ([]byte, error) {
+	return solidJPEG(16, 16, color.RGBA{30, 60, 200, 255})
+}
+
+// textContrast is how far apart the lightest and darkest pixels inside text's
+// box are (0-255): the words stand out of what is behind them when it is high,
+// and a scrim drawn over them flattens it.
+func textContrast(t *testing.T, r *npRig, text string) int {
+	t.Helper()
+	box, ok := r.tt.Find(text)
+	if !ok {
+		t.Fatalf("%q is not on screen: %q", text, r.tt.Texts())
+	}
+	img := r.tt.Image()
+	lo, hi := 255, 0
+	for y := int(box.Y); y < int(box.Y+box.H); y++ {
+		for x := int(box.X); x < int(box.X+box.W); x++ {
+			c := img.RGBAAt(x, y)
+			l := (int(c.R)*299 + int(c.G)*587 + int(c.B)*114) / 1000
+			lo, hi = min(lo, l), max(hi, l)
+		}
+	}
+	return hi - lo
+}
+
+// The cover's backdrop is a wash behind the lyrics, never a veil over them:
+// once it has loaded (a song with a cover, as every real one has), Now
+// Playing's lyric pane and the full-screen lyrics still show their lines.
+func TestLyricsShowOverTheCoversBackdrop(t *testing.T) {
+	for _, mode := range []struct {
+		name string
+		mode theme.Mode
+	}{{"light", theme.ModeLight}, {"dark", theme.ModeDark}} {
+		for _, screen := range []string{"pane", "room"} {
+			t.Run(mode.name+"/"+screen, func(t *testing.T) {
+				theme.SetMode(mode.mode)
+				t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
+				r := newNPRig(t)
+				loader := kit.NewArtLoaderFrom(backdropArt{}, r.h.Main.Post)
+				t.Cleanup(loader.Close)
+				r.h.Env.Art = loader
+				r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(30, false)}, nil)
+				r.play(5000, func(s *services.PlaybackState) {
+					s.Current.Backdrop = "/art/k1/backdrop.jpg"
+					s.Current.Art.Small = "/art/k1/art.jpg"
+				})
+				if screen == "room" {
+					r.p.ui.openRoom()
+				} else {
+					r.open("")
+				}
+				r.tt.Until("the lyrics", r.tt.Shows("Line 1 sung words"))
+				// The backdrop decodes off the main thread and fades in.
+				r.tt.Until("the backdrop to load", func() bool { return loader.Pending() == 0 })
+				r.settle()
+				r.advance(300*time.Millisecond)
+				r.advance(300*time.Millisecond)
+
+				if got := textContrast(t, r, "Line 1 sung words"); got < 60 {
+					t.Errorf("%s: the lines' contrast with what is behind them is %d/255; something is drawn over them", screen, got)
+				}
+			})
+		}
+	}
+}
