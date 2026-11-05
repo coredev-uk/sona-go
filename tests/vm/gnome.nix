@@ -59,7 +59,7 @@
     with subtest("D5: MPRIS"):
         check_mpris_bus()
         shell_eval("Main.panel.statusArea.dateMenu.menu.open()")
-        machine.wait_for_text(QUEUE_TITLE, timeout=120)
+        wait_screen_text(QUEUE_TITLE, region=date_menu_region, zoom=2)
         machine.screenshot("gnome-media-card")
         shell_eval("Main.panel.statusArea.dateMenu.menu.close()")
 
@@ -79,7 +79,7 @@
         # Sona's notifications are low urgency, which GNOME shows in the
         # notification list without a banner: look there.
         shell_eval("Main.panel.statusArea.dateMenu.menu.open()")
-        machine.wait_for_text("VM Song Two", timeout=120)
+        wait_screen_text("VM Song Two", region=date_menu_region, zoom=2)
         machine.screenshot("gnome-notification")
         shell_eval("Main.panel.statusArea.dateMenu.menu.close()")
         # A click on the notification: the shell reports the default action.
@@ -128,7 +128,7 @@
         # Logical pixels: the window fits the 1280×800 logical screen.
         assert 0 < frame["w"] <= 1280 and 0 < frame["h"] <= 800, frame
         machine.sleep(3)
-        machine.wait_for_text("Recommendations need Apple Music", timeout=120)
+        wait_screen_text("Welcome to Sona")
         machine.screenshot("gnome-scale-2")
         quit_sona()
   '';

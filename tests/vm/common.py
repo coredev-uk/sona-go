@@ -1,7 +1,10 @@
 # Helpers both desktop tests share (prepended to their test scripts).
 import json
+import os
 import re
 import shlex
+import subprocess
+import tempfile
 import time
 
 BUS = "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus XDG_RUNTIME_DIR=/run/user/1000"
@@ -35,8 +38,8 @@ def session_env(name):
     raise Exception(f"{name} is not in the session's environment")
 
 
-def check_x11_window():
-    """Sona's window is an X11 window on the session's XWayland."""
+def x11_env():
+    """The variables that reach the session's XWayland (DISPLAY, XAUTHORITY)."""
     env = f"DISPLAY={session_env('DISPLAY')}"
     try:
         env += f" XAUTHORITY={session_env('XAUTHORITY')}"
@@ -45,8 +48,73 @@ def check_x11_window():
         auth = machine.succeed("ls /run/user/1000/.mutter-Xwaylandauth.* /run/user/1000/xauth_* 2>/dev/null || true").split()
         if auth:
             env += f" XAUTHORITY={auth[0]}"
-    tree = user(f"{env} xwininfo -root -tree")
+    return env
+
+
+def check_x11_window():
+    """Sona's window is an X11 window on the session's XWayland."""
+    tree = user(f"{x11_env()} xwininfo -root -tree")
     assert '"Sona"' in tree, tree
+
+
+def wait_until(fn, timeout=60, what="the condition"):
+    """The first truthy result of fn(), tried every second; fails after timeout seconds."""
+    deadline = time.monotonic() + timeout
+    while True:
+        result = fn()
+        if result:
+            return result
+        if time.monotonic() > deadline:
+            raise Exception(f"timed out after {timeout} s waiting for {what}")
+        time.sleep(1)
+
+
+# The VM's screen (common.nix).
+SCREEN = (2560, 1600)
+OCR_DIR = os.path.join(tempfile.gettempdir(), "sona-vm-ocr")
+
+
+def screen_text(region=None, zoom=1, psm=11):
+    """The text on the screen, or in region = (x, y, w, h) of it (pixels),
+    from one tesseract pass over the screenshot cut to the region.
+
+    The driver's wait_for_text runs three passes over the whole screen, two
+    of them on a 4x enlargement through a 65535-pixel blur: minutes on a busy
+    host. A region of a few hundred pixels takes a second or two."""
+    os.makedirs(OCR_DIR, exist_ok=True)
+    shot, crop = f"{OCR_DIR}/screen.png", f"{OCR_DIR}/region.png"
+    machine.screenshot(shot)
+    steps = [f"pngtopnm {shot}"]
+    if region is not None:
+        x, y, w, h = (int(v) for v in region)
+        left, top = max(x, 0), max(y, 0)
+        width, height = min(x + w, SCREEN[0]) - left, min(y + h, SCREEN[1]) - top
+        assert width > 0 and height > 0, f"region {region} is off the {SCREEN} screen"
+        steps.append(f"pnmcut -left {left} -top {top} -width {width} -height {height}")
+    if zoom != 1:
+        steps.append(f"pnmscale {zoom}")
+    steps.append(f"pnmtopng > {crop}")
+    subprocess.run(" | ".join(steps), shell=True, check=True)
+    out = subprocess.run(["tesseract", crop, "-", "--oem", "1", "--psm", str(psm)], capture_output=True, check=True)
+    return out.stdout.decode()
+
+
+def wait_screen_text(regex, region=None, timeout=120, zoom=1, psm=11):
+    """Waits until regex matches the text in region (see screen_text). region
+    may be a function returning it, or None while what it locates is not
+    there yet (a popup that has not opened); it is asked again on every try."""
+    deadline = time.monotonic() + timeout
+    text, where = "", region
+    while True:
+        where = region() if callable(region) else region
+        if where is not None or not callable(region):
+            text = screen_text(where, zoom, psm)
+            if re.search(regex, text):
+                machine.log(f"screen text {regex!r} found in {where}")
+                return text
+        if time.monotonic() > deadline:
+            raise Exception(f"{regex!r} is not on the screen (region {where}); the last read: {text!r}")
+        time.sleep(1)
 
 
 def log_size():
@@ -162,8 +230,8 @@ def check_tray():
     """Sona's tray item (libayatana-appindicator3's StatusNotifierItem: Title
     "Sona", its dbusmenu) is in the shell's watcher; returns (Sona's bus
     names, the watcher's items) for the desktop's own check that the shell
-    took it. The watcher lists "<bus name><object path>"; the library's path
-    is /org/ayatana/NotificationItem/<id>, not /StatusNotifierItem."""
+    took it. The library's object path is /org/ayatana/NotificationItem/<id>,
+    not /StatusNotifierItem."""
     machine.wait_until_succeeds(as_alice("busctl --user status org.kde.StatusNotifierWatcher"), timeout=60)
     deadline = time.monotonic() + 60
     while True:
@@ -174,20 +242,25 @@ def check_tray():
             path = slash + rest
             if not path:
                 path = "/StatusNotifierItem"
-            if service not in names:
-                continue
-            try:
-                title = busctl_json(f"get-property {service} {path} org.kde.StatusNotifierItem Title")["data"]
-                menu = busctl_json(f"get-property {service} {path} org.kde.StatusNotifierItem Menu")["data"]
-            except Exception:
-                continue
-            if title == "Sona":
-                # Depth 8 rather than -1 (all), which busctl would read as an option.
-                layout = user(f"busctl --user call {service} {menu} com.canonical.dbusmenu GetLayout iias 0 8 0")
-                for label in ["Show Sona", "Mini Player", "Quit Sona"]:
-                    assert label in layout, layout
-                machine.log(f"tray: Sona's names {names}, watcher's items {items}; menu {layout.strip()}")
-                return names, items
+            # The watcher lists "<bus name><object path>" (Plasma's) or, as the
+            # client registered by path (libayatana-appindicator does) and the
+            # watcher kept it so (the AppIndicator extension's), the path alone:
+            # the item is then at one of Sona's names.
+            for service in [service] if service else names:
+                if service not in names:
+                    continue
+                try:
+                    title = busctl_json(f"get-property {service} {path} org.kde.StatusNotifierItem Title")["data"]
+                    menu = busctl_json(f"get-property {service} {path} org.kde.StatusNotifierItem Menu")["data"]
+                except Exception:
+                    continue
+                if title == "Sona":
+                    # Depth 8 rather than -1 (all), which busctl would read as an option.
+                    layout = user(f"busctl --user call {service} {menu} com.canonical.dbusmenu GetLayout iias 0 8 0")
+                    for label in ["Show Sona", "Mini Player", "Quit Sona"]:
+                        assert label in layout, layout
+                    machine.log(f"tray: Sona's names {names}, watcher's items {items}; menu {layout.strip()}")
+                    return names, items
         if time.monotonic() > deadline:
             raise Exception(f"no tray item: Sona owns {names}, the watcher lists {items}")
         time.sleep(1)
