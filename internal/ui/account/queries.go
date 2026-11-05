@@ -35,6 +35,7 @@ type API interface {
 	SignOut(ctx context.Context) error
 	Revalidate(ctx context.Context) error
 	RetryKeyring()
+	SetBiometricUnlock(ctx context.Context, on bool) error
 }
 
 var _ API = (*services.AuthService)(nil)
@@ -94,5 +95,5 @@ func IsSignedOut(state string) bool {
 // the keyring's own waits are the status banner's.
 func NeedsAttention(s services.AuthStatus) bool {
 	return s.State == "needs_reauth" || s.State == "error" ||
-		(s.State == "signed_out" && s.Keyring == "unavailable")
+		(s.State == "signed_out" && (s.Keyring == "unavailable" || s.Keyring == "locked" || s.BiometricReset))
 }

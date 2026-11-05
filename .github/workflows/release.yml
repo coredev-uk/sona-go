@@ -8,8 +8,10 @@
 #   linux     the .deb/.rpm/Arch/AppImage packages on the Ubuntu 24.04 baseline
 #             with build/linux/release/release.sh (SHA256SUMS, smoke tests on
 #             clean Ubuntu, Fedora and Arch containers), then build provenance
-#   macos     Sona.app for Apple silicon with GStreamer bundled and ad-hoc
-#             signed, its .dmg and the update archive (build/darwin), smoke-tested
+#   macos     Sona.app for Apple silicon with GStreamer bundled, signed ad hoc or,
+#             when the SONA_SIGN_* secrets are set, with that Developer ID (Touch
+#             ID unlock needs it: docs/auth.md §7.1), its .dmg and the update
+#             archive (build/darwin), smoke-tested
 #   windows   the x64 portable .zip, the per-user installer and the update
 #             archive (build/windows), smoke-tested
 #   publish   signs the update manifests (update-<target>.json) with the
@@ -289,9 +291,46 @@ jobs:
           command -v pkg-config >/dev/null || brew install pkgconf
           build/darwin/install-gstreamer.sh
 
+      # With the SONA_SIGN_* secrets (a Developer ID Application certificate
+      # as a base64 .p12, its password, the identity's name, the team ID, and
+      # optionally the base64 provisioning profile) Sona.app is signed with
+      # them and carries the keychain-access-groups entitlement Touch ID unlock
+      # needs. Without them nothing changes: ad hoc, as before.
+      - name: Import the signing identity
+        env:
+          CERT_P12: ${{ secrets.SONA_SIGN_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.SONA_SIGN_CERT_PASSWORD }}
+          SIGN_IDENTITY: ${{ secrets.SONA_SIGN_IDENTITY }}
+          TEAM_ID: ${{ secrets.SONA_TEAM_ID }}
+          PROFILE_B64: ${{ secrets.SONA_PROVISIONING_PROFILE }}
+        run: |
+          if [ -z "$CERT_P12" ] || [ -z "$SIGN_IDENTITY" ] || [ -z "$TEAM_ID" ]; then
+            echo "::notice::No SONA_SIGN_* secrets: Sona.app is signed ad hoc, and Touch ID unlock is unsupported in it."
+            exit 0
+          fi
+          kc=$RUNNER_TEMP/sona-signing.keychain-db
+          pw=$(uuidgen)
+          security create-keychain -p "$pw" "$kc"
+          security set-keychain-settings -lut 21600 "$kc"
+          security unlock-keychain -p "$pw" "$kc"
+          printf %s "$CERT_P12" | base64 --decode >"$RUNNER_TEMP/sign.p12"
+          security import "$RUNNER_TEMP/sign.p12" -k "$kc" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/sign.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$pw" "$kc" >/dev/null
+          # shellcheck disable=SC2046
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          {
+            echo "SONA_SIGN_IDENTITY=$SIGN_IDENTITY"
+            echo "SONA_TEAM_ID=$TEAM_ID"
+          } >>"$GITHUB_ENV"
+          if [ -n "$PROFILE_B64" ]; then
+            printf %s "$PROFILE_B64" | base64 --decode >"$RUNNER_TEMP/Sona.provisionprofile"
+            echo "SONA_PROVISIONING_PROFILE=$RUNNER_TEMP/Sona.provisionprofile" >>"$GITHUB_ENV"
+          fi
+
       # The update feed and key are linked in only where the key is committed
       # (internal/update/update.pub); without them the build never updates.
-      - name: Build, bundle and sign ad hoc
+      - name: Build, bundle and sign
         env:
           SONA_LASTFM_KEY: ${{ secrets.SONA_LASTFM_KEY }}
           SONA_LASTFM_SECRET: ${{ secrets.SONA_LASTFM_SECRET }}
@@ -309,6 +348,10 @@ jobs:
 
       - name: Smoke-test the bundle
         run: build/darwin/smoke.sh "$OUT_DIR"
+
+      - name: Remove the signing keychain
+        if: ${{ always() }}
+        run: security delete-keychain "$RUNNER_TEMP/sona-signing.keychain-db" 2>/dev/null || true
 
       - name: Checksums
         working-directory: ${{ env.OUT_DIR }}

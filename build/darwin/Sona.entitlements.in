@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Entitlements of a Developer ID-signed Sona.app (build/darwin/bundle.sh,
+     SONA_SIGN_IDENTITY): the application identifier and the keychain access
+     group, which the data protection Keychain needs to hold the Touch ID item
+     (docs/auth.md §7.1). @TEAM_ID@ is SONA_TEAM_ID. An ad-hoc build has none
+     of this and reports Touch ID unlock as unsupported. -->
+<plist version="1.0">
+<dict>
+	<key>com.apple.application-identifier</key>
+	<string>@TEAM_ID@.dev.coredev.Sona</string>
+	<key>com.apple.developer.team-identifier</key>
+	<string>@TEAM_ID@</string>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>@TEAM_ID@.dev.coredev.Sona</string>
+	</array>
+</dict>
+</plist>

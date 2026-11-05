@@ -47,6 +47,33 @@ func (v *vault) Backend() store.Backend {
 // fresh the store is opened again first (a retry after the keyring was
 // unavailable).
 func (v *vault) do(fresh bool, fn func(store.Store) error) <-chan error {
+	return v.enqueue(func() error { return v.run(fresh, fn) })
+}
+
+// migrate queues a move from the open store to the one open returns:
+// fn(from, to) runs with both, and when it succeeds to becomes the open
+// store. The open store is opened first if none is.
+func (v *vault) migrate(open func() (store.Store, error), fn func(from, to store.Store) error) <-chan error {
+	return v.enqueue(func() error {
+		if err := v.run(false, func(store.Store) error { return nil }); err != nil {
+			return err
+		}
+		to, err := open()
+		if err != nil {
+			return err
+		}
+		if err := fn(v.st, to); err != nil {
+			return err
+		}
+		v.st = to
+		v.mu.Lock()
+		v.backend = to.Backend()
+		v.mu.Unlock()
+		return nil
+	})
+}
+
+func (v *vault) enqueue(op func() error) <-chan error {
 	res := make(chan error, 1)
 	next := make(chan struct{})
 	v.mu.Lock()
@@ -56,7 +83,7 @@ func (v *vault) do(fresh bool, fn func(store.Store) error) <-chan error {
 	go func() {
 		defer close(next)
 		<-prev
-		res <- v.run(fresh, fn)
+		res <- op()
 	}()
 	return res
 }

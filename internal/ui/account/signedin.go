@@ -106,6 +106,7 @@ func (s *Section) signedIn(c *ui.Context, st services.AuthStatus) {
 					text(c.Key("backend"), backend, "secondary", "ink-muted").Margin(2, 0, 0, 0)
 				})
 			}
+			s.touchIDRow(c, st)
 			hairline(c.Key("bottom"))
 		})
 		if st.Unencrypted {
@@ -113,6 +114,52 @@ func (s *Section) signedIn(c *ui.Context, st services.AuthStatus) {
 				noticeTitle(c, i18n.T("Your token is stored unencrypted"))
 				noticeDetail(c, kit.KeyringWords(s.d.OS).TokenInFile)
 			}, nil)
+		}
+	})
+}
+
+// touchIDRow is the Touch ID unlock: a switch where this build can keep the
+// token behind Touch ID (the offer after a sign-in), and on a Mac the
+// requirement where it can't, instead of a dead switch. Other systems show
+// nothing.
+func (s *Section) touchIDRow(c *ui.Context, st services.AuthStatus) {
+	if !st.BiometricAvailable && s.d.OS != "darwin" {
+		return
+	}
+	title := i18n.T("Use Touch ID to unlock Sona")
+	hairline(c.Key("touch-rule"))
+	ui.Row(c.Key("touch")).FillWidth().Gap(24).AlignItems(ui.Center).Padding(16, 0).Children(func() {
+		ui.Column(c.Key("text")).Grow(1).MinWidth(0).Children(func() {
+			if !st.BiometricAvailable {
+				text(c, i18n.T("Touch ID unlock isn't available in this build"), "label", "ink-muted")
+				text(c.Key("needs"), i18n.T("It needs a Sona signed with an Apple Developer ID, with a team ID and the keychain-access-groups entitlement. This build is signed ad hoc, so your token stays in your login Keychain."), "secondary", "ink-muted").Margin(2, 0, 0, 0)
+				return
+			}
+			text(c, title, "label", "ink")
+			text(c.Key("about"), i18n.T("Your token stays in the Keychain where only your fingerprint opens it. Sona asks for Touch ID when it starts; cancel it and you're signed out until you try again."), "secondary", "ink-muted").Margin(2, 0, 0, 0)
+		})
+		if st.BiometricAvailable {
+			on := st.BiometricUnlock
+			if kit.Switch(c.Key("switch"), &on, kit.SwitchOpts{A11yLabel: title, Disabled: s.touchBusy}).Changed() {
+				s.setTouchID(on)
+			}
+		}
+	})
+}
+
+// setTouchID moves the token into or out of the Touch ID Keychain item; a
+// failure says why in a toast. The switch follows the status, which the
+// service publishes once the move is done.
+func (s *Section) setTouchID(on bool) {
+	if s.touchBusy {
+		return
+	}
+	s.touchBusy = true
+	api := s.d.API
+	s.call(func() error { return api.SetBiometricUnlock(context.Background(), on) }, func(err error) {
+		s.touchBusy = false
+		if err != nil {
+			kit.ToastErrorf(i18n.T("Couldn't change Touch ID unlock"), i18n.ErrorMessage(err))
 		}
 	})
 }

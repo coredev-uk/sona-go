@@ -48,6 +48,9 @@ func stateLine(s services.AuthStatus) string {
 	if s.Keyring == "unavailable" {
 		return i18n.T("Sona couldn't read your sign-in from your keyring")
 	}
+	if s.Keyring == "locked" {
+		return i18n.T("Touch ID didn't unlock Sona")
+	}
 	// translators: The account menu's status line
 	return i18n.T("Not signed in")
 }
@@ -165,8 +168,12 @@ func (f *feature) menuItems(s services.AuthStatus, known bool, line string, priv
 	if signedIn && s.Offline {
 		items = append(items, kit.MenuItem{Key: "check", Label: i18n.T("Check now"), Run: f.checkNow})
 	}
-	if known && !signedIn && s.State != "restoring" && (s.Keyring == "unavailable" || s.Unencrypted) {
-		items = append(items, kit.MenuItem{Key: "retry", Label: i18n.T("Try again"), Run: f.retryKeyring})
+	if known && !signedIn && s.State != "restoring" && (s.Keyring == "unavailable" || s.Keyring == "locked" || s.Unencrypted) {
+		label := i18n.T("Try again")
+		if s.Keyring == "locked" {
+			label = i18n.T("Try Touch ID again")
+		}
+		items = append(items, kit.MenuItem{Key: "retry", Label: label, Run: f.retryKeyring})
 	}
 	sep()
 

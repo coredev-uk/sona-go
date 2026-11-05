@@ -129,8 +129,10 @@ and Windows development builds in ci.yml never hold a release up), then the
   uses into `Sona.app/Contents/Frameworks/GStreamer` (a plain folder: codesign
   takes a `.framework` without an Info.plist, or a folder named like
   `gstreamer-1.0`, for a malformed bundle), thins them to arm64, rewrites
-  install names to relative paths, signs ad hoc (`codesign --force --deep -s -`,
-  no hardened runtime: the Widevine library must load) and checks nothing
+  install names to relative paths, signs ad hoc (`codesign --force -s -`,
+  no hardened runtime: the Widevine library must load) or, with `SONA_SIGN_IDENTITY` and
+  `SONA_TEAM_ID` (both or neither), with that Developer ID and the entitlements of
+  `build/darwin/Sona.entitlements.in` (`SONA_PROVISIONING_PROFILE` is embedded when set) and checks nothing
   points at the build machine. The app sets `GST_PLUGIN_SYSTEM_PATH_1_0`,
   `GST_PLUGIN_SCANNER` and `GST_REGISTRY_1_0` at start (`cmd/sona/bundle_darwin.go`).
   The minimum macOS is `build/darwin/MIN_MACOS`, devenv's `darwinMinVersion`
@@ -152,6 +154,16 @@ and Windows development builds in ci.yml never hold a release up), then the
   `sona-<v>-windows-amd64.tar.gz` holds the install folder's files at the top
   level. Both are what MyGo's updater installs; the `.dmg`, `.zip` and
   installer are for people.
+- **Signing Sona.app (optional):** with the `release` environment secrets
+  `SONA_SIGN_CERT_P12` (a Developer ID Application certificate and key as a base64
+  `.p12`), `SONA_SIGN_CERT_PASSWORD`, `SONA_SIGN_IDENTITY` (its name, "Developer ID
+  Application: Name (TEAMID)"), `SONA_TEAM_ID` and, if macOS wants one for the
+  entitlements, `SONA_PROVISIONING_PROFILE` (the base64 `.provisionprofile`), the
+  `macos` job imports them into a temporary keychain and `bundle.sh` signs with them;
+  without them the build is ad hoc as before. A signed build is what turns on Touch ID
+  unlock (`docs/auth.md` §7.1); it is not notarised, so Gatekeeper still needs
+  right-click, Open. After the first signed release run the Touch ID manual check in
+  `docs/auth.md` §7.1.
 - **Signing the manifests:** `go run ./cmd/releasesign` signs each archive's
   SHA-256 with the Ed25519 key in the `release` environment's secret
   `SONA_UPDATE_KEY` (the file `go tool mygo keygen` wrote; the public key is

@@ -3,7 +3,7 @@
 #
 #   build/darwin/bundle.sh OUTDIR
 #
-# Writes into OUTDIR: Sona.app (ad-hoc signed), Sona-<version>-macos-arm64.dmg
+# Writes into OUTDIR: Sona.app (ad-hoc signed unless SONA_SIGN_IDENTITY is set), Sona-<version>-macos-arm64.dmg
 # and sona-<version>-darwin-arm64.tar.gz (Sona.app alone, the archive the
 # updater installs). Plain Go and Xcode's clang, linked against the official
 # GStreamer framework (build/darwin/install-gstreamer.sh), whose lib/ and
@@ -18,11 +18,26 @@
 #   UPDATE_FEED, UPDATE_KEY   linked into the binary for self-updates (the
 #                   release job sets them; unset = updates off)
 #   SONA_LASTFM_KEY, SONA_LASTFM_SECRET, SONA_DISCORD_CLIENT_ID   as build/linux
+#   SONA_SIGN_IDENTITY, SONA_TEAM_ID   a signing identity ("Developer ID
+#                   Application: Name (TEAMID)", from the keychain) and its
+#                   10-character team ID, both or neither. They sign Sona.app
+#                   with the keychain-access-groups entitlement Touch ID unlock
+#                   needs (docs/auth.md §7.1). Unset (the default): ad hoc, as
+#                   always, and Settings says Touch ID needs a signed build.
+#   SONA_PROVISIONING_PROFILE   optional path of the provisioning profile
+#                   (.provisionprofile) to embed, which macOS may require for
+#                   the keychain-access-groups entitlement of a Developer ID app
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../.." && pwd)
 out=${1:?usage: bundle.sh OUTDIR}
+# Both or neither of the signing inputs, before anything is built.
+identity=${SONA_SIGN_IDENTITY:--}
+if [[ $identity != - && -z ${SONA_TEAM_ID:-} ]] || [[ $identity == - && -n ${SONA_TEAM_ID:-} ]]; then
+  echo "bundle: SONA_SIGN_IDENTITY and SONA_TEAM_ID go together" >&2
+  exit 1
+fi
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
 version=${VERSION:-$(cat "$repo/VERSION")}
@@ -186,15 +201,34 @@ if bad=$(find "$app" -type f \( -perm -u+x -o -name '*.dylib' \) -exec sh -c 'ot
   exit 1
 fi
 
-# 5. Apple silicon runs only signed code: sign ad hoc after the edits, with no
+# 5. Apple silicon runs only signed code: sign after the edits, with no
 # hardened runtime so the Google-signed Widevine library loads. The copied
 # GStreamer is a plain folder (a .framework would be a bundle codesign wants an
 # Info.plist and Versions/Current for), so every Mach-O is signed by itself.
+# Ad hoc (no identity) unless SONA_SIGN_IDENTITY is set; then the app is signed
+# with that identity and the entitlements that give Touch ID unlock its
+# keychain access group (build/darwin/Sona.entitlements.in), after the
+# provisioning profile, if any, is embedded.
+sign=(codesign --force -s "$identity")
+appsign=("${sign[@]}")
+if [[ $identity != - ]]; then
+  sign+=(--timestamp)
+  sed -e "s|@TEAM_ID@|$SONA_TEAM_ID|g" "$here/Sona.entitlements.in" >"$work/Sona.entitlements"
+  if [[ -n ${SONA_PROVISIONING_PROFILE:-} ]]; then
+    cp "$SONA_PROVISIONING_PROFILE" "$app/Contents/embedded.provisionprofile"
+  else
+    echo "bundle: warning: no SONA_PROVISIONING_PROFILE; macOS may refuse to launch an app with these entitlements without one" >&2
+  fi
+  appsign=("${sign[@]}" --entitlements "$work/Sona.entitlements")
+fi
 while IFS= read -r -d '' f; do
-  if file -b "$f" | grep -q Mach-O; then codesign --force -s - "$f" 2>/dev/null; fi
+  if file -b "$f" | grep -q Mach-O; then "${sign[@]}" "$f" 2>/dev/null; fi
 done < <(find "$app/Contents/Frameworks" -type f -print0)
-codesign --force -s - "$app"
+"${appsign[@]}" "$app"
 codesign --verify --deep --strict "$app"
+if [[ $identity != - ]]; then
+  codesign -dv "$app" 2>&1 | grep -qx "TeamIdentifier=$SONA_TEAM_ID" || { echo "bundle: $app is not signed with team $SONA_TEAM_ID" >&2; exit 1; }
+fi
 
 # 6. The artefacts. Sona.app/ is the only top-level entry of the update
 # archive (MyGo's updater requires it).

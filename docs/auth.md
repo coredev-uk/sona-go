@@ -200,6 +200,8 @@ stateDiagram-v2
   restoring --> signed_in: MUT + cached account (validate in background)
   restoring --> validating: MUT, no cached account
   restoring --> signed_out: keyring failed or silent for 30 s (Keyring unavailable)
+  restoring --> signed_out: Touch ID cancelled or failed (Keyring locked, §7.1)
+  restoring --> signed_out: Touch ID item invalidated (ErrBiometricReset, §7.1)
   signed_out --> signed_in: the silent keyring answers late (MUT + cached account)
   signed_out --> restoring: RetryKeyring()
   validating --> signed_in: /v1/me/storefront 200
@@ -244,6 +246,31 @@ The UI renders from SQLite in `restoring`/`validating` and while `Status.Offline
 - Apple sign-out does not disconnect the scrobblers: they are separate accounts the user connected on this desktop, and nothing in them is Apple user data. Disconnecting a scrobbler in Settings → Connections deletes its keyring entry (and fallback file) and its unsent listens.
 - SQLite stores metadata only (`auth.AccountStore`): storefront id/name, language, `itre`, obtained/validated timestamps.
 - `SignOut()` clears the in-memory token, deletes the keyring entry and the fallback file, deletes the account metadata, then runs the `OnSignOut` hooks in registration order (engine sign-out, engine storage, optional user data). Every step runs even if one fails; failures are returned and shown in `Status.LastError`. The library cache stays unless the user also chooses "clear library".
+
+### 7.1 Touch ID unlock (macOS, signed builds)
+
+Touch ID can't sign in to an Apple Account, and passwords and two-factor codes are never stored (§4): the first sign-in, and any after Apple invalidates the token, still use the native flow. What Touch ID guards is the stored token. It is the "unlock Sona's session" half of the idea; using the Mac's own Apple Account needs MusicKit and is out of scope.
+
+- **The item.** With Settings → Account → "Use Touch ID to unlock Sona" on (`config.Unlock.TouchID`), the `store.Record` JSON lives in one generic-password item (service `sona`, account `mut-touch-id`) of the data protection Keychain (`kSecUseDataProtectionKeychain`), created with `SecAccessControlCreateWithFlags(kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, .biometryCurrentSet)`, instead of go-keyring's login Keychain item (`store.biometric_darwin.go`, through purego: Security and CoreFoundation, no cgo). It has no file fallback; a failing item leaves Sona signed out. Passwords and codes are not in it.
+- **The seam.** `store.BiometricKeychain` (`Available`, `Get`, `Set`, `Delete`) is the item; `store.OpenBiometric` makes it a `store.Store` (backend `keychain (Touch ID)`). `auth.Config` takes `Biometric`, `BiometricOn` and `SetBiometricOn`; the manager's vault opens the biometric store while the setting is on and `Config.Open`'s otherwise. `Manager.SetBiometricUnlock` moves the signed-in token: the destination is written first, the setting is saved, then the source is deleted. Writing the item shows no prompt.
+- **Reading it is the prompt.** `Start` and `RetryKeyring` call `Get`; macOS shows Touch ID (reason from `kSecUseOperationPrompt`, "Unlock Sona") and `Get` blocks until it is answered, off the UI path like every store call. Cancel, a mismatch, a lockout or no UI available (`errSecUserCanceled`, `errSecAuthFailed`, `errSecInteractionNotAllowed`) is `store.ErrBiometricDenied`: signed out, `Status.Keyring` `locked`, item and setting untouched. The account view, the banner and the avatar menu say "Touch ID didn't unlock Sona" with **Try Touch ID again** (`RetryKeyring`), next to the usual Sign in form.
+- **Fingerprints change.** `.biometryCurrentSet` invalidates the item, which reads as not found (or `store.ErrBiometricInvalidated`). With the setting on that is "unlock ended": the manager deletes the item, turns the setting off, and signs out with `ErrBiometricReset` (`AuthStatus.BiometricReset`, "Touch ID unlock ended"). The next sign-in goes to the login Keychain and the account view offers Touch ID again.
+- **Sign-out** deletes the item (no prompt), turns the setting off and returns to the login Keychain for the next sign-in.
+- **When it is offered.** `Manager.BiometricSupported` (`AuthStatus.BiometricAvailable`) is nil only when `BiometricKeychain.Available` is: the running code signature (`SecCodeCopySigningInformation`) has a team ID and the `keychain-access-groups` entitlement. An ad-hoc build, a source build (`bin/sona`) and every other OS report `errors.ErrUnsupported`. The account view then shows the switch (after a sign-in, under "Where your token is kept"), or on a Mac the requirement instead of a dead switch, or nothing off macOS. Never a UI-only `LAContext.evaluatePolicy` gate: it is not tied to the item and would not protect the token.
+- **Signing.** `build/darwin/bundle.sh` signs ad hoc unless `SONA_SIGN_IDENTITY` and `SONA_TEAM_ID` are set (both or neither); then it signs with the identity, `--timestamp`, and `build/darwin/Sona.entitlements.in` (application identifier, team identifier, `keychain-access-groups` = `<team>.dev.coredev.Sona`), embedding `SONA_PROVISIONING_PROFILE` when given. `release.yml` imports the identity from the `SONA_SIGN_CERT_P12`, `SONA_SIGN_CERT_PASSWORD`, `SONA_SIGN_IDENTITY`, `SONA_TEAM_ID` and (optional) `SONA_PROVISIONING_PROFILE` secrets when they exist; without them nothing changes. Notarisation is a separate step that is not built.
+
+Tests: `internal/auth/biometric_test.go` runs the whole flow on every OS against a fake item (enable, start locked then unlock, cancel then retry, invalidated, sign-out deletes, unsupported); `internal/ui/account` covers the switch and the requirement text. The Keychain code itself needs a signed build:
+
+**Manual check on a Mac with a signing identity** (the maintainer has none yet; this is the check that remains):
+
+1. Build: `SONA_SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)" SONA_TEAM_ID=<TEAMID> SONA_PROVISIONING_PROFILE=<path> build/darwin/bundle.sh bin/macos` (needs GStreamer: `build/darwin/install-gstreamer.sh`), then `codesign -dvv --entitlements - bin/macos/Sona.app` shows `TeamIdentifier=<TEAMID>` and `keychain-access-groups`. Open `bin/macos/Sona.app` (right-click, Open, the first time).
+2. Sign in. Open the account dialog: "Use Touch ID to unlock Sona" is there with its switch. Turn it on. No prompt. Quit.
+3. Start Sona: macOS shows the Touch ID prompt "Unlock Sona"; touch the sensor: Sona is signed in with "keychain (Touch ID)" under "Where your token is kept".
+4. Quit, start, cancel the prompt: Sona is signed out, "Touch ID didn't unlock Sona" and **Try Touch ID again** show, and the Sign in form works. Try Touch ID again, touch: signed in.
+5. Quit. System Settings → Touch ID: add (or remove) a fingerprint. Start Sona: signed out with "Touch ID unlock ended". Sign in again; the switch is off and offered again.
+6. Turn it on, then Sign out. Sign in again: the switch is off, and quitting and starting Sona asks for no Touch ID (the token is in the login Keychain). Turn it on, Sign out, and start Sona: signed out, with no Touch ID prompt (the item is gone).
+7. With the same build and no entitlements (`SONA_SIGN_IDENTITY` unset, ad hoc): the account dialog says "Touch ID unlock isn't available in this build" and nothing else differs.
+8. The Console shows no `OSStatus -34018` (missing entitlement) during steps 2 to 5.
 
 ## 8. Open checks
 

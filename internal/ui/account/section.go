@@ -106,6 +106,8 @@ type Section struct {
 	checking bool // Revalidate runs
 
 	signingOut bool // SignOut runs
+
+	touchBusy bool // SetBiometricUnlock runs
 }
 
 // New is a Section over d.
@@ -176,6 +178,12 @@ func (s *Section) Build(c *ui.Context, hosted bool) {
 				placeholder(c.Key("restoring"), i18n.T("Loading"))
 			}
 			return
+		}
+		if st.BiometricReset {
+			notice(c.Key("touch-reset"), noticeOpts{Icon: "lock", IconColor: "danger"}, func() {
+				noticeTitle(c, i18n.T("Touch ID unlock ended"))
+				noticeDetail(c, i18n.T("Your enrolled fingerprints changed, so macOS locked your saved sign-in away. Sign in again, then turn Touch ID unlock back on."))
+			}, nil)
 		}
 		if st.State == "needs_reauth" {
 			notice(c.Key("reauth"), noticeOpts{Icon: "circle-alert", IconColor: "danger"}, func() {
@@ -385,6 +393,10 @@ func statusNotice(st services.AuthStatus) string {
 		return ""
 	case st.Keyring == "unavailable":
 		return i18n.T("Sona couldn't read your sign-in from your keyring")
+	case st.Keyring == "locked":
+		return i18n.T("Touch ID didn't unlock Sona")
+	case st.BiometricReset:
+		return i18n.T("Touch ID unlock ended; sign in again")
 	case st.Unencrypted:
 		return i18n.T("Signing in now stores your token unencrypted")
 	case st.State == "needs_reauth":

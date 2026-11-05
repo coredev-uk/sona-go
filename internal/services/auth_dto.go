@@ -24,9 +24,22 @@ type AuthStatus struct {
 	// Keyring is "waiting" while a read (restoring) or a sign-in's write
 	// has waited past a second for the keyring, and from the start of a
 	// RetryKeyring read; "unavailable" when the stored sign-in couldn't be
-	// read (signed_out; RetryKeyring tries again); "" otherwise.
+	// read (signed_out; RetryKeyring tries again); "locked" when the Touch
+	// ID prompt was cancelled or didn't match (signed_out; RetryKeyring asks
+	// again); "" otherwise.
 	Keyring string `json:"keyring"`
 	Offline bool   `json:"offline"`
+	// BiometricAvailable: this build can keep the token behind Touch ID
+	// (macOS, signed with a team ID and the keychain-access-groups
+	// entitlement). False elsewhere, and on macOS in an ad-hoc build, where
+	// the account view says what is missing instead of showing a dead switch.
+	BiometricAvailable bool `json:"biometricAvailable"`
+	// BiometricUnlock: the token is kept behind Touch ID (Backend says so).
+	BiometricUnlock bool `json:"biometricUnlock"`
+	// BiometricReset: Touch ID unlock ended since the last sign-in (the
+	// enrolled fingerprints changed, or the item was gone) and Sona signed
+	// out; the sign-in screen says so.
+	BiometricReset bool `json:"biometricReset"`
 	// LastErrorCode is the latest failure the sign-in state reports (a
 	// rejected sign-in, a keyring that didn't answer, an incomplete
 	// sign-out…); "" when there is none.

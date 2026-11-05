@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/coredev-uk/sona-go/internal/auth"
@@ -36,19 +37,22 @@ func (s *AuthService) Status() AuthStatus { return s.status(s.m.Status()) }
 
 func (s *AuthService) status(st auth.Status) AuthStatus {
 	return AuthStatus{
-		State:            string(st.State),
-		StorefrontID:     st.StorefrontID,
-		StorefrontName:   st.StorefrontName,
-		Language:         st.Language,
-		Restricted:       st.Restricted,
-		Backend:          string(st.Backend),
-		Unencrypted:      st.Backend == store.BackendFile,
-		Keyring:          string(st.Keyring),
-		Offline:          st.Offline,
-		LastErrorCode:    lastErrorCode(st),
-		LastAppleMessage: lastAppleMessage(st),
-		BrowserSignIn:    st.BrowserSignIn,
-		SecondFactor:     secondFactorDTO(st.SecondFactor),
+		State:              string(st.State),
+		StorefrontID:       st.StorefrontID,
+		StorefrontName:     st.StorefrontName,
+		Language:           st.Language,
+		Restricted:         st.Restricted,
+		Backend:            string(st.Backend),
+		Unencrypted:        st.Backend == store.BackendFile,
+		Keyring:            string(st.Keyring),
+		BiometricAvailable: s.m != nil && s.m.BiometricSupported() == nil,
+		BiometricUnlock:    st.Backend == store.BackendKeychainBiometric,
+		BiometricReset:     errors.Is(st.LastCause, auth.ErrBiometricReset),
+		Offline:            st.Offline,
+		LastErrorCode:      lastErrorCode(st),
+		LastAppleMessage:   lastAppleMessage(st),
+		BrowserSignIn:      st.BrowserSignIn,
+		SecondFactor:       secondFactorDTO(st.SecondFactor),
 	}
 }
 
@@ -124,6 +128,14 @@ func (s *AuthService) SignOut(ctx context.Context) error {
 // Revalidate checks the stored token with Apple now (the UI's retry).
 func (s *AuthService) Revalidate(ctx context.Context) error {
 	return s.m.Revalidate(ctx)
+}
+
+// SetBiometricUnlock turns "Use Touch ID to unlock Sona" on or off: the
+// signed-in token moves into (or out of) the Touch ID Keychain item. It
+// fails with an errors.ErrUnsupported error where Capabilities.BiometricUnlock
+// is false.
+func (s *AuthService) SetBiometricUnlock(ctx context.Context, on bool) error {
+	return s.m.SetBiometricUnlock(context.WithoutCancel(ctx), on)
 }
 
 // RetryKeyring reads the stored sign-in again after the keyring was

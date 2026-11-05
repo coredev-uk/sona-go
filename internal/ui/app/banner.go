@@ -51,6 +51,10 @@ func (a *App) statusBanner(c *ui.Context) {
 		} else {
 			msg = i18n.T("Saving your sign-in in your keyring; unlock it if it asks.")
 		}
+	case st.Keyring == "locked":
+		// translators: Banner: the Touch ID prompt that unlocks the saved Apple Music sign-in was cancelled or failed, so the user is signed out.
+		msg = i18n.T("Touch ID didn't unlock Sona, so you're signed out.")
+		action = func() { b.retry.Build(c, st) }
 	case st.Keyring == "unavailable":
 		// translators: Banner: the system keyring could not be read, so the user has to sign in to Apple Music again.
 		msg = i18n.T("Sona couldn't read your sign-in from your keyring, so you're signed out.")

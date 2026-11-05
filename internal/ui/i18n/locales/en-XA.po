@@ -1123,6 +1123,10 @@ msgstr ""
 msgid "Couldn't change AutoPlay"
 msgstr ""
 
+#: internal/ui/account/signedin.go
+msgid "Couldn't change Touch ID unlock"
+msgstr ""
+
 #: internal/ui/features/player/player.go
 msgid "Couldn't change repeat"
 msgstr ""
@@ -2685,6 +2689,10 @@ msgstr ""
 
 #: internal/ui/kit/controls_states.go
 msgid "It isn't in your library on this computer, and Apple Music didn't return it. It may not be offered in your storefront, or it was removed."
+msgstr ""
+
+#: internal/ui/account/signedin.go
+msgid "It needs a Sona signed with an Apple Developer ID, with a team ID and the keychain-access-groups entitlement. This build is signed ad hoc, so your token stays in your login Keychain."
 msgstr ""
 
 #: internal/ui/i18n/errors.go
@@ -5546,6 +5554,10 @@ msgstr ""
 msgid "Sona has no page for that link."
 msgstr ""
 
+#: internal/ui/account/keyring.go
+msgid "Sona is waiting for Touch ID to unlock your sign-in."
+msgstr ""
+
 #: internal/ui/kit/keyring_copy.go
 msgid "Sona is waiting for Windows Credential Manager to hand over your sign-in."
 msgstr ""
@@ -6396,6 +6408,29 @@ msgstr ""
 msgid "Top songs by {artist}"
 msgstr ""
 
+#: internal/ui/account/keyring.go
+#: internal/ui/account/section.go
+#: internal/ui/features/auth/menu.go
+msgid "Touch ID didn't unlock Sona"
+msgstr ""
+
+#. Banner: the Touch ID prompt that unlocks the saved Apple Music sign-in was cancelled or failed, so the user is signed out.
+#: internal/ui/app/banner.go
+msgid "Touch ID didn't unlock Sona, so you're signed out."
+msgstr ""
+
+#: internal/ui/account/section.go
+msgid "Touch ID unlock ended"
+msgstr ""
+
+#: internal/ui/account/section.go
+msgid "Touch ID unlock ended; sign in again"
+msgstr ""
+
+#: internal/ui/account/signedin.go
+msgid "Touch ID unlock isn't available in this build"
+msgstr ""
+
 #: internal/ui/features/onboarding/desktop.go
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/integrations_rows.go
@@ -6421,6 +6456,11 @@ msgstr ""
 
 #: internal/ui/account/code.go
 msgid "Trusted phone number"
+msgstr ""
+
+#: internal/ui/account/keyring.go
+#: internal/ui/features/auth/menu.go
+msgid "Try Touch ID again"
 msgstr ""
 
 #. Reads the sign-in from the system keyring again. Apple's wording: ASE.Web.Music.Error.TryAgain
@@ -6586,6 +6626,10 @@ msgstr ""
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/updates.go
 msgid "Updates"
+msgstr ""
+
+#: internal/ui/account/signedin.go
+msgid "Use Touch ID to unlock Sona"
 msgstr ""
 
 #: internal/ui/account/section.go
@@ -6929,6 +6973,10 @@ msgstr ""
 msgid "You're offline. Signing in needs a connection to Apple."
 msgstr ""
 
+#: internal/ui/account/keyring.go
+msgid "You're signed out until it does. Try Touch ID again, or sign in with your Apple Account."
+msgstr ""
+
 #: internal/ui/account/signin.go
 msgid "Your Apple Account needs attention"
 msgstr ""
@@ -6983,6 +7031,10 @@ msgstr ""
 
 #: internal/ui/features/settings/motiondiag.go
 msgid "Your desktop asks apps to reduce motion (GTK's gtk-enable-animations is off)."
+msgstr ""
+
+#: internal/ui/account/section.go
+msgid "Your enrolled fingerprints changed, so macOS locked your saved sign-in away. Sign in again, then turn Touch ID unlock back on."
 msgstr ""
 
 #: internal/ui/features/playlist/page.go
@@ -7057,6 +7109,10 @@ msgstr ""
 #: internal/ui/account/signedin.go
 #: internal/ui/features/auth/menu.go
 msgid "Your token is stored unencrypted"
+msgstr ""
+
+#: internal/ui/account/signedin.go
+msgid "Your token stays in the Keychain where only your fingerprint opens it. Sona asks for Touch ID when it starts; cancel it and you're signed out until you try again."
 msgstr ""
 
 #: internal/ui/app/menubar.go

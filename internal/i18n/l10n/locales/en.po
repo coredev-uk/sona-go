@@ -380,6 +380,11 @@ msgstr ""
 msgid "Synopsis"
 msgstr ""
 
+#. msgTouchIDPrompt is the reason macOS shows in the Touch ID prompt that unlocks the stored sign-in.
+#: cmd/sona/main.go
+msgid "Unlock Sona"
+msgstr ""
+
 #: internal/cli/messages.go
 msgid "With --json, a command prints one JSON object on standard output; `status --follow --json` prints one per line. Fields are only ever added, never renamed or removed. Errors go to standard error as text, with the exit status below."
 msgstr ""

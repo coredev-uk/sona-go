@@ -38,6 +38,7 @@ type fakeAPI struct {
 	onToken    func(token string) error
 	onSignOut  func() error
 	onRevalid  func() error
+	onTouchID  func(on bool) error
 	link       string
 	linkErr    error
 }
@@ -153,6 +154,14 @@ func (f *fakeAPI) Revalidate(context.Context) error {
 }
 
 func (f *fakeAPI) RetryKeyring() { f.rec("retry") }
+
+func (f *fakeAPI) SetBiometricUnlock(_ context.Context, on bool) error {
+	f.rec("touchid %v", on)
+	if f.onTouchID != nil {
+		return f.onTouchID(on)
+	}
+	return nil
+}
 
 var signedOut = services.AuthStatus{State: "signed_out"}
 
@@ -1089,4 +1098,73 @@ func TestNoPasswordCodeOrTokenInLogsOrLinks(t *testing.T) {
 			t.Errorf("a secret reached %q", s)
 		}
 	}
+}
+
+// focusSwitch tabs to the switch named label (the title beside it shares the
+// text, so a click by name would land on the title).
+func (r *rig) focusSwitch(label string) {
+	r.t.Helper()
+	for range 300 {
+		if r.tt.Focused(label) {
+			return
+		}
+		r.tt.Key(0, ui.KeyTab)
+	}
+	r.t.Fatalf("Tab never reached %q; texts %q", label, r.tt.Texts())
+}
+
+func TestTouchIDOfferedOnlyWhereTheBuildCanKeepItBehindTouchID(t *testing.T) {
+	const title = "Use Touch ID to unlock Sona"
+	available := signedIn
+	available.BiometricAvailable = true
+	r := buildRig(t, rigOpts{status: &available, os: "darwin"})
+	r.shows(title)
+	r.focusSwitch(title)
+	r.tt.Key(0, ui.KeySpace)
+	r.waitCalls("touchid true", 1)
+
+	// Turned on: the status says so, and Space turns it off again.
+	available.BiometricUnlock, available.Backend = true, "keychain (Touch ID)"
+	r.status(available)
+	r.shows("keychain (Touch ID)")
+	r.focusSwitch(title)
+	r.tt.Key(0, ui.KeySpace)
+	r.waitCalls("touchid false", 1)
+}
+
+func TestTouchIDSwitchFailureSaysWhy(t *testing.T) {
+	available := signedIn
+	available.BiometricAvailable = true
+	r := buildRig(t, rigOpts{status: &available, os: "darwin"})
+	r.api.onTouchID = func(bool) error { return errors.New("keychain says no") }
+	r.focusSwitch("Use Touch ID to unlock Sona")
+	r.tt.Key(0, ui.KeySpace)
+	r.waitCalls("touchid true", 1)
+	r.tt.Until("toast", r.tt.Shows("Couldn't change Touch ID unlock"))
+}
+
+func TestTouchIDUnavailableOnAMacExplainsTheRequirementInsteadOfASwitch(t *testing.T) {
+	r := buildRig(t, rigOpts{status: &signedIn, os: "darwin"})
+	r.shows(
+		"Touch ID unlock isn't available in this build",
+		"It needs a Sona signed with an Apple Developer ID, with a team ID and the keychain-access-groups entitlement. This build is signed ad hoc, so your token stays in your login Keychain.",
+	)
+	r.hides("Use Touch ID to unlock Sona")
+}
+
+func TestTouchIDIsAbsentOffTheMac(t *testing.T) {
+	r := newRig(t, signedIn)
+	r.hides("Use Touch ID to unlock Sona", "Touch ID unlock isn't available in this build")
+}
+
+func TestTouchIDCancelledOffersTryAgain(t *testing.T) {
+	r := newRig(t, services.AuthStatus{State: "signed_out", Keyring: "locked"})
+	r.shows("Touch ID didn't unlock Sona", "Try Touch ID again")
+	r.click("Try Touch ID again")
+	r.waitCalls("retry", 1)
+}
+
+func TestTouchIDResetTellsWhySignInIsNeeded(t *testing.T) {
+	r := newRig(t, services.AuthStatus{State: "signed_out", BiometricReset: true})
+	r.shows("Touch ID unlock ended", "Sign in")
 }

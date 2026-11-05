@@ -59,8 +59,12 @@ func (a *fakeAPI) count(name string) int {
 
 func (a *fakeAPI) Revalidate(context.Context) error { a.call("Revalidate"); return a.revalidateErr }
 func (a *fakeAPI) RetryKeyring()                    { a.call("RetryKeyring") }
-func (a *fakeAPI) SignOut(context.Context) error    { a.call("SignOut"); return nil }
-func (a *fakeAPI) CancelSignIn()                    { a.call("CancelSignIn") }
+func (a *fakeAPI) SetBiometricUnlock(context.Context, bool) error {
+	a.call("SetBiometricUnlock")
+	return nil
+}
+func (a *fakeAPI) SignOut(context.Context) error { a.call("SignOut"); return nil }
+func (a *fakeAPI) CancelSignIn()                 { a.call("CancelSignIn") }
 
 var (
 	signedOut = services.AuthStatus{State: "signed_out"}
@@ -82,6 +86,12 @@ type rig struct {
 
 func newRig(t *testing.T, st services.AuthStatus, opts ...uitest.Option) *rig {
 	t.Helper()
+	return newRigOS(t, st, "", opts...)
+}
+
+// newRigOS is newRig with the account notices worded for goos ("": this OS's).
+func newRigOS(t *testing.T, st services.AuthStatus, goos string, opts ...uitest.Option) *rig {
+	t.Helper()
 	h := uitest.New(t, opts...)
 	// The harness's real auth manager restores asynchronously and emits
 	// auth:changed as it goes: let that finish and be delivered (to nobody)
@@ -101,6 +111,9 @@ func newRig(t *testing.T, st services.AuthStatus, opts ...uitest.Option) *rig {
 	api := &fakeAPI{status: st, calls: map[string]int{}}
 	d := account.NewDeps(h.Env)
 	d.API = api
+	if goos != "" {
+		d.OS = goos
+	}
 	r := &rig{t: t, h: h, api: api}
 	r.f = newFeature(h.Env, d)
 	r.mod = r.f.module()

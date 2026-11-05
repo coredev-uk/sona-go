@@ -181,6 +181,10 @@ type env struct {
 	open func() (store.Store, error)
 	// keyringSlow and keyringTimeout override the defaults when set.
 	keyringSlow, keyringTimeout time.Duration
+	// bio and bioOn, when bio is set, give the manager the Touch ID item and
+	// the setting that says the token is in it (biometric_test.go).
+	bio   store.BiometricKeychain
+	bioOn *atomic.Bool
 }
 
 func newEnv(t *testing.T) *env {
@@ -194,11 +198,16 @@ func (e *env) manager(t *testing.T) (*Manager, *recorder) {
 	if open == nil {
 		open = func() (store.Store, error) { return e.store, nil }
 	}
-	m, err := NewManager(Config{
+	cfg := Config{
 		HTTP: e.apple.srv.Client(), Dev: e.dev, Open: open, Accounts: e.accounts,
 		APIBase: e.apple.srv.URL, RetryMin: 5 * time.Millisecond, RetryMax: 20 * time.Millisecond,
 		TriageCooldown: time.Millisecond, KeyringSlow: e.keyringSlow, KeyringTimeout: e.keyringTimeout,
-	})
+	}
+	if e.bio != nil {
+		cfg.Biometric, cfg.BiometricOn = e.bio, e.bioOn.Load
+		cfg.SetBiometricOn = func(on bool) error { e.bioOn.Store(on); return nil }
+	}
+	m, err := NewManager(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

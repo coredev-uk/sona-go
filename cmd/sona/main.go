@@ -62,6 +62,10 @@ var version = "dev"
 // first paint.
 const paintFallback = 10 * time.Second
 
+// msgTouchIDPrompt is the reason macOS shows in the Touch ID prompt that
+// unlocks the stored sign-in.
+const msgTouchIDPrompt l10n.Message = "Unlock Sona"
+
 func main() {
 	// The CDM host re-executes this binary as its child process; in the
 	// child this never returns. It must run before anything else.
@@ -173,6 +177,13 @@ func run(started time.Time) error {
 		HTTP: httpClient, Dev: dev,
 		Open:     func() (store.Store, error) { return store.Open(paths.Config, log) },
 		Accounts: services.AccountStore{DB: d}, Logger: log,
+		// Touch ID unlock (macOS, signed builds): the keychain item and the setting that says where the token is.
+		Biometric:   store.SystemBiometric(func() string { return lang.Printer().T(msgTouchIDPrompt) }),
+		BiometricOn: func() bool { return settings.Get().Unlock.TouchID },
+		SetBiometricOn: func(on bool) error {
+			_, err := settings.Update(func(s *config.Settings) { s.Unlock.TouchID = on })
+			return err
+		},
 	})
 	if err != nil {
 		return err

@@ -28,6 +28,9 @@ func (r *KeyringRetry) Build(c *ui.Context, status services.AuthStatus) {
 		return
 	}
 	label := i18n.T("Try again")
+	if status.Keyring == "locked" {
+		label = i18n.T("Try Touch ID again")
+	}
 	if trying {
 		label = i18n.T("Trying…")
 	}
@@ -36,7 +39,7 @@ func (r *KeyringRetry) Build(c *ui.Context, status services.AuthStatus) {
 		// aria-disabled: MyGo has no focusable-but-disabled state, so the
 		// button stays enabled (the focus stays on it), ignores the press and
 		// says why.
-		opts.Reason = kit.KeyringWords(r.d.OS).Waiting
+		opts.Reason = waitingWords(r.d.OS, status)
 	}
 	if kit.Button(c.Key("keyring-retry"), label, opts).Clicked() && !trying {
 		r.asked = true
@@ -55,19 +58,24 @@ func (s *Section) keyringNotice(c *ui.Context, st services.AuthStatus) {
 		if st.Keyring != "waiting" {
 			return
 		}
-	} else if st.Keyring != "unavailable" && !st.Unencrypted {
+	} else if st.Keyring != "unavailable" && st.Keyring != "locked" && !st.Unencrypted {
 		return
 	}
 	retry := func() { s.retry.Build(c, st) }
 	if restoring {
 		notice(c, noticeOpts{Spin: true}, func() {
 			noticeTitle(c, i18n.T("Signing in…"))
-			noticeDetail(c, kit.KeyringWords(s.d.OS).Waiting)
+			noticeDetail(c, waitingWords(s.d.OS, st))
 		}, retry)
 		return
 	}
 	// A problem found on arrival, not caused by the user's last action: a status, not an alert.
 	notice(c, noticeOpts{Icon: "shield-alert", IconColor: "danger", Problem: true}, func() {
+		if st.Keyring == "locked" {
+			noticeTitle(c, i18n.T("Touch ID didn't unlock Sona"))
+			noticeDetail(c, i18n.T("You're signed out until it does. Try Touch ID again, or sign in with your Apple Account."))
+			return
+		}
 		if st.Keyring == "unavailable" {
 			noticeTitle(c, i18n.T("Sona couldn't read your sign-in from your keyring"))
 			noticeDetail(c, kit.KeyringWords(s.d.OS).Refused)
@@ -76,4 +84,13 @@ func (s *Section) keyringNotice(c *ui.Context, st services.AuthStatus) {
 		noticeTitle(c, i18n.T("Signing in now stores your token unencrypted"))
 		noticeDetail(c, kit.KeyringWords(s.d.OS).NotOpened)
 	}, retry)
+}
+
+// waitingWords is what a stored sign-in being read waits for: the Touch ID
+// prompt when the token is kept behind it, else the keyring.
+func waitingWords(goos string, st services.AuthStatus) string {
+	if st.BiometricUnlock {
+		return i18n.T("Sona is waiting for Touch ID to unlock your sign-in.")
+	}
+	return kit.KeyringWords(goos).Waiting
 }

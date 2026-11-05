@@ -151,6 +151,15 @@ every cgo object. A `go build -ldflags=…` of your own replaces GOFLAGS'
 `-ldflags`; add `-extldflags=-mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET`
 to it (`build/darwin/Taskfile.yml` does).
 
+Touch ID unlock (Settings → Account) needs a Sona signed with a Developer ID, a team
+ID and the `keychain-access-groups` entitlement, so it is reported unsupported in
+`bin/sona` and in the ad-hoc release build, whose account view says so. To try it on a
+signed build: `SONA_SIGN_IDENTITY="Developer ID Application: Name (TEAMID)"
+SONA_TEAM_ID=TEAMID build/darwin/bundle.sh bin/macos` (optionally
+`SONA_PROVISIONING_PROFILE=<path>`), then the manual check in `docs/auth.md` §7.1. The
+flow itself is tested on every OS against a fake Keychain item
+(`internal/auth/biometric_test.go`).
+
 The app builds and runs on macOS from source as an unsigned `bin/sona` (no
 Apple Developer account, no `.app` bundle; the release's `Sona.app` and `.dmg`
 come from `build/darwin/bundle.sh`, with GStreamer bundled): its UI,

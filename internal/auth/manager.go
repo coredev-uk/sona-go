@@ -49,6 +49,9 @@ const (
 	// failed, or didn't answer within Config.KeyringTimeout), so the state is
 	// signed_out; RetryKeyring reads it again. A late answer still applies.
 	KeyringUnavailable KeyringState = "unavailable"
+	// KeyringLocked: the Touch ID prompt (Config.Biometric) was cancelled
+	// or didn't match, so the state is signed_out; RetryKeyring asks again.
+	KeyringLocked KeyringState = "locked"
 )
 
 // Errors reported by validation and sign-in.
@@ -71,6 +74,11 @@ var (
 	// ErrKeyringTimeout is a token store that didn't answer within
 	// Config.KeyringTimeout; it wraps ErrKeyring.
 	ErrKeyringTimeout = fmt.Errorf("%w: no answer", ErrKeyring)
+	// ErrBiometricReset is the stored token's Touch ID protection ending
+	// (the enrolled fingerprints changed, or the item is gone): the token
+	// is deleted, Touch ID unlock turned off, and Sona signed out. It wraps
+	// ErrKeyring.
+	ErrBiometricReset = fmt.Errorf("%w: Touch ID unlock ended", ErrKeyring)
 )
 
 // Account is the non-secret metadata cached for the signed-in account.
@@ -149,6 +157,15 @@ type Config struct {
 	// gives up to signed_out (Keyring unavailable), a sign-in fails with
 	// ErrKeyringTimeout, a sign-out reports it; default 30s.
 	KeyringTimeout time.Duration
+
+	// Biometric is the Touch ID Keychain item (nil: no Touch ID unlock, as
+	// off macOS). BiometricOn and SetBiometricOn read and persist the
+	// "Use Touch ID to unlock Sona" setting; the manager keeps the token in
+	// Biometric while it is on and in Open's store otherwise. All three are
+	// set together or not at all.
+	Biometric      store.BiometricKeychain
+	BiometricOn    func() bool
+	SetBiometricOn func(bool) error
 }
 
 type hook struct {
@@ -245,10 +262,12 @@ func NewManager(cfg Config) (*Manager, error) {
 		log = slog.New(slog.DiscardHandler)
 	}
 	ctx, stop := context.WithCancel(context.Background())
-	return &Manager{
+	m := &Manager{
 		cfg: cfg, log: log, ctx: ctx, stop: stop,
-		vault: newVault(cfg.Open), st: Status{State: StateRestoring},
-	}, nil
+		st: Status{State: StateRestoring},
+	}
+	m.vault = newVault(m.openStore)
+	return m, nil
 }
 
 // Close cancels a pending sign-in, background validation and every wait
@@ -376,7 +395,7 @@ func (m *Manager) Start() {
 func (m *Manager) RetryKeyring() {
 	m.mu.Lock()
 	retry := m.started && m.st.State == StateSignedOut && m.cancelAttempt == nil &&
-		(m.st.Keyring == KeyringUnavailable || m.vault.Backend() == store.BackendFile)
+		(m.st.Keyring == KeyringUnavailable || m.st.Keyring == KeyringLocked || m.vault.Backend() == store.BackendFile)
 	m.mu.Unlock()
 	if retry {
 		m.restore(true)
@@ -440,6 +459,21 @@ func (m *Manager) restore(fresh bool) {
 func (m *Manager) restored(id uint64, rec store.Record, err error) {
 	current := func() bool { return m.restoring == id }
 	switch {
+	case errors.Is(err, store.ErrBiometricDenied):
+		m.update(func() bool {
+			if !current() {
+				return false
+			}
+			m.restoring = 0
+			m.st = Status{State: StateSignedOut, Keyring: KeyringLocked, LastError: err.Error(), LastCause: fmt.Errorf("%w: %w", ErrKeyring, err)}
+			return true
+		})
+		m.log.Info("Touch ID didn't unlock the stored token; signed out until asked again", "err", err)
+		return
+	case errors.Is(err, store.ErrBiometricInvalidated),
+		errors.Is(err, store.ErrNotFound) && m.vault.Backend() == store.BackendKeychainBiometric:
+		m.biometricReset(id, err)
+		return
 	case errors.Is(err, store.ErrNotFound):
 		m.update(func() bool {
 			if !current() {
@@ -1016,6 +1050,12 @@ func (m *Manager) SignOut(ctx context.Context) error {
 	del := m.vault.do(false, func(s store.Store) error { return s.Delete() })
 	if err := await(ctx, del, m.cfg.KeyringSlow, m.cfg.KeyringTimeout, nil); err != nil {
 		errs = append(errs, fmt.Errorf("delete stored token: %w", err))
+	} else if m.biometricOn() {
+		// The item is gone: the next sign-in starts on the login Keychain
+		// and offers Touch ID again.
+		if err := m.leaveBiometric(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if err := m.cfg.Accounts.Delete(ctx); err != nil {
 		errs = append(errs, fmt.Errorf("delete account: %w", err))

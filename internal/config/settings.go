@@ -87,6 +87,8 @@ type Settings struct {
 	// LyricsView is the lyrics view's Translation and Pronunciation choices
 	// (lyricsview.go).
 	LyricsView LyricsView `json:"lyricsView"`
+	// Unlock is the Touch ID unlock of the stored sign-in (unlock.go).
+	Unlock Unlock `json:"unlock"`
 }
 
 // Scrobbling holds the non-secret part of the scrobbler connections.
