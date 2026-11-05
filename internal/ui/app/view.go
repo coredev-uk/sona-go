@@ -18,16 +18,19 @@ import (
 // over the whole window. Only the page area scrolls (each page owns its
 // scroll container, which its virtualised lists need).
 func (a *App) view(c *ui.Context) {
-	c.Root().Direction(a.direction())
+	dir := a.direction()
+	c.Root().Direction(dir)
+	a.swipe.RightToLeft = dir == ui.RightToLeft
 	theme.Apply(c)
 	a.rememberRoute(c)
 
-	layerOpen, overlayOpen := a.layerOpen(), a.overlayOpen()
+	overlayOpen := a.overlayGivesWay()
+	layerOpen := a.layerOpen()
 	if !layerOpen {
 		a.keys.dispatch(c)
 	}
 
-	root := ui.Column(c).Fill().Background(theme.C("ground")).IgnoreInput(layerOpen)
+	root := ui.Column(c).Fill().Background(theme.C("ground")).IgnoreInput(layerOpen).HandleInput(a.swipe.Input)
 	endPass := a.env.Art.Pass(c)
 	root.Draw(func(p *ui.Painter, _ ui.Rect) {
 		a.paintOnce.Do(a.painted)

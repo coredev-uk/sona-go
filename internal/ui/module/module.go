@@ -265,6 +265,11 @@ type Slots struct {
 type Overlay struct {
 	Open  func() bool
 	Build func(c *ui.Context)
+	// Close, when set, closes the overlay. The shell calls it when the page
+	// changes while the overlay is open (the history's buttons and keys, a
+	// swipe, a link): the page that came is behind the overlay, where
+	// nothing shows it.
+	Close func()
 }
 
 // Module is a feature as the shell sees it.
