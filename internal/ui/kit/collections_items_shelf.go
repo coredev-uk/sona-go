@@ -82,16 +82,23 @@ func ItemShelf(c *ui.Context, st *CoverShelfState, title string, items []service
 			st.cols = n
 			c.Invalidate() // the toggle depends on how many fit
 		}}
-		// Build only the tiles that show: a row, or every one when open.
-		n := len(items)
+		// Build only the tiles that show: a row, or every one when open; and
+		// a row more of covers only, which CoverRow has the loader decode
+		// ahead.
+		shown, n := len(items), len(items)
 		if st.Open {
 			ro.Rows = -1
 		} else if st.cols > 0 {
-			n = min(n, st.cols*rows)
+			shown = min(shown, st.cols*rows)
+			n = min(n, st.cols*(rows+1))
 		}
 		tiles := make([]CoverItem, n)
 		for i := range tiles {
-			tiles[i] = CoverItemOf(items[i], ctx, i)
+			if i < shown {
+				tiles[i] = CoverItemOf(items[i], ctx, i)
+			} else {
+				tiles[i] = itemAheadTile(items[i])
+			}
 		}
 		CoverRow(c, &st.Row, tiles, ro)
 	})
@@ -152,5 +159,12 @@ func ItemGrid(c *ui.Context, st *ItemGridState, count int, at func(i int) *servi
 		return t
 	}
 	g := CoverGridOpts{CoverOpts: ctx.coverOpts(o.Label, o.Min, video), Pane: o.Pane, OnRange: o.OnRange}
+	g.Ahead = func(i int) *CoverItem {
+		if it := at(i); it != nil {
+			t := itemAheadTile(*it)
+			return &t
+		}
+		return nil
+	}
 	CoverGrid(c, &st.CoverState, count, tile, g)
 }

@@ -25,6 +25,10 @@ type CoverGridOpts struct {
 	// OnRange reports the tiles built, first to last (inclusive), when they
 	// change: for paged loading.
 	OnRange func(start, end int)
+	// Ahead returns tile i with at least its Art, Round and Video, for the
+	// covers the grid has the loader decode before their rows are built: a
+	// cheaper stand-in for at. Nil: at.
+	Ahead func(i int) *CoverItem
 }
 
 // CoverGrid is a grid of cover tiles (v0.2.0's CoverGrid): tiles at least
@@ -38,8 +42,9 @@ type CoverGridOpts struct {
 //
 // The grid takes the width of its parent and its height from its rows. In a
 // pane with more than VirtualFrom items it builds only the rows in view and
-// three beyond; the scroll position keeps the same tiles at the top when the
-// columns change with the width.
+// three beyond, and has the loader decode the covers of the two rows after
+// those; the scroll position keeps the same tiles at the top when the columns
+// change with the width.
 func CoverGrid(c *ui.Context, st *CoverState, count int, at func(i int) *CoverItem, o CoverGridOpts) {
 	root := ui.Column(c.Key("kit.grid")).FillWidth().Role(ui.RoleTable).Label(o.Label)
 	root.Draw(func(_ *ui.Painter, r ui.Rect) {
@@ -113,6 +118,19 @@ func CoverGrid(c *ui.Context, st *CoverState, count int, at func(i int) *CoverIt
 		}
 		if gap := rows - 1 - prev; gap > 0 && len(built) > 0 {
 			ui.Box(c.Key(gapKey(rows))).Height(float32(gap) * rowH)
+		}
+		if virtual {
+			// The rows just past the built ones: their covers decode before
+			// a scroll brings them in.
+			ahead := at
+			if o.Ahead != nil {
+				ahead = o.Ahead
+			}
+			for r := winLast + 1; r <= min(rows-1, winLast+coverAhead); r++ {
+				for i := r * cols; i < min(count, (r+1)*cols); i++ {
+					st.prefetch(c, &o.CoverOpts, ahead(i), tile)
+				}
+			}
 		}
 		st.nav.Tick(c)
 		st.Sel.OutsidePress(root)

@@ -79,10 +79,7 @@ func containBox(w, h, aspect float32) (float32, float32) {
 // it fails (it is asked for again after 5 s and 30 s). The CPU copy of the
 // pixels is dropped once the cover has been drawn twice.
 func Artwork(c *ui.Context, l *ArtLoader, src string, size float32, o ArtOpts) ui.Element {
-	w, h := size, size
-	if o.Aspect > 0 {
-		h = size / o.Aspect
-	}
+	w, h := artBox(size, o)
 	return artFrame(c, l, src, w, h, o, false)
 }
 
@@ -92,11 +89,42 @@ func Artwork(c *ui.Context, l *ArtLoader, src string, size float32, o ArtOpts) u
 // stays exact, and the box scales it down to the width it gets. The
 // placeholder glyph is 40% of size.
 func FluidArtwork(c *ui.Context, l *ArtLoader, src string, size float32, o ArtOpts) ui.Element {
-	w, h := size, size
+	w, h := artBox(size, o)
+	return artFrame(c, l, src, w, h, o, true)
+}
+
+// PrefetchArtwork has the loader fetch and decode the cover that Artwork would
+// show for the same arguments before anything shows it: a lead that is about to
+// rotate in, the tiles a list will scroll to. It builds nothing and draws
+// nothing. The cover comes after every cover on screen or built into the
+// page, and like them it is called off when a pass of the view does not ask
+// for it again: call it in the build, every pass, for as long as the cover is
+// worth having.
+func PrefetchArtwork(c *ui.Context, l *ArtLoader, src string, size float32, o ArtOpts) {
+	if l == nil {
+		return
+	}
+	w, h := artBox(size, o)
+	pw, ph := artPicture(src, w, h, o)
+	l.cover(l.view(c), rankAhead, src, pw, ph)
+}
+
+// artBox is the box of the width size that Artwork builds for o.
+func artBox(size float32, o ArtOpts) (w, h float32) {
+	w, h = size, size
 	if o.Aspect > 0 {
 		h = size / o.Aspect
 	}
-	return artFrame(c, l, src, w, h, o, true)
+	return w, h
+}
+
+// artPicture is the size the picture of src is asked for in a box of w×h: the
+// box, or for Contain the artwork's own shape inside it.
+func artPicture(src string, w, h float32, o ArtOpts) (float32, float32) {
+	if o.Contain {
+		return containBox(w, h, artAspect(src))
+	}
+	return w, h
 }
 
 func artFrame(c *ui.Context, l *ArtLoader, src string, w, h float32, o ArtOpts, fluid bool) ui.Element {
@@ -109,20 +137,23 @@ func artFrame(c *ui.Context, l *ArtLoader, src string, w, h float32, o ArtOpts, 
 		radius = tk.Radius["full"]
 	}
 
-	// The picture is asked for at the box, or for Contain at the artwork's
-	// own shape inside it.
-	pw, ph := w, h
-	if o.Contain {
-		pw, ph = containBox(w, h, artAspect(src))
-	}
-	cv := l.cover(src, pw, ph)
 	box := ui.Box(c).Radius(radius).ClipX().ClipY()
+	// The picture is asked for at the box, or for Contain at the artwork's
+	// own shape inside it. It is wanted first when the box showed in the
+	// last frame.
+	pw, ph := artPicture(src, w, h, o)
+	r := rankBuilt
+	if box.InView() {
+		r = rankView
+	}
+	v := l.view(c)
+	cv := l.cover(v, r, src, pw, ph)
 	if fluid {
 		box.FillWidth().AspectRatio(w / h)
 	} else {
 		box.Size(w, h)
 	}
-	box.Draw(func(p *ui.Painter, _ ui.Rect) { l.noteScale(p.Scale()) })
+	box.Draw(func(p *ui.Painter, _ ui.Rect) { l.painted(v, p.Scale()) })
 	if o.A11yLabel != "" {
 		box.Label(o.A11yLabel)
 	}

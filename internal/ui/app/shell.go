@@ -184,7 +184,10 @@ func (a *App) newMiniWindow() native {
 func (a *App) miniView(c *ui.Context) {
 	c.Root().Direction(a.direction())
 	theme.Apply(c)
-	ui.Column(c).Fill().Background(theme.C("surface")).Children(func() {
+	root := ui.Column(c).Fill().Background(theme.C("surface"))
+	endPass := a.env.Art.Pass(c)
+	root.Draw(func(p *ui.Painter, _ ui.Rect) { endPass(p) })
+	root.Children(func() {
 		if a.mini != nil {
 			a.mini(c)
 		}

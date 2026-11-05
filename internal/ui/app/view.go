@@ -28,7 +28,11 @@ func (a *App) view(c *ui.Context) {
 	}
 
 	root := ui.Column(c).Fill().Background(theme.C("ground")).IgnoreInput(layerOpen)
-	root.Draw(func(*ui.Painter, ui.Rect) { a.paintOnce.Do(a.painted) })
+	endPass := a.env.Art.Pass(c)
+	root.Draw(func(p *ui.Painter, _ ui.Rect) {
+		a.paintOnce.Do(a.painted)
+		endPass(p)
+	})
 	root.Children(func() {
 		ui.Row(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 			if a.sidebar {
