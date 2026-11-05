@@ -13,11 +13,15 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
 pkg=$1
 out=${2:-$root/build/linux/arch}
-pkgver=$(<"$root/VERSION")
+# The release's version (0.3.0, 0.3.0-rc.1) names the files; Arch's pkgver
+# may not hold a hyphen, so a prerelease's becomes 0.3.0_rc.1, which vercmp
+# orders before 0.3.0.
+ver=$(<"$root/VERSION")
+pkgver=${ver//-/_}
 pkgrel=1
 
-[[ $(basename "$pkg") == "sona-$pkgver-1-x86_64.pkg.tar.zst" ]] ||
-  { echo "update.sh: $pkg is not the $pkgver Arch package" >&2; exit 1; }
+[[ $(basename "$pkg") == "sona-$ver-1-x86_64.pkg.tar.zst" ]] ||
+  { echo "update.sh: $pkg is not the $ver Arch package" >&2; exit 1; }
 sha=$(sha256sum "$pkg" | cut -d' ' -f1)
 mkdir -p "$out"
 
@@ -26,7 +30,7 @@ depends=(gtk3 libepoxy libglvnd libayatana-appindicator at-spi2-core libsecret l
 optdepends=(
   "gst-plugin-pipewire: native PipeWire audio output (pulsesink otherwise)"
 )
-source_url="https://github.com/coredev-uk/sona-go/releases/download/v\${pkgver}/sona-\${pkgver}-1-x86_64.pkg.tar.zst"
+source_url="https://github.com/coredev-uk/sona-go/releases/download/v\${_ver}/sona-\${_ver}-1-x86_64.pkg.tar.zst"
 
 q() { printf "'%s' " "$@"; }
 
@@ -42,6 +46,7 @@ cat >"$out/PKGBUILD" <<EOF
 
 pkgname=sona-bin
 pkgver=$pkgver
+_ver=$ver
 pkgrel=$pkgrel
 pkgdesc='Apple Music for the Linux desktop'
 arch=('x86_64')
@@ -56,11 +61,11 @@ conflicts=('sona')
 # The release binary is already stripped; there is nothing to split out.
 options=('!strip' '!debug')
 source=("$source_url")
-noextract=("sona-\${pkgver}-1-x86_64.pkg.tar.zst")
+noextract=("sona-\${_ver}-1-x86_64.pkg.tar.zst")
 sha256sums=('$sha')
 
 package() {
-  bsdtar -xf "sona-\${pkgver}-1-x86_64.pkg.tar.zst" -C "\$pkgdir" usr
+  bsdtar -xf "sona-\${_ver}-1-x86_64.pkg.tar.zst" -C "\$pkgdir" usr
   install -Dm644 "\$pkgdir/usr/share/doc/sona/LICENSE.chromium" "\$pkgdir/usr/share/licenses/\$pkgname/LICENSE.chromium"
 }
 EOF
@@ -77,9 +82,9 @@ EOF
   printf '\toptdepends = %s\n' "${optdepends[@]}"
   printf '\tprovides = sona\n'
   printf '\tconflicts = sona\n'
-  printf '\tnoextract = sona-%s-1-x86_64.pkg.tar.zst\n' "$pkgver"
+  printf '\tnoextract = sona-%s-1-x86_64.pkg.tar.zst\n' "$ver"
   printf '\toptions = %s\n' '!strip' '!debug'
-  printf '\tsource = %s\n' "https://github.com/coredev-uk/sona-go/releases/download/v$pkgver/sona-$pkgver-1-x86_64.pkg.tar.zst"
+  printf '\tsource = %s\n' "https://github.com/coredev-uk/sona-go/releases/download/v$ver/sona-$ver-1-x86_64.pkg.tar.zst"
   printf '\tsha256sums = %s\n' "$sha"
   echo
   echo "pkgname = sona-bin"
