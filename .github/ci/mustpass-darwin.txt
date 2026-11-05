@@ -1,0 +1,3 @@
+# mustpass.txt for macOS: the CDM tests run, and the sandbox is Seatbelt.
+internal/playback/widevine TestCDM.*|TestProbe.*|TestSessionChallenge
+internal/playback/cdmhost TestCDM.*|TestProbe.*|TestSessionChallenge|TestSeatbeltConfinesChild

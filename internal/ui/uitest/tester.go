@@ -51,11 +51,23 @@ func Tester(t testing.TB, env *module.Env, view func(*ui.Context), w, h int) *Se
 // Until runs what was posted and draws frames until ok holds, waiting for
 // the service calls and cover decodes that run on goroutines. It fails the
 // test after 10 s, naming what it waited for and the texts shown.
+//
+// It draws a frame when the picture can have changed (the first time, when
+// something was posted, when a frame is pending) and otherwise at least
+// every 50 ms, for state that reaches the view without a post (a toast a
+// goroutine raises through MyGo, a value read under a lock). It sleeps in
+// MainThread.Wait, which returns the moment a goroutine posts: a frame costs
+// milliseconds under -race, and drawing one every 5 ms while a goroutine
+// decodes a cover took that goroutine's CPU.
 func (tt *Session) Until(what string, ok func() bool) {
 	tt.T.Helper()
-	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
-		tt.H.Main.Drain()
-		tt.Frame()
+	const idleFrame = 50 * time.Millisecond
+	var last time.Time
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); tt.H.Main.Wait(5 * time.Millisecond) {
+		if n := tt.H.Main.Drain(); last.IsZero() || n > 0 || tt.FramePending() || time.Since(last) >= idleFrame {
+			tt.Frame()
+			last = time.Now()
+		}
 		if ok() {
 			return
 		}

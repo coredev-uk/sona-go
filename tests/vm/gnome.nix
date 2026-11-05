@@ -87,7 +87,7 @@
             "Main.messageTray.getSources().find(s => s.title === 'Sona').notifications[0].activate()"
         )
         machine.wait_until_succeeds(f"grep -q 'action default' {out}", timeout=30)
-        user("systemctl --user stop notifyprobe")
+        user("systemctl --user stop notifyprobe || true")  # cleanup only: the probe may have reached its -hold already
 
     with subtest("D8: single instance"):
         check_single_instance()

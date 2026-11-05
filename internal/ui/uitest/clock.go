@@ -38,13 +38,47 @@ func (c *Clock) Advance(d time.Duration) {
 type MainThread struct {
 	mu sync.Mutex
 	q  []func()
+	// wake holds one token while something was posted since the last Wait.
+	wake chan struct{}
+}
+
+func (m *MainThread) wakeCh() chan struct{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.wake == nil {
+		m.wake = make(chan struct{}, 1)
+	}
+	return m.wake
 }
 
 // Post queues fn (the store.Poster).
 func (m *MainThread) Post(fn func()) {
 	m.mu.Lock()
 	m.q = append(m.q, fn)
+	if m.wake == nil {
+		m.wake = make(chan struct{}, 1)
+	}
+	w := m.wake
 	m.mu.Unlock()
+	select {
+	case w <- struct{}{}:
+	default:
+	}
+}
+
+// Wait blocks until something is posted, or max has passed, and reports
+// whether something was: a test waiting on a goroutine wakes the moment the
+// goroutine posts its result instead of sleeping a fixed interval.
+func (m *MainThread) Wait(max time.Duration) bool {
+	w := m.wakeCh()
+	t := time.NewTimer(max)
+	defer t.Stop()
+	select {
+	case <-w:
+		return true
+	case <-t.C:
+		return false
+	}
 }
 
 // Drain runs the queued functions, and those they queue, in order, and

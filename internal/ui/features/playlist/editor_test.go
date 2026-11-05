@@ -102,7 +102,11 @@ func TestEditorAltArrowsMoveTheSongAndKeepTheFocus(t *testing.T) {
 	if got := r.calls("MoveTrack"); !slices.Equal(got, []string{"MoveTrack p.1 0 1 a", "MoveTrack p.1 1 0 a"}) {
 		t.Errorf("moves out of order: %v", got)
 	}
+	// The count drops before the last answer is posted to the main loop: wait
+	// for the page to show it, then for the order to stay.
 	r.tt.Until("the edits done", func() bool { return !r.p.edits.editing("p.1") })
+	r.tt.Until("the final order", func() bool { return slices.Equal(r.order(abc...), abc) })
+	r.tt.Drain()
 	if got := r.order(abc...); !slices.Equal(got, abc) {
 		t.Errorf("final order %v", got)
 	}

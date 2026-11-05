@@ -603,9 +603,13 @@ func lyricsShowLoadingThenFail(t *testing.T) {
 	asks := r.lyrics.asks()
 	// No retry on its own while the failure is shown (v0.2.0's retry: false):
 	// a query that failed is asked again after 5 s when it is on screen, so
-	// the bubble's clock runs a minute with the page drawn after it.
-	time.Sleep(time.Minute)
-	r.tt.Quiesce()
+	// the bubble's clock runs a minute with the page drawn every half second
+	// (a page left undrawn for longer than the store's mount gap is mounted
+	// again, which asks again by design).
+	for range 120 {
+		time.Sleep(500 * time.Millisecond)
+		r.tt.Quiesce()
+	}
 	if r.lyrics.asks() != asks {
 		t.Errorf("lyrics asked again by themselves: %d → %d", asks, r.lyrics.asks())
 	}

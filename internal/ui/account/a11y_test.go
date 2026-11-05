@@ -346,15 +346,16 @@ func TestCodeStepNoticeIsAnnounced(t *testing.T) {
 	r.tt.Announcements()
 	r.click("Send a new code")
 	r.waitCalls("resend", 1)
-	r.tt.Frame()
-	tr := access.Read(t, r.tt.Tester)
+	// The resend's answer is posted to the main loop: draw frames until the
+	// notice is up.
 	var notice string
-	for _, n := range tr.Roles(ui.RoleStatus) {
-		notice = n.Label
-	}
-	if notice == "" {
-		t.Fatalf("no status after sending a new code:\n%s", tr.Dump())
-	}
+	r.tt.Until("the code step's notice", func() bool {
+		notice = ""
+		for _, n := range access.Read(t, r.tt.Tester).Roles(ui.RoleStatus) {
+			notice = n.Label
+		}
+		return notice != ""
+	})
 	if got := r.tt.Announcements(); !slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, notice) }) {
 		t.Errorf("%q was not announced: %q", notice, got)
 	}

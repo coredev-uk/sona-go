@@ -9,6 +9,12 @@
 #   SONA_SKIP_SMOKE=1 build/linux/release/release.sh
 #   SONA_RELEASE_CACHE=~/.cache/sona-release build/linux/release/release.sh
 #
+# The build image is named by the hash of the Containerfile. It is taken from
+# the local store if it is there, else pulled from
+# ghcr.io/coredev-uk/sona-release:<hash> (.github/workflows/images.yml
+# publishes it when the Containerfile changes; SONA_RELEASE_IMAGE_REGISTRY
+# changes or empties the repository), and built here only if neither has it.
+#
 # The Go module and build caches live in the podman/docker
 # volume sona-release-cache, or in the directory SONA_RELEASE_CACHE names
 # (CI keeps that one with actions/cache).
@@ -28,7 +34,13 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
 out=$(realpath -m "${1:-$root/bin/release}")
 here="$root/build/linux/release"
-image=localhost/sona-release:ubuntu24.04
+if command -v sha256sum >/dev/null 2>&1; then
+  cfhash=$(sha256sum "$here/Containerfile" | cut -c1-16)
+else
+  cfhash=$(shasum -a 256 "$here/Containerfile" | cut -c1-16)
+fi
+image=localhost/sona-release:ubuntu24.04-$cfhash
+registry=${SONA_RELEASE_IMAGE_REGISTRY-ghcr.io/coredev-uk/sona-release}
 version=$(<"$root/VERSION")
 
 if command -v podman >/dev/null 2>&1; then
@@ -57,8 +69,15 @@ if [[ -n ${SONA_RELEASE_CACHE:-} ]]; then
   cache=$(realpath "$SONA_RELEASE_CACHE")
 fi
 
-pull docker.io/library/ubuntu:24.04
-"${engine[@]}" build "${policy[@]}" --pull=never -t "$image" -f "$here/Containerfile" "$here"
+if "${engine[@]}" image inspect "$image" >/dev/null 2>&1; then
+  echo "release: build image $image is in the local store"
+elif [[ -n $registry ]] && pull "$registry:$cfhash"; then
+  "${engine[@]}" tag "$registry:$cfhash" "$image"
+else
+  echo "release: building $image (no published image for this Containerfile)"
+  pull docker.io/library/ubuntu:24.04
+  "${engine[@]}" build "${policy[@]}" --pull=never -t "$image" -f "$here/Containerfile" "$here"
+fi
 
 mkdir -p "$out"
 rm -rf "$out"/sona[-_]* "$out/SHA256SUMS" "$out/aur"
@@ -101,13 +120,23 @@ if [[ ${SONA_SKIP_SMOKE:-} == 1 ]]; then
   exit 0
 fi
 
-smoke() { # image, kind
-  pull "$1"
-  echo "release: smoke test ($2) on $1"
-  "${engine[@]}" run --rm -e SONA_VERSION="$version" -v "$out:/pkg:ro" -v "$here/smoke.sh:/smoke.sh:ro" "$1" bash /smoke.sh "$2"
+smoke() { # image, kind: output prefixed with the kind, the runs being parallel
+  {
+    pull "$1"
+    echo "release: smoke test ($2) on $1"
+    "${engine[@]}" run --rm -e SONA_VERSION="$version" -v "$out:/pkg:ro" -v "$here/smoke.sh:/smoke.sh:ro" "$1" bash /smoke.sh "$2"
+  } 2>&1 | sed -u "s/^/[$2] /"
 }
-smoke docker.io/library/ubuntu:24.04 deb
-smoke registry.fedoraproject.org/fedora:45 rpm
-smoke registry.fedoraproject.org/fedora:45 appimage
-smoke docker.io/library/archlinux:latest arch
+# Each package is smoke-tested on its own clean container, side by side.
+pids=()
+smoke docker.io/library/ubuntu:24.04 deb & pids+=($!)
+smoke registry.fedoraproject.org/fedora:45 rpm & pids+=($!)
+smoke registry.fedoraproject.org/fedora:45 appimage & pids+=($!)
+smoke docker.io/library/archlinux:latest arch & pids+=($!)
+failed=0
+for pid in "${pids[@]}"; do wait "$pid" || failed=1; done
+if [[ $failed == 1 ]]; then
+  echo "release: a smoke test failed" >&2
+  exit 1
+fi
 echo "release: all smoke tests passed; packages in $out"

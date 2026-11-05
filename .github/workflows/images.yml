@@ -1,0 +1,53 @@
+# The Linux release build image (build/linux/release/Containerfile), built once
+# and published to GHCR as ghcr.io/coredev-uk/sona-release:<hash of the
+# Containerfile>, so a release run pulls it (about a minute faster than the
+# three it takes to build). release.sh builds it itself when the pull finds no
+# image, so a Containerfile change reaches a release even before this
+# workflow has published it.
+#
+# Runs when the Containerfile changes on main, weekly (the image holds Ubuntu
+# 24.04's packages as of its build, so a rebuild picks up their updates), and
+# when dispatched.
+name: Images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - build/linux/release/Containerfile
+      - .github/workflows/images.yml
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: images
+  cancel-in-progress: false
+
+jobs:
+  release-image:
+    name: Release build image
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write # push the image
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build and push the image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          hash=$(sha256sum build/linux/release/Containerfile | cut -c1-16)
+          image=ghcr.io/coredev-uk/sona-release:$hash
+          printf '%s' "$GH_TOKEN" | podman login ghcr.io -u "$ACTOR" --password-stdin
+          podman build --pull=always -t "$image" -f build/linux/release/Containerfile build/linux/release
+          podman push "$image"
+          echo "### Pushed $image" >>"$GITHUB_STEP_SUMMARY"

@@ -9,6 +9,10 @@
 # the libraries. Used by build/linux/release/release.sh; not for development.
 FROM docker.io/library/ubuntu:24.04
 
+# Links the published image (ghcr.io/coredev-uk/sona-release) to this
+# repository, so its workflows may pull it.
+LABEL org.opencontainers.image.source="https://github.com/coredev-uk/sona-go"
+
 ARG GO_VERSION=1.27.3
 
 ENV DEBIAN_FRONTEND=noninteractive

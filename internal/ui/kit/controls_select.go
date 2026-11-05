@@ -175,7 +175,7 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 					}
 					item := sel.Item(it.Value).Lang(it.Lang)
 					if it.Value == *value {
-						align.measure(panel, item, trigger)
+						align.measure(c, panel, item, trigger)
 					}
 					controlsOption(c, selectRadio(item, it.Label, it.Value == *value), it.Label, item.Highlighted(), it.Value == *value, false)
 				}
@@ -222,12 +222,18 @@ func (a *selectAlign) place(c *ui.Context, panel, trigger ui.Element, placeholde
 	}
 }
 
-func (a *selectAlign) measure(panel, option, trigger ui.Element) {
+func (a *selectAlign) measure(c *ui.Context, panel, option, trigger ui.Element) {
 	pb, ob, tb := panel.Bounds(), option.Bounds(), trigger.Bounds()
 	if a.settled || pb.H == 0 || ob.H == 0 || tb.H == 0 {
 		return
 	}
 	dy := (tb.H-ob.H)/2 - (ob.Y - pb.Y)
+	// The window's edge moves the panel back in: a trigger near the top has
+	// no room above it for the options before the chosen one.
+	_, wh := c.Size()
+	const edge = 4
+	top := min(max(tb.Y+dy, edge), max(wh-pb.H-edge, edge))
+	dy = top - tb.Y
 	a.settled = a.seen && dy == a.dy
 	a.dy, a.seen = dy, true
 }

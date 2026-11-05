@@ -540,7 +540,11 @@ func TestNoRetryKeepsTheErrorUntilInvalidateOrRemount(t *testing.T) {
 	}
 	// Invalidate asks again.
 	cl.Invalidate(Key{"q"})
-	eventually(t, "the refetch after Invalidate", func() bool { return runs.Load() == 2 })
+	// Wait for the fetch to finish, not just start: a mount while it is in
+	// flight asks nothing, and nothing would ask again.
+	eventually(t, "the refetch after Invalidate", func() bool {
+		return runs.Load() == 2 && !Use(cl, Key{"q"}, fetch, o).Fetching
+	})
 	// So does a view that mounts it again after a gap.
 	clk.advance(10 * time.Second)
 	Use(cl, Key{"q"}, fetch, o)

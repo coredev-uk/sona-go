@@ -99,7 +99,7 @@
         start_notifyprobe()
         machine.wait_for_text("VM Song Two", timeout=120)
         machine.screenshot("plasma-notification")
-        user("systemctl --user stop notifyprobe")
+        user("systemctl --user stop notifyprobe || true")  # cleanup only: the probe may have reached its -hold already
 
     with subtest("D8: single instance"):
         check_single_instance()
