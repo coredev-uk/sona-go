@@ -23,6 +23,10 @@ func TestCodecPrefersAVCOverHEVCAndFallsBackToHEVCOnly(t *testing.T) {
 		{"only HEVC decodes", set("h265parse", hevc), "hevc"},
 		{"H.264 without its parser falls to HEVC", set(avc, "h265parse", hevc), "hevc"},
 		{"a parser alone decodes nothing", set("h264parse", "h265parse"), ""},
+		// The pipeline skips NVIDIA's NVDEC (motion_select: its CUDA context maps
+		// 70 MB for a 486 px loop), so a machine whose only decoder is NVDEC must
+		// not report motion and then fail to open it.
+		{"NVDEC alone is not a decoder", set("h264parse", "nvh264dec", "nvh264sldec", "h265parse", "nvh265dec", "nvh265sldec"), ""},
 		{"no MP4 demuxer: no motion at all", func(f string) bool {
 			return f != "qtdemux" && (f == "h264parse" || f == avc || f == "appsink" || f == "decodebin" || f == "videoconvert")
 		}, ""},

@@ -209,8 +209,8 @@ func (l *ArtLoader) work() {
 		if !ok {
 			return
 		}
-		bmp, tiny, err := l.load(j.ctx, j.key, j.template)
+		d, err := l.load(j.ctx, j.key, j.template)
 		l.done(j)
-		l.post(func() { l.finish(j.cv, j.gen, bmp, tiny, err) })
+		l.post(func() { l.finish(j.cv, j.gen, d, err) })
 	}
 }

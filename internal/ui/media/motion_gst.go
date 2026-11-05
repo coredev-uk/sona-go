@@ -32,15 +32,49 @@ static int motion_has(const char *name) {
 	return 1;
 }
 
+// MOTION_THREADS is how many threads libav decodes a motion loop with. The
+// element's own default is one per core, each holding a frame of its own in
+// flight (about 30 MB for a 16-core machine's 486 px loop, and the same
+// again in each thread's malloc arena): a loop this small decodes in a
+// couple of percent of one core.
+#define MOTION_THREADS 2
+
+// motion_threads limits the threads of any decoder the pipeline plugs that
+// has the property (libav's; VideoToolbox's has none).
+static void motion_threads(GstBin *bin, GstBin *sub, GstElement *el, gpointer data) {
+	(void)bin; (void)sub; (void)data;
+	if (g_object_class_find_property(G_OBJECT_GET_CLASS(el), "max-threads") != NULL)
+		g_object_set(el, "max-threads", MOTION_THREADS, NULL);
+}
+
+// motion_select keeps decodebin off NVIDIA's NVDEC decoders (the nvcodec
+// plugin): the first one opens a CUDA context, which maps about 70 MB of
+// pinned memory into the process and wakes the discrete GPU, to decode
+// artwork a CPU decodes in a few percent of one core. Every other decoder is
+// tried in decodebin's order. The names in `decoders` (Codec) leave them out
+// too, so a machine with nothing else has no motion rather than a failing
+// pipeline.
+// The values of decodebin's GstAutoplugSelectResult, which its public headers
+// do not carry.
+#define MOTION_SELECT_TRY 0
+#define MOTION_SELECT_SKIP 2
+
+static gint motion_select(GstElement *bin, GstPad *pad, GstCaps *caps, GstElementFactory *f, gpointer data) {
+	(void)bin; (void)pad; (void)caps; (void)data;
+	const gchar *plugin = gst_plugin_feature_get_plugin_name(GST_PLUGIN_FEATURE(f));
+	if (plugin != NULL && strcmp(plugin, "nvcodec") == 0) return MOTION_SELECT_SKIP;
+	return MOTION_SELECT_TRY;
+}
+
 // motion_open builds file ! decodebin ! videoconvert ! RGBA ! appsink. The
-// decoder is decodebin's choice by rank, so a hardware decoder (VA-API,
-// VideoToolbox) is used where its plugin is there, and the picture is
-// converted to system memory for the CPU copy into a MyGo bitmap.
+// decoder is decodebin's choice by rank (see motion_select), so a hardware
+// decoder (VA-API, VideoToolbox) is used where its plugin is there, and the
+// picture is converted to system memory for the CPU copy into a MyGo bitmap.
 static sona_motion *motion_open(const char *path, char **err) {
 	motion_init();
 	GError *e = NULL;
 	GstElement *p = gst_parse_launch(
-		"filesrc name=src ! decodebin ! videoconvert ! video/x-raw,format=RGBA ! "
+		"filesrc name=src ! decodebin name=dec ! videoconvert ! video/x-raw,format=RGBA ! "
 		"appsink name=sink sync=false max-buffers=2 drop=false", &e);
 	if (e != NULL) {
 		*err = g_strdup(e->message);
@@ -52,6 +86,10 @@ static sona_motion *motion_open(const char *path, char **err) {
 	GstElement *src = gst_bin_get_by_name(GST_BIN(p), "src");
 	g_object_set(src, "location", path, NULL);
 	gst_object_unref(src);
+	GstElement *dec = gst_bin_get_by_name(GST_BIN(p), "dec");
+	g_signal_connect(dec, "autoplug-select", G_CALLBACK(motion_select), NULL);
+	gst_object_unref(dec);
+	g_signal_connect(p, "deep-element-added", G_CALLBACK(motion_threads), NULL);
 	sona_motion *m = g_new0(sona_motion, 1);
 	m->pipe = p;
 	m->sink = gst_bin_get_by_name(GST_BIN(p), "sink");
@@ -171,15 +209,16 @@ const Supported = true
 
 // decoders are the element factories that decode each codec, by name: the
 // software ones (libav, OpenH264) and the hardware ones (VA, VideoToolbox,
-// NVIDIA, Direct3D, V4L2, Vulkan, Intel, AMD). decodebin picks among them by
-// rank.
+// Direct3D, V4L2, Vulkan, Intel, AMD). decodebin picks among them by rank.
+// NVIDIA's NVDEC (nvh264dec and its kin) is left out on purpose: the
+// pipeline skips it too (motion_select).
 var decoders = map[string][]string{
 	"avc": {
-		"avdec_h264", "openh264dec", "vah264dec", "vah264lpdec", "vtdec", "vtdec_hw", "nvh264dec", "nvh264sldec",
+		"avdec_h264", "openh264dec", "vah264dec", "vah264lpdec", "vtdec", "vtdec_hw",
 		"d3d11h264dec", "d3d12h264dec", "v4l2slh264dec", "v4l2h264dec", "vulkanh264dec", "qsvh264dec", "msdkh264dec", "amfh264dec",
 	},
 	"hevc": {
-		"avdec_h265", "vah265dec", "vah265lpdec", "vtdec", "vtdec_hw", "nvh265dec", "nvh265sldec",
+		"avdec_h265", "vah265dec", "vah265lpdec", "vtdec", "vtdec_hw",
 		"d3d11h265dec", "d3d12h265dec", "v4l2slh265dec", "v4l2h265dec", "vulkanh265dec", "qsvh265dec", "msdkh265dec", "amfh265dec",
 	},
 }

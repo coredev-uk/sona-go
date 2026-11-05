@@ -405,3 +405,68 @@ func TestLoaderStartsPrefetchingOnceTheLastCoverOnScreenIsDone(t *testing.T) {
 		t.Errorf("requests %v, want the cover on screen then the prefetch", got)
 	}
 }
+
+// The loader's memory is bounded by what the covers weigh, not by how many
+// there are: a library's Albums grid scrolled to its end (739 covers) used to
+// stay decoded, texture and JPEG, until the 800th cover.
+func TestLoaderDropsTheLeastRecentlyAskedCoversOverItsByteBudget(t *testing.T) {
+	src := &fakeArt{}
+	mt := newMainThread()
+	l := newArtLoader(src, mt.post, 1)
+	defer l.Close()
+	// Each 100×100 cover weighs its 40 000 pixel bytes and its JPEG: three of
+	// them fit, four do not.
+	l.maxBytes = 3*40_000 + 3_000
+	key := func(i int) artKey { return artKey{"/art/k" + strconv.Itoa(i) + "/x.jpg", 100, 100} }
+	ask := func(i int) {
+		t.Helper()
+		l.cover(nil, rankBuilt, "/art/k"+strconv.Itoa(i)+"/x.jpg", 100, 100)
+	}
+	ready := func() (n int) {
+		for _, cv := range l.covers {
+			if cv.state == coverReady {
+				n++
+			}
+		}
+		return n
+	}
+	load := func(i int) {
+		t.Helper()
+		ask(i)
+		mt.run(t, 1)
+		if cv := l.covers[key(i)]; cv == nil || cv.state != coverReady {
+			t.Fatalf("cover %d is not ready after its answer", i)
+		}
+	}
+	for i := range 3 {
+		load(i)
+	}
+	if l.bytes > l.maxBytes || ready() != 3 {
+		t.Fatalf("%d covers ready weighing %d, budget %d: three fit", ready(), l.bytes, l.maxBytes)
+	}
+	// Cover 0 is asked for again, so cover 1 is the least recently asked for
+	// when cover 3 comes over the budget.
+	ask(0)
+	load(3)
+	if l.covers[key(1)] != nil || l.covers[key(0)] == nil || l.covers[key(3)] == nil {
+		t.Errorf("covers kept: 0 %v, 1 %v, 2 %v, 3 %v; want 1 dropped (the oldest ask) and the rest kept down to 3/4 of the budget",
+			l.covers[key(0)] != nil, l.covers[key(1)] != nil, l.covers[key(2)] != nil, l.covers[key(3)] != nil)
+	}
+	for i := 4; i < 12; i++ {
+		load(i)
+		var sum int64
+		for _, cv := range l.covers {
+			if cv.state == coverReady {
+				sum += cv.cost
+			}
+		}
+		if l.bytes != sum || l.bytes > l.maxBytes {
+			t.Fatalf("after cover %d the loader counts %d bytes, the ready covers weigh %d, budget %d", i, l.bytes, sum, l.maxBytes)
+		}
+	}
+	if l.covers[key(11)] == nil || l.covers[key(2)] != nil {
+		t.Error("the newest cover must be kept and an old one dropped")
+	}
+	// A dropped cover comes back when asked for again.
+	load(2)
+}
