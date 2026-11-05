@@ -252,7 +252,7 @@ jobs:
     name: Build and smoke-test macOS
     needs: plan
     if: ${{ !cancelled() && needs.plan.result == 'success' }}
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     environment: ${{ needs.plan.outputs.publish == 'true' && 'release' || '' }}
     permissions:
