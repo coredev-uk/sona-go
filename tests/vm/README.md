@@ -36,21 +36,22 @@ meant for major releases; run them locally for everything else.
 
 ### Updating the package
 
-`sona.nix` builds Sona (`buildGoModule`, tags `mygo_noinspector,sqlite_fts5`,
-VERSION as `main.version`, MyGo's production mode) and installs the desktop
-entry, icons and licence notices as nfpm does. MyGo loads GTK3, epoxy, EGL
-and the other libraries by soname, so `makeWrapper` puts them on
-`LD_LIBRARY_PATH`. After a change to `go.sum`, set the hash it names to an
-empty string, run
-`nix-build tests/vm -A sona`, and copy the hash the error prints. Only
-tracked files are built: `git add` new files first.
+`build/linux/nix/package.nix` builds Sona (`buildGoModule`, tags
+`mygo_noinspector,sqlite_fts5`, VERSION as `main.version`, MyGo's production
+mode) and installs the desktop entry, icons, licence notices, shell
+completions and manual page as nfpm does; the flake (`flake.nix`) builds the
+same file. MyGo loads GTK3, epoxy, EGL and the other libraries by soname, so
+`makeWrapper` puts them on `LD_LIBRARY_PATH`. After a change to `go.sum`, set
+the hash it names to an empty string, run `nix-build tests/vm -A sona` (or
+`nix build`), and copy the hash the error prints. Only tracked files are
+built: `git add` new files first.
 
 ## What runs
 
 | File | |
 | ---- | - |
 | `default.nix` | Entry point: the package, the tests, the AppImage test |
-| `sona.nix` | Sona as a Nix package |
+| `../../build/linux/nix/package.nix` | Sona as a Nix package (shared with the flake) |
 | `common.nix`, `common.py` | The VM (user alice, autologin, 2560×1600 screen, offline, a saved queue) and the shared checks, and the screen reading described below |
 | `gnome-session.nix`, `gnome.py`, `gnome.nix` | GNOME with the AppIndicator extension; Shell state read through `org.gnome.Shell.Eval` (unsafe mode), which also places the calendar panel for the OCR |
 | `plasma.nix` | Plasma; KWin's window list (`kdotool`) places Kickoff and the notification popups for the OCR |

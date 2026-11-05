@@ -26,6 +26,11 @@ the unsigned macOS and Windows builds.
   on GTK3, GStreamer and `libayatana-appindicator3` (the tray). Linux
   packages update through your package manager, the AppImage through
   AppImageUpdate.
+- **Nix (Linux):** the repository is a flake: `nix run github:coredev-uk/sona-go`,
+  `nix profile add github:coredev-uk/sona-go`, or the flake's
+  `overlays.default` (`pkgs.sona`) in a NixOS or Home Manager configuration.
+  It builds from source and updates when you update the flake input.
+  Outside NixOS the GPU driver needs [nixGL](https://github.com/nix-community/nixGL).
 - **macOS 14 or later, Apple silicon:** open the `.dmg` and drag Sona to
   Applications. Settings → Updates installs new versions in place
   ("Install and restart").

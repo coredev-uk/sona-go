@@ -23,7 +23,7 @@
 }:
 
 let
-  sona = pkgs.callPackage ./sona.nix { };
+  sona = pkgs.callPackage ../../build/linux/nix/package.nix { };
 
   # Sona's notification client on its own (notifyprobe/main.go), from the
   # same source and modules as Sona.

@@ -131,8 +131,10 @@ a minute.
 modules to one revision, so every machine gets the same toolchain. To bump
 nixpkgs, put the current nixos-unstable head
 (`git ls-remote https://github.com/NixOS/nixpkgs refs/heads/nixos-unstable`)
-in `devenv.yaml`, run `devenv update`, then `check`, `tests`, `play-spike`
-and the app, and commit `devenv.yaml` and `devenv.lock` together.
+in `devenv.yaml` and in `flake.nix` (the flake's package builds with the same
+nixpkgs), run `devenv update` and `nix flake update`, then `check`, `tests`,
+`play-spike`, `nix build` and the app, and commit `devenv.yaml`, `devenv.lock`,
+`flake.nix` and `flake.lock` together.
 
 ### macOS
 
