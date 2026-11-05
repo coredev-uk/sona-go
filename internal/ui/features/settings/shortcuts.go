@@ -430,13 +430,18 @@ func captureChord(b ui.Element) (chord string, ok bool) {
 
 // recorded is what a chord pressed while recording does.
 func (s *settings) recorded(rec *recorder, sh module.Shortcut, v *shortcutView, chord string) {
-	switch chord {
-	case "Escape":
+	switch {
+	case chord == "Escape":
 		rec.stop()
-	case "Backspace", "Delete":
+	case chord == "Backspace" || chord == "Delete":
 		rec.stop()
 		s.bindShortcut(sh.ID, nil, false)
-	case "Tab", "Shift+Tab":
+	case routerChord(chord, ui.Cmd):
+		// The router takes these before any shortcut: it would go back or
+		// forward whatever they were bound to.
+		rec.refused = i18n.T("{key} is Sona's own key for going back and forward. Choose another key.", "key", kit.ChordText(chord))
+		rec.refusals++
+	case chord == "Tab" || chord == "Shift+Tab":
 		// They move the focus: not shortcuts.
 		rec.refused = i18n.T("{key} moves between controls. Choose another key.", "key", kit.ChordText(chord))
 		rec.refusals++

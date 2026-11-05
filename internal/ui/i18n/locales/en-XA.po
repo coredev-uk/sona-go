@@ -7567,6 +7567,10 @@ msgid "{hours, plural, one {# hr. ago} other {# hr. ago}}"
 msgstr ""
 
 #: internal/ui/features/settings/shortcuts.go
+msgid "{key} is Sona's own key for going back and forward. Choose another key."
+msgstr ""
+
+#: internal/ui/features/settings/shortcuts.go
 msgid "{key} moves between controls. Choose another key."
 msgstr ""
 

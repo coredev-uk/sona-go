@@ -647,3 +647,25 @@ func TestGoMenuPagesFollowTheirBindings(t *testing.T) {
 		t.Errorf("opened %q", pushed)
 	}
 }
+
+// Private listening is in the menu bar's first build, not only after an
+// event: the mirror is filled when the shell connects.
+func TestMenuBarKnowsPrivateListeningFromTheFirstBuild(t *testing.T) {
+	h := uitest.New(t)
+	if _, err := services.Service[services.PrivateService](h.Core).Set(true); err != nil {
+		t.Fatal(err)
+	}
+	a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Art: h.Art, Now: h.Clock.Now}, factories)
+	t.Cleanup(func() { a.env.Art.Close(); a.env.Art.Wait() })
+	a.firstPaint = nil
+	a.connect()
+	in := a.menuInput()
+	if !in.play.private {
+		t.Fatal("the first menu input has private listening off, as Go has it on")
+	}
+	in.commands = newDispatcher(platformKeys(a.keys.shortcuts, ui.Super), a.keys.overrides).bindings()
+	e, ok := findEntry(buildMenuBar(in), "private.toggle")
+	if !ok || !e.Checked {
+		t.Errorf("Private Listening: found %v, checked %v", ok, e.Checked)
+	}
+}
