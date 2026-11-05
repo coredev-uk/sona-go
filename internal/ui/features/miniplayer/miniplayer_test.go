@@ -90,6 +90,12 @@ func (d *fakeDesk) record(name string) {
 func (d *fakeDesk) ShowMainWindow()   { d.record("show main") }
 func (d *fakeDesk) CloseMiniPlayer()  { d.record("close mini") }
 func (d *fakeDesk) ToggleMiniPlayer() { d.record("toggle mini") }
+func (d *fakeDesk) snapshot() []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return slices.Clone(d.calls)
+}
+
 func (d *fakeDesk) wait(t *testing.T) []string {
 	t.Helper()
 	select {

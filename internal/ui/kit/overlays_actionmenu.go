@@ -56,11 +56,17 @@ type TriggerOpts struct {
 // call Popup once after the rows to draw point menus. Everything runs on
 // the main thread.
 type ActionMenus struct {
-	reg   *ActionRegistry
-	sel   SelectionScope
-	menu  Menu
-	cur   openMenu
-	epoch int // frames, counted by Popup
+	reg  *ActionRegistry
+	sel  SelectionScope
+	menu Menu
+	cur  openMenu
+	// Navigate, when set, opens the pages of the menu's actions instead of the
+	// registry's navigator (a surface that covers the page closes first).
+	Navigate func(path string)
+	// Before, when set, runs just before a chosen action does (a surface that
+	// is not the main window brings it back for an action that needs it).
+	Before func(d *ActionDef)
+	epoch  int // frames, counted by Popup
 }
 
 type overlaysLoaded struct {
@@ -155,7 +161,11 @@ func (a *ActionMenus) context() *ActionContext {
 			drained = true
 		}
 	}
-	return a.reg.Context(a.cur.items, ct, a.cur.loaded)
+	ctx := a.reg.Context(a.cur.items, ct, a.cur.loaded)
+	if a.Navigate != nil {
+		ctx.Navigate = a.Navigate
+	}
+	return ctx
 }
 
 // loadData loads every distinct menu data the open menu's actions read,
@@ -215,7 +225,12 @@ func (a *ActionMenus) menuItems() []MenuItem {
 			out = append(out, MenuItem{Key: "sep:" + string(rune('0'+i)), Kind: MenuSeparator})
 		}
 		for _, d := range sec.Actions {
-			it := MenuItem{Key: d.ID, Label: d.Label(ctx), Icon: d.Icon, Run: func() { d.Run(ctx) }}
+			it := MenuItem{Key: d.ID, Label: d.Label(ctx), Icon: d.Icon, Run: func() {
+				if a.Before != nil {
+					a.Before(d)
+				}
+				d.Run(ctx)
+			}}
 			if d.Filled != nil {
 				it.Filled = d.Filled(ctx)
 			}

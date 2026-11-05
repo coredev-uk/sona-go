@@ -232,9 +232,11 @@ func indexOfPane(panes []paneKind, k paneKind) int {
 func (p *player) nowPlayingArt(c *ui.Context, cur *services.QueueItem, size float32) {
 	s := p.env.Play.State()
 	if cur.Video {
-		ui.Box(c.Key("art")).Width(size).Children(func() {
+		box := ui.Box(c.Key("art")).Width(size)
+		box.Children(func() {
 			kit.FluidArtwork(c, p.env.Art, cur.Art.Large, size, kit.ArtOpts{Aspect: 16.0 / 9})
 		})
+		p.playingRow(box, cur, &p.menus.np)
 		return
 	}
 	art := cur.Art.Large
@@ -246,9 +248,10 @@ func (p *player) nowPlayingArt(c *ui.Context, cur *services.QueueItem, size floa
 		label = i18n.T("{albumName} cover", "albumName", cur.Album)
 	}
 	// One rendition for every size, so a resize never reloads the video.
-	kit.MotionCover(c.Key("art"), p.env.Motion, p.env.Art, art, p.albumMotion(cur.AlbumID), size, kit.MotionOpts{
+	cover := kit.MotionCover(c.Key("art"), p.env.Motion, p.env.Art, art, p.albumMotion(cur.AlbumID), size, kit.MotionOpts{
 		VideoSize: 420, Overlay: true, A11yLabel: label,
 	})
+	p.playingRow(cover, cur, &p.menus.np)
 }
 
 // idPath is the page of an item: "" when it has no ID.
@@ -274,6 +277,8 @@ func (p *player) outLink(c *ui.Context, key, text, path string, size, lineH floa
 		p.ui.closeOverlay()
 		p.env.Nav.Push(path)
 	}
+	// The link takes the pointer from the song copy around it: it opens the menu itself.
+	p.playingRow(t, p.env.Play.State().Current, &p.menus.np)
 }
 
 // songCopy is the song's label copy under (or, narrow, beside) the cover: the
@@ -289,7 +294,8 @@ func (p *player) songCopy(c *ui.Context, cur *services.QueueItem, large bool) {
 		heading, byline = s.OnAir.Title, s.OnAir.Artist
 	}
 	tk := theme.Current().Type
-	ui.Column(c.Key("song-copy")).FillWidth().MinWidth(0).Children(func() {
+	copy := ui.Column(c.Key("song-copy")).FillWidth().MinWidth(0)
+	copy.Children(func() {
 		style := tk["page"]
 		if large {
 			style = tk["display"]
@@ -328,21 +334,29 @@ func (p *player) songCopy(c *ui.Context, cur *services.QueueItem, large bool) {
 				p.env.Video.Open()
 			}
 		}
-		if !cur.Live && !cur.Video && (cur.CatalogID != "" || cur.LibraryID != "") {
+		song := !cur.Live && !cur.Video && (cur.CatalogID != "" || cur.LibraryID != "")
+		target, hasMenu := kit.PlayingTarget(cur)
+		hasMenu = hasMenu && p.menusIn(&p.menus.np) != nil
+		if song || hasMenu {
 			ui.Row(c.Key("actions")).Margin(12, 0, 0, -8).Gap(4).AlignItems(ui.Center).Children(func() {
-				if p.np.rating != nil {
+				if song && p.np.rating != nil {
 					p.np.rating(c, cur)
 				}
 				credits := "/song/" + cur.CatalogID
-				if cur.CatalogID != "" && p.env.HasRoute != nil && p.env.HasRoute(credits) {
+				if song && cur.CatalogID != "" && p.env.HasRoute != nil && p.env.HasRoute(credits) {
 					if kit.Button(c.Key("credits"), i18n.T("View credits"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "info", Muted: true}).Clicked() {
 						p.ui.closeOverlay()
 						p.env.Nav.Push(credits)
 					}
 				}
+				if hasMenu {
+					p.menus.np.Trigger(c.Key("more"), target, kit.TriggerOpts{Header: true})
+				}
 			})
 		}
+		p.playingPopup(c, cur, &p.menus.np)
 	})
+	p.playingRow(copy, cur, &p.menus.np)
 }
 
 // liveLines is a live station's line: Live, and what is on air (the stream's

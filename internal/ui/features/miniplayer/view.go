@@ -40,20 +40,23 @@ func (m *mini) content(c *ui.Context) {
 	if cur != nil {
 		backdrop = cur.Backdrop
 	}
-	kit.Backdrop(c.Key("mini"), m.env.Art, kit.BackdropOpts{Src: backdrop}, func() {
+	root := kit.Backdrop(c.Key("mini"), m.env.Art, kit.BackdropOpts{Src: backdrop}, func() {
 		ui.Row(c.Key("body")).Fill().Padding(pad).Gap(14).AlignItems(ui.Center).Children(func() {
 			src := ""
 			if cur != nil {
 				src = cur.Art.Medium
 			}
-			kit.Artwork(c.Key("cover"), m.env.Art, src, coverSize, kit.ArtOpts{}).Shrink(0)
+			cover := kit.Artwork(c.Key("cover"), m.env.Art, src, coverSize, kit.ArtOpts{}).Shrink(0)
+			m.playingRow(cover, cur)
 			ui.Column(c.Key("col")).Grow(1).Basis(0).MinWidth(0).FillHeight().Children(func() {
 				m.head(c, s)
 				m.third(c, s)
 				m.controls(c, s)
 			})
+			m.playingPopup(c, cur)
 		})
 	}).Fill().Background(theme.C("surface")).DragWindow().Role(ui.RoleGroup).Label(i18n.T("Sona mini player"))
+	m.playingKeys(root, cur)
 }
 
 // leading reports the window's own buttons on the start side: macOS's inset
@@ -84,7 +87,8 @@ func (m *mini) head(c *ui.Context, s services.PlaybackState) {
 		if leading {
 			m.chrome(c, leading)
 		}
-		ui.Column(c.Key("song")).Grow(1).Basis(0).MinWidth(0).Children(func() {
+		song := ui.Column(c.Key("song")).Grow(1).Basis(0).MinWidth(0)
+		song.Children(func() {
 			if cur == nil {
 				text(c.Key("title"), i18n.T("Not playing"), "body").FontWeight(600).TextColor(theme.C("ink-muted"))
 				// translators: Line of the small player when nothing is playing.
@@ -94,6 +98,7 @@ func (m *mini) head(c *ui.Context, s services.PlaybackState) {
 			text(c.Key("title"), cur.Name, "body").FontWeight(600).TextColor(theme.C("ink")).Tooltip(cur.Name)
 			text(c.Key("artist"), cur.Artist, "sub").TextColor(theme.C("ink-muted")).Tooltip(cur.Artist)
 		})
+		m.playingRow(song, cur)
 		if !leading {
 			m.chrome(c, leading)
 		}

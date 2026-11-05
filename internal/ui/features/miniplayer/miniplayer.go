@@ -67,6 +67,8 @@ type mini struct {
 		secs   float64
 	}
 	announce kit.TrackAnnouncer
+	// menus is the playing song's action menu (playing_menu.go).
+	menus    *kit.ActionMenus
 	notice   *notice
 	noticeID int
 }

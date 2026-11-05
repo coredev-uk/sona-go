@@ -77,6 +77,9 @@ type player struct {
 	// coverBtn, lyricsBtn and videoBtn are the bar's controls that open Now
 	// Playing, its lyrics and the video view: the focus returns to them on close.
 	coverBtn, lyricsBtn, videoBtn ui.Handle
+	// menus are the playing item's action menus (playing_menu.go): the
+	// bar's song, and Now Playing's cover, title and "More" button.
+	menus struct{ bar, np *kit.ActionMenus }
 	// announce is the track announcer (kit.TrackAnnouncer).
 	announce kit.TrackAnnouncer
 

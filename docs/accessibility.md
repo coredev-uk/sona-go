@@ -43,6 +43,8 @@ shapes the rules below.
 - A list is one Tab stop with arrow keys inside (a focusable row, the
   others reached by the arrows); its controls are on the tree but are not
   stops. Menus are reached from the row with Shift+F10 or the Menu key.
+  The playing song's menu opens the same way from the bar's cover and from
+  the mini player; Now Playing also has a "More for <title>" menu button.
 - Links are `RoleLink` (artist and album cells, "See all", sidebar
   entries), headings carry their level (`RoleHeading` and `Level`; the page
   title is level 1, dialog titles level 2), lists and tables are named by
