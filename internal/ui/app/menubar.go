@@ -390,7 +390,7 @@ func (a *App) menuInput() menuInput {
 		play: menuPlayback{
 			playing: st.Current != nil && (st.State == "playing" || st.State == "loading"),
 			shuffle: st.Shuffle,
-			muted:   st.Current != nil && st.Volume == 0,
+			muted:   st.Volume == 0,
 			repeat:  st.Repeat,
 		},
 		actions: a.menuActions(),
