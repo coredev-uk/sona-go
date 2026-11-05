@@ -18,7 +18,9 @@ import (
 // over the whole window. Only the page area scrolls (each page owns its
 // scroll container, which its virtualised lists need).
 func (a *App) view(c *ui.Context) {
-	c.Root().Direction(a.direction())
+	dir := a.direction()
+	c.Root().Direction(dir)
+	a.swipe.RightToLeft = dir == ui.RightToLeft
 	theme.Apply(c)
 	a.rememberRoute(c)
 

@@ -100,9 +100,11 @@ func (a *App) overlayGivesWay() bool {
 		a.overlayAt = ""
 		return false
 	}
-	path := a.router.Path()
-	if a.overlayAt == "" || a.overlayAt == path {
-		a.overlayAt = path
+	// The location, query included: the same path with another query is
+	// another entry of the history (a second search, another artist).
+	loc := a.router.Location()
+	if a.overlayAt == "" || a.overlayAt == loc {
+		a.overlayAt = loc
 		return true
 	}
 	a.overlayAt = ""

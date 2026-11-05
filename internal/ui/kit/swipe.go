@@ -45,15 +45,22 @@ const (
 // container's: a shelf of covers goes on scrolling.
 //
 // Fingers moving to the right go back, as pushing the page to the right
-// shows the page before it; to the left, forward. That is for macOS's
-// "Natural scrolling", the default: MyGo does not report the setting
+// shows the page before it; to the left, forward (the other way in a right
+// to left layout, RightToLeft). That is for macOS's "Natural scrolling", the
+// default: MyGo does not report the setting
 // (NSEvent.isDirectionInvertedFromDevice), so with it off the two are
-// swapped. Mouse wheels, which scroll by lines, never navigate.
+// swapped. Mouse wheels, which scroll by lines, never navigate. The owner
+// turns it on only while the system's "Swipe between pages" setting lets a
+// two-finger scroll swipe (NSEvent.isSwipeTrackingFromScrollEventsEnabled,
+// which MyGo does not report either).
 //
 // Main thread only, like every view. The zero value is not usable: NewSwipe.
 type Swipe struct {
 	// Enabled turns it on; off, Input takes nothing and keeps nothing.
 	Enabled bool
+	// RightToLeft mirrors the swipe, as the window's layout is: fingers
+	// to the left go back, as WebKit does.
+	RightToLeft bool
 
 	back, forward func()
 
@@ -166,8 +173,9 @@ func (s *Swipe) travelled() bool {
 	}
 	s.phase = swipeDone
 	// DX counts the way the content scrolls: negative is the fingers
-	// moving right.
-	if s.sx < 0 {
+	// moving right, which goes back left to right; right to left, where
+	// the Back arrow points right and pages slide the other way, forward.
+	if (s.sx < 0) != s.RightToLeft {
 		s.back()
 	} else {
 		s.forward()

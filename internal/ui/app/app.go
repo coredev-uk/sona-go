@@ -10,7 +10,6 @@ import (
 	"errors"
 	"log/slog"
 	"os"
-	"runtime"
 	"slices"
 	"sync"
 	"time"
@@ -123,6 +122,9 @@ type App struct {
 	// "" while none is open (main thread).
 	swipe     *kit.Swipe
 	overlayAt string
+	// swipeSetting reads the system's choice of swipe gesture (nil: the
+	// platform has none, and the swipe stays off).
+	swipeSetting func() bool
 
 	mem *windowMemory
 
@@ -178,6 +180,7 @@ func New(opts Options) *App {
 		opts.Windows.setTray(a.tray != nil)
 	}
 	a.menubar = a.newMenuBar()
+	a.swipeSetting = systemSwipeSetting()
 	a.openWindow()
 	return a
 }
@@ -268,7 +271,6 @@ func newApp(opts Options, factories []module.Factory) *App {
 	a.lastRoute = initial
 	a.router = ui.NewRouter(initial)
 	a.swipe = kit.NewSwipe(a.router.Back, a.router.Forward)
-	a.swipe.Enabled = runtime.GOOS == "darwin"
 	a.env.Nav = a.router
 	a.env.Actions.SetNavigator(a.router.Push)
 	a.env.Actions.SetPoster(post)
@@ -422,6 +424,9 @@ func (a *App) followWindow(win *mygo.Window) {
 	set := func(on bool) func() {
 		return func() {
 			a.env.Window.SetFocused(on)
+			if on {
+				a.refreshSwipe() // the system's setting may have changed
+			}
 			a.post(func() {})
 		}
 	}
@@ -436,6 +441,7 @@ func (a *App) connect() {
 	a.opts.Bus.SetPoster(a.postFunc())
 	a.followSettings()
 	a.followOpens()
+	a.refreshSwipe()
 	if a.tray != nil {
 		a.tray.follow(a.opts.Bus)
 	}
