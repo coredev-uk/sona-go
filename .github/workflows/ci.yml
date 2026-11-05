@@ -213,7 +213,7 @@ jobs:
       - name: go test -race (UI shard)
         env:
           INDEX: ${{ matrix.index }}
-        run: dbus-run-session -- .github/ci/test.sh ui "$INDEX" "$SHARDS"
+        run: .github/ci/session-bus.sh .github/ci/test.sh ui "$INDEX" "$SHARDS"
 
       - name: Skipped tests are allowed ones
         run: .github/ci/skips.sh "$RUNNER_TEMP/test-results"
@@ -274,7 +274,7 @@ jobs:
       - name: go test -race (core shard)
         env:
           INDEX: ${{ matrix.index }}
-        run: dbus-run-session -- .github/ci/test.sh core "$INDEX" "$SHARDS"
+        run: .github/ci/session-bus.sh .github/ci/test.sh core "$INDEX" "$SHARDS"
 
       - name: Skipped tests are allowed ones
         run: .github/ci/skips.sh "$RUNNER_TEMP/test-results"
