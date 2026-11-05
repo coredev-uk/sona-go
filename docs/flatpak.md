@@ -5,10 +5,10 @@
 **Viable, with conditions.** On the GNOME 51 runtime, a Flatpak build of Sona loads the Widevine CDM, plays a full protected track (AAC decoded in the CDM host child and sent to a sink), owns `org.mpris.MediaPlayer2.sona`, keeps single-instance forwarding, and reaches the Secret Service. The conditions:
 
 1. **The CDM host's namespace layer.** Inside Flatpak the CDM host child never gets its own user and network namespace. Flatpak's seccomp filter refuses `clone(CLONE_NEWUSER)`. Sona then uses its documented fallback: the inet seccomp filter only, with Diagnostics showing the reason. To get the network namespace back, use the Flatpak portal (`flatpak-spawn --sandbox --no-network`). See [CDM host sandbox](#cdm-host-sandbox).
-2. **Flathub needs an offline build from source.** The manifest in `build/linux/flatpak/` repackages the release `.deb`. That is fine for local and self-hosted builds, but [Flathub does not accept it](https://docs.flathub.org/docs/for-app-authors/requirements#building-from-source). The Go side does build from source in `org.gnome.Sdk//51` (tested). The remaining work is the vendored module sources list. The native UI needs no Node or pnpm sources.
+2. **Flathub needs an offline build from source.** The manifest in `build/linux/flatpak/` builds Sona from source in `org.gnome.Sdk//51`, with the Go toolchain from `org.freedesktop.Sdk.Extension.golang` and every Go module as a checksummed source (`go-sources.json`), so the build runs offline as [Flathub requires](https://docs.flathub.org/docs/for-app-authors/requirements#no-network-access-during-build). Built, installed and smoke-tested on NixOS (see [Build and test](#build-and-test)). The remaining Flathub work is a metainfo file and a `git` source at a tag in place of the working-tree `dir` source. The native UI needs no Node or pnpm sources.
 3. **The CDM needs no host access.** Sona downloads the Widevine CDM from Google into its own data directory (`internal/playback/cdm`), which the Flatpak can always write, so the manifest grants no browser directories (see [CDM access](#cdm-access)).
 
-A manifest exists at `build/linux/flatpak/dev.coredev.Sona.yml`, and its build and install are tested.
+The manifest is `build/linux/flatpak/dev.coredev.Sona.yml`. It builds offline, installs and starts (first paint, MPRIS, single instance, CDM download, preview playback into a PipeWire null sink) with flatpak 1.18.4 and flatpak-builder 1.4.4 on NixOS; [Build and test](#build-and-test) has the commands and what was and was not run.
 
 ## Required finish-args
 
@@ -28,7 +28,7 @@ A manifest exists at `build/linux/flatpak/dev.coredev.Sona.yml`, and its build a
 - **Portals.** `org.freedesktop.portal.*` is always reachable. This covers the sleep inhibitor's portal fallback (`internal/desktop/inhibit`, used because logind is on the system bus), the settings import/export file chooser (`internal/app/portal.go`), the Realtime portal through which Sona raises the playback host's audio thread (`internal/playback/cdmhost/realtime_linux.go`: RTKit sits on the system bus, out of the Flatpak's reach), and opening URLs. MyGo runs `xdg-open`, and in the runtime that is the [flatpak-xdg-utils](https://github.com/flatpak/flatpak-xdg-utils) binary that forwards to the OpenURI portal.
 - **`org.freedesktop.Flatpak` / `--talk-name` for the Flatpak portal.** `flatpak-spawn --sandbox` from the app worked without either.
 
-**Tray name.** The appindicator library may also request `org.kde.StatusNotifierItem-<pid>-1`. The sandbox denies it, and the library treats that as non-critical (registration with the watcher goes by object path). [INFERENCE: measured with the earlier Wails shell's tray, which used the same library; not rechecked with MyGo's tray, `internal/ui/app/tray.go`.] Inside the sandbox the PID is 2 (Sona's log shows `"pid":2`). If a tray host needs the well-known name, add `--own-name=org.kde.StatusNotifierItem-2-1`. Not tested on a real tray host.
+**Tray name.** MyGo's tray (libayatana-appindicator3 0.5.94 built by the manifest) registers with the watcher by object path and bus name, not by a well-known name. Measured against a stand-in `org.kde.StatusNotifierWatcher` on the session bus (the bus log of `flatpak run --log-session-bus`): the only names the app requested were `dev.coredev.Sona` and `org.mpris.MediaPlayer2.sona`, none was refused, and the watcher received `RegisterStatusNotifierItem("/org/ayatana/NotificationItem/mygo_2_1")` from the app's unique name. So `--own-name=org.kde.StatusNotifierItem-<pid>-1` is not needed with this library; the sandbox PID is 2 (Sona's log shows `"pid":2`). Not tested against a real tray host (GNOME's AppIndicator extension, KDE).
 
 **Sleep/wake events.** Sona does not subscribe to logind's `PrepareForSleep` or any other sleep/wake event (no match for it in the Go sources), so no `--system-talk-name` is needed. The earlier Wails shell did watch it and logged `Failed to connect to system bus; sleep/wake events will not fire` in the sandbox; that shell is gone.
 
@@ -97,41 +97,72 @@ The options:
   - With `org.freedesktop.Platform.codecs-extra` installed, `libgstlibav.so` links to `/usr/lib/x86_64-linux-gnu/codecs-extra/lib/libavcodec.so.62`.
   - With it uninstalled, `libgstlibav.so` links to the runtime's own `libavcodec.so.62`, and `avdec_aac` is still present.
   - So `org.freedesktop.Platform.ffmpeg-full` is not needed. The GNOME runtime installs `codecs-extra` automatically as a related extension.
-- **Sockets.** `--filesystem=xdg-run/pipewire-0` for `pipewiresink`, `--socket=pulseaudio` for `pulsesink`. In the test sandbox (no PipeWire), the child chose `pulsesink` against a private PulseAudio null sink.
+- **Sockets.** `--filesystem=xdg-run/pipewire-0` for `pipewiresink`, `--socket=pulseaudio` for `pulsesink`. With a PipeWire socket in the sandbox the playback host chose `pipewiresink` with `avdec_aac` (log: `playback host started … "sink":"pipewiresink","decoder":"avdec_aac","preview":true`). In an earlier sandbox without PipeWire it chose `pulsesink` against a private PulseAudio null sink.
 
 ## Runtime choice
 
-**Runtime:** `org.gnome.Platform//51` with `org.gnome.Sdk//51`, the newest GNOME branch on Flathub (branches 49, 50 and 51 are listed). SDK `pkg-config` versions: `gstreamer-1.0 1.28.6`, `glib-2.0 2.90.1`; glibc 2.44. MyGo's UI needs GTK3, libepoxy, AT-SPI, libsecret and EGL by soname, which the GNOME runtime provides [INFERENCE: GTK3's presence in `//51` is not yet checked on a machine with Flatpak; the CI release run and `flatpak run --command=sh` will show]. The tray's libayatana-appindicator3 is not in the runtime, so the manifest builds it (with libayatana-indicator, ayatana-ido and libdbusmenu-gtk3) as modules. No WebKitGTK, GTK4 or libsoup is needed.
+**Runtime:** `org.gnome.Platform//51` with `org.gnome.Sdk//51`, the newest GNOME branch on Flathub (branches 49, 50 and 51 are listed). SDK `pkg-config` versions: `gstreamer-1.0 1.28.6`, `glib-2.0 2.90.1`; glibc 2.44. MyGo's UI needs GTK3, libepoxy, AT-SPI, libsecret, EGL and XTest by soname; the installed `//51` runtime has `libgtk-3.so.0`, `libepoxy.so.0`, `libatspi.so.0`, `libsecret-1.so.0`, `libEGL.so.1` and `libXtst.so.6` in `/usr/lib/x86_64-linux-gnu` (checked with `flatpak run --command=sh`), and `ldd /app/bin/sona` reports nothing missing. The tray's libayatana-appindicator3 is not in the runtime, so the manifest builds it (with libayatana-indicator, ayatana-ido and libdbusmenu-gtk3) as modules. libdbusmenu's 2016 `configure` needs intltool and dbus-glib, which the SDK lacks, so two more build-time modules provide them (the same as [flathub/shared-modules](https://github.com/flathub/shared-modules); dbus-glib stays, as libdbusmenu-glib links it). No WebKitGTK, GTK4 or libsoup is needed.
 
-**Repackaged release binary:**
-- It needs only glibc and sonames the runtime or the manifest's modules provide (each dlopened library is checked by `build/linux/release/smoke.sh`'s soname list).
-- It starts and paints (`startup: first paint`); re-measure with the native UI.
-
-**Built from source in the SDK:** links against these libraries directly.
+**Built from source in the SDK:** `go build` with the flags of `build/linux/Taskfile.yml` (`mygo_noinspector,sqlite_fts5`, `-trimpath`, `-X main.version=$(cat VERSION)`), linking the runtime's GStreamer through cgo. The binary prints `sona <VERSION>` inside the sandbox and starts. The `.deb` the earlier manifest repackaged is no longer involved, so a Flatpak build needs no podman or release container.
 
 ## music:// and desktop integration
 
 - **Exported desktop file.** It keeps `MimeType=x-scheme-handler/music;...;itmss;`. flatpak-builder rewrites `Exec` to `flatpak run ... --file-forwarding dev.coredev.Sona @@u %u @@`.
 - **Icon.** `rename-icon: sona` renames the icons to `dev.coredev.Sona`. `StartupWMClass=dev.coredev.Sona` is unchanged.
 - **URL forwarding.** A second `flatpak run dev.coredev.Sona music://...` forwarded to the running instance and exited 0. Sona logged `forwarded to the running instance`.
-- **Still needed for Flathub:** a metainfo file. It is not written yet.
+- **Still needed for Flathub:** a metainfo file (with screenshots and a release entry, which must follow `VERSION`). It is not written yet.
 
-## Build approach
+## Build and test
 
-**1. Repackage the release `.deb`** (the current manifest). This is the local and self-hosted path.
-- `build/linux/release/release.sh` builds the `.deb` on Ubuntu 24.04. The manifest unpacks `/usr/bin/sona`, the desktop file and the icons into `/app`.
-- The release binary only uses sonames that the GNOME runtime and the manifest's tray modules provide (see Runtime).
-- `build/linux/flatpak/build.sh [build-dir]` (default `/tmp/sona-flatpak/build`) copies `bin/release/sona_$(cat VERSION)_amd64.deb` (or `$SONA_DEB`) to `bin/flatpak/sona.deb`, the fixed name the manifest reads, so `VERSION` stays the only version source. It runs `flatpak-builder --user --install` with `--state-dir=<build-dir>.state`, outside the repo.
+**Setup, once** (any distro with flatpak and flatpak-builder; on NixOS `build.sh` borrows them from `nix shell nixpkgs#flatpak nixpkgs#flatpak-builder nixpkgs#bubblewrap`):
 
-**2. Build from source** (needed for [Flathub](https://docs.flathub.org/docs/for-app-authors/requirements#no-network-access-during-build): no network during the build, every dependency listed as a source).
-- **Go:** `org.freedesktop.Sdk.Extension.golang//26.08` (Go 1.27.3). `go.mod` asks for `go 1.27.3`.
-  - Generate vendored module sources with [`flatpak-go-mod`](https://github.com/dennwc/flatpak-go-mod), the tool named in [flatpak-builder-tools/go-modules](https://github.com/flatpak/flatpak-builder-tools/tree/master/go-modules), and build with `-mod=vendor`.
-  - Tested before the native UI, with the Wails-era app: `go build` inside `org.gnome.Sdk//51` with `GOPROXY=off` (local module cache) succeeded, and the binary printed `sona 0.1.0-flatpaksdk` inside the sandbox. [INFERENCE: not repeated with the native app, which needs cgo and the SDK's gstreamer headers at build time.]
-- **Build steps:** `go build -tags mygo_noinspector,sqlite_fts5` with `-ldflags "-X main.version=..."`, as in `build/linux/Taskfile.yml`. There is no frontend step.
+```sh
+flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak --user install flathub org.gnome.Platform//51 org.gnome.Sdk//51 \
+  org.freedesktop.Sdk.Extension.golang//26.08
+```
+
+**Build and install** (`--user`; about 2 minutes warm, with the module downloads of the tray libraries on the first run):
+
+```sh
+bash build/linux/flatpak/build.sh [build-dir]    # default /tmp/sona-flatpak/build; state next to it
+SONA_FLATPAK_BUNDLE=sona.flatpak bash build/linux/flatpak/build.sh   # also writes a bundle
+flatpak run dev.coredev.Sona --version           # sona <VERSION>
+```
+
+- **Offline Go modules.** `go-sources.json` lists each module's `.mod` and `.zip` from proxy.golang.org with its sha256. The manifest's build command points `GOPROXY=file://$PWD/go-proxy` at the tree those sources lay out (`GOSUMDB=off`: the file proxy has no checksum database, `go.sum` still verifies every module). Regenerate it after any `go.mod` or `go.sum` change (Renovate does not):
+
+  ```sh
+  devenv shell -- go run build/linux/flatpak/gosources.go > build/linux/flatpak/go-sources.json
+  ```
+
+  A stale list fails the build with a missing module. `.info` files are left out: the proxy does not serve them byte for byte, and `go build` does not read them. The list has the modules of every OS (Windows-only ones too); that costs a few hundred kilobytes, not a pruned build graph.
+- **Source tree.** The `dir` source copies the working tree minus `.git`, `.devenv`, `bin` and the like. Flathub would use `type: git` with the release tag and commit instead.
+- **NixOS.** flatpak runs without a system helper; bubblewrap works unprivileged here (user namespaces are on). The shell may carry devenv's `LD_LIBRARY_PATH`, whose newer glibc breaks nixpkgs' flatpak (`version 'GLIBC_2.43' not found`): `build.sh` and `smoke.sh` drop it for flatpak. `flatpak --user install` can print `cp: cannot create regular file …/exports/share/icons/hicolor/index.theme: Permission denied` on a reinstall, because the `index.theme` left by the first install is read-only (mode 444, copied from the Nix store); the build and install succeed, and `chmod u+w` on that file silences it.
+
+**Smoke test** (headless sway, private `HOME` and XDG dirs, `SONA_PRIVATE=1`, no real session touched):
+
+```sh
+devenv shell -- bash build/linux/flatpak/smoke.sh
+```
+
+It passes when `--version` prints `sona <VERSION>`, the log has `startup: first paint` and sway shows a window with `sandbox_app_id` `dev.coredev.Sona`, `org.mpris.MediaPlayer2.sona` and `dev.coredev.Sona` are owned on the session bus, a second `flatpak run` reaches the running instance (`sona status`), and the Widevine CDM has downloaded into `~/.var/app/dev.coredev.Sona/data/sona/widevine` (`SONA_FLATPAK_SMOKE_OFFLINE=1` skips that last check).
+
+**What the run on NixOS showed** (flatpak 1.18.4, GNOME 51 runtime, headless sway, `MYGO_GPU=0`):
+- **First paint** at 391 to 564 ms after process start; the window had `sandbox_app_id` `dev.coredev.Sona`.
+- **CDM.** The setup dialog showed "Widevine: Ready, version 4.10.3112.0", downloaded after first paint into the Flatpak's data directory. The load check ran in the CDM host child through the fallback below.
+- **CDM host sandbox.** `cdmhost: no namespaces for the playback host; starting it without` with `fork/exec /app/bin/sona: operation not permitted`, as [CDM host sandbox](#cdm-host-sandbox) describes. Playback still ran through the fallback.
+- **Preview playback** (`SONA_PREVIEW=1 SONA_PRIVATE=1`, searching "come together beatles" and playing the first result from the keyboard): `sona status --json` reported `"state":"playing","preview":true`; the host used `pipewiresink` and `avdec_aac`; `pw-link -l` showed the stream "Sona" linked to a private null sink (`sona-flatpak-null`, targeted with `--env=PIPEWIRE_NODE=`), and `pw-record --target sona-flatpak-null -P '{ stream.capture.sink=true }'` captured 7.7 s of audio with peak 16385 and RMS 3088 (16-bit). The real PipeWire socket was reached by symlinking it into the headless run directory.
+- **D-Bus.** `org.mpris.MediaPlayer2.sona` and `dev.coredev.Sona` owned; `flatpak run dev.coredev.Sona open music://…` reached the running instance.
+- **Not Sona's: the test machine had no desktop portals.** The headless session has no `org.freedesktop.portal.Flatpak`, so the window icon's glycin loader (`flatpak-spawn --sandbox`) failed with a `window icon` warning, the document portal could not start (`F: Can't get document portal`), and the sleep inhibitor and Realtime portals were unavailable (`inhibit: acquire`, `cdmhost: audio threads keep normal priority`). Secret Service was a locked headless gnome-keyring, so Sona used its 0600 file fallback. On a real desktop the portals exist.
+
+**Not run:** the tray against a real host, notifications, a protected (Widevine) track (needs a Music User Token), a live Wayland GPU session (the run used the CPU renderer), Secret Service on GNOME and KDE, `music://` from a browser.
+
+**CI.** The dispatch-only `Flatpak` workflow (`.github/workflows/flatpak.yml`) builds the manifest in `ghcr.io/flathub-infra/flatpak-github-actions:gnome-51` and uploads `sona.flatpak`. It is not a required check and has no runtime test (the container has no desktop).
 
 ## What remains
 
 1. **cdmhost:** add the `flatpak-spawn --sandbox --no-network --watch-bus --sandbox-flag=share-sound --sandbox-expose-path-ro=<cdm dir>` path when `/.flatpak-info` exists, keeping today's fallback. Report the child's real PID. Test a full playback session through it.
-2. **Flathub source build:** `flatpak-go-mod` sources and `modules.txt`, a metainfo file, and a source-built manifest replacing the `.deb` module.
-3. **Real-desktop checks:** tray (and whether `--own-name=org.kde.StatusNotifierItem-2-1` is needed), notifications, PipeWire sink on a live session, Wayland, Secret Service on GNOME and KDE, `org.freedesktop.portal.Secret`, music:// from a browser.
+2. **Flathub:** a metainfo file, and a `git` source at a tag in place of the `dir` source.
+3. **Real-desktop checks:** tray, notifications, PipeWire sink on a live session, a GPU Wayland session, Secret Service on GNOME and KDE, `org.freedesktop.portal.Secret`, `music://` from a browser, a protected track.
 4. **Diagnostics wording for Flatpak:** "no network namespace (Flatpak)" instead of the raw `fork/exec` error.

@@ -1,0 +1,39 @@
+# Builds the Flatpak (build/linux/flatpak, docs/flatpak.md) from the checked-out
+# ref in flatpak-github-actions' GNOME 51 image, offline: the Go modules come
+# from build/linux/flatpak/go-sources.json, so the run also proves that file is
+# in step with go.mod. The bundle is uploaded as an artifact.
+#
+# Dispatch-only and not a required check: a run takes several minutes and
+# downloads the GNOME runtime and SDK. There is no runtime test here (the
+# container has no desktop); build/linux/flatpak/smoke.sh does that on a
+# machine with sway.
+name: Flatpak
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flatpak-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flatpak:
+    name: Flatpak build
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      options: --privileged
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6.8
+        with:
+          bundle: sona.flatpak
+          manifest-path: build/linux/flatpak/dev.coredev.Sona.yml
+          cache-key: flatpak-${{ github.sha }}

@@ -345,6 +345,15 @@ your local build for a look at the files (a devenv build links `/nix/store`
 and is not a release). Before a release, work through
 `docs/release-checklist.md`.
 
+Flatpak changes (`build/linux/flatpak`, `go.mod`): `bash build/linux/flatpak/build.sh`
+builds the Flatpak offline from the working tree and installs it `--user`, and
+`devenv shell -- bash build/linux/flatpak/smoke.sh` runs it in the headless
+session. Both need flatpak-builder with the GNOME 51 runtime, SDK and Go
+extension from Flathub (`docs/flatpak.md`, "Build and test"). After a `go.mod`
+change, regenerate `build/linux/flatpak/go-sources.json` with
+`go run build/linux/flatpak/gosources.go > build/linux/flatpak/go-sources.json`;
+the dispatch-only `Flatpak` workflow builds it in CI.
+
 ### UI tests and the end-to-end smoke
 
 - **`ui.Tester` tests** (`go test ./internal/ui/...`, no display) run over `internal/ui/uitest`: `uitest.Env(t)` is a `module.Env` over real services on a temporary SQLite library seeded with a synthetic fixture (`internal/ui/uitest/fixture`: invented artists, albums, songs and playlists, generated covers; never Apple's data), a fake playback engine, a fake artwork CDN, a Poster the test drains and a fake clock. The Core is hermetic: an empty in-memory keyring, an HTTP transport that fails any host the test does not serve (`Harness.Network.Serve` adds one), and home, XDG and D-Bus environment under the test's temporary directory, so a test never sees your Last.fm session, GitHub or your session bus. `docs/ui-architecture.md` ("Testing with `ui.Tester`", "Tests") has the API.
