@@ -212,7 +212,59 @@ type sheetIn struct {
 	clickable bool
 	// focusable makes a synced sheet itself a tab stop (the room: arrow keys scroll it).
 	focusable bool
+	// wash is the colour of what the sheet sits on at a point of the window
+	// (the cover's wash), which its fades go to; nil: the ground.
+	wash func(x, y float32) ui.Color
 }
+
+// washOf is the cover's wash behind Now Playing and the room.
+func washOf(cur *services.QueueItem) kit.BackdropOpts {
+	return kit.BackdropOpts{Src: cur.Backdrop, Tone: kit.ToneGround}
+}
+
+// washAt is the colour of the wash at a point of the window, for the view
+// whose root is root: what the sheet's fades go to. It reads the wash now,
+// so a painter may call it later; nil when there is no song.
+func (p *player) washAt(c *ui.Context, root ui.Handle) func(x, y float32) ui.Color {
+	cur := p.env.Play.State().Current
+	if cur == nil {
+		return nil
+	}
+	w, box := p.env.Art.WashOf(washOf(cur)), root.Bounds(c)
+	return func(x, y float32) ui.Color { return w.At(box, x, y) }
+}
+
+// fadeStep is the width of a piece of a fade, in DIPs: the wash's picture is
+// 64 px across, so it changes little within this.
+const fadeStep = 16
+
+// paintFade paints a sheet's fade into r: opaque at the sheet's edge (the
+// top of r when top, else the bottom), clear at the other, in the colour of
+// the wash there (the ground without one).
+func paintFade(p *ui.Painter, r ui.Rect, wash func(x, y float32) ui.Color, top bool) {
+	edge := r.Y + r.H
+	if top {
+		edge = r.Y
+	}
+	n := 1
+	if wash != nil {
+		n = min(max(int(math.Ceil(float64(r.W/fadeStep))), 1), 128)
+	}
+	for i := range n {
+		x0, x1 := r.X+round32(r.W*float32(i)/float32(n)), r.X+round32(r.W*float32(i+1)/float32(n))
+		solid := theme.C("ground")
+		if wash != nil {
+			solid = wash((x0+x1)/2, edge)
+		}
+		from, to := solid, solid.Alpha(0)
+		if !top {
+			from, to = to, from
+		}
+		p.FillGradient(ui.Rect{X: x0, Y: r.Y, W: x1 - x0, H: r.H}, ui.LinearGradient{From: from, To: to, Angle: 180}, 0)
+	}
+}
+
+func round32(v float32) float32 { return float32(math.Round(float64(v))) }
 
 // lyricsScroller builds the sheet: the lines in verses inside a scroller that
 // turns the page to keep the sung line in the reading band, and fades out at
@@ -283,12 +335,19 @@ func (p *player) lyricsScroller(c *ui.Context, sh *lyricsSheet, l *services.Lyri
 	sh.turnPage(c, view, sung.Anchor, reduced, now)
 	sh.lastY = sh.scroll.Y
 
-	// Fade the sheet out at its top and bottom (.lyrics-fade): no blur.
+	// Fade the sheet out at its top and bottom (.lyrics-fade): no blur. The
+	// fades go to the colour of what is behind the sheet, the cover's wash
+	// when it has one: cut into narrow pieces across, as the wash changes
+	// along the edge.
 	if view.H > 0 {
-		solid, clear := theme.C("ground"), theme.C("ground").Alpha(0)
 		fade := min(look.fadeDIP, view.H/3)
-		ui.Box(c.Key("fade:top")).Absolute().Top(0).Left(0).Right(0).Height(fade).IgnoreInput(true).Gradient(solid, clear, 180)
-		ui.Box(c.Key("fade:bottom")).Absolute().Bottom(0).Left(0).Right(0).Height(fade).IgnoreInput(true).Gradient(clear, solid, 180)
+		wash := in.wash
+		ui.Box(c.Key("fade:top")).Absolute().Top(0).Left(0).Right(0).Height(fade).IgnoreInput(true).Draw(func(p *ui.Painter, r ui.Rect) {
+			paintFade(p, r, wash, true)
+		})
+		ui.Box(c.Key("fade:bottom")).Absolute().Bottom(0).Left(0).Right(0).Height(fade).IgnoreInput(true).Draw(func(p *ui.Painter, r ui.Rect) {
+			paintFade(p, r, wash, false)
+		})
 	}
 	return sheet
 }

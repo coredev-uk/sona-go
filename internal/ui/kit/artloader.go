@@ -1,8 +1,11 @@
 package kit
 
 import (
+	"bytes"
 	"cmp"
 	"context"
+	"image"
+	_ "image/jpeg" // the backdrops
 	"math"
 	"runtime"
 	"slices"
@@ -91,10 +94,13 @@ type cover struct {
 	template string
 	state    coverState
 	bmp      *ui.Bitmap
-	fails    int
-	retryAt  time.Time
-	shown    int // frames drawn, for ReleasePixels
-	used     uint64
+	// tiny is a backdrop's pixels, kept (64 px square) for WashAt: the
+	// bitmap lets go of its own once the GPU has them.
+	tiny    image.Image
+	fails   int
+	retryAt time.Time
+	shown   int // frames drawn, for ReleasePixels
+	used    uint64
 }
 
 // NewArtLoader returns a loader over the artwork cache that publishes
@@ -267,12 +273,12 @@ func (l *ArtLoader) work() {
 		l.jobs.Unlock()
 
 		// cv's key and template are read-only while queued.
-		bmp, err := l.load(cv.key, cv.template)
-		l.post(func() { l.finish(cv, bmp, err) })
+		bmp, tiny, err := l.load(cv.key, cv.template)
+		l.post(func() { l.finish(cv, bmp, tiny, err) })
 	}
 }
 
-func (l *ArtLoader) load(key artKey, template string) (*ui.Bitmap, error) {
+func (l *ArtLoader) load(key artKey, template string) (*ui.Bitmap, image.Image, error) {
 	var data []byte
 	var err error
 	if key.isBackdrop() {
@@ -281,15 +287,20 @@ func (l *ArtLoader) load(key artKey, template string) (*ui.Bitmap, error) {
 		data, err = l.src.Get(l.ctx, template, key.pw, key.ph)
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return ui.DecodeBitmap(data)
+	bmp, err := ui.DecodeBitmap(data)
+	if err != nil || !key.isBackdrop() {
+		return bmp, nil, err
+	}
+	tiny, _, _ := image.Decode(bytes.NewReader(data)) // nil on failure: the wash is then not sampled
+	return bmp, tiny, nil
 }
 
 // finish publishes a decoded cover, on the main thread.
-func (l *ArtLoader) finish(cv *cover, bmp *ui.Bitmap, err error) {
+func (l *ArtLoader) finish(cv *cover, bmp *ui.Bitmap, tiny image.Image, err error) {
 	if err == nil {
-		cv.bmp, cv.state = bmp, coverReady
+		cv.bmp, cv.tiny, cv.state = bmp, tiny, coverReady
 		return
 	}
 	if l.ctx.Err() != nil {

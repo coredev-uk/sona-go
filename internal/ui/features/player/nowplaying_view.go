@@ -97,7 +97,7 @@ func (p *player) nowPlaying(c *ui.Context) {
 	// The wash is the root itself, so what the view holds draws over it: an
 	// Absolute sibling paints above the content, and its scrim covers the
 	// whole view once the cover's backdrop has loaded.
-	root := kit.Backdrop(c.Key("now-playing"), p.env.Art, kit.BackdropOpts{Src: cur.Backdrop, Tone: kit.ToneGround}, func() {
+	root := kit.Backdrop(c.Key("now-playing"), p.env.Art, washOf(cur), func() {
 		ui.Row(c.Key("center")).FillWidth().FillHeight().Grow(1).Basis(0).MinHeight(0).Justify(ui.Center).AlignItems(ui.Stretch).Children(func() {
 			var body ui.Element
 			if lay.stacked {
@@ -474,7 +474,7 @@ func (p *player) lyricsBody(c *ui.Context, songID string) {
 			OnRetry: func() { p.retryLyrics(songID) }, Retrying: r.Fetching,
 		}).Margin(96, 0, 0, 0)
 	default:
-		p.lyricsScroller(c, p.np.sheet, &r.Data, sheetIn{look: sheetLook(), clickable: true})
+		p.lyricsScroller(c, p.np.sheet, &r.Data, sheetIn{look: sheetLook(), clickable: true, wash: p.washAt(c, p.np.root)})
 	}
 }
 

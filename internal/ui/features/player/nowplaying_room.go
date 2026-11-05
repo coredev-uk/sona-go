@@ -45,7 +45,7 @@ func (p *player) roomLayer(c *ui.Context) {
 
 	// The wash is the root itself, so the lines draw over it (an Absolute
 	// sibling would paint above them).
-	root := kit.Backdrop(c.Key("room"), p.env.Art, kit.BackdropOpts{Src: cur.Backdrop, Tone: kit.ToneGround}, func() {
+	root := kit.Backdrop(c.Key("room"), p.env.Art, washOf(cur), func() {
 		p.roomLines(c, songID, roomLook(w, h))
 		ui.Row(c.Key("room-footer")).FillWidth().Shrink(0).Gap(16).Padding(12, 0.07*w, 28).AlignItems(ui.Center).Children(func() {
 			kit.Artwork(c.Key("art"), p.env.Art, cur.Art.Small, 44, kit.ArtOpts{})
@@ -62,7 +62,7 @@ func (p *player) roomLayer(c *ui.Context) {
 			}
 		})
 	}).FillWidth().FillHeight().Grow(1).Basis(0).MinHeight(0)
-	root.Background(theme.C("ground")).Role(ui.RoleGroup).Label(i18n.T("Lyrics, full screen"))
+	root.Bind(&p.np.roomRoot).Background(theme.C("ground")).Role(ui.RoleGroup).Label(i18n.T("Lyrics, full screen"))
 	if !theme.ReducedMotion() {
 		root.Transition(ui.ElementTransition{Enter: &ui.Motion{}, Duration: 200 * time.Millisecond})
 	}
@@ -115,7 +115,7 @@ func (p *player) roomLines(c *ui.Context, songID string, look lyricLook) {
 		// The sheet's fades are siblings of its scroller: a box of its own keeps
 		// them at the sheet's edges, above the footer.
 		ui.Column(c.Key("sheet-box")).Grow(1).Basis(0).MinHeight(0).FillWidth().FillHeight().Children(func() {
-			p.lyricsScroller(c, p.np.room, &r.Data, sheetIn{look: look, focusable: true})
+			p.lyricsScroller(c, p.np.room, &r.Data, sheetIn{look: look, focusable: true, wash: p.washAt(c, p.np.roomRoot)})
 		})
 	}
 }
