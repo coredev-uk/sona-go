@@ -71,6 +71,9 @@ func (a *App) view(c *ui.Context) {
 		})
 	}
 	kit.OverlayLayer(c)
+	if a.menubar != nil {
+		a.menubar.frame()
+	}
 	a.afterFrame(c, layerOpen, overlayOpen)
 }
 

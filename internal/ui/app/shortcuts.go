@@ -144,17 +144,23 @@ func (d *dispatcher) dispatch(c *ui.Context) {
 			if !slices.Contains(s.chords, ch) || !allowed(s.Shortcut) {
 				continue
 			}
-			if s.Unavailable != nil {
-				if why := s.Unavailable(); why != "" {
-					kit.Unavailable(why)
-					break
-				}
-			}
-			if s.Run != nil {
-				s.Run()
-			}
+			invoke(s.Shortcut)
 			break
 		}
+	}
+}
+
+// invoke runs a shortcut that is allowed, as a key and the menu bar do
+// (the palette is the same): one that is Unavailable only says why.
+func invoke(s module.Shortcut) {
+	if s.Unavailable != nil {
+		if why := s.Unavailable(); why != "" {
+			kit.Unavailable(why)
+			return
+		}
+	}
+	if s.Run != nil {
+		s.Run()
 	}
 }
 
