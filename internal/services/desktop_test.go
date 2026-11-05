@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -174,4 +175,86 @@ func TestOpenDeveloperTools(t *testing.T) {
 	if err := d.OpenDeveloperTools(); CodeOf(err) != CodeUnsupported {
 		t.Fatalf("OpenDeveloperTools = %v (code %q), want code %q", err, CodeOf(err), CodeUnsupported)
 	}
+}
+
+// holdEmitter records the settings events and holds the announcement that
+// follows the observer's own (the second one saying autostart is on) until
+// the undo's has been delivered, or a moment has passed. Where the
+// announcement is not ordered with its save the undo overtakes it; where it
+// is, the undo cannot start before it is delivered and the wait runs out.
+type holdEmitter struct {
+	mu       sync.Mutex
+	settings []config.Settings
+	on       int
+}
+
+func (h *holdEmitter) Emit(name string, data ...any) bool {
+	if name != EventSettingsChanged {
+		return false
+	}
+	s := data[0].(config.Settings)
+	h.mu.Lock()
+	hold := false
+	if s.Desktop.Autostart {
+		h.on++
+		hold = h.on == 2
+	}
+	h.mu.Unlock()
+	if hold {
+		for deadline := time.Now().Add(250 * time.Millisecond); time.Now().Before(deadline) && !h.sawOff(); {
+			time.Sleep(time.Millisecond)
+		}
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.settings = append(h.settings, s)
+	return false
+}
+
+func (h *holdEmitter) sawOff() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return len(h.settings) > 0 && !h.settings[len(h.settings)-1].Desktop.Autostart
+}
+
+func (h *holdEmitter) last() config.Settings {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.settings[len(h.settings)-1]
+}
+
+// Turning autostart on where there is no backend is refused and undone on
+// another goroutine. The UI keeps the latest settings:changed, so the last
+// event must be the undone setting: the one UpdateSettings announces may not
+// arrive after the undo's.
+func TestRefusedAutostartIsAnnouncedBeforeItsUndo(t *testing.T) {
+	st, err := config.OpenStore(filepath.Join(t.TempDir(), "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	em := &holdEmitter{}
+	e := &Env{Deps: Deps{Settings: st, Emit: em, Logger: discard()}}
+	newDesktopService(e)
+	sys := &SystemService{o: e}
+
+	next := st.Get()
+	next.Desktop.Autostart = true
+	if _, err := sys.UpdateSettings(next); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for st.Get().Desktop.Autostart {
+		if time.Now().After(deadline) {
+			t.Fatal("turning autostart on was not reverted")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	// An Update returns once the undo, announcement included, is done.
+	if _, err := st.Update(func(*config.Settings) {}); err != nil {
+		t.Fatal(err)
+	}
+	if em.last().Desktop.Autostart {
+		t.Fatal("the last settings:changed still says autostart is on")
+	}
+	e.close()
 }

@@ -46,6 +46,11 @@
 //     wipe), OnClose (shutdown steps), Go (start a background goroutine:
 //     a panic is recovered and logged with its stack; never a bare `go`),
 //     and members (catalog item → in the library).
+//   - A save the UI must hear about goes through Env.updateSettings, never
+//     Settings.Update followed by Emit(EventSettingsChanged, …): the UI
+//     keeps the latest event, so the event is sent inside the store's update
+//     (Store.UpdateThen) and follows the save order. A later save from an
+//     observer's goroutine (the autostart undo) can't be announced first.
 //   - errors.go: every returned error is worded by the UI from its
 //     code (CodeOf, an ErrorCode; i18n.ErrorText); the error's own
 //     message, Go's English, is for logs.

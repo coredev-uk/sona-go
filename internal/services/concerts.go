@@ -74,12 +74,8 @@ func (s *ConcertsService) SetLocation(id string) (ConcertLocation, error) {
 	if _, ok := places.ByID(id); !ok && id != "" {
 		return ConcertLocation{}, fmt.Errorf("%w: city %q", ErrInvalidArgument, id)
 	}
-	saved, err := s.e.Settings.Update(func(st *config.Settings) { st.Concerts.City = id })
-	if err != nil {
+	if _, err := s.e.updateSettings(func(st *config.Settings) { st.Concerts.City = id }); err != nil {
 		return ConcertLocation{}, err
-	}
-	if s.e.Emit != nil {
-		s.e.Emit.Emit(EventSettingsChanged, saved)
 	}
 	return s.Location(), nil
 }

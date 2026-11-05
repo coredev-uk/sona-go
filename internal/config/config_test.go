@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -183,6 +184,57 @@ func TestStoreUpdateObserversSeeTheOldCurve(t *testing.T) {
 	got.Audio.Equalizer.Custom[0] = -3
 	if st.Get().Audio.Equalizer.Custom[0] != 6 {
 		t.Fatal("editing a Get copy changed the store")
+	}
+}
+
+// UpdateThen's callback is what keeps announcements in save order: it runs
+// after the observers and while the store still refuses another Update, so
+// a save an observer hands to another goroutine cannot be announced first.
+func TestStoreUpdateThenRunsAfterObserversBeforeTheNextUpdate(t *testing.T) {
+	st, err := OpenStore(filepath.Join(t.TempDir(), "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var steps []string
+	st.OnChange(func(prev, next Settings) { steps = append(steps, "observer") })
+	ran := false
+	saved, err := st.UpdateThen(func(s *Settings) { s.Theme = ThemeDark }, func(prev, saved Settings) {
+		ran = true
+		steps = append(steps, "then")
+		if prev.Theme == ThemeDark || saved.Theme != ThemeDark {
+			t.Errorf("then saw theme %q -> %q", prev.Theme, saved.Theme)
+		}
+		if st.obsMu.TryLock() {
+			st.obsMu.Unlock()
+			t.Error("another Update could start before then returned")
+		}
+	})
+	if err != nil || !ran || saved.Theme != ThemeDark {
+		t.Fatalf("UpdateThen = %+v, %v (then ran: %v)", saved, err, ran)
+	}
+	if !slices.Equal(steps, []string{"observer", "then"}) {
+		t.Fatalf("order = %v", steps)
+	}
+}
+
+func TestStoreUpdateThenSkipsThenOnASaveError(t *testing.T) {
+	dir := t.TempDir()
+	st, err := OpenStore(filepath.Join(dir, "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	if os.Getuid() == 0 {
+		t.Skip("root writes into a read-only directory")
+	}
+	_, err = st.UpdateThen(func(s *Settings) { s.Theme = ThemeDark }, func(Settings, Settings) {
+		t.Error("then ran after a failed save")
+	})
+	if err == nil {
+		t.Fatal("UpdateThen saved into a read-only directory")
 	}
 }
 
