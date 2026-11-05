@@ -252,7 +252,7 @@ func TestTheIntervalIsTheRefreshOfTheOutputTheWindowIsOn(t *testing.T) {
 }
 
 func TestSwayIntervalOverIPC(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "sway.sock")
+	path := filepath.Join(socketDir(t), "sway.sock")
 	l, err := net.Listen("unix", path)
 	if err != nil {
 		t.Fatal(err)
@@ -284,4 +284,16 @@ func TestSwayIntervalOverIPC(t *testing.T) {
 	if _, err := swayInterval(filepath.Join(t.TempDir(), "none"), 1); err == nil {
 		t.Error("a missing socket gave an interval")
 	}
+}
+
+// socketDir is a folder for a test's socket. Not t.TempDir: its long
+// names can exceed the 104 bytes macOS allows a socket path.
+func socketDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "sona")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
 }

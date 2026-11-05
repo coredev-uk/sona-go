@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/artifacts"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden images of the tests that ran")
@@ -143,7 +145,7 @@ func toNRGBA(img image.Image) *image.NRGBA {
 
 func save(t testing.TB, name string, got, diff image.Image) {
 	t.Helper()
-	dir := t.ArtifactDir()
+	dir := artifacts.Dir(t)
 	for suffix, img := range map[string]image.Image{".actual.png": got, ".diff.png": diff} {
 		if img == nil {
 			continue

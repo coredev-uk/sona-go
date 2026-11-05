@@ -28,7 +28,7 @@ type fakeDiscord struct {
 // the only place the client looks.
 func listen(t *testing.T) *fakeDiscord {
 	t.Helper()
-	dir := t.TempDir()
+	dir := socketDir(t)
 	for _, env := range []string{"XDG_RUNTIME_DIR", "TMPDIR", "TMP", "TEMP"} {
 		t.Setenv(env, dir)
 	}
@@ -250,7 +250,7 @@ func TestRedialsAfterDiscordRestart(t *testing.T) {
 }
 
 func TestFindsFlatpakSocket(t *testing.T) {
-	dir := t.TempDir()
+	dir := socketDir(t)
 	for _, env := range []string{"XDG_RUNTIME_DIR", "TMPDIR", "TMP", "TEMP"} {
 		t.Setenv(env, dir)
 	}
@@ -286,7 +286,7 @@ func TestNotRunningAndNotConfigured(t *testing.T) {
 // dialled: not a regular file, a symlink, another user's socket, or one
 // in the shared temp directory while a runtime directory exists.
 func TestIgnoresUntrustedSockets(t *testing.T) {
-	run, tmp := t.TempDir(), t.TempDir()
+	run, tmp := socketDir(t), socketDir(t)
 	t.Setenv("XDG_RUNTIME_DIR", run)
 	for _, env := range []string{"TMPDIR", "TMP", "TEMP"} {
 		t.Setenv(env, tmp)
@@ -331,4 +331,23 @@ func TestFieldLimits(t *testing.T) {
 	if got := field("Come Together"); got != "Come Together" {
 		t.Errorf("field changed a valid value: %q", got)
 	}
+}
+
+// socketDir is a folder for a test's socket. Not t.TempDir: its long
+// names can exceed the 104 bytes macOS allows a socket path. Not the default
+// temporary directory either on macOS: its /var/folders/… (49 bytes on a CI
+// runner) leaves too little for the nested Flatpak path of
+// TestFindsFlatpakSocket, so the folder is under /tmp where that exists.
+func socketDir(t *testing.T) string {
+	t.Helper()
+	base := ""
+	if st, err := os.Stat("/tmp"); err == nil && st.IsDir() {
+		base = "/tmp"
+	}
+	dir, err := os.MkdirTemp(base, "sona")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
 }

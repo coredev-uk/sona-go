@@ -32,6 +32,12 @@ on:
 permissions:
   contents: read
 
+# bash everywhere (macOS included) runs with -eo pipefail, so a failing
+# command in a pipeline fails the step.
+defaults:
+  run:
+    shell: bash
+
 # A pull request's newer push cancels its older run. On main every commit gets
 # its own run: Clarence checks each merge commit's CI, and a shared group
 # would drop a pending run whenever a newer commit lands, which Clarence reads
@@ -201,13 +207,16 @@ jobs:
       - uses: ./.github/actions/setup-linux
         id: setup
         with:
-          packages: lite
+          packages: test
           flavor: race-ui-${{ matrix.index }}
 
       - name: go test -race (UI shard)
         env:
           INDEX: ${{ matrix.index }}
-        run: dbus-run-session -- .github/ci/test.sh ui "$INDEX" "$SHARDS"
+        run: .github/ci/session-bus.sh .github/ci/test.sh ui "$INDEX" "$SHARDS"
+
+      - name: Skipped tests are allowed ones
+        run: .github/ci/skips.sh "$RUNNER_TEMP/test-results"
 
       - name: Keep the test results
         if: ${{ always() }}
@@ -259,13 +268,16 @@ jobs:
       - uses: ./.github/actions/setup-linux
         id: setup
         with:
-          packages: lite
+          packages: test
           flavor: race-core-${{ matrix.index }}
 
       - name: go test -race (core shard)
         env:
           INDEX: ${{ matrix.index }}
-        run: dbus-run-session -- .github/ci/test.sh core "$INDEX" "$SHARDS"
+        run: .github/ci/session-bus.sh .github/ci/test.sh core "$INDEX" "$SHARDS"
+
+      - name: Skipped tests are allowed ones
+        run: .github/ci/skips.sh "$RUNNER_TEMP/test-results"
 
       - name: Keep the test results
         if: ${{ always() }}
@@ -284,9 +296,10 @@ jobs:
           key: ${{ steps.setup.outputs.cache-key }}
 
   # The playback packages, which need the real Widevine CDM, user namespaces,
-  # Apple's previews and GStreamer's H.264 codecs. They always run (-count=1)
-  # and mustpass.sh fails the job if any of the named tests skipped: a skip
-  # here is a missing prerequisite, not a pass.
+  # Apple's previews, GStreamer's H.264 codecs and a PipeWire daemon. They
+  # always run (-count=1). Every test job runs skips.sh: a skipped test the
+  # allow-list (.github/ci/skips-linux.txt) does not name is a missing
+  # prerequisite, not a pass.
   test-playback:
     name: Race tests, playback
     needs: changes
@@ -338,10 +351,10 @@ jobs:
           SONA_CDMHOST_REQUIRE_NAMESPACES: "1"
           SONA_PREVIEW_REQUIRE: "1"
           TEST_FLAGS: -count=1
-        run: dbus-run-session -- .github/ci/test.sh playback 1 1
+        run: dbus-run-session -- .github/ci/with-pipewire.sh .github/ci/test.sh playback 1 1
 
-      - name: The tests that must not skip
-        run: .github/ci/mustpass.sh "$RUNNER_TEMP/test-results"
+      - name: Skipped tests are allowed ones
+        run: .github/ci/skips.sh "$RUNNER_TEMP/test-results"
 
       - name: Keep the test results
         if: ${{ always() }}
@@ -618,11 +631,8 @@ jobs:
             exit 1
           fi
 
-      - name: The CDM tests that must not skip
-        if: ${{ matrix.pool == 'playback' }}
-        env:
-          MUSTPASS_FILE: .github/ci/mustpass-darwin.txt
-        run: .github/ci/mustpass.sh "$RUNNER_TEMP/test-results"
+      - name: Skipped tests are allowed ones
+        run: .github/ci/skips.sh "$RUNNER_TEMP/test-results"
 
       - name: Keep the test results
         if: ${{ always() }}
@@ -660,9 +670,6 @@ jobs:
     if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'windows')) || (github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch' && !github.event.repository.private)) }}
     runs-on: windows-2025
     timeout-minutes: 30
-    defaults:
-      run:
-        shell: bash
     env:
       # mattn/go-sqlite3 needs cgo: the runner's MinGW-w64 gcc. MyGo itself
       # is pure Go on Windows.

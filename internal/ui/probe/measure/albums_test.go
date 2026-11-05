@@ -128,7 +128,7 @@ func (a *fakeApp) serve(t *testing.T) string {
 
 func (a *fakeApp) serveWith(t *testing.T, handle func([]byte) any) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "a.sock")
+	path := filepath.Join(socketDir(t), "a.sock")
 	l, err := net.Listen("unix", path)
 	if err != nil {
 		t.Fatal(err)
@@ -286,7 +286,7 @@ func TestAlbumsGivesUpWhenTheCoversNeverCome(t *testing.T) {
 }
 
 func TestACallThatIsNeverAnsweredTimesOut(t *testing.T) {
-	l, err := net.Listen("unix", filepath.Join(t.TempDir(), "mute.sock"))
+	l, err := net.Listen("unix", filepath.Join(socketDir(t), "mute.sock"))
 	if err != nil {
 		t.Fatal(err)
 	}

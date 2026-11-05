@@ -24,14 +24,21 @@ func script(t *testing.T, shell string) string {
 }
 
 // bash completes command names, a command's arguments and options, and
-// option values, from the table.
+// option values, from the table: in the bash on PATH and in /bin/bash,
+// which is 3.2 on macOS.
 func TestBashCompletion(t *testing.T) {
-	bash, err := exec.LookPath("bash")
-	if err != nil {
+	var shells []string
+	if bash, err := exec.LookPath("bash"); err == nil {
+		shells = append(shells, bash)
+	}
+	if _, err := os.Stat("/bin/bash"); err == nil && !slices.Contains(shells, "/bin/bash") {
+		shells = append(shells, "/bin/bash")
+	}
+	if len(shells) == 0 {
 		t.Skip("bash not available")
 	}
 	path := script(t, "bash")
-	complete := func(words ...string) []string {
+	complete := func(bash string, words ...string) []string {
 		t.Helper()
 		// The word being completed is the last one.
 		var arr strings.Builder
@@ -43,7 +50,7 @@ func TestBashCompletion(t *testing.T) {
 			"bash", path)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("bash: %v\n%s", err, out)
+			t.Fatalf("%s: %v\n%s", bash, err, out)
 		}
 		return strings.Fields(string(out))
 	}
@@ -60,8 +67,10 @@ func TestBashCompletion(t *testing.T) {
 		{[]string{"sona", "completion", "z"}, "zsh"},
 		{[]string{"sona", "help", "vol"}, "volume"},
 	} {
-		if got := strings.Join(complete(tc.words...), " "); got != tc.want {
-			t.Errorf("complete %q = %q, want %q", tc.words, got, tc.want)
+		for _, bash := range shells {
+			if got := strings.Join(complete(bash, tc.words...), " "); got != tc.want {
+				t.Errorf("%s: complete %q = %q, want %q", bash, tc.words, got, tc.want)
+			}
 		}
 	}
 }

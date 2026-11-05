@@ -148,7 +148,7 @@ func TestLoaderCancelsACoverInFlightAndFetchesItAgainWhenAsked(t *testing.T) {
 	l.painted(v, 1)
 
 	// The next pass wants another cover only.
-	askAs(l, v, rankView, 20)
+	b := askAs(l, v, rankView, 20)
 	began(t, src, 1)
 	l.painted(v, 1)
 	if a.state != coverIdle {
@@ -166,7 +166,9 @@ func TestLoaderCancelsACoverInFlightAndFetchesItAgainWhenAsked(t *testing.T) {
 	askAs(l, v, rankView, 10)
 	began(t, src, 1)
 	close(src.gate)
-	for a.bitmap() == nil {
+	// Both requests are recorded only once they pass the gate: wait for
+	// both covers, not only a's, or b's Get may not have counted yet.
+	for a.bitmap() == nil || b.bitmap() == nil {
 		mt.run(t, 1)
 	}
 	if got := widths(src); len(got) != 2 {

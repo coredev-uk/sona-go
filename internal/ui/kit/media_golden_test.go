@@ -17,6 +17,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/media"
 	"github.com/coredev-uk/sona-go/internal/ui/media/mediatest"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/artifacts"
 )
 
 // updateMediaGolden rewrites the media goldens instead of comparing:
@@ -89,7 +90,7 @@ func mediaGoldenTol(t *testing.T, name string, img *image.RGBA, tol int) {
 		}
 	}
 	if limit := img.Bounds().Dx() * img.Bounds().Dy() / 200; diff > limit {
-		out := filepath.Join(t.ArtifactDir(), "media-"+name+"-got.png")
+		out := filepath.Join(artifacts.Dir(t), "media-"+name+"-got.png")
 		if f, err := os.Create(out); err == nil {
 			_ = png.Encode(f, img)
 			_ = f.Close()
@@ -206,6 +207,12 @@ func mediaMotionView(p *MotionPolicy, l *ArtLoader, feed *VideoFeed) func(*ui.Co
 // patch of "smpte": any frame is the same picture, and the same on every
 // decoder build); it skips where GStreamer cannot decode or encode one.
 func TestMediaMotionGoldens(t *testing.T) {
+	// Every assertion here is a golden, which is compared on Linux only; the
+	// macOS video surface needs a Metal device a CI runner doesn't have (its
+	// command queue creation aborts the test binary).
+	if runtime.GOOS != "linux" {
+		t.Skip("golden images are compared on Linux only: other platforms draw text with their own rasteriser")
+	}
 	if media.Codec() != "avc" {
 		t.Skip("no H.264 decoder in this GStreamer: motion goldens need one")
 	}

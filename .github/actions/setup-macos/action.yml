@@ -41,9 +41,7 @@ runs:
     - name: Restore Go's caches
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: |
-          ~/Library/Caches/go-build
-          ~/go/pkg/mod
+        path: ${{ steps.keys.outputs.path }}
         key: ${{ steps.keys.outputs.key }}
         restore-keys: |
           ${{ steps.keys.outputs.restore }}
@@ -75,6 +73,8 @@ runs:
           echo "CGO_CFLAGS=-mmacosx-version-min=$minos"
           echo "CGO_LDFLAGS=-mmacosx-version-min=$minos"
         } >>"$GITHUB_ENV"
+        # gst-launch-1.0 and gst-inspect-1.0, which the motion tests look for.
+        echo "$fw/bin" >>"$GITHUB_PATH"
 
     - name: Save the GStreamer packages
       if: ${{ steps.pkg.outputs.cache-hit != 'true' }}

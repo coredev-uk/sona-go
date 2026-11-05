@@ -2,7 +2,9 @@ name: Set up Linux
 description: >-
   The system packages (their .debs cached, so a run unpacks them instead of
   downloading), Go from go.mod, and Go's module and build caches restored from
-  the last run on main. The caller saves the Go caches last, with
+  the last run on main (never across a runner image update: the image's Pango
+  and fonts decide what a cached pass means). The caller saves the Go caches
+  last, with
   actions/cache/save, key and path from this action's outputs.
 inputs:
   packages:
@@ -37,9 +39,9 @@ runs:
         PKG_HASH: ${{ hashFiles('.github/actions/setup-linux/packages-*.txt') }}
       run: |
         {
-          echo "key=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-$GO_HASH-$RUN_ID"
-          echo "restore=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-$GO_HASH-"
-          echo "fallback=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-"
+          echo "key=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-${ImageVersion:-unknown}-$GO_HASH-$RUN_ID"
+          echo "restore=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-${ImageVersion:-unknown}-$GO_HASH-"
+          echo "fallback=go-$FLAVOR-$RUNNER_OS-$RUNNER_ARCH-${ImageVersion:-unknown}-"
           echo "path<<EOF"
           echo "$HOME/.cache/go-build"
           echo "$HOME/go/pkg/mod"
@@ -59,9 +61,7 @@ runs:
     - name: Restore Go's caches
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
+        path: ${{ steps.keys.outputs.path }}
         key: ${{ steps.keys.outputs.key }}
         restore-keys: |
           ${{ steps.keys.outputs.restore }}
@@ -84,11 +84,15 @@ runs:
         mkdir -p ~/apt-archives/partial
         # A mirror that stalls once held a job for twenty minutes: every
         # attempt has a deadline, and a stalled one is tried again.
+        # An install that was cut off mid-unpack leaves dpkg half done:
+        # configure what was unpacked before the next attempt.
         apt() {
-          local i
+          local i limit=150
+          [[ $1 == install ]] && limit=600
           for i in 1 2 3; do
-            sudo timeout 150 apt-get -o Acquire::http::Timeout=15 -o Acquire::Retries=3 -o Dir::Cache::archives="$HOME/apt-archives" "$@" && return 0
+            sudo timeout "$limit" apt-get -o Acquire::http::Timeout=15 -o Acquire::Retries=3 -o Dir::Cache::archives="$HOME/apt-archives" "$@" && return 0
             echo "apt-get $1 did not finish (attempt $i)"
+            sudo dpkg --configure -a || true
           done
           return 1
         }

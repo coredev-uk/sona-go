@@ -15,6 +15,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/artifacts"
 )
 
 // -update-controls rewrites the controls goldens (internal/ui/uitest's Golden
@@ -108,8 +109,8 @@ func controlsCompare(t *testing.T, file string, got *image.RGBA) {
 	}
 	if limit := b.Dx() * b.Dy() / 500; off > limit {
 		t.Errorf("%s: %d pixels differ (allowed %d); run with -update-controls and look at it if the change is meant", file, off, limit)
-		// Leave the picture in the test's artifacts (-artifacts) for a look.
-		if out, err := os.Create(filepath.Join(t.ArtifactDir(), file)); err == nil {
+		// Leave the picture in the test's artifacts (SONA_TEST_ARTIFACTS) for a look.
+		if out, err := os.Create(filepath.Join(artifacts.Dir(t), file)); err == nil {
 			_ = png.Encode(out, got)
 			_ = out.Close()
 			t.Logf("got: %s", out.Name())
