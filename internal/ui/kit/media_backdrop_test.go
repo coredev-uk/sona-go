@@ -169,3 +169,40 @@ func TestBackdropHoldsItsChildren(t *testing.T) {
 		t.Errorf("the content is missing: %v", tt.Texts())
 	}
 }
+
+func TestWashIsTheColourTheBackdropDraws(t *testing.T) {
+	box := ui.Rect{W: 200, H: 200}
+	for _, tc := range []struct {
+		name string
+		opts BackdropOpts
+		load bool
+	}{
+		{"colour only", BackdropOpts{Color: "#c81e1e", Tone: ToneGround}, false},
+		{"image", BackdropOpts{Src: "/art/k1/backdrop.jpg", Tone: ToneGround}, true},
+		{"nothing yet", BackdropOpts{Src: "/art/k1/backdrop.jpg", Tone: ToneSurface}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := &fakeArt{gate: make(chan struct{})}
+			a, tt, mt := newMediaBackdropApp(t, src, tc.opts)
+			tt.Frame()
+			if tc.load {
+				close(src.gate)
+				mt.run(t, 1)
+				tt.Frame()
+				tt.Advance(400 * time.Millisecond)
+			}
+			tt.Frame()
+			got := a.l.WashOf(tc.opts).At(box, 150, 150)
+			if tc.name == "nothing yet" {
+				// The Backdrop draws nothing: the tone itself is what is there.
+				if got != theme.C("surface") {
+					t.Errorf("with nothing drawn the wash is %v, want the tone %v", got, theme.C("surface"))
+				}
+				return
+			}
+			if want := at(tt, 150, 150); !near(color.RGBA{got.R, got.G, got.B, 255}, want) {
+				t.Errorf("Wash.At = %v, the Backdrop draws %v", got, want)
+			}
+		})
+	}
+}

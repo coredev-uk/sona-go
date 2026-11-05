@@ -93,6 +93,8 @@ type npRig struct {
 	h    *uitest.Harness
 	// width and height are the window's size (1132×700 when zero).
 	width, height int
+	// inspect, when set, runs at the end of every frame (to read bounds).
+	inspect func(c *ui.Context)
 }
 
 func newNPRig(t *testing.T, mutate ...func(*npRig)) *npRig {
@@ -129,6 +131,9 @@ func newNPRigWith(t *testing.T, opts []uitest.Option, mutate ...func(*npRig)) *n
 		})
 		// The shell's layer wrapper: input only while the layer is open.
 		ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).IgnoreInput(!r.p.roomOpen()).Children(func() { r.p.roomLayer(c) })
+		if r.inspect != nil {
+			r.inspect(c)
+		}
 	}, r.width, r.height)
 	return r
 }

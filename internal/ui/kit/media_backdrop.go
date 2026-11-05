@@ -1,6 +1,8 @@
 package kit
 
 import (
+	"image"
+	"math"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -153,4 +155,89 @@ func mediaHexColour(s string) (c ui.Color, ok bool) {
 		}
 	}()
 	return ui.Hex(s), true
+}
+
+// Wash is what a Backdrop of some options shows, as colours can be read from
+// it: the cover's colour under the scrim.
+type Wash struct {
+	base   ui.Color    // the tone's own colour, where the Backdrop draws nothing
+	under  ui.Color    // the colour behind the image, when there is one
+	hasCol bool        // under is set
+	tiny   image.Image // the image's pixels, once decoded
+	scrim  float32
+}
+
+// WashOf is the Wash of a Backdrop with o: build it with the view (it asks
+// the loader for the backdrop) and read it anywhere. What fades into the
+// wash (a sheet of text, say) fades to its colour, so the edge does not show.
+func (l *ArtLoader) WashOf(o BackdropOpts) Wash {
+	tone := "surface"
+	if o.Tone == ToneGround {
+		tone = "ground"
+	}
+	w := Wash{base: theme.C(tone), scrim: theme.Current().Scalar["backdrop-scrim"]}
+	if theme.ReduceEffects() {
+		return w // the Backdrop draws nothing
+	}
+	if c, ok := mediaHexColour(o.Color); ok {
+		w.under, w.hasCol = c, true
+	}
+	if cv := l.backdrop(o.Src); cv != nil && cv.state == coverReady {
+		w.tiny = cv.tiny
+	}
+	return w
+}
+
+// At is the colour the Backdrop shows at (x, y) when laid over box (both in
+// window DIPs): the image under the scrim as it draws it, the tone's own
+// colour where it draws nothing (no image or colour yet, or reduce effects).
+func (w Wash) At(box ui.Rect, x, y float32) ui.Color {
+	under := w.under
+	switch {
+	case w.tiny != nil && box.W > 0 && box.H > 0:
+		under = sampleBackdrop(w.tiny, box, x, y)
+	case !w.hasCol:
+		return w.base
+	}
+	mix := func(over, under uint8) uint8 { return uint8(w.scrim*float32(over) + (1-w.scrim)*float32(under) + 0.5) }
+	return ui.Color{R: mix(w.base.R, under.R), G: mix(w.base.G, under.G), B: mix(w.base.B, under.B), A: 255}
+}
+
+// sampleBackdrop is the picture's colour at (x, y) of box when drawn as
+// drawBackdropImage draws it: filling box, cropped to its shape, at
+// backdropZoom, sampled bilinearly as the GPU does.
+func sampleBackdrop(img image.Image, box ui.Rect, x, y float32) ui.Color {
+	b := img.Bounds()
+	w, h := float32(b.Dx()), float32(b.Dy())
+	if w == 0 || h == 0 {
+		return ui.Color{}
+	}
+	src := ui.Rect{W: w, H: h}
+	if bw, bh := w/h, box.W/box.H; bw > bh {
+		src.W = h * box.W / box.H
+		src.X = (w - src.W) / 2
+	} else {
+		src.H = w * box.H / box.W
+		src.Y = (h - src.H) / 2
+	}
+	dw, dh := box.W*backdropZoom, box.H*backdropZoom
+	u := min(max((x-(box.X-box.W*(backdropZoom-1)/2))/dw, 0), 1)
+	v := min(max((y-(box.Y-box.H*(backdropZoom-1)/2))/dh, 0), 1)
+	// Texel centres sit half a texel in.
+	sx, sy := src.X+u*src.W-0.5, src.Y+v*src.H-0.5
+	x0, y0 := int(math.Floor(float64(sx))), int(math.Floor(float64(sy)))
+	fx, fy := sx-float32(x0), sy-float32(y0)
+	at := func(ix, iy int) [3]float32 {
+		ix, iy = min(max(ix, 0), b.Dx()-1), min(max(iy, 0), b.Dy()-1)
+		r, g, bl, _ := img.At(b.Min.X+ix, b.Min.Y+iy).RGBA()
+		return [3]float32{float32(r >> 8), float32(g >> 8), float32(bl >> 8)}
+	}
+	c00, c10, c01, c11 := at(x0, y0), at(x0+1, y0), at(x0, y0+1), at(x0+1, y0+1)
+	var out [3]uint8
+	for i := range out {
+		top := c00[i]*(1-fx) + c10[i]*fx
+		bot := c01[i]*(1-fx) + c11[i]*fx
+		out[i] = uint8(top*(1-fy) + bot*fy + 0.5)
+	}
+	return ui.Color{R: out[0], G: out[1], B: out[2], A: 255}
 }

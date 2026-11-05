@@ -43,8 +43,8 @@ type nowPlayingState struct {
 	// rating builds Favourite and Suggest Less for the playing song; nil: none.
 	rating func(c *ui.Context, cur *services.QueueItem)
 
-	root, closeBtn, roomToggle, roomExit ui.Handle
-	tabs                                 [2]ui.Handle
+	root, roomRoot, closeBtn, roomToggle, roomExit ui.Handle
+	tabs                                           [2]ui.Handle
 
 	// lastPane is the pane the last build showed and tabHad whether one of
 	// the tabs had the focus then: a pane changed from outside (the Queue
