@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"image/png"
 	"io"
 	"math/rand/v2"
@@ -282,6 +283,67 @@ func TestAlbumsGivesUpWhenTheCoversNeverCome(t *testing.T) {
 	}
 	if app.wheels != 0 {
 		t.Errorf("scrolled %d times before giving up", app.wheels)
+	}
+}
+
+// resizedApp is a window the compositor resizes after the probe first sees
+// it: the first "windows" answer is half the width it ends up with, and the
+// capture shows pictures only where the tiles are at the final size.
+type resizedApp struct {
+	fakeApp
+	windows int
+}
+
+func (a *resizedApp) handle(line []byte) any {
+	switch {
+	case bytes.Contains(line, []byte(`"windows"`)):
+		a.windows++
+		w := 1132
+		if a.windows == 1 {
+			w = 566
+		}
+		return map[string]any{"id": 1, "result": map[string]any{"windows": []map[string]any{{"id": 1, "kind": "content", "contentBounds": map[string]any{"x": 0, "y": 0, "width": w, "height": 1253}}}}}
+	case bytes.Contains(line, []byte(`"capture"`)):
+		a.mu.Lock()
+		nodes := a.tree()
+		a.mu.Unlock()
+		img := image.NewRGBA(image.Rect(0, 0, 1132, 1253))
+		rng := rand.New(rand.NewPCG(1, 2))
+		for _, n := range nodes {
+			if n["role"] != "cell" {
+				continue
+			}
+			b := n["bounds"].(map[string]any)
+			x, y := b["x"].(int)+8, int(b["y"].(float64))+8
+			for yy := y; yy < y+probeH; yy++ {
+				for xx := x; xx < x+probeW; xx++ {
+					img.Set(xx, yy, color.RGBA{uint8(rng.UintN(256)), uint8(rng.UintN(256)), uint8(rng.UintN(256)), 0xff})
+				}
+			}
+		}
+		var buf bytes.Buffer
+		_ = png.Encode(&buf, img)
+		return map[string]any{"id": 1, "result": map[string]any{"png": buf.Bytes(), "width": 1132, "height": 1253}}
+	}
+	return a.fakeApp.handle(line)
+}
+
+// A window resized after the probe first saw it (a tiling compositor, a
+// user going fullscreen) is read at its size now: sampling the covers at
+// the old scale found flat pixels and the probe gave up on a full page.
+func TestAlbumsReadsTheCoversAtTheWindowsSizeNow(t *testing.T) {
+	app := &resizedApp{}
+	app.frames = append(app.frames, Frame{At: time.Now(), Path: "drawn in memory"})
+	c, err := Dial(app.serveWith(t, app.handle), 2*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	var out, log bytes.Buffer
+	clock := &stepClock{t: time.Now()}
+	err = Albums(Config{Client: c, Frames: &app.fakeApp, StartupOnly: true, Interval: 16.67, CoversTimeout: 300 * time.Millisecond, Now: clock.Now, Sleep: clock.Sleep, Out: &out, Log: &log})
+	if err != nil {
+		t.Fatalf("err = %v; log:\n%s", err, &log)
 	}
 }
 

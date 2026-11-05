@@ -29,6 +29,12 @@ const (
 // coversLoaded tells whether the covers of the tiles in view are drawn,
 // from a capture of the window.
 func (s *scenario) coversLoaded() (bool, error) {
+	// The window may have been resized since the probe first saw it (a
+	// tiling compositor placing it, a user going fullscreen): the capture
+	// is scaled against its size now.
+	if win, err := s.Client.WaitWindow(time.Second); err == nil {
+		s.win = win
+	}
 	nodes, err := s.Client.Tree()
 	if err != nil {
 		return false, err
