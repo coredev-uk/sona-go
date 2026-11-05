@@ -182,3 +182,18 @@ func TestPlaylistMutationRequests(t *testing.T) {
 		}
 	}
 }
+
+// Apple's generated playlist cover is one fixed 1200×1200 URL; its template
+// has the box open and keeps the signature and colours, so the artwork cache
+// asks for the size shown.
+func TestGeneratedArtworkTemplateOpensTheBox(t *testing.T) {
+	const q = "?c1=F2CC9D&c2=FFA940&c3=B36B00&c4=400000&signature=ff4d&t=c29uYQ%3D%3D&tc=000000&vkey=1"
+	a := &Artwork{URL: "https://is1-ssl.mzstatic.com/image/thumb/gen/1200x1200AM.PDCXS11.jpg" + q}
+	if got, want := a.Template(), "https://is1-ssl.mzstatic.com/image/thumb/gen/{w}x{h}AM.PDCXS11.jpg"+q; got != want {
+		t.Errorf("Template = %q, want %q", got, want)
+	}
+	plain := &Artwork{URL: "https://is1-ssl.mzstatic.com/image/thumb/Music/x/{w}x{h}bb.jpg"}
+	if plain.Template() != plain.URL {
+		t.Errorf("an album's template changed: %q", plain.Template())
+	}
+}

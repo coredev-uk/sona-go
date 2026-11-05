@@ -92,22 +92,23 @@ func (l *Library) CoverUploads(ctx context.Context) ([]string, error) {
 }
 
 // AutoCover returns the automatic cover of library playlist id whatever the
-// user chose: Apple's artwork, or the mosaic of its tracks' albums when
-// Apple has none ("" when it has neither).
-func (l *Library) AutoCover(ctx context.Context, id string) (string, error) {
+// user chose, and the playlist's name: Apple's artwork (for a playlist
+// with tracks, the gradient with its name Apple generates), or the mosaic
+// of its tracks' albums when Apple has none ("" when it has neither).
+func (l *Library) AutoCover(ctx context.Context, id string) (tmpl, name string, err error) {
 	pls, err := query(ctx, l, `SELECT `+playlistColumns+` FROM playlists p
 		JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
 		WHERE p.library_id = ?`, scanPlaylist, id)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if len(pls) == 0 {
-		return "", ErrNotFound
+		return "", "", ErrNotFound
 	}
 	if err := l.fillMosaics(ctx, pls, nil); err != nil {
-		return "", err
+		return "", "", err
 	}
-	return pls[0].ArtworkTemplate, nil
+	return pls[0].ArtworkTemplate, pls[0].Name, nil
 }
 
 // FillCovers sets the cover of every library playlist of pls into

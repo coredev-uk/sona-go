@@ -283,10 +283,10 @@ func TestChosenCoverShowsEverywhereAPlaylistIsRead(t *testing.T) {
 	check("search", templates(res.Playlists))
 
 	// The automatic cover is still there to go back to.
-	if auto, err := e.lib.AutoCover(ctx, "p.own"); err != nil || auto != own {
+	if auto, _, err := e.lib.AutoCover(ctx, "p.own"); err != nil || auto != own {
 		t.Errorf("AutoCover(p.own) = %q, %v; want Apple's %q", auto, err, own)
 	}
-	if auto, err := e.lib.AutoCover(ctx, "p.mosaic"); err != nil || auto != mosaic {
+	if auto, _, err := e.lib.AutoCover(ctx, "p.mosaic"); err != nil || auto != mosaic {
 		t.Errorf("AutoCover(p.mosaic) = %q, %v; want %q", auto, err, mosaic)
 	}
 

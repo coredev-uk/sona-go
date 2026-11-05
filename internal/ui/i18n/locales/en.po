@@ -915,6 +915,11 @@ msgstr "Choosing an image needs a file chooser, and this system has none."
 msgid "Cities that match"
 msgstr "Cities that match"
 
+#. Name of a generated playlist cover: a diagonal gradient with the playlist's name, like the cover Apple Music makes for a new playlist.
+#: internal/ui/features/playlist/covers.go
+msgid "Classic"
+msgstr "Classic"
+
 #. Equaliser preset
 #: internal/ui/features/equalizer/curve.go
 msgid "Classical"

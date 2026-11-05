@@ -242,7 +242,7 @@ func testCovers(canUpload, upload bool) services.PlaylistCovers {
 	if upload {
 		c.Options = append(c.Options, services.CoverOption{ID: services.CoverUpload, Kind: "upload"})
 	}
-	for _, style := range []string{"aurora", "dusk", "horizon", "moon", "glow", "duo"} {
+	for _, style := range []string{"classic", "aurora", "dusk", "horizon", "moon", "glow", "duo"} {
 		c.Options = append(c.Options, services.CoverOption{ID: "preset:" + style + ":3a7bd5:d5b43a", Kind: "preset", Style: style})
 	}
 	return c

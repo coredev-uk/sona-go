@@ -16,7 +16,7 @@ import (
 )
 
 // coverStyles are the names the picker gives the presets, in order.
-var coverStyles = []string{"Aurora", "Dusk", "Horizon", "Moon", "Glow", "Duo"}
+var coverStyles = []string{"Classic", "Aurora", "Dusk", "Horizon", "Moon", "Glow", "Duo"}
 
 // showCover opens the cover picker of playlist p.a and waits for its options.
 func (r *dialogsRig) showCover() {
@@ -58,8 +58,8 @@ func TestCoverDialogOffersEveryChoiceAndSaysWhereTheCoverLives(t *testing.T) {
 		t.Errorf("checked cover = %q, want Automatic", got)
 	}
 	tr := access.Read(t, r.tt.Tester)
-	if g, ok := tr.Find(ui.RoleRadioGroup, "Cover"); !ok || len(tr.Children(g)) != 8 {
-		t.Errorf("radio group %+v of %d options, want eight", g, len(tr.Children(g)))
+	if g, ok := tr.Find(ui.RoleRadioGroup, "Cover"); !ok || len(tr.Children(g)) != 9 {
+		t.Errorf("radio group %+v of %d options, want nine", g, len(tr.Children(g)))
 	}
 	if n, ok := tr.Find(ui.RoleRadio, "None"); !ok || n.Description != "No picture" {
 		t.Errorf("None = %+v", n)
@@ -136,9 +136,9 @@ func TestCoverDialogKeyboard(t *testing.T) {
 		want string
 	}{
 		{ui.KeyRight, "None"},
-		{ui.KeyRight, "Aurora"},
-		{ui.KeyDown, "Glow"}, // four columns: one row down from Aurora is Glow
-		{ui.KeyLeft, "Moon"},
+		{ui.KeyRight, "Classic"},
+		{ui.KeyDown, "Moon"}, // four columns: one row down from Classic is Moon
+		{ui.KeyLeft, "Horizon"},
 		{ui.KeyUp, "None"},
 		{ui.KeyEnd, "Duo"},
 		{ui.KeyHome, "Automatic"},

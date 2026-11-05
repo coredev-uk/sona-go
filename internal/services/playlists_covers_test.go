@@ -231,7 +231,7 @@ func TestCoverOptionsListTheAutomaticCoverNoneAndSixPresets(t *testing.T) {
 	if got.Limits.MaxBytes != artwork.MaxCoverBytes || got.Limits.MinEdge != artwork.MinCoverEdge {
 		t.Errorf("limits = %+v", got.Limits)
 	}
-	if len(got.Options) != 2+len(artwork.PresetStyles) || got.Options[0].ID != CoverAuto || got.Options[1].ID != CoverNone {
+	if len(got.Options) != 3+len(artwork.PresetStyles) || got.Options[0].ID != CoverAuto || got.Options[1].ID != CoverNone {
 		t.Fatalf("options = %v", optionIDs(got))
 	}
 	mosaic := artwork.Mosaic([]string{albumArt("a"), albumArt("b"), albumArt("c"), albumArt("d")})
@@ -242,7 +242,7 @@ func TestCoverOptionsListTheAutomaticCoverNoneAndSixPresets(t *testing.T) {
 		t.Errorf("none shows %+v", got.Options[1].Art)
 	}
 	for i, o := range got.Options[2:] {
-		if o.Kind != "preset" || o.Style != artwork.PresetStyles[i] || !artwork.IsPreset(o.ID) || o.Art.Medium == "" {
+		if o.Kind != "preset" || o.Style != append([]string{artwork.ClassicStyle}, artwork.PresetStyles...)[i] || !artwork.IsPreset(o.ID) || o.Art.Medium == "" {
 			t.Errorf("preset option %d = %+v", i, o)
 		}
 	}
@@ -624,5 +624,42 @@ func TestConcurrentUploadsAndTidyingKeepEveryChosenImage(t *testing.T) {
 	// Only the last round's two images are kept: replaced ones went.
 	if stored, _ := os.ReadDir(r.covers); len(stored) != 2 {
 		t.Errorf("%d images kept for two playlists", len(stored))
+	}
+}
+
+// A playlist Apple generated a cover for keeps it as its automatic cover, at
+// the size shown, and the classic preset wears the colours Apple chose and
+// the playlist's name, which follows a rename.
+func TestClassicCoverFollowsAppleColoursAndRenames(t *testing.T) {
+	ctx := context.Background()
+	r := newCoverRig(t, nil)
+	const gen = "https://is1-ssl.mzstatic.com/image/thumb/gen/1200x1200AM.PDCXS11.jpg?c1=F2CC9D&c2=FFA940&c3=B36B00&c4=400000&signature=ff&t=eA%3D%3D&tc=000000&vkey=1"
+	r.store("p.gen", gen, "a")
+	opts, err := r.pl.CoverOptions(ctx, "p.gen")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := opts.Options[0].Art.Medium; !strings.Contains(got, "/art/") {
+		t.Fatalf("automatic = %+v", opts.Options[0].Art)
+	}
+	classic := opts.Options[2]
+	if classic.Style != artwork.ClassicStyle || !strings.HasPrefix(classic.ID, "preset:classic:f2cc9d:ffa940:b36b00:400000:") {
+		t.Fatalf("classic option = %+v", classic)
+	}
+	if _, err := r.pl.SetCover(ctx, "p.gen", classic.ID); err != nil {
+		t.Fatal(err)
+	}
+	r.pl.renameCover(ctx, "p.gen", "Gym")
+	c, _ := r.lib.PlaylistCover(ctx, "p.gen")
+	if c.Template != artwork.RenamePreset(classic.ID, "Gym") || c.Template == classic.ID {
+		t.Errorf("after a rename the cover is %q", c.Template)
+	}
+	// Another style is not a rename's business.
+	if _, err := r.pl.SetCover(ctx, "p.gen", "preset:glow:112233:ddeeff"); err != nil {
+		t.Fatal(err)
+	}
+	r.pl.renameCover(ctx, "p.gen", "Run")
+	if c, _ := r.lib.PlaylistCover(ctx, "p.gen"); c.Template != "preset:glow:112233:ddeeff" {
+		t.Errorf("a glow cover became %q", c.Template)
 	}
 }

@@ -36,7 +36,7 @@ func (s *PlaylistsService) CoverOptions(ctx context.Context, id string) (Playlis
 	if err != nil {
 		return PlaylistCovers{}, err
 	}
-	auto, err := s.e.Library.AutoCover(ctx, id)
+	auto, name, err := s.e.Library.AutoCover(ctx, id)
 	if err != nil {
 		return PlaylistCovers{}, err
 	}
@@ -46,7 +46,8 @@ func (s *PlaylistsService) CoverOptions(ctx context.Context, id string) (Playlis
 		palette, _ = s.e.Art.DominantColors(cctx, auto)
 		cancel()
 	}
-	presets := artwork.Presets(palette)
+	generated, _ := artwork.GeneratedColors(auto) // Apple's own four colours, when it made the cover
+	presets := artwork.Presets(palette, generated, name)
 	out := PlaylistCovers{
 		Current:   CoverAuto,
 		CanUpload: s.e.Platform.Files != nil && s.e.Art != nil,
@@ -226,4 +227,20 @@ func (s *PlaylistsService) coverOfPin(ctx context.Context, libraryID string) (st
 		return choice.Template, true
 	}
 	return "", false
+}
+
+// renameCover keeps a classic preset cover, which carries the playlist's
+// name, in step with a rename.
+func (s *PlaylistsService) renameCover(ctx context.Context, id, name string) {
+	defer s.e.lockCovers()()
+	c, err := s.e.Library.PlaylistCover(ctx, id)
+	if err != nil || c.Kind != library.CoverPreset {
+		return
+	}
+	if next := artwork.RenamePreset(c.Template, name); next != c.Template {
+		c.Template = next
+		if err := s.e.Library.SetPlaylistCover(ctx, id, c); err != nil {
+			s.e.Logger.Warn("playlist covers: rename", "err", err)
+		}
+	}
 }

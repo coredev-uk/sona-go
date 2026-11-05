@@ -18,7 +18,8 @@ import (
 const presetPrefix = "preset:"
 
 // PresetStyles are the preset covers' styles, in the order Presets offers
-// them. The names are stable: a template stores one.
+// them (after ClassicStyle, which comes first). The names are stable: a
+// template stores one.
 var PresetStyles = []string{"aurora", "dusk", "horizon", "moon", "glow", "duo"}
 
 // ErrPreset reports a template that is not a valid preset.
@@ -28,14 +29,15 @@ var ErrPreset = errors.New("artwork: invalid preset template")
 // to take colours from: a warm, a cool and a violet accent.
 var defaultPalette = []Color{{0xe0, 0x65, 0x3a}, {0x1f, 0x8a, 0x9c}, {0x7a, 0x55, 0xc8}}
 
-// Presets returns the preset covers on offer for a playlist whose artwork
-// has the dominant colours palette (DominantColors), one per style in
-// PresetStyles order, as templates. A palette with fewer than three
+// Presets returns the preset covers on offer for the playlist called name
+// whose artwork has the dominant colours palette (DominantColors): the
+// classic cover first, in Apple's own four colours when generated has them
+// (GeneratedColors), then one per style in PresetStyles order, as templates. A palette with fewer than three
 // usable colours is completed by turning the hue of the first, and an
 // empty one by a default set, so there are always six distinct covers. The
 // colours are the playlist's own; each style sets its own lightness, so a
 // dark or washed-out cover still gives a cover with depth.
-func Presets(palette []Color) []string {
+func Presets(palette, generated []Color, name string) []string {
 	var p []Color
 	for _, c := range palette {
 		// Near-black is what DominantColors answers for an image it could not
@@ -53,26 +55,40 @@ func Presets(palette []Color) []string {
 		p = append(p, fromOKLCH(next, math.Max(next.l, 0.5)))
 	}
 	pair := [][2]int{{0, 1}, {1, 2}, {2, 0}, {0, 2}, {1, 0}, {2, 1}}
-	out := make([]string, len(PresetStyles))
+	var cl [4]Color
+	if len(generated) == 4 {
+		copy(cl[:], generated)
+	} else {
+		cl = classicColours([]oklch{toOKLCH(p[0]), toOKLCH(p[1])})
+	}
+	out := make([]string, 1+len(PresetStyles))
+	out[0] = classicTemplate(cl, name)
 	for i, style := range PresetStyles {
-		out[i] = presetPrefix + style + ":" + p[pair[i][0]].hex6() + ":" + p[pair[i][1]].hex6()
+		out[i+1] = presetPrefix + style + ":" + p[pair[i][0]].hex6() + ":" + p[pair[i][1]].hex6()
 	}
 	return out
 }
 
 // IsPreset reports whether tmpl is a valid preset template.
-func IsPreset(tmpl string) bool {
-	_, _, _, err := parsePreset(strings.TrimPrefix(tmpl, presetPrefix))
-	return strings.HasPrefix(tmpl, presetPrefix) && err == nil
-}
+func IsPreset(tmpl string) bool { return PresetStyle(tmpl) != "" }
 
 // PresetStyle returns the style of a valid preset template, "" for any
 // other.
 func PresetStyle(tmpl string) string {
-	if !IsPreset(tmpl) {
+	rest, ok := strings.CutPrefix(tmpl, presetPrefix)
+	if !ok {
 		return ""
 	}
-	style, _, _, _ := parsePreset(strings.TrimPrefix(tmpl, presetPrefix))
+	if c, ok := strings.CutPrefix(rest, ClassicStyle+":"); ok {
+		if _, err := parseClassic(c); err != nil {
+			return ""
+		}
+		return ClassicStyle
+	}
+	style, _, _, err := parsePreset(rest)
+	if err != nil {
+		return ""
+	}
 	return style
 }
 
@@ -113,6 +129,14 @@ func parseHex6(s string) (Color, error) {
 
 // parsePresetTemplate normalises a preset template and returns its cache key.
 func parsePresetTemplate(rest string) (string, string, error) {
+	if c, ok := strings.CutPrefix(rest, ClassicStyle+":"); ok {
+		s, err := parseClassic(c)
+		if err != nil {
+			return "", "", err
+		}
+		tmpl := s.template()
+		return tmpl, keyOf(tmpl), nil
+	}
 	style, a, b, err := parsePreset(rest)
 	if err != nil {
 		return "", "", err
@@ -127,11 +151,28 @@ func renderPreset(ctx context.Context, tmpl string, side int) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	style, a, b, err := parsePreset(strings.TrimPrefix(tmpl, presetPrefix))
+	rest := strings.TrimPrefix(tmpl, presetPrefix)
+	if c, ok := strings.CutPrefix(rest, ClassicStyle+":"); ok {
+		s, err := parseClassic(c)
+		if err != nil {
+			return nil, err
+		}
+		img, err := renderClassic(ctx, s, side)
+		if err != nil {
+			return nil, err
+		}
+		return encodeJPEG(img, variantQuality)
+	}
+	style, a, b, err := parsePreset(rest)
 	if err != nil {
 		return nil, err
 	}
-	paint := presetPainters[style](toOKLCH(a), toOKLCH(b))
+	img := paintImage(side, presetPainters[style](toOKLCH(a), toOKLCH(b)))
+	return encodeJPEG(img, variantQuality)
+}
+
+// paintImage draws paint over a side×side image, rows in parallel.
+func paintImage(side int, paint painter) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, side, side))
 	inv := 1 / float64(side)
 	parallel(side, func(lo, hi int) {
@@ -151,7 +192,7 @@ func renderPreset(ctx context.Context, tmpl string, side int) ([]byte, error) {
 			}
 		}
 	})
-	return encodeJPEG(img, variantQuality)
+	return img
 }
 
 // rgb is an sRGB triple in [0, 1].

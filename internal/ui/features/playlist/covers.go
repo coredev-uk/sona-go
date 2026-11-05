@@ -61,6 +61,9 @@ func coverLabel(o services.CoverOption) string {
 		return i18n.T("Your image")
 	}
 	switch o.Style {
+	case "classic":
+		// translators: Name of a generated playlist cover: a diagonal gradient with the playlist's name, like the cover Apple Music makes for a new playlist.
+		return i18n.T("Classic")
 	case "aurora":
 		// translators: Name of a generated playlist cover: soft glows of the playlist's colours on a dark ground.
 		return i18n.T("Aurora")

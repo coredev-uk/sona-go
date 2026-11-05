@@ -324,10 +324,10 @@ func TestCoverPickerGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			r.tt.Until("the image is offered", r.tt.Shows("Your image", "Remove my image"))
-			if err := r.tt.Click("Horizon"); err != nil {
+			if err := r.tt.Click("Classic"); err != nil {
 				t.Fatal(err)
 			}
-			r.tt.Until("Horizon is chosen", func() bool { return r.chosen(t) == "Horizon" })
+			r.tt.Until("Classic is chosen", func() bool { return r.chosen(t) == "Classic" })
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), c.name)
 		})

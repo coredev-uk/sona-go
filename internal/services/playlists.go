@@ -377,7 +377,8 @@ func (s *PlaylistsService) Update(ctx context.Context, id string, in PlaylistInp
 	if err := s.e.Library.UpdatePlaylistDetails(ctx, id, attrs.Name, attrs.Description, attrs.IsPublic, modified); err != nil {
 		return err
 	}
-	s.changed(PlaylistsChanged{IDs: []string{id}, Tree: true})
+	s.renameCover(ctx, id, attrs.Name)
+	s.changed(PlaylistsChanged{IDs: []string{id}, Tree: true, Pins: true})
 	go s.refreshPinsQuietly() // a pinned playlist shows its new name
 	return nil
 }
