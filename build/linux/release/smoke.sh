@@ -127,8 +127,11 @@ if [[ $kind == appimage ]]; then
 else
   sonames+=(libEGL.so.1)
   ldconfig # a container may not have run the distro's cache hook after the install
+  # Captured first: `grep -q` closing the pipe early makes ldconfig die of
+  # SIGPIPE, which pipefail reports as a missing library.
+  cache=$(ldconfig -p)
   for so in "${sonames[@]}"; do
-    ldconfig -p | grep -qF "$so" || fail "$so not installed by the package's dependencies"
+    grep -qF "$so" <<<"$cache" || fail "$so not installed by the package's dependencies"
   done
   # The package has no GTK4, WebKitGTK or libsoup 3 dependency.
   if ldd "$exe" | grep -qE 'libgtk-4|libwebkit|libsoup'; then fail "binary links GTK4, WebKitGTK or libsoup"; fi
