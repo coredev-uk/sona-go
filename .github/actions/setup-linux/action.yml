@@ -84,11 +84,15 @@ runs:
         mkdir -p ~/apt-archives/partial
         # A mirror that stalls once held a job for twenty minutes: every
         # attempt has a deadline, and a stalled one is tried again.
+        # An install that was cut off mid-unpack leaves dpkg half done:
+        # configure what was unpacked before the next attempt.
         apt() {
-          local i
+          local i limit=150
+          [[ $1 == install ]] && limit=600
           for i in 1 2 3; do
-            sudo timeout 150 apt-get -o Acquire::http::Timeout=15 -o Acquire::Retries=3 -o Dir::Cache::archives="$HOME/apt-archives" "$@" && return 0
+            sudo timeout "$limit" apt-get -o Acquire::http::Timeout=15 -o Acquire::Retries=3 -o Dir::Cache::archives="$HOME/apt-archives" "$@" && return 0
             echo "apt-get $1 did not finish (attempt $i)"
+            sudo dpkg --configure -a || true
           done
           return 1
         }
