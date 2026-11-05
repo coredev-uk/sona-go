@@ -149,6 +149,11 @@ jobs:
     needs: plan
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.checks || github.event_name != 'workflow_dispatch' && needs.plan.outputs.ci-passed != 'true' }}
     uses: ./.github/workflows/ci.yml
+    # A called workflow gets no more than its caller grants: ci.yml's jobs ask
+    # for these, and without them every run of this workflow fails at start.
+    permissions:
+      contents: read
+      pull-requests: read
     with:
       linux-only: true
 
