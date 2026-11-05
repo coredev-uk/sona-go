@@ -1,5 +1,8 @@
 # Go
 /bin/
+# `go build ./cmd/sona` at the root
+/sona
+/sona.exe
 *.test
 *.out
 coverage.*
