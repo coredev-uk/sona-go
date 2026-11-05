@@ -50,6 +50,10 @@ elif command -v docker >/dev/null 2>&1; then
 else
   engine=(nix run nixpkgs#podman --)
 fi
+# devenv exports LD_LIBRARY_PATH (GTK, GLib of its own nixpkgs pin); the
+# container engine's helpers (conmon) must not load it: they are built against
+# another glibc and fail with "GLIBC_2.xx not found".
+engine=(env -u LD_LIBRARY_PATH "${engine[@]}")
 
 # Rootless podman without a policy.json (e.g. NixOS without
 # virtualisation.podman) refuses to pull or build; give it an accept-all

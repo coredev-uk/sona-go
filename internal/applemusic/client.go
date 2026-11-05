@@ -90,8 +90,9 @@ type Client struct {
 	Language func() string
 
 	flight singleflight.Group
-	// sleep waits between retries; tests replace it.
-	sleep func(ctx context.Context, d time.Duration) error
+	// Sleep waits between retries (nil waits on a timer); tests of the
+	// services above replace it, so a failing fake costs no backoff.
+	Sleep func(ctx context.Context, d time.Duration) error
 }
 
 // Retry policy for 429/5xx responses.
@@ -349,8 +350,8 @@ func backoff(attempt int) time.Duration {
 }
 
 func (c *Client) wait(ctx context.Context, d time.Duration) error {
-	if c.sleep != nil {
-		return c.sleep(ctx, d)
+	if c.Sleep != nil {
+		return c.Sleep(ctx, d)
 	}
 	t := time.NewTimer(d)
 	defer t.Stop()

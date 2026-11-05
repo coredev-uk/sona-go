@@ -12,7 +12,9 @@ import (
 // openRaw opens a bare SQLite file for migration tests (no migrations run).
 func openRaw(t *testing.T, name string) *sql.DB {
 	t.Helper()
-	w, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), name)+"?_foreign_keys=1")
+	// No fsync: the schema each migration leaves is the test, and a database
+	// per version would otherwise sync on every statement.
+	w, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), name)+"?_foreign_keys=1&_synchronous=OFF")
 	if err != nil {
 		t.Fatal(err)
 	}
