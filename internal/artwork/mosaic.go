@@ -89,11 +89,9 @@ func parseMosaic(rest string) (string, string, error) {
 // compose renders a mosaic template as a side×side JPEG: each tile is the
 // centred square of its artwork's source (fetched like any artwork, at
 // most once per standard size), scaled to half the side. Tiles are laid
-// edge to edge in template order. It runs detached from the caller's
-// context, like fetch, so a cancelled request does not fail the others
-// sharing it.
-func (c *Cache) compose(tmpl string, side int) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*fetchTimeout)
+// edge to edge in template order. ctx is the flight's, as fetch's.
+func (c *Cache) compose(ctx context.Context, tmpl string, side int) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*fetchTimeout)
 	defer cancel()
 	// Sizes are even, so four tiles fill the side exactly.
 	half := side / 2

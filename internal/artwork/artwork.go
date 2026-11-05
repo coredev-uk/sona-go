@@ -28,16 +28,18 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/sync/singleflight"
 )
 
 const (
 	defaultMaxBytes = 512 << 20
-	maxSourceBytes  = 16 << 20
-	fetchTimeout    = 30 * time.Second
-	variantQuality  = 88
-	templateFile    = "template"
+	// defaultFetches is how many sources download at once: Apple's CDN
+	// answers over HTTP/2, which carries them as streams of a few
+	// connections.
+	defaultFetches = 16
+	maxSourceBytes = 16 << 20
+	fetchTimeout   = 30 * time.Second
+	variantQuality = 88
+	templateFile   = "template"
 	// touchEvery bounds how often a hit refreshes a key directory's mtime,
 	// which is what orders eviction after a restart.
 	touchEvery = time.Hour
@@ -60,7 +62,7 @@ type Options struct {
 	Logger   *slog.Logger // nil discards
 	MaxBytes int64        // disk cap; 0 means 512 MiB
 	Prefix   string       // URL path the Handler is mounted at; "" means "/art/"
-	Fetches  int          // concurrent downloads; 0 means 4
+	Fetches  int          // concurrent downloads; 0 means 16
 	// UserAgent overrides DefaultUserAgent.
 	UserAgent string
 	Backdrop  BackdropStyle
@@ -94,10 +96,7 @@ type Cache struct {
 	backdrop BackdropStyle
 	fetchSem chan struct{} // bounds downloads
 	workSem  chan struct{} // bounds decode/resize/encode
-	flight   singleflight.Group
-	// abandoned counts the flights a caller stopped waiting for (its context
-	// ended) that are still running: Wait.
-	abandoned sync.WaitGroup
+	flight   flights
 
 	mu        sync.Mutex
 	templates map[string]string // key → template, registered by URL and Get
@@ -148,7 +147,7 @@ func New(opts Options) (*Cache, error) {
 		max:       opts.MaxBytes,
 		prefix:    opts.Prefix,
 		backdrop:  opts.Backdrop,
-		fetchSem:  make(chan struct{}, cmp.Or(max(opts.Fetches, 0), 4)),
+		fetchSem:  make(chan struct{}, cmp.Or(max(opts.Fetches, 0), defaultFetches)),
 		workSem:   make(chan struct{}, runtime.GOMAXPROCS(0)),
 		templates: map[string]string{},
 		keys:      map[string]*entry{},
@@ -605,7 +604,7 @@ func (c *Cache) source(ctx context.Context, key, tmpl string, want dims) (string
 		path string
 		d    dims
 	}
-	ch := c.flight.DoChan("src/"+key+"/"+sd.String(), func() (any, error) {
+	v, err := c.flight.do(ctx, "src/"+key+"/"+sd.String(), func(fctx context.Context) (any, error) {
 		c.acquire(key)
 		defer c.release(key)
 		if p, d, ok := c.cachedSource(key, want, fx); ok {
@@ -617,14 +616,14 @@ func (c *Cache) source(ctx context.Context, key, tmpl string, want dims) (string
 			err  error
 		)
 		if mosaic {
-			data, err = c.compose(tmpl, sd.w)
+			data, err = c.compose(fctx, tmpl, sd.w)
 			cfg = image.Config{Width: sd.w, Height: sd.h}
 		} else {
 			u := tmpl
 			if !fx {
 				u = fill(tmpl, sd)
 			}
-			data, cfg, err = c.fetch(u)
+			data, cfg, err = c.fetch(fctx, u)
 		}
 		if err != nil {
 			return nil, err
@@ -632,26 +631,23 @@ func (c *Cache) source(ctx context.Context, key, tmpl string, want dims) (string
 		p, err := c.store(key, tmpl, sourceName(sd, data, cfg), data)
 		return src{p, sd}, err
 	})
-	select {
-	case <-ctx.Done():
-		c.abandon(ch)
-		return "", dims{}, ctx.Err()
-	case r := <-ch:
-		if r.Err != nil {
-			return "", dims{}, r.Err
-		}
-		s := r.Val.(src)
-		return s.path, s.d, nil
+	if err != nil {
+		return "", dims{}, err
 	}
+	s := v.(src)
+	return s.path, s.d, nil
 }
 
-// fetch downloads one artwork URL and reads its image header. It runs
-// detached from the caller's context so a cancelled request does not fail
-// the others sharing it.
-func (c *Cache) fetch(u string) ([]byte, image.Config, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
+// fetch downloads one artwork URL and reads its image header. ctx is the
+// flight's, which ends when nobody waits for the source any more.
+func (c *Cache) fetch(ctx context.Context, u string) ([]byte, image.Config, error) {
+	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
-	c.fetchSem <- struct{}{}
+	select {
+	case c.fetchSem <- struct{}{}:
+	case <-ctx.Done():
+		return nil, image.Config{}, fmt.Errorf("artwork: fetch: %w", ctx.Err())
+	}
 	defer func() { <-c.fetchSem }()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
@@ -744,29 +740,24 @@ func (c *Cache) backdropPath(ctx context.Context, key, tmpl string) (string, err
 	})
 }
 
-// abandon notes a flight the caller no longer waits for, until it ends.
-func (c *Cache) abandon(ch <-chan singleflight.Result) {
-	c.abandoned.Add(1)
-	go func() {
-		<-ch
-		c.abandoned.Done()
-	}()
-}
-
 // Wait blocks until the flights callers gave up on (a cancelled context)
-// have finished writing to the cache. Tests call it before removing the
-// cache's directory; nothing may ask for artwork meanwhile.
-func (c *Cache) Wait() { c.abandoned.Wait() }
+// have returned. Tests call it before removing the cache's directory; nothing
+// may ask for artwork meanwhile.
+func (c *Cache) Wait() { c.flight.wait() }
 
 // derive renders key/name once across concurrent callers.
 func (c *Cache) derive(ctx context.Context, key, tmpl, name string, render func() ([]byte, error)) (string, error) {
-	ch := c.flight.DoChan("out/"+key+"/"+name, func() (any, error) {
+	v, err := c.flight.do(ctx, "out/"+key+"/"+name, func(fctx context.Context) (any, error) {
 		c.acquire(key)
 		defer c.release(key)
 		if p, ok := c.hit(key, name); ok {
 			return p, nil
 		}
-		c.workSem <- struct{}{}
+		select {
+		case c.workSem <- struct{}{}:
+		case <-fctx.Done():
+			return "", fctx.Err()
+		}
 		data, err := render()
 		<-c.workSem
 		if err != nil {
@@ -774,16 +765,10 @@ func (c *Cache) derive(ctx context.Context, key, tmpl, name string, render func(
 		}
 		return c.store(key, tmpl, name, data)
 	})
-	select {
-	case <-ctx.Done():
-		c.abandon(ch)
-		return "", ctx.Err()
-	case r := <-ch:
-		if r.Err != nil {
-			return "", r.Err
-		}
-		return r.Val.(string), nil
+	if err != nil {
+		return "", err
 	}
+	return v.(string), nil
 }
 
 // decode decodes a cached source, which fetch has already checked is a JPEG
