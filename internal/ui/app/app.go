@@ -10,6 +10,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"runtime"
 	"slices"
 	"sync"
 	"time"
@@ -117,6 +118,11 @@ type App struct {
 	keys   *dispatcher
 	router *ui.Router
 	start  string
+	// swipe turns a touchpad's two-finger swipe into back and forward
+	// (macOS); overlayAt is the page that was shown as an overlay opened,
+	// "" while none is open (main thread).
+	swipe     *kit.Swipe
+	overlayAt string
 
 	mem *windowMemory
 
@@ -261,6 +267,8 @@ func newApp(opts Options, factories []module.Factory) *App {
 	}
 	a.lastRoute = initial
 	a.router = ui.NewRouter(initial)
+	a.swipe = kit.NewSwipe(a.router.Back, a.router.Forward)
+	a.swipe.Enabled = runtime.GOOS == "darwin"
 	a.env.Nav = a.router
 	a.env.Actions.SetNavigator(a.router.Push)
 	a.env.Actions.SetPoster(post)

@@ -86,6 +86,7 @@ func (p *player) overlaySlot() *module.Overlay {
 			return open
 		},
 		Build: p.nowPlaying,
+		Close: func() { p.ui.closeOverlay() },
 	}
 }
 

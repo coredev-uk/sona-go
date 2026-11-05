@@ -22,12 +22,13 @@ func (a *App) view(c *ui.Context) {
 	theme.Apply(c)
 	a.rememberRoute(c)
 
-	layerOpen, overlayOpen := a.layerOpen(), a.overlayOpen()
+	overlayOpen := a.overlayGivesWay()
+	layerOpen := a.layerOpen()
 	if !layerOpen {
 		a.keys.dispatch(c)
 	}
 
-	root := ui.Column(c).Fill().Background(theme.C("ground")).IgnoreInput(layerOpen)
+	root := ui.Column(c).Fill().Background(theme.C("ground")).IgnoreInput(layerOpen).HandleInput(a.swipe.Input)
 	endPass := a.env.Art.Pass(c)
 	root.Draw(func(p *ui.Painter, _ ui.Rect) {
 		a.paintOnce.Do(a.painted)

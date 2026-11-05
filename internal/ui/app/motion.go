@@ -92,6 +92,28 @@ func (a *App) overlayOpen() bool {
 	return false
 }
 
+// overlayGivesWay reports whether a module's overlay covers the page column,
+// after closing it if the page changed since it opened: the page that came
+// (back, forward, a swipe, a link) is behind it, where nothing shows it.
+func (a *App) overlayGivesWay() bool {
+	if !a.overlayOpen() {
+		a.overlayAt = ""
+		return false
+	}
+	path := a.router.Path()
+	if a.overlayAt == "" || a.overlayAt == path {
+		a.overlayAt = path
+		return true
+	}
+	a.overlayAt = ""
+	for _, m := range a.mods {
+		if o := m.Slots.Overlay; o != nil && o.Open != nil && o.Open() && o.Close != nil {
+			o.Close()
+		}
+	}
+	return a.overlayOpen()
+}
+
 // layerOpen reports whether a module's layer is over the window.
 func (a *App) layerOpen() bool {
 	for _, m := range a.mods {
