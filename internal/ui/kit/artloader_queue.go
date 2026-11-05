@@ -104,12 +104,18 @@ func (l *ArtLoader) want(cv *cover, r artRank) {
 
 // painted is the paint callback of what a pass built: the window's scale,
 // and the end of the pass, when what it no longer asks for is called off.
+// All of it is called off under one hold of the jobs lock: cancelling the
+// cover in flight frees its worker, which would otherwise take the next
+// cover of the pass before its turn to be called off came, and start a
+// request only to cancel it.
 func (l *ArtLoader) painted(v *artWindow, scale float32) {
 	l.noteScale(v, scale)
 	if v == nil || v.painted {
 		return
 	}
 	v.painted = true
+	l.jobs.Lock()
+	defer l.jobs.Unlock()
 	for cv := range l.live {
 		if cv.view == v && cv.rank == rankStale {
 			l.callOff(cv)
@@ -120,9 +126,9 @@ func (l *ArtLoader) painted(v *artWindow, scale float32) {
 // callOff stops working on a cover nobody asks for: out of the queue if it
 // is waiting, its context cancelled if a worker has it (the artwork cache
 // stops downloading it unless another cover shares the source). A later ask
-// starts it again; an answer to the old request is dropped.
+// starts it again; an answer to the old request is dropped. The jobs lock
+// is held.
 func (l *ArtLoader) callOff(cv *cover) {
-	l.jobs.Lock()
 	if i := slices.Index(l.jobs.queue, cv); i >= 0 {
 		l.jobs.queue = slices.Delete(l.jobs.queue, i, i+1)
 	} else if cv.cancel != nil {
@@ -130,7 +136,6 @@ func (l *ArtLoader) callOff(cv *cover) {
 	}
 	cv.gen++
 	cv.rank = rankBuilt
-	l.jobs.Unlock()
 	cv.state = coverIdle
 	delete(l.live, cv)
 }

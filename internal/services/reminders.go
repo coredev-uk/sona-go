@@ -175,10 +175,15 @@ func (s *RemindersService) run() {
 }
 
 // fireDue notifies every reminder whose release has come and returns how
-// long to wait before looking again.
+// long to wait before looking again. It reads the clock before the table,
+// so a pass that finds a release come lists the table after every Remove
+// that finished before that release. Read after the table, the clock could
+// pass the release while the pass still held a list from before the
+// Remove, and the pass would show a reminder that was removed in time.
 func (s *RemindersService) fireDue() time.Duration {
 	ctx, cancel := context.WithTimeout(context.Background(), remindersTimeout)
 	defer cancel()
+	now := s.e.Now().UnixMilli()
 	rows, err := s.e.DB.RQ.ListReminders(ctx)
 	if err != nil {
 		s.e.Logger.Warn("reminders: list", "err", err)
@@ -187,7 +192,6 @@ func (s *RemindersService) fireDue() time.Duration {
 	if len(rows) == 0 {
 		return remindersIdle
 	}
-	now := s.e.Now().UnixMilli()
 	wait := remindersCheck
 	changed := false
 	for _, r := range rows {

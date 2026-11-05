@@ -518,3 +518,43 @@ func TestLoaderNeverTrimsWhatTheCurrentPassAsksFor(t *testing.T) {
 		t.Errorf("%d bytes held after the page moved on, budget %d", l.bytes, l.maxBytes)
 	}
 }
+
+// A pass that is painted without a cover calls off all of what it left out
+// before a worker can take another: cancelling the one in flight frees its
+// worker at once, and a worker free between two call-offs would start a
+// cover that is about to be called off too (a request begun and cancelled
+// for nothing).
+func TestLoaderCallsOffAPassBeforeTheWorkerItFreesTakesAnother(t *testing.T) {
+	src := &fakeArt{gate: make(chan struct{}), entered: make(chan struct{}, 512)}
+	mt := newMainThread()
+	l := newArtLoader(src, mt.post, 1)
+	defer l.Close()
+	v := &artWindow{}
+	askAs(l, v, rankBuilt, 10)
+	began(t, src, 1)
+	for i := range 400 {
+		askAs(l, v, rankBuilt, 100+i) // queued behind the one in flight
+	}
+	l.painted(v, 1)
+	l.begin(v)
+	l.painted(v, 1) // the next pass asks for nothing: all 401 are called off
+	if l.Pending() != 0 {
+		t.Fatalf("%d covers pending after a pass that asked for none", l.Pending())
+	}
+	mt.run(t, 1) // the worker's answer to the one in flight: its context ended
+
+	// The worker is free and nothing is queued: this is the next request it
+	// starts. A single worker works in order, so by the time this cover is
+	// published every cover it took before it has been counted.
+	c := askAs(l, nil, rankView, 7)
+	close(src.gate)
+	for c.bitmap() == nil {
+		mt.run(t, 1)
+	}
+	if got := src.cancelled(); got != 1 {
+		t.Errorf("%d requests begun and cancelled, want the one in flight: a cover called off in the same pass was started first", got)
+	}
+	if got := widths(src); len(got) != 1 || got[0] != 7 {
+		t.Errorf("requests %v, want only the cover asked after the pass", got)
+	}
+}
