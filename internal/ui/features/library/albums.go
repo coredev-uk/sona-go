@@ -66,7 +66,7 @@ func (l *library) albumsPage(c *ui.Context, r *ui.Route) {
 	pg.announced = announcement
 
 	l.scrollPage(c, &pg.pageView, q.key(), func(pane *kit.Pane) {
-		kit.PageHeader(c, i18n.T("Albums"), subline, func() {
+		kit.PageHeaderCounted(c, i18n.T("Albums"), subline, func() {
 			kind := q.kind
 			opts := []kit.SegmentOption[string]{
 				{Value: "", Label: i18n.T("All")},

@@ -156,6 +156,12 @@ func newRig(t *testing.T, volume bool) *rig {
 // newRigWith is newRig with extra built beside the bar (the window's toasts).
 func newRigWith(t *testing.T, volume bool, extra func(*ui.Context)) *rig {
 	t.Helper()
+	return newRigSized(t, volume, 1132, extra)
+}
+
+// newRigSized is newRigWith in a window width wide.
+func newRigSized(t *testing.T, volume bool, width int, extra func(*ui.Context)) *rig {
+	t.Helper()
 	h := uitest.New(t, uitest.Bare()) // the bar reads the mirror and calls the fake transport
 	r := &rig{fake: newFake(), h: h, env: h.Env}
 	queueOver(r.env, r.fake)
@@ -169,7 +175,7 @@ func newRigWith(t *testing.T, volume bool, extra func(*ui.Context)) *rig {
 		if extra != nil {
 			extra(c)
 		}
-	}, 1132, 400)
+	}, width, 400)
 	return r
 }
 
@@ -326,6 +332,44 @@ func TestVolume(t *testing.T) {
 	r2.seed()
 	if r2.tt.HasText("Mute") || r2.tt.HasText("Volume") {
 		t.Errorf("volume controls shown where unsupported: %q", r2.tt.Texts())
+	}
+}
+
+// TestVolumeSliderKeepsItsWidthInsideTheWindow: the slider is v0.2.0's
+// 96 px (w-24) at every window width, not a share of the spare room, and the
+// bar's right group ends inside the window from the 940 minimum up.
+func TestVolumeSliderKeepsItsWidthInsideTheWindow(t *testing.T) {
+	for _, w := range []int{940, 1132, 1600, 2560} {
+		r := newRigSized(t, true, w, nil)
+		// What the app builds beside the queue: private listening, the mini
+		// player, the equaliser.
+		r.env.PlayerControls.Add(10, func(c *ui.Context) { ui.Button(c, "Private") })
+		r.env.PlayerControls.Add(module.ControlsAfterQueue+10, func(c *ui.Context) { ui.ButtonBase(c.Key("Mini player")).Size(32, 32).Label("Mini player") })
+		r.env.PlayerControls.Add(module.ControlsAfterQueue+20, func(c *ui.Context) { ui.ButtonBase(c.Key("Equaliser")).Size(32, 32).Label("Equaliser") })
+		r.seed(func(s *services.PlaybackState) { s.Volume = 0.6 })
+		vol, ok := r.tt.Find("Volume")
+		if !ok {
+			t.Fatalf("%v wide: no volume slider: %q", w, r.tt.Texts())
+		}
+		if vol.W != volumeWidth {
+			t.Errorf("%v wide: the volume slider is %v wide, want %v", w, vol.W, volumeWidth)
+		}
+		if vol.X < 0 || vol.X+vol.W > float32(w) {
+			t.Errorf("%v wide: the volume slider spans %v..%v outside the window", w, vol.X, vol.X+vol.W)
+		}
+		// The bar pads 16 on each side: the group ends at or before that.
+		if vol.X+vol.W > float32(w)-16 {
+			t.Errorf("%v wide: the right group ends at %v, past the bar's 16 px padding", w, vol.X+vol.W)
+		}
+		for _, name := range []string{"Private", "Mini player", "Equaliser", "Mute", "Queue", "Sleep timer"} {
+			b, ok := r.tt.Find(name)
+			if !ok {
+				continue
+			}
+			if b.X < 0 || b.X+b.W > vol.X {
+				t.Errorf("%v wide: %s spans %v..%v, not left of the slider at %v", w, name, b.X, b.X+b.W, vol.X)
+			}
+		}
 	}
 }
 

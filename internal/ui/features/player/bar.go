@@ -368,50 +368,67 @@ func (p *player) seekBar(c *ui.Context, s services.PlaybackState, idle bool) {
 	}
 }
 
+// volumeWidth is the volume slider's width, v0.2.0's `w-24` in the bar.
+const volumeWidth = 96
+
 // volumeControls is the right column: the sleep timer, lyrics, the queue,
 // then mute and the volume slider, where Sona sets the playback volume.
 func (p *player) volumeControls(c *ui.Context, s services.PlaybackState) {
 	idle := s.Current == nil
-	ui.Row(c).Grow(1).Basis(0).Justify(ui.End).AlignItems(ui.Center).Gap(4).Children(func() {
-		p.env.PlayerControls.BuildRange(c, 0, module.ControlsAfterQueue) // the other features' controls: private listening…
-		p.sleepButton(c)
-		if p.videoSurface() {
-			on := p.env.Video.IsOpen()
-			if p.iconButton(c, "video", "clapperboard", i18n.T("Show video"), idle, "", &on) {
-				p.env.Video.ToggleFrom(&p.videoBtn)
+	// The column never shrinks below its controls (v0.2.0's grid track was
+	// minmax(max-content, 1fr)): the transport gives way first. The group's
+	// own width, read from the last frame, is the column's minimum.
+	var group ui.Element
+	ui.Row(c).Grow(1).Basis(0).MinWidth(p.rightW).Justify(ui.End).AlignItems(ui.Center).Children(func() {
+		group = ui.Row(c).Shrink(0).AlignItems(ui.Center).Gap(4)
+		group.Children(func() {
+			p.env.PlayerControls.BuildRange(c, 0, module.ControlsAfterQueue) // the other features' controls: private listening…
+			p.sleepButton(c)
+			if p.videoSurface() {
+				on := p.env.Video.IsOpen()
+				if p.iconButton(c, "video", "clapperboard", i18n.T("Show video"), idle, "", &on) {
+					p.env.Video.ToggleFrom(&p.videoBtn)
+				}
 			}
-		}
-		if p.lyricsSurface() {
-			on := p.ui.overlay == overlayNowPlaying && shownPane(p.ui.pane, s.Current) == paneLyrics
-			if p.iconButton(c, "lyrics", "mic-vocal", i18n.T("Lyrics"), idle, "", &on) {
-				p.opened(&p.lyricsBtn, p.toggleLyrics)
+			if p.lyricsSurface() {
+				on := p.ui.overlay == overlayNowPlaying && shownPane(p.ui.pane, s.Current) == paneLyrics
+				if p.iconButton(c, "lyrics", "mic-vocal", i18n.T("Lyrics"), idle, "", &on) {
+					p.opened(&p.lyricsBtn, p.toggleLyrics)
+				}
 			}
-		}
-		queue := p.queueShown()
-		if p.iconButton(c, "queue-toggle", "list-music", i18n.T("Queue"), false, "", &queue) {
-			p.toggleQueueView()
-		}
-		p.env.PlayerControls.BuildRange(c, module.ControlsAfterQueue, 1<<30) // …and after the queue: Mini player, Equaliser
-		if !p.volume() {
-			return
-		}
-		icon, name := "volume-2", i18n.T("Mute")
-		switch {
-		case s.Volume == 0:
-			icon, name = "volume-x", i18n.T("Unmute")
-		case s.Volume < 0.5:
-			icon = "volume-1"
-		}
-		if p.iconButton(c, "mute", icon, name, false, "", nil) {
-			p.toggleMute()
-		}
-		v := s.Volume * 100
-		sl := slider(c.Key("volume"), &v, 0, 100, theme.C("ink-muted"), false).Width(96).Label(i18n.T("Volume"))
-		sl.Description(fmt.Sprintf("%d%%", int(v+0.5)))
-		if sl.Changed() {
-			p.setVolume(v / 100)
-		}
+			queue := p.queueShown()
+			if p.iconButton(c, "queue-toggle", "list-music", i18n.T("Queue"), false, "", &queue) {
+				p.toggleQueueView()
+			}
+			p.env.PlayerControls.BuildRange(c, module.ControlsAfterQueue, 1<<30) // …and after the queue: Mini player, Equaliser
+			if !p.volume() {
+				return
+			}
+			icon, name := "volume-2", i18n.T("Mute")
+			switch {
+			case s.Volume == 0:
+				icon, name = "volume-x", i18n.T("Unmute")
+			case s.Volume < 0.5:
+				icon = "volume-1"
+			}
+			if p.iconButton(c, "mute", icon, name, false, "", nil) {
+				p.toggleMute()
+			}
+			v := s.Volume * 100
+			sl := slider(c.Key("volume"), &v, 0, 100, theme.C("ink-muted"), false).Label(i18n.T("Volume"))
+			// v0.2.0's w-24 shrink-0: the share of spare room slider() asks for
+			// is the seek bar's, not the volume's.
+			sl.Grow(0).Shrink(0).Width(volumeWidth)
+			sl.Description(fmt.Sprintf("%d%%", int(v+0.5)))
+			if sl.Changed() {
+				p.setVolume(v / 100)
+			}
+		})
 	})
+	if w := group.Bounds().W; w != p.rightW {
+		p.rightW = w
+		c.Invalidate()
+	}
 }
 
 // slider is a slider in the design's look: a 4px track at 40% of the

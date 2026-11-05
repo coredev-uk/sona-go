@@ -47,7 +47,7 @@ func (l *library) songsPage(c *ui.Context, r *ui.Route) {
 		subline = i18n.T("{0, plural, one {# song} other {# songs}}", "0", list.Total)
 	}
 	l.scrollPage(c, &pg.pageView, q.key(), func(pane *kit.Pane) {
-		kit.PageHeader(c, i18n.T("Songs"), subline, func() {
+		kit.PageHeaderCounted(c, i18n.T("Songs"), subline, func() {
 			l.sortSelect(c, songsSpec, q)
 			play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{
 				PlayLabel: i18n.T("Play your songs"), Shuffle: true, Disabled: list.Total == 0,
