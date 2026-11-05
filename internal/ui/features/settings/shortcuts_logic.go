@@ -253,3 +253,14 @@ func shortcutConflicts(list []module.BoundShortcut) int {
 	}
 	return len(conflictingIds(all, b))
 }
+
+// routerChord is whether chord is one of the router's own keys for going
+// back and forward (Cmd+[ and Cmd+] where cmd is ui.Super, macOS; Alt+Left
+// and Alt+Right elsewhere). MyGo's router takes them before the dispatcher,
+// so a shortcut bound to one would never run.
+func routerChord(chord string, cmd ui.Modifiers) bool {
+	if cmd == ui.Super {
+		return chord == "Meta+[" || chord == "Meta+]"
+	}
+	return chord == "Alt+ArrowLeft" || chord == "Alt+ArrowRight"
+}

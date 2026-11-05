@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"runtime"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -21,6 +22,9 @@ type trayState struct {
 	private *services.PrivateState // nil without private listening
 	mini    bool
 	hasMini bool // a module builds a mini player
+	// titleCase words the items in title case, as macOS's menu bar items
+	// are; elsewhere they are in sentence case, as Sona's text is.
+	titleCase bool
 }
 
 // trayView is the tray menu's text and states, in the language of the UI.
@@ -33,12 +37,19 @@ type trayView struct {
 // view is v0.2.0's tray menu (internal/shell/tray.go): "Title – Artist" or
 // Not playing, Play or Pause, Next, Previous, private listening (labelled with
 // where a state the user did not choose comes from; a forced one cannot be
-// unchecked), Show Sona, Mini player or Close mini player, Quit Sona.
+// unchecked), Show Sona, Mini Player or Close Mini Player, Quit Sona. On macOS
+// every item is in title case ("Not Playing", "Private Listening"); the
+// messages are separate ones from the sentence case of Linux and Windows, so
+// a translation of either is kept.
 func (s trayState) view() trayView {
 	v := trayView{
 		now: i18n.T("Not playing"), play: i18n.T("Play"), next: i18n.T("Next"), prev: i18n.T("Previous"),
 		// translators: Tray menu items: "Show Sona" brings the main window back, "Mini Player" opens the small always-on-top player, "Quit Sona" exits. Menu items are in title case.
 		show: i18n.T("Show Sona"), mini: i18n.T("Mini Player"), quit: i18n.T("Quit Sona"),
+	}
+	if s.titleCase {
+		// translators: Tray menu item on macOS, where menu items are in title case, shown while nothing plays. Same meaning as the sentence-case "Not playing" of Linux and Windows.
+		v.now = i18n.T("Not Playing")
 	}
 	if cur := s.play.Current; cur != nil {
 		v.now = cur.Name
@@ -57,11 +68,21 @@ func (s trayState) view() trayView {
 	}
 	if p := s.private; p != nil {
 		v.privateOn, v.privateEnabled = p.On, true
-		switch p.Source {
-		case "development":
+		switch {
+		case p.Source == "development" && s.titleCase:
+			// translators: Tray menu item on macOS, where menu items are in title case. A development build of Sona, not a release. Same meaning as the sentence-case "Private listening (development build)" of Linux and Windows.
+			v.private = i18n.T("Private Listening (Development Build)")
+		case p.Source == "development":
 			v.private = i18n.T("Private listening (development build)")
-		case "environment":
+		case p.Source == "environment" && s.titleCase:
+			v.privateEnabled = false
+			// translators: Tray menu item on macOS, where menu items are in title case. SONA_PRIVATE=1 is an environment variable, keep as is. Same meaning as the sentence-case "Private listening (forced by SONA_PRIVATE=1)" of Linux and Windows.
+			v.private = i18n.T("Private Listening (Forced by SONA_PRIVATE=1)")
+		case p.Source == "environment":
 			v.private, v.privateEnabled = i18n.T("Private listening (forced by SONA_PRIVATE=1)"), false
+		case s.titleCase:
+			// translators: Tray menu item on macOS, where menu items are in title case. Same meaning as the sentence-case "Private listening" of Linux and Windows.
+			v.private = i18n.T("Private Listening")
 		default:
 			v.private = i18n.T("Private listening")
 		}
@@ -103,6 +124,7 @@ func (a *App) newTray(icon []byte, template bool) *tray {
 		t.state.private = &st
 	}
 	t.state.hasMini = a.mini != nil
+	t.state.titleCase = runtime.GOOS == "darwin"
 	items := []*mygo.MenuItem{
 		item("now", mygo.MenuItemNormal, nil),
 		mygo.Separator(),

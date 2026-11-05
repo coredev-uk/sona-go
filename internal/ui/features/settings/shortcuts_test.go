@@ -802,3 +802,33 @@ func TestShortcutsShowSavedBindingsAndFollowSettingsChanged(t *testing.T) {
 	r.h.Bus.Emit(services.EventSettingsChanged, next)
 	r.show("player.toggle K", "player.favourite F", "test.close Esc")
 }
+
+// The router's own keys for back and forward are refused as shortcuts, with
+// a reason, and the recording goes on.
+func TestShortcutsRouterKeysAreRefused(t *testing.T) {
+	for _, c := range []struct {
+		chord string
+		cmd   ui.Modifiers
+		want  bool
+	}{
+		{"Meta+[", ui.Super, true}, {"Meta+]", ui.Super, true}, {"Alt+ArrowLeft", ui.Super, false}, {"Meta+K", ui.Super, false},
+		{"Alt+ArrowLeft", ui.Ctrl, true}, {"Alt+ArrowRight", ui.Ctrl, true}, {"Meta+[", ui.Ctrl, false}, {"Ctrl+[", ui.Ctrl, false},
+	} {
+		if got := routerChord(c.chord, c.cmd); got != c.want {
+			t.Errorf("routerChord(%q, %v) = %v, want %v", c.chord, c.cmd, got, c.want)
+		}
+	}
+	r := tallRig(t)
+	r.record("test.free", "not set")
+	key, mods := ui.KeyLeft, ui.Alt
+	if ui.Cmd == ui.Super {
+		key, mods = ui.KeyBracketLeft, ui.Super
+	}
+	r.press(mods, key)
+	r.show("is Sona's own key for going back and forward. Choose another key.")
+	if got := r.saved(); len(got) != 0 {
+		t.Errorf("saved %v", got)
+	}
+	r.press(ui.Ctrl, ui.KeyJ)
+	r.awaitSaved(config.Shortcuts{"test.free": "Ctrl+J"})
+}

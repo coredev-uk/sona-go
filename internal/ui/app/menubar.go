@@ -53,14 +53,17 @@ type menuEntry struct {
 
 // menuPlayback is what plays, as far as the menus show it.
 type menuPlayback struct {
-	playing, shuffle, muted bool
-	repeat                  string // off, all or one
+	playing, shuffle, muted, private bool
+	repeat                           string // off, all or one
 }
 
 // menuActions are the commands of the menu bar that no module registers as
 // a shortcut; nil leaves an item out (no updates service, no settings page).
 type menuActions struct {
 	checkUpdates, openLink, reportBug, showMain func()
+	// back and forward go through the history, as the router's own keys do
+	// (Cmd+[ and Cmd+] on macOS).
+	back, forward func()
 }
 
 // menuInput is everything the menu bar is built from.
@@ -72,7 +75,9 @@ type menuInput struct {
 	play     menuPlayback
 	// sidebar, miniShown and fullScreen are whether those show.
 	sidebar, miniShown, fullScreen bool
-	actions                        menuActions
+	// canBack and canForward are whether the history has a page that way.
+	canBack, canForward bool
+	actions             menuActions
 }
 
 // menuBuilder holds the lookups of one build.
@@ -81,7 +86,7 @@ type menuBuilder struct {
 	cmd map[string]module.BoundShortcut
 }
 
-// buildMenuBar is the macOS menu bar: Sona, File, Edit, View, Controls,
+// buildMenuBar is the macOS menu bar: Sona, File, Edit, View, Go, Controls,
 // Window and Help. It reads the commands' When and Unavailable once, for the
 // enabled states.
 func buildMenuBar(in menuInput) []menuEntry {
@@ -89,7 +94,7 @@ func buildMenuBar(in menuInput) []menuEntry {
 	for _, s := range in.commands {
 		b.cmd[s.ID] = s
 	}
-	return []menuEntry{b.appMenu(), b.fileMenu(), b.editMenu(), b.viewMenu(), b.controlsMenu(), b.windowMenu(), b.helpMenu()}
+	return []menuEntry{b.appMenu(), b.fileMenu(), b.editMenu(), b.viewMenu(), b.goMenu(), b.controlsMenu(), b.windowMenu(), b.helpMenu()}
 }
 
 func (b *menuBuilder) appMenu() menuEntry {
@@ -98,7 +103,10 @@ func (b *menuBuilder) appMenu() menuEntry {
 			[]menuEntry{role(mygo.RoleAbout, i18n.T("About Sona"))},
 			b.own("shell:check-updates", i18n.T("Check for Updates…"), b.in.actions.checkUpdates),
 		),
-		b.command("nav.settings", i18n.T("Settings…")),
+		slices.Concat(
+			b.command("nav.settings", i18n.T("Settings…")),
+			b.command("auth.account", i18n.T("Account Settings…")),
+		),
 		// Services is a submenu the system fills.
 		[]menuEntry{{ID: "role:services", Role: mygo.RoleServices, Label: i18n.T("Services"), Sub: []menuEntry{}}},
 		[]menuEntry{
@@ -132,6 +140,7 @@ func (b *menuBuilder) editMenu() menuEntry {
 			role(mygo.RoleDelete, i18n.T("Delete")),
 			role(mygo.RoleSelectAll, i18n.T("Select All")),
 		},
+		b.command("search.focus", i18n.T("Find…")),
 	))
 }
 
@@ -140,30 +149,52 @@ func (b *menuBuilder) viewMenu() menuEntry {
 	if b.in.sidebar {
 		sidebar = i18n.T("Hide Sidebar")
 	}
-	var pages, library []menuEntry
-	for _, n := range b.in.nav[module.NavPrimary] {
-		pages = append(pages, b.command("nav."+navID(n.To), n.Label())...)
-	}
-	for _, n := range b.in.nav[module.NavLibrary] {
-		library = append(library, b.command("nav."+navID(n.To), n.Label())...)
-	}
-	if len(library) > 0 {
-		pages = append(pages, submenu("menu:library", i18n.T("Library"), library))
-	}
 	full := i18n.T("Enter Full Screen")
 	if b.in.fullScreen {
 		full = i18n.T("Exit Full Screen")
 	}
 	return menu("menu:view", "", i18n.T("View"), group(
 		b.command("shell.sidebar", sidebar),
-		pages,
 		slices.Concat(
 			b.command("player.now-playing", i18n.T("Now Playing")),
 			b.command("player.lyrics", i18n.T("Lyrics")),
 			b.command("player.queue", i18n.T("Queue")),
+			b.command("player.video", i18n.T("Video")),
 		),
 		[]menuEntry{role(mygo.RoleToggleFullScreen, full)},
 	))
+}
+
+// The history's keys are the router's own, MyGo's: Cmd+[ and Cmd+] on
+// macOS. They are no shortcut of Sona's (Settings → Shortcuts does not list
+// them), so the items show them as they are.
+const (
+	backAccel    = "Cmd+["
+	forwardAccel = "Cmd+]"
+)
+
+// goMenu is where the app's pages are: Back and Forward, then the sidebar's
+// pages with the keys they answer to now, and the library's under Library.
+func (b *menuBuilder) goMenu() menuEntry {
+	var history, pages, library []menuEntry
+	if a := b.in.actions; a.back != nil && a.forward != nil {
+		history = []menuEntry{
+			{ID: "shell:back", Label: i18n.T("Back"), Accel: backAccel, Disabled: !b.in.canBack, run: a.back},
+			{ID: "shell:forward", Label: i18n.T("Forward"), Accel: forwardAccel, Disabled: !b.in.canForward, run: a.forward},
+		}
+	}
+	for _, n := range b.in.nav[module.NavPrimary] {
+		pages = append(pages, b.command("nav."+navID(n.To), n.Label())...)
+	}
+	for _, n := range b.in.nav[module.NavLibrary] {
+		library = append(library, b.command("nav."+navID(n.To), n.Label())...)
+	}
+	var libraryMenu []menuEntry
+	if len(library) > 0 {
+		libraryMenu = []menuEntry{submenu("menu:library", i18n.T("Library"), library)}
+	}
+	// translators: A menu of the macOS menu bar, between View and Controls, that goes to Sona's pages (Back, Forward, Home, Library…). The same word is a button in Diagnostics.
+	return menu("menu:go", "", i18n.TC("menu bar", "Go"), group(history, pages, libraryMenu))
 }
 
 func (b *menuBuilder) controlsMenu() menuEntry {
@@ -200,8 +231,11 @@ func (b *menuBuilder) controlsMenu() menuEntry {
 			b.command("player.toggle", play),
 			b.command("player.next", i18n.T("Next")),
 			b.command("player.previous", i18n.T("Previous")),
+			b.command("player.seek-forward", i18n.T("Skip Ahead 10 Seconds")),
+			b.command("player.seek-back", i18n.T("Go Back 10 Seconds")),
 		),
 		slices.Concat(
+			b.command("player.favourite", i18n.T("Favourite")),
 			b.command("player.shuffle", i18n.T("Shuffle"), check(p.shuffle)),
 			b.command("player.repeat", repeat, check(p.repeat == "all" || p.repeat == "one")),
 		),
@@ -210,6 +244,7 @@ func (b *menuBuilder) controlsMenu() menuEntry {
 			b.command("player.volume-down", i18n.T("Volume Down")),
 			b.command("player.mute", i18n.T("Mute"), check(p.muted)),
 		),
+		b.command("private.toggle", i18n.T("Private Listening"), check(p.private)),
 		sleepMenu,
 	))
 }
@@ -223,6 +258,7 @@ func (b *menuBuilder) windowMenu() menuEntry {
 		[]menuEntry{role(mygo.RoleMinimize, i18n.T("Minimize")), role(mygo.RoleZoom, i18n.T("Zoom"))},
 		slices.Concat(
 			b.command("miniplayer.toggle", mini),
+			b.command("equalizer.open", i18n.T("Equaliser")),
 			b.own("shell:show-main", i18n.T("Sona"), b.in.actions.showMain),
 		),
 		[]menuEntry{role(mygo.RoleFront, i18n.T("Bring All to Front"))},
@@ -362,10 +398,12 @@ type menuBar struct {
 	runs  map[string]func()
 	shown map[string]menuEntry
 	shape []string
-	// sidebar and fullScreen are what the labels were built for; dirty asks
-	// for a refresh at the next frame (an item was chosen: a check mark the
-	// menu flipped itself is written back).
-	sidebar, fullScreen, dirty bool
+	// sidebar, fullScreen, canBack and canForward are what the labels and
+	// states were built for (the router moves on by itself too: the mouse's
+	// side buttons, a trackpad swipe); dirty asks for a refresh at the next
+	// frame (an item was chosen: a check mark the menu flipped itself is
+	// written back).
+	sidebar, fullScreen, canBack, canForward, dirty bool
 }
 
 // newMenuBar sets the bar of the app, on macOS; nil elsewhere.
@@ -387,6 +425,8 @@ func (a *App) menuInput() menuInput {
 		sidebar:    a.sidebar,
 		miniShown:  mini,
 		fullScreen: a.env.Window.FullScreen(),
+		canBack:    a.router.CanGoBack(),
+		canForward: a.router.CanGoForward(),
 		play: menuPlayback{
 			playing: st.Current != nil && (st.State == "playing" || st.State == "loading"),
 			shuffle: st.Shuffle,
@@ -394,6 +434,9 @@ func (a *App) menuInput() menuInput {
 			repeat:  st.Repeat,
 		},
 		actions: a.menuActions(),
+	}
+	if p, ok := store.Peek[services.PrivateState](a.env.Queries, store.KeyPrivate); ok {
+		in.play.private = p.On
 	}
 	if a.keys != nil {
 		in.commands = a.keys.bindings()
@@ -403,7 +446,7 @@ func (a *App) menuInput() menuInput {
 
 // menuActions are the shell's own commands, where it can run them.
 func (a *App) menuActions() menuActions {
-	var acts menuActions
+	acts := menuActions{back: a.router.Back, forward: a.router.Forward}
 	if a.opts.Core != nil {
 		acts.checkUpdates = a.checkForUpdates
 	}
@@ -427,7 +470,8 @@ func (a *App) refreshMenu() {
 // frame refreshes the bar when something the frame knows changed: the
 // sidebar (a key toggles it), full screen, or an item was chosen.
 func (m *menuBar) frame() {
-	if m.dirty || m.sidebar != m.a.sidebar || m.fullScreen != m.a.env.Window.FullScreen() {
+	if m.dirty || m.sidebar != m.a.sidebar || m.fullScreen != m.a.env.Window.FullScreen() ||
+		m.canBack != m.a.router.CanGoBack() || m.canForward != m.a.router.CanGoForward() {
 		m.refresh()
 	}
 }
@@ -436,7 +480,7 @@ func (m *menuBar) frame() {
 // is the same, else the whole bar.
 func (m *menuBar) refresh() {
 	in := m.a.menuInput()
-	m.dirty, m.sidebar, m.fullScreen = false, in.sidebar, in.fullScreen
+	m.dirty, m.sidebar, m.fullScreen, m.canBack, m.canForward = false, in.sidebar, in.fullScreen, in.canBack, in.canForward
 	entries := buildMenuBar(in)
 	shape := shapeOf(entries, nil)
 	if m.menu == nil || !slices.Equal(shape, m.shape) {

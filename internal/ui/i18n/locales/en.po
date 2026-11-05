@@ -99,6 +99,10 @@ msgstr "About {artistName}"
 msgid "Account"
 msgstr "Account"
 
+#: internal/ui/app/menubar.go
+msgid "Account Settings…"
+msgstr "Account Settings…"
+
 #: internal/ui/features/auth/auth.go
 #: internal/ui/features/auth/menu.go
 msgid "Account settings"
@@ -656,6 +660,7 @@ msgstr "Automatic uses Sona's title bar, with the window buttons where your syst
 msgid "Available in development builds started with SONA_INSPECTOR=1."
 msgstr "Available in development builds started with SONA_INSPECTOR=1."
 
+#: internal/ui/app/menubar.go
 #: internal/ui/app/view.go
 #: internal/ui/features/onboarding/layer.go
 msgid "Back"
@@ -2152,6 +2157,7 @@ msgstr "Enter the verification code"
 msgid "Episode"
 msgstr "Episode"
 
+#: internal/ui/app/menubar.go
 #: internal/ui/features/equalizer/button.go
 #: internal/ui/features/equalizer/equalizer.go
 #: internal/ui/features/equalizer/page.go
@@ -2244,6 +2250,7 @@ msgstr "Fades each song into the next. Songs of one album still play without a g
 msgid "Failed · {when}"
 msgstr "Failed · {when}"
 
+#: internal/ui/app/menubar.go
 #: internal/ui/features/library/actions.go
 #: internal/ui/kit/controls_actions.go
 msgid "Favourite"
@@ -2313,6 +2320,10 @@ msgstr "Find a playlist"
 msgid "Find a setting"
 msgstr "Find a setting"
 
+#: internal/ui/app/menubar.go
+msgid "Find…"
+msgstr "Find…"
+
 #: internal/ui/account/browser.go
 msgid "Finish signing in in your browser"
 msgstr "Finish signing in in your browser"
@@ -2354,6 +2365,7 @@ msgstr "For you"
 msgid "Former collaborators"
 msgstr "Former collaborators"
 
+#: internal/ui/app/menubar.go
 #: internal/ui/app/view.go
 msgid "Forward"
 msgstr "Forward"
@@ -2426,6 +2438,16 @@ msgstr "Get tickets for {lineup} from {seller}, opens in your browser"
 #: internal/ui/features/settings/diag_rows.go
 msgid "Go"
 msgstr "Go"
+
+#. A menu of the macOS menu bar, between View and Controls, that goes to Sona's pages (Back, Forward, Home, Library…). The same word is a button in Diagnostics.
+#: internal/ui/app/menubar.go
+msgctxt "menu bar"
+msgid "Go"
+msgstr "Go"
+
+#: internal/ui/app/menubar.go
+msgid "Go Back 10 Seconds"
+msgstr "Go Back 10 Seconds"
 
 #: internal/ui/features/player/shortcuts.go
 msgid "Go back 10 seconds"
@@ -3530,6 +3552,11 @@ msgstr "None since Sona started"
 msgid "Normal"
 msgstr "Normal"
 
+#. Tray menu item on macOS, where menu items are in title case, shown while nothing plays. Same meaning as the sentence-case "Not playing" of Linux and Windows.
+#: internal/ui/app/tray.go
+msgid "Not Playing"
+msgstr "Not Playing"
+
 #: internal/ui/features/onboarding/status.go
 msgid "Not available here"
 msgstr "Not available here"
@@ -4365,6 +4392,22 @@ msgstr "Private"
 #: internal/ui/features/private/private.go
 msgid "Private (development build)"
 msgstr "Private (development build)"
+
+#. Tray menu item on macOS, where menu items are in title case. Same meaning as the sentence-case "Private listening" of Linux and Windows.
+#: internal/ui/app/menubar.go
+#: internal/ui/app/tray.go
+msgid "Private Listening"
+msgstr "Private Listening"
+
+#. Tray menu item on macOS, where menu items are in title case. A development build of Sona, not a release. Same meaning as the sentence-case "Private listening (development build)" of Linux and Windows.
+#: internal/ui/app/tray.go
+msgid "Private Listening (Development Build)"
+msgstr "Private Listening (Development Build)"
+
+#. Tray menu item on macOS, where menu items are in title case. SONA_PRIVATE=1 is an environment variable, keep as is. Same meaning as the sentence-case "Private listening (forced by SONA_PRIVATE=1)" of Linux and Windows.
+#: internal/ui/app/tray.go
+msgid "Private Listening (Forced by SONA_PRIVATE=1)"
+msgstr "Private Listening (Forced by SONA_PRIVATE=1)"
 
 #. Apple Music's own name for the mode: plays aren't reported to Apple, so they don't shape recommendations or Replay.
 #. Setting name. No Apple Music web string; Apple's apps offer the inverse, 'Use Listening History'.
@@ -5340,6 +5383,10 @@ msgstr "Singles and EPs you add in Apple Music appear here after the next sync."
 #: internal/ui/features/settings/diag_rows.go
 msgid "Size"
 msgstr "Size"
+
+#: internal/ui/app/menubar.go
+msgid "Skip Ahead 10 Seconds"
+msgstr "Skip Ahead 10 Seconds"
 
 #: internal/ui/features/player/shortcuts.go
 msgid "Skip ahead 10 seconds"
@@ -6633,6 +6680,10 @@ msgstr "Version"
 msgid "Version {version}"
 msgstr "Version {version}"
 
+#: internal/ui/app/menubar.go
+msgid "Video"
+msgstr "Video"
+
 #: internal/ui/features/discover/bands.go
 msgid "Videos"
 msgstr "Videos"
@@ -7514,6 +7565,10 @@ msgstr "{hidden, plural, one {Its playlist is listed in another section} other {
 #: internal/ui/i18n/relative.go
 msgid "{hours, plural, one {# hr. ago} other {# hr. ago}}"
 msgstr "{hours, plural, one {# hr. ago} other {# hr. ago}}"
+
+#: internal/ui/features/settings/shortcuts.go
+msgid "{key} is Sona's own key for going back and forward. Choose another key."
+msgstr "{key} is Sona's own key for going back and forward. Choose another key."
 
 #: internal/ui/features/settings/shortcuts.go
 msgid "{key} moves between controls. Choose another key."

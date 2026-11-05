@@ -172,7 +172,9 @@ func allowed(s module.Shortcut) bool { return s.When == nil || s.When() }
 // platformKeys writes a shortcut's default Ctrl chords for the platform's
 // command key: on macOS (cmd is ui.Super) "Ctrl+K" is "Meta+K", because a
 // focused AppKit text field takes Ctrl+B/F/P/N/H/D/A/E/K as emacs editing
-// keys and a Ctrl chord would never reach the shell from one. A user's saved
+// keys and a Ctrl chord would never reach the shell from one. The commands
+// whose only keys are ones a menu may not own (macKeys) gain a Command chord
+// after them, so the menu bar has a key equivalent to show. A user's saved
 // binding is never rewritten (keysOf and chordsOf read it as written), and
 // elsewhere (cmd is ui.Ctrl) the defaults stay as they are.
 func platformKeys(list []module.Shortcut, cmd ui.Modifiers) []module.Shortcut {
@@ -182,15 +184,29 @@ func platformKeys(list []module.Shortcut, cmd ui.Modifiers) []module.Shortcut {
 	out := make([]module.Shortcut, len(list))
 	for i, s := range list {
 		out[i] = s
-		if len(s.Keys) == 0 {
+		extra := macKeys[s.ID]
+		if len(s.Keys) == 0 && len(extra) == 0 {
 			continue
 		}
-		out[i].Keys = make([]string, len(s.Keys))
+		out[i].Keys = make([]string, len(s.Keys), len(s.Keys)+len(extra))
 		for j, k := range s.Keys {
 			out[i].Keys[j] = macChord(k)
 		}
+		out[i].Keys = append(out[i].Keys, extra...)
 	}
 	return out
+}
+
+// macKeys are the macOS defaults of commands whose keys everywhere else are
+// lone letters (a menu may not own those: macAccelerator). Each is a Command
+// chord on a letter that no text field edits with, so the Controls and View
+// menus show a key for it.
+var macKeys = map[string][]string{
+	"player.shuffle":     {"Meta+Alt+S"},
+	"player.repeat":      {"Meta+Alt+R"},
+	"player.now-playing": {"Meta+L"},
+	"player.lyrics":      {"Meta+Alt+L"},
+	"player.queue":       {"Meta+Alt+U"},
 }
 
 // macChord is chord with a Ctrl modifier written Meta.

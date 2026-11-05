@@ -431,6 +431,14 @@ func (a *App) connect() {
 	if a.tray != nil {
 		a.tray.follow(a.opts.Bus)
 	}
+	if a.opts.Core != nil {
+		// The menu bar shows private listening from its first refresh: the
+		// mirror is filled here, as newTray reads the state, not by the
+		// private module's goroutine that comes later (its snapshot fills
+		// only an empty mirror).
+		st := services.Service[services.PrivateService](a.opts.Core).State()
+		store.SetIfEmpty(a.env.Queries, store.KeyPrivate, st)
+	}
 	if a.playback != nil {
 		a.env.Play.Seed(a.playback.State(), a.playback.Queue())
 	}
@@ -443,6 +451,7 @@ func (a *App) connect() {
 		// After the playback mirror followed the event: the labels and the
 		// check marks are the mirror's.
 		store.On(a.opts.Bus, services.EventPlaybackState, func(services.PlaybackState) { a.menubar.refresh() })
+		store.On(a.opts.Bus, services.EventPrivateChanged, func(services.PrivateState) { a.menubar.refresh() })
 		a.menubar.refresh()
 	}
 }
