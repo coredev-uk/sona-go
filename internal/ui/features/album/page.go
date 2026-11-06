@@ -65,9 +65,7 @@ type pageState struct {
 	shelves [6]kit.CoverShelfState
 	// The list as the last frame built it, for the disc index.
 	list     listView
-	gridTop  float32 // the wide layout's top in the pane's content
-	gridH    float32
-	sleeveH  float32
+	sleeveH  float32 // the wide layout's sleeve, as last laid out
 	paneRect func() ui.Rect
 	// pal is the cover's colours, built once per cover, theme and layout.
 	pal palCache
