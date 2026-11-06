@@ -48,9 +48,12 @@ const (
 )
 
 // sizes are the rendition buckets a requested size falls into (device
-// pixels): cover tiles fit the first, header covers the second, the
-// now-playing cover the third.
-var sizes = []int{360, 480, 720}
+// pixels), each the first of Apple's H.264 square ladder (360, 486, 768,
+// 960 and 1080 wide) that is at least that wide: cover tiles fit the first,
+// header covers the second, album covers the third, the now-playing cover
+// (up to 400 DIPs, 800 px at 2x) the fourth, so no cover is drawn from a
+// narrower picture.
+var sizes = []int{360, 480, 720, 960}
 
 // bucket maps a requested size to its rendition bucket: the smallest at
 // least that large, else the largest.

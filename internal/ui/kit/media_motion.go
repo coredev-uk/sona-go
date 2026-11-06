@@ -17,10 +17,6 @@ import (
 // starts none.
 const tileDwell = 400 * time.Millisecond
 
-// tileCSS is the width tile motion is requested at, in DIPs: the 360 px
-// rendition at 2x (React's TILE_VIDEO_CSS).
-const tileCSS = 180
-
 // motionFade is how long a video takes to fade in over its still.
 const motionFade = 300 * time.Millisecond
 
@@ -263,7 +259,8 @@ type TileMotionOpts struct {
 // TileMotion is a cover tile's motion artwork, played only after the tile
 // has been hot (hovered or focused) for 400 ms and only one tile at a time
 // (the hovered one before one that only has the focus): the video loads then,
-// at the 180 DIP rendition for the window's scale (MotionOptions.Art), and is
+// at the tile's own size for the window's scale (MotionOptions.Art), so the
+// rendition is never narrower than the tile draws, and is
 // dropped as the tile goes cold, so a page of tiles at rest decodes nothing.
 // Build it inside the tile's art box (size × size DIPs): it draws over the
 // cover, takes no input and draws nothing at rest. motion is the DTO's motion
@@ -302,7 +299,7 @@ func TileMotion(c *ui.Context, p *MotionPolicy, motion string, size float32, o T
 		c.After(ownerStale)
 		return host
 	}
-	slot.sync(motion, motionPx(tileCSS, scale), true)
+	slot.sync(motion, motionPx(size, scale), true)
 	slot.play(p.Visible() && !p.Covered() && host.InView())
 	return slot.fill(c, host, size, o.Round)
 }
