@@ -68,7 +68,7 @@ func (a *album) wide(c *ui.Context, m *model, k *colours, lay layout, head, trac
 			})
 		})
 		sleeve.ColumnStart(1).RowStart(1).RowSpan(4).AlignSelf(ui.Start)
-		a.stick(sleeve, grid)
+		a.stick(sleeve)
 		ui.Column(c.Key("songs")).ColumnStart(2).RowStart(2).Margin(28, 0, 0, 0).MinWidth(0).Children(tracks)
 		if notes {
 			ui.Column(c.Key("notes")).ColumnStart(2).RowStart(3).Margin(40, 0, 0, 0).MinWidth(0).Children(func() {
@@ -80,28 +80,20 @@ func (a *album) wide(c *ui.Context, m *model, k *colours, lay layout, head, trac
 
 // stick holds the sleeve stickyTop below the pane's top while the songs
 // scroll, within the grid, when the pane shows all of it (v0.2.0's sticky
-// panel and useFitsInPane). MyGo has no sticky position: the sleeve is moved
-// by the scroll offset of the frame before.
-func (a *album) stick(sleeve, grid ui.Element) {
+// panel and useFitsInPane). The fit is judged from the sleeve's height in the
+// frame before.
+func (a *album) stick(sleeve ui.Element) {
 	if a.paneRect == nil {
 		return
 	}
-	pane := a.paneRect()
 	if b := sleeve.LayoutBounds(); b.H > 0 {
 		a.sleeveH = b.H
 	}
-	if b := grid.LayoutBounds(); b.H > 0 {
-		a.gridH = b.H
-		a.gridTop = b.Y - pane.Y + a.pos.Y
-	}
+	pane := a.paneRect()
 	if a.sleeveH+2*stickyTop > pane.H || pane.H == 0 {
 		return
 	}
-	off := a.pos.Y + stickyTop - a.gridTop
-	off = min(off, a.gridH-a.sleeveH)
-	if off > 0 {
-		sleeve.Translate(0, off)
-	}
+	sleeve.Sticky().Top(stickyTop)
 }
 
 // narrow: the sleeve with the cover and the head side by side, then the

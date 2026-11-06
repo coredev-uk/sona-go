@@ -552,6 +552,35 @@ func TestSleeveStaysBesideTheSongsOnlyWhenItFits(t *testing.T) {
 	}
 }
 
+func TestSleeveStopsAtTheGridsEnd(t *testing.T) {
+	r := newRig(t, "/album/100", 1132, 620)
+	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
+		p.Tracks = nil
+		for i := 1; i <= 60; i++ {
+			p.Tracks = append(p.Tracks, track(i, fmt.Sprintf("Song %02d", i)))
+		}
+		// Sections after the grid, for it to scroll out of the pane.
+		p.MoreByArtist = []services.Album{{ID: "200", Name: "Blue Hour", Artist: "Mia Vale"}}
+	}))
+	r.shows("Released")
+	r.tt.Settle()
+	y0 := func() float32 { b, _ := r.tt.Find("Released"); return b.Y }
+	start := y0()
+	r.tt.Scroll(600, 300, 0, 400)
+	r.tt.Settle()
+	if got := y0(); got != start {
+		t.Errorf("sleeve moved from %v to %v while the songs scrolled within the grid", start, got)
+	}
+	prev := y0()
+	for range 3 {
+		r.tt.Scroll(600, 300, 0, 4000)
+		r.tt.Settle()
+	}
+	if got := y0(); got >= prev {
+		t.Errorf("sleeve stayed at %v past the grid's end (was %v)", got, prev)
+	}
+}
+
 func TestCatalogueSections(t *testing.T) {
 	r := newRig(t, "/album/100", 1132, 2400)
 	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
