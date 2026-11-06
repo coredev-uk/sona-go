@@ -38,10 +38,6 @@ msgstr "<0>Only songs by </0>{name}"
 msgid "<0>Only songs by </0>{name}<1> by </1>{by}"
 msgstr "<0>Only songs by </0>{name}<1> by </1>{by}"
 
-#: internal/ui/features/playlist/covers.go
-msgid "A cover drawn from the playlist's colours"
-msgstr "A cover drawn from the playlist's colours"
-
 #: internal/ui/features/concerts/page.go
 msgid "A larger city nearby may have some."
 msgstr "A larger city nearby may have some."
@@ -473,6 +469,14 @@ msgstr "Apple Music's 30-second preview, not the full song"
 msgid "Apple Music's cover, or the playlist's albums as a mosaic"
 msgstr "Apple Music's cover, or the playlist's albums as a mosaic"
 
+#: internal/ui/features/playlist/covers.go
+msgid "Apple Music's design, with the playlist's name"
+msgstr "Apple Music's design, with the playlist's name"
+
+#: internal/ui/features/playlist/covers.go
+msgid "Apple Music's designs show once it makes this playlist's cover: when the playlist has songs and no photo of its own."
+msgstr "Apple Music's designs show once it makes this playlist's cover: when the playlist has songs and no photo of its own."
+
 #: internal/ui/features/settings/find.go
 msgid "Apple Music, Musixmatch, LRCLIB, NetEase"
 msgstr "Apple Music, Musixmatch, LRCLIB, NetEase"
@@ -537,6 +541,11 @@ msgstr "Apple's sign-in page is open in your browser. Sona continues by itself w
 #: internal/ui/features/settings/desktop.go
 msgid "Applies the next time Sona starts."
 msgstr "Applies the next time Sona starts."
+
+#. Name of one of Apple Music's playlist cover designs: rings spreading from a corner.
+#: internal/ui/features/playlist/covers.go
+msgid "Arcs"
+msgstr "Arcs"
 
 #: internal/ui/features/artist/artist.go
 #: internal/ui/features/artist/artist_module.go
@@ -618,11 +627,6 @@ msgstr "Audio priority"
 msgid "Audio quality"
 msgstr "Audio quality"
 
-#. Name of a generated playlist cover: soft glows of the playlist's colours on a dark ground.
-#: internal/ui/features/playlist/covers.go
-msgid "Aurora"
-msgstr "Aurora"
-
 #. Apple's name for the feature: the queue's heading over the songs it adds, and its toggle. Apple: ASE.Web.Music.UpNext.Autoplay.Heading
 #: internal/ui/features/player/queue_list.go
 #: internal/ui/features/player/queue_tools.go
@@ -701,6 +705,11 @@ msgstr "Backspace"
 #: internal/ui/features/equalizer/page.go
 msgid "Bands"
 msgstr "Bands"
+
+#. Name of one of Apple Music's playlist cover designs: bars rising like a level meter.
+#: internal/ui/features/playlist/covers.go
+msgid "Bars"
+msgstr "Bars"
 
 #: internal/ui/features/equalizer/curve.go
 msgid "Bass Boost"
@@ -923,11 +932,6 @@ msgstr "Choosing an image needs a file chooser, and this system has none."
 #: internal/ui/features/concerts/location.go
 msgid "Cities that match"
 msgstr "Cities that match"
-
-#. Name of a generated playlist cover: a diagonal gradient with the playlist's name, like the cover Apple Music makes for a new playlist.
-#: internal/ui/features/playlist/covers.go
-msgid "Classic"
-msgstr "Classic"
 
 #. Equaliser preset
 #: internal/ui/features/equalizer/curve.go
@@ -1985,6 +1989,11 @@ msgstr "Diagnostics"
 msgid "Diagnostics copied"
 msgstr "Diagnostics copied"
 
+#. Name of one of Apple Music's playlist cover designs: a tilted disc on a dark ground.
+#: internal/ui/features/playlist/covers.go
+msgid "Disc"
+msgstr "Disc"
+
 #: internal/ui/features/album/body.go
 #: internal/ui/kit/collections_tracklist.go
 msgid "Disc {disc}"
@@ -2042,6 +2051,11 @@ msgstr "Dolby Atmos"
 #: internal/ui/features/playlist/page.go
 msgid "Done"
 msgstr "Done"
+
+#. Name of one of Apple Music's playlist cover designs: a grid of large circles.
+#: internal/ui/features/playlist/covers.go
+msgid "Dots"
+msgstr "Dots"
 
 #: internal/ui/kit/overlays_palette.go
 msgctxt "keyboard key"
@@ -2108,19 +2122,9 @@ msgstr "Drag {songName} to reorder"
 msgid "Drop to start a queue"
 msgstr "Drop to start a queue"
 
-#. Name of a generated playlist cover: two tones cut by a diagonal.
-#: internal/ui/features/playlist/covers.go
-msgid "Duo"
-msgstr "Duo"
-
 #: internal/ui/kit/collections_tracklist.go
 msgid "Duration"
 msgstr "Duration"
-
-#. Name of a generated playlist cover: a slanted gradient from light to dark.
-#: internal/ui/features/playlist/covers.go
-msgid "Dusk"
-msgstr "Dusk"
 
 #: internal/ui/kit/controls_badge.go
 msgctxt "explicit content mark"
@@ -2136,6 +2140,11 @@ msgstr "EP"
 #: internal/ui/features/onboarding/layer.go
 msgid "Each choice applies at once, to the app behind."
 msgstr "Each choice applies at once, to the app behind."
+
+#. Name of one of Apple Music's playlist cover designs: a bright disc inside a dark ring.
+#: internal/ui/features/playlist/covers.go
+msgid "Eclipse"
+msgstr "Eclipse"
 
 #: internal/ui/app/menubar.go
 #: internal/ui/features/playlist/page.go
@@ -2414,6 +2423,11 @@ msgstr "Flat"
 msgid "Focus the search field"
 msgstr "Focus the search field"
 
+#. Name of one of Apple Music's playlist cover designs: two shaded cones meeting on a diagonal.
+#: internal/ui/features/playlist/covers.go
+msgid "Fold"
+msgstr "Fold"
+
 #: internal/ui/features/playlist/dialogs.go
 msgid "Folders group playlists in the sidebar on all your devices."
 msgstr "Folders group playlists in the sidebar on all your devices."
@@ -2503,11 +2517,6 @@ msgstr "Get tickets for {lineup}"
 msgid "Get tickets for {lineup} from {seller}, opens in your browser"
 msgstr "Get tickets for {lineup} from {seller}, opens in your browser"
 
-#. Name of a generated playlist cover: a bright centre fading to a dark edge.
-#: internal/ui/features/playlist/covers.go
-msgid "Glow"
-msgstr "Glow"
-
 #: internal/ui/features/settings/diag_rows.go
 msgid "Go"
 msgstr "Go"
@@ -2579,6 +2588,11 @@ msgstr "Google's component that plays Apple Music's protected songs. Sona downlo
 msgid "Google's component that plays protected songs. Sona downloads it by itself."
 msgstr "Google's component that plays protected songs. Sona downloads it by itself."
 
+#. Name of one of Apple Music's playlist cover designs: a diagonal gradient of the playlist's colours.
+#: internal/ui/features/playlist/covers.go
+msgid "Gradient"
+msgstr "Gradient"
+
 #: internal/ui/features/settings/motiondiag.go
 msgid "H.264 decoding"
 msgstr "H.264 decoding"
@@ -2590,6 +2604,11 @@ msgstr "HEVC decoding"
 #: internal/ui/features/settings/motiondiag.go
 msgid "HEVC is used instead. {decoderHelp}"
 msgstr "HEVC is used instead. {decoderHelp}"
+
+#. Name of one of Apple Music's playlist cover designs: a soft burst of light.
+#: internal/ui/features/playlist/covers.go
+msgid "Haze"
+msgstr "Haze"
 
 #: internal/ui/app/menubar.go
 msgid "Help"
@@ -2642,11 +2661,6 @@ msgstr "History"
 msgctxt "keyboard key"
 msgid "Home"
 msgstr "Home"
-
-#. Name of a generated playlist cover: a sky over three ridges of hills.
-#: internal/ui/features/playlist/covers.go
-msgid "Horizon"
-msgstr "Horizon"
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "Host sandbox"
@@ -3164,11 +3178,6 @@ msgstr "Mini player"
 #: internal/ui/app/menubar.go
 msgid "Minimize"
 msgstr "Minimize"
-
-#. Name of a generated playlist cover: a large disc over a night sky.
-#: internal/ui/features/playlist/covers.go
-msgid "Moon"
-msgstr "Moon"
 
 #: internal/ui/features/album/sections.go
 #: internal/ui/features/song/page.go
@@ -5932,6 +5941,11 @@ msgstr "Space or K plays and pauses, Left and Right go back or ahead 5 seconds, 
 #: internal/ui/kit/controls_badge.go
 msgid "Spatial Audio"
 msgstr "Spatial Audio"
+
+#. Name of one of Apple Music's playlist cover designs: two gradients side by side.
+#: internal/ui/features/playlist/covers.go
+msgid "Split"
+msgstr "Split"
 
 #: internal/ui/features/equalizer/curve.go
 msgid "Spoken Word"

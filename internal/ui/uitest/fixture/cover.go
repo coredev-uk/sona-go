@@ -152,8 +152,22 @@ func Handler() http.Handler {
 	})
 }
 
-// ServeCover is the PNG a Template's filled path names.
+// genPath matches the path of a GeneratedTemplate filled in by the artwork
+// cache, in any of Apple's designs: /image/thumb/gen/<w>x<h>AM.PDCXS1<d>.jpg.
+var genPath = regexp.MustCompile(`^/image/thumb/gen/(\d+)x(\d+)AM\.PDCXS1(\d)\.jpg$`)
+
+// ServeCover is the PNG a Template's or GeneratedTemplate's filled path
+// names.
 func ServeCover(path string) ([]byte, bool) {
+	if m := genPath.FindStringSubmatch(path); m != nil {
+		w, _ := strconv.Atoi(m[1])
+		h, _ := strconv.Atoi(m[2])
+		d, _ := strconv.Atoi(m[3])
+		if w > 2048 || h > 2048 {
+			return nil, false
+		}
+		return Cover(2000+d, w, h), true // each design a cover of its own
+	}
 	m := coverPath.FindStringSubmatch(path)
 	if m == nil {
 		return nil, false

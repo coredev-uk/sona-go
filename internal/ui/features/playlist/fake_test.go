@@ -11,6 +11,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/artwork"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/library"
 	"github.com/coredev-uk/sona-go/internal/services"
@@ -234,8 +235,9 @@ func (f *fakeAPI) RemoveCoverUpload(_ context.Context, id string) (services.Play
 	return c, nil
 }
 
-// testCovers is a cover picker as the service builds one: automatic, none,
-// the user's image when upload, and the six presets.
+// testCovers is a cover picker as the service builds one for a playlist
+// Apple generated a cover for: automatic, none, the user's image when
+// upload, and Apple's nine designs.
 func testCovers(canUpload, upload bool) services.PlaylistCovers {
 	c := services.PlaylistCovers{
 		Current:   services.CoverAuto,
@@ -249,8 +251,8 @@ func testCovers(canUpload, upload bool) services.PlaylistCovers {
 	if upload {
 		c.Options = append(c.Options, services.CoverOption{ID: services.CoverUpload, Kind: "upload"})
 	}
-	for _, style := range []string{"classic", "aurora", "dusk", "horizon", "moon", "glow", "duo"} {
-		c.Options = append(c.Options, services.CoverOption{ID: "preset:" + style + ":3a7bd5:d5b43a", Kind: "preset", Style: style})
+	for _, p := range artwork.Patterns {
+		c.Options = append(c.Options, services.CoverOption{ID: p, Kind: "pattern"})
 	}
 	return c
 }

@@ -15,8 +15,11 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
-// coverStyles are the names the picker gives the presets, in order.
-var coverStyles = []string{"Classic", "Aurora", "Dusk", "Horizon", "Moon", "Glow", "Duo"}
+// coverStyles are the names the picker gives Apple's designs, in order.
+var coverStyles = []string{"Gradient", "Disc", "Split", "Bars", "Fold", "Eclipse", "Arcs", "Dots", "Haze"}
+
+// noDesigns is what the picker says when Apple made the playlist no cover.
+const noDesigns = "Apple Music's designs show once it makes this playlist's cover: when the playlist has songs and no photo of its own."
 
 // showCover opens the cover picker of playlist p.a and waits for its options.
 func (r *dialogsRig) showCover() {
@@ -54,12 +57,15 @@ func TestCoverDialogOffersEveryChoiceAndSaysWhereTheCoverLives(t *testing.T) {
 	if r.tt.HasText("Your image") || r.tt.HasText("Remove my image") {
 		t.Error("an image is offered before one was chosen")
 	}
+	if r.tt.HasText(noDesigns) {
+		t.Error("the designs are explained away while they are offered")
+	}
 	if got := r.chosenCover(t); got != "Automatic" {
 		t.Errorf("checked cover = %q, want Automatic", got)
 	}
 	tr := access.Read(t, r.tt.Tester)
-	if g, ok := tr.Find(ui.RoleRadioGroup, "Cover"); !ok || len(tr.Children(g)) != 9 {
-		t.Errorf("radio group %+v of %d options, want nine", g, len(tr.Children(g)))
+	if g, ok := tr.Find(ui.RoleRadioGroup, "Cover"); !ok || len(tr.Children(g)) != 11 {
+		t.Errorf("radio group %+v of %d options, want eleven", g, len(tr.Children(g)))
 	}
 	if n, ok := tr.Find(ui.RoleRadio, "None"); !ok || n.Description != "No picture" {
 		t.Errorf("None = %+v", n)
@@ -69,19 +75,35 @@ func TestCoverDialogOffersEveryChoiceAndSaysWhereTheCoverLives(t *testing.T) {
 	}
 }
 
+// A playlist Apple made no cover for (no songs, or a photo of its own) has
+// no designs, and the picker says why instead of leaving them out unsaid.
+func TestCoverDialogWithoutApplesCoverSaysWhyThereAreNoDesigns(t *testing.T) {
+	r := newDialogsRig(t)
+	c := testCovers(true, false)
+	c.Options = c.Options[:2]
+	r.api.covers["p.a"] = c
+	r.showCover()
+	r.shows(noDesigns, "Choose an image…")
+	for _, name := range coverStyles {
+		if r.tt.HasText(name) {
+			t.Errorf("%s is offered", name)
+		}
+	}
+}
+
 func TestCoverDialogChoosingAppliesAtOnceAndKeepsTheDialogOpen(t *testing.T) {
 	r := newDialogsRig(t)
 	r.showCover()
 	r.tt.Announcements()
-	if err := r.tt.Click("Dusk"); err != nil {
+	if err := r.tt.Click("Bars"); err != nil {
 		t.Fatal(err)
 	}
-	r.did("SetCover p.a preset:dusk:3a7bd5:d5b43a")
-	r.tt.Until("Dusk is the chosen cover", func() bool { return r.chosenCover(t) == "Dusk" })
+	r.did("SetCover p.a PDCXS14")
+	r.tt.Until("Bars is the chosen cover", func() bool { return r.chosenCover(t) == "Bars" })
 	if r.closed() {
 		t.Fatal("choosing a cover closed the dialog")
 	}
-	if got := r.tt.Announcements(); !slices.Contains(got, "Cover: Dusk") {
+	if got := r.tt.Announcements(); !slices.Contains(got, "Cover: Bars") {
 		t.Errorf("announcements %q lack the new cover", got)
 	}
 
@@ -109,12 +131,12 @@ func TestCoverDialogShowsTheChoiceAtOnceAndTakesItBackOnFailure(t *testing.T) {
 	gate := make(chan struct{})
 	r.api.setGate(gate)
 	r.showCover()
-	if err := r.tt.Click("Moon"); err != nil {
+	if err := r.tt.Click("Fold"); err != nil {
 		t.Fatal(err)
 	}
 	r.tt.Frame()
-	if got := r.chosenCover(t); got != "Moon" {
-		t.Errorf("while the call is out the checked cover is %q, want Moon", got)
+	if got := r.chosenCover(t); got != "Fold" {
+		t.Errorf("while the call is out the checked cover is %q, want Fold", got)
 	}
 	r.api.err = errOffline
 	close(gate)
@@ -136,11 +158,11 @@ func TestCoverDialogKeyboard(t *testing.T) {
 		want string
 	}{
 		{ui.KeyRight, "None"},
-		{ui.KeyRight, "Classic"},
-		{ui.KeyDown, "Moon"}, // four columns: one row down from Classic is Moon
-		{ui.KeyLeft, "Horizon"},
+		{ui.KeyRight, "Gradient"},
+		{ui.KeyDown, "Fold"}, // four columns: one row down from Gradient is Fold
+		{ui.KeyLeft, "Bars"},
 		{ui.KeyUp, "None"},
-		{ui.KeyEnd, "Duo"},
+		{ui.KeyEnd, "Haze"},
 		{ui.KeyHome, "Automatic"},
 	} {
 		r.tt.Key(0, step.key)
@@ -167,7 +189,7 @@ func TestCoverDialogChooseAnImageAndRemoveIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.shows("Preparing your image…")
-	if err := r.tt.Click("Aurora"); err == nil {
+	if err := r.tt.Click("Split"); err == nil {
 		r.tt.Advance(100 * time.Millisecond)
 		if r.asked("SetCover") {
 			t.Error("a cover was chosen while the image was being prepared")
@@ -255,18 +277,18 @@ func TestCoverDialogLoadingAndFailedLoad(t *testing.T) {
 func TestCoverDialogRemembersTheChoice(t *testing.T) {
 	r := newDialogsRig(t)
 	r.showCover()
-	if err := r.tt.Click("Glow"); err != nil {
+	if err := r.tt.Click("Eclipse"); err != nil {
 		t.Fatal(err)
 	}
-	r.did("SetCover p.a preset:glow:3a7bd5:d5b43a")
-	r.tt.Until("Glow is chosen", func() bool { return r.chosenCover(t) == "Glow" })
+	r.did("SetCover p.a PDCXS16")
+	r.tt.Until("Eclipse is chosen", func() bool { return r.chosenCover(t) == "Eclipse" })
 	_ = r.tt.Click("Done")
 	r.tt.Until("closed", r.closed)
 
 	r.show(dialogState{kind: dialogCover, id: "p.a", name: "Road Trip"})
-	r.shows("Playlist cover", "Glow")
-	if got := r.chosenCover(t); got != "Glow" {
-		t.Errorf("reopened with %q chosen, want Glow", got)
+	r.shows("Playlist cover", "Eclipse")
+	if got := r.chosenCover(t); got != "Eclipse" {
+		t.Errorf("reopened with %q chosen, want Eclipse", got)
 	}
 	r.show(dialogState{kind: dialogCover, id: "p.b", name: "Gym"})
 	r.shows("Playlist cover")

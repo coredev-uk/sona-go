@@ -24,8 +24,8 @@ const (
 	CoverAuto CoverKind = "auto"
 	// CoverNone: the plain placeholder.
 	CoverNone CoverKind = "none"
-	// CoverPreset: a generated cover (artwork.Presets); Template is its
-	// template.
+	// CoverPreset: one of the designs Apple draws a playlist's generated
+	// cover in; Template is the design (artwork.Patterns).
 	CoverPreset CoverKind = "preset"
 	// CoverUpload: an image the user chose; Template is its template
 	// (artwork.SaveCover).
@@ -36,7 +36,8 @@ const (
 // zero value is CoverAuto with no image kept.
 type CoverChoice struct {
 	Kind CoverKind
-	// Template is the artwork template of a preset or an upload.
+	// Template is a preset's design (artwork.Patterns) or an upload's
+	// artwork template.
 	Template string
 	// Upload is the template of the last image the user chose for the
 	// playlist, kept while another cover shows ("" when none).
@@ -92,34 +93,36 @@ func (l *Library) CoverUploads(ctx context.Context) ([]string, error) {
 }
 
 // AutoCover returns the automatic cover of library playlist id whatever the
-// user chose, and the playlist's name: Apple's artwork (for a playlist
-// with tracks, the gradient with its name Apple generates), or the mosaic
-// of its tracks' albums when Apple has none ("" when it has neither).
-func (l *Library) AutoCover(ctx context.Context, id string) (tmpl, name string, err error) {
+// user chose: Apple's artwork (for a playlist with tracks, the cover Apple
+// generates with its name), or the mosaic of its tracks' albums when Apple
+// has none ("" when it has neither).
+func (l *Library) AutoCover(ctx context.Context, id string) (string, error) {
 	pls, err := query(ctx, l, `SELECT `+playlistColumns+` FROM playlists p
 		JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
 		WHERE p.library_id = ?`, scanPlaylist, id)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	if len(pls) == 0 {
-		return "", "", ErrNotFound
+		return "", ErrNotFound
 	}
 	if err := l.fillMosaics(ctx, pls, nil); err != nil {
-		return "", "", err
+		return "", err
 	}
-	return pls[0].ArtworkTemplate, pls[0].Name, nil
+	return pls[0].ArtworkTemplate, nil
 }
 
 // FillCovers sets the cover of every library playlist of pls into
 // ArtworkTemplate, where the artwork cache reads it like any other. A cover
-// the user chose wins ("" for none, the plain placeholder). Otherwise a
-// playlist that has no artwork of its own (Apple renders none for many user
-// playlists) gets the cover artwork.Mosaic picks from its tracks: the
-// artworks of its first distinct albums, in track order. A playlist without
-// tracks, or whose tracks have no artwork, keeps an empty template. The
-// tracks are read from the synced library, so the cover follows the
-// playlist as soon as its tracks change.
+// the user chose wins ("" for none, the plain placeholder); a design of
+// Apple's (CoverPreset) is drawn from the cover Apple generated for the
+// playlist, so a playlist Apple generates none for now (a photo chosen in
+// Apple's apps, no songs) keeps its automatic cover. Otherwise a playlist
+// that has no artwork of its own gets the cover artwork.Mosaic picks from
+// its tracks: the artworks of its first distinct albums, in track order. A
+// playlist without tracks, or whose tracks have no artwork, keeps an empty
+// template. The tracks are read from the synced library, so the cover
+// follows the playlist as soon as its tracks change.
 func (l *Library) FillCovers(ctx context.Context, pls []Playlist) error {
 	var ids []int
 	for i, p := range pls {
@@ -151,11 +154,17 @@ func (l *Library) FillCovers(ctx context.Context, pls []Playlist) error {
 		}
 		for _, r := range rows {
 			i := at[r[0]]
-			pls[i].ArtworkTemplate = ""
-			if CoverKind(r[1]) != CoverNone {
-				// A classic preset carries the playlist's name: its current one,
-				// wherever it was renamed.
-				pls[i].ArtworkTemplate = artwork.RenamePreset(r[2], pls[i].Name)
+			switch CoverKind(r[1]) {
+			case CoverNone:
+				pls[i].ArtworkTemplate = ""
+			case CoverPreset:
+				t, ok := artwork.WithPattern(pls[i].ArtworkTemplate, r[2])
+				if !ok {
+					continue
+				}
+				pls[i].ArtworkTemplate = t
+			default:
+				pls[i].ArtworkTemplate = r[2]
 			}
 			chosen[i] = true
 		}

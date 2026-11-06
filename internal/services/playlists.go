@@ -650,7 +650,7 @@ func (s *PlaylistsService) Pins(ctx context.Context) ([]Pin, error) {
 	for i, r := range rows {
 		p := Pin{Kind: r.Kind, ID: r.AppleID, Name: r.Name, Subtitle: r.Subtitle, Action: r.Action, Art: s.m.artOf(r.ArtworkTemplate), AlbumID: r.SongAlbumID}
 		if r.Kind == kindPlaylist {
-			if tmpl, ok := s.coverOfPin(ctx, r.AppleID, r.Name); ok {
+			if tmpl, ok := s.coverOfPin(ctx, r.AppleID); ok {
 				p.Art = s.m.artOf(tmpl)
 			}
 		}
