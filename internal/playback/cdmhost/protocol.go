@@ -166,7 +166,7 @@ type request struct {
 	Start   time.Duration // opLoad, opLoadFile: where to start; opVideoLoad: the first picture to show
 	Volume  float64
 	EQ      *equalizer.Curve // opInit, opEqualizer
-	Device  string           // opInit, opDevice: PipeWire sink node.name; "" follows the default
+	Device  string           // opInit, opDevice: PipeWire node.name or Core Audio device UID; "" follows the default
 	Size    int64            // opLoadFile: the file's length in bytes, or gst.Live for a live stream
 	Offset  int64            // opFileData: where Data goes in the file
 	Gain    float64          // opLoad, opLoadFile, opNext: the track's Sound Check gain (linear; 0 = unity)

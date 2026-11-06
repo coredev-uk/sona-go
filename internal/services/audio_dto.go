@@ -20,10 +20,10 @@ type EqualizerPreset struct {
 	Gains []float64 `json:"gains"` // dB per band
 }
 
-// OutputDevice is an audio output (a PipeWire sink).
+// OutputDevice is an audio output (a PipeWire sink, a Core Audio device).
 type OutputDevice struct {
-	// Name is the PipeWire node.name, the value of the outputDevice
-	// setting.
+	// Name is the PipeWire node.name or the Core Audio device UID, the
+	// value of the outputDevice setting.
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	// Default marks the system's default output.

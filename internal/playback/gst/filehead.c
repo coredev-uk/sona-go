@@ -236,6 +236,8 @@ static void configure_sink(GstElement* snk, const char* client_name, const char*
       g_object_set(snk, "stream-properties", s, NULL);
       gst_structure_free(s);
     }
+  } else if (props && *props && has_prop(snk, "unique-id")) {
+    g_object_set(snk, "unique-id", props, NULL);  // osxaudiosink: the Core Audio device UID
   }
 }
 

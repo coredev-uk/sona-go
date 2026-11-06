@@ -12,8 +12,7 @@ import (
 
 // Capabilities reports everything the CDM host does itself: volume, the
 // equaliser, Sound Check, crossfades (not between previews, which join
-// like uploads) and, where its sink can target one (PipeWire;
-// gst.DeviceChoice), the output device. Sona sends every play report.
+// like uploads) and the output device. Sona sends every play report.
 func (e *Engine) Capabilities() playback.Capabilities {
 	return playback.Capabilities{
 		Kind:             playback.KindCDM,
@@ -21,16 +20,16 @@ func (e *Engine) Capabilities() playback.Capabilities {
 		Equalizer:        true,
 		SoundCheck:       true,
 		Crossfade:        !e.preview,
-		OutputDevice:     gst.DeviceChoice,
+		OutputDevice:     true,
 		PrivateListening: true,
 		Video:            e.surface != nil && !e.preview,
 	}
 }
 
 // OutputDevices lists the audio outputs SetOutputDevice can target
-// (PipeWire sinks). The list is empty when PipeWire's GStreamer plugin is
-// missing; playback then always follows the default output. On macOS it
-// fails with an error wrapping errors.ErrUnsupported.
+// (gst.AudioSinks: PipeWire sinks, Core Audio devices). On Linux the list
+// is empty when PipeWire's GStreamer plugin is missing; playback then
+// always follows the default output.
 func (e *Engine) OutputDevices() ([]playback.OutputDevice, error) {
 	devs, err := gst.AudioSinks()
 	if err != nil {
@@ -56,15 +55,11 @@ func (e *Engine) SetEqualizer(ctx context.Context, eq equalizer.Curve) error {
 	return h.SetEqualizer(ctx, eq)
 }
 
-// SetOutputDevice plays to the PipeWire sink device (its node.name) from
-// now on; "" follows the system default. A running host moves the playing
-// audio without interrupting it. Where the sink can't choose (macOS,
-// gst.CanPlayTo) any device but "" fails with an error wrapping
-// errors.ErrUnsupported and changes nothing.
+// SetOutputDevice plays to device (a PipeWire node.name or a Core Audio
+// device UID) from now on; "" follows the system default, and so does a
+// device that is gone, until it is back. A running host moves the playing
+// audio without interrupting it.
 func (e *Engine) SetOutputDevice(ctx context.Context, device string) error {
-	if err := gst.CanPlayTo(device); err != nil {
-		return err
-	}
 	e.mu.Lock()
 	e.device = device
 	h := e.h

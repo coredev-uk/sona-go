@@ -18,7 +18,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
-	"github.com/coredev-uk/sona-go/internal/playback/gst"
 )
 
 // fakeAudio records a fakeHost's volume, equaliser, device and file calls.
@@ -136,9 +135,6 @@ func TestVolumeReachesHostThroughCurve(t *testing.T) {
 }
 
 func TestEqualizerAndDeviceFollowHosts(t *testing.T) {
-	if !gst.DeviceChoice {
-		t.Skip("this platform's sink plays to the default output only")
-	}
 	h := newHarness(t, time.Minute, false)
 	eq := equalizer.Curve{Pregain: -6, Gains: [10]float64{6, 4}}
 	if err := h.e.SetEqualizer(ctx(t), eq); err != nil {

@@ -1,4 +1,4 @@
-#include "devices_linux.h"
+#include "devices.h"
 
 #include <gst/gst.h>
 #include <string.h>

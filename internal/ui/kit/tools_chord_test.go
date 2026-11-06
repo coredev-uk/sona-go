@@ -53,10 +53,20 @@ func TestParseChordReadsTheAliasesOfV020(t *testing.T) {
 		mods ui.Modifiers
 		key  ui.Key
 	}{
-		{"esc", 0, ui.KeyEscape}, {"Return", 0, ui.KeyEnter}, {"Ctrl+Right", ui.Ctrl, ui.KeyRight},
-		{"shift+up", ui.Shift, ui.KeyUp}, {"Alt+comma", ui.Alt, ui.KeyComma}, {"period", 0, ui.KeyPeriod},
-		{"slash", 0, ui.KeySlash}, {"del", 0, ui.KeyDelete}, {"pgup", 0, ui.KeyPageUp}, {"pgdn", 0, ui.KeyPageDown},
-		{"ins", 0, ui.KeyInsert}, {"spacebar", 0, ui.KeySpace}, {"Ctrl+Down", ui.Ctrl, ui.KeyDown}, {"left", 0, ui.KeyLeft},
+		{"esc", 0, ui.KeyEscape},
+		{"Return", 0, ui.KeyEnter},
+		{"Ctrl+Right", ui.Ctrl, ui.KeyRight},
+		{"shift+up", ui.Shift, ui.KeyUp},
+		{"Alt+comma", ui.Alt, ui.KeyComma},
+		{"period", 0, ui.KeyPeriod},
+		{"slash", 0, ui.KeySlash},
+		{"del", 0, ui.KeyDelete},
+		{"pgup", 0, ui.KeyPageUp},
+		{"pgdn", 0, ui.KeyPageDown},
+		{"ins", 0, ui.KeyInsert},
+		{"spacebar", 0, ui.KeySpace},
+		{"Ctrl+Down", ui.Ctrl, ui.KeyDown},
+		{"left", 0, ui.KeyLeft},
 	} {
 		mods, key, ok := ParseChord(c.in)
 		if !ok || mods != c.mods || key != c.key {

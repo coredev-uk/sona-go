@@ -1,7 +1,7 @@
 package gst
 
 /*
-#include "devices_linux.h"
+#include "devices.h"
 */
 import "C"
 
@@ -12,13 +12,10 @@ import (
 	"unsafe"
 )
 
-// DeviceChoice: Options.Device picks the output. Only pipewiresink can
-// target one (its target.object); every other sink follows the default.
-const DeviceChoice = true
-
-// CanPlayTo accepts any device: a PipeWire node.name that is gone plays to
-// the default output.
-func CanPlayTo(string) error { return nil }
+// routeEpoch never moves: PipeWire moves a stream that follows the default
+// itself, and links one whose target comes back (SONA_MSG_RELINK covers the
+// relink).
+func routeEpoch() uint64 { return 0 }
 
 // AudioSinks lists PipeWire's audio sinks. It needs no running pipeline
 // and touches nothing but the local PipeWire daemon. The list is empty when

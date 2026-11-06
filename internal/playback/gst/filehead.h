@@ -23,8 +23,9 @@
 typedef struct sona_file sona_file;
 
 // sona_file_new builds the pipeline in NULL state for a file of size bytes,
-// or, with live set, for a live stream (size is ignored). props is a
-// GstStructure string for the sink's stream-properties.
+// or, with live set, for a live stream (size is ignored). props is the
+// sink's stream-properties (a GstStructure string) or, for osxaudiosink,
+// its unique-id (a Core Audio device UID).
 sona_file* sona_file_new(const char* sink, const char* client_name, const char* props, uint64_t size, int live,
                          char* err, size_t errlen);
 void sona_file_free(sona_file* f);
@@ -46,8 +47,8 @@ void sona_file_complete(sona_file* f);
 // demuxer's read position.
 void sona_file_level(sona_file* f, uint64_t* have, uint64_t* size, uint64_t* pos);
 
-// sona_file_set_sink_props replaces the sink with one using the stream
-// properties props (a new PipeWire target.object): output moves while
+// sona_file_set_sink_props replaces the sink with one using props (a new
+// PipeWire target.object, a new Core Audio device): output moves while
 // decoding and the position carry on. Returns 0 on success.
 int sona_file_set_sink_props(sona_file* f, const char* props);
 

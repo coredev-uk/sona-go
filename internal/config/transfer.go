@@ -33,7 +33,7 @@ var localKeys = []string{
 	"window",             // this screen's window size
 	"desktop.autostart",  // mirrors this computer's autostart entry
 	"desktop.lastRoute",  // where this session left off
-	"audio.outputDevice", // a PipeWire sink on this computer
+	"audio.outputDevice", // an audio device of this computer
 	"onboarding",         // whether this computer's first-run setup was done
 	"concerts",           // where this person is: not something to hand to another computer's file
 	"sidebar",            // which folders of this library are open

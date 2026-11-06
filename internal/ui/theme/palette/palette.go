@@ -382,7 +382,7 @@ type Album struct {
 // none; services.ArtworkColors converts to it). Apple's text colours are its
 // choices, not checked for contrast: this package checks them.
 type Cover struct {
-	Background             string
+	Background                 string
 	Text1, Text2, Text3, Text4 string
 }
 

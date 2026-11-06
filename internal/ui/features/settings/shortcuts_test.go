@@ -811,8 +811,14 @@ func TestShortcutsRouterKeysAreRefused(t *testing.T) {
 		cmd   ui.Modifiers
 		want  bool
 	}{
-		{"Meta+[", ui.Super, true}, {"Meta+]", ui.Super, true}, {"Alt+ArrowLeft", ui.Super, false}, {"Meta+K", ui.Super, false},
-		{"Alt+ArrowLeft", ui.Ctrl, true}, {"Alt+ArrowRight", ui.Ctrl, true}, {"Meta+[", ui.Ctrl, false}, {"Ctrl+[", ui.Ctrl, false},
+		{"Meta+[", ui.Super, true},
+		{"Meta+]", ui.Super, true},
+		{"Alt+ArrowLeft", ui.Super, false},
+		{"Meta+K", ui.Super, false},
+		{"Alt+ArrowLeft", ui.Ctrl, true},
+		{"Alt+ArrowRight", ui.Ctrl, true},
+		{"Meta+[", ui.Ctrl, false},
+		{"Ctrl+[", ui.Ctrl, false},
 	} {
 		if got := routerChord(c.chord, c.cmd); got != c.want {
 			t.Errorf("routerChord(%q, %v) = %v, want %v", c.chord, c.cmd, got, c.want)
