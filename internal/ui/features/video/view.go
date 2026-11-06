@@ -247,7 +247,7 @@ func (v *video) screen(c *ui.Context, s services.PlaybackState, fresh bool) {
 		help = i18n.T("Space or K plays and pauses, Left and Right go back or ahead 5 seconds, F switches full screen, M mutes, Escape closes the video.")
 	}
 	root := ui.Column(c.Key("video-view")).Fill().Background(theme.C("ground")).Role(ui.RoleGroup).
-		Label(i18n.T("Music video")).Description(help).Focusable().FocusRing(false).AutoFocus()
+		Label(i18n.T("Music video")).Description(help).TabStop(false).FocusRing(false).AutoFocus()
 	if !shown {
 		root.Cursor(ui.CursorNone)
 	}

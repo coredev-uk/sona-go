@@ -144,8 +144,7 @@ func TestA11yReleaseSelectionIsOnTheTree(t *testing.T) {
 	}
 }
 
-// Read more moves the focus to the About band, which is a Tab stop only
-// from then on.
+// Read more moves the focus to the About band, which Tab never stops at.
 func TestA11yReadMoreFocusesAbout(t *testing.T) {
 	r := newRig(t, "/artist/657515", 1132, 600, func(r *rig) { r.cat.page = radiohead() })
 	r.shows("Read more")
@@ -159,6 +158,11 @@ func TestA11yReadMoreFocusesAbout(t *testing.T) {
 		t.Fatalf("focus %+v, want the About group", tr.Focus)
 	}
 	access.NoNestedControls(t, r.tt.Tester)
+	for _, l := range access.TabWalk(t, r.tt.Tester, 150) {
+		if l.Node.Label == "About Radiohead" {
+			t.Errorf("Tab stops at the About band it jumped to")
+		}
+	}
 }
 
 // The artist's concerts section, built by its own feature, sits between the

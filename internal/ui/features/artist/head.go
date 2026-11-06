@@ -118,7 +118,7 @@ func (a *artist) head(c *ui.Context, pg *pageState, p headProps) {
 							}
 						})
 						if more.Clicked() {
-							pg.readMore, pg.aboutStop = true, true
+							pg.readMore = true
 							c.Invalidate()
 						}
 					})

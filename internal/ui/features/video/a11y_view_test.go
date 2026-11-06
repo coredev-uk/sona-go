@@ -173,3 +173,18 @@ func TestViewProblemOffersItsWaysOutToKeyboardAndScreenReader(t *testing.T) {
 		t.Error("the SD mark shows with a problem")
 	}
 }
+
+func TestViewTakesTheFocusOnOpeningButTabNeverStopsAtIt(t *testing.T) {
+	r := viewRig(t)
+	r.open()
+	r.tt.Frame()
+	tr := access.Read(t, r.tt.Tester)
+	if tr.Focus == nil || tr.Focus.Role != ui.RoleGroup || tr.Focus.Label != "Music video" {
+		t.Fatalf("the view does not hold the focus on opening: %+v", tr.Focus)
+	}
+	for _, st := range access.TabWalk(t, r.tt.Tester, 40) {
+		if st.Node.Role == ui.RoleGroup && st.Node.Label == "Music video" {
+			t.Errorf("Tab stops at the view: %+v", st.Node)
+		}
+	}
+}
