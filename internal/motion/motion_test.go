@@ -293,6 +293,16 @@ func TestServe(t *testing.T) {
 	}
 }
 
+// The now-playing cover (400 DIPs, 800 px at 2x) gets a rendition at least
+// as wide as it draws: the 960 bucket, not the 768 one.
+func TestBucket(t *testing.T) {
+	for px, want := range map[int]int{16: 360, 360: 360, 361: 480, 480: 480, 640: 720, 720: 720, 800: 960, 960: 960, 2048: 960} {
+		if got := bucket(px); got != want {
+			t.Errorf("bucket(%d) = %d, want %d", px, got, want)
+		}
+	}
+}
+
 func TestLocal(t *testing.T) {
 	srv, hits, files := fakeCDN(t)
 	c := newTestCache(t, srv, 0)

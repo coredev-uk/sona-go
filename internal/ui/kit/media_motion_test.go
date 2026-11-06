@@ -765,9 +765,10 @@ func TestTileMotionPlaysAfterTheDwellOnly(t *testing.T) {
 	tt.Advance(120 * time.Millisecond) // 420 ms
 	mediaSettle(t, tt, e, 1)
 	calls := e.f.opened()
-	// The 180 DIP rendition at 2x.
-	if len(calls) != 1 || calls[0].url != "/motion/k1/720.mp4" || calls[0].px != 360 {
-		t.Fatalf("opened %v, want the first tile's motion at 360 px", calls)
+	// The tile's own size (80 DIPs) at 2x: never a rendition narrower than
+	// the tile draws.
+	if len(calls) != 1 || calls[0].url != "/motion/k1/720.mp4" || calls[0].px != 160 {
+		t.Fatalf("opened %v, want the first tile's motion at 160 px", calls)
 	}
 	tt.Advance(motionFade + 50*time.Millisecond)
 	tt.Frame()
