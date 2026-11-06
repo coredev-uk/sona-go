@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"image"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -86,7 +88,30 @@ func newCoverRig(t *testing.T, files FileChooser) *coverRig {
 	r.store("p.mix", "", "a", "b", "c", "d", "e")
 	r.store("p.other", "", "a", "b", "c", "d")
 	r.store("p.apple", albumArt("own"), "a", "b")
+	r.store("p.gen", genArt("p.gen"), "a")
 	return r
+}
+
+// genArt is the cover Apple generates for a playlist called name, in its
+// plain gradient design, as the API gives it (one fixed size).
+func genArt(name string) string {
+	return "https://is1-ssl.mzstatic.com/image/thumb/gen/1200x1200AM.PDCXS11.jpg?c1=F2CC9D&c2=FFA940&c3=B36B00&c4=400000&signature=ff&t=" +
+		base64.URLEncoding.EncodeToString([]byte(name)) + "&tc=000000&vkey=1"
+}
+
+// genTemplate is the template the library keeps of genArt(name).
+func genTemplate(name string) string {
+	return (&applemusic.Artwork{URL: genArt(name)}).Template()
+}
+
+// design is the library's generated cover of playlist name in design p.
+func design(t *testing.T, name, p string) string {
+	t.Helper()
+	tmpl, ok := artwork.WithPattern(genTemplate(name), p)
+	if !ok {
+		t.Fatalf("no design %s of %s", p, genTemplate(name))
+	}
+	return tmpl
 }
 
 func (r *coverRig) store(id, own string, albums ...string) {
@@ -222,7 +247,7 @@ func optionIDs(c PlaylistCovers) []string {
 	return ids
 }
 
-func TestCoverOptionsListTheAutomaticCoverNoneAndSixPresets(t *testing.T) {
+func TestCoverOptionsListTheAutomaticCoverNoneAndApplesDesigns(t *testing.T) {
 	r := newCoverRig(t, nil)
 	got, err := r.pl.CoverOptions(context.Background(), "p.mix")
 	if err != nil {
@@ -234,8 +259,9 @@ func TestCoverOptionsListTheAutomaticCoverNoneAndSixPresets(t *testing.T) {
 	if got.Limits.MaxBytes != artwork.MaxCoverBytes || got.Limits.MinEdge != artwork.MinCoverEdge || got.Limits.MaxMpx != artwork.MaxCoverPixels/1_000_000 {
 		t.Errorf("limits = %+v", got.Limits)
 	}
-	if len(got.Options) != 3+len(artwork.PresetStyles) || got.Options[0].ID != CoverAuto || got.Options[1].ID != CoverNone {
-		t.Fatalf("options = %v", optionIDs(got))
+	// Apple generated no cover for the playlist: no designs to offer.
+	if ids := optionIDs(got); !slices.Equal(ids, []string{CoverAuto, CoverNone}) {
+		t.Fatalf("options = %v", ids)
 	}
 	mosaic := artwork.Mosaic([]string{albumArt("a"), albumArt("b"), albumArt("c"), albumArt("d")})
 	if want := r.e.m.artOf(mosaic); got.Options[0].Art != want || got.Options[0].Art.Large == "" {
@@ -244,15 +270,25 @@ func TestCoverOptionsListTheAutomaticCoverNoneAndSixPresets(t *testing.T) {
 	if got.Options[1].Art != (Art{}) {
 		t.Errorf("none shows %+v", got.Options[1].Art)
 	}
-	for i, o := range got.Options[2:] {
-		if o.Kind != "preset" || o.Style != append([]string{artwork.ClassicStyle}, artwork.PresetStyles...)[i] || !artwork.IsPreset(o.ID) || o.Art.Medium == "" {
-			t.Errorf("preset option %d = %+v", i, o)
-		}
-	}
-	// A playlist Apple gave artwork offers that as its automatic cover.
+	// A playlist Apple gave artwork offers that as its automatic cover, and
+	// a photo has no designs either.
 	apple, _ := r.pl.CoverOptions(context.Background(), "p.apple")
-	if apple.Options[0].Art != r.e.m.artOf(albumArt("own")) {
-		t.Errorf("Apple's cover is not the automatic option: %+v", apple.Options[0].Art)
+	if apple.Options[0].Art != r.e.m.artOf(albumArt("own")) || len(apple.Options) != 2 {
+		t.Errorf("Apple's cover: %+v", apple.Options)
+	}
+	// A playlist Apple generated a cover for: Apple's own, then each of its
+	// designs in Apple's order, drawn by Apple from the same signed URL.
+	gen, _ := r.pl.CoverOptions(context.Background(), "p.gen")
+	if gen.Options[0].Art != r.e.m.artOf(genTemplate("p.gen")) {
+		t.Errorf("the automatic option shows %+v", gen.Options[0].Art)
+	}
+	if ids := optionIDs(gen); !slices.Equal(ids, append([]string{CoverAuto, CoverNone}, artwork.Patterns...)) {
+		t.Fatalf("options = %v", ids)
+	}
+	for _, o := range gen.Options[2:] {
+		if o.Kind != "pattern" || o.Art != r.e.m.artOf(design(t, "p.gen", o.ID)) {
+			t.Errorf("design %+v", o)
+		}
 	}
 	for _, bad := range []string{"pl.catalog", "", "i.1"} {
 		if _, err := r.pl.CoverOptions(context.Background(), bad); !errors.Is(err, ErrInvalidArgument) {
@@ -264,23 +300,21 @@ func TestCoverOptionsListTheAutomaticCoverNoneAndSixPresets(t *testing.T) {
 	}
 }
 
-func TestChoosingAPresetNoneAndAutomaticShowsEverywhere(t *testing.T) {
+func TestChoosingADesignNoneAndAutomaticShowsEverywhere(t *testing.T) {
 	r := newCoverRig(t, nil)
 	ctx := context.Background()
-	r.pin(t, "p.mix")
+	r.pin(t, "p.gen")
 	mosaic := artwork.Mosaic([]string{albumArt("a"), albumArt("b"), albumArt("c"), albumArt("d")})
-	// The pin Apple gave no artwork has none of its own: the choice is what shows.
-	opts, _ := r.pl.CoverOptions(ctx, "p.mix")
-	preset := opts.Options[4].ID
+	const dots = "PDCXS18"
 
 	for _, step := range []struct {
 		name, option, want string
 	}{
-		{"a preset", preset, preset},
+		{"a design", dots, design(t, "p.gen", dots)},
 		{"none", CoverNone, ""},
-		{"automatic", CoverAuto, mosaic},
+		{"automatic", CoverAuto, genTemplate("p.gen")},
 	} {
-		got, err := r.pl.SetCover(ctx, "p.mix", step.option)
+		got, err := r.pl.SetCover(ctx, "p.gen", step.option)
 		if err != nil {
 			t.Fatalf("%s: %v", step.name, err)
 		}
@@ -288,11 +322,11 @@ func TestChoosingAPresetNoneAndAutomaticShowsEverywhere(t *testing.T) {
 			t.Errorf("%s: Current = %q", step.name, got.Current)
 		}
 		if step.name != "automatic" {
-			r.everywhere(t, "p.mix", step.want)
+			r.everywhere(t, "p.gen", step.want)
 		} else {
-			// The pin keeps what Apple gave it, which is nothing.
-			shown := r.shown(t, "p.mix")
-			want := r.e.Art.URL(mosaic, artLarge, artLarge)
+			// The pin keeps what Apple gave it, which is nothing here.
+			shown := r.shown(t, "p.gen")
+			want := r.e.Art.URL(step.want, artLarge, artLarge)
 			for _, s := range []string{"tree", "list", "page", "search"} {
 				if shown[s] != want {
 					t.Errorf("automatic: %s shows %q, want %q", s, shown[s], want)
@@ -314,12 +348,16 @@ func TestChoosingAPresetNoneAndAutomaticShowsEverywhere(t *testing.T) {
 		}
 	}
 	r.rec.mu.Unlock()
-	if len(changes) != 3 || !changes[0].Tree || !changes[0].Pins || len(changes[0].IDs) != 1 || changes[0].IDs[0] != "p.mix" {
+	if len(changes) != 3 || !changes[0].Tree || !changes[0].Pins || len(changes[0].IDs) != 1 || changes[0].IDs[0] != "p.gen" {
 		t.Errorf("playlists:changed = %+v", changes)
 	}
 }
 
-func TestACoverOverApplesArtworkAndThePresetStaysOffered(t *testing.T) {
+// A design is Apple's generated cover drawn another way, so it follows that
+// cover: a playlist Apple has none for (a photo chosen in Apple's apps)
+// shows its automatic cover, and when Apple generates one again, with a
+// name changed meanwhile, the design is back with the new name.
+func TestADesignFollowsApplesGeneratedCover(t *testing.T) {
 	r := newCoverRig(t, nil)
 	ctx := context.Background()
 	got, err := r.pl.SetCover(ctx, "p.apple", CoverNone)
@@ -329,15 +367,31 @@ func TestACoverOverApplesArtworkAndThePresetStaysOffered(t *testing.T) {
 	if shown := r.shown(t, "p.apple"); shown["tree"] != "" || shown["page"] != "" {
 		t.Errorf("none left Apple's artwork showing: %v", shown)
 	}
-	// A preset drawn from a palette the playlist no longer has is still
-	// offered, as the current choice.
-	old := "preset:glow:112233:ddeeff"
-	if _, err := r.pl.SetCover(ctx, "p.apple", old); err != nil {
+	if _, err := r.pl.SetCover(ctx, "p.apple", "PDCXS12"); !errors.Is(err, ErrInvalidArgument) {
+		t.Errorf("a design of a photo: %v", err)
+	}
+
+	r.pin(t, "p.gen")
+	if _, err := r.pl.SetCover(ctx, "p.gen", "PDCXS14"); err != nil {
 		t.Fatal(err)
 	}
-	got, _ = r.pl.CoverOptions(ctx, "p.apple")
-	if got.Current != old || got.Options[2].ID != old {
-		t.Errorf("Current = %q, first preset = %q; want the chosen one offered first", got.Current, got.Options[2].ID)
+	// A photo chosen on the iPhone: the sync stores Apple's new artwork,
+	// which shows (the pin keeps what Apple gave it at the last pin refresh).
+	r.store("p.gen", albumArt("photo"), "a")
+	shown := r.shown(t, "p.gen")
+	for _, s := range []string{"tree", "list", "page", "search"} {
+		if want := r.e.Art.URL(albumArt("photo"), artLarge, artLarge); shown[s] != want {
+			t.Errorf("over a photo: %s shows %q, want %q", s, shown[s], want)
+		}
+	}
+	if opts, _ := r.pl.CoverOptions(ctx, "p.gen"); opts.Current != CoverAuto || len(opts.Options) != 2 {
+		t.Errorf("picker over a photo: current %q, options %v", opts.Current, optionIDs(opts))
+	}
+	// Back to a generated cover, under a new name.
+	r.store("p.gen", genArt("Gym"), "a")
+	r.everywhere(t, "p.gen", design(t, "Gym", "PDCXS14"))
+	if opts, _ := r.pl.CoverOptions(ctx, "p.gen"); opts.Current != "PDCXS14" {
+		t.Errorf("picker: current %q", opts.Current)
 	}
 }
 
@@ -345,11 +399,17 @@ func TestSetCoverRefusesWhatIsNotAnOption(t *testing.T) {
 	r := newCoverRig(t, nil)
 	for _, bad := range []string{
 		"", "rainbow", CoverUpload, // no image was chosen yet
-		"preset:nope:112233:445566", "preset:glow:112233", "https://is1-ssl.mzstatic.com/x/{w}x{h}bb.jpg",
+		"PDCXS12", // Apple generated no cover for p.mix
+		"https://is1-ssl.mzstatic.com/x/{w}x{h}bb.jpg", "preset:glow:112233:ddeeff",
 		"mosaic:" + albumArt("a"), "cover:0123456789abcdef0123456789abcdef", "https://evil.example/{w}x{h}bb.jpg",
 	} {
 		if _, err := r.pl.SetCover(context.Background(), "p.mix", bad); !errors.Is(err, ErrInvalidArgument) {
 			t.Errorf("SetCover(%q) = %v, want invalid argument", bad, err)
+		}
+	}
+	for _, bad := range []string{"PDCXS10", "PDCXS20", "pdcxs12"} {
+		if _, err := r.pl.SetCover(context.Background(), "p.gen", bad); !errors.Is(err, ErrInvalidArgument) {
+			t.Errorf("SetCover(p.gen, %q) = %v, want invalid argument", bad, err)
 		}
 	}
 	if _, err := r.pl.SetCover(context.Background(), "pl.catalog", CoverNone); !errors.Is(err, ErrInvalidArgument) {
@@ -396,9 +456,8 @@ func TestUploadingACoverShowsEverywhereAndIsKeptOnThisComputer(t *testing.T) {
 	}
 
 	// Another cover shows; the image is kept to go back to.
-	opts, _ := r.pl.CoverOptions(ctx, "p.mix")
-	if got, err = r.pl.SetCover(ctx, "p.mix", opts.Options[3].ID); err != nil || got.Current != opts.Options[3].ID {
-		t.Fatalf("SetCover(preset) = %+v, %v", got, err)
+	if got, err = r.pl.SetCover(ctx, "p.mix", CoverNone); err != nil || got.Current != CoverNone {
+		t.Fatalf("SetCover(none) = %+v, %v", got, err)
 	}
 	if got.Options[2].ID != CoverUpload {
 		t.Errorf("the chosen image is no longer offered: %v", optionIDs(got))
@@ -543,17 +602,8 @@ func TestACoverGoesWithItsPlaylistAndSignOut(t *testing.T) {
 		t.Fatalf("%d files left for no playlist", len(stored))
 	}
 
-	// Sign-out removes every chosen image, whatever the database says, and
-	// the preset covers drawn with playlist names.
+	// Sign-out removes every chosen image, whatever the database says.
 	r.store("p.again", "", "a")
-	opts, err := r.pl.CoverOptions(ctx, "p.again")
-	if err != nil {
-		t.Fatal(err)
-	}
-	classic := opts.Options[2].ID
-	if _, err := r.e.Art.Get(ctx, classic, 64, 64); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := r.pl.UploadCover(ctx, "p.again"); err != nil {
 		t.Fatal(err)
 	}
@@ -568,12 +618,6 @@ func TestACoverGoesWithItsPlaylistAndSignOut(t *testing.T) {
 	}
 	if uploads, err := r.lib.CoverUploads(ctx); err != nil || len(uploads) != 0 {
 		t.Errorf("sign-out left choices %v, %v", uploads, err)
-	}
-	tmplFiles, _ := filepath.Glob(filepath.Join(r.artDir, "*", "template"))
-	for _, f := range tmplFiles {
-		if b, _ := os.ReadFile(f); strings.HasPrefix(string(b), "preset:") {
-			t.Errorf("sign-out left %s, with a playlist's name, in the artwork cache", b)
-		}
 	}
 }
 
@@ -642,56 +686,6 @@ func TestConcurrentUploadsAndTidyingKeepEveryChosenImage(t *testing.T) {
 	// Only the last round's two images are kept: replaced ones went.
 	if stored, _ := os.ReadDir(r.covers); len(stored) != 2 {
 		t.Errorf("%d images kept for two playlists", len(stored))
-	}
-}
-
-// A playlist Apple generated a cover for keeps it as its automatic cover, at
-// the size shown, and the classic preset wears the colours Apple chose and
-// the playlist's name, whoever renamed the playlist and wherever.
-func TestClassicCoverFollowsAppleColoursAndTheCurrentName(t *testing.T) {
-	ctx := context.Background()
-	r := newCoverRig(t, nil)
-	const gen = "https://is1-ssl.mzstatic.com/image/thumb/gen/1200x1200AM.PDCXS11.jpg?c1=F2CC9D&c2=FFA940&c3=B36B00&c4=400000&signature=ff&t=eA%3D%3D&tc=000000&vkey=1"
-	r.store("p.gen", gen, "a")
-	r.pin(t, "p.gen")
-	opts, err := r.pl.CoverOptions(ctx, "p.gen")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := opts.Options[0].Art.Medium; !strings.Contains(got, "/art/") {
-		t.Fatalf("automatic = %+v", opts.Options[0].Art)
-	}
-	classic := opts.Options[2]
-	if classic.Style != artwork.ClassicStyle || !strings.HasPrefix(classic.ID, "preset:classic:f2cc9d:ffa940:b36b00:400000:") {
-		t.Fatalf("classic option = %+v", classic)
-	}
-	if _, err := r.pl.SetCover(ctx, "p.gen", classic.ID); err != nil {
-		t.Fatal(err)
-	}
-	// Renamed elsewhere: the sync stores the new name (the id is the name here).
-	r.store("p.gen", gen, "a")
-	if _, err := r.d.W.ExecContext(ctx, `UPDATE playlists SET name = 'Gym' WHERE library_id = 'p.gen'`); err != nil {
-		t.Fatal(err)
-	}
-	want := artwork.RenamePreset(classic.ID, "Gym")
-	if want == classic.ID {
-		t.Fatal("test setup: the name is not in the template")
-	}
-	got := r.shown(t, "p.gen")
-	for _, surface := range []string{"tree", "list", "page", "pin"} { // search finds playlists by name: this one has a new one
-		if got[surface] != r.e.Art.URL(want, artLarge, artLarge) {
-			t.Errorf("%s still shows the old name's cover: %q", surface, got[surface])
-		}
-	}
-	opts, _ = r.pl.CoverOptions(ctx, "p.gen")
-	n := 0
-	for _, o := range opts.Options {
-		if o.Style == artwork.ClassicStyle {
-			n++
-		}
-	}
-	if opts.Current != want || n != 1 {
-		t.Errorf("picker: current %q (want %q), %d classic tiles", opts.Current, want, n)
 	}
 }
 

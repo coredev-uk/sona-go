@@ -3,6 +3,7 @@ package fixture
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 
 	"github.com/coredev-uk/sona-go/internal/db"
@@ -25,6 +26,14 @@ func Template(i int) string {
 // PlaylistTemplate is the artwork template of playlist n's cover.
 func PlaylistTemplate(n int) string {
 	return fmt.Sprintf("https://"+CDNHost+"/image/thumb/Fixture/playlist%d/{w}x{h}bb.png", n)
+}
+
+// GeneratedTemplate is the template of the cover Apple generates for a
+// playlist called name, in its plain gradient design; CDN serves it in each
+// of Apple's designs (artwork.Patterns).
+func GeneratedTemplate(name string) string {
+	return "https://" + CDNHost + "/image/thumb/gen/{w}x{h}AM.PDCXS11.jpg?c1=F2CC9D&c2=FFA940&c3=B36B00&c4=400000&signature=f1&t=" +
+		base64.URLEncoding.EncodeToString([]byte(name)) + "&tc=000000&vkey=1"
 }
 
 // ReleaseDate is album i's release date: always in the past, so every song

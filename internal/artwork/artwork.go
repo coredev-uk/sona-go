@@ -591,8 +591,8 @@ func (c *Cache) cachedSource(key string, want dims, fixedSize bool) (path string
 
 // source returns a source image covering want, fetching it if needed. A
 // synthetic template's source (a mosaic composed from its tiles' sources, a
-// preset drawn, a stored cover) is always square: a request for another
-// shape is served by fitting that square.
+// stored cover) is always square: a request for another shape is served by
+// fitting that square.
 func (c *Cache) source(ctx context.Context, key, tmpl string, want dims) (string, dims, error) {
 	synth := synthetic(tmpl)
 	if synth {
@@ -646,19 +646,10 @@ func (c *Cache) source(ctx context.Context, key, tmpl string, want dims) (string
 
 // synthesise makes the side×side JPEG of a synthetic template.
 func (c *Cache) synthesise(ctx context.Context, tmpl string, side int) ([]byte, error) {
-	switch {
-	case isMosaic(tmpl):
+	if isMosaic(tmpl) {
 		return c.compose(ctx, tmpl, side)
-	case strings.HasPrefix(tmpl, coverPrefix):
-		return c.renderCover(ctx, tmpl, side)
 	}
-	select {
-	case c.workSem <- struct{}{}:
-		defer func() { <-c.workSem }()
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-	return renderPreset(ctx, tmpl, side)
+	return c.renderCover(ctx, tmpl, side)
 }
 
 // fetch downloads one artwork URL and reads its image header. ctx is the
@@ -679,7 +670,13 @@ func (c *Cache) fetch(ctx context.Context, u string) ([]byte, image.Config, erro
 	if err := checkURL(req.URL); err != nil {
 		return nil, image.Config{}, err
 	}
-	req.Header.Set("Accept", "image/jpeg,image/png;q=0.9")
+	// Apple's generated artwork (a playlist's gradient or pattern with its
+	// name, gen/…AM.PDCXS1n.jpg) is drawn on a CDN miss by an origin that
+	// answers 406 to an Accept without */* (checked 2026-11-06: image/jpeg,
+	// image/png and image/* alone are refused, */* gets image/jpeg). A size
+	// already in the CDN's cache is served whatever Accept says, so the
+	// failure only shows at sizes Apple's own apps never ask for.
+	req.Header.Set("Accept", "image/jpeg,image/png;q=0.9,*/*;q=0.8")
 	req.Header.Set("User-Agent", c.ua)
 	resp, err := c.http.Do(req)
 	if err != nil {

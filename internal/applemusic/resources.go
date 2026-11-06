@@ -24,10 +24,11 @@ type Artwork struct {
 }
 
 // Template returns the artwork's URL template, "" for a nil artwork. Apple's
-// generated artwork (a new playlist's gradient with its name) comes as one
-// fixed 1200×1200 URL; its CDN fills any size of the same URL, signature
-// intact (checked 2026-11-05: 300, 600 and 1200 all 200), so the box is made a
-// placeholder and Sona asks for the size it shows, like any artwork.
+// generated artwork (a playlist's cover with its name, in the design chosen
+// in Apple's apps; artwork.Patterns) comes as one fixed 1200×1200 URL; its
+// CDN fills any size of the same URL, signature intact (checked 2026-11-05:
+// 300, 600 and 1200 all 200), so the box is made a placeholder and Sona asks
+// for the size it shows, like any artwork.
 func (a *Artwork) Template() string {
 	if a == nil {
 		return ""

@@ -43,7 +43,9 @@ type imageServer struct {
 	gate      chan struct{}
 	cancelled chan struct{}
 	// notReady answers this many requests for "/gen/" covers with 406, as
-	// Apple's CDN does for a new playlist's cover while it renders.
+	// Apple's CDN does for a new playlist's cover while it renders. Like
+	// Apple's generated-artwork origin, "/gen/" covers are also refused with
+	// 406 when the request's Accept has no */*.
 	notReady int
 }
 
@@ -74,6 +76,10 @@ func (s *imageServer) serve(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if strings.Contains(r.URL.Path, "/gen/") {
+		if !strings.Contains(r.Header.Get("Accept"), "*/*") {
+			http.Error(w, "", http.StatusNotAcceptable)
+			return
+		}
 		s.mu.Lock()
 		wait := s.notReady > 0
 		s.notReady--

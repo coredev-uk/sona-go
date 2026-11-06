@@ -149,7 +149,8 @@ type Pin struct {
 	AlbumID  string `json:"albumId"`
 }
 
-// Cover option IDs. A preset's ID is its artwork template instead.
+// Cover option IDs. One of Apple's designs has the design as its ID
+// (artwork.Patterns, "PDCXS14").
 const (
 	CoverAuto   = "auto"   // Apple's artwork, or a mosaic of the playlist's albums
 	CoverNone   = "none"   // the plain placeholder
@@ -157,14 +158,12 @@ const (
 )
 
 // CoverOption is one choice in a playlist's cover picker. Kind is "auto",
-// "none", "upload" or "preset"; Style names a preset's style ("aurora",
-// "dusk", "horizon", "moon", "glow", "duo"). Art is the cover as it would
-// show (empty for "none").
+// "none", "upload" or "pattern" (one of Apple's designs, its ID the
+// design). Art is the cover as it would show (empty for "none").
 type CoverOption struct {
-	ID    string `json:"id"`
-	Kind  string `json:"kind"`
-	Style string `json:"style"`
-	Art   Art    `json:"art"`
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Art  Art    `json:"art"`
 }
 
 // CoverLimits are what an uploaded image must meet; the UI states them
@@ -183,7 +182,8 @@ type PlaylistCovers struct {
 	// Current is the ID of the option in use.
 	Current string `json:"current"`
 	// Options are "auto", "none", the user's image when there is one
-	// ("upload"), then the presets drawn from the playlist's colours.
+	// ("upload"), then Apple's designs of the cover it generated for the
+	// playlist, in Apple's order (none when it generated none).
 	Options []CoverOption `json:"options"`
 	// CanUpload: this platform has a file chooser.
 	CanUpload bool        `json:"canUpload"`

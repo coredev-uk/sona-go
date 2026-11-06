@@ -37,8 +37,9 @@ func (c *chooser) OpenFile(context.Context, app.OpenFileOptions) (string, error)
 func (c *chooser) SaveFile(context.Context, app.SaveFileOptions) (string, error) { return "", nil }
 
 // realRig is the playlist page and the cover picker over the real services,
-// on the fixture library (its playlist "Road trip" has Apple artwork), with a
-// file chooser that answers with files.
+// on the fixture library, its playlist "Road trip" wearing the cover Apple
+// generates (so Apple's designs are offered), with a file chooser that
+// answers with files.
 type realRig struct {
 	p      *playlists
 	svc    *services.PlaylistsService
@@ -64,6 +65,10 @@ func newRealRigSized(t *testing.T, width, height int, opts ...uitest.Option) *re
 	t.Cleanup(kit.CancelConfirm)
 	svc := services.Service[services.PlaylistsService](h.Core)
 	id := fixture.PlaylistLibraryID(0)
+	if _, err := h.DB.W.ExecContext(t.Context(), `UPDATE playlists SET artwork_template = ? WHERE library_id = ?`,
+		fixture.GeneratedTemplate("Road trip"), id); err != nil {
+		t.Fatal(err)
+	}
 	router := ui.NewRouter("/playlist/" + id)
 	h.Env.Nav = router
 	h.Env.HasRoute = func(string) bool { return true }
@@ -134,7 +139,7 @@ func (r *realRig) cover(t *testing.T) map[string]string {
 func (r *realRig) open(t *testing.T) {
 	t.Helper()
 	r.p.changeCover(r.id, "Road trip")
-	r.tt.Until("the picker", r.tt.Shows("Playlist cover", "Automatic", "Aurora", "Choose an image…"))
+	r.tt.Until("the picker", r.tt.Shows("Playlist cover", "Automatic", "Bars", "Choose an image…"))
 }
 
 func (r *realRig) chosen(t *testing.T) string {
@@ -212,7 +217,7 @@ func agree(t *testing.T, before, after map[string]string) string {
 	return want
 }
 
-// The whole path over the real services: a preset, none and an uploaded image
+// The whole path over the real services: a design, none and an uploaded image
 // each change the cover the sidebar, the library list, the page and search
 // show, and the choice is still there for another picker.
 func TestRealCoverChoicesReachEverySurface(t *testing.T) {
@@ -223,10 +228,10 @@ func TestRealCoverChoicesReachEverySurface(t *testing.T) {
 		t.Fatalf("chosen = %q", got)
 	}
 
-	if err := r.tt.Click("Dusk"); err != nil {
+	if err := r.tt.Click("Bars"); err != nil {
 		t.Fatal(err)
 	}
-	r.tt.Until("Dusk is chosen", func() bool { return r.chosen(t) == "Dusk" })
+	r.tt.Until("Bars is chosen", func() bool { return r.chosen(t) == "Bars" })
 	preset := agree(t, before, r.cover(t))
 	if !strings.HasPrefix(preset, "/art/") {
 		t.Fatalf("cover %q", preset)
@@ -305,7 +310,8 @@ func TestRealCoverUploadCancelledAndRefused(t *testing.T) {
 	}
 }
 
-// The picker over the page, and the page with a preset cover, light and dark.
+// The picker over the page, and the page with one of Apple's designs, light
+// and dark.
 func TestCoverPickerGolden(t *testing.T) {
 	for _, c := range []struct {
 		name string
@@ -316,7 +322,7 @@ func TestCoverPickerGolden(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			r := newRealRig(t, c.opts...)
-			// Over the page: the picker with a preset chosen and an image of the
+			// Over the page: the picker with a design chosen and an image of the
 			// user's offered beside the automatic cover.
 			r.files.path = writeQuadrants(t, 600, 600)
 			r.open(t)
@@ -324,10 +330,10 @@ func TestCoverPickerGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			r.tt.Until("the image is offered", r.tt.Shows("Your image", "Remove my image"))
-			if err := r.tt.Click("Classic"); err != nil {
+			if err := r.tt.Click("Dots"); err != nil {
 				t.Fatal(err)
 			}
-			r.tt.Until("Classic is chosen", func() bool { return r.chosen(t) == "Classic" })
+			r.tt.Until("Dots is chosen", func() bool { return r.chosen(t) == "Dots" })
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), c.name)
 		})
@@ -345,15 +351,15 @@ func TestCoverPickerScrollsInTheSmallestWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Until("the image is offered", r.tt.Shows("Your image", "Remove my image"))
-	if err := r.tt.Click("Dusk"); err != nil {
+	if err := r.tt.Click("Bars"); err != nil {
 		t.Fatal(err)
 	}
-	r.tt.Until("Dusk is chosen", func() bool { return r.chosen(t) == "Dusk" })
+	r.tt.Until("Bars is chosen", func() bool { return r.chosen(t) == "Bars" })
 	r.tt.Key(0, ui.KeyEnd)
-	r.tt.Until("the last cover has the focus", func() bool { return r.tt.Focused("Duo") })
+	r.tt.Until("the last cover has the focus", func() bool { return r.tt.Focused("Haze") })
 	r.tt.Settle()
 	tr := access.Read(t, r.tt.Tester)
-	n, ok := tr.Find(ui.RoleRadio, "Duo")
+	n, ok := tr.Find(ui.RoleRadio, "Haze")
 	if !ok || n.Has(access.Offscreen) {
 		t.Errorf("the focused cover is off screen: %+v (found %v)", n, ok)
 	}

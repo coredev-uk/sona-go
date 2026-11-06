@@ -53,7 +53,7 @@ shapes the rules below.
   (`kit.Confirm`); what is behind a modal is not on the tree while it is
   open.
 - Inline links are underlined, never marked by colour alone.
-- A choice made among pictures (the playlist cover picker) is a `radio group` of `radio` tiles, each named by the label drawn under it (2.5.3), described in a line of its own ("No picture"), `Checked` while chosen, with arrow keys over the grid (`kit.GridNav`). The chosen tile says so with a ring, a check mark and a heavier name, never by colour alone. A choice that applies at once announces its result ("Cover: Dusk"), and a failure stays beside the control as a status, with the limits it broke in view.
+- A choice made among pictures (the playlist cover picker) is a `radio group` of `radio` tiles, each named by the label drawn under it (2.5.3), described in a line of its own ("No picture"), `Checked` while chosen, with arrow keys over the grid (`kit.GridNav`). The chosen tile says so with a ring, a check mark and a heavier name, never by colour alone. A choice that applies at once announces its result ("Cover: Bars"), and a failure stays beside the control as a status, with the limits it broke in view.
 - A text with links in it is not itself on the tree (`kit.ArtistLinks` is a
   `RoleNone` rich text, so its links sit beside its separators): Orca reads
   the enclosing text before a focused link, so a link inside an artist's

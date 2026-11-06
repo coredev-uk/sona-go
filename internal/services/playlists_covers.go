@@ -34,7 +34,9 @@ var coverPatterns = []string{
 
 // CoverOptions returns the cover picker of library playlist id: the
 // automatic cover, none, the image the user chose before (when there is
-// one) and the presets drawn from the colours of the automatic cover.
+// one) and Apple's designs of the cover it generated for the playlist
+// (artwork.Patterns; when it generated one: a playlist with songs and no
+// photo of its own).
 func (s *PlaylistsService) CoverOptions(ctx context.Context, id string) (PlaylistCovers, error) {
 	if err := requireLibraryPlaylist(id); err != nil {
 		return PlaylistCovers{}, err
@@ -43,23 +45,26 @@ func (s *PlaylistsService) CoverOptions(ctx context.Context, id string) (Playlis
 	if err != nil {
 		return PlaylistCovers{}, err
 	}
-	auto, name, err := s.e.Library.AutoCover(ctx, id)
+	auto, err := s.e.Library.AutoCover(ctx, id)
 	if err != nil {
 		return PlaylistCovers{}, err
 	}
-	choice.Template = artwork.RenamePreset(choice.Template, name)
-	var palette []artwork.Color
-	if auto != "" && s.e.Art != nil {
-		cctx, cancel := context.WithTimeout(ctx, colorsTimeout)
-		palette, _ = s.e.Art.DominantColors(cctx, auto)
-		cancel()
-	}
-	generated, _ := artwork.GeneratedColors(auto) // Apple's own four colours, when it made the cover
-	presets := artwork.Presets(palette, generated, name)
 	out := PlaylistCovers{
 		Current:   CoverAuto,
 		CanUpload: s.e.Platform.Files != nil && s.e.Art != nil,
 		Limits:    CoverLimits{MaxBytes: artwork.MaxCoverBytes, MinEdge: artwork.MinCoverEdge, MaxMpx: artwork.MaxCoverPixels / 1_000_000},
+		Options: []CoverOption{
+			{ID: CoverAuto, Kind: "auto", Art: s.m.artOf(auto)},
+			{ID: CoverNone, Kind: "none"},
+		},
+	}
+	if choice.Upload != "" {
+		out.Options = append(out.Options, CoverOption{ID: CoverUpload, Kind: "upload", Art: s.m.artOf(choice.Upload)})
+	}
+	for _, p := range artwork.Patterns {
+		if t, ok := artwork.WithPattern(auto, p); ok {
+			out.Options = append(out.Options, CoverOption{ID: p, Kind: "pattern", Art: s.m.artOf(t)})
+		}
 	}
 	switch choice.Kind {
 	case library.CoverNone:
@@ -67,22 +72,11 @@ func (s *PlaylistsService) CoverOptions(ctx context.Context, id string) (Playlis
 	case library.CoverUpload:
 		out.Current = CoverUpload
 	case library.CoverPreset:
-		out.Current = choice.Template
-		// The colours of the playlist's covers move as its tracks do: the
-		// preset in use stays on offer as it was drawn.
-		if !slices.Contains(presets, choice.Template) && artwork.IsPreset(choice.Template) {
-			presets = append([]string{choice.Template}, presets...)
+		// A design shows only while Apple generates the playlist's cover;
+		// otherwise the automatic cover is what shows (library.FillCovers).
+		if _, ok := artwork.WithPattern(auto, choice.Template); ok {
+			out.Current = choice.Template
 		}
-	}
-	out.Options = []CoverOption{
-		{ID: CoverAuto, Kind: "auto", Art: s.m.artOf(auto)},
-		{ID: CoverNone, Kind: "none"},
-	}
-	if choice.Upload != "" {
-		out.Options = append(out.Options, CoverOption{ID: CoverUpload, Kind: "upload", Art: s.m.artOf(choice.Upload)})
-	}
-	for _, t := range presets {
-		out.Options = append(out.Options, CoverOption{ID: t, Kind: "preset", Style: artwork.PresetStyle(t), Art: s.m.artOf(t)})
 	}
 	return out, nil
 }
@@ -106,7 +100,14 @@ func (s *PlaylistsService) SetCover(ctx context.Context, id, option string) (Pla
 		next.Kind = library.CoverNone
 	case option == CoverUpload && choice.Upload != "":
 		next.Kind, next.Template = library.CoverUpload, choice.Upload
-	case artwork.IsPreset(option):
+	case slices.Contains(artwork.Patterns, option):
+		auto, err := s.e.Library.AutoCover(ctx, id)
+		if err != nil {
+			return PlaylistCovers{}, err
+		}
+		if _, ok := artwork.WithPattern(auto, option); !ok {
+			return PlaylistCovers{}, fmt.Errorf("%w: Apple generated no cover for playlist %s", ErrInvalidArgument, id)
+		}
 		next.Kind, next.Template = library.CoverPreset, option
 	default:
 		return PlaylistCovers{}, fmt.Errorf("%w: no cover %q", ErrInvalidArgument, option)
@@ -224,7 +225,7 @@ func tidyCoverFiles(ctx context.Context, e *Env) {
 
 // coverOfPin is the cover the user chose for a pinned playlist, "" when
 // the pin keeps the artwork Apple gave it.
-func (s *PlaylistsService) coverOfPin(ctx context.Context, libraryID, name string) (string, bool) {
+func (s *PlaylistsService) coverOfPin(ctx context.Context, libraryID string) (string, bool) {
 	choice, err := s.e.Library.PlaylistCover(ctx, libraryID)
 	if err != nil {
 		return "", false
@@ -232,15 +233,16 @@ func (s *PlaylistsService) coverOfPin(ctx context.Context, libraryID, name strin
 	switch choice.Kind {
 	case library.CoverNone:
 		return "", true
-	case library.CoverPreset, library.CoverUpload:
-		if choice.Kind == library.CoverPreset && artwork.PresetStyle(choice.Template) == artwork.ClassicStyle {
-			// The pin's name is Apple's, as of the last pin refresh: the
-			// playlist's own is the library's.
-			if _, current, err := s.e.Library.AutoCover(ctx, libraryID); err == nil {
-				name = current
+	case library.CoverUpload:
+		return choice.Template, true
+	case library.CoverPreset:
+		// Drawn from the library's cover, not the pin's: the pin's is
+		// Apple's as of the last pin refresh, the name in it maybe an old one.
+		if auto, err := s.e.Library.AutoCover(ctx, libraryID); err == nil {
+			if t, ok := artwork.WithPattern(auto, choice.Template); ok {
+				return t, true
 			}
 		}
-		return artwork.RenamePreset(choice.Template, name), true
 	}
 	return "", false
 }

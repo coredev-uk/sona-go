@@ -60,28 +60,34 @@ func coverLabel(o services.CoverOption) string {
 		// translators: A choice of playlist cover: the picture the user chose from a file.
 		return i18n.T("Your image")
 	}
-	switch o.Style {
-	case "classic":
-		// translators: Name of a generated playlist cover: a diagonal gradient with the playlist's name, like the cover Apple Music makes for a new playlist.
-		return i18n.T("Classic")
-	case "aurora":
-		// translators: Name of a generated playlist cover: soft glows of the playlist's colours on a dark ground.
-		return i18n.T("Aurora")
-	case "dusk":
-		// translators: Name of a generated playlist cover: a slanted gradient from light to dark.
-		return i18n.T("Dusk")
-	case "horizon":
-		// translators: Name of a generated playlist cover: a sky over three ridges of hills.
-		return i18n.T("Horizon")
-	case "moon":
-		// translators: Name of a generated playlist cover: a large disc over a night sky.
-		return i18n.T("Moon")
-	case "glow":
-		// translators: Name of a generated playlist cover: a bright centre fading to a dark edge.
-		return i18n.T("Glow")
-	case "duo":
-		// translators: Name of a generated playlist cover: two tones cut by a diagonal.
-		return i18n.T("Duo")
+	switch o.ID {
+	case "PDCXS11":
+		// translators: Name of one of Apple Music's playlist cover designs: a diagonal gradient of the playlist's colours.
+		return i18n.T("Gradient")
+	case "PDCXS12":
+		// translators: Name of one of Apple Music's playlist cover designs: a tilted disc on a dark ground.
+		return i18n.T("Disc")
+	case "PDCXS13":
+		// translators: Name of one of Apple Music's playlist cover designs: two gradients side by side.
+		return i18n.T("Split")
+	case "PDCXS14":
+		// translators: Name of one of Apple Music's playlist cover designs: bars rising like a level meter.
+		return i18n.T("Bars")
+	case "PDCXS15":
+		// translators: Name of one of Apple Music's playlist cover designs: two shaded cones meeting on a diagonal.
+		return i18n.T("Fold")
+	case "PDCXS16":
+		// translators: Name of one of Apple Music's playlist cover designs: a bright disc inside a dark ring.
+		return i18n.T("Eclipse")
+	case "PDCXS17":
+		// translators: Name of one of Apple Music's playlist cover designs: rings spreading from a corner.
+		return i18n.T("Arcs")
+	case "PDCXS18":
+		// translators: Name of one of Apple Music's playlist cover designs: a grid of large circles.
+		return i18n.T("Dots")
+	case "PDCXS19":
+		// translators: Name of one of Apple Music's playlist cover designs: a soft burst of light.
+		return i18n.T("Haze")
 	}
 	return i18n.T("Cover")
 }
@@ -96,13 +102,14 @@ func coverHint(o services.CoverOption) string {
 	case "upload":
 		return i18n.T("The image you chose")
 	}
-	return i18n.T("A cover drawn from the playlist's colours")
+	return i18n.T("Apple Music's design, with the playlist's name")
 }
 
 // coverDialog is the picker of a library playlist's cover: automatic, none,
-// the user's image and six covers drawn from the playlist's colours, then
-// the choice of a new image. A choice applies at once, on every surface that
-// shows the playlist, so the dialog has no Save: Done closes it.
+// the user's image and Apple Music's designs of the cover it made for the
+// playlist, then the choice of a new image. A choice applies at once, on
+// every surface that shows the playlist, so the dialog has no Save: Done
+// closes it.
 func (p *playlists) coverDialog(c *ui.Context) {
 	d := &p.dialogs
 	s := d.s
@@ -143,7 +150,8 @@ func (p *playlists) coverDialog(c *ui.Context) {
 
 // coverChoices is the radio group of options: a grid of covers, each with
 // its name under it and a ring and a check on the chosen one (more than the
-// ring's colour says it).
+// ring's colour says it). Where Apple made the playlist no cover, a line
+// says why its designs are not there.
 func (p *playlists) coverChoices(c *ui.Context, data services.PlaylistCovers) {
 	d := &p.dialogs
 	tk := theme.Current()
@@ -198,6 +206,13 @@ func (p *playlists) coverChoices(c *ui.Context, data services.PlaylistCovers) {
 		})
 	})
 	d.nav.Tick(c)
+	for _, o := range data.Options {
+		if o.Kind == "pattern" {
+			return
+		}
+	}
+	dialogText(c.Key("no-designs"), i18n.T("Apple Music's designs show once it makes this playlist's cover: when the playlist has songs and no photo of its own."), "secondary").
+		TextColor(theme.C("ink-muted"))
 }
 
 // coverColumnsIn is how many tiles fit across the dialog's content in the

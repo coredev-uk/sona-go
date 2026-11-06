@@ -214,32 +214,39 @@ func TestFillCoversBatches(t *testing.T) {
 }
 
 const (
-	presetA = "preset:aurora:3a7bd5:d5b43a"
-	presetB = "preset:duo:b03040:20a060"
-	upload1 = "cover:0123456789abcdef0123456789abcdef"
-	upload2 = "cover:fedcba9876543210fedcba9876543210"
+	// genCover is the cover Apple generated for a playlist, in its plain
+	// gradient design.
+	genCover = "https://is1-ssl.mzstatic.com/image/thumb/gen/{w}x{h}AM.PDCXS11.jpg?c1=F2DE9D&c2=FFE240&c3=B38400&c4=401F00&signature=ab12&t=T3du&tc=FFFFFF&vkey=1"
+	upload1  = "cover:0123456789abcdef0123456789abcdef"
+	upload2  = "cover:fedcba9876543210fedcba9876543210"
 )
 
 // A cover the user chose shows wherever a playlist is read, in place of
-// Apple's artwork and of the mosaic; "none" shows the placeholder; another
-// playlist is untouched; and it survives the sync that rewrites the row.
+// Apple's artwork and of the mosaic; "none" shows the placeholder; one of
+// Apple's designs is drawn from Apple's generated cover, and a playlist
+// Apple generated none for keeps its own artwork; another playlist is
+// untouched; and it survives the sync that rewrites the row.
 func TestChosenCoverShowsEverywhereAPlaylistIsRead(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
-	own := coverTmpl("own")
+	own := genCover
+	photo := coverTmpl("photo")
 	storePlaylist(t, e, "p.own", own, "a", "b", "c", "d")
+	storePlaylist(t, e, "p.photo", photo, "a", "b", "c", "d")
 	storePlaylist(t, e, "p.mosaic", "", "a", "b", "c", "d")
 	storePlaylist(t, e, "p.other", "", "a", "b", "c", "d")
 	for id, c := range map[string]CoverChoice{
-		"p.own":    {Kind: CoverPreset, Template: presetA},
+		"p.own":    {Kind: CoverPreset, Template: "PDCXS18"},
+		"p.photo":  {Kind: CoverPreset, Template: "PDCXS18"},
 		"p.mosaic": {Kind: CoverNone},
 	} {
 		if err := e.lib.SetPlaylistCover(ctx, id, c); err != nil {
 			t.Fatal(err)
 		}
 	}
+	dots, _ := artwork.WithPattern(own, "PDCXS18")
 	mosaic := artwork.Mosaic([]string{coverTmpl("a"), coverTmpl("b"), coverTmpl("c"), coverTmpl("d")})
-	want := map[string]string{"p.own": presetA, "p.mosaic": "", "p.other": mosaic}
+	want := map[string]string{"p.own": dots, "p.photo": photo, "p.mosaic": "", "p.other": mosaic}
 	check := func(where string, got map[string]string) {
 		t.Helper()
 		for id, w := range want {
@@ -283,17 +290,17 @@ func TestChosenCoverShowsEverywhereAPlaylistIsRead(t *testing.T) {
 	check("search", templates(res.Playlists))
 
 	// The automatic cover is still there to go back to.
-	if auto, _, err := e.lib.AutoCover(ctx, "p.own"); err != nil || auto != own {
+	if auto, err := e.lib.AutoCover(ctx, "p.own"); err != nil || auto != own {
 		t.Errorf("AutoCover(p.own) = %q, %v; want Apple's %q", auto, err, own)
 	}
-	if auto, _, err := e.lib.AutoCover(ctx, "p.mosaic"); err != nil || auto != mosaic {
+	if auto, err := e.lib.AutoCover(ctx, "p.mosaic"); err != nil || auto != mosaic {
 		t.Errorf("AutoCover(p.mosaic) = %q, %v; want %q", auto, err, mosaic)
 	}
 
 	// A sync stores the playlist again: the choice stays.
 	storePlaylist(t, e, "p.own", own, "a", "b", "c", "d", "e")
-	if p, _, err := e.lib.Playlist(ctx, "p.own", ListOptions{}); err != nil || p.ArtworkTemplate != presetA {
-		t.Errorf("after a sync the cover = %q, %v; want %q", p.ArtworkTemplate, err, presetA)
+	if p, _, err := e.lib.Playlist(ctx, "p.own", ListOptions{}); err != nil || p.ArtworkTemplate != dots {
+		t.Errorf("after a sync the cover = %q, %v; want %q", p.ArtworkTemplate, err, dots)
 	}
 
 	// Automatic again.
@@ -317,7 +324,7 @@ func TestCoverChoiceKeepsTheUploadAndFollowsThePlaylist(t *testing.T) {
 	}
 	for _, c := range []CoverChoice{
 		{Kind: CoverUpload, Template: upload1, Upload: upload1},
-		{Kind: CoverPreset, Template: presetB, Upload: upload1},
+		{Kind: CoverPreset, Template: "PDCXS14", Upload: upload1},
 		{Kind: CoverAuto, Upload: upload1},
 	} {
 		if err := e.lib.SetPlaylistCover(ctx, "p.a", c); err != nil {

@@ -62,10 +62,10 @@ func Mosaic(templates []string) string {
 
 func isMosaic(tmpl string) bool { return strings.HasPrefix(tmpl, mosaicPrefix) }
 
-// synthetic reports a template Sona makes itself, always square: a
-// mosaic, a preset or a stored cover. Nothing is fetched for one.
+// synthetic reports a template Sona makes itself, always square: a mosaic
+// or a stored cover. Nothing is fetched for one.
 func synthetic(tmpl string) bool {
-	return isMosaic(tmpl) || strings.HasPrefix(tmpl, presetPrefix) || strings.HasPrefix(tmpl, coverPrefix)
+	return isMosaic(tmpl) || strings.HasPrefix(tmpl, coverPrefix)
 }
 
 // mosaicTiles returns the tile templates of a normalised mosaic template.
@@ -147,12 +147,11 @@ func (c *Cache) tile(ctx context.Context, part string, size int) (*image.RGBA, e
 // artwork only that user's data references. It returns the bytes freed.
 func (c *Cache) RemoveMosaics() (int64, error) { return c.removeCached(isMosaic) }
 
-// RemovePresets deletes every cached preset cover: a classic one carries a
-// playlist's name, so sign-out removes them like the mosaics. It returns the
-// bytes freed.
-func (c *Cache) RemovePresets() (int64, error) {
-	return c.removeCached(func(t string) bool { return strings.HasPrefix(t, presetPrefix) })
-}
+// RemovePatterns deletes every cached Apple-generated playlist cover, in
+// any of its designs (Patterns): each carries a playlist's name, and the
+// designs other than Apple's own are not in the library's rows, so
+// sign-out removes them like the mosaics. It returns the bytes freed.
+func (c *Cache) RemovePatterns() (int64, error) { return c.removeCached(isPattern) }
 
 // removeCached deletes the cached artwork whose template satisfies match.
 func (c *Cache) removeCached(match func(template string) bool) (int64, error) {
