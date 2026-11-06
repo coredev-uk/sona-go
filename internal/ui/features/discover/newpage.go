@@ -131,8 +131,8 @@ func (d *discover) issueOf(sections []services.Section) {
 // anchorOf marks e as a place the contents jump to: its place in the page's
 // content is kept for the jump, and it takes the keyboard focus after one
 // (a TabStop(false), so Tab never stops at it). While it has the focus it is
-// a group named label (the shelf's title), so that what the focus lands on is read; label "" leaves a place that is
-// named already.
+// a group named label (the shelf's title), so that what the focus lands on
+// is read; label "" leaves a place that is named already.
 func (d *discover) anchorOf(e ui.Element, id, label string) ui.Element {
 	st := &d.newPg
 	if b := e.Bounds(); b.H > 0 {
