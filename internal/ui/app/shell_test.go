@@ -425,3 +425,32 @@ func TestChoosingResumeSavesThePageOnScreen(t *testing.T) {
 	tt.Frame()
 	tt.Until("the page on screen saved", func() bool { return h.Settings.Get().Desktop.LastRoute == "/b" })
 }
+
+// Every page fades in where it stands. For you is "/", which every path is
+// nested in: MyGo's default would slide the page in leaving it and coming
+// back to it, and only there.
+func TestPagesFadeInPlaceLeavingAndReturningToForYou(t *testing.T) {
+	a, tt := newShell(t, Options{StartPath: "/"}, pageModule("p",
+		pageDef{"/", "For you", module.NavPrimary, 1},
+		pageDef{"/radio", "Radio", module.NavPrimary, 2},
+	))
+	tt.Frame()
+	x := func(text string) float32 {
+		t.Helper()
+		r, ok := tt.Find(text)
+		if !ok {
+			t.Fatalf("no %q among %q", text, tt.Texts())
+		}
+		return r.X
+	}
+	at := x("page of For you")
+	for _, step := range []struct{ to, title string }{{"/radio", "Radio"}, {"/", "For you"}} {
+		a.router.Push(step.to)
+		tt.Frame()
+		tt.Advance(60 * time.Millisecond) // partway
+		if got := x("page of " + step.title); got != at {
+			t.Errorf("going to %s, the page is at x %v partway, want %v", step.to, got, at)
+		}
+		tt.Advance(time.Second)
+	}
+}
