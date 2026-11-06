@@ -53,10 +53,11 @@ func controlsOption(c *ui.Context, item ui.Element, label string, highlighted, c
 	})
 }
 
-// selectRadio makes an option of a select a radio item, checked while chosen
-// (a screen reader reads "Pro, radio item, checked" and presses it).
-func selectRadio(item ui.Element, label string, chosen bool) ui.Element {
-	return item.Role(ui.RoleMenuItemRadio).Label(label).Checked(chosen)
+// optionRow makes a row of a select's list box an option, checked
+// (aria-selected) while chosen: a screen reader reads "Pro, selected", as
+// MyGo's SelectBase makes its popup a list box.
+func optionRow(item ui.Element, label string, chosen bool) ui.Element {
+	return item.Role(ui.RoleOption).Label(label).Checked(chosen)
 }
 
 // SelectItem is one row of a Select's list: an option, a group label or a
@@ -170,14 +171,14 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 				case selectOption:
 					if it.Disabled {
 						// Not an Item: the arrows and Enter pass it by.
-						controlsOption(c, selectRadio(ui.Row(c.Key(i)), it.Label, false), it.Label, false, false, true)
+						controlsOption(c, optionRow(ui.Row(c.Key(i)), it.Label, false), it.Label, false, false, true)
 						continue
 					}
 					item := sel.Item(it.Value).Lang(it.Lang)
 					if it.Value == *value {
 						align.measure(c, panel, item, trigger)
 					}
-					controlsOption(c, selectRadio(item, it.Label, it.Value == *value), it.Label, item.Highlighted(), it.Value == *value, false)
+					controlsOption(c, optionRow(item, it.Label, it.Value == *value), it.Label, item.Highlighted(), it.Value == *value, false)
 				}
 			}
 		})

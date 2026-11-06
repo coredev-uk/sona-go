@@ -11,6 +11,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 // Session is a ui.Tester over an Env: what the view posts (service results,
@@ -24,6 +25,11 @@ type Session struct {
 	// view that builds its own (the app shell does) adds it here.
 	Art []*kit.ArtLoader
 }
+
+// Click clicks the control named name: access.Click, which clicks a link in
+// a text, or a button in a list item of its name, that the Tester's own
+// Click refuses under a page that handles input.
+func (s *Session) Click(name string) error { return access.Click(s.Tester, name) }
 
 // Tester runs view in a w×h window over this Harness; the view is wrapped
 // in theme.Apply as the shell's is.

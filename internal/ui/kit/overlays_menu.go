@@ -207,8 +207,11 @@ func (m *Menu) Dismissed() bool { d := m.dismissed; m.dismissed = false; return 
 func (m *Menu) Show(c *ui.Context, o MenuOpts, anchor ui.Element, items []MenuItem) {
 	if !m.open {
 		if p := m.pending; p != nil {
-			// One frame after the menu is gone, so the focus has gone back
-			// before what the row does (a dialog notes where focus is).
+			// Two frames after the menu is gone, so the focus has gone back
+			// before what the row does (a dialog notes where focus is): a
+			// row chosen with the pointer is pressed as its menu goes, and
+			// MyGo drops the menu's elements, and gives the focus back, a
+			// frame after it ends that press.
 			if m.settle > 0 {
 				m.settle--
 				c.AnimationFrame()
@@ -615,7 +618,7 @@ func (m *Menu) choose(it *MenuItem) {
 		}
 		return
 	}
-	m.pending, m.settle = it.Run, 1
+	m.pending, m.settle = it.Run, 2
 	m.setOpen(false)
 	m.levels = nil
 }

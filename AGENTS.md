@@ -34,7 +34,7 @@
 
 ## Stack
 
-- Go 1.27.3, MyGo v0.7.4 native UI (`github.com/egoist/mygo/ui`): GTK3 on Linux, AppKit on macOS, Win32 on Windows, one Go process drawing on the GPU. Pinned exactly; Renovate marks every bump `verdict/review`.
+- Go 1.27.3, MyGo v0.8.1 native UI (`github.com/egoist/mygo/ui`): GTK3 on Linux, AppKit on macOS, Win32 on Windows, one Go process drawing on the GPU. Pinned exactly; Renovate marks every bump `verdict/review`.
 - SQLite via `github.com/mattn/go-sqlite3` (FTS5 through the `sqlite_fts5` build tag) with a libSQL-compatible schema, goose + sqlc.
 - Playback: Google's Widevine CDM (`libwidevinecdm.so`, `.dylib` on macOS) downloaded by Sona from Google (`internal/playback/cdm`) and hosted through a C++ shim, GStreamer `appsrc` for AAC decode and PipeWire output (Core Audio on macOS).
 

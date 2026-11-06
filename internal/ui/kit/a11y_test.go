@@ -428,21 +428,21 @@ func TestUnavailableIsAnnouncedOncePerHold(t *testing.T) {
 	}
 }
 
-func TestSelectOptionsAreRadioItemsNamedByTheirSelect(t *testing.T) {
+func TestSelectOptionsAreOptionsOfAListBoxNamedByTheirSelect(t *testing.T) {
 	f := newControlsFields()
 	tt := controlsTester(t, 420, 900, f.view)
 	if err := tt.Click("Plan"); err != nil {
 		t.Fatal(err)
 	}
 	tr := access.Read(t, tt)
-	requireNodes(t, tr, []want{{ui.RolePopup, "Plan"}, {ui.RoleMenuItemRadio, "Free"}, {ui.RoleMenuItemRadio, "Pro"}, {ui.RoleMenuItemRadio, "Team"}})
-	if n, _ := tr.Find(ui.RoleMenuItemRadio, "Pro"); !n.Has(access.Checked) {
+	requireNodes(t, tr, []want{{ui.RoleListBox, "Plan"}, {ui.RoleOption, "Free"}, {ui.RoleOption, "Pro"}, {ui.RoleOption, "Team"}})
+	if n, _ := tr.Find(ui.RoleOption, "Pro"); !n.Has(access.Checked) {
 		t.Errorf("the chosen option is not checked: %s", n.States)
 	}
-	if n, _ := tr.Find(ui.RoleMenuItemRadio, "Free"); n.Has(access.Checked) {
+	if n, _ := tr.Find(ui.RoleOption, "Free"); n.Has(access.Checked) {
 		t.Errorf("an option that is not chosen is checked")
 	}
-	if n, ok := tr.Find(ui.RoleMenuItemRadio, "Enterprise"); !ok || !n.Has(access.Disabled) {
+	if n, ok := tr.Find(ui.RoleOption, "Enterprise"); !ok || !n.Has(access.Disabled) {
 		t.Errorf("a disabled option is not disabled: %+v", n)
 	}
 	// Escape closes it and the focus returns to the select.
