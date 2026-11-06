@@ -93,8 +93,11 @@ func TestA11ySectionsAreOnTheTreeAndOnTheTabWalk(t *testing.T) {
 				if !ok {
 					t.Fatalf("no link %q", sectionTitle(id))
 				}
-				if cur := strings.HasPrefix(n.Description, "Current page"); cur != (id == section) {
-					t.Errorf("link %q description %q (current %v)", n.Label, n.Description, id == section)
+				if cur := n.Current == ui.CurrentPage; cur != (id == section) {
+					t.Errorf("link %q is current %v (kind %v), want %v", n.Label, cur, n.Current, id == section)
+				}
+				if strings.Contains(n.Description, "Current") {
+					t.Errorf("link %q still says it is current in its description: %q", n.Label, n.Description)
 				}
 			}
 
@@ -132,8 +135,8 @@ func TestA11yShortcutRecordersAndResetAll(t *testing.T) {
 		t.Error("the General group has no heading")
 	}
 	reset, ok := tr.Find(ui.RoleButton, "Reset all")
-	if !ok || reset.Has(access.Disabled) || reset.Description != "No shortcut has been changed." {
-		t.Errorf("Reset all with nothing to reset (focusable, explains itself): %+v", reset)
+	if !ok || !reset.Has(access.Disabled) || !reset.Has(access.Focusable) || reset.Can(access.Press) || reset.Description != "No shortcut has been changed." {
+		t.Errorf("Reset all with nothing to reset (disabled, focusable, not pressable, explains itself): %+v", reset)
 	}
 
 	// Recording is the pressed state; Escape stops it and keeps the focus.
@@ -177,7 +180,8 @@ func TestA11yShortcutRecordersAndResetAll(t *testing.T) {
 
 // What the page says that nobody is looking at: the diagnostics verdict
 // (aria-live polite) is announced when it changes, and an unencrypted
-// sign-in warning (role="alert") when it appears.
+// sign-in warning, an alert, is read by MyGo when it appears and not
+// announced as well.
 func TestA11yAnnouncements(t *testing.T) {
 	t.Run("diagnostics verdict", func(t *testing.T) {
 		gate := make(chan struct{})
@@ -197,12 +201,12 @@ func TestA11yAnnouncements(t *testing.T) {
 		st := services.ScrobbleStatus{Unencrypted: true, LastFM: services.ScrobblerStatus{Available: true, Connected: true}}
 		store.Set(r.h.Env.Queries, keyScrobble, st)
 		r.tt.Until("the warning", r.tt.Shows("Your scrobbler sign-ins are stored unencrypted"))
-		if ann := r.tt.Announcements(); !slices.Contains(ann, "Your scrobbler sign-ins are stored unencrypted") {
-			t.Errorf("announcements %q", ann)
+		if ann := r.tt.Announcements(); slices.Contains(ann, "Your scrobbler sign-ins are stored unencrypted") {
+			t.Errorf("announcements %q: the warning is an alert, read by MyGo", ann)
 		}
 		tr := access.Read(t, r.tt.Tester)
-		if _, ok := tr.Find(ui.RoleStatus, "Your scrobbler sign-ins are stored unencrypted"); !ok {
-			t.Errorf("the warning is not a status:\n%s", tr.Dump())
+		if _, ok := tr.Find(ui.RoleAlert, "Your scrobbler sign-ins are stored unencrypted"); !ok {
+			t.Errorf("the warning is not an alert:\n%s", tr.Dump())
 		}
 	})
 }

@@ -266,8 +266,8 @@ func TestA11yLoadingAndErrorStates(t *testing.T) {
 		})
 		r.shows("Couldn't load this artist", "Try again")
 		_, tr := r.walk("Try again")
-		if _, ok := tr.Find(ui.RoleStatus, "Couldn't load this artist"); !ok {
-			t.Errorf("the failure is not a status:\n%s", tr.Dump())
+		if _, ok := tr.Find(ui.RoleAlert, "Couldn't load this artist"); !ok {
+			t.Errorf("the failure is not an alert:\n%s", tr.Dump())
 		}
 	})
 }

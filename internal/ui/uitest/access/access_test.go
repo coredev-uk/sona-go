@@ -178,6 +178,12 @@ func TestStatesAndActionsAreReadInMyGosOrder(t *testing.T) {
 			ui.Slider(c.Key("slider"), &vol, 0, 100).Label("Vol")
 			ui.ButtonBase(c.Key("exp")).Label("Menu").Expanded(true)
 			ui.TextInput(c.Key("in"), &text).Label("Field").Error("bad")
+			ui.ButtonBase(c.Key("here")).Label("Here").Current(ui.CurrentPage)
+			ui.ButtonBase(c.Key("held")).Label("Held").AccessDisabled(true)
+			ui.Column(c.Key("loading")).Role(ui.RoleStatus).Label("Loading").Busy(true)
+			ui.Text(c.Key("news"), "News").Role(ui.RoleAlert)
+			region := ui.Column(c.Key("region")).Role(ui.RoleRegion).Label("Region")
+			ui.ButtonBase(c.Key("opens")).Label("Opens").HasPopup(ui.PopupDialog).Controls(region)
 		})
 	}, 320, 400)
 	tr := Read(t, tt)
@@ -197,5 +203,18 @@ func TestStatesAndActionsAreReadInMyGosOrder(t *testing.T) {
 	check(ui.RoleTextField, "Field", Invalid|Focusable, Disabled)
 	if n, _ := tr.Find(ui.RoleSlider, "Vol"); !n.Can(Increment|Decrement|Focus) || n.Now != 30 {
 		t.Errorf("slider: %+v", n)
+	}
+	// Told, not taken away: a held-back button is disabled and still focusable.
+	check(ui.RoleButton, "Held", Disabled|Focusable, 0)
+	check(ui.RoleStatus, "Loading", Busy, Disabled)
+	if n, _ := tr.Find(ui.RoleButton, "Here"); n.Current != ui.CurrentPage {
+		t.Errorf("current: %+v", n)
+	}
+	if _, ok := tr.Find(ui.RoleAlert, "News"); !ok {
+		t.Errorf("no alert on the tree:\n%s", tr.Dump())
+	}
+	opens, _ := tr.Find(ui.RoleButton, "Opens")
+	if region, ok := tr.Find(ui.RoleRegion, "Region"); opens.HasPopup != ui.PopupDialog || !ok || len(opens.Controls) != 1 || tr.ControlledBy(opens)[0].Index != region.Index {
+		t.Errorf("popup and controls: %+v", opens)
 	}
 }

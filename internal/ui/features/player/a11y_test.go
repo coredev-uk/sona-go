@@ -185,7 +185,7 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 					{ui.RoleToggleButton, "Shuffle off"}, {ui.RoleButton, "Previous"}, {ui.RoleButton, "Next"}, {ui.RoleToggleButton, "Repeat off"},
 				} {
 					b := mustFind(t, tr, n.role, n.label)
-					if b.Has(access.Disabled) || !b.Has(access.Focusable) || b.Description != liveReason {
+					if !b.Has(access.Disabled) || !b.Has(access.Focusable) || b.Can(access.Press) || b.Description != liveReason {
 						t.Errorf("%q: disabled %v, focusable %v, description %q", n.label, b.Has(access.Disabled), b.Has(access.Focusable), b.Description)
 					}
 				}
@@ -466,8 +466,11 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 					}
 				}
 				now := mustFind(t, tr, ui.RoleListItem, "Song 1, Artist 1")
-				if !now.Has(access.Selected) && !now.Has(access.Checked) {
-					t.Errorf("the playing row is not marked as the current one: %+v", now)
+				if now.Current != ui.CurrentItem || now.Has(access.Selected) {
+					t.Errorf("the playing row is not the current item: %+v", now)
+				}
+				if other := mustFind(t, tr, ui.RoleListItem, "Up next: Song 2, Artist 2"); other.Current != ui.CurrentNone {
+					t.Errorf("a row that is not playing is the current item: %+v", other)
 				}
 				if _, ok := tr.Find(ui.RoleImage, "Now playing"); !ok {
 					t.Error("the playing row does not say it is playing")
@@ -666,7 +669,7 @@ func TestAutoPlayWhereItDoesNotApplyKeepsTheFocusAndSaysWhy(t *testing.T) {
 		s.Controls.AutoPlay = false
 	})
 	n := tabTo(t, r.tt.Tester, "AutoPlay")
-	if n.Has(access.Disabled) || n.Description != liveReason || n.Has(access.Checked) {
+	if !n.Has(access.Disabled) || !n.Has(access.Focusable) || n.Description != liveReason || n.Has(access.Checked) {
 		t.Errorf("AutoPlay on a live station: %+v", n)
 	}
 	r.tt.Key(0, ui.KeyEnter)

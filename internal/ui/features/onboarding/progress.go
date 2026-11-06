@@ -20,8 +20,7 @@ const stripHeight = 32
 // segment that had the focus last, else the first: MyGo's group only enters
 // on a checked element, which a button must not claim to be). It is a list
 // named "Setup steps" of one item per step (the nav and ol of v0.2.0), and
-// the current step's button says so in its description: MyGo has no
-// aria-current, and "Current step" is what stands in for it.
+// the current step's button is the current step (aria-current="step").
 func (o *onboarding) stepStrip(c *ui.Context, step string) {
 	at := stepIndex(step)
 	ui.Row(c.Key("strip")).FillWidth().Height(stripHeight).Shrink(0).Gap(4).AlignItems(ui.Stretch).
@@ -40,14 +39,14 @@ func (o *onboarding) stepStrip(c *ui.Context, step string) {
 
 // stepButton is one segment of the strip: the bar and the step's name, the
 // button to the step s (the i-th; at is the current step's index). The
-// current one is described as the current page.
+// current one is told as the current step.
 func (o *onboarding) stepButton(c *ui.Context, s string, i, at int, step string) ui.Element {
 	name := stepName(s)
 	b := ui.ButtonBase(c.Key("step:"+s)).Column().Grow(1).Gap(6).
 		Padding(4, 0, 2, 0).AlignItems(ui.Stretch).Radius(theme.Current().Radius["sm"]).
 		Cursor(ui.CursorPointer).Label(name)
 	if s == step {
-		b.Description(i18n.T("Current step"))
+		b.Current(ui.CurrentStep)
 	}
 	hover := b.Hovered()
 	bar := theme.C("ink").Alpha(0.15)

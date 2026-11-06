@@ -125,20 +125,20 @@ func (h *home) indexLine(c *ui.Context, s services.Section, ctx kit.ItemsCtx) {
 			ln.open = !ln.open
 		}
 		if ln.open {
-			h.indexPanel(c, ln, s, ctx)
+			btn.Controls(h.indexPanel(c, ln, s, ctx))
 		}
 	})
 }
 
 // indexPanel is an open line's shelf: its covers in place, and "See all" when
 // the section has a page of its own.
-func (h *home) indexPanel(c *ui.Context, ln *indexLine, s services.Section, ctx kit.ItemsCtx) {
+func (h *home) indexPanel(c *ui.Context, ln *indexLine, s services.Section, ctx kit.ItemsCtx) ui.Element {
 	items := ln.cap.of(s.Items)
 	label := s.Title
 	if label == "" {
 		label = i18n.T("Items")
 	}
-	ui.Column(c.Key("panel")).Padding(8, indexPad, 32, indexPad).Role(ui.RoleGroup).Label(label).Children(func() {
+	return ui.Column(c.Key("panel")).Padding(8, indexPad, 32, indexPad).Role(ui.RoleGroup).Label(label).Children(func() {
 		tiles := make([]kit.CoverItem, len(items))
 		for i := range items {
 			tiles[i] = kit.CoverItemOf(items[i], ctx, i)

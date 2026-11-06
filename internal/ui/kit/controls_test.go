@@ -1161,8 +1161,11 @@ func TestErrorBlockWordsGoFailureAndRetries(t *testing.T) {
 	if strings.Contains(strings.Join(tt.Texts(), " "), "no such host") {
 		t.Error("Go's own error text reached the screen")
 	}
-	if got := tt.Announcements(); len(got) != 1 || !strings.Contains(got[0], "Couldn't load this album") {
-		t.Errorf("announcements %q, want the failure once", got)
+	if a, ok := tt.AccessByRole(ui.RoleAlert, "Couldn't load this album"); !ok || a.Role != ui.RoleAlert {
+		t.Errorf("the failure is not an alert: %+v", a)
+	}
+	if got := tt.Announcements(); len(got) != 0 {
+		t.Errorf("announcements %q: the failure is an alert, read by MyGo, not announced as well", got)
 	}
 	controlsClick(t, tt, "Try again")
 	if retries != 1 {

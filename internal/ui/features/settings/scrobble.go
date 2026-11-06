@@ -229,8 +229,8 @@ func (s *settings) tokenHint(c *ui.Context) {
 	})
 }
 
-// announceOnce announces msg when e first appears, as a role="alert" does:
-// the line is a status MyGo does not read by itself.
+// announceOnce announces msg when e first appears: a status MyGo does not
+// read by itself, which is news but not an alert.
 func announceOnce(c *ui.Context, e ui.Element, msg string) {
 	if told := ui.Local(e, "told", func() bool { return false }); !*told {
 		*told = true
@@ -238,11 +238,9 @@ func announceOnce(c *ui.Context, e ui.Element, msg string) {
 	}
 }
 
-// alertLine is a sentence with a danger icon, announced as it appears.
+// alertLine is a sentence with a danger icon, an alert read as it appears.
 func (s *settings) alertLine(c *ui.Context, icon, msg string) {
-	row := ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Start).Role(ui.RoleStatus).Label(msg)
-	announceOnce(c, row, msg)
-	row.Children(func() {
+	ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Start).Role(ui.RoleAlert).Label(msg).Children(func() {
 		ui.Icon(c.Key("i"), theme.Icon(icon)).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
 		text(c, msg, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
 	})

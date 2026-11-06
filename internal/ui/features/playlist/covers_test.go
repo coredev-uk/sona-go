@@ -227,14 +227,14 @@ func TestCoverDialogUnusableImageSaysWhyBesideTheButton(t *testing.T) {
 	r.shows("Sona can't use that image. It must be a JPEG or PNG within the size limits.",
 		"JPEG or PNG, up to 20 MB and 40 megapixels, at least 300 px wide and tall. Sona crops it to a square from the centre.")
 	tr := access.Read(t, r.tt.Tester)
-	if n, ok := tr.Find(ui.RoleStatus, "Sona can't use that image. It must be a JPEG or PNG within the size limits."); !ok || !tr.Within(n, ui.RoleDialog) {
-		t.Errorf("the failure is not a status in the dialog: %+v", n)
+	if n, ok := tr.Find(ui.RoleAlert, "Sona can't use that image. It must be a JPEG or PNG within the size limits."); !ok || !tr.Within(n, ui.RoleDialog) {
+		t.Errorf("the failure is not an alert in the dialog: %+v", n)
 	}
 	if got := r.chosenCover(t); got != "Automatic" {
 		t.Errorf("checked cover = %q after a refused image", got)
 	}
-	if got := r.tt.Announcements(); !slices.ContainsFunc(got, func(s string) bool { return strings.HasPrefix(s, "Sona can't use that image") }) {
-		t.Errorf("the failure was not announced: %q", got)
+	if got := r.tt.Announcements(); slices.ContainsFunc(got, func(s string) bool { return strings.HasPrefix(s, "Sona can't use that image") }) {
+		t.Errorf("the failure was announced as well as being an alert: %q", got)
 	}
 	// Trying again clears it.
 	r.api.err = nil

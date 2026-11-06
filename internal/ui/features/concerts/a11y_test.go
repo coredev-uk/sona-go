@@ -135,7 +135,7 @@ func TestA11yPages(t *testing.T) {
 				return newRigAmp(t, amp, "/concerts", 1132, 1000, nil, nil)
 			},
 			ready:   []string{"Couldn't load the concerts", "Try again"},
-			present: []a11yNode{{ui.RoleStatus, "Couldn't load the concerts"}, {ui.RoleButton, "Try again"}},
+			present: []a11yNode{{ui.RoleAlert, "Couldn't load the concerts"}, {ui.RoleButton, "Try again"}},
 			tab:     []string{"Try again"},
 		},
 	}
@@ -350,17 +350,23 @@ func TestA11yLocationDialog(t *testing.T) {
 }
 
 // TestA11yLocationDialogMarksTheChosenCity: the city in use says so as the
-// current item (v0.2.0's aria-current), keeping its name.
+// current item, keeping its name.
 func TestA11yLocationDialogMarksTheChosenCity(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 900, exampleBand)
 	r.shows("Set location", "Example Band with Opener Duo")
+	if n, ok := access.Read(t, r.tt.Tester).Find(ui.RoleButton, "Set location"); !ok || n.HasPopup != ui.PopupDialog {
+		t.Errorf("Set location opens a dialog and says so: %+v", n)
+	}
 	r.click("Set location")
 	r.shows("Search cities", "Manchester")
 	tr := access.Read(t, r.tt.Tester)
 	var current []string
 	for _, n := range tr.Roles(ui.RoleButton) {
-		if strings.HasPrefix(n.Description, "Current") {
+		if n.Current == ui.CurrentItem {
 			current = append(current, n.Label)
+		}
+		if strings.HasPrefix(n.Description, "Current") {
+			t.Errorf("%v says it is current in its description: %q", n, n.Description)
 		}
 	}
 	if len(current) != 1 || current[0] != "London, United Kingdom" {
@@ -381,6 +387,9 @@ func TestA11yFilterChangeIsBusyThenAnnounced(t *testing.T) {
 	if _, ok := access.Read(t, r.tt.Tester).Find(ui.RoleStatus, "Loading"); ok {
 		t.Error("the loaded page is marked busy")
 	}
+	if busy := busyNodes(access.Read(t, r.tt.Tester)); len(busy) != 0 {
+		t.Errorf("the loaded page has busy regions %v", busy)
+	}
 	release := r.amp.hold()
 	r.router.Replace("/concerts?genre=21")
 	for range 5 {
@@ -390,8 +399,12 @@ func TestA11yFilterChangeIsBusyThenAnnounced(t *testing.T) {
 	if _, ok := tr.Find(ui.RoleStatus, "Loading"); !ok {
 		t.Errorf("no busy status while the filter loads:\n%s", tr.Dump())
 	}
-	if _, ok := tr.Find(ui.RoleHeading, "April 2027"); !ok {
-		t.Errorf("the last list went away while loading:\n%s", tr.Dump())
+	head, ok := tr.Find(ui.RoleHeading, "April 2027")
+	if !ok {
+		t.Fatalf("the last list went away while loading:\n%s", tr.Dump())
+	}
+	if !slices.ContainsFunc(tr.Ancestors(head), func(a access.Node) bool { return a.Has(access.Busy) }) {
+		t.Errorf("the last list is not in a busy region:\n%s", tr.Dump())
 	}
 	if got := r.tt.Announcements(); len(got) != 0 {
 		t.Errorf("announced %q while loading", got)
@@ -409,6 +422,9 @@ func TestA11yFilterChangeIsBusyThenAnnounced(t *testing.T) {
 	}
 	if _, ok := access.Read(t, r.tt.Tester).Find(ui.RoleStatus, "Loading"); ok {
 		t.Error("the page is still marked busy")
+	}
+	if busy := busyNodes(access.Read(t, r.tt.Tester)); len(busy) != 0 {
+		t.Errorf("the page still has busy regions %v", busy)
 	}
 
 	// A filter that leaves nothing says so.
@@ -450,7 +466,21 @@ func TestA11yLoadingAndErrorAreStatuses(t *testing.T) {
 		return f.tt.HasText("Couldn't load the concerts")
 	})
 	heard = append(heard, f.tt.Announcements()...)
-	if len(heard) != 1 || !strings.HasPrefix(heard[0], "Couldn't load the concerts") {
-		t.Errorf("announced %q, want the error once", heard)
+	if slices.ContainsFunc(heard, func(s string) bool { return strings.HasPrefix(s, "Couldn't load the concerts") }) {
+		t.Errorf("announced %q: the error is an alert, read by MyGo", heard)
 	}
+	if _, ok := access.Read(t, f.tt.Tester).Find(ui.RoleAlert, "Couldn't load the concerts"); !ok {
+		t.Error("the error is not an alert")
+	}
+}
+
+// busyNodes are the nodes marked busy.
+func busyNodes(tr access.Tree) []access.Node {
+	var out []access.Node
+	for _, n := range tr.Nodes {
+		if n.Has(access.Busy) {
+			out = append(out, n)
+		}
+	}
+	return out
 }

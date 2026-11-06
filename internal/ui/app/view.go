@@ -284,10 +284,7 @@ func (a *App) navLink(c *ui.Context, n module.NavItem) {
 	switch {
 	case on:
 		row.Background(theme.C("active"))
-		// MyGo has no aria-current: assistive technology hears it as the
-		// link's description, as the playlist sidebar's links say it.
-		// translators: Read by screen readers after the name of the sidebar link of the page that is open (the equivalent of aria-current).
-		row.Description(i18n.T("Current page"))
+		row.Current(ui.CurrentPage)
 		fg = theme.C("ink")
 	case row.Hovered():
 		row.Background(theme.C("hover"))

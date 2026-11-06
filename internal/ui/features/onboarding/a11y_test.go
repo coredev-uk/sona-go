@@ -144,10 +144,10 @@ func TestLayerIsANamedDialogWithTheTitleAsAHeading(t *testing.T) {
 	}
 }
 
-// TestStepStripIsAListWithTheCurrentStepDescribed is StepProgress's nav, ol
-// and aria-current: a named list of one item per step, each holding a
-// button named after the step; the current step's says so.
-func TestStepStripIsAListWithTheCurrentStepDescribed(t *testing.T) {
+// TestStepStripIsAListWithTheCurrentStepMarked is StepProgress's nav and ol: a
+// named list of one item per step, each holding a button named after the
+// step; the current step's is the current step.
+func TestStepStripIsAListWithTheCurrentStepMarked(t *testing.T) {
 	r := newRig(t, 900, 1000)
 	r.open("connections")
 	r.tt.Frame()
@@ -170,21 +170,21 @@ func TestStepStripIsAListWithTheCurrentStepDescribed(t *testing.T) {
 			t.Errorf("item %d holds %v, want the button %q", i, kids, names[i])
 			continue
 		}
-		want := ""
+		want := ui.CurrentNone
 		if names[i] == "Connections" {
-			want = "Current step"
+			want = ui.CurrentStep
 		}
-		if kids[0].Description != want {
-			t.Errorf("the %q segment's description %q, want %q", names[i], kids[0].Description, want)
+		if kids[0].Current != want || kids[0].Description != "" {
+			t.Errorf("the %q segment is current %v with description %q, want current %v and none", names[i], kids[0].Current, kids[0].Description, want)
 		}
 	}
-	// Going to a step moves what is described as current.
+	// Going to a step moves the current one.
 	r.click("Desktop")
 	r.tt.Frame()
 	tr = access.Read(t, r.tt.Tester)
 	for _, n := range tr.Nodes {
-		if n.Role == ui.RoleButton && (n.Description == "Current step") != (n.Label == "Desktop") && slices.Contains(names, n.Label) {
-			t.Errorf("after Desktop, %q has the description %q", n.Label, n.Description)
+		if n.Role == ui.RoleButton && (n.Current == ui.CurrentStep) != (n.Label == "Desktop") && slices.Contains(names, n.Label) {
+			t.Errorf("after Desktop, %q is current %v", n.Label, n.Current)
 		}
 	}
 }
@@ -284,5 +284,18 @@ func TestSwitchesAndChoicesCarryTheirState(t *testing.T) {
 	sl := tr.Roles(ui.RoleSlider)
 	if len(sl) != 1 || sl[0].Label != "Length" || sl[0].Max <= sl[0].Min || sl[0].Now < sl[0].Min || sl[0].Now > sl[0].Max {
 		t.Errorf("the crossfade length slider: %+v\n%s", sl, tr.Dump())
+	}
+}
+
+// A step that waits for the settings shows a placeholder at about the height
+// of what will land: a busy status read as "Loading".
+func TestAStepWaitingForTheSettingsIsABusyLoadingStatus(t *testing.T) {
+	r := newRig(t, 900, 800)
+	r.o.env.Queries.Invalidate(store.KeySettings)
+	r.open("desktop")
+	tr := access.Read(t, r.tt.Tester)
+	n, ok := tr.Find(ui.RoleStatus, "Loading")
+	if !ok || !n.Has(access.Busy) {
+		t.Errorf("no busy Loading status while the settings are read: %+v\n%s", n, tr.Dump())
 	}
 }

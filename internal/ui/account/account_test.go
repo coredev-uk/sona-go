@@ -353,8 +353,8 @@ func TestWrongPasswordClearsThePasswordAndKeepsTheAccount(t *testing.T) {
 	if f := r.sec.flow; f == nil || f.password != "" || f.account != "a@example.com" {
 		t.Errorf("fields after the attempt: %+v", f)
 	}
-	if got := r.tt.Announcements(); !slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, "That Apple Account or password isn't right") }) {
-		t.Errorf("the error was not announced: %q", got)
+	if _, ok := r.tt.AccessByRole(ui.RoleAlert, "That Apple Account or password isn't right"); !ok {
+		t.Error("the error is not an alert")
 	}
 }
 

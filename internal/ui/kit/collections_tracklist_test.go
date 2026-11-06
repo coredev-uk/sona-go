@@ -451,8 +451,9 @@ func TestTrackListCentresTheHighlightedSongBelowDiscHeadings(t *testing.T) {
 	}
 }
 
-// MyGo has no aria-disabled: a withheld song says why as the row's description.
-func TestTrackListWithheldRowIsDescribedWithTheReason(t *testing.T) {
+// A withheld song is disabled to assistive technology and says why as the
+// row's description.
+func TestTrackListWithheldRowIsDisabledAndDescribedWithTheReason(t *testing.T) {
 	a, tt := newCollTrackApp(t, 6, 1000, 500)
 	a.songs[3].Explicit = true
 	a.opts.Restricted = true
@@ -468,6 +469,9 @@ func TestTrackListWithheldRowIsDescribedWithTheReason(t *testing.T) {
 		}
 		if n.Description != c.want {
 			t.Errorf("%q is described %q, want %q", c.name, n.Description, c.want)
+		}
+		if n.Has(access.Disabled) != (c.want != "") {
+			t.Errorf("%q is disabled %v, want %v", c.name, n.Has(access.Disabled), c.want != "")
 		}
 	}
 }

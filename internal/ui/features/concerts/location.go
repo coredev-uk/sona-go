@@ -151,7 +151,7 @@ func (l *locationDialog) place(c *ui.Context, d *data, p services.ConcertPlace, 
 		AlignItems(ui.Center).Label(p.Name + ", " + country).Disabled(l.saving)
 	switch {
 	case p.Selected:
-		row.Background(theme.C("active")).Description(i18n.T("Current"))
+		row.Background(theme.C("active")).Current(ui.CurrentItem)
 	case row.Hovered() || row.Focused():
 		row.Background(theme.C("hover"))
 	}

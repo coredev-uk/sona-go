@@ -126,10 +126,17 @@ func TestA11ySidebar(t *testing.T) {
 			t.Errorf("disclosure %q: %+v, want expanded %v", name, n, open)
 		}
 	}
+	// A foldable section's heading controls the list it folds, while it shows.
+	for _, name := range []string{"Made for you", "Apple Music"} {
+		n, _ := tr.Find(ui.RoleDisclosure, name)
+		if got := tr.ControlledBy(n); len(got) != 1 || got[0].Role != ui.RoleList || got[0].Label != name {
+			t.Errorf("disclosure %q controls %v, want the list %q", name, got, name)
+		}
+	}
 	// Only the page's own row is the current page.
 	for _, n := range tr.Nodes {
-		if cur := n.Description == "Current page"; cur != (n.Role == ui.RoleLink && n.Label == "Road Trip") {
-			t.Errorf("%v description %q", n, n.Description)
+		if cur := n.Current == ui.CurrentPage; cur != (n.Role == ui.RoleLink && n.Label == "Road Trip") {
+			t.Errorf("%v current %v, description %q", n, n.Current, n.Description)
 		}
 	}
 	// A heading is not a button, and no heading holds one.
@@ -358,10 +365,17 @@ func TestA11yEditorWalk(t *testing.T) {
 	r.shows("Done", "Edit the songs in Road Trip")
 	r.tt.Until("Done has the focus", func() bool { return r.tt.Focused("Done") })
 	walk(t, r.tt, "Name and description", "Song A", "Done")
+	// The buttons that open dialogs say so.
+	tr := access.Read(t, r.tt.Tester)
+	for _, name := range []string{"Name and description", "Cover"} {
+		if n, ok := tr.Find(ui.RoleButton, name); !ok || n.HasPopup != ui.PopupDialog {
+			t.Errorf("%q opens a dialog and says so: %+v", name, n)
+		}
+	}
 }
 
-// A shared playlist's collaborators: a menu button named by its words and
-// described once, a dialog that lists everyone as links named by all the row
+// A shared playlist's collaborators: a button that opens a dialog, named by
+// its words and described once, a dialog that lists everyone as links named by all the row
 // shows, and Escape returning the focus to the button.
 func TestA11yCollaborators(t *testing.T) {
 	songs := threeSongs()
@@ -388,8 +402,8 @@ func TestA11yCollaborators(t *testing.T) {
 	if stops[0] != "Ada & 2 others" {
 		t.Errorf("the byline is not the first stop: %q", stops)
 	}
-	btn, ok := tr.Find(ui.RoleMenuButton, "Ada & 2 others")
-	if !ok || btn.Description != "View playlist collaborators" {
+	btn, ok := tr.Find(ui.RoleButton, "Ada & 2 others")
+	if !ok || btn.Description != "View playlist collaborators" || btn.HasPopup != ui.PopupDialog {
 		t.Fatalf("collaborators button %+v:\n%s", btn, tr.Dump())
 	}
 	if _, ok := tr.Find(ui.RoleColumnHeader, "Added by"); !ok {

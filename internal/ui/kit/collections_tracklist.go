@@ -699,8 +699,8 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 		Source: func(e ui.Element) {
 			e.PaddingX(trackPadX).Gap(trackGap).Radius(tk.Radius["md"]).Role(ui.RoleRow).Label(s.Name).Checked(run != RunNone)
 			if withheld {
-				// No aria-disabled in MyGo: the reason is the row's description.
-				e.Description(i18n.T("Explicit content is restricted on this account"))
+				// Unavailable but still focusable, with the reason as its description.
+				e.AccessDisabled(true).Description(i18n.T("Explicit content is restricted on this account"))
 			}
 			if i == st.nav.Focus() {
 				e.Focusable()

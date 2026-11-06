@@ -269,8 +269,8 @@ func TestA11yLoadingAndErrorStates(t *testing.T) {
 		r.cat.fail(errors.New("boom"))
 		r.shows("Couldn't load this album", "Try again")
 		tr := r.walk("Try again")
-		if _, ok := tr.Find(ui.RoleStatus, "Couldn't load this album"); !ok {
-			t.Errorf("the failure is not a status:\n%s", tr.Dump())
+		if _, ok := tr.Find(ui.RoleAlert, "Couldn't load this album"); !ok {
+			t.Errorf("the failure is not an alert:\n%s", tr.Dump())
 		}
 	})
 }

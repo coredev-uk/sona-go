@@ -2,6 +2,7 @@ package library
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -492,12 +493,12 @@ func TestA11yLoadingAndErrorAreStatuses(t *testing.T) {
 			return r.tt.Shows("Couldn't read your listening history")()
 		})
 		tr := access.Read(t, r.tt.Tester)
-		if _, ok := tr.Find(ui.RoleStatus, "Couldn't read your listening history"); !ok {
-			t.Errorf("the error is not a status:\n%s", tr.Dump())
+		if _, ok := tr.Find(ui.RoleAlert, "Couldn't read your listening history"); !ok {
+			t.Errorf("the error is not an alert:\n%s", tr.Dump())
 		}
 		heard = append(heard, r.tt.Announcements()...)
-		if len(heard) != 1 || !strings.HasPrefix(heard[0], "Couldn't read your listening history") {
-			t.Errorf("announced %q, want the error once", heard)
+		if slices.ContainsFunc(heard, func(s string) bool { return strings.HasPrefix(s, "Couldn't read your listening history") }) {
+			t.Errorf("announced %q: the error is an alert, read by MyGo", heard)
 		}
 		access.NoNestedControls(t, r.tt.Tester)
 		inOrder(t, walkLabels(t, r.tt, 20), []string{"Try again", "Sync now"})
@@ -512,8 +513,11 @@ func TestA11yLoadingAndErrorAreStatuses(t *testing.T) {
 			return r.tt.Shows("Couldn't read your albums from this computer")()
 		})
 		heard = append(heard, r.tt.Announcements()...)
-		if len(heard) != 1 || !strings.HasPrefix(heard[0], "Couldn't read your albums from this computer") {
-			t.Errorf("announced %q, want the error once", heard)
+		if slices.ContainsFunc(heard, func(s string) bool { return strings.HasPrefix(s, "Couldn't read your albums from this computer") }) {
+			t.Errorf("announced %q: the error is an alert, read by MyGo", heard)
+		}
+		if _, ok := access.Read(t, r.tt.Tester).Find(ui.RoleAlert, "Couldn't read your albums from this computer"); !ok {
+			t.Error("the error is not an alert")
 		}
 		inOrder(t, walkLabels(t, r.tt, 20), []string{"All", "Albums", "Singles & EPs", "Sort", "Try again"})
 	})

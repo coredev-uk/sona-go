@@ -490,9 +490,8 @@ func (p *player) lyricLine(c *ui.Context, sh *lyricsSheet, ln *services.LyricLin
 	}
 	if clickable {
 		row.Role(ui.RoleButton).Label(ln.Text).Lang(sh.lyr.Language).Cursor(ui.CursorPointer).Radius(theme.Current().Radius["md"])
-		// No aria-current in MyGo: the sung line says so as its description.
 		if in.state == stActive {
-			row.Description(i18n.T("Current"))
+			row.Current(ui.CurrentItem)
 		}
 		if in.tabbable {
 			row.Focusable()

@@ -128,7 +128,7 @@ func (s *concerts) concertsPage(c *ui.Context, r *ui.Route) {
 				if placeholder {
 					busy(c) // the last filters' list stays meanwhile
 				}
-				s.agenda(c, shown)
+				s.agenda(c, shown, placeholder)
 				if page.More && !onlyYours {
 					busy := q.Fetching || placeholder
 					ui.Row(c.Key("more")).FillWidth().Justify(ui.Center).Margin(32, 0, 0, 0).Children(func() {
@@ -171,8 +171,9 @@ func (s *concerts) announce(c *ui.Context, key string, onlyYours bool, n int, ci
 	}
 }
 
-// busy marks the agenda while the next listing loads and the last one stays
-// on screen (v0.2.0's aria-busy): a status of no size, read as "Loading".
+// busy says the agenda is loading while the next listing loads and the last
+// one stays on screen: a status of no size, read as "Loading" (the agenda
+// itself is Busy).
 func busy(c *ui.Context) {
 	ui.Box(c.Key("busy")).Size(0, 0).Role(ui.RoleStatus).Label(i18n.T("Loading"))
 }
@@ -203,7 +204,7 @@ func (s *concerts) header(c *ui.Context, page *services.ConcertsPage, loc *servi
 				label = i18n.T("Set location")
 			}
 		}
-		if kit.Button(c.Key("location"), label, kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Icon: "map-pin"}).Clicked() {
+		if kit.Button(c.Key("location"), label, kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Icon: "map-pin"}).HasPopup(ui.PopupDialog).Clicked() {
 			s.where.Show()
 		}
 	})
@@ -379,13 +380,15 @@ func (s *concerts) nothing(c *ui.Context, city string, filtered bool) {
 }
 
 // agenda is the shows by month, then by the venue's day: a date column and
-// that day's rows. The whole list is one Tab stop (roving.go).
-func (s *concerts) agenda(c *ui.Context, shows []services.Concert) {
+// that day's rows. The whole list is one Tab stop (roving.go). loading is
+// whether the shows are the last filters' while the next ones load: the list
+// is Busy.
+func (s *concerts) agenda(c *ui.Context, shows []services.Concert, loading bool) {
 	groups := groupShows(shows)
 	rov := &s.page.rov
 	rov.begin()
 	var menus []menuShow
-	list := ui.Column(c.Key("agenda")).FocusGroup(ui.Horizontal | ui.Vertical)
+	list := ui.Column(c.Key("agenda")).FocusGroup(ui.Horizontal | ui.Vertical).Busy(loading)
 	list.Children(func() {
 		for i, m := range groups {
 			sec := ui.Column(c.Key(m.key)).Role(ui.RoleGroup).Label(m.title)

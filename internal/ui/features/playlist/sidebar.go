@@ -316,7 +316,7 @@ func (p *playlists) pinRow(c *ui.Context, pin services.Pin, upAfter string, canU
 		row.Grow(1).MinWidth(0).Padding(0, 32, 0, 10)
 		fg := rowFace(row, hot, active, over)
 		if active {
-			row.Description(i18n.T("Current page"))
+			row.Current(ui.CurrentPage)
 		}
 		switch {
 		case !row.Clicked():
@@ -387,7 +387,7 @@ func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth
 			Padding(0, 32, 0, 10+float32(depth)*folderIndent)
 		fg := rowFace(row, hot, active, over)
 		if active {
-			row.Description(i18n.T("Current page"))
+			row.Current(ui.CurrentPage)
 		}
 		if row.Clicked() {
 			p.env.Nav.Push(path)
@@ -416,8 +416,9 @@ func (p *playlists) readOnlySection(c *ui.Context, id, title string, items []ser
 		// reads a heading as one piece, so a button inside it would be out
 		// of reach of a screen reader. The title is drawn over the button
 		// (the pointer goes through it) and is the section's heading.
+		var fold ui.Element
 		ui.Row(c.Key("head")).FillWidth().Height(20).Margin(24, 0, 6, 0).Children(func() {
-			fold := ui.ButtonBase(c.Key("fold")).Role(ui.RoleDisclosure).Label(title).Expanded(!folded).FillWidth().Height(20).
+			fold = ui.ButtonBase(c.Key("fold")).Role(ui.RoleDisclosure).Label(title).Expanded(!folded).FillWidth().Height(20).
 				Padding(0, 10).AlignItems(ui.Center).Radius(theme.Current().Radius["md"]).Cursor(ui.CursorPointer)
 			fg := theme.C("ink-faint")
 			if fold.Hovered() {
@@ -442,11 +443,13 @@ func (p *playlists) readOnlySection(c *ui.Context, id, title string, items []ser
 		if folded {
 			return
 		}
-		ui.Column(c.Key("list")).FillWidth().Gap(2).Role(ui.RoleList).Label(title).Children(func() {
+		list := ui.Column(c.Key("list")).FillWidth().Gap(2).Role(ui.RoleList).Label(title)
+		list.Children(func() {
 			for _, it := range items {
 				p.playlistRow(c, it, 0)
 			}
 		})
+		fold.Controls(list)
 	})
 }
 

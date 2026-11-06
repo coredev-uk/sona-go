@@ -158,17 +158,11 @@ func (s *settings) sectionList(c *ui.Context, section string, narrow bool) {
 			} else {
 				b.FillWidth()
 			}
-			desc := sum
 			if on {
-				// aria-current="page": MyGo has no such state, so the page
-				// says it in the description, ahead of the summary.
-				desc = i18n.T("Current page")
-				if sum != "" {
-					desc += ". " + sum
-				}
+				b.Current(ui.CurrentPage)
 			}
-			if desc != "" {
-				b.Description(desc)
+			if sum != "" {
+				b.Description(sum)
 			}
 			fg := theme.C("ink-muted")
 			switch {

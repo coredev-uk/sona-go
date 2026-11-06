@@ -522,13 +522,7 @@ func (v *video) pictureSize() (w, h int) {
 // Music as the way to watch.
 func (v *video) problemBox(c *ui.Context, cur *services.QueueItem, pr *problem) {
 	e := ui.Row(c.Key("problem")).MaxWidth(520).Gap(12).AlignItems(ui.Start).Padding(16, 20).
-		Radius(theme.Current().Radius["lg"]).Border(1, theme.C("control-line")).BorderStyle(ui.BorderDashed).
-		Role(ui.RoleStatus).Label(pr.title)
-	announced := ui.Local(e, "announced", func() string { return "" })
-	if *announced != pr.title+pr.detail {
-		*announced = pr.title + pr.detail
-		c.Announce(pr.title + " " + pr.detail)
-	}
+		Radius(theme.Current().Radius["lg"]).Border(1, theme.C("control-line")).BorderStyle(ui.BorderDashed)
 	id := cur.CatalogID
 	if id == "" {
 		id = cur.ID
@@ -536,9 +530,13 @@ func (v *video) problemBox(c *ui.Context, cur *services.QueueItem, pr *problem) 
 	e.Children(func() {
 		ui.Icon(c, theme.Icon("circle-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-			t := theme.Current().Type["label"]
-			ui.Text(c, pr.title).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).TextColor(theme.C("ink"))
-			ui.Text(c, pr.detail).TextColor(theme.C("ink-muted")).FontSize(theme.Current().Type["sub"].Size).Margin(2, 0, 0, 0)
+			// The message is the alert, read as it appears; the ways out
+			// under it are not.
+			ui.Column(c.Key("alert")).Role(ui.RoleAlert).Label(pr.title).Children(func() {
+				t := theme.Current().Type["label"]
+				ui.Text(c, pr.title).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).TextColor(theme.C("ink"))
+				ui.Text(c, pr.detail).TextColor(theme.C("ink-muted")).FontSize(theme.Current().Type["sub"].Size).Margin(2, 0, 0, 0)
+			})
 			ui.Row(c).Margin(12, 0, 0, 0).Wrap().Gap(8).AlignItems(ui.Center).Children(func() {
 				v.watchInAppleMusic(c, id)
 				if pr.retry {

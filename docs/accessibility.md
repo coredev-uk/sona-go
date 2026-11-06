@@ -57,7 +57,7 @@ shapes the rules below.
 - Inline links are underlined, never marked by colour alone.
 - A `kit.Select`'s list is a list box (MyGo's `SelectBase`) of options,
   each `Checked` while chosen (aria-selected); its trigger is a combo box.
-- A choice made among pictures (the playlist cover picker) is a `radio group` of `radio` tiles, each named by the label drawn under it (2.5.3), described in a line of its own ("No picture"), `Checked` while chosen, with arrow keys over the grid (`kit.GridNav`). The chosen tile says so with a ring, a check mark and a heavier name, never by colour alone. A choice that applies at once announces its result ("Cover: Bars"), and a failure stays beside the control as a status, with the limits it broke in view.
+- A choice made among pictures (the playlist cover picker) is a `radio group` of `radio` tiles, each named by the label drawn under it (2.5.3), described in a line of its own ("No picture"), `Checked` while chosen, with arrow keys over the grid (`kit.GridNav`). The chosen tile says so with a ring, a check mark and a heavier name, never by colour alone. A choice that applies at once announces its result ("Cover: Bars"), and a failure stays beside the control as an alert, with the limits it broke in view.
 - A text with links in it is not itself on the tree (`kit.ArtistLinks` is a
   `RoleNone` rich text, so its links sit beside its separators): Orca reads
   the enclosing text before a focused link, so a link inside an artist's
@@ -75,21 +75,22 @@ shapes the rules below.
 | ARIA | In the native app |
 | --- | --- |
 | `aria-checked`, `aria-pressed` | `Checked` on a switch, check box, toggle button, tab or menu item (`kit.ButtonOpts.Pressed`) |
-| `aria-expanded`, `aria-haspopup` | `Expanded` on the opener, with `RoleMenuButton` or `RolePopUpButton` for the popup |
+| `aria-expanded`, `aria-haspopup` | `Expanded` on the opener, with `RoleMenuButton` or `RolePopUpButton` for a menu or a list; `HasPopup(ui.PopupDialog)` on a button that opens a dialog (Set location, a playlist's Name and description and Cover, the collaborators byline) |
 | `aria-invalid` and its message | `kit.InputOpts.Error` / `kit.SelectOpts.Error`: the invalid state, the message read with the value |
 | `aria-valuetext` | the slider's description (`kit.SliderOpts.ValueText`), only where it says more than the value and the percentage a screen reader reads anyway: Seek's "0:42 of 3:00", not Volume's "80%" (Orca read "80, 80 percent, 80%") |
-| `aria-disabled` (a control that keeps focus and says why) | `kit.ButtonOpts.Reason`: enabled, drawn at half strength, the press ignored by the caller, the reason as its description and the tooltip's second line |
+| `aria-disabled` (a control that keeps focus and says why) | `kit.ButtonOpts.Reason`: `AccessDisabled(true)`, so it is read as unavailable and keeps the focus; drawn at half strength and the press ignored by the caller (`AccessDisabled` only tells assistive technology), the reason as its description and the tooltip's second line. A track list's withheld (explicit) row is the same, described by "Explicit content is restricted on this account" |
 | `disabled` (really unavailable) | `Disabled`: no focus, no press |
-| `aria-current` (current page, step or item) | no state; the control's description is "Current page" (navigation), "Current step" (the setup strip) or "Current" (a chosen city, the lead of a Discover list) |
-| `aria-busy`, `role="status"` loading | a `RoleStatus` named "Loading" (skeletons), and `c.Announce` for the result |
-| `role="alert"` | a `RoleStatus` carrying the text, and `c.Announce` as it appears |
+| `aria-current` (current page, step or item) | `Current`: `CurrentPage` on the sidebar link of the open page (the playlist sidebar's links and Settings' section links too), `CurrentStep` on the setup strip's current step, `CurrentItem` on a chosen city, the lead of a Discover list, the playing queue row and the sung lyric line. A description that held more keeps it (Settings' section summary) |
+| `aria-busy`, `role="status"` loading | `Busy(true)` on the region whose content is loading or changing (the concerts agenda while the next filters load, the sign-in form while a step runs), and a `RoleStatus` named "Loading" for a placeholder standing in for the content (skeletons; the setup and account placeholders are both). A busy sign-in step is still announced once as it starts: `Busy` only tells a screen reader to wait, and the button's new label is held back with the rest of the form |
+| `role="alert"` | `RoleAlert` on the message: an `ErrorBlock`'s title and reason, a sign-in or token error, a refused scrobbler token, the warning that scrobbler sign-ins are stored unencrypted, a cover that could not be set, a video's problem. MyGo reads it out when it appears and when it changes, so there is no `c.Announce` beside it, and the buttons beside the message are not inside the alert. A wait (Last.fm's authorisation) or a problem the account section finds on arrival (the keyring notice) is a `RoleStatus`, announced once where it is news |
 | `aria-live` | `c.Announce(text)` (read once, politely), and toasts, which announce their title and description |
-| `aria-controls` | none |
+| `aria-controls` | `Controls(target)` on a disclosure that shows or hides a region it owns: `kit.Notes`' "Read more", a read-only sidebar section's fold, a Home index line |
 
-MyGo v0.8.1 has these states (`Current`, `AccessDisabled`, `Busy`,
-`RoleAlert` and `RoleLog`, `Controls`); the features still use the stand-ins
-in the table until each moves to them. Each stand-in is marked in the code by
-the state it replaces.
+These are MyGo v0.8.1's `Current`, `AccessDisabled`, `Busy`, `RoleAlert`,
+`Controls` and `HasPopup`. A disclosure whose region another component
+builds sets no `Controls` (a shelf's "Show all", the player bar's Queue toggle
+and the panel the shell builds beside the page): MyGo's vet refuses an element
+kept past its build pass, and a handle cannot stand in for it.
 
 ### Contrast
 
@@ -128,8 +129,8 @@ the state it replaces.
   Keys: Space or K play and pause, ← and → seek 5 s, F toggles full
   screen, M mutes, Escape leaves full screen and then closes, V closes. Its
   controls never fade while one has keyboard focus. Loading and buffering are
-  announced; a failure is a status with "Watch in Apple Music" and, where it
-  can help, "Try again".
+  announced; a failure is an alert with "Watch in Apple Music" and, where it
+  can help, "Try again" beside it.
 - The Now Playing view's panes are tabs (Lyrics, Up next): one Tab stop,
   ←/→ and Home/End move and show.
 - Escape on a control whose tooltip shows (Now Playing's Close, reached by
@@ -160,10 +161,11 @@ live region on Windows) and every toast.
   again while it shows, so a key held longer is read again about every 4 s.
 - Errors, warnings, update and diagnostics verdicts, the scrobbler account
   line, busy steps of sign-in and setup, and filter results with no match are
-  announced as they appear or change; what is on screen when a page opens is
-  read with the page, not announced again.
+  announced as they appear or change (errors as alerts, the rest through
+  `c.Announce`); what is on screen when a page opens is read with the page, not
+  announced again.
 - Lyrics are not a live region. Each synced line is one button named by
-  its text; nothing marks the sung line to assistive technology.
+  its text; the sung line is the current item.
 
 ### Keyboard alternatives for drag and drop
 
@@ -232,7 +234,7 @@ What it heard, with Orca 50.2:
 
 | Surface | Orca said |
 | --- | --- |
-| Sidebar, first Tab | "Main", "For you", "link."; then one link per Tab, the open page "Albums, link. Current page.", "New playlist or folder, push button menu. opens popup", "Playlists, List with 3 items", the pins as links |
+| Sidebar, first Tab | "Main", "For you", "link."; then one link per Tab, the open page "Albums, link." and its current-page attribute (Orca's words for it unverified), "New playlist or folder, push button menu. opens popup", "Playlists, List with 3 items", the pins as links |
 | Account button | "Account, button. Not signed in." (the name once); Enter: "Account, menu, Sign in."; Escape: the button again |
 | Account dialog | "Account, dialog, Apple Account, entry. The email address or phone number you use with Apple.", "Password, password text.", the browser and token buttons, "Close, button."; Escape returns to "Account, button." |
 | Albums page | "Albums, panel, Album type, panel, All, toggle button pressed.", "Sort, combo box.", a tile "Fieldnotes, link. Kofi Bellamy."; the arrows move between tiles; Shift+F10 "More for …, menu, Create station."; Escape returns to the tile |
@@ -286,10 +288,13 @@ session with audio:
 - Leaving the Seek slider says its time once ("0:30 of 3:00"), as the held
   value catches up. The player bar's group is read with the text beside the
   song ("Player · Paper Moons, panel") on entering it.
-- The features do not use MyGo v0.8.1's current-page, disabled-but-focusable,
-  busy and alert states yet; the stand-ins above read well but are not those
-  states. The setup strip's one Tab stop is the segment last focused, not the
-  current step, because MyGo's focus group enters on a checked element only.
+- Nobody has heard Orca, VoiceOver or Narrator speak MyGo v0.8.1's
+  current-page, disabled-but-focusable, busy, alert, controls and popup
+  states in Sona yet: the table above says what the tree holds, and Orca's
+  wording for them (it read "Current page" from the description before) is
+  unverified. The setup strip's one Tab stop is the segment last focused,
+  not the current step, because MyGo's focus group enters on a checked
+  element only.
 - The video title is not a heading: it holds a link, which a heading could
   not before MyGo v0.8.1.
 - The hidden buttons of a row cannot be pressed by a test the way a screen

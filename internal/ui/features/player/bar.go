@@ -280,10 +280,10 @@ var barShortcuts = map[string]string{
 
 // iconButton is a quiet icon button of the bar. disabled is for what can't
 // be pressed now (nothing playing, the end of the queue); reason is for a
-// control that doesn't apply to what plays (a live station): as v0.2.0's
-// aria-disabled button it stays enabled (focus reaches it, and the tooltip
-// and the description say why) while a press does nothing. It reports a
-// click.
+// control that doesn't apply to what plays (a live station): it is
+// unavailable to assistive technology but stays enabled (focus reaches it,
+// and the tooltip and the description say why) while a press does nothing.
+// It reports a click.
 func (p *player) iconButton(c *ui.Context, key, icon, name string, disabled bool, reason string, pressed *bool) bool {
 	if disabled {
 		reason = ""

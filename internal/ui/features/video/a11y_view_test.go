@@ -2,7 +2,6 @@ package video
 
 import (
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -140,16 +139,15 @@ func TestViewTellsScreenReadersLoadingBufferingAndFailureOnce(t *testing.T) {
 	if got := r.tt.Announcements(); !slices.Equal(got, []string{"Buffering…"}) {
 		t.Errorf("a stalled video announced %q", got)
 	}
-	// Failing is announced once, with its why.
+	// Failing is an alert, with its why: MyGo reads it, so it is not announced as well.
 	r.play(store.StateError, func(s *services.PlaybackState) { s.Error = services.CodeNetwork })
-	got := r.tt.Announcements()
-	if len(got) != 1 || !strings.HasPrefix(got[0], "Couldn't play this video ") {
-		t.Fatalf("a failure announced %q, want its title then its why", got)
+	r.tt.Frame()
+	if got := r.tt.Announcements(); len(got) != 0 {
+		t.Fatalf("a failure announced %q besides being an alert", got)
 	}
-	r.tt.Frame()
-	r.tt.Frame()
-	if again := r.tt.Announcements(); len(again) != 0 {
-		t.Errorf("the failure was announced again: %q", again)
+	tr = access.Read(t, r.tt.Tester)
+	if alert := mustFind(t, tr, ui.RoleAlert, "Couldn't play this video"); len(tr.Children(alert)) != 2 {
+		t.Errorf("the alert holds %v, want its title and its why", tr.Children(alert))
 	}
 }
 
@@ -162,11 +160,11 @@ func TestViewProblemOffersItsWaysOutToKeyboardAndScreenReader(t *testing.T) {
 	r.tt.Until("the problem", r.tt.Shows("Couldn't play this video", "Try again", "Watch in Apple Music"))
 	tr, stops := audit(t, r.tt.Tester)
 	inOrder(t, stops, "Close video", "Watch in Apple Music", "Try again", "Seek", "Play")
-	status := mustFind(t, tr, ui.RoleStatus, "Couldn't play this video")
+	mustFind(t, tr, ui.RoleAlert, "Couldn't play this video")
+	// The ways out are beside the message, not in it: an alert reads its content out.
 	for _, l := range []string{"Watch in Apple Music", "Try again"} {
-		n := mustFind(t, tr, ui.RoleButton, l)
-		if !tr.Within(n, ui.RoleStatus) || !slices.ContainsFunc(tr.Ancestors(n), func(a access.Node) bool { return a.Index == status.Index }) {
-			t.Errorf("%q is not in the problem's status:\n%s", l, tr.Dump())
+		if n := mustFind(t, tr, ui.RoleButton, l); tr.Within(n, ui.RoleAlert) {
+			t.Errorf("%q is inside the alert:\n%s", l, tr.Dump())
 		}
 	}
 	if _, ok := tr.Find(ui.RoleText, "SD"); ok {

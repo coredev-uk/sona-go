@@ -10,8 +10,8 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
-// The sung line is the row's description "Current" (MyGo has no aria-current).
-func TestTheSungLyricLineIsDescribedAsCurrent(t *testing.T) {
+// The sung line is the current item of the lines.
+func TestTheSungLyricLineIsTheCurrentItem(t *testing.T) {
 	r := newNPRig(t)
 	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(6, false)}, nil)
 	r.play(5000) // inside the second line
@@ -24,12 +24,12 @@ func TestTheSungLyricLineIsDescribedAsCurrent(t *testing.T) {
 		if !ok {
 			t.Fatalf("no button %q", label)
 		}
-		want := ""
+		want := ui.CurrentNone
 		if i == 1 {
-			want = "Current"
+			want = ui.CurrentItem
 		}
-		if n.Description != want {
-			t.Errorf("%q is described %q, want %q", label, n.Description, want)
+		if n.Current != want || n.Description != "" {
+			t.Errorf("%q is current %v and described %q, want current %v and no description", label, n.Current, n.Description, want)
 		}
 	}
 }

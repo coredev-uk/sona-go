@@ -33,9 +33,8 @@ func (r *KeyringRetry) Build(c *ui.Context, status services.AuthStatus) {
 	}
 	opts := kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}
 	if trying {
-		// aria-disabled: MyGo has no focusable-but-disabled state, so the
-		// button stays enabled (the focus stays on it), ignores the press and
-		// says why.
+		// The button is unavailable but keeps the focus, ignores the press
+		// and says why (a Reason).
 		opts.Reason = kit.KeyringWords(r.d.OS).Waiting
 	}
 	if kit.Button(c.Key("keyring-retry"), label, opts).Clicked() && !trying {
