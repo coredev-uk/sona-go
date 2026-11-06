@@ -270,6 +270,10 @@ func newApp(opts Options, factories []module.Factory) *App {
 	}
 	a.lastRoute = initial
 	a.router = ui.NewRouter(initial)
+	// Every page change fades. MyGo's default slides a page that is nested in
+	// the one before (by path), and For you is "/", which every path nests in:
+	// every change from or to For you slid, while most others faded.
+	a.router.Transition = ui.TransitionFade
 	a.swipe = kit.NewSwipe(a.router.Back, a.router.Forward)
 	a.env.Nav = a.router
 	a.env.Actions.SetNavigator(a.router.Push)
