@@ -171,7 +171,22 @@ and Windows development builds in ci.yml never hold a release up), then the
   `release` environment, signs the manifests and publishes a GitHub
   prerelease, which updates only builds with Settings → Updates → Test
   versions on. The environment's deployment branch rules must allow the
-  branch.
+  branch. A hand-made rc takes a free number: nightlies use the same `rc.N`
+  sequence (below).
+- **Nightly rc:** every night at 03:17 UTC `release.yml` builds main as
+  `v<next>-rc.<n>` and publishes it as a prerelease, as a dispatched one. `<next>`
+  is the open release PR's version (`VERSION` on
+  `release-please--branches--main`), else the patch after `VERSION`; `<n>`
+  is one past the highest `v<next>-rc.*` tag, so every nightly is newer than
+  the last rc for the updater and older than the release it leads to. It
+  waits for CI on main's head like a release (the `checks` job runs when no
+  passed CI run is found). It runs only when something landed on main since
+  the last nightly or release: each nightly tags the head it built, and a
+  night whose head already has a `v*` tag builds nothing (a failed night is
+  retried the next). To get one now: `gh workflow run release.yml --ref main -f
+  nightly=true` (main only). Test it with Settings → Updates → Test versions
+  on (macOS and Windows update to it); Linux takes the files from the
+  prerelease's page.
 
 ### Platform checks on real machines
 
@@ -222,9 +237,10 @@ title" (title `PR_TITLE`, body blank), since the default "commit or PR
 title" takes a lone commit's subject instead of the checked PR title.
 "Allow GitHub Actions to create and approve pull requests" is not needed:
 the App opens the PR. The `release` environment allows branch `main`, the
-ref of the release-please run that calls `release.yml`. `release.yml` is
-called only by `release-please.yml` (no `push: tags` trigger), so pushing a
-tag builds nothing; the `release tags` ruleset keeps `v*` tags immutable.
+ref of the release-please run that calls `release.yml` and of the nightly.
+`release.yml` runs when `release-please.yml` calls it, on its nightly
+schedule and on dispatch (no `push: tags` trigger), so pushing a tag builds
+nothing; the `release tags` ruleset keeps `v*` tags immutable.
 
 ## 1. Automated gates
 
