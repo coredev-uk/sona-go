@@ -671,18 +671,54 @@ func TestViewReleaseOpensThePageAndAFailureToasts(t *testing.T) {
 	g.until("toast", g.tt.Shows("Couldn't open the release"))
 }
 
-// MyGo has no label-for: a click on a row's title takes the focus to its control.
-func TestClickingARowsTitleFocusesItsControl(t *testing.T) {
+// A row's title is its control's label, as HTML's <label for>: it names the
+// control, and a click on it takes the focus to the control and, for a
+// switch, flips it.
+func TestClickingARowsTitleGoesToItsControl(t *testing.T) {
 	g := newGeneralRig(t, linuxCaps(), nil)
-	g.tt.Until("rows", g.tt.Shows("Start Sona when you log in", "Open on"))
-	for _, title := range []string{"Start Sona when you log in", "Open on"} {
-		if err := g.tt.Click(title); err != nil {
-			t.Fatal(err)
-		}
-		g.tt.Drain()
-		f := access.Read(t, g.tt.Tester).Focus
-		if f == nil || f.Label != title {
-			t.Errorf("after clicking %q the focus is %v, want its control", title, f)
-		}
+	g.tt.Until("rows", g.tt.Shows("Track notifications", "Open on"))
+
+	// "Open on" is a select: the click focuses it.
+	if err := g.tt.Click("Open on"); err != nil {
+		t.Fatal(err)
+	}
+	g.tt.Drain()
+	if f := access.Read(t, g.tt.Tester).Focus; f == nil || f.Label != "Open on" {
+		t.Errorf("after clicking the title of Open on the focus is %v, want its control", f)
+	}
+
+	// "Track notifications" is a switch, on in the defaults: the click
+	// focuses it and turns it off.
+	g.toEnd()
+	if err := g.tt.Click("Track notifications"); err != nil {
+		t.Fatal(err)
+	}
+	g.tt.Drain()
+	if f := access.Read(t, g.tt.Tester).Focus; f == nil || f.Label != "Track notifications" {
+		t.Errorf("after clicking the title of Track notifications the focus is %v, want its switch", f)
+	}
+	g.until("notifications off", func() bool { return !g.saved().Integrations.Notifications })
+}
+
+// A button shows its own words, which stay its name (2.5.3 Label in Name):
+// the row's title does not rename it, and a click on the title only focuses
+// it.
+func TestARowsButtonKeepsItsOwnName(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), nil)
+	g.toEnd()
+	g.tt.Until("the row", g.tt.Shows("Window size", "Reset size"))
+	tr := access.Read(t, g.tt.Tester)
+	if _, ok := tr.Find(ui.RoleButton, "Reset size"); !ok {
+		t.Fatalf("no button named Reset size:\n%s", tr.Dump())
+	}
+	if _, ok := tr.Find(ui.RoleButton, "Window size"); ok {
+		t.Error("the row's title renamed its button")
+	}
+	if err := g.tt.Click("Window size"); err != nil {
+		t.Fatal(err)
+	}
+	g.tt.Drain()
+	if f := access.Read(t, g.tt.Tester).Focus; f == nil || f.Label != "Reset size" {
+		t.Errorf("after clicking the title of Window size the focus is %v, want its button", f)
 	}
 }

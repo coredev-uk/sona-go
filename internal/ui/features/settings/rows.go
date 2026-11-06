@@ -47,6 +47,12 @@ type rowOpts struct {
 	Notes func()
 	// Stacked puts the control under the text, full width (wide inputs).
 	Stacked bool
+	// Labels makes Title the label of a control that shows no name of its
+	// own (a switch, a select): it names the control and a click on it goes
+	// to the control, as HTML's <label for> does. A control that shows its
+	// own words (a button, "Connect Last.fm") keeps that name (2.5.3), and a
+	// click on the title only focuses it.
+	Labels bool
 }
 
 // row is a SettingRow: control builds the control (inside the row) and
@@ -87,10 +93,12 @@ func (s *settings) row(c *ui.Context, o rowOpts, control func() ui.Element) {
 			if !isNone(first) && o.Desc != "" {
 				first.Description(o.Desc)
 			}
-			// A click on the title goes to the control, as a label's does
-			// (MyGo has no label-for): the control takes the focus.
-			if !isNone(first) && title.Clicked() {
-				first.Focus()
+			if !isNone(first) {
+				if o.Labels {
+					first.LabelledBy(title)
+				} else if title.Clicked() {
+					first.Focus()
+				}
 			}
 			s.land(c, o.ID, in, first)
 		})
@@ -260,6 +268,7 @@ func isNone(e ui.Element) bool { return e == (ui.Element{}) }
 // switchRow is a row with a switch: the control most settings are. The
 // switch is named by the title; set gets the new value on a click.
 func (s *settings) switchRow(c *ui.Context, o rowOpts, on, disabled bool, set func(bool)) {
+	o.Labels = true
 	s.row(c, o, func() ui.Element {
 		v := on
 		sw := kit.Switch(c, &v, kit.SwitchOpts{A11yLabel: o.Title, Disabled: disabled})
@@ -274,6 +283,7 @@ func (s *settings) switchRow(c *ui.Context, o rowOpts, on, disabled bool, set fu
 // most, growing with a long value instead of cutting it). set gets the
 // chosen value.
 func (s *settings) selectRow(c *ui.Context, o rowOpts, value string, items []kit.SelectItem, disabled bool, set func(string)) {
+	o.Labels = true
 	s.row(c, o, func() ui.Element {
 		v := value
 		sel := kit.Select(c, &v, items, kit.SelectOpts{Small: true, A11yLabel: o.Title, Disabled: disabled, Width: selectWidthFor(items, value)})

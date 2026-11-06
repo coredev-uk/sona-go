@@ -90,7 +90,7 @@ func (s *settings) outputRow(c *ui.Context, st config.Settings) {
 			s.env.Queries.Invalidate(keyOutputs)
 		}
 	}
-	s.row(c, rowOpts{ID: "output", Title: title, Desc: desc}, func() ui.Element {
+	s.row(c, rowOpts{ID: "output", Title: title, Desc: desc, Labels: true}, func() ui.Element {
 		v := value
 		sel := kit.Select(c, &v, items, kit.SelectOpts{Small: true, A11yLabel: title, Width: selectWidthFor(items, value)})
 		if f := sel.Focused(); f != os.focused || sel.Clicked() {
