@@ -394,7 +394,8 @@ each kind and deletes the rest, so the 10 GB cap never evicts what matters; a
 `live.yml` (weekly Apple Music contract tests, private mode),
 `release-please.yml` (the release PR and tag, as bot-cecil), `release.yml`
 (builds, smoke-tests, attests and publishes the Linux, macOS and Windows
-releases; dispatch = dry run, or a prerelease with `-f prerelease=rc.1`),
+releases; nightly, the rc of main as a prerelease; dispatch = dry run, a
+prerelease with `-f prerelease=rc.1`, or the nightly now with `-f nightly=true`),
 `release-secrets.yml` (dispatch: checks the `release`
 environment's secrets are set, publishes nothing), `renovate.yaml`
 (dependency updates; maintained with Renovate).

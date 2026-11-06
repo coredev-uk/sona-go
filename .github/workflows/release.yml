@@ -1,9 +1,11 @@
 # Sona's release, all platforms. Called by release-please.yml when merging a
-# release PR has tagged v<VERSION> and created its draft GitHub release, and
-# dispatched by hand for test builds:
+# release PR has tagged v<VERSION> and created its draft GitHub release, run
+# every night for the nightly rc of main, and dispatched by hand for test
+# builds:
 #
-#   plan      what this run is: a release of the tag, a prerelease build, or a
-#             dry run, and the version in the binaries and file names
+#   plan      what this run is: a release of the tag, a nightly rc, a
+#             prerelease build, or a dry run, and the version in the binaries
+#             and file names
 #   checks    the Linux CI jobs (ci.yml, linux-only: macOS and Windows build below)
 #   linux     the .deb/.rpm/Arch/AppImage packages on the Ubuntu 24.04 baseline
 #             with build/linux/release/release.sh (SHA256SUMS, smoke tests on
@@ -30,6 +32,16 @@
 #     the branch, signs the manifests and publishes a GitHub prerelease, which
 #     only installs with Settings → Updates → Test versions on. It runs in the
 #     `release` environment, whose branch rules decide where it may run.
+#   - with `nightly` on (main only) is the nightly rc, at once.
+# The nightly rc (the schedule, 03:17 UTC) builds main as
+# v<next>-rc.<n>: <next> is the open release PR's version (VERSION on
+# release-please--branches--main), else the patch after VERSION, and <n> is
+# one past the highest rc tag of <next>, so nightlies and hand-made rcs are
+# one sequence and each is newer than the last for the updater. It publishes
+# a prerelease like a dispatched one, after the same CI gate as a release. It
+# runs only when something landed on main since the last nightly or release:
+# a night whose head already has a v* tag (each nightly tags the head it
+# built) builds nothing, and a failed night is retried the next.
 # Without the SONA_UPDATE_KEY secret (forks, a run outside the environment)
 # the signing step is skipped, says so in the run summary, and the release has
 # no update-<target>.json: those installs do not self-update.
@@ -59,6 +71,12 @@ on:
         description: "Publish a prerelease v<VERSION>-<this> (rc.1, rc.2, …); empty is a dry run that publishes nothing"
         type: string
         default: ""
+      nightly:
+        description: Publish the nightly rc of main now (prerelease is then ignored)
+        type: boolean
+        default: false
+  schedule:
+    - cron: "17 3 * * *"
 
 permissions:
   contents: read
@@ -78,34 +96,63 @@ jobs:
       contents: read
       actions: read # find the CI run of the tagged commit
     outputs:
-      ci-passed: ${{ steps.ci.outputs.passed }}
+      checks: ${{ steps.ci.outputs.checks }}
       version: ${{ steps.plan.outputs.version }}
       tag: ${{ steps.plan.outputs.tag }}
       publish: ${{ steps.plan.outputs.publish }}
       prerelease: ${{ steps.plan.outputs.prerelease }}
+      nightly: ${{ steps.plan.outputs.nightly }}
+      skip: ${{ steps.plan.outputs.skip }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
 
-      # A release is VERSION at its tag, which must equal the tag. A
-      # prerelease is VERSION-<input> from the dispatched ref (the release PR's
-      # branch while testing the next version). A dry run is VERSION.
+      # A release is VERSION at its tag, which must equal the tag. A nightly
+      # is the next version's next rc, from main (the header says how). A
+      # prerelease is VERSION-<input> from the dispatched ref (the release
+      # PR's branch while testing the next version). A dry run is VERSION.
       - name: Work out the version and what to publish
         id: plan
         env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
           EVENT: ${{ github.event_name }}
           TAG: ${{ inputs.tag }}
           PRERELEASE: ${{ inputs.prerelease }}
+          NIGHTLY: ${{ inputs.nightly }}
         run: |
           base=$(cat VERSION)
-          if [ "$EVENT" != workflow_dispatch ]; then
+          nightly=false skip=false
+          if [ -n "$TAG" ]; then
             if [ "$TAG" != "v$base" ]; then
               echo "::error::tag $TAG does not match VERSION (v$base)"
               exit 1
             fi
             version=$base tag=$TAG publish=true prerelease=false
+          elif [ "$EVENT" = schedule ] || [ "$NIGHTLY" = true ]; then
+            if [ "$GITHUB_REF" != refs/heads/main ]; then
+              echo "::error::the nightly rc builds main, not $GITHUB_REF"
+              exit 1
+            fi
+            nightly=true
+            next=$(gh api "repos/$REPO/contents/VERSION?ref=release-please--branches--main" --jq .content 2>/dev/null | base64 -d | tr -d '[:space:]') || next=
+            # A release PR's branch left behind by a merge holds VERSION itself.
+            if [ -z "$next" ] || [ "$next" = "$base" ] || [ "$(printf '%s\n' "$base" "$next" | sort -V | tail -n 1)" != "$next" ]; then
+              IFS=. read -r major minor patch <<<"$base"
+              next=$major.$minor.$((patch + 1))
+            fi
+            n=$(gh api --paginate "repos/$REPO/git/matching-refs/tags/v$next-rc." --jq '.[].ref' |
+              sed -nE "s|^refs/tags/v${next//./\\.}-rc\.([0-9]+)$|\1|p" | sort -n | tail -n 1)
+            version=$next-rc.$((${n:-0} + 1))
+            tag=v$version publish=true prerelease=true
+            head=$(git rev-parse HEAD)
+            if [ "$EVENT" = schedule ] &&
+              gh api --paginate "repos/$REPO/git/matching-refs/tags/v" --jq '.[] | select(.object.type == "commit") | .object.sha' | grep -qxF "$head"; then
+              skip=true publish=false
+              echo "::notice::main's head $head is already tagged: nothing new since the last nightly or release"
+            fi
           elif [ -n "$PRERELEASE" ]; then
             if ! printf '%s' "$PRERELEASE" | grep -Eq '^[a-z]+\.[0-9]+$'; then
               echo "::error::prerelease must look like rc.1, got '$PRERELEASE'"
@@ -120,34 +167,44 @@ jobs:
             echo "tag=$tag"
             echo "publish=$publish"
             echo "prerelease=$prerelease"
+            echo "nightly=$nightly"
+            echo "skip=$skip"
           } >>"$GITHUB_OUTPUT"
-          echo "### Release plan: $version (publish: $publish, prerelease: $prerelease)" >>"$GITHUB_STEP_SUMMARY"
+          echo "### Release plan: $version (publish: $publish, prerelease: $prerelease, nightly: $nightly, skip: $skip)" >>"$GITHUB_STEP_SUMMARY"
 
-      # A release is the commit of a merged release PR, which CI has run (or
-      # is running) on main: when a CI run of this commit has passed, the
-      # checks job below does not run it again.
-      - name: Has CI passed on this commit?
+      # A release is the commit of a merged release PR, and a nightly main's
+      # head, which CI has run (or is running) on main: when a CI run of this
+      # commit has passed, the checks job below does not run it again. A
+      # dispatched prerelease or dry run runs it only when asked.
+      - name: Do the checks need to run?
         id: ci
         env:
           GH_TOKEN: ${{ github.token }}
-          EVENT: ${{ github.event_name }}
           REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          CHECKS: ${{ inputs.checks }}
+          NIGHTLY: ${{ steps.plan.outputs.nightly }}
+          SKIP: ${{ steps.plan.outputs.skip }}
         run: |
-          passed=false
-          if [ "$EVENT" != workflow_dispatch ]; then
+          checks=false
+          if [ "$SKIP" = true ]; then
+            checks=false
+          elif [ -n "$TAG" ] || [ "$NIGHTLY" = true ]; then
             sha=$(git rev-parse HEAD)
             n=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$sha&event=push&status=success" --jq .total_count || echo 0)
-            if [ "${n:-0}" -gt 0 ]; then passed=true; fi
+            if [ "${n:-0}" -eq 0 ]; then checks=true; fi
+          elif [ "$CHECKS" = true ]; then
+            checks=true
           fi
-          echo "passed=$passed" >>"$GITHUB_OUTPUT"
-          echo "CI passed on this commit: $passed"
+          echo "checks=$checks" >>"$GITHUB_OUTPUT"
+          echo "Run the checks: $checks"
 
   # The Linux CI jobs, in parallel with the builds below; publish waits for
-  # them. A release whose commit already passed CI on main skips them; a dry
-  # run runs them only when asked.
+  # them. A release or nightly whose commit already passed CI on main skips
+  # them; a dry run runs them only when asked.
   checks:
     needs: plan
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.checks || github.event_name != 'workflow_dispatch' && needs.plan.outputs.ci-passed != 'true' }}
+    if: ${{ needs.plan.outputs.checks == 'true' }}
     uses: ./.github/workflows/ci.yml
     # A called workflow gets no more than its caller grants: ci.yml's jobs ask
     # for these, and without them every run of this workflow fails at start.
@@ -161,7 +218,7 @@ jobs:
   linux:
     name: Build and smoke-test Linux packages
     needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.skip != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 60
     # The Last.fm key and secret and the Discord application ID are secrets
@@ -252,7 +309,7 @@ jobs:
   macos:
     name: Build and smoke-test macOS
     needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.skip != 'true' }}
     runs-on: macos-26
     timeout-minutes: 60
     environment: ${{ needs.plan.outputs.publish == 'true' && 'release' || '' }}
@@ -343,7 +400,7 @@ jobs:
   windows:
     name: Build and smoke-test Windows
     needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.skip != 'true' }}
     runs-on: windows-2025
     timeout-minutes: 45
     environment: ${{ needs.plan.outputs.publish == 'true' && 'release' || '' }}
