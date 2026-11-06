@@ -734,12 +734,14 @@ func TestSpaceOnAFocusedButtonIsTheButtons(t *testing.T) {
 	r := viewRig(t)
 	r.open()
 	// Tab from the region to the first control, the title's link: Space is
-	// the link's, not the play and pause toggle.
+	// not the play and pause toggle there (a link takes Enter alone; Space
+	// scrolls, as on the web).
 	r.tt.Key(0, ui.KeyTab)
 	r.tt.Key(0, ui.KeySpace)
 	if got := r.svc.snapshot(); slices.Contains(got, "toggle") {
 		t.Errorf("Space on a focused link toggled playback: %v", got)
 	}
+	r = viewRig(t)
 	r.open()
 	// On a focused button Space is the button's: Full screen, here.
 	r.tt.Key(0, ui.KeyTab) // the title

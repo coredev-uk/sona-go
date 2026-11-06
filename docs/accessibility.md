@@ -25,9 +25,11 @@ shapes the rules below.
   tab, column header, text and every other widget role as one piece: the
   elements inside it are not on the tree, although the pointer and Tab still
   reach them, so a "more" button drawn inside a row that is a button is
-  invisible to a screen reader. Only group, list, scroll area, dialog, popup,
-  status, tab list, table, row, cell, tree, list item, toolbar, radio group, alert dialog, menu bar
-  and menu hold other elements. Every control is a sibling of the thing it
+  invisible to a screen reader. Only group, list, list box, option, scroll
+  area, dialog, popup, status, tab list, table, grid, row, cell, column and
+  row header, tree, list item, toolbar, radio group, alert dialog, menu bar,
+  menu, heading, navigation, region, search, article, log, timer and alert
+  hold other elements. Every control is a sibling of the thing it
   sits beside:
   - `kit.DragItem` builds the item's source (the opener) and its `After`
     controls as siblings in one wrapper (cover tiles, Home rows, artist
@@ -53,6 +55,8 @@ shapes the rules below.
   (`kit.Confirm`); what is behind a modal is not on the tree while it is
   open.
 - Inline links are underlined, never marked by colour alone.
+- A `kit.Select`'s list is a list box (MyGo's `SelectBase`) of options,
+  each `Checked` while chosen (aria-selected); its trigger is a combo box.
 - A choice made among pictures (the playlist cover picker) is a `radio group` of `radio` tiles, each named by the label drawn under it (2.5.3), described in a line of its own ("No picture"), `Checked` while chosen, with arrow keys over the grid (`kit.GridNav`). The chosen tile says so with a ring, a check mark and a heavier name, never by colour alone. A choice that applies at once announces its result ("Cover: Bars"), and a failure stays beside the control as a status, with the limits it broke in view.
 - A text with links in it is not itself on the tree (`kit.ArtistLinks` is a
   `RoleNone` rich text, so its links sit beside its separators): Orca reads
@@ -82,10 +86,10 @@ shapes the rules below.
 | `aria-live` | `c.Announce(text)` (read once, politely), and toasts, which announce their title and description |
 | `aria-controls` | none |
 
-MyGo has no aria-current, aria-disabled, aria-busy, alert, live-region or
-aria-controls equivalents; the table is what the features use meanwhile.
-Their gaps are tracked as upstream asks, and each stand-in is marked in the
-code by the state it replaces.
+MyGo v0.8.1 has these states (`Current`, `AccessDisabled`, `Busy`,
+`RoleAlert` and `RoleLog`, `Controls`); the features still use the stand-ins
+in the table until each moves to them. Each stand-in is marked in the code by
+the state it replaces.
 
 ### Contrast
 
@@ -282,14 +286,15 @@ session with audio:
 - Leaving the Seek slider says its time once ("0:30 of 3:00"), as the held
   value catches up. The player bar's group is read with the text beside the
   song ("Player · Paper Moons, panel") on entering it.
-- No current-page, disabled-but-focusable, busy or alert state exists in
-  MyGo; the stand-ins above read well but are not those states. The setup
-  strip's one Tab stop is the segment last focused, not the current step,
-  because MyGo's focus group enters on a checked element only.
+- The features do not use MyGo v0.8.1's current-page, disabled-but-focusable,
+  busy and alert states yet; the stand-ins above read well but are not those
+  states. The setup strip's one Tab stop is the segment last focused, not the
+  current step, because MyGo's focus group enters on a checked element only.
 - A control that takes the focus without being a Tab stop (the web
   `tabindex=-1` pattern: the video view, the setup step title) is also a Tab
-  stop.
-- A heading cannot hold a link (the video title is not a heading).
+  stop; MyGo v0.8.1 has `TabStop(false)` for it.
+- The video title is not a heading: it holds a link, which a heading could
+  not before MyGo v0.8.1.
 - The hidden buttons of a row cannot be pressed by a test the way a screen
   reader presses them: `access.Node.Can(access.Press)` is what the tests
   check.

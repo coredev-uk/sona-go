@@ -52,6 +52,9 @@ const (
 	SortDescending
 	Expandable
 	Vertical
+	Busy
+	SortOther
+	Horizontal
 )
 
 // Action is an action assistive technology can ask of a node.
@@ -135,17 +138,23 @@ func readTree(tt *ui.Tester) (Tree, error) {
 		return Tree{}, fmt.Errorf("no accessibility tree after a frame")
 	}
 	tree = tree.Elem()
+	given := givenRoles(rt)
 	var out Tree
 	nodes := tree.FieldByName("Nodes")
 	focus := tree.FieldByName("Focus").Uint()
 	out.FocusID = focus
 	for i := range nodes.Len() {
 		v := nodes.Index(i)
+		id := v.FieldByName("ID").Uint()
+		role, ok := given[id]
+		if !ok {
+			role = ui.Role(v.FieldByName("Role").Uint()) + ui.RoleGroup
+		}
 		n := Node{
 			Index:       i,
 			Parent:      int(v.FieldByName("Parent").Int()),
-			ID:          v.FieldByName("ID").Uint(),
-			Role:        ui.Role(v.FieldByName("Role").Uint()) + ui.RoleGroup,
+			ID:          id,
+			Role:        role,
 			Label:       v.FieldByName("Label").String(),
 			Value:       v.FieldByName("Value").String(),
 			Description: v.FieldByName("Description").String(),
@@ -172,6 +181,31 @@ func readTree(tt *ui.Tester) (Tree, error) {
 		out.Announcements = append(out.Announcements, anns.Index(i).String())
 	}
 	return out, nil
+}
+
+// givenRoles are the roles the elements of the last frame were given, by
+// their IDs, as MyGo's Tester.Access reads them (ui/tester_access.go): the
+// platform's roles follow ui's in order only up to RoleTreeGrid, a list box
+// is a list and an option a list item to the platform, and a List's rows
+// shown as a table are its rows. Elements of no role of their own (a text,
+// a button…) are read from the node's role.
+func givenRoles(rt reflect.Value) map[uint64]ui.Role {
+	given := map[uint64]ui.Role{}
+	root := rt.Elem().FieldByName("c").FieldByName("root")
+	if !root.IsValid() || root.IsNil() {
+		return given
+	}
+	var walk func(v reflect.Value)
+	walk = func(v reflect.Value) {
+		if r := ui.Role(v.FieldByName("role").Uint()); r > ui.RoleNone && r != ui.RoleListItem {
+			given[v.FieldByName("id").Uint()] = r
+		}
+		for _, ch := range children(v) {
+			walk(ch)
+		}
+	}
+	walk(root.Elem())
+	return given
 }
 
 // Find is the first node of role whose label is exactly label.
@@ -278,7 +312,7 @@ func (tr Tree) Dump() string {
 }
 
 func (s State) String() string {
-	names := []string{"focusable", "disabled", "checked", "mixed", "selected", "expanded", "multiline", "password", "readonly", "selectable", "offscreen", "multiselectable", "segment", "search", "invalid", "ascending", "descending", "expandable", "vertical"}
+	names := []string{"focusable", "disabled", "checked", "mixed", "selected", "expanded", "multiline", "password", "readonly", "selectable", "offscreen", "multiselectable", "segment", "search", "invalid", "ascending", "descending", "expandable", "vertical", "busy", "sorted", "horizontal"}
 	var on []string
 	for i, n := range names {
 		if s&(1<<i) != 0 {
@@ -302,6 +336,10 @@ func roleName(r ui.Role) string {
 		ui.RoleMeter: "meter", ui.RoleStepper: "stepper", ui.RoleColorWell: "colorwell", ui.RoleAlertDialog: "alertdialog",
 		ui.RoleMenu: "menu", ui.RoleMenuBar: "menubar", ui.RoleMenuItem: "menuitem",
 		ui.RoleMenuItemCheckBox: "menuitemcheckbox", ui.RoleMenuItemRadio: "menuitemradio", ui.RoleHeading: "heading",
+		ui.RoleRegion: "region", ui.RoleLog: "log", ui.RoleTimer: "timer", ui.RoleAlert: "alert",
+		ui.RoleSeparator: "separator", ui.RoleRowHeader: "rowheader", ui.RoleSearch: "search", ui.RoleArticle: "article",
+		ui.RoleNavigation: "navigation", ui.RoleGrid: "grid", ui.RoleTreeGrid: "treegrid", ui.RoleListBox: "listbox",
+		ui.RoleOption: "option", ui.RoleDeletion: "deletion", ui.RoleInsertion: "insertion",
 	}
 	if n, ok := names[r]; ok {
 		return n
@@ -431,7 +469,7 @@ func readElement(v reflect.Value) element {
 		kind:   uint8(v.FieldByName("kind").Uint()),
 		label:  v.FieldByName("label").String(),
 		text:   v.FieldByName("text").String(),
-		hidden: v.FieldByName("hidden").Bool(),
+		hidden: v.FieldByName("hidden").Bool() || v.FieldByName("accessHidden").Bool(),
 	}
 }
 
@@ -466,8 +504,10 @@ func (e element) leafOf() (ui.Role, bool) {
 	}
 	switch role {
 	case ui.RoleGroup, ui.RoleList, ui.RoleScroll, ui.RoleDialog, ui.RolePopup, ui.RoleStatus, ui.RoleTabList, ui.RoleTable,
-		ui.RoleRow, ui.RoleCell, ui.RoleTree, ui.RoleListItem, ui.RoleToolbar, ui.RoleRadioGroup, ui.RoleMenu, ui.RoleMenuBar,
-		ui.RoleAlertDialog:
+		ui.RoleRow, ui.RoleCell, ui.RoleColumnHeader, ui.RoleRowHeader, ui.RoleTree, ui.RoleListItem, ui.RoleToolbar,
+		ui.RoleRadioGroup, ui.RoleMenu, ui.RoleMenuBar, ui.RoleAlertDialog, ui.RoleHeading, ui.RoleNavigation,
+		ui.RoleRegion, ui.RoleLog, ui.RoleTimer, ui.RoleAlert, ui.RoleSearch, ui.RoleArticle, ui.RoleGrid,
+		ui.RoleTreeGrid, ui.RoleListBox, ui.RoleOption, ui.RoleDeletion, ui.RoleInsertion:
 		return role, false
 	}
 	return role, true
@@ -548,6 +588,37 @@ func NoNestedControls(t testing.TB, tt *ui.Tester) {
 	for _, n := range NestedControls(t, tt) {
 		t.Errorf("not on the accessibility tree: %s", n)
 	}
+}
+
+// clickRoles are the controls Click looks for by name when the Tester's own
+// click refuses the element it found first.
+var clickRoles = []ui.Role{
+	ui.RoleLink, ui.RoleButton, ui.RoleOption, ui.RoleMenuItem, ui.RoleMenuItemRadio, ui.RoleMenuItemCheckBox,
+	ui.RoleTab, ui.RoleCheckBox, ui.RoleRadio, ui.RoleSwitch, ui.RoleToggleButton, ui.RolePopUpButton, ui.RoleMenuButton,
+}
+
+// Click clicks the control named name, as tt.Click does. MyGo v0.8.1's
+// Tester.Click takes the first element showing name, and refuses it as
+// not the input target when that element is not itself the control but
+// holds it, under an ancestor that handles input (a scrolling page): an
+// inline link in a text (the text is found before its link), or a button
+// in a list item labelled as it is. Click then clicks the middle of the
+// control of that name assistive technology sees, as a user would. The
+// refusals it does not retry (hidden, outside the window, under a scroll
+// bar or a web view) stand; a control another element covers gets the
+// click on that element, and the test fails on what it expected.
+func Click(tt *ui.Tester, name string) error {
+	err := tt.Click(name)
+	if err == nil || !strings.Contains(err.Error(), "is not the input target") {
+		return err
+	}
+	for _, r := range clickRoles {
+		if n, ok := tt.AccessByRole(r, name); ok && n.Bounds.W > 0 && n.Bounds.H > 0 {
+			tt.ClickAt(n.Bounds.X+n.Bounds.W/2, n.Bounds.Y+n.Bounds.H/2)
+			return nil
+		}
+	}
+	return err
 }
 
 // where describes the element with the keyboard focus by the elements it is

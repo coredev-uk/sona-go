@@ -375,7 +375,7 @@ func TestA11ySortSelectEscapeReturnsFocus(t *testing.T) {
 	r.tt.Key(0, ui.KeyEnter)
 	r.tt.Drain()
 	tr := access.Read(t, r.tt.Tester)
-	if len(tr.Roles(ui.RolePopup)) == 0 || !r.tt.HasText("Release date") {
+	if len(tr.Roles(ui.RoleListBox)) == 0 || !r.tt.HasText("Release date") {
 		t.Fatalf("Enter on Sort showed no choices:\n%s", tr.Dump())
 	}
 	r.tt.Key(0, ui.KeyEscape)

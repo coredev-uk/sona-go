@@ -82,7 +82,8 @@ type field struct {
 	selectReq bool
 	// blur counts the builds until the field gives up the focus: picking a
 	// result blurs it, but the list's overlay hands the focus back to the
-	// field as it goes, so the blur waits for the overlay to be gone.
+	// field as it goes, so the blur waits for the overlay to be gone (a
+	// frame later when the pick was a press: MyGo ends the press first).
 	blur int
 
 	// term is the typed text after the pause; pending the text waiting out
@@ -399,7 +400,7 @@ func (f *field) visit(path string) {
 // plays or opens as it does elsewhere.
 func (f *field) openItem(it services.Item) {
 	f.close()
-	f.blur = 2
+	f.blur = 3
 	f.s.rememberItem(it, itemSource(it))
 	switch p := itemPath(it); {
 	case it.Kind == services.ItemSong:

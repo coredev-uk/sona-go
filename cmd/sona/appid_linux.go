@@ -10,7 +10,7 @@ import (
 
 // setApplicationID gives GLib the program name GTK reports as the Wayland
 // app_id (and X11 WM_CLASS): the desktop file is dev.coredev.Sona.desktop,
-// which the shell matches the window to by it. MyGo v0.7.4 sets neither.
+// which the shell matches the window to by it. MyGo v0.8.1 sets neither.
 // It loads GLib by the soname MyGo loads, so one copy serves the process.
 func setApplicationID(log *slog.Logger) {
 	glib, err := purego.Dlopen("libglib-2.0.so.0", purego.RTLD_NOW|purego.RTLD_GLOBAL)

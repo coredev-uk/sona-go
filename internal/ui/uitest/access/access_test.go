@@ -23,13 +23,19 @@ func TestReadSeesTheTree(t *testing.T) {
 			})
 			ui.Link(c.Key("link"), "A link", "https://example.org").Clicked()
 			ui.Text(c.Key("title"), "Title").Role(ui.RoleHeading).Level(2)
+			// Roles the platform's do not follow in order (a list box is a
+			// list to it, an option a list item), and one after them.
+			ui.Column(c.Key("choices")).Role(ui.RoleListBox).Label("Choices").Children(func() {
+				ui.Row(c.Key("one")).Role(ui.RoleOption).Label("One").Checked(true)
+			})
+			ui.Text(c.Key("gone"), "Gone").Role(ui.RoleDeletion)
 		})
 	}, 320, 240)
 	tr := Read(t, tt)
 	for _, w := range []struct {
 		role  ui.Role
 		label string
-	}{{ui.RoleButton, "Beside"}, {ui.RoleButton, "Opener"}, {ui.RoleLink, "A link"}, {ui.RoleHeading, "Title"}} {
+	}{{ui.RoleButton, "Beside"}, {ui.RoleButton, "Opener"}, {ui.RoleLink, "A link"}, {ui.RoleHeading, "Title"}, {ui.RoleListBox, "Choices"}, {ui.RoleOption, "One"}, {ui.RoleDeletion, "Gone"}} {
 		if _, ok := tr.Find(w.role, w.label); !ok {
 			t.Errorf("no %s %q on the tree:\n%s", roleName(w.role), w.label, tr.Dump())
 		}
@@ -82,8 +88,8 @@ func TestPinnedMyGo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(mod), "github.com/egoist/mygo v0.7.4\n") {
-		t.Fatal("MyGo is not v0.7.4 any more: re-check the constants of internal/ui/uitest/access/access.go against ui/element.go, ui/access.go and internal/platform/access.go, then update this pin")
+	if !strings.Contains(string(mod), "github.com/egoist/mygo v0.8.1\n") {
+		t.Fatal("MyGo is not v0.8.1 any more: re-check the constants of internal/ui/uitest/access/access.go against ui/element.go, ui/access.go and internal/platform/access.go, then update this pin")
 	}
 }
 

@@ -165,7 +165,13 @@ func TestMenuDisabledAndReasonRowsCannotBeChosen(t *testing.T) {
 func TestMenuPressOutsideCloses(t *testing.T) {
 	a, tt := newMenuApp(t)
 	_ = tt.Click("Open")
-	_ = tt.Click("Elsewhere")
+	// The open menu covers the page, so the Tester refuses to click the
+	// button under it by name: press where it shows, as the pointer does.
+	r, ok := tt.Find("Elsewhere")
+	if !ok {
+		t.Fatal("no Elsewhere button")
+	}
+	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
 	tt.Advance(50e6)
 	if a.menu.IsOpen() {
 		t.Error("a press outside did not close the menu")
