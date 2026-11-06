@@ -109,7 +109,7 @@ The artwork service renders, per cover, a tiny pre-blurred JPEG (target ~32×32,
 
 ## Motion
 
-- Feedback: 120ms on hover and press (background, colour; the `feedback` motion token); menus and floating surfaces 160ms (`float`); route content 150ms (`route`). The durations live in `tokens.json`.
+- Feedback: 120ms on hover and press (background, colour; the `feedback` motion token); menus and floating surfaces 160ms (`float`); route content 150ms (`route`); a tooltip shows once the pointer has rested 400ms (`tooltip`, MyGo's `Theme.TooltipDelay`; after one goes, the next shows at once). The durations live in `tokens.json`.
 - Easing `cubic-bezier(0.16, 1, 0.3, 1)` (exponential out, the `out` curve). No bounce, no layout animation, no scroll-linked effects.
 - A loop costs frames for as long as it runs: MyGo redraws the window on every frame something animates, however small the part that moves. So work that can run for long shows a still icon and progress that moves when the work does (the sidebar's sync line: its bar and count); a spinner (`kit.ButtonOpts.Spin`) is for waits of a second or two.
 - The desktop's reduced-motion preference, the Reduced motion setting and the reduce-effects mode all make the kit skip its transitions and animations (`theme.ReducedMotion()`).

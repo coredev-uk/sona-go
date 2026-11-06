@@ -244,6 +244,9 @@ func build(tk *Tokens, prefs ui.Preferences) *ui.Theme {
 	// Tooltips and toasts are the theme turned over.
 	t.Inverse, t.InverseText = col("ink"), col("ground")
 	t.Radius = tk.Radius["md"]
+	// How long the pointer rests on an anchor before its tooltip shows
+	// (the "tooltip" motion token; MyGo's own default is 0.6 s).
+	t.TooltipDelay = tk.Motion["tooltip"].Duration
 	t.Font = FontFamily
 	body := tk.Type["body"]
 	t.FontSize = body.Size

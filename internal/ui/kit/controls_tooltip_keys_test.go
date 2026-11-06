@@ -70,3 +70,19 @@ func TestStationKeyIsTheRadioPagesKey(t *testing.T) {
 		t.Errorf("key %v", got)
 	}
 }
+
+func TestTooltipShowsAfterTheThemesDelay(t *testing.T) {
+	tt := controlsTester(t, 300, 120, func(c *ui.Context) {
+		Tooltip(c, ui.Box(c).Size(30, 30).Focusable().Label("Thing"), "Does a thing")
+	})
+	r := controlsFind(t, tt, "Thing")
+	tt.Move(r.X+r.W/2, r.Y+r.H/2)
+	tt.Advance(350 * time.Millisecond)
+	if tt.HasText("Does a thing") {
+		t.Errorf("the tip shows at 350 ms: %q", tt.Texts())
+	}
+	tt.Advance(50 * time.Millisecond)
+	if !tt.HasText("Does a thing") {
+		t.Errorf("no tip at 400 ms: %q", tt.Texts())
+	}
+}
