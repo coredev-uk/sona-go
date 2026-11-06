@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -13,6 +12,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 
 	"github.com/egoist/mygo/ui"
 

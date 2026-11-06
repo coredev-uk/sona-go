@@ -53,8 +53,10 @@ type UpdatesService struct {
 }
 
 func newUpdatesService(e *Env) *UpdatesService {
-	s := &UpdatesService{o: e, target: update.Target(runtime.GOOS, runtime.GOARCH), key: update.PublicKey(), updater: e.SelfUpdater,
-		status: UpdateStatus{Current: e.Version, Checkable: update.Valid(e.Version), AppImage: update.AppImage()}}
+	s := &UpdatesService{
+		o: e, target: update.Target(runtime.GOOS, runtime.GOARCH), key: update.PublicKey(), updater: e.SelfUpdater,
+		status: UpdateStatus{Current: e.Version, Checkable: update.Valid(e.Version), AppImage: update.AppImage()},
+	}
 	client := &http.Client{Transport: e.transport(), Timeout: 15 * time.Second}
 	s.checker.HTTP = client
 	s.feed.HTTP = client

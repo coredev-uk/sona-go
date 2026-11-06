@@ -17,7 +17,9 @@
 // consecutive tracks join sample-exact. Pushes block while a lane's queue is
 // full (backpressure); a generation number per track makes superseded data
 // harmless. The output is rebuilt in place when its sink fails or the device
-// changes; PipeWire relinking the stream is not a failure.
+// changes, and on macOS when the device it should play to does (the system
+// default output, or the chosen one plugged in or removed: routeEpoch);
+// PipeWire relinking the stream is not a failure.
 package gst
 
 /*
@@ -94,14 +96,16 @@ type Options struct {
 	Sink     string        // "" picks the first of Sinks that reaches READY
 	AppName  string        // client/application name, default "Sona"
 	MaxQueue time.Duration // per-lane queue of access units before Push blocks, default 12s
-	// Device is the output to play to; "" follows the default. Only
-	// pipewiresink can target one (a PipeWire node.name; DeviceChoice).
+	// Device is the output to play to; "" follows the default. A
+	// PipeWire node.name (pipewiresink) or a Core Audio device UID
+	// (osxaudiosink); one that is gone plays to the default until it is
+	// back.
 	Device string
 }
 
 // Device is an audio output.
 type Device struct {
-	Name        string // PipeWire node.name, the sink's target-object
+	Name        string // PipeWire node.name; Core Audio device UID (Options.Device)
 	Description string // human-readable name
 	Default     bool   // the system's default output
 }
@@ -195,6 +199,10 @@ type Pipeline struct {
 	stallAt  time.Time
 	lastPos  time.Duration
 	lastAt   time.Time
+	// route is what the output was built for (streamProps); routeSeen the
+	// routeEpoch it saw last (watch goroutine only).
+	route     string
+	routeSeen uint64
 }
 
 // ErrClosed reports a call on a closed Pipeline.
@@ -272,7 +280,9 @@ func New(o Options) (*Pipeline, error) {
 }
 
 func build(sink string, o Options) (*Pipeline, error) {
-	csink, capp, cprops := C.CString(sink), C.CString(o.AppName), C.CString(streamProps(sink, o.AppName, o.Device))
+	seen := routeEpoch()
+	props := streamProps(sink, o.AppName, o.Device)
+	csink, capp, cprops := C.CString(sink), C.CString(o.AppName), C.CString(props)
 	defer func() {
 		for _, s := range []*C.char{csink, capp, cprops} {
 			C.free(unsafe.Pointer(s))
@@ -283,7 +293,7 @@ func build(sink string, o Options) (*Pipeline, error) {
 	if cp == nil {
 		return nil, fmt.Errorf("gst: %s: %s", sink, C.GoString(&buf[0]))
 	}
-	p := &Pipeline{p: cp, decoder: o.Decoder, sink: sink, opts: o, events: make(chan Event, 64), quit: make(chan struct{}), want: StateReady}
+	p := &Pipeline{p: cp, decoder: o.Decoder, sink: sink, opts: o, events: make(chan Event, 64), quit: make(chan struct{}), want: StateReady, route: props, routeSeen: seen}
 	p.cond = sync.NewCond(&p.mu)
 	p.build.Store(1)
 	cdec := C.CString(o.Decoder)
@@ -335,6 +345,10 @@ func (p *Pipeline) watch() {
 			return
 		default:
 		}
+		if e := routeEpoch(); e != p.routeSeen {
+			p.routeSeen = e
+			p.followRoute()
+		}
 		var m C.sona_msg
 		kind := C.sona_gst_pop(p.p, C.int64_t(200*time.Millisecond), &m)
 		var text string
@@ -368,7 +382,7 @@ func (p *Pipeline) watch() {
 			// fatal; it is not, but its clock may then jump, which makes it
 			// drop audio. A new output links afresh at the same position.
 			p.send(Event{Kind: EventWarning, Err: errors.New("gst: the sound server relinked the output stream; reconnecting")})
-			if err := p.rebuild(nil); err != nil {
+			if err := p.rebuild(); err != nil {
 				p.outputFailed(err)
 			}
 		case C.SONA_MSG_STATE:
@@ -427,7 +441,7 @@ func (p *Pipeline) outputFailed(cause error) {
 	p.mu.Unlock()
 	if !spent {
 		p.send(Event{Kind: EventWarning, Err: fmt.Errorf("%w; rebuilding the output", cause)})
-		if err := p.rebuild(nil); err == nil {
+		if err := p.rebuild(); err == nil {
 			return
 		} else {
 			cause = errors.Join(cause, err)
@@ -469,20 +483,34 @@ func (p *Pipeline) checkStall() {
 	}
 }
 
-// rebuild replaces the output (props nil keeps the sink's properties) and
-// restores the wanted state; the mixer carries on into the new one.
-func (p *Pipeline) rebuild(props *string) error {
+// followRoute rebuilds the output when the device it should play to is not
+// the one it was built for: on macOS the default output changed while it
+// is followed, or the chosen device was plugged in or removed.
+func (p *Pipeline) followRoute() {
+	p.mu.Lock()
+	moved := streamProps(p.sink, p.opts.AppName, p.opts.Device) != p.route
+	p.mu.Unlock()
+	if !moved {
+		return
+	}
+	if err := p.rebuild(); err != nil {
+		p.outputFailed(err)
+	}
+}
+
+// rebuild replaces the output with one for the device to play to now
+// (streamProps) and restores the wanted state; the mixer carries on into
+// the new one.
+func (p *Pipeline) rebuild() error {
 	if !p.use() {
 		return ErrClosed
 	}
 	defer p.life.RUnlock()
-	var cprops *C.char
-	if props != nil {
-		cprops = C.CString(*props)
-		defer C.free(unsafe.Pointer(cprops))
-	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	props := streamProps(p.sink, p.opts.AppName, p.opts.Device)
+	cprops := C.CString(props)
+	defer C.free(unsafe.Pointer(cprops))
 	p.played.Store(false)
 	var buf [256]C.char
 	b := C.sona_gst_out_rebuild(p.p, cprops, C.int(p.outState(p.want)), &buf[0], C.size_t(len(buf)))
@@ -490,18 +518,18 @@ func (p *Pipeline) rebuild(props *string) error {
 		return fmt.Errorf("gst: rebuild output: %s", C.GoString(&buf[0]))
 	}
 	p.build.Store(uint64(b))
+	p.route = props
 	return nil
 }
 
-// SetDevice moves the output to a PipeWire sink (node.name; "" follows
-// the default) by rebuilding the output in place: playback continues at
-// its position.
+// SetDevice moves the output to device (Options.Device; "" follows the
+// default) by rebuilding the output in place: playback continues at its
+// position.
 func (p *Pipeline) SetDevice(device string) error {
 	p.mu.Lock()
 	p.opts.Device = device
 	p.mu.Unlock()
-	props := streamProps(p.sink, p.opts.AppName, device)
-	return p.rebuild(&props)
+	return p.rebuild()
 }
 
 // outState is the state the output is set to for the wanted state s.

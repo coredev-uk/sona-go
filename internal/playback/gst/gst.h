@@ -86,13 +86,14 @@ int sona_relink_error(GstMessage* m);
 
 // sona_gst_new makes the shared state (message queue, tail) and builds the
 // output: sink with props as its stream-properties (a GstStructure string,
-// if the sink has that property), brought to READY.
+// if the sink has that property) or else its unique-id (osxaudiosink: a
+// Core Audio device UID), brought to READY.
 sona_gst* sona_gst_new(const char* sink, const char* client_name, const char* props, char* err, size_t errlen);
 void sona_gst_free_pipeline(sona_gst* p);
 struct sona_tail* sona_gst_tail(sona_gst* p);
 
 // sona_gst_out_rebuild replaces the output pipeline (props NULL keeps the
-// stream properties) and brings it to state. The next pushed buffer opens a
+// sink's properties) and brings it to state. The next pushed buffer opens a
 // segment where the previous output stopped. Returns the new build (> 0),
 // or 0 with err set.
 uint64_t sona_gst_out_rebuild(sona_gst* p, const char* props, int state, char* err, size_t errlen);

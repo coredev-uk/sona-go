@@ -39,6 +39,17 @@ type FilePipeline struct {
 	once   sync.Once
 	life   sync.RWMutex // as Pipeline.life
 	closed bool
+
+	// mu serialises output moves and guards what the sink was set up for:
+	// the chosen device, the app name and the resulting streamProps.
+	mu      sync.Mutex
+	device  string
+	appName string
+	route   string
+	// routeSeen is the routeEpoch watch saw last; routeErr carries a failed
+	// move to watch, which reports it.
+	routeSeen uint64
+	routeErr  chan error
 }
 
 // Live is the size NewFile takes for a live stream.
@@ -79,7 +90,9 @@ func NewFile(o Options, size int64) (*FilePipeline, error) {
 }
 
 func buildFile(sink string, o Options, size int64) (*FilePipeline, error) {
-	csink, capp, cprops := C.CString(sink), C.CString(o.AppName), C.CString(streamProps(sink, o.AppName, o.Device))
+	seen := routeEpoch()
+	props := streamProps(sink, o.AppName, o.Device)
+	csink, capp, cprops := C.CString(sink), C.CString(o.AppName), C.CString(props)
 	defer func() {
 		for _, s := range []*C.char{csink, capp, cprops} {
 			C.free(unsafe.Pointer(s))
@@ -94,7 +107,10 @@ func buildFile(sink string, o Options, size int64) (*FilePipeline, error) {
 	if f == nil {
 		return nil, fmt.Errorf("gst: %s", C.GoString(&buf[0]))
 	}
-	p := &FilePipeline{f: f, sink: sink, events: make(chan Event, 64), quit: make(chan struct{})}
+	p := &FilePipeline{
+		f: f, sink: sink, events: make(chan Event, 64), quit: make(chan struct{}),
+		device: o.Device, appName: o.AppName, route: props, routeSeen: seen, routeErr: make(chan error, 1),
+	}
 	if C.sona_file_set_state(f, C.int(StateReady)) == 0 {
 		C.sona_file_free(f)
 		return nil, fmt.Errorf("gst: %s: state change to READY failed", sink)
@@ -127,6 +143,19 @@ func (p *FilePipeline) watch() {
 		select {
 		case <-p.quit:
 			return
+		default:
+		}
+		if e := routeEpoch(); e != p.routeSeen {
+			// A move may wait for a gap between buffers: off this loop.
+			p.routeSeen = e
+			go p.followRoute()
+		}
+		select {
+		case err := <-p.routeErr:
+			select {
+			case p.events <- Event{Kind: EventWarning, Err: err}:
+			default: // warnings drop when the receiver lags
+			}
 		default:
 		}
 		var m C.sona_file_msg
@@ -305,20 +334,47 @@ func (p *FilePipeline) Close() {
 	})
 }
 
-// SetDevice moves output to the PipeWire sink device ("" follows the
-// default) by replacing the sink; decoding and the position carry on.
+// SetDevice moves output to device (Options.Device; "" follows the default)
+// by replacing the sink; decoding and the position carry on.
 func (p *FilePipeline) SetDevice(device, appName string) error {
 	if appName == "" {
 		appName = "Sona"
 	}
-	cprops := C.CString(streamProps(p.sink, appName, device))
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.device, p.appName = device, appName
+	return p.moveOutput()
+}
+
+// followRoute moves the output when the device it should play to is not
+// the one its sink was set up for (as Pipeline.followRoute).
+func (p *FilePipeline) followRoute() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if streamProps(p.sink, p.appName, p.device) == p.route {
+		return
+	}
+	if err := p.moveOutput(); err != nil && !errors.Is(err, ErrClosed) {
+		select {
+		case p.routeErr <- err:
+		default: // one unreported failure is enough
+		}
+	}
+}
+
+// moveOutput replaces the sink with one for the device to play to now;
+// with mu held.
+func (p *FilePipeline) moveOutput() error {
+	props := streamProps(p.sink, p.appName, p.device)
+	cprops := C.CString(props)
 	defer C.free(unsafe.Pointer(cprops))
 	if !p.use() {
 		return ErrClosed
 	}
 	defer p.life.RUnlock()
 	if C.sona_file_set_sink_props(p.f, cprops) != 0 {
-		return fmt.Errorf("gst: moving the output to %q failed", device)
+		return fmt.Errorf("gst: moving the output to %q failed", p.device)
 	}
+	p.route = props
 	return nil
 }

@@ -88,8 +88,10 @@ func newSelfRig(t *testing.T, o selfOpts) *selfRig {
 				_, other, _ := ed25519.GenerateKey(nil)
 				sig = update.Sign(other, digest[:])
 			}
-			_ = json.NewEncoder(w).Encode(update.Manifest{Version: o.latest, Notes: "What's new.", Date: "2026-01-02T03:04:05Z",
-				URL: srv.URL + "/a.tar.gz", Size: int64(len(r.archive)), Signature: sig})
+			_ = json.NewEncoder(w).Encode(update.Manifest{
+				Version: o.latest, Notes: "What's new.", Date: "2026-01-02T03:04:05Z",
+				URL: srv.URL + "/a.tar.gz", Size: int64(len(r.archive)), Signature: sig,
+			})
 		case "/a.tar.gz":
 			_, _ = w.Write(r.archive)
 		default:
@@ -119,8 +121,10 @@ func newSelfRig(t *testing.T, o selfOpts) *selfRig {
 	}
 	r.rec = &recorder{}
 	r.up = &fakeUpdater{enabled: true, exe: exe, relaunch: make(chan struct{})}
-	r.e = &Env{Deps: Deps{Settings: st, Gate: NewGate(time.Hour, nil), Emit: r.rec, Logger: discard(), Now: time.Now, Version: o.version,
-		Paths: config.Paths{State: state}, SelfUpdater: r.up}}
+	r.e = &Env{Deps: Deps{
+		Settings: st, Gate: NewGate(time.Hour, nil), Emit: r.rec, Logger: discard(), Now: time.Now, Version: o.version,
+		Paths: config.Paths{State: state}, SelfUpdater: r.up,
+	}}
 	r.s = newUpdatesService(r.e)
 	r.s.target, r.s.guard = "darwin-arm64", &r.g
 	r.s.key = ""

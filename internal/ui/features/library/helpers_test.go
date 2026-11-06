@@ -63,7 +63,7 @@ func newPageRig(t *testing.T, start string, w, h int, before func(l *library), o
 	seedAuth(hn)
 	mod.Init()
 	r.tt = hn.Tester(t, func(c *ui.Context) {
-		c.DisableAnimations() // a frozen clock never finishes a transition: each input would cost 20 frames
+		c.DisableAnimations()       // a frozen clock never finishes a transition: each input would cost 20 frames
 		hn.Env.Video.ReturnFocus(c) // the video feature's layer does this every frame
 		ui.Column(c).Fill().Children(func() {
 			r.router.View(c, func(rt *ui.Route) {

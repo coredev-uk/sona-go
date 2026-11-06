@@ -127,7 +127,7 @@ type server struct {
 	next      nextTrack     // the track queued to follow (opNext)
 	volume    float64
 	eq        equalizer.Curve // applied to every pipeline
-	device    string          // PipeWire sink for every pipeline; "" = default
+	device    string          // output device for every pipeline (Options.Device); "" = default
 	trackGain bool            // apply the track's Sound Check gain
 	gain      float64         // the current track's Sound Check gain (0 = unity)
 	playing   bool            // wanted state

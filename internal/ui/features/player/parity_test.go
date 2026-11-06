@@ -208,7 +208,9 @@ func TestTheLiveLineFallsBackToTheProgrammeOnAir(t *testing.T) {
 			{ID: "e1", Title: "Morning Show", StartMs: now.Add(-20 * time.Minute).UnixMilli(), EndMs: end.UnixMilli()},
 		}}, nil
 	}
-	r.seed(func(s *services.PlaybackState) { s.Current = &services.QueueItem{ID: "ra.1", Name: "Station", Live: true} })
+	r.seed(func(s *services.PlaybackState) {
+		s.Current = &services.QueueItem{ID: "ra.1", Name: "Station", Live: true}
+	})
 	want := "Morning Show · " + i18n.T("until {until}", "until", i18n.FormatClock(end))
 	r.tt.Until("the programme", func() bool { r.tt.Frame(); return r.tt.HasText(want) })
 	if !r.tt.HasText("Live") {

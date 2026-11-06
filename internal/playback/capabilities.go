@@ -38,7 +38,7 @@ var ErrNoCDM = errors.New("playback: no Widevine CDM is ready")
 
 // OutputDevice is an audio output an engine can play to.
 type OutputDevice struct {
-	Name        string // the engine's target id (PipeWire node.name)
+	Name        string // the engine's target id (PipeWire node.name, Core Audio device UID)
 	Description string // human-readable name
 	Default     bool   // the system's default output
 }

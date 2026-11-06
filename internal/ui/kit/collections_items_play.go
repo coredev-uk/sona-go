@@ -44,7 +44,9 @@ func (p *ItemPlayers) RegisterSongs(play func(songs []services.Song, start int, 
 // RegisterVideo sets how a music video (a MusicVideo, not an Item) plays.
 // opener is the control that asked (nil when none did): the video view opened
 // from it gives the focus back to it when it closes.
-func (p *ItemPlayers) RegisterVideo(play func(v services.MusicVideo, opener *ui.Handle)) { p.video = play }
+func (p *ItemPlayers) RegisterVideo(play func(v services.MusicVideo, opener *ui.Handle)) {
+	p.video = play
+}
 
 // CanPlayVideo reports whether music videos have a play control: a video
 // player is registered and this platform and build play them

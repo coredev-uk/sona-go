@@ -27,6 +27,7 @@ func (f *fakeBackend) Set(i Info) {
 	f.infos = append(f.infos, i)
 	f.mu.Unlock()
 }
+
 func (f *fakeBackend) SetPlayback(s State, p time.Duration) {
 	f.rec("playback")
 	f.mu.Lock()
@@ -38,6 +39,7 @@ func (f *fakeBackend) OnCommand(fn func(Command, time.Duration)) func() {
 	f.fn = fn
 	return func() { f.off = true }
 }
+
 func (f *fakeBackend) got() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -136,7 +138,11 @@ func TestCommandsReachPlayerOffMainThread(t *testing.T) {
 		cmd  Command
 		want string
 	}{
-		{Play, "play"}, {Pause, "pause"}, {Stop, "stop"}, {Next, "next"}, {Previous, "previous"},
+		{Play, "play"},
+		{Pause, "pause"},
+		{Stop, "stop"},
+		{Next, "next"},
+		{Previous, "previous"},
 		{Seek, "seek i.1 42s"},
 	} {
 		fb.fn(c.cmd, 42*time.Second)

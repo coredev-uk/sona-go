@@ -168,7 +168,7 @@ type Engine struct {
 	st         playback.Status
 	quality    applemusic.Quality // flavor for items prepared from now on
 	eq         equalizer.Curve    // applied to every host
-	device     string             // PipeWire sink for every host; "" = default
+	device     string             // output device for every host (SetOutputDevice); "" = default
 	soundCheck bool               // apply items' Sound Check gain
 	h          host
 	hostGen    int

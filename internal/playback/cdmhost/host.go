@@ -39,7 +39,8 @@ type Options struct {
 	// Sink overrides the GStreamer sink (e.g. "fakesink" in tests).
 	Sink string
 	// Device is the output to play to: a PipeWire sink's node.name on
-	// Linux; "" follows the system default (the only choice on macOS).
+	// Linux, a Core Audio device UID on macOS; "" follows the system
+	// default.
 	Device string
 	// Equalizer is applied from the first pipeline on.
 	Equalizer equalizer.Curve
@@ -709,8 +710,8 @@ func (h *Host) SetEqualizer(ctx context.Context, eq equalizer.Curve) error {
 	return err
 }
 
-// SetOutputDevice moves output to the PipeWire sink node.name ("" follows
-// the default), keeping the position and what is queued.
+// SetOutputDevice moves output to device (Options.Device; "" follows the
+// default), keeping the position and what is queued.
 func (h *Host) SetOutputDevice(ctx context.Context, device string) error {
 	_, err := h.call(ctx, request{Op: opDevice, Device: device})
 	return err

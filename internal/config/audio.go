@@ -12,8 +12,9 @@ import (
 type Audio struct {
 	// Equalizer is the 10-band equaliser.
 	Equalizer Equalizer `json:"equalizer"`
-	// OutputDevice is the PipeWire sink (node.name) to play to; empty
-	// follows the system default.
+	// OutputDevice is the output to play to: a PipeWire sink's node.name
+	// on Linux, a Core Audio device UID on macOS; empty follows the system
+	// default.
 	OutputDevice string `json:"outputDevice"`
 	// SoundCheck plays every track at about the same loudness, from the
 	// loudness Apple measured for it (or an upload's own Sound Check tag).

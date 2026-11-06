@@ -60,7 +60,7 @@ func sourceMessages(t *testing.T) map[string]bool {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var letters = regexp.MustCompile(`\p{L}{2}`)
+	letters := regexp.MustCompile(`\p{L}{2}`)
 	out := map[string]bool{}
 	for _, e := range f.Entries {
 		if !strings.ContainsAny(e.ID, "{}") && letters.MatchString(e.ID) {

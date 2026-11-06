@@ -102,10 +102,11 @@ func (s *AudioService) PreviewEqualizer(ctx context.Context, eq config.Equalizer
 	return s.eng.SetEqualizer(ctx, hostEqualizer(eq))
 }
 
-// OutputDevices lists the audio outputs (PipeWire sinks). The list is
-// empty when PipeWire's GStreamer plugin is missing; playback then always
-// follows the default output. Without an engine that chooses its output
-// it fails with CodeUnsupported.
+// OutputDevices lists the audio outputs (PipeWire sinks on Linux, Core
+// Audio devices on macOS). On Linux the list is empty when PipeWire's
+// GStreamer plugin is missing; playback then always follows the default
+// output. Without an engine that chooses its output it fails with
+// CodeUnsupported.
 func (s *AudioService) OutputDevices() ([]OutputDevice, error) {
 	if s.eng == nil {
 		return []OutputDevice{}, unsupported("choosing the output device")

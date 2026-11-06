@@ -65,8 +65,12 @@ func toMygoCommands(c nowplaying.Command) mygo.MediaCommand {
 		from nowplaying.Command
 		to   mygo.MediaCommand
 	}{
-		{nowplaying.Play, mygo.MediaPlay}, {nowplaying.Pause, mygo.MediaPause}, {nowplaying.Stop, mygo.MediaStop},
-		{nowplaying.Next, mygo.MediaNext}, {nowplaying.Previous, mygo.MediaPrevious}, {nowplaying.Seek, mygo.MediaSeek},
+		{nowplaying.Play, mygo.MediaPlay},
+		{nowplaying.Pause, mygo.MediaPause},
+		{nowplaying.Stop, mygo.MediaStop},
+		{nowplaying.Next, mygo.MediaNext},
+		{nowplaying.Previous, mygo.MediaPrevious},
+		{nowplaying.Seek, mygo.MediaSeek},
 	} {
 		if c&m.from != 0 {
 			out |= m.to

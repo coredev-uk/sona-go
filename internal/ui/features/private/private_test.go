@@ -174,7 +174,9 @@ func doesNothingWhileForcedOrUnknown(t *testing.T) {
 	}
 }
 
-func TestSnapshotNeverReplacesANewerEvent(t *testing.T) { synctest.Test(t, snapshotNeverReplacesANewerEvent) }
+func TestSnapshotNeverReplacesANewerEvent(t *testing.T) {
+	synctest.Test(t, snapshotNeverReplacesANewerEvent)
+}
 
 func snapshotNeverReplacesANewerEvent(t *testing.T) {
 	h := uitest.New(t)

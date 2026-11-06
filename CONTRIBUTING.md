@@ -160,7 +160,8 @@ come from `build/darwin/bundle.sh`, with GStreamer bundled): its UI,
 everything Go does (sign-in, library, sync, catalog) and playback through
 the same CDM host as Linux, with the CDM Sona downloads from Google for
 macOS (`mac_arm64`, see "Widevine CDM") and Core Audio output
-(`osxaudiosink`, always the system's default output). Media keys and Now
+(`osxaudiosink`: the device chosen in Settings → Playback → Output, else
+the system's default output, followed when it changes). Media keys and Now
 Playing work (`internal/nowplaying`), and so do the sleep inhibitor (MyGo's
 `Power.KeepAwake`: an IOPMAssertion `pmset -g assertions` lists), the power
 source for "on battery" (`Power.IsOnBattery`, polled) and the file chooser
@@ -201,8 +202,8 @@ SONA_PRIVATE=1 dev                   # a development build, started
 
 `build` writes `bin/sona` for macOS (Taskfile's `build` does the same through
 `build/darwin/Taskfile.yml`); `SONA_PRIVATE=1 ./bin/sona` runs it. Expect the window with every page; Settings
-without the controls macOS can't support from a bare binary (the output
-device; start at login and notifications, which need Sona.app); the keyring backend
+without the controls macOS can't support from a bare binary (start at login
+and notifications, which need Sona.app); the keyring backend
 "Keychain"; data under `~/Library/Application Support/Sona` and
 `~/Library/Caches/Sona` (log: `State/sona.log`). The D-Bus tests skip (no
 `dbus-daemon`).
@@ -226,7 +227,8 @@ go test -count=1 -v -run TestSeatbeltConfinesChild ./internal/playback/cdmhost
 
 The DRM path regression and licence check (`.env` holding
 `MUSIC_USER_TOKEN`; always in private mode; it uses the downloaded CDM;
-audio plays on the default output, and `-device` is refused on macOS):
+audio plays on the default output, or on `-device <uid>`, a Core Audio
+device UID from the `output` lines playspike prints once playback starts):
 
 ```sh
 SONA_PRIVATE=1 go run ./cmd/playspike -seek 90 -gap=false
@@ -634,7 +636,8 @@ host. Windows has no playback yet.
   `cmd/playspike` carry `//go:build linux || (darwin && cgo)`: cgo against
   GStreamer and the C++ shim, which a macOS build has anyway. Inside them, what differs is in `_linux.go`/`_darwin.go`
   files: the sink and the output device (`gst/output_<os>.go`; PipeWire's
-  device provider in `devices_linux.c`, its relink detection in
+  device provider in `devices_linux.c`, Core Audio's devices and the
+  default-output watch in `devices_darwin.c`; PipeWire's relink detection in
   `relink_linux.c`), the sandbox (`cdmhost/sandbox_linux.go`,
   `sandbox_fs_linux.go`; `sandbox_darwin.go` and the portable
   `seatbelt.go`). MyGo itself is pure Go on every OS (it loads GTK by soname on Linux), so the UI packages need no tags. Portable Go implementations
