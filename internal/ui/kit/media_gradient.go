@@ -180,22 +180,25 @@ type SweepText struct {
 }
 
 // NewSweepText shapes words as one text of the font's size, weight and line
-// height (DIPs) wrapped at width, in the theme's face.
-func NewSweepText(words []lyrics.Word, size float32, weight int, lineHeight, width float32) *SweepText {
-	return newSweepText(words, size, weight, false, lineHeight, width)
+// height (DIPs) wrapped at width, in the theme's face. lang is the words'
+// language (a BCP 47 tag, "" the app's): it picks the glyphs of Han
+// characters and where lines may break, so Korean words stay whole as in a
+// Text of that Lang.
+func NewSweepText(words []lyrics.Word, lang string, size float32, weight int, lineHeight, width float32) *SweepText {
+	return newSweepText(words, lang, size, weight, false, lineHeight, width)
 }
 
 // NewSweepTextItalic is NewSweepText in italic: a duet's other voice.
-func NewSweepTextItalic(words []lyrics.Word, size float32, weight int, lineHeight, width float32) *SweepText {
-	return newSweepText(words, size, weight, true, lineHeight, width)
+func NewSweepTextItalic(words []lyrics.Word, lang string, size float32, weight int, lineHeight, width float32) *SweepText {
+	return newSweepText(words, lang, size, weight, true, lineHeight, width)
 }
 
-func newSweepText(words []lyrics.Word, size float32, weight int, italic bool, lineHeight, width float32) *SweepText {
+func newSweepText(words []lyrics.Word, lang string, size float32, weight int, italic bool, lineHeight, width float32) *SweepText {
 	spans := make([]ui.Span, len(words))
 	for i, w := range words {
 		spans[i] = ui.Span{Text: w.Text}
 	}
-	font := ui.Font{Family: theme.FontFamily, Size: size, Weight: weight, Italic: italic, LineHeight: lineHeight / size}
+	font := ui.Font{Family: theme.FontFamily, Size: size, Weight: weight, Italic: italic, Lang: lang, LineHeight: lineHeight / size}
 	s := &SweepText{words: words, width: width, size: size}
 	s.layout = ui.ShapeRichTextWith(spans, font, ui.TextShape{Width: width})
 	_, s.h = s.layout.Size()

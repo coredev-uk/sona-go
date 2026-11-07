@@ -148,7 +148,7 @@ func TestSweepTextFillsEachWordAsItIsSung(t *testing.T) {
 		{Begin: 0, End: time.Second, Text: "HHHH "},
 		{Begin: time.Second, End: 2 * time.Second, Text: "HHHH"},
 	}
-	s := NewSweepText(words, 40, 700, 48, 400)
+	s := NewSweepText(words, "", 40, 700, 48, 400)
 	if s.Width() != 400 || s.Height() < 40 {
 		t.Errorf("shaped %v×%v", s.Width(), s.Height())
 	}
@@ -176,6 +176,26 @@ func TestSweepTextFillsEachWordAsItIsSung(t *testing.T) {
 	}
 	if b, f, mv := count(5 * time.Second); b > 30 || f < 100 || mv {
 		t.Errorf("all sung: base %d fill %d moving %v", b, f, mv)
+	}
+}
+
+// A word-timed Korean line wraps between its words, as a Text whose Lang is
+// Korean does: a word that fits on a line is never split over two, so its
+// sweep fills one box.
+func TestSweepTextKeepsKoreanWordsWhole(t *testing.T) {
+	var words []lyrics.Word
+	for _, w := range []string{"보고 ", "싶다 ", "이렇게 ", "말하니까 ", "더 ", "보고 ", "싶다"} {
+		words = append(words, lyrics.Word{Text: w})
+	}
+	// The longest word is four syllables, about 4 em at 28 DIPs: every
+	// width here holds it.
+	for width := float32(130); width <= 300; width += 10 {
+		s := NewSweepText(words, "ko", 28, 700, 34, width)
+		for i, r := range s.rects {
+			if len(r) != 1 {
+				t.Errorf("width %v: %q is in %d boxes", width, words[i].Text, len(r))
+			}
+		}
 	}
 }
 
