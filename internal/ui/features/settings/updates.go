@@ -140,14 +140,14 @@ func (s *settings) updateStatusRow(c *ui.Context, st services.UpdateStatus) {
 				}
 			})
 			if st.Installing && st.Total > 0 {
-				kit.ProgressBar(c.Key("progress"), float64(st.Downloaded)/float64(st.Total), kit.ProgressOpts{A11yLabel: i18n.T("Update download"), Width: 280}).Margin(6, 0, 0, 0)
+				kit.ProgressBar(c.Key("progress"), float64(st.Downloaded)/float64(st.Total), kit.ProgressOpts{A11yLabel: i18n.T("Update download")}).MaxWidth(280).Margin(6, 0, 0, 0)
 			}
 			if v.detail != "" && us.failure == "" {
 				text(c, v.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0).MaxWidth(448)
 			}
 		})
 		ui.Row(c.Key("actions")).Shrink(0).Gap(8).Children(func() {
-			if st.Available {
+			if st.Available && !st.Installing {
 				if kit.Button(c.Key("release"), i18n.T("View release"), kit.ButtonOpts{Size: kit.SizeSM, Icon: "external-link"}).Clicked() {
 					s.openRelease()
 				}
