@@ -15,17 +15,17 @@
   },
   {
     "type": "file",
-    "url": "https://proxy.golang.org/github.com/egoist/mygo/@v/v0.8.1.mod",
+    "url": "https://proxy.golang.org/github.com/egoist/mygo/@v/v0.8.3.mod",
     "sha256": "92f788f08ee788fc0e81f4cc0acb203f0723d746ce7a11b8554122375f607336",
     "dest": "go-proxy/github.com/egoist/mygo/@v",
-    "dest-filename": "v0.8.1.mod"
+    "dest-filename": "v0.8.3.mod"
   },
   {
     "type": "file",
-    "url": "https://proxy.golang.org/github.com/egoist/mygo/@v/v0.8.1.zip",
-    "sha256": "88e9ec7f41fe6f847469cb5e60861f691895e805ffc75a5601bad71e1fbc1cea",
+    "url": "https://proxy.golang.org/github.com/egoist/mygo/@v/v0.8.3.zip",
+    "sha256": "631fe8925fe19f0d67ea518060538b988319fd0677dd397df8e16498c4cd0777",
     "dest": "go-proxy/github.com/egoist/mygo/@v",
-    "dest-filename": "v0.8.1.zip"
+    "dest-filename": "v0.8.3.zip"
   },
   {
     "type": "file",
