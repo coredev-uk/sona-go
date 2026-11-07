@@ -301,8 +301,8 @@ func TestALiveStationKeepsPreviousAndNextOffSayingWhyAndPauseWorking(t *testing.
 	tr := access.Read(t, r.tt.Tester)
 	for _, name := range []string{"Previous", "Next"} {
 		n, ok := tr.Find(ui.RoleButton, name)
-		if !ok || n.Description != reason || n.Has(access.Disabled) || !n.Has(access.Focusable) {
-			t.Errorf("%s: %+v, want an enabled, focusable button described by the reason", name, n)
+		if !ok || n.Description != reason || !n.Has(access.Disabled) || !n.Has(access.Focusable) {
+			t.Errorf("%s: %+v, want a disabled but focusable button described by the reason", name, n)
 		}
 		_ = r.tt.Click(name)
 	}

@@ -113,6 +113,41 @@ func TestA11yHomeHasNoControlInsideAnotherAndEverySectionIsNamed(t *testing.T) {
 	if line.Has(access.Expanded) {
 		t.Error("the index line is open at rest")
 	}
+	if len(line.Controls) != 0 {
+		t.Errorf("the closed index line controls %v", line.Controls)
+	}
+}
+
+// An open index line says it controls the shelf that shows under it.
+func TestA11yAnOpenIndexLineControlsItsShelf(t *testing.T) {
+	r := newRig(t, "/", 1132, 1600, withHome(indexPage()))
+	r.until("the page", "Fans Also Like", "3 albums · 1 playlist")
+	r.click("Fans Also Like")
+	r.tt.Until("the shelf", r.tt.Shows("Fan 1", "Fan 3", "Fan Mix", "See all"))
+	tr := access.Read(t, r.tt.Tester)
+	line, ok := tr.Find(ui.RoleDisclosure, "Fans Also Like, 3 albums · 1 playlist")
+	if !ok {
+		t.Fatalf("no disclosure for the index line:\n%s", tr.Dump())
+	}
+	panel := tr.ControlledBy(line)
+	if !line.Has(access.Expanded) || len(panel) != 1 || panel[0].Role != ui.RoleGroup || panel[0].Label != "Fans Also Like" {
+		t.Errorf("the open index line: %+v controls %v, want the group of its shelf", line, panel)
+	}
+	inPanel := false
+	for _, n := range tr.Nodes {
+		if n.Label == "Fan 1" && slices.ContainsFunc(tr.Ancestors(n), func(a access.Node) bool { return len(panel) == 1 && a.ID == panel[0].ID }) {
+			inPanel = true
+		}
+	}
+	if !inPanel {
+		t.Errorf("the shelf is not in the group the line controls:\n%s", tr.Dump())
+	}
+	// Closed again, it controls nothing.
+	r.click("Fans Also Like")
+	r.tt.Until("closed", r.gone("Fan 1", "Fan 3"))
+	if line, _ := access.Read(t, r.tt.Tester).Find(ui.RoleDisclosure, "Fans Also Like, 3 albums · 1 playlist"); len(line.Controls) != 0 || line.Has(access.Expanded) {
+		t.Errorf("the closed index line: %+v", line)
+	}
 }
 
 func TestA11yHomeRowsAreAListOfItemsEachWithItsControlsBesideTheOpener(t *testing.T) {
@@ -219,15 +254,16 @@ func TestA11yHomeLoadingIsAStatusAndTheFailureIsAnnouncedOnce(t *testing.T) {
 	close(gate)
 	r.until("the page", "Top Picks for You")
 
-	// A failure is a status, said once, with the way to try again.
+	// A failure is an alert, read by MyGo and not announced as well, with the
+	// way to try again.
 	bad := newRig(t, "/", 1132, 1253, withDisc(func(f *fakeDiscover) { f.err = errDown }))
 	bad.until("the error", "Couldn't load your recommendations", "Try again")
 	tr := access.Read(t, bad.tt.Tester)
-	if _, ok := tr.Find(ui.RoleStatus, "Couldn't load your recommendations"); !ok {
-		t.Errorf("the error is not a status:\n%s", tr.Dump())
+	if _, ok := tr.Find(ui.RoleAlert, "Couldn't load your recommendations"); !ok {
+		t.Errorf("the error is not an alert:\n%s", tr.Dump())
 	}
-	if said := bad.tt.Announcements(); !slices.ContainsFunc(said, func(s string) bool { return strings.HasPrefix(s, "Couldn't load your recommendations") }) {
-		t.Errorf("the failure was announced as %q", said)
+	if said := bad.tt.Announcements(); slices.ContainsFunc(said, func(s string) bool { return strings.HasPrefix(s, "Couldn't load your recommendations") }) {
+		t.Errorf("the failure was announced as well as being an alert: %q", said)
 	}
 	for range 3 {
 		bad.tt.Drain()

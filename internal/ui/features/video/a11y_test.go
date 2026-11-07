@@ -2,6 +2,7 @@ package video
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -124,7 +125,7 @@ func TestA11yPage(t *testing.T) {
 }
 
 // TestA11yPageLoadingAndErrorAreStatuses: the page that is still reading is
-// a labelled status, and one that failed is a status read out once.
+// a labelled status, and one that failed is an alert.
 func TestA11yPageLoadingAndErrorAreStatuses(t *testing.T) {
 	p := newPageRig(t, false, 1132, 900)
 	p.tt.Frame()
@@ -139,11 +140,11 @@ func TestA11yPageLoadingAndErrorAreStatuses(t *testing.T) {
 		return f.tt.HasText("Try again")
 	})
 	heard = append(heard, f.tt.Announcements()...)
-	if len(heard) != 1 || !strings.HasPrefix(heard[0], "Couldn't load this music video") {
-		t.Errorf("announced %q, want the error once", heard)
+	if slices.ContainsFunc(heard, func(s string) bool { return strings.HasPrefix(s, "Couldn't load this music video") }) {
+		t.Errorf("announced %q: the error is an alert, read by MyGo", heard)
 	}
 	tr := access.Read(t, f.tt.Tester)
-	if _, ok := tr.Find(ui.RoleStatus, "Couldn't load this music video"); !ok {
-		t.Errorf("the error is not a status:\n%s", tr.Dump())
+	if _, ok := tr.Find(ui.RoleAlert, "Couldn't load this music video"); !ok {
+		t.Errorf("the error is not an alert:\n%s", tr.Dump())
 	}
 }

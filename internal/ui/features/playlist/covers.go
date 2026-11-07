@@ -266,18 +266,14 @@ func (p *playlists) coverUpload(c *ui.Context, data services.PlaylistCovers) {
 	})
 }
 
-// coverError is what the last change could not do, a status beside the
-// controls (where the limits it may have broken are), announced once.
+// coverError is what the last change could not do, an alert beside the
+// controls (where the limits it may have broken are).
 func (p *playlists) coverError(c *ui.Context) {
 	d := &p.dialogs
 	if d.coverErr == "" {
 		return
 	}
-	errText := dialogText(c.Key("error"), d.coverErr, "secondary").TextColor(theme.C("ink")).Role(ui.RoleStatus)
-	if said := ui.Local(errText, "said", func() string { return "" }); *said != d.coverErr {
-		*said = d.coverErr
-		c.Announce(d.coverErr)
-	}
+	dialogText(c.Key("error"), d.coverErr, "secondary").TextColor(theme.C("ink")).Role(ui.RoleAlert)
 }
 
 // chooseCover applies option o as the open dialog's playlist's cover: the

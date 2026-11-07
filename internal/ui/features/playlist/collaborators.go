@@ -78,10 +78,9 @@ func (p *playlists) collaboratorsByline(c *ui.Context, collab services.PlaylistC
 	st := &p.page.collab
 	tk := theme.Current()
 	label := collaboratorsLabel(collab)
-	// A menu button, the nearest MyGo has to aria-haspopup="dialog"; named by
-	// the words alone (the faces' initials stay out of the name) and
-	// described once, by the tooltip.
-	btn := ui.ButtonBase(c.Key("collaborators")).Role(ui.RoleMenuButton).Label(label).Row().AlignItems(ui.Center).Gap(10).Margin(0, 0, 0, -4).Padding(2, 4).
+	// A button that opens a dialog; named by the words alone (the faces'
+	// initials stay out of the name) and described once, by the tooltip.
+	btn := ui.ButtonBase(c.Key("collaborators")).HasPopup(ui.PopupDialog).Label(label).Row().AlignItems(ui.Center).Gap(10).Margin(0, 0, 0, -4).Padding(2, 4).
 		Radius(tk.Radius["md"]).MinWidth(0).Tooltip(i18n.T("View playlist collaborators"))
 	hovered := btn.Hovered()
 	btn.Children(func() {

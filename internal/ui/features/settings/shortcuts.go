@@ -138,9 +138,9 @@ func filterShortcuts(all []module.Shortcut, b bindings, query string) []module.S
 }
 
 // shortcutTools is the filter and Reset all. Reset all stays a button the
-// keyboard can reach when there is nothing to reset (aria-disabled, so that
-// after a reset it keeps the focus instead of dropping it): dimmed, and a
-// click does nothing.
+// keyboard can reach when there is nothing to reset (a Reason, so that after
+// a reset it keeps the focus instead of dropping it): dimmed, and a click does
+// nothing.
 func (s *settings) shortcutTools(c *ui.Context, ss *shortcutsState, nothingToReset bool) {
 	ui.Row(c.Key("tools")).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
 		ui.Column(c.Key("filter")).Grow(1).MinWidth(0).Children(func() {
@@ -148,7 +148,7 @@ func (s *settings) shortcutTools(c *ui.Context, ss *shortcutsState, nothingToRes
 				Placeholder: i18n.T("Filter by action or key"), A11yLabel: i18n.T("Filter shortcuts"),
 			})
 		})
-		// aria-disabled: with nothing to reset it keeps the focus and says so.
+		// With nothing to reset it keeps the focus and says so.
 		reason := ""
 		if nothingToReset {
 			reason = i18n.T("No shortcut has been changed.")

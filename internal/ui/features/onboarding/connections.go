@@ -30,7 +30,6 @@ type tokenForm struct {
 	token string
 	busy  bool
 	err   string
-	told  string // the error announced
 }
 
 // errorLine is what went wrong connecting a scrobbler, in a sentence
@@ -300,16 +299,10 @@ func (o *onboarding) listenBrainzForm(c *ui.Context) {
 		})
 		o.tokenHint(c)
 		if f.err != "" {
-			if f.told != f.err {
-				f.told = f.err
-				c.Announce(f.err)
-			}
-			ui.Row(c.Key("err")).FillWidth().Gap(8).AlignItems(ui.Start).Role(ui.RoleStatus).Label(f.err).Children(func() {
+			ui.Row(c.Key("err")).FillWidth().Gap(8).AlignItems(ui.Start).Role(ui.RoleAlert).Label(f.err).Children(func() {
 				statusIcon(c, "circle-alert", "danger").Margin(2, 0, 0, 0)
 				text(c, f.err, "sub").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
 			})
-		} else {
-			f.told = ""
 		}
 	})
 	if form.Shortcut(0, ui.KeyEscape) {

@@ -171,7 +171,7 @@ func TestA11yPages(t *testing.T) {
 				return newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, setup: func(a *pageApple) { a.fail["/v1/catalog/gb/search"] = 400 }})
 			},
 			ready:   []string{"Couldn't search Apple Music", "Try again"},
-			present: []a11yNode{{ui.RoleStatus, "Couldn't search Apple Music"}, {ui.RoleButton, "Try again"}},
+			present: []a11yNode{{ui.RoleAlert, "Couldn't search Apple Music"}, {ui.RoleButton, "Try again"}},
 			tab:     []string{"Apple Music", "Library", "Try again"},
 		},
 		{
@@ -287,8 +287,8 @@ func TestA11yListsHoldOnlyItems(t *testing.T) {
 }
 
 // TestA11ySearchingIsAStatusAndResultsAreAnnounced: a page still reading
-// says so (v0.2.0's aria-busy "Searching"), keeps the last term's results
-// marked busy while the next load, and reads out what a search found once.
+// says so, keeps the last term's results on screen marked busy while the
+// next load, and reads out what a search found once.
 func TestA11ySearchingIsAStatusAndResultsAreAnnounced(t *testing.T) {
 	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true})
 	var heard []string
@@ -304,6 +304,9 @@ func TestA11ySearchingIsAStatusAndResultsAreAnnounced(t *testing.T) {
 	tr := access.Read(t, r.tt.Tester)
 	if _, ok := tr.Find(ui.RoleStatus, "Searching"); ok {
 		t.Errorf("the finished page is marked busy:\n%s", tr.Dump())
+	}
+	if busy := busyNodes(tr); len(busy) != 0 {
+		t.Errorf("the finished page has busy regions %v:\n%s", busy, tr.Dump())
 	}
 
 	// A new term: the old results stay, marked busy, until the new ones come.
@@ -321,6 +324,11 @@ func TestA11ySearchingIsAStatusAndResultsAreAnnounced(t *testing.T) {
 	}
 	if _, ok := tr.Find(ui.RoleHeading, "Top results"); !ok {
 		t.Errorf("the last results went away while loading:\n%s", tr.Dump())
+	}
+	if head, ok := tr.Find(ui.RoleHeading, "Top results"); ok {
+		if !slices.ContainsFunc(tr.Ancestors(head), func(a access.Node) bool { return a.Has(access.Busy) }) {
+			t.Errorf("the last results are not in a busy region:\n%s", tr.Dump())
+		}
 	}
 	if got := r.tt.Announcements(); len(got) != 0 {
 		t.Errorf("announced %q while loading", got)
@@ -512,4 +520,15 @@ func TestA11yFieldClearIsATabStopAfterTheField(t *testing.T) {
 	if r.s.field.text != "" || !r.tt.Focused("Search") {
 		t.Errorf("Clear left %q in the field, focus on Search: %v", r.s.field.text, r.tt.Focused("Search"))
 	}
+}
+
+// busyNodes are the nodes marked busy.
+func busyNodes(tr access.Tree) []access.Node {
+	var out []access.Node
+	for _, n := range tr.Nodes {
+		if n.Has(access.Busy) {
+			out = append(out, n)
+		}
+	}
+	return out
 }

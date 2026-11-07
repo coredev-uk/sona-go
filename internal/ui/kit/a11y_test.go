@@ -1,8 +1,10 @@
 package kit
 
 import (
+	"errors"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -449,5 +451,88 @@ func TestSelectOptionsAreOptionsOfAListBoxNamedByTheirSelect(t *testing.T) {
 	tt.Key(0, ui.KeyEscape)
 	if !tt.Focused("Plan") {
 		t.Errorf("focus did not return to the Plan select")
+	}
+}
+
+// A button with a Reason is disabled for assistive technology and still has
+// the focus and its place in the Tab order; it says why, and the caller is
+// the one that ignores the press.
+func TestButtonReasonIsDisabledButFocusableAndSaysWhy(t *testing.T) {
+	const reason = "Not available while listening to a live station"
+	withReason := true
+	tt := controlsTester(t, 400, 200, func(c *ui.Context) {
+		o := ButtonOpts{Variant: Outline, Size: SizeSM}
+		if withReason {
+			o.Reason = reason
+		}
+		Button(c.Key("next"), "Next", o)
+	})
+	tt.Frame()
+	tr := access.Read(t, tt)
+	n, ok := tr.Find(ui.RoleButton, "Next")
+	if !ok || !n.Has(access.Disabled|access.Focusable) || n.Can(access.Press) || n.Description != reason {
+		t.Errorf("a button with a reason: %+v", n)
+	}
+	if stops := stopLabels(access.TabWalk(t, tt, 4)); !slices.Equal(stops, []string{"Next"}) {
+		t.Errorf("Tab stops %q, want the button", stops)
+	}
+	withReason = false
+	tt.Frame()
+	n, _ = access.Read(t, tt).Find(ui.RoleButton, "Next")
+	if n.Has(access.Disabled) || !n.Can(access.Press) || n.Description != "" {
+		t.Errorf("a button with no reason: %+v", n)
+	}
+}
+
+// "Read more" says it controls the text it shows more of, and whether it is
+// open.
+func TestNotesToggleControlsItsText(t *testing.T) {
+	long := strings.Repeat("A sentence that goes on and on about nothing in particular. ", 12) + "\n\nSecond paragraph."
+	tt := controlsTester(t, 700, 600, func(c *ui.Context) { Notes(c, long, 0) })
+	tt.Advance(100 * time.Millisecond)
+	for _, open := range []bool{false, true} {
+		label := "Read more"
+		if open {
+			label = "Show less"
+		}
+		tr := access.Read(t, tt)
+		toggle, ok := tr.Find(ui.RoleButton, label)
+		if !ok {
+			t.Fatalf("no %q:\n%s", label, tr.Dump())
+		}
+		if toggle.Has(access.Expanded) != open {
+			t.Errorf("%q: expanded %v, want %v", label, toggle.Has(access.Expanded), open)
+		}
+		text := tr.ControlledBy(toggle)
+		if len(text) != 1 || len(tr.Children(text[0])) == 0 {
+			t.Fatalf("%q controls %v, want the one group holding the text:\n%s", label, text, tr.Dump())
+		}
+		if slices.ContainsFunc(tr.Ancestors(toggle), func(a access.Node) bool { return a.ID == text[0].ID }) {
+			t.Errorf("%q is inside what it controls", label)
+		}
+		if !open {
+			controlsClick(t, tt, "Read more")
+			tt.Advance(100 * time.Millisecond)
+		}
+	}
+}
+
+// An error block's message is an alert; its Try again button is beside it,
+// not read out with it.
+func TestErrorBlockMessageIsAnAlertWithoutItsButton(t *testing.T) {
+	tt := controlsTester(t, 600, 200, func(c *ui.Context) {
+		ErrorBlock(c, "Couldn't load this album", errors.New("boom"), ErrorBlockOpts{OnRetry: func() {}})
+	})
+	tt.Frame()
+	tr := access.Read(t, tt)
+	alert, ok := tr.Find(ui.RoleAlert, "Couldn't load this album")
+	if !ok {
+		t.Fatalf("no alert:\n%s", tr.Dump())
+	}
+	if retry, ok := tr.Find(ui.RoleButton, "Try again"); !ok || tr.Within(retry, ui.RoleAlert) {
+		t.Errorf("Try again %+v is missing or inside the alert %v", retry, alert)
+	}
+	if got := tt.Announcements(); len(got) != 0 {
+		t.Errorf("announced %q: an alert is read by MyGo", got)
 	}
 }

@@ -420,23 +420,14 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 	var row ui.Element
 	item.Children(func() {
 		sub := kit.ItemSubtitle(it)
-		desc := sub
-		if current {
-			// v0.2.0's aria-current: MyGo has no such state, so the lead's
-			// row says it in the description, ahead of the line under it.
-			desc = i18n.T("Current")
-			if sub != "" {
-				desc += ". " + sub
-			}
-		}
 		row = ui.ButtonBase(c.Key("row")).Grow(1).MinWidth(0).Height(lay.rowHeight).PaddingX(8).Gap(12).
 			AlignItems(ui.Center).Radius(tk.Radius["md"]).Label(name)
-		if desc != "" {
-			row.Description(desc)
+		if sub != "" {
+			row.Description(sub)
 		}
 		switch {
 		case current:
-			row.Background(theme.C("active"))
+			row.Background(theme.C("active")).Current(ui.CurrentItem)
 		case hovered:
 			row.Background(theme.C("hover"))
 		}

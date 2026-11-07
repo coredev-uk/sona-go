@@ -1839,22 +1839,8 @@ msgstr ""
 msgid "Curators"
 msgstr ""
 
-#: internal/ui/features/concerts/location.go
-#: internal/ui/features/discover/front.go
-#: internal/ui/features/player/lyrics_sheet.go
 #: internal/ui/features/playlist/dialogs.go
 msgid "Current"
-msgstr ""
-
-#. Read by screen readers after the name of the sidebar link of the page that is open (the equivalent of aria-current).
-#: internal/ui/app/view.go
-#: internal/ui/features/playlist/sidebar.go
-#: internal/ui/features/settings/page.go
-msgid "Current page"
-msgstr ""
-
-#: internal/ui/features/onboarding/progress.go
-msgid "Current step"
 msgstr ""
 
 #: internal/ui/app/menubar.go

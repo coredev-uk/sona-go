@@ -154,10 +154,10 @@ func TestControlsAreOnTheTree(t *testing.T) {
 	}
 }
 
-// TestKeyringRetryIsAriaDisabledWhileTrying: v0.2.0's aria-disabled. The
-// button stays enabled and focusable (the focus stays on it), ignores the
-// press and explains itself through its description.
-func TestKeyringRetryIsAriaDisabledWhileTrying(t *testing.T) {
+// TestKeyringRetryIsDisabledButFocusableWhileTrying: the button is disabled
+// for assistive technology but stays focusable (the focus stays on it),
+// ignores the press and explains itself through its description.
+func TestKeyringRetryIsDisabledButFocusableWhileTrying(t *testing.T) {
 	r := newRig(t, services.AuthStatus{State: "signed_out", Keyring: "unavailable"})
 	r.tt.Frame()
 	tr := access.Read(t, r.tt.Tester)
@@ -174,8 +174,8 @@ func TestKeyringRetryIsAriaDisabledWhileTrying(t *testing.T) {
 	if !ok {
 		t.Fatalf("no Trying… button:\n%s", tr.Dump())
 	}
-	if n.Has(access.Disabled) || !n.Has(access.Focusable) {
-		t.Errorf("Trying… must stay focusable and enabled: %v", n.States)
+	if !n.Has(access.Disabled) || !n.Has(access.Focusable) || n.Can(access.Press) {
+		t.Errorf("Trying… must be disabled, focusable and not pressable: %v", n.States)
 	}
 	if !strings.Contains(n.Description, "waiting for your keyring") {
 		t.Errorf("Trying… does not say why: %q", n.Description)
@@ -186,9 +186,9 @@ func TestKeyringRetryIsAriaDisabledWhileTrying(t *testing.T) {
 	access.NoNestedControls(t, r.tt.Tester)
 }
 
-// TestBusyStepsAreAnnounced: aria-busy has no MyGo equivalent, so a busy
-// step says what it is doing once, as it starts; and its failure is read
-// out by the notice.
+// TestBusyStepsAreAnnounced: a busy step marks its form busy, which screen
+// readers wait on, and says what it is doing once, as it starts; its failure
+// is an alert, read by MyGo and not announced as well.
 func TestBusyStepsAreAnnounced(t *testing.T) {
 	r := newRig(t, signedOut)
 	gate := make(chan struct{})
@@ -208,6 +208,8 @@ func TestBusyStepsAreAnnounced(t *testing.T) {
 	tr := access.Read(t, r.tt.Tester)
 	if n, ok := tr.Find(ui.RoleButton, "Signing in…"); !ok || !n.Has(access.Disabled) {
 		t.Errorf("the busy submit: %+v", n)
+	} else if !slices.ContainsFunc(tr.Ancestors(n), func(a access.Node) bool { return a.Has(access.Busy) }) {
+		t.Errorf("the busy submit is not inside a busy form:\n%s", tr.Dump())
 	}
 	r.tt.Frame()
 	if got := r.tt.Announcements(); slices.Contains(got, "Signing in…") {
@@ -215,12 +217,20 @@ func TestBusyStepsAreAnnounced(t *testing.T) {
 	}
 	close(gate)
 	r.tt.Until("error", r.tt.Shows("That Apple Account or password isn't right"))
-	if got := r.tt.Announcements(); !slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, "That Apple Account or password isn't right") }) {
-		t.Errorf("the failure was not announced: %q", got)
+	if got := r.tt.Announcements(); slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, "That Apple Account or password isn't right") }) {
+		t.Errorf("the failure was announced as well as being an alert: %q", got)
 	}
 	tr = access.Read(t, r.tt.Tester)
-	if _, ok := tr.Find(ui.RoleStatus, "That Apple Account or password isn't right Check the email or phone number and the password, then try again."); !ok {
-		t.Errorf("the error is not a status:\n%s", tr.Dump())
+	if _, ok := tr.Find(ui.RoleAlert, "That Apple Account or password isn't right"); !ok {
+		t.Fatalf("the error is not an alert:\n%s", tr.Dump())
+	}
+	if why, ok := tr.Find(ui.RoleText, "Check the email or phone number and the password, then try again."); !ok || !tr.Within(why, ui.RoleAlert) {
+		t.Errorf("the alert does not carry the reason:\n%s", tr.Dump())
+	}
+	for _, n := range tr.Nodes {
+		if n.Has(access.Busy) {
+			t.Errorf("%v is still busy after the sign-in failed", n)
+		}
 	}
 }
 
@@ -239,6 +249,9 @@ func TestTokenCheckIsAnnounced(t *testing.T) {
 	if got := r.tt.Announcements(); !slices.Contains(got, "Checking…") {
 		t.Errorf("the token check was not announced: %q", got)
 	}
+	if !slices.ContainsFunc(access.Read(t, r.tt.Tester).Nodes, func(n access.Node) bool { return n.Has(access.Busy) }) {
+		t.Error("the token form is not busy while it is checked")
+	}
 	close(gate)
 }
 
@@ -255,14 +268,15 @@ func TestDoneStepIsAStatus(t *testing.T) {
 	}
 }
 
-// TestLoadingPlaceholderIsABusyStatus is aria-busy of the 12rem placeholder.
+// TestLoadingPlaceholderIsABusyStatus: the 12rem placeholder is a busy
+// status read as "Loading".
 func TestLoadingPlaceholderIsABusyStatus(t *testing.T) {
 	gate := make(chan struct{})
 	r := buildRig(t, rigOpts{gate: gate, fetch: signedOut})
 	r.tt.Frame()
 	tr := access.Read(t, r.tt.Tester)
-	if _, ok := tr.Find(ui.RoleStatus, "Loading"); !ok {
-		t.Errorf("no Loading status:\n%s", tr.Dump())
+	if n, ok := tr.Find(ui.RoleStatus, "Loading"); !ok || !n.Has(access.Busy) {
+		t.Errorf("no busy Loading status: %+v\n%s", n, tr.Dump())
 	}
 	close(gate)
 }

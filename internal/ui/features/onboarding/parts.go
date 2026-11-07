@@ -135,10 +135,10 @@ func well(c *ui.Context) ui.Element {
 }
 
 // loading is a step's loading state: a surface block at about the height of
-// what will land (aria-busy).
+// what will land, a busy status read as "Loading".
 func loading(c *ui.Context, height float32) ui.Element {
 	return ui.Box(c.Key("loading")).FillWidth().Height(height).Radius(theme.Current().Radius["md"]).
-		Background(theme.C("surface")).Role(ui.RoleStatus).Label(i18n.T("Loading"))
+		Background(theme.C("surface")).Role(ui.RoleStatus).Busy(true).Label(i18n.T("Loading"))
 }
 
 // statusIcon is a small coloured icon beside text in a status line.

@@ -57,7 +57,7 @@ func (s *Section) tokenPaste(c *ui.Context, f *flow) {
 		c.Announce(i18n.T("Checking…"))
 	}
 	f.tokenAnnounced = f.tokenBusy
-	ui.Column(c).FillWidth().Gap(12).Children(func() {
+	ui.Column(c).FillWidth().Gap(12).Busy(f.tokenBusy).Children(func() {
 		field(c.Key("field"), i18n.T("Music User Token"), i18n.T("The token from a signed-in Apple Music web session. Sona checks it with Apple and keeps it in your keyring."), func() {
 			t := theme.Current().Type["secondary"]
 			in := ui.TextAreaBase(c.Key("mut"), &f.token)
@@ -65,12 +65,7 @@ func (s *Section) tokenPaste(c *ui.Context, f *flow) {
 			fieldFace(in)
 		})
 		if f.tokenError != "" {
-			row := ui.Row(c.Key("error")).FillWidth().AlignItems(ui.Start).Gap(8).Role(ui.RoleStatus)
-			if last := ui.Local(row, "announced", func() string { return "" }); *last != f.tokenError {
-				*last = f.tokenError
-				c.Announce(f.tokenError)
-			}
-			row.Children(func() {
+			ui.Row(c.Key("error")).FillWidth().AlignItems(ui.Start).Gap(8).Role(ui.RoleAlert).Children(func() {
 				ui.Icon(c, theme.Icon("circle-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
 				text(c, f.tokenError, "secondary", "ink").Grow(1).MinWidth(0)
 			})

@@ -232,11 +232,11 @@ func TestA11yRadioLoadingFramesAreStatusesAndFailuresAreAnnouncedOnce(t *testing
 
 	bad := newRig(t, radioPath, 1132, 1253, fake(func(f *fakeRadio) { f.liveErr, f.groupingErr = errors.New("offline"), errors.New("offline") }))
 	bad.tt.Until("the block", bad.tt.Shows("Couldn't load Apple Music's radio", "Try again"))
-	if _, ok := access.Read(t, bad.tt.Tester).Find(ui.RoleStatus, "Couldn't load Apple Music's radio"); !ok {
-		t.Error("the failure is not a status")
+	if _, ok := access.Read(t, bad.tt.Tester).Find(ui.RoleAlert, "Couldn't load Apple Music's radio"); !ok {
+		t.Error("the failure is not an alert")
 	}
-	if said := bad.tt.Announcements(); !slices.ContainsFunc(said, func(s string) bool { return strings.HasPrefix(s, "Couldn't load Apple Music's radio") }) {
-		t.Errorf("the failure was announced as %q", said)
+	if said := bad.tt.Announcements(); slices.ContainsFunc(said, func(s string) bool { return strings.HasPrefix(s, "Couldn't load Apple Music's radio") }) {
+		t.Errorf("the failure was announced as well as being an alert: %q", said)
 	}
 	for range 3 {
 		bad.tt.Drain()
@@ -364,8 +364,11 @@ func TestA11yStationLoadingIsAStatusAndFailuresAreSaidWithTheirReason(t *testing
 
 	bad := stationRig(t, services.StationDetail{Station: liveStation("ra.1", "Apple Music 1")}, fake(func(f *fakeRadio) { f.detailErr = errors.New("offline") }))
 	bad.tt.Until("the error", bad.tt.Shows("Couldn't load this station", "Try again"))
-	if said := bad.tt.Announcements(); !slices.ContainsFunc(said, func(s string) bool { return strings.HasPrefix(s, "Couldn't load this station") }) {
-		t.Errorf("the failure was announced as %q", said)
+	if _, ok := access.Read(t, bad.tt.Tester).Find(ui.RoleAlert, "Couldn't load this station"); !ok {
+		t.Error("the failure is not an alert")
+	}
+	if said := bad.tt.Announcements(); slices.ContainsFunc(said, func(s string) bool { return strings.HasPrefix(s, "Couldn't load this station") }) {
+		t.Errorf("the failure was announced as well as being an alert: %q", said)
 	}
 
 	// A play that fails is a toast, which says so once.

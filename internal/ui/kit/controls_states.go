@@ -99,20 +99,16 @@ type ErrorBlockOpts struct {
 // ErrorBlock is an error inside the block that failed: a dashed box with a
 // danger CircleAlert, what failed in the product's words (title), Go's
 // reason worded from err's code, and a Try again button. --danger only on
-// the icon. Assistive technology hears it once, when it appears.
+// the icon. The title and the reason are an alert: assistive technology
+// reads them out when the block appears, and again if they change.
 // (shared/components/ErrorBlock.tsx)
 func ErrorBlock(c *ui.Context, title string, err error, o ErrorBlockOpts) ui.Element {
 	detail := errorDetail(err)
 	e := ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(12).Padding(16, 20).Radius(controlsRadius("lg")).
-		Border(1, theme.C("control-line")).BorderStyle(ui.BorderDashed).Role(ui.RoleStatus).Label(title)
-	announced := ui.Local(e, "announced", func() bool { return false })
-	if !*announced {
-		*announced = true
-		c.Announce(title + " " + detail)
-	}
+		Border(1, theme.C("control-line")).BorderStyle(ui.BorderDashed)
 	e.Children(func() {
 		ui.Icon(c, theme.Icon("circle-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
-		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
+		ui.Column(c).Grow(1).MinWidth(0).Role(ui.RoleAlert).Label(title).Children(func() {
 			controlsText(c, title, "label").TextColor(theme.C("ink"))
 			if detail != "" {
 				controlsText(c, detail, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
@@ -414,25 +410,28 @@ func Notes(c *ui.Context, text string, lines int) ui.Element {
 	overflows := total > lines
 	e.Children(func() {
 		left := lines
-		for i, p := range paras {
-			if !*open && left <= 0 {
-				break
+		body := ui.Column(c.Key("text")).Role(ui.RoleGroup) // a group: the toggle points at it
+		body.Children(func() {
+			for i, p := range paras {
+				if !*open && left <= 0 {
+					break
+				}
+				t := controlsText(c.Key(i), p, "body").TextColor(theme.C("ink"))
+				if i > 0 {
+					t.Margin(12, 0, 0, 0)
+				}
+				if !*open {
+					t.MaxLines(min(counts[i], left))
+					left -= counts[i]
+				}
 			}
-			t := controlsText(c.Key(i), p, "body").TextColor(theme.C("ink"))
-			if i > 0 {
-				t.Margin(12, 0, 0, 0)
-			}
-			if !*open {
-				t.MaxLines(min(counts[i], left))
-				left -= counts[i]
-			}
-		}
+		})
 		if overflows || *open {
 			label := i18n.T("Read more")
 			if *open {
 				label = i18n.T("Show less")
 			}
-			toggle := ui.ButtonBase(c.Key("toggle")).AlignSelf(ui.Start).Margin(6, 0, 0, 0).Height(20).Radius(controlsRadius("sm")).Expanded(*open).Label(label)
+			toggle := ui.ButtonBase(c.Key("toggle")).AlignSelf(ui.Start).Margin(6, 0, 0, 0).Height(20).Radius(controlsRadius("sm")).Expanded(*open).Controls(body).Label(label)
 			toggle.Children(func() {
 				t := controlsText(c, label, "secondary").FontWeight(500).TextColor(theme.C("ink-muted")).SingleLine()
 				if toggle.Hovered() {

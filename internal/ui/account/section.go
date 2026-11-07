@@ -240,14 +240,15 @@ func (s *Section) signInFlow(c *ui.Context, st services.AuthStatus, hosted bool)
 		f.enter(viewCredentials)
 	}
 
-	// A busy step is what aria-busy was: the button's label says so, and
-	// MyGo has no busy state, so say it once as it starts.
+	// A busy step marks its form Busy, whose changes screen readers wait to
+	// read, the button's new label among them: say what it is doing once, as
+	// it starts.
 	if step.Busy && !f.busyAnnounced {
 		c.Announce(busyText(step))
 	}
 	f.busyAnnounced = step.Busy
 
-	ui.Column(c).FillWidth().Children(func() {
+	ui.Column(c).FillWidth().Busy(step.Busy).Children(func() {
 		switch f.view {
 		case viewBrowser:
 			s.browserWaiting(c.Key("browser"), st)
@@ -316,9 +317,12 @@ func (s *Section) browser(f *flow) {
 // button for the next step. onBrowser is nil where the browser is no step.
 func (s *Section) errorNotice(c *ui.Context, e SignInError, onBrowser func()) {
 	cp := errorCopy(e, s.d.OS)
-	notice(c, noticeOpts{Icon: "circle-alert", IconColor: "danger", Problem: true, Announce: cp.Title + " " + cp.Detail}, func() {
-		noticeTitle(c, cp.Title)
-		noticeDetail(c, cp.Detail)
+	notice(c, noticeOpts{Icon: "circle-alert", IconColor: "danger", Problem: true}, func() {
+		// The words are the alert, read as it appears; the buttons are not.
+		ui.Column(c.Key("alert")).Role(ui.RoleAlert).Label(cp.Title).Children(func() {
+			noticeTitle(c, cp.Title)
+			noticeDetail(c, cp.Detail)
+		})
 		if e.Code == services.CodeLocked {
 			if kit.Button(c.Key("iforgot"), i18n.T("Unlock at iforgot.apple.com"), kit.ButtonOpts{Variant: kit.Link, Size: kit.SizeXS}).Clicked() {
 				s.open("https://iforgot.apple.com")

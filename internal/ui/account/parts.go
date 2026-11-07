@@ -32,15 +32,12 @@ type noticeOpts struct {
 	Problem bool
 	// Spin shows a spinner in place of the icon.
 	Spin bool
-	// Announce, when set, is read out once as the notice appears: React's
-	// role=alert, for a problem the user's last action caused. A notice
-	// that does not announce is a plain status: a problem shown on arrival
-	// or a neutral note.
-	Announce string
 }
 
 // notice is Account.tsx's Notice: an icon, the text body and an optional
-// action at the end.
+// action at the end. It is a plain status: a problem shown on arrival or a
+// neutral note. A problem the user's last action caused puts its words in
+// an alert (errorNotice).
 func notice(c *ui.Context, o noticeOpts, body func(), action func()) {
 	e := ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(12).Padding(12, 16).
 		Radius(theme.Current().Radius["lg"]).Role(ui.RoleStatus)
@@ -48,13 +45,6 @@ func notice(c *ui.Context, o noticeOpts, body func(), action func()) {
 		e.Background(theme.C("raised")).Border(1, theme.C("control-line"))
 	} else {
 		e.Background(theme.C("hover"))
-	}
-	if o.Announce != "" {
-		announced := ui.Local(e, "announced", func() bool { return false })
-		if !*announced {
-			*announced = true
-			c.Announce(o.Announce)
-		}
 	}
 	e.Children(func() {
 		if o.Spin {
@@ -79,8 +69,9 @@ func noticeDetail(c *ui.Context, s string) ui.Element {
 	return text(c, s, "secondary", "ink-muted").Margin(2, 0, 0, 0)
 }
 
-// placeholder is the 12rem busy surface shown while the status is unknown.
+// placeholder is the 12rem busy surface shown while the status is unknown: a
+// busy status labelled label.
 func placeholder(c *ui.Context, label string) ui.Element {
 	return ui.Box(c).FillWidth().Height(192).Radius(theme.Current().Radius["lg"]).
-		Background(theme.C("surface")).Role(ui.RoleStatus).Label(label)
+		Background(theme.C("surface")).Role(ui.RoleStatus).Busy(true).Label(label)
 }

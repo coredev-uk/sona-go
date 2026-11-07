@@ -219,8 +219,7 @@ type outcome struct {
 }
 
 // announce reads out what a search found, once, when its results arrive
-// (what v0.2.0's aria-busy left to the reader). The text is made only when
-// it is said.
+// (the results are Busy until then). The text is made only when it is said.
 func (v *searchView) announce(c *ui.Context, o outcome, text func() string) {
 	if v.announced == o {
 		return
@@ -234,8 +233,8 @@ func resultsFor(q string) func() string {
 	return func() string { return i18n.T("Results for “{q}”", "q", q) }
 }
 
-// searching is the busy mark of a page whose next results are loading while
-// the last ones stay on screen: a status of no size, read as "Searching".
+// searching says the page's next results are loading while the last ones stay
+// on screen: a status of no size, read as "Searching" (the results are Busy).
 func searching(c *ui.Context) {
 	ui.Box(c.Key("searching")).Size(0, 0).Role(ui.RoleStatus).Label(i18n.T("Searching"))
 }
@@ -375,9 +374,11 @@ func (s *search) catalogResults(c *ui.Context, pane *kit.Pane, q string) {
 	}
 	ctx := s.env.ItemsCtx(s.itemMenus(&v.menus, nil))
 	ctx.OnOpen = s.opened(q, scopeCatalog)
-	for i, sec := range data.Sections {
-		s.catalogSection(c, pane, ctx, q, sec, i == 0)
-	}
+	ui.Column(c.Key("results")).FillWidth().Busy(!res.HasData).Children(func() {
+		for i, sec := range data.Sections {
+			s.catalogSection(c, pane, ctx, q, sec, i == 0)
+		}
+	})
 }
 
 // catalogSection is v0.2.0's CatalogSection: the Top results as rows, Songs
@@ -483,6 +484,15 @@ func (s *search) libraryResults(c *ui.Context, pane *kit.Pane, q string) {
 	artists, albums, playlists, _ := libraryCards(r)
 	ctx := s.env.ItemsCtx(s.itemMenus(&v.libMenus, nil))
 	ctx.OnOpen = s.opened(q, scopeLibrary)
+	ui.Column(c.Key("results")).FillWidth().Busy(!res.HasData).Children(func() {
+		s.libraryShelves(c, pane, ctx, q, r, artists, albums, playlists)
+	})
+}
+
+// libraryShelves are the library results' shelves: songs, then the artists,
+// albums and playlists that were found.
+func (s *search) libraryShelves(c *ui.Context, pane *kit.Pane, ctx kit.ItemsCtx, q string, r services.LibrarySearch, artists, albums, playlists []services.Item) {
+	v := &s.pages.search
 	first := true
 	if len(r.Songs) > 0 {
 		shown := r.Songs

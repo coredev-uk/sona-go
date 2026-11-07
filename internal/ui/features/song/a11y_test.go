@@ -132,8 +132,8 @@ func TestA11yLyricsStates(t *testing.T) {
 		r.click("View full lyrics")
 		r.tt.Until("the failure", r.tt.Shows("Couldn't load the lyrics", "Try again"))
 		tr := r.walk("Try again")
-		if _, ok := tr.Find(ui.RoleStatus, "Couldn't load the lyrics"); !ok {
-			t.Errorf("the failure is not a status:\n%s", tr.Dump())
+		if _, ok := tr.Find(ui.RoleAlert, "Couldn't load the lyrics"); !ok {
+			t.Errorf("the failure is not an alert:\n%s", tr.Dump())
 		}
 	})
 }
@@ -202,8 +202,8 @@ func TestA11yLoadingAndErrorStates(t *testing.T) {
 		r := newRigWith(t, 1132, 1000, func(r *rig) { r.catalog.set(errors.New("boom")) }, airbag())
 		r.tt.Until("the failure", r.tt.Shows("Couldn't load this song", "Try again"))
 		tr := r.walk("Try again")
-		if _, ok := tr.Find(ui.RoleStatus, "Couldn't load this song"); !ok {
-			t.Errorf("the failure is not a status:\n%s", tr.Dump())
+		if _, ok := tr.Find(ui.RoleAlert, "Couldn't load this song"); !ok {
+			t.Errorf("the failure is not an alert:\n%s", tr.Dump())
 		}
 	})
 }

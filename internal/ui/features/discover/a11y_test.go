@@ -10,7 +10,6 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/services"
-	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
@@ -136,19 +135,20 @@ func TestA11yFrontKeepsThePlayAndMoreButtonsBesideTheLeadAndEveryRow(t *testing.
 	if len(items) == 0 {
 		t.Fatal("the list is empty")
 	}
-	current := func(it access.Node) string {
+	// choose is the button of a row that chooses it.
+	choose := func(it access.Node) access.Node {
 		for _, n := range tr.Children(it) {
 			if n.Role == ui.RoleButton && !strings.HasPrefix(n.Label, "Play ") {
-				return n.Description
+				return n
 			}
 		}
-		return ""
+		return access.Node{}
 	}
-	if d := current(items[0]); !strings.HasPrefix(d, i18n.T("Current")) || !strings.Contains(d, "Curator 1") {
-		t.Errorf("the lead's row says %q, want its line and %q", d, i18n.T("Current"))
+	if n := choose(items[0]); n.Current != ui.CurrentItem || n.Description != "Curator 1" {
+		t.Errorf("the lead's row is %+v, want the current item with its line as its description", n)
 	}
-	if d := current(items[1]); strings.Contains(d, i18n.T("Current")) || !strings.Contains(d, "Curator 2") {
-		t.Errorf("another row says %q", d)
+	if n := choose(items[1]); n.Current != ui.CurrentNone || n.Description != "Curator 2" {
+		t.Errorf("another row is %+v", n)
 	}
 	// Choosing a row moves the mark, and the row keeps its name.
 	x, y := r.rowCentre(2)
@@ -157,11 +157,11 @@ func TestA11yFrontKeepsThePlayAndMoreButtonsBesideTheLeadAndEveryRow(t *testing.
 	tr = access.Read(t, r.tt.Tester)
 	list, _ = tr.Find(ui.RoleList, "Featured")
 	items = listItems(t, tr, list)
-	if d := current(items[2]); !strings.Contains(d, i18n.T("Current")) {
-		t.Errorf("the chosen row says %q", d)
+	if n := choose(items[2]); n.Current != ui.CurrentItem {
+		t.Errorf("the chosen row is %+v", n)
 	}
-	if d := current(items[0]); strings.Contains(d, i18n.T("Current")) {
-		t.Errorf("the old lead's row still says %q", d)
+	if n := choose(items[0]); n.Current != ui.CurrentNone {
+		t.Errorf("the old lead's row is still %+v", n)
 	}
 	if _, ok := tr.Find(ui.RoleLink, "List 3"); !ok {
 		t.Error("the lead did not become List 3")
@@ -427,11 +427,11 @@ func TestA11yLoadingIsAStatusAndAFailureIsAnnouncedWithTheWayToTryAgain(t *testi
 			rr := newRig(t, path, withAPI(bad))
 			rr.tt.Until("the error", rr.tt.Shows(title, "Try again"))
 			tr := access.Read(t, rr.tt.Tester)
-			if _, ok := tr.Find(ui.RoleStatus, title); !ok {
-				t.Errorf("the failure is not a status named %q:\n%s", title, tr.Dump())
+			if _, ok := tr.Find(ui.RoleAlert, title); !ok {
+				t.Errorf("the failure is not an alert named %q:\n%s", title, tr.Dump())
 			}
-			if said := rr.tt.Announcements(); !slices.ContainsFunc(said, func(s string) bool { return strings.HasPrefix(s, title) }) {
-				t.Errorf("the failure was announced as %q", said)
+			if said := rr.tt.Announcements(); slices.ContainsFunc(said, func(s string) bool { return strings.HasPrefix(s, title) }) {
+				t.Errorf("the failure was announced as well as being an alert: %q", said)
 			}
 			for range 3 {
 				rr.tt.Drain()

@@ -124,8 +124,8 @@ func (p *player) queueRow(c *ui.Context, st *queueList, r queueRowIn) {
 			if !r.current {
 				s.Description(rowHelp(r.inView, it.Auto))
 			} else {
-				// aria-current: the song playing is the list's chosen one.
-				s.Selected(true).Background(ui.Transparent)
+				// The song playing is the list's current item.
+				s.Current(ui.CurrentItem).Background(ui.Transparent)
 			}
 			if r.tab {
 				s.Focusable()

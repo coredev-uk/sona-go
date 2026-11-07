@@ -203,14 +203,13 @@ func (s *settings) listenBrainzRow(c *ui.Context, st *scrobbleUI, acct config.Sc
 	}
 }
 
-// unencryptedNote warns that no keyring holds the scrobbler sign-ins.
+// unencryptedNote warns that no keyring holds the scrobbler sign-ins: an
+// alert, read as it appears.
 func (s *settings) unencryptedNote(c *ui.Context) {
 	c = c.Key("unencrypted")
 	msg := i18n.T("Your scrobbler sign-ins are stored unencrypted")
-	row := ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Start).Padding(12, 16).Radius(theme.Current().Radius["lg"]).
-		Background(theme.C("raised")).Border(1, theme.C("control-line")).Role(ui.RoleStatus).Label(msg)
-	announceOnce(c, row, msg)
-	row.Children(func() {
+	ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Start).Padding(12, 16).Radius(theme.Current().Radius["lg"]).
+		Background(theme.C("raised")).Border(1, theme.C("control-line")).Role(ui.RoleAlert).Label(msg).Children(func() {
 		ui.Icon(c.Key("i"), theme.Icon("shield-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
 		ui.Column(c.Key("t")).Shrink(1).MinWidth(0).Children(func() {
 			text(c, i18n.T("Your scrobbler sign-ins are stored unencrypted"), "label").TextColor(theme.C("ink"))

@@ -83,6 +83,13 @@ type Node struct {
 	Actions                   Action
 	Level, PosInSet, SetSize  int
 	Min, Max, Now             float64
+	// Current is the kind of current item the node is (aria-current),
+	// ui.CurrentNone for none; HasPopup the kind of popup it opens
+	// (aria-haspopup), ui.PopupNone for none.
+	Current  ui.Current
+	HasPopup ui.Popup
+	// Controls are the IDs of the nodes it controls (aria-controls).
+	Controls []uint64
 }
 
 // Has reports whether every state in s is set.
@@ -166,6 +173,12 @@ func readTree(tt *ui.Tester) (Tree, error) {
 			Min:         v.FieldByName("Min").Float(),
 			Max:         v.FieldByName("Max").Float(),
 			Now:         v.FieldByName("Now").Float(),
+			Current:     ui.Current(v.FieldByName("Current").Uint()),
+			HasPopup:    ui.Popup(v.FieldByName("HasPopup").Uint()),
+		}
+		ctl := v.FieldByName("Controls")
+		for j := range ctl.Len() {
+			n.Controls = append(n.Controls, ctl.Index(j).Uint())
 		}
 		out.Nodes = append(out.Nodes, n)
 	}
@@ -235,6 +248,20 @@ func (tr Tree) Labelled(role ui.Role, prefix string) []Node {
 	for _, n := range tr.Nodes {
 		if n.Role == role && strings.HasPrefix(n.Label, prefix) {
 			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// ControlledBy are the nodes n controls (aria-controls), in its order.
+func (tr Tree) ControlledBy(n Node) []Node {
+	var out []Node
+	for _, id := range n.Controls {
+		for _, m := range tr.Nodes {
+			if m.ID == id {
+				out = append(out, m)
+				break
+			}
 		}
 	}
 	return out

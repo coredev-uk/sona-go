@@ -100,9 +100,10 @@ const (
 // its neighbours. On: the glyph and "Private" in ink on the selected-control
 // tone (never amber, which means "playing"), so it reads at a glance; the word
 // drops below 1100 DIPs and the development-build note below 1280, where the
-// tone alone carries the state. Forced on by SONA_PRIVATE=1 it stays
-// focusable (clicks do nothing) so its tooltip can say why, and while Go has
-// not answered it is dimmed.
+// tone alone carries the state. Forced on by SONA_PRIVATE=1 it is unavailable
+// to assistive technology (AccessDisabled) but stays focusable (clicks do
+// nothing) so its tooltip can say why, and while Go has not answered it is
+// dimmed.
 func (p *private) pill(c *ui.Context) {
 	r := store.UsePrivate(p.env.Queries, p.env.Core)
 	st, known := r.Data, r.HasData
@@ -153,6 +154,7 @@ func (p *private) pill(c *ui.Context) {
 	if !known {
 		e.Opacity(0.4)
 	}
+	e.AccessDisabled(forced)
 	if !theme.ReducedMotion() {
 		m := theme.Current().Motion["feedback"]
 		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
