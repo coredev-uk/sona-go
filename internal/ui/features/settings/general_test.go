@@ -3,6 +3,7 @@ package settings
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"testing"
@@ -721,4 +722,57 @@ func TestARowsButtonKeepsItsOwnName(t *testing.T) {
 	if f := access.Read(t, g.tt.Tester).Focus; f == nil || f.Label != "Reset size" {
 		t.Errorf("after clicking the title of Window size the focus is %v, want its button", f)
 	}
+}
+
+// While an update downloads, its progress bar stays inside the text column
+// (never wider than 280 and never under a button), and View release waits
+// for the download to end.
+func TestUpdateDownloadBarFitsBesideItsActions(t *testing.T) {
+	installing := services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.1.0", Available: true, SelfUpdate: true, Installing: true, Downloaded: 1, Total: 4}
+	for _, width := range []int{1132, 640, 520} {
+		t.Run(fmt.Sprint(width), func(t *testing.T) {
+			g := newGeneralRig(t, linuxCaps(), nil)
+			g.tt.SetSize(width, 800)
+			store.Set(g.h.Env.Queries, store.KeyUpdates, installing)
+			g.until("downloading", g.tt.Shows("Downloading…"))
+			g.toEnd()
+			g.tt.Drain()
+			bar, ok := g.tt.AccessByRole(ui.RoleProgress, "Update download")
+			if !ok {
+				t.Fatalf("no download bar among %q", g.tt.Texts())
+			}
+			if bar.Bounds.W > 280 {
+				t.Errorf("the bar is %v wide, want at most 280", bar.Bounds.W)
+			}
+			buttons := 0
+			for _, name := range []string{"Downloading…", "Check now"} {
+				b, ok := g.tt.AccessByRole(ui.RoleButton, name)
+				if !ok {
+					t.Errorf("no %q button", name)
+					continue
+				}
+				buttons++
+				if bar.Bounds.X < b.Bounds.X+b.Bounds.W && b.Bounds.X < bar.Bounds.X+bar.Bounds.W &&
+					bar.Bounds.Y < b.Bounds.Y+b.Bounds.H && b.Bounds.Y < bar.Bounds.Y+bar.Bounds.H {
+					t.Errorf("the bar %+v runs under %q %+v", bar.Bounds, name, b.Bounds)
+				}
+			}
+			if g.tt.HasText("View release") {
+				t.Error("View release shows while downloading")
+			}
+		})
+	}
+}
+
+func TestViewReleaseComesBackWhenTheDownloadEnds(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), nil)
+	st := services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.1.0", Available: true, SelfUpdate: true}
+	store.Set(g.h.Env.Queries, store.KeyUpdates, st)
+	g.until("release", g.tt.Shows("View release"))
+	st.Installing, st.Downloaded, st.Total = true, 1, 4
+	store.Set(g.h.Env.Queries, store.KeyUpdates, st)
+	g.until("no release while installing", func() bool { return !g.tt.HasText("View release") && g.tt.HasText("Downloading…") })
+	st.Installing, st.InstallError = false, services.CodeUpdateSignature
+	store.Set(g.h.Env.Queries, store.KeyUpdates, st)
+	g.until("release again", g.tt.Shows("View release"))
 }
