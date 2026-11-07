@@ -19,12 +19,8 @@
 #             attests it, uploads and publishes, as the bot-cecil GitHub App
 #
 # The notes in a tag's draft are release-please's changelog entry; publishing
-# keeps them and appends .github/release-notes/install.md. A prerelease has no
-# release-please draft: publish makes it with a test-build line and the
-# changes since the previous v* tag (cmd/rcnotes, from the first-parent
-# commit subjects), which the update manifests carry as their notes too. The
-# version in the binaries and in the file names is VERSION's, and the tag must
-# equal it.
+# keeps them and appends .github/release-notes/install.md. The version in the
+# binaries and in the file names is VERSION's, and the tag must equal it.
 #
 # Dispatching it (Actions → Release → Run workflow):
 #   - with `prerelease` empty is the dry run: it builds and smoke-tests every
@@ -504,12 +500,9 @@ jobs:
       TAG: ${{ needs.plan.outputs.tag }}
       PRERELEASE: ${{ needs.plan.outputs.prerelease }}
     steps:
-      # The whole history and its tags: a prerelease's notes list the commits
-      # since the previous tag (cmd/rcnotes).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag }}
-          fetch-depth: 0
           persist-credentials: false
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -540,10 +533,7 @@ jobs:
           rm SHA256SUMS
 
       # A tag's draft was made by release-please. A prerelease has none: this
-      # makes it (a draft, so nothing is visible before the upload is whole),
-      # its notes the test-build line and the changes since the previous tag
-      # (v* tag in this commit's history, never TAG itself) from cmd/rcnotes.
-      # That body is also what the update manifests carry as their notes.
+      # makes it (a draft, so nothing is visible before the upload is whole).
       - name: Find or create the draft release
         id: notes
         env:
@@ -551,13 +541,9 @@ jobs:
         run: |
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             test "$PRERELEASE" = true || { echo "::error::no draft release for $TAG"; exit 1; }
-            go run ./cmd/rcnotes -exclude "$TAG" -out rc-changes.md
-            {
-              echo "Test build $VERSION from $GITHUB_SHA. Not for general use: it only updates to later test builds, with Settings → Updates → Test versions on."
-              if [ -s rc-changes.md ]; then echo; cat rc-changes.md; fi
-            } >prerelease-notes.md
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --prerelease --target "$GITHUB_SHA" \
-              --title "Sona $VERSION" --notes-file prerelease-notes.md
+              --title "Sona $VERSION" \
+              --notes "Test build $VERSION from $GITHUB_SHA. Not for general use: it only updates to later test builds, with Settings → Updates → Test versions on."
           fi
           draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
           echo "draft=$draft" >>"$GITHUB_OUTPUT"

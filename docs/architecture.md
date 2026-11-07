@@ -176,7 +176,6 @@ cmd/
   playspike/                 DRM path regression check (licence, full track, seek, gap, crash, PSS, probes)
   authspike/                 native (-native) or loopback sign-in + MUT validation
   cdmfetch/                  downloads and verifies the CDM by hand
-  rcnotes/                   a prerelease's changelog: the changes since the previous tag, from the commit subjects
   typecheck/                 cross-platform type-check (darwin from Linux)
   pathcase/                  fails on tracked paths that differ only by case
   i18ntool/                  extracts the catalogue; maps Sona's messages to Apple's string keys; converts Apple's translations for review

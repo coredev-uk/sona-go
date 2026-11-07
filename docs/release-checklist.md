@@ -163,22 +163,6 @@ and Windows development builds in ci.yml never hold a release up), then the
 - **Release notes:** a release's draft holds release-please's changelog entry;
   `publish` appends `.github/release-notes/install.md` (first-run steps for
   macOS and Windows, verifying downloads).
-- **Prerelease notes:** a prerelease has no release-please draft, so `publish`
-  writes its notes: the "Test build" line, then `go run ./cmd/rcnotes`'s list of
-  the changes since the previous prerelease or release. The previous tag is
-  the nearest `v*` tag in the built commit's history (fewest first-parent
-  commits away, never the tag being built), so a nightly lists what landed on
-  main since the last nightly, and an rc dispatched from a branch lists what
-  that branch added since the last rc or release in its history. The list
-  comes from the squash merges' PR titles: features, fixes, performance
-  changes, reverts and breaking changes (`type!:`) are listed with their
-  `(#N)`, which GitHub links; docs, CI, tests, build, refactor, chore and
-  style commits are one count line, since a tester sees none of them; at
-  most 30 entries are listed. The first prerelease of a version lists every
-  change since the previous release, and one built on a commit that already
-  has a tag says "No changes". The same text is the update manifests' notes.
-  Preview it with `go run ./cmd/rcnotes -exclude v<VERSION>-rc.<N>` (it reads
-  git only; `-since <tag>` and `-ref <commit>` pick the range).
 - **Dry run and prereleases:** dispatch `release.yml` (`gh workflow run
   release.yml --ref <branch>`). With `prerelease` empty it builds and
   smoke-tests all three platforms and publishes nothing (the files are the
