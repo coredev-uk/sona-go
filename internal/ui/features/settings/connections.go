@@ -90,7 +90,7 @@ func (s *settings) providerRow(c *ui.Context, st *scrobbleUI, p provider, acct c
 	}
 	busy := st.removing == p
 	s.tell(c, id, desc) // the account line is a polite live region
-	s.row(c, rowOpts{ID: id, Title: name, Desc: desc}, func() ui.Element {
+	s.row(c, rowOpts{ID: id, Title: name, Desc: desc, Labels: ss.Connected && !ss.NeedsReconnect}, func() ui.Element {
 		var first ui.Element
 		if ss.Connected {
 			if ss.NeedsReconnect {
