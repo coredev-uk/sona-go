@@ -56,7 +56,7 @@ func TestLinkHandlerRowSaysWhenTheSystemKeepsItsChoice(t *testing.T) {
 	g.dt.mu.Lock()
 	g.dt.keeps = true
 	g.dt.mu.Unlock()
-	g.until("the button", g.tt.Shows("Make Sona the default"))
+	g.until("who opens them", g.tt.Shows("They open in Music now.", "Make Sona the default"))
 	g.click("Make Sona the default")
 	g.until("the toast", g.tt.Shows("Sona isn't the default yet", "Your system kept Music."))
 	if !g.tt.HasText("Make Sona the default") || g.tt.HasText("Sona opens them") {
