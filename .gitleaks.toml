@@ -59,6 +59,17 @@ entropy = 5
     description = "synthetic SRP vectors for example.com accounts"
     paths = ['''(?:^|/)internal/auth/appleid/testdata/srp_vectors\.json$''']
 
+    # Renovate ends each pull request body with `<!--renovate-debug:…-->`:
+    # base64 of its own JSON ({"createdInVer":…, "labels":…}), which passes
+    # 150 characters once a pull request has a few labels. In the scan of a
+    # pull request's text (secret-scan.yml writes it to pull-request.md), a
+    # run that starts as that JSON does ({"createdInVer") is not a token.
+    [[rules.allowlists]]
+    description = "Renovate's debug comment in a pull request body"
+    condition = "AND"
+    paths = ['''(?:^|/)pull-request\.md$''']
+    regexes = ['''^eyJjcmVhdGVkSW5WZXIi[A-Za-z0-9+/]*={0,2}$''']
+
 # Last.fm API key and shared secret: 32 hex characters next to a Last.fm name
 # (`SONA_LASTFM_KEY=…`, `-X …scrobble.lastfmSecret=…`). gitleaks has no
 # Last.fm rule.
