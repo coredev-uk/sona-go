@@ -313,6 +313,10 @@ run, with the evidence for anything not obvious from the check itself.
 
 | Date | Version | Distro / session | Checks | Result | Notes |
 | ---- | ------- | ---------------- | ------ | ------ | ----- |
+| 2026-11-05 | 0.3.0-rc.1 | Clean Ubuntu 24.04, Fedora 45 and Arch containers | D1 (`release.sh` smoke: `.deb`, `.rpm`, Arch package, AppImage) | Pass | #152 |
+| 2026-11-05 | `main` | GNOME 50 and Plasma 6.8 VMs (`tests/vm`) | The VM column's checks, D5–D8 included | Pass | #166; Plasma 117 s, GNOME 92 s per run |
+| 2026-11-05 | 0.3.0-rc.1 → rc.2 | macOS, Apple silicon | Updates (Test versions on, Install and restart) | Pass | Settings, sign-in and queue kept |
+| 2026-11-07 | 0.3.0 rcs | macOS, Apple silicon | Updates through the later rcs; full-track playback | Pass | Maintainer's run. Rollback after 3 failed starts not yet run |
 
 ## 4. Known issues
 
