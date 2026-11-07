@@ -139,7 +139,7 @@ func init() {
 			})
 		}
 		words := []lyrics.Word{{Begin: 0, End: time.Second, Text: "Held "}, {Begin: time.Second, End: 3 * time.Second, Text: "note"}}
-		s := kit.NewSweepText(words, 28, 700, 36, 300)
+		s := kit.NewSweepText(words, "", 28, 700, 36, 300)
 		ui.Box(c.Key("sweep")).Size(s.Width(), s.Height()).Draw(func(p *ui.Painter, r ui.Rect) {
 			t := time.Duration(p.Now().UnixNano()) % (4 * time.Second)
 			if s.Paint(p, r.X, r.Y, theme.C("ink-muted"), theme.C("amber-ink"), 1, t, false) {

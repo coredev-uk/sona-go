@@ -188,11 +188,12 @@ func (sh *lyricsSheet) sweep(k sweepKey, words []services.LyricWord, look lyricL
 		}
 	}
 	ws := sweepWords(words, k.whole)
+	lang := sh.partLang(k.part)
 	var s *kit.SweepText
 	if k.italic {
-		s = kit.NewSweepTextItalic(ws, size, weight, lineH, w)
+		s = kit.NewSweepTextItalic(ws, lang, size, weight, lineH, w)
 	} else {
-		s = kit.NewSweepText(ws, size, weight, lineH, w)
+		s = kit.NewSweepText(ws, lang, size, weight, lineH, w)
 	}
 	sh.sweeps[k] = s
 	return s

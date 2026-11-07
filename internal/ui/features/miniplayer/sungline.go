@@ -46,7 +46,7 @@ func (m *mini) lyricsSvc() lyricsSource {
 // album) instead. A timer wakes the view at the next line or word; nothing
 // polls.
 func (m *mini) sungLine(c *ui.Context, cur *services.QueueItem, playing bool, fallback string) {
-	line, lit := m.lineSung(c, cur, playing)
+	line, lang, lit := m.lineSung(c, cur, playing)
 	if line == nil {
 		quiet(c.Key("fallback"), fallback).TextColor(theme.C("ink-faint"))
 		return
@@ -66,26 +66,26 @@ func (m *mini) sungLine(c *ui.Context, cur *services.QueueItem, playing bool, fa
 			}
 			spans = append(spans, ui.Span{Text: w.Text, Color: col})
 		}
-		ui.RichText(c.Key("line"), spans...).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).
+		ui.RichText(c.Key("line"), spans...).Lang(lang).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).
 			TextColor(ink).MaxLines(2).MinWidth(0).Shrink(1).Grow(1)
 	})
 }
 
-// lineSung is the lead of the line sung now, with how many of its words have
-// begun (all of them for a line without word timing), nil when there is none
-// to show: no lyrics, unsynced ones, a rest between lines. It asks for the
-// frame at which that next changes.
-func (m *mini) lineSung(c *ui.Context, cur *services.QueueItem, playing bool) (*lyricsync.Text, int) {
+// lineSung is the lead of the line sung now, in the lyrics' language, with
+// how many of its words have begun (all of them for a line without word
+// timing), nil when there is none to show: no lyrics, unsynced ones, a rest
+// between lines. It asks for the frame at which that next changes.
+func (m *mini) lineSung(c *ui.Context, cur *services.QueueItem, playing bool) (*lyricsync.Text, string, int) {
 	songID := lyricsync.SongID(cur)
 	if songID == "" {
-		return nil, 0
+		return nil, "", 0
 	}
 	svc := m.lyricsSvc()
 	r := store.UseLyricsFrom(m.env.Queries, songID, func(ctx context.Context) (services.Lyrics, error) {
 		return svc.Lyrics(ctx, songID)
 	})
 	if !r.HasData || !lyricsync.IsSynced(&r.Data) || len(r.Data.Lines) == 0 {
-		return nil, 0
+		return nil, "", 0
 	}
 	l := &r.Data
 	spans := m.sung.spansOf(l)
@@ -113,7 +113,7 @@ func (m *mini) lineSung(c *ui.Context, cur *services.QueueItem, playing bool) (*
 	if playing && next != lyricsync.Never {
 		c.After(msDur(max(next, 0) + 1))
 	}
-	return out, lit
+	return out, l.Language, lit
 }
 
 // litWords is how many of a line's words have begun at word-clock time t (the
