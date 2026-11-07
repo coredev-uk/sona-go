@@ -11,7 +11,7 @@ import (
 // MyGo carries no CLDR unit names, so the words of Intl.DurationFormat
 // (v0.2.0's formatRunningTime and formatTimeLeft) live in a table keyed by
 // language, with CLDR's wording, its "short" and "long" widths and its
-// plural categories. The version is CLDR 48.2.0, the one MyGo v0.8.1's
+// plural categories. The version is CLDR 48.2.0, the one MyGo v0.8.3's
 // tables are generated from (i18n/internal/gen); the words are those of
 // unicode-org/cldr-json tag 48.2.0, cldr-units-full (units.json,
 // duration-day/hour/minute, unitPattern-count-*) and cldr-misc-full
