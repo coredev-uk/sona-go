@@ -234,7 +234,7 @@ What it heard, with Orca 50.2:
 
 | Surface | Orca said |
 | --- | --- |
-| Sidebar, first Tab | "Main", "For you", "link."; then one link per Tab, the open page "Albums, link." and its current-page attribute (Orca's words for it unverified), "New playlist or folder, push button menu. opens popup", "Playlists, List with 3 items", the pins as links |
+| Sidebar, first Tab | "Main", "For you", "link."; then one link per Tab, the open page "Albums, link." with "Current page" (its current-page state), "New playlist or folder, push button menu. opens popup", "Playlists, List with 3 items", the pins as links |
 | Account button | "Account, button. Not signed in." (the name once); Enter: "Account, menu, Sign in."; Escape: the button again |
 | Account dialog | "Account, dialog, Apple Account, entry. The email address or phone number you use with Apple.", "Password, password text.", the browser and token buttons, "Close, button."; Escape returns to "Account, button." |
 | Albums page | "Albums, panel, Album type, panel, All, toggle button pressed.", "Sort, combo box.", a tile "Fieldnotes, link. Kofi Bellamy."; the arrows move between tiles; Shift+F10 "More for …, menu, Create station."; Escape returns to the tile |
@@ -288,13 +288,13 @@ session with audio:
 - Leaving the Seek slider says its time once ("0:30 of 3:00"), as the held
   value catches up. The player bar's group is read with the text beside the
   song ("Player · Paper Moons, panel") on entering it.
-- Nobody has heard Orca, VoiceOver or Narrator speak MyGo v0.8.1's
-  current-page, disabled-but-focusable, busy, alert, controls and popup
-  states in Sona yet: the table above says what the tree holds, and Orca's
-  wording for them (it read "Current page" from the description before) is
-  unverified. The setup strip's one Tab stop is the segment last focused,
-  not the current step, because MyGo's focus group enters on a checked
-  element only.
+- Of MyGo v0.8.1's states, only the sidebar's current page has been heard
+  (the Orca walk above: "Current page", once). Orca's words for the
+  disabled-but-focusable, busy, alert, controls and popup states in Sona,
+  and VoiceOver's and Narrator's for any of them, are unheard: the table
+  above says what the tree holds. The setup strip's one Tab stop is the
+  segment last focused, not the current step, because MyGo's focus group
+  enters on a checked element only.
 - The video title is not a heading: it holds a link, which a heading could
   not before MyGo v0.8.1.
 - The hidden buttons of a row cannot be pressed by a test the way a screen
