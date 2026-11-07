@@ -407,3 +407,15 @@ func TestTrackNotificationGoesWhenSonaQuitsAndReminderStays(t *testing.T) {
 		t.Errorf("%d quit hooks after Close", len(c.hooks))
 	}
 }
+
+// A bare binary isn't an app bundle, so macOS has no application of Sona's to
+// make the handler: both calls say it can't be done, they don't pretend.
+func TestLinkHandlerOutsideABundleIsUnsupported(t *testing.T) {
+	var h macLinks
+	if _, _, err := h.Default(); !errors.Is(err, errors.ErrUnsupported) {
+		t.Errorf("Default outside a bundle: %v, want ErrUnsupported", err)
+	}
+	if err := h.MakeDefault(context.Background()); !errors.Is(err, errors.ErrUnsupported) {
+		t.Errorf("MakeDefault outside a bundle: %v, want ErrUnsupported", err)
+	}
+}

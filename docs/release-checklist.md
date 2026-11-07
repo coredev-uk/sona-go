@@ -195,7 +195,11 @@ Before merging a release PR, install the release candidate's files:
 - **macOS 14+ on Apple silicon:** the `.dmg` opens; Sona drags to
   Applications; the first open is blocked, then works through "Open Anyway" or
   `xattr -dr com.apple.quarantine /Applications/Sona.app`; `music://` and
-  `itms://` links open Sona; sign-in works; a preview plays; motion artwork
+  `itms://` links open Music.app until Settings → General → Open Apple Music
+  links in Sona → "Make Sona the default" is used (macOS may ask to confirm),
+  then `open 'music://music.apple.com/us/album/abbey-road/1441164426'`, the
+  Open in Music button on a music.apple.com page and `musics://` and `itmss://`
+  links open Sona, and the row says "Sona opens them"; sign-in works; a preview plays; motion artwork
   moves; Settings, sign-in and the queue survive a restart.
 - **Windows 11 x64:** the installer runs without administrator rights and
   makes a Start-menu entry; SmartScreen's "More info" → "Run anyway" works;
@@ -297,7 +301,7 @@ still need the hand check for what the VM can't show.
 | D18 | Queue, stations, live radio | Queue add/reorder/remove; start a song station and a live radio station; both play and advance | Manual |
 | D7  | Tray | GNOME needs the AppIndicator extension (state if absent: no tray, close quits or minimises per setting). KDE: tray icon, menu Play/Next/Previous/Show/Mini player/Quit work. Hyprland: in the bar's tray (StatusNotifierWatcher) | Part: the item and its menu are registered and shown (GNOME with the extension, Plasma). Clicking the menu entries stays manual |
 | D8  | Single instance across two real launches | Launch from the launcher, then launch again (launcher and `sona music://music.apple.com/…` in a terminal): the second exits at once, the first window comes forward and opens the link; still one window and one `org.mpris.MediaPlayer2.sona` | Yes, except "comes forward and opens the link" (no network to open it) |
-| D9  | `music://` links | Clicking a `music://` / `itms://` link in a browser opens it in Sona | Manual |
+| D9  | `music://` links | Settings → General → Open Apple Music links in Sona → "Make Sona the default" (needs the installed desktop file), then clicking a `music://` / `itms://` link in a browser opens it in Sona | Manual |
 | D10 | Wayland scaling | Native Wayland session at 100 %, 150 % (fractional) and 200 %: text and artwork sharp, no blurry upscaling, layout fits; move between monitors with different scales | Part: 200 % on GNOME, 200 % and 150 % on Plasma (the window fits the screen on GNOME, its width on Plasma: `tests/vm/README.md`; text by OCR, sharpness by screenshot). Mixed-scale monitors manual |
 | D11 | X11 session | GNOME on Xorg / Plasma X11 (or `GDK_BACKEND=x11` under XWayland): window, playback, MPRIS, tray, single instance all work | Part: XWayland on both (window, title bar, MPRIS, tray, single instance). nixpkgs' GNOME 50 and Plasma 6.8 have no X11 session; playback manual |
 | D12 | Secrets | Token stored in GNOME Keyring / KWallet (Settings shows Secret Service); sign out removes it; restart stays signed in | Manual |

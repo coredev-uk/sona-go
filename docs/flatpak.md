@@ -108,6 +108,7 @@ The options:
 ## music:// and desktop integration
 
 - **Exported desktop file.** It keeps `MimeType=x-scheme-handler/music;...;itmss;`. flatpak-builder rewrites `Exec` to `flatpak run ... --file-forwarding dev.coredev.Sona @@u %u @@`.
+- **Default handler.** Settings → General → Open Apple Music links in Sona isn't offered from inside the sandbox, which can't change the host's default applications: the row says so, and the desktop's own Default Applications settings do it.
 - **Icon.** `rename-icon: sona` renames the icons to `dev.coredev.Sona`. `StartupWMClass=dev.coredev.Sona` is unchanged.
 - **URL forwarding.** A second `flatpak run dev.coredev.Sona music://...` forwarded to the running instance and exited 0. Sona logged `forwarded to the running instance`.
 - **Still needed for Flathub:** a metainfo file (with screenshots and a release entry, which must follow `VERSION`). It is not written yet.

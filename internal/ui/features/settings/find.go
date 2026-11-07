@@ -144,6 +144,11 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 			Keywords: i18n.T("start page, resume"),
 		},
 		{
+			ID: "link-handler", Section: secGeneral, Group: starting, Title: i18n.T("Open Apple Music links in Sona"),
+			Keywords: i18n.T("music://, itms://, default app, Open in Music, links"),
+			When:     func(c findContext) bool { return c.caps != nil && (c.caps.LinkHandler || c.caps.NeedsAppBundle) },
+		},
+		{
 			ID: "setup-again", Section: secGeneral, Group: starting, Title: i18n.T("First-run setup"),
 			Keywords: i18n.T("Set up Sona again, welcome"),
 		},

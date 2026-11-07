@@ -30,6 +30,7 @@ func (s *settings) general(c *ui.Context) {
 		s.group(c, "general-startup", i18n.T("Starting Sona"), "", func() {
 			s.startupRows(c, cfg, cp)
 			s.startPageRow(c, cfg)
+			s.linkHandlerRow(c, cp)
 			s.setupRow(c)
 		})
 		s.group(c, "general-window", i18n.T("Window"), "", func() {

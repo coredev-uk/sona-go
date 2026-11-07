@@ -19,3 +19,10 @@ package app
 // `xdg-mime default dev.coredev.Sona.desktop x-scheme-handler/music` makes
 // Sona the default handler.
 const DesktopMimeTypes = "x-scheme-handler/music;x-scheme-handler/musics;x-scheme-handler/itms;x-scheme-handler/itmss;"
+
+// LinkSchemes are the URL schemes of Apple Music links that open Sona once it
+// is the default handler: the ones Music and iTunes links use (ParseURL also
+// takes https links on Apple's hosts, which the browser opens). The macOS
+// Info.plist (build/darwin/Info.plist.in) and DesktopMimeTypes declare the
+// same four.
+var LinkSchemes = []string{"music", "musics", "itms", "itmss"}

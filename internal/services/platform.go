@@ -39,6 +39,10 @@ type Platform struct {
 	Autostart Autostart
 	// Files is the native file chooser.
 	Files FileChooser
+	// LinkHandler is the system's choice of the app that opens Apple Music
+	// links (music://, musics://, itms://, itmss://): whether it is Sona
+	// and making it Sona. Nil where Sona can't be chosen (Windows).
+	LinkHandler LinkHandler
 	// Commands: `sona <command>` (Core.Commands) reaches the running
 	// instance and a second launch forwards its links to it (internal/app:
 	// D-Bus on Linux, a local socket elsewhere).
@@ -117,6 +121,21 @@ type Autostart interface {
 	Disable() error
 }
 
+// LinkHandler is the desktop's setting of which app opens Apple Music links
+// (app.LinkSchemes). Only an installed Sona can be it: a build the desktop
+// doesn't know as an application (a source build, a development bundle, an
+// AppImage that isn't integrated) reports errors.ErrUnsupported from both
+// methods.
+type LinkHandler interface {
+	// Default reports whether Sona opens all of the links, and the name of
+	// the app that opens them instead when it isn't Sona ("" when none or
+	// unknown).
+	Default() (sona bool, other string, err error)
+	// MakeDefault makes Sona open the links, as far as the desktop lets an
+	// app choose; ctx bounds the wait for the desktop's answer.
+	MakeDefault(ctx context.Context) error
+}
+
 // FileChooser is the desktop's file dialog. Both return "" without an
 // error when the user cancels.
 type FileChooser interface {
@@ -163,6 +182,7 @@ func newPlatformService(e *Env) *PlatformService {
 		PowerState:         p.Power != nil,
 		MotionArtwork:      p.MotionArtwork,
 		FileChooser:        p.Files != nil,
+		LinkHandler:        p.LinkHandler != nil,
 		CLI:                p.Commands,
 		NeedsAppBundle:     p.NeedsAppBundle,
 		PlainNotifications: p.PlainNotifications,

@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -16,6 +17,8 @@ import (
 // desktopAPI is what General asks of DesktopService.
 type desktopAPI interface {
 	ResetWindowSize()
+	LinkHandler() (services.LinkHandlerStatus, error)
+	SetLinkHandler(ctx context.Context) (services.LinkHandlerStatus, error)
 }
 
 // desktopSeam is a test's replacement of DesktopService.

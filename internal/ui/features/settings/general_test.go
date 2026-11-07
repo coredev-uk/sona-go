@@ -68,13 +68,38 @@ func (f *fakeUpdates) count() (checks, opens int) {
 	return f.checks, f.opens
 }
 
+// fakeDesktop is the window and the system's choice of the app for Apple
+// Music links: link is who opens them (linkErr instead when it is set), and
+// a change makes Sona the one unless keeps says the system refuses.
 type fakeDesktop struct {
-	mu     sync.Mutex
-	resets int
+	mu      sync.Mutex
+	resets  int
+	link    services.LinkHandlerStatus
+	linkErr error
+	keeps   bool
+	sets    int
 }
 
 func (f *fakeDesktop) ResetWindowSize() { f.mu.Lock(); f.resets++; f.mu.Unlock() }
 func (f *fakeDesktop) count() int       { f.mu.Lock(); defer f.mu.Unlock(); return f.resets }
+
+func (f *fakeDesktop) LinkHandler() (services.LinkHandlerStatus, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.link, f.linkErr
+}
+
+func (f *fakeDesktop) SetLinkHandler(context.Context) (services.LinkHandlerStatus, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.sets++
+	if !f.keeps {
+		f.link = services.LinkHandlerStatus{Sona: true}
+	}
+	return f.link, nil
+}
+
+func (f *fakeDesktop) linkSets() int { f.mu.Lock(); defer f.mu.Unlock(); return f.sets }
 
 type fakeLanguages struct{ l services.AppleLanguages }
 

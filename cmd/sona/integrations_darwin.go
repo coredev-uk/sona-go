@@ -13,9 +13,11 @@ import (
 //   - Sleep inhibit (MyGo's Power.KeepAwake), the power source for
 //     "on battery" (Power.IsOnBattery, polled) and the file chooser
 //     (Dialog) work from a bare binary as well as from Sona.app.
-//   - Notifications (UNUserNotificationCenter) and the login item
-//     (SMAppService) are tied to the app bundle by macOS: outside Sona.app
-//     (a source build, bin/sona) they are absent and NeedsAppBundle says why.
+//   - Notifications (UNUserNotificationCenter), the login item
+//     (SMAppService) and the default app for Apple Music links
+//     (NSWorkspace, linkhandler_darwin.go) are tied to the app bundle by
+//     macOS: outside Sona.app (a source build, bin/sona) they are absent and
+//     NeedsAppBundle says why.
 func desktopIntegrations(out *services.Platform, windows *uiapp.Windows) {
 	out.Inhibitor = func(why func() string) services.SleepInhibitor { return newMacInhibitor(why) }
 	out.Power = openMacPower
@@ -27,4 +29,5 @@ func desktopIntegrations(out *services.Platform, windows *uiapp.Windows) {
 	out.Notifications = openNotifier
 	out.PlainNotifications = true
 	out.Autostart = macLogin{}
+	out.LinkHandler = macLinks{}
 }

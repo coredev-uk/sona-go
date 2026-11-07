@@ -325,6 +325,10 @@ msgstr "Always dark"
 msgid "Always light"
 msgstr "Always light"
 
+#: internal/ui/features/settings/linkhandler.go
+msgid "Another app opens them now."
+msgstr "Another app opens them now."
+
 #: internal/ui/features/concerts/page.go
 msgid "Any date"
 msgstr "Any date"
@@ -1180,6 +1184,10 @@ msgstr "Couldn't change repeat"
 msgid "Couldn't change shuffle"
 msgstr "Couldn't change shuffle"
 
+#: internal/ui/features/settings/linkhandler.go
+msgid "Couldn't change the app for Apple Music links"
+msgstr "Couldn't change the app for Apple Music links"
+
 #: internal/ui/features/playlist/covers.go
 msgid "Couldn't change the cover"
 msgstr "Couldn't change the cover"
@@ -1751,6 +1759,10 @@ msgstr "Couldn't start the Widevine download"
 #: internal/ui/kit/song_itemstate.go
 msgid "Couldn't suggest less of {subject}"
 msgstr "Couldn't suggest less of {subject}"
+
+#: internal/ui/features/settings/linkhandler.go
+msgid "Couldn't tell which app opens them: {reason}"
+msgstr "Couldn't tell which app opens them: {reason}"
 
 #: internal/ui/kit/account_service.go
 msgid "Couldn't turn off private listening"
@@ -2965,6 +2977,10 @@ msgstr "Line-by-line lyrics, strongest for Chinese, Japanese and Korean music."
 msgid "Link copied"
 msgstr "Link copied"
 
+#: internal/ui/features/settings/linkhandler.go
+msgid "Links that start with music:// or itms://, such as the Open in Music button on a web page, open in the app you choose. Links that start with https:// stay with your browser."
+msgstr "Links that start with music:// or itms://, such as the Open in Music button on a web page, open in the app you choose. Links that start with https:// stay with your browser."
+
 #: internal/ui/features/settings/rows.go
 msgid "Linux"
 msgstr "Linux"
@@ -3150,6 +3166,10 @@ msgstr "Mains power (AC adapter connected)"
 #: internal/ui/features/settings/motiondiag.go
 msgid "Mains power (no battery powers this computer)"
 msgstr "Mains power (no battery powers this computer)"
+
+#: internal/ui/features/settings/linkhandler.go
+msgid "Make Sona the default"
+msgstr "Make Sona the default"
 
 #. Tray menu items: "Show Sona" brings the main window back, "Mini Player" opens the small always-on-top player, "Quit Sona" exits. Menu items are in title case.
 #: internal/ui/app/menubar.go
@@ -3948,6 +3968,10 @@ msgstr "On this computer only: Apple Music couldn't be reached for your other de
 msgid "On this page"
 msgstr "On this page"
 
+#: internal/ui/features/settings/linkhandler.go
+msgid "Only the installed Sona.app can be chosen for them, not a source build or a development bundle."
+msgstr "Only the installed Sona.app can be chosen for them, not a source build or a development bundle."
+
 #: internal/ui/features/search/page.go
 msgid "Only what is synced to this computer is searched. Try Apple Music for everything else."
 msgstr "Only what is synced to this computer is searched. Try Apple Music for everything else."
@@ -3966,6 +3990,11 @@ msgstr "Only when Sona runs from Sona.app: {needsList}."
 #: internal/ui/features/settings/devtools.go
 msgid "Open"
 msgstr "Open"
+
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/linkhandler.go
+msgid "Open Apple Music links in Sona"
+msgstr "Open Apple Music links in Sona"
 
 #: internal/ui/app/menubar.go
 msgid "Open Link from Clipboard…"
@@ -5119,6 +5148,10 @@ msgstr "Settings sections"
 msgid "Settings…"
 msgstr "Settings…"
 
+#: internal/ui/features/settings/linkhandler.go
+msgid "Setting…"
+msgstr "Setting…"
+
 #: internal/ui/features/onboarding/layer.go
 msgid "Setup is done"
 msgstr "Setup is done"
@@ -5717,6 +5750,10 @@ msgstr "Sona is waiting for your Keychain to hand over your sign-in. If macOS as
 msgid "Sona is waiting for your keyring to hand over your sign-in. If GNOME Keyring or KWallet asks you to unlock it, do that now."
 msgstr "Sona is waiting for your keyring to hand over your sign-in. If GNOME Keyring or KWallet asks you to unlock it, do that now."
 
+#: internal/ui/features/settings/linkhandler.go
+msgid "Sona isn't the default yet"
+msgstr "Sona isn't the default yet"
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "Sona loads the CDM only inside its sandbox, which keeps it off the network, and the sandbox could not be set up. Only 30-second previews play."
 msgstr "Sona loads the CDM only inside its sandbox, which keeps it off the network, and the sandbox could not be set up. Only 30-second previews play."
@@ -5739,6 +5776,10 @@ msgstr "Sona opens at the size you left it, maximised: <0>{width} × {height}</0
 #: internal/ui/features/settings/desktop.go
 msgid "Sona opens at the size you left it: <0>{width} × {height}</0>."
 msgstr "Sona opens at the size you left it: <0>{width} × {height}</0>."
+
+#: internal/ui/features/settings/linkhandler.go
+msgid "Sona opens them"
+msgstr "Sona opens them"
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "Sona plays AAC only. Albums marked Lossless or Dolby Atmos play as AAC: Apple doesn't license lossless to desktop Widevine players."
@@ -5792,6 +5833,10 @@ msgstr "Sona {current} · not checked yet"
 #: internal/ui/features/updates/updates.go
 msgid "Sona {latest} is available"
 msgstr "Sona {latest} is available"
+
+#: internal/ui/features/settings/linkhandler.go
+msgid "Sona's desktop entry isn't installed (a source build, a Flatpak or an AppImage that isn't integrated), so your desktop can't choose Sona for them."
+msgstr "Sona's desktop entry isn't installed (a source build, a Flatpak or an AppImage that isn't integrated), so your desktop can't choose Sona for them."
 
 #: internal/ui/features/settings/desktop.go
 msgid "Sona's, with window buttons"
@@ -6348,6 +6393,10 @@ msgstr "There's no such list"
 #: internal/ui/kit/song_itemstate.go
 msgid "They also leave any playlists they're in."
 msgstr "They also leave any playlists they're in."
+
+#: internal/ui/features/settings/linkhandler.go
+msgid "They open in {app} now."
+msgstr "They open in {app} now."
 
 #: internal/ui/i18n/errors.go
 msgid "This Apple Account doesn't have an active Apple Music subscription."
@@ -7243,6 +7292,14 @@ msgstr "Your synced library, history and the catalogue cache. Sona optimises it 
 msgid "Your synced library, history and the catalogue cache. Sona optimises it when it is idle and nothing is playing."
 msgstr "Your synced library, history and the catalogue cache. Sona optimises it when it is idle and nothing is playing."
 
+#: internal/ui/features/settings/linkhandler.go
+msgid "Your system kept its choice."
+msgstr "Your system kept its choice."
+
+#: internal/ui/features/settings/linkhandler.go
+msgid "Your system kept {app}."
+msgstr "Your system kept {app}."
+
 #: internal/ui/account/section.go
 #: internal/ui/account/signedin.go
 #: internal/ui/features/auth/menu.go
@@ -7384,6 +7441,10 @@ msgstr "macOS's sandbox-exec refused Sona's profile."
 #: internal/ui/features/player/nowplaying_shortcuts.go
 msgid "music video picture watch"
 msgstr "music video picture watch"
+
+#: internal/ui/features/settings/find.go
+msgid "music://, itms://, default app, Open in Music, links"
+msgstr "music://, itms://, default app, Open in Music, links"
 
 #: internal/ui/i18n/relative.go
 msgid "never"

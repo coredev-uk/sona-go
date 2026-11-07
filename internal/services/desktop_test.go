@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -257,4 +258,52 @@ func TestRefusedAutostartIsAnnouncedBeforeItsUndo(t *testing.T) {
 		t.Fatal("the last settings:changed still says autostart is on")
 	}
 	e.close()
+}
+
+// fakeLinks is a desktop that keeps its own choice (keeps) or gives Sona the
+// links when asked.
+type fakeLinks struct {
+	sona  bool
+	other string
+	keeps bool
+}
+
+func (f *fakeLinks) Default() (bool, string, error) { return f.sona, f.other, nil }
+
+func (f *fakeLinks) MakeDefault(context.Context) error {
+	if !f.keeps {
+		f.sona, f.other = true, ""
+	}
+	return nil
+}
+
+// The answer to a change is what the desktop says afterwards: it may have
+// asked the user, who said no.
+func TestSetLinkHandlerReportsWhatTheDesktopDid(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		keep bool
+		want LinkHandlerStatus
+	}{
+		{"taken", false, LinkHandlerStatus{Sona: true}},
+		{"kept by the desktop", true, LinkHandlerStatus{Other: "Music"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d, _, _ := desktopEnvWith(t, Platform{LinkHandler: &fakeLinks{other: "Music", keeps: tc.keep}}, nil)
+			got, err := d.SetLinkHandler(context.Background())
+			if err != nil || got != tc.want {
+				t.Fatalf("SetLinkHandler = %+v, %v; want %+v", got, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestLinkHandlerWithoutPlatformSupportIsUnsupported(t *testing.T) {
+	d, _, _ := desktopEnvWith(t, Platform{}, nil)
+	if _, err := d.LinkHandler(); CodeOf(err) != CodeUnsupported {
+		t.Errorf("LinkHandler: %v, want code unsupported", err)
+	}
+	if _, err := d.SetLinkHandler(context.Background()); CodeOf(err) != CodeUnsupported {
+		t.Errorf("SetLinkHandler: %v, want code unsupported", err)
+	}
 }
