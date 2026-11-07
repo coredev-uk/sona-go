@@ -224,6 +224,15 @@ dispatched with `only` = `orca` or `all` (never on a pull request or a push,
 and not a required check: the words and the timing are Orca's, and a new Orca
 can move them). Orca's own English (`LC_ALL=C.UTF-8`) is the reference.
 
+The walk waits for Orca by its log, not by fixed pauses: after a key it waits
+for Orca to have been told the key was released, for its event queue to be
+empty, and for 0.8 s in which Orca said and queued nothing (a slider's value
+ticking as the song plays does not count). On the CI runner no answer to a key
+took more than 0.34 s from the release to its last word, and the longest
+silence inside one was 0.15 s. Orca's log is read as it grows, each entry
+parsed once (`e2e/orca_log_test.go` checks that against a parse of the whole
+file). The CI job runs in the CI image with Orca installed on top.
+
 On every key the test fails for a name or text said twice in a row (a link
 read with the text it is in) and for a flood of more than 16 utterances (a
 value read as often as it changes). Per surface it checks the roles, names and
