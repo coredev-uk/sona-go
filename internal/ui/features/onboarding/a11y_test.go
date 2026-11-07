@@ -137,6 +137,11 @@ func TestLayerIsANamedDialogWithTheTitleAsAHeading(t *testing.T) {
 	if tr.Focus == nil || tr.Focus.Role != ui.RoleGroup || tr.Focus.Label != "Connections" {
 		t.Errorf("the next step's title does not take the focus: %+v", tr.Focus)
 	}
+	for _, st := range access.TabWalk(t, r.tt.Tester, 60) {
+		if st.Node.Role == ui.RoleGroup && st.Node.Label == "Connections" {
+			t.Errorf("Tab stops at the step title: %+v", st.Node)
+		}
+	}
 }
 
 // TestStepStripIsAListWithTheCurrentStepDescribed is StepProgress's nav, ol

@@ -290,9 +290,6 @@ session with audio:
   busy and alert states yet; the stand-ins above read well but are not those
   states. The setup strip's one Tab stop is the segment last focused, not the
   current step, because MyGo's focus group enters on a checked element only.
-- A control that takes the focus without being a Tab stop (the web
-  `tabindex=-1` pattern: the video view, the setup step title) is also a Tab
-  stop; MyGo v0.8.1 has `TabStop(false)` for it.
 - The video title is not a heading: it holds a link, which a heading could
   not before MyGo v0.8.1.
 - The hidden buttons of a row cannot be pressed by a test the way a screen

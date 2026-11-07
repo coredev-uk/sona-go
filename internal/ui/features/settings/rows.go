@@ -244,7 +244,7 @@ func (s *settings) land(c *ui.Context, id string, row ui.Element, control ui.Ele
 	if !isNone(control) {
 		control.Focus()
 	} else {
-		row.Focusable().Focus()
+		row.TabStop(false).Focus()
 	}
 	s.found = found{id: id, until: s.now().Add(foundDuration)}
 	c.After(foundDuration)

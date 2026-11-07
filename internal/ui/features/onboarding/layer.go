@@ -170,7 +170,7 @@ func (o *onboarding) body(c *ui.Context, step, title, line string, maxHeight flo
 			// The title takes the focus: a group named by it holds the heading,
 			// because Orca reads a focused heading's role and level only (it
 			// takes a heading's words from the text, which MyGo gives to labels).
-			focus := ui.Column(c.Key("title-focus")).FillWidth().Role(ui.RoleGroup).Label(title).Focusable().FocusRing(false)
+			focus := ui.Column(c.Key("title-focus")).FillWidth().Role(ui.RoleGroup).Label(title).TabStop(false).FocusRing(false)
 			focus.Children(func() {
 				text(c.Key("title"), title, "page").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
 			})

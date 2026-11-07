@@ -77,7 +77,7 @@ func (o *onboarding) widevineBlock(c *ui.Context) {
 	well(c).Children(func() {
 		ui.Row(c.Key("head")).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
 			out := ui.Row(c.Key("state")).Grow(1).Shrink(1).MinWidth(0).Gap(8).AlignItems(ui.Center).
-				Role(ui.RoleStatus).Focusable().FocusRing(false)
+				Role(ui.RoleStatus).TabStop(false).FocusRing(false)
 			if state != "" {
 				out.Label(state).Description(detail)
 			}
