@@ -226,10 +226,10 @@ can move them). Orca's own English (`LC_ALL=C.UTF-8`) is the reference.
 
 The walk waits for Orca by its log, not by fixed pauses: after a key it waits
 for Orca to have been told the key was released, for its event queue to be
-empty, and for 0.8 s in which Orca said and queued nothing (a slider's value
+empty, and for 0.6 s in which Orca said and queued nothing (a slider's value
 ticking as the song plays does not count). On the CI runner no answer to a key
-took more than 0.34 s from the release to its last word, and the longest
-silence inside one was 0.15 s. Orca's log is read as it grows, each entry
+took more than 0.38 s from the release to its last word, and the longest
+silence inside one was 0.20 s. Orca's log is read as it grows, each entry
 parsed once (`e2e/orca_log_test.go` checks that against a parse of the whole
 file). The CI job runs in the CI image with Orca installed on top.
 

@@ -296,13 +296,14 @@ if debug.debugFile:
 // Waiting for Orca. The walk reads Orca's log every pollEvery. A key's
 // answer is complete when Orca has said nothing and queued nothing (but a
 // value tick, a slider moving as the song plays) for settleQuiet, and has
-// finished every event it queued. On the CI runner the longest silence inside
-// one key's answer, counting the one between the key's release and the first
-// thing Orca did for it, is 0.15 s, and no answer took more than 0.34 s from
-// the release to its last word (97 keys of the walk, 16 of the setup).
+// finished every event it queued. On the CI runner (two runs, 97 keys of the
+// walk and 16 of the setup each) the longest silence inside one key's answer,
+// counting the one between the key's release and the first thing Orca did for
+// it, was 0.20 s, and no answer took more than 0.38 s from the release to its
+// last word.
 const (
 	pollEvery   = 10 * time.Millisecond
-	settleQuiet = 800 * time.Millisecond
+	settleQuiet = 600 * time.Millisecond
 )
 
 // settle waits until Orca is done with what it was sent: its event queue is

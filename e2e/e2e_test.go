@@ -16,6 +16,7 @@
 package e2e
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -42,10 +43,10 @@ var (
 	buildErr  error
 )
 
-// build builds the binaries of the run once, with the tags the app needs:
-// probe (the automation plugin and the e2e seam) and sqlite_fts5. The
-// profile writer is a binary of its own so this package, built with just
-// -tags e2e, needs no SQLite feature tag itself.
+// build builds the binaries of the run once (the two at the same time), with
+// the tags the app needs: probe (the automation plugin and the e2e seam) and
+// sqlite_fts5. The profile writer is a binary of its own so this package,
+// built with just -tags e2e, needs no SQLite feature tag itself.
 func build(t *testing.T) (app, profile string) {
 	t.Helper()
 	buildOnce.Do(func() {
@@ -54,27 +55,28 @@ func build(t *testing.T) (app, profile string) {
 			buildErr = err
 			return
 		}
-		goBuild := func(out, pkg string, tags string) {
-			if buildErr != nil {
-				return
-			}
+		var wg sync.WaitGroup
+		errs := make([]error, 2)
+		goBuild := func(i int, out, pkg string, tags string) {
+			defer wg.Done()
 			cmd := exec.Command("go", "build", "-tags", tags, "-o", out, pkg)
 			cmd.Dir = root
 			if b, err := cmd.CombinedOutput(); err != nil {
-				buildErr = fmt.Errorf("go build %s: %v\n%s", pkg, err, b)
+				errs[i] = fmt.Errorf("go build %s: %v\n%s", pkg, err, b)
 			}
 		}
 		profBin = filepath.Join(root, "bin", "e2e-profile")
-		goBuild(profBin, "./e2e/profile", "sqlite_fts5")
+		wg.Add(1)
+		go goBuild(0, profBin, "./e2e/profile", "sqlite_fts5")
 		if p := os.Getenv("E2E_BIN"); p != "" {
-			appBin, err = filepath.Abs(p)
-			if err != nil {
-				buildErr = err
-			}
-			return
+			appBin, errs[1] = filepath.Abs(p)
+		} else {
+			appBin = filepath.Join(root, "bin", "sona-e2e")
+			wg.Add(1)
+			go goBuild(1, appBin, "./cmd/sona", "probe,sqlite_fts5")
 		}
-		appBin = filepath.Join(root, "bin", "sona-e2e")
-		goBuild(appBin, "./cmd/sona", "probe,sqlite_fts5")
+		wg.Wait()
+		buildErr = errors.Join(errs...)
 	})
 	if buildErr != nil {
 		t.Fatal(buildErr)
