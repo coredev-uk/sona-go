@@ -27,8 +27,12 @@ type Capabilities struct {
 	MotionArtwork bool `json:"motionArtwork"`
 	// FileChooser: the native file dialog (settings import and export).
 	FileChooser bool `json:"fileChooser"`
+	// LinkHandler: Sona can say whether it is the default app for Apple
+	// Music links and make itself it (DesktopService.LinkHandler). It can
+	// still report unsupported there for a build that isn't installed.
+	LinkHandler bool `json:"linkHandler"`
 	// NeedsAppBundle: this is a macOS run outside Sona.app (a source
-	// build). Notifications and Autostart are false because macOS ties them
+	// build). Notifications, Autostart and LinkHandler are false because macOS ties them
 	// to the app bundle, not because the platform lacks them; the UI says
 	// to run Sona.app. False everywhere else.
 	NeedsAppBundle bool `json:"needsAppBundle"`
@@ -48,6 +52,16 @@ type Capabilities struct {
 	// WindowControls is how the main window's title bar works here; the
 	// UI lays out its top bar from it and the title bar setting.
 	WindowControls WindowControls `json:"windowControls"`
+}
+
+// LinkHandlerStatus is who opens Apple Music links (music://, musics://,
+// itms://, itmss://) on this computer.
+type LinkHandlerStatus struct {
+	// Sona: Sona opens every one of them.
+	Sona bool `json:"sona"`
+	// Other names the app that opens them instead when Sona doesn't ("Music"
+	// on macOS); "" when none is set or it isn't known.
+	Other string `json:"other"`
 }
 
 // WindowControls is how title bars work on this platform

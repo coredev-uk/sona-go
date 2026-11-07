@@ -25,7 +25,7 @@ exe=$app/Contents/MacOS/sona
 
 codesign --verify --deep --strict "$app" || fail "codesign verification"
 plutil -lint "$app/Contents/Info.plist" >/dev/null || fail "Info.plist"
-for scheme in music itms; do
+for scheme in music musics itms itmss; do
   /usr/libexec/PlistBuddy -c Print:CFBundleURLTypes "$app/Contents/Info.plist" | grep -qE "^ +$scheme\$" || fail "Info.plist lacks the $scheme URL scheme"
 done
 if find "$app" -type f \( -perm -u+x -o -name '*.dylib' \) -exec otool -L {} + 2>/dev/null | grep -E '(^|[[:space:]])(/nix/store|/opt/homebrew|/usr/local|/Library/Frameworks)'; then

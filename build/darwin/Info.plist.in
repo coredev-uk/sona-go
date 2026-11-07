@@ -30,7 +30,9 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>music</string>
+				<string>musics</string>
 				<string>itms</string>
+				<string>itmss</string>
 			</array>
 		</dict>
 	</array>

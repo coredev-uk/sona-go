@@ -71,9 +71,9 @@ func openPlatform(_ config.Paths, act app.Activation, log *slog.Logger) (*platfo
 }
 
 // Services are the integrations for services.Deps.Platform. Without a
-// session bus only the autostart entry remains.
+// session bus only the autostart entry and the link handler remain.
 func (p *platform) Services(_ *uiapp.Windows) services.Platform {
-	out := services.Platform{Autostart: app.XDGAutostart{}, TitleBar: p.TitleBar(), MotionArtwork: media.Supported}
+	out := services.Platform{Autostart: app.XDGAutostart{}, LinkHandler: app.XDGLinkHandler{}, TitleBar: p.TitleBar(), MotionArtwork: media.Supported}
 	conn := p.conn
 	if conn == nil {
 		return out

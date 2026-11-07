@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"sync/atomic"
 
@@ -79,6 +80,36 @@ func (d *DesktopService) OpenDeveloperTools() error {
 		return unsupported("the developer tools")
 	}
 	return err
+}
+
+// LinkHandler reports whether Sona is the default app for Apple Music links
+// (Settings → General). It fails with code unsupported where this platform
+// has no such setting or this build can't be chosen for it (Capabilities.LinkHandler
+// is false, or the build isn't installed).
+func (d *DesktopService) LinkHandler() (LinkHandlerStatus, error) {
+	h := d.o.Platform.LinkHandler
+	if h == nil {
+		return LinkHandlerStatus{}, unsupported("choosing the app for Apple Music links")
+	}
+	sona, other, err := h.Default()
+	if err != nil {
+		return LinkHandlerStatus{}, err
+	}
+	return LinkHandlerStatus{Sona: sona, Other: other}, nil
+}
+
+// SetLinkHandler makes Sona the default app for Apple Music links and
+// returns the state afterwards: the desktop may ask the user first, or keep
+// its choice, so the answer is read back rather than assumed.
+func (d *DesktopService) SetLinkHandler(ctx context.Context) (LinkHandlerStatus, error) {
+	h := d.o.Platform.LinkHandler
+	if h == nil {
+		return LinkHandlerStatus{}, unsupported("choosing the app for Apple Music links")
+	}
+	if err := h.MakeDefault(ctx); err != nil {
+		return LinkHandlerStatus{}, err
+	}
+	return d.LinkHandler()
 }
 
 // SetLastRoute remembers the main window's route ("/album/1?song=2") for
