@@ -466,7 +466,7 @@ func (f *field) popup(c *ui.Context, box ui.Element, opts []option, typed, scope
 			panel.Width(w)
 		}
 		panel.Children(func() {
-			list := ui.Scroll(c.Key("list")).Role(ui.RoleList).Label(title).FillWidth().MaxHeight(min(wh*0.7, 520) - 14)
+			list := ui.Scroll(c.Key("list")).Role(ui.RoleListBox).Label(title).FillWidth().MaxHeight(min(wh*0.7, 520) - 14)
 			list.HandleInput(func(ev ui.InputEvent) bool {
 				if ev.Kind == ui.InputPointerMove {
 					f.moved = true
@@ -538,7 +538,7 @@ func (f *field) row(c *ui.Context, o option, active bool) ui.Element {
 		label, detail = o.item.Name, itemMeta(o.item)
 	}
 	row := ui.Row(c.Key("opt:"+o.key)).MinHeight(36).FillWidth().Padding(4, 8).Gap(12).AlignItems(ui.Center).
-		Radius(theme.Current().Radius["md"]).Role(ui.RoleListItem).Label(label).Selected(active).Cursor(ui.CursorPointer)
+		Radius(theme.Current().Radius["md"]).Role(ui.RoleOption).Label(label).Selected(active).Cursor(ui.CursorPointer)
 	if detail != "" {
 		row.Description(detail)
 	}

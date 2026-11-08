@@ -58,6 +58,12 @@ shapes the rules below.
 - Inline links are underlined, never marked by colour alone.
 - A `kit.Select`'s list is a list box (MyGo's `SelectBase`) of options,
   each `Checked` while chosen (aria-selected); its trigger is a combo box.
+- The suggestions of a text field of Sona's own (the search field's, the
+  artists filter's, the command palette's results) are a `RoleListBox` of
+  `RoleOption`s, the highlighted one `Checked` (aria-selected) and pointed at
+  by `ActiveDescendant` on the field, which keeps the keyboard focus: the
+  arrows move the option, as in MyGo's `ComboboxBase`, and the field reads as
+  a combo box with its list shown (`Expanded`).
 - A choice made among pictures (the playlist cover picker) is a `radio group` of `radio` tiles, each named by the label drawn under it (2.5.3), described in a line of its own ("No picture"), `Checked` while chosen, with arrow keys over the grid (`kit.GridNav`). The chosen tile says so with a ring, a check mark and a heavier name, never by colour alone. A choice that applies at once announces its result ("Cover: Bars"), and a failure stays beside the control as an alert, with the limits it broke in view.
 - A text with links in it is not itself on the tree (`kit.ArtistLinks` is a
   `RoleNone` rich text, so its links sit beside its separators): Orca reads
@@ -76,6 +82,7 @@ shapes the rules below.
 | ARIA | In the native app |
 | --- | --- |
 | `aria-checked`, `aria-pressed` | `Checked` on a switch, check box, toggle button, tab or menu item (`kit.ButtonOpts.Pressed`) |
+| `aria-activedescendant`, `aria-selected` | `ActiveDescendant` on the field (search, artists filter, command palette) pointing at the highlighted `RoleOption`, which is `Checked` (`Selected`) |
 | `aria-expanded`, `aria-haspopup` | `Expanded` on the opener, with `RoleMenuButton` or `RolePopUpButton` for a menu or a list; `HasPopup(ui.PopupDialog)` on a button that opens a dialog (Set location, a playlist's Name and description and Cover, the collaborators byline) |
 | `aria-invalid` and its message | `kit.InputOpts.Error` / `kit.SelectOpts.Error`: the invalid state, the message read with the value |
 | `aria-valuetext` | the slider's description (`kit.SliderOpts.ValueText`), only where it says more than the value and the percentage a screen reader reads anyway: Seek's "0:42 of 3:00", not Volume's "80%" (Orca read "80, 80 percent, 80%") |

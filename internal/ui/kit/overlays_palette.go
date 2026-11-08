@@ -294,7 +294,7 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 
 	// The results.
 	maxH := min(windowH*0.56, 440)
-	list := ui.Scroll(c.Key("palette:list")).Role(ui.RoleList).Label(i18n.T("Results")).FillWidth().MaxHeight(maxH).Padding(6)
+	list := ui.Scroll(c.Key("palette:list")).Role(ui.RoleListBox).Label(i18n.T("Results")).FillWidth().MaxHeight(maxH).Padding(6)
 	list.HandleInput(func(ev ui.InputEvent) bool {
 		if ev.Kind == ui.InputPointerMove {
 			p.moved = true
@@ -355,7 +355,7 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 // carries it).
 func (p *Palette) option(c *ui.Context, e PaletteEntry, active bool) ui.Element {
 	row := ui.Row(c.Key("opt:"+e.Key)).MinHeight(36).FillWidth().Padding(4, 10).Gap(12).AlignItems(ui.Center).
-		Radius(theme.Current().Radius["md"]).Role(ui.RoleListItem).Label(e.Label).Selected(active).Cursor(ui.CursorPointer)
+		Radius(theme.Current().Radius["md"]).Role(ui.RoleOption).Label(e.Label).Selected(active).Cursor(ui.CursorPointer)
 	ring := ui.Transparent
 	if active {
 		row.Background(theme.C("active"))
