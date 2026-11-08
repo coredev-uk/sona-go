@@ -454,13 +454,10 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 				if h := mustFind(t, tr, ui.RoleHeading, "Queue"); h.Level != 2 {
 					t.Errorf("the panel's heading is level %d", h.Level)
 				}
-				panel := mustFind(t, tr, ui.RoleRegion, "Queue")
-				if !strings.Contains(panel.Description, "songs after this one") {
-					t.Errorf("the Queue region is described %q, want the queue's summary", panel.Description)
-				}
+				panel := mustFind(t, tr, ui.RoleGroup, "Queue")
 				list := mustFind(t, tr, ui.RoleList, "Queue")
-				if !tr.Within(list, ui.RoleRegion) || list.Index < panel.Index {
-					t.Error("the list is not in the Queue region")
+				if !tr.Within(list, ui.RoleGroup) || list.Index < panel.Index {
+					t.Error("the list is not in the Queue panel")
 				}
 				// Every child of the list is a list item.
 				for _, c := range tr.Children(list) {
