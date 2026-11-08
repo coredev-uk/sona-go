@@ -5,8 +5,9 @@ description: >-
   the last run on main (never across an update of the runner image or of the
   CI image, SONA_CI_IMAGE: the image's Pango and fonts decide what a cached
   pass means). In the CI image (a `container:` job; set SONA_CI_IMAGE to its
-  digest) Go and the packages are already there: use `packages: none`. The
-  caller saves the Go caches last, with
+  digest) Go and the packages are already there: use `packages: none`, or a
+  short list of what the image lacks (`orca`; the step is root there and its
+  .debs are cached per image). The caller saves the Go caches last, with
   actions/cache/save, key and path from this action's outputs.
 inputs:
   packages:
@@ -39,7 +40,7 @@ runs:
         REF: ${{ github.ref }}
         RUN_ID: ${{ github.run_id }}
         GO_HASH: ${{ hashFiles('go.mod', 'go.sum') }}
-        PKG_HASH: ${{ hashFiles('.github/actions/setup-linux/packages-*.txt') }}
+        PKG_HASH: ${{ inputs.packages != 'none' && hashFiles(format('.github/actions/setup-linux/packages-{0}.txt', inputs.packages)) || 'none' }}
       run: |
         IMAGE_ID=${CI_IMAGE:+ci${CI_IMAGE:0:12}}
         IMAGE_ID=${IMAGE_ID:-${ImageVersion:-unknown}}
@@ -79,14 +80,16 @@ runs:
         cache: false
 
     # dpkg's fsync on every file and the documentation it unpacks are most of
-    # the install time on a runner.
+    # the install time on a runner. In a container job (the CI image) the step
+    # is already root, and there is no sudo.
     - name: Install system packages
       if: ${{ inputs.packages != 'none' }}
       shell: bash
       env:
         PACKAGES: ${{ inputs.packages }}
       run: |
-        printf 'force-unsafe-io\npath-exclude=/usr/share/doc/*\npath-exclude=/usr/share/man/*\npath-exclude=/usr/share/info/*\n' | sudo tee /etc/dpkg/dpkg.cfg.d/90-ci >/dev/null
+        root() { if [[ $(id -u) -eq 0 ]]; then "$@"; else sudo "$@"; fi; }
+        printf 'force-unsafe-io\npath-exclude=/usr/share/doc/*\npath-exclude=/usr/share/man/*\npath-exclude=/usr/share/info/*\n' | root tee /etc/dpkg/dpkg.cfg.d/90-ci >/dev/null
         mkdir -p ~/apt-archives/partial
         # A mirror that stalls once held a job for twenty minutes: every
         # attempt has a deadline, and a stalled one is tried again.
@@ -96,17 +99,17 @@ runs:
           local i limit=150
           [[ $1 == install ]] && limit=600
           for i in 1 2 3; do
-            sudo timeout "$limit" apt-get -o Acquire::http::Timeout=15 -o Acquire::Retries=3 -o Dir::Cache::archives="$HOME/apt-archives" "$@" && return 0
+            root timeout "$limit" apt-get -o Acquire::http::Timeout=15 -o Acquire::Retries=3 -o Dir::Cache::archives="$HOME/apt-archives" "$@" && return 0
             echo "apt-get $1 did not finish (attempt $i)"
-            sudo dpkg --configure -a || true
+            root dpkg --configure -a || true
           done
           return 1
         }
         apt update -qq
         # shellcheck disable=SC2046
         apt install -y --no-install-recommends $(cat "${GITHUB_ACTION_PATH}/packages-$PACKAGES.txt")
-        sudo rm -rf ~/apt-archives/lock ~/apt-archives/partial
-        sudo chown -R "$USER" ~/apt-archives
+        root rm -rf ~/apt-archives/lock ~/apt-archives/partial
+        root chown -R "$(id -u):$(id -g)" ~/apt-archives
 
     - name: Save the .debs
       if: ${{ inputs.packages != 'none' && steps.apt.outputs.cache-hit != 'true' && steps.keys.outputs.save == 'true' }}

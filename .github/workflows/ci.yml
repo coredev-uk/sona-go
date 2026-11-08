@@ -122,7 +122,7 @@ jobs:
   image:
     name: CI image
     needs: changes
-    if: ${{ needs.changes.outputs.heavy == 'true' || (github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'uiprobe')) }}
+    if: ${{ needs.changes.outputs.heavy == 'true' || (github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'uiprobe' || inputs.only == 'orca')) }}
     runs-on: ubuntu-26.04
     timeout-minutes: 40
     permissions:
@@ -530,12 +530,29 @@ jobs:
   # docs/accessibility.md. Run by hand (workflow_dispatch, only=orca or all),
   # never on a pull request or a push, and not a required check: it depends on
   # Orca's own speech and timing, which change with its version.
+  #
+  # It runs in the CI image like the e2e and probe jobs: a run on a bare
+  # runner installed the GTK and GStreamer stack and built with a cold Go cache
+  # every time, because a job that only runs by hand finds the runner image
+  # changed since its caches were saved. Only Orca (and procps) is installed
+  # on top of the image, its .debs cached per image; Go's caches are the e2e
+  # job's (same build), restored and not saved.
   orca-walk:
     name: Orca walk (headless sway)
+    needs: [changes, image]
     if: ${{ github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'orca') }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 20
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read # pull the image
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
     env:
+      SONA_CI_IMAGE: ${{ needs.image.outputs.id }}
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
       E2E_OUT: ${{ github.workspace }}/orca-out
@@ -545,15 +562,15 @@ jobs:
         with:
           persist-credentials: false
 
-      # The e2e packages, and Orca.
+      # The e2e job's Go caches (same build), and Orca on top of the image.
       - uses: ./.github/actions/setup-linux
         id: setup
         with:
           packages: orca
-          flavor: orca
+          flavor: e2e
 
       - name: Walk the app with Orca
-        run: e2e/headless.sh -- go test -tags e2e -count=1 -v -run '^TestOrca' -timeout 15m ./e2e/
+        run: e2e/headless.sh -- go test -tags e2e -count=1 -v -run '^TestOrca' -timeout 10m ./e2e/
 
       - name: Job summary
         if: ${{ always() }}
@@ -575,13 +592,6 @@ jobs:
           path: ${{ github.workspace }}/orca-out
           if-no-files-found: ignore
           retention-days: 7
-
-      - name: Save Go's caches
-        if: ${{ always() && steps.setup.outputs.save == 'true' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.setup.outputs.cache-path }}
-          key: ${{ steps.setup.outputs.cache-key }}
 
   # The native UI's numbers after a merge (plan §15): the Albums scroll table,
   # first paint over 5 starts, PSS and idle CPU, from cmd/uiprobe against the
