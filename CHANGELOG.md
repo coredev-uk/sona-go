@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/coredev-uk/sona-go/compare/v0.3.0...v0.3.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* **release:** the release build gets the release environment's secrets ([#214](https://github.com/coredev-uk/sona-go/issues/214)) ([6401af7](https://github.com/coredev-uk/sona-go/commit/6401af77a5e082ade1a7b4947ebdebe92677027a))
+
 ## [0.3.0](https://github.com/coredev-uk/sona-go/compare/v0.2.0...v0.3.0) (2026-11-08)
 
 
