@@ -30,6 +30,9 @@ var ErrSignature = errors.New("update: the archive is not signed with the app's 
 // ErrInstall means an update couldn't be downloaded, unpacked or swapped in.
 var ErrInstall = errors.New("update: the update couldn't be installed")
 
+// ErrRestore means the previous version couldn't be put back.
+var ErrRestore = errors.New("update: the previous version couldn't be restored")
+
 // ParseKey decodes a base64 Ed25519 public key; "" is ErrNoKey.
 func ParseKey(s string) (ed25519.PublicKey, error) {
 	s = strings.TrimSpace(s)

@@ -226,6 +226,13 @@ Before merging a release PR, install the release candidate's files:
   `prerelease=rc.N+1`), turn Test versions on, see the notice, "Install and
   restart", and check settings, sign-in and the queue survive. A deliberately
   broken build rolls back.
+- **Restoring the previous version (macOS and Windows):** after that update,
+  Settings → Diagnostics → Updates → Previous version names rc.N. "Restore…"
+  asks first, then Sona quits and starts rc.N with settings, sign-in and the
+  queue kept. The sidebar does not offer rc.N+1 again, Settings → General
+  still says it is available, and "Check now" brings the notice back. Copy
+  diagnostics shows `lastRollback` with `"manual": true`. There is no row on
+  Linux or in a development build.
 
 ### bot-cecil App permissions
 

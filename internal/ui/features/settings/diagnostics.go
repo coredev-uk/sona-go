@@ -43,6 +43,7 @@ type diagSeamState struct {
 	sys     diagAPI
 	mot     motionAPI
 	desk    inspectorAPI
+	prev    previousAPI
 	native  func() (services.MotionReport, bool)
 	nextRun time.Time // when the motion status is refetched next
 }
@@ -66,6 +67,18 @@ func (v *diagSeamsView) motion(s *settings) motionAPI {
 		return v.mot
 	}
 	return services.Service[services.MotionService](s.env.Core)
+}
+
+// previous is UpdatesService as the previous-version row uses it; nil where
+// the section has none (a test's, or no updates service).
+func (v *diagSeamsView) previous(s *settings) previousAPI {
+	switch {
+	case v.prev != nil:
+		return v.prev
+	case s.updates != nil:
+		return s.updates
+	}
+	return nil
 }
 
 func (v *diagSeamsView) desktop(s *settings) inspectorAPI {
@@ -145,6 +158,7 @@ func (s *settings) diagnostics(c *ui.Context) {
 			for _, g := range groups {
 				s.diagGroup(c, g)
 			}
+			s.previousVersion(c)
 			if caps.HasData {
 				s.developerTools(c, caps.Data.DeveloperTools)
 			}

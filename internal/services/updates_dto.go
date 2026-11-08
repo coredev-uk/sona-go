@@ -60,4 +60,30 @@ type UpdateStatus struct {
 	Installed bool `json:"installed"`
 	// InstallError is why the last install failed ("" when none did).
 	InstallError ErrorCode `json:"installError"`
+	// Declined is the version the user went back from with "Restore…"
+	// (Settings → Diagnostics): this run is the one they went back to, and
+	// the sidebar notice doesn't offer that version again. A check by hand
+	// (UpdatesService.Check) clears it; a newer release than Declined is
+	// offered as usual. "" when nothing was declined.
+	Declined string `json:"declined"`
+}
+
+// Notify reports whether the sidebar notice offers Latest: it is newer than
+// this build and not the version the user just went back from. Settings →
+// General says Latest is available either way.
+func (u UpdateStatus) Notify() bool {
+	return u.Available && (u.Declined == "" || u.Latest != u.Declined)
+}
+
+// PreviousVersion is the version the last update replaced, kept beside the
+// install to go back to (UpdatesService.Previous).
+type PreviousVersion struct {
+	// Available: a previous version is kept and Sona can restore it here:
+	// macOS and Windows installs that update themselves, with no update
+	// installing and no restore under way. False elsewhere (Linux, a
+	// development build, nothing kept).
+	Available bool `json:"available"`
+	// Version is its number ("" when it can't be read: a snapshot made by a
+	// Sona that didn't record it).
+	Version string `json:"version"`
 }

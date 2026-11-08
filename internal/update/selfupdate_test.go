@@ -295,7 +295,7 @@ func read(t *testing.T, p string) string {
 // snapshot of the old one.
 func install(t *testing.T, g Guard, v string) {
 	t.Helper()
-	if err := g.Snapshot(); err != nil {
+	if err := g.Snapshot("0.2.0"); err != nil {
 		t.Fatal(err)
 	}
 	if err := g.Mark("0.2.0", v); err != nil {

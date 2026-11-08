@@ -47,9 +47,10 @@ type UpdatesService struct {
 	updater SelfUpdater
 	guard   *update.Guard // rollback guard (nil without a self-updatable install)
 
-	mu       sync.Mutex
-	status   UpdateStatus
-	manifest *update.Source // the update found, minus the download client
+	mu        sync.Mutex
+	status    UpdateStatus
+	manifest  *update.Source // the update found, minus the download client
+	restoring bool           // the previous version is being put back (never cleared by success: Sona restarts)
 }
 
 func newUpdatesService(e *Env) *UpdatesService {
@@ -66,6 +67,7 @@ func newUpdatesService(e *Env) *UpdatesService {
 		}
 	}
 	s.status.SelfUpdate, s.status.Disabled = s.selfState()
+	s.status.Declined = s.declined()
 	ctx, cancel := context.WithCancel(context.Background())
 	e.OnClose(cancel)
 	e.OnNetwork(func() {
@@ -103,8 +105,23 @@ func (s *UpdatesService) selfState() (bool, string) {
 	return true, ""
 }
 
-// bundle is the Diagnostics section: what updates do here and the last
-// rollback.
+// declined is the version the user went back from when this run is the
+// version they went back to: the sidebar notice doesn't offer it again.
+// Nothing declines a version without that restore on record, or after a
+// restore that failed. A restore that didn't know the version it restored
+// (a Windows snapshot made before Sona recorded it) counts as this run's.
+func (s *UpdatesService) declined() string {
+	if s.guard == nil {
+		return ""
+	}
+	if r := s.guard.LastRollback(); r != nil && r.Manual && r.Error == "" && (r.To == "" || r.To == s.status.Current) {
+		return r.From
+	}
+	return ""
+}
+
+// bundle is the Diagnostics section: what updates do here, the previous
+// version kept and the last rollback (Manual says the user asked for it).
 func (s *UpdatesService) bundle() any {
 	st := s.Status()
 	out := map[string]any{"current": st.Current, "selfUpdate": st.SelfUpdate, "disabled": st.Disabled, "target": s.target}
@@ -112,11 +129,68 @@ func (s *UpdatesService) bundle() any {
 		if p := s.guard.Pending(); p != nil {
 			out["pending"] = p
 		}
+		if v, ok := s.guard.HasPrevious(); ok {
+			out["previous"] = v
+		}
 		if r := s.guard.LastRollback(); r != nil {
 			out["lastRollback"] = r
 		}
 	}
 	return out
+}
+
+// Previous reports the version the last update replaced, which is kept
+// beside the install (Settings → Diagnostics offers to go back to it). It
+// is unavailable where Sona doesn't update itself (Linux, a development
+// build, a place it can't write) and while an update installs or a restore
+// runs.
+func (s *UpdatesService) Previous() PreviousVersion {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.previousLocked()
+}
+
+func (s *UpdatesService) previousLocked() PreviousVersion {
+	st := &s.status
+	if s.guard == nil || !st.SelfUpdate || st.Installing || st.Installed || s.restoring {
+		return PreviousVersion{}
+	}
+	v, ok := s.guard.HasPrevious()
+	return PreviousVersion{Available: ok, Version: v}
+}
+
+// RestorePrevious puts the previous version back in place of the running
+// one and restarts into it. The running version is recorded as the one the
+// user went back from (UpdateStatus.Declined, update-rollback.json). Sona
+// restarts the way an update does, through the app's normal quit, so
+// settings and the queue are saved; nothing the user keeps (settings,
+// sign-in, library) is touched. A failure leaves Sona running as it was
+// (CodeRestoreFailed), and CodeUnsupported where Sona doesn't update
+// itself.
+func (s *UpdatesService) RestorePrevious() error {
+	s.mu.Lock()
+	if !s.status.SelfUpdate {
+		s.mu.Unlock()
+		return unsupported("restoring the previous version")
+	}
+	if !s.previousLocked().Available {
+		s.mu.Unlock()
+		return fmt.Errorf("%w: there is no previous version to restore right now", update.ErrRestore)
+	}
+	s.restoring = true
+	from := s.status.Current
+	s.mu.Unlock()
+
+	if err := s.guard.RestorePrevious(from); err != nil {
+		s.mu.Lock()
+		s.restoring = false
+		s.mu.Unlock()
+		s.o.Logger.Warn("restoring the previous version failed", "err", err)
+		return fmt.Errorf("%w: %v", update.ErrRestore, err)
+	}
+	s.o.Logger.Info("restored the previous version", "from", from)
+	s.o.Go("restore relaunch", s.updater.Relaunch)
+	return nil
 }
 
 // Status returns the last check's result.
@@ -128,7 +202,11 @@ func (s *UpdatesService) Status() UpdateStatus {
 
 // Check asks for the newest release now (Settings → General), whatever the
 // start-up setting says. Builds without a release version are not checked.
+// A check by hand ends what UpdateStatus.Declined held back.
 func (s *UpdatesService) Check(ctx context.Context) (UpdateStatus, error) {
+	s.mu.Lock()
+	s.status.Declined = ""
+	s.mu.Unlock()
 	return s.check(ctx)
 }
 
@@ -166,6 +244,7 @@ func (s *UpdatesService) Install(ctx context.Context) (UpdateStatus, error) {
 	src.Key = s.key
 	src.Progress = s.progress
 	st.Installing, st.InstallError, st.Downloaded, st.Total = true, "", 0, src.Update.Size
+	st.Declined = "" // the user chose the version they went back from: the notice follows the install
 	from, to := st.Current, st.Latest
 	s.mu.Unlock()
 	s.emitInstall()
@@ -193,7 +272,7 @@ func (s *UpdatesService) Install(ctx context.Context) (UpdateStatus, error) {
 // install keeps the running version, marks the update on trial, and has
 // MyGo swap it in. Nothing stays marked after a failure.
 func (s *UpdatesService) install(ctx context.Context, src *update.Source, from, to string) error {
-	if err := s.guard.Snapshot(); err != nil {
+	if err := s.guard.Snapshot(from); err != nil {
 		return fmt.Errorf("%w: keeping the current version: %v", update.ErrInstall, err)
 	}
 	if err := s.guard.Mark(from, to); err != nil {

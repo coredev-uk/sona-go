@@ -113,6 +113,7 @@ func TestEveryCodeIsClassified(t *testing.T) {
 		CodeNoCDM:               playback.ErrNoCDM,
 		CodeUpdateSignature:     update.ErrSignature,
 		CodeUpdateFailed:        update.ErrInstall,
+		CodeRestoreFailed:       update.ErrRestore,
 		CodeKeyring:             auth.ErrKeyring,
 		CodeImageUnusable:       artwork.ErrCoverImage,
 		CodeVideoHDOnly:         playback.ErrVideoHDOnly,

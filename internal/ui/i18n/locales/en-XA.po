@@ -1690,6 +1690,10 @@ msgstr ""
 msgid "Couldn't reset the window"
 msgstr ""
 
+#: internal/ui/features/settings/previous.go
+msgid "Couldn't restore the previous version. {reason}"
+msgstr ""
+
 #: internal/ui/features/settings/diagnostics.go
 msgid "Couldn't run the checks"
 msgstr ""
@@ -2539,6 +2543,14 @@ msgstr ""
 
 #: internal/ui/features/player/shortcuts.go
 msgid "Go back 10 seconds"
+msgstr ""
+
+#: internal/ui/features/settings/previous.go
+msgid "Go back to the previous version?"
+msgstr ""
+
+#: internal/ui/features/settings/previous.go
+msgid "Go back to {version}?"
 msgstr ""
 
 #: internal/ui/features/album/page.go
@@ -4524,6 +4536,10 @@ msgstr ""
 msgid "Previous track"
 msgstr ""
 
+#: internal/ui/features/settings/previous.go
+msgid "Previous version"
+msgstr ""
+
 #. Short label of the private listening switch while it is on
 #: internal/ui/features/private/private.go
 msgid "Private"
@@ -4927,6 +4943,18 @@ msgstr ""
 #: internal/ui/features/settings/updates.go
 #: internal/ui/features/updates/updates.go
 msgid "Restarting into Sona {latest}…"
+msgstr ""
+
+#: internal/ui/features/settings/previous.go
+msgid "Restore and restart"
+msgstr ""
+
+#: internal/ui/features/settings/previous.go
+msgid "Restore…"
+msgstr ""
+
+#: internal/ui/features/settings/previous.go
+msgid "Restoring…"
 msgstr ""
 
 #: internal/ui/features/search/field.go
@@ -5666,6 +5694,10 @@ msgstr ""
 msgid "Sona couldn't play it · {when}"
 msgstr ""
 
+#: internal/ui/i18n/errors.go
+msgid "Sona couldn't put the previous version back. Check that it can write where it is installed, then try again."
+msgstr ""
+
 #: internal/ui/account/section.go
 #: internal/ui/account/signedin.go
 msgid "Sona couldn't reach Apple to confirm your sign-in. It keeps using your saved token, and retries by itself."
@@ -5811,6 +5843,14 @@ msgstr ""
 
 #: internal/ui/account/signedin.go
 msgid "Sona removes your token from the keyring, stops playback and deletes the copy of your library on this computer. Your Apple Music library itself isn't changed."
+msgstr ""
+
+#: internal/ui/features/settings/previous.go
+msgid "Sona restarts on the previous version. Your settings, sign-in and library are kept."
+msgstr ""
+
+#: internal/ui/features/settings/previous.go
+msgid "Sona restarts on {version}. Your settings, sign-in and library are kept."
 msgstr ""
 
 #: internal/ui/i18n/errors.go
@@ -6371,6 +6411,10 @@ msgstr ""
 msgid "The update isn't signed with Sona's key, so it wasn't installed."
 msgstr ""
 
+#: internal/ui/features/settings/previous.go
+msgid "The version from your last update is kept."
+msgstr ""
+
 #: internal/ui/features/player/nowplaying_view.go
 msgid "The words in Latin letters"
 msgstr ""
@@ -6810,6 +6854,7 @@ msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
 #: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/previous.go
 #: internal/ui/features/settings/updates.go
 msgid "Updates"
 msgstr ""
@@ -8006,6 +8051,10 @@ msgstr ""
 
 #: internal/ui/features/album/model.go
 msgid "{total, plural, one {{out} of # song out now} other {{out} of # songs out now}}"
+msgstr ""
+
+#: internal/ui/features/settings/previous.go
+msgid "{version} is kept from your last update."
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go

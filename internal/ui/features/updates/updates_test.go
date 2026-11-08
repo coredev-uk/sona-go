@@ -125,3 +125,17 @@ func TestModuleFillsTheSidebarFooterAndFollowsTheEvent(t *testing.T) {
 		t.Fatalf("module = %+v", m)
 	}
 }
+
+// After "Restore…" in Settings → Diagnostics the restored version doesn't
+// nag about the version it came back from; a newer one is still offered.
+func TestNoticeSkipsTheVersionTheUserWentBackFrom(t *testing.T) {
+	r := newRig(t)
+	r.emit(services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, Declined: "0.3.0"})
+	if r.tt.HasText("is available") {
+		t.Fatalf("the notice offers the version just left: %q", r.tt.Texts())
+	}
+	r.emit(services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.1", Available: true, Declined: "0.3.0"})
+	if !r.tt.HasText("Sona 0.3.1 is available") {
+		t.Fatalf("a newer release is held back too: %q", r.tt.Texts())
+	}
+}

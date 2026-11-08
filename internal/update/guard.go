@@ -2,6 +2,7 @@ package update
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -20,7 +21,8 @@ import (
 // update-pending in the state folder before relaunching. The new version
 // clears the file at its first paint. A start that finds the file already
 // counted MaxStarts times never got that far, so it restores the previous
-// version (the CDM's rule of 3 failed starts).
+// version (the CDM's rule of 3 failed starts). The same kept version is what
+// the user can go back to by choice (RestorePrevious, Settings → Diagnostics).
 
 // MaxStarts is how many starts an update gets to reach its first paint.
 const MaxStarts = 3
@@ -28,6 +30,9 @@ const MaxStarts = 3
 const (
 	pendingFile  = "update-pending"
 	rollbackFile = "update-rollback.json"
+	// previousFile holds the version number of the snapshot where the
+	// install has no bundle to read it from (Windows).
+	previousFile = "update-previous"
 )
 
 // Pending is the update-pending file.
@@ -63,9 +68,13 @@ func Decide(p *Pending, current string) Action {
 
 // Rollback reports the last restore, for Diagnostics.
 type Rollback struct {
-	From string    `json:"from"` // the version that failed to start
-	To   string    `json:"to"`   // the version restored
+	From string    `json:"from"` // the version that was left: the one that failed to start, or the one the user went back from
+	To   string    `json:"to"`   // the version restored ("" when unknown)
 	At   time.Time `json:"at"`
+	// Manual: the user asked for it (Settings → Diagnostics → Previous
+	// version), where false is the guard undoing an update that never
+	// reached its first paint.
+	Manual bool `json:"manual,omitempty"`
 	// Error is why the restore itself failed ("" when it worked).
 	Error string `json:"error,omitempty"`
 }
@@ -105,21 +114,75 @@ func NewGuard(state, exe, goos string) (Guard, bool) {
 	return Guard{}, false
 }
 
-// Snapshot keeps the running version as Previous, replacing an older
-// snapshot. Files are hard-linked where the volume allows (the new version
-// is unpacked elsewhere and swapped in, so the links are never written
-// through) and copied otherwise.
-func (g Guard) Snapshot() error {
+// Snapshot keeps the running version, which is version, as Previous,
+// replacing an older snapshot. Files are hard-linked where the volume allows
+// (the new version is unpacked elsewhere and swapped in, so the links are
+// never written through) and copied otherwise. Where the install has no
+// Info.plist to say which version the snapshot is (Windows), the number is
+// kept in the state folder.
+func (g Guard) Snapshot(version string) error {
 	if err := os.RemoveAll(g.Previous); err != nil {
 		return err
 	}
+	g.forgetVersion()
 	if g.GOOS == "darwin" {
 		return copyTree(g.Root, g.Previous, nil)
 	}
 	skip := func(rel string) bool {
 		return rel == "previous" || (strings.HasPrefix(rel, ".") && strings.Contains(rel, ".old-"))
 	}
-	return copyTree(g.Root, g.Previous, skip)
+	if err := copyTree(g.Root, g.Previous, skip); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(g.State, previousFile), []byte(version), 0o600)
+}
+
+// HasPrevious reports whether a previous version is kept, and which one:
+// the CFBundleShortVersionString of Previous's Info.plist on macOS, the
+// number Snapshot recorded elsewhere. version is "" when it can't be read
+// (a snapshot made before Sona recorded it).
+func (g Guard) HasPrevious() (version string, ok bool) {
+	if fi, err := os.Stat(g.Previous); err != nil || !fi.IsDir() {
+		return "", false
+	}
+	if g.GOOS == "darwin" {
+		return bundleVersion(filepath.Join(g.Previous, "Contents", "Info.plist")), true
+	}
+	b, _ := os.ReadFile(filepath.Join(g.State, previousFile))
+	return strings.TrimSpace(string(b)), true
+}
+
+func (g Guard) forgetVersion() { _ = os.Remove(filepath.Join(g.State, previousFile)) }
+
+// bundleVersion reads CFBundleShortVersionString from an XML Info.plist;
+// "" when the file is missing, binary or lacks the key.
+func bundleVersion(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = f.Close() }()
+	d := xml.NewDecoder(f)
+	var elem, key string
+	for {
+		tok, err := d.Token()
+		if err != nil {
+			return ""
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			elem = t.Name.Local
+		case xml.EndElement:
+			elem = ""
+		case xml.CharData:
+			switch {
+			case elem == "key":
+				key = string(t)
+			case elem == "string" && key == "CFBundleShortVersionString":
+				return strings.TrimSpace(string(t))
+			}
+		}
+	}
 }
 
 // Mark records that the update from → to is about to start.
@@ -183,9 +246,26 @@ func (g Guard) Rollback() error {
 	if p != nil {
 		rb.From, rb.To = p.To, p.From
 	}
+	return g.restoreAndRecord(rb)
+}
+
+// RestorePrevious puts Previous back in place of the running version, which
+// is current, because the user asked for it. It clears any marker and
+// records the restore as a manual one (LastRollback). The running process
+// goes on from its open files; the caller restarts it (the install's own
+// restart, which starts whatever is installed at Root).
+func (g Guard) RestorePrevious(current string) error {
+	prev, _ := g.HasPrevious()
+	return g.restoreAndRecord(Rollback{From: current, To: prev, Manual: true, At: time.Now().UTC()})
+}
+
+// restoreAndRecord is a restore that is written down whatever happens.
+func (g Guard) restoreAndRecord(rb Rollback) error {
 	err := restore(g.GOOS, g.Root, g.Previous)
 	if err != nil {
 		rb.Error = err.Error()
+	} else {
+		g.forgetVersion()
 	}
 	// Clear the marker whatever happened: a restore that can't work must
 	// not loop on every start.

@@ -63,6 +63,11 @@ func (f *fakeUpdates) Install(context.Context) (services.UpdateStatus, error) {
 	return f.status, f.installErr
 }
 
+// Previous and RestorePrevious are Diagnostics' (diagnostics_test.go): here
+// no version is kept.
+func (f *fakeUpdates) Previous() services.PreviousVersion { return services.PreviousVersion{} }
+func (f *fakeUpdates) RestorePrevious() error             { return nil }
+
 func (f *fakeUpdates) count() (checks, opens int) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
