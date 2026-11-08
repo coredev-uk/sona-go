@@ -189,12 +189,11 @@ func TestTrackListControlsAreOnTheTreeAtRest(t *testing.T) {
 		{ui.RoleLink, "Album 0"},
 		{ui.RoleMenuButton, "More for Song 0"},
 	})
-	// The sort buttons say the direction they sort by; the play button is
-	// pressed by assistive technology though the pointer ignores it at rest.
+	// The play button is pressed by assistive technology though the pointer
+	// ignores it at rest.
 	title, _ := tr.Find(ui.RoleButton, "Title")
-	artist, _ := tr.Find(ui.RoleButton, "Artist")
-	if title.Value != "ascending" || artist.Value != "none" {
-		t.Errorf("sort values: Title %q, Artist %q", title.Value, artist.Value)
+	if title.Value != "" {
+		t.Errorf("the Title sort button carries the value %q; the direction is the header's sort state", title.Value)
 	}
 	play, _ := tr.Find(ui.RoleButton, "Play Song 0")
 	if !play.Can(access.Press) {
@@ -231,6 +230,111 @@ func TestTrackListUnplayableRowsHaveNoPlayButton(t *testing.T) {
 	}
 }
 
+// TestTrackListHeadersAreColumnHeadersHoldingTheirSortButton: a sortable
+// header is a column header (named by its button) with the button inside it.
+func TestTrackListHeadersAreColumnHeadersHoldingTheirSortButton(t *testing.T) {
+	_, tt := newCollTrackApp(t, 4, 1000, 500)
+	tt.Frame()
+	access.NoNestedControls(t, tt)
+	tr := access.Read(t, tt)
+	for _, title := range []string{"Title", "Artist", "Album"} {
+		h, ok := tr.Find(ui.RoleColumnHeader, title)
+		if !ok {
+			t.Fatalf("no column header %q:\n%s", title, tr.Dump())
+		}
+		b, ok := tr.Find(ui.RoleButton, title)
+		if !ok {
+			t.Fatalf("no sort button %q:\n%s", title, tr.Dump())
+		}
+		if b.Parent != h.Index {
+			t.Errorf("the %q sort button is not inside its column header:\n%s", title, tr.Dump())
+		}
+		if !b.Can(access.Press) {
+			t.Errorf("the %q sort button cannot be pressed by assistive technology", title)
+		}
+	}
+}
+
+// trackSortApp is a track list whose sort state follows OnSort the way a page
+// does: the same column again turns the order round.
+func trackSortApp(t *testing.T, n int) (*collTrackApp, *ui.Tester) {
+	t.Helper()
+	a, tt := newCollTrackApp(t, n, 1000, 500)
+	sort := a.opts.Sort
+	sort.OnSort = func(key string) {
+		a.sorted = append(a.sorted, key)
+		if sort.Key == key {
+			sort.Desc = !sort.Desc
+			return
+		}
+		sort.Key, sort.Desc = key, false
+	}
+	return a, tt
+}
+
+// sortOf is the sort state of the column header named title, "" for none.
+func sortOf(t *testing.T, tr access.Tree, title string) string {
+	t.Helper()
+	h, ok := tr.Find(ui.RoleColumnHeader, title)
+	if !ok {
+		t.Fatalf("no column header %q:\n%s", title, tr.Dump())
+	}
+	asc, desc, other := h.Has(access.SortAscending), h.Has(access.SortDescending), h.Has(access.SortOther)
+	switch {
+	case asc && !desc && !other:
+		return "ascending"
+	case desc && !asc && !other:
+		return "descending"
+	case !asc && !desc && !other:
+		return ""
+	}
+	t.Errorf("column header %q: states %s", title, h.States)
+	return "?"
+}
+
+func TestTrackListSortedHeaderReportsItsDirectionAndChangesWithAClick(t *testing.T) {
+	a, tt := trackSortApp(t, 4)
+	tt.Frame()
+	tr := access.Read(t, tt)
+	if got := [3]string{sortOf(t, tr, "Title"), sortOf(t, tr, "Artist"), sortOf(t, tr, "Album")}; got != [3]string{"ascending", "", ""} {
+		t.Errorf("sort states at first (Title, Artist, Album): %q", got)
+	}
+	if err := tt.Click("Artist"); err != nil {
+		t.Fatal(err)
+	}
+	tr = access.Read(t, tt)
+	if got := [3]string{sortOf(t, tr, "Title"), sortOf(t, tr, "Artist"), sortOf(t, tr, "Album")}; got != [3]string{"", "ascending", ""} {
+		t.Errorf("sort states after clicking Artist (Title, Artist, Album): %q (sorted %v)", got, a.sorted)
+	}
+	if err := tt.Click("Artist"); err != nil {
+		t.Fatal(err)
+	}
+	tr = access.Read(t, tt)
+	if got := sortOf(t, tr, "Artist"); got != "descending" {
+		t.Errorf("Artist after a second click is %q, want descending (sorted %v)", got, a.sorted)
+	}
+}
+
+func TestTrackListSortedHeaderChangesWithTheKeyboard(t *testing.T) {
+	a, tt := trackSortApp(t, 4)
+	tt.Frame()
+	tt.Key(0, ui.KeyTab) // Title
+	tt.Key(0, ui.KeyTab) // Artist
+	tt.Key(0, ui.KeyTab) // Album
+	tt.Key(0, ui.KeyEnter)
+	if !slices.Equal(a.sorted, []string{SortAlbum}) {
+		t.Fatalf("Enter on the focused sort button sorted %v, want Album", a.sorted)
+	}
+	tr := access.Read(t, tt)
+	if got := [3]string{sortOf(t, tr, "Title"), sortOf(t, tr, "Artist"), sortOf(t, tr, "Album")}; got != [3]string{"", "", "ascending"} {
+		t.Errorf("sort states after Enter on Album (Title, Artist, Album): %q", got)
+	}
+	tt.Key(0, ui.KeyEnter)
+	if got := sortOf(t, access.Read(t, tt), "Album"); got != "descending" {
+		t.Errorf("Album after a second Enter is %q, want descending", got)
+	}
+}
+
 func TestTrackListHeadersWithoutSortStayColumnHeaders(t *testing.T) {
 	a, tt := newCollTrackApp(t, 2, 1000, 500)
 	a.opts.Sort = nil
@@ -239,6 +343,100 @@ func TestTrackListHeadersWithoutSortStayColumnHeaders(t *testing.T) {
 	requireNodes(t, tr, []want{{ui.RoleColumnHeader, "Title"}, {ui.RoleColumnHeader, "Artist"}, {ui.RoleColumnHeader, "Album"}})
 	if got := len(tr.Roles(ui.RoleButton)); got != 2 {
 		t.Errorf("%d buttons, want the two Play buttons only:\n%s", got, tr.Dump())
+	}
+	for _, title := range []string{"Title", "Artist", "Album"} {
+		if got := sortOf(t, tr, title); got != "" {
+			t.Errorf("column header %q of a list that does not sort is %q", title, got)
+		}
+	}
+}
+
+func TestTrackListIsAMultiselectableTableWithItsFullSize(t *testing.T) {
+	a, tt := newCollTrackApp(t, 5, 1000, 500)
+	a.opts.AddedBy = func(int) *services.SocialProfile { return nil }
+	tt.Frame()
+	tr := access.Read(t, tt)
+	table, ok := tr.Find(ui.RoleTable, "Songs in Test")
+	if !ok {
+		t.Fatalf("no table:\n%s", tr.Dump())
+	}
+	if !table.Has(access.Multiselectable) {
+		t.Errorf("the track table is not multiselectable: %s", table.States)
+	}
+	// Six rows with the header; seven columns: #, title, artist, album,
+	// added by, duration and actions.
+	if table.RowCount != 6 || table.ColCount != 7 {
+		t.Errorf("the table says %d rows and %d columns, want 6 and 7", table.RowCount, table.ColCount)
+	}
+	if h, ok := tr.Find(ui.RoleColumnHeader, "Title"); !ok || h.ColIndex != 2 {
+		t.Errorf("the Title header is column %d, want 2", h.ColIndex)
+	}
+	if h, ok := tr.Find(ui.RoleColumnHeader, "Added by"); !ok || h.ColIndex != 5 {
+		t.Errorf("the Added by header is column %d, want 5", h.ColIndex)
+	}
+	if h, ok := tr.Find(ui.RoleColumnHeader, "Actions"); !ok || h.ColIndex != 7 {
+		t.Errorf("the Actions header is column %d, want 7", h.ColIndex)
+	}
+	var header access.Node
+	for _, r := range tr.Roles(ui.RoleRow) {
+		if r.RowIndex == 1 {
+			header = r
+		}
+	}
+	if header.Index == 0 || !tr.Within(header, ui.RoleTable) {
+		t.Errorf("no header row at index 1:\n%s", tr.Dump())
+	}
+	for i := range 5 {
+		row, ok := tr.Find(ui.RoleRow, "Song "+strconv.Itoa(i))
+		if !ok || row.RowIndex != i+2 {
+			t.Errorf("Song %d is row %d, want %d", i, row.RowIndex, i+2)
+		}
+	}
+}
+
+// A list larger than the window builds only the rows in view, and says how
+// many there are and which of them each built row is.
+func TestTrackListVirtualisedRowsSayTheirTrueIndexAndTheFullCount(t *testing.T) {
+	const n = 2000
+	_, tt := newCollTrackApp(t, n, 1000, 500)
+	tt.Frame()
+	tr := access.Read(t, tt)
+	rows := tr.Roles(ui.RoleRow)
+	if len(rows) >= n/10 {
+		t.Fatalf("%d rows built for a list of %d: the list is not virtualised", len(rows), n)
+	}
+	table, ok := tr.Find(ui.RoleTable, "Songs in Test")
+	if !ok || table.RowCount != n+1 {
+		t.Fatalf("the table says %d rows, want %d (the songs and the header)", table.RowCount, n+1)
+	}
+	// Scroll a long way down: the rows built are a window far from the top,
+	// each still saying its own place.
+	tt.Scroll(500, 300, 0, 20000)
+	tt.Frame()
+	tr = access.Read(t, tt)
+	table, _ = tr.Find(ui.RoleTable, "Songs in Test")
+	if table.RowCount != n+1 {
+		t.Errorf("after scrolling the table says %d rows, want %d", table.RowCount, n+1)
+	}
+	var first, built int
+	for _, r := range tr.Roles(ui.RoleRow) {
+		if r.RowIndex == 1 || r.Label == "" {
+			continue // the header
+		}
+		i, err := strconv.Atoi(strings.TrimPrefix(r.Label, "Song "))
+		if err != nil {
+			t.Fatalf("row %q", r.Label)
+		}
+		if r.RowIndex != i+2 {
+			t.Errorf("%q says it is row %d, want %d", r.Label, r.RowIndex, i+2)
+		}
+		if built == 0 || i < first {
+			first = i
+		}
+		built++
+	}
+	if built == 0 || first < 300 {
+		t.Errorf("after scrolling the first row built is Song %d of %d built; the window did not move", first, built)
 	}
 }
 

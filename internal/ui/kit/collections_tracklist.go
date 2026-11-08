@@ -238,7 +238,11 @@ func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *ser
 	st.nav.Ends = true
 	st.nav.ScrollTo = nil
 
-	root := ui.Column(c.Key("kit.tracks")).FillWidth().Role(ui.RoleTable).Label(o.Label)
+	// A table that chooses several rows, and says how many it has whether
+	// or not they are built: the header row counts, so row i is row i+2 of
+	// count+1 (a virtualised list of 2,000 still reads "row 412 of 2,001").
+	root := ui.Column(c.Key("kit.tracks")).FillWidth().Role(ui.RoleTable).Label(o.Label).
+		Multiselectable(true).RowCount(count + 1).ColumnCount(o.columnCount())
 	if o.Pane != nil {
 		root.Draw(func(_ *ui.Painter, r ui.Rect) {
 			// Paint runs after this frame's layout: the box and the scroll
@@ -475,6 +479,7 @@ func (st *TrackListState) headings(c *ui.Context, o *TrackListOpts, i int, s *se
 // gridTemplate (# 40, title 2fr, artist 1fr, album 1fr, added by 0.8fr,
 // duration 56, actions 32), 16 apart.
 func (o *TrackListOpts) cell(e ui.Element, kind int) ui.Element {
+	e = e.ColumnIndex(o.columnIndex(kind))
 	switch kind {
 	case cellNumber:
 		return e.Width(trackNumberW).Shrink(0)
@@ -489,6 +494,35 @@ func (o *TrackListOpts) cell(e ui.Element, kind int) ui.Element {
 	}
 	return e.Width(trackActionsW).Shrink(0) // cellActions
 }
+
+// hasColumn reports whether the list shows the column of kind.
+func (o *TrackListOpts) hasColumn(kind int) bool {
+	switch kind {
+	case cellArtist:
+		return o.Columns.Artist
+	case cellAlbum:
+		return o.Columns.Album
+	case cellAddedBy:
+		return o.AddedBy != nil
+	}
+	return true
+}
+
+// columnIndex is the place of the column of kind among the columns shown,
+// from 1 (aria-colindex): the artist, album and added-by columns come and
+// go, so a cell after one left out would not say its column otherwise.
+func (o *TrackListOpts) columnIndex(kind int) int {
+	n := 0
+	for k := cellNumber; k <= kind; k++ {
+		if o.hasColumn(k) {
+			n++
+		}
+	}
+	return n
+}
+
+// columnCount is how many columns the list shows.
+func (o *TrackListOpts) columnCount() int { return o.columnIndex(cellActions) }
 
 const (
 	cellNumber = iota
@@ -505,7 +539,7 @@ const (
 func (st *TrackListState) header(c *ui.Context, o *TrackListOpts, tk *theme.Tokens) {
 	meta := tk.Type["meta"]
 	row := ui.Row(c.Key("header")).Height(trackHeaderHeight).PaddingX(trackPadX).Gap(trackGap).AlignItems(ui.Center).
-		Role(ui.RoleRow)
+		Role(ui.RoleRow).RowIndex(1)
 	row.Draw(func(p *ui.Painter, r ui.Rect) {
 		p.Fill(ui.Rect{X: r.X, Y: r.Y + r.H - 1, W: r.W, H: 1}, theme.C("line"), 0)
 	})
@@ -531,36 +565,35 @@ func (st *TrackListState) header(c *ui.Context, o *TrackListOpts, tk *theme.Toke
 	})
 }
 
-// headerCell is one column header: a sort button when the list sorts by key.
+// headerCell is one column header: when the list sorts by key it holds a sort
+// button, and says the direction the rows are sorted in if it is the column.
 func (st *TrackListState) headerCell(c *ui.Context, o *TrackListOpts, kind int, text, key string, meta theme.TypeStyle) {
-	cell := o.cell(ui.Row(c.Key("h-"+text)).AlignItems(ui.Center), kind)
-	if key == "" || o.Sort == nil {
-		cell.Role(ui.RoleColumnHeader)
-	} else {
-		// A column header is a leaf on the accessibility tree, so the sort
-		// button inside it would not be on it: the button stands for the
-		// column, named by its title with its direction as the value.
-		cell.Role(ui.RoleNone)
+	sortable := key != "" && o.Sort != nil
+	cell := o.cell(ui.Row(c.Key("h-"+text)).AlignItems(ui.Center).Role(ui.RoleColumnHeader), kind)
+	if sortable {
+		dir := ui.SortNone
+		if o.Sort.Key == key {
+			dir = ui.SortAscending
+			if o.Sort.Desc {
+				dir = ui.SortDescending
+			}
+		}
+		cell.Sort(dir)
 	}
 	cell.Children(func() {
-		if key == "" || o.Sort == nil {
+		if !sortable {
 			ui.Text(c, text).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).TextColor(theme.C("ink-faint")).SingleLine()
 			return
 		}
+		// The header is named by the button inside it, which stays on the
+		// tree: a column header keeps what it holds.
 		active := o.Sort.Key == key
 		btn := ui.ButtonBase(c.Key("sort-" + key)).Height(24).Gap(4).MarginX(-4).PaddingX(4).Radius(theme.Current().Radius["sm"])
-		state := "none"
-		if active {
-			state = "ascending"
-			if o.Sort.Desc {
-				state = "descending"
-			}
-		}
 		fg := theme.C("ink-faint")
 		if active || btn.Hovered() {
 			fg = theme.C("ink")
 		}
-		btn.Label(text).Value(state).TextColor(fg)
+		btn.Label(text).TextColor(fg)
 		btn.Children(func() {
 			ui.Text(c, text).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).SingleLine()
 			if active {
@@ -697,7 +730,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 			})
 		},
 		Source: func(e ui.Element) {
-			e.PaddingX(trackPadX).Gap(trackGap).Radius(tk.Radius["md"]).Role(ui.RoleRow).Label(s.Name).Checked(run != RunNone)
+			e.PaddingX(trackPadX).Gap(trackGap).Radius(tk.Radius["md"]).Role(ui.RoleRow).RowIndex(i + 2).Label(s.Name).Checked(run != RunNone)
 			if withheld {
 				// Unavailable but still focusable, with the reason as its description.
 				e.AccessDisabled(true).Description(i18n.T("Explicit content is restricted on this account"))
@@ -851,7 +884,7 @@ func (st *TrackListState) skeletonRow(c *ui.Context, o *TrackListOpts, i int, ho
 	tk := theme.Current()
 	r := tk.Radius["sm"]
 	ui.Row(c.Key("loading-" + strconv.Itoa(i))).Height(TrackRowHeight).Shrink(0).PaddingX(trackPadX).Gap(trackGap).
-		AlignItems(ui.Center).Role(ui.RoleRow).Label(i18n.T("Loading")).Children(func() {
+		AlignItems(ui.Center).Role(ui.RoleRow).RowIndex(i + 2).Label(i18n.T("Loading")).Children(func() {
 		o.cell(ui.Box(c), cellNumber).Height(1)
 		o.cell(ui.Row(c).Gap(12).AlignItems(ui.Center), cellTitle).Children(func() {
 			if o.Columns.Artwork {

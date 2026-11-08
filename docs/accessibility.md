@@ -36,8 +36,9 @@ shapes the rules below.
     releases); wide cards and queue rows build the same shape in a wrapper or
     a list item of their own;
   - a row's controls are cells of the row, which is a row, not a button;
-  - a sortable column header is its own sort button (the header cell has no
-    role), named by the title with the direction as its value.
+  - a sortable column header is a column header holding its sort button (the
+    button is named by the title, the header says the direction: see
+    `aria-sort` below).
 - A control that shows only while its row is hovered is built at rest too,
   `Opacity(0)` and `IgnoreInput(true)` (the pointer and Tab ignore it,
   assistive technology finds and presses it): the play button of a track
@@ -85,9 +86,12 @@ shapes the rules below.
 | `role="alert"` | `RoleAlert` on the message: an `ErrorBlock`'s title and reason, a sign-in or token error, a refused scrobbler token, the warning that scrobbler sign-ins are stored unencrypted, a cover that could not be set, a video's problem. MyGo reads it out when it appears and when it changes, so there is no `c.Announce` beside it, and the buttons beside the message are not inside the alert. A wait (Last.fm's authorisation) or a problem the account section finds on arrival (the keyring notice) is a `RoleStatus`, announced once where it is news |
 | `aria-live` | `c.Announce(text)` (read once, politely), and toasts, which announce their title and description |
 | `aria-controls` | `Controls(target)` on a disclosure that shows or hides a region it owns: `kit.Notes`' "Read more", a read-only sidebar section's fold, a Home index line |
+| `aria-sort` | `Sort(ui.SortAscending/SortDescending)` on the column header of the track list's sorted column, `ui.SortNone` on its other sortable headers (MyGo v0.8.1 keeps a column header's children, so the sort button sits inside the header). The button carries no value of its own |
+| `aria-multiselectable`, `aria-rowcount`, `aria-rowindex`, `aria-colcount`, `aria-colindex` | The track list's table is `Multiselectable(true)`, with `RowCount` (songs and the header row) and `ColumnCount`; each row says `RowIndex` (its song's place, from 2 under the header at 1) and each cell its `ColumnIndex` among the columns shown, so a virtualised list of 2,000 builds only the rows in view and a screen reader still hears the true row and total |
 
 These are MyGo v0.8.1's `Current`, `AccessDisabled`, `Busy`, `RoleAlert`,
-`Controls` and `HasPopup`. A disclosure whose region another component
+`Controls` and `HasPopup`, and the `Sort`, `Multiselectable`, `RowCount`,
+`ColumnCount`, `RowIndex` and `ColumnIndex` of its tables. A disclosure whose region another component
 builds sets no `Controls` (a shelf's "Show all", the player bar's Queue toggle
 and the panel the shell builds beside the page): MyGo's vet refuses an element
 kept past its build pass, and a handle cannot stand in for it.
@@ -299,7 +303,8 @@ session with audio:
   song ("Player · Paper Moons, panel") on entering it.
 - Of MyGo v0.8.1's states, only the sidebar's current page has been heard
   (the Orca walk above: "Current page", once). Orca's words for the
-  disabled-but-focusable, busy, alert, controls and popup states in Sona,
+  disabled-but-focusable, busy, alert, controls, popup, sort and row-count
+  states in Sona,
   and VoiceOver's and Narrator's for any of them, are unheard: the table
   above says what the tree holds. The setup strip's one Tab stop is the
   segment last focused, not the current step, because MyGo's focus group
