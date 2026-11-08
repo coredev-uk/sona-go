@@ -95,6 +95,7 @@ Pull requests here are merged by Clarence (GitHub App `bot-clarence`), not by ha
   the maintainer's behalf, and don't merge anything Clarence ruled `verdict/review` without his say.
 - Commands (a comment line starting with the command, `coredev-uk` only): `@bot-clarence merge`
   (`--allow <check>`, `--batch`, `at HH:MM`, `after #N`), `cancel`, `hold`, `unhold`, `reclassify`,
+  `retry` (re-run what failed on the head),
   `status`, `explain`, `revert` (on a merged pull request), `help` (anyone). Clarence answers with a
   reaction: 👀 queued, 👍 done, 🚀 merged, 👎 refused or called off, 😕 not understood or failed; the card's
   timeline says why. Only `help`, `status` and `explain` get a reply.
