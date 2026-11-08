@@ -17,7 +17,11 @@ mkdir -p "$cache"
 for kind in "" "devel-"; do
   name=gstreamer-1.0-${kind}${version}-universal.pkg
   if [[ ! -f $cache/$name ]]; then
-    curl -fsSL --retry 3 -o "$cache/$name" "https://gstreamer.freedesktop.org/data/pkg/osx/$version/$name"
+    # --retry alone skips a broken transfer: freedesktop.org's HTTP/2 often
+    # resets the stream mid-download (curl 92, three macOS CI jobs on
+    # 2026-11-08). HTTP/1.1, and a retry after any error; the sha256 below
+    # still checks what arrived.
+    curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 2 -o "$cache/$name" "https://gstreamer.freedesktop.org/data/pkg/osx/$version/$name"
   fi
   want=$(awk -v n="$name" '$2==n{print $1}' "$here/gstreamer.sha256")
   got=$(shasum -a 256 "$cache/$name" | awk '{print $1}')
