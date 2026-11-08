@@ -227,8 +227,11 @@ func (st *CoverState) setRows(count int, at func(i int) *CoverItem, cols int, me
 	st.nav.Count, st.nav.Columns = count, cols
 }
 
-// tile builds one cover tile at index i.
-func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i int, size float32) {
+// tile builds one cover tile at index i of count. The tile is a cell of a row
+// of the grid, a row that is only the line the tiles wrap on, and a virtual
+// grid builds only the rows in view: PositionInSet gives its place among all
+// count tiles, which neither its row nor the built tiles say.
+func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i, count int, size float32) {
 	tk := theme.Current()
 	if it == nil {
 		st.loadingTile(c, i, size, o.Video)
@@ -268,7 +271,7 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i int, si
 			return &DragPayload{Items: items, Label: label, Art: it.Art}
 		},
 		Outer: func(w ui.Element) {
-			w.Width(size).Height(artH + tileText).Shrink(0).Role(ui.RoleCell)
+			w.Width(size).Height(artH+tileText).Shrink(0).Role(ui.RoleCell).PositionInSet(i+1, count)
 			if selectable {
 				w.Checked(selected)
 			}

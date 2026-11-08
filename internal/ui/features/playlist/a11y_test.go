@@ -147,6 +147,45 @@ func TestA11ySidebar(t *testing.T) {
 	}
 }
 
+// Every item of the sidebar's lists says which of how many it is, for the
+// list it is in: a pin, a playlist of a section, and a folder's own
+// playlists, which are a list of their own inside the folder's item.
+func TestA11ySidebarItemsSayTheirPlaceInTheirList(t *testing.T) {
+	e := sbSetup(t, sbLibrary(), sbPins())
+	e.p.prefs.SetFolderOpen("f.run", true)
+	e.shows("Alpha", "Morning Mix", "Quiet Hours", "Running", "Road Trip", "Tempo")
+	e.tt.Settle()
+	tr := access.Read(t, e.tt.Tester)
+	// The item is the opener's parent: the opener and its More button are its children.
+	for _, tc := range []struct {
+		opener ui.Role
+		name   string
+		pos    int
+		size   int
+	}{
+		{ui.RoleLink, "Alpha", 1, 4},
+		{ui.RoleButton, "Beta, plays", 2, 4},
+		{ui.RoleButton, "Gamma, shuffles", 3, 4},
+		{ui.RoleLink, "Delta", 4, 4},
+		{ui.RoleLink, "Morning Mix", 1, 2},
+		{ui.RoleLink, "Discovery Mix", 2, 2},
+		{ui.RoleLink, "Quiet Hours", 1, 1},
+		{ui.RoleDisclosure, "Running", 1, 2},
+		{ui.RoleLink, "Road Trip", 2, 2},
+		{ui.RoleLink, "Tempo", 1, 1},
+	} {
+		op, ok := tr.Find(tc.opener, tc.name)
+		if !ok {
+			t.Errorf("no %v %q:\n%s", tc.opener, tc.name, tr.Dump())
+			continue
+		}
+		item := tr.Nodes[op.Parent]
+		if item.Role != ui.RoleListItem || item.PosInSet != tc.pos || item.SetSize != tc.size {
+			t.Errorf("the item of %q is a %v at %d of %d, want a list item at %d of %d", tc.name, item.Role, item.PosInSet, item.SetSize, tc.pos, tc.size)
+		}
+	}
+}
+
 // The folds and folders work from the keyboard and say so: Enter on a
 // disclosure flips its state on the tree.
 func TestA11ySidebarDisclosuresFromTheKeyboard(t *testing.T) {

@@ -18,7 +18,11 @@ type queueRowIn struct {
 	// start is the current song's queue index, userEnd where the user's
 	// part ends and n the queue's length.
 	start, userEnd, n int
-	current, playing  bool
+	// pos and size are the row's place among the rows of its list (the
+	// queue, or the station's part under its heading), from 1: the list
+	// builds only the rows in view, so the siblings do not say it.
+	pos, size        int
+	current, playing bool
 	// upNext is the song after the current one.
 	upNext bool
 	// tab is the list's Tab stop (roving focus).
@@ -120,7 +124,7 @@ func (p *player) queueRow(c *ui.Context, st *queueList, r queueRowIn) {
 			})
 		},
 		Source: func(s ui.Element) {
-			s.PaddingX(8).Gap(12).Radius(radius).Role(ui.RoleListItem).Label(lbl)
+			s.PaddingX(8).Gap(12).Radius(radius).Role(ui.RoleListItem).Label(lbl).PositionInSet(r.pos, r.size)
 			if !r.current {
 				s.Description(rowHelp(r.inView, it.Auto))
 			} else {

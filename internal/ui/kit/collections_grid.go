@@ -111,7 +111,7 @@ func CoverGrid(c *ui.Context, st *CoverState, count int, at func(i int) *CoverIt
 			}
 			ui.Row(c.Key(r)).Height(h).Gap(TileGapX).AlignItems(ui.Start).Role(ui.RoleRow).Children(func() {
 				for i := r * cols; i < min(count, (r+1)*cols); i++ {
-					st.tile(c, &o.CoverOpts, at(i), i, tile)
+					st.tile(c, &o.CoverOpts, at(i), i, count, tile)
 				}
 			})
 			prev = r

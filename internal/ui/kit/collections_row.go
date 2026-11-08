@@ -18,7 +18,8 @@ type CoverRowOpts struct {
 // in o.Rows rows at the grid's tile size, never scrolling sideways; the rest
 // are left out, but the covers of the next row are decoded while the shelf is
 // on screen. Pair it with a Shelf's "See all". Tiles select, open their menu
-// and drag as CoverGrid's. Its width is its parent's.
+// and drag as CoverGrid's, and each says its place among the tiles shown (not
+// among the ones left out). Its width is its parent's.
 func CoverRow(c *ui.Context, st *CoverState, items []CoverItem, o CoverRowOpts) {
 	root := ui.Column(c.Key("kit.row")).FillWidth().Gap(TileGapY).Role(ui.RoleTable).Label(o.Label)
 	root.Draw(func(_ *ui.Painter, r ui.Rect) {
@@ -57,7 +58,7 @@ func CoverRow(c *ui.Context, st *CoverState, items []CoverItem, o CoverRowOpts) 
 		for r := 0; r*cols < n; r++ {
 			ui.Row(c.Key(r)).Gap(TileGapX).AlignItems(ui.Start).Role(ui.RoleRow).Children(func() {
 				for i := r * cols; i < min(n, (r+1)*cols); i++ {
-					st.tile(c, &o.CoverOpts, &items[i], i, tile)
+					st.tile(c, &o.CoverOpts, &items[i], i, n, tile)
 				}
 			})
 		}
