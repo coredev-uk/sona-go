@@ -26,7 +26,7 @@ func TestA11yPaletteAndHelp(t *testing.T) {
 		if f, ok := tr.Find(ui.RoleComboBox, "Find a page, action or music in your library"); !ok || !f.Has(access.Focusable) {
 			t.Errorf("the field: %+v", f)
 		}
-		if _, ok := tr.Find(ui.RoleList, "Results"); !ok {
+		if _, ok := tr.Find(ui.RoleListBox, "Results"); !ok {
 			t.Error("the results are not a named list")
 		}
 		for _, g := range []string{"Playback", "View", "Pages", "General"} {
@@ -35,9 +35,24 @@ func TestA11yPaletteAndHelp(t *testing.T) {
 			}
 		}
 		for _, c := range []string{"Play or pause", "Next track", "Library · Albums"} {
-			if _, ok := tr.Find(ui.RoleListItem, c); !ok {
+			if _, ok := tr.Find(ui.RoleOption, c); !ok {
 				t.Errorf("no command %q", c)
 			}
+		}
+		// The field keeps the focus; the highlighted option is its active
+		// descendant, and the arrows move it.
+		if tr.Focus == nil || tr.Focus.Role != ui.RoleOption || (!tr.Focus.Has(access.Checked) && !tr.Focus.Has(access.Selected)) {
+			t.Fatalf("the active option: %+v\n%s", tr.Focus, tr.Dump())
+		}
+		first := tr.Focus.Label
+		r.tt.Key(0, ui.KeyDown)
+		r.settle()
+		tr = access.Read(t, tt)
+		if tr.Focus == nil || tr.Focus.Role != ui.RoleOption || tr.Focus.Label == first {
+			t.Errorf("Down left the active option at %q: %+v", first, tr.Focus)
+		}
+		if !r.tt.Focused("Find a page, action or music in your library") {
+			t.Error("the focus left the field")
 		}
 		access.TabWalk(t, tt, 20)
 		r.tt.Key(0, ui.KeyEscape)

@@ -430,13 +430,13 @@ func TestA11yFieldIsACombobox(t *testing.T) {
 	if !box.Has(access.Expanded) {
 		t.Errorf("the field does not say its list shows: %s", box.States)
 	}
-	list, ok := tr.Find(ui.RoleList, "Suggestions")
+	list, ok := tr.Find(ui.RoleListBox, "Suggestions")
 	if !ok {
 		t.Fatalf("no Suggestions list:\n%s", tr.Dump())
 	}
 	var rows []string
 	for _, n := range tr.Children(list) {
-		if n.Role != ui.RoleListItem {
+		if n.Role != ui.RoleOption {
 			t.Errorf("the list holds a %s", n)
 		}
 		rows = append(rows, n.Label)
@@ -444,7 +444,7 @@ func TestA11yFieldIsACombobox(t *testing.T) {
 	if len(rows) != 5 || rows[0] != "blue" || rows[1] != "blue band" || rows[2] != "Blue Band" {
 		t.Errorf("rows %q", rows)
 	}
-	if n, ok := tr.Find(ui.RoleListItem, "Blue Band"); !ok || n.Description != "Artist" {
+	if n, ok := tr.Find(ui.RoleOption, "Blue Band"); !ok || n.Description != "Artist" {
 		t.Errorf("the artist row lacks its kind as the description: %+v", n)
 	}
 	if _, ok := tr.Find(ui.RoleButton, "Clear search"); !ok {
@@ -456,7 +456,7 @@ func TestA11yFieldIsACombobox(t *testing.T) {
 	r.key(ui.KeyDown)
 	r.key(ui.KeyDown)
 	tr = access.Read(t, r.tt.Tester)
-	if n, ok := tr.Find(ui.RoleListItem, "blue band"); !ok || (!n.Has(access.Selected) && !n.Has(access.Checked)) {
+	if n, ok := tr.Find(ui.RoleOption, "blue band"); !ok || (!n.Has(access.Selected) && !n.Has(access.Checked)) {
 		t.Errorf("the second row is not the active one:\n%s", tr.Dump())
 	}
 	if tr.Focus == nil || tr.Focus.Label != "blue band" {
@@ -465,6 +465,15 @@ func TestA11yFieldIsACombobox(t *testing.T) {
 	if !r.tt.Focused("Search") {
 		t.Error("the focus left the field")
 	}
+	// Up moves the active option back; only one option is selected.
+	r.key(ui.KeyUp)
+	tr = access.Read(t, r.tt.Tester)
+	if tr.Focus == nil || tr.Focus.Role != ui.RoleOption || tr.Focus.Label != "blue" {
+		t.Errorf("Up: the focus is %v, want the option blue", tr.Focus)
+	}
+	if n, _ := tr.Find(ui.RoleOption, "blue band"); n.Has(access.Checked) {
+		t.Errorf("the option left behind is still selected: %s", n.States)
+	}
 
 	// Escape closes the list (the field keeps the focus), and says so.
 	r.key(ui.KeyEscape)
@@ -472,7 +481,7 @@ func TestA11yFieldIsACombobox(t *testing.T) {
 	if box, _ := tr.Find(ui.RoleComboBox, "Search"); box.Has(access.Expanded) {
 		t.Errorf("the field says its list shows after Escape: %s", box.States)
 	}
-	if len(tr.Roles(ui.RoleList)) != 0 {
+	if len(tr.Roles(ui.RoleListBox)) != 0 {
 		t.Errorf("the list stayed on the tree:\n%s", tr.Dump())
 	}
 	if !r.tt.Focused("Search") {
@@ -492,7 +501,7 @@ func TestA11yFieldRecentList(t *testing.T) {
 	r.focusField()
 	r.tt.Until("the list", r.tt.Shows("Recently searched", "alpha"))
 	tr := access.Read(t, r.tt.Tester)
-	list, ok := tr.Find(ui.RoleList, "Recently searched")
+	list, ok := tr.Find(ui.RoleListBox, "Recently searched")
 	if !ok {
 		t.Fatalf("no Recently searched list:\n%s", tr.Dump())
 	}

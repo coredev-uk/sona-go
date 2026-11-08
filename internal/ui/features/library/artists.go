@@ -547,7 +547,7 @@ func (v *artistsView) rowsView(c *ui.Context, tk *theme.Tokens) (active ui.Eleme
 	pg.first, pg.last = first, last
 
 	sc := ui.Scroll(c.Key("artist-list")).TrackScroll(&pg.listPos).Grow(1).Basis(0).MinHeight(0).Padding(0, 12, 24, 12).
-		Role(ui.RoleList).Label(i18n.T("Artists in your library")).Focusable().
+		Role(ui.RoleListBox).Label(i18n.T("Artists in your library")).Focusable().
 		Radius(tk.Radius["md"])
 	focusRing := ui.Transparent
 	if sc.FocusVisible() {
@@ -632,7 +632,7 @@ func (v *artistsView) artistRow(c *ui.Context, a services.ArtistEntry, position 
 		label += ", " + line
 	}
 	el := ui.Row(c.Key(a.ID)).Height(artistRowHeight).FillWidth().Padding(0, 12).Gap(12).AlignItems(ui.Center).Shrink(0).
-		Radius(theme.Current().Radius["md"]).Role(ui.RoleListItem).Label(label).Selected(selected).Cursor(ui.CursorPointer)
+		Radius(theme.Current().Radius["md"]).Role(ui.RoleOption).Label(label).Selected(selected).Cursor(ui.CursorPointer)
 	switch {
 	case selected:
 		el.Background(theme.C("active"))

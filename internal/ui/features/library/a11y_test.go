@@ -219,8 +219,8 @@ func TestA11yPages(t *testing.T) {
 			headings: []a11yHeading{{"Artists", 1}, {"Dara Finch", 2}, {"Albums", 3}, {"Singles and EPs", 3}},
 			present: []a11yNode{
 				{ui.RoleComboBox, "Filter artists"},
-				{ui.RoleList, "Artists in your library"},
-				{ui.RoleListItem, "Dara Finch, 2 albums, 4 songs"},
+				{ui.RoleListBox, "Artists in your library"},
+				{ui.RoleOption, "Dara Finch, 2 albums, 4 songs"},
 				{ui.RoleButton, "Play Dara Finch"},
 				{ui.RoleButton, "Shuffle"},
 				{ui.RoleMenuButton, "More for Dara Finch"},
@@ -425,8 +425,29 @@ func TestA11yArtistsFilter(t *testing.T) {
 	if !box.Has(access.Expanded) {
 		t.Errorf("the filter does not say its list shows: %s", box.States)
 	}
-	if _, ok := tr.Find(ui.RoleListItem, "Dara Finch, 2 albums, 4 songs"); !ok {
+	if _, ok := tr.Find(ui.RoleOption, "Dara Finch, 2 albums, 4 songs"); !ok {
 		t.Errorf("no row for Dara Finch:\n%s", tr.Dump())
+	}
+	// The highlighted option is the filter's active descendant, and the
+	// arrows move it while the filter keeps the focus.
+	if tr.Focus == nil || tr.Focus.Role != ui.RoleOption {
+		t.Fatalf("the active option: %+v\n%s", tr.Focus, tr.Dump())
+	}
+	first := tr.Focus.Label
+	r.tt.Key(0, ui.KeyDown)
+	r.tt.Frame()
+	tr = access.Read(t, r.tt.Tester)
+	if tr.Focus == nil || tr.Focus.Role != ui.RoleOption || tr.Focus.Label == first {
+		t.Errorf("Down left the active option at %q: %+v", first, tr.Focus)
+	}
+	if !r.tt.Focused("Filter artists") {
+		t.Error("the focus left the filter")
+	}
+	r.tt.Key(0, ui.KeyUp)
+	r.tt.Frame()
+	tr = access.Read(t, r.tt.Tester)
+	if tr.Focus == nil || tr.Focus.Label != first {
+		t.Errorf("Up did not return to %q: %+v", first, tr.Focus)
 	}
 	r.tt.Announcements()
 	r.tt.Type("zzz")
