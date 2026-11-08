@@ -563,6 +563,28 @@ jobs:
           echo "draft=$draft" >>"$GITHUB_OUTPUT"
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body >changelog.md
 
+      # In this repository a release must not go out without the release
+      # environment's secrets: the build jobs (same environment, same run)
+      # linked them into the binaries, and the update manifests need the
+      # key. v0.3.0 was published without them (run 42482812544). A fork's
+      # run, which has none, still publishes unsigned, as below.
+      - name: The release environment's secrets are here
+        if: ${{ steps.notes.outputs.draft == 'true' && github.repository == 'coredev-uk/sona-go' }}
+        env:
+          SONA_UPDATE_KEY: ${{ secrets.SONA_UPDATE_KEY }}
+          SONA_LASTFM_KEY: ${{ secrets.SONA_LASTFM_KEY }}
+          SONA_LASTFM_SECRET: ${{ secrets.SONA_LASTFM_SECRET }}
+          SONA_DISCORD_CLIENT_ID: ${{ secrets.SONA_DISCORD_CLIENT_ID }}
+        run: |
+          missing=""
+          for name in SONA_UPDATE_KEY SONA_LASTFM_KEY SONA_LASTFM_SECRET SONA_DISCORD_CLIENT_ID; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::the release environment's secrets are missing:$missing. Nothing is published; a caller of this workflow must pass \`secrets: inherit\`."
+            exit 1
+          fi
+
       # Signed last, over archives that are already in release/, so a
       # manifest never names an archive that isn't there. Without the key the
       # step says so and the release has no manifests (no self-updates).
