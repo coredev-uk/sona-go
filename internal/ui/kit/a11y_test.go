@@ -142,6 +142,68 @@ func TestItemComponentsHaveEveryControlOnTheTree(t *testing.T) {
 	}
 }
 
+// tileCell is the cell of the tile named title: its opener's parent.
+func tileCell(t *testing.T, tr access.Tree, title string) access.Node {
+	t.Helper()
+	op, ok := tr.Find(ui.RoleLink, title)
+	if !ok {
+		t.Fatalf("no tile %q on the tree:\n%s", title, tr.Dump())
+	}
+	cell := tr.Nodes[op.Parent]
+	if cell.Role != ui.RoleCell {
+		t.Fatalf("the tile %q is in a %v, not a cell", title, cell)
+	}
+	return cell
+}
+
+func TestCoverGridTilesSayTheirPlaceAmongAllTheTilesNotTheBuiltOnes(t *testing.T) {
+	const total = 5000
+	a, tt := newCoverApp(t, total, 1000, 700)
+	tt.Frame()
+	tt.Frame()
+	if cell := tileCell(t, access.Read(t, tt), "Album 0"); cell.PosInSet != 1 || cell.SetSize != total {
+		t.Errorf("the first tile is %d of %d, want 1 of %d", cell.PosInSet, cell.SetSize, total)
+	}
+	// Scrolled far down, a built tile is still its place in all 5000: only
+	// the rows in view are built, so its row does not say it.
+	tt.Scroll(500, 300, 0, 9000)
+	tt.Frame()
+	tt.Frame()
+	last := a.ranges[len(a.ranges)-1]
+	if last[0] < 100 {
+		t.Fatalf("the grid built tiles %v after scrolling", last)
+	}
+	for _, n := range []int{last[0], (last[0] + last[1]) / 2, last[1]} {
+		title := "Album " + strconv.Itoa(n)
+		if cell := tileCell(t, access.Read(t, tt), title); cell.PosInSet != n+1 || cell.SetSize != total {
+			t.Errorf("%q is %d of %d, want %d of %d", title, cell.PosInSet, cell.SetSize, n+1, total)
+		}
+	}
+}
+
+func TestCoverShelfTilesSayTheirPlaceAmongTheTilesTheShelfShows(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		n, width int
+		cut      bool // the shelf shows fewer tiles than it was given
+	}{{"all fit", 3, 700, false}, {"more than one row", 12, 700, true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, tt := newCollShelfApp(t, tc.n, tc.width)
+			tt.Frame()
+			tt.Frame()
+			cells := access.Read(t, tt).Roles(ui.RoleCell)
+			if len(cells) == 0 || tc.cut != (len(cells) < tc.n) {
+				t.Fatalf("the shelf built %d of %d tiles", len(cells), tc.n)
+			}
+			for i, cell := range cells {
+				if cell.PosInSet != i+1 || cell.SetSize != len(cells) {
+					t.Errorf("tile %d is %d of %d, want %d of %d", i, cell.PosInSet, cell.SetSize, i+1, len(cells))
+				}
+			}
+		})
+	}
+}
+
 func TestWideCardsMoreButtonAndSubtitleAreReadBesideTheLink(t *testing.T) {
 	it := wideItem("1", "", "")
 	it.Subtitle = "Artist One"

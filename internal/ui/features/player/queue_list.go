@@ -371,8 +371,13 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 	row := func(i int) {
 		l := g.lines[i]
 		it := &items[l.qi]
+		from, size := 0, aEnd // the list this row is in: the queue, or the station's part
+		if g.head >= 0 && i > g.head {
+			from, size = g.head+1, rowsEnd-g.head-1
+		}
 		p.queueRow(c, st, queueRowIn{
 			item: it, qi: l.qi, start: start, userEnd: g.userEnd, n: len(items),
+			pos: i - from + 1, size: size,
 			current: l.qi == index, playing: playing, upNext: l.qi == start+1,
 			tab: l.qi == tabQi, dragged: dragging && dragFrom == l.qi,
 			autoPlay: l.qi != index && it.Auto && autoPlay, withheld: withheldOK && it.Explicit,

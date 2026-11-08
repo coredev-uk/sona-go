@@ -2,6 +2,7 @@ package player
 
 import (
 	"errors"
+	"fmt"
 	"runtime"
 	"slices"
 	"strings"
@@ -538,6 +539,66 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 			tc.check(t, r, tr, stops)
 		})
 	}
+}
+
+// place is a list item's place in its list, as assistive technology reads it.
+type place struct{ pos, size int }
+
+func placeOf(t *testing.T, tr access.Tree, label string) place {
+	t.Helper()
+	n := mustFind(t, tr, ui.RoleListItem, label)
+	return place{n.PosInSet, n.SetSize}
+}
+
+func TestQueueRowsSayTheirPlaceInTheirList(t *testing.T) {
+	t.Run("the queue", func(t *testing.T) {
+		r := newQueueRig(t, false)
+		r.seed(4, 0)
+		tr := access.Read(t, r.tt.Tester)
+		for label, want := range map[string]place{
+			"Song 1, Artist 1":          {1, 4},
+			"Up next: Song 2, Artist 2": {2, 4},
+			"Song 3, Artist 3":          {3, 4},
+			"Song 4, Artist 4":          {4, 4},
+		} {
+			if got := placeOf(t, tr, label); got != want {
+				t.Errorf("%q is %d of %d, want %d of %d", label, got.pos, got.size, want.pos, want.size)
+			}
+		}
+	})
+	t.Run("the station's part is a list of its own", func(t *testing.T) {
+		r := newQueueRig(t, false)
+		r.seed(6, 0, autoPlayFrom(3))
+		tr := access.Read(t, r.tt.Tester)
+		for label, want := range map[string]place{
+			"Song 1, Artist 1":          {1, 3},
+			"Up next: Song 2, Artist 2": {2, 3},
+			"Song 3, Artist 3":          {3, 3},
+			"Song 4, Artist 4":          {1, 3},
+			"Song 6, Artist 6":          {3, 3},
+		} {
+			if got := placeOf(t, tr, label); got != want {
+				t.Errorf("%q is %d of %d, want %d of %d", label, got.pos, got.size, want.pos, want.size)
+			}
+		}
+	})
+	t.Run("a long queue builds only the rows in view", func(t *testing.T) {
+		r := newQueueRig(t, false)
+		r.seed(500, 0)
+		x, y := r.at(t, "Song 1, Artist 1")
+		r.tt.Scroll(x, y, 0, 5200)
+		r.tt.Frame()
+		r.tt.Frame()
+		top := int(r.p.queue.lists[0].pos.Y / queueRowH)
+		if top < 50 {
+			t.Fatalf("the list scrolled to %v", r.p.queue.lists[0].pos.Y)
+		}
+		n := top + 3
+		label := fmt.Sprintf("Song %d, Artist %d", n, n)
+		if got, want := placeOf(t, access.Read(t, r.tt.Tester), label), (place{n, 500}); got != want {
+			t.Errorf("%q is %d of %d, want %d of %d", label, got.pos, got.size, want.pos, want.size)
+		}
+	})
 }
 
 func TestRowActionsAreTheSameOnTheTreeWhileTheRowIsHot(t *testing.T) {

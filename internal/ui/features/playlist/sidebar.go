@@ -260,7 +260,7 @@ func (p *playlists) pinsSection(c *ui.Context, pins []services.Pin, editable map
 				if i >= 2 {
 					upAfter = pins[i-2].ID
 				}
-				p.pinRow(c, pin, upAfter, canUp, editable[pin.ID] && pin.Kind == "playlist")
+				p.pinRow(c, pin, i+1, len(pins), upAfter, canUp, editable[pin.ID] && pin.Kind == "playlist")
 			}
 			if offered {
 				p.dropZone(c, "pin-here", "pin", i18n.T("Pin here"), over, nil)
@@ -293,10 +293,10 @@ func (p *playlists) dropZone(c *ui.Context, key, icon, label string, over bool, 
 // pinRow is one pin: a link (it opens) or a button (it plays or shuffles)
 // with a "More for <name>" menu. A pinned playlist the user can edit takes
 // drops like its row would.
-func (p *playlists) pinRow(c *ui.Context, pin services.Pin, upAfter string, canUp, editable bool) {
+func (p *playlists) pinRow(c *ui.Context, pin services.Pin, pos, size int, upAfter string, canUp, editable bool) {
 	path := p.pinPath(pin)
 	opens := path != "" && (pin.Action == "drillIn" || pin.Kind == "artist")
-	wrap := ui.Row(c.Key("pin:" + pin.ID)).FillWidth().Role(ui.RoleListItem)
+	wrap := ui.Row(c.Key("pin:"+pin.ID)).FillWidth().Role(ui.RoleListItem).PositionInSet(pos, size)
 	over := p.dropOnPlaylist(wrap, "pin:"+pin.ID, pin.ID, pin.Name, editable)
 	hot := wrap.Hovered() || wrap.FocusWithin()
 	wrap.Children(func() {
@@ -375,10 +375,10 @@ func (p *playlists) pinMenu(pin services.Pin, path string, opens bool, upAfter s
 // playlistRow is a library playlist: a link to its page (indented by its
 // folder depth) with its art, the item actions' "more" menu, and a drop
 // target when the user can edit it.
-func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth int) {
+func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth, pos, size int) {
 	pl := item.Playlist
 	path := "/playlist/" + pl.ID
-	wrap := ui.Row(c.Key("playlist:" + pl.ID)).FillWidth().Role(ui.RoleListItem)
+	wrap := ui.Row(c.Key("playlist:"+pl.ID)).FillWidth().Role(ui.RoleListItem).PositionInSet(pos, size)
 	over := p.dropOnPlaylist(wrap, "playlist:"+pl.ID, pl.ID, pl.Name, pl.CanEdit)
 	hot := wrap.Hovered() || wrap.FocusWithin()
 	wrap.Children(func() {
@@ -445,8 +445,8 @@ func (p *playlists) readOnlySection(c *ui.Context, id, title string, items []ser
 		}
 		list := ui.Column(c.Key("list")).FillWidth().Gap(2).Role(ui.RoleList).Label(title)
 		list.Children(func() {
-			for _, it := range items {
-				p.playlistRow(c, it, 0)
+			for i, it := range items {
+				p.playlistRow(c, it, 0, i+1, len(items))
 			}
 		})
 		fold.Controls(list)
@@ -511,11 +511,11 @@ func (p *playlists) treeLevel(c *ui.Context, nodes []*treeNode, depth int) {
 		list.Label(i18n.T("Playlists"))
 	}
 	list.Children(func() {
-		for _, n := range nodes {
+		for i, n := range nodes {
 			if n.Folder != nil {
-				p.folderRow(c, n, depth)
+				p.folderRow(c, n, depth, i+1, len(nodes))
 			} else {
-				p.playlistRow(c, *n.Item, depth)
+				p.playlistRow(c, *n.Item, depth, i+1, len(nodes))
 			}
 		}
 	})
@@ -549,11 +549,11 @@ func (p *playlists) springOpen(c *ui.Context, row ui.Element, id string, open bo
 // folder icon; kept across restarts), its "More for the folder" menu, and
 // below it, when open, its contents or why there are none. Folders are not
 // drop targets themselves; a drag resting on a closed one opens it.
-func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth int) {
+func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth, pos, size int) {
 	f := *n.Folder
 	open := p.prefs.FolderOpen(f.ID)
 	pad := float32(depth) * folderIndent
-	ui.Column(c.Key("folder:" + f.ID)).FillWidth().Gap(2).Role(ui.RoleListItem).Children(func() {
+	ui.Column(c.Key("folder:"+f.ID)).FillWidth().Gap(2).Role(ui.RoleListItem).PositionInSet(pos, size).Children(func() {
 		wrap := ui.Row(c.Key("row")).FillWidth()
 		hot := wrap.Hovered() || wrap.FocusWithin()
 		wrap.Children(func() {
