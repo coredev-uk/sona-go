@@ -32,7 +32,7 @@ func (p *player) bar(c *ui.Context) {
 	if s.Current != nil {
 		backdrop = s.Current.Backdrop
 	}
-	ui.Column(c).Height(tk.Metric["player-bar"]).FillWidth().Background(theme.C("surface")).Label(i18n.T("Player")).Role(ui.RoleGroup).Children(func() {
+	ui.Column(c).Height(tk.Metric["player-bar"]).FillWidth().Background(theme.C("surface")).Label(i18n.T("Player")).Role(ui.RoleRegion).Children(func() {
 		ui.Box(c).Height(1).FillWidth().Background(theme.C("line"))
 		kit.Backdrop(c, p.env.Art, kit.BackdropOpts{Src: backdrop}, func() {
 			ui.Row(c).Fill().Padding(0, 16).Gap(24).AlignItems(ui.Center).Children(func() {

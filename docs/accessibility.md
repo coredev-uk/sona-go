@@ -64,6 +64,15 @@ shapes the rules below.
   by `ActiveDescendant` on the field, which keeps the keyboard focus: the
   arrows move the option, as in MyGo's `ComboboxBase`, and the field reads as
   a combo box with its list shown (`Expanded`).
+- Landmarks are few and named for what they hold: the shell's search field is
+  a `RoleSearch` (no name: it is the one global search, and the field in it is
+  already "Search"); the Albums page's type and sort are a `RoleSearch` named
+  "Filter albums" and the Artists filter one named "Find artists" (not "Filter
+  artists", which is the field's own name); the player bar ("Player"), the
+  queue panel ("Queue") and Now Playing ("Now playing") are `RoleRegion`s. A
+  landmark never sits inside another of the same name, and a region's own
+  heading or list may repeat its name (the Queue list in the Queue region): a
+  heading and a list are not landmarks.
 - A choice made among pictures (the playlist cover picker) is a `radio group` of `radio` tiles, each named by the label drawn under it (2.5.3), described in a line of its own ("No picture"), `Checked` while chosen, with arrow keys over the grid (`kit.GridNav`). The chosen tile says so with a ring, a check mark and a heavier name, never by colour alone. A choice that applies at once announces its result ("Cover: Bars"), and a failure stays beside the control as an alert, with the limits it broke in view.
 - A text with links in it is not itself on the tree (`kit.ArtistLinks` is a
   `RoleNone` rich text, so its links sit beside its separators): Orca reads
@@ -306,8 +315,7 @@ session with audio:
 - Orca reads a list item's children with it: each arrow in the queue says
   the song, its artist again, the More and Remove buttons and the line of keys.
 - Leaving the Seek slider says its time once ("0:30 of 3:00"), as the held
-  value catches up. The player bar's group is read with the text beside the
-  song ("Player · Paper Moons, panel") on entering it.
+  value catches up.
 - Of MyGo v0.8.1's states, only the sidebar's current page has been heard
   (the Orca walk above: "Current page", once). Orca's words for the
   disabled-but-focusable, busy, alert, controls, popup, sort and row-count

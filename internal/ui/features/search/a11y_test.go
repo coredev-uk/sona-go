@@ -417,6 +417,9 @@ func TestA11yFieldIsACombobox(t *testing.T) {
 	if box.Has(access.Expanded) {
 		t.Errorf("the closed field says its list shows: %s", box.States)
 	}
+	if !tr.Within(box, ui.RoleSearch) {
+		t.Errorf("the field is not in a search landmark:\n%s", tr.Dump())
+	}
 	if _, ok := tr.Find(ui.RoleButton, "Clear search"); ok {
 		t.Error("an empty field has a Clear button")
 	}

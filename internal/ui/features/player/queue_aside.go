@@ -29,7 +29,7 @@ func (p *player) queueAside(c *ui.Context) {
 		return
 	}
 	aside := ui.Row(c.Key("queue-aside")).Width(320).FillHeight().Shrink(0).Background(theme.C("ground")).
-		Role(ui.RoleGroup).Label(i18n.T("Queue"))
+		Role(ui.RoleRegion).Label(i18n.T("Queue"))
 	p.queue.over = kit.DropOn(aside, queueDropID, p.queueTarget(c, &p.queue.lists[0]))
 	aside.Children(func() {
 		ui.Box(c.Key("edge")).Width(1).FillHeight().Shrink(0).Background(theme.C("line"))

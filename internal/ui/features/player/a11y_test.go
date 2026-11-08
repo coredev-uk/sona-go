@@ -113,8 +113,8 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 			seed:  func(r *rig) { r.seed() },
 			order: playing,
 			check: func(t *testing.T, tr access.Tree) {
-				if g, ok := tr.Find(ui.RoleGroup, "Player"); !ok || tr.Within(mustFind(t, tr, ui.RoleButton, "Pause"), ui.RoleGroup) == false {
-					t.Errorf("the bar is not a group named Player: %v", g)
+				if g, ok := tr.Find(ui.RoleRegion, "Player"); !ok || !tr.Within(mustFind(t, tr, ui.RoleButton, "Pause"), ui.RoleRegion) {
+					t.Errorf("the bar is not a region named Player: %v", g)
 				}
 				if got := mustFind(t, tr, ui.RoleSlider, "Seek").Description; got != "0:30 of 3:00" {
 					t.Errorf("Seek reads %q", got)
@@ -454,9 +454,9 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 				if h := mustFind(t, tr, ui.RoleHeading, "Queue"); h.Level != 2 {
 					t.Errorf("the panel's heading is level %d", h.Level)
 				}
-				panel := mustFind(t, tr, ui.RoleGroup, "Queue")
+				panel := mustFind(t, tr, ui.RoleRegion, "Queue")
 				list := mustFind(t, tr, ui.RoleList, "Queue")
-				if !tr.Within(list, ui.RoleGroup) || list.Index < panel.Index {
+				if !tr.Within(list, ui.RoleRegion) || list.Index < panel.Index {
 					t.Error("the list is not in the Queue region")
 				}
 				// Every child of the list is a list item.

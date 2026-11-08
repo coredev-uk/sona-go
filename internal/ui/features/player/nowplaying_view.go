@@ -142,7 +142,7 @@ func (p *player) nowPlaying(c *ui.Context) {
 			})
 		})
 	}).FillWidth().FillHeight().Grow(1).Basis(0).MinHeight(0)
-	root.Role(ui.RoleGroup).Label(i18n.T("Now playing")).Bind(&p.np.root)
+	root.Role(ui.RoleRegion).Label(i18n.T("Now playing")).Bind(&p.np.root)
 	p.np.hadFocus = root.FocusWithin()
 	if !theme.ReducedMotion() {
 		root.Transition(ui.ElementTransition{Enter: &ui.Motion{}, Duration: 150 * time.Millisecond})
