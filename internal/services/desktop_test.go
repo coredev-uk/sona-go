@@ -235,7 +235,13 @@ func TestRefusedAutostartIsAnnouncedBeforeItsUndo(t *testing.T) {
 	}
 	em := &holdEmitter{}
 	e := &Env{Deps: Deps{Settings: st, Emit: em, Logger: discard()}}
-	newDesktopService(e)
+	// newDesktopService's start-up reconcile, run here rather than on its
+	// own goroutine: started there, it could read the autostart this test
+	// turns on and save its own undo after the test ended, into the
+	// removed temporary directory.
+	d := &DesktopService{o: e}
+	st.OnChange(d.settingsChanged)
+	d.reconcileAutostart()
 	sys := &SystemService{o: e}
 
 	next := st.Get()
