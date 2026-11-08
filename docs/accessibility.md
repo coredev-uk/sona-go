@@ -68,7 +68,7 @@ shapes the rules below.
   a `RoleSearch` (no name: it is the one global search, and the field in it is
   already "Search"); the Albums page's type and sort are a `RoleSearch` named
   "Filter albums" and the Artists filter one named "Find artists" (not "Filter
-  artists", which is the field's own name); the player bar ("Player"), the
+  artists", which is the field's own name); the player bar ("Player"),
   and Now Playing ("Now playing") are `RoleRegion`s. The queue panel stays a
   group named "Queue": as a region, or as a group described by its summary,
   Orca read nothing on entering it, where a group's text makes it say "Queue 2
