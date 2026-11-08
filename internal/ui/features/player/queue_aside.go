@@ -30,6 +30,11 @@ func (p *player) queueAside(c *ui.Context) {
 	}
 	aside := ui.Row(c.Key("queue-aside")).Width(320).FillHeight().Shrink(0).Background(theme.C("ground")).
 		Role(ui.RoleRegion).Label(i18n.T("Queue"))
+	// The region is described by the queue's summary, so that entering it
+	// reads "Queue, 2 songs after this one" as the group's text did.
+	if sum := summaryOf(p.env.Play.State(), p.env.Play.Queue()); sum != "" {
+		aside.Description(sum)
+	}
 	p.queue.over = kit.DropOn(aside, queueDropID, p.queueTarget(c, &p.queue.lists[0]))
 	aside.Children(func() {
 		ui.Box(c.Key("edge")).Width(1).FillHeight().Shrink(0).Background(theme.C("line"))
