@@ -105,14 +105,47 @@ type diagCDM struct {
 func (f *diagCDM) Status() services.CDMStatus { f.mu.Lock(); defer f.mu.Unlock(); return f.st }
 func (f *diagCDM) Retry() error               { return nil }
 
+// diagPrevious is UpdatesService's previous version: nothing kept until a
+// test sets it. RestorePrevious waits for hold to close when set.
+type diagPrevious struct {
+	mu       sync.Mutex
+	prev     services.PreviousVersion
+	err      error
+	hold     chan struct{}
+	restores int
+	asked    int
+}
+
+func (f *diagPrevious) Previous() services.PreviousVersion {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.asked++
+	return f.prev
+}
+
+func (f *diagPrevious) RestorePrevious() error {
+	f.mu.Lock()
+	f.restores++
+	hold, err := f.hold, f.err
+	f.mu.Unlock()
+	if hold != nil {
+		<-hold
+	}
+	return err
+}
+
+func (f *diagPrevious) set(fn func(*diagPrevious)) { f.mu.Lock(); fn(f); f.mu.Unlock() }
+func (f *diagPrevious) restored() int              { f.mu.Lock(); defer f.mu.Unlock(); return f.restores }
+
 // diagRig is Settings → Diagnostics over fakes.
 type diagRig struct {
 	*rig
-	sys *diagSys
-	mot *diagMotion
-	dev *diagInspector
-	cdm *diagCDM
-	now time.Time
+	sys  *diagSys
+	mot  *diagMotion
+	dev  *diagInspector
+	cdm  *diagCDM
+	prev *diagPrevious
+	now  time.Time
 }
 
 // engineReport is a Linux report: the CDM engine with a working stack.
@@ -144,7 +177,7 @@ func newDiagRig(t *testing.T, caps services.Capabilities, d services.Diagnostics
 	hn.Env.Nav = r.router
 	g := &diagRig{
 		rig: r, sys: &diagSys{d: d, bundle: services.DiagBundle{Text: "BUNDLE", Path: "/state/sona-diagnostics-1.txt"}},
-		mot: &diagMotion{}, dev: &diagInspector{}, cdm: &diagCDM{st: d.Playback.CDM},
+		mot: &diagMotion{}, dev: &diagInspector{}, cdm: &diagCDM{st: d.Playback.CDM}, prev: &diagPrevious{},
 		now: time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC),
 	}
 	r.s = newSettings(hn.Env, services.Service[services.SystemService](hn.Core), services.Service[services.PlatformService](hn.Core),
@@ -152,7 +185,7 @@ func newDiagRig(t *testing.T, caps services.Capabilities, d services.Diagnostics
 	r.s.clock = func() time.Time { return g.now }
 	r.s.last = secDiagnostics
 	sv := stateOf[diagSeamState](r.s, "seam:diagnostics")
-	sv.sys, sv.mot, sv.desk = g.sys, g.mot, g.dev
+	sv.sys, sv.mot, sv.desk, sv.prev = g.sys, g.mot, g.dev, g.prev
 	if setup != nil {
 		setup(g)
 	}
@@ -170,7 +203,9 @@ func newDiagRig(t *testing.T, caps services.Capabilities, d services.Diagnostics
 			})
 			kit.Toaster(c)
 		})
+		kit.ConfirmHost(c)
 	}, 1132, 700)
+	t.Cleanup(kit.CancelConfirm)
 	return g
 }
 

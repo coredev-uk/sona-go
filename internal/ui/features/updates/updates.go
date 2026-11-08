@@ -61,10 +61,11 @@ func (u *updates) module() module.Module {
 	}
 }
 
-// notice builds nothing unless a newer release exists.
+// notice builds nothing unless a newer release exists that the user hasn't
+// just gone back from (UpdateStatus.Notify).
 func (u *updates) notice(c *ui.Context) {
 	r := store.UseUpdates(u.env.Queries, u.env.Core)
-	if !r.HasData || !r.Data.Available {
+	if !r.HasData || !r.Data.Notify() {
 		return
 	}
 	st := r.Data

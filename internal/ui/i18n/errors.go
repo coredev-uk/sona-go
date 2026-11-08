@@ -100,6 +100,8 @@ func ErrorText(code services.ErrorCode) string {
 		return T("The update isn't signed with Sona's key, so it wasn't installed.")
 	case services.CodeUpdateFailed:
 		return T("The update couldn't be installed. Sona is unchanged.")
+	case services.CodeRestoreFailed:
+		return T("Sona couldn't put the previous version back. Check that it can write where it is installed, then try again.")
 	case services.CodeKeyring:
 		return T("Your keyring didn't answer or refused. Unlock it, then try again.")
 	case services.CodeImageUnusable:
