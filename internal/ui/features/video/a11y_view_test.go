@@ -186,3 +186,28 @@ func TestViewTakesTheFocusOnOpeningButTabNeverStopsAtIt(t *testing.T) {
 		}
 	}
 }
+
+func TestTitleIsAHeadingHoldingItsLink(t *testing.T) {
+	r := viewRig(t)
+	r.open()
+	tr := access.Read(t, r.tt.Tester)
+	link := mustFind(t, tr, ui.RoleLink, "Sky Video")
+	var level int
+	for _, a := range tr.Ancestors(link) {
+		if a.Role == ui.RoleHeading {
+			level = a.Level
+		}
+	}
+	if level != 1 {
+		t.Errorf("the title's link is in a heading of level %d, want 1:\n%s", level, tr.Dump())
+	}
+	if !link.Can(access.Press) {
+		t.Errorf("the title's link cannot be pressed: %+v", link)
+	}
+	if err := r.tt.Click("Sky Video"); err != nil {
+		t.Fatal(err)
+	}
+	if r.nav.last() != "/music-video/mv.1" {
+		t.Errorf("the title opened %v", r.nav.pushed)
+	}
+}

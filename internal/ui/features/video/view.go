@@ -412,18 +412,22 @@ func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, stat
 			ui.Row(c).Gap(8).AlignItems(ui.Center).MinWidth(0).Children(func() {
 				h := theme.Current().Type["heading"]
 				if path := "/music-video/" + id; v.hasRoute(path) {
-					l := ui.Link(c.Key("title"), "", "").Shrink(1).MinWidth(0)
-					l.Children(func() {
-						ui.Text(c, cur.Name).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
-							TextColor(theme.C("ink")).SingleLine()
+					// The heading holds the link (MyGo v0.8.1 allows it), so
+					// the title is on the headings list and still opens.
+					ui.Row(c.Key("title-h")).Shrink(1).MinWidth(0).Role(ui.RoleHeading).Level(1).Children(func() {
+						l := ui.Link(c.Key("title"), "", "").Shrink(1).MinWidth(0)
+						l.Children(func() {
+							ui.Text(c, cur.Name).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
+								TextColor(theme.C("ink")).SingleLine()
+						})
+						control(l, focusVisible)
+						if l.Clicked() {
+							v.env.Video.Close()
+							v.env.Nav.Push(path)
+						}
 					})
-					control(l, focusVisible)
-					if l.Clicked() {
-						v.env.Video.Close()
-						v.env.Nav.Push(path)
-					}
 				} else {
-					text(c, cur.Name, "heading").TextColor(theme.C("ink"))
+					text(c, cur.Name, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(1)
 				}
 				if pr == nil {
 					kit.SDMark(c)

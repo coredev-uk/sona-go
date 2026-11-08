@@ -316,8 +316,6 @@ session with audio:
   above says what the tree holds. The setup strip's one Tab stop is the
   segment last focused, not the current step, because MyGo's focus group
   enters on a checked element only.
-- The video title is not a heading: it holds a link, which a heading could
-  not before MyGo v0.8.1.
 - The hidden buttons of a row cannot be pressed by a test the way a screen
   reader presses them: `access.Node.Can(access.Press)` is what the tests
   check.
