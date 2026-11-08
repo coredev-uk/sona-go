@@ -82,7 +82,13 @@ type Node struct {
 	States                    State
 	Actions                   Action
 	Level, PosInSet, SetSize  int
-	Min, Max, Now             float64
+	// RowCount and ColCount are how many rows and columns a table, grid or
+	// tree grid says it has, built or not (aria-rowcount, aria-colcount);
+	// RowIndex and ColIndex the place of a row or a cell among them, from
+	// 1, header rows counted (aria-rowindex, aria-colindex). 0 when not
+	// given.
+	RowCount, ColCount, RowIndex, ColIndex int
+	Min, Max, Now                          float64
 	// Current is the kind of current item the node is (aria-current),
 	// ui.CurrentNone for none; HasPopup the kind of popup it opens
 	// (aria-haspopup), ui.PopupNone for none.
@@ -170,6 +176,10 @@ func readTree(tt *ui.Tester) (Tree, error) {
 			Level:       int(v.FieldByName("Level").Int()),
 			PosInSet:    int(v.FieldByName("PosInSet").Int()),
 			SetSize:     int(v.FieldByName("SetSize").Int()),
+			RowCount:    int(v.FieldByName("RowCount").Int()),
+			ColCount:    int(v.FieldByName("ColCount").Int()),
+			RowIndex:    int(v.FieldByName("RowIndex").Int()),
+			ColIndex:    int(v.FieldByName("ColIndex").Int()),
 			Min:         v.FieldByName("Min").Float(),
 			Max:         v.FieldByName("Max").Float(),
 			Now:         v.FieldByName("Now").Float(),
