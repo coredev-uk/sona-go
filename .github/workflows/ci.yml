@@ -103,10 +103,13 @@ jobs:
           # under -race, and ui also without it, which keeps the caches the
           # pull requests restore warm. The same pool, shard count and mode
           # make the same cache flavor, so a pull request restores what main
-          # saved.
+          # saved. The -race run of ui has three shards: with two, the heavier
+          # one took 8–9 min of its 10 and was cancelled at the limit on
+          # 293aa54 (2026-11-07), which reverted a change that never touched
+          # the UI.
           ui='{"pool":"ui","index":1,"count":2,"race":"0"},{"pool":"ui","index":2,"count":2,"race":"0"},{"pool":"ui-race","index":1,"count":1,"race":"1"}'
           if [ "$EVENT" != pull_request ] && [ "$ONLY" != pr ]; then
-            ui="$ui"',{"pool":"ui","index":1,"count":2,"race":"1"},{"pool":"ui","index":2,"count":2,"race":"1"}'
+            ui="$ui"',{"pool":"ui","index":1,"count":3,"race":"1"},{"pool":"ui","index":2,"count":3,"race":"1"},{"pool":"ui","index":3,"count":3,"race":"1"}'
           fi
           echo "ui-matrix=[$ui]" >>"$GITHUB_OUTPUT"
 
