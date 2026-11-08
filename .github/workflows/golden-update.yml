@@ -113,7 +113,7 @@ jobs:
     environment: golden-update
     permissions: {}
     steps:
-      # bot-cecil's installation permissions must include these two
+      # bot-cecil's installation permissions must include these three
       # (docs/release-checklist.md, "bot-cecil App permissions").
       - name: Generate bot-cecil token
         id: app-token
@@ -122,7 +122,11 @@ jobs:
           client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
           permission-contents: write # the push
-          permission-issues: write # the label
+          # The label is on a pull request: with Issues alone, removing it is
+          # refused (403, run 42307168780), as release-please.yml, which asks
+          # for both, never is.
+          permission-issues: write
+          permission-pull-requests: write
 
       - name: Remove the label when nothing changed
         if: ${{ needs.update.outputs.changed != 'true' }}
