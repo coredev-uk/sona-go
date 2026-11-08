@@ -264,11 +264,11 @@ What it heard, with Orca 50.2:
 | Surface | Orca said |
 | --- | --- |
 | Sidebar, first Tab | "Main", "For you", "link."; then one link per Tab, the open page "Albums, link." with "Current page" (its current-page state), "New playlist or folder, push button menu. opens popup", "Playlists, List with 3 items", the pins as links |
-| Account button | "Account, button. Not signed in." (the name once); Enter: "Account, menu, Sign in."; Escape: the button again |
+| Top bar | "search, Search, editable combo box."; the next Tab "leaving search., Account, button. Not signed in." (the name once); Enter: "Account, menu, Sign in."; Escape: the button again |
 | Account dialog | "Account, dialog, Apple Account, entry. The email address or phone number you use with Apple.", "Password, password text.", the browser and token buttons, "Close, button."; Escape returns to "Account, button." |
-| Albums page | "Albums, panel, Album type, panel, All, toggle button pressed.", "Sort, combo box.", a tile "Fieldnotes, link. Kofi Bellamy."; the arrows move between tiles; Shift+F10 "More for …, menu, Create station."; Escape returns to the tile |
+| Albums page | "Albums, panel, search, Filter albums, Album type, panel, All, toggle button pressed." (and "leaving search." on the first tile), "Sort, combo box.", a tile "Fieldnotes, link. Kofi Bellamy."; the arrows move between tiles; Shift+F10 "More for …, menu, Create station."; Escape returns to the tile |
 | An album | "Album" on arrival; "Ines Calder, link." (once); "Play …, button. Play."; "Favourite …, toggle button not pressed."; the song list one stop, "Dust on the Dial." per arrow; Enter: "Now playing: … by …" once |
-| The queue | "Queue 2 songs after this one, panel, Clear, button."; the list one stop "Queue, List with 3 items"; Alt+↓ "Dust on the Dial: moved to position 2 of 2"; Delete moves the focus to the next row; Escape: "Queue, toggle button not pressed." |
+| The queue | "Clear, button." (the panel, a region, is not spoken: Orca names only a search landmark on entry); the list one stop "Queue, List with 3 items"; Alt+↓ "Dust on the Dial: moved to position 2 of 2"; Delete moves the focus to the next row; Escape: "Queue, toggle button not pressed." |
 | Now Playing | "Lyrics, page tab.", ←/→ "Up next, page tab.", "Close now playing (Escape), button." |
 | Player bar | "Volume, horizontal slider, 80, 80 percent."; "Seek, horizontal slider, 42, 23 percent. 0:42 of 3:00." and then nothing as the song plays; Ctrl+→ "Now playing: … by …" |
 | Setup | "Welcome to Sona, dialog, …, Language, combo box."; Enter on Get started: "Apple Music, Signing in brings your library…" (the title, then its line); Escape: "alert, Skip the rest of the setup?, …, Skip setup, button." |
@@ -310,6 +310,13 @@ session with audio:
   sidebar. MyGo has no way to read which element has the focus, to remember it.
 - A shortcut that shows a panel says nothing: Q opens the queue silently (the
   Queue toggle says "pressed" when it is pressed).
+- Orca says nothing on entering a region: the Player bar, Queue and Now
+  playing are `RoleRegion`s, which a screen reader's landmark keys find, but
+  Orca 50 announces only the search landmark ("search", "leaving search") as
+  the focus enters and leaves it. Entering the queue used to read its summary
+  ("Queue 2 songs after this one") as the text of a panel; the summary is on
+  the tree (`queue_summary.go`) but is not read on entry. Landmark navigation
+  itself, and VoiceOver's and Narrator's words, are unheard.
 - Opening a page reads the route's title, which is set before the data
   arrives: "Album", not the album's name.
 - Orca reads a list item's children with it: each arrow in the queue says

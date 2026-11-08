@@ -51,7 +51,7 @@ func TestOrcaWalk(t *testing.T) {
 	// where the account stands, not its name again.
 	const top = "Top bar"
 	sp = o.press(top, "Tab")
-	o.want(top, "Tab", sp, "Search", "editable combo box")
+	o.want(top, "Tab", sp, "search", "Search", "editable combo box")
 	sp = o.press(top, "Tab")
 	o.want(top, "Tab", sp, "Account", "button", "Not signed in")
 	o.wantOnce(top, "Tab", sp, "Account")
@@ -82,7 +82,7 @@ func TestOrcaWalk(t *testing.T) {
 	// between them and Shift+F10 opening a tile's menu.
 	const page = "Albums page"
 	sp = o.press(page, "Tab")
-	o.want(page, "Tab", sp, "Albums", "panel", "Album type", "All", "toggle button pressed")
+	o.want(page, "Tab", sp, "Albums", "panel", "search", "Filter albums", "Album type", "All", "toggle button pressed")
 	sp = o.tabTo(page, "Tab", "Sort", 4)
 	o.want(page, "Tab", sp, "combo box")
 	first := albums[len(albums)-1]
@@ -130,7 +130,7 @@ func TestOrcaWalk(t *testing.T) {
 	o.press(queue, "q")
 	n = len(o.steps)
 	o.tabTo(queue, "Tab", "List with", 8)
-	o.want(queue, "Tab", o.heard(n), "Queue", "panel", "List with 3 items")
+	o.want(queue, "Tab", o.heard(n), "Queue", "List with 3 items")
 	sp = o.press(queue, "Down")
 	o.want(queue, "Down", sp, big.Song(1))
 	sp = o.press(queue, "alt+Down")
