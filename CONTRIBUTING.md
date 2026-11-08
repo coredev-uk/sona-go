@@ -568,6 +568,9 @@ needs:
   FILE -version V -url URL [-notes FILE] -out update-T.json` signs it
   (key from `$SONA_UPDATE_KEY`); the publish job signs last, after the
   archives are uploaded.
+- A prerelease's notes (and its manifests' notes) are `go run ./cmd/rcnotes
+  -exclude <tag>`: the changes since the previous `v*` tag, by Conventional
+  Commit type (`docs/release-checklist.md`, "Prerelease notes").
 - Tests run against an `httptest` fake release server (`internal/update`,
   `internal/services/updates_self_test.go`): the check, a bad signature
   refused, no key (off), a development build never checking, and the rollback
