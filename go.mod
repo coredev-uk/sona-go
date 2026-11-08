@@ -6,7 +6,7 @@ require (
 	github.com/ebitengine/purego v0.11.3
 	github.com/egoist/mygo v0.8.3
 	github.com/godbus/dbus/v5 v5.2.4
-	github.com/mattn/go-sqlite3 v1.14.52
+	github.com/mattn/go-sqlite3 v1.14.53
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/sync v0.24.0
