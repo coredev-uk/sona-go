@@ -78,6 +78,10 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.release-please.outputs.tag_name }}
-    secrets:
-      RENOVATE_APP_CLIENT_ID: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
-      RENOVATE_APP_PRIVATE_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+    # inherit, not a list: the build and publish jobs read the `release`
+    # environment's secrets (SONA_UPDATE_KEY, the Last.fm and Discord
+    # credentials), which a called workflow sees only when the caller
+    # inherits its secrets. With the two App secrets passed by name, v0.3.0
+    # was built without the credentials and published without update
+    # manifests (run 42482812544).
+    secrets: inherit

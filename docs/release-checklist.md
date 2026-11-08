@@ -159,7 +159,12 @@ and Windows development builds in ci.yml never hold a release up), then the
   Manifests are signed last, after the archives are uploaded. **Without the
   secret** (a fork, a run outside the environment) the step is skipped, says so
   in the run summary, and the release has no `update-<target>.json`, so those
-  installs do not self-update.
+  installs do not self-update. In this repository `publish` refuses instead:
+  it checks `SONA_UPDATE_KEY` and the Last.fm and Discord credentials are all
+  there before it signs or publishes. `release-please.yml` calls `release.yml`
+  with `secrets: inherit`, since a called workflow sees its environment's
+  secrets only that way; with the App secrets passed by name, v0.3.0 shipped
+  without the credentials or manifests and was replaced by v0.3.1.
 - **Release notes:** a release's draft holds release-please's changelog entry;
   `publish` appends `.github/release-notes/install.md` (first-run steps for
   macOS and Windows, verifying downloads).
