@@ -239,7 +239,7 @@ of which Renovate's token (`renovate.yaml`) already requests:
 | Permission     | Level | Used by                                                            |
 | -------------- | ----- | ------------------------------------------------------------------ |
 | Contents       | write | release-please: release branch, tag, draft release; publish job: upload and publish; golden-update.yml: push the regenerated golden images to a pull request's branch |
-| Pull requests  | write | release-please: open and update the release PR                     |
+| Pull requests  | write | release-please: open and update the release PR; golden-update.yml: remove the `update-goldens` label (with Issues: a pull request's label needs both) |
 | Issues         | write | release-please: the `autorelease:` labels on the release PR; golden-update.yml: remove the `update-goldens` label |
 
 Each job requests only what it uses (`permission-*` inputs), so the token is
