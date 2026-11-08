@@ -67,18 +67,21 @@ func (l *library) albumsPage(c *ui.Context, r *ui.Route) {
 
 	l.scrollPage(c, &pg.pageView, q.key(), func(pane *kit.Pane) {
 		kit.PageHeaderCounted(c, i18n.T("Albums"), subline, func() {
-			kind := q.kind
-			opts := []kit.SegmentOption[string]{
-				{Value: "", Label: i18n.T("All")},
-				{Value: "albums", Label: i18n.T("Albums")},
-				{Value: "singles", Label: i18n.T("Singles & EPs")},
-			}
-			if kit.Segmented(c, &kind, opts, i18n.T("Album type")).Changed() && kind != q.kind {
-				next := q
-				next.kind = kind
-				l.env.Nav.Replace(albumsSpec.location(next))
-			}
-			l.sortSelect(c, albumsSpec, q)
+			// The type and the sort are the page's filter bar.
+			ui.Row(c.Key("filters")).Gap(8).AlignItems(ui.Center).Role(ui.RoleSearch).Label(i18n.T("Filter albums")).Children(func() {
+				kind := q.kind
+				opts := []kit.SegmentOption[string]{
+					{Value: "", Label: i18n.T("All")},
+					{Value: "albums", Label: i18n.T("Albums")},
+					{Value: "singles", Label: i18n.T("Singles & EPs")},
+				}
+				if kit.Segmented(c, &kind, opts, i18n.T("Album type")).Changed() && kind != q.kind {
+					next := q
+					next.kind = kind
+					l.env.Nav.Replace(albumsSpec.location(next))
+				}
+				l.sortSelect(c, albumsSpec, q)
+			})
 		})
 		switch {
 		case l.gate(c, gateOpts{

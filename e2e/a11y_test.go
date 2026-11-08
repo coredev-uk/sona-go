@@ -49,7 +49,7 @@ func TestAccessibility(t *testing.T) {
 		{"table", "Albums in your library"},            // the grid
 		{"link", first.Name},                           // its opener (the tiles have no play control)
 		{"push button menu", "More for " + first.Name}, // and its more button
-		{"panel", "Player"},                            // the player bar
+		{"landmark", "Player"},                         // the player bar (a region)
 		{"button", "Previous"},                         //
 		{"button", "Play"},                             //
 		{"button", "Next"},                             //
@@ -57,7 +57,7 @@ func TestAccessibility(t *testing.T) {
 		{"slider", "Seek"},
 		{"slider", "Volume"},
 	} {
-		if app.Find(want.role, want.name) == nil {
+		if !atspiHas(app, want.role, want.name) {
 			t.Errorf("no %s named %q on the accessibility bus", want.role, want.name)
 		}
 	}
@@ -128,8 +128,8 @@ func TestAccessibilityPages(t *testing.T) {
 				}
 			}
 			// Every page leaves the shell's landmarks where they were.
-			for _, w := range []struct{ role, name string }{{"panel", "Main"}, {"panel", "Player"}, {"button", "Back"}} {
-				if app.Find(w.role, w.name) == nil {
+			for _, w := range []struct{ role, name string }{{"panel", "Main"}, {"landmark", "Player"}, {"button", "Back"}} {
+				if !atspiHas(app, w.role, w.name) {
 					t.Errorf("no %s named %q once on %s", w.role, w.name, page.link)
 				}
 			}
@@ -138,6 +138,17 @@ func TestAccessibilityPages(t *testing.T) {
 			}
 		})
 	}
+}
+
+// atspiHas reports whether the tree has a node of this role and name. A
+// landmark is AT-SPI's "landmark" where the toolkit has the role and a
+// "panel" where it has not (MyGo falls back, and the xml-roles attribute
+// still says which landmark it is).
+func atspiHas(app *atspi.Node, role, name string) bool {
+	if app.Find(role, name) != nil {
+		return true
+	}
+	return role == "landmark" && app.Find("panel", name) != nil
 }
 
 // pageHeading reports whether the tree has a heading named name that is not

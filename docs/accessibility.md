@@ -64,6 +64,17 @@ shapes the rules below.
   by `ActiveDescendant` on the field, which keeps the keyboard focus: the
   arrows move the option, as in MyGo's `ComboboxBase`, and the field reads as
   a combo box with its list shown (`Expanded`).
+- Landmarks are few and named for what they hold: the shell's search field is
+  a `RoleSearch` (no name: it is the one global search, and the field in it is
+  already "Search"); the Albums page's type and sort are a `RoleSearch` named
+  "Filter albums" and the Artists filter one named "Find artists" (not "Filter
+  artists", which is the field's own name); the player bar ("Player"),
+  and Now Playing ("Now playing") are `RoleRegion`s. The queue panel stays a
+  group named "Queue": as a region, or as a group described by its summary,
+  Orca read nothing on entering it, where a group's text makes it say "Queue 2
+  songs after this one, panel". A landmark never sits inside another of the
+  same name, and a region's own heading or list may repeat its name: a
+  heading and a list are not landmarks.
 - A choice made among pictures (the playlist cover picker) is a `radio group` of `radio` tiles, each named by the label drawn under it (2.5.3), described in a line of its own ("No picture"), `Checked` while chosen, with arrow keys over the grid (`kit.GridNav`). The chosen tile says so with a ring, a check mark and a heavier name, never by colour alone. A choice that applies at once announces its result ("Cover: Bars"), and a failure stays beside the control as an alert, with the limits it broke in view.
 - A text with links in it is not itself on the tree (`kit.ArtistLinks` is a
   `RoleNone` rich text, so its links sit beside its separators): Orca reads
@@ -256,9 +267,9 @@ What it heard, with Orca 50.2:
 | Surface | Orca said |
 | --- | --- |
 | Sidebar, first Tab | "Main", "For you", "link."; then one link per Tab, the open page "Albums, link." with "Current page" (its current-page state), "New playlist or folder, push button menu. opens popup", "Playlists, List with 3 items", the pins as links |
-| Account button | "Account, button. Not signed in." (the name once); Enter: "Account, menu, Sign in."; Escape: the button again |
+| Top bar | "search, Search, editable combo box."; the next Tab "leaving search., Account, button. Not signed in." (the name once); Enter: "Account, menu, Sign in."; Escape: the button again |
 | Account dialog | "Account, dialog, Apple Account, entry. The email address or phone number you use with Apple.", "Password, password text.", the browser and token buttons, "Close, button."; Escape returns to "Account, button." |
-| Albums page | "Albums, panel, Album type, panel, All, toggle button pressed.", "Sort, combo box.", a tile "Fieldnotes, link. Kofi Bellamy."; the arrows move between tiles; Shift+F10 "More for …, menu, Create station."; Escape returns to the tile |
+| Albums page | "Albums, panel, search, Filter albums, Album type, panel, All, toggle button pressed." (and "leaving search." on the first tile), "Sort, combo box.", a tile "Fieldnotes, link. Kofi Bellamy."; the arrows move between tiles; Shift+F10 "More for …, menu, Create station."; Escape returns to the tile |
 | An album | "Album" on arrival; "Ines Calder, link." (once); "Play …, button. Play."; "Favourite …, toggle button not pressed."; the song list one stop, "Dust on the Dial." per arrow; Enter: "Now playing: … by …" once |
 | The queue | "Queue 2 songs after this one, panel, Clear, button."; the list one stop "Queue, List with 3 items"; Alt+↓ "Dust on the Dial: moved to position 2 of 2"; Delete moves the focus to the next row; Escape: "Queue, toggle button not pressed." |
 | Now Playing | "Lyrics, page tab.", ←/→ "Up next, page tab.", "Close now playing (Escape), button." |
@@ -302,13 +313,18 @@ session with audio:
   sidebar. MyGo has no way to read which element has the focus, to remember it.
 - A shortcut that shows a panel says nothing: Q opens the queue silently (the
   Queue toggle says "pressed" when it is pressed).
+- Orca says nothing on entering a region: the Player bar and Now playing are
+  `RoleRegion`s, which a screen reader's landmark keys find, but Orca 50
+  announces only the search landmark ("search", "leaving search") as the focus
+  enters and leaves it. The queue panel is left a group for that reason (a
+  region described by its summary was tried: still silent). Landmark
+  navigation itself, and VoiceOver's and Narrator's words, are unheard.
 - Opening a page reads the route's title, which is set before the data
   arrives: "Album", not the album's name.
 - Orca reads a list item's children with it: each arrow in the queue says
   the song, its artist again, the More and Remove buttons and the line of keys.
 - Leaving the Seek slider says its time once ("0:30 of 3:00"), as the held
-  value catches up. The player bar's group is read with the text beside the
-  song ("Player · Paper Moons, panel") on entering it.
+  value catches up.
 - Of MyGo v0.8.1's states, only the sidebar's current page has been heard
   (the Orca walk above: "Current page", once). Orca's words for the
   disabled-but-focusable, busy, alert, controls, popup, sort and row-count

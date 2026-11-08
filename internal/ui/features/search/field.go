@@ -151,7 +151,7 @@ func (f *field) build(c *ui.Context) {
 
 	placeholder := fieldPlaceholder(scope)
 	var in ui.Element
-	box := ui.Row(c.Key("search")).Role(ui.RoleGroup).FillWidth().MaxWidth(fieldMaxWidth).Height(32).
+	box := ui.Row(c.Key("search")).Role(ui.RoleSearch).FillWidth().MaxWidth(fieldMaxWidth).Height(32).
 		Padding(0, 6, 0, 12).Gap(8).AlignItems(ui.Center).Cursor(ui.CursorText)
 	box.Children(func() {
 		ui.Icon(c.Key("icon"), theme.Icon("search")).FontSize(16).TextColor(theme.C("ink-faint")).Shrink(0)

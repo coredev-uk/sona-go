@@ -29,6 +29,8 @@ func (p *player) queueAside(c *ui.Context) {
 		return
 	}
 	aside := ui.Row(c.Key("queue-aside")).Width(320).FillHeight().Shrink(0).Background(theme.C("ground")).
+		// A group, not a region: Orca reads a group's text on entry ("Queue
+		// 2 songs after this one") and nothing on entering a region.
 		Role(ui.RoleGroup).Label(i18n.T("Queue"))
 	p.queue.over = kit.DropOn(aside, queueDropID, p.queueTarget(c, &p.queue.lists[0]))
 	aside.Children(func() {

@@ -2367,6 +2367,10 @@ msgstr ""
 msgid "File (unencrypted)"
 msgstr ""
 
+#: internal/ui/features/library/albums.go
+msgid "Filter albums"
+msgstr ""
+
 #: internal/ui/features/library/artists.go
 msgid "Filter artists"
 msgstr ""
@@ -2393,6 +2397,10 @@ msgstr ""
 
 #: internal/ui/features/settings/findui.go
 msgid "Find a setting"
+msgstr ""
+
+#: internal/ui/features/library/artists.go
+msgid "Find artists"
 msgstr ""
 
 #: internal/ui/app/menubar.go

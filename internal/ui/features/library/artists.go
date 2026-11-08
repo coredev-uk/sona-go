@@ -411,7 +411,7 @@ func (v *artistsView) list(c *ui.Context, loading bool) {
 					artistsText(c, line, "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum")
 				}
 			})
-			ui.Column(c.Key("filter")).Margin(16, 0, 0, 0).Children(func() {
+			ui.Column(c.Key("filter")).Margin(16, 0, 0, 0).Role(ui.RoleSearch).Label(i18n.T("Find artists")).Children(func() {
 				label := i18n.T("Filter artists")
 				in = kit.SearchField(c, &pg.query, kit.SearchFieldOpts{Placeholder: label, A11yLabel: label})
 			})

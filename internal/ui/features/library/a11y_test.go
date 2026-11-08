@@ -111,6 +111,7 @@ func TestA11yPages(t *testing.T) {
 			ready:    []string{"24 albums"},
 			headings: []a11yHeading{{"Albums", 1}},
 			present: []a11yNode{
+				{ui.RoleSearch, "Filter albums"},
 				{ui.RoleGroup, "Album type"},
 				{ui.RoleToggleButton, "All"},
 				{ui.RoleToggleButton, "Albums"},
@@ -424,6 +425,9 @@ func TestA11yArtistsFilter(t *testing.T) {
 	}
 	if !box.Has(access.Expanded) {
 		t.Errorf("the filter does not say its list shows: %s", box.States)
+	}
+	if bar, ok := tr.Find(ui.RoleSearch, "Find artists"); !ok || !tr.Within(box, ui.RoleSearch) {
+		t.Errorf("the filter is not in a search landmark named Find artists: %+v", bar)
 	}
 	if _, ok := tr.Find(ui.RoleOption, "Dara Finch, 2 albums, 4 songs"); !ok {
 		t.Errorf("no row for Dara Finch:\n%s", tr.Dump())

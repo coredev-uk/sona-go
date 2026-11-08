@@ -93,3 +93,26 @@ func TestTabFocusFollowsAPaneChangedFromOutside(t *testing.T) {
 		t.Errorf("focus %v after the pane changed back, want the Lyrics tab", f)
 	}
 }
+
+// Now Playing is a region named for what it is, which holds its tabs and
+// panes, and is not nested in another landmark of the same name.
+func TestNowPlayingIsARegion(t *testing.T) {
+	r := newNPRig(t)
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(3, false)}, nil)
+	r.play(1000)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 1 sung words"))
+	tr := access.Read(t, r.tt.Tester)
+	region, ok := tr.Find(ui.RoleRegion, "Now playing")
+	if !ok {
+		t.Fatalf("no region named Now playing:\n%s", tr.Dump())
+	}
+	if tab, ok := tr.Find(ui.RoleTab, "Lyrics"); !ok || !tr.Within(tab, ui.RoleRegion) {
+		t.Errorf("the Lyrics tab is not in the region: %+v", tab)
+	}
+	for _, n := range tr.Roles(ui.RoleRegion) {
+		if n.Label == region.Label && n.Index != region.Index {
+			t.Errorf("a second region named %q", n.Label)
+		}
+	}
+}
