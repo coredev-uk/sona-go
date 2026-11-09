@@ -959,10 +959,10 @@ jobs:
           SONA_CDMHOST_REQUIRE_SANDBOX: "1"
         run: |
           set +e
-          go test -count=1 -timeout 15m -v -run 'DebugVariants|AppContainer|SandboxedHost|SandboxLoadsCDM|SandboxGaps|GrantAccess|ReadFolders|EnvHelpers' \
+          go test -count=1 -timeout 15m -v -run 'AppContainer|SandboxedHost|SandboxLoadsCDM|SandboxGaps|GrantAccess|ReadFolders|EnvHelpers' \
             ./internal/playback/cdmhost/ >"$RUNNER_TEMP/sandbox.log" 2>&1
           rc=$?
-          grep -vE '^=== (RUN|PAUSE|CONT)' "$RUNNER_TEMP/sandbox.log" | cut -c1-400 | head -n 120
+          grep -vE '^=== (RUN|PAUSE|CONT)' "$RUNNER_TEMP/sandbox.log" | cut -c1-400 | head -n 250
           if grep -q -- '--- SKIP' "$RUNNER_TEMP/sandbox.log"; then echo "a sandbox test was skipped"; rc=1; fi
           exit $rc
 

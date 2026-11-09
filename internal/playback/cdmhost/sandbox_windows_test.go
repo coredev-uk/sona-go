@@ -378,29 +378,3 @@ func TestEnvHelpers(t *testing.T) {
 		t.Error("envBlock accepted a NUL")
 	}
 }
-
-// TEMPORARY: which startup variants survive.
-func TestDebugVariants(t *testing.T) {
-	for _, v := range []string{"", "nomit", "nochild", "window", "detached", "nojob", "nomit,nochild", "nomit,nochild,window", "nomit,nochild,detached,nojob"} {
-		t.Run("variant="+v, func(t *testing.T) {
-			t.Setenv("SONA_SANDBOX_DEBUG", v)
-			exe, _ := os.Executable()
-			env := append(childEnv(slog.New(slog.DiscardHandler)), envTestChild+"=idle")
-			p, ps, err := startSandboxed(exe, env, slog.New(slog.DiscardHandler))
-			if err != nil || ps.gap != "" {
-				t.Logf("variant %q: start failed: %v %+v", v, err, ps)
-				return
-			}
-			done := make(chan error, 1)
-			go func() { done <- p.cmd.Wait() }()
-			select {
-			case err := <-done:
-				t.Logf("variant %q: child exited: %v", v, err)
-			case <-time.After(3 * time.Second):
-				t.Logf("variant %q: child alive after 3s", v)
-				_ = p.kill()
-				<-done
-			}
-		})
-	}
-}
