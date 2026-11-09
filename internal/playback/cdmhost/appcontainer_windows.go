@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -471,11 +472,14 @@ func (p *profile) registryFile(want string) string {
 	return filepath.Join(p.tmp, "gst-registry-"+hex.EncodeToString(sum[:6])+".bin")
 }
 
+// loggedRegistries are the registry files startInAppContainer has logged.
+var loggedRegistries sync.Map
+
 // startInAppContainer starts exe as the child in prof's AppContainer: the
 // folders it reads are granted first (readFolders), its environment points
 // its temporary files and GStreamer's registry at prof's own folder, and its
 // standard handles are fresh pipes (the only handles it inherits).
-func startInAppContainer(prof *profile, exe string, env []string) (proc, error) {
+func startInAppContainer(prof *profile, exe string, env []string, log *slog.Logger) (proc, error) {
 	for _, d := range readFolders(exe, env) {
 		if err := grantAccess(prof.sid, d, accessRead, false); err != nil {
 			return proc{}, err
@@ -485,6 +489,11 @@ func startInAppContainer(prof *profile, exe string, env []string) (proc, error) 
 	if err := os.MkdirAll(tmp, 0o700); err != nil {
 		return proc{}, fmt.Errorf("create the AppContainer's temporary folder: %w", err)
 	}
+	registry := prof.registryFile(envValue(env, "GST_REGISTRY_1_0"))
+	if _, seen := loggedRegistries.LoadOrStore(registry, true); !seen {
+		// The packaging smoke test reads the registry from here.
+		log.Info("cdmhost: the host's GStreamer plugin registry", "path", registry)
+	}
 	env = withEnv(env,
 		envAppContainerChild+"=1",
 		envHiddenDirs+"="+strings.Join(hiddenFolders(), string(os.PathListSeparator)),
@@ -492,7 +501,7 @@ func startInAppContainer(prof *profile, exe string, env []string) (proc, error) 
 		// The scanner is a process of its own, which the child may not
 		// start: GStreamer scans the plugins in the process, once, into a
 		// registry that later children read.
-		"GST_REGISTRY_1_0="+prof.registryFile(envValue(env, "GST_REGISTRY_1_0")),
+		"GST_REGISTRY_1_0="+registry,
 		"GST_REGISTRY_FORK=no",
 	)
 	return createInAppContainer(prof.sid, exe, env)

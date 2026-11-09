@@ -76,7 +76,9 @@ got=$("$exe" --version) || fail "sona.exe --version failed"
 # audio stack: it loads the bundled GStreamer and scans the bundled plugins,
 # with the environment internal/playback/gstbundle sets.
 log=$profile/Local/Sona/State/sona.log
-registry=$profile/Local/Sona/gstreamer-1.0/registry.bin
+# The CDM host child runs in an AppContainer and keeps its own plugin registry
+# in the AppContainer's package folder (cdmhost.profile.registryFile); the
+# parent logs where.
 "$exe" >"$work/sona.out" 2>&1 &
 pid=$!
 for _ in $(seq 1 60); do
@@ -108,7 +110,11 @@ fi
 { grep -o 'audio stack ready.*' "$log" | head -n 1 | cut -c1-300; } || true
 echo "smoke(windows): the bundled GStreamer's audio stack is ready"
 
-# The registry lists the bundle's plugins and nothing from an installation.
+# The child's registry lists the bundle's plugins and nothing from an
+# installation. Where it is, the parent's log says.
+registry=$(grep -a "GStreamer plugin registry" "$log" | head -n 1 | sed -n 's/.*"path":"\([^"]*\)".*/\1/p')
+[[ -n $registry ]] || { cat "$log" 2>/dev/null || true; fail "the log does not say where the host keeps its plugin registry"; }
+registry=$(cygpath -u "${registry//\\\\/\\}") # JSON escapes backslashes
 [[ -f $registry ]] || fail "no plugin registry at $registry"
 grep -aq libgstcoreelements "$registry" || fail "the plugin registry does not list the bundle's plugins"
 if [[ -n ${GSTREAMER_ROOT:-} ]]; then
@@ -126,6 +132,7 @@ fi
 tools=$out/smoke-tools
 if [[ -f $tools/playspike.exe ]]; then
   cp "$tools/playspike.exe" "$dir/playspike.exe"
+  rm -f "$registry"
   rm -rf "$profile/Local/Sona/gstreamer-1.0"
   mkdir "$work/cwd" # no .env to find
   (cd "$work/cwd" && timeout 600 "$dir/playspike.exe" -preview -sink fakesink -storefront us) >"$work/preview.out" 2>&1 || { cat "$work/preview.out"; fail "preview playback"; }

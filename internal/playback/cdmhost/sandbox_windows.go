@@ -115,7 +115,7 @@ func startSandboxed(exe string, env []string, log *slog.Logger) (proc, parentSan
 	prof, err := appContainer()
 	if err == nil {
 		var p proc
-		if p, err = startInAppContainer(prof, exe, env); err == nil {
+		if p, err = startInAppContainer(prof, exe, env, log); err == nil {
 			return p, parentSandbox{}, nil
 		}
 	}
