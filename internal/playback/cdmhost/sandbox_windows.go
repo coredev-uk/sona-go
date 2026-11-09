@@ -206,38 +206,25 @@ func inAppContainer() error {
 	return nil
 }
 
-// networkRefused checks that the child cannot reach the network. A process
-// of the AppContainer, which holds none of the network capabilities, is
-// refused by the network stack: its outbound connect() to an address off
-// the machine fails at once, and a connection to a listening socket on the
-// loopback, even to its own, gets no answer (a closed loopback port still
-// answers with a refusal, which proves nothing). The checks send nothing off
-// the machine: a UDP connect() only sets the peer address.
+// networkRefused checks that the child cannot reach the network: a process
+// of the AppContainer holds none of the network capabilities, so the network
+// stack refuses its outbound TCP connect() to an address off the machine at
+// once, with WSAEACCES (an unconfined process gets a connection, or a
+// timeout or an ICMP error after seconds). 192.0.2.1 is TEST-NET-1 (RFC
+// 5737): nothing answers there, so an unconfined child leaks one SYN to an
+// address that goes nowhere. A UDP connect() proves nothing here (it only
+// sets the peer address), nor does a connection to a socket of the child's
+// own on the loopback (the same package may talk to itself).
 func networkRefused() error {
-	if ln, err := net.Listen("tcp", "127.0.0.1:0"); err == nil {
-		defer func() { _ = ln.Close() }()
-		go func() {
-			for {
-				c, err := ln.Accept()
-				if err != nil {
-					return
-				}
-				_ = c.Close()
-			}
-		}()
-		c, err := net.DialTimeout("tcp", ln.Addr().String(), 2*time.Second)
-		if err == nil {
-			_ = c.Close()
-			return errors.New("connected to a listener of its own on the loopback")
-		}
-	}
-	// 192.0.2.1 is TEST-NET-1 (RFC 5737): nothing answers there.
-	c, err := net.Dial("udp", "192.0.2.1:9")
-	if err == nil {
+	c, err := net.DialTimeout("tcp", "192.0.2.1:9", 2*time.Second)
+	switch {
+	case err == nil:
 		_ = c.Close()
-		return errors.New("connect(udp 192.0.2.1:9) succeeded")
+		return errors.New("connect(tcp 192.0.2.1:9) succeeded")
+	case errors.Is(err, windows.WSAEACCES):
+		return nil
 	}
-	return nil
+	return fmt.Errorf("connect(tcp 192.0.2.1:9) was not refused by the sandbox: %w", err)
 }
 
 // envHiddenDirs lists the folders the AppContainer must not be able to list

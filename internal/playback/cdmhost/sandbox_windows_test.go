@@ -217,10 +217,12 @@ func TestAppContainerConfinesChild(t *testing.T) {
 			t.Errorf("%s: %q, want ok", name, got)
 		}
 	}
+	// The parent's listener never answers the AppContainer; an address off
+	// the machine is refused at once. (Its own listener and a UDP connect()
+	// are logged above: the first connects, the second succeeds, and the
+	// self-check relies on neither.)
 	denied("tcp connect to the parent's listener")
-	denied("tcp connect to its own listener")
 	denied("tcp connect to a public address")
-	denied("udp connect to a public address")
 	if accepted.Load() {
 		t.Error("the listener on the loopback got a connection from the child")
 	}
