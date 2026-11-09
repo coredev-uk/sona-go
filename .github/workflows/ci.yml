@@ -950,9 +950,8 @@ jobs:
         run: go test -count=1 -timeout 10m ./internal/playback/widevine/ ./internal/playback/cdm/...
 
       # The host child, GStreamer and the engine on Windows, against fakesink
-      # and the real CDM. (Informational while they are brought up.)
+      # and the real CDM.
       - name: Host and engine tests
-        continue-on-error: true
         env:
           SONA_CDM_REQUIRE: "1"
         run: |

@@ -1,4 +1,4 @@
-//go:build linux || (darwin && cgo)
+//go:build linux || (cgo && (darwin || windows))
 
 package main
 
@@ -18,8 +18,9 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/video"
 )
 
-// Linux and macOS: the Widevine CDM host engine (internal/playback/native),
-// loading the CDM Sona downloads from Google (internal/playback/cdm).
+// Linux, macOS and Windows (with cgo): the Widevine CDM host engine
+// (internal/playback/native), loading the CDM Sona downloads from Google
+// (internal/playback/cdm).
 
 // childMain runs the CDM host child when this process is one (it never
 // returns there).
