@@ -180,7 +180,7 @@ done
 if bad=$(find "$dir" -iname '*widevinecdm*') && [[ -n $bad ]]; then
   die "the package would contain the Widevine CDM: $bad"
 fi
-echo "package: $(find "$dir" -type f | wc -l) files, $(du -sm "$dir" | cut -f1) MB; GStreamer plugins: $(cd "$dir/lib/gstreamer-1.0" && echo libgst*.dll | sed 's/libgst//g; s/\.dll//g')"
+echo "package: $(find "$dir" -type f | wc -l) files, $(find "$dir" -type f -printf '%s\n' | awk '{s += $1} END {printf "%.1f", s / 1048576}') MB; GStreamer plugins: $(cd "$dir/lib/gstreamer-1.0" && echo libgst*.dll | sed 's/libgst//g; s/\.dll//g')"
 
 # 4. The artefacts. The portable zip's folder is Sona\, the updater's
 # tar.gz has no wrapper folder, and the installer takes the folder as it is.

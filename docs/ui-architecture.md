@@ -17,7 +17,7 @@ internal/ui/app ─► internal/ui/module (types only)
 | `internal/ui/features/<name>` | One package per feature (album, library, player…). Features never import each other |
 | `internal/ui/account` | The sign-in and account views the account dialog (`features/auth`) and the first-run setup (`features/onboarding`) share: the sign-in reducer, the credentials, code, browser and token forms, the signed-in view, the keyring notices. A shared UI package like `kit`, so two features need not import each other |
 | `internal/ui/kit` | Components shared by features (Button, Artwork…), built on MyGo widgets and the theme |
-| `internal/ui/media` | What MyGo lacks of the system's media stack: the motion artwork decoder (GStreamer through cgo on Linux and macOS, `motion_gst.go`; none on Windows, `motion_none.go`), `OpenMotion` (the motion cache's file into a looping `ui.VideoPlayer`), and I420 to RGBA for music video pictures (`I420ToRGBA`, `Feed`) |
+| `internal/ui/media` | What MyGo lacks of the system's media stack: the motion artwork decoder (GStreamer through cgo on Linux, macOS and Windows, `motion_gst.go`; none without cgo, `motion_none.go`), `OpenMotion` (the motion cache's file into a looping `ui.VideoPlayer`), and I420 to RGBA for music video pictures (`I420ToRGBA`, `Feed`) |
 | `internal/ui/lyricsync` | The timing logic of synced lyrics (the sung line, rests, verses, word progress, per-song offsets), shared by Now Playing, full-screen lyrics and the mini player |
 | `internal/ui/store` | The event bus, cached queries and the playback mirror: everything that comes from Go and changes |
 | `internal/ui/theme` | Design tokens (colours light and dark, type, radii, space, motion), their application to MyGo's theme, Lucide icons, the interface font |
