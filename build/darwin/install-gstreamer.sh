@@ -17,11 +17,19 @@ mkdir -p "$cache"
 for kind in "" "devel-"; do
   name=gstreamer-1.0-${kind}${version}-universal.pkg
   if [[ ! -f $cache/$name ]]; then
-    # --retry alone skips a broken transfer: freedesktop.org's HTTP/2 often
-    # resets the stream mid-download (curl 92, three macOS CI jobs on
-    # 2026-11-08). HTTP/1.1, and a retry after any error; the sha256 below
-    # still checks what arrived.
-    curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 2 -o "$cache/$name" "https://gstreamer.freedesktop.org/data/pkg/osx/$version/$name"
+    # freedesktop.org often resets or ends the response mid-download (curl
+    # 92 and 18). Each attempt resumes where the last stopped (-C -) into a
+    # .part file, over HTTP/1.1; the sha256 below still checks what arrived.
+    part=$cache/$name.part
+    for attempt in $(seq 1 30); do
+      if curl -fsSL --http1.1 -C - --connect-timeout 30 -o "$part" "https://gstreamer.freedesktop.org/data/pkg/osx/$version/$name"; then
+        mv "$part" "$cache/$name"
+        break
+      fi
+      echo "install-gstreamer: download attempt $attempt stopped at $(wc -c <"$part" 2>/dev/null || echo 0) bytes; resuming" >&2
+      sleep 5
+    done
+    [[ -f $cache/$name ]] || { echo "install-gstreamer: $name did not download in 30 attempts" >&2; exit 1; }
   fi
   want=$(awk -v n="$name" '$2==n{print $1}' "$here/gstreamer.sha256")
   got=$(shasum -a 256 "$cache/$name" | awk '{print $1}')
