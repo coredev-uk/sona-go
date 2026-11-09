@@ -5,7 +5,7 @@ Every file is listed in `SHA256SUMS` and has signed build provenance:
 
 **macOS (Apple silicon, macOS 14 or later).** Open `Sona-<version>-macos-arm64.dmg` and drag Sona to Applications. The app is not notarised, so macOS 15 and later block the first open: System Settings → Privacy & Security → "Open Anyway", or run `xattr -dr com.apple.quarantine /Applications/Sona.app`. Sign in with Apple Music from Settings; full tracks play.
 
-**Windows (x64).** Run `Sona-<version>-windows-x64-setup.exe` (a per-user install, no administrator rights) or extract the portable `Sona-<version>-windows-x64.zip` anywhere you can write. SmartScreen warns about an unknown publisher: "More info" → "Run anyway". Sign in with Apple Music from Settings; full tracks play through a sandboxed host process with GStreamer's WASAPI output. Motion covers show as stills.
+**Windows (x64).** Run `Sona-<version>-windows-x64-setup.exe` (a per-user install, no administrator rights) or extract the portable `Sona-<version>-windows-x64.zip` anywhere you can write. SmartScreen warns about an unknown publisher: "More info" → "Run anyway". Sign in with Apple Music from Settings; full tracks play through a sandboxed host process with GStreamer's WASAPI output. Motion covers play, decoded by the graphics card where Windows offers a Direct3D 11 decoder and by the CPU otherwise.
 
 **Linux.** The `.deb`, `.rpm`, Arch package and AppImage; see the README.
 
