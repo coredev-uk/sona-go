@@ -932,19 +932,13 @@ jobs:
       - name: Build playspike.exe
         run: go build -trimpath -buildvcs=false -o bin/playspike.exe ./cmd/playspike
 
-      - name: Link diagnostics (informational)
-        continue-on-error: true
+      # The program must start: GStreamer's DLLs resolve and the link is sound.
+      - name: playspike starts
         run: |
-          bin/playspike.exe -h 2>&1 | head -n 8 || true
-          echo "--- GStreamer's lib directory: C runtime and system import libraries"
-          ls "$GSTREAMER_ROOT/lib" | grep -Ei '^lib(msvcrt|ucrt|kernel32|mingw|gcc|pthread|winpthread|moldname|user32|advapi32)' || echo "(none)"
-          ls "$GSTREAMER_ROOT/lib" | wc -l
-          echo "--- libraries ld opens"
-          CGO_LDFLAGS="-Wl,-t" go build -trimpath -buildvcs=false -o "$RUNNER_TEMP/diag.exe" ./cmd/playspike 2>&1 | grep -Ei 'msvcrt|ucrt|libkernel32|libmingw|crt2|exit' | head -n 30 || true
-          echo "--- gcc"
-          gcc -dumpmachine; gcc -v 2>&1 | tail -n 3
-          echo "--- pkg-config"
-          "$PKG_CONFIG" --cflags --libs gstreamer-1.0 gstreamer-app-1.0
+          out=$(bin/playspike.exe -h 2>&1 || true)
+          printf '%s\n' "$out" | head -n 6
+          grep -q 'Usage of' <<<"$out"
+          "$PKG_CONFIG" --libs gstreamer-1.0 gstreamer-app-1.0
 
       # Google's CDM, downloaded and verified the way Sona does, loaded
       # through the shim DLL (SONA_CDM_SHIM, set by setup-windows).

@@ -59,12 +59,31 @@ root=$(dirname "$(dirname "$dll")")
 rootm=$(cygpath -m "$root")
 [[ -f $root/lib/pkgconfig/gstreamer-1.0.pc ]] || { echo "install-gstreamer: the installation has no development files ($root/lib/pkgconfig)" >&2; find "$root/lib" -maxdepth 1 >&2; exit 1; }
 
+# GStreamer's lib/ also holds the MinGW runtime's own libraries (libgcc.a,
+# libmingw32.a, libmingwex.a, libmoldname.a, …), from a different toolchain
+# than the compiler cgo uses. A -L for lib/ puts them ahead of the
+# compiler's, and the program then crashes at start ("32 bit pseudo
+# relocation … out of range" in crt2's call to exit). So the link searches
+# a directory of copies of the import libraries (libglib-2.0.dll.a, …) and
+# nothing else.
+libs=$dest/sona-lib
+mkdir -p "$libs"
+for f in "$root"/lib/*.dll.a; do
+  case $(basename "$f") in
+    libwinpthread* | libgcc* | libmingw* | libmoldname* | libmsvcrt* | libucrt* | libstdc++*) continue ;;
+  esac
+  cp "$f" "$libs/"
+done
+libsm=$(cygpath -m "$libs")
+
 # The .pc files name their prefix as ${pcfiledir}/../.. (which only pkgconf
-# resolves) or as the default install location: point both at the root.
+# resolves) or as the default install location: point both at the root, and
+# the libraries' -L at the directory above.
 pc=$dest/sona-pkgconfig
 mkdir -p "$pc"
 for f in "$root"/lib/pkgconfig/*.pc; do
-  sed -e "s|\${pcfiledir}/../..|$rootm|g" -e "s|^prefix=.*|prefix=$rootm|" "$f" >"$pc/$(basename "$f")"
+  sed -e "s|\${pcfiledir}/../..|$rootm|g" -e "s|^prefix=.*|prefix=$rootm|" \
+    -e '/^Libs/ s|-L\${libdir}|-L'"$libsm"'|g' -e '/^Libs/ s|-L\${prefix}/lib|-L'"$libsm"'|g' "$f" >"$pc/$(basename "$f")"
 done
 echo "install-gstreamer: GStreamer $version in $rootm" >&2
 echo "GSTREAMER_ROOT=$rootm"
