@@ -22,27 +22,11 @@ runs:
         path: ${{ runner.temp }}/gstreamer-pkg
         key: gstreamer-pkg-windows-${{ hashFiles('build/windows/gstreamer.sha256') }}
 
-    - name: Install GStreamer and pkg-config
-      id: gstreamer
+    - name: Download the GStreamer installer
       shell: bash
       env:
         GSTREAMER_PKG_CACHE: ${{ runner.temp }}/gstreamer-pkg
-      run: |
-        if ! command -v pkg-config >/dev/null; then
-          # Chocolatey shims the executable into its bin directory, on PATH.
-          choco install pkgconfiglite --yes --no-progress
-        fi
-        command -v pkg-config
-        out=$(build/windows/install-gstreamer.sh "$RUNNER_TEMP/gstreamer" | tail -n 2)
-        printf '%s\n' "$out"
-        root=$(sed -n 's/^GSTREAMER_ROOT=//p' <<<"$out")
-        {
-          echo "GSTREAMER_ROOT=$root"
-          sed -n 's/^PKG_CONFIG_PATH=/PKG_CONFIG_PATH=/p' <<<"$out"
-        } >>"$GITHUB_ENV"
-        # The DLLs (libgstreamer-1.0-0.dll and its dependencies) and gst-inspect-1.0.
-        cygpath -w "$root/bin" >>"$GITHUB_PATH"
-        echo "root=$root" >>"$GITHUB_OUTPUT"
+      run: build/windows/install-gstreamer.sh --fetch
 
     - name: Save the GStreamer installer
       if: ${{ steps.pkg.outputs.cache-hit != 'true' }}
@@ -50,6 +34,29 @@ runs:
       with:
         path: ${{ runner.temp }}/gstreamer-pkg
         key: gstreamer-pkg-windows-${{ hashFiles('build/windows/gstreamer.sha256') }}
+
+    # The runner's pkg-config (Strawberry Perl's script) is not one cgo should
+    # depend on: pkg-config-lite's executable, which Chocolatey shims.
+    - name: Install GStreamer and pkg-config
+      id: gstreamer
+      shell: bash
+      env:
+        GSTREAMER_PKG_CACHE: ${{ runner.temp }}/gstreamer-pkg
+      run: |
+        choco install pkgconfiglite --yes --no-progress
+        pkgconfig=/c/ProgramData/chocolatey/bin/pkg-config.exe
+        "$pkgconfig" --version
+        out=$(build/windows/install-gstreamer.sh "$RUNNER_TEMP/gstreamer" | tail -n 2)
+        printf '%s\n' "$out"
+        root=$(sed -n 's/^GSTREAMER_ROOT=//p' <<<"$out")
+        {
+          echo "GSTREAMER_ROOT=$root"
+          echo "PKG_CONFIG=$(cygpath -m "$pkgconfig")"
+          sed -n 's/^PKG_CONFIG_PATH=/PKG_CONFIG_PATH=/p' <<<"$out"
+        } >>"$GITHUB_ENV"
+        # The DLLs (libgstreamer-1.0-0.dll and its dependencies) and gst-inspect-1.0.
+        cygpath -w "$root/bin" >>"$GITHUB_PATH"
+        echo "root=$root" >>"$GITHUB_OUTPUT"
 
     - name: Build the CDM shim DLL
       id: shim

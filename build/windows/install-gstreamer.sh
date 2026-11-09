@@ -4,7 +4,8 @@
 # gstreamer.sha256, installs it without a prompt and makes its pkg-config
 # files usable where they are (run in Git Bash on windows-2025).
 #
-#   build/windows/install-gstreamer.sh [DEST]
+#   build/windows/install-gstreamer.sh --fetch     # only download and check the installer
+#   build/windows/install-gstreamer.sh [DEST]      # also install it
 #
 # DEST is where it installs (default: $RUNNER_TEMP/gstreamer). The last two
 # lines on stdout are what a build needs, as KEY=VALUE:
@@ -21,6 +22,8 @@ version=$(awk '$1=="version"{print $2}' "$here/gstreamer.sha256")
 name=gstreamer-1.0-mingw-x86_64-$version.exe
 tmp=${RUNNER_TEMP:-${TEMP:-/tmp}}
 cache=${GSTREAMER_PKG_CACHE:-$tmp/gstreamer-pkg}
+fetch=
+[[ ${1:-} == --fetch ]] && { fetch=1; shift; }
 dest=${1:-$tmp/gstreamer}
 mkdir -p "$cache"
 
@@ -32,8 +35,11 @@ if [[ ! -f $cache/$name ]]; then
     "https://gstreamer.freedesktop.org/data/pkg/windows/$version/mingw/$name" >&2
 fi
 want=$(awk -v n="$name" '$2==n{print $1}' "$here/gstreamer.sha256")
-got=$(sha256sum "$cache/$name" | awk '{print $1}')
+# From stdin: sha256sum puts a backslash before the hash when a file name has one.
+got=$(sha256sum <"$cache/$name" | awk '{print $1}')
 [[ -n $want && $got == "$want" ]] || { echo "install-gstreamer: $name sha256 $got, want ${want:-<none>}" >&2; exit 1; }
+
+[[ -z $fetch ]] || exit 0
 
 rm -rf "$dest"
 mkdir -p "$dest"
