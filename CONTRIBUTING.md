@@ -384,8 +384,8 @@ smoke in headless sway, "E2E (headless sway)". macOS: a pull request runs one
 job, "macOS build and test (pull request)" (production build, go vet, core and
 playback tests with the real CDM and Seatbelt); main, the nightly and a
 dispatch run the build, vet and every test shard on their own jobs, and
-"Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, the CDM tests)),
-`windows-playback.yml` (dispatch only, from main, `live` environment: playspike on windows-2025 plays a full track privately through the CDM host child to `fakesink`; its last line says whether Apple licensed the host),
+"Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, two preview songs played to `fakesink` with no secret, the CDM tests)),
+`windows-playback.yml` (weekly and on dispatch, from main, `live` environment: playspike on windows-2025 plays a full track privately through the CDM host child to `fakesink`; its last line says whether Apple licensed the host; a failing weekly run opens an issue),
 `images.yml` (also builds the CI image, below),
 `golden-update.yml` (the `update-goldens` label on a pull request of this
 repository: regenerates the golden images of the failing golden tests in the CI

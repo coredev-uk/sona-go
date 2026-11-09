@@ -406,7 +406,9 @@ jobs:
     needs: plan
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.skip != 'true' }}
     runs-on: windows-2025
-    timeout-minutes: 45
+    # GStreamer's installer is cached (an uncached download takes ~10 min),
+    # then the build, the packages and the smoke test (which plays previews).
+    timeout-minutes: 75
     environment: ${{ needs.plan.outputs.publish == 'true' && 'release' || '' }}
     permissions:
       contents: read
@@ -417,8 +419,8 @@ jobs:
         shell: bash
     env:
       VERSION: ${{ needs.plan.outputs.version }}
-      # mattn/go-sqlite3 needs cgo: the runner's MinGW-w64 gcc. MyGo itself
-      # is pure Go on Windows.
+      # cgo: the runner's MinGW-w64 gcc links GStreamer (package.sh) and
+      # mattn/go-sqlite3.
       CGO_ENABLED: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -430,6 +432,11 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # The official GStreamer packages (cgo links them and package.sh copies
+      # the runtime; pinned by build/windows/gstreamer.sha256), pkg-config and
+      # the CDM shim DLL built with MSVC.
+      - uses: ./.github/actions/setup-windows
+
       - name: Install NSIS
         run: |
           choco install nsis --yes --no-progress
@@ -438,8 +445,13 @@ jobs:
       - name: Choose the output directory
         run: echo "OUT_DIR=$RUNNER_TEMP/release" >>"$GITHUB_ENV"
 
+      # The update feed and key are linked in only where the key is committed
+      # (internal/update/update.pub); without them the build never updates.
+      # package.sh links GStreamer (setup above) and ships its runtime and the
+      # plugins Sona uses, the shim DLL and never the CDM.
       - name: Build, zip and make the installer
         env:
+          SONA_SMOKE_TOOLS: "1"
           SONA_LASTFM_KEY: ${{ secrets.SONA_LASTFM_KEY }}
           SONA_LASTFM_SECRET: ${{ secrets.SONA_LASTFM_SECRET }}
           SONA_DISCORD_CLIENT_ID: ${{ secrets.SONA_DISCORD_CLIENT_ID }}
@@ -453,7 +465,10 @@ jobs:
           fi
           build/windows/package.sh "$OUT_DIR"
 
-      - name: Smoke-test the zip and the installer
+      # The zip, the update archive and the installer, with the installed
+      # GStreamer off PATH: the package stands alone. Plays two previews to
+      # fakesink from the bundle (no token, no CDM).
+      - name: Smoke-test the zip, the update archive and the installer
         run: build/windows/smoke.sh "$OUT_DIR"
 
       - name: Checksums

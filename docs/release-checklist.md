@@ -119,7 +119,7 @@ and Windows development builds in ci.yml never hold a release up), then the
 | --------- | ------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
 | `linux`   | ubuntu-26.04  | the Linux packages (`build/linux/release/release.sh`)              | each package on clean Ubuntu, Fedora and Arch containers                              |
 | `macos`   | macos-15      | `Sona-<v>-macos-arm64.dmg`, `sona-<v>-darwin-arm64.tar.gz` (`build/darwin/bundle.sh`) | `build/darwin/smoke.sh`: `--version`, first paint, motion artwork decode and a preview played from the bundle's GStreamer, no `/nix`, `/opt/homebrew` or `/Library/Frameworks` paths, `codesign --verify` |
-| `windows` | windows-2025  | `Sona-<v>-windows-x64.zip`, `Sona-<v>-windows-x64-setup.exe`, `sona-<v>-windows-amd64.tar.gz` (`build/windows/package.sh`) | `build/windows/smoke.sh`: the zip's `--version` and first paint; silent install, files and `music:`/`itms:` keys; silent uninstall |
+| `windows` | windows-2025  | `Sona-<v>-windows-x64.zip`, `Sona-<v>-windows-x64-setup.exe`, `sona-<v>-windows-amd64.tar.gz` (`build/windows/package.sh`) | `build/windows/smoke.sh` with GStreamer off `PATH`: layout (shim, GStreamer runtime and plugins, no CDM), the zip's `--version`, first paint and audio stack from the bundle, two previews played to `fakesink`, the update archive's files, silent install, files and `music:`/`itms:` keys; silent uninstall |
 | `publish` | ubuntu-26.04  | `update-darwin-arm64.json`, `update-windows-amd64.json`, `SHA256SUMS` | checks the Linux checksums; attests the manifests and the combined `SHA256SUMS`       |
 
 - **macOS app:** plain Go and Xcode's clang against the official GStreamer
@@ -142,12 +142,35 @@ and Windows development builds in ci.yml never hold a release up), then the
   whose Xcode tools cannot link, build inside devenv with `SONA_DEVENV_BUILD=1`
   (it points devenv's copies of macOS's own libraries back at `/usr/lib`;
   CI never sets it).
-- **Windows:** Go and the runner's MinGW-w64 gcc (for `go-sqlite3`) and
-  NSIS from Chocolatey; MyGo is pure Go there. Playback is unsupported on
-  Windows and so is motion artwork: the Media Foundation decoder is not
-  written (it needs a COM H.264 transform driven from syscalls, which cannot
-  be tested without a Windows machine), `internal/ui/media` reports no codec,
-  and covers show their stills.
+- **Windows:** Go, the runner's MinGW-w64 gcc (cgo links GStreamer and
+  `go-sqlite3`; MinGW's `objdump` finds the DLLs to copy), NSIS from
+  Chocolatey and, from `.github/actions/setup-windows`, the official GStreamer
+  MinGW package (version and installer hash pinned in
+  `build/windows/gstreamer.sha256`, same 1.28 minor as macOS and devenv;
+  `build/windows/install-gstreamer.sh`), pkg-config-lite and the CDM shim DLL
+  (`build/windows/build-shim.sh`, MSVC). `package.sh` links `sona.exe` against
+  that GStreamer and puts into every artefact `sona.exe`,
+  `sona_cdm_shim.dll`, the GStreamer DLLs that `sona.exe`, the kept plugins
+  and the plugin scanner import (a closure over `objdump -p`'s import lists,
+  the MinGW runtime's `libwinpthread` and `libgcc` included), the plugins Sona
+  uses in `lib\gstreamer-1.0\` (`required` and `optional` in `package.sh`),
+  `libexec\gstreamer-1.0\gst-plugin-scanner.exe` and `licenses\`. The Widevine
+  CDM is never in a package: `package.sh` and `smoke.sh` fail if any
+  `widevinecdm*` file is. At start the app points GStreamer at the bundle
+  (`internal/playback/gstbundle`). To add a plugin, add it to `package.sh`;
+  a missing `required` one fails the build. `smoke.sh` runs with the build's
+  GStreamer off `PATH` and no `GST_*` variable: `sona.exe` must paint and
+  ready the audio stack (the CDM host child scans the bundled plugins), and
+  `smoke-tools\playspike.exe` (built beside the package when
+  `SONA_SMOKE_TOOLS=1`) plays two 30-second previews to `fakesink` with no
+  token and no CDM. Motion artwork is not built on Windows (`internal/ui/media`
+  reports no codec; it would need `gstreamer-video` and a decoder plugin in
+  the package) and covers show their stills. To build one by hand in Git
+  Bash: `build/windows/package.sh OUTDIR` fetches and installs GStreamer and
+  builds the shim itself unless `GSTREAMER_ROOT`, `PKG_CONFIG_PATH` and
+  `SONA_CDM_SHIM` are set (as the CI action does); `SONA_SMOKE_TOOLS=1
+  build/windows/package.sh OUTDIR && build/windows/smoke.sh OUTDIR` is what
+  the release job runs.
 - **Update archives:** `sona-<v>-darwin-arm64.tar.gz` holds `Sona.app/` alone;
   `sona-<v>-windows-amd64.tar.gz` holds the install folder's files at the top
   level. Both are what MyGo's updater installs; the `.dmg`, `.zip` and
