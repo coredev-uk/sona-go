@@ -1,6 +1,6 @@
 // Package media is what the native UI needs of the system's media stack and
 // MyGo lacks: a decoder for Apple's motion artwork (H.264 or HEVC in MP4;
-// MyGo decodes no video codec, GStreamer does it on Linux and macOS, see
+// MyGo decodes no video codec, GStreamer does it on Linux, macOS and Windows, see
 // motion_gst.go) and the conversion of the music video pictures the CDM host
 // decodes (I420, internal/playback/video) to the RGBA a MyGo bitmap takes.
 //

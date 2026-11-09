@@ -7,7 +7,8 @@
 ; `sona.exe --remove-sandbox` first, which removes the CDM host's
 ; AppContainer profile and the access list entries granted to it. The
 ; folder installed is package.sh's: sona.exe, the CDM host's shim DLL, the
-; GStreamer DLLs, lib\gstreamer-1.0 (the plugins), libexec\gstreamer-1.0
+; GStreamer DLLs, lib\gstreamer-1.0 (the plugins), lib\gstreamer-video (the
+; video plugins, loaded by the UI process alone), libexec\gstreamer-1.0
 ; (the plugin scanner) and licenses\, never the Widevine CDM, which Sona
 ; downloads into the user's data folder.
 ;

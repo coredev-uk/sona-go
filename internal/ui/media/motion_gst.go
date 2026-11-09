@@ -1,4 +1,4 @@
-//go:build (linux || darwin) && cgo
+//go:build (linux || darwin || windows) && cgo
 
 package media
 
@@ -40,7 +40,7 @@ static int motion_has(const char *name) {
 #define MOTION_THREADS 2
 
 // motion_threads limits the threads of any decoder the pipeline plugs that
-// has the property (libav's; VideoToolbox's has none).
+// has the property (libav's; VideoToolbox's and Direct3D's have none).
 static void motion_threads(GstBin *bin, GstBin *sub, GstElement *el, gpointer data) {
 	(void)bin; (void)sub; (void)data;
 	if (g_object_class_find_property(G_OBJECT_GET_CLASS(el), "max-threads") != NULL)
@@ -204,7 +204,7 @@ import (
 )
 
 // Supported is whether this build decodes motion artwork: GStreamer through
-// cgo (Linux and macOS). Capabilities().MotionArtwork reports it.
+// cgo (Linux, macOS and Windows). Capabilities().MotionArtwork reports it.
 const Supported = true
 
 // decoders are the element factories that decode each codec, by name: the

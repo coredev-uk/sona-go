@@ -384,7 +384,7 @@ smoke in headless sway, "E2E (headless sway)". macOS: a pull request runs one
 job, "macOS build and test (pull request)" (production build, go vet, core and
 playback tests with the real CDM and Seatbelt); main, the nightly and a
 dispatch run the build, vet and every test shard on their own jobs, and
-"Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, two preview songs played to `fakesink` with no secret (the step runs again, up to four attempts, when `playspike -preview` exits with status 75, "the network failed"; any other failure fails it), the CDM tests)),
+"Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, two preview songs played to `fakesink` with no secret (the step runs again, up to four attempts, when `playspike -preview` exits with status 75, "the network failed"; any other failure fails it), the motion artwork decoder's tests (`internal/ui/media`: a generated H.264 clip decoded and looped; a skipped one fails the step; the runner has no GPU, so libav decodes, not the Direct3D 11 decoders), the CDM tests)),
 `windows-playback.yml` (weekly and on dispatch, from main, `live` environment: playspike on windows-2025 plays a full track privately through the CDM host child to `fakesink`; its last line says whether Apple licensed the host; a failing weekly run opens an issue),
 `images.yml` (also builds the CI image, below),
 `golden-update.yml` (the `update-goldens` label on a pull request of this
@@ -615,7 +615,16 @@ executable, or at `SONA_CDM_SHIM` in a development or test build, and a
 development build needs the GStreamer `bin` directory on `PATH`. The host
 child runs in an AppContainer (`SONA_CDMHOST_ALLOW_UNSANDBOXED=1` lets a test
 binary run it unconfined); `cmd/playspike` works there too (`-sink fakesink`
-on a computer with no audio device).
+on a computer with no audio device). Motion artwork decodes there through the
+same GStreamer (`gstreamer-video` and `gstreamer-app`, linked the same way);
+`internal/ui/media`'s tests make their fixture clip with the installation's
+`gst-launch-1.0` (on `PATH`, or the folder `SONA_FIXTURE_GST_BIN` names, whose
+tools run with no `GST_*` variable: `build/windows/smoke.sh` runs the tests
+against a package's trimmed plugins that way). The video plugins live in
+`lib\gstreamer-video\` of a package, named by `GST_PLUGIN_PATH_1_0` in the UI
+process only: the CDM host child (`cdmhost.childEnv` drops that variable) must
+never scan them, which `TestChildScansNoVideoPlugins` and `smoke.sh` check. A
+new video-only plugin goes in `package.sh`'s `video`, not `required`.
 
 - In `cmd/sona`, `main.go` is portable; `platform_linux.go` and `platform_other.go` build
   what differs per OS: the `sona <command>` transport and single instance

@@ -27,8 +27,8 @@
 # Environment: VERSION (default: the VERSION file); UPDATE_FEED, UPDATE_KEY
 # (linked in for self-updates; unset = updates off); SONA_LASTFM_KEY,
 # SONA_LASTFM_SECRET, SONA_DISCORD_CLIENT_ID as build/linux;
-# SONA_SMOKE_TOOLS=1 also builds OUTDIR/smoke-tools/playspike.exe for
-# smoke.sh.
+# SONA_SMOKE_TOOLS=1 also builds OUTDIR/smoke-tools/playspike.exe and
+# media.test.exe (the motion artwork decoder's tests) for smoke.sh.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -46,12 +46,26 @@ numeric=$(echo "${version%%-*}.0.0.0.0" | cut -d. -f1-4)
 # host's lanes, the preview and local files): coreelements (queue, fakesink),
 # typefindfunctions, playback, app, audioparsers and isomp4 (AAC in fMP4/M4A,
 # MP3, FLAC), libav (avdec_aac and the rest), the output tail (audioconvert,
-# audioresample, volume, equalizer) and the WASAPI sink. Music video pictures
-# come from the CDM's own decoder, not GStreamer's, so no video plugin.
+# audioresample, volume, equalizer) and the WASAPI sink. These go in
+# lib\gstreamer-1.0, which the UI process and the CDM host child both load. Music
+# video pictures come from the CDM's own decoder, not GStreamer's.
 # required ones must exist; optional ones are kept when present.
 required=(coreelements typefindfunctions playback app audioconvert audioresample volume equalizer
   audioparsers isomp4 libav wasapi2)
 optional=(wasapi directsound autodetect audiomixer audiorate gio rawparse tcp id3demux apetag wavparse aiff)
+# Motion artwork (internal/ui/media: file ! qtdemux ! h264parse|h265parse !
+# decoder ! videoconvert ! appsink) adds videoparsersbad (the parsers),
+# videoconvertscale and d3d11 (Direct3D 11 hardware decoders of H.264 and
+# HEVC, which decodebin ranks above libav where a GPU has them); where it has
+# none, libav's avdec_h264/avdec_h265 decode. Only the UI process decodes
+# motion artwork, so these go in lib\gstreamer-video, a folder of their own
+# beside the audio one (not inside it: GStreamer scans plugin folders
+# recursively), which only the UI process's environment names
+# (internal/playback/gstbundle; cdmhost drops GST_PLUGIN_PATH_1_0 from the
+# child's), so the child's plugin scan never loads Direct3D 11. libav serves
+# both and stays in the shared folder; no other plugin is video-only.
+# Media Foundation has encoders and capture only: no decoder plugin there.
+video=(videoparsersbad videoconvertscale d3d11)
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -73,7 +87,7 @@ fi
 export PKG_CONFIG=${PKG_CONFIG:-pkg-config}
 command -v "$PKG_CONFIG" >/dev/null || die "no pkg-config (the CI action installs pkg-config-lite)"
 command -v objdump >/dev/null || die "no objdump (MinGW-w64's binutils, with gcc)"
-PKG_CONFIG_PATH=$PKG_CONFIG_PATH "$PKG_CONFIG" --exists gstreamer-1.0 gstreamer-app-1.0 || die "pkg-config does not find GStreamer in $PKG_CONFIG_PATH"
+PKG_CONFIG_PATH=$PKG_CONFIG_PATH "$PKG_CONFIG" --exists gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0 || die "pkg-config does not find GStreamer in $PKG_CONFIG_PATH"
 
 # 2. sona.exe, linked against GStreamer's import libraries.
 ldflags="-w -s -H windowsgui -X main.version=$version -X github.com/egoist/mygo.production=1"
@@ -92,17 +106,18 @@ gocmd() { # go ARGS...: for Windows, with GStreamer
 dir=$work/Sona
 mkdir "$dir"
 gocmd build -tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false -ldflags "$ldflags" -o "$dir/sona.exe" ./cmd/sona
-# smoke.sh runs playspike against the bundle's GStreamer; it is built here,
-# beside the package, never in it.
+# smoke.sh runs playspike and the motion decoder's tests against the bundle's
+# GStreamer; they are built here, beside the package, never in it.
 if [[ -n ${SONA_SMOKE_TOOLS:-} ]]; then
   mkdir -p "$out/smoke-tools"
   gocmd build -tags sqlite_fts5 -trimpath -buildvcs=false -o "$out/smoke-tools/playspike.exe" ./cmd/playspike
+  gocmd test -c -tags sqlite_fts5 -trimpath -buildvcs=false -o "$out/smoke-tools/media.test.exe" ./internal/ui/media
 fi
 
 # 3. The files.
 cp "$here/sona.ico" "$dir/sona.ico"
 cp "$shim" "$dir/sona_cdm_shim.dll"
-mkdir -p "$dir/lib/gstreamer-1.0" "$dir/libexec/gstreamer-1.0" "$dir/licenses"
+mkdir -p "$dir/lib/gstreamer-1.0" "$dir/lib/gstreamer-video" "$dir/libexec/gstreamer-1.0" "$dir/licenses"
 scanner=$gst/libexec/gstreamer-1.0/gst-plugin-scanner.exe
 [[ -f $scanner ]] || die "GStreamer has no gst-plugin-scanner.exe at $scanner"
 cp "$scanner" "$dir/libexec/gstreamer-1.0/"
@@ -112,6 +127,10 @@ for p in "${required[@]}"; do
 done
 for p in "${optional[@]}"; do
   if [[ -f $gst/lib/gstreamer-1.0/libgst$p.dll ]]; then cp "$gst/lib/gstreamer-1.0/libgst$p.dll" "$dir/lib/gstreamer-1.0/"; fi
+done
+for p in "${video[@]}"; do
+  [[ -f $gst/lib/gstreamer-1.0/libgst$p.dll ]] || die "required video plugin $p is missing from $GSTREAMER_ROOT"
+  cp "$gst/lib/gstreamer-1.0/libgst$p.dll" "$dir/lib/gstreamer-video/"
 done
 
 # The DLLs the program, the scanner and the plugins import, and what those
@@ -127,29 +146,40 @@ imports() { # FILE: the DLLs it imports, by name
   sed -n 's/^[[:space:]]*DLL Name: //p' <<<"$dump" | tr -d '\r'
 }
 is_system() { [[ $1 == api-ms-win-* || $1 == ext-ms-win-* || -e $sysdir/$1 ]]; }
-queue=("$dir/sona.exe" "$dir"/lib/gstreamer-1.0/*.dll "$dir/libexec/gstreamer-1.0/gst-plugin-scanner.exe")
 declare -A seen
-for ((i = 0; i < ${#queue[@]}; i++)); do
-  deps=$(imports "${queue[i]}") # in this shell: a failure stops the script
-  while IFS= read -r d; do
-    n=${d,,}
-    [[ -n ${seen[$n]:-} ]] && continue
-    seen[$n]=1
-    if [[ -n ${avail[$n]:-} ]]; then
-      cp "${avail[$n]}" "$dir/$(basename "${avail[$n]}")"
-      queue+=("$dir/$(basename "${avail[$n]}")")
-    elif ! is_system "$d"; then
-      die "${queue[i]##*/} imports $d, which is neither in GStreamer's bin nor Windows'"
-    fi
-  done <<<"$deps"
+declare -a copied
+walk() { # FILE...: copies the DLLs they import, and what those import, into $dir (copied lists them)
+  local queue=("$@") i deps d n
+  for ((i = 0; i < ${#queue[@]}; i++)); do
+    deps=$(imports "${queue[i]}") # in this shell: a failure stops the script
+    while IFS= read -r d; do
+      n=${d,,}
+      [[ -n ${seen[$n]:-} ]] && continue
+      seen[$n]=1
+      if [[ -n ${avail[$n]:-} ]]; then
+        cp "${avail[$n]}" "$dir/$(basename "${avail[$n]}")"
+        queue+=("$dir/$(basename "${avail[$n]}")")
+        copied+=("$dir/$(basename "${avail[$n]}")")
+      elif ! is_system "$d"; then
+        die "${queue[i]##*/} imports $d, which is neither in GStreamer's bin nor Windows'"
+      fi
+    done <<<"$deps"
+  done
+}
+walk "$dir/sona.exe" "$dir"/lib/gstreamer-1.0/*.dll "$dir/libexec/gstreamer-1.0/gst-plugin-scanner.exe"
+# What only the video plugins import (the report below says how much that is).
+copied=()
+walk "$dir"/lib/gstreamer-video/*.dll
+videodeps=("${copied[@]}")
+# playspike and media.test (smoke) import a subset: nothing they need may be missing.
+for tool in playspike media.test; do
+  if [[ -f $out/smoke-tools/$tool.exe ]]; then
+    deps=$(imports "$out/smoke-tools/$tool.exe")
+    while IFS= read -r d; do
+      [[ -e $dir/$d ]] || is_system "$d" || die "$tool.exe imports $d, which the package lacks"
+    done <<<"$deps"
+  fi
 done
-# playspike (smoke) imports a subset: nothing it needs may be missing.
-if [[ -f $out/smoke-tools/playspike.exe ]]; then
-  deps=$(imports "$out/smoke-tools/playspike.exe")
-  while IFS= read -r d; do
-    [[ -e $dir/$d ]] || is_system "$d" || die "playspike.exe imports $d, which the package lacks"
-  done <<<"$deps"
-fi
 
 # Licences: Sona's, Chromium's (the CDM interface header), and those of the
 # packages of the official installation that the files copied above come from
@@ -171,7 +201,14 @@ done
 if bad=$(find "$dir" -iname '*widevinecdm*') && [[ -n $bad ]]; then
   die "the package would contain the Widevine CDM: $bad"
 fi
-echo "package: $(find "$dir" -type f | wc -l) files, $(du -sm "$dir" | cut -f1) MB; GStreamer plugins: $(cd "$dir/lib/gstreamer-1.0" && echo libgst*.dll | sed 's/libgst//g; s/\.dll//g')"
+bytes() { find "$@" -type f -printf '%s\n' | awk '{s += $1} END {printf "%.1f", s / 1048576}'; }
+videobytes=$(
+  total=0
+  for f in "$dir"/lib/gstreamer-video/*.dll "${videodeps[@]}"; do total=$((total + $(wc -c <"$f"))); done
+  awk -v t="$total" 'BEGIN {printf "%.1f", t / 1048576}'
+)
+echo "package: $(find "$dir" -type f | wc -l) files, $(bytes "$dir") MB; GStreamer plugins: $(cd "$dir/lib/gstreamer-1.0" && echo libgst*.dll | sed 's/libgst//g; s/\.dll//g')"
+echo "package: motion artwork's video plugins (UI process only, lib\\gstreamer-video): $(cd "$dir/lib/gstreamer-video" && echo libgst*.dll | sed 's/libgst//g; s/\.dll//g'); $videobytes MB with the ${#videodeps[@]} DLLs only they import (${videodeps[*]##*/})"
 
 # 4. The artefacts. The portable zip's folder is Sona\, the updater's
 # tar.gz has no wrapper folder, and the installer takes the folder as it is.

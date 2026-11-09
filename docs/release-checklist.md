@@ -152,20 +152,28 @@ and Windows development builds in ci.yml never hold a release up), then the
   that GStreamer and puts into every artefact `sona.exe`,
   `sona_cdm_shim.dll`, the GStreamer DLLs that `sona.exe`, the kept plugins
   and the plugin scanner import (a closure over `objdump -p`'s import lists,
-  the MinGW runtime's `libwinpthread` and `libgcc` included), the plugins Sona
-  uses in `lib\gstreamer-1.0\` (`required` and `optional` in `package.sh`),
+  the MinGW runtime's `libwinpthread` and `libgcc` included), the plugins
+  playback uses in `lib\gstreamer-1.0\` (`required` and `optional` in
+  `package.sh`; the UI process and the CDM host child load these), the video
+  plugins motion artwork uses in `lib\gstreamer-video\` (`video`: only the UI
+  process loads these, so a folder beside the first, never inside it: GStreamer
+  scans plugin folders recursively),
   `libexec\gstreamer-1.0\gst-plugin-scanner.exe` and `licenses\`. The Widevine
   CDM is never in a package: `package.sh` and `smoke.sh` fail if any
   `widevinecdm*` file is. At start the app points GStreamer at the bundle
   (`internal/playback/gstbundle`). To add a plugin, add it to `package.sh`;
   a missing `required` one fails the build. `smoke.sh` runs with the build's
   GStreamer off `PATH` and no `GST_*` variable: `sona.exe` must paint and
-  ready the audio stack (the CDM host child scans the bundled plugins), and
+  ready the audio stack (the CDM host child scans the bundled plugins, and its
+  plugin registry must list none of the video plugins), and
   `smoke-tools\playspike.exe` (built beside the package when
   `SONA_SMOKE_TOOLS=1`) plays two 30-second previews to `fakesink` with no
-  token and no CDM. Motion artwork is not built on Windows (`internal/ui/media`
-  reports no codec; it would need `gstreamer-video` and a decoder plugin in
-  the package) and covers show their stills. To build one by hand in Git
+  token and no CDM. Motion artwork decodes there too: `smoke-tools\media.test.exe`
+  (`internal/ui/media`'s tests, built with the same `SONA_SMOKE_TOOLS=1`) runs
+  beside `sona.exe`, on the bundle's plugins alone (it imports `gstbundle`, as
+  `sona.exe` does), and must decode and loop a generated H.264 clip, which the
+  build's own `gst-launch-1.0` makes (`SONA_FIXTURE_GST_BIN`, since the
+  package has no encoder). To build one by hand in Git
   Bash: `build/windows/package.sh OUTDIR` fetches and installs GStreamer and
   builds the shim itself unless `GSTREAMER_ROOT`, `PKG_CONFIG_PATH` and
   `SONA_CDM_SHIM` are set (as the CI action does); `SONA_SMOKE_TOOLS=1
