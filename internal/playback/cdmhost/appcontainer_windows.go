@@ -534,6 +534,9 @@ func createInAppContainer(sid *windows.SID, exe string, env []string) (p proc, e
 		{"the mitigation policy", windows.PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY, unsafe.Pointer(&policy), unsafe.Sizeof(policy)},
 		{"the child process policy", procThreadAttributeChildProcessPolicy, unsafe.Pointer(&childPolicy), unsafe.Sizeof(childPolicy)},
 	} {
+		if (a.attr == windows.PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY && debugHas("nomit")) || (a.attr == procThreadAttributeChildProcessPolicy && debugHas("nochild")) {
+			continue
+		}
 		if err := al.Update(a.attr, a.val, a.size); err != nil {
 			return proc{}, fmt.Errorf("set %s: %w", a.name, err)
 		}
@@ -566,7 +569,14 @@ func createInAppContainer(sid *windows.SID, exe string, env []string) (p proc, e
 	}
 	// Suspended, so that it is in the job before it runs a thread.
 	var pi windows.ProcessInformation
-	const flags = windows.EXTENDED_STARTUPINFO_PRESENT | windows.CREATE_SUSPENDED | windows.CREATE_UNICODE_ENVIRONMENT | windows.CREATE_NO_WINDOW
+	flags := uint32(windows.EXTENDED_STARTUPINFO_PRESENT | windows.CREATE_SUSPENDED | windows.CREATE_UNICODE_ENVIRONMENT | windows.CREATE_NO_WINDOW)
+	if debugHas("window") {
+		flags &^= windows.CREATE_NO_WINDOW
+	}
+	if debugHas("detached") {
+		flags &^= windows.CREATE_NO_WINDOW
+		flags |= windows.DETACHED_PROCESS
+	}
 	if err = windows.CreateProcess(exe16, cmdline, nil, nil, true, flags, &block[0], dir16, &si.StartupInfo, &pi); err != nil {
 		_ = windows.CloseHandle(job)
 		return proc{}, fmt.Errorf("CreateProcess in the AppContainer: %w", err)
@@ -578,7 +588,8 @@ func createInAppContainer(sid *windows.SID, exe string, env []string) (p proc, e
 		_ = windows.CloseHandle(job)
 		return proc{}, err
 	}
-	if err = windows.AssignProcessToJobObject(job, pi.Process); err != nil {
+	if debugHas("nojob") {
+	} else if err = windows.AssignProcessToJobObject(job, pi.Process); err != nil {
 		return fail(fmt.Errorf("put the child in its job object: %w", err))
 	}
 	if _, err = windows.ResumeThread(pi.Thread); err != nil {
@@ -602,3 +613,6 @@ func createInAppContainer(sid *windows.SID, exe string, env []string) (p proc, e
 		kill:   wc.kill,
 	}, nil
 }
+
+// TEMPORARY: debugHas says whether SONA_SANDBOX_DEBUG names a variant.
+func debugHas(s string) bool { return strings.Contains(os.Getenv("SONA_SANDBOX_DEBUG"), s) }
