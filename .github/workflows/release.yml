@@ -162,6 +162,14 @@ jobs:
               echo "::error::prerelease must look like rc.1, got '$PRERELEASE'"
               exit 1
             fi
+            # VERSION is the last release once it's tagged, so v$base-rc.N
+            # would sort below it and below the newer rcs: an install on a
+            # later rc never takes it (v0.3.2-rc.2 on 2026-11-09, made after
+            # v0.4.0-rc.1). The rc of what comes next is the nightly's.
+            if gh api "repos/$REPO/git/ref/tags/v$base" >/dev/null 2>&1; then
+              echo "::error::v$base is already released, so v$base-$PRERELEASE would be older than it; dispatch with nightly=true for the next version's rc"
+              exit 1
+            fi
             version=$base-$PRERELEASE tag=v$base-$PRERELEASE publish=true prerelease=true
           else
             version=$base tag='' publish=false prerelease=false
