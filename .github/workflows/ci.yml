@@ -955,4 +955,10 @@ jobs:
         continue-on-error: true
         env:
           SONA_CDM_REQUIRE: "1"
-        run: go test -count=1 -timeout 20m -v ./internal/playback/cdmhost/ ./internal/playback/gst/ ./internal/playback/native/ 2>&1 | tail -n 200
+        run: |
+          set +e
+          go test -count=1 -timeout 10m -v ./internal/playback/cdmhost/ >"$RUNNER_TEMP/cdmhost.log" 2>&1
+          rc=$?
+          grep -vE '^=== (RUN|PAUSE|CONT)' "$RUNNER_TEMP/cdmhost.log" | cut -c1-400 | head -n 250
+          go test -count=1 -timeout 20m ./internal/playback/gst/ ./internal/playback/native/ || rc=1
+          exit $rc
