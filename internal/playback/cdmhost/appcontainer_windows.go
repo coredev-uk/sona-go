@@ -16,6 +16,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+
+	"github.com/coredev-uk/sona-go/internal/config"
 )
 
 // The Windows sandbox (sandbox_windows.go) starts the child in an
@@ -443,6 +445,20 @@ func (c *winChild) reap() {
 	c.process, c.job = 0, 0
 }
 
+// hiddenFolders are the folders the child's self-check must find
+// unreadable (envHiddenDirs): Sona's own and the user's app data folders.
+func hiddenFolders() []string {
+	var dirs []string
+	if p, err := config.ResolvePaths(os.Getenv); err == nil {
+		dirs = append(dirs, p.Data, p.Config, filepath.Dir(p.Data), filepath.Dir(p.Config))
+	}
+	if home := os.Getenv("USERPROFILE"); filepath.IsAbs(home) {
+		dirs = append(dirs, filepath.Join(home, "AppData", "Local"), filepath.Join(home, "AppData", "Roaming"))
+	}
+	slices.Sort(dirs)
+	return slices.Compact(dirs)
+}
+
 // startInAppContainer starts exe as the child in prof's AppContainer: the
 // folders it reads are granted first (readFolders), its environment points
 // its temporary files and GStreamer's registry at prof's own folder, and its
@@ -459,6 +475,7 @@ func startInAppContainer(prof *profile, exe string, env []string) (proc, error) 
 	}
 	env = withEnv(env,
 		envAppContainerChild+"=1",
+		envHiddenDirs+"="+strings.Join(hiddenFolders(), string(os.PathListSeparator)),
 		"TEMP="+tmp, "TMP="+tmp,
 		// The scanner is a process of its own, which the child may not
 		// start: GStreamer scans the plugins in the process, once, into a

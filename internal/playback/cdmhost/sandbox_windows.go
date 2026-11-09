@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,7 +18,6 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
@@ -99,7 +99,7 @@ func (s Sandbox) loadsCDM() bool {
 const envAppContainerChild = "SONA_CDMHOST_APPCONTAINER"
 
 // sandboxEnv are the sandbox's own variables, never inherited by a child.
-var sandboxEnv = []string{envAppContainerChild}
+var sandboxEnv = []string{envAppContainerChild, envHiddenDirs}
 
 // parentSandbox is the parent's part of the sandbox: why the child runs
 // unconfined (gap; reason in the system's words, for the log), "" when it
@@ -206,43 +206,65 @@ func inAppContainer() error {
 	return nil
 }
 
-// networkRefused checks that the child cannot reach the network: a TCP
-// connect() to a closed loopback port must be refused by the AppContainer's
-// network isolation (it gets no answer, or an access error), not answered
-// by the stack with a refusal or a connection. It sends nothing off the
-// machine.
+// networkRefused checks that the child cannot reach the network. A process
+// of the AppContainer, which holds none of the network capabilities, is
+// refused by the network stack: its outbound connect() to an address off
+// the machine fails at once, and a connection to a listening socket on the
+// loopback, even to its own, gets no answer (a closed loopback port still
+// answers with a refusal, which proves nothing). The checks send nothing off
+// the machine: a UDP connect() only sets the peer address.
 func networkRefused() error {
-	c, err := net.DialTimeout("tcp", "127.0.0.1:1", 3*time.Second)
-	switch {
-	case err == nil:
+	if ln, err := net.Listen("tcp", "127.0.0.1:0"); err == nil {
+		defer func() { _ = ln.Close() }()
+		go func() {
+			for {
+				c, err := ln.Accept()
+				if err != nil {
+					return
+				}
+				_ = c.Close()
+			}
+		}()
+		c, err := net.DialTimeout("tcp", ln.Addr().String(), 2*time.Second)
+		if err == nil {
+			_ = c.Close()
+			return errors.New("connected to a listener of its own on the loopback")
+		}
+	}
+	// 192.0.2.1 is TEST-NET-1 (RFC 5737): nothing answers there.
+	c, err := net.Dial("udp", "192.0.2.1:9")
+	if err == nil {
 		_ = c.Close()
-		return errors.New("connect(tcp 127.0.0.1:1) succeeded")
-	case errors.Is(err, windows.WSAECONNREFUSED):
-		return errors.New("connect(tcp 127.0.0.1:1) reached the network stack: " + err.Error())
+		return errors.New("connect(udp 192.0.2.1:9) succeeded")
 	}
 	return nil
 }
 
-// filesHidden checks that the child cannot list Sona's folders or the
-// user's local app data folder, which the AppContainer has no access to.
+// envHiddenDirs lists the folders the AppContainer must not be able to list
+// (os.PathListSeparator-separated): Sona's own and the user's app data
+// folders. The parent names them because the AppContainer's own environment
+// points %LOCALAPPDATA% and %APPDATA% into its package folder.
+const envHiddenDirs = "SONA_CDMHOST_HIDDEN_DIRS"
+
+// filesHidden checks that the child cannot list the folders the parent names
+// (envHiddenDirs), which the AppContainer has no access to: at least one must
+// exist, and none may be listable.
 func filesHidden() error {
-	var dirs []string
-	if p, err := config.ResolvePaths(os.Getenv); err == nil {
-		dirs = append(dirs, p.Data, p.Config)
-	}
-	dirs = append(dirs, os.Getenv("LOCALAPPDATA"))
-	for _, d := range dirs {
-		if d == "" {
-			continue
-		}
+	checked := 0
+	for _, d := range filepath.SplitList(os.Getenv(envHiddenDirs)) {
 		_, err := os.ReadDir(d)
 		switch {
 		case err == nil:
 			return fmt.Errorf("listed %s", d)
-		case errors.Is(err, fs.ErrPermission), errors.Is(err, fs.ErrNotExist):
+		case errors.Is(err, fs.ErrPermission):
+			checked++
+		case errors.Is(err, fs.ErrNotExist):
 		default:
 			return fmt.Errorf("list %s: %w", d, err)
 		}
+	}
+	if checked == 0 {
+		return errors.New("no folder of the user's to check")
 	}
 	return nil
 }

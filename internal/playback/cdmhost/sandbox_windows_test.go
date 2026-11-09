@@ -66,15 +66,34 @@ func probeChild() {
 			res.Outcomes[name] = err.Error()
 		}
 	}
-	dial := func(addr string) error {
-		c, err := net.DialTimeout("tcp", addr, 3*time.Second)
+	dial := func(network, addr string) error {
+		c, err := net.DialTimeout(network, addr, 2*time.Second)
 		if err == nil {
 			_ = c.Close()
 		}
 		return err
 	}
-	outcome("tcp connect to a closed port", dial("127.0.0.1:1"))
-	outcome("tcp connect to a listener", dial(os.Getenv(envProbeListener)))
+	outcome("tcp connect to the parent's listener", dial("tcp", os.Getenv(envProbeListener)))
+	outcome("tcp connect to a public address", dial("tcp", "192.0.2.1:9"))
+	outcome("udp connect to a public address", dial("udp", "192.0.2.1:9"))
+	own := func() error {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			return fmt.Errorf("listen: %w", err)
+		}
+		defer func() { _ = ln.Close() }()
+		go func() {
+			for {
+				c, err := ln.Accept()
+				if err != nil {
+					return
+				}
+				_ = c.Close()
+			}
+		}()
+		return dial("tcp", ln.Addr().String())
+	}
+	outcome("tcp connect to its own listener", own())
 	_, err := os.ReadFile(os.Getenv(envProbeFile))
 	outcome("read outside the granted folders", err)
 	probeFile := filepath.Join(os.Getenv("USERPROFILE"), "sona-sandbox-probe.tmp")
@@ -84,7 +103,7 @@ func probeChild() {
 		_ = os.Remove(probeFile)
 	}
 	outcome("write under the user profile", err)
-	_, err = os.ReadDir(os.Getenv("LOCALAPPDATA"))
+	_, err = os.ReadDir(filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local"))
 	outcome("list the local app data folder", err)
 	cdmPath := os.Getenv(envProbeCDM)
 	b, err := os.ReadFile(cdmPath)
@@ -99,7 +118,10 @@ func probeChild() {
 	outcome("load the CDM", err)
 	outcome("write in the temp folder", os.WriteFile(filepath.Join(os.Getenv("TEMP"), "probe.txt"), []byte("x"), 0o600))
 	outcome("write beside the GStreamer registry", os.WriteFile(filepath.Join(filepath.Dir(os.Getenv("GST_REGISTRY_1_0")), "probe.txt"), []byte("x"), 0o600))
-	outcome("start a process", exec.Command(filepath.Join(os.Getenv("SystemRoot"), "System32", "cmd.exe"), "/c", "exit").Run())
+	// Its standard handles are given, as opening NUL is refused too.
+	ps := exec.Command(filepath.Join(os.Getenv("SystemRoot"), "System32", "cmd.exe"), "/c", "exit")
+	ps.Stdin, ps.Stdout, ps.Stderr = os.Stdin, os.Stderr, os.Stderr
+	outcome("start a process", ps.Run())
 	_ = json.NewEncoder(os.Stdout).Encode(res)
 	os.Exit(0)
 }
@@ -195,11 +217,10 @@ func TestAppContainerConfinesChild(t *testing.T) {
 			t.Errorf("%s: %q, want ok", name, got)
 		}
 	}
-	denied("tcp connect to a closed port")
-	if got := res.Outcomes["tcp connect to a closed port"]; strings.Contains(got, "refused") && !strings.Contains(got, "forbidden") {
-		t.Errorf("the closed port answered, so the child reached the network stack: %s", got)
-	}
-	denied("tcp connect to a listener")
+	denied("tcp connect to the parent's listener")
+	denied("tcp connect to its own listener")
+	denied("tcp connect to a public address")
+	denied("udp connect to a public address")
 	if accepted.Load() {
 		t.Error("the listener on the loopback got a connection from the child")
 	}
