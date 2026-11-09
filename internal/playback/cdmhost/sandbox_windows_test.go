@@ -37,6 +37,16 @@ const (
 	envProbeCDM      = "SONA_CDMHOST_PROBE_CDM"      // the CDM library
 )
 
+// The sandboxed child keeps its own plugin registry (profile.registryFile).
+func init() {
+	childRegistry = func(reg string) string {
+		if prof, err := appContainer(); err == nil {
+			return prof.registryFile(reg)
+		}
+		return reg
+	}
+}
+
 // osTestChildMode runs the Windows test child modes: "probe" and "idle".
 func osTestChildMode(m string) {
 	switch m {

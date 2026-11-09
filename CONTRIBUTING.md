@@ -340,6 +340,8 @@ restriction for the session with
 `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`. CI does, and
 sets `SONA_CDMHOST_REQUIRE_NAMESPACES=1`, which turns a skip into a failure.
 
+On Windows the same child runs in an AppContainer (`sandbox_windows_test.go`: a probe child that must fail to connect, read outside its folders, write under the profile or start a process, and must load the CDM; the whole host suite runs through the sandbox because the child loads no CDM outside it). A machine that refuses AppContainers skips the probe tests and fails the host ones; CI sets `SONA_CDMHOST_REQUIRE_SANDBOX=1`, which turns the skip into a failure. A test binary alone honours `SONA_CDMHOST_ALLOW_UNSANDBOXED=1` to load the CDM outside the sandbox.
+
 Packaging changes: `bash build/linux/release/release.sh` (build every package
 on Ubuntu 24.04 and smoke-test it on clean Ubuntu, Fedora and Arch
 containers, plus the AppImage on Fedora) is the packaging check; it needs

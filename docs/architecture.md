@@ -135,6 +135,8 @@ On Linux (`cdmhost/sandbox_linux.go`, `sandbox_fs_linux.go`) the child starts in
 
 On macOS the child runs under `sandbox-exec` with Sona's profile (no network, no writes outside the temporary folders, Sona's folder and the keychain out of reach); without it, Diagnostics says "Not sandboxed" and why. Details and residual risks: `docs/security-review.md`.
 
+On Windows the child runs in an AppContainer (the profile `sona.cdmhost`, no capabilities, so no network of any kind) inside a job object (kills the child with the parent, one process, no UI access), started by the parent with `CreateProcess` (`cdmhost/appcontainer_windows.go`) with no child processes, image-load mitigations and only its three pipes inherited. It reads what the parent grants its SID (the program's, GStreamer's, the CDM's and the shim's folders) and writes only its package folder (temp files, GStreamer's plugin registry); Sona's config, data and state and the user's profile are out of reach. Like Linux and unlike macOS it does not load the CDM unless that is in place and its self-checks (token, refused outbound connect, unlistable app data folders) hold; Diagnostics then says "Blocked" and why. Details and residual risks: `docs/security-review.md`, "Windows sandbox".
+
 ### 4.5 Stream facts
 
 - **Widevine stream (`28:ctrp256`)**: HLS v7 with `#EXT-X-KEY:METHOD=ISO-23001-7,URI="data:;base64,…"` (the KID; Sona wraps it in a Widevine PSSH), CENC AES-CTR, the init segment by `EXT-X-MAP` byte range, fragmented MP4 AAC. The CDM decrypts and GStreamer decodes.

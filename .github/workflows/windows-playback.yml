@@ -7,8 +7,9 @@
 # Dispatch only (Actions → Windows playback → Run workflow), from main: it
 # needs the secret MUSIC_USER_TOKEN of the `live` environment, which deploys
 # only to main (docs/security-review.md, "Workflows"), so it builds main and
-# never a branch. The CDM host child is not sandboxed on Windows while this
-# prototype stands; the runner is a throwaway VM with nothing in it.
+# never a branch. The CDM host child runs in its AppContainer sandbox here (an
+# unsandboxed child would not load the CDM); the runner is a throwaway VM with
+# nothing in it.
 # Runs with SONA_PRIVATE=1, so nothing it does can reach the account's
 # listening history.
 name: Windows playback

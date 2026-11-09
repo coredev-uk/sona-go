@@ -3,6 +3,8 @@
 package cdmhost
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -459,6 +461,16 @@ func hiddenFolders() []string {
 	return slices.Compact(dirs)
 }
 
+// registryFile is where the child keeps GStreamer's plugin registry for the
+// parent's setting of GST_REGISTRY_1_0 (want, "" when unset): in the
+// AppContainer's own folder, one file per setting, and never the parent's
+// own file. The parent loads plugins from the registry it has, and a child
+// that could write that file could name a plugin to load into the parent.
+func (p *profile) registryFile(want string) string {
+	sum := sha256.Sum256([]byte(strings.ToLower(want)))
+	return filepath.Join(p.tmp, "gst-registry-"+hex.EncodeToString(sum[:6])+".bin")
+}
+
 // startInAppContainer starts exe as the child in prof's AppContainer: the
 // folders it reads are granted first (readFolders), its environment points
 // its temporary files and GStreamer's registry at prof's own folder, and its
@@ -480,7 +492,7 @@ func startInAppContainer(prof *profile, exe string, env []string) (proc, error) 
 		// The scanner is a process of its own, which the child may not
 		// start: GStreamer scans the plugins in the process, once, into a
 		// registry that later children read.
-		"GST_REGISTRY_1_0="+filepath.Join(prof.tmp, "gst-registry.bin"),
+		"GST_REGISTRY_1_0="+prof.registryFile(envValue(env, "GST_REGISTRY_1_0")),
 		"GST_REGISTRY_FORK=no",
 	)
 	return createInAppContainer(prof.sid, exe, env)
