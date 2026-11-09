@@ -382,7 +382,8 @@ smoke in headless sway, "E2E (headless sway)". macOS: a pull request runs one
 job, "macOS build and test (pull request)" (production build, go vet, core and
 playback tests with the real CDM and Seatbelt); main, the nightly and a
 dispatch run the build, vet and every test shard on their own jobs, and
-"Windows build" (windows-2025: `go vet` with cgo, `sona.exe`)),
+"Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, the CDM tests)),
+`windows-playback.yml` (dispatch only, from main, `live` environment: playspike on windows-2025 plays a full track privately through the CDM host child to `fakesink`; its last line says whether Apple licensed the host),
 `images.yml` (also builds the CI image, below),
 `golden-update.yml` (the `update-goldens` label on a pull request of this
 repository: regenerates the golden images of the failing golden tests in the CI
@@ -605,7 +606,11 @@ A feature is a Go service plus a UI package, each self-contained:
 Linux is the full platform. macOS and Windows build and run the UI, with
 every OS-specific part behind a seam that reports itself unsupported there
 until it is implemented; macOS development builds also play through the CDM
-host. Windows has no playback yet.
+host. Windows has no playback in the app yet: `cmd/playspike` builds and runs
+there (cgo, the official GStreamer MinGW package and the CDM shim DLL:
+`build/windows/install-gstreamer.sh`, `build/windows/build-shim.sh`, both used
+by `.github/actions/setup-windows`); the shim DLL is found beside the
+executable, or at `SONA_CDM_SHIM` in a development or test build.
 
 - In `cmd/sona`, `main.go` is portable; `platform_linux.go` and `platform_other.go` build
   what differs per OS: the `sona <command>` transport and single instance

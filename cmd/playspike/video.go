@@ -1,4 +1,4 @@
-//go:build linux || (darwin && cgo)
+//go:build linux || (cgo && (darwin || windows))
 
 package main
 
@@ -139,7 +139,7 @@ func runVideo(log *slog.Logger, envFile, id string, seekTo float64, listen time.
 		return err
 	}
 	surface := video.NewSurface()
-	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1, Video: surface})
+	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1, Video: surface, Sink: outputSink})
 	defer func() { _ = eng.Close() }()
 	if err := eng.SetOutputDevice(ctx, outputDevice); err != nil {
 		return err

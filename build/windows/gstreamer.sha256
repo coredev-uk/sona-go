@@ -1,0 +1,6 @@
+# The official GStreamer Windows (MinGW x86_64) installer that
+# install-gstreamer.sh fetches and the Windows build links and ships. The hash
+# is the upstream .sha256sum file's. Same 1.28 minor as
+# build/darwin/gstreamer.sha256: change both together.
+version 1.28.8
+a88aab37bbba8cbb7933624b7f2ce3842aede0d8562e7cd599255537fa831e82 gstreamer-1.0-mingw-x86_64-1.28.8.exe

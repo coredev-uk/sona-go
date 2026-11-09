@@ -1,4 +1,4 @@
-//go:build linux || (darwin && cgo)
+//go:build linux || (cgo && (darwin || windows))
 
 // Command playspike proves Sona's native playback path end to end: the
 // Widevine CDM host child decrypts a full Apple Music track and plays it
@@ -39,7 +39,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
@@ -78,6 +77,7 @@ func main() {
 	preview := flag.Bool("preview", false, "play -song (or -term's hit), then -next (or -next-term's), as 30-second previews with the developer token only: no MUSIC_USER_TOKEN, .env, CDM or licence; checks that none is requested")
 	storefront := flag.String("storefront", "us", "with -preview: the catalog storefront songs are looked up in")
 	flag.StringVar(&outputDevice, "device", "", deviceHelp)
+	flag.StringVar(&outputSink, "sink", "", "GStreamer audio sink to play through (default: the platform's output; \"fakesink\" on a computer with no audio output)")
 	flag.Parse()
 
 	level := slog.LevelInfo
@@ -214,7 +214,7 @@ func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen 
 	}
 	step("song", "id", song.ID, "name", fmt.Sprintf("%q", song.Attributes.Name), "catalog_ms", song.Attributes.DurationInMillis)
 
-	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1, Quality: quality})
+	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1, Quality: quality, Sink: outputSink})
 	defer eng.Close()
 	if err := eng.SetOutputDevice(ctx, outputDevice); err != nil {
 		return err
@@ -289,7 +289,7 @@ func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen 
 		pos := before.Position + time.Since(before.UpdatedAt)
 		rec.drain()
 		tk := time.Now()
-		if err := syscall.Kill(info.PID, syscall.SIGKILL); err != nil {
+		if err := killProcess(info.PID); err != nil {
 			return fmt.Errorf("kill host: %w", err)
 		}
 		cctx, ccancel := context.WithTimeout(ctx, 30*time.Second)
@@ -352,6 +352,10 @@ func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen 
 // outputDevice is the -device flag: the output every mode plays to
 // (deviceHelp).
 var outputDevice string
+
+// outputSink is the -sink flag: the GStreamer sink every mode plays through
+// ("fakesink" on a computer with no audio output, such as a CI runner).
+var outputSink string
 
 func resolve(ctx context.Context, api *applemusic.Client, sf, id, term string) (applemusic.Resource[applemusic.SongAttributes], error) {
 	if id != "" {

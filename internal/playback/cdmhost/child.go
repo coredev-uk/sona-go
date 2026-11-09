@@ -1,4 +1,4 @@
-//go:build linux || (darwin && cgo)
+//go:build linux || (cgo && (darwin || windows))
 
 package cdmhost
 
@@ -13,8 +13,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"golang.org/x/sys/unix"
 
 	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
@@ -37,18 +35,13 @@ func ChildMain() {
 }
 
 func runChild(sb Sandbox) int {
-	// The protocol owns the original stdout; anything else writing to fd 1
+	// The protocol owns the original stdout; anything else writing to it
 	// (GStreamer, the CDM) is redirected to stderr so it cannot corrupt it.
-	fd, err := unix.Dup(1)
+	out, err := redirectStdout()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "cdmhost: dup stdout:", err)
+		fmt.Fprintln(os.Stderr, "cdmhost:", err)
 		return 1
 	}
-	if err := unix.Dup2(2, 1); err != nil {
-		fmt.Fprintln(os.Stderr, "cdmhost: redirect stdout:", err)
-		return 1
-	}
-	out := os.NewFile(uintptr(fd), "cdmhost-protocol")
 	var level slog.Level
 	_ = level.UnmarshalText([]byte(os.Getenv(envLogLevel)))
 	s := &server{

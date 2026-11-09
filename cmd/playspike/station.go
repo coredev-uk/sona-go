@@ -1,4 +1,4 @@
-//go:build linux || (darwin && cgo)
+//go:build linux || (cgo && (darwin || windows))
 
 package main
 
@@ -29,7 +29,7 @@ func runStation(log *slog.Logger, envFile, id string, listen time.Duration, lib 
 	if err != nil {
 		return err
 	}
-	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1, Storefront: func() string { return sf.ID }})
+	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1, Storefront: func() string { return sf.ID }, Sink: outputSink})
 	defer func() { _ = eng.Close() }()
 	if err := eng.SetOutputDevice(ctx, outputDevice); err != nil {
 		return err

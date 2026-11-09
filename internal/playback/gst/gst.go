@@ -1,4 +1,4 @@
-//go:build linux || (darwin && cgo)
+//go:build linux || (cgo && (darwin || windows))
 
 // Package gst is Sona's audio output. Two decode lanes and a mixer feed one
 // output pipeline:

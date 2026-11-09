@@ -1,0 +1,68 @@
+name: Set up Windows
+description: >-
+  What a Windows job needs to build and run Sona's playback code: the official
+  GStreamer packages (the installer download cached, pinned by
+  build/windows/gstreamer.sha256), pkg-config, and the CDM shim DLL built with
+  MSVC (build/windows/build-shim.sh). The environment for cgo and the shim is
+  exported to later steps. Go is the caller's job.
+outputs:
+  gstreamer-root:
+    description: The GStreamer installation (C:/… form)
+    value: ${{ steps.gstreamer.outputs.root }}
+  shim-dir:
+    description: The directory holding sona_cdm_shim.dll
+    value: ${{ steps.shim.outputs.dir }}
+runs:
+  using: composite
+  steps:
+    - name: Restore the GStreamer installer
+      id: pkg
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/gstreamer-pkg
+        key: gstreamer-pkg-windows-${{ hashFiles('build/windows/gstreamer.sha256') }}
+
+    - name: Download the GStreamer installer
+      shell: bash
+      env:
+        GSTREAMER_PKG_CACHE: ${{ runner.temp }}/gstreamer-pkg
+      run: build/windows/install-gstreamer.sh --fetch
+
+    - name: Save the GStreamer installer
+      if: ${{ steps.pkg.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/gstreamer-pkg
+        key: gstreamer-pkg-windows-${{ hashFiles('build/windows/gstreamer.sha256') }}
+
+    # The runner's pkg-config (Strawberry Perl's script) is not one cgo should
+    # depend on: pkg-config-lite's executable, which Chocolatey shims.
+    - name: Install GStreamer and pkg-config
+      id: gstreamer
+      shell: bash
+      env:
+        GSTREAMER_PKG_CACHE: ${{ runner.temp }}/gstreamer-pkg
+      run: |
+        choco install pkgconfiglite --yes --no-progress
+        pkgconfig=/c/ProgramData/chocolatey/bin/pkg-config.exe
+        "$pkgconfig" --version
+        out=$(build/windows/install-gstreamer.sh "$RUNNER_TEMP/gstreamer" | tail -n 2)
+        printf '%s\n' "$out"
+        root=$(sed -n 's/^GSTREAMER_ROOT=//p' <<<"$out")
+        {
+          echo "GSTREAMER_ROOT=$root"
+          echo "PKG_CONFIG=$(cygpath -m "$pkgconfig")"
+          sed -n 's/^PKG_CONFIG_PATH=/PKG_CONFIG_PATH=/p' <<<"$out"
+        } >>"$GITHUB_ENV"
+        # The DLLs (libgstreamer-1.0-0.dll and its dependencies) and gst-inspect-1.0.
+        cygpath -w "$root/bin" >>"$GITHUB_PATH"
+        echo "root=$root" >>"$GITHUB_OUTPUT"
+
+    - name: Build the CDM shim DLL
+      id: shim
+      shell: bash
+      run: |
+        dir=$RUNNER_TEMP/shim
+        build/windows/build-shim.sh "$dir"
+        echo "SONA_CDM_SHIM=$(cygpath -w "$dir/sona_cdm_shim.dll")" >>"$GITHUB_ENV"
+        echo "dir=$dir" >>"$GITHUB_OUTPUT"

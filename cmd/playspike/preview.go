@@ -1,4 +1,4 @@
-//go:build linux || (darwin && cgo)
+//go:build linux || (cgo && (darwin || windows))
 
 package main
 
@@ -38,7 +38,7 @@ func runPreview(log *slog.Logger, sf, songID, term, nextID, nextTerm string, lis
 	}
 	step("song", "id", song.ID, "name", fmt.Sprintf("%q", song.Attributes.Name), "catalog_ms", song.Attributes.DurationInMillis)
 
-	eng := native.New(native.Options{Client: api, Logger: log, IdleTimeout: -1, Preview: true, Storefront: func() string { return sf }})
+	eng := native.New(native.Options{Client: api, Logger: log, IdleTimeout: -1, Preview: true, Storefront: func() string { return sf }, Sink: outputSink})
 	defer func() { _ = eng.Close() }()
 	if err := eng.SetOutputDevice(ctx, outputDevice); err != nil {
 		return err

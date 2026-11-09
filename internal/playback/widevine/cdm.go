@@ -1,9 +1,10 @@
-//go:build linux || (darwin && cgo)
+//go:build linux || (cgo && (darwin || windows))
 
 // Package widevine hosts Google's Widevine CDM (libwidevinecdm.so on
-// Linux, libwidevinecdm.dylib on macOS, which Sona downloads from Google:
-// internal/playback/cdm) through the Chromium CDM API. A C++ shim
-// implements the host interface; this package runs every CDM call on one
+// Linux, libwidevinecdm.dylib on macOS, widevinecdm.dll on Windows, which
+// Sona downloads from Google: internal/playback/cdm) through the Chromium
+// CDM API. A C++ shim implements the host interface (on Windows it is its
+// own MSVC-built DLL, see shim.h); this package runs every CDM call on one
 // locked OS thread, fires the CDM's timers, and surfaces licence messages
 // to Go. Sona never bundles, redistributes or patches the CDM and only uses
 // its public API.
