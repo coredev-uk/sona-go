@@ -20,6 +20,16 @@ Started without a command, `sona` opens Sona, or hands its Apple Music
 links to the Sona already running (`sona --hidden` starts without a
 window, `sona --version` prints the version).
 
+On Windows, `sona.exe --remove-sandbox` takes away what the playback
+host's sandbox left on the computer: its AppContainer profile and the
+access list entries granted to it on Sona's, GStreamer's and the
+Widevine folders (the downloaded Widevine CDM, your settings and your
+library stay). The installer's uninstaller runs it for you. The portable
+`.zip` has no uninstaller: quit Sona and run `sona.exe --remove-sandbox`
+from its folder before you delete the folder. It starts nothing and can
+run again; when a step fails it exits with status 1 and says why. On
+other systems it exits with status 1: there is nothing to remove.
+
 ## Commands
 
 | Command | What it does | `--json` prints |

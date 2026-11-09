@@ -73,6 +73,16 @@ func main() {
 			return
 		}
 	}
+	// `sona --remove-sandbox` is the Windows uninstaller's cleanup (the
+	// portable zip's user runs it by hand); like --version it starts nothing.
+	if len(os.Args) == 2 && os.Args[1] == "--remove-sandbox" {
+		if err := removeSandbox(); err != nil {
+			fmt.Fprintln(os.Stderr, "sona: --remove-sandbox:", err)
+			os.Exit(1)
+		}
+		fmt.Println("sona: the playback sandbox is removed")
+		return
+	}
 	// `sona play`, `sona status` and the other commands (internal/cli) act
 	// on the running instance and exit; they never start Sona.
 	if cli.IsCommand(os.Args[1:]) {

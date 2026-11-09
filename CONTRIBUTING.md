@@ -340,7 +340,7 @@ restriction for the session with
 `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`. CI does, and
 sets `SONA_CDMHOST_REQUIRE_NAMESPACES=1`, which turns a skip into a failure.
 
-On Windows the same child runs in an AppContainer (`sandbox_windows_test.go`: a probe child that must fail to connect, read outside its folders, write under the profile or start a process, and must load the CDM; the whole host suite runs through the sandbox because the child loads no CDM outside it). A machine that refuses AppContainers skips the probe tests and fails the host ones; CI sets `SONA_CDMHOST_REQUIRE_SANDBOX=1`, which turns the skip into a failure. A test binary alone honours `SONA_CDMHOST_ALLOW_UNSANDBOXED=1` to load the CDM outside the sandbox.
+On Windows the same child runs in an AppContainer (`sandbox_windows_test.go`: a probe child that must fail to connect, read outside its folders, write under the profile or start a process, and must load the CDM; the whole host suite runs through the sandbox because the child loads no CDM outside it). A machine that refuses AppContainers skips the probe tests and fails the host ones; CI sets `SONA_CDMHOST_REQUIRE_SANDBOX=1`, which turns the skip into a failure. A test binary alone honours `SONA_CDMHOST_ALLOW_UNSANDBOXED=1` to load the CDM outside the sandbox. `TestRemoveSandbox` covers the uninstaller's cleanup (`sona --remove-sandbox`, `cdmhost.RemoveSandbox`) on a profile of its own, never `sona.cdmhost`; a new grant of the sandbox's SID to a folder (`grantAccess`) must be one `RemoveSandbox` also removes.
 
 Packaging changes: `bash build/linux/release/release.sh` (build every package
 on Ubuntu 24.04 and smoke-test it on clean Ubuntu, Fedora and Arch
@@ -384,7 +384,7 @@ smoke in headless sway, "E2E (headless sway)". macOS: a pull request runs one
 job, "macOS build and test (pull request)" (production build, go vet, core and
 playback tests with the real CDM and Seatbelt); main, the nightly and a
 dispatch run the build, vet and every test shard on their own jobs, and
-"Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, two preview songs played to `fakesink` with no secret, the CDM tests)),
+"Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, two preview songs played to `fakesink` with no secret (the step runs again, up to four attempts, when `playspike -preview` exits with status 75, "the network failed"; any other failure fails it), the CDM tests)),
 `windows-playback.yml` (weekly and on dispatch, from main, `live` environment: playspike on windows-2025 plays a full track privately through the CDM host child to `fakesink`; its last line says whether Apple licensed the host; a failing weekly run opens an issue),
 `images.yml` (also builds the CI image, below),
 `golden-update.yml` (the `update-goldens` label on a pull request of this

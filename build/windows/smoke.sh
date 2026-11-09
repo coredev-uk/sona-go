@@ -14,7 +14,9 @@
 #     previews to fakesink: no Music User Token, no CDM;
 #   - the update archive holds the same files;
 #   - the installer installs silently with the same files and the music:/itms:
-#     URL keys, and uninstalls them again.
+#     URL keys, and uninstalls them again, with the CDM host's AppContainer
+#     profile (the earlier runs made it); the zip's `sona.exe
+#     --remove-sandbox` then takes the sandbox's access entry off its folder.
 # All of it runs with the installed GStreamer's bin\ taken off PATH and no
 # GST_* variable set: the package must stand alone. Uses a private profile and
 # SONA_PRIVATE=1.
@@ -46,6 +48,21 @@ mkdir -p "$profile/Roaming" "$profile/Local"
 APPDATA=$(cygpath -w "$profile/Roaming")
 LOCALAPPDATA=$(cygpath -w "$profile/Local")
 export SONA_PRIVATE=1 APPDATA LOCALAPPDATA
+
+# The CDM host's AppContainer profile is listed by its name under HKCU
+# (cdmhost.appContainerName); sandbox_sid prints its SID, nothing once it is
+# gone.
+sandbox_name=sona.cdmhost
+mappings='HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Mappings'
+sandbox_sid() {
+  { reg query "$mappings" /s /f "$sandbox_name" /d 2>/dev/null || true; } | tr -d '\r' | sed -n 's/.*\\\(S-1-15-2-[0-9-]*\)$/\1/p'
+}
+# acl_has DIR SID: whether DIR's access list has an entry for SID (the
+# AppContainer's SID is not always resolved to a name, so compare SIDs).
+acl_has() {
+  powershell.exe -NoProfile -NonInteractive -Command \
+    "if ((Get-Acl -LiteralPath '$(cygpath -w "$1")').GetAccessRules(\$true, \$true, [System.Security.Principal.SecurityIdentifier]) | Where-Object { \$_.IdentityReference.Value -eq '$2' }) { exit 0 } else { exit 1 }"
+}
 
 # check_layout DIR: the files every artefact carries, and not the CDM.
 check_layout() {
@@ -172,8 +189,16 @@ for scheme in music itms; do
 done
 reg query 'HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Sona' >/dev/null || fail "not listed under Apps"
 
-# 5. The uninstaller removes the folder and the keys. It copies itself to a
-# temporary folder to delete its own, so wait for the folder to go.
+# 5. The uninstaller removes the folder, the keys and the CDM host's
+# AppContainer profile. It copies itself to a temporary folder to delete its
+# own, so wait for the folder to go. The runs above made the profile, and
+# granted it the zip's folder: say so first, so that its absence afterwards
+# means something.
+sid=$(sandbox_sid)
+sid=${sid%%$'\n'*}
+[[ -n $sid ]] || fail "the runs above left no AppContainer profile ($sandbox_name)"
+acl_has "$dir" "$sid" || fail "the zip's folder has no access entry for the sandbox ($sid)"
+echo "smoke(windows): the sandbox profile $sandbox_name is $sid"
 "$dest/uninstall.exe" /S
 for _ in $(seq 1 30); do
   [[ -e $dest/sona.exe ]] || break
@@ -188,4 +213,17 @@ done
 for scheme in music itms; do
   ! reg query "HKCU\\Software\\Classes\\$scheme" >/dev/null 2>&1 || fail "uninstall left the $scheme: keys"
 done
+# The profile goes before the files (the uninstaller runs
+# `sona.exe --remove-sandbox` first), so it is gone with the folder.
+[[ -z $(sandbox_sid) ]] || fail "uninstall left the AppContainer profile ($sandbox_name)"
+packages=$(cygpath -u "$USERPROFILE")/AppData/Local/Packages
+[[ ! -e $packages/$sandbox_name ]] || fail "uninstall left the profile's package folder"
+echo "smoke(windows): uninstall removed the sandbox profile"
+
+# 6. The portable zip has no uninstaller: its user runs the same command, which
+# also takes the entry the sandbox was granted off the folder it ran from, and
+# finds nothing more to do when the profile is already gone.
+got=$("$exe" --remove-sandbox 2>&1) || fail "sona.exe --remove-sandbox failed: $got"
+echo "smoke(windows): the zip's sona.exe --remove-sandbox: $got"
+! acl_has "$dir" "$sid" || fail "--remove-sandbox left the sandbox's entry on the zip's folder"
 echo "smoke(windows): PASS"
