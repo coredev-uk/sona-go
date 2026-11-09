@@ -17,18 +17,21 @@ import (
 const exitNetwork = 75
 
 // networkError reports whether err is the network's doing: a request that
-// could not be made or finished (DNS, connection, TLS, timeout, a reset
-// connection: the http client's *url.Error, any net.Error), or an answer
-// that says to try again (HTTP 429, or a 5xx, Apple's or its CDN's). A
-// refusal (401, 403, 404) and every error of Sona's own are not.
+// could not be made or finished (the http client's *url.Error: DNS,
+// connection, TLS, its own timeout; a *net.OpError or *net.DNSError of a
+// read or a lookup), or an answer that says to try again (HTTP 429, or a
+// 5xx, Apple's or its CDN's). A refusal (401, 403, 404) and every error of
+// Sona's own are not; neither is a bare context.DeadlineExceeded, which
+// also is a net.Error (a player that hung is not the network's doing).
 func networkError(err error) bool {
 	var (
 		ue *url.Error
-		ne net.Error
+		oe *net.OpError
+		de *net.DNSError
 		se *applemusic.StatusError
 	)
 	switch {
-	case errors.As(err, &ue), errors.As(err, &ne):
+	case errors.As(err, &ue), errors.As(err, &oe), errors.As(err, &de):
 		return true
 	case errors.As(err, &se):
 		return se.Code == 429 || se.Code >= 500
