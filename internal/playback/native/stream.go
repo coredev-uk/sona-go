@@ -1,4 +1,4 @@
-//go:build linux || (darwin && cgo)
+//go:build linux || (cgo && (darwin || windows))
 
 package native
 

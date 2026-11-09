@@ -1,0 +1,90 @@
+# Windows playback against Apple (docs/architecture.md §4, issue #219): builds
+# playspike for Windows, downloads Google's Widevine CDM with Sona's own
+# downloader and plays a full track privately through the CDM host child, to
+# GStreamer's fakesink (a runner has no audio device). playspike's last line
+# says whether Apple licensed this host ("licence: granted") or why not.
+#
+# Dispatch only (Actions → Windows playback → Run workflow), from main: it
+# needs the secret MUSIC_USER_TOKEN of the `live` environment, which deploys
+# only to main (docs/security-review.md, "Workflows"), so it builds main and
+# never a branch. The CDM host child is not sandboxed on Windows while this
+# prototype stands; the runner is a throwaway VM with nothing in it.
+# Runs with SONA_PRIVATE=1, so nothing it does can reach the account's
+# listening history.
+name: Windows playback
+
+on:
+  workflow_dispatch:
+    inputs:
+      seek:
+        description: Seconds to seek to; past the 30 s preview window proves a full track
+        default: "90"
+      args:
+        description: Further playspike flags, split on spaces (e.g. -song 1440857781 -gap=false)
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-playback
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  playspike:
+    name: playspike on Windows
+    runs-on: windows-2025
+    timeout-minutes: 60
+    environment: live
+    env:
+      # mattn/go-sqlite3 needs cgo: the runner's MinGW-w64 gcc; so does
+      # GStreamer's binding.
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - uses: ./.github/actions/setup-windows
+        id: setup
+
+      - name: GStreamer elements the host needs
+        run: |
+          gst-inspect-1.0.exe --version
+          for e in appsrc appsink avdec_aac audioconvert audioresample volume equalizer-10bands fakesink wasapi2sink; do
+            if gst-inspect-1.0.exe "$e" >/dev/null 2>&1; then echo "ok      $e"; else echo "MISSING $e"; fi
+          done
+
+      - name: Build playspike
+        run: |
+          mkdir -p bin
+          go build -trimpath -buildvcs=false -o bin/playspike.exe ./cmd/playspike
+          # The shim DLL sits beside the executable, where Sona's package puts it.
+          cp "$RUNNER_TEMP/shim/sona_cdm_shim.dll" bin/
+          ls -l bin
+
+      # Sona's own downloader: Mozilla's pinned manifest, Google's package,
+      # the SHA-512 and CRX3 checks.
+      - name: Download the Widevine CDM
+        run: go run ./cmd/cdmfetch -platform windows/amd64 -dir "$RUNNER_TEMP/widevine"
+
+      - name: Play a full track (private)
+        env:
+          SONA_PRIVATE: "1"
+          MUSIC_USER_TOKEN: ${{ secrets.MUSIC_USER_TOKEN }}
+          SEEK: ${{ inputs.seek }}
+          ARGS: ${{ inputs.args }}
+        run: |
+          # No SONA_CDM_SHIM: the DLL beside playspike.exe is the one loaded.
+          unset SONA_CDM_SHIM
+          # shellcheck disable=SC2086  # ARGS is meant to split
+          bin/playspike.exe -cdm-dir "$RUNNER_TEMP/widevine" -sink fakesink -seek "$SEEK" -listen 15s $ARGS

@@ -1,4 +1,4 @@
-//go:build linux || (darwin && cgo)
+//go:build linux || (cgo && (darwin || windows))
 
 package main
 
@@ -68,7 +68,7 @@ func runActivity(log *slog.Logger, envFile, songID, term, nextID, nextTerm strin
 	if err != nil {
 		return err
 	}
-	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1})
+	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1, Sink: outputSink})
 	defer eng.Close()
 	if err := eng.SetOutputDevice(ctx, outputDevice); err != nil {
 		return err

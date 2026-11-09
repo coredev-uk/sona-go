@@ -331,7 +331,7 @@ The repository's GitHub Actions run on GitHub-hosted runners only (a self-hosted
 
 | Asset | Where it lives | Who can read it |
 | --- | --- | --- |
-| `MUSIC_USER_TOKEN` (a real account's Music User Token, about six months' access to its library and playback) | Secret of the `live` environment | Jobs that name `environment: live` and run from `main`: `live.yml` (weekly schedule, dispatch) |
+| `MUSIC_USER_TOKEN` (a real account's Music User Token, about six months' access to its library and playback) | Secret of the `live` environment | Jobs that name `environment: live` and run from `main`: `live.yml` (weekly schedule, dispatch), `windows-playback.yml` (dispatch only) |
 | Last.fm API key and secret, Discord application ID (compiled into every release binary, so readable by anyone who has one; the risk is someone else's builds or abuse posing as Sona before a release) | Secrets of the `release` environment | Jobs that name `environment: release` and run from `main` or a `v*` tag: `release.yml`'s build job (not a dispatched dry run, which has no environment), `release-secrets.yml` (dispatch, prints only whether each is set) |
 | `OP_SERVICE_ACCOUNT_TOKEN` (Renovate's 1Password service account, which yields the Renovate app's key) | Repository secret, maintained with Renovate (`renovate.yaml`) | Any workflow run on a branch of this repository; never a fork's run |
 | bot-cecil GitHub App credentials (`RENOVATE_APP_CLIENT_ID`, `RENOVATE_APP_PRIVATE_KEY`; the App's token is how release-please and the release publish step write, as Renovate does) | Repository secrets | Workflows run on a branch of this repository; `release-please.yml` and the `publish` job of `release.yml` mint a job-scoped token from them (contents, pull requests, issues write for release-please; contents write to publish) |
@@ -347,7 +347,7 @@ The repository's GitHub Actions run on GitHub-hosted runners only (a self-hosted
 - *Script injection.* No `run:` step expands an attacker-controlled expression (pull request title, branch name, commit message); values reach scripts through `env:`.
 - *A malicious dependency in CI.* Go modules are checked against `go.sum`, and Go is the only toolchain the build uses (no Node, no pnpm, no package-manager install scripts). A compromised dependency still runs its code in a pull request's job, which holds nothing worth taking (above).
 - *Cache poisoning.* Caches written by a pull request's run are scoped to its ref; the default branch's caches, which every run can restore, are written only by runs on `main`. The cached Widevine CDM is reinstalled through Sona's verifying downloader (`cmd/cdmfetch`, "Widevine CDM downloader").
-- *The live token in a test.* `live.yml` runs with `SONA_PRIVATE=1`, so nothing it does reaches the account's listening history, and plays nothing.
+- *The live token in a test.* `live.yml` runs with `SONA_PRIVATE=1`, so nothing it does reaches the account's listening history, and plays nothing. `windows-playback.yml` plays one track through the CDM host on a Windows runner, also with `SONA_PRIVATE=1` and `playspike`, which reports nothing to Apple's play-activity service; it builds `main` only (never a branch the dispatcher names), so the secret only meets reviewed code, and prints the licence verdict, never the token or the licence.
 - *Hosted-runner cost.* The macOS and Windows jobs in `ci.yml` run only when dispatched while the repository is private, and on every push and pull request once it is public.
 
 **Residual risks.**

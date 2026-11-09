@@ -885,7 +885,7 @@ jobs:
     # As the macOS jobs: after a merge to main and on demand only.
     if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'windows')) || (github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch' && !github.event.repository.private)) }}
     runs-on: windows-2025
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       # mattn/go-sqlite3 needs cgo: the runner's MinGW-w64 gcc. MyGo itself
       # is pure Go on Windows.
@@ -916,6 +916,10 @@ jobs:
           key: go-windows-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.run_id }}
           restore-keys: go-windows-${{ hashFiles('go.mod', 'go.sum') }}-
 
+      # The official GStreamer packages (cgo links them) and the CDM shim DLL
+      # (built with MSVC, the ABI of Google's CDM).
+      - uses: ./.github/actions/setup-windows
+
       - name: go vet (cgo on)
         run: gcc --version && go vet ./...
 
@@ -924,3 +928,13 @@ jobs:
           go build -tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false \
             -ldflags "-w -s -H windowsgui -X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona.exe ./cmd/sona
           ls -l bin/sona.exe
+
+      - name: Build playspike.exe
+        run: go build -trimpath -buildvcs=false -o bin/playspike.exe ./cmd/playspike
+
+      # Google's CDM, downloaded and verified the way Sona does, loaded
+      # through the shim DLL (SONA_CDM_SHIM, set by setup-windows).
+      - name: CDM tests
+        env:
+          SONA_CDM_REQUIRE: "1"
+        run: go test -count=1 -timeout 10m ./internal/playback/widevine/ ./internal/playback/cdm/...

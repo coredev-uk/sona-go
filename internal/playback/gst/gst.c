@@ -228,6 +228,8 @@ static GstElement* build_output(sona_gst* p, uint64_t build, GstElement** src_ou
     }
   } else if (p->props && *p->props && has_prop(snk, "unique-id")) {
     g_object_set(snk, "unique-id", p->props, NULL);  // osxaudiosink: the Core Audio device UID
+  } else if (p->props && *p->props && has_prop(snk, "device")) {
+    g_object_set(snk, "device", p->props, NULL);  // wasapi2sink, wasapisink: the endpoint's device ID
   }
   GstElement* pipe = gst_pipeline_new("sona-output");
   gst_bin_add_many(GST_BIN(pipe), src, tail, snk, NULL);

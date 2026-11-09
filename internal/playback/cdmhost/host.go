@@ -1,4 +1,4 @@
-//go:build linux || (darwin && cgo)
+//go:build linux || (cgo && (darwin || windows))
 
 package cdmhost
 
@@ -227,11 +227,12 @@ type proc struct {
 	stderr io.ReadCloser
 }
 
-// startChild starts argv with env and attr, wired to fresh pipes, in /.
+// startChild starts argv with env and attr, wired to fresh pipes, in
+// childDir.
 func startChild(argv, env []string, attr *syscall.SysProcAttr) (proc, error) {
 	p := proc{cmd: exec.Command(argv[0], argv[1:]...)}
 	p.cmd.Env = env
-	p.cmd.Dir = "/"
+	p.cmd.Dir = childDir()
 	p.cmd.SysProcAttr = attr
 	var err error
 	if p.stdin, err = p.cmd.StdinPipe(); err != nil {

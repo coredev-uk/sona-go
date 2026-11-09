@@ -1,11 +1,24 @@
+//go:build !windows
+
 // Sona's Chromium CDM host. It implements the host side of the CDM API from
 // the vendored content_decryption_module.h (chromium/cdm d6c4e1ea, BSD-3,
 // see LICENSE.chromium) and forwards every callback to Go.
+//
+// Linux and macOS: cgo compiles this file into the Go program. Windows: cgo
+// must not (the line above), because Google's CDM uses the MSVC C++ ABI;
+// build/windows/build-shim.sh builds it with MSVC into sona_cdm_shim.dll (see
+// shim.h).
 
 #include "shim.h"
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#else
 #include <dlfcn.h>
 #include <sys/time.h>
+#endif
 
 #include <cstdio>
 #include <cstdlib>
@@ -15,9 +28,11 @@
 
 #include "content_decryption_module.h"
 
+#ifndef _WIN32
 // Implemented in Go (cdm.go).
 extern "C" void sonaCdmEvent(uintptr_t handle, int kind, uint32_t a, uint32_t b, uint32_t c, double t, uintptr_t ptr,
                              const char* sid, uint32_t sid_size, const char* data, uint32_t data_size);
+#endif
 
 static_assert(sizeof(cdm::SubsampleEntry) == 2 * sizeof(uint32_t), "SubsampleEntry layout");
 
@@ -34,6 +49,69 @@ void* g_module = nullptr;
 std::string g_module_path;
 CreateCdmFunc g_create = nullptr;
 VersionFunc g_version = nullptr;
+
+#ifdef _WIN32
+sona_cdm_event_fn g_event_fn = nullptr;
+#endif
+
+// deliver hands one host callback to Go.
+void deliver(uintptr_t handle, int kind, uint32_t a, uint32_t b, uint32_t c, double t, uintptr_t ptr, const char* sid,
+             uint32_t sid_size, const char* data, uint32_t data_size) {
+#ifdef _WIN32
+  if (!g_event_fn) return;
+  sona_cdm_event ev = {kind, a, b, c, t, ptr, sid, sid_size, data, data_size};
+  g_event_fn(handle, &ev);
+#else
+  sonaCdmEvent(handle, kind, a, b, c, t, ptr, sid, sid_size, data, data_size);
+#endif
+}
+
+// openLibrary loads the library at path (UTF-8), or returns null with the
+// system's reason in err.
+void* openLibrary(const char* path, char* err, size_t errlen) {
+#ifdef _WIN32
+  int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, nullptr, 0);
+  if (n <= 0) {
+    std::snprintf(err, errlen, "%s is not valid UTF-8", path);
+    return nullptr;
+  }
+  std::wstring wide(static_cast<size_t>(n), L'\0');
+  MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, &wide[0], n);
+  // The CDM's own directory is searched for its dependencies.
+  HMODULE lib = LoadLibraryExW(wide.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
+  if (!lib) {
+    DWORD code = GetLastError();
+    char* msg = nullptr;
+    FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr,
+                   code, 0, reinterpret_cast<char*>(&msg), 0, nullptr);
+    std::string text = msg ? msg : "";
+    if (msg) LocalFree(msg);
+    while (!text.empty() && (text.back() == '\r' || text.back() == '\n' || text.back() == ' ')) text.pop_back();
+    std::snprintf(err, errlen, "LoadLibrary failed (error %lu): %s", static_cast<unsigned long>(code), text.c_str());
+  }
+  return lib;
+#else
+  void* lib = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+  if (!lib) std::snprintf(err, errlen, "%s", dlerror());
+  return lib;
+#endif
+}
+
+void* librarySymbol(void* lib, const char* name) {
+#ifdef _WIN32
+  return reinterpret_cast<void*>(GetProcAddress(static_cast<HMODULE>(lib), name));
+#else
+  return dlsym(lib, name);
+#endif
+}
+
+void closeLibrary(void* lib) {
+#ifdef _WIN32
+  FreeLibrary(static_cast<HMODULE>(lib));
+#else
+  dlclose(lib);
+#endif
+}
 
 class HeapBuffer final : public cdm::Buffer {
  public:
@@ -127,9 +205,19 @@ class Host final : public cdm::Host_10, public cdm::Host_11 {
     emit(SONA_EV_TIMER, 0, 0, 0, static_cast<double>(delay_ms), reinterpret_cast<uintptr_t>(context));
   }
   cdm::Time GetCurrentWallTime() override {
+#ifdef _WIN32
+    // 100 ns ticks since 1601-01-01; the CDM wants seconds since 1970.
+    FILETIME ft;
+    GetSystemTimePreciseAsFileTime(&ft);
+    ULARGE_INTEGER ticks;
+    ticks.LowPart = ft.dwLowDateTime;
+    ticks.HighPart = ft.dwHighDateTime;
+    return static_cast<double>(ticks.QuadPart - 116444736000000000ULL) / 1e7;
+#else
     timeval tv;
     gettimeofday(&tv, nullptr);
     return static_cast<double>(tv.tv_sec) + static_cast<double>(tv.tv_usec) / 1e6;
+#endif
   }
   void OnInitialized(bool success) override { emit(SONA_EV_INITIALIZED, success ? 1 : 0); }
   void OnResolveKeyStatusPromise(uint32_t promise_id, cdm::KeyStatus status) override {
@@ -175,7 +263,7 @@ class Host final : public cdm::Host_10, public cdm::Host_11 {
  private:
   void emit(int kind, uint32_t a = 0, uint32_t b = 0, uint32_t c = 0, double t = 0, uintptr_t ptr = 0,
             const char* sid = nullptr, uint32_t sid_size = 0, const char* data = nullptr, uint32_t data_size = 0) {
-    sonaCdmEvent(handle_, kind, a, b, c, t, ptr, sid, sid_size, data, data_size);
+    deliver(handle_, kind, a, b, c, t, ptr, sid, sid_size, data, data_size);
   }
   uintptr_t handle_;
 };
@@ -212,6 +300,10 @@ struct sona_cdm {
 
 extern "C" {
 
+#ifdef _WIN32
+void sona_shim_set_event_handler(sona_cdm_event_fn fn) { g_event_fn = fn; }
+
+#endif
 int sona_cdm_module_load(const char* path, char* err, size_t errlen) {
   std::lock_guard<std::mutex> lock(g_module_mu);
   if (g_module) {
@@ -219,17 +311,14 @@ int sona_cdm_module_load(const char* path, char* err, size_t errlen) {
     std::snprintf(err, errlen, "a different CDM is already loaded: %s", g_module_path.c_str());
     return -1;
   }
-  void* lib = dlopen(path, RTLD_NOW | RTLD_LOCAL);
-  if (!lib) {
-    std::snprintf(err, errlen, "%s", dlerror());
-    return -1;
-  }
-  auto create = reinterpret_cast<CreateCdmFunc>(dlsym(lib, "CreateCdmInstance"));
-  auto version = reinterpret_cast<VersionFunc>(dlsym(lib, "GetCdmVersion"));
-  auto init = reinterpret_cast<InitializeFunc>(dlsym(lib, "InitializeCdmModule_4"));
+  void* lib = openLibrary(path, err, errlen);
+  if (!lib) return -1;
+  auto create = reinterpret_cast<CreateCdmFunc>(librarySymbol(lib, "CreateCdmInstance"));
+  auto version = reinterpret_cast<VersionFunc>(librarySymbol(lib, "GetCdmVersion"));
+  auto init = reinterpret_cast<InitializeFunc>(librarySymbol(lib, "InitializeCdmModule_4"));
   if (!create || !version) {
     std::snprintf(err, errlen, "%s does not export CreateCdmInstance/GetCdmVersion", path);
-    dlclose(lib);
+    closeLibrary(lib);
     return -1;
   }
   if (init) init();

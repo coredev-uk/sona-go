@@ -1,4 +1,4 @@
-//go:build linux || (darwin && cgo)
+//go:build linux || (cgo && (darwin || windows))
 
 // Package native is Sona's CDM host playback engine, the Linux
 // implementation of playback.Engine. The parent process (this package)
@@ -84,6 +84,10 @@ type Options struct {
 	// Video is where music video pictures are shown (playback.VideoID
 	// items); nil plays no videos (Capabilities.Video is false).
 	Video *video.Surface
+	// Sink overrides the GStreamer output sink of every host ("fakesink"
+	// on a computer with no audio device: CI, playspike -sink); empty
+	// picks the platform's.
+	Sink string
 }
 
 // Defaults for Options.
@@ -147,6 +151,7 @@ type Engine struct {
 	spawn     func(ctx context.Context, lib string) (host, error)
 	cdm       CDMSource
 	preview   bool          // Options.Preview
+	sink      string        // Options.Sink
 	sf        func() string // Options.Storefront
 	// probe is cdmhost.Probe (Diagnose).
 	probe func(ctx context.Context, o cdmhost.Options) (cdmhost.Info, error)
@@ -229,6 +234,7 @@ func New(o Options) *Engine {
 		probe:      cdmhost.Probe,
 		cdm:        o.CDM,
 		preview:    o.Preview,
+		sink:       o.Sink,
 		sf:         o.Storefront,
 		surface:    o.Video,
 	}
@@ -237,7 +243,7 @@ func New(o Options) *Engine {
 		e.mu.Lock()
 		eq, dev := e.eq, e.device
 		e.mu.Unlock()
-		return cdmhost.Start(ctx, cdmhost.Options{CDMPath: lib, Clear: e.preview, Logger: log, Device: dev, Equalizer: eq, OnVideoFrame: e.showFrame})
+		return cdmhost.Start(ctx, cdmhost.Options{CDMPath: lib, Clear: e.preview, Sink: e.sink, Logger: log, Device: dev, Equalizer: eq, OnVideoFrame: e.showFrame})
 	}
 	return e
 }
