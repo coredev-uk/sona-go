@@ -907,14 +907,16 @@ jobs:
           echo "build=$(go env GOCACHE)" >>"$GITHUB_OUTPUT"
           echo "mod=$(go env GOMODCACHE)" >>"$GITHUB_OUTPUT"
 
+      # The key follows install-gstreamer.sh too: Go reuses a linked test binary
+      # from its cache without noticing that cgo's link flags changed.
       - name: Cache Go modules and builds
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ${{ steps.dirs.outputs.build }}
             ${{ steps.dirs.outputs.mod }}
-          key: go-windows-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.run_id }}
-          restore-keys: go-windows-${{ hashFiles('go.mod', 'go.sum') }}-
+          key: go-windows-${{ hashFiles('go.mod', 'go.sum', 'build/windows/install-gstreamer.sh') }}-${{ github.run_id }}
+          restore-keys: go-windows-${{ hashFiles('go.mod', 'go.sum', 'build/windows/install-gstreamer.sh') }}-
 
       # The official GStreamer packages (cgo links them) and the CDM shim DLL
       # (built with MSVC, the ABI of Google's CDM).
