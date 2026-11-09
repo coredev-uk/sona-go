@@ -186,6 +186,23 @@ func TestSandboxRows(t *testing.T) {
 	if r = sandboxRow(p); r.value != "Not fully sandboxed" || !strings.Contains(r.detail, "kernel.unprivileged_userns_clone") {
 		t.Errorf("namespaces: %+v", r)
 	}
+	p = services.DiagPlayback{Sandboxed: true, SandboxKind: playback.SandboxAppContainer}
+	if r = sandboxRow(p); r.value != "Sandboxed by Windows · no network or file access" || r.status != statusOK {
+		t.Errorf("appcontainer: %+v", r)
+	}
+	p = services.DiagPlayback{SandboxKind: playback.SandboxNone, SandboxGaps: []playback.SandboxGap{playback.SandboxGapNoAppContainer}}
+	if r = sandboxRow(p); r.value != "Not sandboxed" || r.status != statusWarning || !strings.Contains(r.detail, "AppContainer") ||
+		strings.Contains(r.detail, "macOS") {
+		t.Errorf("no appcontainer: %+v", r)
+	}
+	p.CDMBlocked = true
+	if r = sandboxRow(p); r.value != "Not sandboxed" || r.status != statusError || !strings.Contains(r.detail, "AppContainer") {
+		t.Errorf("no appcontainer, CDM blocked: %+v", r)
+	}
+	p = services.DiagPlayback{SandboxKind: playback.SandboxAppContainer, SandboxGaps: []playback.SandboxGap{playback.SandboxGapUserFiles}}
+	if r = sandboxRow(p); r.value != "Not fully sandboxed" || r.status != statusWarning || !strings.Contains(r.detail, "app data folders") {
+		t.Errorf("user files: %+v", r)
+	}
 	if r = sandboxRow(services.DiagPlayback{}); r.value != "Unknown (the host did not start)" || r.status != statusNone {
 		t.Errorf("unknown: %+v", r)
 	}

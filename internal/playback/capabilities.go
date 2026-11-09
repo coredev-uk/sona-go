@@ -59,8 +59,9 @@ type Diagnosis struct {
 	Sink      string // audio sink element
 
 	// Sandbox is how the host is confined: SandboxLinux (namespaces,
-	// Landlock, seccomp), SandboxSeatbelt (macOS sandbox-exec) or
-	// SandboxNone (unconfined, macOS only); "" when no host reported.
+	// Landlock, seccomp), SandboxSeatbelt (macOS sandbox-exec),
+	// SandboxAppContainer (Windows AppContainer in a job object) or
+	// SandboxNone (unconfined: macOS and Windows); "" when no host reported.
 	Sandbox   string
 	Sandboxed bool // every layer of Sandbox is in place
 	// SandboxGaps are the layers that are missing, or why the host runs
@@ -83,9 +84,10 @@ type Diagnosis struct {
 
 // Diagnosis.Sandbox values.
 const (
-	SandboxLinux    = "linux"
-	SandboxSeatbelt = "seatbelt"
-	SandboxNone     = "none"
+	SandboxLinux        = "linux"
+	SandboxSeatbelt     = "seatbelt"
+	SandboxAppContainer = "appcontainer"
+	SandboxNone         = "none"
 )
 
 // Diagnosis.Realtime values.
@@ -101,17 +103,19 @@ const (
 // unconfined.
 type SandboxGap string
 
-// The SandboxGap values: Linux layers, then macOS ones.
+// The SandboxGap values: Linux layers, then macOS ones, then Windows ones.
 const (
-	SandboxGapNamespaces SandboxGap = "namespaces"  // no network or mount namespace: unprivileged user namespaces are blocked
-	SandboxGapFilesystem SandboxGap = "filesystem"  // no private filesystem view
-	SandboxGapLandlock   SandboxGap = "landlock"    // no Landlock domain
-	SandboxGapSeccomp    SandboxGap = "seccomp"     // the seccomp filter isn't installed
-	SandboxGapNetwork    SandboxGap = "network"     // the host could open network sockets
-	SandboxGapKeychain   SandboxGap = "keychain"    // the host could read the keychain folder (macOS)
-	SandboxGapTurnedOff  SandboxGap = "turned_off"  // the developer turned the macOS sandbox off (SONA_SEATBELT=0)
-	SandboxGapNoSeatbelt SandboxGap = "no_seatbelt" // sandbox-exec is missing or didn't start (macOS)
-	SandboxGapRefused    SandboxGap = "refused"     // sandbox-exec refused Sona's profile (macOS)
+	SandboxGapNamespaces     SandboxGap = "namespaces"      // no network or mount namespace: unprivileged user namespaces are blocked
+	SandboxGapFilesystem     SandboxGap = "filesystem"      // no private filesystem view
+	SandboxGapLandlock       SandboxGap = "landlock"        // no Landlock domain
+	SandboxGapSeccomp        SandboxGap = "seccomp"         // the seccomp filter isn't installed
+	SandboxGapNetwork        SandboxGap = "network"         // the host could open network sockets
+	SandboxGapKeychain       SandboxGap = "keychain"        // the host could read the keychain folder (macOS)
+	SandboxGapTurnedOff      SandboxGap = "turned_off"      // the developer turned the macOS sandbox off (SONA_SEATBELT=0)
+	SandboxGapNoSeatbelt     SandboxGap = "no_seatbelt"     // sandbox-exec is missing or didn't start (macOS)
+	SandboxGapRefused        SandboxGap = "refused"         // sandbox-exec refused Sona's profile (macOS)
+	SandboxGapNoAppContainer SandboxGap = "no_appcontainer" // the AppContainer profile, its folder grants or its process couldn't be set up (Windows)
+	SandboxGapUserFiles      SandboxGap = "user_files"      // the host could list Sona's or the user's app data folders (Windows)
 )
 
 // RealtimeRefusal is why the host's audio threads didn't get realtime

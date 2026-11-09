@@ -49,7 +49,9 @@ func spawnMisbehaving(t *testing.T, mode string) *Host {
 	case <-time.After(10 * time.Second):
 		t.Fatal("the parent kept reading the child")
 	}
-	if ws := h.cmd.ProcessState; ws == nil || ws.Exited() {
+	// Killed: signalled on Unix, exit code 1 (TerminateProcess) on Windows;
+	// the child itself only exits, with 0, after a minute.
+	if ws := h.cmd.ProcessState; ws == nil || ws.Success() {
 		t.Errorf("child was not killed: %v", ws)
 	}
 	return h

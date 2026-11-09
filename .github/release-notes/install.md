@@ -3,9 +3,9 @@
 Every file is listed in `SHA256SUMS` and has signed build provenance:
 `gh attestation verify <file> --repo coredev-uk/sona-go`.
 
-**macOS (Apple silicon, macOS 14 or later).** Open `Sona-<version>-macos-arm64.dmg` and drag Sona to Applications. The app is not notarised, so macOS 15 and later block the first open: System Settings → Privacy & Security → "Open Anyway", or run `xattr -dr com.apple.quarantine /Applications/Sona.app`. Playback of previews works; sign in with Apple Music from Settings.
+**macOS (Apple silicon, macOS 14 or later).** Open `Sona-<version>-macos-arm64.dmg` and drag Sona to Applications. The app is not notarised, so macOS 15 and later block the first open: System Settings → Privacy & Security → "Open Anyway", or run `xattr -dr com.apple.quarantine /Applications/Sona.app`. Sign in with Apple Music from Settings; full tracks play.
 
-**Windows (x64).** Run `Sona-<version>-windows-x64-setup.exe` (a per-user install, no administrator rights) or extract the portable `Sona-<version>-windows-x64.zip` anywhere you can write. SmartScreen warns about an unknown publisher: "More info" → "Run anyway". Windows has no audio playback yet; browsing, your library and motion covers as stills work.
+**Windows (x64).** Run `Sona-<version>-windows-x64-setup.exe` (a per-user install, no administrator rights) or extract the portable `Sona-<version>-windows-x64.zip` anywhere you can write. SmartScreen warns about an unknown publisher: "More info" → "Run anyway". Sign in with Apple Music from Settings; full tracks play through a sandboxed host process with GStreamer's WASAPI output. Motion covers show as stills.
 
 **Linux.** The `.deb`, `.rpm`, Arch package and AppImage; see the README.
 

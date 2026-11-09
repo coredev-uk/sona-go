@@ -98,13 +98,19 @@ func TestProbeBrokenCDM(t *testing.T) {
 	}
 }
 
+// childRegistry is where a child writes the plugin registry when the parent
+// asks for reg: reg itself, except where the sandbox keeps a registry of its
+// own (Windows).
+var childRegistry = func(reg string) string { return reg }
+
 // privateRegistry points GStreamer's plugin registry for the children at
-// a file of the test's own, not there yet.
+// a file of the test's own, not there yet, and returns where the child will
+// write it.
 func privateRegistry(t *testing.T) string {
 	t.Helper()
 	reg := filepath.Join(t.TempDir(), "registry.bin")
 	t.Setenv("GST_REGISTRY_1_0", reg)
-	return reg
+	return childRegistry(reg)
 }
 
 // The load check loads the CDM and nothing else: GStreamer, whose first

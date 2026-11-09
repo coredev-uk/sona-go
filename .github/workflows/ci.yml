@@ -942,6 +942,22 @@ jobs:
           grep -q 'Usage of' <<<"$out"
           "$PKG_CONFIG" --libs gstreamer-1.0 gstreamer-app-1.0
 
+      # The pipeline end to end with no secret: two 30-second previews (the
+      # developer token only: no Music User Token, no CDM) through the engine,
+      # the host child and GStreamer's decoders, to fakesink. This build
+      # links the installed GStreamer; the packaged one is smoke-tested by
+      # release.yml (build/windows/smoke.sh).
+      - name: Preview playback (fakesink)
+        env:
+          SONA_PRIVATE: "1"
+        run: |
+          mkdir -p "$RUNNER_TEMP/preview" # no .env to find
+          cd "$RUNNER_TEMP/preview"
+          unset MUSIC_USER_TOKEN SONA_CDM_SHIM
+          timeout 600 "$GITHUB_WORKSPACE/bin/playspike.exe" -preview -sink fakesink -storefront us 2>&1 | tee preview.out
+          grep -q 'preview advancing' preview.out
+          grep -q 'next preview playing' preview.out
+
       # Google's CDM, downloaded and verified the way Sona does, loaded
       # through the shim DLL (SONA_CDM_SHIM, set by setup-windows).
       - name: CDM tests
@@ -949,10 +965,33 @@ jobs:
           SONA_CDM_REQUIRE: "1"
         run: go test -count=1 -timeout 10m ./internal/playback/widevine/ ./internal/playback/cdm/...
 
-      # The host child, GStreamer and the engine on Windows, against fakesink
-      # and the real CDM. (Informational while they are brought up.)
-      - name: Host and engine tests
-        continue-on-error: true
+      # The CDM host child's AppContainer sandbox (docs/security-review.md,
+      # "Windows sandbox"): a probe child and the host run in it. With
+      # SONA_CDMHOST_REQUIRE_SANDBOX set, a runner that refuses AppContainers
+      # fails these instead of skipping them, and a skip fails the step.
+      - name: Sandbox tests
         env:
           SONA_CDM_REQUIRE: "1"
-        run: go test -count=1 -timeout 20m -v ./internal/playback/cdmhost/ ./internal/playback/gst/ ./internal/playback/native/ 2>&1 | tail -n 200
+          SONA_CDMHOST_REQUIRE_SANDBOX: "1"
+        run: |
+          set +e
+          go test -count=1 -timeout 15m -v -run 'AppContainer|SandboxedHost|SandboxLoadsCDM|SandboxGaps|GrantAccess|ReadFolders|EnvHelpers' \
+            ./internal/playback/cdmhost/ >"$RUNNER_TEMP/sandbox.log" 2>&1
+          rc=$?
+          grep -vE '^=== (RUN|PAUSE|CONT)' "$RUNNER_TEMP/sandbox.log" | cut -c1-400 | head -n 250
+          if grep -q -- '--- SKIP' "$RUNNER_TEMP/sandbox.log"; then echo "a sandbox test was skipped"; rc=1; fi
+          exit $rc
+
+      # The host child, GStreamer and the engine on Windows, against fakesink
+      # and the real CDM.
+      - name: Host and engine tests
+        env:
+          SONA_CDM_REQUIRE: "1"
+          SONA_CDMHOST_REQUIRE_SANDBOX: "1"
+        run: |
+          set +e
+          go test -count=1 -timeout 10m -v ./internal/playback/cdmhost/ >"$RUNNER_TEMP/cdmhost.log" 2>&1
+          rc=$?
+          grep -vE '^=== (RUN|PAUSE|CONT)' "$RUNNER_TEMP/cdmhost.log" | cut -c1-400 | head -n 250
+          go test -count=1 -timeout 20m ./internal/playback/gst/ ./internal/playback/native/ ./internal/playback/gstbundle/ || rc=1
+          exit $rc

@@ -10,7 +10,7 @@ subscription. Sona is not affiliated with Apple or Google.
 | -------------------- | ----------------------------------------------------------------------- |
 | Linux, x86_64        | Plays; media controls, notifications, tray; .deb, .rpm, Arch, AppImage  |
 | macOS, Apple Silicon | Plays; media keys and Now Playing; unsigned `.dmg`; updates itself      |
-| Windows, x64         | Browsing and library; no playback yet; unsigned installer and `.zip`; updates itself |
+| Windows, x64         | Plays (WASAPI); media keys and Now Playing; unsigned installer and `.zip`; updates itself |
 
 ## Install
 

@@ -4,16 +4,22 @@
 # GStreamer's fakesink (a runner has no audio device). playspike's last line
 # says whether Apple licensed this host ("licence: granted") or why not.
 #
-# Dispatch only (Actions → Windows playback → Run workflow), from main: it
-# needs the secret MUSIC_USER_TOKEN of the `live` environment, which deploys
-# only to main (docs/security-review.md, "Workflows"), so it builds main and
-# never a branch. The CDM host child is not sandboxed on Windows while this
-# prototype stands; the runner is a throwaway VM with nothing in it.
+# Weekly (Mondays, like live.yml: Apple's side of it can change under us) and
+# on dispatch (Actions → Windows playback → Run workflow), from main: it needs
+# the secret MUSIC_USER_TOKEN of the `live` environment, which deploys only
+# to main (docs/security-review.md, "Workflows"), so it builds main and never
+# a branch; no pull request's CI depends on it (ci.yml's Windows job plays
+# previews with no secret). A failing scheduled run opens, or comments on, an
+# issue. The CDM host child runs in its AppContainer sandbox here (an
+# unsandboxed child would not load the CDM); the runner is a throwaway VM with
+# nothing in it.
 # Runs with SONA_PRIVATE=1, so nothing it does can reach the account's
 # listening history.
 name: Windows playback
 
 on:
+  schedule:
+    - cron: "29 7 * * 1" # Mondays 07:29 UTC
   workflow_dispatch:
     inputs:
       seek:
@@ -40,6 +46,9 @@ jobs:
     runs-on: windows-2025
     timeout-minutes: 60
     environment: live
+    permissions:
+      contents: read
+      issues: write
     env:
       # mattn/go-sqlite3 needs cgo: the runner's MinGW-w64 gcc; so does
       # GStreamer's binding.
@@ -81,10 +90,26 @@ jobs:
         env:
           SONA_PRIVATE: "1"
           MUSIC_USER_TOKEN: ${{ secrets.MUSIC_USER_TOKEN }}
-          SEEK: ${{ inputs.seek }}
+          # A scheduled run has no inputs: the defaults.
+          SEEK: ${{ inputs.seek || '90' }}
           ARGS: ${{ inputs.args }}
         run: |
           # No SONA_CDM_SHIM: the DLL beside playspike.exe is the one loaded.
           unset SONA_CDM_SHIM
           # shellcheck disable=SC2086  # ARGS is meant to split
           bin/playspike.exe -cdm-dir "$RUNNER_TEMP/widevine" -sink fakesink -seek "$SEEK" -listen 15s $ARGS
+
+      - name: Report a failure
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Windows playback failing"
+          n=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number')
+          body="The weekly Windows playback run failed: $RUN_URL"
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi

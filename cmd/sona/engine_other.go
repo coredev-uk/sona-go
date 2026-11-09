@@ -1,4 +1,4 @@
-//go:build !linux && !(darwin && cgo)
+//go:build !linux && !(cgo && (darwin || windows))
 
 package main
 
@@ -13,7 +13,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/video"
 )
 
-// Windows, and macOS built without cgo (which go-sqlite3 needs there anyway):
+// Windows and macOS built without cgo (which go-sqlite3 needs there anyway):
 // no playback engine.
 
 // childMain does nothing: there is no CDM host child here.

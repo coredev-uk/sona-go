@@ -2792,6 +2792,10 @@ msgid "It applies the next time playback starts."
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
+msgid "It can list your app data folders."
+msgstr ""
+
+#: internal/ui/features/settings/diag_rows.go
 msgid "It can open network connections."
 msgstr ""
 
@@ -5004,6 +5008,10 @@ msgid "SD"
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
+msgid "Sandboxed by Windows · no network or file access"
+msgstr ""
+
+#: internal/ui/features/settings/diag_rows.go
 msgid "Sandboxed by macOS · no network or keychain access"
 msgstr ""
 
@@ -7116,6 +7124,10 @@ msgstr ""
 msgid "Windows Credential Manager didn't answer or refused, so you're signed out. Try again."
 msgstr ""
 
+#: internal/ui/features/settings/diag_rows.go
+msgid "Windows couldn't set up its AppContainer sandbox for it."
+msgstr ""
+
 #: internal/ui/features/settings/playback.go
 msgid "With nothing queued, Sona stops its playback host (Widevine and the audio pipeline) after this long. The next song then takes a few seconds longer to start. Applies the next time the host starts."
 msgstr ""
@@ -7940,6 +7952,10 @@ msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "{note} Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction)."
+msgstr ""
+
+#: internal/ui/features/settings/diag_rows.go
+msgid "{note} Previews still play, but Sona loads the Widevine CDM only inside its sandbox, so full songs can't."
 msgstr ""
 
 #: internal/ui/features/settings/storage.go

@@ -340,6 +340,8 @@ restriction for the session with
 `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`. CI does, and
 sets `SONA_CDMHOST_REQUIRE_NAMESPACES=1`, which turns a skip into a failure.
 
+On Windows the same child runs in an AppContainer (`sandbox_windows_test.go`: a probe child that must fail to connect, read outside its folders, write under the profile or start a process, and must load the CDM; the whole host suite runs through the sandbox because the child loads no CDM outside it). A machine that refuses AppContainers skips the probe tests and fails the host ones; CI sets `SONA_CDMHOST_REQUIRE_SANDBOX=1`, which turns the skip into a failure. A test binary alone honours `SONA_CDMHOST_ALLOW_UNSANDBOXED=1` to load the CDM outside the sandbox.
+
 Packaging changes: `bash build/linux/release/release.sh` (build every package
 on Ubuntu 24.04 and smoke-test it on clean Ubuntu, Fedora and Arch
 containers, plus the AppImage on Fedora) is the packaging check; it needs
@@ -382,8 +384,8 @@ smoke in headless sway, "E2E (headless sway)". macOS: a pull request runs one
 job, "macOS build and test (pull request)" (production build, go vet, core and
 playback tests with the real CDM and Seatbelt); main, the nightly and a
 dispatch run the build, vet and every test shard on their own jobs, and
-"Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, the CDM tests)),
-`windows-playback.yml` (dispatch only, from main, `live` environment: playspike on windows-2025 plays a full track privately through the CDM host child to `fakesink`; its last line says whether Apple licensed the host),
+"Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, two preview songs played to `fakesink` with no secret, the CDM tests)),
+`windows-playback.yml` (weekly and on dispatch, from main, `live` environment: playspike on windows-2025 plays a full track privately through the CDM host child to `fakesink`; its last line says whether Apple licensed the host; a failing weekly run opens an issue),
 `images.yml` (also builds the CI image, below),
 `golden-update.yml` (the `update-goldens` label on a pull request of this
 repository: regenerates the golden images of the failing golden tests in the CI
@@ -604,13 +606,16 @@ A feature is a Go service plus a UI package, each self-contained:
 ## Platforms
 
 Linux is the full platform. macOS and Windows build and run the UI, with
-every OS-specific part behind a seam that reports itself unsupported there
-until it is implemented; macOS development builds also play through the CDM
-host. Windows has no playback in the app yet: `cmd/playspike` builds and runs
-there (cgo, the official GStreamer MinGW package and the CDM shim DLL:
-`build/windows/install-gstreamer.sh`, `build/windows/build-shim.sh`, both used
+every OS-specific part behind a seam that reports itself unsupported where it
+isn't implemented; both also play through the CDM host. On Windows that takes
+cgo, the official GStreamer MinGW package and the CDM shim DLL
+(`build/windows/install-gstreamer.sh`, `build/windows/build-shim.sh`, both used
 by `.github/actions/setup-windows`); the shim DLL is found beside the
-executable, or at `SONA_CDM_SHIM` in a development or test build.
+executable, or at `SONA_CDM_SHIM` in a development or test build, and a
+development build needs the GStreamer `bin` directory on `PATH`. The host
+child runs in an AppContainer (`SONA_CDMHOST_ALLOW_UNSANDBOXED=1` lets a test
+binary run it unconfined); `cmd/playspike` works there too (`-sink fakesink`
+on a computer with no audio device).
 
 - In `cmd/sona`, `main.go` is portable; `platform_linux.go` and `platform_other.go` build
   what differs per OS: the `sona <command>` transport and single instance
