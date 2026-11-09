@@ -1,4 +1,4 @@
-//go:build !((linux || darwin) && cgo)
+//go:build !((linux || darwin || windows) && cgo)
 
 package media
 
@@ -9,11 +9,10 @@ import (
 )
 
 // Supported is whether this build decodes motion artwork: not here. MyGo has
-// no video codec of its own. A Windows decoder would drive Media Foundation's
-// H.264 transform (a COM MFT with sample and media-type plumbing) through raw
-// syscalls, which cannot be written or tested without a Windows machine, so
-// the platform reports Capabilities().MotionArtwork = false and covers show
-// their stills.
+// no video codec of its own and GStreamer is linked through cgo, so a build
+// without cgo (the type-checks, a cross-compile with CGO_ENABLED=0) and the
+// systems GStreamer is not built for report Capabilities().MotionArtwork =
+// false and covers show their stills.
 const Supported = false
 
 // Codec is "": nothing decodes motion artwork here.

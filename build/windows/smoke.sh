@@ -12,6 +12,9 @@
 #   - playspike.exe (OUTDIR/smoke-tools, from package.sh with
 #     SONA_SMOKE_TOOLS=1), run beside that sona.exe, plays two 30-second
 #     previews to fakesink: no Music User Token, no CDM;
+#   - media.test.exe (the same folder: internal/ui/media's tests), run beside
+#     that sona.exe too, decodes and loops a generated H.264 clip, the motion
+#     artwork's decoder, with the package's plugins alone;
 #   - the update archive holds the same files;
 #   - the installer installs silently with the same files and the music:/itms:
 #     URL keys, and uninstalls them again, with the CDM host's AppContainer
@@ -72,7 +75,8 @@ check_layout() {
     licenses/GStreamer/gstreamer-1.0/README-LICENSE-INFO.txt licenses/GStreamer/ffmpeg/README-LICENSE-INFO.txt; do
     [[ -f $d/$f ]] || fail "$what has no $f"
   done
-  for f in coreelements typefindfunctions playback app audioconvert audioresample volume equalizer audioparsers isomp4 libav wasapi2; do
+  for f in coreelements typefindfunctions playback app audioconvert audioresample volume equalizer audioparsers isomp4 libav wasapi2 \
+    videoparsersbad videoconvertscale d3d11; do
     [[ -f $d/lib/gstreamer-1.0/libgst$f.dll ]] || fail "$what has no plugin $f"
   done
   if bad=$(find "$d" -iname '*widevinecdm*') && [[ -n $bad ]]; then fail "$what contains the Widevine CDM: $bad"; fi
@@ -161,6 +165,39 @@ if [[ -f $tools/playspike.exe ]]; then
   rm "$dir/playspike.exe"
 else
   echo "smoke(windows): no smoke-tools/playspike.exe (package.sh without SONA_SMOKE_TOOLS=1): previews not played"
+fi
+
+# 2b. Motion artwork: the decoder's tests (internal/ui/media), beside sona.exe
+# on the bundle's plugins (the test binary imports gstbundle, as sona.exe
+# does; no GST_* variable here). The package has no encoder, so the fixture
+# clip is made by the build's own gst-launch-1.0 (SONA_FIXTURE_GST_BIN: the
+# tools run with no GST_* variable); the clip is then decoded, and looped, by
+# the bundle's qtdemux, parsers and decoder. A fresh registry, so this run
+# scans the bundle again.
+if [[ -f $tools/media.test.exe && -n ${GSTREAMER_ROOT:-} ]]; then
+  cp "$tools/media.test.exe" "$dir/media.test.exe"
+  rm -rf "$profile/Local/Sona/gstreamer-1.0"
+  (cd "$dir" && SONA_FIXTURE_GST_BIN=$(cygpath -w "$GSTREAMER_ROOT/bin") timeout 600 ./media.test.exe -test.v \
+    -test.run 'TestMotionDecoder|TestOpenMotion|TestCodec') >"$work/motion.out" 2>&1 || { cat "$work/motion.out"; fail "motion artwork tests"; }
+  grep -v '^=== ' "$work/motion.out" | cut -c1-300
+  for t in TestMotionDecoderPlaysAndLoops TestMotionDecoderPicturesAreNotBlank TestOpenMotion; do
+    grep -q -- "--- PASS: $t " "$work/motion.out" || fail "$t did not pass (skipped?)"
+  done
+  motionreg=$profile/Local/Sona/gstreamer-1.0/registry.bin
+  [[ -f $motionreg ]] || fail "the motion tests left no plugin registry in the profile"
+  for p in libgstvideoparsersbad libgstvideoconvertscale libgstlibav libgstisomp4; do
+    grep -aq "$p" "$motionreg" || fail "the bundle's plugin registry does not list $p"
+  done
+  if [[ -n ${GSTREAMER_ROOT:-} ]]; then
+    root=$(cygpath -m "$GSTREAMER_ROOT")
+    if grep -aiqF -e "$root" -e "$(cygpath -w "$root")" "$motionreg"; then
+      fail "the motion tests' plugin registry names the GStreamer installation at $root"
+    fi
+  fi
+  echo "smoke(windows): motion artwork decodes from the bundle (Direct3D 11 decoder factories in its registry: $(grep -ac 'd3d11h26.dec' "$motionreg" || true))"
+  rm "$dir/media.test.exe"
+else
+  echo "smoke(windows): no smoke-tools/media.test.exe or GSTREAMER_ROOT (package.sh without SONA_SMOKE_TOOLS=1): motion artwork not decoded"
 fi
 
 # 3. The update archive: the files at the top level.

@@ -27,8 +27,8 @@
 # Environment: VERSION (default: the VERSION file); UPDATE_FEED, UPDATE_KEY
 # (linked in for self-updates; unset = updates off); SONA_LASTFM_KEY,
 # SONA_LASTFM_SECRET, SONA_DISCORD_CLIENT_ID as build/linux;
-# SONA_SMOKE_TOOLS=1 also builds OUTDIR/smoke-tools/playspike.exe for
-# smoke.sh.
+# SONA_SMOKE_TOOLS=1 also builds OUTDIR/smoke-tools/playspike.exe and
+# media.test.exe (the motion artwork decoder's tests) for smoke.sh.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -47,10 +47,16 @@ numeric=$(echo "${version%%-*}.0.0.0.0" | cut -d. -f1-4)
 # typefindfunctions, playback, app, audioparsers and isomp4 (AAC in fMP4/M4A,
 # MP3, FLAC), libav (avdec_aac and the rest), the output tail (audioconvert,
 # audioresample, volume, equalizer) and the WASAPI sink. Music video pictures
-# come from the CDM's own decoder, not GStreamer's, so no video plugin.
+# come from the CDM's own decoder, not GStreamer's. Motion artwork
+# (internal/ui/media: file ! qtdemux ! h264parse|h265parse ! decoder !
+# videoconvert ! appsink) adds videoparsersbad (the parsers), videoconvertscale
+# and d3d11 (Direct3D 11 hardware decoders of H.264 and HEVC, which decodebin
+# ranks above libav where a GPU has them); where it has none, libav's
+# avdec_h264/avdec_h265 decode. Media Foundation has encoders and capture only,
+# so there is no mediafoundation plugin here.
 # required ones must exist; optional ones are kept when present.
 required=(coreelements typefindfunctions playback app audioconvert audioresample volume equalizer
-  audioparsers isomp4 libav wasapi2)
+  audioparsers isomp4 libav wasapi2 videoparsersbad videoconvertscale d3d11)
 optional=(wasapi directsound autodetect audiomixer audiorate gio rawparse tcp id3demux apetag wavparse aiff)
 
 work=$(mktemp -d)
@@ -73,7 +79,7 @@ fi
 export PKG_CONFIG=${PKG_CONFIG:-pkg-config}
 command -v "$PKG_CONFIG" >/dev/null || die "no pkg-config (the CI action installs pkg-config-lite)"
 command -v objdump >/dev/null || die "no objdump (MinGW-w64's binutils, with gcc)"
-PKG_CONFIG_PATH=$PKG_CONFIG_PATH "$PKG_CONFIG" --exists gstreamer-1.0 gstreamer-app-1.0 || die "pkg-config does not find GStreamer in $PKG_CONFIG_PATH"
+PKG_CONFIG_PATH=$PKG_CONFIG_PATH "$PKG_CONFIG" --exists gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0 || die "pkg-config does not find GStreamer in $PKG_CONFIG_PATH"
 
 # 2. sona.exe, linked against GStreamer's import libraries.
 ldflags="-w -s -H windowsgui -X main.version=$version -X github.com/egoist/mygo.production=1"
@@ -92,11 +98,12 @@ gocmd() { # go ARGS...: for Windows, with GStreamer
 dir=$work/Sona
 mkdir "$dir"
 gocmd build -tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false -ldflags "$ldflags" -o "$dir/sona.exe" ./cmd/sona
-# smoke.sh runs playspike against the bundle's GStreamer; it is built here,
-# beside the package, never in it.
+# smoke.sh runs playspike and the motion decoder's tests against the bundle's
+# GStreamer; they are built here, beside the package, never in it.
 if [[ -n ${SONA_SMOKE_TOOLS:-} ]]; then
   mkdir -p "$out/smoke-tools"
   gocmd build -tags sqlite_fts5 -trimpath -buildvcs=false -o "$out/smoke-tools/playspike.exe" ./cmd/playspike
+  gocmd test -c -tags sqlite_fts5 -trimpath -buildvcs=false -o "$out/smoke-tools/media.test.exe" ./internal/ui/media
 fi
 
 # 3. The files.
@@ -143,13 +150,15 @@ for ((i = 0; i < ${#queue[@]}; i++)); do
     fi
   done <<<"$deps"
 done
-# playspike (smoke) imports a subset: nothing it needs may be missing.
-if [[ -f $out/smoke-tools/playspike.exe ]]; then
-  deps=$(imports "$out/smoke-tools/playspike.exe")
-  while IFS= read -r d; do
-    [[ -e $dir/$d ]] || is_system "$d" || die "playspike.exe imports $d, which the package lacks"
-  done <<<"$deps"
-fi
+# playspike and media.test (smoke) import a subset: nothing they need may be missing.
+for tool in playspike media.test; do
+  if [[ -f $out/smoke-tools/$tool.exe ]]; then
+    deps=$(imports "$out/smoke-tools/$tool.exe")
+    while IFS= read -r d; do
+      [[ -e $dir/$d ]] || is_system "$d" || die "$tool.exe imports $d, which the package lacks"
+    done <<<"$deps"
+  fi
+done
 
 # Licences: Sona's, Chromium's (the CDM interface header), and those of the
 # packages of the official installation that the files copied above come from
