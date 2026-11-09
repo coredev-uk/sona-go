@@ -606,13 +606,16 @@ A feature is a Go service plus a UI package, each self-contained:
 ## Platforms
 
 Linux is the full platform. macOS and Windows build and run the UI, with
-every OS-specific part behind a seam that reports itself unsupported there
-until it is implemented; macOS development builds also play through the CDM
-host. Windows has no playback in the app yet: `cmd/playspike` builds and runs
-there (cgo, the official GStreamer MinGW package and the CDM shim DLL:
-`build/windows/install-gstreamer.sh`, `build/windows/build-shim.sh`, both used
+every OS-specific part behind a seam that reports itself unsupported where it
+isn't implemented; both also play through the CDM host. On Windows that takes
+cgo, the official GStreamer MinGW package and the CDM shim DLL
+(`build/windows/install-gstreamer.sh`, `build/windows/build-shim.sh`, both used
 by `.github/actions/setup-windows`); the shim DLL is found beside the
-executable, or at `SONA_CDM_SHIM` in a development or test build.
+executable, or at `SONA_CDM_SHIM` in a development or test build, and a
+development build needs the GStreamer `bin` directory on `PATH`. The host
+child runs in an AppContainer (`SONA_CDMHOST_ALLOW_UNSANDBOXED=1` lets a test
+binary run it unconfined); `cmd/playspike` works there too (`-sink fakesink`
+on a computer with no audio device).
 
 - In `cmd/sona`, `main.go` is portable; `platform_linux.go` and `platform_other.go` build
   what differs per OS: the `sona <command>` transport and single instance
