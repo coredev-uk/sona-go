@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/coredev-uk/sona-go/compare/v0.3.1...v0.3.2) (2026-11-08)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/mattn/go-sqlite3 to v1.14.53 ([#175](https://github.com/coredev-uk/sona-go/issues/175)) ([992c5fb](https://github.com/coredev-uk/sona-go/commit/992c5fb10adff5de12bf3251b1a7f0f975a8c7e5))
+
 ## [0.3.1](https://github.com/coredev-uk/sona-go/compare/v0.3.0...v0.3.1) (2026-11-08)
 
 
