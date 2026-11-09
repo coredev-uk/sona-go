@@ -46,6 +46,7 @@ var (
 	modAdvapi32 = windows.NewLazySystemDLL("advapi32.dll")
 
 	procCreateAppContainerProfile = modUserenv.NewProc("CreateAppContainerProfile")
+	procDeleteAppContainerProfile = modUserenv.NewProc("DeleteAppContainerProfile")
 	procDeriveAppContainerSid     = modUserenv.NewProc("DeriveAppContainerSidFromAppContainerName")
 	procGetAppContainerFolderPath = modUserenv.NewProc("GetAppContainerFolderPath")
 	procFreeSid                   = modAdvapi32.NewProc("FreeSid")
@@ -75,11 +76,15 @@ type profile struct {
 // unconfined.
 var appContainer = sync.OnceValues(openProfile)
 
-func openProfile() (*profile, error) {
+func openProfile() (*profile, error) { return openNamedProfile(appContainerName) }
+
+// openNamedProfile creates the AppContainer profile profileName, or finds it
+// when it exists. Sona's is appContainerName; a test makes its own.
+func openNamedProfile(profileName string) (*profile, error) {
 	if err := procCreateAppContainerProfile.Find(); err != nil {
 		return nil, fmt.Errorf("AppContainers are not available: %w", err)
 	}
-	name, err := windows.UTF16PtrFromString(appContainerName)
+	name, err := windows.UTF16PtrFromString(profileName)
 	if err != nil {
 		return nil, err
 	}
@@ -104,17 +109,10 @@ func openProfile() (*profile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("copy the AppContainer SID: %w", err)
 	}
-	sidText, err := windows.UTF16PtrFromString(sid.String())
+	base, err := containerFolder(sid)
 	if err != nil {
 		return nil, err
 	}
-	var folder *uint16
-	hr, _, _ = procGetAppContainerFolderPath.Call(uintptr(unsafe.Pointer(sidText)), uintptr(unsafe.Pointer(&folder)))
-	if hr != 0 {
-		return nil, hresult("GetAppContainerFolderPath", hr)
-	}
-	base := windows.UTF16PtrToString(folder)
-	windows.CoTaskMemFree(unsafe.Pointer(folder))
 	tmp := filepath.Join(base, "AC", "sona-host")
 	if err := os.MkdirAll(tmp, 0o700); err != nil {
 		return nil, fmt.Errorf("create the AppContainer's folder: %w", err)
@@ -125,6 +123,23 @@ func openProfile() (*profile, error) {
 		return nil, err
 	}
 	return &profile{sid: sid, tmp: tmp}, nil
+}
+
+// containerFolder is the profile folder of the AppContainer sid
+// (%LOCALAPPDATA%\Packages\<name>).
+func containerFolder(sid *windows.SID) (string, error) {
+	sidText, err := windows.UTF16PtrFromString(sid.String())
+	if err != nil {
+		return "", err
+	}
+	var folder *uint16
+	hr, _, _ := procGetAppContainerFolderPath.Call(uintptr(unsafe.Pointer(sidText)), uintptr(unsafe.Pointer(&folder)))
+	if hr != 0 {
+		return "", hresult("GetAppContainerFolderPath", hr)
+	}
+	base := windows.UTF16PtrToString(folder)
+	windows.CoTaskMemFree(unsafe.Pointer(folder))
+	return base, nil
 }
 
 // Access rights granted to the AppContainer's SID.
@@ -154,7 +169,8 @@ var grantMu sync.Mutex
 // everything under it, unless it has them already: by an entry of its own
 // or, for a read, by ALL APPLICATION PACKAGES (Program Files, the Windows
 // folder). Nothing else of the list changes: the entry names only sid, and
-// stays until the folder goes. own: only an entry for sid counts.
+// stays until the folder goes or RemoveSandbox (the uninstaller) removes it.
+// own: only an entry for sid counts.
 func grantAccess(sid *windows.SID, path string, mask windows.ACCESS_MASK, own bool) error {
 	if filepath.Dir(path) == path {
 		return fmt.Errorf("refusing to change the access list of %s, a drive root", path)

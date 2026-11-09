@@ -19,7 +19,7 @@
 // The CDM is the one Sona downloads (installed under Sona's data directory,
 // or -cdm-dir, on first use).
 //
-//	playspike -preview [-storefront gb]        30-second previews: developer token only (no MUSIC_USER_TOKEN, .env or CDM)
+//	playspike -preview [-storefront gb]        30-second previews: developer token only (no MUSIC_USER_TOKEN, .env or CDM); exits with status 75 when the network failed (Apple unreachable), 1 when the player did
 //
 //	playspike -activity [-private=false]       play activity, private by default (Recently Played must stay unchanged)
 //
@@ -101,6 +101,11 @@ func main() {
 		}
 		fmt.Println(licences.verdict(err))
 		if err != nil {
+			if networkError(err) {
+				// Not a failure of the code under test: a CI step may run it again.
+				fmt.Printf("playspike: the network failed, not the player (exit status %d)\n", exitNetwork)
+				os.Exit(exitNetwork)
+			}
 			os.Exit(1)
 		}
 		return

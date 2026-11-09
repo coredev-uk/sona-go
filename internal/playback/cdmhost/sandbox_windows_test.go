@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
 
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/cdm/cdmtest"
@@ -360,6 +361,104 @@ func TestGrantAccess(t *testing.T) {
 	}
 	if err := grantAccess(prof.sid, `C:\`, accessRead, false); err == nil || !strings.Contains(err.Error(), "drive root") {
 		t.Errorf("grant on a drive root: %v", err)
+	}
+}
+
+// appContainerMappings is the registry key (under HKCU) that maps each
+// AppContainer profile's SID to its name and folder.
+const appContainerMappings = `Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Mappings\`
+
+// profileRegistered reports whether the profile with SID sid exists.
+func profileRegistered(sid *windows.SID) bool {
+	k, err := registry.OpenKey(registry.CURRENT_USER, appContainerMappings+sid.String(), registry.QUERY_VALUE)
+	if err != nil {
+		return false
+	}
+	_ = k.Close()
+	return true
+}
+
+// hasEntry reports whether path's access list has an entry for sid
+// (inherited ones too).
+func hasEntry(t *testing.T, path string, sid *windows.SID) bool {
+	t.Helper()
+	sd, err := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acl, _, err := sd.DACL()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return aclHasEntry(acl, sid, false)
+}
+
+// TestRemoveSandbox is the uninstaller's cleanup: it creates a profile of
+// the test's own (never Sona's, which the other tests use) and grants it
+// folders, a program's and a CDM's, then removes the sandbox. The profile,
+// its package folder and every entry of its SID, the ones the CDM's files
+// inherited too, are gone; the CDM's files and folders stay; and a second
+// run finds nothing to do.
+func TestRemoveSandbox(t *testing.T) {
+	name := fmt.Sprintf("sona.cdmhost.test%d", os.Getpid())
+	prof, err := openNamedProfile(name)
+	if err != nil {
+		if os.Getenv(envRequireSandbox) != "" {
+			t.Fatal(err)
+		}
+		t.Skip(err)
+	}
+	t.Cleanup(func() { _ = removeSandbox(name, nil, "") }) // a failed test leaves no profile
+	if !profileRegistered(prof.sid) {
+		t.Fatalf("the new profile %s has no registry mapping", name)
+	}
+	pkg := filepath.Dir(filepath.Dir(prof.tmp)) // %LOCALAPPDATA%\Packages\<name>
+	if _, err := os.Stat(pkg); err != nil {
+		t.Fatalf("the profile's package folder: %v", err)
+	}
+
+	root := t.TempDir()
+	program := filepath.Join(root, "program")
+	cdmRoot := filepath.Join(root, "widevine")
+	cdmDir := filepath.Join(cdmRoot, "4.10.2710.0", "win_x64")
+	lib := filepath.Join(cdmDir, "widevinecdm.dll")
+	for _, d := range []string{program, cdmDir} {
+		if err := os.MkdirAll(d, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(lib, []byte("cdm"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []string{program, cdmDir} {
+		if err := grantAccess(prof.sid, d, accessRead, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, p := range []string{program, cdmDir, lib} { // the file inherits its folder's entry
+		if !hasEntry(t, p, prof.sid) {
+			t.Fatalf("no entry for the AppContainer on %s after the grant", p)
+		}
+	}
+
+	for range 2 {
+		if err := removeSandbox(name, []string{program}, cdmRoot); err != nil {
+			t.Fatal(err)
+		}
+		for _, p := range []string{program, cdmDir, lib} {
+			if hasEntry(t, p, prof.sid) {
+				t.Errorf("an entry for the AppContainer is left on %s", p)
+			}
+		}
+		if profileRegistered(prof.sid) {
+			t.Error("the profile is still registered")
+		}
+		if _, err := os.Stat(pkg); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("the profile's package folder is left (%v)", err)
+		}
+		if b, err := os.ReadFile(lib); err != nil || string(b) != "cdm" {
+			t.Errorf("the CDM did not stay: %q, %v", b, err)
+		}
 	}
 }
 

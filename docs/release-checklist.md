@@ -119,7 +119,7 @@ and Windows development builds in ci.yml never hold a release up), then the
 | --------- | ------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
 | `linux`   | ubuntu-26.04  | the Linux packages (`build/linux/release/release.sh`)              | each package on clean Ubuntu, Fedora and Arch containers                              |
 | `macos`   | macos-15      | `Sona-<v>-macos-arm64.dmg`, `sona-<v>-darwin-arm64.tar.gz` (`build/darwin/bundle.sh`) | `build/darwin/smoke.sh`: `--version`, first paint, motion artwork decode and a preview played from the bundle's GStreamer, no `/nix`, `/opt/homebrew` or `/Library/Frameworks` paths, `codesign --verify` |
-| `windows` | windows-2025  | `Sona-<v>-windows-x64.zip`, `Sona-<v>-windows-x64-setup.exe`, `sona-<v>-windows-amd64.tar.gz` (`build/windows/package.sh`) | `build/windows/smoke.sh` with GStreamer off `PATH`: layout (shim, GStreamer runtime and plugins, no CDM), the zip's `--version`, first paint and audio stack from the bundle, two previews played to `fakesink`, the update archive's files, silent install, files and `music:`/`itms:` keys; silent uninstall |
+| `windows` | windows-2025  | `Sona-<v>-windows-x64.zip`, `Sona-<v>-windows-x64-setup.exe`, `sona-<v>-windows-amd64.tar.gz` (`build/windows/package.sh`) | `build/windows/smoke.sh` with GStreamer off `PATH`: layout (shim, GStreamer runtime and plugins, no CDM), the zip's `--version`, first paint and audio stack from the bundle, two previews played to `fakesink`, the update archive's files, silent install, files and `music:`/`itms:` keys; silent uninstall, which also removes the playback sandbox's AppContainer profile and package folder (checked gone); the zip's `sona.exe --remove-sandbox` takes the sandbox's entry off its folder |
 | `publish` | ubuntu-26.04  | `update-darwin-arm64.json`, `update-windows-amd64.json`, `SHA256SUMS` | checks the Linux checksums; attests the manifests and the combined `SHA256SUMS`       |
 
 - **macOS app:** plain Go and Xcode's clang against the official GStreamer
@@ -249,7 +249,9 @@ Before merging a release PR, install the release candidate's files:
   makes a Start-menu entry; SmartScreen's "More info" → "Run anyway" works;
   `music:` and `itms:` links open Sona; the portable zip runs from a folder
   the user can write; the uninstaller removes the app and the URL handlers and
-  keeps the user's data.
+  the playback sandbox's AppContainer profile (`%LOCALAPPDATA%\Packages\sona.cdmhost`
+  is gone; `sona.exe --remove-sandbox` is the same step for the portable zip),
+  and keeps the user's data.
 - **Updates (macOS and Windows):** install rc.N, publish rc.N+1 (dispatch with
   `prerelease=rc.N+1`), turn Test versions on, see the notice, "Install and
   restart", and check settings, sign-in and the queue survive. A deliberately

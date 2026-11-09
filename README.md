@@ -35,7 +35,10 @@ the unsigned macOS and Windows builds.
   Applications. Settings → Updates installs new versions in place
   ("Install and restart").
 - **Windows:** run the per-user installer or unpack the portable `.zip`.
-  Updates install in place from Settings → Updates.
+  Updates install in place from Settings → Updates. The uninstaller removes
+  Sona's playback sandbox too (your data stays); before deleting a portable
+  folder, quit Sona and run `sona.exe --remove-sandbox` from it
+  (`docs/cli.md`).
 
 ## Build and run
 
