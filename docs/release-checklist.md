@@ -222,7 +222,11 @@ and Windows development builds in ci.yml never hold a release up), then the
   `prerelease=rc.1` it builds `v<VERSION>-rc.1` from the branch in the
   `release` environment, signs the manifests and publishes a GitHub
   prerelease, which updates only builds with Settings → Updates → Test
-  versions on. The environment's deployment branch rules must allow the
+  versions on. That is only for a `VERSION` not yet released (a release
+  branch): once `vVERSION` is tagged the run refuses, since its rc would sort
+  below it. For the next version's rc from `main`, dispatch with
+  `nightly=true`, which names it after the open release PR's version
+  (`v0.4.0-rc.2` while release-please proposes 0.4.0). The environment's deployment branch rules must allow the
   branch. A hand-made rc takes a free number: nightlies use the same `rc.N`
   sequence (below).
 - **Nightly rc:** every night at 03:17 UTC `release.yml` builds main as
@@ -260,8 +264,8 @@ Before merging a release PR, install the release candidate's files:
   the playback sandbox's AppContainer profile (`%LOCALAPPDATA%\Packages\sona.cdmhost`
   is gone; `sona.exe --remove-sandbox` is the same step for the portable zip),
   and keeps the user's data.
-- **Updates (macOS and Windows):** install rc.N, publish rc.N+1 (dispatch with
-  `prerelease=rc.N+1`), turn Test versions on, see the notice, "Install and
+- **Updates (macOS and Windows):** install rc.N, publish rc.N+1 (dispatch on
+  `main` with `nightly=true`), turn Test versions on, see the notice, "Install and
   restart", and check settings, sign-in and the queue survive. A deliberately
   broken build rolls back.
 - **Restoring the previous version (macOS and Windows):** after that update,
