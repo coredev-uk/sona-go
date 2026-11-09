@@ -107,6 +107,11 @@ const (
 // sandboxEnv are the sandbox's own variables, never inherited by a child.
 var sandboxEnv = []string{envSandboxNS, envSandboxStage}
 
+// pluginPathEnv are the variables withheld from the child to keep plugin
+// folders out of its scan: none here (Windows names the video plugins' folder
+// in one, sandbox_windows.go).
+var pluginPathEnv []string
+
 // parentSandbox is the parent's part of the sandbox: whether the child got
 // its namespaces, and why not.
 type parentSandbox struct {

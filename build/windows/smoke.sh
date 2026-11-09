@@ -75,11 +75,27 @@ check_layout() {
     licenses/GStreamer/gstreamer-1.0/README-LICENSE-INFO.txt licenses/GStreamer/ffmpeg/README-LICENSE-INFO.txt; do
     [[ -f $d/$f ]] || fail "$what has no $f"
   done
-  for f in coreelements typefindfunctions playback app audioconvert audioresample volume equalizer audioparsers isomp4 libav wasapi2 \
-    videoparsersbad videoconvertscale d3d11; do
+  for f in coreelements typefindfunctions playback app audioconvert audioresample volume equalizer audioparsers isomp4 libav wasapi2; do
     [[ -f $d/lib/gstreamer-1.0/libgst$f.dll ]] || fail "$what has no plugin $f"
   done
+  # The video plugins are in a folder of their own, beside the audio plugins' and
+  # not inside it (GStreamer scans plugin folders recursively): the CDM host
+  # child never loads them (no_video_plugins).
+  for f in videoparsersbad videoconvertscale d3d11; do
+    [[ -f $d/lib/gstreamer-video/libgst$f.dll ]] || fail "$what has no video plugin $f in lib/gstreamer-video"
+    [[ ! -e $d/lib/gstreamer-1.0/libgst$f.dll ]] || fail "$what has the video plugin $f among the audio plugins"
+  done
+  if [[ -n $(find "$d/lib/gstreamer-1.0" -mindepth 1 -type d) ]]; then fail "$what has a folder inside lib/gstreamer-1.0, which GStreamer scans recursively"; fi
   if bad=$(find "$d" -iname '*widevinecdm*') && [[ -n $bad ]]; then fail "$what contains the Widevine CDM: $bad"; fi
+}
+
+# no_video_plugins REGISTRY WHAT: the registry (the CDM host child's) lists no
+# video plugin, so the child never loaded them.
+no_video_plugins() {
+  local f
+  for f in libgstvideoparsersbad libgstvideoconvertscale libgstd3d11; do
+    ! grep -aq "$f" "$1" || fail "$2 lists $f"
+  done
 }
 
 # 1. The portable zip.
@@ -89,7 +105,7 @@ dir=$work/zip/Sona
 exe=$dir/sona.exe
 check_layout "$dir" "the zip"
 zipfiles=$(cd "$dir" && find . -type f | sort) # before anything runs from it
-echo "smoke(windows): the zip has $(find "$dir" -type f | wc -l) files, $(du -sm "$dir" | cut -f1) MB; plugins: $(cd "$dir/lib/gstreamer-1.0" && echo libgst*.dll | sed 's/libgst//g; s/\.dll//g')"
+echo "smoke(windows): the zip has $(find "$dir" -type f | wc -l) files, $(du -sm "$dir" | cut -f1) MB; plugins: $(cd "$dir/lib/gstreamer-1.0" && echo libgst*.dll | sed 's/libgst//g; s/\.dll//g'); video plugins (UI process only): $(cd "$dir/lib/gstreamer-video" && echo libgst*.dll | sed 's/libgst//g; s/\.dll//g')"
 got=$("$exe" --version) || fail "sona.exe --version failed"
 [[ $got == "sona $version" ]] || fail "sona.exe --version printed '$got', want 'sona $version'"
 
@@ -138,6 +154,10 @@ registry=$(grep -a "GStreamer plugin registry" "$log" | head -n 1 | sed -n 's/.*
 registry=$(cygpath -u "${registry//\\\\/\\}") # JSON escapes backslashes
 [[ -f $registry ]] || fail "no plugin registry at $registry"
 grep -aq libgstcoreelements "$registry" || fail "the plugin registry does not list the bundle's plugins"
+# The CDM host child needs no video plugin and its scan loads every plugin it
+# finds: Direct3D 11's, which asks the GPUs what they decode, is for the UI
+# process alone (lib\gstreamer-video, named only by the UI process's environment).
+no_video_plugins "$registry" "the host child's plugin registry"
 if [[ -n ${GSTREAMER_ROOT:-} ]]; then
   root=$(cygpath -m "$GSTREAMER_ROOT")
   if grep -aiqF -e "$root" -e "$(cygpath -w "$root")" "$registry"; then
@@ -163,6 +183,9 @@ if [[ -f $tools/playspike.exe ]]; then
   grep -q 'decoder=avdec_aac' "$work/preview.out" || fail "the bundled libav did not decode"
   echo "smoke(windows): previews play from the bundle (fakesink)"
   rm "$dir/playspike.exe"
+  # The previews' host child scanned the plugins again: still no video one.
+  [[ -f $registry ]] || fail "playspike's host left no plugin registry at $registry"
+  no_video_plugins "$registry" "the registry of playspike's host"
 else
   echo "smoke(windows): no smoke-tools/playspike.exe (package.sh without SONA_SMOKE_TOOLS=1): previews not played"
 fi

@@ -620,7 +620,11 @@ same GStreamer (`gstreamer-video` and `gstreamer-app`, linked the same way);
 `internal/ui/media`'s tests make their fixture clip with the installation's
 `gst-launch-1.0` (on `PATH`, or the folder `SONA_FIXTURE_GST_BIN` names, whose
 tools run with no `GST_*` variable: `build/windows/smoke.sh` runs the tests
-against a package's trimmed plugins that way).
+against a package's trimmed plugins that way). The video plugins live in
+`lib\gstreamer-video\` of a package, named by `GST_PLUGIN_PATH_1_0` in the UI
+process only: the CDM host child (`cdmhost.childEnv` drops that variable) must
+never scan them, which `TestChildScansNoVideoPlugins` and `smoke.sh` check. A
+new video-only plugin goes in `package.sh`'s `video`, not `required`.
 
 - In `cmd/sona`, `main.go` is portable; `platform_linux.go` and `platform_other.go` build
   what differs per OS: the `sona <command>` transport and single instance
