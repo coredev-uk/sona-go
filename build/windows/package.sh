@@ -151,12 +151,21 @@ if [[ -f $out/smoke-tools/playspike.exe ]]; then
   done <<<"$deps"
 fi
 
-# Licences: Sona's, Chromium's (the CDM interface header), and GStreamer's
-# (the installation's, when it carries them).
+# Licences: Sona's, Chromium's (the CDM interface header), and those of the
+# packages of the official installation that the files copied above come from
+# (share\licenses\<package>\: GStreamer's own, GLib, FFmpeg behind the libav
+# plugin, the MinGW runtime, and the small libraries): not the licences of the
+# installation's other packages, whose code is not in this package.
 cp "$repo/LICENSE" "$dir/licenses/LICENSE.txt"
 cp "$repo/internal/playback/widevine/LICENSE.chromium" "$dir/licenses/LICENSE.chromium"
 cp "$repo/THIRD_PARTY_NOTICES.md" "$dir/licenses/THIRD_PARTY_NOTICES.md"
-if [[ -d $gst/share/licenses ]]; then cp -r "$gst/share/licenses" "$dir/licenses/GStreamer"; fi
+for p in gstreamer-1.0 gst-plugins-base-1.0 gst-plugins-good-1.0 gst-plugins-bad-1.0 ffmpeg glib libffi libiconv \
+  proxy-libintl pcre2 orc bzip2 zlib mingw-runtime; do
+  if [[ -d $gst/share/licenses/$p ]]; then
+    mkdir -p "$dir/licenses/GStreamer"
+    cp -r "$gst/share/licenses/$p" "$dir/licenses/GStreamer/$p"
+  fi
+done
 
 # Never the CDM, whatever a future edit of the lists above does.
 if bad=$(find "$dir" -iname '*widevinecdm*') && [[ -n $bad ]]; then

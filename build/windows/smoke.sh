@@ -51,7 +51,8 @@ export SONA_PRIVATE=1 APPDATA LOCALAPPDATA
 check_layout() {
   local d=$1 what=$2 f
   for f in sona.exe sona.ico sona_cdm_shim.dll libgstreamer-1.0-0.dll libglib-2.0-0.dll \
-    libexec/gstreamer-1.0/gst-plugin-scanner.exe licenses/LICENSE.txt licenses/THIRD_PARTY_NOTICES.md; do
+    libexec/gstreamer-1.0/gst-plugin-scanner.exe licenses/LICENSE.txt licenses/THIRD_PARTY_NOTICES.md \
+    licenses/GStreamer/gstreamer-1.0/README-LICENSE-INFO.txt licenses/GStreamer/ffmpeg/README-LICENSE-INFO.txt; do
     [[ -f $d/$f ]] || fail "$what has no $f"
   done
   for f in coreelements typefindfunctions playback app audioconvert audioresample volume equalizer audioparsers isomp4 libav wasapi2; do

@@ -36,7 +36,7 @@ it from Google at runtime ([README](README.md#playback-and-the-widevine-cdm)).
 - Embedded in: `internal/ui/theme/fonts/SchibstedGrotesk-Variable.ttf`, `SchibstedGrotesk-Italic-Variable.ttf`
 - Licence text: [internal/ui/theme/fonts/OFL.txt](internal/ui/theme/fonts/OFL.txt)
 
-## GStreamer (LGPL-2.1-or-later), bundled in the Windows packages
+## GStreamer (LGPL-2.0-or-later), bundled in the Windows packages
 
 - Version: 1.28.8, the official Windows MinGW x86_64 package
   (`gstreamer-1.0-mingw-x86_64-1.28.8.exe`, SHA-256 pinned in
@@ -60,12 +60,11 @@ it from Google at runtime ([README](README.md#playback-and-the-widevine-cdm)).
 - Sona's own code calls GStreamer through its public C API (cgo); the CDM
   host child and the app load it as a shared library.
 - Licence texts: the packages carry them in `licenses\` (Sona's own,
-  Chromium's, this file, and, when the installation has them under
-  `share\licenses`, GStreamer's and its dependencies'); GStreamer itself is
-  the LGPL 2.1 or later (https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html).
-  The bundled libraries each keep their own licence (GStreamer's and
-  GLib's LGPL, the MinGW-w64 runtime's, FFmpeg's libraries behind the `libav`
-  plugin, and the others in the official package); their sources are in the
-  release above.
+  Chromium's, this file, and in `licenses\GStreamer\<package>\` the texts the
+  official installation ships for the packages the bundled DLLs come from:
+  GStreamer's own (LGPL 2.0 or later), GLib, FFmpeg (the libraries behind the
+  `libav` plugin: LGPL 2.1 or later), the MinGW-w64 runtime and the small
+  libraries). Each bundled library keeps its own licence; the sources are in
+  the release above.
 - The macOS app bundles GStreamer's framework of the same 1.28 minor in the
   same way (`build/darwin`, `build/darwin/gstreamer.sha256`).
