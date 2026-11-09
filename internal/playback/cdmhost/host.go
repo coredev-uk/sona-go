@@ -70,6 +70,8 @@ type Host struct {
 	// parent is the parent's part of the sandbox (sandbox_<os>.go).
 	parent  parentSandbox
 	onFrame func(VideoFrame)
+	// kill terminates the child; nil means cmd.Process.Kill (killChild).
+	kill func() error
 
 	encMu sync.Mutex
 	enc   *gob.Encoder
@@ -198,6 +200,7 @@ func spawn(o Options) (*Host, error) {
 	h := &Host{
 		log:     log.With("component", "cdmhost", "pid", p.cmd.Process.Pid),
 		cmd:     p.cmd,
+		kill:    p.kill,
 		parent:  parent,
 		stdin:   p.stdin,
 		enc:     gob.NewEncoder(p.stdin),
@@ -225,6 +228,10 @@ type proc struct {
 	stdin  io.WriteCloser
 	stdout io.ReadCloser
 	stderr io.ReadCloser
+	// kill terminates the child when cmd.Process cannot (Windows: the
+	// process handle Go keeps cannot terminate an AppContainer child);
+	// nil means cmd.Process.Kill.
+	kill func() error
 }
 
 // startChild starts argv with env and attr, wired to fresh pipes, in
@@ -248,6 +255,14 @@ func startChild(argv, env []string, attr *syscall.SysProcAttr) (proc, error) {
 		return proc{}, err
 	}
 	return p, nil
+}
+
+// killChild terminates the child.
+func (h *Host) killChild() error {
+	if h.kill != nil {
+		return h.kill()
+	}
+	return h.cmd.Process.Kill()
 }
 
 // withSandbox completes the child's report of its sandbox with the
@@ -393,7 +408,7 @@ loop:
 	if readErr != nil && !errors.Is(readErr, io.EOF) {
 		// Nothing reads its output any more: it would block, or keep
 		// running out of sync.
-		_ = h.cmd.Process.Kill()
+		_ = h.killChild()
 	}
 	// Wait closes the pipes: let relayLogs read the child's last words
 	// (a panic trace) first.
@@ -761,7 +776,7 @@ func (h *Host) Close() error {
 	select {
 	case <-h.done:
 	case <-time.After(2 * time.Second):
-		_ = h.cmd.Process.Kill()
+		_ = h.killChild()
 		<-h.done
 	}
 	return nil
@@ -770,7 +785,7 @@ func (h *Host) Close() error {
 // Kill terminates the child immediately (tests, crash recovery).
 func (h *Host) Kill() error {
 	h.closing.Store(true)
-	err := h.cmd.Process.Kill()
+	err := h.killChild()
 	<-h.done
 	return err
 }

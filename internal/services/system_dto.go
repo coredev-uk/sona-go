@@ -61,7 +61,9 @@ type DiagPlayback struct {
 	// network and mount namespace, Landlock, the seccomp filter that
 	// refuses network sockets), "seatbelt" (macOS: sandbox-exec with
 	// Sona's profile: no network, no access to Sona's folder or the
-	// keychain), "none" (macOS without a working sandbox-exec: the child
+	// keychain), "appcontainer" (Windows: an AppContainer in a job object:
+	// no network, no access to the user's folders), "none" (macOS without
+	// a working sandbox-exec, Windows without an AppContainer: the child
 	// runs unconfined) or "" when the probe child never started.
 	SandboxKind string `json:"sandboxKind"`
 	// Sandboxed: every layer of SandboxKind is in place. SandboxGaps says

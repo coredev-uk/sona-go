@@ -2792,6 +2792,10 @@ msgid "It applies the next time playback starts."
 msgstr "It applies the next time playback starts."
 
 #: internal/ui/features/settings/diag_rows.go
+msgid "It can list your app data folders."
+msgstr "It can list your app data folders."
+
+#: internal/ui/features/settings/diag_rows.go
 msgid "It can open network connections."
 msgstr "It can open network connections."
 
@@ -5004,6 +5008,10 @@ msgid "SD"
 msgstr "SD"
 
 #: internal/ui/features/settings/diag_rows.go
+msgid "Sandboxed by Windows · no network or file access"
+msgstr "Sandboxed by Windows · no network or file access"
+
+#: internal/ui/features/settings/diag_rows.go
 msgid "Sandboxed by macOS · no network or keychain access"
 msgstr "Sandboxed by macOS · no network or keychain access"
 
@@ -7116,6 +7124,10 @@ msgstr "Windows Credential Manager didn't answer or refused, so nothing was save
 msgid "Windows Credential Manager didn't answer or refused, so you're signed out. Try again."
 msgstr "Windows Credential Manager didn't answer or refused, so you're signed out. Try again."
 
+#: internal/ui/features/settings/diag_rows.go
+msgid "Windows couldn't set up its AppContainer sandbox for it."
+msgstr "Windows couldn't set up its AppContainer sandbox for it."
+
 #: internal/ui/features/settings/playback.go
 msgid "With nothing queued, Sona stops its playback host (Widevine and the audio pipeline) after this long. The next song then takes a few seconds longer to start. Applies the next time the host starts."
 msgstr "With nothing queued, Sona stops its playback host (Widevine and the audio pipeline) after this long. The next song then takes a few seconds longer to start. Applies the next time the host starts."
@@ -7941,6 +7953,10 @@ msgstr "{note} Playback still works."
 #: internal/ui/features/settings/diag_rows.go
 msgid "{note} Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction)."
 msgstr "{note} Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction)."
+
+#: internal/ui/features/settings/diag_rows.go
+msgid "{note} Previews still play, but Sona loads the Widevine CDM only inside its sandbox, so full songs can't."
+msgstr "{note} Previews still play, but Sona loads the Widevine CDM only inside its sandbox, so full songs can't."
 
 #: internal/ui/features/settings/storage.go
 msgid "{n} MB"

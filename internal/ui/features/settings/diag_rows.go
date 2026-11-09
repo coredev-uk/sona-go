@@ -64,6 +64,10 @@ func sandboxGap(gap playback.SandboxGap) string {
 		return i18n.T("macOS's sandbox-exec is missing or didn't start.")
 	case playback.SandboxGapRefused:
 		return i18n.T("macOS's sandbox-exec refused Sona's profile.")
+	case playback.SandboxGapNoAppContainer:
+		return i18n.T("Windows couldn't set up its AppContainer sandbox for it.")
+	case playback.SandboxGapUserFiles:
+		return i18n.T("It can list your app data folders.")
 	}
 	return ""
 }
@@ -84,12 +88,15 @@ func realtimeRefusal(r playback.RealtimeRefusal, via string) string {
 
 // sandboxRow is the playback host's confinement (cdmhost.Sandbox): namespaces,
 // Landlock and seccomp on Linux; macOS's sandbox-exec profile, or none, on
-// macOS.
+// macOS; an AppContainer in a job object, or none, on Windows.
 func sandboxRow(p services.DiagPlayback) diagRow {
 	label := i18n.T("Host sandbox")
 	if p.Sandboxed {
-		if p.SandboxKind == "seatbelt" {
+		switch p.SandboxKind {
+		case playback.SandboxSeatbelt:
 			return diagRow{label: label, value: i18n.T("Sandboxed by macOS · no network or keychain access"), status: statusOK}
+		case playback.SandboxAppContainer:
+			return diagRow{label: label, value: i18n.T("Sandboxed by Windows · no network or file access"), status: statusOK}
 		}
 		return diagRow{label: label, value: i18n.T("Sandboxed · no network or session access"), status: statusOK}
 	}
@@ -98,16 +105,23 @@ func sandboxRow(p services.DiagPlayback) diagRow {
 		return diagRow{label: label, value: i18n.T("Unknown (the host did not start)")}
 	}
 	words := make([]string, len(gaps))
-	hasNamespaces := false
+	hasNamespaces, noAppContainer := false, false
 	for i, g := range gaps {
 		words[i] = sandboxGap(g)
 		hasNamespaces = hasNamespaces || g == playback.SandboxGapNamespaces
+		noAppContainer = noAppContainer || g == playback.SandboxGapNoAppContainer
 	}
 	note := strings.Join(words, " ")
 	if p.CDMBlocked {
 		return diagRow{label: label, value: i18n.T("Not sandboxed"), status: statusError, detail: note}
 	}
-	if p.SandboxKind == "none" {
+	if p.SandboxKind == playback.SandboxNone {
+		if noAppContainer {
+			return diagRow{
+				label: label, value: i18n.T("Not sandboxed"), status: statusWarning,
+				detail: i18n.T("{note} Previews still play, but Sona loads the Widevine CDM only inside its sandbox, so full songs can't.", "note", note),
+			}
+		}
 		return diagRow{
 			label: label, value: i18n.T("Not sandboxed"), status: statusWarning,
 			detail: i18n.T("{note} Playback still works, but the host can reach the network and your files. macOS's sandbox-exec confines it where it works.", "note", note),

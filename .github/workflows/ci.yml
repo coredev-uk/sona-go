@@ -949,11 +949,29 @@ jobs:
           SONA_CDM_REQUIRE: "1"
         run: go test -count=1 -timeout 10m ./internal/playback/widevine/ ./internal/playback/cdm/...
 
+      # The CDM host child's AppContainer sandbox (docs/security-review.md,
+      # "Windows sandbox"): a probe child and the host run in it. With
+      # SONA_CDMHOST_REQUIRE_SANDBOX set, a runner that refuses AppContainers
+      # fails these instead of skipping them, and a skip fails the step.
+      - name: Sandbox tests
+        env:
+          SONA_CDM_REQUIRE: "1"
+          SONA_CDMHOST_REQUIRE_SANDBOX: "1"
+        run: |
+          set +e
+          go test -count=1 -timeout 15m -v -run 'AppContainer|SandboxedHost|SandboxLoadsCDM|SandboxGaps|GrantAccess|ReadFolders|EnvHelpers' \
+            ./internal/playback/cdmhost/ >"$RUNNER_TEMP/sandbox.log" 2>&1
+          rc=$?
+          grep -vE '^=== (RUN|PAUSE|CONT)' "$RUNNER_TEMP/sandbox.log" | cut -c1-400 | head -n 120
+          if grep -q -- '--- SKIP' "$RUNNER_TEMP/sandbox.log"; then echo "a sandbox test was skipped"; rc=1; fi
+          exit $rc
+
       # The host child, GStreamer and the engine on Windows, against fakesink
       # and the real CDM.
       - name: Host and engine tests
         env:
           SONA_CDM_REQUIRE: "1"
+          SONA_CDMHOST_REQUIRE_SANDBOX: "1"
         run: |
           set +e
           go test -count=1 -timeout 10m -v ./internal/playback/cdmhost/ >"$RUNNER_TEMP/cdmhost.log" 2>&1
