@@ -171,11 +171,7 @@ kept past its build pass, and a handle cannot stand in for it.
   Windows reads the key the layout types, and its label is plain. Bound to
   another key in Settings → Shortcuts, the help answers to that key alone,
   and any shortcut bound to `?` takes the press. A `?` typed in a text field
-  is text, and the key recorder records it as `?`. While no control has the
-  focus (at the start, after a click on the background) it rests on an
-  element assistive technology does not see and Tab passes over, inside the
-  window, so that the window still gets the key: the focus is on nothing for
-  a screen reader, as before.
+  is text, and the key recorder records it as `?`.
 - A slider that moves by itself (Seek, as the song plays) keeps, for
   assistive technology, the value it had when the focus came and after each
   key: a screen reader reads every change of the focused slider, and the
@@ -319,6 +315,9 @@ session with audio:
 
 ## Known gaps
 
+- On GTK and AppKit `?` needs the focus somewhere in the window: at the start
+  press Tab first (or use the palette, Ctrl+K), as MyGo shows no key to the
+  window while nothing has the focus.
 - A confirmation opened over the first-run setup returns the focus to the
   setup's first control, not to what opened it.
 - Orca 50 has been listened to on Linux, through its log on the fixture profile

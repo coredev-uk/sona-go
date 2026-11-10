@@ -40,7 +40,6 @@ func (a *App) view(c *ui.Context) {
 		endPass(p)
 	})
 	root.Children(func() {
-		a.keyHolder(c)
 		ui.Row(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 			if a.sidebar {
 				a.sidebarView(c)
@@ -86,19 +85,6 @@ func (a *App) view(c *ui.Context) {
 		a.menubar.frame()
 	}
 	a.afterFrame(c, layerOpen, overlayOpen)
-}
-
-// keyHolder is where the keyboard focus rests while nothing has it, as
-// after a click on the background or at the start: inside the root, so that
-// a key pressed then is input the root observes (MyGo shows no element a
-// key while nothing has the focus, and "?" comes to the dispatcher only so
-// on GTK and AppKit). Tab passes over it, it draws no ring, and assistive
-// technology does not see it, so the focus is nowhere for it, as before.
-func (a *App) keyHolder(c *ui.Context) {
-	holder := ui.Box(c.Key("keys")).Absolute().Top(0).Left(0).Size(0, 0).TabStop(false).FocusRing(false).Role(ui.RoleNone)
-	if !c.Root().FocusWithin() {
-		holder.Focus()
-	}
 }
 
 // direction is the window's direction: right to left for a language written
