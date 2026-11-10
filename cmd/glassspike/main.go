@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -428,6 +429,26 @@ func (s *session) activate() {
 	time.Sleep(time.Second)
 }
 
+// pressFirst presses the first element of one of the roles in the main part
+// of the window (below the top bar, right of the sidebar).
+func (s *session) pressFirst(roles ...string) bool {
+	t, err := s.c.Tree()
+	if !s.must("tree", err) {
+		return false
+	}
+	for _, n := range t.Nodes {
+		if slices.Contains(roles, n.Role) && n.Bounds.X > 240 && n.Bounds.Y > 70 {
+			x, y := n.Bounds.Centre()
+			_ = s.c.Input(automation.PointerMove(x, y))
+			_ = s.c.Idle(2 * time.Second)
+			logf("%s: pressing %s %q", s.v.name, n.Role, n.Label)
+			return s.must("click "+n.Label, s.c.Input(automation.Click(x, y)))
+		}
+	}
+	logf("%s: no element of role %v in the main part", s.v.name, roles)
+	return false
+}
+
 // unfocus puts another app in front: Finder, with its windows closed so none
 // covers the picture.
 func (s *session) unfocus() {
@@ -528,6 +549,11 @@ func runShots(v variant) {
 	s.activate()
 	time.Sleep(3 * time.Second) // the covers
 	s.shot("albums", "")
+	// An option list: the sort select, over the page.
+	if s.v.scene("select") && s.pressFirst("popUpButton", "comboBox", "menuButton") {
+		s.shot("select", "")
+		s.key("Escape")
+	}
 	s.wheel(260)
 	s.shot("albums-scrolled", "")
 	if !s.v.wantsAny("albums-playing", "menu", "nowplaying-lyrics", "nowplaying-queue", "queue-aside", "unfocused", "mini", "mini-unfocused") {

@@ -34,7 +34,7 @@ func measureAll(reps int) {
 			v.measure = true
 			logf("=== rep %d, %s: albums grid", rep, v.name)
 			albumsRun(v, rep)
-			for _, kind := range []string{"playing", "lyrics"} {
+			for _, kind := range []string{"idle", "playing", "lyrics"} {
 				logf("=== rep %d, %s: %s", rep, v.name, kind)
 				if row := watchRun(v, rep, kind); row != "" {
 					rows[kind] = append(rows[kind], row)
@@ -42,11 +42,22 @@ func measureAll(reps int) {
 			}
 		}
 	}
-	for _, kind := range []string{"playing", "lyrics"} {
-		table := "| run | glass | frames | frames/s | frame time p50 / p95 / max | frames over 16.7 ms | dropped (gaps of an animation) | process CPU | drawn |\n|---|---|---|---|---|---|---|---|---|\n" + strings.Join(rows[kind], "")
+	for _, kind := range []string{"idle", "playing", "lyrics"} {
+		table := "| run | glass | frames | frames/s | frame time p50 / p95 / max | frames over 16.7 ms | dropped (gaps of an animation) | app CPU | WindowServer CPU | drawn |\n|---|---|---|---|---|---|---|---|---|---|\n" + strings.Join(rows[kind], "")
 		_ = os.WriteFile(filepath.Join(outDir, kind+"-table.md"), []byte(table), 0o644)
 		logf("%s:\n%s", kind, table)
 	}
+}
+
+// windowServerPID is the process that composites the screen: 0 if not found.
+func windowServerPID() int {
+	out, err := exec.Command("pgrep", "-x", "WindowServer").Output()
+	if err != nil || len(strings.Fields(string(out))) == 0 {
+		return 0
+	}
+	var pid int
+	_, _ = fmt.Sscan(strings.Fields(string(out))[0], &pid)
+	return pid
 }
 
 // albumsRun is `uiprobe` on the Albums grid: scroll passes at a fixed speed,
@@ -95,14 +106,15 @@ func watchRun(v variant, rep int, kind string) string {
 	}
 	s.activate()
 	time.Sleep(3 * time.Second)
-	if !s.startPlaying() {
+	if kind != "idle" && !s.startPlaying() {
 		return ""
 	}
-	if kind == "lyrics" {
+	switch kind {
+	case "lyrics":
 		s.key("N")
 		s.pressRole("tab", "Lyrics")
 		_, _ = s.c.Wait(10*time.Second, "the lyrics", func(t autoTree) bool { return t.HasText("Streetlights hum a borrowed tune") })
-	} else {
+	case "playing":
 		s.press("Back")
 		_, _ = s.c.Wait(20*time.Second, "the Albums page", func(t autoTree) bool { return t.HasText("24 albums") })
 	}
@@ -117,9 +129,16 @@ func watchRun(v variant, rep int, kind string) string {
 	}
 	frames := measure.Follow(s.paths.LogFile(), off)
 	const watch = 20 * time.Second
-	u0, t0 := measure.TreeUsage(pid), time.Now()
+	// The window server and the compositor do the glass's last steps, and
+	// the system's own glass entirely: their CPU is not the app's.
+	ws := windowServerPID()
+	u0, w0, t0 := measure.TreeUsage(pid), measure.TreeUsage(ws), time.Now()
 	time.Sleep(watch)
-	u1, wall := measure.TreeUsage(pid), time.Since(t0)
+	u1, w1, wall := measure.TreeUsage(pid), measure.TreeUsage(ws), time.Since(t0)
+	wsCPU := 0.0
+	if w0.OK && w1.OK {
+		wsCPU = 100 * (w1.CPU - w0.CPU).Seconds() / wall.Seconds()
+	}
 	fs := frames.Since(0)
 	cpu := 0.0
 	if u0.OK && u1.OK {
@@ -153,6 +172,6 @@ func watchRun(v variant, rep int, kind string) string {
 	if i := strings.Index(path, ":"); i > 0 {
 		path = path[:i]
 	}
-	return fmt.Sprintf("| %d | %s | %d | %.1f | %.1f / %.1f / %.1f ms | %d | %d | %.1f%% | %s |\n",
-		rep, glassCol, len(fs), float64(len(fs))/wall.Seconds(), measure.Quantile(took, 0.5), measure.Quantile(took, 0.95), mx, slow, dropped, cpu, path)
+	return fmt.Sprintf("| %d | %s | %d | %.1f | %.1f / %.1f / %.1f ms | %d | %d | %.1f%% | %.1f%% | %s |\n",
+		rep, glassCol, len(fs), float64(len(fs))/wall.Seconds(), measure.Quantile(took, 0.5), measure.Quantile(took, 0.95), mx, slow, dropped, cpu, wsCPU, path)
 }
