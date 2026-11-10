@@ -133,7 +133,7 @@ func toggleButton(c *ui.Context, label string, open bool) ui.Element {
 	b.Children(func() {
 		sub := tk.Type["sub"]
 		ui.Text(c, label).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).SingleLine()
-		ic := ui.Icon(c, theme.Icon("chevron-down")).FontSize(14)
+		ic := theme.Glyph(c, "chevron-down", 14, theme.GlyphOpts{Color: fg, Inherit: true})
 		turn := float32(0)
 		if open {
 			turn = 180
@@ -290,7 +290,7 @@ func (h *home) leadNotice(c *ui.Context, icon, title string, body func()) {
 		Border(1, theme.C("control-line")).BorderStyle(ui.BorderDashed).Role(ui.RoleGroup).Label(title).Children(func() {
 		ui.Row(c.Key("title")).Gap(8).AlignItems(ui.Center).Children(func() {
 			if icon != "" {
-				ui.Icon(c, theme.Icon(icon)).FontSize(16).TextColor(theme.C("ink-muted"))
+				theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: theme.C("ink-muted")})
 			}
 			text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
 		})

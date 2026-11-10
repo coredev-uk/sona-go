@@ -249,7 +249,9 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				play := ui.ButtonBase(c.Key("play")).Absolute().Left(rowPadX).Top((rowH-rowArt)/2).Size(rowArt, rowArt).Center().Radius(radius).
 					Background(theme.C("ground").Alpha(rowMarkA)).Label(i18n.T("Play {name}", "name", name)).IgnoreInput(!hover)
 				fade(play, hover)
-				play.Children(func() { ui.Icon(c, playGlyph()).FontSize(16).TextColor(theme.C("ink")).Margin(0, 0, 0, 1) })
+				play.Children(func() {
+					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true, SVG: playGlyph()}).Margin(0, 0, 0, 1)
+				})
 				if play.Clicked() {
 					ctx.Players.PlayItem(it)
 				}
@@ -269,7 +271,9 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				mark := ui.Row(c.Key("mark")).Absolute().Left(0).Top(0).Size(rowArt, rowArt).Center().Radius(radius).
 					Background(theme.C("ground").Alpha(rowMarkA)).IgnoreInput(true)
 				fade(mark, hot)
-				mark.Children(func() { ui.Icon(c, playGlyph()).FontSize(16).TextColor(theme.C("ink")).Margin(0, 0, 0, 1) })
+				mark.Children(func() {
+					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true, SVG: playGlyph()}).Margin(0, 0, 0, 1)
+				})
 			}
 		})
 		ui.Column(c.Key("text")).Grow(1).MinWidth(0).Children(func() {

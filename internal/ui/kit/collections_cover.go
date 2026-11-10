@@ -384,7 +384,7 @@ func (st *CoverState) cover(c *ui.Context, o *CoverOpts, it *CoverItem, size, ar
 				Radius(tk.Radius["full"]).Background(theme.C("play")).IgnoreInput(true)
 			collectionsFade(mark, hot)
 			mark.Children(func() {
-				ui.Icon(c, theme.Icon("play")).FontSize(16).TextColor(theme.C("on-play"))
+				theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("on-play")})
 			})
 		case it.Badge != "":
 			ui.Row(c.Key("badge")).Absolute().Left(8).Bottom(8).PaddingX(6).PaddingY(2).Radius(tk.Radius["md"]).

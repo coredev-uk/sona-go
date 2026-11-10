@@ -761,7 +761,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 				if !shown {
 					play.Absolute().Right(0).Top(0).Bottom(0).IgnoreInput(true).Opacity(0)
 				}
-				play.Children(func() { ui.Icon(c, theme.Icon("play")).FontSize(14).TextColor(ink) })
+				play.Children(func() { theme.Glyph(c, "play", 14, theme.GlyphOpts{Color: ink}) })
 				if play.Clicked() && o.OnPlay != nil {
 					o.OnPlay(i)
 				}

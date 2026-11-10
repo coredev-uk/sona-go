@@ -178,7 +178,7 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 			if o.Variant == Play && o.Size == SizeLG {
 				size = playGlyph
 			}
-			ic := ui.Icon(c, controlsIcon(o.Icon, o.Filled)).FontSize(size)
+			ic := theme.Glyph(c, o.Icon, size, theme.GlyphOpts{Color: fg, Inherit: true, Filled: o.Filled, SVG: controlsIcon(o.Icon, o.Filled)})
 			if o.Spin && !theme.ReducedMotion() {
 				ic.Rotate(ic.Loop("spin", time.Second, ui.Linear) * 360)
 			}
@@ -290,7 +290,8 @@ func PlayButton(c *ui.Context, label string, size float32) ui.Element {
 		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
 	}
 	e.Children(func() {
-		ui.Icon(c, controlsIcon("play", true)).FontSize(max(size*0.45, 12)).Margin(0, 0, 0, 1)
+		theme.Glyph(c, "play", max(size*0.45, 12), theme.GlyphOpts{Color: theme.C("on-play"), Inherit: true, Filled: true, SVG: controlsIcon("play", true)}).
+			Margin(0, 0, 0, 1)
 	})
 	return e
 }

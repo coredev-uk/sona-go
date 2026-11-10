@@ -326,6 +326,6 @@ func (p *player) rowButton(c *ui.Context, key, icon, name string, role ui.Role, 
 		fg = theme.C("ink")
 		btn.Background(theme.C("hover"))
 	}
-	btn.TextColor(fg).Children(func() { ui.Icon(c, theme.Icon(icon)).FontSize(16) })
+	btn.TextColor(fg).Children(func() { theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: fg, Inherit: true}) })
 	return btn.Clicked(), btn.Bounds()
 }

@@ -82,7 +82,7 @@ func Badge(c *ui.Context, label string, o BadgeOpts) ui.Element {
 	}
 	e.Children(func() {
 		if o.Icon != "" {
-			ui.Icon(c, theme.Icon(o.Icon)).FontSize(12)
+			theme.Glyph(c, o.Icon, 12, theme.GlyphOpts{Color: fg, Inherit: true})
 		}
 		t := controlsText(c, label, "meta").FontWeight(500).SingleLine()
 		if o.Variant == BadgeLink && hovered {

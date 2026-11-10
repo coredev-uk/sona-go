@@ -295,7 +295,7 @@ func (a *App) navLink(c *ui.Context, n module.NavItem) {
 	}
 	row.Children(func() {
 		if n.Icon != "" {
-			ui.Icon(c, theme.Icon(n.Icon)).FontSize(theme.Current().Metric["nav-icon"]).TextColor(fg)
+			theme.Glyph(c, n.Icon, theme.Current().Metric["nav-icon"], theme.GlyphOpts{Color: fg})
 		}
 		t := text(c, label, "body").TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
 		if on {

@@ -133,7 +133,7 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 				if !row.Hovered() {
 					btn.Opacity(0)
 				}
-				btn.Children(func() { ui.Icon(c, theme.Icon("play")).FontSize(16) })
+				btn.Children(func() { theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Inherit: true}) })
 				if btn.Clicked() {
 					play()
 				}

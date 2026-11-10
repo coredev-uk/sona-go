@@ -158,7 +158,7 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 				if !hot {
 					mark.Opacity(0)
 				}
-				mark.Children(func() { ui.Icon(c, theme.Icon("play")).FontSize(16) })
+				mark.Children(func() { theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink-muted"), Inherit: true}) })
 			}
 			if ctx.Menus != nil {
 				ctx.Menus.Trigger(c.Key("more"), ActionTarget{Item: StationItem(s), Name: s.Name}, TriggerOpts{Visible: hot})

@@ -87,7 +87,7 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 			main.Children(func() {
 				body()
 				if role == ui.RoleButton {
-					glyph := ui.Icon(c, theme.Icon("play")).FontSize(14).TextColor(theme.C("ink-muted")).Shrink(0)
+					glyph := theme.Glyph(c, "play", 14, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0)
 					if !main.Hovered() && !main.FocusVisible() {
 						glyph.Opacity(0)
 					}

@@ -307,7 +307,7 @@ func (s *Section) methodSwitcher(c *ui.Context, f *services.SecondFactor, curren
 				}
 				r.Height(28).PaddingX(12).Gap(6).AlignItems(ui.Center).Radius(5).TextColor(fg).Label(o.label).Disabled(disabled)
 				r.Children(func() {
-					ui.Icon(c, theme.Icon(o.icon)).FontSize(14)
+					theme.Glyph(c, o.icon, 14, theme.GlyphOpts{Color: fg, Inherit: true})
 					text(c, o.label, "secondary", "ink").TextColor(fg).SingleLine()
 				})
 				if r.Changed() {
