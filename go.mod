@@ -9,7 +9,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.53
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/zalando/go-keyring v0.2.8
-	golang.org/x/sync v0.24.0
+	golang.org/x/sync v0.25.0
 	golang.org/x/sys v0.49.0
 	golang.org/x/term v0.47.0
 	golang.org/x/text v0.43.0
