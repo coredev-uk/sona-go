@@ -159,14 +159,17 @@ func (m mapper) libSong(s library.Song) Song {
 		// dates only the songs of a pre-added album already out, and gives
 		// the rest no playParams: such a song goes by its album.
 		Playable: (s.CatalogID != "" || s.LibraryID != "") && !upcoming(s.ReleaseDate, false, m.clock()) &&
-			!((s.NoPlayParams || s.ReleaseDate == "") && m.libSongAlbumUpcoming(s)),
+			!m.libSongWaitsForItsAlbum(s),
 		Art: m.artOf(s.ArtworkTemplate),
 	}
 }
 
-// libSongAlbumUpcoming reports whether the library album of s, a song with
-// no playParams or date, is not out yet.
-func (m mapper) libSongAlbumUpcoming(s library.Song) bool {
+// libSongWaitsForItsAlbum reports whether s, a song with no playParams or
+// no date of its own, belongs to a library album that is not out yet.
+func (m mapper) libSongWaitsForItsAlbum(s library.Song) bool {
+	if !s.NoPlayParams && s.ReleaseDate != "" {
+		return false
+	}
 	_, up := libraryRelease(s.Album.Date, s.Album.CatalogDate, s.Album.Prerelease, m.clock())
 	return up
 }

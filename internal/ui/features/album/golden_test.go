@@ -2,6 +2,7 @@ package album
 
 import (
 	"testing"
+	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
@@ -59,4 +60,27 @@ func TestGoldenAlbumPageMinimumWindow(t *testing.T) {
 	r.tt.Art = append(r.tt.Art, r.h.Env.Art)
 	r.tt.Settle()
 	uitest.Golden(t, r.tt.Image(), "album-940x600-light")
+}
+
+// A pre-added library album, opened by its library ID, takes its linked
+// catalogue album's release state: the countdown, and only the songs out
+// playable.
+func TestGoldenLibraryAlbumNotOutYet(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		opts []uitest.Option
+	}{
+		{"library-album-not-out-light", nil},
+		{"library-album-not-out-dark", []uitest.Option{uitest.Dark()}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			goldenRegional(t)
+			r := newRig(t, "/album/l.9", 899, 1133, c.opts...)
+			r.addPreAddedLibraryAlbum(r.now.Add(5*time.Hour + 12*time.Minute))
+			r.shows("Salt Flats", "Out in 5 hours, 12 minutes")
+			r.tt.Art = append(r.tt.Art, r.h.Env.Art)
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), c.name)
+		})
+	}
 }

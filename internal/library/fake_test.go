@@ -189,7 +189,7 @@ func (f *fakeApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		json.NewEncoder(w).Encode(map[string]any{"data": data})
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
 		return
 	}
 	page := []map[string]any{}

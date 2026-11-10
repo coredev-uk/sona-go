@@ -380,6 +380,18 @@ func TestUnreleasedAlbumCountsDownToTheMinute(t *testing.T) {
 func TestLibraryAlbumTakesTheLinkedCatalogueAlbumsReleaseState(t *testing.T) {
 	r := newRig(t, "/album/l.9", 1132, 1000)
 	release := r.now.Add(5*time.Hour + 12*time.Minute)
+	r.addPreAddedLibraryAlbum(release)
+	r.shows("Out in 5 hours, 12 minutes")
+	day := fullReleaseDate(release.UnixMilli())
+	r.wantTexts(day+" · 2 of 5 songs out now", "Play the 2 songs out now")
+	r.wantNoTexts("Shuffle", "Released")
+}
+
+// addPreAddedLibraryAlbum puts in place library album l.9 as a library that
+// has not synced its release yet shows it (no release date, no flag, every
+// song playable; two are dated) beside its linked catalogue album, which
+// comes out at release.
+func (r *rig) addPreAddedLibraryAlbum(release time.Time) {
 	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
 		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, release.UnixMilli(), release.Format("2006-01-02")
 	}))
@@ -397,10 +409,6 @@ func TestLibraryAlbumTakesTheLinkedCatalogueAlbumsReleaseState(t *testing.T) {
 		Tracks: libTracks, InLibrary: true,
 	}
 	r.states.inLib["l.9"] = true
-	r.shows("Out in 5 hours, 12 minutes")
-	day := fullReleaseDate(release.UnixMilli())
-	r.wantTexts(day+" · 2 of 5 songs out now", "Play the 2 songs out now")
-	r.wantNoTexts("Shuffle", "Released")
 }
 
 func TestYearOnlyUnreleasedAlbumHasNoCountdown(t *testing.T) {

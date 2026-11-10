@@ -2,6 +2,7 @@ package applemusic
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"testing"
@@ -23,9 +24,9 @@ func TestLibraryAlbumsAskForTheCatalogAlbumsReleaseFields(t *testing.T) {
 			q.Get("fields[albums]") != "isSingle,releaseDate,isPrerelease" {
 			t.Errorf("request = %s?%s", r.URL.Path, r.URL.RawQuery)
 		}
-		w.Write([]byte(`{"data":[{"id":"l.1","type":"library-albums","attributes":{"name":"Soon","trackCount":34},
+		_, _ = fmt.Fprint(w, `{"data":[{"id":"l.1","type":"library-albums","attributes":{"name":"Soon","trackCount":34},
 			"relationships":{"catalog":{"data":[{"id":"7","type":"albums","attributes":{"isSingle":false,"releaseDate":"2026-11-20","isPrerelease":true}}]}}}],
-			"meta":{"total":1}}`))
+			"meta":{"total":1}}`)
 	}))
 	c.AMPBase = c.Base + "/amp"
 	var got []Album
@@ -56,7 +57,7 @@ func TestLibraryByIDAsksForTheItemsAndNothingElse(t *testing.T) {
 			http.Error(w, `{"errors":[]}`, http.StatusNotFound)
 			return
 		}
-		w.Write([]byte(`{"data":[{"id":"i.1","type":"library-songs","attributes":{"name":"Out","playParams":{"id":"i.1","kind":"song","isLibrary":true}}}]}`))
+		_, _ = fmt.Fprint(w, `{"data":[{"id":"i.1","type":"library-songs","attributes":{"name":"Out","playParams":{"id":"i.1","kind":"song","isLibrary":true}}}]}`)
 	}))
 	c.AMPBase = c.Base
 	songs, err := c.LibrarySongsByID(context.Background(), []string{"i.1", "i.2"})

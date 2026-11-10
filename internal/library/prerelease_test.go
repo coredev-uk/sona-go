@@ -105,7 +105,10 @@ func TestIncrementalSyncRefreshesUpcomingAlbums(t *testing.T) {
 			lookups = append(lookups, r)
 		}
 	}
-	if len(lookups) != 2 || !strings.Contains(lookups[0], "ids=l.soon&") || !strings.Contains(lookups[1], "ids=i.later&") {
+	// The domains run in parallel: either may ask first.
+	slices.Sort(lookups)
+	if len(lookups) != 2 || !strings.Contains(lookups[0], "/albums?") || !strings.Contains(lookups[0], "ids=l.soon&") ||
+		!strings.Contains(lookups[1], "/songs?") || !strings.Contains(lookups[1], "ids=i.later&") {
 		t.Fatalf("lookups = %v, want l.soon and i.later only", lookups)
 	}
 
