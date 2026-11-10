@@ -392,6 +392,12 @@ repository: regenerates the golden images of the failing golden tests in the CI
 image, commits them to the branch as bot-cecil and removes the label; the
 branch's code runs without secrets, the commit job runs none of it; needs the
 `golden-update` environment's App secrets),
+`nix-vendor-hash.yml` ("Nix vendorHash": builds the Go modules of
+`build/linux/nix/package.nix` on pushes to main and on pull requests that touch
+`go.mod`, `go.sum`, the flake or the package; on a mismatch in a pull request of
+this repository, as from a Renovate bump, commits the hash Nix reported to the
+branch as bot-cecil, once; the branch's code runs without secrets, the commit job
+runs none of it),
 `cache-prune.yml` (after each CI run on main: keeps the newest Go cache of
 each kind and deletes the rest, so the 10 GB cap never evicts what matters; a
 `workflow_run` job that checks out and runs nothing from the repository),
