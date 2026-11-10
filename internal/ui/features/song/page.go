@@ -62,7 +62,7 @@ func (s *song) songPage(c *ui.Context, r *ui.Route) {
 	if ww < narrow {
 		gutter = tk.Metric["gutter-narrow"]
 	}
-	sc := ui.Scroll(c).TrackScroll(&pg.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
+	sc := kit.GlassScroll(ui.Scroll(c).TrackScroll(&pg.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0))
 	sc.Children(func() {
 		ui.Column(c).Padding(padTop, gutter+tk.Metric["scrollbar"], padBottom, gutter).Children(func() {
 			switch {

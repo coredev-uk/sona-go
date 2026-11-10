@@ -373,9 +373,8 @@ func Popover(c *ui.Context, anchor ui.Element, open *bool, o PopoverOpts, build 
 		pad = 16
 	}
 	return ui.PopoverBase(c, anchor, open, func(panel ui.Element) {
-		sh := tk.Shadow["float"]
-		panel.Width(w).Padding(pad).Margin(4, 0, 0, 0).Radius(tk.Radius["lg"]).Background(theme.C("popover")).
-			Border(1, theme.C("border")).Shadow(sh.X, sh.Y, sh.Blur, sh.Spread, sh.Color).TextColor(theme.C("popover-foreground"))
+		panel.Width(w).Padding(pad).Margin(4, 0, 0, 0).Radius(tk.Radius["lg"]).TextColor(theme.C("popover-foreground"))
+		popoverSurface(panel, tk.Radius["lg"])
 		if !theme.ReducedMotion() {
 			m := tk.Motion["float"]
 			panel.Transition(ui.ElementTransition{Enter: &ui.Motion{Scale: 0.95}, Duration: m.Duration, Ease: m.Ease})

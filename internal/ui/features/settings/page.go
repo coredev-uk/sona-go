@@ -7,6 +7,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -84,14 +85,14 @@ func (s *settings) page(c *ui.Context, r *ui.Route) {
 			})
 		})
 	case narrow:
-		ui.Scroll(c).TrackScroll(&s.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0).Children(func() {
+		kit.GlassScroll(ui.Scroll(c).TrackScroll(&s.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)).Children(func() {
 			ui.Column(c).Padding(padTop, gutter+scrollbar, padBottom, gutter).Gap(24).Children(func() {
 				index()
 				content()
 			})
 		})
 	default:
-		ui.Scroll(c).TrackScroll(&s.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0).Children(func() {
+		kit.GlassScroll(ui.Scroll(c).TrackScroll(&s.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)).Children(func() {
 			ui.Row(c).Padding(padTop, gutter+scrollbar, padBottom, gutter).Gap(indexGap).AlignItems(ui.Start).Children(func() {
 				ui.Column(c.Key("index")).Width(indexWidth).Shrink(0).Children(index)
 				ui.Column(c.Key("section")).Grow(1).Shrink(1).MinWidth(0).MaxWidth(contentWidth).Children(content)

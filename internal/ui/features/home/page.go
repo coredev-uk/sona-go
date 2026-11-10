@@ -60,7 +60,7 @@ func (h *home) scrollPage(c *ui.Context, pv *pageView, identity string, body fun
 	tk := theme.Current()
 	gutter := pv.gutter()
 	devstate.Scroll(c, &pv.pos) // dev builds: the offset survives a restart
-	sc := ui.Scroll(c).TrackScroll(&pv.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
+	sc := kit.GlassScroll(ui.Scroll(c).TrackScroll(&pv.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0))
 	sc.Children(func() {
 		ui.Column(c).Padding(padTop, gutter+tk.Metric["scrollbar"], padBottom, gutter).Children(func() {
 			body(&kit.Pane{Pos: &pv.pos, Bounds: sc.Bounds})

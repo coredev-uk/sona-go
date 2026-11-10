@@ -10,9 +10,8 @@ import (
 // popover with 4px inside, a border and the floating shadow, 4px off its
 // field.
 func controlsPopupPanel(panel ui.Element) ui.Element {
-	sh := theme.Current().Shadow["float"]
-	return panel.Margin(4, 0, 4, 0).Padding(4).Radius(controlsRadius("md")).
-		Background(theme.C("popover")).Border(1, theme.C("border")).Shadow(sh.X, sh.Y, sh.Blur, sh.Spread, sh.Color)
+	r := controlsRadius("md")
+	return popoverSurface(panel.Margin(4, 0, 4, 0).Padding(4).Radius(r), r)
 }
 
 // controlsPopupHeight is how tall a popup's list may be: the room below its

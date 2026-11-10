@@ -6,6 +6,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -49,7 +50,7 @@ func (f *frame) gutter() float32 {
 // the gutter. The container's size is read for the next frame.
 func (f *frame) scroll(c *ui.Context, build func(gutter float32)) {
 	gutter := f.gutter()
-	sc := ui.Scroll(c).TrackScroll(&f.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
+	sc := kit.GlassScroll(ui.Scroll(c).TrackScroll(&f.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0))
 	sc.Children(func() {
 		ui.Column(c).Padding(padTop, gutter+theme.Current().Metric["scrollbar"], padBottom, gutter).Children(func() { build(gutter) })
 	})

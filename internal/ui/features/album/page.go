@@ -175,7 +175,7 @@ func (a *album) page(c *ui.Context, r *ui.Route) {
 func (a *album) scroll(c *ui.Context, id, highlight string, lay layout, now time.Time, gutter, scrollbar float32) {
 	var sc ui.Element
 	devstate.Scroll(c, &a.pos) // dev builds: the offset survives a restart
-	sc = ui.Scroll(c).TrackScroll(&a.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
+	sc = kit.GlassScroll(ui.Scroll(c).TrackScroll(&a.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0))
 	a.paneRect = func() ui.Rect { return sc.Bounds() }
 	sc.Children(func() {
 		ui.Column(c).Padding(padTop, gutter+scrollbar, padBottom, gutter).Children(func() {

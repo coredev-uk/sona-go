@@ -381,6 +381,7 @@ func (a *App) openWindow() {
 		Page:      mygo.PageOptions{DevTools: devtools},
 	}
 	a.chrome(&opts)
+	glassWindow(&opts)
 	win := mygo.NewWindow(opts)
 	if len(a.opts.Icon) > 0 {
 		if err := win.SetIcon(a.opts.Icon); err != nil {

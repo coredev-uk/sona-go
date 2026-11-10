@@ -117,7 +117,7 @@ func (p *playlists) playlistPage(c *ui.Context, r *ui.Route) {
 		gutter = tk.Metric["gutter-narrow"]
 	}
 	devstate.Scroll(c, &pg.pos) // dev builds: the offset survives a restart
-	sc := ui.Scroll(c).TrackScroll(&pg.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
+	sc := kit.GlassScroll(ui.Scroll(c).TrackScroll(&pg.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0))
 	sc.Children(func() {
 		ui.Column(c).Padding(28, gutter+tk.Metric["scrollbar"], 48, gutter).Children(func() {
 			switch {

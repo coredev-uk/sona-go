@@ -50,7 +50,7 @@ func (pg *pageView) body(c *ui.Context, key string, build func(pane *kit.Pane, g
 		gutter = tk.Metric["gutter-narrow"]
 	}
 	devstate.Scroll(c, &pg.pos) // dev builds: the offset survives a restart
-	sc := ui.Scroll(c).TrackScroll(&pg.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
+	sc := kit.GlassScroll(ui.Scroll(c).TrackScroll(&pg.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0))
 	sc.Children(func() {
 		// WebKitGTK's scroll bar took 12 DIPs of the page; MyGo's floats over
 		// it, so the same gutter keeps the content the size it was.

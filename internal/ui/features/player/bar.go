@@ -32,15 +32,29 @@ func (p *player) bar(c *ui.Context) {
 	if s.Current != nil {
 		backdrop = s.Current.Backdrop
 	}
-	ui.Column(c).Height(tk.Metric["player-bar"]).FillWidth().Background(theme.C("surface")).Label(i18n.T("Player")).Role(ui.RoleRegion).Children(func() {
-		ui.Box(c).Height(1).FillWidth().Background(theme.C("line"))
-		kit.Backdrop(c, p.env.Art, kit.BackdropOpts{Src: backdrop}, func() {
+	bar := ui.Column(c).Height(tk.Metric["player-bar"]).FillWidth().Label(i18n.T("Player")).Role(ui.RoleRegion)
+	// The glass spike: a floating pane of Liquid Glass over the page, with no
+	// line and no wash of the cover (the glass is the material).
+	glassy := kit.GlassOn("bars")
+	if glassy {
+		kit.GlassPane(bar, "bars", 22)
+	} else {
+		bar.Background(theme.C("surface"))
+	}
+	bar.Children(func() {
+		content := func() {
 			ui.Row(c).Fill().Padding(0, 16).Gap(24).AlignItems(ui.Center).Children(func() {
 				p.song(c, s)
 				p.transport(c, s)
 				p.volumeControls(c, s)
 			})
-		}).Grow(1).Basis(0).MinHeight(0).FillWidth()
+		}
+		if glassy {
+			content()
+			return
+		}
+		ui.Box(c).Height(1).FillWidth().Background(theme.C("line"))
+		kit.Backdrop(c, p.env.Art, kit.BackdropOpts{Src: backdrop}, content).Grow(1).Basis(0).MinHeight(0).FillWidth()
 	})
 }
 

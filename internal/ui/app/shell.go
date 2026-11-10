@@ -9,6 +9,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/windowchrome"
@@ -151,7 +152,7 @@ func (a *App) hidden() bool {
 // (module.Slots.Mini) in a fixed-size frameless window above the others. Its
 // close button does what closing the main window does.
 func (a *App) newMiniWindow() native {
-	m := mygo.NewWindow(mygo.WindowOptions{
+	opts := mygo.WindowOptions{
 		// translators: Title of the small always-on-top player window, read by window lists and screen readers.
 		Title:           i18n.T("Sona mini player"),
 		Width:           miniWidth,
@@ -166,7 +167,9 @@ func (a *App) newMiniWindow() native {
 		AlwaysOnTop:     true,
 		Hidden:          true,
 		Content:         ui.View(a.miniView),
-	})
+	}
+	glassMini(&opts)
+	m := mygo.NewWindow(opts)
 	if len(a.opts.Icon) > 0 {
 		if err := m.SetIcon(a.opts.Icon); err != nil {
 			a.log.Warn("mini player icon", "err", err)
@@ -184,7 +187,10 @@ func (a *App) newMiniWindow() native {
 func (a *App) miniView(c *ui.Context) {
 	c.Root().Direction(a.direction())
 	theme.Apply(c)
-	root := ui.Column(c).Fill().Background(theme.C("surface"))
+	root := ui.Column(c).Fill()
+	if !kit.GlassOn("mini") { // else the window's glass shows through
+		root.Background(theme.C("surface"))
+	}
 	endPass := a.env.Art.Pass(c)
 	root.Draw(func(p *ui.Painter, _ ui.Rect) { endPass(p) })
 	root.Children(func() {

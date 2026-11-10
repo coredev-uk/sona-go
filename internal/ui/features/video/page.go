@@ -62,7 +62,7 @@ func (v *video) page(c *ui.Context, r *ui.Route) {
 		gutter = tk.Metric["gutter-narrow"]
 	}
 	devstate.Scroll(c, &v.scroll) // dev builds: the offset survives a restart
-	sc := ui.Scroll(c).TrackScroll(&v.scroll).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
+	sc := kit.GlassScroll(ui.Scroll(c).TrackScroll(&v.scroll).Grow(1).Basis(0).MinHeight(0).MinWidth(0))
 	defer func() { v.pageW = sc.Bounds().W }() // the next frame's gutters
 	sc.Children(func() {
 		scrollbar := tk.Metric["scrollbar"]

@@ -84,7 +84,7 @@ func gutter(c *ui.Context) float32 {
 func (a *artist) scaffold(c *ui.Context, pos *ui.ScrollState, width *float32, body func(pane *kit.Pane)) {
 	g, scrollbar := gutter(c), theme.Current().Metric["scrollbar"]
 	devstate.Scroll(c, pos) // dev builds: the offset survives a restart
-	sc := ui.Scroll(c).TrackScroll(pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
+	sc := kit.GlassScroll(ui.Scroll(c).TrackScroll(pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0))
 	pane := &kit.Pane{Pos: pos, Bounds: sc.Bounds}
 	sc.Children(func() {
 		ui.Column(c).Padding(28, g+scrollbar, 48, g).Children(func() {

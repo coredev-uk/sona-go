@@ -21,6 +21,10 @@ import (
 
 func main() {
 	firstRun := flag.Bool("first-run", false, "leave the first-run setup undone, so the app opens on it")
+	// The macOS glass spike (#210 §6.1): the screenshots follow the system's
+	// appearance, and Now Playing shows lyrics with no network.
+	themeName := flag.String("theme", "", "light, dark or system (default: the fixture's, light)")
+	withLyrics := flag.Bool("lyrics", false, "seed invented lyrics for every fixture song into the lyrics cache")
 	flag.Parse()
 	for _, v := range []string{"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"} {
 		if os.Getenv(v) == "" {
@@ -34,6 +38,12 @@ func main() {
 	}
 	if err == nil && *firstRun {
 		err = undoSetup(paths)
+	}
+	if err == nil && *themeName != "" {
+		err = setTheme(paths, *themeName)
+	}
+	if err == nil && *withLyrics {
+		err = seedLyrics(context.Background(), paths)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "profile:", err)

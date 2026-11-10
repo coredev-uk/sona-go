@@ -40,6 +40,10 @@ func (m *mini) content(c *ui.Context) {
 	if cur != nil {
 		backdrop = cur.Backdrop
 	}
+	glassy := kit.GlassOn("mini")
+	if glassy {
+		backdrop = "" // the window's glass is the material: no wash over it
+	}
 	root := kit.Backdrop(c.Key("mini"), m.env.Art, kit.BackdropOpts{Src: backdrop}, func() {
 		ui.Row(c.Key("body")).Fill().Padding(pad).Gap(14).AlignItems(ui.Center).Children(func() {
 			src := ""
@@ -55,7 +59,10 @@ func (m *mini) content(c *ui.Context) {
 			})
 			m.playingPopup(c, cur)
 		})
-	}).Fill().Background(theme.C("surface")).DragWindow().Role(ui.RoleGroup).Label(i18n.T("Sona mini player"))
+	}).Fill().DragWindow().Role(ui.RoleGroup).Label(i18n.T("Sona mini player"))
+	if !glassy {
+		root.Background(theme.C("surface"))
+	}
 	m.playingKeys(root, cur)
 }
 

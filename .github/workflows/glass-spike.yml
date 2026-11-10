@@ -1,0 +1,105 @@
+# TEMPORARY: the macOS glass spike (#210 §6.1). This workflow exists only on
+# the draft PR "chore: macOS glass spike (do not merge)", which is closed
+# unmerged once its pictures and figures are posted on #210.
+#
+# It builds the spike's probe build on a macOS runner (no Mac was at hand),
+# starts it on the fixture profile (no account, no network, the fake playback
+# engine, private HOME), drives it through MyGo's automation socket to each
+# surface that has glass, and photographs the screen with screencapture with
+# the glass off and on, in light and dark, with the window not in front and
+# with Reduce Transparency; a second job measures idle CPU and frame times of
+# the Albums grid and of Now Playing with lyrics, with and without glass.
+# The runner is a virtual machine: its figures are a VM's, not Apple silicon
+# hardware's (cmd/glassspike, machine.txt in the artifact).
+name: glass-spike
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: glass-spike-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shots:
+    name: Screenshots (macOS)
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-macos
+        id: setup
+        with:
+          flavor: glass-spike
+
+      - name: Build the probe build, the profile writer and the driver
+        run: |
+          go build -tags probe,sqlite_fts5 -o bin/sona-spike ./cmd/sona
+          go build -tags sqlite_fts5 -o bin/e2e-profile ./e2e/profile
+          go build -o bin/glassspike ./cmd/glassspike
+          build/darwin/devbundle.sh bin/sona-spike bin/Sona.app
+
+      - name: Photograph each surface
+        run: bin/glassspike shots -app "$PWD/bin/Sona.app/Contents/MacOS/sona" -profile "$PWD/bin/e2e-profile" -out "$PWD/glass-out"
+
+      - name: Keep the pictures and the report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: glass-shots
+          path: glass-out
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Save Go's caches
+        if: ${{ always() }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.cache-path }}
+          key: ${{ steps.setup.outputs.cache-key }}
+
+  measure:
+    name: Idle CPU and frames (macOS)
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-macos
+        with:
+          flavor: glass-spike
+
+      - name: Build
+        run: |
+          go build -tags probe,sqlite_fts5 -o bin/sona-spike ./cmd/sona
+          go build -tags sqlite_fts5 -o bin/e2e-profile ./e2e/profile
+          go build -o bin/glassspike ./cmd/glassspike
+          go build -o bin/uiprobe ./cmd/uiprobe
+          build/darwin/devbundle.sh bin/sona-spike bin/Sona.app
+
+      - name: Measure with and without glass
+        run: bin/glassspike measure -reps 3 -app "$PWD/bin/Sona.app/Contents/MacOS/sona" -profile "$PWD/bin/e2e-profile" -uiprobe "$PWD/bin/uiprobe" -out "$PWD/glass-out"
+
+      - name: Keep the tables and the report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: glass-measure
+          path: glass-out
+          if-no-files-found: ignore
+          retention-days: 14

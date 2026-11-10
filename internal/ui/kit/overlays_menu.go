@@ -272,9 +272,8 @@ func (m *Menu) panel(c *ui.Context, o MenuOpts, tk *theme.Tokens, lv int, items 
 	id := o.ID + ":" + string(rune('0'+lv))
 	level := func() *menuLevel { return &m.levels[lv] }
 	panel := ui.Scroll(c.Key(id)).Role(ui.RoleMenu).Focusable().FocusRing(false).Label(o.Label)
-	sh := tk.Shadow["float"]
-	panel.MinWidth(128).Padding(4).Radius(tk.Radius["lg"]).Background(theme.C("popover")).Border(1, theme.C("border")).
-		Shadow(sh.X, sh.Y, sh.Blur, sh.Spread, sh.Color)
+	panel.MinWidth(128).Padding(4).Radius(tk.Radius["lg"])
+	popoverSurface(panel, tk.Radius["lg"])
 	if o.Width > 0 {
 		panel.Width(o.Width)
 	}

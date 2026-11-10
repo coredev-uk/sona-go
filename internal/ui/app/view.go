@@ -22,6 +22,7 @@ func (a *App) view(c *ui.Context) {
 	c.Root().Direction(dir)
 	a.swipe.RightToLeft = dir == ui.RightToLeft
 	theme.Apply(c)
+	glassReport(c, a.log)
 	a.rememberRoute(c)
 
 	overlayOpen := a.overlayGivesWay()
@@ -30,24 +31,47 @@ func (a *App) view(c *ui.Context) {
 		a.keys.dispatch(c)
 	}
 
-	root := ui.Column(c).Fill().Background(theme.C("ground")).IgnoreInput(layerOpen).HandleInput(a.swipe.Input)
+	// The glass spike (kit/glass_darwin.go): the window's material shows
+	// where the view draws no background (the root, the sidebar); the player
+	// bar floats over the page, which scrolls under it.
+	vibrant := c.Vibrancy() && kit.GlassOn("window")
+	root := ui.Column(c).Fill().IgnoreInput(layerOpen).HandleInput(a.swipe.Input)
+	if vibrant {
+		c.Root().Background(ui.Transparent)
+	} else {
+		root.Background(theme.C("ground"))
+	}
 	endPass := a.env.Art.Pass(c)
 	root.Draw(func(p *ui.Painter, _ ui.Rect) {
 		a.paintOnce.Do(a.painted)
 		endPass(p)
 	})
+	floatBar := kit.GlassOn("bars")
 	root.Children(func() {
 		ui.Row(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 			if a.sidebar {
-				a.sidebarView(c)
+				a.sidebarView(c, vibrant)
 				ui.Box(c).Width(1).FillHeight().Background(theme.C("line"))
 			}
-			a.mainColumn(c)
+			a.mainColumn(c, vibrant)
 		})
 		for _, m := range a.mods {
-			if m.Slots.Bottom != nil {
-				m.Slots.Bottom(c)
+			if m.Slots.Bottom == nil {
+				continue
 			}
+			if !floatBar {
+				m.Slots.Bottom(c)
+				continue
+			}
+			// Over the page, inset from the window's edges and, with the
+			// sidebar shown, from the sidebar's.
+			left := kit.GlassBarMargin()
+			if a.sidebar {
+				left += theme.Current().Metric["sidebar"] + 1
+			}
+			ui.Column(c.Key("glass-bottom:" + m.ID)).Absolute().Bottom(kit.GlassBarMargin()).Left(left).Right(kit.GlassBarMargin()).Children(func() {
+				m.Slots.Bottom(c)
+			})
 		}
 	})
 	dispatched := !layerOpen
@@ -108,12 +132,22 @@ func (a *App) painted() {
 	}
 }
 
-// mainColumn is the top bar over the page area.
-func (a *App) mainColumn(c *ui.Context) {
-	ui.Column(c).Grow(1).Basis(0).MinWidth(0).FillHeight().Children(func() {
-		a.topBar(c)
-		ui.Box(c).Height(1).FillWidth().Background(theme.C("line"))
-		a.statusBanner(c)
+// mainColumn is the top bar over the page area. With the glass spike's bars
+// (kit/glass_darwin.go) the top bar floats over the page instead, which
+// scrolls under it on a scroll edge.
+func (a *App) mainColumn(c *ui.Context, vibrant bool) {
+	floats := kit.GlassOn("bars")
+	col := ui.Column(c).Grow(1).Basis(0).MinWidth(0).FillHeight()
+	if vibrant {
+		// The window's glass shows behind the sidebar alone.
+		col.Background(theme.C("ground"))
+	}
+	col.Children(func() {
+		if !floats {
+			a.topBar(c)
+			ui.Box(c).Height(1).FillWidth().Background(theme.C("line"))
+			a.statusBanner(c)
+		}
 		overlayOpen := a.overlayOpen()
 		ui.Row(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 			// An open overlay covers the page, which keeps its place (and
@@ -122,9 +156,17 @@ func (a *App) mainColumn(c *ui.Context) {
 				a.page(c)
 			})
 			for _, m := range a.mods {
-				if m.Slots.Aside != nil {
-					m.Slots.Aside(c)
+				if m.Slots.Aside == nil {
+					continue
 				}
+				if !floats {
+					m.Slots.Aside(c)
+					continue
+				}
+				top, bottom := kit.GlassInsets()
+				ui.Column(c.Key("glass-aside:"+m.ID)).Shrink(0).FillHeight().Padding(top, 0, bottom).Background(theme.C("ground")).Children(func() {
+					m.Slots.Aside(c)
+				})
 			}
 			for _, m := range a.mods {
 				if o := m.Slots.Overlay; o != nil && o.Open != nil && o.Open() {
@@ -132,6 +174,13 @@ func (a *App) mainColumn(c *ui.Context) {
 				}
 			}
 		})
+		if floats {
+			kit.GlassTopEdge(c, theme.Current().Metric["top-bar"])
+			ui.Column(c.Key("glass-top")).Absolute().Top(0).Left(0).Right(0).Children(func() {
+				a.topBar(c)
+				a.statusBanner(c)
+			})
+		}
 	})
 }
 
@@ -181,8 +230,14 @@ func (a *App) topBar(c *ui.Context) {
 	if !a.sidebar {
 		start = max(start, lead+8)
 	}
-	row := ui.Row(c).Height(theme.Current().Metric["top-bar"]).FillWidth().Background(theme.C("surface")).
+	row := ui.Row(c).Height(theme.Current().Metric["top-bar"]).FillWidth().
 		PaddingStart(start).PaddingEnd(max(16, trail+8)).Gap(12).AlignItems(ui.Center)
+	switch {
+	case !kit.GlassOn("bars"):
+		row.Background(theme.C("surface"))
+	case kit.GlassTopStrip():
+		kit.GlassPane(row, "bars", 0)
+	}
 	if a.drawnTitleBar {
 		row.DragWindow()
 	}
@@ -204,10 +259,13 @@ func (a *App) topBar(c *ui.Context) {
 
 // sidebarView is the sidebar: the modules' links by section, their
 // sections in the scrolling middle, their footers and footer links.
-func (a *App) sidebarView(c *ui.Context) {
+func (a *App) sidebarView(c *ui.Context, vibrant bool) {
 	tk := theme.Current()
-	ui.Column(c).Width(tk.Metric["sidebar"]).FillHeight().Background(theme.C("surface")).
-		Padding(0, 12, 12).Clip().Label(i18n.T("Main")).Role(ui.RoleGroup).Children(func() {
+	side := ui.Column(c).Width(tk.Metric["sidebar"]).FillHeight()
+	if !vibrant {
+		side.Background(theme.C("surface"))
+	}
+	side.Padding(0, 12, 12).Clip().Label(i18n.T("Main")).Role(ui.RoleGroup).Children(func() {
 		a.brand(c)
 		ui.Column(c).Gap(2).Margin(8, 0, 0, 0).Children(func() {
 			for _, n := range a.nav[module.NavPrimary] {

@@ -100,10 +100,13 @@ func (p *player) nowPlaying(c *ui.Context) {
 	root := kit.Backdrop(c.Key("now-playing"), p.env.Art, washOf(cur), func() {
 		ui.Row(c.Key("center")).FillWidth().FillHeight().Grow(1).Basis(0).MinHeight(0).Justify(ui.Center).AlignItems(ui.Stretch).Children(func() {
 			var body ui.Element
+			// Under the glass spike's bars the view's wash runs under them: its
+			// content keeps clear of both.
+			barTop, barBottom := kit.GlassInsets()
 			if lay.stacked {
-				body = ui.Column(c.Key("body")).Padding(20, 24, 16)
+				body = ui.Column(c.Key("body")).Padding(20+barTop, 24, 16+barBottom)
 			} else {
-				body = ui.Row(c.Key("body")).Gap(56).Padding(24, 40, 32)
+				body = ui.Row(c.Key("body")).Gap(56).Padding(24+barTop, 40, 32+barBottom)
 			}
 			body.MaxWidth(1280).FillWidth().FillHeight().MinHeight(0).AlignItems(ui.Stretch)
 			body.Children(func() {
@@ -128,6 +131,9 @@ func (p *player) nowPlaying(c *ui.Context) {
 						}
 					})
 					panel := ui.Column(c.Key("panel")).FillHeight().Grow(1).Basis(0).MinHeight(0).Margin(12, 0, 0, 0)
+					// The glass spike: the queue and the lyrics sit on a pane of
+					// glass over the cover's wash.
+					kit.GlassPane(panel, "nowplaying", 24)
 					if len(panes) > 1 {
 						panel.Role(ui.RoleGroup).Label(paneName(shown))
 					}
