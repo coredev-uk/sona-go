@@ -188,6 +188,14 @@ func TestCalendarDaysAndNextMidnight(t *testing.T) {
 	if got := NextMidnight(time.Date(2026, 12, 31, 23, 59, 0, 0, time.UTC), time.UTC); !got.Equal(time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)) {
 		t.Errorf("NextMidnight at the year's end = %v", got)
 	}
+	// West of UTC, Chile's clocks skip from 23:59:59 on Saturday to 01:00 on
+	// Sunday: the next day starts at 01:00, not an hour before the jump.
+	if scl, err := time.LoadLocation("America/Santiago"); err == nil {
+		got := NextMidnight(time.Date(2026, 9, 5, 22, 0, 0, 0, scl), scl)
+		if want := time.Date(2026, 9, 6, 1, 0, 0, 0, scl); !got.Equal(want) {
+			t.Errorf("NextMidnight across Santiago's skipped midnight = %v, want %v", got, want)
+		}
+	}
 }
 
 func TestFormatDateTimeWritesTheDayAndTheClock(t *testing.T) {

@@ -125,10 +125,21 @@ func TestPageUpdatedReadsInCalendarWordsWithTheExactDate(t *testing.T) {
 		t.Errorf("Tab walk %q lacks the note before Play", stops)
 	}
 
-	// Left open across midnight, the page relabels itself.
+	// Left open across midnight, the page relabels itself: a playlist changed
+	// yesterday reads "on Monday" once the day turns, with no frame asked for
+	// by the test (HasText does not draw), so only the page's own wake at
+	// midnight can change it.
+	d = libraryDetail("p.1", "Road Trip", threeSongs()...)
+	d.Playlist.LastModified = time.Date(2026, 11, 9, 21, 30, 0, 0, time.Local).UnixMilli()
+	r = newPageRig(t, "p.1", d)
+	r.p.now = func() time.Time { return clock }
+	r.tt.Frame()
+	r.shows("Updated yesterday")
 	clock = now.Add(5 * time.Minute)
 	r.tt.Advance(5 * time.Minute)
-	r.shows("Updated yesterday")
+	if !r.tt.HasText("Updated on Monday") {
+		t.Errorf("after midnight the page reads %q", r.tt.Texts())
+	}
 }
 
 func TestPageLoadingShowsTheSkeletonAndFailureOffersRetry(t *testing.T) {

@@ -63,10 +63,16 @@ func CalendarDays(t, now time.Time, loc *time.Location) int {
 
 // NextMidnight is the start of the day after now's in loc: when a label
 // written by RelativeDay or CalendarDays next changes its day. Where the
-// clocks skip midnight it is the first time that day has.
+// clocks skip midnight it is the first time that day has: time.Date then
+// lands west of UTC an hour early, still on now's day (Santiago, Havana, the
+// Azores), so the instant of the jump is used instead.
 func NextMidnight(now time.Time, loc *time.Location) time.Time {
 	n := now.In(loc)
-	return time.Date(n.Year(), n.Month(), n.Day()+1, 0, 0, 0, 0, loc)
+	next := time.Date(n.Year(), n.Month(), n.Day()+1, 0, 0, 0, 0, loc)
+	if next.Day() == n.Day() {
+		_, next = next.ZoneBounds()
+	}
+	return next
 }
 
 // RelativeDay writes when t was, before now, in calendar words read in loc,
