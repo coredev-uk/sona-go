@@ -65,7 +65,7 @@ type pendingChord struct {
 	with  []module.Shortcut
 }
 
-func (r *recorder) stop() { r.recording, r.refused = false, "" }
+func (r *recorder) stop() { r.recording, r.refused, r.slash = false, "", false }
 
 // shortcutView is what a frame of the section works from.
 type shortcutView struct {

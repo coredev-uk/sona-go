@@ -37,6 +37,7 @@ func typeText(c *ui.Context, s, style string) ui.Element {
 func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 	if !h.open {
 		h.frames = 0
+		h.slash.Take(c) // a "?" that came as it closed another way is not the next opening's
 		return
 	}
 	w, wh := c.Size()
