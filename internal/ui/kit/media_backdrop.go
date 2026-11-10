@@ -92,7 +92,7 @@ func Backdrop(c *ui.Context, l *ArtLoader, o BackdropOpts, children func()) ui.E
 	if o.Tone == ToneGround {
 		tone = "ground"
 	}
-	scrim := theme.C(tone).Alpha(theme.Current().Scalar["backdrop-scrim"])
+	scrim := theme.C(tone).Alpha(GlassScrim(theme.Current().Scalar["backdrop-scrim"]))
 	cur, prev := st.cur, st.prev
 	box.Draw(func(p *ui.Painter, r ui.Rect) {
 		if hasColour {
@@ -175,7 +175,7 @@ func (l *ArtLoader) WashOf(o BackdropOpts) Wash {
 	if o.Tone == ToneGround {
 		tone = "ground"
 	}
-	w := Wash{base: theme.C(tone), scrim: theme.Current().Scalar["backdrop-scrim"]}
+	w := Wash{base: theme.C(tone), scrim: GlassScrim(theme.Current().Scalar["backdrop-scrim"])}
 	if theme.ReduceEffects() {
 		return w // the Backdrop draws nothing
 	}

@@ -114,9 +114,20 @@ type variant struct {
 	glass   string // SONA_GLASS
 	dark    bool
 	reduce  bool     // Reduce Transparency on
-	topbar  string   // SONA_GLASS_TOPBAR
+	plain   bool     // the runner's own wallpaper, not the colourful one
+	env     []string // more environment (SONA_GLASS_TOPBAR=strip…)
 	only    []string // the scenes to take (nil: all)
 	measure bool     // MYGO_FRAME_STATS=all
+}
+
+// wantsAny reports whether any of the scenes is taken.
+func (v variant) wantsAny(names ...string) bool {
+	for _, n := range names {
+		if v.scene(n) {
+			return true
+		}
+	}
+	return false
 }
 
 func (v variant) scene(name string) bool {
@@ -163,24 +174,53 @@ func setAppearance(dark bool) {
 	logf("appearance: dark=%t, AppleInterfaceStyle=%q", dark, got)
 }
 
-// setReduceTransparency tries to turn Reduce Transparency on or off; it
-// reports what the preference reads afterwards.
-func setReduceTransparency(on bool) bool {
+// setAccessibility turns one of the Accessibility Display preferences
+// (reduceTransparency, reduceMotion) on or off, and reports whether the
+// preference reads as wanted afterwards.
+func setAccessibility(key string, on bool) bool {
 	val := fmt.Sprint(on)
 	for _, c := range [][]string{
-		{"defaults", "write", "com.apple.universalaccess", "reduceTransparency", "-bool", val},
-		{"sudo", "-n", "defaults", "write", "/Library/Preferences/com.apple.universalaccess", "reduceTransparency", "-bool", val},
+		{"defaults", "write", "com.apple.universalaccess", key, "-bool", val},
+		{"sudo", "-n", "defaults", "write", "/Library/Preferences/com.apple.universalaccess", key, "-bool", val},
 	} {
 		if out, err := sh(c[0], c[1:]...); err != nil {
-			logf("reduce transparency: %s: %v %s", strings.Join(c, " "), err, out)
+			logf("%s: %s: %v %s", key, strings.Join(c, " "), err, out)
 		}
 	}
 	_, _ = sh("killall", "cfprefsd")
 	time.Sleep(3 * time.Second)
-	got, _ := sh("defaults", "read", "com.apple.universalaccess", "reduceTransparency")
-	logf("reduce transparency: wanted %t, preference reads %q", on, got)
+	got, _ := sh("defaults", "read", "com.apple.universalaccess", key)
+	logf("%s: wanted %t, preference reads %q", key, on, got)
 	return got == "1" == on
 }
+
+// setWallpaper puts a colourful picture on the desktop (the glass samples
+// what is behind the window), or back the runner's own.
+func setWallpaper(plain bool) {
+	if plain {
+		if out, err := sh("osascript", "-e", `tell application "System Events" to get picture of desktop 1`); err == nil {
+			origWall = out
+		}
+		logf("wallpaper: the runner's own (%s)", origWall)
+		return
+	}
+	file := filepath.Join(os.TempDir(), "glass-spike-wall.png")
+	if err := writeWallpaper(file); err != nil {
+		logf("wallpaper: %v", err)
+		return
+	}
+	script := fmt.Sprintf(`tell application "System Events" to tell every desktop to set picture to %q`, file)
+	if out, err := sh("osascript", "-e", script); err != nil {
+		logf("wallpaper: osascript refused (%v: %s); the pictures are on the runner's own", err, out)
+		return
+	}
+	time.Sleep(4 * time.Second)
+	out, _ := sh("osascript", "-e", `tell application "System Events" to get picture of desktop 1`)
+	logf("wallpaper: set, the desktop reads %q", out)
+}
+
+// origWall is the runner's own wallpaper, as read before it was changed.
+var origWall string
 
 func startSession(v variant) (*session, error) {
 	home, err := os.MkdirTemp("", "gs-home")
@@ -215,9 +255,7 @@ func startSession(v variant) (*session, error) {
 		"HOME="+home, "MYGO_AUTOMATION="+sock, "SONA_E2E=1", "SONA_PRIVATE=1",
 		"SONA_E2E_CDN="+s.covers.Listener.Addr().String(), "SONA_GLASS="+v.glass,
 	)
-	if v.topbar != "" {
-		env = append(env, "SONA_GLASS_TOPBAR="+v.topbar)
-	}
+	env = append(env, v.env...)
 	if v.measure {
 		env = append(env, "MYGO_FRAME_STATS=all")
 	}
@@ -390,28 +428,16 @@ func (s *session) activate() {
 	time.Sleep(time.Second)
 }
 
-// pressPrefix presses the first button whose label starts with prefix.
-func (s *session) pressPrefix(prefix string) bool {
-	t, err := s.c.Wait(20*time.Second, "a button "+prefix+"…", func(t *automation.Tree) bool {
-		for _, n := range t.Nodes {
-			if n.Role == "button" && strings.HasPrefix(n.Label, prefix) {
-				return true
-			}
-		}
-		return false
-	})
-	if !s.must("find "+prefix, err) {
-		return false
+// unfocus puts another app in front: Finder, with its windows closed so none
+// covers the picture.
+func (s *session) unfocus() {
+	_, _ = sh("open", "-g", "-a", "Finder")
+	time.Sleep(time.Second)
+	if out, err := sh("osascript", "-e", `tell application "Finder" to close every window`); err != nil {
+		logf("%s: closing Finder's windows: %v %s", s.v.name, err, out)
 	}
-	for _, n := range t.Nodes {
-		if n.Role == "button" && strings.HasPrefix(n.Label, prefix) {
-			x, y := n.Bounds.Centre()
-			_ = s.c.Input(automation.PointerMove(x, y))
-			_ = s.c.Idle(2 * time.Second)
-			return s.must("click "+n.Label, s.c.Input(automation.Click(x, y)))
-		}
-	}
-	return false
+	_, _ = sh("osascript", "-e", `tell application "Finder" to activate`)
+	time.Sleep(2 * time.Second)
 }
 
 // wheel scrolls the page under the pointer by dy DIPs, in steps.
@@ -444,30 +470,46 @@ func (s *session) startPlaying() bool {
 	return s.must("playing", err)
 }
 
-// shotsVariants is every combination the issue asks for.
+// shotsVariants is every combination the issue asks for. The first ones are
+// on the runner's plain wallpaper, the rest on a colourful one (a plain
+// wallpaper gives the glass nothing to show).
 func shotsVariants() []variant {
+	scrolled := []string{"albums-scrolled"}
+	nowPlaying := []string{"nowplaying-lyrics", "nowplaying-queue"}
 	return []variant{
+		{name: "plainwall-light-off", glass: "0", plain: true, only: []string{"albums", "mini"}},
+		{name: "plainwall-light-glass", glass: "1", plain: true, only: []string{"albums", "mini"}},
 		{name: "light-off", glass: "0"},
 		{name: "light-glass", glass: "1"},
 		{name: "dark-off", glass: "0", dark: true},
 		{name: "dark-glass", glass: "1", dark: true},
 		{name: "light-glass-reduce-transparency", glass: "1", reduce: true},
-		{name: "light-glass-topbar-strip", glass: "1", topbar: "strip", only: []string{"albums", "albums-scrolled"}},
-		{name: "dark-glass-topbar-strip", glass: "1", topbar: "strip", dark: true, only: []string{"albums", "albums-scrolled"}},
+		{name: "light-glass-topbar-strip", glass: "1", env: []string{"SONA_GLASS_TOPBAR=strip"}, only: []string{"albums", "albums-scrolled"}},
+		{name: "dark-glass-topbar-strip", glass: "1", env: []string{"SONA_GLASS_TOPBAR=strip"}, dark: true, only: []string{"albums", "albums-scrolled"}},
+		{name: "light-glass-edge-hard", glass: "1", env: []string{"SONA_GLASS_EDGE=hard"}, only: scrolled},
+		{name: "dark-glass-edge-hard", glass: "1", env: []string{"SONA_GLASS_EDGE=hard"}, dark: true, only: scrolled},
+		{name: "light-glass-wash", glass: "1", env: []string{"SONA_GLASS_WASH=0.5"}, only: nowPlaying},
+		{name: "dark-glass-wash", glass: "1", env: []string{"SONA_GLASS_WASH=0.5"}, dark: true, only: nowPlaying},
 	}
 }
 
 func shots() {
+	wall := ""
 	for _, v := range shotsVariants() {
 		logf("=== %s", v.name)
+		if want := map[bool]string{true: "plain", false: "colour"}[v.plain]; want != wall {
+			wall = want
+			setWallpaper(v.plain)
+		}
 		setAppearance(v.dark)
-		reduced := setReduceTransparency(v.reduce)
+		setAccessibility("reduceMotion", false)
+		reduced := setAccessibility("reduceTransparency", v.reduce)
 		if v.reduce && !reduced {
 			logf("%s: Reduce Transparency could not be turned on here; the run goes on without it (its pictures are the glass as-is)", v.name)
 		}
 		runShots(v)
 		if v.reduce {
-			setReduceTransparency(false)
+			setAccessibility("reduceTransparency", false)
 		}
 	}
 	setAppearance(false)
@@ -488,7 +530,7 @@ func runShots(v variant) {
 	s.shot("albums", "")
 	s.wheel(260)
 	s.shot("albums-scrolled", "")
-	if !s.v.scene("albums-playing") && !s.v.scene("menu") && !s.v.scene("nowplaying-lyrics") {
+	if !s.v.wantsAny("albums-playing", "menu", "nowplaying-lyrics", "nowplaying-queue", "queue-aside", "unfocused", "mini", "mini-unfocused") {
 		return
 	}
 	s.wheel(-1000)
@@ -501,8 +543,9 @@ func runShots(v variant) {
 
 	// A menu: the album page's More button, with the song playing under it.
 	albums := fixture.Albums()
-	if s.pressRole("link", albums[len(albums)-2].Name) {
-		if s.pressPrefix("More for") {
+	other := albums[len(albums)-2].Name
+	if s.pressRole("link", other) {
+		if s.pressRole("", "More for "+other) {
 			s.shot("menu", "")
 			s.key("Escape")
 		}
@@ -531,17 +574,16 @@ func runShots(v variant) {
 		s.key("Escape")
 	}
 
-	// Not focused: another app in front.
-	_, _ = sh("open", "-a", "Finder")
-	time.Sleep(2 * time.Second)
+	// Not focused: another app in front, with no window of its own over ours.
+	s.unfocus()
 	s.shot("unfocused", "")
 
 	// The mini player, focused and not.
 	if s.press("Mini player") {
 		time.Sleep(2 * time.Second)
+		s.activate()
 		s.shot("mini", "mini")
-		_, _ = sh("open", "-a", "Finder")
-		time.Sleep(2 * time.Second)
+		s.unfocus()
 		s.shot("mini-unfocused", "mini")
 	}
 }

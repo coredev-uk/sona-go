@@ -15,3 +15,4 @@ func GlassBarMargin() float32                                { return 0 }
 func GlassInsets() (top, bottom float32)                     { return 0, 0 }
 func GlassScroll(sc ui.Element) ui.Element                   { return sc }
 func GlassTopEdge(*ui.Context, float32)                      {}
+func GlassScrim(token float32) float32                       { return token }

@@ -19,28 +19,34 @@ import (
 // without glass.
 const interval = 16.67
 
-// measureAll runs the two scenarios of the issue, with the glass off and on,
+// measureAll runs the scenarios of the issue, with the glass off and on,
 // interleaved so a drifting machine hits both alike: the Albums grid scroll
-// and rest (cmd/uiprobe, the table the repo already uses) and Now Playing
-// with the lyrics running.
+// and rest (cmd/uiprobe, the table the repo already uses), the same grid at
+// rest with a song playing (the player bar's clock ticks over the glass), and
+// Now Playing with the lyrics running.
 func measureAll(reps int) {
 	setAppearance(false)
-	setReduceTransparency(false)
-	var lyricRows []string
+	setAccessibility("reduceTransparency", false)
+	setAccessibility("reduceMotion", false)
+	rows := map[string][]string{}
 	for rep := 1; rep <= reps; rep++ {
 		for _, v := range []variant{{name: "off", glass: "0"}, {name: "glass", glass: "1"}} {
 			v.measure = true
 			logf("=== rep %d, %s: albums grid", rep, v.name)
 			albumsRun(v, rep)
-			logf("=== rep %d, %s: Now Playing with lyrics", rep, v.name)
-			if row := lyricsRun(v, rep); row != "" {
-				lyricRows = append(lyricRows, row)
+			for _, kind := range []string{"playing", "lyrics"} {
+				logf("=== rep %d, %s: %s", rep, v.name, kind)
+				if row := watchRun(v, rep, kind); row != "" {
+					rows[kind] = append(rows[kind], row)
+				}
 			}
 		}
 	}
-	table := "| run | glass | frames | frames/s | frame time p50 / p95 / max | frames over 16.7 ms | dropped (gaps of an animation) | process CPU | drawn |\n|---|---|---|---|---|---|---|---|---|\n" + strings.Join(lyricRows, "")
-	_ = os.WriteFile(filepath.Join(outDir, "lyrics-table.md"), []byte(table), 0o644)
-	logf("lyrics:\n%s", table)
+	for _, kind := range []string{"playing", "lyrics"} {
+		table := "| run | glass | frames | frames/s | frame time p50 / p95 / max | frames over 16.7 ms | dropped (gaps of an animation) | process CPU | drawn |\n|---|---|---|---|---|---|---|---|---|\n" + strings.Join(rows[kind], "")
+		_ = os.WriteFile(filepath.Join(outDir, kind+"-table.md"), []byte(table), 0o644)
+		logf("%s:\n%s", kind, table)
+	}
 }
 
 // albumsRun is `uiprobe` on the Albums grid: scroll passes at a fixed speed,
@@ -72,10 +78,12 @@ func albumsRun(v variant, rep int) {
 	logf("%s: uiprobe:\n%s", v.name, out)
 }
 
-// lyricsRun plays the fixture's last album, opens Now Playing on the lyrics
-// and watches the frames and the CPU for 20 s while the sung line moves.
-func lyricsRun(v variant, rep int) string {
-	v.name = fmt.Sprintf("lyrics-%s-%d", v.name, rep)
+// watchRun plays the fixture's last album and watches the frames and the CPU
+// for 20 s: kind "playing" on the Albums grid (the bar's clock ticks under
+// the glass, nothing else moves), kind "lyrics" in Now Playing with the sung
+// line moving.
+func watchRun(v variant, rep int, kind string) string {
+	v.name = fmt.Sprintf("%s-%s-%d", kind, v.name, rep)
 	s, err := startSession(v)
 	if err != nil {
 		logf("%s: start: %v", v.name, err)
@@ -90,9 +98,14 @@ func lyricsRun(v variant, rep int) string {
 	if !s.startPlaying() {
 		return ""
 	}
-	s.key("N")
-	s.pressRole("tab", "Lyrics")
-	_, _ = s.c.Wait(10*time.Second, "the lyrics", func(t autoTree) bool { return t.HasText("Streetlights hum a borrowed tune") })
+	if kind == "lyrics" {
+		s.key("N")
+		s.pressRole("tab", "Lyrics")
+		_, _ = s.c.Wait(10*time.Second, "the lyrics", func(t autoTree) bool { return t.HasText("Streetlights hum a borrowed tune") })
+	} else {
+		s.press("Back")
+		_, _ = s.c.Wait(20*time.Second, "the Albums page", func(t autoTree) bool { return t.HasText("24 albums") })
+	}
 	_ = s.c.Close() // nothing talks to the app while it is watched
 	s.c = nil
 	time.Sleep(6 * time.Second)
@@ -123,7 +136,7 @@ func lyricsRun(v variant, rep int) string {
 		path = f.Path
 	}
 	// A gap of 1.5 intervals up to 250 ms inside an animation is frames
-	// missed; a longer gap is the window at rest between two lines.
+	// missed; a longer gap is the window at rest between two changes.
 	for _, g := range measure.Gaps(fs) {
 		if g > interval*1.5 && g <= 250 {
 			dropped += int(g/interval+0.5) - 1
@@ -136,6 +149,9 @@ func lyricsRun(v variant, rep int) string {
 	glassCol := "off"
 	if v.glass != "0" {
 		glassCol = "glass"
+	}
+	if i := strings.Index(path, ":"); i > 0 {
+		path = path[:i]
 	}
 	return fmt.Sprintf("| %d | %s | %d | %.1f | %.1f / %.1f / %.1f ms | %d | %d | %.1f%% | %s |\n",
 		rep, glassCol, len(fs), float64(len(fs))/wall.Seconds(), measure.Quantile(took, 0.5), measure.Quantile(took, 0.95), mx, slow, dropped, cpu, path)

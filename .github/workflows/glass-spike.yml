@@ -93,7 +93,7 @@ jobs:
           build/darwin/devbundle.sh bin/sona-spike bin/Sona.app
 
       - name: Measure with and without glass
-        run: bin/glassspike measure -reps 3 -app "$PWD/bin/Sona.app/Contents/MacOS/sona" -profile "$PWD/bin/e2e-profile" -uiprobe "$PWD/bin/uiprobe" -out "$PWD/glass-out"
+        run: bin/glassspike measure -reps 5 -app "$PWD/bin/Sona.app/Contents/MacOS/sona" -profile "$PWD/bin/e2e-profile" -uiprobe "$PWD/bin/uiprobe" -out "$PWD/glass-out"
 
       - name: Keep the tables and the report
         if: ${{ always() }}

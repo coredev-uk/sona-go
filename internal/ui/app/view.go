@@ -63,13 +63,10 @@ func (a *App) view(c *ui.Context) {
 				m.Slots.Bottom(c)
 				continue
 			}
-			// Over the page, inset from the window's edges and, with the
-			// sidebar shown, from the sidebar's.
-			left := kit.GlassBarMargin()
-			if a.sidebar {
-				left += theme.Current().Metric["sidebar"] + 1
-			}
-			ui.Column(c.Key("glass-bottom:" + m.ID)).Absolute().Bottom(kit.GlassBarMargin()).Left(left).Right(kit.GlassBarMargin()).Children(func() {
+			// Floating over the page and the foot of the sidebar, inset from
+			// the window's edges; the page and the sidebar leave room for it.
+			edge := kit.GlassBarMargin()
+			ui.Column(c.Key("glass-bottom:" + m.ID)).Absolute().Bottom(edge).Left(edge).Right(edge).Children(func() {
 				m.Slots.Bottom(c)
 			})
 		}
@@ -265,7 +262,8 @@ func (a *App) sidebarView(c *ui.Context, vibrant bool) {
 	if !vibrant {
 		side.Background(theme.C("surface"))
 	}
-	side.Padding(0, 12, 12).Clip().Label(i18n.T("Main")).Role(ui.RoleGroup).Children(func() {
+	_, barRoom := kit.GlassInsets() // the floating player bar covers the sidebar's foot
+	side.Padding(0, 12, 12+barRoom).Clip().Label(i18n.T("Main")).Role(ui.RoleGroup).Children(func() {
 		a.brand(c)
 		ui.Column(c).Gap(2).Margin(8, 0, 0, 0).Children(func() {
 			for _, n := range a.nav[module.NavPrimary] {

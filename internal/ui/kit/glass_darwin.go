@@ -36,6 +36,7 @@ var (
 	glassNative   = macOSMajor() >= 26
 	glassStrip    = os.Getenv("SONA_GLASS_TOPBAR") == "strip"
 	glassClarity  = glassClarityEnv()
+	glassWash     = glassFloat("SONA_GLASS_WASH")
 )
 
 func parseGlassSurfaces(v string) map[string]bool {
@@ -52,12 +53,24 @@ func parseGlassSurfaces(v string) map[string]bool {
 	return out
 }
 
-func glassClarityEnv() float32 {
-	f, err := strconv.ParseFloat(os.Getenv("SONA_GLASS_CLARITY"), 32)
+func glassClarityEnv() float32 { return glassFloat("SONA_GLASS_CLARITY") }
+
+func glassFloat(name string) float32 {
+	f, err := strconv.ParseFloat(os.Getenv(name), 32)
 	if err != nil {
 		return 0
 	}
 	return float32(f)
+}
+
+// GlassScrim is the opacity of the scrim over a cover's wash: the theme's
+// token, or SONA_GLASS_WASH (0 to 1) with the Now Playing glass on, so the
+// glass has the cover's colours to show through.
+func GlassScrim(token float32) float32 {
+	if glassWash > 0 && GlassOn("nowplaying") {
+		return glassWash
+	}
+	return token
 }
 
 // macOSMajor is the macOS major version (26 for Tahoe), 0 if unknown.
