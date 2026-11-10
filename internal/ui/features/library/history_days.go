@@ -1,7 +1,6 @@
 package library
 
 import (
-	"math"
 	"time"
 
 	mygoi18n "github.com/egoist/mygo/i18n"
@@ -48,17 +47,14 @@ func historyGroups(h services.ListeningHistory) []historyGroup {
 // dayLabel is a day heading: "Today", "Yesterday", the weekday within the
 // last week, then the date ("Monday 26 October" in the locale's order), with
 // the year once it is not this year's. day is local midnight in Unix
-// milliseconds, now the time the data arrived, both read in loc.
+// milliseconds, now the time the data arrived, both read in loc; the days
+// between are calendar days (i18n.CalendarDays, as RelativeDay counts them).
 func dayLabel(day int64, now time.Time, loc *time.Location) string {
 	if day == 0 {
 		return i18n.T("Recently, on your other devices")
 	}
 	d := time.UnixMilli(day).In(loc)
-	n := now.In(loc)
-	today := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, loc)
-	// Whole days between the two midnights (DST days are 23 or 25 hours long).
-	ago := int(math.Round(float64(today.Sub(d)) / float64(24*time.Hour)))
-	switch {
+	switch ago := i18n.CalendarDays(d, now, loc); {
 	case ago == 0:
 		return i18n.T("Today")
 	case ago == 1:
@@ -67,7 +63,7 @@ func dayLabel(day int64, now time.Time, loc *time.Location) string {
 		return mygoi18n.FormatDate(i18n.Locales()[0], d, mygoi18n.DateOptions{Skeleton: "EEEE"})
 	}
 	skeleton := "MMMMEEEEd"
-	if d.Year() != today.Year() {
+	if d.Year() != now.In(loc).Year() {
 		skeleton = "yMMMMEEEEd"
 	}
 	return mygoi18n.FormatDate(i18n.Locales()[0], d, mygoi18n.DateOptions{Skeleton: skeleton})

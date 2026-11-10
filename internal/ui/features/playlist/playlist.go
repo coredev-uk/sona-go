@@ -67,6 +67,10 @@ type playlists struct {
 	dialogs dialogs // dialogs.go
 	side    sidebar // sidebar.go
 	page    page    // page.go
+
+	// now is the page's clock where a test sets one; nil reads the frame's
+	// (c.Now).
+	now func() time.Time
 }
 
 // New is the playlist module.

@@ -545,6 +545,12 @@ Light theme                    AAC at 256 kbps, or 64 kbps…
 - **Diagnostics** leads with its verdict at 16/600 beside its icon ("Everything Sona needs is working", or the count of problems), the warnings counted under it, and its three actions at the right; the checks follow as ledger rows of a 200px name column and the value. Variable names break after an underscore.
 - No amber anywhere on the page: it has nothing playing to show.
 
+## Dates
+
+- **The user's own things are dated in calendar words** (`i18n.RelativeDay`): a playlist's "Updated 3 hr. ago", "Updated yesterday", "Updated on Tuesday", "Updated last week", "Updated earlier this month", "Updated in March", "Updated last year", "Updated in 2023". Days are calendar days in the computer's zone, never 24-hour spans, so a change at 23:50 is "yesterday" ten minutes after midnight, and a page left open relabels itself at midnight.
+- **The words never stand alone**: the exact date and time ("Tuesday, November 10, 2026 at 2:30 PM", nothing more) is the label's tooltip and its description, and the label is a tab stop on the catalogue line, so the keyboard reaches the tooltip and a screen reader reads the date after the words.
+- **Freshness stays terse**: "Synced 4 min. ago", Concerts' and Discover's "Updated 12 min. ago" and Home's "Picked for you …" say how old a copy is, in minutes and hours (`i18n.RelativeTime`).
+
 ## Empty, loading and error states
 
 - An empty route keeps its frame: the h1, any column header row it will have, then one dashed-border block (1px `--line`, radius 8) holding a 16/600 sentence-case title, one sentence in the product's own words, and at most one action.

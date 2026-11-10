@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/ui"
+
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
@@ -28,6 +30,9 @@ func goldenFont(t *testing.T) {
 	})
 }
 
+// goldenNow is the page's clock in the goldens.
+var goldenNow = time.Date(2026, 11, 10, 14, 30, 0, 0, time.Local)
+
 func goldenDetail() services.PlaylistDetail {
 	d := libraryDetail("p.1", "Road Trip",
 		pgSong("a", "Glass Harbour", "Mia", "Salt Flats"),
@@ -37,7 +42,7 @@ func goldenDetail() services.PlaylistDetail {
 		pgSong("e", "Lone Wolf", "Bo", "Single Malt"),
 		pgSong("f", "Apple Orchard", "Zed", "Low Tide"))
 	d.Playlist.Description = "Songs for the long way round."
-	d.Playlist.LastModified = time.Now().Add(-3 * time.Hour).UnixMilli() // "3 hr. ago", whenever it runs
+	d.Playlist.LastModified = goldenNow.Add(-3 * time.Hour).UnixMilli() // "3 hr. ago"
 	return d
 }
 
@@ -49,8 +54,33 @@ func TestPlaylistPageGolden(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			goldenFont(t)
 			r := newPageRig(t, "p.1", goldenDetail())
+			r.p.now = func() time.Time { return goldenNow }
 			theme.SetMode(tc.mode)
 			r.shows("Road Trip", "Glass Harbour", "Apple Orchard")
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), tc.name)
+		})
+	}
+}
+
+// The keyboard on "Updated …" shows the exact date and time in its tooltip.
+func TestPlaylistUpdatedTooltipGolden(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		mode theme.Mode
+	}{{"playlist-updated-light", theme.ModeLight}, {"playlist-updated-dark", theme.ModeDark}} {
+		t.Run(tc.name, func(t *testing.T) {
+			goldenFont(t)
+			d := goldenDetail()
+			d.Playlist.LastModified = time.Date(2026, 11, 9, 21, 30, 0, 0, time.Local).UnixMilli()
+			r := newPageRig(t, "p.1", d)
+			r.p.now = func() time.Time { return goldenNow }
+			theme.SetMode(tc.mode)
+			r.shows("Road Trip", "Updated yesterday")
+			r.tt.SetFocused(true)
+			r.tt.Key(0, ui.KeyTab)
+			r.tt.Advance(time.Second)
+			r.shows("Monday, November 9, 2026 at 9:30 PM")
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), tc.name)
 		})
