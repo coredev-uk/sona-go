@@ -12,6 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -362,11 +364,20 @@ func (s *Syncer) syncNewest(ctx context.Context, d Domain, progress func(Progres
 		if err != nil || !ok {
 			return 0, false, false, err
 		}
-		n = len(albums)
+		fresh, moved, err := s.refreshUpcomingAlbums(ctx, albums)
+		if err != nil {
+			return 0, false, false, err
+		}
+		n = len(albums) + moved
 		write = func(q *dbq.Queries, now int64) error {
 			for _, it := range albums {
 				if err := storeLibraryAlbum(ctx, q, it, st.Generation, now); err != nil {
 					return err
+				}
+			}
+			for _, it := range fresh {
+				if _, err := q.UpsertLibraryAlbum(ctx, libraryAlbumParams(it, now)); err != nil {
+					return fmt.Errorf("album %s: %w", it.ID, err)
 				}
 			}
 			return nil
@@ -380,7 +391,11 @@ func (s *Syncer) syncNewest(ctx context.Context, d Domain, progress func(Progres
 		if err != nil || !ok {
 			return 0, false, false, err
 		}
-		n = len(songs)
+		fresh, moved, err := s.refreshUpcomingSongs(ctx, songs)
+		if err != nil {
+			return 0, false, false, err
+		}
+		n = len(songs) + moved
 		write = func(q *dbq.Queries, now int64) error {
 			// Newer than every stored song: ranks below the lowest one.
 			low, err := q.MinSongAddedRank(ctx)
@@ -390,6 +405,11 @@ func (s *Syncer) syncNewest(ctx context.Context, d Domain, progress func(Progres
 			for i, it := range songs {
 				if err := storeLibrarySong(ctx, q, it, low-int64(len(songs)-i), st.Generation, now); err != nil {
 					return err
+				}
+			}
+			for _, it := range fresh {
+				if _, err := q.UpsertLibraryTrack(ctx, libraryTrackParams(it, now)); err != nil {
+					return fmt.Errorf("song %s: %w", it.ID, err)
 				}
 			}
 			return nil
@@ -417,6 +437,75 @@ func (s *Syncer) syncNewest(ctx context.Context, d Domain, progress func(Progres
 		progress(Progress{Domain: d, Done: n, Total: total})
 	}
 	return total, n > 0, ok, nil
+}
+
+// refreshUpcomingAlbums asks Apple again for the stored albums still
+// ahead of their release (see UpcomingLibraryAlbums), except the ones just
+// fetched in skip: the newest-first walk stops at the first album it
+// has, so without this a pre-added album would keep its release state for
+// good, and the flag would never clear once the album is out. It returns
+// them for storing and how many of them differ from what is stored.
+func (s *Syncer) refreshUpcomingAlbums(ctx context.Context, skip []applemusic.Album) (fresh []applemusic.Album, changed int, err error) {
+	rows, err := s.db.RQ.UpcomingLibraryAlbums(ctx, s.now().Format(time.DateOnly))
+	if err != nil {
+		return nil, 0, err
+	}
+	stored := make(map[string]dbq.UpcomingLibraryAlbumsRow, len(rows))
+	for _, r := range rows {
+		stored[r.LibraryID.String] = r
+	}
+	for _, a := range skip {
+		delete(stored, a.ID)
+	}
+	ids := slices.Sorted(maps.Keys(stored))
+	for batch := range slices.Chunk(ids, 100) {
+		albums, err := s.api.LibraryAlbumsByID(ctx, batch)
+		if err != nil {
+			return nil, 0, fmt.Errorf("library sync: refresh upcoming albums: %w", err)
+		}
+		for _, a := range albums {
+			p := libraryAlbumParams(a, 0)
+			if r := stored[a.ID]; r.IsPrerelease != p.IsPrerelease || r.ReleaseDate != p.ReleaseDate || r.CatalogReleaseDate != p.CatalogReleaseDate {
+				changed++
+			}
+		}
+		fresh = append(fresh, albums...)
+	}
+	return fresh, changed, nil
+}
+
+// refreshUpcomingSongs is refreshUpcomingAlbums for the songs of those
+// albums that Apple gave no playParams yet: a song comes out before its
+// album, and the song walk stops at the first song it has too. It returns
+// the songs for storing and how many gained playParams.
+func (s *Syncer) refreshUpcomingSongs(ctx context.Context, skip []applemusic.Song) (fresh []applemusic.Song, changed int, err error) {
+	rows, err := s.db.RQ.UnplayableUpcomingLibrarySongs(ctx, s.now().Format(time.DateOnly))
+	if err != nil {
+		return nil, 0, err
+	}
+	skipped := make(map[string]bool, len(skip))
+	for _, t := range skip {
+		skipped[t.ID] = true
+	}
+	var ids []string
+	for _, r := range rows {
+		if !skipped[r.String] {
+			ids = append(ids, r.String)
+		}
+	}
+	for batch := range slices.Chunk(ids, 100) {
+		songs, err := s.api.LibrarySongsByID(ctx, batch)
+		if err != nil {
+			return nil, 0, fmt.Errorf("library sync: refresh upcoming songs: %w", err)
+		}
+		for _, t := range songs {
+			if t.Attributes.PlayParams != nil {
+				changed++
+			}
+		}
+		fresh = append(fresh, songs...)
+	}
+	return fresh, changed, nil
 }
 
 // newest walks a newest-first library collection from the top until an
@@ -500,19 +589,30 @@ func IsSingleRelease(it applemusic.Album) bool {
 	return strings.HasSuffix(n, " - Single") || strings.HasSuffix(n, " - EP")
 }
 
-func storeLibraryAlbum(ctx context.Context, q *dbq.Queries, it applemusic.Album, gen, now int64) error {
+func libraryAlbumParams(it applemusic.Album, now int64) dbq.UpsertLibraryAlbumParams {
 	a := it.Attributes
-	id, err := q.UpsertLibraryAlbum(ctx, dbq.UpsertLibraryAlbumParams{
+	// A library album has no isPrerelease and, pre-added, no releaseDate:
+	// the catalog album, included in the walk, has both.
+	var cat applemusic.AlbumAttributes
+	if c := it.Relationships.Catalog.Data; len(c) > 0 {
+		cat = c[0].Attributes
+	}
+	return dbq.UpsertLibraryAlbumParams{
 		LibraryID: db.NullString(it.ID), CatalogID: db.NullString(it.CatalogID()),
 		Name: a.Name, ArtistName: a.ArtistName,
 		ArtistLibraryID: db.NullString(firstID(it.Relationships.Artists.Data, func(r applemusic.Artist) string { return r.ID })),
 		ArtworkTemplate: a.Artwork.Template(), ReleaseDate: a.ReleaseDate, Genre: firstString(a.GenreNames),
-		TrackCount: int64(a.TrackCount), ContentRating: a.ContentRating, IsSingle: db.Bool(IsSingleRelease(it)), UpdatedAt: now,
-	})
+		TrackCount: int64(a.TrackCount), ContentRating: a.ContentRating, IsSingle: db.Bool(IsSingleRelease(it)),
+		IsPrerelease: db.Bool(cat.IsPrerelease), CatalogReleaseDate: cat.ReleaseDate, UpdatedAt: now,
+	}
+}
+
+func storeLibraryAlbum(ctx context.Context, q *dbq.Queries, it applemusic.Album, gen, now int64) error {
+	id, err := q.UpsertLibraryAlbum(ctx, libraryAlbumParams(it, now))
 	if err != nil {
 		return fmt.Errorf("album %s: %w", it.ID, err)
 	}
-	return q.MarkLibraryItem(ctx, dbq.MarkLibraryItemParams{Kind: "album", Ref: id, DateAdded: parseDate(a.DateAdded), Generation: gen})
+	return q.MarkLibraryItem(ctx, dbq.MarkLibraryItemParams{Kind: "album", Ref: id, DateAdded: parseDate(it.Attributes.DateAdded), Generation: gen})
 }
 
 // syncAll walks every item of domain d in parallel pages with a resumable
@@ -840,7 +940,7 @@ func libraryTrackParams(s applemusic.Song, now int64) dbq.UpsertLibraryTrackPara
 		ArtworkTemplate: a.Artwork.Template(), DurationMs: a.DurationInMillis,
 		TrackNumber: int64(a.TrackNumber), DiscNumber: int64(a.DiscNumber), ReleaseDate: a.ReleaseDate,
 		Genre: firstString(a.GenreNames), ContentRating: a.ContentRating, HasLyrics: db.Bool(a.HasLyrics),
-		Isrc: a.ISRC, Composer: a.ComposerName, UpdatedAt: now,
+		Isrc: a.ISRC, Composer: a.ComposerName, HasPlayParams: db.Bool(a.PlayParams != nil), UpdatedAt: now,
 	}
 }
 

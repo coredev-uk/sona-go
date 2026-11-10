@@ -3,8 +3,10 @@ package library
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -129,5 +131,21 @@ func TestAlbumsGridKeyboardAndSelection(t *testing.T) {
 	r.tt.Key(0, ui.KeyEscape)
 	if n := r.l.albums.cover.st.Sel.Len(); n != 0 {
 		t.Errorf("Escape leaves %d selected", n)
+	}
+}
+
+// A pre-added album is in the library grid with its release date on the
+// cover, as a catalogue tile has it; an album that is out has none.
+func TestAlbumsGridTilesSayWhenAPreAddedAlbumIsOut(t *testing.T) {
+	r := newPageRig(t, albumsPath, 1132, 1000, nil, uitest.Albums(sevenAlbums...))
+	tile := r.l.albumTile()
+	soon := services.Album{ID: "l.soon", Name: "Soon", Prerelease: true, ReleaseAt: time.Now().Add(48 * time.Hour).UnixMilli()}
+	if got := tile(&soon).Badge; !strings.HasPrefix(got, "Out ") {
+		t.Errorf("an upcoming album's badge = %q", got)
+	}
+	out := soon
+	out.Prerelease = false
+	if got := tile(&out).Badge; got != "" {
+		t.Errorf("an album that is out has the badge %q", got)
 	}
 }

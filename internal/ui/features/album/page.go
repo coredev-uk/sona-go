@@ -200,6 +200,9 @@ func (a *album) content(c *ui.Context, id, highlight string, lay layout, now tim
 		a.skeleton(c, lay)
 		return
 	}
+	if !l.cat {
+		l.detail = withCatalogueRelease(l.detail, l.page, now)
+	}
 	// An album not out yet counts down to the minute; at its release the
 	// page reloads it so its songs become playable.
 	if al := l.detail.Album; al.Prerelease && !kit.IsUpcoming(al, now) {

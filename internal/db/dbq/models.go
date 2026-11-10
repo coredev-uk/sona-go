@@ -20,25 +20,27 @@ type Account struct {
 }
 
 type Album struct {
-	ID              int64
-	LibraryID       sql.NullString
-	CatalogID       sql.NullString
-	Name            string
-	ArtistName      string
-	ArtistLibraryID sql.NullString
-	ArtistCatalogID sql.NullString
-	ArtworkTemplate string
-	ReleaseDate     string
-	Genre           string
-	TrackCount      int64
-	ContentRating   string
-	IsSingle        int64
-	IsCompilation   int64
-	RecordLabel     string
-	Copyright       string
-	EditorialNotes  string
-	Url             string
-	UpdatedAt       int64
+	ID                 int64
+	LibraryID          sql.NullString
+	CatalogID          sql.NullString
+	Name               string
+	ArtistName         string
+	ArtistLibraryID    sql.NullString
+	ArtistCatalogID    sql.NullString
+	ArtworkTemplate    string
+	ReleaseDate        string
+	Genre              string
+	TrackCount         int64
+	ContentRating      string
+	IsSingle           int64
+	IsCompilation      int64
+	RecordLabel        string
+	Copyright          string
+	EditorialNotes     string
+	Url                string
+	UpdatedAt          int64
+	IsPrerelease       int64
+	CatalogReleaseDate string
 }
 
 type Artist struct {
@@ -230,4 +232,5 @@ type Track struct {
 	Isrc            string
 	Composer        string
 	UpdatedAt       int64
+	HasPlayParams   int64
 }

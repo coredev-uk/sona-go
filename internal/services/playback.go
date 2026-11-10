@@ -375,7 +375,7 @@ func (s *PlaybackService) resolveOne(ctx context.Context, r TrackRef) (coordinat
 	if err != nil {
 		return coordinator.Item{}, trackMeta{}, fmt.Errorf("track %s/%s: %w", r.Source, r.ID, err)
 	}
-	if err := s.released(t.ReleaseDate, func() string { return s.albumDate(ctx, t) }); err != nil {
+	if err := s.storedReleased(ctx, t); err != nil {
 		return coordinator.Item{}, trackMeta{}, fmt.Errorf("track %s/%s: %w", r.Source, r.ID, err)
 	}
 	return trackItem(t)
@@ -433,14 +433,31 @@ func (s *PlaybackService) released(date string, album func() string) error {
 	return nil
 }
 
-// albumDate is the release date of a stored song's album ("" when the
-// album isn't stored).
-func (s *PlaybackService) albumDate(ctx context.Context, t dbq.Track) string {
+// storedReleased is released for a stored song. One without a date of its
+// own goes by its album: a library album's date and Apple's flag are the
+// ones its catalog album gave (libraryRelease), a pre-added album having
+// no releaseDate of its own.
+func (s *PlaybackService) storedReleased(ctx context.Context, t dbq.Track) error {
+	if upcoming(t.ReleaseDate, false, s.m.clock()) {
+		return ErrNotReleased
+	}
+	if t.ReleaseDate != "" {
+		return nil
+	}
 	if t.AlbumLibraryID.Valid {
 		if a, err := s.o.DB.RQ.GetAlbumByLibraryID(ctx, t.AlbumLibraryID); err == nil {
-			return a.ReleaseDate
+			if _, up := libraryRelease(a.ReleaseDate, a.CatalogReleaseDate, a.IsPrerelease != 0, s.m.clock()); up {
+				return ErrNotReleased
+			}
+			return nil
 		}
 	}
+	return s.released("", func() string { return s.catalogAlbumDate(ctx, t) })
+}
+
+// catalogAlbumDate is the release date of a stored song's catalog album
+// ("" when the album isn't stored).
+func (s *PlaybackService) catalogAlbumDate(ctx context.Context, t dbq.Track) string {
 	if t.AlbumCatalogID.Valid {
 		if a, err := s.o.DB.RQ.GetCatalogAlbum(ctx, t.AlbumCatalogID); err == nil {
 			return a.ReleaseDate

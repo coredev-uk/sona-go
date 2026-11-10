@@ -109,7 +109,7 @@ func TestMigrateMarksEarlierSyncsFull(t *testing.T) {
 	if _, err := w.Exec(`INSERT INTO sync_state (domain, last_success) VALUES ('songs', 1234), ('albums', NULL)`); err != nil {
 		t.Fatal(err)
 	}
-	if err := migrate(ctx, w); err != nil {
+	if _, err := p.UpTo(ctx, 5); err != nil {
 		t.Fatal(err)
 	}
 	var songs, albums sql.NullInt64
@@ -140,7 +140,7 @@ func TestMigrateFlagsLibrarySingles(t *testing.T) {
 		INSERT INTO sync_state (domain, last_success, last_full) VALUES ('albums', 9, 9), ('songs', 9, 9)`); err != nil {
 		t.Fatal(err)
 	}
-	if err := migrate(ctx, w); err != nil {
+	if _, err := p.UpTo(ctx, 9); err != nil {
 		t.Fatal(err)
 	}
 	rows, err := w.Query(`SELECT name, is_single FROM albums ORDER BY id`)
@@ -166,5 +166,47 @@ func TestMigrateFlagsLibrarySingles(t *testing.T) {
 	}
 	if albums.Valid || songs.Int64 != 9 {
 		t.Fatalf("last_full = %v (albums), %v (songs)", albums, songs)
+	}
+}
+
+// TestMigrateBackfillsLibraryRelease checks 00012 on data: the albums and
+// songs domains' next sync is a full one, which stores the release fields
+// of the library albums and the playParams of the songs (until then an
+// album counts as released and a song as playable); other domains and the
+// rows themselves keep what they had.
+func TestMigrateBackfillsLibraryRelease(t *testing.T) {
+	ctx := context.Background()
+	w := openRaw(t, "release.db")
+	p, err := provider(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.UpTo(ctx, 11); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Exec(`INSERT INTO albums (library_id, catalog_id, name, release_date, updated_at) VALUES ('l.1', '1', 'Soon', '', 1);
+		INSERT INTO tracks (library_id, catalog_id, name, album_library_id, updated_at) VALUES ('i.1', '10', 'Not yet', 'l.1', 1);
+		INSERT INTO sync_state (domain, last_success, last_full) VALUES ('albums', 9, 9), ('songs', 9, 9), ('playlists', 9, 9)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrate(ctx, w); err != nil {
+		t.Fatal(err)
+	}
+	var pre int
+	var catDate string
+	var playParams int
+	if err := w.QueryRow(`SELECT (SELECT is_prerelease FROM albums), (SELECT catalog_release_date FROM albums), (SELECT has_play_params FROM tracks)`).Scan(&pre, &catDate, &playParams); err != nil {
+		t.Fatal(err)
+	}
+	if pre != 0 || catDate != "" || playParams != 1 {
+		t.Fatalf("defaults = %d, %q, %d", pre, catDate, playParams)
+	}
+	var albums, songs, playlists sql.NullInt64
+	if err := w.QueryRow(`SELECT (SELECT last_full FROM sync_state WHERE domain = 'albums'), (SELECT last_full FROM sync_state WHERE domain = 'songs'),
+		(SELECT last_full FROM sync_state WHERE domain = 'playlists')`).Scan(&albums, &songs, &playlists); err != nil {
+		t.Fatal(err)
+	}
+	if albums.Valid || songs.Valid || playlists.Int64 != 9 {
+		t.Fatalf("last_full = %v (albums), %v (songs), %v (playlists)", albums, songs, playlists)
 	}
 }

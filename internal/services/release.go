@@ -37,6 +37,17 @@ func upcoming(date string, flagged bool, now time.Time) bool {
 	return flagged
 }
 
+// libraryRelease is the release date of a library album and whether it is
+// not out at now. A pre-added album has no releaseDate of its own, so its
+// catalog album's counts when the library has none or the catalog's is
+// still ahead; without a full date Apple's isPrerelease decides.
+func libraryRelease(date, catalogDate string, flagged bool, now time.Time) (string, bool) {
+	if catalogDate != "" && (date == "" || upcoming(catalogDate, false, now)) {
+		date = catalogDate
+	}
+	return date, upcoming(date, flagged, now)
+}
+
 // markUnreleased makes the tracks of the pre-release album not out yet
 // unplayable: those whose own release date is still ahead or, without
 // one, every track (Apple dates only the songs already out).

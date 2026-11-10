@@ -59,6 +59,40 @@ func TestUpcomingAlbumLeavesReleaseDayToTheCountdown(t *testing.T) {
 	}
 }
 
+func TestWithCatalogueReleaseTakesAnUpcomingCataloguePage(t *testing.T) {
+	release := modelNow.Add(24 * time.Hour)
+	upcoming := saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, release.UnixMilli(), "2026-11-05"
+	})
+	library := func() services.AlbumDetail {
+		d := services.AlbumDetail{
+			Album:  services.Album{ID: "l.9", Source: services.SourceLibrary, CatalogID: "100", ReleaseDate: ""},
+			Tracks: []services.Song{{ID: "i.1", Playable: true, ReleaseDate: "2026-09-17"}, {ID: "i.2", Playable: true}},
+		}
+		return d
+	}
+
+	d := library()
+	got := withCatalogueRelease(d, &upcoming, modelNow)
+	if !got.Album.Prerelease || got.Album.ReleaseAt != release.UnixMilli() || got.Album.ReleaseDate != "2026-11-05" {
+		t.Fatalf("album = %+v, want the catalogue's release state", got.Album)
+	}
+	if !got.Tracks[0].Playable || got.Tracks[1].Playable {
+		t.Errorf("playable = %v, %v: the dated song is out, the undated one is not", got.Tracks[0].Playable, got.Tracks[1].Playable)
+	}
+	if !d.Tracks[1].Playable || d.Album.Prerelease {
+		t.Error("the loaded album was changed in place")
+	}
+
+	// The same page once it is out, and no page at all, change nothing.
+	if got := withCatalogueRelease(library(), &upcoming, release); got.Album.Prerelease || !got.Tracks[1].Playable {
+		t.Errorf("a catalogue album out overrode the library's: %+v", got)
+	}
+	if got := withCatalogueRelease(library(), nil, modelNow); got.Album.Prerelease || !got.Tracks[1].Playable {
+		t.Errorf("no catalogue page overrode the library's: %+v", got)
+	}
+}
+
 func TestPopularNeverMarksASongThatCannotPlay(t *testing.T) {
 	p := saltFlats(func(p *services.CatalogAlbum) {
 		p.PopularIDs = []string{"c1", "c2"}
