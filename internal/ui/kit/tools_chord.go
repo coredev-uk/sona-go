@@ -1,6 +1,8 @@
 package kit
 
 import (
+	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -147,4 +149,76 @@ func ChordPressed(c *ui.Context, chords ...string) bool {
 		}
 	}
 	return false
+}
+
+// SlashByPosition is whether the platform gives "?" no Key, which is GTK's
+// and AppKit's way in MyGo v0.8.3: Shift with a punctuation key comes by
+// its position alone (InputEvent.Code), so Shortcut(ui.Shift, ui.KeySlash)
+// never sees it there. Windows gives the key the layout types, and its
+// shortcut takes it. ShiftSlash stands in where it is true; the "?"
+// binding then means the key where US and UK layouts have "?", which on
+// another layout is a key labelled otherwise (German has "?" on Shift+ß,
+// and "-" where the US slash is), and the help's label says so.
+var SlashByPosition = runtime.GOOS != "windows"
+
+// IsShiftSlash reports whether ev is the press of Shift and the key at the
+// slash position that comes by its position alone: "?" where MyGo gives it
+// no Key (SlashByPosition). It is false where a Key comes with it, as on
+// Windows, whose shortcut takes the press, so no press is run twice; and
+// for a key held down, as the toggles it opens take one press.
+func IsShiftSlash(ev ui.InputEvent) bool {
+	return ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyUnknown && ev.Code == ui.CodeSlash && ev.Mods == ui.Shift && !ev.Repeat
+}
+
+// slashTakes counts the presses a focused element took itself
+// (TakeShiftSlash). Main thread only, like every view.
+var slashTakes int
+
+// TakeShiftSlash tells that the focused element took an IsShiftSlash press
+// itself, in its HandleInput, as the key recorder does: the ShiftSlash that
+// noted it as it came (an ObserveInput sees it first) lets it go, as a
+// window's shortcut never sees a key an element claims.
+func TakeShiftSlash() { slashTakes++ }
+
+// ShiftSlash is "?" as a chord where it comes with no Key: an element
+// notes the presses that come to it or to an element inside it (Observe,
+// its ObserveInput), and the view reads them as the chord "?" (Take,
+// Pressed) while building, in the frame after.
+type ShiftSlash struct {
+	seen  bool
+	takes int // slashTakes as the press came
+}
+
+// Observe notes an IsShiftSlash press. It is an ObserveInput.
+func (s *ShiftSlash) Observe(ev ui.InputEvent) {
+	if IsShiftSlash(ev) {
+		s.seen, s.takes = true, slashTakes
+	}
+}
+
+// Take reports whether a press came since the last Take, and forgets it.
+// It is false for one that the focused element took (TakeShiftSlash) or
+// typed: a "?" typed in a text field is text, as a single-key shortcut
+// steps aside in one.
+func (s *ShiftSlash) Take(c *ui.Context) bool {
+	seen := s.seen
+	s.seen = false
+	return seen && s.takes == slashTakes && !c.FocusTakesText()
+}
+
+// Pressed is ChordPressed, true too for a press Take reports when chords
+// hold "?" (Shift+/): a dialog's own "?" closes it on GTK and AppKit too.
+func (s *ShiftSlash) Pressed(c *ui.Context, chords ...string) bool {
+	slash := s.Take(c)
+	if ChordPressed(c, chords...) {
+		return true
+	}
+	return slash && slices.ContainsFunc(chords, IsShiftSlashChord)
+}
+
+// IsShiftSlashChord reports whether chord is "?" (Shift+/ by another
+// spelling): the chord a ShiftSlash press stands for.
+func IsShiftSlashChord(chord string) bool {
+	mods, key, ok := ParseChord(chord)
+	return ok && mods == ui.Shift && key == ui.KeySlash
 }

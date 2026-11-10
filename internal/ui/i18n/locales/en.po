@@ -2887,6 +2887,11 @@ msgstr "Keyboard Shortcuts"
 msgid "Keyboard shortcuts"
 msgstr "Keyboard shortcuts"
 
+#. Command in the command palette, the shortcut help and Settings → Shortcuts. Its key "?" is read by its place on the keyboard: where US and UK layouts have "?". Say so as plainly as you can.
+#: internal/ui/features/commands/commands.go
+msgid "Keyboard shortcuts (? where US and UK keyboards have it)"
+msgstr "Keyboard shortcuts (? where US and UK keyboards have it)"
+
 #: internal/ui/features/player/lyrics_sheet.go
 #: internal/ui/features/settings/lyrics.go
 msgid "LRCLIB"

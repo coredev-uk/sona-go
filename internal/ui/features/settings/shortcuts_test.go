@@ -31,6 +31,9 @@ type scRig struct {
 	list   []module.Shortcut
 	// runs counts the runs of each shortcut by ID.
 	runs map[string]int
+	// slash is the shell's "?" with no Key (GTK, AppKit), which the view
+	// observes as the shell's root does.
+	slash kit.ShiftSlash
 }
 
 // scShortcuts are the shortcuts of the rig's fake modules: a few of every
@@ -85,7 +88,7 @@ func newScRig(t *testing.T, w, h int, before func(*scRig), opts ...uitest.Option
 	r.tt = hn.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
 		r.dispatch(c)
-		ui.Column(c).Fill().Children(func() {
+		ui.Column(c).Fill().ObserveInput(r.slash.Observe).Children(func() {
 			r.router.View(c, func(rt *ui.Route) {
 				if rt.Match(settingsPath) {
 					r.s.page(c, rt)
@@ -129,9 +132,10 @@ func (r *scRig) bound() []module.BoundShortcut {
 // dispatch is the shell's key handler: a key pressed that no focused
 // element took, for a chord some shortcut answers to, runs that shortcut.
 func (r *scRig) dispatch(c *ui.Context) {
+	slash := r.slash.Take(c)
 	for _, b := range r.bound() {
 		for _, k := range b.Keys {
-			if mods, key, ok := splitChord(k); ok && c.Shortcut(mods, key) {
+			if mods, key, ok := splitChord(k); ok && (c.Shortcut(mods, key) || slash && kit.IsShiftSlashChord(k)) {
 				b.Run()
 			}
 		}
@@ -837,4 +841,24 @@ func TestShortcutsRouterKeysAreRefused(t *testing.T) {
 	}
 	r.press(ui.Ctrl, ui.KeyJ)
 	r.awaitSaved(config.Shortcuts{"test.free": "Ctrl+J"})
+}
+
+// On GTK and AppKit "?" has no Key: the recorder takes it as it comes and
+// records "?", and the shell's dispatcher, which saw it first, runs nothing;
+// out of the recorder the same press runs the shortcut it was bound to.
+func TestShortcutsRecorderRecordsQuestionMarkByPosition(t *testing.T) {
+	r := tallRig(t)
+	press := func() {
+		r.tt.CodeDown(ui.Shift, ui.CodeSlash)
+		r.tt.CodeUp(ui.Shift, ui.CodeSlash)
+	}
+	r.record("test.free", "not set")
+	press()
+	r.awaitSaved(config.Shortcuts{"test.free": "?"})
+	r.show("test.free ?")
+	if got := r.ran(); len(got) != 0 {
+		t.Errorf("recording ? ran shortcuts: %v", got)
+	}
+	press()
+	r.tt.Until("test.free run by ?", func() bool { return r.ran()["test.free"] == 1 })
 }

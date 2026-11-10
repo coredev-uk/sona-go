@@ -102,7 +102,14 @@ type dispatcher struct {
 	list      []bound
 	listed    []module.BoundShortcut // what Env.Shortcuts returns, built on rebind
 	chords    []chord                // distinct, in registration order
+	// slash is "?" where MyGo gives it no Key (GTK, AppKit): the elements
+	// the dispatcher runs for observe their input with it (view), and a
+	// press it saw is the chord Shift+/.
+	slash kit.ShiftSlash
 }
+
+// shiftSlash is the chord "?".
+var shiftSlash = chord{ui.Shift, ui.KeySlash}
 
 func newDispatcher(list []module.Shortcut, overrides config.Shortcuts) *dispatcher {
 	d := &dispatcher{shortcuts: list}
@@ -133,10 +140,13 @@ func (d *dispatcher) bindings() []module.BoundShortcut { return d.listed }
 
 // dispatch asks MyGo, each frame, for every chord, and runs the first
 // shortcut allowed for one that was pressed. A shortcut that is
-// Unavailable takes the key too, but only says why.
+// Unavailable takes the key too, but only says why. A "?" that came with
+// no Key (kit.ShiftSlash) is Shift+/ pressed, unless a text field has the
+// focus or the focused element took it.
 func (d *dispatcher) dispatch(c *ui.Context) {
+	slash := d.slash.Take(c)
 	for _, ch := range d.chords {
-		if !c.Shortcut(ch.mods, ch.key) {
+		if !c.Shortcut(ch.mods, ch.key) && (!slash || ch != shiftSlash) {
 			continue
 		}
 		for i := range d.list {

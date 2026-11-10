@@ -54,6 +54,9 @@ type recorder struct {
 	// refocus asks the next frame to put the focus back on the recorder:
 	// what it was in goes with the choice or the reset button.
 	refocus bool
+	// slash is a "?" the recorder took as it came (kit.IsShiftSlash): on GTK
+	// and AppKit it has no Key, which no Shortcut of its own can ask for.
+	slash bool
 }
 
 // pendingChord is a chord waiting for the user to settle a conflict.
@@ -62,7 +65,7 @@ type pendingChord struct {
 	with  []module.Shortcut
 }
 
-func (r *recorder) stop() { r.recording, r.refused = false, "" }
+func (r *recorder) stop() { r.recording, r.refused, r.slash = false, "", false }
 
 // shortcutView is what a frame of the section works from.
 type shortcutView struct {
@@ -372,9 +375,23 @@ func (s *settings) recorderButton(c *ui.Context, sh module.Shortcut, rec *record
 		rec.refused = ""
 	}
 	if rec.recording {
-		if chord, ok := captureChord(b); ok {
+		chord, ok := captureChord(b)
+		if rec.slash && !ok {
+			chord, ok = "?", true
+		}
+		rec.slash = false
+		if ok {
 			s.recorded(rec, sh, v, chord)
 		}
+		// The shell's dispatcher saw the "?" first, and lets it go.
+		b.HandleInput(func(ev ui.InputEvent) bool {
+			if !kit.IsShiftSlash(ev) {
+				return false
+			}
+			kit.TakeShiftSlash()
+			rec.slash = true
+			return true
+		})
 	}
 	b.Checked(rec.recording)
 	if msg, _ := note(); rec.recording || conflicted {

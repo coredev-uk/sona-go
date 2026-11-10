@@ -30,7 +30,10 @@ func (a *App) view(c *ui.Context) {
 		a.keys.dispatch(c)
 	}
 
-	root := ui.Column(c).Fill().Background(theme.C("ground")).IgnoreInput(layerOpen).HandleInput(a.swipe.Input)
+	// The window's keys come to the dispatcher by shortcut, and the "?" that
+	// MyGo gives no Key on GTK and AppKit by the root's input it observes
+	// (kit.ShiftSlash), wherever the focus is in it.
+	root := ui.Column(c).Fill().Background(theme.C("ground")).IgnoreInput(layerOpen).HandleInput(a.swipe.Input).ObserveInput(a.keys.slash.Observe)
 	endPass := a.env.Art.Pass(c)
 	root.Draw(func(p *ui.Painter, _ ui.Rect) {
 		a.paintOnce.Do(a.painted)
@@ -68,7 +71,7 @@ func (a *App) view(c *ui.Context) {
 		// page is still built and drawn behind it, so the first paint is
 		// reported as for any frame.
 		ui.Overlay(c, func() {
-			ui.Column(c.Key("layer:" + m.ID)).Absolute().Top(0).Left(0).Right(0).Bottom(0).Modal().Children(func() {
+			ui.Column(c.Key("layer:" + m.ID)).Absolute().Top(0).Left(0).Right(0).Bottom(0).Modal().ObserveInput(a.keys.slash.Observe).Children(func() {
 				if !dispatched {
 					dispatched = true
 					a.keys.dispatch(c)
