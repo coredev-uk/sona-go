@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -208,5 +209,68 @@ func TestSyncKeepsRecentFolderMove(t *testing.T) {
 	}
 	if got := treePlaylists(t, e)["p.small"]; got[0] != "" {
 		t.Fatalf("expired move kept: %v", got)
+	}
+}
+
+// recentlyAdded is RecentlyAdded's page (as "album:l.0", "playlist:p.big")
+// and its total.
+func recentlyAdded(t *testing.T, e *env, o ListOptions) ([]string, int) {
+	t.Helper()
+	added, total, err := e.lib.RecentlyAdded(context.Background(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, a := range added {
+		switch {
+		case a.Album != nil:
+			got = append(got, "album:"+a.Album.LibraryID)
+		case a.Playlist != nil:
+			got = append(got, "playlist:"+a.Playlist.LibraryID)
+		}
+	}
+	return got, total
+}
+
+// #210: a dropped playlist leaves Recently added, its total included, and so
+// does an entry whose album or playlist row is gone: the page lists and
+// counts the same rows.
+func TestDroppedPlaylistLeavesRecentlyAdded(t *testing.T) {
+	e := newEnv(t)
+	seed(e.fake, 20)
+	if err := e.run(t); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	got, total := recentlyAdded(t, e, ListOptions{})
+	if total != 5 || len(got) != total || !slices.Contains(got, "playlist:p.small") {
+		t.Fatalf("before: %q, total %d", got, total)
+	}
+
+	if err := e.lib.DropPlaylist(ctx, "p.small"); err != nil {
+		t.Fatal(err)
+	}
+	got, total = recentlyAdded(t, e, ListOptions{})
+	if slices.Contains(got, "playlist:p.small") || total != 4 || len(got) != total {
+		t.Fatalf("after DropPlaylist: %q, total %d", got, total)
+	}
+
+	// A library row whose playlist is gone (the row survived its target)
+	// is neither listed nor counted, and paging still reaches the last
+	// entry.
+	if _, err := e.db.W.ExecContext(ctx, `DELETE FROM playlists WHERE library_id = 'p.big'`); err != nil {
+		t.Fatal(err)
+	}
+	got, total = recentlyAdded(t, e, ListOptions{})
+	if slices.Contains(got, "playlist:p.big") || total != 3 || len(got) != total {
+		t.Fatalf("with a dangling row: %q, total %d", got, total)
+	}
+	var paged []string
+	for off := 0; off < total; off++ {
+		p, _ := recentlyAdded(t, e, ListOptions{Offset: off, Limit: 1})
+		paged = append(paged, p...)
+	}
+	if !slices.Equal(paged, got) {
+		t.Fatalf("one at a time: %q, want %q", paged, got)
 	}
 }
