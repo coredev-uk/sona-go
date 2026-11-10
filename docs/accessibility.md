@@ -159,6 +159,23 @@ kept past its build pass, and a handle cannot stand in for it.
 - Escape on a control whose tooltip shows (Now Playing's Close, reached by
   keyboard) hides the tooltip first, as WCAG 1.4.13 asks, and closes the
   view or confirmation on the second press.
+- `?` opens the shortcut help on every platform, and closes it again; the
+  palette's "Keyboard shortcuts" opens it too. On Linux (GTK) and macOS
+  (AppKit) MyGo v0.8.3 gives Shift with a punctuation key no `Key`, only its
+  position (`InputEvent.Code`), so Sona reads `?` there as Shift and the key
+  where US and UK keyboards have `/` and `?` (`kit.ShiftSlash`). On another
+  layout that is a key labelled otherwise: German types `?` with Shift+ß and
+  has `-` in that place, so Shift+- opens the help there and Shift+ß does
+  not. The command's label says so on those platforms ("Keyboard shortcuts
+  (? where US and UK keyboards have it)") while the help answers to `?`;
+  Windows reads the key the layout types, and its label is plain. Bound to
+  another key in Settings → Shortcuts, the help answers to that key alone,
+  and any shortcut bound to `?` takes the press. A `?` typed in a text field
+  is text, and the key recorder records it as `?`. While no control has the
+  focus (at the start, after a click on the background) it rests on an
+  element assistive technology does not see and Tab passes over, inside the
+  window, so that the window still gets the key: the focus is on nothing for
+  a screen reader, as before.
 - A slider that moves by itself (Seek, as the song plays) keeps, for
   assistive technology, the value it had when the focus came and after each
   key: a screen reader reads every change of the focused slider, and the

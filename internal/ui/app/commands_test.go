@@ -11,6 +11,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/commands"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
 // The commands feature over the real shell: its chords go through the
@@ -123,5 +124,110 @@ func TestAClosedLayerDoesNotTakeTheWindowsClicks(t *testing.T) {
 				t.Errorf("the page's button was clicked %d times", clicked)
 			}
 		})
+	}
+}
+
+// slashModule is a page with a button and a text field, the shell's help
+// (commands.New) beside it.
+func slashModule(text *string) module.Factory {
+	return func(*module.Env) module.Module {
+		return module.Module{
+			ID: "slash",
+			Routes: []module.Route{{Pattern: "/", Build: func(c *ui.Context, _ *ui.Route) {
+				ui.Column(c).Gap(8).Children(func() {
+					kit.Button(c.Key("go"), "Go", kit.ButtonOpts{})
+					ui.TextInput(c.Key("field"), text).Label("Field")
+				})
+			}}},
+			Nav: []module.NavItem{{Section: module.NavPrimary, Label: func() string { return "Home" }, Icon: "music", To: "/", Order: 1}},
+		}
+	}
+}
+
+// questionMark presses "?" as GTK and AppKit deliver it with MyGo v0.8.3:
+// Shift and the slash key by its position, with no Key.
+func questionMark(tt *uitest.Session) {
+	tt.CodeDown(ui.Shift, ui.CodeSlash)
+	tt.CodeUp(ui.Shift, ui.CodeSlash)
+}
+
+func helpOpen(tt *uitest.Session) bool { return tt.HasText("Change any of them in") }
+
+// On GTK and AppKit "?" has no Key: the dispatcher reads it by its position,
+// with nothing focused (the start, a click on the background), from a
+// focused button, and the help's own "?" closes it again.
+func TestQuestionMarkByPositionOpensAndClosesTheHelp(t *testing.T) {
+	text := ""
+	_, tt := newShell(t, Options{}, slashModule(&text), commands.New)
+	tt.Frame()
+	questionMark(tt)
+	if !helpOpen(tt) {
+		t.Fatal("? at the start did not open the help")
+	}
+	tt.Advance(400 * time.Millisecond) // the list takes the focus
+	questionMark(tt)
+	tt.Advance(400 * time.Millisecond)
+	if helpOpen(tt) {
+		t.Fatal("? did not close the help")
+	}
+
+	if err := tt.Click("Go"); err != nil {
+		t.Fatal(err)
+	}
+	questionMark(tt)
+	if !helpOpen(tt) {
+		t.Fatal("? from a focused button did not open the help")
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(400 * time.Millisecond)
+	if helpOpen(tt) || !tt.Focused("Go") {
+		t.Fatalf("Escape: help open %v, focus back on Go %v", helpOpen(tt), tt.Focused("Go"))
+	}
+
+	// A click on the background takes the focus from the button.
+	tt.ClickAt(1000, 700)
+	tt.Frame()
+	questionMark(tt)
+	if !helpOpen(tt) {
+		t.Fatal("? after a click on the background did not open the help")
+	}
+}
+
+// A "?" typed in a text field is text, not the help.
+func TestQuestionMarkByPositionStaysOutOfTextFields(t *testing.T) {
+	text := ""
+	_, tt := newShell(t, Options{}, slashModule(&text), commands.New)
+	tt.Frame()
+	if err := tt.Click("Field"); err != nil {
+		t.Fatal(err)
+	}
+	tt.CodeDown(ui.Shift, ui.CodeSlash)
+	tt.Type("?")
+	tt.CodeUp(ui.Shift, ui.CodeSlash)
+	tt.Frame()
+	if helpOpen(tt) || text != "?" {
+		t.Fatalf("typing ? in a field: help open %v, text %q", helpOpen(tt), text)
+	}
+}
+
+// The "?" by position is the chord "?", whatever has it: the help bound to
+// another key leaves it, and the shortcut bound to it runs.
+func TestQuestionMarkByPositionFollowsTheBindings(t *testing.T) {
+	st, err := config.OpenStore(filepath.Join(t.TempDir(), "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.Update(func(s *config.Settings) {
+		s.Shortcuts = config.Shortcuts{"commands.help": "F1", "x.ping": "?"}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ran := 0
+	_, tt := newShell(t, Options{Settings: st}, shortcutModule(&ran), commands.New)
+	tt.Frame()
+	questionMark(tt)
+	tt.Frame()
+	if helpOpen(tt) || ran != 1 {
+		t.Errorf("? bound to Ping: help open %v, Ping ran %d times", helpOpen(tt), ran)
 	}
 }

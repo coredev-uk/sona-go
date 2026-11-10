@@ -8,6 +8,7 @@ package commands
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -79,7 +80,7 @@ func New(env *module.Env) module.Module {
 			},
 			{
 				ID:       "commands.help",
-				Label:    func() string { return i18n.T("Keyboard shortcuts") },
+				Label:    func() string { return helpLabel(env) },
 				Group:    "general",
 				Keys:     []string{"?"},
 				Keywords: func() string { return i18n.T("help keys bindings") },
@@ -94,6 +95,17 @@ func New(env *module.Env) module.Module {
 }
 
 func newCommands(env *module.Env) *commands { return &commands{env: env} }
+
+// helpLabel is the help's command: where "?" comes by its position
+// (kit.SlashByPosition) and the help answers to it, the label says which key
+// that is, as on another layout it is a key labelled otherwise.
+func helpLabel(env *module.Env) string {
+	if kit.SlashByPosition && slices.ContainsFunc(env.KeysOf("commands.help"), kit.IsShiftSlashChord) {
+		// translators: Command in the command palette, the shortcut help and Settings → Shortcuts. Its key "?" is read by its place on the keyboard: where US and UK layouts have "?". Say so as plainly as you can.
+		return i18n.T("Keyboard shortcuts (? where US and UK keyboards have it)")
+	}
+	return i18n.T("Keyboard shortcuts")
+}
 
 // togglePalette is the palette's own chord: it opens the palette, and closes
 // it again.

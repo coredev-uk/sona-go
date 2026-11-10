@@ -17,6 +17,9 @@ type helpSheet struct {
 	// frames counts the frames the sheet has been open; the list takes the
 	// focus on the second, once the dialog has noted where the focus was.
 	frames int
+	// slash is "?" where it comes with no Key (GTK, AppKit), which the
+	// sheet observes to close on its own chord.
+	slash kit.ShiftSlash
 }
 
 // narrow is the window width below which the groups list in one column.
@@ -38,11 +41,11 @@ func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 	}
 	w, wh := c.Size()
 	closeOwn := func() {
-		if kit.ChordPressed(c, env.KeysOf("commands.help")...) {
+		if h.slash.Pressed(c, env.KeysOf("commands.help")...) {
 			h.open = false
 		}
 	}
-	kit.Dialog(c.Key("help"), &h.open, kit.DialogOpts{
+	panel := kit.Dialog(c.Key("help"), &h.open, kit.DialogOpts{
 		Title: i18n.T("Keyboard shortcuts"), Description: plainAbout(), HideHeader: true, MaxWidth: 760, Padding: 0, Gap: 0, Bare: true, Raised: true,
 	}, func() {
 		closeOwn() // the sheet's own chord closes it again, which only the dialog sees
@@ -59,6 +62,7 @@ func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 			c.AnimationFrame()
 		}
 	})
+	panel.ObserveInput(h.slash.Observe)
 }
 
 // about is the line under the title: "Change any of them in Settings.", the
