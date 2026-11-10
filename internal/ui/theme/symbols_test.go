@@ -128,7 +128,8 @@ func TestGlyphColour(t *testing.T) {
 	}
 	withSymbols(t, true)
 	tt = ui.NewTester(glyphApp("plus", o), 240, 120)
-	if inkOf(tt, red) < 40 {
+	// A real symbol at its natural scale is lighter than Lucide's plus.
+	if inkOf(tt, red) < 10 {
 		t.Errorf("symbol: %d red pixels", inkOf(tt, red))
 	}
 	// Without Inherit, Lucide is drawn in Color too.
