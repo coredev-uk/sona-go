@@ -14,6 +14,14 @@ type Added struct {
 	Playlist *Playlist
 }
 
+// recentlyAddedFrom selects the library albums and playlists: library
+// rows whose album or playlist row exists. The page and its total both go
+// through it, so a row that lost its target is neither listed nor counted.
+const recentlyAddedFrom = ` FROM library_items li
+	LEFT JOIN albums a ON li.kind = 'album' AND a.id = li.ref
+	LEFT JOIN playlists p ON li.kind = 'playlist' AND p.id = li.ref
+	WHERE li.kind IN ('album', 'playlist') AND coalesce(a.library_id, p.library_id) IS NOT NULL`
+
 // RecentlyAdded lists library albums and playlists by the date they were
 // added, newest first, the way Apple's Recently Added does (songs are
 // listed through their albums). It also returns the size of the whole
@@ -21,23 +29,18 @@ type Added struct {
 func (l *Library) RecentlyAdded(ctx context.Context, o ListOptions) ([]Added, int, error) {
 	limit, offset := o.page()
 	type ref struct{ kind, id string }
-	refs, err := query(ctx, l, `SELECT li.kind, coalesce(a.library_id, p.library_id) FROM library_items li
-		LEFT JOIN albums a ON li.kind = 'album' AND a.id = li.ref
-		LEFT JOIN playlists p ON li.kind = 'playlist' AND p.id = li.ref
-		WHERE li.kind IN ('album', 'playlist')
+	refs, err := query(ctx, l, `SELECT li.kind, coalesce(a.library_id, p.library_id)`+recentlyAddedFrom+`
 		ORDER BY li.date_added IS NULL, li.date_added DESC, li.kind, li.ref DESC
 		LIMIT ? OFFSET ?`, func(sc interface{ Scan(...any) error }) (ref, error) {
 		var r ref
-		var id sql.NullString
-		err := sc.Scan(&r.kind, &id)
-		r.id = id.String
+		err := sc.Scan(&r.kind, &r.id)
 		return r, err
 	}, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
 	var total int
-	if err := l.db.R.QueryRowContext(ctx, `SELECT count(*) FROM library_items WHERE kind IN ('album', 'playlist')`).Scan(&total); err != nil {
+	if err := l.db.R.QueryRowContext(ctx, `SELECT count(*)`+recentlyAddedFrom).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("library: recently added: %w", err)
 	}
 	var albumIDs, playlistIDs []any

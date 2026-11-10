@@ -162,7 +162,9 @@ var (
 )
 
 // init follows what changes the library: a sync finishing a domain, a
-// whole sync, (a rating changed outside the UI is Env.ItemStates').
+// whole sync, a playlist created or deleted here (the playlist feature
+// refreshes its own lists; a rating changed outside the UI is
+// Env.ItemStates').
 func (l *library) init() {
 	q := l.env.Queries
 	store.On(l.env.Bus, services.EventSyncProgress, func(p services.SyncProgress) {
@@ -175,15 +177,20 @@ func (l *library) init() {
 		l.sync.done(d)
 		q.Invalidate(keyLibrary)
 	})
+	store.On(l.env.Bus, services.EventPlaylistsChanged, func(ev services.PlaylistsChanged) {
+		if ev.Tree {
+			q.Invalidate(keyRecentlyAdded)
+		}
+	})
 }
 
 // domainLists are the lists a sync domain's rows feed (v0.2.0's
 // features/library/invalidations.ts).
 var domainLists = map[string][]store.Key{
 	"artists":         {{"library", "artists"}, {"library", "artist"}},
-	"albums":          {{"library", "albums"}, {"library", "album"}, {"library", "recently-added"}},
+	"albums":          {{"library", "albums"}, {"library", "album"}, keyRecentlyAdded},
 	"songs":           {{"library", "songs"}, {"library", "album"}, {"library", "artist"}, {"library", "favorite-songs"}},
-	"playlists":       {{"library", "playlists"}, {"library", "recently-added"}},
+	"playlists":       {{"library", "playlists"}, keyRecentlyAdded},
 	"playlist-tracks": {{"library", "playlist"}},
 	"ratings":         {{"library", "favorite-songs"}, {"library", "state"}},
 }

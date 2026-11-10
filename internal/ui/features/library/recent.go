@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"slices"
 
 	"github.com/egoist/mygo/ui"
 
@@ -41,11 +42,15 @@ func (l *library) recentPage(c *ui.Context, r *ui.Route) {
 	})
 }
 
+// keyRecentlyAdded is the prefix of the Recently added pages' keys: a sync
+// of albums or playlists and a change to the playlist tree invalidate it.
+var keyRecentlyAdded = store.Key{"library", "recently-added"}
+
 // recentList is the recently added entries in pages of 200 (key `["library",
 // "recently-added", page]`).
 func (l *library) recentList() *listView[services.LibraryEntry] {
 	return usePaged(l, &l.recent.cover.pager, func(n int) store.Key {
-		return store.Key{"library", "recently-added", n}
+		return append(slices.Clip(keyRecentlyAdded), n)
 	}, func(ctx context.Context, off, lim int) (listPage[services.LibraryEntry], error) {
 		p, err := l.lib.RecentlyAdded(ctx, off, lim)
 		return listPage[services.LibraryEntry]{p.Items, p.Total}, err

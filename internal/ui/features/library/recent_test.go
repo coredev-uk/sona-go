@@ -200,3 +200,24 @@ func TestASyncRefreshesRecentlyAdded(t *testing.T) {
 	r.h.Env.Bus.Emit(services.EventSyncProgress, services.SyncProgress{Domain: "playlists", Done: 4, Total: 4, Finished: true})
 	r.tt.Until("the new playlist", r.tt.Shows("Fresh Mix", "Sona Radio", "4 albums and playlists"))
 }
+
+// #210: a playlist deleted in Sona leaves the page at once. The delete
+// removes its library row and says so with PlaylistsChanged{Tree: true}; the
+// page must not wait for the next sync to ask again.
+func TestADeletedPlaylistLeavesRecentlyAdded(t *testing.T) {
+	r := newGridRigH(t, recentPath, 1800, nil)
+	r.tt.Until("the entries", r.tt.Shows("27 albums and playlists", "Road trip"))
+	before := len(r.stub.asks())
+	// What Library.DropPlaylist leaves behind for "Road trip" (p.a0).
+	if _, err := r.h.DB.W.ExecContext(t.Context(), `DELETE FROM library_items
+		WHERE kind = 'playlist' AND ref = (SELECT id FROM playlists WHERE library_id = 'p.a0')`); err != nil {
+		t.Fatal(err)
+	}
+	r.h.Env.Bus.Emit(services.EventPlaylistsChanged, services.PlaylistsChanged{IDs: []string{"p.a0"}, Tree: true})
+	r.tt.Until("the page without the playlist", func() bool {
+		return r.tt.HasText("26 albums and playlists") && !r.tt.HasText("Road trip")
+	})
+	if asks := r.stub.asks(); len(asks) <= before || asks[len(asks)-1] != "recent offset=0" {
+		t.Errorf("the page did not ask again: %q", asks)
+	}
+}
