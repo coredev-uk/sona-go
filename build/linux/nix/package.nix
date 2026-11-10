@@ -3,37 +3,24 @@
 # main.version and MyGo's production mode
 # (`-X github.com/egoist/mygo.production=1`), plus the desktop entry, icons,
 # licence notices, shell completions and manual page nfpm installs
-# (build/linux/nfpm/nfpm.yaml). MyGo loads GTK3, Pango, EGL, epoxy and the
-# tray's appindicator by soname, so the wrapper puts them on
-# LD_LIBRARY_PATH. No Last.fm or Discord keys are compiled in.
+# (build/linux/nfpm/nfpm.yaml). The wrapper's libraries are runtime.nix's.
+# No Last.fm or Discord keys are compiled in: the release has them, so the
+# flake's `sona` on x86_64-linux is the release (release.nix) and this is its
+# `sona-source`.
 #
-# Built by the flake (`nix build`, flake.nix) and by the desktop VM tests
-# (`nix-build tests/vm -A sona`, tests/vm/default.nix). After a change to
-# go.sum, update the hash it names (either build prints the new one).
+# Built by the flake (`nix build .#sona-source`, flake.nix) and by the
+# desktop VM tests (`nix-build tests/vm -A sona`, tests/vm/default.nix).
+# After a change to go.sum, update the hash it names (either build prints the
+# new one).
 {
   lib,
+  callPackage,
   buildGoModule,
   go_1_27,
   pkg-config,
   makeWrapper,
   installShellFiles,
   gtk3,
-  glib,
-  pango,
-  cairo,
-  gdk-pixbuf,
-  harfbuzz,
-  fontconfig,
-  freetype,
-  libepoxy,
-  at-spi2-core,
-  libglvnd,
-  libayatana-appindicator,
-  libx11,
-  libxtst,
-  libsecret,
-  gst_all_1,
-  pipewire,
 }:
 
 let
@@ -43,9 +30,9 @@ let
 
   # Tracked files only (no node_modules, dist, bin or local data): a flake's
   # source already is (and has no .git), a checkout is filtered here.
-  # Without the VM tests' own files and the flake, so editing them does not
-  # rebuild Sona. The notification probe stays: it builds from the same
-  # module.
+  # Without the VM tests' own files, the flake and the release package, so
+  # editing them (or pinning the next release) does not rebuild Sona. The
+  # notification probe stays: it builds from the same module.
   tracked = if builtins.pathExists (root + "/.git") then fileset.gitTracked root else root;
   vmTests = root + "/tests/vm";
   src = fileset.toSource {
@@ -55,36 +42,13 @@ let
         (fileset.difference vmTests (fileset.maybeMissing (vmTests + "/notifyprobe")))
         (fileset.maybeMissing (root + "/flake.nix"))
         (fileset.maybeMissing (root + "/flake.lock"))
+        (fileset.maybeMissing ./release.nix)
+        (fileset.maybeMissing ./release.json)
       ]
     );
   };
 
-  gst = gst_all_1;
-  gstPlugins = [
-    gst.gstreamer
-    gst.gst-plugins-base
-    gst.gst-plugins-good
-    gst.gst-plugins-bad
-    gst.gst-libav
-    pipewire
-  ];
-  uiLibs = [
-    gtk3
-    glib
-    pango
-    cairo
-    gdk-pixbuf
-    harfbuzz
-    fontconfig.lib
-    freetype
-    libepoxy
-    at-spi2-core
-    libglvnd
-    libayatana-appindicator
-    libx11
-    libxtst
-    libsecret
-  ];
+  runtime = callPackage ./runtime.nix { };
 in
 (buildGoModule.override { go = go_1_27; }) {
   pname = "sona";
@@ -112,15 +76,7 @@ in
   ];
 
   # The GStreamer set devenv.nix uses, and the libraries MyGo loads by soname.
-  buildInputs = [
-    gtk3
-    gst.gstreamer
-    gst.gst-plugins-base
-    gst.gst-plugins-good
-    gst.gst-plugins-bad
-    gst.gst-libav
-    pipewire
-  ];
+  buildInputs = [ gtk3 ] ++ runtime.gstreamer;
 
   # The Go tests run in CI (`go test -race` under dbus-run-session).
   doCheck = false;
@@ -139,11 +95,7 @@ in
       --fish <($out/bin/sona completion fish)
     $out/bin/sona help --man > sona.1
     installManPage sona.1
-    wrapProgram $out/bin/sona \
-      --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath uiLibs}:/run/opengl-driver/lib \
-      --prefix GST_PLUGIN_SYSTEM_PATH_1_0 : ${
-        lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstPlugins
-      }
+    wrapProgram $out/bin/sona ${runtime.wrapperArgs}
     install -Dm644 LICENSE internal/playback/widevine/LICENSE.chromium -t $out/share/doc/sona
   '';
 

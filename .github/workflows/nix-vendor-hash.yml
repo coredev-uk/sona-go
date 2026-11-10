@@ -74,7 +74,7 @@ jobs:
         id: build
         if: steps.want.outputs.run == 'true'
         run: |
-          if nix build --no-link -L .#default.goModules 2>&1 | tee "$RUNNER_TEMP/build.log"; then
+          if nix build --no-link -L .#sona-source.goModules 2>&1 | tee "$RUNNER_TEMP/build.log"; then
             echo "vendorHash is current"
             exit 0
           fi

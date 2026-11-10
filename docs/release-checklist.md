@@ -82,6 +82,12 @@ Merging a release:
    the workflow's OIDC token, not from the App).
 6. Copy `aur/PKGBUILD` and `aur/.SRCINFO` from `sona-bin-<v>-aur.tar.gz` into
    the AUR `sona-bin` repo and push there by hand.
+7. Merge the pull request `nix-release-pin.yml` opens,
+   `chore(nix): pin the flake's sona to vX.Y.Z`: it moves the flake's `sona`
+   (`build/linux/nix/release.json`) to this release's Arch package once the
+   package matched `SHA256SUMS` and its attestation and the flake built with
+   it. Prereleases are not pinned; for a release that missed it, dispatch
+   "Nix release pin" with the tag.
 
 If the build fails on something transient, "Re-run failed jobs" on that
 Release Please run builds the same tag again; the publish job uploads over
