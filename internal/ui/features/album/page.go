@@ -2,6 +2,7 @@ package album
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -46,8 +47,15 @@ type album struct {
 	// menus are the item menus of the head and the shelves (no selection).
 	menus *kit.ActionMenus
 
-	stamp    time.Time
-	reloaded string // the album whose release this page reloaded it for
+	stamp     time.Time
+	reloaded  string    // the album whose release this page reloaded it for,
+	reloadAt  time.Time // and when it last asked
+	announced string    // the album whose release the page has announced
+	tries     int       // how many times it has asked again since
+	// waiting is the album the page counted down to, and waitSongs the IDs of
+	// its songs that weren't out then.
+	waiting   string
+	waitSongs map[string]bool
 	// release is withCatalogueRelease's answer, kept until its input changes.
 	release releaseMemo
 
@@ -205,19 +213,61 @@ func (a *album) content(c *ui.Context, id, highlight string, lay layout, now tim
 	if !l.cat {
 		l.detail = a.release.of(l.detail, l.page, now)
 	}
+	a.waitForSongs(&l.detail, id, now)
 	// An album not out yet counts down to the minute; at its release the
-	// page reloads it so its songs become playable.
+	// page says so, announces it, and reloads the album so its songs become
+	// playable, asking again every minute (at most maxWaitTries times) until
+	// Apple's data catches up.
 	if al := l.detail.Album; al.Prerelease && !kit.IsUpcoming(al, now) {
-		if a.reloaded != id {
-			a.reloaded = id
+		if a.announced != id {
+			a.announced = id
+			c.Announce(i18n.T("{name} is out now", "name", al.Name))
+		}
+		switch {
+		case a.reloaded != id:
+			a.reloaded, a.reloadAt, a.tries = id, now, 1
+			a.env.Queries.Invalidate(l.key)
+		case now.Sub(a.reloadAt) >= clockStep && a.tries < maxWaitTries:
+			a.reloadAt, a.tries = now, a.tries+1
 			a.env.Queries.Invalidate(l.key)
 		}
 	} else if a.reloaded == id {
-		a.reloaded = ""
+		a.reloaded, a.announced, a.tries = "", "", 0
 	}
 	auth := store.UseAuth(a.env.Queries, a.env.Core)
 	m := newModel(l.detail, l.page, l.cat, now)
 	a.body(c, &m, lay, highlight, now, auth.Data)
+}
+
+// maxWaitTries is how many times a page asks again, a minute apart, for the
+// songs of an album that has come out.
+const maxWaitTries = 30
+
+// waitForSongs keeps an album that has come out on a page that counted down
+// to it "just out" while the songs that were waiting are still unplayable.
+// The service derives "not a prerelease" from the date alone, so once the
+// release time has passed it says the album is out whether or not Apple has
+// published the songs (they have no play parameters until it does): such an
+// album is marked a prerelease again for the page, which then asks again
+// (maxWaitTries times) instead of showing every song "Unavailable". An album
+// the page didn't see upcoming is shown as it is.
+func (a *album) waitForSongs(d *services.AlbumDetail, id string, now time.Time) {
+	switch {
+	case kit.IsUpcoming(d.Album, now):
+		if a.waiting != id {
+			a.waiting, a.waitSongs = id, map[string]bool{}
+			for _, s := range d.Tracks {
+				if !s.Playable {
+					a.waitSongs[s.ID] = true
+				}
+			}
+		}
+	case a.waiting != id || d.Album.Prerelease:
+	case a.tries < maxWaitTries && slices.ContainsFunc(d.Tracks, func(s services.Song) bool { return !s.Playable && a.waitSongs[s.ID] }):
+		d.Album.Prerelease = true
+	default:
+		a.waiting, a.waitSongs = "", nil
+	}
 }
 
 // errorBlock is DetailError: not found, signed out, or the failure with

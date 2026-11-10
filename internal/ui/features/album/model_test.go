@@ -2,11 +2,13 @@ package album
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
 var modelNow = time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)
@@ -218,5 +220,132 @@ func TestReleaseMemoCopiesTheTracksOncePerLoad(t *testing.T) {
 	// Once the catalogue album is out it is the library's own again.
 	if got := m.of(d, &upcoming, release); got.Album.Prerelease || !got.Tracks[0].Playable {
 		t.Errorf("an album out was overridden: %+v", got.Album)
+	}
+}
+
+// upcomingModel is Salt Flats not out until a day after modelNow, with the
+// songs at these positions (1-based track numbers) already out.
+func upcomingModel(t *testing.T, out ...int) model {
+	t.Helper()
+	p := saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Prerelease, p.Album.ReleaseAt = true, modelNow.Add(24*time.Hour).UnixMilli()
+		p.Album.ReleaseDate = modelNow.Add(24 * time.Hour).Format("2006-01-02")
+		for i := range p.Tracks {
+			p.Tracks[i].Playable = slices.Contains(out, i+1)
+		}
+	})
+	return newModel(p.AlbumDetail, &p, true, modelNow)
+}
+
+func trackNumbers(songs []services.Song) []int {
+	var out []int
+	for _, s := range songs {
+		out = append(out, s.TrackNumber)
+	}
+	return out
+}
+
+func TestUpcomingAlbumListsTheSongsOutNowFirst(t *testing.T) {
+	m := upcomingModel(t, 2, 5)
+	if want := []int{2, 5, 1, 3, 4}; !slices.Equal(trackNumbers(m.list), want) {
+		t.Errorf("order %v, want %v (each group in the record's order)", trackNumbers(m.list), want)
+	}
+	if !m.mixed || m.songsOut != 2 {
+		t.Errorf("mixed %v, songsOut %d", m.mixed, m.songsOut)
+	}
+	if len(m.discs) != 0 {
+		t.Errorf("two groups have %d discs to index", len(m.discs))
+	}
+	// A record with every song to come, or every one out, keeps its order.
+	for _, out := range [][]int{nil, {1, 2, 3, 4, 5}} {
+		m := upcomingModel(t, out...)
+		if m.mixed || !slices.Equal(trackNumbers(m.list), []int{1, 2, 3, 4, 5}) {
+			t.Errorf("out %v: mixed %v, order %v", out, m.mixed, trackNumbers(m.list))
+		}
+	}
+}
+
+func TestUpcomingAlbumHeadingsNameEachGroupOnce(t *testing.T) {
+	heads := func(m model) []string {
+		h := m.groupHeading(modelNow)
+		var out []string
+		for i := range m.list {
+			var prev *services.Song
+			if i > 0 {
+				prev = &m.list[i-1]
+			}
+			out = append(out, h(&m.list[i], prev))
+		}
+		return out
+	}
+	day := kit.ReleaseBadge(upcomingModel(t).album, modelNow)
+	if day == "" {
+		t.Fatal("no release badge for the fixture")
+	}
+	if got, want := heads(upcomingModel(t, 2, 5)), []string{"Out now", "", day, "", ""}; !slices.Equal(got, want) {
+		t.Errorf("mixed: %q, want %q", got, want)
+	}
+	// Nothing out: one heading names the day; all out: none is needed.
+	if got, want := heads(upcomingModel(t)), []string{day, "", "", "", ""}; !slices.Equal(got, want) {
+		t.Errorf("none out: %q, want %q", got, want)
+	}
+	if got := heads(upcomingModel(t, 1, 2, 3, 4, 5)); !slices.Equal(got, []string{"", "", "", "", ""}) {
+		t.Errorf("all out: %q", got)
+	}
+	// An album that is out has no groups.
+	p := saltFlats()
+	if m := newModel(p.AlbumDetail, &p, true, modelNow); m.groupHeading(modelNow) != nil {
+		t.Error("a released album has group headings")
+	}
+}
+
+func TestUpcomingRowsLeaveTheDayToTheirHeading(t *testing.T) {
+	m := upcomingModel(t, 1)
+	sub := m.subline(modelNow, false)
+	for i, s := range m.list {
+		if got := sub(s); got != "" {
+			t.Errorf("row %d says %q: the group heading says when", i, got)
+		}
+	}
+}
+
+func TestJustOutAlbumWaitsForItsSongs(t *testing.T) {
+	p := saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Prerelease, p.Album.ReleaseAt = true, modelNow.Add(-time.Minute).UnixMilli()
+		for i := range p.Tracks {
+			p.Tracks[i].Playable = false
+		}
+	})
+	m := newModel(p.AlbumDetail, &p, true, modelNow)
+	if m.upcoming || !m.justOut {
+		t.Fatalf("upcoming %v, justOut %v", m.upcoming, m.justOut)
+	}
+	// Its songs are on their way, not "Unavailable".
+	if got := m.subline(modelNow, false)(m.list[0]); got != "" {
+		t.Errorf("subline %q", got)
+	}
+}
+
+// The minute an album comes out its page doesn't jump: Apple's stand-in
+// credit stays dropped and the running time stays left out, as before.
+func TestJustOutAlbumKeepsTheShapeOfTheUpcomingOne(t *testing.T) {
+	build := func(release time.Time) model {
+		p := saltFlats(func(p *services.CatalogAlbum) {
+			p.Album.Prerelease, p.Album.ReleaseAt = true, release.UnixMilli()
+			for i := range p.Tracks {
+				p.Tracks[i].Playable, p.Tracks[i].DurationMs, p.Tracks[i].Artist = false, 0, "unknown"
+			}
+		})
+		return newModel(p.AlbumDetail, &p, true, modelNow)
+	}
+	before, after := build(modelNow.Add(time.Minute)), build(modelNow.Add(-time.Minute))
+	if !before.upcoming || !after.justOut {
+		t.Fatalf("upcoming %v, justOut %v", before.upcoming, after.justOut)
+	}
+	if after.list[0].Artist != "" || before.list[0].Artist != "" {
+		t.Errorf("stand-in credit kept: %q, %q", before.list[0].Artist, after.list[0].Artist)
+	}
+	if before.meta != after.meta {
+		t.Errorf("the catalogue line jumps: %q, then %q", before.meta, after.meta)
 	}
 }

@@ -349,10 +349,15 @@ func TestUnreleasedAlbumCountsDownToTheMinute(t *testing.T) {
 	}))
 	r.shows("Out in 5 hours, 12 minutes", "Pre-add")
 	day := fullReleaseDate(release.UnixMilli())
-	r.wantTexts(day+" · 2 of 5 songs out now", "Play the 2 songs out now", "Pre-add")
+	r.wantTexts(day, "Play the 2 songs out now", "Pre-add")
 	r.wantNoTexts("Shuffle", "Released", "unknown")
-	// Songs still to come say when.
-	r.wantTexts(kit.ReleaseBadge(services.Album{Prerelease: true, ReleaseAt: release.UnixMilli()}, r.now))
+	// The songs are in two groups, each named once: the ones that play, then
+	// the day the rest are out. No row repeats the day.
+	badge := kit.ReleaseBadge(services.Album{Prerelease: true, ReleaseAt: release.UnixMilli()}, r.now)
+	r.wantTexts("Out now", badge)
+	if n := countTexts(r.tt.Texts(), badge); n != 1 {
+		t.Errorf("%q is said %d times, want once (the heading)", badge, n)
+	}
 	// The running time of unpublished songs is not guessed.
 	r.wantTexts("Album · 2026 · 5 songs · Indie Pop")
 
@@ -383,7 +388,7 @@ func TestLibraryAlbumTakesTheLinkedCatalogueAlbumsReleaseState(t *testing.T) {
 	r.addPreAddedLibraryAlbum(release)
 	r.shows("Out in 5 hours, 12 minutes")
 	day := fullReleaseDate(release.UnixMilli())
-	r.wantTexts(day+" · 2 of 5 songs out now", "Play the 2 songs out now")
+	r.wantTexts(day, "Play the 2 songs out now", "Out now")
 	r.wantNoTexts("Shuffle", "Released")
 }
 
@@ -411,6 +416,207 @@ func (r *rig) addPreAddedLibraryAlbum(release time.Time) {
 	r.states.inLib["l.9"] = true
 }
 
+// The album comes out while its page is open: the countdown gives way to
+// "Out now" and the page says so, aloud once, while the songs are fetched
+// again, every minute until Apple's data says they play.
+func TestAlbumComingOutWhilePageIsOpen(t *testing.T) {
+	r := newRig(t, "/album/100", 1132, 1000)
+	release := r.now.Add(10 * time.Minute)
+	pre := func(p *services.CatalogAlbum) {
+		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, release.UnixMilli(), release.Format("2006-01-02")
+		for i := range p.Tracks {
+			p.Tracks[i].Playable = false
+		}
+	}
+	r.addCatalog(saltFlats(pre))
+	r.shows("Out in 10 minutes")
+	r.wantNoTexts("Out now", "Updating the songs")
+	if got := r.tt.Announcements(); len(got) != 0 {
+		t.Errorf("announced %q before the release", got)
+	}
+
+	// The minute the album is out: its lead, its status, a reload; its songs
+	// aren't "Unavailable" while they are on their way.
+	before := r.cat.calls("100")
+	r.now = release.Add(time.Second)
+	r.tt.Advance(10*time.Minute + time.Second)
+	r.tt.Until("the release", r.tt.Shows("Out now", "Updating the songs"))
+	r.tt.Until("the reload", func() bool { return r.cat.calls("100") > before })
+	r.wantNoTexts("Unavailable", "Out in 10 minutes")
+	// Announcements are handed over once read: keep a running count.
+	heard := 0
+	announced := func() int {
+		heard += countTexts(r.tt.Announcements(), "Salt Flats is out now")
+		return heard
+	}
+	if n := announced(); n != 1 {
+		t.Errorf("announced %d times, want once", n)
+	}
+
+	// Apple's data hasn't caught up: the page asks again a minute later, and
+	// doesn't repeat itself aloud.
+	before = r.cat.calls("100")
+	r.now = r.now.Add(clockStep + time.Second)
+	r.tt.Advance(clockStep + time.Second)
+	r.tt.Until("the second reload", func() bool { return r.cat.calls("100") > before })
+	if n := announced(); n != 1 {
+		t.Errorf("announced %d times after the retry, want once", n)
+	}
+
+	// The real service derives "not a prerelease" from the date alone: the
+	// album is out, but Apple hasn't published its songs (no play
+	// parameters), so they still don't play. The page keeps waiting for
+	// them, not showing every song "Unavailable".
+	afterRelease := func(playable bool) {
+		r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
+			p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = false, release.UnixMilli(), release.Format("2006-01-02")
+			for i := range p.Tracks {
+				p.Tracks[i].Playable = playable
+			}
+		}))
+	}
+	afterRelease(false)
+	before = r.cat.calls("100")
+	r.now = r.now.Add(clockStep + time.Second)
+	r.tt.Advance(clockStep + time.Second)
+	r.tt.Until("the third reload", func() bool { return r.cat.calls("100") > before })
+	r.tt.Drain()
+	r.wantTexts("Out now", "Updating the songs")
+	r.wantNoTexts("Unavailable")
+	before = r.cat.calls("100")
+	r.now = r.now.Add(clockStep + time.Second)
+	r.tt.Advance(clockStep + time.Second)
+	r.tt.Until("the next try", func() bool { return r.cat.calls("100") > before })
+	r.tt.Drain()
+	r.wantTexts("Updating the songs")
+	if n := announced(); n != 1 {
+		t.Errorf("announced %d times while waiting, want once", n)
+	}
+
+	// Once the songs play, it is an ordinary album page.
+	afterRelease(true)
+	r.now = r.now.Add(clockStep + time.Second)
+	r.tt.Advance(clockStep + time.Second)
+	r.tt.Until("the released page", func() bool { return !r.tt.HasText("Updating the songs") })
+	r.wantTexts("Shuffle", "Released")
+	r.wantNoTexts("Out now", "Pre-add", "Unavailable")
+}
+
+// Apple never publishes the songs (or the album page is left open for a
+// day): the page stops asking after maxWaitTries minutes and shows the songs
+// as they are, "Unavailable", instead of waiting for ever.
+func TestAlbumWaitingForItsSongsGivesUp(t *testing.T) {
+	r := newRig(t, "/album/100", 1132, 1000)
+	release := r.now.Add(10 * time.Minute)
+	set := func(prerelease bool) {
+		r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
+			p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = prerelease, release.UnixMilli(), release.Format("2006-01-02")
+			for i := range p.Tracks {
+				p.Tracks[i].Playable = false
+			}
+		}))
+	}
+	set(true)
+	r.shows("Out in 10 minutes")
+	set(false)
+	start := r.cat.calls("100")
+	r.now = release.Add(time.Second)
+	r.tt.Advance(10*time.Minute + time.Second)
+	r.tt.Until("the wait", r.tt.Shows("Updating the songs"))
+	for i := 0; i < maxWaitTries+5; i++ {
+		r.now = r.now.Add(clockStep + time.Second)
+		r.tt.Advance(clockStep + time.Second)
+		r.tt.Drain()
+	}
+	r.tt.Until("giving up", r.tt.Shows("Unavailable"))
+	r.wantNoTexts("Updating the songs", "Out now")
+	if got := r.cat.calls("100") - start; got != maxWaitTries {
+		t.Errorf("asked %d times, want %d", got, maxWaitTries)
+	}
+	// And no more.
+	before := r.cat.calls("100")
+	r.now = r.now.Add(10 * clockStep)
+	r.tt.Advance(10 * clockStep)
+	r.tt.Drain()
+	if got := r.cat.calls("100"); got != before {
+		t.Errorf("asked %d more times after giving up", got-before)
+	}
+}
+
+// A classical album not out yet: each group's first work is named in its
+// heading, even when a work runs on from the songs out into the ones to
+// come.
+func TestClassicalUpcomingAlbumNamesTheWorkUnderEachGroup(t *testing.T) {
+	r := newRig(t, "/album/100", 1132, 1000)
+	release := r.now.Add(48 * time.Hour)
+	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Name = "Symphonies"
+		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, release.UnixMilli(), release.Format("2006-01-02")
+		for i := range p.Tracks {
+			p.Tracks[i].Work, p.Tracks[i].Composer, p.Tracks[i].Movement = "Symphony No. 5", "Ludwig van Beethoven", fmt.Sprintf("Movement %d", i+1)
+			p.Tracks[i].Playable = i < 2 // songs 1 and 2 are out; the work goes on in 3, 4 and 5
+		}
+		p.Tracks[4].Work, p.Tracks[4].Composer = "Symphony No. 6", "Clara Schumann"
+	}))
+	r.shows("Out in 2 days")
+	badge := kit.ReleaseBadge(services.Album{Prerelease: true, ReleaseAt: release.UnixMilli()}, r.now)
+	r.wantTexts(
+		"Out now · Ludwig van Beethoven · Symphony No. 5",
+		badge+" · Ludwig van Beethoven · Symphony No. 5",
+		"Clara Schumann · Symphony No. 6",
+	)
+}
+
+// A list of more than kit.VirtualFrom songs is built by row and has no
+// headings: its songs keep their order and each says when it is out.
+func TestLongUpcomingAlbumKeepsRowsSayingWhen(t *testing.T) {
+	p := saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, modelNow.Add(48*time.Hour).UnixMilli(), "2026-11-06"
+		p.Tracks = nil
+		for i := 1; i <= kit.VirtualFrom+1; i++ {
+			p.Tracks = append(p.Tracks, track(i, fmt.Sprintf("Song %03d", i), func(s *services.Song) { s.Playable = i%2 == 0 }))
+		}
+	})
+	m := newModel(p.AlbumDetail, &p, true, modelNow)
+	if m.headed || m.mixed || m.groupHeading(modelNow) != nil {
+		t.Fatalf("headed %v, mixed %v: a virtual list has no headings", m.headed, m.mixed)
+	}
+	if m.list[0].TrackNumber != 1 || m.list[1].TrackNumber != 2 {
+		t.Errorf("the songs were regrouped: %d, %d", m.list[0].TrackNumber, m.list[1].TrackNumber)
+	}
+	badge := kit.ReleaseBadge(m.album, modelNow)
+	sub := m.subline(modelNow, false)
+	if got := sub(m.list[0]); got != badge {
+		t.Errorf("song 1 says %q, want %q", got, badge)
+	}
+	if got := sub(m.list[1]); got != "" {
+		t.Errorf("song 2 plays and says %q", got)
+	}
+}
+
+// A library album pre-added and not out yet is the same page: its release
+// leads, and the library button says Pre-added.
+func TestPreAddedLibraryAlbumHasTheUnreleasedPage(t *testing.T) {
+	r := newRig(t, "/album/l.9", 1132, 1000)
+	release := r.now.Add(48 * time.Hour)
+	songs := fiveTracks()
+	for i := range songs {
+		songs[i].Source, songs[i].Playable = services.SourceLibrary, false
+	}
+	r.lib.albums["l.9"] = services.AlbumDetail{
+		Album: services.Album{
+			ID: "l.9", Source: services.SourceLibrary, CatalogID: "100", Name: "Salt Flats", Artist: "Mia Vale",
+			Prerelease: true, ReleaseAt: release.UnixMilli(), ReleaseDate: release.Format("2006-01-02"),
+		},
+		Tracks: songs,
+	}
+	r.states.inLib["l.9"] = true
+	r.shows("Out in 2 days")
+	r.tt.Until("Pre-added", r.tt.Shows("Pre-added"))
+	r.wantNoTexts("In library", "Shuffle", "Unavailable")
+	r.wantTexts(kit.ReleaseBadge(services.Album{Prerelease: true, ReleaseAt: release.UnixMilli()}, r.now))
+}
+
 func TestYearOnlyUnreleasedAlbumHasNoCountdown(t *testing.T) {
 	r := newRig(t, "/album/100", 1132, 1000)
 	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
@@ -420,7 +626,12 @@ func TestYearOnlyUnreleasedAlbumHasNoCountdown(t *testing.T) {
 		}
 	}))
 	r.shows("Out 2027")
-	r.wantNoTexts("Pre-add ", "Play the 0 songs out now")
+	r.wantTexts("The day hasn't been announced yet")
+	r.wantNoTexts("Play the 0 songs out now", "Out now")
+	// One heading names the year for every song; the rows say nothing.
+	if n := countTexts(r.tt.Texts(), "Out 2027"); n != 2 { // the lead and the list's heading
+		t.Errorf("Out 2027 is said %d times, want twice", n)
+	}
 	for _, w := range r.tt.Texts() {
 		if strings.HasPrefix(w, "Out in") {
 			t.Errorf("a countdown without a date: %q", w)
@@ -808,4 +1019,15 @@ func TestUnreleasedAlbumOffersARemindWhereTheyWork(t *testing.T) {
 	o.addCatalog(saltFlats())
 	o.shows("Salt Flats")
 	o.wantNoTexts("Remind me")
+}
+
+// countTexts is how many of the texts are exactly want.
+func countTexts(texts []string, want string) int {
+	n := 0
+	for _, s := range texts {
+		if s == want {
+			n++
+		}
+	}
+	return n
 }

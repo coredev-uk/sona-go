@@ -9,6 +9,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
 func TestRemindButtonStatesAndClicks(t *testing.T) {
@@ -19,7 +20,7 @@ func TestRemindButtonStatesAndClicks(t *testing.T) {
 	var res store.Result[[]services.Reminder]
 	var sets []bool
 	tt := controlsTester(t, 400, 200, func(c *ui.Context) {
-		remindButton(c, res, album, func(on bool) { sets = append(sets, on) })
+		remindButton(c, res, album, false, func(on bool) { sets = append(sets, on) })
 	})
 	tip := func(name, want string) {
 		t.Helper()
@@ -73,5 +74,24 @@ func TestRemindButtonStatesAndClicks(t *testing.T) {
 func TestRemindAvailableNeedsCoreCatalogIDAndDate(t *testing.T) {
 	if RemindAvailable(nil, services.Album{CatalogID: "1", ReleaseAt: 1}) {
 		t.Error("available with no services")
+	}
+}
+
+func TestRemindButtonLeadsUntilARemindersSet(t *testing.T) {
+	album := services.Album{
+		CatalogID: "1700", Name: "Out Soon", Prerelease: true,
+		ReleaseAt: time.Date(2026, time.November, 19, 0, 0, 0, 0, time.Local).UnixMilli(),
+	}
+	res := store.Result[[]services.Reminder]{HasData: true}
+	tt := controlsTester(t, 400, 100, func(c *ui.Context) { remindButton(c, res, album, true, func(bool) {}) })
+	tt.Advance(time.Second)
+	if got, want := face(tt, "Remind me"), rgb(theme.C("ink")); got != want {
+		t.Errorf("a lead Remind me is %v, want the primary ink fill %v", got, want)
+	}
+	res.Data = []services.Reminder{{AlbumID: "1700"}}
+	tt.Frame()
+	tt.Advance(time.Second)
+	if got, want := face(tt, "Remind me"), rgb(theme.C("ink")); got == want {
+		t.Errorf("a reminder that is set still leads: %v", got)
 	}
 }

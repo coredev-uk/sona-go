@@ -106,6 +106,11 @@ type LibraryOpts struct {
 	Pending bool
 	// AddLabel replaces "Add" ("Pre-add" for an album not out yet).
 	AddLabel string
+	// DoneLabel replaces "In library" ("Pre-added" for an album not out yet).
+	DoneLabel string
+	// Lead makes the Add button the page's one primary action (ink-filled)
+	// instead of an outline: nothing else on the row leads.
+	Lead bool
 	// Playlist is a playlist: once in the library it shows a plain "In
 	// library" label, since the playlist editor owns deletion.
 	Playlist bool
@@ -123,7 +128,11 @@ func LibraryButton(c *ui.Context, o LibraryOpts) LibraryAction {
 		if label == "" {
 			label = i18n.T("Add")
 		}
-		if Button(c, label, ButtonOpts{Variant: Outline, Size: SizeSM, Icon: "plus", Disabled: o.Pending}).Clicked() {
+		variant := Outline
+		if o.Lead {
+			variant = Default
+		}
+		if Button(c, label, ButtonOpts{Variant: variant, Size: SizeSM, Icon: "plus", Disabled: o.Pending}).Clicked() {
 			return LibraryAdd
 		}
 	case o.Playlist:
@@ -132,9 +141,13 @@ func LibraryButton(c *ui.Context, o LibraryOpts) LibraryAction {
 			controlsText(c, i18n.T("In library"), "body").TextColor(theme.C("ink-muted")).SingleLine()
 		})
 	default:
-		if Button(c, i18n.T("In library"), ButtonOpts{
+		label, a11y := i18n.T("In library"), i18n.T("In library. Delete “{name}” from your library", "name", o.Name)
+		if o.DoneLabel != "" {
+			label, a11y = o.DoneLabel, i18n.T("{state}. Delete “{name}” from your library", "state", o.DoneLabel, "name", o.Name)
+		}
+		if Button(c, label, ButtonOpts{
 			Variant: Outline, Size: SizeSM, Icon: "check",
-			A11yLabel: i18n.T("In library. Delete “{name}” from your library", "name", o.Name),
+			A11yLabel: a11y,
 			Tip:       i18n.T("Delete from library"),
 		}).Clicked() {
 			return LibraryRemove

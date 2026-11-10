@@ -124,6 +124,9 @@ type TrackListOpts struct {
 	Playing bool
 	// Restricted: the account may not play explicit songs.
 	Restricted bool
+	// BlankDuration leaves the duration cell empty for a song with no length,
+	// instead of a dash (an album not out yet: its songs have none to give).
+	BlankDuration bool
 
 	Art    *ArtLoader
 	Menus  *ActionMenus
@@ -871,10 +874,16 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 			})
 		}
 		dur := "—"
-		if s.DurationMs > 0 {
+		switch {
+		case s.DurationMs > 0:
 			dur = i18n.FormatDuration(time.Duration(s.DurationMs) * time.Millisecond)
+		case o.BlankDuration:
+			dur = ""
 		}
 		o.cell(ui.Row(c.Key("dur")).Role(ui.RoleCell).Justify(ui.End).AlignItems(ui.Center), cellDuration).Children(func() {
+			if dur == "" {
+				return
+			}
 			ui.Text(c, dur).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).TextColor(faint).
 				FontFeatures("tnum").SingleLine()
 		})
