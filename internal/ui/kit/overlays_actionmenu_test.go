@@ -50,7 +50,9 @@ type listApp struct {
 	dialog   bool
 	posted   chan func()
 	rated    int
-	gate     chan struct{} // when set, the rating loads wait for it
+	// order, when set, is the container's Order: where each row is in it.
+	order []int
+	gate  chan struct{} // when set, the rating loads wait for it
 }
 
 func newListApp(t *testing.T) (*listApp, *ui.Tester) {
@@ -130,7 +132,7 @@ func (a *listApp) view(c *ui.Context) {
 		for i, it := range a.rows {
 			tgt := ActionTarget{
 				Item: it, Name: it.Name(), Key: it.ID(),
-				Container: &ActionContainer{Kind: "album", ID: "al-1", Index: i, Editable: true},
+				Container: &ActionContainer{Kind: "album", ID: "al-1", Index: i, Editable: true, Order: a.order},
 			}
 			row := ui.Row(c.Key("row:"+it.ID())).Focusable().Height(40).Width(480).Padding(0, 8).AlignItems(ui.Center).Label(it.Name())
 			if slices.Contains(a.scope.sel, i) {
@@ -401,6 +403,26 @@ func TestMultiSelectionMenuListsBulkActionsAndRunsOnce(t *testing.T) {
 	}
 	if len(a.ran) != 0 {
 		t.Errorf("the single action ran too: %v", a.ran)
+	}
+}
+
+// A list showing its collection sorted or filtered gives the container its
+// order, and a bulk action is handed the places in the collection.
+func TestBulkActionGetsTheContainersPlacesNotTheRows(t *testing.T) {
+	a, tt := newListApp(t)
+	a.order = []int{7, 3, 5} // the rows are items 7, 3 and 5 of the collection
+	a.scope.sel = []int{0, 2}
+	tt.Frame()
+	if err := tt.RightClick("Karma Police"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("Play next"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	tt.Frame()
+	if len(a.bulkIdx) != 1 || !slices.Equal(a.bulkIdx[0], []int{7, 5}) {
+		t.Errorf("indices %v, want the places [7 5]", a.bulkIdx)
 	}
 }
 

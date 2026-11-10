@@ -38,6 +38,13 @@ type page struct {
 	// added caches addedByRows for the tracks and attributions it was made
 	// from (the rows are rebuilt only when either is another list).
 	added addedCache
+	// sort and query are how the songs are sorted and narrowed (no key: the
+	// playlist's own order); shownCache is what they make of the tracks, and
+	// announced the filter's result last read out.
+	sort       kit.TrackSortState
+	query      string
+	shownCache viewCache
+	announced  string
 }
 
 // addedCache is addedByRows' last answer and what it came from.
@@ -163,7 +170,8 @@ func (p *playlists) collabOf(id string, pl services.Playlist) *services.Playlist
 	return nil
 }
 
-// playList plays the playlist from song start, or shuffled. Main thread.
+// playList plays songs, the playlist as the page lists them (sorted, and
+// narrowed by the filter), from song start, or shuffled. Main thread.
 func (p *playlists) playList(id string, songs []services.Song, start int, shuffle bool) {
 	from := services.PlayFrom{Kind: "playlist", ID: id}
 	p.playSongs(songs, start, from, shuffle)
@@ -174,6 +182,8 @@ func (p *playlists) playList(id string, songs []services.Song, start int, shuffl
 func (pg *page) setEditing(c *ui.Context, on bool) {
 	pg.editing, pg.focusToggle = on, true
 	pg.editor = editor{}
+	// The editor arranges the playlist itself, in its own order and whole.
+	pg.clearView()
 	c.Invalidate()
 }
 
@@ -344,8 +354,10 @@ func (p *playlists) headerActions(c *ui.Context, id string, d services.PlaylistD
 		}
 		return
 	}
+	// Play and Shuffle take the songs as the page lists them.
+	songs := pg.view(d.Tracks).songs
 	playable := false
-	for _, s := range d.Tracks {
+	for _, s := range songs {
 		if s.Playable {
 			playable = true
 			break
@@ -353,10 +365,10 @@ func (p *playlists) headerActions(c *ui.Context, id string, d services.PlaylistD
 	}
 	play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: pl.Name, Shuffle: true, Disabled: !playable})
 	if play {
-		p.playList(id, d.Tracks, 0, false)
+		p.playList(id, songs, 0, false)
 	}
 	if shuffle {
-		p.playList(id, d.Tracks, 0, true)
+		p.playList(id, songs, 0, true)
 	}
 	if st := p.env.ItemStates; st != nil {
 		item := kit.StateOfPlaylist(pl)
@@ -381,16 +393,35 @@ func (p *playlists) headerActions(c *ui.Context, id string, d services.PlaylistD
 }
 
 // trackList is the playlist's songs: number, artwork, artist and album
-// columns, and for a collaborative playlist who added each. An editable
-// playlist gives its rows the playlist as their container, so their menus
-// offer Remove from playlist.
+// columns, and for a collaborative playlist who added each, under a field to
+// find a song in it. The headers sort the songs and the field narrows them;
+// both are only how the page lists them, so Play, Remove and the "Added by"
+// column go through the songs' places in the playlist. An editable playlist
+// gives its rows the playlist as their container, so their menus offer
+// Remove from playlist.
 func (p *playlists) trackList(c *ui.Context, id string, d services.PlaylistDetail, editable bool, menus *kit.ActionMenus, pane *kit.Pane) {
 	pg := &p.page
-	tracks := d.Tracks
+	// The field first: a key typed in it changes the query, and the songs
+	// listed, their count and what is announced all follow that query.
+	p.songFinder(c, d.Tracks)
+	v := pg.view(d.Tracks)
+	songs := v.songs
+	if len(songs) == 0 {
+		dialogText(c, i18n.T("No song in this playlist matches “{query}”.", "query", pg.query), "sub").
+			TextColor(theme.C("ink-muted")).Padding(16, 8)
+		return
+	}
+	pg.sort.Duration = true
+	pg.sort.OnSort = func(key string) {
+		pg.sort.Toggle(key)
+		c.Announce(sortAnnouncement(pg.sort))
+		c.Invalidate()
+	}
 	o := kit.TrackListOpts{
 		Label:   i18n.T("Songs in {playlistName}", "playlistName", d.Playlist.Name),
 		Columns: kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true},
-		OnPlay:  func(i int) { p.playList(id, tracks, i, false) },
+		OnPlay:  func(i int) { p.playList(id, songs, i, false) },
+		Sort:    &pg.sort,
 		Art:     p.env.Art,
 		Menus:   menus,
 		NoPopup: true,
@@ -398,7 +429,7 @@ func (p *playlists) trackList(c *ui.Context, id string, d services.PlaylistDetai
 		Pane:    pane,
 	}
 	if editable {
-		o.Container = &kit.ActionContainer{Kind: "playlist", ID: id, Editable: true}
+		o.Container = &kit.ActionContainer{Kind: "playlist", ID: id, Editable: true, Order: v.order}
 	}
 	if p.env.Play != nil {
 		if st := p.env.Play.State(); st.Current != nil {
@@ -417,11 +448,76 @@ func (p *playlists) trackList(c *ui.Context, id string, d services.PlaylistDetai
 		o.OpenProfile = func(pid string) { p.env.Nav.Push("/profile/" + pid) }
 	}
 	if collab := p.collabOf(id, d.Playlist); collab != nil {
-		if rows, some := pg.addedBy(tracks, *collab); some {
-			o.AddedBy = func(i int) *services.SocialProfile { return rows[i] }
+		if rows, some := pg.addedBy(d.Tracks, *collab); some {
+			o.AddedBy = func(i int) *services.SocialProfile { return rows[v.place(i)] }
 		}
 	}
-	kit.TrackList(c, &pg.list, len(tracks), func(i int) *services.Song { return &tracks[i] }, o)
+	kit.TrackList(c, &pg.list, len(songs), func(i int) *services.Song { return &songs[i] }, o)
+}
+
+// songFinder is the field above the songs, "Find in playlist", and, while it
+// holds a query, how many of the playlist's songs match it. Escape in the
+// field clears it.
+func (p *playlists) songFinder(c *ui.Context, tracks []services.Song) {
+	pg := &p.page
+	var found int
+	ui.Row(c.Key("find")).Gap(16).AlignItems(ui.Center).Margin(0, 0, 8).Children(func() {
+		ui.Column(c.Key("field")).Shrink(0).Role(ui.RoleSearch).Label(i18n.T("Find songs in this playlist")).Children(func() {
+			label := i18n.T("Find in playlist")
+			kit.SearchField(c, &pg.query, kit.SearchFieldOpts{Placeholder: label, A11yLabel: label, Width: 288})
+		})
+		// Asked after the field: the query is the one it now holds.
+		found = len(pg.view(tracks).songs)
+		if pg.filtering() {
+			dialogText(c, i18n.T("{found} of {total, plural, one {# song} other {# songs}}",
+				"found", i18n.FormatNumber(float64(found)), "total", len(tracks)), "sub").
+				TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
+		}
+	})
+	p.announceFound(c, found)
+}
+
+// announceFound reads out the filter's result when it changes (a filter's
+// result is not otherwise announced).
+func (p *playlists) announceFound(c *ui.Context, found int) {
+	pg := &p.page
+	text := ""
+	if pg.filtering() {
+		if found > 0 {
+			text = i18n.T("{matches, plural, one {# song matches} other {# songs match}}", "matches", found)
+		} else {
+			text = i18n.T("No song matches “{query}”", "query", pg.query)
+		}
+	}
+	if text != "" && pg.announced != pg.query+"\x00"+text {
+		c.Announce(text)
+	}
+	pg.announced = ""
+	if text != "" {
+		pg.announced = pg.query + "\x00" + text
+	}
+}
+
+// sortAnnouncement says the order the songs are in now, as a click on a
+// header changed it.
+func sortAnnouncement(s kit.TrackSortState) string {
+	var by string
+	switch s.Key {
+	case kit.SortTitle:
+		by = i18n.T("Title")
+	case kit.SortArtist:
+		by = i18n.T("Artist")
+	case kit.SortAlbum:
+		by = i18n.T("Album")
+	case kit.SortDuration:
+		by = i18n.T("Duration")
+	default:
+		return i18n.T("Songs in playlist order")
+	}
+	if s.Desc {
+		return i18n.T("Songs sorted by {column}, descending", "column", by)
+	}
+	return i18n.T("Songs sorted by {column}, ascending", "column", by)
 }
 
 // featuredShelf is the playlist's featured artists as round tiles linking to

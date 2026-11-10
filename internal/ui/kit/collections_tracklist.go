@@ -30,9 +30,10 @@ const (
 
 // TrackSort keys of the sortable columns.
 const (
-	SortTitle  = "title"
-	SortArtist = "artist"
-	SortAlbum  = "album"
+	SortTitle    = "title"
+	SortArtist   = "artist"
+	SortAlbum    = "album"
+	SortDuration = "duration"
 )
 
 // TrackColumns says which columns a list shows.
@@ -46,12 +47,30 @@ type TrackColumns struct {
 }
 
 // TrackSortState is the list's order, for the sortable headers (Title,
-// Artist, Album): Key is the active column ("" none) and OnSort is called
-// with the key of a clicked header.
+// Artist, Album, and Duration when Duration is set): Key is the active
+// column ("" none: the list's own order) and OnSort is called with the key of
+// a clicked header.
 type TrackSortState struct {
-	Key    string
-	Desc   bool
-	OnSort func(key string)
+	Key  string
+	Desc bool
+	// Duration makes the duration header a sort button too (a list that
+	// sorts in the UI; one sorted by its service may not sort by length).
+	Duration bool
+	OnSort   func(key string)
+}
+
+// Toggle is what a click on key's header does to a list that sorts itself:
+// a column not sorted by sorts ascending, a second click reverses it, and a
+// third drops the sort, back to the list's own order (Key "").
+func (s *TrackSortState) Toggle(key string) {
+	switch {
+	case s.Key != key:
+		s.Key, s.Desc = key, false
+	case !s.Desc:
+		s.Desc = true
+	default:
+		s.Key, s.Desc = "", false
+	}
 }
 
 // SongIsCurrent is v0.2.0's isCurrent: the queue's current item is the song
@@ -234,6 +253,11 @@ func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *ser
 	st.Sel.Rows(&st.rows, st.rows.item)
 	virtual := count > VirtualFrom && o.Pane != nil
 	st.nav.Count, st.nav.Columns = count, 1
+	// A list that got shorter (filtered, rows removed) must keep a row that
+	// is a Tab stop: the focused index never points past the last row.
+	if f := st.nav.Focus(); count > 0 && f >= count {
+		st.nav.SetFocus(count - 1)
+	}
 	st.nav.Page = max(1, int(windowHeight(c)/TrackRowHeight)-2)
 	st.nav.Ends = true
 	st.nav.ScrollTo = nil
@@ -534,8 +558,8 @@ const (
 	cellActions
 )
 
-// header builds the column headers: Title, Artist and Album are sort buttons
-// when the list sorts.
+// header builds the column headers: Title, Artist and Album (and Duration,
+// when the list sorts by it) are sort buttons when the list sorts.
 func (st *TrackListState) header(c *ui.Context, o *TrackListOpts, tk *theme.Tokens) {
 	meta := tk.Type["meta"]
 	row := ui.Row(c.Key("header")).Height(trackHeaderHeight).PaddingX(trackPadX).Gap(trackGap).AlignItems(ui.Center).
@@ -558,9 +582,7 @@ func (st *TrackListState) header(c *ui.Context, o *TrackListOpts, tk *theme.Toke
 		if o.AddedBy != nil {
 			st.headerCell(c, o, cellAddedBy, i18n.T("Added by"), "", meta)
 		}
-		o.cell(ui.Row(c.Key("h-dur")).Role(ui.RoleColumnHeader).Justify(ui.End), cellDuration).Children(func() {
-			ui.Icon(c, theme.Icon("clock-3")).FontSize(14).TextColor(theme.C("ink-faint")).Label(i18n.T("Duration"))
-		})
+		st.durationHeader(c, o)
 		o.cell(ui.Box(c.Key("h-act")).Role(ui.RoleColumnHeader).Label(i18n.T("Actions")), cellActions).Height(1)
 	})
 }
@@ -571,43 +593,73 @@ func (st *TrackListState) headerCell(c *ui.Context, o *TrackListOpts, kind int, 
 	sortable := key != "" && o.Sort != nil
 	cell := o.cell(ui.Row(c.Key("h-"+text)).AlignItems(ui.Center).Role(ui.RoleColumnHeader), kind)
 	if sortable {
-		dir := ui.SortNone
-		if o.Sort.Key == key {
-			dir = ui.SortAscending
-			if o.Sort.Desc {
-				dir = ui.SortDescending
-			}
-		}
-		cell.Sort(dir)
+		cell.Sort(o.Sort.direction(key))
 	}
 	cell.Children(func() {
 		if !sortable {
 			ui.Text(c, text).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).TextColor(theme.C("ink-faint")).SingleLine()
 			return
 		}
-		// The header is named by the button inside it, which stays on the
-		// tree: a column header keeps what it holds.
-		active := o.Sort.Key == key
-		btn := ui.ButtonBase(c.Key("sort-" + key)).Height(24).Gap(4).MarginX(-4).PaddingX(4).Radius(theme.Current().Radius["sm"])
-		fg := theme.C("ink-faint")
-		if active || btn.Hovered() {
-			fg = theme.C("ink")
-		}
-		btn.Label(text).TextColor(fg)
-		btn.Children(func() {
+		sortButton(c, o, key, text, func() {
 			ui.Text(c, text).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).SingleLine()
-			if active {
-				name := "arrow-up"
-				if o.Sort.Desc {
-					name = "arrow-down"
-				}
-				ui.Icon(c, theme.Icon(name)).FontSize(12)
-			}
 		})
-		if btn.Clicked() && o.Sort.OnSort != nil {
-			o.Sort.OnSort(key)
+	})
+}
+
+// durationHeader is the duration column's header: a clock, and a sort button
+// when the list sorts by length.
+func (st *TrackListState) durationHeader(c *ui.Context, o *TrackListOpts) {
+	sortable := o.Sort != nil && o.Sort.Duration
+	cell := o.cell(ui.Row(c.Key("h-dur")).Role(ui.RoleColumnHeader).Justify(ui.End), cellDuration)
+	if sortable {
+		cell.Sort(o.Sort.direction(SortDuration))
+	}
+	cell.Children(func() {
+		clock := func() ui.Element { return ui.Icon(c, theme.Icon("clock-3")).FontSize(14) }
+		if !sortable {
+			clock().TextColor(theme.C("ink-faint")).Label(i18n.T("Duration"))
+			return
+		}
+		sortButton(c, o, SortDuration, i18n.T("Duration"), func() { clock() })
+	})
+}
+
+// direction is the sort direction a header of key says.
+func (s *TrackSortState) direction(key string) ui.SortDirection {
+	switch {
+	case s.Key != key:
+		return ui.SortNone
+	case s.Desc:
+		return ui.SortDescending
+	}
+	return ui.SortAscending
+}
+
+// sortButton is the button a sortable header holds: name is what it is called
+// and content what it shows, followed by an arrow when its column is the one
+// sorted by. The header is named by this button, which stays on the tree: a
+// column header keeps what it holds.
+func sortButton(c *ui.Context, o *TrackListOpts, key, name string, content func()) {
+	active := o.Sort.Key == key
+	btn := ui.ButtonBase(c.Key("sort-" + key)).Height(24).Gap(4).MarginX(-4).PaddingX(4).Radius(theme.Current().Radius["sm"])
+	fg := theme.C("ink-faint")
+	if active || btn.Hovered() {
+		fg = theme.C("ink")
+	}
+	btn.Label(name).TextColor(fg)
+	btn.Children(func() {
+		content()
+		if active {
+			arrow := "arrow-up"
+			if o.Sort.Desc {
+				arrow = "arrow-down"
+			}
+			ui.Icon(c, theme.Icon(arrow)).FontSize(12)
 		}
 	})
+	if btn.Clicked() && o.Sort.OnSort != nil {
+		o.Sort.OnSort(key)
+	}
 }
 
 // fillRun paints a selected row's tint: rounded alone, and a run of adjacent
@@ -676,7 +728,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 	target := ActionTarget{Item: SongItem(*s), Name: s.Name, Key: key}
 	if o.Container != nil {
 		cont := *o.Container
-		cont.Index = i
+		cont.Index = cont.place(i)
 		target.Container = &cont
 	}
 	ink, muted, faint := theme.C("ink"), theme.C("ink-muted"), theme.C("ink-faint")

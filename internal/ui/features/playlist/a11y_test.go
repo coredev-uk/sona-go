@@ -631,3 +631,60 @@ func TestA11yPickerStatusAndCurrentFolder(t *testing.T) {
 		}
 	}
 }
+
+// The songs' find field is a search landmark holding a named text field, in
+// the Tab order before the sort buttons of the headers (each inside its column
+// header) and the songs; the order the songs are in is said by the header
+// that sorts them, and a third click leaves none.
+func TestA11yPlaylistFindAndSort(t *testing.T) {
+	r := viewRig(t)
+	_, tr := walk(t, r.tt, "Edit", "More for Road Trip", "Find in playlist", "Title", "Artist", "Album", "Duration", "Charlie")
+
+	land, ok := tr.Find(ui.RoleSearch, "Find songs in this playlist")
+	if !ok {
+		t.Fatalf("no search landmark:\n%s", tr.Dump())
+	}
+	field, ok := tr.Find(ui.RoleTextField, "Find in playlist")
+	if !ok || !slices.ContainsFunc(tr.Ancestors(field), func(a access.Node) bool { return a.Index == land.Index }) {
+		t.Errorf("the field is not inside the landmark: %+v\n%s", field, tr.Dump())
+	}
+	for _, title := range []string{"Title", "Artist", "Album", "Duration"} {
+		h, ok := tr.Find(ui.RoleColumnHeader, title)
+		b, bok := tr.Find(ui.RoleButton, title)
+		if !ok || !bok || b.Parent != h.Index || !b.Can(access.Press) {
+			t.Errorf("%s: header %+v holds no sort button %+v", title, h, b)
+		}
+		if got := sortOfHeader(t, tr, title); got != "" {
+			t.Errorf("%s is sorted %q before any click", title, got)
+		}
+	}
+
+	for _, step := range []struct{ title, want string }{
+		{"Artist", "ascending"}, {"Artist", "descending"}, {"Artist", ""}, {"Duration", "ascending"},
+	} {
+		r.click(step.title)
+		r.tt.Settle()
+		tr = access.Read(t, r.tt.Tester)
+		for _, title := range []string{"Title", "Artist", "Album", "Duration"} {
+			want := ""
+			if title == step.title {
+				want = step.want
+			}
+			if got := sortOfHeader(t, tr, title); got != want {
+				t.Errorf("after a click on %s, %s is sorted %q, want %q", step.title, title, got, want)
+			}
+		}
+	}
+
+	// With a query the table has the songs found, and says how many.
+	r.find("salt")
+	r.tt.Until("the count", r.tt.Shows("2 of 4 songs"))
+	tr = access.Read(t, r.tt.Tester)
+	tbl, ok := tr.Find(ui.RoleTable, "Songs in Road Trip")
+	if !ok || tbl.RowCount != 3 {
+		t.Errorf("the table of the songs found: %+v, want 3 rows with the header", tbl)
+	}
+	if _, ok := tr.Find(ui.RoleButton, "Clear search"); !ok {
+		t.Error("no way to clear the query for assistive technology")
+	}
+}
