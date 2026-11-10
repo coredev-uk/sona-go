@@ -232,5 +232,5 @@ type Track struct {
 	Isrc            string
 	Composer        string
 	UpdatedAt       int64
-	HasPlayParams   int64
+	NoPlayParams    int64
 }

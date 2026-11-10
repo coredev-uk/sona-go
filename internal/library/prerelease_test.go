@@ -86,7 +86,9 @@ func TestSyncStoresAPreAddedAlbumsRelease(t *testing.T) {
 func TestIncrementalSyncRefreshesUpcomingAlbums(t *testing.T) {
 	e := newEnv(t)
 	prereleaseLibrary(e)
-	now := time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)
+	// Every step is within FullSyncEvery of the first run, so each is an
+	// incremental one: only that run can clear the flag.
+	now := time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
 	e.sync.now = func() time.Time { return now }
 	if err := e.run(t); err != nil {
 		t.Fatal(err)
@@ -133,10 +135,21 @@ func TestIncrementalSyncRefreshesUpcomingAlbums(t *testing.T) {
 	out["attributes"].(map[string]any)["releaseDate"] = "2026-11-20"
 	e.fake.albums[0] = out
 	e.fake.mu.Unlock()
-	now = time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	now = time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC)
+	fullBefore, err := e.db.RQ.GetSyncState(ctx, string(DomainAlbums))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.fake.reset()
 	e.steps = nil
 	if err := e.run(t); err != nil {
 		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(e.fake.seen(), func(r string) bool { return strings.Contains(r, "/albums?") && strings.Contains(r, "ids=l.soon&") }) {
+		t.Fatalf("the run did not ask for the upcoming album: %v", e.fake.seen())
+	}
+	if st, _ := e.db.RQ.GetSyncState(ctx, string(DomainAlbums)); st.LastFull != fullBefore.LastFull {
+		t.Fatalf("last_full moved from %v to %v: not an incremental run", fullBefore.LastFull, st.LastFull)
 	}
 	a, _, err := e.lib.Album(ctx, "l.soon")
 	if err != nil || a.Prerelease || a.ReleaseDate != "2026-11-20" {
@@ -168,7 +181,7 @@ func TestFullSyncBackfillsAPreAddedAlbumStoredAsReleased(t *testing.T) {
 	}
 	ctx := context.Background()
 	if _, err := e.db.W.ExecContext(ctx, `UPDATE albums SET is_prerelease = 0, catalog_release_date = '' WHERE library_id = 'l.soon';
-		UPDATE tracks SET has_play_params = 1;
+		UPDATE tracks SET no_play_params = 0;
 		UPDATE sync_state SET last_full = NULL WHERE domain IN ('albums', 'songs')`); err != nil {
 		t.Fatal(err)
 	}

@@ -195,10 +195,10 @@ func TestMigrateBackfillsLibraryRelease(t *testing.T) {
 	var pre int
 	var catDate string
 	var playParams int
-	if err := w.QueryRow(`SELECT (SELECT is_prerelease FROM albums), (SELECT catalog_release_date FROM albums), (SELECT has_play_params FROM tracks)`).Scan(&pre, &catDate, &playParams); err != nil {
+	if err := w.QueryRow(`SELECT (SELECT is_prerelease FROM albums), (SELECT catalog_release_date FROM albums), (SELECT no_play_params FROM tracks)`).Scan(&pre, &catDate, &playParams); err != nil {
 		t.Fatal(err)
 	}
-	if pre != 0 || catDate != "" || playParams != 1 {
+	if pre != 0 || catDate != "" || playParams != 0 {
 		t.Fatalf("defaults = %d, %q, %d", pre, catDate, playParams)
 	}
 	var albums, songs, playlists sql.NullInt64

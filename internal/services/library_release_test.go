@@ -11,6 +11,8 @@ import (
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
 	"github.com/coredev-uk/sona-go/internal/library"
+	"github.com/coredev-uk/sona-go/internal/playback"
+	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 )
 
 // A pre-added library album as Apple lists it carries no releaseDate of its
@@ -105,12 +107,12 @@ func preAddedStore(t *testing.T) *db.DB {
 		t.Fatal(err)
 	}
 	for i, tr := range []struct {
-		id, date string
-		playable int64
-	}{{"i.out", "2026-09-17", 1}, {"i.later", "", 0}, {"i.last", "", 0}} {
+		id, date     string
+		noPlayParams int64
+	}{{"i.out", "2026-09-17", 0}, {"i.later", "", 1}, {"i.last", "", 1}} {
 		ref, err := d.Q.UpsertLibraryTrack(ctx, dbq.UpsertLibraryTrackParams{
 			LibraryID: db.NullString(tr.id), Name: tr.id, AlbumLibraryID: db.NullString("l.soon"),
-			TrackNumber: int64(i + 1), DiscNumber: 1, ReleaseDate: tr.date, HasPlayParams: tr.playable, UpdatedAt: 1,
+			TrackNumber: int64(i + 1), DiscNumber: 1, ReleaseDate: tr.date, NoPlayParams: tr.noPlayParams, UpdatedAt: 1,
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -195,4 +197,46 @@ func playables(songs []Song) []bool {
 		out[i] = s.Playable
 	}
 	return out
+}
+
+// Library → Songs plays the song list (PlayLibrary), which goes by the same
+// rule: starting on a song not out is refused, and starting on one that is
+// out queues only the songs out.
+func TestPlayLibraryRefusesPreAddedSongs(t *testing.T) {
+	ctx := t.Context()
+	d := preAddedStore(t)
+	eng := &playEngine{events: make(chan playback.Event)}
+	coord, err := coordinator.New(coordinator.Options{Engine: eng})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = coord.Close() })
+	now := localDay(t, "2026-11-01")
+	e := &Env{Deps: Deps{DB: d, Library: library.New(d, nil), Coord: coord, Logger: discard(), Now: func() time.Time { return now }}}
+	s := &PlaybackService{o: e, m: mapper{now: e.Now}, meta: map[string]trackMeta{}}
+
+	// By title: i.last, i.later (neither out), i.out.
+	for _, start := range []int{0, 1} {
+		if err := s.PlayLibrary(ctx, "title", false, start); CodeOf(err) != CodeNotReleased {
+			t.Fatalf("start %d: %v, want not_released", start, err)
+		}
+	}
+	if err := s.PlayLibrary(ctx, "title", false, 2); err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, it := range s.Queue().Items {
+		ids = append(ids, it.ID)
+	}
+	if !slices.Equal(ids, []string{"i.out"}) {
+		t.Fatalf("queue = %v, want only the song out", ids)
+	}
+
+	now = localDay(t, "2026-11-20")
+	if err := s.PlayLibrary(ctx, "title", false, 0); err != nil {
+		t.Fatalf("on release day: %v", err)
+	}
+	if n := len(s.Queue().Items); n != 3 {
+		t.Fatalf("queue on release day has %d songs, want 3", n)
+	}
 }

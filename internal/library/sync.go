@@ -940,7 +940,7 @@ func libraryTrackParams(s applemusic.Song, now int64) dbq.UpsertLibraryTrackPara
 		ArtworkTemplate: a.Artwork.Template(), DurationMs: a.DurationInMillis,
 		TrackNumber: int64(a.TrackNumber), DiscNumber: int64(a.DiscNumber), ReleaseDate: a.ReleaseDate,
 		Genre: firstString(a.GenreNames), ContentRating: a.ContentRating, HasLyrics: db.Bool(a.HasLyrics),
-		Isrc: a.ISRC, Composer: a.ComposerName, HasPlayParams: db.Bool(a.PlayParams != nil), UpdatedAt: now,
+		Isrc: a.ISRC, Composer: a.ComposerName, NoPlayParams: db.Bool(a.PlayParams == nil), UpdatedAt: now,
 	}
 }
 

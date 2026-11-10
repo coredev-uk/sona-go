@@ -65,6 +65,44 @@ func withCatalogueRelease(d services.AlbumDetail, page *services.CatalogAlbum, n
 	return d
 }
 
+// releaseMemo keeps the last withCatalogueRelease, so the track list is
+// copied when the album or the catalogue's date changes, not on every frame
+// of a page left open on an album not out.
+type releaseMemo struct {
+	key   releaseKey
+	valid bool
+	out   services.AlbumDetail
+}
+
+// releaseKey is what the answer depends on: the loaded tracks (the slice
+// the query hands out is the same until it reloads), and the catalogue
+// album's release.
+type releaseKey struct {
+	first *services.Song
+	n     int
+	id    string
+	at    int64
+	date  string
+}
+
+// of is withCatalogueRelease(d, page, now), from the memo when d and the
+// catalogue's release are the ones it was made for.
+func (m *releaseMemo) of(d services.AlbumDetail, page *services.CatalogAlbum, now time.Time) services.AlbumDetail {
+	if page == nil || !kit.IsUpcoming(page.Album, now) {
+		return d
+	}
+	k := releaseKey{n: len(d.Tracks), id: d.Album.ID, at: page.Album.ReleaseAt, date: page.Album.ReleaseDate}
+	if len(d.Tracks) > 0 {
+		k.first = &d.Tracks[0]
+	}
+	if !m.valid || m.key != k {
+		m.key, m.valid, m.out = k, true, withCatalogueRelease(d, page, now)
+	}
+	out := d
+	out.Album, out.Tracks = m.out.Album, m.out.Tracks
+	return out
+}
+
 // newModel works the page out of the loaded album and, when there is one,
 // Apple's page for it.
 func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogue bool, now time.Time) model {

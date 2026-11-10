@@ -5,7 +5,7 @@ INSERT INTO tracks (
     library_id, catalog_id, name, artist_name, album_name,
     album_library_id, album_catalog_id, artist_library_id, artist_catalog_id,
     artwork_template, duration_ms, track_number, disc_number, release_date,
-    genre, content_rating, has_lyrics, isrc, composer, has_play_params, updated_at
+    genre, content_rating, has_lyrics, isrc, composer, no_play_params, updated_at
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (library_id) DO UPDATE SET
     catalog_id = excluded.catalog_id,
@@ -26,7 +26,7 @@ ON CONFLICT (library_id) DO UPDATE SET
     has_lyrics = excluded.has_lyrics,
     isrc = excluded.isrc,
     composer = excluded.composer,
-    has_play_params = excluded.has_play_params,
+    no_play_params = excluded.no_play_params,
     updated_at = excluded.updated_at
 RETURNING id;
 
@@ -177,7 +177,7 @@ SELECT t.library_id
 FROM tracks t
 JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
 JOIN albums a ON a.library_id = t.album_library_id
-WHERE t.library_id IS NOT NULL AND t.has_play_params = 0
+WHERE t.library_id IS NOT NULL AND t.no_play_params = 1
   AND (a.is_prerelease = 1 OR a.release_date > ?1 OR a.catalog_release_date > ?1);
 
 -- name: MinSongAddedRank :one

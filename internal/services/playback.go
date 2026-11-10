@@ -589,7 +589,7 @@ func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc boo
 	if start < 0 || start >= len(songs) {
 		return fmt.Errorf("%w: start %d of %d", ErrInvalidArgument, start, len(songs))
 	}
-	unreleased := s.libraryUnreleased(ctx, songs)
+	unreleased := s.libraryUnreleased(songs)
 	if unreleased[start] {
 		return fmt.Errorf("library song %s: %w", songs[start].LibraryID, ErrNotReleased)
 	}
@@ -618,27 +618,19 @@ func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc boo
 	return s.fail(s.o.Coord.SetQueue(ctx, items, idx, "library:songs"))
 }
 
-// libraryUnreleased reports which library songs are not out yet, with the
-// rule resolve applies (released): a song's own date, else its album's,
-// each album read once.
-func (s *PlaybackService) libraryUnreleased(ctx context.Context, songs []library.Song) []bool {
-	dates := map[string]string{}
-	albumDate := func(id string) string {
-		if id == "" {
-			return ""
-		}
-		d, ok := dates[id]
-		if !ok {
-			if a, err := s.o.DB.RQ.GetAlbumByLibraryID(ctx, db.NullString(id)); err == nil {
-				d = a.ReleaseDate
-			}
-			dates[id] = d
-		}
-		return d
-	}
+// libraryUnreleased reports which library songs are not out yet, by the
+// rule resolve applies (storedReleased): a song's own date, else its
+// album's release state, which Library.Songs loads with the song (the
+// album's own date, or the catalog's, and Apple's flag).
+func (s *PlaybackService) libraryUnreleased(songs []library.Song) []bool {
+	now := s.m.clock()
 	out := make([]bool, len(songs))
 	for i, so := range songs {
-		out[i] = s.released(so.ReleaseDate, func() string { return albumDate(so.AlbumLibraryID) }) != nil
+		if so.ReleaseDate != "" {
+			out[i] = upcoming(so.ReleaseDate, false, now)
+			continue
+		}
+		_, out[i] = libraryRelease(so.Album.Date, so.Album.CatalogDate, so.Album.Prerelease, now)
 	}
 	return out
 }

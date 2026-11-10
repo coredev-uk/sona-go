@@ -194,21 +194,21 @@ type DomainStatus struct {
 
 const trackColumns = `t.library_id, t.catalog_id, t.name, t.artist_name, t.album_name,
 	t.album_library_id, t.artist_library_id, t.artwork_template, t.duration_ms,
-	t.track_number, t.disc_number, t.release_date, t.genre, t.content_rating, t.has_lyrics, t.has_play_params,
-	CASE WHEN t.has_play_params = 0 OR t.release_date = '' THEN coalesce((SELECT al.is_prerelease FROM albums al WHERE al.library_id = t.album_library_id), 0) ELSE 0 END,
-	CASE WHEN t.has_play_params = 0 OR t.release_date = '' THEN coalesce((SELECT al.release_date FROM albums al WHERE al.library_id = t.album_library_id), '') ELSE '' END,
-	CASE WHEN t.has_play_params = 0 OR t.release_date = '' THEN coalesce((SELECT al.catalog_release_date FROM albums al WHERE al.library_id = t.album_library_id), '') ELSE '' END`
+	t.track_number, t.disc_number, t.release_date, t.genre, t.content_rating, t.has_lyrics, t.no_play_params,
+	CASE WHEN t.no_play_params = 1 OR t.release_date = '' THEN coalesce((SELECT al.is_prerelease FROM albums al WHERE al.library_id = t.album_library_id), 0) ELSE 0 END,
+	CASE WHEN t.no_play_params = 1 OR t.release_date = '' THEN coalesce((SELECT al.release_date FROM albums al WHERE al.library_id = t.album_library_id), '') ELSE '' END,
+	CASE WHEN t.no_play_params = 1 OR t.release_date = '' THEN coalesce((SELECT al.catalog_release_date FROM albums al WHERE al.library_id = t.album_library_id), '') ELSE '' END`
 
 func scanSong(sc interface{ Scan(...any) error }) (Song, error) {
 	var s Song
 	var lib, cat, alb, art sql.NullString
 	var rating string
-	var lyrics, playParams, pre int64
+	var lyrics, noPlayParams, pre int64
 	err := sc.Scan(&lib, &cat, &s.Name, &s.ArtistName, &s.AlbumName, &alb, &art, &s.ArtworkTemplate,
-		&s.DurationMS, &s.TrackNumber, &s.DiscNumber, &s.ReleaseDate, &s.Genre, &rating, &lyrics, &playParams,
+		&s.DurationMS, &s.TrackNumber, &s.DiscNumber, &s.ReleaseDate, &s.Genre, &rating, &lyrics, &noPlayParams,
 		&pre, &s.Album.Date, &s.Album.CatalogDate)
 	s.LibraryID, s.CatalogID, s.AlbumLibraryID, s.ArtistLibraryID = lib.String, cat.String, alb.String, art.String
-	s.Explicit, s.HasLyrics, s.NoPlayParams, s.Album.Prerelease = rating == "explicit", lyrics != 0, playParams == 0, pre != 0
+	s.Explicit, s.HasLyrics, s.NoPlayParams, s.Album.Prerelease = rating == "explicit", lyrics != 0, noPlayParams != 0, pre != 0
 	return s, err
 }
 
@@ -222,7 +222,7 @@ func songFromRow(t dbq.Track, albums map[string]ReleaseState) Song {
 		ArtistLibraryID: t.ArtistLibraryID.String, ArtworkTemplate: t.ArtworkTemplate, DurationMS: t.DurationMs,
 		TrackNumber: int(t.TrackNumber), DiscNumber: int(t.DiscNumber), ReleaseDate: t.ReleaseDate,
 		Genre: t.Genre, Explicit: t.ContentRating == "explicit", HasLyrics: t.HasLyrics != 0,
-		NoPlayParams: t.HasPlayParams == 0,
+		NoPlayParams: t.NoPlayParams != 0,
 	}
 	if s.NoPlayParams || s.ReleaseDate == "" {
 		s.Album = albums[s.AlbumLibraryID]

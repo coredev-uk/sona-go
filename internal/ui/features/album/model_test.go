@@ -185,3 +185,38 @@ func TestSublineJoinsCreditComposerAndReason(t *testing.T) {
 		t.Errorf("both: %q", got)
 	}
 }
+
+func TestReleaseMemoCopiesTheTracksOncePerLoad(t *testing.T) {
+	release := modelNow.Add(24 * time.Hour)
+	upcoming := saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, release.UnixMilli(), "2026-11-05"
+	})
+	d := services.AlbumDetail{
+		Album:  services.Album{ID: "l.9", Source: services.SourceLibrary},
+		Tracks: []services.Song{{ID: "i.1", Playable: true}, {ID: "i.2", Playable: true, ReleaseDate: "2026-09-17"}},
+	}
+	var m releaseMemo
+	first := m.of(d, &upcoming, modelNow)
+	again := m.of(d, &upcoming, modelNow.Add(time.Minute))
+	if &first.Tracks[0] != &again.Tracks[0] {
+		t.Error("the track list was copied again for the same data")
+	}
+	if first.Tracks[0].Playable || !first.Tracks[1].Playable || !first.Album.Prerelease {
+		t.Errorf("memo answer = %+v", first)
+	}
+	// A reload (a new slice) or another catalogue date rebuilds it.
+	reloaded := d
+	reloaded.Tracks = append([]services.Song(nil), d.Tracks...)
+	if got := m.of(reloaded, &upcoming, modelNow); &got.Tracks[0] == &first.Tracks[0] {
+		t.Error("a reload kept the old copy")
+	}
+	later := upcoming
+	later.Album.ReleaseDate, later.Album.ReleaseAt = "2026-11-06", release.Add(24*time.Hour).UnixMilli()
+	if got := m.of(reloaded, &later, modelNow); got.Album.ReleaseDate != "2026-11-06" {
+		t.Errorf("a new catalogue date was not taken: %+v", got.Album)
+	}
+	// Once the catalogue album is out it is the library's own again.
+	if got := m.of(d, &upcoming, release); got.Album.Prerelease || !got.Tracks[0].Playable {
+		t.Errorf("an album out was overridden: %+v", got.Album)
+	}
+}
