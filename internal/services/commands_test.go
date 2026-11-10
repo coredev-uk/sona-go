@@ -2,12 +2,15 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"slices"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +22,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/library"
+	"github.com/coredev-uk/sona-go/internal/lyrics"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
@@ -33,6 +37,7 @@ type commandEnv struct {
 	apple    *fakeState
 	settings *config.Store
 	focused  int
+	lyrics   *fakeLyrics
 	// auth stays restoring until signIn or signOut starts it with creds.
 	auth  *auth.Manager
 	creds store.Store
@@ -68,6 +73,13 @@ type pausingEngine struct{ *playEngine }
 
 func (e *pausingEngine) Pause(context.Context) error  { e.set(playback.StatePaused); return nil }
 func (e *pausingEngine) Resume(context.Context) error { e.set(playback.StatePlaying); return nil }
+
+func (e *pausingEngine) Seek(_ context.Context, pos time.Duration) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.st.Position, e.st.UpdatedAt = pos, time.Now()
+	return nil
+}
 
 func (e *pausingEngine) set(s playback.State) {
 	e.mu.Lock()
@@ -158,9 +170,11 @@ func newCommandEnv(t *testing.T, private privatemode.Options) *commandEnv {
 	search := newSearchService(ce.e)
 	open := &opener{emit: ce.rec, focus: func() { ce.focused++ }, log: discard()}
 	open.markReady()
+	ce.lyrics = &fakeLyrics{}
 	ce.srv = newCommandServer(ce.e, open, []any{
-		ce.play, lib, search,
+		ce.play, lib, search, &LyricsService{e: ce.e},
 	})
+	ce.srv.lyrics = ce.lyrics
 	t.Cleanup(ce.e.close)
 	return ce
 }
@@ -482,5 +496,219 @@ func TestLiveStationControls(t *testing.T) {
 	}
 	if err := ce.play.Append(ctx, refs); err != nil {
 		t.Errorf("Append on songs: %v", err)
+	}
+}
+
+// fakeLyrics answers the lyrics service's one question from a table and
+// keeps the song IDs it was asked for.
+type fakeLyrics struct {
+	mu    sync.Mutex
+	by    map[string]Lyrics
+	err   error
+	asked []string
+	// during runs while the lyrics are fetched (a song changing meanwhile).
+	during func()
+}
+
+func (f *fakeLyrics) Lyrics(_ context.Context, songID string) (Lyrics, error) {
+	f.mu.Lock()
+	f.asked = append(f.asked, songID)
+	l, ok := f.by[songID]
+	err, during := f.err, f.during
+	f.mu.Unlock()
+	if during != nil {
+		during()
+	}
+	if err != nil {
+		return Lyrics{}, err
+	}
+	if !ok {
+		return Lyrics{}, fmt.Errorf("lyrics: %w", lyrics.ErrNotFound)
+	}
+	return l, nil
+}
+
+func (f *fakeLyrics) askedFor() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.asked)
+}
+
+func TestCommandsLyrics(t *testing.T) {
+	ce := newCommandEnv(t, privatemode.Options{Override: privatemode.OverrideOn})
+	ctx := t.Context()
+	ce.lyrics.by = map[string]Lyrics{
+		"100": {
+			Provider: "apple", Timing: "Word", TranslationLanguage: "es", TransliterationLanguage: "ko-Latn",
+			Lines: []LyricLine{
+				// Out of order, the first line's words run on past its end.
+				{
+					BeginMs: 12340, EndMs: 13800, Text: "two", Background: "(oh)", Agent: "v2", Part: "Verse",
+					Translation: &LyricText{Text: "dos", Background: "(ah)"}, Transliteration: &LyricText{Text: "tu"},
+				},
+				{
+					BeginMs: 10000, EndMs: 11000, Text: "one", Agent: "v1", Part: "Verse",
+					Words: []LyricWord{{BeginMs: 9900, EndMs: 10500, Text: "o"}, {BeginMs: 10500, EndMs: 11600, Text: "ne"}},
+				},
+			},
+		},
+		"101": {Provider: "lrclib", Timing: "None", Lines: []LyricLine{{Text: "plain one"}, {Text: "plain two", Part: "Chorus"}}},
+		"102": {Provider: "apple", Timing: "Line"},
+	}
+
+	if _, err := ce.call(t, "lyrics"); code(err) != cli.CodeNothingPlaying {
+		t.Errorf("nothing playing: %v", err)
+	}
+
+	if err := ce.play.PlayItems(ctx, []TrackRef{{ID: "i.100", Source: SourceLibrary}, {ID: "i.101", Source: SourceLibrary}}, 0, PlayFrom{}); err != nil {
+		t.Fatal(err)
+	}
+	res, err := ce.call(t, "lyrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := res.(cli.Lyrics)
+	if got.Track.ID != "100" || got.Track.Title != "Come Together" || got.State != cli.StatePlaying ||
+		got.Provider != "apple" || got.Timing != "word" || !got.Synced || len(got.Lines) != 2 {
+		t.Fatalf("lyrics = %+v", got)
+	}
+	// By the catalogue ID of the library song, as the lyrics view asks.
+	if asked := ce.lyrics.askedFor(); !slices.Equal(asked, []string{"100"}) {
+		t.Errorf("asked for %v, want the catalogue ID 100", asked)
+	}
+	// In order of start, spanning the words, with the localizations as text.
+	one, two := got.Lines[0], got.Lines[1]
+	if one != (cli.LyricLine{Start: 9.9, End: 11.6, Text: "one", Agent: "v1", Part: "Verse"}) {
+		t.Errorf("first line = %+v", one)
+	}
+	if two != (cli.LyricLine{Start: 12.34, End: 13.8, Text: "two", Background: "(oh)", Agent: "v2", Part: "Verse", Translation: "dos (ah)", Transliteration: "tu"}) {
+		t.Errorf("second line = %+v", two)
+	}
+	b, _ := json.Marshal(got)
+	if !strings.Contains(string(b), `"synced":true`) || !strings.Contains(string(b), `"lines":[{"start":9.9,`) {
+		t.Errorf("JSON = %s", b)
+	}
+
+	// Plain lyrics have no times.
+	if st := ce.status(t, "next"); st.Track == nil || st.Track.ID != "101" {
+		t.Fatalf("next → %+v", st)
+	}
+	res, err = ce.call(t, "lyrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain := res.(cli.Lyrics)
+	if plain.Synced || plain.Timing != "none" || plain.Provider != "lrclib" || len(plain.Lines) != 2 ||
+		plain.Lines[0].Start != 0 || plain.Lines[1].End != 0 || plain.Lines[1].Part != "Chorus" || plain.Lines[0].Text != "plain one" {
+		t.Errorf("plain lyrics = %+v", plain)
+	}
+
+	// A song none of the sources has, and an answer with no lines.
+	delete(ce.lyrics.by, "101")
+	if _, err := ce.call(t, "lyrics"); code(err) != cli.CodeNoLyrics {
+		t.Errorf("no lyrics: %v", err)
+	}
+	ce.lyrics.by["101"] = ce.lyrics.by["102"]
+	if _, err := ce.call(t, "lyrics"); code(err) != cli.CodeNoLyrics {
+		t.Errorf("empty lyrics: %v", err)
+	}
+
+	// Other failures keep their code.
+	ce.lyrics.err = fmt.Errorf("lyrics: %w", applemusic.ErrUnauthorized)
+	if _, err := ce.call(t, "lyrics"); code(err) != string(CodeUnauthorized) {
+		t.Errorf("failed lyrics: %v", err)
+	}
+	ce.lyrics.err = nil
+
+	// A song only in the library, live radio and a music video have none:
+	// the lyrics service isn't asked.
+	if _, err := ce.e.DB.W.ExecContext(ctx, `INSERT INTO tracks (library_id, catalog_id, name, artist_name, album_name, duration_ms, updated_at) VALUES ('i.103', NULL, 'Home recording', 'Me', '', 1000, 0)`); err != nil {
+		t.Fatal(err)
+	}
+	asked := len(ce.lyrics.askedFor())
+	for name, item := range map[string]coordinator.Item{
+		"library only": {ID: "i.103", Title: "Home recording"},
+		"live radio":   {ID: "ra.1445918457", Title: "KISS"},
+		"music video":  {ID: playback.VideoID("1440841363"), Title: "Something"},
+	} {
+		if err := ce.e.Coord.SetQueue(ctx, []coordinator.Item{item}, 0, ""); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ce.call(t, "lyrics"); code(err) != cli.CodeNoLyrics {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if n := len(ce.lyrics.askedFor()); n != asked {
+		t.Errorf("the lyrics service was asked %d more times", n-asked)
+	}
+}
+
+// The song changing while the lyrics are fetched: the reply is the fetched
+// song's, with its track, not the new one's.
+func TestCommandsLyricsSongChanges(t *testing.T) {
+	ce := newCommandEnv(t, privatemode.Options{Override: privatemode.OverrideOn})
+	ce.lyrics.by = map[string]Lyrics{"100": {Provider: "apple", Timing: "Line", Lines: []LyricLine{{BeginMs: 1000, EndMs: 2000, Text: "x"}}}}
+	if err := ce.play.PlayItems(t.Context(), []TrackRef{{ID: "i.100", Source: SourceLibrary}, {ID: "i.101", Source: SourceLibrary}}, 0, PlayFrom{}); err != nil {
+		t.Fatal(err)
+	}
+	ce.lyrics.during = func() { ce.status(t, "next") }
+	res, err := ce.call(t, "lyrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := res.(cli.Lyrics); l.Track.ID != "100" || l.Track.Title != "Come Together" || len(l.Lines) != 1 {
+		t.Errorf("lyrics = %+v", l)
+	}
+}
+
+// A seek is a status change followers hear of, though only the position
+// changed.
+func TestCommandsWatchSeek(t *testing.T) {
+	ce := newCommandEnv(t, privatemode.Options{Override: privatemode.OverrideOn})
+	ctx := t.Context()
+	if err := ce.play.PlayItems(ctx, []TrackRef{{ID: "i.100", Source: SourceLibrary}}, 0, PlayFrom{}); err != nil {
+		t.Fatal(err)
+	}
+	updates, cancel := ce.srv.Watch()
+	defer cancel()
+	next := func() cli.Status {
+		t.Helper()
+		select {
+		case s, ok := <-updates:
+			if !ok {
+				t.Fatal("stream ended")
+			}
+			return s
+		case <-time.After(5 * time.Second):
+			t.Fatal("no status")
+		}
+		return cli.Status{}
+	}
+	for s := next(); s.State != cli.StatePlaying; s = next() {
+	}
+	if err := ce.play.Seek(ctx, 40_000); err != nil {
+		t.Fatal(err)
+	}
+	for s := next(); ; s = next() {
+		if s.Position >= 39.5 && s.Position < 45 {
+			break
+		}
+		if s.Position > 45 {
+			t.Fatalf("position = %v after seeking to 40", s.Position)
+		}
+	}
+	// And back, while paused.
+	if _, err := ce.call(t, "pause"); err != nil {
+		t.Fatal(err)
+	}
+	for s := next(); s.State != cli.StatePaused; s = next() {
+	}
+	if err := ce.play.Seek(ctx, 5_000); err != nil {
+		t.Fatal(err)
+	}
+	for s := next(); ; s = next() {
+		if s.State == cli.StatePaused && s.Position >= 4.9 && s.Position < 5.1 {
+			break
+		}
 	}
 }

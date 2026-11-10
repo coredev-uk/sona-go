@@ -170,7 +170,10 @@
 // SQLite (lyrics_cache, emptied with the catalogue cache by
 // StorageService.Clear); Musixmatch's anonymous user token is a keyring
 // secret ("musixmatch"). Songs no source has lyrics for fail with code
-// not_found.
+// not_found. The command line's `lyrics` (commands.go) asks it for the
+// playing song's catalogue ID, as the lyrics view does, so the same sources
+// and cache apply; it answers no_lyrics for a song with none, live radio, a
+// music video or a library song without a catalogue ID.
 //
 // Concerts (concerts.go): ConcertsService.Concerts lists Apple's concerts near
 // the chosen city, filtered by days, genre and (signed in) the user's own

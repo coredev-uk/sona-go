@@ -60,12 +60,22 @@ msgstr ""
 
 #: internal/cli/messages.go
 #, go-format
+msgid "%s: %s needs %s"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
 msgid "%s: %s needs a value"
 msgstr ""
 
 #: internal/cli/messages.go
 #, go-format
 msgid "%s: %s takes no value"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "%s: --format: %v"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -268,7 +278,15 @@ msgid "Print a shell completion script"
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "Print the playing song's lyrics"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "Prints the completion script for bash, zsh or fish. Packages install them; to load one by hand: `source <(sona completion bash)`, `sona completion zsh > \"${fpath[1]}/_sona\"` or `sona completion fish | source`."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Prints the lyrics of the playing song, one line to a line, with a blank line between verses. With --lrc it writes an LRC file (a [mm:ss.xx] time before each line, and the title, artist and album tags) for a lyrics player; that needs lyrics with timing. With --follow it keeps running for status bars and shells such as Quickshell, Waybar and Polybar: it prints the line being sung now and another each time it changes (an empty line while the voice rests, and when there are no lyrics), until Sona quits. The lyrics come from the sources chosen in Sona's settings, as in its lyrics view."
 msgstr ""
 
 #: internal/cli/messages.go
@@ -396,7 +414,7 @@ msgid "Synopsis"
 msgstr ""
 
 #: internal/cli/messages.go
-msgid "With --json, a command prints one JSON object on standard output; `status --follow --json` prints one per line. Fields are only ever added, never renamed or removed. Errors go to standard error as text, with the exit status below."
+msgid "With --json, a command prints one JSON object on standard output; `status --follow --json` and `lyrics --follow --json` print one per line. Fields are only ever added, never renamed or removed. Errors go to standard error as text, with the exit status below."
 msgstr ""
 
 #: internal/cli/messages.go
@@ -408,7 +426,7 @@ msgid "`sona` starts Sona, or brings the running one to the front. Apple Music l
 msgstr ""
 
 #: internal/cli/messages.go
-msgid "`status --format TEMPLATE` prints each status through a Go text/template whose fields are the JSON fields (`{{.state}}`, `{{with .track}}{{.artist}} – {{.title}}{{end}}`, `{{.volume}}`); `{{json .x}}` quotes a value as JSON and `{{clock .position}}` writes seconds as m:ss. With --follow it suits Waybar's and Polybar's custom modules."
+msgid "`status --format TEMPLATE` prints each status through a Go text/template whose fields are the JSON fields (`{{.state}}`, `{{with .track}}{{.artist}} – {{.title}}{{end}}`, `{{.volume}}`); `{{json .x}}` quotes a value as JSON and `{{clock .position}}` writes seconds as m:ss. With --follow it suits Waybar's and Polybar's custom modules. `lyrics --follow` takes the same options for the line being sung (`{{.text}}`)."
 msgstr ""
 
 #: internal/cli/messages.go
@@ -473,6 +491,10 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "keep printing a line each time the status changes, until Sona quits"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "keep printing the line being sung, a new one each time it changes, until Sona quits"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -572,6 +594,14 @@ msgid "repeat"
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "show each line's translation where it has one"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "show each line's transliteration (its sound in Latin script) where it has one"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "show help for the command"
 msgstr ""
 
@@ -581,11 +611,6 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "state"
-msgstr ""
-
-#: internal/cli/messages.go
-#, go-format
-msgid "status: --format: %v"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -629,11 +654,19 @@ msgid "the running Sona is a different version; quit and start it again"
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "these lyrics have no timing, so they can't be written as an LRC file; leave out --lrc for the plain text"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "this Apple Account doesn't have an active Apple Music subscription"
 msgstr ""
 
 #: internal/cli/messages.go
 msgid "this isn't available on this system"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "this song has no lyrics"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -669,6 +702,14 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "what to search for"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "with --follow, print each line with a Go text/template over the JSON fields"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "write an LRC file: a [mm:ss.xx] time before each line (needs lyrics with timing)"
 msgstr ""
 
 #: internal/cli/messages.go

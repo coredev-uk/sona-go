@@ -405,7 +405,7 @@ func TestFeed(t *testing.T) {
 	playing := Status{Running: true, State: StatePlaying, Track: &Track{ID: "1"}, Position: 1}
 	f.Publish(playing)
 	moved := playing
-	moved.Position = 30
+	moved.Position = 1.2 // playing on; a jump is published too (TestFeedJump)
 	moved.Track = &Track{ID: "1"} // equal, not the same pointer
 	f.Publish(moved)
 	if s := <-a; s.Position != 1 {

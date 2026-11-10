@@ -110,6 +110,78 @@ type Opened struct {
 	Storefront string `json:"storefront"`
 }
 
+// Lyrics is `sona lyrics`: the playing song's lyrics.
+type Lyrics struct {
+	// Track is the song the lyrics are of.
+	Track Track `json:"track"`
+	// State and Position are the playback state and position (seconds)
+	// when the lyrics were handed over.
+	State    string  `json:"state"`
+	Position float64 `json:"position"`
+	// Provider is the source of the lyrics: "apple", "musixmatch",
+	// "lrclib" or "netease".
+	Provider string `json:"provider"`
+	// Timing is "word" (every word timed), "line" (every line timed) or
+	// "none" (plain text).
+	Timing string `json:"timing"`
+	// Synced: the lines have times (Timing is "word" or "line").
+	Synced bool `json:"synced"`
+	// Lines are in the order sung, timed lines by start.
+	Lines []LyricLine `json:"lines"`
+}
+
+// LyricLine is one line of lyrics. Start and End are seconds into the
+// song (0 and 0 when the lyrics are not synced); End is at least the time
+// the line's words end, which may be after the next line starts.
+type LyricLine struct {
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+	Text  string  `json:"text"`
+	// Background is the background vocals sung with the line; "" when none.
+	Background string `json:"background"`
+	// Agent is the voice: "v1", "v2" (a duet's second voice), …; "" when
+	// the lyrics don't say.
+	Agent string `json:"agent"`
+	// Part is the song part ("Verse", "Chorus", …); "" when not known.
+	Part string `json:"part"`
+	// Translation and Transliteration are the line in the lyrics'
+	// translation language and in Latin script; "" when the line has none.
+	Translation     string `json:"translation"`
+	Transliteration string `json:"transliteration"`
+}
+
+// LyricsNow is a line of `sona lyrics --follow`: what is being sung now.
+type LyricsNow struct {
+	// Running is false only in the last line, when Sona has quit (or was
+	// not running).
+	Running bool `json:"running"`
+	// State and Track are the playback state and the selected song (null
+	// when none), as in Status.
+	State string `json:"state"`
+	Track *Track `json:"track"`
+	// Position is how far into the song playback is, in seconds, when the
+	// line was printed.
+	Position float64 `json:"position"`
+	// Lyrics says what the follower knows of the song's lyrics: "ready",
+	// "loading" (being fetched) or "none" (nothing is playing, the song
+	// has no lyrics or they could not be fetched).
+	Lyrics   string `json:"lyrics"`
+	Provider string `json:"provider"`
+	Timing   string `json:"timing"`
+	Synced   bool   `json:"synced"`
+	// Index is the place of Line in the lyrics' lines; -1 when no line is
+	// sung (before the first, in a rest, plain lyrics, no lyrics).
+	Index int `json:"index"`
+	// Line is the line sung now and Next the line that comes after it
+	// (the first one, before it); null when there is none.
+	Line *LyricLine `json:"line"`
+	Next *LyricLine `json:"next"`
+	// Text is what `sona lyrics --follow` prints: Line's text, or its
+	// translation or transliteration with --translation and
+	// --transliteration; "" when no line is sung.
+	Text string `json:"text"`
+}
+
 // Status states.
 const (
 	StateIdle    = "idle"

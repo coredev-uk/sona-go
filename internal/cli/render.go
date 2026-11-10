@@ -198,9 +198,10 @@ func statusTemplate(text string) (*template.Template, error) {
 	}).Parse(text)
 }
 
-// executeTemplate writes s through t, with a newline after it.
-func executeTemplate(w io.Writer, t *template.Template, s Status) error {
-	raw, err := json.Marshal(s)
+// executeTemplate writes v (a Status, a LyricsNow) through t, with a
+// newline after it.
+func executeTemplate(w io.Writer, t *template.Template, v any) error {
+	raw, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
