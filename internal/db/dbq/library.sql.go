@@ -146,7 +146,7 @@ func (q *Queries) DeleteStaleLibraryItems(ctx context.Context, arg DeleteStaleLi
 }
 
 const getAlbumByLibraryID = `-- name: GetAlbumByLibraryID :one
-SELECT id, library_id, catalog_id, name, artist_name, artist_library_id, artist_catalog_id, artwork_template, release_date, genre, track_count, content_rating, is_single, is_compilation, record_label, copyright, editorial_notes, url, updated_at FROM albums WHERE library_id = ?
+SELECT id, library_id, catalog_id, name, artist_name, artist_library_id, artist_catalog_id, artwork_template, release_date, genre, track_count, content_rating, is_single, is_compilation, record_label, copyright, editorial_notes, url, updated_at, is_prerelease, catalog_release_date FROM albums WHERE library_id = ?
 `
 
 func (q *Queries) GetAlbumByLibraryID(ctx context.Context, libraryID sql.NullString) (Album, error) {
@@ -172,6 +172,8 @@ func (q *Queries) GetAlbumByLibraryID(ctx context.Context, libraryID sql.NullStr
 		&i.EditorialNotes,
 		&i.Url,
 		&i.UpdatedAt,
+		&i.IsPrerelease,
+		&i.CatalogReleaseDate,
 	)
 	return i, err
 }
@@ -226,7 +228,7 @@ func (q *Queries) GetPlaylistByLibraryID(ctx context.Context, libraryID sql.Null
 }
 
 const getTrackByLibraryID = `-- name: GetTrackByLibraryID :one
-SELECT id, library_id, catalog_id, name, artist_name, album_name, album_library_id, album_catalog_id, artist_library_id, artist_catalog_id, artwork_template, duration_ms, track_number, disc_number, release_date, genre, content_rating, has_lyrics, isrc, composer, updated_at FROM tracks WHERE library_id = ?
+SELECT id, library_id, catalog_id, name, artist_name, album_name, album_library_id, album_catalog_id, artist_library_id, artist_catalog_id, artwork_template, duration_ms, track_number, disc_number, release_date, genre, content_rating, has_lyrics, isrc, composer, updated_at, no_play_params FROM tracks WHERE library_id = ?
 `
 
 func (q *Queries) GetTrackByLibraryID(ctx context.Context, libraryID sql.NullString) (Track, error) {
@@ -254,6 +256,7 @@ func (q *Queries) GetTrackByLibraryID(ctx context.Context, libraryID sql.NullStr
 		&i.Isrc,
 		&i.Composer,
 		&i.UpdatedAt,
+		&i.NoPlayParams,
 	)
 	return i, err
 }
@@ -319,7 +322,7 @@ func (q *Queries) LibraryAlbumKnown(ctx context.Context, libraryID sql.NullStrin
 }
 
 const libraryAlbumTracks = `-- name: LibraryAlbumTracks :many
-SELECT id, library_id, catalog_id, name, artist_name, album_name, album_library_id, album_catalog_id, artist_library_id, artist_catalog_id, artwork_template, duration_ms, track_number, disc_number, release_date, genre, content_rating, has_lyrics, isrc, composer, updated_at FROM tracks
+SELECT id, library_id, catalog_id, name, artist_name, album_name, album_library_id, album_catalog_id, artist_library_id, artist_catalog_id, artwork_template, duration_ms, track_number, disc_number, release_date, genre, content_rating, has_lyrics, isrc, composer, updated_at, no_play_params FROM tracks
 WHERE album_library_id = ?
 ORDER BY disc_number, track_number, name COLLATE NOCASE
 `
@@ -355,6 +358,7 @@ func (q *Queries) LibraryAlbumTracks(ctx context.Context, albumLibraryID sql.Nul
 			&i.Isrc,
 			&i.Composer,
 			&i.UpdatedAt,
+			&i.NoPlayParams,
 		); err != nil {
 			return nil, err
 		}
@@ -370,7 +374,7 @@ func (q *Queries) LibraryAlbumTracks(ctx context.Context, albumLibraryID sql.Nul
 }
 
 const libraryArtistTracks = `-- name: LibraryArtistTracks :many
-SELECT t.id, t.library_id, t.catalog_id, t.name, t.artist_name, t.album_name, t.album_library_id, t.album_catalog_id, t.artist_library_id, t.artist_catalog_id, t.artwork_template, t.duration_ms, t.track_number, t.disc_number, t.release_date, t.genre, t.content_rating, t.has_lyrics, t.isrc, t.composer, t.updated_at FROM tracks t
+SELECT t.id, t.library_id, t.catalog_id, t.name, t.artist_name, t.album_name, t.album_library_id, t.album_catalog_id, t.artist_library_id, t.artist_catalog_id, t.artwork_template, t.duration_ms, t.track_number, t.disc_number, t.release_date, t.genre, t.content_rating, t.has_lyrics, t.isrc, t.composer, t.updated_at, t.no_play_params FROM tracks t
 JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
 WHERE t.artist_library_id = ?
 ORDER BY t.album_name COLLATE NOCASE, t.disc_number, t.track_number
@@ -407,6 +411,7 @@ func (q *Queries) LibraryArtistTracks(ctx context.Context, artistLibraryID sql.N
 			&i.Isrc,
 			&i.Composer,
 			&i.UpdatedAt,
+			&i.NoPlayParams,
 		); err != nil {
 			return nil, err
 		}
@@ -641,11 +646,91 @@ func (q *Queries) SetPlaylistTracksSynced(ctx context.Context, arg SetPlaylistTr
 	return err
 }
 
+const unplayableUpcomingLibrarySongs = `-- name: UnplayableUpcomingLibrarySongs :many
+SELECT t.library_id
+FROM tracks t
+JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
+JOIN albums a ON a.library_id = t.album_library_id
+WHERE t.library_id IS NOT NULL AND t.no_play_params = 1
+  AND (a.is_prerelease = 1 OR a.release_date > ?1 OR a.catalog_release_date > ?1)
+`
+
+// The songs of those albums that Apple gave no playParams yet.
+func (q *Queries) UnplayableUpcomingLibrarySongs(ctx context.Context, releaseDate string) ([]sql.NullString, error) {
+	rows, err := q.db.QueryContext(ctx, unplayableUpcomingLibrarySongs, releaseDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []sql.NullString{}
+	for rows.Next() {
+		var library_id sql.NullString
+		if err := rows.Scan(&library_id); err != nil {
+			return nil, err
+		}
+		items = append(items, library_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const upcomingLibraryAlbums = `-- name: UpcomingLibraryAlbums :many
+SELECT a.library_id, a.is_prerelease, a.release_date, a.catalog_release_date
+FROM albums a JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
+WHERE a.library_id IS NOT NULL
+  AND (a.is_prerelease = 1 OR a.release_date > ?1 OR a.catalog_release_date > ?1)
+`
+
+type UpcomingLibraryAlbumsRow struct {
+	LibraryID          sql.NullString
+	IsPrerelease       int64
+	ReleaseDate        string
+	CatalogReleaseDate string
+}
+
+// Library albums whose release is still ahead: flagged pre-release by Apple
+// or dated after the day (?1, "YYYY-MM-DD"; a year alone counts only while
+// it is flagged). The incremental sync refreshes them, as it stops at the
+// first album it already has.
+func (q *Queries) UpcomingLibraryAlbums(ctx context.Context, releaseDate string) ([]UpcomingLibraryAlbumsRow, error) {
+	rows, err := q.db.QueryContext(ctx, upcomingLibraryAlbums, releaseDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []UpcomingLibraryAlbumsRow{}
+	for rows.Next() {
+		var i UpcomingLibraryAlbumsRow
+		if err := rows.Scan(
+			&i.LibraryID,
+			&i.IsPrerelease,
+			&i.ReleaseDate,
+			&i.CatalogReleaseDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertLibraryAlbum = `-- name: UpsertLibraryAlbum :one
 INSERT INTO albums (
     library_id, catalog_id, name, artist_name, artist_library_id, artist_catalog_id,
-    artwork_template, release_date, genre, track_count, content_rating, is_single, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    artwork_template, release_date, genre, track_count, content_rating, is_single,
+    is_prerelease, catalog_release_date, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (library_id) DO UPDATE SET
     catalog_id = excluded.catalog_id,
     name = excluded.name,
@@ -658,24 +743,28 @@ ON CONFLICT (library_id) DO UPDATE SET
     track_count = excluded.track_count,
     content_rating = excluded.content_rating,
     is_single = excluded.is_single,
+    is_prerelease = excluded.is_prerelease,
+    catalog_release_date = excluded.catalog_release_date,
     updated_at = excluded.updated_at
 RETURNING id
 `
 
 type UpsertLibraryAlbumParams struct {
-	LibraryID       sql.NullString
-	CatalogID       sql.NullString
-	Name            string
-	ArtistName      string
-	ArtistLibraryID sql.NullString
-	ArtistCatalogID sql.NullString
-	ArtworkTemplate string
-	ReleaseDate     string
-	Genre           string
-	TrackCount      int64
-	ContentRating   string
-	IsSingle        int64
-	UpdatedAt       int64
+	LibraryID          sql.NullString
+	CatalogID          sql.NullString
+	Name               string
+	ArtistName         string
+	ArtistLibraryID    sql.NullString
+	ArtistCatalogID    sql.NullString
+	ArtworkTemplate    string
+	ReleaseDate        string
+	Genre              string
+	TrackCount         int64
+	ContentRating      string
+	IsSingle           int64
+	IsPrerelease       int64
+	CatalogReleaseDate string
+	UpdatedAt          int64
 }
 
 func (q *Queries) UpsertLibraryAlbum(ctx context.Context, arg UpsertLibraryAlbumParams) (int64, error) {
@@ -692,6 +781,8 @@ func (q *Queries) UpsertLibraryAlbum(ctx context.Context, arg UpsertLibraryAlbum
 		arg.TrackCount,
 		arg.ContentRating,
 		arg.IsSingle,
+		arg.IsPrerelease,
+		arg.CatalogReleaseDate,
 		arg.UpdatedAt,
 	)
 	var id int64
@@ -789,8 +880,8 @@ INSERT INTO tracks (
     library_id, catalog_id, name, artist_name, album_name,
     album_library_id, album_catalog_id, artist_library_id, artist_catalog_id,
     artwork_template, duration_ms, track_number, disc_number, release_date,
-    genre, content_rating, has_lyrics, isrc, composer, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    genre, content_rating, has_lyrics, isrc, composer, no_play_params, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (library_id) DO UPDATE SET
     catalog_id = excluded.catalog_id,
     name = excluded.name,
@@ -810,6 +901,7 @@ ON CONFLICT (library_id) DO UPDATE SET
     has_lyrics = excluded.has_lyrics,
     isrc = excluded.isrc,
     composer = excluded.composer,
+    no_play_params = excluded.no_play_params,
     updated_at = excluded.updated_at
 RETURNING id
 `
@@ -834,6 +926,7 @@ type UpsertLibraryTrackParams struct {
 	HasLyrics       int64
 	Isrc            string
 	Composer        string
+	NoPlayParams    int64
 	UpdatedAt       int64
 }
 
@@ -859,6 +952,7 @@ func (q *Queries) UpsertLibraryTrack(ctx context.Context, arg UpsertLibraryTrack
 		arg.HasLyrics,
 		arg.Isrc,
 		arg.Composer,
+		arg.NoPlayParams,
 		arg.UpdatedAt,
 	)
 	var id int64

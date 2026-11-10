@@ -29,9 +29,13 @@ var (
 	librarySongsQuery = url.Values{"relate": {"albums,artists"}, "sort": {"-dateAdded"}}
 	// Albums newest-added first, like songs, so an incremental sync can
 	// stop at the first album it already has. Library albums carry no
-	// isSingle, so the catalog album is included with that one attribute.
+	// isSingle and, once pre-added, no releaseDate, so the catalog album is
+	// included with the attributes that say what it is and when it is out.
+	// Only the web player's host (platform=web) answers isPrerelease: the
+	// api.music.apple.com host leaves it out of the include.
 	libraryAlbumsQuery = url.Values{
-		"relate": {"catalog,artists"}, "include": {"catalog"}, "fields[albums]": {"isSingle"}, "sort": {"-dateAdded"},
+		"relate": {"catalog,artists"}, "include": {"catalog"}, "fields[albums]": {"isSingle,releaseDate,isPrerelease"},
+		"sort": {"-dateAdded"}, "platform": {"web"},
 	}
 	libraryArtistsQuery   = url.Values{"include": {"catalog"}, "fields[artists]": {"name,artwork,url"}}
 	libraryPlaylistsQuery = url.Values{"relate": {"catalog"}}
@@ -52,13 +56,25 @@ func (c *Client) LibrarySongsPage(ctx context.Context, limit, offset int) (Page[
 // LibraryAlbums walks the user's library albums, newest added first, with
 // their catalog and library artist IDs.
 func (c *Client) LibraryAlbums(ctx context.Context, opt PageOptions, fn func(offset int, albums []Album) error) (int, error) {
-	return FetchPages(ctx, c, LibraryAlbumsPath, libraryAlbumsQuery, opt, fn)
+	return FetchPages(ctx, c, c.ampBase()+LibraryAlbumsPath, libraryAlbumsQuery, opt, fn)
 }
 
 // LibraryAlbumsPage fetches one page (limit capped at 100) of the
 // LibraryAlbums walk; Meta.Total is the number of library albums.
 func (c *Client) LibraryAlbumsPage(ctx context.Context, limit, offset int) (Page[Album], error) {
-	return libraryPage[Album](ctx, c, LibraryAlbumsPath, libraryAlbumsQuery, limit, offset)
+	return libraryPage[Album](ctx, c, c.ampBase()+LibraryAlbumsPath, libraryAlbumsQuery, limit, offset)
+}
+
+// LibraryAlbumsByID fetches library albums ids as the LibraryAlbums walk
+// does (at most 100). Albums no longer in the library are omitted.
+func (c *Client) LibraryAlbumsByID(ctx context.Context, ids []string) ([]Album, error) {
+	return libraryByID[Album](ctx, c, c.ampBase()+LibraryAlbumsPath, libraryAlbumsQuery, ids)
+}
+
+// LibrarySongsByID fetches library songs ids as the LibrarySongs walk does
+// (at most 100). Songs no longer in the library are omitted.
+func (c *Client) LibrarySongsByID(ctx context.Context, ids []string) ([]Song, error) {
+	return libraryByID[Song](ctx, c, LibrarySongsPath, librarySongsQuery, ids)
 }
 
 // LibraryArtists walks the user's library artists with their catalog artist
@@ -71,6 +87,32 @@ func (c *Client) LibraryArtists(ctx context.Context, opt PageOptions, fn func(of
 // LibraryArtists walk; Meta.Total is the number of library artists.
 func (c *Client) LibraryArtistsPage(ctx context.Context, limit, offset int) (Page[Artist], error) {
 	return libraryPage[Artist](ctx, c, LibraryArtistsPath, libraryArtistsQuery, limit, offset)
+}
+
+func libraryByID[T any](ctx context.Context, c *Client, path string, q url.Values, ids []string) ([]T, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	if len(ids) > defaultPageSize {
+		return nil, fmt.Errorf("apple music: %d library ids in one request (at most %d)", len(ids), defaultPageSize)
+	}
+	// Apple refuses limit and sort alongside ids (400 "Limit may not be
+	// supplied on this request"): a lookup is neither paged nor ordered.
+	qq := make(url.Values, len(q))
+	for k, v := range q {
+		if k != "sort" {
+			qq[k] = v
+		}
+	}
+	qq.Set("ids", strings.Join(ids, ","))
+	var p Page[T]
+	if err := c.Get(ctx, path, qq, &p); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return p.Data, nil
 }
 
 func libraryPage[T any](ctx context.Context, c *Client, path string, q url.Values, limit, offset int) (Page[T], error) {

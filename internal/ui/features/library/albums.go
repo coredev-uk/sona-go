@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -128,7 +129,9 @@ func (l *library) albumList(q listQuery) *listView[services.Album] {
 }
 
 // albumTile is CoverTile of a library album: its page when one exists and the
-// album as the tile's menu target. v0.2.0's tiles have no play control.
+// album as the tile's menu target; a pre-added album not out yet says when it
+// is ("Out 19 Nov"), as a catalogue tile does. v0.2.0's tiles have no play
+// control.
 func (l *library) albumTile() func(a *services.Album) kit.CoverItem {
 	return func(a *services.Album) kit.CoverItem {
 		it := *a
@@ -138,6 +141,7 @@ func (l *library) albumTile() func(a *services.Album) kit.CoverItem {
 			Subtitle: a.Artist,
 			Art:      a.Art.Medium,
 			Explicit: a.Explicit,
+			Badge:    kit.ReleaseBadge(it, time.Now()),
 			Item:     &kit.Item{Kind: kit.KindAlbum, Target: it},
 		}
 		l.openTo(&tile, "/album/"+a.ID)

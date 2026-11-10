@@ -155,10 +155,23 @@ func (m mapper) libSong(s library.Song) Song {
 		Genre:       s.Genre,
 		Explicit:    s.Explicit,
 		HasLyrics:   s.HasLyrics,
-		// Uploads play from their library ID; songs not out yet don't.
-		Playable: (s.CatalogID != "" || s.LibraryID != "") && !upcoming(s.ReleaseDate, false, m.clock()),
-		Art:      m.artOf(s.ArtworkTemplate),
+		// Uploads play from their library ID; songs not out yet don't. Apple
+		// dates only the songs of a pre-added album already out, and gives
+		// the rest no playParams: such a song goes by its album.
+		Playable: (s.CatalogID != "" || s.LibraryID != "") && !upcoming(s.ReleaseDate, false, m.clock()) &&
+			!m.libSongWaitsForItsAlbum(s),
+		Art: m.artOf(s.ArtworkTemplate),
 	}
+}
+
+// libSongWaitsForItsAlbum reports whether s, a song with no playParams or
+// no date of its own, belongs to a library album that is not out yet.
+func (m mapper) libSongWaitsForItsAlbum(s library.Song) bool {
+	if !s.NoPlayParams && s.ReleaseDate != "" {
+		return false
+	}
+	_, up := libraryRelease(s.Album.Date, s.Album.CatalogDate, s.Album.Prerelease, m.clock())
+	return up
 }
 
 func (m mapper) libSongs(in []library.Song) []Song {
@@ -186,7 +199,9 @@ func (m mapper) libAlbum(a library.Album) Album {
 		DateAdded:   unixMs(a.DateAdded),
 		Art:         m.artOf(a.ArtworkTemplate),
 	}
-	m.release(&out, false)
+	var up bool
+	out.ReleaseDate, up = libraryRelease(a.ReleaseDate, a.CatalogReleaseDate, a.Prerelease, m.clock())
+	out.ReleaseAt, out.Prerelease = releaseAt(out.ReleaseDate), up
 	return out
 }
 

@@ -75,6 +75,27 @@ func album(id, name, artist, artistID, added string) map[string]any {
 	}
 }
 
+// preAdded is a pre-added album as Apple's library lists it (live check,
+// docs/apple-music-reference.md): no releaseDate of its own, its catalog album
+// carrying the date and isPrerelease.
+func preAdded(id, name, artist, artistID, added, date string, flagged bool) map[string]any {
+	a := album(id, name, artist, artistID, added)
+	delete(a["attributes"].(map[string]any), "releaseDate")
+	cat := a["relationships"].(map[string]any)["catalog"].(map[string]any)["data"].([]any)[0].(map[string]any)
+	cat["attributes"] = map[string]any{"isSingle": false, "releaseDate": date, "isPrerelease": flagged}
+	return a
+}
+
+// unreleasedSong is a song of a pre-added album that is not out: in the
+// library, but with no playParams, no releaseDate and no artwork.
+func unreleasedSong(id, name, artist, albumID, artistID string) map[string]any {
+	s := song(id, name, artist, "Soon", albumID, artistID)
+	a := s["attributes"].(map[string]any)
+	delete(a, "playParams")
+	delete(a, "artwork")
+	return s
+}
+
 func artist(id, name string) map[string]any {
 	return map[string]any{
 		"id": id, "type": "library-artists", "attributes": map[string]any{"name": name},
@@ -109,7 +130,7 @@ func (f *fakeApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	off, _ := strconv.Atoi(q.Get("offset"))
 	path := r.URL.Path
 	f.requests = append(f.requests, path+"?"+r.URL.RawQuery)
-	if limit > 1 {
+	if limit > 1 && q.Get("ids") == "" {
 		f.pageReqs[path] = append(f.pageReqs[path], off)
 	}
 	if path == f.failPath && off == f.failOffset && limit > 1 {
@@ -152,6 +173,23 @@ func (f *fakeApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	default:
 		http.NotFound(w, r)
+		return
+	}
+	if q.Get("ids") != "" && q.Has("limit") {
+		http.Error(w, `{"errors":[{"title":"Invalid Parameter","detail":"Limit may not be supplied on this request"}]}`, http.StatusBadRequest)
+		return
+	}
+	if ids := q.Get("ids"); ids != "" && (path == "/v1/me/library/songs" || path == "/v1/me/library/albums") {
+		// A lookup by ID: the items asked for, in the order they were asked.
+		data := []map[string]any{}
+		for _, id := range strings.Split(ids, ",") {
+			for _, it := range items {
+				if it["id"] == id {
+					data = append(data, it)
+				}
+			}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
 		return
 	}
 	page := []map[string]any{}

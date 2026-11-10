@@ -148,7 +148,11 @@
 // Pre-release albums (release.go): Album.Prerelease and Album.ReleaseAt
 // (local midnight on the release date) mark an album not out yet; its
 // songs not out yet are not playable and PlaybackService refuses them with
-// code "not_released". Reminders (reminders.go, table release_reminders)
+// code "not_released". A pre-added library album has no release date of
+// its own: libAlbum takes its catalogue album's date and isPrerelease as
+// the library walk stored them (library.Album.CatalogReleaseDate,
+// Prerelease), and a library song with no playParams or date goes by its
+// album (libSong, PlaybackService). Reminders (reminders.go, table release_reminders)
 // give one desktop notification when such an album comes out, or after
 // the first paint of the next start when Sona wasn't running then; the
 // notification's words come from the UI, and without

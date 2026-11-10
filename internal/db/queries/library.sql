@@ -5,8 +5,8 @@ INSERT INTO tracks (
     library_id, catalog_id, name, artist_name, album_name,
     album_library_id, album_catalog_id, artist_library_id, artist_catalog_id,
     artwork_template, duration_ms, track_number, disc_number, release_date,
-    genre, content_rating, has_lyrics, isrc, composer, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    genre, content_rating, has_lyrics, isrc, composer, no_play_params, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (library_id) DO UPDATE SET
     catalog_id = excluded.catalog_id,
     name = excluded.name,
@@ -26,14 +26,16 @@ ON CONFLICT (library_id) DO UPDATE SET
     has_lyrics = excluded.has_lyrics,
     isrc = excluded.isrc,
     composer = excluded.composer,
+    no_play_params = excluded.no_play_params,
     updated_at = excluded.updated_at
 RETURNING id;
 
 -- name: UpsertLibraryAlbum :one
 INSERT INTO albums (
     library_id, catalog_id, name, artist_name, artist_library_id, artist_catalog_id,
-    artwork_template, release_date, genre, track_count, content_rating, is_single, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    artwork_template, release_date, genre, track_count, content_rating, is_single,
+    is_prerelease, catalog_release_date, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (library_id) DO UPDATE SET
     catalog_id = excluded.catalog_id,
     name = excluded.name,
@@ -46,6 +48,8 @@ ON CONFLICT (library_id) DO UPDATE SET
     track_count = excluded.track_count,
     content_rating = excluded.content_rating,
     is_single = excluded.is_single,
+    is_prerelease = excluded.is_prerelease,
+    catalog_release_date = excluded.catalog_release_date,
     updated_at = excluded.updated_at
 RETURNING id;
 
@@ -156,6 +160,25 @@ SELECT EXISTS (
     SELECT 1 FROM albums a JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
     WHERE a.library_id = ?
 );
+
+-- Library albums whose release is still ahead: flagged pre-release by Apple
+-- or dated after the day (?1, "YYYY-MM-DD"; a year alone counts only while
+-- it is flagged). The incremental sync refreshes them, as it stops at the
+-- first album it already has.
+-- name: UpcomingLibraryAlbums :many
+SELECT a.library_id, a.is_prerelease, a.release_date, a.catalog_release_date
+FROM albums a JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
+WHERE a.library_id IS NOT NULL
+  AND (a.is_prerelease = 1 OR a.release_date > ?1 OR a.catalog_release_date > ?1);
+
+-- The songs of those albums that Apple gave no playParams yet.
+-- name: UnplayableUpcomingLibrarySongs :many
+SELECT t.library_id
+FROM tracks t
+JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
+JOIN albums a ON a.library_id = t.album_library_id
+WHERE t.library_id IS NOT NULL AND t.no_play_params = 1
+  AND (a.is_prerelease = 1 OR a.release_date > ?1 OR a.catalog_release_date > ?1);
 
 -- name: MinSongAddedRank :one
 SELECT CAST(coalesce(min(added_rank), 0) AS INTEGER) FROM library_items WHERE kind = 'song';

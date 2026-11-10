@@ -48,6 +48,8 @@ type album struct {
 
 	stamp    time.Time
 	reloaded string // the album whose release this page reloaded it for
+	// release is withCatalogueRelease's answer, kept until its input changes.
+	release releaseMemo
 
 	// pageState is the page being built: another album is another state, so
 	// opening one from another starts at its top.
@@ -199,6 +201,9 @@ func (a *album) content(c *ui.Context, id, highlight string, lay layout, now tim
 	case !l.hasData:
 		a.skeleton(c, lay)
 		return
+	}
+	if !l.cat {
+		l.detail = a.release.of(l.detail, l.page, now)
 	}
 	// An album not out yet counts down to the minute; at its release the
 	// page reloads it so its songs become playable.

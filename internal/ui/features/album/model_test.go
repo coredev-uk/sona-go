@@ -59,6 +59,40 @@ func TestUpcomingAlbumLeavesReleaseDayToTheCountdown(t *testing.T) {
 	}
 }
 
+func TestWithCatalogueReleaseTakesAnUpcomingCataloguePage(t *testing.T) {
+	release := modelNow.Add(24 * time.Hour)
+	upcoming := saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, release.UnixMilli(), "2026-11-05"
+	})
+	library := func() services.AlbumDetail {
+		d := services.AlbumDetail{
+			Album:  services.Album{ID: "l.9", Source: services.SourceLibrary, CatalogID: "100", ReleaseDate: ""},
+			Tracks: []services.Song{{ID: "i.1", Playable: true, ReleaseDate: "2026-09-17"}, {ID: "i.2", Playable: true}},
+		}
+		return d
+	}
+
+	d := library()
+	got := withCatalogueRelease(d, &upcoming, modelNow)
+	if !got.Album.Prerelease || got.Album.ReleaseAt != release.UnixMilli() || got.Album.ReleaseDate != "2026-11-05" {
+		t.Fatalf("album = %+v, want the catalogue's release state", got.Album)
+	}
+	if !got.Tracks[0].Playable || got.Tracks[1].Playable {
+		t.Errorf("playable = %v, %v: the dated song is out, the undated one is not", got.Tracks[0].Playable, got.Tracks[1].Playable)
+	}
+	if !d.Tracks[1].Playable || d.Album.Prerelease {
+		t.Error("the loaded album was changed in place")
+	}
+
+	// The same page once it is out, and no page at all, change nothing.
+	if got := withCatalogueRelease(library(), &upcoming, release); got.Album.Prerelease || !got.Tracks[1].Playable {
+		t.Errorf("a catalogue album out overrode the library's: %+v", got)
+	}
+	if got := withCatalogueRelease(library(), nil, modelNow); got.Album.Prerelease || !got.Tracks[1].Playable {
+		t.Errorf("no catalogue page overrode the library's: %+v", got)
+	}
+}
+
 func TestPopularNeverMarksASongThatCannotPlay(t *testing.T) {
 	p := saltFlats(func(p *services.CatalogAlbum) {
 		p.PopularIDs = []string{"c1", "c2"}
@@ -149,5 +183,40 @@ func TestSublineJoinsCreditComposerAndReason(t *testing.T) {
 	m.list[1].Artist = "Zed"
 	if got := sub(m.list[1]); got != "Zed · Cy" {
 		t.Errorf("both: %q", got)
+	}
+}
+
+func TestReleaseMemoCopiesTheTracksOncePerLoad(t *testing.T) {
+	release := modelNow.Add(24 * time.Hour)
+	upcoming := saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, release.UnixMilli(), "2026-11-05"
+	})
+	d := services.AlbumDetail{
+		Album:  services.Album{ID: "l.9", Source: services.SourceLibrary},
+		Tracks: []services.Song{{ID: "i.1", Playable: true}, {ID: "i.2", Playable: true, ReleaseDate: "2026-09-17"}},
+	}
+	var m releaseMemo
+	first := m.of(d, &upcoming, modelNow)
+	again := m.of(d, &upcoming, modelNow.Add(time.Minute))
+	if &first.Tracks[0] != &again.Tracks[0] {
+		t.Error("the track list was copied again for the same data")
+	}
+	if first.Tracks[0].Playable || !first.Tracks[1].Playable || !first.Album.Prerelease {
+		t.Errorf("memo answer = %+v", first)
+	}
+	// A reload (a new slice) or another catalogue date rebuilds it.
+	reloaded := d
+	reloaded.Tracks = append([]services.Song(nil), d.Tracks...)
+	if got := m.of(reloaded, &upcoming, modelNow); &got.Tracks[0] == &first.Tracks[0] {
+		t.Error("a reload kept the old copy")
+	}
+	later := upcoming
+	later.Album.ReleaseDate, later.Album.ReleaseAt = "2026-11-06", release.Add(24*time.Hour).UnixMilli()
+	if got := m.of(reloaded, &later, modelNow); got.Album.ReleaseDate != "2026-11-06" {
+		t.Errorf("a new catalogue date was not taken: %+v", got.Album)
+	}
+	// Once the catalogue album is out it is the library's own again.
+	if got := m.of(d, &upcoming, release); got.Album.Prerelease || !got.Tracks[0].Playable {
+		t.Errorf("an album out was overridden: %+v", got.Album)
 	}
 }
