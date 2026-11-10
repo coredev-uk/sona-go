@@ -7423,6 +7423,11 @@ msgstr "devtools, console, inspect element, debug"
 msgid "disk, space"
 msgstr "disk, space"
 
+#. When something happened, two weeks or more ago but in this calendar month, after a verb ("Updated earlier this month").
+#: internal/ui/i18n/relative.go
+msgid "earlier this month"
+msgstr "earlier this month"
+
 #: internal/ui/features/equalizer/equalizer.go
 msgid "eq bass treble sound"
 msgstr "eq bass treble sound"
@@ -7439,6 +7444,16 @@ msgstr "find focus"
 msgid "help keys bindings"
 msgstr "help keys bindings"
 
+#. When something happened, in an earlier month of this year, after a verb ("Updated in March"); month is the month's name standing alone.
+#: internal/ui/i18n/relative.go
+msgid "in {month}"
+msgstr "in {month}"
+
+#. When something happened, two calendar years ago or more, after a verb ("Updated in 2023"); year is the year's number.
+#: internal/ui/i18n/relative.go
+msgid "in {year}"
+msgstr "in {year}"
+
 #: internal/ui/i18n/relative.go
 msgid "just now"
 msgstr "just now"
@@ -7446,6 +7461,16 @@ msgstr "just now"
 #: internal/ui/features/settings/find.go
 msgid "language"
 msgstr "language"
+
+#. When something happened, seven to 13 days ago, after a verb ("Updated last week").
+#: internal/ui/i18n/relative.go
+msgid "last week"
+msgstr "last week"
+
+#. When something happened, in the calendar year before this one, after a verb ("Updated last year").
+#: internal/ui/i18n/relative.go
+msgid "last year"
+msgstr "last year"
 
 #: internal/ui/app/shortcuts.go
 msgid "library"
@@ -7522,6 +7547,11 @@ msgstr "not set"
 #: internal/ui/features/settings/storage.go
 msgid "of {artworkLimit}"
 msgstr "of {artworkLimit}"
+
+#. When something happened, two to six days ago, after a verb ("Updated on Tuesday"); weekday is the day's name.
+#: internal/ui/i18n/relative.go
+msgid "on {weekday}"
+msgstr "on {weekday}"
 
 #: internal/ui/kit/overlays_palette.go
 msgid "or"

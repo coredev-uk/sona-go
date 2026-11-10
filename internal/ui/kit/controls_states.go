@@ -305,6 +305,12 @@ type CollectionHeaderOpts struct {
 	Byline func()
 	// Meta is the catalogue line: "Album · 2008 · 10 songs, 42 min".
 	Meta string
+	// MetaNote ends the catalogue line after a dot, as an element of its
+	// own: a short phrase, as a playlist's "Updated yesterday", that
+	// MetaDetail (the exact date and time) explains. The detail is the
+	// note's tooltip and its description, and the note takes the keyboard
+	// focus, so the detail reaches keyboard and screen-reader users too.
+	MetaNote, MetaDetail string
 	// Badges are the explicit and audio-quality labels under it.
 	Badges func()
 	// Description is clamped to two lines.
@@ -360,7 +366,10 @@ func CollectionHeader(c *ui.Context, o CollectionHeaderOpts) ui.Element {
 					ui.Row(c.Key("byline")).Margin(6, 0, 0, 0).MinWidth(0).TextColor(theme.C("ink")).FontSize(tk.Type["heading"].Size).
 						FontWeight(500).Children(o.Byline)
 				}
-				if o.Meta != "" {
+				switch {
+				case o.MetaNote != "":
+					collectionMeta(c, o.Meta, o.MetaNote, o.MetaDetail)
+				case o.Meta != "":
 					controlsText(c, o.Meta, "meta").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 				}
 				if o.Badges != nil {
@@ -384,6 +393,27 @@ func CollectionHeader(c *ui.Context, o CollectionHeaderOpts) ui.Element {
 	return Backdrop(c.Key("wash"), o.Loader, *o.Wash, func() {
 		ui.Column(c).FillWidth().Padding(32, gutter, 28, gutter).Children(body)
 	}).AlignSelf(ui.Stretch).Shrink(0).Margin(-28, -gutter, 24, -gutter)
+}
+
+// collectionMeta is CollectionHeader's catalogue line with its note: meta,
+// a dot, then the note, which wraps to the next line as a whole when the
+// line is full. The dot is decoration; the note is a tab stop with its
+// detail for a tooltip.
+func collectionMeta(c *ui.Context, meta, note, detail string) {
+	ui.Row(c.Key("meta")).Wrap().AlignItems(ui.Center).Margin(4, 0, 0, 0).MinWidth(0).Children(func() {
+		muted := theme.C("ink-muted")
+		if meta != "" {
+			controlsText(c, meta, "meta").TextColor(muted).Shrink(1).MinWidth(0)
+			// A space either side, as the line's other dots (a Text trims its
+			// own spaces at the ends): the note's padding is the one after it.
+			controlsText(c, "·", "meta").TextColor(muted).Margin(0, 1, 0, 3).Role(ui.RoleNone)
+		}
+		e := controlsText(c.Key("note"), note, "meta").TextColor(muted).SingleLine().Shrink(0).
+			PaddingX(2).Radius(controlsRadius("sm")).TabStop(true)
+		if detail != "" {
+			Tooltip(c, e, detail)
+		}
+	})
 }
 
 // Notes shows editorial notes and biographies at a reading measure: plain

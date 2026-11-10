@@ -9,6 +9,8 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 func TestPageShowsHeaderMetaAndByline(t *testing.T) {
@@ -71,14 +73,72 @@ func TestPageMetaLineKindsAndUpdated(t *testing.T) {
 		}
 	}
 
-	d.Playlist.LastModified = time.Now().Add(-3 * time.Hour).UnixMilli()
-	if got := p.metaLine(d, nil); !strings.HasSuffix(got, " · Updated 3 hr. ago") {
-		t.Errorf("meta %q lacks the update", got)
-	}
 	collab := &services.PlaylistCollaboration{Collaborative: true, Viewer: services.RoleCollaborator}
 	d.Playlist.LastModified = 0
 	if got := p.metaLine(d, collab); got != "Collaborative playlist · You're a collaborator · 3 songs, 10 min" {
 		t.Errorf("collaborative meta %q", got)
+	}
+}
+
+// "Updated …" is in calendar words, with the exact date and time for a
+// tooltip and a description; it is a tab stop, so the keyboard reaches the
+// tooltip, and it changes at midnight on a page left open.
+func TestPageUpdatedReadsInCalendarWordsWithTheExactDate(t *testing.T) {
+	now := time.Date(2026, 11, 10, 23, 58, 0, 0, time.Local) // Tuesday
+	clock := now
+	for _, c := range []struct {
+		name string
+		mod  time.Time
+		want string
+	}{
+		{"today", now.Add(-3 * time.Hour), "Updated 3 hr. ago"},
+		{"yesterday", time.Date(2026, 11, 9, 21, 30, 0, 0, time.Local), "Updated yesterday"},
+		{"this week", time.Date(2026, 11, 6, 9, 0, 0, 0, time.Local), "Updated on Friday"},
+		{"last spring", time.Date(2026, 4, 2, 9, 0, 0, 0, time.Local), "Updated in April"},
+		{"years ago", time.Date(2023, 4, 2, 9, 0, 0, 0, time.Local), "Updated in 2023"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			d := libraryDetail("p.1", "Road Trip", threeSongs()...)
+			d.Playlist.LastModified = c.mod.UnixMilli()
+			r := newPageRigWith(t, "p.1", func(*fakeAPI) {}, d)
+			r.p.now = func() time.Time { return clock }
+			r.tt.Frame()
+			r.shows("Playlist · 3 songs, 10 min", c.want)
+			exact := i18n.FormatDateTime(c.mod)
+			tr := access.Read(t, r.tt.Tester)
+			n, ok := tr.Find(ui.RoleText, c.want)
+			if !ok || n.Description != exact {
+				t.Errorf("the note %q is described %q, want %q:\n%s", c.want, n.Description, exact, tr.Dump())
+			}
+		})
+	}
+
+	// The keyboard stops at it, after the title and before the actions.
+	d := libraryDetail("p.1", "Road Trip", threeSongs()...)
+	d.Playlist.LastModified = now.Add(-time.Hour).UnixMilli()
+	r := newPageRig(t, "p.1", d)
+	r.p.now = func() time.Time { return clock }
+	r.tt.Frame()
+	r.shows("Updated 1 hr. ago")
+	stops := stopLabels(access.TabWalk(t, r.tt.Tester, 60))
+	if !inOrder(stops, []string{"Updated 1 hr. ago", "Play Road Trip"}) {
+		t.Errorf("Tab walk %q lacks the note before Play", stops)
+	}
+
+	// Left open across midnight, the page relabels itself: a playlist changed
+	// yesterday reads "on Monday" once the day turns, with no frame asked for
+	// by the test (HasText does not draw), so only the page's own wake at
+	// midnight can change it.
+	d = libraryDetail("p.1", "Road Trip", threeSongs()...)
+	d.Playlist.LastModified = time.Date(2026, 11, 9, 21, 30, 0, 0, time.Local).UnixMilli()
+	r = newPageRig(t, "p.1", d)
+	r.p.now = func() time.Time { return clock }
+	r.tt.Frame()
+	r.shows("Updated yesterday")
+	clock = now.Add(5 * time.Minute)
+	r.tt.Advance(5 * time.Minute)
+	if !r.tt.HasText("Updated on Monday") {
+		t.Errorf("after midnight the page reads %q", r.tt.Texts())
 	}
 }
 

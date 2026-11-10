@@ -209,6 +209,7 @@ func (p *playlists) playlistBody(c *ui.Context, id string, d services.PlaylistDe
 	if len(hd.Colors) > 0 {
 		colour = hd.Colors[0]
 	}
+	note, detail := p.updated(c, pl)
 	kit.CollectionHeader(c, kit.CollectionHeaderOpts{
 		Title:       pl.Name,
 		Art:         pl.Art.Large,
@@ -217,6 +218,8 @@ func (p *playlists) playlistBody(c *ui.Context, id string, d services.PlaylistDe
 		Wash:        &kit.BackdropOpts{Src: hd.Backdrop, Color: colour, Tone: kit.ToneGround},
 		Byline:      byline,
 		Meta:        p.metaLine(d, collab),
+		MetaNote:    note,
+		MetaDetail:  detail,
 		Description: pl.Description,
 		Actions:     func() { p.headerActions(c, id, d, editable, inEdit, menus) },
 	})
@@ -275,7 +278,8 @@ func (p *playlists) byline(c *ui.Context, d services.PlaylistDetail) {
 }
 
 // metaLine is the catalogue line: kind · "You're a collaborator" · song
-// count and duration · "Updated <relative time>".
+// count and duration. "Updated …" follows it as an element of its own
+// (updated).
 func (p *playlists) metaLine(d services.PlaylistDetail, collab *services.PlaylistCollaboration) string {
 	kind := i18n.T("Playlist")
 	switch {
@@ -291,11 +295,30 @@ func (p *playlists) metaLine(d services.PlaylistDetail, collab *services.Playlis
 	if collab != nil && collab.Viewer == services.RoleCollaborator {
 		kind += " · " + i18n.T("You're a collaborator")
 	}
-	line := catalogueLine(kind, len(d.Tracks), d.DurationMs)
-	if d.Playlist.LastModified > 0 {
-		line += " · " + i18n.T("Updated {when}", "when", i18n.RelativeTime(time.UnixMilli(d.Playlist.LastModified), time.Now()))
+	return catalogueLine(kind, len(d.Tracks), d.DurationMs)
+}
+
+// updated is when the playlist last changed: "Updated yesterday" in
+// calendar words (i18n.RelativeDay), and the exact date and time behind it
+// ("Monday, November 9, 2026 at 9:30 PM");
+// "" when Apple gives no date. The page is asked back when the words would
+// change: at the next local midnight, and every minute while it changed
+// today.
+func (p *playlists) updated(c *ui.Context, pl services.Playlist) (note, detail string) {
+	if pl.LastModified <= 0 {
+		return "", ""
 	}
-	return line
+	now := c.Now()
+	if p.now != nil {
+		now = p.now()
+	}
+	t := time.UnixMilli(pl.LastModified).In(time.Local)
+	wake := i18n.NextMidnight(now, time.Local).Sub(now)
+	if i18n.CalendarDays(t, now, time.Local) <= 0 {
+		wake = min(wake, time.Minute)
+	}
+	c.After(max(time.Millisecond, wake))
+	return i18n.T("Updated {when}", "when", i18n.RelativeDay(t, now, time.Local)), i18n.FormatDateTime(t)
 }
 
 // headerActions are the header's controls: Play and Shuffle, the library
