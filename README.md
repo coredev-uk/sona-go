@@ -29,8 +29,12 @@ the unsigned macOS and Windows builds.
 - **Nix (Linux):** the repository is a flake: `nix run github:coredev-uk/sona-go`,
   `nix profile add github:coredev-uk/sona-go`, or the flake's
   `overlays.default` (`pkgs.sona`) in a NixOS or Home Manager configuration.
-  It builds from source and updates when you update the flake input.
-  Outside NixOS the GPU driver needs [nixGL](https://github.com/nix-community/nixGL).
+  On x86_64 it installs the latest release's Arch package, which has the
+  Last.fm and Discord credentials, and updates when you update the flake
+  input. `sona-source` builds the checkout instead, without them (no Last.fm
+  scrobbling or Discord presence), as does `sona` on aarch64, which has no
+  release build. Outside NixOS the GPU driver needs
+  [nixGL](https://github.com/nix-community/nixGL).
 - **macOS 14 or later, Apple silicon:** open the `.dmg` and drag Sona to
   Applications. Settings → Updates installs new versions in place
   ("Install and restart").
