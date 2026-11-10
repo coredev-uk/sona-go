@@ -7,7 +7,7 @@ require (
 	github.com/egoist/mygo v0.8.3
 	github.com/godbus/dbus/v5 v5.2.4
 	github.com/mattn/go-sqlite3 v1.14.53
-	github.com/pressly/goose/v3 v3.29.0
+	github.com/pressly/goose/v3 v3.30.0
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/sync v0.25.0
 	golang.org/x/sys v0.50.0
@@ -31,7 +31,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/image v0.46.0 // indirect
 	golang.org/x/mod v0.42.0 // indirect
-	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	gotest.tools/gotestsum v1.13.0 // indirect
 )
 
