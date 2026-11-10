@@ -85,7 +85,7 @@ func (h *home) indexLine(c *ui.Context, s services.Section, ctx kit.ItemsCtx) {
 			btn.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
 		}
 		btn.Children(func() {
-			ic := ui.Icon(c, theme.Icon("chevron-right")).FontSize(indexChevron).TextColor(theme.C("ink-muted")).Shrink(0)
+			ic := theme.Glyph(c, "chevron-right", indexChevron, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0)
 			turn := float32(0)
 			if ln.open {
 				turn = 90
@@ -177,7 +177,7 @@ func seeAll(c *ui.Context, open func()) ui.Element {
 	b.Children(func() {
 		sub := tk.Type["sub"]
 		ui.Text(c, i18n.T("See all")).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).SingleLine()
-		ui.Icon(c, theme.Icon("chevron-right")).FontSize(14)
+		theme.Glyph(c, "chevron-right", 14, theme.GlyphOpts{Color: fg, Inherit: true})
 	})
 	if b.Clicked() {
 		open()

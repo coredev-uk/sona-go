@@ -255,7 +255,7 @@ func (p *playlists) optionRow(c *ui.Context, i int, o option) {
 	s.Children(func() {
 		if o.icon != "" {
 			ui.Box(c.Key("icon")).Size(32, 32).Shrink(0).Center().Radius(tk.Radius["sm"]).Background(theme.C("hover")).Children(func() {
-				ui.Icon(c, theme.Icon(o.icon)).FontSize(16).TextColor(theme.C("ink-muted"))
+				theme.Glyph(c, o.icon, 16, theme.GlyphOpts{Color: theme.C("ink-muted")})
 			})
 		} else {
 			kit.Artwork(c.Key("art"), p.env.Art, o.art, 32, kit.ArtOpts{Edge: true}).Shrink(0)

@@ -24,10 +24,9 @@ type ShelfOpts struct {
 // shelfControl styles a heading-row control: "See all", "Show all".
 func shelfControl(c *ui.Context, e ui.Element) ui.Element {
 	tk := theme.Current()
-	hovered := e.Hovered()
-	bg, fg := ui.Transparent, theme.C("ink-muted")
-	if hovered {
-		bg, fg = theme.C("hover"), theme.C("ink")
+	bg, fg := ui.Transparent, shelfInk(e)
+	if e.Hovered() {
+		bg = theme.C("hover")
 	}
 	e.Height(28).PaddingX(6).MarginEnd(-4).Gap(2).Radius(tk.Radius["md"]).Background(bg).TextColor(fg).Center()
 	if !theme.ReducedMotion() {
@@ -35,6 +34,15 @@ func shelfControl(c *ui.Context, e ui.Element) ui.Element {
 		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
 	}
 	return e
+}
+
+// shelfInk is the colour of a heading-row control's text and icon: ink
+// under the pointer, muted ink otherwise.
+func shelfInk(e ui.Element) ui.Color {
+	if e.Hovered() {
+		return theme.C("ink")
+	}
+	return theme.C("ink-muted")
 }
 
 // ShelfToggle is a heading-row button that opens the shelf's content in
@@ -72,7 +80,7 @@ func Shelf(c *ui.Context, o ShelfOpts, content func()) {
 					see := shelfControl(c, ui.ButtonBase(c.Key("kit.shelf.more"))).Role(ui.RoleLink)
 					see.Children(func() {
 						ui.Text(c, i18n.T("See all")).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).SingleLine()
-						ui.Icon(c, theme.Icon("chevron-right")).FontSize(14)
+						theme.Glyph(c, "chevron-right", 14, theme.GlyphOpts{Color: shelfInk(see), Inherit: true})
 					})
 					if see.Clicked() {
 						o.More()

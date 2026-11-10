@@ -154,7 +154,7 @@ func (f *field) build(c *ui.Context) {
 	box := ui.Row(c.Key("search")).Role(ui.RoleSearch).FillWidth().MaxWidth(fieldMaxWidth).Height(32).
 		Padding(0, 6, 0, 12).Gap(8).AlignItems(ui.Center).Cursor(ui.CursorText)
 	box.Children(func() {
-		ui.Icon(c.Key("icon"), theme.Icon("search")).FontSize(16).TextColor(theme.C("ink-faint")).Shrink(0)
+		theme.Glyph(c.Key("icon"), "search", 16, theme.GlyphOpts{Color: theme.C("ink-faint")}).Shrink(0)
 		t := theme.Current().Type["body"]
 		in = ui.TextInputBase(c.Key("input"), &f.text).Role(ui.RoleComboBox).Grow(1).MinWidth(0).
 			FontSize(t.Size).FixedLineHeight(t.LineHeight).
@@ -270,7 +270,7 @@ func (f *field) trailing(c *ui.Context, in ui.Element) {
 			ink = theme.C("ink")
 		}
 		clear.Children(func() {
-			ui.Icon(c.Key("x"), theme.Icon("x")).FontSize(14).TextColor(ink)
+			theme.Glyph(c.Key("x"), "x", 14, theme.GlyphOpts{Color: ink})
 		})
 		if clear.Clicked() {
 			f.text, f.active = "", -1
@@ -572,7 +572,7 @@ func (f *field) row(c *ui.Context, o option, active bool) ui.Element {
 }
 
 func (f *field) icon(c *ui.Context, name string) {
-	ui.Icon(c.Key("icon"), theme.Icon(name)).FontSize(16).TextColor(theme.C("ink-faint")).Shrink(0)
+	theme.Glyph(c.Key("icon"), name, 16, theme.GlyphOpts{Color: theme.C("ink-faint")}).Shrink(0)
 }
 
 // termText is a completion with what was typed muted and the rest of it

@@ -293,7 +293,7 @@ func (a *ActionMenus) Trigger(c *ui.Context, t ActionTarget, o TriggerOpts) ui.E
 			btn.Opacity(0)
 		}
 		clicked = btn.Clicked()
-		btn.TextColor(fg).Children(func() { ui.Icon(c, theme.Icon("ellipsis")).FontSize(16) })
+		btn.TextColor(fg).Children(func() { theme.Glyph(c, "ellipsis", 16, theme.GlyphOpts{Color: fg, Inherit: true}) })
 	}
 	if clicked {
 		if mine {

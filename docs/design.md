@@ -65,7 +65,7 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 
 - 4px base. Control height 32px (top-bar search 32, buttons 32, compact icon buttons 28).
 - Shell: sidebar 232px; top bar 48px; now-playing bar 72px spanning the full width; content gutter 32px (24px under 960px wide).
-- Nav rows 32px on a 34px pitch, 16px outline icons at 1.5 stroke, 10px to the label.
+- Nav rows 32px on a 34px pitch, 16px outline icons at 1.5 stroke (SF Symbols on macOS for the ones "Icons" names), 10px to the label.
 - Track rows 44px with 32px artwork (a later "compact" density setting moves rows to 32px, artwork hidden, type unchanged). No zebra striping and no row dividers: hover is a `--hover` fill at radius 6.
 - Album and playlist grids: cover tiles from 160px, gap 24px horizontal, 28px vertical, title 14/500 and artist 13 muted under the cover.
 - Minimum window 940×600; the layout holds at half of a 1920 screen.
@@ -75,6 +75,14 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 - Tight radius family: artwork 4px, controls 6px, menus and dialogs 8px. Avatars and the round play button are circles. Nothing else is pill-shaped.
 - Surfaces separate by a tone step, or by one 1px `--line`, never both. Shadows only on what floats (menus, dialogs, toasts): the `float` shadow, 8px down with a 24px blur, black at 12% in light and 40% in dark.
 - No gradients, no glows, no glass.
+
+## Icons
+
+- Lucide outline icons (`theme.Icon`), at 16px in controls, 14px in dense rows and 12px beside meta text, in the colour of the text they sit with. Solid forms only for what is on or what plays: the play triangle of the amber disc, a favourite star, a set thumb, a running sleep timer.
+- **macOS** draws the transport and the common controls as SF Symbols, so the Mac's controls read as the Mac's: play and pause, previous and next (`backward.fill`, `forward.fill`), shuffle, repeat and repeat one, the speaker (`speaker.wave.1.fill`, `speaker.wave.2.fill`, `speaker.slash.fill`), the queue (`music.note.list`), search (`magnifyingglass`), close and clear (`xmark`), more (`ellipsis`), add, delete (`trash`), favourite (`star`, `star.fill` when on) and the four chevrons. The map is `theme`'s (`symbols.go`); every other icon, and Sona's own glyphs (`hat-glasses` for private listening, `disc-3`, the brand mark), stays Lucide there too.
+- A symbol takes the box the Lucide icon had (16, 14 or 12) and is drawn at its natural scale, so a row of them balances as macOS balances them (a cross stays smaller than a speaker), over 1.2 times the box so that its ink is as large as the Lucide icons' beside it, at the Regular weight, which is the 1.5 stroke of the Lucide icons beside them. The transport and the speaker are solid, as macOS draws them; the rest are outlines like Lucide's.
+- One colour per symbol, the token the icon had: no multicolour or hierarchical symbols, which would bring Apple's palette into Sona's. A symbol does not ease its colour with its button's face (it changes on the frame the face starts to), the one difference from Lucide.
+- Linux and Windows keep Lucide everywhere, and the golden images are Linux's, so they show Lucide.
 
 ## Artwork
 

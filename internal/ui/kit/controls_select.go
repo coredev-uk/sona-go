@@ -152,7 +152,7 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 		if placeholder {
 			t.TextColor(theme.C("muted-foreground"))
 		}
-		ui.Icon(c, theme.Icon("chevron-down")).FontSize(16).Opacity(0.5).Shrink(0)
+		theme.Glyph(c, "chevron-down", 16, theme.GlyphOpts{Color: theme.C("foreground"), Inherit: true}).Opacity(0.5).Shrink(0)
 	})
 	width := trigger.Bounds().W
 	align := ui.Local(trigger, "align", func() selectAlign { return selectAlign{} })

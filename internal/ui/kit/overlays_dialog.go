@@ -139,7 +139,7 @@ func closeButton(c *ui.Context) ui.Element {
 		b.Opacity(1)
 	}
 	b.TextColor(theme.C("muted-foreground")).Center().Children(func() {
-		ui.Icon(c, theme.Icon("x")).FontSize(16)
+		theme.Glyph(c, "x", 16, theme.GlyphOpts{Color: theme.C("muted-foreground"), Inherit: true})
 	})
 	return b
 }

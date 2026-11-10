@@ -276,7 +276,7 @@ func (p *playlists) editorRow(c *ui.Context, ed *editor, playlist string, i int,
 				col = ink
 				cross.Background(theme.C("active"))
 			}
-			cross.TextColor(col).Children(func() { ui.Icon(c, theme.Icon("x")).FontSize(16) })
+			cross.TextColor(col).Children(func() { theme.Glyph(c, "x", 16, theme.GlyphOpts{Color: col, Inherit: true}) })
 			if cross.Clicked() {
 				remove(i)
 			}

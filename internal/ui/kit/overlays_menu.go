@@ -460,15 +460,11 @@ func (m *Menu) row(c *ui.Context, it *MenuItem, marks, hi, byKey bool, lv int) u
 				}
 			})
 		case it.Icon != "":
-			ic := theme.Icon(it.Icon)
-			if it.Filled {
-				ic = theme.IconFilled(it.Icon)
-			}
 			col := fg
 			if !it.Destructive {
 				col = theme.C("ink-muted")
 			}
-			ui.Icon(c.Key("ic"), ic).FontSize(16).TextColor(col)
+			theme.Glyph(c.Key("ic"), it.Icon, 16, theme.GlyphOpts{Color: col, Filled: it.Filled})
 		case marks || it.Inset:
 			ui.Box(c.Key("pad")).Size(16, 16).Shrink(0)
 		}
@@ -484,7 +480,7 @@ func (m *Menu) row(c *ui.Context, it *MenuItem, marks, hi, byKey bool, lv int) u
 			overlaysText(c.Key("h"), it.Hint, "meta").SingleLine().TextColor(theme.C("ink-faint")).MarginStart(16)
 		}
 		if it.Kind == MenuSub {
-			ui.Icon(c.Key("sub"), theme.Icon("chevron-right")).FontSize(16).TextColor(theme.C("ink-muted"))
+			theme.Glyph(c.Key("sub"), "chevron-right", 16, theme.GlyphOpts{Color: theme.C("ink-muted")})
 		}
 	})
 	return row
@@ -664,7 +660,7 @@ func menuLabel(c *ui.Context, it MenuItem) {
 				if it.Destructive {
 					fg = theme.C("danger")
 				}
-				ui.Icon(c.Key("icon"), theme.Icon(it.Icon)).FontSize(14).TextColor(fg).Shrink(0).Margin(1, 0, 0, 0)
+				theme.Glyph(c.Key("icon"), it.Icon, 14, theme.GlyphOpts{Color: fg}).Shrink(0).Margin(1, 0, 0, 0)
 			}
 			overlaysText(c.Key("text"), it.Label, "meta").TextColor(theme.C("ink-muted"))
 		})

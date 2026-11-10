@@ -119,7 +119,7 @@ func SearchField(c *ui.Context, query *string, o SearchFieldOpts) ui.Element {
 	}
 	var in ui.Element
 	box.Children(func() {
-		ui.Icon(c, theme.Icon("search")).FontSize(16).TextColor(theme.C("ink-faint"))
+		theme.Glyph(c, "search", 16, theme.GlyphOpts{Color: theme.C("ink-faint")})
 		t := theme.Current().Type["body"]
 		in = ui.TextInputBase(c.Key("text"), query).Grow(1).MinWidth(0).FontSize(t.Size).FixedLineHeight(t.LineHeight).
 			Placeholder(placeholder).PlaceholderColor(theme.C("muted-foreground")).TextColor(theme.C("foreground"))
@@ -134,7 +134,7 @@ func SearchField(c *ui.Context, query *string, o SearchFieldOpts) ui.Element {
 				clear.Background(theme.C("hover"))
 			}
 			clear.Children(func() {
-				ui.Icon(c, theme.Icon("x")).FontSize(12).TextColor(theme.C("muted-foreground"))
+				theme.Glyph(c, "x", 12, theme.GlyphOpts{Color: theme.C("muted-foreground")})
 			})
 			if clear.Clicked() {
 				*query = ""
@@ -191,7 +191,7 @@ func Combobox(c *ui.Context, selected *string, options []string, o ComboboxOpts)
 		// technology (the field is the combo box); the pointer still opens it.
 		toggle := ui.Row(c.Key("toggle")).Size(20, 20).Center().Shrink(0).KeepFocus()
 		toggle.Children(func() {
-			ui.Icon(c, theme.Icon("chevron-down")).FontSize(16).Opacity(0.5)
+			theme.Glyph(c, "chevron-down", 16, theme.GlyphOpts{Color: theme.C("foreground"), Inherit: true}).Opacity(0.5)
 		})
 		if toggle.Clicked() && !o.Disabled {
 			cb.SetOpen(!cb.Open())

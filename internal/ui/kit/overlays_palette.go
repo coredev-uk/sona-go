@@ -274,7 +274,7 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 	// The field.
 	var field ui.Element
 	ui.Row(c.Key("palette:field")).Height(48).FillWidth().Padding(0, 16).Gap(12).AlignItems(ui.Center).Children(func() {
-		ui.Icon(c.Key("search"), theme.Icon("search")).FontSize(16).TextColor(theme.C("ink-faint")).Shrink(0)
+		theme.Glyph(c.Key("search"), "search", 16, theme.GlyphOpts{Color: theme.C("ink-faint")}).Shrink(0)
 		field = ui.TextInputBase(c.Key("palette:input"), &p.query).Role(ui.RoleComboBox).Grow(1).MinWidth(0).Height(48).
 			Label(i18n.T("Find a page, action or music in your library")).
 			Placeholder(i18n.T("Go to a page, run an action, find music in your library")).
@@ -368,7 +368,7 @@ func (p *Palette) option(c *ui.Context, e PaletteEntry, active bool) ui.Element 
 			e.Leading(c)
 		case e.Icon != "":
 			ui.Row(c.Key("ic")).Size(16, 16).Shrink(0).Center().Children(func() {
-				ui.Icon(c, theme.Icon(e.Icon)).FontSize(16).TextColor(theme.C("ink-muted"))
+				theme.Glyph(c, e.Icon, 16, theme.GlyphOpts{Color: theme.C("ink-muted")})
 			})
 		default:
 			ui.Box(c.Key("ic")).Size(16, 16).Shrink(0)

@@ -83,7 +83,7 @@ func ticketButton(c *ui.Context, label, a11y, icon string) ui.Element {
 	}
 	e.Children(func() {
 		text(c, label, "label", "ink").SingleLine()
-		ui.Icon(c, theme.Icon(icon)).FontSize(14)
+		theme.Glyph(c, icon, 14, theme.GlyphOpts{Color: theme.C("ink"), Inherit: true})
 	})
 	return e
 }

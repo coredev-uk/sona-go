@@ -250,7 +250,7 @@ func seeAllLink(c *ui.Context, key string, open func()) {
 	b.Background(bg).TextColor(fg)
 	b.Children(func() {
 		text(c, i18n.T("See all"), "sub").SingleLine()
-		ui.Icon(c, theme.Icon("chevron-right")).FontSize(14)
+		theme.Glyph(c, "chevron-right", 14, theme.GlyphOpts{Color: fg, Inherit: true})
 	})
 	if b.Clicked() {
 		open()

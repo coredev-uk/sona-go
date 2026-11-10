@@ -285,7 +285,7 @@ func (p *playlists) dropZone(c *ui.Context, key, icon, label string, over bool, 
 		fg = theme.C("ground")
 	}
 	z.Children(func() {
-		ui.Icon(c, theme.Icon(icon)).FontSize(16).TextColor(fg)
+		theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: fg})
 		sideText(c, label, "body").TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
 	})
 }
@@ -437,7 +437,7 @@ func (p *playlists) readOnlySection(c *ui.Context, id, title string, items []ser
 				if folded {
 					chevron = "chevron-right"
 				}
-				ui.Icon(c, theme.Icon(chevron)).FontSize(14).TextColor(fg)
+				theme.Glyph(c, chevron, 14, theme.GlyphOpts{Color: fg})
 			})
 		})
 		if folded {
@@ -569,7 +569,7 @@ func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth, pos, size int) 
 					icon = "folder-open"
 				}
 				ui.Row(c).Size(20, 20).Shrink(0).Center().Children(func() {
-					ui.Icon(c, theme.Icon(icon)).FontSize(16).TextColor(fg)
+					theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: fg})
 				})
 				sideText(c, f.Name, "body").TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
 				chevron := "chevron-right"
@@ -577,7 +577,7 @@ func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth, pos, size int) 
 					chevron = "chevron-down"
 				}
 				ui.Box(c).Grow(1)
-				ui.Icon(c, theme.Icon(chevron)).FontSize(14).TextColor(theme.C("ink-faint"))
+				theme.Glyph(c, chevron, 14, theme.GlyphOpts{Color: theme.C("ink-faint")})
 			})
 			p.moreMenu(c, "folder:"+f.ID, i18n.T("More for the folder {folderName}", "folderName", f.Name), hot, func() []kit.MenuItem {
 				return p.folderMenu(f, len(n.Children)+n.Hidden > 0)
