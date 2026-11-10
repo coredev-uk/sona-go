@@ -4126,6 +4126,11 @@ msgstr ""
 msgid "Out in {timeLeft}"
 msgstr ""
 
+#: internal/ui/features/album/body.go
+#: internal/ui/features/album/model.go
+msgid "Out now"
+msgstr ""
+
 #: internal/ui/kit/account_service.go
 msgid "Out now · {artistName}"
 msgstr ""
@@ -4516,6 +4521,10 @@ msgstr ""
 msgid "Pre-add to library"
 msgstr ""
 
+#: internal/ui/features/album/body.go
+msgid "Pre-added"
+msgstr ""
+
 #: internal/ui/features/equalizer/page.go
 msgid "Preamp"
 msgstr ""
@@ -4824,6 +4833,10 @@ msgstr ""
 msgid "Related"
 msgstr ""
 
+#: internal/ui/features/album/body.go
+msgid "Release"
+msgstr ""
+
 #: internal/ui/features/library/query.go
 msgid "Release date"
 msgstr ""
@@ -4840,6 +4853,10 @@ msgstr ""
 #: internal/ui/features/reminders/reminders.go
 #: internal/ui/kit/account_remind.go
 msgid "Remind me"
+msgstr ""
+
+#: internal/ui/features/album/body.go
+msgid "Reminder set"
 msgstr ""
 
 #: internal/ui/features/player/queue_menu.go
@@ -6347,6 +6364,10 @@ msgstr ""
 msgid "The database was already compact"
 msgstr ""
 
+#: internal/ui/features/album/body.go
+msgid "The day hasn't been announced yet"
+msgstr ""
+
 #: internal/ui/features/settings/desktop.go
 msgid "The desktop's"
 msgstr ""
@@ -6902,6 +6923,10 @@ msgstr ""
 #: internal/ui/features/settings/previous.go
 #: internal/ui/features/settings/updates.go
 msgid "Updates"
+msgstr ""
+
+#: internal/ui/features/album/body.go
+msgid "Updating the songs"
 msgstr ""
 
 #: internal/ui/account/section.go
@@ -7993,6 +8018,10 @@ msgstr ""
 msgid "{name} hasn't shared any playlists on their profile."
 msgstr ""
 
+#: internal/ui/features/album/page.go
+msgid "{name} is out now"
+msgstr ""
+
 #: internal/ui/features/search/profile.go
 msgid "{name} keeps their profile private, so only followers see what they share."
 msgstr ""
@@ -8112,6 +8141,10 @@ msgstr ""
 msgid "{startupMs} ms"
 msgstr ""
 
+#: internal/ui/kit/controls_actions.go
+msgid "{state}. Delete “{name}” from your library"
+msgstr ""
+
 #: internal/ui/features/player/lyrics_timing_ui.go
 msgid "{s} s earlier"
 msgstr ""
@@ -8138,10 +8171,6 @@ msgstr ""
 
 #: internal/ui/features/album/model.go
 msgid "{total, plural, one {{have} of # song in your library} other {{have} of # songs in your library}}"
-msgstr ""
-
-#: internal/ui/features/album/model.go
-msgid "{total, plural, one {{out} of # song out now} other {{out} of # songs out now}}"
 msgstr ""
 
 #: internal/ui/features/settings/previous.go

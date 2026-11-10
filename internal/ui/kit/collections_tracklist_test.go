@@ -500,3 +500,20 @@ func TestTrackSortToggleCyclesAscendingDescendingNone(t *testing.T) {
 		}
 	}
 }
+
+func TestTrackListBlankDurationLeavesNoDashForASongWithoutLength(t *testing.T) {
+	a, tt := newCollTrackApp(t, 3, 1000, 500)
+	a.songs[1].DurationMs = 0
+	tt.Frame()
+	if !tt.HasText("—") {
+		t.Fatalf("a song with no length shows no dash: %q", tt.Texts())
+	}
+	a.opts.BlankDuration = true
+	tt.Frame()
+	if tt.HasText("—") {
+		t.Errorf("BlankDuration still shows a dash: %q", tt.Texts())
+	}
+	if !tt.HasText("3:15") {
+		t.Errorf("a song with a length lost it: %q", tt.Texts())
+	}
+}

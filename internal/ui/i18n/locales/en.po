@@ -4126,6 +4126,11 @@ msgstr "Other versions"
 msgid "Out in {timeLeft}"
 msgstr "Out in {timeLeft}"
 
+#: internal/ui/features/album/body.go
+#: internal/ui/features/album/model.go
+msgid "Out now"
+msgstr "Out now"
+
 #: internal/ui/kit/account_service.go
 msgid "Out now · {artistName}"
 msgstr "Out now · {artistName}"
@@ -4516,6 +4521,10 @@ msgstr "Pre-add"
 msgid "Pre-add to library"
 msgstr "Pre-add to library"
 
+#: internal/ui/features/album/body.go
+msgid "Pre-added"
+msgstr "Pre-added"
+
 #: internal/ui/features/equalizer/page.go
 msgid "Preamp"
 msgstr "Preamp"
@@ -4824,6 +4833,10 @@ msgstr "Refreshing…"
 msgid "Related"
 msgstr "Related"
 
+#: internal/ui/features/album/body.go
+msgid "Release"
+msgstr "Release"
+
 #: internal/ui/features/library/query.go
 msgid "Release date"
 msgstr "Release date"
@@ -4841,6 +4854,10 @@ msgstr "Released {releaseDate}"
 #: internal/ui/kit/account_remind.go
 msgid "Remind me"
 msgstr "Remind me"
+
+#: internal/ui/features/album/body.go
+msgid "Reminder set"
+msgstr "Reminder set"
 
 #: internal/ui/features/player/queue_menu.go
 msgid "Remove"
@@ -6347,6 +6364,10 @@ msgstr "The computer doesn't suspend on its own while music plays."
 msgid "The database was already compact"
 msgstr "The database was already compact"
 
+#: internal/ui/features/album/body.go
+msgid "The day hasn't been announced yet"
+msgstr "The day hasn't been announced yet"
+
 #: internal/ui/features/settings/desktop.go
 msgid "The desktop's"
 msgstr "The desktop's"
@@ -6903,6 +6924,10 @@ msgstr "Updated {when}"
 #: internal/ui/features/settings/updates.go
 msgid "Updates"
 msgstr "Updates"
+
+#: internal/ui/features/album/body.go
+msgid "Updating the songs"
+msgstr "Updating the songs"
 
 #: internal/ui/account/section.go
 msgid "Use a passkey (Touch ID or your Mac's password), a security key or a browser you're already signed in to:"
@@ -7993,6 +8018,10 @@ msgstr "{n, plural, one {# station} other {# stations}}"
 msgid "{name} hasn't shared any playlists on their profile."
 msgstr "{name} hasn't shared any playlists on their profile."
 
+#: internal/ui/features/album/page.go
+msgid "{name} is out now"
+msgstr "{name} is out now"
+
 #: internal/ui/features/search/profile.go
 msgid "{name} keeps their profile private, so only followers see what they share."
 msgstr "{name} keeps their profile private, so only followers see what they share."
@@ -8112,6 +8141,10 @@ msgstr "{songsOut, plural, one {Play the # song out now} other {Play the # songs
 msgid "{startupMs} ms"
 msgstr "{startupMs} ms"
 
+#: internal/ui/kit/controls_actions.go
+msgid "{state}. Delete “{name}” from your library"
+msgstr "{state}. Delete “{name}” from your library"
+
 #: internal/ui/features/player/lyrics_timing_ui.go
 msgid "{s} s earlier"
 msgstr "{s} s earlier"
@@ -8139,10 +8172,6 @@ msgstr "{total, plural, one {# artist} other {# artists}}"
 #: internal/ui/features/album/model.go
 msgid "{total, plural, one {{have} of # song in your library} other {{have} of # songs in your library}}"
 msgstr "{total, plural, one {{have} of # song in your library} other {{have} of # songs in your library}}"
-
-#: internal/ui/features/album/model.go
-msgid "{total, plural, one {{out} of # song out now} other {{out} of # songs out now}}"
-msgstr "{total, plural, one {{out} of # song out now} other {{out} of # songs out now}}"
 
 #: internal/ui/features/settings/previous.go
 msgid "{version} is kept from your last update."

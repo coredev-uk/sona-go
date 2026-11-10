@@ -12,6 +12,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
@@ -188,8 +189,9 @@ func TestA11yDiscIndexIsAListOfItems(t *testing.T) {
 	}
 }
 
-// An album not out yet: its countdown is read, the actions follow it, and
-// the songs not out are named by what their rows say.
+// An album not out yet: its release is one group read in order (the time
+// left, then the day), the actions follow it, and the songs are in two
+// groups named by headings in the table, so no row has to say when.
 func TestA11yUnreleasedAlbum(t *testing.T) {
 	// A platform with notifications, so the page offers Remind me.
 	r := newRig(t, "/album/100", 1132, 1000, uitest.Platform(func(p *services.Platform) {
@@ -203,12 +205,32 @@ func TestA11yUnreleasedAlbum(t *testing.T) {
 		}
 	}))
 	r.shows("Out in 5 hours, 12 minutes", "Pre-add")
-	tr := r.walk("Mia Vale", "Play the 2 songs out now", "Pre-add", "Favourite Salt Flats")
+	tr := r.walk("Mia Vale", "Play the 2 songs out now", "Pre-add", "Remind me", "Favourite Salt Flats")
 	if _, ok := tr.Find(ui.RoleButton, "Play the 2 songs out now"); !ok {
 		t.Errorf("no play button for the songs that are out:\n%s", tr.Dump())
 	}
 	if slices.ContainsFunc(tr.Nodes, func(n access.Node) bool { return n.Label == "Shuffle" }) {
 		t.Error("an unreleased album offers Shuffle")
+	}
+	// The release is one group: the time left, then the day, before the
+	// actions in reading order.
+	group, ok := tr.Find(ui.RoleGroup, "Release")
+	if !ok {
+		t.Fatalf("no Release group:\n%s", tr.Dump())
+	}
+	var said []string
+	for _, n := range tr.Children(group) {
+		said = append(said, n.Label)
+	}
+	if want := []string{"Out in 5 hours, 12 minutes", fullReleaseDate(release.UnixMilli())}; !slices.Equal(said, want) {
+		t.Errorf("the Release group reads %q, want %q", said, want)
+	}
+	// The songs that are out and the ones to come are headings in the table.
+	badge := kit.ReleaseBadge(services.Album{Prerelease: true, ReleaseAt: release.UnixMilli()}, r.now)
+	for _, h := range []string{"Out now", badge} {
+		if n, ok := tr.Find(ui.RoleHeading, h); !ok || n.Level == 0 {
+			t.Errorf("no heading %q in the songs: %+v", h, n)
+		}
 	}
 	// The Remind me button is one control, not two.
 	if !kit.RemindAvailable(r.h.Env.Core, services.Album{CatalogID: "100", ReleaseAt: release.UnixMilli()}) {
@@ -216,6 +238,38 @@ func TestA11yUnreleasedAlbum(t *testing.T) {
 	}
 	if n := len(tr.FindAll(ui.RoleToggleButton, "Remind me")) + len(tr.FindAll(ui.RoleButton, "Remind me")); n != 1 {
 		t.Errorf("%d Remind me buttons, want one:\n%s", n, tr.Dump())
+	}
+}
+
+// What the account has done about an album not out yet is said in the release
+// group and by the controls: Pre-added is the library button, Remind me is
+// pressed.
+func TestA11yUnreleasedAlbumDoneStates(t *testing.T) {
+	r := newRig(t, "/album/100", 1132, 1000, uitest.Platform(func(p *services.Platform) {
+		p.Notifications = func(context.Context, func(string)) (services.Notifier, error) { return nil, errors.ErrUnsupported }
+	}))
+	release := r.now.Add(48 * time.Hour)
+	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, release.UnixMilli(), release.Format("2006-01-02")
+		for i := range p.Tracks {
+			p.Tracks[i].Playable = false
+		}
+	}))
+	r.states.inLib["100"] = true
+	store.Set(r.h.Env.Queries, store.KeyReminders, []services.Reminder{{AlbumID: "100"}})
+	r.shows("Out in 2 days")
+	r.tt.Until("the done states", r.tt.Shows(fullReleaseDate(release.UnixMilli())+" · Pre-added · Reminder set"))
+	tr := access.Read(t, r.tt.Tester)
+	if _, ok := tr.Find(ui.RoleButton, "Pre-added. Delete “Salt Flats” from your library"); !ok {
+		t.Errorf("the library button doesn't say Pre-added:\n%s", tr.Dump())
+	}
+	n, ok := tr.Find(ui.RoleToggleButton, "Remind me")
+	if !ok || !n.Has(access.Checked) {
+		t.Errorf("Remind me is not pressed: %+v\n%s", n, tr.Dump())
+	}
+	// Nothing is out: no Play, and no heading for songs out now.
+	if _, ok := tr.Find(ui.RoleHeading, "Out now"); ok {
+		t.Error("a heading for songs out now when there are none")
 	}
 }
 

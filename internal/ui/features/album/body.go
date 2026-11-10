@@ -2,6 +2,7 @@ package album
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -159,25 +160,42 @@ func (a *album) cover(c *ui.Context, m *model, size float32) {
 // note, the album's state, then its actions.
 func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account bool) {
 	tk := theme.Current()
+	release := m.upcoming || m.justOut
 	ui.Column(c.Key("head-body")).MinWidth(0).Children(func() {
 		typed(c, m.album.Name, "display").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(1)
 		ui.Row(c.Key("byline")).Margin(6, 0, 0, 0).MinWidth(0).TextColor(theme.C("ink")).
 			FontSize(tk.Type["heading"].Size).FontWeight(500).Children(func() { a.byline(c, m, k) })
 		typed(c, m.meta, "meta").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
-		if m.album.Explicit || len(kit.TraitLabels(m.album.Traits)) > 0 {
-			ui.Row(c.Key("badges")).Margin(8, 0, 0, 0).Children(func() {
-				kit.Badges(c, kit.BadgesOpts{Explicit: m.album.Explicit, Traits: m.album.Traits})
+		// An album not out yet leads with its release and the actions that
+		// answer it; Apple's badges and note follow.
+		note := func(top float32) {
+			if m.album.Explicit || len(kit.TraitLabels(m.album.Traits)) > 0 {
+				ui.Row(c.Key("badges")).Margin(top, 0, 0, 0).Children(func() {
+					kit.Badges(c, kit.BadgesOpts{Explicit: m.album.Explicit, Traits: m.album.Traits})
+				})
+			}
+			if m.lede != "" {
+				typed(c, m.lede, "sub").TextColor(theme.C("ink-muted")).MaxWidth(500).Margin(12, 0, 0, 0)
+			}
+		}
+		actions := func(top float32) {
+			ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(top, 0, 0, 0).Children(func() {
+				a.actions(c, m, account)
 			})
 		}
-		if m.lede != "" {
-			typed(c, m.lede, "sub").TextColor(theme.C("ink-muted")).MaxWidth(500).Margin(12, 0, 0, 0)
+		if release {
+			ui.Column(c.Key("status")).Role(ui.RoleGroup).Label(i18n.T("Release")).Margin(16, 0, 0, 0).Children(func() {
+				a.releaseStatus(c, m, now, account)
+			})
+			actions(16)
+			note(16)
+			return
 		}
-		if status := a.status(c, m, now); status != nil {
+		note(8)
+		if status := a.status(c, m); status != nil {
 			ui.Column(c.Key("status")).Margin(16, 0, 0, 0).Children(status)
 		}
-		ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(20, 0, 0, 0).Children(func() {
-			a.actions(c, m, account)
-		})
+		actions(20)
 	})
 }
 
@@ -204,34 +222,47 @@ func (a *album) byline(c *ui.Context, m *model, k *colours) {
 	}
 }
 
-// status is the countdown of an album not out yet, or how much of the record
-// the library holds; nil for neither.
-func (a *album) status(c *ui.Context, m *model, now time.Time) func() {
-	switch {
-	case m.upcoming:
-		return func() { a.releaseStatus(c, m, now) }
-	case m.share != nil:
-		return func() { a.libraryShare(c, m) }
+// status is how much of the record the library holds; nil when it holds it
+// all (an album not out yet has its releaseStatus instead).
+func (a *album) status(c *ui.Context, m *model) func() {
+	if m.share == nil {
+		return nil
 	}
-	return nil
+	return func() { a.libraryShare(c, m) }
 }
 
-// releaseStatus is an upcoming album's release, where its play controls will
-// be: the time left to the minute, the day in full, and how many of its songs
-// are already out (they play from their rows).
-func (a *album) releaseStatus(c *ui.Context, m *model, now time.Time) {
-	if m.album.ReleaseAt == 0 {
+// releaseStatus is an album not out yet's lead: its release as the page's
+// biggest line after the title (the time left to the minute, or the year when
+// Apple gives no day), under it the day in full with what the account has
+// done about it ("Pre-added", "Reminder set"), and where the album has just
+// come out, that it is, while the songs are fetched.
+func (a *album) releaseStatus(c *ui.Context, m *model, now time.Time, account bool) {
+	var lead, line string
+	switch {
+	case m.justOut:
+		lead, line = i18n.T("Out now"), fullReleaseDate(m.album.ReleaseAt)
+	case m.album.ReleaseAt == 0:
 		// Apple gave only a year: no countdown to give.
-		typed(c, i18n.T("Out {releaseDate}", "releaseDate", i18n.FormatISODate(m.album.ReleaseDate, i18n.DateLong)), "heading").TextColor(theme.C("ink"))
-		return
+		lead = i18n.T("Out {releaseDate}", "releaseDate", i18n.FormatISODate(m.album.ReleaseDate, i18n.DateLong))
+		line = i18n.T("The day hasn't been announced yet")
+	default:
+		left := time.UnixMilli(m.album.ReleaseAt).Sub(now)
+		lead, line = i18n.T("Out in {timeLeft}", "timeLeft", i18n.FormatTimeLeft(left)), fullReleaseDate(m.album.ReleaseAt)
 	}
-	left := time.UnixMilli(m.album.ReleaseAt).Sub(now)
-	typed(c, i18n.T("Out in {timeLeft}", "timeLeft", i18n.FormatTimeLeft(left)), "heading").TextColor(theme.C("ink"))
-	line := fullReleaseDate(m.album.ReleaseAt)
-	if m.songsOut > 0 {
-		line += " · " + m.songsOutText()
+	parts := []string{line}
+	switch {
+	case m.justOut:
+		parts = append(parts, i18n.T("Updating the songs"))
+	default:
+		if account && a.env.ItemStates.InLibrary(kit.StateAlbums, kit.StateOfAlbum(m.album)) {
+			parts = append(parts, i18n.T("Pre-added"))
+		}
+		if kit.Reminded(a.env.Queries, a.env.Core, m.album) {
+			parts = append(parts, i18n.T("Reminder set"))
+		}
 	}
-	typed(c, line, "meta").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+	typed(c, lead, "title").TextColor(theme.C("ink"))
+	typed(c, strings.Join(parts, " · "), "sub").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 }
 
 // libraryShare is "3 of 13 songs in your library · Show complete album".
@@ -244,24 +275,27 @@ func (a *album) libraryShare(c *ui.Context, m *model) {
 }
 
 // actions are the head's buttons: Play (and Shuffle), the library button,
-// ratings and the album's menu; an album not out yet plays the songs out now,
-// and offers Pre-add to a signed-in account.
+// ratings and the album's menu. An album not out yet plays the songs out
+// now (the disc), offers Pre-add to a signed-in account and Remind me where
+// the platform can; the first of Play, Pre-add and Remind me that applies
+// leads, and only without a Play disc is it ink-filled.
 func (a *album) actions(c *ui.Context, m *model, account bool) {
 	al := m.album
 	item := kit.StateOfAlbum(al)
 	from := services.PlayFrom{Kind: "album", ID: al.ID}
 	if m.upcoming {
-		// Not out yet: Play takes the songs already out, then Remind me, then
-		// Apple's pre-add while signed in.
-		if m.songsOut > 0 {
+		disc := m.songsOut > 0
+		if disc {
 			if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{PlayLabel: m.playOutLabel()}); play {
 				a.env.Queue.PlaySongs(m.list, 0, from)
 			}
 		}
-		kit.RemindButton(c, a.env.Queries, a.env.Core, al)
 		if account {
-			a.env.ItemStates.LibraryButton(c, kit.StateAlbums, item, al.Name, i18n.T("Pre-add"))
+			a.env.ItemStates.LibraryButtonWith(c, kit.StateAlbums, item, al.Name, kit.LibraryOpts{
+				AddLabel: i18n.T("Pre-add"), DoneLabel: i18n.T("Pre-added"), Lead: !disc,
+			})
 		}
+		kit.RemindButton(c, a.env.Queries, a.env.Core, al, !disc && !account)
 	} else {
 		play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: al.Name, Shuffle: true, Disabled: m.songsOut == 0})
 		if play {
@@ -288,12 +322,14 @@ func (a *album) songs(c *ui.Context, m *model, highlight string, now time.Time, 
 	o := kit.TrackListOpts{
 		Label:      i18n.T("Songs on {albumName}", "albumName", m.album.Name),
 		Columns:    kit.TrackColumns{Artist: m.compilation},
-		Discs:      true,
+		Discs:      !m.mixed,
 		Highlight:  highlight,
 		Popular:    m.popular,
 		Subline:    func(s *services.Song) string { return subline(*s) },
 		Container:  &kit.ActionContainer{Kind: "album", ID: m.album.ID},
 		Restricted: restricted,
+		// An album not out yet has no lengths to give: no row of dashes.
+		BlankDuration: m.upcoming || m.justOut,
 		Current: func(s *services.Song) bool {
 			return cur.Current != nil && kit.SongIsCurrent(s, cur.Current.ID, cur.Current.CatalogID)
 		},
@@ -304,14 +340,41 @@ func (a *album) songs(c *ui.Context, m *model, highlight string, now time.Time, 
 		Pane:    &kit.Pane{Pos: &a.pos, Bounds: a.paneRect},
 		OnPlay:  func(i int) { a.env.Queue.PlaySongs(list, i, services.PlayFrom{Kind: "album", ID: m.album.ID}) },
 	}
+	// The heading before a song: its group's on an album not out yet, else
+	// (or after it) a classical album's work.
+	group := m.groupHeading(now)
+	var work func(s, prev *services.Song) string
 	if m.classical {
 		composers := m.composers
 		o.Title = func(s *services.Song) string { return movementTitle(*s) }
+		work = func(s, prev *services.Song) string { return workHeading(*s, prev, composers) }
+	}
+	if group != nil || work != nil {
 		o.Heading = func(s, prev *services.Song) string {
 			if s == nil {
 				return ""
 			}
-			return workHeading(*s, prev, composers)
+			var g, w string
+			if group != nil {
+				g = group(s, prev)
+			}
+			if work != nil {
+				// Under a group's heading the work starts over, even when it
+				// continues the last group's: its name is said again beside
+				// the group's.
+				p := prev
+				if g != "" {
+					p = nil
+				}
+				w = work(s, p)
+			}
+			switch {
+			case g != "" && w != "":
+				return g + " · " + w
+			case g != "":
+				return g
+			}
+			return w
 		}
 	}
 	if a.has("/artist/0") {

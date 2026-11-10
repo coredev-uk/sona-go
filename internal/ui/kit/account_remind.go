@@ -28,20 +28,32 @@ func remindable(notifications bool, album services.Album) bool {
 
 // RemindButton is "Remind me" on an upcoming album's page: an outline toggle
 // (its name stays the same; pressed means a reminder is set, with the ringing
-// bell) for one desktop notification when the album comes out. It builds
+// bell) for one desktop notification when the album comes out. lead makes it
+// the page's one primary action, ink-filled until a reminder is set. It builds
 // nothing where the platform has no notifications and for an album without a
 // full release date or a catalogue ID, and is disabled until the reminders
 // have loaded. It sets or removes the reminder itself (SetReminder).
-func RemindButton(c *ui.Context, cl *store.Client, core *services.Core, album services.Album) {
+func RemindButton(c *ui.Context, cl *store.Client, core *services.Core, album services.Album, lead bool) {
 	if !RemindAvailable(core, album) {
 		return
 	}
-	remindButton(c, store.UseReminders(cl, core), album, func(on bool) { SetReminder(core, album, on) })
+	remindButton(c, store.UseReminders(cl, core), album, lead, func(on bool) { SetReminder(core, album, on) })
+}
+
+// Reminded reports whether a reminder is set for an album the platform can
+// remind of (false where RemindButton builds nothing, and while the reminders
+// load).
+func Reminded(cl *store.Client, core *services.Core, album services.Album) bool {
+	if !RemindAvailable(core, album) {
+		return false
+	}
+	_, on := store.ReminderFor(store.UseReminders(cl, core).Data, album.CatalogID)
+	return on
 }
 
 // remindButton is RemindButton over what it reads (the reminders) and does
 // (set).
-func remindButton(c *ui.Context, r store.Result[[]services.Reminder], album services.Album, set func(on bool)) {
+func remindButton(c *ui.Context, r store.Result[[]services.Reminder], album services.Album, lead bool, set func(on bool)) {
 	_, on := store.ReminderFor(r.Data, album.CatalogID)
 	icon := "bell"
 	tip := i18n.T("Get a notification when it's out")
@@ -50,8 +62,12 @@ func remindButton(c *ui.Context, r store.Result[[]services.Reminder], album serv
 		tip = i18n.T("You'll get a notification on {releaseDate}", "releaseDate", i18n.FormatDate(time.UnixMilli(album.ReleaseAt), i18n.DateFull))
 	}
 	pending := !r.HasData && r.Err == nil
+	variant := Outline
+	if lead && !on {
+		variant = Default
+	}
 	if Button(c.Key("remind"), i18n.T("Remind me"), ButtonOpts{
-		Variant: Outline, Size: SizeSM, Icon: icon, Pressed: &on, Disabled: pending, Tip: tip,
+		Variant: variant, Size: SizeSM, Icon: icon, Pressed: &on, Disabled: pending, Tip: tip,
 	}).Clicked() {
 		set(!on)
 	}

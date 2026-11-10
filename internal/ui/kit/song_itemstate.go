@@ -608,14 +608,28 @@ func (s *ItemStates) RemoveMany(items []KindedItem, what string) {
 // library" which asks to delete (v0.2.0's LibraryButton over useItemState).
 // addLabel replaces "Add" ("Pre-add").
 func (s *ItemStates) LibraryButton(c *ui.Context, kind string, it StateItem, name, addLabel string) {
+	s.LibraryButtonWith(c, kind, it, name, LibraryOpts{AddLabel: addLabel})
+}
+
+// InLibrary reports whether an item is in the library: its batched state, or
+// until that arrives, whether it is a library item.
+func (s *ItemStates) InLibrary(kind string, it StateItem) bool {
+	if st := s.Use(kind, it); st.HasData {
+		return st.Data.InLibrary
+	}
+	return it.Source == services.SourceLibrary
+}
+
+// LibraryButtonWith is LibraryButton with the look of its labels and its
+// weight in o (AddLabel, DoneLabel, Lead); the item's state fills in the rest.
+func (s *ItemStates) LibraryButtonWith(c *ui.Context, kind string, it StateItem, name string, o LibraryOpts) {
 	st := s.Use(kind, it)
 	in := it.Source == services.SourceLibrary
 	if st.HasData {
 		in = st.Data.InLibrary
 	}
-	switch LibraryButton(c, LibraryOpts{
-		Name: name, InLibrary: in, Pending: !st.HasData, AddLabel: addLabel, Playlist: kind == StatePlaylists,
-	}) {
+	o.Name, o.InLibrary, o.Pending, o.Playlist = name, in, !st.HasData, kind == StatePlaylists
+	switch LibraryButton(c, o) {
 	case LibraryAdd:
 		s.Add(kind, it, name)
 	case LibraryRemove:

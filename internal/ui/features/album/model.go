@@ -28,7 +28,19 @@ type model struct {
 	page      *services.CatalogAlbum
 	catalogue bool // the loaded album is itself the catalogue page
 
-	upcoming    bool
+	upcoming bool
+	// justOut: the release time has passed but Apple's data still says the
+	// album is a prerelease, so its songs aren't playable yet. The page
+	// reloads it (page.go) and says so meanwhile.
+	justOut bool
+	// headed: an upcoming album's list has a heading before each group of
+	// its songs (a list over kit.VirtualFrom is virtual and builds none, so
+	// its rows say when themselves).
+	headed bool
+	// mixed: some of a headed album's songs are out and some are not. The
+	// list is then in two groups, the songs out now first, each group in
+	// the record's order, and has no disc headings or disc index.
+	mixed       bool
 	popular     map[string]bool
 	compilation bool
 	writers     []string
@@ -109,7 +121,12 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 	album := detail.Album
 	m := model{album: album, header: detail.Header, page: page, catalogue: catalogue}
 	m.upcoming = kit.IsUpcoming(album, now)
-	m.list = withoutPlaceholderCredits(detail.Tracks, m.upcoming)
+	m.justOut = album.Prerelease && !m.upcoming
+	m.list = withoutPlaceholderCredits(detail.Tracks, m.upcoming || m.justOut)
+	m.headed = m.upcoming && len(m.list) <= kit.VirtualFrom
+	if m.headed {
+		m.list, m.mixed = outNowFirst(m.list)
+	}
 
 	// "Popular" marks a song to play: never one that can't be.
 	m.popular = map[string]bool{}
@@ -137,7 +154,7 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 		m.composers = len(m.writers)
 	}
 	// A list long enough to be virtualised has no disc headings to jump to.
-	if len(m.list) <= kit.VirtualFrom {
+	if len(m.list) <= kit.VirtualFrom && !m.mixed {
 		m.discs = discsOf(m.list)
 	}
 
@@ -173,7 +190,7 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 		if page != nil {
 			running = page.DurationMs
 		}
-	case m.upcoming && anyWithoutDuration(m.list):
+	case (m.upcoming || m.justOut) && anyWithoutDuration(m.list):
 		running = 0
 	}
 	kind := i18n.T("Album")
@@ -263,6 +280,64 @@ func joinNames(names []string) string {
 	return i18n.List(shown)
 }
 
+// outNowFirst puts an upcoming album's playable songs before the ones still
+// to come, each group in its own order, and says whether there were both
+// (the list is returned as it came when there were not).
+func outNowFirst(songs []services.Song) ([]services.Song, bool) {
+	out := 0
+	for _, s := range songs {
+		if s.Playable {
+			out++
+		}
+	}
+	if out == 0 || out == len(songs) {
+		return songs, false
+	}
+	sorted := make([]services.Song, 0, len(songs))
+	for _, playable := range []bool{true, false} {
+		for _, s := range songs {
+			if s.Playable == playable {
+				sorted = append(sorted, s)
+			}
+		}
+	}
+	return sorted, true
+}
+
+// comingLabel is when an upcoming album is out, short: "Out 19 Nov", or
+// "Out 2027" when Apple gives no day.
+func (m *model) comingLabel(now time.Time) string {
+	if badge := kit.ReleaseBadge(m.album, now); badge != "" {
+		return badge
+	}
+	return i18n.T("Out {releaseDate}", "releaseDate", i18n.FormatISODate(m.album.ReleaseDate, i18n.DateLong))
+}
+
+// groupHeading is the heading an upcoming album's list puts before each
+// group of songs: "Out now" before the songs that play (when others are
+// still to come), and the day the rest are out ("Out 19 Nov", "Out 2027")
+// before those, so the rows needn't each say it. Nil on an album that is out
+// and on a list too long to build headings.
+func (m *model) groupHeading(now time.Time) func(s, prev *services.Song) string {
+	if !m.headed {
+		return nil
+	}
+	coming := m.comingLabel(now)
+	out := i18n.T("Out now")
+	return func(s, prev *services.Song) string {
+		if prev != nil && prev.Playable == s.Playable {
+			return ""
+		}
+		if s.Playable {
+			if m.mixed {
+				return out
+			}
+			return ""
+		}
+		return coming
+	}
+}
+
 // playOutLabel is the Play button of an album not out yet: "Play the 3 songs
 // out now".
 func (m *model) playOutLabel() string {
@@ -275,25 +350,13 @@ func libraryShareText(s share) string {
 		"total", s.total, "have", s.have)
 }
 
-// songsOutText is "3 of 12 songs out now".
-func (m *model) songsOutText() string {
-	return i18n.T("{total, plural, one {{out} of # song out now} other {{out} of # songs out now}}",
-		"total", len(m.list), "out", m.songsOut)
-}
-
 // subline is the line under a song's title on the album: a credit other than
 // the album artist's (when the list has no Artist column), the composer of a
 // piece outside any work on a classical album of several composers, then why
-// the song doesn't play, so a greyed row is never left unexplained.
+// the song doesn't play, so a greyed row is never left unexplained (on an
+// album not out yet the heading of its group of songs does that).
 func (m *model) subline(now time.Time, restricted bool) func(services.Song) string {
-	releaseDate := i18n.FormatISODate(m.album.ReleaseDate, i18n.DateLong)
-	out := ""
-	if m.upcoming {
-		out = kit.ReleaseBadge(m.album, now)
-	}
-	if out == "" {
-		out = i18n.T("Out {releaseDate}", "releaseDate", releaseDate)
-	}
+	out := m.comingLabel(now)
 	unavailable := i18n.T("Unavailable")
 	withheld := i18n.T("Explicit content is restricted on this account")
 	composers := m.composers > 1
@@ -307,7 +370,11 @@ func (m *model) subline(now time.Time, restricted bool) func(services.Song) stri
 		}
 		switch {
 		case !s.Playable && m.upcoming:
-			parts = append(parts, out)
+			if !m.headed {
+				parts = append(parts, out)
+			}
+		case m.justOut:
+			// Its songs are on their way: the status says so, once.
 		case !s.Playable:
 			parts = append(parts, unavailable)
 		case restricted && s.Explicit:

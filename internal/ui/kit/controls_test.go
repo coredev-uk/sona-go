@@ -1670,3 +1670,31 @@ func TestCollectionHeaderWashLetsClicksThrough(t *testing.T) {
 		t.Errorf("the button under the wash was clicked %d times", clicks)
 	}
 }
+
+func TestLibraryButtonLeadAndDoneLabel(t *testing.T) {
+	in, lead := false, true
+	tt := controlsTester(t, 400, 100, func(c *ui.Context) {
+		LibraryButton(c, LibraryOpts{Name: "X", AddLabel: "Pre-add", DoneLabel: "Pre-added", InLibrary: in, Lead: lead})
+	})
+	tt.Advance(time.Second)
+	if got, want := face(tt, "Pre-add"), rgb(theme.C("ink")); got != want {
+		t.Errorf("a lead Add is %v, want the primary ink fill %v", got, want)
+	}
+	lead = false
+	tt.Frame()
+	tt.Advance(time.Second)
+	if got, want := face(tt, "Pre-add"), rgb(theme.C("ground")); got != want {
+		t.Errorf("an Add that isn't the lead is %v, want an outline %v", got, want)
+	}
+	// Once in the library the button says what was done, by its own name.
+	in, lead = true, true
+	tt.Frame()
+	tt.Advance(time.Second)
+	controlsFind(t, tt, "Pre-added. Delete “X” from your library")
+	if !tt.HasText("Pre-added") || tt.HasText("In library") {
+		t.Errorf("done label: %q", tt.Texts())
+	}
+	if got, want := face(tt, "Pre-added"), rgb(theme.C("ground")); got != want {
+		t.Errorf("a done button is %v, want an outline %v", got, want)
+	}
+}
