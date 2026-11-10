@@ -6,7 +6,6 @@ import (
 	"unicode"
 
 	"golang.org/x/text/collate"
-	"golang.org/x/text/unicode/norm"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
@@ -26,22 +25,6 @@ type indexedArtist struct {
 
 // artistsOthers is the heading of everything that is not A–Z.
 const artistsOthers = "#"
-
-// artistsSplit are the letters NFD does not split into a base and a mark.
-var artistsSplit = strings.NewReplacer(
-	"ß", "ss", "æ", "ae", "œ", "oe", "ø", "o", "đ", "d", "ð", "d", "ł", "l", "þ", "th", "ı", "i",
-)
-
-// fold is text in lower case without accents: "Édith Piaf" → "edith piaf".
-func fold(text string) string {
-	var b strings.Builder
-	for _, r := range norm.NFD.String(strings.ToLower(text)) {
-		if !unicode.Is(unicode.M, r) {
-			b.WriteRune(r)
-		}
-	}
-	return strings.TrimSpace(artistsSplit.Replace(b.String()))
-}
 
 // loosen is key without its spaces and punctuation.
 func loosen(key string) string {
@@ -75,7 +58,7 @@ func letterRank(letter string) int {
 func indexArtists(entries []services.ArtistEntry) []indexedArtist {
 	out := make([]indexedArtist, len(entries))
 	for i, e := range entries {
-		key := fold(e.Name)
+		key := i18n.Fold(e.Name)
 		out[i] = indexedArtist{entry: e, key: key, loose: loosen(key), letter: letterOf(key)}
 	}
 	col := i18n.Collator(collate.Numeric)
@@ -99,7 +82,7 @@ func indexArtists(entries []services.ArtistEntry) []indexedArtist {
 // then one that contains it ignoring spaces and punctuation. Within each,
 // A to Z. An empty query keeps every artist.
 func filterArtists(artists []indexedArtist, query string) []indexedArtist {
-	q := fold(query)
+	q := i18n.Fold(query)
 	if q == "" {
 		return slices.Clone(artists)
 	}

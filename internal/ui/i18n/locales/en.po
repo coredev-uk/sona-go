@@ -231,6 +231,7 @@ msgstr "After {m, plural, one {# minute} other {# minutes}}"
 #: internal/ui/features/commands/palette.go
 #: internal/ui/features/home/catalogue.go
 #: internal/ui/features/library/query.go
+#: internal/ui/features/playlist/page.go
 #: internal/ui/features/search/groups.go
 #: internal/ui/kit/collections_tracklist.go
 msgid "Album"
@@ -558,6 +559,7 @@ msgstr "Arcs"
 #: internal/ui/features/home/catalogue.go
 #: internal/ui/features/library/artists.go
 #: internal/ui/features/library/query.go
+#: internal/ui/features/playlist/page.go
 #: internal/ui/features/search/groups.go
 #: internal/ui/kit/collections_tracklist.go
 msgid "Artist"
@@ -2124,6 +2126,7 @@ msgstr "Drag {songName} to reorder"
 msgid "Drop to start a queue"
 msgstr "Drop to start a queue"
 
+#: internal/ui/features/playlist/page.go
 #: internal/ui/kit/collections_tracklist.go
 msgid "Duration"
 msgstr "Duration"
@@ -2406,6 +2409,14 @@ msgstr "Find a setting"
 #: internal/ui/features/library/artists.go
 msgid "Find artists"
 msgstr "Find artists"
+
+#: internal/ui/features/playlist/page.go
+msgid "Find in playlist"
+msgstr "Find in playlist"
+
+#: internal/ui/features/playlist/page.go
+msgid "Find songs in this playlist"
+msgstr "Find songs in this playlist"
 
 #: internal/ui/app/menubar.go
 msgid "Find…"
@@ -3640,6 +3651,14 @@ msgstr "No shortcut matches “{query}”."
 #: internal/ui/features/library/albums.go
 msgid "No singles or EPs in your library"
 msgstr "No singles or EPs in your library"
+
+#: internal/ui/features/playlist/page.go
+msgid "No song in this playlist matches “{query}”."
+msgstr "No song in this playlist matches “{query}”."
+
+#: internal/ui/features/playlist/page.go
+msgid "No song matches “{query}”"
+msgstr "No song matches “{query}”"
 
 #: internal/ui/features/search/groups.go
 msgid "No songs for “{q}”"
@@ -5937,6 +5956,10 @@ msgstr "Songs by {name} in your library"
 msgid "Songs can't play on this computer"
 msgstr "Songs can't play on this computer"
 
+#: internal/ui/features/playlist/page.go
+msgid "Songs in playlist order"
+msgstr "Songs in playlist order"
+
 #: internal/ui/features/artist/page.go
 #: internal/ui/features/library/artists.go
 #: internal/ui/features/library/songs.go
@@ -5962,6 +5985,14 @@ msgstr "Songs play once it's ready. The download carries on if you continue."
 #: internal/ui/features/settings/diag_rows.go
 msgid "Songs play when the download finishes."
 msgstr "Songs play when the download finishes."
+
+#: internal/ui/features/playlist/page.go
+msgid "Songs sorted by {column}, ascending"
+msgstr "Songs sorted by {column}, ascending"
+
+#: internal/ui/features/playlist/page.go
+msgid "Songs sorted by {column}, descending"
+msgstr "Songs sorted by {column}, descending"
 
 #: internal/ui/features/library/songs.go
 msgid "Songs you add in Apple Music on any device appear here after the next sync."
@@ -6594,6 +6625,7 @@ msgid "Time through this programme"
 msgstr "Time through this programme"
 
 #: internal/ui/features/library/query.go
+#: internal/ui/features/playlist/page.go
 #: internal/ui/kit/collections_tracklist.go
 msgid "Title"
 msgstr "Title"
@@ -7840,6 +7872,10 @@ msgstr "{elsewhere} from other devices"
 msgid "{found} of {everyone}"
 msgstr "{found} of {everyone}"
 
+#: internal/ui/features/playlist/page.go
+msgid "{found} of {total, plural, one {# song} other {# songs}}"
+msgstr "{found} of {total, plural, one {# song} other {# songs}}"
+
 #: internal/ui/features/equalizer/page.go
 msgid "{freq} Hz"
 msgstr "{freq} Hz"
@@ -7885,6 +7921,10 @@ msgstr "{len, plural, one {# digit} other {# digits}}"
 #: internal/ui/features/library/artists.go
 msgid "{matches, plural, one {# artist matches} other {# artists match}}"
 msgstr "{matches, plural, one {# artist matches} other {# artists match}}"
+
+#: internal/ui/features/playlist/page.go
+msgid "{matches, plural, one {# song matches} other {# songs match}}"
+msgstr "{matches, plural, one {# song matches} other {# songs match}}"
 
 #: internal/ui/features/settings/summaries.go
 msgid "{mib} MB"

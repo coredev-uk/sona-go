@@ -149,7 +149,10 @@ func (a *ActionMenus) context() *ActionContext {
 	if c := a.cur.target.Container; c != nil {
 		cp := *c
 		if a.cur.bulk {
-			cp.Indices, cp.Index = a.cur.indices, 0
+			cp.Indices, cp.Index = make([]int, len(a.cur.indices)), 0
+			for i, row := range a.cur.indices {
+				cp.Indices[i] = c.place(row)
+			}
 		}
 		ct = &cp
 	}

@@ -475,3 +475,28 @@ func TestTrackListWithheldRowIsDisabledAndDescribedWithTheReason(t *testing.T) {
 		}
 	}
 }
+
+func TestTrackSortToggleCyclesAscendingDescendingNone(t *testing.T) {
+	var s TrackSortState
+	steps := []struct {
+		click string
+		key   string
+		desc  bool
+	}{
+		{SortTitle, SortTitle, false},
+		{SortTitle, SortTitle, true},
+		{SortTitle, "", false}, // the third click: the list's own order
+		{SortTitle, SortTitle, false},
+		{SortArtist, SortArtist, false}, // another column starts again, ascending
+		{SortArtist, SortArtist, true},
+		{SortDuration, SortDuration, false}, // from descending too
+		{SortDuration, SortDuration, true},
+		{SortDuration, "", false},
+	}
+	for i, st := range steps {
+		s.Toggle(st.click)
+		if s.Key != st.key || s.Desc != st.desc {
+			t.Fatalf("click %d on %q: key %q desc %v, want %q %v", i+1, st.click, s.Key, s.Desc, st.key, st.desc)
+		}
+	}
+}

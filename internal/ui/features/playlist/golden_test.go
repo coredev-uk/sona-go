@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
@@ -81,6 +82,29 @@ func TestPlaylistUpdatedTooltipGolden(t *testing.T) {
 			r.tt.Key(0, ui.KeyTab)
 			r.tt.Advance(time.Second)
 			r.shows("Monday, November 9, 2026 at 9:30 PM")
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), tc.name)
+		})
+	}
+}
+
+// The songs found and sorted: the count beside the field and the arrow of the
+// sorted column.
+func TestPlaylistPageFoundAndSortedGolden(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		mode theme.Mode
+	}{{"playlist-page-found-light", theme.ModeLight}, {"playlist-page-found-dark", theme.ModeDark}} {
+		t.Run(tc.name, func(t *testing.T) {
+			goldenFont(t)
+			r := newPageRig(t, "p.1", goldenDetail())
+			r.p.now = func() time.Time { return goldenNow }
+			theme.SetMode(tc.mode)
+			r.shows("Road Trip", "Glass Harbour", "Apple Orchard")
+			r.p.page.query = "salt"
+			r.p.page.sort.Key, r.p.page.sort.Desc = kit.SortTitle, true
+			r.tt.Frame()
+			r.shows("2 of 6 songs")
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), tc.name)
 		})

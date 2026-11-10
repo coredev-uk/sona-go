@@ -127,6 +127,18 @@ type ActionContainer struct {
 	Indices []int
 	// Editable: the user may change the collection's items.
 	Editable bool
+	// Order, when the list shows the collection sorted or filtered, says
+	// where each row is in the collection itself: row i is item Order[i].
+	// Index and Indices then name those places, not the rows.
+	Order []int
+}
+
+// place is the position in the collection of row i.
+func (c *ActionContainer) place(i int) int {
+	if c.Order != nil && i >= 0 && i < len(c.Order) {
+		return c.Order[i]
+	}
+	return i
 }
 
 // MenuData is data an action reads only when its menu opens, not for every

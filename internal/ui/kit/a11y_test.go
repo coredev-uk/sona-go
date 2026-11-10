@@ -397,6 +397,47 @@ func TestTrackListSortedHeaderChangesWithTheKeyboard(t *testing.T) {
 	}
 }
 
+// The duration header sorts only for a list that asks for it, and says its
+// direction like the others.
+func TestTrackListDurationHeaderIsASortButtonWhenAsked(t *testing.T) {
+	a, tt := trackSortApp(t, 4)
+	a.opts.Sort.Duration = true
+	tt.Frame()
+	tr := access.Read(t, tt)
+	h, ok := tr.Find(ui.RoleColumnHeader, "Duration")
+	if !ok {
+		t.Fatalf("no Duration column header:\n%s", tr.Dump())
+	}
+	b, ok := tr.Find(ui.RoleButton, "Duration")
+	if !ok || b.Parent != h.Index || !b.Can(access.Press) {
+		t.Fatalf("the Duration header holds no sort button:\n%s", tr.Dump())
+	}
+	access.NoNestedControls(t, tt)
+	if got := sortOf(t, tr, "Duration"); got != "" {
+		t.Errorf("Duration at first is %q", got)
+	}
+	if err := tt.Click("Duration"); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(a.sorted, []string{SortDuration}) {
+		t.Errorf("sorted %v, want Duration", a.sorted)
+	}
+	if got := sortOf(t, access.Read(t, tt), "Duration"); got != "ascending" {
+		t.Errorf("Duration after a click is %q, want ascending", got)
+	}
+	if got := sortOf(t, access.Read(t, tt), "Title"); got != "" {
+		t.Errorf("Title after a click on Duration is %q", got)
+	}
+
+	// Not asked for: a clock, no button.
+	_, tt = trackSortApp(t, 4)
+	tt.Frame()
+	tr = access.Read(t, tt)
+	if _, ok := tr.Find(ui.RoleButton, "Duration"); ok {
+		t.Errorf("a list that does not sort by duration has a Duration button:\n%s", tr.Dump())
+	}
+}
+
 func TestTrackListHeadersWithoutSortStayColumnHeaders(t *testing.T) {
 	a, tt := newCollTrackApp(t, 2, 1000, 500)
 	a.opts.Sort = nil

@@ -37,24 +37,6 @@ func artistsTestLibrary() []indexedArtist {
 	))
 }
 
-func TestFoldDropsCaseAndAccents(t *testing.T) {
-	for in, want := range map[string]string{
-		"Sigur Rós":      "sigur ros",
-		"BJÖRK":          "bjork",
-		"Mötley Crüe":    "motley crue",
-		"Ólafur Arnalds": "olafur arnalds",
-		// Letters Unicode does not decompose.
-		"Sørensen": "sorensen",
-		"Straße":   "strasse",
-		"Łódź":     "lodz",
-		"  Édith ": "edith",
-	} {
-		if got := fold(in); got != want {
-			t.Errorf("fold(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestIndexArtistsOrdersAToZThenOthers(t *testing.T) {
 	want := []string{
 		"AC/DC", "Band 9", "Band 10", "Beyoncé", "björk", "Édith Piaf", "Eric Clapton", "Mötley Crüe",
