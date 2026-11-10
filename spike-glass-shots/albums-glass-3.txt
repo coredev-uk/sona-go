@@ -1,0 +1,15 @@
+startup (ms since process start): first frame 345, covers on screen 1371
+frames: drawn on the GPU: 511 instances in 90 batches (2 opaque; by class general 12, plain 6, fill 46, shadow 0, glyph 11, subpixel 0, image 15
+
+display interval 16.67 ms (given); the page scrolls 1022 px, 1022 px each way here at 600 px/s
+albums run 1: 1022 px in 3413 ms, interval 16.67 ms, p50 16.7 p95 20.2 max 22.5, dropped 0 of 205, CPU 20%, CPU work per frame p50 0.80 p95 2.20 ms, present p50 0.30 ms
+albums run 2: 1022 px in 3410 ms, interval 16.67 ms, p50 16.7 p95 19.9 max 28.6, dropped 1 of 206, CPU 20%, CPU work per frame p50 1.00 p95 2.40 ms, present p50 0.20 ms
+albums run 3: 1022 px in 3413 ms, interval 16.67 ms, p50 16.6 p95 19.5 max 23.7, dropped 0 of 207, CPU 20%, CPU work per frame p50 0.90 p95 2.20 ms, present p50 0.30 ms
+albums run 4: 1022 px in 3412 ms, interval 16.67 ms, p50 16.7 p95 20.1 max 21.9, dropped 0 of 206, CPU 20%, CPU work per frame p50 0.80 p95 2.20 ms, present p50 0.30 ms
+albums run 5: 1022 px in 3417 ms, interval 16.67 ms, p50 16.7 p95 19.9 max 22.0, dropped 0 of 206, CPU 20%, CPU work per frame p50 0.90 p95 2.20 ms, present p50 0.30 ms
+| page | frame p50 | frame p95 | dropped frames | frames > 50 ms | process CPU (scrolling) | CPU work per frame p50 / p95 | present p50 | idle CPU | RSS | PSS |
+|---|---|---|---|---|---|---|---|---|---|---|
+| empty (control: wheel over the top bar) | – | – | – | – | 8% | – | – | – | – | – |
+| albums | 16.7 ms | 19.9 ms | 0 of 206 (0.0%) | 0 | 20% | 0.90 / 2.20 ms | 0.30 ms | 0.0% | 158 MiB | 158 MiB |
+display interval 16.67 ms, 1022 px scrolled each way at 600 px/s (3413 ms per pass), median of 5 passes
+at rest with the covers on screen, before scrolling: RSS 153 MiB, PSS 153 MiB (1 processes); after the passes: RSS 158 MiB, PSS 158 MiB (1 processes)

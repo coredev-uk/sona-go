@@ -1,0 +1,22 @@
+$ sw_vers
+ProductName:		macOS
+ProductVersion:		26.7.2
+BuildVersion:		25G332
+$ uname -m
+arm64
+$ sysctl -n machdep.cpu.brand_string
+Apple M1 (Virtual)
+$ sysctl -n hw.model
+VirtualMac2,1
+$ sysctl -n hw.ncpu
+3
+$ sysctl -n hw.memsize
+7516192768
+$ system_profiler SPDisplaysDataType
+
+$ defaults read -g AppleInterfaceStyle
+2026-11-10 20:57:17.106 defaults[1969:9433] 
+The domain/default pair of (kCFPreferencesAnyApplication, AppleInterfaceStyle) does not exist
+(exit status 1)
+$ defaults read com.apple.universalaccess reduceTransparency
+1
