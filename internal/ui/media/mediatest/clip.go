@@ -1,4 +1,6 @@
-// Package mediatest makes the media fixtures the UI's tests need.
+// Package mediatest makes the media fixtures the UI's tests need (a generated
+// H.264 clip) and runs the tests of packages that play video as an app does
+// (Main).
 package mediatest
 
 import (

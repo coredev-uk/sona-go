@@ -151,11 +151,11 @@ func lastDownload(st *services.MotionStatus, now time.Time) diagRow {
 	return diagRow{label: label, value: l.Rendition + " · " + when, status: statusOK}
 }
 
-// decoderHelpText is what to do when nothing decodes Apple's H.264 videos:
-// GStreamer's plugins on Linux, the Media Feature Pack on a Windows N edition
-// (macOS plays H.264 itself).
-func decoderHelpText() string {
-	switch runtime.GOOS {
+// decoderHelpFor is what to do on goos when nothing decodes Apple's H.264
+// videos: GStreamer's plugins on Linux, the Media Feature Pack on a Windows N
+// edition (macOS plays H.264 itself).
+func decoderHelpFor(goos string) string {
+	switch goos {
 	case "windows":
 		return i18n.T("Install the Media Feature Pack for Windows (Settings → System → Optional features), then restart Sona.")
 	case "darwin":
@@ -170,7 +170,7 @@ func decoderHelpText() string {
 // is whether the window shows.
 func motionGroup(r services.MotionReport, st *services.MotionStatus, now time.Time) diagGroup {
 	s := motionStateOf(r, st)
-	decoderHelp := decoderHelpText()
+	decoderHelp := decoderHelpFor(runtime.GOOS)
 	h264 := diagRow{label: i18n.T("H.264 decoding"), value: i18n.T("Supported"), status: statusOK}
 	if !s.h264 {
 		h264 = diagRow{label: i18n.T("H.264 decoding"), value: i18n.T("Not supported"), status: statusError, detail: decoderHelp}
