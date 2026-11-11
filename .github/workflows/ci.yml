@@ -674,10 +674,12 @@ jobs:
   # GStreamer packages release.yml's build uses, not devenv: entering the
   # devenv shell took twelve minutes of the job.
   # GitHub runs at most five macOS jobs at a time for the whole account (every
-  # repository's), so main uses three: this one (the build, go vet, and the
-  # core and playback tests, as a pull request's macOS job does) and the two UI
-  # shards below. Five took every slot, and two merges in a row, or a merge
-  # while another repository built on macOS, queued for half an hour.
+  # repository's), so a push to main runs one: this one (the build, go vet, and
+  # the core and playback tests, as a pull request's macOS job does). The UI
+  # shards below run on macOS only in the nightly and on dispatch; the same
+  # tests run on Linux on every push. Five jobs a push took every slot, and two
+  # merges in a row, or a merge while another repository built on macOS, queued
+  # for half an hour.
   macos-build:
     name: macOS build, vet, core and playback tests
     if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'macos')) || (github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch' && !github.event.repository.private)) }}
@@ -757,11 +759,11 @@ jobs:
           path: ${{ steps.setup.outputs.cache-path }}
           key: ${{ steps.setup.outputs.cache-key }}
 
-  # The UI packages' `go test -race`, in two shards (shard.sh) on macOS runners
-  # side by side.
+  # The UI packages' `go test -race` on macOS, in two shards (shard.sh): the
+  # nightly and a dispatch only (see macos-build).
   macos-test:
     name: macOS tests (${{ matrix.pool }} ${{ matrix.index }}/${{ matrix.count }})
-    if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'macos')) || (github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch' && !github.event.repository.private)) }}
+    if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'macos')) || (github.event_name == 'schedule' && !github.event.repository.private)) }}
     runs-on: macos-26
     timeout-minutes: 30
     strategy:
@@ -898,7 +900,7 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
         run: |
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS"
-          jq -e 'all(.[]; .result == "success")' <<<"$NEEDS" >/dev/null
+          jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<<"$NEEDS" >/dev/null
 
   windows:
     name: Windows build
