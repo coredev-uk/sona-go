@@ -113,10 +113,10 @@ runs:
         resolvectl status 2>/dev/null | head -20 || true
         for h in azure.archive.ubuntu.com archive.ubuntu.com security.ubuntu.com ports.ubuntu.com github.com proxy.golang.org; do
           echo "== $h: getent=$(getent ahosts "$h" | awk '{print $1}' | sort -u | tr '\n' ' ')"
-          curl -sS -o /dev/null -w "   http %{http_code} %{remote_ip} %{time_total}s\n" --max-time 10 "http://$h/" 2>&1 | tail -1
-          curl -4 -sS -o /dev/null -w "   v4 %{http_code} %{remote_ip} %{time_total}s\n" --max-time 10 "http://$h/" 2>&1 | tail -1
+          curl -sS -o /dev/null -w "   http %{http_code} %{remote_ip} %{time_total}s\n" --max-time 10 "http://$h/" 2>&1 | tail -1 || true
+          curl -4 -sS -o /dev/null -w "   v4 %{http_code} %{remote_ip} %{time_total}s\n" --max-time 10 "http://$h/" 2>&1 | tail -1 || true
         done
-        for ip in 185.125.190.81 185.125.190.83; do curl -sS -o /dev/null -w "   archive by IP $ip: %{http_code} %{time_total}s\n" --max-time 10 -H 'Host: archive.ubuntu.com' "http://$ip/ubuntu/dists/resolute/InRelease" 2>&1 | tail -1; done
+        for ip in 185.125.190.81 185.125.190.83; do curl -sS -o /dev/null -w "   archive by IP $ip: %{http_code} %{time_total}s\n" --max-time 10 -H 'Host: archive.ubuntu.com' "http://$ip/ubuntu/dists/resolute/InRelease" 2>&1 | tail -1 || true; done
         parts=()
         if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
           only=$(mktemp -d)
