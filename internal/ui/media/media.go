@@ -1,11 +1,13 @@
 // Package media is what the native UI needs of the system's media stack and
-// MyGo lacks: a decoder for Apple's motion artwork (H.264 or HEVC in MP4;
-// MyGo decodes no video codec, GStreamer does it on Linux, macOS and Windows, see
-// motion_gst.go) and the conversion of the music video pictures the CDM host
-// decodes (I420, internal/playback/video) to the RGBA a MyGo bitmap takes.
+// MyGo lacks: the player of Apple's motion artwork (H.264 in MP4: MyGo's
+// ui/video plays it with AVFoundation on macOS and Media Foundation on
+// Windows; on Linux MyGo has no decoder that fits and GStreamer decodes it in
+// process, see motion_gst.go) and the conversion of the music video pictures
+// the CDM host decodes (I420, internal/playback/video) to the RGBA a MyGo
+// bitmap takes.
 //
 // Nothing here draws: the kit's MotionCover, TileMotion and VideoSurface
-// (internal/ui/kit) show what this package decodes, and the kit's ArtLoader
+// (internal/ui/kit) show what this package opens, and the kit's ArtLoader
 // is the cache of decoded bitmaps.
 package media
 

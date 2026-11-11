@@ -133,8 +133,7 @@ func childEnv(log *slog.Logger) []string {
 	var env []string
 	for _, kv := range os.Environ() {
 		k, _, _ := strings.Cut(kv, "=")
-		if k == EnvChild || k == envLogLevel || k == envCDMDir || k == envCDMOnly || slices.Contains(sandboxEnv, k) ||
-			slices.ContainsFunc(pluginPathEnv, func(n string) bool { return strings.EqualFold(n, k) }) || childEnvDropped.MatchString(k) {
+		if k == EnvChild || k == envLogLevel || k == envCDMDir || k == envCDMOnly || slices.Contains(sandboxEnv, k) || childEnvDropped.MatchString(k) {
 			continue
 		}
 		env = append(env, kv)

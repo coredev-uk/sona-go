@@ -42,7 +42,8 @@ type MotionOptions struct {
 // Motion plays only when asked for and nothing argues against it: the setting
 // is on, Reduce effects and the desktop's reduced motion are off, the
 // computer is not on battery (Go's "power:changed", UPower's devices, not its
-// OnBattery) and the platform has a decoder (media.Codec). A playing video
+// OnBattery) and the platform has a decoder (media.Codec; a system whose video
+// framework turns out to be missing ends motion for the session). A playing video
 // also pauses while it is out of view, while the window is hidden
 // (SetVisible) and while the page is covered (Cover): under Now Playing,
 // full-screen lyrics or a modal dialog, which keep drawing what lies under
@@ -53,8 +54,9 @@ type MotionPolicy struct {
 	post store.Poster
 	// open makes a player of a motion file (tests replace it).
 	open func(ctx context.Context, urlPath string, px int) (*ui.VideoPlayer, error)
-	// probe is media.Codec: what decodes motion artwork, "" for nothing. It
-	// starts GStreamer and scans its plugins, so it runs on a goroutine, once.
+	// probe is media.Codec: what decodes motion artwork, "" for nothing. On
+	// Linux it starts GStreamer and scans its plugins, so it runs on a
+	// goroutine, once.
 	probe func() string
 
 	// The main thread only.
@@ -102,7 +104,7 @@ func NewMotionPolicy(bus *store.Bus, post store.Poster, o MotionOptions) *Motion
 // NewTestMotionPolicy is a policy for the tests of the features that build
 // motion covers: motion is allowed (the setting on, an "avc" decoder known, no
 // battery) and every motion file is opened by open instead of the motion
-// cache and GStreamer, so a test sees which URL and size a cover asked for.
+// cache and the decoder, so a test sees which URL and size a cover asked for.
 // post is the test's main thread (uitest's Main.Post); the caller closes the
 // policy.
 func NewTestMotionPolicy(post store.Poster, open func(ctx context.Context, urlPath string, px int) (*ui.VideoPlayer, error)) *MotionPolicy {
@@ -152,8 +154,8 @@ func (p *MotionPolicy) Allowed() bool {
 func (p *MotionPolicy) Probed() bool { return p != nil && p.codecKnown() }
 
 // codecKnown reports whether the decoder probe has answered, starting it the
-// first time: GStreamer's start-up (its plugin registry may be scanned) must
-// not run on the main thread.
+// first time: GStreamer's start-up on Linux (its plugin registry may be
+// scanned) must not run on the main thread.
 func (p *MotionPolicy) codecKnown() bool {
 	if !p.codecDone && !p.probing {
 		p.probing = true

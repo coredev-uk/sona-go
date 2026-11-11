@@ -2790,6 +2790,10 @@ msgstr ""
 msgid "Install it now and Sona restarts into it. Your settings, sign-in and queue stay as they are."
 msgstr ""
 
+#: internal/ui/features/settings/motiondiag.go
+msgid "Install the Media Feature Pack for Windows (Settings → System → Optional features), then restart Sona."
+msgstr ""
+
 #: internal/ui/kit/controls_input.go
 msgid "Invalid"
 msgstr ""
@@ -5690,6 +5694,10 @@ msgstr ""
 msgid "Sona also tries again by itself later."
 msgstr ""
 
+#: internal/ui/features/settings/motiondiag.go
+msgid "Sona asks Apple for H.264 here: the system's video player can't be asked which other codecs it decodes."
+msgstr ""
+
 #: internal/ui/features/settings/lyrics.go
 msgid "Sona asks every source that's on and shows the lyrics with the finest timing: word by word, then line by line, then plain text. A source higher in the list wins a tie."
 msgstr ""
@@ -7580,6 +7588,10 @@ msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "macOS Keychain"
+msgstr ""
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "macOS plays H.264 itself: restart Sona, and update macOS if this stays."
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go

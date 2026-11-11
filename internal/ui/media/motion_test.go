@@ -3,149 +3,43 @@ package media
 import (
 	"context"
 	"errors"
-	"image"
-	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
+	"time"
+
+	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/media/mediatest"
 )
 
-// fixtureClip is a generated H.264 clip, or a skip where the GStreamer in
-// use cannot make or decode one.
+// fixtureClip is a generated H.264 clip, or a skip where nothing here plays
+// motion artwork or the fixture cannot be made.
 func fixtureClip(t *testing.T, frames int) string {
 	t.Helper()
 	if Codec() != "avc" {
-		t.Skip("no H.264 decoder in this GStreamer")
+		t.Skip("nothing plays H.264 motion artwork here")
 	}
 	return mediatest.Clip(t, frames)
 }
 
-func TestMotionDecoderPlaysAndLoops(t *testing.T) {
-	path := fixtureClip(t, 12)
-	d, err := NewMotionDecoder(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = d.(io.Closer).Close() })
-
-	count := func() (n int) {
-		for {
-			f, err := d.Next()
-			if errors.Is(err, io.EOF) {
-				return n
-			}
-			if err != nil {
-				t.Fatalf("frame %d: %v", n, err)
-			}
-			if b := f.Image.Bounds(); b.Dx() != 96 || b.Dy() != 64 {
-				t.Fatalf("frame is %v, want 96×64", b)
-			}
-			if f.Duration <= 0 {
-				t.Fatalf("frame %d lasts %v", n, f.Duration)
-			}
-			n++
-		}
-	}
-	if n := count(); n != 12 {
-		t.Fatalf("decoded %d frames, want 12", n)
-	}
-	// The video loops: rewinding plays the clip again, as often as asked,
-	// without an error or a stall (Next gives up after 5 s).
-	//
-	// Linux decodes every frame again. On macOS decodebin picks vtdec_hw
-	// (VideoToolbox), which decodes asynchronously, and after a flushing seek
-	// it now and then (about one rewind in a few hundred, on CI, whatever the
-	// seek's flags and even when waiting for the pipeline to settle) loses a
-	// frame. The loop skips one 33 ms picture then, which nobody sees, so
-	// there one of the three passes may come a frame short; a decoder losing a
-	// frame on every loop still fails. Never more than the clip has: that would
-	// be a frame shown twice.
-	short := 0 // passes that may come a frame short
-	if runtime.GOOS == "darwin" {
-		short = 1
-	}
-	for pass := 1; pass <= 3; pass++ {
-		if err := d.Rewind(); err != nil {
-			t.Fatal(err)
-		}
-		if n := count(); n == 11 && short > 0 {
-			short--
-		} else if n != 12 {
-			t.Fatalf("after rewind %d decoded %d frames, want 12 (11 once on macOS)", pass, n)
-		}
-	}
+// shown is a Tester that builds the video of p, 96×64: a player the system
+// opens (macOS, Windows) loads only while a ui.Video builds it.
+func shown(p *ui.VideoPlayer) *ui.Tester {
+	return ui.NewTester(func(c *ui.Context) { ui.Video(c, p).Size(96, 64) }, 96, 64)
 }
 
-func TestMotionDecoderPicturesAreNotBlank(t *testing.T) {
-	d, err := NewMotionDecoder(fixtureClip(t, 3))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = d.(io.Closer).Close() })
-	f, err := d.Next()
-	if err != nil {
-		t.Fatal(err)
-	}
-	// The ball pattern has a field and a ball: several colours, all opaque.
-	img, ok := f.Image.(*image.RGBA)
-	if !ok {
-		t.Fatalf("frame is a %T, want *image.RGBA", f.Image)
-	}
-	seen := map[[3]byte]bool{}
-	for i := 0; i < len(img.Pix); i += 4 {
-		if img.Pix[i+3] != 255 {
-			t.Fatalf("pixel %d is transparent", i/4)
+// until builds frames of tt until cond holds, which fails the test after d.
+func until(t *testing.T, tt *ui.Tester, what string, d time.Duration, cond func() bool) {
+	t.Helper()
+	for end := time.Now().Add(d); ; time.Sleep(3 * time.Millisecond) {
+		tt.Frame()
+		if cond() {
+			return
 		}
-		seen[[3]byte{img.Pix[i], img.Pix[i+1], img.Pix[i+2]}] = true
-	}
-	if len(seen) < 3 {
-		t.Errorf("the picture has %d colours", len(seen))
-	}
-}
-
-func TestMotionDecoderErrors(t *testing.T) {
-	if Codec() == "" {
-		if _, err := NewMotionDecoder("whatever.mp4"); !errors.Is(err, errors.ErrUnsupported) && err == nil {
-			t.Fatal("a decoder opened where there is none")
+		if time.Now().After(end) {
+			t.Fatalf("no %s within %v", what, d)
 		}
-		t.Skip("no motion decoder on this platform")
-	}
-	path := filepath.Join(t.TempDir(), "junk.mp4")
-	if err := os.WriteFile(path, []byte("this is not a video"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	d, err := NewMotionDecoder(path)
-	if err == nil {
-		defer func() { _ = d.(io.Closer).Close() }()
-		if _, err = d.Next(); err == nil || errors.Is(err, io.EOF) {
-			t.Fatalf("a junk file decoded: %v", err)
-		}
-	}
-	if d, err := NewMotionDecoder(filepath.Join(t.TempDir(), "missing.mp4")); err == nil {
-		defer func() { _ = d.(io.Closer).Close() }()
-		if _, err := d.Next(); err == nil || errors.Is(err, io.EOF) {
-			t.Fatalf("a missing file decoded: %v", err)
-		}
-	}
-}
-
-func TestMotionDecoderClose(t *testing.T) {
-	d, err := NewMotionDecoder(fixtureClip(t, 6))
-	if err != nil {
-		t.Fatal(err)
-	}
-	c := d.(io.Closer)
-	if err := c.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := c.Close(); err != nil {
-		t.Errorf("second Close: %v", err)
-	}
-	if _, err := d.Next(); err == nil {
-		t.Error("Next after Close")
 	}
 }
 
@@ -169,28 +63,47 @@ func TestOpenMotion(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer p.Close()
-	if w, h := p.Size(); w != 96 || h != 64 {
-		t.Errorf("size %d×%d, want 96×64", w, h)
-	}
 	if !p.Loop() {
 		t.Error("the player does not loop")
+	}
+	// Ready once the first picture came (at once with GStreamer's decoder,
+	// after a build of its video with the system's).
+	until(t, shown(p), "first picture", 20*time.Second, func() bool {
+		if err := p.Err(); err != nil {
+			t.Fatal(err)
+		}
+		return p.Ready()
+	})
+	if w, h := p.Size(); w != 96 || h != 64 {
+		t.Errorf("size %d×%d, want 96×64", w, h)
 	}
 	if f.gotPath != "/motion/abc/720.mp4" || f.gotPx != 360 || f.gotCodec != "avc" {
 		t.Errorf("asked the cache for %q at %d in %q", f.gotPath, f.gotPx, f.gotCodec)
 	}
 }
 
-func TestOpenMotionSaysWhetherTheFileDidNotDecode(t *testing.T) {
+// TestOpenMotionOfAFileThatIsNotAVideo: GStreamer's decoder does not open on
+// one (ErrDecode); the system's player opens at once and fails on its own,
+// which its Err says, never becoming Ready.
+func TestOpenMotionOfAFileThatIsNotAVideo(t *testing.T) {
 	if Codec() == "" {
-		t.Skip("nothing decodes motion artwork here")
+		t.Skip("nothing plays motion artwork here")
 	}
 	junk := filepath.Join(t.TempDir(), "junk.mp4")
 	if err := os.WriteFile(junk, []byte("this is not a video"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := OpenMotion(context.Background(), &files{path: junk}, "/motion/abc/720.mp4", 360)
-	if !errors.Is(err, ErrDecode) {
-		t.Errorf("a junk file: %v, want ErrDecode", err)
+	p, err := OpenMotion(context.Background(), &files{path: junk}, "/motion/abc/720.mp4", 360)
+	if err != nil {
+		if !errors.Is(err, ErrDecode) {
+			t.Fatalf("a junk file: %v, want ErrDecode", err)
+		}
+	} else {
+		defer p.Close()
+		until(t, shown(p), "error of the junk file", 20*time.Second, func() bool { return p.Err() != nil })
+		if p.Ready() {
+			t.Error("a junk file is Ready")
+		}
 	}
 	// A failure to get the file is not a decode failure.
 	_, err = OpenMotion(context.Background(), failing{}, "/motion/abc/720.mp4", 360)
@@ -207,30 +120,32 @@ func (failing) Local(context.Context, string, int, string) (string, error) {
 
 func TestOpenMotionWithoutDecoder(t *testing.T) {
 	if Codec() != "" {
-		t.Skip("this platform decodes motion artwork")
+		t.Skip("this platform plays motion artwork")
 	}
 	if _, err := OpenMotion(context.Background(), &files{}, "/motion/abc/720.mp4", 360); !errors.Is(err, ErrNoDecoder) || !errors.Is(err, errors.ErrUnsupported) {
 		t.Errorf("err = %v", err)
 	}
 }
 
-// TestMotionFileOfTheCache decodes a real rendition of the motion cache when
+// TestMotionFileOfTheCache plays a real rendition of the motion cache when
 // SONA_MOTION_FILE names one (a file of the cache, never committed).
 func TestMotionFileOfTheCache(t *testing.T) {
 	path := os.Getenv("SONA_MOTION_FILE")
 	if path == "" || Codec() == "" {
-		t.Skip("SONA_MOTION_FILE is not set, or nothing decodes motion artwork here")
+		t.Skip("SONA_MOTION_FILE is not set, or nothing plays motion artwork here")
 	}
-	d, err := NewMotionDecoder(path)
+	p, err := OpenMotion(context.Background(), &files{path: path}, "/motion/abc/720.mp4", 360)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = d.(io.Closer).Close() }()
-	f, err := d.Next()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if b := f.Image.Bounds(); b.Dx() < 16 || b.Dy() < 16 {
-		t.Errorf("first frame is %v", b)
+	defer p.Close()
+	until(t, shown(p), "first picture", 20*time.Second, func() bool {
+		if err := p.Err(); err != nil {
+			t.Fatal(err)
+		}
+		return p.Ready()
+	})
+	if w, h := p.Size(); w < 16 || h < 16 {
+		t.Errorf("first frame is %d×%d", w, h)
 	}
 }
