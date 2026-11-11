@@ -133,7 +133,7 @@ nixpkgs, put the current nixos-unstable head
 (`git ls-remote https://github.com/NixOS/nixpkgs refs/heads/nixos-unstable`)
 in `devenv.yaml` and in `flake.nix` (the flake's packages build with the same
 nixpkgs), run `devenv update` and `nix flake update`, then `check`, `tests`,
-`play-spike`, `nix build .#sona .#sona-source` and the app, and commit
+`play-spike`, `nix build .#sona-source` and the app, and commit
 `devenv.yaml`, `devenv.lock`, `flake.nix` and `flake.lock` together.
 
 ### macOS
@@ -398,11 +398,14 @@ branch's code runs without secrets, the commit job runs none of it; needs the
 this repository, as from a Renovate bump, commits the hash Nix reported to the
 branch as bot-cecil, once; the branch's code runs without secrets, the commit job
 runs none of it),
-`nix-release-pin.yml` ("Nix release pin": on a published release that is not a
-prerelease, or dispatched with a tag, checks the release's Arch package against
-its `SHA256SUMS` and attestation, builds the flake's `sona` with it and opens the
-pull request that pins `build/linux/nix/release.json` to it, as bot-cecil; the
-build runs without secrets, the job that pushes runs none of it),
+`nix-branch.yml` ("Nix branch": on every published release and prerelease,
+each night and on dispatch, keeps the flake's `nix` branch, main plus
+`build/linux/nix/pins.json`, on the latest release and the newest published
+build with no pull request: checks both Arch packages against their
+`SHA256SUMS` and attestations, merges main into the branch, builds the
+flake's `sona` and `sona-nightly` with the new pins and pushes the result as
+bot-cecil, never force-pushing; the build runs without secrets, the job that
+pushes runs none of it and pushes only the tree the build checked),
 `cache-prune.yml` (after each CI run on main: keeps the newest Go cache of
 each kind and deletes the rest, so the 10 GB cap never evicts what matters; a
 `workflow_run` job that checks out and runs nothing from the repository),

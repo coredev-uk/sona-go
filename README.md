@@ -26,14 +26,19 @@ the unsigned macOS and Windows builds.
   on GTK3, GStreamer and `libayatana-appindicator3` (the tray). Linux
   packages update through your package manager, the AppImage through
   AppImageUpdate.
-- **Nix (Linux):** the repository is a flake: `nix run github:coredev-uk/sona-go`,
-  `nix profile add github:coredev-uk/sona-go`, or the flake's
-  `overlays.default` (`pkgs.sona`) in a NixOS or Home Manager configuration.
-  On x86_64 it installs the latest release's Arch package, which has the
-  Last.fm and Discord credentials, and updates when you update the flake
-  input. `sona-source` builds the checkout instead, without them (no Last.fm
-  scrobbling or Discord presence), as does `sona` on aarch64, which has no
-  release build. Outside NixOS the GPU driver needs
+- **Nix (Linux):** the repository is a flake. Follow its `nix` branch:
+  `nix run github:coredev-uk/sona-go/nix`, `nix profile add
+  github:coredev-uk/sona-go/nix`, or `inputs.sona.url =
+  "github:coredev-uk/sona-go/nix"` with `overlays.default` (`pkgs.sona`) or
+  `packages.<system>.default` in a NixOS or Home Manager configuration.
+  CI moves that branch to every published release and nightly build by
+  itself, so updating the flake input (`nix flake update sona`) is the whole
+  update. On x86_64 `sona` is the latest release's Arch package, which has the
+  Last.fm and Discord credentials, and `sona-nightly` the newest nightly rc of
+  main (or the release, when that is newer). `sona-source` builds the checkout
+  instead, without them (no Last.fm scrobbling or Discord presence), as does
+  every package on aarch64, which has no release build, and `sona` on `main`,
+  which has no pins. Outside NixOS the GPU driver needs
   [nixGL](https://github.com/nix-community/nixGL).
 - **macOS 14 or later, Apple silicon:** open the `.dmg` and drag Sona to
   Applications. Settings → Updates installs new versions in place
