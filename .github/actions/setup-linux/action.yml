@@ -95,11 +95,17 @@ runs:
         # attempt has a deadline, and a stalled one is tried again.
         # An install that was cut off mid-unpack leaves dpkg half done:
         # configure what was unpacked before the next attempt.
+        # The runner's Ubuntu sources are mirror+file:/etc/apt/apt-mirrors.txt:
+        # azure.archive.ubuntu.com first, then archive.ubuntu.com and
+        # security.ubuntu.com. When the Azure mirror is down (2026-10-07, and all
+        # of 2026-11-11 from 13:54 UTC), apt's mirror method keeps sending every
+        # index back to it after the first failure and never tries the others,
+        # unless Acquire::Retries::Delay is off; then it fails over at once
+        # (https://gist.github.com/mvdbeek/9dcb87a723d50200c8fbcd0b0ee5e41b,
+        # actions/runner-images#14594, #15040). Acquire::https::Timeout bounds
+        # the HTTPS fallbacks; http::Timeout doesn't.
         # Every package Sona needs is Ubuntu's own, so apt reads only Ubuntu's
-        # sources: the runner image also lists third-party repositories (a
-        # Launchpad PPA among them), and when one of those hosts hangs, as
-        # Launchpad did on 2026-11-11, every `apt-get update` timed out.
-        # Acquire::https::Timeout bounds an HTTPS source; http::Timeout doesn't.
+        # sources, not the image's third-party repositories.
         parts=()
         if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
           only=$(mktemp -d)
@@ -110,15 +116,15 @@ runs:
           local i limit=150
           [[ $1 == install ]] && limit=600
           for i in 1 2 3; do
-            root timeout "$limit" apt-get -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 -o Acquire::Retries=3 \
+            root timeout "$limit" apt-get -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 \
+              -o Acquire::Retries=3 -o Acquire::Retries::Delay=false \
               "${parts[@]}" -o Dir::Cache::archives="$HOME/apt-archives" "$@" && return 0
             echo "apt-get $1 did not finish (attempt $i)"
             root dpkg --configure -a || true
           done
           return 1
         }
-        # Not -qq: each source's Hit/Get/Err line shows which one a stall is on.
-        cat /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null | grep -E '^(URIs|Suites):' || true
+        # Not -qq: each source's Hit/Get/Ign line shows where a stall is.
         apt update
         # shellcheck disable=SC2046
         apt install -y --no-install-recommends $(cat "${GITHUB_ACTION_PATH}/packages-$PACKAGES.txt")
