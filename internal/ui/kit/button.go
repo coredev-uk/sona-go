@@ -148,7 +148,10 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 		e.Border(1, border)
 	}
 	if o.Disabled {
-		e.Disabled(true) // MyGo paints a disabled element at 50%
+		e.Disabled(true) // MyGo paints a disabled element at 50%, but for the Play disc
+		if o.Variant == Play {
+			e.DimDisabled(false)
+		}
 	}
 	if !theme.ReducedMotion() {
 		m := theme.Current().Motion["feedback"]
@@ -234,10 +237,10 @@ func variantColors(o ButtonOpts, hovered, pressed bool) (bg, border, fg ui.Color
 		}
 		if o.Disabled {
 			// button.tsx keeps the disc at full opacity: --hover with faint
-			// ink. MyGo paints every disabled element at 50% over what is
-			// behind it, so the colours are chosen to come out as those over
-			// the page's ground.
-			bg, fg = controlsUndim(c("hover")), controlsUndim(c("ink-faint"))
+			// ink. Button turns MyGo's dimming of a disabled element off for
+			// it (DimDisabled), so these are the colours that show, over the
+			// page's ground and over a cover wash alike.
+			bg, fg = c("hover"), c("ink-faint")
 		}
 	case Destructive:
 		bg, border, fg = clear, c("danger-line"), c("danger")

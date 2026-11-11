@@ -13,6 +13,8 @@ import (
 //   - Sleep inhibit (MyGo's Power.KeepAwake), the power source for
 //     "on battery" (Power.IsOnBattery, polled) and the file chooser
 //     (Dialog) work from a bare binary as well as from Sona.app.
+//   - Power.KeepRunning keeps the app out of App Nap while music plays or
+//     loads (keeprunning_darwin.go), whatever the sleep setting says.
 //   - Notifications (UNUserNotificationCenter), the login item
 //     (SMAppService) and the default app for Apple Music links
 //     (NSWorkspace, linkhandler_darwin.go) are tied to the app bundle by
@@ -20,6 +22,7 @@ import (
 //     NeedsAppBundle says why.
 func desktopIntegrations(out *services.Platform, windows *uiapp.Windows) {
 	out.Inhibitor = func(why func() string) services.SleepInhibitor { return newMacInhibitor(why) }
+	out.KeepRunning = func(why func() string) services.RunningKeeper { return newMacKeeper(why) }
 	out.Power = openMacPower
 	out.Files = newMacFiles(windows.Main)
 	if !runsFromAppBundle() {

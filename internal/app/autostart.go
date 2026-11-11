@@ -14,6 +14,12 @@ import (
 // autostart entry passes it when the user chose to start hidden at login.
 const HiddenFlag = "--hidden"
 
+// ShownFlag starts Sona with its window, which is what a launch with no flag
+// does too. It does nothing else: the updater passes it to App.Relaunch, whose
+// call with no arguments repeats the ones this instance started with
+// (--hidden among them), so a restart that wants none needs one to give.
+const ShownFlag = "--shown"
+
 // Hidden reports whether the launch asked for no window.
 func (a Activation) Hidden() bool { return slices.Contains(a.Args, HiddenFlag) }
 

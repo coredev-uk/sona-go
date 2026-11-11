@@ -182,6 +182,37 @@ func TestVariantFaces(t *testing.T) {
 	}
 }
 
+// The disabled Play disc keeps its full-opacity face, --hover, over whatever it
+// sits on: the page's ground, and a cover's wash, where the colours that were
+// chosen to come out right at 50% over the ground came out wrong.
+func TestDisabledPlayDiscKeepsItsFace(t *testing.T) {
+	for _, mode := range []theme.Mode{theme.ModeLight, theme.ModeDark} {
+		theme.SetMode(mode)
+		for name, behind := range map[string]ui.Color{
+			"ground":     theme.C("ground"),
+			"cover wash": ui.RGB(200, 40, 90),
+		} {
+			tt := ui.NewTester(func(c *ui.Context) {
+				theme.Apply(c)
+				ui.Column(c).Background(behind).Padding(20).AlignItems(ui.Start).Children(func() {
+					Button(c.Key("b"), "", ButtonOpts{Variant: Play, Icon: "play", A11yLabel: "Play", Disabled: true, Size: SizeLG})
+				})
+			}, 200, 120)
+			tt.SetDark(mode == theme.ModeDark)
+			tt.Advance(time.Second)
+			r, ok := tt.Find("Play")
+			if !ok {
+				t.Fatal("no Play disc")
+			}
+			// The disc's edge, off the glyph at its middle.
+			if got, want := at(tt, int(r.X)+4, int(r.Y+r.H/2)), rgb(theme.C("hover")); got != want {
+				t.Errorf("mode %v over the %s: disabled disc is %v, want --hover %v", mode, name, got, want)
+			}
+		}
+	}
+	theme.SetMode(theme.ModeSystem)
+}
+
 func TestHoverEasesOver120ms(t *testing.T) {
 	_, tt := newButtonApp(t, "Label", ButtonOpts{Variant: Ghost})
 	tt.Advance(time.Second)

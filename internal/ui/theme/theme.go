@@ -241,6 +241,7 @@ func build(tk *Tokens, prefs ui.Preferences) *ui.Theme {
 	t.Danger, t.Success, t.Warning = col("danger"), col("positive"), col("amber-ink")
 	t.Selection = col("selection")
 	t.Scrollbar = col("scrollbar")
+	t.ScrollbarStyle.Hover = col("scrollbar-hover") // the thumb while the pointer is over the bar
 	// Tooltips and toasts are the theme turned over.
 	t.Inverse, t.InverseText = col("ink"), col("ground")
 	t.Radius = tk.Radius["md"]
@@ -250,8 +251,9 @@ func build(tk *Tokens, prefs ui.Preferences) *ui.Theme {
 	t.Font = FontFamily
 	body := tk.Type["body"]
 	t.FontSize = body.Size
-	if prefs.TextScale > 0 {
-		t.FontSize *= prefs.TextScale
-	}
-	return t
+	// The desktop's text size and contrast, as MyGo's own widgets follow
+	// them: a larger font, and under high contrast stronger borders and muted
+	// text, an opaque focus ring and bolder scroll bars. The accent is left
+	// zero: amber is Sona's, not the desktop's.
+	return t.WithPreferences(ui.Preferences{HighContrast: prefs.HighContrast, TextScale: prefs.TextScale})
 }
