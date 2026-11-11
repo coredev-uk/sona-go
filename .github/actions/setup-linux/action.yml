@@ -97,19 +97,27 @@ runs:
         # configure what was unpacked before the next attempt.
         # The runner's Ubuntu sources are mirror+file:/etc/apt/apt-mirrors.txt:
         # azure.archive.ubuntu.com first, then archive.ubuntu.com and
-        # security.ubuntu.com. When the Azure mirror is down (2026-10-07, and all
-        # of 2026-11-11 from 13:54 UTC), apt's mirror method keeps sending every
-        # index back to it after the first failure and never tries the others,
-        # unless Acquire::Retries::Delay is off; then it fails over at once
-        # (https://gist.github.com/mvdbeek/9dcb87a723d50200c8fbcd0b0ee5e41b,
-        # actions/runner-images#14594, #15040). Acquire::https::Timeout bounds
-        # the HTTPS fallbacks; http::Timeout doesn't.
-        # Every package Sona needs is Ubuntu's own, so apt reads only Ubuntu's
-        # sources, not the image's third-party repositories.
+        # security.ubuntu.com. When the Azure mirror is down (2026-10-07, and
+        # 2026-11-11 from 13:54 UTC), apt's mirror method keeps sending every
+        # index back to it and never reaches the others, whatever
+        # Acquire::Retries says (actions/runner-images#14594, #15040;
+        # https://gist.github.com/mvdbeek/9dcb87a723d50200c8fbcd0b0ee5e41b). So
+        # the job asks the Azure mirror for this release's InRelease first, and
+        # when that fails within 10 s, its copy of the sources names
+        # archive.ubuntu.com instead, which carries every pocket, -security
+        # included. Every package Sona needs is Ubuntu's own, so apt reads only
+        # Ubuntu's sources, not the image's third-party repositories.
+        # Acquire::https::Timeout bounds an HTTPS source; http::Timeout doesn't.
         parts=()
         if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
           only=$(mktemp -d)
           cp /etc/apt/sources.list.d/ubuntu.sources "$only/"
+          codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+          if grep -q 'mirror+file:' "$only/ubuntu.sources" &&
+            ! curl -fsS --max-time 10 -o /dev/null "http://azure.archive.ubuntu.com/ubuntu/dists/$codename/InRelease"; then
+            echo "azure.archive.ubuntu.com isn't answering: apt uses archive.ubuntu.com directly"
+            sed -i 's#mirror+file:/etc/apt/apt-mirrors.txt#http://archive.ubuntu.com/ubuntu/#' "$only/ubuntu.sources"
+          fi
           parts=(-o Dir::Etc::SourceParts="$only")
         fi
         apt() {
