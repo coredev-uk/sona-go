@@ -97,35 +97,37 @@ runs:
         # configure what was unpacked before the next attempt.
         # The runner's Ubuntu sources are mirror+file:/etc/apt/apt-mirrors.txt:
         # azure.archive.ubuntu.com first, then archive.ubuntu.com and
-        # security.ubuntu.com. When the Azure mirror is down (2026-10-07, and
-        # 2026-11-11 from 13:54 UTC), apt's mirror method keeps sending every
-        # index back to it and never reaches the others, whatever
+        # security.ubuntu.com. On 2026-11-11 from 13:54 UTC the Azure mirror
+        # stopped resolving on the runners, and Canonical's 185.125.190.0/24
+        # (part of archive.ubuntu.com, all of security.ubuntu.com) timed out
+        # from them. apt's mirror method sends every index back to the first
+        # mirror after it fails and never reaches the rest, whatever
         # Acquire::Retries says (actions/runner-images#14594, #15040;
-        # https://gist.github.com/mvdbeek/9dcb87a723d50200c8fbcd0b0ee5e41b). So
-        # the job asks the Azure mirror for this release's InRelease first, and
-        # when that fails within 10 s, its copy of the sources names
-        # archive.ubuntu.com instead, which carries every pocket, -security
-        # included. Every package Sona needs is Ubuntu's own, so apt reads only
-        # Ubuntu's sources, not the image's third-party repositories.
-        # Acquire::https::Timeout bounds an HTTPS source; http::Timeout doesn't.
-        # TEMPORARY diagnostics (removed before merge): why Ubuntu's hosts don't answer.
-        cat /etc/resolv.conf || true
-        resolvectl status 2>/dev/null | head -20 || true
-        for h in azure.archive.ubuntu.com archive.ubuntu.com security.ubuntu.com ports.ubuntu.com github.com proxy.golang.org; do
-          echo "== $h: getent=$(getent ahosts "$h" | awk '{print $1}' | sort -u | tr '\n' ' ')"
-          curl -sS -o /dev/null -w "   http %{http_code} %{remote_ip} %{time_total}s\n" --max-time 10 "http://$h/" 2>&1 | tail -1 || true
-          curl -4 -sS -o /dev/null -w "   v4 %{http_code} %{remote_ip} %{time_total}s\n" --max-time 10 "http://$h/" 2>&1 | tail -1 || true
-        done
-        for ip in 185.125.190.81 185.125.190.83; do curl -sS -o /dev/null -w "   archive by IP $ip: %{http_code} %{time_total}s\n" --max-time 10 -H 'Host: archive.ubuntu.com' "http://$ip/ubuntu/dists/resolute/InRelease" 2>&1 | tail -1 || true; done
+        # https://gist.github.com/mvdbeek/9dcb87a723d50200c8fbcd0b0ee5e41b).
+        # So the job asks each mirror below for this release's and its
+        # -security pocket's InRelease and, when the Azure mirror doesn't
+        # answer, points its copy of the sources at the first one that does:
+        # each carries every pocket. Every package Sona needs is Ubuntu's own,
+        # so apt reads only Ubuntu's sources, not the image's third-party
+        # repositories. Acquire::https::Timeout bounds an HTTPS source;
+        # http::Timeout doesn't.
         parts=()
         if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
           only=$(mktemp -d)
           cp /etc/apt/sources.list.d/ubuntu.sources "$only/"
           codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
-          if grep -q 'mirror+file:' "$only/ubuntu.sources" &&
-            ! curl -fsS --max-time 10 -o /dev/null "http://azure.archive.ubuntu.com/ubuntu/dists/$codename/InRelease"; then
-            echo "azure.archive.ubuntu.com isn't answering: apt uses archive.ubuntu.com directly"
-            sed -i 's#mirror+file:/etc/apt/apt-mirrors.txt#http://archive.ubuntu.com/ubuntu/#' "$only/ubuntu.sources"
+          answers() {
+            curl -fsS --max-time 8 -o /dev/null "$1dists/$codename/InRelease" &&
+              curl -fsS --max-time 8 -o /dev/null "$1dists/$codename-security/InRelease"
+          }
+          if grep -q 'mirror+file:' "$only/ubuntu.sources" && ! answers http://azure.archive.ubuntu.com/ubuntu/; then
+            for mirror in http://mirrors.edge.kernel.org/ubuntu/ http://us.archive.ubuntu.com/ubuntu/ http://archive.ubuntu.com/ubuntu/; do
+              if answers "$mirror"; then
+                echo "azure.archive.ubuntu.com isn't answering: apt uses $mirror"
+                sed -i "s#mirror+file:/etc/apt/apt-mirrors.txt#$mirror#" "$only/ubuntu.sources"
+                break
+              fi
+            done
           fi
           parts=(-o Dir::Etc::SourceParts="$only")
         fi
