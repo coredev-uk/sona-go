@@ -384,6 +384,10 @@ func run(started time.Time) error {
 		})
 		log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "hidden", hidden)
 	})
+	// On Windows and macOS a logout or shutdown ends the process once the
+	// quit listeners return, and Run never does: save the queue and report the
+	// end of the play here (sessionend.go).
+	mygo.App.OnWillQuit(flushOnSessionEnd(coord, reporter, sessionEndBudget, log))
 	err = mygo.App.Run()
 	if ui != nil {
 		ui.Close() // before core.Close and coord.Close

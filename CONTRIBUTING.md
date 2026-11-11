@@ -67,7 +67,7 @@ private mode.
 
 | Script       | What it runs                                                                                                                                                                                                                                                                                                                                |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dev`        | Builds `cmd/devloop` into `bin/devloop` and runs it on `./cmd/sona` with your arguments after `--`: it builds the app with `-tags dev,sqlite_fts5` into `bin/sona-dev`, runs it, and rebuilds and restarts it when a Go file of the app changes (the old app keeps running during the build; a failed build prints its errors and leaves it; the restart lands on the same screen, scroll and window). Keys: `r` rebuilds, `q` quits. Design tokens and `.po` files reload in the running app without a build. See docs/ui-architecture.md, "The development loop". |
+| `dev`        | Builds `cmd/devloop` into `bin/devloop` and runs it on `./cmd/sona` with your arguments after `--`: it builds the app with `-tags dev,sqlite_fts5` into `bin/sona-dev`, runs it, and rebuilds and restarts it when a Go file of the app changes (the old app keeps running during the build; a failed build prints its errors and leaves it; the restart lands on the same screen, scroll and window). Keys: `r` rebuilds, `q` quits. A first argument `-background` (`dev -background -- <app args>`) starts the app without taking the focus (`MYGO_DEV_BACKGROUND=1`), so a restart on a save leaves it in your editor. Design tokens and `.po` files reload in the running app without a build. See docs/ui-architecture.md, "The development loop". |
 | `gallery`    | The same loop on `./cmd/uigallery`: the component gallery (every kit component, light and dark, with knobs), restarting like `dev`. |
 | `build`      | `go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona`: no inspector in the binary, MyGo in production mode. |
 | `gen`        | `sqlc generate`. Commit the result. |
@@ -163,7 +163,9 @@ macOS (`mac_arm64`, see "Widevine CDM") and Core Audio output
 (`osxaudiosink`: the device chosen in Settings → Playback → Output, else
 the system's default output, followed when it changes). Media keys and Now
 Playing work (`internal/nowplaying`), and so do the sleep inhibitor (MyGo's
-`Power.KeepAwake`: an IOPMAssertion `pmset -g assertions` lists), the power
+`Power.KeepAwake`: an IOPMAssertion `pmset -g assertions` lists), App Nap
+kept off while music plays or loads (`Power.KeepRunning`, which does not keep
+the Mac awake and needs no setting), the power
 source for "on battery" (`Power.IsOnBattery`, polled) and the file chooser
 for the settings export and import (`Dialog`). Notifications
 (UNUserNotificationCenter: a title, a text and a click, no artwork or

@@ -2,6 +2,7 @@ package kit
 
 import (
 	"image/color"
+	"math"
 	"testing"
 	"time"
 
@@ -85,6 +86,67 @@ func TestVideoSurfaceShowsTheLatestPictureLetterboxed(t *testing.T) {
 	mediaUntil(t, tt, mt, "the picture to come down", func() bool {
 		return near(at(tt, 100, 50), color.RGBA{ground.R, ground.G, ground.B, 255})
 	})
+}
+
+// refRGB is a limited-range BT.709 Y′CbCr sample as the React player's shader
+// converted it: what the video's colours were before the GPU did it.
+func refRGB(y, cb, cr byte) color.RGBA {
+	clamp := func(f float64) uint8 { return uint8(math.Min(255, math.Max(0, math.Round(f)))) }
+	l := 1.1643836 * (float64(y) - 16)
+	d, e := float64(cb)-128, float64(cr)-128
+	return color.RGBA{clamp(l + 1.7927411*e), clamp(l - 0.2132486*d - 0.5329093*e), clamp(l + 2.1124018*d), 255}
+}
+
+func abs(n int) int { return max(n, -n) }
+
+// flatPicture is a w×h I420 picture of one colour.
+func flatPicture(w, h int, y, cb, cr byte) []byte {
+	b := make([]byte, media.I420Len(w, h))
+	cw, ch := (w+1)/2, (h+1)/2
+	for i := range b {
+		switch {
+		case i < w*h:
+			b[i] = y
+		case i < w*h+cw*ch:
+			b[i] = cb
+		default:
+			b[i] = cr
+		}
+	}
+	return b
+}
+
+// The GPU's conversion (the CPU renderer's here) is BT.709 in video's limited
+// range: the colours of the CPU conversion this replaced.
+func TestVideoSurfaceColoursAreBT709Limited(t *testing.T) {
+	theme.SetMode(theme.ModeLight)
+	defer theme.SetMode(theme.ModeSystem)
+	surface := video.NewSurface()
+	mt := newMainThread()
+	v := NewVideoFeed(surface, mt.post)
+	v.Start()
+	defer v.Stop()
+	tt := ui.NewTester((&mediaVideoApp{v: v}).view, 200, 100)
+	tt.Frame()
+
+	for _, c := range []struct {
+		name      string
+		y, cb, cr byte
+	}{
+		{"red", 63, 102, 240},
+		{"green", 173, 42, 26},
+		{"blue", 32, 240, 118},
+		{"skin", 150, 110, 150},
+		{"white", 235, 128, 128},
+		{"black", 16, 128, 128},
+	} {
+		want := refRGB(c.y, c.cb, c.cr)
+		surface.Show(64, 48, 0, flatPicture(64, 48, c.y, c.cb, c.cr))
+		mediaUntil(t, tt, mt, c.name+" to show", func() bool {
+			got := at(tt, 100, 50)
+			return abs(int(got.R)-int(want.R)) <= 3 && abs(int(got.G)-int(want.G)) <= 3 && abs(int(got.B)-int(want.B)) <= 3
+		})
+	}
 }
 
 func TestVideoSurfaceIsNamed(t *testing.T) {

@@ -29,6 +29,7 @@ func TestIntegrationsPlan(t *testing.T) {
 	type want struct {
 		announce string // title, "" for none
 		inhibit  string // "take", "drop" or ""
+		running  string // "hold", "release" or ""
 	}
 	steps := []struct {
 		name string
@@ -37,18 +38,18 @@ func TestIntegrationsPlan(t *testing.T) {
 		want want
 	}{
 		{"restored paused", snapAt(playback.StatePaused, 1, "A"), on, want{}},
-		{"play restored", snapAt(playback.StatePlaying, 1, "A"), on, want{"A", "take"}},
-		{"pause", snapAt(playback.StatePaused, 1, "A"), on, want{"", "drop"}},
-		{"resume same slot", snapAt(playback.StatePlaying, 1, "A"), on, want{"", "take"}},
+		{"play restored", snapAt(playback.StatePlaying, 1, "A"), on, want{"A", "take", "hold"}},
+		{"pause", snapAt(playback.StatePaused, 1, "A"), on, want{"", "drop", "release"}},
+		{"resume same slot", snapAt(playback.StatePlaying, 1, "A"), on, want{"", "take", "hold"}},
 		{"next loads", snapAt(playback.StateLoading, 2, "B"), on, want{}},
-		{"next plays", snapAt(playback.StatePlaying, 2, "B"), on, want{"B", ""}},
-		{"settings off", snapAt(playback.StatePlaying, 2, "B"), config.Integrations{}, want{"", "drop"}},
+		{"next plays", snapAt(playback.StatePlaying, 2, "B"), on, want{"B", "", ""}},
+		{"settings off", snapAt(playback.StatePlaying, 2, "B"), config.Integrations{}, want{"", "drop", ""}}, // the hold does not follow the setting
 		{"track while off", snapAt(playback.StatePlaying, 3, "C"), config.Integrations{}, want{}},
-		{"on again mid-track", snapAt(playback.StatePlaying, 3, "C"), on, want{"", "take"}},
-		{"queue ends", snapAt(playback.StateEnded, 3, "C"), on, want{"", "drop"}},
+		{"on again mid-track", snapAt(playback.StatePlaying, 3, "C"), on, want{"", "take", ""}},
+		{"queue ends", snapAt(playback.StateEnded, 3, "C"), on, want{"", "drop", "release"}},
 		{"stopped", snapAt(playback.StateIdle, 0, ""), on, want{}},
-		{"same song again in a new slot", snapAt(playback.StatePlaying, 4, "C"), on, want{"C", "take"}},
-		{"failed", snapAt(playback.StateError, 4, "C"), on, want{"", "drop"}},
+		{"same song again in a new slot", snapAt(playback.StatePlaying, 4, "C"), on, want{"C", "take", "hold"}},
+		{"failed", snapAt(playback.StateError, 4, "C"), on, want{"", "drop", "release"}},
 	}
 	var st integrationsState
 	for _, s := range steps {
@@ -60,8 +61,44 @@ func TestIntegrationsPlan(t *testing.T) {
 		if p.inhibit != nil {
 			got.inhibit = map[bool]string{true: "take", false: "drop"}[*p.inhibit]
 		}
+		if p.running != nil {
+			got.running = map[bool]string{true: "hold", false: "release"}[*p.running]
+		}
 		if got != s.want {
 			t.Errorf("%s: got %+v, want %+v", s.name, got, s.want)
+		}
+	}
+}
+
+// The full-speed hold follows playback and loading alone: it is held with the
+// sleep inhibitor off, and let go of when playback pauses or ends.
+func TestIntegrationsPlanKeepRunning(t *testing.T) {
+	var st integrationsState
+	off := config.Integrations{}
+	for _, s := range []struct {
+		name string
+		snap coordinator.Snapshot
+		want string
+	}{
+		{"loading the first track", snapAt(playback.StateLoading, 1, "A"), "hold"},
+		{"playing", snapAt(playback.StatePlaying, 1, "A"), ""},
+		{"the next loads", snapAt(playback.StateLoading, 2, "B"), ""},
+		{"paused", snapAt(playback.StatePaused, 2, "B"), "release"},
+		{"paused again", snapAt(playback.StatePaused, 2, "B"), ""},
+		{"error", snapAt(playback.StateError, 2, "B"), ""},
+		{"playing again", snapAt(playback.StatePlaying, 2, "B"), "hold"},
+		{"stopped", snapAt(playback.StateIdle, 0, ""), "release"},
+	} {
+		p := st.plan(s.snap, off, nil, time.Time{})
+		got := ""
+		if p.running != nil {
+			got = map[bool]string{true: "hold", false: "release"}[*p.running]
+		}
+		if p.inhibit != nil {
+			t.Errorf("%s: the sleep inhibitor changed with its setting off", s.name)
+		}
+		if got != s.want {
+			t.Errorf("%s: running = %q, want %q", s.name, got, s.want)
 		}
 	}
 }

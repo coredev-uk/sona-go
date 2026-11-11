@@ -10,6 +10,7 @@
 //	devloop                         # ./cmd/sona
 //	devloop -target ./cmd/uigallery # the component gallery
 //	devloop -- --some-app-flag      # arguments after -- go to the app
+//	devloop -background             # restarts do not take the focus
 //
 // Keys (on a terminal): r builds and restarts at once, q quits the app and
 // the loop.
@@ -40,8 +41,11 @@ type config struct {
 	// every restart; "" keeps debug info for a debugger.
 	ldflags string
 	ready   string // what the app prints once its window is painted
-	grace   time.Duration
-	args    []string
+	// background starts the app without taking the focus (MyGo's dev builds
+	// read MYGO_DEV_BACKGROUND), so restarts leave it in the editor.
+	background bool
+	grace      time.Duration
+	args       []string
 }
 
 func main() {
@@ -55,6 +59,7 @@ func main() {
 	flag.StringVar(&cfg.tags, "tags", "dev,sqlite_fts5", "build tags")
 	flag.StringVar(&cfg.ldflags, "ldflags", "-w", "linker flags (-w drops DWARF, which speeds up the link; use \"\" for a debugger)")
 	flag.StringVar(&cfg.ready, "ready", "startup: first paint", "text the app prints when its window is painted (times the restart)")
+	flag.BoolVar(&cfg.background, "background", false, "start the app without taking the focus (MYGO_DEV_BACKGROUND=1), so a restart on a save leaves it where it was")
 	flag.DurationVar(&cfg.grace, "grace", 5*time.Second, "how long the app has to quit after SIGTERM before it is killed")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: devloop [flags] [-- app arguments]\n\nkeys: r rebuild and restart, q quit\n\n")

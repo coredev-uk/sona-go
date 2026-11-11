@@ -28,15 +28,6 @@ func controlsDisabled(e ui.Element, off bool) {
 	}
 }
 
-// controlsUndim is the colour that, painted at 50% over the ground, comes
-// out as want: for the one disabled thing that keeps full opacity in
-// v0.2.0 (the Play disc).
-func controlsUndim(want ui.Color) ui.Color {
-	g := theme.C("ground")
-	f := func(w, g uint8) uint8 { return uint8(min(max(2*int(w)-int(g), 0), 255)) }
-	return ui.RGB(f(want.R, g.R), f(want.G, g.G), f(want.B, g.B))
-}
-
 // controlsFilledSVG are the solid forms of a few Lucide glyphs (ISC, from the
 // icons the theme embeds with their fill turned on and their stroke off), for
 // what is "on": the play disc's triangle, a favourite star.

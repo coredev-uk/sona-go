@@ -33,6 +33,13 @@ type Platform struct {
 	// Inhibitor returns the sleep inhibitor held while music plays; why
 	// is the reason it shows, in the user's language when it is taken.
 	Inhibitor func(why func() string) SleepInhibitor
+	// KeepRunning returns the hold that keeps the app at full speed while
+	// music plays or loads with no window showing (macOS: App Nap would
+	// otherwise throttle the timers, preload and media keys the coordinator
+	// keeps). It is not the sleep inhibitor: the computer stays free to
+	// sleep, and no setting turns it off. Nil where the system does nothing
+	// of the kind, so nothing reports it.
+	KeepRunning func(why func() string) RunningKeeper
 	// Power opens the power source monitor (UPower on Linux).
 	Power func() (PowerMonitor, error)
 	// Autostart is the login item.
@@ -99,6 +106,14 @@ type SleepInhibitor interface {
 	// Backend names what holds the inhibitor ("" when none is held).
 	Backend() string
 	Close() error
+}
+
+// RunningKeeper keeps the app from being throttled while held (macOS App
+// Nap). Hold and Release are idempotent.
+type RunningKeeper interface {
+	Hold()
+	Release()
+	Close()
 }
 
 // PowerMonitor follows the computer's power source.

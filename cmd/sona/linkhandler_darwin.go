@@ -19,43 +19,58 @@ import (
 )
 
 // macLinks is the default app for Apple Music links on macOS
-// (app.LinkSchemes): Launch Services' choice, read with NSWorkspace's
-// URLForApplicationToOpenURL: and written with its
+// (app.LinkSchemes): Launch Services' choice, read with MyGo's
+// Shell.DefaultApp and written with NSWorkspace's
 // setDefaultApplicationAtURL:toOpenURLsWithScheme:completionHandler: (macOS
-// 12 and later). It is a services.LinkHandler.
+// 12 and later), which MyGo has no call for. It is a services.LinkHandler.
 //
 // Music.app owns music:// and itms:// until the user picks another app, so
 // declaring the schemes in Info.plist is not enough for Sona to get them, and
 // Sona can only choose itself while the running bundle declares them (a
 // release Sona.app does; the development bundle of devbundle.sh, which has no
 // URL types, and a source build don't, and report errors.ErrUnsupported).
-type macLinks struct{}
+type macLinks struct {
+	// defaultApp is the app that opens a URL; nil is mygo.Shell.DefaultApp.
+	defaultApp func(url string) (mygo.InstalledApp, error)
+}
 
 // Default reports whether Launch Services opens every scheme with this
 // bundle, else the display name of the app it opens the first other one with.
-func (macLinks) Default() (bool, string, error) {
+func (l macLinks) Default() (bool, string, error) {
 	var (
-		sona  = true
-		other string
-		err   error
+		self string
+		err  error
 	)
-	inPool(func() {
-		var self string
-		if self, err = ownBundle(); err != nil {
-			return
+	inPool(func() { self, err = ownBundle() })
+	if err != nil {
+		return false, "", err
+	}
+	lookup := l.defaultApp
+	if lookup == nil {
+		lookup = mygo.Shell.DefaultApp
+	}
+	sona, other := openedBy(self, lookup)
+	return sona, other, nil
+}
+
+// openedBy reports whether lookup finds the bundle self for every scheme of
+// app.LinkSchemes, else the name of the app it finds for the first scheme
+// that isn't self's ("" when no app handles it).
+func openedBy(self string, lookup func(url string) (mygo.InstalledApp, error)) (sona bool, other string) {
+	sona = true
+	for _, scheme := range app.LinkSchemes {
+		// No handler is an error: it is no app, so not Sona, and it has no
+		// name to give.
+		got, _ := lookup(scheme + "://music.apple.com/")
+		if got.ID == self {
+			continue
 		}
-		for _, scheme := range app.LinkSchemes {
-			id, name := handlerOf(scheme)
-			if id == self {
-				continue
-			}
-			if sona {
-				other = name
-			}
-			sona = false
+		if sona {
+			other = got.Name
 		}
-	})
-	return sona && err == nil, other, err
+		sona = false
+	}
+	return sona, other
 }
 
 // MakeDefault asks Launch Services to open every scheme with this bundle.
@@ -186,20 +201,6 @@ func count(array objc.ID) uint {
 		return 0
 	}
 	return objc.Send[uint](array, objc.RegisterName("count"))
-}
-
-// handlerOf is the bundle identifier and display name of the app Launch
-// Services opens scheme links with, "" for both when none does.
-func handlerOf(scheme string) (id, name string) {
-	url := send(class("NSURL"), "URLWithString:", nsString(scheme+"://music.apple.com/"))
-	appURL := send(send(class("NSWorkspace"), "sharedWorkspace"), "URLForApplicationToOpenURL:", url)
-	if appURL == 0 {
-		return "", ""
-	}
-	id = goString(send(send(class("NSBundle"), "bundleWithURL:", appURL), "bundleIdentifier"))
-	path := send(appURL, "path")
-	name = goString(send(send(class("NSFileManager"), "defaultManager"), "displayNameAtPath:", path))
-	return id, strings.TrimSuffix(name, ".app")
 }
 
 // setHandler starts making this bundle the handler of scheme; the system's

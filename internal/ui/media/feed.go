@@ -2,7 +2,6 @@ package media
 
 import (
 	"context"
-	"image"
 	"sync"
 
 	"github.com/coredev-uk/sona-go/internal/playback/video"
@@ -22,24 +21,27 @@ type FrameSource interface {
 
 var _ FrameSource = (*video.Surface)(nil)
 
-// Picture is a music video picture as an RGBA image, valid until the next
-// one is shown.
+// Picture is a music video picture as the CDM host's child decoded it:
+// Width×Height of I420 planes in Data (I420Len bytes at least), valid
+// and unchanged for as long as it is on show.
 type Picture struct {
-	Image *image.RGBA
+	Width, Height int
+	Data          []byte
 	// Seq is the surface's sequence number of the picture.
 	Seq uint64
 }
 
-// Feed turns the music video's pictures into RGBA images for a bitmap: one
-// goroutine takes each picture the source shows (the latest only, never a
-// backlog: a picture that was not drawn before the next arrived is dropped),
-// converts it off the main thread (I420ToRGBA) and hands it over through the
-// poster, which runs show on the main thread with the picture and clear when
-// the video ends. Pictures live in memory only.
+// Feed hands the music video's pictures to a bitmap: one goroutine takes each
+// picture the source shows (the latest only, never a backlog: a picture that
+// was not drawn before the next arrived is dropped), checks that its planes
+// are whole and hands it over through the poster, which runs show on the main
+// thread with the picture and clear when the video ends. The bitmap shows the
+// planes as they are (Picture.YUV): the GPU converts them, so no CPU does.
+// Pictures live in memory only.
 //
 // While Active reports false (the view is not drawn, the window is hidden)
-// pictures are taken but not converted, and the newest one is converted when
-// Refresh says drawing resumed.
+// pictures are taken but not handed over, and the newest one is when Refresh
+// says drawing resumed.
 type Feed struct {
 	src    FrameSource
 	post   func(func())
@@ -48,10 +50,8 @@ type Feed struct {
 	active func() bool
 
 	mu        sync.Mutex
-	floor     uint64      // pictures up to this Seq are of before the last Restart
-	pending   *Picture    // converted, not yet shown
-	shown     *image.RGBA // on screen
-	spare     *image.RGBA // a buffer to convert into
+	floor     uint64   // pictures up to this Seq are of before the last Restart
+	pending   *Picture // handed over, not yet shown
 	skipped   *video.Frame
 	scheduled bool
 	cancel    context.CancelFunc
@@ -111,11 +111,11 @@ func (f *Feed) Stop() {
 	<-done
 	// Nothing of the video stays: no picture waiting, none held for reuse.
 	f.mu.Lock()
-	f.pending, f.skipped, f.shown, f.spare = nil, nil, nil, nil
+	f.pending, f.skipped = nil, nil
 	f.mu.Unlock()
 }
 
-// Refresh converts and shows the newest picture the feed skipped while it was
+// Refresh shows the newest picture the feed skipped while it was
 // not drawn (a paused video has no next picture to wait for). Call it as the
 // view is drawn again.
 func (f *Feed) Refresh() {
@@ -125,7 +125,7 @@ func (f *Feed) Refresh() {
 	running := f.cancel != nil
 	f.mu.Unlock()
 	if fr != nil && running {
-		go f.publish(*fr) // off the main thread: the conversion is the cost
+		f.publish(*fr)
 	}
 }
 
@@ -141,7 +141,7 @@ func (f *Feed) run(ctx context.Context, done chan<- struct{}, after uint64) {
 			// sequence the surface named.
 			after = fr.Seq
 			f.mu.Lock()
-			f.pending, f.skipped, f.shown, f.spare = nil, nil, nil, nil
+			f.pending, f.skipped = nil, nil
 			f.mu.Unlock()
 			f.post(f.clear)
 			continue
@@ -157,36 +157,24 @@ func (f *Feed) run(ctx context.Context, done chan<- struct{}, after uint64) {
 	}
 }
 
-// publish converts fr and makes it the picture to show next.
+// publish makes fr the picture to show next, unless it is malformed (the one
+// before stays), of before a restart, or older than the one waiting.
 func (f *Feed) publish(fr video.Frame) {
-	f.mu.Lock()
-	if f.cancel == nil {
-		f.mu.Unlock()
-		return // stopped
+	if !validI420(fr.Width, fr.Height, fr.Data) {
+		return
 	}
-	dst := f.spare
-	f.spare = nil
+	f.mu.Lock()
+	if f.cancel == nil || fr.Seq <= f.floor { // stopped, or of before a restart
+		f.mu.Unlock()
+		return
+	}
 	f.skipped = nil
-	f.mu.Unlock()
-	img := I420ToRGBA(dst, fr.Width, fr.Height, fr.Data)
-	if img == nil {
-		return // a malformed picture: the one before stays
-	}
-	f.mu.Lock()
-	if f.cancel == nil || fr.Seq <= f.floor { // stopped while it converted, or of before a restart
-		f.mu.Unlock()
-		return
-	}
 	if f.pending != nil && f.pending.Seq > fr.Seq {
-		// A newer picture was published while this one converted.
-		f.spare = img
+		// A newer picture was published meanwhile (Refresh and the loop race).
 		f.mu.Unlock()
 		return
 	}
-	if f.pending != nil {
-		f.spare = f.pending.Image // dropped before it was shown
-	}
-	f.pending = &Picture{Image: img, Seq: fr.Seq}
+	f.pending = &Picture{Width: fr.Width, Height: fr.Height, Data: fr.Data, Seq: fr.Seq}
 	schedule := !f.scheduled
 	f.scheduled = true
 	f.mu.Unlock()
@@ -206,12 +194,4 @@ func (f *Feed) apply() {
 		return
 	}
 	f.show(*p)
-	// The bitmap holds the new image now, so the previous one is free.
-	f.mu.Lock()
-	prev := f.shown
-	f.shown = p.Image
-	if prev != nil && f.spare == nil {
-		f.spare = prev
-	}
-	f.mu.Unlock()
 }

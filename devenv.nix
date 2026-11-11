@@ -111,17 +111,22 @@ in
   scripts = {
     # The development loop (cmd/devloop): rebuilds the app with the dev tag
     # on every save, restarts it where it was, reloads tokens and catalogues
-    # without a rebuild. `r` rebuilds, `q` quits.
+    # without a rebuild. `r` rebuilds, `q` quits. A first argument
+    # `-background` is devloop's: restarts don't take the focus.
     dev.exec = ''
       set -e
       go build -o bin/devloop ./cmd/devloop
-      exec bin/devloop -- "$@"
+      flags=()
+      if [ "''${1:-}" = "-background" ]; then flags=(-background); shift; fi
+      exec bin/devloop "''${flags[@]}" -- "$@"
     '';
     # Every kit component in light and dark, under the same loop.
     gallery.exec = ''
       set -e
       go build -o bin/devloop ./cmd/devloop
-      exec bin/devloop -target ./cmd/uigallery -- "$@"
+      flags=()
+      if [ "''${1:-}" = "-background" ]; then flags=(-background); shift; fi
+      exec bin/devloop -target ./cmd/uigallery "''${flags[@]}" -- "$@"
     '';
     # Production: no inspector (mygo_noinspector) and MyGo's production mode.
     build.exec = ''go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona "$@"'';
