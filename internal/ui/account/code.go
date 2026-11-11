@@ -156,10 +156,9 @@ func (s *Section) codeForm(c *ui.Context, f *flow) {
 		}
 		if step.Notice != "" && step.Error == nil {
 			n := text(c.Key("notice"), step.Notice, "secondary", "ink").Role(ui.RoleStatus)
-			if last := ui.Local(n, "announced", func() string { return "" }); *last != step.Notice {
-				*last = step.Notice
-				c.Announce(step.Notice)
-			}
+			// A status is read when its text changes, not when it first
+			// appears: the notice turning up is announced here.
+			kit.AnnounceMounted(c, n, step.Notice)
 		}
 		field(c.Key("code-field"), i18n.T("Code"), i18n.T("{len, plural, one {# digit} other {# digits}}", "len", n), func() {
 			t := theme.Current().Type["heading"]

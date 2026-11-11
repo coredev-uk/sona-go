@@ -79,19 +79,18 @@ func (u *updates) notice(c *ui.Context) {
 		msg = i18n.T("Couldn't install Sona {latest}", "latest", st.Latest)
 	}
 	meta := theme.Current().Type["meta"]
-	col := ui.Column(c.Key("update-notice")).FillWidth().Gap(6).PaddingX(10).Margin(0, 0, 8, 0).Role(ui.RoleStatus).Label(msg)
-	// role="status" is a live region on the web: the notice is read as it
-	// appears. MyGo's status is not, so it is announced.
-	if told := ui.Local(col, "told", func() string { return "" }); *told != msg {
-		*told = msg
-		c.Announce(msg)
-	}
+	col := ui.Column(c.Key("update-notice")).FillWidth().Gap(6).PaddingX(10).Margin(0, 0, 8, 0)
 	col.Children(func() {
 		ui.Row(c.Key("line")).FillWidth().Gap(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).MinWidth(0).Shrink(1).Children(func() {
 				ui.Icon(c, theme.Icon("circle-arrow-up")).FontSize(12).TextColor(theme.C("ink")).Shrink(0)
-				ui.Text(c, msg).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).
-					TextColor(theme.C("ink")).SingleLine().MinWidth(0).Shrink(1)
+				// The status is the words, not the notice: its button's label
+				// is not news. A status is read when its text changes and not
+				// when it first appears, so the notice turning up is announced
+				// here and what changes it afterwards is its own to read.
+				said := ui.Text(c.Key("said"), msg).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).
+					TextColor(theme.C("ink")).SingleLine().MinWidth(0).Shrink(1).Role(ui.RoleStatus)
+				kit.AnnounceMounted(c, said, msg)
 			})
 			if st.Installing || st.Installed {
 				return

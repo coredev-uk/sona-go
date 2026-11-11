@@ -304,10 +304,7 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 			msg := i18n.T("Loading the lyrics…")
 			wait := ui.Text(c, msg).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).
 				TextColor(theme.C("ink-muted")).Margin(8, 0, 0, 0).Role(ui.RoleStatus)
-			if announced := ui.Local(wait, "announced", func() bool { return false }); !*announced {
-				*announced = true
-				c.Announce(msg)
-			}
+			kit.AnnounceMounted(c, wait, msg)
 		}
 		if w := strings.Join(full.Data.Songwriters, ", "); full.HasData && w != "" {
 			ui.Text(c, i18n.T("Written by {songwriters}", "songwriters", w)).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).

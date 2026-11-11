@@ -246,8 +246,8 @@ func TestA11yAgendaRovesBetweenALinkAndItsTickets(t *testing.T) {
 	if _, ok := tr.Find(ui.RoleMenuItem, "First Seller"); !ok {
 		t.Errorf("the menu lacks First Seller:\n%s", tr.Dump())
 	}
-	if n, ok := tr.Find(ui.RoleMenuButton, "Get tickets for Sample Singer"); !ok || !n.Has(access.Expanded) {
-		t.Errorf("the open menu's button does not say it is expanded:\n%s", tr.Dump())
+	if n, ok := tr.Find(ui.RoleMenuButton, "Get tickets for Sample Singer"); !ok || !n.Has(access.Expanded) || n.HasPopup != ui.PopupMenu {
+		t.Errorf("the open menu's button does not say it is expanded and opens a menu:\n%s", tr.Dump())
 	}
 	r.tt.Key(0, ui.KeyEscape)
 	r.tt.Drain()

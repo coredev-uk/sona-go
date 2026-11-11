@@ -34,11 +34,9 @@ const (
 	shortcutRowFull = 45  // a row and its line, likewise
 )
 
-// shortcutsState is the section's own state: the filter and the line under
-// the groups that was last announced.
+// shortcutsState is the section's own state: the filter.
 type shortcutsState struct {
 	filter string
-	told   string
 }
 
 // recorder is one row's own state (ShortcutRow's useState): whether its
@@ -101,7 +99,7 @@ func (s *settings) shortcutsSection(c *ui.Context) {
 	ui.Column(c.Key("shortcuts")).FillWidth().Gap(24).Children(func() {
 		s.shortcutTools(c, ss, len(v.overrides) == 0)
 		s.shortcutColumns(c, groupShortcuts(shown), v)
-		s.shortcutStatus(c, ss, len(shown) == 0, query)
+		s.shortcutStatus(c, len(shown) == 0, query)
 	})
 }
 
@@ -550,10 +548,7 @@ func (s *settings) shortcutChoice(c *ui.Context, sh module.Shortcut, rec *record
 	box := ui.Row(c.Key("choice")).FillWidth().Margin(8, 0, 0, 0).Padding(8, 12).Gap(16).AlignItems(ui.Center).
 		Justify(ui.SpaceBetween).Radius(theme.Current().Radius["md"]).Background(theme.C("hover")).
 		Role(ui.RoleStatus).Label(spoken)
-	if told := ui.Local(box, "told", func() bool { return false }); !*told {
-		*told = true
-		c.Announce(spoken)
-	}
+	kit.AnnounceMounted(c, box, spoken)
 	if box.Shortcut(0, ui.KeyEscape) {
 		settle(false)
 	}
@@ -578,19 +573,16 @@ func (s *settings) shortcutChoice(c *ui.Context, sh module.Shortcut, rec *record
 }
 
 // shortcutStatus is the line under the groups when the filter finds
-// nothing, announced as it comes.
-func (s *settings) shortcutStatus(c *ui.Context, ss *shortcutsState, none bool, query string) {
+// nothing: a status, read as it changes (the section opening on a filter
+// that finds nothing says it as it builds).
+func (s *settings) shortcutStatus(c *ui.Context, none bool, query string) {
 	msg := ""
 	if none {
 		msg = i18n.T("No shortcut matches “{query}”.", "query", query)
 	}
-	if msg != ss.told {
-		ss.told = msg
-		if msg != "" {
-			c.Announce(msg)
-		}
-	}
-	ui.Column(c.Key("status")).FillWidth().AlignItems(ui.Center).Role(ui.RoleStatus).Children(func() {
+	col := ui.Column(c.Key("status")).FillWidth().AlignItems(ui.Center).Role(ui.RoleStatus)
+	kit.AnnounceMounted(c, col, msg)
+	col.Children(func() {
 		if msg != "" {
 			text(c, msg, "secondary").TextColor(theme.C("ink-muted")).Padding(24, 0)
 		}

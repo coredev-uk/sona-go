@@ -387,8 +387,8 @@ func TestSleepTimerIsAMenuButtonThatKeepsTheFocusAcrossTheMenu(t *testing.T) {
 	r.tt.Frame()
 	r.tt.Frame()
 	tr := access.Read(t, r.tt.Tester)
-	if !mustFind(t, tr, ui.RoleMenuButton, "Sleep timer").Has(access.Expanded) {
-		t.Errorf("the open sleep menu does not show on its button:\n%s", tr.Dump())
+	if n := mustFind(t, tr, ui.RoleMenuButton, "Sleep timer"); !n.Has(access.Expanded) || n.HasPopup != ui.PopupMenu {
+		t.Errorf("the open sleep menu does not show on its button, a menu button:\n%s", tr.Dump())
 	}
 	if _, ok := tr.Find(ui.RoleMenuItemRadio, "In 15 minutes"); !ok {
 		t.Errorf("the menu's choices are not radio items:\n%s", tr.Dump())
@@ -630,7 +630,7 @@ func TestRowActionsAreTheSameOnTheTreeWhileTheRowIsHot(t *testing.T) {
 	r.tt.Frame()
 	r.tt.Frame()
 	tr := access.Read(t, r.tt.Tester)
-	if !mustFind(t, tr, ui.RoleMenuButton, "More for Song 3").Has(access.Expanded) {
+	if n := mustFind(t, tr, ui.RoleMenuButton, "More for Song 3"); !n.Has(access.Expanded) || n.HasPopup != ui.PopupMenu {
 		t.Errorf("the open menu does not show on its button:\n%s", tr.Dump())
 	}
 	if len(tr.Labelled(ui.RoleMenuItem, "Play next")) == 0 {

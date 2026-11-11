@@ -354,9 +354,11 @@ func TestStatusNoticesThatAppearAreAnnounced(t *testing.T) {
 }
 
 // TestCodeStepNoticeIsAnnounced is the code step's role=status line (the
-// code was sent again, say).
+// code was sent again, say), said once as it appears: a status is not read
+// as it first appears, and with a screen reader on MyGo reads a change of it.
 func TestCodeStepNoticeIsAnnounced(t *testing.T) {
 	r := newRig(t, services.AuthStatus{State: "signing_in", SecondFactor: deviceFactor})
+	r.tt.UseScreenReader()
 	r.tt.Announcements()
 	r.click("Send a new code")
 	r.waitCalls("resend", 1)
@@ -370,7 +372,9 @@ func TestCodeStepNoticeIsAnnounced(t *testing.T) {
 		}
 		return notice != ""
 	})
-	if got := r.tt.Announcements(); !slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, notice) }) {
-		t.Errorf("%q was not announced: %q", notice, got)
+	r.tt.Drain()
+	got := r.tt.Announcements()
+	if n := len(slices.DeleteFunc(slices.Clone(got), func(s string) bool { return !strings.Contains(s, notice) })); n != 1 {
+		t.Errorf("%q was announced %d times, want once: %q", notice, n, got)
 	}
 }

@@ -179,7 +179,7 @@ func TestA11yShortcutRecordersAndResetAll(t *testing.T) {
 }
 
 // What the page says that nobody is looking at: the diagnostics verdict
-// (aria-live polite) is announced when it changes, and an unencrypted
+// is a status, which MyGo v0.9.0 reads when it changes (once), and an unencrypted
 // sign-in warning, an alert, is read by MyGo when it appears and not
 // announced as well.
 func TestA11yAnnouncements(t *testing.T) {
@@ -187,11 +187,13 @@ func TestA11yAnnouncements(t *testing.T) {
 		gate := make(chan struct{})
 		g := newDiagRig(t, linuxCaps(), engineReport(), func(g *diagRig) { g.sys.gate = gate })
 		g.tt.Until("checking", g.tt.Shows("Checking the playback host, database and keyring…"))
+		g.tt.UseScreenReader()
 		g.tt.Announcements()
 		close(gate)
 		g.tt.Until("verdict", g.tt.Shows("Everything Sona needs is working"))
-		if ann := g.tt.Announcements(); !slices.Contains(ann, "Everything Sona needs is working") {
-			t.Errorf("announcements %q", ann)
+		g.tt.Drain()
+		if ann := g.tt.Announcements(); !slices.Equal(ann, []string{"Everything Sona needs is working"}) {
+			t.Errorf("announcements %q, want the verdict once", ann)
 		}
 	})
 	t.Run("unencrypted sign-ins", func(t *testing.T) {

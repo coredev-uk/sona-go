@@ -35,13 +35,15 @@ func TestTheSungLyricLineIsTheCurrentItem(t *testing.T) {
 }
 
 // A nudge is said when it changes, whoever has the focus, and not when the
-// song's readout is first shown.
+// song's readout is first shown. With a screen reader on it is said once:
+// the readout is a button, not a status MyGo v0.9.0 would read as well.
 func TestTheLyricsTimingOffsetIsAnnouncedWhenItChanges(t *testing.T) {
 	r := newNPRig(t)
 	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(10, false)}, nil)
 	r.play(2000)
 	r.open("")
 	r.tt.Until("tools", r.tt.Shows("Lyrics on time"))
+	r.tt.UseScreenReader()
 	r.tt.Announcements()
 	r.tt.Frame()
 	if got := r.tt.Announcements(); len(got) != 0 {

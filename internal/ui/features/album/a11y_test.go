@@ -141,8 +141,8 @@ func TestA11yHeaderMenuEscapeReturnsTheFocus(t *testing.T) {
 	r.shows("More for Salt Flats")
 	r.click("More for Salt Flats")
 	r.tt.Until("the menu", r.tt.Shows("Do a thing"))
-	if n, ok := access.Read(t, r.tt.Tester).Find(ui.RoleMenuButton, "More for Salt Flats"); !ok || !n.Has(access.Expanded) {
-		t.Errorf("the open menu's button is not expanded: %+v", n)
+	if n, ok := access.Read(t, r.tt.Tester).Find(ui.RoleMenuButton, "More for Salt Flats"); !ok || !n.Has(access.Expanded) || n.HasPopup != ui.PopupMenu {
+		t.Errorf("the open menu's button is not expanded and a menu button: %+v", n)
 	}
 	r.tt.Key(0, ui.KeyEscape)
 	r.tt.Advance(300 * time.Millisecond)

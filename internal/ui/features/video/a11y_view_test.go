@@ -113,9 +113,13 @@ func TestFadedControlsStayOnTheTreeAndFocusBringsThemBack(t *testing.T) {
 	}
 }
 
+// With a screen reader on, MyGo v0.9.0 reads the status when its text
+// changes, and not when it first appears: the view announces only the
+// status it opens with, so every reading is once.
 func TestViewTellsScreenReadersLoadingBufferingAndFailureOnce(t *testing.T) {
 	r := viewRig(t)
 	r.play(store.StateLoading)
+	r.tt.UseScreenReader()
 	r.tt.Announcements()
 	r.env.Video.Open()
 	r.tt.Frame()

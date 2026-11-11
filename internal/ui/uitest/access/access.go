@@ -630,37 +630,6 @@ func NoNestedControls(t testing.TB, tt *ui.Tester) {
 	}
 }
 
-// clickRoles are the controls Click looks for by name when the Tester's own
-// click refuses the element it found first.
-var clickRoles = []ui.Role{
-	ui.RoleLink, ui.RoleButton, ui.RoleOption, ui.RoleMenuItem, ui.RoleMenuItemRadio, ui.RoleMenuItemCheckBox,
-	ui.RoleTab, ui.RoleCheckBox, ui.RoleRadio, ui.RoleSwitch, ui.RoleToggleButton, ui.RolePopUpButton, ui.RoleMenuButton,
-}
-
-// Click clicks the control named name, as tt.Click does. MyGo v0.8.1's
-// Tester.Click takes the first element showing name, and refuses it as
-// not the input target when that element is not itself the control but
-// holds it, under an ancestor that handles input (a scrolling page): an
-// inline link in a text (the text is found before its link), or a button
-// in a list item labelled as it is. Click then clicks the middle of the
-// control of that name assistive technology sees, as a user would. The
-// refusals it does not retry (hidden, outside the window, under a scroll
-// bar or a web view) stand; a control another element covers gets the
-// click on that element, and the test fails on what it expected.
-func Click(tt *ui.Tester, name string) error {
-	err := tt.Click(name)
-	if err == nil || !strings.Contains(err.Error(), "is not the input target") {
-		return err
-	}
-	for _, r := range clickRoles {
-		if n, ok := tt.AccessByRole(r, name); ok && n.Bounds.W > 0 && n.Bounds.H > 0 {
-			tt.ClickAt(n.Bounds.X+n.Bounds.W/2, n.Bounds.Y+n.Bounds.H/2)
-			return nil
-		}
-	}
-	return err
-}
-
 // where describes the element with the keyboard focus by the elements it is
 // inside, for the failure message of a stop that is not on the tree.
 func where(tt *ui.Tester) string {

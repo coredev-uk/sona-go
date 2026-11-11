@@ -196,7 +196,7 @@ func (p *playlists) moreMenu(c *ui.Context, key, label string, hot bool, items f
 	m := p.side.menu(key)
 	ui.Box(c.Key("more:" + key)).Absolute().Top(4).Right(4).Children(func() {
 		btn := kit.Button(c.Key("btn"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Icon: "ellipsis", A11yLabel: label})
-		btn.Role(ui.RoleMenuButton).Expanded(m.IsOpen())
+		btn.Role(ui.RoleMenuButton).HasPopup(ui.PopupMenu).Expanded(m.IsOpen())
 		if !hot && !m.IsOpen() && !btn.FocusWithin() {
 			btn.Opacity(0)
 		}
@@ -485,7 +485,7 @@ func (p *playlists) newMenu(c *ui.Context) func() {
 		m := p.side.menu("new")
 		label := i18n.T("New playlist or folder")
 		btn := kit.Button(c.Key("new"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Icon: "plus", A11yLabel: label})
-		btn.Role(ui.RoleMenuButton).Expanded(m.IsOpen())
+		btn.Role(ui.RoleMenuButton).HasPopup(ui.PopupMenu).Expanded(m.IsOpen())
 		if btn.Clicked() {
 			if m.IsOpen() {
 				m.Close()

@@ -283,10 +283,10 @@ func (a *ActionMenus) Trigger(c *ui.Context, t ActionTarget, o TriggerOpts) ui.E
 	if o.Header {
 		btn = Button(c.Key(id), "", ButtonOpts{Variant: Outline, Size: SizeSM, Icon: "ellipsis", A11yLabel: label})
 		clicked, keyboard = btn.Clicked(), btn.FocusVisible()
-		btn.Role(ui.RoleMenuButton).Expanded(mine)
+		btn.Role(ui.RoleMenuButton).HasPopup(ui.PopupMenu).Expanded(mine)
 	} else {
 		btn = ui.Row(c.Key(id)).Size(24, 24).Shrink(0).Center().Radius(theme.Current().Radius["md"]).Role(ui.RoleMenuButton).
-			Label(label).Cursor(ui.CursorPointer).Expanded(mine)
+			Label(label).Cursor(ui.CursorPointer).HasPopup(ui.PopupMenu).Expanded(mine)
 		fg := theme.C("ink-muted")
 		if btn.Hovered() || mine {
 			fg = theme.C("ink")

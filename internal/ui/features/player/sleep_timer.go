@@ -91,7 +91,7 @@ func (p *player) sleepButton(c *ui.Context) {
 		Variant: kit.Ghost, Size: kit.SizeSM, Icon: "moon", Filled: sleep != nil, Muted: sleep == nil,
 		Disabled: s.Current == nil && sleep == nil, A11yLabel: status, Tip: status,
 	})
-	btn.Role(ui.RoleMenuButton).Expanded(p.sleep.menu.IsOpen()) // it opens a menu
+	btn.Role(ui.RoleMenuButton).HasPopup(ui.PopupMenu).Expanded(p.sleep.menu.IsOpen()) // it opens a menu
 	if btn.Clicked() {
 		p.sleep.menu.OpenFrom(btn.FocusVisible())
 	}

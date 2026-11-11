@@ -53,7 +53,7 @@ func TestOrcaWalk(t *testing.T) {
 	sp = o.press(top, "Tab")
 	o.want(top, "Tab", sp, "search", "Search", "editable combo box")
 	sp = o.press(top, "Tab")
-	o.want(top, "Tab", sp, "Account", "button", "Not signed in")
+	o.want(top, "Tab", sp, "Account", "button", "Not signed in", "opens popup")
 	o.wantOnce(top, "Tab", sp, "Account")
 
 	// The account menu opens on its first item and gives the focus back to

@@ -158,7 +158,7 @@ func (s *settings) lastFMWaiting(c *ui.Context, cancel func()) {
 	msg := i18n.T("Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself.")
 	row := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(12, 16).Radius(theme.Current().Radius["md"]).
 		Background(theme.C("hover")).Role(ui.RoleStatus).Label(msg)
-	announceOnce(c, row, msg)
+	kit.AnnounceMounted(c, row, msg)
 	row.
 		Children(func() {
 			ic := ui.Icon(c.Key("spin"), theme.Icon("loader-circle")).FontSize(16).TextColor(theme.C("ink-muted")).Shrink(0)
@@ -227,15 +227,6 @@ func (s *settings) tokenHint(c *ui.Context) {
 		}
 		text(c.Key("b"), after, "meta").TextColor(theme.C("ink-muted"))
 	})
-}
-
-// announceOnce announces msg when e first appears: a status MyGo does not
-// read by itself, which is news but not an alert.
-func announceOnce(c *ui.Context, e ui.Element, msg string) {
-	if told := ui.Local(e, "told", func() bool { return false }); !*told {
-		*told = true
-		c.Announce(msg)
-	}
 }
 
 // alertLine is a sentence with a danger icon, an alert read as it appears.

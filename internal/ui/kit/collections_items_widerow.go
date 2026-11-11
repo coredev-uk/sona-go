@@ -122,8 +122,10 @@ func (st *WideRowState) header(c *ui.Context, label string, at, pages int) {
 		if pages <= 1 {
 			return
 		}
-		ui.Row(c).Shrink(0).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, i18n.T("{current} of {pages}", "current", at+1, "pages", pages)).
+		ui.Row(c.Key("pager")).Shrink(0).Gap(4).AlignItems(ui.Center).Children(func() {
+			// A status, read as the page turns ("2 of 3"), once; keyed as
+			// a status is told from the last frame's by its ID.
+			ui.Text(c.Key("page"), i18n.T("{current} of {pages}", "current", at+1, "pages", pages)).
 				FontSize(meta.Size).FixedLineHeight(meta.LineHeight).TextColor(theme.C("ink-faint")).
 				FontFeatures("tnum").SingleLine().Margin(0, 4, 0, 0).Role(ui.RoleStatus)
 			prev := Button(c.Key("prev"), "", ButtonOpts{

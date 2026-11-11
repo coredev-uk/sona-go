@@ -156,7 +156,7 @@ func (l *locationDialog) place(c *ui.Context, d *data, p services.ConcertPlace, 
 		row.Background(theme.C("hover"))
 	}
 	if l.wanting && l.want == i {
-		row.Focus().ScrollIntoView()
+		row.Focus() // MyGo scrolls it into view as the focus moves to it
 		l.wanting = false
 	}
 	if row.Focused() {

@@ -90,7 +90,7 @@ func (r *roving) stop(s ui.Element, row int) {
 	r.next[row]++
 	at := position{row, col}
 	if r.wanting && r.want == at {
-		s.Focus().ScrollIntoView()
+		s.Focus() // MyGo scrolls it into view as the focus moves to it
 		r.wanting = false
 	}
 	if s.Focused() {
