@@ -356,7 +356,6 @@ func run(started time.Time) error {
 	plat.Serve(core.Activate, core.Commands())
 	openURLs(core.Activate)
 
-	setApplicationID(log)
 	mygo.App.SetName("Sona")
 	mygo.App.SetVersion(version)
 	// A first start (no account, setup neither finished nor skipped) opens
@@ -369,6 +368,11 @@ func run(started time.Time) error {
 	}
 	var ui *uiapp.App
 	mygo.App.WhenReady(func() {
+		// After MyGo's own Init, which names the program after the
+		// executable: the app id and WM_CLASS GTK reports and the name on
+		// the accessibility bus must stay the application id, and the
+		// first window takes its class from the program name.
+		setApplicationID(log)
 		// --hidden (the XDG autostart entry's) or, on macOS, the login item
 		// the user asked to start in the tray (login_darwin.go).
 		hidden := act.Hidden() || loginStartsHidden(cur.Desktop)

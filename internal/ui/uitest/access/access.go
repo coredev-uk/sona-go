@@ -377,6 +377,8 @@ func roleName(r ui.Role) string {
 		ui.RoleSeparator: "separator", ui.RoleRowHeader: "rowheader", ui.RoleSearch: "search", ui.RoleArticle: "article",
 		ui.RoleNavigation: "navigation", ui.RoleGrid: "grid", ui.RoleTreeGrid: "treegrid", ui.RoleListBox: "listbox",
 		ui.RoleOption: "option", ui.RoleDeletion: "deletion", ui.RoleInsertion: "insertion",
+		ui.RoleTabPanel: "tabpanel", ui.RoleMain: "main", ui.RoleBanner: "banner", ui.RoleContentInfo: "contentinfo",
+		ui.RoleComplementary: "complementary",
 	}
 	if n, ok := names[r]; ok {
 		return n
@@ -544,7 +546,8 @@ func (e element) leafOf() (ui.Role, bool) {
 		ui.RoleRow, ui.RoleCell, ui.RoleColumnHeader, ui.RoleRowHeader, ui.RoleTree, ui.RoleListItem, ui.RoleToolbar,
 		ui.RoleRadioGroup, ui.RoleMenu, ui.RoleMenuBar, ui.RoleAlertDialog, ui.RoleHeading, ui.RoleNavigation,
 		ui.RoleRegion, ui.RoleLog, ui.RoleTimer, ui.RoleAlert, ui.RoleSearch, ui.RoleArticle, ui.RoleGrid,
-		ui.RoleTreeGrid, ui.RoleListBox, ui.RoleOption, ui.RoleDeletion, ui.RoleInsertion:
+		ui.RoleTreeGrid, ui.RoleListBox, ui.RoleOption, ui.RoleDeletion, ui.RoleInsertion, ui.RoleTabPanel, ui.RoleMain,
+		ui.RoleBanner, ui.RoleContentInfo, ui.RoleComplementary:
 		return role, false
 	}
 	return role, true

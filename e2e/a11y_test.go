@@ -3,6 +3,9 @@
 package e2e
 
 import (
+	"encoding/json"
+	"os"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -14,6 +17,59 @@ import (
 // appName is the application name on the accessibility bus: the app ID
 // (GLib's program name, cmd/sona/appid_linux.go).
 const appName = "dev.coredev.Sona"
+
+// TestApplicationID: the window is the application's by its id wherever a
+// desktop reads it from: the Wayland app_id the compositor matches the
+// desktop file by (dev.coredev.Sona.desktop), and the name AT-SPI gives the
+// application, which Orca's per-app scripts and settings key on. MyGo names
+// a program after its executable (sona, here sona-e2e): the app sets its
+// id after that (cmd/sona/appid_linux.go).
+func TestApplicationID(t *testing.T) {
+	if os.Getenv("SWAYSOCK") == "" {
+		t.Skip("no sway session: run through `headless -- go test -tags e2e ./e2e/...`")
+	}
+	a := startApp(t)
+	if _, err := a.client.Wait(startTimeout, "the Albums page", func(tr *automation.Tree) bool { return tr.HasText("24 albums") }); err != nil {
+		t.Fatal(err)
+	}
+	// sway's tree has each window with its app_id and the pid of its client.
+	out, err := exec.Command("swaymsg", "-t", "get_tree").Output()
+	if err != nil {
+		t.Fatalf("swaymsg: %v", err)
+	}
+	type node struct {
+		PID           int    `json:"pid"`
+		AppID         string `json:"app_id"`
+		Nodes         []node `json:"nodes"`
+		FloatingNodes []node `json:"floating_nodes"`
+	}
+	var root node
+	if err := json.Unmarshal(out, &root); err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	var walk func(n node)
+	walk = func(n node) {
+		if n.PID == a.cmd.Process.Pid {
+			ids = append(ids, n.AppID)
+		}
+		for _, c := range append(n.Nodes, n.FloatingNodes...) {
+			walk(c)
+		}
+	}
+	walk(root)
+	if len(ids) != 1 || ids[0] != appName {
+		t.Errorf("the app's windows have app_id %q, want one of %q", ids, appName)
+	}
+	bus, err := atspi.Connect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = bus.Close() }()
+	if _, err := bus.App(appName, 1, 15*time.Second); err != nil {
+		t.Error(err)
+	}
+}
 
 // TestAccessibility reads the shell's landmarks the way a screen reader
 // does, from the AT-SPI bus: the application and its window, the sidebar's
