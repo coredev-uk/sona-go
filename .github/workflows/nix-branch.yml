@@ -1,0 +1,209 @@
+# Keeps the flake's `nix` branch on the latest published builds, with no pull request to merge.
+# The branch is main plus build/linux/nix/pins.json (flake.nix): `release` is the latest release,
+# the flake's `sona`, and `nightly` the newest published build, the nightly rc of main or the
+# release when that is newer, `sona-nightly`. Flake users follow `github:coredev-uk/sona-go/nix`,
+# so updating their flake input is the whole update.
+#
+# It runs on every published release and prerelease, every night (to merge main when nothing was
+# published), and on dispatch. Each run checks both builds' Arch packages against their
+# SHA256SUMS and build provenance, merges main into the branch, writes the pins, builds the
+# flake's `sona` and `sona-nightly` with them, and pushes one commit when anything changed.
+# The branch is never force-pushed, so every commit a flake.lock names stays on it. main's
+# ruleset covers main only; nothing else may push to `nix`.
+#
+# Two jobs, as nix-vendor-hash.yml, so repository code never runs next to a secret:
+#   check  verifies the packages, merges and builds the flake with a read-only token and no
+#          secrets, and hands over the pins, the two commits it merged and the tree it built;
+#   push   has bot-cecil's token and runs no repository code: it makes the same merge with git,
+#          writes only versions and hashes of the expected shapes, and pushes only if the
+#          result is the tree the check built.
+#
+# Maintainer setup: the repository secrets RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY
+# (bot-cecil's, as release-please.yml uses), with Contents and Workflows write (merging main
+# brings its workflow changes onto the branch, which GitHub refuses an App without Workflows).
+name: Nix branch
+
+on:
+  release:
+    types: [published]
+  schedule:
+    - cron: "47 5 * * *" # after the nightly rc (release.yml, 03:17 UTC) has published
+  workflow_dispatch:
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: nix-branch
+  cancel-in-progress: false
+
+env:
+  BRANCH: nix
+
+jobs:
+  check:
+    name: Check the builds and the branch
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      attestations: read # gh attestation verify
+    outputs:
+      release-version: ${{ steps.pins.outputs.release-version }}
+      release-hash: ${{ steps.pins.outputs.release-hash }}
+      nightly-version: ${{ steps.pins.outputs.nightly-version }}
+      nightly-hash: ${{ steps.pins.outputs.nightly-hash }}
+      base: ${{ steps.tree.outputs.base }}
+      main: ${{ steps.tree.outputs.main }}
+      tree: ${{ steps.tree.outputs.tree }}
+      changed: ${{ steps.tree.outputs.changed }}
+    steps:
+      # The latest release is the API's (never a prerelease or draft). Releases and rcs are
+      # published in version order (release.yml refuses an rc older than a release), so the
+      # newest published build is the most recently published one.
+      - name: Find and check the published builds
+        id: pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          pin() {
+            local name=$1 tag=$2
+            [[ $tag =~ ^v([0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?)$ ]] || {
+              echo "::error::$name: $tag is not a release or rc tag"
+              exit 1
+            }
+            local version=${BASH_REMATCH[1]}
+            local file="sona-$version-1-x86_64.pkg.tar.zst" dir="$RUNNER_TEMP/$tag" sum
+            gh release download "$tag" --repo "$REPO" --pattern "$file" --pattern SHA256SUMS --dir "$dir" --clobber
+            (cd "$dir" && grep -E "^[0-9a-f]{64}  $file\$" SHA256SUMS | sha256sum --check --strict)
+            gh attestation verify "$dir/$file" --repo "$REPO"
+            sum=$(openssl dgst -sha256 -binary "$dir/$file" | base64 -w0)
+            echo "$name-version=$version" >>"$GITHUB_OUTPUT"
+            echo "$name-hash=sha256-$sum" >>"$GITHUB_OUTPUT"
+            echo "- $name: $tag" >>"$GITHUB_STEP_SUMMARY"
+          }
+          pin release "$(gh api "repos/$REPO/releases/latest" --jq .tag_name)"
+          pin nightly "$(gh api "repos/$REPO/releases?per_page=30" --jq '[.[] | select(.draft | not)] | max_by(.published_at) | .tag_name')"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0 # main's history and the branch, to merge
+          persist-credentials: false
+
+      - name: Merge main into the branch and write the pins
+        id: tree
+        env:
+          RELEASE_VERSION: ${{ steps.pins.outputs.release-version }}
+          RELEASE_HASH: ${{ steps.pins.outputs.release-hash }}
+          NIGHTLY_VERSION: ${{ steps.pins.outputs.nightly-version }}
+          NIGHTLY_HASH: ${{ steps.pins.outputs.nightly-hash }}
+        run: |
+          # git merge wants an identity even when it does not commit; this job never commits.
+          git config user.name "bot-cecil[bot]"
+          git config user.email "bot-cecil[bot]@users.noreply.github.com"
+          main=$(git rev-parse HEAD)
+          if base=$(git rev-parse --verify -q "refs/remotes/origin/$BRANCH"); then
+            git switch -q -c "$BRANCH" "$base"
+            git merge -q --no-ff --no-commit "$main" || {
+              echo "::error::main does not merge into $BRANCH cleanly"
+              exit 1
+            }
+          else
+            base=
+            git switch -q -c "$BRANCH" "$main"
+          fi
+          jq -n --arg rv "$RELEASE_VERSION" --arg rh "$RELEASE_HASH" --arg nv "$NIGHTLY_VERSION" --arg nh "$NIGHTLY_HASH" \
+            '{release: {version: $rv, hash: $rh}, nightly: {version: $nv, hash: $nh}}' >build/linux/nix/pins.json
+          git add build/linux/nix/pins.json
+          tree=$(git write-tree)
+          changed=true
+          if [ -n "$base" ] && [ "$tree" = "$(git rev-parse "$base^{tree}")" ]; then
+            changed=false
+            echo "::notice::$BRANCH already has main and these pins"
+          fi
+          {
+            echo "base=$base"
+            echo "main=$main"
+            echo "tree=$tree"
+            echo "changed=$changed"
+          } >>"$GITHUB_OUTPUT"
+
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+        if: steps.tree.outputs.changed == 'true'
+
+      # Each package's install check runs `sona --version` through the wrapper, which loads every
+      # library the binary links.
+      - name: Build the flake's packages with the pins
+        if: steps.tree.outputs.changed == 'true'
+        run: nix build --no-link -L .#sona .#sona-nightly
+
+  push:
+    name: Push the branch
+    needs: check
+    if: ${{ needs.check.outputs.changed == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions: {}
+    steps:
+      - name: Generate bot-cecil token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          permission-contents: write # the branch
+          permission-workflows: write # main's workflow changes, merged onto it
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: true
+
+      - name: Merge, commit and push
+        env:
+          RELEASE_VERSION: ${{ needs.check.outputs.release-version }}
+          RELEASE_HASH: ${{ needs.check.outputs.release-hash }}
+          NIGHTLY_VERSION: ${{ needs.check.outputs.nightly-version }}
+          NIGHTLY_HASH: ${{ needs.check.outputs.nightly-hash }}
+          BASE: ${{ needs.check.outputs.base }}
+          MAIN: ${{ needs.check.outputs.main }}
+          TREE: ${{ needs.check.outputs.tree }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          sha='^[0-9a-f]{40}$' hash='^sha256-[A-Za-z0-9+/]{43}=$'
+          [[ $RELEASE_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::unexpected release version: $RELEASE_VERSION"; exit 1; }
+          [[ $NIGHTLY_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || { echo "::error::unexpected nightly version: $NIGHTLY_VERSION"; exit 1; }
+          [[ $RELEASE_HASH =~ $hash && $NIGHTLY_HASH =~ $hash ]] || { echo "::error::unexpected hash"; exit 1; }
+          [[ $MAIN =~ $sha && $TREE =~ $sha ]] || { echo "::error::unexpected commit or tree"; exit 1; }
+          [[ -z $BASE || $BASE =~ $sha ]] || { echo "::error::unexpected base: $BASE"; exit 1; }
+          current=$(git rev-parse --verify -q "refs/remotes/origin/$BRANCH" || true)
+          if [ "$current" != "$BASE" ]; then
+            echo "::error::$BRANCH moved since the check (${BASE:-none} to ${current:-none})"
+            exit 1
+          fi
+          git config user.name "bot-cecil[bot]"
+          git config user.email "bot-cecil[bot]@users.noreply.github.com"
+          if [ -n "$BASE" ]; then
+            git switch -q -c "$BRANCH" "$BASE"
+            git merge -q --no-ff --no-commit "$MAIN"
+          else
+            git switch -q -c "$BRANCH" "$MAIN"
+          fi
+          jq -n --arg rv "$RELEASE_VERSION" --arg rh "$RELEASE_HASH" --arg nv "$NIGHTLY_VERSION" --arg nh "$NIGHTLY_HASH" \
+            '{release: {version: $rv, hash: $rh}, nightly: {version: $nv, hash: $nh}}' >build/linux/nix/pins.json
+          git add build/linux/nix/pins.json
+          if [ "$(git write-tree)" != "$TREE" ]; then
+            echo "::error::the branch would not be the tree the check built ($TREE)"
+            exit 1
+          fi
+          git commit -q -m "chore(nix): sona $RELEASE_VERSION, sona-nightly $NIGHTLY_VERSION" \
+            -m "main at $MAIN. The Arch packages matched their SHA256SUMS and build provenance, and the flake's packages built: $RUN_URL"
+          git push origin "HEAD:refs/heads/$BRANCH"
+          echo "::notice::$BRANCH is $(git rev-parse HEAD): sona $RELEASE_VERSION, sona-nightly $NIGHTLY_VERSION"
