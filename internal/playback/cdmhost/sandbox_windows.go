@@ -101,15 +101,6 @@ const envAppContainerChild = "SONA_CDMHOST_APPCONTAINER"
 // sandboxEnv are the sandbox's own variables, never inherited by a child.
 var sandboxEnv = []string{envAppContainerChild, envHiddenDirs}
 
-// pluginPathEnv are the variables that add plugin folders to the system's,
-// which the child does not inherit: it needs no video plugin (music videos
-// are decoded by the CDM's own decoder), and the UI process names the video
-// plugins' folder in GST_PLUGIN_PATH_1_0 (internal/playback/gstbundle), so a
-// child that inherited it would load Direct3D 11 and the video plugins in its
-// plugin scan. Its plugins are the system folder's, which GStreamer reads
-// from GST_PLUGIN_SYSTEM_PATH_1_0.
-var pluginPathEnv = []string{"GST_PLUGIN_PATH", "GST_PLUGIN_PATH_1_0"}
-
 // parentSandbox is the parent's part of the sandbox: why the child runs
 // unconfined (gap; reason in the system's words, for the log), "" when it
 // runs in the AppContainer.

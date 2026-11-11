@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"runtime"
 	"strings"
 	"time"
 
@@ -150,13 +151,26 @@ func lastDownload(st *services.MotionStatus, now time.Time) diagRow {
 	return diagRow{label: label, value: l.Rendition + " · " + when, status: statusOK}
 }
 
+// decoderHelpFor is what to do on goos when nothing decodes Apple's H.264
+// videos: GStreamer's plugins on Linux, the Media Feature Pack on a Windows N
+// edition (macOS plays H.264 itself).
+func decoderHelpFor(goos string) string {
+	switch goos {
+	case "windows":
+		return i18n.T("Install the Media Feature Pack for Windows (Settings → System → Optional features), then restart Sona.")
+	case "darwin":
+		return i18n.T("macOS plays H.264 itself: restart Sona, and update macOS if this stays.")
+	}
+	return i18n.T("Install gst-libav (avdec_h264) and gst-plugins-bad (h264parse) for GStreamer, then restart Sona.")
+}
+
 // motionGroup is Settings → Diagnostics → Motion artwork: every input that
 // decides whether motion plays, what the decoder can play, and how the
 // newest video and download went (MotionDiagnostics.ts motionGroup). visible
 // is whether the window shows.
 func motionGroup(r services.MotionReport, st *services.MotionStatus, now time.Time) diagGroup {
 	s := motionStateOf(r, st)
-	decoderHelp := i18n.T("Install gst-libav (avdec_h264) and gst-plugins-bad (h264parse) for GStreamer, then restart Sona.")
+	decoderHelp := decoderHelpFor(runtime.GOOS)
 	h264 := diagRow{label: i18n.T("H.264 decoding"), value: i18n.T("Supported"), status: statusOK}
 	if !s.h264 {
 		h264 = diagRow{label: i18n.T("H.264 decoding"), value: i18n.T("Not supported"), status: statusError, detail: decoderHelp}
@@ -174,9 +188,15 @@ func motionGroup(r services.MotionReport, st *services.MotionStatus, now time.Ti
 	if !r.Visible {
 		window = i18n.T("Hidden: videos pause")
 	}
-	hevc := i18n.T("Not supported")
-	if s.hevc {
-		hevc = i18n.T("Supported")
+	hevc := diagRow{label: i18n.T("HEVC decoding"), value: i18n.T("Not supported")}
+	switch {
+	case s.hevc:
+		hevc.value = i18n.T("Supported")
+	case runtime.GOOS != "linux":
+		// The system's video player cannot be asked what it decodes: Sona asks
+		// Apple for H.264, which every Mac and Windows plays.
+		hevc.value = i18n.T("Not requested")
+		hevc.detail = i18n.T("Sona asks Apple for H.264 here: the system's video player can't be asked which other codecs it decodes.")
 	}
 	rows := []diagRow{
 		motionVerdict(s),
@@ -185,7 +205,7 @@ func motionGroup(r services.MotionReport, st *services.MotionStatus, now time.Ti
 		reduced,
 		powerRow(s.power),
 		h264,
-		{label: i18n.T("HEVC decoding"), value: hevc},
+		hevc,
 		{label: i18n.T("Window"), value: window},
 		lastVideo(r.Last, r.LastAt, now),
 		lastDownload(st, now),

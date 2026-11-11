@@ -1,4 +1,4 @@
-//go:build !((linux || darwin || windows) && cgo)
+//go:build !((linux && cgo) || darwin || (windows && (amd64 || arm64)))
 
 package media
 
@@ -8,15 +8,15 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// Supported is whether this build decodes motion artwork: not here. MyGo has
-// no video codec of its own and GStreamer is linked through cgo, so a build
-// without cgo (the type-checks, a cross-compile with CGO_ENABLED=0) and the
-// systems GStreamer is not built for report Capabilities().MotionArtwork =
-// false and covers show their stills.
+// Supported is whether this build plays motion artwork: not here. Linux plays
+// it through GStreamer, linked with cgo, and macOS and Windows through the
+// system's video framework; a build without cgo on Linux (the type-checks, a
+// cross-compile with CGO_ENABLED=0) and the systems with neither report
+// Capabilities().MotionArtwork = false and covers show their stills.
 const Supported = false
 
-// Codec is "": nothing decodes motion artwork here.
+// Codec is "": nothing plays motion artwork here.
 func Codec() string { return "" }
 
-// NewMotionDecoder has no decoder on this platform.
-func NewMotionDecoder(string) (ui.VideoDecoder, error) { return nil, errors.ErrUnsupported }
+// openPlayer has no decoder on this platform.
+func openPlayer(string) (*ui.VideoPlayer, error) { return nil, errors.ErrUnsupported }

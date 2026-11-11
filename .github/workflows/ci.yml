@@ -940,7 +940,7 @@ jobs:
           out=$(bin/playspike.exe -h 2>&1 || true)
           printf '%s\n' "$out" | head -n 6
           grep -q 'Usage of' <<<"$out"
-          "$PKG_CONFIG" --libs gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0
+          "$PKG_CONFIG" --libs gstreamer-1.0 gstreamer-app-1.0
 
       # The pipeline end to end with no secret: two 30-second previews (the
       # developer token only: no Music User Token, no CDM) through the engine,
@@ -976,28 +976,25 @@ jobs:
           grep -q 'preview advancing' preview.out
           grep -q 'next preview playing' preview.out
 
-      # Motion artwork's decoder (internal/ui/media): a generated H.264 clip
-      # (x264enc, from the installed GStreamer's gst-launch-1.0) decoded and
-      # looped through the build's own pipeline (qtdemux, h264parse, the
-      # decoder decodebin picks: libav's on a runner with no GPU,
-      # videoconvert, appsink). The packaged plugins are smoke-tested by
-      # release.yml (build/windows/smoke.sh). A skipped decoder test fails the
-      # step: a missing encoder or decoder must not read as a pass.
-      - name: Motion artwork decoder tests
+      # Motion artwork plays through Windows' own Media Foundation (MyGo's
+      # ui/video, internal/ui/media), no GStreamer: a generated H.264 clip
+      # (x264enc, from the installed GStreamer's gst-launch-1.0) is opened the
+      # way MotionCover does, becomes Ready once a ui.Video builds it, shows a
+      # moving picture and loops. The test also logs what the PR reports: the
+      # open and first-picture time over five opens, and the gap at the loop
+      # point. A skipped test fails the step: a runner with no Media
+      # Foundation must not read as a pass.
+      - name: Motion artwork (Media Foundation) tests
         run: |
-          for e in qtdemux h264parse h265parse decodebin videoconvert avdec_h264 avdec_h265 d3d11h264dec d3d11h265dec x264enc; do
-            if gst-inspect-1.0.exe "$e" >/dev/null 2>&1; then echo "ok      $e"; else echo "MISSING $e"; fi
-          done
-          ls -l "$GSTREAMER_ROOT"/lib/gstreamer-1.0/libgst{d3d11,d3d12,videoparsersbad,videoconvertscale,libav}.dll || true
           set +e
           go test -count=1 -timeout 10m -v ./internal/ui/media/ >"$RUNNER_TEMP/media.log" 2>&1
           rc=$?
           grep -vE '^=== (RUN|PAUSE|CONT)' "$RUNNER_TEMP/media.log" | cut -c1-400 | head -n 120
-          for t in TestMotionDecoderPlaysAndLoops TestMotionDecoderPicturesAreNotBlank TestMotionDecoderErrors TestMotionDecoderClose TestOpenMotion; do
+          for t in TestOpenMotion TestOpenMotionOfAFileThatIsNotAVideo TestNativePlaysAndLoops TestNativeOpenTime; do
             grep -q -- "--- PASS: $t " "$RUNNER_TEMP/media.log" || { echo "$t did not pass"; rc=1; }
           done
-          # Only the tests of a platform with no decoder, and the one that needs a file of the motion cache, may skip.
-          if grep -- '--- SKIP' "$RUNNER_TEMP/media.log" | grep -vE 'TestOpenMotionWithoutDecoder|TestMotionFileOfTheCache'; then echo "a decoder test was skipped"; rc=1; fi
+          # Only the test of a platform with no decoder, and the one that needs a file of the motion cache, may skip.
+          if grep -- '--- SKIP' "$RUNNER_TEMP/media.log" | grep -vE 'TestOpenMotionWithoutDecoder|TestMotionFileOfTheCache'; then echo "a motion test was skipped"; rc=1; fi
           exit $rc
 
       # Google's CDM, downloaded and verified the way Sona does, loaded
@@ -1017,7 +1014,7 @@ jobs:
           SONA_CDMHOST_REQUIRE_SANDBOX: "1"
         run: |
           set +e
-          go test -count=1 -timeout 15m -v -run 'AppContainer|SandboxedHost|SandboxLoadsCDM|SandboxGaps|GrantAccess|RemoveSandbox|ReadFolders|EnvHelpers|ChildEnv|ChildScans' \
+          go test -count=1 -timeout 15m -v -run 'AppContainer|SandboxedHost|SandboxLoadsCDM|SandboxGaps|GrantAccess|RemoveSandbox|ReadFolders|EnvHelpers' \
             ./internal/playback/cdmhost/ >"$RUNNER_TEMP/sandbox.log" 2>&1
           rc=$?
           grep -vE '^=== (RUN|PAUSE|CONT)' "$RUNNER_TEMP/sandbox.log" | cut -c1-400 | head -n 250

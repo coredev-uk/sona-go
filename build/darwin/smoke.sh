@@ -55,28 +55,20 @@ if [[ $painted != 1 ]]; then
 fi
 echo "smoke(darwin): first paint"
 
-# Motion artwork and preview playback from the bundle's framework, with the
-# environment the app itself sets (cmd/sona/bundle_darwin.go): the tools in
-# OUTDIR/smoke-tools (bundle.sh with SONA_SMOKE_TOOLS=1) link Sona.app's copy.
+# Preview playback from the bundle's framework, with the environment the app
+# itself sets (cmd/sona/bundle_darwin.go): playspike in OUTDIR/smoke-tools
+# (bundle.sh with SONA_SMOKE_TOOLS=1) links Sona.app's copy. Motion artwork
+# needs none of it (AVFoundation plays it), so the bundle has no video plugin.
 tools=$out/smoke-tools
 if [[ -d $tools ]]; then
   root=$out/Sona.app/Contents/Frameworks/GStreamer
+  for p in videoconvertscale videoparsersbad applemedia; do
+    [[ ! -e $root/lib/plugins/libgst$p.dylib ]] || fail "the bundle has the $p plugin, which only motion artwork used to need"
+  done
   export GST_PLUGIN_SYSTEM_PATH_1_0=$root/lib/plugins GST_PLUGIN_PATH_1_0='' \
     GST_PLUGIN_SCANNER=$root/libexec/gst-plugin-scanner GST_REGISTRY_1_0=$work/registry.bin
-  # The fixture clip is made by the build's own gst-launch-1.0 and checked
-  # with its gst-inspect-1.0, each in a process of its own: the wrappers drop
-  # the bundle's GST_* variables so they see the whole framework.
-  gst=${GSTREAMER_ROOT:-/Library/Frameworks/GStreamer.framework/Versions/1.0}
-  mkdir "$work/shim"
-  for t in gst-launch-1.0 gst-inspect-1.0; do
-    printf '#!/bin/sh\nexec env -u GST_PLUGIN_SYSTEM_PATH_1_0 -u GST_PLUGIN_PATH_1_0 -u GST_PLUGIN_SCANNER -u GST_REGISTRY_1_0 "%s/bin/%s" "$@"\n' "$gst" "$t" >"$work/shim/$t"
-    chmod +x "$work/shim/$t"
-  done
-  PATH=$work/shim:$PATH \
-    "$tools/media.test" -test.v -test.run 'TestMotionDecoder|TestOpenMotion$' >"$work/motion.out" 2>&1 || { cat "$work/motion.out"; fail "motion artwork tests"; }
-  grep -q -- '--- PASS: TestMotionDecoderPlaysAndLoops' "$work/motion.out" || { cat "$work/motion.out"; fail "the motion decoder did not decode the fixture (skipped?)"; }
-  echo "smoke(darwin): motion artwork decodes"
   "$tools/playspike" -preview -storefront us >"$work/preview.out" 2>&1 || { cat "$work/preview.out"; fail "preview playback"; }
+  grep -q 'decoder=avdec_aac' "$work/preview.out" || { cat "$work/preview.out"; fail "the bundled libav did not decode the preview"; }
   echo "smoke(darwin): preview plays"
 fi
 

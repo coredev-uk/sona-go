@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -66,7 +67,7 @@ func TestMotionVerdictNamesTheFirstInputThatStopsMotion(t *testing.T) {
 func TestMissingH264IsAProblemWithThePackagesToInstall(t *testing.T) {
 	none := services.MotionReport{Setting: true, Visible: true}
 	g := motionGroup(none, idleStatus(), diagNow)
-	if r := rowOf(t, g, "H.264 decoding"); r.status != statusError || !strings.Contains(r.detail, "gst-libav") {
+	if r := rowOf(t, g, "H.264 decoding"); r.status != statusError || !strings.Contains(r.detail, decoderHelpFor(runtime.GOOS)) {
 		t.Errorf("h264: %+v", r)
 	}
 	if r := rowOf(t, g, "Motion artwork"); r.status != statusError {
@@ -75,6 +76,14 @@ func TestMissingH264IsAProblemWithThePackagesToInstall(t *testing.T) {
 	hevc := services.MotionReport{Setting: true, HEVC: "probably", Visible: true}
 	if r := rowOf(t, motionGroup(hevc, idleStatus(), diagNow), "H.264 decoding"); r.status != statusWarning || !strings.Contains(r.detail, "HEVC is used instead") {
 		t.Errorf("hevc only: %+v", r)
+	}
+}
+
+func TestDecoderHelpNamesWhatEachSystemNeeds(t *testing.T) {
+	for goos, want := range map[string]string{"linux": "gst-libav", "windows": "Media Feature Pack", "darwin": "macOS plays H.264 itself"} {
+		if got := decoderHelpFor(goos); !strings.Contains(got, want) {
+			t.Errorf("%s: %q, want it to say %q", goos, got, want)
+		}
 	}
 }
 
