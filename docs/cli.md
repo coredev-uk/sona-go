@@ -1,8 +1,8 @@
 # Command line
 
 `sona <command>` controls the Sona that is running: playback, the volume,
-favourites, search, links and private listening, with text for people and
-JSON for scripts and status bars. Commands never start Sona.
+favourites, lyrics, search, links and private listening, with text for
+people and JSON for scripts and status bars. Commands never start Sona.
 
 ```sh
 sona status                 # what's playing
@@ -10,6 +10,7 @@ sona toggle                 # play/pause
 sona next; sona prev
 sona volume +10             # 0 to 100, or +N/-N
 sona like                   # favourite the playing song
+sona lyrics                 # the playing song's lyrics (--lrc for an LRC file)
 sona search abbey road      # results with their links
 sona open https://music.apple.com/gb/album/abbey-road/1441164426
 sona private on
@@ -36,6 +37,7 @@ other systems it exits with status 1: there is nothing to remove.
 | --- | --- | --- |
 | `play`, `pause`, `toggle`, `next`, `prev` | Resume, pause, play/pause, next song, previous song (or restart the song in its first seconds, like the previous key) | the status after it |
 | `status [--follow] [--format T]` | The playback state, song, position, volume, shuffle, repeat and private listening | the status |
+| `lyrics [--lrc] [--follow] [--format T] [--translation\|--transliteration]` | The playing song's lyrics as plain text, as an LRC file (`--lrc`), or, with `--follow`, the line being sung now, a new one each time it changes ([below](#lyrics-in-a-bar-or-shell)) | `{"track", "state", "position", "provider", "timing", "synced", "lines"}`; with `--follow` one `{"running", "state", "track", …}` per line |
 | `queue` | The queue in play order, the playing song marked | `{"index", "tracks"}` |
 | `search <term>… [--type KIND] [--limit N]` | Catalogue search in Sona's storefront, up to N (default 5, at most 20) results of each kind: `song`, `album`, `artist`, `playlist`, `station`, `music-video`, `curator` | `{"term", "results"}` |
 | `open <link>` | Opens a music.apple.com, `music://` or `itms://` link in Sona's window, as clicking it would | `{"kind", "id", "storefront"}` |
@@ -54,7 +56,7 @@ such as `-10` is an argument (`sona volume -10`). Every command takes
 | Status | Meaning |
 | --- | --- |
 | 0 | Success |
-| 1 | The command failed in Sona (the message says why: nothing is playing, not signed in, Apple refused, …) |
+| 1 | The command failed in Sona (the message says why: nothing is playing, the song has no lyrics, not signed in, Apple refused, …) |
 | 2 | The command line is wrong (unknown command, option or argument, or a link Sona can't open) |
 | 3 | Sona isn't running or can't be reached (also while it starts or quits). `status` still prints that it isn't running |
 
@@ -112,6 +114,58 @@ in Apple's order; `url` is the music.apple.com link, `""` when unknown.
 "source": "setting"|"development"|"environment", "saved": false}`. `open`:
 `{"kind": "album", "id": "1441164426", "storefront": "gb"}`.
 
+`lyrics`: `{"track": track, "state": "playing", "position": 83.4,
+"provider": "apple", "timing": "word", "synced": true, "lines": [line…]}`,
+and each line `{"start": 12.34, "end": 15.8, "text": "…", "background": "",
+"agent": "v1", "part": "Verse", "translation": "", "transliteration": ""}`:
+
+- `provider`: where the lyrics come from: `apple`, `musixmatch`, `lrclib`
+  or `netease`, as chosen in Settings → Playback.
+- `timing`: `word` (each word timed, which the lines below don't show),
+  `line` or `none` (plain text). `synced` is true for `word` and `line`.
+  Plain lyrics have `"start": 0, "end": 0` on every line.
+- `lines` are in the order sung; timed lines are in order of `start`.
+  `start` and `end` are seconds into the song. A line's `end` is at least
+  the end of its last word, so it may run past the next line's `start`.
+- `background` is the background vocals sung with the line, `agent` the voice
+  (`v1`, `v2` for a duet's second voice), `part` the song part where the
+  lyrics name them. `translation` and `transliteration` are the line in the
+  translation language (Settings → Playback → Lyrics, else the account's)
+  and in Latin script; `""` when the line has none.
+- `state` and `position` are the playback's when Sona answered.
+
+One line of `lyrics --follow --json`:
+
+```json
+{
+  "running": true,
+  "state": "playing",
+  "track": { "id": "1441164430", "title": "Come Together", "…": "…" },
+  "position": 12.5,
+  "lyrics": "ready",
+  "provider": "apple",
+  "timing": "word",
+  "synced": true,
+  "index": 1,
+  "line": { "start": 12.34, "end": 15.8, "text": "He come groovin' up slowly", "…": "…" },
+  "next": { "start": 16.2, "end": 18, "text": "He got joo joo eyeball", "…": "…" },
+  "text": "He come groovin' up slowly"
+}
+```
+
+- `lyrics`: `ready`, `loading` (the song's lyrics are being fetched) or `none`
+  (nothing is playing, the song has no lyrics, or they couldn't be fetched).
+- `index`: the place of `line` in the lyrics' `lines`; `-1` and `line: null`
+  when no line is sung (before the first, while the voice rests, plain
+  lyrics, no lyrics). `next` is the line that begins next, `null` after the
+  last.
+- `text`: what the text output prints, `""` when no line is sung. With
+  `--translation` or `--transliteration` it is that text where the line has
+  one; `line` always has all of them.
+- `running` is false only in the last line, when Sona has quit; `state`,
+  `track` and `position` are as in the status (`position` is when the line
+  was printed).
+
 ## Status bars
 
 `sona status --follow` prints a line now and another each time the
@@ -150,6 +204,140 @@ click-left = sona toggle
 scroll-up = sona volume +5
 scroll-down = sona volume -5
 ```
+
+## Lyrics in a bar or shell
+
+`sona lyrics` prints the lyrics of the song that is playing, from the
+sources chosen in Settings → Playback (the ones the lyrics view uses, with
+its cache: asking costs no more requests than the view makes). It needs
+Apple Music songs: live radio, music videos and songs only in your library
+have no lyrics.
+
+```sh
+sona lyrics                      # plain text, one line to a line
+sona lyrics --translation        # each line's translation where it has one
+sona lyrics --lrc > song.lrc     # an LRC file for a lyrics player
+sona lyrics --json | jq '.lines[] | select(.start > 60) | .text'
+```
+
+- **Plain text**: one line of text per lyric line, a blank line between
+  verses (where the song part changes, or after a pause of 3 seconds or more
+  between lines). Background vocals are left out unless they are all a line
+  has; a line break inside a line becomes a space.
+- **`--lrc`**: `[ti:]`, `[ar:]` and `[al:]` tags, then `[mm:ss.xx]` and the
+  line, one per line in time order (hundredths cut off; minutes go past 99
+  for a very long song). Word-timed lyrics are written with their line
+  times. Lyrics with no timing can't be an LRC file: nothing is printed and
+  it exits with status 1 (`these lyrics have no timing…`), so a redirect
+  doesn't leave an untimed file looking like LRC; leave `--lrc` out for the
+  plain text.
+- **`--translation`, `--transliteration`** print the line's translation, or
+  its Latin-script sound, *instead of* the line where it has one, and the
+  line itself where it doesn't. They apply to the plain text, `--lrc` and
+  `--follow`'s `text`, not to the one-shot `--json` (which carries every
+  localization: combining them is an error), and not to each other.
+- Nothing playing, a song with no lyrics (`no_lyrics`) and failures end with
+  status 1 and a message, as for the other commands; Sona not running is 3.
+
+### Following the line being sung
+
+`sona lyrics --follow` prints a line now and another each time the line
+sung changes, until Sona quits (then a last empty line, exit status 0; when
+Sona isn't running at the start, an empty line and exit status 3, so a bar
+module should restart it, as with `status --follow`). In the text output a
+line is the sung line's text, `""` before the first line, while the voice
+rests (3 seconds or more between lines: the line goes half a second after it
+ends), after the last line, for a song without lyrics (or with plain ones) and
+when nothing plays; a line the same as the one before (a pause, say) isn't
+printed again. `--json` prints the object above on each change of the line,
+the song, the playback state or whether the lyrics are there; `--format
+TEMPLATE` is a Go template over those fields, as for `status` (`{{.text}}`,
+`{{with .next}}{{.text}}{{end}}`, `{{.index}}`, `{{clock .position}}`).
+
+The line is the one Sona's lyrics view lights: it starts a quarter of a
+second before it begins (the eye arrives as the voice does) and stays until
+the next one begins. It is worked out in the command from the status's
+position, moved on by the clock while the song plays, and it sleeps on one
+timer to the next boundary: nothing polls, Sona does no work per line, and
+while paused or stopped there is no timer at all. Sona's status stream says
+when to look again: a pause, a resume, a song change, and a seek (a jump of
+more than half a second in the position, which the stream publishes though
+`status --follow` leaves it out as only a position change). The song's
+lyrics are fetched once, when the song changes (a fetch that fails other
+than for lack of lyrics is told on standard error, and the song shows
+nothing until the next one).
+
+Quickshell (a `Process` reading one JSON object per line; it starts again
+if Sona wasn't running or quits):
+
+```qml
+import QtQuick
+import Quickshell
+import Quickshell.Io
+
+Scope {
+    id: root
+    property string line: ""
+    property bool playing: false
+
+    Process {
+        id: lyrics
+        running: true
+        command: ["sona", "lyrics", "--follow", "--json"]
+        stdout: SplitParser {
+            onRead: data => {
+                const now = JSON.parse(data)
+                root.line = now.text
+                root.playing = now.state === "playing"
+            }
+        }
+        onExited: retry.start() // 3 when Sona isn't running, 0 when it quit
+    }
+
+    Timer {
+        id: retry
+        interval: 5000
+        onTriggered: lyrics.running = true
+    }
+
+    PanelWindow {
+        anchors { top: true; left: true; right: true }
+        implicitHeight: 32
+        exclusionMode: ExclusionMode.Ignore // don't move windows as lines come and go
+        visible: root.line !== ""
+        Text {
+            anchors.centerIn: parent
+            text: root.line
+            opacity: root.playing ? 1 : 0.5
+        }
+    }
+}
+```
+
+Waybar (a custom module; Waybar reads markup, so `escape` is on, and turns
+tooltips off in the module's config, not in each line):
+
+```json
+"custom/lyrics": {
+  "exec": "sona lyrics --follow --format '{\"text\": {{json .text}}, \"class\": {{json .state}}}'",
+  "return-type": "json",
+  "escape": true,
+  "tooltip": false,
+  "restart-interval": 5
+}
+```
+
+Polybar:
+
+```ini
+[module/lyrics]
+type = custom/script
+exec = sona lyrics --follow
+tail = true
+```
+
+`--translation` and `--transliteration` work with `--follow` too, and
+`sona lyrics --lrc > song.lrc` writes the file a lyrics player wants.
 
 ## Shell completions and the manual page
 

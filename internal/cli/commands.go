@@ -82,11 +82,23 @@ var commands = []*command{
 			}
 			if in.format != "" {
 				if _, err := statusTemplate(in.format); err != nil {
-					return Usage(msgBadTemplate, err)
+					return Usage(msgBadTemplate, "status", err)
 				}
 			}
 			return nil
 		},
+	},
+	{
+		name: "lyrics", summary: msgLyricsSummary, help: msgLyricsHelp, timeout: networkTimeout,
+		flags: []flag{
+			flagJSON,
+			{name: "lrc", help: msgFlagLRC},
+			{name: "follow", help: msgFlagFollowLyrics},
+			{name: "format", value: "TEMPLATE", help: msgFlagFormatLyrics},
+			{name: "translation", help: msgFlagTranslation},
+			{name: "transliteration", help: msgFlagTransliteration},
+		},
+		check: checkLyrics,
 	},
 	{name: "queue", summary: msgQueueSummary, help: msgQueueHelp, flags: []flag{flagJSON}},
 	{
@@ -130,6 +142,36 @@ var commands = []*command{
 		name: "completion", args: "bash|zsh|fish", argName: "shell", argHelp: msgArgShell, choices: shells,
 		summary: msgCompletionSummary, help: msgCompletionHelp, minArgs: 1, maxArgs: 1, local: true,
 	},
+}
+
+// checkLyrics validates `lyrics`'s options as a set: the formats exclude
+// each other, --format belongs to --follow, and the one-shot --json carries
+// every localization already (so shows none instead of the line).
+func checkLyrics(in *invocation) error {
+	switch {
+	case in.json && in.format != "":
+		return Usage(msgFlagConflict, "lyrics", "--json", "--format")
+	case in.lrc && in.json:
+		return Usage(msgFlagConflict, "lyrics", "--lrc", "--json")
+	case in.lrc && in.follow:
+		return Usage(msgFlagConflict, "lyrics", "--lrc", "--follow")
+	case in.lrc && in.format != "":
+		return Usage(msgFlagConflict, "lyrics", "--lrc", "--format")
+	case in.translation && in.transliteration:
+		return Usage(msgFlagConflict, "lyrics", "--translation", "--transliteration")
+	case in.format != "" && !in.follow:
+		return Usage(msgFlagNeeds, "lyrics", "--format", "--follow")
+	case in.json && !in.follow && in.translation:
+		return Usage(msgFlagConflict, "lyrics", "--json", "--translation")
+	case in.json && !in.follow && in.transliteration:
+		return Usage(msgFlagConflict, "lyrics", "--json", "--transliteration")
+	}
+	if in.format != "" {
+		if _, err := statusTemplate(in.format); err != nil {
+			return Usage(msgBadTemplate, "lyrics", err)
+		}
+	}
+	return nil
 }
 
 func init() {
@@ -187,6 +229,9 @@ type invocation struct {
 	format string
 	kind   string
 	limit  int
+	// lyrics' options: --lrc, and the localization shown instead of the
+	// line.
+	lrc, translation, transliteration bool
 }
 
 // parse reads a command line whose first argument is a command (see
@@ -294,6 +339,12 @@ func (in *invocation) set(key, val string) error {
 		in.man = true
 	case "format":
 		in.format = val
+	case "lrc":
+		in.lrc = true
+	case "translation":
+		in.translation = true
+	case "transliteration":
+		in.transliteration = true
 	case "type":
 		in.kind = val
 	case "limit":

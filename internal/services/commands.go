@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -20,11 +21,17 @@ import (
 // commandArtSize is the artwork edge in command-line answers.
 const commandArtSize = 600
 
+// lyricsSource is what the command server asks of the lyrics service.
+type lyricsSource interface {
+	Lyrics(ctx context.Context, songID string) (Lyrics, error)
+}
+
 // commandServer answers `sona <command>` (internal/cli) in the running
 // Sona, through what the UI uses: the coordinator for playback, the
 // playback service for the volume (saved in the settings like the
 // slider's), the library service for favourites, catalogue search, the
-// launch opener for links and private listening's Mode. Every change
+// lyrics service for the playing song's lyrics (the one the lyrics view asks,
+// so the sources chosen in the settings and the cache apply), the launch opener for links and private listening's Mode. Every change
 // reaches the UI through the usual events.
 type commandServer struct {
 	e      *Env
@@ -32,6 +39,7 @@ type commandServer struct {
 	play   *PlaybackService
 	lib    *LibraryService
 	search *SearchService
+	lyrics lyricsSource
 	feed   *cli.Feed
 
 	mu     sync.Mutex
@@ -44,6 +52,7 @@ func newCommandServer(e *Env, open *opener, svcs []any) *commandServer {
 	s := &commandServer{
 		e: e, open: open,
 		play: instance[PlaybackService](svcs), lib: instance[LibraryService](svcs), search: instance[SearchService](svcs),
+		lyrics: instance[LyricsService](svcs),
 	}
 	s.feed = cli.NewFeed(func() cli.Status { return s.status(e.Coord.Snapshot()) })
 	e.Private.OnChange(func(privatemode.State) { s.feed.Publish(s.status(e.Coord.Snapshot())) })
@@ -110,6 +119,8 @@ func (s *commandServer) Call(ctx context.Context, req cli.Request) (any, error) 
 		return s.transport(ctx, "previous", c.Previous)
 	case "status":
 		return s.status(c.Snapshot()), nil
+	case "lyrics":
+		return s.lyricsOfPlaying(ctx)
 	case "queue":
 		return s.queue(c.Snapshot()), nil
 	case "search":
@@ -176,6 +187,80 @@ func track(it coordinator.Item) cli.Track {
 		Duration: it.Duration.Seconds(), Explicit: it.Explicit,
 		Artwork: publicArtURL(it.Artwork, commandArtSize),
 	}
+}
+
+// lyricsOfPlaying answers `lyrics`: the lyrics of the playing song, asked of
+// the lyrics service by the catalogue ID as the lyrics view does (live radio,
+// music videos and songs only in the library have none), with the playback
+// state and position of the moment. Their text goes nowhere but the reply.
+func (s *commandServer) lyricsOfPlaying(ctx context.Context) (any, error) {
+	snap := s.e.Coord.Snapshot()
+	cur := snap.Current
+	if cur == nil {
+		return nil, &cli.Error{Code: cli.CodeNothingPlaying}
+	}
+	qi := s.play.item(cur.UID, cur.Item)
+	if qi.Live || qi.Video || qi.CatalogID == "" {
+		return nil, &cli.Error{Code: cli.CodeNoLyrics}
+	}
+	l, err := s.lyrics.Lyrics(ctx, qi.CatalogID)
+	switch {
+	case CodeOf(err) == CodeNotFound:
+		return nil, &cli.Error{Code: cli.CodeNoLyrics}
+	case err != nil:
+		return nil, s.fail(err)
+	case len(l.Lines) == 0:
+		return nil, &cli.Error{Code: cli.CodeNoLyrics}
+	}
+	// The lyrics may have taken a while: the state is the playback's now,
+	// unless the song changed meanwhile (then the lyrics are the old song's,
+	// and so is the status).
+	if now := s.e.Coord.Snapshot(); now.Current != nil && now.Current.UID == cur.UID {
+		snap = now
+	}
+	st := s.status(snap)
+	return commandLyrics(l, *st.Track, st.State, st.Position), nil
+}
+
+// commandLyrics maps the lyrics of a song for the command line: seconds,
+// the localizations as one text, timed lines in order of their start and
+// spanning their words.
+func commandLyrics(l Lyrics, t cli.Track, state string, pos float64) cli.Lyrics {
+	synced := l.Timing == "Word" || l.Timing == "Line"
+	out := cli.Lyrics{
+		Track: t, State: state, Position: pos,
+		Provider: l.Provider, Timing: strings.ToLower(l.Timing), Synced: synced,
+		Lines: make([]cli.LyricLine, len(l.Lines)),
+	}
+	for i, ln := range l.Lines {
+		cl := cli.LyricLine{
+			Text: ln.Text, Background: ln.Background, Agent: ln.Agent, Part: ln.Part,
+			Translation: localizedText(ln.Translation), Transliteration: localizedText(ln.Transliteration),
+		}
+		if synced {
+			begin, end := ln.BeginMs, ln.EndMs
+			for _, w := range ln.Words {
+				begin, end = min(begin, w.BeginMs), max(end, w.EndMs)
+			}
+			cl.Start, cl.End = float64(begin)/1000, float64(end)/1000
+		}
+		out.Lines[i] = cl
+	}
+	if synced {
+		slices.SortStableFunc(out.Lines, func(a, b cli.LyricLine) int {
+			return cmp.Compare(a.Start, b.Start)
+		})
+	}
+	return out
+}
+
+// localizedText is a line's translation or transliteration as one text,
+// its background vocals after it; "" when it has none.
+func localizedText(t *LyricText) string {
+	if t == nil {
+		return ""
+	}
+	return strings.TrimSpace(t.Text + " " + t.Background)
 }
 
 func (s *commandServer) queue(snap coordinator.Snapshot) cli.Queue {

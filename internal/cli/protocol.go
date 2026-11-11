@@ -13,7 +13,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"sync"
+	"time"
 
 	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 )
@@ -73,6 +75,12 @@ const (
 	CodeShuttingDown = "shutting_down"
 	// CodeNothingPlaying: the command needs a song selected.
 	CodeNothingPlaying = "nothing_playing"
+	// CodeNoLyrics: the playing song has no lyrics (none of the sources has
+	// them, or it is live radio or a music video).
+	CodeNoLyrics = "no_lyrics"
+	// CodeNotSynced: lyrics without timing can't be written as LRC. Made by
+	// the client, never sent by Sona.
+	CodeNotSynced = "not_synced"
 	// CodeAccountLoading: Sona is still reading the stored account (a slow
 	// keyring); commands that need it can be tried again in a moment.
 	CodeAccountLoading = "account_loading"
@@ -171,14 +179,22 @@ func StatusReply(s Status) []byte {
 	return out
 }
 
+// seekJump is how far a status's position may be from where the last one
+// published has playback by now before it counts as a jump (a seek, a song
+// restarted) and is published: the position moving on its own never is.
+const seekJump = 500 * time.Millisecond
+
 // Feed broadcasts the running Sona's status to followers (Server.Watch).
 // Publish drops a status that differs from the last one only in its
-// position, so followers get one value per change.
+// position, unless the position jumped, so followers get one value per
+// change and every seek.
 type Feed struct {
 	current func() Status
+	now     func() time.Time // time.Now; a test's own
 
 	mu     sync.Mutex
 	last   Status
+	lastAt time.Time // when last was published
 	have   bool
 	subs   map[chan Status]struct{}
 	closed bool
@@ -187,19 +203,21 @@ type Feed struct {
 // NewFeed returns a feed whose followers start with current() (the status
 // as of the moment they subscribe).
 func NewFeed(current func() Status) *Feed {
-	return &Feed{current: current, subs: map[chan Status]struct{}{}}
+	return &Feed{current: current, now: time.Now, subs: map[chan Status]struct{}{}}
 }
 
 // Publish sends s to every follower unless only its position changed
-// since the last status published. A follower that hasn't taken the
-// previous status gets s instead.
+// since the last status published, and by no more than playing on would
+// have moved it. A follower that hasn't taken the previous status gets s
+// instead.
 func (f *Feed) Publish(s Status) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.closed || (f.have && s.sameAs(f.last)) {
+	now := f.now()
+	if f.closed || (f.have && s.sameAs(f.last) && !f.jumped(s, now)) {
 		return
 	}
-	f.last, f.have = s, true
+	f.last, f.lastAt, f.have = s, now, true
 	for ch := range f.subs {
 		select {
 		case <-ch: // replace the status not yet taken
@@ -207,6 +225,19 @@ func (f *Feed) Publish(s Status) {
 		}
 		ch <- s
 	}
+}
+
+// jumped reports that s, taken at now, is not where playback of the last
+// status published has got to: a seek, or a song started again.
+func (f *Feed) jumped(s Status, now time.Time) bool {
+	want := f.last.Position
+	if f.last.State == StatePlaying {
+		want += now.Sub(f.lastAt).Seconds()
+		if t := f.last.Track; t != nil && t.Duration > 0 {
+			want = min(want, t.Duration)
+		}
+	}
+	return math.Abs(s.Position-want) > seekJump.Seconds()
 }
 
 // Watch implements Server.Watch.

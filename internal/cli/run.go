@@ -30,6 +30,8 @@ type Env struct {
 	Dial func() (Transport, error)
 	// Version is Sona's version, for the manual page.
 	Version string
+	// Clock is the time `lyrics --follow` reads (nil: the system's).
+	Clock Clock
 	// Printer words help, the manual page, completions' descriptions,
 	// printed lines and errors (nil: English). JSON output is the same in
 	// every language.
@@ -67,6 +69,9 @@ func Run(ctx context.Context, argv []string, env Env) int {
 	}
 	defer func() { _ = t.Close() }()
 	if in.follow {
+		if in.cmd.name == "lyrics" {
+			return env.followLyrics(ctx, in, t)
+		}
 		return env.follow(ctx, in, t)
 	}
 	cctx, cancel := context.WithTimeout(ctx, in.cmd.roundTrip())
@@ -96,6 +101,12 @@ func (env Env) print(in *invocation, raw json.RawMessage) error {
 			return err
 		}
 		return env.writeStatus(in, s)
+	case "lyrics":
+		var l Lyrics
+		if err := decode(raw, &l); err != nil {
+			return err
+		}
+		return writeLyrics(w, in, l)
 	case "queue":
 		var q Queue
 		if err := decode(raw, &q); err != nil {
@@ -213,6 +224,12 @@ func (env Env) unreachable(in *invocation, err error) int {
 			return env.fail(werr)
 		}
 		return ExitNotRunning
+	case errors.Is(err, ErrNotRunning) && in.cmd.name == "lyrics" && in.follow:
+		// The bar showing the lines clears, and the terminal learns why.
+		if werr := writeLyricsNow(env.Stdout, in, lyricsGone()); werr != nil {
+			return env.fail(werr)
+		}
+		env.errorf(msgNotRunning)
 	case errors.Is(err, ErrNotRunning):
 		env.errorf(msgNotRunning)
 	default:
@@ -258,6 +275,10 @@ func errorText(p *l10n.Printer, e *Error) string {
 		return p.T(msgShuttingDown)
 	case CodeNothingPlaying:
 		return p.T(msgNothingPlaying)
+	case CodeNoLyrics:
+		return p.T(msgNoLyrics)
+	case CodeNotSynced:
+		return p.T(msgNotSynced)
 	case CodeAccountLoading:
 		return p.T(msgAccountLoading)
 	case CodeUnknownCommand, CodeIncompatible:
