@@ -635,9 +635,8 @@ binary run it unconfined); `cmd/playspike` works there too (`-sink fakesink`
 on a computer with no audio device). Motion artwork plays there through
 Media Foundation, with MyGo's `ui/video` (no cgo, no GStreamer, no video plugin in a package: `package.sh` and
 `smoke.sh` fail if one is); `internal/ui/media`'s tests make their fixture clip
-with the installation's `gst-launch-1.0` (on `PATH`, or the folder
-`SONA_FIXTURE_GST_BIN` names, whose tools run with no `GST_*` variable) and play
-it through `ui/video`. macOS is the same with AVFoundation; Linux keeps Sona's
+with the installation's `gst-launch-1.0` (on `PATH`) and play it through
+`ui/video`. macOS is the same with AVFoundation; Linux keeps Sona's
 own GStreamer decoder (`motion_gst.go`).
 
 - In `cmd/sona`, `main.go` is portable; `platform_linux.go` and `platform_other.go` build

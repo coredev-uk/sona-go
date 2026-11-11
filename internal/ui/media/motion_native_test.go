@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+
+	"github.com/coredev-uk/sona-go/internal/ui/media/mediatest"
 )
 
 // checksum is a checksum of what tt draws, which changes with every new frame
@@ -115,12 +117,16 @@ func TestNativePlaysAndLoops(t *testing.T) {
 	}
 }
 
-// TestNativeOpenTime opens and closes the same file as five hover dwells do,
+// TestNativeOpenTime opens and closes a 486×486 clip, Apple's smallest
+// motion rendition, as five hover dwells do,
 // one after another, and logs what each costs: the Open call itself (on
 // Windows it makes a Direct3D 11 device for the player), and the time until
 // the first picture. Nothing is asserted but that each becomes Ready.
 func TestNativeOpenTime(t *testing.T) {
-	f := &files{path: fixtureClip(t, 30)}
+	if Codec() != "avc" {
+		t.Skip("nothing plays H.264 motion artwork here")
+	}
+	f := &files{path: mediatest.ClipSize(t, 60, "ball", 486, 486)}
 	var opens, readies []time.Duration
 	for i := range 5 {
 		t0 := time.Now()
