@@ -98,9 +98,10 @@ func commandContract(t *testing.T, client cli.Transport, handle func(cli.Server)
 }
 
 // followUntilQuit runs client.Follow, publishes a change and a
-// position-only change on srv, quits Sona with quit and checks that the
-// stream saw the current status, the change (not the position) and then
-// ended cleanly.
+// position-only change on srv (a paused song's position nudged well inside
+// the feed's seek jump, so wall-clock timing can't make it a seek), quits
+// Sona with quit and checks that the stream saw the current status, the
+// changes (not the position) and then ended cleanly.
 func followUntilQuit(t *testing.T, client cli.Transport, srv *fakeServer, quit func()) {
 	t.Helper()
 	got := make(chan cli.Status, 8)
@@ -130,8 +131,14 @@ func followUntilQuit(t *testing.T, client cli.Transport, srv *fakeServer, quit f
 	if s := wait(); s.State != cli.StatePlaying || s.Track == nil || s.Track.Title != "Song" || s.Volume != 40 {
 		t.Errorf("change = %+v", s)
 	}
-	moved := playing
-	moved.Position = 42
+	paused := playing
+	paused.State = cli.StatePaused
+	srv.feed.Publish(paused)
+	if s := wait(); s.State != cli.StatePaused {
+		t.Errorf("pause = %+v", s)
+	}
+	moved := paused
+	moved.Position = 0.25
 	srv.feed.Publish(moved)
 	quit()
 	select {
@@ -144,7 +151,7 @@ func followUntilQuit(t *testing.T, client cli.Transport, srv *fakeServer, quit f
 	}
 	close(got)
 	for s := range got {
-		if s.Position == 42 {
+		if s.Position == moved.Position {
 			t.Errorf("a position-only change was streamed: %+v", s)
 		}
 	}
