@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.4.0](https://github.com/coredev-uk/sona-go/compare/v0.3.2...v0.4.0) (2026-11-11)
+
+
+### Features
+
+* **album:** redesign the not-out-yet album page ([#251](https://github.com/coredev-uk/sona-go/issues/251)) ([529f3b0](https://github.com/coredev-uk/sona-go/commit/529f3b0b8a293feb853e3aae8548fad7b6a20f5c))
+* **cli:** sona lyrics prints and follows the playing song's lyrics ([#253](https://github.com/coredev-uk/sona-go/issues/253)) ([a9979ec](https://github.com/coredev-uk/sona-go/commit/a9979ec0e9bbea677e5ae729238a697df8070684))
+* **media:** motion artwork on Windows ([#231](https://github.com/coredev-uk/sona-go/issues/231)) ([0c64349](https://github.com/coredev-uk/sona-go/commit/0c643491d1a430547dc05b4a5beb799ee8b305f8))
+* **playback:** the CDM host and playspike on Windows (licence prototype) ([#220](https://github.com/coredev-uk/sona-go/issues/220)) ([b77076d](https://github.com/coredev-uk/sona-go/commit/b77076d5b76c6ad92211cd05e2ffb4f898e317d2))
+* **playback:** Windows playback: engine, AppContainer sandbox, packaging ([#222](https://github.com/coredev-uk/sona-go/issues/222)) ([3305485](https://github.com/coredev-uk/sona-go/commit/33054850b601e6cf895353ced754b07e484327f9))
+* **playlist:** readable Updated dates in calendar words ([#244](https://github.com/coredev-uk/sona-go/issues/244)) ([7017a21](https://github.com/coredev-uk/sona-go/commit/7017a21176b9fd59801c37770602c34de96beb84))
+* **playlist:** sort and find the songs on the playlist page ([#250](https://github.com/coredev-uk/sona-go/issues/250)) ([cb8a73f](https://github.com/coredev-uk/sona-go/commit/cb8a73f5c0d6ff18b2c4737fccb72b730fabe478))
+* **theme:** SF Symbols for the controls on macOS ([#246](https://github.com/coredev-uk/sona-go/issues/246)) ([9baf4c3](https://github.com/coredev-uk/sona-go/commit/9baf4c30b77ee7f7033007ebe36de3ef6d5adc00))
+* **ui:** ? opens the shortcut help on GTK and AppKit ([#245](https://github.com/coredev-uk/sona-go/issues/245)) ([5063e69](https://github.com/coredev-uk/sona-go/commit/5063e6981fbff7136c40b921e3025515eda05127))
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/sys to v0.50.0 and golang.org/x/term to v0.48.0 ([#243](https://github.com/coredev-uk/sona-go/issues/243)) ([655dd22](https://github.com/coredev-uk/sona-go/commit/655dd22ccd9a6b356be4d0a2328cb64083ceb8fe))
+* **deps:** update module github.com/pressly/goose/v3 to v3.30.0 ([#241](https://github.com/coredev-uk/sona-go/issues/241)) ([a6bdb6a](https://github.com/coredev-uk/sona-go/commit/a6bdb6a9227583984773d03ba80aada7f3daf528))
+* **deps:** update module golang.org/x/text to v0.44.0 ([#238](https://github.com/coredev-uk/sona-go/issues/238)) ([f5d7840](https://github.com/coredev-uk/sona-go/commit/f5d78400642d9d61ec89148fda2d2215643d7bdb))
+* **library:** a deleted playlist leaves Recently added ([#242](https://github.com/coredev-uk/sona-go/issues/242)) ([8e3a646](https://github.com/coredev-uk/sona-go/commit/8e3a646d09fc9e663e871002764eb7ca4098671e))
+* **library:** a pre-added album shows as not out, with its unreleased songs unplayable ([#252](https://github.com/coredev-uk/sona-go/issues/252)) ([e85649a](https://github.com/coredev-uk/sona-go/commit/e85649ae516e1a672c727b7bb815d05cba82520f))
+* **nix:** install the release build from the flake ([#247](https://github.com/coredev-uk/sona-go/issues/247)) ([8bc6e30](https://github.com/coredev-uk/sona-go/commit/8bc6e30e2d39cd84a23e40a582cc9fe6c783c801))
+* **nix:** update vendorHash for the go-sqlite3 and MyGo bumps ([#239](https://github.com/coredev-uk/sona-go/issues/239)) ([7f798b9](https://github.com/coredev-uk/sona-go/commit/7f798b9d37e1d05be126a9d920e5642dcf150df8))
+* **windows:** uninstall removes the playback sandbox; retry preview playback on network errors ([#230](https://github.com/coredev-uk/sona-go/issues/230)) ([050df46](https://github.com/coredev-uk/sona-go/commit/050df4658b3c50843c33aa708090fd40f1fff26e))
+
 ## [0.3.2](https://github.com/coredev-uk/sona-go/compare/v0.3.1...v0.3.2) (2026-11-08)
 
 
