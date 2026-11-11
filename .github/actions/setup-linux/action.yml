@@ -117,7 +117,9 @@ runs:
           done
           return 1
         }
-        apt update -qq
+        # Not -qq: each source's Hit/Get/Err line shows which one a stall is on.
+        cat /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null | grep -E '^(URIs|Suites):' || true
+        apt update
         # shellcheck disable=SC2046
         apt install -y --no-install-recommends $(cat "${GITHUB_ACTION_PATH}/packages-$PACKAGES.txt")
         root rm -rf ~/apt-archives/lock ~/apt-archives/partial
