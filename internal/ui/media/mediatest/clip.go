@@ -56,7 +56,9 @@ func tools(t testing.TB) (launch, inspect string, env []string) {
 
 // Clip writes a small H.264 MP4 (a moving ball, 96×64 at 30 fps, frames
 // pictures) into the test's directory with GStreamer's own encoder and
-// returns its path. The fixture is generated, never committed. It skips the
+// returns its path, 4:2:0 (I420) so that every decoder takes it: without the
+// constraint x264enc may encode 4:4:4, which Media Foundation does not decode.
+// The fixture is generated, never committed. It skips the
 // test where gst-launch-1.0 or an H.264 encoder is missing; whether anything
 // decodes the clip is the caller's to check (media.Codec).
 func Clip(t testing.TB, frames int) string {
@@ -87,7 +89,7 @@ func ClipPattern(t testing.TB, frames int, pattern string) string {
 		path = filepath.ToSlash(path)
 	}
 	cmd := exec.Command(launch, "-q", "videotestsrc", "num-buffers="+strconv.Itoa(frames), "pattern="+pattern, "!",
-		"video/x-raw,width=96,height=64,framerate=30/1", "!", "videoconvert", "!", enc, "!", "h264parse", "!",
+		"video/x-raw,width=96,height=64,framerate=30/1", "!", "videoconvert", "!", "video/x-raw,format=I420", "!", enc, "!", "h264parse", "!",
 		"mp4mux", "!", "filesink", "location="+path)
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
