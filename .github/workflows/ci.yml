@@ -673,8 +673,15 @@ jobs:
   # the release artefacts of each platform itself). macOS uses the official
   # GStreamer packages release.yml's build uses, not devenv: entering the
   # devenv shell took twelve minutes of the job.
+  # GitHub runs at most five macOS jobs at a time for the whole account (every
+  # repository's), so a push to main runs one: this one (the build, go vet, and
+  # the core and playback tests, as a pull request's macOS job does). The UI
+  # shards below run on macOS only in the nightly and on dispatch; the same
+  # tests run on Linux on every push. Five jobs a push took every slot, and two
+  # merges in a row, or a merge while another repository built on macOS, queued
+  # for half an hour.
   macos-build:
-    name: macOS build and vet
+    name: macOS build, vet, core and playback tests
     if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'macos')) || (github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch' && !github.event.repository.private)) }}
     runs-on: macos-26
     timeout-minutes: 30
@@ -689,7 +696,7 @@ jobs:
       - uses: ./.github/actions/setup-macos
         id: setup
         with:
-          flavor: mac-build
+          flavor: mac-race-core-1
 
       # Every cgo object and the link itself must target the same macOS
       # (build/darwin/MIN_MACOS, exported by setup-macos); ld warns otherwise.
@@ -705,6 +712,46 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+      # The playback tests run the real-CDM and sandbox tests with the macOS
+      # CDM (mac_arm64), which the job downloads and caches as Linux's does.
+      - name: Resolve the Widevine CDM version
+        id: cdm
+        run: echo "version=$(go run ./cmd/cdmfetch -version)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Widevine CDM
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/sona-ci/widevine
+          key: widevine-${{ runner.os }}-${{ runner.arch }}-${{ steps.cdm.outputs.version }}
+
+      - name: Install the Widevine CDM
+        run: |
+          go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine
+          echo "SONA_CDM_CACHE=$HOME/.cache/sona-ci/widevine" >> "$GITHUB_ENV"
+
+      - name: go test -race (core, playback)
+        env:
+          SONA_CDM_REQUIRE: "1"
+        run: |
+          .github/ci/test.sh core 1 1 2>&1 | tee "$RUNNER_TEMP/test.log"
+          TEST_FLAGS=-count=1 .github/ci/test.sh playback 1 1 2>&1 | tee -a "$RUNNER_TEMP/test.log"
+          if grep 'built for newer macOS version' "$RUNNER_TEMP/test.log"; then
+            echo "::error::objects or libraries target a newer macOS than the link (build/darwin/MIN_MACOS)"
+            exit 1
+          fi
+
+      - name: Skipped tests are allowed ones
+        run: .github/ci/skips.sh "$RUNNER_TEMP/test-results"
+
+      - name: Keep the test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results-macos-core-playback
+          path: ${{ runner.temp }}/test-results
+          if-no-files-found: ignore
+          retention-days: 3
+
       - name: Save Go's caches
         if: ${{ always() && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -712,12 +759,11 @@ jobs:
           path: ${{ steps.setup.outputs.cache-path }}
           key: ${{ steps.setup.outputs.cache-key }}
 
-  # `go test -race` of every package, in shards (shard.sh) on macOS runners
-  # side by side. The playback shard runs the real-CDM and sandbox tests with
-  # the macOS CDM (mac_arm64), which the job downloads and caches as Linux's does.
+  # The UI packages' `go test -race` on macOS, in two shards (shard.sh): the
+  # nightly and a dispatch only (see macos-build).
   macos-test:
     name: macOS tests (${{ matrix.pool }} ${{ matrix.index }}/${{ matrix.count }})
-    if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'macos')) || (github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch' && !github.event.repository.private)) }}
+    if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'macos')) || (github.event_name == 'schedule' && !github.event.repository.private)) }}
     runs-on: macos-26
     timeout-minutes: 30
     strategy:
@@ -726,8 +772,6 @@ jobs:
         include:
           - { pool: ui, index: 1, count: 2 }
           - { pool: ui, index: 2, count: 2 }
-          - { pool: core, index: 1, count: 1 }
-          - { pool: playback, index: 1, count: 1 }
     env:
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
@@ -740,28 +784,6 @@ jobs:
         id: setup
         with:
           flavor: mac-race-${{ matrix.pool }}-${{ matrix.index }}
-
-      - name: Resolve the Widevine CDM version
-        if: ${{ matrix.pool == 'playback' }}
-        id: cdm
-        run: echo "version=$(go run ./cmd/cdmfetch -version)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache the Widevine CDM
-        if: ${{ matrix.pool == 'playback' }}
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/sona-ci/widevine
-          key: widevine-${{ runner.os }}-${{ runner.arch }}-${{ steps.cdm.outputs.version }}
-
-      - name: Install the Widevine CDM
-        if: ${{ matrix.pool == 'playback' }}
-        run: |
-          go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine
-          {
-            echo "SONA_CDM_CACHE=$HOME/.cache/sona-ci/widevine"
-            echo "SONA_CDM_REQUIRE=1"
-            echo "TEST_FLAGS=-count=1"
-          } >> "$GITHUB_ENV"
 
       - name: go test -race (no deployment-target warnings)
         env:
@@ -878,7 +900,7 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
         run: |
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS"
-          jq -e 'all(.[]; .result == "success")' <<<"$NEEDS" >/dev/null
+          jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<<"$NEEDS" >/dev/null
 
   windows:
     name: Windows build
