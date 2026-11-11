@@ -40,7 +40,7 @@ meant for major releases; run them locally for everything else.
 `mygo_noinspector,sqlite_fts5`, VERSION as `main.version`, MyGo's production
 mode) and installs the desktop entry, icons, licence notices, shell
 completions and manual page as nfpm does; it is the flake's `sona-source`
-(the flake's `sona` on x86_64 is the release, `release.nix`). MyGo loads
+(on the flake's `nix` branch, `sona` on x86_64 is the release, `release.nix`). MyGo loads
 GTK3, epoxy, EGL and the other libraries by soname, so `makeWrapper` puts
 them on `LD_LIBRARY_PATH` (`runtime.nix`, shared with `release.nix`). After a
 change to `go.sum`, set the hash it names to an empty string, run
