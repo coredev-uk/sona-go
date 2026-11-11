@@ -47,6 +47,7 @@ func TestLineAtPosition(t *testing.T) {
 		{"past the end of the song", song, 500, lineAt{-1, -1, inf}},
 		{"equal starts: the later line", []LyricLine{{Start: 5, End: 6}, {Start: 5, End: 7}, {Start: 5, End: 8}}, 5, lineAt{2, -1, 8.25}},
 		{"equal starts, then one after", []LyricLine{{Start: 5, End: 6}, {Start: 5, End: 7}, {Start: 6, End: 8}}, 4.75, lineAt{1, 2, 5.75}},
+		{"before equal starts: next is the one that will be sung", []LyricLine{{Start: 5, End: 6}, {Start: 5, End: 7}}, 1, lineAt{-1, 1, 4.75}},
 		{"lines without an end never rest", []LyricLine{{Start: 10}, {Start: 20}}, 100, lineAt{1, -1, inf}},
 		{"unsorted: the line begun last, not the last listed", []LyricLine{{Start: 20, End: 22}, {Start: 10, End: 12}, {Start: 15, End: 16}}, 10.5, lineAt{1, 2, 12.25}},
 		{"unsorted: later", []LyricLine{{Start: 20, End: 22}, {Start: 10, End: 12}, {Start: 15, End: 16}}, 19.9, lineAt{0, -1, 22.25}},
@@ -264,8 +265,14 @@ func TestLRCStamp(t *testing.T) {
 		sec  float64
 		want string
 	}{
-		{0, "[00:00.00]"}, {0.004, "[00:00.00]"}, {0.019, "[00:00.01]"}, {83.4, "[01:23.40]"}, {59.999, "[00:59.99]"},
-		{3600, "[60:00.00]"}, {6000.5, "[100:00.50]"}, {-2, "[00:00.00]"},
+		{0, "[00:00.00]"},
+		{0.004, "[00:00.00]"},
+		{0.019, "[00:00.01]"},
+		{83.4, "[01:23.40]"},
+		{59.999, "[00:59.99]"},
+		{3600, "[60:00.00]"},
+		{6000.5, "[100:00.50]"},
+		{-2, "[00:00.00]"},
 	} {
 		if got := lrcStamp(tc.sec); got != tc.want {
 			t.Errorf("lrcStamp(%v) = %q, want %q", tc.sec, got, tc.want)
@@ -448,11 +455,11 @@ func (s *syncBuffer) Len() int { return len(s.String()) }
 
 // follower is a running `lyrics --follow`.
 type follower struct {
-	srv   *lyricsServer
-	clk   *fakeClock
-	out   *lineSink
-	errs  *syncBuffer
-	code  chan int
+	srv  *lyricsServer
+	clk  *fakeClock
+	out  *lineSink
+	errs *syncBuffer
+	code chan int
 }
 
 func startFollow(t *testing.T, srv *lyricsServer, argv ...string) *follower {
@@ -545,6 +552,25 @@ func TestFollowLyricsLines(t *testing.T) {
 	if f.errs.Len() != 0 {
 		t.Errorf("stderr = %q", f.errs.String())
 	}
+}
+
+// A last line that ends with the song (LRCLIB and NetEase end it at the
+// song's listed length) rests a quarter second after the song's end, which
+// playback never reaches: no timer waits for it.
+func TestFollowLyricsSetsNoTimerPastTheSongsEnd(t *testing.T) {
+	srv := newLyricsServer()
+	srv.lyrics["1"] = songLyrics("1", true, LyricLine{Start: 98, End: 100, Text: "last"})
+	f := startFollow(t, srv)
+	srv.send("1", StatePlaying, 99)
+	f.want(t, "\n", "last\n")
+	time.Sleep(50 * time.Millisecond) // let the follower settle on its timer, if any
+	if n := f.clk.pending(); n != 0 {
+		t.Errorf("%d timer(s) for a change past the song's end", n)
+	}
+	if code := f.quit(t); code != ExitOK {
+		t.Errorf("exit %d", code)
+	}
+	f.want(t, "\n")
 }
 
 func TestFollowLyricsPauseAndSeek(t *testing.T) {

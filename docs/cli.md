@@ -303,6 +303,7 @@ Scope {
     PanelWindow {
         anchors { top: true; left: true; right: true }
         implicitHeight: 32
+        exclusionMode: ExclusionMode.Ignore // don't move windows as lines come and go
         visible: root.line !== ""
         Text {
             anchors.centerIn: parent
@@ -313,13 +314,15 @@ Scope {
 }
 ```
 
-Waybar (a custom module; Waybar reads markup, so `escape` is on):
+Waybar (a custom module; Waybar reads markup, so `escape` is on, and turns
+tooltips off in the module's config, not in each line):
 
 ```json
 "custom/lyrics": {
-  "exec": "sona lyrics --follow --format '{\"text\": {{json .text}}, \"class\": {{json .state}}, \"tooltip\": false}'",
+  "exec": "sona lyrics --follow --format '{\"text\": {{json .text}}, \"class\": {{json .state}}}'",
   "return-type": "json",
   "escape": true,
+  "tooltip": false,
   "restart-interval": 5
 }
 ```

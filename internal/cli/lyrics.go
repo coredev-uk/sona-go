@@ -59,7 +59,7 @@ func lineAtPosition(lines []LyricLine, pos float64) lineAt {
 			if cur < 0 || b >= curBegin {
 				cur, curBegin = i, b
 			}
-		case next < 0 || b < nextBegin:
+		case next < 0 || b <= nextBegin: // the later of equal starts, as cur
 			next, nextBegin = i, b
 		}
 	}
@@ -405,6 +405,12 @@ func (f *lyricsFollower) position() float64 {
 	return pos
 }
 
+// pastEnd reports that t seconds is at or past the playing song's end.
+func (f *lyricsFollower) pastEnd(t float64) bool {
+	tr := f.status.Track
+	return tr != nil && tr.Duration > 0 && t >= tr.Duration
+}
+
 // event is what is sung now, and when that next changes (+Inf: not while
 // it plays on its own).
 func (f *lyricsFollower) event() (LyricsNow, lineAt) {
@@ -443,7 +449,10 @@ func (f *lyricsFollower) update() error {
 		f.unarm()
 		f.wake, f.unarm = nil, nil
 	}
-	if f.status.State == StatePlaying && !math.IsInf(at.Until, 1) {
+	// No wake for a change at or past the song's end: the next status (ended,
+	// the next song) comes first, and position() stops there, so a timer
+	// would only re-arm at the floor until it does.
+	if f.status.State == StatePlaying && !math.IsInf(at.Until, 1) && !f.pastEnd(at.Until) {
 		wait := max(time.Duration((at.Until-f.position())*float64(time.Second)), minWake)
 		f.wake, f.unarm = f.clk.After(wait)
 	}
