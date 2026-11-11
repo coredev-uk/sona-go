@@ -15,9 +15,13 @@
 #
 # The pinned version and the installer's SHA-256 are in gstreamer.sha256;
 # change both together (same 1.28 minor as build/darwin and devenv). The
-# installer is cached in $GSTREAMER_PKG_CACHE (default: $RUNNER_TEMP/gstreamer-pkg).
+# installer comes from this repository's build-deps mirror, else upstream
+# (build/gstreamer-fetch.sh), and is cached in $GSTREAMER_PKG_CACHE (default:
+# $RUNNER_TEMP/gstreamer-pkg).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=build/gstreamer-fetch.sh
+. "$here/../gstreamer-fetch.sh"
 version=$(awk '$1=="version"{print $2}' "$here/gstreamer.sha256")
 name=gstreamer-1.0-mingw-x86_64-$version.exe
 tmp=${RUNNER_TEMP:-${TEMP:-/tmp}}
@@ -28,22 +32,7 @@ dest=${1:-$tmp/gstreamer}
 mkdir -p "$cache"
 
 if [[ ! -f $cache/$name ]]; then
-  # The installer is close to 1 GB, and freedesktop.org often ends the
-  # response early (curl 18, every attempt of release run 42606615741), so a
-  # retry from the start rarely gets further. Each attempt resumes where the
-  # last one stopped (-C -) into a .part file; the sha256 below still checks
-  # what arrived. HTTP/1.1: its HTTP/2 also resets streams mid-download.
-  part=$cache/$name.part
-  for attempt in $(seq 1 30); do
-    if curl -fsSL --http1.1 -C - --connect-timeout 30 -o "$part" \
-      "https://gstreamer.freedesktop.org/data/pkg/windows/$version/mingw/$name" >&2; then
-      mv "$part" "$cache/$name"
-      break
-    fi
-    echo "install-gstreamer: download attempt $attempt stopped at $(wc -c <"$part" 2>/dev/null || echo 0) bytes; resuming" >&2
-    sleep 5
-  done
-  [[ -f $cache/$name ]] || { echo "install-gstreamer: $name did not download in 30 attempts" >&2; exit 1; }
+  gstreamer_fetch "$name" "https://gstreamer.freedesktop.org/data/pkg/windows/$version/mingw/$name" "$cache/$name" || exit 1
 fi
 want=$(awk -v n="$name" '$2==n{print $1}' "$here/gstreamer.sha256")
 # From stdin: sha256sum puts a backslash before the hash when a file name has one.

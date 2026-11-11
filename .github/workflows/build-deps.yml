@@ -1,0 +1,98 @@
+# Mirrors the pinned GStreamer packages (build/windows/gstreamer.sha256 and
+# build/darwin/gstreamer.sha256) as assets of this repository's `build-deps`
+# prerelease, where build/gstreamer-fetch.sh looks first. GitHub serves them to a
+# runner in seconds. Straight from gstreamer.freedesktop.org, the Windows
+# installer (about 1 GB) can take most of an hour, or time a release out: run
+# 43014335716 got 634 MB in 29 resumed attempts before the job was cancelled.
+#
+# On a push to main that changes a pin, and on dispatch, it uploads every pinned
+# package the release lacks: fetched from upstream (the same resumed download,
+# over the job's long timeout), checked against its pin, then uploaded. It
+# deletes assets no pin names any more. The release is a prerelease and never
+# "latest", and its tag isn't v*: the updater (internal/update), the nightly's
+# tag check, rcnotes and nix-release-pin.yml all skip it. It checks out and runs
+# only the two pin files and the fetch helper.
+name: Build dependencies
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - build/windows/gstreamer.sha256
+      - build/darwin/gstreamer.sha256
+      - build/gstreamer-fetch.sh
+      - .github/workflows/build-deps.yml
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: build-deps
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  mirror:
+    name: Mirror the pinned GStreamer packages
+    runs-on: ubuntu-26.04
+    timeout-minutes: 240
+    permissions:
+      contents: write # the build-deps release and its assets
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            build/windows/gstreamer.sha256
+            build/darwin/gstreamer.sha256
+            build/gstreamer-fetch.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Upload what the mirror lacks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          GSTREAMER_ATTEMPTS: "400" # resumed: freedesktop.org ends most responses early
+        run: |
+          set -euo pipefail
+          tag=build-deps
+          if ! gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$REPO" --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "Build dependencies (CI mirror)" \
+              --notes "Not a Sona release. The official GStreamer packages Sona's Windows and macOS builds link and ship, pinned by build/windows/gstreamer.sha256 and build/darwin/gstreamer.sha256, mirrored from gstreamer.freedesktop.org for CI (.github/workflows/build-deps.yml). Their licences are GStreamer's; each file's SHA-256 is its pin."
+          fi
+          have=$(gh release view "$tag" --repo "$REPO" --json assets --jq '.assets[].name')
+          # "<sha256> <name> <upstream directory>" for every pinned package.
+          pins=$(
+            v=$(awk '$1=="version"{print $2}' build/windows/gstreamer.sha256)
+            awk -v d="https://gstreamer.freedesktop.org/data/pkg/windows/$v/mingw" '$1 ~ /^[0-9a-f]+$/ && length($1) == 64 {print $1, $2, d}' build/windows/gstreamer.sha256
+            v=$(awk '$1=="version"{print $2}' build/darwin/gstreamer.sha256)
+            awk -v d="https://gstreamer.freedesktop.org/data/pkg/osx/$v" '$1 ~ /^[0-9a-f]+$/ && length($1) == 64 {print $1, $2, d}' build/darwin/gstreamer.sha256
+          )
+          [[ -n $pins ]] || { echo "::error::no pinned packages found"; exit 1; }
+          export GSTREAMER_MIRROR= # straight from upstream: this job fills the mirror
+          . build/gstreamer-fetch.sh
+          mkdir -p "$RUNNER_TEMP/pkg"
+          while read -r sum name dir; do
+            if grep -qxF "$name" <<<"$have"; then
+              echo "$name: mirrored"
+              continue
+            fi
+            out=$RUNNER_TEMP/pkg/$name
+            gstreamer_fetch "$name" "$dir/$name" "$out"
+            got=$(sha256sum "$out" | awk '{print $1}')
+            [[ $got == "$sum" ]] || { echo "::error::$name sha256 $got, want $sum"; exit 1; }
+            gh release upload "$tag" "$out" --repo "$REPO"
+            rm -f "$out"
+            echo "$name: uploaded"
+          done <<<"$pins"
+          # Assets of versions no longer pinned.
+          while read -r name; do
+            [[ -n $name ]] || continue
+            awk '{print $2}' <<<"$pins" | grep -qxF "$name" && continue
+            gh release delete-asset "$tag" "$name" --repo "$REPO" --yes
+            echo "$name: no longer pinned, deleted"
+          done <<<"$have"
