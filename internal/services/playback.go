@@ -728,8 +728,9 @@ func (s *PlaybackService) Toggle(ctx context.Context) error {
 	return s.fail(s.o.Coord.Toggle(ctx))
 }
 
-// logCmd records commands that start playback, so an unexpected start can
-// be traced to the UI (MPRIS logs its own).
+// logCmd records commands that start or change what plays, so an
+// unexpected start or a slow skip can be traced to the UI (MPRIS logs its
+// own).
 func (s *PlaybackService) logCmd(name string) {
 	s.o.Logger.Info("playback: command", "cmd", name, "from", "ui")
 }
@@ -740,11 +741,17 @@ func (s *PlaybackService) Seek(ctx context.Context, positionMs int64) error {
 }
 
 // Next plays the following item.
-func (s *PlaybackService) Next(ctx context.Context) error { return s.fail(s.o.Coord.Next(ctx)) }
+func (s *PlaybackService) Next(ctx context.Context) error {
+	s.logCmd("next")
+	return s.fail(s.o.Coord.Next(ctx))
+}
 
 // Prev restarts the current item, or plays the previous one within the
 // first seconds.
-func (s *PlaybackService) Prev(ctx context.Context) error { return s.fail(s.o.Coord.Previous(ctx)) }
+func (s *PlaybackService) Prev(ctx context.Context) error {
+	s.logCmd("previous")
+	return s.fail(s.o.Coord.Previous(ctx))
+}
 
 // SetVolume sets the volume (0..1). The settings remember it (run).
 func (s *PlaybackService) SetVolume(ctx context.Context, volume float64) error {
