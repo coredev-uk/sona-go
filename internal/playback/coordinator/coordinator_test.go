@@ -17,9 +17,9 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
-// fakeEngine plays instantly: Play goes straight to playing. Tests end or
-// fail the current item explicitly. Events are latest-wins like the real
-// contract.
+// fakeEngine plays instantly: Play goes straight to playing, unless the
+// item is held (hold). Tests end or fail the current item explicitly.
+// Events are latest-wins like the real contract.
 type fakeEngine struct {
 	mu       sync.Mutex
 	st       playback.Status
@@ -28,9 +28,10 @@ type fakeEngine struct {
 	plays    []string
 	preloads []string
 	failPlay map[string]error
-	next     playback.Next // armed by SetNext
-	volumes  []float64     // SetVolume calls
-	preview  bool          // every item plays its 30 s preview
+	held     map[string]bool // Play of these loads until its context ends
+	next     playback.Next   // armed by SetNext
+	volumes  []float64       // SetVolume calls
+	preview  bool            // every item plays its 30 s preview
 }
 
 func newFake() *fakeEngine {
@@ -62,12 +63,24 @@ func (f *fakeEngine) posLocked() time.Duration {
 	return min(p, f.st.Duration)
 }
 
-func (f *fakeEngine) Play(_ context.Context, id string, start time.Duration) error {
+// Play plays id at once; a held id loads until ctx ends. An ended ctx
+// leaves the item paused, as the real engine parks an abandoned start.
+func (f *fakeEngine) Play(ctx context.Context, id string, start time.Duration) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.next = playback.Next{}
 	f.calls = append(f.calls, fmt.Sprintf("play %s %s", id, start))
 	f.plays = append(f.plays, id)
+	f.st = playback.Status{State: playback.StateLoading, ItemID: id, Position: start, Duration: durationOf(id), Volume: f.st.Volume, UpdatedAt: time.Now()}
+	if f.held[id] {
+		f.mu.Unlock()
+		<-ctx.Done()
+		f.mu.Lock()
+	}
+	if err := ctx.Err(); err != nil {
+		f.st.State = playback.StatePaused
+		return err
+	}
 	if err := f.failPlay[id]; err != nil {
 		f.st = playback.Status{State: playback.StateError, ItemID: id, Volume: f.st.Volume, UpdatedAt: time.Now(), Err: err.Error()}
 		return err
@@ -151,6 +164,18 @@ func (f *fakeEngine) armed() playback.Next {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.next
+}
+
+// hold makes Play of ids load until its context ends.
+func (f *fakeEngine) hold(ids ...string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.held == nil {
+		f.held = map[string]bool{}
+	}
+	for _, id := range ids {
+		f.held[id] = true
+	}
 }
 
 // advance plays the current item out into the armed next, like a
@@ -812,5 +837,79 @@ func TestSetVolumeNaN(t *testing.T) {
 	defer h.eng.mu.Unlock()
 	if !slices.Equal(h.eng.volumes, []float64{0.5, 0}) {
 		t.Fatalf("engine volumes %v", h.eng.volumes)
+	}
+}
+
+// A skip while an item is still loading ends that load instead of waiting
+// for it, so each skip moves on one item at once rather than every skip
+// pressed meanwhile landing together when the load ends. The same holds
+// for a load the queue started by itself, and for skips sent together.
+// Real time: a skip stuck behind the load would block on a mutex, which
+// synctest cannot see.
+func TestSkipSupersedesStuckLoad(t *testing.T) {
+	h := newHarness(t, nil)
+	ctx := t.Context()
+	h.eng.hold("b", "e", "g")
+	must(t, h.c.SetQueue(ctx, items("a", "b", "c", "d", "e", "f", "g", "h", "i", "j"), 0, ""))
+	next := func() error { return h.c.Next(ctx) }
+	playing := func(id string) {
+		t.Helper()
+		if s := h.c.Snapshot(); h.current() != id || s.State != playback.StatePlaying || h.eng.Status().ItemID != id {
+			t.Fatalf("current %q (%s), engine on %q; want %q playing", h.current(), s.State, h.eng.Status().ItemID, id)
+		}
+	}
+
+	stuck := async(next)
+	loading(t, h, "b")
+	soon(t, "a skip past the loading b", async(next))
+	soon(t, "the skip to b", stuck) // superseded, not failed
+	playing("c")
+	soon(t, "a second skip", async(next))
+	playing("d")
+
+	h.eng.end() // the queue moves on to e by itself
+	loading(t, h, "e")
+	soon(t, "a skip past the loading e", async(next))
+	playing("f")
+
+	stuck = async(next)
+	loading(t, h, "g")
+	skips := []<-chan error{async(next), async(next), async(next)}
+	for _, s := range append(skips, stuck) {
+		soon(t, "skips sent together", s)
+	}
+	playing("j") // g plus three: the last skip's item plays
+}
+
+// async runs fn in the background; its error arrives on the channel.
+func async(fn func() error) <-chan error {
+	ch := make(chan error, 1)
+	go func() { ch <- fn() }()
+	return ch
+}
+
+// soon fails unless the call behind ch returns nil within moments.
+func soon(t *testing.T, what string, ch <-chan error) {
+	t.Helper()
+	select {
+	case err := <-ch:
+		if err != nil {
+			t.Fatalf("%s: %v", what, err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("%s: still waiting after 5 s", what)
+	}
+}
+
+// loading waits until id is current and its Play is under way.
+func loading(t *testing.T, h *harness, id string) {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(time.Millisecond) {
+		if st := h.eng.Status(); h.current() == id && st.ItemID == id && st.State == playback.StateLoading {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s never started loading (current %q)", id, h.current())
+		}
 	}
 }

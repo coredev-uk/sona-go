@@ -98,6 +98,7 @@ const (
 	maxRestarts        = 3                // host crashes tolerated …
 	restartWindow      = 2 * time.Minute  // … within this window
 	startTimeout       = 20 * time.Second // Play/Resume wait for first audio
+	slowStart          = 5 * time.Second  // a start this slow is logged with the stage it spent it in
 )
 
 // host is the part of *cdmhost.Host the engine uses.
@@ -389,9 +390,16 @@ func (e *Engine) replaceCurrent() {
 }
 
 // start prepares it (in parallel with starting the host), loads it at pos
-// and, unless paused meanwhile, plays and waits for first audio.
-func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
+// and, unless paused meanwhile, plays and waits for first audio. When ctx
+// ends first, it is parked paused (giveUp).
+func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) (err error) {
 	t0 := time.Now()
+	stage := "prepare" // playback info, host and licence
+	defer func() {
+		if took := time.Since(t0); took >= slowStart {
+			e.log.Warn("slow start", "id", it.id, "stage", stage, "took", took, "err", err)
+		}
+	}()
 	type hostResult struct {
 		h   host
 		gen int
@@ -417,11 +425,12 @@ func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
 	}
 	if err != nil {
 		if ctx.Err() != nil {
-			e.abandon(it, pos)
+			e.giveUp(it)
 		}
 		return e.fail(it, err)
 	}
 	prepared := time.Since(t0)
+	stage = "load"
 
 	e.mu.Lock()
 	if e.cur != it {
@@ -465,7 +474,7 @@ func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
 	e.ctl.Unlock()
 	if err != nil {
 		if ctx.Err() != nil {
-			e.abandon(it, pos)
+			e.giveUp(it)
 		}
 		return e.fail(it, err)
 	}
@@ -475,6 +484,7 @@ func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
 	if !play {
 		return nil
 	}
+	stage = "first audio"
 	select {
 	case err := <-wait:
 		if err != nil {
@@ -483,23 +493,23 @@ func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
 		e.log.Debug("playing", "id", it.id, "at", pos, "prepare", prepared, "first_audio", time.Since(t0))
 		return nil
 	case <-ctx.Done():
+		e.giveUp(it)
 		return ctx.Err()
 	case <-time.After(startTimeout):
 		return e.fail(it, errors.New("native: no audio within "+startTimeout.String()))
 	}
 }
 
-// abandon parks it as paused at pos after its caller gave up loading it,
-// so Resume can pick it up again.
-func (e *Engine) abandon(it *item, pos time.Duration) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.cur != it {
-		return
+// giveUp parks it paused after its caller stopped waiting for it to start
+// (its context ended), so Resume can pick it up again. The host may have
+// been told to play it already, so it is paused there too: nothing else
+// would stop that audio once it arrives.
+func (e *Engine) giveUp(it *item) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := e.pause(ctx, it); err != nil {
+		e.log.Debug("pause abandoned start", "id", it.id, "err", err)
 	}
-	it.wantPlay = false
-	e.setState(playback.StatePaused, pos, time.Now())
-	e.armIdle()
 }
 
 // fail records err for it (if still current) and returns it.
@@ -564,12 +574,16 @@ func (e *Engine) Preload(ctx context.Context, id string) error {
 }
 
 // Pause pauses the current item; the position is exact at UpdatedAt.
-func (e *Engine) Pause(ctx context.Context) error {
+func (e *Engine) Pause(ctx context.Context) error { return e.pause(ctx, nil) }
+
+// pause pauses only, or the current item when only is nil; an item that
+// is no longer current is left alone.
+func (e *Engine) pause(ctx context.Context, only *item) error {
 	e.ctl.Lock()
 	defer e.ctl.Unlock()
 	e.mu.Lock()
 	it, h := e.cur, e.h
-	if it == nil || !it.wantPlay {
+	if it == nil || !it.wantPlay || (only != nil && it != only) {
 		e.mu.Unlock()
 		return nil
 	}
@@ -643,12 +657,16 @@ func (e *Engine) Resume(ctx context.Context) error {
 	err := h.Play(ctx)
 	e.ctl.Unlock()
 	if err != nil {
+		if ctx.Err() != nil {
+			e.giveUp(it)
+		}
 		return e.fail(it, err)
 	}
 	select {
 	case err := <-wait:
 		return err
 	case <-ctx.Done():
+		e.giveUp(it)
 		return ctx.Err()
 	case <-time.After(startTimeout):
 		return e.fail(it, errors.New("native: no audio within "+startTimeout.String()))

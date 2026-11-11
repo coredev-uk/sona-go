@@ -53,8 +53,8 @@ func (c *Coordinator) replacedLocked() *replaced {
 // position it had, playing if it was playing and paused otherwise. It
 // reports whether there was a queue to bring back; Stop forgets it.
 func (c *Coordinator) UndoReplace(ctx context.Context) (bool, error) {
-	c.cmd.Lock()
-	defer c.cmd.Unlock()
+	ctx, leave := c.enter(ctx, func() bool { return c.undo != nil })
+	defer leave()
 	c.mu.Lock()
 	u := c.undo
 	if u == nil {

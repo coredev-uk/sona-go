@@ -48,6 +48,7 @@ type fakeHost struct {
 	fed      bool
 	started  bool
 	autoEnd  bool            // emit EventEnded on EndOfTrack
+	starve   bool            // fragments never reach the output: no EventStarted
 	endGate  <-chan struct{} // when set, autoEnd waits for it to close
 	audio    fakeAudio       // volume, equaliser, device and file calls (audio_test.go)
 	video    fakeVideo       // LoadVideo, FeedVideo, EndOfVideo (video_test.go)
@@ -165,7 +166,7 @@ func (f *fakeHost) Feed(_ context.Context, track uint64, data []byte) error {
 		return cdmhost.ErrStale
 	}
 	f.feeds = append(f.feeds, feedCall{track, data})
-	f.fed = true
+	f.fed = !f.starve
 	f.maybeStart()
 	return nil
 }
@@ -700,6 +701,39 @@ func TestPauseDuringLoadingDoesNotPlay(t *testing.T) {
 	f.mu.Unlock()
 	if playing || h.e.Status().State != playback.StatePaused {
 		t.Fatalf("paused-while-loading item plays: host playing %v, status %+v", playing, h.e.Status())
+	}
+}
+
+// A Play whose caller gives up after the host was told to play (a skip
+// superseding a stuck start) leaves the item paused, in the host too:
+// otherwise its audio would start later with nothing showing it.
+func TestCancelledPlayDoesNotStartLater(t *testing.T) {
+	h := newHarness(t, -1, false)
+	if err := h.e.Play(ctx(t), "A", 0); err != nil {
+		t.Fatal(err)
+	}
+	f := h.host(0)
+	f.mu.Lock()
+	f.starve = true
+	f.mu.Unlock()
+	pctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- h.e.Play(pctx, "B", 0) }()
+	eventually(t, "B told to play", func() bool {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		return f.playing && len(f.loads) == 2
+	})
+	cancel()
+	if err := <-done; !errors.Is(err, context.Canceled) {
+		t.Fatalf("Play = %v", err)
+	}
+	f.mu.Lock()
+	playing := f.playing
+	f.mu.Unlock()
+	if st := h.e.Status(); playing || st.State != playback.StatePaused || st.ItemID != "B" {
+		t.Fatalf("given-up start: host playing %v, status %+v", playing, st)
 	}
 }
 
