@@ -1,15 +1,14 @@
-# A published Sona build as a Nix package: the Arch package of the GitHub
-# release `pin` names ({ version, hash }, an entry of pins.json), its binary
-# given Nix's loader and wrapped with the libraries it links plus
-# runtime.nix's. The release build compiles in the Last.fm API key and secret
-# and the Discord application ID (repository secrets, release.yml), which a
-# build from source has no way to get, so on x86_64-linux this is the flake's
-# `sona` (pins.release) and `sona-nightly` (pins.nightly); package.nix builds
-# the checkout (`sona-source`, and the only package on aarch64-linux, which
-# has no release build).
+# Sona's published release as a Nix package: the Arch package of the GitHub
+# release release.json pins, its binary given Nix's loader and wrapped with
+# the libraries it links plus runtime.nix's. The release build compiles in
+# the Last.fm API key and secret and the Discord application ID (repository
+# secrets, release.yml), which a build from source has no way to get, so this
+# is the flake's `sona` on x86_64-linux; package.nix builds the checkout
+# (`sona-source`, and the only package on aarch64-linux, which has no release
+# build).
 #
-# pins.json exists only on the flake's `nix` branch, which nix-branch.yml
-# moves to each published release and nightly rc.
+# release.json moves with each published release: nix-release-pin.yml opens
+# the pull request.
 {
   lib,
   stdenv,
@@ -20,10 +19,10 @@
   zstd,
   glib,
   gst_all_1,
-  pin,
 }:
 
 let
+  pin = lib.importJSON ./release.json;
   runtime = callPackage ./runtime.nix { };
   # What the binary links (`patchelf --print-needed`), beyond glibc.
   linked = [

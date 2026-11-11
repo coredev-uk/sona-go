@@ -4,9 +4,9 @@
 # (`-X github.com/egoist/mygo.production=1`), plus the desktop entry, icons,
 # licence notices, shell completions and manual page nfpm installs
 # (build/linux/nfpm/nfpm.yaml). The wrapper's libraries are runtime.nix's.
-# No Last.fm or Discord keys are compiled in: the release has them, so on the
-# flake's `nix` branch `sona` on x86_64-linux is the release (release.nix) and
-# this is its `sona-source`.
+# No Last.fm or Discord keys are compiled in: the release has them, so the
+# flake's `sona` on x86_64-linux is the release (release.nix) and this is its
+# `sona-source`.
 #
 # Built by the flake (`nix build .#sona-source`, flake.nix) and by the
 # desktop VM tests (`nix-build tests/vm -A sona`, tests/vm/default.nix).
@@ -31,8 +31,8 @@ let
   # Tracked files only (no node_modules, dist, bin or local data): a flake's
   # source already is (and has no .git), a checkout is filtered here.
   # Without the VM tests' own files, the flake and the release package, so
-  # editing them (or moving the `nix` branch's pins) does not rebuild Sona.
-  # The notification probe stays: it builds from the same module.
+  # editing them (or pinning the next release) does not rebuild Sona. The
+  # notification probe stays: it builds from the same module.
   tracked = if builtins.pathExists (root + "/.git") then fileset.gitTracked root else root;
   vmTests = root + "/tests/vm";
   src = fileset.toSource {
@@ -43,7 +43,7 @@ let
         (fileset.maybeMissing (root + "/flake.nix"))
         (fileset.maybeMissing (root + "/flake.lock"))
         (fileset.maybeMissing ./release.nix)
-        (fileset.maybeMissing ./pins.json)
+        (fileset.maybeMissing ./release.json)
       ]
     );
   };

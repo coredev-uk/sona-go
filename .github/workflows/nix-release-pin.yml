@@ -1,0 +1,170 @@
+# Moves the flake's `sona` (build/linux/nix/release.nix, the published release with the Last.fm
+# and Discord credentials only the release build has) to each new release. On a published release
+# that is not a prerelease, and on dispatch for a given tag, it checks the release's Arch package
+# against the release's SHA256SUMS and build provenance, builds the flake's package with the new
+# pin, and opens a pull request that sets build/linux/nix/release.json, as bot-cecil (its pull
+# request runs CI; one opened with GITHUB_TOKEN would not).
+#
+# Two jobs, as nix-vendor-hash.yml, so repository code never runs next to a secret:
+#   check  verifies the package and builds the flake with a read-only token and no secrets, and
+#          hands the version and hash over as outputs;
+#   pin    has bot-cecil's token, runs no repository code, and writes only a version and a hash of
+#          the expected shapes into release.json.
+#
+# Maintainer setup: the repository secrets RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY
+# (bot-cecil's, as release-please.yml uses), with Contents and Pull requests write.
+name: Nix release pin
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (v<major>.<minor>.<patch>) to pin the flake's package to
+        required: true
+        type: string
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: nix-release-pin
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check the release for the flake
+    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.release.prerelease }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      attestations: read # gh attestation verify
+    outputs:
+      version: ${{ steps.pin.outputs.version }}
+      hash: ${{ steps.pin.outputs.hash }}
+      changed: ${{ steps.build.outputs.changed }}
+    steps:
+      - name: Check the release's Arch package
+        id: pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          [[ $TAG =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]] || {
+            echo "::error::$TAG is not a release tag (v<major>.<minor>.<patch>)"
+            exit 1
+          }
+          version=${BASH_REMATCH[1]}
+          file="sona-$version-1-x86_64.pkg.tar.zst"
+          dir="$RUNNER_TEMP/release"
+          gh release download "$TAG" --repo "$REPO" --pattern "$file" --pattern SHA256SUMS --dir "$dir"
+          cd "$dir"
+          grep -E "^[0-9a-f]{64}  $file\$" SHA256SUMS | sha256sum --check --strict
+          gh attestation verify "$file" --repo "$REPO"
+          hash="sha256-$(openssl dgst -sha256 -binary "$file" | base64 -w0)"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "hash=$hash" >>"$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+
+      # The package's install check runs `sona --version` through the wrapper, which loads every
+      # library the binary links.
+      - name: Build the flake's package with the new pin
+        id: build
+        env:
+          VERSION: ${{ steps.pin.outputs.version }}
+          HASH: ${{ steps.pin.outputs.hash }}
+        run: |
+          jq -n --arg version "$VERSION" --arg hash "$HASH" '{version: $version, hash: $hash}' \
+            >build/linux/nix/release.json
+          if git diff --quiet; then
+            echo "changed=false" >>"$GITHUB_OUTPUT"
+            echo "::notice::the flake already pins v$VERSION"
+            exit 0
+          fi
+          nix build --no-link -L .#sona
+          echo "changed=true" >>"$GITHUB_OUTPUT"
+
+  pin:
+    name: Open the pull request that pins the release
+    needs: check
+    if: ${{ needs.check.outputs.changed == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions: {}
+    steps:
+      - name: Generate bot-cecil token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          permission-contents: write # the branch
+          permission-pull-requests: write # the pull request
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: true
+
+      - name: Commit, push and open the pull request
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ needs.check.outputs.version }}
+          HASH: ${{ needs.check.outputs.hash }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::unexpected version: $VERSION"; exit 1; }
+          [[ $HASH =~ ^sha256-[A-Za-z0-9+/]{43}=$ ]] || { echo "::error::unexpected hash: $HASH"; exit 1; }
+          branch="chore/nix-release-$VERSION"
+          title="chore(nix): pin the flake's sona to v$VERSION"
+          jq -n --arg version "$VERSION" --arg hash "$HASH" '{version: $version, hash: $hash}' \
+            >build/linux/nix/release.json
+          git switch -c "$branch"
+          git config user.name "bot-cecil[bot]"
+          git config user.email "bot-cecil[bot]@users.noreply.github.com"
+          git commit -qam "$title"
+          git push --force origin "HEAD:refs/heads/$branch"
+          if [ -n "$(gh pr list --repo "$REPO" --head "$branch" --state open --json number --jq '.[].number')" ]; then
+            echo "::notice::the pull request for $branch is already open"
+            exit 0
+          fi
+          cat >"$RUNNER_TEMP/body.md" <<EOF
+          ## What
+
+          Pins the flake's \`sona\` (\`build/linux/nix/release.nix\`, x86_64-linux) to the v$VERSION release's Arch package.
+
+          ## Why
+
+          v$VERSION is published; the flake's package follows the latest release.
+
+          ## Evidence
+
+          $RUN_URL: the package matched the release's SHA256SUMS and its build provenance (\`gh attestation verify\`), and \`nix build .#sona\` (its install check runs \`sona --version\`) passed with this pin.
+
+          ## Tests
+
+          None: a pin.
+
+          ## Docs
+
+          None apply.
+
+          ## Left
+
+          Nothing.
+          EOF
+          gh pr create --repo "$REPO" --base main --head "$branch" --title "$title" --body-file "$RUNNER_TEMP/body.md"

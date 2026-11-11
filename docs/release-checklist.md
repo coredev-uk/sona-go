@@ -82,11 +82,12 @@ Merging a release:
    the workflow's OIDC token, not from the App).
 6. Copy `aur/PKGBUILD` and `aur/.SRCINFO` from `sona-bin-<v>-aur.tar.gz` into
    the AUR `sona-bin` repo and push there by hand.
-7. Nothing to do for Nix: `nix-branch.yml` moves the flake's `nix` branch
-   (`build/linux/nix/pins.json`) to this release once its Arch package
-   matched `SHA256SUMS` and its attestation and the flake built with it, and
-   does the same for each nightly rc (`sona-nightly`). If the release's run
-   failed, dispatch "Nix branch" after fixing the cause.
+7. Merge the pull request `nix-release-pin.yml` opens,
+   `chore(nix): pin the flake's sona to vX.Y.Z`: it moves the flake's `sona`
+   (`build/linux/nix/release.json`) to this release's Arch package once the
+   package matched `SHA256SUMS` and its attestation and the flake built with
+   it. Prereleases are not pinned; for a release that missed it, dispatch
+   "Nix release pin" with the tag.
 
 If the build fails on something transient, "Re-run failed jobs" on that
 Release Please run builds the same tag again; the publish job uploads over
@@ -292,10 +293,9 @@ of which Renovate's token (`renovate.yaml`) already requests:
 
 | Permission     | Level | Used by                                                            |
 | -------------- | ----- | ------------------------------------------------------------------ |
-| Contents       | write | release-please: release branch, tag, draft release; publish job: upload and publish; golden-update.yml: push the regenerated golden images to a pull request's branch; nix-vendor-hash.yml: push the updated vendorHash to a pull request's branch; nix-branch.yml: push the flake's `nix` branch |
+| Contents       | write | release-please: release branch, tag, draft release; publish job: upload and publish; golden-update.yml: push the regenerated golden images to a pull request's branch; nix-vendor-hash.yml: push the updated vendorHash to a pull request's branch |
 | Pull requests  | write | release-please: open and update the release PR; golden-update.yml: remove the `update-goldens` label (with Issues: a pull request's label needs both) |
 | Issues         | write | release-please: the `autorelease:` labels on the release PR; golden-update.yml: remove the `update-goldens` label |
-| Workflows      | write | nix-branch.yml: merging main onto the `nix` branch brings main's workflow changes with it, and GitHub refuses an App's push of those without this |
 
 Each job requests only what it uses (`permission-*` inputs), so the token is
 narrower than the installation. `golden-update.yml` reads the same two secrets
