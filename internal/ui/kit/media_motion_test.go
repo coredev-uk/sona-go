@@ -283,9 +283,15 @@ func (a *mediaCoverApp) view(c *ui.Context) {
 	})
 }
 
-func newMediaCoverApp(t *testing.T, e *mediaMotionEnv, motion string) (*mediaCoverApp, *ui.Tester) {
+// newMediaCoverApp builds the cover and its Tester; set changes the app
+// before the Tester's first frame, which builds the view at once (and so
+// asks for the decoder at the size it has by then).
+func newMediaCoverApp(t *testing.T, e *mediaMotionEnv, motion string, set ...func(*mediaCoverApp)) (*mediaCoverApp, *ui.Tester) {
 	t.Helper()
 	a := &mediaCoverApp{e: e, motion: motion, size: 100}
+	for _, f := range set {
+		f(a)
+	}
 	a.l = newArtLoader(&fakeArt{}, e.mt.post, 2)
 	t.Cleanup(a.l.Close)
 	return a, ui.NewTester(a.view, 200, 200)
@@ -371,8 +377,7 @@ func TestMotionCoverPlaysOverTheStillAtTheRequestedRendition(t *testing.T) {
 
 func TestMotionCoverAsksForTheVideoSizeNotTheCoversWhenGiven(t *testing.T) {
 	e := newMediaMotionEnv(t)
-	a, tt := newMediaCoverApp(t, e, "/motion/k1/720.mp4")
-	a.size, a.opts.VideoSize = 100, 420
+	_, tt := newMediaCoverApp(t, e, "/motion/k1/720.mp4", func(a *mediaCoverApp) { a.size, a.opts.VideoSize = 100, 420 })
 	mediaSettle(t, tt, e, 1)
 	if calls := e.f.opened(); calls[0].px != 420 {
 		t.Errorf("asked for %d px, want the 420 VideoSize", calls[0].px)

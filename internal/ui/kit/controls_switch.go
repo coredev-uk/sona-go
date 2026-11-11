@@ -289,8 +289,8 @@ func Tabs(c *ui.Context, selected *int, labels []string, o TabsOpts) ui.Element 
 	return list
 }
 
-// TabPanel is the page of a tab: a group named by label (the tab's) that
-// fills the space under the tab list. Build only the chosen tab's.
+// TabPanel is the page of a tab: a tab panel named by label (the tab's)
+// that fills the space under the tab list. Build only the chosen tab's.
 func TabPanel(c *ui.Context, label string) ui.Element {
-	return ui.Column(c).Grow(1).Role(ui.RoleGroup).Label(label)
+	return ui.Column(c).Grow(1).Role(ui.RoleTabPanel).Label(label)
 }

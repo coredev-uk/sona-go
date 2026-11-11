@@ -74,8 +74,6 @@ type viewState struct {
 
 	// own: a slider has the focus this frame, and keeps the arrows.
 	own bool
-
-	status string // what the status region said last, announced once
 }
 
 // layerOpen is the shell's: the view covers the window while it is open and a
@@ -223,12 +221,6 @@ func (v *video) screen(c *ui.Context, s services.PlaybackState, fresh bool) {
 			status = i18n.T("Loading the video…")
 		case loading || stalled:
 			status = i18n.T("Buffering…")
-		}
-	}
-	if status != st.status {
-		st.status = status
-		if status != "" {
-			c.Announce(status)
 		}
 	}
 
@@ -432,8 +424,11 @@ func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, stat
 				if pr == nil {
 					kit.SDMark(c)
 				}
-				// A new paragraph per state, so each is announced.
-				ui.Row(c.Key("status")).Shrink(0).AlignItems(ui.Center).Role(ui.RoleStatus).Children(func() {
+				// A status reads its text when that changes; the frame the
+				// view opens in, which builds it with its first text, says it.
+				row := ui.Row(c.Key("status")).Shrink(0).AlignItems(ui.Center).Role(ui.RoleStatus)
+				kit.AnnounceMounted(c, row, status)
+				row.Children(func() {
 					if status == "" {
 						return
 					}

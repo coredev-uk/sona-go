@@ -42,8 +42,8 @@ func TestMenuKeyboardWalk(t *testing.T) {
 			r.tt.Frame()
 			tr := access.Read(t, r.tt.Tester)
 			avatar, ok := tr.Find(ui.RoleButton, "Account")
-			if !ok || !avatar.Has(access.Expanded) {
-				t.Fatalf("the avatar does not say the menu is open: %+v", avatar)
+			if !ok || !avatar.Has(access.Expanded) || avatar.HasPopup != ui.PopupMenu {
+				t.Fatalf("the avatar does not say it opens a menu, open: %+v", avatar)
 			}
 			menu, ok := tr.Find(ui.RoleMenu, "Account")
 			if !ok {

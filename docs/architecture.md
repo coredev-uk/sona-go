@@ -23,7 +23,7 @@ Non-goals:
 
 ## 2. Stack
 
-- Go 1.27.3 and MyGo v0.8.3 (`github.com/egoist/mygo/ui`): one Go process draws the whole interface on the GPU, over GTK3 on Linux, AppKit on macOS and Win32 on Windows. The UI is Go (`internal/ui`): a component kit themed with the `docs/design.md` tokens, a query store that fetches on goroutines and publishes with `Window.Update`, and the services' events on one bus; the layout is `docs/ui-architecture.md`.
+- Go 1.27.3 and MyGo v0.9.0 (`github.com/egoist/mygo/ui`): one Go process draws the whole interface on the GPU, over GTK3 on Linux, AppKit on macOS and Win32 on Windows. The UI is Go (`internal/ui`): a component kit themed with the `docs/design.md` tokens, a query store that fetches on goroutines and publishes with `Window.Update`, and the services' events on one bus; the layout is `docs/ui-architecture.md`.
 - SQLite through `github.com/mattn/go-sqlite3` (FTS5 via the `sqlite_fts5` build tag) with a libSQL-compatible schema, goose migrations and sqlc queries.
 - `github.com/zalando/go-keyring` (Secret Service, Keychain, Credential Manager), `github.com/godbus/dbus/v5`, `golang.org/x/sync`. Artwork is decoded with the standard library's `image/jpeg` and `image/png` only and resized in `internal/artwork`, so no TIFF, BMP or WebP decoder is linked.
 - cgo: GStreamer 1.x (`gstreamer-1.0`, `gstreamer-app-1.0`; also the motion artwork decoder), `dlopen` for the CDM through a C++ shim. MyGo itself loads GTK3, Pango and the GL libraries by soname (purego) and needs no cgo.

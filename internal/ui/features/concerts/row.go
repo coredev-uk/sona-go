@@ -113,7 +113,7 @@ func tickets(c *ui.Context, env *module.Env, con services.Concert, o rowOpts) {
 		o.rov.stop(btn, o.row)
 	}
 	menu := ui.Local(btn, "menu", func() kit.Menu { return kit.Menu{} })
-	btn.Role(ui.RoleMenuButton).Expanded(menu.IsOpen())
+	btn.Role(ui.RoleMenuButton).HasPopup(ui.PopupMenu).Expanded(menu.IsOpen())
 	if btn.Clicked() {
 		if menu.IsOpen() {
 			menu.Close()

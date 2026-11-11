@@ -837,3 +837,24 @@ func TestErrorBlockMessageIsAnAlertWithoutItsButton(t *testing.T) {
 		t.Errorf("announced %q: an alert is read by MyGo", got)
 	}
 }
+
+// TabPanel is a tab panel named by its tab, and the controls built inside
+// it are on the tree under it.
+func TestA11yTabPanelIsATabPanelNamedByItsTab(t *testing.T) {
+	sel := 1
+	labels := []string{"General", "Playback"}
+	tt := controlsTester(t, 400, 200, func(c *ui.Context) {
+		Tabs(c, &sel, labels, TabsOpts{A11yLabel: "Settings"})
+		TabPanel(c, labels[sel]).Children(func() {
+			Button(c.Key("go"), "Go", ButtonOpts{})
+		})
+	})
+	tr := access.Read(t, tt)
+	panel, ok := tr.Find(ui.RoleTabPanel, "Playback")
+	if !ok {
+		t.Fatalf("no tab panel named Playback:\n%s", tr.Dump())
+	}
+	if btn, ok := tr.Find(ui.RoleButton, "Go"); !ok || !tr.Within(btn, ui.RoleTabPanel) {
+		t.Errorf("the panel's button is not inside it (panel %+v):\n%s", panel, tr.Dump())
+	}
+}

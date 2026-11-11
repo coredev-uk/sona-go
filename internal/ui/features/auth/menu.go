@@ -108,7 +108,7 @@ func (f *feature) avatar(c *ui.Context, signedIn, attention, open bool) ui.Eleme
 	if signedIn {
 		bg, fg = theme.C("active"), theme.C("ink")
 	}
-	btn := ui.ButtonBase(c.Key("auth:avatar")).Label(i18n.T("Account")).Expanded(open).
+	btn := ui.ButtonBase(c.Key("auth:avatar")).Label(i18n.T("Account")).HasPopup(ui.PopupMenu).Expanded(open).
 		Size(avatarSize, avatarSize).Radius(tk.Radius["full"]).Background(bg).TextColor(fg).Center()
 	if !theme.ReducedMotion() {
 		m := tk.Motion["feedback"]

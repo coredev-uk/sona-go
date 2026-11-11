@@ -382,13 +382,12 @@ func (p *playlists) addDialog(c *ui.Context) {
 					default:
 						msg = i18n.T("You have no playlists you can edit yet.")
 					}
-					// A status, read as the filter or the load leaves nothing
-					// to pick: the focus stays in the field.
+					// A status, read as the filter or the load changes what
+					// it says; the note turning up is announced here, as a
+					// status is not read when it first appears. The focus
+					// stays in the field.
 					note := dialogText(c.Key("empty"), msg, "secondary").TextColor(theme.C("ink-muted")).Padding(16, 8, 0, 8).Role(ui.RoleStatus)
-					if said := ui.Local(note, "said", func() string { return "" }); *said != msg {
-						*said = msg
-						c.Announce(msg)
-					}
+					kit.AnnounceMounted(c, note, msg)
 				}
 			})
 		})

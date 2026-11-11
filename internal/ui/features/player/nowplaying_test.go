@@ -95,6 +95,9 @@ type npRig struct {
 	width, height int
 	// inspect, when set, runs at the end of every frame (to read bounds).
 	inspect func(c *ui.Context)
+	// animate lets scrolls glide, as a window's do: a frozen test clock
+	// would redraw twenty frames per input, so most tests snap them.
+	animate bool
 }
 
 func newNPRig(t *testing.T, mutate ...func(*npRig)) *npRig {
@@ -121,7 +124,9 @@ func newNPRigWith(t *testing.T, opts []uitest.Option, mutate ...func(*npRig)) *n
 	r.tt = h.Tester(t, func(c *ui.Context) {
 		// A frozen fake clock never finishes a transition: every input would
 		// draw twenty frames.
-		c.DisableAnimations()
+		if !r.animate {
+			c.DisableAnimations()
+		}
 		ui.Column(c).Fill().Children(func() {
 			ui.Column(c).Grow(1).Basis(0).MinHeight(0).Children(func() {
 				if slot := r.p.overlaySlot(); slot.Open() {
@@ -986,5 +991,111 @@ func TestNextSweepEdgeIsTheNextWordLineEndOrRest(t *testing.T) {
 		if got := nextSweepEdge(spans, 0, words, c.at); got != c.want {
 			t.Errorf("after %d: %d, want %d", c.at, got, c.want)
 		}
+	}
+}
+
+// Handle.Focus scrolls the line into view as the focus moves (MyGo v0.9.0),
+// so arrowing down the synced lines follows the focus, and neither the
+// sheet's smooth page turns nor its hold after the user moved it pulls the
+// sheet away from the focused line.
+func TestArrowingThroughSyncedLinesKeepsTheFocusedLineInView(t *testing.T) {
+	r := newNPRig(t)
+	var sheet, line ui.Rect
+	r.inspect = func(c *ui.Context) {
+		if sh := r.p.np.sheet; sh != nil {
+			sheet = sh.box.Bounds(c)
+			if f := sh.focused; f >= 0 && f < len(sh.lines) {
+				line = sh.lines[f].Bounds(c)
+			}
+		}
+	}
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(40, false)}, nil)
+	r.play(2000)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 3 sung words"))
+	r.settle()
+	sh := r.p.np.sheet
+	sh.lines[0].Focus()
+	r.settle()
+	inView := func(what string) {
+		t.Helper()
+		if line.H == 0 || sheet.H == 0 {
+			t.Fatalf("%s: no bounds (line %v, sheet %v)", what, line, sheet)
+		}
+		if line.Y < sheet.Y-1 || line.Y+line.H > sheet.Y+sheet.H+1 {
+			t.Errorf("%s: line %d at %v..%v is outside the sheet %v..%v", what, sh.focused, line.Y, line.Y+line.H, sheet.Y, sheet.Y+sheet.H)
+		}
+	}
+	for i := 1; i <= 30; i++ {
+		r.tt.Key(0, ui.KeyDown)
+		r.settle()
+		if sh.focused != i {
+			t.Fatalf("after %d presses the focus is on line %d", i, sh.focused)
+		}
+		inView(fmt.Sprintf("Down %d", i))
+		// The sheet is left where the user put it, the sung line's turn
+		// of the page included: a second later still.
+		if i%10 == 0 {
+			r.advance(time.Second)
+			r.settle()
+			inView(fmt.Sprintf("Down %d, a second on", i))
+		}
+	}
+	r.tt.Key(0, ui.KeyHome)
+	r.settle()
+	r.advance(time.Second)
+	inView("Home")
+	r.tt.Key(0, ui.KeyEnd)
+	r.settle()
+	r.advance(time.Second)
+	inView("End")
+}
+
+// A key pressed while the sheet glides to the sung line's page takes the
+// focus to the next line, and the glide does not carry it out of view.
+func TestArrowingDuringThePageTurnKeepsTheFocusedLineInView(t *testing.T) {
+	r := newNPRig(t, func(r *npRig) { r.animate = true })
+	var sheet, line ui.Rect
+	r.inspect = func(c *ui.Context) {
+		if sh := r.p.np.sheet; sh != nil {
+			sheet = sh.box.Bounds(c)
+			if f := sh.focused; f >= 0 && f < len(sh.lines) {
+				line = sh.lines[f].Bounds(c)
+			}
+		}
+	}
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(60, false)}, nil)
+	r.play(2000)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 3 sung words"))
+	r.settle()
+	sh := r.p.np.sheet
+	// Play on until the sung line leaves the reading band and the sheet turns.
+	turned := false
+	for range 4000 {
+		r.advance(16 * time.Millisecond)
+		if sh.scroll.Scrolling() {
+			turned = true
+			break
+		}
+	}
+	if !turned {
+		t.Fatal("the sheet never turned a page")
+	}
+	sh.lines[sh.anchored].Focus()
+	r.settle()
+	for i := 0; i < 3; i++ {
+		r.tt.Key(0, ui.KeyDown)
+		r.tt.Frame()
+		r.advance(50 * time.Millisecond)
+		r.advance(300 * time.Millisecond)
+		if line.Y < sheet.Y-1 || line.Y+line.H > sheet.Y+sheet.H+1 {
+			t.Errorf("Down %d: line %d at %v..%v is outside the sheet %v..%v (y=%v)", i+1, sh.focused, line.Y, line.Y+line.H, sheet.Y, sheet.Y+sheet.H, sh.scroll.Y)
+		}
+	}
+	// The hold keeps the sheet where the keys left it.
+	r.advance(time.Second)
+	if line.Y < sheet.Y-1 || line.Y+line.H > sheet.Y+sheet.H+1 {
+		t.Errorf("a second on, line %d at %v..%v is outside the sheet %v..%v", sh.focused, line.Y, line.Y+line.H, sheet.Y, sheet.Y+sheet.H)
 	}
 }

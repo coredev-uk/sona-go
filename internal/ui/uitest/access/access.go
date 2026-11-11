@@ -377,6 +377,8 @@ func roleName(r ui.Role) string {
 		ui.RoleSeparator: "separator", ui.RoleRowHeader: "rowheader", ui.RoleSearch: "search", ui.RoleArticle: "article",
 		ui.RoleNavigation: "navigation", ui.RoleGrid: "grid", ui.RoleTreeGrid: "treegrid", ui.RoleListBox: "listbox",
 		ui.RoleOption: "option", ui.RoleDeletion: "deletion", ui.RoleInsertion: "insertion",
+		ui.RoleTabPanel: "tabpanel", ui.RoleMain: "main", ui.RoleBanner: "banner", ui.RoleContentInfo: "contentinfo",
+		ui.RoleComplementary: "complementary",
 	}
 	if n, ok := names[r]; ok {
 		return n
@@ -544,7 +546,8 @@ func (e element) leafOf() (ui.Role, bool) {
 		ui.RoleRow, ui.RoleCell, ui.RoleColumnHeader, ui.RoleRowHeader, ui.RoleTree, ui.RoleListItem, ui.RoleToolbar,
 		ui.RoleRadioGroup, ui.RoleMenu, ui.RoleMenuBar, ui.RoleAlertDialog, ui.RoleHeading, ui.RoleNavigation,
 		ui.RoleRegion, ui.RoleLog, ui.RoleTimer, ui.RoleAlert, ui.RoleSearch, ui.RoleArticle, ui.RoleGrid,
-		ui.RoleTreeGrid, ui.RoleListBox, ui.RoleOption, ui.RoleDeletion, ui.RoleInsertion:
+		ui.RoleTreeGrid, ui.RoleListBox, ui.RoleOption, ui.RoleDeletion, ui.RoleInsertion, ui.RoleTabPanel, ui.RoleMain,
+		ui.RoleBanner, ui.RoleContentInfo, ui.RoleComplementary:
 		return role, false
 	}
 	return role, true
@@ -625,37 +628,6 @@ func NoNestedControls(t testing.TB, tt *ui.Tester) {
 	for _, n := range NestedControls(t, tt) {
 		t.Errorf("not on the accessibility tree: %s", n)
 	}
-}
-
-// clickRoles are the controls Click looks for by name when the Tester's own
-// click refuses the element it found first.
-var clickRoles = []ui.Role{
-	ui.RoleLink, ui.RoleButton, ui.RoleOption, ui.RoleMenuItem, ui.RoleMenuItemRadio, ui.RoleMenuItemCheckBox,
-	ui.RoleTab, ui.RoleCheckBox, ui.RoleRadio, ui.RoleSwitch, ui.RoleToggleButton, ui.RolePopUpButton, ui.RoleMenuButton,
-}
-
-// Click clicks the control named name, as tt.Click does. MyGo v0.8.1's
-// Tester.Click takes the first element showing name, and refuses it as
-// not the input target when that element is not itself the control but
-// holds it, under an ancestor that handles input (a scrolling page): an
-// inline link in a text (the text is found before its link), or a button
-// in a list item labelled as it is. Click then clicks the middle of the
-// control of that name assistive technology sees, as a user would. The
-// refusals it does not retry (hidden, outside the window, under a scroll
-// bar or a web view) stand; a control another element covers gets the
-// click on that element, and the test fails on what it expected.
-func Click(tt *ui.Tester, name string) error {
-	err := tt.Click(name)
-	if err == nil || !strings.Contains(err.Error(), "is not the input target") {
-		return err
-	}
-	for _, r := range clickRoles {
-		if n, ok := tt.AccessByRole(r, name); ok && n.Bounds.W > 0 && n.Bounds.H > 0 {
-			tt.ClickAt(n.Bounds.X+n.Bounds.W/2, n.Bounds.Y+n.Bounds.H/2)
-			return nil
-		}
-	}
-	return err
 }
 
 // where describes the element with the keyboard focus by the elements it is
