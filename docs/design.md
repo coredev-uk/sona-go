@@ -302,6 +302,20 @@ Discover (`/new`) sets Apple's editorial front page as Sona's own issue: the fea
 - **Bands.** The shelves are grouped by what they hold, in this order: Songs and albums, Playlists, Radio, Videos, Browse (category bricks and links). Apple's order holds inside each band; a shelf of mixed items goes by most of them (the first item breaks a tie), and a paragraph stays with the shelf after it. Each band opens with one 1px `--line` across the column, 56px below the band before, and its heading 24px under the line at the page-title size, 24/30: the line is what sets a band heading apart from the page's h1, which has none. Inside, shelves keep their usual 40px pitch.
 - **Loading.** The freshness line's place holds a bar; the front page's own frame (the lead's block and caption bars, the list's covers and lines at their row height), the contents' lines and the first band's line and heading stand where they will land, then bars for the shelves.
 
+### Search
+
+The term is the page title (32/36, in curly quotes) with the scope switch (Apple Music, Library) on its baseline at the end. With no query the page is the recent searches and the browse categories.
+
+Results are a **card catalogue**: a 200px rail on the left lists the groups found, each as a button with its name and its count (tabular figures); a click scrolls that group to the top and moves the focus to it, and the group in view sits on the `--hover` tone. The rail is outside the scroll container, so it stays while the results scroll. Under 960px it is a wrapping row of the same buttons (6px radius, a `--line` border) above the results. The results column follows Apple's order, each group under a 1px `--line` and its 16/600 heading:
+
+- **Top results** are a best match and its neighbours: the first result in a `--surface` panel (radius 8, `--line` border) with a 120px cover, its kind in 14px muted, its name at 24/650 and its catalogue line, and the amber Play disc where it plays; up to four compact rows (40px cover) beside it, below it under 640px. Opening the panel opens the result's page, or plays a song.
+- **Artists** are one row of round portraits (104px at least, the tile grows to fill the row), the other item groups cover shelves with 136px tiles, so five or six fit where the other pages fit four.
+- **Songs** are the track list (number, cover, title, artist, and album from 720px of results width), eight rows, "See all" beside the heading.
+
+Loading is the same layout in `--accent` blocks (the rail, the panel, its rows, one shelf of portraits). Nothing found is a title at 24/650, one sentence and one ink button that searches the other scope; a failed search is the dashed error block with Try again; signed out, the sign-in sentence and button take the same place.
+
+The suggestion list under the top-bar field names each run with an icon and a 12/16 600 heading (Suggestions, Top results, Recently searched, In your library); an item row ends in its kind's icon, and the active row (the keyboard's or the pointer's) takes the `--active` fill, a ring and a chevron where the kind's icon was.
+
 ### Album page
 
 A record is two things in the hand: the sleeve, and the listing on its back. The album page is that gatefold: the sleeve is a full-height column of the cover's colour cut by the pane's own edges, and the listing is the facing page on the ground, with generous margins.

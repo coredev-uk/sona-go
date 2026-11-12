@@ -29,6 +29,24 @@ type rowOpts struct {
 	focus bool
 }
 
+// itemRun is what opening a result does and the role that says so: nil for
+// one that is not interactive (a web-only item, a page that is not ported).
+func (s *search) itemRun(it services.Item) (run func(), role ui.Role) {
+	path := itemPath(it)
+	role = ui.RoleLink
+	switch {
+	case path != "" && s.env.HasRoute != nil && s.env.HasRoute(path):
+		run = func() { s.env.Nav.Push(path) }
+	case path == "" && it.Kind == services.ItemSong && it.Song != nil && it.Song.Playable:
+		role = ui.RoleButton
+		run = func() { s.playSong(it) }
+	case path == "" && it.Kind != services.ItemSong && s.env.Players != nil && kit.PlaysWhenOpened(it, s.env.Players):
+		role = ui.RoleButton
+		run = func() { s.env.Players.PlayItem(it) }
+	}
+	return run, role
+}
+
 // itemRow is v0.2.0's ItemRow: one result of any kind as a list row:
 // artwork, name with the explicit mark, "Kind · subtitle". Songs play in
 // place (the play glyph shows on hover and focus); every other kind opens
@@ -40,19 +58,7 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 	if size == 0 {
 		size = 40
 	}
-	path := itemPath(it)
-	var run func() // what opening the row does; nil: not interactive
-	role := ui.RoleLink
-	switch {
-	case path != "" && s.env.HasRoute != nil && s.env.HasRoute(path):
-		run = func() { s.env.Nav.Push(path) }
-	case path == "" && it.Kind == services.ItemSong && it.Song != nil && it.Song.Playable:
-		role = ui.RoleButton
-		run = func() { s.playSong(it) }
-	case path == "" && it.Kind != services.ItemSong && s.env.Players != nil && kit.PlaysWhenOpened(it, s.env.Players):
-		role = ui.RoleButton
-		run = func() { s.env.Players.PlayItem(it) }
-	}
+	run, role := s.itemRun(it)
 
 	tk := theme.Current()
 	row := ui.Row(c.Key(o.key)).FillWidth().AlignItems(ui.Center).Radius(tk.Radius["md"]).PaddingEnd(4)

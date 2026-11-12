@@ -611,10 +611,14 @@ func TestLibraryResultsListSongsThenAlbums(t *testing.T) {
 func TestLibraryOpeningAnAlbumRemembersTheLibraryTermAndAlbum(t *testing.T) {
 	r := newPageRig(t, "/search?q=blue&scope=library", rigOpts{})
 	r.tt.Until("the results", r.tt.Shows("Albums", "Blue Hour"))
-	// The first tile under the Albums shelf's heading (the songs above name
-	// their album too).
-	head, _ := r.tt.Find("Albums")
-	r.tt.ClickAt(head.X+60, head.Y+110)
+	// The rail's Albums button jumps to the shelf and leaves the focus
+	// there: the next stop is the shelf's first tile (the songs above it
+	// name their album too).
+	r.click("Albums, 2")
+	r.tt.Drain()
+	r.tt.Key(0, ui.KeyTab)
+	r.tt.Key(0, ui.KeyEnter)
+	r.tt.Drain()
 	if !strings.HasPrefix(r.loc(), "/album/") {
 		t.Fatalf("opened %q", r.loc())
 	}
@@ -700,5 +704,89 @@ func TestPageGoldens(t *testing.T) {
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), name)
 		})
+	}
+}
+
+// TestPageStateGoldens: the results narrow (the rail a row of chips above
+// them), nothing found, and the page while the results load.
+func TestPageStateGoldens(t *testing.T) {
+	cases := []struct {
+		name, path string
+		w, h       int
+		gate       bool
+		shows      []string
+	}{
+		{"page_narrow_light", "/search?q=blue", 760, 1000, false, []string{"Top results", "Songs", "Blue Song 5"}},
+		{"page_empty_light", "/search?q=nothing", 1132, 420, false, []string{"Nothing on Apple Music for “nothing”"}},
+		{"page_loading_light", "/search?q=slow", 1132, 640, true, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gate := make(chan struct{})
+			t.Cleanup(func() { close(gate) })
+			r := newPageRig(t, tc.path, rigOpts{signedIn: true, width: tc.w, height: tc.h, setup: func(a *pageApple) {
+				if tc.gate {
+					a.gate = gate
+				}
+			}})
+			if tc.gate {
+				r.tt.Drain()
+				r.tt.Frame()
+			} else {
+				r.tt.Until("the page", r.tt.Shows(tc.shows...))
+				r.tt.Settle()
+			}
+			uitest.Golden(t, r.tt.Image(), tc.name)
+		})
+	}
+}
+
+func TestResultsRailListsTheGroupsAndJumpsToOne(t *testing.T) {
+	// A short window: the songs are below the fold.
+	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, width: 1132, height: 500})
+	r.tt.Until("the rail", r.tt.Shows("Top results", "Songs, 10"))
+	for _, label := range []string{"Top results, 3", "Artists, 1", "Albums, 1", "Songs, 10", "Playlists, 1"} {
+		if _, ok := r.tt.Find(label); !ok {
+			t.Errorf("the rail lacks %q; texts %q", label, r.tt.Texts())
+		}
+	}
+	v := &r.s.pages.search
+	if v.pos.Y != 0 {
+		t.Fatalf("the page starts scrolled to %v", v.pos.Y)
+	}
+	r.click("Songs, 10")
+	r.tt.Drain()
+	if v.pos.Y <= 0 {
+		t.Error("jumping to Songs did not scroll")
+	}
+	if !r.tt.Focused("Songs") {
+		t.Errorf("the focus did not move to the Songs group")
+	}
+	// The rail stays in place while the results scroll.
+	if _, ok := r.tt.Find("Playlists, 1"); !ok {
+		t.Error("the rail went with the content")
+	}
+}
+
+func TestResultsNarrowKeepTheGroupsAsARowAboveThem(t *testing.T) {
+	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, width: 760, height: 900})
+	r.tt.Until("the chips", r.tt.Shows("Top results", "Songs, 10"))
+	chip, _ := r.tt.Find("Songs, 10")
+	if head := r.position("Top results"); chip.Y >= head {
+		t.Errorf("the group chips (y=%v) are not above the first group (y=%v)", chip.Y, head)
+	}
+}
+
+func TestNothingFoundOffersTheOtherScope(t *testing.T) {
+	r := newPageRig(t, "/search?q=nothing", rigOpts{signedIn: true})
+	r.tt.Until("the empty state", r.tt.Shows("Nothing on Apple Music for “nothing”"))
+	r.click("Search your library")
+	if got := r.loc(); got != "/search?q=nothing&scope=library" {
+		t.Errorf("went to %q", got)
+	}
+	r.tt.Until("the library's empty state", r.tt.Shows("Nothing in your library for “nothing”"))
+	r.click("Search Apple Music")
+	if got := r.loc(); got != "/search?q=nothing" {
+		t.Errorf("went to %q", got)
 	}
 }
