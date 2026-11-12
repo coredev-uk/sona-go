@@ -89,12 +89,12 @@ func (s *settings) storage(c *ui.Context) {
 	share := math.Min(1, float64(u.ArtworkBytes)/float64(int64(limit)<<20))
 
 	s.stack(c, func() {
-		ui.Column(c.Key("usage")).FillWidth().Children(func() {
+		s.group(c, "storage-usage", i18n.T("On this computer"), "", func() {
 			s.line(c)
-			ui.Row(c.Key("figures")).FillWidth().Gap(24).Padding(16, 0, 0, 0).AlignItems(ui.Start).Children(func() {
+			ui.Row(c.Key("figures")).FillWidth().Gap(24).Padding(rowPadY, 0, rowPadY, 0).AlignItems(ui.Start).Children(func() {
 				s.figure(c, "art", i18n.T("Artwork cache"), artUsed, i18n.T("of {artworkLimit}", "artworkLimit", artLimit), func() {
 					kit.ProgressBar(c, share, kit.ProgressOpts{
-						A11yLabel: i18n.T("Artwork cache"), Width: 192,
+						A11yLabel: i18n.T("Artwork cache"), Width: 144,
 						ValueText: i18n.T("{artworkUsed} of {artworkLimit}", "artworkUsed", artUsed, "artworkLimit", artLimit),
 					}).Margin(6, 0, 0, 0)
 				})
@@ -110,7 +110,7 @@ func (s *settings) storage(c *ui.Context) {
 				})
 			})
 		})
-		ui.Column(c.Key("panel")).FillWidth().Children(func() {
+		s.group(c, "storage-keeping", i18n.T("Limit and cleanup"), "", func() {
 			s.selectRow(c, rowOpts{
 				ID: "art-cache", Title: i18n.T("Artwork cache"),
 				Desc: i18n.T("Covers and backdrops kept on this computer so pages open without downloading them again. Above the limit, the artwork shown least recently is removed first."),
@@ -132,7 +132,7 @@ func (s *settings) figure(c *ui.Context, id, label, value, of string, under func
 	ui.Column(k).Grow(1).Basis(0).MinWidth(0).Gap(4).Children(func() {
 		text(k, label, "meta").TextColor(theme.C("ink-muted"))
 		ui.Row(k.Key("v")).AlignItems(ui.End).Gap(4).Children(func() {
-			text(k, value, "heading").TextColor(theme.C("ink")).FontFeatures("tnum")
+			text(k, value, "title").TextColor(theme.C("ink")).FontFeatures("tnum")
 			if of != "" {
 				text(k, of, "secondary").TextColor(theme.C("ink-muted")).FontFeatures("tnum")
 			}

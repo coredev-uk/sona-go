@@ -43,8 +43,11 @@ type settings struct {
 	// pending is a Find landing waiting for its row, found the row washed
 	// after one.
 	pending *landing
-	found   found
-	find    findState
+	// wide is whether the window is wider than narrowWidth: groups keep
+	// their heading in a left margin, below it above their rows.
+	wide  bool
+	found found
+	find  findState
 	// lyrics is the lyrics settings last seen, to refetch lyrics when they
 	// change; "" until the first load.
 	lyrics string

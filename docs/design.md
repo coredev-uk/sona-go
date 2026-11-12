@@ -554,28 +554,29 @@ A music video takes the whole window, like full-screen lyrics: the picture is th
 
 ## Settings
 
-Settings is the label's index card: the left column says what each section is set to before you open it, and the section itself is a ledger of rows on the plain board, not a stack of boxes.
+Settings is a document with marginalia: the left column says what each section is set to before you open it, and the section is a ledger of rows on the plain board whose group headings hang in a left margin beside their rows, not a stack of boxes.
 
 ```
-Settings (h1)                  Playback (h2, the same size, on the same line)
-[ Find a setting       ]       ──────────────────────────────────────────────
-General                        Widevine                         ✓ Version 4.10…
-Opens on For you · Keeps…      ──────────────────────────────────────────────
-Playback          ← --active   Sound (16/600)
-High quality · Sound Check     ──────────────────────────────────────────────
-Appearance                     Audio quality                    [High · 256 ▾]
-Light theme                    AAC at 256 kbps, or 64 kbps…
-…                              ──────────────────────────────────────────────
+Settings (h1)                  Playback (h2 at 24/650)
+[ Find a setting       ]       ═════════════════════════════════════ (1px ink)
+⚙ General                                    ─────────────────────────────────
+  Opens on For you · …                       Widevine                ✓ 4.10…
+▶ Playback        ← --active   Sound         ─────────────────────────────────
+  High quality · …             (16/600)      Audio quality          [High ▾]
+☾ Appearance                                 AAC at 256 kbps, or 64 kbps…
+  Light theme                                ─────────────────────────────────
+…                              Listening     Private listening          (o )
 ```
 
-- **The index** (240px, held in view while a long section scrolls where the window is at least 700px tall): the h1, Find a setting, then the sections, each its name at 14/500 over its state in one catalogue line at 12 muted (`High quality · Crossfade 6 s`, `Nothing connected`, `2 changed`), at most two lines. Only cheap data feeds the lines (settings, capabilities, the scrobblers' status); Diagnostics, whose checks cost a run, says what it holds. The current section takes `--active`. Below 960px the h1 and the field share a row, the sections wrap under them as names alone, and the h2 is visually hidden.
+
+- **The index** (240px, held in view while a long section scrolls where the window is at least 700px tall): the h1, Find a setting, then the sections, each a 16px Lucide icon (`SlidersVertical`, `Play`, `Moon`, `Link2`, `Keyboard`, `FolderClosed`, `BadgeCheck`; the icon takes the name's colour) beside its name at 14/500 over its state in one catalogue line at 12 muted (`High quality · Crossfade 6 s`, `Nothing connected`, `2 changed`), at most two lines. Only cheap data feeds the lines (settings, capabilities, the scrobblers' status); Diagnostics, whose checks cost a run, says what it holds. The current section takes `--active`. Below 960px the h1 and the field share a row, the sections wrap under them as icon and name alone, and the h2 is visually hidden.
 - **Find a setting** searches every row's title, its group, its section and a few other words for it (`dark` finds Theme), and every shortcut. While it holds a query the section list gives way to the results (title at 14 in ink, `Section · Group` in meta); choosing one opens the section and puts focus on the row's control, washing the row in `--hover` for two seconds. ↓ goes into the results, ↑/↓ and Home/End move, Enter in the field takes the first, Escape clears; the count is announced.
-- **The ledger**: the section's h2 at 24/650, then groups 40px apart, each an h3 at 16/600 (with one muted line about the group when it needs one) over its rows. Every row sits under one 1px `--line` (no box, no tone step): the title at 14/500, what it does at 13 muted (60ch), the control at the right, 40px clear of the text. A row's state that needs attention keeps its own line under the description.
+- **The ledger, with marginalia**: the section's h2 at 24/650 over one 1px `--ink` rule, then groups 32px apart. Wider than 960px each group's h3 (16/600) and its one muted line (13, in the 176px column) sit in a left margin, level with the first row's title, and the rows run in the column to its right, 32px on; a block with no heading of its own (Language, Widevine, Appearance) keeps to that same column, its margin empty, so every row of a section shares one left edge. At 960px and below the h3 stacks above its rows. Every row sits under one 1px `--line` (no box, no tone step): the title at 14/500, what it does at 13 muted (60ch), the control at the right, 40px clear of the text. A row's state that needs attention keeps its own line under the description. The content column is up to 960px.
 - **What the platform can't do** keeps its row: the title in `--ink-muted` and, where the control would be described, a `CircleSlash` and why ("Not available on macOS yet.", or the specific reason: no tray to keep playing from, a player that reports plays itself). Nothing disappears quietly. Without any playback, Playback is that one row and the lyrics.
 - **Theme** is three segments (System, Light, Dark) in one 32px outlined control, radio buttons underneath: every choice in view, ←/→ to move.
-- **Storage** opens with what Sona keeps on this computer as figures: the artwork cache against its limit with a 4px meter in `--ink-muted`, the catalogue cache, the database. The rows under them keep only what each does and its action, so no figure is shown twice.
-- **Shortcuts** set their groups in two columns where the section is at least 46rem wide, each group whole in one column; rows are the ledger's at 44px.
-- **Diagnostics** leads with its verdict at 16/600 beside its icon ("Everything Sona needs is working", or the count of problems), the warnings counted under it, and its three actions at the right; the checks follow as ledger rows of a 200px name column and the value. Variable names break after an underscore.
+- **Storage** opens with a group, *On this computer*, whose row holds what Sona keeps as three figures at 24/650 with tabular figures: the artwork cache against its limit with a 4px meter in `--ink-muted`, the catalogue cache, the database. The group *Limit and cleanup* keeps only what each does and its action, so no figure is shown twice.
+- **Shortcuts** set their groups in two columns where the section is at least 46rem wide, each group whole in one column; rows are the ledger's at 44px. The two columns use the section's full width, so their h3s stay above their rows instead of in a margin.
+- **Diagnostics** leads with its verdict at 16/600 beside its icon ("Everything Sona needs is working", or the count of problems), the warnings counted under it, as the first margin note; its three actions are the first row beside it. The checks follow as groups in the margin frame, ledger rows of a 200px name column and the value. Variable names break after an underscore.
 - No amber anywhere on the page: it has nothing playing to show.
 
 ## Dates

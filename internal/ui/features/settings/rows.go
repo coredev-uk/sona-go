@@ -152,46 +152,89 @@ func (s *settings) line(c *ui.Context) {
 	ui.Box(c.Key("line")).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
 }
 
+// marginWidth and marginGap are the left margin a group's heading sits in
+// where the window is wide.
+const (
+	marginWidth = 176
+	marginGap   = 32
+)
+
+// marginal sets a group's head beside its body in a left margin column
+// (the head's first line level with the first row's title, topPad below the
+// body's top), or above it where the window is narrow.
+func (s *settings) marginal(c *ui.Context, topPad float32, head, body func()) {
+	if !s.wide {
+		ui.Column(c.Key("stacked")).FillWidth().Gap(12).Children(func() {
+			ui.Column(c.Key("head")).FillWidth().Children(head)
+			ui.Column(c.Key("rows")).FillWidth().Children(body)
+		})
+		return
+	}
+	ui.Row(c.Key("margined")).FillWidth().Gap(marginGap).AlignItems(ui.Start).Children(func() {
+		ui.Column(c.Key("head")).Width(marginWidth).Shrink(0).Padding(topPad, 0, 0, 0).Children(head)
+		ui.Column(c.Key("rows")).Grow(1).Shrink(1).MinWidth(0).Children(body)
+	})
+}
+
+// bare is a block of rows with no heading of its own (Language, Widevine):
+// wide, it keeps to the rows' column so every row of the section shares one
+// left edge.
+func (s *settings) bare(c *ui.Context, rows func()) {
+	if !s.wide {
+		ui.Column(c.Key("bare")).FillWidth().Children(rows)
+		return
+	}
+	ui.Row(c.Key("bare")).FillWidth().Gap(marginGap).Children(func() {
+		ui.Box(c.Key("margin")).Width(marginWidth).Shrink(0)
+		ui.Column(c.Key("rows")).Grow(1).Shrink(1).MinWidth(0).Children(rows)
+	})
+}
+
 // group is a SettingsGroup: a section within a page section: a heading (an
 // h3 under the section's h2), optionally a line about the whole group, then
-// its rows.
+// its rows. Wide, the heading and its line are the group's left margin.
 func (s *settings) group(c *ui.Context, id, title, desc string, rows func()) {
 	c = c.Key("group:" + id)
-	ui.Column(c).FillWidth().Gap(12).Role(ui.RoleGroup).Label(title).Children(func() {
-		ui.Column(c.Key("head")).FillWidth().Children(func() {
+	ui.Column(c).FillWidth().Role(ui.RoleGroup).Label(title).Children(func() {
+		s.marginal(c, rowPadY+1, func() {
 			text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
 			if desc != "" {
-				text(c, desc, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0).MaxWidth(rowTextWidth + 40)
+				d := text(c, desc, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
+				if !s.wide {
+					d.MaxWidth(rowTextWidth + 40)
+				}
 			}
-		})
-		ui.Column(c.Key("rows")).FillWidth().Children(rows)
+		}, rows)
 	})
 }
 
 // stack is SettingsSections: a section's groups (and any untitled block
 // before them) at one spacing.
 func (s *settings) stack(c *ui.Context, build func()) {
-	ui.Column(c.Key("stack")).FillWidth().Gap(40).Children(build)
+	ui.Column(c.Key("stack")).FillWidth().Gap(32).Children(build)
 }
 
 // loading is SettingsLoading: a section still loading, in its rows' shape:
 // flat bars at the real text sizes, announced busy.
 func (s *settings) loading(c *ui.Context, rows int) {
 	ui.Column(c.Key("loading")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
-		ui.Box(c.Key("h")).Width(112).Height(16).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover")).Margin(0, 0, 12, 0)
-		for i := range rows {
-			k := c.Key(i)
-			ui.Column(k).FillWidth().Children(func() {
-				s.line(k)
-				ui.Row(k.Key("r")).FillWidth().Padding(rowPadY, 0).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(rowGap).Children(func() {
-					ui.Column(k.Key("l")).Gap(8).Children(func() {
-						ui.Box(k.Key("t")).Width(160).Height(14).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
-						ui.Box(k.Key("d")).Width(float32(220 + (i*53)%140)).Height(12).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
+		s.marginal(c, rowPadY+1, func() {
+			ui.Box(c.Key("h")).Width(112).Height(16).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
+		}, func() {
+			for i := range rows {
+				k := c.Key(i)
+				ui.Column(k).FillWidth().Children(func() {
+					s.line(k)
+					ui.Row(k.Key("r")).FillWidth().Padding(rowPadY, 0).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(rowGap).Children(func() {
+						ui.Column(k.Key("l")).Gap(8).Children(func() {
+							ui.Box(k.Key("t")).Width(160).Height(14).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
+							ui.Box(k.Key("d")).Width(float32(220 + (i*53)%140)).Height(12).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
+						})
+						ui.Box(k.Key("c")).Width(selectWidth).Height(32).Radius(theme.Current().Radius["md"]).Background(theme.C("hover"))
 					})
-					ui.Box(k.Key("c")).Width(selectWidth).Height(32).Radius(theme.Current().Radius["md"]).Background(theme.C("hover"))
 				})
-			})
-		}
+			}
+		})
 	})
 }
 

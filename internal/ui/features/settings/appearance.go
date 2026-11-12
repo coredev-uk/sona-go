@@ -16,7 +16,7 @@ func (s *settings) appearance(c *ui.Context) {
 	st := s.cfg()
 	// Until the settings are there the rows keep their places, disabled.
 	off := !st.HasData
-	ui.Column(c.Key("panel")).FillWidth().Children(func() {
+	s.bare(c.Key("panel"), func() {
 		s.row(c, rowOpts{
 			ID: "theme", Title: i18n.T("Theme"),
 			Desc: i18n.T("System follows your desktop's light or dark preference."),

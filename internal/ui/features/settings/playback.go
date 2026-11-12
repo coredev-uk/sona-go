@@ -34,7 +34,7 @@ func (s *settings) playback(c *ui.Context) {
 	pb := caps.Playback
 	if !pb.Available {
 		s.stack(c, func() {
-			ui.Column(c.Key("panel")).FillWidth().Children(func() {
+			s.bare(c.Key("panel"), func() {
 				s.unavailableRow(c, "playback", i18n.T("Playback isn't available on this platform yet"),
 					i18n.T("Browsing Apple Music and your library works as usual."))
 			})
@@ -45,7 +45,7 @@ func (s *settings) playback(c *ui.Context) {
 	cdm := pb.Engine == "cdm"
 	s.stack(c, func() {
 		if cdm {
-			ui.Column(c.Key("cdm")).FillWidth().Children(func() { s.cdmRow(c) })
+			s.bare(c.Key("cdm"), func() { s.cdmRow(c) })
 		}
 		s.group(c, "playback-sound", i18n.T("Sound"), "", func() {
 			s.qualityRow(c, st)
