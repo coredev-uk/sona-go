@@ -38,4 +38,6 @@ func TestGoldenChartsLight(t *testing.T) {
 // TestGoldenDiscoverNarrow is the front page and the first band at the
 // minimum window's content width (940 less the sidebar): the lead over the
 // strip's two rows of two, the band's heading above its shelves.
-func TestGoldenDiscoverNarrow(t *testing.T) { goldenNew(t, "discover-new-narrow-light", withSize(708, 1253)) }
+func TestGoldenDiscoverNarrow(t *testing.T) {
+	goldenNew(t, "discover-new-narrow-light", withSize(708, 1253))
+}

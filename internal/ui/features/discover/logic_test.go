@@ -245,8 +245,8 @@ func TestFrontLayoutAtTheWidthsOfTheReferencePage(t *testing.T) {
 		t.Errorf("the strip is %v wide, want the lead's width and 16", got)
 	}
 	for _, tc := range []struct {
-		width, lead     float32
-		columns, rows   int
+		width, lead   float32
+		columns, rows int
 	}{
 		{1056, 1056, 4, 1},
 		{880, 880, 4, 1},

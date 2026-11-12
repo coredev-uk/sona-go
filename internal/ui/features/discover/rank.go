@@ -41,11 +41,11 @@ type rankOpts struct {
 	count int
 	songs func(i int) *services.Song
 
-	menus               *kit.ActionMenus
-	art                 *kit.ArtLoader
-	motion              *kit.MotionPolicy
-	current             func(*services.Song) bool
-	playing, restricted bool
+	menus                 *kit.ActionMenus
+	art                   *kit.ArtLoader
+	motion                *kit.MotionPolicy
+	current               func(*services.Song) bool
+	playing, restricted   bool
 	openArtist, openAlbum func(id string)
 }
 
@@ -215,7 +215,7 @@ func rankLink(c *ui.Context, name, id string, style theme.TypeStyle, open func(i
 // where the text goes.
 func rankPlaceholder(c *ui.Context, i int, album bool) {
 	tk := theme.Current()
-	ui.Row(c.Key("loading-"+strconv.Itoa(i))).Height(rankRowH).Shrink(0).PaddingX(8).Gap(12).AlignItems(ui.Center).
+	ui.Row(c.Key("loading-" + strconv.Itoa(i))).Height(rankRowH).Shrink(0).PaddingX(8).Gap(12).AlignItems(ui.Center).
 		Role(ui.RoleListItem).Label(i18n.T("Loading")).Children(func() {
 		ui.Row(c).Width(rankCell).Shrink(0).Children(func() { rankNumeral(c, i, theme.C("ink-faint")) })
 		ui.Box(c).Size(rankArt, rankArt).Shrink(0).Radius(tk.Radius["sm"]).Background(theme.C("hover"))

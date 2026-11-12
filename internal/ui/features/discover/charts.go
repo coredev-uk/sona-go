@@ -17,12 +17,12 @@ const topSongs = 10
 
 // chartsPage is the state of the Charts overview.
 type chartsPage struct {
-	pg     pageView
-	menus  *kit.ActionMenus
-	skel   measure
-	shelf  map[string]*kit.CoverShelfState
-	ranks  rankState
-	songs  []services.Song
+	pg    pageView
+	menus *kit.ActionMenus
+	skel  measure
+	shelf map[string]*kit.CoverShelfState
+	ranks rankState
+	songs []services.Song
 }
 
 // chartPage is the state of one chart in full.

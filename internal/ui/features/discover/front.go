@@ -508,7 +508,7 @@ func (d *discover) frontSkeleton(c *ui.Context, m *measure) {
 			ui.Row(c).Height(30).Margin(12, 0, 0, 0).AlignItems(ui.Center).Children(func() { bar(c, lay.lead/3, 20) })
 			ui.Row(c).Height(18).AlignItems(ui.Center).Children(func() { bar(c, lay.lead/4, 12) })
 		})
-		ui.Column(c.Key("list")).Width(lay.lead+16).Margin(20, -8, 0, -8).Gap(stripGap/2).Children(func() {
+		ui.Column(c.Key("list")).Width(lay.lead+16).Margin(20, -8, 0, -8).Gap(stripGap / 2).Children(func() {
 			for r := range lay.rows {
 				ui.Row(c.Key(r)).Gap(stripGap).Children(func() {
 					for col := range lay.columns {
