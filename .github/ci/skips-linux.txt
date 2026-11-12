@@ -12,3 +12,6 @@ internal/playback/cdm TestLiveDownload.*
 # have nothing to run, and one reads a file the environment names.
 internal/ui/media TestOpenMotionWithoutDecoder
 internal/ui/media TestMotionFileOfTheCache
+# CI's containers run as root, which reads a file whatever its mode, so the
+# test of a theme file the user can't read has nothing to make unreadable.
+internal/services TestThemesFilesMarksAnUnreadableFile root reads everything
