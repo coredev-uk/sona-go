@@ -180,9 +180,9 @@ func libraryShare(have, catalogue int) *share {
 
 // layout is the album page's layout for the content's width
 // (docs/design.md, Album page): the sleeve beside the listing from 860, the
-// cover larger from 1280; below 860 the sleeve heads the page with the title
-// beside the cover. Covers come in fixed sizes so Go serves them at the
-// exact box.
+// cover larger from 1280 and again from 1600 (a 1920 window); below 860 the sleeve heads the
+// page with the title beside the cover. Covers come in fixed sizes so Go
+// serves them at the exact box.
 type layout struct {
 	wide  bool
 	cover float32
@@ -190,6 +190,8 @@ type layout struct {
 
 func albumLayout(width float32) layout {
 	switch {
+	case width >= 1600:
+		return layout{true, 384}
 	case width >= 1280:
 		return layout{true, 320}
 	case width >= 860:

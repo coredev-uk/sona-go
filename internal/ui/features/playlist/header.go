@@ -13,14 +13,31 @@ import (
 )
 
 // The header's geometry, in DIPs: the cover is the card's front panel, 224
-// square (144 when the window is under kit.PageNarrow), and the text beside it
-// is as tall as the cover, the title and byline at its top and the actions
-// on its bottom edge.
+// square (144 when the window is under kit.PageNarrow, 288 from headLargeFrom),
+// and the text beside it is as tall as the cover, the title and byline at its
+// top and the actions on its bottom edge.
 const (
 	headCover       = 224
 	headCoverNarrow = 144
-	headBandH       = 40
+	headCoverLarge  = 288
+	// headLargeFrom is the window width from which the cover takes its
+	// large class, so a wide window's header is not a small cover in a
+	// wide wash.
+	headLargeFrom = 1600
+	headBandH     = 40
 )
+
+// headArt is the cover's size at a window width: one of three fixed classes,
+// so Go serves the exact box.
+func headArt(ww float32) float32 {
+	switch {
+	case ww < kit.PageNarrow:
+		return headCoverNarrow
+	case ww >= headLargeFrom:
+		return headCoverLarge
+	}
+	return headCover
+}
 
 // ledgerCell is one fact of the ledger strip: the text and, for "Updated …",
 // the exact date and time behind it (the cell is then a tab stop with a
@@ -96,9 +113,9 @@ func ledgerStrip(c *ui.Context, cells []ledgerCell) {
 func (p *playlists) header(c *ui.Context, d services.PlaylistDetail, byline func(), cells []ledgerCell, actions, find func()) {
 	tk := theme.Current()
 	ww, _ := c.Size()
-	gutter, art := tk.Metric["gutter"], float32(headCover)
+	gutter, art := tk.Metric["gutter"], headArt(ww)
 	if ww < kit.PageNarrow {
-		gutter, art = tk.Metric["gutter-narrow"], headCoverNarrow
+		gutter = tk.Metric["gutter-narrow"]
 	}
 	pl, hd := d.Playlist, d.Header
 	var colour string
@@ -108,7 +125,7 @@ func (p *playlists) header(c *ui.Context, d services.PlaylistDetail, byline func
 	body := func() {
 		ui.Row(c.Key("row")).FillWidth().Gap(32).AlignItems(ui.Stretch).Children(func() {
 			if hd.Motion != "" {
-				kit.MotionCover(c, p.env.Motion, p.env.Art, pl.Art.Large, hd.Motion, art, kit.MotionOpts{VideoSize: 200})
+				kit.MotionCover(c, p.env.Motion, p.env.Art, pl.Art.Large, hd.Motion, art, kit.MotionOpts{VideoSize: headCoverLarge})
 			} else {
 				kit.Artwork(c, p.env.Art, pl.Art.Large, art, kit.ArtOpts{Edge: true})
 			}
@@ -147,10 +164,7 @@ func (p *playlists) header(c *ui.Context, d services.PlaylistDetail, byline func
 func (p *playlists) pageSkeleton(c *ui.Context) {
 	tk := theme.Current()
 	ww, _ := c.Size()
-	art := float32(headCover)
-	if ww < kit.PageNarrow {
-		art = headCoverNarrow
-	}
+	art := headArt(ww)
 	hover := theme.C("hover")
 	r := tk.Radius["sm"]
 	bar := func(w, h float32) ui.Element {

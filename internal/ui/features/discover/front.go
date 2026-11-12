@@ -140,7 +140,7 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.Item
 		if available {
 			next := items[(at+1)%count]
 			if src, contain := leadArt(next); src != "" {
-				kit.PrefetchArtwork(c, ctx.Art, src, lay.lead, kit.ArtOpts{Aspect: heroRatio, Contain: contain})
+				kit.PrefetchArtwork(c, ctx.Art, src, lay.lead, kit.ArtOpts{Aspect: lay.artAspect(), Contain: contain})
 			}
 		}
 	})
@@ -260,7 +260,7 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 					// The item's colour shows where the picture does not, and
 					// stays when it fails to load.
 					kit.Artwork(c, ctx.Art, src, lay.lead, kit.ArtOpts{
-						Aspect: heroRatio, Edge: true, Contain: contain, Fallback: func(*ui.Context) {},
+						Aspect: lay.artAspect(), Edge: true, Contain: contain, Fallback: func(*ui.Context) {},
 					})
 				}
 			})

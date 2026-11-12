@@ -89,3 +89,12 @@ func gradient(w, h int) []byte {
 	}
 	return b
 }
+
+// TestGoldenPageWide is the page at 1920×1200: the stage spans the column, and
+// the 16:9 picture is centred in it at the height cap.
+func TestGoldenPageWide(t *testing.T) {
+	p := newPageRig(t, false, 1920, 1200)
+	p.loaded()
+	p.tt.Settle()
+	uitest.Golden(t, p.tt.Image(), "video-page-1920-light")
+}

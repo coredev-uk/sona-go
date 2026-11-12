@@ -18,14 +18,31 @@ const (
 	sideBySide = 900
 	// slateRows is the rows of the running order shown before "Show all".
 	slateRows = 8
-	// leadCover and leadCoverNarrow are the lead pick's cover, in DIPs: the
-	// width of its column beside the running order, or the cover of its row
-	// above it.
+	// leadCover, leadCoverLarge and leadCoverNarrow are the lead pick's cover,
+	// in DIPs: the width of its column beside the running order (the large
+	// class from leadLargeFrom), or the cover of its row above it.
 	leadCover       = 280
+	leadCoverLarge  = 360
 	leadCoverNarrow = 144
+	// leadLargeFrom is the lead's width from which its cover takes the
+	// large class, so a wide window's lead is not a small cover beside a
+	// long order.
+	leadLargeFrom = 1400
 	// leadGap is the room between the lead and the running order.
 	leadGap = 48
 )
+
+// leadCoverFor is the lead's cover for the lead's width: one of three fixed
+// classes, so Go serves the exact box.
+func leadCoverFor(width float32) float32 {
+	switch {
+	case width >= leadLargeFrom:
+		return leadCoverLarge
+	case width >= sideBySide:
+		return leadCover
+	}
+	return leadCoverNarrow
+}
 
 // leadState is the state of the lead: its width, the picks' rows and their
 // toggle, and the lead pick's selection and menu.
@@ -85,7 +102,8 @@ func (h *home) homeLead(c *ui.Context, sec services.Section, ctx kit.ItemsCtx) {
 		title = i18n.T("Top picks")
 	}
 	root := ui.Column(c.Key("lead")).Role(ui.RoleGroup).Label(title)
-	wide := st.width.Track(c, root) >= sideBySide
+	width := st.width.Track(c, root)
+	wide := width >= sideBySide
 	root.Children(func() {
 		hidden := st.cols > 0 && len(rest) > st.cols*slateRows
 		head := ruledOpts{Title: title}
@@ -100,7 +118,7 @@ func (h *home) homeLead(c *ui.Context, sec services.Section, ctx kit.ItemsCtx) {
 			body = ui.Column(c.Key("body")).Gap(20)
 		}
 		body.Margin(12, 0, 0, 0).Children(func() {
-			h.leadPick(c, first, wide, ctx)
+			h.leadPick(c, first, leadCoverFor(width), ctx)
 			if len(rest) > 0 {
 				order := ui.Column(c.Key("order")).MinWidth(0)
 				if wide {
@@ -127,12 +145,9 @@ type pickState struct {
 // leadPick is the lead pick: its cover, name, artist or curator, the catalogue
 // line and its controls. It selects, opens its menu on a right-click or
 // Shift+F10 and drags like any tile.
-func (h *home) leadPick(c *ui.Context, it services.Item, wide bool, ctx kit.ItemsCtx) {
+func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.ItemsCtx) {
 	st := &h.lead.pick
-	cover := float32(leadCoverNarrow)
-	if wide {
-		cover = leadCover
-	}
+	wide := cover > leadCoverNarrow
 	menus := kit.MenusIn(&st.menus, h.env.Actions, &st.sel)
 	tk := theme.Current()
 	target, selectable := kit.ActionItemOf(it, ctx.Players)
@@ -319,16 +334,16 @@ func (h *home) leadSkeleton(c *ui.Context) {
 	tk := theme.Current()
 	hover, r := theme.C("hover"), tk.Radius["sm"]
 	root := ui.Column(c.Key("lead-skeleton")).Role(ui.RoleStatus).Label(i18n.T("Loading"))
-	wide := st.width.Track(c, root) >= sideBySide
+	width := st.width.Track(c, root)
+	wide := width >= sideBySide
 	root.Children(func() {
 		ui.Row(c.Key("head")).MinHeight(28).Margin(0, 0, 12, 0).Gap(16).AlignItems(ui.Center).Children(func() {
 			kit.Bar(c, 140, 16)
 			rule(c)
 		})
 		var body ui.Element
-		cover := float32(leadCoverNarrow)
+		cover := leadCoverFor(width)
 		if wide {
-			cover = leadCover
 			body = ui.Row(c.Key("body")).Gap(leadGap).AlignItems(ui.Start)
 		} else {
 			body = ui.Column(c.Key("body")).Gap(20)

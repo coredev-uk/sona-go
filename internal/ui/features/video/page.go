@@ -20,12 +20,16 @@ const (
 	padTop    = 24
 	padBottom = 48
 	narrow    = 960
-	// The lead picture is between heroMinH and heroMaxH DIPs high (a picture,
-	// not a wall); captionH is what the caption row and its gap take under it.
-	heroMinH = 360
-	heroMaxH = 630
-	captionH = 112
-	// stackBelow is the picture width under which the actions go under the
+	// The stage is as wide as the content and as high as the 16:9 picture at
+	// that width, up to stageFrac of what the window shows between its bars
+	// (never under stageMinH or over stageMaxH high); past that the picture
+	// keeps its shape and sits centred in it.
+	stageFrac = 0.6
+	stageMinH = 360
+	stageMaxH = 640
+	// pictureAspect is the video still's shape.
+	pictureAspect = 16.0 / 9
+	// stackBelow is the content width under which the actions go under the
 	// title block instead of beside it.
 	stackBelow = 720
 	// tileMin is the smallest tile of the shelves of videos.
@@ -103,13 +107,13 @@ func (v *video) page(c *ui.Context, r *ui.Route) {
 	})
 }
 
-// widths is the page's usable width inside its gutters and the picture's. The
-// picture is as wide as the content, but no taller than the window can show
-// above the fold with its caption (never under heroMinH or over heroMaxH
-// high), and a whole number of DIPs, so it is asked for at the box it is
-// drawn in. Before the first layout the content is taken to be the window
-// less the sidebar.
-type widths struct{ content, hero float32 }
+// widths is the page's usable width inside its gutters, and the lead's
+// stage. The stage spans the content at every width; the picture is the whole
+// 16:9 still in it, never cropped (see stageBox). Before the first layout the
+// content is taken to be the window less the sidebar.
+type widths struct {
+	content, stageH, picW, picH float32
+}
 
 func (v *video) widths(c *ui.Context, gutter float32) widths {
 	tk := theme.Current()
@@ -119,16 +123,29 @@ func (v *video) widths(c *ui.Context, gutter float32) widths {
 		w = ww - tk.Metric["sidebar"]
 	}
 	content := float32(math.Floor(float64(max(w-2*gutter-tk.Metric["scrollbar"], 0))))
-	// What is left of the window under the bars, the top padding and the
-	// caption.
-	fold := wh - tk.Metric["top-bar"] - tk.Metric["player-bar"] - padTop - captionH
-	h := min(max(fold, heroMinH), heroMaxH)
-	return widths{content: content, hero: min(content, float32(math.Floor(float64(h*16/9))))}
+	visible := wh - tk.Metric["top-bar"] - tk.Metric["player-bar"]
+	return stageBox(content, visible)
 }
 
-// skeleton is the loaded page at its real sizes: the 16:9 picture, the
-// caption's bars and a row of tiles, as flat --hover shapes. It is a
-// labelled "Loading" status.
+// stageBox is the stage and picture for a content width and the height the
+// window shows between its bars, all whole DIPs so the picture is asked for at
+// the box it is drawn in. While the 16:9 picture at the content width is no
+// taller than the cap (stageFrac of visible, between stageMinH and stageMaxH)
+// the picture is the stage; past it the stage stays full width at the cap and
+// the picture, whole, is centred in it.
+func stageBox(content, visible float32) widths {
+	limit := float32(math.Floor(float64(min(max(visible*stageFrac, stageMinH), stageMaxH))))
+	natural := float32(math.Round(float64(content / pictureAspect)))
+	if natural <= limit {
+		return widths{content: content, stageH: natural, picW: content, picH: natural}
+	}
+	picW := float32(math.Round(float64(limit * pictureAspect)))
+	return widths{content: content, stageH: limit, picW: picW, picH: limit}
+}
+
+// skeleton is the loaded page at its real sizes: the stage, the caption's
+// bars and a row of tiles, as flat --hover shapes. It is a labelled "Loading"
+// status.
 func (v *video) skeleton(c *ui.Context, w widths) {
 	hover := theme.C("hover")
 	sm := theme.Current().Radius["sm"]
@@ -136,11 +153,11 @@ func (v *video) skeleton(c *ui.Context, w widths) {
 		return ui.Box(c).Width(width).Height(height).Radius(sm).Background(hover).Shrink(0)
 	}
 	ui.Column(c).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
-		ui.Box(c.Key("picture")).Size(w.hero, w.hero*9/16).Radius(sm).Background(hover).Shrink(0)
-		ui.Column(c.Key("caption")).Width(w.hero).Margin(20, 0, 0, 0).Children(func() {
-			bar(w.hero*0.4, 36)
-			bar(w.hero*0.2, 22).Margin(6, 0, 0, 0)
-			bar(w.hero*0.3, 16).Margin(8, 0, 0, 0)
+		ui.Box(c.Key("picture")).Size(w.content, w.stageH).Radius(sm).Background(hover).Shrink(0)
+		ui.Column(c.Key("caption")).Width(w.content).Margin(20, 0, 0, 0).Children(func() {
+			bar(w.content*0.4, 36)
+			bar(w.content*0.2, 22).Margin(6, 0, 0, 0)
+			bar(w.content*0.3, 16).Margin(8, 0, 0, 0)
 		})
 		bar(120, 22).Margin(48, 0, 12, 0)
 		cols, tile := kit.CoverColumns(w.content, tileMin)
@@ -156,14 +173,14 @@ func (v *video) skeleton(c *ui.Context, w widths) {
 	})
 }
 
-// body is the loaded page, as a screening: the picture at the full content
+// body is the loaded page, as a screening: the stage at the full content
 // width, its caption row under it, the note on definition, the notes, and
 // the shelves of videos.
 func (v *video) body(c *ui.Context, d services.CatalogVideo, w widths) {
 	vid := d.Video
 	caps, known := v.caps()
 	videoPlays := known && caps.Video
-	v.hero(c, d, videoPlays, w.hero)
+	v.hero(c, d, videoPlays, w)
 
 	if known || d.Song != nil {
 		note := ui.RichText(c).MaxWidth(68*8).Margin(24, 0, 0, 0).TextColor(theme.C("ink-muted"))
@@ -229,13 +246,24 @@ func (v *video) songLine(c *ui.Context, s services.Song) {
 	ui.Text(c.Key("song-after"), after)
 }
 
-// hero is the page's lead: the 16:9 picture at width w (the cover is the
-// colour, so there is no wash behind it) and, directly under it at the same
-// width, the caption row: the title block at the left, the actions at the
-// right. Under stackBelow the actions go under the title block.
-func (v *video) hero(c *ui.Context, d services.CatalogVideo, videoPlays bool, w float32) {
+// hero is the page's lead: the stage across the content column with the 16:9
+// picture in it (the cover is the colour, so there is no wash behind it) and,
+// directly under it at the column's width, the caption row: the title block
+// at the left, the actions at the right. Under stackBelow the actions go
+// under the title block.
+func (v *video) hero(c *ui.Context, d services.CatalogVideo, videoPlays bool, w widths) {
 	vid := d.Video
-	kit.Artwork(c, v.env.Art, vid.Art.Large, w, kit.ArtOpts{Aspect: 16.0 / 9, Edge: true}).Shrink(0)
+	picture := func() {
+		kit.Artwork(c, v.env.Art, vid.Art.Large, w.picW, kit.ArtOpts{Aspect: w.picW / w.picH, Edge: true}).Shrink(0)
+	}
+	if w.picW >= w.content {
+		picture()
+	} else {
+		// A cinema screen: the picture whole and centred on the stage, which
+		// the video's DTO gives no colour for, so it is the surface.
+		ui.Box(c.Key("stage")).Size(w.content, w.stageH).Shrink(0).Center().Radius(theme.Current().Radius["sm"]).
+			ClipX().ClipY().Background(theme.C("surface")).Children(picture)
+	}
 
 	title := func() {
 		tk := theme.Current()
@@ -274,14 +302,14 @@ func (v *video) hero(c *ui.Context, d services.CatalogVideo, videoPlays bool, w 
 			v.menus.Trigger(c, kit.ActionTarget{Item: kit.MusicVideoItem(vid), Name: vid.Name}, kit.TriggerOpts{Header: true})
 		}
 	}
-	if w < stackBelow {
-		ui.Column(c.Key("caption")).Width(w).Margin(20, 0, 0, 0).Children(func() {
+	if w.content < stackBelow {
+		ui.Column(c.Key("caption")).Width(w.content).Margin(20, 0, 0, 0).Children(func() {
 			ui.Column(c.Key("title")).MinWidth(0).Children(title)
 			ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(16, 0, 0, 0).Children(actions)
 		})
 		return
 	}
-	ui.Row(c.Key("caption")).Width(w).Margin(20, 0, 0, 0).Gap(32).AlignItems(ui.Start).Children(func() {
+	ui.Row(c.Key("caption")).Width(w.content).Margin(20, 0, 0, 0).Gap(32).AlignItems(ui.Start).Children(func() {
 		ui.Column(c.Key("title")).Grow(1).Basis(0).MinWidth(0).Children(title)
 		ui.Row(c.Key("actions")).Shrink(0).Gap(8).AlignItems(ui.Center).Children(actions)
 	})

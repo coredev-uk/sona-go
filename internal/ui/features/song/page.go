@@ -17,29 +17,44 @@ import (
 )
 
 // The page's geometry from the reference (AppShell's main and SongPage), in
-// DIPs. The breakpoints are the viewport's (Tailwind's min-[…]), which is
-// the window's width here.
+// DIPs. The breakpoints are those of the page's own width (the scroll
+// container: the window less the sidebar), as the other pages' are.
 const (
 	wideFrom    = 860 // the cover, title and actions are a column beside the body from here
 	avatar      = 40  // a credited person's picture
-	coverWide   = 240 // the cover beside the body
 	coverNarrow = 136 // the cover in the band
 	spineTop    = 32  // above the cover, from the top of the page
 	spineGap    = 28  // the wash's padding after the cover
 	splitGap    = 40  // between the wash and the body
-	bodyMax     = 760 // the body's widest
+	bodyMax     = 760 // the body's widest with up to three people to a row
+	bodyWide    = 960 // the body's widest with four people to a row
+	ledgerMax   = 760 // the facts' measure
 	nameColumn  = 112 // a fact's name
 	personMin   = 210 // the least width of a credited person
 	colGap      = 24  // between people
+	maxCols     = 4   // the most people to a row
 
 	lyricsMeasure = 540 // max-w-[60ch]
+
+	// The cover beside the body has one of three sizes by the page's width,
+	// so the artwork is served at a few exact boxes, not at every width.
+	coverWide   = 240 // under coverLargeFrom
+	coverLarge  = 280 // from coverLargeFrom
+	coverLarger = 320 // from coverLargerFrom
+
+	coverLargeFrom  = 1300
+	coverLargerFrom = 1600
+
+	// sidebarGuess stands for the sidebar and its line before the page has
+	// been measured, so the first frame is already at the right layout.
+	sidebarGuess = 233
 )
 
 // pageState is the view state of the page being shown; it starts over when
-// another song opens.
+// another song opens (the frame, the page's measured size, stays).
 type pageState struct {
-	id  string
-	pos ui.ScrollState
+	kit.PageFrame
+	id string
 	// full shows the whole lyrics instead of Apple's excerpt.
 	full bool
 	// failed is the full lyrics' last answer being an error: opening them
@@ -58,14 +73,13 @@ func (s *song) songPage(c *ui.Context, r *ui.Route) {
 	id := r.Param("id")
 	pg := &s.page
 	if pg.id != id {
-		*pg = pageState{id: id}
+		*pg = pageState{id: id, PageFrame: pg.PageFrame}
 	}
 	q := store.Use(s.env.Queries, keySongPage(id), func(ctx context.Context) (services.CatalogSong, error) {
 		return s.catalog.SongPage(ctx, id)
 	}, store.Options{Stale: store.Forever})
 
-	ww, _ := c.Size()
-	kit.PageScroll(c, &pg.pos, kit.PageGutter(ww), func(*kit.Pane) {
+	pg.Scroll(c, id, func(*kit.Pane, float32) {
 		switch {
 		case q.HasData:
 			s.content(c, q.Data)
@@ -87,7 +101,7 @@ func (s *song) failed(c *ui.Context, id string, q store.Result[services.CatalogS
 func (s *song) content(c *ui.Context, page services.CatalogSong) {
 	pg := &s.page
 	sg := page.Song
-	sh := shapeOf(c)
+	sh := s.shape(c)
 
 	wash := kit.BackdropOpts{Src: page.Header.Backdrop, Tone: kit.ToneGround}
 	if len(page.Header.Colors) > 0 {
@@ -133,21 +147,62 @@ type shape struct {
 	// the facts, credits and lyrics; otherwise they head the page as a band.
 	wide   bool
 	gutter float32
-	// cols is the people to a row of a credit group.
-	cols int
+	// cover is the cover's size beside the body (wide only).
+	cover float32
+	// cols is the people to a row of a credit group; bodyMax is the body
+	// column's widest.
+	cols    int
+	bodyMax float32
 }
 
-func shapeOf(c *ui.Context) shape {
-	tk := theme.Current()
+// width is the page's width: the scroll container's as last laid out, and
+// before the first layout the window's less the sidebar.
+func (s *song) width(c *ui.Context) float32 {
+	if w := s.page.Width; w > 0 {
+		return w
+	}
 	ww, _ := c.Size()
-	sh := shape{wide: ww >= wideFrom, gutter: kit.PageGutter(ww)}
-	room := ww - 2*sh.gutter - tk.Metric["scrollbar"]
+	return ww - sidebarGuess
+}
+
+func (s *song) shape(c *ui.Context) shape {
+	return shapeOf(s.width(c), theme.Current().Metric["scrollbar"])
+}
+
+// shapeOf is the composition at a page width, the scroll bar's room being
+// scrollbar.
+func shapeOf(width, scrollbar float32) shape {
+	sh := shape{wide: width >= wideFrom, gutter: kit.PageGutter(width), cover: coverWide}
+	room := width - 2*sh.gutter - scrollbar
 	if sh.wide {
-		room = ww - (sh.gutter + coverWide + spineGap) - splitGap - sh.gutter - tk.Metric["scrollbar"]
+		sh.cover = coverSize(width)
+		room = width - (sh.gutter + sh.cover + spineGap) - splitGap - sh.gutter - scrollbar
+	}
+	sh.cols, sh.bodyMax = bodyFor(room)
+	return sh
+}
+
+// coverSize is the cover beside the body at a page width: one of three sizes,
+// so the picture is asked for at a few exact boxes whatever the width.
+func coverSize(width float32) float32 {
+	switch {
+	case width >= coverLargerFrom:
+		return coverLarger
+	case width >= coverLargeFrom:
+		return coverLarge
+	}
+	return coverWide
+}
+
+// bodyFor is the people to a row of the credits and the body column's widest
+// where the column has room: up to three to a row in the reading width of
+// bodyMax, and four in bodyWide once they fit at their least width.
+func bodyFor(room float32) (cols int, widest float32) {
+	if room >= maxCols*personMin+(maxCols-1)*colGap {
+		return maxCols, bodyWide
 	}
 	room = min(room, bodyMax)
-	sh.cols = max(1, min(3, int((room+colGap)/(personMin+colGap))))
-	return sh
+	return max(1, int((room+colGap)/(personMin+colGap))), bodyMax
 }
 
 // frame is the page's top: from wideFrom the cover, title and actions are
@@ -160,11 +215,11 @@ func (s *song) frame(c *ui.Context, sh shape, wash kit.BackdropOpts, cover func(
 		ui.Row(c.Key("liner")).FillWidth().AlignItems(ui.Start).Children(func() {
 			kit.Backdrop(c.Key("spine"), s.env.Art, wash, func() {
 				ui.Column(c).FillWidth().Padding(spineTop, spineGap, 28, sh.gutter).Children(func() {
-					cover(coverWide)
+					cover(sh.cover)
 					ui.Column(c.Key("lead")).FillWidth().Margin(20, 0, 0, 0).Children(lead)
 				})
-			}).Width(sh.gutter+coverWide+spineGap).Shrink(0).Margin(-kit.PagePadTop, 0, 0, -sh.gutter)
-			ui.Column(c.Key("body")).Grow(1).Basis(0).MinWidth(0).MaxWidth(bodyMax).Margin(1, 0, 0, splitGap).Children(body)
+			}).Width(sh.gutter+sh.cover+spineGap).Shrink(0).Margin(-kit.PagePadTop, 0, 0, -sh.gutter)
+			ui.Column(c.Key("body")).Grow(1).Basis(0).MinWidth(0).MaxWidth(sh.bodyMax).Margin(1, 0, 0, splitGap).Children(body)
 		})
 		return
 	}
@@ -251,7 +306,7 @@ func (s *song) body(c *ui.Context, page services.CatalogSong, sh shape) {
 // skeleton is the page loading: the real frame with flat bars where the
 // text will be, a labelled "Loading" status for assistive technology.
 func (s *song) skeleton(c *ui.Context) {
-	sh := shapeOf(c)
+	sh := s.shape(c)
 	hover := theme.C("hover")
 	bar := func(w, h float32) ui.Element {
 		return ui.Box(c).Width(w).Height(h).Radius(6).Background(hover).Shrink(0)
@@ -446,7 +501,7 @@ func (s *song) ledger(c *ui.Context, page services.CatalogSong) bool {
 	tk := theme.Current().Type["secondary"]
 	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Details"), First: true}, func() {
 		ui.Box(c.Key("rule")).FillWidth().Height(1).Background(theme.C("line")).Margin(0, 0, 12, 0)
-		ui.Column(c.Key("facts")).FillWidth().Gap(6).Children(func() {
+		ui.Column(c.Key("facts")).FillWidth().MaxWidth(ledgerMax).Gap(6).Children(func() {
 			for i, r := range rows {
 				ui.Row(c.Key(i)).FillWidth().AlignItems(ui.Start).Gap(16).Children(func() {
 					ui.Text(c.Key("name"), r[0]).FontSize(tk.Size).FixedLineHeight(tk.LineHeight).

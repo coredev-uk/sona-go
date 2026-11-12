@@ -139,6 +139,9 @@ func TestLayoutPutsTheSlipBesideFrom1040TheLeadBesideFrom800AndShrinksThePortrai
 		slip     float32
 	}{
 		{1144, true, true, 200, 152},
+		{1500, true, true, 256, 192},
+		{1730, true, true, 256, 192},
+		{1499, true, true, 200, 152},
 		{1040, true, true, 200, 152},
 		{900, true, false, 176, 88},
 		{800, true, false, 176, 88},

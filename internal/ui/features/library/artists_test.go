@@ -489,3 +489,11 @@ func TestArtistsLongListIsVirtualised(t *testing.T) {
 	r.tt.Scroll(100, 400, 0, 6000)
 	r.tt.Until("rows far down", func() bool { return !r.tt.HasText("Band 010") && r.tt.HasText("Band 128") })
 }
+
+func TestArtistPortraitTakesTheLargeClassOnAWidePage(t *testing.T) {
+	for _, tc := range []struct{ width, want float32 }{{0, 144}, {1132, 144}, {1499, 144}, {1500, 192}, {1730, 192}} {
+		if got := artistPortrait(tc.width); got != tc.want {
+			t.Errorf("artistPortrait(%v) = %v, want %v", tc.width, got, tc.want)
+		}
+	}
+}

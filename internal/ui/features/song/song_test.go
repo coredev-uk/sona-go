@@ -743,6 +743,88 @@ func TestCreditsGridHasMorePeopleToARowWhenThereIsRoom(t *testing.T) {
 	}
 }
 
+func TestCreditsGridHasFourPeopleToARowOnAWidePage(t *testing.T) {
+	p := airbag()
+	p.Credits[0].Credits = append(p.Credits[0].Credits, services.Credit{Name: "Fourth Person", Roles: []string{"Drums"}})
+	r := newRig(t, 1687, 1400, p)
+	r.open()
+	r.tt.Until("people", r.tt.Shows("Radiohead", "Nigel Godrich", "Third Person", "Fourth Person"))
+	a, _ := r.tt.Find("Performer, Vocals")
+	b, _ := r.tt.Find("Producer")
+	c, _ := r.tt.Find("Guitar")
+	d, _ := r.tt.Find("Drums")
+	if a.Y != b.Y || b.Y != c.Y || c.Y != d.Y || !(a.X < b.X && b.X < c.X && c.X < d.X) {
+		t.Errorf("at 1687 the four people are at %v, %v, %v and %v: want one row", a, b, c, d)
+	}
+}
+
+func TestCoverSizeFollowsThePageWidth(t *testing.T) {
+	for _, tc := range []struct {
+		width float32
+		want  float32
+	}{
+		{860, 240},
+		{1132, 240},
+		{1299, 240},
+		{1300, 280},
+		{1599, 280},
+		{1600, 320},
+		{1687, 320},
+		{2560, 320},
+	} {
+		if got := coverSize(tc.width); got != tc.want {
+			t.Errorf("coverSize(%v) = %v, want %v", tc.width, got, tc.want)
+		}
+	}
+}
+
+func TestBodyForTheRoomItHas(t *testing.T) {
+	for _, tc := range []struct {
+		room    float32
+		cols    int
+		widest  float32
+		comment string
+	}{
+		{100, 1, bodyMax, "less than a person's least width still has one"},
+		{443, 1, bodyMax, "two do not fit under 444"},
+		{444, 2, bodyMax, "two fit"},
+		{515, 2, bodyMax, "1132 window, narrow body"},
+		{678, 3, bodyMax, "three fit"},
+		{911, 3, bodyMax, "three stay in the reading width"},
+		{912, 4, bodyWide, "four fit"},
+		{1223, 4, bodyWide, "never wider than bodyWide"},
+	} {
+		cols, widest := bodyFor(tc.room)
+		if cols != tc.cols || widest != tc.widest {
+			t.Errorf("bodyFor(%v) = %d, %v; want %d, %v (%s)", tc.room, cols, widest, tc.cols, tc.widest, tc.comment)
+		}
+	}
+}
+
+func TestShapeOfFollowsTheCoverClass(t *testing.T) {
+	const scrollbar = 12
+	for _, tc := range []struct {
+		width       float32
+		wide        bool
+		cover       float32
+		cols        int
+		bodyWidest  float32
+		description string
+	}{
+		{707, false, coverWide, 2, bodyMax, "band"},
+		{899, true, coverWide, 2, bodyMax, "the golden's page"},
+		{1132, true, coverWide, 3, bodyMax, "three to a row"},
+		{1300, true, coverLarge, 3, bodyMax, "the larger cover"},
+		{1687, true, coverLarger, 4, bodyWide, "the 1920 window"},
+	} {
+		sh := shapeOf(tc.width, scrollbar)
+		if sh.wide != tc.wide || sh.cover != tc.cover || sh.cols != tc.cols || sh.bodyMax != tc.bodyWidest {
+			t.Errorf("shapeOf(%v) = wide %v, cover %v, %d cols, body %v; want %v, %v, %d, %v (%s)",
+				tc.width, sh.wide, sh.cover, sh.cols, sh.bodyMax, tc.wide, tc.cover, tc.cols, tc.bodyWidest, tc.description)
+		}
+	}
+}
+
 func TestOnlyLyricsOrOnlyCredits(t *testing.T) {
 	p := airbag()
 	p.Credits = nil
@@ -949,6 +1031,7 @@ func TestGoldenSongPage(t *testing.T) {
 		// The shell's page column: the window less sidebar, top bar, player bar.
 		{"song-light", nil, 899, 1133},
 		{"song-dark", []uitest.Option{uitest.Dark()}, 899, 1133},
+		{"song-wide-light", nil, 1687, 1133},
 		{"song-narrow-light", nil, 707, 480},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

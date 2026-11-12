@@ -20,5 +20,5 @@ func TestSongPageRestoresItsScrollOffsetInDevBuilds(t *testing.T) {
 		devstate.Restore(devstate.State{Scroll: map[string]float32{"/song/1440": want}})
 	}, airbag())
 	r.open()
-	r.tt.Until("the saved offset restored", func() bool { return r.s.page.pos.Y >= want-1 })
+	r.tt.Until("the saved offset restored", func() bool { return r.s.page.Pos.Y >= want-1 })
 }

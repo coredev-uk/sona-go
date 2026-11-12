@@ -124,9 +124,10 @@ func TestFrontLeadsWithTheFirstCardAtTheLeadsWidthAndListsThemAPageAtATime(t *te
 			t.Errorf("the first page lists %q", w)
 		}
 	}
-	// The column's widest (leadMax) of 1200, at Apple's 1060:608 hero shape.
-	if got := src.requested(bannerOf(1)); !slices.Contains(got, [2]int{1080, 619}) {
-		t.Errorf("the lead's art was asked for at %v, want 1080×619", got)
+	// The column's whole 1200, capped at leadMaxHeight: Apple's centre crop
+	// of the banner at the box the lead shows it in.
+	if got := src.requested(bannerOf(1)); !slices.Contains(got, [2]int{1200, 540}) {
+		t.Errorf("the lead's art was asked for at %v, want 1200×540", got)
 	}
 	if r.d.front.at != 0 {
 		t.Errorf("the lead is %d, want the first card", r.d.front.at)
@@ -233,16 +234,16 @@ func TestFrontMakesAChosenRowTheLeadAndGivesItAWholeInterval(t *testing.T) {
 func TestFrontFetchesTheNextCardsPictureWhileTheLeadIsRead(t *testing.T) {
 	src := newCoverSource()
 	r := newFrontWith(t, 8, src)
-	if got := src.requested(bannerOf(2)); !slices.Contains(got, [2]int{1080, 619}) {
+	if got := src.requested(bannerOf(2)); !slices.Contains(got, [2]int{1200, 540}) {
 		t.Fatalf("the next card's art was not asked for at the lead's size: %v", got)
 	}
-	if got := src.requested(bannerOf(3)); slices.Contains(got, [2]int{1080, 619}) {
+	if got := src.requested(bannerOf(3)); slices.Contains(got, [2]int{1200, 540}) {
 		t.Errorf("the card after next was fetched at the lead's size: %v", got)
 	}
 	r.tick(rotateEvery)
 	r.tt.Drain()
 	r.tt.Drain()
-	if got := src.requested(bannerOf(3)); !slices.Contains(got, [2]int{1080, 619}) {
+	if got := src.requested(bannerOf(3)); !slices.Contains(got, [2]int{1200, 540}) {
 		t.Errorf("the next lead's art was not fetched when the lead changed: %v", got)
 	}
 }

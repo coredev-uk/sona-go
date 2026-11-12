@@ -221,6 +221,8 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 		}
 	}
 	w := float32(math.Round(float64(width * heroShare)))
+	// The box is whole DIPs in height too; its picture is asked for at it.
+	bh := float32(math.Round(float64(w / heroRatio)))
 	link := kit.ItemLink(it)
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
 	root.Children(func() {
@@ -243,12 +245,12 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 		if col, ok := kit.ParseHex(it.Color); ok {
 			bg = col
 		}
-		ui.Box(c.Key("banner")).Size(w, w/heroRatio).Shrink(0).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(bg).Children(func() {
-			if w > 0 && src != "" {
+		ui.Box(c.Key("banner")).Size(w, bh).Shrink(0).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(bg).Children(func() {
+			if bh > 0 && src != "" {
 				// The colour block stays while the picture loads and if it
 				// fails; a square cover is shown whole on it.
 				kit.Artwork(c, h.env.Art, src, w, kit.ArtOpts{
-					Aspect: heroRatio, Edge: true, Contain: banner == "", Fallback: func(*ui.Context) {},
+					Aspect: w / bh, Edge: true, Contain: banner == "", Fallback: func(*ui.Context) {},
 				})
 			}
 		})

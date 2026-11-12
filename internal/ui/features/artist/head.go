@@ -154,7 +154,7 @@ func (a *artist) head(c *ui.Context, pg *pageState, p headProps) {
 			}
 			// The person stays round, at the trailing edge.
 			if p.header.Motion != "" {
-				kit.MotionCover(c, a.env.Motion, a.env.Art, art.Art.Large, p.header.Motion, lay.portrait, kit.MotionOpts{VideoSize: 200, Round: true})
+				kit.MotionCover(c, a.env.Motion, a.env.Art, art.Art.Large, p.header.Motion, lay.portrait, kit.MotionOpts{VideoSize: portraitWide, Round: true})
 			} else {
 				kit.Artwork(c, a.env.Art, art.Art.Large, lay.portrait, kit.ArtOpts{Edge: true, Round: true})
 			}

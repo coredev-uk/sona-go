@@ -355,3 +355,25 @@ func TestStationScheduleMovesOnEvery30Seconds(t *testing.T) {
 		t.Errorf("%d \"On air\" labels, want 1", n)
 	}
 }
+
+func TestIdentitySizeIsOneOfTwoClassesByContentWidth(t *testing.T) {
+	for _, c := range []struct{ content, want float32 }{
+		{-20, 264}, // the first frame, before the width is known
+		{800, 264},
+		{1132, 264},
+		{1499, 264},
+		{1500, 320},
+		{1688, 320},
+		{2400, 320},
+	} {
+		if got := identitySize(c.content); got != c.want {
+			t.Errorf("identitySize(%v) = %v, want %v", c.content, got, c.want)
+		}
+	}
+	// Both classes, and the lists beside them at their widest, fit in the
+	// narrowest content that takes the larger class: the two columns stay
+	// together instead of the lists being squeezed.
+	if identityWide+identityGap+listsMax > identityWideAt {
+		t.Errorf("%d+%d+%d does not fit in %d", identityWide, identityGap, listsMax, identityWideAt)
+	}
+}

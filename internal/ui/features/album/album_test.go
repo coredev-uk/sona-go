@@ -162,7 +162,10 @@ func TestLayoutFollowsTheContentWidth(t *testing.T) {
 		width float32
 		want  layout
 	}{
-		{1600, layout{true, 320}},
+		{1900, layout{true, 384}},
+		{1687, layout{true, 384}}, // a 1920 window beside the sidebar
+		{1600, layout{true, 384}},
+		{1599, layout{true, 320}},
 		{1280, layout{true, 320}},
 		{1279, layout{true, 256}},
 		{860, layout{true, 256}},

@@ -17,17 +17,33 @@ import (
 
 // The station page's geometry, in DIPs: the station's identity in a column of
 // its own beside the page's lists once the content is stationSplit wide, over
-// them below that.
+// them below that. The lists take the rest of the width up to listsMax; past
+// that the two columns stay together at the page's left edge. The identity's
+// cover has two size classes, chosen by the content's width (identitySize), so
+// Go serves exact boxes of a few sizes, not one per window width.
 const (
 	stationSplit = 800
-	identityW    = 264
-	identityGap  = 48
-	mainMax      = 720
-	whenW        = 96 // the time column of the schedule
-	railCol      = 28 // the timeline's rail
-	slotArt      = 48
-	slotPad      = 12
+	identityW    = 264 // the identity's column and cover
+	identityWide = 320 // ... from identityWideAt of content
+	// identityWideAt is the content width from which the identity takes the
+	// larger class.
+	identityWideAt = 1500
+	identityGap    = 48
+	listsMax       = 1100
+	whenW          = 96 // the time column of the schedule
+	railCol        = 28 // the timeline's rail
+	slotArt        = 48
+	slotPad        = 12
 )
+
+// identitySize is the width of the station identity's column, and its cover's
+// edge, in a content area content DIPs wide: 264, 320 from 1500.
+func identitySize(content float32) float32 {
+	if content >= identityWideAt {
+		return identityWide
+	}
+	return identityW
+}
 
 // stationPage is the station page's state: its scroll container, the identity's
 // menu and the moment its schedule is read against.
@@ -45,6 +61,9 @@ func (pg *stationPage) split() bool {
 	return pg.Inner() >= stationSplit
 }
 
+// identityW is the width of the identity's column at the last frame's width.
+func (pg *stationPage) identityW() float32 { return identitySize(pg.Inner()) }
+
 // stationView is StationPage: what a station is and who runs it, play, and
 // for a live station the schedule from the programme on air. A station Sona
 // cannot play says why where the play control would be.
@@ -58,7 +77,7 @@ func (r *radio) stationView(c *ui.Context, rt *ui.Route) {
 		case res.Err != nil && !res.HasData:
 			kit.QueryError(c, r.env.Queries, i18n.T("Couldn't load this station"), res, kit.StationKey(id))
 		case !res.HasData:
-			stationSkeleton(c, pg.split())
+			stationSkeleton(c, pg.split(), pg.identityW())
 		default:
 			r.stationBody(c, res.Data)
 		}
@@ -67,15 +86,16 @@ func (r *radio) stationView(c *ui.Context, rt *ui.Route) {
 }
 
 // stationSkeleton is the page's frame while the station loads: the identity's
-// cover and lines, and the first slots of the timeline.
-func stationSkeleton(c *ui.Context, split bool) {
+// cover and lines, and the first slots of the timeline. column is the
+// identity column's width when it stands beside the lists.
+func stationSkeleton(c *ui.Context, split bool, column float32) {
 	tk := theme.Current()
 	hover := theme.C("hover")
 	bar := func(w, h float32, top float32) {
 		kit.Bar(c, w, h).Margin(top, 0, 0, 0)
 	}
 	identity := func() {
-		size := float32(identityW)
+		size := column
 		if !split {
 			size = 112
 		}
@@ -102,7 +122,7 @@ func stationSkeleton(c *ui.Context, split bool) {
 	}
 	root.Children(func() {
 		if split {
-			ui.Column(c.Key("identity")).Width(identityW).Shrink(0).Children(func() {
+			ui.Column(c.Key("identity")).Width(column).Shrink(0).Children(func() {
 				identity()
 				ui.Column(c.Key("lines")).Margin(20, 0, 0, 0).Children(lines)
 			})
@@ -112,7 +132,7 @@ func stationSkeleton(c *ui.Context, split bool) {
 				ui.Column(c.Key("lines")).Children(lines)
 			})
 		}
-		ui.Column(c.Key("slots")).Grow(1).Basis(0).MinWidth(0).MaxWidth(mainMax).Children(slots)
+		ui.Column(c.Key("slots")).Grow(1).Basis(0).MinWidth(0).MaxWidth(listsMax).Children(slots)
 	})
 }
 
@@ -152,21 +172,23 @@ func (r *radio) stationBody(c *ui.Context, d services.StationDetail) {
 		}
 	}
 	if !pg.split() {
-		ui.Column(c.Key("identity")).Margin(0, 0, 32, 0).Children(func() { r.identity(c, d, false) })
-		ui.Column(c.Key("lists")).MaxWidth(mainMax).Children(lists)
+		ui.Column(c.Key("identity")).Margin(0, 0, 32, 0).Children(func() { r.identity(c, d, 0) })
+		ui.Column(c.Key("lists")).Children(lists)
 		return
 	}
+	column := pg.identityW()
 	ui.Row(c.Key("page")).FillWidth().Gap(identityGap).AlignItems(ui.Start).Children(func() {
 		// The identity stays in view while a long schedule scrolls.
-		ui.Column(c.Key("identity")).Width(identityW).Shrink(0).Sticky().Top(16).Children(func() { r.identity(c, d, true) })
-		ui.Column(c.Key("lists")).Grow(1).Basis(0).MinWidth(0).MaxWidth(mainMax).Children(lists)
+		ui.Column(c.Key("identity")).Width(column).Shrink(0).Sticky().Top(16).Children(func() { r.identity(c, d, column) })
+		ui.Column(c.Key("lists")).Grow(1).Basis(0).MinWidth(0).MaxWidth(listsMax).Children(lists)
 	})
 }
 
 // identity is what the station is: its cover, name, who runs it, the
 // catalogue line, notes and the play control with its menu. Beside the lists
-// the cover leads a column; stacked it is a small cover beside the lines.
-func (r *radio) identity(c *ui.Context, d services.StationDetail, split bool) {
+// (column, the identity column's width) the cover leads a column; stacked
+// (column 0) it is a small cover beside the lines.
+func (r *radio) identity(c *ui.Context, d services.StationDetail, column float32) {
 	pg := &r.stationPg
 	tk := theme.Current()
 	s := d.Station
@@ -184,7 +206,7 @@ func (r *radio) identity(c *ui.Context, d services.StationDetail, split bool) {
 	}
 	cover := func(size float32) {
 		if d.Header.Motion != "" {
-			kit.MotionCover(c, r.env.Motion, r.env.Art, s.Art.Large, d.Header.Motion, size, kit.MotionOpts{VideoSize: 200})
+			kit.MotionCover(c, r.env.Motion, r.env.Art, s.Art.Large, d.Header.Motion, size, kit.MotionOpts{VideoSize: identityWide})
 			return
 		}
 		kit.Artwork(c.Key("cover"), r.env.Art, s.Art.Large, size, kit.ArtOpts{Edge: true})
@@ -214,8 +236,8 @@ func (r *radio) identity(c *ui.Context, d services.StationDetail, split bool) {
 			pg.menus.Trigger(c, kit.ActionTarget{Item: kit.StationItem(s), Name: s.Name}, kit.TriggerOpts{Header: true})
 		})
 	}
-	if split {
-		cover(identityW)
+	if column > 0 {
+		cover(column)
 		ui.Column(c.Key("lines")).Margin(20, 0, 0, 0).Children(lines)
 		return
 	}

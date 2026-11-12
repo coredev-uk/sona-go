@@ -11,12 +11,18 @@ import (
 const (
 	// heroRatio is the hero card's shape on music.apple.com: its
 	// "flowcaseLockup" requests the 4:1 subscriptionHero art cropped to
-	// 1060×608 ("sr").
+	// 1060×608 ("sr"). The lead keeps it while that is no taller than
+	// leadMaxHeight.
 	heroRatio = 1060.0 / 608
-	// leadMax is the widest the front page's column gets: the lead keeps the
-	// hero shape, so its height follows its width and a full 1600 would be a
-	// screen tall.
-	leadMax = 1080
+	// bannerRatio is the subscriptionHero art's own shape: the widest box
+	// the lead may take, or Apple's crop would cut the art's top and bottom.
+	bannerRatio = 4.0
+	// leadMaxHeight is the tallest the lead's art gets. The lead spans the
+	// whole column; past the width at which the hero shape would be taller
+	// than this, the box widens towards the banner's own 4:1 instead (Apple
+	// crops the centre of the banner to it, where its title and subject are),
+	// so the front page never runs a screen tall.
+	leadMaxHeight = 540
 	// leadCaption is the lead's caption under its art: a 12 gap, a 30 title
 	// line and an 18 line.
 	leadCaption = 60
@@ -69,11 +75,12 @@ type frontLayout struct {
 	rowHeight              float32
 }
 
-// layoutFor is the layout at a content width. The lead takes the width, to
-// leadMax, in Apple's hero shape; the strip of featured cards under it shows
-// four a page: in one row of four, or two rows of two in a narrow window.
+// layoutFor is the layout at a content width. The lead takes the whole width,
+// in Apple's hero shape until that reaches leadMaxHeight, wider than it from
+// there (artHeight); the strip of featured cards under it shows four a page:
+// in one row of four, or two rows of two in a narrow window.
 func layoutFor(width float32) frontLayout {
-	lead := float32(math.Floor(float64(min(width, leadMax))))
+	lead := float32(math.Floor(float64(max(width, 0))))
 	columns, rows := stripPerPage, 1
 	if lead < stripWide {
 		columns, rows = 2, 2
@@ -83,8 +90,20 @@ func layoutFor(width float32) frontLayout {
 	return frontLayout{lead: lead, columns: columns, rows: rows, perPage: columns * rows, card: card, rowHeight: listRow}
 }
 
-// artHeight is the lead art's height at its width.
-func (l frontLayout) artHeight() float32 { return l.lead / heroRatio }
+// artHeight is the lead art's height at its width: the hero shape, at most
+// leadMaxHeight, and never wider than the banner itself.
+func (l frontLayout) artHeight() float32 {
+	return float32(math.Floor(float64(max(l.lead/bannerRatio, min(l.lead/heroRatio, leadMaxHeight)))))
+}
+
+// artAspect is the lead art box's width over its height, which its picture
+// is requested at.
+func (l frontLayout) artAspect() float32 {
+	if h := l.artHeight(); h > 0 {
+		return l.lead / h
+	}
+	return heroRatio
+}
 
 // rotation is the lead's timer: one deadline, no per-frame work (v0.2.0's
 // useLeadRotation). While the lead may rotate (running) it waits
@@ -146,13 +165,14 @@ func (r *rotation) step(now time.Time, running bool, at int, occupied func() boo
 // shows it (Apple's centre crop at the hero card's shape), across the slot's
 // width and centred, where filling the slot would cut a square out of the
 // middle of a 4:1 banner and show that, enlarged. A tall one fits the slot's
-// height.
+// height. The box is whole DIPs, so the picture (asked for at the box)
+// lands on whole pixels and is not resampled.
 func thumbBox(src string) (w, h float32) {
 	switch a := kit.ArtAspect(src); {
 	case a > thumbSquare:
-		return listThumb, listThumb / heroRatio
+		return listThumb, float32(math.Round(listThumb / heroRatio))
 	case a < 1/thumbSquare:
-		return listThumb * a, listThumb
+		return float32(math.Round(float64(listThumb * a))), listThumb
 	}
 	return listThumb, listThumb
 }

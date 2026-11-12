@@ -25,6 +25,9 @@ const (
 	artistsNarrowWidth = 880
 	// artistsListWidth is the master list's width beside the detail.
 	artistsListWidth = 320
+	// artistsLargeWidth is the page width from which the detail's portrait
+	// takes its large class.
+	artistsLargeWidth = 1500
 	// artistsPageStep is how many artists a page-step key moves by.
 	artistsPageStep = 10
 	// artistsOverscan is how far beyond the viewport rows are built.
@@ -33,6 +36,16 @@ const (
 
 // artistsRowHeight is artistRowHeight as a float for the layout sums.
 const artistsRowHeight = float32(artistRowHeight)
+
+// artistPortrait is the detail's portrait for the page's width: 144, and 192
+// from artistsLargeWidth, so the header of a wide window is not a small
+// picture. Fixed classes, so Go serves the exact box.
+func artistPortrait(width float32) float32 {
+	if width >= artistsLargeWidth {
+		return 192
+	}
+	return 144
+}
 
 var keyArtistIndex = store.Key{"library", "artists", "index"}
 
@@ -715,7 +728,7 @@ func (v *artistsView) detail(c *ui.Context, e services.ArtistEntry) {
 				}
 			}
 			ui.Row(c.Key("header")).FillWidth().Gap(28).AlignItems(ui.End).Children(func() {
-				kit.PersonAvatar(c, l.env.Art, e.Name, e.Art, 144).Shrink(0)
+				kit.PersonAvatar(c, l.env.Art, e.Name, e.Art, artistPortrait(pg.width)).Shrink(0)
 				ui.Column(c.Key("who")).Grow(1).MinWidth(0).Padding(0, 0, 2).Children(func() {
 					theme.Text(c, e.Name, "display").TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(nameLevel)
 					line := i18n.Meta(i18n.T("Artist"), libraryLine(e.Albums, e.Songs))

@@ -505,3 +505,18 @@ func TestPageMoreLikeThisWithNoCurator(t *testing.T) {
 		t.Error("a curator-less shelf names a curator")
 	}
 }
+
+func TestHeadArtIsOneOfThreeClasses(t *testing.T) {
+	for _, tc := range []struct{ width, want float32 }{
+		{600, headCoverNarrow},
+		{959, headCoverNarrow},
+		{960, headCover},
+		{1599, headCover},
+		{1600, headCoverLarge},
+		{1920, headCoverLarge},
+	} {
+		if got := headArt(tc.width); got != tc.want {
+			t.Errorf("headArt(%v) = %v, want %v", tc.width, got, tc.want)
+		}
+	}
+}

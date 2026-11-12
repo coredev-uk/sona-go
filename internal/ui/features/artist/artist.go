@@ -29,9 +29,16 @@ const (
 	// slipFrom is the content width from which the latest release stands in
 	// a column of its own between the text and the portrait.
 	slipFrom = 1040
+	// portraitWide is the largest portrait, which the motion portrait's one
+	// rendition is asked at so it is never drawn larger than it was decoded.
+	portraitWide = 256
 	// narrowUnder is the content width under which the portrait drops to its
 	// small size.
 	narrowUnder = 720
+	// largeFrom is the content width from which the portrait and the latest
+	// release's cover take their large size, so a 1920 window's header is
+	// not a small picture at the end of an empty row.
+	largeFrom = 1500
 	// columnMin is a catalogue column's smallest width, columnGap the gap
 	// between columns.
 	columnMin = 260
@@ -64,6 +71,8 @@ type layout struct {
 func layoutFor(width float32) layout {
 	l := layout{wide: width >= wideFrom, slipBeside: width >= slipFrom, portrait: 200, slip: 88}
 	switch {
+	case width >= largeFrom:
+		l.portrait, l.slip = portraitWide, 192
 	case l.slipBeside:
 		l.slip = 152
 	case width > 0 && width < narrowUnder:

@@ -228,17 +228,25 @@ func TestRouteURLsCarryOnlyWhatIsSet(t *testing.T) {
 	}
 }
 
-// The front page's layout: the lead takes the column's width to leadMax in the
-// hero shape, and the strip under it shows four cards a page, in a row of four
-// or two rows of two.
+// The front page's layout: the lead takes the column's whole width, in the
+// hero shape until that reaches leadMaxHeight and wider from there (never
+// wider than the banner's 4:1), and the strip under it shows four cards a
+// page, in a row of four or two rows of two.
 func TestFrontLayoutAtTheWidthsOfTheReferencePage(t *testing.T) {
 	l := layoutFor(1200)
-	if l.lead != leadMax || l.perPage != 4 || l.columns != 4 || l.rows != 1 {
+	if l.lead != 1200 || l.perPage != 4 || l.columns != 4 || l.rows != 1 {
 		t.Errorf("at 1200: %+v", l)
 	}
-	// 1060:608 at 1080 wide is 620 high.
-	if h := l.artHeight(); h < 619 || h > 620 {
-		t.Errorf("lead art height %v, want 620", h)
+	for _, tc := range []struct{ width, height float32 }{
+		{800, 458},  // the hero shape: 800 / (1060/608)
+		{941, 539},  // still the hero shape, just under the cap
+		{1200, 540}, // capped: the box widens
+		{1600, 540}, // capped
+		{2400, 600}, // the banner's own 4:1, never wider
+	} {
+		if h := layoutFor(tc.width).artHeight(); h != tc.height {
+			t.Errorf("at %v: lead art height %v, want %v", tc.width, h, tc.height)
+		}
 	}
 	// The strip reaches 8 past the lead's edges on each side.
 	if got := float32(l.columns)*l.card + float32(l.columns-1)*stripGap; got > l.lead+16 || got < l.lead+16-float32(l.columns) {

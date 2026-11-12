@@ -15,28 +15,49 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
+// The cover classes of the sleeve beside the pane: Go serves each at its exact
+// box. maxCover is the largest, which the motion rendition is asked at so it
+// is never narrower than the cover. The thresholds are the view's own box.
+const (
+	maxCover      = 560
+	maxBodyWidth  = 1760 // the sleeve at its largest and an insert of about 1100
+	stackedBelow  = 880
+	stackedCover  = 168
+	coverRoomWide = 1800 // width from which the cover may be 560
+	coverRoomTall = 1050 // and the height
+)
+
 // nowPlayingLayoutFor is how the view is laid out in a box of w × h DIPs
 // (NowPlayingView.tsx's useNowPlayingLayout): the cover beside the pane, or,
 // in a column under 880 wide, the song as a header over the pane. The cover
-// comes from a fixed set, so Go serves the art at its exact size.
+// comes from a fixed set (560, 480, 400, 320, 240; 168 stacked), the smaller
+// of the one the width allows and the one the height allows, so Go serves the
+// art at its exact size and a big window's sleeve fills its column.
 func nowPlayingLayoutFor(w, h float32) nowPlayingLayout {
-	stacked := w < 880
+	if w < stackedBelow {
+		return nowPlayingLayout{stacked: true, cover: stackedCover}
+	}
 	byWidth := float32(320)
-	if w >= 1000 {
+	switch {
+	case w >= coverRoomWide:
+		byWidth = maxCover
+	case w >= 1500:
+		byWidth = 480
+	case w >= 1000:
 		byWidth = 400
 	}
 	byHeight := float32(240)
 	switch {
+	case h >= coverRoomTall:
+		byHeight = maxCover
+	case h >= 900:
+		byHeight = 480
 	case h >= 720:
 		byHeight = 400
 	case h >= 640:
 		byHeight = 320
 	}
-	cover := min(byWidth, byHeight)
-	if stacked {
-		cover = 168
-	}
-	return nowPlayingLayout{stacked: stacked, cover: cover}
+	return nowPlayingLayout{cover: min(byWidth, byHeight)}
 }
 
 // measureLayout is the layout from the view's own box as last drawn (not the
@@ -105,7 +126,7 @@ func (p *player) nowPlaying(c *ui.Context) {
 			} else {
 				body = ui.Row(c.Key("body"))
 			}
-			body.MaxWidth(1280).FillWidth().FillHeight().MinHeight(0).AlignItems(ui.Stretch)
+			body.MaxWidth(maxBodyWidth).FillWidth().FillHeight().MinHeight(0).AlignItems(ui.Stretch)
 			body.Children(func() {
 				if lay.stacked {
 					ui.Row(c.Key("header")).FillWidth().Shrink(0).Gap(20).Padding(0, 0, 20).AlignItems(ui.Start).Children(func() {
@@ -281,9 +302,10 @@ func (p *player) nowPlayingArt(c *ui.Context, cur *services.QueueItem, size floa
 	if cur.Album != "" {
 		label = i18n.T("{albumName} cover", "albumName", cur.Album)
 	}
-	// One rendition for every size, so a resize never reloads the video.
+	// One rendition for every size, at the largest, so a resize never reloads
+	// the video and it is never narrower than the cover.
 	cover := kit.MotionCover(c.Key("art"), p.env.Motion, p.env.Art, art, p.albumMotion(cur.AlbumID), size, kit.MotionOpts{
-		VideoSize: 420, Overlay: true, A11yLabel: label,
+		VideoSize: maxCover, Overlay: true, A11yLabel: label,
 	})
 	p.playingRow(cover, cur, &p.menus.np)
 }
