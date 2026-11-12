@@ -97,10 +97,10 @@ const (
 )
 
 // pill is the player bar's private listening switch. Off: a muted glyph like
-// its neighbours. On: the glyph and "Private" in ink on the selected-control
-// tone (never amber, which means "playing"), so it reads at a glance; the word
-// drops below 1100 DIPs and the development-build note below 1280, where the
-// tone alone carries the state. Forced on by SONA_PRIVATE=1 it is unavailable
+// its neighbours. On: a chip with a 1 DIP dashed control-line outline, the
+// glyph and "Private" in ink (never amber, which means "playing"), so it reads
+// at a glance; the word drops below 1100 DIPs and the development-build note
+// below 1280, where the dashed chip alone carries the state. Forced on by SONA_PRIVATE=1 it is unavailable
 // to assistive technology (AccessDisabled) but stays focusable (clicks do
 // nothing) so its tooltip can say why, and while Go has not answered it is
 // dimmed.
@@ -145,12 +145,20 @@ func (p *private) pill(c *ui.Context) {
 	bg, fg := ui.Transparent, theme.C("ink-muted")
 	switch {
 	case on:
-		bg, fg = theme.C("active"), theme.C("ink")
+		fg = theme.C("ink")
+		if e.Hovered() {
+			bg = theme.C("accent-soft")
+		}
 	case e.Hovered():
 		bg, fg = theme.C("accent-soft"), theme.C("ink")
 	}
 	e.Height(28).MinWidth(28).Gap(4).PaddingX(6).Radius(theme.Current().Radius["md"]).AlignItems(ui.Center).Justify(ui.Center).
 		Background(bg).TextColor(fg).Role(ui.RoleToggleButton).Checked(on).Label(name)
+	if on {
+		// "Off the record": a dashed outline, the mark of something that is
+		// not being kept. Drawn by the element itself, in ink, never amber.
+		e.Border(1, theme.C("control-line")).BorderStyle(ui.BorderDashed)
+	}
 	if !known {
 		e.Opacity(0.4)
 	}
