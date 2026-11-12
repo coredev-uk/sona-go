@@ -70,7 +70,8 @@ func upcoming(a services.Album, now time.Time) bool {
 	return a.Prerelease && (a.ReleaseAt == 0 || now.UnixMilli() < a.ReleaseAt)
 }
 
-// toggleAction is the album menu's "Remind me" / "Turn off reminder" (id
+// toggleAction is the album menu's "Remind me on {date}" / "Turn off reminder
+// for {date}" (plain "Remind me" / "Turn off reminder" without a date) (id
 // reminders.toggle, group item, order 25): listed for upcoming albums with a
 // release date, a catalogue ID and notifications, greyed out until the list
 // has loaded.
@@ -85,10 +86,20 @@ func (r *reminders) toggleAction() kit.ActionDef {
 		ID: "reminders.toggle", Target: kit.KindAlbum, Icon: "bell", Group: kit.GroupItem, Order: 25,
 		Data: []kit.MenuData{data},
 		Label: func(a *kit.ActionContext) string {
-			if reminded(a) {
-				return i18n.T("Turn off reminder")
+			// The entry names the day the notification comes: a reminder is
+			// for a date, and "Turn off" says which one.
+			album := a.Item().Album()
+			if album.ReleaseAt == 0 {
+				if reminded(a) {
+					return i18n.T("Turn off reminder")
+				}
+				return i18n.T("Remind me")
 			}
-			return i18n.T("Remind me")
+			day := i18n.ShortReleaseDate(time.UnixMilli(album.ReleaseAt), r.now())
+			if reminded(a) {
+				return i18n.T("Turn off reminder for {date}", "date", day)
+			}
+			return i18n.T("Remind me on {date}", "date", day)
 		},
 		Available: func(a *kit.ActionContext) bool {
 			album := a.Item().Album()

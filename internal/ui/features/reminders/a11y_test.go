@@ -23,7 +23,7 @@ func announced(ann []string, prefix string) bool {
 // by its toast.
 func TestA11yReminderActionNamesItsStateAndOutcomesAreAnnounced(t *testing.T) {
 	album := upcomingAlbum()
-	open := func(t *testing.T, list func(context.Context) ([]services.Reminder, error)) access.Tree {
+	open := func(t *testing.T, want string, list func(context.Context) ([]services.Reminder, error)) access.Tree {
 		t.Helper()
 		g := newRig(t)
 		g.r.list = list
@@ -41,16 +41,19 @@ func TestA11yReminderActionNamesItsStateAndOutcomesAreAnnounced(t *testing.T) {
 			t.Fatal(err)
 		}
 		tt.Drain()
+		// The list loads off the main thread: the entry is named for its state
+		// and enabled once it has.
+		tt.Until("the list to load", tt.Shows(want))
 		return access.Read(t, tt.Tester)
 	}
-	tr := open(t, func(context.Context) ([]services.Reminder, error) { return nil, nil })
-	if n, ok := tr.Find(ui.RoleMenuItem, "Remind me"); !ok || n.Has(access.Disabled) {
+	tr := open(t, "Remind me on Nov 14", func(context.Context) ([]services.Reminder, error) { return nil, nil })
+	if n, ok := tr.Find(ui.RoleMenuItem, "Remind me on Nov 14"); !ok || n.Has(access.Disabled) {
 		t.Errorf("menu with the list loaded:\n%s", tr.Dump())
 	}
-	tr = open(t, func(context.Context) ([]services.Reminder, error) {
+	tr = open(t, "Turn off reminder for Nov 14", func(context.Context) ([]services.Reminder, error) {
 		return []services.Reminder{{AlbumID: album.CatalogID}}, nil
 	})
-	if _, ok := tr.Find(ui.RoleMenuItem, "Turn off reminder"); !ok {
+	if _, ok := tr.Find(ui.RoleMenuItem, "Turn off reminder for Nov 14"); !ok {
 		t.Errorf("menu with a reminder set:\n%s", tr.Dump())
 	}
 
