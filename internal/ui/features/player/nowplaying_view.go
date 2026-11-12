@@ -266,7 +266,7 @@ func idPath(prefix, id string) string {
 // names is ported (path "": it is plain): the view closes as it goes.
 func (p *player) outLink(c *ui.Context, key, text, path string, size, lineH float32, weight int, top float32) {
 	t := lineText(c.Key(key), text, size, lineH, weight, theme.C("ink-muted")).SingleLine().MinWidth(0).Margin(top, 0, 0, 0)
-	if path == "" || p.env.HasRoute == nil || !p.env.HasRoute(path) {
+	if path == "" || !p.env.Routed(path) {
 		return
 	}
 	t.Role(ui.RoleLink).Cursor(ui.CursorPointer).Focusable()
@@ -341,7 +341,7 @@ func (p *player) songCopy(c *ui.Context, cur *services.QueueItem, large bool) {
 					p.np.rating(c, cur)
 				}
 				credits := "/song/" + cur.CatalogID
-				if song && cur.CatalogID != "" && p.env.HasRoute != nil && p.env.HasRoute(credits) {
+				if song && cur.CatalogID != "" && p.env.Routed(credits) {
 					if kit.Button(c.Key("credits"), i18n.T("View credits"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "info", Muted: true}).Clicked() {
 						p.ui.closeOverlay()
 						p.env.Nav.Push(credits)
@@ -493,7 +493,7 @@ func (p *player) lyricsBody(c *ui.Context, songID string) {
 // noLyrics is the empty card of a song none of the lyrics sources has.
 func (p *player) noLyrics(c *ui.Context) {
 	var action *kit.EmptyAction
-	if p.env.HasRoute != nil && p.env.HasRoute("/settings") {
+	if p.env.Routed("/settings") {
 		action = &kit.EmptyAction{Label: i18n.T("Lyrics sources"), Run: func() {
 			p.ui.closeOverlay()
 			p.env.Nav.Push("/settings?section=playback")

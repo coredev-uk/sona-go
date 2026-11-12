@@ -1,6 +1,7 @@
 package album
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 	"time"
@@ -160,9 +161,9 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 
 	label, copyright, notes := detail.Label, detail.Copyright, detail.Notes
 	if page != nil {
-		label = orElse(label, page.Label)
-		copyright = orElse(copyright, page.Copyright)
-		notes = orElse(notes, page.Notes)
+		label = cmp.Or(label, page.Label)
+		copyright = cmp.Or(copyright, page.Copyright)
+		notes = cmp.Or(notes, page.Notes)
 	}
 	m.rights = copyright
 	m.notes = notes
@@ -197,11 +198,7 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 	if album.Single {
 		kind = i18n.T("Single")
 	}
-	meta := catalogueLine(kind, i18n.YearOf(album.ReleaseDate), songs, running)
-	if album.Genre != "" {
-		meta += " · " + album.Genre
-	}
-	m.meta = meta
+	m.meta = i18n.Meta(i18n.CatalogueLine(kind, i18n.YearOf(album.ReleaseDate), songs, running), album.Genre)
 
 	for _, s := range m.list {
 		if s.Playable {
@@ -250,13 +247,6 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 		m.motion = page.Header.Motion
 	}
 	return m
-}
-
-func orElse(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
 }
 
 func anyWithoutDuration(songs []services.Song) bool {
@@ -380,6 +370,6 @@ func (m *model) subline(now time.Time, restricted bool) func(services.Song) stri
 		case restricted && s.Explicit:
 			parts = append(parts, withheld)
 		}
-		return strings.Join(parts, " · ")
+		return i18n.Meta(parts...)
 	}
 }

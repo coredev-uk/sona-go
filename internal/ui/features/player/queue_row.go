@@ -252,7 +252,7 @@ func (p *player) videoName(c *ui.Context, it *services.QueueItem, col ui.Color, 
 	if current {
 		t.FontWeight(500)
 	}
-	if p.env.HasRoute == nil || !p.env.HasRoute(path) {
+	if !p.env.Routed(path) {
 		return
 	}
 	t.Role(ui.RoleLink).Cursor(ui.CursorPointer)

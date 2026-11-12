@@ -189,6 +189,31 @@ func dialogHeader(c *ui.Context, title, description string, oneLine bool) {
 	})
 }
 
+// form shows a playlist dialog of fields: padded, headed by title and
+// description, then build.
+func (p *playlists) form(c *ui.Context, maxW float32, title, description string, build func()) {
+	kit.Dialog(c.Key("playlist-dialog"), &p.dialogs.open, kit.DialogOpts{
+		Title: title, Description: description, HideHeader: true, MaxWidth: maxW, Padding: 24, Gap: 20,
+	}, func() {
+		dialogHeader(c, title, description, false)
+		build()
+	})
+}
+
+// picker shows a playlist dialog of a list: no padding of its own, the header
+// (its description, a name, on one line) inset 20, then build lays out the
+// rest edge to edge.
+func (p *playlists) picker(c *ui.Context, maxW float32, title, description string, build func()) {
+	kit.Dialog(c.Key("playlist-dialog"), &p.dialogs.open, kit.DialogOpts{
+		Title: title, Description: description, HideHeader: true, Bare: true, MaxWidth: maxW,
+	}, func() {
+		ui.Column(c.Key("head")).FillWidth().Padding(20, 20, 12, 20).Children(func() {
+			dialogHeader(c, title, description, true)
+		})
+		build()
+	})
+}
+
 // dialogField is a labelled control: the label 14 medium, 6 above it; a
 // click on the label focuses the control (v0.2.0's <label>).
 func dialogField(c *ui.Context, key, label string, control func() ui.Element) {
@@ -285,11 +310,6 @@ func groupHeading(c *ui.Context, key, text string, folder bool) {
 	})
 }
 
-// songCount is "N songs".
-func songCount(n int) string {
-	return i18n.T("{n, plural, one {# song} other {# songs}}", "n", n)
-}
-
 // addDialog is the "Add to playlist" picker: a search field, a "New playlist"
 // row, Apple's recent targets (when not filtering), then the playlists the
 // user can edit, grouped by folder (PlaylistDialogs.tsx's AddToPlaylist).
@@ -303,12 +323,7 @@ func (p *playlists) addDialog(c *ui.Context) {
 	if tree.HasData {
 		nodes = d.treeNodes(tree.Data)
 	}
-	kit.Dialog(c.Key("playlist-dialog"), &d.open, kit.DialogOpts{
-		Title: i18n.T("Add to playlist"), Description: s.label, HideHeader: true, Bare: true, MaxWidth: 448,
-	}, func() {
-		ui.Column(c.Key("head")).FillWidth().Padding(20, 20, 12, 20).Children(func() {
-			dialogHeader(c, i18n.T("Add to playlist"), s.label, true)
-		})
+	p.picker(c, 448, i18n.T("Add to playlist"), s.label, func() {
 		var find ui.Element
 		ui.Box(c.Key("find")).FillWidth().Padding(0, 20, 12, 20).Children(func() {
 			find = kit.SearchField(c.Key("query"), &d.query, kit.SearchFieldOpts{Placeholder: i18n.T("Find a playlist")})
@@ -335,7 +350,7 @@ func (p *playlists) addDialog(c *ui.Context) {
 		row := func(prefix string, i int, tp services.TreePlaylist) {
 			p.optionRow(c, i, option{
 				key: prefix + tp.Playlist.ID, title: tp.Playlist.Name, art: tp.Playlist.Art.Small,
-				meta: songCount(tp.Playlist.TrackCount), pick: add(tp),
+				meta: i18n.SongCount(tp.Playlist.TrackCount), pick: add(tp),
 			})
 		}
 		ui.Scroll(c.Key("list")).FillWidth().MaxHeight(listMaxHeight(c, 640, chrome)).Children(func() {
@@ -404,10 +419,7 @@ func (p *playlists) playlistDialog(c *ui.Context) {
 	case len(s.items) > 0:
 		description = i18n.T("With {withLabel}.", "withLabel", s.label)
 	}
-	kit.Dialog(c.Key("playlist-dialog"), &d.open, kit.DialogOpts{
-		Title: title, Description: description, HideHeader: true, MaxWidth: 448, Padding: 24, Gap: 20,
-	}, func() {
-		dialogHeader(c, title, description, false)
+	p.form(c, 448, title, description, func() {
 		var name ui.Element
 		dialogField(c, "name", i18n.T("Name"), func() ui.Element {
 			name = kit.Input(c.Key("name-"+strconv.Itoa(gen)), &d.name, kit.InputOpts{A11yLabel: i18n.T("Name")}).FillWidth()
@@ -489,7 +501,7 @@ func (p *playlists) submitPlaylist() {
 		created, err := p.api.Create(context.Background(), in, s.items, s.folderID)
 		p.env.Post(func() {
 			if err != nil {
-				p.fail(i18n.T("Couldn't create the playlist"), err)
+				kit.ToastFailure(i18n.T("Couldn't create the playlist"), err)
 				d.release(gen)
 				return
 			}
@@ -518,10 +530,7 @@ func (p *playlists) folderDialog(c *ui.Context) {
 		title, submitLabel = i18n.T("Rename folder"), i18n.T("Rename")
 	}
 	description := i18n.T("Folders group playlists in the sidebar on all your devices.")
-	kit.Dialog(c.Key("playlist-dialog"), &d.open, kit.DialogOpts{
-		Title: title, Description: description, HideHeader: true, MaxWidth: 384, Padding: 24, Gap: 20,
-	}, func() {
-		dialogHeader(c, title, description, false)
+	p.form(c, 384, title, description, func() {
 		var name ui.Element
 		dialogField(c, "name", i18n.T("Name"), func() ui.Element {
 			name = kit.Input(c.Key("name-"+strconv.Itoa(gen)), &d.name, kit.InputOpts{A11yLabel: i18n.T("Name")}).FillWidth()
@@ -604,12 +613,7 @@ func (p *playlists) moveDialog(c *ui.Context) {
 				}
 			})
 	}
-	kit.Dialog(c.Key("playlist-dialog"), &d.open, kit.DialogOpts{
-		Title: i18n.T("Move to folder"), Description: s.name, HideHeader: true, Bare: true, MaxWidth: 384,
-	}, func() {
-		ui.Column(c.Key("head")).FillWidth().Padding(20, 20, 12, 20).Children(func() {
-			dialogHeader(c, i18n.T("Move to folder"), s.name, true)
-		})
+	p.picker(c, 384, i18n.T("Move to folder"), s.name, func() {
 		d.nav.Count = 1 + len(folders)
 		ui.Scroll(c.Key("list")).FillWidth().MaxHeight(listMaxHeight(c, 560, chrome)).Children(func() {
 			ui.Column(c.Key("options")).FillWidth().Padding(0, 12, 12, 12).Role(ui.RoleGroup).Children(func() {

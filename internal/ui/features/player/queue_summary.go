@@ -80,7 +80,7 @@ func (p *player) playingFrom(c *ui.Context, st *services.QueueStation, leave fun
 			text("before", whole[:i], muted)
 		}
 		name := text("station", whole[i+len(open):j], theme.C("ink")).Shrink(1).MinWidth(0)
-		if p.env.HasRoute != nil && p.env.HasRoute(path) {
+		if p.env.Routed(path) {
 			name.Role(ui.RoleLink).Cursor(ui.CursorPointer).Underline().DecorationColor(theme.C("ink").Alpha(0.4))
 			if name.Hovered() {
 				name.DecorationColor(theme.C("ink"))

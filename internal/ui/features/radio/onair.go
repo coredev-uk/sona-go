@@ -32,7 +32,7 @@ const (
 // board is the state of the on-air board: the width its columns follow, and
 // the moment its schedules are read against.
 type board struct {
-	width widthOf
+	width kit.WidthTracker
 	clock refresh
 }
 
@@ -58,7 +58,7 @@ func (r *radio) onAirBoard(c *ui.Context, b *board, stations []services.Station,
 	now := b.clock.read(c, r.now)
 	root := ui.Grid(c.Key("board")).GapX(boardGapX).GapY(boardGapY).MarginX(-boardBleed).
 		Role(ui.RoleList).Label(i18n.T("Live now"))
-	width := b.width.track(c, root)
+	width := b.width.Track(c, root)
 	if width > 0 {
 		root.Columns(max(1, int((width+boardGapX)/(boardMin+boardGapX))))
 	}
@@ -107,11 +107,7 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 	reason := kit.StationUnavailableText(s.Unavailable)
 
 	row := ui.Row(c.Key(s.ID)).Height(rowHeight).Padding(8).Gap(rowGap).Radius(tk.Radius["md"]).Role(ui.RoleListItem)
-	hot := row.Hovered() || row.FocusWithin()
-	if hot {
-		row.Background(theme.C("hover"))
-	}
-	theme.Fade(row, "feedback")
+	hot := kit.HoverRow(row)
 	row.Children(func() {
 		hit := ui.ButtonBase(c.Key("hit")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Radius(tk.Radius["md"])
 		if page {
@@ -236,11 +232,9 @@ var tagMarkers = strings.NewReplacer("<0>", "", "</0>", "")
 
 // onAirSkeleton is the board's frame while the live stations load: rows at
 // their real height and art size.
-func (r *radio) onAirSkeleton(c *ui.Context, w *widthOf) {
-	hover := theme.C("hover")
-	sm := theme.Current().Radius["sm"]
+func (r *radio) onAirSkeleton(c *ui.Context, w *kit.WidthTracker) {
 	root := ui.Grid(c.Key("board-skeleton")).GapX(boardGapX).GapY(boardGapY).MarginX(-boardBleed).Role(ui.RoleStatus).Label(i18n.T("Loading"))
-	width := w.track(c, root)
+	width := w.Track(c, root)
 	if width > 0 {
 		root.Columns(max(1, int((width+boardGapX)/(boardMin+boardGapX))))
 	}
@@ -251,12 +245,12 @@ func (r *radio) onAirSkeleton(c *ui.Context, w *widthOf) {
 		}
 		for i := range 6 {
 			ui.Row(c.Key(i)).Height(rowHeight).Padding(8).Gap(rowGap).Children(func() {
-				ui.Box(c).Size(rowArt, rowArt).Radius(sm).Background(hover).Shrink(0)
+				kit.Bar(c, rowArt, rowArt)
 				ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-					ui.Box(c).Width(128).Height(14).Margin(3, 0, 0, 0).Radius(sm).Background(hover)
-					ui.Box(c).Width(192).Height(12).Margin(7, 0, 0, 0).Radius(sm).Background(hover)
+					kit.Bar(c, 128, 14).Margin(3, 0, 0, 0)
+					kit.Bar(c, 192, 12).Margin(7, 0, 0, 0)
 					ui.Box(c).Grow(1)
-					ui.Box(c).FillWidth().MaxWidth(288).Height(12).Margin(0, 0, 2, 0).Radius(sm).Background(hover)
+					ui.Box(c).FillWidth().MaxWidth(288).Height(12).Margin(0, 0, 2, 0).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
 				})
 			})
 		}

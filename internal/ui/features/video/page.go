@@ -72,7 +72,7 @@ func (v *video) page(c *ui.Context, r *ui.Route) {
 				v.body(c, q.Data)
 			case q.Err != nil:
 				back := kit.EmptyAction{}
-				if v.env.HasRoute != nil && v.env.HasRoute("/search") {
+				if v.env.Routed("/search") {
 					back = kit.EmptyAction{Label: i18n.T("Go to Search"), Run: func() { v.env.Nav.Push("/search") }}
 				}
 				kit.DetailError(c, kit.NounMusicVideo, q.Err, kit.DetailErrorOpts{
@@ -86,9 +86,6 @@ func (v *video) page(c *ui.Context, r *ui.Route) {
 		})
 	})
 }
-
-// hasRoute is Env.HasRoute, false in a hand-built Env.
-func (v *video) hasRoute(path string) bool { return v.env.HasRoute != nil && v.env.HasRoute(path) }
 
 // body is the loaded page: the header, the notes under it, the shelves and
 // the release date.
@@ -119,7 +116,7 @@ func (v *video) body(c *ui.Context, d services.CatalogVideo) {
 		kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Notes")}, func() { kit.Notes(c, d.Notes, 0) })
 	}
 	var seeAll func()
-	if p := "/artist/" + vid.ArtistID + "/view/music-videos"; vid.ArtistID != "" && v.hasRoute(p) {
+	if p := "/artist/" + vid.ArtistID + "/view/music-videos"; vid.ArtistID != "" && v.env.Routed(p) {
 		seeAll = func() { v.env.Nav.Push(p) }
 	}
 	by := kit.CoverShelfOpts{CoverOpts: v.coverOpts(), More: seeAll}
@@ -150,7 +147,7 @@ func (v *video) songLine(c *ui.Context, s services.Song) {
 		id = s.ID
 	}
 	ui.Text(c.Key("song-before"), before)
-	if path := "/song/" + id; v.hasRoute(path) {
+	if path := "/song/" + id; v.env.Routed(path) {
 		ui.Link(c.Key("song"), s.Name, path).TextColor(theme.C("ink"))
 	} else {
 		ui.Text(c.Key("song"), s.Name).TextColor(theme.C("ink"))

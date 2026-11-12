@@ -183,7 +183,7 @@ func (s *settings) listenBrainzForm(c *ui.Context, f *tokenForm, connect func(),
 		ui.Row(c.Key("fields")).FillWidth().Gap(8).Children(func() {
 			in := kit.Input(c.Key("token"), &f.token, kit.InputOpts{A11yLabel: i18n.T("User token"), Password: true, Invalid: f.err != "", Error: f.err})
 			in.Grow(1).Shrink(1).MinWidth(0).Height(32).AutoFocus()
-			ready := !f.busy && trim(f.token) != ""
+			ready := !f.busy && strings.TrimSpace(f.token) != ""
 			label := i18n.T("Connect")
 			if f.busy {
 				label = i18n.T("Checking…")

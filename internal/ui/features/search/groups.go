@@ -184,22 +184,12 @@ func kindLabel(it services.Item) string {
 
 // itemMeta is "Song · Artist": the item's kind, then its own subtitle.
 func itemMeta(it services.Item) string {
-	return joinMeta(kindLabel(it), it.Subtitle)
-}
-
-func joinMeta(parts ...string) string {
-	var out []string
-	for _, p := range parts {
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return strings.Join(out, " · ")
+	return i18n.Meta(kindLabel(it), it.Subtitle)
 }
 
 // itemPath is the Sona page a result opens, "" when it has none (a song
 // plays in place; a station with nothing to show plays or opens in the
-// browser; web-only items). The caller links only when env.HasRoute says
+// browser; web-only items). The caller links only when env.Routed says
 // the page is ported.
 func itemPath(it services.Item) string {
 	if it.Kind == services.ItemSong {

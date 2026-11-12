@@ -14,7 +14,7 @@ import (
 
 // recentPage is the Recently added page's view state.
 type recentPage struct {
-	pageView
+	kit.PageFrame
 	cover coverList
 }
 
@@ -29,7 +29,7 @@ func (l *library) recentPage(c *ui.Context, r *ui.Route) {
 		// translators: {0} is the number of albums and playlists listed.
 		subline = i18n.T("{0, plural, one {# album or playlist} other {# albums and playlists}}", "0", list.Total)
 	}
-	l.scrollPage(c, &pg.pageView, "recent", func(pane *kit.Pane) {
+	pg.Scroll(c, "recent", func(pane *kit.Pane, _ float32) {
 		kit.PageHeader(c, i18n.T("Recently added"), subline, nil)
 		if l.gate(c, gateOpts{
 			total: list.Total, pending: list.Pending(), err: list.Err(), retry: list.Retry, retrying: list.Retrying(),

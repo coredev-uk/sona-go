@@ -93,7 +93,7 @@ func (c *cdm) notice(ctx *ui.Context) {
 // not ported.
 // desc is what the tooltip says, for assistive technology too.
 func (c *cdm) link(ctx *ui.Context, text, desc string) {
-	if c.env.HasRoute == nil || !c.env.HasRoute("/settings") {
+	if !c.env.Routed("/settings") {
 		line(ctx, text)
 		return
 	}

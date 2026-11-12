@@ -7,8 +7,6 @@ import (
 
 // Query keys an auth change makes stale, as v0.2.0's shared/lib/keys.ts.
 var (
-	keyLibrary     = store.Key{"library"}
-	keyCatalog     = store.Key{"catalog"}
 	keyDiagnostics = store.Key{"diagnostics"}
 )
 
@@ -25,9 +23,9 @@ func authInvalidations(prev *services.AuthStatus, next services.AuthStatus) []st
 	wasIn := prev.State == "signed_in"
 	isIn := next.State == "signed_in"
 	if wasIn != isIn {
-		out = append(out, keyLibrary, keyCatalog)
+		out = append(out, store.KeyLibrary, store.KeyCatalog)
 	} else if prev.StorefrontID != next.StorefrontID {
-		out = append(out, keyCatalog)
+		out = append(out, store.KeyCatalog)
 	}
 	if wasIn != isIn || prev.Backend != next.Backend {
 		out = append(out, keyDiagnostics)

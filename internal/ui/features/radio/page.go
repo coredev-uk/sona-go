@@ -5,7 +5,6 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/account"
-	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -15,14 +14,14 @@ import (
 // radioPage is the Radio page's state: its scroll container, the one item
 // menu its lists share, and what each list keeps (selection, "show all").
 type radioPage struct {
-	frame
+	kit.PageFrame
 	menus *kit.ActionMenus
 	board board
 	// loading is the width the loading frames' columns follow.
-	loadingBoard, loadingStations, loadingTiles widthOf
+	loadingBoard, loadingStations, loadingTiles kit.WidthTracker
 
 	live  kit.EditorialState
-	bands map[bandID]*kit.EditorialState
+	bands map[string]*kit.EditorialState
 	yours kit.CoverShelfState
 	// yoursMenus is the menu of "Your stations": its own selection.
 	yoursMenus *kit.ActionMenus
@@ -30,13 +29,7 @@ type radioPage struct {
 
 // bandState is the state of a band's sections.
 func (pg *radioPage) bandState(id bandID) *kit.EditorialState {
-	if pg.bands == nil {
-		pg.bands = map[bandID]*kit.EditorialState{}
-	}
-	if pg.bands[id] == nil {
-		pg.bands[id] = &kit.EditorialState{}
-	}
-	return pg.bands[id]
+	return kit.Entry(&pg.bands, string(id))
 }
 
 // stationCover is a station as a cover tile (v0.2.0's RadioPage stationCover):
@@ -99,12 +92,8 @@ func (r *radio) radioView(c *ui.Context, _ *ui.Route) {
 	if signedIn {
 		recent = r.recent()
 	}
-	if pg.menus == nil {
-		pg.menus = kit.NewActionMenus(r.env.Actions, nil)
-	}
-	if pg.yoursMenus == nil {
-		pg.yoursMenus = kit.NewActionMenus(r.env.Actions, &pg.yours.Row.Sel)
-	}
+	kit.MenusIn(&pg.menus, r.env.Actions, nil)
+	kit.MenusIn(&pg.yoursMenus, r.env.Actions, &pg.yours.Row.Sel)
 	// The page's lists share one menu, whose popup is drawn once, last.
 	ctx := r.env.ItemsCtx(pg.menus)
 	ctx.NoPopup = true
@@ -124,8 +113,7 @@ func (r *radio) radioView(c *ui.Context, _ *ui.Route) {
 	hasYours := (signedIn && recent.HasData && len(recent.Data) > 0) || isSignedOut(state)
 	yours := func() { r.yours(c, state, recent) }
 
-	devstate.Scroll(c, &pg.pos) // dev builds: the offset survives a restart
-	pg.scroll(c, func(gutter float32) {
+	pg.Scroll(c, "radio", func(*kit.Pane, float32) {
 		kit.PageHeader(c, i18n.T("Radio"), "", nil)
 		if failed(live) && failed(grouping) {
 			// Nothing on the page loaded: one block says so, not one per part.
@@ -143,9 +131,7 @@ func (r *radio) radioView(c *ui.Context, _ *ui.Route) {
 				if hasYours {
 					ui.Column(c.Key("yours")).Margin(0, 0, 40, 0).Children(yours)
 				}
-				kit.ErrorBlock(c, i18n.T("Couldn't load Apple Music's radio page"), grouping.Err, kit.ErrorBlockOpts{
-					OnRetry: func() { r.env.Queries.Invalidate(keyGrouping) }, Retrying: grouping.Fetching,
-				})
+				kit.QueryError(c, r.env.Queries, i18n.T("Couldn't load Apple Music's radio page"), grouping, keyGrouping)
 			})
 		default:
 			for _, b := range bands {
@@ -172,9 +158,7 @@ func (r *radio) liveNow(c *ui.Context, live store.Result[[]services.Station], se
 		case pending(live):
 			r.onAirSkeleton(c, &pg.loadingBoard)
 		case failed(live):
-			kit.ErrorBlock(c, i18n.T("Couldn't load the live stations"), live.Err, kit.ErrorBlockOpts{
-				OnRetry: func() { r.env.Queries.Invalidate(keyLive) }, Retrying: live.Fetching,
-			})
+			kit.QueryError(c, r.env.Queries, i18n.T("Couldn't load the live stations"), live, keyLive)
 		case len(live.Data) == 0:
 			kit.EmptyState(c, i18n.T("No live stations"), i18n.T("Apple Music lists no live radio for your storefront right now."), kit.EmptyOpts{})
 		default:
@@ -234,16 +218,11 @@ func (r *radio) yours(c *ui.Context, state string, recent store.Result[[]service
 // its shelves.
 func (r *radio) bandsSkeleton(c *ui.Context) {
 	pg := &r.radioPg
-	hover := theme.C("hover")
-	sm := theme.Current().Radius["sm"]
-	bar := func(w, h float32) ui.Element {
-		return ui.Box(c).Width(w).Height(h).Radius(sm).Background(hover)
-	}
 	ui.Column(c.Key("bands-skeleton")).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
 		ui.Column(c.Key("broadcasters")).Margin(40, 0, 0, 0).Children(func() {
-			ui.Row(c).Height(28).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { bar(160, 16) })
+			ui.Row(c).Height(28).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, 160, 16) })
 			root := ui.Grid(c.Key("stations")).GapX(16).GapY(4).MarginX(-8)
-			width := pg.loadingStations.track(c, root)
+			width := pg.loadingStations.Track(c, root)
 			if width > 0 {
 				root.Columns(max(1, int((width+16)/(260+16))))
 			}
@@ -254,21 +233,21 @@ func (r *radio) bandsSkeleton(c *ui.Context) {
 				}
 				for i := range 8 {
 					ui.Row(c.Key(i)).Height(64).PaddingX(8).Gap(12).AlignItems(ui.Center).Children(func() {
-						ui.Box(c).Size(48, 48).Radius(sm).Background(hover).Shrink(0)
-						bar(112, 14)
+						kit.Bar(c, 48, 48)
+						kit.Bar(c, 112, 14)
 					})
 				}
 			})
 		})
 		ui.Column(c.Key("first-band")).Margin(bandGap, 0, 0, 0).Padding(bandPad, 0, 0, 0).Children(func() {
 			ui.Box(c.Key("rule")).Absolute().Top(0).Left(0).Right(0).Height(1).Background(theme.C("line"))
-			ui.Row(c).Height(30).Margin(0, 0, headingGap, 0).AlignItems(ui.Center).Children(func() { bar(112, 20) })
+			ui.Row(c).Height(30).Margin(0, 0, headingGap, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, 112, 20) })
 			ui.Column(c.Key("shelves")).Gap(40).Children(func() {
 				for s := range 2 {
 					ui.Column(c.Key(s)).Children(func() {
-						ui.Row(c).Height(28).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { bar(160, 16) })
+						ui.Row(c).Height(28).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, 160, 16) })
 						root := ui.Row(c.Key("tiles")).Gap(theme.Current().Metric["tile-gap-x"]).FillWidth().Clip()
-						width := pg.loadingTiles.track(c, root)
+						width := pg.loadingTiles.Track(c, root)
 						root.Children(func() {
 							if width <= 0 {
 								ui.Box(c).Height(1)
@@ -277,9 +256,9 @@ func (r *radio) bandsSkeleton(c *ui.Context) {
 							cols, tile := kit.CoverColumns(width, theme.Current().Metric["tile-min"])
 							for i := range cols {
 								ui.Column(c.Key(i)).Width(tile).Children(func() {
-									ui.Box(c).Size(tile, tile).Radius(sm).Background(hover)
-									ui.Box(c).WidthPercent(75).Height(14).Margin(8, 0, 0, 0).Radius(sm).Background(hover)
-									ui.Box(c).WidthPercent(50).Height(12).Margin(6, 0, 0, 0).Radius(sm).Background(hover)
+									kit.Bar(c, tile, tile)
+									ui.Box(c).WidthPercent(75).Height(14).Margin(8, 0, 0, 0).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
+									ui.Box(c).WidthPercent(50).Height(12).Margin(6, 0, 0, 0).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
 								})
 							}
 						})

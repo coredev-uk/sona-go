@@ -132,29 +132,27 @@ func onAirSpan(name string, schedule []services.StationEvent, now int64) (span, 
 // stationLine is the station's catalogue line: what it is, who runs it, and
 // an episode's date and length ("Episode · Zane Lowe · 57 min").
 func stationLine(s services.Station) string {
-	var parts []string
+	var kind string
 	switch s.Kind {
 	case services.StationLive:
-		parts = append(parts, i18n.T("Live radio"))
+		kind = i18n.T("Live radio")
 	case services.StationBroadcast:
-		parts = append(parts, i18n.T("Live broadcast"))
+		kind = i18n.T("Live broadcast")
 	case services.StationEpisode:
-		parts = append(parts, i18n.T("Episode"))
+		kind = i18n.T("Episode")
 	default:
-		parts = append(parts, i18n.T("Station"))
+		kind = i18n.T("Station")
 	}
+	who := s.Provider
 	if s.Kind == services.StationEpisode && s.ShowName != "" {
-		parts = append(parts, s.ShowName)
-	} else if s.Provider != "" {
-		parts = append(parts, s.Provider)
+		who = s.ShowName
 	}
+	var aired, length string
 	if s.AirTimeMs > 0 {
-		parts = append(parts, i18n.FormatDate(time.UnixMilli(s.AirTimeMs), i18n.DateMedium))
+		aired = i18n.FormatDate(time.UnixMilli(s.AirTimeMs), i18n.DateMedium)
 	}
 	if s.DurationMs > 0 {
-		if d := i18n.FormatRunningTime(time.Duration(s.DurationMs) * time.Millisecond); d != "" {
-			parts = append(parts, d)
-		}
+		length = i18n.FormatRunningTime(time.Duration(s.DurationMs) * time.Millisecond)
 	}
-	return strings.Join(parts, " · ")
+	return i18n.Meta(kind, who, aired, length)
 }

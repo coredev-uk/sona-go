@@ -648,14 +648,6 @@
     "key": "ASE.Web.Music.Library.FavoriteMix.Unavailable.SignIn"
   },
   {
-    "message": "{0, plural, one {# song} other {# songs}}",
-    "key": "ASE.Web.Music.NoOfSongs",
-    "plural": true,
-    "placeholders": {
-      "count": "0"
-    }
-  },
-  {
     "message": "{0, plural, one {# video} other {# videos}}",
     "key": "FUSE.NoOfVideos",
     "plural": true,

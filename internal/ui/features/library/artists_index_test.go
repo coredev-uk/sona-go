@@ -145,19 +145,6 @@ func TestLibraryLine(t *testing.T) {
 	}
 }
 
-func TestArtistsReleaseTitle(t *testing.T) {
-	for name, want := range map[string][2]string{
-		"Daydreaming - Single":                       {"Daydreaming", "single"},
-		"Com Lag: 2+2=5 - EP":                        {"Com Lag: 2+2=5", "ep"},
-		"The King of Limbs - Live from the Basement": {"The King of Limbs - Live from the Basement", ""},
-		"Single": {"Single", ""},
-	} {
-		if title, kind := artistsReleaseTitle(name); title != want[0] || kind != want[1] {
-			t.Errorf("%q → %q, %q; want %q", name, title, kind, want)
-		}
-	}
-}
-
 // A release tile has the album's motion artwork and, for an album not out
 // yet, its release badge (v0.2.0's albumTile).
 func TestArtistsReleaseTileHasMotionAndTheReleaseBadge(t *testing.T) {

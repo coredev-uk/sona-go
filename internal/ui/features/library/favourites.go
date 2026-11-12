@@ -14,7 +14,7 @@ import (
 
 // favouritePage is the Favourite songs page's view state.
 type favouritePage struct {
-	pageView
+	kit.PageFrame
 	list songList
 }
 
@@ -22,7 +22,7 @@ type favouritePage struct {
 // "favorite-songs", page]`).
 func (l *library) favouriteList() *listView[services.Song] {
 	return usePaged(l, &l.favourite.list.pager, func(n int) store.Key {
-		return append(append(store.Key(nil), keyFavourites...), n)
+		return append(append(store.Key(nil), store.KeyLibraryFavourites...), n)
 	}, func(ctx context.Context, off, lim int) (listPage[services.Song], error) {
 		p, err := l.lib.FavoriteSongs(ctx, off, lim)
 		return listPage[services.Song]{p.Items, p.Total}, err
@@ -37,10 +37,10 @@ func (l *library) favouritePage(c *ui.Context, r *ui.Route) {
 
 	subline := ""
 	if list.Total > 0 {
-		subline = i18n.T("{0, plural, one {# song} other {# songs}}", "0", list.Total)
+		subline = i18n.SongCount(list.Total)
 	}
 	from := services.PlayFrom{Kind: "", ID: i18n.T("Favourite songs")}
-	l.scrollPage(c, &pg.pageView, "favourites", func(pane *kit.Pane) {
+	pg.Scroll(c, "favourites", func(pane *kit.Pane, _ float32) {
 		kit.PageHeader(c, i18n.T("Favourite songs"), subline, func() {
 			play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{
 				PlayLabel: i18n.T("Play your favourite songs"), Shuffle: true, Disabled: list.Total == 0,

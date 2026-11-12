@@ -20,7 +20,7 @@ type songList struct {
 
 // songsPage is the Songs page's view state.
 type songsPage struct {
-	pageView
+	kit.PageFrame
 	list songList
 }
 
@@ -44,9 +44,9 @@ func (l *library) songsPage(c *ui.Context, r *ui.Route) {
 
 	subline := ""
 	if list.Total > 0 {
-		subline = i18n.T("{0, plural, one {# song} other {# songs}}", "0", list.Total)
+		subline = i18n.SongCount(list.Total)
 	}
-	l.scrollPage(c, &pg.pageView, q.key(), func(pane *kit.Pane) {
+	pg.Scroll(c, q.key(), func(pane *kit.Pane, _ float32) {
 		kit.PageHeaderCounted(c, i18n.T("Songs"), subline, func() {
 			l.sortSelect(c, songsSpec, q)
 			play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{
@@ -114,38 +114,12 @@ func (l *library) songTable(c *ui.Context, g *songList, pane *kit.Pane, list *li
 	if list.Pending() {
 		count, at = skeletonRows, func(int) *services.Song { return nil }
 	}
-	var cur *services.QueueItem
-	playing := false
-	if l.env.Play != nil {
-		s := l.env.Play.State()
-		cur = s.Current
-		playing = s.State == store.StatePlaying
-	}
-	opts := kit.TrackListOpts{
-		Label:      o.label,
-		Columns:    kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true},
-		OnPlay:     o.onPlay,
-		Sort:       o.sort,
-		OnRange:    g.onRange(c),
-		Pane:       pane,
-		Current:    cur,
-		Playing:    playing,
-		Restricted: l.restricted(),
-		Art:        l.env.Art,
-		Motion:     l.env.Motion,
-		Menus:      l.itemMenus(&g.menus, &g.st.Sel),
-	}
-	if l.hasPage("/artist/x") {
-		opts.OpenArtist = func(id string) { l.env.Nav.Push("/artist/" + id) }
-	}
-	if l.hasPage("/album/x") {
-		opts.OpenAlbum = func(id string) { l.env.Nav.Push("/album/" + id) }
-	}
+	opts := l.env.TrackOpts(l.itemMenus(&g.menus, &g.st.Sel), l.restricted())
+	opts.Label = o.label
+	opts.Columns = kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true}
+	opts.OnPlay = o.onPlay
+	opts.Sort = o.sort
+	opts.OnRange = g.onRange(c)
+	opts.Pane = pane
 	kit.TrackList(c, &g.st, count, func(i int) *services.Song { return at(i) }, opts)
-}
-
-// hasPage: a module registered a page for path (the song table links only
-// to pages that exist).
-func (l *library) hasPage(path string) bool {
-	return l.env.HasRoute != nil && l.env.HasRoute(path)
 }

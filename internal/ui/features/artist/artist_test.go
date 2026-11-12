@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
 func plain(id string) services.Album { return services.Album{ID: id, Name: id} }
@@ -40,8 +41,8 @@ func TestReleaseTitleMovesTheSuffixOut(t *testing.T) {
 		// Only at the end.
 		{"Single - Remixes", "Single - Remixes", ""},
 	} {
-		if title, kind := releaseTitle(tc.in); title != tc.title || kind != tc.kind {
-			t.Errorf("releaseTitle(%q) = %q, %q; want %q, %q", tc.in, title, kind, tc.title, tc.kind)
+		if title, kind := kit.ReleaseTitle(tc.in); title != tc.title || kind != tc.kind {
+			t.Errorf("ReleaseTitle(%q) = %q, %q; want %q, %q", tc.in, title, kind, tc.title, tc.kind)
 		}
 	}
 }

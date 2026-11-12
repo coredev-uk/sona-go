@@ -123,12 +123,9 @@ func (d *discover) module() module.Module {
 
 func newDiscover(env *module.Env, api discoverAPI, tracks tracksAPI) *discover {
 	d := &discover{env: env, api: api, tracks: tracks, now: time.Now}
-	d.front.menus = kit.NewActionMenus(env.Actions, nil)
-	d.newPg.menus = kit.NewActionMenus(env.Actions, nil)
-	d.edit.menus = kit.NewActionMenus(env.Actions, nil)
-	d.room.menus = kit.NewActionMenus(env.Actions, nil)
-	d.chart.menus = kit.NewActionMenus(env.Actions, nil)
-	d.charts.menus = kit.NewActionMenus(env.Actions, nil)
+	for _, m := range []**kit.ActionMenus{&d.front.menus, &d.newPg.menus, &d.edit.menus, &d.room.menus, &d.chart.menus, &d.charts.menus} {
+		*m = kit.NewActionMenus(env.Actions, nil)
+	}
 	return d
 }
 
@@ -137,6 +134,6 @@ func newDiscover(env *module.Env, api discoverAPI, tracks tracksAPI) *discover {
 // the pages load again for the new account.
 func (d *discover) init() {
 	store.On(d.env.Bus, services.EventAuthChanged, func(services.AuthStatus) {
-		d.env.Queries.Invalidate(keyDiscover)
+		d.env.Queries.Invalidate(store.KeyDiscover)
 	})
 }

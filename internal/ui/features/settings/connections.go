@@ -1,6 +1,8 @@
 package settings
 
 import (
+	"strings"
+
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/config"
@@ -61,7 +63,7 @@ func accountLine(p provider, st services.ScrobblerStatus, acct config.ScrobbleAc
 	if st.NeedsReconnect {
 		return i18n.T("{name} no longer accepts Sona's sign-in. Reconnect to keep scrobbling.", "name", providerName(p)) + waiting
 	}
-	user := trim(acct.Username)
+	user := strings.TrimSpace(acct.Username)
 	if !acct.Enabled {
 		if user != "" {
 			return i18n.T("Connected as {user}, paused. Songs you play now aren't sent.", "user", user) + waiting

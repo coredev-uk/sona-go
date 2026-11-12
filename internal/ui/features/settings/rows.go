@@ -172,15 +172,15 @@ func (s *settings) stack(c *ui.Context, build func()) {
 // flat bars at the real text sizes, announced busy.
 func (s *settings) loading(c *ui.Context, rows int) {
 	ui.Column(c.Key("loading")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
-		ui.Box(c.Key("h")).Width(112).Height(16).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover")).Margin(0, 0, 12, 0)
+		kit.Bar(c.Key("h"), 112, 16).Margin(0, 0, 12, 0)
 		for i := range rows {
 			k := c.Key(i)
 			ui.Column(k).FillWidth().Children(func() {
 				s.line(k)
 				ui.Row(k.Key("r")).FillWidth().Padding(rowPadY, 0).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(rowGap).Children(func() {
 					ui.Column(k.Key("l")).Gap(8).Children(func() {
-						ui.Box(k.Key("t")).Width(160).Height(14).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
-						ui.Box(k.Key("d")).Width(float32(220 + (i*53)%140)).Height(12).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
+						kit.Bar(k.Key("t"), 160, 14)
+						kit.Bar(k.Key("d"), float32(220+(i*53)%140), 12)
 					})
 					ui.Box(k.Key("c")).Width(selectWidth).Height(32).Radius(theme.Current().Radius["md"]).Background(theme.C("hover"))
 				})

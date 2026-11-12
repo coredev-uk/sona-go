@@ -22,13 +22,10 @@ func (s *search) profilePage(c *ui.Context, r *ui.Route) {
 	id := r.Param("id")
 	v := &s.pages.profile
 	res := s.profile(id)
-	s.scrollPage(c, &v.pageView, id, func(pane *kit.Pane) {
+	v.Scroll(c, id, func(pane *kit.Pane, _ float32) {
 		switch {
 		case res.Err != nil:
-			kit.ErrorBlock(c, i18n.T("Couldn't load this profile"), res.Err, kit.ErrorBlockOpts{
-				OnRetry:  func() { s.env.Queries.Invalidate(keyProfile(id)) },
-				Retrying: res.Fetching,
-			})
+			kit.QueryError(c, s.env.Queries, i18n.T("Couldn't load this profile"), res, keyProfile(id))
 		case !res.HasData:
 			ui.Row(c.Key("loading")).AlignItems(ui.Center).Gap(24).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
 				ui.Box(c).Size(128, 128).Shrink(0).Radius(64).Background(theme.C("hover"))

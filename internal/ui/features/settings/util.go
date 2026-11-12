@@ -1,7 +1,6 @@
 package settings
 
 import (
-	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -31,8 +30,6 @@ func (s *settings) tell(c *ui.Context, key, msg string) {
 		}
 	}
 }
-
-func trim(s string) string { return strings.TrimSpace(s) }
 
 // shortcuts is every registered shortcut with its effective keys
 // (Env.Shortcuts), none without a shell.
