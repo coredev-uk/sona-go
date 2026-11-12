@@ -67,8 +67,8 @@ type equalizer struct {
 
 	// preview sends the curve being dragged to the playing audio; saves
 	// writes the settings, the newest only when several arrive at once.
-	preview latest[config.Equalizer]
-	saves   latest[config.Settings]
+	preview store.Latest[config.Equalizer]
+	saves   store.Latest[config.Settings]
 
 	// draft is the curve while a fader is held: shown and heard, saved on
 	// release. Main thread.
@@ -101,8 +101,8 @@ func New(env *module.Env) module.Module {
 
 func newEqualizer(env *module.Env, svc backend, supported func() bool) *equalizer {
 	e := &equalizer{env: env, svc: svc, supported: supported, held: map[string]float64{}}
-	e.preview.send = func(eq config.Equalizer) { _ = svc.Preview(context.Background(), eq) } // errors are ignored
-	e.saves.send = e.send
+	e.preview.Send = func(eq config.Equalizer) { _ = svc.Preview(context.Background(), eq) } // errors are ignored
+	e.saves.Send = e.send
 	return e
 }
 
@@ -157,7 +157,7 @@ func (e *equalizer) send(s config.Settings) {
 	saved, err := e.svc.Save(context.Background(), s)
 	e.env.Post(func() {
 		if err != nil {
-			kit.ToastErrorf(i18n.T("Couldn't save the setting"), i18n.ErrorText(services.CodeOf(err)))
+			kit.ToastErrorf(i18n.T("Couldn't save the setting"), i18n.ErrorMessage(err))
 			e.env.Queries.Invalidate(store.KeySettings)
 			return
 		}

@@ -57,7 +57,7 @@ func (s *settings) previousVersion(c *ui.Context) {
 			Notes: func() {
 				if st.failure != "" {
 					ui.Column(c.Key("failure")).FillWidth().Margin(8, 0, 0, 0).Children(func() {
-						s.alertLine(c, "circle-alert", st.failure)
+						kit.AlertLine(c, st.failure)
 					})
 				}
 			},

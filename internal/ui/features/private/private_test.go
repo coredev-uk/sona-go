@@ -44,11 +44,6 @@ func (r *rig) settle(t *testing.T) {
 }
 
 // emit is Go reporting a state (private:changed).
-func (r *rig) emit(s services.PrivateState) {
-	r.h.Bus.Emit(services.EventPrivateChanged, s)
-	r.tt.Drain()
-}
-
 func TestPillTogglesPrivateListeningAndFollowsGo(t *testing.T) {
 	r := newRig(t, 1200)
 	r.settle(t)
@@ -81,11 +76,11 @@ func TestPillFollowsChangesFromElsewhere(t *testing.T) {
 	r := newRig(t, 1200)
 	r.settle(t)
 	// The tray, the Settings row or `sona private` flips it: only the event tells.
-	r.emit(services.PrivateState{On: true, Source: "setting", Saved: true})
+	r.tt.Emit(services.EventPrivateChanged, services.PrivateState{On: true, Source: "setting", Saved: true})
 	if !contains(r.tt.Texts(), "Private") {
 		t.Errorf("private:changed did not turn the pill on: %q", r.tt.Texts())
 	}
-	r.emit(services.PrivateState{On: false, Source: "setting"})
+	r.tt.Emit(services.EventPrivateChanged, services.PrivateState{On: false, Source: "setting"})
 	if contains(r.tt.Texts(), "Private") {
 		t.Errorf("private:changed did not turn the pill off: %q", r.tt.Texts())
 	}
@@ -109,7 +104,7 @@ func TestPillWordFollowsTheWindowWidth(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			r := newRig(t, c.width)
 			r.settle(t)
-			r.emit(c.state)
+			r.tt.Emit(services.EventPrivateChanged, c.state)
 			var got string
 			for _, s := range r.tt.Texts() {
 				if s == "Private" || s == "Private (development build)" {
@@ -134,7 +129,7 @@ func TestPillNameSaysWhereTheStateComesFrom(t *testing.T) {
 		{services.PrivateState{On: true, Source: "development"}, "Private listening (development build)"},
 		{services.PrivateState{On: true, Source: "environment"}, "Private listening (forced by SONA_PRIVATE=1)"},
 	} {
-		r.emit(c.state)
+		r.tt.Emit(services.EventPrivateChanged, c.state)
 		if _, ok := r.tt.Find(c.name); !ok {
 			t.Errorf("state %+v: no control named %q: %q", c.state, c.name, r.tt.Texts())
 		}
@@ -150,7 +145,7 @@ func doesNothingWhileForcedOrUnknown(t *testing.T) {
 	// a click that got through would turn it on).
 	r := newRig(t, 1200)
 	r.settle(t)
-	r.emit(services.PrivateState{On: false, Source: "environment"})
+	r.tt.Emit(services.EventPrivateChanged, services.PrivateState{On: false, Source: "environment"})
 	if err := r.tt.Click("Private listening (forced by SONA_PRIVATE=1)"); err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +246,7 @@ func TestPillTooltipExplainsTheState(t *testing.T) {
 		{services.PrivateState{On: true, Source: "development"}, "Private listening (development build)", "Private listening is on for this development build. Turning it off lasts until Sona quits."},
 		{services.PrivateState{On: true, Source: "environment"}, "Private listening (forced by SONA_PRIVATE=1)", "On because Sona was started with SONA_PRIVATE=1"},
 	} {
-		r.emit(c.state)
+		r.tt.Emit(services.EventPrivateChanged, c.state)
 		r.tt.Move(10, 190)
 		r.tt.Advance(time.Second)
 		pill, ok := r.tt.Find(c.name)

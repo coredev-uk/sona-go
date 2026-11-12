@@ -3,7 +3,6 @@ package settings
 import (
 	"context"
 	"strconv"
-	"strings"
 
 	"github.com/egoist/mygo/ui"
 
@@ -144,6 +143,4 @@ func (s *settings) windowSizeRow(c *ui.Context, cfg config.Settings) {
 }
 
 // stripTags drops the <0> markers of a message's rich text.
-func stripTags(t string) string { return tagMarkers.Replace(t) }
-
-var tagMarkers = strings.NewReplacer("<0>", "", "</0>", "")
+func stripTags(t string) string { return i18n.StripTags(t) }

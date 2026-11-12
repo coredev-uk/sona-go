@@ -1,7 +1,6 @@
 package miniplayer
 
 import (
-	"context"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -21,14 +20,10 @@ type notice struct {
 	until time.Time // zero until a frame shows it
 }
 
-// run starts a command off the main thread; its failure is said on the
-// third line as "what: why".
-func (m *mini) run(what string, fn func(ctx context.Context) error) {
-	go func() {
-		if err := fn(context.Background()); err != nil {
-			m.env.Post(func() { m.fail(what, services.CodeOf(err)) })
-		}
-	}()
+// failed is the transport's failure hook (any thread): the notice is said
+// from the main thread.
+func (m *mini) failed(what string, err error) {
+	m.env.Post(func() { m.fail(what, services.CodeOf(err)) })
 }
 
 // fail says a command failed. Signing in again is the one thing the user can
@@ -60,30 +55,6 @@ func (m *mini) noticeText(c *ui.Context) string {
 	}
 	c.After(n.until.Sub(now))
 	return n.text
-}
-
-// The commands. Each says what it was doing (the notice's start) as a
-// literal, so the catalogue's extraction finds it.
-
-func (m *mini) toggleCmd() {
-	m.run(i18n.T("Couldn't play or pause"), m.svc.Toggle)
-}
-
-func (m *mini) nextCmd() {
-	m.run(i18n.T("Couldn't skip"), m.svc.Next)
-}
-
-func (m *mini) previousCmd() {
-	m.run(i18n.T("Couldn't go back"), m.svc.Prev)
-}
-
-// seekTo seeks to a position in the playing song: the mirror shows it at
-// once, until Go's next snapshot.
-func (m *mini) seekTo(pos time.Duration) {
-	ms := pos.Milliseconds()
-	now := m.now().UnixMilli()
-	m.env.Play.Patch(func(s *services.PlaybackState) { s.PositionMs, s.At = ms, now })
-	m.run(i18n.T("Couldn't seek"), func(ctx context.Context) error { return m.svc.Seek(ctx, ms) })
 }
 
 // expand brings the main window back (and closes the mini player). The

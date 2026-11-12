@@ -313,15 +313,6 @@ func (tr Tree) Within(n Node, role ui.Role) bool {
 	return slices.ContainsFunc(tr.Ancestors(n), func(a Node) bool { return a.Role == role })
 }
 
-// Texts are the labels of every node, for a failure message.
-func (tr Tree) Texts() []string {
-	out := make([]string, len(tr.Nodes))
-	for i, n := range tr.Nodes {
-		out[i] = n.String()
-	}
-	return out
-}
-
 // Dump is the tree as indented "role label [states]" lines.
 func (tr Tree) Dump() string {
 	var b strings.Builder
@@ -660,4 +651,39 @@ func where(tt *ui.Tester) string {
 		return "a focused element that is not built"
 	}
 	return strings.Join(path[max(0, len(path)-4):], " > ")
+}
+
+// InOrder fails the test unless want is a subsequence of got: the Tab stops
+// reached, in order, with others between them allowed.
+func InOrder(t testing.TB, got []string, want ...string) {
+	t.Helper()
+	at := 0
+	for _, g := range got {
+		if at < len(want) && g == want[at] {
+			at++
+		}
+	}
+	if at < len(want) {
+		t.Errorf("Tab reached %q, which lacks %q after %q", got, want[at], want[:at])
+	}
+}
+
+// StopLabels are the labels of the stops of a Tab walk.
+func StopLabels(stops []Stop) []string {
+	out := make([]string, len(stops))
+	for i, s := range stops {
+		out[i] = s.Node.Label
+	}
+	return out
+}
+
+// MustFind is Find, failing the test with the tree when there is no such
+// node.
+func (tr Tree) MustFind(t testing.TB, role ui.Role, label string) Node {
+	t.Helper()
+	n, ok := tr.Find(role, label)
+	if !ok {
+		t.Fatalf("no %v %q on the tree:\n%s", role, label, tr.Dump())
+	}
+	return n
 }

@@ -12,7 +12,6 @@
 package miniplayer
 
 import (
-	"context"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -30,15 +29,6 @@ import (
 // listening is 10, before the sleep timer).
 const controlOrder = module.ControlsAfterQueue + 10
 
-// transport is what the mini player asks of the playback service
-// (*services.PlaybackService).
-type transport interface {
-	Toggle(ctx context.Context) error
-	Next(ctx context.Context) error
-	Prev(ctx context.Context) error
-	Seek(ctx context.Context, positionMs int64) error
-}
-
 // desktop is what it asks of the desktop service
 // (*services.DesktopService): the windows.
 type desktop interface {
@@ -49,19 +39,16 @@ type desktop interface {
 
 // mini is the feature's state.
 type mini struct {
-	env  *module.Env
-	svc  transport
-	desk desktop
-	lyr  store.LyricsSource
-	now  func() time.Time
-	sung sungState
+	env   *module.Env
+	tr    kit.Transport
+	desk  desktop
+	lyr   store.LyricsSource
+	now   func() time.Time
+	spans lyricsync.SpanCache // the sung line's lines
 
 	// seek is the seek bar while the user drags it: the position shown,
 	// committed when the pointer lets go.
-	seek struct {
-		active bool
-		secs   float64
-	}
+	seek     kit.SeekDrag
 	announce kit.TrackAnnouncer
 	// menus is the playing song's action menu (playing_menu.go).
 	menus    *kit.ActionMenus
@@ -73,7 +60,7 @@ type mini struct {
 func New(env *module.Env) module.Module {
 	m := newMini(env)
 	if env.Core != nil {
-		m.svc = services.Service[services.PlaybackService](env.Core)
+		m.tr.Svc = services.Service[services.PlaybackService](env.Core)
 		m.desk = services.Service[services.DesktopService](env.Core)
 		m.lyr = services.Service[services.LyricsService](env.Core)
 	}
@@ -96,7 +83,9 @@ func New(env *module.Env) module.Module {
 }
 
 func newMini(env *module.Env) *mini {
-	return &mini{env: env, now: time.Now}
+	m := &mini{env: env, now: time.Now}
+	m.tr = kit.Transport{Play: env.Play, Fail: m.failed}
+	return m
 }
 
 // init follows the per-song timing offset the main window changes, so the

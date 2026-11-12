@@ -2,6 +2,7 @@ package player
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -15,10 +16,6 @@ import (
 // queueDropID is the queue's id as a drag origin (DragOrigin.List) and as a
 // drop target.
 const queueDropID = "queue"
-
-// keyAuth is the account's query: the library module keeps it in step with
-// the auth events, and v0.2.0's useWithheld read the same status.
-var keyAuth = store.Key{"auth"}
 
 // queueUI is the queue panel's own state (QueuePanel.tsx's hooks): the list's
 // scroll, its roving focus, the move waiting to be announced and the row
@@ -45,8 +42,6 @@ type queueUI struct {
 	// menu is the row menu, of the entry menuUID.
 	menu    kit.Menu
 	menuUID uint64
-	// auth is the account's status, for explicit songs the account skips.
-	auth func() services.AuthStatus
 }
 
 // pendingMove is a move asked of Go, until it shows in the queue: it is
@@ -63,35 +58,15 @@ type pendingMove struct {
 	until time.Time
 }
 
-// followAccount tells the queue which accounts restrict explicit content:
-// such songs are dimmed, as Go skips them (v0.2.0's useWithheld). The shell
-// calls it once, with the AuthService.
-func (p *player) followAccount(auth interface{ Status() services.AuthStatus }) {
-	p.queue.auth = auth.Status
-	if p.env.Bus != nil {
-		store.On(p.env.Bus, services.EventAuthChanged, func(s services.AuthStatus) {
-			store.Set(p.env.Queries, keyAuth, s)
-		})
-	}
-}
-
-// restricted reports whether the account restricts explicit content.
+// restricted reports whether the account restricts explicit content: such
+// songs are dimmed, as Go skips them (v0.2.0's useWithheld).
 func (p *player) restricted() bool {
-	if p.queue.auth == nil || p.env.Queries == nil {
-		return false
-	}
-	r := store.Use(p.env.Queries, keyAuth, func(context.Context) (services.AuthStatus, error) { return p.queue.auth(), nil })
-	return r.Data.Restricted
+	return store.UseAuth(p.env.Queries, p.env.Core).Data.Restricted
 }
 
 // indexOfUID is where the entry uid is in items, -1 when it is not.
 func indexOfUID(items []services.QueueItem, uid uint64) int {
-	for i := range items {
-		if items[i].UID == uid {
-			return i
-		}
-	}
-	return -1
+	return slices.IndexFunc(items, func(it services.QueueItem) bool { return it.UID == uid })
 }
 
 // jumpTo plays the queue entry at qi.

@@ -35,13 +35,13 @@ func TestA11yPillStates(t *testing.T) {
 		t.Errorf("Tab stops %v", stops)
 	}
 
-	r.emit(services.PrivateState{On: true, Source: "user"})
+	r.tt.Emit(services.EventPrivateChanged, services.PrivateState{On: true, Source: "user"})
 	n = find("Private listening")
 	if !n.Has(access.Checked) || n.Description == "" || n.Description == "Turn on private listening" {
 		t.Errorf("on: %+v", n)
 	}
 
-	r.emit(services.PrivateState{On: true, Source: "environment"})
+	r.tt.Emit(services.EventPrivateChanged, services.PrivateState{On: true, Source: "environment"})
 	n = find("Private listening (forced by SONA_PRIVATE=1)")
 	if !n.Has(access.Checked) || !n.Has(access.Disabled) || !n.Has(access.Focusable) || n.Can(access.Press) ||
 		n.Description != "On because Sona was started with SONA_PRIVATE=1" {

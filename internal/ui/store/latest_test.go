@@ -1,4 +1,4 @@
-package equalizer
+package store
 
 import (
 	"slices"
@@ -22,8 +22,8 @@ func latestSendsOneAtATimeAndCollapsesToTheNewest(t *testing.T) {
 		overlap  bool
 	)
 	first, release, done := make(chan struct{}), make(chan struct{}), make(chan struct{})
-	l := &latest[config.Equalizer]{}
-	l.send = func(eq config.Equalizer) {
+	l := &Latest[config.Equalizer]{}
+	l.Send = func(eq config.Equalizer) {
 		mu.Lock()
 		inFlight++
 		overlap = overlap || inFlight > 1
@@ -70,7 +70,7 @@ func TestLatestSendsAgainAfterGoingIdle(t *testing.T) {
 
 func latestSendsAgainAfterGoingIdle(t *testing.T) {
 	got := make(chan float64, 4)
-	l := &latest[config.Equalizer]{send: func(eq config.Equalizer) { got <- eq.Preamp }}
+	l := &Latest[config.Equalizer]{Send: func(eq config.Equalizer) { got <- eq.Preamp }}
 	for _, v := range []float64{-1, -2} {
 		l.Put(config.Equalizer{Preamp: v})
 		select {

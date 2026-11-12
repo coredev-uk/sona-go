@@ -30,9 +30,7 @@ func openSleepMenu(t *testing.T, mutate ...func(*services.PlaybackState)) *rig {
 	// The button is named "Sleep timer", or what the running timer says.
 	for _, name := range r.tt.Texts() {
 		if strings.HasPrefix(name, "Sleep timer") {
-			if err := r.tt.Click(name); err != nil {
-				t.Fatal(err)
-			}
+			r.tt.MustClick(name)
 			break
 		}
 	}
@@ -59,7 +57,7 @@ func TestSleepMenuChoicesSetTheTimer(t *testing.T) {
 		}
 		r.tt.Frame()
 		r.tt.Frame()
-		got := r.fake.wait(t, 1)
+		got := r.fake.Wait(t, 1)
 		if last := got[len(got)-1]; last != tc.call {
 			t.Errorf("%s sent %q, want %q", tc.choice, last, tc.call)
 		}
@@ -80,7 +78,7 @@ func TestSleepMenuWhileATimerRuns(t *testing.T) {
 	r.tt.Key(0, ui.KeyEnter)
 	r.tt.Frame()
 	r.tt.Frame()
-	if got := r.fake.wait(t, 1); got[len(got)-1] != "sleep  0" {
+	if got := r.fake.Wait(t, 1); got[len(got)-1] != "sleep  0" {
 		t.Errorf("sent %q", got)
 	}
 }

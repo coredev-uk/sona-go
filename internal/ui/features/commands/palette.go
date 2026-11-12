@@ -70,7 +70,7 @@ func (m *commands) sections(c *ui.Context) kit.PaletteSource {
 		q := strings.TrimSpace(query)
 		if q == "" {
 			var out []kit.PaletteSection
-			for _, g := range groups {
+			for _, g := range module.ShortcutGroups {
 				var entries []kit.PaletteEntry
 				for _, s := range cmds {
 					if s.Group == g {
@@ -78,7 +78,7 @@ func (m *commands) sections(c *ui.Context) kit.PaletteSource {
 					}
 				}
 				if len(entries) > 0 {
-					out = append(out, kit.PaletteSection{Title: groupTitle(g), Entries: entries})
+					out = append(out, kit.PaletteSection{Title: module.GroupTitle(g), Entries: entries})
 				}
 			}
 			return out

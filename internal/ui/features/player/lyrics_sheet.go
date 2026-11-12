@@ -2,6 +2,7 @@ package player
 
 import (
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -143,7 +144,7 @@ func newLyricsSheet(songID string) *lyricsSheet {
 // query hands out a copy of the DTO each frame, so the lines' backing array
 // says whether they are the same lyrics.
 func (sh *lyricsSheet) bind(l *services.Lyrics) {
-	if sh.lyr != nil && len(sh.lyr.Lines) == len(l.Lines) && len(l.Lines) > 0 && &sh.lyr.Lines[0] == &l.Lines[0] {
+	if sh.lyr != nil && lyricsync.SameLines(sh.lyr.Lines, l.Lines) {
 		sh.lyr = l
 		return
 	}
@@ -289,7 +290,7 @@ func (p *player) lyricsScroller(c *ui.Context, sh *lyricsSheet, l *services.Lyri
 	sh.active, sh.anchor = sung.Active, sung.Anchor
 	// A timer waits for the next line or rest instead of polling the position.
 	if playing && sung.Next != lyricsync.Never {
-		c.After(msDur(max(sung.Next-clock, 0) + 1))
+		c.After(lyricsync.Dur(max(sung.Next-clock, 0) + 1))
 	}
 	if playing && reduced && sh.wordTimed {
 		p.wakeAtWordChange(c, sh, lyricsync.WordClock(posMs, off))
@@ -364,7 +365,7 @@ func (p *player) wakeAtWordChange(c *ui.Context, sh *lyricsSheet, t int64) {
 		}
 	}
 	if next := lyricsync.NextChange(sh.spans, singing, words, t); next != lyricsync.Never {
-		c.After(msDur(next - t + 1))
+		c.After(lyricsync.Dur(next - t + 1))
 	}
 }
 
@@ -427,7 +428,7 @@ func (p *player) lyricVerses(c *ui.Context, sh *lyricsSheet, in sheetIn, prefs l
 		tabStop = max(sung.Anchor, 0)
 	}
 	for v, ids := range sh.verseList {
-		verse := ui.Column(c.Key("verse:" + itoa(v))).FillWidth().Bind(&sh.verses[v])
+		verse := ui.Column(c.Key("verse:" + strconv.Itoa(v))).FillWidth().Bind(&sh.verses[v])
 		if v > 0 {
 			verse.Margin(in.look.verseGap, 0, 0, 0)
 		}
@@ -483,7 +484,7 @@ func (p *player) lyricLine(c *ui.Context, sh *lyricsSheet, ln *services.LyricLin
 	}
 	clickable := in.clickable && sh.synced
 
-	row := ui.Column(c.Key("line:"+itoa(i))).FillWidth().Padding(look.padY, look.padX).Bind(&sh.lines[i])
+	row := ui.Column(c.Key("line:"+strconv.Itoa(i))).FillWidth().Padding(look.padY, look.padX).Bind(&sh.lines[i])
 	startPad := look.padX
 	if other {
 		startPad += look.indent
@@ -598,7 +599,7 @@ func (p *player) lyricPart(c *ui.Context, sh *lyricsSheet, i int, part uint8, t 
 		if right {
 			x = r.X + r.W - sw.Width()
 		}
-		moving := sw.Paint(pt, x, r.Y, base, fill, f, msDur(ms), right)
+		moving := sw.Paint(pt, x, r.Y, base, fill, f, lyricsync.Dur(ms), right)
 		if reduced || p.env.Play.State().State != "playing" {
 			return
 		}
@@ -609,7 +610,7 @@ func (p *player) lyricPart(c *ui.Context, sh *lyricsSheet, i int, part uint8, t 
 		if moving {
 			sweepFrames(pt)
 		} else if next := nextSweepEdge(spans, i, words, ms); next != lyricsync.Never {
-			pt.After(msDur(next - ms + 1))
+			pt.After(lyricsync.Dur(next - ms + 1))
 		}
 	})
 }
@@ -665,7 +666,7 @@ func lyricsSourceName(provider string) string {
 func (p *player) seekLine(ln *services.LyricLine) {
 	songID := lyricsync.SongID(p.env.Play.State().Current)
 	off := lyricsync.Session().Get(songID)
-	p.seekTo(msDur(lyricsync.SeekTarget(ln.BeginMs, off)))
+	p.tr.SeekTo(lyricsync.Dur(lyricsync.SeekTarget(ln.BeginMs, off)), p.now())
 }
 
 // nextSweepEdge is the next time after t at which part of line i could change:

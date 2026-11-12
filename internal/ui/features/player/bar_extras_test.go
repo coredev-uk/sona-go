@@ -13,21 +13,12 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
-// navRecorder is the router the bar pushes pages to.
-type navRecorder struct{ pushed []string }
-
-func (n *navRecorder) Push(path string)    { n.pushed = append(n.pushed, path) }
-func (n *navRecorder) Replace(path string) {}
-func (n *navRecorder) Back()               {}
-func (n *navRecorder) Forward()            {}
-func (n *navRecorder) Path() string        { return "/" }
-func (n *navRecorder) Location() string    { return "/" }
-
 // routed makes every page a registered one, or none.
-func routed(r *rig, all bool) *navRecorder {
-	nav := &navRecorder{}
+func routed(r *rig, all bool) *uitest.Nav {
+	nav := &uitest.Nav{}
 	r.env.Nav = nav
 	r.env.HasRoute = func(string) bool { return all }
 	return nav
@@ -39,14 +30,10 @@ func TestTitleAndArtistLinkToPagesThatExist(t *testing.T) {
 	r.seed(func(s *services.PlaybackState) {
 		s.Current.AlbumID, s.Current.ArtistID = "al.9", "ar.7"
 	})
-	if err := r.tt.Click("Song Title"); err != nil {
-		t.Fatal(err)
-	}
-	if err := r.tt.Click("The Artist"); err != nil {
-		t.Fatal(err)
-	}
-	if want := []string{"/album/al.9?song=i.1", "/artist/ar.7"}; !slices.Equal(nav.pushed, want) {
-		t.Errorf("pushed %q, want %q", nav.pushed, want)
+	r.tt.MustClick("Song Title")
+	r.tt.MustClick("The Artist")
+	if want := []string{"/album/al.9?song=i.1", "/artist/ar.7"}; !slices.Equal(nav.Pushed, want) {
+		t.Errorf("pushed %q, want %q", nav.Pushed, want)
 	}
 	if !r.tt.HasText("The Album") {
 		t.Errorf("the album is missing: %q", r.tt.Texts())
@@ -60,8 +47,8 @@ func TestLinksArePlainTextWithoutTheirPage(t *testing.T) {
 		s.Current.AlbumID, s.Current.ArtistID = "al.9", "ar.7"
 	})
 	_ = r.tt.Click("Song Title")
-	if len(nav.pushed) != 0 {
-		t.Errorf("pushed %q for a page that is not ported", nav.pushed)
+	if len(nav.Pushed) != 0 {
+		t.Errorf("pushed %q for a page that is not ported", nav.Pushed)
 	}
 	if !r.tt.HasText("The Artist · The Album") {
 		t.Errorf("the line is not whole: %q", r.tt.Texts())
@@ -83,8 +70,8 @@ func TestTitleLinksOfStationsAndVideos(t *testing.T) {
 		r.seed(func(s *services.PlaybackState) { tc.mut(s.Current) })
 		_ = r.tt.Click("Song Title")
 		got := ""
-		if len(nav.pushed) > 0 {
-			got = nav.pushed[0]
+		if len(nav.Pushed) > 0 {
+			got = nav.Pushed[0]
 		}
 		if got != tc.want {
 			t.Errorf("%s: pushed %q, want %q", tc.name, got, tc.want)
@@ -103,9 +90,7 @@ func TestCoverButtonOpensAndClosesNowPlaying(t *testing.T) {
 		t.Error("an idle cover opened now playing")
 	}
 	r.seed()
-	if err := r.tt.Click("Open now playing"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Open now playing")
 	r.tt.Frame()
 	if r.p.ui.overlay != overlayNowPlaying {
 		t.Fatalf("overlay %v", r.p.ui.overlay)
@@ -124,9 +109,7 @@ func TestQueueToggleShowsAndHidesTheQueue(t *testing.T) {
 	if r.p.ui.queueOpen {
 		t.Fatal("the queue starts open")
 	}
-	if err := r.tt.Click("Queue"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Queue")
 	r.tt.Frame()
 	if !r.p.ui.queueOpen {
 		t.Error("the Queue button did not show the queue")
@@ -137,12 +120,12 @@ func TestQueueToggleShowsAndHidesTheQueue(t *testing.T) {
 	}
 }
 
-func TestLyricsButtonFollowsTheLyricsSurface(t *testing.T) {
+func TestLyricsButtonIsOfferedUnlessAMusicVideoPlays(t *testing.T) {
 	r := newRig(t, true)
 	r.seed()
 	_, shown := r.tt.Find("Lyrics")
-	if shown != r.p.lyricsSurface() {
-		t.Errorf("Lyrics button shown %v, lyricsSurface %v", shown, r.p.lyricsSurface())
+	if shown != !r.p.videoPlaying() {
+		t.Errorf("Lyrics button shown %v, videoPlaying %v", shown, r.p.videoPlaying())
 	}
 }
 
@@ -240,9 +223,7 @@ func TestRatingButtonsFavouriteTheSong(t *testing.T) {
 	if _, ok := r.tt.Find("Suggest less like Song Title"); ok {
 		t.Error("the bar's compact buttons show Suggest Less")
 	}
-	if err := r.tt.Click("Favourite Song Title"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Favourite Song Title")
 	f.wait(t)
 	r.until(t, "Undo favourite for Song Title")
 	f.mu.Lock()
@@ -340,9 +321,7 @@ func TestSignInAgainOpensTheAccountDialog(t *testing.T) {
 	r := newRig(t, true)
 	r.env.Surfaces = store.NewSurfaces()
 	r.seed(func(s *services.PlaybackState) { s.AuthRequired = true })
-	if err := r.tt.Click("Sign in again to keep playing"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Sign in again to keep playing")
 	if !r.env.Surfaces.AccountOpen() {
 		t.Error("the sign-in line did not open the account dialog")
 	}
@@ -357,17 +336,13 @@ func TestVideoItemShowsTheVideoButtonInsteadOfLyricsAndTheCoverOpensIt(t *testin
 	if _, ok := r.tt.Find("Show video"); !ok {
 		t.Fatalf("no Show video: %q", r.tt.Texts())
 	}
-	if err := r.tt.Click("Show video"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Show video")
 	if !r.env.Video.IsOpen() {
 		t.Error("Show video did not open the video")
 	}
 	r.env.Video.Close()
 	r.tt.Frame()
-	if err := r.tt.Click("Show video"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Show video")
 }
 
 func TestANewVideoItemOpensTheVideoView(t *testing.T) {

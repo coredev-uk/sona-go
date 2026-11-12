@@ -7,6 +7,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/lyrics"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
@@ -57,7 +58,7 @@ func sweepWords(ws []services.LyricWord, whole bool) []lyrics.Word {
 	out := make([]lyrics.Word, len(ws))
 	for i, w := range ws {
 		out[i] = lyrics.Word{
-			Begin: msDur(w.BeginMs), End: msDur(w.EndMs), Text: w.Text, Background: w.Background,
+			Begin: lyricsync.Dur(w.BeginMs), End: lyricsync.Dur(w.EndMs), Text: w.Text, Background: w.Background,
 		}
 		if whole {
 			out[i].End = out[i].Begin
@@ -78,5 +79,3 @@ func rtl(s string) bool {
 	}
 	return false
 }
-
-func msDur(ms int64) time.Duration { return time.Duration(ms) * time.Millisecond }

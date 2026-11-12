@@ -2,7 +2,6 @@ package settings
 
 import (
 	"cmp"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -193,15 +192,6 @@ func keyringLabel(backend string) string {
 	return backend
 }
 
-// cdmPercent is a running CDM download's progress as a percentage, "" while
-// its size is unknown (features/cdm/state.ts cdmPercent).
-func cdmPercent(c services.CDMStatus) string {
-	if c.Total <= 0 {
-		return ""
-	}
-	return i18n.FormatPercent(math.Min(1, math.Max(0, float64(c.Received)/float64(c.Total))))
-}
-
 // cdmStateRow is the Widevine CDM's verdict: the probe's when it loaded one,
 // else the download's state.
 func cdmStateRow(p services.DiagPlayback, cdm services.CDMStatus) diagRow {
@@ -223,7 +213,7 @@ func cdmStateRow(p services.DiagPlayback, cdm services.CDMStatus) diagRow {
 		}
 	case "downloading":
 		value := i18n.T("Downloading…")
-		if pc := cdmPercent(cdm); pc != "" {
+		if pc := i18n.CDMPercent(cdm); pc != "" {
 			value = i18n.T("Downloading · {percent}", "percent", pc)
 		}
 		return diagRow{label: label, value: value, detail: i18n.T("Songs play when the download finishes.")}
@@ -246,7 +236,7 @@ func cdmSourceRows(cdm services.CDMStatus, now time.Time) []diagRow {
 	switch {
 	case cdm.State == "ready" && cdm.Updating:
 		value := i18n.T("Downloading an update")
-		if pc := cdmPercent(cdm); pc != "" {
+		if pc := i18n.CDMPercent(cdm); pc != "" {
 			value = i18n.T("Downloading an update · {percent}", "percent", pc)
 		}
 		updates = diagRow{label: i18n.T("Updates"), value: value, detail: i18n.T("It applies the next time playback starts.")}
