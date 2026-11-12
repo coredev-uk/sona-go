@@ -587,6 +587,14 @@ Settings (h1)                  Playback (h2 at 24/650)
 - **Diagnostics** leads with its verdict at 16/600 beside its icon ("Everything Sona needs is working", or the count of problems), the warnings counted under it, as the first margin note; its three actions are the first row beside it. The checks follow as groups in the margin frame, ledger rows of a 200px name column and the value. Variable names break after an underscore.
 - No amber anywhere on the page: it has nothing playing to show.
 
+## Command palette and shortcut sheet
+
+Both are launcher surfaces: raised panels over the scrim, one field at the top, one list, a foot that names the keys. Nothing in them is amber.
+
+- **The palette's rows** are 36px at least with a 32px tile at the left: the command's icon at 16 in `--ink-muted` on `--surface`, radius 6, the same width as a library item's cover so a result list keeps one leading column. The label is 14/400 in ink and the keycaps end the row. A ranked command carries its group ("Playback") as a 13px muted second line, since no heading says it. With nothing typed the places to go (Pages) come first, then Playback, View, Navigation and General, so Enter on opening goes somewhere rather than pausing the music.
+- **The sheet** is 820px wide, 10% from the top. The title at 16/600 and a 268px filter field share the head; a hairline, then the groups in two columns. A group is its title at 14/600 over a 1px `--line`, then rows of 32px: the label in ink, and at the right the keycaps (or "Not set" at 12 in `--ink-faint`) in a column whose width is the group's widest chord, so the caps of a group start on one edge. The foot, under another hairline, carries "Change any of them in Settings." at the left and ↓ Browse and Esc Close at the right, at 12 in `--ink-faint`.
+- **Filtering** narrows by words in the label, keywords, group or keys; empty groups leave with their rows, and a filter that leaves nothing says "No shortcuts match" with one line of advice. The panel keeps its place and a minimum height while the list shortens.
+
 ## Dates
 
 - **The user's own things are dated in calendar words** (`i18n.RelativeDay`): a playlist's "Updated 3 hr. ago", "Updated yesterday", "Updated on Tuesday", "Updated last week", "Updated earlier this month", "Updated in March", "Updated last year", "Updated in 2023". Days are calendar days in the computer's zone, never 24-hour spans, so a change at 23:50 is "yesterday" ten minutes after midnight, and a page left open relabels itself at midnight.
