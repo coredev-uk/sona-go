@@ -118,7 +118,7 @@ func TestMatching(t *testing.T) {
 		{Title: "Placeholder Song", Artist: "Test Artist", Album: "Test Album", Duration: 200500 * ms},
 		{Title: "Placeholder Song", Artist: "Other", Album: "Test Album", Duration: 200 * time.Second},
 	}
-	if i := best(Track{Title: "Placeholder Song", Artist: "Test Artist", Album: "Test Album", Duration: 200 * time.Second}, cs); i != 1 {
+	if i := best(Track{Title: "Placeholder Song", Artist: "Test Artist", Album: "Test Album", Duration: 200 * time.Second}, cs, nil); i != 1 {
 		t.Fatalf("best = %d", i)
 	}
 }

@@ -3,6 +3,8 @@ package services
 import (
 	"errors"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/library"
 )
 
 // Pre-release albums. Apple lists an album before it comes out
@@ -46,6 +48,20 @@ func libraryRelease(date, catalogDate string, flagged bool, now time.Time) (stri
 		date = catalogDate
 	}
 	return date, upcoming(date, flagged, now)
+}
+
+// songUnreleased reports whether library song s is not out at now: by its
+// own date when it has one (Apple dates only the songs of a pre-added album
+// already out), else by its album's release state, which Library.Songs
+// loads with the song (libraryRelease). It is the rule PlaybackService
+// applies to stored songs (storedReleased), so a song listed as playable
+// plays and one listed as unplayable is refused.
+func songUnreleased(s library.Song, now time.Time) bool {
+	if s.ReleaseDate != "" {
+		return upcoming(s.ReleaseDate, false, now)
+	}
+	_, up := libraryRelease(s.Album.Date, s.Album.CatalogDate, s.Album.Prerelease, now)
+	return up
 }
 
 // markUnreleased makes the tracks of the pre-release album not out yet

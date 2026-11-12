@@ -319,16 +319,15 @@ func TestHostValidation(t *testing.T) {
 		t.Fatal("followed redirect to evil.example")
 	}
 
-	// Unregistered or malformed keys never reach the network.
+	// Unregistered or malformed keys resolve to no template, so nothing is
+	// ever fetched for them.
 	for _, p := range []string{
 		"/art/" + keyOf("https://evil.example/{w}x{h}.jpg") + "/64.jpg",
 		"/art/not-a-key/64.jpg",
 		"/art/../../etc/64.jpg",
 	} {
-		rec := httptest.NewRecorder()
-		c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
-		if rec.Code != http.StatusNotFound {
-			t.Errorf("%s: %d, want 404", p, rec.Code)
+		if tmpl, ok := c.Template(p); ok {
+			t.Errorf("Template(%s) = %q, want none", p, tmpl)
 		}
 	}
 }
@@ -399,7 +398,7 @@ func TestDominantColors(t *testing.T) {
 	}
 }
 
-func TestHandler(t *testing.T) {
+func TestURLRoundTrip(t *testing.T) {
 	s := newImageServer(t)
 	dir := t.TempDir()
 	c := newCache(t, s, dir, 0)
@@ -408,65 +407,33 @@ func TestHandler(t *testing.T) {
 	if !strings.HasSuffix(u, "/200x200.jpg") {
 		t.Fatalf("URL = %q", u)
 	}
-
-	get := func(c *Cache, path, etag string) *httptest.ResponseRecorder {
-		req := httptest.NewRequest(http.MethodGet, path, nil)
-		if etag != "" {
-			req.Header.Set("If-None-Match", etag)
-		}
-		rec := httptest.NewRecorder()
-		c.ServeHTTP(rec, req)
-		return rec
+	if got, ok := c.Template(u + "?x=1#y"); !ok || got != tmpl {
+		t.Fatalf("Template(%q) = %q, %v", u, got, ok)
 	}
-	rec := get(c, u, "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET %s: %d %s", u, rec.Code, rec.Body)
+	b, err := c.Get(t.Context(), tmpl, 200, 200)
+	if err != nil || bounds(t, b).Dx() != 200 {
+		t.Fatalf("Get: %v", err)
 	}
-	h := rec.Header()
-	if h.Get("Content-Type") != "image/jpeg" || !strings.Contains(h.Get("Cache-Control"), "immutable") ||
-		!strings.Contains(h.Get("Cache-Control"), "max-age=31536000") {
-		t.Fatalf("headers %v", h)
+	if p, err := c.LocalPath(t.Context(), tmpl, 200, 200); err != nil || !strings.HasPrefix(p, dir) {
+		t.Fatalf("LocalPath = %q, %v", p, err)
 	}
-	etag := h.Get("ETag")
-	if !strings.HasPrefix(etag, `"`) || strings.HasPrefix(etag, "W/") {
-		t.Fatalf("ETag %q is not strong", etag)
+	if b, err := c.Backdrop(t.Context(), tmpl); err != nil || len(b) == 0 {
+		t.Fatalf("Backdrop: %d bytes, %v", len(b), err)
 	}
-	if got := bounds(t, rec.Body.Bytes()); got.Dx() != 200 {
-		t.Fatalf("body is %v", got)
-	}
-	if rec := get(c, u, etag); rec.Code != http.StatusNotModified {
-		t.Fatalf("conditional GET: %d", rec.Code)
-	}
-	if rec := get(c, c.BackdropURL(tmpl), ""); rec.Code != http.StatusOK || rec.Header().Get("ETag") == "" {
-		t.Fatalf("backdrop: %d", rec.Code)
-	}
-	key := strings.Split(u, "/")[2]
-	// The square-only URLs of earlier versions (kept in recent searches)
-	// still resolve, to the same variant.
-	if rec := get(c, "/art/"+key+"/200.jpg", ""); rec.Code != http.StatusOK || rec.Header().Get("ETag") != etag {
-		t.Fatalf("legacy URL: %d etag %q", rec.Code, rec.Header().Get("ETag"))
-	}
-	for _, name := range []string{
-		"9999.jpg", "064.jpg", "8.jpg", "x.png", "200x200.png", "200X200.jpg", "0200x200.jpg",
-		"200x0.jpg", "4096x100.jpg", "8x4.jpg", "200x200x2.jpg", "-200x200.jpg", "+200.jpg", "200x.jpg",
-	} {
-		if rec := get(c, "/art/"+key+"/"+name, ""); rec.Code != http.StatusNotFound {
-			t.Errorf("%s: %d", name, rec.Code)
-		}
-	}
-	rec = httptest.NewRecorder()
-	c.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, u, nil))
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Errorf("POST: %d", rec.Code)
+	if got, ok := c.Template(c.BackdropURL(tmpl)); !ok || got != tmpl {
+		t.Fatalf("Template(backdrop URL) = %q, %v", got, ok)
 	}
 
 	// After a restart the key resolves from disk without re-registering and
 	// without refetching.
 	before := s.total()
 	c2 := newCache(t, s, dir, 0)
-	rec = get(c2, u, "")
-	if rec.Code != http.StatusOK || rec.Header().Get("ETag") != etag {
-		t.Fatalf("after restart: %d etag %q", rec.Code, rec.Header().Get("ETag"))
+	got, ok := c2.Template(u)
+	if !ok || got != tmpl {
+		t.Fatalf("after restart: Template = %q, %v", got, ok)
+	}
+	if b2, err := c2.Get(t.Context(), got, 200, 200); err != nil || !bytes.Equal(b2, b) {
+		t.Fatalf("after restart: Get: %v", err)
 	}
 	if s.total() != before {
 		t.Fatal("restart refetched")
@@ -543,10 +510,8 @@ func TestClear(t *testing.T) {
 		t.Fatalf("dir not empty: %v", des)
 	}
 	// Registered URLs keep working.
-	rec := httptest.NewRecorder()
-	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, c.URL(tmpl, 128, 128), nil))
-	if rec.Code != http.StatusOK || s.total() != 2 {
-		t.Fatalf("after clear: %d, fetches %d", rec.Code, s.total())
+	if _, err := c.Get(t.Context(), tmpl, 128, 128); err != nil || s.total() != 2 {
+		t.Fatalf("after clear: %v, fetches %d", err, s.total())
 	}
 }
 
@@ -599,10 +564,8 @@ func TestRemove(t *testing.T) {
 	}
 	// A removed template's URL no longer resolves (nothing on disk names it).
 	u := "/art/" + keyOf(tmplFor("user")) + "/128x128.jpg"
-	rec := httptest.NewRecorder()
-	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, u, nil))
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("removed artwork served: %d", rec.Code)
+	if tmpl, ok := c.Template(u); ok {
+		t.Fatalf("removed artwork resolves to %q", tmpl)
 	}
 	// A restart indexes only what is left.
 	if c2 := newCache(t, s, dir, 0); c2.Size() != c.Size() {
@@ -641,22 +604,19 @@ func TestEditorialCropTemplate(t *testing.T) {
 }
 
 // A cover the CDN cannot serve yet (a new playlist's generated cover) is
-// not cached as missing: the failed response tells the webview not to
-// keep it, and the next request fetches again and succeeds.
+// not cached as missing: the failure is returned, and the next request
+// fetches again and succeeds.
 func TestUnavailableCoverIsRetried(t *testing.T) {
 	s := newImageServer(t)
 	s.notReady = 1
 	c := newCache(t, s, "", 0)
-	u := c.URL("https://"+host+"/image/thumb/gen/600x600AM.PDCXS11.jpg?c1=F2DE9D&t=U29uYQ", 200, 200)
-	rec := httptest.NewRecorder()
-	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, u, nil))
-	if rec.Code != http.StatusBadGateway || rec.Header().Get("Cache-Control") != "no-store" {
-		t.Fatalf("not ready: %d, Cache-Control %q", rec.Code, rec.Header().Get("Cache-Control"))
+	tmpl := "https://" + host + "/image/thumb/gen/600x600AM.PDCXS11.jpg?c1=F2DE9D&t=U29uYQ"
+	if _, err := c.Get(t.Context(), tmpl, 200, 200); err == nil {
+		t.Fatal("a cover the CDN has not rendered yet was returned")
 	}
-	rec = httptest.NewRecorder()
-	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, u+"?retry=1", nil))
-	if rec.Code != http.StatusOK || bounds(t, rec.Body.Bytes()).Dx() != 200 {
-		t.Fatalf("retry: %d", rec.Code)
+	b, err := c.Get(t.Context(), tmpl, 200, 200)
+	if err != nil || bounds(t, b).Dx() != 200 {
+		t.Fatalf("retry: %v", err)
 	}
 }
 
@@ -672,19 +632,18 @@ func TestWideTemplateKeepsAspect(t *testing.T) {
 	if !strings.HasSuffix(u, "/1000x417.jpg") {
 		t.Fatalf("URL = %q", u)
 	}
-	rec := httptest.NewRecorder()
-	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, u, nil))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET %s: %d", u, rec.Code)
+	b, err := c.Get(t.Context(), tmpl, 1000, 417)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got := bounds(t, rec.Body.Bytes()); got.Dx() != 1000 || got.Dy() != 417 {
+	if got := bounds(t, b); got.Dx() != 1000 || got.Dy() != 417 {
 		t.Fatalf("variant is %v, want 1000x417", got)
 	}
 	if n := s.count(host, dir+"1024x427sr.jpg"); n != 1 || s.total() != 1 {
 		t.Fatalf("want one 1024x427sr fetch; hits %v", s.hits)
 	}
 	// Another 2.4:1 box (rounded differently) reuses the source.
-	b, err := c.Get(t.Context(), tmpl, 480, 200)
+	b, err = c.Get(t.Context(), tmpl, 480, 200)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -821,13 +780,11 @@ func TestLegacyFilesRemoved(t *testing.T) {
 	if want := int64(len(tmpl) + len("keep")); c.Size() != want {
 		t.Fatalf("size %d, want %d", c.Size(), want)
 	}
-	rec := httptest.NewRecorder()
-	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/art/"+key+"/400.jpg", nil))
-	if rec.Code != http.StatusOK || bounds(t, rec.Body.Bytes()).Dx() != 400 {
-		t.Fatalf("legacy URL: %d", rec.Code)
+	if b, err := c.Get(t.Context(), tmpl, 400, 400); err != nil || bounds(t, b).Dx() != 400 {
+		t.Fatalf("variant after the legacy files went: %v", err)
 	}
 	if s.count(host, pathFor("legacy", 512)) != 1 {
-		t.Fatalf("legacy URL did not refetch; hits %v", s.hits)
+		t.Fatalf("legacy source was not refetched; hits %v", s.hits)
 	}
 }
 
@@ -949,4 +906,64 @@ func TestAbandonedRequestKeepsTheDownloadAnotherCallerWaitsFor(t *testing.T) {
 	if n := s.total(); n != 1 {
 		t.Errorf("%d downloads, want the one both callers shared", n)
 	}
+}
+
+func TestURLsMatchURL(t *testing.T) {
+	c := newCache(t, newImageServer(t), "", 0)
+	longs := [3]int{96, 400, 1000}
+	for _, tmpl := range []string{tmplFor("u"), "https://" + host + "/image/thumb/Features/hero.png/{w}x{h}{c}.{f}", "https://evil.example/{w}x{h}.jpg", ""} {
+		for _, shape := range [][2]int{{1, 1}, {1000, 417}, {417, 1000}, {3000, 1}, {5, 3000}} {
+			got := c.URLs(tmpl, shape[0], shape[1], longs)
+			for i, long := range longs {
+				l := max(shape[0], shape[1])
+				want := c.URL(tmpl, (shape[0]*long+l/2)/l, (shape[1]*long+l/2)/l)
+				if got[i] != want {
+					t.Errorf("URLs(%q, %v)[%d] = %q, want %q", tmpl, shape, i, got[i], want)
+				}
+			}
+		}
+	}
+}
+
+// A removed template registers again, and its URL resolves again.
+func TestURLRegistersAgainAfterRemove(t *testing.T) {
+	c := newCache(t, newImageServer(t), "", 0)
+	tmpl := tmplFor("again")
+	u := c.URL(tmpl, 128, 128)
+	if _, err := c.Remove([]string{tmpl}); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := c.Template(u); ok {
+		t.Fatalf("removed template resolves to %q", got)
+	}
+	if c.URL(tmpl, 128, 128) != u {
+		t.Fatal("URL changed")
+	}
+	if got, ok := c.Template(u); !ok || got != tmpl {
+		t.Fatalf("Template after re-registering = %q, %v", got, ok)
+	}
+}
+
+// BenchmarkURLs is the three art URLs of one song row: every track of an
+// album shares a template, so the registry is hit after the first.
+func BenchmarkURLs(b *testing.B) {
+	c, err := New(Options{Dir: b.TempDir()})
+	if err != nil {
+		b.Fatal(err)
+	}
+	tmpl := "https://" + host + "/image/thumb/Music/a/{w}x{h}bb.jpg"
+	b.Run("three URL calls", func(b *testing.B) {
+		b.ReportAllocs()
+		for range b.N {
+			_ = c.URL(tmpl, 96, 96)
+			_ = c.URL(tmpl, 400, 400)
+			_ = c.URL(tmpl, 1000, 1000)
+		}
+	})
+	b.Run("URLs", func(b *testing.B) {
+		b.ReportAllocs()
+		for range b.N {
+			_ = c.URLs(tmpl, 1, 1, [3]int{96, 400, 1000})
+		}
+	})
 }

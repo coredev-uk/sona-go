@@ -19,10 +19,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/library"
 )
 
-func ref(id string) applemusic.ResourceRef {
-	return applemusic.ResourceRef{ID: id, Type: applemusic.TypeLibrarySongs}
-}
-
 func TestMoveAndRemoveEntries(t *testing.T) {
 	list := []string{"a", "b", "c", "d"}
 	for _, c := range []struct {

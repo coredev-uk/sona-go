@@ -72,14 +72,6 @@ ORDER BY p.folder_id, p.folder_position, p.name COLLATE NOCASE;
 SELECT p.can_delete, p.is_public, p.favorited, p.folder_id
 FROM playlists p WHERE p.library_id = ?;
 
--- name: PlaylistTrackRefs :many
-SELECT pt.position, t.library_id, t.catalog_id
-FROM playlist_tracks pt
-JOIN playlists p ON p.id = pt.playlist_id
-JOIN tracks t ON t.id = pt.track_id
-WHERE p.library_id = ?
-ORDER BY pt.position;
-
 -- name: ClearPins :exec
 DELETE FROM pins;
 

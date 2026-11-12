@@ -76,7 +76,7 @@ func (s *LibraryService) Songs(ctx context.Context, sort string, desc bool, offs
 	if err != nil {
 		return SongPage{}, err
 	}
-	return SongPage{Items: s.m.libSongs(songs), Total: c.Songs}, nil
+	return SongPage{Items: mapSlice(songs, s.m.libSong), Total: c.Songs}, nil
 }
 
 // Albums lists library albums. sort is "title", "artist", "dateAdded" or
@@ -93,7 +93,7 @@ func (s *LibraryService) Albums(ctx context.Context, sort string, desc bool, alb
 	if err != nil {
 		return AlbumPage{}, err
 	}
-	return AlbumPage{Items: s.m.libAlbums(albums), Total: total}, nil
+	return AlbumPage{Items: mapSlice(albums, s.m.libAlbum), Total: total}, nil
 }
 
 // ArtistIndex lists every library artist by name with the number of
@@ -104,18 +104,16 @@ func (s *LibraryService) ArtistIndex(ctx context.Context) ([]ArtistEntry, error)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ArtistEntry, len(artists))
-	for i, a := range artists {
-		out[i] = ArtistEntry{
+	return mapSlice(artists, func(a library.ArtistSummary) ArtistEntry {
+		return ArtistEntry{
 			ID:        a.LibraryID,
 			CatalogID: a.CatalogID,
 			Name:      a.Name,
-			Art:       s.m.artOf(a.ArtworkTemplate).Small,
+			Art:       s.m.smallOf(a.ArtworkTemplate),
 			Albums:    a.Albums,
 			Songs:     a.Songs,
 		}
-	}
-	return out, nil
+	}), nil
 }
 
 // ArtistAlbums returns a library artist and their library albums, newest
@@ -129,7 +127,7 @@ func (s *LibraryService) ArtistAlbums(ctx context.Context, id string) (ArtistAlb
 	if a.ArtworkTemplate == "" && len(albums) > 0 {
 		art.Art = s.m.artOf(albums[0].ArtworkTemplate)
 	}
-	return ArtistAlbums{Artist: art, Albums: s.m.libAlbums(albums)}, nil
+	return ArtistAlbums{Artist: art, Albums: mapSlice(albums, s.m.libAlbum)}, nil
 }
 
 // Playlists lists library playlists. sort is "title", "dateAdded" or
@@ -143,11 +141,7 @@ func (s *LibraryService) Playlists(ctx context.Context, sort string, desc bool, 
 	if err != nil {
 		return PlaylistPage{}, err
 	}
-	out := PlaylistPage{Items: make([]Playlist, len(pls)), Total: c.Playlists}
-	for i, p := range pls {
-		out.Items[i] = s.m.libPlaylist(p)
-	}
-	return out, nil
+	return PlaylistPage{Items: mapSlice(pls, s.m.libPlaylist), Total: c.Playlists}, nil
 }
 
 // Album returns a library album and its tracks.
@@ -156,7 +150,7 @@ func (s *LibraryService) Album(ctx context.Context, id string) (AlbumDetail, err
 	if err != nil {
 		return AlbumDetail{}, err
 	}
-	tracks := s.m.libSongs(songs)
+	tracks := mapSlice(songs, s.m.libSong)
 	album := s.m.libAlbum(a)
 	if album.Prerelease {
 		markUnreleased(tracks, s.m.clock())
@@ -183,8 +177,8 @@ func (s *LibraryService) Artist(ctx context.Context, id string) (ArtistDetail, e
 	return ArtistDetail{
 		Artist:   s.m.libArtist(a),
 		TopSongs: []Song{},
-		Albums:   s.m.libAlbums(albums),
-		Songs:    s.m.libSongs(songs),
+		Albums:   mapSlice(albums, s.m.libAlbum),
+		Songs:    mapSlice(songs, s.m.libSong),
 		Header:   s.m.header(ctx, tmpl),
 	}, nil
 }
@@ -223,7 +217,7 @@ func (s *LibraryService) FavoriteSongs(ctx context.Context, offset, limit int) (
 	if err != nil {
 		return SongPage{}, err
 	}
-	return SongPage{Items: s.m.libSongs(songs), Total: total}, nil
+	return SongPage{Items: mapSlice(songs, s.m.libSong), Total: total}, nil
 }
 
 // MusicVideos lists the library's music videos from Apple (up to 100 per
@@ -233,7 +227,7 @@ func (s *LibraryService) MusicVideos(ctx context.Context, offset, limit int) (Mu
 	if err != nil {
 		return MusicVideoPage{}, s.o.Fail(err)
 	}
-	return MusicVideoPage{Items: s.m.amMusicVideos(page.Data), Total: page.Meta.Total}, nil
+	return MusicVideoPage{Items: mapSlice(page.Data, s.m.amMusicVideo), Total: page.Meta.Total}, nil
 }
 
 // RecentlyPlayed returns the account's recently played tracks from Apple
@@ -244,7 +238,7 @@ func (s *LibraryService) RecentlyPlayed(ctx context.Context, limit, offset int) 
 		s.o.Report(err)
 		return nil, err
 	}
-	return s.m.amSongs(r.Data), nil
+	return mapSlice(r.Data, s.m.amSong), nil
 }
 
 // recentPages is how many pages of Apple's recently played tracks History
@@ -295,15 +289,7 @@ func (s *LibraryService) History(ctx context.Context, days int) (ListeningHistor
 				continue
 			}
 			p := e.Play
-			song := Song{
-				ID: p.CatalogID, Source: SourceCatalog, CatalogID: p.CatalogID, LibraryID: p.LibraryID,
-				Name: p.Name, Artist: p.Artist, Album: p.Album, DurationMs: p.Duration.Milliseconds(),
-				Playable: p.CatalogID != "" || p.LibraryID != "", Art: s.m.artOf(p.ArtworkTemplate),
-			}
-			if p.LibraryID != "" {
-				song.ID, song.Source = p.LibraryID, SourceLibrary
-			}
-			day.Entries[j] = HistoryEntry{PlayedAt: p.PlayedAt.UnixMilli(), Song: song, PlayedMs: p.Played.Milliseconds(), SourceName: p.Context}
+			day.Entries[j] = HistoryEntry{PlayedAt: p.PlayedAt.UnixMilli(), Song: s.m.playSong(p), PlayedMs: p.Played.Milliseconds(), SourceName: p.Context}
 		}
 		out.Days[i] = day
 	}

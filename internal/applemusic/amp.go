@@ -2,7 +2,9 @@ package applemusic
 
 import (
 	"context"
+	"maps"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -47,9 +49,6 @@ func (q AMPQuery) Values() url.Values {
 	return v
 }
 
-// CatalogPath builds "/v1/catalog/{sf}/{parts...}" with each part escaped.
-func CatalogPath(sf string, parts ...string) string { return catalogPath(sf, parts...) }
-
 // AMP fetches path (e.g. CatalogPath(sf, "albums", id)) from the web
 // player's API host, amp-api.music.apple.com, with q, decoding the JSON
 // body into T. Use it for endpoints only amp-api serves (rooms, grouping,
@@ -83,20 +82,22 @@ func AMPResource[T any](ctx context.Context, c *Client, sf, typ, id string, q AM
 // batches of 100; unknown IDs are omitted.
 func AMPResources[T any](ctx context.Context, c *Client, sf, typ string, ids []string, q AMPQuery) ([]T, error) {
 	var out []T
-	for len(ids) > 0 {
-		n := min(len(ids), 100)
-		qq := q
-		qq.Extra = url.Values{}
-		for k, v := range q.Extra {
-			qq.Extra[k] = v
-		}
-		qq.Extra.Set("ids", strings.Join(ids[:n], ","))
-		body, err := AMP[Page[T]](ctx, c, CatalogPath(sf, typ), qq)
+	for batch := range slices.Chunk(ids, 100) {
+		body, err := AMP[Page[T]](ctx, c, CatalogPath(sf, typ), q.with("ids", strings.Join(batch, ",")))
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, body.Data...)
-		ids = ids[n:]
 	}
 	return out, nil
+}
+
+// with is q with the extra parameter key=value set, leaving q's own Extra
+// untouched.
+func (q AMPQuery) with(key, value string) AMPQuery {
+	extra := make(url.Values, len(q.Extra)+1)
+	maps.Copy(extra, q.Extra)
+	extra.Set(key, value)
+	q.Extra = extra
+	return q
 }

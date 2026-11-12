@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
@@ -94,7 +95,7 @@ type listen struct {
 // history, RadioService.Recent), nor are music videos (the History page
 // lists songs) or private listens.
 func (h *History) Record(item coordinator.Item, playedFor time.Duration, _ bool) {
-	if isStationID(item.ID) || playback.IsVideo(item.ID) {
+	if applemusic.IsStationID(item.ID) || playback.IsVideo(item.ID) {
 		return
 	}
 	now := time.Now()
@@ -120,7 +121,7 @@ func (h *History) Record(item coordinator.Item, playedFor time.Duration, _ bool)
 		DurationMs:      item.Duration.Milliseconds(),
 		PlayedMs:        playedFor.Milliseconds(),
 	}
-	if strings.HasPrefix(item.ID, "i.") {
+	if applemusic.IsLibrarySongID(item.ID) {
 		p.LibraryID = item.ID
 	} else {
 		p.CatalogID = item.ID
@@ -147,7 +148,7 @@ func (h *History) Record(item coordinator.Item, playedFor time.Duration, _ bool)
 // observe notes each listen that starts here; a resume continues its
 // listen.
 func (h *History) observe(a coordinator.Activity) {
-	if a.Kind != coordinator.ActivityStart || isStationID(a.Item.ID) || playback.IsVideo(a.Item.ID) {
+	if a.Kind != coordinator.ActivityStart || applemusic.IsStationID(a.Item.ID) || playback.IsVideo(a.Item.ID) {
 		return
 	}
 	h.mu.Lock()
@@ -172,7 +173,7 @@ func (h *History) started(ctx context.Context) []library.Play {
 		ArtworkTemplate: c.item.Artwork, Duration: c.item.Duration,
 	}
 	// Apple's list names the song by its catalog or library ID.
-	if strings.HasPrefix(c.item.ID, "i.") {
+	if applemusic.IsLibrarySongID(c.item.ID) {
 		p.LibraryID = c.item.ID
 		if t, err := h.DB.RQ.GetTrackByLibraryID(ctx, db.NullString(c.item.ID)); err == nil {
 			p.CatalogID = t.CatalogID.String

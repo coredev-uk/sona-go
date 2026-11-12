@@ -112,8 +112,8 @@ func TestSyncFull(t *testing.T) {
 	if v, _ := e.lib.Rating(ctx, applemusic.TypeLibrarySongs, "i.7"); v != applemusic.RatingSuggestLess {
 		t.Fatalf("rating i.7 = %d", v)
 	}
-	if favs, _ := e.lib.Favorites(ctx, applemusic.TypeLibraryAlbums); !slices.Equal(favs, []string{"l.2"}) {
-		t.Fatalf("album favorites = %v", favs)
+	if v, _ := e.lib.Rating(ctx, applemusic.TypeLibraryAlbums, "l.2"); v != applemusic.RatingFavorite {
+		t.Fatalf("album rating l.2 = %d", v)
 	}
 
 	hits, err := e.lib.Search(ctx, "cafe", 10)

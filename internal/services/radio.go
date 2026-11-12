@@ -46,7 +46,7 @@ func (s *RadioService) Live(ctx context.Context) ([]Station, error) {
 	if err != nil {
 		return nil, s.fail(err)
 	}
-	return s.e.m.amStations(st), nil
+	return mapSlice(st, s.e.m.amStation), nil
 }
 
 // Recent returns the stations the user played recently (Apple's history,
@@ -56,14 +56,14 @@ func (s *RadioService) Recent(ctx context.Context) ([]Station, error) {
 	if err != nil {
 		return nil, s.fail(err)
 	}
-	return s.e.m.amStations(st), nil
+	return mapSlice(st, s.e.m.amStation), nil
 }
 
 // Station returns a station page: a live station carries its schedule; a
 // track station what it was made from and the songs it plays first
 // (parked for the station feed, so they are the ones that play).
 func (s *RadioService) Station(ctx context.Context, id string) (StationDetail, error) {
-	if !isStationID(id) {
+	if !applemusic.IsStationID(id) {
 		return StationDetail{}, fmt.Errorf("%w: station %q", ErrInvalidArgument, id)
 	}
 	st, err := s.e.API.StationDetail(ctx, s.e.Storefront(), id)
@@ -114,7 +114,7 @@ func (s *RadioService) upcoming(ctx context.Context, id string) []Song {
 // ID ("ra.<id>", "ra.cp-<songId>" for AutoPlay, "ra.a-<artistId>"); ""
 // for stations without one (personal, mood, genre, editorial).
 func stationSeed(st applemusic.Station) (kind, id string) {
-	id = strings.TrimPrefix(st.ID, "ra.")
+	id = strings.TrimPrefix(st.ID, applemusic.StationPrefix)
 	switch st.Attributes.Kind {
 	case applemusic.StationKindSongSeeded:
 		kind, id = SeedSong, strings.TrimPrefix(id, "cp-")
@@ -213,10 +213,10 @@ func (s *RadioService) CreateStation(ctx context.Context, seed, catalogID string
 	default:
 		return Station{}, fmt.Errorf("%w: seed %q", ErrInvalidArgument, seed)
 	}
-	if catalogID == "" || isLibraryID(catalogID) || strings.Contains(catalogID, ".") {
+	if catalogID == "" || applemusic.IsLibrarySongID(catalogID) || strings.Contains(catalogID, ".") {
 		return Station{}, fmt.Errorf("%w: %s %q has no catalog station", ErrInvalidArgument, seed, catalogID)
 	}
-	st, err := s.resolve(ctx, "ra."+catalogID)
+	st, err := s.resolve(ctx, applemusic.StationPrefix+catalogID)
 	if err != nil {
 		return Station{}, err
 	}
@@ -228,7 +228,7 @@ func (s *RadioService) CreateStation(ctx context.Context, seed, catalogID string
 
 // resolve fetches station id (ids= lookup, as the web's Create Station).
 func (s *RadioService) resolve(ctx context.Context, id string) (applemusic.Station, error) {
-	if !isStationID(id) {
+	if !applemusic.IsStationID(id) {
 		return applemusic.Station{}, fmt.Errorf("%w: station %q", ErrInvalidArgument, id)
 	}
 	sts, err := s.e.API.Stations(ctx, s.e.Storefront(), []string{id})
@@ -250,15 +250,9 @@ func (s *RadioService) play(ctx context.Context, st applemusic.Station) error {
 	if st.Format() == applemusic.StationFormatTracks {
 		return s.fail(s.e.Coord.PlayStation(ctx, coordinator.Station{ID: st.ID, Name: a.Name}))
 	}
-	item := coordinator.Item{
-		ID:       st.ID,
-		Title:    a.Name,
-		Artist:   stationSubtitle(st),
-		Duration: time.Duration(a.DurationInMillis) * time.Millisecond,
-		Artwork:  a.Artwork.Template(),
-		// A broadcaster's own line is what its stream has on air.
-		Broadcast: stationKind(st) == StationBroadcast,
-	}
+	item := itemOf(st.ID, a.Name, stationSubtitle(st), "", a.DurationInMillis, a.Artwork.Template(), false)
+	// A broadcaster's own line is what its stream has on air.
+	item.Broadcast = stationKind(st) == StationBroadcast
 	return s.fail(s.e.Coord.SetQueue(ctx, []coordinator.Item{item}, 0, st.ID))
 }
 
@@ -278,9 +272,6 @@ func stationSubtitle(st applemusic.Station) string {
 	}
 	return "Apple Music Radio"
 }
-
-// isStationID reports whether id is a station or radio episode ("ra.…").
-func isStationID(id string) bool { return strings.HasPrefix(id, "ra.") }
 
 // stationKind classifies a station for the UI (Station.Kind).
 func stationKind(st applemusic.Station) string {

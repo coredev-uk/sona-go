@@ -178,25 +178,6 @@ func (q *Queries) GetAlbumByLibraryID(ctx context.Context, libraryID sql.NullStr
 	return i, err
 }
 
-const getArtistByLibraryID = `-- name: GetArtistByLibraryID :one
-SELECT id, library_id, catalog_id, name, artwork_template, url, updated_at FROM artists WHERE library_id = ?
-`
-
-func (q *Queries) GetArtistByLibraryID(ctx context.Context, libraryID sql.NullString) (Artist, error) {
-	row := q.db.QueryRowContext(ctx, getArtistByLibraryID, libraryID)
-	var i Artist
-	err := row.Scan(
-		&i.ID,
-		&i.LibraryID,
-		&i.CatalogID,
-		&i.Name,
-		&i.ArtworkTemplate,
-		&i.Url,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const getPlaylistByLibraryID = `-- name: GetPlaylistByLibraryID :one
 SELECT id, library_id, catalog_id, name, description, curator_name, artwork_template, can_edit, is_public, last_modified, tracks_modified, track_count, url, updated_at, folder_id, folder_position, can_delete, favorited FROM playlists WHERE library_id = ?
 `

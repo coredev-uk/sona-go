@@ -1,6 +1,7 @@
 package services
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"html"
@@ -28,7 +29,7 @@ func (s *CatalogService) Album(ctx context.Context, id string) (CatalogAlbum, er
 
 func (s *CatalogService) albumPage(ctx context.Context, a applemusic.Album) CatalogAlbum {
 	at := a.Attributes
-	tracks := s.m.amSongs(a.Relationships.Tracks.Data)
+	tracks := mapSlice(a.Relationships.Tracks.Data, s.m.amSong)
 	album := s.m.amAlbum(a)
 	for i := range tracks {
 		if tracks[i].AlbumID == "" {
@@ -41,13 +42,9 @@ func (s *CatalogService) albumPage(ctx context.Context, a applemusic.Album) Cata
 	if album.Prerelease {
 		markUnreleased(tracks, s.m.clock())
 	}
-	notes := ""
+	notes, short := "", ""
 	if n := at.EditorialNotes; n != nil {
-		notes = plainText(n.Standard)
-	}
-	short := ""
-	if n := at.EditorialNotes; n != nil {
-		short = plainText(n.Short)
+		notes, short = plainText(n.Standard), plainText(n.Short)
 	}
 	if notes == short {
 		short = ""
@@ -64,17 +61,17 @@ func (s *CatalogService) albumPage(ctx context.Context, a applemusic.Album) Cata
 			Header:     s.m.header(ctx, at.Artwork.Template()),
 		},
 		NotesShort:    short,
-		Artists:       s.m.amArtists(a.Relationships.Artists.Data),
+		Artists:       mapSlice(a.Relationships.Artists.Data, s.m.amArtist),
 		PopularIDs:    popularTracks(a.Relationships.Tracks.Data),
 		URL:           at.URL,
 		ArtworkColors: artworkColors(at.Artwork),
 		Genres:        albumGenres(at.GenreNames, a.Relationships.Genres.Data),
-		MoreByArtist:  s.m.amAlbums(v.MoreByArtist.Data),
-		Similar:       s.m.amAlbums(v.YouMightAlsoLike.Data),
-		OtherVersions: s.m.amAlbums(v.OtherVersions.Data),
-		AppearsOn:     s.m.amPlaylists(v.AppearsOn.Data),
-		Videos:        s.m.amMusicVideos(v.RelatedVideos.Data),
-		MoreToHear:    s.m.amStations(v.AudioExtras.Data),
+		MoreByArtist:  mapSlice(v.MoreByArtist.Data, s.m.amAlbum),
+		Similar:       mapSlice(v.YouMightAlsoLike.Data, s.m.amAlbum),
+		OtherVersions: mapSlice(v.OtherVersions.Data, s.m.amAlbum),
+		AppearsOn:     mapSlice(v.AppearsOn.Data, s.m.amPlaylist),
+		Videos:        mapSlice(v.RelatedVideos.Data, s.m.amMusicVideo),
+		MoreToHear:    mapSlice(v.AudioExtras.Data, s.m.amStation),
 	}
 	p.Header.Motion = s.m.motionOf(at.EditorialVideo)
 	p.Album.LibraryID, p.InLibrary = s.e.members.lookup(ctx, kindAlbum, album.CatalogID)
@@ -128,24 +125,16 @@ func popularTracks(tracks []applemusic.Song) []string {
 		id string
 		p  float64
 	}
+	if len(tracks) < 4 {
+		return []string{} // marking most of a single or EP says nothing
+	}
 	var top []scored
 	for _, t := range tracks {
 		if t.Meta.Popularity >= popularFloor {
 			top = append(top, scored{t.ID, t.Meta.Popularity})
 		}
 	}
-	if len(tracks) < 4 {
-		top = nil // marking most of a single or EP says nothing
-	}
-	slices.SortStableFunc(top, func(a, b scored) int {
-		switch {
-		case a.p > b.p:
-			return -1
-		case a.p < b.p:
-			return 1
-		}
-		return 0
-	})
+	slices.SortStableFunc(top, func(a, b scored) int { return cmp.Compare(b.p, a.p) })
 	out := make([]string, 0, maxPopular)
 	for _, t := range top[:min(len(top), maxPopular)] {
 		out = append(out, t.id)
@@ -196,7 +185,7 @@ func (s *CatalogService) artistPage(ctx context.Context, a applemusic.Artist) Ca
 		BornOrFormed: at.BornOrFormed,
 		Genres:       nonNil(at.GenreNames),
 		URL:          at.URL,
-		TopSongs:     s.m.amSongs(v.TopSongs.Data),
+		TopSongs:     mapSlice(v.TopSongs.Data, s.m.amSong),
 		TopSongsMore: v.TopSongs.Next != "",
 		Shelves:      []ArtistShelf{},
 	}
@@ -221,7 +210,7 @@ func (s *CatalogService) artistPage(ctx context.Context, a applemusic.Artist) Ca
 func (s *CatalogService) shelf(v applemusic.ArtistViews, name string) ArtistShelf {
 	sh := ArtistShelf{View: name, Kind: viewKinds[name], Albums: []Album{}, Playlists: []Playlist{}, Videos: []MusicVideo{}, Artists: []Artist{}}
 	albums := func(x applemusic.View[applemusic.Album]) {
-		sh.Albums, sh.More = s.m.amAlbums(x.Data), x.Next != ""
+		sh.Albums, sh.More = mapSlice(x.Data, s.m.amAlbum), x.Next != ""
 	}
 	switch name {
 	case ViewFeaturedAlbums:
@@ -237,13 +226,13 @@ func (s *CatalogService) shelf(v applemusic.ArtistViews, name string) ArtistShel
 	case ViewAppearsOn:
 		albums(v.AppearsOnAlbums)
 	case ViewPlaylists:
-		sh.Playlists, sh.More = s.m.amPlaylists(v.Playlists.Data), v.Playlists.Next != ""
+		sh.Playlists, sh.More = mapSlice(v.Playlists.Data, s.m.amPlaylist), v.Playlists.Next != ""
 	case ViewTopMusicVideos:
-		sh.Videos, sh.More = s.m.amMusicVideos(v.TopMusicVideos.Data), v.TopMusicVideos.Next != ""
+		sh.Videos, sh.More = mapSlice(v.TopMusicVideos.Data, s.m.amMusicVideo), v.TopMusicVideos.Next != ""
 	case ViewMusicVideos:
-		sh.Videos, sh.More = s.m.amMusicVideos(v.MusicVideos.Data), v.MusicVideos.Next != ""
+		sh.Videos, sh.More = mapSlice(v.MusicVideos.Data, s.m.amMusicVideo), v.MusicVideos.Next != ""
 	case ViewSimilarArtists:
-		sh.Artists, sh.More = s.m.amArtists(v.SimilarArtists.Data), v.SimilarArtists.Next != ""
+		sh.Artists, sh.More = mapSlice(v.SimilarArtists.Data, s.m.amArtist), v.SimilarArtists.Next != ""
 	}
 	return sh
 }
@@ -272,23 +261,23 @@ func (s *CatalogService) ArtistView(ctx context.Context, id, view string, offset
 	case ShelfSongs:
 		var r applemusic.View[applemusic.Song]
 		r, err = catalog.ArtistView[applemusic.Song](ctx, s.c, id, view, offset, limit)
-		p.Songs, next = s.m.amSongs(r.Data), r.Next
+		p.Songs, next = mapSlice(r.Data, s.m.amSong), r.Next
 	case ShelfAlbums:
 		var r applemusic.View[applemusic.Album]
 		r, err = catalog.ArtistView[applemusic.Album](ctx, s.c, id, view, offset, limit)
-		p.Albums, next = s.m.amAlbums(r.Data), r.Next
+		p.Albums, next = mapSlice(r.Data, s.m.amAlbum), r.Next
 	case ShelfPlaylists:
 		var r applemusic.View[applemusic.Playlist]
 		r, err = catalog.ArtistView[applemusic.Playlist](ctx, s.c, id, view, offset, limit)
-		p.Playlists, next = s.m.amPlaylists(r.Data), r.Next
+		p.Playlists, next = mapSlice(r.Data, s.m.amPlaylist), r.Next
 	case ShelfVideos:
 		var r applemusic.View[applemusic.MusicVideo]
 		r, err = catalog.ArtistView[applemusic.MusicVideo](ctx, s.c, id, view, offset, limit)
-		p.Videos, next = s.m.amMusicVideos(r.Data), r.Next
+		p.Videos, next = mapSlice(r.Data, s.m.amMusicVideo), r.Next
 	case ShelfArtists:
 		var r applemusic.View[applemusic.Artist]
 		r, err = catalog.ArtistView[applemusic.Artist](ctx, s.c, id, view, offset, limit)
-		p.Artists, next = s.m.amArtists(r.Data), r.Next
+		p.Artists, next = mapSlice(r.Data, s.m.amArtist), r.Next
 	}
 	if err != nil {
 		return ArtistViewPage{}, s.fail(err)
@@ -307,14 +296,14 @@ func (s *CatalogService) SongPage(ctx context.Context, id string) (CatalogSong, 
 	at, rel := so.Attributes, so.Relationships
 	p := CatalogSong{
 		Song:                s.m.amSong(so),
-		Artists:             s.m.amArtists(rel.Artists.Data),
+		Artists:             mapSlice(rel.Artists.Data, s.m.amArtist),
 		Composer:            at.ComposerName,
 		ISRC:                at.ISRC,
 		URL:                 at.URL,
 		HasTimeSyncedLyrics: at.HasTimeSyncedLyrics,
 		LyricsExcerpt:       strings.TrimSpace(at.LyricsExcerpt),
 		Credits:             s.m.creditGroups(rel.Credits.Data),
-		Videos:              s.m.amMusicVideos(rel.MusicVideos.Data),
+		Videos:              mapSlice(rel.MusicVideos.Data, s.m.amMusicVideo),
 		MoreByArtist:        []Album{},
 	}
 	if d := rel.Albums.Data; len(d) > 0 {
@@ -332,7 +321,7 @@ func (s *CatalogService) SongPage(ctx context.Context, id string) (CatalogSong, 
 				s.e.Report(err)
 				return
 			}
-			for _, al := range s.m.amAlbums(a.Views.FullAlbums.Data) {
+			for _, al := range mapSlice(a.Views.FullAlbums.Data, s.m.amAlbum) {
 				if p.Album == nil || al.ID != p.Album.ID {
 					p.MoreByArtist = append(p.MoreByArtist, al)
 				}
@@ -379,9 +368,9 @@ func (s *CatalogService) MusicVideo(ctx context.Context, id string) (CatalogVide
 		Video:        s.m.amMusicVideo(v),
 		Header:       s.m.header(ctx, v.Attributes.Artwork.Template()),
 		Notes:        plainText(v.Attributes.EditorialNotes.Text()),
-		Artists:      s.m.amArtists(rel.Artists.Data),
-		MoreByArtist: s.m.amMusicVideos(v.Views.MoreByArtist.Data),
-		MoreInGenre:  s.m.amMusicVideos(v.Views.MoreInGenre.Data),
+		Artists:      mapSlice(rel.Artists.Data, s.m.amArtist),
+		MoreByArtist: mapSlice(v.Views.MoreByArtist.Data, s.m.amMusicVideo),
+		MoreInGenre:  mapSlice(v.Views.MoreInGenre.Data, s.m.amMusicVideo),
 	}
 	if d := rel.Songs.Data; len(d) > 0 && d[0].Attributes.Name != "" {
 		so := s.m.amSong(d[0])

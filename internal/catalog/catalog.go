@@ -10,6 +10,7 @@
 package catalog
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -178,7 +179,7 @@ func (c *Catalog) Artist(ctx context.Context, id string) (applemusic.Artist, err
 			return err
 		}
 		for _, s := range a.Views.TopSongs.Data {
-			if _, err := storeSong(ctx, q, s, now); err != nil {
+			if _, err := StoreSong(ctx, q, s, now); err != nil {
 				return err
 			}
 		}
@@ -201,7 +202,7 @@ func (c *Catalog) Song(ctx context.Context, id string) (applemusic.Song, error) 
 	return cached(ctx, c, "song", id, SongTTL, func(ctx context.Context, sf string) (applemusic.Song, error) {
 		return c.api.Song(ctx, sf, id)
 	}, func(q *dbq.Queries, s applemusic.Song, now int64) error {
-		_, err := storeSong(ctx, q, s, now)
+		_, err := StoreSong(ctx, q, s, now)
 		return err
 	})
 }
@@ -239,7 +240,7 @@ func storeAlbum(ctx context.Context, q *dbq.Queries, a applemusic.Album, now int
 		if len(s.Relationships.Albums.Data) == 0 {
 			s.Relationships.Albums.Data = []applemusic.Album{a}
 		}
-		if _, err := storeSong(ctx, q, s, now); err != nil {
+		if _, err := StoreSong(ctx, q, s, now); err != nil {
 			return err
 		}
 	}
@@ -248,14 +249,10 @@ func storeAlbum(ctx context.Context, q *dbq.Queries, a applemusic.Album, now int
 
 func storeAlbumRow(ctx context.Context, q *dbq.Queries, a applemusic.Album, now int64) (int64, error) {
 	at := a.Attributes
-	var artist string
-	if len(a.Relationships.Artists.Data) > 0 {
-		artist = a.Relationships.Artists.Data[0].ID
-	}
 	return q.UpsertCatalogAlbum(ctx, dbq.UpsertCatalogAlbumParams{
 		CatalogID: db.NullString(a.ID), Name: at.Name, ArtistName: at.ArtistName,
-		ArtistCatalogID: db.NullString(artist), ArtworkTemplate: at.Artwork.Template(),
-		ReleaseDate: at.ReleaseDate, Genre: first(at.GenreNames), TrackCount: int64(at.TrackCount),
+		ArtistCatalogID: db.NullString(a.FirstArtistID()), ArtworkTemplate: at.Artwork.Template(),
+		ReleaseDate: at.ReleaseDate, Genre: cmp.Or(at.GenreNames...), TrackCount: int64(at.TrackCount),
 		ContentRating: at.ContentRating, IsSingle: db.Bool(at.IsSingle), IsCompilation: db.Bool(at.IsCompilation),
 		RecordLabel: at.RecordLabel, Copyright: at.Copyright, EditorialNotes: at.EditorialNotes.Text(),
 		Url: at.URL, UpdatedAt: now,
@@ -272,21 +269,16 @@ func storeArtist(ctx context.Context, q *dbq.Queries, a applemusic.Artist, now i
 	})
 }
 
-func storeSong(ctx context.Context, q *dbq.Queries, s applemusic.Song, now int64) (int64, error) {
+// StoreSong upserts catalog song s as a catalog track row (library_id NULL)
+// and returns its row ID.
+func StoreSong(ctx context.Context, q *dbq.Queries, s applemusic.Song, now int64) (int64, error) {
 	a := s.Attributes
-	var album, artist string
-	if len(s.Relationships.Albums.Data) > 0 {
-		album = s.Relationships.Albums.Data[0].ID
-	}
-	if len(s.Relationships.Artists.Data) > 0 {
-		artist = s.Relationships.Artists.Data[0].ID
-	}
 	return q.UpsertCatalogTrack(ctx, dbq.UpsertCatalogTrackParams{
 		CatalogID: db.NullString(s.ID), Name: a.Name, ArtistName: a.ArtistName, AlbumName: a.AlbumName,
-		AlbumCatalogID: db.NullString(album), ArtistCatalogID: db.NullString(artist),
+		AlbumCatalogID: db.NullString(s.FirstAlbumID()), ArtistCatalogID: db.NullString(s.FirstArtistID()),
 		ArtworkTemplate: a.Artwork.Template(), DurationMs: a.DurationInMillis,
 		TrackNumber: int64(a.TrackNumber), DiscNumber: int64(a.DiscNumber), ReleaseDate: a.ReleaseDate,
-		Genre: first(a.GenreNames), ContentRating: a.ContentRating, HasLyrics: db.Bool(a.HasLyrics),
+		Genre: cmp.Or(a.GenreNames...), ContentRating: a.ContentRating, HasLyrics: db.Bool(a.HasLyrics),
 		Isrc: a.ISRC, Composer: a.ComposerName, UpdatedAt: now,
 	})
 }
@@ -310,7 +302,7 @@ func storePlaylist(ctx context.Context, q *dbq.Queries, p applemusic.Playlist, n
 		if s.Type != applemusic.TypeSongs {
 			continue
 		}
-		tid, err := storeSong(ctx, q, s, now)
+		tid, err := StoreSong(ctx, q, s, now)
 		if err != nil {
 			return err
 		}
@@ -320,11 +312,4 @@ func storePlaylist(ctx context.Context, q *dbq.Queries, p applemusic.Playlist, n
 		pos++
 	}
 	return nil
-}
-
-func first(s []string) string {
-	if len(s) == 0 {
-		return ""
-	}
-	return s[0]
 }

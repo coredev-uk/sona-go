@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/artwork"
@@ -97,15 +98,11 @@ func (l *Library) CoverUploads(ctx context.Context) ([]string, error) {
 // generates with its name), or the mosaic of its tracks' albums when Apple
 // has none ("" when it has neither).
 func (l *Library) AutoCover(ctx context.Context, id string) (string, error) {
-	pls, err := query(ctx, l, `SELECT `+playlistColumns+` FROM playlists p
-		JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
-		WHERE p.library_id = ?`, scanPlaylist, id)
+	p, err := l.playlistRow(ctx, id)
 	if err != nil {
 		return "", err
 	}
-	if len(pls) == 0 {
-		return "", ErrNotFound
-	}
+	pls := []Playlist{p}
 	if err := l.fillMosaics(ctx, pls, nil); err != nil {
 		return "", err
 	}
@@ -131,24 +128,21 @@ func (l *Library) FillCovers(ctx context.Context, pls []Playlist) error {
 		}
 	}
 	chosen := map[int]bool{}
-	for rest := ids; len(rest) > 0; {
-		n := min(len(rest), coverBatch)
-		batch := rest[:n]
-		rest = rest[n:]
-		args := make([]any, len(batch))
+	for batch := range slices.Chunk(ids, coverBatch) {
+		libIDs := make([]string, len(batch))
 		at := make(map[string]int, len(batch))
 		for j, i := range batch {
-			args[j] = pls[i].LibraryID
+			libIDs[j] = pls[i].LibraryID
 			at[pls[i].LibraryID] = i
 		}
 		rows, err := query(ctx, l, `SELECT p.library_id, pc.kind, pc.template
 			FROM playlist_covers pc JOIN playlists p ON p.id = pc.playlist_id
-			WHERE p.library_id IN (`+placeholders(len(args))+`) AND pc.kind <> 'auto'`,
-			func(sc interface{ Scan(...any) error }) ([3]string, error) {
+			WHERE p.library_id IN (`+placeholders(len(libIDs))+`) AND pc.kind <> 'auto'`,
+			func(sc scanner) ([3]string, error) {
 				var r [3]string
 				err := sc.Scan(&r[0], &r[1], &r[2])
 				return r, err
-			}, args...)
+			}, anys(libIDs)...)
 		if err != nil {
 			return fmt.Errorf("library: playlist covers: %w", err)
 		}
@@ -181,13 +175,10 @@ func (l *Library) fillMosaics(ctx context.Context, pls []Playlist, skip map[int]
 			need = append(need, i)
 		}
 	}
-	for len(need) > 0 {
-		n := min(len(need), coverBatch)
-		batch := need[:n]
-		need = need[n:]
-		args := make([]any, len(batch))
+	for batch := range slices.Chunk(need, coverBatch) {
+		ids := make([]string, len(batch))
 		for j, i := range batch {
-			args[j] = pls[i].LibraryID
+			ids[j] = pls[i].LibraryID
 		}
 		// Per playlist: each artwork at its first position, the first
 		// MosaicTiles of those in order (Mosaic picks the cover from them).
@@ -196,17 +187,17 @@ func (l *Library) fillMosaics(ctx context.Context, pls []Playlist, skip map[int]
 				FROM playlists p
 				JOIN playlist_tracks pt ON pt.playlist_id = p.id
 				JOIN tracks t ON t.id = pt.track_id
-				WHERE p.library_id IN (`+placeholders(len(args))+`) AND t.artwork_template <> ''
+				WHERE p.library_id IN (`+placeholders(len(ids))+`) AND t.artwork_template <> ''
 				GROUP BY p.library_id, t.artwork_template
 			), ranked AS (
 				SELECT lib, tpl, ROW_NUMBER() OVER (PARTITION BY lib ORDER BY pos) AS rn FROM firsts
 			)
 			SELECT lib, tpl FROM ranked WHERE rn <= ? ORDER BY lib, rn`,
-			func(sc interface{ Scan(...any) error }) ([2]string, error) {
+			func(sc scanner) ([2]string, error) {
 				var r [2]string
 				err := sc.Scan(&r[0], &r[1])
 				return r, err
-			}, append(args, artwork.MosaicTiles)...)
+			}, append(anys(ids), artwork.MosaicTiles)...)
 		if err != nil {
 			return fmt.Errorf("library: playlist covers: %w", err)
 		}

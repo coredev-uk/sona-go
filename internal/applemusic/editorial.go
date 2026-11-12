@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
-	"strings"
 )
 
 // Normalised ("format[resources]=map") responses. With that parameter amp-api
@@ -148,15 +148,7 @@ type MapResponse struct {
 func (m MapResponse) Primary() []Node { return m.Resources.Resolve(m.Data) }
 
 // mapValues adds format[resources]=map to q's extra parameters.
-func mapValues(q AMPQuery) AMPQuery {
-	extra := url.Values{}
-	for k, v := range q.Extra {
-		extra[k] = v
-	}
-	extra.Set("format[resources]", "map")
-	q.Extra = extra
-	return q
-}
+func mapValues(q AMPQuery) AMPQuery { return q.with("format[resources]", "map") }
 
 // AMPMap fetches a normalised (format[resources]=map) response from amp-api.
 func AMPMap(ctx context.Context, c *Client, path string, q AMPQuery) (MapResponse, error) {
@@ -319,37 +311,21 @@ var (
 )
 
 func editorialQuery(extra url.Values) AMPQuery {
-	v := url.Values{}
-	for k, vals := range editorialInclude {
-		v[k] = vals
-	}
-	for k, vals := range extra {
-		v[k] = vals
-	}
+	v := maps.Clone(editorialInclude)
+	maps.Copy(v, extra)
 	return AMPQuery{Extend: editorialExtend, Extra: v}
-}
-
-func editorialPath(sf string, parts ...string) string {
-	var b strings.Builder
-	b.WriteString("/v1/editorial/")
-	b.WriteString(url.PathEscape(sf))
-	for _, p := range parts {
-		b.WriteByte('/')
-		b.WriteString(url.PathEscape(p))
-	}
-	return b.String()
 }
 
 // Grouping fetches the subscriber tab of a named editorial grouping:
 // "music" (New) or "radio" (Radio). data[0] is the groupings object; its
 // tabs relationship points at the page's root editorial element.
 func Grouping(ctx context.Context, c *Client, sf, name string) (MapResponse, error) {
-	return AMPMap(ctx, c, editorialPath(sf, "groupings"), editorialQuery(url.Values{"name": {name}, "tabs": {"subscriber"}}))
+	return AMPMap(ctx, c, scopedPath("editorial", sf, "groupings"), editorialQuery(url.Values{"name": {name}, "tabs": {"subscriber"}}))
 }
 
 // GroupingByID fetches grouping id (e.g. the Music Videos hub).
 func GroupingByID(ctx context.Context, c *Client, sf, id string) (MapResponse, error) {
-	return AMPMap(ctx, c, editorialPath(sf, "groupings", id), editorialQuery(url.Values{"tabs": {"subscriber"}, "include[groupings]": {"curator"}}))
+	return AMPMap(ctx, c, scopedPath("editorial", sf, "groupings", id), editorialQuery(url.Values{"tabs": {"subscriber"}, "include[groupings]": {"curator"}}))
 }
 
 // Room fetches room id (an editorial section's "See all" grid) with its
@@ -359,7 +335,7 @@ func Room(ctx context.Context, c *Client, sf, id, sort string) (MapResponse, err
 	if sort != "" {
 		extra.Set("sort", sort)
 	}
-	return AMPMap(ctx, c, editorialPath(sf, "rooms", id), editorialQuery(extra))
+	return AMPMap(ctx, c, scopedPath("editorial", sf, "rooms", id), editorialQuery(extra))
 }
 
 // RoomContents fetches the page of room id's contents at offset; data
@@ -370,7 +346,7 @@ func RoomContents(ctx context.Context, c *Client, sf, id, sort string, offset in
 		q.Extra.Set("sort", sort)
 	}
 	q.Offset = offset
-	return AMPMap(ctx, c, editorialPath(sf, "rooms", id, "contents"), q)
+	return AMPMap(ctx, c, scopedPath("editorial", sf, "rooms", id, "contents"), q)
 }
 
 // Multiroom fetches multiroom id (a campaign page): its children are rooms
@@ -378,7 +354,7 @@ func RoomContents(ctx context.Context, c *Client, sf, id, sort string, offset in
 func Multiroom(ctx context.Context, c *Client, sf, id string) (MapResponse, error) {
 	q := editorialQuery(nil)
 	q.Extend = append(append([]string{}, editorialExtend...), "lockupStyle", "uber")
-	return AMPMap(ctx, c, editorialPath(sf, "multirooms", id), q)
+	return AMPMap(ctx, c, scopedPath("editorial", sf, "multirooms", id), q)
 }
 
 // CuratorPage fetches apple-curator or curator id (the type is unknown from a

@@ -90,11 +90,13 @@ func TestAlbumReadThrough(t *testing.T) {
 	if err != nil || alb.ArtistCatalogID.String != "55" || alb.ArtworkTemplate != "https://a/{w}x{h}.jpg" {
 		t.Fatalf("album row = %+v, %v", alb, err)
 	}
-	if tracks, _ := f.db.RQ.CatalogAlbumTracks(ctx, db.NullString("7")); len(tracks) != 2 {
-		t.Fatalf("album tracks = %d", len(tracks))
+	var tracks int
+	if err := f.db.R.QueryRowContext(ctx, `SELECT count(*) FROM tracks WHERE album_catalog_id = '7' AND library_id IS NULL`).Scan(&tracks); err != nil || tracks != 2 {
+		t.Fatalf("album tracks = %d, %v", tracks, err)
 	}
-	if ar, err := f.db.RQ.GetCatalogArtist(ctx, db.NullString("55")); err != nil || ar.Name != "Band" {
-		t.Fatalf("artist row = %+v, %v", ar, err)
+	var artist string
+	if err := f.db.R.QueryRowContext(ctx, `SELECT name FROM artists WHERE catalog_id = '55' AND library_id IS NULL`).Scan(&artist); err != nil || artist != "Band" {
+		t.Fatalf("artist row = %q, %v", artist, err)
 	}
 
 	// Expired: refetched.

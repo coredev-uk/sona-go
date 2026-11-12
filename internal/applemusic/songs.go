@@ -46,26 +46,10 @@ func SongPage(ctx context.Context, c *Client, sf, id string) (Song, error) {
 // Song returns catalog song id (with its album and artist relationships).
 func (c *Client) Song(ctx context.Context, sf, id string) (Song, error) {
 	var body Page[Song]
-	if err := c.Get(ctx, catalogPath(sf, "songs", id), nil, &body); err != nil {
+	if err := c.Get(ctx, CatalogPath(sf, "songs", id), nil, &body); err != nil {
 		return Song{}, err
 	}
 	return first(body.Data, "song "+id)
-}
-
-// Songs returns the catalog songs with the given IDs, in batches of 300
-// (Apple's limit). Unknown IDs are omitted.
-func (c *Client) Songs(ctx context.Context, sf string, ids []string) ([]Song, error) {
-	var out []Song
-	for len(ids) > 0 {
-		n := min(len(ids), 300)
-		var body Page[Song]
-		if err := c.Get(ctx, catalogPath(sf, "songs"), url.Values{"ids": {strings.Join(ids[:n], ",")}}, &body); err != nil {
-			return nil, err
-		}
-		out = append(out, body.Data...)
-		ids = ids[n:]
-	}
-	return out, nil
 }
 
 // LyricsOptions select the lyrics variant.
@@ -111,7 +95,7 @@ func (c *Client) Lyrics(ctx context.Context, sf, id string, opt LyricsOptions) (
 		if kind == "syllable-lyrics" {
 			q = lyricsQuery(opt.Language)
 		}
-		err := c.Get(ctx, c.ampBase()+catalogPath(sf, "songs", id, kind), q, &body)
+		err := c.Get(ctx, c.ampBase()+CatalogPath(sf, "songs", id, kind), q, &body)
 		ttml := ""
 		if err == nil && len(body.Data) > 0 {
 			ttml = body.Data[0].Attributes.TTMLLocalizations

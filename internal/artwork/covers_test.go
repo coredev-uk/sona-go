@@ -96,7 +96,7 @@ func TestSaveCoverCropsTheCentreSquare(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !IsCover(tmpl) {
+	if rest, ok := strings.CutPrefix(tmpl, coverPrefix); !ok || !validKey(rest) {
 		t.Fatalf("%q is not a cover template", tmpl)
 	}
 	stored, err := os.ReadFile(coverFile(dir, tmpl))

@@ -149,7 +149,7 @@ func TestHomeCacheAndRefresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := strings.Join(titles(page.Sections), " | ")
-	// Apple's concerts shelf is Sona's own (the frontend fills it from
+	// Apple's concerts shelf is Sona's own (the UI fills it from
 	// ConcertsService); Replay keeps its playlists but not the web-only
 	// Replay card.
 	want := "feature:Top Picks for You | shelf:Recently Played | concerts:Concerts | hero: | feature:Replay: Your Top Music"

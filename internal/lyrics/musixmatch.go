@@ -2,6 +2,7 @@ package lyrics
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/json"
@@ -240,7 +241,7 @@ func (p *Musixmatch) lyrics(ctx context.Context, calls map[string]mxmEnvelope, t
 	}
 	if r := rs.Richsync; r.Body != "" && r.Restricted == 0 {
 		if lines := richsyncLines(r.Body); len(lines) > 0 {
-			return Lyrics{Provider: p.ID(), Timing: TimingWord, Language: firstNonEmpty(r.Language, r.Language2), Songwriters: writers(r.Copyright), Lines: lines}, nil
+			return Lyrics{Provider: p.ID(), Timing: TimingWord, Language: cmp.Or(r.Language, r.Language2), Songwriters: writers(r.Copyright), Lines: lines}, nil
 		}
 	}
 	var subs mxmSubtitles
@@ -553,13 +554,4 @@ func stripMxmFooter(body string) string {
 
 func seconds(s float64) time.Duration {
 	return time.Duration(s * float64(time.Second)).Round(time.Millisecond)
-}
-
-func firstNonEmpty(s ...string) string {
-	for _, v := range s {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }

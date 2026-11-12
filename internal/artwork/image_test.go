@@ -9,8 +9,6 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
-	"net/http"
-	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 )
@@ -99,8 +97,8 @@ func TestDecodeAcceptsOnlyJPEGAndPNG(t *testing.T) {
 }
 
 // A TIFF from the CDN is refused at fetch: nothing is cached, every
-// surface reports ErrFormat, the handler answers 502, and no TIFF decoder
-// runs, even one registered with the image package.
+// surface reports ErrFormat, and no TIFF decoder runs, even one registered
+// with the image package.
 func TestTIFFSourceRejected(t *testing.T) {
 	tiffDecodes.Store(0)
 	s := newImageServer(t)
@@ -116,10 +114,8 @@ func TestTIFFSourceRejected(t *testing.T) {
 	if _, err := c.DominantColors(t.Context(), tmpl); !errors.Is(err, ErrFormat) {
 		t.Fatalf("DominantColors err = %v, want ErrFormat", err)
 	}
-	rec := httptest.NewRecorder()
-	c.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, c.URL(tmpl, 200, 200), nil))
-	if rec.Code != http.StatusBadGateway {
-		t.Fatalf("handler: %d", rec.Code)
+	if _, err := c.LocalPath(t.Context(), tmpl, 200, 200); !errors.Is(err, ErrFormat) {
+		t.Fatalf("LocalPath err = %v, want ErrFormat", err)
 	}
 	if c.Size() != 0 {
 		t.Fatalf("cached %d bytes of a rejected source", c.Size())

@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -274,7 +273,7 @@ func (s *PlaybackService) lookupMeta(id string) trackMeta {
 	if c := playback.VideoCatalogID(id); c != "" {
 		return trackMeta{source: SourceCatalog, id: c, catalogID: c}
 	}
-	if isLibraryID(id) {
+	if applemusic.IsLibrarySongID(id) {
 		if t, err := s.o.DB.RQ.GetTrackByLibraryID(ctx, db.NullString(id)); err == nil {
 			return metaOf(t, SourceLibrary)
 		}
@@ -289,8 +288,6 @@ func (s *PlaybackService) lookupMeta(id string) trackMeta {
 	}
 	return trackMeta{source: SourceCatalog, id: id, catalogID: id}
 }
-
-func isLibraryID(id string) bool { return strings.HasPrefix(id, "i.") }
 
 func metaOf(t dbq.Track, src Source) trackMeta {
 	m := trackMeta{source: src, catalogID: t.CatalogID.String, libraryID: t.LibraryID.String}
@@ -409,14 +406,7 @@ func (s *PlaybackService) resolveVideo(ctx context.Context, r TrackRef) (coordin
 	if ar := v.Relationships.Artists.Data; len(ar) > 0 {
 		m.artistID = ar[0].ID
 	}
-	return coordinator.Item{
-		ID:       playback.VideoID(id),
-		Title:    a.Name,
-		Artist:   a.ArtistName,
-		Duration: time.Duration(a.DurationInMillis) * time.Millisecond,
-		Artwork:  a.Artwork.Template(),
-		Explicit: a.ContentRating == "explicit",
-	}, m, nil
+	return itemOf(playback.VideoID(id), a.Name, a.ArtistName, "", a.DurationInMillis, a.Artwork.Template(), a.ContentRating == "explicit"), m, nil
 }
 
 // released fails with ErrNotReleased for a song released on date that
@@ -490,27 +480,24 @@ func trackItem(t dbq.Track) (coordinator.Item, trackMeta, error) {
 	if t.LibraryID.Valid {
 		src = SourceLibrary
 	}
-	return coordinator.Item{
-		ID:       id,
-		Title:    t.Name,
-		Artist:   t.ArtistName,
-		Album:    t.AlbumName,
-		Duration: time.Duration(t.DurationMs) * time.Millisecond,
-		Artwork:  t.ArtworkTemplate,
-		Explicit: t.ContentRating == "explicit",
-	}, metaOf(t, src), nil
+	return itemOf(id, t.Name, t.ArtistName, t.AlbumName, t.DurationMs, t.ArtworkTemplate, t.ContentRating == "explicit"), metaOf(t, src), nil
 }
 
 func songItem(so applemusic.Song) coordinator.Item {
 	a := so.Attributes
+	return itemOf(so.CatalogID(), a.Name, a.ArtistName, a.AlbumName, a.DurationInMillis, a.Artwork.Template(), a.ContentRating == "explicit")
+}
+
+// itemOf is the coordinator item of a song or video.
+func itemOf(id, title, artist, album string, durationMs int64, artwork string, explicit bool) coordinator.Item {
 	return coordinator.Item{
-		ID:       so.CatalogID(),
-		Title:    a.Name,
-		Artist:   a.ArtistName,
-		Album:    a.AlbumName,
-		Duration: time.Duration(a.DurationInMillis) * time.Millisecond,
-		Artwork:  a.Artwork.Template(),
-		Explicit: a.ContentRating == "explicit",
+		ID:       id,
+		Title:    title,
+		Artist:   artist,
+		Album:    album,
+		Duration: time.Duration(durationMs) * time.Millisecond,
+		Artwork:  artwork,
+		Explicit: explicit,
 	}
 }
 
@@ -574,30 +561,22 @@ func (s *PlaybackService) SetSleep(mode string, minutes int) error {
 // not out yet (by their own date or, without one, their album's) are left
 // out; not_released when it is the start song.
 func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc bool, start int) error {
-	var songs []library.Song
-	for offset := 0; ; {
-		page, err := s.o.Library.Songs(ctx, library.ListOptions{Sort: library.Sort(sort), Desc: desc, Offset: offset, Limit: 1000})
-		if err != nil {
-			return err
-		}
-		songs = append(songs, page...)
-		if len(page) < 1000 {
-			break
-		}
-		offset += len(page)
+	songs, err := s.o.Library.AllSongs(ctx, library.ListOptions{Sort: library.Sort(sort), Desc: desc})
+	if err != nil {
+		return err
 	}
 	if start < 0 || start >= len(songs) {
 		return fmt.Errorf("%w: start %d of %d", ErrInvalidArgument, start, len(songs))
 	}
-	unreleased := s.libraryUnreleased(songs)
-	if unreleased[start] {
+	now := s.m.clock()
+	if songUnreleased(songs[start], now) {
 		return fmt.Errorf("library song %s: %w", songs[start].LibraryID, ErrNotReleased)
 	}
 	items := make([]coordinator.Item, 0, len(songs))
 	idx := 0
 	s.mu.Lock()
 	for i, so := range songs {
-		if unreleased[i] {
+		if songUnreleased(so, now) {
 			continue
 		}
 		// Uploads have no catalog ID and play by their library ID.
@@ -605,10 +584,7 @@ func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc boo
 		if i == start {
 			idx = len(items)
 		}
-		items = append(items, coordinator.Item{
-			ID: id, Title: so.Name, Artist: so.ArtistName, Album: so.AlbumName,
-			Duration: time.Duration(so.DurationMS) * time.Millisecond, Artwork: so.ArtworkTemplate, Explicit: so.Explicit,
-		})
+		items = append(items, itemOf(id, so.Name, so.ArtistName, so.AlbumName, so.DurationMS, so.ArtworkTemplate, so.Explicit))
 		s.meta[id] = trackMeta{
 			source: SourceLibrary, id: so.LibraryID, catalogID: so.CatalogID, libraryID: so.LibraryID,
 			albumID: so.AlbumLibraryID, artistID: so.ArtistLibraryID,
@@ -618,21 +594,14 @@ func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc boo
 	return s.fail(s.o.Coord.SetQueue(ctx, items, idx, "library:songs"))
 }
 
-// libraryUnreleased reports which library songs are not out yet, by the
-// rule resolve applies (storedReleased): a song's own date, else its
-// album's release state, which Library.Songs loads with the song (the
-// album's own date, or the catalog's, and Apple's flag).
-func (s *PlaybackService) libraryUnreleased(songs []library.Song) []bool {
-	now := s.m.clock()
-	out := make([]bool, len(songs))
-	for i, so := range songs {
-		if so.ReleaseDate != "" {
-			out[i] = upcoming(so.ReleaseDate, false, now)
-			continue
-		}
-		_, out[i] = libraryRelease(so.Album.Date, so.Album.CatalogDate, so.Album.Prerelease, now)
+// queueItems resolves refs for PlayNext, Append and Insert, which like
+// them fail while a station plays: the queue is the station.
+func (s *PlaybackService) queueItems(ctx context.Context, refs []TrackRef) ([]coordinator.Item, error) {
+	if err := s.o.Coord.Snapshot().Refusal(func(c coordinator.Controls) bool { return c.Queue }); err != nil {
+		return nil, err
 	}
-	return out
+	items, _, err := s.resolve(ctx, refs, 0)
+	return items, err
 }
 
 // PlayNext inserts refs after the current item. Like Append and Insert it
@@ -642,10 +611,7 @@ func (s *PlaybackService) PlayNext(ctx context.Context, refs []TrackRef) error {
 	if len(refs) == 0 {
 		return nil
 	}
-	if err := s.o.Coord.Snapshot().Refusal(func(c coordinator.Controls) bool { return c.Queue }); err != nil {
-		return err
-	}
-	items, _, err := s.resolve(ctx, refs, 0)
+	items, err := s.queueItems(ctx, refs)
 	if err != nil {
 		return err
 	}
@@ -658,10 +624,7 @@ func (s *PlaybackService) Append(ctx context.Context, refs []TrackRef) error {
 	if len(refs) == 0 {
 		return nil
 	}
-	if err := s.o.Coord.Snapshot().Refusal(func(c coordinator.Controls) bool { return c.Queue }); err != nil {
-		return err
-	}
-	items, _, err := s.resolve(ctx, refs, 0)
+	items, err := s.queueItems(ctx, refs)
 	if err != nil {
 		return err
 	}
@@ -675,10 +638,7 @@ func (s *PlaybackService) Insert(ctx context.Context, at int, refs []TrackRef) e
 	if len(refs) == 0 {
 		return nil
 	}
-	if err := s.o.Coord.Snapshot().Refusal(func(c coordinator.Controls) bool { return c.Queue }); err != nil {
-		return err
-	}
-	items, _, err := s.resolve(ctx, refs, 0)
+	items, err := s.queueItems(ctx, refs)
 	if err != nil {
 		return err
 	}

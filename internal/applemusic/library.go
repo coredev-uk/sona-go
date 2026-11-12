@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -199,13 +200,13 @@ func (c *Client) Ratings(ctx context.Context, typ string, ids []string) (map[str
 		want[id] = true
 	}
 	out := make(map[string]int)
+	chunks := slices.Collect(slices.Chunk(ids, ratingBatch))
 	results := make([][]Resource[struct {
 		Value int `json:"value"`
-	}], (len(ids)+ratingBatch-1)/ratingBatch)
+	}], len(chunks))
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(defaultParallel)
-	for i := range results {
-		batch := ids[i*ratingBatch : min(len(ids), (i+1)*ratingBatch)]
+	for i, batch := range chunks {
 		g.Go(func() error {
 			var body Page[Resource[struct {
 				Value int `json:"value"`
@@ -292,17 +293,4 @@ func (c *Client) AddToLibrary(ctx context.Context, ids map[string][]string) (map
 		}
 	}
 	return out, nil
-}
-
-// LibraryCatalogID maps library resource id of type typ (TypeSongs,
-// TypeAlbums, TypeArtists, TypePlaylists: the collection name under
-// /v1/me/library) to its catalog ID. Resources with no catalog equivalent
-// (uploads, private playlists) return an error matching ErrNotFound.
-func (c *Client) LibraryCatalogID(ctx context.Context, typ, id string) (string, error) {
-	var body Page[Resource[struct{}]]
-	if err := c.Get(ctx, "/v1/me/library/"+url.PathEscape(typ)+"/"+url.PathEscape(id)+"/catalog", nil, &body); err != nil {
-		return "", err
-	}
-	r, err := first(body.Data, "catalog "+typ+" for "+id)
-	return r.ID, err
 }
