@@ -23,7 +23,7 @@ Both surfaces become launchers that teach their keys. The palette's rows gain a 
 - Focus starts in the filter (was: the list). Down moves into the "Shortcuts" group, which scrolls as before; Up at its top comes back. Tab: filter, Settings, Close.
 - A shortcut stays when every typed word (folded for case and accents) is in its label, keywords, group title, or its chords (as the caps spell them and as spoken). The count is announced; a filter that leaves nothing says so.
 - Escape clears a filled filter first (`kit.SearchField`), then closes.
-- "?" is text in a focused field, so the sheet's own chord could not close it from the filter. A filter holding only "?" now counts as the chord and closes the sheet; from the list or the Settings link the chord works as before.
+- "?" in a focused field is text to MyGo, so the sheet's own chord could not close it from the filter, where focus starts. The dialog now observes the press of Shift and the slash key itself (by position, or with its Key) and closes the sheet while the filter holds nothing, or only the typed "?"; after other text a "?" stays text. From the list or the Settings link the chord works as before.
 
 ## States covered
 

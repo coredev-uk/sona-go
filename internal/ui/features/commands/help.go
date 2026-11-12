@@ -23,6 +23,8 @@ type helpSheet struct {
 	// slash is "?" where it comes with no Key (GTK, AppKit), which the
 	// sheet observes to close on its own chord.
 	slash kit.ShiftSlash
+	// chord notes a press of Shift and the slash key, whatever has the focus.
+	chord bool
 	// query is the filter's text; last the one the list was built for and
 	// announced the count of.
 	query, last string
@@ -63,7 +65,7 @@ type helpGroup struct {
 // arrows and Page Down, and Up at its top comes back.
 func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 	if !h.open {
-		h.frames, h.query, h.last = 0, "", ""
+		h.frames, h.query, h.last, h.chord = 0, "", "", false
 		h.scroll = ui.ScrollState{}
 		h.slash.Take(c) // a "?" that came as it closed another way is not the next opening's
 		return
@@ -71,11 +73,14 @@ func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 	w, wh := c.Size()
 	closeOwn := func() {
 		keys := env.KeysOf("commands.help")
-		// "?" typed into the filter is text, so the chord would never reach
-		// the sheet from there, where the focus starts: a filter holding
-		// nothing but it is the chord, as it is anywhere else.
-		typed := strings.TrimSpace(h.query) == "?" && slices.ContainsFunc(keys, kit.IsShiftSlashChord)
-		if h.slash.Pressed(c, keys...) || typed {
+		// "?" pressed in the filter is text to MyGo, so the chord never
+		// reaches the sheet from there, where the focus starts: the dialog
+		// notes the press itself (observe), and it is the chord while the
+		// filter holds nothing but it; a "?" after other text is text.
+		q := strings.TrimSpace(h.query)
+		chord := slices.ContainsFunc(keys, kit.IsShiftSlashChord) && (q == "?" || (h.chord && q == ""))
+		h.chord = false
+		if h.slash.Pressed(c, keys...) || chord {
 			h.open = false
 		}
 	}
@@ -129,7 +134,18 @@ func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 			hint("close", i18n.T("Close"), "Escape")
 		})
 	})
-	panel.ObserveInput(h.slash.Observe)
+	panel.ObserveInput(h.observe)
+}
+
+// observe is the dialog's ObserveInput: it lets the ShiftSlash see "?" by
+// position and notes any press of Shift and the slash key (by position or
+// with its Key) for closeOwn.
+func (h *helpSheet) observe(ev ui.InputEvent) {
+	h.slash.Observe(ev)
+	if ev.Kind == ui.InputKeyDown && ev.Mods == ui.Shift && !ev.Repeat &&
+		(ev.Key == ui.KeySlash || (ev.Key == ui.KeyUnknown && ev.Code == ui.CodeSlash)) {
+		h.chord = true
+	}
 }
 
 // about is the line in the foot: "Change any of them in Settings.", the
