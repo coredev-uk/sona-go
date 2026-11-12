@@ -284,37 +284,39 @@ Discover (`/new`) sets Apple's editorial front page as Sona's own issue: the fea
 
 ### Album page
 
-A record is two things in the hand: the sleeve, and the listing on its back. The album page lays them side by side instead of stacking a banner over a table.
+A record is two things in the hand: the sleeve, and the listing on its back. The album page is that gatefold: the sleeve is a full-height column of the cover's colour cut by the pane's own edges, and the listing is the facing page on the ground, with generous margins.
 
 ```
-┌ sleeve ─────────────┐   Title (32/36, wraps; never moves the cover)
-│ ┌─────────────────┐ │   Artist (in the cover's accent)
-│ │                 │ │   Album · 1995 · 40 songs, 2 hrs, 49 mins · Indie Rock
-│ │      cover      │ │   [Lossless]
-│ │   256 or 320    │ │   Apple's one-line note
-│ │                 │ │   status: the release (Not out yet, below), or "2 of 13 songs in your library"
-│ └─────────────────┘ │   (▶) Shuffle  + Add  Favourite  Suggest less  ⋯
-│ Disc 1 · 12 songs…  │   #  Title                                     ◷
-│ Disc 2 · 14 songs…  │   Disc 1
-│ Released            │   Goldberg Variations (1981 Recording)    ← a work
-│ 2 October 1995      │   1  Aria                                    3:22
-│ Genres · Written by │   …
-│ Label               │   Notes (58ch)
-│ ℗ line              │
-└─────────────────────┘
+┌ sleeve (flush top, left, bottom) ┐
+│ ┌─────────────────┐              │   #  Title                                   ◷
+│ │                 │              │   Disc 1
+│ │      cover      │              │   Goldberg Variations (1981 Recording)    ← a work
+│ │   256 or 320    │              │   1  Aria                                  3:22
+│ │                 │              │   2  Variatio 1                            2:08
+│ └─────────────────┘              │   …
+│ Title (32/36, wraps)             │
+│ Artist (in the cover's accent)   │   Notes (58ch)
+│ Album · 1995 · 40 songs, 2 hrs…  │
+│ [Lossless]  Apple's note         │
+│ (▶) Shuffle  + Add  ☆  ⊘  ⋯      │
+│ ───────────────────────────────  │
+│ Disc 1 · 12 songs…  Disc 2 · …   │
+│ Released · Genres · Written by   │
+│ Label · ℗ line                   │
+└──────────────────────────────────┘
 Other versions · Music videos · More to hear · More by · Featured in playlists · You might also like
 ```
 
-- **The sleeve is printed in the cover's colour**: a radius-8 panel in the colour Apple gives for the cover's background (`ArtworkColors.background`; Go's first dominant colour when Apple gives none), flat, with nothing blended at paint time (`internal/ui/theme/palette`; built once per cover, theme and layout, never per frame). It is the page's one coloured surface; the listing sits on the plain ground beside it, so the colour stays with the record. A cover with no colour known keeps the earlier wash: Go's backdrop under the ground scrim with a 4% ink layer. Three rules hold the colour to the board:
+- **The sleeve is printed in the cover's colour**: a flat, square surface (no radius, no outer margin: the pane's edges cut it) in the colour Apple gives for the cover's background (`ArtworkColors.background`; Go's first dominant colour when Apple gives none), flat, with nothing blended at paint time (`internal/ui/theme/palette`; built once per cover, theme and layout, never per frame). It is the page's one coloured surface; the listing sits on the plain ground beside it, so the colour stays with the record. The page's own gutter is the sleeve's inner margin, so the sleeve's text and the shelves below share one left edge. A cover with no colour known keeps the earlier wash: Go's backdrop under the ground scrim with a 4% ink layer. Three rules hold the colour to the board:
   - one tone step off the ground: a cover the colour of the ground (a white one in light, a black one in dark) moves 0.05 in OKLCH lightness away from it, the way the theme's own tones go;
   - in the dark theme no lighter than 0.36 OKLCH lightness, hue kept, so a white or pale cover is a dark tint of itself rather than the brightest slab in the window; in the light theme a dark cover stays dark;
   - never so near a mid grey that black or white loses 5.8:1 on it and its pressed tone, so the text and a muted step below it can both reach 4.5:1.
-- **Text on the sleeve** takes Apple's own text colours for the cover (`text1` for ink, `text2` or `text3` for muted) when they read at 4.5:1 on the sleeve and on its hover and pressed tones; otherwise ink is black or white with a trace of the sleeve, and muted is ink mixed 35% towards the sleeve, moved in lightness only as far as 4.5:1 needs. The sleeve redeclares its own `ink`, `ink-muted`, `hover`, `active`, `line`, `control-line` and the roles built on them (`theme.Scope`), so the disc index, badges and outline buttons inside it (the whole head, below 860px) follow it; focus rings there are the sleeve's ink. Reduce effects changes nothing: the sleeve is a flat colour already.
+- **Text on the sleeve** takes Apple's own text colours for the cover (`text1` for ink, `text2` or `text3` for muted) when they read at 4.5:1 on the sleeve and on its hover and pressed tones; otherwise ink is black or white with a trace of the sleeve, and muted is ink mixed 35% towards the sleeve, moved in lightness only as far as 4.5:1 needs. The sleeve redeclares its own `ink`, `ink-muted`, `hover`, `active`, `line`, `control-line` and the roles built on them (`theme.Scope`), so the disc index, badges and outline buttons inside it (the whole head, the cover, the actions and the fine print) follow it; focus rings there are the sleeve's ink. Reduce effects changes nothing: the sleeve is a flat colour already.
 - **The cover's accent takes amber's job on the page**: the most colourful of Apple's colours and Go's dominant ones (OKLCH chroma ≥ 0.06) fills the Play disc, marks the playing row and its equaliser, and sets the artist's name, the record's one link out. Its fill keeps at least amber's own distance from the ground (2:1 in light, 3:1 in dark) and from the sleeve when it sits on it, its glyph 4.5:1; as text it keeps 4.5:1 on every row tone, a selected row included. A greyscale cover keeps amber. (The accent is redeclared as `amber`, `on-amber`, `amber-ink` and the `play` roles for the whole page body, Apple's shelves below included.) Only the album page takes colour from its cover this way: the song, playlist and artist headers keep the backdrop wash of the cover's first dominant colour. Every pair is checked by unit tests over extreme covers (white, black, mid grey, the sRGB primaries, a 6-level grid in both themes).
 - **One station**: the cover's top and the title's first line share a line on every album, whatever the title's length; the title wraps instead of clamping. Covers come in fixed sizes so Go serves them at the exact box: 256px, 320px from 1280px of content width.
-- **Held while the songs scroll**: the sleeve is sticky beside the listing whenever the pane shows all of it (measured, so a one-disc sleeve holds in a shorter window than a three-disc one), so a 40-song album keeps its cover, disc index and fine print in view. Motion artwork plays there while it is on screen, under the same rules as every header.
+- **Held while the songs scroll**: the sleeve's contents stay at the pane's top, inside the sleeve's column, whenever the pane shows all of them (measured, so a one-disc sleeve holds in a shorter window than a three-disc one), so a 40-song album keeps its cover, title, actions, disc index and fine print in view. The column itself is as tall as the pane at least, so it always reaches the pane's bottom edge, and the shelves begin under the gatefold. Motion artwork plays there while it is on screen, under the same rules as every header.
 - **The back of the sleeve** is the record's fine print in meta type, each fact a muted name over its entry: released (the day in full), first released (the year of its oldest recording, when that is earlier: a reissue, a compilation), genres (all of Apple's, without the root "Music"), written by (every songwriter in Apple's composer credits, most credited first, eight named and the rest counted) or, on a classical album, composer, then the label unless the ℗ line names it, and the ℗ line last.
-- **The listing is 2/3 of the width**, not the whole pane: at 1440 the title-to-duration scan drops from about 980px to 680px.
+- **The sleeve column is the cover plus 48px of room, between two gutters** (368px at 256, 432px at 320), so the action row keeps to one line; the listing takes the rest, 40px from the sleeve and a gutter from the scrollbar, and the notes follow the songs in it. At 1440 the title-to-duration scan is about 680px.
 - **The disc index**: each disc in the catalogue line's form ("Disc 2 · 14 songs, 1 hr, 3 mins"); choosing one brings its heading to the top and focuses its first song. A list long enough to be virtualised (over 200 songs) has no disc headings, so no index either.
 - **Classical albums read by work**: where Apple names the work a track belongs to, each work gets a heading (14/500 ink, under the disc's) and its rows show the movement alone ("Aria", not "Goldberg Variations, BWV 988 (1955 Recording): Aria"); the row's play control and menu still name the song in full, and the queue and now playing show its full name. An album of several composers leads each work with its composer and names the composer under a piece outside any work.
 - **Rows explain themselves**: the line under a title names a credit other than the album artist's (an Artist column only for a real compilation, where most credited songs are someone else's; a song with no credit yet counts for neither) and why a song doesn't play: "Unavailable" or the account's explicit restriction (on an album not out yet its group's heading says when: Not out yet, below). An unpublished song's stand-in artist ("unknown") is dropped, and "Popular" only marks a song that plays.
@@ -345,7 +347,7 @@ Other versions · Music videos · More to hear · More by · Featured in playlis
   - **No song out** has no Play disc: Pre-add (or Remind me) is the page's one ink-filled button, and the list is a preview of the record with its title and numbers only.
   - **The moment it comes out while the page is open.** When the release time passes, the countdown becomes **Out now** with "Updating the songs" in the line under it, the page announces "{album} is out now" once (a polite announcement, `c.Announce`), and the album is fetched again, every minute. The service says an album is out from its date alone, whether or not Apple has published its songs (they have no play parameters until it does), so the page keeps the state while songs that were waiting are still unplayable, up to 30 tries (about half an hour); after that the songs show as they are ("Unavailable"). Meanwhile the head keeps its shape (the stand-in credits stay dropped, the catalogue line stays without a running time, no dashes), and the songs aren't marked "Unavailable". When they play the page is the released one.
   - **Long and classical lists.** Headings need a list the table builds whole, so an album of more than 200 songs (a virtual list) keeps its order and says "Out 22 Nov" under each song that isn't out. On a classical album a group's heading carries the work of its first row ("Out now · Ludwig van Beethoven · Symphony No. 5"), the work named again even where it runs on from the other group.
-- **Below 860px of content** (a 940px window) the sleeve heads the page with the title beside a 168px cover, the songs follow at full width, then the fine print on the ground; the disc headings in the list stand in for the index.
+- **Below 860px of content** (a 940px window) the sleeve is a full-bleed band across the top of the pane, edge to edge, flush to its top, with the title beside a 168px cover; the songs follow at full width, then the fine print on the ground; the disc headings in the list stand in for the index.
 - Then Notes at a reading measure (58ch, about 75 characters at the body size), and Apple's shelves in Apple's order, with the radio episodes about the record ("More to hear") after its music videos.
 
 ### Artist page

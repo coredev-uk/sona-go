@@ -27,9 +27,6 @@ type colours struct {
 type palKey struct {
 	apple palette.Cover
 	dark  bool
-	// playOnSleeve: the narrow layout, where the play control sits on the
-	// sleeve.
-	playOnSleeve bool
 }
 
 // palCache is the last colours built, kept on the page.
@@ -43,8 +40,8 @@ type palCache struct {
 // colours returns the album's colours for the cover and the theme now, or
 // nil when the cover gives none (a library-only album with no dominant
 // colours: the sleeve keeps its plain wash).
-func (a *album) colours(m *model, lay layout) *colours {
-	key := palKey{dark: theme.Dark(), playOnSleeve: !lay.wide}
+func (a *album) colours(m *model) *colours {
+	key := palKey{dark: theme.Dark()}
 	if m.page != nil {
 		key.apple = palette.Cover(m.page.ArtworkColors)
 	}
@@ -57,7 +54,7 @@ func (a *album) colours(m *model, lay layout) *colours {
 		th = palette.Dark
 	}
 	*pc = palCache{key: key, dominant: slices.Clone(m.header.Colors), built: true}
-	pal, ok := palette.ForAlbum(&key.apple, m.header.Colors, th, key.playOnSleeve)
+	pal, ok := palette.ForAlbum(&key.apple, m.header.Colors, th, true)
 	if !ok {
 		return nil
 	}

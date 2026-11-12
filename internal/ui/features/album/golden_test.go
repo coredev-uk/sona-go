@@ -55,6 +55,28 @@ func TestGoldenAlbumPage(t *testing.T) {
 	}
 }
 
+// The gatefold's wide layout: 1440×900 less the sidebar, top bar and player
+// bar is 1207×780 of page column.
+func TestGoldenAlbumPageWide(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		opts []uitest.Option
+	}{
+		{"album-wide-light", nil},
+		{"album-wide-dark", []uitest.Option{uitest.Dark()}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			goldenRegional(t)
+			r := newRig(t, "/album/100", 1207, 780, c.opts...)
+			r.addCatalog(saltFlats(goldenAlbum))
+			r.shows("Salt Flats", "Blue Hour", "Notes")
+			r.tt.Art = append(r.tt.Art, r.h.Env.Art)
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), c.name)
+		})
+	}
+}
+
 func TestGoldenAlbumPageMinimumWindow(t *testing.T) {
 	goldenRegional(t)
 	r := newRig(t, "/album/100", 707, 480)

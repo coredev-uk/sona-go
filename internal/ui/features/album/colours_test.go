@@ -217,7 +217,7 @@ func TestTextOnTheSleeveFollowsItsInk(t *testing.T) {
 
 func TestArtistLinkTakesTheCoversAccent(t *testing.T) {
 	cover := palette.Cover{Background: "#3f546a", Text1: "#fdc14c", Text2: "#fcb92d", Text3: "#d7ab52", Text4: "#d6a539"}
-	pal, _ := palette.ForAlbum(&cover, nil, palette.Light, false)
+	pal, _ := palette.ForAlbum(&cover, nil, palette.Light, true)
 	if pal.Accent == nil {
 		t.Fatal("the fixture has no accent")
 	}
@@ -229,8 +229,9 @@ func TestArtistLinkTakesTheCoversAccent(t *testing.T) {
 	if !ok {
 		t.Fatal("no byline")
 	}
-	// The name's most inked pixel: the one furthest from the ground.
-	img, bg := r.tt.Image(), hexRGBA(t, palette.Themes[palette.Light].Ground)
+	// The name's most inked pixel: the one furthest from the sleeve it is
+	// printed on.
+	img, bg := r.tt.Image(), hexRGBA(t, pal.Sleeve.Surface)
 	var best color.RGBA
 	far := -1
 	for y := int(b.Y); y < int(b.Y+b.H); y++ {
@@ -242,7 +243,7 @@ func TestArtistLinkTakesTheCoversAccent(t *testing.T) {
 			}
 		}
 	}
-	if want := hexRGBA(t, pal.Accent.Ink); !closeTo(best, want) {
-		t.Errorf("the artist is drawn in %v, want the accent's ink %v", best, want)
+	if want := hexRGBA(t, pal.Sleeve.AccentInk); !closeTo(best, want) {
+		t.Errorf("the artist is drawn in %v, want the accent as ink on the sleeve %v", best, want)
 	}
 }

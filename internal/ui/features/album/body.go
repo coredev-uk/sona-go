@@ -21,7 +21,7 @@ import (
 // place on the whole page, and the sleeve is printed in the cover's own
 // colour with its tokens redeclared.
 func (a *album) body(c *ui.Context, m *model, lay layout, highlight string, now time.Time, auth services.AuthStatus) {
-	k := a.colours(m, lay)
+	k := a.colours(m)
 	k.accentScope(func() {
 		head := func() { a.head(c, m, k, now, account.HasAccount(auth.State)) }
 		tracks := func() { a.songs(c, m, highlight, now, auth.Restricted) }
@@ -32,7 +32,7 @@ func (a *album) body(c *ui.Context, m *model, lay layout, highlight string, now 
 			a.narrow(c, m, k, lay, head, tracks, notes)
 		}
 		if m.page != nil {
-			ui.Column(c.Key("sections")).Margin(48, 0, 0, 0).FillWidth().Children(func() {
+			ui.Column(c.Key("sections")).Padding(48, a.gr, padBottom, a.gl).FillWidth().Children(func() {
 				a.sections(c, m, now, auth.Restricted)
 			})
 		}
@@ -46,89 +46,106 @@ func (a *album) notesShelf(c *ui.Context, m *model, first bool) {
 	})
 }
 
-// wide: the sleeve in the left column (cover, disc index, fine print), the
-// head, the songs and the notes in the right; reading order head, sleeve,
-// songs, notes. The sleeve stays beside the songs while they scroll when the
-// pane is tall enough to show all of it.
+// sleeveRoom is the width the wide sleeve gives its text and actions beyond
+// the cover's, so the action row keeps to one line.
+const sleeveRoom = 48
+
+// wide is the gatefold: the sleeve a full-height column flush to the pane's
+// top, left and bottom edges, holding the cover, the head, the disc index and
+// the fine print; the listing, the facing page, on the ground beside it with
+// the notes after the songs. The page's own gutter is the sleeve's inner
+// margin, so the sleeve's text and the shelves below share one left edge. The
+// sleeve's contents stay at the pane's top while the songs scroll when the pane
+// shows all of them.
 func (a *album) wide(c *ui.Context, m *model, k *colours, lay layout, head, tracks func(), notes bool) {
 	grid := ui.Grid(c.Key("wide")).FillWidth().
-		ColumnTracks(ui.Fixed(lay.cover+32), ui.Fr(1)).
-		RowTracks(ui.FitContent(), ui.FitContent(), ui.FitContent(), ui.Fr(1)).
-		GapX(40).AlignItems(ui.Start)
+		ColumnTracks(ui.Fixed(lay.cover+sleeveRoom+2*a.gl), ui.Fr(1)).
+		RowTracks(ui.Fr(1)).AlignItems(ui.Stretch)
+	if a.paneRect != nil {
+		// The sleeve runs to the pane's bottom edge however short the
+		// record; the shelves begin under the gatefold.
+		grid.MinHeight(a.paneRect().H)
+	}
 	grid.Children(func() {
-		ui.Column(c.Key("head")).ColumnStart(2).RowStart(1).MinWidth(0).Padding(16, 0, 0, 0).Children(head)
-		sleeve := a.sleeve(c, m, k, func() {
-			ui.Column(c).Padding(16).Children(func() {
+		a.sleeve(c, m, k, func() {
+			in := ui.Column(c.Key("sleeve-in")).FillWidth().Padding(padTop, a.gl, padBottom, a.gl)
+			in.Children(func() {
 				a.cover(c, m, lay.cover)
+				ui.Column(c.Key("head")).Margin(24, 0, 0, 0).MinWidth(0).Children(head)
+				if len(m.discs) > 0 || len(m.facts) > 0 || m.rights != "" {
+					ui.Box(c.Key("rule")).Margin(28, 0, 0, 0).FillWidth().Height(1).Background(theme.C("line"))
+				}
 				if len(m.discs) > 0 {
-					ui.Column(c.Key("discs")).Margin(16, 0, 0, 0).Children(func() { a.discIndex(c, m) })
+					ui.Column(c.Key("discs")).Margin(20, 0, 0, 0).Children(func() { a.discIndex(c, m) })
 				}
 				if len(m.facts) > 0 || m.rights != "" {
-					ui.Column(c.Key("fine")).Margin(16, 0, 0, 0).Children(func() { a.finePrint(c, m) })
+					ui.Column(c.Key("fine")).Margin(20, 0, 0, 0).Children(func() { a.finePrint(c, m) })
 				}
 			})
+			a.stick(in)
+		}).ColumnStart(1).RowStart(1)
+		ui.Column(c.Key("listing")).ColumnStart(2).RowStart(1).AlignSelf(ui.Start).MinWidth(0).
+			Padding(padTop, a.gr, padBottom, 40).Children(func() {
+			ui.Column(c.Key("songs")).MinWidth(0).FillWidth().Children(tracks)
+			if notes {
+				ui.Column(c.Key("notes")).Margin(40, 0, 0, 0).MinWidth(0).Children(func() {
+					a.notesShelf(c, m, true)
+				})
+			}
 		})
-		sleeve.ColumnStart(1).RowStart(1).RowSpan(4).AlignSelf(ui.Start)
-		a.stick(sleeve)
-		ui.Column(c.Key("songs")).ColumnStart(2).RowStart(2).Margin(28, 0, 0, 0).MinWidth(0).Children(tracks)
-		if notes {
-			ui.Column(c.Key("notes")).ColumnStart(2).RowStart(3).Margin(40, 0, 0, 0).MinWidth(0).Children(func() {
-				a.notesShelf(c, m, true)
-			})
-		}
 	})
 }
 
-// stick holds the sleeve stickyTop below the pane's top while the songs
-// scroll, within the grid, when the pane shows all of it (v0.2.0's sticky
-// panel and useFitsInPane). The fit is judged from the sleeve's height in the
-// frame before.
-func (a *album) stick(sleeve ui.Element) {
+// stick holds the sleeve's contents at the pane's top while the songs scroll,
+// within the sleeve's column, when the pane shows all of them (measured from
+// the contents' height in the frame before).
+func (a *album) stick(in ui.Element) {
 	if a.paneRect == nil {
 		return
 	}
-	if b := sleeve.LayoutBounds(); b.H > 0 {
+	if b := in.LayoutBounds(); b.H > 0 {
 		a.sleeveH = b.H
 	}
-	pane := a.paneRect()
-	if a.sleeveH+2*stickyTop > pane.H || pane.H == 0 {
+	if pane := a.paneRect(); pane.H == 0 || a.sleeveH > pane.H {
 		return
 	}
-	sleeve.Sticky().Top(stickyTop)
+	in.Sticky().Top(0)
 }
 
-// narrow: the sleeve with the cover and the head side by side, then the
-// songs, the fine print and the notes (no disc index: the tracks carry their
-// disc headings).
+// narrow: the sleeve a full-bleed band across the pane's top, the cover
+// beside the head; then the songs, the fine print and the notes on the ground
+// (no disc index: the tracks carry their disc headings).
 func (a *album) narrow(c *ui.Context, m *model, k *colours, lay layout, head, tracks func(), notes bool) {
 	a.sleeve(c, m, k, func() {
-		ui.Row(c).Padding(20).Gap(20).AlignItems(ui.Start).Children(func() {
+		ui.Row(c).FillWidth().Padding(24, a.gr, 24, a.gl).Gap(20).AlignItems(ui.Start).Children(func() {
 			ui.Column(c).Shrink(0).Children(func() { a.cover(c, m, lay.cover) })
 			ui.Column(c).Grow(1).Basis(0).MinWidth(0).Children(head)
 		})
 	}).FillWidth()
-	ui.Column(c.Key("songs")).Margin(24, 0, 0, 0).FillWidth().Children(tracks)
-	if len(m.facts) > 0 || m.rights != "" {
-		ui.Column(c.Key("fine")).Margin(24, 0, 0, 0).Children(func() { a.finePrint(c, m) })
-	}
-	if notes {
-		ui.Column(c.Key("notes")).Margin(0, 0, 0, 0).Children(func() { a.notesShelf(c, m, false) })
-	}
+	ui.Column(c.Key("listing")).FillWidth().Padding(24, a.gr, 0, a.gl).Children(func() {
+		ui.Column(c.Key("songs")).FillWidth().Children(tracks)
+		if len(m.facts) > 0 || m.rights != "" {
+			ui.Column(c.Key("fine")).Margin(24, 0, 0, 0).Children(func() { a.finePrint(c, m) })
+		}
+		if notes {
+			ui.Column(c.Key("notes")).Children(func() { a.notesShelf(c, m, false) })
+		}
+	})
 }
 
 // sleeve is the page's one surface behind the cover and the record's fine
-// print. It is printed in the cover's own background colour, one tone step off
-// the ground, with its colour tokens redeclared so everything inside follows
-// it (text 4.5:1 on it: theme/palette). A cover with no colour known (a
-// library-only album) keeps the wash of Go's pre-blurred backdrop under the
+// print, flat and square: it is cut by the pane's edges, not a panel on the
+// ground. It is printed in the cover's own background colour, one tone step
+// off the ground, with its colour tokens redeclared so everything inside
+// follows it (text 4.5:1 on it: theme/palette). A cover with no colour known
+// (a library-only album) keeps the wash of Go's pre-blurred backdrop under the
 // ground scrim, with a 4% ink layer to hold it one tone step off the ground.
 func (a *album) sleeve(c *ui.Context, m *model, k *colours, content func()) ui.Element {
-	radius := theme.Current().Radius["lg"]
 	if k != nil {
-		e := ui.Box(c.Key("sleeve")).Background(k.surface).Radius(radius)
+		e := ui.Box(c.Key("sleeve")).Background(k.surface)
 		e.Children(func() {
 			theme.Scope(k.sleeveTok, func() {
-				ui.Column(c.Key("sleeve-body")).FillWidth().Children(content)
+				ui.Column(c.Key("sleeve-body")).FillWidth().FillHeight().Children(content)
 			})
 		})
 		return e
@@ -137,11 +154,10 @@ func (a *album) sleeve(c *ui.Context, m *model, k *colours, content func()) ui.E
 	if len(m.header.Colors) > 0 {
 		colour = m.header.Colors[0]
 	}
-	e := kit.Backdrop(c.Key("sleeve"), a.env.Art, kit.BackdropOpts{Src: m.header.Backdrop, Color: colour, Tone: kit.ToneGround}, func() {
+	return kit.Backdrop(c.Key("sleeve"), a.env.Art, kit.BackdropOpts{Src: m.header.Backdrop, Color: colour, Tone: kit.ToneGround}, func() {
 		ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).PassThrough().Background(theme.C("ink").Alpha(0.04))
-		ui.Column(c.Key("sleeve-body")).FillWidth().Children(content)
+		ui.Column(c.Key("sleeve-body")).FillWidth().FillHeight().Children(content)
 	})
-	return e.Radius(radius)
 }
 
 // cover is the cover at its station: Apple's motion artwork where there is
