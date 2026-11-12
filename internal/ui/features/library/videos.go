@@ -45,7 +45,7 @@ func (l *library) videosPage(c *ui.Context, r *ui.Route) {
 		subline = i18n.T("{0, plural, one {# music video} other {# music videos}}", "0", len(q.Data))
 	}
 	l.scrollPage(c, &pg.pageView, "videos", func(pane *kit.Pane) {
-		kit.PageHeader(c, i18n.T("Music videos"), subline, nil)
+		l.pageHead(c, headOpts{title: i18n.T("Music videos"), count: subline, note: i18n.T("From Apple Music: needs a connection")})
 		switch {
 		case out:
 			kit.EmptyState(c, i18n.T("Sign in to see your music videos"),

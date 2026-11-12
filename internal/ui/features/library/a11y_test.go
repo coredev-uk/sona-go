@@ -98,7 +98,7 @@ func TestA11yPages(t *testing.T) {
 			ready:    []string{"Fieldnotes", "Sunday morning"},
 			headings: []a11yHeading{{"Recently added", 1}},
 			present: []a11yNode{
-				{ui.RoleTable, "Recently added"},
+				{ui.RoleTable, "Recently added, Earlier"},
 				{ui.RoleLink, "Fieldnotes"},
 				{ui.RoleMenuButton, "More for Fieldnotes"},
 				{ui.RoleLink, "Sunday morning"},

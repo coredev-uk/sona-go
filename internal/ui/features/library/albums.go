@@ -66,8 +66,18 @@ func (l *library) albumsPage(c *ui.Context, r *ui.Route) {
 	}
 	pg.announced = announcement
 
-	l.scrollPage(c, &pg.pageView, q.key(), func(pane *kit.Pane) {
-		kit.PageHeaderCounted(c, i18n.T("Albums"), subline, func() {
+	var rail func()
+	if railShown(q.sort, q.desc, list.Total) && !filteredNone {
+		jumps, ready := l.albumLetters(q, list)
+		rail = func() {
+			l.letterRail(c, jumps, ready, func(slot int) {
+				pg.jumpTo(jumps[slot])
+				c.Invalidate()
+			})
+		}
+	}
+	l.scrollPageRail(c, &pg.pageView, q.key(), true, rail, func(pane *kit.Pane) {
+		l.pageHead(c, headOpts{title: i18n.T("Albums"), count: subline, actions: func() {
 			// The type and the sort are the page's filter bar.
 			ui.Row(c.Key("filters")).Gap(8).AlignItems(ui.Center).Role(ui.RoleSearch).Label(i18n.T("Filter albums")).Children(func() {
 				kind := q.kind
@@ -83,7 +93,7 @@ func (l *library) albumsPage(c *ui.Context, r *ui.Route) {
 				}
 				l.sortSelect(c, albumsSpec, q)
 			})
-		})
+		}})
 		switch {
 		case l.gate(c, gateOpts{
 			total: total, pending: list.Pending(), err: list.Err(), retry: list.Retry, retrying: list.Retrying(),
@@ -107,6 +117,9 @@ func (l *library) albumsPage(c *ui.Context, r *ui.Route) {
 			label := i18n.T("Albums in your library")
 			if q.kind == "singles" {
 				label = i18n.T("Singles and EPs in your library")
+			}
+			if rail != nil {
+				pg.gridAnchor(c, pane)
 			}
 			coverGrid(l, c, &pg.cover, pane, list, label, l.albumTile())
 		}
@@ -155,4 +168,34 @@ func (l *library) openTo(t *kit.CoverItem, path string) {
 	if l.env.HasRoute != nil && l.env.HasRoute(path) {
 		t.Open = func() { l.env.Nav.Push(path) }
 	}
+}
+
+// jumpTo scrolls the grid so the row of item i is the first in view.
+func (pg *albumsPage) jumpTo(i int) {
+	cols, tile := kit.CoverColumns(pg.gridW, 0)
+	pg.pos.Y = max(0, pg.gridTop+float32(i/cols)*kit.CoverRowHeight(tile, false)-16)
+}
+
+// albumLetters is the rail of albums ordered by title or artist.
+func (l *library) albumLetters(q listQuery, list *listView[services.Album]) (letterJumps, bool) {
+	name := func(a *services.Album) string {
+		if q.sort == "artist" {
+			return a.Artist
+		}
+		return a.Name
+	}
+	held := func(i int) string {
+		if a := list.At(i); a != nil {
+			return name(a)
+		}
+		return ""
+	}
+	key := store.Key{"library", "albums", "letters", q.sort, q.kind, list.Total}
+	return jumpsOf(l, list.Total, list.first.HasData, held, key, func(ctx context.Context, i int) (string, error) {
+		p, err := l.lib.Albums(ctx, q.sort, false, q.kind, i, 1)
+		if err != nil || len(p.Items) == 0 {
+			return "", err
+		}
+		return name(&p.Items[0]), nil
+	})
 }

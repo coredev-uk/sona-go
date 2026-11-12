@@ -85,7 +85,7 @@ func (l *library) historyPage(c *ui.Context, r *ui.Route) {
 	}
 
 	l.scrollPage(c, &pg.pageView, "history", func(*kit.Pane) {
-		kit.PageHeader(c, i18n.T("History"), subline, nil)
+		l.pageHead(c, headOpts{title: i18n.T("History"), note: subline})
 		switch {
 		case res.Err != nil && !pg.has:
 			kit.ErrorBlock(c, i18n.T("Couldn't read your listening history"), res.Err, kit.ErrorBlockOpts{
@@ -112,35 +112,60 @@ func (l *library) historyPage(c *ui.Context, r *ui.Route) {
 	})
 }
 
-// historySkeleton is the loading placeholder: a day heading and 16 rows.
+// The timeline: the day's heading and counts in a rail on the left, a 1px
+// line down its right edge with a dot at the heading, the day's songs to
+// the right of the line.
+const (
+	timelineRail = 168
+	timelineGap  = 24
+)
+
+// timelineDay builds one day of the timeline, a group named label: rail builds into the left
+// column, songs into the right one.
+func (l *library) timelineDay(c *ui.Context, key any, label string, rail, songs func()) {
+	ui.Row(c.Key(key)).FillWidth().AlignItems(ui.Stretch).Role(ui.RoleGroup).Label(label).Children(func() {
+		ui.Column(c.Key("rail")).Width(timelineRail).Shrink(0).Padding(4, 20, 0, 0).
+			BorderWidth(0, 1, 0, 0).BorderColor(theme.C("line")).Children(func() {
+			ui.Box(c.Key("dot")).Absolute().Top(11).Right(-4).Size(7, 7).Radius(3.5).Background(theme.C("ink-faint"))
+			rail()
+		})
+		ui.Column(c.Key("songs")).Grow(1).MinWidth(0).Padding(0, 0, 40, timelineGap).Children(songs)
+	})
+}
+
+// historySkeleton is the loading placeholder: a day's rail and 16 rows.
 func (l *library) historySkeleton(c *ui.Context) {
 	ui.Column(c.Key("history-loading")).Role(ui.RoleStatus).Label(i18n.T("Loading your listening history")).Children(func() {
-		ui.Row(c).Height(22).AlignItems(ui.Center).Padding(0, 8).Margin(0, 0, 8, 0).Children(func() {
+		l.timelineDay(c, "day", i18n.T("History"), func() {
 			kit.Skeleton(c, 96, 16)
-		})
-		kit.TrackList(c, &l.history.skeleton, skeletonRows, func(int) *services.Song { return nil }, kit.TrackListOpts{
-			Label: i18n.T("History"), Columns: historyColumns,
+			kit.Skeleton(c, 64, 12).Margin(8, 0, 0, 0)
+		}, func() {
+			kit.TrackList(c, &l.history.skeleton, skeletonRows, func(int) *services.Song { return nil }, kit.TrackListOpts{
+				Label: i18n.T("History"), Columns: historyColumns,
+			})
 		})
 	})
 }
 
 var historyColumns = kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true}
 
-// historySubline is "12 songs, 15 plays · 3 from other devices": the play
-// count only when songs repeated.
-func historySubline(g *historyGroup) string {
-	songs := len(g.songs)
-	text := i18n.T("{songs, plural, one {# song} other {# songs}}", "songs", songs)
-	if g.plays > songs {
-		text = i18n.T("{songs, plural, one {# song} other {# songs}}, {plays, plural, one {# play} other {# plays}}", "songs", songs, "plays", g.plays)
+// historyCounts are the lines under a day's heading in the rail: "12
+// songs, 15 plays" (the play count only when songs repeated), and how many
+// came from other devices.
+func historyCounts(g *historyGroup) (songs, elsewhere string) {
+	n := len(g.songs)
+	songs = i18n.T("{songs, plural, one {# song} other {# songs}}", "songs", n)
+	if g.plays > n {
+		songs = i18n.T("{songs, plural, one {# song} other {# songs}}, {plays, plural, one {# play} other {# plays}}", "songs", n, "plays", g.plays)
 	}
 	if g.day != 0 && g.elsewhere > 0 {
-		text += " · " + i18n.T("{elsewhere} from other devices", "elsewhere", i18n.FormatNumber(float64(g.elsewhere)))
+		elsewhere = i18n.T("{elsewhere} from other devices", "elsewhere", i18n.FormatNumber(float64(g.elsewhere)))
 	}
-	return text
+	return songs, elsewhere
 }
 
-// historySection is one day: its heading with the counts, and its songs.
+// historySection is one day on the timeline: its heading and counts in the
+// rail, and its songs.
 func (l *library) historySection(c *ui.Context, pg *historyPage, g *historyGroup) {
 	label := dayLabel(g.day, pg.arrived, time.Local)
 	st := pg.lists[g.day]
@@ -151,15 +176,15 @@ func (l *library) historySection(c *ui.Context, pg *historyPage, g *historyGroup
 		st = &historyDay{}
 		pg.lists[g.day] = st
 	}
-	tk := theme.Current()
-	h, meta := tk.Type["heading"], tk.Type["meta"]
-	ui.Column(c.Key(g.day)).Role(ui.RoleGroup).Label(label).Margin(0, 0, 40, 0).Children(func() {
-		ui.Row(c).Wrap().AlignItems(ui.Baseline).Gap(8).Padding(0, 8).Margin(0, 0, 8, 0).Children(func() {
-			ui.Text(c, label).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
-				TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
-			ui.Text(c, historySubline(g)).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).TextColor(theme.C("ink-faint"))
-		})
-		songs := g.songs
+	songs := g.songs
+	counts, elsewhere := historyCounts(g)
+	l.timelineDay(c, g.day, label, func() {
+		styled(c, label, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+		styled(c, counts, "meta").TextColor(theme.C("ink-muted")).FontFeatures("tnum").Margin(2, 0, 0, 0)
+		if elsewhere != "" {
+			styled(c, elsewhere, "meta").TextColor(theme.C("ink-faint")).FontFeatures("tnum")
+		}
+	}, func() {
 		opts := kit.TrackListOpts{
 			Label:      i18n.T("Played {label}", "label", label),
 			Columns:    historyColumns,
@@ -183,7 +208,7 @@ func (l *library) historySection(c *ui.Context, pg *historyPage, g *historyGroup
 // nothing older.
 func (l *library) historyFooter(c *ui.Context, pg *historyPage, res store.Result[services.ListeningHistory], key store.Key) {
 	tk := theme.Current()
-	ui.Row(c.Key("history-footer")).AlignItems(ui.Center).Gap(16).Padding(0, 8).Margin(32, 0, 0, 0).Children(func() {
+	ui.Row(c.Key("history-footer")).AlignItems(ui.Center).Gap(16).Padding(0, 0, 0, timelineRail+timelineGap).Margin(8, 0, 0, 0).Children(func() {
 		if !pg.data.More {
 			meta := tk.Type["meta"]
 			ui.Text(c, i18n.T("Plays on this computer are kept for a year.")).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).TextColor(theme.C("ink-faint"))

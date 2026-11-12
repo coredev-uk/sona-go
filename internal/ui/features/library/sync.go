@@ -186,7 +186,16 @@ func (l *library) syncIndicator(c *ui.Context) {
 
 	l.announceSync(c, running, failed, lastSuccess)
 
-	ui.Column(c.Key("sync")).Padding(0, 10).Margin(0, 0, 8, 0).Role(ui.RoleGroup).Label(i18n.T("Library sync")).Children(func() {
+	// A sync that runs or failed is a card (a tone step above the sidebar);
+	// a synced library is one quiet line.
+	card := running || failed
+	col := ui.Column(c.Key("sync")).Margin(0, 8, 8, 8).Role(ui.RoleGroup).Label(i18n.T("Library sync"))
+	if card {
+		col.Padding(8, 10).Radius(tk.Radius["md"]).Background(theme.C("hover"))
+	} else {
+		col.Padding(0, 10)
+	}
+	col.Children(func() {
 		if running {
 			syncing := i18n.T("Syncing your library")
 			count := ""
@@ -198,19 +207,19 @@ func (l *library) syncIndicator(c *ui.Context) {
 					pct = min(1, float64(current.Done)/float64(current.Total))
 				}
 			}
-			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-				ui.Icon(c, theme.Icon("refresh-cw")).FontSize(12).Shrink(0).TextColor(theme.C("ink-muted"))
-				text(syncing, theme.C("ink-muted")).Shrink(1).MinWidth(0)
-			})
-			// The count sits beside the bar, so neither it nor the domain is
-			// cut off in the sidebar's width. The row keeps its height before
+			// What is syncing at the left and how far at the right, the bar
+			// under both across the card. The row keeps its height before
 			// the first count arrives.
-			ui.Row(c).Height(16).Gap(8).AlignItems(ui.Center).Margin(4, 0, 0, 0).Children(func() {
-				kit.ProgressBar(c, pct, kit.ProgressOpts{A11yLabel: i18n.T("Library sync"), ValueText: count, Height: 2}).Grow(1).MinWidth(0)
+			ui.Row(c).Height(16).Gap(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
+				ui.Row(c).Gap(6).AlignItems(ui.Center).Shrink(1).MinWidth(0).Children(func() {
+					ui.Icon(c, theme.Icon("refresh-cw")).FontSize(12).Shrink(0).TextColor(theme.C("ink-muted"))
+					text(syncing, theme.C("ink")).Shrink(1).MinWidth(0)
+				})
 				if count != "" {
-					text(count, theme.C("ink-faint")).Shrink(0)
+					text(count, theme.C("ink-muted")).FontFeatures("tnum").Shrink(0)
 				}
 			})
+			kit.ProgressBar(c, pct, kit.ProgressOpts{A11yLabel: i18n.T("Library sync"), ValueText: count, Height: 3}).FillWidth().Margin(8, 0, 2, 0)
 			return
 		}
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
@@ -219,6 +228,8 @@ func (l *library) syncIndicator(c *ui.Context) {
 				if failed {
 					colour = theme.C("ink")
 					ui.Icon(c, theme.Icon("circle-alert")).FontSize(12).Shrink(0).TextColor(theme.C("danger"))
+				} else if lastSuccess > 0 {
+					ui.Box(c.Key("ok")).Size(6, 6).Radius(3).Shrink(0).Background(theme.C("positive"))
 				}
 				switch {
 				case failed:
@@ -233,12 +244,12 @@ func (l *library) syncIndicator(c *ui.Context) {
 			if failed {
 				label = i18n.T("Try again")
 			}
-			b := ui.ButtonBase(c.Key("sync-now")).Shrink(0).Radius(tk.Radius["sm"]).Label(label)
+			b := ui.ButtonBase(c.Key("sync-now")).Shrink(0).PaddingX(6).Height(22).Radius(tk.Radius["sm"]).AlignItems(ui.Center).Label(label)
+			if b.Hovered() {
+				b.Background(theme.C("active"))
+			}
 			b.Children(func() {
-				t := text(label, theme.C("ink-muted"))
-				if b.Hovered() {
-					t.Underline()
-				}
+				text(label, theme.C("ink")).Role(ui.RoleNone)
 			})
 			if b.Clicked() {
 				l.syncNow()
