@@ -2,6 +2,7 @@ package settings
 
 import (
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
 // startPage is a page Sona can open on.
@@ -71,13 +72,17 @@ func (s *settings) summaries() map[string]string {
 		playback = i18n.Meta(quality, sound, fade)
 	}
 
-	themeLine := i18n.T("System theme")
-	switch st.Theme {
-	case "light":
-		themeLine = i18n.T("Light theme")
-	case "dark":
-		themeLine = i18n.T("Dark theme")
+	// The theme and its look: "Graphite · Dark". A theme with one look
+	// holds it whatever the mode says.
+	active := theme.Active()
+	mode := i18n.T("System")
+	switch dark, pinned := active.Pinned(); {
+	case pinned && dark, !pinned && st.Theme == "dark":
+		mode = i18n.T("Dark")
+	case pinned, st.Theme == "light":
+		mode = i18n.T("Light")
 	}
+	themeLine := i18n.Meta(themeName(active), mode)
 	effects := ""
 	switch {
 	case st.ReduceEffects:

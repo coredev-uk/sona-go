@@ -12,7 +12,7 @@ What it refuses: the streaming-app default of near-black with a brand-coloured a
 
 1. **Fast before pretty.** Nothing visual may cost first paint or scroll smoothness (`docs/architecture.md` §8): the interface draws on the GPU, and layout, text shaping and image work stay out of every frame.
 2. **The cover is the colour.** Chrome stays neutral so artwork reads true.
-3. **Amber means "playing".** The now-playing row, the play control, the progress fill, the active queue item. Navigation selection, focus and primary buttons do not use amber. On an album page the cover's own accent does amber's job for that record (Album page, below).
+3. **The spot colour means "playing" (amber in Sona's own theme).** The now-playing row, the play control, the progress fill, the active queue item. Navigation selection, focus and primary buttons do not use it. Another theme may pick another spot colour, and it means the same thing (Themes, below). On an album page the cover's own accent does the spot colour's job for that record (Album page, below).
 4. **Native to the desktop.** Light and dark follow the system; it works with the keyboard; it is dense enough to sit tiled at half width beside an editor.
 5. **Honest states.** Signed out, syncing, offline, no CDM: each is said plainly where the missing data would be.
 
@@ -55,11 +55,30 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 | `--danger`       | `#b42318` | `#f0705f` | Errors and destructive actions only                  |
 | `--positive`     | `#1f6e47` | `#5cc48c` | Success states only                                  |
 
-- The faint green-grey tint (hue ~150) keeps the board from reading as dead grey and sits well next to any cover. No cream, no navy, no violet.
+- The faint green-grey tint (hue ~150) keeps the board from reading as dead grey and sits well next to any cover. No cream, no navy, no violet: that is Sona's own themes' rule, not the community palettes' (Themes, below).
 - The primary button is ink-filled (near-black on light, near-white on dark), not amber.
 - Focus ring: 2px `--ink` at 60% (the `ring` token, MyGo's keyboard-focus ring) outside the control, everywhere (≥ 3:1 on every background tone). Selection is amber at 32% (the `selection` token); the caret is `--amber-ink`.
 - Contrast floors (WCAG AA, `docs/accessibility.md`): text tokens ≥ 4.5:1 on every background up to `--active` (selected rows), `--control-line` and the focus ring ≥ 3:1. Slider thumbs are always shown: the thumb, not the fill colour, marks the value.
 - The kit's role names (`background`, `primary`, `muted`, `ring`, …) are tokens in `tokens.json` too, mapped onto these, so MyGo's widgets and Sona's components read one palette without per-component overrides.
+
+### Themes
+
+The table above is Sona's own theme (`sona`): `tokens.json` is its whole document, and every other theme is a set of overrides of it (`internal/ui/theme/themes/*.json`, and the user's own files, `docs/themes.md`). A token a theme leaves out comes from Sona's own, so a theme never shows a missing colour. Every light/dark difference is a token (`scrim`, `input-bg`, `switch-off`, `select-hover`, `badge-destructive`, `link-tile-border`, `dialog-border`…); the kit has no `theme.Dark()` branch for a colour.
+
+| Theme | Looks | Spot colour |
+| --- | --- | --- |
+| `sona` | The default: the table above, light and dark. | amber |
+| `graphite` | A cooler neutral board, light and dark. | sky blue |
+| `paper` | A warm neutral board, grey and not cream, light and dark. | teal |
+| `contrast` | White or black board, strong lines and focus ring, every text colour at 7:1, light and dark. | blue (light), yellow (dark) |
+| `oled` | Dark only. A `#000000` ground, with surface and raised just above it to separate menus. | lime |
+| `catppuccin`, `nord`, `gruvbox`, `solarized`, `rose-pine`, `tokyo-night` | The community palettes, each with a light and a dark variant (Latte/Mocha, Snow Storm/Polar Night, light/dark, light/dark, Dawn/main, Day/Night). | peach, frost, yellow, yellow, gold, orange |
+| `dracula` | The community palette, dark only. | pink |
+
+- **Sona's own themes keep the brief.** The chrome is a neutral board (no tone of it strays more than a few levels from grey; a test holds the five to it), the cover is the colour, and there is no cream, navy or violet. The community presets are their projects' palettes mapped onto Sona's tokens: their own hues win, violet and navy included, and each credits its project in `author`. Where an exact palette value fails the floors below (text tiers, the control line, the spot floors), that token is moved in lightness only, and the theme file's `$comment` lists each change.
+- **A theme may change the spot colour** (`amber`, `amber-ink`, `on-amber`; `play`, `play-ink` and `on-play` follow). It still means "playing" and nothing else: a theme whose `primary`, `ring` (the focus ring), `active` or `hover` (navigation selection and hover) or any other role of the kit resolves to it is refused. The cover's accent on the album page replaces it as before; `palette` reads its six colours (ground, hover, active, ink, spot, on-spot) from the current theme.
+- **A theme that fails is refused, not adjusted.** `theme.Validate` is the one rule set, for the built-ins' tests and for a user's file at run time: text tiers, the spot colour as text and the status colours keep 4.5:1 on every tone up to `--active` and on a selected row (ink at 12%); `--control-line` and the ring keep 3:1; avatar tones 4.5:1; the backdrop scrim stays at 0.8 or more; the spot fill keeps 2:1 against the ground and 1.75:1 against surface and hover in a light theme (amber's own 2.0, 1.88 and 1.76), 3:1 in a dark one; `--on-amber` keeps 4.5:1 on it; ink keeps 4.5:1 on the selection (the spot colour at 32%).
+- **A theme with one variant pins the appearance** to it: `oled` and `dracula` are dark, so Settings → Appearance disables the mode row and says so. Settings → Appearance lists the themes as cards (a miniature window drawn from each theme's own tokens, its name, a line, "Dark only" where it applies), in two groups, "Sona's own" and "Community palettes", then the user's files.
 
 ## Space and density
 

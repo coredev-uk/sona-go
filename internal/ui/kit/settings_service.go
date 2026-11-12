@@ -46,9 +46,11 @@ func CloneSettings(s config.Settings) config.Settings {
 	return s
 }
 
-// ApplyAppearance applies the theme and reduce effects at once (the window's
-// own follow-up on "settings:changed" confirms it).
+// ApplyAppearance applies the theme, its mode and reduce effects at once (the
+// window's own follow-up on "settings:changed" confirms it). A theme that
+// gives one variant only pins the mode (theme.Dark).
 func ApplyAppearance(s config.Settings) {
+	theme.SetTheme(s.ThemeID)
 	switch s.Theme {
 	case config.ThemeLight:
 		theme.SetMode(theme.ModeLight)

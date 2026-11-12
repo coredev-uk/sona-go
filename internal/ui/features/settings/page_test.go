@@ -50,7 +50,7 @@ func TestTheRetiredAccountSectionOpensTheAccountDialogAndRedirects(t *testing.T)
 
 func TestSectionListShowsEachSectionsStateInOneLine(t *testing.T) {
 	r := newRig(t, 1132, 900, nil)
-	r.tt.Until("summaries", r.tt.Shows("Opens on Albums", "Default keys", "Light theme", "Nothing connected", "Checks, logs and bug reports"))
+	r.tt.Until("summaries", r.tt.Shows("Opens on Albums", "Default keys", "Sona · Light", "Nothing connected", "Checks, logs and bug reports"))
 }
 
 func TestBelow960TheSummariesAreForAssistiveTechnologyOnly(t *testing.T) {
@@ -70,7 +70,7 @@ func TestFindListsWhatAQueryFindsInPlaceOfTheSections(t *testing.T) {
 	}
 	r.tt.Type("dark")
 	r.tt.Drain()
-	if !r.tt.HasText("Theme") || !r.tt.HasText("Appearance") {
+	if !r.tt.HasText("Mode") || !r.tt.HasText("Appearance") {
 		t.Fatalf("results missing; texts %q", r.tt.Texts())
 	}
 	if r.tt.HasText("Storage") {
@@ -153,8 +153,8 @@ func TestALandingScrollsFocusesAndWashesTheRowForTwoSeconds(t *testing.T) {
 		t.Error("the landing is still pending")
 	}
 	r.tt.Drain()
-	if !r.tt.Focused("Theme") {
-		t.Error("the Theme control did not take the focus")
+	if !r.tt.Focused("Mode") {
+		t.Error("the Mode control did not take the focus")
 	}
 	if !r.s.now().Before(r.s.found.until) {
 		t.Fatal("no wash")

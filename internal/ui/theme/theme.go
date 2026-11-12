@@ -33,8 +33,19 @@ const FontFamily = "Schibsted Grotesk"
 // settings goroutine can set the modes.
 var state struct {
 	mu   sync.Mutex
-	doc  *Document
+	base *Document // Sona's own tokens (tokens.json)
+	doc  *Document // the active theme laid over base: what frames draw from
 	mode Mode
+
+	// The themes (registry.go): the one the settings ask for and the one
+	// in use, which is Sona's own when no theme has the asked-for ID.
+	wantID   string
+	active   *Theme
+	all      []*Theme // built-ins, then the user's
+	user     []*Theme
+	entries  []UserEntry
+	lastGood map[string]*Theme // by file name
+	rev      uint64            // changes with every new tokens
 
 	// What the last frame saw: the desktop's appearance.
 	systemDark bool
@@ -60,20 +71,23 @@ func init() {
 	if err != nil {
 		panic(err) // tokens.json is part of the binary: a test keeps it valid
 	}
-	state.doc = d
+	state.base = d
+	builtinThemes = builtins(d)
+	state.wantID = DefaultThemeID
+	resolveLocked()
 }
 
 // strict says an unknown token or icon is a bug: it panics in tests and in
 // development builds, and shows a placeholder in production.
 func strict() bool { return devBuild || testing.Testing() }
 
-// SetDocument replaces the tokens (dev builds reload tokens.json; tests
-// load variants). Frames after it use the new values.
+// SetDocument replaces Sona's own tokens (dev builds reload tokens.json;
+// tests load variants); the chosen theme stays laid over them. Frames after
+// it use the new values.
 func SetDocument(d *Document) {
 	state.mu.Lock()
-	state.doc = d
-	state.tokens = [2]*Tokens{}
-	state.themes = nil
+	state.base = d
+	resolveLocked()
 	state.mu.Unlock()
 }
 
@@ -108,8 +122,9 @@ func SetMode(m Mode) {
 	state.mu.Unlock()
 }
 
-// Dark reports whether frames draw dark now: the chosen mode, or the
-// desktop's appearance (as the last Apply saw it) under ModeSystem.
+// Dark reports whether frames draw dark now: the polarity a one-variant
+// theme pins, else the chosen mode, or the desktop's appearance (as the last
+// Apply saw it) under ModeSystem.
 func Dark() bool {
 	state.mu.Lock()
 	defer state.mu.Unlock()
@@ -117,6 +132,11 @@ func Dark() bool {
 }
 
 func darkLocked() bool {
+	if state.active != nil {
+		if dark, pinned := state.active.pinned(); pinned {
+			return dark
+		}
+	}
 	switch state.mode {
 	case ModeLight:
 		return false

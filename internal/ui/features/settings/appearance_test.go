@@ -26,6 +26,12 @@ func sectionRig(t *testing.T, section string, opts ...uitest.Option) *rig {
 // failed is not asked again for 5 s).
 func sectionRigWith(t *testing.T, section string, setup func(*settings), opts ...uitest.Option) *rig {
 	t.Helper()
+	return sectionRigSized(t, section, 900, setup, opts...)
+}
+
+// sectionRigSized is sectionRigWith in a window of the given height.
+func sectionRigSized(t *testing.T, section string, height int, setup func(*settings), opts ...uitest.Option) *rig {
+	t.Helper()
 	hn := uitest.New(t, opts...)
 	r := &rig{t: t, h: hn, router: ui.NewRouter(settingsPath)}
 	hn.Env.Nav = r.router
@@ -49,7 +55,7 @@ func sectionRigWith(t *testing.T, section string, setup func(*settings), opts ..
 			})
 		})
 		kit.Toaster(c)
-	}, 1132, 900)
+	}, 1132, height)
 	r.tt.Drain()
 	r.router.Replace(settingsPath + "?section=" + section)
 	r.tt.Drain()
@@ -73,7 +79,7 @@ func (r *rig) saved(what string, ok func(config.Settings) bool) {
 
 func TestThemeChoiceTakesEffectAndSaves(t *testing.T) {
 	r := sectionRig(t, "appearance")
-	r.tt.Until("appearance", r.tt.Shows("Theme", "System", "Light", "Dark", "Reduce effects", "Motion artwork"))
+	r.tt.Until("appearance", r.tt.Shows("Mode", "Theme", "System", "Light", "Dark", "Reduce effects", "Motion artwork"))
 	if theme.Dark() {
 		t.Fatal("starts light")
 	}
@@ -144,7 +150,7 @@ func TestMotionArtworkSaves(t *testing.T) {
 func TestAppearanceRowsAreInTheFindIndex(t *testing.T) {
 	r := sectionRig(t, "appearance")
 	r.tt.Until("appearance", r.tt.Shows("Theme"))
-	for _, id := range []string{"theme", "reduce-effects", "motion-artwork"} {
+	for _, id := range []string{"theme", "theme-gallery", "themes-folder", "reduce-effects", "motion-artwork"} {
 		if !r.s.seen[id] {
 			t.Errorf("no row %q", id)
 		}

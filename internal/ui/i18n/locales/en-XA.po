@@ -336,6 +336,10 @@ msgstr ""
 msgid "Another app opens them now."
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "Another theme already has this id"
+msgstr ""
+
 #: internal/ui/features/concerts/page.go
 msgid "Any date"
 msgstr ""
@@ -762,6 +766,10 @@ msgstr ""
 msgid "Buffering…"
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "By {author}"
+msgstr ""
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "CDM file"
 msgstr ""
@@ -1043,6 +1051,10 @@ msgstr ""
 msgid "Collection"
 msgstr ""
 
+#: internal/ui/features/settings/appearance.go
+msgid "Colours"
+msgstr ""
+
 #: internal/ui/features/concerts/agenda.go
 msgid "Coming days"
 msgstr ""
@@ -1067,6 +1079,10 @@ msgstr ""
 
 #: internal/ui/features/commands/palette.go
 msgid "Commands"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Community palettes"
 msgstr ""
 
 #: internal/ui/features/settings/find.go
@@ -1137,6 +1153,10 @@ msgstr ""
 
 #: internal/ui/app/menubar.go
 msgid "Controls"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Cool grey, sky blue"
 msgstr ""
 
 #: internal/ui/app/menubar.go
@@ -1544,6 +1564,10 @@ msgstr ""
 msgid "Couldn't open the release"
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "Couldn't open the themes folder"
+msgstr ""
+
 #: internal/ui/features/playlist/commands.go
 msgid "Couldn't pin “{name}”"
 msgstr ""
@@ -1873,11 +1897,16 @@ msgstr ""
 
 #: internal/ui/features/onboarding/appearance.go
 #: internal/ui/features/settings/appearance.go
+#: internal/ui/features/settings/summaries.go
 msgid "Dark"
 msgstr ""
 
-#: internal/ui/features/settings/summaries.go
-msgid "Dark theme"
+#: internal/ui/features/settings/themes.go
+msgid "Dark only"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Dark: {text}"
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
@@ -1895,6 +1924,14 @@ msgstr ""
 
 #: internal/ui/features/concerts/page.go
 msgid "Dates"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Dawn and night, gold"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Day and Night, orange"
 msgstr ""
 
 #: internal/ui/features/settings/summaries.go
@@ -2184,6 +2221,10 @@ msgstr ""
 
 #: internal/ui/features/discover/room.go
 msgid "Editors' order"
+msgstr ""
+
+#: internal/ui/features/settings/appearance.go
+msgid "Effects"
 msgstr ""
 
 #. Equaliser preset
@@ -2479,6 +2520,10 @@ msgstr ""
 msgid "For you"
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "Format {format} is not one Sona reads"
+msgstr ""
+
 #: internal/ui/features/playlist/collaborators.go
 msgid "Former collaborators"
 msgstr ""
@@ -2642,6 +2687,10 @@ msgstr ""
 msgid "Gradient"
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "Graphite"
+msgstr ""
+
 #: internal/ui/features/settings/motiondiag.go
 msgid "H.264 decoding"
 msgstr ""
@@ -2685,6 +2734,10 @@ msgstr ""
 
 #: internal/ui/app/menubar.go
 msgid "Hide Sona"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "High contrast"
 msgstr ""
 
 #: internal/ui/features/onboarding/playback.go
@@ -2863,6 +2916,10 @@ msgstr ""
 msgid "It isn't in your library on this computer, and Apple Music didn't return it. It may not be offered in your storefront, or it was removed."
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "It needs a light variant, a dark variant or both"
+msgstr ""
+
 #: internal/ui/i18n/errors.go
 msgid "It was cancelled."
 msgstr ""
@@ -2993,6 +3050,10 @@ msgstr ""
 msgid "Latest release"
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "Latte and Mocha, peach"
+msgstr ""
+
 #: internal/ui/kit/overlays_palette.go
 msgctxt "keyboard key"
 msgid "Left Arrow"
@@ -3036,11 +3097,16 @@ msgstr ""
 
 #: internal/ui/features/onboarding/appearance.go
 #: internal/ui/features/settings/appearance.go
+#: internal/ui/features/settings/summaries.go
 msgid "Light"
 msgstr ""
 
-#: internal/ui/features/settings/summaries.go
-msgid "Light theme"
+#: internal/ui/features/settings/themes.go
+msgid "Light only"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Light: {text}"
 msgstr ""
 
 #: internal/ui/features/settings/storage.go
@@ -3270,6 +3336,11 @@ msgstr ""
 
 #: internal/ui/app/menubar.go
 msgid "Minimize"
+msgstr ""
+
+#: internal/ui/features/settings/appearance.go
+#: internal/ui/features/settings/find.go
+msgid "Mode"
 msgstr ""
 
 #: internal/ui/features/album/sections.go
@@ -3775,6 +3846,10 @@ msgstr ""
 msgid "Not Playing"
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "Not a valid theme file: {detail}"
+msgstr ""
+
 #: internal/ui/features/onboarding/status.go
 msgid "Not available here"
 msgstr ""
@@ -3980,6 +4055,10 @@ msgstr ""
 msgid "OK"
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "OLED"
+msgstr ""
+
 #: internal/ui/features/equalizer/page.go
 #: internal/ui/features/settings/motiondiag.go
 msgid "Off"
@@ -4145,6 +4224,10 @@ msgstr ""
 msgid "Open the page again"
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "Open themes folder"
+msgstr ""
+
 #: internal/ui/features/player/nowplaying_view.go
 msgid "Open website"
 msgstr ""
@@ -4218,6 +4301,10 @@ msgstr ""
 
 #: internal/ui/module/shortcut_groups.go
 msgid "Pages"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Paper"
 msgstr ""
 
 #: internal/ui/account/credentials.go
@@ -4595,6 +4682,10 @@ msgstr ""
 msgid "Preamp"
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "Precision colours, yellow"
+msgstr ""
+
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/lyrics.go
 msgid "Prefer word-by-word lyrics"
@@ -4734,6 +4825,14 @@ msgstr ""
 
 #: internal/ui/features/search/profile.go
 msgid "Public playlists"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Purple night, pink"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Put a theme file, a .json, in {folder}. It shows here, and an edit shows as you save it."
 msgstr ""
 
 #: internal/ui/features/player/nowplaying_shortcuts.go
@@ -5096,6 +5195,10 @@ msgstr ""
 
 #: internal/ui/features/search/page.go
 msgid "Results for “{q}”"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Retro groove, yellow"
 msgstr ""
 
 #: internal/ui/features/onboarding/widevine.go
@@ -5756,6 +5859,14 @@ msgstr ""
 msgid "Sleep timer: {minutes}m left, pauses at {until}"
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "Snow Storm and Polar Night, frost"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Soft grey, amber"
+msgstr ""
+
 #: internal/ui/features/onboarding/appearance.go
 msgid "Solid surfaces and no animation. Smoother on software rendering."
 msgstr ""
@@ -5772,6 +5883,7 @@ msgstr ""
 #: internal/ui/app/view.go
 #: internal/ui/features/auth/dialog.go
 #: internal/ui/features/settings/diag_rows.go
+#: internal/ui/features/settings/themes.go
 msgid "Sona"
 msgstr ""
 
@@ -6031,6 +6143,10 @@ msgstr ""
 
 #: internal/ui/features/settings/linkhandler.go
 msgid "Sona's desktop entry isn't installed (a source build, a Flatpak or an AppImage that isn't integrated), so your desktop can't choose Sona for them."
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Sona's own"
 msgstr ""
 
 #: internal/ui/features/settings/desktop.go
@@ -6355,6 +6471,7 @@ msgstr ""
 
 #: internal/ui/features/onboarding/appearance.go
 #: internal/ui/features/settings/appearance.go
+#: internal/ui/features/settings/summaries.go
 msgid "System"
 msgstr ""
 
@@ -6372,10 +6489,6 @@ msgstr ""
 
 #: internal/ui/features/settings/motiondiag.go
 msgid "System reduced motion"
-msgstr ""
-
-#: internal/ui/features/settings/summaries.go
-msgid "System theme"
 msgstr ""
 
 #: internal/ui/kit/overlays_palette.go
@@ -6398,6 +6511,10 @@ msgstr ""
 
 #: internal/ui/account/code.go
 msgid "Text again"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Text at 7:1, strong lines"
 msgstr ""
 
 #: internal/ui/account/code.go
@@ -6461,6 +6578,10 @@ msgstr ""
 msgid "The account's country or region has no Apple Music storefront."
 msgstr ""
 
+#: internal/ui/features/settings/appearance.go
+msgid "The colours of the whole window. A theme also picks the colour that marks what plays."
+msgstr ""
+
 #: internal/ui/features/onboarding/desktop.go
 msgid "The computer doesn't suspend on its own while music plays."
 msgstr ""
@@ -6509,8 +6630,20 @@ msgstr ""
 msgid "The empty folder is removed on all your devices."
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "The file can't be read"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "The file is larger than {size} KiB"
+msgstr ""
+
 #: internal/ui/i18n/errors.go
 msgid "The folder isn't empty. Move or delete what's in it first."
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "The id has to be 1 to 40 of a to z, 0 to 9 and -"
 msgstr ""
 
 #: internal/ui/features/playlist/covers.go
@@ -6527,6 +6660,10 @@ msgstr ""
 
 #: internal/ui/features/onboarding/desktop.go
 msgid "The music stops with it."
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "The name has to be 1 to 40 characters"
 msgstr ""
 
 #: internal/ui/features/equalizer/page.go
@@ -6573,6 +6710,10 @@ msgstr ""
 msgid "The station continues after your songs"
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "The theme “{id}” isn't available, so Sona's own is showing. It comes back with its file."
+msgstr ""
+
 #: internal/ui/account/token.go
 msgid "The token from a signed-in Apple Music web session. Sona checks it with Apple and keeps it in your keyring."
 msgstr ""
@@ -6601,6 +6742,7 @@ msgstr ""
 #: internal/ui/features/settings/appearance.go
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/settingsfile.go
+#: internal/ui/features/settings/themes.go
 msgid "Theme"
 msgstr ""
 
@@ -6867,6 +7009,10 @@ msgstr ""
 
 #: internal/ui/features/equalizer/curve.go
 msgid "Treble Reducer"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "True black, lime"
 msgstr ""
 
 #: internal/ui/account/code.go
@@ -7172,6 +7318,10 @@ msgstr ""
 #. Line under the title of the small player while the Widevine decryption module (needed to play Apple Music) downloads.
 #: internal/ui/features/miniplayer/view.go
 msgid "Waiting for Widevine: see Settings → Playback in Sona"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Warm grey, teal"
 msgstr ""
 
 #: internal/ui/features/settings/diagnostics.go
@@ -7499,6 +7649,10 @@ msgstr ""
 msgid "Your keyring didn't answer or refused. Unlock it, then try again."
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "Your last edit was refused. This earlier version stays."
+msgstr ""
+
 #: internal/ui/features/library/gate.go
 msgid "Your library is syncing"
 msgstr ""
@@ -7513,6 +7667,11 @@ msgstr ""
 
 #: internal/ui/features/auth/dialog.go
 msgid "Your library, in sync"
+msgstr ""
+
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/themes.go
+msgid "Your own themes"
 msgstr ""
 
 #: internal/ui/features/home/local.go
@@ -7563,6 +7722,14 @@ msgstr ""
 msgid "Your system kept {app}."
 msgstr ""
 
+#: internal/ui/features/settings/themes.go
+msgid "Your theme"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Your themes"
+msgstr ""
+
 #: internal/ui/account/section.go
 #: internal/ui/account/signedin.go
 #: internal/ui/features/auth/menu.go
@@ -7575,6 +7742,10 @@ msgstr ""
 
 #: internal/ui/features/auth/auth.go
 msgid "account apple music sign in sign out storefront keyring"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "and {count} more"
 msgstr ""
 
 #: internal/ui/features/settings/find.go
@@ -7597,6 +7768,10 @@ msgstr ""
 msgid "bug report"
 msgstr ""
 
+#: internal/ui/features/settings/find.go
+msgid "colours, palette, graphite, ink, high contrast, paper, spot colour"
+msgstr ""
+
 #: internal/ui/features/miniplayer/miniplayer.go
 msgid "compact small window"
 msgstr ""
@@ -7610,7 +7785,11 @@ msgid "create playlist add"
 msgstr ""
 
 #: internal/ui/features/settings/find.go
-msgid "dark, light"
+msgid "custom, json, folder"
+msgstr ""
+
+#: internal/ui/features/settings/find.go
+msgid "dark, light, system, appearance"
 msgstr ""
 
 #: internal/ui/features/settings/find.go
@@ -8303,6 +8482,14 @@ msgstr ""
 msgid "{text} away"
 msgstr ""
 
+#: internal/ui/features/settings/appearance.go
+msgid "{theme} has a dark look only, so Sona stays dark with it."
+msgstr ""
+
+#: internal/ui/features/settings/appearance.go
+msgid "{theme} has a light look only, so Sona stays light with it."
+msgstr ""
+
 #: internal/ui/features/search/results.go
 msgid "{title} for {q}"
 msgstr ""
@@ -8313,6 +8500,30 @@ msgstr ""
 
 #: internal/ui/features/search/results.go
 msgid "{title}, {count}"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "{token} can't be the spot colour: it only marks what plays"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "{token} has to follow the spot colour"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "{token} is not a {group} token"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "{token} is {got}, it needs to be at least {want}"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "{token} on {other} has {got}:1, it needs {want}:1"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "{token}: {detail}"
 msgstr ""
 
 #: internal/ui/features/library/artists.go

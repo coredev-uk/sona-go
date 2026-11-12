@@ -1,7 +1,6 @@
 package theme
 
 import (
-	"math"
 	"strings"
 	"testing"
 	"time"
@@ -127,51 +126,16 @@ func TestScalesFollowDesignMD(t *testing.T) {
 	}
 }
 
-func luminance(c ui.Color) float64 {
-	lin := func(v uint8) float64 {
-		x := float64(v) / 255
-		if x <= 0.03928 {
-			return x / 12.92
-		}
-		return math.Pow((x+0.055)/1.055, 2.4)
-	}
-	return 0.2126*lin(c.R) + 0.7152*lin(c.G) + 0.0722*lin(c.B)
-}
-
-func contrast(a, b ui.Color) float64 {
-	la, lb := luminance(a), luminance(b)
-	if la < lb {
-		la, lb = lb, la
-	}
-	return (la + 0.05) / (lb + 0.05)
-}
-
-// The floors docs/accessibility.md sets: text tokens 4.5:1 on every
-// background tone up to --active, control-line 3:1.
-func TestContrastFloors(t *testing.T) {
+// Sona's own tokens keep every floor Validate holds a theme to
+// (docs/accessibility.md: text 4.5:1 up to --active, control-line 3:1).
+func TestSonasOwnTokensValidate(t *testing.T) {
 	for _, dark := range []bool{false, true} {
-		tk, _ := state.doc.Tokens(dark)
-		for _, bg := range []string{"ground", "surface", "raised", "hover", "active"} {
-			for _, fg := range []string{"ink", "ink-muted", "ink-faint", "amber-ink", "positive"} {
-				if c := contrast(tk.Color[fg], tk.Color[bg]); c < 4.5 {
-					t.Errorf("%s: %s on %s is %.2f:1", modeName(dark), fg, bg, c)
-				}
-			}
-			// index.css claims 3:1 up to --active too; its values give 2.65:1 to
-			// 2.87:1 on hover and active, which controls never sit on, so the
-			// floor is held where they do (v0.2.0's values, unchanged).
-			if bg == "hover" || bg == "active" {
-				continue
-			}
-			if c := contrast(tk.Color["control-line"], tk.Color[bg]); c < 3 {
-				t.Errorf("%s: control-line on %s is %.2f:1", modeName(dark), bg, c)
-			}
+		tk, err := state.base.Tokens(dark)
+		if err != nil {
+			t.Fatal(err)
 		}
-		for i := range 8 {
-			bg, fg := tk.Color["avatar-"+string(rune('0'+i))+"-bg"], tk.Color["avatar-"+string(rune('0'+i))+"-fg"]
-			if c := contrast(fg, bg); c < 4.5 {
-				t.Errorf("%s: avatar %d is %.2f:1", modeName(dark), i, c)
-			}
+		for _, p := range Validate(tk) {
+			t.Errorf("%s", p)
 		}
 	}
 }

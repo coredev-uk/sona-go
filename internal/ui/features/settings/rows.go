@@ -60,11 +60,13 @@ func (s *settings) row(c *ui.Context, o rowOpts, control func() ui.Element) {
 	col := ui.Column(c).FillWidth()
 	col.Children(func() {
 		s.line(c)
-		in := ui.Row(c.Key("in")).FillWidth().Margin(0, -rowWashInset).Padding(rowPadY, rowWashInset).
-			AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(rowGap).Radius(theme.Current().Radius["md"])
+		var in ui.Element
 		if o.Stacked {
 			in = ui.Column(c.Key("in")).FillWidth().Margin(0, -rowWashInset).Padding(rowPadY, rowWashInset).
 				Gap(12).Radius(theme.Current().Radius["md"])
+		} else {
+			in = ui.Row(c.Key("in")).FillWidth().Margin(0, -rowWashInset).Padding(rowPadY, rowWashInset).
+				AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(rowGap).Radius(theme.Current().Radius["md"])
 		}
 		s.wash(in, o.ID)
 		in.Children(func() {

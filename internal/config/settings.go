@@ -22,6 +22,13 @@ const (
 	ThemeDark   = "dark"
 )
 
+// DefaultThemeID is [Settings.ThemeID] until another theme is chosen.
+const DefaultThemeID = "sona"
+
+// maxThemeIDLength bounds a theme ID read from a file: theme files limit
+// theirs to 40, so a longer one names no theme.
+const maxThemeIDLength = 64
+
 // Audio quality values for [Settings.AudioQuality], in kbps. They select the
 // 256 kbps (ctrp256) or 64 kbps (ctrp64) Widevine AAC flavor.
 const (
@@ -37,8 +44,13 @@ type Settings struct {
 	// (language.go). Go's own text (tray, notifications, the command line,
 	// dialog titles) and Apple's content language follow it too.
 	Language string `json:"language"`
-	// Theme is "system", "light" or "dark".
+	// Theme is the appearance: "system", "light" or "dark".
 	Theme string `json:"theme"`
+	// ThemeID is the theme chosen in Settings → Appearance: a built-in
+	// ("sona", "graphite", "ink", "contrast", "paper") or the ID of a user's
+	// theme file. An ID no theme has is kept, so the choice returns with its
+	// file; the UI shows Sona's own theme and says so meanwhile.
+	ThemeID string `json:"themeId"`
 	// ReduceEffects turns off backdrops and animation for solid surfaces.
 	ReduceEffects bool `json:"reduceEffects"`
 	// Volume is the playback volume in [0, 1].
@@ -123,6 +135,7 @@ const (
 func Defaults() Settings {
 	return Settings{
 		Theme:             ThemeSystem,
+		ThemeID:           DefaultThemeID,
 		Volume:            0.8,
 		AudioQuality:      Quality256,
 		EngineIdleMinutes: defaultEngineIdleMinutes,
@@ -143,7 +156,8 @@ func Defaults() Settings {
 }
 
 // Normalized returns s with out-of-range values replaced: unknown themes
-// become "system", volume is clamped to [0, 1], unknown qualities become 256,
+// become "system", an empty theme ID becomes Sona's (an ID no theme has is
+// kept), volume is clamped to [0, 1], unknown qualities become 256,
 // and a non-positive idle timeout becomes the default and a longer one than
 // a day is cut to a day.
 func (s Settings) Normalized() Settings {
@@ -151,6 +165,10 @@ func (s Settings) Normalized() Settings {
 	case ThemeSystem, ThemeLight, ThemeDark:
 	default:
 		s.Theme = ThemeSystem
+	}
+	s.ThemeID = strings.TrimSpace(s.ThemeID)
+	if s.ThemeID == "" || len(s.ThemeID) > maxThemeIDLength {
+		s.ThemeID = DefaultThemeID
 	}
 	s.Volume = clampVolume(s.Volume)
 	if s.AudioQuality != Quality256 && s.AudioQuality != Quality64 {

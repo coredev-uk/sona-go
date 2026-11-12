@@ -27,6 +27,9 @@ type colours struct {
 type palKey struct {
 	apple palette.Cover
 	dark  bool
+	// rev is the theme's tokens (theme.Revision): the palette is checked
+	// against the theme's colours, spot colour included.
+	rev uint64
 }
 
 // palCache is the last colours built, kept on the page.
@@ -41,7 +44,7 @@ type palCache struct {
 // nil when the cover gives none (a library-only album with no dominant
 // colours: the sleeve keeps its plain wash).
 func (a *album) colours(m *model) *colours {
-	key := palKey{dark: theme.Dark()}
+	key := palKey{dark: theme.Dark(), rev: theme.Revision()}
 	if m.page != nil {
 		key.apple = palette.Cover(m.page.ArtworkColors)
 	}
