@@ -176,22 +176,41 @@ func (p *playlists) dialogHost(c *ui.Context) {
 	}
 }
 
-// dialogText is a Text in one of the theme's type styles.
-func dialogText(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // dialogHeader is a dialog's title (16 semibold) and the muted line under
 // it (v0.2.0's gap-1 DialogHeader with text-heading and text-sub); oneLine
 // keeps a long description (a playlist's name) to one line.
 func dialogHeader(c *ui.Context, title, description string, oneLine bool) {
 	ui.Column(c.Key("header")).Gap(4).FillWidth().MinWidth(0).Children(func() {
-		dialogText(c.Key("title"), title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
-		d := dialogText(c.Key("description"), description, "secondary").TextColor(theme.C("ink-muted"))
+		theme.Text(c.Key("title"), title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+		d := theme.Text(c.Key("description"), description, "secondary").TextColor(theme.C("ink-muted"))
 		if oneLine {
 			d.SingleLine()
 		}
+	})
+}
+
+// form shows a playlist dialog of fields: padded, headed by title and
+// description, then build.
+func (p *playlists) form(c *ui.Context, maxW float32, title, description string, build func()) {
+	kit.Dialog(c.Key("playlist-dialog"), &p.dialogs.open, kit.DialogOpts{
+		Title: title, Description: description, HideHeader: true, MaxWidth: maxW, Padding: 24, Gap: 20,
+	}, func() {
+		dialogHeader(c, title, description, false)
+		build()
+	})
+}
+
+// picker shows a playlist dialog of a list: no padding of its own, the header
+// (its description, a name, on one line) inset 20, then build lays out the
+// rest edge to edge.
+func (p *playlists) picker(c *ui.Context, maxW float32, title, description string, build func()) {
+	kit.Dialog(c.Key("playlist-dialog"), &p.dialogs.open, kit.DialogOpts{
+		Title: title, Description: description, HideHeader: true, Bare: true, MaxWidth: maxW,
+	}, func() {
+		ui.Column(c.Key("head")).FillWidth().Padding(20, 20, 12, 20).Children(func() {
+			dialogHeader(c, title, description, true)
+		})
+		build()
 	})
 }
 
@@ -201,7 +220,7 @@ func dialogField(c *ui.Context, key, label string, control func() ui.Element) {
 	ui.Column(c.Key(key)).Gap(6).FillWidth().Children(func() {
 		l := ui.Row(c.Key("label"))
 		l.Children(func() {
-			dialogText(c, label, "label").TextColor(theme.C("ink"))
+			theme.Text(c, label, "label").TextColor(theme.C("ink"))
 		})
 		if field := control(); l.Clicked() {
 			field.Focus()
@@ -261,9 +280,9 @@ func (p *playlists) optionRow(c *ui.Context, i int, o option) {
 			kit.Artwork(c.Key("art"), p.env.Art, o.art, 32, kit.ArtOpts{Edge: true}).Shrink(0)
 		}
 		ui.Column(c.Key("text")).Grow(1).MinWidth(0).Children(func() {
-			dialogText(c.Key("title"), o.title, "body").TextColor(theme.C("ink")).SingleLine()
+			theme.Text(c.Key("title"), o.title, "body").TextColor(theme.C("ink")).SingleLine()
 			if o.meta != "" {
-				dialogText(c.Key("meta"), o.meta, "meta").TextColor(theme.C("ink-faint")).SingleLine()
+				theme.Text(c.Key("meta"), o.meta, "meta").TextColor(theme.C("ink-faint")).SingleLine()
 			}
 		})
 		if o.current {
@@ -287,13 +306,8 @@ func groupHeading(c *ui.Context, key, text string, folder bool) {
 		if folder {
 			ui.Icon(c.Key("icon"), theme.Icon("folder-closed")).FontSize(12).TextColor(theme.C("ink-faint"))
 		}
-		dialogText(c.Key("text"), text, "meta").TextColor(theme.C("ink-faint")).Role(ui.RoleHeading).Level(3)
+		theme.Text(c.Key("text"), text, "meta").TextColor(theme.C("ink-faint")).Role(ui.RoleHeading).Level(3)
 	})
-}
-
-// songCount is "N songs".
-func songCount(n int) string {
-	return i18n.T("{n, plural, one {# song} other {# songs}}", "n", n)
 }
 
 // addDialog is the "Add to playlist" picker: a search field, a "New playlist"
@@ -309,12 +323,7 @@ func (p *playlists) addDialog(c *ui.Context) {
 	if tree.HasData {
 		nodes = d.treeNodes(tree.Data)
 	}
-	kit.Dialog(c.Key("playlist-dialog"), &d.open, kit.DialogOpts{
-		Title: i18n.T("Add to playlist"), Description: s.label, HideHeader: true, Bare: true, MaxWidth: 448,
-	}, func() {
-		ui.Column(c.Key("head")).FillWidth().Padding(20, 20, 12, 20).Children(func() {
-			dialogHeader(c, i18n.T("Add to playlist"), s.label, true)
-		})
+	p.picker(c, 448, i18n.T("Add to playlist"), s.label, func() {
 		var find ui.Element
 		ui.Box(c.Key("find")).FillWidth().Padding(0, 20, 12, 20).Children(func() {
 			find = kit.SearchField(c.Key("query"), &d.query, kit.SearchFieldOpts{Placeholder: i18n.T("Find a playlist")})
@@ -341,7 +350,7 @@ func (p *playlists) addDialog(c *ui.Context) {
 		row := func(prefix string, i int, tp services.TreePlaylist) {
 			p.optionRow(c, i, option{
 				key: prefix + tp.Playlist.ID, title: tp.Playlist.Name, art: tp.Playlist.Art.Small,
-				meta: songCount(tp.Playlist.TrackCount), pick: add(tp),
+				meta: i18n.SongCount(tp.Playlist.TrackCount), pick: add(tp),
 			})
 		}
 		ui.Scroll(c.Key("list")).FillWidth().MaxHeight(listMaxHeight(c, 640, chrome)).Children(func() {
@@ -382,13 +391,12 @@ func (p *playlists) addDialog(c *ui.Context) {
 					default:
 						msg = i18n.T("You have no playlists you can edit yet.")
 					}
-					// A status, read as the filter or the load leaves nothing
-					// to pick: the focus stays in the field.
-					note := dialogText(c.Key("empty"), msg, "secondary").TextColor(theme.C("ink-muted")).Padding(16, 8, 0, 8).Role(ui.RoleStatus)
-					if said := ui.Local(note, "said", func() string { return "" }); *said != msg {
-						*said = msg
-						c.Announce(msg)
-					}
+					// A status, read as the filter or the load changes what
+					// it says; the note turning up is announced here, as a
+					// status is not read when it first appears. The focus
+					// stays in the field.
+					note := theme.Text(c.Key("empty"), msg, "secondary").TextColor(theme.C("ink-muted")).Padding(16, 8, 0, 8).Role(ui.RoleStatus)
+					kit.AnnounceMounted(c, note, msg)
 				}
 			})
 		})
@@ -411,10 +419,7 @@ func (p *playlists) playlistDialog(c *ui.Context) {
 	case len(s.items) > 0:
 		description = i18n.T("With {withLabel}.", "withLabel", s.label)
 	}
-	kit.Dialog(c.Key("playlist-dialog"), &d.open, kit.DialogOpts{
-		Title: title, Description: description, HideHeader: true, MaxWidth: 448, Padding: 24, Gap: 20,
-	}, func() {
-		dialogHeader(c, title, description, false)
+	p.form(c, 448, title, description, func() {
 		var name ui.Element
 		dialogField(c, "name", i18n.T("Name"), func() ui.Element {
 			name = kit.Input(c.Key("name-"+strconv.Itoa(gen)), &d.name, kit.InputOpts{A11yLabel: i18n.T("Name")}).FillWidth()
@@ -434,8 +439,8 @@ func (p *playlists) playlistDialog(c *ui.Context) {
 		ui.Row(c.Key("public")).FillWidth().AlignItems(ui.Center).Gap(16).Children(func() {
 			text := ui.Column(c.Key("text")).Grow(1).MinWidth(0)
 			text.Children(func() {
-				dialogText(c.Key("title"), i18n.T("Show on my profile"), "label").TextColor(theme.C("ink"))
-				dialogText(c.Key("hint"), i18n.T("People who follow you can find and play it."), "meta").TextColor(theme.C("ink-faint"))
+				theme.Text(c.Key("title"), i18n.T("Show on my profile"), "label").TextColor(theme.C("ink"))
+				theme.Text(c.Key("hint"), i18n.T("People who follow you can find and play it."), "meta").TextColor(theme.C("ink-faint"))
 			})
 			if text.Clicked() {
 				d.public = !d.public
@@ -496,7 +501,7 @@ func (p *playlists) submitPlaylist() {
 		created, err := p.api.Create(context.Background(), in, s.items, s.folderID)
 		p.env.Post(func() {
 			if err != nil {
-				p.fail(i18n.T("Couldn't create the playlist"), err)
+				kit.ToastFailure(i18n.T("Couldn't create the playlist"), err)
 				d.release(gen)
 				return
 			}
@@ -525,10 +530,7 @@ func (p *playlists) folderDialog(c *ui.Context) {
 		title, submitLabel = i18n.T("Rename folder"), i18n.T("Rename")
 	}
 	description := i18n.T("Folders group playlists in the sidebar on all your devices.")
-	kit.Dialog(c.Key("playlist-dialog"), &d.open, kit.DialogOpts{
-		Title: title, Description: description, HideHeader: true, MaxWidth: 384, Padding: 24, Gap: 20,
-	}, func() {
-		dialogHeader(c, title, description, false)
+	p.form(c, 384, title, description, func() {
 		var name ui.Element
 		dialogField(c, "name", i18n.T("Name"), func() ui.Element {
 			name = kit.Input(c.Key("name-"+strconv.Itoa(gen)), &d.name, kit.InputOpts{A11yLabel: i18n.T("Name")}).FillWidth()
@@ -611,12 +613,7 @@ func (p *playlists) moveDialog(c *ui.Context) {
 				}
 			})
 	}
-	kit.Dialog(c.Key("playlist-dialog"), &d.open, kit.DialogOpts{
-		Title: i18n.T("Move to folder"), Description: s.name, HideHeader: true, Bare: true, MaxWidth: 384,
-	}, func() {
-		ui.Column(c.Key("head")).FillWidth().Padding(20, 20, 12, 20).Children(func() {
-			dialogHeader(c, i18n.T("Move to folder"), s.name, true)
-		})
+	p.picker(c, 384, i18n.T("Move to folder"), s.name, func() {
 		d.nav.Count = 1 + len(folders)
 		ui.Scroll(c.Key("list")).FillWidth().MaxHeight(listMaxHeight(c, 560, chrome)).Children(func() {
 			ui.Column(c.Key("options")).FillWidth().Padding(0, 12, 12, 12).Role(ui.RoleGroup).Children(func() {
@@ -631,7 +628,7 @@ func (p *playlists) moveDialog(c *ui.Context) {
 					})
 				}
 				if len(folders) == 0 && settled {
-					dialogText(c.Key("empty"), i18n.T("You have no folders yet. Create one from the sidebar’s Playlists menu."), "secondary").
+					theme.Text(c.Key("empty"), i18n.T("You have no folders yet. Create one from the sidebar’s Playlists menu."), "secondary").
 						TextColor(theme.C("ink-muted")).Padding(12, 8, 0, 8)
 				}
 			})

@@ -28,7 +28,7 @@ type rowsState struct {
 	sel   kit.Selection
 	nav   kit.GridNav
 	menus *kit.ActionMenus
-	width widthTracker
+	width kit.WidthTracker
 	cols  int
 
 	// The rows shown, for the selection and the drags: an ID per row, and
@@ -99,15 +99,13 @@ func (st *rowsState) itemAt(i int) (kit.Item, bool) {
 // opens the row's menu. Rows select, open their menu on a right-click and
 // drag like cover tiles.
 func (h *home) itemRows(c *ui.Context, st *rowsState, items []services.Item, ctx kit.ItemsCtx, o rowsOpts) {
-	if st.menus == nil {
-		st.menus = kit.NewActionMenus(h.env.Actions, &st.sel)
-	}
+	kit.MenusIn(&st.menus, h.env.Actions, &st.sel)
 	if o.Min == 0 {
 		o.Min = rowMin
 	}
 	hint := i18n.T("Enter opens, Space plays, Shift+F10 shows more actions.")
 	root := ui.Grid(c.Key("rows." + o.Label)).GapX(rowGapX).Role(ui.RoleList).Label(o.Label).Description(hint)
-	width := st.width.track(c, root)
+	width := st.width.Track(c, root)
 	cols := 1
 	if width > 0 {
 		cols, _ = kit.CoverColumns(width, o.Min)
@@ -165,7 +163,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 		art = it.Art.Medium
 	}
 	target := kit.ActionTarget{Item: st.targets[i], Name: name, Key: key}
-	menu := selectable && h.hasMenu(st.targets[i])
+	menu := selectable && st.menus.HasMenu(st.targets[i])
 	hoverBg := theme.C("hover")
 	if o.OnBackdrop {
 		hoverBg = theme.C("ink").Alpha(0.06)
@@ -248,9 +246,9 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			if playable && !direct {
 				play := ui.ButtonBase(c.Key("play")).Absolute().Left(rowPadX).Top((rowH-rowArt)/2).Size(rowArt, rowArt).Center().Radius(radius).
 					Background(theme.C("ground").Alpha(rowMarkA)).Label(i18n.T("Play {name}", "name", name)).IgnoreInput(!hover)
-				fade(play, hover)
+				kit.Fade(play, hover)
 				play.Children(func() {
-					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true, SVG: playGlyph()}).Margin(0, 0, 0, 1)
+					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true}).Margin(0, 0, 0, 1)
 				})
 				if play.Clicked() {
 					ctx.Players.PlayItem(it)
@@ -270,9 +268,9 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				// the name's button, not a second control.
 				mark := ui.Row(c.Key("mark")).Absolute().Left(0).Top(0).Size(rowArt, rowArt).Center().Radius(radius).
 					Background(theme.C("ground").Alpha(rowMarkA)).IgnoreInput(true)
-				fade(mark, hot)
+				kit.Fade(mark, hot)
 				mark.Children(func() {
-					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true, SVG: playGlyph()}).Margin(0, 0, 0, 1)
+					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true}).Margin(0, 0, 0, 1)
 				})
 			}
 		})
@@ -289,7 +287,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				}
 			})
 			if subtitle != "" {
-				text(c, subtitle, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
+				theme.Text(c, subtitle, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
 			}
 		})
 		if menu {
@@ -327,16 +325,8 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 		}
 	}
 	if selectable {
-		rightClickMenu(&st.sel, st.menus, src, target, i)
-		keyMenu(&st.sel, st.menus, src, target, i)
+		st.menus.OpenFor(&st.sel, src, src, target, i)
 	}
-}
-
-// hasMenu says whether the item has a more menu (a kind with actions, or one
-// the bulk actions take): the more button is built, and its room kept, only
-// then.
-func (h *home) hasMenu(it kit.Item) bool {
-	return h.env.Actions.Has(it.Kind) || len(h.env.Actions.BulkFor([]kit.Item{it})) > 0
 }
 
 // rowSideways moves the focus with Left and Right in a list of one column,
@@ -364,26 +354,4 @@ func (h *home) rowSideways(src ui.Element, st *rowsState, i int) bool {
 		return true
 	}
 	return false
-}
-
-// rightClickMenu opens an item's menu at the pointer on a right-click, first
-// selecting the item alone when it is outside the selection (a menu acts on
-// the whole selection only when the item is in it).
-func rightClickMenu(sel *kit.Selection, menus *kit.ActionMenus, e ui.Element, t kit.ActionTarget, index int) {
-	if e.RightClicked() {
-		sel.MenuOn(index)
-		x, y, _ := e.PointerPosition()
-		wx, wy := e.LocalToWindow(x, y)
-		menus.OpenAt(t, wx, wy, false)
-	}
-}
-
-// keyMenu opens an item's menu below e on Shift+F10 or the Menu key while e
-// has the focus.
-func keyMenu(sel *kit.Selection, menus *kit.ActionMenus, e ui.Element, t kit.ActionTarget, index int) {
-	if e.Shortcut(ui.Shift, ui.KeyF10) || e.Shortcut(0, ui.KeyContextMenu) {
-		sel.MenuOn(index)
-		b := e.Bounds()
-		menus.OpenAt(t, b.X+16, b.Y+b.H, true)
-	}
 }

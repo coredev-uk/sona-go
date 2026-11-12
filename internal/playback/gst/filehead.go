@@ -11,7 +11,6 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -37,8 +36,7 @@ type FilePipeline struct {
 	quit   chan struct{}
 	wg     sync.WaitGroup
 	once   sync.Once
-	life   sync.RWMutex // as Pipeline.life
-	closed bool
+	lifecycle
 
 	// mu serialises output moves and guards what the sink was set up for:
 	// the chosen device, the app name and the resulting streamProps.
@@ -68,48 +66,24 @@ func NewFile(o Options, size int64) (*FilePipeline, error) {
 	if o.AppName == "" {
 		o.AppName = "Sona"
 	}
-	sinks := Sinks
-	if o.Sink != "" {
-		sinks = []string{o.Sink}
-	}
-	var errs []error
-	for _, s := range sinks {
-		if o.Sink == "" && !Have(s) {
-			continue
-		}
-		p, err := buildFile(s, o, size)
-		if err == nil {
-			return p, nil
-		}
-		errs = append(errs, err)
-	}
-	if len(errs) == 0 {
-		return nil, fmt.Errorf("gst: no audio sink installed (tried %s)", strings.Join(sinks, ", "))
-	}
-	return nil, errors.Join(errs...)
+	return firstSink(o, func(sink string) (*FilePipeline, error) { return buildFile(sink, o, size) })
 }
 
 func buildFile(sink string, o Options, size int64) (*FilePipeline, error) {
-	seen := routeEpoch()
-	props := streamProps(sink, o.AppName, o.Device)
-	csink, capp, cprops := C.CString(sink), C.CString(o.AppName), C.CString(props)
-	defer func() {
-		for _, s := range []*C.char{csink, capp, cprops} {
-			C.free(unsafe.Pointer(s))
-		}
-	}()
+	cfg := newStreamCfg(sink, o)
+	defer cfg.free()
 	var buf [256]C.char
 	live := C.int(0)
 	if size == Live {
 		live, size = 1, 0
 	}
-	f := C.sona_file_new(csink, capp, cprops, C.uint64_t(size), live, &buf[0], C.size_t(len(buf)))
+	f := C.sona_file_new(cfg.sink, cfg.app, cfg.props, C.uint64_t(size), live, &buf[0], C.size_t(len(buf)))
 	if f == nil {
 		return nil, fmt.Errorf("gst: %s", C.GoString(&buf[0]))
 	}
 	p := &FilePipeline{
 		f: f, sink: sink, events: make(chan Event, 64), quit: make(chan struct{}),
-		device: o.Device, appName: o.AppName, route: props, routeSeen: seen, routeErr: make(chan error, 1),
+		device: o.Device, appName: o.AppName, route: cfg.route, routeSeen: cfg.seen, routeErr: make(chan error, 1),
 	}
 	if C.sona_file_set_state(f, C.int(StateReady)) == 0 {
 		C.sona_file_free(f)
@@ -118,15 +92,6 @@ func buildFile(sink string, o Options, size int64) (*FilePipeline, error) {
 	p.wg.Add(1)
 	go p.watch()
 	return p, nil
-}
-
-func (p *FilePipeline) use() bool {
-	p.life.RLock()
-	if p.closed {
-		p.life.RUnlock()
-		return false
-	}
-	return true
 }
 
 // Sink names the sink in use.
@@ -178,13 +143,7 @@ func (p *FilePipeline) watch() {
 		default:
 			continue
 		}
-		select {
-		case p.events <- ev:
-		default:
-			if ev.Kind != EventWarning {
-				p.events <- ev
-			}
-		}
+		sendEvent(p.events, p.quit, ev)
 	}
 }
 
@@ -203,17 +162,6 @@ func (p *FilePipeline) setState(s State) error {
 // the sink.
 func (p *FilePipeline) Play() error  { return p.setState(StatePlaying) }
 func (p *FilePipeline) Pause() error { return p.setState(StatePaused) }
-
-// State returns the current and pending state without waiting.
-func (p *FilePipeline) State() (cur, pending State) {
-	var c, pend C.int
-	if !p.use() {
-		return StateNull, StateNull
-	}
-	defer p.life.RUnlock()
-	C.sona_file_get_state(p.f, &c, &pend)
-	return State(c), State(pend)
-}
 
 // Feed appends data at off, which must be where the previous Feed ended.
 func (p *FilePipeline) Feed(off int64, data []byte) error {
@@ -308,15 +256,6 @@ func (p *FilePipeline) SetEqualizer(pregain float64, bands [EQBands]float64) {
 	}
 }
 
-// Output reads the live output's settings back, as Pipeline.Output.
-func (p *FilePipeline) Output() (OutputSettings, bool) {
-	if !p.use() {
-		return OutputSettings{}, false
-	}
-	defer p.life.RUnlock()
-	return readTail(C.sona_file_tail(p.f))
-}
-
 // Close stops and frees the pipeline; later calls return ErrClosed.
 func (p *FilePipeline) Close() {
 	p.once.Do(func() {
@@ -336,13 +275,10 @@ func (p *FilePipeline) Close() {
 
 // SetDevice moves output to device (Options.Device; "" follows the default)
 // by replacing the sink; decoding and the position carry on.
-func (p *FilePipeline) SetDevice(device, appName string) error {
-	if appName == "" {
-		appName = "Sona"
-	}
+func (p *FilePipeline) SetDevice(device string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.device, p.appName = device, appName
+	p.device = device
 	return p.moveOutput()
 }
 

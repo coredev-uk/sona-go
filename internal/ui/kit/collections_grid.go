@@ -1,8 +1,6 @@
 package kit
 
 import (
-	"slices"
-
 	"github.com/egoist/mygo/ui"
 )
 
@@ -55,9 +53,7 @@ func CoverGrid(c *ui.Context, st *CoverState, count int, at func(i int) *CoverIt
 		if o.Pane != nil {
 			// Paint runs after this frame's layout: the box and the scroll
 			// offset belong to the same frame.
-			top := r.Y - o.Pane.Bounds().Y + o.Pane.Pos.Y
-			if !st.drawn || top != st.drawTop {
-				st.drawTop, st.drawn = top, true
+			if st.paint(r.Y - o.Pane.Bounds().Y + o.Pane.Pos.Y) {
 				c.Invalidate()
 			}
 		}
@@ -75,13 +71,10 @@ func CoverGrid(c *ui.Context, st *CoverState, count int, at func(i int) *CoverIt
 		rows := (count + cols - 1) / cols
 		virtual := count > VirtualFrom && o.Pane != nil
 
-		var built []int
+		from, to := 0, rows-1
 		if virtual {
-			built = st.window(root, o.Pane, rows, cols, rowH)
+			from, to = st.window(root, o.Pane, rows, cols, rowH)
 		} else {
-			for r := range rows {
-				built = append(built, r)
-			}
 			st.cols, st.rowH = cols, rowH
 		}
 		st.setRows(count, at, cols, o.Menus, o.Hold)
@@ -92,16 +85,14 @@ func CoverGrid(c *ui.Context, st *CoverState, count int, at func(i int) *CoverIt
 			st.nav.ScrollTo = func(i int) { st.scrollTo(o.Pane, i/cols, rowH) }
 		}
 		winFirst, winLast := 0, rows-1
-		if len(built) > 0 {
-			winFirst, winLast = built[0], built[len(built)-1] // not the dragged row's
+		if from <= to {
+			winFirst, winLast = from, to // not the dragged row's
 		}
-		if i, ok := DragPinned(st); ok && i < count && !slices.Contains(built, i/cols) {
-			built = append(built, i/cols)
-			slices.Sort(built)
-		}
+		pinned, ok := DragPinned(st)
+		built := spanOf(from, to, rows, pinned/cols, ok && pinned < count)
 
 		prev := -1
-		for _, r := range built {
+		built.each(func(r int) {
 			if gap := r - prev - 1; gap > 0 {
 				ui.Box(c.Key(gapKey(prev))).Height(float32(gap) * rowH)
 			}
@@ -115,8 +106,8 @@ func CoverGrid(c *ui.Context, st *CoverState, count int, at func(i int) *CoverIt
 				}
 			})
 			prev = r
-		}
-		if gap := rows - 1 - prev; gap > 0 && len(built) > 0 {
+		})
+		if gap := rows - 1 - prev; gap > 0 && !built.empty() {
 			ui.Box(c.Key(gapKey(rows))).Height(float32(gap) * rowH)
 		}
 		if virtual {
@@ -144,46 +135,21 @@ func CoverGrid(c *ui.Context, st *CoverState, count int, at func(i int) *CoverIt
 // window works out which rows of a virtual grid to build: those in view and
 // coverOverscan beyond, and keeps the same tiles at the top when the
 // columns change.
-func (st *CoverState) window(root ui.Element, p *Pane, rows, cols int, rowH float32) []int {
-	pane := p.Bounds()
-	if st.drawn {
-		st.top = st.drawTop
-	} else {
-		st.top = root.Bounds().Y - pane.Y + p.Pos.Y
-	}
+func (st *CoverState) window(root ui.Element, p *Pane, rows, cols int, rowH float32) (from, to int) {
+	st.origin(root.Bounds(), p, 0)
 	if st.cols != cols && st.cols > 0 && p.Pos.Y > st.top && st.rowH > 0 {
 		item := int((p.Pos.Y-st.top)/st.rowH) * st.cols
 		p.Pos.Y = st.top + float32(item/cols)*rowH
 	}
 	st.cols, st.rowH = cols, rowH
-	y := p.Pos.Y - st.top
-	h := pane.H
-	if h <= 0 {
-		h = rowH * 6 // before the first layout
-	}
-	first := max(0, int(y/rowH))
-	last := min(rows-1, int((y+h)/rowH))
-	from, to := max(0, first-coverOverscan), min(rows-1, last+coverOverscan)
-	out := make([]int, 0, max(0, to-from+1))
-	for r := from; r <= to; r++ {
-		out = append(out, r)
-	}
-	return out
+	return st.virtualRows.window(p, rows, rowH, coverOverscan, rowH*6) // 6 rows before the first layout
 }
 
 // scrollTo scrolls the pane as little as shows row r (its tiles, not the
 // gap below), so the row gets built.
 func (st *CoverState) scrollTo(p *Pane, r int, rowH float32) {
-	pane := p.Bounds()
 	top := st.top + float32(r)*rowH
-	bottom := top + rowH - TileGapY
-	const margin = 8
-	switch {
-	case top-margin < p.Pos.Y:
-		p.Pos.Y = max(0, top-margin)
-	case pane.H > 0 && bottom+margin > p.Pos.Y+pane.H:
-		p.Pos.Y = bottom + margin - pane.H
-	}
+	st.scrollIntoView(p, top, top+rowH-TileGapY, 8)
 }
 
 // report tells OnRange which tiles are built, when that changed.

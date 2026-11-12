@@ -20,7 +20,7 @@ import (
 // false. A shared playlist Apple no longer has is not collaborative.
 func (s *PlaylistsService) Collaboration(ctx context.Context, id string) (PlaylistCollaboration, error) {
 	catalogID, own := id, false
-	if isLibraryPlaylist(id) {
+	if applemusic.IsLibraryPlaylistID(id) {
 		row, err := s.e.DB.RQ.GetPlaylistByLibraryID(ctx, db.NullString(id))
 		if errors.Is(err, sql.ErrNoRows) {
 			return noCollaboration(), nil

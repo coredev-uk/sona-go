@@ -7,6 +7,7 @@
 package library
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -554,20 +555,14 @@ func storeLibrarySong(ctx context.Context, q *dbq.Queries, it applemusic.Song, r
 // id is its unchanged stored row, if any: then only the membership is
 // refreshed.
 func storeLibraryPlaylist(ctx context.Context, q *dbq.Queries, it applemusic.Playlist, id, gen, now int64) error {
-	a := it.Attributes
 	if id == 0 {
 		var err error
-		id, err = q.UpsertLibraryPlaylist(ctx, dbq.UpsertLibraryPlaylistParams{
-			LibraryID: db.NullString(it.ID), CatalogID: db.NullString(it.CatalogID()),
-			Name: a.Name, Description: a.Description.Text(), CuratorName: a.CuratorName,
-			ArtworkTemplate: a.Artwork.Template(), CanEdit: db.Bool(a.CanEdit), IsPublic: db.Bool(a.IsPublic),
-			LastModified: a.LastModifiedDate, UpdatedAt: now,
-		})
+		id, err = q.UpsertLibraryPlaylist(ctx, libraryPlaylistParams(it, now))
 		if err != nil {
 			return fmt.Errorf("playlist %s: %w", it.ID, err)
 		}
 	}
-	return q.MarkLibraryItem(ctx, dbq.MarkLibraryItemParams{Kind: "playlist", Ref: id, DateAdded: parseDate(a.DateAdded), Generation: gen})
+	return q.MarkLibraryItem(ctx, dbq.MarkLibraryItemParams{Kind: "playlist", Ref: id, DateAdded: parseDate(it.Attributes.DateAdded), Generation: gen})
 }
 
 // IsSingleRelease reports whether library album it is a single or an EP
@@ -600,8 +595,8 @@ func libraryAlbumParams(it applemusic.Album, now int64) dbq.UpsertLibraryAlbumPa
 	return dbq.UpsertLibraryAlbumParams{
 		LibraryID: db.NullString(it.ID), CatalogID: db.NullString(it.CatalogID()),
 		Name: a.Name, ArtistName: a.ArtistName,
-		ArtistLibraryID: db.NullString(firstID(it.Relationships.Artists.Data, func(r applemusic.Artist) string { return r.ID })),
-		ArtworkTemplate: a.Artwork.Template(), ReleaseDate: a.ReleaseDate, Genre: firstString(a.GenreNames),
+		ArtistLibraryID: db.NullString(it.FirstArtistID()),
+		ArtworkTemplate: a.Artwork.Template(), ReleaseDate: a.ReleaseDate, Genre: cmp.Or(a.GenreNames...),
 		TrackCount: int64(a.TrackCount), ContentRating: a.ContentRating, IsSingle: db.Bool(IsSingleRelease(it)),
 		IsPrerelease: db.Bool(cat.IsPrerelease), CatalogReleaseDate: cat.ReleaseDate, UpdatedAt: now,
 	}
@@ -935,40 +930,24 @@ func libraryTrackParams(s applemusic.Song, now int64) dbq.UpsertLibraryTrackPara
 	return dbq.UpsertLibraryTrackParams{
 		LibraryID: db.NullString(s.ID), CatalogID: db.NullString(s.CatalogID()),
 		Name: a.Name, ArtistName: a.ArtistName, AlbumName: a.AlbumName,
-		AlbumLibraryID:  db.NullString(firstID(s.Relationships.Albums.Data, func(r applemusic.Album) string { return r.ID })),
-		ArtistLibraryID: db.NullString(firstID(s.Relationships.Artists.Data, func(r applemusic.Artist) string { return r.ID })),
+		AlbumLibraryID:  db.NullString(s.FirstAlbumID()),
+		ArtistLibraryID: db.NullString(s.FirstArtistID()),
 		ArtworkTemplate: a.Artwork.Template(), DurationMs: a.DurationInMillis,
 		TrackNumber: int64(a.TrackNumber), DiscNumber: int64(a.DiscNumber), ReleaseDate: a.ReleaseDate,
-		Genre: firstString(a.GenreNames), ContentRating: a.ContentRating, HasLyrics: db.Bool(a.HasLyrics),
+		Genre: cmp.Or(a.GenreNames...), ContentRating: a.ContentRating, HasLyrics: db.Bool(a.HasLyrics),
 		Isrc: a.ISRC, Composer: a.ComposerName, NoPlayParams: db.Bool(a.PlayParams == nil), UpdatedAt: now,
 	}
 }
 
-func catalogTrackParams(s applemusic.Song, now int64) dbq.UpsertCatalogTrackParams {
-	a := s.Attributes
-	return dbq.UpsertCatalogTrackParams{
-		CatalogID: db.NullString(s.ID), Name: a.Name, ArtistName: a.ArtistName, AlbumName: a.AlbumName,
-		AlbumCatalogID:  db.NullString(firstID(s.Relationships.Albums.Data, func(r applemusic.Album) string { return r.ID })),
-		ArtistCatalogID: db.NullString(firstID(s.Relationships.Artists.Data, func(r applemusic.Artist) string { return r.ID })),
-		ArtworkTemplate: a.Artwork.Template(), DurationMs: a.DurationInMillis,
-		TrackNumber: int64(a.TrackNumber), DiscNumber: int64(a.DiscNumber), ReleaseDate: a.ReleaseDate,
-		Genre: firstString(a.GenreNames), ContentRating: a.ContentRating, HasLyrics: db.Bool(a.HasLyrics),
-		Isrc: a.ISRC, Composer: a.ComposerName, UpdatedAt: now,
+// libraryPlaylistParams is the library playlist row of it, as Apple lists it.
+func libraryPlaylistParams(it applemusic.Playlist, now int64) dbq.UpsertLibraryPlaylistParams {
+	a := it.Attributes
+	return dbq.UpsertLibraryPlaylistParams{
+		LibraryID: db.NullString(it.ID), CatalogID: db.NullString(it.CatalogID()),
+		Name: a.Name, Description: a.Description.Text(), CuratorName: a.CuratorName,
+		ArtworkTemplate: a.Artwork.Template(), CanEdit: db.Bool(a.CanEdit), IsPublic: db.Bool(a.IsPublic),
+		LastModified: a.LastModifiedDate, UpdatedAt: now,
 	}
-}
-
-func firstID[T any](data []T, id func(T) string) string {
-	if len(data) == 0 {
-		return ""
-	}
-	return id(data[0])
-}
-
-func firstString(s []string) string {
-	if len(s) == 0 {
-		return ""
-	}
-	return s[0]
 }
 
 func parseDate(s string) sql.NullInt64 {

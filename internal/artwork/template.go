@@ -60,27 +60,6 @@ func clampDims(w, h int) dims {
 	return d
 }
 
-// parseDims parses a variant name without ".jpg": "<w>x<h>", or a bare
-// "<n>" for n×n (the square-only URLs of earlier versions, still held in
-// recent searches). Only the canonical spelling of an in-range box is
-// accepted, so one box has one file.
-func parseDims(s string) (dims, bool) {
-	ws, hs, wide := strings.Cut(s, "x")
-	if !wide {
-		hs = ws
-	}
-	w, err1 := strconv.Atoi(ws)
-	h, err2 := strconv.Atoi(hs)
-	d := dims{w, h}
-	if err1 != nil || err2 != nil || clampDims(w, h) != d {
-		return dims{}, false
-	}
-	if wide {
-		return d, d.String() == s
-	}
-	return d, strconv.Itoa(w) == s
-}
-
 // ErrHost reports a template outside Apple's artwork CDN.
 var ErrHost = errors.New("artwork: host not allowed")
 

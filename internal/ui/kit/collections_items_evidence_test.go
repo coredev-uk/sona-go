@@ -163,7 +163,7 @@ func TestItemsEvidence(t *testing.T) {
 	}
 	stations[4].Unavailable = services.StationNoWidevine
 	shoot(t, "stationlist", 1000, 330, func(c *ui.Context, ctx ItemsCtx) {
-		ctx.CurrentStation = func(s services.Station) bool { return s.ID == "ra.3" }
+		ctx.Current = &services.QueueItem{ID: "ra.3"}
 		ctx.Playing = true
 		ctx.OnAir = &services.OnAir{Artist: "Dua Lipa", Title: "Houdini"}
 		StationList(c, &StationListState{}, stations, ctx, StationListOpts{Label: "Live now", OnPlay: func(services.Station) {}})
@@ -177,7 +177,7 @@ func TestItemsEvidence(t *testing.T) {
 	}
 	songs[1].Song.Explicit = true
 	shoot(t, "trackshelf", 1000, 330, func(c *ui.Context, ctx ItemsCtx) {
-		ctx.Current = func(s services.Song) bool { return s.ID == "3" }
+		ctx.Current = &services.QueueItem{ID: "3"}
 		ctx.Playing = true
 		TrackShelf(c, &TrackShelfState{}, songs, ctx, TrackShelfOpts{Title: "Top Songs", First: true, More: "/room/1"})
 	}, func(a *itemsApp, tt *ui.Tester) {

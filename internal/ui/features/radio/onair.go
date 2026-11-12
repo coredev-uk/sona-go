@@ -3,7 +3,6 @@ package radio
 import (
 	"context"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -32,7 +31,7 @@ const (
 // board is the state of the on-air board: the width its columns follow, and
 // the moment its schedules are read against.
 type board struct {
-	width widthOf
+	width kit.WidthTracker
 	clock refresh
 }
 
@@ -58,7 +57,7 @@ func (r *radio) onAirBoard(c *ui.Context, b *board, stations []services.Station,
 	now := b.clock.read(c, r.now)
 	root := ui.Grid(c.Key("board")).GapX(boardGapX).GapY(boardGapY).MarginX(-boardBleed).
 		Role(ui.RoleList).Label(i18n.T("Live now"))
-	width := b.width.track(c, root)
+	width := b.width.Track(c, root)
 	if width > 0 {
 		root.Columns(max(1, int((width+boardGapX)/(boardMin+boardGapX))))
 	}
@@ -84,7 +83,7 @@ func (r *radio) onAirBoard(c *ui.Context, b *board, stations []services.Station,
 // (the play button, the equaliser, the menu) lies over it.
 func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.StationDetail, now int64, ctx kit.ItemsCtx, menus *kit.ActionMenus) {
 	tk := theme.Current()
-	tuned := ctx.CurrentStation != nil && ctx.CurrentStation(s)
+	tuned := ctx.Current != nil && ctx.Current.ID == s.ID
 	// A live station with no schedule has nothing to open: it plays. The
 	// station's own page decides (its schedule), over the list's guess.
 	page := s.HasPage
@@ -107,14 +106,7 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 	reason := kit.StationUnavailableText(s.Unavailable)
 
 	row := ui.Row(c.Key(s.ID)).Height(rowHeight).Padding(8).Gap(rowGap).Radius(tk.Radius["md"]).Role(ui.RoleListItem)
-	hot := row.Hovered() || row.FocusWithin()
-	if hot {
-		row.Background(theme.C("hover"))
-	}
-	if !theme.ReducedMotion() {
-		m := tk.Motion["feedback"]
-		row.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	hot := kit.HoverRow(row)
 	row.Children(func() {
 		hit := ui.ButtonBase(c.Key("hit")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Radius(tk.Radius["md"])
 		if page {
@@ -138,8 +130,8 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 			if tuned {
 				nameInk = theme.C("play-ink")
 			}
-			text(c, s.Name, "label").TextColor(nameInk).SingleLine().TextAlign(ui.Start)
-			text(c, what, "sub").TextColor(ink).SingleLine().TextAlign(ui.Start)
+			theme.Text(c, s.Name, "label").TextColor(nameInk).SingleLine().TextAlign(ui.Start)
+			theme.Text(c, what, "sub").TextColor(ink).SingleLine().TextAlign(ui.Start)
 			if !s.Playable {
 				ui.Row(c.Key("off")).Margin(8, 0, 0, 0).Gap(6).AlignItems(ui.Center).MinWidth(0).TextColor(theme.C("ink-muted")).Children(func() {
 					ui.Icon(c, theme.Icon("circle-slash")).FontSize(14).Shrink(0)
@@ -147,7 +139,7 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 					if msg == "" {
 						msg = i18n.T("Sona can't play this station")
 					}
-					text(c, msg, "meta").SingleLine().Shrink(1).MinWidth(0)
+					theme.Text(c, msg, "meta").SingleLine().Shrink(1).MinWidth(0)
 				})
 				return
 			}
@@ -158,10 +150,10 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 					fill = theme.C("play")
 				}
 				ui.Row(c.Key("progress")).Margin(8, 0, 0, 0).Gap(12).AlignItems(ui.Center).TextColor(theme.C("ink-muted")).Children(func() {
-					text(c, slotLabel(run, now), "meta").Shrink(0).SingleLine()
+					theme.Text(c, slotLabel(run, now), "meta").Shrink(0).SingleLine()
 					progressTrack(c, "bar", i18n.T("Time through this programme"), i18n.T("{left} left", "left", left),
 						progressOf(run, now), fill).Grow(1).MinWidth(32)
-					text(c, i18n.T("{left} left", "left", left), "meta").Shrink(0).SingleLine()
+					theme.Text(c, i18n.T("{left} left", "left", left), "meta").Shrink(0).SingleLine()
 				})
 			}
 			if hasNext {
@@ -175,7 +167,7 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 				if hasRun {
 					gap = 2
 				}
-				text(c, stripTags(line), "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(gap, 0, 0, 0)
+				theme.Text(c, stripTags(line), "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(gap, 0, 0, 0)
 			}
 		})
 
@@ -233,17 +225,13 @@ func (r *radio) toggle() {
 
 // stripTags drops the <0> markers of a message's rich text: a span that
 // only carries a font feature here.
-func stripTags(s string) string { return tagMarkers.Replace(s) }
-
-var tagMarkers = strings.NewReplacer("<0>", "", "</0>", "")
+func stripTags(s string) string { return i18n.StripTags(s) }
 
 // onAirSkeleton is the board's frame while the live stations load: rows at
 // their real height and art size.
-func (r *radio) onAirSkeleton(c *ui.Context, w *widthOf) {
-	hover := theme.C("hover")
-	sm := theme.Current().Radius["sm"]
+func (r *radio) onAirSkeleton(c *ui.Context, w *kit.WidthTracker) {
 	root := ui.Grid(c.Key("board-skeleton")).GapX(boardGapX).GapY(boardGapY).MarginX(-boardBleed).Role(ui.RoleStatus).Label(i18n.T("Loading"))
-	width := w.track(c, root)
+	width := w.Track(c, root)
 	if width > 0 {
 		root.Columns(max(1, int((width+boardGapX)/(boardMin+boardGapX))))
 	}
@@ -254,12 +242,12 @@ func (r *radio) onAirSkeleton(c *ui.Context, w *widthOf) {
 		}
 		for i := range 6 {
 			ui.Row(c.Key(i)).Height(rowHeight).Padding(8).Gap(rowGap).Children(func() {
-				ui.Box(c).Size(rowArt, rowArt).Radius(sm).Background(hover).Shrink(0)
+				kit.Bar(c, rowArt, rowArt)
 				ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-					ui.Box(c).Width(128).Height(14).Margin(3, 0, 0, 0).Radius(sm).Background(hover)
-					ui.Box(c).Width(192).Height(12).Margin(7, 0, 0, 0).Radius(sm).Background(hover)
+					kit.Bar(c, 128, 14).Margin(3, 0, 0, 0)
+					kit.Bar(c, 192, 12).Margin(7, 0, 0, 0)
 					ui.Box(c).Grow(1)
-					ui.Box(c).FillWidth().MaxWidth(288).Height(12).Margin(0, 0, 2, 0).Radius(sm).Background(hover)
+					ui.Box(c).FillWidth().MaxWidth(288).Height(12).Margin(0, 0, 2, 0).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
 				})
 			})
 		}

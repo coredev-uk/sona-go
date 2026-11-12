@@ -154,11 +154,11 @@ func TestBackdropDrawsNothingWithoutImageOrColourAndUnderReduceEffects(t *testin
 		t.Errorf("under reduce effects: %v, want the bare %v", got, ground)
 	}
 	// A bad colour is nothing, not a panic.
-	if _, ok := mediaHexColour("nope"); ok {
+	if _, ok := ParseHex("nope"); ok {
 		t.Error("a bad colour parsed")
 	}
-	if c, ok := mediaHexColour("#00ff00"); !ok || c != ui.RGB(0, 255, 0) {
-		t.Errorf("mediaHexColour = %v, %v", c, ok)
+	if c, ok := ParseHex("#00ff00"); !ok || c != ui.RGB(0, 255, 0) {
+		t.Errorf("ParseHex = %v, %v", c, ok)
 	}
 }
 

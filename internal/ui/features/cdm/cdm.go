@@ -38,14 +38,9 @@ func New(env *module.Env) module.Module {
 // empty (a download that fails at once otherwise showed as idle).
 func (c *cdm) init() {
 	store.On(c.env.Bus, services.EventCDMStatus, c.apply)
-	if c.env.Core == nil {
-		return
+	if c.env.Core != nil {
+		store.Seed(c.env.Queries, c.env.Post, store.KeyCDM, services.Service[services.CDMService](c.env.Core).Status)
 	}
-	svc := services.Service[services.CDMService](c.env.Core)
-	go func() {
-		s := svc.Status()
-		c.env.Post(func() { store.SetIfEmpty(c.env.Queries, store.KeyCDM, s) })
-	}()
 }
 
 // apply replaces the mirror with Go's latest status. A new state, version or
@@ -81,8 +76,8 @@ func (c *cdm) notice(ctx *ui.Context) {
 	default:
 		text := i18n.T("Waiting for Widevine to download")
 		if r.HasData && st.State == "downloading" {
-			if f, ok := store.CDMProgress(st); ok {
-				text = i18n.T("Waiting for Widevine to download · {percent}", "percent", i18n.FormatPercent(f))
+			if percent := i18n.CDMPercent(st); percent != "" {
+				text = i18n.T("Waiting for Widevine to download · {percent}", "percent", percent)
 			}
 		}
 		c.link(ctx, text, "")
@@ -93,7 +88,7 @@ func (c *cdm) notice(ctx *ui.Context) {
 // not ported.
 // desc is what the tooltip says, for assistive technology too.
 func (c *cdm) link(ctx *ui.Context, text, desc string) {
-	if c.env.HasRoute == nil || !c.env.HasRoute("/settings") {
+	if !c.env.Routed("/settings") {
 		line(ctx, text)
 		return
 	}

@@ -22,7 +22,7 @@ const (
 
 // StationListState is the state of a StationList: the width its columns
 // follow.
-type StationListState struct{ width itemsWidth }
+type StationListState struct{ width WidthTracker }
 
 // StationListOpts are the options of StationList.
 type StationListOpts struct {
@@ -40,12 +40,12 @@ type StationListOpts struct {
 // A station with a page (HasPage) links to it and has a play button. A station
 // without one (a local broadcaster has no schedule) is itself the play control:
 // its name is a button that plays it (and pauses it while it plays), and its
-// menu is beside it. What plays is ctx.CurrentStation, ctx.Playing and
+// menu is beside it. What plays is ctx.Current, ctx.Playing and
 // ctx.OnAir; ctx.Toggle pauses or resumes.
 func StationList(c *ui.Context, st *StationListState, stations []services.Station, ctx ItemsCtx, o StationListOpts) {
 	root := ui.Grid(c.Key("kit.stations." + o.Label)).GapX(stationGapX).GapY(stationGapY).MarginX(-stationBleed).
 		Role(ui.RoleList).Label(o.Label)
-	width := st.width.track(c, root)
+	width := st.width.Track(c, root)
 	if width > 0 {
 		root.Columns(max(1, int((width+stationGapX)/(stationMin+stationGapX))))
 	}
@@ -66,16 +66,9 @@ func StationList(c *ui.Context, st *StationListState, stations []services.Statio
 // stationRow is one station of the list.
 func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOpts) {
 	tk := theme.Current()
-	on := ctx.CurrentStation != nil && ctx.CurrentStation(s)
+	on := ctx.Current != nil && ctx.Current.ID == s.ID
 	row := ui.Row(c.Key(s.ID)).Height(stationRowH).Gap(12).PaddingX(8).Radius(tk.Radius["md"]).Role(ui.RoleListItem)
-	hot := row.Hovered() || row.FocusWithin()
-	if hot {
-		row.Background(theme.C("hover"))
-	}
-	if !theme.ReducedMotion() {
-		m := tk.Motion["feedback"]
-		row.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	hot := HoverRow(row)
 	unavailable := ""
 	if !s.Playable {
 		unavailable = StationUnavailableText(s.Unavailable)
@@ -111,12 +104,12 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 		hit.Children(func() {
 			itemsArtwork(c, ctx.Art, s.Art.Small, stationArtDIP, ArtOpts{Edge: true})
 			ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-				label, sub := tk.Type["label"], tk.Type["sub"]
+				sub := tk.Type["sub"]
 				ink := theme.C("ink")
 				if on {
 					ink = theme.C("play-ink")
 				}
-				ui.Text(c, s.Name).FontSize(label.Size).FixedLineHeight(label.LineHeight).FontWeight(int(label.Weight)).
+				theme.StyleText(ui.Text(c, s.Name), "label").
 					TextColor(ink).SingleLine().TextAlign(ui.Start)
 				ui.Text(c, line).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).TextColor(theme.C("ink-muted")).
 					SingleLine().TextAlign(ui.Start)

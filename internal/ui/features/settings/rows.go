@@ -25,12 +25,6 @@ const (
 	landDuration  = 3 * time.Second
 )
 
-// text is a Text in one of the theme's type styles ("body", "meta"…).
-func text(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // rowOpts describe one setting row.
 type rowOpts struct {
 	// ID is the row's find ID (SettingEntry.ID, v0.2.0's data-setting): the
@@ -76,7 +70,7 @@ func (s *settings) row(c *ui.Context, o rowOpts, control func() ui.Element) {
 		in.Children(func() {
 			var title ui.Element
 			ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).MaxWidth(rowTextWidth).Children(func() {
-				title = text(c, o.Title, "label").TextColor(theme.C("ink"))
+				title = theme.Text(c, o.Title, "label").TextColor(theme.C("ink"))
 				if o.Desc != "" {
 					descText(c, o.Desc, o.Ink)
 				}
@@ -110,7 +104,7 @@ func (s *settings) row(c *ui.Context, o rowOpts, control func() ui.Element) {
 func descText(c *ui.Context, desc, ink string) {
 	before, after, found := strings.Cut(desc, ink)
 	if ink == "" || !found {
-		text(c, desc, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+		theme.Text(c, desc, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 		return
 	}
 	t := theme.Current().Type["secondary"]
@@ -137,10 +131,10 @@ func (s *settings) unavailableRow(c *ui.Context, id, title, reason string) {
 			Radius(theme.Current().Radius["md"]).Role(ui.RoleGroup).Label(title).Description(reason)
 		s.wash(in, id)
 		in.Children(func() {
-			text(c, title, "label").TextColor(theme.C("ink-muted"))
+			theme.Text(c, title, "label").TextColor(theme.C("ink-muted"))
 			ui.Row(c.Key("why")).Gap(6).AlignItems(ui.Start).Margin(2, 0, 0, 0).MaxWidth(rowTextWidth).Children(func() {
 				ui.Icon(c, theme.Icon("circle-slash")).FontSize(14).TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0).Shrink(0)
-				text(c, reason, "secondary").TextColor(theme.C("ink-muted")).Shrink(1).MinWidth(0)
+				theme.Text(c, reason, "secondary").TextColor(theme.C("ink-muted")).Shrink(1).MinWidth(0)
 			})
 		})
 		s.land(c, id, in, ui.Element{})
@@ -159,9 +153,9 @@ func (s *settings) group(c *ui.Context, id, title, desc string, rows func()) {
 	c = c.Key("group:" + id)
 	ui.Column(c).FillWidth().Gap(12).Role(ui.RoleGroup).Label(title).Children(func() {
 		ui.Column(c.Key("head")).FillWidth().Children(func() {
-			text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
+			theme.Text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
 			if desc != "" {
-				text(c, desc, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0).MaxWidth(rowTextWidth + 40)
+				theme.Text(c, desc, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0).MaxWidth(rowTextWidth + 40)
 			}
 		})
 		ui.Column(c.Key("rows")).FillWidth().Children(rows)
@@ -178,15 +172,15 @@ func (s *settings) stack(c *ui.Context, build func()) {
 // flat bars at the real text sizes, announced busy.
 func (s *settings) loading(c *ui.Context, rows int) {
 	ui.Column(c.Key("loading")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
-		ui.Box(c.Key("h")).Width(112).Height(16).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover")).Margin(0, 0, 12, 0)
+		kit.Bar(c.Key("h"), 112, 16).Margin(0, 0, 12, 0)
 		for i := range rows {
 			k := c.Key(i)
 			ui.Column(k).FillWidth().Children(func() {
 				s.line(k)
 				ui.Row(k.Key("r")).FillWidth().Padding(rowPadY, 0).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(rowGap).Children(func() {
 					ui.Column(k.Key("l")).Gap(8).Children(func() {
-						ui.Box(k.Key("t")).Width(160).Height(14).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
-						ui.Box(k.Key("d")).Width(float32(220 + (i*53)%140)).Height(12).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
+						kit.Bar(k.Key("t"), 160, 14)
+						kit.Bar(k.Key("d"), float32(220+(i*53)%140), 12)
 					})
 					ui.Box(k.Key("c")).Width(selectWidth).Height(32).Radius(theme.Current().Radius["md"]).Background(theme.C("hover"))
 				})

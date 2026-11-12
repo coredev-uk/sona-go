@@ -7,15 +7,11 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
-	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
-
-// narrowPage is the window width under which the page's gutters shrink.
-const narrowPage = 960
 
 // page is the playlist page's view state. Everything but states belongs to
 // the playlist shown: opening another starts it afresh.
@@ -94,19 +90,13 @@ func (pg *page) enter(id string) {
 	*pg = page{id: id}
 }
 
-// hasRoute reports whether a page of Sona answers path, so a link is drawn
-// only to pages that exist.
-func (p *playlists) hasRoute(path string) bool {
-	return p.env.HasRoute != nil && p.env.HasRoute(path)
-}
-
 // itemMenus are the page's action menus, once the shell has its actions.
 func (p *playlists) itemMenus() *kit.ActionMenus {
 	pg := &p.page
-	if pg.menus == nil && p.env.Actions != nil {
-		pg.menus = kit.NewActionMenus(p.env.Actions, &pg.list.Sel)
+	if p.env.Actions == nil {
+		return pg.menus
 	}
-	return pg.menus
+	return kit.MenusIn(&pg.menus, p.env.Actions, &pg.list.Sel)
 }
 
 // playlistPage is PlaylistPage: a catalogue or library playlist by the
@@ -117,41 +107,24 @@ func (p *playlists) playlistPage(c *ui.Context, r *ui.Route) {
 	pg.enter(id)
 	q := p.detail(id)
 
-	tk := theme.Current()
 	ww, _ := c.Size()
-	gutter := tk.Metric["gutter"]
-	if ww < narrowPage {
-		gutter = tk.Metric["gutter-narrow"]
-	}
-	devstate.Scroll(c, &pg.pos) // dev builds: the offset survives a restart
-	sc := ui.Scroll(c).TrackScroll(&pg.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
-	sc.Children(func() {
-		ui.Column(c).Padding(28, gutter+tk.Metric["scrollbar"], 48, gutter).Children(func() {
-			switch {
-			case !q.HasData && q.Err != nil:
-				p.loadError(c, id, q)
-			case !q.HasData:
-				kit.DetailSkeleton(c, false)
-			default:
-				pane := &kit.Pane{Pos: &pg.pos, Bounds: func() ui.Rect { return sc.Bounds() }}
-				p.playlistBody(c, id, q.Data, pane)
-			}
-		})
+	kit.PageScroll(c, &pg.pos, kit.PageGutter(float32(ww)), func(pane *kit.Pane) {
+		switch {
+		case !q.HasData && q.Err != nil:
+			p.loadError(c, id, q)
+		case !q.HasData:
+			kit.DetailSkeleton(c, false)
+		default:
+			p.playlistBody(c, id, q.Data, pane)
+		}
 	})
 }
 
 // loadError is the page when the playlist could not be had: not found with
 // a way back to the library's playlists, otherwise Try again.
 func (p *playlists) loadError(c *ui.Context, id string, q store.Result[services.PlaylistDetail]) {
-	back := kit.EmptyAction{Label: i18n.T("Go to Playlists")}
-	if p.hasRoute(playlistsPath) {
-		back.Run = func() { p.env.Nav.Push(playlistsPath) }
-	}
-	kit.DetailError(c, kit.NounPlaylist, q.Err, kit.DetailErrorOpts{
-		Retry:    func() { p.env.Queries.Invalidate(keyDetail(id)) },
-		Retrying: q.Fetching,
-		Back:     back,
-	})
+	back := kit.BackAction(i18n.T("Go to Playlists"), playlistsPath, p.env.Routed(playlistsPath), func(path string) { p.env.Nav.Push(path) })
+	kit.DetailQueryError(c, kit.NounPlaylist, p.env.Queries, q, back, nil, keyDetail(id))
 }
 
 // collabOf is the playlist's collaboration when it has one: only user
@@ -280,7 +253,7 @@ func (p *playlists) byline(c *ui.Context, d services.PlaylistDetail) {
 	case cur.ID != "" && cur.Kind == "profile":
 		path = "/profile/" + cur.ID
 	}
-	if path != "" && p.hasRoute(path) {
+	if path != "" && p.env.Routed(path) {
 		ui.Link(c.Key("curator"), name, path).TextColor(theme.C("ink")).SingleLine()
 		return
 	}
@@ -303,9 +276,9 @@ func (p *playlists) metaLine(d services.PlaylistDetail, collab *services.Playlis
 		kind = i18n.T("Your favourites")
 	}
 	if collab != nil && collab.Viewer == services.RoleCollaborator {
-		kind += " · " + i18n.T("You're a collaborator")
+		kind = i18n.Meta(kind, i18n.T("You're a collaborator"))
 	}
-	return catalogueLine(kind, len(d.Tracks), d.DurationMs)
+	return i18n.CatalogueLine(kind, "", len(d.Tracks), d.DurationMs)
 }
 
 // updated is when the playlist last changed: "Updated yesterday" in
@@ -407,7 +380,7 @@ func (p *playlists) trackList(c *ui.Context, id string, d services.PlaylistDetai
 	v := pg.view(d.Tracks)
 	songs := v.songs
 	if len(songs) == 0 {
-		dialogText(c, i18n.T("No song in this playlist matches “{query}”.", "query", pg.query), "sub").
+		theme.Text(c, i18n.T("No song in this playlist matches “{query}”.", "query", pg.query), "sub").
 			TextColor(theme.C("ink-muted")).Padding(16, 8)
 		return
 	}
@@ -417,35 +390,15 @@ func (p *playlists) trackList(c *ui.Context, id string, d services.PlaylistDetai
 		c.Announce(sortAnnouncement(pg.sort))
 		c.Invalidate()
 	}
-	o := kit.TrackListOpts{
-		Label:   i18n.T("Songs in {playlistName}", "playlistName", d.Playlist.Name),
-		Columns: kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true},
-		OnPlay:  func(i int) { p.playList(id, songs, i, false) },
-		Sort:    &pg.sort,
-		Art:     p.env.Art,
-		Menus:   menus,
-		NoPopup: true,
-		Motion:  p.env.Motion,
-		Pane:    pane,
-	}
+	o := p.env.TrackOpts(menus, false)
+	o.Label = i18n.T("Songs in {playlistName}", "playlistName", d.Playlist.Name)
+	o.Columns = kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true}
+	o.OnPlay = func(i int) { p.playList(id, songs, i, false) }
+	o.Sort = &pg.sort
+	o.NoPopup = true
+	o.Pane = pane
 	if editable {
 		o.Container = &kit.ActionContainer{Kind: "playlist", ID: id, Editable: true, Order: v.order}
-	}
-	if p.env.Play != nil {
-		if st := p.env.Play.State(); st.Current != nil {
-			cur := st.Current
-			o.Current = func(s *services.Song) bool { return kit.SongIsCurrent(s, cur.ID, cur.CatalogID) }
-			o.Playing = st.State == "playing"
-		}
-	}
-	if p.hasRoute("/artist/x") {
-		o.OpenArtist = func(aid string) { p.env.Nav.Push("/artist/" + aid) }
-	}
-	if p.hasRoute("/album/x") {
-		o.OpenAlbum = func(aid string) { p.env.Nav.Push("/album/" + aid) }
-	}
-	if p.hasRoute("/profile/x") {
-		o.OpenProfile = func(pid string) { p.env.Nav.Push("/profile/" + pid) }
 	}
 	if collab := p.collabOf(id, d.Playlist); collab != nil {
 		if rows, some := pg.addedBy(d.Tracks, *collab); some {
@@ -469,7 +422,7 @@ func (p *playlists) songFinder(c *ui.Context, tracks []services.Song) {
 		// Asked after the field: the query is the one it now holds.
 		found = len(pg.view(tracks).songs)
 		if pg.filtering() {
-			dialogText(c, i18n.T("{found} of {total, plural, one {# song} other {# songs}}",
+			theme.Text(c, i18n.T("{found} of {total, plural, one {# song} other {# songs}}",
 				"found", i18n.FormatNumber(float64(found)), "total", len(tracks)), "sub").
 				TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
 		}
@@ -526,7 +479,7 @@ func (p *playlists) featuredShelf(c *ui.Context, d services.PlaylistDetail, menu
 	if len(d.FeaturedArtists) == 0 {
 		return
 	}
-	linked := p.hasRoute("/artist/x")
+	linked := p.env.Routed("/artist/x")
 	items := make([]kit.CoverItem, len(d.FeaturedArtists))
 	for i, a := range d.FeaturedArtists {
 		it := kit.ArtistItem(a)
@@ -546,7 +499,7 @@ func (p *playlists) moreShelf(c *ui.Context, d services.PlaylistDetail, menus *k
 	if len(d.MoreByCurator) == 0 {
 		return
 	}
-	linked := p.hasRoute(playlistPath)
+	linked := p.env.Routed(playlistPath)
 	items := make([]kit.CoverItem, len(d.MoreByCurator))
 	for i, m := range d.MoreByCurator {
 		it := kit.PlaylistItem(m)

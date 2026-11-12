@@ -18,7 +18,7 @@ import (
 )
 
 // A platform with no integrations and no engine (macOS and Windows today)
-// reports every capability absent, so the frontend hides those controls.
+// reports every capability absent, so the UI hides those controls.
 func TestCapabilitiesWithoutPlatformSupport(t *testing.T) {
 	eng := playback.NewUnsupported()
 	t.Cleanup(func() { _ = eng.Close() })

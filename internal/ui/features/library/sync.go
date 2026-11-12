@@ -130,9 +130,11 @@ const (
 	syncFailed
 )
 
-// announceSync reads out a change of the sync's phase (v0.2.0's indicator was
-// a polite live region): it starts, it ends, it fails. The count moving
-// inside a domain is not read out. The first frame only records the phase.
+// announceSync reads out a change of the sync's phase: it starts, it ends, it
+// fails. The count moving inside a domain is not read out, which is why the
+// line is a labelled group and not a status: MyGo reads a status whole every
+// time its text changes (the count, the domain, "Synced 2 minutes ago").
+// The first frame only records the phase.
 func (l *library) announceSync(c *ui.Context, running, failed bool, lastSuccess int64) {
 	phase := syncIdle
 	switch {
@@ -184,7 +186,7 @@ func (l *library) syncIndicator(c *ui.Context) {
 
 	l.announceSync(c, running, failed, lastSuccess)
 
-	ui.Column(c.Key("sync")).Padding(0, 10).Margin(0, 0, 8, 0).Role(ui.RoleStatus).Label(i18n.T("Library sync")).Children(func() {
+	ui.Column(c.Key("sync")).Padding(0, 10).Margin(0, 0, 8, 0).Role(ui.RoleGroup).Label(i18n.T("Library sync")).Children(func() {
 		if running {
 			syncing := i18n.T("Syncing your library")
 			count := ""

@@ -1,4 +1,4 @@
-//go:build (linux || darwin || windows) && cgo
+//go:build linux && cgo
 
 package media
 
@@ -40,7 +40,7 @@ static int motion_has(const char *name) {
 #define MOTION_THREADS 2
 
 // motion_threads limits the threads of any decoder the pipeline plugs that
-// has the property (libav's; VideoToolbox's and Direct3D's have none).
+// has the property (libav's; the hardware ones have none).
 static void motion_threads(GstBin *bin, GstBin *sub, GstElement *el, gpointer data) {
 	(void)bin; (void)sub; (void)data;
 	if (g_object_class_find_property(G_OBJECT_GET_CLASS(el), "max-threads") != NULL)
@@ -68,7 +68,7 @@ static gint motion_select(GstElement *bin, GstPad *pad, GstCaps *caps, GstElemen
 
 // motion_open builds file ! decodebin ! videoconvert ! RGBA ! appsink. The
 // decoder is decodebin's choice by rank (see motion_select), so a hardware
-// decoder (VA-API, VideoToolbox) is used where its plugin is there, and the
+// decoder (VA-API) is used where its plugin is there, and the
 // picture is converted to system memory for the CPU copy into a MyGo bitmap.
 static sona_motion *motion_open(const char *path, char **err) {
 	motion_init();
@@ -194,6 +194,7 @@ import "C"
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"io"
 	"sync"
@@ -204,22 +205,21 @@ import (
 )
 
 // Supported is whether this build decodes motion artwork: GStreamer through
-// cgo (Linux, macOS and Windows). Capabilities().MotionArtwork reports it.
+// cgo on Linux (macOS and Windows play it with the system's own video
+// framework, motion_native.go). Capabilities().MotionArtwork reports it.
 const Supported = true
 
 // decoders are the element factories that decode each codec, by name: the
-// software ones (libav, OpenH264) and the hardware ones (VA, VideoToolbox,
-// Direct3D, V4L2, Vulkan, Intel, AMD). decodebin picks among them by rank.
+// software ones (libav, OpenH264) and the hardware ones (VA, V4L2, Vulkan,
+// Intel, AMD). decodebin picks among them by rank.
 // NVIDIA's NVDEC (nvh264dec and its kin) is left out on purpose: the
 // pipeline skips it too (motion_select).
 var decoders = map[string][]string{
 	"avc": {
-		"avdec_h264", "openh264dec", "vah264dec", "vah264lpdec", "vtdec", "vtdec_hw",
-		"d3d11h264dec", "d3d12h264dec", "v4l2slh264dec", "v4l2h264dec", "vulkanh264dec", "qsvh264dec", "msdkh264dec", "amfh264dec",
+		"avdec_h264", "openh264dec", "vah264dec", "vah264lpdec", "v4l2slh264dec", "v4l2h264dec", "vulkanh264dec", "qsvh264dec", "msdkh264dec", "amfh264dec",
 	},
 	"hevc": {
-		"avdec_h265", "vah265dec", "vah265lpdec", "vtdec", "vtdec_hw",
-		"d3d11h265dec", "d3d12h265dec", "v4l2slh265dec", "v4l2h265dec", "vulkanh265dec", "qsvh265dec", "msdkh265dec", "amfh265dec",
+		"avdec_h265", "vah265dec", "vah265lpdec", "v4l2slh265dec", "v4l2h265dec", "vulkanh265dec", "qsvh265dec", "msdkh265dec", "amfh265dec",
 	},
 }
 
@@ -288,6 +288,24 @@ func NewMotionDecoder(path string) (ui.VideoDecoder, error) {
 		return nil, errors.New(C.GoString(cerr))
 	}
 	return &gstDecoder{m: m}, nil
+}
+
+// openPlayer makes the looping player of the file at path, decoded by
+// GStreamer in this process. NewVideoPlayer decodes the first frame, so it
+// blocks and the player is Ready when it returns.
+func openPlayer(path string) (*ui.VideoPlayer, error) {
+	dec, err := NewMotionDecoder(path)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrDecode, err)
+	}
+	p, err := ui.NewVideoPlayer(dec)
+	if err != nil {
+		if c, ok := dec.(io.Closer); ok {
+			_ = c.Close() // a no-op if the player did
+		}
+		return nil, fmt.Errorf("%w: %w", ErrDecode, err)
+	}
+	return p.SetLoop(true), nil
 }
 
 func (d *gstDecoder) Next() (ui.VideoFrame, error) {

@@ -51,15 +51,13 @@ func (e *Env) ItemsCtx(menus *kit.ActionMenus) kit.ItemsCtx {
 	}
 	if e.Play != nil {
 		st := e.Play.State()
-		cur := st.Current
+		ctx.Current = st.Current
 		ctx.Playing = st.State == "playing" || st.State == "loading"
 		ctx.OnAir = st.OnAir
-		ctx.Current = func(s services.Song) bool {
-			return cur != nil && (cur.ID == s.ID || (s.CatalogID != "" && cur.CatalogID == s.CatalogID))
-		}
-		ctx.CurrentStation = func(s services.Station) bool {
-			return cur != nil && cur.ID == s.ID
-		}
 	}
 	return ctx
 }
+
+// Routed reports whether a module serves path: HasRoute, false in a hand-built
+// Env. A feature links to a page only when this is true.
+func (e *Env) Routed(path string) bool { return e.HasRoute != nil && e.HasRoute(path) }

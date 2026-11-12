@@ -112,38 +112,35 @@ func (s *settings) updateStatusRow(c *ui.Context, st services.UpdateStatus) {
 	us := stateOf[updateState](s, "updates")
 	v := s.updateVerdict(st)
 	c = c.Key("update-status")
-	spoken := v.text
-	if us.failure != "" {
-		spoken = i18n.T("Couldn't check: {failure}", "failure", us.failure)
-	} else if v.detail != "" {
-		spoken += ". " + v.detail
-	}
-	s.tell(c, "updates", spoken) // aria-live="polite" on the verdict
 	s.line(c)
-	ui.Row(c).FillWidth().Padding(rowPadY, 0).AlignItems(ui.Start).Justify(ui.SpaceBetween).Gap(rowGap).
-		Role(ui.RoleStatus).Label(i18n.T("Updates")).Children(func() {
+	ui.Row(c).FillWidth().Padding(rowPadY, 0).AlignItems(ui.Start).Justify(ui.SpaceBetween).Gap(rowGap).Children(func() {
 		ui.Column(c.Key("text")).Shrink(1).MinWidth(0).Children(func() {
-			ui.Row(c.Key("line")).Gap(8).AlignItems(ui.Start).Children(func() {
-				if v.ok > 0 {
-					ui.Icon(c, theme.Icon("circle-check")).FontSize(16).TextColor(theme.C("positive")).Margin(1, 0, 0, 0).Shrink(0)
-				}
-				if v.ok < 0 || us.failure != "" {
-					ui.Icon(c, theme.Icon("circle-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(1, 0, 0, 0).Shrink(0)
-				}
-				line := v.text
-				if us.failure != "" {
-					line = i18n.T("Couldn't check: {failure}", "failure", us.failure)
-				}
-				t := text(c, line, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
-				if st.Available {
-					t.FontWeight(500)
+			// The status is the words, not the row: the buttons beside them
+			// change with them ("Check now" to "Checking…") and are not news.
+			// A status is read when its text changes, whole.
+			ui.Column(c.Key("said")).Role(ui.RoleStatus).Label(i18n.T("Updates")).Children(func() {
+				ui.Row(c.Key("line")).Gap(8).AlignItems(ui.Start).Children(func() {
+					if v.ok > 0 {
+						ui.Icon(c, theme.Icon("circle-check")).FontSize(16).TextColor(theme.C("positive")).Margin(1, 0, 0, 0).Shrink(0)
+					}
+					if v.ok < 0 || us.failure != "" {
+						ui.Icon(c, theme.Icon("circle-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(1, 0, 0, 0).Shrink(0)
+					}
+					line := v.text
+					if us.failure != "" {
+						line = i18n.T("Couldn't check: {failure}", "failure", us.failure)
+					}
+					t := theme.Text(c, line, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
+					if st.Available {
+						t.FontWeight(500)
+					}
+				})
+				if v.detail != "" && us.failure == "" {
+					theme.Text(c, v.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0).MaxWidth(448)
 				}
 			})
 			if st.Installing && st.Total > 0 {
 				kit.ProgressBar(c.Key("progress"), float64(st.Downloaded)/float64(st.Total), kit.ProgressOpts{A11yLabel: i18n.T("Update download")}).MaxWidth(280).Margin(6, 0, 0, 0)
-			}
-			if v.detail != "" && us.failure == "" {
-				text(c, v.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0).MaxWidth(448)
 			}
 		})
 		ui.Row(c.Key("actions")).Shrink(0).Gap(8).Children(func() {

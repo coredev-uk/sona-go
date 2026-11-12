@@ -15,7 +15,7 @@ type WideRowState struct {
 	// Page is the page showing, from 0; a page beyond the last shows the
 	// last.
 	Page  int
-	width itemsWidth
+	width WidthTracker
 }
 
 // WideRowOpts are the options of WideRow.
@@ -57,7 +57,7 @@ func WideRow(c *ui.Context, st *WideRowState, items []services.Item, ctx ItemsCt
 	if !o.First {
 		root.Margin(40, 0, 0, 0)
 	}
-	width := st.width.track(c, root)
+	width := st.width.Track(c, root)
 	root.Children(func() {
 		if width <= 0 {
 			ui.Box(c).Height(1) // the first frame measures; the next builds the cards
@@ -115,15 +115,17 @@ func itemsWidestShape(items []services.Item) float32 {
 // the arrows.
 func (st *WideRowState) header(c *ui.Context, label string, at, pages int) {
 	tk := theme.Current()
-	h, meta := tk.Type["heading"], tk.Type["meta"]
+	meta := tk.Type["meta"]
 	ui.Row(c.Key("head")).MinHeight(28).Margin(0, 0, 12, 0).Gap(16).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, label).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
+		theme.StyleText(ui.Text(c, label), "heading").
 			TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).Role(ui.RoleHeading).Level(2)
 		if pages <= 1 {
 			return
 		}
-		ui.Row(c).Shrink(0).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, i18n.T("{current} of {pages}", "current", at+1, "pages", pages)).
+		ui.Row(c.Key("pager")).Shrink(0).Gap(4).AlignItems(ui.Center).Children(func() {
+			// A status, read as the page turns ("2 of 3"), once; keyed as
+			// a status is told from the last frame's by its ID.
+			ui.Text(c.Key("page"), i18n.T("{current} of {pages}", "current", at+1, "pages", pages)).
 				FontSize(meta.Size).FixedLineHeight(meta.LineHeight).TextColor(theme.C("ink-faint")).
 				FontFeatures("tnum").SingleLine().Margin(0, 4, 0, 0).Role(ui.RoleStatus)
 			prev := Button(c.Key("prev"), "", ButtonOpts{
@@ -179,7 +181,7 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, crop b
 		}
 		card.Children(func() {
 			bg := theme.C("hover")
-			if col, ok := itemsColor(it.Color); ok {
+			if col, ok := ParseHex(it.Color); ok {
 				bg = col
 			}
 			fr := ui.Row(c.Key("frame")).Size(width, fh).Center().Radius(tk.Radius["sm"]).ClipX().ClipY().Background(bg)
@@ -195,9 +197,8 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, crop b
 			}
 			fr.Children(func() { itemsBanner(c, ctx.Art, v, rk, src, width, fh, cover, tk.Radius["sm"]) })
 
-			label := tk.Type["label"]
 			ui.Row(c.Key("title")).Height(20).Margin(8, 0, 0, 0).Gap(4).AlignItems(ui.Center).MinWidth(0).Children(func() {
-				name := ui.Text(c, it.Name).FontSize(label.Size).FixedLineHeight(label.LineHeight).FontWeight(int(label.Weight)).
+				name := theme.StyleText(ui.Text(c, it.Name), "label").
 					TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).TextAlign(ui.Start)
 				if card.Hovered() {
 					name.Underline()
@@ -266,18 +267,4 @@ func itemsBanner(c *ui.Context, l *ArtLoader, v *artWindow, r artRank, src strin
 	ui.Image(c, bmp).Size(bw, bh).Fit(ui.Cover).Radius(radius).
 		Draw(func(*ui.Painter, ui.Rect) { cv.drawn() }).
 		DrawOver(func(p *ui.Painter, r ui.Rect) { p.Stroke(r, edge, radius, 1) })
-}
-
-// itemsColor parses an item's "#rrggbb" colour; false for "" or anything
-// else.
-func itemsColor(s string) (ui.Color, bool) {
-	if len(s) != 7 || s[0] != '#' {
-		return ui.Color{}, false
-	}
-	for i := 1; i < 7; i++ {
-		if ch := s[i]; (ch < '0' || ch > '9') && (ch < 'a' || ch > 'f') && (ch < 'A' || ch > 'F') {
-			return ui.Color{}, false
-		}
-	}
-	return ui.Hex(s), true
 }

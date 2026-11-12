@@ -119,7 +119,7 @@ func TestWipeUserData(t *testing.T) {
 	must(q.PutCache(ctx, dbq.PutCacheParams{Key: "gb|album|1", Storefront: "gb", Body: []byte("{}"), FetchedAt: 1, ExpiresAt: 2}))
 	must(q.UpsertAccount(ctx, dbq.UpsertAccountParams{Storefront: "gb", UpdatedAt: 1}))
 	must(q.UpsertFavorite(ctx, dbq.UpsertFavoriteParams{Kind: "songs", AppleID: "9", Value: 1, UpdatedAt: 1}))
-	must(q.UpsertPin(ctx, dbq.UpsertPinParams{Kind: "albums", AppleID: "1", PinnedAt: 1}))
+	must(q.InsertPin(ctx, dbq.InsertPinParams{Kind: "albums", AppleID: "1", PinnedAt: 1}))
 	_, err = q.InsertHistory(ctx, dbq.InsertHistoryParams{PlayedAt: 1, ItemID: "9"})
 	must(err)
 	must(q.StartSync(ctx, dbq.StartSyncParams{Domain: "songs", Generation: 1}))

@@ -144,12 +144,6 @@ func closeButton(c *ui.Context) ui.Element {
 	return b
 }
 
-// DialogHeader is a dialog's title and description: the title 18 semibold,
-// the description muted 14, 8 apart.
-func DialogHeader(c *ui.Context, title, description string) {
-	dialogHeader(c, title, description, false, false)
-}
-
 func dialogHeader(c *ui.Context, title, description string, compact, heading bool) {
 	gap, fg := float32(8), theme.C("muted-foreground")
 	if compact {
@@ -157,13 +151,13 @@ func dialogHeader(c *ui.Context, title, description string, compact, heading boo
 	}
 	ui.Column(c.Key("dialog:header")).Gap(gap).Children(func() {
 		if title != "" {
-			t := overlaysText(c.Key("t"), title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+			t := theme.Text(c.Key("t"), title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
 			if !compact && !heading {
 				t.FontSize(18).FixedLineHeight(18).FontWeight(600)
 			}
 		}
 		if description != "" {
-			overlaysText(c.Key("d"), description, "body").TextColor(fg)
+			theme.Text(c.Key("d"), description, "body").TextColor(fg)
 		}
 	})
 }

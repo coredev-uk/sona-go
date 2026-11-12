@@ -61,13 +61,6 @@ func (f *flow) hasCall(prefix string) bool {
 	return slices.ContainsFunc(f.calls(), func(c string) bool { return strings.HasPrefix(c, prefix) })
 }
 
-func (f *flow) click(t *testing.T, label string) {
-	t.Helper()
-	if err := f.tt.Click(label); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func (f *flow) shortcut(id string) {
 	for _, s := range f.mod.Shortcuts {
 		if s.ID == id {
@@ -80,17 +73,17 @@ func (f *flow) shortcut(id string) {
 
 func TestTheBarPlaysPausesAndSkipsThroughTheCoordinator(t *testing.T) {
 	f := newFlow(t)
-	f.click(t, "Pause")
+	f.tt.MustClick("Pause")
 	f.tt.Until("the engine paused and the bar offering Play", func() bool { return f.hasCall("pause") && f.tt.HasText("Play") })
-	f.click(t, "Play")
+	f.tt.MustClick("Play")
 	f.tt.Until("the engine resumed", func() bool { return f.hasCall("resume") && f.tt.HasText("Pause") })
 
-	f.click(t, "Next")
+	f.tt.MustClick("Next")
 	f.tt.Until("the second song in the bar", f.tt.Shows(f.album.Song(1)))
 	if played := f.h.Engine.Played(); len(played) < 2 {
 		t.Errorf("the engine played %v", played)
 	}
-	f.click(t, "Previous")
+	f.tt.MustClick("Previous")
 	f.tt.Until("the first song again", f.tt.Shows(f.album.Song(0)))
 }
 
@@ -99,20 +92,20 @@ func TestTheBarSeeksSetsShuffleRepeatAndVolume(t *testing.T) {
 	f.shortcut("player.seek-forward")
 	f.tt.Until("a seek reaching the engine", func() bool { return f.hasCall("seek") })
 
-	f.click(t, "Shuffle off")
+	f.tt.MustClick("Shuffle off")
 	f.tt.Until("shuffle on", f.tt.Shows("Shuffle on"))
-	f.click(t, "Shuffle on")
+	f.tt.MustClick("Shuffle on")
 	f.tt.Until("shuffle off", f.tt.Shows("Shuffle off"))
 
-	f.click(t, "Repeat off")
+	f.tt.MustClick("Repeat off")
 	f.tt.Until("repeat all", f.tt.Shows("Repeat all"))
-	f.click(t, "Repeat all")
+	f.tt.MustClick("Repeat all")
 	f.tt.Until("repeat one", f.tt.Shows("Repeat one"))
-	f.click(t, "Repeat one")
+	f.tt.MustClick("Repeat one")
 	f.tt.Until("repeat off", f.tt.Shows("Repeat off"))
 
 	if f.tt.HasText("Mute") {
-		f.click(t, "Mute")
+		f.tt.MustClick("Mute")
 		f.tt.Until("the engine muted", func() bool { return f.hasCall("volume 0") })
 		f.tt.Until("Unmute", f.tt.Shows("Unmute"))
 	}
@@ -135,7 +128,7 @@ func (f *flow) queueRow(j int) string { return f.album.Song(j) + ", " + f.album.
 
 func TestTheQueuePanelListsEditsAndReorders(t *testing.T) {
 	f := newFlow(t)
-	f.click(t, "Queue")
+	f.tt.MustClick("Queue")
 	f.tt.Until("the queue's rows", f.tt.Shows("Up next: "+f.queueRow(1), f.queueRow(2), "2 songs after this one"))
 
 	// Drag the first upcoming song below the second.
@@ -159,25 +152,25 @@ func TestTheQueuePanelListsEditsAndReorders(t *testing.T) {
 
 	// Remove the last one with its button.
 	f.tt.Until("the moved row last", f.tt.Shows(f.queueRow(1)))
-	f.click(t, "Remove "+f.album.Song(1)+" from the queue")
+	f.tt.MustClick("Remove " + f.album.Song(1) + " from the queue")
 	f.tt.Until("two songs left", func() bool { return len(f.env.Play.Queue().Items) == 2 })
 
 	// Clear what is queued after the playing song.
-	f.click(t, "Clear")
+	f.tt.MustClick("Clear")
 	f.tt.Until("one song left", func() bool { return len(f.env.Play.Queue().Items) == 1 })
 }
 
 func TestTheAutoPlayToggleFollowsTheCoordinator(t *testing.T) {
 	f := newFlow(t)
-	f.click(t, "Queue")
+	f.tt.MustClick("Queue")
 	f.tt.Until("the queue", f.tt.Shows("AutoPlay"))
 	if f.env.Play.State().AutoPlay {
 		t.Fatal("AutoPlay starts on")
 	}
 	// Turning it on asks Apple for a station: the fixture network refuses it, and
 	// the coordinator reports that rather than crashing.
-	f.click(t, "AutoPlay")
+	f.tt.MustClick("AutoPlay")
 	f.tt.Until("AutoPlay on", func() bool { return f.env.Play.State().AutoPlay })
-	f.click(t, "AutoPlay")
+	f.tt.MustClick("AutoPlay")
 	f.tt.Until("AutoPlay off", func() bool { return !f.env.Play.State().AutoPlay })
 }

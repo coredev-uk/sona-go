@@ -9,12 +9,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// text is a line of text in one of the theme's type styles.
-func text(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // rowOpts shape one ItemRow.
 type rowOpts struct {
 	// key is unique within the page.
@@ -44,7 +38,7 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 	var run func() // what opening the row does; nil: not interactive
 	role := ui.RoleLink
 	switch {
-	case path != "" && s.env.HasRoute != nil && s.env.HasRoute(path):
+	case path != "" && s.env.Routed(path):
 		run = func() { s.env.Nav.Push(path) }
 	case path == "" && it.Kind == services.ItemSong && it.Song != nil && it.Song.Playable:
 		role = ui.RoleButton
@@ -56,22 +50,26 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 
 	tk := theme.Current()
 	row := ui.Row(c.Key(o.key)).FillWidth().AlignItems(ui.Center).Radius(tk.Radius["md"]).PaddingEnd(4)
-	shown := row.Hovered() || row.FocusWithin()
-	if shown {
-		row.Background(theme.C("hover"))
+	shown := kit.HoverRow(row)
+	var target kit.ActionTarget // the row's menu target; menus nil or no actions: none
+	var hasTarget bool
+	if o.menus != nil {
+		if ai, ok := kit.ActionItemOf(it, s.env.Players); ok {
+			target, hasTarget = kit.ActionTarget{Item: ai, Name: it.Name, Key: o.key}, true
+		}
 	}
 	row.Children(func() {
 		body := func() {
 			kit.Artwork(c, s.env.Art, it.Art.Small, size, kit.ArtOpts{Round: kit.ItemRound(it), Edge: true})
 			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Margin(0, 0, 0, 12).Children(func() {
 				ui.Row(c).AlignItems(ui.Center).Gap(6).Children(func() {
-					text(c, it.Name, "body").TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0)
+					theme.Text(c, it.Name, "body").TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0)
 					if it.Explicit {
 						kit.ExplicitMark(c).Shrink(0)
 					}
 				})
 				if meta := itemMeta(it); meta != "" {
-					text(c, meta, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+					theme.Text(c, meta, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 				}
 			})
 		}
@@ -96,13 +94,11 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 			if o.focus {
 				main.Focus()
 			}
-			if o.menus != nil && main.RightClicked() {
+			if hasTarget && main.RightClicked() {
 				// The open button takes the press, so the row never sees it.
-				if ai, ok := kit.ActionItemOf(it, s.env.Players); ok {
-					x, y, _ := main.PointerPosition()
-					wx, wy := main.LocalToWindow(x, y)
-					o.menus.OpenAt(kit.ActionTarget{Item: ai, Name: it.Name, Key: o.key}, wx, wy, false)
-				}
+				x, y, _ := main.PointerPosition()
+				wx, wy := main.LocalToWindow(x, y)
+				o.menus.OpenAt(target, wx, wy, false)
 			}
 			if main.Clicked() {
 				if o.onOpen != nil {
@@ -111,16 +107,11 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 				run()
 			}
 		}
-		if o.menus != nil {
-			if ai, ok := kit.ActionItemOf(it, s.env.Players); ok {
-				t := kit.ActionTarget{Item: ai, Name: it.Name, Key: o.key}
-				o.menus.Trigger(c, t, kit.TriggerOpts{Visible: shown})
-			}
+		if hasTarget {
+			o.menus.Trigger(c, target, kit.TriggerOpts{Visible: shown})
 		}
 	})
-	if o.menus != nil {
-		if ai, ok := kit.ActionItemOf(it, s.env.Players); ok {
-			o.menus.Row(row, kit.ActionTarget{Item: ai, Name: it.Name, Key: o.key})
-		}
+	if hasTarget {
+		o.menus.Row(row, target)
 	}
 }

@@ -132,10 +132,6 @@ func New(d Deps) *Core {
 	return c
 }
 
-// Services returns the typed service instances (*XService), in registry
-// order.
-func (c *Core) Services() []any { return c.services }
-
 // Service returns the registered service of type T; it panics if none is.
 func Service[T any](c *Core) *T { return instance[T](c.services) }
 

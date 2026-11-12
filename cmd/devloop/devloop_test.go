@@ -39,6 +39,24 @@ func TestRebuilds(t *testing.T) {
 	}
 }
 
+func TestAppEnv(t *testing.T) {
+	env := []string{"A=1", "SONA_SOURCE="}
+	has := func(env []string, kv string) bool { return slices.Contains(env, kv) }
+
+	got := appEnv(config{root: "/src"}, env)
+	if !has(got, "SONA_SOURCE=/src") || has(got, "MYGO_DEV_BACKGROUND=1") {
+		t.Errorf("plain: %v, want SONA_SOURCE and no background", got)
+	}
+	if len(env) != 2 {
+		t.Errorf("the loop's own environment was changed: %v", env)
+	}
+
+	got = appEnv(config{root: "/src", background: true}, []string{"SONA_SOURCE=/mine"})
+	if !has(got, "MYGO_DEV_BACKGROUND=1") || has(got, "SONA_SOURCE=/src") || !has(got, "SONA_SOURCE=/mine") {
+		t.Errorf("background: %v, want MYGO_DEV_BACKGROUND=1 and the loop's own SONA_SOURCE kept", got)
+	}
+}
+
 func TestExtldProbeCache(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	t.Setenv("HOME", t.TempDir())

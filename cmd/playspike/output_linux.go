@@ -1,13 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 )
 
 const deviceHelp = "PipeWire sink (node.name) to play to (default: the system default)"
@@ -53,29 +50,4 @@ func audioStream(pid int) {
 	if !found {
 		step("pipewire stream", "err", fmt.Sprintf("no node for pid %d", pid))
 	}
-}
-
-// memory prints the proportional set size of this process and the host.
-func memory(label string, child int) {
-	parent := pss(os.Getpid())
-	host := pss(child)
-	step(label, "parent_pss", fmtKiB(parent), "host_pss", fmtKiB(host), "total", fmtKiB(parent+host))
-}
-
-func fmtKiB(k int) string { return fmt.Sprintf("%.1fMiB", float64(k)/1024) }
-
-func pss(pid int) int {
-	f, err := os.Open(fmt.Sprintf("/proc/%d/smaps_rollup", pid))
-	if err != nil {
-		return 0
-	}
-	defer func() { _ = f.Close() }()
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		if rest, ok := strings.CutPrefix(sc.Text(), "Pss:"); ok {
-			n, _ := strconv.Atoi(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(rest), "kB")))
-			return n
-		}
-	}
-	return 0
 }

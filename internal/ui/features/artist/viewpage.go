@@ -28,6 +28,7 @@ type viewState struct {
 	id, view string
 	pos      ui.ScrollState
 	width    float32
+	track    kit.WidthTracker
 	// depth is how many pages are asked for: it grows as the list scrolls
 	// (v0.2.0's infinite query).
 	depth int
@@ -189,7 +190,7 @@ func (a *artist) viewPage(c *ui.Context, r *ui.Route) {
 		}
 		title, _ = viewTitle(view, n)
 	}
-	a.scaffold(c, &vs.pos, &vs.width, func(pane *kit.Pane) {
+	a.scaffold(c, &vs.pos, &vs.track, &vs.width, func(pane *kit.Pane) {
 		a.viewHeader(c, id, name, title)
 		if !known {
 			kit.EmptyState(c, i18n.T("There's no such list"),
@@ -211,11 +212,10 @@ func (a *artist) viewHeader(c *ui.Context, id, name, title string) {
 	}
 	ui.Row(c.Key("header")).FillWidth().AlignItems(ui.End).Margin(0, 0, 24, 0).Shrink(0).Children(func() {
 		ui.Column(c).MinWidth(0).Shrink(1).Children(func() {
-			t := tk.Type["title"]
-			ui.Text(c, title).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking).
+			theme.StyleText(ui.Text(c, title), "title").
 				TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
 			s := tk.Type["secondary"]
-			if a.has(artistPath(id)) {
+			if a.env.Routed(artistPath(id)) {
 				ui.Link(c, subline, artistPath(id)).FontSize(s.Size).TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 			} else {
 				ui.Text(c, subline).FontSize(s.Size).FixedLineHeight(s.LineHeight).TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
@@ -230,10 +230,7 @@ func (a *artist) viewBody(c *ui.Context, vs *viewState, id, view, name, title st
 	pages, fetching, more, err := a.viewPages(id, view, max(1, vs.depth))
 	vs.depth = max(vs.depth, 1)
 	if err != nil {
-		kit.ErrorBlock(c, i18n.T("Couldn't load this list"), err, kit.ErrorBlockOpts{
-			OnRetry:  func() { a.env.Queries.Invalidate(keyArtistView(id, view)) },
-			Retrying: fetching,
-		})
+		kit.QueryError(c, a.env.Queries, i18n.T("Couldn't load this list"), store.Result[struct{}]{Err: err, Fetching: fetching}, keyArtistView(id, view))
 		return
 	}
 	first := len(pages) == 0
@@ -261,31 +258,17 @@ func (a *artist) viewBody(c *ui.Context, vs *viewState, id, view, name, title st
 		for k, p := range pages {
 			lens[k] = len(p.Songs)
 		}
-		if vs.tracks.menus == nil {
-			vs.tracks.menus = kit.NewActionMenus(a.env.Actions, &vs.tracks.Sel)
+		o := a.trackOpts(kit.MenusIn(&vs.tracks.menus, a.env.Actions, &vs.tracks.Sel))
+		o.Label = title
+		o.Columns = kit.TrackColumns{RowNumbers: true, Artwork: true, Album: true}
+		o.OnPlay = func(i int) {
+			var songs []services.Song
+			for _, p := range pages {
+				songs = append(songs, p.Songs...)
+			}
+			a.env.Queue.PlaySongs(songs, i, from(id))
 		}
-		cur := a.env.Play.State()
-		o := kit.TrackListOpts{
-			Label:   title,
-			Columns: kit.TrackColumns{RowNumbers: true, Artwork: true, Album: true},
-			OnPlay: func(i int) {
-				var songs []services.Song
-				for _, p := range pages {
-					songs = append(songs, p.Songs...)
-				}
-				a.env.Queue.PlaySongs(songs, i, from(id))
-			},
-			Playing:    cur.State == "playing",
-			Restricted: a.restricted(),
-			Art:        a.env.Art, Menus: vs.tracks.menus, Motion: a.env.Motion, Pane: pane, OnRange: onRange,
-		}
-		if cur.Current != nil {
-			cid, cat := cur.Current.ID, cur.Current.CatalogID
-			o.Current = func(s *services.Song) bool { return kit.SongIsCurrent(s, cid, cat) }
-		}
-		if a.has(albumPath("_")) {
-			o.OpenAlbum = func(id string) { a.env.Nav.Push(albumPath(id)) }
-		}
+		o.Pane, o.OnRange = pane, onRange
 		// Rows index the pages as this frame has them: a refetch that
 		// changed their sizes cannot leave a row out of range.
 		kit.TrackList(c, &vs.tracks.TrackListState, total+loading, func(i int) *services.Song {
@@ -300,14 +283,11 @@ func (a *artist) viewBody(c *ui.Context, vs *viewState, id, view, name, title st
 		for k, it := range vs.items {
 			lens[k] = len(it)
 		}
-		if vs.menus == nil {
-			vs.menus = kit.NewActionMenus(a.env.Actions, &vs.grid.Sel)
-		}
 		tileMin := float32(160)
 		if view == services.ViewMusicVideos || view == services.ViewTopMusicVideos {
 			tileMin = 240
 		}
-		ctx := a.itemsCtx(vs.menus)
+		ctx := a.itemsCtx(kit.MenusIn(&vs.menus, a.env.Actions, &vs.grid.Sel))
 		kit.ItemGrid(c, &vs.grid, total+loading, func(i int) *services.Item {
 			if k, j, ok := locate(lens, i); ok {
 				return &vs.items[k][j]

@@ -95,6 +95,9 @@ type npRig struct {
 	width, height int
 	// inspect, when set, runs at the end of every frame (to read bounds).
 	inspect func(c *ui.Context)
+	// animate lets scrolls glide, as a window's do: a frozen test clock
+	// would redraw twenty frames per input, so most tests snap them.
+	animate bool
 }
 
 func newNPRig(t *testing.T, mutate ...func(*npRig)) *npRig {
@@ -121,7 +124,9 @@ func newNPRigWith(t *testing.T, opts []uitest.Option, mutate ...func(*npRig)) *n
 	r.tt = h.Tester(t, func(c *ui.Context) {
 		// A frozen fake clock never finishes a transition: every input would
 		// draw twenty frames.
-		c.DisableAnimations()
+		if !r.animate {
+			c.DisableAnimations()
+		}
 		ui.Column(c).Fill().Children(func() {
 			ui.Column(c).Grow(1).Basis(0).MinHeight(0).Children(func() {
 				if slot := r.p.overlaySlot(); slot.Open() {
@@ -140,18 +145,7 @@ func newNPRigWith(t *testing.T, opts []uitest.Option, mutate ...func(*npRig)) *n
 
 // play shows a playing catalogue song at position ms.
 func (r *npRig) play(ms int64, mutate ...func(*services.PlaybackState)) {
-	s := store.EmptyState()
-	s.State = store.StatePlaying
-	s.Current = &services.QueueItem{
-		ID: "i.1", CatalogID: "1001", Name: "Song Title", Artist: "The Artist", Album: "The Album",
-		ArtistID: "a1", AlbumID: "al1", Explicit: true,
-	}
-	s.DurationMs, s.PositionMs, s.At = 240_000, ms, r.h.Clock.Now().UnixMilli()
-	s.Controls = services.PlaybackControls{Previous: true, Next: true, Seek: true, Shuffle: true, Repeat: true}
-	for _, m := range mutate {
-		m(&s)
-	}
-	r.h.Env.Play.Seed(s, services.QueueState{Index: -1})
+	r.h.Play(ms, append([]func(*services.PlaybackState){func(s *services.PlaybackState) { s.Current.Explicit = true }}, mutate...)...)
 }
 
 // advance moves the song and the tester's clock on by d, drawing frames.
@@ -333,9 +327,7 @@ func TestLyricsLoadingNotFoundAndFailure(t *testing.T) {
 	r.tt.Until("failure", r.tt.Shows("Couldn't load the lyrics", "Try again"))
 	before := r.lyr.count()
 	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(3, false)}, nil)
-	if err := r.tt.Click("Try again"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Try again")
 	r.tt.Until("lyrics after the retry", r.tt.Shows("Line 1 sung words"))
 	if r.lyr.count() <= before {
 		t.Error("Try again did not ask the service")
@@ -443,9 +435,7 @@ func TestClickingALineSeeksToItsBeginPlusTheOffset(t *testing.T) {
 	r.tt.Until("lyrics", r.tt.Shows("Line 3 sung words"))
 	lyricsync.Session().Nudge("1001", 1) // lyrics half a second later
 	r.advance(time.Millisecond)
-	if err := r.tt.Click("Line 3 sung words"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Line 3 sung words")
 	select {
 	case ms := <-r.seek.seeks:
 		if want := int64(1000+3*4000) + 500; ms != want {
@@ -489,9 +479,7 @@ func TestLyricsTimingNudgesPerSongAndResets(t *testing.T) {
 	r.tt.Until("tools", r.tt.Shows("Lyrics on time"))
 	click := func(s string) {
 		t.Helper()
-		if err := r.tt.Click(s); err != nil {
-			t.Fatal(err)
-		}
+		r.tt.MustClick(s)
 		r.tt.Drain()
 	}
 	click("Show lyrics 0.5 s later")
@@ -628,9 +616,7 @@ func TestOpeningRoomLyricsAndLeavingThem(t *testing.T) {
 	r.play(2000)
 	r.open("")
 	r.tt.Until("tools", r.tt.Shows("Full screen"))
-	if err := r.tt.Click("Full screen"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Full screen")
 	r.tt.Until("the room", r.tt.Shows("Lyrics, full screen", "Exit full screen", "Song Title"))
 	if r.p.ui.overlay != overlayRoom || !r.p.roomOpen() {
 		t.Errorf("overlay %v", r.p.ui.overlay)
@@ -639,9 +625,7 @@ func TestOpeningRoomLyricsAndLeavingThem(t *testing.T) {
 		t.Errorf("the room lacks the sheet or the timing: %q", r.tt.Texts())
 	}
 	// Leaving returns to Now Playing, whose Full screen button has the focus.
-	if err := r.tt.Click("Exit full screen"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Exit full screen")
 	r.tt.Until("Now Playing again", r.tt.Shows("Now playing", "Full screen"))
 	if r.p.ui.overlay != overlayNowPlaying || !r.p.ui.fromRoom {
 		t.Errorf("overlay %v fromRoom %v", r.p.ui.overlay, r.p.ui.fromRoom)
@@ -651,9 +635,7 @@ func TestOpeningRoomLyricsAndLeavingThem(t *testing.T) {
 		t.Error("focus did not return to Full screen")
 	}
 	// Close steps out to the page.
-	if err := r.tt.Click("Close now playing (Escape)"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Close now playing (Escape)")
 	if r.p.ui.overlay != overlayNone {
 		t.Errorf("overlay %v after Close", r.p.ui.overlay)
 	}
@@ -691,9 +673,7 @@ func TestPaneTabsSwitchAndKeepTheirPane(t *testing.T) {
 	r.play(2000)
 	r.open("")
 	r.tt.Until("tabs", r.tt.Shows("Up next"))
-	if err := r.tt.Click("Up next"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Up next")
 	r.settle()
 	if r.p.ui.pane != paneQueue {
 		t.Errorf("pane %v after clicking Up next", r.p.ui.pane)
@@ -986,5 +966,111 @@ func TestNextSweepEdgeIsTheNextWordLineEndOrRest(t *testing.T) {
 		if got := nextSweepEdge(spans, 0, words, c.at); got != c.want {
 			t.Errorf("after %d: %d, want %d", c.at, got, c.want)
 		}
+	}
+}
+
+// Handle.Focus scrolls the line into view as the focus moves (MyGo v0.9.0),
+// so arrowing down the synced lines follows the focus, and neither the
+// sheet's smooth page turns nor its hold after the user moved it pulls the
+// sheet away from the focused line.
+func TestArrowingThroughSyncedLinesKeepsTheFocusedLineInView(t *testing.T) {
+	r := newNPRig(t)
+	var sheet, line ui.Rect
+	r.inspect = func(c *ui.Context) {
+		if sh := r.p.np.sheet; sh != nil {
+			sheet = sh.box.Bounds(c)
+			if f := sh.focused; f >= 0 && f < len(sh.lines) {
+				line = sh.lines[f].Bounds(c)
+			}
+		}
+	}
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(40, false)}, nil)
+	r.play(2000)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 3 sung words"))
+	r.settle()
+	sh := r.p.np.sheet
+	sh.lines[0].Focus()
+	r.settle()
+	inView := func(what string) {
+		t.Helper()
+		if line.H == 0 || sheet.H == 0 {
+			t.Fatalf("%s: no bounds (line %v, sheet %v)", what, line, sheet)
+		}
+		if line.Y < sheet.Y-1 || line.Y+line.H > sheet.Y+sheet.H+1 {
+			t.Errorf("%s: line %d at %v..%v is outside the sheet %v..%v", what, sh.focused, line.Y, line.Y+line.H, sheet.Y, sheet.Y+sheet.H)
+		}
+	}
+	for i := 1; i <= 30; i++ {
+		r.tt.Key(0, ui.KeyDown)
+		r.settle()
+		if sh.focused != i {
+			t.Fatalf("after %d presses the focus is on line %d", i, sh.focused)
+		}
+		inView(fmt.Sprintf("Down %d", i))
+		// The sheet is left where the user put it, the sung line's turn
+		// of the page included: a second later still.
+		if i%10 == 0 {
+			r.advance(time.Second)
+			r.settle()
+			inView(fmt.Sprintf("Down %d, a second on", i))
+		}
+	}
+	r.tt.Key(0, ui.KeyHome)
+	r.settle()
+	r.advance(time.Second)
+	inView("Home")
+	r.tt.Key(0, ui.KeyEnd)
+	r.settle()
+	r.advance(time.Second)
+	inView("End")
+}
+
+// A key pressed while the sheet glides to the sung line's page takes the
+// focus to the next line, and the glide does not carry it out of view.
+func TestArrowingDuringThePageTurnKeepsTheFocusedLineInView(t *testing.T) {
+	r := newNPRig(t, func(r *npRig) { r.animate = true })
+	var sheet, line ui.Rect
+	r.inspect = func(c *ui.Context) {
+		if sh := r.p.np.sheet; sh != nil {
+			sheet = sh.box.Bounds(c)
+			if f := sh.focused; f >= 0 && f < len(sh.lines) {
+				line = sh.lines[f].Bounds(c)
+			}
+		}
+	}
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(60, false)}, nil)
+	r.play(2000)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 3 sung words"))
+	r.settle()
+	sh := r.p.np.sheet
+	// Play on until the sung line leaves the reading band and the sheet turns.
+	turned := false
+	for range 4000 {
+		r.advance(16 * time.Millisecond)
+		if sh.scroll.Scrolling() {
+			turned = true
+			break
+		}
+	}
+	if !turned {
+		t.Fatal("the sheet never turned a page")
+	}
+	sh.lines[sh.anchored].Focus()
+	r.settle()
+	for i := 0; i < 3; i++ {
+		r.tt.Key(0, ui.KeyDown)
+		r.tt.Frame()
+		r.advance(50 * time.Millisecond)
+		r.advance(300 * time.Millisecond)
+		if line.Y < sheet.Y-1 || line.Y+line.H > sheet.Y+sheet.H+1 {
+			t.Errorf("Down %d: line %d at %v..%v is outside the sheet %v..%v (y=%v)", i+1, sh.focused, line.Y, line.Y+line.H, sheet.Y, sheet.Y+sheet.H, sh.scroll.Y)
+		}
+	}
+	// The hold keeps the sheet where the keys left it.
+	r.advance(time.Second)
+	if line.Y < sheet.Y-1 || line.Y+line.H > sheet.Y+sheet.H+1 {
+		t.Errorf("a second on, line %d at %v..%v is outside the sheet %v..%v", sh.focused, line.Y, line.Y+line.H, sheet.Y, sheet.Y+sheet.H)
 	}
 }

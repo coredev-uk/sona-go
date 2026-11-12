@@ -9,7 +9,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
-	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
 // listState is the state of a room's or a chart's list: its further pages, the
@@ -64,7 +63,7 @@ type roomPage struct {
 	pg    pageView
 	menus *kit.ActionMenus
 	list  listState
-	skel  measure
+	skel  kit.WidthTracker
 	// sort is the value of the Order select.
 	sort string
 }
@@ -95,7 +94,7 @@ func (d *discover) roomPage(c *ui.Context, r *ui.Route) {
 		case q.HasData:
 			d.roomContent(c, r, st, pane, id, sort, q.Data)
 		case q.Err != nil:
-			d.pageError(c, i18n.T("Couldn't load this list"), q.Err, q.Fetching, d.retry(keyRoom(id, sort)))
+			kit.QueryError(c, d.env.Queries, i18n.T("Couldn't load this list"), q, keyRoom(id, sort))
 		default:
 			kit.PageHeader(c, "", "", nil)
 			d.shelvesSkeleton(c, &st.skel, false)
@@ -216,52 +215,16 @@ func (d *discover) itemList(c *ui.Context, st *listState, pane *kit.Pane, pages 
 	}
 	// The ranges are in rows of songs; the pages ask in items.
 	songRange := func(_, end int) { onRange(0, end+pages.count-len(songs)) }
-	to := func(prefix string) func(id string) {
-		if d.env.HasRoute == nil || !d.env.HasRoute(prefix+"x") {
-			return nil
-		}
-		return func(id string) { d.env.Nav.Push(prefix + id) }
-	}
+	opts := d.env.TrackOpts(o.menus, ctx.Restricted)
+	opts.Label = o.title
+	opts.Columns = kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true}
+	opts.OnPlay = func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: o.title}) }
+	opts.OnRange = songRange
+	opts.Pane = pane
 	kit.TrackList(c, &st.tracks, count, func(i int) *services.Song {
 		if i < len(songs) {
 			return &songs[i]
 		}
 		return nil
-	}, kit.TrackListOpts{
-		Label:   o.title,
-		Columns: kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true},
-		OnPlay:  func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: o.title}) },
-		OnRange: songRange,
-		Pane:    pane, Menus: o.menus, Art: ctx.Art, Motion: ctx.Motion,
-		Current: currentSong(ctx), Playing: ctx.Playing, Restricted: ctx.Restricted,
-		OpenArtist: to("/artist/"), OpenAlbum: to("/album/"),
-	})
-}
-
-// seeAllLink is a shelf heading's "See all" control, as kit.Shelf draws it, for
-// the headings this feature builds itself.
-func seeAllLink(c *ui.Context, key string, open func()) {
-	tk := theme.Current()
-	b := ui.ButtonBase(c.Key(key)).Role(ui.RoleLink).Height(28).PaddingX(6).MarginEnd(-4).Gap(2).Radius(tk.Radius["md"]).Center()
-	bg, fg := ui.Transparent, theme.C("ink-muted")
-	if b.Hovered() {
-		bg, fg = theme.C("hover"), theme.C("ink")
-	}
-	b.Background(bg).TextColor(fg)
-	b.Children(func() {
-		text(c, i18n.T("See all"), "sub").SingleLine()
-		theme.Glyph(c, "chevron-right", 14, theme.GlyphOpts{Color: fg, Inherit: true})
-	})
-	if b.Clicked() {
-		open()
-	}
-}
-
-// currentSong is the track lists' "is this the song playing" from the
-// context's.
-func currentSong(ctx kit.ItemsCtx) func(*services.Song) bool {
-	if ctx.Current == nil {
-		return nil
-	}
-	return func(s *services.Song) bool { return s != nil && ctx.Current(*s) }
+	}, opts)
 }

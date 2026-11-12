@@ -195,6 +195,7 @@ func (s *server) handle(r request) reply {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	ok := reply{ID: r.ID}
+	var err error // of the requests that only succeed or fail
 	switch r.Op {
 	case opInit:
 		s.sink, s.device = r.Sink, r.Device
@@ -214,74 +215,34 @@ func (s *server) handle(r request) reply {
 		}
 		ok.Info = &Info{PID: os.Getpid(), GStreamer: gst.Version(), Sandbox: s.sandbox}
 	case opCert:
-		if err := s.needCDM(); err != nil {
-			return fail(r.ID, err)
-		}
-		if err := s.cdm.SetServerCertificate(ctx, r.Data); err != nil {
-			return fail(r.ID, err)
-		}
+		err = s.cdmDo(func(c *widevine.CDM) error { return c.SetServerCertificate(ctx, r.Data) })
 	case opSession:
-		if err := s.needCDM(); err != nil {
-			return fail(r.ID, err)
-		}
-		pssh, err := widevine.InitData(r.KID)
-		if err != nil {
-			return fail(r.ID, err)
-		}
-		id, challenge, err := s.cdm.CreateSession(ctx, pssh)
-		if err != nil {
-			return fail(r.ID, err)
-		}
-		ok.Session, ok.Challenge = id, challenge
+		err = s.cdmDo(func(c *widevine.CDM) error {
+			pssh, err := widevine.InitData(r.KID)
+			if err != nil {
+				return err
+			}
+			ok.Session, ok.Challenge, err = c.CreateSession(ctx, pssh)
+			return err
+		})
 	case opUpdate:
-		if err := s.needCDM(); err != nil {
-			return fail(r.ID, err)
-		}
-		if err := s.cdm.UpdateSession(ctx, r.Session, r.Data); err != nil {
-			return fail(r.ID, err)
-		}
-		// The expiry is the licence's duration as the CDM enforces it, for
-		// checking Apple's renewal policy.
-		exp := "none"
-		if t := s.cdm.Expiry(r.Session); !t.IsZero() {
-			exp = t.Format(time.RFC3339)
-		}
-		s.log.Debug("cdmhost: licence installed", "session", r.Session, "expiry", exp)
+		err = s.installLicense(ctx, r)
 	case opCloseSession:
-		if err := s.needCDM(); err != nil {
-			return fail(r.ID, err)
-		}
-		if err := s.cdm.CloseSession(ctx, r.Session); err != nil {
-			return fail(r.ID, err)
-		}
+		err = s.cdmDo(func(c *widevine.CDM) error { return c.CloseSession(ctx, r.Session) })
 	case opLoad:
-		if err := s.load(r); err != nil {
-			return fail(r.ID, err)
-		}
+		err = s.load(r)
 	case opLoadFile:
-		if err := s.loadFile(r); err != nil {
-			return fail(r.ID, err)
-		}
+		err = s.loadFile(r)
 	case opFileData:
-		if err := s.feedFile(r); err != nil {
-			return fail(r.ID, err)
-		}
+		err = s.feedFile(r)
 	case opFileEnd:
-		if err := s.endFile(r); err != nil {
-			return fail(r.ID, err)
-		}
+		err = s.endFile(r)
 	case opNext:
-		if err := s.queueNext(r); err != nil {
-			return fail(r.ID, err)
-		}
+		err = s.queueNext(r)
 	case opVideoLoad:
-		if err := s.loadVideo(ctx, r); err != nil {
-			return fail(r.ID, err)
-		}
+		err = s.loadVideo(ctx, r)
 	case opVideoEnd:
-		if err := s.endVideo(r); err != nil {
-			return fail(r.ID, err)
-		}
+		err = s.endVideo(r)
 	case opEnd:
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -376,21 +337,42 @@ func (s *server) handle(r request) reply {
 			}
 		}
 		if s.file != nil {
-			if err := s.file.SetDevice(r.Device, ""); err != nil {
+			if err := s.file.SetDevice(r.Device); err != nil {
 				return fail(r.ID, err)
 			}
 		}
 	default:
 		return fail(r.ID, fmt.Errorf("cdmhost: unknown op %q", r.Op))
 	}
+	if err != nil {
+		return fail(r.ID, err)
+	}
 	return ok
 }
 
-func (s *server) needCDM() error {
+// cdmDo runs f on the CDM, which a clear host does not have.
+func (s *server) cdmDo(f func(*widevine.CDM) error) error {
 	if s.cdm == nil {
 		return errors.New("cdmhost: CDM not initialised")
 	}
-	return nil
+	return f(s.cdm)
+}
+
+// installLicense passes a licence (or renewal) response to its session.
+func (s *server) installLicense(ctx context.Context, r request) error {
+	return s.cdmDo(func(c *widevine.CDM) error {
+		if err := c.UpdateSession(ctx, r.Session, r.Data); err != nil {
+			return err
+		}
+		// The expiry is the licence's duration as the CDM enforces it, for
+		// checking Apple's renewal policy.
+		exp := "none"
+		if t := c.Expiry(r.Session); !t.IsZero() {
+			exp = t.Format(time.RFC3339)
+		}
+		s.log.Debug("cdmhost: licence installed", "session", r.Session, "expiry", exp)
+		return nil
+	})
 }
 
 // open loads the CDM library at lib (the parent chose it: the downloaded
@@ -647,7 +629,6 @@ type feedScratch struct {
 	bufs []widevine.Buffer
 	out  []pending
 	ivs  [][16]byte
-	subs []widevine.Subsample
 }
 
 // pending is one access unit on its way to the pipeline.
@@ -655,12 +636,23 @@ type pending struct {
 	buf      gst.Buffer
 	pts, dur time.Duration
 	dec      int // index into feedScratch.bufs, -1 when the sample is clear
-	nsub     int
 }
 
 // preroll is how much audio before the segment start is decoded and then
 // clipped, so the decoder's overlap state is primed at the target.
 const preroll = 50 * time.Millisecond
+
+// cbcsPattern is the scheme in's samples are encrypted with: whether it is
+// cbcs and, if so, its crypt:skip pattern. A cbcs track with no pattern
+// (tenc v0, typical for audio) encrypts every block.
+func cbcsPattern(in *fmp4.Init) (cbcs bool, crypt, skip uint8) {
+	cbcs = in.Scheme == "cbcs"
+	crypt, skip = in.CryptByte, in.SkipByte
+	if cbcs && crypt == 0 && skip == 0 {
+		crypt = 1
+	}
+	return cbcs, crypt, skip
+}
 
 // checkScheme rejects encryption the feeder cannot decrypt.
 func checkScheme(in *fmp4.Init) error {
@@ -721,16 +713,12 @@ func (s *server) feed(r request, sc *feedScratch) error {
 		return err
 	}
 	toDur := func(units int64) time.Duration { return fmp4.Time(units, in.Timescale) }
-	cbcs := in.Scheme == "cbcs"
-	crypt, skip := in.CryptByte, in.SkipByte
-	if cbcs && crypt == 0 && skip == 0 {
-		crypt = 1 // no pattern (tenc v0, typical for audio): every block is encrypted
-	}
+	cbcs, crypt, skip := cbcsPattern(in)
 	kid := in.KID
 	if len(r.KID) == 16 {
 		kid = r.KID
 	}
-	sc.bufs, sc.out, sc.subs = sc.bufs[:0], sc.out[:0], sc.subs[:0]
+	sc.bufs, sc.out = sc.bufs[:0], sc.out[:0]
 	if cap(sc.ivs) < len(samples) {
 		sc.ivs = make([][16]byte, len(samples))
 	}
@@ -744,13 +732,11 @@ func (s *server) feed(r request, sc *feedScratch) error {
 		if !smp.Encrypted() {
 			copy(p.buf.Data, smp.Data)
 		} else {
-			for _, ss := range smp.Subsamples {
-				sc.subs = append(sc.subs, widevine.Subsample{Clear: ss.Clear, Cipher: ss.Cipher})
-			}
-			p.dec, p.nsub = len(sc.bufs), len(smp.Subsamples)
+			p.dec = len(sc.bufs)
 			sc.bufs = append(sc.bufs, widevine.Buffer{
 				KeyID:       kid,
 				IV:          fmp4.PaddedIV(&sc.ivs[i], smp.IV),
+				Subsamples:  smp.Subsamples,
 				Data:        smp.Data,
 				Out:         p.buf.Data,
 				Timestamp:   pts,
@@ -760,14 +746,6 @@ func (s *server) feed(r request, sc *feedScratch) error {
 			})
 		}
 		sc.out = append(sc.out, p)
-	}
-	// Point each buffer at its run of the (now final) subsample table.
-	off := 0
-	for _, p := range sc.out {
-		if p.dec >= 0 {
-			sc.bufs[p.dec].Subsamples = sc.subs[off : off+p.nsub : off+p.nsub]
-			off += p.nsub
-		}
 	}
 	freeFrom := func(i int) {
 		for _, p := range sc.out[i:] {

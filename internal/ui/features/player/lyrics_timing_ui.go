@@ -31,7 +31,10 @@ func (p *player) lyricsTiming(c *ui.Context, songID string) {
 	words := describeOffset(offset)
 	step := i18n.FormatNumber(float64(lyricsync.OffsetStepMs) / 1000)
 	// Said when it changes (not when the song's own is first shown), so a
-	// nudge from the keyboard is heard whoever has the focus.
+	// nudge from the keyboard is heard whoever has the focus. The button is
+	// not a status: that would read it again as its label changes, and on
+	// every song whose offset differs from the last one's, and would no
+	// longer be a button.
 	text := i18n.T("Lyrics on time")
 	if words != "" {
 		text = i18n.T("Lyrics {words}", "words", words)
@@ -50,7 +53,7 @@ func (p *player) lyricsTiming(c *ui.Context, songID string) {
 			tip = i18n.T("Back to the original timing")
 		}
 		if kit.Button(c.Key("offset"), label, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Muted: true, Disabled: words == "", Tip: tip, Keys: p.env.KeysOf("player.lyrics-reset")}).
-			Role(ui.RoleStatus).MinWidth(120).Clicked() {
+			MinWidth(120).Clicked() {
 			lyricsync.Session().Reset(songID)
 		}
 		later := i18n.T("Show lyrics {step} s later", "step", step)

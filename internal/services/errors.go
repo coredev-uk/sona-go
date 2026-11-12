@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -26,8 +25,8 @@ import (
 )
 
 // ErrorCode is a stable error code the UI words through its own
-// catalogue (internal/ui/i18n, ErrorText): a failed call carries one
-// (see MarshalError), and DTOs carry one where Go would otherwise send
+// catalogue (internal/ui/i18n, ErrorText): a failed call is worded from
+// CodeOf, and DTOs carry one where Go would otherwise send
 // English (AuthStatus.LastErrorCode, sync events…). Go's error text never
 // reaches the UI's words; it is for logs.
 type ErrorCode string
@@ -226,16 +225,6 @@ func CodeOf(err error) ErrorCode {
 	return CodeUnknown
 }
 
-// CallError is the JSON a rejected binding call carries as err.cause.
-// Message is Go's error text, for logs only: the UI words Code.
-type CallError struct {
-	Code    ErrorCode `json:"code"`
-	Message string    `json:"message"`
-	// AppleMessage is Apple's own wording of a sign-in failure Sona has no
-	// code for (AppleMessage); Apple localised it, so the UI shows it.
-	AppleMessage string `json:"appleMessage,omitempty"`
-}
-
 // AppleMessage is Apple's own, already localised wording of a failure
 // that classifies as CodeUnknown: a sign-in error Apple sent with a code
 // Sona doesn't map. "" for every other error, including Sona's own text.
@@ -245,11 +234,4 @@ func AppleMessage(err error) string {
 		return ""
 	}
 	return se.AppleText()
-}
-
-// MarshalError is the application's Options.MarshalError: every service
-// error reaches JS as err.cause = {code, message}.
-func MarshalError(err error) []byte {
-	b, _ := json.Marshal(CallError{Code: CodeOf(err), Message: err.Error(), AppleMessage: AppleMessage(err)})
-	return b
 }

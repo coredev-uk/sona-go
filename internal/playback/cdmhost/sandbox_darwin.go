@@ -88,11 +88,6 @@ const envSeatbeltChild = "SONA_CDMHOST_SEATBELT"
 // sandboxEnv are the sandbox's own variables, never inherited by a child.
 var sandboxEnv = []string{envSeatbeltChild}
 
-// pluginPathEnv are the variables withheld from the child to keep plugin
-// folders out of its scan: none here (Windows names the video plugins' folder
-// in one, sandbox_windows.go).
-var pluginPathEnv []string
-
 // sandboxExec is macOS's Seatbelt launcher.
 const sandboxExec = "/usr/bin/sandbox-exec"
 
@@ -155,13 +150,7 @@ func startSandboxed(exe string, env []string, log *slog.Logger) (proc, parentSan
 // withParent adds the parent's reason for an unconfined child.
 func (s Sandbox) withParent(ps parentSandbox) Sandbox {
 	s.Unconfined = ps.gap
-	if ps.reason != "" {
-		if s.Reason != "" {
-			s.Reason = ps.reason + "; " + s.Reason
-		} else {
-			s.Reason = ps.reason
-		}
-	}
+	s.Reason = joinReason(ps.reason, s.Reason)
 	return s
 }
 

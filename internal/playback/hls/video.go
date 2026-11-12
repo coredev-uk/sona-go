@@ -1,9 +1,6 @@
 package hls
 
 import (
-	"bufio"
-	"bytes"
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -25,10 +22,9 @@ type Rendition struct {
 // ParseRenditions parses a master playlist's EXT-X-MEDIA renditions in
 // order (none is not an error).
 func ParseRenditions(data []byte) ([]Rendition, error) {
-	sc := bufio.NewScanner(bytes.NewReader(data))
-	sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
-	if !sc.Scan() || strings.TrimSpace(strings.TrimPrefix(sc.Text(), "\ufeff")) != "#EXTM3U" {
-		return nil, errors.New("hls: missing #EXTM3U")
+	sc, err := playlistScanner(data)
+	if err != nil {
+		return nil, err
 	}
 	var out []Rendition
 	for sc.Scan() {

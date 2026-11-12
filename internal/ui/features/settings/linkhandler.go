@@ -72,23 +72,23 @@ func (s *settings) linkHandlerRow(c *ui.Context, caps services.Capabilities) {
 	case res.HasData && !sona && res.Data.Other != "":
 		other := res.Data.Other
 		o.Notes = func() {
-			text(c, i18n.T("They open in {app} now.", "app", other), "secondary").TextColor(theme.C("ink")).Margin(2, 0, 0, 0)
+			theme.Text(c, i18n.T("They open in {app} now.", "app", other), "secondary").TextColor(theme.C("ink")).Margin(2, 0, 0, 0)
 		}
 	case res.HasData && !sona:
 		o.Notes = func() {
-			text(c, i18n.T("Another app opens them now."), "secondary").TextColor(theme.C("ink")).Margin(2, 0, 0, 0)
+			theme.Text(c, i18n.T("Another app opens them now."), "secondary").TextColor(theme.C("ink")).Margin(2, 0, 0, 0)
 		}
 	case !res.HasData && res.Err != nil:
 		reason := i18n.ErrorMessage(res.Err)
 		o.Notes = func() {
-			text(c, i18n.T("Couldn't tell which app opens them: {reason}", "reason", reason), "secondary").TextColor(theme.C("ink")).Margin(2, 0, 0, 0)
+			theme.Text(c, i18n.T("Couldn't tell which app opens them: {reason}", "reason", reason), "secondary").TextColor(theme.C("ink")).Margin(2, 0, 0, 0)
 		}
 	}
 	s.row(c, o, func() ui.Element {
 		if sona {
 			ui.Row(c.Key("sona")).Gap(6).AlignItems(ui.Center).Role(ui.RoleStatus).Label(title).Children(func() {
 				ui.Icon(c, theme.Icon("circle-check")).FontSize(16).TextColor(theme.C("positive"))
-				text(c, i18n.T("Sona opens them"), "secondary").TextColor(theme.C("ink"))
+				theme.Text(c, i18n.T("Sona opens them"), "secondary").TextColor(theme.C("ink"))
 			})
 			return ui.Element{}
 		}

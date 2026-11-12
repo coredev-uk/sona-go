@@ -248,7 +248,7 @@ func TestConcertsLocationIsChosenSavedAndUsed(t *testing.T) {
 		t.Errorf("saved city = %q", got)
 	}
 	if !slices.Contains(env.ev.events, EventSettingsChanged) {
-		t.Error("the settings change was not announced (the frontend's copy would overwrite it)")
+		t.Error("the settings change was not announced (the UI's copy would overwrite it)")
 	}
 
 	page, err := env.s.Concerts(ctx, ConcertsRequest{})

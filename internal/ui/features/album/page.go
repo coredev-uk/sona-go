@@ -8,7 +8,6 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
-	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
@@ -18,8 +17,6 @@ import (
 
 // The page's geometry, from AppShell's main and AlbumPage (DIPs).
 const (
-	padTop    = 28 // pt-7
-	padBottom = 48 // pb-12
 	// stickyTop is how far below the pane's top the sleeve stays while the
 	// songs scroll (sticky top-7).
 	stickyTop = 28
@@ -66,17 +63,17 @@ type album struct {
 
 // pageState is the state of one album's page, kept on the page's root.
 type pageState struct {
-	pos          ui.ScrollState
-	paneW, paneH float32 // the scroll container as last laid out
+	// PageFrame is the scroll place and the scroll container as last laid out.
+	kit.PageFrame
 	// trackMenus are the songs' item menus, over their selection.
 	trackMenus *kit.ActionMenus
 
 	tracks  kit.TrackListState
 	shelves [6]kit.CoverShelfState
 	// The list as the last frame built it, for the disc index.
-	list     listView
-	sleeveH  float32 // the wide layout's sleeve, as last laid out
-	paneRect func() ui.Rect
+	list    listView
+	sleeveH float32   // the wide layout's sleeve, as last laid out
+	pane    *kit.Pane // the scroll container, as this frame builds it
 	// pal is the cover's colours, built once per cover, theme and layout.
 	pal palCache
 }
@@ -87,10 +84,6 @@ type listView struct {
 	count int
 	at    func(i int) *services.Song
 }
-
-// has reports whether a registered page matches path: the page links only
-// to ported pages.
-func (a *album) has(path string) bool { return a.env.HasRoute != nil && a.env.HasRoute(path) }
 
 // push opens a page.
 func (a *album) push(path string) { a.env.Nav.Push(path) }
@@ -127,7 +120,7 @@ type load struct {
 func (a *album) query(id string) load {
 	q := a.env.Queries
 	if !isLibraryID(id) {
-		key := catalogKey(id)
+		key := store.CatalogAlbum(id)
 		r := store.Use(q, key, func(ctx context.Context) (services.CatalogAlbum, error) { return a.cat.Album(ctx, id) }, forever)
 		l := load{hasData: r.HasData, err: r.Err, fetching: r.Fetching, key: key, cat: true}
 		if r.HasData {
@@ -135,7 +128,7 @@ func (a *album) query(id string) load {
 		}
 		return l
 	}
-	key := libraryKey(id)
+	key := store.LibraryAlbum(id)
 	r := store.Use(q, key, func(ctx context.Context) (services.AlbumDetail, error) { return a.lib.Album(ctx, id) }, forever)
 	l := load{hasData: r.HasData, err: r.Err, fetching: r.Fetching, key: key}
 	if !r.HasData {
@@ -143,7 +136,7 @@ func (a *album) query(id string) load {
 	}
 	l.detail = r.Data
 	if cid := r.Data.Album.CatalogID; cid != "" {
-		linked := store.Use(q, catalogKey(cid), func(ctx context.Context) (services.CatalogAlbum, error) { return a.cat.Album(ctx, cid) }, forever)
+		linked := store.Use(q, store.CatalogAlbum(cid), func(ctx context.Context) (services.CatalogAlbum, error) { return a.cat.Album(ctx, cid) }, forever)
 		if linked.HasData {
 			l.page = &linked.Data
 		}
@@ -161,41 +154,21 @@ func (a *album) page(c *ui.Context, r *ui.Route) {
 	root := ui.Column(c.Key("album:" + id)).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
 	st := *ui.Local(root, "page", func() *pageState { return &pageState{} })
 	a.pageState = st
-	if st.trackMenus == nil {
-		st.trackMenus = kit.NewActionMenus(a.env.Actions, &st.tracks.Sel)
-	}
+	kit.MenusIn(&st.trackMenus, a.env.Actions, &st.tracks.Sel)
 
-	tk := theme.Current()
-	gutter := tk.Metric["gutter"]
-	if st.paneW > 0 && st.paneW < 960 {
-		gutter = tk.Metric["gutter-narrow"]
-	}
-	scrollbar := tk.Metric["scrollbar"]
-	width := st.paneW
+	width := st.Width
 	if width == 0 {
 		ww, _ := c.Size()
 		width = ww - sidebarGuess
 	}
-	lay := albumLayout(width - 2*gutter - scrollbar)
-	root.Children(func() { a.scroll(c, id, highlight, lay, now, gutter, scrollbar) })
-	a.menus.Popup(c)
-}
-
-// scroll is the page's scroll container.
-func (a *album) scroll(c *ui.Context, id, highlight string, lay layout, now time.Time, gutter, scrollbar float32) {
-	var sc ui.Element
-	devstate.Scroll(c, &a.pos) // dev builds: the offset survives a restart
-	sc = ui.Scroll(c).TrackScroll(&a.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
-	a.paneRect = func() ui.Rect { return sc.Bounds() }
-	sc.Children(func() {
-		ui.Column(c).Padding(padTop, gutter+scrollbar, padBottom, gutter).Children(func() {
+	lay := albumLayout(width - 2*st.Gutter() - theme.Current().Metric["scrollbar"])
+	root.Children(func() {
+		st.Scroll(c, "", func(pane *kit.Pane, _ float32) {
+			a.pane = pane
 			a.content(c, id, highlight, lay, now)
 		})
 	})
-	if b := sc.Bounds(); b.W != a.paneW || b.H != a.paneH {
-		a.paneW, a.paneH = b.W, b.H
-		c.Invalidate() // the layout follows the pane's width
-	}
+	a.menus.Popup(c)
 }
 
 // content is the body for the album's state: its skeleton, the error, or the
@@ -273,18 +246,9 @@ func (a *album) waitForSongs(d *services.AlbumDetail, id string, now time.Time) 
 // errorBlock is DetailError: not found, signed out, or the failure with
 // Retry; the way back is the library's Albums.
 func (a *album) errorBlock(c *ui.Context, l load) {
-	kit.DetailError(c, kit.NounAlbum, l.err, kit.DetailErrorOpts{
-		Retry:    func() { a.env.Queries.Invalidate(l.key) },
-		Retrying: l.fetching,
-		Back:     kit.EmptyAction{Label: i18n.T("Go to Albums"), Run: func() { a.push("/library/albums") }},
-		SignIn:   a.signIn,
-	})
-}
-
-// typed is text in one of the theme's type styles.
-func typed(c *ui.Context, text, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, text).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
+	res := store.Result[struct{}]{Err: l.err, Fetching: l.fetching}
+	back := kit.BackAction(i18n.T("Go to Albums"), "/library/albums", true, a.push)
+	kit.DetailQueryError(c, kit.NounAlbum, a.env.Queries, res, back, a.signIn, l.key)
 }
 
 // skeleton is the sleeve, head and rows at their real sizes while the album
@@ -292,12 +256,7 @@ func typed(c *ui.Context, text, style string) ui.Element {
 func (a *album) skeleton(c *ui.Context, lay layout) {
 	hover := theme.C("hover")
 	tk := theme.Current()
-	bar := func(w, h float32) ui.Element {
-		return ui.Box(c).Width(w).Height(h).Radius(tk.Radius["sm"]).Background(hover).Shrink(0)
-	}
-	cover := func() {
-		ui.Box(c).Size(lay.cover, lay.cover).Radius(tk.Radius["sm"]).Background(hover).Shrink(0)
-	}
+	cover := func() { kit.Bar(c, lay.cover, lay.cover) }
 	head := func() {
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
 			ui.Box(c).Height(32).WidthPercent(60).Radius(tk.Radius["sm"]).Background(hover)
@@ -305,14 +264,14 @@ func (a *album) skeleton(c *ui.Context, lay layout) {
 			ui.Box(c).Height(12).WidthPercent(33).Radius(tk.Radius["sm"]).Background(hover).Margin(8, 0, 0, 0)
 			ui.Row(c).Gap(8).Margin(24, 0, 0, 0).Children(func() {
 				ui.Box(c).Size(40, 40).Radius(tk.Radius["full"]).Background(hover)
-				bar(96, 32).Radius(tk.Radius["md"])
+				kit.Bar(c, 96, 32).Radius(tk.Radius["md"])
 			})
 		})
 	}
 	rows := func() {
 		for i := range 8 {
 			ui.Row(c.Key(i)).FillWidth().Height(44).PaddingX(8).Gap(16).AlignItems(ui.Center).Children(func() {
-				bar(20, 12)
+				kit.Bar(c, 20, 12)
 				ui.Box(c).Height(14).WidthPercent(float32(30 + (i*17)%30)).Radius(tk.Radius["sm"]).Background(hover)
 			})
 		}

@@ -1,0 +1,176 @@
+# Mirrors the pinned GStreamer packages (build/windows/gstreamer.sha256 and
+# build/darwin/gstreamer.sha256) as assets of this repository's `build-deps`
+# prerelease, where build/gstreamer-fetch.sh looks first. GitHub serves them to a
+# runner in seconds and keeps them for good.
+#
+# Why not upstream or the Actions cache alone:
+#   - gstreamer.freedesktop.org is slow for everyone and sits behind a bot
+#     check ("go-away"). Release run 43014335716 got 634 MB of the 1 GB Windows
+#     installer in 29 resumed attempts over 75 minutes and was cancelled.
+#   - The Actions cache keeps an entry 7 days after its last use and holds 10 GB
+#     a repository. The Windows jobs run too rarely, so their installer's entry
+#     goes first. The Go caches keep the total near the cap.
+#
+# Each platform's job restores the packages from the cache entry the setup
+# actions save (same key, same path, on the same OS, so the entry matches), and
+# downloads from upstream only on a miss. It checks each package against its pin
+# and uploads what the release lacks; a last job deletes assets no pin names any
+# more. It runs on a push to main that changes a pin, and on dispatch.
+#
+# The release is a prerelease, never "latest", and its tag isn't v*: the updater
+# (internal/update), the nightly's tag check, rcnotes and nix-release-pin.yml all
+# skip it. The jobs check out only the pin files and the fetch helper.
+name: Build dependencies
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - build/windows/gstreamer.sha256
+      - build/darwin/gstreamer.sha256
+      - build/gstreamer-fetch.sh
+      - .github/workflows/build-deps.yml
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: build-deps
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  TAG: build-deps
+
+jobs:
+  release:
+    name: The build-deps release
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: write # create the release
+    steps:
+      - name: Create it if missing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1 && exit 0
+          gh release create "$TAG" --repo "$REPO" --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Build dependencies (CI mirror)" \
+            --notes "Not a Sona release. The official GStreamer packages Sona's Windows and macOS builds link and ship, pinned by build/windows/gstreamer.sha256 and build/darwin/gstreamer.sha256, mirrored from gstreamer.freedesktop.org for CI (.github/workflows/build-deps.yml). Their licences are GStreamer's; each file's SHA-256 is its pin."
+
+  mirror:
+    name: Mirror the ${{ matrix.os }} packages
+    needs: release
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 240 # an upstream download on a cache miss
+    permissions:
+      contents: write # upload the assets
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The keys and paths of .github/actions/setup-windows and setup-macos-gstreamer.
+          - os: windows
+            runner: windows-2025
+            key: gstreamer-pkg-windows
+            upstream: https://gstreamer.freedesktop.org/data/pkg/windows/VERSION/mingw
+          - os: darwin
+            runner: macos-26
+            key: gstreamer-pkg
+            upstream: https://gstreamer.freedesktop.org/data/pkg/osx/VERSION
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            build/windows/gstreamer.sha256
+            build/darwin/gstreamer.sha256
+            build/gstreamer-fetch.sh
+          sparse-checkout-cone-mode: false
+
+      - name: What the mirror lacks
+        id: want
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PINS: build/${{ matrix.os }}/gstreamer.sha256
+        run: |
+          have=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name')
+          missing=$(awk '$1 ~ /^[0-9a-f]+$/ && length($1) == 64 {print $2}' "$PINS" | grep -vxF -f <(printf '%s\n' "$have") || true)
+          echo "missing: ${missing:-none}"
+          echo "any=$([[ -n $missing ]] && echo true || echo false)" >>"$GITHUB_OUTPUT"
+
+      - name: Restore the packages from the setup action's cache
+        if: ${{ steps.want.outputs.any == 'true' }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/gstreamer-pkg
+          key: ${{ matrix.key }}-${{ hashFiles(format('build/{0}/gstreamer.sha256', matrix.os)) }}
+
+      - name: Fetch what the cache lacked, check and upload
+        if: ${{ steps.want.outputs.any == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PINS: build/${{ matrix.os }}/gstreamer.sha256
+          UPSTREAM: ${{ matrix.upstream }}
+          PKG: ${{ runner.temp }}/gstreamer-pkg
+          GSTREAMER_MIRROR: "" # upstream: this job fills the mirror
+          GSTREAMER_ATTEMPTS: "400" # resumed: freedesktop.org ends most responses early
+        run: |
+          set -euo pipefail
+          . build/gstreamer-fetch.sh
+          if command -v sha256sum >/dev/null; then sha=(sha256sum); else sha=(shasum -a 256); fi
+          have=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name')
+          version=$(awk '$1=="version"{print $2}' "$PINS")
+          mkdir -p "$PKG"
+          while read -r sum name; do
+            if grep -qxF "$name" <<<"$have"; then
+              echo "$name: mirrored"
+              continue
+            fi
+            out=$PKG/$name
+            if [[ -f $out ]]; then
+              echo "$name: from the Actions cache"
+            else
+              gstreamer_fetch "$name" "${UPSTREAM/VERSION/$version}/$name" "$out"
+            fi
+            # From stdin: Git Bash's sha256sum puts a backslash before the hash of a path with one.
+            got=$("${sha[@]}" <"$out" | awk '{print $1}')
+            [[ $got == "$sum" ]] || { echo "::error::$name sha256 $got, want $sum"; exit 1; }
+            gh release upload "$TAG" "$out" --repo "$REPO"
+            echo "$name: uploaded"
+          done < <(awk '$1 ~ /^[0-9a-f]+$/ && length($1) == 64 {print $1, $2}' "$PINS")
+
+  prune:
+    name: Delete packages no longer pinned
+    needs: mirror
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: write # delete assets
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            build/windows/gstreamer.sha256
+            build/darwin/gstreamer.sha256
+          sparse-checkout-cone-mode: false
+      - name: Delete them
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          pinned=$(awk '$1 ~ /^[0-9a-f]+$/ && length($1) == 64 {print $2}' build/windows/gstreamer.sha256 build/darwin/gstreamer.sha256)
+          [[ -n $pinned ]] || { echo "::error::no pinned packages found"; exit 1; }
+          gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' | while read -r name; do
+            grep -qxF "$name" <<<"$pinned" && continue
+            gh release delete-asset "$TAG" "$name" --repo "$REPO" --yes
+            echo "$name: no longer pinned, deleted"
+          done

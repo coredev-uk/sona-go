@@ -10,7 +10,6 @@ package applemusic_test
 // if a test ever does, privateOnly refuses any event outside private mode.
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth/devtoken"
+	"github.com/coredev-uk/sona-go/internal/dotenv"
 	"github.com/coredev-uk/sona-go/internal/playback/hls"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
@@ -48,20 +48,9 @@ var (
 	liveErr  error
 )
 
-func readDotEnv(key string) string {
-	f, err := os.Open("../../.env")
-	if err != nil {
-		return ""
-	}
-	defer func() { _ = f.Close() }()
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		line := strings.TrimPrefix(strings.TrimSpace(sc.Text()), "export ")
-		if k, v, ok := strings.Cut(line, "="); ok && strings.TrimSpace(k) == key {
-			return strings.Trim(strings.TrimSpace(v), `"'`)
-		}
-	}
-	return ""
+func dotenvToken() string {
+	v, _ := dotenv.Read("../../.env", "MUSIC_USER_TOKEN")
+	return v
 }
 
 // liveClient signs in once (developer token from the web player, MUT from
@@ -80,7 +69,7 @@ func liveClient(t *testing.T) *live {
 		}
 		mut := os.Getenv("MUSIC_USER_TOKEN")
 		if mut == "" {
-			mut = readDotEnv("MUSIC_USER_TOKEN")
+			mut = dotenvToken()
 		}
 		if mut == "" {
 			liveErr = errors.New("SONA_LIVE=1 but MUSIC_USER_TOKEN is not set (environment or .env)")

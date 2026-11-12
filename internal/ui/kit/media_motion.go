@@ -32,10 +32,17 @@ type slotState uint8
 
 const (
 	slotIdle    slotState = iota // nothing wanted or opened
-	slotLoading                  // a goroutine is fetching and opening the file
-	slotReady                    // player is set
+	slotLoading                  // a goroutine is fetching the file and opening a player on it
+	slotOpening                  // player is set, built but not Ready: the system is loading the file
+	slotReady                    // the player has its first picture: the video shows
 	slotFailed                   // it did not load or decode: the still stays
 )
+
+// openPoll is how often a player that is not Ready yet is looked at again:
+// the system wakes the window when its state changes, but not for every
+// step to the first picture (AVFoundation's), and the fade must not wait for
+// some other redraw.
+const openPoll = 50 * time.Millisecond
 
 // motionSlot is one cover's or tile's motion: its decoder from open to
 // close. It lives in the element's Local state; the policy's registry lets
@@ -122,14 +129,41 @@ func (s *motionSlot) sync(url string, px int, want bool) {
 			player, err := open(ctx, url, px)
 			s.p.post(func() { s.arrived(attempt, player, err) })
 		}()
+	case slotOpening:
+		s.settle()
 	case slotReady:
 		if err := s.player.Err(); err != nil {
-			s.p.outcome("media-error", err)
-			s.err = err
-			s.player.Close()
-			s.player, s.live, s.state = nil, false, slotFailed
+			s.fail(err)
 		}
 	}
+}
+
+// fail ends a player that stopped (its engine's Err): the still stays.
+func (s *motionSlot) fail(err error) {
+	s.p.outcome("media-error", err)
+	s.err = err
+	s.player.Close()
+	s.player, s.live, s.state = nil, false, slotFailed
+}
+
+// settle moves an opening player on, on the main thread: failed when its
+// system could not play the file, ready once it has its first picture (a
+// decoder's player has it at once). Only a built ui.Video loads a system's
+// player, so fill calls it after building one.
+func (s *motionSlot) settle() {
+	if s.state != slotOpening {
+		return
+	}
+	if err := s.player.Err(); err != nil {
+		s.fail(err)
+		return
+	}
+	if !s.player.Ready() {
+		return
+	}
+	s.state = slotReady
+	s.gen++ // each player fades in
+	s.p.outcome("playing", nil)
 }
 
 // arrived takes the outcome of a load, on the main thread.
@@ -143,24 +177,30 @@ func (s *motionSlot) arrived(attempt int, player *ui.VideoPlayer, err error) {
 	s.cancel = nil
 	if err != nil {
 		s.state, s.err = slotFailed, err
-		if errors.Is(err, media.ErrDecode) {
+		switch {
+		case errors.Is(err, media.ErrNoDecoder):
+			// The system cannot play video (a Windows without its Media
+			// Feature Pack): nothing will, so motion is off.
+			s.p.codec = ""
+			s.p.outcome("media-error", err)
+		case errors.Is(err, media.ErrDecode):
 			s.p.outcome("media-error", err) // the file came, the decoder did not take it
-		} else {
+		default:
 			s.p.outcome("download-failed", err)
 		}
 		return
 	}
 	// A new player plays at once, whatever the view says: play pauses it
-	// when the cover is covered or out of view.
-	s.player, s.state, s.live = player, slotReady, true
-	s.gen++
-	s.p.outcome("playing", nil)
+	// when the cover is covered or out of view. The video shows once it is
+	// Ready (settle), which a system's player is not until it is built.
+	s.player, s.state, s.live = player, slotOpening, true
+	s.settle()
 }
 
-// play plays or pauses the player (while ready) as the view says: a video
+// play plays or pauses the player (while open) as the view says: a video
 // plays only while on screen, the window shows and the page is not covered.
 func (s *motionSlot) play(on bool) {
-	if s.state != slotReady || s.live == on {
+	if (s.state != slotReady && s.state != slotOpening) || s.live == on {
 		return
 	}
 	s.live = on
@@ -171,25 +211,39 @@ func (s *motionSlot) play(on bool) {
 	}
 }
 
-// fill builds the muted loop into host once the file is open and decoding,
-// fading in over 300 ms, with the edge outline of artwork. round makes it a
-// circle. host must be the element the slot lives in or one built each frame.
+// fill builds the muted loop into host once the file is open, with the edge
+// outline of artwork, and fades it in over 300 ms once it is Ready: it has
+// its first picture, which a system's player (macOS, Windows) loads only while
+// a ui.Video builds it, so the video is built, transparent, from the open on.
+// round makes it a circle. host must be the element the slot lives in or one
+// built each frame.
 func (s *motionSlot) fill(c *ui.Context, host ui.Element, size float32, round bool) ui.Element {
-	if s.state != slotReady {
+	if s.state != slotOpening && s.state != slotReady {
 		return host
 	}
 	radius := theme.Current().Radius["sm"]
 	if round {
 		radius = size / 2
 	}
-	fade := host.Keyframes(s.gen, []ui.Keyframe{{At: 0, Value: 0}, {At: motionFade, Value: 1, Ease: theme.Current().Motion["backdrop"].Ease}})
 	player := s.player
+	var video ui.Element
 	host.Radius(radius).ClipX().ClipY()
 	host.Children(func() {
-		ui.Video(c, player).Size(size, size).Fit(ui.Cover).Opacity(fade)
+		video = ui.Video(c, player).Size(size, size).Fit(ui.Cover)
 	})
-	edge := theme.C("edge")
-	host.DrawOver(func(p *ui.Painter, r ui.Rect) { p.Stroke(r, edge.Alpha(fade), radius, 1) })
+	s.settle() // the build may have loaded the first picture
+	switch s.state {
+	case slotOpening:
+		video.Opacity(0)
+		c.After(openPoll)
+	case slotReady:
+		fade := host.Keyframes(s.gen, []ui.Keyframe{{At: 0, Value: 0}, {At: motionFade, Value: 1, Ease: theme.Current().Motion["backdrop"].Ease}})
+		video.Opacity(fade)
+		edge := theme.C("edge")
+		host.DrawOver(func(p *ui.Painter, r ui.Rect) { p.Stroke(r, edge.Alpha(fade), radius, 1) })
+	default: // it failed as it was built: the still stays
+		video.Opacity(0)
+	}
 	return host
 }
 
@@ -211,9 +265,11 @@ type MotionOpts struct {
 // MotionCover is a cover that moves: Apple's looping motion artwork over its
 // still, when there is one (motion is the DTO's "/motion/<key>/<n>.mp4", ""
 // for none) and the policy allows motion. The still shows until the first
-// frame is decoded, the video then fades in over 300 ms, and the still stays
-// if the video fails. The file comes from the motion cache directly (no
-// HTTP), the decoder is GStreamer's, requested at VideoSize or size × the
+// frame is decoded (Ready: the system's player, on macOS and Windows, loads in
+// the background), the video then fades in over 300 ms, and the still stays if
+// the video fails (the policy's Report says why). The file comes from the
+// motion cache directly (no HTTP), the player is the system's own on macOS and
+// Windows and GStreamer's on Linux, requested at VideoSize or size × the
 // window's scale (at most 2x). The video plays only while on screen, the
 // window shows and the page is not covered, and is dropped, decoder
 // included, when the policy stops allowing motion or the cover stops being

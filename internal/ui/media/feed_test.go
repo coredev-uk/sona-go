@@ -59,11 +59,11 @@ func TestFeedShowsPicturesFromTheSurface(t *testing.T) {
 
 	s.Show(64, 48, 0, planes(64, 48, 235))
 	p := wait()
-	if b := p.Image.Bounds(); b.Dx() != 64 || b.Dy() != 48 {
-		t.Fatalf("picture is %v", b)
+	if p.Width != 64 || p.Height != 48 || len(p.Data) != I420Len(64, 48) {
+		t.Fatalf("picture is %d×%d with %d bytes", p.Width, p.Height, len(p.Data))
 	}
-	if px := p.Image.Pix[:4]; px[0] != 255 || px[1] != 255 || px[2] != 255 || px[3] != 255 {
-		t.Errorf("white luma converted to %v", px)
+	if p.Data[0] != 235 {
+		t.Errorf("the first luma sample is %d, want 235 as shown", p.Data[0])
 	}
 	first := p.Seq
 
@@ -75,20 +75,20 @@ func TestFeedShowsPicturesFromTheSurface(t *testing.T) {
 	if last.Seq <= first {
 		t.Errorf("sequence %d did not move past %d", last.Seq, first)
 	}
-	if px := last.Image.Pix[:4]; px[0] != 0 || px[1] != 0 || px[2] != 0 {
-		t.Errorf("black luma converted to %v", px)
+	if last.Data[0] != 16 {
+		t.Errorf("the first luma sample is %d, want 16 as shown", last.Data[0])
 	}
 
-	// A new size gets a new image. A picture of the old size may still be
+	// A new size is a new picture. A picture of the old size may still be
 	// queued from the two shown above (CI saw one arrive here), so skip
 	// those.
 	s.Show(32, 24, 0, planes(32, 24, 128))
 	p = wait()
-	for p.Image.Bounds().Dx() == 64 {
+	for p.Width == 64 {
 		p = wait()
 	}
-	if b := p.Image.Bounds(); b.Dx() != 32 || b.Dy() != 24 {
-		t.Errorf("picture is %v", b)
+	if p.Width != 32 || p.Height != 24 {
+		t.Errorf("picture is %d×%d", p.Width, p.Height)
 	}
 
 	// Cleared: the video ended.
@@ -106,7 +106,7 @@ func TestFeedShowsPicturesFromTheSurface(t *testing.T) {
 	}
 }
 
-func TestFeedSkipsConvertingWhileNotDrawn(t *testing.T) {
+func TestFeedHoldsPicturesWhileNotDrawn(t *testing.T) {
 	s := video.NewSurface()
 	var drawn atomic.Bool
 	var posts atomic.Int32
@@ -121,10 +121,10 @@ func TestFeedSkipsConvertingWhileNotDrawn(t *testing.T) {
 	s.Show(16, 16, 0, planes(16, 16, 128))
 	time.Sleep(100 * time.Millisecond) // the feed took it and left it
 	if posts.Load() != 0 {
-		t.Fatalf("%d pictures were converted and posted while not drawn", posts.Load())
+		t.Fatalf("%d pictures were posted while not drawn", posts.Load())
 	}
 
-	// Drawing again: the picture the feed skipped is converted and shown.
+	// Drawing again: the picture the feed skipped is shown.
 	drawn.Store(true)
 	f.Refresh()
 	deadline := time.After(5 * time.Second)
@@ -199,10 +199,10 @@ func TestFeedKeepsNothingAfterStop(t *testing.T) {
 		t.Errorf("%d pictures shown after Stop", shown)
 	}
 	f.mu.Lock()
-	held := f.pending != nil || f.shown != nil || f.spare != nil || f.skipped != nil
+	held := f.pending != nil || f.skipped != nil
 	f.mu.Unlock()
 	if held {
-		t.Error("the feed still holds decoded pictures after Stop")
+		t.Error("the feed still holds pictures after Stop")
 	}
 	// A restart does not flash the old picture, and a Refresh after Stop does nothing.
 	f.Refresh()
@@ -250,15 +250,15 @@ func TestFeedRestartTakesOnlyPicturesShownFromNow(t *testing.T) {
 	}
 }
 
-func TestFeedDropsAPictureThatWasConvertingAcrossARestart(t *testing.T) {
+func TestFeedDropsAPictureThatWasPublishedAcrossARestart(t *testing.T) {
 	s := video.NewSurface()
 	s.Show(64, 48, 0, planes(64, 48, 235)) // the item before's last picture, Seq 1
 	shown := make(chan Picture, 4)
 	f := NewFeed(s, func(fn func()) { fn() }, func(p Picture) { shown <- p }, func() {}, nil)
 	defer f.Stop()
 	f.Restart()
-	// A conversion of the old picture that began before the restart ends
-	// now, with the feed running again.
+	// The old picture, taken before the restart, is published now, with the
+	// feed running again.
 	f.publish(video.Frame{Seq: 1, Width: 64, Height: 48, Data: planes(64, 48, 235)})
 	select {
 	case p := <-shown:
@@ -274,5 +274,20 @@ func TestFeedDropsAPictureThatWasConvertingAcrossARestart(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("the new picture was not shown")
+	}
+}
+
+// A malformed picture (planes shorter than its size says) never reaches the
+// bitmap, which would panic on it, and the one before stays.
+func TestFeedDropsAMalformedPicture(t *testing.T) {
+	s := video.NewSurface()
+	var posts atomic.Int32
+	f := NewFeed(s, func(fn func()) { posts.Add(1); fn() }, func(Picture) {}, func() {}, nil)
+	f.Start()
+	defer f.Stop()
+	s.Show(64, 48, 0, planes(64, 48, 128)[:100])
+	time.Sleep(100 * time.Millisecond)
+	if n := posts.Load(); n != 0 {
+		t.Fatalf("%d posts for a malformed picture", n)
 	}
 }

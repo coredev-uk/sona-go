@@ -1,7 +1,7 @@
 package settings
 
 import (
-	"math"
+	"cmp"
 	"strconv"
 	"strings"
 	"time"
@@ -192,15 +192,6 @@ func keyringLabel(backend string) string {
 	return backend
 }
 
-// cdmPercent is a running CDM download's progress as a percentage, "" while
-// its size is unknown (features/cdm/state.ts cdmPercent).
-func cdmPercent(c services.CDMStatus) string {
-	if c.Total <= 0 {
-		return ""
-	}
-	return i18n.FormatPercent(math.Min(1, math.Max(0, float64(c.Received)/float64(c.Total))))
-}
-
 // cdmStateRow is the Widevine CDM's verdict: the probe's when it loaded one,
 // else the download's state.
 func cdmStateRow(p services.DiagPlayback, cdm services.CDMStatus) diagRow {
@@ -222,7 +213,7 @@ func cdmStateRow(p services.DiagPlayback, cdm services.CDMStatus) diagRow {
 		}
 	case "downloading":
 		value := i18n.T("Downloading…")
-		if pc := cdmPercent(cdm); pc != "" {
+		if pc := i18n.CDMPercent(cdm); pc != "" {
 			value = i18n.T("Downloading · {percent}", "percent", pc)
 		}
 		return diagRow{label: label, value: value, detail: i18n.T("Songs play when the download finishes.")}
@@ -245,7 +236,7 @@ func cdmSourceRows(cdm services.CDMStatus, now time.Time) []diagRow {
 	switch {
 	case cdm.State == "ready" && cdm.Updating:
 		value := i18n.T("Downloading an update")
-		if pc := cdmPercent(cdm); pc != "" {
+		if pc := i18n.CDMPercent(cdm); pc != "" {
 			value = i18n.T("Downloading an update · {percent}", "percent", pc)
 		}
 		updates = diagRow{label: i18n.T("Updates"), value: value, detail: i18n.T("It applies the next time playback starts.")}
@@ -257,13 +248,6 @@ func cdmSourceRows(cdm services.CDMStatus, now time.Time) []diagRow {
 		updates = diagRow{label: i18n.T("Updates"), value: i18n.T("Not checked yet")}
 	}
 	return []diagRow{{label: i18n.T("Source"), value: i18n.T("Downloaded from Google")}, updates}
-}
-
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
 }
 
 func orDash(s string) string {
@@ -287,8 +271,8 @@ func cdmRows(p services.DiagPlayback, cdm services.CDMStatus, now time.Time) []d
 		iface = i18n.T("{cdmInterface} (host {hostInterface})", "cdmInterface", p.CDMInterface, "hostInterface", p.HostInterface)
 	}
 	rows = append(rows,
-		diagRow{label: i18n.T("Version"), value: orDash(firstNonEmpty(cdm.Version, p.CDMVersion))},
-		diagRow{label: i18n.T("CDM file"), value: orDash(firstNonEmpty(p.CDMPath, cdm.Path))},
+		diagRow{label: i18n.T("Version"), value: orDash(cmp.Or(cdm.Version, p.CDMVersion))},
+		diagRow{label: i18n.T("CDM file"), value: orDash(cmp.Or(p.CDMPath, cdm.Path))},
 		diagRow{label: i18n.T("CDM interface"), value: iface},
 	)
 	check := func(label, found, missing, hint string, notFound diagStatus) diagRow {
@@ -348,7 +332,7 @@ func diagnosticsGroups(d services.Diagnostics, live *services.CDMStatus, now tim
 	}
 	c := d.Database.Counts
 	contents := strings.Join([]string{
-		i18n.T("{songs, plural, one {# song} other {# songs}}", "songs", c.Songs),
+		i18n.SongCount(c.Songs),
 		i18n.T("{albums, plural, one {# album} other {# albums}}", "albums", c.Albums),
 		i18n.T("{artists, plural, one {# artist} other {# artists}}", "artists", c.Artists),
 		i18n.T("{playlists, plural, one {# playlist} other {# playlists}}", "playlists", c.Playlists),

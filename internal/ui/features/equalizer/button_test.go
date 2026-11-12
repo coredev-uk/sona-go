@@ -33,9 +33,7 @@ func barRig(t *testing.T, supported bool, setup func(*fake)) (*uitest.Session, *
 func TestTheBarsEqualiserButtonOpensThePage(t *testing.T) {
 	tt, router, _ := barRig(t, true, nil)
 	tt.Until("the button", tt.Shows("Equaliser"))
-	if err := tt.Click("Equaliser"); err != nil {
-		t.Fatal(err)
-	}
+	tt.MustClick("Equaliser")
 	if got := router.Location(); got != "/equalizer" {
 		t.Errorf("went to %q", got)
 	}

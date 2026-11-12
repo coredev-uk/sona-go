@@ -31,19 +31,35 @@ const (
 // and its cover row (selection, navigation, menu).
 type indexLine struct {
 	open  bool
-	width widthTracker
+	width kit.WidthTracker
 	row   kit.CoverState
 	menus *kit.ActionMenus
 	cap   captioned
+
+	// holds is what the line's section holds, kept for the items and i18n
+	// revision it was formatted for.
+	holds      string
+	holdsFirst *services.Item
+	holdsN     int
+	holdsRev   uint64
+}
+
+// summary is what the section holds, formatted again only when its items or
+// the translations change.
+func (ln *indexLine) summary(items []services.Item) string {
+	var first *services.Item
+	if len(items) > 0 {
+		first = &items[0]
+	}
+	if rev := i18n.Revision(); ln.holdsFirst != first || ln.holdsN != len(items) || ln.holdsRev != rev {
+		ln.holds, ln.holdsFirst, ln.holdsN, ln.holdsRev = holds(items), first, len(items), rev
+	}
+	return ln.holds
 }
 
 func (h *home) indexState(id string) *indexLine {
-	ln := h.index[id]
-	if ln == nil {
-		ln = &indexLine{}
-		ln.menus = kit.NewActionMenus(h.env.Actions, &ln.row.Sel)
-		h.index[id] = ln
-	}
+	ln := kit.Entry(&h.index, id)
+	kit.MenusIn(&ln.menus, h.env.Actions, &ln.row.Sel)
 	return ln
 }
 
@@ -54,7 +70,7 @@ func (h *home) indexState(id string) *indexLine {
 func (h *home) shelfIndex(c *ui.Context, sections []services.Section, ctx kit.ItemsCtx) {
 	title := i18n.T("More for you")
 	ui.Column(c.Key("index")).Margin(48, 0, 0, 0).Role(ui.RoleGroup).Label(title).Children(func() {
-		text(c, title, "heading").TextColor(theme.C("ink")).SingleLine().Margin(0, 0, 8, 0).Role(ui.RoleHeading).Level(2)
+		theme.Text(c, title, "heading").TextColor(theme.C("ink")).SingleLine().Margin(0, 0, 8, 0).Role(ui.RoleHeading).Level(2)
 		ui.Column(c.Key("list")).Role(ui.RoleList).Children(func() {
 			for i := range sections {
 				h.indexLine(c, sections[i], ctx)
@@ -66,7 +82,7 @@ func (h *home) shelfIndex(c *ui.Context, sections []services.Section, ctx kit.It
 func (h *home) indexLine(c *ui.Context, s services.Section, ctx kit.ItemsCtx) {
 	tk := theme.Current()
 	ln := h.indexState(s.ID)
-	summary := holds(s.Items)
+	summary := ln.summary(s.Items)
 	ui.Column(c.Key(s.ID)).Role(ui.RoleListItem).Children(func() {
 		name := s.Title
 		if summary != "" {
@@ -74,16 +90,13 @@ func (h *home) indexLine(c *ui.Context, s services.Section, ctx kit.ItemsCtx) {
 		}
 		btn := ui.ButtonBase(c.Key("line")).Height(indexH).FillWidth().Gap(indexGap).PaddingX(indexPad).Radius(tk.Radius["md"]).
 			Role(ui.RoleDisclosure).Expanded(ln.open).Label(name)
-		width := ln.width.track(c, btn)
+		width := ln.width.Track(c, btn)
 		bg := ui.Transparent
 		if btn.Hovered() {
 			bg = theme.C("hover")
 		}
 		btn.Background(bg)
-		if !theme.ReducedMotion() {
-			m := tk.Motion["press"]
-			btn.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-		}
+		theme.Fade(btn, "press")
 		btn.Children(func() {
 			ic := theme.Glyph(c, "chevron-right", indexChevron, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0)
 			turn := float32(0)
@@ -98,9 +111,9 @@ func (h *home) indexLine(c *ui.Context, s services.Section, ctx kit.ItemsCtx) {
 			inner := width - 2*indexPad
 			col := min(max(indexColShare*inner, indexColMin), indexColMax)
 			ui.Column(c.Key("title")).Width(col).Shrink(0).MinWidth(0).Children(func() {
-				text(c, s.Title, "heading").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
+				theme.Text(c, s.Title, "heading").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
 				if summary != "" {
-					text(c, summary, "meta").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine().TextAlign(ui.Start)
+					theme.Text(c, summary, "meta").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine().TextAlign(ui.Start)
 				}
 			})
 			// Open, the shelf's own covers are right below: no strip.
@@ -151,38 +164,15 @@ func (h *home) indexPanel(c *ui.Context, ln *indexLine, s services.Section, ctx 
 			Rows: -1,
 		})
 		if more := shelfMore(s); more != "" {
-			seeAll(c, func() {
-				if ctx.Nav != nil {
-					ctx.Nav(more)
-				}
-			}).Margin(16, 0, 0, 0)
+			ui.Row(c.Key("more")).Margin(16, 0, 0, 0).Children(func() {
+				kit.ShelfSeeAll(c, "see-all", func() {
+					if ctx.Nav != nil {
+						ctx.Nav(more)
+					}
+				})
+			})
 		}
 	})
-}
-
-// seeAll is the small "See all" link under an opened shelf; it runs open on a
-// click.
-func seeAll(c *ui.Context, open func()) ui.Element {
-	tk := theme.Current()
-	b := ui.ButtonBase(c.Key("see-all")).Role(ui.RoleLink).AlignSelf(ui.Start)
-	bg, fg := ui.Transparent, theme.C("ink-muted")
-	if b.Hovered() {
-		bg, fg = theme.C("hover"), theme.C("ink")
-	}
-	b.Height(28).PaddingX(6).Gap(2).Radius(tk.Radius["md"]).Background(bg).TextColor(fg).Center()
-	if !theme.ReducedMotion() {
-		m := tk.Motion["press"]
-		b.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
-	b.Children(func() {
-		sub := tk.Type["sub"]
-		ui.Text(c, i18n.T("See all")).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).SingleLine()
-		theme.Glyph(c, "chevron-right", 14, theme.GlyphOpts{Color: fg, Inherit: true})
-	})
-	if b.Clicked() {
-		open()
-	}
-	return b
 }
 
 // holds is what a shelf holds, by kind: "8 albums · 4 playlists".

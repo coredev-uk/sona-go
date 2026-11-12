@@ -32,7 +32,7 @@ func (s *settings) hasRoute(path string) bool {
 	if f := *stateOf[func(string) bool](s, "seam:hasRoute"); f != nil {
 		return f(path)
 	}
-	return s.env.HasRoute != nil && s.env.HasRoute(path)
+	return s.env.Routed(path)
 }
 
 // focusState remembers whether the output select had the focus, to refetch

@@ -71,12 +71,12 @@ type GlyphOpts struct {
 	// with its face.
 	Inherit bool
 	// Filled draws the solid form: the symbol's .fill variant, and
-	// IconFilled (or SVG) for Lucide.
+	// IconFilled for Lucide.
 	Filled bool
-	// SVG is the Lucide drawing when it is neither Icon(name) nor
-	// IconFilled(name): kit's solid play and pause. It is also the symbol's
-	// fallback.
-	SVG *ui.SVG
+	// SolidOnly makes Filled draw the Lucide icon solid only when it has a
+	// solid form (HasSolid), as a button's Filled does; the symbol is filled
+	// either way.
+	SolidOnly bool
 }
 
 // Glyph shows the icon name, size DIPs square: on macOS the SF Symbol
@@ -87,29 +87,28 @@ type GlyphOpts struct {
 //
 //	theme.Glyph(c, "search", 16, theme.GlyphOpts{Color: theme.C("ink-faint")})
 func Glyph(c *ui.Context, name string, size float32, o GlyphOpts) ui.Element {
-	svg := o.SVG
-	if svg == nil {
-		svg = Icon(name)
-		if o.Filled {
-			svg = IconFilled(name)
-		}
+	svg := Icon(name)
+	if o.Filled && (!o.SolidOnly || HasSolid(name)) {
+		svg = IconFilled(name)
 	}
-	if sym, ok := SymbolName(name); ok && symbols {
-		// The glyph keeps the Lucide icon's box; the symbol is drawn over
-		// symbolScale of it, centred, so that its ink is as large.
-		box := ui.Box(c).Size(size, size).Shrink(0)
-		box.Children(func() {
-			side := size * symbolScale
-			s := sfsymbols.Symbol(c, sym).Size(side).Color(o.Color).Weight(symbolWeight).Natural().Fallback(svg)
-			if o.Filled {
-				s = s.Fill()
-			}
-			// A symbol names itself ("play.fill") as an image, which a
-			// button with a label would read out with it ("plus Add"): it is
-			// cleared, so the symbol is the decoration a Lucide icon is.
-			s.Role(ui.RoleAuto).Label("").Absolute().Left((size - side) / 2).Top((size - side) / 2)
-		})
-		return box
+	if symbols {
+		if sym, ok := SymbolName(name); ok {
+			// The glyph keeps the Lucide icon's box; the symbol is drawn over
+			// symbolScale of it, centred, so that its ink is as large.
+			box := ui.Box(c).Size(size, size).Shrink(0)
+			box.Children(func() {
+				side := size * symbolScale
+				s := sfsymbols.Symbol(c, sym).Size(side).Color(o.Color).Weight(symbolWeight).Natural().Fallback(svg)
+				if o.Filled {
+					s = s.Fill()
+				}
+				// A symbol names itself ("play.fill") as an image, which a
+				// button with a label would read out with it ("plus Add"): it is
+				// cleared, so the symbol is the decoration a Lucide icon is.
+				s.Role(ui.RoleAuto).Label("").Absolute().Left((size - side) / 2).Top((size - side) / 2)
+			})
+			return box
+		}
 	}
 	e := ui.Icon(c, svg).FontSize(size)
 	if !o.Inherit {

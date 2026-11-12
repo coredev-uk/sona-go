@@ -33,17 +33,6 @@ type catalogAPI interface {
 	OpenInAppleMusic(url string) error
 }
 
-// transport is what the view asks of PlaybackService
-// (*services.PlaybackService).
-type transport interface {
-	Toggle(ctx context.Context) error
-	Next(ctx context.Context) error
-	Prev(ctx context.Context) error
-	Seek(ctx context.Context, positionMs int64) error
-	SetVolume(ctx context.Context, volume float64) error
-	PlayItems(ctx context.Context, refs []services.TrackRef, start int, from services.PlayFrom) error
-}
-
 // videoQueue is how the page plays: kit.QueueCommands' PlayVideos and
 // PlaySongs.
 type videoQueue interface {
@@ -55,7 +44,6 @@ type videoQueue interface {
 type video struct {
 	env *module.Env
 	cat catalogAPI
-	svc transport
 	q   videoQueue
 	// caps says what this platform plays: music videos (Video) and whether
 	// Sona sets the volume (Volume); known is false until it has answered
@@ -75,8 +63,8 @@ type video struct {
 	shown  string  // the video the page last built, whose scroll place it keeps
 
 	view viewState
-	// unmuted is the volume to return to on unmute (v0.2.0's `unmuted`).
-	unmuted float64
+	// tr is the playback commands; a failure is a toast.
+	tr kit.Transport
 }
 
 // New is the video feature's module.
@@ -93,8 +81,9 @@ func New(env *module.Env) module.Module {
 	return v.module()
 }
 
-func newVideo(env *module.Env, cat catalogAPI, svc transport, caps func() (services.PlaybackCapabilities, bool)) *video {
-	v := &video{env: env, cat: cat, svc: svc, caps: caps, unmuted: 0.8}
+func newVideo(env *module.Env, cat catalogAPI, svc kit.PlaybackService, caps func() (services.PlaybackCapabilities, bool)) *video {
+	v := &video{env: env, cat: cat, caps: caps}
+	v.tr = kit.Transport{Svc: svc, Play: env.Play}
 	if env.Video != nil && env.Video.Frames() != nil {
 		v.feed = kit.NewVideoFeed(env.Video.Frames(), env.Post)
 	}
@@ -133,76 +122,15 @@ func (v *video) openInAppleMusic(url string) {
 	title := i18n.T("Couldn't open Apple Music")
 	go func() {
 		if err := v.cat.OpenInAppleMusic(url); err != nil {
-			failed(title, err)
+			kit.ToastFailure(title, err)
 		}
 	}()
 }
 
-// failed shows a failed command: what it was, and the words for its code.
-// Safe from any goroutine.
-func failed(what string, err error) {
-	kit.ToastErrorf(what, i18n.ErrorText(services.CodeOf(err)))
-}
-
-// run starts a command off the main thread; its failure is a toast titled
-// what.
-func (v *video) run(what string, fn func(ctx context.Context) error) {
-	go func() {
-		if err := fn(context.Background()); err != nil {
-			failed(what, err)
-		}
-	}()
-}
-
-// The commands. Each says what it was doing (its toast's title) as a
-// literal, so the catalogue's extraction finds it.
-
-func (v *video) toggle() {
-	v.run(i18n.T("Couldn't play or pause"), v.svc.Toggle)
-}
-
-func (v *video) previous() {
-	v.run(i18n.T("Couldn't go back"), v.svc.Prev)
-}
-
-func (v *video) next() {
-	v.run(i18n.T("Couldn't skip"), v.svc.Next)
-}
-
-// seekTo seeks to a position in the video: the mirror shows it at once,
-// until Go's next snapshot.
-func (v *video) seekTo(pos time.Duration, now time.Time) {
-	ms := pos.Milliseconds()
-	v.env.Play.Patch(func(s *services.PlaybackState) { s.PositionMs, s.At = ms, now.UnixMilli() })
-	v.run(i18n.T("Couldn't seek"), func(ctx context.Context) error { return v.svc.Seek(ctx, ms) })
-}
-
-// seekBy seeks by delta from the live position, within the video.
+// seekBy seeks by delta from the live position, within the video, unless it
+// cannot seek.
 func (v *video) seekBy(delta time.Duration, now time.Time) {
-	s := v.env.Play.State()
-	if s.Current == nil || s.DurationMs <= 0 || !s.Controls.Seek {
-		return
-	}
-	to := min(max(v.env.Play.Position()+delta, 0), time.Duration(s.DurationMs)*time.Millisecond)
-	v.seekTo(to, now)
-}
-
-// setVolume sets the volume (clamped to 0…1) and shows it at once.
-func (v *video) setVolume(vol float64) {
-	vol = min(max(vol, 0), 1)
-	v.env.Play.Patch(func(s *services.PlaybackState) { s.Volume = vol })
-	v.run(i18n.T("Couldn't change the volume"), func(ctx context.Context) error { return v.svc.SetVolume(ctx, vol) })
-}
-
-// toggleMute mutes, or returns to the volume before.
-func (v *video) toggleMute() {
-	cur := v.env.Play.State().Volume
-	if cur > 0 {
-		v.unmuted = cur
-		v.setVolume(0)
-		return
-	}
-	v.setVolume(v.unmuted)
+	v.tr.SeekBy(delta, now, func() bool { return !v.env.Play.State().Controls.Seek })
 }
 
 // playVideos plays music videos from start as the queue and opens the video

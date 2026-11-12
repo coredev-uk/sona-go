@@ -7,7 +7,6 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
-	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -55,12 +54,9 @@ func newFocusRig(t *testing.T) *focusRig {
 
 // play shows a playing catalogue song, or a music video.
 func (r *focusRig) play(video bool) {
-	s := store.EmptyState()
-	s.State = store.StatePlaying
-	s.Current = &services.QueueItem{ID: "i.1", CatalogID: "1001", Name: "Song Title", Artist: "The Artist", Video: video}
-	s.DurationMs, s.At = 240_000, r.h.Clock.Now().UnixMilli()
-	s.Controls = services.PlaybackControls{Previous: true, Next: true, Seek: true, Shuffle: true, Repeat: true}
-	r.h.Env.Play.Seed(s, services.QueueState{Index: -1})
+	r.h.Play(0, func(s *services.PlaybackState) {
+		s.Current.Album, s.Current.ArtistID, s.Current.AlbumID, s.Current.Video = "", "", "", video
+	})
 	r.settle()
 }
 
@@ -72,9 +68,7 @@ func (r *focusRig) settle() {
 
 func (r *focusRig) click(t *testing.T, label string) {
 	t.Helper()
-	if err := r.tt.Click(label); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick(label)
 	r.settle()
 }
 

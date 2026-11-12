@@ -2,7 +2,6 @@ package library
 
 import (
 	"context"
-	"strings"
 )
 
 // Results are library search matches resolved to full rows, best match
@@ -58,18 +57,14 @@ func (l *Library) SearchAll(ctx context.Context, term string, perKind int) (Resu
 		func(s Song) string { return s.LibraryID }); err != nil {
 		return r, err
 	}
-	if r.Albums, err = byIDs(ctx, l, `SELECT `+albumColumns+` FROM albums a
-		JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
-		WHERE a.library_id IN `, albumIDs, scanAlbum, func(a Album) string { return a.LibraryID }); err != nil {
+	if r.Albums, err = byIDs(ctx, l, albumsByID, albumIDs, scanAlbum, func(a Album) string { return a.LibraryID }); err != nil {
 		return r, err
 	}
 	if r.Artists, err = byIDs(ctx, l, `SELECT r.library_id, r.catalog_id, r.name, r.artwork_template FROM artists r
 		WHERE r.library_id IN `, artistIDs, scanArtist, func(a Artist) string { return a.LibraryID }); err != nil {
 		return r, err
 	}
-	if r.Playlists, err = byIDs(ctx, l, `SELECT `+playlistColumns+` FROM playlists p
-		JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
-		WHERE p.library_id IN `, playlistIDs, scanPlaylist, func(p Playlist) string { return p.LibraryID }); err != nil {
+	if r.Playlists, err = byIDs(ctx, l, playlistsByID, playlistIDs, scanPlaylist, func(p Playlist) string { return p.LibraryID }); err != nil {
 		return r, err
 	}
 	if err := l.FillCovers(ctx, r.Playlists); err != nil {
@@ -78,19 +73,26 @@ func (l *Library) SearchAll(ctx context.Context, term string, perKind int) (Resu
 	return r, nil
 }
 
+// The library albums and playlists of given library IDs (queries ending in
+// "IN ", for byIDs).
+const (
+	albumsByID = `SELECT ` + albumColumns + ` FROM albums a
+		JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
+		WHERE a.library_id IN `
+	playlistsByID = `SELECT ` + playlistColumns + ` FROM playlists p
+		JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
+		WHERE p.library_id IN `
+)
+
 // byIDs runs q (ending in "IN ") for ids and returns the rows in the order
 // of ids, skipping IDs without a row.
 func byIDs[T any](ctx context.Context, l *Library, q string, ids []string,
-	scan func(interface{ Scan(...any) error }) (T, error), id func(T) string,
+	scan func(scanner) (T, error), id func(T) string,
 ) ([]T, error) {
 	if len(ids) == 0 {
 		return []T{}, nil
 	}
-	args := make([]any, len(ids))
-	for i, v := range ids {
-		args[i] = v
-	}
-	rows, err := query(ctx, l, q+`(?`+strings.Repeat(",?", len(ids)-1)+`)`, scan, args...)
+	rows, err := query(ctx, l, q+`(`+placeholders(len(ids))+`)`, scan, anys(ids)...)
 	if err != nil {
 		return nil, err
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/devinstance"
 	"github.com/coredev-uk/sona-go/internal/devwatch"
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
@@ -158,10 +159,7 @@ func Save(route string, w *Window) {
 	if err != nil || os.MkdirAll(filepath.Dir(path), 0o700) != nil {
 		return
 	}
-	tmp := path + ".tmp"
-	if os.WriteFile(tmp, data, 0o600) == nil {
-		_ = os.Rename(tmp, path)
-	}
+	_ = fsutil.WriteFileAtomic(path, data, 0o600)
 }
 
 // SetLocation tells Scroll how to name the page: the router's location.

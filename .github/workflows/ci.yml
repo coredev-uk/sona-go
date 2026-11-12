@@ -265,17 +265,11 @@ jobs:
           RACE: ${{ matrix.race }}
         run: .github/ci/session-bus.sh .github/ci/test.sh "$POOL" "$INDEX" "$COUNT"
 
-      - name: Skipped tests are allowed ones
-        run: .github/ci/skips.sh "$RUNNER_TEMP/test-results"
-
-      - name: Keep the test results
+      - uses: ./.github/actions/finish-tests
         if: ${{ always() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: test-results-ui-${{ matrix.pool }}-${{ matrix.index }}-${{ matrix.race }}
-          path: ${{ runner.temp }}/test-results
-          if-no-files-found: ignore
-          retention-days: 3
+          artifact: test-results-ui-${{ matrix.pool }}-${{ matrix.index }}-${{ matrix.race }}
+          check: ${{ job.status == 'success' }}
 
       - name: Keep the pictures of a failed golden
         if: ${{ failure() }}
@@ -336,17 +330,11 @@ jobs:
           INDEX: ${{ matrix.index }}
         run: .github/ci/session-bus.sh .github/ci/test.sh core "$INDEX" "$SHARDS"
 
-      - name: Skipped tests are allowed ones
-        run: .github/ci/skips.sh "$RUNNER_TEMP/test-results"
-
-      - name: Keep the test results
+      - uses: ./.github/actions/finish-tests
         if: ${{ always() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: test-results-core-${{ matrix.index }}
-          path: ${{ runner.temp }}/test-results
-          if-no-files-found: ignore
-          retention-days: 3
+          artifact: test-results-core-${{ matrix.index }}
+          check: ${{ job.status == 'success' }}
 
       - name: Save Go's caches
         if: ${{ always() && steps.setup.outputs.save == 'true' }}
@@ -390,20 +378,9 @@ jobs:
       # the way Sona does it (cmd/cdmfetch, internal/playback/cdm). The cache
       # is renewed weekly; cdmfetch asks Mozilla's manifest for the version
       # every run and downloads a newer CDM over the cached one.
-      - name: Week of the CDM cache
-        id: week
-        run: echo "week=$(date +%G-%V)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache the Widevine CDM
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - uses: ./.github/actions/setup-cdm
         with:
-          path: ~/.cache/sona-ci/widevine
-          key: widevine-${{ runner.os }}-${{ runner.arch }}-${{ steps.week.outputs.week }}
-
-      - name: Install the Widevine CDM
-        run: |
-          go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine
-          echo "SONA_CDM_CACHE=$HOME/.cache/sona-ci/widevine" >> "$GITHUB_ENV"
+          key: week
 
       - name: go test -race (playback packages)
         env:
@@ -413,17 +390,11 @@ jobs:
           TEST_FLAGS: -count=1
         run: dbus-run-session -- .github/ci/with-pipewire.sh .github/ci/test.sh playback 1 1
 
-      - name: Skipped tests are allowed ones
-        run: .github/ci/skips.sh "$RUNNER_TEMP/test-results"
-
-      - name: Keep the test results
+      - uses: ./.github/actions/finish-tests
         if: ${{ always() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: test-results-playback
-          path: ${{ runner.temp }}/test-results
-          if-no-files-found: ignore
-          retention-days: 3
+          artifact: test-results-playback
+          check: ${{ job.status == 'success' }}
 
       - name: Save Go's caches
         if: ${{ always() && steps.setup.outputs.save == 'true' }}
@@ -667,141 +638,29 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  # The macOS and Windows builds (CONTRIBUTING.md, "Platforms"). They run only
-  # after a merge to main and when dispatched (Actions → CI → Run workflow),
-  # never on a pull request and never from release.yml (linux-only: it builds
-  # the release artefacts of each platform itself). macOS uses the official
-  # GStreamer packages release.yml's build uses, not devenv: entering the
-  # devenv shell took twelve minutes of the job.
+  # The macOS and Windows builds (CONTRIBUTING.md, "Platforms"). They run
+  # after a merge to main and when dispatched (Actions → CI → Run workflow);
+  # a pull request that reaches the code runs the macOS build too, and nothing
+  # of either runs from release.yml (linux-only: it builds the release
+  # artefacts of each platform itself). macOS uses the official GStreamer
+  # packages release.yml's build uses, not devenv: entering the devenv shell
+  # took twelve minutes of the job.
+  # GitHub runs at most five macOS jobs at a time for the whole account (every
+  # repository's), so a push to main or a pull request runs one: this one (the
+  # production build, go vet, and the core and playback tests with the real
+  # CDM and Seatbelt, so a change that breaks the Mac is seen before it
+  # merges). The UI shards below run on macOS only in the nightly and on
+  # dispatch; the same tests run on Linux on every push. Five jobs a push took
+  # every slot, and two merges in a row, or a merge while another repository
+  # built on macOS, queued for half an hour.
+  # A push, the nightly and a dispatch wait a few seconds for `changes` but do not
+  # depend on its result; a pull request runs the job only when the change
+  # reaches the code (a documentation-only one skips it). It saves Go's caches on main and on dispatch, and restores them
+  # in a pull request.
   macos-build:
-    name: macOS build and vet
-    if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'macos')) || (github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch' && !github.event.repository.private)) }}
-    runs-on: macos-26
-    timeout-minutes: 30
-    env:
-      CGO_ENABLED: "1"
-      GOFLAGS: -tags=sqlite_fts5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: ./.github/actions/setup-macos
-        id: setup
-        with:
-          flavor: mac-build
-
-      # Every cgo object and the link itself must target the same macOS
-      # (build/darwin/MIN_MACOS, exported by setup-macos); ld warns otherwise.
-      - name: Build bin/sona (production, no deployment-target warnings)
-        run: |
-          go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona 2>&1 | tee "$RUNNER_TEMP/build.log"
-          if grep 'built for newer macOS version' "$RUNNER_TEMP/build.log"; then
-            echo "::error::objects or libraries target a newer macOS than the link (build/darwin/MIN_MACOS)"
-            exit 1
-          fi
-          otool -l bin/sona | grep -A4 LC_BUILD_VERSION
-
-      - name: go vet
-        run: go vet ./...
-
-      - name: Save Go's caches
-        if: ${{ always() && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.setup.outputs.cache-path }}
-          key: ${{ steps.setup.outputs.cache-key }}
-
-  # `go test -race` of every package, in shards (shard.sh) on macOS runners
-  # side by side. The playback shard runs the real-CDM and sandbox tests with
-  # the macOS CDM (mac_arm64), which the job downloads and caches as Linux's does.
-  macos-test:
-    name: macOS tests (${{ matrix.pool }} ${{ matrix.index }}/${{ matrix.count }})
-    if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'macos')) || (github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch' && !github.event.repository.private)) }}
-    runs-on: macos-26
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { pool: ui, index: 1, count: 2 }
-          - { pool: ui, index: 2, count: 2 }
-          - { pool: core, index: 1, count: 1 }
-          - { pool: playback, index: 1, count: 1 }
-    env:
-      CGO_ENABLED: "1"
-      GOFLAGS: -tags=sqlite_fts5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: ./.github/actions/setup-macos
-        id: setup
-        with:
-          flavor: mac-race-${{ matrix.pool }}-${{ matrix.index }}
-
-      - name: Resolve the Widevine CDM version
-        if: ${{ matrix.pool == 'playback' }}
-        id: cdm
-        run: echo "version=$(go run ./cmd/cdmfetch -version)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache the Widevine CDM
-        if: ${{ matrix.pool == 'playback' }}
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/sona-ci/widevine
-          key: widevine-${{ runner.os }}-${{ runner.arch }}-${{ steps.cdm.outputs.version }}
-
-      - name: Install the Widevine CDM
-        if: ${{ matrix.pool == 'playback' }}
-        run: |
-          go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine
-          {
-            echo "SONA_CDM_CACHE=$HOME/.cache/sona-ci/widevine"
-            echo "SONA_CDM_REQUIRE=1"
-            echo "TEST_FLAGS=-count=1"
-          } >> "$GITHUB_ENV"
-
-      - name: go test -race (no deployment-target warnings)
-        env:
-          POOL: ${{ matrix.pool }}
-          INDEX: ${{ matrix.index }}
-          COUNT: ${{ matrix.count }}
-        run: |
-          .github/ci/test.sh "$POOL" "$INDEX" "$COUNT" 2>&1 | tee "$RUNNER_TEMP/test.log"
-          if grep 'built for newer macOS version' "$RUNNER_TEMP/test.log"; then
-            echo "::error::objects or libraries target a newer macOS than the link (build/darwin/MIN_MACOS)"
-            exit 1
-          fi
-
-      - name: Skipped tests are allowed ones
-        run: .github/ci/skips.sh "$RUNNER_TEMP/test-results"
-
-      - name: Keep the test results
-        if: ${{ always() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: test-results-macos-${{ matrix.pool }}-${{ matrix.index }}
-          path: ${{ runner.temp }}/test-results
-          if-no-files-found: ignore
-          retention-days: 3
-
-      - name: Save Go's caches
-        if: ${{ always() && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.setup.outputs.cache-path }}
-          key: ${{ steps.setup.outputs.cache-key }}
-
-  # What a pull request runs on macOS: the production build, go vet, and the
-  # core and playback tests (the real CDM and Seatbelt) in one job, so a change
-  # that breaks the Mac is seen before it merges. The UI shards and the rest
-  # run on main (above). It restores main's core cache and saves nothing.
-  macos-pr:
-    name: macOS build and test (pull request)
+    name: macOS build, vet, core and playback tests
     needs: changes
-    if: ${{ !inputs.linux-only && needs.changes.outputs.heavy == 'true' && !github.event.repository.private && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.only == 'pr')) }}
+    if: ${{ !cancelled() && !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'macos')) || (!github.event.repository.private && ((github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch') || (needs.changes.outputs.heavy == 'true' && (github.event_name == 'pull_request' || inputs.only == 'pr'))))) }}
     runs-on: macos-26
     timeout-minutes: 30
     env:
@@ -817,31 +676,20 @@ jobs:
         with:
           flavor: mac-race-core-1
 
+      # Every cgo object and the link itself must target the same macOS
+      # (build/darwin/MIN_MACOS, exported by setup-macos); ld warns otherwise.
       - name: Build bin/sona (production, no deployment-target warnings)
         run: |
-          go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona 2>&1 | tee "$RUNNER_TEMP/build.log"
-          if grep 'built for newer macOS version' "$RUNNER_TEMP/build.log"; then
-            echo "::error::objects or libraries target a newer macOS than the link (build/darwin/MIN_MACOS)"
-            exit 1
-          fi
+          go build -tags mygo_noinspector,sqlite_fts5 -ldflags "$(build/ldflags.sh --goos darwin --no-credentials)" -o bin/sona ./cmd/sona 2>&1 | tee "$RUNNER_TEMP/build.log"
+          .github/ci/no-deploy-warnings.sh "$RUNNER_TEMP/build.log"
+          otool -l bin/sona | grep -A4 LC_BUILD_VERSION
 
       - name: go vet
         run: go vet ./...
 
-      - name: Resolve the Widevine CDM version
-        id: cdm
-        run: echo "version=$(go run ./cmd/cdmfetch -version)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache the Widevine CDM
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/sona-ci/widevine
-          key: widevine-${{ runner.os }}-${{ runner.arch }}-${{ steps.cdm.outputs.version }}
-
-      - name: Install the Widevine CDM
-        run: |
-          go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine
-          echo "SONA_CDM_CACHE=$HOME/.cache/sona-ci/widevine" >> "$GITHUB_ENV"
+      # The playback tests run the real-CDM and sandbox tests with the macOS
+      # CDM (mac_arm64), which the job downloads and caches as Linux's does.
+      - uses: ./.github/actions/setup-cdm
 
       - name: go test -race (core, playback)
         env:
@@ -849,22 +697,68 @@ jobs:
         run: |
           .github/ci/test.sh core 1 1 2>&1 | tee "$RUNNER_TEMP/test.log"
           TEST_FLAGS=-count=1 .github/ci/test.sh playback 1 1 2>&1 | tee -a "$RUNNER_TEMP/test.log"
-          if grep 'built for newer macOS version' "$RUNNER_TEMP/test.log"; then
-            echo "::error::objects or libraries target a newer macOS than the link (build/darwin/MIN_MACOS)"
-            exit 1
-          fi
+          .github/ci/no-deploy-warnings.sh "$RUNNER_TEMP/test.log"
 
-      - name: Skipped tests are allowed ones
-        run: .github/ci/skips.sh "$RUNNER_TEMP/test-results"
-
-      - name: Keep the test results
+      - uses: ./.github/actions/finish-tests
         if: ${{ always() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: test-results-macos-pr
-          path: ${{ runner.temp }}/test-results
-          if-no-files-found: ignore
-          retention-days: 3
+          artifact: test-results-macos-core-playback
+          check: ${{ job.status == 'success' }}
+
+      - name: Save Go's caches
+        if: ${{ always() && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.cache-path }}
+          key: ${{ steps.setup.outputs.cache-key }}
+
+  # The UI packages' `go test -race` on macOS, in two shards (shard.sh): the
+  # nightly and a dispatch only (see macos-build).
+  macos-test:
+    name: macOS tests (${{ matrix.pool }} ${{ matrix.index }}/${{ matrix.count }})
+    if: ${{ !inputs.linux-only && ((github.event_name == 'workflow_dispatch' && (inputs.only == 'all' || inputs.only == 'macos')) || (github.event_name == 'schedule' && !github.event.repository.private)) }}
+    runs-on: macos-26
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { pool: ui, index: 1, count: 2 }
+          - { pool: ui, index: 2, count: 2 }
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -tags=sqlite_fts5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-macos
+        id: setup
+        with:
+          flavor: mac-race-${{ matrix.pool }}-${{ matrix.index }}
+
+      - name: go test -race (no deployment-target warnings)
+        env:
+          POOL: ${{ matrix.pool }}
+          INDEX: ${{ matrix.index }}
+          COUNT: ${{ matrix.count }}
+        run: |
+          .github/ci/test.sh "$POOL" "$INDEX" "$COUNT" 2>&1 | tee "$RUNNER_TEMP/test.log"
+          .github/ci/no-deploy-warnings.sh "$RUNNER_TEMP/test.log"
+
+      - uses: ./.github/actions/finish-tests
+        if: ${{ always() }}
+        with:
+          artifact: test-results-macos-${{ matrix.pool }}-${{ matrix.index }}
+          check: ${{ job.status == 'success' }}
+
+      - name: Save Go's caches
+        if: ${{ always() && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.cache-path }}
+          key: ${{ steps.setup.outputs.cache-key }}
 
   macos:
     name: macOS build and test
@@ -878,7 +772,7 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
         run: |
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS"
-          jq -e 'all(.[]; .result == "success")' <<<"$NEEDS" >/dev/null
+          jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<<"$NEEDS" >/dev/null
 
   windows:
     name: Windows build
@@ -928,7 +822,7 @@ jobs:
       - name: Build sona.exe
         run: |
           go build -tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false \
-            -ldflags "-w -s -H windowsgui -X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona.exe ./cmd/sona
+            -ldflags "$(build/ldflags.sh --goos windows --no-credentials)" -o bin/sona.exe ./cmd/sona
           ls -l bin/sona.exe
 
       - name: Build playspike.exe
@@ -940,7 +834,7 @@ jobs:
           out=$(bin/playspike.exe -h 2>&1 || true)
           printf '%s\n' "$out" | head -n 6
           grep -q 'Usage of' <<<"$out"
-          "$PKG_CONFIG" --libs gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0
+          "$PKG_CONFIG" --libs gstreamer-1.0 gstreamer-app-1.0
 
       # The pipeline end to end with no secret: two 30-second previews (the
       # developer token only: no Music User Token, no CDM) through the engine,
@@ -976,29 +870,22 @@ jobs:
           grep -q 'preview advancing' preview.out
           grep -q 'next preview playing' preview.out
 
-      # Motion artwork's decoder (internal/ui/media): a generated H.264 clip
-      # (x264enc, from the installed GStreamer's gst-launch-1.0) decoded and
-      # looped through the build's own pipeline (qtdemux, h264parse, the
-      # decoder decodebin picks: libav's on a runner with no GPU,
-      # videoconvert, appsink). The packaged plugins are smoke-tested by
-      # release.yml (build/windows/smoke.sh). A skipped decoder test fails the
-      # step: a missing encoder or decoder must not read as a pass.
-      - name: Motion artwork decoder tests
+      # Motion artwork plays through Windows' own Media Foundation (MyGo's
+      # ui/video, internal/ui/media), no GStreamer: a generated H.264 clip
+      # (x264enc, from the installed GStreamer's gst-launch-1.0) is opened the
+      # way MotionCover does, becomes Ready once a ui.Video builds it, shows a
+      # moving picture and loops. The test also logs what the PR reports: the
+      # open and first-picture time over five opens, and the gap at the loop
+      # point. A skipped test fails the step: a runner with no Media
+      # Foundation must not read as a pass. Only the test of a platform with no
+      # decoder, and the one that needs a file of the motion cache, may skip.
+      - name: Motion artwork (Media Foundation) tests
         run: |
-          for e in qtdemux h264parse h265parse decodebin videoconvert avdec_h264 avdec_h265 d3d11h264dec d3d11h265dec x264enc; do
-            if gst-inspect-1.0.exe "$e" >/dev/null 2>&1; then echo "ok      $e"; else echo "MISSING $e"; fi
-          done
-          ls -l "$GSTREAMER_ROOT"/lib/gstreamer-1.0/libgst{d3d11,d3d12,videoparsersbad,videoconvertscale,libav}.dll || true
-          set +e
-          go test -count=1 -timeout 10m -v ./internal/ui/media/ >"$RUNNER_TEMP/media.log" 2>&1
-          rc=$?
-          grep -vE '^=== (RUN|PAUSE|CONT)' "$RUNNER_TEMP/media.log" | cut -c1-400 | head -n 120
-          for t in TestMotionDecoderPlaysAndLoops TestMotionDecoderPicturesAreNotBlank TestMotionDecoderErrors TestMotionDecoderClose TestOpenMotion; do
-            grep -q -- "--- PASS: $t " "$RUNNER_TEMP/media.log" || { echo "$t did not pass"; rc=1; }
-          done
-          # Only the tests of a platform with no decoder, and the one that needs a file of the motion cache, may skip.
-          if grep -- '--- SKIP' "$RUNNER_TEMP/media.log" | grep -vE 'TestOpenMotionWithoutDecoder|TestMotionFileOfTheCache'; then echo "a decoder test was skipped"; rc=1; fi
-          exit $rc
+          .github/ci/strict-test.sh "$RUNNER_TEMP/media.log" --lines 120 \
+            --pass TestOpenMotion --pass TestOpenMotionOfAFileThatIsNotAVideo \
+            --pass TestNativePlaysAndLoops --pass TestNativeOpenTime \
+            --allow-skip 'TestOpenMotionWithoutDecoder|TestMotionFileOfTheCache' \
+            -- go test -count=1 -timeout 10m -v ./internal/ui/media/
 
       # Google's CDM, downloaded and verified the way Sona does, loaded
       # through the shim DLL (SONA_CDM_SHIM, set by setup-windows).
@@ -1016,13 +903,9 @@ jobs:
           SONA_CDM_REQUIRE: "1"
           SONA_CDMHOST_REQUIRE_SANDBOX: "1"
         run: |
-          set +e
-          go test -count=1 -timeout 15m -v -run 'AppContainer|SandboxedHost|SandboxLoadsCDM|SandboxGaps|GrantAccess|RemoveSandbox|ReadFolders|EnvHelpers|ChildEnv|ChildScans' \
-            ./internal/playback/cdmhost/ >"$RUNNER_TEMP/sandbox.log" 2>&1
-          rc=$?
-          grep -vE '^=== (RUN|PAUSE|CONT)' "$RUNNER_TEMP/sandbox.log" | cut -c1-400 | head -n 250
-          if grep -q -- '--- SKIP' "$RUNNER_TEMP/sandbox.log"; then echo "a sandbox test was skipped"; rc=1; fi
-          exit $rc
+          .github/ci/strict-test.sh "$RUNNER_TEMP/sandbox.log" --skips \
+            -- go test -count=1 -timeout 15m -v -run 'AppContainer|SandboxedHost|SandboxLoadsCDM|SandboxGaps|GrantAccess|RemoveSandbox|ReadFolders|EnvHelpers' \
+            ./internal/playback/cdmhost/
 
       # The host child, GStreamer and the engine on Windows, against fakesink
       # and the real CDM.
@@ -1031,9 +914,7 @@ jobs:
           SONA_CDM_REQUIRE: "1"
           SONA_CDMHOST_REQUIRE_SANDBOX: "1"
         run: |
-          set +e
-          go test -count=1 -timeout 10m -v ./internal/playback/cdmhost/ >"$RUNNER_TEMP/cdmhost.log" 2>&1
-          rc=$?
-          grep -vE '^=== (RUN|PAUSE|CONT)' "$RUNNER_TEMP/cdmhost.log" | cut -c1-400 | head -n 250
+          rc=0
+          .github/ci/strict-test.sh "$RUNNER_TEMP/cdmhost.log" -- go test -count=1 -timeout 10m -v ./internal/playback/cdmhost/ || rc=1
           go test -count=1 -timeout 20m ./internal/playback/gst/ ./internal/playback/native/ ./internal/playback/gstbundle/ || rc=1
           exit $rc

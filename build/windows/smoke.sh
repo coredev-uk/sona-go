@@ -6,15 +6,13 @@
 #
 # Passes when
 #   - the portable zip holds sona.exe, the shim DLL, the GStreamer runtime and
-#     the trimmed plugins, and no Widevine CDM, and its sona.exe prints the
-#     version, reaches "startup: first paint" and readies the audio stack
-#     (the CDM host child scans the bundled plugins);
+#     the trimmed plugins (audio only: motion artwork plays through Windows'
+#     own Media Foundation, so no video plugin), and no Widevine CDM, and its
+#     sona.exe prints the version, reaches "startup: first paint" and readies
+#     the audio stack (the CDM host child scans the bundled plugins);
 #   - playspike.exe (OUTDIR/smoke-tools, from package.sh with
 #     SONA_SMOKE_TOOLS=1), run beside that sona.exe, plays two 30-second
 #     previews to fakesink: no Music User Token, no CDM;
-#   - media.test.exe (the same folder: internal/ui/media's tests), run beside
-#     that sona.exe too, decodes and loops a generated H.264 clip, the motion
-#     artwork's decoder, with the package's plugins alone;
 #   - the update archive holds the same files;
 #   - the installer installs silently with the same files and the music:/itms:
 #     URL keys, and uninstalls them again, with the CDM host's AppContainer
@@ -25,9 +23,11 @@
 # SONA_PRIVATE=1.
 set -euo pipefail
 export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*" # Git Bash must not rewrite /S and /D=
+smoke_name="smoke(windows)"
+# shellcheck source=../lib/smoke.sh
+. "$(dirname "$0")/../lib/smoke.sh"
 out=$(cd "${1:?usage: smoke.sh OUTDIR}" && pwd)
-version=${VERSION:-$(cat "$(dirname "$0")/../../VERSION")}
-fail() { echo "smoke(windows): FAIL: $*" >&2; exit 1; }
+version=$(version)
 
 # The package stands alone: no GStreamer on PATH (a CI runner has the one
 # the build linked), none of its variables, and the shim only where the
@@ -78,24 +78,13 @@ check_layout() {
   for f in coreelements typefindfunctions playback app audioconvert audioresample volume equalizer audioparsers isomp4 libav wasapi2; do
     [[ -f $d/lib/gstreamer-1.0/libgst$f.dll ]] || fail "$what has no plugin $f"
   done
-  # The video plugins are in a folder of their own, beside the audio plugins' and
-  # not inside it (GStreamer scans plugin folders recursively): the CDM host
-  # child never loads them (no_video_plugins).
+  # Motion artwork is Media Foundation's, not GStreamer's: no video plugin and
+  # no folder of them.
   for f in videoparsersbad videoconvertscale d3d11; do
-    [[ -f $d/lib/gstreamer-video/libgst$f.dll ]] || fail "$what has no video plugin $f in lib/gstreamer-video"
-    [[ ! -e $d/lib/gstreamer-1.0/libgst$f.dll ]] || fail "$what has the video plugin $f among the audio plugins"
+    [[ ! -e $d/lib/gstreamer-1.0/libgst$f.dll ]] || fail "$what has the video plugin $f, which only the old motion artwork decoder used"
   done
-  if [[ -n $(find "$d/lib/gstreamer-1.0" -mindepth 1 -type d) ]]; then fail "$what has a folder inside lib/gstreamer-1.0, which GStreamer scans recursively"; fi
+  [[ ! -e $d/lib/gstreamer-video ]] || fail "$what has lib/gstreamer-video"
   if bad=$(find "$d" -iname '*widevinecdm*') && [[ -n $bad ]]; then fail "$what contains the Widevine CDM: $bad"; fi
-}
-
-# no_video_plugins REGISTRY WHAT: the registry (the CDM host child's) lists no
-# video plugin, so the child never loaded them.
-no_video_plugins() {
-  local f
-  for f in libgstvideoparsersbad libgstvideoconvertscale libgstd3d11; do
-    ! grep -aq "$f" "$1" || fail "$2 lists $f"
-  done
 }
 
 # 1. The portable zip.
@@ -105,9 +94,8 @@ dir=$work/zip/Sona
 exe=$dir/sona.exe
 check_layout "$dir" "the zip"
 zipfiles=$(cd "$dir" && find . -type f | sort) # before anything runs from it
-echo "smoke(windows): the zip has $(find "$dir" -type f | wc -l) files, $(du -sm "$dir" | cut -f1) MB; plugins: $(cd "$dir/lib/gstreamer-1.0" && echo libgst*.dll | sed 's/libgst//g; s/\.dll//g'); video plugins (UI process only): $(cd "$dir/lib/gstreamer-video" && echo libgst*.dll | sed 's/libgst//g; s/\.dll//g')"
-got=$("$exe" --version) || fail "sona.exe --version failed"
-[[ $got == "sona $version" ]] || fail "sona.exe --version printed '$got', want 'sona $version'"
+echo "smoke(windows): the zip has $(find "$dir" -type f | wc -l) files, $(du -sm "$dir" | cut -f1) MB; plugins: $(cd "$dir/lib/gstreamer-1.0" && echo libgst*.dll | sed 's/libgst//g; s/\.dll//g')"
+check_version "$version" "$exe"
 
 # Starts, paints, and the CDM host child (this executable again) readies the
 # audio stack: it loads the bundled GStreamer and scans the bundled plugins,
@@ -118,29 +106,16 @@ log=$profile/Local/Sona/State/sona.log
 # parent logs where.
 "$exe" >"$work/sona.out" 2>&1 &
 pid=$!
-for _ in $(seq 1 60); do
-  grep -q '"startup: first paint"' "$log" 2>/dev/null && break
-  kill -0 "$pid" 2>/dev/null || break
-  sleep 1
-done
-painted=0
-grep -q '"startup: first paint"' "$log" 2>/dev/null && painted=1
-if [[ $painted != 1 ]]; then
-  kill "$pid" 2>/dev/null || true
+if ! wait_for_log "$log" '"startup: first paint"' 60 "$pid"; then
+  stop_app "$pid"
   cat "$work/sona.out" "$log" 2>/dev/null || true
   fail "sona.exe never painted"
 fi
 echo "smoke(windows): the zip's sona.exe reached first paint"
-ready=0
-for _ in $(seq 1 120); do
-  grep -q 'playback: audio stack ready' "$log" 2>/dev/null && { ready=1; break; }
-  grep -q 'playback: audio stack not prepared' "$log" 2>/dev/null && break
-  kill -0 "$pid" 2>/dev/null || break
-  sleep 1
-done
-kill "$pid" 2>/dev/null || true
-wait "$pid" 2>/dev/null || true
-if [[ $ready != 1 ]]; then
+# The wait ends at once when the host says it could not prepare the stack.
+wait_for_log "$log" 'playback: audio stack (ready|not prepared)' 120 "$pid" || true
+stop_app "$pid"
+if ! grep -q 'playback: audio stack ready' "$log" 2>/dev/null; then
   cat "$work/sona.out" "$log" 2>/dev/null || true
   fail "the audio stack was not readied from the bundled GStreamer"
 fi
@@ -154,10 +129,6 @@ registry=$(grep -a "GStreamer plugin registry" "$log" | head -n 1 | sed -n 's/.*
 registry=$(cygpath -u "${registry//\\\\/\\}") # JSON escapes backslashes
 [[ -f $registry ]] || fail "no plugin registry at $registry"
 grep -aq libgstcoreelements "$registry" || fail "the plugin registry does not list the bundle's plugins"
-# The CDM host child needs no video plugin and its scan loads every plugin it
-# finds: Direct3D 11's, which asks the GPUs what they decode, is for the UI
-# process alone (lib\gstreamer-video, named only by the UI process's environment).
-no_video_plugins "$registry" "the host child's plugin registry"
 if [[ -n ${GSTREAMER_ROOT:-} ]]; then
   root=$(cygpath -m "$GSTREAMER_ROOT")
   if grep -aiqF -e "$root" -e "$(cygpath -w "$root")" "$registry"; then
@@ -183,44 +154,8 @@ if [[ -f $tools/playspike.exe ]]; then
   grep -q 'decoder=avdec_aac' "$work/preview.out" || fail "the bundled libav did not decode"
   echo "smoke(windows): previews play from the bundle (fakesink)"
   rm "$dir/playspike.exe"
-  # The previews' host child scanned the plugins again: still no video one.
-  [[ -f $registry ]] || fail "playspike's host left no plugin registry at $registry"
-  no_video_plugins "$registry" "the registry of playspike's host"
 else
   echo "smoke(windows): no smoke-tools/playspike.exe (package.sh without SONA_SMOKE_TOOLS=1): previews not played"
-fi
-
-# 2b. Motion artwork: the decoder's tests (internal/ui/media), beside sona.exe
-# on the bundle's plugins (the test binary imports gstbundle, as sona.exe
-# does; no GST_* variable here). The package has no encoder, so the fixture
-# clip is made by the build's own gst-launch-1.0 (SONA_FIXTURE_GST_BIN: the
-# tools run with no GST_* variable); the clip is then decoded, and looped, by
-# the bundle's qtdemux, parsers and decoder. A fresh registry, so this run
-# scans the bundle again.
-if [[ -f $tools/media.test.exe && -n ${GSTREAMER_ROOT:-} ]]; then
-  cp "$tools/media.test.exe" "$dir/media.test.exe"
-  rm -rf "$profile/Local/Sona/gstreamer-1.0"
-  (cd "$dir" && SONA_FIXTURE_GST_BIN=$(cygpath -w "$GSTREAMER_ROOT/bin") timeout 600 ./media.test.exe -test.v \
-    -test.run 'TestMotionDecoder|TestOpenMotion|TestCodec') >"$work/motion.out" 2>&1 || { cat "$work/motion.out"; fail "motion artwork tests"; }
-  grep -v '^=== ' "$work/motion.out" | cut -c1-300
-  for t in TestMotionDecoderPlaysAndLoops TestMotionDecoderPicturesAreNotBlank TestOpenMotion; do
-    grep -q -- "--- PASS: $t " "$work/motion.out" || fail "$t did not pass (skipped?)"
-  done
-  motionreg=$profile/Local/Sona/gstreamer-1.0/registry.bin
-  [[ -f $motionreg ]] || fail "the motion tests left no plugin registry in the profile"
-  for p in libgstvideoparsersbad libgstvideoconvertscale libgstlibav libgstisomp4; do
-    grep -aq "$p" "$motionreg" || fail "the bundle's plugin registry does not list $p"
-  done
-  if [[ -n ${GSTREAMER_ROOT:-} ]]; then
-    root=$(cygpath -m "$GSTREAMER_ROOT")
-    if grep -aiqF -e "$root" -e "$(cygpath -w "$root")" "$motionreg"; then
-      fail "the motion tests' plugin registry names the GStreamer installation at $root"
-    fi
-  fi
-  echo "smoke(windows): motion artwork decodes from the bundle (Direct3D 11 decoder factories in its registry: $(grep -ac 'd3d11h26.dec' "$motionreg" || true))"
-  rm "$dir/media.test.exe"
-else
-  echo "smoke(windows): no smoke-tools/media.test.exe or GSTREAMER_ROOT (package.sh without SONA_SMOKE_TOOLS=1): motion artwork not decoded"
 fi
 
 # 3. The update archive: the files at the top level.
@@ -243,7 +178,7 @@ check_layout "$dest" "the installation"
 if [[ $(cd "$dest" && find . -type f ! -name uninstall.exe | sort) != "$zipfiles" ]]; then
   fail "the installation and the zip hold different files"
 fi
-[[ $("$dest/sona.exe" --version) == "sona $version" ]] || fail "installed sona.exe prints the wrong version"
+check_version "$version" "$dest/sona.exe"
 for scheme in music itms; do
   reg query "HKCU\\Software\\Classes\\$scheme\\shell\\open\\command" >/dev/null || fail "no $scheme: URL handler"
 done

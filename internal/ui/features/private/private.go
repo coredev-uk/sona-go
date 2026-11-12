@@ -43,17 +43,11 @@ func New(env *module.Env) module.Module {
 // init mirrors Go's state: every "private:changed", and a snapshot that only
 // fills the mirror while it is still empty, so an event that lands first wins.
 func (p *private) init() {
-	store.On(p.env.Bus, services.EventPrivateChanged, func(s services.PrivateState) {
-		store.Set(p.env.Queries, store.KeyPrivate, s)
-	})
-	if p.env.Core == nil {
-		return
+	var snapshot func() services.PrivateState
+	if p.env.Core != nil {
+		snapshot = services.Service[services.PrivateService](p.env.Core).State
 	}
-	svc := services.Service[services.PrivateService](p.env.Core)
-	go func() {
-		s := svc.State()
-		p.env.Post(func() { store.SetIfEmpty(p.env.Queries, store.KeyPrivate, s) })
-	}()
+	store.Mirror(p.env.Bus, p.env.Queries, p.env.Post, store.KeyPrivate, snapshot, services.EventPrivateChanged)
 }
 
 // state is the mirror, with no fetch: false until Go has answered.
@@ -155,10 +149,7 @@ func (p *private) pill(c *ui.Context) {
 		e.Opacity(0.4)
 	}
 	e.AccessDisabled(forced)
-	if !theme.ReducedMotion() {
-		m := theme.Current().Motion["feedback"]
-		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(e, "feedback")
 	e.Children(func() {
 		ui.Icon(c, theme.Icon("hat-glasses")).FontSize(16)
 		if word != "" {

@@ -5,6 +5,7 @@ import (
 	"math/rand/v2"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
 // run is shared/lib/run.ts: it runs a fire-and-forget command (playback,
@@ -15,7 +16,7 @@ func (l *library) run(what string, fn func(ctx context.Context) error, done func
 	go func() {
 		err := fn(context.Background())
 		if err != nil {
-			failToast(what, err)
+			kit.ToastFailure(what, err)
 		}
 		if done != nil {
 			l.env.Post(func() { done(err == nil) })

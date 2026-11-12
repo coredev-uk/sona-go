@@ -714,10 +714,14 @@ func TestShortcutsFilterByActionOrKey(t *testing.T) {
 	// Nothing matches.
 	r.click("Clear search")
 	r.click("Filter shortcuts")
+	r.tt.UseScreenReader()
+	r.tt.Announcements()
 	r.tt.Type("zzz")
 	r.show("No shortcut matches “zzz”.")
 	r.hidden("player.toggle Space", "test.free not set")
-	if ann := r.tt.Announcements(); !slices.Contains(ann, "No shortcut matches “zzz”.") {
+	// Once for the whole line: the status reads it as it changes, and the
+	// section does not announce it as well.
+	if ann := r.tt.Announcements(); !slices.Equal(ann, []string{"No shortcut matches “zzz”."}) {
 		t.Errorf("announced %q", ann)
 	}
 	r.click("Clear search")

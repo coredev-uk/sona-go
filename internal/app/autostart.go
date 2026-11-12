@@ -8,11 +8,19 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 // HiddenFlag starts Sona with no window: it plays and sits in the tray. The
 // autostart entry passes it when the user chose to start hidden at login.
 const HiddenFlag = "--hidden"
+
+// ShownFlag starts Sona with its window, which is what a launch with no flag
+// does too. It does nothing else: the updater passes it to App.Relaunch, whose
+// call with no arguments repeats the ones this instance started with
+// (--hidden among them), so a restart that wants none needs one to give.
+const ShownFlag = "--shown"
 
 // Hidden reports whether the launch asked for no window.
 func (a Activation) Hidden() bool { return slices.Contains(a.Args, HiddenFlag) }
@@ -115,23 +123,7 @@ func WriteAutostart(path string, argv []string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("app: autostart: %w", err)
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".sona-autostart-*")
-	if err != nil {
-		return fmt.Errorf("app: autostart: %w", err)
-	}
-	defer func() { _ = os.Remove(tmp.Name()) }() // no-op after the rename
-	if _, err := tmp.WriteString(body); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("app: autostart: %w", err)
-	}
-	if err := tmp.Chmod(0o644); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("app: autostart: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("app: autostart: %w", err)
-	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
+	if err := fsutil.WriteFileAtomic(path, []byte(body), 0o644); err != nil {
 		return fmt.Errorf("app: autostart: %w", err)
 	}
 	return nil

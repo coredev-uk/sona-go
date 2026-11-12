@@ -15,22 +15,18 @@ const rowHeight = 72
 
 // text is a line of text in a type style and ink colour.
 func text(c *ui.Context, s, style, ink string) ui.Element {
-	t := theme.Current().Type[style]
-	e := ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).TextColor(theme.C(ink))
-	if t.Tracking != 0 {
-		e.LetterSpacing(t.Tracking)
-	}
-	return e
+	return theme.Text(c, s, style).TextColor(theme.C(ink))
 }
 
 // dateBlock is the day as a ledger's date column: the weekday over the day
 // number (and the month, off a day heading).
 func dateBlock(c *ui.Context, con services.Concert, month bool) ui.Element {
 	return ui.Column(c).Width(56).Shrink(0).Children(func() {
-		text(c, showWeekday(con), "meta", "ink-muted").FontFeatures("tnum").SingleLine()
-		text(c, showDate(con), "title", "ink").FontFeatures("tnum").SingleLine()
+		f := factsOf(con)
+		text(c, f.weekday, "meta", "ink-muted").FontFeatures("tnum").SingleLine()
+		text(c, f.date, "title", "ink").FontFeatures("tnum").SingleLine()
 		if month {
-			text(c, showMonthShort(con), "meta", "ink-muted").FontFeatures("tnum").SingleLine()
+			text(c, f.monthName, "meta", "ink-muted").FontFeatures("tnum").SingleLine()
 		}
 	})
 }
@@ -77,10 +73,7 @@ func ticketButton(c *ui.Context, label, a11y, icon string) ui.Element {
 		bg = theme.C("accent-soft")
 	}
 	e.Background(bg).TextColor(theme.C("ink"))
-	if !theme.ReducedMotion() {
-		m := theme.Current().Motion["feedback"]
-		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(e, "feedback")
 	e.Children(func() {
 		text(c, label, "label", "ink").SingleLine()
 		theme.Glyph(c, icon, 14, theme.GlyphOpts{Color: theme.C("ink"), Inherit: true})
@@ -113,7 +106,7 @@ func tickets(c *ui.Context, env *module.Env, con services.Concert, o rowOpts) {
 		o.rov.stop(btn, o.row)
 	}
 	menu := ui.Local(btn, "menu", func() kit.Menu { return kit.Menu{} })
-	btn.Role(ui.RoleMenuButton).Expanded(menu.IsOpen())
+	btn.Role(ui.RoleMenuButton).HasPopup(ui.PopupMenu).Expanded(menu.IsOpen())
 	if btn.Clicked() {
 		if menu.IsOpen() {
 			menu.Close()
@@ -146,10 +139,7 @@ func concertRow(c *ui.Context, env *module.Env, con services.Concert, o rowOpts)
 	if len(con.Artists) > 0 {
 		lead = &con.Artists[0]
 	}
-	meta := showTime(con)
-	if d := distanceLabel(con.DistanceKm); d != "" {
-		meta += " · " + d
-	}
+	meta := factsOf(con).meta
 	title, place, others := con.Lineup, venueLine(con), ""
 	if o.artist {
 		title, place = con.Lineup, ""
@@ -178,7 +168,7 @@ func concertRow(c *ui.Context, env *module.Env, con services.Concert, o rowOpts)
 			kit.Artwork(c.Key("art"), env.Art, art, 56, kit.ArtOpts{Round: true, Edge: true})
 		}
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-			if !o.artist && lead != nil && lead.ID != "" && env.HasRoute != nil && env.HasRoute("/artist/"+lead.ID) {
+			if !o.artist && lead != nil && lead.ID != "" && env.Routed("/artist/"+lead.ID) {
 				t := theme.Current().Type["label"]
 				link := ui.Link(c.Key("name"), title, "/artist/"+lead.ID).FontSize(t.Size).FixedLineHeight(t.LineHeight).
 					FontWeight(int(t.Weight)).TextColor(theme.C("ink")).SingleLine().MinWidth(0)

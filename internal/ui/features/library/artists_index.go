@@ -169,7 +169,7 @@ func libraryLine(albums, songs int) string {
 		a = i18n.T("{albums, plural, one {# album} other {# albums}}", "albums", albums)
 	}
 	if songs > 0 {
-		s = i18n.T("{songs, plural, one {# song} other {# songs}}", "songs", songs)
+		s = i18n.SongCount(songs)
 	}
 	switch {
 	case a != "" && s != "":

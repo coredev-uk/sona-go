@@ -152,7 +152,7 @@ func ChordPressed(c *ui.Context, chords ...string) bool {
 }
 
 // SlashByPosition is whether the platform gives "?" no Key, which is GTK's
-// and AppKit's way in MyGo v0.8.3: Shift with a punctuation key comes by
+// and AppKit's way in MyGo v0.9.0: Shift with a punctuation key comes by
 // its position alone (InputEvent.Code), so Shortcut(ui.Shift, ui.KeySlash)
 // never sees it there. Windows gives the key the layout types, and its
 // shortcut takes it. ShiftSlash stands in where it is true; the "?"

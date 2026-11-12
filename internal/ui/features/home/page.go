@@ -8,75 +8,20 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/account"
-	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// The page's geometry, from the reference page (AppShell's main) in DIPs.
-const (
-	padTop    = 28 // pt-7
-	padBottom = 48 // pb-12
-	narrow    = 960
-)
-
 // homeStale is how long a read of Home is fresh (v0.2.0: staleTime 60 s).
 const homeStale = time.Minute
-
-// pageView is the view state of a page: the scroll place and the size of its
-// scroll container as laid out in the last frame.
-type pageView struct {
-	pos ui.ScrollState
-	// width, height are the scroll container's size, zero until a frame
-	// laid it out.
-	width, height float32
-	// shown is the identity of what the page lists: another one starts from
-	// its top.
-	shown string
-}
-
-// gutter is the page's side padding: 32, 24 under 960 DIPs.
-func (pv *pageView) gutter() float32 {
-	tk := theme.Current()
-	if pv.width > 0 && pv.width < narrow {
-		return tk.Metric["gutter-narrow"]
-	}
-	return tk.Metric["gutter"]
-}
-
-// scrollPage builds a page's frame: one scroll container holding the page's
-// column, inside the shell's gutters. body builds the page into it and is
-// given the Pane virtual lists are built in. identity names what the page
-// lists: a change starts it from its top.
-func (h *home) scrollPage(c *ui.Context, pv *pageView, identity string, body func(pane *kit.Pane)) {
-	if pv.shown != identity {
-		if pv.shown != "" {
-			pv.pos = ui.ScrollState{}
-		}
-		pv.shown = identity
-	}
-	tk := theme.Current()
-	gutter := pv.gutter()
-	devstate.Scroll(c, &pv.pos) // dev builds: the offset survives a restart
-	sc := ui.Scroll(c).TrackScroll(&pv.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
-	sc.Children(func() {
-		ui.Column(c).Padding(padTop, gutter+tk.Metric["scrollbar"], padBottom, gutter).Children(func() {
-			body(&kit.Pane{Pos: &pv.pos, Bounds: sc.Bounds})
-		})
-	})
-	if b := sc.Bounds(); b.W != pv.width || b.H != pv.height {
-		pv.width, pv.height = b.W, b.H
-		c.Invalidate() // the narrow gutters follow the width
-	}
-}
 
 // homePage is HomePage: the header and what the account's sign-in state and
 // Home's query allow. Signed out, offline without a copy, or empty: the
 // local shelves under a notice.
 func (h *home) homePage(c *ui.Context, _ *ui.Route) {
-	h.scrollPage(c, &h.page, "", func(*kit.Pane) {
+	h.page.Scroll(c, "", func(*kit.Pane, float32) {
 		root := ui.Column(c.Key("home"))
 		// The refresh mutation belongs to the page's mount, as useMutation's.
 		ui.Local(root, "mount", func() struct{} {
@@ -93,6 +38,7 @@ func (h *home) homeBody(c *ui.Context) {
 	if known {
 		state = auth.State
 	}
+	ctx := h.env.ItemsCtx(nil) // once per build: the sections share it
 	offline := known && auth.Offline
 	signedIn := account.HasAccount(state)
 
@@ -140,23 +86,20 @@ func (h *home) homeBody(c *ui.Context) {
 		header()
 		if known {
 			h.signInLead(c)
-			h.localShelves(c, false)
+			h.localShelves(c, false, ctx)
 		}
 	case res.Err != nil:
 		header()
 		if offline {
 			h.offlineLead(c)
 		} else {
-			kit.ErrorBlock(c, i18n.T("Couldn't load your recommendations"), res.Err, kit.ErrorBlockOpts{
-				OnRetry:  func() { h.env.Queries.Invalidate(keyHome) },
-				Retrying: res.Fetching,
-			})
+			kit.QueryError(c, h.env.Queries, i18n.T("Couldn't load your recommendations"), res, keyHome)
 		}
-		h.localShelves(c, true)
+		h.localShelves(c, true, ctx)
 	case plan.lead == nil && len(plan.open) == 0 && len(plan.index) == 0:
 		header()
 		refreshError()
-		h.localShelves(c, true)
+		h.localShelves(c, true, ctx)
 	default:
 		var lead *services.Item
 		if plan.lead != nil {
@@ -166,10 +109,9 @@ func (h *home) homeBody(c *ui.Context) {
 			header()
 			refreshError()
 			if plan.lead != nil {
-				h.homeLead(c, *plan.lead)
+				h.homeLead(c, *plan.lead, ctx)
 			}
 		})
-		ctx := h.env.ItemsCtx(nil)
 		for i := range plan.open {
 			h.homeSection(c, plan.open[i], ctx)
 		}
@@ -226,16 +168,11 @@ func (h *home) refreshButton(c *ui.Context) {
 	if h.refreshing {
 		b.Disabled(true) // MyGo paints a disabled element at 50%
 	}
-	if !theme.ReducedMotion() {
-		m := tk.Motion["feedback"]
-		b.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(b, "feedback")
 	b.Children(func() {
 		ic := ui.Icon(c.Key("icon"), theme.Icon("rotate-cw")).FontSize(16)
-		if h.refreshing && !theme.ReducedMotion() {
-			ic.Rotate(ic.Loop("spin", time.Second, ui.Linear) * 360)
-		}
-		text(c, label, "label").SingleLine()
+		theme.Spin(ic, h.refreshing)
+		theme.Text(c, label, "label").SingleLine()
 	})
 	if b.Clicked() && !h.refreshing {
 		h.refresh()

@@ -1059,8 +1059,12 @@ func TestViewPageFetchesFiftyAtATimeAsItScrolls(t *testing.T) {
 }
 
 func TestViewPageShowsSixPlaceholdersWhileAFurtherPageLoads(t *testing.T) {
+	// Two pages, so that once the second has landed nothing more is asked
+	// and the placeholders are gone for good: a list with more would ask
+	// for its next page in the frame the second lands, and the Tester
+	// builds the frames that make it in one.
 	r := viewRig(t, "top-songs", func(r *rig) {
-		r.cat.views["top-songs"] = songPages(420)
+		r.cat.views["top-songs"] = songPages(100)
 		r.cat.nextGate = make(chan struct{})
 	})
 	r.shows("Song 1")

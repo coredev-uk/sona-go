@@ -1,6 +1,7 @@
 package kit
 
 import (
+	"image"
 	"sync/atomic"
 	"time"
 
@@ -11,18 +12,20 @@ import (
 )
 
 // drawnFor is how long after the last time VideoSurface painted the video
-// still counts as drawn: pictures are converted only while it is.
+// still counts as drawn: pictures are shown only while it is.
 const drawnFor = 500 * time.Millisecond
 
 // VideoFeed keeps the picture on show of the playing music video as a bitmap
 // for VideoSurface: the latest picture only, in memory only. The CDM host
 // child decodes and times the pictures (internal/playback/video.Surface holds
-// the one on show); a goroutine takes each, converts it from I420 to RGBA
-// (media.I420ToRGBA, about half a millisecond for an SD frame) and hands it
-// to the main thread, which updates one bitmap in place, so the GPU keeps its
-// texture and uploads the new pixels. While the video is not being drawn
-// (the view is closed, the window hidden or covered) pictures are not
-// converted at all.
+// the one on show); a goroutine takes each and hands it to the main thread,
+// which updates one bitmap in place (Bitmap.UpdateYUV: the I420 planes as the
+// child sent them, 1.5 bytes a pixel, converted by the GPU as it samples
+// them), so the GPU keeps its texture and uploads the new planes. No CPU
+// converts the picture: only the chroma planes are interleaved, on the main
+// thread, as the GPU takes them. While the video is not being drawn (the view
+// is closed, the window hidden or covered) pictures are not handed over at
+// all.
 type VideoFeed struct {
 	feed *media.Feed
 
@@ -89,13 +92,17 @@ func (v *VideoFeed) active() bool {
 
 // show is the main thread's: the next picture goes into the bitmap.
 func (v *VideoFeed) show(p media.Picture) {
-	if v.bmp == nil {
-		v.bmp = ui.NewBitmap(p.Image)
-	} else {
-		v.bmp.Update(p.Image)
+	img := p.YUV()
+	if img == nil {
+		return // the feed hands over whole pictures only
 	}
+	if v.bmp == nil {
+		// UpdateYUV gives the bitmap its picture and its size.
+		v.bmp = ui.NewBitmap(image.NewRGBA(image.Rect(0, 0, 1, 1)))
+	}
+	v.bmp.UpdateYUV(img)
 	v.picture, v.seq = true, p.Seq
-	v.w, v.h = p.Image.Rect.Dx(), p.Image.Rect.Dy()
+	v.w, v.h = p.Width, p.Height
 	v.shown++
 }
 
@@ -112,7 +119,7 @@ type VideoOpts struct {
 // box it is built in with its own shape (letterboxed, never cropped or
 // stretched). Nothing shows until the first picture arrives. Frames reach it
 // through the feed; building it marks the video as drawn, which is what lets
-// the feed convert pictures at all. The box fills its parent: size the parent.
+// the feed show pictures at all. The box fills its parent: size the parent.
 func VideoSurface(c *ui.Context, v *VideoFeed, o VideoOpts) ui.Element {
 	box := ui.Box(c).Fill()
 	if o.A11yLabel != "" {
@@ -120,7 +127,7 @@ func VideoSurface(c *ui.Context, v *VideoFeed, o VideoOpts) ui.Element {
 	}
 	box.Draw(func(p *ui.Painter, r ui.Rect) {
 		// Painting: the video is on screen. Pictures skipped while it
-		// was not are converted again now.
+		// was not are shown now.
 		resumed := !v.active()
 		v.drawn.Store(time.Now().UnixNano())
 		if resumed {

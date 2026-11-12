@@ -3,7 +3,6 @@ package settings
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -29,9 +28,6 @@ func providerName(p provider) string {
 	}
 	return "Last.fm"
 }
-
-// listenBrainzTokenPage is where a ListenBrainz user token is copied from.
-const listenBrainzTokenPage = "https://listenbrainz.org/settings/"
 
 // scrobbleUI is the state of the scrobbling rows that outlives a frame.
 type scrobbleUI struct {
@@ -158,14 +154,12 @@ func (s *settings) lastFMWaiting(c *ui.Context, cancel func()) {
 	msg := i18n.T("Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself.")
 	row := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(12, 16).Radius(theme.Current().Radius["md"]).
 		Background(theme.C("hover")).Role(ui.RoleStatus).Label(msg)
-	announceOnce(c, row, msg)
+	kit.AnnounceMounted(c, row, msg)
 	row.
 		Children(func() {
 			ic := ui.Icon(c.Key("spin"), theme.Icon("loader-circle")).FontSize(16).TextColor(theme.C("ink-muted")).Shrink(0)
-			if !theme.ReducedMotion() {
-				ic.Rotate(ic.Loop("spin", time.Second, ui.Linear) * 360)
-			}
-			text(c, i18n.T("Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself."), "secondary").
+			theme.Spin(ic, true)
+			theme.Text(c, i18n.T("Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself."), "secondary").
 				TextColor(theme.C("ink")).Grow(1).Shrink(1).MinWidth(0)
 			if kit.Button(c.Key("cancel"), i18n.T("Cancel"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}).Clicked() {
 				cancel()
@@ -182,11 +176,11 @@ func (s *settings) listenBrainzForm(c *ui.Context, f *tokenForm, connect func(),
 	c = c.Key("lb-form")
 	form := ui.Column(c).FillWidth().Gap(8)
 	form.Children(func() {
-		text(c, i18n.T("User token"), "label").TextColor(theme.C("ink"))
+		theme.Text(c, i18n.T("User token"), "label").TextColor(theme.C("ink"))
 		ui.Row(c.Key("fields")).FillWidth().Gap(8).Children(func() {
 			in := kit.Input(c.Key("token"), &f.token, kit.InputOpts{A11yLabel: i18n.T("User token"), Password: true, Invalid: f.err != "", Error: f.err})
 			in.Grow(1).Shrink(1).MinWidth(0).Height(32).AutoFocus()
-			ready := !f.busy && trim(f.token) != ""
+			ready := !f.busy && strings.TrimSpace(f.token) != ""
 			label := i18n.T("Connect")
 			if f.busy {
 				label = i18n.T("Checking…")
@@ -199,49 +193,12 @@ func (s *settings) listenBrainzForm(c *ui.Context, f *tokenForm, connect func(),
 				cancel()
 			}
 		})
-		s.tokenHint(c)
+		kit.ListenBrainzTokenHint(c, s.env.OpenURL)
 		if f.err != "" {
-			s.alertLine(c.Key("err"), "circle-alert", f.err)
+			kit.AlertLine(c.Key("err"), f.err)
 		}
 	})
 	if form.Shortcut(0, ui.KeyEscape) {
 		cancel()
 	}
-}
-
-// tokenHint is "Copy it from your ListenBrainz settings ↗. Sona checks it …":
-// the translation marks the link as <0>text<1/></0>.
-func (s *settings) tokenHint(c *ui.Context) {
-	msg := i18n.T("Copy it from <0>your ListenBrainz settings<1/></0>. Sona checks it with ListenBrainz and keeps it in your keyring.")
-	before, rest, _ := strings.Cut(msg, "<0>")
-	link, after, ok := strings.Cut(rest, "<1/></0>")
-	c = c.Key("hint")
-	if !ok {
-		text(c, msg, "meta").TextColor(theme.C("ink-muted"))
-		return
-	}
-	ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Children(func() {
-		text(c.Key("a"), before, "meta").TextColor(theme.C("ink-muted"))
-		if kit.Button(c.Key("link"), link, kit.ButtonOpts{Variant: kit.Link, Size: kit.SizeXS, Icon: "external-link"}).Clicked() {
-			_ = s.env.OpenURL(listenBrainzTokenPage)
-		}
-		text(c.Key("b"), after, "meta").TextColor(theme.C("ink-muted"))
-	})
-}
-
-// announceOnce announces msg when e first appears: a status MyGo does not
-// read by itself, which is news but not an alert.
-func announceOnce(c *ui.Context, e ui.Element, msg string) {
-	if told := ui.Local(e, "told", func() bool { return false }); !*told {
-		*told = true
-		c.Announce(msg)
-	}
-}
-
-// alertLine is a sentence with a danger icon, an alert read as it appears.
-func (s *settings) alertLine(c *ui.Context, icon, msg string) {
-	ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Start).Role(ui.RoleAlert).Label(msg).Children(func() {
-		ui.Icon(c.Key("i"), theme.Icon(icon)).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
-		text(c, msg, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
-	})
 }

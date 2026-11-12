@@ -516,3 +516,30 @@ func TestAlbumTypeFilter(t *testing.T) {
 		t.Errorf("after the flag changed, albums = %q", got)
 	}
 }
+
+func TestAllPagesCollectsEveryRow(t *testing.T) {
+	for _, n := range []int{0, 1, maxPage - 1, maxPage, maxPage + 1, 2*maxPage + 5} {
+		var calls int
+		got, err := allPages(ListOptions{Offset: 3}, func(o ListOptions) ([]int, error) {
+			calls++
+			if o.Limit != maxPage {
+				t.Fatalf("n=%d: Limit = %d, want %d", n, o.Limit, maxPage)
+			}
+			var page []int
+			for i := o.Offset; i < min(o.Offset+o.Limit, n+3); i++ {
+				page = append(page, i)
+			}
+			return page, nil
+		})
+		if err != nil || len(got) != n {
+			t.Fatalf("n=%d: %d rows, %v", n, len(got), err)
+		}
+		if want := n/maxPage + 1; calls != want {
+			t.Errorf("n=%d: %d calls, want %d", n, calls, want)
+		}
+	}
+	boom := errors.New("boom")
+	if _, err := allPages(ListOptions{}, func(ListOptions) ([]int, error) { return nil, boom }); !errors.Is(err, boom) {
+		t.Fatalf("err = %v, want boom", err)
+	}
+}

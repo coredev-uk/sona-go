@@ -1,13 +1,12 @@
 package player
 
 import (
-	"strconv"
-
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 // nowPlayingState is Now Playing's and the full-screen lyrics' own state (the
@@ -19,7 +18,7 @@ type nowPlayingState struct {
 	prefs     lyricsPrefs
 	prefsInit bool
 	// lyrics and motion stand in for the services (a test's); nil: the core's.
-	lyrics lyricsSource
+	lyrics store.LyricsSource
 	motion motionSource
 
 	// sheet is the lyrics pane's sheet and room the full-screen one; each
@@ -62,8 +61,6 @@ type nowPlayingLayout struct {
 	stacked bool
 	cover   float32
 }
-
-func itoa(i int) string { return strconv.Itoa(i) }
 
 // prefsFor returns the lyrics view's choices, set up on first use.
 func (p *player) prefsFor() *lyricsPrefs {
@@ -133,13 +130,6 @@ func (p *player) videoPlaying() bool {
 	return cur != nil && cur.Video
 }
 
-// lyricsSurface reports whether the bar offers Lyrics: always, as the view
-// shows Up next for what has none (a music video has its video button instead).
-func (p *player) lyricsSurface() bool { return !p.videoSurface() }
-
-// videoSurface reports whether the bar offers the video: a music video plays.
-func (p *player) videoSurface() bool { return p.videoPlaying() }
-
 // lyricsShown reports lyrics on screen: Now Playing's lyrics pane or
 // full-screen lyrics, for a song that has some.
 func (p *player) lyricsShown() bool {
@@ -154,7 +144,3 @@ func (p *player) lyricsShown() bool {
 	}
 	return false
 }
-
-// nowPlayingSurface reports whether the Now Playing view exists: the bar's
-// cover opens it.
-func (p *player) nowPlayingSurface() bool { return true }

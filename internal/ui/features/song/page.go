@@ -1,6 +1,7 @@
 package song
 
 import (
+	"cmp"
 	"context"
 	"strings"
 	"time"
@@ -18,9 +19,6 @@ import (
 // DIPs. The breakpoints are the viewport's (Tailwind's min-[…]), which is
 // the window's width here.
 const (
-	padTop        = 28   // pt-7
-	padBottom     = 48   // pb-12
-	narrow        = 960  // the page's gutters shrink below this width
 	sideBySide    = 1100 // lyrics and credits share a row from here
 	twoColumns    = 720  // a credit group's people in two columns from here
 	avatar        = 40   // a credited person's picture
@@ -56,44 +54,23 @@ func (s *song) songPage(c *ui.Context, r *ui.Route) {
 		return s.catalog.SongPage(ctx, id)
 	}, store.Options{Stale: store.Forever})
 
-	tk := theme.Current()
 	ww, _ := c.Size()
-	gutter := tk.Metric["gutter"]
-	if ww < narrow {
-		gutter = tk.Metric["gutter-narrow"]
-	}
-	sc := ui.Scroll(c).TrackScroll(&pg.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
-	sc.Children(func() {
-		ui.Column(c).Padding(padTop, gutter+tk.Metric["scrollbar"], padBottom, gutter).Children(func() {
-			switch {
-			case q.HasData:
-				s.content(c, q.Data)
-			case q.Err != nil:
-				s.failed(c, id, q)
-			default:
-				kit.DetailSkeleton(c, false)
-			}
-		})
+	kit.PageScroll(c, &pg.pos, kit.PageGutter(ww), func(*kit.Pane) {
+		switch {
+		case q.HasData:
+			s.content(c, q.Data)
+		case q.Err != nil:
+			s.failed(c, id, q)
+		default:
+			kit.DetailSkeleton(c, false)
+		}
 	})
 }
 
 // failed is DetailError: the song could not be loaded.
 func (s *song) failed(c *ui.Context, id string, q store.Result[services.CatalogSong]) {
-	back := kit.EmptyAction{Label: i18n.T("Go to Songs")}
-	if s.has("/library/songs") {
-		back.Run = func() { s.env.Nav.Push("/library/songs") }
-	}
-	kit.DetailError(c, kit.NounSong, q.Err, kit.DetailErrorOpts{
-		Retry:    func() { s.env.Queries.Invalidate(keySongPage(id)) },
-		Retrying: q.Fetching,
-		Back:     back,
-		SignIn:   s.signIn(),
-	})
-}
-
-// has reports whether path is a page of a registered module.
-func (s *song) has(path string) bool {
-	return s.env.HasRoute != nil && s.env.HasRoute(path)
+	back := kit.BackAction(i18n.T("Go to Songs"), "/library/songs", s.env.Routed("/library/songs"), func(path string) { s.env.Nav.Push(path) })
+	kit.DetailQueryError(c, kit.NounSong, s.env.Queries, q, back, s.signIn(), keySongPage(id))
 }
 
 // content is a loaded song page.
@@ -113,17 +90,17 @@ func (s *song) content(c *ui.Context, page services.CatalogSong) {
 	}
 
 	ictx := s.env.ItemsCtx(s.menus)
-	if len(page.Videos) > 0 && s.has("/music-video/x") {
+	if len(page.Videos) > 0 && s.env.Routed("/music-video/x") {
 		items := make([]services.Item, len(page.Videos))
 		for i, v := range page.Videos {
 			items[i] = services.Item{
-				Kind: services.ItemMusicVideo, ID: firstOf(v.CatalogID, v.ID), Name: v.Name,
+				Kind: services.ItemMusicVideo, ID: cmp.Or(v.CatalogID, v.ID), Name: v.Name,
 				Subtitle: i18n.YearOf(v.ReleaseDate), Art: v.Art, Explicit: v.Explicit, MusicVideo: &v,
 			}
 		}
 		kit.ItemShelf(c, &pg.videos, i18n.T("Music videos"), items, ictx, kit.ItemShelfOpts{})
 	}
-	if len(page.MoreByArtist) > 0 && s.has("/album/x") {
+	if len(page.MoreByArtist) > 0 && s.env.Routed("/album/x") {
 		items := make([]services.Item, len(page.MoreByArtist))
 		for i, a := range page.MoreByArtist {
 			items[i] = services.Item{
@@ -131,7 +108,7 @@ func (s *song) content(c *ui.Context, page services.CatalogSong) {
 			}
 		}
 		o := kit.ItemShelfOpts{}
-		if more := "/artist/" + sg.ArtistID + "/view/full-albums"; sg.ArtistID != "" && s.has(more) {
+		if more := "/artist/" + sg.ArtistID + "/view/full-albums"; sg.ArtistID != "" && s.env.Routed(more) {
 			o.More = more
 		}
 		artist := sg.Artist
@@ -143,22 +120,9 @@ func (s *song) content(c *ui.Context, page services.CatalogSong) {
 	}
 }
 
-func firstOf(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
-}
-
 // header is the CollectionHeader of the song.
 func (s *song) header(c *ui.Context, page services.CatalogSong) {
 	sg := page.Song
-	meta := make([]string, 0, 4)
-	for _, p := range []string{i18n.T("Song"), i18n.YearOf(sg.ReleaseDate), i18n.FormatDuration(time.Duration(sg.DurationMs) * time.Millisecond), sg.Genre} {
-		if p != "" {
-			meta = append(meta, p)
-		}
-	}
 	var color string
 	if len(page.Header.Colors) > 0 {
 		color = page.Header.Colors[0]
@@ -169,7 +133,7 @@ func (s *song) header(c *ui.Context, page services.CatalogSong) {
 		Loader: s.env.Art,
 		Wash:   &kit.BackdropOpts{Src: page.Header.Backdrop, Color: color, Tone: kit.ToneGround},
 		Byline: func() { s.byline(c, page) },
-		Meta:   strings.Join(meta, " · "),
+		Meta:   i18n.Meta(i18n.T("Song"), i18n.YearOf(sg.ReleaseDate), i18n.FormatDuration(time.Duration(sg.DurationMs)*time.Millisecond), sg.Genre),
 		Badges: func() { kit.Badges(c, kit.BadgesOpts{Explicit: sg.Explicit, Traits: sg.Traits}) },
 		Actions: func() {
 			if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: sg.Name, Disabled: !sg.Playable}); play {
@@ -187,7 +151,7 @@ func (s *song) header(c *ui.Context, page services.CatalogSong) {
 // byline is the artists as links (their names when Apple credits none) and
 // " · album" linking to the album with this song marked.
 func (s *song) byline(c *ui.Context, page services.CatalogSong) {
-	kit.ArtistLinks(c.Key("artists"), page.Artists, page.Song.Artist, ui.Color{}, kit.ArtistLinksOpts{HasRoute: s.env.HasRoute})
+	kit.ArtistLinks(c.Key("artists"), page.Artists, page.Song.Artist, ui.Color{}, kit.ArtistLinksOpts{HasRoute: s.env.Routed})
 	al := page.Album
 	if al == nil {
 		return
@@ -195,7 +159,7 @@ func (s *song) byline(c *ui.Context, page services.CatalogSong) {
 	ui.RichText(c.Key("album")).Role(ui.RoleNone).Children(func() {
 		muted := theme.C("ink-muted")
 		ui.Text(c.Key("dot"), " · ").TextColor(muted)
-		if path := "/album/" + al.ID; s.has(path) {
+		if path := "/album/" + al.ID; s.env.Routed(path) {
 			ui.Link(c.Key("link"), al.Name, path+"?song="+page.Song.ID).TextColor(muted)
 		} else {
 			ui.Text(c.Key("link"), al.Name).TextColor(muted)
@@ -242,13 +206,11 @@ func (s *song) lyricsAndCredits(c *ui.Context, page services.CatalogSong, lyrics
 // on request.
 func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 	pg := &s.page
-	id := firstOf(page.Song.CatalogID, page.Song.ID)
+	id := cmp.Or(page.Song.CatalogID, page.Song.ID)
 	var full store.Result[services.Lyrics]
 	if pg.full {
 		// The query keeps a failure until Try again (NoRetry).
-		full = store.UseLyricsFrom(s.env.Queries, id, func(ctx context.Context) (services.Lyrics, error) {
-			return s.lyrics.Lyrics(ctx, id)
-		})
+		full = store.UseLyrics(s.env.Queries, s.lyrics, id)
 		pg.failed = full.Err != nil && !full.HasData
 		pg.retrying = pg.retrying && full.Fetching
 	}
@@ -304,10 +266,7 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 			msg := i18n.T("Loading the lyrics…")
 			wait := ui.Text(c, msg).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).
 				TextColor(theme.C("ink-muted")).Margin(8, 0, 0, 0).Role(ui.RoleStatus)
-			if announced := ui.Local(wait, "announced", func() bool { return false }); !*announced {
-				*announced = true
-				c.Announce(msg)
-			}
+			kit.AnnounceMounted(c, wait, msg)
 		}
 		if w := strings.Join(full.Data.Songwriters, ", "); full.HasData && w != "" {
 			ui.Text(c, i18n.T("Written by {songwriters}", "songwriters", w)).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).

@@ -1,7 +1,6 @@
 package lyricsync
 
 import (
-	"math"
 	"reflect"
 	"testing"
 
@@ -101,55 +100,6 @@ func TestSessionOffsetsAreKeptPerSong(t *testing.T) {
 	o.Nudge("a", 1)
 	if changed != 4 {
 		t.Errorf("subscriber called %d times, want 4", changed)
-	}
-}
-
-func TestWordProgress(t *testing.T) {
-	w := sp(1000, 1400)
-	for _, c := range []struct {
-		at   int64
-		want float64
-	}{{0, 0}, {999, 0}, {1000, 0}, {1100, 0.25}, {1400, 1}, {9000, 1}} {
-		if got := WordProgress(w, c.at); got != c.want {
-			t.Errorf("WordProgress(%d) = %v, want %v", c.at, got, c.want)
-		}
-	}
-	if got := WordProgress(sp(1000, 1400), 1399); math.Abs(got-0.9975) > 1e-9 {
-		t.Errorf("1399: %v", got)
-	}
-	if WordProgress(sp(500, 500), 499) != 0 || WordProgress(sp(500, 500), 500) != 1 || WordProgress(sp(500, 400), 500) != 1 {
-		t.Error("a word with no length is sung the moment it begins")
-	}
-}
-
-func TestStateOf(t *testing.T) {
-	w := sp(1000, 2000)
-	for _, c := range []struct {
-		at     int64
-		smooth bool
-		want   WordState
-	}{
-		{999, true, WordState{NotSung, 0}},
-		{1000, true, WordState{Singing, 0}},
-		{1500, true, WordState{Singing, 0.5}},
-		{2000, true, WordState{Done, 1}},
-		{999, false, WordState{NotSung, 0}},
-		{1000, false, WordState{Done, 1}},
-		{1500, false, WordState{Done, 1}},
-		{1900, true, WordState{Singing, 0.9}},
-		{200, true, WordState{NotSung, 0}}, // a seek back unlights it
-		{1250, true, WordState{Singing, 0.25}},
-	} {
-		if got := StateOf(w, c.at, c.smooth); got != c.want {
-			t.Errorf("StateOf(%d, %v) = %v, want %v", c.at, c.smooth, got, c.want)
-		}
-	}
-	short := sp(1000, 1599)
-	if StateOf(short, 999, true).Sung != NotSung || StateOf(short, 1000, true) != (WordState{Done, 1}) {
-		t.Error("a short word lights whole as it begins")
-	}
-	if got := StateOf(sp(1000, 1600), 1300, true); got != (WordState{Singing, 0.5}) {
-		t.Errorf("a held note fills: %v", got)
 	}
 }
 

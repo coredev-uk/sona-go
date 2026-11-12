@@ -24,7 +24,7 @@ const (
 
 // ScrobbleService connects Last.fm and ListenBrainz accounts and scrobbles
 // what the coordinator plays (internal/scrobble). The Last.fm session key
-// and the ListenBrainz user token live in the keyring (store.OpenSecret);
+// and the ListenBrainz user token live in the keyring (store.OpenSecretWith);
 // settings hold only the account name and the on/off switch. Undelivered
 // listens wait in <state>/scrobble-queue.json.
 //

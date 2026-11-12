@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
@@ -179,7 +180,7 @@ func TestA11yPages(t *testing.T) {
 				r.tt.Until("no favourites", r.tt.Shows("No favourite songs yet"))
 				favouriteSong(r, 1, 0, 10)
 				favouriteSong(r, 4, 1, 20)
-				r.l.env.Queries.Invalidate(keyFavourites)
+				r.l.env.Queries.Invalidate(store.KeyLibraryFavourites)
 				return r.tt
 			},
 			ready:    []string{"2 songs", "Blue Hour song 2"},
@@ -263,7 +264,7 @@ func TestA11yPages(t *testing.T) {
 			},
 			ready:    []string{"Your library is syncing"},
 			headings: []a11yHeading{{"Songs", 1}, {"Your library is syncing", 2}},
-			present:  []a11yNode{{ui.RoleStatus, "Library sync"}, {ui.RoleButton, "Sync now"}, {ui.RoleButton, "Play your songs"}},
+			present:  []a11yNode{{ui.RoleGroup, "Library sync"}, {ui.RoleButton, "Sync now"}, {ui.RoleButton, "Play your songs"}},
 			tab:      []string{"Sort", "Sync now"},
 		},
 		{
@@ -579,14 +580,17 @@ func TestA11yHistoryShowEarlierDaysDisablesWhileLoading(t *testing.T) {
 
 // TestA11ySyncPhasesAreAnnounced: the sidebar's sync line read out its
 // changes as a polite live region in v0.2.0: a sync starting, ending and
-// failing are announced once each; the count moving is not.
+// failing are announced once each; the count moving is not. With a screen
+// reader on, MyGo v0.9.0 reads a status whenever its text changes, so the
+// line is a labelled group and only announceSync speaks.
 func TestA11ySyncPhasesAreAnnounced(t *testing.T) {
 	r := newPageRig(t, albumsPath, 1132, 800, func(l *library) { fakeAuth(l, accountAPI{"signed_in"}) })
 	r.tt.Until("the page", r.tt.Shows("Library sync", "Sync now"))
+	r.tt.UseScreenReader()
 	r.tt.Announcements()
 	tr := access.Read(t, r.tt.Tester)
-	if _, ok := tr.Find(ui.RoleStatus, "Library sync"); !ok {
-		t.Fatalf("the sync line is not a status:\n%s", tr.Dump())
+	if _, ok := tr.Find(ui.RoleGroup, "Library sync"); !ok {
+		t.Fatalf("the sync line is not a labelled group:\n%s", tr.Dump())
 	}
 	heard := func() []string {
 		r.tt.Drain()

@@ -94,7 +94,7 @@ shapes the rules below.
 | --- | --- |
 | `aria-checked`, `aria-pressed` | `Checked` on a switch, check box, toggle button, tab or menu item (`kit.ButtonOpts.Pressed`) |
 | `aria-activedescendant`, `aria-selected` | `ActiveDescendant` on the field (search, artists filter, command palette) pointing at the highlighted `RoleOption`, which is `Checked` (`Selected`) |
-| `aria-expanded`, `aria-haspopup` | `Expanded` on the opener, with `RoleMenuButton` or `RolePopUpButton` for a menu or a list; `HasPopup(ui.PopupDialog)` on a button that opens a dialog (Set location, a playlist's Name and description and Cover, the collaborators byline) |
+| `aria-expanded`, `aria-haspopup` | `Expanded` on the opener, with `RoleMenuButton` or `RolePopUpButton` for a menu or a list; `HasPopup(ui.PopupMenu)` on a menu button Sona builds itself (a tour's tickets, the playlist sidebar's More and New playlist or folder, an item's More, a queue row's More, the sleep timer, the account avatar: MyGo sets it itself only on its own menu components); `HasPopup(ui.PopupDialog)` on a button that opens a dialog (Set location, a playlist's Name and description and Cover, the collaborators byline) |
 | `aria-invalid` and its message | `kit.InputOpts.Error` / `kit.SelectOpts.Error`: the invalid state, the message read with the value |
 | `aria-valuetext` | the slider's description (`kit.SliderOpts.ValueText`), only where it says more than the value and the percentage a screen reader reads anyway: Seek's "0:42 of 3:00", not Volume's "80%" (Orca read "80, 80 percent, 80%") |
 | `aria-disabled` (a control that keeps focus and says why) | `kit.ButtonOpts.Reason`: `AccessDisabled(true)`, so it is read as unavailable and keeps the focus; drawn at half strength and the press ignored by the caller (`AccessDisabled` only tells assistive technology), the reason as its description and the tooltip's second line. A track list's withheld (explicit) row is the same, described by "Explicit content is restricted on this account" |
@@ -103,12 +103,13 @@ shapes the rules below.
 | `aria-busy`, `role="status"` loading | `Busy(true)` on the region whose content is loading or changing (the concerts agenda while the next filters load, the sign-in form while a step runs), and a `RoleStatus` named "Loading" for a placeholder standing in for the content (skeletons; the setup and account placeholders are both). A busy sign-in step is still announced once as it starts: `Busy` only tells a screen reader to wait, and the button's new label is held back with the rest of the form |
 | `role="alert"` | `RoleAlert` on the message: an `ErrorBlock`'s title and reason, a sign-in or token error, a refused scrobbler token, the warning that scrobbler sign-ins are stored unencrypted, a cover that could not be set, a video's problem. MyGo reads it out when it appears and when it changes, so there is no `c.Announce` beside it, and the buttons beside the message are not inside the alert. A wait (Last.fm's authorisation) or a problem the account section finds on arrival (the keyring notice) is a `RoleStatus`, announced once where it is news |
 | `aria-posinset`, `aria-setsize` | `PositionInSet(pos, size)` where the siblings do not say which of how many an item is, `pos` from 1 and `size` all of them, built or not: a cover tile (a cell of a row that is only where the tiles wrap, in a grid that builds only the rows in view, so a tile at index 411 of 5,000 says 412 of 5,000; a shelf's tiles say their place among the tiles it shows, not among those "Show all" would add), a queue row (among its list: the queue, or the station's or AutoPlay's part under its heading, which is a list of its own), and the sidebar's pins, playlists and folders (among their own list: a folder's playlists are a list inside its item, and the dashed drop row shown while dragging is not counted). MyGo's doc gives a grid's own rows and cells `RowIndex` and `ColumnIndex`; a wall of covers is a collection of items, not a spreadsheet, so the cover table says no row or column count |
-| `aria-live` | `c.Announce(text)` (read once, politely), and toasts, which announce their title and description |
+| `aria-live`, `role="status"` | A `RoleStatus` is read by MyGo, politely and whole, when its text changes, and not when it first appears; so a status that comes with news calls `kit.AnnounceMounted` once as it is first built (a note under a filter that finds nothing, the update notice, a sign-in step's notice, the shortcut recorder's conflict), and what changes it afterwards is its own to read: never `c.Announce` as well, or it is said twice. The status is the words, not the row they sit in (the updates row, the update notice: a button's label inside a status is read with it); a status with siblings before it is keyed, as its ID is how MyGo tells it from the last frame's. What is not read as it changes is not a status: the library sync line is a group named "Library sync" and `announceSync` says only that a sync starts, ends or fails, not the count moving. Anything else that should be said once is `c.Announce(text)` (read once, politely), and so are toasts, which announce their title and description |
+| `role="tabpanel"` | `kit.TabPanel` is a `RoleTabPanel` named by its tab. Nothing builds one yet: Now Playing's panes are tabs with no panel, and a tab says which panel it owns (`Controls`) only when the panel is built before it in the same pass, which the pane order does not allow |
 | `aria-controls` | `Controls(target)` on a disclosure that shows or hides a region it owns: `kit.Notes`' "Read more", a read-only sidebar section's fold, a Home index line |
-| `aria-sort` | `Sort(ui.SortAscending/SortDescending)` on the column header of the track list's sorted column, `ui.SortNone` on its other sortable headers (MyGo v0.8.1 keeps a column header's children, so the sort button sits inside the header). The button carries no value of its own |
+| `aria-sort` | `Sort(ui.SortAscending/SortDescending)` on the column header of the track list's sorted column, `ui.SortNone` on its other sortable headers (MyGo keeps a column header's children, so the sort button sits inside the header). The button carries no value of its own |
 | `aria-multiselectable`, `aria-rowcount`, `aria-rowindex`, `aria-colcount`, `aria-colindex` | The track list's table is `Multiselectable(true)`, with `RowCount` (songs and the header row) and `ColumnCount`; each row says `RowIndex` (its song's place, from 2 under the header at 1) and each cell its `ColumnIndex` among the columns shown, so a virtualised list of 2,000 builds only the rows in view and a screen reader still hears the true row and total |
 
-These are MyGo v0.8.1's `Current`, `AccessDisabled`, `Busy`, `RoleAlert`,
+These are MyGo's `Current`, `AccessDisabled`, `Busy`, `RoleAlert`,
 `Controls` and `HasPopup`, and the `Sort`, `Multiselectable`, `RowCount`,
 `ColumnCount`, `RowIndex` and `ColumnIndex` of its tables. A disclosure whose region another component
 builds sets no `Controls` (a shelf's "Show all", the player bar's Queue toggle
@@ -152,7 +153,7 @@ kept past its build pass, and a handle cannot stand in for it.
   Keys: Space or K play and pause, ← and → seek 5 s, F toggles full
   screen, M mutes, Escape leaves full screen and then closes, V closes. Its
   controls never fade while one has keyboard focus. Loading and buffering are
-  announced; a failure is an alert with "Watch in Apple Music" and, where it
+  read once, by the status in its header; a failure is an alert with "Watch in Apple Music" and, where it
   can help, "Try again" beside it.
 - The Now Playing view's panes are tabs (Lyrics, Up next): one Tab stop,
   ←/→ and Home/End move and show.
@@ -161,7 +162,7 @@ kept past its build pass, and a handle cannot stand in for it.
   view or confirmation on the second press.
 - `?` opens the shortcut help on every platform, and closes it again; the
   palette's "Keyboard shortcuts" opens it too. On Linux (GTK) and macOS
-  (AppKit) MyGo v0.8.3 gives Shift with a punctuation key no `Key`, only its
+  (AppKit) MyGo v0.9.0 gives Shift with a punctuation key no `Key`, only its
   position (`InputEvent.Code`), so Sona reads `?` there as Shift and the key
   where US and UK keyboards have `/` and `?` (`kit.ShiftSlash`). On another
   layout that is a key labelled otherwise: German types `?` with Shift+ß and
@@ -197,9 +198,13 @@ live region on Windows) and every toast.
   again while it shows, so a key held longer is read again about every 4 s.
 - Errors, warnings, update and diagnostics verdicts, the scrobbler account
   line, busy steps of sign-in and setup, and filter results with no match are
-  announced as they appear or change (errors as alerts, the rest through
-  `c.Announce`); what is on screen when a page opens is read with the page, not
-  announced again.
+  announced as they appear or change: errors as alerts, the verdicts, the
+  video's loading and buffering, the shortcut filter's and the playlist
+  picker's empty notes and the sign-in notice as statuses that MyGo reads when
+  their text changes (the first appearance through `kit.AnnounceMounted`), the
+  rest through `c.Announce`; what is on screen when a page opens is read with
+  the page, not announced again. Each change is said once: the tests turn the
+  screen reader on (`tt.UseScreenReader()`) and count what it reads.
 - Lyrics are not a live region. Each synced line is one button named by
   its text; the sung line is the current item.
 
@@ -280,13 +285,13 @@ What it heard, with Orca 50.2:
 | Surface | Orca said |
 | --- | --- |
 | Sidebar, first Tab | "Main", "For you", "link."; then one link per Tab, the open page "Albums, link." with "Current page" (its current-page state), "New playlist or folder, push button menu. opens popup", "Playlists, List with 3 items", the pins as links |
-| Top bar | "search, Search, editable combo box."; the next Tab "leaving search., Account, button. Not signed in." (the name once); Enter: "Account, menu, Sign in."; Escape: the button again |
+| Top bar | "search, Search, editable combo box."; the next Tab "leaving search., Account, button. Not signed in. opens popup" (the name once; the popup is `HasPopup(ui.PopupMenu)`); Enter: "Account, menu, Sign in."; Escape: the button again |
 | Account dialog | "Account, dialog, Apple Account, entry. The email address or phone number you use with Apple.", "Password, password text.", the browser and token buttons, "Close, button."; Escape returns to "Account, button." |
 | Albums page | "Albums, panel, search, Filter albums, Album type, panel, All, toggle button pressed." (and "leaving search." on the first tile), "Sort, combo box.", a tile "Fieldnotes, link. Kofi Bellamy."; the arrows move between tiles; Shift+F10 "More for …, menu, Create station."; Escape returns to the tile |
 | An album | "Album" on arrival; "Ines Calder, link." (once); "Play …, button. Play."; "Favourite …, toggle button not pressed."; the song list one stop, "Dust on the Dial." per arrow; Enter: "Now playing: … by …" once |
 | The queue | "Queue 2 songs after this one, panel, Clear, button."; the list one stop "Queue, List with 3 items"; Alt+↓ "Dust on the Dial: moved to position 2 of 2"; Delete moves the focus to the next row; Escape: "Queue, toggle button not pressed." |
 | Now Playing | "Lyrics, page tab.", ←/→ "Up next, page tab.", "Close now playing (Escape), button." |
-| Player bar | "Volume, horizontal slider, 80, 80 percent."; "Seek, horizontal slider, 42, 23 percent. 0:42 of 3:00." and then nothing as the song plays; Ctrl+→ "Now playing: … by …" |
+| Player bar | "Volume, horizontal slider, 80, 80 percent."; "Sleep timer, push button menu. opens popup"; "Seek, horizontal slider, 42, 23 percent. 0:42 of 3:00." and then nothing as the song plays; Ctrl+→ "Now playing: … by …" |
 | Setup | "Welcome to Sona, dialog, …, Language, combo box."; Enter on Get started: "Apple Music, Signing in brings your library…" (the title, then its line); Escape: "alert, Skip the rest of the setup?, …, Skip setup, button." |
 
 The same walk found, and the changes of the same pull request fixed, an
@@ -315,6 +320,19 @@ session with audio:
 
 ## Known gaps
 
+- MyGo v0.9.0 closed statuses read as they change (a `RoleStatus` is read when
+  its text changes) and gave the tab panel a role (`RoleTabPanel`, adopted by
+  `kit.TabPanel`; the tab's link to its panel, `Controls`, is not made). Still
+  open in v0.9.0, each with the stand-in named above or below: a `Key` for
+  Shift with a punctuation key on GTK and AppKit (`kit.ShiftSlash`); `Key`s
+  for F13 to F24 (`kit.ParseChord` has no names for them);
+  `Expanded(false)` on a plain button, which reads as no state (menu buttons
+  say they open a menu with `HasPopup`, and a closed one carries no `Expanded`);
+  text input hints (`required`, `inputMode`, `spellcheck`); the focus of an
+  overlay's first frame (`kit.FocusWhenShown`); and a way to read the tree and
+  press by it, of which only `Tester.AccessAll` exists (names and bounds, no
+  node IDs, parents or actions), so `uitest/access` still reads the Tester by
+  reflection and `TestPinnedMyGo` pins the version it was checked against.
 - On GTK and AppKit `?` needs the focus somewhere in the window: at the start
   press Tab first (or use the palette, Ctrl+K), as MyGo shows no key to the
   window while nothing has the focus.
@@ -341,7 +359,7 @@ session with audio:
   the song, its artist again, the More and Remove buttons and the line of keys.
 - Leaving the Seek slider says its time once ("0:30 of 3:00"), as the held
   value catches up.
-- Of MyGo v0.8.1's states, only the sidebar's current page has been heard
+- Of MyGo's states, only the sidebar's current page has been heard
   (the Orca walk above: "Current page", once). Orca's words for the
   disabled-but-focusable, busy, alert, controls, popup, sort and row-count
   states in Sona,

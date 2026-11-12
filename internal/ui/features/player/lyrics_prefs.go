@@ -1,8 +1,6 @@
 package player
 
 import (
-	"sync"
-
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
@@ -47,38 +45,12 @@ func (p *player) settingsPrefs() (read func() lyricsync.Prefs, write func(lyrics
 		v := store.UseSettings(p.env.Queries, p.env.Core).Data.LyricsView
 		return lyricsync.Prefs{Translation: v.Translation, Pronunciation: v.Pronunciation}
 	}
-	var (
-		mu      sync.Mutex
-		pending *config.LyricsView
-		running bool
-	)
-	save := func(v config.LyricsView) {
-		mu.Lock()
-		pending = &v
-		if running {
-			mu.Unlock()
-			return
-		}
-		running = true
-		mu.Unlock()
+	save := &store.Latest[config.LyricsView]{Send: func(v config.LyricsView) {
 		sys := services.Service[services.SystemService](p.env.Core)
-		go func() {
-			for {
-				mu.Lock()
-				next := pending
-				pending = nil
-				if next == nil {
-					running = false
-					mu.Unlock()
-					return
-				}
-				mu.Unlock()
-				if _, err := sys.SetLyricsView(*next); err != nil {
-					p.env.Log.Warn("lyrics view: saving the choices", "err", services.CodeOf(err))
-				}
-			}
-		}()
-	}
+		if _, err := sys.SetLyricsView(v); err != nil {
+			p.env.Log.Warn("lyrics view: saving the choices", "err", services.CodeOf(err))
+		}
+	}}
 	write = func(v lyricsync.Prefs) {
 		view := config.LyricsView{Translation: v.Translation, Pronunciation: v.Pronunciation}
 		if r := store.UseSettings(p.env.Queries, p.env.Core); r.HasData {
@@ -87,7 +59,7 @@ func (p *player) settingsPrefs() (read func() lyricsync.Prefs, write func(lyrics
 			store.Set(p.env.Queries, store.KeySettings, s)
 		}
 		if p.env.Core != nil {
-			save(view)
+			save.Put(view)
 		}
 	}
 	return read, write

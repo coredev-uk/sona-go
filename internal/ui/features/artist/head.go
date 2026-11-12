@@ -29,7 +29,7 @@ type headProps struct {
 // catalogue line, linking to the album.
 func (a *artist) latestRelease(c *ui.Context, al services.Album, size float32) {
 	tk := theme.Current()
-	title, release := releaseTitle(al.Name)
+	title, release := kit.ReleaseTitle(al.Name)
 	kind := i18n.T("Album")
 	switch {
 	case release == "ep":
@@ -37,21 +37,18 @@ func (a *artist) latestRelease(c *ui.Context, al services.Album, size float32) {
 	case release == "single" || al.Single:
 		kind = i18n.T("Single")
 	}
-	when := releaseBadge(al, a.now())
+	when := kit.ReleaseBadge(al, a.now())
 	if when == "" {
 		when = i18n.FormatISODate(al.ReleaseDate, i18n.DateMedium)
 	}
-	whenLine := i18n.T("Latest release")
-	if when != "" {
-		whenLine += " · " + when
-	}
+	whenLine := i18n.Meta(i18n.T("Latest release"), when)
 	path := albumPath(al.ID)
-	kindLine := catalogueLine(kind, "", al.TrackCount)
+	kindLine := i18n.CatalogueLine(kind, "", al.TrackCount, 0)
 	// The link is named by the title; the lines under it ride in its
 	// description, as the one piece MyGo reads the link as holds no more.
 	slip := ui.ButtonBase(c.Key("slip")).Row().AlignItems(ui.End).Gap(12).MinWidth(0).Radius(tk.Radius["sm"]).Label(title).
-		Description(whenLine + " · " + kindLine)
-	if a.has(path) {
+		Description(i18n.Meta(whenLine, kindLine))
+	if a.env.Routed(path) {
 		slip.Role(ui.RoleLink)
 	}
 	slip.Children(func() {
@@ -70,7 +67,7 @@ func (a *artist) latestRelease(c *ui.Context, al services.Album, size float32) {
 			meta(kindLine)
 		})
 	})
-	if slip.Clicked() && a.has(path) {
+	if slip.Clicked() && a.env.Routed(path) {
 		a.env.Nav.Push(path)
 	}
 }
@@ -100,8 +97,7 @@ func (a *artist) head(c *ui.Context, pg *pageState, p headProps) {
 				kit.Artwork(c, a.env.Art, art.Art.Large, lay.portrait, kit.ArtOpts{Edge: true, Round: true})
 			}
 			ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Padding(0, 0, 4, 0).Children(func() {
-				d := tk.Type["display"]
-				ui.Text(c, art.Name).FontSize(d.Size).FixedLineHeight(d.LineHeight).FontWeight(int(d.Weight)).LetterSpacing(d.Tracking).
+				theme.StyleText(ui.Text(c, art.Name), "display").
 					TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(1)
 				ui.Text(c, p.line).FontSize(tk.Type["meta"].Size).FixedLineHeight(tk.Type["meta"].LineHeight).
 					TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)

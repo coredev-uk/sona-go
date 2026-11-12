@@ -98,7 +98,9 @@ type fillCall struct {
 
 // Coordinator is the queue and now-playing state machine. It is safe for
 // concurrent use. Engine calls are serialised and never made while the
-// state lock is held, so Snapshot never waits on the engine.
+// state lock is held, so Snapshot never waits on the engine. A command
+// that changes what plays ends the engine work of the commands before it
+// rather than waiting for it (enter).
 type Coordinator struct {
 	eng       playback.Engine
 	log       *slog.Logger
@@ -126,7 +128,10 @@ type Coordinator struct {
 	subMu  sync.Mutex // guards subs; acquired before mu, never under it
 	subs   map[chan Snapshot]struct{}
 
-	mu           sync.Mutex // guards everything below
+	mu           sync.Mutex         // guards everything below
+	tasks        map[*task]struct{} // playback work enter may end
+	turn, served uint64             // enter's tickets: the next one handed out, the next one to take cmd
+	turnCond     *sync.Cond         // on mu: served moved
 	closed       bool
 	queue        []entry  // play order
 	original     []uint64 // unshuffled order (UIDs) while shuffled
@@ -194,6 +199,7 @@ func New(opts Options) (*Coordinator, error) {
 		fillWait:  cmp.Or(opts.FillWait, 20*time.Second),
 		aheadWait: cmp.Or(opts.AutoPlayDelay, 2*time.Second),
 		subs:      map[chan Snapshot]struct{}{},
+		tasks:     map[*task]struct{}{},
 		index:     -1,
 		repeat:    RepeatOff,
 	}
@@ -212,6 +218,7 @@ func New(opts Options) (*Coordinator, error) {
 	st := c.eng.Status()
 	c.volume = st.Volume
 	c.st = playback.Status{State: playback.StateIdle, Volume: st.Volume, UpdatedAt: c.now()}
+	c.turnCond = sync.NewCond(&c.mu)
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 	c.wg.Add(1)
 	go c.loop()
@@ -230,7 +237,7 @@ func (c *Coordinator) Close() error {
 	c.closed = true
 	if c.index >= 0 {
 		now := c.now()
-		c.endActLocked(EndExited, c.positionLocked(now), now)
+		c.endActLocked(EndExited, c.st.PositionAt(now), now)
 	}
 	if c.preloadTimer != nil {
 		c.preloadTimer.Stop()
@@ -289,7 +296,7 @@ func (c *Coordinator) Snapshot() Snapshot {
 	s := Snapshot{
 		State:          c.st.State,
 		Index:          c.index,
-		Position:       c.positionLocked(now),
+		Position:       c.st.PositionAt(now),
 		Duration:       c.st.Duration,
 		At:             now,
 		Volume:         c.volume,
@@ -364,8 +371,8 @@ func (c *Coordinator) SetQueue(ctx context.Context, items []Item, start int, lab
 	if start < 0 || start >= len(items) {
 		return fmt.Errorf("coordinator: start index %d out of range [0,%d)", start, len(items))
 	}
-	c.cmd.Lock()
-	defer c.cmd.Unlock()
+	ctx, leave := c.enter(ctx, always)
+	defer leave()
 	c.mu.Lock()
 	fx := c.finalizeLocked(false, EndSelected)
 	c.undo = c.replacedLocked()
@@ -613,8 +620,8 @@ func (c *Coordinator) Clear() {
 
 // Stop stops playback and empties the queue.
 func (c *Coordinator) Stop(ctx context.Context) error {
-	c.cmd.Lock()
-	defer c.cmd.Unlock()
+	ctx, leave := c.enter(ctx, always)
+	defer leave()
 	c.mu.Lock()
 	fx := c.finalizeLocked(false, EndStopped)
 	loaded := c.loaded
@@ -631,8 +638,8 @@ func (c *Coordinator) Stop(ctx context.Context) error {
 
 // Jump plays queue[index].
 func (c *Coordinator) Jump(ctx context.Context, index int) error {
-	c.cmd.Lock()
-	defer c.cmd.Unlock()
+	ctx, leave := c.enter(ctx, func() bool { return index >= 0 && index < len(c.queue) })
+	defer leave()
 	c.mu.Lock()
 	if index < 0 || index >= len(c.queue) {
 		c.mu.Unlock()
@@ -649,8 +656,8 @@ func (c *Coordinator) Jump(ctx context.Context, index int) error {
 // the queue with repeat off, playback stops on the last item (Resume
 // replays it).
 func (c *Coordinator) Next(ctx context.Context) error {
-	c.cmd.Lock()
-	defer c.cmd.Unlock()
+	ctx, leave := c.enter(ctx, func() bool { return !c.liveLocked() })
+	defer leave()
 	c.mu.Lock()
 	if c.liveLocked() {
 		c.mu.Unlock()
@@ -686,8 +693,11 @@ func (c *Coordinator) Next(ctx context.Context) error {
 // RestartThreshold (or there is nothing before it), else plays the previous
 // item (wrapping when repeat is on).
 func (c *Coordinator) Previous(ctx context.Context) error {
-	c.cmd.Lock()
-	defer c.cmd.Unlock()
+	ctx, leave := c.enter(ctx, func() bool {
+		return c.index >= 0 && !c.liveLocked() &&
+			(c.station == nil || c.station.AutoPlay || c.st.PositionAt(c.now()) > RestartThreshold)
+	})
+	defer leave()
 	c.mu.Lock()
 	if c.index < 0 {
 		c.mu.Unlock()
@@ -700,7 +710,7 @@ func (c *Coordinator) Previous(ctx context.Context) error {
 	if c.station != nil && !c.station.AutoPlay {
 		// A station has nothing before the song: Previous restarts it,
 		// and does nothing in its first moments.
-		if c.positionLocked(c.now()) <= RestartThreshold {
+		if c.st.PositionAt(c.now()) <= RestartThreshold {
 			c.mu.Unlock()
 			return nil
 		}
@@ -710,7 +720,7 @@ func (c *Coordinator) Previous(ctx context.Context) error {
 	if prev < 0 && c.repeat != RepeatOff {
 		prev = len(c.queue) - 1
 	}
-	if c.positionLocked(c.now()) <= RestartThreshold && prev >= 0 && prev != c.index {
+	if c.st.PositionAt(c.now()) <= RestartThreshold && prev >= 0 && prev != c.index {
 		fx := c.finalizeLocked(false, EndSkipBackward)
 		c.failures, c.lastErr = 0, nil
 		c.mu.Unlock()
@@ -728,7 +738,7 @@ func (c *Coordinator) restartLocked(ctx context.Context) error {
 		uid := c.queue[c.index].uid
 		c.seekActLocked(0)
 		c.mu.Unlock()
-		if err := c.eng.Seek(ctx, 0); err != nil {
+		if err := c.eng.Seek(ctx, 0); err != nil && !superseded(ctx) {
 			return fmt.Errorf("coordinator: restart: %w", err)
 		}
 		c.refresh(uid)
@@ -768,8 +778,8 @@ func (c *Coordinator) Pause(ctx context.Context) error {
 // auth-interrupted item at its saved position, replays an ended item, and
 // starts the queue if nothing is selected. It clears AuthRequired.
 func (c *Coordinator) Resume(ctx context.Context) error {
-	c.cmd.Lock()
-	defer c.cmd.Unlock()
+	ctx, leave := c.enter(ctx, nil)
+	defer leave()
 	c.mu.Lock()
 	c.auth = false
 	if len(c.queue) == 0 {
@@ -785,7 +795,7 @@ func (c *Coordinator) Resume(ctx context.Context) error {
 	switch {
 	case c.loaded && st == playback.StatePaused:
 		c.mu.Unlock()
-		if err := c.eng.Resume(ctx); err != nil {
+		if err := c.eng.Resume(ctx); err != nil && !superseded(ctx) {
 			return fmt.Errorf("coordinator: resume: %w", err)
 		}
 		c.refresh(uid)
@@ -1063,11 +1073,13 @@ func (c *Coordinator) handle(ev playback.Event) {
 		}
 	case ev.Kind == playback.EventError || ev.Status.State == playback.StateError:
 		next, ok, fx := c.failLocked(errors.New(cmp.Or(ev.Status.Err, "playback failed")))
+		ctx, forget := c.taskLocked(c.ctx)
+		defer forget()
 		c.mu.Unlock()
 		c.notify()
 		run(fx)
 		if ok {
-			_ = c.start(c.ctx, next, 0, true)
+			_ = c.start(ctx, next, 0, true)
 		}
 	case ev.Status.State == playback.StateEnded:
 		c.applyLocked(ev.Status)
@@ -1076,14 +1088,16 @@ func (c *Coordinator) handle(ev playback.Event) {
 			c.sleepStopLocked(fx)
 			return
 		}
+		ctx, forget := c.taskLocked(c.ctx)
+		defer forget()
 		next, ok := c.nextIndexLocked(true)
 		if !ok {
-			next, ok = c.awaitFillLocked(c.ctx, true)
+			next, ok = c.awaitFillLocked(ctx, true)
 		}
 		c.mu.Unlock()
 		run(fx)
 		if ok {
-			_ = c.start(c.ctx, next, 0, true)
+			_ = c.start(ctx, next, 0, true)
 		} else {
 			c.notify()
 		}
@@ -1099,16 +1113,18 @@ func (c *Coordinator) handle(ev playback.Event) {
 // cmd and mu held; returns with mu released.
 func (c *Coordinator) advanceLocked(st playback.Status) {
 	now := c.now()
-	c.endActLocked(EndNatural, cmp.Or(c.st.Duration, c.positionLocked(now)), now)
+	c.endActLocked(EndNatural, cmp.Or(c.st.Duration, c.st.PositionAt(now)), now)
 	fx := c.finalizeLocked(true, EndNatural)
 	ai := c.indexOfLocked(c.armedUID)
 	if ai < 0 || st.ItemID != c.queue[ai].item.ID {
 		// The arm changed while the engine moved on: play the expected next.
 		next, ok := c.nextIndexLocked(true)
+		ctx, forget := c.taskLocked(c.ctx)
+		defer forget()
 		c.mu.Unlock()
 		run(fx)
 		if ok {
-			_ = c.start(c.ctx, next, 0, true)
+			_ = c.start(ctx, next, 0, true)
 		} else {
 			c.notify()
 		}
@@ -1143,6 +1159,69 @@ func (c *Coordinator) armLocked() {
 	c.armed, c.armedUID = want, uid
 	c.eng.SetNext(want)
 }
+
+// errSuperseded is the cause a command's playback work ends with when a
+// later command replaces what plays (enter).
+var errSuperseded = errors.New("coordinator: superseded by a later command")
+
+// task is one command's (or auto-advance's) playback work, which enter
+// may end.
+type task struct{ cancel context.CancelCauseFunc }
+
+// enter takes cmd for a command. When replaces (nil: never; called with mu
+// held) says the command changes what plays, the playback work of the
+// commands before it ends first (errSuperseded): a Play still loading, a
+// refill being waited for, and the commands still waiting for cmd, which
+// then pass straight through. Otherwise a skip would wait for the very
+// load it skips, and the skips pressed meanwhile would all land when it
+// ended. Commands take cmd in the order they entered, so the last one's
+// choice is what plays. The returned ctx is ctx, also ended by a later
+// command; leave releases cmd.
+func (c *Coordinator) enter(ctx context.Context, replaces func() bool) (_ context.Context, leave func()) {
+	c.mu.Lock()
+	if replaces != nil && replaces() {
+		for t := range c.tasks {
+			t.cancel(errSuperseded)
+		}
+	}
+	ctx, forget := c.taskLocked(ctx)
+	turn := c.turn
+	c.turn++
+	for c.served != turn {
+		c.turnCond.Wait()
+	}
+	c.mu.Unlock()
+	c.cmd.Lock()
+	c.mu.Lock()
+	c.served++
+	c.turnCond.Broadcast()
+	c.mu.Unlock()
+	return ctx, func() {
+		forget()
+		c.cmd.Unlock()
+	}
+}
+
+// always is enter's replaces for commands that always change what plays.
+func always() bool { return true }
+
+// taskLocked registers playback work done under ctx for enter to end;
+// forget (called without mu) unregisters it. With mu held.
+func (c *Coordinator) taskLocked(ctx context.Context) (_ context.Context, forget func()) {
+	ctx, cancel := context.WithCancelCause(ctx)
+	t := &task{cancel}
+	c.tasks[t] = struct{}{}
+	return ctx, func() {
+		c.mu.Lock()
+		delete(c.tasks, t)
+		c.mu.Unlock()
+		cancel(nil)
+	}
+}
+
+// superseded reports whether ctx ended because a later command replaced
+// what plays.
+func superseded(ctx context.Context) bool { return errors.Is(context.Cause(ctx), errSuperseded) }
 
 // start plays queue[i] from pos, skipping forward over items whose Play
 // fails. fresh resets the item's listening time (false continues a
@@ -1201,6 +1280,9 @@ func (c *Coordinator) start(ctx context.Context, i int, pos time.Duration, fresh
 			c.setStateLocked(playback.StatePaused)
 			c.mu.Unlock()
 			c.notify()
+			if superseded(ctx) {
+				return nil // a later command took over: not a failure
+			}
 			return err
 		case errors.Is(err, applemusic.ErrUnauthorized):
 			c.auth = true
@@ -1355,7 +1437,7 @@ func (c *Coordinator) seekActLocked(pos time.Duration) {
 		return
 	}
 	now := c.now()
-	c.addActLocked(Activity{Kind: ActivitySeek, Item: c.actItem, From: c.positionLocked(now), Position: pos, Duration: c.st.Duration, At: now})
+	c.addActLocked(Activity{Kind: ActivitySeek, Item: c.actItem, From: c.st.PositionAt(now), Position: pos, Duration: c.st.Duration, At: now})
 }
 
 // ObserveActivity adds an observer that receives the same listening
@@ -1392,19 +1474,8 @@ func (c *Coordinator) deliverActivity() {
 func (c *Coordinator) setStateLocked(s playback.State) {
 	st := c.st
 	now := c.now()
-	st.Position, st.UpdatedAt, st.State = c.positionLocked(now), now, s
+	st.Position, st.UpdatedAt, st.State = c.st.PositionAt(now), now, s
 	c.applyLocked(st)
-}
-
-func (c *Coordinator) positionLocked(now time.Time) time.Duration {
-	p := c.st.Position
-	if c.st.State == playback.StatePlaying {
-		p += now.Sub(c.st.UpdatedAt)
-	}
-	if c.st.Duration > 0 {
-		p = min(p, c.st.Duration)
-	}
-	return max(p, 0)
 }
 
 // listenedLocked is the current item's listening time so far.
@@ -1424,7 +1495,7 @@ func (c *Coordinator) finalizeLocked(completed bool, reason EndReason) func() {
 		return nil
 	}
 	now := c.now()
-	c.endActLocked(reason, c.positionLocked(now), now)
+	c.endActLocked(reason, c.st.PositionAt(now), now)
 	played := c.listenedLocked(now)
 	c.playedFor = 0
 	if !c.playingSince.IsZero() {
@@ -1496,8 +1567,8 @@ func (c *Coordinator) PlayStation(ctx context.Context, st Station) error {
 	if len(items) == 0 {
 		return fmt.Errorf("coordinator: station %s returned no tracks", st.ID)
 	}
-	c.cmd.Lock()
-	defer c.cmd.Unlock()
+	ctx, leave := c.enter(ctx, always)
+	defer leave()
 	c.mu.Lock()
 	fx := c.finalizeLocked(false, EndSelected)
 	c.undo = c.replacedLocked()
@@ -1901,7 +1972,7 @@ func (c *Coordinator) schedulePreloadLocked() {
 	if next.uid == c.preloaded || next.item.ID == cur.item.ID {
 		return
 	}
-	if delay := c.st.Duration - c.positionLocked(c.now()) - c.lead; delay > 0 {
+	if delay := c.st.Duration - c.st.PositionAt(c.now()) - c.lead; delay > 0 {
 		c.preloadTimer = time.AfterFunc(delay, func() {
 			c.mu.Lock()
 			c.schedulePreloadLocked()
@@ -1939,7 +2010,7 @@ func (c *Coordinator) stopEngine(ctx context.Context, loaded bool) error {
 	if !loaded {
 		return nil
 	}
-	if err := c.eng.Stop(ctx); err != nil {
+	if err := c.eng.Stop(ctx); err != nil && !superseded(ctx) {
 		return fmt.Errorf("coordinator: stop: %w", err)
 	}
 	return nil
@@ -2041,7 +2112,7 @@ func (c *Coordinator) savedLocked() Saved {
 	s := Saved{
 		Items:     make([]Item, len(c.queue)),
 		Index:     c.index,
-		Position:  c.positionLocked(now),
+		Position:  c.st.PositionAt(now),
 		PlayedFor: c.listenedLocked(now),
 		Shuffle:   c.shuffle,
 		Repeat:    c.repeat,

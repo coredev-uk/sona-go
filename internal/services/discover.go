@@ -1,6 +1,7 @@
 package services
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -94,11 +95,6 @@ func (s *DiscoverService) close() {
 	s.bg.Wait()
 }
 
-// signedIn: a Music User Token is available (Home needs one).
-func (s *DiscoverService) signedIn() bool {
-	return s.e.API.UserToken != nil && s.e.API.UserToken() != ""
-}
-
 // timezone is the local UTC offset Apple's recommendations take ("+01:00").
 func (s *DiscoverService) timezone() string { return s.e.Now().Format("-07:00") }
 
@@ -124,7 +120,7 @@ func (s *DiscoverService) homeEntry(ctx context.Context) (applemusic.MapResponse
 // "discover:home" event). Without a cached copy it asks Apple. Signed out
 // it is empty.
 func (s *DiscoverService) Home(ctx context.Context) (HomePage, error) {
-	if !s.signedIn() {
+	if !s.e.hasMUT() {
 		return HomePage{Sections: []Section{}}, nil
 	}
 	start := time.Now()
@@ -145,7 +141,7 @@ func (s *DiscoverService) Home(ctx context.Context) (HomePage, error) {
 
 // RefreshHome refetches every Home shelf from Apple.
 func (s *DiscoverService) RefreshHome(ctx context.Context) (HomePage, error) {
-	if !s.signedIn() {
+	if !s.e.hasMUT() {
 		return HomePage{Sections: []Section{}}, nil
 	}
 	r, err := applemusic.Recommendations(ctx, s.e.API, s.timezone())
@@ -205,7 +201,7 @@ func dueShelves(r applemusic.MapResponse, fetched, now time.Time) []string {
 // (POST …?action=refresh), or all of Home when most are. The new page is
 // emitted as "discover:home".
 func (s *DiscoverService) refreshHomeIfDue(ctx context.Context) {
-	if !s.signedIn() {
+	if !s.e.hasMUT() {
 		return
 	}
 	s.mu.Lock()
@@ -382,7 +378,7 @@ func (s *DiscoverService) Curator(ctx context.Context, id string) (EditorialPage
 	}
 	p.Wide, p.Color = s.m.wideOf(ea)
 	if n := a.EditorialNotes; n != nil {
-		p.Notes = plainText(firstNonEmpty(n.Standard, n.Short, n.Tagline))
+		p.Notes = plainText(cmp.Or(n.Standard, n.Short, n.Tagline))
 	}
 	for _, g := range r.Resources.Resolve(c.Rel("grouping")) {
 		for _, tab := range r.Resources.Resolve(g.Rel("tabs")) {
@@ -469,7 +465,7 @@ func (s *DiscoverService) Room(ctx context.Context, id, sort string) (RoomPage, 
 	var a applemusic.RoomAttributes
 	_ = room.Attrs(&a)
 	p := RoomPage{
-		ID: room.ID, Title: a.Title, Kind: SectionShelf, Sort: firstNonEmpty(sort, a.DefaultSort),
+		ID: room.ID, Title: a.Title, Kind: SectionShelf, Sort: cmp.Or(sort, a.DefaultSort),
 		Sorts: a.Sorts, Items: s.m.items(r.Resources, room.Rel("contents")),
 		Next: nextOffset(room.Relationships["contents"].Next),
 	}
@@ -510,7 +506,7 @@ func (s *DiscoverService) Charts(ctx context.Context, genre string) (ChartsPage,
 		return ChartsPage{}, err
 	}
 	p := ChartsPage{Genre: genre, Charts: []Chart{}, FetchedAt: info.FetchedAt, Stale: info.Stale}
-	p.Genres, err = s.genres(ctx)
+	p.Genres, err = s.e.genres(ctx)
 	if err != nil {
 		s.e.Logger.Warn("chart genres", "err", err)
 		p.Genres = []Genre{}
@@ -575,11 +571,12 @@ func (s *DiscoverService) ChartItems(ctx context.Context, key, chartID, genre st
 	return out, nil
 }
 
-// genres lists the chart genres, all music first (as ID "").
-func (s *DiscoverService) genres(ctx context.Context) ([]Genre, error) {
-	gs, _, err := cachedPage(ctx, s.e, "genres", false, genresTTL,
+// genres lists the genres charts and concerts filter by, all music first
+// (as ID ""). The cache entry is shared by both.
+func (e *Env) genres(ctx context.Context) ([]Genre, error) {
+	gs, _, err := cachedPage(ctx, e, "genres", false, genresTTL,
 		func(ctx context.Context, sf string) ([]applemusic.Resource[applemusic.GenreAttributes], error) {
-			return applemusic.Genres(ctx, s.e.API, sf)
+			return applemusic.Genres(ctx, e.API, sf)
 		}, nil)
 	if err != nil {
 		return nil, err
@@ -591,13 +588,4 @@ func (s *DiscoverService) genres(ctx context.Context) ([]Genre, error) {
 		}
 	}
 	return out, nil
-}
-
-func firstNonEmpty(s ...string) string {
-	for _, v := range s {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }

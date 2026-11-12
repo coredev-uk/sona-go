@@ -15,9 +15,6 @@ ON CONFLICT (id) DO UPDATE SET
     mut_last_validated_at = coalesce(excluded.mut_last_validated_at, accounts.mut_last_validated_at),
     updated_at = excluded.updated_at;
 
--- name: SetAccountValidated :exec
-UPDATE accounts SET mut_last_validated_at = ?, updated_at = ? WHERE id = 1;
-
 -- name: GetSyncState :one
 SELECT * FROM sync_state WHERE domain = ?;
 
@@ -65,33 +62,12 @@ DELETE FROM favorites WHERE kind = ? AND updated_at < ?;
 -- name: GetFavorite :one
 SELECT value FROM favorites WHERE kind = ? AND apple_id = ?;
 
--- name: ListFavorites :many
-SELECT * FROM favorites WHERE kind = ? ORDER BY updated_at DESC;
-
--- name: UpsertPin :exec
-INSERT INTO pins (kind, apple_id, name, subtitle, artwork_template, position, pinned_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (kind, apple_id) DO UPDATE SET
-    name = excluded.name,
-    subtitle = excluded.subtitle,
-    artwork_template = excluded.artwork_template,
-    position = excluded.position;
-
--- name: DeletePin :exec
-DELETE FROM pins WHERE kind = ? AND apple_id = ?;
-
--- name: ListPins :many
-SELECT * FROM pins ORDER BY position, pinned_at;
-
 -- name: InsertHistory :one
 INSERT INTO playback_history (
     played_at, item_id, catalog_id, library_id, name, artist_name, album_name,
     artwork_template, duration_ms, played_ms, source
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
-
--- name: SetHistoryPlayed :exec
-UPDATE playback_history SET played_ms = ? WHERE id = ?;
 
 -- name: HistorySince :many
 -- song_catalog_id is the catalog ID, through the library song for plays of

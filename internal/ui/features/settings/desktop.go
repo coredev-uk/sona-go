@@ -3,7 +3,6 @@ package settings
 import (
 	"context"
 	"strconv"
-	"strings"
 
 	"github.com/egoist/mygo/ui"
 
@@ -101,7 +100,7 @@ func (s *settings) titleBarRow(c *ui.Context, cfg config.Settings, caps services
 	if style != wc.Style {
 		// The window keeps the title bar it was created with until Sona restarts.
 		o.Notes = func() {
-			text(c, i18n.T("Applies the next time Sona starts."), "secondary").TextColor(theme.C("ink")).Margin(2, 0, 0, 0)
+			theme.Text(c, i18n.T("Applies the next time Sona starts."), "secondary").TextColor(theme.C("ink")).Margin(2, 0, 0, 0)
 		}
 	}
 	items := []kit.SelectItem{
@@ -144,6 +143,4 @@ func (s *settings) windowSizeRow(c *ui.Context, cfg config.Settings) {
 }
 
 // stripTags drops the <0> markers of a message's rich text.
-func stripTags(t string) string { return tagMarkers.Replace(t) }
-
-var tagMarkers = strings.NewReplacer("<0>", "", "</0>", "")
+func stripTags(t string) string { return i18n.StripTags(t) }

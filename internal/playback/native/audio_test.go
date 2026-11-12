@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"net/http"
 	"net/http/httptest"
@@ -131,6 +132,20 @@ func TestVolumeReachesHostThroughCurve(t *testing.T) {
 	}
 	if v := h.e.Status().Volume; v != 0.8 {
 		t.Errorf("Status().Volume = %v, want the slider value 0.8", v)
+	}
+}
+
+// A NaN or out-of-range slider value (a D-Bus or webview caller can send
+// one) must not reach the status, whose Volume the UI and MPRIS publish.
+func TestSetVolumeClampsStatus(t *testing.T) {
+	h := newHarness(t, time.Minute, false)
+	for v, want := range map[float64]float64{math.NaN(): 0, -3: 0, 7: 1, math.Inf(1): 1, 0.25: 0.25} {
+		if err := h.e.SetVolume(ctx(t), v); err != nil {
+			t.Fatal(err)
+		}
+		if got := h.e.Status().Volume; got != want {
+			t.Errorf("SetVolume(%v): Status().Volume = %v, want %v", v, got, want)
+		}
 	}
 }
 
@@ -323,6 +338,42 @@ func TestUploadDownloadResumesAfterCut(t *testing.T) {
 	defer us.mu.Unlock()
 	if len(us.ranges) != 2 || us.ranges[0] != "" || !strings.HasPrefix(us.ranges[1], "bytes=") {
 		t.Errorf("file requests ranges %q, want a full GET then a resume", us.ranges)
+	}
+}
+
+// A download cancelled while it waits to retry ends with the context's
+// error at once, instead of trying again.
+func TestUploadDownloadStopsWhenCancelledDuringBackoff(t *testing.T) {
+	hit := make(chan struct{}, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case hit <- struct{}{}:
+		default:
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(srv.Close)
+	e := New(Options{HTTP: srv.Client(), IdleTimeout: -1})
+	e.retry = []time.Duration{time.Hour}
+	t.Cleanup(func() { e.Close() })
+	u := &upload{url: srv.URL, wake: make(chan struct{}), size: -1}
+	c, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		e.download(c, u)
+	}()
+	<-hit
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("download still waiting to retry after its context ended")
+	}
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if u.err != context.Canceled || u.done {
+		t.Errorf("download ended with err %v, done %v; want context.Canceled", u.err, u.done)
 	}
 }
 

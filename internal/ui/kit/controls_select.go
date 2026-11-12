@@ -44,7 +44,7 @@ func controlsOption(c *ui.Context, item ui.Element, label string, highlighted, c
 		item.Disabled(true)
 	}
 	item.Children(func() {
-		controlsText(c, label, "body").SingleLine().Grow(1)
+		theme.Text(c, label, "body").SingleLine().Grow(1)
 		if chosen {
 			ui.Icon(c, theme.Icon("check")).FontSize(16).Shrink(0)
 		} else {
@@ -148,7 +148,7 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 		trigger.Background(theme.C("input").Alpha(0.5))
 	}
 	trigger.Children(func() {
-		t := controlsText(c, shown, "body").SingleLine().Shrink(1).MinWidth(0)
+		t := theme.Text(c, shown, "body").SingleLine().Shrink(1).MinWidth(0)
 		if placeholder {
 			t.TextColor(theme.C("muted-foreground"))
 		}
@@ -165,7 +165,7 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 			for i, it := range items {
 				switch it.kind {
 				case selectLabel:
-					controlsText(c.Key(i), it.Label, "meta").TextColor(theme.C("muted-foreground")).Padding(6, 8)
+					theme.Text(c.Key(i), it.Label, "meta").TextColor(theme.C("muted-foreground")).Padding(6, 8)
 				case selectSeparator:
 					ui.Box(c.Key(i)).Height(1).FillWidth().Margin(4, -4, 4, -4).Background(theme.C("border"))
 				case selectOption:
@@ -269,11 +269,8 @@ func Segmented[V comparable](c *ui.Context, value *V, options []SegmentOption[V]
 				fg = theme.C("ink")
 			}
 			s.TextColor(fg)
-			if !theme.ReducedMotion() {
-				m := theme.Current().Motion["press"]
-				s.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-			}
-			s.Children(func() { controlsText(c, o.Label, "secondary").FontWeight(500).SingleLine() })
+			theme.Fade(s, "press")
+			s.Children(func() { theme.Text(c, o.Label, "secondary").FontWeight(500).SingleLine() })
 			if s.Clicked() {
 				clicked = true
 				*value = o.Value

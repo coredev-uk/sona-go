@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -88,7 +90,7 @@ func runImport(ctx context.Context, r repo, f *applestrings.Fetcher) error {
 		return fmt.Errorf("mapped keys disappeared from Apple's %s bundle (update the mapping): %s", applestrings.SourceLocale, strings.Join(missing, ", "))
 	}
 
-	tags := sortedKeys(urls)
+	tags := slices.Sorted(maps.Keys(urls))
 	results := make([]localeResult, len(tags))
 	sem := make(chan struct{}, 6)
 	var wg sync.WaitGroup

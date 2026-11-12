@@ -14,9 +14,9 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
-// bind gives the rig's Env the keys a shortcut answers to now.
-func bind(r *rig, keys map[string][]string) {
-	r.env.Shortcuts = func() []module.BoundShortcut {
+// bind gives the Env the keys a shortcut answers to now.
+func bind(env *module.Env, keys map[string][]string) {
+	env.Shortcuts = func() []module.BoundShortcut {
 		var out []module.BoundShortcut
 		for id, k := range keys {
 			out = append(out, module.BoundShortcut{Shortcut: module.Shortcut{ID: id}, Keys: k})
@@ -25,85 +25,53 @@ func bind(r *rig, keys map[string][]string) {
 	}
 }
 
-// hover rests the pointer on the named button until its tip shows.
-func hover(t *testing.T, r *rig, name string) {
-	t.Helper()
-	n, ok := r.tt.Find(name)
-	if !ok {
-		t.Fatalf("no %q: %q", name, r.tt.Texts())
-	}
-	r.tt.Move(n.X+n.W/2, n.Y+n.H/2)
-	r.tt.Advance(time.Second)
-}
-
 func TestBarTooltipsShowTheBoundKeys(t *testing.T) {
 	r := newRig(t, true)
-	bind(r, map[string][]string{
+	bind(r.env, map[string][]string{
 		"player.toggle": {"Space"}, "player.next": {"Ctrl+ArrowRight"}, "player.queue": {"Q"},
 		"player.lyrics": {}, "player.mute": {"Ctrl+M"},
 	})
 	r.seed()
 
-	hover(t, r, "Pause")
+	r.tt.Hover("Pause")
 	if !r.tt.HasText("Pause") || !r.tt.HasText("Space") {
 		t.Errorf("the play button's tip lacks its key: %q", r.tt.Texts())
 	}
 	tr := access.Read(t, r.tt.Tester)
-	if n := mustFind(t, tr, ui.RoleButton, "Pause"); n.Description != "Space" {
+	if n := tr.MustFind(t, ui.RoleButton, "Pause"); n.Description != "Space" {
 		t.Errorf("the play button's description is %q", n.Description)
 	}
 
-	hover(t, r, "Next")
+	r.tt.Hover("Next")
 	if !r.tt.HasText("Ctrl") || !r.tt.HasText("→") {
 		t.Errorf("Next's tip lacks its chord: %q", r.tt.Texts())
 	}
-	hover(t, r, "Queue")
+	r.tt.Hover("Queue")
 	if !r.tt.HasText("Q") {
 		t.Errorf("Queue's tip lacks its key: %q", r.tt.Texts())
 	}
 	// A shortcut the user unbound has no keys to show, and its tip is the name.
-	hover(t, r, "Lyrics")
+	r.tt.Hover("Lyrics")
 	tr = access.Read(t, r.tt.Tester)
-	if n := mustFind(t, tr, ui.RoleToggleButton, "Lyrics"); n.Description != "" {
+	if n := tr.MustFind(t, ui.RoleToggleButton, "Lyrics"); n.Description != "" {
 		t.Errorf("an unbound button has the description %q", n.Description)
 	}
 }
 
 func TestBarTooltipFollowsARebinding(t *testing.T) {
 	r := newRig(t, true)
-	bind(r, map[string][]string{"player.toggle": {"Space"}})
+	bind(r.env, map[string][]string{"player.toggle": {"Space"}})
 	r.seed()
-	bind(r, map[string][]string{"player.toggle": {"Ctrl+Shift+P"}})
-	hover(t, r, "Pause")
+	bind(r.env, map[string][]string{"player.toggle": {"Ctrl+Shift+P"}})
+	r.tt.Hover("Pause")
 	if !r.tt.HasText("Shift") || !r.tt.HasText("P") || r.tt.HasText("Space") {
 		t.Errorf("the tip kept the old key: %q", r.tt.Texts())
 	}
 }
 
-// bindNP gives an npRig's Env the keys of the shortcuts the lyrics tools name.
-func bindNP(r *npRig, keys map[string][]string) {
-	r.h.Env.Shortcuts = func() []module.BoundShortcut {
-		var out []module.BoundShortcut
-		for id, k := range keys {
-			out = append(out, module.BoundShortcut{Shortcut: module.Shortcut{ID: id}, Keys: k})
-		}
-		return out
-	}
-}
-
-func hoverNP(t *testing.T, r *npRig, name string) {
-	t.Helper()
-	n, ok := r.tt.Find(name)
-	if !ok {
-		t.Fatalf("no %q: %q", name, r.tt.Texts())
-	}
-	r.tt.Move(n.X+n.W/2, n.Y+n.H/2)
-	r.tt.Advance(time.Second)
-}
-
 func TestLyricsToolsShowTheirKeysInTheirTips(t *testing.T) {
 	r := newNPRig(t)
-	bindNP(r, map[string][]string{
+	bind(r.h.Env, map[string][]string{
 		"player.lyrics-earlier": {"["}, "player.lyrics-later": {"]"}, "player.lyrics-reset": {"\\"},
 		"player.lyrics-room": {"Shift+L"}, "player.close-overlay": {"Escape"},
 	})
@@ -112,32 +80,28 @@ func TestLyricsToolsShowTheirKeysInTheirTips(t *testing.T) {
 	r.open("")
 	r.tt.Until("tools", r.tt.Shows("Lyrics on time"))
 
-	hoverNP(t, r, "Show lyrics 0.5 s earlier")
+	r.tt.Hover("Show lyrics 0.5 s earlier")
 	if !r.tt.HasText("[") {
 		t.Errorf("Earlier's tip lacks its key: %q", r.tt.Texts())
 	}
-	hoverNP(t, r, "Show lyrics 0.5 s later")
+	r.tt.Hover("Show lyrics 0.5 s later")
 	if !r.tt.HasText("]") {
 		t.Errorf("Later's tip lacks its key: %q", r.tt.Texts())
 	}
 	// The readout has a tip, with its key, only once the timing is off.
-	if err := r.tt.Click("Show lyrics 0.5 s later"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Show lyrics 0.5 s later")
 	r.tt.Drain()
-	hoverNP(t, r, "Lyrics 0.5 s later")
+	r.tt.Hover("Lyrics 0.5 s later")
 	if !r.tt.HasText("Back to the original timing") || !r.tt.HasText("\\") {
 		t.Errorf("the readout's tip lacks its key: %q", r.tt.Texts())
 	}
-	hoverNP(t, r, "Full screen")
+	r.tt.Hover("Full screen")
 	if !r.tt.HasText("Shift") {
 		t.Errorf("Full screen's tip lacks its chord: %q", r.tt.Texts())
 	}
-	if err := r.tt.Click("Full screen"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Full screen")
 	r.tt.Until("the room", r.tt.Shows("Exit full screen"))
-	hoverNP(t, r, "Exit full screen")
+	r.tt.Hover("Exit full screen")
 	if !r.tt.HasText("Esc") {
 		t.Errorf("Exit full screen's tip lacks Esc: %q", r.tt.Texts())
 	}
@@ -190,7 +154,7 @@ func TestSleepTimerShortcutsAreCommandsForThePalette(t *testing.T) {
 		byID[id].Run()
 		calls = append(calls, w.call)
 	}
-	got := r.fake.wait(t, len(calls))
+	got := r.fake.Wait(t, len(calls))
 	for _, c := range calls {
 		if !slices.Contains(got, c) {
 			t.Errorf("no %q call in %v", c, got)

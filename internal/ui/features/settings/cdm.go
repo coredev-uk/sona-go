@@ -50,14 +50,14 @@ func (s *settings) cdmRow(c *ui.Context) {
 		var out ui.Element
 		in.Children(func() {
 			ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).MaxWidth(rowTextWidth).Children(func() {
-				text(c, title, "label").TextColor(theme.C("ink"))
-				text(c, desc, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+				theme.Text(c, title, "label").TextColor(theme.C("ink"))
+				theme.Text(c, desc, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 				if problem != "" {
 					p := problem
 					if retry {
 						p += " " + i18n.T("Sona also tries again by itself later.")
 					}
-					text(c, p, "secondary").TextColor(theme.C("ink")).Margin(8, 0, 0, 0).Role(ui.RoleText).Label(p)
+					theme.Text(c, p, "secondary").TextColor(theme.C("ink")).Margin(8, 0, 0, 0).Role(ui.RoleText).Label(p)
 				}
 			})
 			ui.Column(c.Key("control")).Width(selectWidth).Shrink(0).AlignItems(ui.End).Gap(6).Padding(2, 0, 0, 0).Children(func() {
@@ -72,24 +72,24 @@ func (s *settings) cdmRow(c *ui.Context) {
 					switch {
 					case failed:
 						ui.Icon(c, theme.Icon("circle-alert")).FontSize(16).TextColor(theme.C("danger")).Shrink(0)
-						text(c, i18n.CDMFailedState(status.Code), "secondary").TextColor(theme.C("ink")).FontWeight(500)
+						theme.Text(c, i18n.CDMFailedState(status.Code), "secondary").TextColor(theme.C("ink")).FontWeight(500)
 					case ready:
 						ui.Icon(c, theme.Icon("circle-check")).FontSize(16).TextColor(theme.C("positive")).Shrink(0)
 						v := i18n.T("Ready")
 						if status.Version != "" {
 							v = i18n.T("Version {version}", "version", status.Version)
 						}
-						text(c, v, "secondary").TextColor(theme.C("ink"))
+						theme.Text(c, v, "secondary").TextColor(theme.C("ink"))
 					case known && status.State == "downloading":
-						text(c, i18n.T("Downloading…"), "secondary").TextColor(theme.C("ink"))
+						theme.Text(c, i18n.T("Downloading…"), "secondary").TextColor(theme.C("ink"))
 					case known:
-						text(c, i18n.T("Not downloaded yet"), "secondary").TextColor(theme.C("ink-muted"))
+						theme.Text(c, i18n.T("Not downloaded yet"), "secondary").TextColor(theme.C("ink-muted"))
 					default:
-						ui.Box(c.Key("skeleton")).Width(128).Height(12).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
+						kit.Bar(c.Key("skeleton"), 128, 12)
 					}
 				})
 				if note := s.cdmNote(status, ready); note != "" {
-					text(c, note, "meta").TextColor(theme.C("ink-faint")).TextAlign(ui.End)
+					theme.Text(c, note, "meta").TextColor(theme.C("ink-faint")).TextAlign(ui.End)
 				}
 				if known && (status.State == "downloading" || ready && status.Updating) {
 					cdmProgressBar(c, status)
@@ -155,7 +155,7 @@ func cdmProgressBar(c *ui.Context, st services.CDMStatus) {
 			A11yLabel: label,
 			ValueText: i18n.T("{percent}, {received} of {total}", "percent", percent, "received", received, "total", total),
 		})
-		text(c, i18n.T("{percent} · {received} of {total}", "percent", percent, "received", received, "total", total), "meta").
+		theme.Text(c, i18n.T("{percent} · {received} of {total}", "percent", percent, "received", received, "total", total), "meta").
 			TextColor(theme.C("ink-faint")).TextAlign(ui.End).Role(ui.RoleNone)
 	})
 }

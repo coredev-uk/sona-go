@@ -88,8 +88,8 @@ func TestPinnedMyGo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(mod), "github.com/egoist/mygo v0.8.3\n") {
-		t.Fatal("MyGo is not v0.8.3 any more: re-check the constants of internal/ui/uitest/access/access.go against ui/element.go, ui/access.go and internal/platform/access.go, then update this pin")
+	if !strings.Contains(string(mod), "github.com/egoist/mygo v0.9.0\n") {
+		t.Fatal("MyGo is not v0.9.0 any more: re-check the constants of internal/ui/uitest/access/access.go against ui/element.go, ui/access.go and internal/platform/access.go, then update this pin")
 	}
 }
 
@@ -165,6 +165,45 @@ func TestInvisibleHiddenAndIgnoredInputAreHandledAsMyGoDoes(t *testing.T) {
 	n, ok := tr.Find(ui.RoleButton, "Ignored")
 	if !ok || !n.Can(Press) || n.Has(Focusable) {
 		t.Errorf("an ignored-input button: %+v (want on the tree, pressable, not focusable)", n)
+	}
+}
+
+// TestLandmarksAndTabPanelsHoldControls: MyGo v0.9.0's landmarks and tab
+// panels are not read as one piece, so a control inside is a node of its
+// own, not a nested control, and the dump names them.
+func TestLandmarksAndTabPanelsHoldControls(t *testing.T) {
+	roles := []struct {
+		role ui.Role
+		name string
+	}{
+		{ui.RoleTabPanel, "tabpanel"}, {ui.RoleMain, "main"}, {ui.RoleBanner, "banner"},
+		{ui.RoleContentInfo, "contentinfo"}, {ui.RoleComplementary, "complementary"},
+	}
+	tt := ui.NewTester(func(c *ui.Context) {
+		ui.Column(c).Gap(4).Children(func() {
+			for _, r := range roles {
+				ui.Column(c.Key(r.name)).Role(r.role).Label(r.name).Children(func() {
+					ui.Button(c.Key(r.name+"-button"), "In "+r.name).Clicked()
+				})
+			}
+		})
+	}, 320, 400)
+	if got := NestedControls(t, tt); len(got) != 0 {
+		t.Errorf("controls inside landmarks were reported as nested: %v", got)
+	}
+	tr := Read(t, tt)
+	for _, r := range roles {
+		n, ok := tr.Find(r.role, r.name)
+		if !ok {
+			t.Errorf("no %s on the tree:\n%s", r.name, tr.Dump())
+			continue
+		}
+		if n.String() != r.name+` "`+r.name+`"` {
+			t.Errorf("%s is dumped as %s", r.name, n)
+		}
+		if _, ok := tr.Find(ui.RoleButton, "In "+r.name); !ok {
+			t.Errorf("no button in the %s:\n%s", r.name, tr.Dump())
+		}
 	}
 }
 

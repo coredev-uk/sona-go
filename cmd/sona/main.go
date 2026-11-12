@@ -173,7 +173,10 @@ func run(started time.Time) error {
 	// One HTTP/2 client for every Apple request; its transport holds
 	// requests until the first paint so cold start stays local.
 	gate := services.NewGate(paintFallback, log)
-	httpClient := &http.Client{Transport: gate.Transport(newTransport()), Timeout: 60 * time.Second}
+	gated := func(timeout time.Duration) *http.Client {
+		return &http.Client{Transport: gate.Transport(newTransport()), Timeout: timeout}
+	}
+	httpClient := gated(60 * time.Second)
 
 	dev := devtoken.NewWebPlayer(httpClient)
 	// The keyring is opened and read in the background (Start, below): an
@@ -209,13 +212,13 @@ func run(started time.Time) error {
 
 	// Artwork comes from Apple's public CDN without credentials: a separate
 	// client, held by the same gate (cached artwork still serves at once).
-	art, err := artwork.New(artwork.Options{Dir: paths.Art, CoverDir: paths.CoversDir(), HTTP: &http.Client{Transport: gate.Transport(newTransport()), Timeout: 60 * time.Second}, Logger: log, MaxBytes: int64(settings.Get().Storage.ArtCacheMiB) << 20})
+	art, err := artwork.New(artwork.Options{Dir: paths.Art, CoverDir: paths.CoversDir(), HTTP: gated(60 * time.Second), Logger: log, MaxBytes: int64(settings.Get().Storage.ArtCacheMiB) << 20})
 	if err != nil {
 		return err
 	}
 	// Motion artwork: unencrypted video from Apple's media CDN, fetched
 	// by Go.
-	mot, err := motion.New(motion.Options{Dir: filepath.Join(paths.Cache, "motion"), HTTP: &http.Client{Transport: gate.Transport(newTransport()), Timeout: 2 * time.Minute}, Logger: log})
+	mot, err := motion.New(motion.Options{Dir: filepath.Join(paths.Cache, "motion"), HTTP: gated(2 * time.Minute), Logger: log})
 	if err != nil {
 		return err
 	}
@@ -225,7 +228,7 @@ func run(started time.Time) error {
 	// that needs it starts it.
 	cdmMgr, err := cdm.New(cdm.Options{
 		Dir:       paths.WidevineDir(),
-		HTTP:      &http.Client{Transport: gate.Transport(newTransport())},
+		HTTP:      gated(0),
 		LoadCheck: cdmLoadCheck(log.With("component", "widevine")),
 		Logger:    log.With("component", "widevine"),
 	})
@@ -239,7 +242,7 @@ func run(started time.Time) error {
 	// locales the UI asks for, and cached; never bundled.
 	appleStrings, err := applestrings.New(applestrings.Options{
 		Dir:    filepath.Join(paths.Cache, "strings"),
-		HTTP:   &http.Client{Transport: gate.Transport(newTransport()), Timeout: time.Minute},
+		HTTP:   gated(time.Minute),
 		Logger: log.With("component", "strings"),
 	})
 	if err != nil {
@@ -341,7 +344,7 @@ func run(started time.Time) error {
 		Catalog: cat, Library: lib, Syncer: syncer, Art: art, Motion: mot, Engine: engine, CDM: cdmMgr, AppleStrings: appleStrings, Language: lang, Coord: coord,
 		History: history, Private: private, Storefront: storefront, Gate: gate, Emit: bus, Clipboard: clipboardText, Logger: log,
 		OpenURL: mygo.Shell.OpenExternal, Focus: windows.ShowMain, Focused: windows.Focused, Windows: windows, Platform: plat.Services(windows),
-		Transport: newTransport(), Version: version, Started: started, SelfUpdater: selfUpdaterDep(),
+		Transport: newTransport(), Version: version, Started: started, SelfUpdater: selfUpdater(),
 	})
 	defer core.Close() // runs first: stops sync, events and MPRIS
 	// After the services subscribed to auth changes, so none misses the
@@ -356,7 +359,6 @@ func run(started time.Time) error {
 	plat.Serve(core.Activate, core.Commands())
 	openURLs(core.Activate)
 
-	setApplicationID(log)
 	mygo.App.SetName("Sona")
 	mygo.App.SetVersion(version)
 	// A first start (no account, setup neither finished nor skipped) opens
@@ -369,6 +371,11 @@ func run(started time.Time) error {
 	}
 	var ui *uiapp.App
 	mygo.App.WhenReady(func() {
+		// After MyGo's own Init, which names the program after the
+		// executable: the app id and WM_CLASS GTK reports and the name on
+		// the accessibility bus must stay the application id, and the
+		// first window takes its class from the program name.
+		setApplicationID(log)
 		// --hidden (the XDG autostart entry's) or, on macOS, the login item
 		// the user asked to start in the tray (login_darwin.go).
 		hidden := act.Hidden() || loginStartsHidden(cur.Desktop)
@@ -380,6 +387,10 @@ func run(started time.Time) error {
 		})
 		log.Info("startup: window created", "since_start_ms", time.Since(started).Milliseconds(), "hidden", hidden)
 	})
+	// On Windows and macOS a logout or shutdown ends the process once the
+	// quit listeners return, and Run never does: save the queue and report the
+	// end of the play here (sessionend.go).
+	mygo.App.OnWillQuit(flushOnSessionEnd(coord, reporter, sessionEndBudget, log))
 	err = mygo.App.Run()
 	if ui != nil {
 		ui.Close() // before core.Close and coord.Close

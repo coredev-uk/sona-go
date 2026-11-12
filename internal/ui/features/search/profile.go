@@ -22,13 +22,10 @@ func (s *search) profilePage(c *ui.Context, r *ui.Route) {
 	id := r.Param("id")
 	v := &s.pages.profile
 	res := s.profile(id)
-	s.scrollPage(c, &v.pageView, id, func(pane *kit.Pane) {
+	v.Scroll(c, id, func(pane *kit.Pane, _ float32) {
 		switch {
 		case res.Err != nil:
-			kit.ErrorBlock(c, i18n.T("Couldn't load this profile"), res.Err, kit.ErrorBlockOpts{
-				OnRetry:  func() { s.env.Queries.Invalidate(keyProfile(id)) },
-				Retrying: res.Fetching,
-			})
+			kit.QueryError(c, s.env.Queries, i18n.T("Couldn't load this profile"), res, keyProfile(id))
 		case !res.HasData:
 			ui.Row(c.Key("loading")).AlignItems(ui.Center).Gap(24).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
 				ui.Box(c).Size(128, 128).Shrink(0).Radius(64).Background(theme.C("hover"))
@@ -52,18 +49,18 @@ func (s *search) profileBody(c *ui.Context, pane *kit.Pane, d services.ProfileDe
 		kit.PersonAvatar(c, s.env.Art, name, p.Art.Large, 128).Shrink(0)
 		ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
-				text(c, name, "display").TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0).Role(ui.RoleHeading).Level(1)
+				theme.Text(c, name, "display").TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0).Role(ui.RoleHeading).Level(1)
 				if p.Verified {
 					ui.Icon(c, theme.Icon("badge-check")).FontSize(24).TextColor(theme.C("ink-muted")).Shrink(0).
 						Role(ui.RoleImage).Label(i18n.T("Verified"))
 				}
 			})
 			ui.Row(c).AlignItems(ui.Center).Gap(6).Margin(4, 0, 0, 0).Children(func() {
-				text(c, "@"+p.Handle, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+				theme.Text(c, "@"+p.Handle, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 				if p.Private {
-					text(c, "·", "secondary").TextColor(theme.C("ink-muted")).Role(ui.RoleNone)
+					theme.Text(c, "·", "secondary").TextColor(theme.C("ink-muted")).Role(ui.RoleNone)
 					ui.Icon(c, theme.Icon("lock")).FontSize(14).TextColor(theme.C("ink-muted")).Role(ui.RoleNone)
-					text(c, i18n.T("Private profile"), "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+					theme.Text(c, i18n.T("Private profile"), "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 				}
 			})
 		})

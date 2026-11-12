@@ -40,9 +40,7 @@ func New(env *module.Env) module.Module {
 		ID:      "reminders",
 		Actions: []kit.ActionDef{r.toggleAction()},
 		Init: func() {
-			store.On(env.Bus, services.EventRemindersChanged, func(list []services.Reminder) {
-				store.Set(env.Queries, store.KeyReminders, list)
-			})
+			store.Mirror[[]services.Reminder](env.Bus, env.Queries, env.Post, store.KeyReminders, nil, services.EventRemindersChanged)
 		},
 	}
 }

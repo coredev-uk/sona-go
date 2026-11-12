@@ -25,12 +25,6 @@ type helpSheet struct {
 // narrow is the window width below which the groups list in one column.
 const narrow = 720
 
-// typeText is text in one of the theme's type styles.
-func typeText(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // show draws the sheet while it is open: a dialog (760 wide, at most 80 % of
 // the window high) with its title, the line about Settings, and the list,
 // which takes the focus on opening so the arrows and Page Down scroll it.
@@ -51,7 +45,7 @@ func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 	}, func() {
 		closeOwn() // the sheet's own chord closes it again, which only the dialog sees
 		ui.Column(c.Key("help:head")).Gap(2).Padding(20, 56, 16, 24).FillWidth().Children(func() {
-			typeText(c.Key("title"), i18n.T("Keyboard shortcuts"), "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+			theme.Text(c.Key("title"), i18n.T("Keyboard shortcuts"), "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
 			h.about(c, env)
 		})
 		list := ui.Scroll(c.Key("help:list")).Role(ui.RoleGroup).Label(i18n.T("Shortcuts")).
@@ -70,8 +64,7 @@ func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 // word a link to the shortcut settings where that page exists.
 func (h *helpSheet) about(c *ui.Context, env *module.Env) {
 	msg := i18n.T("Change any of them in <0>Settings</0>.")
-	before, rest, _ := strings.Cut(msg, "<0>")
-	name, after, _ := strings.Cut(rest, "</0>")
+	before, name, after, _ := i18n.SplitLink(msg)
 	// Spaces at the seams become the row's gap: the text measures without them.
 	gap := float32(0)
 	if strings.HasSuffix(before, " ") || strings.HasPrefix(name, " ") {
@@ -79,27 +72,29 @@ func (h *helpSheet) about(c *ui.Context, env *module.Env) {
 	}
 	before = strings.TrimSpace(before)
 	ui.Row(c.Key("about")).AlignItems(ui.Center).Gap(gap).Children(func() {
-		typeText(c.Key("a"), before, "secondary").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
-		ui.Row(c.Key("link")).AlignItems(ui.Center).Children(func() { h.link(c, env, name, after) })
+		theme.Text(c.Key("a"), before, "secondary").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
+		if name != "" { // a translation that lost its tags has no link
+			ui.Row(c.Key("link")).AlignItems(ui.Center).Children(func() { h.link(c, env, name, after) })
+		}
 	})
 }
 
 // link is the word that links to Settings (plain text where that page does
 // not exist), and what follows it.
 func (h *helpSheet) link(c *ui.Context, env *module.Env, name, after string) {
-	if env.HasRoute != nil && env.HasRoute("/settings") {
+	if env.Routed("/settings") {
 		link := ui.ButtonBase(c.Key("settings")).Role(ui.RoleLink).Label(name).Cursor(ui.CursorPointer)
 		link.Children(func() {
-			typeText(c, name, "secondary").TextColor(theme.C("ink")).Underline().SingleLine().Shrink(0)
+			theme.Text(c, name, "secondary").TextColor(theme.C("ink")).Underline().SingleLine().Shrink(0)
 		})
 		if link.Clicked() {
 			h.open = false
 			env.Nav.Push("/settings?section=shortcuts")
 		}
 	} else {
-		typeText(c.Key("s"), name, "secondary").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
+		theme.Text(c.Key("s"), name, "secondary").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
 	}
-	typeText(c.Key("b"), after, "secondary").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
+	theme.Text(c.Key("b"), after, "secondary").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
 }
 
 // groups lists every shortcut by group, in two columns (one when the window
@@ -115,7 +110,7 @@ func (h *helpSheet) groups(c *ui.Context, env *module.Env, width float32) {
 	}
 	var sections []section
 	rows := 0
-	for _, g := range groups {
+	for _, g := range module.ShortcutGroups {
 		var list []module.BoundShortcut
 		for _, s := range all {
 			if s.Group == g {
@@ -154,15 +149,15 @@ func (h *helpSheet) groups(c *ui.Context, env *module.Env, width float32) {
 
 // section is one group: its title and a definition list of label and keys.
 func (h *helpSheet) section(c *ui.Context, g module.ShortcutGroup, list []module.BoundShortcut) {
-	ui.Column(c.Key("g:"+string(g))).FillWidth().Padding(0, 0, 24).Role(ui.RoleGroup).Label(groupTitle(g)).Children(func() {
-		typeText(c.Key("h"), groupTitle(g), "body").FontWeight(600).TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3).Padding(0, 0, 6)
+	ui.Column(c.Key("g:"+string(g))).FillWidth().Padding(0, 0, 24).Role(ui.RoleGroup).Label(module.GroupTitle(g)).Children(func() {
+		theme.Text(c.Key("h"), module.GroupTitle(g), "body").FontWeight(600).TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3).Padding(0, 0, 6)
 		for _, s := range list {
 			ui.Row(c.Key("s:"+s.ID)).MinHeight(32).FillWidth().Padding(2, 0).Gap(16).AlignItems(ui.Center).Role(ui.RoleListItem).Label(s.Label()).Children(func() {
-				typeText(c.Key("l"), s.Label(), "body").TextColor(theme.C("ink")).Grow(1).MinWidth(0)
+				theme.Text(c.Key("l"), s.Label(), "body").TextColor(theme.C("ink")).Grow(1).MinWidth(0)
 				if len(s.Keys) > 0 {
 					kit.Keycaps(c.Key("k"), s.Keys...)
 				} else {
-					typeText(c.Key("n"), i18n.T("Not set"), "meta").TextColor(theme.C("ink-faint")).Shrink(0)
+					theme.Text(c.Key("n"), i18n.T("Not set"), "meta").TextColor(theme.C("ink-faint")).Shrink(0)
 				}
 			})
 		}
@@ -172,5 +167,5 @@ func (h *helpSheet) section(c *ui.Context, g module.ShortcutGroup, list []module
 // plainAbout is the line under the title without its link markup, for the
 // dialog's description.
 func plainAbout() string {
-	return strings.NewReplacer("<0>", "", "</0>", "").Replace(i18n.T("Change any of them in <0>Settings</0>."))
+	return i18n.StripTags(i18n.T("Change any of them in <0>Settings</0>."))
 }

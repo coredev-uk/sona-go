@@ -407,44 +407,6 @@ func (q *Queries) PlaylistFlags(ctx context.Context, libraryID sql.NullString) (
 	return i, err
 }
 
-const playlistTrackRefs = `-- name: PlaylistTrackRefs :many
-SELECT pt.position, t.library_id, t.catalog_id
-FROM playlist_tracks pt
-JOIN playlists p ON p.id = pt.playlist_id
-JOIN tracks t ON t.id = pt.track_id
-WHERE p.library_id = ?
-ORDER BY pt.position
-`
-
-type PlaylistTrackRefsRow struct {
-	Position  int64
-	LibraryID sql.NullString
-	CatalogID sql.NullString
-}
-
-func (q *Queries) PlaylistTrackRefs(ctx context.Context, libraryID sql.NullString) ([]PlaylistTrackRefsRow, error) {
-	rows, err := q.db.QueryContext(ctx, playlistTrackRefs, libraryID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []PlaylistTrackRefsRow{}
-	for rows.Next() {
-		var i PlaylistTrackRefsRow
-		if err := rows.Scan(&i.Position, &i.LibraryID, &i.CatalogID); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const renamePlaylistFolder = `-- name: RenamePlaylistFolder :exec
 UPDATE playlist_folders SET name = ? WHERE library_id = ?
 `

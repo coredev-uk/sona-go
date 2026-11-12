@@ -4,28 +4,34 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 
 	"github.com/egoist/mygo/ui"
 )
 
-// ErrNoDecoder is returned where nothing decodes motion artwork: the
-// platform has no decoder (not Supported) or GStreamer lacks the plugins for
-// H.264 and HEVC.
+// ErrNoDecoder is returned where nothing plays motion artwork: the platform
+// has no decoder (not Supported), GStreamer lacks the plugins for H.264 and
+// HEVC (Linux), or the system has no video framework (a Windows N edition
+// without the Media Feature Pack).
 var ErrNoDecoder = fmt.Errorf("media: no motion artwork decoder: %w", errors.ErrUnsupported)
 
 // ErrDecode wraps what OpenMotion fails with after it has the file: the
-// decoder did not open (a plugin is missing) or the first frame did not
-// decode (the file is damaged). A failure before that, the file's download, is
-// not one.
+// player did not open (a plugin is missing, the file is not a video). A
+// failure before that, the file's download, is not one. A video that opens
+// and then fails to decode is the player's Err.
 var ErrDecode = errors.New("media: motion artwork did not decode")
 
 // OpenMotion makes a looping player of the motion artwork urlPath names (a
 // DTO's "/motion/<key>/<n>.mp4"), the rendition for px device pixels.
 // It fetches the file from the motion cache (downloading it when it is not
-// there), opens a decoder on it and decodes the first frame, so it blocks:
-// call it off the main thread. The player belongs to the main thread from
-// then on (ui.Video shows it; Close releases the decoder).
+// there) and opens a player on it, so it blocks: call it off the main thread.
+//
+// On Linux the player decodes with GStreamer in this process and has its
+// first frame when it returns. On macOS and Windows the system's own video
+// framework plays the file (ui/video, muted): the player returns at once,
+// loads in the background, and is not Ready, with no Size, until its first
+// picture came, which only a ui.Video that shows it builds. Its Err says what
+// stopped it. The player belongs to the main thread from then on (ui.Video
+// shows it; Close releases the decoder).
 func OpenMotion(ctx context.Context, files MotionFiles, urlPath string, px int) (*ui.VideoPlayer, error) {
 	codec := Codec()
 	if codec == "" {
@@ -35,16 +41,5 @@ func OpenMotion(ctx context.Context, files MotionFiles, urlPath string, px int) 
 	if err != nil {
 		return nil, err
 	}
-	dec, err := NewMotionDecoder(path)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrDecode, err)
-	}
-	p, err := ui.NewVideoPlayer(dec)
-	if err != nil {
-		if c, ok := dec.(io.Closer); ok {
-			_ = c.Close() // a no-op if the player did
-		}
-		return nil, fmt.Errorf("%w: %w", ErrDecode, err)
-	}
-	return p.SetLoop(true), nil
+	return openPlayer(path)
 }

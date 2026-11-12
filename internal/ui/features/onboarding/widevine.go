@@ -1,8 +1,6 @@
 package onboarding
 
 import (
-	"time"
-
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
@@ -19,8 +17,7 @@ import (
 // (no consent step). Without playback on this platform it says so; where the
 // engine needs no CDM it says nothing (WidevineStatus.tsx).
 func (o *onboarding) widevineBlock(c *ui.Context) {
-	status := o.cdm()
-	view := widevineView(o.capsData(), status)
+	view, status := o.widevine()
 	if view == viewNotNeeded {
 		return
 	}
@@ -88,15 +85,13 @@ func (o *onboarding) widevineBlock(c *ui.Context) {
 			out.Children(func() {
 				if icon != "" {
 					ic := statusIcon(c, icon, colour)
-					if spin && !theme.ReducedMotion() {
-						ic.Rotate(ic.Loop("spin", time.Second, ui.Linear) * 360)
-					}
+					theme.Spin(ic, spin)
 				}
 				if state == "" {
 					kit.Skeleton(c, 160, 12)
 					return
 				}
-				text(c, state, "ui").FontWeight(500).TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
+				theme.Text(c, state, "ui").FontWeight(500).TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
 			})
 			if retry {
 				label := i18n.T("Try again")
@@ -112,7 +107,7 @@ func (o *onboarding) widevineBlock(c *ui.Context) {
 			o.downloadBar(c, *status)
 		}
 		if detail != "" {
-			text(c.Key("detail"), detail, "sub").TextColor(theme.C("ink-muted")).MaxWidth(480).Margin(4, 0, 0, 24)
+			theme.Text(c.Key("detail"), detail, "sub").TextColor(theme.C("ink-muted")).MaxWidth(480).Margin(4, 0, 0, 24)
 		}
 	})
 }
@@ -121,7 +116,7 @@ func (o *onboarding) widevineBlock(c *ui.Context) {
 // beside it decoration.
 func (o *onboarding) downloadBar(c *ui.Context, s services.CDMStatus) {
 	fraction, known := store.CDMProgress(s)
-	percent := cdmPercent(s)
+	percent := i18n.CDMPercent(s)
 	received, total := i18n.FormatBytes(s.Received), i18n.FormatBytes(s.Total)
 	value, valueText, figures := -1.0, "", i18n.T("Starting…")
 	if known {
@@ -132,7 +127,7 @@ func (o *onboarding) downloadBar(c *ui.Context, s services.CDMStatus) {
 	ui.Row(c.Key("bar")).FillWidth().Gap(12).AlignItems(ui.Center).Margin(10, 0, 0, 24).Children(func() {
 		kit.ProgressBar(c, value, kit.ProgressOpts{A11yLabel: i18n.T("Widevine download"), ValueText: valueText, Height: 6}).
 			Grow(1).Shrink(1).MinWidth(0)
-		text(c, figures, "meta").TextColor(theme.C("ink-faint")).SingleLine().Shrink(0)
+		theme.Text(c, figures, "meta").TextColor(theme.C("ink-faint")).SingleLine().Shrink(0)
 	})
 }
 

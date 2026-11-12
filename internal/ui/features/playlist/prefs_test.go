@@ -12,6 +12,24 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
+// newPrefs keeps the state in memory, starting from what the settings hold;
+// save (nil: none) is told the new state after every change.
+func newPrefs(from config.Sidebar, save func(config.Sidebar)) *prefs {
+	cur := from
+	return &prefs{
+		read: func() config.Sidebar { return cur },
+		write: func(sb config.Sidebar) {
+			cur = sb
+			if save != nil {
+				save(sb)
+			}
+		},
+	}
+}
+
+// snapshot is the state as settings hold it.
+func (p *prefs) snapshot() config.Sidebar { return p.read() }
+
 func TestPrefsDefaults(t *testing.T) {
 	p := newPrefs(config.Sidebar{}, nil)
 	if p.FolderOpen("f.a") {

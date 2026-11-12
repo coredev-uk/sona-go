@@ -139,6 +139,10 @@ func (s *IntegrationsService) run() {
 	if s.e.Platform.Inhibitor != nil {
 		inh = s.e.Platform.Inhibitor(func() string { return s.e.Language.Printer().T(msgInhibitReason) })
 	}
+	var keeper RunningKeeper
+	if s.e.Platform.KeepRunning != nil {
+		keeper = s.e.Platform.KeepRunning(func() string { return s.e.Language.Printer().T(msgInhibitReason) })
+	}
 	var presence *presenceWorker
 	if id := discord.ClientID(); id != "" && discord.Supported {
 		presence = newPresenceWorker(s, discord.New(id))
@@ -152,6 +156,9 @@ func (s *IntegrationsService) run() {
 			if err := inh.Close(); err != nil {
 				s.e.Logger.Warn("inhibit: release", "err", err)
 			}
+		}
+		if keeper != nil {
+			keeper.Close()
 		}
 		if presence != nil {
 			presence.stop()
@@ -170,6 +177,13 @@ func (s *IntegrationsService) run() {
 		}
 		if p.inhibit != nil {
 			s.setStatus(func(st *IntegrationsStatus) { st.Inhibit = s.inhibit(inh, *p.inhibit) })
+		}
+		if keeper != nil && p.running != nil {
+			if *p.running {
+				keeper.Hold()
+			} else {
+				keeper.Release()
+			}
 		}
 		if presence != nil && p.presence != nil {
 			presence.set(*p.presence)
@@ -224,6 +238,7 @@ func (s *IntegrationsService) inhibit(inh SleepInhibitor, want bool) string {
 type integrationsState struct {
 	notified  uint64 // queue slot last announced (UIDs start at 1)
 	inhibited bool
+	running   bool // the app is held at full speed (Platform.KeepRunning)
 	// playing is the queue slot last seen playing and playingAt when it
 	// started, which is when its listen began for private mode.
 	playing   uint64
@@ -234,6 +249,7 @@ type integrationsState struct {
 type integrationsPlan struct {
 	announce *coordinator.Item // notify this track
 	inhibit  *bool             // take (true) or drop (false) the inhibitor
+	running  *bool             // hold (true) or release (false) the full-speed hold
 	presence *presenceWant     // the Discord presence; nil leaves it as is
 }
 
@@ -257,6 +273,12 @@ func (st *integrationsState) plan(snap coordinator.Snapshot, set config.Integrat
 	if want := set.InhibitSleep && awake; want != st.inhibited {
 		st.inhibited = want
 		p.inhibit = &want
+	}
+	// The same span keeps the app itself at full speed, whatever the
+	// setting: the computer may still sleep when idle.
+	if awake != st.running {
+		st.running = awake
+		p.running = &awake
 	}
 	// Discord: the track while it plays, cleared otherwise; left as is
 	// while the next track loads so it does not flicker. A private listen

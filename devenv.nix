@@ -111,20 +111,27 @@ in
   scripts = {
     # The development loop (cmd/devloop): rebuilds the app with the dev tag
     # on every save, restarts it where it was, reloads tokens and catalogues
-    # without a rebuild. `r` rebuilds, `q` quits.
+    # without a rebuild. `r` rebuilds, `q` quits. A first argument
+    # `-background` is devloop's: restarts don't take the focus.
     dev.exec = ''
       set -e
       go build -o bin/devloop ./cmd/devloop
-      exec bin/devloop -- "$@"
+      flags=()
+      if [ "''${1:-}" = "-background" ]; then flags=(-background); shift; fi
+      exec bin/devloop "''${flags[@]}" -- "$@"
     '';
     # Every kit component in light and dark, under the same loop.
     gallery.exec = ''
       set -e
       go build -o bin/devloop ./cmd/devloop
-      exec bin/devloop -target ./cmd/uigallery -- "$@"
+      flags=()
+      if [ "''${1:-}" = "-background" ]; then flags=(-background); shift; fi
+      exec bin/devloop -target ./cmd/uigallery "''${flags[@]}" -- "$@"
     '';
-    # Production: no inspector (mygo_noinspector) and MyGo's production mode.
-    build.exec = ''go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona "$@"'';
+    # Production: no inspector (mygo_noinspector) and MyGo's production mode
+    # (build/ldflags.sh; without the Last.fm and Discord credentials: no
+    # -trimpath here, which would leave them in the build info).
+    build.exec = ''go build -tags mygo_noinspector,sqlite_fts5 -ldflags "$(bash build/ldflags.sh --no-credentials --goos "$(go env GOOS)")" -o bin/sona ./cmd/sona "$@"'';
     # Release packages (.deb/.rpm/Arch/AppImage) built and smoke-tested in
     # podman/docker on Ubuntu 24.04 (build/linux/release/release.sh).
     release.exec = ''bash build/linux/release/release.sh "$@"'';
@@ -154,7 +161,7 @@ in
       set -e
       ${lib.optionalString isLinux "dbus-run-session -- "}go test -race ./... "$@"
       # The packages with dev-only code, in a development build.
-      ${lib.optionalString isLinux "dbus-run-session -- "}go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/app ./internal/mpris
+      ${lib.optionalString isLinux "dbus-run-session -- "}go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/app ./internal/mpris
     '';
     auth-spike.exec = ''go run ./cmd/authspike "$@"'';
     play-spike.exec = ''go run ./cmd/playspike "$@"'';

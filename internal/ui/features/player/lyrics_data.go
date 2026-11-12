@@ -7,31 +7,16 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/lyrics"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
-
-// lyricsSource is what the view asks of the lyrics service.
-type lyricsSource interface {
-	Lyrics(ctx context.Context, songID string) (services.Lyrics, error)
-}
-
-// lyricsSvc is the service the lyrics come from (a test's own, else the core's).
-func (p *player) lyricsSvc() lyricsSource {
-	if p.np.lyrics != nil {
-		return p.np.lyrics
-	}
-	return services.Service[services.LyricsService](p.env.Core)
-}
 
 // lyricsFor is the lyrics query of a catalogue song: the one cache the song
 // page shares (store.KeyLyrics, always a services.Lyrics), never stale. A song
 // none of the sources has (not_found) is an answer the store caches as empty
 // lyrics, not a failure asked again every few seconds.
 func (p *player) lyricsFor(songID string) store.Result[services.Lyrics] {
-	svc := p.lyricsSvc()
-	return store.UseLyricsFrom(p.env.Queries, songID, func(ctx context.Context) (services.Lyrics, error) {
-		return svc.Lyrics(ctx, songID)
-	})
+	return store.UseLyrics(p.env.Queries, store.LyricsOf(p.np.lyrics, p.env.Core), songID)
 }
 
 // lyricsMissing reports a song with no lyrics: not found, or an answer with no
@@ -73,7 +58,7 @@ func sweepWords(ws []services.LyricWord, whole bool) []lyrics.Word {
 	out := make([]lyrics.Word, len(ws))
 	for i, w := range ws {
 		out[i] = lyrics.Word{
-			Begin: msDur(w.BeginMs), End: msDur(w.EndMs), Text: w.Text, Background: w.Background,
+			Begin: lyricsync.Dur(w.BeginMs), End: lyricsync.Dur(w.EndMs), Text: w.Text, Background: w.Background,
 		}
 		if whole {
 			out[i].End = out[i].Begin
@@ -94,5 +79,3 @@ func rtl(s string) bool {
 	}
 	return false
 }
-
-func msDur(ms int64) time.Duration { return time.Duration(ms) * time.Millisecond }

@@ -40,9 +40,17 @@ func (p *MPRISPlayer) Play(ctx context.Context) error {
 	return p.c.Resume(ctx)
 }
 
-func (p *MPRISPlayer) Pause(ctx context.Context) error    { return p.c.Pause(ctx) }
-func (p *MPRISPlayer) Next(ctx context.Context) error     { return p.c.Next(ctx) }
-func (p *MPRISPlayer) Previous(ctx context.Context) error { return p.c.Previous(ctx) }
+func (p *MPRISPlayer) Pause(ctx context.Context) error { return p.c.Pause(ctx) }
+
+func (p *MPRISPlayer) Next(ctx context.Context) error {
+	p.log.Info("playback: command", "cmd", "next", "from", "mpris")
+	return p.c.Next(ctx)
+}
+
+func (p *MPRISPlayer) Previous(ctx context.Context) error {
+	p.log.Info("playback: command", "cmd", "previous", "from", "mpris")
+	return p.c.Previous(ctx)
+}
 
 // Stop pauses and rewinds; it keeps the queue (the app's Stop empties it,
 // which a media key should not do). A live station has nothing to rewind.

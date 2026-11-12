@@ -60,9 +60,6 @@ func TestAlbumPage(t *testing.T) {
 	if s := tr[0].Attributes; s.WorkName != "Goldberg Variations" || s.MovementName != "Aria" || s.ComposerName != "Johann Sebastian Bach" {
 		t.Fatalf("classical attributes = %+v", s)
 	}
-	if got := Sized(a.Attributes.Artwork.Template(), 300, 300); got != "https://a/300x300bb.jpg" {
-		t.Fatalf("Sized = %s", got)
-	}
 	// The typed resource round-trips through JSON (the catalog cache relies
 	// on it), and empty views are not written.
 	b, _ := json.Marshal(a)

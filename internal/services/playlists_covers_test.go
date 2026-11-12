@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -441,7 +442,7 @@ func TestUploadingACoverShowsEverywhereAndIsKeptOnThisComputer(t *testing.T) {
 		t.Errorf("the file chooser was asked %+v", files.asks)
 	}
 	choice, err := r.lib.PlaylistCover(ctx, "p.mix")
-	if err != nil || choice.Kind != library.CoverUpload || !artwork.IsCover(choice.Template) || choice.Upload != choice.Template {
+	if err != nil || choice.Kind != library.CoverUpload || !coverTemplate.MatchString(choice.Template) || choice.Upload != choice.Template {
 		t.Fatalf("stored choice = %+v, %v", choice, err)
 	}
 	r.everywhere(t, "p.mix", choice.Template)
@@ -720,3 +721,6 @@ func TestUploadForAPlaylistThatWentLeavesNoFile(t *testing.T) {
 		t.Errorf("%d files left behind", len(stored))
 	}
 }
+
+// coverTemplate is the form of a stored cover's template: "cover:" and 32 hex digits.
+var coverTemplate = regexp.MustCompile(`^cover:[0-9a-f]{32}$`)

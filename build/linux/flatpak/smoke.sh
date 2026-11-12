@@ -26,10 +26,9 @@ if [[ -z ${HEADLESS_ROOT:-} ]]; then
   exec bash "$root/e2e/headless.sh" -- bash "$self"
 fi
 
-fail() {
-  echo "flatpak smoke: FAIL: $*" >&2
-  exit 1
-}
+smoke_name="flatpak smoke"
+# shellcheck source=../../lib/smoke.sh
+. "$root/build/lib/smoke.sh"
 
 # devenv's LD_LIBRARY_PATH is the app's GTK stack, which flatpak must not load.
 fp() {
@@ -45,9 +44,7 @@ export HOME=$HEADLESS_ROOT/home
 mkdir -p "$HOME"
 want=$(<"$root/VERSION")
 
-got=$(fp run dev.coredev.Sona --version 2>/dev/null) || fail "flatpak run --version failed"
-[[ $got == "sona $want" ]] || fail "--version printed '$got', want 'sona $want'"
-echo "flatpak smoke: $got"
+check_version "$want" fp run dev.coredev.Sona
 
 # MYGO_GPU=0: headless sway has no GPU buffers (CPU renderer, as the release
 # smoke test).
@@ -56,11 +53,7 @@ app=$!
 trap 'fp kill dev.coredev.Sona >/dev/null 2>&1 || true; kill "$app" 2>/dev/null || true' EXIT
 
 log=$HOME/.var/app/dev.coredev.Sona/.local/state/sona/sona.log
-for _ in $(seq 1 60); do
-  grep -q '"startup: first paint"' "$log" 2>/dev/null && break
-  sleep 0.5
-done
-grep -q '"startup: first paint"' "$log" 2>/dev/null || { cat "$HEADLESS_ROOT/app.out"; fail "no first paint"; }
+wait_for_log "$log" '"startup: first paint"' 30 "$app" || { cat "$HEADLESS_ROOT/app.out"; fail "no first paint"; }
 grep -o '"msg":"startup: first paint"[^}]*' "$log"
 swaymsg -t get_tree | grep -q '"sandbox_app_id": "dev.coredev.Sona"' || fail "sway has no window from the Flatpak"
 

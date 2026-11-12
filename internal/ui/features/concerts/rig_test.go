@@ -291,26 +291,9 @@ func newRigOver(t *testing.T, hn *uitest.Harness, amp *fakeApple, at string, w, 
 	return r
 }
 
-func (r *rig) click(name string) {
-	r.t.Helper()
-	if err := r.tt.Click(name); err != nil {
-		r.t.Fatalf("click %q: %v", name, err)
-	}
-}
-
 func (r *rig) shows(texts ...string) {
 	r.t.Helper()
 	r.tt.Until("texts "+strings.Join(texts, " | "), r.tt.Shows(texts...))
-}
-
-// lacks fails when the page shows text.
-func (r *rig) lacks(texts ...string) {
-	r.t.Helper()
-	for _, w := range texts {
-		if r.tt.HasText(w) {
-			r.t.Errorf("page shows %q; texts %q", w, r.tt.Texts())
-		}
-	}
 }
 
 // clickField clicks the text field after its label (the label and the field

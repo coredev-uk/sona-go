@@ -1,6 +1,8 @@
 package player
 
 import (
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -198,32 +200,24 @@ func (p *player) paneTabs(c *ui.Context, panes []paneKind, shown paneKind) {
 				col = theme.C("ink")
 			}
 			tab.Children(func() {
-				ui.Text(c.Key("t"+itoa(i)), paneName(k)).FontSize(16).FixedLineHeight(22).FontWeight(600).TextColor(col)
+				ui.Text(c.Key("t"+strconv.Itoa(i)), paneName(k)).FontSize(16).FixedLineHeight(22).FontWeight(600).TextColor(col)
 				if i == sel {
 					ui.Box(c.Key("rule")).Absolute().Left(6).Right(6).Bottom(2).Height(2).Radius(1).Background(theme.C("ink"))
 				}
 			})
 		}
 	})
-	if sel != indexOfPane(panes, shown) {
+	at := max(slices.Index(panes, shown), 0)
+	if sel != at {
 		p.ui.setPane(panes[sel])
 	}
 	// A pane changed from outside moves the focus to its tab when one of the
 	// tabs had it, so that the arrows go on from where the view now is.
 	if np := &p.np; np.paneSeen && np.lastPane != shown && np.tabHad {
-		np.tabs[indexOfPane(panes, shown)].Focus(c)
+		np.tabs[at].Focus(c)
 	}
 	p.np.lastPane, p.np.paneSeen = shown, true
 	p.np.tabHad = p.np.tabs[0].Focused(c) || p.np.tabs[1].Focused(c)
-}
-
-func indexOfPane(panes []paneKind, k paneKind) int {
-	for i, v := range panes {
-		if v == k {
-			return i
-		}
-	}
-	return 0
 }
 
 // nowPlayingArt is the playing song's cover, moving when its album has motion
@@ -266,7 +260,7 @@ func idPath(prefix, id string) string {
 // names is ported (path "": it is plain): the view closes as it goes.
 func (p *player) outLink(c *ui.Context, key, text, path string, size, lineH float32, weight int, top float32) {
 	t := lineText(c.Key(key), text, size, lineH, weight, theme.C("ink-muted")).SingleLine().MinWidth(0).Margin(top, 0, 0, 0)
-	if path == "" || p.env.HasRoute == nil || !p.env.HasRoute(path) {
+	if path == "" || !p.env.Routed(path) {
 		return
 	}
 	t.Role(ui.RoleLink).Cursor(ui.CursorPointer).Focusable()
@@ -293,15 +287,13 @@ func (p *player) songCopy(c *ui.Context, cur *services.QueueItem, large bool) {
 	if broadcast && s.OnAir != nil {
 		heading, byline = s.OnAir.Title, s.OnAir.Artist
 	}
-	tk := theme.Current().Type
 	copy := ui.Column(c.Key("song-copy")).FillWidth().MinWidth(0)
 	copy.Children(func() {
-		style := tk["page"]
+		style := "page"
 		if large {
-			style = tk["display"]
+			style = "display"
 		}
-		ui.Text(c.Key("title"), heading).FontSize(style.Size).FixedLineHeight(style.LineHeight).FontWeight(int(style.Weight)).
-			LetterSpacing(style.Tracking).TextColor(theme.C("ink")).MaxLines(3).Role(ui.RoleHeading).Level(2)
+		theme.StyleText(ui.Text(c.Key("title"), heading), style).TextColor(theme.C("ink")).MaxLines(3).Role(ui.RoleHeading).Level(2)
 		if cur.Live {
 			if broadcast && byline != "" {
 				lineText(c.Key("byline"), byline, 16, 22, 500, theme.C("ink-muted")).Margin(8, 0, 0, 0).SingleLine()
@@ -343,7 +335,7 @@ func (p *player) songCopy(c *ui.Context, cur *services.QueueItem, large bool) {
 					p.np.rating(c, cur)
 				}
 				credits := "/song/" + cur.CatalogID
-				if song && cur.CatalogID != "" && p.env.HasRoute != nil && p.env.HasRoute(credits) {
+				if song && cur.CatalogID != "" && p.env.Routed(credits) {
 					if kit.Button(c.Key("credits"), i18n.T("View credits"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "info", Muted: true}).Clicked() {
 						p.ui.closeOverlay()
 						p.env.Nav.Push(credits)
@@ -354,7 +346,7 @@ func (p *player) songCopy(c *ui.Context, cur *services.QueueItem, large bool) {
 				}
 			})
 		}
-		p.playingPopup(c, cur, &p.menus.np)
+		p.menus.np.PopupFor(c, cur != nil)
 	})
 	p.playingRow(copy, cur, &p.menus.np)
 }
@@ -476,7 +468,7 @@ func (p *player) lyricsBody(c *ui.Context, songID string) {
 	case !r.HasData && r.Err == nil:
 		ui.Column(c.Key("loading")).FillWidth().Gap(20).Padding(60, 12, 0).Role(ui.RoleStatus).Label(i18n.T("Loading lyrics")).Children(func() {
 			for i, w := range []float32{72, 56, 64, 40, 60} {
-				ui.Box(c.Key("bar" + itoa(i))).FillWidth().Children(func() {
+				ui.Box(c.Key("bar" + strconv.Itoa(i))).FillWidth().Children(func() {
 					kit.Skeleton(c, 0, 24).WidthPercent(w)
 				})
 			}
@@ -495,7 +487,7 @@ func (p *player) lyricsBody(c *ui.Context, songID string) {
 // noLyrics is the empty card of a song none of the lyrics sources has.
 func (p *player) noLyrics(c *ui.Context) {
 	var action *kit.EmptyAction
-	if p.env.HasRoute != nil && p.env.HasRoute("/settings") {
+	if p.env.Routed("/settings") {
 		action = &kit.EmptyAction{Label: i18n.T("Lyrics sources"), Run: func() {
 			p.ui.closeOverlay()
 			p.env.Nav.Push("/settings?section=playback")

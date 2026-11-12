@@ -13,7 +13,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
-	"github.com/coredev-uk/sona-go/internal/library"
 )
 
 // PlaylistsService serves playlist pages (catalog and library), edits the
@@ -69,10 +68,8 @@ func (s *PlaylistsService) changed(ev PlaylistsChanged) {
 	s.e.Emit.Emit(EventPlaylistsChanged, ev)
 }
 
-func isLibraryPlaylist(id string) bool { return strings.HasPrefix(id, "p.") }
-
 func requireLibraryPlaylist(id string) error {
-	if !isLibraryPlaylist(id) {
+	if !applemusic.IsLibraryPlaylistID(id) {
 		return fmt.Errorf("%w: %q is not a library playlist", ErrInvalidArgument, id)
 	}
 	return nil
@@ -82,7 +79,7 @@ func requireLibraryPlaylist(id string) error {
 // SQLite, or a catalog playlist ("pl.…", "pl.u-…", "pl.pm-…", "pl.rp-…")
 // from Apple through the catalog cache, with every track.
 func (s *PlaylistsService) Playlist(ctx context.Context, id string) (PlaylistDetail, error) {
-	if isLibraryPlaylist(id) {
+	if applemusic.IsLibraryPlaylistID(id) {
 		return s.libraryDetail(ctx, id)
 	}
 	cp, err := s.e.Catalog.Playlist(ctx, id)
@@ -100,8 +97,8 @@ func (s *PlaylistsService) Playlist(ctx context.Context, id string) (PlaylistDet
 		Kind:            a.PlaylistType,
 		IsChart:         a.IsChart,
 		Curator:         curatorDTO(cp.Curator),
-		FeaturedArtists: s.m.amArtists(cp.FeaturedArtists),
-		MoreByCurator:   s.m.amPlaylists(cp.MoreByCurator),
+		FeaturedArtists: mapSlice(cp.FeaturedArtists, s.m.amArtist),
+		MoreByCurator:   mapSlice(cp.MoreByCurator, s.m.amPlaylist),
 		URL:             a.URL,
 	}
 	d.Header.Motion = s.m.motionOf(a.EditorialVideo)
@@ -123,7 +120,7 @@ func curatorDTO(c applemusic.Curator) PlaylistCurator {
 // playlistSongs maps playlist tracks; music videos are listed but not
 // playable (the audio pipeline plays songs only).
 func (s *PlaylistsService) playlistSongs(in []applemusic.Song) []Song {
-	out := s.m.amSongs(in)
+	out := mapSlice(in, s.m.amSong)
 	for i, t := range in {
 		if t.Type != applemusic.TypeSongs && t.Type != applemusic.TypeLibrarySongs {
 			out[i].Playable = false
@@ -133,27 +130,15 @@ func (s *PlaylistsService) playlistSongs(in []applemusic.Song) []Song {
 }
 
 func (s *PlaylistsService) libraryDetail(ctx context.Context, id string) (PlaylistDetail, error) {
-	var (
-		p   library.Playlist
-		all []library.Song
-	)
-	for offset := 0; ; {
-		pl, songs, err := s.e.Library.Playlist(ctx, id, library.ListOptions{Offset: offset, Limit: 1000})
-		if err != nil {
-			return PlaylistDetail{}, err
-		}
-		p = pl
-		all = append(all, songs...)
-		if len(songs) < 1000 {
-			break
-		}
-		offset += len(songs)
+	p, all, err := s.e.Library.AllPlaylist(ctx, id)
+	if err != nil {
+		return PlaylistDetail{}, err
 	}
 	flags, err := s.e.DB.RQ.PlaylistFlags(ctx, db.NullString(id))
 	if err != nil {
 		return PlaylistDetail{}, fmt.Errorf("playlist %s: %w", id, err)
 	}
-	tracks := s.m.libSongs(all)
+	tracks := mapSlice(all, s.m.libSong)
 	for i := range tracks {
 		if tracks[i].ID == "" && tracks[i].CatalogID != "" {
 			// A catalog song in the playlist (not a library song).
@@ -194,17 +179,14 @@ func (s *PlaylistsService) Suggestions(ctx context.Context, id string) ([]Song, 
 	if err != nil {
 		return nil, s.e.Fail(err)
 	}
-	return s.m.amSongs(songs), nil
+	return mapSlice(songs, s.m.amSong), nil
 }
 
 // Tree returns the user's playlist folders and library playlists with
-// their places in the tree, from SQLite.
+// their places in the tree, from SQLite. Playlists Apple gave no cover
+// get one made from their tracks.
 func (s *PlaylistsService) Tree(ctx context.Context) (PlaylistTree, error) {
-	folders, err := s.e.DB.RQ.ListPlaylistFolders(ctx)
-	if err != nil {
-		return PlaylistTree{}, err
-	}
-	rows, err := s.e.DB.RQ.LibraryPlaylistTree(ctx)
+	folders, rows, err := s.e.Library.PlaylistTree(ctx)
 	if err != nil {
 		return PlaylistTree{}, err
 	}
@@ -212,25 +194,10 @@ func (s *PlaylistsService) Tree(ctx context.Context) (PlaylistTree, error) {
 	for i, f := range folders {
 		out.Folders[i] = PlaylistFolder{ID: f.LibraryID, ParentID: f.ParentID, Name: f.Name, Position: int(f.Position)}
 	}
-	pls := make([]library.Playlist, len(rows))
-	for i, r := range rows {
-		pls[i] = library.Playlist{
-			LibraryID: r.LibraryID.String, CatalogID: r.CatalogID.String, Name: r.Name, Description: r.Description,
-			CuratorName: r.CuratorName, ArtworkTemplate: r.ArtworkTemplate, CanEdit: r.CanEdit != 0,
-			TrackCount: int(r.TrackCount), LastModified: r.LastModified,
-		}
-		if r.DateAdded.Valid {
-			pls[i].DateAdded = db.Time(r.DateAdded.Int64)
-		}
-	}
-	// Playlists Apple gave no cover get one made from their tracks.
-	if err := s.e.Library.FillCovers(ctx, pls); err != nil {
-		return PlaylistTree{}, err
-	}
 	for i, r := range rows {
 		out.Playlists[i] = TreePlaylist{
-			Playlist: s.m.libPlaylist(pls[i]), FolderID: r.FolderID, Position: int(r.FolderPosition),
-			CanDelete: r.CanDelete != 0, Favorited: r.Favorited != 0,
+			Playlist: s.m.libPlaylist(r.Playlist), FolderID: r.FolderID, Position: r.Position,
+			CanDelete: r.CanDelete, Favorited: r.Favorited,
 		}
 	}
 	return out, nil
@@ -279,7 +246,7 @@ func (s *PlaylistsService) expand(ctx context.Context, items []PlaylistItem) (re
 			if err != nil {
 				return nil, nil, err
 			}
-			addSongs(s.m.libSongs(songs))
+			addSongs(mapSlice(songs, s.m.libSong))
 		case it.Kind == kindAlbum && it.Source == SourceCatalog:
 			a, err := applemusic.AMPResource[applemusic.Album](ctx, s.e.API, s.e.Storefront(), applemusic.TypeAlbums, it.ID,
 				applemusic.AMPQuery{Include: []string{"tracks"}})
@@ -722,10 +689,8 @@ func (s *PlaylistsService) refreshPinsQuietly() {
 }
 
 func requirePinnable(id string) error {
-	for _, p := range []string{"i.", "l.", "r.", "p."} {
-		if strings.HasPrefix(id, p) {
-			return nil
-		}
+	if applemusic.IsLibrarySongID(id) || applemusic.IsLibraryAlbumID(id) || applemusic.IsLibraryArtistID(id) || applemusic.IsLibraryPlaylistID(id) {
+		return nil
 	}
 	return fmt.Errorf("%w: only library items can be pinned (%q)", ErrInvalidArgument, id)
 }
@@ -776,19 +741,19 @@ func (s *PlaylistsService) SetPinAction(ctx context.Context, id, action string) 
 // album's, playlist's or artist's songs, from SQLite.
 func (s *PlaylistsService) PinTracks(ctx context.Context, id string) ([]Song, error) {
 	switch {
-	case strings.HasPrefix(id, "i."):
+	case applemusic.IsLibrarySongID(id):
 		so, err := s.e.Library.Song(ctx, id)
 		if err != nil {
 			return nil, err
 		}
 		return []Song{s.m.libSong(so)}, nil
-	case strings.HasPrefix(id, "l."):
+	case applemusic.IsLibraryAlbumID(id):
 		_, songs, err := s.e.Library.Album(ctx, id)
-		return s.m.libSongs(songs), err
-	case strings.HasPrefix(id, "r."):
+		return mapSlice(songs, s.m.libSong), err
+	case applemusic.IsLibraryArtistID(id):
 		_, _, songs, err := s.e.Library.Artist(ctx, id)
-		return s.m.libSongs(songs), err
-	case isLibraryPlaylist(id):
+		return mapSlice(songs, s.m.libSong), err
+	case applemusic.IsLibraryPlaylistID(id):
 		d, err := s.libraryDetail(ctx, id)
 		return d.Tracks, err
 	}

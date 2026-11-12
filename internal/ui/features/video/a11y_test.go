@@ -119,7 +119,7 @@ func TestA11yPage(t *testing.T) {
 					t.Errorf("the tree has role %d %q", n.role, n.label)
 				}
 			}
-			inOrder(t, walkLabels(t, p.tt, 100), tc.tab...)
+			access.InOrder(t, walkLabels(t, p.tt, 100), tc.tab...)
 		})
 	}
 }

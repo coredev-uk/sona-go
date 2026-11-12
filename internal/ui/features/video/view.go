@@ -60,10 +60,7 @@ type viewState struct {
 
 	// The seek bar while the pointer drags it: the position shown, committed
 	// when the pointer lets go.
-	seek struct {
-		active bool
-		secs   float64
-	}
+	seek kit.SeekDrag
 
 	// Pictures that stopped coming while playing say "Buffering…".
 	pics  uint64
@@ -74,8 +71,6 @@ type viewState struct {
 
 	// own: a slider has the focus this frame, and keeps the arrows.
 	own bool
-
-	status string // what the status region said last, announced once
 }
 
 // layerOpen is the shell's: the view covers the window while it is open and a
@@ -225,12 +220,6 @@ func (v *video) screen(c *ui.Context, s services.PlaybackState, fresh bool) {
 			status = i18n.T("Buffering…")
 		}
 	}
-	if status != st.status {
-		st.status = status
-		if status != "" {
-			c.Announce(status)
-		}
-	}
 
 	// The controls: shown while paused, loading, on a problem, or while one
 	// has the keyboard focus (Tab never lands on an unseen control); else
@@ -332,10 +321,10 @@ func (v *video) keys(c *ui.Context, root ui.Element, volume bool) {
 	// and keeps its arrows, so the view takes Space there and lets it go.
 	onView := root.Focused() || !root.FocusWithin()
 	if (onView || st.own) && pressed(0, ui.KeySpace) && onView {
-		v.toggle()
+		v.tr.Toggle()
 	}
 	if pressed(0, ui.KeyK) || pressed(ui.Shift, ui.KeyK) {
-		v.toggle()
+		v.tr.Toggle()
 	}
 	if !st.own && pressed(0, ui.KeyLeft) {
 		v.seekBy(-seekStep, now)
@@ -348,7 +337,7 @@ func (v *video) keys(c *ui.Context, root ui.Element, volume bool) {
 	}
 	if pressed(0, ui.KeyM) || pressed(ui.Shift, ui.KeyM) {
 		if volume {
-			v.toggleMute()
+			v.tr.ToggleMute()
 		}
 	}
 	if pressed(0, ui.KeyEscape) {
@@ -363,9 +352,7 @@ func (v *video) keys(c *ui.Context, root ui.Element, volume bool) {
 
 // text is a single line in one of the theme's type styles.
 func text(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).
-		LetterSpacing(t.Tracking).SingleLine().MinWidth(0)
+	return theme.Text(c, s, style).SingleLine().MinWidth(0)
 }
 
 // control notes a control's keyboard focus for the idle rule and returns it.
@@ -410,14 +397,13 @@ func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, stat
 	head.Children(func() {
 		ui.Column(c).Grow(1).Basis(0).MinWidth(0).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).MinWidth(0).Children(func() {
-				h := theme.Current().Type["heading"]
-				if path := "/music-video/" + id; v.hasRoute(path) {
+				if path := "/music-video/" + id; v.env.Routed(path) {
 					// The heading holds the link (MyGo v0.8.1 allows it), so
 					// the title is on the headings list and still opens.
 					ui.Row(c.Key("title-h")).Shrink(1).MinWidth(0).Role(ui.RoleHeading).Level(1).Children(func() {
 						l := ui.Link(c.Key("title"), "", "").Shrink(1).MinWidth(0)
 						l.Children(func() {
-							ui.Text(c, cur.Name).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
+							theme.StyleText(ui.Text(c, cur.Name), "heading").
 								TextColor(theme.C("ink")).SingleLine()
 						})
 						control(l, focusVisible)
@@ -432,8 +418,11 @@ func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, stat
 				if pr == nil {
 					kit.SDMark(c)
 				}
-				// A new paragraph per state, so each is announced.
-				ui.Row(c.Key("status")).Shrink(0).AlignItems(ui.Center).Role(ui.RoleStatus).Children(func() {
+				// A status reads its text when that changes; the frame the
+				// view opens in, which builds it with its first text, says it.
+				row := ui.Row(c.Key("status")).Shrink(0).AlignItems(ui.Center).Role(ui.RoleStatus)
+				kit.AnnounceMounted(c, row, status)
+				row.Children(func() {
 					if status == "" {
 						return
 					}
@@ -443,7 +432,7 @@ func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, stat
 					})
 				})
 			})
-			if path := "/artist/" + cur.ArtistID; cur.ArtistID != "" && v.hasRoute(path) {
+			if path := "/artist/" + cur.ArtistID; cur.ArtistID != "" && v.env.Routed(path) {
 				l := ui.Link(c.Key("artist"), "", "").MinWidth(0)
 				l.Children(func() { text(c, cur.Artist, "sub").TextColor(theme.C("ink-muted")) })
 				control(l, focusVisible)
@@ -537,15 +526,14 @@ func (v *video) problemBox(c *ui.Context, cur *services.QueueItem, pr *problem) 
 			// The message is the alert, read as it appears; the ways out
 			// under it are not.
 			ui.Column(c.Key("alert")).Role(ui.RoleAlert).Label(pr.title).Children(func() {
-				t := theme.Current().Type["label"]
-				ui.Text(c, pr.title).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).TextColor(theme.C("ink"))
+				theme.StyleText(ui.Text(c, pr.title), "label").TextColor(theme.C("ink"))
 				ui.Text(c, pr.detail).TextColor(theme.C("ink-muted")).FontSize(theme.Current().Type["sub"].Size).Margin(2, 0, 0, 0)
 			})
 			ui.Row(c).Margin(12, 0, 0, 0).Wrap().Gap(8).AlignItems(ui.Center).Children(func() {
 				v.watchInAppleMusic(c, id)
 				if pr.retry {
 					if kit.Button(c.Key("retry"), i18n.T("Try again"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}).Clicked() {
-						v.toggle()
+						v.tr.Toggle()
 					}
 				}
 			})
@@ -575,21 +563,15 @@ func (v *video) footer(c *ui.Context, s services.PlaybackState, caps services.Pl
 			ui.Box(c).Grow(1).Basis(0).Height(1)
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 				if control(kit.IconButton(c.Key("prev"), "skip-back", i18n.T("Previous"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Filled: true, Disabled: !s.Controls.Previous}), focusVisible).Clicked() {
-					v.previous()
+					v.tr.Prev()
 				}
-				icon, name := "play", i18n.T("Play")
-				switch {
-				case loading:
-					icon = "loader-circle"
-				case playing:
-					icon, name = "pause", i18n.T("Pause")
-				}
+				icon, name := kit.PlayPauseIcon(s.State)
 				disc := kit.Button(c.Key("play"), "", kit.ButtonOpts{Variant: kit.Play, Size: kit.SizeLG, Icon: icon, Spin: loading, Filled: !loading, A11yLabel: name}).Size(44, 44)
 				if control(disc, focusVisible).Clicked() {
-					v.toggle()
+					v.tr.Toggle()
 				}
 				if control(kit.IconButton(c.Key("next"), "skip-forward", i18n.T("Next"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Filled: true, Disabled: !s.Controls.Next}), focusVisible).Clicked() {
-					v.next()
+					v.tr.Next()
 				}
 			})
 			ui.Row(c).Grow(1).Basis(0).Justify(ui.End).AlignItems(ui.Center).Gap(4).Children(func() {
@@ -607,11 +589,7 @@ func (v *video) footer(c *ui.Context, s services.PlaybackState, caps services.Pl
 func (v *video) seekBar(c *ui.Context, s services.PlaybackState, playing bool, focusVisible *bool) {
 	st := &v.view
 	dur := time.Duration(s.DurationMs) * time.Millisecond
-	pos := v.env.Play.Position()
-	if st.seek.active {
-		pos = time.Duration(st.seek.secs * float64(time.Second))
-	}
-	pos = min(pos, dur)
+	pos := min(st.seek.Pos(v.env.Play.Position()), dur)
 	if dur <= 0 {
 		pos = 0
 	}
@@ -627,33 +605,21 @@ func (v *video) seekBar(c *ui.Context, s services.PlaybackState, playing bool, f
 			Range:     theme.C("amber"),
 		})
 		control(v.owns(sl), focusVisible)
-		if sl.Changed() {
-			st.seek.active, st.seek.secs = true, secs
-		}
-		if kit.SliderCommitted(sl) && st.seek.active {
-			st.seek.active = false
-			v.seekTo(time.Duration(st.seek.secs*float64(time.Second)), c.Now())
+		if to, ok := st.seek.Update(sl, secs); ok {
+			v.tr.SeekTo(to, c.Now())
 		}
 		left := i18n.FormatDuration(max(dur-pos, 0))
 		text(c, "−"+left, "meta").Width(48).Shrink(0).TextColor(theme.C("ink-muted")).FontFeatures("tnum").
 			Label(i18n.T("{left} left", "left", left))
 	})
-	if playing && !st.seek.active {
-		c.After(250 * time.Millisecond) // the position ticks
-	}
+	st.seek.Tick(c, playing)
 }
 
 // volume is the mute button and the volume slider.
 func (v *video) volume(c *ui.Context, s services.PlaybackState, focusVisible *bool) {
-	icon, name := "volume-2", i18n.T("Mute")
-	switch {
-	case s.Volume == 0:
-		icon, name = "volume-x", i18n.T("Unmute")
-	case s.Volume < 0.5:
-		icon = "volume-1"
-	}
+	icon, name := kit.VolumeIcon(s.Volume)
 	if control(kit.IconButton(c.Key("mute"), icon, name, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}), focusVisible).Clicked() {
-		v.toggleMute()
+		v.tr.ToggleMute()
 	}
 	pct := s.Volume * 100
 	sl := kit.Slider(c.Key("volume"), &pct, 0, 100, kit.SliderOpts{
@@ -661,6 +627,6 @@ func (v *video) volume(c *ui.Context, s services.PlaybackState, focusVisible *bo
 	})
 	control(v.owns(sl), focusVisible)
 	if sl.Changed() {
-		v.setVolume(pct / 100)
+		v.tr.SetVolume(pct / 100)
 	}
 }

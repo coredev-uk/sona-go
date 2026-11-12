@@ -129,11 +129,6 @@ func (c *CDM) ResetVideoDecoder(ctx context.Context) error {
 	return c.do(ctx, func() { C.sona_cdm_video_reset(c.ptr) })
 }
 
-// DeinitializeVideoDecoder releases the video decoder.
-func (c *CDM) DeinitializeVideoDecoder(ctx context.Context) error {
-	return c.do(ctx, func() { C.sona_cdm_video_deinit(c.ptr) })
-}
-
 // DecodeVideo decrypts and decodes one access unit b (Buffer fields as for
 // Decrypt; Out is unused, and a nil KeyID feeds a clear unit). A nil b
 // drains the decoder at the end of the stream: call it until

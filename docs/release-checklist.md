@@ -123,7 +123,7 @@ and Windows development builds in ci.yml never hold a release up), then the
 | Job       | Runner        | Builds                                                             | Smoke test in the job                                                                 |
 | --------- | ------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
 | `linux`   | ubuntu-26.04  | the Linux packages (`build/linux/release/release.sh`)              | each package on clean Ubuntu, Fedora and Arch containers                              |
-| `macos`   | macos-15      | `Sona-<v>-macos-arm64.dmg`, `sona-<v>-darwin-arm64.tar.gz` (`build/darwin/bundle.sh`) | `build/darwin/smoke.sh`: `--version`, first paint, motion artwork decode and a preview played from the bundle's GStreamer, no `/nix`, `/opt/homebrew` or `/Library/Frameworks` paths, `codesign --verify` |
+| `macos`   | macos-15      | `Sona-<v>-macos-arm64.dmg`, `sona-<v>-darwin-arm64.tar.gz` (`build/darwin/bundle.sh`) | `build/darwin/smoke.sh`: `--version`, first paint, no video plugin in the bundle and a preview played from the bundle's GStreamer (`avdec_aac`), no `/nix`, `/opt/homebrew` or `/Library/Frameworks` paths, `codesign --verify` |
 | `windows` | windows-2025  | `Sona-<v>-windows-x64.zip`, `Sona-<v>-windows-x64-setup.exe`, `sona-<v>-windows-amd64.tar.gz` (`build/windows/package.sh`) | `build/windows/smoke.sh` with GStreamer off `PATH`: layout (shim, GStreamer runtime and plugins, no CDM), the zip's `--version`, first paint and audio stack from the bundle, two previews played to `fakesink`, the update archive's files, silent install, files and `music:`/`itms:` keys; silent uninstall, which also removes the playback sandbox's AppContainer profile and package folder (checked gone); the zip's `sona.exe --remove-sandbox` takes the sandbox's entry off its folder |
 | `publish` | ubuntu-26.04  | `update-darwin-arm64.json`, `update-windows-amd64.json`, `SHA256SUMS` | checks the Linux checksums; attests the manifests and the combined `SHA256SUMS`       |
 
@@ -143,7 +143,7 @@ and Windows development builds in ci.yml never hold a release up), then the
   `build/darwin/install-gstreamer.sh` (sudo, installs under `/Library/Frameworks`;
   or `--extract DIR` for no install and `GSTREAMER_ROOT` pointing into DIR),
   then `build/darwin/bundle.sh bin/macos`, then `build/darwin/smoke.sh bin/macos`
-  (build with `SONA_SMOKE_TOOLS=1` for the motion and preview checks). On a Mac
+  (build with `SONA_SMOKE_TOOLS=1` for the preview check). On a Mac
   whose Xcode tools cannot link, build inside devenv with `SONA_DEVENV_BUILD=1`
   (it points devenv's copies of macOS's own libraries back at `/usr/lib`;
   CI never sets it).
@@ -159,26 +159,19 @@ and Windows development builds in ci.yml never hold a release up), then the
   and the plugin scanner import (a closure over `objdump -p`'s import lists,
   the MinGW runtime's `libwinpthread` and `libgcc` included), the plugins
   playback uses in `lib\gstreamer-1.0\` (`required` and `optional` in
-  `package.sh`; the UI process and the CDM host child load these), the video
-  plugins motion artwork uses in `lib\gstreamer-video\` (`video`: only the UI
-  process loads these, so a folder beside the first, never inside it: GStreamer
-  scans plugin folders recursively),
+  `package.sh`; audio only: motion artwork is Media Foundation's, so no video
+  plugin is packaged and `smoke.sh` fails if one is),
   `libexec\gstreamer-1.0\gst-plugin-scanner.exe` and `licenses\`. The Widevine
   CDM is never in a package: `package.sh` and `smoke.sh` fail if any
   `widevinecdm*` file is. At start the app points GStreamer at the bundle
   (`internal/playback/gstbundle`). To add a plugin, add it to `package.sh`;
   a missing `required` one fails the build. `smoke.sh` runs with the build's
   GStreamer off `PATH` and no `GST_*` variable: `sona.exe` must paint and
-  ready the audio stack (the CDM host child scans the bundled plugins, and its
-  plugin registry must list none of the video plugins), and
+  ready the audio stack (the CDM host child scans the bundled plugins), and
   `smoke-tools\playspike.exe` (built beside the package when
   `SONA_SMOKE_TOOLS=1`) plays two 30-second previews to `fakesink` with no
-  token and no CDM. Motion artwork decodes there too: `smoke-tools\media.test.exe`
-  (`internal/ui/media`'s tests, built with the same `SONA_SMOKE_TOOLS=1`) runs
-  beside `sona.exe`, on the bundle's plugins alone (it imports `gstbundle`, as
-  `sona.exe` does), and must decode and loop a generated H.264 clip, which the
-  build's own `gst-launch-1.0` makes (`SONA_FIXTURE_GST_BIN`, since the
-  package has no encoder). To build one by hand in Git
+  token and no CDM. Motion artwork needs nothing of the package (Media Foundation plays
+  it); the windows job of `ci.yml` plays a generated clip through it. To build one by hand in Git
   Bash: `build/windows/package.sh OUTDIR` fetches and installs GStreamer and
   builds the shim itself unless `GSTREAMER_ROOT`, `PKG_CONFIG_PATH` and
   `SONA_CDM_SHIM` are set (as the CI action does); `SONA_SMOKE_TOOLS=1

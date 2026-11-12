@@ -14,6 +14,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 // coverPrefix starts a template for a cover the user chose from a file:
@@ -44,12 +46,6 @@ var ErrCoverImage = errors.New("artwork: unusable cover image")
 
 // ErrNoCoverDir reports a Cache built without Options.CoverDir.
 var ErrNoCoverDir = errors.New("artwork: covers are not stored here")
-
-// IsCover reports whether tmpl is a valid template of a stored cover.
-func IsCover(tmpl string) bool {
-	rest, ok := strings.CutPrefix(tmpl, coverPrefix)
-	return ok && validKey(rest)
-}
 
 // parseCover validates the part of a cover template after its prefix.
 func parseCover(rest string) (string, string, error) {
@@ -94,20 +90,8 @@ func (c *Cache) SaveCover(r io.Reader) (string, error) {
 	if _, err := os.Stat(path); err == nil {
 		return tmpl, nil
 	}
-	f, err := os.CreateTemp(c.covers, ".tmp-*")
-	if err != nil {
-		return "", fmt.Errorf("artwork: %w", err)
-	}
-	_, werr := f.Write(jpg)
-	if cerr := f.Close(); werr == nil {
-		werr = cerr
-	}
-	if werr == nil {
-		werr = os.Rename(f.Name(), path)
-	}
-	if werr != nil {
-		_ = os.Remove(f.Name())
-		return "", fmt.Errorf("artwork: store cover: %w", werr)
+	if err := fsutil.WriteFileAtomic(path, jpg, 0o600); err != nil {
+		return "", fmt.Errorf("artwork: store cover: %w", err)
 	}
 	return tmpl, nil
 }
@@ -284,7 +268,7 @@ func (c *Cache) RemoveCovers(keep []string) (int, error) {
 	for _, de := range des {
 		name, ok := strings.CutSuffix(de.Name(), ".jpg")
 		if !ok || !validKey(name) || kept[coverPrefix+name] {
-			if strings.HasPrefix(de.Name(), ".tmp-") {
+			if isTemp(de.Name()) {
 				_ = os.Remove(filepath.Join(c.covers, de.Name()))
 			}
 			continue

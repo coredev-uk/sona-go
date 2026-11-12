@@ -2,7 +2,6 @@ package kit
 
 import (
 	"hash/maphash"
-	"slices"
 	"strconv"
 	"time"
 
@@ -73,13 +72,13 @@ func (s *TrackSortState) Toggle(key string) {
 	}
 }
 
-// SongIsCurrent is v0.2.0's isCurrent: the queue's current item is the song
-// by ID, or by catalogue ID.
-func SongIsCurrent(s *services.Song, currentID, currentCatalogID string) bool {
-	if s == nil || (currentID == "" && currentCatalogID == "") {
+// SongIsCurrent is v0.2.0's isCurrent: the queue's current item (nil: none)
+// is the song by ID, or by catalogue ID.
+func SongIsCurrent(s *services.Song, cur *services.QueueItem) bool {
+	if s == nil || cur == nil || (cur.ID == "" && cur.CatalogID == "") {
 		return false
 	}
-	return currentID == s.ID || (s.CatalogID != "" && currentCatalogID == s.CatalogID)
+	return cur.ID == s.ID || (s.CatalogID != "" && cur.CatalogID == s.CatalogID)
 }
 
 // TrackListOpts are the options of TrackList.
@@ -118,9 +117,10 @@ type TrackListOpts struct {
 	// Heading is a heading before a row, below any disc heading: a
 	// classical album's works. Virtual lists show none.
 	Heading func(s *services.Song, prev *services.Song) string
-	// Current says whether a song is the one playing (SongIsCurrent), and
-	// Playing whether it plays (else it is paused).
-	Current func(s *services.Song) bool
+	// Current is the queue's current item (nil: none): its song's row is
+	// marked (SongIsCurrent), and Playing says whether it plays (else it is
+	// paused).
+	Current *services.QueueItem
 	Playing bool
 	// Restricted: the account may not play explicit songs.
 	Restricted bool
@@ -157,14 +157,10 @@ type TrackListState struct {
 	hash   uint64
 	hashed bool
 
-	top float32 // the body's offset in its pane's content
+	virtualRows // the body's offset in its pane's content
 	// workH is the laid-out height of each work heading, by the row it
 	// precedes, as of the last frame.
-	workH map[int]float32
-	// drawTop is that offset as the last paint saw it (one frame's position
-	// and scroll offset together); drawn: there was a paint.
-	drawTop  float32
-	drawn    bool
+	workH    map[int]float32
 	reported [2]int
 	// The highlighted song: its row once found, and whether the list has
 	// been scrolled to it.
@@ -261,7 +257,8 @@ func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *ser
 	if f := st.nav.Focus(); count > 0 && f >= count {
 		st.nav.SetFocus(count - 1)
 	}
-	st.nav.Page = max(1, int(windowHeight(c)/TrackRowHeight)-2)
+	_, winH := c.Size()
+	st.nav.Page = max(1, int(winH/TrackRowHeight)-2)
 	st.nav.Ends = true
 	st.nav.ScrollTo = nil
 
@@ -274,9 +271,7 @@ func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *ser
 		root.Draw(func(_ *ui.Painter, r ui.Rect) {
 			// Paint runs after this frame's layout: the box and the scroll
 			// offset belong to the same frame.
-			top := r.Y - o.Pane.Bounds().Y + o.Pane.Pos.Y + trackHeaderHeight + 4
-			if !st.drawn || top != st.drawTop {
-				st.drawTop, st.drawn = top, true
+			if st.paint(r.Y - o.Pane.Bounds().Y + o.Pane.Pos.Y + trackHeaderHeight + 4) {
 				c.Invalidate()
 			}
 		})
@@ -285,35 +280,24 @@ func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *ser
 		st.header(c, &o, tk)
 		body := ui.Column(c.Key("body")).Padding(4, 0, 0, 0)
 		body.Children(func() {
-			var built []int
 			if o.Pane != nil {
-				if st.drawn {
-					st.top = st.drawTop
-				} else {
-					st.top = root.Bounds().Y - o.Pane.Bounds().Y + o.Pane.Pos.Y + trackHeaderHeight + 4
-				}
+				st.origin(root.Bounds(), o.Pane, trackHeaderHeight+4)
 			}
+			from, to := 0, count-1
 			if virtual {
-				built = st.window(o.Pane, count)
+				from, to = st.window(o.Pane, count, TrackRowHeight, trackOverscan, TrackRowHeight*20)
 				st.nav.ScrollTo = func(i int) { st.scrollTo(o.Pane, i, false, 0) }
-			} else {
-				built = make([]int, count)
-				for i := range built {
-					built[i] = i
-				}
 			}
 			winFirst, winLast := 0, count-1
-			if len(built) > 0 {
-				winFirst, winLast = built[0], built[len(built)-1] // not the dragged row's
+			if from <= to {
+				winFirst, winLast = from, to // not the dragged row's
 			}
-			if i, ok := DragPinned(st); ok && i < count && !containsInt(built, i) {
-				built = append(built, i)
-				slices.Sort(built)
-			}
+			pinned, ok := DragPinned(st)
+			built := spanOf(from, to, count, pinned, ok)
 			st.highlight(c, &o, count, at, st.drawn || root.Bounds().H > 0)
 			multiDisc := o.Discs && !virtual && st.multiDisc(count, at)
 			prev := -1
-			for _, i := range built {
+			built.each(func(i int) {
 				if gap := i - prev - 1; gap > 0 {
 					ui.Box(c.Key(gapKey(prev))).Height(float32(gap) * TrackRowHeight)
 				}
@@ -323,7 +307,7 @@ func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *ser
 					st.headings(c, &o, i, s, at, multiDisc)
 				}
 				st.row(c, &o, i, s, tk)
-			}
+			})
 			if gap := count - 1 - prev; virtual && gap > 0 {
 				ui.Box(c.Key(gapKey(count))).Height(float32(gap) * TrackRowHeight)
 			}
@@ -337,53 +321,15 @@ func TrackList(c *ui.Context, st *TrackListState, count int, at func(i int) *ser
 	})
 }
 
-func containsInt(s []int, v int) bool {
-	for _, x := range s {
-		if x == v {
-			return true
-		}
-	}
-	return false
-}
-
-func windowHeight(c *ui.Context) float32 {
-	_, h := c.Size()
-	return h
-}
-
-// window works out the rows of a virtual list to build: those in view and
-// trackOverscan beyond.
-func (st *TrackListState) window(p *Pane, count int) []int {
-	pane := p.Bounds()
-	y := p.Pos.Y - st.top
-	h := pane.H
-	if h <= 0 {
-		h = TrackRowHeight * 20
-	}
-	first := max(0, int(y/TrackRowHeight))
-	last := min(count-1, int((y+h)/TrackRowHeight))
-	from, to := max(0, first-trackOverscan), min(count-1, last+trackOverscan)
-	out := make([]int, 0, max(0, to-from+1))
-	for i := from; i <= to; i++ {
-		out = append(out, i)
-	}
-	return out
-}
-
 // scrollTo scrolls the pane as little as shows row i, or centres it; above is
 // the height of the disc and work headings over the row.
 func (st *TrackListState) scrollTo(p *Pane, i int, center bool, above float32) {
-	pane := p.Bounds()
 	top := st.top + float32(i)*TrackRowHeight + above
-	bottom := top + TrackRowHeight
-	switch {
-	case center && pane.H > 0:
+	if pane := p.Bounds(); center && pane.H > 0 {
 		p.Pos.Y = max(0, top+TrackRowHeight/2-pane.H/2)
-	case top < p.Pos.Y:
-		p.Pos.Y = max(0, top)
-	case pane.H > 0 && bottom > p.Pos.Y+pane.H:
-		p.Pos.Y = bottom - pane.H
+		return
 	}
+	st.scrollIntoView(p, top, top+TrackRowHeight, 0)
 }
 
 // highlight finds the highlighted song once it has loaded, gives it the
@@ -709,7 +655,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 	cols := o.Columns
 	withheld := o.Restricted && s.Explicit
 	disabled := !s.Playable || withheld
-	current := o.Current != nil && o.Current(s)
+	current := SongIsCurrent(s, o.Current)
 	run := st.Sel.Run(i)
 	highlighted := i == st.hlIndex && o.Highlight != ""
 	key := st.rows.Key(i)
@@ -913,7 +859,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 		}
 	}
 	if o.Menus != nil && key != "" {
-		collectionsMenu(&st.Sel, o.Menus, src, target, i)
+		o.Menus.OpenFor(&st.Sel, src, src, target, i)
 	}
 }
 

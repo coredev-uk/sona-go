@@ -117,24 +117,21 @@ func (p *playlists) coverDialog(c *ui.Context) {
 	title := i18n.T("Playlist cover")
 	// Where the cover lives is part of the choice: said where it is made.
 	description := i18n.T("Apple Music can't keep a playlist cover from here, so your choice stays on this computer and shows in Sona only.")
-	kit.Dialog(c.Key("playlist-dialog"), &d.open, kit.DialogOpts{
-		Title: title, Description: description, HideHeader: true, MaxWidth: coverDialogW, Padding: 24, Gap: 20,
-	}, func() {
-		dialogHeader(c, title, description, false)
+	p.form(c, coverDialogW, title, description, func() {
 		switch {
 		case q.HasData:
 			p.coverChoices(c, q.Data)
 			p.coverUpload(c, q.Data)
 		case q.Err != nil:
 			ui.Column(c.Key("failed")).FillWidth().Gap(12).AlignItems(ui.Start).Children(func() {
-				dialogText(c.Key("message"), i18n.T("Couldn't load the covers. {reason}", "reason", failText(q.Err)), "secondary").
+				theme.Text(c.Key("message"), i18n.T("Couldn't load the covers. {reason}", "reason", i18n.ErrorText(services.CodeOf(q.Err))), "secondary").
 					TextColor(theme.C("ink-muted")).Role(ui.RoleStatus)
 				if kit.Button(c.Key("retry"), i18n.T("Try again"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM}).Clicked() {
 					p.env.Queries.Invalidate(keyCovers(s.id))
 				}
 			})
 		default:
-			dialogText(c.Key("loading"), i18n.T("Loading covers…"), "secondary").TextColor(theme.C("ink-muted")).Role(ui.RoleStatus)
+			theme.Text(c.Key("loading"), i18n.T("Loading covers…"), "secondary").TextColor(theme.C("ink-muted")).Role(ui.RoleStatus)
 		}
 		kit.DialogFooter(c, &d.open, false, func() {
 			if kit.Button(c.Key("done"), i18n.T("Done"), kit.ButtonOpts{}).Clicked() {
@@ -211,7 +208,7 @@ func (p *playlists) coverChoices(c *ui.Context, data services.PlaylistCovers) {
 			return
 		}
 	}
-	dialogText(c.Key("no-designs"), i18n.T("Apple Music's designs show once it makes this playlist's cover: when the playlist has songs and no photo of its own."), "secondary").
+	theme.Text(c.Key("no-designs"), i18n.T("Apple Music's designs show once it makes this playlist's cover: when the playlist has songs and no photo of its own."), "secondary").
 		TextColor(theme.C("ink-muted"))
 }
 
@@ -236,7 +233,7 @@ func (p *playlists) coverUpload(c *ui.Context, data services.PlaylistCovers) {
 		"maxMiB", data.Limits.MaxBytes>>20, "maxMpx", data.Limits.MaxMpx, "minEdge", data.Limits.MinEdge)
 	ui.Column(c.Key("upload")).FillWidth().Gap(10).AlignItems(ui.Start).Children(func() {
 		if !data.CanUpload {
-			dialogText(c.Key("unavailable"), i18n.T("Choosing an image needs a file chooser, and this system has none."), "secondary").
+			theme.Text(c.Key("unavailable"), i18n.T("Choosing an image needs a file chooser, and this system has none."), "secondary").
 				TextColor(theme.C("ink-muted"))
 			p.coverError(c)
 			return
@@ -261,7 +258,7 @@ func (p *playlists) coverUpload(c *ui.Context, data services.PlaylistCovers) {
 			}
 		})
 		// The limits stay in view beside the button, not behind a failure.
-		dialogText(c.Key("limits"), limits, "meta").TextColor(theme.C("ink-faint"))
+		theme.Text(c.Key("limits"), limits, "meta").TextColor(theme.C("ink-faint"))
 		p.coverError(c)
 	})
 }
@@ -273,7 +270,7 @@ func (p *playlists) coverError(c *ui.Context) {
 	if d.coverErr == "" {
 		return
 	}
-	dialogText(c.Key("error"), d.coverErr, "secondary").TextColor(theme.C("ink")).Role(ui.RoleAlert)
+	theme.Text(c.Key("error"), d.coverErr, "secondary").TextColor(theme.C("ink")).Role(ui.RoleAlert)
 }
 
 // chooseCover applies option o as the open dialog's playlist's cover: the
@@ -352,7 +349,7 @@ func (p *playlists) coverDone(gen int, id string, got services.PlaylistCovers, e
 	}
 	if d.gen != gen {
 		if err != nil && what != "" {
-			p.fail(what, err)
+			kit.ToastFailure(what, err)
 		}
 		return
 	}
@@ -360,9 +357,9 @@ func (p *playlists) coverDone(gen int, id string, got services.PlaylistCovers, e
 	d.coverPick = ""
 	switch {
 	case err != nil && d.open:
-		d.coverErr = failText(err)
+		d.coverErr = i18n.ErrorText(services.CodeOf(err))
 	case err != nil && what != "":
-		p.fail(what, err)
+		kit.ToastFailure(what, err)
 	case err == nil:
 		d.coverSaid = said
 	}

@@ -17,7 +17,7 @@ func writeFile(t *testing.T, path, data string) {
 }
 
 func TestEveryIconParsesInMyGo(t *testing.T) {
-	names := IconNames()
+	names := iconNames()
 	if len(names) < 90 {
 		t.Fatalf("%d icons embedded", len(names))
 	}
@@ -96,4 +96,14 @@ func TestIconsDrawInAView(t *testing.T) {
 	if !tt.HasText("Songs") {
 		t.Error("view did not draw")
 	}
+}
+
+// iconNames lists the canonical names of every embedded icon.
+func iconNames() []string {
+	icons.once.Do(loadIconIndex)
+	out := make([]string, 0, len(icons.names))
+	for n := range icons.names {
+		out = append(out, n)
+	}
+	return out
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/egoist/mygo"
 
+	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/update"
@@ -39,14 +40,36 @@ func (mygoUpdater) Install(ctx context.Context, src *update.Source) error {
 	return up.Install(ctx, nil)
 }
 
-func (mygoUpdater) Relaunch() { mygo.App.Relaunch() }
+// Relaunch quits and starts the installed version the way the user has
+// Sona now (see relaunchArgs).
+func (mygoUpdater) Relaunch() { mygo.App.Relaunch(relaunchArgs(os.Args[1:])...) }
 
-// selfUpdater is the updater where Sona updates itself, else nil.
-func selfUpdater() *mygoUpdater {
-	if update.Target(runtime.GOOS, runtime.GOARCH) == "" {
-		return nil
+// relaunchArgs is what the instance that follows an update or a restore
+// starts with, given the arguments this one started with. MyGo's Relaunch
+// repeats those unless it is given others, but two kinds are about the start
+// and not about Sona:
+//
+//   - --hidden is how an autostarted instance began, with no window. The
+//     update was installed from Settings, so the user has the window open and
+//     is watching it: a restart that hid it would look like Sona quit.
+//   - an Apple Music link opened the album or playlist it names. The user has
+//     moved on since, and a restart that opened it again would take them back.
+//
+// Anything else is kept. With nothing to give while the instance did start
+// with arguments, ShownFlag stands in, as a call with no arguments would
+// repeat the old ones.
+func relaunchArgs(started []string) []string {
+	var keep []string
+	for _, a := range started {
+		if a == app.HiddenFlag || app.IsMusicURL(a) {
+			continue
+		}
+		keep = append(keep, a)
 	}
-	return &mygoUpdater{}
+	if len(keep) == 0 && len(started) > 0 {
+		return []string{app.ShownFlag}
+	}
+	return keep
 }
 
 // rollBackFailedUpdate runs first thing at start. A version that an update
@@ -81,11 +104,11 @@ func rollBackFailedUpdate(paths config.Paths, current string, log *slog.Logger) 
 	return true
 }
 
-// selfUpdaterDep is selfUpdater as the interface (a nil *mygoUpdater would
-// not be a nil services.SelfUpdater).
-func selfUpdaterDep() services.SelfUpdater {
-	if u := selfUpdater(); u != nil {
-		return u
+// selfUpdater is the updater where Sona updates itself, else a nil
+// interface (a nil *mygoUpdater would not be a nil services.SelfUpdater).
+func selfUpdater() services.SelfUpdater {
+	if update.Target(runtime.GOOS, runtime.GOARCH) == "" {
+		return nil
 	}
-	return nil
+	return &mygoUpdater{}
 }

@@ -45,7 +45,7 @@ func (s *search) recentShelf(c *ui.Context, pg *pageView, scope string) bool {
 			s.clearRecent()
 		}
 	}}, func() {
-		cols := pg.columns(260, 24)
+		cols, _ := kit.CoverColumns(pg.Inner(), 260)
 		grid(c, "recent", title, cols, 24, 4, len(entries), func(i int) {
 			s.recentEntry(c, pg, entries[i], scope)
 		})
@@ -82,21 +82,18 @@ func (s *search) recentEntry(c *ui.Context, pg *pageView, e services.RecentSearc
 		onOpen = func() { s.rememberItem(it, e.Source) }
 		art = func() { kit.Artwork(c, s.env.Art, e.Art, 40, kit.ArtOpts{Round: kit.ItemRound(it), Edge: true}) }
 	}
-	linked := e.Kind == services.RecentTerm || (s.env.HasRoute != nil && s.env.HasRoute(path))
+	linked := e.Kind == services.RecentTerm || (s.env.Routed(path))
 
 	row := ui.Row(c.Key(e.Key)).FillWidth().AlignItems(ui.Center).Radius(tk.Radius["md"]).PaddingEnd(4)
-	shown := row.Hovered() || row.FocusWithin()
-	if shown {
-		row.Background(theme.C("hover"))
-	}
+	shown := kit.HoverRow(row)
 	row.Children(func() {
 		body := func() {
 			art()
 			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Margin(0, 0, 0, 12).Children(func() {
-				text(c, label, "body").TextColor(theme.C("ink")).SingleLine()
+				theme.Text(c, label, "body").TextColor(theme.C("ink")).SingleLine()
 				if e.Kind != services.RecentTerm {
 					if meta := itemMeta(recentItem(e)); meta != "" {
-						text(c, meta, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+						theme.Text(c, meta, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 					}
 				}
 			})

@@ -14,10 +14,11 @@
 #   GSTREAMER_ROOT  the framework's Versions/1.0 directory
 #                   (default /Library/Frameworks/GStreamer.framework/Versions/1.0)
 #   VERSION         default: the VERSION file
-#   SONA_SMOKE_TOOLS=1   also build OUTDIR/smoke-tools (playspike, media.test) for smoke.sh
-#   UPDATE_FEED, UPDATE_KEY   linked into the binary for self-updates (the
-#                   release job sets them; unset = updates off)
-#   SONA_LASTFM_KEY, SONA_LASTFM_SECRET, SONA_DISCORD_CLIENT_ID   as build/linux
+#   SONA_SMOKE_TOOLS=1   also build OUTDIR/smoke-tools (playspike) for smoke.sh
+#   UPDATE_FEED, UPDATE_KEY, SONA_LASTFM_KEY, SONA_LASTFM_SECRET,
+#                   SONA_DISCORD_CLIENT_ID   linked in as build/ldflags.sh says
+#                   (in CI, with internal/update/update.pub committed, the
+#                   update feed of the latest release is linked without them)
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -30,11 +31,15 @@ gst=${GSTREAMER_ROOT:-/Library/Frameworks/GStreamer.framework/Versions/1.0}
 minos=$(tr -d '[:space:]' <"$here/MIN_MACOS")
 [[ -d $gst/lib/gstreamer-1.0 ]] || { echo "bundle: no GStreamer framework at $gst (build/darwin/install-gstreamer.sh)" >&2; exit 1; }
 
-# Plugins Sona uses: playback (decodebin, the preview and CDM host engines),
-# motion artwork (H.264/HEVC through vtdec or libav, videoconvert) and
-# osxaudiosink. required ones must exist; optional ones are kept when present.
+# Plugins Sona uses: playback (decodebin, the preview and CDM host engines:
+# AAC through libav's avdec_aac) and osxaudiosink. Motion artwork needs none of
+# GStreamer: AVFoundation plays it (MyGo's ui/video, internal/ui/media), so
+# the video plugins it once needed (videoconvertscale, videoparsersbad) and
+# applemedia (VideoToolbox's vtdec, AVFoundation's capture; its AudioToolbox
+# decoder atdec ranks below avdec_aac, which Sona names) are not bundled.
+# required ones must exist; optional ones are kept when present.
 required=(coreelements typefindfunctions playback app audioconvert audioresample volume audioparsers
-  isomp4 videoconvertscale videoparsersbad applemedia osxaudio libav)
+  isomp4 osxaudio libav)
 optional=(audiomixer audiorate autodetect videorate gio rawparse tcp)
 
 work=$(mktemp -d)
@@ -47,12 +52,7 @@ mkdir "$work/pc"
 for f in "$gst"/lib/pkgconfig/*.pc; do
   sed -e "s|/Library/Frameworks/GStreamer.framework/Versions/1.0|$gst|g" -e "s|\${pcfiledir}/../..|$gst|g" "$f" >"$work/pc/$(basename "$f")"
 done
-ldflags="-w -s -X main.version=$version -X github.com/egoist/mygo.production=1 -extldflags=-mmacosx-version-min=$minos"
-[[ -n ${UPDATE_FEED:-} ]] && ldflags+=" -X github.com/egoist/mygo.packageUpdateFeed=$UPDATE_FEED"
-[[ -n ${UPDATE_KEY:-} ]] && ldflags+=" -X github.com/egoist/mygo.packageUpdateKey=$UPDATE_KEY"
-[[ -n ${SONA_LASTFM_KEY:-} ]] && ldflags+=" -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey=$SONA_LASTFM_KEY"
-[[ -n ${SONA_LASTFM_SECRET:-} ]] && ldflags+=" -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret=$SONA_LASTFM_SECRET"
-[[ -n ${SONA_DISCORD_CLIENT_ID:-} ]] && ldflags+=" -X github.com/coredev-uk/sona-go/internal/discord.clientID=$SONA_DISCORD_CLIENT_ID"
+ldflags=$(VERSION=$version MACOSX_DEPLOYMENT_TARGET=$minos bash "$repo/build/ldflags.sh" --goos darwin --update darwin-arm64)
 gocmd() { # go ARGS...: with the framework and the deployment target
   (
     cd "$repo"
@@ -62,11 +62,10 @@ gocmd() { # go ARGS...: with the framework and the deployment target
   )
 }
 gocmd build -tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false -ldflags "$ldflags" -o "$work/sona" ./cmd/sona
-# smoke.sh also runs playspike and the motion decoder's tests against the
-# bundle's framework; they are built here (beside the bundle, never in it).
+# smoke.sh also runs playspike against the bundle's framework; it is built
+# here (beside the bundle, never in it).
 if [[ -n ${SONA_SMOKE_TOOLS:-} ]]; then
   gocmd build -tags sqlite_fts5 -trimpath -buildvcs=false -o "$work/playspike" ./cmd/playspike
-  gocmd test -c -tags sqlite_fts5 -o "$work/media.test" ./internal/ui/media
 fi
 
 # 2. The bundle.
@@ -129,7 +128,7 @@ fwpath() {
   esac
 }
 queue=("$fw"/lib/plugins/*.dylib "$fw/libexec/gst-plugin-scanner" "$work/sona")
-[[ -n ${SONA_SMOKE_TOOLS:-} ]] && queue+=("$work/playspike" "$work/media.test")
+[[ -n ${SONA_SMOKE_TOOLS:-} ]] && queue+=("$work/playspike")
 seen=" "
 for ((i = 0; i < ${#queue[@]}; i++)); do
   f=${queue[i]}
@@ -172,11 +171,9 @@ relocate "$app/Contents/MacOS/sona" @executable_path/../Frameworks/GStreamer/lib
 
 if [[ -n ${SONA_SMOKE_TOOLS:-} ]]; then
   mkdir -p "$out/smoke-tools"
-  for t in playspike media.test; do
-    relocate "$work/$t" @executable_path/../Sona.app/Contents/Frameworks/GStreamer/lib
-    cp "$work/$t" "$out/smoke-tools/$t"
-    codesign --force -s - "$out/smoke-tools/$t"
-  done
+  relocate "$work/playspike" @executable_path/../Sona.app/Contents/Frameworks/GStreamer/lib
+  cp "$work/playspike" "$out/smoke-tools/playspike"
+  codesign --force -s - "$out/smoke-tools/playspike"
 fi
 
 # The bundle must not point at a build machine.

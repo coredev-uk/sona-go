@@ -11,20 +11,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
-// inOrder fails the test unless want is a subsequence of got.
-func inOrder(t *testing.T, got, want []string) {
-	t.Helper()
-	i := 0
-	for _, g := range got {
-		if i < len(want) && g == want[i] {
-			i++
-		}
-	}
-	if i < len(want) {
-		t.Errorf("Tab reached %q, then not %q; the walk was %q", want[:i], want[i], got)
-	}
-}
-
 // walkLabels is the names of the Tab stops, in order.
 func walkLabels(t *testing.T, tt *uitest.Session, limit int) []string {
 	t.Helper()
@@ -160,7 +146,7 @@ func TestA11yPages(t *testing.T) {
 					t.Errorf("the tree has no role %d %q:\n%s", n.role, n.label, tr.Dump())
 				}
 			}
-			inOrder(t, walkLabels(t, r.tt, 100), tc.tab)
+			access.InOrder(t, walkLabels(t, r.tt, 100), tc.tab...)
 		})
 	}
 }
@@ -246,8 +232,8 @@ func TestA11yAgendaRovesBetweenALinkAndItsTickets(t *testing.T) {
 	if _, ok := tr.Find(ui.RoleMenuItem, "First Seller"); !ok {
 		t.Errorf("the menu lacks First Seller:\n%s", tr.Dump())
 	}
-	if n, ok := tr.Find(ui.RoleMenuButton, "Get tickets for Sample Singer"); !ok || !n.Has(access.Expanded) {
-		t.Errorf("the open menu's button does not say it is expanded:\n%s", tr.Dump())
+	if n, ok := tr.Find(ui.RoleMenuButton, "Get tickets for Sample Singer"); !ok || !n.Has(access.Expanded) || n.HasPopup != ui.PopupMenu {
+		t.Errorf("the open menu's button does not say it is expanded and opens a menu:\n%s", tr.Dump())
 	}
 	r.tt.Key(0, ui.KeyEscape)
 	r.tt.Drain()
@@ -312,7 +298,7 @@ func TestA11yLocationDialog(t *testing.T) {
 			t.Errorf("a city is %s", c)
 		}
 	}
-	inOrder(t, walkLabels(t, r.tt, 40), []string{"London, United Kingdom", "Manchester, United Kingdom", "Close"})
+	access.InOrder(t, walkLabels(t, r.tt, 40), "London, United Kingdom", "Manchester, United Kingdom", "Close")
 
 	// Typing narrows the list under its other name; a term nothing matches
 	// is announced once.
@@ -357,7 +343,7 @@ func TestA11yLocationDialogMarksTheChosenCity(t *testing.T) {
 	if n, ok := access.Read(t, r.tt.Tester).Find(ui.RoleButton, "Set location"); !ok || n.HasPopup != ui.PopupDialog {
 		t.Errorf("Set location opens a dialog and says so: %+v", n)
 	}
-	r.click("Set location")
+	r.tt.MustClick("Set location")
 	r.shows("Search cities", "Manchester")
 	tr := access.Read(t, r.tt.Tester)
 	var current []string

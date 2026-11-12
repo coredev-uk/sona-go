@@ -1,6 +1,8 @@
 package i18n
 
 import (
+	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	mygoi18n "github.com/egoist/mygo/i18n"
 )
 
@@ -8,6 +10,16 @@ import (
 // language: 0.42 is "42%" (v0.2.0's numberFormat({style: "percent"})).
 func FormatPercent(fraction float64) string {
 	return mygoi18n.FormatNumber(current.Load().format, fraction, mygoi18n.NumberOptions{Percent: true})
+}
+
+// CDMPercent is a running CDM download's progress as a percentage in the
+// shown language ("42%"), "" while its size is unknown.
+func CDMPercent(s services.CDMStatus) string {
+	f, ok := store.CDMProgress(s)
+	if !ok {
+		return ""
+	}
+	return FormatPercent(f)
 }
 
 // CDMProblem words why there is no Widevine CDM, or why its last update check
@@ -41,16 +53,6 @@ func CDMProblem(code string) string {
 		return T("Sona couldn't save Widevine on this computer. Make sure there's free disk space, then try again.")
 	}
 	return T("Widevine couldn't be downloaded. Try again later.")
-}
-
-// HasCDMProblem reports whether code has its own wording.
-func HasCDMProblem(code string) bool {
-	switch code {
-	case "network", "unsupported_platform", "manifest_invalid", "untrusted_url", "too_large",
-		"hash_mismatch", "signature_invalid", "archive_invalid", "load_failed", "load_check_incomplete", "disk":
-		return true
-	}
-	return false
 }
 
 // CDMFailedState is the short state of a CDM that failed (CDMStatus.State

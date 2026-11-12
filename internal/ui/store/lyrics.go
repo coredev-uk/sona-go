@@ -11,22 +11,27 @@ import (
 // services.Lyrics DTO; a view that needs more derives it from there.
 func KeyLyrics(id string) Key { return Key{"catalog", "lyrics", id} }
 
-// UseLyrics is LyricsService.Lyrics for a catalogue song ID under KeyLyrics.
-func UseLyrics(cl *Client, core *services.Core, id string) Result[services.Lyrics] {
-	return UseLyricsFrom(cl, id, func(ctx context.Context) (services.Lyrics, error) {
-		if core == nil {
-			return services.Lyrics{}, errNoCore
-		}
-		return services.Service[services.LyricsService](core).Lyrics(ctx, id)
-	})
+// LyricsSource is what a view asks of the lyrics service
+// (services.LyricsService, or a test's fake).
+type LyricsSource interface {
+	Lyrics(ctx context.Context, songID string) (services.Lyrics, error)
 }
 
-// UseLyricsFrom is UseLyrics over another fetch (a fake in tests).
-func UseLyricsFrom(cl *Client, id string, fetch func(ctx context.Context) (services.Lyrics, error)) Result[services.Lyrics] {
+// LyricsOf is the source a view reads lyrics from: override (a test's own)
+// when there is one, else the core's lyrics service.
+func LyricsOf(override LyricsSource, core *services.Core) LyricsSource {
+	if override != nil {
+		return override
+	}
+	return services.Service[services.LyricsService](core)
+}
+
+// UseLyrics is src's Lyrics for a catalogue song ID under KeyLyrics.
+func UseLyrics(cl *Client, src LyricsSource, id string) Result[services.Lyrics] {
 	// A song with no lyrics is an answer (empty lines), cached like any other,
 	// not a failure asked again every few seconds.
 	return Use(cl, KeyLyrics(id), func(ctx context.Context) (services.Lyrics, error) {
-		l, err := fetch(ctx)
+		l, err := src.Lyrics(ctx, id)
 		if services.CodeOf(err) == services.CodeNotFound {
 			return services.Lyrics{}, nil
 		}

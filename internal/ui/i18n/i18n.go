@@ -28,6 +28,7 @@ import (
 	mygoi18n "github.com/egoist/mygo/i18n"
 
 	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 	"github.com/coredev-uk/sona-go/internal/i18n/po"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -60,6 +61,9 @@ type message struct {
 
 var (
 	current atomic.Pointer[layers]
+	// revision counts the layers made: it changes with the language, the
+	// regional formats and every translation loaded.
+	revision atomic.Uint64
 
 	// settings is what builds the layers; guarded by mu.
 	mu            sync.Mutex
@@ -82,17 +86,23 @@ func rebuild() {
 	l.locales = FormatLocales(shown, regional)
 	l.format = l.locales[0]
 	if appleLocale != "" {
-		if _, ok := MatchLocale([]string{shown}, []string{appleLocale}); ok && !isSource(shown) {
+		if _, ok := l10n.Match([]string{shown}, []string{appleLocale}); ok && !isSource(shown) {
 			l.appleLocale, l.apple = appleLocale, appleMessages
 		}
 	}
 	if !isSource(shown) {
-		if tag, ok := MatchLocale([]string{shown}, communityTags()); ok {
+		if tag, ok := l10n.Match([]string{shown}, communityTags()); ok {
 			l.community = communities[tag]
 		}
 	}
 	current.Store(l)
+	revision.Add(1)
 }
+
+// Revision changes whenever what a message reads as can have: a language, a
+// format or a translation set. A view that keeps formatted text keeps it for
+// one revision.
+func Revision() uint64 { return revision.Load() }
 
 func isSource(tag string) bool {
 	return langOf(strings.ToLower(tag)) == SourceLocale && tag != PseudoLocale && !strings.EqualFold(tag, PseudoLocale)

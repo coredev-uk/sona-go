@@ -52,7 +52,7 @@ func (f stationFeed) NextTracks(ctx context.Context, stationID string) ([]coordi
 func (f stationFeed) Continue(ctx context.Context, seeds []coordinator.Item) (coordinator.Station, error) {
 	in := make([]applemusic.StationSeed, len(seeds))
 	for i, it := range seeds {
-		in[i] = applemusic.StationSeed{ID: it.ID, Library: isLibraryID(it.ID)}
+		in[i] = applemusic.StationSeed{ID: it.ID, Library: applemusic.IsLibrarySongID(it.ID)}
 		if k := it.Container.Kind; k == coordinator.ContainerAlbum || k == coordinator.ContainerPlaylist {
 			in[i].Container = it.Container.ID
 		}

@@ -198,10 +198,9 @@ func unquote(s string) (string, error) {
 	return b.String(), nil
 }
 
-func quote(s string) string {
-	r := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\t", `\t`, "\r", `\r`)
-	return `"` + r.Replace(s) + `"`
-}
+var quoter = strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\t", `\t`, "\r", `\r`)
+
+func quote(s string) string { return `"` + quoter.Replace(s) + `"` }
 
 // Format writes the catalogue without line wrapping, as Lingui does.
 func Format(f *File) []byte {

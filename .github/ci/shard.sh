@@ -24,7 +24,7 @@ here=.github/ci
 playback=(./internal/playback/widevine ./internal/playback/cdmhost ./internal/diag ./internal/playback/native ./internal/playback/gst ./internal/ui/media)
 split=(./internal/ui/kit:2)
 uirace=(./internal/ui/store ./internal/ui/kit ./internal/ui/lyricsync)
-dev=(./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/app ./internal/mpris)
+dev=(./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/app ./internal/mpris)
 
 units() {
 	local u p n i

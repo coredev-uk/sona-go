@@ -219,3 +219,22 @@ func TestVenueLine(t *testing.T) {
 		t.Errorf("no venue: %q", got)
 	}
 }
+
+func TestFactsFollowTheLocaleAndTheComputersClock(t *testing.T) {
+	regional(t, "en-GB")
+	london := show(t, "2027-04-14T17:00:00Z", "Europe/London", "facts")
+	london.DistanceKm = 16
+	computerIn(t, "Europe/London")
+	if got := factsOf(london); got.meta != "18:00 · 10 mi away" || got.weekday != "Wed" || got.dayLong != "Wed 14 Apr" {
+		t.Errorf("facts = %+v", got)
+	}
+	// The cached facts are not another clock's or another language's.
+	computerIn(t, "Pacific/Auckland")
+	if got := factsOf(london).meta; got != "18:00 BST · 10 mi away" {
+		t.Errorf("another clock: meta = %q", got)
+	}
+	regional(t, "en-US")
+	if got := factsOf(london).meta; got == "18:00 BST · 10 mi away" {
+		t.Errorf("another language: meta = %q, the other language's", got)
+	}
+}

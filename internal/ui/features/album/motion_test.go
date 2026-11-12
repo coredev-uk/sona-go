@@ -55,10 +55,10 @@ func (r *rig) withMotion() *fakeMotion {
 func (r *rig) coverPx() int {
 	tk := theme.Current()
 	gutter := tk.Metric["gutter"]
-	if r.a.paneW > 0 && r.a.paneW < 960 {
+	if r.a.Width > 0 && r.a.Width < 960 {
 		gutter = tk.Metric["gutter-narrow"]
 	}
-	return int(albumLayout(r.a.paneW - 2*gutter - tk.Metric["scrollbar"]).cover)
+	return int(albumLayout(r.a.Width - 2*gutter - tk.Metric["scrollbar"]).cover)
 }
 
 // The window of a test inside a synctest bubble. MyGo rasterises a frame of

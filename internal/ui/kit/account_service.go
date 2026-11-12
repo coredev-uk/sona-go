@@ -32,7 +32,7 @@ func setPrivate(cl *store.Client, set func(on bool) (services.PrivateState, erro
 			if on {
 				title = i18n.T("Couldn't turn on private listening")
 			}
-			ToastErrorf(title, i18n.ErrorText(services.CodeOf(err)))
+			ToastFailure(title, err)
 			return
 		}
 		store.Set(cl, store.KeyPrivate, st)
@@ -48,7 +48,7 @@ func setPrivate(cl *store.Client, set func(on bool) (services.PrivateState, erro
 func RetryCDMWith(retry func() error, done func()) {
 	go func() {
 		if err := retry(); err != nil {
-			ToastErrorf(i18n.T("Couldn't start the Widevine download"), i18n.ErrorText(services.CodeOf(err)))
+			ToastFailure(i18n.T("Couldn't start the Widevine download"), err)
 		}
 		if done != nil {
 			done()
@@ -76,14 +76,14 @@ func setReminder(svc reminderAPI, album services.Album, on bool) {
 		name := album.Name
 		if !on {
 			if err := svc.Remove(ctx, album.CatalogID); err != nil {
-				ToastErrorf(i18n.T("Couldn't remove the reminder"), i18n.ErrorText(services.CodeOf(err)))
+				ToastFailure(i18n.T("Couldn't remove the reminder"), err)
 				return
 			}
 			ShowToast(ToastSpec{Title: i18n.T("You won't be reminded about “{name}”", "name", name)})
 			return
 		}
 		if _, err := svc.Set(ctx, album.CatalogID, i18n.T("Out now · {artistName}", "artistName", album.Artist)); err != nil {
-			ToastErrorf(i18n.T("Couldn't set the reminder"), i18n.ErrorText(services.CodeOf(err)))
+			ToastFailure(i18n.T("Couldn't set the reminder"), err)
 			return
 		}
 		ShowToast(ToastSpec{Title: i18n.T("You'll be reminded when “{name}” is out", "name", name)})

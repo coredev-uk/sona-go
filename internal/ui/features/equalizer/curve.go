@@ -45,15 +45,6 @@ func headroom(gains []float64) float64 {
 	return -top
 }
 
-// pregainOf is the level change ahead of the filters, as Go applies it
-// (config.Equalizer.Pregain).
-func pregainOf(eq config.Equalizer, gains []float64) float64 {
-	if !eq.Enabled {
-		return 0
-	}
-	return headroom(gains) + eq.Preamp
-}
-
 // formatDb writes a dB value as the faders label it: "+3", "0", "−4.5" (a
 // true minus), in the shown language's digits.
 func formatDb(db float64) string {

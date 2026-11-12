@@ -26,7 +26,7 @@ const (
 // leadState is the state of the lead: its width, the picks' rows and their
 // toggle, and the lead pick's selection and menu.
 type leadState struct {
-	width widthTracker
+	width kit.WidthTracker
 	cols  int
 	open  bool
 	rows  rowsState
@@ -56,23 +56,22 @@ func (h *home) leadBand(c *ui.Context, lead *services.Item, children func()) {
 		return
 	}
 	tk := theme.Current()
-	gutter, bar := h.page.gutter(), tk.Metric["scrollbar"]
+	gutter, bar := h.page.Gutter(), tk.Metric["scrollbar"]
 	art := lead.Art.Medium
 	if art == "" {
 		art = lead.Art.Large
 	}
 	// The band is the backdrop: what it holds draws over the wash.
 	kit.Backdrop(c.Key("band"), h.env.Art, kit.BackdropOpts{Src: backdropURL(art), Color: lead.Color, Tone: kit.ToneGround}, children).
-		AlignSelf(ui.Stretch).Shrink(0).Padding(padTop, gutter+bar, 24, gutter).Margin(-padTop, -(gutter + bar), 0, -gutter)
+		AlignSelf(ui.Stretch).Shrink(0).Padding(kit.PagePadTop, gutter+bar, 24, gutter).Margin(-kit.PagePadTop, -(gutter + bar), 0, -gutter)
 }
 
 // homeLead is the first "feature" shelf (Top Picks) set as the lead: its first
 // pick large with what it is, Apple's reason and its play control, and every
 // other pick as a row beside it, so the first screen answers "what shall I
 // play?" without scrolling.
-func (h *home) homeLead(c *ui.Context, sec services.Section) {
+func (h *home) homeLead(c *ui.Context, sec services.Section, ctx kit.ItemsCtx) {
 	st := &h.lead
-	ctx := h.env.ItemsCtx(nil)
 	items := st.cap.of(sec.Items)
 	first, rest := items[0], items[1:]
 	title := sec.Title
@@ -80,17 +79,17 @@ func (h *home) homeLead(c *ui.Context, sec services.Section) {
 		title = i18n.T("Top picks")
 	}
 	root := ui.Column(c.Key("lead")).Role(ui.RoleGroup).Label(title)
-	wide := st.width.track(c, root) >= sideBySide
+	wide := st.width.Track(c, root) >= sideBySide
 	root.Children(func() {
 		hidden := st.cols > 0 && len(rest) > st.cols*slateRows
 		ui.Row(c.Key("head")).MinHeight(28).Margin(0, 0, 16, 0).Gap(16).AlignItems(ui.Center).Children(func() {
-			text(c, title, "heading").TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).Role(ui.RoleHeading).Level(2)
+			theme.Text(c, title, "heading").TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).Role(ui.RoleHeading).Level(2)
 			if hidden || st.open {
 				label := i18n.T("Show all {count}", "count", len(sec.Items))
 				if st.open {
 					label = i18n.T("Show fewer")
 				}
-				if toggleButton(c, label, st.open).Clicked() {
+				if kit.ShelfDisclosure(c, label, st.open).Clicked() {
 					st.open = !st.open
 				}
 			}
@@ -115,38 +114,6 @@ func (h *home) homeLead(c *ui.Context, sec services.Section) {
 	})
 }
 
-// toggleButton is a heading-row button that shows the rest of a shelf in place
-// ("Show all 12", "Show fewer") with a chevron that turns over; read Clicked to
-// flip it.
-func toggleButton(c *ui.Context, label string, open bool) ui.Element {
-	tk := theme.Current()
-	b := ui.ButtonBase(c.Key("toggle")).Role(ui.RoleDisclosure).Expanded(open).Label(label)
-	bg, fg := ui.Transparent, theme.C("ink-muted")
-	if b.Hovered() {
-		bg, fg = theme.C("hover"), theme.C("ink")
-	}
-	b.Height(28).PaddingX(6).MarginEnd(-4).Gap(2).Radius(tk.Radius["md"]).Background(bg).TextColor(fg).Center()
-	if !theme.ReducedMotion() {
-		m := tk.Motion["feedback"]
-		b.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
-	b.Children(func() {
-		sub := tk.Type["sub"]
-		ui.Text(c, label).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).SingleLine()
-		ic := theme.Glyph(c, "chevron-down", 14, theme.GlyphOpts{Color: fg, Inherit: true})
-		turn := float32(0)
-		if open {
-			turn = 180
-		}
-		if theme.ReducedMotion() {
-			ic.Rotate(turn)
-		} else {
-			ic.Rotate(ic.Animate("turn", turn, tk.Motion["press"].Duration))
-		}
-	})
-	return b
-}
-
 // pickState is the lead pick's selection and menu.
 type pickState struct {
 	sel   kit.Selection
@@ -158,16 +125,14 @@ type pickState struct {
 // Shift+F10 and drags like any tile.
 func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.ItemsCtx) {
 	st := &h.lead.pick
-	if st.menus == nil {
-		st.menus = kit.NewActionMenus(h.env.Actions, &st.sel)
-	}
+	menus := kit.MenusIn(&st.menus, h.env.Actions, &st.sel)
 	tk := theme.Current()
 	target, selectable := kit.ActionItemOf(it, ctx.Players)
 	key := ""
 	if selectable {
 		key = "lead:" + it.Kind + ":" + it.ID
 	}
-	st.sel.Hold = func() bool { return st.menus.IsOpen() || kit.ConfirmPending() }
+	st.sel.Hold = func() bool { return menus.IsOpen() || kit.ConfirmPending() }
 	st.sel.Rows(kit.RowKeys{key}, func(int) (kit.Item, bool) { return target, selectable })
 	selected := selectable && st.sel.Selected(key)
 
@@ -209,33 +174,13 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 	}, func(w, s ui.Element) {
 		kit.Artwork(c, h.env.Art, art, cover, kit.ArtOpts{Edge: true, Round: kit.ItemRound(it)})
 		ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Padding(0, 0, 4, 0).Children(func() {
-			if link != "" && !h.opens(link) {
-				// Its page is not served: the name is plain text.
-				text(c, it.Name, "display").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
-			} else {
-				opener = ui.ButtonBase(c.Key("open")).Justify(ui.Start).Radius(tk.Radius["sm"]).Label(it.Name)
-				if link != "" {
-					opener.Role(ui.RoleLink)
-				}
-				opener.Children(func() {
-					t := text(c, it.Name, "display").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
-					if opener.Hovered() {
-						t.Underline()
-					}
-				})
-			}
-			if it.Subtitle != "" {
-				text(c, it.Subtitle, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0)
-			}
-			if meta := catalogueLine(it); meta != "" {
-				text(c, meta, "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(4, 0, 0, 0)
-			}
+			opener = h.titleBlock(c, it, "display", link)
 			ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
 				if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name, Disabled: !playable}); play {
 					ctx.Players.PlayItem(it)
 				}
 				if selectable {
-					st.menus.Trigger(c.Key("more"), at, kit.TriggerOpts{Header: true})
+					menus.Trigger(c.Key("more"), at, kit.TriggerOpts{Header: true})
 				}
 			})
 		})
@@ -257,17 +202,46 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 	}
 	st.sel.OutsidePress(w)
 	if selectable {
-		rightClickMenu(&st.sel, st.menus, src, at, 0)
-		keyMenu(&st.sel, st.menus, opener, at, 0)
-		st.menus.Popup(c)
+		menus.OpenFor(&st.sel, src, opener, at, 0)
+		menus.Popup(c)
 	}
+}
+
+// titleBlock is the head of a featured item's text column: its name (a link
+// when its page is served, plain text when it is not) in the type style, the
+// subtitle and the catalogue line. It returns the name's button, the zero
+// Element when the name is plain text.
+func (h *home) titleBlock(c *ui.Context, it services.Item, style, link string) (opener ui.Element) {
+	tk := theme.Current()
+	if link != "" && !h.opens(link) {
+		// Its page is not served: the name is plain text.
+		theme.Text(c, it.Name, style).TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
+	} else {
+		opener = ui.ButtonBase(c.Key("open")).Justify(ui.Start).Radius(tk.Radius["sm"]).Label(it.Name)
+		if link != "" {
+			opener.Role(ui.RoleLink)
+		}
+		opener.Children(func() {
+			t := theme.Text(c, it.Name, style).TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
+			if opener.Hovered() {
+				t.Underline()
+			}
+		})
+	}
+	if it.Subtitle != "" {
+		theme.Text(c, it.Subtitle, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0)
+	}
+	if meta := catalogueLine(it); meta != "" {
+		theme.Text(c, meta, "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(4, 0, 0, 0)
+	}
+	return opener
 }
 
 // signInLead is shown signed out: where the lead will be, what it needs and
 // the one action.
 func (h *home) signInLead(c *ui.Context) {
 	h.leadNotice(c, "", i18n.T("Recommendations need Apple Music"), func() {
-		text(c, i18n.T("Sign in to see picks, mixes and stations chosen for you."), "body").
+		theme.Text(c, i18n.T("Sign in to see picks, mixes and stations chosen for you."), "body").
 			TextColor(theme.C("ink-muted")).MaxWidth(60 * 9)
 		if kit.Button(c.Key("signin"), i18n.T("Sign in"), kit.ButtonOpts{Size: kit.SizeSM}).Margin(16, 0, 0, 0).Clicked() && h.env.Surfaces != nil {
 			h.env.Surfaces.OpenAccount()
@@ -279,7 +253,7 @@ func (h *home) signInLead(c *ui.Context) {
 // Sona fetches it when it reconnects.
 func (h *home) offlineLead(c *ui.Context) {
 	h.leadNotice(c, "wifi-off", i18n.T("No recommendations while offline"), func() {
-		text(c, i18n.T("Sona fetches them as soon as it reconnects."), "body").
+		theme.Text(c, i18n.T("Sona fetches them as soon as it reconnects."), "body").
 			TextColor(theme.C("ink-muted")).MaxWidth(60 * 9)
 	})
 }
@@ -292,7 +266,7 @@ func (h *home) leadNotice(c *ui.Context, icon, title string, body func()) {
 			if icon != "" {
 				theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: theme.C("ink-muted")})
 			}
-			text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+			theme.Text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
 		})
 		body()
 	})
@@ -300,7 +274,7 @@ func (h *home) leadNotice(c *ui.Context, icon, title string, body func()) {
 
 // skeletonState is the loading lead's widths.
 type skeletonState struct {
-	width, right widthTracker
+	width, right kit.WidthTracker
 }
 
 // leadSkeleton is the lead's shape while Home loads: the cover, the name's
@@ -310,9 +284,9 @@ func (h *home) leadSkeleton(c *ui.Context) {
 	tk := theme.Current()
 	hover, r := theme.C("hover"), tk.Radius["sm"]
 	root := ui.Column(c.Key("lead-skeleton")).Role(ui.RoleStatus).Label(i18n.T("Loading"))
-	wide := st.width.track(c, root) >= sideBySide
+	wide := st.width.Track(c, root) >= sideBySide
 	root.Children(func() {
-		ui.Box(c).Size(160, 16).Radius(r).Background(hover).Margin(0, 0, 16, 0)
+		kit.Bar(c, 160, 16).Margin(0, 0, 16, 0)
 		var grid ui.Element
 		cover := float32(leadCoverNarrow)
 		if wide {
@@ -323,7 +297,7 @@ func (h *home) leadSkeleton(c *ui.Context) {
 		}
 		grid.Children(func() {
 			ui.Row(c.Key("pick")).Gap(24).AlignItems(ui.End).Children(func() {
-				ui.Box(c).Size(cover, cover).Shrink(0).Radius(r).Background(hover)
+				kit.Bar(c, cover, cover)
 				ui.Column(c).Grow(1).Padding(0, 0, 4, 0).Children(func() {
 					ui.Box(c).WidthPercent(75).Height(28).Radius(r).Background(hover)
 					ui.Box(c).WidthPercent(50).Height(16).Radius(r).Background(hover).Margin(12, 0, 0, 0)
@@ -332,13 +306,13 @@ func (h *home) leadSkeleton(c *ui.Context) {
 			})
 			rows := ui.Grid(c.Key("rows"))
 			cols := 1
-			if w := st.right.track(c, rows); w > 0 {
+			if w := st.right.Track(c, rows); w > 0 {
 				cols = max(1, int((w+kit.TileGapX)/(248+kit.TileGapX)))
 			}
 			rows.Columns(cols).GapX(kit.TileGapX).Children(func() {
 				for i := range 8 {
 					ui.Row(c.Key("row" + strconv.Itoa(i))).Height(56).PaddingX(8).Gap(12).AlignItems(ui.Center).Children(func() {
-						ui.Box(c).Size(40, 40).Shrink(0).Radius(r).Background(hover)
+						kit.Bar(c, 40, 40)
 						ui.Column(c).Grow(1).Children(func() {
 							ui.Box(c).WidthPercent(float32(60 + (i%3)*10)).Height(14).Radius(r).Background(hover)
 							ui.Box(c).WidthPercent(50).Height(12).Radius(r).Background(hover).Margin(6, 0, 0, 0)

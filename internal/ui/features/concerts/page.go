@@ -400,7 +400,7 @@ func (s *concerts) agenda(c *ui.Context, shows []services.Concert, loading bool)
 				for _, day := range m.days {
 					ui.Row(c.Key(day.day)).FillWidth().Gap(16).Padding(4, 0).AlignItems(ui.Start).Children(func() {
 						dateBlock(c.Key("date"), day.shows[0], false).Padding(12, 8, 0, 8)
-						ui.Column(c.Key("rows")).Grow(1).MinWidth(0).Role(ui.RoleList).Label(showDayLong(day.shows[0])).Children(func() {
+						ui.Column(c.Key("rows")).Grow(1).MinWidth(0).Role(ui.RoleList).Label(factsOf(day.shows[0]).dayLong).Children(func() {
 							for _, con := range day.shows {
 								concertRow(c, s.env, con, rowOpts{rov: rov, row: rov.row(), menus: &menus})
 							}

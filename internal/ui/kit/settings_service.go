@@ -26,12 +26,12 @@ func UpdateSettings(cl *store.Client, core *services.Core, change func(*config.S
 	next := CloneSettings(prev)
 	change(&next)
 	store.Set(cl, store.KeySettings, next)
-	applyAppearance(next)
+	ApplyAppearance(next)
 	go func() {
 		// On success "settings:changed" brings the saved settings into the cache.
 		if _, err := svc.UpdateSettings(next); err != nil {
 			store.Set(cl, store.KeySettings, prev)
-			applyAppearance(prev)
+			ApplyAppearance(prev)
 			ToastErrorf(i18n.T("Couldn't save the setting"), i18n.ErrorMessage(err))
 		}
 	}()
@@ -46,9 +46,9 @@ func CloneSettings(s config.Settings) config.Settings {
 	return s
 }
 
-// applyAppearance applies the theme and reduce effects at once (the window's
+// ApplyAppearance applies the theme and reduce effects at once (the window's
 // own follow-up on "settings:changed" confirms it).
-func applyAppearance(s config.Settings) {
+func ApplyAppearance(s config.Settings) {
 	switch s.Theme {
 	case config.ThemeLight:
 		theme.SetMode(theme.ModeLight)

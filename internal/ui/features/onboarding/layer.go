@@ -142,8 +142,8 @@ func (o *onboarding) header(c *ui.Context, step string) {
 			ui.Row(c.Key("mark")).Size(20, 20).Shrink(0).Radius(10).Background(theme.C("amber")).Center().Children(func() {
 				ui.Box(c.Key("hole")).Size(4, 4).Radius(2).Background(theme.C("surface"))
 			})
-			text(c, i18n.T("Set up Sona"), "ui").FontWeight(600).TextColor(theme.C("ink"))
-			text(c, i18n.T("{position} of {total}", "position", stepIndex(step)+1, "total", len(setupSteps)), "meta").
+			theme.Text(c, i18n.T("Set up Sona"), "ui").FontWeight(600).TextColor(theme.C("ink"))
+			theme.Text(c, i18n.T("{position} of {total}", "position", stepIndex(step)+1, "total", len(setupSteps)), "meta").
 				TextColor(theme.C("ink-faint"))
 			ui.Box(c.Key("spacer")).Grow(1)
 			if step != store.SetupDone {
@@ -172,10 +172,10 @@ func (o *onboarding) body(c *ui.Context, step, title, line string, maxHeight flo
 			// takes a heading's words from the text, which MyGo gives to labels).
 			focus := ui.Column(c.Key("title-focus")).FillWidth().Role(ui.RoleGroup).Label(title).TabStop(false).FocusRing(false)
 			focus.Children(func() {
-				text(c.Key("title"), title, "page").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+				theme.Text(c.Key("title"), title, "page").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
 			})
 			kit.FocusWhenShown(c, focus, &o.titleFocus)
-			text(c.Key("line"), line, "ui").TextColor(theme.C("ink-muted")).MaxWidth(480).Margin(6, 0, 0, 0)
+			theme.Text(c.Key("line"), line, "ui").TextColor(theme.C("ink-muted")).MaxWidth(480).Margin(6, 0, 0, 0)
 			ui.Column(c.Key("step")).FillWidth().Margin(20, 0, 0, 0).Children(func() {
 				switch step {
 				case store.SetupAccount:
@@ -204,7 +204,7 @@ func (o *onboarding) body(c *ui.Context, step, title, line string, maxHeight flo
 // form's own Sign in beside it as the primary action.
 func (o *onboarding) foot(c *ui.Context, step string, signedIn bool) {
 	ui.Column(c.Key("foot")).FillWidth().Height(footHeight).Shrink(0).Children(func() {
-		ui.Box(c.Key("line")).Height(1).FillWidth().Background(theme.C("line"))
+		theme.Hairline(c.Key("line"))
 		ui.Row(c.Key("row")).FillWidth().Grow(1).Padding(0, 24).Gap(12).AlignItems(ui.Center).Children(func() {
 			if step != store.SetupWelcome {
 				back := kit.Button(c.Key("back"), i18n.T("Back"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "chevron-left"}).

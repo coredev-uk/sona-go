@@ -11,7 +11,7 @@ import (
 )
 
 // LinkListState is the state of a LinkList: the width its columns follow.
-type LinkListState struct{ width itemsWidth }
+type LinkListState struct{ width WidthTracker }
 
 // LinkListOpts are the options of LinkList.
 type LinkListOpts struct {
@@ -45,12 +45,11 @@ func LinkList(c *ui.Context, st *LinkListState, items []services.Item, ctx Items
 	}
 	sec.Children(func() {
 		if o.Title != "" {
-			h := tk.Type["heading"]
-			ui.Text(c, o.Title).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
+			theme.StyleText(ui.Text(c, o.Title), "heading").
 				TextColor(theme.C("ink")).SingleLine().Margin(0, 0, 12, 0).Role(ui.RoleHeading).Level(2)
 		}
 		grid := ui.Grid(c.Key("grid")).Gap(itemsLinkGap).Role(ui.RoleList).Label(label)
-		width := st.width.track(c, grid)
+		width := st.width.Track(c, grid)
 		rows := 1
 		if width > 0 {
 			var cols int
@@ -89,10 +88,7 @@ func itemsLinkTile(c *ui.Context, it services.Item, ctx ItemsCtx, tk *theme.Toke
 		bg = theme.C("active")
 	}
 	tile.Border(1, border).Background(bg)
-	if !theme.ReducedMotion() {
-		m := tk.Motion["feedback"]
-		tile.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(tile, "feedback")
 	switch {
 	case link != "":
 		tile.Role(ui.RoleLink)

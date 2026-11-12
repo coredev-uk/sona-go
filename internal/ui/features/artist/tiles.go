@@ -43,11 +43,10 @@ func videoItem(v services.MusicVideo, by string) services.Item {
 
 // tile is an item as a cover tile; one whose page the app does not have is
 // not a link.
-func (a *artist) tile(it services.Item, i int) kit.CoverItem {
-	ctx := a.itemsCtx(nil)
+func (a *artist) tile(ctx kit.ItemsCtx, it services.Item, i int) kit.CoverItem {
 	t := kit.CoverItemOf(it, ctx, i)
 	t.Explicit = it.Explicit
-	if !a.has(kit.ItemLink(it)) {
+	if !a.env.Routed(kit.ItemLink(it)) {
 		t.Open = nil
 	}
 	return t
@@ -55,8 +54,9 @@ func (a *artist) tile(it services.Item, i int) kit.CoverItem {
 
 func (a *artist) albumTiles(albums []services.Album, by string) []kit.CoverItem {
 	out := make([]kit.CoverItem, len(albums))
+	ctx := a.itemsCtx(nil)
 	for i, al := range albums {
-		out[i] = a.tile(albumItem(al, by), i)
+		out[i] = a.tile(ctx, albumItem(al, by), i)
 	}
 	return out
 }
@@ -92,8 +92,9 @@ func (a *artist) shelfTiles(sh services.ArtistShelf) []kit.CoverItem {
 
 func (a *artist) tiles(items []services.Item) []kit.CoverItem {
 	out := make([]kit.CoverItem, len(items))
+	ctx := a.itemsCtx(nil)
 	for i, it := range items {
-		out[i] = a.tile(it, i)
+		out[i] = a.tile(ctx, it, i)
 	}
 	return out
 }

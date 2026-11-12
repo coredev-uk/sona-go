@@ -164,7 +164,7 @@ var collectionsScenes = []struct {
 	}},
 	{"tracks", func(t *testing.T) *ui.Tester {
 		a, tt := newCollTrackApp(t, 9, 820, 460)
-		a.current = "s1"
+		a.current = &services.QueueItem{ID: "s1"}
 		a.songs[2].Explicit = true
 		a.songs[4].Playable = false
 		a.opts.Popular = map[string]bool{"c3": true}

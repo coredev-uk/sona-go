@@ -8,7 +8,7 @@ internal/motion TestLiveRendition.*
 internal/playback/cdm TestLiveDownload.*
 # Evidence writers: they draw pictures for a pull request when asked.
 * .*Evidence
-# Motion artwork's decoder is there on macOS, so the tests of its absence
+# Motion artwork plays on macOS, so the tests of its absence
 # have nothing to run, and one reads a file the environment names.
 internal/ui/media TestOpenMotionWithoutDecoder
 internal/ui/media TestMotionFileOfTheCache

@@ -332,3 +332,30 @@ func TestWideRowPlayButtonShowsOnHoverAtTheBannersBottomLeft(t *testing.T) {
 		t.Errorf("hovering the card does not show the play button: %v, want about %v", got, want)
 	}
 }
+
+// The page count is a status: with a screen reader on, turning the page
+// reads "2 of 2" once, and the row appearing with "1 of 2" reads nothing.
+func TestWideRowPageCountIsReadOnceAsThePageTurns(t *testing.T) {
+	var items []services.Item
+	for i := 1; i <= 5; i++ {
+		items = append(items, wideItem(strconv.Itoa(i), artPath(strconv.Itoa(i), 1000, 250), ""))
+	}
+	st := &WideRowState{}
+	a, tt := newItemsApp(t, 3*240+2*24+48, 400, nil, func(c *ui.Context, ctx ItemsCtx) {
+		WideRow(c, st, items, ctx, WideRowOpts{Title: "Bricks", Min: 240, Ratio: 2, First: true})
+	})
+	a.load(t, tt, 0)
+	tt.UseScreenReader()
+	tt.Announcements()
+	if err := tt.Click("Next in Bricks"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if got := tt.Announcements(); !slices.Equal(got, []string{"2 of 2"}) {
+		t.Errorf("turning the page read %q, want %q once", got, "2 of 2")
+	}
+	tt.Frame()
+	if got := tt.Announcements(); len(got) != 0 {
+		t.Errorf("read again: %q", got)
+	}
+}

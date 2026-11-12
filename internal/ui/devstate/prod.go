@@ -6,8 +6,6 @@ import (
 	"log/slog"
 
 	"github.com/egoist/mygo/ui"
-
-	"github.com/coredev-uk/sona-go/internal/devinstance"
 )
 
 // Load reads the state the last run left: none in a production build.
@@ -37,7 +35,3 @@ func Flag(string, *bool) {}
 // Live reloads tokens.json and the .po catalogues from the source tree as
 // they change: nothing in a production build.
 func Live(func(func()), *slog.Logger) {}
-
-// Instance is SONA_DEV_INSTANCE, which names a development run so that two
-// worktrees run side by side: always empty in a production build.
-func Instance() string { return devinstance.Name() }

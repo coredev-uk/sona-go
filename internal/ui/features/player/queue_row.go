@@ -151,7 +151,11 @@ func (p *player) queueRow(c *ui.Context, st *queueList, r queueRowIn) {
 	})
 
 	if st.want == qi+1 {
-		src.Focus().ScrollIntoView() // Focus alone leaves the row off screen
+		// Focus scrolls the row into view only when the focus moves to
+		// it. A move target is the row that already holds the focus when
+		// a keyboard move reorders it, which Focus leaves where it is: so
+		// the scroll stays explicit.
+		src.Focus().ScrollIntoView()
 		st.want = 0
 	}
 	if src.FocusWithin() {
@@ -248,7 +252,7 @@ func (p *player) videoName(c *ui.Context, it *services.QueueItem, col ui.Color, 
 	if current {
 		t.FontWeight(500)
 	}
-	if p.env.HasRoute == nil || !p.env.HasRoute(path) {
+	if !p.env.Routed(path) {
 		return
 	}
 	t.Role(ui.RoleLink).Cursor(ui.CursorPointer)
@@ -319,7 +323,7 @@ func (p *player) rowButton(c *ui.Context, key, icon, name string, role ui.Role, 
 	btn := ui.Row(c.Key(key)).Size(24, 24).Shrink(0).Center().Radius(theme.Current().Radius["md"]).Role(role).
 		Label(name).Cursor(ui.CursorPointer)
 	if role == ui.RoleMenuButton {
-		btn.Expanded(expanded)
+		btn.HasPopup(ui.PopupMenu).Expanded(expanded)
 	}
 	fg := theme.C("ink-muted")
 	if btn.Hovered() {

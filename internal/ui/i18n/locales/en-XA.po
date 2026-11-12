@@ -1140,8 +1140,7 @@ msgstr ""
 msgid "Copy diagnostics"
 msgstr ""
 
-#: internal/ui/features/onboarding/connections.go
-#: internal/ui/features/settings/scrobble.go
+#: internal/ui/kit/listenbrainz_hint.go
 msgid "Copy it from <0>your ListenBrainz settings<1/></0>. Sona checks it with ListenBrainz and keeps it in your keyring."
 msgstr ""
 
@@ -1198,8 +1197,7 @@ msgstr ""
 msgid "Couldn't change the pin"
 msgstr ""
 
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't change the volume"
 msgstr ""
 
@@ -1296,9 +1294,7 @@ msgstr ""
 msgid "Couldn't get a sign-in link"
 msgstr ""
 
-#: internal/ui/features/miniplayer/commands.go
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't go back"
 msgstr ""
 
@@ -1540,9 +1536,7 @@ msgstr ""
 msgid "Couldn't pin “{name}”"
 msgstr ""
 
-#: internal/ui/features/miniplayer/commands.go
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't play or pause"
 msgstr ""
 
@@ -1721,9 +1715,7 @@ msgstr ""
 msgid "Couldn't search your library"
 msgstr ""
 
-#: internal/ui/features/miniplayer/commands.go
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't seek"
 msgstr ""
 
@@ -1739,9 +1731,7 @@ msgstr ""
 msgid "Couldn't sign out"
 msgstr ""
 
-#: internal/ui/features/miniplayer/commands.go
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't skip"
 msgstr ""
 
@@ -2505,8 +2495,8 @@ msgstr ""
 msgid "Gave back {size} to the disk"
 msgstr ""
 
-#: internal/ui/features/commands/commands.go
 #: internal/ui/features/settings/find.go
+#: internal/ui/module/shortcut_groups.go
 msgid "General"
 msgstr ""
 
@@ -2790,6 +2780,10 @@ msgstr ""
 msgid "Install it now and Sona restarts into it. Your settings, sign-in and queue stay as they are."
 msgstr ""
 
+#: internal/ui/features/settings/motiondiag.go
+msgid "Install the Media Feature Pack for Windows (Settings → System → Optional features), then restart Sona."
+msgstr ""
+
 #: internal/ui/kit/controls_input.go
 msgid "Invalid"
 msgstr ""
@@ -3039,9 +3033,8 @@ msgstr ""
 msgid "Listening"
 msgstr ""
 
-#: internal/ui/features/miniplayer/view.go
-#: internal/ui/features/player/bar.go
 #: internal/ui/features/player/nowplaying_view.go
+#: internal/ui/kit/playback_controls.go
 msgid "Live"
 msgstr ""
 
@@ -3384,8 +3377,7 @@ msgid "Musixmatch"
 msgstr ""
 
 #: internal/ui/app/menubar.go
-#: internal/ui/features/player/bar.go
-#: internal/ui/features/video/view.go
+#: internal/ui/kit/playback_controls.go
 msgid "Mute"
 msgstr ""
 
@@ -3401,8 +3393,7 @@ msgstr ""
 msgid "Name and description"
 msgstr ""
 
-#: internal/ui/features/commands/commands.go
-#: internal/ui/features/settings/find.go
+#: internal/ui/module/shortcut_groups.go
 msgid "Navigation"
 msgstr ""
 
@@ -4137,7 +4128,6 @@ msgstr ""
 
 #: internal/ui/features/album/body.go
 #: internal/ui/features/album/model.go
-#: internal/ui/features/artist/format.go
 #: internal/ui/kit/collections_items_cover.go
 msgid "Out {releaseDate}"
 msgstr ""
@@ -4161,8 +4151,7 @@ msgctxt "keyboard key"
 msgid "Page Up"
 msgstr ""
 
-#: internal/ui/features/commands/commands.go
-#: internal/ui/features/settings/find.go
+#: internal/ui/module/shortcut_groups.go
 msgid "Pages"
 msgstr ""
 
@@ -4184,11 +4173,9 @@ msgstr ""
 
 #: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
-#: internal/ui/features/miniplayer/view.go
-#: internal/ui/features/player/bar.go
 #: internal/ui/features/radio/onair.go
-#: internal/ui/features/video/view.go
 #: internal/ui/kit/collections_items_stations.go
+#: internal/ui/kit/playback_controls.go
 msgid "Pause"
 msgstr ""
 
@@ -4281,18 +4268,16 @@ msgstr ""
 #: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
 #: internal/ui/features/home/rows.go
-#: internal/ui/features/miniplayer/view.go
-#: internal/ui/features/player/bar.go
 #: internal/ui/features/player/queue_menu.go
 #: internal/ui/features/playlist/sidebar.go
 #: internal/ui/features/radio/onair.go
 #: internal/ui/features/radio/radio.go
 #: internal/ui/features/search/itemrow.go
-#: internal/ui/features/video/view.go
 #: internal/ui/kit/button.go
 #: internal/ui/kit/collections_cover.go
 #: internal/ui/kit/collections_items_linklist.go
 #: internal/ui/kit/collections_items_stations.go
+#: internal/ui/kit/playback_controls.go
 msgid "Play"
 msgstr ""
 
@@ -4359,10 +4344,10 @@ msgstr ""
 msgid "Play {songName}"
 msgstr ""
 
-#: internal/ui/features/commands/commands.go
 #: internal/ui/features/onboarding/steps.go
 #: internal/ui/features/settings/diag_rows.go
 #: internal/ui/features/settings/find.go
+#: internal/ui/module/shortcut_groups.go
 msgid "Playback"
 msgstr ""
 
@@ -5151,8 +5136,6 @@ msgstr ""
 msgid "Secret Service keyring"
 msgstr ""
 
-#: internal/ui/features/discover/room.go
-#: internal/ui/features/home/index.go
 #: internal/ui/kit/collections_shelf.go
 msgid "See all"
 msgstr ""
@@ -5688,6 +5671,10 @@ msgstr ""
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/features/settings/cdm.go
 msgid "Sona also tries again by itself later."
+msgstr ""
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Sona asks Apple for H.264 here: the system's video player can't be asked which other codecs it decodes."
 msgstr ""
 
 #: internal/ui/features/settings/lyrics.go
@@ -6857,8 +6844,7 @@ msgstr ""
 msgid "Unlock at iforgot.apple.com"
 msgstr ""
 
-#: internal/ui/features/player/bar.go
-#: internal/ui/features/video/view.go
+#: internal/ui/kit/playback_controls.go
 msgid "Unmute"
 msgstr ""
 
@@ -6987,9 +6973,8 @@ msgid "Videos"
 msgstr ""
 
 #: internal/ui/app/menubar.go
-#: internal/ui/features/commands/commands.go
-#: internal/ui/features/settings/find.go
 #: internal/ui/features/updates/updates.go
+#: internal/ui/module/shortcut_groups.go
 msgid "View"
 msgstr ""
 
@@ -7582,6 +7567,10 @@ msgstr ""
 msgid "macOS Keychain"
 msgstr ""
 
+#: internal/ui/features/settings/motiondiag.go
+msgid "macOS plays H.264 itself: restart Sona, and update macOS if this stays."
+msgstr ""
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "macOS's sandbox-exec is missing or didn't start."
 msgstr ""
@@ -7764,16 +7753,6 @@ msgstr ""
 msgid "{0, plural, one {# single or EP} other {# singles & EPs}}"
 msgstr ""
 
-#. {0} is the number of songs: a list's total, or a playlist's track count.
-#: internal/ui/features/album/format.go
-#: internal/ui/features/home/local.go
-#: internal/ui/features/library/favourites.go
-#: internal/ui/features/library/playlists.go
-#: internal/ui/features/library/songs.go
-#: internal/ui/features/playlist/format.go
-msgid "{0, plural, one {# song} other {# songs}}"
-msgstr ""
-
 #. {0} is the number of videos in the cache.
 #: internal/ui/features/settings/motiondiag.go
 msgid "{0, plural, one {# video} other {# videos}}"
@@ -7864,8 +7843,7 @@ msgstr ""
 msgid "{count} of {what}"
 msgstr ""
 
-#: internal/ui/features/album/format.go
-#: internal/ui/features/playlist/format.go
+#: internal/ui/i18n/catalogue.go
 msgid "{count}, {time}"
 msgstr ""
 
@@ -8004,7 +7982,6 @@ msgid "{n, plural, one {# song you played hasn't been sent yet.} other {# songs 
 msgstr ""
 
 #: internal/ui/features/home/index.go
-#: internal/ui/features/playlist/dialogs.go
 #: internal/ui/kit/overlays_actions.go
 msgid "{n, plural, one {# song} other {# songs}}"
 msgstr ""
@@ -8122,10 +8099,7 @@ msgstr ""
 msgid "{seconds} s"
 msgstr ""
 
-#: internal/ui/features/artist/format.go
-#: internal/ui/features/library/artists_index.go
-#: internal/ui/features/library/history.go
-#: internal/ui/features/settings/diag_rows.go
+#: internal/ui/i18n/catalogue.go
 msgid "{songs, plural, one {# song} other {# songs}}"
 msgstr ""
 

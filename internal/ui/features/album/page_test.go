@@ -710,15 +710,15 @@ func TestMultiDiscAlbumsIndexTheirDiscs(t *testing.T) {
 	r.click("Disc 2 · 20 songs, 1 hr, 7 min")
 	r.tt.Until("the second disc", func() bool { return r.a.tracks.Nav().Focus() == 20 })
 	r.tt.Settle()
-	if r.a.pos.Y <= 0 {
-		t.Fatalf("the page did not scroll to the disc: %v", r.a.pos.Y)
+	if r.a.Pos.Y <= 0 {
+		t.Fatalf("the page did not scroll to the disc: %v", r.a.Pos.Y)
 	}
 	// The disc's heading sits 16 DIPs from the pane's top: the page has
 	// scrolled to its block's top less 16 (the heading block is the disc and
 	// its 46-high heading above the row).
 	o, count, at := &r.a.list.opts, r.a.list.count, r.a.list.at
-	if got, want := r.a.pos.Y+16, r.a.tracks.BlockTop(o, count, at, 20); got < want-1 || got > want+1 {
-		t.Errorf("scrolled to %v+16, the disc's block starts at %v", r.a.pos.Y, want)
+	if got, want := r.a.Pos.Y+16, r.a.tracks.BlockTop(o, count, at, 20); got < want-1 || got > want+1 {
+		t.Errorf("scrolled to %v+16, the disc's block starts at %v", r.a.Pos.Y, want)
 	}
 	// And on screen: row 21 sits under the heading (46 DIPs), which is 16
 	// below the top; row 1 was under the first disc's heading (34 DIPs) below
@@ -986,14 +986,14 @@ func TestAnotherAlbumStartsAtItsTop(t *testing.T) {
 	r.tt.Settle()
 	r.tt.Scroll(600, 300, 0, 600)
 	r.tt.Settle()
-	if r.a.pos.Y <= 0 {
-		t.Fatalf("the first album did not scroll: %v", r.a.pos.Y)
+	if r.a.Pos.Y <= 0 {
+		t.Fatalf("the first album did not scroll: %v", r.a.Pos.Y)
 	}
 	r.router.Push("/album/101")
 	r.tt.Until("the other album", r.tt.Shows("Album 101"))
 	r.tt.Settle()
-	if r.a.pos.Y != 0 {
-		t.Errorf("the other album starts at %v, not at its top", r.a.pos.Y)
+	if r.a.Pos.Y != 0 {
+		t.Errorf("the other album starts at %v, not at its top", r.a.Pos.Y)
 	}
 	if r.a.tracks.Nav().Focus() != 0 {
 		t.Errorf("the other album's list kept the focus at %d", r.a.tracks.Nav().Focus())

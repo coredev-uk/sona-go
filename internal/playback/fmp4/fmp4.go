@@ -47,6 +47,9 @@ type Init struct {
 }
 
 // Subsample is a clear/encrypted byte run within a sample (senc order).
+// Its layout (two uint32, Clear then Cipher) is part of the widevine cgo
+// ABI: Buffer.Subsamples is handed to the CDM shim as a
+// cdm::SubsampleEntry array, so do not add, reorder or resize fields.
 type Subsample struct {
 	Clear  uint32
 	Cipher uint32

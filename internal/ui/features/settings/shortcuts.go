@@ -16,10 +16,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// shortcutGroups is how shortcuts are listed in Settings, in this order
-// (shared/module.ts shortcutGroups).
-var shortcutGroups = []module.ShortcutGroup{"playback", "view", "pages", "navigation", "general"}
-
 // The section's geometry (Shortcuts.tsx): the groups run in two columns
 // where the section is at least 46rem wide.
 const (
@@ -34,11 +30,9 @@ const (
 	shortcutRowFull = 45  // a row and its line, likewise
 )
 
-// shortcutsState is the section's own state: the filter and the line under
-// the groups that was last announced.
+// shortcutsState is the section's own state: the filter.
 type shortcutsState struct {
 	filter string
-	told   string
 }
 
 // recorder is one row's own state (ShortcutRow's useState): whether its
@@ -83,9 +77,7 @@ func (s *settings) shortcutsSection(c *ui.Context) {
 	cfg := s.cfg()
 	if !cfg.HasData {
 		if cfg.Err != nil {
-			kit.ErrorBlock(c.Key("err"), i18n.T("Couldn't read Sona's settings"), cfg.Err, kit.ErrorBlockOpts{
-				OnRetry: func() { s.env.Queries.Invalidate(store.KeySettings) },
-			})
+			kit.QueryFailed(c.Key("err"), s.env.Queries, i18n.T("Couldn't read Sona's settings"), cfg.Err, store.KeySettings)
 			return
 		}
 		s.loading(c, 8)
@@ -96,12 +88,12 @@ func (s *settings) shortcutsSection(c *ui.Context) {
 	bind := resolveBindings(all, cfg.Data.Shortcuts)
 	v := &shortcutView{all: all, overrides: cfg.Data.Shortcuts, bind: bind, conflicted: conflictingIds(all, bind)}
 
-	query := trim(ss.filter)
+	query := strings.TrimSpace(ss.filter)
 	shown := filterShortcuts(all, bind, query)
 	ui.Column(c.Key("shortcuts")).FillWidth().Gap(24).Children(func() {
 		s.shortcutTools(c, ss, len(v.overrides) == 0)
 		s.shortcutColumns(c, groupShortcuts(shown), v)
-		s.shortcutStatus(c, ss, len(shown) == 0, query)
+		s.shortcutStatus(c, len(shown) == 0, query)
 	})
 }
 
@@ -181,7 +173,7 @@ type shortcutGroup struct {
 // a group with nothing in it is left out.
 func groupShortcuts(shown []module.Shortcut) []shortcutGroup {
 	var out []shortcutGroup
-	for _, g := range shortcutGroups {
+	for _, g := range module.ShortcutGroups {
 		var list []module.Shortcut
 		for _, sh := range shown {
 			if sh.Group == g {
@@ -260,10 +252,10 @@ func watchWidth(c *ui.Context, e ui.Element) float32 {
 // shortcutGroup is a group: its heading (an h3 under the section's h2) over
 // its rows.
 func (s *settings) shortcutGroup(c *ui.Context, g shortcutGroup, v *shortcutView) {
-	title := groupTitle(g.group)
+	title := module.GroupTitle(g.group)
 	c = c.Key("group:" + string(g.group))
 	ui.Column(c).FillWidth().Padding(0, 0, groupPadBottom, 0).Role(ui.RoleGroup).Label(title).Children(func() {
-		text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3).Margin(0, 0, 8, 0)
+		theme.Text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3).Margin(0, 0, 8, 0)
 		for _, sh := range g.list {
 			s.shortcutRow(c, sh, v)
 		}
@@ -313,7 +305,7 @@ func (s *settings) shortcutRow(c *ui.Context, sh module.Shortcut, v *shortcutVie
 			var recorderButton ui.Element
 			ui.Row(c.Key("top")).FillWidth().MinHeight(shortcutHeight).AlignItems(ui.Center).Justify(ui.SpaceBetween).
 				Gap(shortcutGap).Children(func() {
-				text(c, label, "body").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
+				theme.Text(c, label, "body").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
 				ui.Row(c.Key("controls")).Shrink(0).AlignItems(ui.Center).Gap(6).Children(func() {
 					recorderButton = s.recorderButton(c, sh, rec, v, label, v.conflicted[sh.ID], note)
 					s.resetButton(c, sh, rec, v, label)
@@ -409,18 +401,15 @@ func (s *settings) recorderButton(c *ui.Context, sh module.Shortcut, rec *record
 	}
 	b.Height(shortcutHeight).MinWidth(recorderWidth).PaddingX(8).Gap(6).AlignItems(ui.Center).Justify(ui.End).
 		Radius(theme.Current().Radius["md"]).Border(1, border).Background(fill)
-	if !theme.ReducedMotion() {
-		m := theme.Current().Motion["feedback"]
-		b.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(b, "feedback")
 	b.Children(func() {
 		switch {
 		case rec.recording:
-			text(c, i18n.T("Press keys…"), "secondary").TextColor(theme.C("ink-muted"))
+			theme.Text(c, i18n.T("Press keys…"), "secondary").TextColor(theme.C("ink-muted"))
 		case len(chords) > 0:
 			kit.Keycaps(c.Key("keys"), chords...)
 		default:
-			text(c, i18n.T("Not set"), "secondary").TextColor(theme.C("ink-faint"))
+			theme.Text(c, i18n.T("Not set"), "secondary").TextColor(theme.C("ink-faint"))
 		}
 	})
 	return b
@@ -518,7 +507,7 @@ func (s *settings) shortcutNote(c *ui.Context, rec *recorder, note func() (strin
 		if danger {
 			color = theme.C("danger")
 		}
-		text(c, msg, "secondary").TextColor(color).Margin(6, 0, 0, 0)
+		theme.Text(c, msg, "secondary").TextColor(color).Margin(6, 0, 0, 0)
 	})
 	key := strconv.Itoa(rec.refusals) + ":" + msg
 	told := ui.Local(holder, "told", func() string { return key })
@@ -550,10 +539,7 @@ func (s *settings) shortcutChoice(c *ui.Context, sh module.Shortcut, rec *record
 	box := ui.Row(c.Key("choice")).FillWidth().Margin(8, 0, 0, 0).Padding(8, 12).Gap(16).AlignItems(ui.Center).
 		Justify(ui.SpaceBetween).Radius(theme.Current().Radius["md"]).Background(theme.C("hover")).
 		Role(ui.RoleStatus).Label(spoken)
-	if told := ui.Local(box, "told", func() bool { return false }); !*told {
-		*told = true
-		c.Announce(spoken)
-	}
+	kit.AnnounceMounted(c, box, spoken)
 	if box.Shortcut(0, ui.KeyEscape) {
 		settle(false)
 	}
@@ -561,10 +547,10 @@ func (s *settings) shortcutChoice(c *ui.Context, sh module.Shortcut, rec *record
 		before, after, _ := strings.Cut(sentence, "<0/>")
 		ui.Row(c.Key("sentence")).Grow(1).Shrink(1).MinWidth(0).Wrap().AlignItems(ui.Center).Gap(4).Children(func() {
 			if before = strings.TrimSpace(before); before != "" {
-				text(c.Key("before"), before, "secondary").TextColor(theme.C("ink"))
+				theme.Text(c.Key("before"), before, "secondary").TextColor(theme.C("ink"))
 			}
 			kit.Keycaps(c.Key("chord"), p.chord)
-			text(c.Key("after"), strings.TrimSpace(after), "secondary").TextColor(theme.C("ink"))
+			theme.Text(c.Key("after"), strings.TrimSpace(after), "secondary").TextColor(theme.C("ink"))
 		})
 		ui.Row(c.Key("buttons")).Shrink(0).Gap(8).Children(func() {
 			if kit.Button(c.Key("cancel"), i18n.T("Cancel"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM}).Clicked() {
@@ -578,21 +564,18 @@ func (s *settings) shortcutChoice(c *ui.Context, sh module.Shortcut, rec *record
 }
 
 // shortcutStatus is the line under the groups when the filter finds
-// nothing, announced as it comes.
-func (s *settings) shortcutStatus(c *ui.Context, ss *shortcutsState, none bool, query string) {
+// nothing: a status, read as it changes (the section opening on a filter
+// that finds nothing says it as it builds).
+func (s *settings) shortcutStatus(c *ui.Context, none bool, query string) {
 	msg := ""
 	if none {
 		msg = i18n.T("No shortcut matches “{query}”.", "query", query)
 	}
-	if msg != ss.told {
-		ss.told = msg
+	col := ui.Column(c.Key("status")).FillWidth().AlignItems(ui.Center).Role(ui.RoleStatus)
+	kit.AnnounceMounted(c, col, msg)
+	col.Children(func() {
 		if msg != "" {
-			c.Announce(msg)
-		}
-	}
-	ui.Column(c.Key("status")).FillWidth().AlignItems(ui.Center).Role(ui.RoleStatus).Children(func() {
-		if msg != "" {
-			text(c, msg, "secondary").TextColor(theme.C("ink-muted")).Padding(24, 0)
+			theme.Text(c, msg, "secondary").TextColor(theme.C("ink-muted")).Padding(24, 0)
 		}
 	})
 }

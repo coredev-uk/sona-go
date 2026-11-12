@@ -98,6 +98,7 @@ const (
 	maxRestarts        = 3                // host crashes tolerated …
 	restartWindow      = 2 * time.Minute  // … within this window
 	startTimeout       = 20 * time.Second // Play/Resume wait for first audio
+	slowStart          = 5 * time.Second  // a start this slow is logged with the stage it spent it in
 )
 
 // host is the part of *cdmhost.Host the engine uses.
@@ -313,18 +314,7 @@ func (e *Engine) emit(kind playback.EventKind) {
 	if e.closed {
 		return
 	}
-	ev := playback.Event{Kind: kind, Status: e.st}
-	for {
-		select {
-		case e.events <- ev:
-			return
-		default:
-		}
-		select {
-		case <-e.events:
-		default:
-		}
-	}
+	playback.SendLatest(e.events, playback.Event{Kind: kind, Status: e.st})
 }
 
 // setState updates the snapshot and emits; with mu held.
@@ -334,18 +324,6 @@ func (e *Engine) setState(s playback.State, pos time.Duration, at time.Time) {
 		e.st.Err = ""
 	}
 	e.emit(playback.EventState)
-}
-
-// position extrapolates the current position; with mu held.
-func (e *Engine) position(now time.Time) time.Duration {
-	p := e.st.Position
-	if e.st.State == playback.StatePlaying {
-		p += now.Sub(e.st.UpdatedAt)
-	}
-	if e.st.Duration > 0 && p > e.st.Duration {
-		p = e.st.Duration
-	}
-	return max(p, 0)
 }
 
 var errClosed = errors.New("native: engine closed")
@@ -389,9 +367,16 @@ func (e *Engine) replaceCurrent() {
 }
 
 // start prepares it (in parallel with starting the host), loads it at pos
-// and, unless paused meanwhile, plays and waits for first audio.
-func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
+// and, unless paused meanwhile, plays and waits for first audio. When ctx
+// ends first, it is parked paused (giveUp).
+func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) (err error) {
 	t0 := time.Now()
+	stage := "prepare" // playback info, host and licence
+	defer func() {
+		if took := time.Since(t0); took >= slowStart {
+			e.log.Warn("slow start", "id", it.id, "stage", stage, "took", took, "err", err)
+		}
+	}()
 	type hostResult struct {
 		h   host
 		gen int
@@ -417,11 +402,12 @@ func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
 	}
 	if err != nil {
 		if ctx.Err() != nil {
-			e.abandon(it, pos)
+			e.giveUp(it)
 		}
 		return e.fail(it, err)
 	}
 	prepared := time.Since(t0)
+	stage = "load"
 
 	e.mu.Lock()
 	if e.cur != it {
@@ -465,7 +451,7 @@ func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
 	e.ctl.Unlock()
 	if err != nil {
 		if ctx.Err() != nil {
-			e.abandon(it, pos)
+			e.giveUp(it)
 		}
 		return e.fail(it, err)
 	}
@@ -475,6 +461,7 @@ func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
 	if !play {
 		return nil
 	}
+	stage = "first audio"
 	select {
 	case err := <-wait:
 		if err != nil {
@@ -483,23 +470,23 @@ func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) error {
 		e.log.Debug("playing", "id", it.id, "at", pos, "prepare", prepared, "first_audio", time.Since(t0))
 		return nil
 	case <-ctx.Done():
+		e.giveUp(it)
 		return ctx.Err()
 	case <-time.After(startTimeout):
 		return e.fail(it, errors.New("native: no audio within "+startTimeout.String()))
 	}
 }
 
-// abandon parks it as paused at pos after its caller gave up loading it,
-// so Resume can pick it up again.
-func (e *Engine) abandon(it *item, pos time.Duration) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.cur != it {
-		return
+// giveUp parks it paused after its caller stopped waiting for it to start
+// (its context ended), so Resume can pick it up again. The host may have
+// been told to play it already, so it is paused there too: nothing else
+// would stop that audio once it arrives.
+func (e *Engine) giveUp(it *item) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := e.pause(ctx, it); err != nil {
+		e.log.Debug("pause abandoned start", "id", it.id, "err", err)
 	}
-	it.wantPlay = false
-	e.setState(playback.StatePaused, pos, time.Now())
-	e.armIdle()
 }
 
 // fail records err for it (if still current) and returns it.
@@ -522,7 +509,7 @@ func (e *Engine) fail(it *item, err error) error {
 		it.cancel()
 	}
 	now := time.Now()
-	e.st.State, e.st.Position, e.st.UpdatedAt, e.st.Err = playback.StateError, e.position(now), now, err.Error()
+	e.st.State, e.st.Position, e.st.UpdatedAt, e.st.Err = playback.StateError, e.st.PositionAt(now), now, err.Error()
 	e.emit(playback.EventError)
 	if errors.Is(err, applemusic.ErrUnauthorized) {
 		e.emit(playback.EventAuth)
@@ -531,6 +518,14 @@ func (e *Engine) fail(it *item, err error) error {
 	e.armIdle()
 	e.log.Warn("playback failed", "id", it.id, "err", err)
 	return err
+}
+
+// feedFailed records err for it, unless the feed was cancelled or the
+// host went away (stale or exited), which are not item failures.
+func (e *Engine) feedFailed(ctx context.Context, it *item, err error) {
+	if ctx.Err() == nil && !errors.Is(err, cdmhost.ErrStale) && !errors.Is(err, cdmhost.ErrExited) {
+		_ = e.fail(it, err)
+	}
 }
 
 // Preload prepares id: playback info, playlist, init segment, first
@@ -564,12 +559,16 @@ func (e *Engine) Preload(ctx context.Context, id string) error {
 }
 
 // Pause pauses the current item; the position is exact at UpdatedAt.
-func (e *Engine) Pause(ctx context.Context) error {
+func (e *Engine) Pause(ctx context.Context) error { return e.pause(ctx, nil) }
+
+// pause pauses only, or the current item when only is nil; an item that
+// is no longer current is left alone.
+func (e *Engine) pause(ctx context.Context, only *item) error {
 	e.ctl.Lock()
 	defer e.ctl.Unlock()
 	e.mu.Lock()
 	it, h := e.cur, e.h
-	if it == nil || !it.wantPlay {
+	if it == nil || !it.wantPlay || (only != nil && it != only) {
 		e.mu.Unlock()
 		return nil
 	}
@@ -591,7 +590,7 @@ func (e *Engine) Pause(ctx context.Context) error {
 	}
 	now := time.Now()
 	if !ok {
-		pos = e.position(now)
+		pos = e.st.PositionAt(now)
 	}
 	if e.st.State != playback.StateEnded && e.st.State != playback.StateError {
 		e.setState(playback.StatePaused, pos, now)
@@ -643,12 +642,16 @@ func (e *Engine) Resume(ctx context.Context) error {
 	err := h.Play(ctx)
 	e.ctl.Unlock()
 	if err != nil {
+		if ctx.Err() != nil {
+			e.giveUp(it)
+		}
 		return e.fail(it, err)
 	}
 	select {
 	case err := <-wait:
 		return err
 	case <-ctx.Done():
+		e.giveUp(it)
 		return ctx.Err()
 	case <-time.After(startTimeout):
 		return e.fail(it, errors.New("native: no audio within "+startTimeout.String()))
@@ -658,7 +661,7 @@ func (e *Engine) Resume(ctx context.Context) error {
 // restart reloads it at its last position on a (new) host; with mu held,
 // released before returning.
 func (e *Engine) restart(ctx context.Context, it *item) error {
-	pos := e.position(time.Now())
+	pos := e.st.PositionAt(time.Now())
 	e.track++
 	it.tok, it.loaded = e.track, false
 	if it.wantPlay {
@@ -772,7 +775,7 @@ func (e *Engine) startFeed(ctx context.Context, it *item, tok uint64, h host, ge
 // SetVolume sets the output volume (0..1, the slider position); the host
 // applies playback.VolumeGain of it.
 func (e *Engine) SetVolume(ctx context.Context, v float64) error {
-	v = min(max(v, 0), 1)
+	v = playback.ClampVolume(v)
 	e.mu.Lock()
 	e.st.Volume = v
 	e.emit(playback.EventState)
@@ -1048,7 +1051,7 @@ func (e *Engine) hostExited(h host, cause error) {
 	if !e.recoverLocked(it) {
 		now := time.Now()
 		e.st.Err = fmt.Sprintf("playback host crashed %d times in %v: %v", maxRestarts+1, restartWindow, cause)
-		e.setState(playback.StateError, e.position(now), now)
+		e.setState(playback.StateError, e.st.PositionAt(now), now)
 		e.emit(playback.EventError)
 	}
 	e.mu.Unlock()

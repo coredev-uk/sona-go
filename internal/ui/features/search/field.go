@@ -236,10 +236,7 @@ func (f *field) build(c *ui.Context) {
 		border, bg = theme.C("control-line"), theme.C("raised")
 	}
 	box.Radius(theme.Current().Radius["md"]).Background(bg).Border(1, border)
-	if !theme.ReducedMotion() {
-		m := theme.Current().Motion["feedback"]
-		box.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(box, "feedback")
 
 	shown = f.open && len(opts) > 0
 	in.Expanded(shown)
@@ -289,7 +286,7 @@ func (f *field) trailing(c *ui.Context, in ui.Element) {
 		for i, part := range kit.ChordParts(keys[0]) {
 			ui.Row(c.Key("cap:"+string(rune('0'+i)))).Height(20).MinWidth(20).PaddingX(4).Center().Role(ui.RoleNone).
 				Radius(theme.Current().Radius["sm"]).Border(1, theme.C("control-line")).Children(func() {
-				fieldText(c, part, "meta").FontWeight(500).TextColor(theme.C("ink-muted")).Role(ui.RoleNone)
+				theme.Text(c, part, "meta").FontWeight(500).TextColor(theme.C("ink-muted")).Role(ui.RoleNone)
 			})
 		}
 	})
@@ -324,7 +321,7 @@ func (f *field) hints(term, scope string, enabled bool) hintData {
 	}
 	api, queries := f.s.api, f.s.env.Queries
 	if scope == scopeLibrary {
-		r := store.Use(queries, keyLibrarySearch(term, 3), func(ctx context.Context) (services.LibrarySearch, error) {
+		r := store.Use(queries, store.LibrarySearch(term, 3), func(ctx context.Context) (services.LibrarySearch, error) {
 			return api.Library(ctx, term, 3)
 		}, store.Options{Stale: hintStale})
 		if r.HasData {
@@ -390,7 +387,7 @@ func (f *field) search(q, scope string) {
 // visit opens a page, when it is ported (the router has it).
 func (f *field) visit(path string) {
 	env := f.s.env
-	if path != "" && env.HasRoute != nil && env.HasRoute(path) {
+	if path != "" && env.Routed(path) {
 		env.Nav.Push(path)
 	}
 }
@@ -519,7 +516,7 @@ func (f *field) popup(c *ui.Context, box ui.Element, opts []option, typed, scope
 
 // groupLabel is a muted label above a run of rows.
 func (f *field) groupLabel(c *ui.Context, id, text string) {
-	fieldText(c.Key("label:"+id), text, "meta").TextColor(theme.C("ink-faint")).Padding(8, 8, 4).Role(ui.RoleNone)
+	theme.Text(c.Key("label:"+id), text, "meta").TextColor(theme.C("ink-faint")).Padding(8, 8, 4).Role(ui.RoleNone)
 }
 
 // row draws one option: min 36 tall, radius 6, the active one on the active
@@ -555,7 +552,7 @@ func (f *field) row(c *ui.Context, o option, active bool) ui.Element {
 			f.termText(c, o.display)
 		case o.kind == optRecent && o.entry.Kind == services.RecentTerm:
 			f.icon(c, "clock")
-			fieldText(c.Key("txt"), o.entry.Term, "body").TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0)
+			theme.Text(c.Key("txt"), o.entry.Term, "body").TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0)
 		default:
 			it := o.item
 			if o.kind == optRecent {
@@ -563,8 +560,8 @@ func (f *field) row(c *ui.Context, o option, active bool) ui.Element {
 			}
 			kit.Artwork(c.Key("art"), f.s.env.Art, it.Art.Small, 32, kit.ArtOpts{Round: kit.ItemRound(it)})
 			ui.Column(c.Key("txt")).Grow(1).MinWidth(0).Children(func() {
-				fieldText(c.Key("name"), it.Name, "body").TextColor(theme.C("ink")).SingleLine()
-				fieldText(c.Key("meta"), itemMeta(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+				theme.Text(c.Key("name"), it.Name, "body").TextColor(theme.C("ink")).SingleLine()
+				theme.Text(c.Key("meta"), itemMeta(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 			})
 		}
 	})
@@ -581,16 +578,10 @@ func (f *field) termText(c *ui.Context, display string) {
 	before, match, after := splitMatch(display, strings.TrimSpace(f.text))
 	ui.Row(c.Key("txt")).Grow(1).MinWidth(0).Clip().Children(func() {
 		if before+match != "" {
-			fieldText(c.Key("typed"), before+match, "body").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
+			theme.Text(c.Key("typed"), before+match, "body").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
 		}
 		if after != "" {
-			fieldText(c.Key("rest"), after, "body").FontWeight(600).TextColor(theme.C("ink")).SingleLine()
+			theme.Text(c.Key("rest"), after, "body").FontWeight(600).TextColor(theme.C("ink")).SingleLine()
 		}
 	})
-}
-
-// fieldText is a text in one of the theme's type styles.
-func fieldText(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
 }

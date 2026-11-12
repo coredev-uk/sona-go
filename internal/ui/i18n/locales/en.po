@@ -1140,8 +1140,7 @@ msgstr "Copy an Apple Music link first."
 msgid "Copy diagnostics"
 msgstr "Copy diagnostics"
 
-#: internal/ui/features/onboarding/connections.go
-#: internal/ui/features/settings/scrobble.go
+#: internal/ui/kit/listenbrainz_hint.go
 msgid "Copy it from <0>your ListenBrainz settings<1/></0>. Sona checks it with ListenBrainz and keeps it in your keyring."
 msgstr "Copy it from <0>your ListenBrainz settings<1/></0>. Sona checks it with ListenBrainz and keeps it in your keyring."
 
@@ -1198,8 +1197,7 @@ msgstr "Couldn't change the cover"
 msgid "Couldn't change the pin"
 msgstr "Couldn't change the pin"
 
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't change the volume"
 msgstr "Couldn't change the volume"
 
@@ -1296,9 +1294,7 @@ msgstr "Couldn't get Widevine · Retry in Settings"
 msgid "Couldn't get a sign-in link"
 msgstr "Couldn't get a sign-in link"
 
-#: internal/ui/features/miniplayer/commands.go
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't go back"
 msgstr "Couldn't go back"
 
@@ -1540,9 +1536,7 @@ msgstr "Couldn't open the release"
 msgid "Couldn't pin “{name}”"
 msgstr "Couldn't pin “{name}”"
 
-#: internal/ui/features/miniplayer/commands.go
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't play or pause"
 msgstr "Couldn't play or pause"
 
@@ -1721,9 +1715,7 @@ msgstr "Couldn't search Apple Music"
 msgid "Couldn't search your library"
 msgstr "Couldn't search your library"
 
-#: internal/ui/features/miniplayer/commands.go
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't seek"
 msgstr "Couldn't seek"
 
@@ -1739,9 +1731,7 @@ msgstr "Couldn't set the sleep timer"
 msgid "Couldn't sign out"
 msgstr "Couldn't sign out"
 
-#: internal/ui/features/miniplayer/commands.go
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't skip"
 msgstr "Couldn't skip"
 
@@ -2505,8 +2495,8 @@ msgstr "GStreamer"
 msgid "Gave back {size} to the disk"
 msgstr "Gave back {size} to the disk"
 
-#: internal/ui/features/commands/commands.go
 #: internal/ui/features/settings/find.go
+#: internal/ui/module/shortcut_groups.go
 msgid "General"
 msgstr "General"
 
@@ -2790,6 +2780,10 @@ msgstr "Install gst-libav or the fdkaac plugin to decode Apple Music's AAC."
 msgid "Install it now and Sona restarts into it. Your settings, sign-in and queue stay as they are."
 msgstr "Install it now and Sona restarts into it. Your settings, sign-in and queue stay as they are."
 
+#: internal/ui/features/settings/motiondiag.go
+msgid "Install the Media Feature Pack for Windows (Settings → System → Optional features), then restart Sona."
+msgstr "Install the Media Feature Pack for Windows (Settings → System → Optional features), then restart Sona."
+
 #: internal/ui/kit/controls_input.go
 msgid "Invalid"
 msgstr "Invalid"
@@ -3039,9 +3033,8 @@ msgstr "ListenBrainz didn't accept that token. Copy it again from your ListenBra
 msgid "Listening"
 msgstr "Listening"
 
-#: internal/ui/features/miniplayer/view.go
-#: internal/ui/features/player/bar.go
 #: internal/ui/features/player/nowplaying_view.go
+#: internal/ui/kit/playback_controls.go
 msgid "Live"
 msgstr "Live"
 
@@ -3384,8 +3377,7 @@ msgid "Musixmatch"
 msgstr "Musixmatch"
 
 #: internal/ui/app/menubar.go
-#: internal/ui/features/player/bar.go
-#: internal/ui/features/video/view.go
+#: internal/ui/kit/playback_controls.go
 msgid "Mute"
 msgstr "Mute"
 
@@ -3401,8 +3393,7 @@ msgstr "Name"
 msgid "Name and description"
 msgstr "Name and description"
 
-#: internal/ui/features/commands/commands.go
-#: internal/ui/features/settings/find.go
+#: internal/ui/module/shortcut_groups.go
 msgid "Navigation"
 msgstr "Navigation"
 
@@ -4137,7 +4128,6 @@ msgstr "Out now · {artistName}"
 
 #: internal/ui/features/album/body.go
 #: internal/ui/features/album/model.go
-#: internal/ui/features/artist/format.go
 #: internal/ui/kit/collections_items_cover.go
 msgid "Out {releaseDate}"
 msgstr "Out {releaseDate}"
@@ -4161,8 +4151,7 @@ msgctxt "keyboard key"
 msgid "Page Up"
 msgstr "Page Up"
 
-#: internal/ui/features/commands/commands.go
-#: internal/ui/features/settings/find.go
+#: internal/ui/module/shortcut_groups.go
 msgid "Pages"
 msgstr "Pages"
 
@@ -4184,11 +4173,9 @@ msgstr "Paste your user token first."
 
 #: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
-#: internal/ui/features/miniplayer/view.go
-#: internal/ui/features/player/bar.go
 #: internal/ui/features/radio/onair.go
-#: internal/ui/features/video/view.go
 #: internal/ui/kit/collections_items_stations.go
+#: internal/ui/kit/playback_controls.go
 msgid "Pause"
 msgstr "Pause"
 
@@ -4281,18 +4268,16 @@ msgstr "Platform"
 #: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
 #: internal/ui/features/home/rows.go
-#: internal/ui/features/miniplayer/view.go
-#: internal/ui/features/player/bar.go
 #: internal/ui/features/player/queue_menu.go
 #: internal/ui/features/playlist/sidebar.go
 #: internal/ui/features/radio/onair.go
 #: internal/ui/features/radio/radio.go
 #: internal/ui/features/search/itemrow.go
-#: internal/ui/features/video/view.go
 #: internal/ui/kit/button.go
 #: internal/ui/kit/collections_cover.go
 #: internal/ui/kit/collections_items_linklist.go
 #: internal/ui/kit/collections_items_stations.go
+#: internal/ui/kit/playback_controls.go
 msgid "Play"
 msgstr "Play"
 
@@ -4359,10 +4344,10 @@ msgstr "Play {playLabel}"
 msgid "Play {songName}"
 msgstr "Play {songName}"
 
-#: internal/ui/features/commands/commands.go
 #: internal/ui/features/onboarding/steps.go
 #: internal/ui/features/settings/diag_rows.go
 #: internal/ui/features/settings/find.go
+#: internal/ui/module/shortcut_groups.go
 msgid "Playback"
 msgstr "Playback"
 
@@ -5151,8 +5136,6 @@ msgstr "Searching the catalogue needs your account's storefront. Your library on
 msgid "Secret Service keyring"
 msgstr "Secret Service keyring"
 
-#: internal/ui/features/discover/room.go
-#: internal/ui/features/home/index.go
 #: internal/ui/kit/collections_shelf.go
 msgid "See all"
 msgstr "See all"
@@ -5689,6 +5672,10 @@ msgstr "Sona"
 #: internal/ui/features/settings/cdm.go
 msgid "Sona also tries again by itself later."
 msgstr "Sona also tries again by itself later."
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Sona asks Apple for H.264 here: the system's video player can't be asked which other codecs it decodes."
+msgstr "Sona asks Apple for H.264 here: the system's video player can't be asked which other codecs it decodes."
 
 #: internal/ui/features/settings/lyrics.go
 msgid "Sona asks every source that's on and shows the lyrics with the finest timing: word by word, then line by line, then plain text. A source higher in the list wins a tie."
@@ -6857,8 +6844,7 @@ msgstr "Unknown: counted as mains power"
 msgid "Unlock at iforgot.apple.com"
 msgstr "Unlock at iforgot.apple.com"
 
-#: internal/ui/features/player/bar.go
-#: internal/ui/features/video/view.go
+#: internal/ui/kit/playback_controls.go
 msgid "Unmute"
 msgstr "Unmute"
 
@@ -6987,9 +6973,8 @@ msgid "Videos"
 msgstr "Videos"
 
 #: internal/ui/app/menubar.go
-#: internal/ui/features/commands/commands.go
-#: internal/ui/features/settings/find.go
 #: internal/ui/features/updates/updates.go
+#: internal/ui/module/shortcut_groups.go
 msgid "View"
 msgstr "View"
 
@@ -7582,6 +7567,10 @@ msgstr "macOS"
 msgid "macOS Keychain"
 msgstr "macOS Keychain"
 
+#: internal/ui/features/settings/motiondiag.go
+msgid "macOS plays H.264 itself: restart Sona, and update macOS if this stays."
+msgstr "macOS plays H.264 itself: restart Sona, and update macOS if this stays."
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "macOS's sandbox-exec is missing or didn't start."
 msgstr "macOS's sandbox-exec is missing or didn't start."
@@ -7764,16 +7753,6 @@ msgstr "{0, plural, one {# playlist} other {# playlists}}"
 msgid "{0, plural, one {# single or EP} other {# singles & EPs}}"
 msgstr "{0, plural, one {# single or EP} other {# singles & EPs}}"
 
-#. {0} is the number of songs: a list's total, or a playlist's track count.
-#: internal/ui/features/album/format.go
-#: internal/ui/features/home/local.go
-#: internal/ui/features/library/favourites.go
-#: internal/ui/features/library/playlists.go
-#: internal/ui/features/library/songs.go
-#: internal/ui/features/playlist/format.go
-msgid "{0, plural, one {# song} other {# songs}}"
-msgstr "{0, plural, one {# song} other {# songs}}"
-
 #. {0} is the number of videos in the cache.
 #: internal/ui/features/settings/motiondiag.go
 msgid "{0, plural, one {# video} other {# videos}}"
@@ -7864,8 +7843,7 @@ msgstr "{count, plural, one {{what} plays next} other {{what} play next}}"
 msgid "{count} of {what}"
 msgstr "{count} of {what}"
 
-#: internal/ui/features/album/format.go
-#: internal/ui/features/playlist/format.go
+#: internal/ui/i18n/catalogue.go
 msgid "{count}, {time}"
 msgstr "{count}, {time}"
 
@@ -8004,7 +7982,6 @@ msgid "{n, plural, one {# song you played hasn't been sent yet.} other {# songs 
 msgstr "{n, plural, one {# song you played hasn't been sent yet.} other {# songs you played haven't been sent yet.}}"
 
 #: internal/ui/features/home/index.go
-#: internal/ui/features/playlist/dialogs.go
 #: internal/ui/kit/overlays_actions.go
 msgid "{n, plural, one {# song} other {# songs}}"
 msgstr "{n, plural, one {# song} other {# songs}}"
@@ -8122,10 +8099,7 @@ msgstr "{seconds, plural, one {# second} other {# seconds}}"
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
-#: internal/ui/features/artist/format.go
-#: internal/ui/features/library/artists_index.go
-#: internal/ui/features/library/history.go
-#: internal/ui/features/settings/diag_rows.go
+#: internal/ui/i18n/catalogue.go
 msgid "{songs, plural, one {# song} other {# songs}}"
 msgstr "{songs, plural, one {# song} other {# songs}}"
 

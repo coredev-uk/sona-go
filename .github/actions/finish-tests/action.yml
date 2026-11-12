@@ -1,0 +1,31 @@
+name: Finish the tests
+description: >-
+  What follows a .github/ci/test.sh run: every skipped test must be one the
+  allow-list names (.github/ci/skips.sh), and the go test results are kept as
+  an artifact. Call it with `if: always()` so the results are kept after a
+  failure too.
+inputs:
+  artifact:
+    description: Name of the artifact that holds the test results
+    required: true
+  check:
+    description: >-
+      Whether to check the skips: `job.status == 'success'` (after a failed
+      test run the results are partial, and the check would only add noise)
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - name: Skipped tests are allowed ones
+      if: ${{ inputs.check == 'true' }}
+      shell: bash
+      run: .github/ci/skips.sh "$RUNNER_TEMP/test-results"
+
+    - name: Keep the test results
+      if: ${{ always() }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: ${{ inputs.artifact }}
+        path: ${{ runner.temp }}/test-results
+        if-no-files-found: ignore
+        retention-days: 3

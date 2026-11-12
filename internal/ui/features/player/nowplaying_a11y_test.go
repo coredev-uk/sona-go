@@ -2,6 +2,7 @@ package player
 
 import (
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -19,7 +20,7 @@ func TestTheSungLyricLineIsTheCurrentItem(t *testing.T) {
 	r.tt.Until("lyrics", r.tt.Shows("Line 1 sung words"))
 	tr := access.Read(t, r.tt.Tester)
 	for i := range 6 {
-		label := "Line " + itoa(i) + " sung words"
+		label := "Line " + strconv.Itoa(i) + " sung words"
 		n, ok := tr.Find(ui.RoleButton, label)
 		if !ok {
 			t.Fatalf("no button %q", label)
@@ -35,13 +36,15 @@ func TestTheSungLyricLineIsTheCurrentItem(t *testing.T) {
 }
 
 // A nudge is said when it changes, whoever has the focus, and not when the
-// song's readout is first shown.
+// song's readout is first shown. With a screen reader on it is said once:
+// the readout is a button, not a status MyGo v0.9.0 would read as well.
 func TestTheLyricsTimingOffsetIsAnnouncedWhenItChanges(t *testing.T) {
 	r := newNPRig(t)
 	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(10, false)}, nil)
 	r.play(2000)
 	r.open("")
 	r.tt.Until("tools", r.tt.Shows("Lyrics on time"))
+	r.tt.UseScreenReader()
 	r.tt.Announcements()
 	r.tt.Frame()
 	if got := r.tt.Announcements(); len(got) != 0 {
@@ -49,9 +52,7 @@ func TestTheLyricsTimingOffsetIsAnnouncedWhenItChanges(t *testing.T) {
 	}
 	click := func(s string) {
 		t.Helper()
-		if err := r.tt.Click(s); err != nil {
-			t.Fatal(err)
-		}
+		r.tt.MustClick(s)
 		r.tt.Drain()
 	}
 	click("Show lyrics 0.5 s later")

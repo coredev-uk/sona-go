@@ -307,6 +307,62 @@ func TestApplyScalesTextWithThePreference(t *testing.T) {
 	}
 }
 
+// themeUnder is the ui.Theme Apply sets for a frame under the desktop's prefs.
+func themeUnder(t *testing.T, prefs ui.Preferences) *ui.Theme {
+	t.Helper()
+	var th *ui.Theme
+	tt := ui.NewTester(func(c *ui.Context) { Apply(c); th = c.Theme() }, 100, 100)
+	tt.SetPreferences(prefs)
+	tt.Frame()
+	return th
+}
+
+// MyGo's high contrast (stronger borders and muted text, an opaque focus ring,
+// bolder scroll bars) applies to Sona's theme, and the desktop's accent does
+// not: amber is Sona's.
+func TestApplyFollowsHighContrastButNotTheDesktopsAccent(t *testing.T) {
+	rest := themeUnder(t, ui.Preferences{})
+	hc := themeUnder(t, ui.Preferences{HighContrast: true, Accent: hex("#ff0000")})
+	if hc.Border == rest.Border || hc.TextMuted == rest.TextMuted || hc.Scrollbar == rest.Scrollbar {
+		t.Errorf("high contrast left the border %v, muted text %v or scroll bar %v as they were", hc.Border, hc.TextMuted, hc.Scrollbar)
+	}
+	if hc.Focus.A != 255 {
+		t.Errorf("focus ring alpha %d under high contrast, want opaque", hc.Focus.A)
+	}
+	if hc.ScrollbarStyle.Hover.A <= rest.ScrollbarStyle.Hover.A {
+		t.Errorf("the hovered scroll bar thumb is %v, no bolder than %v", hc.ScrollbarStyle.Hover, rest.ScrollbarStyle.Hover)
+	}
+	if hc.Accent != rest.Accent || hc.Accent != Current().Color["amber"] || hc.Selection != rest.Selection {
+		t.Errorf("the desktop's accent changed the theme: accent %v, selection %v", hc.Accent, hc.Selection)
+	}
+}
+
+// What the desktop leaves at its usual setting changes nothing in the theme
+// (so the goldens, which run at them, hold).
+func TestApplyUsualPreferencesLeaveTheThemeAlone(t *testing.T) {
+	a := themeUnder(t, ui.Preferences{})
+	b := themeUnder(t, ui.Preferences{TextScale: 1})
+	if a.FontSize != b.FontSize || a.Border != b.Border || a.TextMuted != b.TextMuted || a.Focus != b.Focus ||
+		a.Scrollbar != b.Scrollbar || a.ScrollbarStyle != b.ScrollbarStyle || a.Accent != b.Accent || a.Selection != b.Selection {
+		t.Errorf("a text scale of 1 changed the theme:\n%+v\n%+v", a, b)
+	}
+	if want := Current().Type["body"].Size; a.FontSize != want {
+		t.Errorf("font size %v at the usual scale, want the body's %v", a.FontSize, want)
+	}
+}
+
+// The scroll bar thumb has its own colour while the pointer is over the bar.
+func TestApplyColoursTheHoveredScrollbarThumb(t *testing.T) {
+	th := themeUnder(t, ui.Preferences{})
+	tk := Current()
+	if th.ScrollbarStyle.Hover != tk.Color["scrollbar-hover"] || th.Scrollbar != tk.Color["scrollbar"] {
+		t.Errorf("scroll bar %v, hovered %v; want the tokens' %v and %v", th.Scrollbar, th.ScrollbarStyle.Hover, tk.Color["scrollbar"], tk.Color["scrollbar-hover"])
+	}
+	if th.ScrollbarStyle.Hover == th.Scrollbar {
+		t.Error("the hovered thumb is the resting colour")
+	}
+}
+
 func TestReducedMotionAndEffects(t *testing.T) {
 	defer func() { SetReduceEffects(false); SetReducedMotion(false) }()
 	tt := ui.NewTester(func(c *ui.Context) { Apply(c) }, 100, 100)

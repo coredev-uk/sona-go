@@ -8,6 +8,7 @@ package theme
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -35,12 +36,14 @@ var state struct {
 	doc  *Document
 	mode Mode
 
-	// What the last frame saw: the desktop's appearance and preferences.
+	// What the last frame saw: the desktop's appearance.
 	systemDark bool
-	prefs      ui.Preferences
 
-	reduceEffects bool // the setting
-	reduceMotion  bool // the setting
+	// The motion flags are read for every row of a list, so they are atomic
+	// and take no lock.
+	reduceEffects atomic.Bool // the setting
+	reduceMotion  atomic.Bool // the setting
+	prefsMotion   atomic.Bool // the desktop's preference, as the last Apply saw it
 
 	tokens [2]*Tokens // light, dark; nil until used after a (re)load
 	themes map[themeKey]*ui.Theme
@@ -150,10 +153,13 @@ func currentLocked() *Tokens {
 // it panics in tests and development builds, and in production is magenta
 // so it shows.
 func C(name string) ui.Color {
-	if c, ok := scoped(name); ok {
-		return c
+	state.mu.Lock() // one lock for the scopes and the tokens: C runs thousands of times a frame
+	c, ok := scopedLocked(name)
+	if !ok {
+		c, ok = currentLocked().Color[name]
 	}
-	if c, ok := Current().Color[name]; ok {
+	state.mu.Unlock()
+	if ok {
 		return c
 	}
 	if strict() {
@@ -165,33 +171,23 @@ func C(name string) ui.Color {
 // SetReduceEffects is the Reduce effects setting (Settings → Appearance):
 // no backdrops, solid surfaces, no motion.
 func SetReduceEffects(on bool) {
-	state.mu.Lock()
-	state.reduceEffects = on
-	state.mu.Unlock()
+	state.reduceEffects.Store(on)
 }
 
 // SetReducedMotion is the setting that keeps motion to a minimum besides
 // the desktop's own preference; Reduce effects implies it.
 func SetReducedMotion(on bool) {
-	state.mu.Lock()
-	state.reduceMotion = on
-	state.mu.Unlock()
+	state.reduceMotion.Store(on)
 }
 
 // ReduceEffects reports that surfaces are solid: no backdrops, no blur
 // (v0.2.0's .reduce-effects, set by the setting).
-func ReduceEffects() bool {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	return state.reduceEffects
-}
+func ReduceEffects() bool { return state.reduceEffects.Load() }
 
 // ReducedMotion reports that nothing should move: the settings or the
 // desktop's preference (as the last Apply saw it).
 func ReducedMotion() bool {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	return state.reduceEffects || state.reduceMotion || state.prefs.ReduceMotion
+	return state.reduceEffects.Load() || state.reduceMotion.Load() || state.prefsMotion.Load()
 }
 
 // Apply sets the window's ui.Theme from the tokens, as MyGo's widgets take
@@ -205,7 +201,7 @@ func Apply(c *ui.Context) {
 	prefs := c.Preferences()
 	state.mu.Lock()
 	state.systemDark = sys.Dark
-	state.prefs = prefs
+	state.prefsMotion.Store(prefs.ReduceMotion)
 	dark := darkLocked()
 	key := themeKey{dark, prefs.TextScale, prefs.HighContrast}
 	t := state.themes[key]
@@ -241,6 +237,7 @@ func build(tk *Tokens, prefs ui.Preferences) *ui.Theme {
 	t.Danger, t.Success, t.Warning = col("danger"), col("positive"), col("amber-ink")
 	t.Selection = col("selection")
 	t.Scrollbar = col("scrollbar")
+	t.ScrollbarStyle.Hover = col("scrollbar-hover") // the thumb while the pointer is over the bar
 	// Tooltips and toasts are the theme turned over.
 	t.Inverse, t.InverseText = col("ink"), col("ground")
 	t.Radius = tk.Radius["md"]
@@ -250,8 +247,9 @@ func build(tk *Tokens, prefs ui.Preferences) *ui.Theme {
 	t.Font = FontFamily
 	body := tk.Type["body"]
 	t.FontSize = body.Size
-	if prefs.TextScale > 0 {
-		t.FontSize *= prefs.TextScale
-	}
-	return t
+	// The desktop's text size and contrast, as MyGo's own widgets follow
+	// them: a larger font, and under high contrast stronger borders and muted
+	// text, an opaque focus ring and bolder scroll bars. The accent is left
+	// zero: amber is Sona's, not the desktop's.
+	return t.WithPreferences(ui.Preferences{HighContrast: prefs.HighContrast, TextScale: prefs.TextScale})
 }

@@ -108,12 +108,9 @@ func (f *feature) avatar(c *ui.Context, signedIn, attention, open bool) ui.Eleme
 	if signedIn {
 		bg, fg = theme.C("active"), theme.C("ink")
 	}
-	btn := ui.ButtonBase(c.Key("auth:avatar")).Label(i18n.T("Account")).Expanded(open).
+	btn := ui.ButtonBase(c.Key("auth:avatar")).Label(i18n.T("Account")).HasPopup(ui.PopupMenu).Expanded(open).
 		Size(avatarSize, avatarSize).Radius(tk.Radius["full"]).Background(bg).TextColor(fg).Center()
-	if !theme.ReducedMotion() {
-		m := tk.Motion["feedback"]
-		btn.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(btn, "feedback")
 	btn.Children(func() {
 		ui.Icon(c.Key("auth:avatar-icon"), theme.Icon("user")).FontSize(16).TextColor(fg)
 		if attention {
@@ -190,7 +187,7 @@ func (f *feature) privateItems(priv store.Result[services.PrivateState]) []kit.M
 		Key: "private", Kind: kit.MenuCheckbox, Label: i18n.T("Private listening"),
 		Checked: priv.HasData && st.On, Disabled: !priv.HasData,
 		KeepOpen: true,
-		Run:      func() { f.setPrivate(!st.On) },
+		Run:      func() { kit.SetPrivate(f.env.Queries, f.env.Core, !st.On) },
 	}
 	if forced {
 		row.Reason = i18n.T("On because Sona was started with SONA_PRIVATE=1")
@@ -202,12 +199,6 @@ func (f *feature) privateItems(priv store.Result[services.PrivateState]) []kit.M
 		text = i18n.T("Private listening is on for this development build. Turning it off lasts until Sona quits.")
 	}
 	return []kit.MenuItem{row, {Kind: kit.MenuLabel, Note: kit.LabelNote, Label: text}}
-}
-
-// setPrivate switches private listening; the row keeps the menu open, so
-// the tick (which follows Go's answer) is the switch's only confirmation.
-func (f *feature) setPrivate(on bool) {
-	kit.SetPrivate(f.env.Queries, f.env.Core, on)
 }
 
 // checkNow asks Apple to confirm the stored sign-in now; a failure toasts.

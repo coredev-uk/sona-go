@@ -26,7 +26,7 @@ func (c *Catalog) SongPage(ctx context.Context, id string) (applemusic.Song, err
 	return cached(ctx, c, "song-page", id, SongTTL, func(ctx context.Context, sf string) (applemusic.Song, error) {
 		return applemusic.SongPage(ctx, c.api, sf, id)
 	}, func(q *dbq.Queries, s applemusic.Song, now int64) error {
-		_, err := storeSong(ctx, q, s, now)
+		_, err := StoreSong(ctx, q, s, now)
 		return err
 	})
 }

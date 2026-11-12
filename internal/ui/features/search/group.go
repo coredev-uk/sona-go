@@ -1,13 +1,12 @@
 package search
 
 import (
-	"strings"
-
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -45,19 +44,19 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 	if key := group + "\x00" + q; v.key != key {
 		v.key, v.want = key, 1
 	}
-	s.scrollPage(c, &v.pageView, v.key, func(pane *kit.Pane) {
+	v.Scroll(c, v.key, func(pane *kit.Pane, _ float32) {
 		s.groupHeader(c, group, q)
 
 		// The pages loaded so far, in order: each is asked for at the
 		// offset the one before named.
 		var items []services.Item
-		var failed error
+		var failedRes store.Result[services.SearchGroupPage]
 		var failedAt, loaded int
 		more, loading, offset := false, false, 0
 		for range v.want {
 			res := s.groupPageAt(q, group, offset)
 			if !res.HasData {
-				failed, failedAt = res.Err, offset
+				failedRes, failedAt = res, offset
 				loading = res.Err == nil
 				break
 			}
@@ -72,11 +71,8 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 		title := groupTitle(group)
 
 		switch {
-		case failed != nil && len(items) == 0:
-			kit.ErrorBlock(c, groupLoadError(group), failed, kit.ErrorBlockOpts{
-				OnRetry:  func() { s.env.Queries.Invalidate(keyGroup(q, group, failedAt)) },
-				Retrying: s.groupPageAt(q, group, failedAt).Fetching,
-			})
+		case failedRes.Err != nil && len(items) == 0:
+			kit.QueryError(c, s.env.Queries, groupLoadError(group), failedRes, keyGroup(q, group, failedAt))
 			return
 		case loaded > 0 && len(items) == 0 && !more:
 			kit.EmptyState(c, groupEmpty(group, q), i18n.T("Apple Music has nothing more of this kind for the search."), kit.EmptyOpts{})
@@ -112,11 +108,9 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 				return nil
 			}, ctx, kit.ItemGridOpts{Label: label, Pane: pane})
 		}
-		if failed != nil {
+		if failedRes.Err != nil {
 			ui.Box(c).Height(24)
-			kit.ErrorBlock(c, i18n.T("Couldn't load more"), failed, kit.ErrorBlockOpts{
-				OnRetry: func() { s.env.Queries.Invalidate(keyGroup(q, group, failedAt)) },
-			})
+			kit.QueryFailed(c, s.env.Queries, i18n.T("Couldn't load more"), failedRes.Err, keyGroup(q, group, failedAt))
 		}
 
 		// The end of the list: when it comes within a screen of the view,
@@ -127,7 +121,7 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 			v.built = len(items) + pending
 			c.Invalidate()
 		}
-		if settled && more && failed == nil && !loading && loaded == v.want {
+		if settled && more && failedRes.Err == nil && !loading && loaded == v.want {
 			if b, p := end.Bounds(), pane.Bounds(); b.H > 0 && p.H > 0 && b.Y < p.Y+2*p.H {
 				v.want++
 				c.Invalidate()
@@ -140,21 +134,22 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 // results for “q”", with the term linking back to the search.
 func (s *search) groupHeader(c *ui.Context, group, q string) {
 	ui.Column(c.Key("header")).FillWidth().Margin(0, 0, 24, 0).Children(func() {
-		text(c, groupTitle(group), "title").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
+		theme.Text(c, groupTitle(group), "title").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
 		msg := i18n.T("Apple Music results for <0>“{q}”</0>", "q", q)
-		before, rest, _ := strings.Cut(msg, "<0>")
-		link, after, _ := strings.Cut(rest, "</0>")
+		before, link, after, _ := i18n.SplitLink(msg)
 		ui.Row(c.Key("subline")).AlignItems(ui.Center).Margin(4, 0, 0, 0).Children(func() {
-			text(c, before, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
-			l := ui.ButtonBase(c.Key("q")).Role(ui.RoleLink).Radius(2)
-			l.Children(func() {
-				text(c, link, "secondary").TextColor(theme.C("ink")).SingleLine().Underline()
-			})
-			if l.Clicked() {
-				s.env.Nav.Push(searchLocation(q, scopeCatalog))
+			theme.Text(c, before, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+			if link != "" { // a translation that lost its tags has no link
+				l := ui.ButtonBase(c.Key("q")).Role(ui.RoleLink).Radius(2)
+				l.Children(func() {
+					theme.Text(c, link, "secondary").TextColor(theme.C("ink")).SingleLine().Underline()
+				})
+				if l.Clicked() {
+					s.env.Nav.Push(searchLocation(q, scopeCatalog))
+				}
 			}
 			if after != "" {
-				text(c, after, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+				theme.Text(c, after, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 			}
 		})
 	})

@@ -18,7 +18,7 @@ type newPage struct {
 	ed    kit.EditorialState
 
 	// What loads: the skeletons' measures.
-	frontSkel, shelvesSkel measure
+	frontSkel, shelvesSkel kit.WidthTracker
 
 	// The issue is what the data makes of the page: the front page's cards
 	// and the shelves in bands. It is made again when the data changes.
@@ -111,7 +111,7 @@ func (d *discover) newPage(c *ui.Context, r *ui.Route) {
 			d.issueView(c)
 		case q.Err != nil:
 			d.pageHeader(c, i18n.T("Discover"), "", false)
-			d.pageError(c, i18n.T("Couldn't load what's new"), q.Err, q.Fetching, d.retry(keyPage(kindNew, "")))
+			kit.QueryError(c, d.env.Queries, i18n.T("Couldn't load what's new"), q, keyPage(kindNew, ""))
 		default:
 			d.pageHeader(c, i18n.T("Discover"), "", true)
 			d.newSkeleton(c)
@@ -141,7 +141,7 @@ func (d *discover) anchorOf(e ui.Element, id, label string) ui.Element {
 		if st.anchors == nil {
 			st.anchors = map[string]float32{}
 		}
-		st.anchors[id] = b.Y - st.pg.top + st.pg.laidY
+		st.anchors[id] = b.Y - st.pg.Top + st.pg.laidY
 	}
 	if st.focus == id {
 		e.TabStop(false).FocusRing(false)
@@ -164,7 +164,7 @@ func (d *discover) anchorOf(e ui.Element, id, label string) ui.Element {
 func (d *discover) jump(id string) {
 	st := &d.newPg
 	if y, ok := st.anchors[id]; ok {
-		st.pg.pos.Y = max(0, y-24)
+		st.pg.Pos.Y = max(0, y-24)
 	}
 	st.focus, st.focusNow = id, true
 }
@@ -176,7 +176,7 @@ func (d *discover) issueView(c *ui.Context) {
 	ctx := d.env.ItemsCtx(st.menus)
 	ctx.NoPopup = true // the page draws the menus' popup once, after the shelves
 	if len(is.hero) > 0 {
-		d.frontPage(c, is.hero)
+		d.frontPage(c, is.hero, ctx)
 	}
 	if len(is.bands) > 1 {
 		d.contents(c, is.bands)
@@ -190,7 +190,7 @@ func (d *discover) issueView(c *ui.Context) {
 			d.anchorOf(sec, b.anchor, "")
 			sec.Children(func() {
 				ui.Box(c.Key("rule")).FillWidth().Height(1).Background(theme.C("line")).Margin(0, 0, 24, 0)
-				text(c, b.title, "page").TextColor(theme.C("ink")).Margin(0, 0, 20, 0).Role(ui.RoleHeading).Level(2)
+				theme.Text(c, b.title, "page").TextColor(theme.C("ink")).Margin(0, 0, 20, 0).Role(ui.RoleHeading).Level(2)
 				for i, s := range b.sections {
 					w := ui.Column(c.Key(strconv.Itoa(i) + ":" + s.ID)).FillWidth()
 					// An untitled link list continues the one above it.
@@ -215,7 +215,7 @@ func (d *discover) contents(c *ui.Context, bands []issueBand) {
 	tk := theme.Current()
 	label := i18n.T("On this page")
 	ui.Column(c.Key("contents")).FillWidth().Margin(0, 0, 48, 0).Role(ui.RoleGroup).Label(label).Children(func() {
-		text(c, label, "heading").TextColor(theme.C("ink")).Margin(0, 0, 8, 0).Role(ui.RoleHeading).Level(2)
+		theme.Text(c, label, "heading").TextColor(theme.C("ink")).Margin(0, 0, 8, 0).Role(ui.RoleHeading).Level(2)
 		for _, b := range bands {
 			ui.Row(c.Key(b.anchor)).FillWidth().Gap(24).AlignItems(ui.Start).Padding(4, 0).Children(func() {
 				ui.Row(c.Key("band")).Width(144).Shrink(0).Children(func() {
@@ -232,7 +232,7 @@ func (d *discover) contents(c *ui.Context, bands []issueBand) {
 						ui.Row(c.Key(i)).Gap(8).AlignItems(ui.Center).MinWidth(0).Role(ui.RoleListItem).Label(b.sections[i].Title).Children(func() {
 							d.jumpButton(c, b.anchor+"-"+strconv.Itoa(i), b.sections[i].Title, "secondary", theme.C("ink-muted"))
 							if n < len(titled)-1 {
-								text(c, "·", "secondary").TextColor(theme.C("ink-faint")).Role(ui.RoleNone)
+								theme.Text(c, "·", "secondary").TextColor(theme.C("ink-faint")).Role(ui.RoleNone)
 							}
 						})
 					}
@@ -249,7 +249,7 @@ func (d *discover) jumpButton(c *ui.Context, id, title, style string, col ui.Col
 	b := ui.ButtonBase(c.Key(id)).Label(title).Radius(theme.Current().Radius["sm"]).AlignSelf(ui.Start)
 	hover := b.Hovered()
 	b.Children(func() {
-		t := text(c, title, style).TextColor(col).SingleLine()
+		t := theme.Text(c, title, style).TextColor(col).SingleLine()
 		if hover {
 			t.Underline().TextColor(theme.C("ink"))
 		}
@@ -271,9 +271,9 @@ func (d *discover) pageHeader(c *ui.Context, title, subline string, holding bool
 	tk := theme.Current()
 	ui.Row(c.Key("header")).FillWidth().AlignItems(ui.End).Margin(0, 0, 24, 0).Shrink(0).Children(func() {
 		ui.Column(c).MinWidth(0).Shrink(1).Children(func() {
-			text(c, title, "title").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
+			theme.Text(c, title, "title").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
 			ui.Row(c).Height(tk.Type["secondary"].LineHeight).Margin(4, 0, 0, 0).AlignItems(ui.Center).Children(func() {
-				bar(c, 112, 12)
+				kit.Bar(c, 112, 12)
 			})
 		})
 	})
@@ -287,17 +287,17 @@ func (d *discover) newSkeleton(c *ui.Context) {
 	tk := theme.Current()
 	d.frontSkeleton(c, &st.frontSkel)
 	ui.Column(c.Key("contents-skeleton")).FillWidth().Margin(0, 0, 48, 0).Role(ui.RoleNone).Children(func() {
-		ui.Row(c).Height(22).Margin(0, 0, 8, 0).AlignItems(ui.Center).Children(func() { bar(c, 112, 16) })
+		ui.Row(c).Height(22).Margin(0, 0, 8, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, 112, 16) })
 		for i, w := range []float32{0.7, 0.45, 0.3, 0.3, 0.25} {
 			ui.Row(c.Key(i)).FillWidth().Height(28).Gap(24).AlignItems(ui.Center).Children(func() {
-				ui.Row(c).Width(120).Shrink(0).Children(func() { bar(c, 96, 14) })
+				ui.Row(c).Width(120).Shrink(0).Children(func() { kit.Bar(c, 96, 14) })
 				ui.Box(c).WidthPercent(w * 100).Height(12).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
 			})
 		}
 	})
 	ui.Column(c.Key("band-skeleton")).FillWidth().Margin(0, 0, 20, 0).Role(ui.RoleNone).Children(func() {
 		ui.Box(c).FillWidth().Height(1).Background(theme.C("line")).Margin(0, 0, 24, 0)
-		ui.Row(c).Height(30).AlignItems(ui.Center).Children(func() { bar(c, 176, 20) })
+		ui.Row(c).Height(30).AlignItems(ui.Center).Children(func() { kit.Bar(c, 176, 20) })
 	})
 	d.shelvesSkeleton(c, &st.shelvesSkel, false)
 }

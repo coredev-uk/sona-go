@@ -147,9 +147,7 @@ func (s *settings) diagnostics(c *ui.Context) {
 	ui.Column(c.Key("diag")).FillWidth().Children(func() {
 		s.diagHeader(c, q, problems, warnings)
 		if q.Err != nil {
-			kit.ErrorBlock(c.Key("err"), i18n.T("Couldn't run the checks"), q.Err, kit.ErrorBlockOpts{
-				OnRetry: func() { s.env.Queries.Invalidate(keyDiagnostics) }, Retrying: q.Fetching,
-			})
+			kit.QueryError(c.Key("err"), s.env.Queries, i18n.T("Couldn't run the checks"), q, keyDiagnostics)
 		}
 		if !q.HasData && q.Err == nil {
 			s.diagLoading(c)
@@ -166,32 +164,13 @@ func (s *settings) diagnostics(c *ui.Context) {
 	})
 }
 
-// diagVerdict is the header's sentence, as it is read out.
-func diagVerdict(q store.Result[services.Diagnostics], problems, warnings int) string {
-	var out string
-	switch {
-	case q.Fetching:
-		return i18n.T("Checking the playback host, database and keyring…")
-	case q.HasData && problems > 0:
-		out = i18n.T("{problems, plural, one {# problem found} other {# problems found}}", "problems", problems)
-	case q.HasData:
-		out = i18n.T("Everything Sona needs is working")
-	default:
-		return ""
-	}
-	if warnings > 0 {
-		out += ". " + i18n.T("{warnings, plural, one {# warning to look at below} other {# warnings to look at below}}", "warnings", warnings)
-	}
-	return out
-}
-
-// diagHeader is the verdict (announced politely) and the three buttons.
+// diagHeader is the verdict, a status read as it changes, and the three
+// buttons.
 func (s *settings) diagHeader(c *ui.Context, q store.Result[services.Diagnostics], problems, warnings int) {
 	c = c.Key("head")
-	s.tell(c, "diag-verdict", diagVerdict(q, problems, warnings)) // aria-live="polite"
 	ui.Box(c.Key("line")).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
 	ui.Row(c).FillWidth().Wrap().GapX(24).GapY(12).Padding(16, 0, 0, 0).Margin(0, 0, 32, 0).Children(func() {
-		ui.Row(c.Key("verdict")).Grow(1).MinHeight(32).AlignItems(ui.Start).Gap(10).Role(ui.RoleStatus).Children(func() {
+		ui.Row(c.Key("verdict")).Grow(1).MinHeight(32).AlignItems(ui.Start).Gap(10).Children(func() {
 			if q.HasData && !q.Fetching {
 				st := statusOK
 				if problems > 0 {
@@ -199,17 +178,19 @@ func (s *settings) diagHeader(c *ui.Context, q store.Result[services.Diagnostics
 				}
 				statusIcon(c.Key("icon"), st).Margin(2, 0, 0, 0)
 			}
-			ui.Column(c.Key("text")).Children(func() {
+			// The status is the words, read as they change: not the icon's
+			// "OK" beside them.
+			ui.Column(c.Key("text")).Role(ui.RoleStatus).Children(func() {
 				switch {
 				case q.Fetching:
-					text(c, i18n.T("Checking the playback host, database and keyring…"), "heading").TextColor(theme.C("ink"))
+					theme.Text(c, i18n.T("Checking the playback host, database and keyring…"), "heading").TextColor(theme.C("ink"))
 				case q.HasData && problems > 0:
-					text(c, i18n.T("{problems, plural, one {# problem found} other {# problems found}}", "problems", problems), "heading").TextColor(theme.C("ink"))
+					theme.Text(c, i18n.T("{problems, plural, one {# problem found} other {# problems found}}", "problems", problems), "heading").TextColor(theme.C("ink"))
 				case q.HasData:
-					text(c, i18n.T("Everything Sona needs is working"), "heading").TextColor(theme.C("ink"))
+					theme.Text(c, i18n.T("Everything Sona needs is working"), "heading").TextColor(theme.C("ink"))
 				}
 				if q.HasData && !q.Fetching && warnings > 0 {
-					text(c, i18n.T("{warnings, plural, one {# warning to look at below} other {# warnings to look at below}}", "warnings", warnings), "secondary").TextColor(theme.C("ink-muted"))
+					theme.Text(c, i18n.T("{warnings, plural, one {# warning to look at below} other {# warnings to look at below}}", "warnings", warnings), "secondary").TextColor(theme.C("ink-muted"))
 				}
 			})
 		})
@@ -265,22 +246,22 @@ func (s *settings) diagGroup(c *ui.Context, g diagGroup) {
 		labelWidth = 160
 	}
 	ui.Column(c).FillWidth().Role(ui.RoleGroup).Label(g.title).Children(func() {
-		text(c, g.title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3).Margin(0, 0, 12, 0)
+		theme.Text(c, g.title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3).Margin(0, 0, 12, 0)
 		for i, r := range g.rows {
 			k := c.Key("row" + strconv.Itoa(i))
 			ui.Box(c.Key("line" + strconv.Itoa(i))).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
 			ui.Row(k).FillWidth().Gap(24).Padding(10, 0).AlignItems(ui.Start).Children(func() {
-				text(k, r.label, "secondary").TextColor(theme.C("ink-muted")).Width(labelWidth).Shrink(0)
+				theme.Text(k, r.label, "secondary").TextColor(theme.C("ink-muted")).Width(labelWidth).Shrink(0)
 				ui.Column(k.Key("v")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
 					ui.Row(k.Key("val")).Gap(8).AlignItems(ui.Start).Children(func() {
 						statusIcon(k.Key("s"), r.status)
-						t := text(k, r.value, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
+						t := theme.Text(k, r.value, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
 						if r.status == statusError {
 							t.FontWeight(500)
 						}
 					})
 					if r.detail != "" {
-						text(k, r.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 24).MaxWidth(576)
+						theme.Text(k, r.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 24).MaxWidth(576)
 					}
 				})
 			})
@@ -291,13 +272,13 @@ func (s *settings) diagGroup(c *ui.Context, g diagGroup) {
 // diagLoading is the 7-row label/value skeleton, announced busy.
 func (s *settings) diagLoading(c *ui.Context) {
 	ui.Column(c.Key("loading")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
-		ui.Box(c.Key("h")).Width(112).Height(16).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover")).Margin(0, 0, 12, 0)
+		kit.Bar(c.Key("h"), 112, 16).Margin(0, 0, 12, 0)
 		for i := range 7 {
 			k := c.Key("row" + strconv.Itoa(i))
 			ui.Box(c.Key("line" + strconv.Itoa(i))).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
 			ui.Row(k).FillWidth().Height(40).AlignItems(ui.Center).Gap(24).Children(func() {
-				ui.Box(k.Key("l")).Width(128).Height(12).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
-				ui.Box(k.Key("v")).Width(float32(160 + (i*13)%35*6)).Height(12).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
+				kit.Bar(k.Key("l"), 128, 12)
+				kit.Bar(k.Key("v"), float32(160+(i*13)%35*6), 12)
 			})
 		}
 	})

@@ -3,7 +3,6 @@ package player
 import (
 	"context"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -91,7 +90,7 @@ func (p *player) sleepButton(c *ui.Context) {
 		Variant: kit.Ghost, Size: kit.SizeSM, Icon: "moon", Filled: sleep != nil, Muted: sleep == nil,
 		Disabled: s.Current == nil && sleep == nil, A11yLabel: status, Tip: status,
 	})
-	btn.Role(ui.RoleMenuButton).Expanded(p.sleep.menu.IsOpen()) // it opens a menu
+	btn.Role(ui.RoleMenuButton).HasPopup(ui.PopupMenu).Expanded(p.sleep.menu.IsOpen()) // it opens a menu
 	if btn.Clicked() {
 		p.sleep.menu.OpenFrom(btn.FocusVisible())
 	}
@@ -131,7 +130,7 @@ func (p *player) sleepItems(sleep *services.SleepTimer, until string) []kit.Menu
 	var note string
 	switch sleep.Mode {
 	case "after":
-		note = strings.NewReplacer("<0>", "", "</0>", "").Replace(i18n.T("Pauses at <0>{until}</0>, fading out over the last 10 seconds.", "until", until))
+		note = i18n.StripTags(i18n.T("Pauses at <0>{until}</0>, fading out over the last 10 seconds.", "until", until))
 	case "track":
 		note = i18n.T("Pauses when this song ends, fading out over the last 10 seconds.")
 	default:

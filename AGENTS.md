@@ -34,7 +34,7 @@
 
 ## Stack
 
-- Go 1.27.3, MyGo v0.8.3 native UI (`github.com/egoist/mygo/ui`): GTK3 on Linux, AppKit on macOS, Win32 on Windows, one Go process drawing on the GPU. Pinned exactly; Renovate marks every bump `verdict/review`.
+- Go 1.27.3, MyGo v0.9.0 native UI (`github.com/egoist/mygo/ui`): GTK3 on Linux, AppKit on macOS, Win32 on Windows, one Go process drawing on the GPU. Pinned exactly; Renovate marks every bump `verdict/review`.
 - SQLite via `github.com/mattn/go-sqlite3` (FTS5 through the `sqlite_fts5` build tag) with a libSQL-compatible schema, goose + sqlc.
 - Playback: Google's Widevine CDM (`libwidevinecdm.so`, `.dylib` on macOS) downloaded by Sona from Google (`internal/playback/cdm`) and hosted through a C++ shim, GStreamer `appsrc` for AAC decode and PipeWire output (Core Audio on macOS).
 
@@ -49,6 +49,7 @@
 - Never extract keys or use reimplemented CDMs (`openwv`, extracted device keys).
 - Do not try to make Widevine work inside the UI process: the CDM lives only in the host child.
 - Go's MPRIS (`org.mpris.MediaPlayer2.sona`) is the only Sona player on D-Bus.
+- A file Sona replaces in place (settings, credentials fallback, caches, queues, pointers) is written with `fsutil.WriteFileAtomic` (synced temp file, rename, directory sync), never by hand-rolled temp-and-rename code.
 - OS-specific code goes behind the platform seams (`platform_<os>.go`, `services.Platform`, build-tag conventions: CONTRIBUTING.md "Platforms"). Where a platform lacks a feature it reports it (`errors.ErrUnsupported`, `PlatformService.Capabilities`) and the UI hides or explains the control; never a stub that pretends to work.
 
 ## Linux Performance Rules
@@ -73,7 +74,7 @@
 ## Process
 
 - One change per branch and PR. Fill in the PR template (`.github/pull_request_template.md`): What, Why, Evidence (commands with their output; light and dark screenshots for UI, with no personal account data), Tests, Docs, Left.
-- Gate before every PR: `go vet ./...`, `go vet -tags dev,sqlite_fts5 ./...` and `go vet -tags probe,sqlite_fts5 ./...` (development and probe builds), the cross-platform type-checks (`GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...`, `go run ./cmd/typecheck -os darwin -arch arm64 ./...`), the tests (touched packages first, then repo-wide): `-race` on every package outside `internal/ui` and on `internal/ui/store`, `media`, `kit` and `lyricsync` (the UI packages that start goroutines); the other `internal/ui` packages (pages, app, account, theme, …) without it, as pull request CI runs them (`main` and the nightly run `-race` on all of it, so `go test -race ./...` stays the complete form), and `go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/app ./internal/mpris` (the dev-only tests), `golangci-lint run --new-from-rev=origin/main ./...` clean, `go tool mygo vet internal/ui`, `go run ./cmd/i18ntool extract -check` and `go run ./cmd/pathcase`. UI behaviour is covered by `ui.Tester` tests, which run with `go test`.
+- Gate before every PR: `go vet ./...`, `go vet -tags dev,sqlite_fts5 ./...` and `go vet -tags probe,sqlite_fts5 ./...` (development and probe builds), the cross-platform type-checks (`GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...`, `go run ./cmd/typecheck -os darwin -arch arm64 ./...`), the tests (touched packages first, then repo-wide): `-race` on every package outside `internal/ui` and on `internal/ui/store`, `media`, `kit` and `lyricsync` (the UI packages that start goroutines); the other `internal/ui` packages (pages, app, account, theme, …) without it, as pull request CI runs them (`main` and the nightly run `-race` on all of it, so `go test -race ./...` stays the complete form), and `go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/app ./internal/mpris` (the dev-only tests), `golangci-lint run --new-from-rev=origin/main ./...` clean, `go tool mygo vet internal/ui`, `go run ./cmd/i18ntool extract -check` and `go run ./cmd/pathcase`. UI behaviour is covered by `ui.Tester` tests, which run with `go test`.
 - Update the docs describing what you change in the same PR.
 - Private mode for every playback run: tests, smokes and live checks run with `SONA_PRIVATE=1` (development builds start private, `playspike` is private by default) so nothing is reported to Apple or scrobbled. Never play against Apple without it.
 - Live audio goes to your own PipeWire null sink (`pw-cli create-node adapter '{ factory.name=support.null-audio-sink node.name=<name> media.class=Audio/Sink object.linger=true audio.position=[FL FR] }'`), targeted with `pipewiresink target-object` (`-device` in playspike; `PIPEWIRE_NODE` pins a stream and breaks device-move tests) and recorded from its monitor with `pw-record --target <name> -P '{ stream.capture.sink=true }' out.wav` (without `stream.capture.sink`, `pw-record` falls back to the default source, i.e. the microphone; check the links with `pw-link -l`). Destroy only nodes you created; if WirePlumber stops linking streams, ask before restarting it.

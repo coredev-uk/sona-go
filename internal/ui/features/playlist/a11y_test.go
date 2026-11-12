@@ -250,7 +250,7 @@ func TestA11ySidebarMoreMenuReturnsTheFocus(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.tt.Until("the menu", e.tt.Shows("Unpin"))
-	if n, ok := access.Read(t, e.tt.Tester).Find(ui.RoleMenuButton, "More for Alpha"); !ok || !n.Has(access.Expanded) {
+	if n, ok := access.Read(t, e.tt.Tester).Find(ui.RoleMenuButton, "More for Alpha"); !ok || !n.Has(access.Expanded) || n.HasPopup != ui.PopupMenu {
 		t.Errorf("the open menu's button: %+v", n)
 	}
 	e.tt.Key(0, ui.KeyEscape)
@@ -592,21 +592,16 @@ func TestA11yPickerStatusAndCurrentFolder(t *testing.T) {
 	r := newDialogsRig(t)
 	r.seedTree()
 	r.show(dialogState{kind: dialogAdd, items: rigItems(), label: rigLabel})
+	r.tt.UseScreenReader()
 	r.tt.Announcements()
 	r.typed("zzz")
 	r.shows("No playlist you can edit is called “zzz”.")
-	tr := access.Read(t, r.tt.Tester)
-	if _, ok := tr.Find(ui.RoleStatus, "No playlist you can edit is called “zzz”."); !ok {
-		t.Errorf("the empty filter is not a status:\n%s", tr.Dump())
-	}
 	r.tt.Drain()
-	var said int
-	for _, a := range tr.Announcements {
-		if a == "No playlist you can edit is called “zzz”." {
-			said++
-		}
-	}
+	// Once: the note turning up is announced, and what changes it after
+	// that is the status's to read (not both, as a screen reader on MyGo
+	// v0.9.0 reads a status when its text changes).
 	got := r.tt.Announcements()
+	said := 0
 	for _, a := range got {
 		if a == "No playlist you can edit is called “zzz”." {
 			said++
@@ -614,6 +609,10 @@ func TestA11yPickerStatusAndCurrentFolder(t *testing.T) {
 	}
 	if said != 1 {
 		t.Errorf("the empty filter was announced %d times (%q)", said, got)
+	}
+	tr := access.Read(t, r.tt.Tester)
+	if _, ok := tr.Find(ui.RoleStatus, "No playlist you can edit is called “zzz”."); !ok {
+		t.Errorf("the empty filter is not a status:\n%s", tr.Dump())
 	}
 
 	m := newDialogsRig(t)
@@ -686,5 +685,17 @@ func TestA11yPlaylistFindAndSort(t *testing.T) {
 	}
 	if _, ok := tr.Find(ui.RoleButton, "Clear search"); !ok {
 		t.Error("no way to clear the query for assistive technology")
+	}
+}
+
+// The sidebar's New playlist or folder button is a menu button, which says
+// it opens a menu before it is pressed.
+func TestA11yNewPlaylistOrFolderButtonOpensAMenu(t *testing.T) {
+	e := sbSetup(t, sbLibrary(), nil)
+	e.shows("Made for you", "Playlists", "Road Trip")
+	tr := access.Read(t, e.tt.Tester)
+	n, ok := tr.Find(ui.RoleMenuButton, "New playlist or folder")
+	if !ok || n.HasPopup != ui.PopupMenu || n.Has(access.Expanded) {
+		t.Errorf("New playlist or folder: %+v\n%s", n, tr.Dump())
 	}
 }

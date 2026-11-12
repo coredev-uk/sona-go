@@ -12,6 +12,7 @@ import (
 
 	mygoi18n "github.com/egoist/mygo/i18n"
 
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 	"github.com/coredev-uk/sona-go/internal/services"
 )
 
@@ -78,7 +79,7 @@ func LanguageOptions(apple services.AppleLanguages, community []CommunityShare, 
 		appleTags[i] = l.Tag
 	}
 	for _, l := range apple.Locales {
-		sibling, _ := MatchLocale([]string{l.Tag}, communityTags)
+		sibling, _ := l10n.Match([]string{l.Tag}, communityTags)
 		extra := 0.0
 		for _, c := range community {
 			if c.Tag == sibling {
@@ -90,7 +91,7 @@ func LanguageOptions(apple services.AppleLanguages, community []CommunityShare, 
 		}
 	}
 	for _, c := range community {
-		if _, hasApple := MatchLocale([]string{c.Tag}, appleTags); c.Share >= SelectableShare && !hasApple {
+		if _, hasApple := l10n.Match([]string{c.Tag}, appleTags); c.Share >= SelectableShare && !hasApple {
 			tags = append(tags, c.Tag)
 		}
 	}

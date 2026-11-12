@@ -67,13 +67,13 @@ private mode.
 
 | Script       | What it runs                                                                                                                                                                                                                                                                                                                                |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dev`        | Builds `cmd/devloop` into `bin/devloop` and runs it on `./cmd/sona` with your arguments after `--`: it builds the app with `-tags dev,sqlite_fts5` into `bin/sona-dev`, runs it, and rebuilds and restarts it when a Go file of the app changes (the old app keeps running during the build; a failed build prints its errors and leaves it; the restart lands on the same screen, scroll and window). Keys: `r` rebuilds, `q` quits. Design tokens and `.po` files reload in the running app without a build. See docs/ui-architecture.md, "The development loop". |
+| `dev`        | Builds `cmd/devloop` into `bin/devloop` and runs it on `./cmd/sona` with your arguments after `--`: it builds the app with `-tags dev,sqlite_fts5` into `bin/sona-dev`, runs it, and rebuilds and restarts it when a Go file of the app changes (the old app keeps running during the build; a failed build prints its errors and leaves it; the restart lands on the same screen, scroll and window). Keys: `r` rebuilds, `q` quits. A first argument `-background` (`dev -background -- <app args>`) starts the app without taking the focus (`MYGO_DEV_BACKGROUND=1`), so a restart on a save leaves it in your editor. Design tokens and `.po` files reload in the running app without a build. See docs/ui-architecture.md, "The development loop". |
 | `gallery`    | The same loop on `./cmd/uigallery`: the component gallery (every kit component, light and dark, with knobs), restarting like `dev`. |
-| `build`      | `go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona`: no inspector in the binary, MyGo in production mode. |
+| `build`      | `go build -tags mygo_noinspector,sqlite_fts5 -ldflags "$(bash build/ldflags.sh --no-credentials --goos "$(go env GOOS)")" -o bin/sona ./cmd/sona`: no inspector in the binary, MyGo in production mode (`build/ldflags.sh` is the one place the link flags are assembled: `-w -s`, the version, production mode, and per OS the macOS deployment target or `-H windowsgui`; `--no-credentials` leaves the Last.fm and Discord values out, which only `-trimpath` builds may carry). |
 | `gen`        | `sqlc generate`. Commit the result. |
 | `fmt`        | gofumpt on every tracked Go file except `internal/db/dbq`. |
 | `check`      | The static half of the checks below: `go vet`, `go vet -tags dev,sqlite_fts5` and `-tags probe,sqlite_fts5` (development and probe builds type-check too), the Windows and macOS type-checks, `golangci-lint --new-from-rev=origin/main`, `go tool mygo vet internal/ui` (build values kept past their frame), the catalogue check (`i18ntool extract -check`) and the path-case check (`cmd/pathcase`). |
-| `tests`      | `go test -race ./...` (inside `dbus-run-session` on Linux, so no test reaches your session bus; extra arguments go to `go test`), including the `ui.Tester` tests, then `go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/app ./internal/mpris` (the tests of dev-only code). Not named `test`: the shell's `test` builtin would shadow it. |
+| `tests`      | `go test -race ./...` (inside `dbus-run-session` on Linux, so no test reaches your session bus; extra arguments go to `go test`), including the `ui.Tester` tests, then `go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/app ./internal/mpris` (the tests of dev-only code). Not named `test`: the shell's `test` builtin would shadow it. |
 | `release`    | `build/linux/release/release.sh`, the same as Taskfile's `release`: builds every Linux package (.deb, .rpm, Arch, AppImage) on Ubuntu 24.04 in podman/docker and smoke-tests each on a clean distro container (Xvfb, `MYGO_GPU=0`). |
 | `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`); `play-spike -preview` needs none.                                                                                                                                                                                                                             |
 | `auth-spike` | `go run ./cmd/authspike`: the Apple sign-in flow from the terminal.                                                                                                                                                                                                                                                                         |
@@ -163,7 +163,9 @@ macOS (`mac_arm64`, see "Widevine CDM") and Core Audio output
 (`osxaudiosink`: the device chosen in Settings → Playback → Output, else
 the system's default output, followed when it changes). Media keys and Now
 Playing work (`internal/nowplaying`), and so do the sleep inhibitor (MyGo's
-`Power.KeepAwake`: an IOPMAssertion `pmset -g assertions` lists), the power
+`Power.KeepAwake`: an IOPMAssertion `pmset -g assertions` lists), App Nap
+kept off while music plays or loads (`Power.KeepRunning`, which does not keep
+the Mac awake and needs no setting), the power
 source for "on battery" (`Power.IsOnBattery`, polled) and the file chooser
 for the settings export and import (`Dialog`). Notifications
 (UNUserNotificationCenter: a title, a text and a click, no artwork or
@@ -289,12 +291,12 @@ Real-CDM tests (`internal/playback/widevine`, `internal/playback/cdmhost`,
 `<user cache dir>/sona-tests/widevine`, shared by every checkout),
 downloaded and verified there on first use. They skip only when the
 download cannot reach the network; `SONA_CDM_REQUIRE=1` turns that skip into
-a failure. CI ("Resolve the Widevine CDM version") runs
-`go run ./cmd/cdmfetch -version`, restores `~/.cache/sona-ci/widevine` with
-`actions/cache` keyed `widevine-<os>-<arch>-<version>`, and ("Install the
-Widevine CDM") fills a miss with
+a failure. CI (the `.github/actions/setup-cdm` action) resolves the version
+(`go run ./cmd/cdmfetch -version`; the Linux job keys by ISO week instead),
+restores `~/.cache/sona-ci/widevine` with `actions/cache` keyed
+`widevine-<os>-<arch>-<version or week>`, and fills a miss with
 `go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine`, exporting
-`SONA_CDM_CACHE` and `SONA_CDM_REQUIRE=1`. The playback shard then runs them like any test, and `skips.sh` fails the job
+`SONA_CDM_CACHE`; the job sets `SONA_CDM_REQUIRE=1`. The playback shard then runs them like any test, and `skips.sh` fails the job
 if one of them skipped (the CDM tests are in no allow-list).
 
 ### Preview playback (tests without a Music User Token)
@@ -380,12 +382,16 @@ with `-count=1`, so the test cache can't hide what changed outside the code)
 and `ui` without it too, which keeps the caches pull requests restore warm.
 The required checks keep their names: "Go vet and test (-race)" gathers vet,
 core and playback, "UI tests (goldens)" the UI shards; plus the end-to-end
-smoke in headless sway, "E2E (headless sway)". macOS: a pull request runs one
-job, "macOS build and test (pull request)" (production build, go vet, core and
-playback tests with the real CDM and Seatbelt); main, the nightly and a
-dispatch run the build, vet and every test shard on their own jobs, and
-"Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, two preview songs played to `fakesink` with no secret (the step runs again, up to four attempts, when `playspike -preview` exits with status 75, "the network failed"; any other failure fails it), the motion artwork decoder's tests (`internal/ui/media`: a generated H.264 clip decoded and looped; a skipped one fails the step; the runner has no GPU, so libav decodes, not the Direct3D 11 decoders), the CDM tests)),
+smoke in headless sway, "E2E (headless sway)". macOS: a pull request that
+reaches the code, and a push to main, each run one job, "macOS build, vet, core
+and playback tests" (production build, go vet, core and playback tests with
+the real CDM and Seatbelt). The macOS UI shards run only in the nightly and on
+dispatch; the UI tests run on Linux on every push. GitHub runs at most five
+macOS jobs at a time across all of the account's repositories, so one job a
+push leaves room for the rest. Main also runs
+"Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, two preview songs played to `fakesink` with no secret (the step runs again, up to four attempts, when `playspike -preview` exits with status 75, "the network failed"; any other failure fails it), the motion artwork tests (`internal/ui/media`: a generated H.264 clip played through Media Foundation by MyGo's `ui/video`, which must become Ready and loop, with the open and loop-point timings in the log; a skipped one fails the step), the CDM tests)),
 `windows-playback.yml` (weekly and on dispatch, from main, `live` environment: playspike on windows-2025 plays a full track privately through the CDM host child to `fakesink`; its last line says whether Apple licensed the host; a failing weekly run opens an issue),
+`build-deps.yml` (on a push to main that changes `build/windows/gstreamer.sha256` or `build/darwin/gstreamer.sha256`, and on dispatch: mirrors the pinned GStreamer packages as assets of the `build-deps` prerelease, which never becomes "latest" and has no v* tag. A Windows and a macOS job restore them from the setup actions' Actions cache entry, falling back to gstreamer.freedesktop.org on a miss, check each against its pin, and upload it. `build/gstreamer-fetch.sh` downloads from the mirror first and falls back to upstream. GitHub serves the 1 GB Windows installer in seconds and keeps it. freedesktop.org is slow and behind a bot check, and has timed a release out; the cache drops an entry 7 days after its last use, sooner near the 10 GB cap. After bumping GStreamer, let this run on main before a release, or dispatch it),
 `images.yml` (also builds the CI image, below),
 `golden-update.yml` (the `update-goldens` label on a pull request of this
 repository: regenerates the golden images of the failing golden tests in the CI
@@ -445,7 +451,8 @@ Discord ID, deploys from main and `v*` tags; `live`: `MUSIC_USER_TOKEN`, main
 only), so no pull request run can read them. Run `actionlint` on changed
 workflows. The test jobs run `.github/ci/test.sh` (gotestsum: a failing test
 is rerun twice; one that passes on a rerun passes the job and is listed in the
-job summary as flaky) and then `.github/ci/skips.sh`, which fails the job on
+job summary as flaky) and then `.github/ci/skips.sh` (the `finish-tests`
+action, which also keeps the results), which fails the job on
 any skipped test that `.github/ci/skips-linux.txt` (or `skips-darwin.txt`)
 does not name: a skip means a missing prerequisite or a test nobody runs, so a
 test that cannot run on a platform is added to the list with its reason, and
@@ -577,8 +584,10 @@ needs:
   installs that exist. Never print it or commit it.
 - Release builds link MyGo's updater with `-ldflags "-X
   github.com/egoist/mygo.packageUpdateFeed=https://github.com/coredev-uk/sona-go/releases/latest/download/update-<target>.json
-  -X github.com/egoist/mygo.packageUpdateKey=$(cat internal/update/update.pub)"`.
-  Other builds leave both unset.
+  -X github.com/egoist/mygo.packageUpdateKey=$(cat internal/update/update.pub)"`:
+  `build/darwin/bundle.sh` and `build/windows/package.sh` get both from
+  `build/ldflags.sh --update <target>` in CI when `update.pub` is not empty
+  (or from `UPDATE_FEED` and `UPDATE_KEY`). Other builds leave both unset.
 - The update archive is a gzip tar (`sona-<version>-darwin-arm64.tar.gz` with
   one top-level `Sona.app`; `sona-<version>-windows-amd64.tar.gz` with the
   folder's files at top level). `go run ./cmd/releasesign -target T -archive
@@ -629,16 +638,12 @@ executable, or at `SONA_CDM_SHIM` in a development or test build, and a
 development build needs the GStreamer `bin` directory on `PATH`. The host
 child runs in an AppContainer (`SONA_CDMHOST_ALLOW_UNSANDBOXED=1` lets a test
 binary run it unconfined); `cmd/playspike` works there too (`-sink fakesink`
-on a computer with no audio device). Motion artwork decodes there through the
-same GStreamer (`gstreamer-video` and `gstreamer-app`, linked the same way);
-`internal/ui/media`'s tests make their fixture clip with the installation's
-`gst-launch-1.0` (on `PATH`, or the folder `SONA_FIXTURE_GST_BIN` names, whose
-tools run with no `GST_*` variable: `build/windows/smoke.sh` runs the tests
-against a package's trimmed plugins that way). The video plugins live in
-`lib\gstreamer-video\` of a package, named by `GST_PLUGIN_PATH_1_0` in the UI
-process only: the CDM host child (`cdmhost.childEnv` drops that variable) must
-never scan them, which `TestChildScansNoVideoPlugins` and `smoke.sh` check. A
-new video-only plugin goes in `package.sh`'s `video`, not `required`.
+on a computer with no audio device). Motion artwork plays there through
+Media Foundation, with MyGo's `ui/video` (no cgo, no GStreamer, no video plugin in a package: `package.sh` and
+`smoke.sh` fail if one is); `internal/ui/media`'s tests make their fixture clip
+with the installation's `gst-launch-1.0` (on `PATH`) and play it through
+`ui/video`. macOS is the same with AVFoundation; Linux keeps Sona's
+own GStreamer decoder (`motion_gst.go`).
 
 - In `cmd/sona`, `main.go` is portable; `platform_linux.go` and `platform_other.go` build
   what differs per OS: the `sona <command>` transport and single instance
