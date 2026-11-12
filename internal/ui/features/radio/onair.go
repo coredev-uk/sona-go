@@ -195,10 +195,6 @@ func (r *radio) lane(c *ui.Context, s services.Station, detail *services.Station
 			switch {
 			case tuned:
 				kit.EqualiserBars(c, ctx.Playing, ctx.Motion)
-			case !page:
-				if menus != nil {
-					menus.Trigger(c.Key("more"), kit.ActionTarget{Item: kit.StationItem(s), Name: s.Name}, kit.TriggerOpts{Visible: hot})
-				}
 			case s.Playable:
 				play := kit.Button(c.Key("play"), "", kit.ButtonOpts{
 					Variant: kit.Ghost, Size: kit.SizeSM, Icon: "play", Filled: true,
@@ -209,6 +205,10 @@ func (r *radio) lane(c *ui.Context, s services.Station, detail *services.Station
 					// plays: focus stays in the row, on the station's link.
 					hit.Focus()
 					r.playStation(s.ID, nil)
+				}
+			case !page:
+				if menus != nil {
+					menus.Trigger(c.Key("more"), kit.ActionTarget{Item: kit.StationItem(s), Name: s.Name}, kit.TriggerOpts{Visible: hot})
 				}
 			}
 		})

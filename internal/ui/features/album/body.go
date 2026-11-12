@@ -22,13 +22,14 @@ import (
 func (a *album) body(c *ui.Context, m *model, lay layout, highlight string, now time.Time, auth services.AuthStatus) {
 	k := a.colours(m)
 	k.accentScope(func() {
-		head := func() { a.head(c, m, k, now, account.HasAccount(auth.State)) }
+		head := func() { a.head(c, m, k, now, account.HasAccount(auth.State), !lay.stack) }
+		actions := func() { a.actions(c, m, account.HasAccount(auth.State)) }
 		tracks := func() { a.songs(c, m, highlight, now, auth.Restricted) }
 		notes := m.notes != "" && m.notes != m.lede
 		if lay.wide {
 			a.wide(c, m, k, lay, head, tracks, notes)
 		} else {
-			a.narrow(c, m, k, lay, head, tracks, notes)
+			a.narrow(c, m, k, lay, head, actions, tracks, notes)
 		}
 		if m.page != nil {
 			ui.Column(c.Key("sections")).Padding(48, a.gr, padBottom, a.gl).FillWidth().Children(func() {
@@ -114,12 +115,19 @@ func (a *album) stick(in ui.Element) {
 // narrow: the sleeve a full-bleed band across the pane's top, the cover
 // beside the head; then the songs, the fine print and the notes on the ground
 // (no disc index: the tracks carry their disc headings).
-func (a *album) narrow(c *ui.Context, m *model, k *colours, lay layout, head, tracks func(), notes bool) {
+func (a *album) narrow(c *ui.Context, m *model, k *colours, lay layout, head, actions, tracks func(), notes bool) {
 	a.sleeve(c, m, k, func() {
-		ui.Row(c).FillWidth().Padding(24, a.gr, 24, a.gl).Gap(20).AlignItems(ui.Start).Children(func() {
+		foot := float32(24)
+		if lay.stack {
+			foot = 16
+		}
+		ui.Row(c).FillWidth().Padding(24, a.gr, foot, a.gl).Gap(20).AlignItems(ui.Start).Children(func() {
 			ui.Column(c).Shrink(0).Children(func() { a.cover(c, m, lay.cover) })
 			ui.Column(c).Grow(1).Basis(0).MinWidth(0).Children(head)
 		})
+		if lay.stack {
+			ui.Row(c.Key("band-actions")).FillWidth().Wrap().Gap(8).AlignItems(ui.Center).Padding(0, a.gr, 24, a.gl).Children(actions)
+		}
 	}).FillWidth()
 	ui.Column(c.Key("listing")).FillWidth().Padding(24, a.gr, 0, a.gl).Children(func() {
 		ui.Column(c.Key("songs")).FillWidth().Children(tracks)
@@ -173,7 +181,7 @@ func (a *album) cover(c *ui.Context, m *model, size float32) {
 // head is AlbumHead: the title (wrapping as far as it needs, never moving
 // the cover), the artist, the catalogue line, the badges, Apple's one-line
 // note, the album's state, then its actions.
-func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account bool) {
+func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account, withActions bool) {
 	tk := theme.Current()
 	release := m.upcoming || m.justOut
 	ui.Column(c.Key("head-body")).MinWidth(0).Children(func() {
@@ -202,7 +210,9 @@ func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account
 			ui.Column(c.Key("status")).Role(ui.RoleGroup).Label(i18n.T("Release")).Margin(16, 0, 0, 0).Children(func() {
 				a.releaseStatus(c, m, now, account)
 			})
-			actions(16)
+			if withActions {
+				actions(16)
+			}
 			note(16)
 			return
 		}
@@ -210,7 +220,9 @@ func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account
 		if status := a.status(c, m); status != nil {
 			ui.Column(c.Key("status")).Margin(16, 0, 0, 0).Children(status)
 		}
-		actions(20)
+		if withActions {
+			actions(20)
+		}
 	})
 }
 

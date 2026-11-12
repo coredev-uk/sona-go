@@ -186,18 +186,26 @@ func libraryShare(have, catalogue int) *share {
 type layout struct {
 	wide  bool
 	cover float32
+	// stack: in the band the actions run under the cover and the title block
+	// across the whole band, because the text beside the cover is too narrow
+	// to keep them to one line (a lone button would wrap under Play).
+	stack bool
 }
+
+// actionsRoom is the width the head's action row needs to stay on one line.
+const actionsRoom = 400
 
 func albumLayout(width float32) layout {
 	switch {
 	case width >= 1600:
-		return layout{true, 384}
+		return layout{wide: true, cover: 384}
 	case width >= 1280:
-		return layout{true, 320}
+		return layout{wide: true, cover: 320}
 	case width >= 860:
-		return layout{true, 256}
+		return layout{wide: true, cover: 256}
 	}
-	return layout{false, 168}
+	const cover, gap = 168, 20
+	return layout{cover: cover, stack: width-cover-gap < actionsRoom}
 }
 
 // isLibraryID: library album IDs carry Apple's "l." prefix; everything else

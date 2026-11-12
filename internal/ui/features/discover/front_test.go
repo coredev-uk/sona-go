@@ -86,12 +86,18 @@ func (r *rig) away() {
 	r.tt.Drain()
 }
 
+// leadBox is the box the lead's art is requested at.
+func (r *rig) leadBox() [2]int {
+	lay := layoutFor(r.d.newPg.pg.Inner(), r.d.newPg.pg.Height)
+	return [2]int{int(lay.lead), int(lay.artHeight())}
+}
+
 // rowCentre is the centre of the nth card (0-based) of the strip's page the
 // lead is on. The section and the strip are both labelled "Featured" (as
 // v0.2.0's are); a card other than the lead is found by its title, which only
 // its strip card shows.
 func (r *rig) rowCentre(n int) (float32, float32) {
-	lay := layoutFor(r.d.newPg.pg.Inner())
+	lay := layoutFor(r.d.newPg.pg.Inner(), r.d.newPg.pg.Height)
 	k := r.lead()/lay.perPage*lay.perPage + n
 	for _, name := range []string{"Card %d", "List %d"} { // the names these tests give their cards
 		if row, ok := r.tt.Find(fmt.Sprintf(name, k+1)); ok {
@@ -124,10 +130,12 @@ func TestFrontLeadsWithTheFirstCardAtTheLeadsWidthAndListsThemAPageAtATime(t *te
 			t.Errorf("the first page lists %q", w)
 		}
 	}
-	// The column's whole 1200, capped at leadMaxHeight: Apple's centre crop
-	// of the banner at the box the lead shows it in.
-	if got := src.requested(bannerOf(1)); !slices.Contains(got, [2]int{1200, 540}) {
-		t.Errorf("the lead's art was asked for at %v, want 1200×540", got)
+	// The column's whole 1200, at the lead's art height (the page is short
+	// enough for the page's share to cap it): Apple's centre crop of the
+	// banner at the box the lead shows it in.
+	box := r.leadBox()
+	if got := src.requested(bannerOf(1)); !slices.Contains(got, box) {
+		t.Errorf("the lead's art was asked for at %v, want %v", got, box)
 	}
 	if r.d.front.at != 0 {
 		t.Errorf("the lead is %d, want the first card", r.d.front.at)
@@ -234,16 +242,17 @@ func TestFrontMakesAChosenRowTheLeadAndGivesItAWholeInterval(t *testing.T) {
 func TestFrontFetchesTheNextCardsPictureWhileTheLeadIsRead(t *testing.T) {
 	src := newCoverSource()
 	r := newFrontWith(t, 8, src)
-	if got := src.requested(bannerOf(2)); !slices.Contains(got, [2]int{1200, 540}) {
+	box := r.leadBox()
+	if got := src.requested(bannerOf(2)); !slices.Contains(got, box) {
 		t.Fatalf("the next card's art was not asked for at the lead's size: %v", got)
 	}
-	if got := src.requested(bannerOf(3)); slices.Contains(got, [2]int{1200, 540}) {
+	if got := src.requested(bannerOf(3)); slices.Contains(got, box) {
 		t.Errorf("the card after next was fetched at the lead's size: %v", got)
 	}
 	r.tick(rotateEvery)
 	r.tt.Drain()
 	r.tt.Drain()
-	if got := src.requested(bannerOf(3)); !slices.Contains(got, [2]int{1200, 540}) {
+	if got := src.requested(bannerOf(3)); !slices.Contains(got, box) {
 		t.Errorf("the next lead's art was not fetched when the lead changed: %v", got)
 	}
 }

@@ -3762,6 +3762,10 @@ msgstr ""
 msgid "No recommendations while offline"
 msgstr ""
 
+#: internal/ui/features/radio/guide.go
+msgid "No schedule"
+msgstr ""
+
 #: internal/ui/features/settings/findui.go
 msgid "No setting matches “{q}”."
 msgstr ""
@@ -5341,6 +5345,7 @@ msgstr ""
 msgid "Searching the catalogue needs your account's storefront. Your library on this computer can be searched either way."
 msgstr ""
 
+#: internal/ui/account/signedin.go
 #: internal/ui/features/settings/diag_rows.go
 msgid "Secret Service keyring"
 msgstr ""
@@ -7451,6 +7456,7 @@ msgstr ""
 msgid "Windows"
 msgstr ""
 
+#: internal/ui/account/signedin.go
 #: internal/ui/features/settings/diag_rows.go
 msgid "Windows Credential Manager"
 msgstr ""
@@ -7893,6 +7899,7 @@ msgstr ""
 msgid "macOS"
 msgstr ""
 
+#: internal/ui/account/signedin.go
 #: internal/ui/features/settings/diag_rows.go
 msgid "macOS Keychain"
 msgstr ""

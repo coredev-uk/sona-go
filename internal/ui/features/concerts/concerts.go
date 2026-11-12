@@ -27,6 +27,9 @@ type concerts struct {
 
 	page struct {
 		pos ui.ScrollState
+		// width is the scroll container's width in the last frame: the
+		// gutters narrow with it, as every page's do.
+		width float32
 		// more is how many concerts the listing asks for, for the filters it
 		// was raised under.
 		more struct {

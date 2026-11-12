@@ -99,10 +99,7 @@ func (s *Section) signedIn(c *ui.Context, st services.AuthStatus) {
 				hairline(c.Key("kept-rule"))
 				ui.Column(c.Key("kept")).FillWidth().Padding(16, 0).Children(func() {
 					text(c, i18n.T("Where your token is kept"), "label", "ink")
-					backend := st.Backend
-					if backend == "" {
-						backend = i18n.T("Unknown")
-					}
+					backend := backendName(st.Backend)
 					text(c.Key("backend"), backend, "secondary", "ink-muted").Margin(2, 0, 0, 0)
 				})
 			}
@@ -152,4 +149,20 @@ func (s *Section) signOut() {
 		kit.ToastErrorf(i18n.T("Couldn't sign out"), i18n.ErrorMessage(err))
 		kit.ConfirmRelease() // the question asks again
 	})
+}
+
+// backendName is where the token is kept, in words: the keyring Go's backend
+// id stands for (the id itself stays in Diagnostics and the bug report).
+func backendName(id string) string {
+	switch id {
+	case "":
+		return i18n.T("Unknown")
+	case "secret-service":
+		return i18n.T("Secret Service keyring")
+	case "keychain":
+		return i18n.T("macOS Keychain")
+	case "credential-manager":
+		return i18n.T("Windows Credential Manager")
+	}
+	return id
 }

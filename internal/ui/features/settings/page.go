@@ -111,7 +111,15 @@ func (s *settings) content(c *ui.Context, section string, narrow bool) {
 			// The document's masthead: the section's name over one ink rule;
 			// the groups' margins and the rows' hairlines hang from it.
 			theme.Text(c, title, "title").TextColor(theme.C("ink")).Margin(0, 0, 12, 0).Role(ui.RoleHeading).Level(2)
-			ui.Box(c.Key("masthead")).FillWidth().Height(1).Shrink(0).Background(theme.C("ink")).Margin(0, 0, 16, 0)
+			// Every section but Shortcuts opens on a row whose own hairline
+			// would sit under this rule: that line is skipped (s.line), so
+			// the section has one rule and the row's padding is the air.
+			s.ruled = section != secShortcuts
+			gap := float32(16)
+			if s.ruled {
+				gap = 0
+			}
+			ui.Box(c.Key("masthead")).FillWidth().Height(1).Shrink(0).Background(theme.C("ink")).Margin(0, 0, gap, 0)
 		}
 		switch section {
 		case secGeneral:
@@ -129,6 +137,7 @@ func (s *settings) content(c *ui.Context, section string, narrow bool) {
 		case secDiagnostics:
 			s.diagnostics(c)
 		}
+		s.ruled = false
 	})
 }
 

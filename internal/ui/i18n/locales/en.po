@@ -3762,6 +3762,10 @@ msgstr "No recent additions in your library yet"
 msgid "No recommendations while offline"
 msgstr "No recommendations while offline"
 
+#: internal/ui/features/radio/guide.go
+msgid "No schedule"
+msgstr "No schedule"
+
 #: internal/ui/features/settings/findui.go
 msgid "No setting matches “{q}”."
 msgstr "No setting matches “{q}”."
@@ -5341,6 +5345,7 @@ msgstr "Searching"
 msgid "Searching the catalogue needs your account's storefront. Your library on this computer can be searched either way."
 msgstr "Searching the catalogue needs your account's storefront. Your library on this computer can be searched either way."
 
+#: internal/ui/account/signedin.go
 #: internal/ui/features/settings/diag_rows.go
 msgid "Secret Service keyring"
 msgstr "Secret Service keyring"
@@ -7451,6 +7456,7 @@ msgstr "Window size"
 msgid "Windows"
 msgstr "Windows"
 
+#: internal/ui/account/signedin.go
 #: internal/ui/features/settings/diag_rows.go
 msgid "Windows Credential Manager"
 msgstr "Windows Credential Manager"
@@ -7893,6 +7899,7 @@ msgstr "lyrics timing offset sync reset"
 msgid "macOS"
 msgstr "macOS"
 
+#: internal/ui/account/signedin.go
 #: internal/ui/features/settings/diag_rows.go
 msgid "macOS Keychain"
 msgstr "macOS Keychain"

@@ -20,7 +20,8 @@ const (
 
 // rows is the shows as rows with their date column: one column, or two
 // filled top to bottom (v0.2.0's grid-flow-col with three rows). The list
-// is named label.
+// is named label. The rows' 8 of padding (their hover) hangs out of the
+// shelf's edges, so the dates stand at its left edge.
 func rows(c *ui.Context, env *module.Env, shows []services.Concert, columns int, artist bool, label string) {
 	one := func(list []services.Concert) {
 		for _, con := range list {
@@ -29,11 +30,11 @@ func rows(c *ui.Context, env *module.Env, shows []services.Concert, columns int,
 	}
 	w, _ := c.Size()
 	if columns < 2 || w < twoColumns {
-		ui.Column(c.Key("rows")).Role(ui.RoleList).Label(label).Children(func() { one(shows) })
+		ui.Column(c.Key("rows")).Margin(0, -8).Role(ui.RoleList).Label(label).Children(func() { one(shows) })
 		return
 	}
 	half := min(homeShows/2, len(shows))
-	ui.Row(c.Key("rows")).Gap(32).AlignItems(ui.Start).Role(ui.RoleList).Label(label).Children(func() {
+	ui.Row(c.Key("rows")).Margin(0, -8).Gap(32).AlignItems(ui.Start).Role(ui.RoleList).Label(label).Children(func() {
 		ui.Column(c.Key("left")).Grow(1).Basis(0).MinWidth(0).Children(func() { one(shows[:half]) })
 		ui.Column(c.Key("right")).Grow(1).Basis(0).MinWidth(0).Children(func() { one(shows[half:]) })
 	})
@@ -76,7 +77,7 @@ func ArtistConcerts(c *ui.Context, env *module.Env, artistID string, first bool)
 			}
 			rows(c, env, list, 1, true, i18n.T("Upcoming concerts"))
 			if env.Routed(concertsPath) {
-				more := ui.Link(c.Key("more"), "", "").Margin(8, 0, 0, 8)
+				more := ui.Link(c.Key("more"), "", "").Margin(8, 0, 0, 0)
 				more.Children(func() {
 					text(c, i18n.T("More concerts near {city}", "city", city), "meta", "ink-faint").SingleLine()
 				})

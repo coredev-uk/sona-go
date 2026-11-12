@@ -143,8 +143,13 @@ func (s *settings) unavailableRow(c *ui.Context, id, title, reason string) {
 	})
 }
 
-// line is the 1 DIP line above a row.
+// line is the 1 DIP line above a row, except the first of a section under
+// its masthead rule (s.ruled), which that rule stands in for.
 func (s *settings) line(c *ui.Context) {
+	if s.ruled {
+		s.ruled = false
+		return
+	}
 	ui.Box(c.Key("line")).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
 }
 

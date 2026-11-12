@@ -76,7 +76,7 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.Item
 
 	sec := ui.Column(c.Key("front")).FillWidth().Margin(0, 0, 48, 0).Role(ui.RoleGroup).Label(label)
 	width := f.width.Track(c, sec)
-	lay := layoutFor(width)
+	lay := layoutFor(width, d.newPg.pg.Height)
 	// A page that is built again after it went away starts over: the first
 	// card leads, rotation is not paused (v0.2.0's component state was lost on
 	// unmount). An element's state lives only while it is built.
@@ -456,7 +456,7 @@ func (d *discover) frontSkeleton(c *ui.Context, m *kit.WidthTracker) {
 	tk := theme.Current()
 	root := ui.Column(c.Key("front-skeleton")).FillWidth().Margin(0, 0, 48, 0).Role(ui.RoleNone)
 	width := m.Track(c, root)
-	lay := layoutFor(width)
+	lay := layoutFor(width, d.newPg.pg.Height)
 	root.Children(func() {
 		if width <= 0 {
 			return
