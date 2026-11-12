@@ -21,6 +21,12 @@ import (
 // The sidebar is not a routed page, so its links are rows that push the path
 // through env.Nav.
 
+// sidebarContainer is the ActionContainer kind of the sidebar's rows.
+const sidebarContainer = "sidebar"
+
+// shuffleWash is the ground wash under the shuffle glyph.
+const shuffleWash = 0.85
+
 const (
 	// rowArt is a row's picture and rowArtGap the space after it: with the
 	// 10 DIP padding, the name starts where the navigation's labels do.
@@ -348,7 +354,13 @@ func (p *playlists) pinRow(c *ui.Context, pin services.Pin, pos, size int, upAft
 		default:
 			p.playPin(pin.ID, pin.Name, pin.Action == "shuffle")
 		}
+		if pin.Kind == "playlist" && row.Focused() && row.Shortcut(ui.Shift, ui.KeyEnter) && p.shuffleReason(-1) == "" {
+			p.playPin(pin.ID, pin.Name, true)
+		}
 		row.Children(func() { p.rowContent(c, pin.Art.Small, pin.Kind == "artist", pin.Name, fg, active) })
+		if pin.Kind == "playlist" {
+			p.shuffleButton(c, pin.ID, pin.Name, -1, 10, hot)
+		}
 
 		p.moreMenu(c, "pin:"+pin.ID, i18n.T("More for {pinName}", "pinName", pin.Name), hot, func() []kit.MenuItem {
 			return p.pinMenu(pin, path, opens, upAfter, canUp)
@@ -416,14 +428,69 @@ func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth
 		if row.Clicked() {
 			p.env.Nav.Push(path)
 		}
+		// Shift+Enter on the focused row shuffles it (Enter opens it).
+		if row.Focused() && row.Shortcut(ui.Shift, ui.KeyEnter) && p.shuffleReason(pl.TrackCount) == "" {
+			p.playPin(pl.ID, pl.Name, true)
+		}
 		row.Children(func() { p.rowContent(c, pl.Art.Small, false, pl.Name, fg, active) })
 
+		p.shuffleButton(c, pl.ID, pl.Name, pl.TrackCount, 10+float32(depth)*folderIndent, hot)
 		if am := p.sidebarActions(); am != nil {
 			ui.Box(c.Key("more")).Absolute().Top(4).Right(4).Children(func() {
-				am.Trigger(c, kit.ActionTarget{Item: kit.PlaylistItem(pl), Name: pl.Name, Key: pl.ID}, kit.TriggerOpts{Visible: hot})
+				am.Trigger(c, kit.ActionTarget{
+					Item: kit.PlaylistItem(pl), Name: pl.Name, Key: pl.ID,
+					Container: &kit.ActionContainer{Kind: sidebarContainer, ID: pl.ID},
+				}, kit.TriggerOpts{Visible: hot})
 			})
 		}
 	})
+}
+
+// shuffleReason is why a playlist of songs songs (negative: not known, as a
+// pin's) cannot be shuffled now, "" when it can: it holds no songs, or Apple rejected the credentials (playback is paused
+// until the user signs in again). A Widevine CDM still downloading is not
+// one: playing is what retries it.
+func (p *playlists) shuffleReason(songs int) string {
+	switch {
+	case songs == 0:
+		return i18n.T("No songs to play")
+	case p.env.Play != nil && p.env.Play.State().AuthRequired:
+		return i18n.T("Sign in again to play")
+	}
+	return ""
+}
+
+// shuffleButton is a playlist row's shuffle control, over its artwork (left:
+// where the artwork starts): a small play glyph in ink on a wash of the ground, so it
+// reads on any cover and is not amber (amber marks what plays). It is a
+// sibling of the row's link, not inside it. It fades in while the row is
+// hovered or has the focus within and takes no input while hidden. It is no
+// Tab stop (the list has a row, and its More button, per item already): the
+// menu's Shuffle and Shift+Enter are the keyboard's ways. A playlist that
+// cannot play shows it in faint ink with the reason as its tooltip.
+func (p *playlists) shuffleButton(c *ui.Context, id, plName string, songs int, left float32, hot bool) {
+	name := i18n.T("Shuffle {playlist}", "playlist", plName)
+	reason := p.shuffleReason(songs)
+	btn := ui.ButtonBase(c.Key("shuffle")).Absolute().Left(left).Top((theme.Current().Metric["nav-row"]-rowArt)/2).
+		Size(rowArt, rowArt).Center().Radius(theme.Current().Radius["sm"]).Cursor(ui.CursorPointer).
+		Background(theme.C("ground").Alpha(shuffleWash)).Label(name).TabStop(false).IgnoreInput(!hot)
+	kit.Fade(btn, hot)
+	ink := theme.C("ink")
+	if reason != "" {
+		ink = theme.C("ink-faint")
+	}
+	btn.Children(func() {
+		theme.Glyph(c, "play", 12, theme.GlyphOpts{Color: ink, Filled: true}).Margin(0, 0, 0, 1)
+	})
+	if reason != "" {
+		btn.AccessDisabled(true)
+		kit.TooltipDescribed(c, btn, name+"\n"+reason, reason)
+	} else {
+		kit.Tooltip(c, btn, name)
+	}
+	if btn.Clicked() && reason == "" {
+		p.playPin(id, plName, true)
+	}
 }
 
 // readOnlySection is a flat list of library playlists the user cannot edit:

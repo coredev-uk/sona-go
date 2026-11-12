@@ -125,6 +125,23 @@ func inEditablePlaylist(a *kit.ActionContext) bool {
 func (p *playlists) actions() []kit.ActionDef {
 	tree := p.treeData()
 	return []kit.ActionDef{
+		{
+			// Only the sidebar's rows list it (their container): it is the
+			// keyboard path of the artwork's shuffle button.
+			ID:             "playlists.shuffle",
+			Target:         kit.KindPlaylist,
+			Label:          func(*kit.ActionContext) string { return i18n.T("Shuffle") },
+			Icon:           "shuffle",
+			Group:          kit.GroupQueue,
+			Order:          5,
+			Available:      func(a *kit.ActionContext) bool { return a.Container != nil && a.Container.Kind == sidebarContainer },
+			Enabled:        func(a *kit.ActionContext) bool { return p.shuffleReason(a.Item().Playlist().TrackCount) == "" },
+			DisabledReason: func(a *kit.ActionContext) string { return p.shuffleReason(a.Item().Playlist().TrackCount) },
+			Run: func(a *kit.ActionContext) {
+				pl := a.Item().Playlist()
+				p.playPin(pl.ID, pl.Name, true)
+			},
+		},
 		p.addTo(kit.KindSong),
 		{
 			ID:        "playlists.remove-from",

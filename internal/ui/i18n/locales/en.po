@@ -3802,6 +3802,10 @@ msgstr "No songs for “{q}”"
 msgid "No songs in your library yet"
 msgstr "No songs in your library yet"
 
+#: internal/ui/features/playlist/sidebar.go
+msgid "No songs to play"
+msgstr "No songs to play"
+
 #: internal/ui/features/search/groups.go
 msgid "No stations for “{q}”"
 msgstr "No stations for “{q}”"
@@ -5604,6 +5608,7 @@ msgid "Shows the song, artist and artwork when a new track starts, with a Next b
 msgstr "Shows the song, artist and artwork when a new track starts, with a Next button. Not shown while Sona's window is in front."
 
 #: internal/ui/app/menubar.go
+#: internal/ui/features/playlist/actions.go
 #: internal/ui/features/playlist/sidebar.go
 #: internal/ui/kit/button.go
 msgid "Shuffle"
@@ -5620,6 +5625,10 @@ msgstr "Shuffle on"
 #: internal/ui/features/player/shortcuts.go
 msgid "Shuffle on or off"
 msgstr "Shuffle on or off"
+
+#: internal/ui/features/playlist/sidebar.go
+msgid "Shuffle {playlist}"
+msgstr "Shuffle {playlist}"
 
 #: internal/ui/account/credentials.go
 #: internal/ui/app/banner.go
@@ -5641,6 +5650,10 @@ msgstr "Sign in again in Sona to keep playing"
 #: internal/ui/features/player/bar.go
 msgid "Sign in again to keep playing"
 msgstr "Sign in again to keep playing"
+
+#: internal/ui/features/playlist/sidebar.go
+msgid "Sign in again to play"
+msgstr "Sign in again to play"
 
 #: internal/ui/account/section.go
 msgid "Sign in to Apple Music"
