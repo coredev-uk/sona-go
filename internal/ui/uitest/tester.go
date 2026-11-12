@@ -114,12 +114,14 @@ func (tt *Session) artPending() int {
 // Settle draws frames, running what is posted, until the picture no longer
 // changes (a run of quiet frames with nothing queued and no cover still
 // being decoded): the covers drawn, the animations done. For a golden image.
+// It allows 30 s: a full-window frame of the CPU renderer under -race takes
+// most of a second, and twice that while the rest of the suite runs.
 func (tt *Session) Settle() {
 	tt.T.Helper()
 	const quiet = 8
 	var last []byte
 	same := 0
-	for deadline := time.Now().Add(15 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+	for deadline := time.Now().Add(30 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
 		tt.H.Main.Drain()
 		tt.Frame()
 		tt.Advance(time.Second) // animations and toasts
