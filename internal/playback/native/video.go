@@ -51,33 +51,33 @@ var errMasterFetch = errors.New("native: video master playlist could not be fetc
 // fetchMaster GETs a music video's master playlist, retrying transient
 // failures like fetch but never naming its URL (it carries the account's
 // dsid) in a log line or an error.
-func (e *Engine) fetchMaster(ctx context.Context, url string) ([]byte, error) {
-	for attempt := 0; ; attempt++ {
-		b, err := e.fetchOnce(ctx, url, hls.ByteRange{})
-		if err == nil {
-			return b, nil
-		}
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		code := 0
-		var he *httpError
-		if errors.As(err, &he) {
-			code = he.code
-		}
-		if attempt >= len(e.retry) || !retryable(err) {
-			if code != 0 {
-				return nil, fmt.Errorf("%w: HTTP %d", errMasterFetch, code)
-			}
-			return nil, errMasterFetch
-		}
-		e.log.Debug("retrying the video master playlist", "status", code, "in", e.retry[attempt])
-		select {
-		case <-time.After(e.retry[attempt]):
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
+func (e *Engine) fetchMaster(ctx context.Context, url string) (b []byte, err error) {
+	err = e.retrying(ctx, func() (err error) {
+		b, err = e.fetchOnce(ctx, url, hls.ByteRange{})
+		return err
+	}, func(err error, delay time.Duration) time.Duration {
+		e.log.Debug("retrying the video master playlist", "status", httpStatus(err), "in", delay)
+		return delay
+	})
+	switch {
+	case err == nil:
+		return b, nil
+	case ctx.Err() != nil:
+		return nil, ctx.Err()
 	}
+	if code := httpStatus(err); code != 0 {
+		return nil, fmt.Errorf("%w: HTTP %d", errMasterFetch, code)
+	}
+	return nil, errMasterFetch
+}
+
+// httpStatus is the HTTP status in err, or 0.
+func httpStatus(err error) int {
+	var he *httpError
+	if errors.As(err, &he) {
+		return he.code
+	}
+	return 0
 }
 
 // prepareVideo fetches music video m's playback info, its master playlist,
@@ -272,45 +272,25 @@ func (e *Engine) clearVideo() {
 // track tok, fetching up to readAhead segments ahead, then marks the end.
 func (e *Engine) feedVideo(ctx context.Context, it *item, tok uint64, h host, m *media, from int) {
 	v := m.video
-	type result struct {
-		data []byte
-		err  error
-	}
-	ch := make(chan result, e.readAhead)
-	go func() {
-		defer close(ch)
-		for i := from; i < len(v.pl.Segments); i++ {
-			s := v.pl.Segments[i]
-			u, err := hls.Resolve(v.url, s.URI)
-			var b []byte
-			if err == nil {
-				b, err = e.fetch(ctx, u, s.Range)
-			}
-			if err != nil {
-				err = fmt.Errorf("native: video segment %d: %w", i, err)
-			}
-			select {
-			case ch <- result{b, err}:
-			case <-ctx.Done():
-				return
-			}
-			if err != nil {
-				return
-			}
+	get := func(i int) ([]byte, error) {
+		s := v.pl.Segments[i]
+		u, err := hls.Resolve(v.url, s.URI)
+		var b []byte
+		if err == nil {
+			b, err = e.fetch(ctx, u, s.Range)
 		}
-	}()
-	failed := func(err error) {
-		if ctx.Err() == nil && !errors.Is(err, cdmhost.ErrStale) && !errors.Is(err, cdmhost.ErrExited) {
-			_ = e.fail(it, err)
+		if err != nil {
+			err = fmt.Errorf("native: video segment %d: %w", i, err)
 		}
+		return b, err
 	}
-	for r := range ch {
+	for r := range prefetch(ctx, e.readAhead, from, len(v.pl.Segments), get) {
 		err := r.err
 		if err == nil {
 			err = h.FeedVideo(ctx, tok, r.data)
 		}
 		if err != nil {
-			failed(err)
+			e.feedFailed(ctx, it, err)
 			return
 		}
 	}
@@ -318,6 +298,6 @@ func (e *Engine) feedVideo(ctx context.Context, it *item, tok uint64, h host, m 
 		return
 	}
 	if err := h.EndOfVideo(ctx, tok); err != nil {
-		failed(err)
+		e.feedFailed(ctx, it, err)
 	}
 }

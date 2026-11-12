@@ -4,7 +4,6 @@ package native
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -13,7 +12,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/broadcast"
-	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/tunein"
 )
 
@@ -58,10 +56,9 @@ func (e *Engine) feedBroadcast(ctx context.Context, it *item, tok uint64, h host
 	if err == nil {
 		err = h.EndOfFile(ctx, tok)
 	}
-	if err == nil || ctx.Err() != nil || errors.Is(err, cdmhost.ErrStale) || errors.Is(err, cdmhost.ErrExited) {
-		return
+	if err != nil {
+		e.feedFailed(ctx, it, err)
 	}
-	_ = e.fail(it, err)
 }
 
 // broadcastSink feeds a broadcast to the host and announces what is on
@@ -87,16 +84,9 @@ type timedOnAir struct {
 	m  playback.OnAir
 }
 
-func (s *broadcastSink) Audio(ctx context.Context, b []byte) error {
-	for len(b) > 0 {
-		n := min(len(b), fileChunk)
-		if err := s.h.FeedFile(ctx, s.tok, s.off, b[:n]); err != nil {
-			return err
-		}
-		s.off += int64(n)
-		b = b[n:]
-	}
-	return nil
+func (s *broadcastSink) Audio(ctx context.Context, b []byte) (err error) {
+	s.off, err = feedChunks(ctx, s.h, s.tok, s.off, b)
+	return err
 }
 
 func (s *broadcastSink) Meta(at time.Duration, m playback.OnAir) {
@@ -199,7 +189,7 @@ func (e *Engine) trackPosition(it *item, tok uint64) (time.Duration, bool) {
 	if e.cur != it || it.tok != tok {
 		return 0, false
 	}
-	return e.position(time.Now()), true
+	return e.st.PositionAt(time.Now()), true
 }
 
 // setOnAir makes m what is on air while track tok of it is current.

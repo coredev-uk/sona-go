@@ -122,7 +122,7 @@ const (
 // anything that names a credential, and the addresses of the session bus,
 // the display server, the agents, the session manager and MyGo's automation
 // socket (a probe build's child would replace the parent's socket), which
-// would let code in the child act outside its sandbox (sandbox.go hides their
+// would let code in the child act outside its sandbox (sandbox_fs_linux.go hides their
 // sockets too).
 var childEnvDropped = regexp.MustCompile(`(?i)TOKEN|SECRET|PASSW|CREDENTIAL|COOKIE|API_?KEY|PRIVATE_?KEY|AUTH|` +
 	`^(DBUS_|SSH_|GPG_|GNOME_KEYRING|AT_SPI_|WAYLAND_|KRB5)|^(DISPLAY|XAUTHORITY|SESSION_MANAGER|MYGO_AUTOMATION)$`)
@@ -151,20 +151,13 @@ func childEnv(log *slog.Logger) []string {
 // Start spawns a child, loads the CDM (unless Clear) and builds the audio
 // pipeline. The child exits when the Host is closed or the parent dies.
 func Start(ctx context.Context, o Options) (*Host, error) {
-	if o.Clear {
-		o.CDMPath = ""
-	}
 	h, err := spawn(o)
 	if err != nil {
 		return nil, err
 	}
 	eq := o.Equalizer
 	r, err := h.call(ctx, request{Op: opInit, CDMPath: o.CDMPath, Clear: o.Clear, Sink: o.Sink, Device: o.Device, EQ: &eq})
-	if r.Info != nil {
-		h.info = *r.Info
-	}
-	h.info.PID = h.cmd.Process.Pid
-	h.info.Sandbox = h.withSandbox(h.info.Sandbox)
+	h.info = h.initInfo(r)
 	if err != nil {
 		h.Close()
 		return nil, err
@@ -175,6 +168,9 @@ func Start(ctx context.Context, o Options) (*Host, error) {
 }
 
 func spawn(o Options) (*Host, error) {
+	if o.Clear { // a clear host loads no CDM: no folder to keep reachable either
+		o.CDMPath = ""
+	}
 	log := o.Logger
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
@@ -551,6 +547,25 @@ func (h *Host) logCrash() {
 	h.log.Error("cdmhost: child exited unexpectedly", append(attrs, "stderr", stderr)...)
 }
 
+// do is call for a request whose reply carries nothing but its error.
+func (h *Host) do(ctx context.Context, r request) error {
+	_, err := h.call(ctx, r)
+	return err
+}
+
+// initInfo is the child's Info from the reply to its first request (as
+// far as it got), with its PID and the sandbox report completed by the
+// parent's part.
+func (h *Host) initInfo(r reply) Info {
+	var info Info
+	if r.Info != nil {
+		info = *r.Info
+	}
+	info.PID = h.cmd.Process.Pid
+	info.Sandbox = h.withSandbox(info.Sandbox)
+	return info
+}
+
 // call sends r and waits for its reply.
 func (h *Host) call(ctx context.Context, r request) (reply, error) {
 	ch := make(chan reply, 1)
@@ -613,8 +628,7 @@ func replyErr(r reply) error {
 
 // SetServerCertificate installs the licence server's service certificate.
 func (h *Host) SetServerCertificate(ctx context.Context, cert []byte) error {
-	_, err := h.call(ctx, request{Op: opCert, Data: cert})
-	return err
+	return h.do(ctx, request{Op: opCert, Data: cert})
 }
 
 // CreateSession opens a CDM session for key ID kid (16 bytes) or for a
@@ -627,14 +641,12 @@ func (h *Host) CreateSession(ctx context.Context, kid []byte) (session string, c
 
 // UpdateSession passes a licence (or renewal) response to session.
 func (h *Host) UpdateSession(ctx context.Context, session string, license []byte) error {
-	_, err := h.call(ctx, request{Op: opUpdate, Session: session, Data: license})
-	return err
+	return h.do(ctx, request{Op: opUpdate, Session: session, Data: license})
 }
 
 // CloseSession closes a CDM session.
 func (h *Host) CloseSession(ctx context.Context, session string) error {
-	_, err := h.call(ctx, request{Op: opCloseSession, Session: session})
-	return err
+	return h.do(ctx, request{Op: opCloseSession, Session: session})
 }
 
 // Load makes track the current generation and flushes playback (and a
@@ -642,8 +654,7 @@ func (h *Host) CloseSession(ctx context.Context, session string) error {
 // (earlier samples are clipped). A seek reloads with m.Init nil, keeping
 // the track's init segment, duration and gain.
 func (h *Host) Load(ctx context.Context, track uint64, m Media, start time.Duration) error {
-	_, err := h.call(ctx, request{Op: opLoad, Track: track, Data: m.Init, Start: start, Duration: m.Duration, Gain: m.Gain})
-	return err
+	return h.do(ctx, request{Op: opLoad, Track: track, Data: m.Init, Start: start, Duration: m.Duration, Gain: m.Gain})
 }
 
 // Next queues track to follow the current one without a gap, crossfading
@@ -652,16 +663,14 @@ func (h *Host) Load(ctx context.Context, track uint64, m Media, start time.Durat
 // it, track 0 drops it. ErrEnded means the current track has already
 // played out.
 func (h *Host) Next(ctx context.Context, track uint64, m Media, fade time.Duration) error {
-	_, err := h.call(ctx, request{Op: opNext, Track: track, Data: m.Init, Duration: m.Duration, Gain: m.Gain, Fade: fade})
-	return err
+	return h.do(ctx, request{Op: opNext, Track: track, Data: m.Init, Duration: m.Duration, Gain: m.Gain, Fade: fade})
 }
 
 // Feed sends one encrypted fragment (moof + mdat) of track. It returns once
 // the child has decrypted and queued it, which blocks while the child's
 // queue is full. ErrStale means a later Load superseded track.
 func (h *Host) Feed(ctx context.Context, track uint64, fragment []byte) error {
-	_, err := h.call(ctx, request{Op: opFeed, Track: track, Data: fragment})
-	return err
+	return h.do(ctx, request{Op: opFeed, Track: track, Data: fragment})
 }
 
 // StreamFragment is one fragment of a stream (live radio, episodes):
@@ -679,21 +688,18 @@ type StreamFragment struct {
 
 // FeedStream is Feed for a stream fragment.
 func (h *Host) FeedStream(ctx context.Context, track uint64, f StreamFragment) error {
-	_, err := h.call(ctx, request{Op: opFeed, Track: track, Data: f.Data, Init: f.Init, Shift: f.Shift, KID: f.KID})
-	return err
+	return h.do(ctx, request{Op: opFeed, Track: track, Data: f.Data, Init: f.Init, Shift: f.Shift, KID: f.KID})
 }
 
 // EndOfTrack marks the last fragment of track; EventEnded follows when it
 // has played out.
 func (h *Host) EndOfTrack(ctx context.Context, track uint64) error {
-	_, err := h.call(ctx, request{Op: opEnd, Track: track})
-	return err
+	return h.do(ctx, request{Op: opEnd, Track: track})
 }
 
 // Play starts or resumes output; EventStarted follows with the exact position.
 func (h *Host) Play(ctx context.Context) error {
-	_, err := h.call(ctx, request{Op: opPlay})
-	return err
+	return h.do(ctx, request{Op: opPlay})
 }
 
 // Pause pauses output and returns the position it paused at.
@@ -704,14 +710,12 @@ func (h *Host) Pause(ctx context.Context) (time.Duration, bool, error) {
 
 // Stop flushes playback into the empty generation track and pauses.
 func (h *Host) Stop(ctx context.Context, track uint64) error {
-	_, err := h.call(ctx, request{Op: opStop, Track: track})
-	return err
+	return h.do(ctx, request{Op: opStop, Track: track})
 }
 
 // SetVolume sets the linear output volume.
 func (h *Host) SetVolume(ctx context.Context, v float64) error {
-	_, err := h.call(ctx, request{Op: opVolume, Volume: v})
-	return err
+	return h.do(ctx, request{Op: opVolume, Volume: v})
 }
 
 // Position queries the current playback position.
@@ -722,15 +726,13 @@ func (h *Host) Position(ctx context.Context) (time.Duration, bool, error) {
 
 // SetEqualizer changes the equaliser of the playing audio at once.
 func (h *Host) SetEqualizer(ctx context.Context, eq equalizer.Curve) error {
-	_, err := h.call(ctx, request{Op: opEqualizer, EQ: &eq})
-	return err
+	return h.do(ctx, request{Op: opEqualizer, EQ: &eq})
 }
 
 // SetOutputDevice moves output to device (Options.Device; "" follows the
 // default), keeping the position and what is queued.
 func (h *Host) SetOutputDevice(ctx context.Context, device string) error {
-	_, err := h.call(ctx, request{Op: opDevice, Device: device})
-	return err
+	return h.do(ctx, request{Op: opDevice, Device: device})
 }
 
 // LoadFile makes track the current generation as a plain (unencrypted)
@@ -741,29 +743,25 @@ func (h *Host) SetOutputDevice(ctx context.Context, device string) error {
 // stream (a broadcaster's MP3 or ADTS AAC): no length, no seeking, start
 // 0; FeedFile then fails while too much of it is unplayed.
 func (h *Host) LoadFile(ctx context.Context, track uint64, size int64, start time.Duration, gain float64) error {
-	_, err := h.call(ctx, request{Op: opLoadFile, Track: track, Size: size, Start: start, Gain: gain})
-	return err
+	return h.do(ctx, request{Op: opLoadFile, Track: track, Size: size, Start: start, Gain: gain})
 }
 
 // SetTrackGain turns Sound Check on or off: tracks play with the gain
 // they were loaded with, or at unity. It applies to the playing track at
 // once.
 func (h *Host) SetTrackGain(ctx context.Context, on bool) error {
-	_, err := h.call(ctx, request{Op: opTrackGain, Enabled: on})
-	return err
+	return h.do(ctx, request{Op: opTrackGain, Enabled: on})
 }
 
 // FeedFile passes the file bytes at offset of the file loaded as track
 // (the generation LoadFile was given; seeks do not change it).
 func (h *Host) FeedFile(ctx context.Context, track uint64, offset int64, data []byte) error {
-	_, err := h.call(ctx, request{Op: opFileData, Track: track, Offset: offset, Data: data})
-	return err
+	return h.do(ctx, request{Op: opFileData, Track: track, Offset: offset, Data: data})
 }
 
 // EndOfFile reports that every byte of the file loaded as track was fed.
 func (h *Host) EndOfFile(ctx context.Context, track uint64) error {
-	_, err := h.call(ctx, request{Op: opFileEnd, Track: track})
-	return err
+	return h.do(ctx, request{Op: opFileEnd, Track: track})
 }
 
 // Close ends the child: closing stdin makes it exit; it is killed if it has
@@ -795,22 +793,13 @@ func (h *Host) Kill() error {
 // decoder and sink; with o.Clear, the audio stack alone. The returned Info
 // is filled as far as the child got.
 func Probe(ctx context.Context, o Options) (Info, error) {
-	if o.Clear {
-		o.CDMPath = ""
-	}
 	h, err := spawn(o)
 	if err != nil {
 		return Info{}, err
 	}
 	defer h.Close()
 	r, err := h.call(ctx, request{Op: opInit, CDMPath: o.CDMPath, Clear: o.Clear, Sink: o.Sink})
-	var info Info
-	if r.Info != nil {
-		info = *r.Info
-	}
-	info.PID = h.cmd.Process.Pid
-	info.Sandbox = h.withSandbox(info.Sandbox)
-	return info, err
+	return h.initInfo(r), err
 }
 
 // LoadCheck returns the check internal/playback/cdm runs on a newly
@@ -859,11 +848,5 @@ func PrepareAudio(ctx context.Context, o Options) (Info, error) {
 	}
 	defer func() { _ = h.Close() }()
 	r, err := h.call(ctx, request{Op: opAudio})
-	var info Info
-	if r.Info != nil {
-		info = *r.Info
-	}
-	info.PID = h.cmd.Process.Pid
-	info.Sandbox = h.withSandbox(info.Sandbox)
-	return info, err
+	return h.initInfo(r), err
 }

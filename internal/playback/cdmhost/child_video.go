@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -34,7 +35,7 @@ const (
 // videoUnit is one access unit waiting for the decoder.
 type videoUnit struct {
 	data []byte
-	subs []widevine.Subsample
+	subs []fmp4.Subsample
 	iv   [16]byte
 	ivn  int // IV length; 0 for a clear unit
 	pts  time.Duration
@@ -113,8 +114,8 @@ func videoConfig(in *fmp4.Init) (widevine.VideoConfig, *avc.Config, error) {
 	if in.Codec != "avc1" && in.Codec != "avc3" {
 		return widevine.VideoConfig{}, nil, fmt.Errorf("cdmhost: video codec %q: the CDM's decoder takes H.264 only", in.Codec)
 	}
-	if in.Protected && in.Scheme != "cenc" && in.Scheme != "cbcs" {
-		return widevine.VideoConfig{}, nil, fmt.Errorf("cdmhost: unsupported encryption scheme %q", in.Scheme)
+	if err := checkScheme(in); err != nil {
+		return widevine.VideoConfig{}, nil, err
 	}
 	c, err := avc.ParseConfig(in.VideoConfig)
 	if err != nil {
@@ -268,10 +269,7 @@ func (s *server) feedVideo(r request, sc *videoScratch) error {
 		u := videoUnit{data: data, pts: videoTime(smp, in) - shift}
 		if smp.Encrypted() {
 			u.ivn = len(fmp4.PaddedIV(&u.iv, smp.IV))
-			u.subs = make([]widevine.Subsample, len(out))
-			for j, ss := range out {
-				u.subs[j] = widevine.Subsample{Clear: ss.Clear, Cipher: ss.Cipher}
-			}
+			u.subs = slices.Clone(out) // out is the scratch the next unit reuses
 		}
 		sc.subs = out
 		units = append(units, u)
@@ -312,8 +310,8 @@ func (s *server) videoDecoder() {
 			v.decMu.Unlock()
 			continue
 		}
-		gen, kid, cbcs := v.gen, v.kid, v.in.Scheme == "cbcs"
-		crypt, skip := v.in.CryptByte, v.in.SkipByte
+		gen, kid := v.gen, v.kid
+		cbcs, crypt, skip := cbcsPattern(v.in)
 		var b *widevine.Buffer
 		if len(v.units) > 0 {
 			u := v.units[0]
@@ -324,9 +322,6 @@ func (s *server) videoDecoder() {
 			if u.ivn > 0 {
 				b.KeyID, b.IV, b.Subsamples = kid, u.iv[:u.ivn], u.subs
 				b.CBCS, b.CryptBlocks, b.SkipBlocks = cbcs, crypt, skip
-				if cbcs && crypt == 0 && skip == 0 {
-					b.CryptBlocks = 1
-				}
 			}
 		}
 		v.mu.Unlock()

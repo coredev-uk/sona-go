@@ -305,17 +305,6 @@ func TestQueueAfterEndFails(t *testing.T) {
 	}
 }
 
-func TestProbe(t *testing.T) {
-	info, err := Probe()
-	if err != nil {
-		t.Skip("no usable audio output:", err)
-	}
-	t.Logf("GStreamer %s, decoder %s, sink %s", info.Version, info.Decoder, info.Sink)
-	if info.Version == "" || info.Decoder == "" || info.Sink == "" {
-		t.Fatalf("%+v", info)
-	}
-}
-
 func TestCloseWhilePushBlocked(t *testing.T) {
 	p, err := New(Options{Sink: "fakesink", MaxQueue: 200 * time.Millisecond})
 	if err != nil {

@@ -237,7 +237,7 @@ func (c *Coordinator) Close() error {
 	c.closed = true
 	if c.index >= 0 {
 		now := c.now()
-		c.endActLocked(EndExited, c.positionLocked(now), now)
+		c.endActLocked(EndExited, c.st.PositionAt(now), now)
 	}
 	if c.preloadTimer != nil {
 		c.preloadTimer.Stop()
@@ -296,7 +296,7 @@ func (c *Coordinator) Snapshot() Snapshot {
 	s := Snapshot{
 		State:          c.st.State,
 		Index:          c.index,
-		Position:       c.positionLocked(now),
+		Position:       c.st.PositionAt(now),
 		Duration:       c.st.Duration,
 		At:             now,
 		Volume:         c.volume,
@@ -695,7 +695,7 @@ func (c *Coordinator) Next(ctx context.Context) error {
 func (c *Coordinator) Previous(ctx context.Context) error {
 	ctx, leave := c.enter(ctx, func() bool {
 		return c.index >= 0 && !c.liveLocked() &&
-			(c.station == nil || c.station.AutoPlay || c.positionLocked(c.now()) > RestartThreshold)
+			(c.station == nil || c.station.AutoPlay || c.st.PositionAt(c.now()) > RestartThreshold)
 	})
 	defer leave()
 	c.mu.Lock()
@@ -710,7 +710,7 @@ func (c *Coordinator) Previous(ctx context.Context) error {
 	if c.station != nil && !c.station.AutoPlay {
 		// A station has nothing before the song: Previous restarts it,
 		// and does nothing in its first moments.
-		if c.positionLocked(c.now()) <= RestartThreshold {
+		if c.st.PositionAt(c.now()) <= RestartThreshold {
 			c.mu.Unlock()
 			return nil
 		}
@@ -720,7 +720,7 @@ func (c *Coordinator) Previous(ctx context.Context) error {
 	if prev < 0 && c.repeat != RepeatOff {
 		prev = len(c.queue) - 1
 	}
-	if c.positionLocked(c.now()) <= RestartThreshold && prev >= 0 && prev != c.index {
+	if c.st.PositionAt(c.now()) <= RestartThreshold && prev >= 0 && prev != c.index {
 		fx := c.finalizeLocked(false, EndSkipBackward)
 		c.failures, c.lastErr = 0, nil
 		c.mu.Unlock()
@@ -1113,7 +1113,7 @@ func (c *Coordinator) handle(ev playback.Event) {
 // cmd and mu held; returns with mu released.
 func (c *Coordinator) advanceLocked(st playback.Status) {
 	now := c.now()
-	c.endActLocked(EndNatural, cmp.Or(c.st.Duration, c.positionLocked(now)), now)
+	c.endActLocked(EndNatural, cmp.Or(c.st.Duration, c.st.PositionAt(now)), now)
 	fx := c.finalizeLocked(true, EndNatural)
 	ai := c.indexOfLocked(c.armedUID)
 	if ai < 0 || st.ItemID != c.queue[ai].item.ID {
@@ -1437,7 +1437,7 @@ func (c *Coordinator) seekActLocked(pos time.Duration) {
 		return
 	}
 	now := c.now()
-	c.addActLocked(Activity{Kind: ActivitySeek, Item: c.actItem, From: c.positionLocked(now), Position: pos, Duration: c.st.Duration, At: now})
+	c.addActLocked(Activity{Kind: ActivitySeek, Item: c.actItem, From: c.st.PositionAt(now), Position: pos, Duration: c.st.Duration, At: now})
 }
 
 // ObserveActivity adds an observer that receives the same listening
@@ -1474,19 +1474,8 @@ func (c *Coordinator) deliverActivity() {
 func (c *Coordinator) setStateLocked(s playback.State) {
 	st := c.st
 	now := c.now()
-	st.Position, st.UpdatedAt, st.State = c.positionLocked(now), now, s
+	st.Position, st.UpdatedAt, st.State = c.st.PositionAt(now), now, s
 	c.applyLocked(st)
-}
-
-func (c *Coordinator) positionLocked(now time.Time) time.Duration {
-	p := c.st.Position
-	if c.st.State == playback.StatePlaying {
-		p += now.Sub(c.st.UpdatedAt)
-	}
-	if c.st.Duration > 0 {
-		p = min(p, c.st.Duration)
-	}
-	return max(p, 0)
 }
 
 // listenedLocked is the current item's listening time so far.
@@ -1506,7 +1495,7 @@ func (c *Coordinator) finalizeLocked(completed bool, reason EndReason) func() {
 		return nil
 	}
 	now := c.now()
-	c.endActLocked(reason, c.positionLocked(now), now)
+	c.endActLocked(reason, c.st.PositionAt(now), now)
 	played := c.listenedLocked(now)
 	c.playedFor = 0
 	if !c.playingSince.IsZero() {
@@ -1983,7 +1972,7 @@ func (c *Coordinator) schedulePreloadLocked() {
 	if next.uid == c.preloaded || next.item.ID == cur.item.ID {
 		return
 	}
-	if delay := c.st.Duration - c.positionLocked(c.now()) - c.lead; delay > 0 {
+	if delay := c.st.Duration - c.st.PositionAt(c.now()) - c.lead; delay > 0 {
 		c.preloadTimer = time.AfterFunc(delay, func() {
 			c.mu.Lock()
 			c.schedulePreloadLocked()
@@ -2123,7 +2112,7 @@ func (c *Coordinator) savedLocked() Saved {
 	s := Saved{
 		Items:     make([]Item, len(c.queue)),
 		Index:     c.index,
-		Position:  c.positionLocked(now),
+		Position:  c.st.PositionAt(now),
 		PlayedFor: c.listenedLocked(now),
 		Shuffle:   c.shuffle,
 		Repeat:    c.repeat,

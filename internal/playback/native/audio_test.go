@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"net/http"
 	"net/http/httptest"
@@ -131,6 +132,20 @@ func TestVolumeReachesHostThroughCurve(t *testing.T) {
 	}
 	if v := h.e.Status().Volume; v != 0.8 {
 		t.Errorf("Status().Volume = %v, want the slider value 0.8", v)
+	}
+}
+
+// A NaN or out-of-range slider value (a D-Bus or webview caller can send
+// one) must not reach the status, whose Volume the UI and MPRIS publish.
+func TestSetVolumeClampsStatus(t *testing.T) {
+	h := newHarness(t, time.Minute, false)
+	for v, want := range map[float64]float64{math.NaN(): 0, -3: 0, 7: 1, math.Inf(1): 1, 0.25: 0.25} {
+		if err := h.e.SetVolume(ctx(t), v); err != nil {
+			t.Fatal(err)
+		}
+		if got := h.e.Status().Volume; got != want {
+			t.Errorf("SetVolume(%v): Status().Volume = %v, want %v", v, got, want)
+		}
 	}
 }
 

@@ -467,14 +467,6 @@ int sona_file_set_state(sona_file* f, int state) {
   return r;
 }
 
-int sona_file_get_state(sona_file* f, int* state, int* pending) {
-  GstState s = GST_STATE_VOID_PENDING, pend = GST_STATE_VOID_PENDING;
-  GstStateChangeReturn r = gst_element_get_state(f->pipeline, &s, &pend, 0);
-  *state = s;
-  *pending = pend;
-  return r;
-}
-
 int sona_file_write(sona_file* f, uint64_t off, const uint8_t* data, size_t len) {
   store* s = f->st;
   g_mutex_lock(&s->mu);

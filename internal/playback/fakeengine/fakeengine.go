@@ -67,25 +67,7 @@ func (e *Engine) length() time.Duration {
 // emit sends the status, replacing one nobody has read yet (latest wins, as
 // the real engines' events do).
 func (e *Engine) emit(kind playback.EventKind) {
-	ev := playback.Event{Kind: kind, Status: e.st}
-	select {
-	case e.events <- ev:
-	default:
-		select {
-		case <-e.events:
-		default:
-		}
-		e.events <- ev
-	}
-}
-
-// position is where the item is now.
-func (e *Engine) position() time.Duration {
-	p := e.st.Position
-	if e.st.State == playback.StatePlaying {
-		p += e.now().Sub(e.st.UpdatedAt)
-	}
-	return min(max(p, 0), e.st.Duration)
+	playback.SendLatest(e.events, playback.Event{Kind: kind, Status: e.st})
 }
 
 func (e *Engine) record(format string, args ...any) {
@@ -121,7 +103,7 @@ func (e *Engine) set(state playback.State, call string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.record("%s", call)
-	e.st.Position, e.st.UpdatedAt, e.st.State = e.position(), e.now(), state
+	e.st.Position, e.st.UpdatedAt, e.st.State = e.st.PositionAt(e.now()), e.now(), state
 	e.emit(playback.EventState)
 }
 
@@ -166,7 +148,7 @@ func (e *Engine) Status() playback.Status {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	s := e.st
-	s.Position = e.position()
+	s.Position = e.st.PositionAt(e.now())
 	return s
 }
 

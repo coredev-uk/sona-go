@@ -34,7 +34,6 @@ sona_tail* sona_file_tail(sona_file* f);
 // sona_file_set_state returns a GstStateChangeReturn. The first PLAYING lets
 // the decoded audio through to the sink (see filehead.c's gate_probe).
 int sona_file_set_state(sona_file* f, int state);
-int sona_file_get_state(sona_file* f, int* state, int* pending);
 
 // sona_file_write appends len bytes at off (where the previous write ended).
 // Returns 0, or -1 if off is not the end of the data, the write runs past

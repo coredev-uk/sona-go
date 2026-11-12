@@ -172,10 +172,7 @@ type Pipeline struct {
 	quit    chan struct{}
 	wg      sync.WaitGroup
 	once    sync.Once
-	// life keeps the C pipeline alive while calls are in flight: methods
-	// hold it shared, Close exclusively before freeing.
-	life   sync.RWMutex
-	closed bool
+	lifecycle
 
 	// mu guards the mixer and what it plays; the mixer goroutine holds it
 	// while it fills a buffer (lane reads wait at most pullWait).
@@ -223,14 +220,67 @@ const (
 	raceSlack = 500 * time.Millisecond
 )
 
-// use pins the pipeline for one call; release with p.life.RUnlock.
-func (p *Pipeline) use() bool {
-	p.life.RLock()
-	if p.closed {
-		p.life.RUnlock()
+// lifecycle keeps a C pipeline alive while calls are in flight: methods
+// hold life shared (use ... life.RUnlock), Close takes it exclusively
+// before freeing.
+type lifecycle struct {
+	life   sync.RWMutex
+	closed bool
+}
+
+// use pins the pipeline for one call; release with life.RUnlock.
+func (l *lifecycle) use() bool {
+	l.life.RLock()
+	if l.closed {
+		l.life.RUnlock()
 		return false
 	}
 	return true
+}
+
+// firstSink builds with the first sink that works: o.Sink alone when set,
+// else each of Sinks that is installed.
+func firstSink[T any](o Options, build func(sink string) (T, error)) (T, error) {
+	var zero T
+	sinks := Sinks
+	if o.Sink != "" {
+		sinks = []string{o.Sink}
+	}
+	var errs []error
+	for _, s := range sinks {
+		if o.Sink == "" && !Have(s) {
+			continue
+		}
+		p, err := build(s)
+		if err == nil {
+			return p, nil
+		}
+		errs = append(errs, err)
+	}
+	if len(errs) == 0 {
+		return zero, fmt.Errorf("gst: no audio sink installed (tried %s)", strings.Join(sinks, ", "))
+	}
+	return zero, errors.Join(errs...)
+}
+
+// streamCfg is what a pipeline build hands the C side for one sink: the
+// C strings (free when done) and the route the output is set up for.
+type streamCfg struct {
+	sink, app, props *C.char
+	route            string
+	seen             uint64 // routeEpoch before the route was read
+}
+
+func newStreamCfg(sink string, o Options) streamCfg {
+	seen := routeEpoch()
+	route := streamProps(sink, o.AppName, o.Device)
+	return streamCfg{C.CString(sink), C.CString(o.AppName), C.CString(route), route, seen}
+}
+
+func (c streamCfg) free() {
+	for _, s := range []*C.char{c.sink, c.app, c.props} {
+		C.free(unsafe.Pointer(s))
+	}
 }
 
 // New builds the lanes and the output and brings the output to READY (so
@@ -258,42 +308,18 @@ func New(o Options) (*Pipeline, error) {
 		}
 	}
 	o.Decoder = dec
-	sinks := Sinks
-	if o.Sink != "" {
-		sinks = []string{o.Sink}
-	}
-	var errs []error
-	for _, s := range sinks {
-		if o.Sink == "" && !Have(s) {
-			continue
-		}
-		p, err := build(s, o)
-		if err == nil {
-			return p, nil
-		}
-		errs = append(errs, err)
-	}
-	if len(errs) == 0 {
-		return nil, fmt.Errorf("gst: no audio sink installed (tried %s)", strings.Join(sinks, ", "))
-	}
-	return nil, errors.Join(errs...)
+	return firstSink(o, func(sink string) (*Pipeline, error) { return build(sink, o) })
 }
 
 func build(sink string, o Options) (*Pipeline, error) {
-	seen := routeEpoch()
-	props := streamProps(sink, o.AppName, o.Device)
-	csink, capp, cprops := C.CString(sink), C.CString(o.AppName), C.CString(props)
-	defer func() {
-		for _, s := range []*C.char{csink, capp, cprops} {
-			C.free(unsafe.Pointer(s))
-		}
-	}()
+	cfg := newStreamCfg(sink, o)
+	defer cfg.free()
 	var buf [256]C.char
-	cp := C.sona_gst_new(csink, capp, cprops, &buf[0], C.size_t(len(buf)))
+	cp := C.sona_gst_new(cfg.sink, cfg.app, cfg.props, &buf[0], C.size_t(len(buf)))
 	if cp == nil {
 		return nil, fmt.Errorf("gst: %s: %s", sink, C.GoString(&buf[0]))
 	}
-	p := &Pipeline{p: cp, decoder: o.Decoder, sink: sink, opts: o, events: make(chan Event, 64), quit: make(chan struct{}), want: StateReady, route: props, routeSeen: seen}
+	p := &Pipeline{p: cp, decoder: o.Decoder, sink: sink, opts: o, events: make(chan Event, 64), quit: make(chan struct{}), want: StateReady, route: cfg.route, routeSeen: cfg.seen}
 	p.cond = sync.NewCond(&p.mu)
 	p.build.Store(1)
 	cdec := C.CString(o.Decoder)
@@ -323,14 +349,18 @@ func (p *Pipeline) Sink() string    { return p.sink }
 // receiver lags; other events are never dropped while capacity remains.
 func (p *Pipeline) Events() <-chan Event { return p.events }
 
-func (p *Pipeline) send(ev Event) {
+func (p *Pipeline) send(ev Event) { sendEvent(p.events, p.quit, ev) }
+
+// sendEvent delivers ev to events. A warning is dropped when the receiver
+// lags; anything else waits (until quit) rather than lose an EOS or error.
+func sendEvent(events chan<- Event, quit <-chan struct{}, ev Event) {
 	select {
-	case p.events <- ev:
+	case events <- ev:
 	default:
 		if ev.Kind != EventWarning {
 			select {
-			case p.events <- ev: // block rather than lose EOS or errors
-			case <-p.quit:
+			case events <- ev:
+			case <-quit:
 			}
 		}
 	}
@@ -555,22 +585,10 @@ func (p *Pipeline) setState(s State) error {
 	return nil
 }
 
-// Play, Pause and Ready change the output state. Play and Pause complete
+// Play and Pause change the output state. Both complete
 // asynchronously once the sink has prerolled.
 func (p *Pipeline) Play() error  { return p.setState(StatePlaying) }
 func (p *Pipeline) Pause() error { return p.setState(StatePaused) }
-func (p *Pipeline) Ready() error { return p.setState(StateReady) }
-
-// State returns the output's current and pending state without waiting.
-func (p *Pipeline) State() (cur, pending State) {
-	var c, pend C.int
-	if !p.use() {
-		return StateNull, StateNull
-	}
-	defer p.life.RUnlock()
-	C.sona_gst_get_state(p.p, 0, &c, &pend)
-	return State(c), State(pend)
-}
 
 // frames converts a duration to the nearest frame at Rate.
 func frames(d time.Duration) int64 {
@@ -946,24 +964,4 @@ func (p *Pipeline) Close() {
 		}
 		C.sona_gst_free_pipeline(p.p)
 	})
-}
-
-// Info describes the output stack for Diagnostics.
-type Info struct {
-	Version string
-	Decoder string
-	Sink    string
-}
-
-// Probe builds a default pipeline to report the GStreamer version and the
-// decoder and sink Sona would use, then tears it down.
-func Probe() (Info, error) {
-	info := Info{Version: Version()}
-	p, err := New(Options{})
-	if err != nil {
-		return info, err
-	}
-	defer p.Close()
-	info.Decoder, info.Sink = p.decoder, p.sink
-	return info, nil
 }

@@ -48,7 +48,7 @@ func (c *Coordinator) sleepEndLocked(now time.Time) (time.Time, bool) {
 		if !c.sleepEndsHereLocked() || !c.loaded || c.st.State != playback.StatePlaying || c.st.Duration <= 0 {
 			return time.Time{}, false
 		}
-		return now.Add(c.st.Duration - c.positionLocked(now)), true
+		return now.Add(c.st.Duration - c.st.PositionAt(now)), true
 	}
 	return time.Time{}, false
 }

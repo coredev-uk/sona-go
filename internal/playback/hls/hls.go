@@ -109,16 +109,26 @@ func (p *Playlist) SegmentAt(t time.Duration) int {
 	return lo
 }
 
+// playlistScanner scans data line by line once its first line has shown it
+// is an HLS playlist (#EXTM3U, after an optional byte order mark).
+func playlistScanner(data []byte) (*bufio.Scanner, error) {
+	sc := bufio.NewScanner(bytes.NewReader(data))
+	sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
+	if !sc.Scan() || strings.TrimSpace(strings.TrimPrefix(sc.Text(), "\ufeff")) != "#EXTM3U" {
+		return nil, errors.New("hls: missing #EXTM3U")
+	}
+	return sc, nil
+}
+
 // Parse parses a media playlist. Segment byte ranges without an offset
 // continue where the previous segment of the same URI ended; the first such
 // segment continues after an EXT-X-MAP range of the same URI. When several
 // EXT-X-KEYs (one per KEYFORMAT) apply, a segment's Key is the Widevine
 // one, else the one set last.
 func Parse(data []byte) (*Playlist, error) {
-	sc := bufio.NewScanner(bytes.NewReader(data))
-	sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
-	if !sc.Scan() || strings.TrimSpace(strings.TrimPrefix(sc.Text(), "\ufeff")) != "#EXTM3U" {
-		return nil, errors.New("hls: missing #EXTM3U")
+	sc, err := playlistScanner(data)
+	if err != nil {
+		return nil, err
 	}
 	p := &Playlist{}
 	var (
@@ -414,10 +424,9 @@ func IsMaster(data []byte) bool { return bytes.Contains(data, []byte("#EXT-X-STR
 
 // ParseMaster parses a master playlist's variants in order.
 func ParseMaster(data []byte) ([]Variant, error) {
-	sc := bufio.NewScanner(bytes.NewReader(data))
-	sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
-	if !sc.Scan() || strings.TrimSpace(strings.TrimPrefix(sc.Text(), "\ufeff")) != "#EXTM3U" {
-		return nil, errors.New("hls: missing #EXTM3U")
+	sc, err := playlistScanner(data)
+	if err != nil {
+		return nil, err
 	}
 	var (
 		out     []Variant

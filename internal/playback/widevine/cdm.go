@@ -30,6 +30,8 @@ import (
 	"sync/atomic"
 	"time"
 	"unsafe"
+
+	"github.com/coredev-uk/sona-go/internal/playback/fmp4"
 )
 
 // MessageType classifies a CDM session message (cdm::MessageType).
@@ -322,19 +324,6 @@ func (c *CDM) UpdateSession(ctx context.Context, id string, response []byte) err
 	return nil
 }
 
-// Keys returns the key statuses of session id, keyed by raw key ID.
-func (c *CDM) Keys(id string) map[string]KeyStatus {
-	out := map[string]KeyStatus{}
-	_ = c.do(context.Background(), func() {
-		if s := c.sessions[id]; s != nil {
-			for k, v := range s.keys {
-				out[k] = v
-			}
-		}
-	})
-	return out
-}
-
 // Expiry returns when session id's licence expires as the CDM reported it
 // (OnExpirationChange); zero means it does not expire.
 func (c *CDM) Expiry(id string) time.Time {
@@ -358,12 +347,15 @@ func (c *CDM) CloseSession(ctx context.Context, id string) error {
 	return err
 }
 
-// Subsample is a clear/encrypted run inside a sample; layout-compatible
-// with cdm::SubsampleEntry.
-type Subsample struct {
-	Clear  uint32
-	Cipher uint32
-}
+// Subsample is a clear/encrypted run inside a sample: fmp4's, which is
+// layout-compatible with cdm::SubsampleEntry (cgo passes Buffer.Subsamples
+// to the shim as it is, so the size is pinned below).
+type Subsample = fmp4.Subsample
+
+var (
+	_ [8 - unsafe.Sizeof(Subsample{})]struct{}
+	_ [unsafe.Sizeof(Subsample{}) - 8]struct{}
+)
 
 // Buffer is one 'cenc' (or, with CBCS, 'cbcs') sample to decrypt.
 type Buffer struct {
