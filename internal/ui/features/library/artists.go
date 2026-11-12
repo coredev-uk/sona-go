@@ -25,6 +25,9 @@ const (
 	artistsNarrowWidth = 880
 	// artistsListWidth is the master list's width beside the detail.
 	artistsListWidth = 320
+	// artistsLargeWidth is the page width from which the detail's portrait
+	// takes its large class.
+	artistsLargeWidth = 1500
 	// artistsPageStep is how many artists a page-step key moves by.
 	artistsPageStep = 10
 	// artistsOverscan is how far beyond the viewport rows are built.
@@ -33,6 +36,16 @@ const (
 
 // artistsRowHeight is artistRowHeight as a float for the layout sums.
 const artistsRowHeight = float32(artistRowHeight)
+
+// artistPortrait is the detail's portrait for the page's width: 144, and 192
+// from artistsLargeWidth, so the header of a wide window is not a small
+// picture. Fixed classes, so Go serves the exact box.
+func artistPortrait(width float32) float32 {
+	if width >= artistsLargeWidth {
+		return 192
+	}
+	return 144
+}
 
 var keyArtistIndex = store.Key{"library", "artists", "index"}
 
@@ -68,6 +81,8 @@ type artistsPage struct {
 	matches  []indexedArtist
 	rows     []artistRow
 	tops     []float32
+	// jumps are the rows of the letter headings, for the rail.
+	jumps    letterJumps
 	position map[string]int // artist ID → place in matches
 	rowOf    []int          // place in matches → row
 
@@ -147,6 +162,12 @@ func (pg *artistsPage) results() {
 	}
 	pg.rows = listRows(pg.matches, strings.TrimSpace(pg.query) == "")
 	pg.tops = rowTops(pg.rows)
+	pg.jumps = noLetters()
+	for i, r := range pg.rows {
+		if r.artist == nil {
+			pg.jumps[slotOf(lower(r.letter))] = i
+		}
+	}
 	pg.position = make(map[string]int, len(pg.matches))
 	pg.rowOf = make([]int, len(pg.matches))
 	for i, r := range pg.rows {
@@ -172,7 +193,7 @@ func (l *library) artistsPage(c *ui.Context, r *ui.Route) {
 	}
 	if l.gated(gateOpts{total: len(pg.index), pending: pending, err: failure}) {
 		pg.gate.Scroll(c, "artists", func(*kit.Pane, float32) {
-			kit.PageHeader(c, i18n.T("Artists"), "", nil)
+			l.pageHead(c, headOpts{title: i18n.T("Artists")})
 			l.gate(c, gateOpts{
 				total: len(pg.index), pending: pending, err: failure,
 				retry:    func() { l.env.Queries.Invalidate(keyArtistIndex) },
@@ -394,10 +415,11 @@ func (v *artistsView) list(c *ui.Context, loading bool) {
 	col.Children(func() {
 		var in ui.Element
 		ui.Column(c.Key("head")).Padding(28, 24, 12).Shrink(0).Children(func() {
-			theme.Text(c, i18n.T("Artists"), "page").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
-			ui.Row(c.Key("count")).MinHeight(18).Margin(4, 0, 0, 0).Children(func() {
+			// The title and the count share a baseline, as every library page's.
+			ui.Row(c.Key("title")).AlignItems(ui.Baseline).Gap(12).MinWidth(0).Children(func() {
+				theme.Text(c, i18n.T("Artists"), "page").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
 				if line := v.countLine(); line != "" {
-					theme.Text(c, line, "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum")
+					theme.Text(c, line, "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
 				}
 			})
 			ui.Column(c.Key("filter")).Margin(16, 0, 0, 0).Role(ui.RoleSearch).Label(i18n.T("Find artists")).Children(func() {
@@ -535,7 +557,33 @@ func (v *artistsView) rowsView(c *ui.Context, tk *theme.Tokens) (active ui.Eleme
 	first, last = min(first, n-1), min(last, n-1)
 	pg.first, pg.last = first, last
 
-	sc := ui.Scroll(c.Key("artist-list")).TrackScroll(&pg.listPos).Grow(1).Basis(0).MinHeight(0).Padding(0, 12, 24, 12).
+	railed := strings.TrimSpace(pg.query) == ""
+	right := float32(12)
+	if railed {
+		right = 0 // the rail takes the list's right edge
+	}
+	var scrollEl ui.Element
+	ui.Row(c.Key("rows-rail")).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
+		scrollEl = v.rowsScroll(c, tk, right, &active, &hasActive, first, last, n, viewport)
+		if railed {
+			ui.Column(c.Key("rail-slot")).Shrink(0).Padding(4, 4, 0, 0).Children(func() {
+				v.l.letterRail(c, pg.jumps, true, func(slot int) {
+					pg.listPos.Y = pg.tops[pg.jumps[slot]]
+					c.Invalidate()
+				})
+			})
+		}
+	})
+	if hasActive {
+		scrollEl.ActiveDescendant(active)
+	}
+	return active, hasActive
+}
+
+// rowsScroll is the listbox's scroll box and the rows in it.
+func (v *artistsView) rowsScroll(c *ui.Context, tk *theme.Tokens, right float32, active *ui.Element, hasActive *bool, first, last, n int, viewport float32) ui.Element {
+	pg := v.pg
+	sc := ui.Scroll(c.Key("artist-list")).TrackScroll(&pg.listPos).Grow(1).Basis(0).MinHeight(0).MinWidth(0).Padding(0, right, 24, 12).
 		Role(ui.RoleListBox).Label(i18n.T("Artists in your library")).Focusable().
 		Radius(tk.Radius["md"])
 	focusRing := ui.Transparent
@@ -591,7 +639,7 @@ func (v *artistsView) rowsView(c *ui.Context, tk *theme.Tokens) (active ui.Eleme
 				}
 				el := v.artistRow(c, row.artist.entry, row.position, row.artist.entry.ID == v.highlightID)
 				if row.artist.entry.ID == v.highlightID {
-					active, hasActive = el, true
+					*active, *hasActive = el, true
 				}
 			}
 			if rest := pg.tops[n] - pg.tops[last+1]; rest > 0 {
@@ -599,16 +647,14 @@ func (v *artistsView) rowsView(c *ui.Context, tk *theme.Tokens) (active ui.Eleme
 			}
 		})
 	})
-	if hasActive {
-		sc.ActiveDescendant(active)
-	}
-	return active, hasActive
+	return sc
 }
 
 func (v *artistsView) letterRow(c *ui.Context, letter string) {
-	ui.Row(c.Key("letter:"+letter)).Height(letterRowHeight).FillWidth().Padding(0, 12, 4).AlignItems(ui.End).Shrink(0).
+	ui.Row(c.Key("letter:"+letter)).Height(letterRowHeight).FillWidth().Padding(0, 12, 4).Gap(10).AlignItems(ui.End).Shrink(0).
 		Role(ui.RoleNone).Children(func() {
-		theme.Text(c, letter, "meta").FontWeight(600).TextColor(theme.C("ink-muted")).Role(ui.RoleNone)
+		theme.Text(c, letter, "sub").FontWeight(600).TextColor(theme.C("ink")).Role(ui.RoleNone)
+		ui.Box(c.Key("rule")).Grow(1).Height(1).Margin(0, 0, 8, 0).Background(theme.C("line"))
 	})
 }
 
@@ -629,7 +675,7 @@ func (v *artistsView) artistRow(c *ui.Context, a services.ArtistEntry, position 
 		el.Background(theme.C("hover"))
 	}
 	el.Children(func() {
-		kit.PersonAvatar(c, v.l.env.Art, a.Name, a.Art, 32).Shrink(0)
+		kit.PersonAvatar(c, v.l.env.Art, a.Name, a.Art, 36).Shrink(0)
 		ui.Column(c.Key("text")).Grow(1).MinWidth(0).Children(func() {
 			theme.Text(c, a.Name, "ui").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Role(ui.RoleNone)
 			if line != "" {
@@ -681,13 +727,13 @@ func (v *artistsView) detail(c *ui.Context, e services.ArtistEntry) {
 					pg.want = artistsWantNone
 				}
 			}
-			ui.Row(c.Key("header")).FillWidth().Gap(24).AlignItems(ui.End).Children(func() {
-				kit.PersonAvatar(c, l.env.Art, e.Name, e.Art, 96).Shrink(0)
+			ui.Row(c.Key("header")).FillWidth().Gap(28).AlignItems(ui.End).Children(func() {
+				kit.PersonAvatar(c, l.env.Art, e.Name, e.Art, artistPortrait(pg.width)).Shrink(0)
 				ui.Column(c.Key("who")).Grow(1).MinWidth(0).Padding(0, 0, 2).Children(func() {
 					theme.Text(c, e.Name, "display").TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(nameLevel)
 					line := i18n.Meta(i18n.T("Artist"), libraryLine(e.Albums, e.Songs))
 					theme.Text(c, line, "meta").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
-					ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(16, 0, 0, 0).Children(func() {
+					ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(20, 0, 0, 0).Children(func() {
 						play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: e.Name, Shuffle: true, Disabled: e.Songs == 0})
 						if play {
 							v.play(e, false)
@@ -712,7 +758,8 @@ func (v *artistsView) detail(c *ui.Context, e services.ArtistEntry) {
 					})
 				})
 			})
-			ui.Column(c.Key("body")).FillWidth().Gap(40).Margin(32, 0, 0, 0).Children(func() {
+			ui.Box(c.Key("rule")).FillWidth().Height(1).Background(theme.C("line")).Margin(28, 0, 0, 0)
+			ui.Column(c.Key("body")).FillWidth().Gap(40).Margin(28, 0, 0, 0).Children(func() {
 				v.body(c, e, albums, group, sc)
 			})
 		})
@@ -800,7 +847,11 @@ func (v *artistsView) section(c *ui.Context, key, title, label string, albums []
 	l := v.l
 	tile := l.albumTile()
 	ui.Column(c.Key(key)).FillWidth().Role(ui.RoleGroup).Label(title).Children(func() {
-		theme.Text(c, title, "heading").TextColor(theme.C("ink")).Margin(0, 0, 16, 0).Role(ui.RoleHeading).Level(group)
+		ui.Row(c.Key("heading")).FillWidth().AlignItems(ui.Center).Gap(12).Margin(0, 0, 16, 0).Children(func() {
+			theme.Text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(group)
+			theme.Text(c, i18n.FormatNumber(float64(len(albums))), "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum").Role(ui.RoleNone)
+			ui.Box(c.Key("rule")).Grow(1).Height(1).Background(theme.C("line"))
+		})
 		kit.CoverGrid(c, st, len(albums), func(i int) *kit.CoverItem {
 			t := artistsReleaseTile(tile(&albums[i]), albums[i])
 			return &t

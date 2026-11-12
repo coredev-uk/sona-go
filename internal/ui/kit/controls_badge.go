@@ -51,10 +51,7 @@ func Badge(c *ui.Context, label string, o BadgeOpts) ui.Element {
 			bg = bg.Alpha(0.9)
 		}
 	case BadgeDestructive:
-		bg, fg = theme.C("destructive"), theme.C("white")
-		if theme.Dark() {
-			bg = bg.Alpha(0.6)
-		}
+		bg, fg = theme.C("badge-destructive"), theme.C("white")
 		if hovered {
 			bg = bg.Alpha(0.9)
 		}

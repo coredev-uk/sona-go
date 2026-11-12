@@ -11,6 +11,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -111,5 +112,6 @@ func (r *rig) toEnd() {
 func followShell(h *uitest.Harness) {
 	store.On(h.Bus, services.EventSettingsChanged, func(s config.Settings) {
 		store.Set(h.Env.Queries, store.KeySettings, s)
+		theme.SetTheme(s.ThemeID) // the shell applies the chosen theme
 	})
 }

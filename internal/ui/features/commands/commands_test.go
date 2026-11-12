@@ -317,13 +317,72 @@ func TestQuestionMarkOpensTheHelpListingGroups(t *testing.T) {
 	if !r.tt.HasText("Not set") {
 		t.Error("a shortcut with no keys does not say Not set")
 	}
+	if !r.tt.Focused("Filter shortcuts") {
+		t.Error("the filter did not take the focus")
+	}
+	r.tt.Key(0, ui.KeyDown)
 	if !r.tt.Focused("Shortcuts") {
-		t.Error("the list did not take the focus")
+		t.Error("Down from the filter did not move into the list")
+	}
+	r.tt.Key(0, ui.KeyUp) // the list is at its top: Up goes back
+	if !r.tt.Focused("Filter shortcuts") {
+		t.Error("Up at the top of the list did not return to the filter")
 	}
 	r.tt.Key(0, ui.KeyEscape)
 	r.settle()
 	if r.m.help.open || !r.tt.Focused("Opener") {
 		t.Errorf("Escape: open %v, focus back %v", r.m.help.open, r.tt.Focused("Opener"))
+	}
+}
+
+func TestHelpFilterNarrowsShortcutsAsYouType(t *testing.T) {
+	r := newRig(t)
+	r.tt.Key(ui.Shift, ui.KeySlash)
+	r.tt.Type("next")
+	if !r.tt.HasText("Next track") || !r.tt.HasText("Playback") {
+		t.Errorf("next: the match or its group is missing; texts %q", r.tt.Texts())
+	}
+	for _, s := range []string{"Play or pause", "Show or hide the sidebar", "View", "General"} {
+		if r.tt.HasText(s) {
+			t.Errorf("next: %q is still listed", s)
+		}
+	}
+	if got := r.tt.Announcements(); !slices.Contains(got, "1 shortcut") {
+		t.Errorf("announced %q, want the count", got)
+	}
+	// Keys match too, as spelt on the caps and in words, and so do keywords
+	// and the group's title.
+	for _, c := range []struct{ query, want string }{{"ctrl", "Next track"}, {"space", "Play or pause"}, {"resume", "Play or pause"}, {"pages", "Library · Albums"}, {"ARROW right", "Next track"}} {
+		r.tt.Key(ui.Ctrl, ui.KeyA)
+		r.tt.Type(c.query)
+		if !r.tt.HasText(c.want) {
+			t.Errorf("%q does not find %q; texts %q", c.query, c.want, r.tt.Texts())
+		}
+	}
+	r.tt.Key(ui.Ctrl, ui.KeyA)
+	r.tt.Type("zzz")
+	if !r.tt.HasText("No shortcuts match “zzz”") || r.tt.HasText("Next track") {
+		t.Errorf("zzz: %q", r.tt.Texts())
+	}
+	// Escape clears the filter first and leaves the sheet open; the next closes it.
+	r.tt.Key(0, ui.KeyEscape)
+	if !r.m.help.open || !r.tt.HasText("Next track") || !r.tt.HasText("Play or pause") {
+		t.Errorf("Escape in a filled filter: open %v, texts %q", r.m.help.open, r.tt.Texts())
+	}
+	r.tt.Key(0, ui.KeyEscape)
+	r.settle()
+	if r.m.help.open {
+		t.Error("Escape in an empty filter left the sheet open")
+	}
+}
+
+func TestHelpQuestionMarkAfterTextIsText(t *testing.T) {
+	r := newRig(t)
+	r.tt.Key(ui.Shift, ui.KeySlash)
+	r.tt.Type("n")
+	r.tt.Key(ui.Shift, ui.KeySlash) // a "?" after text is text
+	if !r.m.help.open {
+		t.Error("a ? typed after other text closed the sheet")
 	}
 }
 
@@ -350,10 +409,17 @@ func TestHelpReflectsRebindingAtOnce(t *testing.T) {
 func TestHelpsOwnChordClosesItAndSettingsLinkOpensSettings(t *testing.T) {
 	r := newRig(t)
 	r.tt.Key(ui.Shift, ui.KeySlash)
+	r.tt.Type("?") // the filter has the focus, where "?" is text: alone in it, it is the chord
+	r.settle()
+	if r.m.help.open {
+		t.Fatal("? typed into the empty filter did not close the open help")
+	}
+	r.tt.Key(ui.Shift, ui.KeySlash)
+	r.tt.Key(0, ui.KeyDown) // the focus is in the list: the chord itself
 	r.tt.Key(ui.Shift, ui.KeySlash)
 	r.settle()
 	if r.m.help.open {
-		t.Fatal("? did not close the open help")
+		t.Fatal("? did not close the open help from its list")
 	}
 	r.tt.Key(ui.Shift, ui.KeySlash)
 	r.tt.MustClick("Settings")

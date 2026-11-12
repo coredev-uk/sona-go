@@ -170,6 +170,20 @@ func (r *rig) open(step string) {
 	r.tt.Drain()
 }
 
+// cardRight is the x of the card's trailing edge.
+func (r *rig) cardRight() float32 {
+	width, _ := cardWidth(r.w)
+	return r.w/2 + width/2
+}
+
+// panePad is the step's padding at its trailing edge: wider beside the rail.
+func (r *rig) panePad() float32 {
+	if _, rail := cardWidth(r.w); rail {
+		return 28
+	}
+	return 24
+}
+
 func (r *rig) step() string { return r.h.Env.Surfaces.SetupStep() }
 
 func (r *rig) click(text string) {
@@ -187,7 +201,7 @@ func (r *rig) clickSwitch(text string) {
 		r.t.Fatalf("no row %q; texts %q", text, r.tt.Texts())
 	}
 	// The switch is centred on the row's two lines (the label's 20 and the hint's 18).
-	r.tt.ClickAt(r.w/2+panelWidth/2-24-16, at.Y+19)
+	r.tt.ClickAt(r.cardRight()-r.panePad()-16, at.Y+19)
 	r.tt.Drain()
 }
 
@@ -472,6 +486,61 @@ func TestStepStripGoesToAnyStepOneTabStopMovedByArrows(t *testing.T) {
 	r.click("Desktop")
 	if r.step() != "desktop" {
 		t.Errorf("the Desktop segment went to %q", r.step())
+	}
+}
+
+// TestStepRailIsMovedByTheVerticalArrows: beside the step the steps are a
+// column, so ↓ and ↑ move the focus between them (the one Tab stop), and
+// Enter goes to the focused step.
+func TestStepRailIsMovedByTheVerticalArrows(t *testing.T) {
+	r := newRig(t, 900, 800)
+	r.open("playback")
+	if _, rail := cardWidth(r.w); !rail {
+		t.Fatal("a 900 wide window has no step rail")
+	}
+	r.key(ui.Shift, ui.KeyTab)
+	if !r.tt.Focused("Welcome") {
+		t.Fatalf("Shift+Tab did not reach the rail; texts %q", r.tt.Texts())
+	}
+	r.key(0, ui.KeyDown)
+	if !r.tt.Focused("Apple Music") {
+		t.Errorf("↓ did not move to the next step")
+	}
+	r.key(0, ui.KeyUp)
+	r.key(0, ui.KeyUp)
+	if !r.tt.Focused("Done") {
+		t.Errorf("↑ from the first step did not wrap to the last")
+	}
+	r.key(0, ui.KeyEnter)
+	if r.step() != "done" {
+		t.Errorf("Enter went to %q", r.step())
+	}
+}
+
+// TestNarrowWindowKeepsTheStepsAsAStrip: below the width a rail needs, the
+// card is the narrow one with the strip under its head, one Tab stop moved by
+// ←/→, Home and End, with the same steps and the same buttons.
+func TestNarrowWindowKeepsTheStepsAsAStrip(t *testing.T) {
+	r := newRig(t, 700, 800)
+	r.open("account")
+	if _, rail := cardWidth(r.w); rail {
+		t.Fatal("a 700 wide window has a step rail")
+	}
+	if !r.hasAll("Welcome", "Apple Music", "Playback", "Connections", "Appearance", "Desktop", "Done", "Skip setup", "Not now") {
+		t.Fatalf("the narrow card lacks something: %q", r.tt.Texts())
+	}
+	r.key(ui.Shift, ui.KeyTab)
+	if !r.tt.Focused("Welcome") {
+		t.Fatalf("Shift+Tab did not reach the strip; texts %q", r.tt.Texts())
+	}
+	r.key(0, ui.KeyRight)
+	if !r.tt.Focused("Apple Music") {
+		t.Errorf("→ did not move to the next step")
+	}
+	r.key(0, ui.KeyEnd)
+	r.key(0, ui.KeyEnter)
+	if r.step() != "done" {
+		t.Errorf("Enter on the last segment went to %q", r.step())
 	}
 }
 
@@ -1024,7 +1093,7 @@ func TestDoneButtonLeavesAndMarksTheSetupDoneExactlyOnce(t *testing.T) {
 	if !ok {
 		t.Fatalf("no Back; texts %q", r.tt.Texts())
 	}
-	r.tt.ClickAt(r.w/2+panelWidth/2-24-24, back.Y+back.H/2)
+	r.tt.ClickAt(r.cardRight()-24-24, back.Y+back.H/2)
 	r.tt.Drain()
 	if r.h.Env.Surfaces.SetupOpen() {
 		t.Fatal("Done left the setup open")

@@ -1,0 +1,42 @@
+{
+  "$comment": "A cooler neutral board. Sky blue marks what plays.",
+  "format": 1,
+  "id": "graphite",
+  "name": "Graphite",
+  "author": "Sona",
+  "light": {
+    "color": {
+      "ground": "#f2f5f8",
+      "surface": "#eceef2",
+      "raised": "#ffffff",
+      "hover": "#e4e7ea",
+      "active": "#dcdee2",
+      "line": "#d9dcdf",
+      "control-line": "#848689",
+      "ink": "#171a1d",
+      "ink-muted": "#55585c",
+      "ink-faint": "#5b5e62",
+      "amber": "#3b9bd7",
+      "amber-ink": "#005b8e",
+      "on-amber": "#04121b"
+    }
+  },
+  "dark": {
+    "color": {
+      "ground": "#14171c",
+      "surface": "#191d21",
+      "raised": "#202428",
+      "hover": "#26292e",
+      "active": "#2e3236",
+      "line": "#2b2e33",
+      "control-line": "#6e7277",
+      "ink": "#edf0f4",
+      "ink-muted": "#abaeb2",
+      "ink-faint": "#a2a5a8",
+      "amber": "#5fbdf0",
+      "amber-ink": "#5fbdf0",
+      "on-amber": "#04121b",
+      "danger": "#f77665"
+    }
+  }
+}

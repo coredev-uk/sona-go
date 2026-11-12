@@ -96,7 +96,7 @@ func (d *discover) roomPage(c *ui.Context, r *ui.Route) {
 		case q.Err != nil:
 			kit.QueryError(c, d.env.Queries, i18n.T("Couldn't load this list"), q, keyRoom(id, sort))
 		default:
-			kit.PageHeader(c, "", "", nil)
+			d.masthead(c, "", "", true, nil)
 			d.shelvesSkeleton(c, &st.skel, false)
 		}
 	})
@@ -131,12 +131,12 @@ func (d *discover) roomContent(c *ui.Context, r *ui.Route, st *roomPage, pane *k
 		list = st.list.songList(id+"|"+sort, &pages)
 	}
 	if songs {
-		kit.PageHeader(c, room.Title, "", func() {
+		d.masthead(c, room.Title, "", false, func() {
 			d.playButtons(c, room.Title, list)
 			order()
 		})
 	} else {
-		kit.PageHeader(c, room.Title, "", order)
+		d.masthead(c, room.Title, "", false, order)
 	}
 	d.itemList(c, &st.list, pane, &pages, list, ctx, listOpts{title: room.Title, songs: songs, placeholders: 12, near: 24, min: 160, menus: st.menus})
 }

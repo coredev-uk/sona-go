@@ -237,7 +237,8 @@ func TestSeeAllGoesToTheArtistsVideosOnlyWithAnArtist(t *testing.T) {
 }
 
 func TestTilesOpenTheirPageAndPlayWhereVideosPlay(t *testing.T) {
-	p := newPageRig(t, false, 1132, 1253)
+	// Tall enough that the second shelf is on screen under the lead picture.
+	p := newPageRig(t, false, 1132, 1500)
 	p.loaded()
 	p.tt.MustClick("Play Rain Video")
 	if len(p.queue.videos) != 1 || p.queue.videos[0][0].ID != "mv.2" {
@@ -314,5 +315,37 @@ func TestPageShowsNoPlayControlOrNoteBeforeCapabilitiesAnswer(t *testing.T) {
 	p.tt.Frame()
 	if !p.tt.HasText("Play Sky Video") {
 		t.Errorf("no Play once capabilities answered: %q", p.tt.Texts())
+	}
+}
+
+// TestStageBox: the stage spans the content, the picture fills it while 16:9
+// at that width is under the cap (60% of what the window shows, 360 to 640)
+// and is centred whole at the cap height past it; every box is whole DIPs.
+func TestStageBox(t *testing.T) {
+	for _, tc := range []struct {
+		name               string
+		content, visible   float32
+		stageH, picW, picH float32
+	}{
+		{"narrow fills the column", 707, 900, 398, 707, 398},
+		{"wide at the cap", 1500, 1000, 600, 1067, 600},
+		{"cap follows the window", 1500, 800, 480, 853, 480},
+		{"cap floor is 360", 1500, 500, 360, 640, 360},
+		{"cap ceiling is 640", 1500, 1400, 640, 1138, 640},
+		{"column exactly 16:9 at the cap", 1067, 1000, 600, 1067, 600},
+		{"fills just under the cap", 1000, 1000, 563, 1000, 563},
+		{"a matte of a sliver fills the column", 648, 700, 365, 648, 365},
+		{"no column", 0, 900, 0, 0, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := stageBox(tc.content, tc.visible)
+			want := widths{content: tc.content, stageH: tc.stageH, picW: tc.picW, picH: tc.picH}
+			if got != want {
+				t.Fatalf("stageBox(%v, %v) = %+v, want %+v", tc.content, tc.visible, got, want)
+			}
+			if got.picW > got.content {
+				t.Errorf("picture %v wider than the column %v", got.picW, got.content)
+			}
+		})
 	}
 }

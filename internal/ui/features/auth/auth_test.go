@@ -265,8 +265,8 @@ func TestSignedOutUnencryptedTokenNote(t *testing.T) {
 }
 
 // The header is a 20 high line of medium ink (32 with its padding) and the
-// unencrypted note leads with its shield-alert icon: 14 and a 6 gap before the
-// text, which the other notes start without (AccountMenu's Note).
+// facts under it lead with a glyph: 14 and a 6 gap before the text, which the
+// Private listening note under its switch starts without.
 func TestMenuHeaderAndNotesAreStyled(t *testing.T) {
 	r := newRig(t, services.AuthStatus{State: "signed_out", Unencrypted: true})
 	r.openMenu()
@@ -277,6 +277,9 @@ func TestMenuHeaderAndNotesAreStyled(t *testing.T) {
 	plain, ok := r.tt.Find("Plays stay out of your listening history, scrobbles and Discord.")
 	if !ok || plain.X != head.X+8 {
 		t.Errorf("a note without an icon is at %v (found %v), want the header's text start %v", plain.X, ok, head.X+8)
+	}
+	if state, ok := r.tt.Find("Not signed in"); !ok || state.X != plain.X+14+6 {
+		t.Errorf("the state line starts at %v (found %v), want it after its glyph (%v)", state.X, ok, plain.X+14+6)
 	}
 	note, ok := r.tt.Find("Signing in now stores your token unencrypted")
 	if !ok || note.X != plain.X+14+6 {

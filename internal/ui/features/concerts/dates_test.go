@@ -220,6 +220,42 @@ func TestVenueLine(t *testing.T) {
 	}
 }
 
+func TestComingDaysMarksTheDaysWithShowsAndKnowsWhereTheyAre(t *testing.T) {
+	regional(t, "en-GB")
+	months := groupShows([]services.Concert{
+		show(t, "2027-04-10T18:00:00Z", "Europe/London", "a"),
+		show(t, "2027-04-14T18:00:00Z", "Europe/London", "b"),
+		show(t, "2027-04-14T20:00:00Z", "Europe/London", "c"),
+		show(t, "2027-04-29T18:00:00Z", "Europe/London", "d"), // past the fortnight
+	})
+	first := time.Date(2027, 4, 9, 0, 0, 0, 0, time.UTC)
+	days := comingDays(first, "", months)
+	if len(days) != stripDays {
+		t.Fatalf("%d days, want %d", len(days), stripDays)
+	}
+	if days[0].day != "2027-04-09" || days[0].weekday != "Fri" || days[0].num != "9" || days[0].count != 0 || days[0].label != "" {
+		t.Errorf("first day %+v", days[0])
+	}
+	// The 14th has two shows, the first of them the second row of the agenda.
+	if d := days[5]; d.day != "2027-04-14" || d.count != 2 || d.row != 1 || d.label != "Wed 14 Apr, 2 shows" {
+		t.Errorf("14 April %+v", d)
+	}
+	if days[1].count != 1 || days[1].row != 0 {
+		t.Errorf("10 April %+v", days[1])
+	}
+	// A range's end cuts the strip; too short a range is no strip.
+	if got := comingDays(first, "2027-04-18", months); len(got) != 10 {
+		t.Errorf("a range to the 18th is %d days", len(got))
+	}
+	if got := comingDays(first, "2027-04-12", months); got != nil {
+		t.Errorf("a range of four days made a strip of %d", len(got))
+	}
+	// No show in the fortnight, no strip.
+	if got := comingDays(time.Date(2027, 5, 10, 0, 0, 0, 0, time.UTC), "", months); got != nil {
+		t.Errorf("a strip over no shows: %v", got)
+	}
+}
+
 func TestFactsFollowTheLocaleAndTheComputersClock(t *testing.T) {
 	regional(t, "en-GB")
 	london := show(t, "2027-04-14T17:00:00Z", "Europe/London", "facts")

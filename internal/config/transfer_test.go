@@ -15,6 +15,7 @@ import (
 func custom() Settings {
 	s := Defaults()
 	s.Theme = ThemeDark
+	s.ThemeID = "graphite"
 	s.ReduceEffects = true
 	s.Volume = 0.3
 	s.AudioQuality = Quality64

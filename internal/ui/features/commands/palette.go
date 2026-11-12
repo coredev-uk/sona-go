@@ -15,6 +15,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
 const (
@@ -57,9 +58,35 @@ func (m *commands) available() []module.BoundShortcut {
 	})
 }
 
-func commandEntry(s module.BoundShortcut) kit.PaletteEntry {
-	return kit.PaletteEntry{Key: "c:" + s.ID, Label: s.Label(), Icon: s.Icon, Keys: s.Keys, Run: s.Run}
+// tileSize is the quiet tile an entry's icon sits in: the size of a library
+// item's cover, so the leading column of a list that mixes both is one width.
+const tileSize = 32
+
+// iconTile draws an icon in the quiet tile.
+func iconTile(icon string) func(c *ui.Context) {
+	return func(c *ui.Context) {
+		ui.Row(c.Key("tile")).Size(tileSize, tileSize).Shrink(0).Center().Radius(theme.Current().Radius["md"]).
+			Background(theme.C("surface")).Role(ui.RoleNone).Children(func() {
+			theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: theme.C("ink-muted")})
+		})
+	}
 }
+
+// commandEntry is a command: its icon in a quiet tile, its label, its keys.
+// detail is the second line, the group it belongs to, for a ranked list
+// where no group heads it.
+func commandEntry(s module.BoundShortcut, detail string) kit.PaletteEntry {
+	icon := s.Icon
+	if icon == "" {
+		icon = "command" // the sidebar's go-tos and the like name none
+	}
+	return kit.PaletteEntry{Key: "c:" + s.ID, Label: s.Label(), Detail: detail, Keys: s.Keys, Run: s.Run, Leading: iconTile(icon)}
+}
+
+// paletteGroups are the groups in the order the palette opens on them: the
+// places to go first, then what the player does, so Enter on opening goes
+// somewhere rather than pausing the music.
+var paletteGroups = []module.ShortcutGroup{"pages", "playback", "view", "navigation", "general"}
 
 // sections is the palette's source: with nothing typed, every available
 // command by group; with a query, the best matching commands, then library
@@ -70,11 +97,11 @@ func (m *commands) sections(c *ui.Context) kit.PaletteSource {
 		q := strings.TrimSpace(query)
 		if q == "" {
 			var out []kit.PaletteSection
-			for _, g := range module.ShortcutGroups {
+			for _, g := range paletteGroups {
 				var entries []kit.PaletteEntry
 				for _, s := range cmds {
 					if s.Group == g {
-						entries = append(entries, commandEntry(s))
+						entries = append(entries, commandEntry(s, ""))
 					}
 				}
 				if len(entries) > 0 {
@@ -95,7 +122,7 @@ func (m *commands) sections(c *ui.Context) kit.PaletteSource {
 		if len(ranked) > 0 {
 			entries := make([]kit.PaletteEntry, len(ranked))
 			for i, s := range ranked {
-				entries[i] = commandEntry(s)
+				entries[i] = commandEntry(s, module.GroupTitle(s.Group))
 			}
 			out = append(out, kit.PaletteSection{Title: i18n.T("Commands"), Entries: entries})
 		}
@@ -104,7 +131,7 @@ func (m *commands) sections(c *ui.Context) kit.PaletteSource {
 		}
 		if m.env.Routed("/search") {
 			out = append(out, kit.PaletteSection{Title: i18n.T("Apple Music"), Entries: []kit.PaletteEntry{{
-				Key: "search", Label: i18n.T("Search Apple Music for “{term}”", "term", q), Icon: "search",
+				Key: "search", Label: i18n.T("Search Apple Music for “{term}”", "term", q), Leading: iconTile("search"),
 				Run: func() { m.env.Nav.Push("/search?q=" + url.QueryEscape(q)) },
 			}}})
 		}

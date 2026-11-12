@@ -1,0 +1,42 @@
+{
+  "$comment": "Dracula, dark only. Pink marks what plays. The ground is the darker background, surface the standard one; raised, hover and the line are mixes with the current line. Adjusted in lightness only to keep Sona's contrast floors: dark ink-faint #b0b4cc -> #b2b6ce; dark danger #ff5555 -> #ff9d96; dark control-line #6c7aa8 -> #6d7ba9; dark amber-ink #ff79c6 -> #ff96cf.",
+  "format": 1,
+  "id": "dracula",
+  "name": "Dracula",
+  "author": "Dracula (Zeno Rocha, draculatheme.com), MIT",
+  "dark": {
+    "color": {
+      "ground": "#21222c",
+      "surface": "#282a36",
+      "raised": "#303240",
+      "hover": "#3a3d4e",
+      "active": "#44475a",
+      "line": "#343746",
+      "control-line": "#6d7ba9",
+      "ink": "#f8f8f2",
+      "ink-muted": "#c9cbd8",
+      "ink-faint": "#b2b6ce",
+      "amber": "#ff79c6",
+      "amber-ink": "#ff96cf",
+      "on-amber": "#282a36",
+      "positive": "#50fa7b",
+      "danger": "#ff9d96",
+      "avatar-0-bg": "#684149",
+      "avatar-0-fg": "#fee0dc",
+      "avatar-1-bg": "#655650",
+      "avatar-1-fg": "#fee3c6",
+      "avatar-2-bg": "#606558",
+      "avatar-2-fg": "#e8edbf",
+      "avatar-3-bg": "#406654",
+      "avatar-3-fg": "#bbfbc3",
+      "avatar-4-bg": "#4a6070",
+      "avatar-4-fg": "#c9f0f8",
+      "avatar-5-bg": "#4a6070",
+      "avatar-5-fg": "#c9f0f8",
+      "avatar-6-bg": "#544c6f",
+      "avatar-6-fg": "#ece2fe",
+      "avatar-7-bg": "#674763",
+      "avatar-7-fg": "#feddef"
+    }
+  }
+}

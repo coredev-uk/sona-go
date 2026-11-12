@@ -76,9 +76,10 @@ func TestHeadMotionCoverAsksForTheArtistsMotionWhenThePolicyAllows(t *testing.T)
 	r.shows("Radiohead", "Discography")
 	r.tt.Until("the portrait to ask for its motion", func() bool { return len(f.asked()) > 0 })
 	r.tt.Settle()
-	// The portrait asks for the 200 DIP rendition (kit.MotionOpts.VideoSize),
-	// not for its own size, at the window's scale (1 here).
-	if got, want := f.asked(), []motionAsk{{headMotion, 200}}; len(got) != 1 || got[0] != want[0] {
+	// The portrait asks for the rendition of its largest class
+	// (kit.MotionOpts.VideoSize), not for its own size, so a resize never
+	// reloads it and it is never upscaled; at the window's scale (1 here).
+	if got, want := f.asked(), []motionAsk{{headMotion, portraitWide}}; len(got) != 1 || got[0] != want[0] {
 		t.Errorf("the portrait asked for %+v, want %+v", got, want)
 	}
 	// The video failed to open: the page is the same, with the still.

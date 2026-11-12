@@ -1,5 +1,5 @@
 // Package radio is the Radio feature: the Radio page (what is on air now on
-// Apple Music's live stations as a now-and-next board, the user's own
+// Apple Music's live stations as a programme guide, the user's own
 // stations, Apple's editorial radio in bands), station pages, playing
 // stations from any card, and Create Station on songs, albums and artists.
 //

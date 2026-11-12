@@ -12,17 +12,17 @@ import (
 )
 
 // front is the front page's state (v0.2.0's FrontPage): which card leads,
-// the page of the list the user turned to, the
+// the page of the strip the user turned to, the
 // user's pause and the rotation's timer.
 type front struct {
-	// openers are the lead's and the list's play buttons, which a music
+	// openers are the lead's and the strip's play buttons, which a music
 	// video's view returns the focus to when it closes.
 	openers kit.Openers
 	width   kit.WidthTracker
 	// at is the lead's place in the items.
 	at int
-	// turned: the user turned the list to page turnPage while the lead was
-	// turnAt; the list shows the lead's page otherwise.
+	// turned: the user turned the strip to page turnPage while the lead was
+	// turnAt; the strip shows the lead's page otherwise.
 	turned           bool
 	turnAt, turnPage int
 	// paused is the user's pause (the control's state), not the temporary
@@ -35,26 +35,48 @@ type front struct {
 // choose makes card to the lead; leadMotion cross-fades the cards.
 func (f *front) choose(to int) { f.at = to }
 
-// frontPage is Discover's front page: Apple's featured cards, one of them the
-// lead, large, and all of them as a list beside it (under it in a narrow
-// window), paged so the list never runs past the lead. The lead moves on by
-// itself unless the user pauses it or asks for reduced motion; choosing a row
-// makes it the lead, and the list shows the page the lead is on.
+// pageState is what the pager under the lead shows: the strip's page of pages,
+// and whether the rotation is on offer (a control for it).
+type pageState struct {
+	page, pages int
+	available   bool
+	label       string
+}
+
+// reserve is the room the lead's caption leaves at its end for the pager,
+// which sits over it: the rotation control and, with more than one page, the
+// count and the two buttons.
+func (p pageState) reserve() float32 {
+	var w float32
+	if p.available {
+		w += 36
+	}
+	if p.pages > 1 {
+		w += 120
+	}
+	return w
+}
+
+// frontPage is Discover's front page, set as the head of an issue: Apple's
+// featured cards, one of them the lead, as wide as the column (to leadMax) in
+// the hero card's shape, its title and line in a caption under it with the
+// pager at the caption's end, and all of them as a strip of cards under that,
+// four a page. The lead moves on by itself unless the user pauses it or asks
+// for reduced motion; choosing a card makes it the lead, and the strip shows
+// the page the lead is on.
 func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.ItemsCtx) {
 	count := len(items)
 	if count == 0 {
 		return
 	}
 	f := &d.front
-	tk := theme.Current()
-	gapX := tk.Metric["tile-gap-x"]
 	ctx := base // the page's own, with the lead's menu
 	ctx.Menus, ctx.NoPopup = f.menus, false
 	label := i18n.T("Featured")
 
 	sec := ui.Column(c.Key("front")).FillWidth().Margin(0, 0, 48, 0).Role(ui.RoleGroup).Label(label)
 	width := f.width.Track(c, sec)
-	lay := layoutFor(width, gapX)
+	lay := layoutFor(width, d.newPg.pg.Height)
 	// A page that is built again after it went away starts over: the first
 	// card leads, rotation is not paused (v0.2.0's component state was lost on
 	// unmount). An element's state lives only while it is built.
@@ -80,7 +102,7 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.Item
 	at := f.at
 
 	pages := max(1, (count+lay.perPage-1)/lay.perPage)
-	// The list shows the lead's page until the user turns it, and returns to
+	// The strip shows the lead's page until the user turns it, and returns to
 	// it when the lead changes.
 	page := at / lay.perPage
 	if f.turned && f.turnAt == at {
@@ -88,35 +110,28 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.Item
 	}
 	page = min(page, pages-1)
 	shown := items[page*lay.perPage : min(count, (page+1)*lay.perPage)]
+	pg := pageState{page: page, pages: pages, available: available, label: label}
 
 	sec.Children(func() {
 		if width <= 0 {
 			return // the first frame measures; the next one lays it out
 		}
-		var grid ui.Element
-		if lay.split {
-			grid = ui.Row(c.Key("grid")).FillWidth().Gap(gapX).AlignItems(ui.Start)
-		} else {
-			grid = ui.Column(c.Key("grid")).FillWidth().Gap(24)
-		}
-		grid.Children(func() {
-			ui.Box(c.Key("lead")).Width(lay.lead).Shrink(0).Children(func() {
-				// The cross-fade: the new lead comes in as the old one goes out.
-				// MyGo leaves the old card as an inert copy, off the
-				// accessibility tree, and takes it away when the fade ends.
-				in := ui.Column(c.Key("in:" + leadKey(items[at], at))).Width(lay.lead)
-				if !theme.ReducedMotion() {
-					in.Transition(ui.ElementTransition{
-						Duration: leadFade, Ease: ui.EaseInOut,
-						Enter: &ui.Motion{X: leadSlide}, Exit: &ui.Motion{X: -leadSlide},
-					})
-				}
-				in.Children(func() { d.leadCard(c, items[at], lay, ctx) })
-			})
-			if count > 1 {
-				d.featureList(c, items, shown, page, pages, available, lay, ctx, label)
+		ui.Box(c.Key("lead")).Width(lay.lead).Shrink(0).Children(func() {
+			// The cross-fade: the new lead comes in as the old one goes out.
+			// MyGo leaves the old card as an inert copy, off the
+			// accessibility tree, and takes it away when the fade ends.
+			in := ui.Column(c.Key("in:" + leadKey(items[at], at))).Width(lay.lead)
+			if !theme.ReducedMotion() {
+				in.Transition(ui.ElementTransition{
+					Duration: leadFade, Ease: ui.EaseInOut,
+					Enter: &ui.Motion{X: leadSlide}, Exit: &ui.Motion{X: -leadSlide},
+				})
 			}
+			in.Children(func() { d.leadCard(c, items[at], lay, ctx, pg) })
 		})
+		if count > 1 {
+			d.strip(c, shown, page, lay, ctx, label)
+		}
 		f.menus.Popup(c)
 
 		// The next lead's picture is fetched and decoded while this one is
@@ -125,7 +140,7 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.Item
 		if available {
 			next := items[(at+1)%count]
 			if src, contain := leadArt(next); src != "" {
-				kit.PrefetchArtwork(c, ctx.Art, src, lay.lead, kit.ArtOpts{Aspect: heroRatio, Contain: contain})
+				kit.PrefetchArtwork(c, ctx.Art, src, lay.lead, kit.ArtOpts{Aspect: lay.artAspect(), Contain: contain})
 			}
 		}
 	})
@@ -200,13 +215,14 @@ func (d *discover) opener(it services.Item, ctx kit.ItemsCtx) (open func(), link
 }
 
 // leadCard is the lead: the picture (the wide banner cropped to the card, else
-// the cover contained on its colour), the title opening the item's page, the
-// subtitle, a play button on hover or focus and the item's menu.
+// the cover contained on its colour), under it the caption: the title opening
+// the item's page and the subtitle, with the pager at its end. A play button
+// shows on hover or focus and the item's menu sits beside the pager.
 //
-// The card is one opener; the play button and the more button are elements of
-// their own beside it (a button or a link is one piece for assistive
-// technology, so inside it they would not be on its tree).
-func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ctx kit.ItemsCtx) {
+// The card is one opener; the play button, the more button and the pager are
+// elements of their own over it (a button or a link is one piece for
+// assistive technology, so inside it they would not be on its tree).
+func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ctx kit.ItemsCtx, pg pageState) {
 	tk := theme.Current()
 	name := it.Name
 	open, link := d.opener(it, ctx)
@@ -214,6 +230,8 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 	menu := kit.ActionTarget{Item: target, Name: name, Key: "lead"}
 	hasMenu := hasTarget && ctx.Menus.HasMenu(target)
 	artH := lay.artHeight()
+	pager := pg.reserve()
+	captionTop := artH + leadCaption - 48 // the caption's first line
 
 	wrap := ui.Column(c.Key("wrap")).AlignItems(ui.Start).Width(lay.lead)
 	hot := wrap.Hovered() || wrap.FocusWithin()
@@ -242,20 +260,24 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 					// The item's colour shows where the picture does not, and
 					// stays when it fails to load.
 					kit.Artwork(c, ctx.Art, src, lay.lead, kit.ArtOpts{
-						Aspect: heroRatio, Edge: true, Contain: contain, Fallback: func(*ui.Context) {},
+						Aspect: lay.artAspect(), Edge: true, Contain: contain, Fallback: func(*ui.Context) {},
 					})
 				}
 			})
-			ui.Row(c.Key("title")).Height(22).Margin(8, 0, 0, 0).Gap(4).AlignItems(ui.Center).MinWidth(0).Children(func() {
-				t := theme.Text(c, name, "heading").TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).TextAlign(ui.Start)
-				if wrap.Hovered() && open != nil {
-					t.Underline()
-				}
+			ui.Row(c.Key("caption")).Width(lay.lead).Margin(12, 0, 0, 0).Children(func() {
+				ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
+					t := theme.Text(c, name, "title").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
+					if wrap.Hovered() && open != nil {
+						t.Underline()
+					}
+					theme.Text(c, kit.ItemSubtitle(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine().Height(18).TextAlign(ui.Start)
+				})
+				room := pager
 				if hasMenu {
-					ui.Box(c.Key("more-room")).Size(24, 24).Shrink(0).IgnoreInput(true) // where the more button sits
+					room += moreReserve
 				}
+				ui.Box(c.Key("pager-room")).Size(room, 1).Shrink(0).IgnoreInput(true) // where the more button and the pager sit
 			})
-			theme.Text(c, kit.ItemSubtitle(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine().Height(18).TextAlign(ui.Start)
 		})
 		if ctx.Players.CanPlay(it) {
 			play := kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 48).Absolute().Left(16).Top(artH - 16 - 48)
@@ -267,7 +289,10 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			}
 		}
 		if hasMenu {
-			ctx.Menus.Trigger(c.Key("more"), menu, kit.TriggerOpts{Visible: hot}).Absolute().Right(0).Top(artH + 7)
+			ctx.Menus.Trigger(c.Key("more"), menu, kit.TriggerOpts{Visible: hot}).Absolute().Right(pager).Top(captionTop + 12)
+		}
+		if pager > 0 {
+			d.pager(c, pg, captionTop+10)
 		}
 		if card.Clicked() && open != nil {
 			open()
@@ -278,53 +303,30 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 	})
 }
 
-// featureList is the list of featured cards beside or under the lead, and
-// its pager and the rotation's control.
-func (d *discover) featureList(c *ui.Context, items, shown []services.Item, page, pages int, available bool, lay frontLayout, ctx kit.ItemsCtx, label string) {
+// strip is the featured cards under the lead: one page of them, in a row of
+// four or two rows of two. It reaches 8 past the lead's edges on each side, so
+// that a card's picture and text, which sit 8 inside it, line up with the
+// lead's.
+func (d *discover) strip(c *ui.Context, shown []services.Item, page int, lay frontLayout, ctx kit.ItemsCtx, label string) {
 	f := &d.front
-	tk := theme.Current()
-	gapX := tk.Metric["tile-gap-x"]
-	at := f.at
-	list := ui.Column(c.Key("list")).MinWidth(0)
-	if lay.split {
-		list.Grow(1).Basis(0).Height(lay.artHeight() + leadCaption)
-	} else {
-		list.FillWidth()
-	}
-	list.Children(func() {
-		cols := ui.Row(c.Key("cards")).AlignSelf(ui.Stretch).Margin(0, -8, 0, -8).Gap(gapX - 16).Role(ui.RoleList).Label(i18n.T("Featured"))
-		cols.Children(func() {
-			for col := range lay.columns {
-				ui.Column(c.Key(col)).Grow(1).Basis(0).MinWidth(0).Children(func() {
-					for r := range lay.perColumn {
-						i := col*lay.perColumn + r
-						if i >= len(shown) {
-							break
-						}
-						index := page*lay.perPage + i
-						d.featureRow(c, shown[i], index, index == at, lay, ctx)
-					}
-				})
-			}
-		})
-		if pages <= 1 && !available {
-			return
+	ui.Grid(c.Key("list")).Columns(lay.columns).GapX(stripGap).GapY(stripGap/2).Width(lay.lead+16).Margin(20, -8, 0, -8).
+		Role(ui.RoleList).Label(label).Children(func() {
+		for i := range shown {
+			index := page*lay.perPage + i
+			d.featureRow(c, shown[i], index, index == f.at, lay, ctx)
 		}
-		if lay.split {
-			ui.Box(c.Key("fill")).Grow(1) // the pager ends level with the lead's caption
-		}
-		d.pager(c, page, pages, available, label)
 	})
 }
 
-// pager is the row under the list: the rotation's pause control and, with
-// more than one page, "N of M" and the buttons that turn it. The pager wraps
+// pager is the control group at the lead caption's end, over the room the
+// caption left for it: the rotation's pause control and, with more than one
+// page of the strip, "N of M" and the buttons that turn it. The pager wraps
 // round rather than disabling a button, so focus never drops from it to the
-// page.
-func (d *discover) pager(c *ui.Context, page, pages int, available bool, label string) {
+// page. top is where it sits in the lead's box.
+func (d *discover) pager(c *ui.Context, pg pageState, top float32) {
 	f := &d.front
-	ui.Row(c.Key("pager")).Height(28).Margin(8, 0, 0, 0).Shrink(0).Justify(ui.End).Gap(4).AlignItems(ui.Center).Children(func() {
-		if available {
+	ui.Row(c.Key("pager")).Height(28).Shrink(0).Absolute().Right(0).Top(top).Gap(4).AlignItems(ui.Center).Children(func() {
+		if pg.available {
 			name, icon := i18n.T("Pause featured rotation"), "pause"
 			if f.paused {
 				name, icon = i18n.T("Play featured rotation"), "play"
@@ -340,22 +342,22 @@ func (d *discover) pager(c *ui.Context, page, pages int, available bool, label s
 				f.paused = !f.paused
 			}
 		}
-		if pages <= 1 {
+		if pg.pages <= 1 {
 			return
 		}
-		theme.Text(c, i18n.T("{current} of {pages}", "current", page+1, "pages", pages), "meta").
+		theme.Text(c, i18n.T("{current} of {pages}", "current", pg.page+1, "pages", pg.pages), "meta").
 			TextColor(theme.C("ink-muted")).FontFeatures("tnum").Margin(0, 4, 0, 0)
 		turn := func(by int) {
-			to := (page + by + pages) % pages
+			to := (pg.page + by + pg.pages) % pg.pages
 			f.turned, f.turnAt, f.turnPage = true, f.at, to
-			c.Announce(i18n.T("{current} of {pages}", "current", to+1, "pages", pages))
+			c.Announce(i18n.T("{current} of {pages}", "current", to+1, "pages", pg.pages))
 		}
-		prev := kit.Button(c.Key("previous"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "chevron-left", A11yLabel: i18n.T("Previous in {label}", "label", label)})
+		prev := kit.Button(c.Key("previous"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "chevron-left", A11yLabel: i18n.T("Previous in {label}", "label", pg.label)})
 		prev.Size(28, 28)
 		if prev.Clicked() {
 			turn(-1)
 		}
-		next := kit.Button(c.Key("next"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "chevron-right", A11yLabel: i18n.T("Next in {label}", "label", label)})
+		next := kit.Button(c.Key("next"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "chevron-right", A11yLabel: i18n.T("Next in {label}", "label", pg.label)})
 		next.Size(28, 28)
 		if next.Clicked() {
 			turn(1)
@@ -363,17 +365,18 @@ func (d *discover) pager(c *ui.Context, page, pages int, available bool, label s
 	})
 }
 
-// featureRow is a list row: choosing it makes its card the lead (the lead's
-// own title opens the card). current: the row is the lead now.
+// featureRow is a strip card: choosing it makes its card the lead (the lead's
+// own title opens the card). current: the card is the lead now, marked by the
+// active tone and not by amber (amber is what plays).
 //
-// The row is a list item holding the choosing button and, beside it, the play
+// The card is a list item holding the choosing button and, over it, the play
 // button and the more button: controls inside a button are not on the tree
 // assistive technology reads.
 func (d *discover) featureRow(c *ui.Context, it services.Item, index int, current bool, lay frontLayout, ctx kit.ItemsCtx) {
 	tk := theme.Current()
 	f := &d.front
 	name := it.Name
-	item := ui.Row(c.Key(strconv.Itoa(index) + ":" + it.Kind + ":" + it.ID)).Height(lay.rowHeight).Shrink(0).Role(ui.RoleListItem)
+	item := ui.Row(c.Key(strconv.Itoa(index) + ":" + it.Kind + ":" + it.ID)).Width(lay.card).Height(lay.rowHeight).Shrink(0).Role(ui.RoleListItem)
 	hovered := item.Hovered()
 	hot := hovered || item.FocusWithin()
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
@@ -403,7 +406,7 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 				src = it.Wide.Medium
 			}
 			// The slot keeps the column and the play button where they are for
-			// every row; the picture sits in it at its own shape.
+			// every card; the picture sits in it at its own shape.
 			tw, th := thumbBox(src)
 			ui.Row(c.Key("slot")).Size(listThumb, listThumb).Shrink(0).Center().Children(func() {
 				thumb := ui.Box(c.Key("thumb")).Size(tw, th).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
@@ -447,48 +450,36 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 	}
 }
 
-// frontSkeleton is the front page's frame while it loads: the lead and its
-// list as flat bars at their real sizes (v0.2.0's FrontPageSkeleton).
+// frontSkeleton is the front page's frame while it loads: the lead, its
+// caption and the strip's cards as flat bars at their real sizes.
 func (d *discover) frontSkeleton(c *ui.Context, m *kit.WidthTracker) {
 	tk := theme.Current()
-	gapX := tk.Metric["tile-gap-x"]
 	root := ui.Column(c.Key("front-skeleton")).FillWidth().Margin(0, 0, 48, 0).Role(ui.RoleNone)
 	width := m.Track(c, root)
-	lay := layoutFor(width, gapX)
+	lay := layoutFor(width, d.newPg.pg.Height)
 	root.Children(func() {
 		if width <= 0 {
 			return
 		}
-		var grid ui.Element
-		if lay.split {
-			grid = ui.Row(c).FillWidth().Gap(gapX).AlignItems(ui.Start)
-		} else {
-			grid = ui.Column(c).FillWidth().Gap(24)
-		}
-		grid.Children(func() {
-			ui.Column(c.Key("lead")).Width(lay.lead).Shrink(0).Children(func() {
-				kit.Bar(c, lay.lead, lay.artHeight())
-				ui.Row(c).Height(22).Margin(8, 0, 0, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/3, 16) })
-				ui.Row(c).Height(18).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/4, 12) })
-			})
-			ui.Row(c.Key("list")).Grow(1).Basis(0).MinWidth(0).Gap(gapX).Children(func() {
-				for col := range lay.columns {
-					ui.Column(c.Key(col)).Grow(1).Basis(0).MinWidth(0).Children(func() {
-						for r := range lay.perColumn {
-							if col*lay.perColumn+r >= lay.perPage {
-								break
-							}
-							ui.Row(c.Key(r)).Height(lay.rowHeight).Gap(12).AlignItems(ui.Center).Children(func() {
-								kit.Bar(c, listThumb, listThumb)
-								ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-									ui.Box(c).WidthPercent(75).Height(14).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
-									ui.Box(c).WidthPercent(50).Height(12).Margin(8, 0, 0, 0).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
-								})
+		ui.Column(c.Key("lead")).Width(lay.lead).Shrink(0).Children(func() {
+			ui.Box(c).Size(lay.lead, lay.artHeight()).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
+			ui.Row(c).Height(30).Margin(12, 0, 0, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/3, 20) })
+			ui.Row(c).Height(18).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/4, 12) })
+		})
+		ui.Column(c.Key("list")).Width(lay.lead+16).Margin(20, -8, 0, -8).Gap(stripGap / 2).Children(func() {
+			for r := range lay.rows {
+				ui.Row(c.Key(r)).Gap(stripGap).Children(func() {
+					for col := range lay.columns {
+						ui.Row(c.Key(col)).Width(lay.card).Height(lay.rowHeight).PaddingX(8).Gap(12).AlignItems(ui.Center).Children(func() {
+							kit.Bar(c, listThumb, listThumb)
+							ui.Column(c).Grow(1).MinWidth(0).Children(func() {
+								ui.Box(c).WidthPercent(75).Height(14).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
+								ui.Box(c).WidthPercent(50).Height(12).Margin(8, 0, 0, 0).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
 							})
-						}
-					})
-				}
-			})
+						})
+					}
+				})
+			}
 		})
 	})
 }

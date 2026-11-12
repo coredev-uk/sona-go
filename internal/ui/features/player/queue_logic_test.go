@@ -25,6 +25,10 @@ func lineNames(lines []line) []any {
 			out = append(out, l.qi)
 		case lineHead:
 			out = append(out, "head")
+		case lineNow:
+			out = append(out, "now")
+		case lineNext:
+			out = append(out, "next")
 		default:
 			out = append(out, "note")
 		}
@@ -44,12 +48,13 @@ func TestQueueLines(t *testing.T) {
 		lines                        []any
 		mine, auto, userEnd, headIdx int
 	}{
-		{"AutoPlay goes under its heading after the user's songs", "uuuaa", 0, autoPlay, false, []any{0, 1, 2, "head", 3, 4}, 2, 2, 3, 3},
-		{"lists from the current song: played songs are left out", "uuuaa", 2, autoPlay, false, []any{2, "head", 3, 4}, 0, 2, 3, 1},
-		{"songs queued while AutoPlay plays go before the rest of it", "uauaa", 1, autoPlay, false, []any{1, 2, "head", 3, 4}, 1, 2, 3, 2},
-		{"a station of songs only: no heading", "aaa", 0, radio, false, []any{0, 1, 2}, 0, 2, 1, -1},
-		{"a station the user started is headed after songs they queued", "auaa", 0, radio, false, []any{0, 1, "head", 2, 3}, 1, 2, 2, 2},
-		{"the note ends the list while AutoPlay is on its way", "uu", 0, nil, true, []any{0, 1, "note"}, 1, 0, 2, -1},
+		{"AutoPlay goes under its heading after the user's songs", "uuuaa", 0, autoPlay, false, []any{"now", 0, "next", 1, 2, "head", 3, 4}, 2, 2, 3, 5},
+		{"lists from the current song: played songs are left out", "uuuaa", 2, autoPlay, false, []any{"now", 2, "head", 3, 4}, 0, 2, 3, 2},
+		{"songs queued while AutoPlay plays go before the rest of it", "uauaa", 1, autoPlay, false, []any{"now", 1, "next", 2, "head", 3, 4}, 1, 2, 3, 4},
+		{"a station of songs only: no heading of its own, Next heads it", "aaa", 0, radio, false, []any{"now", 0, "next", 1, 2}, 0, 2, 1, -1},
+		{"a station the user started is headed after songs they queued", "auaa", 0, radio, false, []any{"now", 0, "next", 1, "head", 2, 3}, 1, 2, 2, 4},
+		{"the note ends the list while AutoPlay is on its way", "uu", 0, nil, true, []any{"now", 0, "next", 1, "note"}, 1, 0, 2, -1},
+		{"nothing after the current song: Next says so", "u", 0, nil, false, []any{"now", 0, "next"}, 0, 0, 1, -1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := queueLines(queuePattern(tc.q), tc.start, tc.station, tc.note)
@@ -184,46 +189,69 @@ func TestMenuMoves(t *testing.T) {
 	}
 }
 
-// The panel's geometry: line tops (the heading is taller than a row), the
-// gap under the pointer, and where the drop line goes.
+// The panel's geometry: line tops (the playing song's row and the headings
+// are taller than a row), the line at an offset, the gap under the pointer,
+// and where the drop line goes.
 func TestQueueGeometry(t *testing.T) {
 	parts := queueLines(queuePattern("uuuaa"), 0, &services.QueueStation{AutoPlay: true}, false)
-	g := queueGeom{lines: parts.lines, head: parts.head, start: 0, userEnd: parts.userEnd, n: 5, first: 1}
-	if got := g.total(); got != 5*queueRowH+queueHeadH {
-		t.Errorf("total = %v", got)
+	g := queueGeom{lines: parts.lines, rowAt: parts.rowAt, head: parts.head, start: 0, userEnd: parts.userEnd, n: 5, first: 1}
+	// now, 0, next, 1, 2, head, 3, 4
+	now := float32(queueNowHeadH)
+	next := now + queueNowH
+	row1 := next + queueHeadH
+	head := row1 + 2*queueRowH
+	row3 := head + queueHeadH
+	if got, want := g.total(), row3+2*queueRowH; got != want || parts.total != want {
+		t.Errorf("total = %v (parts %v), want %v", got, parts.total, want)
 	}
-	// 0 1 2 head 3 4: the heading's line starts at 156, row 3 after it at 216.
-	if got := g.top(3); got != 3*queueRowH {
-		t.Errorf("top(head) = %v", got)
+	for line, want := range map[int]float32{1: now, 2: next, 3: row1, 5: head, 6: row3} {
+		if got := g.top(line); got != want {
+			t.Errorf("top(%d) = %v, want %v", line, got, want)
+		}
 	}
-	if got := g.top(4); got != 3*queueRowH+queueHeadH {
-		t.Errorf("top(row 3) = %v", got)
+	for qi, want := range map[int]int{0: 1, 1: 3, 2: 4, 3: 6, 4: 7} {
+		if got := g.lineOf(qi); got != want {
+			t.Errorf("lineOf(%d) = %d, want %d", qi, got, want)
+		}
 	}
-	if got := g.lineOf(3); got != 4 {
-		t.Errorf("lineOf(3) = %d", got)
+	for off, want := range map[float32]int{0: 0, now - 1: 0, now: 1, next - 1: 1, next: 2, head + 10: 5, 9999: 7} {
+		if got := g.lineAt(off); got != want {
+			t.Errorf("lineAt(%v) = %d, want %d", off, got, want)
+		}
+	}
+	for qi, want := range map[int]int{0: 0, 1: 1, 2: 1, 3: 2, 4: 2} {
+		if got := g.groupOf(qi); got != want {
+			t.Errorf("groupOf(%d) = %d, want %d", qi, got, want)
+		}
 	}
 	for _, tc := range []struct {
+		name string
 		off  float32
 		want int
 	}{
-		{0, 1},                     // nothing goes before the current song
-		{queueRowH + 10, 1},        // top half of row 1: before it
-		{queueRowH + 40, 2},        // bottom half: after it
-		{2*queueRowH + 40, 3},      // after the last of the user's songs
-		{3*queueRowH + 30, 3},      // on the heading: the end of the user's part
-		{3*queueRowH + 80, 3},      // in the station's part: clamped
-		{10 * queueRowH, 3},        // below everything
-		{2*queueRowH + 10, 2},      // top half of row 2
-		{queueRowH + queueRowH, 2}, // the seam between rows 1 and 2
+		{"on the playing song's heading: nothing goes before it", 5, 1},
+		{"on the playing song: nothing goes before it", now + 50, 1},
+		{"on the Next heading", next + 10, 1},
+		{"top half of row 1: before it", row1 + 10, 1},
+		{"bottom half: after it", row1 + 40, 2},
+		{"after the last of the user's songs", row1 + queueRowH + 40, 3},
+		{"on the heading: the end of the user's part", head + 30, 3},
+		{"in the station's part: clamped", row3 + 30, 3},
+		{"below everything", 99999, 3},
+		{"top half of row 2", row1 + queueRowH + 10, 2},
+		{"the seam between rows 1 and 2", row1 + queueRowH, 2},
 	} {
 		if got := g.slotAt(tc.off); got != tc.want {
-			t.Errorf("slotAt(%v) = %d, want %d", tc.off, got, tc.want)
+			t.Errorf("%s: slotAt(%v) = %d, want %d", tc.name, tc.off, got, tc.want)
 		}
 	}
-	if got := g.slotTop(2); got != 2*queueRowH {
+	if got := g.slotTop(1); got != row1 {
+		t.Errorf("slotTop(1) = the first song's top, under Next: %v", got)
+	}
+	if got := g.slotTop(2); got != row1+queueRowH {
 		t.Errorf("slotTop(2) = %v", got)
 	}
-	if got := g.slotTop(3); got != 3*queueRowH {
+	if got := g.slotTop(3); got != head {
 		t.Errorf("slotTop(3) = the heading's top: %v", got)
 	}
 }

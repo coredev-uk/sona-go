@@ -87,12 +87,12 @@ func TestTheActionNamesItselfAndWaitsForTheList(t *testing.T) {
 		t.Error("enabled before the reminders loaded")
 	}
 	empty := g.ctx(a, []services.Reminder{})
-	if !g.def.Enabled(empty) || g.def.Label(empty) != "Remind me" {
+	if !g.def.Enabled(empty) || g.def.Label(empty) != "Remind me on Nov 14" {
 		t.Errorf("no reminder: enabled %v, label %q", g.def.Enabled(empty), g.def.Label(empty))
 	}
 	g.def.Run(empty)
 	set := g.ctx(a, []services.Reminder{{AlbumID: "1700"}})
-	if g.def.Label(set) != "Turn off reminder" {
+	if g.def.Label(set) != "Turn off reminder for Nov 14" {
 		t.Errorf("label with a reminder set = %q", g.def.Label(set))
 	}
 	g.def.Run(set)
@@ -100,8 +100,20 @@ func TestTheActionNamesItselfAndWaitsForTheList(t *testing.T) {
 		t.Errorf("runs asked for %v, want [true false]", g.sets)
 	}
 	other := g.ctx(a, []services.Reminder{{AlbumID: "other"}})
-	if g.def.Label(other) != "Remind me" {
+	if g.def.Label(other) != "Remind me on Nov 14" {
 		t.Errorf("another album's reminder changes the label: %q", g.def.Label(other))
+	}
+}
+
+func TestTheLabelNamesTheDayAndFallsBackWithoutOne(t *testing.T) {
+	g := newRig(t)
+	undated := upcomingAlbum()
+	undated.ReleaseAt = 0
+	if got := g.def.Label(g.ctx(undated, []services.Reminder{})); got != "Remind me" {
+		t.Errorf("undated label = %q", got)
+	}
+	if got := g.def.Label(g.ctx(undated, []services.Reminder{{AlbumID: "1700"}})); got != "Turn off reminder" {
+		t.Errorf("undated reminded label = %q", got)
 	}
 }
 

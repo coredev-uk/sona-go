@@ -13,24 +13,28 @@ import (
 )
 
 const (
-	// pad is the window's inner margin and coverSize the cover's side: the
-	// window is 132 DIPs high, so the cover takes what the margins leave.
+	// pad is the margin of the text block from the window's other edges, and
+	// coverSize the cover's side: the cover takes the window's whole height
+	// (132 DIPs) and its leading edge, with no margin.
 	pad       = 12
-	coverSize = 108
-	// timeW is the width of the time left, so the seek bar does not move as it
-	// counts down.
-	timeW = 40
+	coverSize = 132
+	// hitH is the height of the seek line's hit area at the window's foot;
+	// the line itself is 2px (4 while hovered or focused).
+	hitH = 12
 )
 
 // content is the mini player window's whole content (Slots.Mini): the cover
-// beside the song, the line being sung and the transport, over the cover's
-// wash. The background is the window's handle: dragging it moves the window;
-// the controls take their own presses.
+// fills the window's height at the leading edge, the song, the line being
+// sung and the transport sit beside it over the cover's wash, and the
+// progress is a hairline along the whole foot. The background is the
+// window's handle: dragging it moves the window; the controls take their own
+// presses.
 //
-//	[cover]  Title                              [Open Sona][x]
-//	         Artist
-//	         ♪ the line being sung
-//	         ( prev PLAY next )  ───o───────  −2:31
+//	[cover | Title                         [Open Sona][x]
+//	[cover | Artist
+//	[cover | ♪ the line being sung
+//	[cover | −2:31                    ( prev PLAY next )
+//	━━━━━━━━━━━━━━━━o─────────────────────────────────────
 func (m *mini) content(c *ui.Context) {
 	theme.Apply(c)
 	s := m.env.Play.State()
@@ -41,20 +45,23 @@ func (m *mini) content(c *ui.Context) {
 		backdrop = cur.Backdrop
 	}
 	root := kit.Backdrop(c.Key("mini"), m.env.Art, kit.BackdropOpts{Src: backdrop}, func() {
-		ui.Row(c.Key("body")).Fill().Padding(pad).Gap(14).AlignItems(ui.Center).Children(func() {
+		ui.Row(c.Key("body")).Fill().AlignItems(ui.Stretch).Children(func() {
 			src := ""
 			if cur != nil {
 				src = cur.Art.Medium
 			}
-			cover := kit.Artwork(c.Key("cover"), m.env.Art, src, coverSize, kit.ArtOpts{}).Shrink(0)
+			// A radius that rounds nothing: the cover meets the window's
+			// corners, which are the window's to round.
+			cover := kit.Artwork(c.Key("cover"), m.env.Art, src, coverSize, kit.ArtOpts{Radius: 0.01}).Shrink(0)
 			m.playingRow(cover, cur)
-			ui.Column(c.Key("col")).Grow(1).Basis(0).MinWidth(0).FillHeight().Children(func() {
+			ui.Column(c.Key("col")).Grow(1).Basis(0).MinWidth(0).FillHeight().Padding(pad, pad, pad, pad+2).Children(func() {
 				m.head(c, s)
 				m.third(c, s)
 				m.controls(c, s)
 			})
 			m.menus.PopupFor(c, cur != nil)
 		})
+		m.seekLine(c, s)
 	}).Fill().Background(theme.C("surface")).DragWindow().Role(ui.RoleGroup).Label(i18n.T("Sona mini player"))
 	m.playingKeys(root, cur)
 }
@@ -90,12 +97,12 @@ func (m *mini) head(c *ui.Context, s services.PlaybackState) {
 		song := ui.Column(c.Key("song")).Grow(1).Basis(0).MinWidth(0)
 		song.Children(func() {
 			if cur == nil {
-				text(c.Key("title"), i18n.T("Not playing"), "body").FontWeight(600).TextColor(theme.C("ink-muted"))
+				text(c.Key("title"), i18n.T("Not playing"), "heading").TextColor(theme.C("ink-muted"))
 				// translators: Line of the small player when nothing is playing.
 				text(c.Key("artist"), i18n.T("Choose music in the main window"), "sub").TextColor(theme.C("ink-faint"))
 				return
 			}
-			text(c.Key("title"), cur.Name, "body").FontWeight(600).TextColor(theme.C("ink")).Tooltip(cur.Name)
+			text(c.Key("title"), cur.Name, "heading").TextColor(theme.C("ink")).Tooltip(cur.Name)
 			text(c.Key("artist"), cur.Artist, "sub").TextColor(theme.C("ink-muted")).Tooltip(cur.Artist)
 		})
 		m.playingRow(song, cur)
@@ -176,13 +183,19 @@ func (m *mini) third(c *ui.Context, s services.PlaybackState) {
 	})
 }
 
-// controls is the transport and the seek bar (a live station has a live
-// marker instead).
+// controls is the foot of the text block: the time left (a live station has
+// its live marker) at the start, the transport at the trailing side.
 func (m *mini) controls(c *ui.Context, s services.PlaybackState) {
 	idle := s.Current == nil
 	playing := s.State == store.StatePlaying
 	loading := s.State == store.StateLoading
 	ui.Row(c.Key("controls")).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+		if s.Current != nil && s.Current.Live {
+			kit.LiveMarker(c.Key("live"), playing).Shrink(0)
+		} else {
+			m.timeLeft(c, s, idle)
+		}
+		ui.Box(c.Key("gap")).Grow(1).Basis(0)
 		ui.Row(c.Key("transport")).Gap(4).AlignItems(ui.Center).Shrink(0).Children(func() {
 			prev := kit.ControlUnavailable(s, s.Controls.Previous)
 			if m.stepButton(c, "prev", "skip-back", i18n.T("Previous"), idle || (!s.Controls.Previous && prev == ""), prev) {
@@ -199,11 +212,6 @@ func (m *mini) controls(c *ui.Context, s services.PlaybackState) {
 				m.tr.Next()
 			}
 		})
-		if s.Current != nil && s.Current.Live {
-			kit.LiveMarker(c.Key("live"), playing)
-			return
-		}
-		m.seekBar(c, s, idle)
 	})
 }
 
@@ -220,32 +228,89 @@ func (m *mini) stepButton(c *ui.Context, key, icon, name string, disabled bool, 
 	return btn.Clicked() && reason == ""
 }
 
-// seekBar is the slider and the time left. Dragging shows where it will go
-// and seeks once, when the pointer lets go (or a key moved it): the only part
-// that ticks.
-func (m *mini) seekBar(c *ui.Context, s services.PlaybackState, idle bool) {
-	dur := time.Duration(s.DurationMs) * time.Millisecond
-	pos := m.seek.Pos(m.env.Play.Position())
+// position is where the song is: the dragged position while the user drags
+// the seek line, else the mirror's, kept inside the song.
+func (m *mini) position(s services.PlaybackState, idle bool) (pos, dur time.Duration) {
+	dur = time.Duration(s.DurationMs) * time.Millisecond
+	pos = m.seek.Pos(m.env.Play.Position())
 	if idle {
 		pos = 0
 	}
-	pos = min(pos, max(dur, 0))
+	return min(pos, max(dur, 0)), dur
+}
+
+// timeLeft is the time left of the song in the meta style, tabular so the
+// figures do not shift as it counts down.
+func (m *mini) timeLeft(c *ui.Context, s services.PlaybackState, idle bool) {
+	pos, dur := m.position(s, idle)
+	left := "–:––"
+	if !idle && dur > 0 {
+		left = "−" + i18n.FormatDuration(max(dur-pos, 0))
+	}
+	text(c.Key("left"), left, "meta").Shrink(0).TextColor(theme.C("ink-muted")).FontFeatures("tnum")
+}
+
+// seekLine is the progress and the seek bar in one: a hairline along the
+// window's whole foot, over the cover too, drawn by a slider whose hit area
+// is hitH high. Dragging shows where it will go and seeks once, when the
+// pointer lets go (or a key moved it). It grows to 4px under the pointer and
+// while focused, which also draws its thumb. A live station has no seek bar
+// (its marker is in the controls); the line is then not drawn. It is the
+// only part that ticks.
+func (m *mini) seekLine(c *ui.Context, s services.PlaybackState) {
+	if s.Current != nil && s.Current.Live {
+		return
+	}
+	idle := s.Current == nil
+	pos, dur := m.position(s, idle)
 	can := !idle && dur > 0 && s.Controls.Seek
-	ui.Row(c.Key("seek-row")).Grow(1).Basis(0).MinWidth(0).Gap(8).AlignItems(ui.Center).Children(func() {
-		v := pos.Seconds()
-		o := kit.SliderOpts{A11yLabel: i18n.T("Seek"), Disabled: !can, Step: 1, Range: theme.C("amber")}
-		if can {
-			o.ValueText = i18n.T("{at} of {total}", "at", i18n.FormatDuration(pos), "total", i18n.FormatDuration(dur))
+	v := pos.Seconds()
+	hi := max(dur.Seconds(), 1)
+	sl := ui.SliderBase(c.Key("seek"), &v, 0, hi).Step(1).FocusRing(false).Cursor(ui.CursorPointer).
+		Absolute().Left(0).Right(0).Bottom(0).Height(hitH).Label(i18n.T("Seek"))
+	if can {
+		sl.Description(i18n.T("{at} of {total}", "at", i18n.FormatDuration(pos), "total", i18n.FormatDuration(dur)))
+	} else {
+		sl.Disabled(true)
+	}
+	if to, ok := m.seek.Update(sl, v); ok {
+		m.tr.SeekTo(to, m.now())
+	}
+	at := float32(0)
+	if !idle && dur > 0 {
+		at = float32(min(max(v/hi, 0), 1))
+	}
+	track, rng, ink, ring := theme.C("ink").Alpha(0.12), theme.C("amber"), theme.C("ink"), theme.C("ring")
+	rtl := c.Direction() == ui.RightToLeft
+	focus := sl.FocusVisible()
+	_, _, held := sl.Dragged()
+	grown := can && (focus || held || sl.Hovered())
+	sl.Draw(func(p *ui.Painter, r ui.Rect) {
+		h := float32(2)
+		if grown {
+			h = 4
 		}
-		sl := kit.Slider(c.Key("seek"), &v, 0, max(dur.Seconds(), 1), o)
-		if to, ok := m.seek.Update(sl, v); ok {
-			m.tr.SeekTo(to, m.now())
+		y := r.Y + r.H - h
+		p.Fill(ui.Rect{X: r.X, Y: y, W: r.W, H: h}, track, 0)
+		edge := r.X + r.W*at // where the filled part ends
+		if rtl {
+			edge = r.X + r.W*(1-at)
 		}
-		left := "–:––"
-		if can || (!idle && dur > 0) {
-			left = "−" + i18n.FormatDuration(max(dur-pos, 0))
+		if at > 0 {
+			fill := ui.Rect{X: r.X, Y: y, W: edge - r.X, H: h}
+			if rtl {
+				fill = ui.Rect{X: edge, Y: y, W: r.X + r.W - edge, H: h}
+			}
+			p.Fill(fill, rng, 0)
 		}
-		text(c.Key("left"), left, "meta").Width(timeW).Shrink(0).TextAlign(ui.End).TextColor(theme.C("ink-faint")).FontFeatures("tnum")
+		if grown {
+			const d = 10
+			k := ui.Rect{X: min(max(edge-d/2, r.X), r.X+r.W-d), Y: y + h/2 - d/2, W: d, H: d}
+			if focus {
+				p.Fill(ui.Rect{X: k.X - 3, Y: k.Y - 3, W: d + 6, H: d + 6}, ring, d/2+3)
+			}
+			p.Fill(k, ink, d/2)
+		}
 	})
 	m.seek.Tick(c, s.State == store.StatePlaying)
 }

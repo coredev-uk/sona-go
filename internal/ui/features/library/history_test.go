@@ -119,7 +119,7 @@ func twoDays() services.ListeningHistory {
 func TestHistoryListsEachDaysSongsAndPlaysFromTheChosenOne(t *testing.T) {
 	r, stub, rec := historyRig(t, fixed(twoDays()))
 	r.tt.Until("the days", r.tt.Shows("History", "Today", "Yesterday", "Alpha", "Beta",
-		"2 songs, 3 plays · 1 from other devices", "1 song", "On this computer and your other devices"))
+		"2 songs, 3 plays", "1 from other devices", "1 song", "On this computer and your other devices"))
 	if got := stub.calls(); !slices.Equal(got, []int{30}) {
 		t.Errorf("asked for days %v, want [30]", got)
 	}

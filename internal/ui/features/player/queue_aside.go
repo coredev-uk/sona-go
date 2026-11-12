@@ -10,7 +10,8 @@ import (
 
 // queueAside is the queue beside the page (QueuePanel): 320 wide on the
 // ground with a line at its left, a 48 high header (the heading, the queue's
-// tools and Close) over the list. It is the shell's Aside slot and builds
+// tools and Close) over the running order (queueList: Now playing, Next, then
+// AutoPlay's or the station's part). It is the shell's Aside slot and builds
 // nothing while the queue is closed or Now Playing covers the page. Escape
 // anywhere in it closes it, back on the bar's queue toggle. The whole panel
 // is the queue's drop target.

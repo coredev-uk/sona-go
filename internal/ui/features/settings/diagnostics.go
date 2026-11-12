@@ -165,11 +165,11 @@ func (s *settings) diagnostics(c *ui.Context) {
 }
 
 // diagHeader is the verdict, a status read as it changes, and the three
-// buttons.
+// buttons. Wide, the verdict is the section's first margin note and the
+// buttons its first row; narrow, one wrapping row.
 func (s *settings) diagHeader(c *ui.Context, q store.Result[services.Diagnostics], problems, warnings int) {
 	c = c.Key("head")
-	ui.Box(c.Key("line")).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
-	ui.Row(c).FillWidth().Wrap().GapX(24).GapY(12).Padding(16, 0, 0, 0).Margin(0, 0, 32, 0).Children(func() {
+	verdict := func() {
 		ui.Row(c.Key("verdict")).Grow(1).MinHeight(32).AlignItems(ui.Start).Gap(10).Children(func() {
 			if q.HasData && !q.Fetching {
 				st := statusOK
@@ -180,7 +180,7 @@ func (s *settings) diagHeader(c *ui.Context, q store.Result[services.Diagnostics
 			}
 			// The status is the words, read as they change: not the icon's
 			// "OK" beside them.
-			ui.Column(c.Key("text")).Role(ui.RoleStatus).Children(func() {
+			ui.Column(c.Key("text")).Shrink(1).MinWidth(0).Role(ui.RoleStatus).Children(func() {
 				switch {
 				case q.Fetching:
 					theme.Text(c, i18n.T("Checking the playback host, database and keyring…"), "heading").TextColor(theme.C("ink"))
@@ -194,6 +194,8 @@ func (s *settings) diagHeader(c *ui.Context, q store.Result[services.Diagnostics
 				}
 			})
 		})
+	}
+	buttons := func() {
 		ui.Row(c.Key("buttons")).Wrap().Gap(8).Children(func() {
 			if kit.Button(c.Key("again"), i18n.T("Check again"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Icon: "rotate-cw", Disabled: q.Fetching}).Clicked() {
 				s.env.Queries.Invalidate(keyDiagnostics)
@@ -216,6 +218,20 @@ func (s *settings) diagHeader(c *ui.Context, q store.Result[services.Diagnostics
 			s.land(c, "diagnostics-copy", copyBtn, copyBtn)
 			s.land(c, "diagnostics-logs", logs, logs)
 		})
+	}
+	if s.wide {
+		ui.Column(c.Key("wide")).FillWidth().Margin(0, 0, 40, 0).Children(func() {
+			s.marginal(c, rowPadY, verdict, func() {
+				s.line(c)
+				ui.Row(c.Key("actions")).FillWidth().Padding(rowPadY, 0).Children(buttons)
+			})
+		})
+		return
+	}
+	ui.Box(c.Key("line")).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
+	ui.Row(c).FillWidth().Wrap().GapX(24).GapY(12).Padding(16, 0, 0, 0).Margin(0, 0, 32, 0).Children(func() {
+		verdict()
+		buttons()
 	})
 }
 
@@ -246,40 +262,46 @@ func (s *settings) diagGroup(c *ui.Context, g diagGroup) {
 		labelWidth = 160
 	}
 	ui.Column(c).FillWidth().Role(ui.RoleGroup).Label(g.title).Children(func() {
-		theme.Text(c, g.title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3).Margin(0, 0, 12, 0)
-		for i, r := range g.rows {
-			k := c.Key("row" + strconv.Itoa(i))
-			ui.Box(c.Key("line" + strconv.Itoa(i))).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
-			ui.Row(k).FillWidth().Gap(24).Padding(10, 0).AlignItems(ui.Start).Children(func() {
-				theme.Text(k, r.label, "secondary").TextColor(theme.C("ink-muted")).Width(labelWidth).Shrink(0)
-				ui.Column(k.Key("v")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-					ui.Row(k.Key("val")).Gap(8).AlignItems(ui.Start).Children(func() {
-						statusIcon(k.Key("s"), r.status)
-						t := theme.Text(k, r.value, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
-						if r.status == statusError {
-							t.FontWeight(500)
+		s.marginal(c, 10, func() {
+			theme.Text(c, g.title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
+		}, func() {
+			for i, r := range g.rows {
+				k := c.Key("row" + strconv.Itoa(i))
+				ui.Box(c.Key("line" + strconv.Itoa(i))).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
+				ui.Row(k).FillWidth().Gap(24).Padding(10, 0).AlignItems(ui.Start).Children(func() {
+					theme.Text(k, r.label, "secondary").TextColor(theme.C("ink-muted")).Width(labelWidth).Shrink(0)
+					ui.Column(k.Key("v")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
+						ui.Row(k.Key("val")).Gap(8).AlignItems(ui.Start).Children(func() {
+							statusIcon(k.Key("s"), r.status)
+							t := theme.Text(k, r.value, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
+							if r.status == statusError {
+								t.FontWeight(500)
+							}
+						})
+						if r.detail != "" {
+							theme.Text(k, r.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 24).MaxWidth(576)
 						}
 					})
-					if r.detail != "" {
-						theme.Text(k, r.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 24).MaxWidth(576)
-					}
 				})
-			})
-		}
+			}
+		})
 	})
 }
 
 // diagLoading is the 7-row label/value skeleton, announced busy.
 func (s *settings) diagLoading(c *ui.Context) {
 	ui.Column(c.Key("loading")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
-		kit.Bar(c.Key("h"), 112, 16).Margin(0, 0, 12, 0)
-		for i := range 7 {
-			k := c.Key("row" + strconv.Itoa(i))
-			ui.Box(c.Key("line" + strconv.Itoa(i))).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
-			ui.Row(k).FillWidth().Height(40).AlignItems(ui.Center).Gap(24).Children(func() {
-				kit.Bar(k.Key("l"), 128, 12)
-				kit.Bar(k.Key("v"), float32(160+(i*13)%35*6), 12)
-			})
-		}
+		s.marginal(c, 10, func() {
+			kit.Bar(c.Key("h"), 112, 16)
+		}, func() {
+			for i := range 7 {
+				k := c.Key("row" + strconv.Itoa(i))
+				ui.Box(c.Key("line" + strconv.Itoa(i))).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
+				ui.Row(k).FillWidth().Height(40).AlignItems(ui.Center).Gap(24).Children(func() {
+					kit.Bar(k.Key("l"), 128, 12)
+					kit.Bar(k.Key("v"), float32(160+(i*13)%35*6), 12)
+				})
+			}
+		})
 	})
 }

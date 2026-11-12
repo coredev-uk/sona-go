@@ -170,6 +170,8 @@ type sectionState struct {
 	// menus is the shelf's item menu (the editorial sections' wide cards
 	// and the hero's header menu draw on it).
 	menus *kit.ActionMenus
+	// cover is the cover shelf's own item menu over its tiles' selection.
+	cover *kit.ActionMenus
 }
 
 func (h *home) section(id string) *sectionState {

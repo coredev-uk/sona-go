@@ -83,6 +83,17 @@ func (r *roving) row() int {
 	return len(r.next) - 1
 }
 
+// firstStop is the first control of the n rows from row on, as the last
+// frame built them; false when none of them has one.
+func (r *roving) firstStop(row, n int) (position, bool) {
+	for i := row; i < row+n && i < len(r.counts); i++ {
+		if r.counts[i] > 0 {
+			return position{i, 0}, true
+		}
+	}
+	return position{}, false
+}
+
 // stop is called as a row builds a control s: it takes the focus when a
 // key asked for it, and notes it when the focus lands on it.
 func (r *roving) stop(s ui.Element, row int) {

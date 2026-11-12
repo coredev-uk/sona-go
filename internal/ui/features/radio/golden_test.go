@@ -16,6 +16,12 @@ var fontsOnce sync.Once
 // goldenRig is the Radio page over fixed data: covers the fixture CDN serves,
 // schedules and a clock that do not move, a signed-in account.
 func goldenRig(t *testing.T, path string, dark bool) *rig {
+	return goldenRigAt(t, path, dark, 1132, 1253)
+}
+
+// goldenRigAt is goldenRig in a window of this size: the narrowest Sona
+// opens at leaves the content about 650 DIPs.
+func goldenRigAt(t *testing.T, path string, dark bool, width, height int) *rig {
 	t.Helper()
 	fontsOnce.Do(func() {
 		if err := theme.RegisterFonts(); err != nil {
@@ -23,7 +29,7 @@ func goldenRig(t *testing.T, path string, dark bool) *rig {
 		}
 	})
 	t0 := time.Date(2026, 11, 4, 10, 0, 0, 0, time.Local)
-	return newRig(t, path, 1132, 1253, func(rg *rig) {
+	return newRig(t, path, width, height, func(rg *rig) {
 		if dark {
 			theme.SetMode(theme.ModeDark)
 		}
@@ -79,6 +85,12 @@ func TestRadioPageGolden(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			rg := goldenRig(t, radioPath, dark)
 			rg.tt.Until("the page", rg.tt.Shows("The Zane Lowe Show", "Latest Episodes", "My Station", "KISS"))
+			if dark {
+				// The dark picture has a station tuned (paused, so the equaliser
+				// holds still): amber is its name's ink and its bars.
+				rg.playing("ra.2", "paused")
+				rg.tt.Until("the equaliser", rg.tt.Shows("Paused"))
+			}
 			rg.tt.Settle()
 			uitestGolden(t, rg, name)
 		})
@@ -98,6 +110,24 @@ func TestStationPageGolden(t *testing.T) {
 			uitestGolden(t, rg, name)
 		})
 	}
+}
+
+// TestPagesGoldenAtTheNarrowestWindow pins the guide with a shorter stretch of
+// time and the bands stacked under their headings, and the station page with
+// its identity over the schedule.
+func TestPagesGoldenAtTheNarrowestWindow(t *testing.T) {
+	t.Run("radio-narrow", func(t *testing.T) {
+		rg := goldenRigAt(t, radioPath, false, 708, 1100)
+		rg.tt.Until("the page", rg.tt.Shows("The Zane Lowe Show", "Latest Episodes", "My Station", "KISS"))
+		rg.tt.Settle()
+		uitestGolden(t, rg, "radio-narrow")
+	})
+	t.Run("station-narrow", func(t *testing.T) {
+		rg := goldenRigAt(t, "/station/ra.1", false, 708, 800)
+		rg.tt.Until("the page", rg.tt.Shows("Schedule", "The Matt Wilkinson Show"))
+		rg.tt.Settle()
+		uitestGolden(t, rg, "station-narrow")
+	})
 }
 
 func uitestGolden(t *testing.T, rg *rig, name string) {

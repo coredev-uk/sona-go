@@ -40,3 +40,24 @@ func TestOffPageGolden(t *testing.T) {
 	r.tt.Settle()
 	uitest.Golden(t, r.tt.Image(), "equalizer-off-light")
 }
+
+// At the narrowest the window and sidebar leave the page (940 wide with the
+// sidebar's 233 and the gutters): the chips wrap onto more rows and the ten
+// faders share what is left.
+func TestNarrowPageGolden(t *testing.T) {
+	r := newRigAt(t, 707, true, func(f *fake) {
+		eq := &f.settings.Audio.Equalizer
+		eq.Enabled, eq.Preset = true, "bass-boost"
+	})
+	r.tt.Until("the page", r.tt.Shows("Bass Boost · shapes everything Sona plays", "Preamp"))
+	r.tt.Settle()
+	uitest.Golden(t, r.tt.Image(), "equalizer-narrow-light")
+}
+
+// Where playback has no equaliser the panel's place says so.
+func TestUnavailablePageGolden(t *testing.T) {
+	r := newRig(t, false, nil, uitest.Dark())
+	r.tt.Until("the notice", r.tt.Shows("Not available on this platform yet"))
+	r.tt.Settle()
+	uitest.Golden(t, r.tt.Image(), "equalizer-unavailable-dark")
+}

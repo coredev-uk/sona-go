@@ -1,8 +1,10 @@
 package artist
 
 import (
+	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
@@ -128,23 +130,72 @@ func TestBioLeadIsTheFirstParagraph(t *testing.T) {
 	}
 }
 
-func TestLayoutAddsTheSecondColumnFrom900AndShrinksThePortraitUnder720(t *testing.T) {
+func TestLayoutPutsTheSlipBesideFrom1040TheLeadBesideFrom800AndShrinksThePortraitUnder720(t *testing.T) {
 	for _, tc := range []struct {
 		width    float32
 		wide     bool
+		beside   bool
 		portrait float32
 		slip     float32
 	}{
-		{1144, true, 200, 112},
-		{900, true, 200, 112},
-		{800, false, 200, 56},
-		{660, false, 136, 56},
+		{1144, true, true, 200, 152},
+		{1500, true, true, 256, 192},
+		{1730, true, true, 256, 192},
+		{1499, true, true, 200, 152},
+		{1040, true, true, 200, 152},
+		{900, true, false, 176, 88},
+		{800, true, false, 176, 88},
+		{660, false, false, 112, 64},
 		// Before the first layout the page is measured as 0: the full-size portrait, no jump.
-		{0, false, 200, 56},
+		{0, false, false, 200, 88},
 	} {
-		if l := layoutFor(tc.width); l.wide != tc.wide || l.portrait != tc.portrait || l.slip != tc.slip {
+		if l := layoutFor(tc.width); l.wide != tc.wide || l.slipBeside != tc.beside || l.portrait != tc.portrait || l.slip != tc.slip {
 			t.Errorf("layoutFor(%v) = %+v", tc.width, l)
 		}
+	}
+}
+
+func TestTimelineGroupsReleasesByYearNewestFirstOnceEach(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	al := func(id, name, date string) services.Album {
+		return services.Album{ID: id, Name: name, ReleaseDate: date}
+	}
+	shelves := []services.ArtistShelf{
+		{View: services.ViewFullAlbums, Albums: []services.Album{al("a", "A", "2007-10-10"), al("b", "B", "2001-01-01")}},
+		{View: services.ViewSingles, More: true, Albums: []services.Album{al("s", "S - Single", "2007-02-01"), al("a", "A", "2007-10-10"), al("e", "E - EP", "")}},
+		{View: services.ViewLiveAlbums, Albums: []services.Album{al("l", "L", "2001-06-01")}},
+	}
+	years, more := buildTimeline(shelves, now)
+	var got []string
+	for _, y := range years {
+		for i, a := range y.albums {
+			got = append(got, y.label+":"+a.ID+":"+y.lines[i])
+		}
+	}
+	want := []string{"2007:a:Album", "2007:s:Single", "2001:l:Live", "2001:b:Album", ":e:EP"}
+	if !slices.Equal(got, want) {
+		t.Errorf("timeline %q, want %q", got, want)
+	}
+	if len(more) != 1 || more[0].view != services.ViewSingles {
+		t.Errorf("more %v, want the singles view only", more)
+	}
+}
+
+func TestTimelineKeepsTheNewestAndOffersTheShelfItCutShort(t *testing.T) {
+	var albums []services.Album
+	for i := range timelineMax + 3 {
+		albums = append(albums, services.Album{ID: fmt.Sprint(i), Name: "R", ReleaseDate: fmt.Sprintf("%d-01-01", 2000+i)})
+	}
+	years, more := buildTimeline([]services.ArtistShelf{{View: services.ViewFullAlbums, Albums: albums}}, time.Now())
+	n := 0
+	for _, y := range years {
+		n += len(y.albums)
+	}
+	if n != timelineMax || years[0].label != fmt.Sprint(2000+timelineMax+2) {
+		t.Errorf("%d releases, first year %q", n, years[0].label)
+	}
+	if len(more) != 1 {
+		t.Errorf("more %v, want the albums view", more)
 	}
 }
 

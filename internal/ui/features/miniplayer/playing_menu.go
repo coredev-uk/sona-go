@@ -57,6 +57,6 @@ func (m *mini) playingKeys(root ui.Element, cur *services.QueueItem) {
 	}
 	if root.Shortcut(ui.Shift, ui.KeyF10) || root.Shortcut(0, ui.KeyContextMenu) {
 		b := root.Bounds()
-		menus.OpenAt(t, b.X+pad, b.Y+pad+coverSize, true)
+		menus.OpenAt(t, b.X+pad, b.Y+coverSize, true)
 	}
 }

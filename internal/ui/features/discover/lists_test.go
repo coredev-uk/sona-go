@@ -7,11 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/ui"
+
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 func songItem(i int, playable bool) services.Item {
@@ -310,6 +313,34 @@ func TestChartsTopSongsPlayAndShuffleTheFirstPageWithTheChartTitleAsSource(t *te
 	}
 	if got := r.waitPlays(2)[1]; len(got.refs) != 12 || got.from.ID != "Top songs" {
 		t.Errorf("shuffled %+v", got)
+	}
+}
+
+func TestChartsTopSongsRowsAreOneTabStopTheArrowsMoveAndEnterPlaysFromTheRow(t *testing.T) {
+	r, _ := newCharts(t, "/charts", chartsFixture())
+	r.tt.Until("the charts", r.tt.Shows("Top songs", "Song 9"))
+	focus := func() string {
+		if f := access.Read(t, r.tt.Tester).Focus; f != nil {
+			return f.Label
+		}
+		return ""
+	}
+	for i := 0; i < 20 && focus() != "Song 0"; i++ {
+		r.tt.Key(0, ui.KeyTab)
+		r.tt.Drain()
+	}
+	if focus() != "Song 0" {
+		t.Fatalf("Tab did not reach the first row: on %q", focus())
+	}
+	r.tt.Key(0, ui.KeyDown)
+	r.tt.Drain()
+	if focus() != "Song 1" {
+		t.Fatalf("Down did not move the focus to the second row: on %q", focus())
+	}
+	r.tt.Key(0, ui.KeyEnter)
+	got := r.waitPlays(1)[0]
+	if got.start != 1 || len(got.refs) != 12 || got.from != (services.PlayFrom{ID: "Top songs"}) {
+		t.Errorf("Enter played %d songs from %d as %+v", len(got.refs), got.start, got.from)
 	}
 }
 

@@ -473,18 +473,21 @@ func (f *field) popup(c *ui.Context, box ui.Element, opts []option, typed, scope
 			})
 			list.Children(func() {
 				if typed == "" {
-					f.groupLabel(c, "recent", title)
+					f.groupLabel(c, "recent", "clock", title)
 				}
 				for i, o := range opts {
+					if i == 0 && o.kind == optTerm {
+						f.groupLabel(c, "terms", "search", title)
+					}
 					if i == firstItem {
-						label := i18n.T("Results")
+						label, icon := i18n.T("Results"), "star"
 						switch {
 						case scope == scopeLibrary:
-							label = i18n.T("In your library")
+							label, icon = i18n.T("In your library"), "folder-closed"
 						case hasTerms:
 							label = i18n.T("Top results")
 						}
-						f.groupLabel(c, "items", label)
+						f.groupLabel(c, "items", icon, label)
 					}
 					row := f.row(c, o, i == f.active)
 					if row.Hovered() {
@@ -514,9 +517,32 @@ func (f *field) popup(c *ui.Context, box ui.Element, opts []option, typed, scope
 	return activeRow
 }
 
-// groupLabel is a muted label above a run of rows.
-func (f *field) groupLabel(c *ui.Context, id, text string) {
-	theme.Text(c.Key("label:"+id), text, "meta").TextColor(theme.C("ink-faint")).Padding(8, 8, 4).Role(ui.RoleNone)
+// groupLabel is the heading of a run of rows: its icon and its name, muted,
+// with room above to part it from the run before.
+func (f *field) groupLabel(c *ui.Context, id, icon, text string) {
+	ui.Row(c.Key("label:"+id)).AlignItems(ui.Center).Gap(6).Padding(10, 8, 4).Role(ui.RoleNone).Children(func() {
+		theme.Glyph(c.Key("icon"), icon, 14, theme.GlyphOpts{Color: theme.C("ink-faint")}).Shrink(0)
+		theme.Text(c.Key("text"), text, "meta").FontWeight(600).TextColor(theme.C("ink-muted")).SingleLine().Role(ui.RoleNone)
+	})
+}
+
+// kindIcon is the Lucide icon of a result's kind.
+func kindIcon(it services.Item) string {
+	switch it.Kind {
+	case services.ItemSong:
+		return "eighth-notes"
+	case services.ItemAlbum:
+		return "disc-3"
+	case services.ItemArtist, services.ItemCurator, services.ItemProfile:
+		return "user"
+	case services.ItemPlaylist:
+		return "list-music"
+	case services.ItemStation:
+		return "radio"
+	case services.ItemMusicVideo:
+		return "clapperboard"
+	}
+	return "star"
 }
 
 // row draws one option: min 36 tall, radius 6, the active one on the active
@@ -563,9 +589,25 @@ func (f *field) row(c *ui.Context, o option, active bool) ui.Element {
 				theme.Text(c.Key("name"), it.Name, "body").TextColor(theme.C("ink")).SingleLine()
 				theme.Text(c.Key("meta"), itemMeta(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 			})
+			f.kindMark(c, kindIcon(it), active)
+		}
+		if active && (o.kind == optTerm || (o.kind == optRecent && o.entry.Kind == services.RecentTerm)) {
+			f.kindMark(c, "", true)
 		}
 	})
 	return row
+}
+
+// kindMark is the row's trailing glyph: its kind's icon, faint, and on the
+// active row the chevron that says Enter opens it. An empty icon with the
+// row not active builds nothing.
+func (f *field) kindMark(c *ui.Context, icon string, active bool) {
+	switch {
+	case active:
+		theme.Glyph(c.Key("go"), "chevron-right", 16, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0).Margin(0, 4, 0, 0)
+	case icon != "":
+		theme.Glyph(c.Key("kind"), icon, 14, theme.GlyphOpts{Color: theme.C("ink-faint")}).Shrink(0).Margin(0, 4, 0, 0)
+	}
 }
 
 func (f *field) icon(c *ui.Context, name string) {

@@ -3,6 +3,7 @@ package app
 import (
 	"testing"
 
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
@@ -14,14 +15,22 @@ import (
 // accepts a change on purpose.
 func TestShellAlbumsGolden(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		opts []uitest.Option
+		name  string
+		opts  []uitest.Option
+		theme string // Settings.ThemeID; "" is Sona's own
 	}{
-		{"shell-albums-light", nil},
-		{"shell-albums-dark", []uitest.Option{uitest.Dark()}},
+		{"shell-albums-light", nil, ""},
+		{"shell-albums-dark", []uitest.Option{uitest.Dark()}, ""},
+		// One built-in theme end to end: its board, its text and its spot colour.
+		{"shell-albums-graphite-dark", []uitest.Option{uitest.Dark()}, "graphite"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := uitest.New(t, tc.opts...)
+			if tc.theme != "" {
+				if _, err := h.Settings.Update(func(s *config.Settings) { s.ThemeID = tc.theme }); err != nil {
+					t.Fatal(err)
+				}
+			}
 			a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Art: h.Art, Now: h.Clock.Now, StartPath: "/library/albums"}, factories)
 			t.Cleanup(func() { a.env.Art.Close(); a.env.Art.Wait() })
 			a.firstPaint = nil // the network stays closed
@@ -68,7 +77,7 @@ func TestAccountStatesInTheShell(t *testing.T) {
 			s.Current = &services.QueueItem{ID: "i.1", Name: "Glass Harbour", Artist: "Dara Finch", Album: "Low Tide"}
 			s.NoCDM = true
 			a.env.Play.Seed(s, services.QueueState{Index: -1})
-			tt.Until("the account pieces", tt.Shows("Sona 0.3.0 is available", "Waiting for Widevine to download · 42%"))
+			tt.Until("the account pieces", tt.Shows("Sona 0.3.0 is available", "Waiting for Widevine to download", "42%"))
 			tt.Settle()
 			pill, ok := tt.Find("Private listening")
 			if !ok {

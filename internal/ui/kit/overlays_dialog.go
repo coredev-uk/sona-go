@@ -61,10 +61,7 @@ func Dialog(c *ui.Context, open *bool, o DialogOpts, build func()) ui.Element {
 	}
 	dialogsBuilt++
 	tk := theme.Current()
-	scrim := ui.RGBA(0, 0, 0, 0.5)
-	if theme.Dark() {
-		scrim = ui.RGBA(0, 0, 0, 0.7)
-	}
+	scrim := theme.C("scrim")
 	maxW := o.MaxWidth
 	if maxW == 0 {
 		maxW = 512

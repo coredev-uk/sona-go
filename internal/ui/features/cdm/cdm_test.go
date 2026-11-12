@@ -40,7 +40,8 @@ func TestNoticeWordsEachState(t *testing.T) {
 			t.Errorf("a percent before any status: %q", r.tt.Texts())
 		}
 		r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "downloading", Received: 42, Total: 100})
-		r.tt.Want("Waiting for Widevine to download · 42%")
+		r.tt.Want("Waiting for Widevine to download")
+		r.tt.Want("42%")
 		r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "downloading", Received: 42}) // size unknown
 		r.tt.Want("Waiting for Widevine to download")
 		if r.tt.HasText("%") {

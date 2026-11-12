@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -83,13 +84,14 @@ func TestA11yPaletteAndHelp(t *testing.T) {
 		if _, ok := tr.Find(ui.RoleListItem, "Play or pause"); !ok {
 			t.Error("a shortcut is not a list item")
 		}
+		// The filter has the focus: Tab goes on to Settings and Close, then round to it.
 		stops := access.TabWalk(t, tt, 20)
 		var got []string
 		for _, s := range stops {
 			got = append(got, s.Node.Label)
 		}
-		if len(got) != 2 || got[0] != "Settings" || got[1] != "Close" {
-			t.Errorf("Tab stops %q, want Settings then Close", got)
+		if !slices.Equal(got, []string{"Settings", "Close", "Filter shortcuts"}) {
+			t.Errorf("Tab stops %q, want Settings, Close, then the filter", got)
 		}
 		if n, _ := tr.Find(ui.RoleLink, "Settings"); n.Role != ui.RoleLink {
 			t.Error("Settings is not a link")

@@ -144,8 +144,8 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 	trigger.Value(shown).Lang(shownLang)
 	controlsFieldFace(trigger, trigger.Focused(), o.Invalid, o.Disabled)
 	invalidFor(trigger, o.Invalid, o.Error)
-	if trigger.Hovered() && !o.Disabled && theme.Dark() {
-		trigger.Background(theme.C("input").Alpha(0.5))
+	if trigger.Hovered() && !o.Disabled {
+		trigger.Background(theme.C("select-hover"))
 	}
 	trigger.Children(func() {
 		t := theme.Text(c, shown, "body").SingleLine().Shrink(1).MinWidth(0)

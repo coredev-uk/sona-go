@@ -81,6 +81,15 @@
 // the settings a second after it settles (and on quit), and
 // SystemService.UpdateSettings keeps the saved volume whatever it is sent.
 //
+// Themes (themes.go) lists the user's theme files, `<config dir>/themes/*.json`
+// (at most 100, each read up to MaxThemeFileBytes = 256 KiB), and opens
+// the folder, creating it on demand. After the first paint it polls the
+// folder every two seconds (names, sizes and times; no watcher
+// dependency) and emits "themes:changed" with the files when one changes.
+// It does not parse them: the UI's theme registry (internal/ui/theme)
+// checks and applies a file, keeping the last good theme when an edit is
+// refused (docs/themes.md).
+//
 // Platform (platform.go) is what the OS offers beyond the windows, one
 // small seam per concern, built by cmd/sona's platform_<os>.go: media controls
 // (MPRIS), notifications, the sleep inhibitor, the on-battery monitor, the

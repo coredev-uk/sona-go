@@ -72,14 +72,14 @@ func (d *discover) chartsPage(c *ui.Context, r *ui.Route) {
 				}
 			}
 		}
-		kit.PageHeader(c, i18n.T("Charts"), sub, actions)
+		d.masthead(c, i18n.T("Charts"), sub, !q.HasData && q.Err == nil, actions)
 		switch {
 		case q.HasData:
 			d.chartList(c, q.Data)
 		case q.Err != nil:
 			kit.QueryError(c, d.env.Queries, i18n.T("Couldn't load the charts"), q, keyCharts(genre))
 		default:
-			d.shelvesSkeleton(c, &st.skel, false)
+			d.chartsSkeleton(c, &st.skel)
 		}
 	})
 }
@@ -89,6 +89,7 @@ func (d *discover) chartsPage(c *ui.Context, r *ui.Route) {
 func (d *discover) chartList(c *ui.Context, page services.ChartsPage) {
 	st := &d.charts
 	ctx := d.env.ItemsCtx(st.menus)
+	ctx.NoPopup = true // the page draws the menus' popup once, after the charts
 	for i, ch := range page.Charts {
 		more := chartURL(ch.Key, page.Genre, ch.ChartID)
 		if ch.Key == services.ChartSongs {
@@ -103,6 +104,7 @@ func (d *discover) chartList(c *ui.Context, page services.ChartsPage) {
 		}
 		kit.ItemShelf(c, sh, chartTitle(ch), ch.Items, ctx, kit.ItemShelfOpts{First: i == 0, More: more, Min: minTile})
 	}
+	st.menus.Popup(c)
 }
 
 // topSongs is the top songs, ranked, with Play for the whole chart's first
@@ -130,8 +132,25 @@ func (d *discover) topSongs(c *ui.Context, ch services.Chart, more string, ctx k
 		opts.Label = title
 		opts.Columns = kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true}
 		opts.OnPlay = func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: title}) }
+		opts.NoPopup = true
 		kit.TrackList(c, &st.tracks, len(shown), func(i int) *services.Song { return &shown[i] }, opts)
 	})
+}
+
+// chartsSkeleton is the charts overview while it loads: the top songs'
+// heading and rows, then a shelf of tiles, as flat bars at their real sizes.
+func (d *discover) chartsSkeleton(c *ui.Context, m *kit.WidthTracker) {
+	tk := theme.Current()
+	ui.Column(c.Key("top-songs-skeleton")).FillWidth().Margin(8, 0, 40, 0).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
+		ui.Row(c).Height(32).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, 112, 16) })
+		for i := range 6 {
+			ui.Row(c.Key(i)).FillWidth().Height(kit.TrackRowHeight).PaddingX(8).Gap(12).AlignItems(ui.Center).Children(func() {
+				ui.Box(c).Size(tk.Metric["track-art"], tk.Metric["track-art"]).Shrink(0).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
+				ui.Box(c).WidthPercent(30).Height(14).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
+			})
+		}
+	})
+	d.shelvesSkeleton(c, m, false)
 }
 
 // chartPage is one chart in full, in pages of 50 as it scrolls.
@@ -148,7 +167,12 @@ func (d *discover) chartPage(c *ui.Context, r *ui.Route) {
 		case q.Err != nil:
 			kit.QueryError(c, d.env.Queries, i18n.T("Couldn't load this chart"), q, keyCharts(genre))
 		default:
-			d.shelvesSkeleton(c, &st.skel, false)
+			d.masthead(c, "", "", true, nil)
+			if key == services.ChartSongs {
+				d.chartsSkeleton(c, &st.skel)
+			} else {
+				d.shelvesSkeleton(c, &st.skel, false)
+			}
 		}
 	})
 }
@@ -163,7 +187,7 @@ func (d *discover) chartContent(c *ui.Context, r *ui.Route, pane *kit.Pane, key,
 	})
 	if i < 0 {
 		r.Title(i18n.T("Charts"))
-		kit.PageHeader(c, i18n.T("Charts"), "", genres)
+		d.masthead(c, i18n.T("Charts"), "", false, genres)
 		kit.EmptyState(c, i18n.T("No chart here"), i18n.T("Apple Music has no such chart for this genre."),
 			kit.EmptyOpts{Action: &kit.EmptyAction{Label: i18n.T("All charts"), Run: func() { d.env.Nav.Push(pathCharts) }}})
 		return
@@ -187,12 +211,12 @@ func (d *discover) chartContent(c *ui.Context, r *ui.Route, pane *kit.Pane, key,
 	var list []services.Song
 	if songs {
 		list = st.list.songList(listKey, &pages)
-		kit.PageHeader(c, title, sub, func() {
+		d.masthead(c, title, sub, false, func() {
 			d.playButtons(c, title, list)
 			genres()
 		})
 	} else {
-		kit.PageHeader(c, title, sub, genres)
+		d.masthead(c, title, sub, false, genres)
 	}
 	minTile := float32(160)
 	if key == services.ChartMusicVideos {

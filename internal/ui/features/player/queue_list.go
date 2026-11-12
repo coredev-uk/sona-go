@@ -1,6 +1,7 @@
 package player
 
 import (
+	"sort"
 	"strconv"
 
 	"github.com/egoist/mygo/ui"
@@ -12,11 +13,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// The heights of the queue's lines (QueuePanel.tsx).
 const (
-	queueRowH  = 52
-	queueHeadH = 60 // the heading of the station's or AutoPlay's part, with room above it
-	queueNoteH = 44
 	// queueOverscan is how many lines are built beyond those showing.
 	queueOverscan = 8
 	// queueRetries is how many frames a requested focus waits for its row
@@ -28,6 +25,8 @@ const (
 // them out: the drop line and the pointer's gap are placed by it.
 type queueGeom struct {
 	lines []line
+	// rowAt is the line of each queue row, from the current song's.
+	rowAt []int
 	// head is the station's heading line (-1 without), start the current
 	// song's queue index, userEnd where the user's part ends, n the queue's
 	// length.
@@ -37,25 +36,10 @@ type queueGeom struct {
 	first int
 }
 
-func (g *queueGeom) height(i int) float32 {
-	switch g.lines[i].kind {
-	case lineRow:
-		return queueRowH
-	case lineHead:
-		return queueHeadH
-	}
-	return queueNoteH
-}
+func (g *queueGeom) height(i int) float32 { return g.lines[i].height() }
 
-// top is where line i starts in the body: the lines above it are rows,
-// except the heading, which is taller.
-func (g *queueGeom) top(i int) float32 {
-	t := float32(i * queueRowH)
-	if g.head >= 0 && i > g.head {
-		t += queueHeadH - queueRowH
-	}
-	return t
-}
+// top is where line i starts in the body.
+func (g *queueGeom) top(i int) float32 { return g.lines[i].y }
 
 // total is the body's height.
 func (g *queueGeom) total() float32 {
@@ -67,12 +51,26 @@ func (g *queueGeom) total() float32 {
 }
 
 // lineOf is the line of the queue row qi.
-func (g *queueGeom) lineOf(qi int) int {
-	i := qi - g.start
-	if g.head >= 0 && qi >= g.userEnd {
-		i++
+func (g *queueGeom) lineOf(qi int) int { return g.rowAt[qi-g.start] }
+
+// groupOf is the group of queue row qi: 0 the playing song, 1 Next, 2 the
+// station's or AutoPlay's part. The groups are lists of their own, so a row
+// that changes group is built again.
+func (g *queueGeom) groupOf(qi int) int {
+	switch {
+	case qi == g.start:
+		return 0
+	case g.head >= 0 && qi >= g.userEnd:
+		return 2
 	}
-	return i
+	return 1
+}
+
+// lineAt is the line at body offset off (the last one for an offset below
+// them all).
+func (g *queueGeom) lineAt(off float32) int {
+	i := sort.Search(len(g.lines), func(i int) bool { return g.lines[i].y > off })
+	return max(i-1, 0)
 }
 
 // slotAt is the gap a drop at off (from the body's top) lands in: before a
@@ -81,29 +79,35 @@ func (g *queueGeom) lineOf(qi int) int {
 func (g *queueGeom) slotAt(off float32) int {
 	s := g.userEnd
 	for i, l := range g.lines {
-		top := g.top(i)
-		half := float32(0)
-		if l.kind == lineRow {
-			half = queueRowH / 2
+		top, h := g.top(i), g.height(i)
+		if off >= top+h {
+			continue
 		}
-		if off < top+half {
-			if l.kind == lineRow {
+		switch l.kind {
+		case lineRow:
+			s = l.qi + 1
+			if off < top+h/2 {
 				s = l.qi
 			}
-			break
+		case lineNow, lineNext:
+			s = g.first
 		}
-		if l.kind == lineRow && off < top+queueRowH {
-			s = l.qi + 1
-			break
-		}
+		break
 	}
 	return max(g.first, min(g.userEnd, s))
 }
 
-// slotTop is where the gap before queue[slot] is in the body.
+// slotTop is where the gap before queue[slot] is in the body: the top of its
+// row, or of the station's heading where the user's part ends.
 func (g *queueGeom) slotTop(slot int) float32 {
 	for i, l := range g.lines {
-		if l.kind != lineRow || l.qi >= slot {
+		switch l.kind {
+		case lineNow, lineNext:
+		case lineRow:
+			if l.qi >= slot {
+				return g.top(i)
+			}
+		default:
 			return g.top(i)
 		}
 	}
@@ -127,10 +131,11 @@ type queueList struct {
 	// focusedNow is the entry whose row has the focus in this frame's build,
 	// focusedWas the last frame's.
 	focusedNow, focusedWas uint64
-	// focusedStation: the focused row was in the station's list last frame.
-	focusedStation bool
-	menuWas        bool
-	last           int64
+	// focusedGroup: the group (queueGeom.groupOf) of the focused row last
+	// frame.
+	focusedGroup int
+	menuWas      bool
+	last         int64
 }
 
 // focusRow asks for the focus to go to queue row qi: scrolled into view
@@ -150,12 +155,16 @@ func (st *queueList) scrollTo(qi int) {
 	if st.paneH <= 0 || qi < g.start || qi >= g.n || len(g.lines) == 0 {
 		return
 	}
-	top := g.top(g.lineOf(qi))
+	i := g.lineOf(qi)
+	top, bottom := g.top(i), g.top(i)+g.height(i)
+	if i > 0 && g.lines[i-1].kind != lineRow {
+		top = g.top(i - 1) // the heading above it stays in view
+	}
 	switch {
 	case top < st.pos.Y:
 		st.pos.Y = max(0, top)
-	case top+queueRowH > st.pos.Y+st.paneH:
-		st.pos.Y = top + queueRowH - st.paneH
+	case bottom > st.pos.Y+st.paneH:
+		st.pos.Y = bottom - st.paneH
 	}
 }
 
@@ -270,9 +279,6 @@ func (p *player) queueList(c *ui.Context, inView bool) {
 			st.g = queueGeom{head: -1}
 			return
 		}
-		if !inView {
-			ui.Column(c.Key("summary")).FillWidth().Padding(0, 16, 8).Children(func() { p.queueSummary(c, nil) })
-		}
 		p.queueBody(c, st, inView, over, px, s, q, parts, start)
 	})
 	p.settle(c, st, items, &st.g)
@@ -306,7 +312,7 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 	items := q.Items
 	station := q.Station
 	index := s.Index
-	g := queueGeom{lines: parts.lines, head: parts.head, start: start, userEnd: parts.userEnd, n: len(items), first: min(index+1, len(items))}
+	g := queueGeom{lines: parts.lines, rowAt: parts.rowAt, head: parts.head, start: start, userEnd: parts.userEnd, n: len(items), first: min(index+1, len(items))}
 	st.g = g
 	playing := s.State == store.StatePlaying || s.State == store.StateLoading
 	withheldOK := p.restricted()
@@ -330,8 +336,8 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 	if h <= 0 {
 		h = queueRowH * 20
 	}
-	wFirst := max(0, int(st.pos.Y/queueRowH)-queueOverscan)
-	wLast := min(len(g.lines)-1, int((st.pos.Y+h)/queueRowH)+1+queueOverscan)
+	wFirst := max(0, g.lineAt(st.pos.Y)-queueOverscan)
+	wLast := min(len(g.lines)-1, g.lineAt(st.pos.Y+h)+queueOverscan)
 	pin1, pin2 := -1, -1
 	dragFrom, dragging := kit.DragPinned(st)
 	if dragging && dragFrom >= start && dragFrom < len(items) {
@@ -378,38 +384,65 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 		}
 	}
 
+	// The groups, in order: the playing song under its heading, Next (the
+	// songs after it; the station's too while it has no part of its own), the
+	// station's or AutoPlay's part under its heading, the note.
 	rowsEnd := len(g.lines)
 	if rowsEnd > 0 && g.lines[rowsEnd-1].kind == lineNote {
 		rowsEnd--
 	}
-	aEnd := rowsEnd
+	nowRow := -1 // the playing song's line
+	nextAt := 0  // the first line after it
+	if len(g.lines) > 0 && g.lines[0].kind == lineNow {
+		nowRow, nextAt = 1, 2
+	}
+	nextHead := nextAt < rowsEnd && g.lines[nextAt].kind == lineNext
+	nextFrom, nextEnd := nextAt, rowsEnd // the Next list's lines
+	if nextHead {
+		nextFrom++
+	}
+	nextRows := len(items) // the queue index where the Next list ends
 	if g.head >= 0 {
-		aEnd = g.head
+		nextEnd, nextRows = g.head, g.userEnd
 	}
 
 	row := func(i int) {
 		l := g.lines[i]
 		it := &items[l.qi]
-		from, size := 0, aEnd // the list this row is in: the queue, or the station's part
-		if g.head >= 0 && i > g.head {
-			from, size = g.head+1, rowsEnd-g.head-1
+		pos, size := l.qi-start, nextRows-start-1 // the list this row is in: Next
+		switch {
+		case l.cur:
+			pos, size = 1, 1
+		case g.head >= 0 && i > g.head:
+			pos, size = l.qi-g.userEnd+1, len(items)-g.userEnd
 		}
 		p.queueRow(c, st, queueRowIn{
 			item: it, qi: l.qi, start: start, userEnd: g.userEnd, n: len(items),
-			pos: i - from + 1, size: size,
+			num: l.qi - start, pos: pos, size: size,
 			current: l.qi == index, playing: playing, upNext: l.qi == start+1,
 			tab: l.qi == tabQi, dragged: dragging && dragFrom == l.qi,
 			autoPlay: l.qi != index && it.Auto && autoPlay, withheld: withheldOK && it.Explicit,
 			inView: inView,
 		})
 	}
+	// section is the lines from..to as a list: only those built, the rest
+	// held by a spacer of their height.
 	section := func(key, name string, from, to int) {
+		if from >= to {
+			return
+		}
 		ui.Column(c.Key(key)).FillWidth().Role(ui.RoleList).Label(name).Children(func() {
-			// A spacer of the lines not built, named for the line after it.
-			gap := func(rows, before int) {
-				if rows > 0 {
-					ui.Box(c.Key("gap" + strconv.Itoa(before))).FillWidth().Height(float32(rows) * queueRowH).Shrink(0)
+			// A spacer of the lines first..before not built, named for the
+			// line after it.
+			gap := func(first, before int) {
+				if first >= before {
+					return
 				}
+				end := g.total()
+				if before < len(g.lines) {
+					end = g.top(before)
+				}
+				ui.Box(c.Key("gap" + strconv.Itoa(before))).FillWidth().Height(end - g.top(first)).Shrink(0)
 			}
 			at := from // the next line not yet shown
 			for _, i := range built {
@@ -419,11 +452,11 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 				if i >= to {
 					break
 				}
-				gap(i-at, i)
+				gap(at, i)
 				row(i)
 				at = i + 1
 			}
-			gap(to-at, to)
+			gap(at, to)
 		})
 	}
 
@@ -433,9 +466,25 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 		ui.Column(c.Key("queue-content")).Padding(0, px, 12).Children(func() {
 			body := ui.Column(c.Key("body")).FillWidth()
 			body.Children(func() {
-				section("list", i18n.T("Queue"), 0, aEnd)
+				if nowRow >= 0 {
+					p.queueHead(c, "head-now", queueNowHeadH, i18n.T("Now playing"), false, nil)
+					section("list-now", i18n.T("Now playing"), nowRow, nowRow+1)
+				}
+				if nextHead {
+					var detail func()
+					if !inView {
+						// The pane's own foot says it on Now Playing.
+						detail = func() {
+							ui.Row(c.Key("detail")).MinWidth(0).Children(func() { p.queueSummary(c, nil) })
+						}
+					}
+					p.queueHead(c, "head-next", queueHeadH, i18n.TC("the queue's heading over the songs that play after the one playing", "Next"), false, detail)
+				}
+				section("list", i18n.TC("the queue's heading over the songs that play after the one playing", "Next"), nextFrom, nextEnd)
 				if g.head >= 0 {
-					p.queueHead(c, station, headTitle, headDetail)
+					p.queueHead(c, "head", queueHeadH, headTitle, station != nil && station.AutoPlay, func() {
+						label(c.Key("detail"), headDetail, "meta").TextColor(theme.C("ink-muted"))
+					})
 					section("list-station", headTitle, g.head+1, rowsEnd)
 				}
 				if rowsEnd < len(g.lines) {
@@ -466,7 +515,7 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 				p.focusRow(st, items, qi)
 				c.Invalidate()
 			}
-		case (g.head >= 0 && at >= g.userEnd) != st.focusedStation:
+		case g.groupOf(at) != st.focusedGroup:
 			// The row moved between the two lists (an AutoPlay song that plays
 			// now): it is built under another parent, a new element, so it
 			// takes the focus again.
@@ -475,9 +524,9 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 		}
 	}
 	st.focusedWas = st.focusedNow
-	st.focusedStation = false
+	st.focusedGroup = 0
 	if st.focusedNow != 0 {
-		st.focusedStation = g.head >= 0 && indexOfUID(items, st.focusedNow) >= g.userEnd
+		st.focusedGroup = g.groupOf(indexOfUID(items, st.focusedNow))
 	}
 	if st.want > 0 {
 		st.tries++
@@ -490,16 +539,19 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 	}
 }
 
-// queueHead is the heading of the station's or AutoPlay's part.
-func (p *player) queueHead(c *ui.Context, station *services.QueueStation, title, detail string) {
-	ui.Column(c.Key("head")).FillWidth().Height(queueHeadH).Shrink(0).Justify(ui.End).Padding(0, 8, 8).Children(func() {
+// queueHead is the heading of a group of the queue: its name, and under it a
+// line of detail where there is one. h is the line's height.
+func (p *player) queueHead(c *ui.Context, key string, h float32, title string, infinity bool, detail func()) {
+	ui.Column(c.Key(key)).FillWidth().Height(h).Shrink(0).Justify(ui.End).Padding(0, 8, 8).Children(func() {
 		ui.Row(c.Key("title")).Gap(6).AlignItems(ui.Center).Role(ui.RoleHeading).Level(3).Label(title).Children(func() {
-			if station != nil && station.AutoPlay {
+			if infinity {
 				ui.Icon(c.Key("infinity"), theme.Icon("infinity")).FontSize(16).TextColor(theme.C("ink")).Shrink(0)
 			}
-			label(c.Key("text"), title, "ui").FontWeight(500).TextColor(theme.C("ink"))
+			label(c.Key("text"), title, "ui").FontWeight(600).TextColor(theme.C("ink"))
 		})
-		label(c.Key("detail"), detail, "meta").TextColor(theme.C("ink-muted"))
+		if detail != nil {
+			detail()
+		}
 	})
 }
 

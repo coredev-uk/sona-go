@@ -7,6 +7,7 @@ package app
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"log/slog"
 	"os"
@@ -444,6 +445,7 @@ func (a *App) followWindow(win *mygo.Window) {
 func (a *App) connect() {
 	a.opts.Bus.SetPoster(a.postFunc())
 	a.followSettings()
+	a.followThemes()
 	a.followOpens()
 	a.refreshSwipe()
 	if a.tray != nil {
@@ -523,6 +525,42 @@ func (a *App) Close() {
 	if a.mem != nil {
 		a.mem.flush()
 	}
+}
+
+// followThemes loads the user's theme files and follows their changes: the
+// registry parses and checks each file (theme.LoadUser), keeps the last good
+// version of one that is refused, and shows an edit of the chosen theme at
+// once. The first listing reads files, so it runs off the main thread.
+func (a *App) followThemes() {
+	if a.opts.Core == nil {
+		return
+	}
+	svc := services.Service[services.ThemesService](a.opts.Core)
+	store.On(a.opts.Bus, services.EventThemesChanged, func(files []services.ThemeFile) {
+		theme.LoadUser(userFiles(files))
+	})
+	post := a.postFunc()
+	go func() {
+		files, err := svc.Files(context.Background())
+		if err != nil {
+			a.log.Warn("themes folder", "err", err)
+			return
+		}
+		if len(files) > 0 {
+			post(func() { theme.LoadUser(userFiles(files)) })
+		}
+	}()
+}
+
+// userFiles are the themes service's files as the theme registry reads them.
+func userFiles(files []services.ThemeFile) []theme.UserFile {
+	out := make([]theme.UserFile, len(files))
+	for i, f := range files {
+		out[i] = theme.UserFile{
+			Name: f.Name, Data: f.Data, TooLarge: f.TooLarge, Unreadable: f.Unreadable, ModTime: time.UnixMilli(f.ModTime),
+		}
+	}
+	return out
 }
 
 // followSettings applies the theme and the effects setting and follows

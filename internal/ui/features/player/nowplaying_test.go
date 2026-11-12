@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 	"testing/synctest"
@@ -180,10 +179,23 @@ func TestNowPlayingLayoutFollowsItsBoxNotTheWindow(t *testing.T) {
 		{1000, 640, false, 320},
 		{1000, 639, false, 240},
 		{900, 900, false, 320},
+		{1499, 1200, false, 400}, // the width allows 400 only
+		{1500, 899, false, 400},  // the height allows 400 only
+		{1500, 900, false, 480},
+		{1688, 1070, false, 480}, // a 1920×1200 window beside the sidebar
+		{1799, 1200, false, 480},
+		{1800, 1049, false, 480},
+		{1800, 1050, false, 560},
+		{3000, 2000, false, 560}, // never past the largest class
+		{1800, 640, false, 320},
+		{600, 1400, true, 168},
 	} {
 		got := nowPlayingLayoutFor(c.w, c.h)
 		if got.stacked != c.stacked || got.cover != c.cover {
 			t.Errorf("%v×%v: %+v, want stacked=%v cover=%v", c.w, c.h, got, c.stacked, c.cover)
+		}
+		if got.cover > maxCover {
+			t.Errorf("%v×%v: cover %v is wider than the motion rendition (%v)", c.w, c.h, got.cover, float32(maxCover))
 		}
 	}
 }
@@ -252,8 +264,10 @@ func TestNowPlayingCoverAsksForTheAlbumMotionWhenMotionIsAllowed(t *testing.T) {
 		t.Error("the motion service was never asked")
 	}
 	got := fake.opened()
-	if !strings.HasPrefix(got[0], "/motion/x/1.mp4@") {
-		t.Errorf("the cover opened %q, want the album's motion file", got[0])
+	// One rendition at the largest cover class (the window's scale is 1), so
+	// no cover is wider than the picture and a resize never reloads it.
+	if want := fmt.Sprintf("/motion/x/1.mp4@%d", maxCover); got[0] != want {
+		t.Errorf("the cover opened %q, want %q", got[0], want)
 	}
 }
 
@@ -815,6 +829,36 @@ func TestNowPlayingGolden(t *testing.T) {
 			uitest.Golden(t, r.tt.Image(), "nowplaying-"+mode.name)
 		})
 	}
+}
+
+// TestNowPlayingGoldenWide: a 1920×1200 window beside the sidebar (a view of
+// 1688×1070) takes the 480 cover, the sleeve fills its column and the insert
+// runs to the column's right edge.
+func TestNowPlayingGoldenWide(t *testing.T) {
+	if err := theme.RegisterFonts(); err != nil {
+		t.Fatal(err)
+	}
+	r := newNPRig(t, func(r *npRig) { r.width, r.height = 1688, 1070 })
+	r.lyr.set(services.Lyrics{Provider: "apple", Timing: "Word", Songwriters: []string{"A Writer"}, Lines: timedLines(30, true)}, nil)
+	r.play(14_500)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 3 sung words"))
+	r.tt.Settle()
+	cover, ok := r.tt.Find("The Album cover")
+	if !ok {
+		t.Fatalf("no cover: %q", r.tt.Texts())
+	}
+	if cover.W != 480 || cover.H != 480 {
+		t.Errorf("the cover is %v×%v, want 480×480", cover.W, cover.H)
+	}
+	closeBtn, ok := r.tt.Find("Close now playing (Escape)")
+	if !ok {
+		t.Fatal("no Close")
+	}
+	if right := closeBtn.X + closeBtn.W; right < 1688-paneEdge-8 {
+		t.Errorf("the insert ends at %v, short of the column's right edge (1688)", right)
+	}
+	uitest.Golden(t, r.tt.Image(), "nowplaying-wide-light")
 }
 
 // TestNowPlayingEvidence writes the pictures of the PR's description

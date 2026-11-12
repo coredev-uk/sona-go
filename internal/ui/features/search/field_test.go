@@ -779,6 +779,9 @@ func TestFieldGoldens(t *testing.T) {
 			r := newFieldRig(t, "/search", opts...)
 			r.focusField()
 			r.typeAndWait("blu", "Blue Hour", "Blue Moon")
+			for range 3 {
+				r.key(ui.KeyDown) // the active row: an item, with its chevron
+			}
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), name)
 		})

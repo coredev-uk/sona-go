@@ -248,6 +248,46 @@ func TestSeekingCommitsWhereThePointerLetsGo(t *testing.T) {
 	}
 }
 
+// The seek bar is the bar's top edge, across the whole window, whatever the
+// transport and the song take of the row below it; a live station has none,
+// and its marker and what is on air stand under its name.
+func TestSeekBarRunsAlongTheBarsTopEdge(t *testing.T) {
+	r := newRig(t, true)
+	r.seed()
+	b, ok := r.tt.Find("Seek")
+	if !ok {
+		t.Fatal("no seek slider")
+	}
+	const windowW, windowH, barH = 1132, 400, 72
+	if b.X != 0 || b.W != windowW || b.Y != windowH-barH || b.H != seekHit {
+		t.Errorf("Seek is at %+v, want the top %d DIP of the bar, edge to edge", b, seekHit)
+	}
+	// The ends of the song are at the window's edges: a click in the first and
+	// the last DIPs reaches them.
+	r.tt.ClickAt(b.X+2, b.Y+4)
+	r.fake.Wait(t, 1)
+	seeks := r.fake.Seeks()
+	if len(seeks) != 1 || seeks[0] > 3_000 {
+		t.Errorf("a click at the left edge sought %v ms", seeks)
+	}
+
+	r.seed(func(s *services.PlaybackState) {
+		s.Current.Live, s.Current.Name, s.Controls = true, "Apple Music 1", services.PlaybackControls{}
+		s.OnAir = &services.OnAir{Title: "Song on air", Artist: "Someone"}
+	})
+	if _, ok := r.tt.Find("Seek"); ok {
+		t.Error("a live station has a Seek slider")
+	}
+	title, _ := r.tt.Find("Apple Music 1")
+	live, ok := r.tt.Find("Live")
+	if !ok || live.Y < title.Y+title.H-1 || live.X < title.X {
+		t.Errorf("the live marker is at %+v, not under the name at %+v", live, title)
+	}
+	if !r.tt.HasText("Someone – Song on air") {
+		t.Errorf("what is on air is not said: %q", r.tt.Texts())
+	}
+}
+
 func TestVolume(t *testing.T) {
 	r := newRig(t, true)
 	r.seed(func(s *services.PlaybackState) { s.Volume = 0.6 })

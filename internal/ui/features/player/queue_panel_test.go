@@ -12,6 +12,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 // queueRig is the queue panel over a fake transport: beside a page with the
@@ -189,11 +190,51 @@ func TestRowsListFromTheCurrentSongOnward(t *testing.T) {
 			t.Errorf("row %q shows", l)
 		}
 	}
-	if !r.has("Now playing") {
+	// "Now playing" is also the group's heading: the equaliser is the image.
+	if _, ok := access.Read(t, r.tt.Tester).Find(ui.RoleImage, "Now playing"); !ok {
 		t.Errorf("the current song has no equaliser: %q", r.tt.Texts())
 	}
 	if !r.tt.HasText("3 songs after this one") || !r.tt.HasText("3:00") {
 		t.Errorf("summary or duration missing: %q", r.tt.Texts())
+	}
+}
+
+// The panel is a running order in groups, top to bottom: Now playing and its
+// row (larger than the others), Next with what follows and its summary, then
+// AutoPlay's part; the songs after the playing one are numbered on from 1
+// across the groups.
+func TestTheQueueIsARunningOrderInGroups(t *testing.T) {
+	r := newQueueRig(t, false)
+	r.seed(6, 1, autoPlayFrom(4))
+	y := func(label string) (float32, float32) {
+		t.Helper()
+		b, ok := r.tt.Find(label)
+		if !ok {
+			t.Fatalf("no %q in %q", label, r.tt.Texts())
+		}
+		return b.Y, b.H
+	}
+	nowY, _ := y("Now playing") // the heading (the equaliser is below it)
+	playingY, _ := y("Song 2, Artist 2")
+	nextY, _ := y("Next")
+	firstY, _ := y("Up next: Song 3, Artist 3")
+	secondY, _ := y("Song 4, Artist 4")
+	autoY, _ := y("Similar music will keep playing") // under AutoPlay's heading
+	stationY, _ := y("Song 5, Artist 5")
+	if !(nowY < playingY && playingY < nextY && nextY < firstY && firstY < autoY && autoY < stationY) {
+		t.Errorf("the groups are not in order: now %v playing %v next %v first %v autoplay %v station %v", nowY, playingY, nextY, firstY, autoY, stationY)
+	}
+	if got := secondY - firstY; got != queueRowH {
+		t.Errorf("the rows of Next are %v apart, want %d", got, queueRowH)
+	}
+	if !r.tt.HasText("2 songs after this one, then AutoPlay") {
+		t.Errorf("Next does not say what follows: %q", r.tt.Texts())
+	}
+	// Song 3 and 4 are 1 and 2 of what follows; AutoPlay's 5 and 6 go on, 3 and 4.
+	for _, n := range []string{"1", "2", "3", "4"} {
+		if !r.tt.HasText(n) {
+			t.Errorf("no number %s in %q", n, r.tt.Texts())
+		}
 	}
 }
 

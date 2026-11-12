@@ -22,7 +22,7 @@ func (s *search) profilePage(c *ui.Context, r *ui.Route) {
 	id := r.Param("id")
 	v := &s.pages.profile
 	res := s.profile(id)
-	v.Scroll(c, id, func(pane *kit.Pane, _ float32) {
+	s.framePage(c, &v.pageView, id, nil, func(pane *kit.Pane) {
 		switch {
 		case res.Err != nil:
 			kit.QueryError(c, s.env.Queries, i18n.T("Couldn't load this profile"), res, keyProfile(id))

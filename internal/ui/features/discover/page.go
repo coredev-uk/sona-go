@@ -29,6 +29,31 @@ func (pg *pageView) body(c *ui.Context, key string, build func(pane *kit.Pane, g
 	pg.builtY = pg.Pos.Y
 }
 
+// masthead is a page's nameplate: the title at the display size and, on its
+// baseline, the issue line (when the page was fetched), with the page's
+// controls at the row's end. While the data loads, holding is a placeholder
+// bar that keeps the line's place, so nothing moves when it lands.
+func (d *discover) masthead(c *ui.Context, title, line string, holding bool, actions func()) {
+	tk := theme.Current()
+	ui.Row(c.Key("masthead")).FillWidth().Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(24).Margin(0, 0, 28, 0).Shrink(0).Children(func() {
+		ui.Row(c.Key("name")).MinWidth(0).Shrink(1).Wrap().AlignItems(ui.Baseline).Children(func() {
+			h := theme.Text(c, title, "display").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
+			if title == "" {
+				h.Role(ui.RoleNone) // a page still loading has no title to read
+			}
+			switch {
+			case holding:
+				ui.Row(c).Height(tk.Type["secondary"].LineHeight).Margin(0, 0, 0, 16).AlignItems(ui.Center).Children(func() { kit.Bar(c, 112, 12) })
+			case line != "":
+				theme.Text(c, line, "secondary").TextColor(theme.C("ink-muted")).Margin(0, 0, 0, 16)
+			}
+		})
+		if actions != nil {
+			ui.Row(c.Key("actions")).Shrink(0).Gap(8).AlignItems(ui.Center).Children(actions)
+		}
+	})
+}
+
 // shelvesSkeleton is flat placeholder bars at the real sizes of a page of
 // shelves: three shelf bars of ten tiles (a row of as many as fit), and, with
 // hero, the banner above (v0.2.0's ShelvesSkeleton).

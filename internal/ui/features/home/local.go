@@ -80,16 +80,16 @@ func (h *home) recentlyPlayed(c *ui.Context, ctx kit.ItemsCtx) {
 
 	switch {
 	case !have && (!appleFailed || history.Loading || !history.HasData && history.Err == nil):
-		kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Recently played")}, func() { h.songsSkeleton(c) })
+		ruledShelf(c, ruledOpts{Title: i18n.T("Recently played")}, func() { h.songsSkeleton(c) })
 	case !have:
-		kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Recently played")}, func() {
+		ruledShelf(c, ruledOpts{Title: i18n.T("Recently played")}, func() {
 			kit.ErrorBlock(c, i18n.T("Couldn't load what you played recently"), recent.Err, kit.ErrorBlockOpts{
 				OnRetry:  func() { q.Invalidate(store.KeyLibraryRecent) },
 				Retrying: recent.Fetching || history.Fetching,
 			})
 		})
 	case len(songs) == 0:
-		kit.Shelf(c, kit.ShelfOpts{Title: title}, func() {
+		ruledShelf(c, ruledOpts{Title: title}, func() {
 			body := i18n.T("Songs you play in Sona or Apple Music on any device appear here.")
 			if appleFailed {
 				body = i18n.T("Songs you play in Sona appear here.")
@@ -97,7 +97,7 @@ func (h *home) recentlyPlayed(c *ui.Context, ctx kit.ItemsCtx) {
 			kit.EmptyState(c, i18n.T("Nothing played yet"), body, kit.EmptyOpts{})
 		})
 	default:
-		kit.Shelf(c, kit.ShelfOpts{Title: title}, func() { h.songsList(c, songs, ctx) })
+		ruledShelf(c, ruledOpts{Title: title}, func() { h.songsList(c, songs, ctx) })
 	}
 }
 
@@ -135,7 +135,7 @@ func (h *home) recentlyAdded(c *ui.Context, ctx kit.ItemsCtx) {
 	}, store.Options{Stale: store.Forever})
 	title := i18n.T("Recently added")
 	if res.Err != nil {
-		kit.Shelf(c, kit.ShelfOpts{Title: title}, func() {
+		ruledShelf(c, ruledOpts{Title: title}, func() {
 			kit.QueryFailed(c, q, i18n.T("Couldn't read your albums"), res.Err, keyAdded)
 		})
 		return
@@ -183,11 +183,11 @@ func (h *home) recentPlaylists(c *ui.Context, ctx kit.ItemsCtx) {
 // coverShelf is a titled row of tiles with "See all" to a library page, where
 // a module serves it.
 func (h *home) coverShelf(c *ui.Context, st *kit.CoverState, title, label, all string, tiles []kit.CoverItem, ctx kit.ItemsCtx) {
-	so := kit.ShelfOpts{Title: title}
+	so := ruledOpts{Title: title}
 	if h.env.Routed(all) {
 		so.More = func() { ctx.Nav(all) }
 	}
-	kit.Shelf(c, so, func() {
+	ruledShelf(c, so, func() {
 		kit.CoverRow(c, st, tiles, kit.CoverRowOpts{
 			CoverOpts: kit.CoverOpts{Label: label, Art: h.env.Art, Motion: h.env.Motion, Restricted: ctx.Restricted},
 		})

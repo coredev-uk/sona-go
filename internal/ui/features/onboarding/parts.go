@@ -47,7 +47,7 @@ func choiceCards(c *ui.Context, id, group, value string, choices []choice, disab
 func choiceCard(c *ui.Context, ch choice, chosen *string, disabled bool) {
 	checked := *chosen == ch.value
 	card := ui.RadioBase(c.Key("card:"+ch.value), chosen, ch.value).
-		Grow(1).Basis(0).MinWidth(0).Padding(12).Radius(theme.Current().Radius["md"]).
+		Grow(1).Basis(0).MinWidth(0).Padding(12).AlignItems(ui.Start).Radius(theme.Current().Radius["md"]).
 		Background(theme.C("surface")).Label(ch.label).Description(ch.hint).Cursor(ui.CursorPointer)
 	if !disabled && card.Hovered() {
 		card.Background(theme.C("hover"))

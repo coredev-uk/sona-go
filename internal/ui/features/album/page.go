@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
@@ -17,9 +18,8 @@ import (
 
 // The page's geometry, from AppShell's main and AlbumPage (DIPs).
 const (
-	// stickyTop is how far below the pane's top the sleeve stays while the
-	// songs scroll (sticky top-7).
-	stickyTop = 28
+	padTop    = 28 // the listing's top, under the pane's edge
+	padBottom = 48 // the page's last line, above the pane's edge
 	// sidebarGuess stands for the sidebar and its line before the page has
 	// been measured, so the first frame is already at the right layout.
 	sidebarGuess = 233
@@ -72,8 +72,12 @@ type pageState struct {
 	shelves [6]kit.CoverShelfState
 	// The list as the last frame built it, for the disc index.
 	list    listView
-	sleeveH float32   // the wide layout's sleeve, as last laid out
-	pane    *kit.Pane // the scroll container, as this frame builds it
+	sleeveH float32 // the wide layout's sleeve, as last laid out
+	// gl and gr are the page's left and right gutters (the right one holds
+	// the scrollbar): the pane has no padding of its own, so the sleeve can
+	// run to its edges and each part sets its own.
+	gl, gr float32
+	pane   *kit.Pane // the scroll container, as this frame builds it
 	// pal is the cover's colours, built once per cover, theme and layout.
 	pal palCache
 }
@@ -161,14 +165,32 @@ func (a *album) page(c *ui.Context, r *ui.Route) {
 		ww, _ := c.Size()
 		width = ww - sidebarGuess
 	}
-	lay := albumLayout(width - 2*st.Gutter() - theme.Current().Metric["scrollbar"])
-	root.Children(func() {
-		st.Scroll(c, "", func(pane *kit.Pane, _ float32) {
-			a.pane = pane
+	gutter := st.Gutter()
+	scrollbar := theme.Current().Metric["scrollbar"]
+	lay := albumLayout(width - 2*gutter - scrollbar)
+	a.gl, a.gr = gutter, gutter+scrollbar
+	root.Children(func() { a.scroll(c, id, highlight, lay, now) })
+	a.menus.Popup(c)
+}
+
+// scroll is the page's scroll container. The shared page frame pads its
+// column, which the sleeve (cut by the pane's edges) cannot sit inside, so the
+// pane has no padding and each part sets its own; the frame's state still
+// tracks the pane's place and size.
+func (a *album) scroll(c *ui.Context, id, highlight string, lay layout, now time.Time) {
+	st := a.pageState
+	devstate.Scroll(c, &st.Pos) // dev builds: the offset survives a restart
+	sc := ui.Scroll(c).TrackScroll(&st.Pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
+	a.pane = &kit.Pane{Pos: &st.Pos, Bounds: sc.Bounds}
+	sc.Children(func() {
+		ui.Column(c).Children(func() {
 			a.content(c, id, highlight, lay, now)
 		})
 	})
-	a.menus.Popup(c)
+	if b := sc.Bounds(); b.W != st.Width || b.H != st.Height || b.Y != st.Top {
+		st.Width, st.Height, st.Top = b.W, b.H, b.Y
+		c.Invalidate() // the layout follows the pane's width
+	}
 }
 
 // content is the body for the album's state: its skeleton, the error, or the
@@ -177,7 +199,7 @@ func (a *album) content(c *ui.Context, id, highlight string, lay layout, now tim
 	l := a.query(id)
 	switch {
 	case l.err != nil && !l.hasData:
-		a.errorBlock(c, l)
+		ui.Column(c).Padding(padTop, a.gr, padBottom, a.gl).Children(func() { a.errorBlock(c, l) })
 		return
 	case !l.hasData:
 		a.skeleton(c, lay)
@@ -252,19 +274,25 @@ func (a *album) errorBlock(c *ui.Context, l load) {
 }
 
 // skeleton is the sleeve, head and rows at their real sizes while the album
-// loads.
+// loads: the same gatefold, the sleeve a flat placeholder tone.
 func (a *album) skeleton(c *ui.Context, lay layout) {
 	hover := theme.C("hover")
+	tone := theme.C("active")
 	tk := theme.Current()
-	cover := func() { kit.Bar(c, lay.cover, lay.cover) }
+	bar := func(w, h float32) ui.Element {
+		return ui.Box(c).Width(w).Height(h).Radius(tk.Radius["sm"]).Background(tone).Shrink(0)
+	}
+	cover := func() {
+		ui.Box(c).Size(lay.cover, lay.cover).Radius(tk.Radius["sm"]).Background(tone).Shrink(0)
+	}
 	head := func() {
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-			ui.Box(c).Height(32).WidthPercent(60).Radius(tk.Radius["sm"]).Background(hover)
-			ui.Box(c).Height(16).WidthPercent(25).Radius(tk.Radius["sm"]).Background(hover).Margin(12, 0, 0, 0)
-			ui.Box(c).Height(12).WidthPercent(33).Radius(tk.Radius["sm"]).Background(hover).Margin(8, 0, 0, 0)
+			ui.Box(c).Height(32).WidthPercent(60).Radius(tk.Radius["sm"]).Background(tone)
+			ui.Box(c).Height(16).WidthPercent(45).Radius(tk.Radius["sm"]).Background(tone).Margin(12, 0, 0, 0)
+			ui.Box(c).Height(12).WidthPercent(60).Radius(tk.Radius["sm"]).Background(tone).Margin(8, 0, 0, 0)
 			ui.Row(c).Gap(8).Margin(24, 0, 0, 0).Children(func() {
-				ui.Box(c).Size(40, 40).Radius(tk.Radius["full"]).Background(hover)
-				kit.Bar(c, 96, 32).Radius(tk.Radius["md"])
+				ui.Box(c).Size(40, 40).Radius(tk.Radius["full"]).Background(tone)
+				bar(96, 32).Radius(tk.Radius["md"])
 			})
 		})
 	}
@@ -279,19 +307,19 @@ func (a *album) skeleton(c *ui.Context, lay layout) {
 	root := ui.Column(c).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading"))
 	root.Children(func() {
 		if lay.wide {
-			ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(40).Children(func() {
-				ui.Column(c).Width(lay.cover + 32).Padding(16).Shrink(0).Children(cover)
-				ui.Column(c).Grow(1).MinWidth(0).Padding(16, 0, 0, 0).Children(func() {
-					head()
-					ui.Column(c).Margin(24, 0, 0, 0).FillWidth().Children(rows)
+			ui.Row(c).FillWidth().AlignItems(ui.Stretch).Children(func() {
+				ui.Column(c).Width(lay.cover+sleeveRoom+2*a.gl).Padding(padTop, a.gl, padBottom, a.gl).Background(hover).Shrink(0).Children(func() {
+					cover()
+					ui.Column(c).Margin(24, 0, 0, 0).Children(head)
 				})
+				ui.Column(c).Grow(1).MinWidth(0).Padding(padTop, a.gr, padBottom, 40).Children(rows)
 			})
 			return
 		}
-		ui.Row(c).FillWidth().Gap(20).Padding(20).AlignItems(ui.Start).Children(func() {
+		ui.Row(c).FillWidth().Gap(20).Padding(24, a.gr, 24, a.gl).AlignItems(ui.Start).Background(hover).Children(func() {
 			cover()
 			head()
 		})
-		ui.Column(c).Margin(24, 0, 0, 0).FillWidth().Children(rows)
+		ui.Column(c).FillWidth().Padding(24, a.gr, 0, a.gl).Children(rows)
 	})
 }

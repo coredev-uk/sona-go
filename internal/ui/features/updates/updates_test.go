@@ -48,22 +48,22 @@ func TestNoticeShowsOnlyWhileANewerReleaseExists(t *testing.T) {
 	r := newRig(t)
 	r.tt.Drain()
 	// Nothing published, or already the newest: no notice.
-	if r.tt.HasText("is available") || r.tt.HasText("View") {
+	if r.tt.HasText("New version") || r.tt.HasText("View") {
 		t.Fatalf("a notice with no update: %q", r.tt.Texts())
 	}
 	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.2.0", Available: false})
-	if r.tt.HasText("is available") {
+	if r.tt.HasText("New version") {
 		t.Errorf("notice for the current release: %q", r.tt.Texts())
 	}
 	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, URL: "https://example.test/r"})
-	for _, w := range []string{"Sona 0.3.0 is available", "View"} {
+	for _, w := range []string{"New version", "Sona 0.3.0", "View"} {
 		if !r.tt.HasText(w) {
 			t.Errorf("notice lacks %q: %q", w, r.tt.Texts())
 		}
 	}
 	// A later result that finds nothing newer hides it again.
 	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.3.0", Checkable: true, Latest: "0.3.0"})
-	if r.tt.HasText("is available") {
+	if r.tt.HasText("New version") {
 		t.Errorf("notice stays after the update: %q", r.tt.Texts())
 	}
 }
@@ -126,11 +126,11 @@ func TestModuleFillsTheSidebarFooterAndFollowsTheEvent(t *testing.T) {
 func TestNoticeSkipsTheVersionTheUserWentBackFrom(t *testing.T) {
 	r := newRig(t)
 	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, Declined: "0.3.0"})
-	if r.tt.HasText("is available") {
+	if r.tt.HasText("New version") {
 		t.Fatalf("the notice offers the version just left: %q", r.tt.Texts())
 	}
 	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.1", Available: true, Declined: "0.3.0"})
-	if !r.tt.HasText("Sona 0.3.1 is available") {
+	if !r.tt.HasText("Sona 0.3.1") {
 		t.Fatalf("a newer release is held back too: %q", r.tt.Texts())
 	}
 }

@@ -3,6 +3,7 @@ package song
 import (
 	"cmp"
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,20 +17,44 @@ import (
 )
 
 // The page's geometry from the reference (AppShell's main and SongPage), in
-// DIPs. The breakpoints are the viewport's (Tailwind's min-[…]), which is
-// the window's width here.
+// DIPs. The breakpoints are those of the page's own width (the scroll
+// container: the window less the sidebar), as the other pages' are.
 const (
-	sideBySide    = 1100 // lyrics and credits share a row from here
-	twoColumns    = 720  // a credit group's people in two columns from here
-	avatar        = 40   // a credited person's picture
-	lyricsMeasure = 540  // max-w-[60ch]
+	wideFrom    = 860 // the cover, title and actions are a column beside the body from here
+	avatar      = 40  // a credited person's picture
+	coverNarrow = 136 // the cover in the band
+	spineTop    = 32  // above the cover, from the top of the page
+	spineGap    = 28  // the wash's padding after the cover
+	splitGap    = 40  // between the wash and the body
+	bodyMax     = 760 // the body's widest with up to three people to a row
+	bodyWide    = 960 // the body's widest with four people to a row
+	ledgerMax   = 760 // the facts' measure
+	nameColumn  = 112 // a fact's name
+	personMin   = 210 // the least width of a credited person
+	colGap      = 24  // between people
+	maxCols     = 4   // the most people to a row
+
+	lyricsMeasure = 540 // max-w-[60ch]
+
+	// The cover beside the body has one of three sizes by the page's width,
+	// so the artwork is served at a few exact boxes, not at every width.
+	coverWide   = 240 // under coverLargeFrom
+	coverLarge  = 280 // from coverLargeFrom
+	coverLarger = 320 // from coverLargerFrom
+
+	coverLargeFrom  = 1300
+	coverLargerFrom = 1600
+
+	// sidebarGuess stands for the sidebar and its line before the page has
+	// been measured, so the first frame is already at the right layout.
+	sidebarGuess = 233
 )
 
 // pageState is the view state of the page being shown; it starts over when
-// another song opens.
+// another song opens (the frame, the page's measured size, stays).
 type pageState struct {
-	id  string
-	pos ui.ScrollState
+	kit.PageFrame
+	id string
 	// full shows the whole lyrics instead of Apple's excerpt.
 	full bool
 	// failed is the full lyrics' last answer being an error: opening them
@@ -48,21 +73,20 @@ func (s *song) songPage(c *ui.Context, r *ui.Route) {
 	id := r.Param("id")
 	pg := &s.page
 	if pg.id != id {
-		*pg = pageState{id: id}
+		*pg = pageState{id: id, PageFrame: pg.PageFrame}
 	}
 	q := store.Use(s.env.Queries, keySongPage(id), func(ctx context.Context) (services.CatalogSong, error) {
 		return s.catalog.SongPage(ctx, id)
 	}, store.Options{Stale: store.Forever})
 
-	ww, _ := c.Size()
-	kit.PageScroll(c, &pg.pos, kit.PageGutter(ww), func(*kit.Pane) {
+	pg.Scroll(c, id, func(*kit.Pane, float32) {
 		switch {
 		case q.HasData:
 			s.content(c, q.Data)
 		case q.Err != nil:
 			s.failed(c, id, q)
 		default:
-			kit.DetailSkeleton(c, false)
+			s.skeleton(c)
 		}
 	})
 }
@@ -77,17 +101,15 @@ func (s *song) failed(c *ui.Context, id string, q store.Result[services.CatalogS
 func (s *song) content(c *ui.Context, page services.CatalogSong) {
 	pg := &s.page
 	sg := page.Song
-	hasLyrics := page.LyricsExcerpt != ""
-	hasCredits := len(page.Credits) > 0
+	sh := s.shape(c)
 
-	s.header(c, page)
-	if hasLyrics || hasCredits {
-		s.lyricsAndCredits(c, page, hasLyrics, hasCredits)
-	} else {
-		ui.Text(c, i18n.T("Apple Music has no credits or lyrics for this song.")).
-			FontSize(theme.Current().Type["secondary"].Size).FixedLineHeight(theme.Current().Type["secondary"].LineHeight).
-			TextColor(theme.C("ink-muted"))
+	wash := kit.BackdropOpts{Src: page.Header.Backdrop, Tone: kit.ToneGround}
+	if len(page.Header.Colors) > 0 {
+		wash.Color = page.Header.Colors[0]
 	}
+	s.frame(c, sh, wash, func(size float32) {
+		kit.Artwork(c, s.env.Art, sg.Art.Large, size, kit.ArtOpts{Edge: true})
+	}, func() { s.lead(c, page, sh) }, func() { s.body(c, page, sh) })
 
 	ictx := s.env.ItemsCtx(s.menus)
 	if len(page.Videos) > 0 && s.env.Routed("/music-video/x") {
@@ -114,97 +136,224 @@ func (s *song) content(c *ui.Context, page services.CatalogSong) {
 		artist := sg.Artist
 		kit.ItemShelf(c, &pg.albums, i18n.T("More by {artistName}", "artistName", artist), items, ictx, o)
 	}
-	s.footer(c, page)
 	if s.menus != nil {
 		s.menus.Popup(c)
 	}
 }
 
-// header is the CollectionHeader of the song.
-func (s *song) header(c *ui.Context, page services.CatalogSong) {
-	sg := page.Song
-	var color string
-	if len(page.Header.Colors) > 0 {
-		color = page.Header.Colors[0]
+// shape is the composition the page has at its width.
+type shape struct {
+	// wide puts the cover, title and actions in a column of their own beside
+	// the facts, credits and lyrics; otherwise they head the page as a band.
+	wide   bool
+	gutter float32
+	// cover is the cover's size beside the body (wide only).
+	cover float32
+	// cols is the people to a row of a credit group; bodyMax is the body
+	// column's widest.
+	cols    int
+	bodyMax float32
+}
+
+// width is the page's width: the scroll container's as last laid out, and
+// before the first layout the window's less the sidebar.
+func (s *song) width(c *ui.Context) float32 {
+	if w := s.page.Width; w > 0 {
+		return w
 	}
-	kit.CollectionHeader(c, kit.CollectionHeaderOpts{
-		Title:  sg.Name,
-		Art:    sg.Art.Large,
-		Loader: s.env.Art,
-		Wash:   &kit.BackdropOpts{Src: page.Header.Backdrop, Color: color, Tone: kit.ToneGround},
-		Byline: func() { s.byline(c, page) },
-		Meta:   i18n.Meta(i18n.T("Song"), i18n.YearOf(sg.ReleaseDate), i18n.FormatDuration(time.Duration(sg.DurationMs)*time.Millisecond), sg.Genre),
-		Badges: func() { kit.Badges(c, kit.BadgesOpts{Explicit: sg.Explicit, Traits: sg.Traits}) },
-		Actions: func() {
-			if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: sg.Name, Disabled: !sg.Playable}); play {
-				s.env.Queue.PlaySongs([]services.Song{sg}, 0, services.PlayFrom{ID: sg.ID})
-			}
-			s.env.ItemStates.LibraryButton(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name, "")
-			s.env.ItemStates.RatingButtons(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name)
-			if s.menus != nil {
-				s.menus.Trigger(c, kit.ActionTarget{Item: kit.SongItem(sg), Name: sg.Name}, kit.TriggerOpts{Header: true})
-			}
-		},
+	ww, _ := c.Size()
+	return ww - sidebarGuess
+}
+
+func (s *song) shape(c *ui.Context) shape {
+	return shapeOf(s.width(c), theme.Current().Metric["scrollbar"])
+}
+
+// shapeOf is the composition at a page width, the scroll bar's room being
+// scrollbar.
+func shapeOf(width, scrollbar float32) shape {
+	sh := shape{wide: width >= wideFrom, gutter: kit.PageGutter(width), cover: coverWide}
+	room := width - 2*sh.gutter - scrollbar
+	if sh.wide {
+		sh.cover = coverSize(width)
+		room = width - (sh.gutter + sh.cover + spineGap) - splitGap - sh.gutter - scrollbar
+	}
+	sh.cols, sh.bodyMax = bodyFor(room)
+	return sh
+}
+
+// coverSize is the cover beside the body at a page width: one of three sizes,
+// so the picture is asked for at a few exact boxes whatever the width.
+func coverSize(width float32) float32 {
+	switch {
+	case width >= coverLargerFrom:
+		return coverLarger
+	case width >= coverLargeFrom:
+		return coverLarge
+	}
+	return coverWide
+}
+
+// bodyFor is the people to a row of the credits and the body column's widest
+// where the column has room: up to three to a row in the reading width of
+// bodyMax, and four in bodyWide once they fit at their least width.
+func bodyFor(room float32) (cols int, widest float32) {
+	if room >= maxCols*personMin+(maxCols-1)*colGap {
+		return maxCols, bodyWide
+	}
+	room = min(room, bodyMax)
+	return max(1, int((room+colGap)/(personMin+colGap))), bodyMax
+}
+
+// frame is the page's top: from wideFrom the cover, title and actions are
+// a spine of the cover's wash that bleeds off the top and left of the
+// column, with the body beside it; narrower they are a full-width band over
+// the same wash with the body under it. The loading skeleton is built by it
+// too, so nothing moves when the song arrives.
+func (s *song) frame(c *ui.Context, sh shape, wash kit.BackdropOpts, cover func(size float32), lead, body func()) {
+	if sh.wide {
+		ui.Row(c.Key("liner")).FillWidth().AlignItems(ui.Start).Children(func() {
+			kit.Backdrop(c.Key("spine"), s.env.Art, wash, func() {
+				ui.Column(c).FillWidth().Padding(spineTop, spineGap, 28, sh.gutter).Children(func() {
+					cover(sh.cover)
+					ui.Column(c.Key("lead")).FillWidth().Margin(20, 0, 0, 0).Children(lead)
+				})
+			}).Width(sh.gutter+sh.cover+spineGap).Shrink(0).Margin(-kit.PagePadTop, 0, 0, -sh.gutter)
+			ui.Column(c.Key("body")).Grow(1).Basis(0).MinWidth(0).MaxWidth(sh.bodyMax).Margin(1, 0, 0, splitGap).Children(body)
+		})
+		return
+	}
+	kit.Backdrop(c.Key("band"), s.env.Art, wash, func() {
+		ui.Column(c).FillWidth().Padding(spineTop, sh.gutter, 28, sh.gutter).Children(func() {
+			ui.Row(c.Key("row")).FillWidth().AlignItems(ui.End).Gap(24).Children(func() {
+				cover(coverNarrow)
+				ui.Column(c.Key("lead")).Grow(1).Basis(0).MinWidth(0).Children(lead)
+			})
+		})
+	}).AlignSelf(ui.Stretch).Shrink(0).Margin(-kit.PagePadTop, -sh.gutter, 28, -sh.gutter)
+	ui.Column(c.Key("body")).FillWidth().Children(body)
+}
+
+// lead is the title, the artists, the album, the badges and the actions of
+// the song.
+func (s *song) lead(c *ui.Context, page services.CatalogSong, sh shape) {
+	sg := page.Song
+	tk := theme.Current().Type
+	d := tk["display"]
+	lines := 2
+	if sh.wide {
+		lines = 3
+	}
+	ui.Text(c, sg.Name).FontSize(d.Size).FixedLineHeight(d.LineHeight).FontWeight(int(d.Weight)).LetterSpacing(d.Tracking).
+		TextColor(theme.C("ink")).MaxLines(lines).Role(ui.RoleHeading).Level(1)
+	ui.Column(c.Key("byline")).FillWidth().Margin(8, 0, 0, 0).TextColor(theme.C("ink")).
+		FontSize(tk["heading"].Size).FontWeight(500).Children(func() { s.byline(c, page) })
+	if sg.Explicit || len(kit.TraitLabels(sg.Traits)) > 0 {
+		ui.Row(c.Key("badges")).Margin(12, 0, 0, 0).Children(func() {
+			kit.Badges(c, kit.BadgesOpts{Explicit: sg.Explicit, Traits: sg.Traits})
+		})
+	}
+	ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(20, 0, 0, 0).Children(func() {
+		if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: sg.Name, Disabled: !sg.Playable}); play {
+			s.env.Queue.PlaySongs([]services.Song{sg}, 0, services.PlayFrom{ID: sg.ID})
+		}
+		s.env.ItemStates.LibraryButton(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name, "")
+		s.env.ItemStates.RatingButtons(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name)
+		if s.menus != nil {
+			s.menus.Trigger(c, kit.ActionTarget{Item: kit.SongItem(sg), Name: sg.Name}, kit.TriggerOpts{Header: true})
+		}
 	})
 }
 
-// byline is the artists as links (their names when Apple credits none) and
-// " · album" linking to the album with this song marked.
+// byline is the artists as links (their names when Apple credits none), and
+// under them the album, linking to it with this song marked.
 func (s *song) byline(c *ui.Context, page services.CatalogSong) {
-	kit.ArtistLinks(c.Key("artists"), page.Artists, page.Song.Artist, ui.Color{}, kit.ArtistLinksOpts{HasRoute: s.env.Routed})
+	kit.ArtistLinks(c.Key("artists"), page.Artists, page.Song.Artist, ui.Color{}, kit.ArtistLinksOpts{HasRoute: s.env.Routed}).
+		AlignSelf(ui.Start)
 	al := page.Album
 	if al == nil {
 		return
 	}
-	ui.RichText(c.Key("album")).Role(ui.RoleNone).Children(func() {
-		muted := theme.C("ink-muted")
-		ui.Text(c.Key("dot"), " · ").TextColor(muted)
-		if path := "/album/" + al.ID; s.env.Routed(path) {
-			ui.Link(c.Key("link"), al.Name, path+"?song="+page.Song.ID).TextColor(muted)
-		} else {
-			ui.Text(c.Key("link"), al.Name).TextColor(muted)
-		}
-	})
-}
-
-// windowWidth is the viewport the CSS breakpoints compare with: the page's
-// column plus the sidebar and its line (the shell's chrome beside it).
-func windowWidth(c *ui.Context) float32 {
-	ww, _ := c.Size()
-	return ww + theme.Current().Metric["sidebar"] + 1
-}
-
-// lyricsAndCredits puts the two shelves side by side from 1100 DIPs, one
-// above the other below.
-func (s *song) lyricsAndCredits(c *ui.Context, page services.CatalogSong, lyrics, credits bool) {
-	if windowWidth(c) >= sideBySide {
-		ui.Row(c.Key("both")).FillWidth().AlignItems(ui.Start).Gap(64).Children(func() {
-			ui.Column(c.Key("lyrics")).Grow(1).Basis(0).MinWidth(0).Children(func() {
-				if lyrics {
-					s.lyricsShelf(c, page)
-				}
-			})
-			ui.Column(c.Key("credits")).Grow(1).Basis(0).MinWidth(0).Children(func() {
-				if credits {
-					s.creditsShelf(c, page.Credits)
-				}
-			})
-		})
-		return
+	sub := theme.Current().Type["secondary"]
+	muted := theme.C("ink-muted")
+	if path := "/album/" + al.ID; s.env.Routed(path) {
+		ui.Link(c.Key("album"), al.Name, path+"?song="+page.Song.ID).TextColor(muted).FontSize(sub.Size).FontWeight(400).
+			AlignSelf(ui.Start).Margin(2, 0, 0, 0)
+	} else {
+		ui.Text(c.Key("album"), al.Name).TextColor(muted).FontSize(sub.Size).FontWeight(400).Margin(2, 0, 0, 0)
 	}
-	ui.Column(c.Key("both")).FillWidth().Gap(40).Children(func() {
-		if lyrics {
-			s.lyricsShelf(c, page)
-		}
-		if credits {
-			s.creditsShelf(c, page.Credits)
-		}
+}
+
+// body is the facts, the credits and the lyrics, in that order: what the
+// song is, who made it, what it says.
+func (s *song) body(c *ui.Context, page services.CatalogSong, sh shape) {
+	first := !s.ledger(c, page)
+	hasLyrics, hasCredits := page.LyricsExcerpt != "", len(page.Credits) > 0
+	if hasCredits {
+		s.creditsShelf(c, page.Credits, sh.cols, first)
+		first = false
+	}
+	if hasLyrics {
+		s.lyricsShelf(c, page, first)
+	}
+	if !hasLyrics && !hasCredits {
+		sub := theme.Current().Type["secondary"]
+		ui.Text(c, i18n.T("Apple Music has no credits or lyrics for this song.")).
+			FontSize(sub.Size).FixedLineHeight(sub.LineHeight).TextColor(theme.C("ink-muted")).Margin(32, 0, 0, 0)
+	}
+}
+
+// skeleton is the page loading: the real frame with flat bars where the
+// text will be, a labelled "Loading" status for assistive technology.
+func (s *song) skeleton(c *ui.Context) {
+	sh := s.shape(c)
+	hover := theme.C("hover")
+	bar := func(w, h float32) ui.Element {
+		return ui.Box(c).Width(w).Height(h).Radius(6).Background(hover).Shrink(0)
+	}
+	ui.Column(c.Key("loading")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
+		s.frame(c, sh, kit.BackdropOpts{}, func(size float32) {
+			ui.Box(c).Size(size, size).Radius(4).Background(hover).Shrink(0)
+		}, func() {
+			ui.Box(c).Height(36).WidthPercent(60).Radius(6).Background(hover)
+			ui.Box(c).Height(16).WidthPercent(45).Radius(6).Background(hover).Margin(14, 0, 0, 0)
+			ui.Box(c).Height(13).WidthPercent(35).Radius(6).Background(hover).Margin(8, 0, 0, 0)
+			ui.Row(c.Key("actions")).Gap(8).Margin(20, 0, 0, 0).Children(func() {
+				ui.Box(c).Size(40, 40).Radius(20).Background(hover)
+				ui.Box(c).Size(72, 32).Radius(6).Background(hover)
+			})
+		}, func() {
+			bar(72, 16).Margin(6, 0, 6, 0)
+			ui.Box(c.Key("ledger-rule")).FillWidth().Height(1).Background(theme.C("line")).Margin(0, 0, 12, 0)
+			for i := range 5 {
+				ui.Row(c.Key(i)).FillWidth().Height(18).AlignItems(ui.Center).Gap(16).Margin(0, 0, 6, 0).Children(func() {
+					bar(nameColumn, 14)
+					ui.Box(c).Height(14).WidthPercent(float32(25 + (i*19)%35)).Radius(6).Background(hover)
+				})
+			}
+			bar(64, 16).Margin(40, 0, 18, 0)
+			ui.Box(c.Key("rule")).FillWidth().Height(1).Background(theme.C("line"))
+			bar(88, 14).Margin(12, 0, 12, 0)
+			for from := 0; from < 2*sh.cols; from += sh.cols {
+				ui.Row(c.Key("people"+strconv.Itoa(from))).FillWidth().Gap(colGap).Margin(0, 0, 14, 0).Children(func() {
+					for range sh.cols {
+						ui.Row(c).Grow(1).Basis(0).Gap(12).Children(func() {
+							ui.Box(c).Size(avatar, avatar).Radius(avatar / 2).Background(hover).Shrink(0)
+							ui.Column(c).Gap(6).Margin(6, 0, 0, 0).Children(func() {
+								bar(110, 14)
+								bar(80, 12)
+							})
+						})
+					}
+				})
+			}
+		})
 	})
 }
 
 // lyricsShelf is LyricsBlock: the excerpt Apple sends, and the whole lyrics
 // on request.
-func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
+func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong, first bool) {
 	pg := &s.page
 	id := cmp.Or(page.Song.CatalogID, page.Song.ID)
 	var full store.Result[services.Lyrics]
@@ -225,7 +374,7 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 	if pg.full {
 		toggle = i18n.T("Show less")
 	}
-	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Lyrics"), First: true, Actions: func() {
+	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Lyrics"), First: first, Actions: func() {
 		if kit.ShelfToggle(c, toggle, pg.full).Clicked() {
 			pg.full = !pg.full
 			if pg.full && pg.failed {
@@ -275,24 +424,22 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong) {
 	})
 }
 
-// creditsShelf is Credits: one labelled section per credit group, each
-// person with a picture or initials, their name and roles.
-func (s *song) creditsShelf(c *ui.Context, groups []services.CreditGroup) {
-	cols := 1
-	if windowWidth(c) >= twoColumns {
-		cols = 2
-	}
+// creditsShelf is Credits: one labelled section per credit group under a
+// rule, each person with a picture or initials, their name and roles, cols
+// people to a row.
+func (s *song) creditsShelf(c *ui.Context, groups []services.CreditGroup, cols int, first bool) {
 	tk := theme.Current().Type
-	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Credits"), First: true}, func() {
-		ui.Column(c.Key("groups")).FillWidth().Gap(32).Children(func() {
+	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Credits"), First: first}, func() {
+		ui.Column(c.Key("groups")).FillWidth().Gap(20).Children(func() {
 			for gi, g := range groups {
 				title := creditTitle(g)
 				ui.Column(c.Key(gi)).FillWidth().Role(ui.RoleGroup).Label(title).Children(func() {
+					ui.Box(c.Key("rule")).FillWidth().Height(1).Background(theme.C("line"))
 					ui.Text(c, title).FontSize(tk["secondary"].Size).FixedLineHeight(tk["secondary"].LineHeight).FontWeight(600).
-						TextColor(theme.C("ink-muted")).Margin(0, 0, 8, 0).Role(ui.RoleHeading).Level(3)
-					ui.Column(c.Key("people")).FillWidth().Gap(12).Children(func() {
+						TextColor(theme.C("ink-muted")).Margin(12, 0, 12, 0).Role(ui.RoleHeading).Level(3)
+					ui.Column(c.Key("people")).FillWidth().Gap(14).Children(func() {
 						for from := 0; from < len(g.Credits); from += cols {
-							ui.Row(c.Key(from)).FillWidth().AlignItems(ui.Start).Gap(32).Children(func() {
+							ui.Row(c.Key(from)).FillWidth().AlignItems(ui.Start).Gap(colGap).Children(func() {
 								for i := from; i < from+cols; i++ {
 									if i >= len(g.Credits) {
 										ui.Box(c.Key(i)).Grow(1).Basis(0)
@@ -322,33 +469,50 @@ func (s *song) person(c *ui.Context, p services.Credit) {
 	})
 }
 
-// footer is the release date, composer and ISRC lines.
-func (s *song) footer(c *ui.Context, page services.CatalogSong) {
-	tk := theme.Current().Type["meta"]
-	line := func(key, text string, first bool) {
-		t := ui.Text(c.Key(key), text).FontSize(tk.Size).FixedLineHeight(tk.LineHeight).TextColor(theme.C("ink-muted"))
-		if !first {
-			t.Margin(2, 0, 0, 0)
+// ledger is the song's facts, one per row: a muted name and its value. A
+// fact Apple does not give has no row (the DTO has no label or ℗ line); it
+// reports whether there is a ledger at all.
+func (s *song) ledger(c *ui.Context, page services.CatalogSong) bool {
+	sg := page.Song
+	var rows [][2]string
+	add := func(name, value string) {
+		if value != "" {
+			rows = append(rows, [2]string{name, value})
 		}
 	}
-	var lines [][2]string
-	if page.Song.ReleaseDate != "" {
-		lines = append(lines, [2]string{"released", i18n.T("Released {releaseDate}", "releaseDate", i18n.FormatISODate(page.Song.ReleaseDate, i18n.DateLong))})
+	if sg.ReleaseDate != "" {
+		add(i18n.T("Released"), i18n.FormatISODate(sg.ReleaseDate, i18n.DateLong))
 	}
-	if page.Composer != "" {
-		lines = append(lines, [2]string{"composer", i18n.T("Composed by {composer}", "composer", page.Composer)})
+	if sg.DurationMs > 0 {
+		add(i18n.T("Duration"), i18n.FormatDuration(time.Duration(sg.DurationMs)*time.Millisecond))
 	}
-	if page.ISRC != "" {
-		lines = append(lines, [2]string{"isrc", i18n.T("ISRC {isrc}", "isrc", page.ISRC)})
+	add(i18n.T("Genre"), sg.Genre)
+	if sg.TrackNumber > 0 {
+		add(i18n.T("Track"), strconv.Itoa(sg.TrackNumber))
 	}
-	if len(lines) == 0 {
-		return
+	if sg.DiscNumber > 1 {
+		add(i18n.T("Disc"), strconv.Itoa(sg.DiscNumber))
 	}
-	ui.Column(c.Key("footer")).Margin(32, 2, 0, 2).Role(ui.RoleGroup).Children(func() {
-		for i, l := range lines {
-			line(l[0], l[1], i == 0)
-		}
+	add(i18n.T("Written by"), page.Composer)
+	add(i18n.T("ISRC"), page.ISRC)
+	if len(rows) == 0 {
+		return false
+	}
+	tk := theme.Current().Type["secondary"]
+	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Details"), First: true}, func() {
+		ui.Box(c.Key("rule")).FillWidth().Height(1).Background(theme.C("line")).Margin(0, 0, 12, 0)
+		ui.Column(c.Key("facts")).FillWidth().MaxWidth(ledgerMax).Gap(6).Children(func() {
+			for i, r := range rows {
+				ui.Row(c.Key(i)).FillWidth().AlignItems(ui.Start).Gap(16).Children(func() {
+					ui.Text(c.Key("name"), r[0]).FontSize(tk.Size).FixedLineHeight(tk.LineHeight).
+						TextColor(theme.C("ink-muted")).Width(nameColumn).Shrink(0)
+					ui.Text(c.Key("value"), r[1]).FontSize(tk.Size).FixedLineHeight(tk.LineHeight).
+						TextColor(theme.C("ink")).Grow(1).Basis(0).MinWidth(0)
+				})
+			}
+		})
 	})
+	return true
 }
 
 // signIn opens the account dialog from the "not signed in" error; nil (no

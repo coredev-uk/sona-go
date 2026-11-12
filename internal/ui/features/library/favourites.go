@@ -41,7 +41,7 @@ func (l *library) favouritePage(c *ui.Context, r *ui.Route) {
 	}
 	from := services.PlayFrom{Kind: "", ID: i18n.T("Favourite songs")}
 	pg.Scroll(c, "favourites", func(pane *kit.Pane, _ float32) {
-		kit.PageHeader(c, i18n.T("Favourite songs"), subline, func() {
+		l.pageHead(c, headOpts{title: i18n.T("Favourite songs"), count: subline, actions: func() {
 			play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{
 				PlayLabel: i18n.T("Play your favourite songs"), Shuffle: true, Disabled: list.Total == 0,
 			})
@@ -51,7 +51,7 @@ func (l *library) favouritePage(c *ui.Context, r *ui.Route) {
 			if shuffle {
 				l.env.Queue.ShuffleSongs(loadedSongs(list.Loaded()), from)
 			}
-		})
+		}})
 		switch {
 		case list.Err() != nil:
 			kit.ErrorBlock(c, i18n.T("Couldn't read your favourite songs from this computer"), list.Err(),
