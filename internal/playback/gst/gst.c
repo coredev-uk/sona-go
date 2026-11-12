@@ -349,19 +349,6 @@ int sona_gst_set_state(sona_gst* p, int state) {
   return r;
 }
 
-int sona_gst_get_state(sona_gst* p, int64_t timeout_ns, int* state, int* pending) {
-  GstState s = GST_STATE_VOID_PENDING, pend = GST_STATE_VOID_PENDING;
-  GstElement* pipe = out_ref(p);
-  int r = GST_STATE_CHANGE_FAILURE;
-  if (pipe) {
-    r = gst_element_get_state(pipe, &s, &pend, (GstClockTime)timeout_ns);
-    gst_object_unref(pipe);
-  }
-  *state = s;
-  *pending = pend;
-  return r;
-}
-
 int sona_gst_position(sona_gst* p, int64_t* pos_ns) {
   GstElement* pipe = out_ref(p);
   if (!pipe) return 0;

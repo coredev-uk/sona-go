@@ -128,13 +128,7 @@ func startSandboxed(exe string, env []string, log *slog.Logger) (proc, parentSan
 // withParent adds the parent's reason for an unconfined child.
 func (s Sandbox) withParent(ps parentSandbox) Sandbox {
 	s.Unconfined = ps.gap
-	if ps.reason != "" {
-		if s.Reason != "" {
-			s.Reason = ps.reason + "; " + s.Reason
-		} else {
-			s.Reason = ps.reason
-		}
-	}
+	s.Reason = joinReason(ps.reason, s.Reason)
 	return s
 }
 

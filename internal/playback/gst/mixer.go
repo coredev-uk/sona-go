@@ -224,10 +224,11 @@ func (m *mixer) mixFade(dst []float32, at int64) (n int, ok bool) {
 		ga, gb := m.gainOf(a), m.gainOf(b)
 		for i := range k {
 			x := (float64(m.fadePos) + float64(i)) / float64(m.fadeLen)
-			in := float32(math.Sin(x*math.Pi/2)) * gb
+			s, c := math.Sincos(x * math.Pi / 2)
+			in := float32(s) * gb
 			o0, o1 := fb[i*Channels]*in, fb[i*Channels+1]*in
 			if fa != nil {
-				gout := float32(math.Cos(x*math.Pi/2)) * ga
+				gout := float32(c) * ga
 				o0 += fa[i*Channels] * gout
 				o1 += fa[i*Channels+1] * gout
 			}

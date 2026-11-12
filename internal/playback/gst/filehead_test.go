@@ -157,7 +157,7 @@ func TestFilePipelineMovesOutputInEveryState(t *testing.T) {
 			within(t, bound, "pause", p.Pause)
 			waitFileEvent(t, p, EventAsyncDone)
 			from := c.before(t, p)
-			within(t, bound, "move", func() error { return p.SetDevice(sinks[1], "") })
+			within(t, bound, "move", func() error { return p.SetDevice(sinks[1]) })
 			if c.seek {
 				within(t, bound, "seek", func() error { return p.Seek(from) })
 			}

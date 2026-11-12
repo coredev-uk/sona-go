@@ -43,24 +43,7 @@ func newFake() *fakeEngine {
 }
 
 func (f *fakeEngine) emitLocked(kind playback.EventKind) {
-	ev := playback.Event{Kind: kind, Status: f.st}
-	select {
-	case f.events <- ev:
-	default:
-		select {
-		case <-f.events:
-		default:
-		}
-		f.events <- ev
-	}
-}
-
-func (f *fakeEngine) posLocked() time.Duration {
-	p := f.st.Position
-	if f.st.State == playback.StatePlaying {
-		p += time.Since(f.st.UpdatedAt)
-	}
-	return min(p, f.st.Duration)
+	playback.SendLatest(f.events, playback.Event{Kind: kind, Status: f.st})
 }
 
 // Play plays id at once; a held id loads until ctx ends. An ended ctx
@@ -104,7 +87,7 @@ func (f *fakeEngine) set(s playback.State, call string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, call)
-	f.st.Position, f.st.UpdatedAt, f.st.State = f.posLocked(), time.Now(), s
+	f.st.Position, f.st.UpdatedAt, f.st.State = f.st.PositionAt(time.Now()), time.Now(), s
 	f.emitLocked(playback.EventState)
 }
 
@@ -219,7 +202,7 @@ func (f *fakeEngine) fail(msg string) {
 func (f *fakeEngine) authFail() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.st.Position, f.st.UpdatedAt = f.posLocked(), time.Now()
+	f.st.Position, f.st.UpdatedAt = f.st.PositionAt(time.Now()), time.Now()
 	f.emitLocked(playback.EventAuth)
 }
 

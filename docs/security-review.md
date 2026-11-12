@@ -218,7 +218,7 @@ Sona downloads the Widevine CDM itself (`internal/playback/cdm`), with no prompt
 - After 3 consecutive failed host starts with the current version, the previous version becomes current again and the failed one is removed and rejected. Hosts using the override are not counted.
 - Old versions and leftovers are pruned. A new version applies to the next playback host, never a running one.
 
-**Sandbox** (`cdmhost/host.go`, `sandbox_fs.go`): the parent passes the CDM library's directory to the child (`SONA_CDMHOST_CDM_DIR`). The child keeps it in its filesystem view and bind-mounts it read-only wherever it lies, also under the private `/tmp`, where Landlock would otherwise allow writes. Code in the CDM cannot replace the installed library or `current.json`.
+**Sandbox** (`cdmhost/host.go`, `sandbox_fs_linux.go`): the parent passes the CDM library's directory to the child (`SONA_CDMHOST_CDM_DIR`). The child keeps it in its filesystem view and bind-mounts it read-only wherever it lies, also under the private `/tmp`, where Landlock would otherwise allow writes. Code in the CDM cannot replace the installed library or `current.json`.
 
 **Tests:** `internal/playback/cdm` (`manifest_test.go`, `crx3_test.go`, `extract_test.go`, `install_test.go`, `manager_test.go`, against fixture packages signed with test keys; `live_test.go` against the real manifest and package); `internal/playback/cdmhost` `TestLoadCheck*` (the check never starts GStreamer, a broken library is `ErrNotLoadable`, running out of time is not).
 

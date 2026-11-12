@@ -51,6 +51,20 @@ type Status struct {
 	Info StationInfo
 }
 
+// PositionAt extrapolates Position to now: while playing it advances by
+// the time since UpdatedAt, clamped to Duration (when known) and never
+// negative.
+func (s Status) PositionAt(now time.Time) time.Duration {
+	p := s.Position
+	if s.State == StatePlaying {
+		p += now.Sub(s.UpdatedAt)
+	}
+	if s.Duration > 0 {
+		p = min(p, s.Duration)
+	}
+	return max(p, 0)
+}
+
 // OnAir is a live broadcaster's now-playing metadata, as the stream gives
 // it (or, for a station whose stream carries none, as TuneIn does). Artist
 // is set when the source names it separately or the ICY line is "Artist -
@@ -117,6 +131,23 @@ type Next struct {
 type Event struct {
 	Kind   EventKind
 	Status Status
+}
+
+// SendLatest sends ev on ch, dropping the oldest unread event when ch is
+// full so the latest is never lost. Call it from one sender at a time
+// (under the sender's lock).
+func SendLatest(ch chan Event, ev Event) {
+	for {
+		select {
+		case ch <- ev:
+			return
+		default:
+		}
+		select {
+		case <-ch:
+		default:
+		}
+	}
 }
 
 // Engine renders one track at a time.

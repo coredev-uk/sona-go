@@ -320,30 +320,50 @@ func retryable(err error) bool {
 	return !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded)
 }
 
+// retrying runs op until it succeeds, retrying transient failures after
+// the delays in e.retry. onRetry sees each failure that will be retried
+// and returns the delay to wait. A ctx that ends, during op or the wait,
+// returns ctx.Err(); any other failure is op's last error.
+func (e *Engine) retrying(ctx context.Context, op func() error, onRetry func(err error, delay time.Duration) time.Duration) error {
+	for attempt := 0; ; attempt++ {
+		err := op()
+		if err == nil {
+			return nil
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if attempt >= len(e.retry) || !retryable(err) {
+			return err
+		}
+		t := time.NewTimer(onRetry(err, e.retry[attempt]))
+		select {
+		case <-t.C:
+		case <-ctx.Done():
+			t.Stop()
+			return ctx.Err()
+		}
+	}
+}
+
 // fetch GETs a CDN resource (or byte range of it), retrying transient
 // failures. A server that ignores Range is tolerated by slicing.
-func (e *Engine) fetch(ctx context.Context, url string, r hls.ByteRange) ([]byte, error) {
-	var err error
-	for attempt := 0; ; attempt++ {
-		var b []byte
-		if b, err = e.fetchOnce(ctx, url, r); err == nil {
-			return b, nil
-		}
-		if attempt >= len(e.retry) || !retryable(err) || ctx.Err() != nil {
-			return nil, err
-		}
-		delay := e.retry[attempt]
+func (e *Engine) fetch(ctx context.Context, url string, r hls.ByteRange) (b []byte, err error) {
+	err = e.retrying(ctx, func() (err error) {
+		b, err = e.fetchOnce(ctx, url, r)
+		return err
+	}, func(err error, delay time.Duration) time.Duration {
 		var he *httpError
 		if errors.As(err, &he) && he.code == http.StatusTooManyRequests {
 			delay = max(delay, time.Second)
 		}
 		e.log.Debug("retrying fetch", "url", url, "err", err, "in", delay)
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
+		return delay
+	})
+	if err != nil {
+		return nil, err
 	}
+	return b, nil
 }
 
 func (e *Engine) fetchOnce(ctx context.Context, url string, r hls.ByteRange) ([]byte, error) {
@@ -558,20 +578,23 @@ func (e *Engine) renew(h host, gen int, ev cdmhost.Event) {
 	e.log.Info("licence renewed", "id", m.id, "session", ev.Session, "took", time.Since(t0))
 }
 
-// feed streams m's segments from index from to the host for track tok,
-// fetching up to readAhead segments ahead.
-func (e *Engine) feed(ctx context.Context, it *item, tok uint64, h host, m *media, from int) {
-	type result struct {
-		data []byte
-		err  error
-	}
-	ch := make(chan result, e.readAhead)
+// segResult is one fetched segment, or why it could not be.
+type segResult struct {
+	data []byte
+	err  error
+}
+
+// readAhead runs get for segments from..to-1 in a goroutine and delivers
+// the results in order, up to n ahead of the consumer. It stops after the
+// first error or when ctx ends, and closes the channel.
+func readAhead(ctx context.Context, n, from, to int, get func(i int) ([]byte, error)) <-chan segResult {
+	ch := make(chan segResult, n)
 	go func() {
 		defer close(ch)
-		for i := from; i < len(m.pl.Segments); i++ {
-			b, err := e.segment(ctx, m, i)
+		for i := from; i < to; i++ {
+			b, err := get(i)
 			select {
-			case ch <- result{b, err}:
+			case ch <- segResult{b, err}:
 			case <-ctx.Done():
 				return
 			}
@@ -580,7 +603,13 @@ func (e *Engine) feed(ctx context.Context, it *item, tok uint64, h host, m *medi
 			}
 		}
 	}()
-	for r := range ch {
+	return ch
+}
+
+// feed streams m's segments from index from to the host for track tok,
+// fetching up to readAhead segments ahead.
+func (e *Engine) feed(ctx context.Context, it *item, tok uint64, h host, m *media, from int) {
+	for r := range readAhead(ctx, e.readAhead, from, len(m.pl.Segments), func(i int) ([]byte, error) { return e.segment(ctx, m, i) }) {
 		err := r.err
 		switch {
 		case err != nil:
@@ -593,17 +622,13 @@ func (e *Engine) feed(ctx context.Context, it *item, tok uint64, h host, m *medi
 			err = h.Feed(ctx, tok, r.data)
 		}
 		if err != nil {
-			if ctx.Err() == nil && !errors.Is(err, cdmhost.ErrStale) && !errors.Is(err, cdmhost.ErrExited) {
-				e.fail(it, err)
-			}
+			e.feedFailed(ctx, it, err)
 			return
 		}
 	}
 	if ctx.Err() == nil {
 		if err := h.EndOfTrack(ctx, tok); err != nil {
-			if !errors.Is(err, cdmhost.ErrStale) && !errors.Is(err, cdmhost.ErrExited) && ctx.Err() == nil {
-				_ = e.fail(it, err)
-			}
+			e.feedFailed(ctx, it, err)
 			return
 		}
 		e.fed(it, tok)
