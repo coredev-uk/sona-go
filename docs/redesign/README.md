@@ -33,7 +33,7 @@ Each page has its own folder here with `before-*.png` and `after-*.png` captures
 | Private listening | **Off the record.** A dashed chip while private. |
 | Widevine | **Inline progress.** A small meter beside the download percentage. |
 | Updates | **Release slip.** A compact card in the sidebar foot with its progress. |
-| Reminders | **Dated reminder.** The menu entry names the day and shows the bell's state. |
+| Reminders | **Dated reminder.** The menu entry names the day ("Remind me on 22 Nov"). |
 
 ## Result
 
