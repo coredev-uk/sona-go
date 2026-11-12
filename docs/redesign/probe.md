@@ -75,3 +75,19 @@ The same interleaved comparison against the b259a43 build, on a quiet machine:
 
 - **Against the budget:** the redesign's medians are 16.8 ms p95 and 17.3 ms worst, inside the budget of 17.96 ms and 19.6 ms.
 - **Against the interleaved base:** they equal the base build's. CPU work per frame is 1.10 / 1.30 ms (p50 / p95) on both.
+
+## After the #272 merge and the polish sweep (fd781ec0)
+
+Interleaved against the b259a43 build again. The machine's load average was about 10 when the runs started.
+
+| Pair | Base p95 | Base worst | Redesign p95 | Redesign worst |
+| --- | --- | --- | --- | --- |
+| 1 | 17.1 ms | 19.0 ms | 24.1 ms | 32.1 ms |
+| 2 | 17.3 ms | 18.7 ms | 17.2 ms | 18.7 ms |
+| 3 | 22.9 ms | 33.7 ms | 17.1 ms | 18.8 ms |
+| 4 | 17.8 ms | 27.3 ms | 17.1 ms | 18.1 ms |
+| 5 | 22.1 ms | 31.1 ms | 20.9 ms | 38.7 ms |
+| **Median** | **17.8 ms** | **27.3 ms** | **17.2 ms** | **18.8 ms** |
+
+- **Against the budget:** the redesign's medians are 17.2 ms p95 and 18.8 ms worst. Both are inside the budget of 17.96 ms and 19.6 ms.
+- **Against the interleaved base:** both medians are lower than the base build's. CPU work per frame is 1.30 ms p50 for both.
