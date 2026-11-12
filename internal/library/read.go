@@ -124,8 +124,9 @@ type Song struct {
 	HasLyrics       bool   `json:"hasLyrics"`
 	// NoPlayParams: Apple gave the song no playParams, as for the songs of a
 	// pre-added album that are not out yet. Album is the release state of
-	// its library album, read only for a song with no playParams or no
-	// releaseDate of its own (the ones that go by their album); zero
+	// its library album, read for a song with no playParams or no
+	// releaseDate of its own; a song without a date goes by it, a dated
+	// one by its date, playParams or not; zero
 	// otherwise, and when the album is not stored.
 	NoPlayParams bool         `json:"noPlayParams"`
 	Album        ReleaseState `json:"album"`

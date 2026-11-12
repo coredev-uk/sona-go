@@ -78,8 +78,14 @@ func (l *Library) RecentlyAdded(ctx context.Context, o ListOptions) ([]Added, in
 	return out, total, nil
 }
 
-// placeholders returns "?,?,…" for n ≥ 1 query arguments.
-func placeholders(n int) string { return "?" + strings.Repeat(",?", n-1) }
+// placeholders returns "?,?,…" for n arguments ("NULL" for none, which
+// matches nothing in an IN list).
+func placeholders(n int) string {
+	if n == 0 {
+		return "NULL"
+	}
+	return "?" + strings.Repeat(",?", n-1)
+}
 
 // anys is ids as query arguments.
 func anys(ids []string) []any {

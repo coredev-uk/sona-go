@@ -13,8 +13,7 @@
 //   - <feature>_dto.go: the feature's own DTOs, its event name constants
 //     (plain declarations, no registration here).
 //   - One line in registry.go: {"<feature>", svc(new<Feature>Service)}
-//     (the registry returns the typed instances; Core.Services lists them,
-//     Service[T] finds one).
+//     (the registry returns the typed instances; Service[T] finds one).
 //   - The UI calls the typed service directly (services.Service[T](core))
 //     from its feature package under internal/ui/features, and follows an
 //     event with store.On over Deps.Emit, so there is nothing else to
@@ -151,8 +150,9 @@
 // code "not_released". A pre-added library album has no release date of
 // its own: libAlbum takes its catalogue album's date and isPrerelease as
 // the library walk stored them (library.Album.CatalogReleaseDate,
-// Prerelease), and a library song with no playParams or date goes by its
-// album (libSong, PlaybackService). Reminders (reminders.go, table release_reminders)
+// Prerelease), and a library song with no date of its own goes by its
+// album, a dated one by its date, playParams or not (songUnreleased,
+// PlaybackService). Reminders (reminders.go, table release_reminders)
 // give one desktop notification when such an album comes out, or after
 // the first paint of the next start when Sona wasn't running then; the
 // notification's words come from the UI, and without
