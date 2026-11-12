@@ -81,7 +81,7 @@ const maxBandwidth = 4_000_000
 // Codec families a rendition is requested in. Apple's motion artwork has
 // H.264 and HEVC renditions of every size; H.264 is the one WebKitGTK's
 // GStreamer decodes almost everywhere (gst-libav), so HEVC is asked for
-// only where the web view can play HEVC but not H.264.
+// only where the UI can play HEVC but not H.264.
 const (
 	CodecH264 = "avc"
 	CodecHEVC = "hevc"

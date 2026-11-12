@@ -31,7 +31,7 @@ func (l *Library) RecentlyAdded(ctx context.Context, o ListOptions) ([]Added, in
 	type ref struct{ kind, id string }
 	refs, err := query(ctx, l, `SELECT li.kind, coalesce(a.library_id, p.library_id)`+recentlyAddedFrom+`
 		ORDER BY li.date_added IS NULL, li.date_added DESC, li.kind, li.ref DESC
-		LIMIT ? OFFSET ?`, func(sc interface{ Scan(...any) error }) (ref, error) {
+		LIMIT ? OFFSET ?`, func(sc scanner) (ref, error) {
 		var r ref
 		err := sc.Scan(&r.kind, &r.id)
 		return r, err
@@ -43,7 +43,7 @@ func (l *Library) RecentlyAdded(ctx context.Context, o ListOptions) ([]Added, in
 	if err := l.db.R.QueryRowContext(ctx, `SELECT count(*)`+recentlyAddedFrom).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("library: recently added: %w", err)
 	}
-	var albumIDs, playlistIDs []any
+	var albumIDs, playlistIDs []string
 	for _, r := range refs {
 		if r.kind == "album" {
 			albumIDs = append(albumIDs, r.id)
@@ -51,13 +51,11 @@ func (l *Library) RecentlyAdded(ctx context.Context, o ListOptions) ([]Added, in
 			playlistIDs = append(playlistIDs, r.id)
 		}
 	}
-	albums, err := query(ctx, l, `SELECT `+albumColumns+` FROM albums a
-		JOIN library_items li ON li.kind = 'album' AND li.ref = a.id WHERE a.library_id IN (`+placeholders(len(albumIDs))+`)`, scanAlbum, albumIDs...)
+	albums, err := byIDs(ctx, l, albumsByID, albumIDs, scanAlbum, func(a Album) string { return a.LibraryID })
 	if err != nil {
 		return nil, 0, err
 	}
-	pls, err := query(ctx, l, `SELECT `+playlistColumns+` FROM playlists p
-		JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id WHERE p.library_id IN (`+placeholders(len(playlistIDs))+`)`, scanPlaylist, playlistIDs...)
+	pls, err := byIDs(ctx, l, playlistsByID, playlistIDs, scanPlaylist, func(p Playlist) string { return p.LibraryID })
 	if err == nil {
 		err = l.FillCovers(ctx, pls)
 	}
@@ -80,13 +78,16 @@ func (l *Library) RecentlyAdded(ctx context.Context, o ListOptions) ([]Added, in
 	return out, total, nil
 }
 
-// placeholders returns "?, ?, …" for n arguments ("NULL" for none, which
-// matches nothing in an IN list).
-func placeholders(n int) string {
-	if n == 0 {
-		return "NULL"
+// placeholders returns "?,?,…" for n ≥ 1 query arguments.
+func placeholders(n int) string { return "?" + strings.Repeat(",?", n-1) }
+
+// anys is ids as query arguments.
+func anys(ids []string) []any {
+	out := make([]any, len(ids))
+	for i, id := range ids {
+		out[i] = id
 	}
-	return "?" + strings.Repeat(", ?", n-1)
+	return out
 }
 
 // favoriteSongsFrom selects library songs rated Favourite (the ratings

@@ -3,7 +3,6 @@ package applemusic
 import (
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -54,11 +53,6 @@ func (a *Artwork) Generated() bool {
 	}
 	u, err := url.Parse(a.URL)
 	return err == nil && strings.HasPrefix(u.Path, generatedPath)
-}
-
-// Sized fills a {w}x{h} artwork template (format jpg when {f} is present).
-func Sized(template string, w, h int) string {
-	return strings.NewReplacer("{w}", strconv.Itoa(w), "{h}", strconv.Itoa(h), "{f}", "jpg").Replace(template)
 }
 
 // PlayParams identifies a playable resource. Library resources carry
@@ -208,6 +202,24 @@ func (s Song) CatalogID() string {
 	return ""
 }
 
+// FirstAlbumID returns the ID of the song's first album relationship ("" when
+// it has none).
+func (s Song) FirstAlbumID() string {
+	if d := s.Relationships.Albums.Data; len(d) > 0 {
+		return d[0].ID
+	}
+	return ""
+}
+
+// FirstArtistID returns the ID of the song's first artist relationship ("" when
+// it has none).
+func (s Song) FirstArtistID() string {
+	if d := s.Relationships.Artists.Data; len(d) > 0 {
+		return d[0].ID
+	}
+	return ""
+}
+
 // Album is a catalog album ("albums") or library album ("library-albums").
 type Album struct {
 	Resource[AlbumAttributes]
@@ -231,6 +243,15 @@ func (a Album) CatalogID() string {
 	}
 	if len(a.Relationships.Catalog.Data) > 0 {
 		return a.Relationships.Catalog.Data[0].ID
+	}
+	return ""
+}
+
+// FirstArtistID returns the ID of the album's first artist relationship
+// ("" when it has none).
+func (a Album) FirstArtistID() string {
+	if d := a.Relationships.Artists.Data; len(d) > 0 {
+		return d[0].ID
 	}
 	return ""
 }

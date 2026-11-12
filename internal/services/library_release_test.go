@@ -71,6 +71,9 @@ func TestLibSongRelease(t *testing.T) {
 		{"playParams but no date of its own on an album ahead", library.Song{LibraryID: "i.1", Album: ahead}, release.Add(-time.Hour), false},
 		{"a song out, on an album ahead", library.Song{LibraryID: "i.1", ReleaseDate: "2026-09-17", Album: ahead}, release.Add(-time.Hour), true},
 		{"a song dated ahead", library.Song{LibraryID: "i.1", ReleaseDate: "2026-12-01"}, release, false},
+		// Apple dates only the songs already out, and PlaybackService plays a
+		// dated song whatever its album says: the list says so too.
+		{"no playParams but dated and out, on an album ahead", library.Song{LibraryID: "i.1", NoPlayParams: true, ReleaseDate: "2026-09-17", Album: ahead}, release.Add(-time.Hour), true},
 		{"no playParams on an album that is out", library.Song{LibraryID: "i.1", NoPlayParams: true, Album: library.ReleaseState{Date: "2020-01-01"}}, release, true},
 		{"no playParams, no stored album", library.Song{LibraryID: "i.1", NoPlayParams: true}, release, true},
 		{"no ID", library.Song{NoPlayParams: false}, release, false},

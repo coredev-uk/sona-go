@@ -3,12 +3,10 @@
 // whose renditions are fragmented MP4: one file read by byte ranges
 // (albums), or an initialisation file and segment files (editorial
 // playlists). The cache picks the rendition for the size the UI draws (in
-// the codec the web view plays), fetches its files once, remuxes them into
-// a plain MP4 whose timeline starts at 0 (WebKitGTK does not play Apple's
-// fragments, see flatten), and serves it to the web view (with Range
-// support) at /motion/<key>/<size>.mp4, so the UI never contacts
-// Apple and a looping video plays from disk. Least-recently-used files are
-// evicted over a size cap.
+// the codec the UI plays), fetches its files once and remuxes them into a
+// plain MP4 whose timeline starts at 0 (see flatten), so the UI never
+// contacts Apple and a looping video plays from disk. Local returns the
+// file. Least-recently-used files are evicted over a size cap.
 package motion
 
 import (
@@ -77,10 +75,10 @@ type Options struct {
 	HTTP     *http.Client
 	Logger   *slog.Logger // nil discards
 	MaxBytes int64        // disk cap; 0 means 256 MiB
-	Prefix   string       // URL path the handler is mounted at; "" means "/motion/"
+	Prefix   string       // path prefix of the URLs URL returns; "" means "/motion/"
 }
 
-// Cache hands out motion artwork URLs and serves them.
+// Cache hands out motion artwork URLs and keeps the files behind them.
 type Cache struct {
 	dir    string
 	http   *http.Client
@@ -190,55 +188,6 @@ func validKey(k string) bool {
 	return err == nil
 }
 
-// ServeHTTP serves "<prefix><key>/<size>.mp4" for keys handed out by URL
-// (or already on disk), sizes 16–2048, in H.264, or in HEVC with
-// "?codec=hevc" (for a web view that plays HEVC but not H.264). The first
-// request for a rendition waits for its download; later ones, and Range
-// requests while it loops, read the file on disk. Unknown keys are 404s,
-// so the web view cannot make Sona fetch anything it did not hand out
-// itself.
-func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		w.Header().Set("Allow", "GET, HEAD")
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	rest, ok := strings.CutPrefix(r.URL.Path, c.prefix)
-	key, name, ok2 := strings.Cut(rest, "/")
-	px, err := strconv.Atoi(strings.TrimSuffix(name, ".mp4"))
-	codec := cmp.Or(r.URL.Query().Get("codec"), CodecH264)
-	if !ok || !ok2 || !validKey(key) || err != nil || strconv.Itoa(px)+".mp4" != name || px < 16 || px > 2048 ||
-		(codec != CodecH264 && codec != CodecHEVC) {
-		http.NotFound(w, r)
-		return
-	}
-	path, err := c.ensure(r.Context(), key, bucket(px), codec)
-	switch {
-	case errors.Is(err, ErrUnknown):
-		http.NotFound(w, r)
-		return
-	case r.Context().Err() != nil:
-		return
-	case err != nil:
-		w.Header().Set("Cache-Control", "no-store")
-		http.Error(w, "motion artwork unavailable: "+err.Error(), http.StatusBadGateway)
-		return
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		w.Header().Set("Cache-Control", "no-store")
-		http.Error(w, "motion artwork unavailable", http.StatusInternalServerError)
-		return
-	}
-	defer func() { _ = f.Close() }()
-	c.touch(path)
-	h := w.Header()
-	h.Set("Content-Type", "video/mp4")
-	h.Set("Cache-Control", "public, max-age=31536000, immutable")
-	h.Set("X-Content-Type-Options", "nosniff")
-	http.ServeContent(w, r, "", time.Time{}, f)
-}
-
 // ErrUnknown is a motion artwork this cache did not hand out (a key URL
 // never returned, and no file of it on disk).
 var ErrUnknown = errors.New("motion: unknown artwork")
@@ -246,11 +195,9 @@ var ErrUnknown = errors.New("motion: unknown artwork")
 // Local returns the file of the motion artwork urlPath names
 // ("<prefix><key>/<n>.mp4" as URL returns it, a query ignored) at px device
 // pixels (16–2048) in codec (CodecH264 when ""), downloading it first when
-// it is not cached: the file ServeHTTP serves, for a caller in this process
-// (the native UI's decoder) that reads it without HTTP. The download is
-// shared with ServeHTTP's and completes even if ctx ends. The file may be
-// evicted later; ask again rather than keeping paths. A path this cache did
-// not hand out is ErrUnknown.
+// it is not cached. The download completes even if ctx ends. The file may
+// be evicted later; ask again rather than keeping paths. A path this cache
+// did not hand out is ErrUnknown.
 func (c *Cache) Local(ctx context.Context, urlPath string, px int, codec string) (string, error) {
 	p, _, _ := strings.Cut(urlPath, "?")
 	rest, ok := strings.CutPrefix(p, c.prefix)

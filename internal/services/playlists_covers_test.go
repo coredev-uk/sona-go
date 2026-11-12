@@ -441,7 +441,7 @@ func TestUploadingACoverShowsEverywhereAndIsKeptOnThisComputer(t *testing.T) {
 		t.Errorf("the file chooser was asked %+v", files.asks)
 	}
 	choice, err := r.lib.PlaylistCover(ctx, "p.mix")
-	if err != nil || choice.Kind != library.CoverUpload || !artwork.IsCover(choice.Template) || choice.Upload != choice.Template {
+	if err != nil || choice.Kind != library.CoverUpload || !strings.HasPrefix(choice.Template, "cover:") || choice.Upload != choice.Template {
 		t.Fatalf("stored choice = %+v, %v", choice, err)
 	}
 	r.everywhere(t, "p.mix", choice.Template)

@@ -567,12 +567,12 @@ func parseAppleLink(raw string) (kind, id string) {
 	case strings.HasSuffix(u.Path, "/wa/viewTop"):
 		return ItemCharts, normaliseGenre(q.Get("genreId"))
 	}
-	if q.Get("fcId") != "" && containsPart(parts, "collection") {
+	if q.Get("fcId") != "" && slices.Contains(parts, "collection") {
 		return ItemRoom, q.Get("fcId")
 	}
 	// Concerts: /concerts, /{sf}/concerts and /{sf}/concerts/{id} (a
 	// concert: the page lists them; its artist form is matched below).
-	if ci := slices.Index(parts, "concerts"); ci >= 0 && ci <= 1 && !containsPart(parts, "artist") {
+	if ci := slices.Index(parts, "concerts"); ci >= 0 && ci <= 1 && !slices.Contains(parts, "artist") {
 		return ItemConcerts, ""
 	}
 	// Path forms: /{sf}/{kind}/{slug?}/{id}.
@@ -580,7 +580,7 @@ func parseAppleLink(raw string) (kind, id string) {
 		return "", ""
 	}
 	switch {
-	case containsPart(parts, "top-charts"):
+	case slices.Contains(parts, "top-charts"):
 		if len(parts) > 0 && isDigits(last) && last != "top-charts" {
 			return ItemCharts, normaliseGenre(last)
 		}
@@ -607,15 +607,6 @@ func normaliseGenre(g string) string {
 		return ""
 	}
 	return g
-}
-
-func containsPart(parts []string, p string) bool {
-	for _, s := range parts {
-		if s == p {
-			return true
-		}
-	}
-	return false
 }
 
 func isDigits(s string) bool {

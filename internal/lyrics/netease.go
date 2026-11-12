@@ -90,7 +90,7 @@ func (p *NetEase) Fetch(ctx context.Context, req Request) (Lyrics, error) {
 		}
 		cs[i] = candidate{Title: so.Name, Artist: strings.Join(names, ", "), Album: so.Album.Name, Duration: time.Duration(so.Duration) * time.Millisecond}
 	}
-	i := best(req.Track, cs)
+	i := best(req.Track, cs, nil)
 	if i < 0 {
 		return Lyrics{}, ErrNotFound
 	}

@@ -67,6 +67,9 @@ func (t AlbumType) where() string {
 	return ""
 }
 
+// maxPage is the most rows a list call returns.
+const maxPage = 1000
+
 // ListOptions pages and orders a list. Limit 0 means 100; it is capped at
 // 1000. Type applies to albums only.
 type ListOptions struct {
@@ -82,7 +85,24 @@ func (o ListOptions) page() (limit, offset int) {
 	if limit <= 0 {
 		limit = 100
 	}
-	return min(limit, 1000), max(o.Offset, 0)
+	return min(limit, maxPage), max(o.Offset, 0)
+}
+
+// allPages collects the rows fetch lists from o.Offset on, a page at a time.
+func allPages[T any](o ListOptions, fetch func(ListOptions) ([]T, error)) ([]T, error) {
+	o.Limit = maxPage
+	var all []T
+	for {
+		page, err := fetch(o)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < maxPage {
+			return all, nil
+		}
+		o.Offset += len(page)
+	}
 }
 
 // Song is a library track.
@@ -199,7 +219,7 @@ const trackColumns = `t.library_id, t.catalog_id, t.name, t.artist_name, t.album
 	CASE WHEN t.no_play_params = 1 OR t.release_date = '' THEN coalesce((SELECT al.release_date FROM albums al WHERE al.library_id = t.album_library_id), '') ELSE '' END,
 	CASE WHEN t.no_play_params = 1 OR t.release_date = '' THEN coalesce((SELECT al.catalog_release_date FROM albums al WHERE al.library_id = t.album_library_id), '') ELSE '' END`
 
-func scanSong(sc interface{ Scan(...any) error }) (Song, error) {
+func scanSong(sc scanner) (Song, error) {
 	var s Song
 	var lib, cat, alb, art sql.NullString
 	var rating string
@@ -250,7 +270,10 @@ func dir(desc bool) string {
 	return "ASC"
 }
 
-func query[T any](ctx context.Context, l *Library, q string, scan func(interface{ Scan(...any) error }) (T, error), args ...any) ([]T, error) {
+// scanner is what a row and the sql.Rows cursor share: scan the columns.
+type scanner interface{ Scan(...any) error }
+
+func query[T any](ctx context.Context, l *Library, q string, scan func(scanner) (T, error), args ...any) ([]T, error) {
 	rows, err := l.db.R.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("library: %w", err)
@@ -289,11 +312,16 @@ func (l *Library) Songs(ctx context.Context, o ListOptions) ([]Song, error) {
 		ORDER BY `+order+` LIMIT ? OFFSET ?`, scanSong, limit, offset)
 }
 
+// AllSongs is Songs for every row from o.Offset on, collected page by page.
+func (l *Library) AllSongs(ctx context.Context, o ListOptions) ([]Song, error) {
+	return allPages(o, func(o ListOptions) ([]Song, error) { return l.Songs(ctx, o) })
+}
+
 const albumColumns = `a.library_id, a.catalog_id, a.name, a.artist_name, a.artist_library_id,
 	a.artwork_template, a.release_date, a.genre, a.track_count, a.content_rating, a.is_single, li.date_added,
 	a.is_prerelease, a.catalog_release_date`
 
-func scanAlbum(sc interface{ Scan(...any) error }) (Album, error) {
+func scanAlbum(sc scanner) (Album, error) {
 	var a Album
 	var lib, cat, art sql.NullString
 	var rating string
@@ -343,7 +371,7 @@ func (l *Library) AlbumCount(ctx context.Context, t AlbumType) (int, error) {
 	return n, nil
 }
 
-func scanArtist(sc interface{ Scan(...any) error }) (Artist, error) {
+func scanArtist(sc scanner) (Artist, error) {
 	var a Artist
 	var lib, cat sql.NullString
 	err := sc.Scan(&lib, &cat, &a.Name, &a.ArtworkTemplate)
@@ -354,7 +382,7 @@ func scanArtist(sc interface{ Scan(...any) error }) (Artist, error) {
 const playlistColumns = `p.library_id, p.catalog_id, p.name, p.description, p.curator_name,
 	p.artwork_template, p.can_edit, p.track_count, p.last_modified, li.date_added`
 
-func scanPlaylist(sc interface{ Scan(...any) error }) (Playlist, error) {
+func scanPlaylist(sc scanner) (Playlist, error) {
 	var p Playlist
 	var lib, cat sql.NullString
 	var canEdit int64
@@ -478,7 +506,7 @@ func (l *Library) ArtistIndex(ctx context.Context) ([]ArtistSummary, error) {
 			JOIN library_items x ON x.kind = 'album' AND x.ref = a.id GROUP BY 1) al ON al.id = r.library_id
 		LEFT JOIN (SELECT t.artist_library_id AS id, COUNT(*) AS n FROM tracks t
 			JOIN library_items x ON x.kind = 'song' AND x.ref = t.id GROUP BY 1) so ON so.id = r.library_id
-		ORDER BY r.name COLLATE NOCASE, r.id`, func(sc interface{ Scan(...any) error }) (ArtistSummary, error) {
+		ORDER BY r.name COLLATE NOCASE, r.id`, func(sc scanner) (ArtistSummary, error) {
 		var s ArtistSummary
 		var lib, cat sql.NullString
 		err := sc.Scan(&lib, &cat, &s.Name, &s.ArtworkTemplate, &s.Albums, &s.Songs)
@@ -487,12 +515,18 @@ func (l *Library) ArtistIndex(ctx context.Context) ([]ArtistSummary, error) {
 	})
 }
 
+// playlistRow is library playlist id's row, without the cover FillCovers
+// gives it. ErrNotFound when the library holds none.
+func (l *Library) playlistRow(ctx context.Context, id string) (Playlist, error) {
+	return one(query(ctx, l, `SELECT `+playlistColumns+` FROM playlists p
+		JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
+		WHERE p.library_id = ?`, scanPlaylist, id))
+}
+
 // Playlist returns library playlist id and a page of its tracks in
 // playlist order (o.Sort is ignored).
 func (l *Library) Playlist(ctx context.Context, id string, o ListOptions) (Playlist, []Song, error) {
-	p, err := one(query(ctx, l, `SELECT `+playlistColumns+` FROM playlists p
-		JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
-		WHERE p.library_id = ?`, scanPlaylist, id))
+	p, err := l.playlistRow(ctx, id)
 	if err != nil {
 		return Playlist{}, nil, err
 	}
@@ -508,6 +542,60 @@ func (l *Library) Playlist(ctx context.Context, id string, o ListOptions) (Playl
 		WHERE p.library_id = ?
 		ORDER BY pt.position LIMIT ? OFFSET ?`, scanSong, id, limit, offset)
 	return p, songs, err
+}
+
+// AllPlaylist is Playlist with every one of the playlist's tracks.
+func (l *Library) AllPlaylist(ctx context.Context, id string) (p Playlist, songs []Song, err error) {
+	songs, err = allPages(ListOptions{}, func(o ListOptions) ([]Song, error) {
+		var page []Song
+		p, page, err = l.Playlist(ctx, id, o)
+		return page, err
+	})
+	return p, songs, err
+}
+
+// PlacedPlaylist is a library playlist with its place in the folder tree.
+type PlacedPlaylist struct {
+	Playlist
+	FolderID  string // "" for the top level
+	Position  int
+	CanDelete bool
+	Favorited bool
+}
+
+// PlaylistTree returns the playlist folders and every library playlist
+// with its place in them, from SQLite. Covers are filled as FillCovers does.
+func (l *Library) PlaylistTree(ctx context.Context) ([]dbq.PlaylistFolder, []PlacedPlaylist, error) {
+	folders, err := l.db.RQ.ListPlaylistFolders(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	rows, err := l.db.RQ.LibraryPlaylistTree(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	pls := make([]Playlist, len(rows))
+	for i, r := range rows {
+		pls[i] = Playlist{
+			LibraryID: r.LibraryID.String, CatalogID: r.CatalogID.String, Name: r.Name, Description: r.Description,
+			CuratorName: r.CuratorName, ArtworkTemplate: r.ArtworkTemplate, CanEdit: r.CanEdit != 0,
+			TrackCount: int(r.TrackCount), LastModified: r.LastModified,
+		}
+		if r.DateAdded.Valid {
+			pls[i].DateAdded = db.Time(r.DateAdded.Int64)
+		}
+	}
+	if err := l.FillCovers(ctx, pls); err != nil {
+		return nil, nil, err
+	}
+	out := make([]PlacedPlaylist, len(rows))
+	for i, r := range rows {
+		out[i] = PlacedPlaylist{
+			Playlist: pls[i], FolderID: r.FolderID, Position: int(r.FolderPosition),
+			CanDelete: r.CanDelete != 0, Favorited: r.Favorited != 0,
+		}
+	}
+	return folders, out, nil
 }
 
 // Song returns library song id.
@@ -568,15 +656,13 @@ func (l *Library) Search(ctx context.Context, term string, limit int, kinds ...s
 	q := `SELECT kind, ref, name, artist, album, artwork FROM search_fts WHERE search_fts MATCH ?`
 	args := []any{match}
 	if len(kinds) > 0 {
-		q += ` AND kind IN (?` + strings.Repeat(",?", len(kinds)-1) + `)`
-		for _, k := range kinds {
-			args = append(args, k)
-		}
+		q += ` AND kind IN (` + placeholders(len(kinds)) + `)`
+		args = append(args, anys(kinds)...)
 	}
 	// Weights: kind, ref, artwork (unindexed), name, artist, album.
 	q += ` ORDER BY bm25(search_fts, 0, 0, 0, 10, 4, 2) LIMIT ?`
 	args = append(args, min(limit, 500))
-	return query(ctx, l, q, func(sc interface{ Scan(...any) error }) (Hit, error) {
+	return query(ctx, l, q, func(sc scanner) (Hit, error) {
 		var h Hit
 		err := sc.Scan(&h.Kind, &h.LibraryID, &h.Name, &h.ArtistName, &h.AlbumName, &h.ArtworkTemplate)
 		return h, err
@@ -626,20 +712,4 @@ func (l *Library) Rating(ctx context.Context, typ, id string) (int, error) {
 		return 0, nil
 	}
 	return int(v), err
-}
-
-// Favorites returns the IDs of resources of type typ rated Favourite, most
-// recently rated first.
-func (l *Library) Favorites(ctx context.Context, typ string) ([]string, error) {
-	rows, err := l.db.RQ.ListFavorites(ctx, typ)
-	if err != nil {
-		return nil, fmt.Errorf("library: favorites: %w", err)
-	}
-	out := make([]string, 0, len(rows))
-	for _, r := range rows {
-		if r.Value == applemusic.RatingFavorite {
-			out = append(out, r.AppleID)
-		}
-	}
-	return out, nil
 }

@@ -3,8 +3,6 @@ package artwork
 import (
 	"bytes"
 	"image"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -239,7 +237,7 @@ func TestMosaicInvalidatesWhenTheFourChange(t *testing.T) {
 	}
 }
 
-func TestMosaicPersistsAndIsServed(t *testing.T) {
+func TestMosaicPersists(t *testing.T) {
 	s := newImageServer(t)
 	dir := t.TempDir()
 	c := newCache(t, s, dir, 0)
@@ -251,16 +249,16 @@ func TestMosaicPersistsAndIsServed(t *testing.T) {
 	}
 	fetched := s.total()
 
-	// A new process finds the composed cover on disk and serves it at the
+	// A new process finds the composed cover on disk and returns it at the
 	// same URL without fetching or composing again.
 	c2 := newCache(t, s, dir, 0)
-	rec := httptest.NewRecorder()
-	c2.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, u, nil))
-	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/jpeg" {
-		t.Fatalf("served %d %s", rec.Code, rec.Header().Get("Content-Type"))
+	tmpl, ok := c2.Template(u)
+	if !ok || tmpl != m {
+		t.Fatalf("Template(%q) = %q, %v", u, tmpl, ok)
 	}
-	if !bytes.Equal(rec.Body.Bytes(), want) {
-		t.Fatal("served cover differs from the one composed")
+	got, err := c2.Get(t.Context(), tmpl, 120, 120)
+	if err != nil || !bytes.Equal(got, want) {
+		t.Fatalf("restored cover differs from the one composed: %v", err)
 	}
 	if s.total() != fetched {
 		t.Fatalf("refetched after restart: %d → %d", fetched, s.total())

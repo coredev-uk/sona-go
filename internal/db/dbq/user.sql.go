@@ -45,20 +45,6 @@ func (q *Queries) DeleteFavorite(ctx context.Context, arg DeleteFavoriteParams) 
 	return err
 }
 
-const deletePin = `-- name: DeletePin :exec
-DELETE FROM pins WHERE kind = ? AND apple_id = ?
-`
-
-type DeletePinParams struct {
-	Kind    string
-	AppleID string
-}
-
-func (q *Queries) DeletePin(ctx context.Context, arg DeletePinParams) error {
-	_, err := q.db.ExecContext(ctx, deletePin, arg.Kind, arg.AppleID)
-	return err
-}
-
 const deleteStaleFavorites = `-- name: DeleteStaleFavorites :execrows
 DELETE FROM favorites WHERE kind = ? AND updated_at < ?
 `
@@ -331,74 +317,6 @@ func (q *Queries) InsertHistory(ctx context.Context, arg InsertHistoryParams) (i
 	return id, err
 }
 
-const listFavorites = `-- name: ListFavorites :many
-SELECT kind, apple_id, value, updated_at FROM favorites WHERE kind = ? ORDER BY updated_at DESC
-`
-
-func (q *Queries) ListFavorites(ctx context.Context, kind string) ([]Favorite, error) {
-	rows, err := q.db.QueryContext(ctx, listFavorites, kind)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Favorite{}
-	for rows.Next() {
-		var i Favorite
-		if err := rows.Scan(
-			&i.Kind,
-			&i.AppleID,
-			&i.Value,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listPins = `-- name: ListPins :many
-SELECT kind, apple_id, name, subtitle, artwork_template, position, pinned_at, "action" FROM pins ORDER BY position, pinned_at
-`
-
-func (q *Queries) ListPins(ctx context.Context) ([]Pin, error) {
-	rows, err := q.db.QueryContext(ctx, listPins)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Pin{}
-	for rows.Next() {
-		var i Pin
-		if err := rows.Scan(
-			&i.Kind,
-			&i.AppleID,
-			&i.Name,
-			&i.Subtitle,
-			&i.ArtworkTemplate,
-			&i.Position,
-			&i.PinnedAt,
-			&i.Action,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listSyncState = `-- name: ListSyncState :many
 SELECT domain, generation, in_progress, next_offset, cursor, total, last_started, last_success, last_error, last_full FROM sync_state ORDER BY domain
 `
@@ -448,34 +366,6 @@ type ResumeSyncParams struct {
 
 func (q *Queries) ResumeSync(ctx context.Context, arg ResumeSyncParams) error {
 	_, err := q.db.ExecContext(ctx, resumeSync, arg.LastStarted, arg.Domain)
-	return err
-}
-
-const setAccountValidated = `-- name: SetAccountValidated :exec
-UPDATE accounts SET mut_last_validated_at = ?, updated_at = ? WHERE id = 1
-`
-
-type SetAccountValidatedParams struct {
-	MutLastValidatedAt sql.NullInt64
-	UpdatedAt          int64
-}
-
-func (q *Queries) SetAccountValidated(ctx context.Context, arg SetAccountValidatedParams) error {
-	_, err := q.db.ExecContext(ctx, setAccountValidated, arg.MutLastValidatedAt, arg.UpdatedAt)
-	return err
-}
-
-const setHistoryPlayed = `-- name: SetHistoryPlayed :exec
-UPDATE playback_history SET played_ms = ? WHERE id = ?
-`
-
-type SetHistoryPlayedParams struct {
-	PlayedMs int64
-	ID       int64
-}
-
-func (q *Queries) SetHistoryPlayed(ctx context.Context, arg SetHistoryPlayedParams) error {
-	_, err := q.db.ExecContext(ctx, setHistoryPlayed, arg.PlayedMs, arg.ID)
 	return err
 }
 
@@ -569,39 +459,6 @@ func (q *Queries) UpsertFavorite(ctx context.Context, arg UpsertFavoriteParams) 
 		arg.AppleID,
 		arg.Value,
 		arg.UpdatedAt,
-	)
-	return err
-}
-
-const upsertPin = `-- name: UpsertPin :exec
-INSERT INTO pins (kind, apple_id, name, subtitle, artwork_template, position, pinned_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (kind, apple_id) DO UPDATE SET
-    name = excluded.name,
-    subtitle = excluded.subtitle,
-    artwork_template = excluded.artwork_template,
-    position = excluded.position
-`
-
-type UpsertPinParams struct {
-	Kind            string
-	AppleID         string
-	Name            string
-	Subtitle        string
-	ArtworkTemplate string
-	Position        int64
-	PinnedAt        int64
-}
-
-func (q *Queries) UpsertPin(ctx context.Context, arg UpsertPinParams) error {
-	_, err := q.db.ExecContext(ctx, upsertPin,
-		arg.Kind,
-		arg.AppleID,
-		arg.Name,
-		arg.Subtitle,
-		arg.ArtworkTemplate,
-		arg.Position,
-		arg.PinnedAt,
 	)
 	return err
 }

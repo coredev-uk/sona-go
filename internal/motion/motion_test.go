@@ -62,7 +62,7 @@ func TestChoose(t *testing.T) {
 		// Nothing wide enough: the largest, under the bit-rate cap
 		// (both 1080 renditions exceed it: the lower one).
 		{2000, CodecH264, "video_1080.m3u8"},
-		// A web view that plays HEVC but not H.264 gets HEVC.
+		// A UI that plays HEVC but not H.264 gets HEVC.
 		{480, CodecHEVC, "hevc_768.m3u8"},
 	} {
 		v, ok := choose(vs, tc.minWidth, tc.codec)
@@ -201,14 +201,13 @@ func newTestCache(t *testing.T, srv *httptest.Server, max int64) *Cache {
 	return c
 }
 
-func get(c *Cache, path string, header http.Header) *httptest.ResponseRecorder {
-	r := httptest.NewRequest(http.MethodGet, path, nil)
-	for k, v := range header {
-		r.Header[k] = v
+// fetch is the file Local returns for urlPath at px device pixels, read.
+func fetch(c *Cache, urlPath string, px int, codec string) ([]byte, error) {
+	p, err := c.Local(context.Background(), urlPath, px, codec)
+	if err != nil {
+		return nil, err
 	}
-	w := httptest.NewRecorder()
-	c.ServeHTTP(w, r)
-	return w
+	return os.ReadFile(p)
 }
 
 // flattened is what the cache serves for the fragmented file b.
@@ -221,7 +220,7 @@ func flattened(t *testing.T, b []byte) []byte {
 	return out
 }
 
-func TestServe(t *testing.T) {
+func TestRenditions(t *testing.T) {
 	srv, hits, files := fakeCDN(t)
 	c := newTestCache(t, srv, 0)
 	if got := c.URL("http://example.com/master.m3u8"); got != "" {
@@ -234,26 +233,25 @@ func TestServe(t *testing.T) {
 	key := strings.Split(u, "/")[2]
 
 	// A header cover (400 device px) gets the 486 px rendition, remuxed.
-	small := strings.Replace(u, "/720.mp4", "/400.mp4", 1)
-	w := get(c, small, nil)
-	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), flattened(t, files["v486"])) || w.Header().Get("Content-Type") != "video/mp4" {
-		t.Fatalf("small: %d %q (%d bytes)", w.Code, w.Header().Get("Content-Type"), w.Body.Len())
+	b, err := fetch(c, u, 400, "")
+	if err != nil || !bytes.Equal(b, flattened(t, files["v486"])) {
+		t.Fatalf("small: %v (%d bytes)", err, len(b))
 	}
 	// The now-playing cover gets the 768 px one.
-	w = get(c, u, nil)
-	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), flattened(t, files["v768"])) {
-		t.Fatalf("large: %d (%d bytes)", w.Code, w.Body.Len())
+	b, err = fetch(c, u, 720, "")
+	if err != nil || !bytes.Equal(b, flattened(t, files["v768"])) {
+		t.Fatalf("large: %v (%d bytes)", err, len(b))
 	}
 	// A cover tile (300 device px) gets the 360 px one, packaged as an
 	// initialisation file and segments.
-	w = get(c, strings.Replace(u, "/720.mp4", "/300.mp4", 1), nil)
-	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), flattened(t, files["v360"])) {
-		t.Fatalf("tile: %d (%d bytes) %s", w.Code, w.Body.Len(), w.Body.String())
+	b, err = fetch(c, u, 300, "")
+	if err != nil || !bytes.Equal(b, flattened(t, files["v360"])) {
+		t.Fatalf("tile: %v (%d bytes)", err, len(b))
 	}
-	// A web view that plays only HEVC asks for it; it is a file of its own.
-	w = get(c, u+"?codec=hevc", nil)
-	if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), flattened(t, files["h768"])) {
-		t.Fatalf("hevc: %d (%d bytes)", w.Code, w.Body.Len())
+	// A caller that plays only HEVC asks for it; it is a file of its own.
+	b, err = fetch(c, u, 720, CodecHEVC)
+	if err != nil || !bytes.Equal(b, flattened(t, files["h768"])) {
+		t.Fatalf("hevc: %v (%d bytes)", err, len(b))
 	}
 	if _, err := os.Stat(c.path(key, 720, CodecHEVC)); err != nil {
 		t.Errorf("hevc file: %v", err)
@@ -263,30 +261,19 @@ func TestServe(t *testing.T) {
 		t.Errorf("stats = %+v", s)
 	}
 
-	// Loops and seeks read the disk copy, by range.
+	// Loops and seeks read the disk copy.
 	before := hits.Load()
-	w = get(c, small, http.Header{"Range": {"bytes=100-199"}})
-	if w.Code != http.StatusPartialContent || w.Body.Len() != 100 {
-		t.Errorf("range: %d, %d bytes", w.Code, w.Body.Len())
+	if _, err := fetch(c, u, 400, ""); err != nil {
+		t.Errorf("cached: %v", err)
 	}
 	if hits.Load() != before {
 		t.Errorf("a cached rendition went to the network (%d requests)", hits.Load()-before)
 	}
 
-	// Only handed-out keys are fetched, in a codec Sona knows.
-	if w := get(c, "/motion/0123456789abcdef01234567/400.mp4", nil); w.Code != http.StatusNotFound {
-		t.Errorf("unknown key: %d", w.Code)
-	}
-	for _, bad := range []string{"/motion/xyz/400.mp4", strings.Replace(u, "720.mp4", "4000.mp4", 1), strings.Replace(u, "720.mp4", "0400.mp4", 1), u + "?codec=vp9"} {
-		if w := get(c, bad, nil); w.Code != http.StatusNotFound {
-			t.Errorf("%s: %d", bad, w.Code)
-		}
-	}
-
-	// A failed download says why, to the web view and in Stats.
+	// A failed download says why, and in Stats.
 	hdr := c.URL(srv.URL + "/hdr/master.m3u8")
-	if w := get(c, hdr, nil); w.Code != http.StatusBadGateway || !strings.Contains(w.Body.String(), "no H.264 rendition") {
-		t.Errorf("HDR only: %d %q", w.Code, w.Body.String())
+	if _, err := fetch(c, hdr, 720, ""); !errors.Is(err, ErrNoRendition) || !strings.Contains(err.Error(), "no H.264 rendition") {
+		t.Errorf("HDR only: %v", err)
 	}
 	if s := c.Stats(); s.Files != 4 || !errors.Is(s.Last.Err, ErrNoRendition) || s.Last.Rendition != "" {
 		t.Errorf("stats after a failure = %+v", s)
@@ -310,7 +297,7 @@ func TestLocal(t *testing.T) {
 	key := strings.Split(u, "/")[2]
 	ctx := context.Background()
 
-	// The file ServeHTTP serves, downloaded on first ask: a 360 px tile
+	// Downloaded on first ask: a 360 px tile
 	// (device pixels) gets the 360 bucket whatever size the URL names.
 	p, err := c.Local(ctx, u+"?x=1", 300, "")
 	if err != nil {
@@ -372,11 +359,11 @@ func TestEvict(t *testing.T) {
 	c := newTestCache(t, srv, int64(n486+n768-1))
 	u := c.URL(srv.URL + "/v/master.m3u8")
 	small := strings.Replace(u, "/720.mp4", "/400.mp4", 1)
-	if w := get(c, small, nil); w.Code != http.StatusOK {
-		t.Fatal(w.Code)
+	if _, err := fetch(c, small, 400, ""); err != nil {
+		t.Fatal(err)
 	}
-	if w := get(c, u, nil); w.Code != http.StatusOK {
-		t.Fatal(w.Code)
+	if _, err := fetch(c, u, 720, ""); err != nil {
+		t.Fatal(err)
 	}
 	// Both files exceed the cap: the older one goes.
 	names, _ := filepath.Glob(filepath.Join(c.dir, "*.mp4"))
@@ -396,8 +383,8 @@ func TestEvictKeepsTheNewDownload(t *testing.T) {
 	c := newTestCache(t, srv, int64(n486+n768-1))
 	u := c.URL(srv.URL + "/v/master.m3u8")
 	small := strings.Replace(u, "/720.mp4", "/400.mp4", 1)
-	if w := get(c, small, nil); w.Code != http.StatusOK {
-		t.Fatal(w.Code)
+	if _, err := fetch(c, small, 400, ""); err != nil {
+		t.Fatal(err)
 	}
 	key := strings.Split(u, "/")[2]
 	first, _ := filepath.Glob(filepath.Join(c.dir, "*.mp4"))
@@ -408,8 +395,8 @@ func TestEvictKeepsTheNewDownload(t *testing.T) {
 	if err := os.Chtimes(first[0], future, future); err != nil {
 		t.Fatal(err)
 	}
-	if w := get(c, u, nil); w.Code != http.StatusOK {
-		t.Fatalf("new download: %d", w.Code)
+	if _, err := fetch(c, u, 720, ""); err != nil {
+		t.Fatalf("new download: %v", err)
 	}
 	if _, err := os.Stat(c.path(key, 720, CodecH264)); err != nil {
 		t.Errorf("the new download was evicted: %v", err)
@@ -438,8 +425,8 @@ func TestRedirectLeavingAllowList(t *testing.T) {
 		t.Cleanup(srv.Close)
 		c := newTestCache(t, srv, 0)
 		u := c.URL(srv.URL + "/v/master.m3u8")
-		if w := get(c, u, nil); w.Code == http.StatusOK {
-			t.Errorf("redirect to %s: served %d bytes", target, w.Body.Len())
+		if b, err := fetch(c, u, 720, ""); err == nil {
+			t.Errorf("redirect to %s: got %d bytes", target, len(b))
 		}
 	}
 	if n := evilHits.Load(); n != 0 {

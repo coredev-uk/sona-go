@@ -53,6 +53,12 @@ func (e *Env) Report(err error) {
 	}
 }
 
+// hasMUT reports whether a Music User Token is available (Home, the
+// user's own concert artists and the social search need one).
+func (e *Env) hasMUT() bool {
+	return e.API.UserToken != nil && e.API.UserToken() != ""
+}
+
 // Fail reports err (see Report) and returns it, for one-line returns.
 func (e *Env) Fail(err error) error {
 	e.Report(err)

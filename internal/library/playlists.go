@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
+	"github.com/coredev-uk/sona-go/internal/catalog"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
 )
@@ -127,7 +128,7 @@ func storePlaylistTracks(ctx context.Context, q *dbq.Queries, plID int64, libID,
 		var id int64
 		var err error
 		if t.Type == applemusic.TypeSongs {
-			id, err = q.UpsertCatalogTrack(ctx, catalogTrackParams(t, now))
+			id, err = catalog.StoreSong(ctx, q, t, now)
 		} else {
 			id, err = q.UpsertLibraryTrack(ctx, libraryTrackParams(t, now))
 		}
@@ -162,12 +163,7 @@ func (l *Library) StorePlaylist(ctx context.Context, p applemusic.Playlist, fold
 	now := db.Millis(time.Now())
 	return l.db.Tx(ctx, func(q *dbq.Queries) error {
 		_, existed := q.GetPlaylistByLibraryID(ctx, db.NullString(p.ID))
-		id, err := q.UpsertLibraryPlaylist(ctx, dbq.UpsertLibraryPlaylistParams{
-			LibraryID: db.NullString(p.ID), CatalogID: db.NullString(p.CatalogID()),
-			Name: a.Name, Description: a.Description.Text(), CuratorName: a.CuratorName,
-			ArtworkTemplate: a.Artwork.Template(), CanEdit: db.Bool(a.CanEdit), IsPublic: db.Bool(a.IsPublic),
-			LastModified: a.LastModifiedDate, UpdatedAt: now,
-		})
+		id, err := q.UpsertLibraryPlaylist(ctx, libraryPlaylistParams(p, now))
 		if err != nil {
 			return fmt.Errorf("library: store playlist %s: %w", p.ID, err)
 		}

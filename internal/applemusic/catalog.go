@@ -22,9 +22,15 @@ const (
 	TypeLibraryPlaylists = "library-playlists"
 )
 
-func catalogPath(sf string, parts ...string) string {
+// CatalogPath builds "/v1/catalog/{sf}/{parts...}" with each part escaped.
+func CatalogPath(sf string, parts ...string) string { return scopedPath("catalog", sf, parts...) }
+
+// scopedPath builds "/v1/{scope}/{sf}/{parts...}" with each part escaped.
+func scopedPath(scope, sf string, parts ...string) string {
 	var b strings.Builder
-	b.WriteString("/v1/catalog/")
+	b.WriteString("/v1/")
+	b.WriteString(scope)
+	b.WriteByte('/')
 	b.WriteString(url.PathEscape(sf))
 	for _, p := range parts {
 		b.WriteByte('/')

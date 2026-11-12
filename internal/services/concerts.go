@@ -1,6 +1,7 @@
 package services
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"math"
@@ -42,11 +43,6 @@ type ConcertsService struct {
 func newConcertsService(e *Env) *ConcertsService { return &ConcertsService{e: e} }
 
 func (s *ConcertsService) fail(err error) error { return s.e.Fail(err) }
-
-// signedIn: a Music User Token is available (the user's own artists need it).
-func (s *ConcertsService) signedIn() bool {
-	return s.e.API.UserToken != nil && s.e.API.UserToken() != ""
-}
 
 // city is the place concerts are looked for, and whether it is only the
 // default.
@@ -108,7 +104,7 @@ func (s *ConcertsService) Concerts(ctx context.Context, req ConcertsRequest) (Co
 	}
 	city, isDefault := s.city()
 	q.GeoHash = city.Geohash()
-	signed := s.signedIn()
+	signed := s.e.hasMUT()
 	q.Favourites = signed
 	key := fmt.Sprintf("concerts|%s|%s|%s|%s|%d|%t|%s", q.GeoHash, q.From, q.To, strings.Join(q.Genres, ","),
 		q.Limit, signed, s.day())
@@ -134,7 +130,7 @@ func (s *ConcertsService) Concerts(ctx context.Context, req ConcertsRequest) (Co
 			p.YourArtists++
 		}
 	}
-	gs, gerr := s.genres(ctx)
+	gs, gerr := s.e.genres(ctx)
 	if gerr != nil {
 		s.e.Logger.Warn("concerts: genres", "err", gerr)
 	} else {
@@ -206,24 +202,6 @@ func (s *ConcertsService) query(req ConcertsRequest) (applemusic.ConcertsQuery, 
 	return q, nil
 }
 
-// genres lists the genres to filter by; the cache entry is Discover's.
-func (s *ConcertsService) genres(ctx context.Context) ([]Genre, error) {
-	gs, _, err := cachedPage(ctx, s.e, "genres", false, genresTTL,
-		func(ctx context.Context, sf string) ([]applemusic.Resource[applemusic.GenreAttributes], error) {
-			return applemusic.Genres(ctx, s.e.API, sf)
-		}, nil)
-	if err != nil {
-		return nil, err
-	}
-	out := []Genre{{ID: "", Name: "All genres"}}
-	for _, g := range gs {
-		if g.ID != applemusic.GenreAllMusic {
-			out = append(out, Genre{ID: g.ID, Name: g.Attributes.Name})
-		}
-	}
-	return out, nil
-}
-
 // concerts maps Apple's concerts, soonest first, with each one's distance
 // from city.
 func (s *ConcertsService) concerts(in []applemusic.Concert, from places.City, following map[string]bool) []Concert {
@@ -231,15 +209,7 @@ func (s *ConcertsService) concerts(in []applemusic.Concert, from places.City, fo
 	for _, c := range in {
 		out = append(out, s.concert(c, from, following[c.ID]))
 	}
-	slices.SortStableFunc(out, func(a, b Concert) int {
-		switch {
-		case a.StartsAt < b.StartsAt:
-			return -1
-		case a.StartsAt > b.StartsAt:
-			return 1
-		}
-		return 0
-	})
+	slices.SortStableFunc(out, func(a, b Concert) int { return cmp.Compare(a.StartsAt, b.StartsAt) })
 	return out
 }
 

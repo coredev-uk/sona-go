@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strconv"
 )
 
 // AlbumViews are the album page's sections (views=…), each the first page
@@ -51,37 +50,8 @@ func AlbumPage(ctx context.Context, c *Client, sf, id string) (Album, error) {
 	if err != nil {
 		return Album{}, err
 	}
-	if err := followAMP(ctx, c, &a.Relationships.Tracks, url.Values{"include[songs]": {"artists"}}); err != nil {
+	if err := followNext(ctx, c, &a.Relationships.Tracks, c.ampBase(), url.Values{"include[songs]": {"artists"}, "platform": {"web"}}); err != nil {
 		return Album{}, fmt.Errorf("album %s tracks: %w", id, err)
 	}
 	return a, nil
-}
-
-// followAMP appends the remaining pages of an amp-api relationship (from
-// rel.Next) to rel.Data, 100 items per request, sending extra with each
-// page, and clears rel.Next.
-func followAMP[T any](ctx context.Context, c *Client, rel *Relationship[T], extra url.Values) error {
-	for rel.Next != "" {
-		u, err := url.Parse(rel.Next)
-		if err != nil {
-			return err
-		}
-		q := u.Query()
-		for k, v := range extra {
-			q[k] = v
-		}
-		q.Set("limit", strconv.Itoa(defaultPageSize))
-		q.Set("platform", "web")
-		var p Relationship[T]
-		if err := c.Get(ctx, c.ampBase()+u.Path, q, &p); err != nil {
-			return err
-		}
-		rel.Data = append(rel.Data, p.Data...)
-		if p.Next == rel.Next || len(p.Data) == 0 {
-			break
-		}
-		rel.Next = p.Next
-	}
-	rel.Next = ""
-	return nil
 }

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -42,10 +43,6 @@ func (s *SearchService) storefront() (string, error) {
 	return sf, nil
 }
 
-func (s *SearchService) signedIn() bool {
-	return s.e.API.UserToken != nil && s.e.API.UserToken() != ""
-}
-
 // Catalog searches Apple Music: every result group in Apple's order, then
 // profiles and user-shared playlists (signed in only; a failed social
 // search leaves them out rather than failing the search).
@@ -60,7 +57,7 @@ func (s *SearchService) Catalog(ctx context.Context, term string) (SearchResults
 		social    applemusic.SearchResults
 		socialErr error
 	)
-	if s.signedIn() {
+	if s.e.hasMUT() {
 		if sf, err := s.storefront(); err == nil {
 			wg.Go(func() {
 				social, socialErr = applemusic.SocialSearch(ctx, s.e.API, sf, term, applemusic.SearchOptions{Limit: firstPage})
@@ -189,7 +186,7 @@ func (s *SearchService) Library(ctx context.Context, term string, perKind int) (
 		return LibrarySearch{}, err
 	}
 	out := LibrarySearch{
-		Songs: s.m.libSongs(r.Songs), Albums: s.m.libAlbums(r.Albums),
+		Songs: mapSlice(r.Songs, s.m.libSong), Albums: mapSlice(r.Albums, s.m.libAlbum),
 		Artists: make([]Artist, len(r.Artists)), Playlists: make([]Playlist, len(r.Playlists)),
 		SongsMore: r.SongsMore, AlbumsMore: r.AlbumsMore, ArtistsMore: r.ArtistsMore, PlaylistsMore: r.PlaylistsMore,
 	}
@@ -320,14 +317,7 @@ func (s *SearchService) socialSection(group string, g applemusic.SearchGroup, re
 // items maps result references to cards, dropping kinds Sona has no page
 // for (ItemLink: uploaded videos, music movies, …).
 func (s *SearchService) items(refs []applemusic.Ref, res applemusic.Resources) []Item {
-	all := s.m.items(res, refs)
-	out := all[:0]
-	for _, it := range all {
-		if it.Kind != ItemLink {
-			out = append(out, it)
-		}
-	}
-	return out
+	return slices.DeleteFunc(s.m.items(res, refs), func(it Item) bool { return it.Kind == ItemLink })
 }
 
 // profileItem is a profile as a search card.

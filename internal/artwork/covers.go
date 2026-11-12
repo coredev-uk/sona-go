@@ -45,12 +45,6 @@ var ErrCoverImage = errors.New("artwork: unusable cover image")
 // ErrNoCoverDir reports a Cache built without Options.CoverDir.
 var ErrNoCoverDir = errors.New("artwork: covers are not stored here")
 
-// IsCover reports whether tmpl is a valid template of a stored cover.
-func IsCover(tmpl string) bool {
-	rest, ok := strings.CutPrefix(tmpl, coverPrefix)
-	return ok && validKey(rest)
-}
-
 // parseCover validates the part of a cover template after its prefix.
 func parseCover(rest string) (string, string, error) {
 	if !validKey(rest) {
