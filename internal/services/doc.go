@@ -108,7 +108,7 @@
 // first-paint gate, which the update check, started only from OnNetwork or
 // on request, does without). A service that reaches outside the process goes
 // through them (internal/ui/uitest gives both fakes), never through
-// http.DefaultClient or store.OpenSecret.
+// http.DefaultClient or store.OpenSecretWith.
 //
 // PlatformService.Capabilities (platform_dto.go) is the capability list
 // the UI reads once at start: the engine's kind and what it supports

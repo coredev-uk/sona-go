@@ -25,33 +25,6 @@ func langOf(tag string) string {
 	return l
 }
 
-// MatchLocale returns the first of available that fits a preferred tag: an
-// exact match ("pt-BR"), else one for the same language ("en-GB" → "en",
-// "pt-BR" → "pt-PT"), ignoring case. Empty preferences are skipped.
-func MatchLocale(preferred, available []string) (string, bool) {
-	lower := make([]string, len(available))
-	for i, a := range available {
-		lower[i] = strings.ToLower(a)
-	}
-	for _, tag := range preferred {
-		if tag == "" {
-			continue
-		}
-		want := strings.ToLower(tag)
-		i := slices.Index(lower, want)
-		if i < 0 {
-			i = slices.Index(lower, langOf(want))
-		}
-		if i < 0 {
-			i = slices.IndexFunc(lower, func(a string) bool { return langOf(a) == langOf(want) })
-		}
-		if i >= 0 {
-			return available[i], true
-		}
-	}
-	return "", false
-}
-
 // TranslationCandidates are the preferred tags (the account's storefront
 // language, then the system's) to look for a translation of, in order: up
 // to the first English one, since English, the source, answers it. Empty

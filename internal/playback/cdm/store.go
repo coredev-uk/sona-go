@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"slices"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 // The install directory (config.Paths.WidevineDir):
@@ -206,35 +208,10 @@ func (s store) write(ptr pointer) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(s.root, pointerFile+".*")
-	if err != nil {
+	if err := fsutil.WriteFileAtomic(filepath.Join(s.root, pointerFile), append(b, '\n'), 0o600); err != nil {
 		return &Error{Code: CodeDisk, Err: err}
 	}
-	_, werr := tmp.Write(append(b, '\n'))
-	if werr == nil {
-		werr = tmp.Sync()
-	}
-	if cerr := tmp.Close(); werr == nil {
-		werr = cerr
-	}
-	if werr == nil {
-		werr = os.Rename(tmp.Name(), filepath.Join(s.root, pointerFile))
-	}
-	if werr != nil {
-		_ = os.Remove(tmp.Name())
-		return &Error{Code: CodeDisk, Err: werr}
-	}
-	syncDir(s.root)
 	return nil
-}
-
-// syncDir flushes a directory's entries (a rename) where the OS allows
-// opening a directory for it.
-func syncDir(dir string) {
-	if d, err := os.Open(dir); err == nil {
-		_ = d.Sync()
-		_ = d.Close()
-	}
 }
 
 // prune removes every version directory but keep's, and leftovers of
@@ -273,6 +250,6 @@ func (s store) place(staging, version string) error {
 	if err := os.Rename(staging, dst); err != nil {
 		return &Error{Code: CodeDisk, Err: err}
 	}
-	syncDir(filepath.Join(s.root, version))
+	fsutil.SyncDir(filepath.Join(s.root, version))
 	return nil
 }

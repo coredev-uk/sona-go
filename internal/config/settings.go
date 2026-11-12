@@ -8,10 +8,11 @@ import (
 	"maps"
 	"math"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 // Theme values for [Settings.Theme].
@@ -211,39 +212,8 @@ func SaveSettings(path string, s Settings) error {
 	if err != nil {
 		return fmt.Errorf("config: encode settings: %w", err)
 	}
-	return writeFileAtomic(path, append(b, '\n'), 0o600)
-}
-
-func writeFileAtomic(path string, data []byte, perm fs.FileMode) (err error) {
-	dir := filepath.Dir(path)
-	f, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*.tmp")
-	if err != nil {
-		return fmt.Errorf("config: create temp file: %w", err)
-	}
-	tmp := f.Name()
-	defer func() {
-		if err != nil {
-			_ = os.Remove(tmp)
-		}
-	}()
-	if err = f.Chmod(perm); err == nil {
-		if _, err = f.Write(data); err == nil {
-			err = f.Sync()
-		}
-	}
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		return fmt.Errorf("config: write %s: %w", tmp, err)
-	}
-	if err = os.Rename(tmp, path); err != nil {
-		return fmt.Errorf("config: replace %s: %w", path, err)
-	}
-	// Persist the rename itself; best effort, not every filesystem supports it.
-	if d, derr := os.Open(dir); derr == nil {
-		_ = d.Sync()
-		_ = d.Close()
+	if err := fsutil.WriteFileAtomic(path, append(b, '\n'), 0o600); err != nil {
+		return fmt.Errorf("config: %w", err)
 	}
 	return nil
 }

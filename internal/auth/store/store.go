@@ -4,7 +4,7 @@
 // Every secret lives in the system keyring (via go-keyring, service "sona",
 // one key per secret: "mut" for the MUT record): the Secret Service on
 // Linux and other Unix systems, the login Keychain on macOS, Credential
-// Manager on Windows (SystemBackend). When the keyring isn't reachable, Open and OpenSecret fall back to a file in the config directory
+// Manager on Windows (SystemBackend). When the keyring isn't reachable, Open and OpenSecretWith fall back to a file in the config directory
 // (credentials.json for the MUT, credentials-<key> for named secrets) with
 // mode 0600 and say so: they log a warning and Backend reports BackendFile so
 // Settings and Diagnostics can show an "unencrypted" warning. Only an error
@@ -25,6 +25,8 @@ import (
 	"time"
 
 	"github.com/zalando/go-keyring"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 // Keyring service and key names.
@@ -132,15 +134,10 @@ func OpenWith(configDir string, kr Keyring, logger *slog.Logger) (Store, error) 
 	return recordStore{s}, nil
 }
 
-// OpenSecret returns the named secret (keyring key "<key>" under Service)
+// OpenSecretWith returns the named secret (keyring key "<key>" under Service)
 // with the same Secret Service probe, 0600 file fallback
-// (<configDir>/credentials-<key>) and migration as Open. key must not be
+// (<configDir>/credentials-<key>) and migration as OpenWith. key must not be
 // Key.
-func OpenSecret(configDir, key string, logger *slog.Logger) (Secret, error) {
-	return OpenSecretWith(configDir, key, SystemKeyring{}, logger)
-}
-
-// OpenSecretWith is OpenSecret with an explicit keyring.
 func OpenSecretWith(configDir, key string, kr Keyring, logger *slog.Logger) (Secret, error) {
 	if key == "" || key == Key || strings.ContainsAny(key, `/\`) {
 		return nil, fmt.Errorf("store: invalid secret key %q", key)
@@ -322,38 +319,13 @@ func (s *fileSlot) get() ([]byte, error) {
 	return b, nil
 }
 
-// set writes atomically: a 0600 temp file in the same directory, fsynced,
-// then renamed over the old file.
+// set writes atomically with mode 0600.
 func (s *fileSlot) set(b []byte) error {
 	dir := filepath.Dir(s.path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("store: %w", err)
 	}
-	base := filepath.Base(s.path)
-	ext := filepath.Ext(base)
-	f, err := os.CreateTemp(dir, "."+strings.TrimSuffix(base, ext)+"-*"+ext)
-	if err != nil {
-		return fmt.Errorf("store: %w", err)
-	}
-	tmp := f.Name()
-	defer os.Remove(tmp) // no-op after a successful rename
-	// CreateTemp already uses 0600; Chmod guards against an unusual umask setup.
-	if err := f.Chmod(0o600); err != nil {
-		f.Close()
-		return fmt.Errorf("store: %w", err)
-	}
-	if _, err := f.Write(b); err != nil {
-		f.Close()
-		return fmt.Errorf("store: write %s: %w", tmp, err)
-	}
-	if err := f.Sync(); err != nil {
-		f.Close()
-		return fmt.Errorf("store: sync %s: %w", tmp, err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("store: %w", err)
-	}
-	if err := os.Rename(tmp, s.path); err != nil {
+	if err := fsutil.WriteFileAtomic(s.path, b, 0o600); err != nil {
 		return fmt.Errorf("store: %w", err)
 	}
 	return nil

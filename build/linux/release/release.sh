@@ -128,7 +128,8 @@ smoke() { # image, kind: output prefixed with the kind, the runs being parallel
   {
     pull "$1"
     echo "release: smoke test ($2) on $1"
-    "${engine[@]}" run --rm -e SONA_VERSION="$version" -v "$out:/pkg:ro" -v "$here/smoke.sh:/smoke.sh:ro" "$1" bash /smoke.sh "$2"
+    "${engine[@]}" run --rm -e SONA_VERSION="$version" -v "$out:/pkg:ro" -v "$here/smoke.sh:/smoke.sh:ro" \
+      -v "$root/build/lib/smoke.sh:/smoke-lib.sh:ro" "$1" bash /smoke.sh "$2"
   } 2>&1 | sed -u "s/^/[$2] /"
 }
 # Each package is smoke-tested on its own clean container, side by side.

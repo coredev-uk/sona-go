@@ -28,6 +28,7 @@ import (
 	mygoi18n "github.com/egoist/mygo/i18n"
 
 	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
+	"github.com/coredev-uk/sona-go/internal/i18n/l10n"
 	"github.com/coredev-uk/sona-go/internal/i18n/po"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -82,12 +83,12 @@ func rebuild() {
 	l.locales = FormatLocales(shown, regional)
 	l.format = l.locales[0]
 	if appleLocale != "" {
-		if _, ok := MatchLocale([]string{shown}, []string{appleLocale}); ok && !isSource(shown) {
+		if _, ok := l10n.Match([]string{shown}, []string{appleLocale}); ok && !isSource(shown) {
 			l.appleLocale, l.apple = appleLocale, appleMessages
 		}
 	}
 	if !isSource(shown) {
-		if tag, ok := MatchLocale([]string{shown}, communityTags()); ok {
+		if tag, ok := l10n.Match([]string{shown}, communityTags()); ok {
 			l.community = communities[tag]
 		}
 	}

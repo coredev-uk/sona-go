@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 const (
@@ -205,7 +207,7 @@ func (c *Cache) scan() error {
 			e.used, e.touched = info.ModTime(), info.ModTime()
 		}
 		for _, f := range files {
-			if strings.HasPrefix(f.Name(), ".tmp-") || legacyName(f.Name()) {
+			if isTemp(f.Name()) || legacyName(f.Name()) {
 				_ = os.Remove(filepath.Join(kdir, f.Name()))
 				continue
 			}
@@ -522,22 +524,16 @@ func (c *Cache) store(key, tmpl, name string, data []byte) (string, error) {
 	return filepath.Join(dir, name), nil
 }
 
+// isTemp reports whether name is a temporary file of a write in progress or
+// interrupted: fsutil's, or the ".tmp-" ones of builds before it.
+func isTemp(name string) bool {
+	return fsutil.IsTemp(name) || strings.HasPrefix(name, ".tmp-")
+}
+
 func (c *Cache) writeFile(key, name string, data []byte) error {
 	dir := filepath.Join(c.dir, key)
-	f, err := os.CreateTemp(dir, ".tmp-*")
-	if err != nil {
-		return fmt.Errorf("artwork: %w", err)
-	}
-	_, werr := f.Write(data)
-	if cerr := f.Close(); werr == nil {
-		werr = cerr
-	}
-	if werr == nil {
-		werr = os.Rename(f.Name(), filepath.Join(dir, name))
-	}
-	if werr != nil {
-		_ = os.Remove(f.Name())
-		return fmt.Errorf("artwork: write %s: %w", name, werr)
+	if err := fsutil.WriteFileAtomic(filepath.Join(dir, name), data, 0o600); err != nil {
+		return fmt.Errorf("artwork: write %s: %w", name, err)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()

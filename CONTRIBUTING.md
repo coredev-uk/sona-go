@@ -69,7 +69,7 @@ private mode.
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `dev`        | Builds `cmd/devloop` into `bin/devloop` and runs it on `./cmd/sona` with your arguments after `--`: it builds the app with `-tags dev,sqlite_fts5` into `bin/sona-dev`, runs it, and rebuilds and restarts it when a Go file of the app changes (the old app keeps running during the build; a failed build prints its errors and leaves it; the restart lands on the same screen, scroll and window). Keys: `r` rebuilds, `q` quits. A first argument `-background` (`dev -background -- <app args>`) starts the app without taking the focus (`MYGO_DEV_BACKGROUND=1`), so a restart on a save leaves it in your editor. Design tokens and `.po` files reload in the running app without a build. See docs/ui-architecture.md, "The development loop". |
 | `gallery`    | The same loop on `./cmd/uigallery`: the component gallery (every kit component, light and dark, with knobs), restarting like `dev`. |
-| `build`      | `go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona`: no inspector in the binary, MyGo in production mode. |
+| `build`      | `go build -tags mygo_noinspector,sqlite_fts5 -ldflags "$(bash build/ldflags.sh --no-credentials --goos "$(go env GOOS)")" -o bin/sona ./cmd/sona`: no inspector in the binary, MyGo in production mode (`build/ldflags.sh` is the one place the link flags are assembled: `-w -s`, the version, production mode, and per OS the macOS deployment target or `-H windowsgui`; `--no-credentials` leaves the Last.fm and Discord values out, which only `-trimpath` builds may carry). |
 | `gen`        | `sqlc generate`. Commit the result. |
 | `fmt`        | gofumpt on every tracked Go file except `internal/db/dbq`. |
 | `check`      | The static half of the checks below: `go vet`, `go vet -tags dev,sqlite_fts5` and `-tags probe,sqlite_fts5` (development and probe builds type-check too), the Windows and macOS type-checks, `golangci-lint --new-from-rev=origin/main`, `go tool mygo vet internal/ui` (build values kept past their frame), the catalogue check (`i18ntool extract -check`) and the path-case check (`cmd/pathcase`). |
@@ -291,12 +291,12 @@ Real-CDM tests (`internal/playback/widevine`, `internal/playback/cdmhost`,
 `<user cache dir>/sona-tests/widevine`, shared by every checkout),
 downloaded and verified there on first use. They skip only when the
 download cannot reach the network; `SONA_CDM_REQUIRE=1` turns that skip into
-a failure. CI ("Resolve the Widevine CDM version") runs
-`go run ./cmd/cdmfetch -version`, restores `~/.cache/sona-ci/widevine` with
-`actions/cache` keyed `widevine-<os>-<arch>-<version>`, and ("Install the
-Widevine CDM") fills a miss with
+a failure. CI (the `.github/actions/setup-cdm` action) resolves the version
+(`go run ./cmd/cdmfetch -version`; the Linux job keys by ISO week instead),
+restores `~/.cache/sona-ci/widevine` with `actions/cache` keyed
+`widevine-<os>-<arch>-<version or week>`, and fills a miss with
 `go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine`, exporting
-`SONA_CDM_CACHE` and `SONA_CDM_REQUIRE=1`. The playback shard then runs them like any test, and `skips.sh` fails the job
+`SONA_CDM_CACHE`; the job sets `SONA_CDM_REQUIRE=1`. The playback shard then runs them like any test, and `skips.sh` fails the job
 if one of them skipped (the CDM tests are in no allow-list).
 
 ### Preview playback (tests without a Music User Token)
@@ -382,10 +382,10 @@ with `-count=1`, so the test cache can't hide what changed outside the code)
 and `ui` without it too, which keeps the caches pull requests restore warm.
 The required checks keep their names: "Go vet and test (-race)" gathers vet,
 core and playback, "UI tests (goldens)" the UI shards; plus the end-to-end
-smoke in headless sway, "E2E (headless sway)". macOS: a pull request runs one
-job, "macOS build and test (pull request)" (production build, go vet, core and
-playback tests with the real CDM and Seatbelt), and a push to main runs the
-same steps in one job. The macOS UI shards run only in the nightly and on
+smoke in headless sway, "E2E (headless sway)". macOS: a pull request that
+reaches the code, and a push to main, each run one job, "macOS build, vet, core
+and playback tests" (production build, go vet, core and playback tests with
+the real CDM and Seatbelt). The macOS UI shards run only in the nightly and on
 dispatch; the UI tests run on Linux on every push. GitHub runs at most five
 macOS jobs at a time across all of the account's repositories, so one job a
 push leaves room for the rest. Main also runs
@@ -451,7 +451,8 @@ Discord ID, deploys from main and `v*` tags; `live`: `MUSIC_USER_TOKEN`, main
 only), so no pull request run can read them. Run `actionlint` on changed
 workflows. The test jobs run `.github/ci/test.sh` (gotestsum: a failing test
 is rerun twice; one that passes on a rerun passes the job and is listed in the
-job summary as flaky) and then `.github/ci/skips.sh`, which fails the job on
+job summary as flaky) and then `.github/ci/skips.sh` (the `finish-tests`
+action, which also keeps the results), which fails the job on
 any skipped test that `.github/ci/skips-linux.txt` (or `skips-darwin.txt`)
 does not name: a skip means a missing prerequisite or a test nobody runs, so a
 test that cannot run on a platform is added to the list with its reason, and
@@ -583,8 +584,10 @@ needs:
   installs that exist. Never print it or commit it.
 - Release builds link MyGo's updater with `-ldflags "-X
   github.com/egoist/mygo.packageUpdateFeed=https://github.com/coredev-uk/sona-go/releases/latest/download/update-<target>.json
-  -X github.com/egoist/mygo.packageUpdateKey=$(cat internal/update/update.pub)"`.
-  Other builds leave both unset.
+  -X github.com/egoist/mygo.packageUpdateKey=$(cat internal/update/update.pub)"`:
+  `build/darwin/bundle.sh` and `build/windows/package.sh` get both from
+  `build/ldflags.sh --update <target>` in CI when `update.pub` is not empty
+  (or from `UPDATE_FEED` and `UPDATE_KEY`). Other builds leave both unset.
 - The update archive is a gzip tar (`sona-<version>-darwin-arm64.tar.gz` with
   one top-level `Sona.app`; `sona-<version>-windows-amd64.tar.gz` with the
   folder's files at top level). `go run ./cmd/releasesign -target T -archive

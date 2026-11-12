@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/protowire"
 )
 
 // ByteRange is a sub-range of a resource. Length 0 means the whole resource.
@@ -352,33 +354,15 @@ func psshKeyID(b []byte) []byte {
 	if size := int(binary.BigEndian.Uint32(b[off:])); size < len(data) {
 		data = data[:size]
 	}
-	for len(data) > 0 {
-		tag, n := binary.Uvarint(data)
-		if n <= 0 {
-			return nil
+	var id []byte
+	_ = protowire.Walk(data, func(num, wire, _ uint64, v []byte) error {
+		if num == 2 && wire == protowire.Bytes && len(v) == 16 {
+			id = v
+			return protowire.ErrStop
 		}
-		data = data[n:]
-		switch tag & 7 {
-		case 0:
-			if _, n = binary.Uvarint(data); n <= 0 {
-				return nil
-			}
-			data = data[n:]
-		case 2:
-			l, n := binary.Uvarint(data)
-			if n <= 0 || uint64(len(data)-n) < l {
-				return nil
-			}
-			v := data[n : n+int(l)]
-			if tag>>3 == 2 && len(v) == 16 {
-				return v
-			}
-			data = data[n+int(l):]
-		default:
-			return nil
-		}
-	}
-	return nil
+		return nil
+	})
+	return id
 }
 
 // Variant is one EXT-X-STREAM-INF of a master playlist.

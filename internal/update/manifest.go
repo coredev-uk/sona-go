@@ -120,20 +120,26 @@ func isLoopback(host string) bool {
 	return host == "localhost" || (ip != nil && ip.IsLoopback())
 }
 
-func (f Feed) client() *http.Client {
-	if f.HTTP != nil {
-		return f.HTTP
-	}
-	return &http.Client{Timeout: 15 * time.Second}
+func (f Feed) get(ctx context.Context, u string, limit int64) ([]byte, error) {
+	return get(ctx, f.HTTP, u, limit)
 }
 
-func (f Feed) get(ctx context.Context, u string, limit int64) ([]byte, error) {
+// get reads up to limit bytes of u with hc (nil: a client with a 15 s
+// timeout and no cookie jar), sending headers (name, value pairs) beside the
+// fixed User-Agent. A 404 is ErrNoRelease.
+func get(ctx context.Context, hc *http.Client, u string, limit int64, headers ...string) ([]byte, error) {
+	if hc == nil {
+		hc = &http.Client{Timeout: 15 * time.Second}
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err
 	}
+	for i := 0; i+1 < len(headers); i += 2 {
+		req.Header.Set(headers[i], headers[i+1])
+	}
 	req.Header.Set("User-Agent", userAgent)
-	resp, err := f.client().Do(req)
+	resp, err := hc.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("update: %w", err)
 	}

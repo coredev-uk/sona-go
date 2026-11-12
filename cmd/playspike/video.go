@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -23,6 +22,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/hls"
 	"github.com/coredev-uk/sona-go/internal/playback/native"
 	"github.com/coredev-uk/sona-go/internal/playback/video"
+	"github.com/coredev-uk/sona-go/internal/protowire"
 )
 
 // runProbeVideo prints, for every rendition of a music video's master
@@ -375,58 +375,22 @@ func protoField(b []byte, num uint64) []byte {
 // protoFields returns the length-delimited fields num of message b.
 func protoFields(b []byte, num uint64) [][]byte {
 	var out [][]byte
-	protoWalk(b, func(n, wire uint64, v uint64, data []byte) {
-		if n == num && wire == 2 {
+	_ = protowire.Walk(b, func(n, wire, _ uint64, data []byte) error {
+		if n == num && wire == protowire.Bytes {
 			out = append(out, data)
 		}
+		return nil
 	})
 	return out
 }
 
 func protoVarint(b []byte, num uint64) uint64 {
 	var r uint64
-	protoWalk(b, func(n, wire uint64, v uint64, _ []byte) {
-		if n == num && wire == 0 {
+	_ = protowire.Walk(b, func(n, wire, v uint64, _ []byte) error {
+		if n == num && wire == protowire.Varint {
 			r = v
 		}
+		return nil
 	})
 	return r
-}
-
-func protoWalk(b []byte, fn func(num, wire, v uint64, data []byte)) {
-	for len(b) > 0 {
-		tag, n := binary.Uvarint(b)
-		if n <= 0 {
-			return
-		}
-		b = b[n:]
-		switch wire := tag & 7; wire {
-		case 0:
-			v, n := binary.Uvarint(b)
-			if n <= 0 {
-				return
-			}
-			fn(tag>>3, 0, v, nil)
-			b = b[n:]
-		case 2:
-			l, n := binary.Uvarint(b)
-			if n <= 0 || uint64(len(b)-n) < l {
-				return
-			}
-			fn(tag>>3, 2, 0, b[n:n+int(l)])
-			b = b[n+int(l):]
-		case 5:
-			if len(b) < 4 {
-				return
-			}
-			b = b[4:]
-		case 1:
-			if len(b) < 8 {
-				return
-			}
-			b = b[8:]
-		default:
-			return
-		}
-	}
 }
