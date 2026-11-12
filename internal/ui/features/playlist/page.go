@@ -44,6 +44,8 @@ type page struct {
 	sort       kit.TrackSortState
 	query      string
 	shownCache viewCache
+	// startsCache is the "starts at" labels of the tracks.
+	startsCache startsCache
 	announced  string
 }
 
@@ -131,7 +133,7 @@ func (p *playlists) playlistPage(c *ui.Context, r *ui.Route) {
 			case !q.HasData && q.Err != nil:
 				p.loadError(c, id, q)
 			case !q.HasData:
-				kit.DetailSkeleton(c, false)
+				p.pageSkeleton(c)
 			default:
 				pane := &kit.Pane{Pos: &pg.pos, Bounds: func() ui.Rect { return sc.Bounds() }}
 				p.playlistBody(c, id, q.Data, pane)
@@ -208,38 +210,19 @@ func (p *playlists) playlistBody(c *ui.Context, id string, d services.PlaylistDe
 	case curatorName(d) != "":
 		byline = func() { p.byline(c, d) }
 	}
-	hd := d.Header
-	cover := func(c *ui.Context, size float32) {
-		kit.MotionCover(c, p.env.Motion, p.env.Art, pl.Art.Large, hd.Motion, size, kit.MotionOpts{VideoSize: 200})
-	}
-	if hd.Motion == "" {
-		cover = nil
-	}
-	var colour string
-	if len(hd.Colors) > 0 {
-		colour = hd.Colors[0]
-	}
 	note, detail := p.updated(c, pl)
-	kit.CollectionHeader(c, kit.CollectionHeaderOpts{
-		Title:       pl.Name,
-		Art:         pl.Art.Large,
-		Loader:      p.env.Art,
-		Cover:       cover,
-		Wash:        &kit.BackdropOpts{Src: hd.Backdrop, Color: colour, Tone: kit.ToneGround},
-		Byline:      byline,
-		Meta:        p.metaLine(d, collab),
-		MetaNote:    note,
-		MetaDetail:  detail,
-		Description: pl.Description,
-		Actions:     func() { p.headerActions(c, id, d, editable, inEdit, menus) },
-	})
+	var find func()
+	if !inEdit && len(d.Tracks) > 0 {
+		find = func() { p.songFinder(c, d.Tracks) }
+	}
+	p.header(c, d, byline, p.ledger(d, collab, note, detail), func() { p.headerActions(c, id, d, editable, inEdit, menus) }, find)
 
 	switch {
 	case inEdit && len(d.Tracks) > 0:
 		p.editorList(c, id, d, pane)
 	case inEdit:
-		kit.EmptyState(c, i18n.T("Nothing left to arrange"),
-			i18n.T("Add songs with “Add to playlist” in any song, album or playlist menu."), kit.EmptyOpts{})
+		emptyBlock(c, i18n.T("Nothing left to arrange"),
+			i18n.T("Add songs with “Add to playlist” in any song, album or playlist menu."))
 	case len(d.Tracks) > 0:
 		p.trackList(c, id, d, editable, menus, pane)
 	default:
@@ -247,7 +230,7 @@ func (p *playlists) playlistBody(c *ui.Context, id string, d services.PlaylistDe
 		if editable {
 			text = i18n.T("Add songs with “Add to playlist” in any song, album or playlist menu, or pick from the suggestions below.")
 		}
-		kit.EmptyState(c, i18n.T("This playlist is empty"), text, kit.EmptyOpts{})
+		emptyBlock(c, i18n.T("This playlist is empty"), text)
 	}
 
 	if editable && !inEdit {
@@ -285,27 +268,6 @@ func (p *playlists) byline(c *ui.Context, d services.PlaylistDetail) {
 		return
 	}
 	ui.Text(c, name).TextColor(theme.C("ink-muted")).SingleLine()
-}
-
-// metaLine is the catalogue line: kind · "You're a collaborator" · song
-// count and duration. "Updated …" follows it as an element of its own
-// (updated).
-func (p *playlists) metaLine(d services.PlaylistDetail, collab *services.PlaylistCollaboration) string {
-	kind := i18n.T("Playlist")
-	switch {
-	case collab != nil:
-		kind = i18n.T("Collaborative playlist")
-	case d.Kind == "personal-mix":
-		kind = i18n.T("Made for you")
-	case d.IsChart:
-		kind = i18n.T("Chart")
-	case d.Favorited:
-		kind = i18n.T("Your favourites")
-	}
-	if collab != nil && collab.Viewer == services.RoleCollaborator {
-		kind += " · " + i18n.T("You're a collaborator")
-	}
-	return catalogueLine(kind, len(d.Tracks), d.DurationMs)
 }
 
 // updated is when the playlist last changed: "Updated yesterday" in
@@ -401,9 +363,9 @@ func (p *playlists) headerActions(c *ui.Context, id string, d services.PlaylistD
 // Remove from playlist.
 func (p *playlists) trackList(c *ui.Context, id string, d services.PlaylistDetail, editable bool, menus *kit.ActionMenus, pane *kit.Pane) {
 	pg := &p.page
-	// The field first: a key typed in it changes the query, and the songs
-	// listed, their count and what is announced all follow that query.
-	p.songFinder(c, d.Tracks)
+	// The finder in the header's strip was built first: a key typed in it
+	// changes the query, and the songs listed, their count and what is
+	// announced all follow that query.
 	v := pg.view(d.Tracks)
 	songs := v.songs
 	if len(songs) == 0 {
@@ -427,6 +389,18 @@ func (p *playlists) trackList(c *ui.Context, id string, d services.PlaylistDetai
 		NoPopup: true,
 		Motion:  p.env.Motion,
 		Pane:    pane,
+	}
+	// "Starts at" is the song's place on the tape: only true while the list
+	// is in the playlist's own order, so a sort or a filter hides it.
+	if v.order == nil {
+		if sc := pg.starts(d.Tracks); sc.byRow != nil {
+			o.Subline = func(s *services.Song) string {
+				if at, ok := sc.byRow[s]; ok {
+					return i18n.T("Starts at {time}", "time", at)
+				}
+				return ""
+			}
+		}
 	}
 	if editable {
 		o.Container = &kit.ActionContainer{Kind: "playlist", ID: id, Editable: true, Order: v.order}
@@ -455,26 +429,27 @@ func (p *playlists) trackList(c *ui.Context, id string, d services.PlaylistDetai
 	kit.TrackList(c, &pg.list, len(songs), func(i int) *services.Song { return &songs[i] }, o)
 }
 
-// songFinder is the field above the songs, "Find in playlist", and, while it
-// holds a query, how many of the playlist's songs match it. Escape in the
-// field clears it.
+// songFinder is the field at the right end of the header's strip, "Find in
+// playlist", and, while it holds a query, how many of the playlist's songs
+// match it. Escape in the field clears it.
 func (p *playlists) songFinder(c *ui.Context, tracks []services.Song) {
 	pg := &p.page
-	var found int
-	ui.Row(c.Key("find")).Gap(16).AlignItems(ui.Center).Margin(0, 0, 8).Children(func() {
+	// A reversed row: the field is built first (the count asks for the
+	// query it now holds) and sits at the row's right end, the count to its
+	// left.
+	ui.Row(c.Key("find")).Reverse().Gap(12).AlignItems(ui.Center).Shrink(0).Children(func() {
 		ui.Column(c.Key("field")).Shrink(0).Role(ui.RoleSearch).Label(i18n.T("Find songs in this playlist")).Children(func() {
 			label := i18n.T("Find in playlist")
-			kit.SearchField(c, &pg.query, kit.SearchFieldOpts{Placeholder: label, A11yLabel: label, Width: 288})
+			kit.SearchField(c, &pg.query, kit.SearchFieldOpts{Placeholder: label, A11yLabel: label, Width: 240})
 		})
-		// Asked after the field: the query is the one it now holds.
-		found = len(pg.view(tracks).songs)
+		found := len(pg.view(tracks).songs)
 		if pg.filtering() {
 			dialogText(c, i18n.T("{found} of {total, plural, one {# song} other {# songs}}",
 				"found", i18n.FormatNumber(float64(found)), "total", len(tracks)), "sub").
 				TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
 		}
+		p.announceFound(c, found)
 	})
-	p.announceFound(c, found)
 }
 
 // announceFound reads out the filter's result when it changes (a filter's
@@ -537,7 +512,7 @@ func (p *playlists) featuredShelf(c *ui.Context, d services.PlaylistDetail, menu
 		}
 	}
 	title := i18n.T("Featured artists")
-	p.shelf(c, &p.page.featured, title, title, items, menus)
+	p.shelf(c, &p.page.featured, title, title, featuredTile, items, menus)
 }
 
 // moreShelf is the curator's other playlists ("More like this" when nobody
@@ -560,14 +535,21 @@ func (p *playlists) moreShelf(c *ui.Context, d services.PlaylistDetail, menus *k
 	if name := d.Curator.Name; name != "" {
 		title = i18n.T("More from {curatorName}", "curatorName", name)
 	}
-	p.shelf(c, &p.page.more, title, i18n.T("More playlists from this curator"), items, menus)
+	p.shelf(c, &p.page.more, title, i18n.T("More playlists from this curator"), moreTile, items, menus)
 }
 
-// shelf is a titled single row of cover tiles.
-func (p *playlists) shelf(c *ui.Context, st *kit.CoverState, title, label string, items []kit.CoverItem, menus *kit.ActionMenus) {
+// The shelves' smallest tiles: the featured artists are a row of small
+// portraits, the curator's playlists are covers.
+const (
+	featuredTile = 100
+	moreTile     = 144
+)
+
+// shelf is a titled single row of cover tiles, minTile wide at least.
+func (p *playlists) shelf(c *ui.Context, st *kit.CoverState, title, label string, minTile float32, items []kit.CoverItem, menus *kit.ActionMenus) {
 	kit.Shelf(c, kit.ShelfOpts{Title: title}, func() {
 		kit.CoverRow(c, st, items, kit.CoverRowOpts{CoverOpts: kit.CoverOpts{
-			Label: label, Art: p.env.Art, Motion: p.env.Motion, Menus: menus, NoPopup: true,
+			Min: minTile, Label: label, Art: p.env.Art, Motion: p.env.Motion, Menus: menus, NoPopup: true,
 		}})
 	})
 }

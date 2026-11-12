@@ -79,7 +79,12 @@ func TestPlaylistUpdatedTooltipGolden(t *testing.T) {
 			theme.SetMode(tc.mode)
 			r.shows("Road Trip", "Updated yesterday")
 			r.tt.SetFocused(true)
-			r.tt.Key(0, ui.KeyTab)
+			for range 12 { // the actions come first
+				if r.tt.Focused("Updated yesterday") {
+					break
+				}
+				r.tt.Key(0, ui.KeyTab)
+			}
 			r.tt.Advance(time.Second)
 			r.shows("Monday, November 9, 2026 at 9:30 PM")
 			r.tt.Settle()
@@ -121,8 +126,65 @@ func TestPlaylistSidebarGolden(t *testing.T) {
 			e := sbSetup(t, sbLibrary(), sbPlaylistPins("p.own"))
 			theme.SetMode(tc.mode)
 			e.shows("Pinned", "Made for you", "Apple Music", "Playlists", "Running")
+			// An open folder: its contents hang from a hairline.
+			if err := e.tt.Click("Running"); err != nil {
+				t.Fatal(err)
+			}
+			e.shows("Tempo")
 			e.tt.Settle()
 			uitest.Golden(t, e.tt.Image(), tc.name)
 		})
 	}
+}
+
+// golden is one page picture: the playlist in a window of width w, after act.
+func golden(t *testing.T, name string, w int, mode theme.Mode, d services.PlaylistDetail, setup func(*fakeAPI), act func(*pageRig)) {
+	t.Helper()
+	goldenFont(t)
+	rigWidth = w
+	t.Cleanup(func() { rigWidth = 1132 })
+	r := newPageRigWith(t, d.Playlist.ID, setup, d)
+	r.p.now = func() time.Time { return goldenNow }
+	theme.SetMode(mode)
+	r.shows(d.Playlist.Name)
+	if act != nil {
+		act(r)
+	}
+	r.tt.Settle()
+	uitest.Golden(t, r.tt.Image(), name)
+}
+
+// The page at the narrowest width Sona keeps (the cover shrinks, the finder
+// wraps under the facts when they do not fit), in edit mode with the
+// "starts at" column following the order, with no songs and the suggestions
+// as the playlist's next rows, and a catalogue playlist's small shelf of
+// featured artists.
+func TestPlaylistPageStatesGolden(t *testing.T) {
+	t.Run("narrow", func(t *testing.T) {
+		golden(t, "playlist-page-narrow-light", 707, theme.ModeLight, goldenDetail(), nil, nil)
+	})
+	t.Run("edit", func(t *testing.T) {
+		golden(t, "playlist-edit-dark", 1132, theme.ModeDark, goldenDetail(), nil, func(r *pageRig) {
+			r.click("Edit")
+			r.shows("Done", "Starts")
+		})
+	})
+	t.Run("empty", func(t *testing.T) {
+		d := libraryDetail("p.1", "Road Trip")
+		d.Playlist.Description = "Nothing yet."
+		golden(t, "playlist-empty-light", 1132, theme.ModeLight, d, func(a *fakeAPI) {
+			a.suggestions["p.1"] = []services.Song{
+				pgSong("s1", "Open Road", "Neon", "Drive"),
+				pgSong("s2", "Late Train", "Mira", "Night Shift"),
+				pgSong("s3", "Salt Air", "Wren", "Coast"),
+			}
+		}, func(r *pageRig) { r.shows("This playlist is empty", "Suggested songs", "Salt Air") })
+	})
+	t.Run("featured", func(t *testing.T) {
+		d := catalogDetail("pl.1", "Apple's Mix", goldenDetail().Tracks...)
+		d.Curator = services.PlaylistCurator{Name: "Apple Music Pop"}
+		d.FeaturedArtists = []services.Artist{{ID: "a1", Name: "Mia"}, {ID: "a2", Name: "Di Lemma"}, {ID: "a3", Name: "Al"}}
+		d.MoreByCurator = []services.Playlist{{ID: "pl.2", Name: "Another Mix", Curator: "Apple Music Pop"}}
+		golden(t, "playlist-featured-dark", 1132, theme.ModeDark, d, nil, func(r *pageRig) { r.shows("Featured artists", "Another Mix") })
+	})
 }

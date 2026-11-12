@@ -2,6 +2,7 @@ package playlist
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -21,6 +22,10 @@ import (
 // through env.Nav.
 
 const (
+	// rowArt is a row's picture and rowArtGap the space after it: with the
+	// 10 DIP padding, the name starts where the navigation's labels do.
+	rowArt    = 20
+	rowArtGap = 6
 	// springDelay is how long a drag rests on a closed folder before it
 	// opens.
 	springDelay = 600 * time.Millisecond
@@ -146,16 +151,39 @@ func sideText(c *ui.Context, s, style string) ui.Element {
 	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
 }
 
-// sideHeading is a section's heading (12 muted, 24 above and 6 below, 20
-// high) with an action at its end.
-func sideHeading(c *ui.Context, title string, action func()) {
-	ui.Row(c).FillWidth().Height(20).AlignItems(ui.Center).Padding(0, 4, 0, 10).Margin(24, 0, 6, 0).Children(func() {
-		sideText(c, title, "meta").TextColor(theme.C("ink-faint")).SingleLine().Grow(1).MinWidth(0).
-			Role(ui.RoleHeading).Level(2)
+// sideHeading is a section's heading (12 at weight 600 in the muted ink,
+// then how many it holds in the faint one; 22 above and 4 below, 20 high)
+// with an action at its end.
+func sideHeading(c *ui.Context, title string, count int, action func()) {
+	ui.Row(c).FillWidth().Height(20).AlignItems(ui.Center).Gap(6).Padding(0, 4, 0, 10).Margin(22, 0, 4, 0).Children(func() {
+		headingTitle(c, title, count, theme.C("ink-muted"))
+		ui.Box(c).Grow(1)
 		if action != nil {
 			action()
 		}
 	})
+}
+
+// headingTitle is a section's name, a heading of its own, and the count
+// beside it.
+func headingTitle(c *ui.Context, title string, count int, fg ui.Color) {
+	sideText(c, title, "meta").TextColor(fg).FontWeight(600).SingleLine().Shrink(1).MinWidth(0).
+		Role(ui.RoleHeading).Level(2)
+	if count > 0 {
+		sideText(c, strconv.Itoa(count), "meta").TextColor(theme.C("ink-faint")).FontFeatures("tnum").SingleLine().Shrink(0)
+	}
+}
+
+// countPlaylists is how many playlists the tree holds, folders opened.
+func countPlaylists(nodes []*treeNode) int {
+	n := 0
+	for _, node := range nodes {
+		if node.Item != nil {
+			n++
+		}
+		n += countPlaylists(node.Children)
+	}
+	return n
 }
 
 // rowFace styles a sidebar row as navLink does: 32 high, 10 across, radius
@@ -182,7 +210,7 @@ func rowFace(row ui.Element, hot, active, over bool) ui.Color {
 
 // rowContent is a row's picture (20, round for a person) and name.
 func (p *playlists) rowContent(c *ui.Context, art string, round bool, name string, fg ui.Color, bold bool) {
-	kit.Artwork(c, p.env.Art, art, 20, kit.ArtOpts{Round: round})
+	kit.Artwork(c, p.env.Art, art, rowArt, kit.ArtOpts{Round: round})
 	t := sideText(c, name, "body").TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
 	if bold {
 		t.FontWeight(500)
@@ -252,7 +280,7 @@ func (p *playlists) pinsSection(c *ui.Context, pins []services.Pin, editable map
 	sec := ui.Column(c.Key("section:pinned")).FillWidth()
 	over := p.dropOnPins(sec, pins)
 	sec.Children(func() {
-		sideHeading(c, i18n.T("Pinned"), nil)
+		sideHeading(c, i18n.T("Pinned"), len(pins), nil)
 		ui.Column(c.Key("pins")).FillWidth().Gap(2).Role(ui.RoleList).Label(i18n.T("Pinned")).Children(func() {
 			for i, pin := range pins {
 				// Moving up one place puts the pin after the one two above it.
@@ -315,6 +343,7 @@ func (p *playlists) pinRow(c *ui.Context, pin services.Pin, pos, size int, upAft
 		}
 		row.Grow(1).MinWidth(0).Padding(0, 32, 0, 10)
 		fg := rowFace(row, hot, active, over)
+		row.Gap(rowArtGap)
 		if active {
 			row.Current(ui.CurrentPage)
 		}
@@ -386,6 +415,7 @@ func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth
 		row := ui.ButtonBase(c.Key("open")).Role(ui.RoleLink).Label(pl.Name).Grow(1).MinWidth(0).
 			Padding(0, 32, 0, 10+float32(depth)*folderIndent)
 		fg := rowFace(row, hot, active, over)
+		row.Gap(rowArtGap)
 		if active {
 			row.Current(ui.CurrentPage)
 		}
@@ -417,10 +447,10 @@ func (p *playlists) readOnlySection(c *ui.Context, id, title string, items []ser
 		// of reach of a screen reader. The title is drawn over the button
 		// (the pointer goes through it) and is the section's heading.
 		var fold ui.Element
-		ui.Row(c.Key("head")).FillWidth().Height(20).Margin(24, 0, 6, 0).Children(func() {
+		ui.Row(c.Key("head")).FillWidth().Height(20).Margin(22, 0, 4, 0).Children(func() {
 			fold = ui.ButtonBase(c.Key("fold")).Role(ui.RoleDisclosure).Label(title).Expanded(!folded).FillWidth().Height(20).
 				Padding(0, 10).AlignItems(ui.Center).Radius(theme.Current().Radius["md"]).Cursor(ui.CursorPointer)
-			fg := theme.C("ink-faint")
+			fg := theme.C("ink-muted")
 			if fold.Hovered() {
 				fg = theme.C("ink")
 			}
@@ -428,8 +458,8 @@ func (p *playlists) readOnlySection(c *ui.Context, id, title string, items []ser
 				folded = !folded
 				p.prefs.SetCollapsed(id, folded)
 			}
-			ui.Row(c.Key("title")).Absolute().Left(10).Right(34).Top(0).Bottom(0).AlignItems(ui.Center).IgnoreInput(true).Children(func() {
-				sideText(c, title, "meta").TextColor(fg).SingleLine().MinWidth(0).Role(ui.RoleHeading).Level(2)
+			ui.Row(c.Key("title")).Absolute().Left(10).Right(34).Top(0).Bottom(0).AlignItems(ui.Center).Gap(6).IgnoreInput(true).Children(func() {
+				headingTitle(c, title, len(items), fg)
 			})
 			fold.Children(func() {
 				ui.Box(c).Grow(1)
@@ -462,7 +492,7 @@ func (p *playlists) readOnlySection(c *ui.Context, id, title string, items []ser
 // playlists they can edit (they are all pinned when none is listed).
 func (p *playlists) ownSection(c *ui.Context, nodes []*treeNode, pending, anyEditable bool) {
 	ui.Column(c.Key("section:playlists")).FillWidth().Children(func() {
-		sideHeading(c, i18n.T("Playlists"), p.newMenu(c))
+		sideHeading(c, i18n.T("Playlists"), countPlaylists(nodes), p.newMenu(c))
 		if kit.DragActive(addable) {
 			p.dropZone(c, "new-playlist", "list-plus", i18n.T("New playlist"), false, p.dropOnNewPlaylist)
 		}
@@ -559,6 +589,7 @@ func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth, pos, size int) 
 		wrap.Children(func() {
 			row := ui.ButtonBase(c.Key("toggle")).Role(ui.RoleDisclosure).Label(f.Name).Expanded(open).Grow(1).MinWidth(0).Padding(0, 32, 0, 10+pad)
 			fg := rowFace(row, hot, false, false)
+			row.Gap(rowArtGap)
 			if row.Clicked() || p.springOpen(c, row, f.ID, open) {
 				open = !open
 				p.prefs.SetFolderOpen(f.ID, open)
@@ -571,7 +602,7 @@ func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth, pos, size int) 
 				ui.Row(c).Size(20, 20).Shrink(0).Center().Children(func() {
 					theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: fg})
 				})
-				sideText(c, f.Name, "body").TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
+				sideText(c, f.Name, "body").TextColor(fg).FontWeight(500).SingleLine().Shrink(1).MinWidth(0)
 				chevron := "chevron-right"
 				if open {
 					chevron = "chevron-down"
@@ -587,7 +618,13 @@ func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth, pos, size int) 
 			return
 		}
 		if len(n.Children) > 0 {
-			p.treeLevel(c, n.Children, depth+1)
+			// A hairline under the folder's icon runs down its contents, so
+			// where the folder ends is plain.
+			guide := ui.Column(c.Key("contents")).FillWidth()
+			guide.Draw(func(pt *ui.Painter, r ui.Rect) {
+				pt.Fill(ui.Rect{X: r.X + 19.5 + pad, Y: r.Y + 2, W: 1, H: max(0, r.H-4)}, theme.C("line"), 0)
+			})
+			guide.Children(func() { p.treeLevel(c, n.Children, depth+1) })
 			return
 		}
 		msg := i18n.T("Empty folder")

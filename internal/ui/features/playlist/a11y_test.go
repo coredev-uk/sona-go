@@ -346,9 +346,19 @@ func TestA11yPlaylistEditor(t *testing.T) {
 		t.Fatalf("the editor is not a described table: %+v\n%s", table, tr.Dump())
 	}
 	rows := tr.Children(table)
-	if len(rows) != 3 {
-		t.Fatalf("the editor holds %v, want three rows", rows)
+	if len(rows) != 4 {
+		t.Fatalf("the editor holds %v, want a header row and three rows", rows)
 	}
+	head := rows[0]
+	if head.Role != ui.RoleRow {
+		t.Errorf("%v is not a row", head)
+	}
+	for _, c := range tr.Children(head) {
+		if c.Role != ui.RoleColumnHeader {
+			t.Errorf("the header row holds %v: it holds column headers", c)
+		}
+	}
+	rows = rows[1:]
 	for _, row := range rows {
 		if row.Role != ui.RoleRow {
 			t.Errorf("%v is not a row", row)
@@ -436,7 +446,7 @@ func TestA11yCollaborators(t *testing.T) {
 		Viewer:  services.RoleListener,
 		AddedBy: []services.TrackAddedBy{{SongID: "cb", ProfileID: "sp.2"}},
 	}
-	r.shows("Collaborative playlist · 3 songs, 10 min", "Ada & 2 others", "Added by")
+	r.shows("Collaborative playlist", "3 songs", "10 min", "Ada & 2 others", "Added by")
 	stops, tr := walk(t, r.tt, "Ada & 2 others", "Play Shared mix", "Shuffle")
 	if stops[0] != "Ada & 2 others" {
 		t.Errorf("the byline is not the first stop: %q", stops)

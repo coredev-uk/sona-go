@@ -25,6 +25,8 @@ const (
 	editorHandleW = 24
 	editorNumberW = 32
 	editorTimeW   = 56
+	// editorStartW is the "starts at" column, in front of the duration.
+	editorStartW = 64
 	editorRemoveW = 32
 )
 
@@ -122,7 +124,9 @@ func (p *playlists) editorList(c *ui.Context, id string, d services.PlaylistDeta
 	root := ui.Column(c.Key("editor")).FillWidth().Role(ui.RoleTable).
 		Label(i18n.T("Edit the songs in {name}", "name", name)).
 		Description(i18n.T("Drag the handle, or press Alt+↑ and Alt+↓ on a song, to change the order. Delete removes the focused song."))
+	starts := p.page.starts(tracks).at
 	root.Children(func() {
+		p.editorHeader(c, len(starts) > 0)
 		body := ui.Column(c.Key("body")).FillWidth()
 		if pane != nil {
 			body.Draw(func(_ *ui.Painter, r ui.Rect) {
@@ -182,7 +186,7 @@ func (p *playlists) editorList(c *ui.Context, id string, d services.PlaylistDeta
 					ui.Box(c.Key("gap-" + strconv.Itoa(prev))).Height(float32(gap) * editorRow)
 				}
 				prev = i
-				p.editorRow(c, ed, name, i, tracks[i], listID, dragging && dragged == i, move, remove)
+				p.editorRow(c, ed, name, i, tracks[i], startLabel(starts, i), listID, dragging && dragged == i, move, remove)
 			}
 			if gap := n - 1 - prev; virtual && gap > 0 {
 				ui.Box(c.Key("gap-end")).Height(float32(gap) * editorRow)
@@ -198,9 +202,46 @@ func (p *playlists) editorList(c *ui.Context, id string, d services.PlaylistDeta
 	ed.nav.Tick(c)
 }
 
+// startLabel is the "starts at" label of position i ("" when the songs have
+// no lengths to add up).
+func startLabel(labels []string, i int) string {
+	if i < len(labels) {
+		return labels[i]
+	}
+	return ""
+}
+
+// editorHeader is the column heads of the editor, the cells of a row's own
+// widths: the order the songs are in is the thing edited, so "Starts" shows
+// where each song would begin as they move.
+func (p *playlists) editorHeader(c *ui.Context, starts bool) {
+	tk := theme.Current()
+	meta := tk.Type["meta"]
+	row := ui.Row(c.Key("header")).FillWidth().Height(32).PaddingX(4).Gap(12).AlignItems(ui.Center).Role(ui.RoleRow)
+	row.Draw(func(pt *ui.Painter, r ui.Rect) {
+		pt.Fill(ui.Rect{X: r.X, Y: r.Y + r.H - 1, W: r.W, H: 1}, theme.C("line"), 0)
+	})
+	label := func(e ui.Element) ui.Element {
+		return e.FontSize(meta.Size).FixedLineHeight(meta.LineHeight).TextColor(theme.C("ink-faint")).SingleLine()
+	}
+	row.Children(func() {
+		ui.Box(c.Key("h-grab")).Width(editorHandleW).Shrink(0).Role(ui.RoleColumnHeader).Label(i18n.T("Reorder"))
+		ui.Row(c.Key("h-num")).Width(editorNumberW).Shrink(0).Justify(ui.End).Role(ui.RoleColumnHeader).Children(func() { label(ui.Text(c, "#")) })
+		ui.Row(c.Key("h-title")).Grow(2).Basis(0).MinWidth(0).Role(ui.RoleColumnHeader).Children(func() { label(ui.Text(c, i18n.T("Title"))) })
+		ui.Row(c.Key("h-album")).Grow(1).Basis(0).MinWidth(0).Role(ui.RoleColumnHeader).Children(func() { label(ui.Text(c, i18n.T("Album"))) })
+		if starts {
+			ui.Row(c.Key("h-starts")).Width(editorStartW).Shrink(0).Justify(ui.End).Role(ui.RoleColumnHeader).Children(func() { label(ui.Text(c, i18n.T("Starts"))) })
+		}
+		ui.Row(c.Key("h-dur")).Width(editorTimeW).Shrink(0).Justify(ui.End).Role(ui.RoleColumnHeader).Children(func() {
+			ui.Icon(c, theme.Icon("clock-3")).FontSize(14).TextColor(theme.C("ink-faint")).Label(i18n.T("Duration"))
+		})
+		ui.Box(c.Key("h-remove")).Width(editorRemoveW).Shrink(0).Role(ui.RoleColumnHeader).Label(i18n.T("Remove"))
+	})
+}
+
 // editorRow is one editable row: drag handle, position, 32 DIP art with the
 // name and artist, album, duration ("—" when unknown) and the remove cross.
-func (p *playlists) editorRow(c *ui.Context, ed *editor, playlist string, i int, song services.Song, listID string, dragged bool, move func(from, to int), remove func(i int)) {
+func (p *playlists) editorRow(c *ui.Context, ed *editor, playlist string, i int, song services.Song, start, listID string, dragged bool, move func(from, to int), remove func(i int)) {
 	tk := theme.Current()
 	ink, muted, faint := theme.C("ink"), theme.C("ink-muted"), theme.C("ink-faint")
 	row := ui.Row(c.Key(i)).FillWidth().Height(editorRow).Shrink(0).AlignItems(ui.Center).Gap(12).PaddingX(4).
@@ -258,6 +299,12 @@ func (p *playlists) editorRow(c *ui.Context, ed *editor, playlist string, i int,
 			ui.Text(c, song.Album).FontSize(subT.Size).FixedLineHeight(subT.LineHeight).TextColor(muted).SingleLine()
 		})
 
+		if start != "" {
+			ui.Row(c.Key("starts")).Width(editorStartW).Shrink(0).Justify(ui.End).Role(ui.RoleCell).Children(func() {
+				subT := tk.Type["sub"]
+				ui.Text(c, start).FontSize(subT.Size).FixedLineHeight(subT.LineHeight).TextColor(muted).FontFeatures("tnum").SingleLine()
+			})
+		}
 		dur := "—"
 		if song.DurationMs > 0 {
 			dur = i18n.FormatDuration(time.Duration(song.DurationMs) * time.Millisecond)
