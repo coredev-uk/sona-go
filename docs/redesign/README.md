@@ -34,3 +34,37 @@ Each page has its own folder here with `before-*.png` and `after-*.png` captures
 | Widevine | **Inline progress.** A small meter beside the download percentage. |
 | Updates | **Release slip.** A compact card in the sidebar foot with its progress. |
 | Reminders | **Dated reminder.** The menu entry names the day and shows the bell's state. |
+
+## Result
+
+Every page package has its redesign commit on `feat/ui-redesign-pass`. No page was reverted.
+
+| Page | Commit | Captures |
+| --- | --- | --- |
+| Home | 1add20a6 | live, light and dark |
+| Discover, Charts | 533cfda6, 63f7b124 | live |
+| Search | 82534e02 | live |
+| Concerts | 94213ed2 | live |
+| Radio, Station | bf1c3c79 | live |
+| Library (8 pages, sync footer) | 88b1d1bb | live, every page |
+| Album | dcf5e35f | live, catalogue and library |
+| Artist | 83dbb820 | live |
+| Song | a45f38bb | live |
+| Music video | 3cf165ee | live (page) |
+| Playlist | 56665205 | live |
+| Player (bar, queue, Now Playing) | 7e9b279a | live, playing on the fake engine |
+| Mini player | b7b29a77 | live, its own window |
+| Equaliser | f79aa7c4 | live |
+| Settings | 6273d4aa | live, four sections |
+| Account | d9fd163d | live |
+| Commands | f9145ccf, dd6eee8c | live, palette and sheet |
+| First-run setup | 316863b4 | live, welcome and appearance |
+| Private listening | 78999843 | live bar and `ui.Tester` chip |
+| Widevine notice | a7a84799 | `ui.Tester` |
+| Update notice | 44e373f7 | `ui.Tester` |
+| Reminders | d42b9c12 | `ui.Tester` (the album menu) |
+
+- **Live captures:** the Widevine notice, the update notice and the reminder entry have no live trigger in a signed-out preview run, so their captures come from `ui.Tester` in the same `headless` session. The before captures were drawn by the same tests on b259a43.
+- **Video view:** it needs the Widevine CDM to play, so it is shown by the package's goldens (`internal/ui/features/video/testdata/golden/video-view-*`), not by a live capture.
+- **Integration commits:** 39944597 regenerates the string catalogues and the shell's goldens, and 40c63855 gives full-window goldens more time to settle under load.
+- **Scroll performance:** the Albums scroll stays within its budget (`probe.md`).
