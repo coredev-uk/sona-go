@@ -108,11 +108,9 @@ func newPlaylists(env *module.Env, api playlistsAPI, pr *prefs) *playlists {
 // Query keys: they sit under "library" so a library sync invalidates them
 // with everything else it stored (queries.ts).
 var (
-	keyTree      = store.Key{"library", "playlist-tree"}
-	keyPins      = store.Key{"library", "pins"}
-	keyRecents   = store.Key{"library", "playlist-recent-targets"}
-	keyCounts    = store.Key{"library", "counts"}
-	keyPlaylists = store.Key{"library", "playlists"}
+	keyTree    = store.Key{"library", "playlist-tree"}
+	keyPins    = store.Key{"library", "pins"}
+	keyRecents = store.Key{"library", "playlist-recent-targets"}
 )
 
 func keySuggestions(id string) store.Key { return store.Key{"library", "playlist-suggestions", id} }
@@ -148,7 +146,7 @@ func (p *playlists) init() {
 			stale = append(stale, keyCovers(id))
 		}
 		if ev.Tree {
-			stale = append(stale, keyTree, keyCounts, keyPlaylists)
+			stale = append(stale, keyTree, store.KeyLibraryCounts, store.KeyLibraryPlaylistsAll)
 		}
 		if ev.Pins {
 			stale = append(stale, keyPins)
@@ -199,6 +197,3 @@ func (p *playlists) suggestions(id string) store.Result[[]services.Song] {
 func (p *playlists) recentTargets() store.Result[[]string] {
 	return store.Use(p.env.Queries, keyRecents, p.api.RecentTargets, store.Options{Stale: time.Minute, NoRetry: true})
 }
-
-// failText is the product's words for an error.
-func failText(err error) string { return i18n.ErrorText(services.CodeOf(err)) }

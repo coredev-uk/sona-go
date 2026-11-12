@@ -90,7 +90,7 @@ func emptyTheSyncedLibrary(r *pageRig) {
 	if _, err := r.h.DB.W.ExecContext(r.t.Context(), `DELETE FROM library_items`); err != nil {
 		r.t.Fatal(err)
 	}
-	r.l.env.Queries.Invalidate(keyLibrary)
+	r.l.env.Queries.Invalidate(store.KeyLibrary)
 }
 
 // queueVia is the queue's service with PlayItems, UndoReplace and SetShuffle

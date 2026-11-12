@@ -55,7 +55,7 @@ func (d *discover) playCollection(it services.Item) {
 		songs, err := d.tracks.Tracks(context.Background(), it)
 		d.env.Post(func() {
 			if err != nil {
-				kit.ToastErrorf(what, i18n.ErrorText(services.CodeOf(err)))
+				kit.ToastFailure(what, err)
 				return
 			}
 			d.env.Queue.PlaySongs(songs, 0, from)

@@ -3,7 +3,6 @@ package artist
 import (
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -55,9 +54,7 @@ func albumPath(id string) string { return "/album/" + url.PathEscape(id) }
 // between them. A nil album is a row still loading. Covers line up with the
 // heading above; the hover fill reaches 8 DIPs past them.
 func (a *artist) releaseList(c *ui.Context, st *releaseList, albums []*services.Album, o releaseOpts) {
-	if st.menus == nil {
-		st.menus = kit.NewActionMenus(a.env.Actions, &st.sel)
-	}
+	kit.MenusIn(&st.menus, a.env.Actions, &st.sel)
 	o.columns = max(1, o.columns)
 	keys := kit.KeysOf(len(albums), func(i int) string {
 		if albums[i] == nil {
@@ -96,40 +93,28 @@ func (a *artist) releaseList(c *ui.Context, st *releaseList, albums []*services.
 // its description: the year and kind, and the explicit mark.
 func releaseDescription(line string, explicit bool) string {
 	if explicit {
-		if line == "" {
-			return i18n.T("Explicit")
-		}
-		return line + " · " + i18n.T("Explicit")
+		return i18n.Meta(line, i18n.T("Explicit"))
 	}
 	return line
 }
 
 // releaseLine is the line under a release's title.
 func releaseLine(al services.Album, kind string, byArtist bool, now time.Time) string {
-	when := releaseBadge(al, now)
+	when := kit.ReleaseBadge(al, now)
 	if when == "" {
 		when = i18n.YearOf(al.ReleaseDate)
 	}
-	var parts []string
 	if byArtist {
-		parts = []string{al.Artist, when}
-	} else {
-		k := ""
-		switch kind {
-		case "single":
-			k = i18n.T("Single")
-		case "ep":
-			k = i18n.T("EP")
-		}
-		parts = []string{when, k}
+		return i18n.Meta(al.Artist, when)
 	}
-	var out []string
-	for _, p := range parts {
-		if p != "" {
-			out = append(out, p)
-		}
+	k := ""
+	switch kind {
+	case "single":
+		k = i18n.T("Single")
+	case "ep":
+		k = i18n.T("EP")
 	}
-	return strings.Join(out, " · ")
+	return i18n.Meta(when, k)
 }
 
 // releaseRow builds one release at index i of the list.
@@ -139,7 +124,7 @@ func (a *artist) releaseRow(c *ui.Context, st *releaseList, i int, al *services.
 	if al == nil {
 		ui.Row(c.Key("loading-" + strconv.Itoa(i))).Height(releaseRowH).Shrink(0).PaddingX(releasePadX).Gap(releaseGap).
 			AlignItems(ui.Center).Role(ui.RoleNone).Children(func() {
-			ui.Box(c).Size(releaseCover, releaseCover).Shrink(0).Radius(tk.Radius["sm"]).Background(hover)
+			kit.Bar(c, releaseCover, releaseCover)
 			ui.Column(c).Grow(1).Gap(6).Children(func() {
 				ui.Box(c).WidthPercent(60).Height(14).Radius(tk.Radius["sm"]).Background(hover)
 				ui.Box(c).WidthPercent(25).Height(12).Radius(tk.Radius["sm"]).Background(hover)
@@ -147,12 +132,12 @@ func (a *artist) releaseRow(c *ui.Context, st *releaseList, i int, al *services.
 		})
 		return
 	}
-	title, kind := releaseTitle(al.Name)
+	title, kind := kit.ReleaseTitle(al.Name)
 	line := releaseLine(*al, kind, o.byArtist, now)
 	withheld := restricted && al.Explicit
 	selected := st.sel.Selected(al.ID)
 	path := albumPath(al.ID)
-	opens := a.has(path)
+	opens := a.env.Routed(path)
 	target := kit.ActionTarget{Item: kit.AlbumItem(*al), Name: al.Name, Key: al.ID}
 
 	// A release is a row of one cell (v0.2.0's grid): the cell is the opener
@@ -253,15 +238,5 @@ func (a *artist) releaseRow(c *ui.Context, st *releaseList, i int, al *services.
 	}
 	// The item's menu: right-click, Shift+F10 or the Menu key; an item
 	// outside the selection is selected alone first.
-	if src.RightClicked() {
-		st.sel.MenuOn(i)
-		x, y, _ := src.PointerPosition()
-		wx, wy := src.LocalToWindow(x, y)
-		st.menus.OpenAt(target, wx, wy, false)
-	}
-	if src.Shortcut(ui.Shift, ui.KeyF10) || src.Shortcut(0, ui.KeyContextMenu) {
-		st.sel.MenuOn(i)
-		b := src.Bounds()
-		st.menus.OpenAt(target, b.X+16, b.Y+b.H, true)
-	}
+	st.menus.OpenFor(&st.sel, src, src, target, i)
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
-	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
@@ -18,9 +17,7 @@ import (
 // stationPage is the station page's state: its scroll container, the header's
 // menu and the moment its schedule is read against.
 type stationPage struct {
-	frame
-	// shown is the station the scroll offset belongs to.
-	shown string
+	kit.PageFrame
 	menus *kit.ActionMenus
 	clock refresh
 }
@@ -31,21 +28,12 @@ type stationPage struct {
 func (r *radio) stationView(c *ui.Context, rt *ui.Route) {
 	pg := &r.stationPg
 	id := rt.Param("id")
-	if pg.shown != id {
-		pg.pos = ui.ScrollState{} // another station: from its top
-		pg.shown = id
-	}
-	if pg.menus == nil {
-		pg.menus = kit.NewActionMenus(r.env.Actions, nil)
-	}
+	kit.MenusIn(&pg.menus, r.env.Actions, nil)
 	res := r.station(id)
-	devstate.Scroll(c, &pg.pos)
-	pg.scroll(c, func(gutter float32) {
+	pg.Scroll(c, id, func(_ *kit.Pane, gutter float32) { // another station: from its top
 		switch {
 		case res.Err != nil && !res.HasData:
-			kit.ErrorBlock(c, i18n.T("Couldn't load this station"), res.Err, kit.ErrorBlockOpts{
-				OnRetry: func() { r.env.Queries.Invalidate(kit.StationKey(id)) }, Retrying: res.Fetching,
-			})
+			kit.QueryError(c, r.env.Queries, i18n.T("Couldn't load this station"), res, kit.StationKey(id))
 		case !res.HasData:
 			stationSkeleton(c)
 		default:
@@ -57,28 +45,27 @@ func (r *radio) stationView(c *ui.Context, rt *ui.Route) {
 
 // stationSkeleton is the header's frame while the station loads.
 func stationSkeleton(c *ui.Context) {
-	hover := theme.C("hover")
-	sm := theme.Current().Radius["sm"]
 	ui.Row(c.Key("loading")).FillWidth().AlignItems(ui.End).Gap(28).Padding(4, 0, 28, 0).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
-		ui.Box(c).Size(200, 200).Radius(sm).Background(hover).Shrink(0)
+		kit.Bar(c, 200, 200)
 		ui.Column(c).Grow(1).Padding(0, 0, 4, 0).Children(func() {
-			ui.Box(c).Width(320).Height(32).Radius(sm).Background(hover)
-			ui.Box(c).Width(192).Height(12).Margin(12, 0, 0, 0).Radius(sm).Background(hover)
-			ui.Box(c).Size(40, 40).Margin(24, 0, 0, 0).Radius(theme.Current().Radius["full"]).Background(hover)
+			kit.Bar(c, 320, 32)
+			kit.Bar(c, 192, 12).Margin(12, 0, 0, 0)
+			ui.Box(c).Size(40, 40).Margin(24, 0, 0, 0).Radius(theme.Current().Radius["full"]).Background(theme.C("hover"))
 		})
 	})
 }
 
-// A link of the page to another: only to a page that is registered.
+// link is a link of the page to another, only to a page that is registered;
+// plain text where it is not. c carries the link's key.
 func (r *radio) link(c *ui.Context, label, path string, ink ui.Color) {
-	if r.env.HasRoute != nil && r.env.HasRoute(path) {
-		l := ui.Link(c.Key(path), label, path).TextColor(ink)
+	if r.env.Routed(path) {
+		l := ui.Link(c, label, path).TextColor(ink)
 		if l.Hovered() {
 			l.Underline()
 		}
 		return
 	}
-	ui.Text(c.Key(path), label).TextColor(ink)
+	ui.Text(c, label).TextColor(ink)
 }
 
 // stationBody is the station: its header, the note of a station Sona can't
@@ -93,7 +80,8 @@ func (r *radio) stationBody(c *ui.Context, d services.StationDetail, gutter floa
 	case d.Seed != nil:
 		byline = func() { r.seedLine(c, *d.Seed) }
 	case s.ShowID != "":
-		byline = func() { r.link(c, s.ShowName, "/curator/"+url.PathEscape(s.ShowID), theme.C("ink")) }
+		path := "/curator/" + url.PathEscape(s.ShowID)
+		byline = func() { r.link(c.Key(path), s.ShowName, path, theme.C("ink")) }
 	case s.HostName != "":
 		byline = func() { ui.Text(c, s.HostName).TextColor(theme.C("ink")) }
 	case s.Tagline != "":
@@ -127,7 +115,7 @@ func (r *radio) stationBody(c *ui.Context, d services.StationDetail, gutter floa
 	}
 	// The header bleeds to the content's edges: the page's right padding
 	// holds the scroll bar's room too.
-	kit.CollectionHeader(c, opts).Padding(32, gutter+m, 28, gutter).Margin(-padTop, -(gutter + m), 24, -gutter)
+	kit.CollectionHeader(c, opts).Padding(32, gutter+m, 28, gutter).Margin(-kit.PagePadTop, -(gutter + m), 24, -gutter)
 
 	if !s.Playable {
 		r.unplayable(c, s)
@@ -181,14 +169,8 @@ func (r *radio) broadcaster(c *ui.Context, s services.Station) {
 		}
 		if tuned && st.Broadcaster != nil {
 			info := st.Broadcaster
-			var parts []string
-			for _, p := range []string{info.Genre, info.Location} {
-				if p != "" {
-					parts = append(parts, p)
-				}
-			}
-			if len(parts) > 0 {
-				theme.Text(c, strings.Join(parts, " · "), "sub").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
+			if meta := i18n.Meta(info.Genre, info.Location); meta != "" {
+				theme.Text(c, meta, "sub").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 			}
 			if info.Description != "" {
 				theme.Text(c, info.Description, "sub").TextColor(theme.C("ink-muted")).Margin(8, 0, 0, 0)
@@ -237,7 +219,7 @@ func (r *radio) upcoming(c *ui.Context, songs []services.Song) {
 // text where it does not.
 func (r *radio) songLink(c *ui.Context, label, path, style string, ink ui.Color) {
 	t := theme.Current().Type[style]
-	if r.env.HasRoute != nil && r.env.HasRoute(path) {
+	if r.env.Routed(path) {
 		l := ui.Link(c.Key(path), label, path).FontSize(t.Size).FixedLineHeight(t.LineHeight).TextColor(ink).SingleLine()
 		if l.Hovered() {
 			l.Underline()
@@ -340,10 +322,10 @@ func (r *radio) seedLine(c *ui.Context, seed services.StationSeed) {
 			key := c.Key(i)
 			switch part.mark {
 			case nameMark:
-				r.inline(key, seed.Name, page+url.PathEscape(seed.ID), ink)
+				r.link(key, seed.Name, page+url.PathEscape(seed.ID), ink)
 			case byMark:
 				if seed.ArtistID != "" {
-					r.inline(key, seed.Subtitle, "/artist/"+url.PathEscape(seed.ArtistID), ink)
+					r.link(key, seed.Subtitle, "/artist/"+url.PathEscape(seed.ArtistID), ink)
 				} else {
 					ui.Text(key, seed.Subtitle).TextColor(ink)
 				}
@@ -356,19 +338,6 @@ func (r *radio) seedLine(c *ui.Context, seed services.StationSeed) {
 			}
 		}
 	})
-}
-
-// inline is a link inside a paragraph, to a page that exists; plain text
-// where it does not.
-func (r *radio) inline(c *ui.Context, label, path string, ink ui.Color) {
-	if r.env.HasRoute != nil && r.env.HasRoute(path) {
-		l := ui.Link(c, label, path).TextColor(ink)
-		if l.Hovered() {
-			l.Underline()
-		}
-		return
-	}
-	ui.Text(c, label).TextColor(ink)
 }
 
 // part is a piece of a seed line's message: text (muted inside <N>…</N>), or

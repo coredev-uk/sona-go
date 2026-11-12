@@ -400,7 +400,7 @@ func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, stat
 	head.Children(func() {
 		ui.Column(c).Grow(1).Basis(0).MinWidth(0).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).MinWidth(0).Children(func() {
-				if path := "/music-video/" + id; v.hasRoute(path) {
+				if path := "/music-video/" + id; v.env.Routed(path) {
 					// The heading holds the link (MyGo v0.8.1 allows it), so
 					// the title is on the headings list and still opens.
 					ui.Row(c.Key("title-h")).Shrink(1).MinWidth(0).Role(ui.RoleHeading).Level(1).Children(func() {
@@ -435,7 +435,7 @@ func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, stat
 					})
 				})
 			})
-			if path := "/artist/" + cur.ArtistID; cur.ArtistID != "" && v.hasRoute(path) {
+			if path := "/artist/" + cur.ArtistID; cur.ArtistID != "" && v.env.Routed(path) {
 				l := ui.Link(c.Key("artist"), "", "").MinWidth(0)
 				l.Children(func() { text(c, cur.Artist, "sub").TextColor(theme.C("ink-muted")) })
 				control(l, focusVisible)

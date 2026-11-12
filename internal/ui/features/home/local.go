@@ -35,8 +35,7 @@ type localState struct {
 // plays (Apple's, or this computer's history offline), recent additions and
 // playlists. Shown signed out, offline without a cached Home, or when Home is
 // empty.
-func (h *home) localShelves(c *ui.Context, signedIn bool) {
-	ctx := h.env.ItemsCtx(nil)
+func (h *home) localShelves(c *ui.Context, signedIn bool, ctx kit.ItemsCtx) {
 	if signedIn {
 		h.recentlyPlayed(c, ctx)
 	}
@@ -48,7 +47,7 @@ func (h *home) localShelves(c *ui.Context, signedIn bool) {
 // history when Apple can't be reached.
 func (h *home) recentlyPlayed(c *ui.Context, ctx kit.ItemsCtx) {
 	q := h.env.Queries
-	recent := store.Use(q, keyRecent, func(cx context.Context) ([]services.Song, error) {
+	recent := store.Use(q, store.KeyLibraryRecent, func(cx context.Context) ([]services.Song, error) {
 		return h.lib.RecentlyPlayed(cx, recentSongs, 0)
 	}, store.Options{Stale: store.Forever})
 	// Apple's list failed: what this computer played is a different list,
@@ -85,7 +84,7 @@ func (h *home) recentlyPlayed(c *ui.Context, ctx kit.ItemsCtx) {
 	case !have:
 		kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Recently played")}, func() {
 			kit.ErrorBlock(c, i18n.T("Couldn't load what you played recently"), recent.Err, kit.ErrorBlockOpts{
-				OnRetry:  func() { q.Invalidate(keyRecent) },
+				OnRetry:  func() { q.Invalidate(store.KeyLibraryRecent) },
 				Retrying: recent.Fetching || history.Fetching,
 			})
 		})
@@ -107,23 +106,10 @@ func (h *home) recentlyPlayed(c *ui.Context, ctx kit.ItemsCtx) {
 // "recently-played".
 func (h *home) songsList(c *ui.Context, songs []services.Song, ctx kit.ItemsCtx) {
 	st := &h.local
-	if st.menus == nil {
-		st.menus = kit.NewActionMenus(h.env.Actions, &st.played.Sel)
-	}
-	o := kit.TrackListOpts{
-		Label:   i18n.T("Recently played songs"),
-		Columns: kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true},
-		OnPlay:  func(i int) { ctx.Players.PlaySongList(songs, i, recentlyPlayed) },
-		Current: ctx.Current,
-		Playing: ctx.Playing, Restricted: ctx.Restricted,
-		Art: h.env.Art, Menus: st.menus, Motion: h.env.Motion,
-	}
-	if h.routed("/artist/x") {
-		o.OpenArtist = func(id string) { ctx.Nav("/artist/" + id) }
-	}
-	if h.routed("/album/x") {
-		o.OpenAlbum = func(id string) { ctx.Nav("/album/" + id) }
-	}
+	o := h.env.TrackOpts(kit.MenusIn(&st.menus, h.env.Actions, &st.played.Sel), ctx.Restricted)
+	o.Label = i18n.T("Recently played songs")
+	o.Columns = kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true}
+	o.OnPlay = func(i int) { ctx.Players.PlaySongList(songs, i, recentlyPlayed) }
 	kit.TrackList(c, &st.played, len(songs), func(i int) *services.Song { return &songs[i] }, o)
 }
 
@@ -133,7 +119,7 @@ func (h *home) songsSkeleton(c *ui.Context) {
 	ui.Column(c.Key("songs-loading")).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
 		for i := range 5 {
 			ui.Row(c.Key(i)).Height(44).PaddingX(8).Gap(12).AlignItems(ui.Center).Children(func() {
-				ui.Box(c).Size(32, 32).Shrink(0).Radius(r).Background(hover).Margin(0, 0, 0, 56)
+				kit.Bar(c, 32, 32).Margin(0, 0, 0, 56)
 				ui.Box(c).WidthPercent(float32(24 + i*5)).Height(14).Radius(r).Background(hover)
 			})
 		}
@@ -150,9 +136,7 @@ func (h *home) recentlyAdded(c *ui.Context, ctx kit.ItemsCtx) {
 	title := i18n.T("Recently added")
 	if res.Err != nil {
 		kit.Shelf(c, kit.ShelfOpts{Title: title}, func() {
-			kit.ErrorBlock(c, i18n.T("Couldn't read your albums"), res.Err, kit.ErrorBlockOpts{
-				OnRetry: func() { q.Invalidate(keyAdded) },
-			})
+			kit.QueryError(c, q, i18n.T("Couldn't read your albums"), res, keyAdded)
 		})
 		return
 	}
@@ -160,7 +144,7 @@ func (h *home) recentlyAdded(c *ui.Context, ctx kit.ItemsCtx) {
 		return
 	}
 	var tiles []kit.CoverItem
-	open := h.routed("/album/x")
+	open := h.env.Routed("/album/x")
 	for _, a := range res.Data.Items {
 		t := kit.CoverItem{Key: a.ID, Title: a.Name, Subtitle: a.Artist, Art: a.Art.Medium}
 		if open {
@@ -181,12 +165,11 @@ func (h *home) recentPlaylists(c *ui.Context, ctx kit.ItemsCtx) {
 		return
 	}
 	var tiles []kit.CoverItem
-	open := h.routed("/playlist/x")
+	open := h.env.Routed("/playlist/x")
 	for _, p := range res.Data.Items {
 		sub := p.Curator
 		if p.TrackCount > 0 {
-			// translators: {0} is the number of songs: a list's total, or a playlist's track count.
-			sub = i18n.T("{0, plural, one {# song} other {# songs}}", "0", p.TrackCount)
+			sub = i18n.SongCount(p.TrackCount)
 		}
 		t := kit.CoverItem{Key: p.ID, Title: p.Name, Subtitle: sub, Art: p.Art.Medium}
 		if open {
@@ -201,7 +184,7 @@ func (h *home) recentPlaylists(c *ui.Context, ctx kit.ItemsCtx) {
 // a module serves it.
 func (h *home) coverShelf(c *ui.Context, st *kit.CoverState, title, label, all string, tiles []kit.CoverItem, ctx kit.ItemsCtx) {
 	so := kit.ShelfOpts{Title: title}
-	if h.routed(all) {
+	if h.env.Routed(all) {
 		so.More = func() { ctx.Nav(all) }
 	}
 	kit.Shelf(c, so, func() {

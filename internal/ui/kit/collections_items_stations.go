@@ -22,7 +22,7 @@ const (
 
 // StationListState is the state of a StationList: the width its columns
 // follow.
-type StationListState struct{ width itemsWidth }
+type StationListState struct{ width WidthTracker }
 
 // StationListOpts are the options of StationList.
 type StationListOpts struct {
@@ -45,7 +45,7 @@ type StationListOpts struct {
 func StationList(c *ui.Context, st *StationListState, stations []services.Station, ctx ItemsCtx, o StationListOpts) {
 	root := ui.Grid(c.Key("kit.stations." + o.Label)).GapX(stationGapX).GapY(stationGapY).MarginX(-stationBleed).
 		Role(ui.RoleList).Label(o.Label)
-	width := st.width.track(c, root)
+	width := st.width.Track(c, root)
 	if width > 0 {
 		root.Columns(max(1, int((width+stationGapX)/(stationMin+stationGapX))))
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
 )
@@ -153,7 +154,7 @@ func TestRecentlyAddedGateStates(t *testing.T) {
 		if _, err := r.h.DB.W.ExecContext(t.Context(), `DELETE FROM library_items WHERE kind IN ('album', 'playlist')`); err != nil {
 			t.Fatal(err)
 		}
-		r.l.env.Queries.Invalidate(keyLibrary)
+		r.l.env.Queries.Invalidate(store.KeyLibrary)
 		r.tt.Until("the empty text", r.tt.Shows("No recent additions in your library yet",
 			"Albums and playlists you add in Apple Music appear here, newest first."))
 	})

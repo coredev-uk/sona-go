@@ -27,7 +27,7 @@ type historyDay struct {
 
 // historyPage is the History page's view state.
 type historyPage struct {
-	pageView
+	kit.PageFrame
 	// days is how many days are asked for (0 until the first frame).
 	days int
 	// data is the last result of any days value: it keeps showing while
@@ -47,7 +47,7 @@ type historyPage struct {
 // historyKey is `["library", "recent", "history", days]`: under the recent
 // prefix, so a new song refreshes it.
 func historyKey(days int) store.Key {
-	return append(append(store.Key(nil), keyRecent...), "history", days)
+	return append(append(store.Key(nil), store.KeyLibraryRecent...), "history", days)
 }
 
 // historyPage is HistoryPage: what the account played, newest first and
@@ -84,14 +84,11 @@ func (l *library) historyPage(c *ui.Context, r *ui.Route) {
 		}
 	}
 
-	l.scrollPage(c, &pg.pageView, "history", func(*kit.Pane) {
+	pg.Scroll(c, "history", func(*kit.Pane, float32) {
 		kit.PageHeader(c, i18n.T("History"), subline, nil)
 		switch {
 		case res.Err != nil && !pg.has:
-			kit.ErrorBlock(c, i18n.T("Couldn't read your listening history"), res.Err, kit.ErrorBlockOpts{
-				OnRetry:  func() { l.env.Queries.Invalidate(key) },
-				Retrying: res.Fetching,
-			})
+			kit.QueryError(c, l.env.Queries, i18n.T("Couldn't read your listening history"), res, key)
 		case !pg.has:
 			l.historySkeleton(c)
 		case len(pg.groups) == 0:
@@ -130,7 +127,7 @@ var historyColumns = kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: t
 // count only when songs repeated.
 func historySubline(g *historyGroup) string {
 	songs := len(g.songs)
-	text := i18n.T("{songs, plural, one {# song} other {# songs}}", "songs", songs)
+	text := i18n.SongCount(songs)
 	if g.plays > songs {
 		text = i18n.T("{songs, plural, one {# song} other {# songs}}, {plays, plural, one {# play} other {# plays}}", "songs", songs, "plays", g.plays)
 	}
@@ -160,21 +157,10 @@ func (l *library) historySection(c *ui.Context, pg *historyPage, g *historyGroup
 			ui.Text(c, historySubline(g)).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).TextColor(theme.C("ink-faint"))
 		})
 		songs := g.songs
-		opts := kit.TrackListOpts{
-			Label:      i18n.T("Played {label}", "label", label),
-			Columns:    historyColumns,
-			OnPlay:     func(i int) { l.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: i18n.T("History")}) },
-			Art:        l.env.Art,
-			Motion:     l.env.Motion,
-			Restricted: l.restricted(),
-			Menus:      l.itemMenus(&st.menus, &st.list.Sel),
-		}
-		if l.env.HasRoute != nil && l.env.HasRoute("/artist/x") {
-			opts.OpenArtist = func(id string) { l.env.Nav.Push("/artist/" + id) }
-		}
-		if l.env.HasRoute != nil && l.env.HasRoute("/album/x") {
-			opts.OpenAlbum = func(id string) { l.env.Nav.Push("/album/" + id) }
-		}
+		opts := l.env.TrackOpts(l.itemMenus(&st.menus, &st.list.Sel), l.restricted())
+		opts.Label = i18n.T("Played {label}", "label", label)
+		opts.Columns = historyColumns
+		opts.OnPlay = func(i int) { l.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: i18n.T("History")}) }
 		kit.TrackList(c, &st.list, len(songs), func(i int) *services.Song { return &songs[i] }, opts)
 	})
 }

@@ -31,19 +31,35 @@ const (
 // and its cover row (selection, navigation, menu).
 type indexLine struct {
 	open  bool
-	width widthTracker
+	width kit.WidthTracker
 	row   kit.CoverState
 	menus *kit.ActionMenus
 	cap   captioned
+
+	// holds is what the line's section holds, kept for the items and locale
+	// it was formatted for.
+	holds       string
+	holdsFirst  *services.Item
+	holdsN      int
+	holdsLocale string
+}
+
+// summary is what the section holds, formatted again only when its items or
+// the locale change.
+func (ln *indexLine) summary(items []services.Item) string {
+	var first *services.Item
+	if len(items) > 0 {
+		first = &items[0]
+	}
+	if loc := i18n.Locale(); ln.holdsFirst != first || ln.holdsN != len(items) || ln.holdsLocale != loc {
+		ln.holds, ln.holdsFirst, ln.holdsN, ln.holdsLocale = holds(items), first, len(items), loc
+	}
+	return ln.holds
 }
 
 func (h *home) indexState(id string) *indexLine {
-	ln := h.index[id]
-	if ln == nil {
-		ln = &indexLine{}
-		ln.menus = kit.NewActionMenus(h.env.Actions, &ln.row.Sel)
-		h.index[id] = ln
-	}
+	ln := kit.Entry(&h.index, id)
+	kit.MenusIn(&ln.menus, h.env.Actions, &ln.row.Sel)
 	return ln
 }
 
@@ -66,7 +82,7 @@ func (h *home) shelfIndex(c *ui.Context, sections []services.Section, ctx kit.It
 func (h *home) indexLine(c *ui.Context, s services.Section, ctx kit.ItemsCtx) {
 	tk := theme.Current()
 	ln := h.indexState(s.ID)
-	summary := holds(s.Items)
+	summary := ln.summary(s.Items)
 	ui.Column(c.Key(s.ID)).Role(ui.RoleListItem).Children(func() {
 		name := s.Title
 		if summary != "" {
@@ -74,7 +90,7 @@ func (h *home) indexLine(c *ui.Context, s services.Section, ctx kit.ItemsCtx) {
 		}
 		btn := ui.ButtonBase(c.Key("line")).Height(indexH).FillWidth().Gap(indexGap).PaddingX(indexPad).Radius(tk.Radius["md"]).
 			Role(ui.RoleDisclosure).Expanded(ln.open).Label(name)
-		width := ln.width.track(c, btn)
+		width := ln.width.Track(c, btn)
 		bg := ui.Transparent
 		if btn.Hovered() {
 			bg = theme.C("hover")
@@ -148,35 +164,15 @@ func (h *home) indexPanel(c *ui.Context, ln *indexLine, s services.Section, ctx 
 			Rows: -1,
 		})
 		if more := shelfMore(s); more != "" {
-			seeAll(c, func() {
-				if ctx.Nav != nil {
-					ctx.Nav(more)
-				}
-			}).Margin(16, 0, 0, 0)
+			ui.Row(c.Key("more")).Margin(16, 0, 0, 0).Children(func() {
+				kit.ShelfSeeAll(c, "see-all", func() {
+					if ctx.Nav != nil {
+						ctx.Nav(more)
+					}
+				})
+			})
 		}
 	})
-}
-
-// seeAll is the small "See all" link under an opened shelf; it runs open on a
-// click.
-func seeAll(c *ui.Context, open func()) ui.Element {
-	tk := theme.Current()
-	b := ui.ButtonBase(c.Key("see-all")).Role(ui.RoleLink).AlignSelf(ui.Start)
-	bg, fg := ui.Transparent, theme.C("ink-muted")
-	if b.Hovered() {
-		bg, fg = theme.C("hover"), theme.C("ink")
-	}
-	b.Height(28).PaddingX(6).Gap(2).Radius(tk.Radius["md"]).Background(bg).TextColor(fg).Center()
-	theme.Fade(b, "press")
-	b.Children(func() {
-		sub := tk.Type["sub"]
-		ui.Text(c, i18n.T("See all")).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).SingleLine()
-		theme.Glyph(c, "chevron-right", 14, theme.GlyphOpts{Color: fg, Inherit: true})
-	})
-	if b.Clicked() {
-		open()
-	}
-	return b
 }
 
 // holds is what a shelf holds, by kind: "8 albums · 4 playlists".

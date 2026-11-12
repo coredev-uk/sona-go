@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
@@ -179,7 +180,7 @@ func TestA11yPages(t *testing.T) {
 				r.tt.Until("no favourites", r.tt.Shows("No favourite songs yet"))
 				favouriteSong(r, 1, 0, 10)
 				favouriteSong(r, 4, 1, 20)
-				r.l.env.Queries.Invalidate(keyFavourites)
+				r.l.env.Queries.Invalidate(store.KeyLibraryFavourites)
 				return r.tt
 			},
 			ready:    []string{"2 songs", "Blue Hour song 2"},

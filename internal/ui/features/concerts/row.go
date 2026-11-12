@@ -170,7 +170,7 @@ func concertRow(c *ui.Context, env *module.Env, con services.Concert, o rowOpts)
 			kit.Artwork(c.Key("art"), env.Art, art, 56, kit.ArtOpts{Round: true, Edge: true})
 		}
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-			if !o.artist && lead != nil && lead.ID != "" && env.HasRoute != nil && env.HasRoute("/artist/"+lead.ID) {
+			if !o.artist && lead != nil && lead.ID != "" && env.Routed("/artist/"+lead.ID) {
 				t := theme.Current().Type["label"]
 				link := ui.Link(c.Key("name"), title, "/artist/"+lead.ID).FontSize(t.Size).FixedLineHeight(t.LineHeight).
 					FontWeight(int(t.Weight)).TextColor(theme.C("ink")).SingleLine().MinWidth(0)

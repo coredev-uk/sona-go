@@ -18,7 +18,7 @@ type front struct {
 	// openers are the lead's and the list's play buttons, which a music
 	// video's view returns the focus to when it closes.
 	openers kit.Openers
-	width   measure
+	width   kit.WidthTracker
 	// at is the lead's place in the items.
 	at int
 	// turned: the user turned the list to page turnPage while the lead was
@@ -40,7 +40,7 @@ func (f *front) choose(to int) { f.at = to }
 // window), paged so the list never runs past the lead. The lead moves on by
 // itself unless the user pauses it or asks for reduced motion; choosing a row
 // makes it the lead, and the list shows the page the lead is on.
-func (d *discover) frontPage(c *ui.Context, items []services.Item) {
+func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.ItemsCtx) {
 	count := len(items)
 	if count == 0 {
 		return
@@ -48,11 +48,12 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item) {
 	f := &d.front
 	tk := theme.Current()
 	gapX := tk.Metric["tile-gap-x"]
-	ctx := d.env.ItemsCtx(f.menus)
+	ctx := base // the page's own, with the lead's menu
+	ctx.Menus, ctx.NoPopup = f.menus, false
 	label := i18n.T("Featured")
 
 	sec := ui.Column(c.Key("front")).FillWidth().Margin(0, 0, 48, 0).Role(ui.RoleGroup).Label(label)
-	width := f.width.track(c, sec)
+	width := f.width.Track(c, sec)
 	lay := layoutFor(width, gapX)
 	// A page that is built again after it went away starts over: the first
 	// card leads, rotation is not paused (v0.2.0's component state was lost on
@@ -192,7 +193,7 @@ func (d *discover) opener(it services.Item, ctx kit.ItemsCtx) (open func(), link
 			return nil, false
 		}
 		return func() { kit.OpenWithoutPage(it, ctx) }, false
-	case d.env.HasRoute != nil && d.env.HasRoute(path):
+	case d.env.Routed(path):
 		return func() { d.env.Nav.Push(path) }, true
 	}
 	return nil, false
@@ -211,7 +212,7 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 	open, link := d.opener(it, ctx)
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
 	menu := kit.ActionTarget{Item: target, Name: name, Key: "lead"}
-	hasMenu := hasTarget && ctx.Menus != nil && d.hasMenu(target)
+	hasMenu := hasTarget && ctx.Menus.HasMenu(target)
 	artH := lay.artHeight()
 
 	wrap := ui.Column(c.Key("wrap")).AlignItems(ui.Start).Width(lay.lead)
@@ -231,7 +232,7 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 		}
 		card.Width(lay.lead)
 		card.Children(func() {
-			colour, hasColour := itemColour(it)
+			colour, hasColour := kit.ParseHex(it.Color)
 			art := ui.Box(c.Key("art")).Size(lay.lead, artH).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
 			if hasColour {
 				art.Background(colour)
@@ -275,31 +276,6 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			ctx.Menus.Row(card, menu)
 		}
 	})
-}
-
-// hasMenu says whether the item has a more menu (a kind with actions, or one
-// the bulk actions take): the more button is built, and its room kept, only
-// then.
-func (d *discover) hasMenu(it kit.Item) bool {
-	return d.env.Actions.Has(it.Kind) || len(d.env.Actions.BulkFor([]kit.Item{it})) > 0
-}
-
-// itemColour is the item's own colour, "#rrggbb" from Apple, for the block
-// behind its picture.
-func itemColour(it services.Item) (ui.Color, bool) {
-	h := it.Color
-	if len(h) != 7 || h[0] != '#' {
-		return ui.Color{}, false
-	}
-	var v [3]uint8
-	for i := range v {
-		n, err := strconv.ParseUint(h[1+2*i:3+2*i], 16, 8)
-		if err != nil {
-			return ui.Color{}, false
-		}
-		v[i] = uint8(n)
-	}
-	return ui.RGB(v[0], v[1], v[2]), true
 }
 
 // featureList is the list of featured cards beside or under the lead, and
@@ -402,7 +378,7 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 	hot := hovered || item.FocusWithin()
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
 	menu := kit.ActionTarget{Item: target, Name: name, Key: "row:" + strconv.Itoa(index)}
-	hasMenu := hasTarget && ctx.Menus != nil && d.hasMenu(target)
+	hasMenu := hasTarget && ctx.Menus.HasMenu(target)
 	var row ui.Element
 	item.Children(func() {
 		sub := kit.ItemSubtitle(it)
@@ -431,7 +407,7 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 			tw, th := thumbBox(src)
 			ui.Row(c.Key("slot")).Size(listThumb, listThumb).Shrink(0).Center().Children(func() {
 				thumb := ui.Box(c.Key("thumb")).Size(tw, th).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
-				if colour, ok := itemColour(it); ok {
+				if colour, ok := kit.ParseHex(it.Color); ok {
 					thumb.Background(colour)
 				}
 				thumb.Children(func() {
@@ -473,11 +449,11 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 
 // frontSkeleton is the front page's frame while it loads: the lead and its
 // list as flat bars at their real sizes (v0.2.0's FrontPageSkeleton).
-func (d *discover) frontSkeleton(c *ui.Context, m *measure) {
+func (d *discover) frontSkeleton(c *ui.Context, m *kit.WidthTracker) {
 	tk := theme.Current()
 	gapX := tk.Metric["tile-gap-x"]
 	root := ui.Column(c.Key("front-skeleton")).FillWidth().Margin(0, 0, 48, 0).Role(ui.RoleNone)
-	width := m.track(c, root)
+	width := m.Track(c, root)
 	lay := layoutFor(width, gapX)
 	root.Children(func() {
 		if width <= 0 {
@@ -491,9 +467,9 @@ func (d *discover) frontSkeleton(c *ui.Context, m *measure) {
 		}
 		grid.Children(func() {
 			ui.Column(c.Key("lead")).Width(lay.lead).Shrink(0).Children(func() {
-				ui.Box(c).Size(lay.lead, lay.artHeight()).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
-				ui.Row(c).Height(22).Margin(8, 0, 0, 0).AlignItems(ui.Center).Children(func() { bar(c, lay.lead/3, 16) })
-				ui.Row(c).Height(18).AlignItems(ui.Center).Children(func() { bar(c, lay.lead/4, 12) })
+				kit.Bar(c, lay.lead, lay.artHeight())
+				ui.Row(c).Height(22).Margin(8, 0, 0, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/3, 16) })
+				ui.Row(c).Height(18).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/4, 12) })
 			})
 			ui.Row(c.Key("list")).Grow(1).Basis(0).MinWidth(0).Gap(gapX).Children(func() {
 				for col := range lay.columns {
@@ -503,7 +479,7 @@ func (d *discover) frontSkeleton(c *ui.Context, m *measure) {
 								break
 							}
 							ui.Row(c.Key(r)).Height(lay.rowHeight).Gap(12).AlignItems(ui.Center).Children(func() {
-								bar(c, listThumb, listThumb)
+								kit.Bar(c, listThumb, listThumb)
 								ui.Column(c).Grow(1).MinWidth(0).Children(func() {
 									ui.Box(c).WidthPercent(75).Height(14).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
 									ui.Box(c).WidthPercent(50).Height(12).Margin(8, 0, 0, 0).Radius(tk.Radius["sm"]).Background(theme.C("hover"))

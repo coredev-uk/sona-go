@@ -1,6 +1,7 @@
 package kit
 
 import (
+	"cmp"
 	"context"
 	"sync"
 	"time"
@@ -205,7 +206,7 @@ func (s *ItemStates) Remember(st services.ItemState) {
 	}
 	s.write(st.Kind, st.ID, st)
 	// A like or dislike made outside the UI changes the favourites too.
-	s.q.Invalidate(store.Key{"library", "favorite-songs"})
+	s.q.Invalidate(store.KeyLibraryFavourites)
 }
 
 // Follow subscribes the states to "library:item-state": call it from a
@@ -410,7 +411,7 @@ func (s *ItemStates) Change(ctx context.Context, kind string, it StateItem, ch S
 	case got.InLibrary != prev.InLibrary || ch == ChangeRemove:
 		s.q.Invalidate(membershipLists...)
 	case kind == StateSongs:
-		s.q.Invalidate(store.Key{"library", "favorite-songs"})
+		s.q.Invalidate(store.KeyLibraryFavourites)
 	}
 	return got, nil
 }
@@ -507,7 +508,7 @@ func (s *ItemStates) add(items []KindedItem, failTitle, doneTitle string) {
 			list := byKind[kind]
 			ids := make([]string, len(list))
 			for i, it := range list {
-				ids[i] = firstID(it.CatalogID, it.ID)
+				ids[i] = cmp.Or(it.CatalogID, it.ID)
 			}
 			if err := s.api.Add(context.Background(), kind, ids); err != nil {
 				failedToast(failTitle, err)
@@ -524,13 +525,6 @@ func (s *ItemStates) add(items []KindedItem, failTitle, doneTitle string) {
 		s.q.Invalidate(membershipLists...)
 		ShowToast(ToastSpec{Title: doneTitle})
 	}()
-}
-
-func firstID(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
 }
 
 // removeNote is what else a removal takes with it.

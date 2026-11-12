@@ -81,7 +81,7 @@ func (h *helpSheet) about(c *ui.Context, env *module.Env) {
 // link is the word that links to Settings (plain text where that page does
 // not exist), and what follows it.
 func (h *helpSheet) link(c *ui.Context, env *module.Env, name, after string) {
-	if env.HasRoute != nil && env.HasRoute("/settings") {
+	if env.Routed("/settings") {
 		link := ui.ButtonBase(c.Key("settings")).Role(ui.RoleLink).Label(name).Cursor(ui.CursorPointer)
 		link.Children(func() {
 			theme.Text(c, name, "secondary").TextColor(theme.C("ink")).Underline().SingleLine().Shrink(0)

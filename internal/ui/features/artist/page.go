@@ -7,15 +7,11 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
-	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
-
-// narrow is the window width under which the page's gutters shrink.
-const narrow = 960
 
 // shelfState is a cover shelf's state with its own item menu: several shelves
 // share a page, and a menu over one selection draws its popup once.
@@ -36,6 +32,7 @@ type pageState struct {
 	id    string
 	pos   ui.ScrollState
 	width float32 // the content's width as the last frame laid it out
+	track kit.WidthTracker
 
 	// readMore: "Read more" was pressed; the About band (aboutTop is its
 	// place in the scrolled content) scrolls to the top and focusAbout moves
@@ -49,57 +46,24 @@ type pageState struct {
 	lists      map[string]*releaseList
 }
 
-func (p *pageState) shelf(key string) *shelfState {
-	if p.shelves == nil {
-		p.shelves = map[string]*shelfState{}
-	}
-	if p.shelves[key] == nil {
-		p.shelves[key] = &shelfState{}
-	}
-	return p.shelves[key]
-}
+func (p *pageState) shelf(key string) *shelfState { return kit.Entry(&p.shelves, key) }
 
-func (p *pageState) list(key string) *releaseList {
-	if p.lists == nil {
-		p.lists = map[string]*releaseList{}
-	}
-	if p.lists[key] == nil {
-		p.lists[key] = &releaseList{}
-	}
-	return p.lists[key]
-}
+func (p *pageState) list(key string) *releaseList { return kit.Entry(&p.lists, key) }
 
 // gutter is the page's side padding, which the header bleeds through.
 func gutter(c *ui.Context) float32 {
-	tk := theme.Current()
-	if w, _ := c.Size(); w < narrow {
-		return tk.Metric["gutter-narrow"]
-	}
-	return tk.Metric["gutter"]
+	w, _ := c.Size()
+	return kit.PageGutter(w)
 }
 
 // scaffold is the page every artist route builds into: one scroll container
 // with the page's padding, whose content width the page follows (v0.2.0's
 // useElementWidth on the page root; 0 before the first layout).
-func (a *artist) scaffold(c *ui.Context, pos *ui.ScrollState, width *float32, body func(pane *kit.Pane)) {
-	g, scrollbar := gutter(c), theme.Current().Metric["scrollbar"]
-	devstate.Scroll(c, pos) // dev builds: the offset survives a restart
-	sc := ui.Scroll(c).TrackScroll(pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
-	pane := &kit.Pane{Pos: pos, Bounds: sc.Bounds}
-	sc.Children(func() {
-		ui.Column(c).Padding(28, g+scrollbar, 48, g).Children(func() {
-			page := ui.Column(c.Key("page")).FillWidth()
-			page.Draw(func(_ *ui.Painter, r ui.Rect) {
-				if r.W != *width {
-					*width = r.W
-					c.Invalidate() // the layout follows the width
-				}
-			})
-			if w := page.Bounds().W; w > 0 && *width == 0 {
-				*width = w
-			}
-			page.Children(func() { body(pane) })
-		})
+func (a *artist) scaffold(c *ui.Context, pos *ui.ScrollState, track *kit.WidthTracker, width *float32, body func(pane *kit.Pane)) {
+	kit.PageScroll(c, pos, gutter(c), func(pane *kit.Pane) {
+		page := ui.Column(c.Key("page")).FillWidth()
+		*width = track.Track(c, page)
+		page.Children(func() { body(pane) })
 	})
 }
 
@@ -118,28 +82,24 @@ func (a *artist) artistPage(c *ui.Context, r *ui.Route) {
 		key  store.Key
 	)
 	if lib {
-		key = keyLibraryArtist(id)
+		key = store.LibraryArtist(id)
 		libQ = store.Use(a.env.Queries, key, func(ctx context.Context) (services.ArtistDetail, error) {
 			return a.lib.Artist(ctx, id)
 		}, store.Options{Stale: store.Forever})
 	} else {
-		key = keyCatalogArtist(id)
+		key = store.CatalogArtist(id)
 		catQ = a.catalog(id)
 	}
-	hasData, err, fetching := catQ.HasData, catQ.Err, catQ.Fetching
+	// status is the state of whichever query the page loads.
+	status := store.Result[struct{}]{HasData: catQ.HasData, Err: catQ.Err, Fetching: catQ.Fetching}
 	if lib {
-		hasData, err, fetching = libQ.HasData, libQ.Err, libQ.Fetching
+		status = store.Result[struct{}]{HasData: libQ.HasData, Err: libQ.Err, Fetching: libQ.Fetching}
 	}
-	a.scaffold(c, &pg.pos, &pg.width, func(pane *kit.Pane) {
+	a.scaffold(c, &pg.pos, &pg.track, &pg.width, func(pane *kit.Pane) {
 		switch {
-		case err != nil && !hasData:
-			kit.DetailError(c, kit.NounArtist, err, kit.DetailErrorOpts{
-				Retry:    func() { a.env.Queries.Invalidate(key) },
-				Retrying: fetching,
-				Back:     a.backToArtists(),
-				SignIn:   a.signIn(),
-			})
-		case !hasData:
+		case status.Err != nil && !status.HasData:
+			kit.DetailQueryError(c, kit.NounArtist, a.env.Queries, status, a.backToArtists(), a.signIn(), key)
+		case !status.HasData:
 			a.skeleton(c, pg.width)
 		case lib:
 			a.libraryArtist(c, pg, &libQ.Data, pane)
@@ -151,7 +111,7 @@ func (a *artist) artistPage(c *ui.Context, r *ui.Route) {
 
 // catalog is a catalogue artist page, loaded.
 func (a *artist) catalog(id string) store.Result[services.CatalogArtist] {
-	return store.Use(a.env.Queries, keyCatalogArtist(id), func(ctx context.Context) (services.CatalogArtist, error) {
+	return store.Use(a.env.Queries, store.CatalogArtist(id), func(ctx context.Context) (services.CatalogArtist, error) {
 		return a.cat.Artist(ctx, id)
 	}, store.Options{Stale: store.Forever})
 }
@@ -159,11 +119,7 @@ func (a *artist) catalog(id string) store.Result[services.CatalogArtist] {
 // backToArtists is the way back from a missing artist: the library's Artists
 // page, when the app has one.
 func (a *artist) backToArtists() kit.EmptyAction {
-	back := kit.EmptyAction{Label: i18n.T("Go to Artists")}
-	if a.has(artistsPath) {
-		back.Run = func() { a.env.Nav.Push(artistsPath) }
-	}
-	return back
+	return kit.BackAction(i18n.T("Go to Artists"), artistsPath, a.env.Routed(artistsPath), a.open)
 }
 
 // from is the collection an artist's songs play from.
@@ -226,11 +182,9 @@ func (a *artist) catalogArtist(c *ui.Context, pg *pageState, page *services.Cata
 // artist the catalogue knows.
 func (a *artist) headerActions(c *ui.Context, pg *pageState, art services.Artist) {
 	a.env.ItemStates.RatingButtons(c, kit.StateArtists, kit.StateItem{ID: art.ID, Source: art.Source, CatalogID: art.CatalogID, LibraryID: art.LibraryID}, art.Name)
-	if pg.head == nil {
-		pg.head = kit.NewActionMenus(a.env.Actions, nil)
-	}
-	pg.head.Trigger(c.Key("more"), kit.ActionTarget{Item: kit.ArtistItem(art), Name: art.Name}, kit.TriggerOpts{Header: true})
-	pg.head.Popup(c)
+	head := kit.MenusIn(&pg.head, a.env.Actions, nil)
+	head.Trigger(c.Key("more"), kit.ActionTarget{Item: kit.ArtistItem(art), Name: art.Name}, kit.TriggerOpts{Header: true})
+	head.Popup(c)
 }
 
 // libraryArtist is LibraryArtistPage: the albums and songs in the library
@@ -299,23 +253,21 @@ func (a *artist) libraryArtist(c *ui.Context, pg *pageState, d *services.ArtistD
 // artwork and album columns; Enter or a double-click plays from that row
 // with all the songs as the queue, as an artist collection.
 func (a *artist) tracks(c *ui.Context, st *tracksState, songs []services.Song, shown int, label string, src services.PlayFrom, pane *kit.Pane) {
-	if st.menus == nil {
-		st.menus = kit.NewActionMenus(a.env.Actions, &st.Sel)
-	}
-	cur := a.env.Play.State()
-	o := kit.TrackListOpts{
-		Label:      label,
-		Columns:    kit.TrackColumns{RowNumbers: true, Artwork: true, Album: true},
-		OnPlay:     func(i int) { a.env.Queue.PlaySongs(songs, i, src) },
-		Current:    cur.Current,
-		Playing:    cur.State == "playing",
-		Restricted: a.restricted(),
-		Art:        a.env.Art, Menus: st.menus, Motion: a.env.Motion, Pane: pane,
-	}
-	if a.has(albumPath("_")) {
-		o.OpenAlbum = func(id string) { a.env.Nav.Push(albumPath(id)) }
-	}
+	o := a.trackOpts(kit.MenusIn(&st.menus, a.env.Actions, &st.Sel))
+	o.Label = label
+	o.Columns = kit.TrackColumns{RowNumbers: true, Artwork: true, Album: true}
+	o.OnPlay = func(i int) { a.env.Queue.PlaySongs(songs, i, src) }
+	o.Pane = pane
 	kit.TrackList(c, &st.TrackListState, min(shown, len(songs)), func(i int) *services.Song { return &songs[i] }, o)
+}
+
+// trackOpts is the options of the page's song lists: the shared base, with
+// the album links only (an artist's page does not link the artist or the
+// "added by" profile of a row).
+func (a *artist) trackOpts(menus *kit.ActionMenus) kit.TrackListOpts {
+	o := a.env.TrackOpts(menus, a.restricted())
+	o.OpenArtist, o.OpenProfile = nil, nil
+	return o
 }
 
 // band is a band of the page: a 1 DIP line across the column and its heading
@@ -433,7 +385,7 @@ func (a *artist) catalogBody(c *ui.Context, pg *pageState, page *services.Catalo
 // seeAll is a shelf's "See all": its page, when the app has one.
 func (a *artist) seeAll(id, view string) func() {
 	path := viewPath(id, view)
-	if !a.has(path) {
+	if !a.env.Routed(path) {
 		return nil
 	}
 	return func() { a.env.Nav.Push(path) }
@@ -512,12 +464,10 @@ func (a *artist) itemShelf(c *ui.Context, pg *pageState, key, title string, tile
 		return
 	}
 	st := pg.shelf(key)
-	if st.menus == nil {
-		st.menus = kit.NewActionMenus(a.env.Actions, &st.Row.Sel)
-	}
+	menus := kit.MenusIn(&st.menus, a.env.Actions, &st.Row.Sel)
 	kit.CoverShelf(c, &st.CoverShelfState, title, tiles, kit.CoverShelfOpts{
 		CoverOpts: kit.CoverOpts{
-			Art: a.env.Art, Motion: a.env.Motion, Menus: st.menus, Restricted: a.restricted(), Video: video,
+			Art: a.env.Art, Motion: a.env.Motion, Menus: menus, Restricted: a.restricted(), Video: video,
 		},
 		First: first, More: more,
 	})

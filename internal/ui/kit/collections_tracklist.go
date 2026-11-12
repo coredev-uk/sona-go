@@ -859,7 +859,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 		}
 	}
 	if o.Menus != nil && key != "" {
-		collectionsMenu(&st.Sel, o.Menus, src, target, i)
+		o.Menus.OpenFor(&st.Sel, src, src, target, i)
 	}
 }
 

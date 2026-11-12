@@ -321,7 +321,7 @@ func (f *field) hints(term, scope string, enabled bool) hintData {
 	}
 	api, queries := f.s.api, f.s.env.Queries
 	if scope == scopeLibrary {
-		r := store.Use(queries, keyLibrarySearch(term, 3), func(ctx context.Context) (services.LibrarySearch, error) {
+		r := store.Use(queries, store.LibrarySearch(term, 3), func(ctx context.Context) (services.LibrarySearch, error) {
 			return api.Library(ctx, term, 3)
 		}, store.Options{Stale: hintStale})
 		if r.HasData {
@@ -387,7 +387,7 @@ func (f *field) search(q, scope string) {
 // visit opens a page, when it is ported (the router has it).
 func (f *field) visit(path string) {
 	env := f.s.env
-	if path != "" && env.HasRoute != nil && env.HasRoute(path) {
+	if path != "" && env.Routed(path) {
 		env.Nav.Push(path)
 	}
 }

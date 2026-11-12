@@ -3,7 +3,6 @@ package library
 import (
 	"context"
 	"net/url"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -30,9 +29,6 @@ const (
 	artistsPageStep = 10
 	// artistsOverscan is how far beyond the viewport rows are built.
 	artistsOverscan = 8 * artistsRowHeight
-	// artistsGutter is the detail's side padding (px-8, px-6 under 960).
-	artistsGutter       = 32
-	artistsGutterNarrow = 24
 )
 
 // artistsRowHeight is artistRowHeight as a float for the layout sums.
@@ -40,8 +36,7 @@ const artistsRowHeight = float32(artistRowHeight)
 
 var keyArtistIndex = store.Key{"library", "artists", "index"}
 
-func keyArtistDetail(id string) store.Key { return store.Key{"library", "artist", id} }
-func keyArtistAlbums(id string) store.Key { return store.Key{"library", "artist", id, "albums"} }
+func keyArtistAlbums(id string) store.Key { return append(store.LibraryArtist(id), "albums") }
 
 // artistsWant is the element the focus is asked to move to in the next
 // frame: it is taken when that element is built.
@@ -57,7 +52,7 @@ const (
 // artistsPage is the Artists page's view state.
 type artistsPage struct {
 	// gate is the scroll place of the gated page (header and gate).
-	gate pageView
+	gate kit.PageFrame
 
 	query, cursor string
 
@@ -176,7 +171,7 @@ func (l *library) artistsPage(c *ui.Context, r *ui.Route) {
 		failure = res.Err
 	}
 	if l.gated(gateOpts{total: len(pg.index), pending: pending, err: failure}) {
-		l.scrollPage(c, &pg.gate, "artists", func(*kit.Pane) {
+		pg.gate.Scroll(c, "artists", func(*kit.Pane, float32) {
 			kit.PageHeader(c, i18n.T("Artists"), "", nil)
 			l.gate(c, gateOpts{
 				total: len(pg.index), pending: pending, err: failure,
@@ -661,10 +656,7 @@ func (v *artistsView) detail(c *ui.Context, e services.ArtistEntry) {
 		pg.albumMenus, pg.singleMenus, pg.songMenus = nil, nil, nil
 	}
 	tk := theme.Current()
-	gutter := float32(artistsGutter)
-	if pg.width > 0 && pg.width < narrow {
-		gutter = artistsGutterNarrow
-	}
+	gutter := kit.PageGutter(pg.width)
 	albums := store.Use(l.env.Queries, keyArtistAlbums(e.ID), func(ctx context.Context) (services.ArtistAlbums, error) {
 		return l.lib.ArtistAlbums(ctx, e.ID)
 	}, store.Options{Stale: store.Forever})
@@ -693,10 +685,7 @@ func (v *artistsView) detail(c *ui.Context, e services.ArtistEntry) {
 				kit.PersonAvatar(c, l.env.Art, e.Name, e.Art, 96).Shrink(0)
 				ui.Column(c.Key("who")).Grow(1).MinWidth(0).Padding(0, 0, 2).Children(func() {
 					theme.Text(c, e.Name, "display").TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(nameLevel)
-					line := i18n.T("Artist")
-					if held := libraryLine(e.Albums, e.Songs); held != "" {
-						line += " · " + held
-					}
+					line := i18n.Meta(i18n.T("Artist"), libraryLine(e.Albums, e.Songs))
 					theme.Text(c, line, "meta").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 					ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(16, 0, 0, 0).Children(func() {
 						play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: e.Name, Shuffle: true, Disabled: e.Songs == 0})
@@ -706,7 +695,7 @@ func (v *artistsView) detail(c *ui.Context, e services.ArtistEntry) {
 						if shuffle {
 							v.play(e, true)
 						}
-						if l.env.HasRoute != nil && l.env.HasRoute("/artist/x") {
+						if l.env.Routed("/artist/x") {
 							id := e.CatalogID
 							if id == "" {
 								id = e.ID
@@ -764,7 +753,7 @@ func (v *artistsView) play(e services.ArtistEntry, shuffle bool) {
 	go func() {
 		d, err := l.lib.Artist(context.Background(), e.ID)
 		if err != nil {
-			failToast(i18n.T("Couldn't load this artist"), err)
+			kit.ToastFailure(i18n.T("Couldn't load this artist"), err)
 			return
 		}
 		l.env.Post(func() {
@@ -783,10 +772,7 @@ func (v *artistsView) body(c *ui.Context, e services.ArtistEntry, res store.Resu
 	pg, l := v.pg, v.l
 	switch {
 	case !res.HasData && res.Err != nil:
-		kit.ErrorBlock(c, i18n.T("Couldn't read this artist's albums from this computer"), res.Err, kit.ErrorBlockOpts{
-			OnRetry:  func() { l.env.Queries.Invalidate(keyArtistAlbums(e.ID)) },
-			Retrying: res.Fetching,
-		})
+		kit.QueryError(c, l.env.Queries, i18n.T("Couldn't read this artist's albums from this computer"), res, keyArtistAlbums(e.ID))
 	case !res.HasData:
 		v.tilesSkeleton(c)
 	case len(res.Data.Albums) == 0:
@@ -842,44 +828,24 @@ func (v *artistsView) songsOnly(c *ui.Context, e services.ArtistEntry, group int
 			TextColor(theme.C("ink-muted")).MaxWidth(480)
 		return
 	}
-	res := store.Use(l.env.Queries, keyArtistDetail(e.ID), func(ctx context.Context) (services.ArtistDetail, error) {
+	res := store.Use(l.env.Queries, store.LibraryArtist(e.ID), func(ctx context.Context) (services.ArtistDetail, error) {
 		return l.lib.Artist(ctx, e.ID)
 	}, store.Options{Stale: store.Forever})
 	switch {
 	case !res.HasData && res.Err != nil:
-		kit.ErrorBlock(c, i18n.T("Couldn't read this artist's songs from this computer"), res.Err, kit.ErrorBlockOpts{
-			OnRetry:  func() { l.env.Queries.Invalidate(keyArtistDetail(e.ID)) },
-			Retrying: res.Fetching,
-		})
+		kit.QueryError(c, l.env.Queries, i18n.T("Couldn't read this artist's songs from this computer"), res, store.LibraryArtist(e.ID))
 		return
 	case !res.HasData:
 		v.tilesSkeleton(c)
 		return
 	}
 	songs := res.Data.Songs
-	var cur *services.QueueItem
-	playing := false
-	if l.env.Play != nil {
-		s := l.env.Play.State()
-		cur = s.Current
-		playing = s.State == store.StatePlaying
-	}
 	from := artistsFrom(e.ID)
-	opts := kit.TrackListOpts{
-		Label:      i18n.T("Songs by {name} in your library", "name", e.Name),
-		Columns:    kit.TrackColumns{RowNumbers: true, Artwork: true, Album: true},
-		OnPlay:     func(i int) { l.env.Queue.PlaySongs(songs, i, from) },
-		Pane:       &kit.Pane{Pos: &pg.detailPos, Bounds: sc.Bounds},
-		Current:    cur,
-		Playing:    playing,
-		Restricted: l.restricted(),
-		Art:        l.env.Art,
-		Motion:     l.env.Motion,
-		Menus:      l.itemMenus(&pg.songMenus, &pg.songs.Sel),
-	}
-	if l.env.HasRoute != nil && l.env.HasRoute("/album/x") {
-		opts.OpenAlbum = func(id string) { l.env.Nav.Push("/album/" + id) }
-	}
+	opts := l.env.TrackOpts(l.itemMenus(&pg.songMenus, &pg.songs.Sel), l.restricted())
+	opts.Label = i18n.T("Songs by {name} in your library", "name", e.Name)
+	opts.Columns = kit.TrackColumns{RowNumbers: true, Artwork: true, Album: true}
+	opts.OnPlay = func(i int) { l.env.Queue.PlaySongs(songs, i, from) }
+	opts.Pane = &kit.Pane{Pos: &pg.detailPos, Bounds: sc.Bounds}
 	ui.Column(c.Key("songs")).FillWidth().Role(ui.RoleGroup).Label(i18n.T("Songs in your library")).Children(func() {
 		theme.Text(c, i18n.T("Songs in your library"), "heading").TextColor(theme.C("ink")).Margin(0, 0, 16, 0).
 			Role(ui.RoleHeading).Level(group)
@@ -887,42 +853,12 @@ func (v *artistsView) songsOnly(c *ui.Context, e services.ArtistEntry, group int
 	})
 }
 
-// releaseSuffix is Apple's " - Single" or " - EP" on a release's name.
-var releaseSuffix = regexp.MustCompile(`^(.+?) - (Single|EP)$`)
-
-// artistsReleaseTitle is a single's or EP's title without Apple's suffix,
-// and which it was ("single", "ep", "" for neither): v0.2.0's releaseTitle
-// (features/artist/artist.ts).
-func artistsReleaseTitle(name string) (title, kind string) {
-	m := releaseSuffix.FindStringSubmatch(name)
-	if m == nil {
-		return name, ""
-	}
-	if m[2] == "EP" {
-		return m[1], "ep"
-	}
-	return m[1], "single"
-}
-
-// artistsYear is the year of a release date ("YYYY-MM-DD", a year alone or "").
-func artistsYear(date string) string {
-	if len(date) < 4 {
-		return ""
-	}
-	for _, r := range date[:4] {
-		if r < '0' || r > '9' {
-			return ""
-		}
-	}
-	return date[:4]
-}
-
 // artistsReleaseTile is an album's tile in the artist's detail (v0.2.0's
 // releaseTile): the title without a single's or EP's suffix, the year and
 // the kind under it.
 func artistsReleaseTile(t kit.CoverItem, a services.Album) kit.CoverItem {
-	title, kind := artistsReleaseTitle(a.Name)
-	year := artistsYear(a.ReleaseDate)
+	title, kind := kit.ReleaseTitle(a.Name)
+	year := i18n.YearOf(a.ReleaseDate)
 	t.Subtitle = year
 	// As v0.2.0's albumTile: the album's motion artwork, and the release date
 	// of an album not out yet.
@@ -939,10 +875,6 @@ func artistsReleaseTile(t kit.CoverItem, a services.Album) kit.CoverItem {
 		return t
 	}
 	t.Title = title
-	if year != "" {
-		t.Subtitle = year + " · " + label
-	} else {
-		t.Subtitle = label
-	}
+	t.Subtitle = i18n.Meta(year, label)
 	return t
 }

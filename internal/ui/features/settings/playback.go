@@ -21,9 +21,7 @@ var idleChoices = []int{5, 10, 15, 30, 60}
 // bar's, never a row here.
 func (s *settings) playback(c *ui.Context) {
 	if r := s.cfg(); r.Err != nil && !r.HasData {
-		kit.ErrorBlock(c, i18n.T("Couldn't read Sona's settings"), r.Err, kit.ErrorBlockOpts{
-			OnRetry: func() { s.env.Queries.Invalidate(store.KeySettings) },
-		})
+		kit.QueryError(c, s.env.Queries, i18n.T("Couldn't read Sona's settings"), r, store.KeySettings)
 		return
 	}
 	st, caps, ok := s.ready()

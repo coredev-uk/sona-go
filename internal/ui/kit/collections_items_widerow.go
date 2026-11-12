@@ -15,7 +15,7 @@ type WideRowState struct {
 	// Page is the page showing, from 0; a page beyond the last shows the
 	// last.
 	Page  int
-	width itemsWidth
+	width WidthTracker
 }
 
 // WideRowOpts are the options of WideRow.
@@ -57,7 +57,7 @@ func WideRow(c *ui.Context, st *WideRowState, items []services.Item, ctx ItemsCt
 	if !o.First {
 		root.Margin(40, 0, 0, 0)
 	}
-	width := st.width.track(c, root)
+	width := st.width.Track(c, root)
 	root.Children(func() {
 		if width <= 0 {
 			ui.Box(c).Height(1) // the first frame measures; the next builds the cards
@@ -181,7 +181,7 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, crop b
 		}
 		card.Children(func() {
 			bg := theme.C("hover")
-			if col, ok := itemsColor(it.Color); ok {
+			if col, ok := ParseHex(it.Color); ok {
 				bg = col
 			}
 			fr := ui.Row(c.Key("frame")).Size(width, fh).Center().Radius(tk.Radius["sm"]).ClipX().ClipY().Background(bg)
@@ -267,18 +267,4 @@ func itemsBanner(c *ui.Context, l *ArtLoader, v *artWindow, r artRank, src strin
 	ui.Image(c, bmp).Size(bw, bh).Fit(ui.Cover).Radius(radius).
 		Draw(func(*ui.Painter, ui.Rect) { cv.drawn() }).
 		DrawOver(func(p *ui.Painter, r ui.Rect) { p.Stroke(r, edge, radius, 1) })
-}
-
-// itemsColor parses an item's "#rrggbb" colour; false for "" or anything
-// else.
-func itemsColor(s string) (ui.Color, bool) {
-	if len(s) != 7 || s[0] != '#' {
-		return ui.Color{}, false
-	}
-	for i := 1; i < 7; i++ {
-		if ch := s[i]; (ch < '0' || ch > '9') && (ch < 'a' || ch > 'f') && (ch < 'A' || ch > 'F') {
-			return ui.Color{}, false
-		}
-	}
-	return ui.Hex(s), true
 }

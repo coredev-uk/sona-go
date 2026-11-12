@@ -91,7 +91,7 @@ func (r *rig) away() {
 // so the list is found by a row of it: a card other than the lead, whose
 // title only a row shows, in the page the lead is on.
 func (r *rig) rowCentre(n int) (float32, float32) {
-	lay := layoutFor(r.d.front.width.w, 24)
+	lay := layoutFor(r.d.newPg.pg.Inner(), 24)
 	base := r.lead() / lay.perPage * lay.perPage
 	for k := base; k < base+lay.perPage; k++ {
 		if k == r.lead() {

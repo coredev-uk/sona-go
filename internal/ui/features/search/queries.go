@@ -20,10 +20,6 @@ var (
 
 func keyCatalogSearch(term string) store.Key { return store.Key{"catalog", "search", term} }
 
-func keyLibrarySearch(term string, perKind int) store.Key {
-	return store.Key{"library", "search", term, perKind}
-}
-
 // keyGroup is one "see all" page of a group: v0.2.0's infinite query held
 // the pages under one key; here each page is its own query below it, by the
 // offset it was asked at.
@@ -46,7 +42,7 @@ func (s *search) catalog(term string) store.Result[services.SearchResults] {
 
 // librarySearch is the library matches per kind (useLibrarySearch).
 func (s *search) librarySearch(term string, perKind int) store.Result[services.LibrarySearch] {
-	return store.Use(s.env.Queries, keyLibrarySearch(term, perKind), func(ctx context.Context) (services.LibrarySearch, error) {
+	return store.Use(s.env.Queries, store.LibrarySearch(term, perKind), func(ctx context.Context) (services.LibrarySearch, error) {
 		return s.api.Library(ctx, term, perKind)
 	})
 }
@@ -172,7 +168,7 @@ func (s *search) runRecent(what string, call func(context.Context) error) {
 	go func() {
 		err := call(context.Background())
 		if err != nil {
-			kit.ToastErrorf(what, i18n.ErrorText(services.CodeOf(err)))
+			kit.ToastFailure(what, err)
 		}
 		s.refreshRecent()
 	}()

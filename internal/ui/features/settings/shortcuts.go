@@ -81,9 +81,7 @@ func (s *settings) shortcutsSection(c *ui.Context) {
 	cfg := s.cfg()
 	if !cfg.HasData {
 		if cfg.Err != nil {
-			kit.ErrorBlock(c.Key("err"), i18n.T("Couldn't read Sona's settings"), cfg.Err, kit.ErrorBlockOpts{
-				OnRetry: func() { s.env.Queries.Invalidate(store.KeySettings) },
-			})
+			kit.QueryError(c.Key("err"), s.env.Queries, i18n.T("Couldn't read Sona's settings"), cfg, store.KeySettings)
 			return
 		}
 		s.loading(c, 8)
@@ -94,7 +92,7 @@ func (s *settings) shortcutsSection(c *ui.Context) {
 	bind := resolveBindings(all, cfg.Data.Shortcuts)
 	v := &shortcutView{all: all, overrides: cfg.Data.Shortcuts, bind: bind, conflicted: conflictingIds(all, bind)}
 
-	query := trim(ss.filter)
+	query := strings.TrimSpace(ss.filter)
 	shown := filterShortcuts(all, bind, query)
 	ui.Column(c.Key("shortcuts")).FillWidth().Gap(24).Children(func() {
 		s.shortcutTools(c, ss, len(v.overrides) == 0)

@@ -245,7 +245,7 @@ func (p *playlists) actions() []kit.ActionDef {
 					if ok && p.env.Nav.Path() == "/playlist/"+pl.ID {
 						// Leave the deleted playlist's page: to the library's
 						// Playlists when that page is ported, else back.
-						if p.hasRoute(playlistsPath) {
+						if p.env.Routed(playlistsPath) {
 							a.Navigate(playlistsPath)
 						} else {
 							p.env.Nav.Back()

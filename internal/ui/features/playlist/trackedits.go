@@ -37,7 +37,7 @@ func (p *playlists) editTracks(id string, apply func(services.PlaylistDetail) se
 						Description: i18n.T("Here is its latest version. Make the change again."),
 					})
 				} else {
-					kit.ToastErrorf(what, failText(err))
+					kit.ToastFailure(what, err)
 				}
 				// SQLite holds Apple's current order either way.
 				q.Invalidate(key)

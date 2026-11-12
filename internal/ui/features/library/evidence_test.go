@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -43,7 +44,7 @@ func TestLibraryEvidence(t *testing.T) {
 			for n, at := range []int64{5, 4, 3, 2, 1} {
 				favouriteSong(r, n, 0, at)
 			}
-			r.l.env.Queries.Invalidate(keyFavourites)
+			r.l.env.Queries.Invalidate(store.KeyLibraryFavourites)
 			return r, "favourites"
 		}, []string{"5 songs"}},
 		{"history", func(t *testing.T) (*pageRig, string) {

@@ -85,7 +85,7 @@ func (s *settings) cdmRow(c *ui.Context) {
 					case known:
 						theme.Text(c, i18n.T("Not downloaded yet"), "secondary").TextColor(theme.C("ink-muted"))
 					default:
-						ui.Box(c.Key("skeleton")).Width(128).Height(12).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
+						kit.Bar(c.Key("skeleton"), 128, 12)
 					}
 				})
 				if note := s.cdmNote(status, ready); note != "" {

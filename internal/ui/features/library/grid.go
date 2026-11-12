@@ -16,10 +16,10 @@ type coverList struct {
 // itemMenus is the item menu of a list over its selection, made once; nil
 // when the shell has no action registry.
 func (l *library) itemMenus(m **kit.ActionMenus, sel kit.SelectionScope) *kit.ActionMenus {
-	if *m == nil && l.env.Actions != nil {
-		*m = kit.NewActionMenus(l.env.Actions, sel)
+	if l.env.Actions == nil {
+		return *m
 	}
-	return *m
+	return kit.MenusIn(m, l.env.Actions, sel)
 }
 
 // restricted: the account may not play explicit items.

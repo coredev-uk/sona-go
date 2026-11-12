@@ -4141,7 +4141,6 @@ msgstr "Out now · {artistName}"
 
 #: internal/ui/features/album/body.go
 #: internal/ui/features/album/model.go
-#: internal/ui/features/artist/format.go
 #: internal/ui/kit/collections_items_cover.go
 msgid "Out {releaseDate}"
 msgstr "Out {releaseDate}"
@@ -5155,8 +5154,6 @@ msgstr "Searching the catalogue needs your account's storefront. Your library on
 msgid "Secret Service keyring"
 msgstr "Secret Service keyring"
 
-#: internal/ui/features/discover/room.go
-#: internal/ui/features/home/index.go
 #: internal/ui/kit/collections_shelf.go
 msgid "See all"
 msgstr "See all"
@@ -7776,16 +7773,6 @@ msgstr "{0, plural, one {# playlist} other {# playlists}}"
 msgid "{0, plural, one {# single or EP} other {# singles & EPs}}"
 msgstr "{0, plural, one {# single or EP} other {# singles & EPs}}"
 
-#. {0} is the number of songs: a list's total, or a playlist's track count.
-#: internal/ui/features/album/format.go
-#: internal/ui/features/home/local.go
-#: internal/ui/features/library/favourites.go
-#: internal/ui/features/library/playlists.go
-#: internal/ui/features/library/songs.go
-#: internal/ui/features/playlist/format.go
-msgid "{0, plural, one {# song} other {# songs}}"
-msgstr "{0, plural, one {# song} other {# songs}}"
-
 #. {0} is the number of videos in the cache.
 #: internal/ui/features/settings/motiondiag.go
 msgid "{0, plural, one {# video} other {# videos}}"
@@ -7876,8 +7863,7 @@ msgstr "{count, plural, one {{what} plays next} other {{what} play next}}"
 msgid "{count} of {what}"
 msgstr "{count} of {what}"
 
-#: internal/ui/features/album/format.go
-#: internal/ui/features/playlist/format.go
+#: internal/ui/i18n/catalogue.go
 msgid "{count}, {time}"
 msgstr "{count}, {time}"
 
@@ -8016,7 +8002,6 @@ msgid "{n, plural, one {# song you played hasn't been sent yet.} other {# songs 
 msgstr "{n, plural, one {# song you played hasn't been sent yet.} other {# songs you played haven't been sent yet.}}"
 
 #: internal/ui/features/home/index.go
-#: internal/ui/features/playlist/dialogs.go
 #: internal/ui/kit/overlays_actions.go
 msgid "{n, plural, one {# song} other {# songs}}"
 msgstr "{n, plural, one {# song} other {# songs}}"
@@ -8134,10 +8119,7 @@ msgstr "{seconds, plural, one {# second} other {# seconds}}"
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
-#: internal/ui/features/artist/format.go
-#: internal/ui/features/library/artists_index.go
-#: internal/ui/features/library/history.go
-#: internal/ui/features/settings/diag_rows.go
+#: internal/ui/i18n/catalogue.go
 msgid "{songs, plural, one {# song} other {# songs}}"
 msgstr "{songs, plural, one {# song} other {# songs}}"
 

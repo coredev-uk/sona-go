@@ -47,14 +47,12 @@ type libraryAPI interface {
 
 // Query keys, as v0.2.0's discoverKeys and shared/lib/keys.ts.
 var (
-	keyDiscover = store.Key{"discover"}
-	keyHome     = store.Key{"discover", "home"}
-	// keyRecent holds Apple's recently played songs; this computer's
-	// history is under it so a new song refreshes both.
-	keyRecent      = store.Key{"library", "recent"}
+	keyHome = store.Key{"discover", "home"}
+	// store.KeyLibraryRecent holds Apple's recently played songs; this
+	// computer's history is under it so a new song refreshes both.
 	keyRecentLocal = store.Key{"library", "recent", "local"}
 	keyAdded       = store.Key{"library", "albums", "dateAdded", true, -1}
-	keyPlaylists   = store.Key{"library", "playlists", "lastModified", true, -1}
+	keyPlaylists   = store.LibraryPlaylists("lastModified", true, -1)
 )
 
 func keyHomeShelf(id string) store.Key { return store.Key{"discover", "home-shelf", id} }
@@ -70,7 +68,7 @@ type home struct {
 	refreshing bool
 	refreshErr error
 
-	page pageView // Home's scroll
+	page kit.PageFrame // Home's scroll
 	grid shelfPage
 
 	sections map[string]*sectionState
@@ -106,9 +104,7 @@ func New(env *module.Env) module.Module {
 func newHome(env *module.Env, disc discoverAPI, lib libraryAPI) *home {
 	return &home{
 		env: env, disc: disc, lib: lib,
-		sections: map[string]*sectionState{},
-		index:    map[string]*indexLine{},
-		titles:   map[string]string{},
+		titles: map[string]string{},
 	}
 }
 
@@ -119,7 +115,7 @@ func (h *home) init() {
 	q := h.env.Queries
 	store.On(h.env.Bus, services.EventHome, func(p services.HomePage) { store.Set(q, keyHome, p) })
 	store.On(h.env.Bus, services.EventAuthChanged, func(services.AuthStatus) {
-		q.Invalidate(keyDiscover)
+		q.Invalidate(store.KeyDiscover)
 	})
 }
 
@@ -133,11 +129,8 @@ func (h *home) authState() (st services.AuthStatus, known bool) {
 // with no page opens by its own means (a station plays, a web item opens in
 // the browser), one with a page only when a module serves it.
 func (h *home) opens(link string) bool {
-	return link == "" || (h.env.HasRoute != nil && h.env.HasRoute(link))
+	return link == "" || h.env.Routed(link)
 }
-
-// routed reports whether a module serves path.
-func (h *home) routed(path string) bool { return h.env.HasRoute != nil && h.env.HasRoute(path) }
 
 // shelfMore is where a section's "See all" goes: its own page when Apple
 // has one ("" for none).
@@ -180,10 +173,7 @@ type sectionState struct {
 }
 
 func (h *home) section(id string) *sectionState {
-	s := h.sections[id]
-	if s == nil {
-		s = &sectionState{menus: kit.NewActionMenus(h.env.Actions, nil)}
-		h.sections[id] = s
-	}
+	s := kit.Entry(&h.sections, id)
+	kit.MenusIn(&s.menus, h.env.Actions, nil)
 	return s
 }

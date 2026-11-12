@@ -260,14 +260,21 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 	return e
 }
 
-// fold is lower case without accents, so "equaliser" finds "Égaliseur" and
-// the other way round.
-func fold(s, locale string) string {
+// folder folds text to lower case without accents, so "equaliser" finds
+// "Égaliseur" and the other way round; the case mapping follows the locale
+// (Turkish dotted and dotless i).
+type folder struct{ lower cases.Caser }
+
+func newFolder(locale string) folder {
 	tag, err := language.Parse(locale)
 	if err != nil {
 		tag = language.Und
 	}
-	s = cases.Lower(tag).String(s)
+	return folder{cases.Lower(tag)}
+}
+
+func (f folder) fold(s string) string {
+	s = f.lower.String(s)
 	return strings.Map(func(r rune) rune {
 		if unicode.Is(unicode.Mn, r) {
 			return -1
@@ -276,52 +283,95 @@ func fold(s, locale string) string {
 	}, norm.NFD.String(s))
 }
 
-// findSettings are the entries a query finds: every word of it somewhere in
-// the title, the group, the section or the keywords; titles that start with
-// it first, then titles with a word that starts with its first word, then
-// titles holding it, then the rest, each in section then page order.
-func findSettings(entries []settingEntry, query string, ctx findContext, locale string) []settingEntry {
-	q := fold(strings.TrimSpace(query), locale)
-	if q == "" {
-		return nil
+// findIndex is the setting entries of one locale with their words folded
+// once, and the last query's ranking: typing asks for the same query on every
+// frame, and the entries change only with the language or the shortcuts.
+type findIndex struct {
+	locale    string
+	shortcuts int // how many shortcuts the index was made with
+	entries   []settingEntry
+	// hay is each entry's title, group, section and keywords folded; title
+	// its title alone.
+	hay, title []string
+	folder     folder
+
+	// hits are the entries (by position) the folded query memo found, ranked;
+	// the entries' When rules are not applied, they follow the page's state.
+	memo string
+	hits []int
+	made bool
+}
+
+func newFindIndex(entries []settingEntry, locale string, shortcuts int) *findIndex {
+	x := &findIndex{
+		locale: locale, shortcuts: shortcuts, entries: entries, folder: newFolder(locale),
+		hay: make([]string, len(entries)), title: make([]string, len(entries)),
+	}
+	for i, e := range entries {
+		x.hay[i] = x.folder.fold(strings.Join([]string{e.Title, e.Group, sectionTitle(e.Section), e.Keywords}, " "))
+		x.title[i] = x.folder.fold(e.Title)
+	}
+	return x
+}
+
+// rank is the entries a folded query finds: every word of it somewhere in the
+// title, the group, the section or the keywords; titles that start with it
+// first, then titles with a word that starts with its first word, then titles
+// holding it, then the rest, each in section then page order.
+func (x *findIndex) rank(q string) []int {
+	if x.made && x.memo == q {
+		return x.hits
 	}
 	words := strings.Fields(q)
-	type ranked struct {
-		e    settingEntry
-		i, r int
-	}
+	type ranked struct{ i, r int }
 	var found []ranked
-	for i, e := range entries {
-		if e.When != nil && !e.When(ctx) {
+	for i := range x.entries {
+		if slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(x.hay[i], w) }) {
 			continue
 		}
-		hay := fold(strings.Join([]string{e.Title, e.Group, sectionTitle(e.Section), e.Keywords}, " "), locale)
-		if !slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(hay, w) }) {
-			title := fold(e.Title, locale)
-			r := 3
-			switch {
-			case strings.HasPrefix(title, q):
-				r = 0
-			case slices.ContainsFunc(strings.Fields(title), func(w string) bool { return strings.HasPrefix(w, words[0]) }):
-				r = 1
-			case strings.Contains(title, q):
-				r = 2
-			}
-			found = append(found, ranked{e, i, r})
+		title := x.title[i]
+		r := 3
+		switch {
+		case strings.HasPrefix(title, q):
+			r = 0
+		case slices.ContainsFunc(strings.Fields(title), func(w string) bool { return strings.HasPrefix(w, words[0]) }):
+			r = 1
+		case strings.Contains(title, q):
+			r = 2
 		}
+		found = append(found, ranked{i, r})
 	}
 	slices.SortStableFunc(found, func(a, b ranked) int {
 		if a.r != b.r {
 			return a.r - b.r
 		}
-		if x, y := slices.Index(sections, a.e.Section), slices.Index(sections, b.e.Section); x != y {
-			return x - y
-		}
-		return a.i - b.i
+		return slices.Index(sections, x.entries[a.i].Section) - slices.Index(sections, x.entries[b.i].Section)
 	})
-	out := make([]settingEntry, len(found))
+	hits := make([]int, len(found))
 	for i, f := range found {
-		out[i] = f.e
+		hits[i] = f.i
+	}
+	x.memo, x.hits, x.made = q, hits, true
+	return hits
+}
+
+// find is the entries query finds that the page's state shows (their When
+// rules), best first.
+func (x *findIndex) find(query string, ctx findContext) []settingEntry {
+	q := x.folder.fold(strings.TrimSpace(query))
+	if q == "" {
+		return nil
+	}
+	var out []settingEntry
+	for _, i := range x.rank(q) {
+		if e := x.entries[i]; e.When == nil || e.When(ctx) {
+			out = append(out, e)
+		}
 	}
 	return out
+}
+
+// findSettings are the entries a query finds in entries (see findIndex.rank).
+func findSettings(entries []settingEntry, query string, ctx findContext, locale string) []settingEntry {
+	return newFindIndex(entries, locale, 0).find(query, ctx)
 }

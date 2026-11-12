@@ -94,11 +94,10 @@ func artistPath(id string) string { return "/artist/" + url.PathEscape(id) }
 // viewPath is an artist view's see-all page.
 func viewPath(id, view string) string { return artistPath(id) + "/view/" + url.PathEscape(view) }
 
-// Query keys, v0.2.0's shared/lib/keys.ts.
-func keyLibraryArtist(id string) store.Key { return store.Key{"library", "artist", id} }
-func keyCatalogArtist(id string) store.Key { return store.Key{"catalog", "artist", id} }
+// keyArtistView is an artist view's query, under the artist's own key (the
+// page appends its offset).
 func keyArtistView(id, view string) store.Key {
-	return store.Key{"catalog", "artist", id, "view", view}
+	return append(store.CatalogArtist(id), "view", view)
 }
 
 // isLibraryID: library artist IDs start "r."; anything else is catalogue.
@@ -110,12 +109,9 @@ func (a *artist) restricted() bool {
 	return r.HasData && r.Data.Restricted
 }
 
-// has reports whether a page of the app exists: links go only to those.
-func (a *artist) has(path string) bool { return a.env.HasRoute != nil && a.env.HasRoute(path) }
-
 // open opens a page of the app, when it exists.
 func (a *artist) open(path string) {
-	if a.has(path) {
+	if a.env.Routed(path) {
 		a.env.Nav.Push(path)
 	}
 }

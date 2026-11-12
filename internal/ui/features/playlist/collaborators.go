@@ -136,7 +136,7 @@ func (p *playlists) collaboratorsDialog(c *ui.Context, collab services.PlaylistC
 func (p *playlists) peopleList(c *ui.Context, key, label string, people []services.SocialProfile, ownerID string) {
 	tk := theme.Current()
 	_, wh := c.Size()
-	linked := p.hasRoute("/profile/x")
+	linked := p.env.Routed("/profile/x")
 	ui.Scroll(c.Key(key)).MaxHeight(min(wh*0.6, 420)).Margin(0, -8).Children(func() {
 		ui.Column(c).Role(ui.RoleList).Label(label).Children(func() {
 			for _, pr := range people {

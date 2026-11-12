@@ -1,8 +1,6 @@
 package settings
 
 import (
-	"strings"
-
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 )
 
@@ -26,17 +24,6 @@ func startPages() []startPage {
 		{"/library/songs", i18n.T("Songs")},
 		{"/library/playlists", i18n.T("Playlists")},
 	}
-}
-
-// join is a line of parts joined by middle dots, the empty ones left out.
-func join(parts ...string) string {
-	var kept []string
-	for _, p := range parts {
-		if p != "" {
-			kept = append(kept, p)
-		}
-	}
-	return strings.Join(kept, " · ")
 }
 
 // summaries is each section's state in one catalogue line ("High quality ·
@@ -66,7 +53,7 @@ func (s *settings) summaries() map[string]string {
 			closing = i18n.T("Keeps playing when closed")
 		}
 	}
-	general = join(general, closing)
+	general = i18n.Meta(general, closing)
 
 	playback := i18n.T("Not available on {platform} yet", "platform", s.platformName())
 	if caps.Playback.Available {
@@ -81,7 +68,7 @@ func (s *settings) summaries() map[string]string {
 		if caps.Playback.Crossfade && st.Crossfade.Enabled {
 			fade = i18n.T("Crossfade {seconds} s", "seconds", st.Crossfade.Seconds)
 		}
-		playback = join(quality, sound, fade)
+		playback = i18n.Meta(quality, sound, fade)
 	}
 
 	themeLine := i18n.T("System theme")
@@ -98,7 +85,7 @@ func (s *settings) summaries() map[string]string {
 	case !st.MotionArtwork.Enabled:
 		effects = i18n.T("Motion artwork off")
 	}
-	appearance := join(themeLine, effects)
+	appearance := i18n.Meta(themeLine, effects)
 
 	var connected []string
 	{
@@ -141,7 +128,7 @@ func (s *settings) summaries() map[string]string {
 		secPlayback:    playback,
 		secAppearance:  appearance,
 		secConnections: connections,
-		secShortcuts:   join(shortcuts...),
+		secShortcuts:   i18n.Meta(shortcuts...),
 		secStorage:     i18n.T("Artwork up to {limit}", "limit", limit),
 		secDiagnostics: i18n.T("Checks, logs and bug reports"),
 	}

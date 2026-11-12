@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 // historyStub answers History from a function and notes the days asked for.
@@ -290,7 +291,7 @@ func TestHistoryRefetchesWhenTheRecentKeyIsInvalidated(t *testing.T) {
 	if got := stub.calls(); len(got) != 1 {
 		t.Fatalf("asked %v before any invalidation", got)
 	}
-	r.l.env.Queries.Invalidate(keyRecent)
+	r.l.env.Queries.Invalidate(store.KeyLibraryRecent)
 	r.tt.Until("the new play", r.tt.Shows("Newcomer"))
 	if got := stub.calls(); len(got) != 2 || got[1] != 30 {
 		t.Errorf("asked %v, want a second read of 30 days", got)

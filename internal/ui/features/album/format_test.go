@@ -2,6 +2,8 @@ package album
 
 import (
 	"testing"
+
+	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 )
 
 func TestCatalogueLine(t *testing.T) {
@@ -18,8 +20,8 @@ func TestCatalogueLine(t *testing.T) {
 		{"", "", 14, 58 * 60000, "14 songs, 58 min"},
 		{"Album", "2026", 0, 0, "Album · 2026"},
 	} {
-		if got := catalogueLine(c.kind, c.year, c.songs, c.ms); got != c.want {
-			t.Errorf("catalogueLine = %q, want %q", got, c.want)
+		if got := i18n.CatalogueLine(c.kind, c.year, c.songs, c.ms); got != c.want {
+			t.Errorf("CatalogueLine = %q, want %q", got, c.want)
 		}
 	}
 }

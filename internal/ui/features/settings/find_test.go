@@ -162,3 +162,44 @@ func TestSettingIndexIDsAreUnique(t *testing.T) {
 		seen[e.ID] = true
 	}
 }
+
+// TestFindIndexIsMadeOncePerLanguageAndShortcuts: typing reuses the folded
+// index and the last query's ranking; another language or another number of
+// shortcuts makes it again, and a When rule is read at each find.
+func TestFindIndexIsMadeOncePerLanguageAndShortcuts(t *testing.T) {
+	var f findState
+	x := f.findIndex(fakeShortcuts(), "en")
+	if f.findIndex(fakeShortcuts(), "en") != x {
+		t.Error("the index was made again for the same language and shortcuts")
+	}
+	if f.findIndex(fakeShortcuts(), "fr") == x {
+		t.Error("another language kept the index")
+	}
+	x = f.findIndex(fakeShortcuts(), "en")
+	if f.findIndex(nil, "en") == x {
+		t.Error("another number of shortcuts kept the index")
+	}
+
+	on := findContext{caps: &services.Capabilities{OS: "linux"}}
+	first := x.find("qual", on)
+	if again := x.find("qual", on); !slices.Equal(ids(first), ids(again)) {
+		t.Errorf("the same query found %v then %v", ids(first), ids(again))
+	}
+	// "quality" is for playback that is available: the rule is read per call
+	// though the ranking is kept.
+	if slices.Contains(ids(first), "quality") {
+		t.Error("an entry whose When rule fails was found")
+	}
+	playing := findContext{caps: &services.Capabilities{Playback: services.PlaybackCapabilities{Available: true}}}
+	if !slices.Contains(ids(x.find("qual", playing)), "quality") {
+		t.Error("the When rule was not read again for the same query")
+	}
+}
+
+func ids(es []settingEntry) []string {
+	var out []string
+	for _, e := range es {
+		out = append(out, e.ID)
+	}
+	return out
+}
