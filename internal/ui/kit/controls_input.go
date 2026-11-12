@@ -52,16 +52,10 @@ func controlsFieldFace(e ui.Element, focused, invalid, disabled bool) {
 	case focused:
 		border = theme.C("ring")
 	}
-	bg := ui.Transparent
-	if theme.Dark() {
-		bg = theme.C("input").Alpha(0.3)
-	}
+	bg := theme.C("input-bg")
 	e.Radius(controlsRadius("md")).Background(bg).Border(1, border)
 	if invalid {
-		ring := theme.C("destructive").Alpha(0.2)
-		if theme.Dark() {
-			ring = theme.C("destructive").Alpha(0.4)
-		}
+		ring := theme.C("invalid-ring")
 		e.Shadow(0, 0, 0, 2, ring)
 	}
 	theme.Fade(e, "feedback")

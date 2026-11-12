@@ -2,6 +2,8 @@ package palette
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -44,8 +46,8 @@ var covers = map[string]*Cover{
 	"cyan":       apple("#00ffff"),
 	"magenta":    apple("#ff00ff", "#00ff00", "#ff00ff"),
 	"clash":      apple("#808080", "#7f7f7f", "#818181"), // Apple's text colours unreadable on its own background
-	"ground":     apple(Themes[Light].Ground),
-	"darkGround": apple(Themes[Dark].Ground),
+	"ground":     apple(Of(Light).Ground),
+	"darkGround": apple(Of(Dark).Ground),
 }
 
 func atLeast(t *testing.T, what string, got, want float64) {
@@ -76,7 +78,7 @@ func TestEveryPairIsReadable(t *testing.T) {
 					atLeast(t, "control line on "+bg, Contrast(s.ControlLine, bg), UIContrast)
 				}
 				// One tone step off the ground; never a bright slab in the dark theme.
-				ground := Lightness(Themes[th].Ground)
+				ground := Lightness(Of(th).Ground)
 				if d := abs(Lightness(s.Surface) - ground); d < 0.045 {
 					t.Errorf("sleeve %s is %.3f from the ground, want a tone step", s.Surface, d)
 				}
@@ -86,7 +88,7 @@ func TestEveryPairIsReadable(t *testing.T) {
 				if a.Accent == nil {
 					return
 				}
-				tk := Themes[th]
+				tk := Of(th)
 				ac := a.Accent
 				atLeast(t, "glyph on fill", Contrast(ac.OnFill, ac.Fill), TextContrast)
 				floor := min(UIContrast, Contrast(tk.Amber, tk.Ground))
@@ -240,10 +242,10 @@ func TestFallsBackToTheDominantColoursThenToNothing(t *testing.T) {
 }
 
 func TestSleeveSurfaceStepsACoverTheColourOfTheGroundOffIt(t *testing.T) {
-	if got := Lightness(SleeveSurface(Themes[Light].Ground, Light)); got >= Lightness(Themes[Light].Ground) {
+	if got := Lightness(SleeveSurface(Of(Light).Ground, Light)); got >= Lightness(Of(Light).Ground) {
 		t.Errorf("light: %.3f, want darker than the ground", got)
 	}
-	if got := Lightness(SleeveSurface(Themes[Dark].Ground, Dark)); got <= Lightness(Themes[Dark].Ground) {
+	if got := Lightness(SleeveSurface(Of(Dark).Ground, Dark)); got <= Lightness(Of(Dark).Ground) {
 		t.Errorf("dark: %.3f, want lighter than the ground", got)
 	}
 }
@@ -287,18 +289,31 @@ func TestOverridesDeclareTheRolesBuiltOnTheSleeve(t *testing.T) {
 	}
 }
 
-func TestThemesMatchTheTokens(t *testing.T) {
-	hex := func(c ui.Color) string { return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B) }
-	for _, th := range themes {
-		tk := theme.TokensFor(th == Dark)
-		want := Themes[th]
-		for token, got := range map[string]string{
-			"ground": want.Ground, "hover": want.Hover, "active": want.Active,
-			"ink": want.Ink, "amber": want.Amber, "on-amber": want.OnAmber,
-		} {
-			if have := hex(tk.Color[token]); have != got {
-				t.Errorf("%s %s: tokens.json has %s, palette.Themes %s", name(th), token, have, got)
-			}
-		}
+// The palette keeps no colours of its own: it reads the current theme, so a
+// theme with another ground and spot colour changes what it is checked
+// against.
+func TestOfReadsTheCurrentTheme(t *testing.T) {
+	defer theme.ReloadEmbedded()
+	if got := Of(Light); got.Ground != "#f4f5f3" || got.Amber != "#e5a31b" || got.OnAmber != "#1a1405" {
+		t.Errorf("Sona light = %+v", got)
+	}
+	data, err := os.ReadFile("../tokens.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	custom := strings.NewReplacer(`"ground": "#f4f5f3"`, `"ground": "#fafafa"`, `"amber": "#e5a31b"`, `"amber": "#d97706"`).Replace(string(data))
+	d, err := theme.Parse([]byte(custom))
+	if err != nil {
+		t.Fatal(err)
+	}
+	theme.SetDocument(d)
+	if got := Of(Light); got.Ground != "#fafafa" || got.Amber != "#d97706" {
+		t.Errorf("custom light = %+v", got)
+	}
+	if got := Of(Dark); got.Ground != "#121513" {
+		t.Errorf("the dark tokens changed with the light ones: %+v", got)
+	}
+	if bgs := PageBackgrounds(Light); bgs[0] != "#fafafa" {
+		t.Errorf("page backgrounds = %v", bgs)
 	}
 }

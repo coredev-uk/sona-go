@@ -110,10 +110,7 @@ func (o *onboarding) layer(c *ui.Context) {
 	if rail {
 		head = headHeight
 	}
-	scrim := ui.RGBA(0, 0, 0, 0.5)
-	if theme.Dark() {
-		scrim = ui.RGBA(0, 0, 0, 0.7)
-	}
+	scrim := theme.C("scrim")
 
 	ui.Overlay(c, func() {
 		back := ui.Column(c.Key("setup")).Absolute().Left(0).Top(0).Right(0).Bottom(0).Background(scrim).
@@ -123,8 +120,8 @@ func (o *onboarding) layer(c *ui.Context) {
 			panel := ui.Column(c.Key("panel")).Width(width).MaxHeight(maxH).
 				Radius(tk.Radius["lg"]).Background(theme.C("raised")).Clip().
 				Shadow(sh.X, sh.Y, sh.Blur, sh.Spread, sh.Color).Role(ui.RoleDialog).Label(title).Description(line)
-			if theme.Dark() {
-				panel.Border(1, theme.C("white").Alpha(0.1))
+			if edge := theme.C("dialog-border"); edge.A > 0 {
+				panel.Border(1, edge)
 			}
 			panel.Children(func() {
 				o.header(c, step, rail)

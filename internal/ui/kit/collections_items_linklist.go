@@ -79,10 +79,7 @@ func itemsLinkTile(c *ui.Context, it services.Item, ctx ItemsCtx, tk *theme.Toke
 	plays := PlaysWhenOpened(it, ctx.Players)
 	tile := ui.ButtonBase(c).Grow(1).MinHeight(44).PaddingX(16).PaddingY(8).Gap(12).
 		Justify(ui.SpaceBetween).Radius(tk.Radius["md"])
-	border := theme.C("line")
-	if theme.Dark() {
-		border = ui.Transparent
-	}
+	border := theme.C("link-tile-border")
 	bg := theme.C("hover")
 	if tile.Hovered() {
 		bg = theme.C("active")

@@ -15,19 +15,22 @@
 //     the page: the play control and the playing row, and the artist's link.
 //     Its fill is never less distinct from the ground than amber's, its glyph
 //     keeps 4.5:1, and as text it keeps 4.5:1 on every row tone. A greyscale
-//     cover keeps Sona's amber.
+//     cover keeps the theme's own spot colour.
 //
-// Everything is worked out per theme from the theme's tokens (Themes, kept
-// equal to tokens.json by a test), so the result is plain colours, applied
-// with theme.Scope: nothing is blended at paint time and nothing depends on
+// Everything is worked out per appearance from the current theme's tokens
+// (Of; its spot colour takes amber's place in the floors), so the result is
+// plain colours, applied with theme.Scope: nothing is blended at paint time and nothing depends on
 // the backdrop image. A palette is built once per cover, theme and layout,
 // never per frame.
 package palette
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
 // rgb is sRGB, each channel 0–1.
@@ -44,16 +47,24 @@ const (
 	Dark
 )
 
-// Tokens are the theme tokens the palette is checked against: the same
-// colours as tokens.json (a test keeps them equal).
+// Tokens are the six theme tokens the palette is checked against, as
+// "#rrggbb": read from the current theme (Of), never copied.
 type Tokens struct {
 	Ground, Hover, Active, Ink, Amber, OnAmber string
 }
 
-// Themes is the tokens of each theme.
-var Themes = [2]Tokens{
-	Light: {Ground: "#f4f5f3", Hover: "#e4e7e3", Active: "#dbdfda", Ink: "#161917", Amber: "#e5a31b", OnAmber: "#1a1405"},
-	Dark:  {Ground: "#121513", Hover: "#222724", Active: "#2a302c", Ink: "#eef1ee", Amber: "#f0b43c", OnAmber: "#1a1405"},
+// Of reads the palette's tokens for one appearance from the current theme's
+// token document (theme.TokensFor).
+func Of(th Theme) Tokens {
+	tk := theme.TokensFor(th == Dark)
+	hex := func(name string) string {
+		c := tk.Color[name]
+		return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)
+	}
+	return Tokens{
+		Ground: hex("ground"), Hover: hex("hover"), Active: hex("active"),
+		Ink: hex("ink"), Amber: hex("amber"), OnAmber: hex("on-amber"),
+	}
 }
 
 // The contrasts and steps the palette holds to.
@@ -325,7 +336,7 @@ func tonesOf(surface string) []string {
 // hover and pressed tones can reach 4.5:1 with room for a muted step.
 func SleeveSurface(bg string, th Theme) string {
 	x := oklch(mustRGB(bg))
-	ground := Lightness(Themes[th].Ground)
+	ground := Lightness(Of(th).Ground)
 	l := x.l
 	if th == Dark {
 		l = math.Min(l, darkSleeveMax)
@@ -389,7 +400,7 @@ type Cover struct {
 // PageBackgrounds are the backgrounds page text sits on: ground, row hover,
 // pressed, and a selected row (ink at 12%).
 func PageBackgrounds(th Theme) []string {
-	t := Themes[th]
+	t := Of(th)
 	return []string{t.Ground, t.Hover, t.Active, Over(t.Ground, t.Ink, 0.12)}
 }
 
@@ -426,7 +437,7 @@ func sleeveColors(bg, primary string, softer []string, th Theme) Sleeve {
 }
 
 func accentColors(accent string, th Theme, under []string) *Accent {
-	t := Themes[th]
+	t := Of(th)
 	// The fill (play control, equaliser) is never less distinct from what it
 	// sits on than amber is from the ground, nor than 3:1 where amber is.
 	floor := math.Min(UIContrast, Contrast(t.Amber, t.Ground))
@@ -500,7 +511,7 @@ func ForAlbum(apple *Cover, dominant []string, th Theme, playOnSleeve bool) (Alb
 		return Album{Sleeve: sleeve}, true
 	}
 	sleeve.AccentInk = EnsureContrast(hue, []string{sleeve.Surface, sleeve.Hover, sleeve.Active}, TextContrast)
-	under := []string{Themes[th].Ground}
+	under := []string{Of(th).Ground}
 	if playOnSleeve {
 		under = append(under, sleeve.Surface)
 	}

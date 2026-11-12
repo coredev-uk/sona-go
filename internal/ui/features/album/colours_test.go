@@ -87,7 +87,7 @@ func TestCoverWithNoColourKeepsTheSleevesWash(t *testing.T) {
 	r.shows("Quiet Records")
 	r.tt.Settle()
 	// The ground under 4% ink.
-	want := hexRGBA(t, palette.Over(palette.Themes[palette.Light].Ground, palette.Themes[palette.Light].Ink, 0.04))
+	want := hexRGBA(t, palette.Over(palette.Of(palette.Light).Ground, palette.Of(palette.Light).Ink, 0.04))
 	if got := r.sleevePixel(); !closeTo(got, want) {
 		t.Errorf("a cover with no colour: sleeve %v, want the wash %v", got, want)
 	}
@@ -134,7 +134,7 @@ func TestGreyscaleCoverKeepsAmber(t *testing.T) {
 	r.addCatalog(saltFlats(coloured("#ffffff", "#0c0c0c", "#191919")))
 	r.shows("Quiet Records")
 	r.tt.Settle()
-	if got, want := r.playPixel(), hexRGBA(t, palette.Themes[palette.Light].Amber); !closeTo(got, want) {
+	if got, want := r.playPixel(), hexRGBA(t, palette.Of(palette.Light).Amber); !closeTo(got, want) {
 		t.Errorf("play control %v, want amber %v", got, want)
 	}
 }
@@ -186,7 +186,7 @@ func TestTextOnTheSleeveFollowsItsInk(t *testing.T) {
 	// A cover whose Apple text colour differs from the theme's ink.
 	cover := palette.Cover{Background: "#3f546a", Text1: "#ffffff", Text2: "#dbe4ee"}
 	pal, _ := palette.ForAlbum(&cover, nil, palette.Light, true)
-	if pal.Sleeve.Ink == palette.Themes[palette.Light].Ink {
+	if pal.Sleeve.Ink == palette.Of(palette.Light).Ink {
 		t.Fatal("the fixture's ink is the theme's")
 	}
 	r := newRig(t, "/album/100", 760, 1200)
