@@ -11,9 +11,11 @@
 # nothing from the framework in /Library is opened). Plays nothing
 # (SONA_PRIVATE=1).
 set -euo pipefail
+smoke_name="smoke(darwin)"
+# shellcheck source=../lib/smoke.sh
+. "$(dirname "$0")/../lib/smoke.sh"
 out=$(cd "${1:?usage: smoke.sh OUTDIR}" && pwd)
-version=${VERSION:-$(cat "$(dirname "$0")/../../VERSION")}
-fail() { echo "smoke(darwin): FAIL: $*" >&2; exit 1; }
+version=$(version)
 
 work=$(mktemp -d)
 trap 'kill "${pid:-}" 2>/dev/null || true; rm -rf "$work"' EXIT
@@ -32,23 +34,16 @@ if find "$app" -type f \( -perm -u+x -o -name '*.dylib' \) -exec otool -L {} + 2
   fail "the bundle links build-machine paths"
 fi
 
-got=$("$exe" --version) || fail "sona --version failed"
-[[ $got == "sona $version" ]] || fail "sona --version printed '$got', want 'sona $version'"
+check_version "$version" "$exe"
 
 export HOME=$work/home SONA_PRIVATE=1 SONA_PREVIEW=1
 mkdir -p "$HOME"
 log=$HOME/Library/Application\ Support/Sona/State/sona.log
 "$exe" >"$work/sona.out" 2>&1 &
 pid=$!
-for _ in $(seq 1 60); do
-  grep -q '"startup: first paint"' "$log" 2>/dev/null && break
-  kill -0 "$pid" 2>/dev/null || break
-  sleep 1
-done
 painted=0
-grep -q '"startup: first paint"' "$log" 2>/dev/null && painted=1
-kill "$pid" 2>/dev/null || true
-wait "$pid" 2>/dev/null || true
+wait_for_log "$log" '"startup: first paint"' 60 "$pid" && painted=1
+stop_app "$pid"
 if [[ $painted != 1 ]]; then
   cat "$work/sona.out" "$log" 2>/dev/null || true
   fail "sona never painted"

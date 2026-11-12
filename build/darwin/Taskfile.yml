@@ -1,20 +1,20 @@
 version: '3'
 
 # macOS development builds: a plain bin/sona, no .app
-# bundle, no signing, no packaging. The flags are build/linux/Taskfile.yml's;
-# keep them in step.
+# bundle, no signing, no packaging. The flags are build/ldflags.sh's, as the
+# Linux build's.
 
 tasks:
   build:
     summary: Builds the application for macOS (MyGo on AppKit; unsigned, unbundled)
     cmds:
-      # Silent: LDFLAGS may carry the Last.fm API secret.
-      - cmd: go build {{.BUILD_FLAGS}} -ldflags="{{.LDFLAGS}}" -o {{.OUTPUT}} ./cmd/sona
+      # Silent: the flags carry the Last.fm API secret. build/ldflags.sh reads
+      # it from the environment, so no logged command line ever holds it.
+      - cmd: go build {{.BUILD_FLAGS}} -ldflags="$(VERSION={{.VERSION}} bash {{.ROOT_DIR}}/build/ldflags.sh --goos darwin)" -o {{.OUTPUT}} ./cmd/sona
         silent: true
       - echo "built {{.OUTPUT}} ({{.VERSION}})"
     vars:
       BUILD_FLAGS: '-tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false'
-      LDFLAGS: '-w -s -X main.version={{.VERSION}} -X github.com/egoist/mygo.production=1{{if .MACOSX_DEPLOYMENT_TARGET}} -extldflags=-mmacosx-version-min={{.MACOSX_DEPLOYMENT_TARGET}}{{end}}{{if .SONA_LASTFM_KEY}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey={{.SONA_LASTFM_KEY}}{{end}}{{if .SONA_LASTFM_SECRET}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret={{.SONA_LASTFM_SECRET}}{{end}}{{if .SONA_DISCORD_CLIENT_ID}} -X github.com/coredev-uk/sona-go/internal/discord.clientID={{.SONA_DISCORD_CLIENT_ID}}{{end}}'
       DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
     env:

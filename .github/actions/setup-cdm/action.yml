@@ -1,0 +1,39 @@
+name: Set up the Widevine CDM
+description: >-
+  Google's Widevine CDM for the real-CDM tests (SONA_CDM_REQUIRE), downloaded
+  and verified the way Sona does (cmd/cdmfetch, internal/playback/cdm) into a
+  cache, and SONA_CDM_CACHE exported to later steps. cdmfetch asks Mozilla's
+  manifest for the version on every run and downloads a newer CDM over the
+  cached one. Go must be installed.
+inputs:
+  key:
+    description: >-
+      What the cache is renewed by: `version` (the CDM's current version, from
+      cdmfetch -version) or `week` (the ISO week)
+    default: version
+runs:
+  using: composite
+  steps:
+    - name: Work out the cache key
+      id: key
+      shell: bash
+      env:
+        KEY: ${{ inputs.key }}
+      run: |
+        case "$KEY" in
+          version) echo "key=$(go run ./cmd/cdmfetch -version)" ;;
+          week) echo "key=$(date +%G-%V)" ;;
+          *) echo "::error::setup-cdm: key must be version or week, not $KEY"; exit 1 ;;
+        esac >>"$GITHUB_OUTPUT"
+
+    - name: Cache the Widevine CDM
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/sona-ci/widevine
+        key: widevine-${{ runner.os }}-${{ runner.arch }}-${{ steps.key.outputs.key }}
+
+    - name: Install the Widevine CDM
+      shell: bash
+      run: |
+        go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine
+        echo "SONA_CDM_CACHE=$HOME/.cache/sona-ci/widevine" >> "$GITHUB_ENV"

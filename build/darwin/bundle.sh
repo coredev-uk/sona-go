@@ -15,9 +15,10 @@
 #                   (default /Library/Frameworks/GStreamer.framework/Versions/1.0)
 #   VERSION         default: the VERSION file
 #   SONA_SMOKE_TOOLS=1   also build OUTDIR/smoke-tools (playspike) for smoke.sh
-#   UPDATE_FEED, UPDATE_KEY   linked into the binary for self-updates (the
-#                   release job sets them; unset = updates off)
-#   SONA_LASTFM_KEY, SONA_LASTFM_SECRET, SONA_DISCORD_CLIENT_ID   as build/linux
+#   UPDATE_FEED, UPDATE_KEY, SONA_LASTFM_KEY, SONA_LASTFM_SECRET,
+#                   SONA_DISCORD_CLIENT_ID   linked in as build/ldflags.sh says
+#                   (in CI, with internal/update/update.pub committed, the
+#                   update feed of the latest release is linked without them)
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -51,12 +52,7 @@ mkdir "$work/pc"
 for f in "$gst"/lib/pkgconfig/*.pc; do
   sed -e "s|/Library/Frameworks/GStreamer.framework/Versions/1.0|$gst|g" -e "s|\${pcfiledir}/../..|$gst|g" "$f" >"$work/pc/$(basename "$f")"
 done
-ldflags="-w -s -X main.version=$version -X github.com/egoist/mygo.production=1 -extldflags=-mmacosx-version-min=$minos"
-[[ -n ${UPDATE_FEED:-} ]] && ldflags+=" -X github.com/egoist/mygo.packageUpdateFeed=$UPDATE_FEED"
-[[ -n ${UPDATE_KEY:-} ]] && ldflags+=" -X github.com/egoist/mygo.packageUpdateKey=$UPDATE_KEY"
-[[ -n ${SONA_LASTFM_KEY:-} ]] && ldflags+=" -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey=$SONA_LASTFM_KEY"
-[[ -n ${SONA_LASTFM_SECRET:-} ]] && ldflags+=" -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret=$SONA_LASTFM_SECRET"
-[[ -n ${SONA_DISCORD_CLIENT_ID:-} ]] && ldflags+=" -X github.com/coredev-uk/sona-go/internal/discord.clientID=$SONA_DISCORD_CLIENT_ID"
+ldflags=$(VERSION=$version MACOSX_DEPLOYMENT_TARGET=$minos bash "$repo/build/ldflags.sh" --goos darwin --update darwin-arm64)
 gocmd() { # go ARGS...: with the framework and the deployment target
   (
     cd "$repo"

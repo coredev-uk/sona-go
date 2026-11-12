@@ -341,41 +341,23 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Choose the output and GStreamer cache directories
-        run: |
-          echo "OUT_DIR=$RUNNER_TEMP/release" >>"$GITHUB_ENV"
-          echo "GSTREAMER_PKG_CACHE=$RUNNER_TEMP/gstreamer-pkg" >>"$GITHUB_ENV"
+      - name: Choose the output directory
+        run: echo "OUT_DIR=$RUNNER_TEMP/release" >>"$GITHUB_ENV"
 
       # The official GStreamer framework's runtime and development packages,
       # pinned and checked by build/darwin/gstreamer.sha256.
-      - name: Cache the GStreamer packages
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.GSTREAMER_PKG_CACHE }}
-          key: gstreamer-pkg-${{ hashFiles('build/darwin/gstreamer.sha256') }}
+      - uses: ./.github/actions/setup-macos-gstreamer
 
-      - name: Install GStreamer and pkg-config
-        run: |
-          command -v pkg-config >/dev/null || brew install pkgconf
-          build/darwin/install-gstreamer.sh
-
-      # The update feed and key are linked in only where the key is committed
-      # (internal/update/update.pub); without them the build never updates.
+      # bundle.sh links the update feed and key in only where the key is
+      # committed (internal/update/update.pub); without them the build never
+      # updates.
       - name: Build, bundle and sign ad hoc
         env:
           SONA_LASTFM_KEY: ${{ secrets.SONA_LASTFM_KEY }}
           SONA_LASTFM_SECRET: ${{ secrets.SONA_LASTFM_SECRET }}
           SONA_DISCORD_CLIENT_ID: ${{ secrets.SONA_DISCORD_CLIENT_ID }}
           SONA_SMOKE_TOOLS: "1"
-        run: |
-          if [ -s internal/update/update.pub ]; then
-            export UPDATE_FEED="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/update-darwin-arm64.json"
-            UPDATE_KEY=$(cat internal/update/update.pub)
-            export UPDATE_KEY
-          else
-            echo "::warning::internal/update/update.pub is empty: this build will not self-update"
-          fi
-          build/darwin/bundle.sh "$OUT_DIR"
+        run: build/darwin/bundle.sh "$OUT_DIR"
 
       - name: Smoke-test the bundle
         run: build/darwin/smoke.sh "$OUT_DIR"
@@ -453,9 +435,9 @@ jobs:
       - name: Choose the output directory
         run: echo "OUT_DIR=$RUNNER_TEMP/release" >>"$GITHUB_ENV"
 
-      # The update feed and key are linked in only where the key is committed
-      # (internal/update/update.pub); without them the build never updates.
-      # package.sh links GStreamer (setup above) and ships its runtime and the
+      # package.sh links the update feed and key in only where the key is
+      # committed (internal/update/update.pub); without them the build never
+      # updates. It links GStreamer (setup above) and ships its runtime and the
       # plugins Sona uses, the shim DLL and never the CDM.
       - name: Build, zip and make the installer
         env:
@@ -463,15 +445,7 @@ jobs:
           SONA_LASTFM_KEY: ${{ secrets.SONA_LASTFM_KEY }}
           SONA_LASTFM_SECRET: ${{ secrets.SONA_LASTFM_SECRET }}
           SONA_DISCORD_CLIENT_ID: ${{ secrets.SONA_DISCORD_CLIENT_ID }}
-        run: |
-          if [ -s internal/update/update.pub ]; then
-            export UPDATE_FEED="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/update-windows-amd64.json"
-            UPDATE_KEY=$(cat internal/update/update.pub)
-            export UPDATE_KEY
-          else
-            echo "::warning::internal/update/update.pub is empty: this build will not self-update"
-          fi
-          build/windows/package.sh "$OUT_DIR"
+        run: build/windows/package.sh "$OUT_DIR"
 
       # The zip, the update archive and the installer, with the installed
       # GStreamer off PATH: the package stands alone. Plays two previews to

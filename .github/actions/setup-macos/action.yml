@@ -1,7 +1,7 @@
 name: Set up macOS
 description: >-
-  Go from go.mod, the official GStreamer framework (the .pkg downloads cached)
-  and Go's module and build caches restored from the last run on main. The
+  Go from go.mod, Go's module and build caches restored from the last run on
+  main, and the official GStreamer framework (setup-macos-gstreamer). The
   caller saves the Go caches last, with actions/cache/save, key and path from
   this action's outputs. The GStreamer environment for cgo is exported to later
   steps.
@@ -36,7 +36,6 @@ runs:
           echo "$HOME/go/pkg/mod"
           echo "EOF"
         } >>"$GITHUB_OUTPUT"
-        echo "GSTREAMER_PKG_CACHE=$RUNNER_TEMP/gstreamer-pkg" >>"$GITHUB_ENV"
 
     - name: Restore Go's caches
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -52,33 +51,4 @@ runs:
         go-version-file: go.mod
         cache: false
 
-    # The pinned packages, checked by build/darwin/gstreamer.sha256.
-    - name: Restore the GStreamer packages
-      id: pkg
-      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ${{ runner.temp }}/gstreamer-pkg
-        key: gstreamer-pkg-${{ hashFiles('build/darwin/gstreamer.sha256') }}
-
-    - name: Install GStreamer and pkg-config
-      shell: bash
-      run: |
-        command -v pkg-config >/dev/null || brew install pkgconf
-        build/darwin/install-gstreamer.sh
-        fw=/Library/Frameworks/GStreamer.framework/Versions/1.0
-        minos=$(cat build/darwin/MIN_MACOS)
-        {
-          echo "PKG_CONFIG_PATH=$fw/lib/pkgconfig"
-          echo "MACOSX_DEPLOYMENT_TARGET=$minos"
-          echo "CGO_CFLAGS=-mmacosx-version-min=$minos"
-          echo "CGO_LDFLAGS=-mmacosx-version-min=$minos"
-        } >>"$GITHUB_ENV"
-        # gst-launch-1.0 and gst-inspect-1.0, which the motion tests look for.
-        echo "$fw/bin" >>"$GITHUB_PATH"
-
-    - name: Save the GStreamer packages
-      if: ${{ steps.pkg.outputs.cache-hit != 'true' }}
-      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ${{ runner.temp }}/gstreamer-pkg
-        key: gstreamer-pkg-${{ hashFiles('build/darwin/gstreamer.sha256') }}
+    - uses: ./.github/actions/setup-macos-gstreamer

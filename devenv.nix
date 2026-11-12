@@ -128,8 +128,10 @@ in
       if [ "''${1:-}" = "-background" ]; then flags=(-background); shift; fi
       exec bin/devloop -target ./cmd/uigallery "''${flags[@]}" -- "$@"
     '';
-    # Production: no inspector (mygo_noinspector) and MyGo's production mode.
-    build.exec = ''go build -tags mygo_noinspector,sqlite_fts5 -ldflags "-X main.version=$(cat VERSION) -X github.com/egoist/mygo.production=1" -o bin/sona ./cmd/sona "$@"'';
+    # Production: no inspector (mygo_noinspector) and MyGo's production mode
+    # (build/ldflags.sh; without the Last.fm and Discord credentials: no
+    # -trimpath here, which would leave them in the build info).
+    build.exec = ''go build -tags mygo_noinspector,sqlite_fts5 -ldflags "$(bash build/ldflags.sh --no-credentials --goos "$(go env GOOS)")" -o bin/sona ./cmd/sona "$@"'';
     # Release packages (.deb/.rpm/Arch/AppImage) built and smoke-tested in
     # podman/docker on Ubuntu 24.04 (build/linux/release/release.sh).
     release.exec = ''bash build/linux/release/release.sh "$@"'';

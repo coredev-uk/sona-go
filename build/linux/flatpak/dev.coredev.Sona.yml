@@ -159,7 +159,8 @@ modules:
       # no network. Regenerate with gosources.go (docs/flatpak.md).
       - go-sources.json
     build-commands:
-      # Same flags as build/linux/Taskfile.yml's build task.
+      # The flags build/ldflags.sh prints for Linux without credentials (the
+      # sandbox has no network and no secrets, so it keeps its own copy).
       - >-
         GOPROXY=file://$PWD/go-proxy
         go build -tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false

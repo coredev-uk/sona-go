@@ -19,11 +19,10 @@
 # resolves, from the package's declared dependencies or from the AppImage.
 set -euo pipefail
 kind=$1
-
-fail() {
-  echo "smoke($kind): FAIL: $*" >&2
-  exit 1
-}
+smoke_name="smoke($kind)"
+# build/lib/smoke.sh, which release.sh mounts beside this script.
+# shellcheck source=../../lib/smoke.sh
+. "$(dirname "$0")/smoke-lib.sh"
 
 case $kind in
 deb)
@@ -84,9 +83,7 @@ arch)
 esac
 
 if [[ -n ${SONA_VERSION:-} ]]; then
-  got=$("$exe" --version) || fail "sona --version failed"
-  [[ $got == "sona $SONA_VERSION" ]] || fail "sona --version printed '$got', want 'sona $SONA_VERSION'"
-  echo "smoke($kind): $got"
+  check_version "$SONA_VERSION" "$exe"
 fi
 
 # The command line: no Sona runs here (no session bus either), so status
@@ -174,16 +171,10 @@ mkdir -p "$HOME" "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 export MYGO_GPU=0 LIBGL_ALWAYS_SOFTWARE=1 SONA_PRIVATE=1
 log=$HOME/.local/state/sona/sona.log
-set +e
 timeout 40 dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" "$exe" >/tmp/sona.out 2>&1 &
 pid=$!
-for _ in $(seq 1 35); do
-  sleep 1
-  grep -q '"startup: first paint"' "$log" 2>/dev/null && break
-done
-kill "$pid" 2>/dev/null
-wait "$pid" 2>/dev/null
-set -e
+wait_for_log "$log" '"startup: first paint"' 35 "$pid" || true
+stop_app "$pid"
 
 grep -q '"startup: process start"' "$log" 2>/dev/null || { cat /tmp/sona.out; fail "no startup log"; }
 grep -q '"startup: window created"' "$log" || { cat /tmp/sona.out "$log"; fail "window not created"; }
