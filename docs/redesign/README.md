@@ -2,7 +2,7 @@
 
 Every page package under `internal/ui/features/*` gets a fresh composition in this branch. The house world (`docs/design.md`) stays: one grotesque at its six sizes, the faintly green-grey board, the cover as the only colour, amber only for what plays, no gradients, glass or live blur, the performance rules of `AGENTS.md`, the keyboard and assistive-technology contracts of `docs/accessibility.md`. What changes is how each page is set: its layout, hierarchy, rhythm and the shape of its parts. The old layout is evidence, not a template.
 
-Each page has its own folder here with a `NOTES.md` that names the direction and what moved. The before and after captures (light and dark; 1920-wide ones for the pages fixed for wide windows) are kept off `main`, on the unmerged `evidence/ui-redesign-and-themes` branch, under the same `docs/redesign/<page>/` paths.
+Each page has its own folder here with a `NOTES.md` that names the direction and what moved. The before and after captures (light and dark; 1920-wide ones for the pages fixed for wide windows) are kept off `main`, on the unmerged `docs/ui-redesign-evidence` branch, under the same `docs/redesign/<page>/` paths.
 
 ## How the captures are made
 
