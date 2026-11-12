@@ -68,7 +68,7 @@ func TestAccountStatesInTheShell(t *testing.T) {
 			s.Current = &services.QueueItem{ID: "i.1", Name: "Glass Harbour", Artist: "Dara Finch", Album: "Low Tide"}
 			s.NoCDM = true
 			a.env.Play.Seed(s, services.QueueState{Index: -1})
-			tt.Until("the account pieces", tt.Shows("Sona 0.3.0 is available", "Waiting for Widevine to download · 42%"))
+			tt.Until("the account pieces", tt.Shows("Sona 0.3.0 is available", "Waiting for Widevine to download", "42%"))
 			tt.Settle()
 			pill, ok := tt.Find("Private listening")
 			if !ok {

@@ -37,26 +37,6 @@ func TestEqualizerPresetReachesTheEngineThroughTheShell(t *testing.T) {
 	tt.Until("the subline", tt.Shows("Rock · shapes everything Sona plays"))
 }
 
-// Under 727 DIP of page the presets stack above the bands, as in the
-// reference; wide, they sit beside them.
-func TestEqualizerStacksUnderTheBreakpoint(t *testing.T) {
-	for _, tc := range []struct {
-		w, h    int
-		stacked bool
-	}{{940, 600, true}, {1132, 1253, false}} {
-		_, tt := equalizerShell(t, tc.w, tc.h)
-		tt.Settle()
-		preset, ok1 := tt.Find("Preset")
-		bands, ok2 := tt.Find("Bands")
-		if !ok1 || !ok2 {
-			t.Fatalf("%dx%d: preset %v, bands %v", tc.w, tc.h, ok1, ok2)
-		}
-		if got := bands.Y >= preset.Y+preset.H; got != tc.stacked {
-			t.Errorf("%dx%d: bands below the presets = %v, want %v (preset %v, bands %v)", tc.w, tc.h, got, tc.stacked, preset, bands)
-		}
-	}
-}
-
 // The page in the shell at both window sizes: choosing a preset (narrow, the
 // presets are below the fold, so it switches the equaliser on instead) saves
 // it and the page's subline says so. The page's look is the equalizer

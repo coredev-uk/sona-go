@@ -154,6 +154,10 @@ func (p *private) pill(c *ui.Context) {
 	}
 	e.Height(28).MinWidth(28).Gap(4).PaddingX(6).Radius(theme.Current().Radius["md"]).AlignItems(ui.Center).Justify(ui.Center).
 		Background(bg).TextColor(fg).Role(ui.RoleToggleButton).Checked(on).Label(name)
+	if word == "" {
+		// The glyph alone is a square button, dashed outline included.
+		e.Width(28).PaddingX(0)
+	}
 	if on {
 		// "Off the record": a dashed outline, the mark of something that is
 		// not being kept. Drawn by the element itself, in ink, never amber.
