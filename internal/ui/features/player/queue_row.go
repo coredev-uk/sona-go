@@ -21,7 +21,10 @@ type queueRowIn struct {
 	// pos and size are the row's place among the rows of its list (the
 	// queue, or the station's part under its heading), from 1: the list
 	// builds only the rows in view, so the siblings do not say it.
-	pos, size        int
+	pos, size int
+	// num is the song's place in the running order after the playing one, from
+	// 1 (the playing song has none).
+	num              int
 	current, playing bool
 	// upNext is the song after the current one.
 	upNext bool
@@ -84,14 +87,20 @@ func rowPayload(it *services.QueueItem, qi int) *kit.DragPayload {
 	}
 }
 
-// queueRow is QueueRow: 52 high, the cover, the title and the artist, then
-// the duration (the song's menu and Remove buttons while the pointer or the
-// focus is on the row) or, for the song playing, the equaliser. Rows of the
-// user's songs drag by their grip.
+// queueRow is QueueRow: 52 high, the song's number in the running order, the
+// cover, the title and the artist, then the duration (the song's menu and
+// Remove buttons while the pointer or the focus is on the row). The song
+// playing is a row of its own, 72 high, with a larger cover and the
+// equaliser. Rows of the user's songs drag by their grip, which takes the
+// number's place while the pointer or the focus is on the row.
 func (p *player) queueRow(c *ui.Context, st *queueList, r queueRowIn) {
 	it, qi := r.item, r.qi
 	tk := theme.Current()
 	radius := tk.Radius["md"]
+	rowH := float32(queueRowH)
+	if r.current {
+		radius, rowH = tk.Radius["lg"], queueNowH
+	}
 	movable := !r.current && !it.Auto
 	lbl := rowLabel(&r)
 	// bg is the row's fill, chosen once the row knows whether it is hot; the
@@ -107,7 +116,7 @@ func (p *player) queueRow(c *ui.Context, st *queueList, r queueRowIn) {
 			return rowPayload(it, qi)
 		},
 		Outer: func(w ui.Element) {
-			w.Height(queueRowH).FillWidth().Shrink(0).Radius(radius).Role(ui.RoleNone)
+			w.Height(rowH).FillWidth().Shrink(0).Radius(radius).Role(ui.RoleNone)
 			switch {
 			case r.dragged:
 				w.Opacity(0.6)
@@ -124,7 +133,7 @@ func (p *player) queueRow(c *ui.Context, st *queueList, r queueRowIn) {
 			})
 		},
 		Source: func(s ui.Element) {
-			s.PaddingX(8).Gap(12).Radius(radius).Role(ui.RoleListItem).Label(lbl).PositionInSet(r.pos, r.size)
+			s.PaddingX(8).Gap(10).Radius(radius).Role(ui.RoleListItem).Label(lbl).PositionInSet(r.pos, r.size)
 			if !r.current {
 				s.Description(rowHelp(r.inView, it.Auto))
 			} else {
@@ -143,6 +152,10 @@ func (p *player) queueRow(c *ui.Context, st *queueList, r queueRowIn) {
 		case hot && r.inView:
 			bg = theme.C("ink").Alpha(0.06)
 		case hot:
+			bg = theme.C("hover")
+		case r.current && r.inView:
+			bg = theme.C("ink").Alpha(0.05)
+		case r.current:
 			bg = theme.C("hover")
 		default:
 			bg = ui.Transparent
@@ -183,41 +196,40 @@ func (p *player) queueRow(c *ui.Context, st *queueList, r queueRowIn) {
 // rowContent is the inside of a row.
 func (p *player) rowContent(c *ui.Context, r *queueRowIn, hot, movable bool) {
 	it := r.item
-	if hot && movable && !r.dragged {
-		ui.Icon(c.Key("grip"), theme.Icon("grip-vertical")).FontSize(14).Absolute().Left(0).Top((queueRowH - 14) / 2).
-			TextColor(theme.C("ink-faint")).IgnoreInput(true).Cursor(ui.CursorGrab)
+	ink, muted, faint := theme.C("ink"), theme.C("ink-muted"), theme.C("ink-faint")
+	if r.current {
+		p.playingRowContent(c, r)
+		return
 	}
+	// The place in the running order: its number, or the grip while the
+	// pointer or the focus is on a row that moves.
+	ui.Row(c.Key("num")).Width(24).Shrink(0).AlignItems(ui.Center).Children(func() {
+		if hot && movable && !r.dragged {
+			ui.Icon(c.Key("grip"), theme.Icon("grip-vertical")).FontSize(14).TextColor(faint).Margin(0, 0, 0, -2).IgnoreInput(true).Cursor(ui.CursorGrab)
+			return
+		}
+		label(c.Key("n"), itoa(r.num), "meta").TextColor(faint).FontFeatures("tnum")
+	})
 	art := kit.Artwork(c.Key("art"), p.env.Art, it.Art.Small, 36, kit.ArtOpts{})
 	if r.autoPlay && !hot {
 		art.Opacity(0.7)
 	}
-	ink, muted, faint := theme.C("ink"), theme.C("ink-muted"), theme.C("ink-faint")
 	nameColor, artistColor := ink, muted
-	switch {
-	case r.current:
-		nameColor = theme.C("play-ink")
-	case r.autoPlay:
+	if r.autoPlay {
 		nameColor, artistColor = muted, faint
 	}
 	ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Justify(ui.Center).Children(func() {
 		ui.Row(c.Key("name")).Gap(6).AlignItems(ui.Center).MinWidth(0).Children(func() {
 			if it.Video {
-				p.videoName(c, it, nameColor, r.current)
+				p.videoName(c, it, nameColor, false)
 				ui.Icon(c.Key("video"), theme.Icon("clapperboard")).FontSize(14).TextColor(muted).Shrink(0).
 					Role(ui.RoleImage).Label(i18n.T("Music video"))
 				return
 			}
-			t := label(c.Key("name"), it.Name, "ui").TextColor(nameColor)
-			if r.current {
-				t.FontWeight(500)
-			}
+			label(c.Key("name"), it.Name, "ui").TextColor(nameColor)
 		})
 		label(c.Key("artist"), it.Artist, "sub").TextColor(artistColor)
 	})
-	if r.current {
-		kit.EqualiserBars(c.Key("eq"), r.playing, p.env.Motion).Margin(0, 6, 0, 0)
-		return
-	}
 	if !hot {
 		label(c.Key("dur"), i18n.FormatDuration(time.Duration(it.DurationMs)*time.Millisecond), "meta").TextColor(faint).FontFeatures("tnum").Shrink(0)
 	}
@@ -239,6 +251,33 @@ func (p *player) rowContent(c *ui.Context, r *queueRowIn, hot, movable bool) {
 	})
 }
 
+// playingRowContent is the inside of the playing song's row: a larger cover,
+// the title in amber ink over the artist and the album, the equaliser at the
+// end. The song playing has no menu or Remove.
+func (p *player) playingRowContent(c *ui.Context, r *queueRowIn) {
+	it := r.item
+	kit.Artwork(c.Key("art"), p.env.Art, it.Art.Small, queueNowArt, kit.ArtOpts{})
+	ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Justify(ui.Center).Children(func() {
+		ui.Row(c.Key("name")).Gap(6).AlignItems(ui.Center).MinWidth(0).Children(func() {
+			if it.Video {
+				p.videoName(c, it, theme.C("play-ink"), true)
+				ui.Icon(c.Key("video"), theme.Icon("clapperboard")).FontSize(14).TextColor(theme.C("ink-muted")).Shrink(0).
+					Role(ui.RoleImage).Label(i18n.T("Music video"))
+				return
+			}
+			label(c.Key("name"), it.Name, "ui").FontWeight(600).TextColor(theme.C("play-ink"))
+		})
+		label(c.Key("artist"), it.Artist, "sub").TextColor(theme.C("ink-muted"))
+		if it.Album != "" && !it.Video {
+			label(c.Key("album"), it.Album, "meta").TextColor(theme.C("ink-faint"))
+		}
+	})
+	kit.EqualiserBars(c.Key("eq"), r.playing, p.env.Motion).Margin(0, 6, 0, 0)
+}
+
+// queueNowArt is the cover of the playing song's row.
+const queueNowArt = 56
+
 // videoName is a music video's title: a link to its page when that page is
 // ported (a pointer shortcut: the row is the list's one Tab stop, and Enter
 // plays it), else plain text.
@@ -250,7 +289,7 @@ func (p *player) videoName(c *ui.Context, it *services.QueueItem, col ui.Color, 
 	path := "/music-video/" + id
 	t := label(c.Key("name"), it.Name, "ui").TextColor(col)
 	if current {
-		t.FontWeight(500)
+		t.FontWeight(600)
 	}
 	if p.env.HasRoute == nil || !p.env.HasRoute(path) {
 		return

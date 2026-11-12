@@ -285,7 +285,8 @@ func (p *player) init() {
 func (p *player) upNext(c *ui.Context, leave func()) {
 	ui.Column(c).Grow(1).Basis(0).MinHeight(0).Children(func() {
 		p.queueList(c, true)
-		ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+		paneRule(c, "foot-rule")
+		ui.Row(c).FillWidth().Height(paneFootH).Shrink(0).Gap(8).Padding(0, 0, 0, paneInset).AlignItems(ui.Center).Children(func() {
 			ui.Row(c).Grow(1).Basis(0).MinWidth(0).Children(func() { p.queueSummary(c, leave) })
 			p.queueTools(c)
 		})

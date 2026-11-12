@@ -103,7 +103,7 @@ func (p *player) nowPlaying(c *ui.Context) {
 			if lay.stacked {
 				body = ui.Column(c.Key("body")).Padding(20, 24, 16)
 			} else {
-				body = ui.Row(c.Key("body")).Gap(56).Padding(24, 40, 32)
+				body = ui.Row(c.Key("body"))
 			}
 			body.MaxWidth(1280).FillWidth().FillHeight().MinHeight(0).AlignItems(ui.Stretch)
 			body.Children(func() {
@@ -114,19 +114,34 @@ func (p *player) nowPlaying(c *ui.Context) {
 						p.closeButton(c)
 					})
 				} else {
-					ui.Column(c.Key("left")).Width(lay.cover).Shrink(0).Gap(24).Clip().Children(func() {
+					// The sleeve: the cover and its label copy as one block, centred
+					// in the column on its height (the room above and below the
+					// block is shared; a block taller than the column starts at the
+					// top and is cut at the foot).
+					ui.Column(c.Key("left")).Width(lay.cover + 2*sleeveX).Shrink(0).PaddingX(sleeveX).Clip().Children(func() {
+						ui.Box(c.Key("above")).Grow(1).Basis(0).MinHeight(24)
 						p.nowPlayingArt(c, cur, lay.cover)
-						p.songCopy(c, cur, lay.cover >= 320)
+						ui.Column(c.Key("sleeve-copy")).FillWidth().Margin(24, 0, 0, 0).Children(func() { p.songCopy(c, cur, lay.cover >= 320) })
+						ui.Box(c.Key("below")).Grow(1).Basis(0)
 					})
+					// The fold between the sleeve and the insert.
+					ui.Box(c.Key("fold")).Width(1).FillHeight().Shrink(0).Background(theme.C("line"))
 				}
-				ui.Column(c.Key("pane")).FillHeight().Grow(1).Basis(0).MinWidth(0).MinHeight(0).Children(func() {
-					ui.Row(c.Key("tabs-row")).FillWidth().Shrink(0).Gap(24).PaddingStart(12).AlignItems(ui.Center).Children(func() {
+				pane := ui.Column(c.Key("pane")).FillHeight().Grow(1).Basis(0).MinWidth(0).MinHeight(0)
+				if !lay.stacked {
+					pane.Padding(8, paneEdge, 8)
+				}
+				pane.Children(func() {
+					// The insert's header: the tabs and Close over a rule that
+					// starts where the words do.
+					ui.Row(c.Key("tabs-row")).FillWidth().Height(paneHeadH).Shrink(0).Gap(24).PaddingStart(paneInset).AlignItems(ui.Center).Children(func() {
 						p.paneTabs(c, panes, shown)
 						if !lay.stacked {
 							ui.Box(c.Key("grow")).Grow(1)
-							p.closeButton(c)
+							p.closeButton(c).Margin(0, 4, 0, 0)
 						}
 					})
+					paneRule(c, "head-rule")
 					panel := ui.Column(c.Key("panel")).FillHeight().Grow(1).Basis(0).MinHeight(0).Margin(12, 0, 0, 0)
 					if len(panes) > 1 {
 						panel.Role(ui.RoleGroup).Label(paneName(shown))
@@ -165,12 +180,31 @@ func (p *player) nowPlaying(c *ui.Context) {
 }
 
 // closeButton is the view's Close.
-func (p *player) closeButton(c *ui.Context) {
-	if kit.Button(c.Key("close"), "", kit.ButtonOpts{
+func (p *player) closeButton(c *ui.Context) ui.Element {
+	b := kit.Button(c.Key("close"), "", kit.ButtonOpts{
 		Variant: kit.Ghost, Size: kit.SizeSM, Icon: "x", A11yLabel: i18n.T("Close now playing (Escape)"),
-	}).Bind(&p.np.closeBtn).Shrink(0).Clicked() {
+	}).Bind(&p.np.closeBtn).Shrink(0)
+	if b.Clicked() {
 		p.ui.closeOverlay()
 	}
+	return b
+}
+
+// sleeveX is the sleeve's room at each side of the cover, paneHeadH the
+// insert's header (its tabs; the rule under it makes it 48) and paneFootH its
+// foot, where a pane's own controls sit.
+const (
+	sleeveX   = 48
+	paneHeadH = 47
+	paneFootH = 52
+	paneEdge  = 12 // the insert's room at its sides, beside the fold
+	paneInset = 12 // where its words start, from the pane's own edge
+)
+
+// paneRule is a 1px rule across the insert, from where its words start to
+// where they end.
+func paneRule(c *ui.Context, key string) {
+	ui.Box(c.Key(key)).Height(1).Shrink(0).Margin(0, paneInset).Background(theme.C("line"))
 }
 
 // paneTabs is the switch between the panes: tabs named in words, the shown
@@ -192,7 +226,7 @@ func (p *player) paneTabs(c *ui.Context, panes []paneKind, shown paneKind) {
 	tabs.List.Gap(24).AlignItems(ui.Center)
 	tabs.List.Children(func() {
 		for i, k := range panes {
-			tab := tabs.Tab(i).Height(40).PaddingX(6).Margin(0, -6).Radius(theme.Current().Radius["sm"]).Label(paneName(k)).Bind(&p.np.tabs[i])
+			tab := tabs.Tab(i).Height(paneHeadH).PaddingX(6).Margin(0, -6).Radius(theme.Current().Radius["sm"]).Label(paneName(k)).Bind(&p.np.tabs[i])
 			col := theme.C("ink-muted")
 			if i == sel || tab.Hovered() {
 				col = theme.C("ink")
@@ -200,7 +234,7 @@ func (p *player) paneTabs(c *ui.Context, panes []paneKind, shown paneKind) {
 			tab.Children(func() {
 				ui.Text(c.Key("t"+itoa(i)), paneName(k)).FontSize(16).FixedLineHeight(22).FontWeight(600).TextColor(col)
 				if i == sel {
-					ui.Box(c.Key("rule")).Absolute().Left(6).Right(6).Bottom(2).Height(2).Radius(1).Background(theme.C("ink"))
+					ui.Box(c.Key("rule")).Absolute().Left(6).Right(6).Bottom(0).Height(2).Radius(1).Background(theme.C("ink"))
 				}
 			})
 		}
@@ -486,7 +520,7 @@ func (p *player) lyricsBody(c *ui.Context, songID string) {
 	case !r.HasData:
 		kit.ErrorBlock(c, i18n.T("Couldn't load the lyrics"), r.Err, kit.ErrorBlockOpts{
 			OnRetry: func() { p.retryLyrics(songID) }, Retrying: r.Fetching,
-		}).Margin(96, 0, 0, 0)
+		}).Margin(96, 0, 0, paneInset)
 	default:
 		p.lyricsScroller(c, p.np.sheet, &r.Data, sheetIn{look: sheetLook(), clickable: true, wash: p.washAt(c, p.np.root)})
 	}
@@ -502,7 +536,7 @@ func (p *player) noLyrics(c *ui.Context) {
 		}}
 	}
 	kit.EmptyState(c.Key("no-lyrics"), i18n.T("No lyrics for this song"), i18n.T("None of the lyrics sources in Settings has lyrics for it."),
-		kit.EmptyOpts{Action: action}).MaxWidth(448).Margin(60, 0, 0, 0)
+		kit.EmptyOpts{Action: action}).MaxWidth(448).Margin(60, 0, 0, paneInset)
 }
 
 // languageName is a language tag's name in the UI's language ("en-US" →
@@ -538,7 +572,8 @@ func (p *player) lyricsTools(c *ui.Context, songID string) {
 	}
 	prefs := p.prefsFor()
 	cur := prefs.get()
-	ui.Row(c.Key("lyrics-tools")).FillWidth().Shrink(0).Gap(12).PaddingStart(2).Padding(12, 0, 0, 2).AlignItems(ui.Center).Children(func() {
+	paneRule(c, "foot-rule")
+	ui.Row(c.Key("lyrics-tools")).FillWidth().Height(paneFootH).Shrink(0).Gap(12).Padding(0, 0, 0, 2).AlignItems(ui.Center).Children(func() {
 		if hasTr || hasPr {
 			ui.Row(c.Key("toggles")).Gap(4).AlignItems(ui.Center).Children(func() {
 				if hasTr {

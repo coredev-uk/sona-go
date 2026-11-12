@@ -15,12 +15,14 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// bar is NowPlayingBar: the song across the left, the transport and the
-// seek bar in the middle, the sleep timer, lyrics, queue and volume at the
-// right, 72 high with a line above it, over a wash of the cover.
+// bar is NowPlayingBar, the transport deck: the seek bar runs along the whole
+// top edge, the song stands at the left, the transport (the times flanking
+// it) in the middle, the sleep timer, lyrics, queue and volume at the right,
+// 72 high over a wash of the cover.
 //
-//	[cover] Title ☆               shuffle prev PLAY next repeat          [moon][mic][queue][mute] ──o──
-//	        Artist · Album        0:42 ━━━━━━o────────────── 3:58
+//	━━━━━━━━━━━━━━━━o───────────────────────────────────────────────────────
+//	[cover] Title ☆            0:42  shuffle prev (PLAY) next repeat  3:58       [moon][mic][queue][mute] ──o──
+//	        Artist · Album
 func (p *player) bar(c *ui.Context) {
 	p.toasts(c)
 	s := p.env.Play.State()
@@ -33,11 +35,13 @@ func (p *player) bar(c *ui.Context) {
 		backdrop = s.Current.Backdrop
 	}
 	ui.Column(c).Height(tk.Metric["player-bar"]).FillWidth().Background(theme.C("surface")).Label(i18n.T("Player")).Role(ui.RoleRegion).Children(func() {
-		ui.Box(c).Height(1).FillWidth().Background(theme.C("line"))
 		kit.Backdrop(c, p.env.Art, kit.BackdropOpts{Src: backdrop}, func() {
-			ui.Row(c).Fill().Padding(0, 16).Gap(24).AlignItems(ui.Center).Children(func() {
+			ui.Row(c).Fill().Padding(0, barPadX).Gap(24).AlignItems(ui.Center).Children(func() {
 				p.song(c, s)
 				p.transport(c, s)
+				// Built after the transport, so that Tab goes on from Repeat to
+				// Seek; it is out of the flow, over the bar's top edge.
+				p.seekStrip(c, s)
 				p.volumeControls(c, s)
 			})
 		}).Grow(1).Basis(0).MinHeight(0).FillWidth()
@@ -191,6 +195,10 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 			ui.Icon(c, theme.Icon("circle-alert")).FontSize(14).TextColor(theme.C("danger"))
 			label(c, msg, "sub").TextColor(theme.C("ink"))
 		})
+	case cur.Live:
+		// A live station has no seek bar: its marker and what is on air stand
+		// under its name.
+		p.live(c, s)
 	case cur.Artist == "" && cur.Album == "":
 		// A broadcaster names no provider: its name stands alone.
 	case cur.ArtistID != "" && p.env.HasRoute != nil && p.env.HasRoute("/artist/"+url.PathEscape(cur.ArtistID)):
@@ -209,67 +217,88 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 	}
 }
 
-// transport is the middle column: the buttons, then the seek bar (a live
-// station has a live marker instead).
+// transport is the middle: the elapsed time, the buttons with the play disc
+// at the centre, the length. The seek bar is the bar's top edge (seekStrip);
+// a live station has no times.
 func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 	idle := s.Current == nil
 	playing := s.State == store.StatePlaying
 	loading := s.State == store.StateLoading
-	ui.Column(c).Basis(560).Grow(0).Shrink(1).MinWidth(280).Gap(4).AlignItems(ui.Center).Children(func() {
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			shuffle := unavailable(s, ctlShuffle)
-			on := s.Shuffle && shuffle == ""
-			name := i18n.T("Shuffle off")
-			if on {
-				name = i18n.T("Shuffle on")
+	live := s.Current != nil && s.Current.Live
+	pos, dur := p.position(s, idle)
+	ui.Row(c).Shrink(0).Gap(8).AlignItems(ui.Center).Children(func() {
+		if !live {
+			elapsed := "–:––"
+			if !idle {
+				elapsed = i18n.FormatDuration(pos)
 			}
-			if p.iconButton(c, "shuffle", "shuffle", name, idle, shuffle, &on) {
-				p.toggleShuffle()
-			}
-			if p.iconButton(c, "prev", "skip-back", i18n.T("Previous"), idle || (!s.Controls.Previous && unavailable(s, ctlPrevious) == ""), unavailable(s, ctlPrevious), nil) {
-				p.previous()
-			}
-
-			icon, name := "play", i18n.T("Play")
-			switch {
-			case loading:
-				icon = "loader-circle"
-			case playing:
-				icon, name = "pause", i18n.T("Pause")
-			}
-			if kit.Button(c.Key("play"), "", kit.ButtonOpts{Variant: kit.Play, Icon: icon, Spin: loading, Disabled: idle, A11yLabel: name, Keys: p.env.KeysOf("player.toggle")}).Clicked() {
-				p.toggle()
-			}
-			if loading {
-				// The spinner is only seen: this is what a screen reader finds of
-				// it, beside the button (no size, so the row does not move).
-				ui.Box(c.Key("loading")).Absolute().Size(0, 0).Role(ui.RoleStatus).Label(i18n.T("Loading"))
-			}
-
-			if p.iconButton(c, "next", "skip-forward", i18n.T("Next"), idle || (!s.Controls.Next && unavailable(s, ctlNext) == ""), unavailable(s, ctlNext), nil) {
-				p.next()
-			}
-			repeat := unavailable(s, ctlRepeat)
-			on = s.Repeat != "off" && repeat == ""
-			rname, ricon := i18n.T("Repeat off"), "repeat"
-			switch {
-			case repeat != "" || s.Repeat == "off":
-			case s.Repeat == "all":
-				rname = i18n.T("Repeat all")
-			default:
-				rname, ricon = i18n.T("Repeat one"), "repeat-1"
-			}
-			if p.iconButton(c, "repeat", ricon, rname, idle, repeat, &on) {
-				p.cycleRepeat()
-			}
-		})
-		if s.Current != nil && s.Current.Live {
-			p.live(c, s)
-			return
+			label(c, elapsed, "meta").Width(40).Shrink(0).TextAlign(ui.End).TextColor(theme.C("ink-muted")).FontFeatures("tnum")
 		}
-		p.seekBar(c, s, idle)
+		shuffle := unavailable(s, ctlShuffle)
+		on := s.Shuffle && shuffle == ""
+		name := i18n.T("Shuffle off")
+		if on {
+			name = i18n.T("Shuffle on")
+		}
+		if p.iconButton(c, "shuffle", "shuffle", name, idle, shuffle, &on) {
+			p.toggleShuffle()
+		}
+		if p.iconButton(c, "prev", "skip-back", i18n.T("Previous"), idle || (!s.Controls.Previous && unavailable(s, ctlPrevious) == ""), unavailable(s, ctlPrevious), nil) {
+			p.previous()
+		}
+
+		icon, name := "play", i18n.T("Play")
+		switch {
+		case loading:
+			icon = "loader-circle"
+		case playing:
+			icon, name = "pause", i18n.T("Pause")
+		}
+		play := kit.Button(c.Key("play"), "", kit.ButtonOpts{
+			Variant: kit.Play, Size: kit.SizeLG, Icon: icon, Filled: !loading, Spin: loading, Disabled: idle, A11yLabel: name, Keys: p.env.KeysOf("player.toggle"),
+		})
+		play.Size(playDisc, playDisc).Shrink(0)
+		if play.Clicked() {
+			p.toggle()
+		}
+		if loading {
+			// The spinner is only seen: this is what a screen reader finds of
+			// it, beside the button (no size, so the row does not move).
+			ui.Box(c.Key("loading")).Absolute().Size(0, 0).Role(ui.RoleStatus).Label(i18n.T("Loading"))
+		}
+
+		if p.iconButton(c, "next", "skip-forward", i18n.T("Next"), idle || (!s.Controls.Next && unavailable(s, ctlNext) == ""), unavailable(s, ctlNext), nil) {
+			p.next()
+		}
+		repeat := unavailable(s, ctlRepeat)
+		on = s.Repeat != "off" && repeat == ""
+		rname, ricon := i18n.T("Repeat off"), "repeat"
+		switch {
+		case repeat != "" || s.Repeat == "off":
+		case s.Repeat == "all":
+			rname = i18n.T("Repeat all")
+		default:
+			rname, ricon = i18n.T("Repeat one"), "repeat-1"
+		}
+		if p.iconButton(c, "repeat", ricon, rname, idle, repeat, &on) {
+			p.cycleRepeat()
+		}
+		if !live {
+			total := "–:––"
+			if !idle {
+				total = i18n.FormatDuration(dur)
+			}
+			label(c, total, "meta").Width(40).Shrink(0).TextColor(theme.C("ink-faint")).FontFeatures("tnum")
+		}
 	})
+	if s.State == store.StatePlaying && !live && !p.seek.active {
+		c.After(250 * time.Millisecond) // the position ticks (v0.2.0's useLivePosition)
+	}
 }
+
+// playDisc is the play disc's diameter: larger than the other controls, as the
+// transport's one centre.
+const playDisc = 44
 
 // barShortcuts is the shortcut each of the bar's icon buttons stands for,
 // whose keys its tooltip shows.
@@ -303,11 +332,11 @@ func (p *player) iconButton(c *ui.Context, key, icon, name string, disabled bool
 	return btn.Clicked() && reason == ""
 }
 
-// live is a live station's line in place of the seek bar: a marker, and
-// what the station says is on air.
+// live is a live station's line under its name: a marker, and what the
+// station says is on air.
 func (p *player) live(c *ui.Context, s services.PlaybackState) {
-	ui.Row(c).Height(16).FillWidth().Gap(8).Justify(ui.Center).AlignItems(ui.Center).MinWidth(0).Children(func() {
-		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).Height(16).MinWidth(0).Shrink(1).Gap(8).AlignItems(ui.Center).Children(func() {
+		ui.Row(c).Gap(6).AlignItems(ui.Center).Shrink(0).Children(func() {
 			dot := theme.C("ink-faint")
 			if s.State == store.StatePlaying {
 				dot = theme.C("play")
@@ -328,64 +357,101 @@ func (p *player) live(c *ui.Context, s services.PlaybackState) {
 	})
 }
 
-// seekBar is the elapsed time, the slider and the length. Dragging shows
-// where it will go and seeks once, when the pointer lets go (or a key moved
-// it).
-func (p *player) seekBar(c *ui.Context, s services.PlaybackState, idle bool) {
-	dur := time.Duration(s.DurationMs) * time.Millisecond
-	pos := p.env.Play.Position()
+// position is where the song is and how long it is: while the seek bar is
+// dragged, where the drag would land; 0 with nothing playing.
+func (p *player) position(s services.PlaybackState, idle bool) (pos, dur time.Duration) {
+	dur = time.Duration(s.DurationMs) * time.Millisecond
+	pos = p.env.Play.Position()
 	if p.seek.active {
 		pos = time.Duration(p.seek.secs * float64(time.Second))
 	}
 	if idle {
 		pos = 0
 	}
-	can := !idle && dur > 0 && s.Controls.Seek
-	ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
-		elapsed := "–:––"
-		if !idle {
-			elapsed = i18n.FormatDuration(pos)
-		}
-		label(c, elapsed, "meta").Width(40).TextAlign(ui.End).TextColor(theme.C("ink-faint")).FontFeatures("tnum")
+	return pos, dur
+}
 
-		v := pos.Seconds()
-		sl := slider(c.Key("seek"), &v, 0, max(dur.Seconds(), 1), theme.C("amber"), !can)
-		sl.Label(i18n.T("Seek"))
-		told := pos // what assistive technology reads of the position
-		if can && sl.Focused() && !p.seek.active {
-			if !p.seek.holding {
-				p.seek.holding, p.seek.held = true, math.Floor(pos.Seconds())
-			}
-			told = time.Duration(p.seek.held * float64(time.Second))
-			sl.Range(0, max(dur.Seconds(), 1), p.seek.held)
-		} else {
-			p.seek.holding = false
-		}
-		if can {
-			// v0.2.0's aria-valuetext, there only while the slider is on.
-			sl.Description(i18n.T("{at} of {total}", "at", i18n.FormatDuration(told), "total", i18n.FormatDuration(dur)))
-		}
-		if sl.Changed() {
-			p.seek.active, p.seek.secs = true, v
-		}
-		if kit.SliderCommitted(sl) && p.seek.active {
-			p.seek.active = false
-			p.seekTo(time.Duration(p.seek.secs * float64(time.Second)))
-		}
+// seekHit is the height of the seek bar's hit area along the bar's top edge;
+// the track and the thumb sit at its top.
+const seekHit = 12
 
-		total := "–:––"
-		if !idle {
-			total = i18n.FormatDuration(dur)
-		}
-		label(c, total, "meta").Width(40).TextColor(theme.C("ink-faint")).FontFeatures("tnum")
-	})
-	if s.State == store.StatePlaying && !p.seek.active {
-		c.After(250 * time.Millisecond) // the position ticks (v0.2.0's useLivePosition)
+// seekStrip is the seek slider along the bar's whole top edge, out of the
+// flow. Dragging shows where it will go and seeks once, when the pointer lets
+// go (or a key moved it). A live station has none: its edge is a line.
+func (p *player) seekStrip(c *ui.Context, s services.PlaybackState) {
+	if s.Current != nil && s.Current.Live {
+		p.seek.holding = false
+		ui.Box(c.Key("edge")).Absolute().Left(0).Right(0).Top(0).Height(1).Background(theme.C("line")).IgnoreInput(true)
+		return
 	}
+	idle := s.Current == nil
+	pos, dur := p.position(s, idle)
+	can := !idle && dur > 0 && s.Controls.Seek
+	v := pos.Seconds()
+	sl := ui.SliderBase(c.Key("seek"), &v, 0, max(dur.Seconds(), 1)).Absolute().Left(0).Right(0).Top(0).Height(seekHit).
+		PaddingX(seekThumb / 2).Cursor(ui.CursorPointer).Label(i18n.T("Seek"))
+	if !can {
+		sl.Disabled(true).Opacity(0.5)
+	}
+	told := pos // what assistive technology reads of the position
+	if can && sl.Focused() && !p.seek.active {
+		if !p.seek.holding {
+			p.seek.holding, p.seek.held = true, math.Floor(pos.Seconds())
+		}
+		told = time.Duration(p.seek.held * float64(time.Second))
+		sl.Range(0, max(dur.Seconds(), 1), p.seek.held)
+	} else {
+		p.seek.holding = false
+	}
+	if can {
+		// v0.2.0's aria-valuetext, there only while the slider is on.
+		sl.Description(i18n.T("{at} of {total}", "at", i18n.FormatDuration(told), "total", i18n.FormatDuration(dur)))
+	}
+	if sl.Changed() {
+		p.seek.active, p.seek.secs = true, v
+	}
+	if kit.SliderCommitted(sl) && p.seek.active {
+		p.seek.active = false
+		p.seekTo(time.Duration(p.seek.secs * float64(time.Second)))
+	}
+	drawSeek(sl, v, 0, max(dur.Seconds(), 1), sl.Hovered() || sl.Focused() || p.seek.active)
+}
+
+// seekThumb is the seek thumb's diameter; the track is 3 DIP, 5 while the
+// pointer or the keyboard is on the bar.
+const seekThumb = 10
+
+// drawSeek paints the seek bar: the track edge to edge, the amber fill up to
+// the thumb, which is always shown (the thumb, not the fill's colour, marks
+// the value).
+func drawSeek(sl ui.Element, v, lo, hi float64, on bool) {
+	at := float32(0)
+	if hi > lo {
+		at = float32((v - lo) / (hi - lo))
+	}
+	at = min(max(at, 0), 1)
+	track, fill, ink := theme.C("ink-faint").Alpha(0.4), theme.C("amber"), theme.C("ink")
+	h := float32(3)
+	if on {
+		h = 5
+	}
+	sl.Draw(func(p *ui.Painter, r ui.Rect) {
+		x0, w := r.X+seekThumb/2, r.W-seekThumb
+		cy := r.Y + seekThumb/2
+		p.Fill(ui.Rect{X: r.X, Y: cy - h/2, W: r.W, H: h}, track, 0)
+		thumbX := x0 + w*at
+		if thumbX > r.X {
+			p.Fill(ui.Rect{X: r.X, Y: cy - h/2, W: thumbX - r.X, H: h}, fill, 0)
+		}
+		p.Fill(ui.Rect{X: thumbX - seekThumb/2, Y: cy - seekThumb/2, W: seekThumb, H: seekThumb}, ink, seekThumb/2)
+	})
 }
 
 // volumeWidth is the volume slider's width, v0.2.0's `w-24` in the bar.
 const volumeWidth = 96
+
+// barPadX is the bar's padding at its sides.
+const barPadX = 16
 
 // volumeControls is the right column: the sleep timer, lyrics, the queue,
 // then mute and the volume slider, where Sona sets the playback volume.
@@ -393,55 +459,55 @@ func (p *player) volumeControls(c *ui.Context, s services.PlaybackState) {
 	idle := s.Current == nil
 	// The column never shrinks below its controls (v0.2.0's grid track was
 	// minmax(max-content, 1fr)): the transport gives way first. The group's
-	// own width, read from the last frame, is the column's minimum.
-	var group ui.Element
-	ui.Row(c).Grow(1).Basis(0).MinWidth(p.rightW).Justify(ui.End).AlignItems(ui.Center).Children(func() {
-		group = ui.Row(c).Shrink(0).AlignItems(ui.Center).Gap(4)
-		group.Children(func() {
-			p.env.PlayerControls.BuildRange(c, 0, module.ControlsAfterQueue) // the other features' controls: private listening…
-			p.sleepButton(c)
-			if p.videoSurface() {
-				on := p.env.Video.IsOpen()
-				if p.iconButton(c, "video", "clapperboard", i18n.T("Show video"), idle, "", &on) {
-					p.env.Video.ToggleFrom(&p.videoBtn)
-				}
+	// own width, read from the last frame, is the room kept for it. The
+	// group itself is out of the flow, at the bar's right edge, so that it
+	// is built, and tabbed to, after Seek, which is out of the flow too.
+	ui.Box(c.Key("controls-room")).Grow(1).Basis(0).MinWidth(p.rightW)
+	group := ui.Row(c.Key("controls")).Absolute().Top(0).Bottom(0).Right(barPadX).AlignItems(ui.Center).Gap(4)
+	group.Children(func() {
+		p.env.PlayerControls.BuildRange(c, 0, module.ControlsAfterQueue) // the other features' controls: private listening…
+		p.sleepButton(c)
+		if p.videoSurface() {
+			on := p.env.Video.IsOpen()
+			if p.iconButton(c, "video", "clapperboard", i18n.T("Show video"), idle, "", &on) {
+				p.env.Video.ToggleFrom(&p.videoBtn)
 			}
-			if p.lyricsSurface() {
-				on := p.ui.overlay == overlayNowPlaying && shownPane(p.ui.pane, s.Current) == paneLyrics
-				if p.iconButton(c, "lyrics", "mic-vocal", i18n.T("Lyrics"), idle, "", &on) {
-					p.opened(&p.lyricsBtn, p.toggleLyrics)
-				}
+		}
+		if p.lyricsSurface() {
+			on := p.ui.overlay == overlayNowPlaying && shownPane(p.ui.pane, s.Current) == paneLyrics
+			if p.iconButton(c, "lyrics", "mic-vocal", i18n.T("Lyrics"), idle, "", &on) {
+				p.opened(&p.lyricsBtn, p.toggleLyrics)
 			}
-			queue := p.queueShown()
-			if p.iconButton(c, "queue-toggle", "list-music", i18n.T("Queue"), false, "", &queue) {
-				p.toggleQueueView()
-			}
-			p.env.PlayerControls.BuildRange(c, module.ControlsAfterQueue, 1<<30) // …and after the queue: Mini player, Equaliser
-			if !p.volume() {
-				return
-			}
-			icon, name := "volume-2", i18n.T("Mute")
-			switch {
-			case s.Volume == 0:
-				icon, name = "volume-x", i18n.T("Unmute")
-			case s.Volume < 0.5:
-				icon = "volume-1"
-			}
-			if p.iconButton(c, "mute", icon, name, false, "", nil) {
-				p.toggleMute()
-			}
-			v := s.Volume * 100
-			sl := slider(c.Key("volume"), &v, 0, 100, theme.C("ink-muted"), false).Label(i18n.T("Volume"))
-			// v0.2.0's w-24 shrink-0: the share of spare room slider() asks for
-			// is the seek bar's, not the volume's.
-			sl.Grow(0).Shrink(0).Width(volumeWidth)
-			// No description: its range is 0 to 100, so a screen reader already
-			// says the value and the percentage ("80, 80 percent"); "80%" again
-			// would be a third time.
-			if sl.Changed() {
-				p.setVolume(v / 100)
-			}
-		})
+		}
+		queue := p.queueShown()
+		if p.iconButton(c, "queue-toggle", "list-music", i18n.T("Queue"), false, "", &queue) {
+			p.toggleQueueView()
+		}
+		p.env.PlayerControls.BuildRange(c, module.ControlsAfterQueue, 1<<30) // …and after the queue: Mini player, Equaliser
+		if !p.volume() {
+			return
+		}
+		icon, name := "volume-2", i18n.T("Mute")
+		switch {
+		case s.Volume == 0:
+			icon, name = "volume-x", i18n.T("Unmute")
+		case s.Volume < 0.5:
+			icon = "volume-1"
+		}
+		if p.iconButton(c, "mute", icon, name, false, "", nil) {
+			p.toggleMute()
+		}
+		v := s.Volume * 100
+		sl := slider(c.Key("volume"), &v, 0, 100, theme.C("ink-muted"), false).Label(i18n.T("Volume"))
+		// v0.2.0's w-24 shrink-0: the share of spare room slider() asks for
+		// is the seek bar's, not the volume's.
+		sl.Grow(0).Shrink(0).Width(volumeWidth)
+		// No description: its range is 0 to 100, so a screen reader already
+		// says the value and the percentage ("80, 80 percent"); "80%" again
+		// would be a third time.
+		if sl.Changed() {
+			p.setVolume(v / 100)
+		}
 	})
 	if w := group.Bounds().W; w != p.rightW {
 		p.rightW = w

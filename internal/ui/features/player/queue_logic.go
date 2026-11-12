@@ -15,17 +15,49 @@ const (
 	lineRow  lineKind = iota // a song: queue index qi
 	lineHead                 // the heading of the station's or AutoPlay's part
 	lineNote                 // "Then AutoPlay continues with similar music"
+	lineNow                  // the heading of the playing song's group
+	lineNext                 // the heading of what the user queued to play next
 )
 
-// line is one line of the queue panel.
+// The heights of the queue's lines. The playing song is a larger row under
+// its own heading; the headings of Next and of the station's or AutoPlay's
+// part carry a line of detail and have room above them.
+const (
+	queueRowH     = 52
+	queueNowH     = 72
+	queueNowHeadH = 36
+	queueHeadH    = 60
+	queueNoteH    = 44
+)
+
+// line is one line of the queue panel, y being where it starts in the body.
 type line struct {
 	kind lineKind
 	qi   int
+	y    float32
+	// cur: the row of the playing song.
+	cur bool
 }
 
-// queueParts is the queue as the panel shows it: the current song and the
-// user's songs, then the station's or AutoPlay's part under its own
-// heading, then (while AutoPlay is still on its way) a note.
+func (l *line) height() float32 {
+	switch l.kind {
+	case lineRow:
+		if l.cur {
+			return queueNowH
+		}
+		return queueRowH
+	case lineNow:
+		return queueNowHeadH
+	case lineHead, lineNext:
+		return queueHeadH
+	}
+	return queueNoteH
+}
+
+// queueParts is the queue as the panel shows it: the playing song under its
+// heading, Next with the songs the user queued, then the station's or
+// AutoPlay's part under its own heading, then (while AutoPlay is still on its
+// way) a note.
 type queueParts struct {
 	lines []line
 	// mine and auto count the user's and the station's songs after the
@@ -34,25 +66,39 @@ type queueParts struct {
 	// userEnd is where the user's part ends: the first upcoming station
 	// slot, else the end.
 	userEnd int
-	// head is the heading's line, -1 without one; the rows after it are the
-	// station's part.
+	// head is the station's heading line, -1 without one; the rows after it
+	// are the station's part.
 	head int
+	// rowAt is the line of each queue row, from the current song's.
+	rowAt []int
+	// total is the lines' height.
+	total float32
 }
 
 // queueLines builds the lines for entries from start (the current song). The
 // station's part gets a heading when it follows songs the user queued, and
-// always for AutoPlay (it is not what the user chose). note adds the AutoPlay
+// always for AutoPlay (it is not what the user chose); where it follows the
+// playing song directly and has none, Next heads it. note adds the AutoPlay
 // note.
 func queueLines(auto []bool, start int, station *services.QueueStation, note bool) queueParts {
 	q := queueParts{userEnd: len(auto), head: -1}
+	have := start < len(auto)
+	if have {
+		q.lines = append(q.lines, line{kind: lineNow})
+	}
 	for qi := start; qi < len(auto); qi++ {
 		upcoming := qi > start
+		stationHead := false
 		if upcoming && auto[qi] && q.auto == 0 {
 			q.userEnd = qi
-			if station != nil && (station.AutoPlay || q.mine > 0) {
-				q.head = len(q.lines)
-				q.lines = append(q.lines, line{kind: lineHead})
-			}
+			stationHead = station != nil && (station.AutoPlay || q.mine > 0)
+		}
+		switch {
+		case stationHead:
+			q.head = len(q.lines)
+			q.lines = append(q.lines, line{kind: lineHead})
+		case qi == start+1:
+			q.lines = append(q.lines, line{kind: lineNext})
 		}
 		if upcoming {
 			if auto[qi] {
@@ -61,11 +107,24 @@ func queueLines(auto []bool, start int, station *services.QueueStation, note boo
 				q.mine++
 			}
 		}
-		q.lines = append(q.lines, line{kind: lineRow, qi: qi})
+		q.lines = append(q.lines, line{kind: lineRow, qi: qi, cur: qi == start})
+	}
+	if have && start+1 >= len(auto) {
+		q.lines = append(q.lines, line{kind: lineNext}) // "Nothing after this song"
 	}
 	if note {
 		q.lines = append(q.lines, line{kind: lineNote})
 	}
+	var y float32
+	for i := range q.lines {
+		l := &q.lines[i]
+		l.y = y
+		y += l.height()
+		if l.kind == lineRow {
+			q.rowAt = append(q.rowAt, i)
+		}
+	}
+	q.total = y
 	return q
 }
 

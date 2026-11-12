@@ -456,7 +456,17 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 					t.Errorf("the panel's heading is level %d", h.Level)
 				}
 				panel := mustFind(t, tr, ui.RoleGroup, "Queue")
-				list := mustFind(t, tr, ui.RoleList, "Queue")
+				// The playing song and what follows are lists of their own, each
+				// under a heading.
+				for _, g := range []string{"Now playing", "Next"} {
+					if h := mustFind(t, tr, ui.RoleHeading, g); h.Level != 3 {
+						t.Errorf("%s's heading is level %d", g, h.Level)
+					}
+				}
+				list := mustFind(t, tr, ui.RoleList, "Next")
+				if n := tr.Children(mustFind(t, tr, ui.RoleList, "Now playing")); len(n) != 1 || n[0].Role != ui.RoleListItem {
+					t.Errorf("the playing song's list holds %v", n)
+				}
 				if !tr.Within(list, ui.RoleGroup) || list.Index < panel.Index {
 					t.Error("the list is not in the Queue panel")
 				}
@@ -517,7 +527,7 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 						t.Errorf("AutoPlay's list holds a %v", c)
 					}
 				}
-				mustFind(t, tr, ui.RoleList, "Queue")
+				mustFind(t, tr, ui.RoleList, "Next")
 			},
 		},
 		{
@@ -556,10 +566,10 @@ func TestQueueRowsSayTheirPlaceInTheirList(t *testing.T) {
 		r.seed(4, 0)
 		tr := access.Read(t, r.tt.Tester)
 		for label, want := range map[string]place{
-			"Song 1, Artist 1":          {1, 4},
-			"Up next: Song 2, Artist 2": {2, 4},
-			"Song 3, Artist 3":          {3, 4},
-			"Song 4, Artist 4":          {4, 4},
+			"Song 1, Artist 1":          {1, 1},
+			"Up next: Song 2, Artist 2": {1, 3},
+			"Song 3, Artist 3":          {2, 3},
+			"Song 4, Artist 4":          {3, 3},
 		} {
 			if got := placeOf(t, tr, label); got != want {
 				t.Errorf("%q is %d of %d, want %d of %d", label, got.pos, got.size, want.pos, want.size)
@@ -571,9 +581,9 @@ func TestQueueRowsSayTheirPlaceInTheirList(t *testing.T) {
 		r.seed(6, 0, autoPlayFrom(3))
 		tr := access.Read(t, r.tt.Tester)
 		for label, want := range map[string]place{
-			"Song 1, Artist 1":          {1, 3},
-			"Up next: Song 2, Artist 2": {2, 3},
-			"Song 3, Artist 3":          {3, 3},
+			"Song 1, Artist 1":          {1, 1},
+			"Up next: Song 2, Artist 2": {1, 2},
+			"Song 3, Artist 3":          {2, 2},
 			"Song 4, Artist 4":          {1, 3},
 			"Song 6, Artist 6":          {3, 3},
 		} {
@@ -595,7 +605,7 @@ func TestQueueRowsSayTheirPlaceInTheirList(t *testing.T) {
 		}
 		n := top + 3
 		label := fmt.Sprintf("Song %d, Artist %d", n, n)
-		if got, want := placeOf(t, access.Read(t, r.tt.Tester), label), (place{n, 500}); got != want {
+		if got, want := placeOf(t, access.Read(t, r.tt.Tester), label), (place{n - 1, 499}); got != want {
 			t.Errorf("%q is %d of %d, want %d of %d", label, got.pos, got.size, want.pos, want.size)
 		}
 	})
